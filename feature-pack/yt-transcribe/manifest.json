@@ -1,0 +1,21 @@
+{
+  "name": "yt-transcribe",
+  "version": "1.0.0",
+  "description": "YouTube → 로컬 STT → 전사본+요약 자동 생성 파이프라인. ytdl(Rust) + whisper-cli(whisper.cpp) + ffmpeg 기반.",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["ytdl", "whisper-cli", "ffmpeg"],
+    "brew": ["whisper-cpp", "ffmpeg", "yt-dlp"],
+    "npm": [],
+    "cargo": ["rust-yt-downloader"],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": true,
+  "has_cron": false,
+  "install_time_minutes": 10,
+  "cli_name": "ytdl",
+  "cli_package": "rust-yt-downloader",
+  "cli_install_method": "cargo install"
+}
