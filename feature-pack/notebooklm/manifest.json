@@ -1,0 +1,20 @@
+{
+  "name": "notebooklm",
+  "version": "1.0.0",
+  "description": "Google NotebookLM CLI + OpenClaw 스킬 — 소스 기반 Q&A, 리서치, 오디오/비디오/리포트 생성",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["uv"],
+    "brew": [],
+    "npm": [],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": true,
+  "has_obsidian": true,
+  "has_cron": false,
+  "install_time_minutes": 5,
+  "cli_name": "nlm",
+  "cli_package": "notebooklm-mcp-cli",
+  "cli_install_method": "uv tool install"
+}
