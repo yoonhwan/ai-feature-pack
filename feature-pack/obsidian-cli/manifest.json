@@ -1,0 +1,20 @@
+{
+  "name": "obsidian-cli",
+  "version": "1.0.0",
+  "description": "Obsidian 볼트를 CLI로 조회/생성/수정/삭제/검색/이동. AI 에이전트가 Obsidian 노트를 자율적으로 관리할 수 있게 해주는 피처팩.",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["obsidian-cli"],
+    "brew": ["yakitrak/yakitrak/obsidian-cli"],
+    "npm": [],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": true,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "cli_name": "obsidian-cli",
+  "cli_package": "yakitrak/yakitrak/obsidian-cli",
+  "cli_install_method": "brew"
+}
