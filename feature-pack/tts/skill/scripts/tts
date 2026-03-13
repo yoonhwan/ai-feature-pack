@@ -1,0 +1,509 @@
+#!/usr/bin/env python3
+"""
+tts — Unified TTS CLI wrapping macOS `say` and ElevenLabs `sag`.
+
+Usage:
+    tts "텍스트"                       # config default engine
+    tts speak "텍스트" --engine sag    # explicit engine
+    tts voices --engine say            # list voices
+    tts config show                    # view config
+    tts config set KEY VALUE           # set config
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import textwrap
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+# ─── Config ────────────────────────────────────────────────────────────────
+
+CONFIG_DIR = Path(os.environ.get("TTS_CONFIG_DIR", "~/.config/tts")).expanduser()
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "default_engine": "auto",
+    "say": {"voice": None, "rate": None},
+    "sag": {
+        "voice": None,
+        "model_id": None,
+        "lang": None,
+        "speed": None,
+        "stability": None,
+        "style": None,
+        "similarity": None,
+        "speaker_boost": None,
+        "no_play": None,
+        "no_stream": None,
+    },
+}
+
+
+def load_config() -> Dict[str, Any]:
+    cfg = json.loads(json.dumps(DEFAULT_CONFIG))  # deep copy
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE) as f:
+                saved = json.load(f)
+            _deep_merge(cfg, saved)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return cfg
+
+
+def save_config(cfg: Dict[str, Any]) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+
+
+def _deep_merge(base: dict, override: dict) -> None:
+    for k, v in override.items():
+        if k in base and isinstance(base[k], dict) and isinstance(v, dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+
+
+def _set_nested(d: dict, dotpath: str, value: str) -> None:
+    """Set a value in nested dict via dotpath (e.g. 'sag.voice')."""
+    keys = dotpath.split(".")
+    for k in keys[:-1]:
+        d = d.setdefault(k, {})
+    # type coercion
+    raw = value
+    if raw.lower() in ("true", "false"):
+        raw = raw.lower() == "true"
+    elif raw.replace(".", "", 1).isdigit():
+        raw = float(raw) if "." in raw else int(raw)
+    d[keys[-1]] = raw
+
+
+def _unset_nested(d: dict, dotpath: str) -> bool:
+    keys = dotpath.split(".")
+    for k in keys[:-1]:
+        if k not in d or not isinstance(d[k], dict):
+            return False
+        d = d[k]
+    return d.pop(keys[-1], "__MISS__") != "__MISS__"
+
+
+# ─── Engines ───────────────────────────────────────────────────────────────
+
+
+@dataclass
+class VoiceInfo:
+    name: str
+    locale: str = ""
+    sample: str = ""
+    engine: str = ""
+
+
+class TTSEngine(ABC):
+    @abstractmethod
+    def speak(self, text: str, **kwargs: Any) -> None: ...
+
+    @abstractmethod
+    def list_voices(self, **kwargs: Any) -> List[VoiceInfo]: ...
+
+    @abstractmethod
+    def name(self) -> str: ...
+
+    @abstractmethod
+    def available(self) -> bool: ...
+
+
+class SayEngine(TTSEngine):
+    def name(self) -> str:
+        return "say"
+
+    def available(self) -> bool:
+        return sys.platform == "darwin" and shutil.which("say") is not None
+
+    def speak(self, text: str, **kwargs: Any) -> None:
+        cmd = ["say"]
+        voice = kwargs.get("voice")
+        rate = kwargs.get("rate") or kwargs.get("say_rate")
+        output = kwargs.get("output")
+        if voice:
+            cmd += ["-v", str(voice)]
+        if rate:
+            cmd += ["-r", str(rate)]
+        if output:
+            cmd += ["-o", str(output)]
+        cmd.append(text)
+        subprocess.run(cmd, check=True)
+
+    def list_voices(self, **kwargs: Any) -> List[VoiceInfo]:
+        result = subprocess.run(
+            ["say", "-v", "?"], capture_output=True, text=True, check=True
+        )
+        voices: List[VoiceInfo] = []
+        for line in result.stdout.strip().splitlines():
+            # Format: "Name (Locale)  locale  # sample"
+            parts = line.split("#", 1)
+            sample = parts[1].strip() if len(parts) > 1 else ""
+            meta = parts[0].strip()
+            # parse "Yuna  ko_KR" or "Yuna (Korean (South Korea))  ko_KR"
+            tokens = meta.rsplit(None, 1)
+            locale = tokens[-1] if len(tokens) > 1 else ""
+            name_part = tokens[0].strip() if len(tokens) > 1 else meta
+            voices.append(
+                VoiceInfo(name=name_part, locale=locale, sample=sample, engine="say")
+            )
+        return voices
+
+
+class SagEngine(TTSEngine):
+    def name(self) -> str:
+        return "sag"
+
+    def available(self) -> bool:
+        if shutil.which("sag") is None:
+            return False
+        key = os.environ.get("ELEVENLABS_API_KEY") or os.environ.get("SAG_API_KEY")
+        return bool(key)
+
+    def speak(self, text: str, **kwargs: Any) -> None:
+        if not self._has_key():
+            _err("ELEVENLABS_API_KEY (or SAG_API_KEY) not set. Run: tts config example-env")
+            sys.exit(1)
+        cmd = ["sag", "speak"]
+        mapping = {
+            "voice": "-v",
+            "model_id": "--model-id",
+            "lang": "--lang",
+            "speed": "--speed",
+            "stability": "--stability",
+            "style": "--style",
+            "similarity": "--similarity",
+            "speaker_boost": "--speaker-boost",
+            "no_play": "--no-play",       # sag doesn't have this but we handle below
+            "output": "-o",
+            "rate": "-r",
+        }
+        for key, flag in mapping.items():
+            val = kwargs.get(key)
+            if val is None:
+                continue
+            if isinstance(val, bool):
+                if val:
+                    cmd.append(flag)
+            else:
+                cmd += [flag, str(val)]
+        # no_speaker_boost
+        if kwargs.get("no_speaker_boost"):
+            cmd.append("--no-speaker-boost")
+        cmd.append(text)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            # extract first meaningful line
+            msg = stderr.splitlines()[0] if stderr else "sag speak failed"
+            _err(f"sag: {msg}")
+            sys.exit(1)
+
+    def list_voices(self, **kwargs: Any) -> List[VoiceInfo]:
+        if not self._has_key():
+            _err("ELEVENLABS_API_KEY (or SAG_API_KEY) not set.")
+            return []
+        cmd = ["sag", "voices"]
+        search = kwargs.get("search")
+        limit = kwargs.get("limit")
+        if search:
+            cmd += ["--search", str(search)]
+        if limit:
+            cmd += ["--limit", str(limit)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            _err(f"sag voices failed: {result.stderr.strip()}")
+            return []
+        voices: List[VoiceInfo] = []
+        for line in result.stdout.strip().splitlines():
+            voices.append(VoiceInfo(name=line.strip(), engine="sag"))
+        return voices
+
+    @staticmethod
+    def _has_key() -> bool:
+        return bool(
+            os.environ.get("ELEVENLABS_API_KEY") or os.environ.get("SAG_API_KEY")
+        )
+
+
+ENGINES: Dict[str, type] = {"say": SayEngine, "sag": SagEngine}
+
+
+def resolve_engine(preferred: Optional[str], cfg: Dict[str, Any]) -> TTSEngine:
+    """Resolve engine: CLI arg > config default > auto (sag→say)."""
+    if preferred and preferred != "auto":
+        eng = ENGINES.get(preferred)
+        if not eng:
+            _err(f"Unknown engine: {preferred}. Choose: say, sag, auto")
+            sys.exit(1)
+        instance = eng()
+        if not instance.available():
+            _err(f"Engine '{preferred}' is not available. Check dependencies/API key.")
+            sys.exit(1)
+        return instance
+
+    # config default
+    default = cfg.get("default_engine", "auto")
+    if default and default != "auto":
+        eng = ENGINES.get(default)
+        if eng:
+            instance = eng()
+            if instance.available():
+                return instance
+            _warn(f"Config default engine '{default}' unavailable, falling back…")
+
+    # auto: sag → say
+    for name in ["sag", "say"]:
+        instance = ENGINES[name]()
+        if instance.available():
+            return instance
+
+    _err("No TTS engine available. Install sag or verify macOS say.")
+    sys.exit(1)
+
+
+# ─── Helpers ───────────────────────────────────────────────────────────────
+
+def _err(msg: str) -> None:
+    print(f"\033[31m✗\033[0m {msg}", file=sys.stderr)
+
+
+def _warn(msg: str) -> None:
+    print(f"\033[33m⚠\033[0m {msg}", file=sys.stderr)
+
+
+def _ok(msg: str) -> None:
+    print(f"\033[32m✓\033[0m {msg}")
+
+
+# ─── CLI ───────────────────────────────────────────────────────────────────
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="tts",
+        description="Unified TTS CLI — wraps macOS say + ElevenLabs sag.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              tts "안녕하세요"
+              tts speak --engine sag --voice "Aria" "Hello world"
+              tts voices --engine say
+              tts config set default_engine sag
+              tts config set sag.voice "Aria"
+              tts config show
+        """),
+    )
+    sub = p.add_subparsers(dest="command")
+
+    # ── speak ──
+    sp = sub.add_parser("speak", help="Speak text (default subcommand)")
+    sp.add_argument("text", nargs="*", help="Text to speak")
+    sp.add_argument("--engine", choices=["auto", "say", "sag"], default=None)
+    sp.add_argument("--voice", "-v", default=None)
+    sp.add_argument("--output", "-o", default=None, help="Save audio to file")
+    # say-specific
+    sp.add_argument("--say-rate", type=int, default=None, help="say WPM rate")
+    # sag-specific
+    sp.add_argument("--model-id", default=None)
+    sp.add_argument("--lang", default=None)
+    sp.add_argument("--speed", type=float, default=None)
+    sp.add_argument("--stability", type=float, default=None)
+    sp.add_argument("--style", type=float, default=None)
+    sp.add_argument("--similarity", type=float, default=None)
+    sp.add_argument("--speaker-boost", action="store_true", default=None)
+    sp.add_argument("--no-speaker-boost", action="store_true", default=None)
+    sp.add_argument("--no-play", action="store_true", default=None)
+    sp.add_argument("--no-stream", action="store_true", default=None)
+
+    # ── voices ──
+    vp = sub.add_parser("voices", help="List available voices")
+    vp.add_argument("--engine", choices=["say", "sag"], default=None)
+    vp.add_argument("--search", default=None, help="Filter by name (sag)")
+    vp.add_argument("--limit", type=int, default=None, help="Max results (sag)")
+
+    # ── config ──
+    cp = sub.add_parser("config", help="Manage config (show/set/unset/example-env)")
+    csub = cp.add_subparsers(dest="config_action")
+    csub.add_parser("show", help="Show current config")
+    cs = csub.add_parser("set", help="Set a config value (dotpath)")
+    cs.add_argument("key", help="e.g. default_engine, sag.voice, say.rate")
+    cs.add_argument("value")
+    cu = csub.add_parser("unset", help="Remove a config value")
+    cu.add_argument("key")
+    csub.add_parser("example-env", help="Print env var examples")
+    csub.add_parser("path", help="Print config file path")
+
+    return p
+
+
+def merge_kwargs(engine_name: str, cfg: Dict[str, Any], cli_args: argparse.Namespace) -> Dict[str, Any]:
+    """Merge config defaults + CLI overrides into kwargs for engine.speak()."""
+    engine_cfg = cfg.get(engine_name, {})
+    kwargs: Dict[str, Any] = {}
+
+    # layer 1: config defaults
+    for k, v in engine_cfg.items():
+        if v is not None:
+            kwargs[k] = v
+
+    # layer 2: CLI overrides
+    cli_map = {
+        "voice": "voice",
+        "output": "output",
+        "say_rate": "rate",
+        "model_id": "model_id",
+        "lang": "lang",
+        "speed": "speed",
+        "stability": "stability",
+        "style": "style",
+        "similarity": "similarity",
+        "speaker_boost": "speaker_boost",
+        "no_speaker_boost": "no_speaker_boost",
+        "no_play": "no_play",
+        "no_stream": "no_stream",
+    }
+    for cli_attr, kwarg_key in cli_map.items():
+        val = getattr(cli_args, cli_attr, None)
+        if val is not None and val is not False:
+            kwargs[kwarg_key] = val
+
+    return kwargs
+
+
+def cmd_speak(args: argparse.Namespace, cfg: Dict[str, Any]) -> None:
+    text = " ".join(args.text) if args.text else None
+    if not text:
+        # try stdin
+        if not sys.stdin.isatty():
+            text = sys.stdin.read().strip()
+    if not text:
+        _err("No text provided. Usage: tts speak \"텍스트\"")
+        sys.exit(1)
+
+    engine = resolve_engine(args.engine, cfg)
+    kwargs = merge_kwargs(engine.name(), cfg, args)
+    engine.speak(text, **kwargs)
+
+
+def cmd_voices(args: argparse.Namespace, cfg: Dict[str, Any]) -> None:
+    engine_name = args.engine or cfg.get("default_engine", "auto")
+    if engine_name == "auto":
+        # show both
+        for name in ["say", "sag"]:
+            inst = ENGINES[name]()
+            if inst.available():
+                print(f"\n━━━ {name.upper()} voices ━━━")
+                _print_voices(inst, args)
+        return
+
+    inst = ENGINES[engine_name]()
+    if not inst.available():
+        _err(f"Engine '{engine_name}' not available.")
+        sys.exit(1)
+    _print_voices(inst, args)
+
+
+def _print_voices(engine: TTSEngine, args: argparse.Namespace) -> None:
+    kwargs: Dict[str, Any] = {}
+    if hasattr(args, "search") and args.search:
+        kwargs["search"] = args.search
+    if hasattr(args, "limit") and args.limit:
+        kwargs["limit"] = args.limit
+
+    if engine.name() == "sag":
+        # sag voices already prints formatted output; just passthrough
+        cmd = ["sag", "voices"]
+        if kwargs.get("search"):
+            cmd += ["--search", kwargs["search"]]
+        if kwargs.get("limit"):
+            cmd += ["--limit", str(kwargs["limit"])]
+        subprocess.run(cmd)
+        return
+
+    voices = engine.list_voices(**kwargs)
+    if not voices:
+        print("  (no voices found)")
+        return
+    # format table
+    max_name = max(len(v.name) for v in voices)
+    max_locale = max(len(v.locale) for v in voices)
+    for v in voices:
+        print(f"  {v.name:<{max_name}}  {v.locale:<{max_locale}}  {v.sample}")
+
+
+def cmd_config(args: argparse.Namespace, cfg: Dict[str, Any]) -> None:
+    action = args.config_action
+
+    if action == "show" or action is None:
+        print(json.dumps(cfg, indent=2, ensure_ascii=False))
+        return
+
+    if action == "set":
+        _set_nested(cfg, args.key, args.value)
+        save_config(cfg)
+        _ok(f"{args.key} = {args.value}")
+        return
+
+    if action == "unset":
+        if _unset_nested(cfg, args.key):
+            save_config(cfg)
+            _ok(f"Removed: {args.key}")
+        else:
+            _warn(f"Key not found: {args.key}")
+        return
+
+    if action == "example-env":
+        print(textwrap.dedent("""\
+            # Add to ~/.zshrc or ~/.bashrc:
+            export ELEVENLABS_API_KEY="your-api-key-here"
+            # or
+            export SAG_API_KEY="your-api-key-here"
+        """))
+        return
+
+    if action == "path":
+        print(CONFIG_FILE)
+        return
+
+    _err("Unknown config action. Use: show, set, unset, example-env, path")
+
+
+def main() -> None:
+    parser = build_parser()
+
+    # Handle bare `tts "text"` (no subcommand) → treat as speak
+    if len(sys.argv) > 1 and sys.argv[1] not in ("speak", "voices", "config", "-h", "--help"):
+        sys.argv.insert(1, "speak")
+
+    args = parser.parse_args()
+
+    cfg = load_config()
+
+    if args.command == "speak" or args.command is None:
+        if args.command is None:
+            # no subcommand and no text
+            parser.print_help()
+            sys.exit(0)
+        cmd_speak(args, cfg)
+    elif args.command == "voices":
+        cmd_voices(args, cfg)
+    elif args.command == "config":
+        cmd_config(args, cfg)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()

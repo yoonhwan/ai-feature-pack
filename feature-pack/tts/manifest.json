@@ -1,0 +1,20 @@
+{
+  "name": "tts",
+  "version": "1.0.0",
+  "description": "Unified TTS CLI — macOS say + ElevenLabs sag 통합 프론트엔드. config 기반 기본값 저장, 자동 엔진 선택, 에이전트/바이브코딩 음성 알림.",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["python3"],
+    "brew": ["steipete/tap/sag"],
+    "npm": [],
+    "feature_packs": []
+  },
+  "requires_api_keys": true,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "cli_name": "tts",
+  "cli_package": "tts (standalone script)",
+  "cli_install_method": "cp to PATH"
+}
