@@ -1,0 +1,20 @@
+{
+  "name": "imsg",
+  "version": "1.0.0",
+  "description": "iMessage/SMS CLI — 대화 목록, 히스토리 조회, 메시지 전송, 실시간 수신 감시. 에이전트/코딩 도구에서 알림 채널로 활용 가능.",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["imsg"],
+    "brew": ["steipete/tap/imsg"],
+    "npm": [],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "cli_name": "imsg",
+  "cli_package": "steipete/tap/imsg",
+  "cli_install_method": "brew install"
+}
