@@ -1,0 +1,21 @@
+{
+  "name": "agent-browser",
+  "version": "1.0.0",
+  "description": "AI agent browser automation CLI — web scraping, screenshots, form filling, video recording, debug, and styled card generation via Playwright + Rust CDP",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["agent-browser"],
+    "npm": ["agent-browser"],
+    "brew": [],
+    "pip": ["Pillow"],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "cli_name": "agent-browser",
+  "cli_package": "agent-browser",
+  "cli_install_method": "npm"
+}
