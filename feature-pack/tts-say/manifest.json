@@ -1,7 +1,7 @@
 {
-  "name": "tts",
-  "version": "1.0.0",
-  "description": "Unified TTS CLI — macOS say + ElevenLabs sag 통합 프론트엔드. config 기반 기본값 저장, 자동 엔진 선택, 에이전트/바이브코딩 음성 알림.",
+  "name": "tts-say",
+  "version": "1.1.0",
+  "description": "Unified TTS CLI (tts-say) — macOS say + ElevenLabs sag 통합 프론트엔드. config 기반 기본값 저장, 자동 엔진 선택, 에이전트/바이브코딩 음성 알림.",
   "os": ["macos"],
   "dependencies": {
     "cli": ["python3"],
@@ -14,7 +14,7 @@
   "has_obsidian": false,
   "has_cron": false,
   "install_time_minutes": 3,
-  "cli_name": "tts",
-  "cli_package": "tts (standalone script)",
+  "cli_name": "tts-say",
+  "cli_package": "tts-say (standalone script)",
   "cli_install_method": "cp to PATH"
 }

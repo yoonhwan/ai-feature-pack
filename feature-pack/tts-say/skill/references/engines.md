@@ -61,7 +61,7 @@ Place at line start:
 - `[laughs]`, `[sighs]`, `[excited]`, `[sarcastic]`
 - `[short pause]`, `[long pause]`
 
-Example: `tts speak --engine sag "[whispers] 조용히 말할게요"`
+Example: `tts-say speak --engine sag "[whispers] 조용히 말할게요"`
 
 ### Pronunciation Tips
 - Respell for clarity: "key-note" → "kee-note"
@@ -70,5 +70,5 @@ Example: `tts speak --engine sag "[whispers] 조용히 말할게요"`
 
 ### Voice Search
 ```bash
-tts voices --engine sag --search korean --limit 10
+tts-say voices --engine sag --search korean --limit 10
 ```

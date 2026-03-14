@@ -1,4 +1,4 @@
-# tts CLI 설치
+# tts-say CLI 설치
 
 ## 의존성
 
@@ -12,8 +12,8 @@
 
 ```bash
 # 이 피처팩의 스크립트를 PATH에 복사
-cp skill/scripts/tts ~/.local/bin/tts
-chmod +x ~/.local/bin/tts
+cp skill/scripts/tts-say ~/.local/bin/tts-say
+chmod +x ~/.local/bin/tts-say
 
 # PATH 확인 (~/.local/bin이 없으면 추가)
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
@@ -23,8 +23,8 @@ source ~/.zshrc
 ## 검증
 
 ```bash
-tts --help
-tts speak --engine say "설치 확인"
+tts-say --help
+tts-say speak --engine say "설치 확인"
 ```
 
 ## sag (ElevenLabs) 추가 설치
