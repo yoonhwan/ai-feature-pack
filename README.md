@@ -17,6 +17,7 @@
 | 4 | [obsidian-cli](feature-pack/obsidian-cli/) | Obsidian 볼트 CLI — 노트 조회/생성/검색/이동 | ~3분 | ❌ | ❌ |
 | 5 | [tts-say](feature-pack/tts-say/) | 통합 TTS — macOS say + ElevenLabs 음성 합성 | ~3분 | ElevenLabs | ❌ |
 | 6 | [yt-transcribe](feature-pack/yt-transcribe/) | YouTube → STT → 요약 자동 파이프라인 | ~10분 | ❌ | ❌ |
+| 7 | [termaid](feature-pack/termaid/) | Mermaid 다이어그램 터미널 렌더링 — 설계 시각화 자동 발동 | ~2분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
@@ -28,6 +29,7 @@
 | obsidian-cli | `obsidian-cli` | `brew install` | ✅ | Obsidian 앱 선택적 |
 | tts-say | `tts-say` | 스크립트 복사 | ✅ | ElevenLabs API 키 선택적 |
 | yt-transcribe | `ytdl` + `whisper-cli` + `ffmpeg` | cargo + brew | ✅ | 빌드 시간 ~5분 |
+| termaid | `termaid-render` | go build + cp | ✅ | Go 필요 |
 
 ---
 

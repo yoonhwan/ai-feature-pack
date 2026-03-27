@@ -1,0 +1,20 @@
+{
+  "name": "termaid",
+  "version": "1.0.0",
+  "description": "Mermaid 다이어그램 터미널 렌더러 — flowchart, sequence, class, state, ER 다이어그램을 터미널에서 스타일링 렌더링. 설계 논의/아키텍처 시각화 자동 발동.",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["go"],
+    "brew": [],
+    "npm": [],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 2,
+  "cli_name": "termaid-render",
+  "cli_package": "termaid (Go source build)",
+  "cli_install_method": "go build + cp to PATH"
+}
