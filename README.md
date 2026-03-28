@@ -18,6 +18,7 @@
 | 5 | [tts-say](feature-pack/tts-say/) | 통합 TTS — macOS say + ElevenLabs 음성 합성 | ~3분 | ElevenLabs | ❌ |
 | 6 | [yt-transcribe](feature-pack/yt-transcribe/) | YouTube → STT → 요약 자동 파이프라인 | ~10분 | ❌ | ❌ |
 | 7 | [termaid](feature-pack/termaid/) | Mermaid 다이어그램 터미널 렌더링 — 설계 시각화 자동 발동 | ~2분 | ❌ | ❌ |
+| 8 | [auto](feature-pack/auto/) | AutoResearch 자율 실험 루프 — 베이스라인→목표→자율주행 최적화 | ~1분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
@@ -30,6 +31,7 @@
 | tts-say | `tts-say` | 스크립트 복사 | ✅ | ElevenLabs API 키 선택적 |
 | yt-transcribe | `ytdl` + `whisper-cli` + `ffmpeg` | cargo + brew | ✅ | 빌드 시간 ~5분 |
 | termaid | `termaid-render` | go build + cp | ✅ | Go 필요 |
+| auto | — (순수 스킬) | 스킬 파일 복사 | ✅ | git, python3 필요 |
 
 ---
 
