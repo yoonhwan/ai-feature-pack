@@ -35,7 +35,7 @@ git checkout -b "autoresearch/$TAG"
 
 ### 실험 전 커밋
 ```bash
-# 타깃 파일만 스테이징
+# 타깃 영역 파일 스테이징 (1~2파일)
 git add <target_file>
 git commit -m "[실험] <한 줄 설명>"
 ```
@@ -74,25 +74,30 @@ git reset --hard HEAD~1
 
 **LLM 학습 도메인:**
 ```
-commit	val_bpb	memory_gb	status	description
+commit	val_bpb	memory_gb	status	verdict	description
 ```
 
 **STT 벤치마크 도메인:**
 ```
-commit	provider	model	avg_cer	avg_latency_ms	cost_usd	composite	status	description
+commit	provider	model	avg_cer	avg_latency_ms	cost_usd	composite	status	verdict	description
 ```
 
 **범용 (최소):**
 ```
-commit	score	status	description
+commit	score	status	verdict	description
 ```
+
+### 컬럼 설명
+| 컬럼 | 작성자 | 의미 |
+|------|--------|------|
+| `status` | run_experiment.py | 실행 결과 (`ok` \| `crash`) |
+| `verdict` | 에이전트 | 판정 결과 (`keep` \| `discard` \| `crash`) |
 
 ### 상태값
 | status | 의미 |
 |--------|------|
-| `keep` | 개선됨, 커밋 유지 |
-| `discard` | 개선 안 됨, 커밋 되돌림 |
-| `crash` | 실행 실패, 커밋 되돌림 |
+| `ok` | 실험 정상 완료 |
+| `crash` | 실행 실패 |
 | `baseline` | 최초 기준 실행 |
 
 ## 실험 이어하기 (Resume)
@@ -116,7 +121,7 @@ tail -5 results.tsv
 ### 타임아웃
 ```bash
 # 실험당 시간예산 × 2 초과 시 강제 종료
-timeout $((TIME_BUDGET * 2)) $RUN_CMD > run.log 2>&1
+timeout $((TIME_BUDGET * 2)) bash -c 'cd autoresearch && uv run run_experiment.py' > run.log 2>&1
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 124 ]; then
   echo "TIMEOUT" >> run.log

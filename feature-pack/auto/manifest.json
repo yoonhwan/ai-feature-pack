@@ -1,10 +1,10 @@
 {
   "name": "auto",
-  "version": "2.0.0",
-  "description": "AutoResearch 자율 실험 루프 — Karpathy 패턴 기반. 타깃 파일 1개를 수정→실행→평가→commit/revert 반복하며 자율 최적화. 베이스라인→목표→자율주행 3단계 HIL.",
+  "version": "3.0.0",
+  "description": "AutoResearch 자율 실험 루프 — Karpathy 패턴. 에이전트는 코드만 수정, uv run으로 자율 실행, stdout JSON으로 판정. prepare.py(인프라) + run_experiment.py(실험기) + program.md(목표 선언) 3층 구조.",
   "os": ["macos", "linux"],
   "dependencies": {
-    "cli": ["git", "python3"],
+    "cli": ["git", "python3", "uv"],
     "brew": [],
     "npm": [],
     "pip": [],
@@ -14,8 +14,8 @@
   "requires_google_auth": false,
   "has_obsidian": false,
   "has_cron": false,
-  "install_time_minutes": 1,
+  "install_time_minutes": 2,
   "cli_name": null,
   "cli_package": null,
-  "cli_install_method": "skill copy"
+  "cli_install_method": "skill copy + templates"
 }
