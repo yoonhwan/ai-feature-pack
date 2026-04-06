@@ -1,0 +1,23 @@
+{
+  "name": "nanoclaw",
+  "version": "1.0.0",
+  "description": "NanoClaw AI 에이전트 플랫폼 — OpenClaw 대체. Claude Agent SDK 기반 멀티 크루 오케스트레이션",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["nanoclaw"],
+    "npm": [],
+    "brew": ["colima", "docker"],
+    "pip": [],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "requires_slack": true,
+  "requires_docker": true,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 15,
+  "cli_name": "nanoclaw",
+  "cli_install_method": "git clone + npm install",
+  "replaces": "openclaw"
+}
