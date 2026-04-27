@@ -12,6 +12,7 @@ BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 . "$BATON_HOME/lib/archive_search.sh"
 . "$BATON_HOME/lib/harnesses.sh"
 . "$BATON_HOME/lib/verify.sh"
+. "$BATON_HOME/lib/tmux.sh"
 
 # === 프로젝트 root 찾기 — main worktree 항상 반환 ===
 # linked worktree에서 호출해도 main worktree 경로 반환 (archive 위치 일관성).
@@ -110,6 +111,7 @@ baton_cmd_plan() {
   echo
   baton_plan_recommend "$root/.baton/config.json" || true
   echo
+  baton_tmux_attach_hint
 }
 
 # === /baton:wt-create ===
@@ -185,8 +187,20 @@ EOF
   echo "  Ports:"
   grep _PORT= "$wt_dir/.env.worktree" | sed 's/^/    /'
   echo
-  echo "다음: cd $wt_dir"
-  echo "       그 후 작업 시작 (예: /oh-my-claudecode:autopilot, codex exec)"
+
+  # tmux 통합 (v1.2: default 표준 — tmux 설치되어 있으면 자동)
+  if baton_tmux_enabled; then
+    baton_tmux_create_session "$name" "$wt_dir"
+    echo
+    echo "다음: tmux attach -t $(baton_tmux_session_name "$name")"
+    echo "       (또는 cd $wt_dir 직접)"
+  else
+    echo "다음: cd $wt_dir"
+    echo "       그 후 작업 시작 (예: /oh-my-claudecode:autopilot, codex exec)"
+    if ! command -v tmux >/dev/null 2>&1; then
+      echo "       💡 tmux 표준 권장: brew install tmux (또는 apt install tmux)"
+    fi
+  fi
 }
 
 # === /baton:save ===
@@ -203,6 +217,8 @@ baton_cmd_save() {
   echo "  - JOURNAL.md 의 마지막 turn ACTIONS/TODO 채우기"
   echo "  - CURRENT.md 의 ⚠️ 블로커 / 📌 핵심 결정 / 🔗 핵심 파일 갱신"
   echo "  - NEXT.md 1페이지 갱신 (다음 세션 첫 컨텍스트)"
+  echo
+  baton_tmux_attach_hint
 }
 
 # === /baton:resume ===
@@ -211,6 +227,8 @@ baton_cmd_resume() {
   local root
   root=$(baton_active_root)
   baton_handoff_resume "$root/.baton/handoff/NEXT.md"
+  echo
+  baton_tmux_attach_hint
 }
 
 # === /baton:status ===
@@ -235,19 +253,24 @@ baton_cmd_status() {
     echo "  Handoff: $s (by $a, $u)"
     echo "  Last harness: $h"
   fi
-  # main root에서 호출되면 활성 워크트리 목록
+  # main root에서 호출되면 활성 워크트리 목록 + tmux 세션 정보
   if baton_is_main_root "$PWD"; then
     echo
     echo "  활성 워크트리:"
     if [[ -d "$root/.worktrees" ]]; then
       for wt in "$root/.worktrees"/*; do
         [[ -d "$wt" ]] || continue
-        local wb
+        local wb tmux_suffix
         wb=$(git -C "$wt" branch --show-current 2>/dev/null)
-        echo "    - $(basename "$wt") ($wb)"
+        tmux_suffix=$(baton_tmux_status_suffix "$(basename "$wt")")
+        echo "    - $(basename "$wt") ($wb)$tmux_suffix"
       done
     else
       echo "    (없음)"
+    fi
+    if baton_tmux_enabled; then
+      echo
+      echo "  tmux 통합: ✓ enabled (default — v1.2 표준)"
     fi
   fi
   baton_archive_lazy_prune 7 || true
@@ -284,6 +307,26 @@ baton_cmd_wt_clean() {
   fi
   # cwd 무효화 방지: archive_create 호출 전에 main worktree로 이동
   cd "$root"
+
+  # tmux 세션 감지 시 사용자에게 묻기
+  if baton_tmux_enabled; then
+    local phase_id_for_tmux
+    phase_id_for_tmux=$(basename "$target")
+    local tmux_session
+    tmux_session=$(baton_tmux_session_name "$phase_id_for_tmux")
+    if baton_tmux_session_exists "$tmux_session"; then
+      echo
+      echo "⚠️  tmux 세션 활성: $tmux_session"
+      read -r -p "  세션 종료할까요? [y/N] " ans
+      if [[ "${ans:-N}" =~ ^[Yy]$ ]]; then
+        baton_tmux_kill_session "$tmux_session"
+      else
+        echo "  세션 보존. 수동 종료: tmux kill-session -t $tmux_session"
+      fi
+      echo
+    fi
+  fi
+
   baton_wt_clean_one "$target" "$root"
   baton_archive_prune 30 false
 }
@@ -334,6 +377,8 @@ baton_cmd_finish() {
   echo "  1. verify (예: /oh-my-claudecode:verify)"
   echo "  2. PR 생성·머지: gh pr create / gh pr merge"
   echo "  3. /baton:wt-clean  # archive 자동 보관"
+  echo
+  baton_tmux_attach_hint
 }
 
 # === /baton:hotfix-mode ===

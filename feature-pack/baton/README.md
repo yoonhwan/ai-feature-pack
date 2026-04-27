@@ -1,6 +1,8 @@
 # 🪃 baton
 
 > **멀티 에이전트 시대의 무중단 컨텍스트 인계 표준** — 워크트리·아카이브·작업 메모리를 한 그릇에. Claude Code / Codex / Gemini / OpenCode / Hermes 어디서 시작했든 다음 도구가 그대로 이어 작업합니다.
+>
+> tmux 통합으로 세션 끊김 0. 어떤 에이전트든 워크트리 tmux 세션 attach해서 즉시 이어 작업.
 
 ---
 
@@ -49,6 +51,35 @@ baton은 이걸 한 줄에 해결합니다:
 
 세 에이전트가 같은 phase를 이어 작업.
 baton은 매번 "이전에 뭘 했나" 컨텍스트를 알아서 챙겨줌.
+```
+
+---
+
+## 🖥️ tmux 통합 — 세션 영속 + 멀티 에이전트 동시 작업
+
+`export BATON_TMUX_ENABLE=true` 한 줄로 활성화.
+
+```
+$ /baton:wt-create v5-pr-a4
+✓ 워크트리 생성: .worktrees/v5-pr-a4
+  Branch: feat/v5-pr-a4
+  Ports: GATEWAY=8090 / WEB=3011 / MOBILE=3012
+✓ tmux 세션 생성: baton-byz-agents-v5-pr-a4
+  접속: tmux attach -t baton-byz-agents-v5-pr-a4
+
+다음: tmux attach -t baton-byz-agents-v5-pr-a4
+       (자동으로 cd + status + NEXT.md 출력)
+```
+
+세션 안에서:
+- 사용자가 직접 작업 (vim, claude code, codex exec 등)
+- 또는 다른 에이전트가 attach해서 자율 진행
+- 세션 종료 안 함 → 노트북 닫아도 백그라운드 유지
+
+`/baton:status` 출력에 tmux 정보 포함:
+```
+활성 워크트리:
+  - v5-pr-a4 (feat/v5-pr-a4) (tmux: baton-byz-v5-pr-a4 — attach: tmux a -t baton-byz-v5-pr-a4)
 ```
 
 ---
@@ -130,6 +161,9 @@ cd .worktrees/v5-pr-a3
 git clone https://github.com/yoonhwan/ai-feature-pack
 bash ai-feature-pack/feature-pack/baton/install.sh
 
+# 1.5. tmux 활성화 (선택, 권장)
+export BATON_TMUX_ENABLE=true   # ~/.zshrc 또는 ~/.bashrc 에 추가
+
 # 2. Claude Code에서 (옵션 B: main에서는 wt-create만 가능)
 
 # [main 루트에서] 워크트리 + 포트 + 심링 + phase.json stub 자동 생성
@@ -173,6 +207,36 @@ $ codex     # 또는 gemini, opencode, hermes
 | **H. handoff-rollback** | handoff/ 손상 시 archive 복원 | [flows/handoff-rollback.md](flows/handoff-rollback.md) |
 
 플로우 인덱스: [flows/_index.md](flows/_index.md)
+
+---
+
+## 🤝 멀티 에이전트 동시 작업 — 크루 워크플로우
+
+```
+[사용자 main]                                  [엑스클로우 크루 / 다른 머신]
+  │                                              │
+  /baton:wt-create A                             git pull
+  /baton:wt-create B                             /baton:archive search "..."
+  /baton:wt-create C                             ← 이전 결정 즉시 조회
+  │                                              │
+  ┌─── tmux 세션 3개 (BATON_TMUX_ENABLE=true) ──┐
+  │  baton-byz-A  baton-byz-B  baton-byz-C      │
+  │   ↓            ↓            ↓                │
+  │  Claude Opus  Codex CLI    Gemini CLI        │
+  │   in A         in B         in C             │
+  └──────────────────────────────────────────────┘
+        │            │            │
+        └────────────┴────────────┘
+                     ↓
+          .baton/archive/INDEX.jsonl  ← git-tracked
+          (3건 자동 누적)
+                     ↓
+          git push
+                     ↓
+          [크루: git pull → /baton:archive search]
+```
+
+핵심: archive는 git-tracked. push만 하면 크루 모두 ".이전에 비슷한 거 했나?"를 즉시 조회 가능.
 
 ---
 

@@ -2,6 +2,44 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.0] — 2026-04-27 (tmux 표준화 + archive=baton 통찰)
+
+### Changed (Breaking)
+- **tmux는 default 표준** — `BATON_TMUX_ENABLE=true` 환경변수 불필요. tmux 설치되어 있으면 자동 사용.
+  - opt-out: `export BATON_TMUX_DISABLE=true` (강제 비활성)
+  - legacy: `BATON_TMUX_ENABLE=false` 도 같은 효과 (호환 유지)
+- 모든 가이드(README/SPEC/standard_workflow)에 tmux를 default 표준으로 반영.
+
+### Added
+- **archive = baton 통찰** — README/standard_workflow hero에 명시:
+  > 워크트리는 baton 만드는 공장. archive는 인계 가능한 baton 그 자체.
+  > 다음 사람·에이전트에게 "이 archive id 받아서 이어 가" 한 줄로 모든 결정·이력·코드 변경을 통째로 인계.
+- `/baton:archive search` / `extract` = **바통 받기**의 의미적 정의 강조.
+- 엑스클로우 크루 워크플로우: archive git-tracked + push → 다른 크루 `git pull` + `archive search`로 즉시 인계.
+
+### Improved
+- `baton status` tmux 메시지: "BATON_TMUX_ENABLE=true" → "default — v1.2 표준"
+
+---
+
+## [1.1.0] — 2026-04-27 (tmux 통합 + Hermes adapter 실 구현)
+
+### Added
+- **tmux 통합** — `BATON_TMUX_ENABLE=true` 환경변수로 활성화. `wt-create` 시 자동 tmux 세션(`baton-{project}-{phase-id}`) 생성 + cd + ready 배너 (status + NEXT.md 자동 출력). 세션 끊김 방지 + 프로세스 영속.
+- **status에 tmux 세션 정보** — 활성 워크트리마다 `(tmux: session-name — attach: tmux a -t ...)` 표시.
+- **wt-clean 시 tmux 세션 묻기** — y/N prompt. 사용자가 보존 결정 가능.
+- **Hermes 어댑터 실 Python script** — `adapters/hermes/baton.py`. `~/.hermes/plugins/baton.py` 로 복사해 사용. `on_session_start` / `on_session_end` / `journal` / `harness` / `keyword` / `set-status` CLI 서브커맨드 + 키워드 트리거.
+- **Hermes 설치 가이드** — `adapters/hermes/INSTALL.md`. shell_hooks 연동 + 수동 사용법 + tmux 시나리오 + 트러블슈팅.
+- **Codex CLI 어댑터 가이드** — `adapters/codex/INSTRUCTIONS.md`. sandbox 우회 패턴 + NEXT.md 주입 + 멀티 에이전트 시나리오.
+- **Gemini CLI 어댑터 가이드** — `adapters/gemini/INSTRUCTIONS.md`. `--approval-mode yolo` 패턴 + tmux 통합 + settings.json 연동.
+- **OpenCode 어댑터 가이드** — `adapters/opencode/INSTRUCTIONS.md`. slash commands + AGENTS.md 통합 + 멀티 에이전트 시나리오.
+- **lib/tmux.sh** — `baton_tmux_enabled` / `baton_tmux_session_name` / `baton_tmux_create_session` / `baton_tmux_kill_session` / `baton_tmux_kill_by_phase` / `baton_tmux_status_suffix` / `baton_tmux_list_sessions` 함수.
+
+### Improved
+- **멀티 에이전트 시나리오 강화** — 워크트리 N개를 각기 다른 에이전트(claude-code/codex/gemini/opencode/hermes)가 동시 작업 → archive 한 곳에 누적 → `git push` 로 크루 간 자동 sync.
+
+---
+
 ## [1.0.1] — 2026-04-27 (사용성 테스트 픽스)
 
 ### Fixed
