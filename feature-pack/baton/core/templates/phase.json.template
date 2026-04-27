@@ -1,0 +1,14 @@
+{
+  "schema_version": "1",
+  "phase_id": "{{PHASE_ID}}",
+  "title": "{{PHASE_TITLE}}",
+  "branch": "{{BRANCH}}",
+  "worktree": "{{WORKTREE}}",
+  "ports": {{PORTS_JSON}},
+  "started_at": "{{STARTED_AT}}",
+  "target_pr": null,
+  "sessions": [],
+  "completion_criteria": [],
+  "next_phases": [],
+  "tags": []
+}

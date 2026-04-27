@@ -1,0 +1,20 @@
+# Journal — {{PHASE_ID}}
+
+> 시간순 단일 메모리. INTENT(사용자 입력) + HARNESS(외부 하네스만) + ACTIONS(한 일) + TODO(할 일)를 turn별로 누적.
+> UserPromptSubmit 훅이 INTENT를 자동 append, PostToolUse 훅이 HARNESS를 자동 추출, Claude가 ACTIONS/TODO를 갱신.
+>
+> **HARNESS 필드 룰** (Claude가 임의로 채우지 말 것):
+> - ✅ 외부 하네스 (최신 슬래시만):
+>   - `/superpowers:writing-plans`, `/superpowers:executing-plans`, `/superpowers:brainstorming`
+>   - `/oh-my-claudecode:autopilot`, `/oh-my-claudecode:team`, `/oh-my-claudecode:deep-interview`, `/oh-my-claudecode:plan`
+>   - `/claude-mem:mem-search`, `/claude-mem:make-plan`, `/claude-mem:do`
+> - ⚠️ deprecated 슬래시 사용 금지: `superpowers:write-plan`, `superpowers:execute-plan`, `superpowers:brainstorm`
+> - ❌ baton 자체 명령(`baton save`, `baton plan` 등)은 HARNESS 아님 → `-` 그대로 유지
+> - ❌ 단순 Bash/Read/Edit 도구도 HARNESS 아님 → `-` 그대로 유지
+> - PostToolUse 훅이 Skill/Agent/Task 도구 호출 시 자동으로 채움. Claude는 손대지 말 것.
+
+## {{STARTED_AT_HUMAN}} — Turn 0 (init)
+- **INTENT**: phase 시작
+- **HARNESS**: -
+- **ACTIONS**: 워크트리 초기화
+- **TODO**: 사용자 다음 입력 대기

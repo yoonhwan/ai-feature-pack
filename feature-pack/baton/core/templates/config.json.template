@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "project_name": "{{PROJECT_NAME}}",
+  "base_ports": {
+    "gateway": 8080,
+    "web": 3001,
+    "mobile": 3002
+  },
+  "worktree_port_offset": 10,
+  "shared_links": [".env", ".venv", ".claude", ".omc"],
+  "scripts_dir": [],
+  "verify_command": "",
+  "archive": {
+    "retention_days": 30,
+    "auto_prune": {
+      "on_wt_clean": true,
+      "lazy_check_interval_days": 7
+    },
+    "alert_on_auto_prune": true
+  },
+  "harnesses": {
+    "preferred_plan": "superpowers:writing-plans",
+    "preferred_execution": "oh-my-claudecode:autopilot",
+    "show_candidates_for_first_n_calls": 3
+  },
+  "main_branches": ["main", "master"]
+}

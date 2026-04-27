@@ -1,0 +1,4 @@
+# baton runtime state (per-worktree)
+# 워크트리 내부 .baton/ 의 일부만 gitignore. config.json/version.lock/phase.json/archive/ 는 commit O.
+handoff/
+session.lock

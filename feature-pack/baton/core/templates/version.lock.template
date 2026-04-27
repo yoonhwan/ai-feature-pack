@@ -1,0 +1,6 @@
+{
+  "baton_version": "{{BATON_VERSION}}",
+  "compat_range": "{{COMPAT_RANGE}}",
+  "spec_version": "1",
+  "locked_at": "{{LOCKED_AT}}"
+}

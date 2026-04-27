@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# baton CLI fallback — 어떤 에이전트든 자기 슬래시로 부르는 게 정상.
+# 이 CLI는 cron/CI/외부 쉘 fallback.
+
+set -euo pipefail
+
+BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
+export BATON_HOME
+
+. "$BATON_HOME/lib/core.sh"
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  plan)         baton_cmd_plan "$@" ;;
+  wt-create)    baton_cmd_wt_create "$@" ;;
+  save)         baton_cmd_save "$@" ;;
+  resume)       baton_cmd_resume "$@" ;;
+  finish)       baton_cmd_finish "$@" ;;
+  wt-clean)     baton_cmd_wt_clean "$@" ;;
+  status)       baton_cmd_status "$@" ;;
+  help|-h|--help) baton_cmd_help ;;
+  doctor)       baton_cmd_doctor ;;
+  hotfix-mode)  baton_cmd_hotfix_mode "$@" ;;
+  install)
+    bash "$BATON_HOME/../../install.sh" "$@" 2>/dev/null \
+      || bash "$(dirname "$0")/../../../install.sh" "$@" \
+      || echo "❌ install.sh 위치 미발견. 패키지 루트에서 직접 실행하세요."
+    ;;
+  upgrade)
+    echo "현재 버전: $(baton_version)"
+    echo
+    echo "v1.0 업그레이드 절차 (수동):"
+    echo "  1. 새 baton 패키지 받기: git pull (ai-feature-pack 레포)"
+    echo "  2. install.sh 재실행 → ~/.baton/versions/{new-ver}/ 에 추가"
+    echo "  3. install.sh가 ~/.baton/current 심링을 새 버전으로 자동 전환"
+    echo "  4. 활성 워크트리는 version.lock 호환 범위 내에서 그대로 동작"
+    echo
+    echo "자동 upgrade 명령 — v1.1 예정 (현재는 수동)"
+    ;;
+  archive)
+    sub="${1:-list}"; shift || true
+    case "$sub" in
+      list)
+        days=30; global=false
+        for a in "$@"; do
+          case "$a" in
+            --days) shift; days="$1" ;;
+            --global) global=true ;;
+          esac
+        done
+        baton_archive_list "$days"
+        ;;
+      search)
+        query="${1:-}"; shift || true
+        global=false
+        for a in "$@"; do
+          [[ "$a" == "--global" ]] && global=true
+        done
+        [[ -z "$query" ]] && { echo "사용법: baton archive search <query> [--global]"; exit 1; }
+        baton_archive_search "$query" "$global"
+        ;;
+      show)    baton_archive_show "$@" ;;
+      extract) baton_archive_extract "$@" ;;
+      close)   baton_archive_close "$@" ;;
+      prune)
+        days=30; dry=false
+        for a in "$@"; do
+          case "$a" in
+            --dry-run) dry=true ;;
+            --days) shift; days="$1" ;;
+          esac
+        done
+        baton_archive_prune "$days" "$dry"
+        ;;
+      *) echo "알 수 없는 archive 서브명령: $sub"; exit 1 ;;
+    esac
+    ;;
+  *)
+    echo "알 수 없는 명령: $cmd"
+    baton_cmd_help
+    exit 1
+    ;;
+esac

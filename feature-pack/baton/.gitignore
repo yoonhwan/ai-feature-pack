@@ -1,0 +1,5 @@
+# baton 패키지 자체 — gitignore할 것 거의 없음
+.DS_Store
+*.swp
+*.tmp
+test/.test-output/

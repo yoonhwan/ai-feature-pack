@@ -1,0 +1,7 @@
+{{PHASE_ID}} 이어서. .baton/handoff/ 의 PLAN.md, JOURNAL.md, CURRENT.md 먼저 읽고 시작.
+
+**즉시 이어서**: (다음 세션이 가장 먼저 손댈 작업 한 줄)
+
+**오늘 끝내기**: (이번 세션 목표 한 줄)
+
+**마지막 사용 하네스**: {{LAST_HARNESS}}

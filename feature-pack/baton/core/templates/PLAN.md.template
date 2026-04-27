@@ -1,0 +1,8 @@
+# Plan — {{PHASE_ID}}
+
+> 외부 하네스(superpowers / deep-interview / ...)가 결과를 여기에 append합니다.
+> 형식: `## YYYY-MM-DD HH:MM — Plan vN (by <harness-name>)`
+
+## {{STARTED_AT_HUMAN}} — Plan v0 (stub)
+
+(아직 plan 없음. `/baton:plan` 호출 시 하네스 후보 출력 후 자동 채워집니다.)
