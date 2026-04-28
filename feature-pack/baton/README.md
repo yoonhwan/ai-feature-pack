@@ -65,16 +65,36 @@ $ /baton:wt-create v5-pr-a4
   Branch: feat/v5-pr-a4
   Ports: GATEWAY=8090 / WEB=3011 / MOBILE=3012
 ✓ tmux 세션 생성: baton-byz-agents-v5-pr-a4
-  접속: tmux attach -t baton-byz-agents-v5-pr-a4
-
-다음: tmux attach -t baton-byz-agents-v5-pr-a4
-       (자동으로 cd + status + NEXT.md 출력)
+  접속:        tmux attach -t baton-byz-agents-v5-pr-a4
+  📱 모바일 SSH: ssh yoonhwan@100.x.x.x  → tmux a -t baton-byz-agents-v5-pr-a4
 ```
+
+> 📱 **모바일 SSH 안내는 Tailscale 설치 시 자동.** baton이 `tailscale ip -4` 결과 + `$USER` 로 한 줄 생성. 핸드폰 Termius/Blink/JuiceSSH 앱에서 그대로 복붙해 attach 가능.
 
 세션 안에서:
 - 사용자가 직접 작업 (vim, claude code, codex exec 등)
 - 또는 다른 에이전트가 attach해서 자율 진행
 - 세션 종료 안 함 → 노트북 닫아도 백그라운드 유지
+
+### 📱 모바일 attach 시나리오 (Tailscale)
+
+```
+[집 노트북: macOS]                    [외출: 핸드폰]
+  baton-byz-v5-pr-a4 세션 활성   ←──  Termius/Blink ssh user@100.x.x.x
+  Claude/Codex/superpowers 진행                ↓
+                                      tmux a -t baton-byz-v5-pr-a4
+                                                ↓
+                                      그대로 작업 모니터링·명령 추가
+```
+
+준비:
+```bash
+sudo tailscale set --ssh           # macOS Tailscale SSH 활성 (한 번)
+sudo systemsetup -setremotelogin on  # SSH 활성
+sudo pmset -c sleep 0              # 전원 연결 시 슬립 OFF
+```
+
+→ baton이 `wt-create` / `plan` / `save` / `resume` / `finish` 출력에 자동으로 모바일 SSH 명령 한 줄 표시.
 
 `/baton:status` 출력에 tmux 정보 포함:
 ```

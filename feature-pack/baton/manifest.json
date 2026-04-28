@@ -1,21 +1,43 @@
 {
   "name": "baton",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "title": "Universal Standard Workflow — worktree + archive + memory",
   "description": "워크트리 라이프사이클 + 아카이브 검색 + 작업 메모리를 표준화. 외부 하네스(superpowers/OMC/deep-interview)에 작업을 위임하되 결과를 baton 메모리에 누적.",
   "category": "workflow",
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "install_time_minutes": 3,
   "requires_api_key": false,
   "requires_auth": false,
   "dependencies": {
-    "required": ["bash>=4", "git>=2.30", "jq>=1.6", "tar"],
-    "optional": ["ripgrep", "gh"]
+    "required": [
+      "bash>=4",
+      "git>=2.30",
+      "jq>=1.6",
+      "tar"
+    ],
+    "optional": [
+      "ripgrep",
+      "gh"
+    ]
   },
   "supported_agents": {
-    "automated_install": ["claude-code", "gemini-cli", "opencode", "hermes"],
-    "manual_install": ["codex-cli", "openclaw"],
-    "limited": ["nanoclaw", "cursor"]
+    "automated_install": [
+      "claude-code",
+      "gemini-cli",
+      "opencode",
+      "hermes"
+    ],
+    "manual_install": [
+      "codex-cli",
+      "openclaw"
+    ],
+    "limited": [
+      "nanoclaw",
+      "cursor"
+    ]
   },
   "spec_version": "1",
   "homepage": "https://github.com/yoonhwan/ai-feature-pack",

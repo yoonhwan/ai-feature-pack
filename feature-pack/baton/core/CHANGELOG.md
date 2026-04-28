@@ -2,6 +2,22 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.1] — 2026-04-28 (모바일 SSH 자동 안내)
+
+### Added
+- **모바일 SSH 안내 자동 표시** — Tailscale 설치 시 `wt-create` / `plan` / `save` / `resume` / `finish` 출력에 한 줄 자동:
+  ```
+  📱 모바일 SSH: ssh yoonhwan@100.x.x.x  → tmux a -t baton-byz-agents-X
+  ```
+  Tailscale 미설치 시 silent skip.
+- `lib/tmux.sh` `baton_tmux_mobile_ssh_hint` 함수 — `tailscale ip -4` + `$USER` 동적 조합.
+- README / standard_workflow.md에 모바일 attach 시나리오 + macOS 사전 준비 + 추천 앱 (Termius/Blink/JuiceSSH).
+
+### Why
+멀티 에이전트 + tmux 영속의 진짜 가치는 **노트북이 작업하는 동안 어디서든 attach**. Tailscale은 그 인프라. baton이 안내까지 자동화해서 사용자가 모바일 SSH 명령 따로 외울 필요 없음.
+
+---
+
 ## [1.2.0] — 2026-04-27 (tmux 표준화 + archive=baton 통찰)
 
 ### Changed (Breaking)

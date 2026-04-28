@@ -66,7 +66,8 @@ baton_tmux_create_session() {
      exec \$SHELL"
 
   echo "✓ tmux 세션 생성: $session"
-  echo "  접속: tmux attach -t $session"
+  echo "  접속:        tmux attach -t $session"
+  baton_tmux_mobile_ssh_hint "$session" | sed 's/^/  /'
 }
 
 # === 세션 종료 ===
@@ -105,6 +106,18 @@ baton_tmux_list_sessions() {
   tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^baton-' || true
 }
 
+# === 모바일 SSH 안내 한 줄 (Tailscale 활성 시) ===
+# args: $1=session name
+baton_tmux_mobile_ssh_hint() {
+  local session=$1
+  command -v tailscale >/dev/null 2>&1 || return 0
+  local tailnet_ip
+  tailnet_ip=$(tailscale ip -4 2>/dev/null | head -1)
+  [[ -z "$tailnet_ip" ]] && return 0
+  local user="${USER:-$(whoami)}"
+  echo "📱 모바일 SSH: ssh ${user}@${tailnet_ip}  → tmux a -t ${session}"
+}
+
 # === 현재 active phase tmux 세션 attach 안내 한 줄 (plan/save/resume/finish 출력 끝에) ===
 baton_tmux_attach_hint() {
   baton_tmux_enabled || return 0
@@ -123,6 +136,7 @@ baton_tmux_attach_hint() {
   session=$(baton_tmux_session_name "$phase_id")
   if baton_tmux_session_exists "$session"; then
     echo "🖥️  tmux 세션 열려 있음 — 바로 진행: tmux a -t $session"
+    baton_tmux_mobile_ssh_hint "$session"
   else
     # 세션 없는데 워크트리 안이면 새로 띄울 수 있음 안내
     if [[ -d "$d/.baton/handoff" ]]; then
