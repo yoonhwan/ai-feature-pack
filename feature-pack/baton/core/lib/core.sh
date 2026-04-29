@@ -164,16 +164,22 @@ EOF
 
   # 포트
   baton_write_worktree_env "$wt_dir" "$idx" "$cfg"
+  local ports_json
+  ports_json=$(baton_ports_json_from_env "$wt_dir/.env.worktree")
 
   # phase.json 이전 또는 stub
   if [[ -f "$root/.baton/phase.json" ]]; then
     mv "$root/.baton/phase.json" "$wt_dir/.baton/phase.json"
+    jq --argjson ports "$ports_json" --arg branch "$branch" --arg worktree ".worktrees/$name" \
+      '.ports = $ports | .branch = $branch | .worktree = $worktree' \
+      "$wt_dir/.baton/phase.json" > "$wt_dir/.baton/phase.json.tmp"
+    mv "$wt_dir/.baton/phase.json.tmp" "$wt_dir/.baton/phase.json"
     [[ -d "$root/.baton/handoff" ]] && {
       cp -r "$root/.baton/handoff/." "$wt_dir/.baton/handoff/"
       rm -rf "$root/.baton/handoff"
     }
   else
-    baton_init_phase_json "$wt_dir/.baton/phase.json" "$name" "$name" "$branch" ".worktrees/$name"
+    baton_init_phase_json "$wt_dir/.baton/phase.json" "$name" "$name" "$branch" ".worktrees/$name" "$ports_json"
     baton_init_handoff "$wt_dir/.baton/handoff" "$name" "$name" "$branch" \
       ".worktrees/$name" "${BATON_AGENT:-claude-code}"
   fi

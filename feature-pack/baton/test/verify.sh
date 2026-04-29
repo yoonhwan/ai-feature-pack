@@ -151,9 +151,33 @@ else
 fi
 rm -f "$help_out"
 
-# [9] post-install state (optional)
+# [9] lifecycle smoke — wt-create must persist deterministic ports in phase.json
 echo
-echo "[9] post-install state (requires install.sh)"
+echo "[9] lifecycle smoke"
+
+smoke_dir=$(mktemp -d /tmp/baton-verify-XXXXXX)
+if (
+  set -euo pipefail
+  cd "$smoke_dir"
+  git init -q
+  git config user.email baton-verify@example.local
+  git config user.name "baton verify"
+  printf 'smoke\n' > README.md
+  git add README.md
+  git commit -q -m init
+  BATON_HOME="$PACKAGE_DIR/core" BATON_TMUX_DISABLE=true bash "$PACKAGE_DIR/core/bin/baton" wt-create smoke >/dev/null
+  jq -e '.ports.WEB_PORT == 3011 and .ports.MOBILE_PORT == 3012 and .ports.GATEWAY_PORT == 8090' \
+    .worktrees/smoke/.baton/phase.json >/dev/null
+); then
+  ok "wt-create phase.json includes deterministic ports"
+else
+  ng "wt-create phase.json missing deterministic ports"
+fi
+rm -rf "$smoke_dir"
+
+# [10] post-install state (optional)
+echo
+echo "[10] post-install state (requires install.sh)"
 
 if [[ -L "$HOME/.baton/current" ]] && [[ -d "$HOME/.baton/current" ]]; then
   ok "~/.baton/current symlink exists"

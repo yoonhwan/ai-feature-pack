@@ -58,7 +58,7 @@ fi
 
 if [[ "$_missing" -gt 0 ]]; then
   echo
-  echo "❌ 필수 의존성 $_missing개 누락. 설치 후 재실행하세요."
+  echo "❌ 필수 의존성 ${_missing}개 누락. 설치 후 재실행하세요."
   exit 2
 fi
 
@@ -120,8 +120,10 @@ echo "[3/7] 글로벌 설치 → $TARGET"
 
 mkdir -p "$TARGET"
 cp -r "$PACKAGE_DIR/core/." "$TARGET/"
-# harnesses 카탈로그 복사 (lib/harnesses.sh가 참조)
-cp -r "$PACKAGE_DIR/harnesses" "$TARGET/"
+# harnesses 카탈로그는 v2에서 제거됨. 구버전 패키지 호환을 위해 존재할 때만 복사.
+if [[ -d "$PACKAGE_DIR/harnesses" ]]; then
+  cp -r "$PACKAGE_DIR/harnesses" "$TARGET/"
+fi
 chmod +x "$TARGET/bin/baton"
 
 # current 심링
@@ -137,8 +139,12 @@ echo
 echo "[4/7] PATH 등록"
 
 _path_line="export PATH=\"\$HOME/.baton/current/bin:\$PATH\""
+_rcfile="$HOME/.zshrc"
+[[ -f "$HOME/.bashrc" && ! -f "$HOME/.zshrc" ]] && _rcfile="$HOME/.bashrc"
 if echo "$PATH" | grep -q "$HOME/.baton/current/bin"; then
   echo "  [✓] PATH 이미 등록됨"
+elif [[ -f "$_rcfile" ]] && grep -Fxq "$_path_line" "$_rcfile"; then
+  echo "  [✓] $_rcfile 에 PATH 등록 줄이 이미 있음 (새 셸 시작 또는 source 필요)"
 else
   echo "  [⚠] baton이 PATH에 없습니다."
   echo "  다음 줄을 ~/.zshrc 또는 ~/.bashrc 에 추가 권장:"
@@ -147,8 +153,6 @@ else
   echo
   read -r -p "  자동으로 추가할까요? [y/N] " _ans
   if [[ "${_ans:-N}" =~ ^[Yy]$ ]]; then
-    _rcfile="$HOME/.zshrc"
-    [[ -f "$HOME/.bashrc" && ! -f "$HOME/.zshrc" ]] && _rcfile="$HOME/.bashrc"
     echo "$_path_line" >> "$_rcfile"
     echo "  [✓] $_rcfile 에 추가됨 (새 셸 시작 또는 source 필요)"
   else

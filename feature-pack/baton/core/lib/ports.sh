@@ -68,3 +68,21 @@ baton_write_worktree_env() {
   echo "COMPOSE_PROJECT_NAME=${proj}-${branch//\//-}" >> "$env_file"
   echo "BATON_WORKTREE_INDEX=$idx" >> "$env_file"
 }
+
+# Convert generated .env.worktree *_PORT entries into phase.json ports object.
+# Example: WEB_PORT=3011 -> {"WEB_PORT":3011}
+baton_ports_json_from_env() {
+  local env_file=$1
+  [[ -f "$env_file" ]] || { echo '{}'; return; }
+  baton_require_jq
+  jq -cRn '
+    reduce inputs as $line ({};
+      if ($line | test("^[A-Z0-9_]+_PORT=[0-9]+$")) then
+        ($line | split("=")) as $p |
+        . + {($p[0]): ($p[1] | tonumber)}
+      else
+        .
+      end
+    )
+  ' < "$env_file"
+}
