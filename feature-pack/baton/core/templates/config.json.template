@@ -20,7 +20,7 @@
   },
   "harnesses": {
     "preferred_plan": "superpowers:writing-plans",
-    "preferred_execution": "oh-my-claudecode:autopilot",
+    "preferred_execution": "runtime:auto",
     "show_candidates_for_first_n_calls": 3
   },
   "main_branches": ["main", "master"]

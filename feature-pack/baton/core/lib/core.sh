@@ -14,6 +14,62 @@ BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 . "$BATON_HOME/lib/verify.sh"
 . "$BATON_HOME/lib/tmux.sh"
 
+
+baton_detect_agent() {
+  if [[ -n "${BATON_AGENT:-}" ]]; then
+    echo "$BATON_AGENT"
+  elif [[ -n "${CODEX_THREAD_ID:-}" || -n "${CODEX_CI:-}" || -n "${CODEX_MANAGED_BY_NPM:-}" || -n "${OMX_SESSION_ID:-}" ]]; then
+    echo "codex"
+  elif [[ -n "${CLAUDECODE:-}" || -n "${CLAUDE_CODE_SESSION_ID:-}" || -n "${CLAUDE_SESSION_ID:-}" ]]; then
+    echo "claude-code"
+  else
+    echo "claude-code"
+  fi
+}
+
+baton_runtime_execution_hint() {
+  local agent
+  agent=$(baton_detect_agent)
+  case "$agent" in
+    codex)
+      if [[ -n "${OMX_SESSION_ID:-}" ]] || command -v omx >/dev/null 2>&1; then
+        echo '$autopilot (OMX/Codex) 또는 codex exec'
+      else
+        echo 'codex exec'
+      fi
+      ;;
+    claude-code)
+      echo '/oh-my-claudecode:autopilot 또는 claude'
+      ;;
+    gemini)
+      echo 'gemini 또는 gemini -p'
+      ;;
+    *)
+      echo 'claude, codex exec, gemini 등 현재 에이전트 런타임'
+      ;;
+  esac
+}
+
+baton_runtime_verify_hint() {
+  local agent
+  agent=$(baton_detect_agent)
+  case "$agent" in
+    codex)
+      if [[ -n "${OMX_SESSION_ID:-}" ]] || command -v omx >/dev/null 2>&1; then
+        echo '$code-review 또는 $ultraqa (OMX/Codex)'
+      else
+        echo 'codex 기반 테스트/리뷰 명령'
+      fi
+      ;;
+    claude-code)
+      echo '/oh-my-claudecode:verify 또는 /oh-my-claudecode:critic'
+      ;;
+    *)
+      echo '현재 에이전트의 verify/review 하네스'
+      ;;
+  esac
+}
+
 # === 프로젝트 root 찾기 — main worktree 항상 반환 ===
 # linked worktree에서 호출해도 main worktree 경로 반환 (archive 위치 일관성).
 baton_project_root() {
@@ -79,7 +135,7 @@ baton_cmd_plan() {
     baton_init_phase_json "$root/.baton/phase.json" "$phase_id" "$title"
     [[ ! -d "$root/.baton/handoff" ]] && baton_init_handoff "$root/.baton/handoff" "$phase_id" "$title" \
       "$(git -C "$root" branch --show-current 2>/dev/null || echo unknown)" "$root" \
-      "${BATON_AGENT:-claude-code}"
+      "$(baton_detect_agent)"
     echo "✓ phase.json + 4-template 생성: $phase_id"
   else
     # 이미 활성 phase — 그대로 통과
@@ -181,7 +237,7 @@ EOF
   else
     baton_init_phase_json "$wt_dir/.baton/phase.json" "$name" "$name" "$branch" ".worktrees/$name" "$ports_json"
     baton_init_handoff "$wt_dir/.baton/handoff" "$name" "$name" "$branch" \
-      ".worktrees/$name" "${BATON_AGENT:-claude-code}"
+      ".worktrees/$name" "$(baton_detect_agent)"
   fi
 
   # gitignore 추가
@@ -202,7 +258,7 @@ EOF
     echo "       (또는 cd $wt_dir 직접)"
   else
     echo "다음: cd $wt_dir"
-    echo "       그 후 작업 시작 (예: /oh-my-claudecode:autopilot, codex exec)"
+    echo "       그 후 작업 시작 (예: $(baton_runtime_execution_hint))"
     if ! command -v tmux >/dev/null 2>&1; then
       echo "       💡 tmux 표준 권장: brew install tmux (또는 apt install tmux)"
     fi
@@ -380,7 +436,7 @@ baton_cmd_finish() {
   echo "✓ status → done"
   echo
   echo "다음 단계 (사용자가 직접):"
-  echo "  1. verify (예: /oh-my-claudecode:verify)"
+  echo "  1. verify (예: $(baton_runtime_verify_hint))"
   echo "  2. PR 생성·머지: gh pr create / gh pr merge"
   echo "  3. /baton:wt-clean  # archive 자동 보관"
   echo
@@ -452,7 +508,7 @@ baton — Universal Standard Workflow
     ├────────────▶│ 워크트리 + 포트 + 심링 + 메모리 이전 │
     │             ├─────────────────────────────────────▶│
     │                                                    │
-    │ (작업: /oh-my-claudecode:autopilot, codex 등)      │
+    │ (작업: 런타임별 하네스 — OMX/Codex, OMC/Claude 등) │
     │             │                   │                  │
     │ Stop / Compact / UserPrompt                        │
     │             │ ◀── dump 지시 ───┤                  │

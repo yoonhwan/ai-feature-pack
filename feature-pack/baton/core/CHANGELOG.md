@@ -2,6 +2,16 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.2] — 2026-04-30 (Codex/OMX runtime-aware baton)
+
+### Improved
+- **Runtime-aware handoff defaults** — `BATON_AGENT` 미설정 시 Codex/OMX 환경(`CODEX_THREAD_ID`, `CODEX_CI`, `CODEX_MANAGED_BY_NPM`, `OMX_SESSION_ID`)을 감지해 handoff agent를 `codex`로 기록.
+- **OMX/Codex 하네스 안내** — baton 안내·JOURNAL 템플릿·SPEC·README·Codex 어댑터가 Claude/OMC 전용 슬래시 대신 `$autopilot`, `$team`, `$ralplan`, `$ultraqa`, `$code-review` 등 OMX 스킬을 런타임별로 안내.
+- **`preferred_execution: runtime:auto`** — 프로젝트 기본 실행 하네스를 특정 벤더 슬래시가 아닌 현재 런타임 선택으로 전환.
+- **Codex adapter install** — 설치 시 `~/.codex/baton/INSTRUCTIONS.md`에 Codex/OMX 어댑터 가이드 복사.
+
+---
+
 ## [1.2.1] — 2026-04-28 (모바일 SSH 자동 안내)
 
 ### Added

@@ -160,10 +160,21 @@ worktree_port = base_port + (offset × index)
   },
   "harnesses": {
     "preferred_plan": "superpowers:writing-plans",
-    "preferred_execution": "oh-my-claudecode:autopilot"
+    "preferred_execution": "runtime:auto"
   }
 }
 ```
+
+### Runtime-aware execution harness
+
+`preferred_execution: "runtime:auto"` means baton keeps the project default neutral and lets the active agent runtime choose its native execution surface:
+
+- Codex + OMX: `$autopilot`, `$ralph`, `$team`, `$ultraqa`, `$code-review`, or `codex exec`
+- Claude + OMC: `/oh-my-claudecode:autopilot`, `/oh-my-claudecode:team`, `/oh-my-claudecode:plan`
+- Other agents: their adapter-specific execution command
+
+When creating a handoff, baton records `BATON_AGENT` if it is set. If unset, it detects Codex from `CODEX_THREAD_ID`, `CODEX_CI`, `CODEX_MANAGED_BY_NPM`, or `OMX_SESSION_ID`; otherwise it falls back to `claude-code` for backwards compatibility.
+
 
 ---
 

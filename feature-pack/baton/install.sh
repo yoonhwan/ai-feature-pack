@@ -100,7 +100,7 @@ fi
 
 if [[ -d "$HOME/.codex" ]]; then
   AGENTS[codex]=1
-  echo "  [⚠] Codex CLI 발견 (수동 등록 필요 — v1.0 제한적 지원)"
+  echo "  [✓] Codex CLI / OMX 표면 발견"
 fi
 
 if [[ -d "$HOME/.openclaw" ]]; then
@@ -282,8 +282,11 @@ fi
 # ── Codex / OpenClaw ──
 if [[ "${AGENTS[codex]:-0}" == "1" ]]; then
   echo
-  echo "  ── Codex CLI (수동 등록 안내) ──"
-  echo "  baton CLI 직접 호출: ~/.baton/current/bin/baton <cmd>"
+  echo "  ── Codex CLI / OMX ──"
+  mkdir -p "$HOME/.codex/baton"
+  cp "$PACKAGE_DIR/adapters/codex/INSTRUCTIONS.md" "$HOME/.codex/baton/INSTRUCTIONS.md"
+  echo "  [✓] Codex adapter guide → ~/.codex/baton/INSTRUCTIONS.md"
+  echo "  사용: BATON_AGENT=codex baton <cmd> 또는 OMX 세션에서 baton <cmd>"
 fi
 if [[ "${AGENTS[openclaw]:-0}" == "1" ]]; then
   echo

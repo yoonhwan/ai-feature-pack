@@ -72,6 +72,7 @@ $ /baton:wt-create v5-pr-a4
 > 📱 **모바일 SSH 안내는 Tailscale 설치 시 자동.** baton이 `tailscale ip -4` 결과 + `$USER` 로 한 줄 생성. 핸드폰 Termius/Blink/JuiceSSH 앱에서 그대로 복붙해 attach 가능.
 
 세션 안에서:
+- baton은 `BATON_AGENT`가 없으면 `CODEX_*`/`OMX_SESSION_ID`로 Codex, `CLAUDE_*`로 Claude를 감지합니다. 명시하려면 `BATON_AGENT=codex` 또는 `BATON_AGENT=claude-code`를 설정합니다.
 - 사용자가 직접 작업 (vim, claude code, codex exec 등)
 - 또는 다른 에이전트가 attach해서 자율 진행
 - 세션 종료 안 함 → 노트북 닫아도 백그라운드 유지
@@ -114,7 +115,7 @@ cd .worktrees/v5-pr-a3
 [워크트리 안에서]
 /baton:plan v5-pr-a3        ─→  PLAN.md (선택, 큰 작업만)
                                   ↓
-                       외부 하네스 (superpowers / OMC / Codex / ...)
+                       외부 하네스 (superpowers / OMX·Codex / OMC·Claude / ...)
                                   ↓
                        매 turn 자동 → JOURNAL.md
                        (UserPromptSubmit + PostToolUse 훅)
@@ -184,7 +185,7 @@ bash ai-feature-pack/feature-pack/baton/install.sh
 # 1.5. tmux 활성화 (선택, 권장)
 export BATON_TMUX_ENABLE=true   # ~/.zshrc 또는 ~/.bashrc 에 추가
 
-# 2. Claude Code에서 (옵션 B: main에서는 wt-create만 가능)
+# 2. 현재 에이전트에서 (옵션 B: main에서는 wt-create만 가능)
 
 # [main 루트에서] 워크트리 + 포트 + 심링 + phase.json stub 자동 생성
 /baton:wt-create v5-pr-a3
@@ -194,7 +195,8 @@ cd .worktrees/v5-pr-a3
 /baton:plan v5-pr-a3                       # PLAN.md 채우기 (deep-interview 등 호출)
 
 # 작업: 외부 하네스로
-/oh-my-claudecode:autopilot "..."
+# Codex/OMX 런타임: $autopilot "..."
+# Claude/OMC 런타임: /oh-my-claudecode:autopilot "..."
 
 # 완료
 /baton:finish                              # 페이즈 완료
@@ -269,10 +271,14 @@ $ codex     # 또는 gemini, opencode, hermes
 | `/superpowers:brainstorming` | 아이디어 발굴 | `PLAN.md` |
 | `/superpowers:writing-plans` | plan 작성 | `PLAN.md` |
 | `/superpowers:executing-plans` | plan 실행 | `JOURNAL.md` |
-| `/oh-my-claudecode:plan` | 전략 계획 | `PLAN.md` |
-| `/oh-my-claudecode:deep-interview` | Socratic 인터뷰 | `PLAN.md` |
-| `/oh-my-claudecode:autopilot` | 자율 실행 | `JOURNAL.md` |
-| `/oh-my-claudecode:team` | 다중 에이전트 | `JOURNAL.md` |
+| Codex/OMX `$plan`, `$ralplan` | 전략·합의 계획 | `PLAN.md` |
+| Codex/OMX `$deep-interview` | Socratic 인터뷰 | `PLAN.md` |
+| Codex/OMX `$autopilot`, `$ralph` | 자율 실행 | `JOURNAL.md` |
+| Codex/OMX `$team`, `$ultrawork` | 다중 에이전트 | `JOURNAL.md` |
+| Claude/OMC `/oh-my-claudecode:plan` | 전략 계획 | `PLAN.md` |
+| Claude/OMC `/oh-my-claudecode:deep-interview` | Socratic 인터뷰 | `PLAN.md` |
+| Claude/OMC `/oh-my-claudecode:autopilot` | 자율 실행 | `JOURNAL.md` |
+| Claude/OMC `/oh-my-claudecode:team` | 다중 에이전트 | `JOURNAL.md` |
 | `/claude-mem:mem-search` | 과거 메모리 검색 | (조회만) |
 | `/claude-mem:make-plan` | phased 계획 생성 | `PLAN.md` |
 | `/claude-mem:do` | phased 실행 | `JOURNAL.md` |

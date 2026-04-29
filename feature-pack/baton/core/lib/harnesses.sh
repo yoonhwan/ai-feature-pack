@@ -9,7 +9,7 @@ set -euo pipefail
 
 BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 
-# === 표준 instruction (Claude에게 동적 주입) ===
+# === 표준 instruction (현재 에이전트에게 동적 주입) ===
 
 BATON_PLAN_INSTRUCTION='이 작업의 결과를 .baton/handoff/PLAN.md 에 다음 형식으로 append 하세요:
 
@@ -39,7 +39,7 @@ baton_classify_harness() {
       echo "plan" ;;
     *mem-search*|*mem*search*|*memory*)
       echo "memory_search" ;;
-    *autopilot*|*team*|*execut*|*ralph*|*ultrawork*|*orchestrate*)
+    *autopilot*|*team*|*execut*|*ralph*|*ultrawork*|*ultraqa*|*code-review*|*orchestrate*)
       echo "execution" ;;
     *)
       # 모르는 하네스는 execution 으로 default (보수적)
@@ -125,16 +125,43 @@ baton_plan_recommend() {
   if [[ -f "$cfg" ]] && command -v jq >/dev/null 2>&1; then
     preferred=$(jq -r '.harnesses.preferred_plan // "superpowers:writing-plans"' "$cfg")
   fi
+
+  local agent="${BATON_AGENT:-}"
+  if [[ -z "$agent" ]]; then
+    if [[ -n "${CODEX_THREAD_ID:-}" || -n "${CODEX_CI:-}" || -n "${CODEX_MANAGED_BY_NPM:-}" || -n "${OMX_SESSION_ID:-}" ]]; then
+      agent="codex"
+    else
+      agent="claude-code"
+    fi
+  fi
+
+  local runtime_options
+  case "$agent" in
+    codex)
+      runtime_options='  $deep-interview                  Socratic 인터뷰 (OMX/Codex)
+  $plan                            Strategic planning (OMX/Codex)
+  $ralplan                         Consensus planning (OMX/Codex)'
+      ;;
+    claude-code)
+      runtime_options='  /oh-my-claudecode:deep-interview  Socratic 인터뷰 (Claude/OMC)
+  /oh-my-claudecode:plan            Strategic planning (Claude/OMC)'
+      ;;
+    *)
+      runtime_options='  현재 에이전트의 plan/interview 하네스 사용'
+      ;;
+  esac
+
   cat <<EOF
-─── 추천 plan 하네스 (최신 슬래시만) ───
+─── 추천 plan 하네스 (런타임 감지: $agent) ───
   ⭐ /$preferred (config의 preferred_plan, 또는 default)
 ──────────────────────────────────────────
 
-다른 옵션:
+공통 옵션:
   /superpowers:brainstorming        모호한 요구사항, 다방향 탐색
   /superpowers:writing-plans        명확한 plan 문서 작성
-  /oh-my-claudecode:deep-interview  Socratic 인터뷰
-  /oh-my-claudecode:plan            Strategic planning
+
+런타임별 옵션:
+$runtime_options
 
 ⚠️  /superpowers:write-plan, /superpowers:brainstorm, /superpowers:execute-plan 는 deprecated. 위 최신 슬래시만 사용하세요.
 
