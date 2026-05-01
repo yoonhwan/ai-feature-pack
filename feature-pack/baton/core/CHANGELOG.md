@@ -2,6 +2,86 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.4] — 2026-05-01 (race-free pipeline 강화 + 마이그레이션)
+
+### Fixed (codex 리뷰 — HIGH 3)
+- **H1: spawn 후 rotate race** — spawn 진행 중 새 hook event가 append되어도 그게 함께 processed로 사라지던 문제. **선 rotate snapshot** 패턴으로 해결: save 시작 시 `.events.jsonl` → `.events.snapshot-{ts}_{pid}_{rnd}.jsonl` 로 atomic 회전 후 spawn에 snapshot 경로 입력. 새 hook은 새 `.events.jsonl`에 적재되어 다음 save에서 처리.
+- **H2: 동시 save lock 부재** — 두 개의 `/baton:save`가 동시 실행되면 중복 Turn / rotate race. `mkdir .save.lock` atomic lock 추가 (`baton_save_lock_acquire/release`). 최대 30s 대기 (`BATON_SAVE_LOCK_TIMEOUT`), 10분 이상 stale lock 자동 해제. SIGINT/TERM에서도 trap으로 lock 해제.
+- **H3: rotate target 충돌** — 같은 초에 두 번 rotate 시 `.events.processed-{ts}.jsonl` 덮어쓰기 가능. **unique suffix** (`{ts}_{pid}_{rnd}`)로 충돌 회피 + `noclobber` 보장 루프.
+
+### Fixed (codex 리뷰 — MEDIUM 4)
+- **M4: fallback 실패 정책** — fallback dump가 실패해도 `.events.processed-*` 로 회전하던 문제. 이제 **fallback 성공 → processed**, **fallback 실패 → `.events.failed-*`** 분기. 실패 시 raw events 보존 + 명시 경고. atomic write (mktemp + mv) 적용.
+- **M5: BATON_SKIP_HOOKS 한계 문서화** — baton hook만 차단함을 save-prompt 템플릿과 save.md에 명시. 다른 사용자 hook(omc/gas-town 등)이 핸드오프 파일을 mutate하면 race 재발 가능 → spawn 에이전트에게 Edit 실패 시 retry/abort 패턴 지시.
+- **M6: 하네스 instruction 정합성** — `core/lib/harnesses.sh`의 `BATON_EXECUTION_INSTRUCTION`이 v1.2.2 시절 "JOURNAL 직접 편집" 지시 유지하던 문제. sidecar 패턴에 맞게 "JOURNAL/CURRENT/NEXT 직접 편집 금지, /baton:save 가 자동 정리"로 갱신.
+- **M7: command 문서 sync** — `save.md`, `finish.md`가 v1.2.2 동작 그대로 기술하던 문제. v1.2.4 race-free pipeline + 자동 save 호출 + lock 동작으로 갱신.
+
+### Fixed (codex 리뷰 — LOW 2)
+- **L8: hook schema 통일** — `user-prompt-submit.sh`가 `lib/handoff.sh`의 `baton_events_append`를 사용하도록 통합. `post-tool-use.sh`는 tool 메타까지 보존해야 해서 inline jq 유지(주석 명시).
+- **L9: rotate 실패 명시** — `mv` 실패 시 stderr에 "rotate 실패" 경고. caller가 명시적 처리 가능.
+
+### Added
+- **`/baton:migrate` 명령** — v1.2.2 이하 워크트리를 v1.2.4 sidecar 패턴으로 비파괴 마이그레이션
+  - `--dry-run` 모드
+  - 특정 워크트리 path 지정 가능
+  - `JOURNAL.md.pre-1.2.4.bak` 자동 백업
+  - `.baton/version.lock` 갱신 (`migrated_from`, `migrated_at` 기록)
+  - 이미 v1.2.4 이상이면 skip
+- `lib/handoff.sh`:
+  - `baton_events_snapshot_for_save` — save 전 사전 회전
+  - `baton_events_processed_finalize` — snapshot → processed/failed 최종 회전
+  - `baton_save_lock_acquire/release` — mkdir 기반 atomic lock
+- `lib/core.sh`:
+  - `baton_cmd_migrate` — 마이그레이션 명령
+  - `baton_cmd_save` — race-free pipeline 재구조 (lock → snapshot → spawn → finalize)
+- `templates/save-prompt.md.template` — snapshot 입력 명시 + 다른 hook 영향 가능성 경고 + Edit retry 정책
+
+### Migration
+- 자동 호환 유지 — 기존 `.baton/handoff/JOURNAL.md` 그대로 사용
+- 신규 워크트리: 별도 작업 불필요
+- 기존 워크트리: `/baton:migrate` 권장 (선택 사항)
+
+---
+
+## [1.2.3] — 2026-05-01 (Sidecar 분리 + 헤드리스 정리 — race 종결)
+
+### Fixed (Critical)
+- **Hook race condition 종결** — 매 `UserPromptSubmit` / `PostToolUse` / `SessionEnd` 마다 hook이 `JOURNAL.md` / `CURRENT.md` / `phase.json` 을 직접 mutate하던 구조를 폐기. Claude Edit tool이 mtime 기반 optimistic concurrency check를 하기 때문에 hook이 같은 파일을 건드리면 "File has been modified since read" 에러로 agent가 멈추던 문제 해결.
+
+### Changed (Breaking 아님 — 동작 호환)
+- **Sidecar 패턴 도입** — Hook은 `.baton/handoff/.events.jsonl` (append-only JSONL)에만 기록.
+  - `user-prompt-submit.sh`: 사용자 발화를 `{type:"intent",ts,text}` 한 줄 append. JOURNAL.md/CURRENT.md 손대지 않음.
+  - `post-tool-use.sh`: Skill/Agent/Task 도구 사용을 `{type:"harness",ts,name,tool}` 한 줄 append. JOURNAL.md/CURRENT.md/phase.json 손대지 않음.
+  - `session-end.sh`: status frontmatter mutation 제거. 미정리 이벤트 카운트만 안내.
+  - `pre-compact.sh`: 안내만 출력 (변경 없음).
+  - `session-start.sh`: read-only.
+- **`/baton:save` 재정의** — frontmatter 한 줄 갱신 + 사용자에게 직접 편집 지시 → 헤드리스 에이전트(claude `--bare` / codex `exec --ephemeral` / gemini `-p --yolo` / opencode `run --pure`) spawn 후 sidecar를 JOURNAL/CURRENT/NEXT로 일괄 정리. spawn된 에이전트는 자기만의 read→edit 사이클이라 race 없음.
+- **`/baton:finish` save 자동 호출** — finish가 워크트리 종료의 가장 적합한 정리 지점. sidecar에 미처리 이벤트 있으면 `baton_cmd_save` 자동 호출.
+- **`/baton:wt-clean` save 자동 호출** — finish 안 거친 워크트리 대비 archive 직전 save 호출. `--skip-save` 또는 `BATON_WT_CLEAN_SKIP_SAVE=1` 로 회피 가능.
+
+### Added
+- `templates/save-prompt.md.template` — 헤드리스 에이전트에게 전달할 정리 instruction. tool_use 잡음 컷·intent/harness 보존·LLM 추측 금지 강제.
+- `lib/handoff.sh`:
+  - `baton_events_append <handoff_dir> <type> <payload>` — sidecar 한 줄 append (intent/harness 자동 직렬화)
+  - `baton_events_rotate <handoff_dir>` — 처리 완료 sidecar `.events.processed-{ts}.jsonl` 회전
+  - `baton_events_count <handoff_dir>` — 미처리 이벤트 수 카운트
+- `lib/core.sh`:
+  - `baton_save_detect_agent` — 환경 자동 감지 (Claude Code → claude, Codex/OMX → codex, fallback opencode/gemini)
+  - `baton_save_spawn_agent` — 헤드리스 spawn (각 에이전트별 hook-skip 옵션 적용)
+  - `baton_save_fallback_dump` — spawn 실패 시 jq raw dump (LLM 없이 데이터 보존)
+- **`BATON_SKIP_HOOKS=1` 가드** — 모든 hook 스크립트 첫 줄에 추가. 헤드리스 spawn 시 baton hook이 자기 자신을 호출하는 무한 루프 방지.
+- **`BATON_SAVE_AGENT` 환경변수** — `claude|codex|gemini|opencode` 중 강제 지정 가능. 미지정 시 자동 감지.
+
+### Why
+- Hook이 매 prompt/tool마다 파일을 재작성하면 mtime이 갱신됨 → Claude의 Edit tool이 stale-read로 거부 → agent 멈춤 → 사용자가 재시도해도 다음 hook이 또 mtime 갱신 → 무한 실패.
+- Anthropic 공식 권장: "hooks가 Claude가 읽고 편집할 파일을 직접 수정하지 말 것." 이번 버전에서 이 패턴을 따름.
+- Sidecar 분리 + LLM spawn 정리는 자동 컨텍스트 압축 효과까지 부수적으로 제공 (turns가 누적되어도 JOURNAL은 정돈된 상태로 유지).
+
+### Migration
+- 자동 호환 — 기존 `.baton/handoff/JOURNAL.md` / `CURRENT.md` 그대로 사용. 새 sidecar는 `.baton/handoff/.events.jsonl` 으로 추가됨.
+- 1.2.2 이전에서 누적된 JOURNAL.md는 그대로 유지. 새 Turn이 1.2.3부터 sidecar→spawn으로 정리됨.
+
+---
+
 ## [1.2.2] — 2026-04-30 (Codex/OMX runtime-aware baton)
 
 ### Improved

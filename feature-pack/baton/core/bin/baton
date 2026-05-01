@@ -23,6 +23,7 @@ case "$cmd" in
   help|-h|--help) baton_cmd_help ;;
   doctor)       baton_cmd_doctor ;;
   hotfix-mode)  baton_cmd_hotfix_mode "$@" ;;
+  migrate)      baton_cmd_migrate "$@" ;;
   install)
     bash "$BATON_HOME/../../install.sh" "$@" 2>/dev/null \
       || bash "$(dirname "$0")/../../../install.sh" "$@" \
