@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# baton session-end hook
+# baton session-end hook (v1.2.3+)
+# 안내 출력만. CURRENT.md frontmatter mutation은 제거됨 (race 방지).
+# status 전환은 /baton:save 또는 /baton:finish 가 담당.
+
 set -euo pipefail
+
+[[ -n "${BATON_SKIP_HOOKS:-}" ]] && exit 0
+
 BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
-[[ -d "$BATON_HOME" ]] || exit 0  # baton 미설치 시 silent skip
+[[ -d "$BATON_HOME" ]] || exit 0
 
 # shellcheck source=../../core/lib/core.sh
 . "$BATON_HOME/lib/core.sh"
 
-# ---------------------------------------------------------------------------
-# 탐색 헬퍼
-# ---------------------------------------------------------------------------
 _find_current_md() {
   local dir="$PWD"
   while [[ "$dir" != "/" ]]; do
@@ -30,42 +33,25 @@ _read_frontmatter_field() {
     | sed "s/^${field}:[[:space:]]*//"
 }
 
-_update_frontmatter_field() {
-  local file="$1" field="$2" value="$3"
-  if grep -q "^${field}:" "$file"; then
-    local tmp
-    tmp="$(mktemp)"
-    sed "s|^${field}:.*|${field}: ${value}|" "$file" > "$tmp"
-    mv "$tmp" "$file"
-  fi
-}
-
-# ---------------------------------------------------------------------------
-# main
-# ---------------------------------------------------------------------------
 current_md=""
 current_md="$(_find_current_md 2>/dev/null)" || exit 0
 
 status="$(_read_frontmatter_field "$current_md" "status")"
 phase_id="$(_read_frontmatter_field "$current_md" "phase_id")"
 
-# active 페이즈가 있을 때만 처리
 [[ "$status" != "active" ]] && exit 0
 
-# status → paused 자동 전환
-iso_ts="$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')"
+# events.jsonl 통계 안내 — 사용자가 /baton:save 호출 권장 시점 인지
+handoff_dir="$(dirname "$current_md")"
+events_file="$handoff_dir/.events.jsonl"
+event_count=0
+[[ -f "$events_file" ]] && event_count=$(wc -l < "$events_file" 2>/dev/null | tr -d ' ' || echo 0)
 
-if command -v baton_set_current_status &>/dev/null; then
-  baton_set_current_status "paused" "$current_md"
-else
-  _update_frontmatter_field "$current_md" "status" "paused"
+echo "[baton SessionEnd] 세션 종료. Phase: ${phase_id:-?}"
+if [[ "${event_count:-0}" -gt 0 ]]; then
+  echo "  ⚠️  미정리 이벤트 ${event_count}개 (sidecar). 다음 세션에서 /baton:save 권장."
 fi
-_update_frontmatter_field "$current_md" "last_updated" "$iso_ts"
-
-# 사용자 안내 출력
-echo "[baton SessionEnd] 세션이 종료됩니다."
-echo "  Phase: ${phase_id:-?} → paused 로 저장됨"
-echo "  다음 세션 시작 시 .baton/handoff/NEXT.md 를 먼저 확인하세요."
-echo "  이어서 작업하려면: \"이어서\" / \"continue\" / \"go\""
+echo "  다음 세션 시작 시 .baton/handoff/NEXT.md 를 먼저 확인."
+echo "  이어서 작업: \"이어서\" / \"continue\" / \"go\""
 
 exit 0

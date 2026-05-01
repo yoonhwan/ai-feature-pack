@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# baton session-start hook
+# baton session-start hook (v1.2.3+)
+# read-only 알림 + 환경 검증. mutation 없음.
 set -euo pipefail
+[[ -n "${BATON_SKIP_HOOKS:-}" ]] && exit 0
 BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 [[ -d "$BATON_HOME" ]] || exit 0  # baton 미설치 시 silent skip
 

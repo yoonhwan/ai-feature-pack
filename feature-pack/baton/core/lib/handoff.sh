@@ -1,13 +1,168 @@
 #!/usr/bin/env bash
 # baton lib/handoff.sh — 4-template 핸드오프 (PLAN/JOURNAL/CURRENT/NEXT)
-
-set -euo pipefail
+#
+# NOTE: lib는 source 대상이라 'set -euo pipefail' 제거 (호출 쉘 전파 부작용 방지).
+# 호출 스크립트가 자체 set 결정.
 
 BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 
 baton_iso_now() { date +"%Y-%m-%dT%H:%M:%S%z"; }
 baton_human_now() { date +"%Y-%m-%d %H:%M"; }
 baton_session_id() { date +"%Y-%m-%d_%H%M"; }
+
+# v1.2.3+ — sidecar 이벤트 append (race-free)
+# Hook이 JOURNAL.md/CURRENT.md를 직접 mutate하던 로직을 대체.
+# /baton:save 호출 시 헤드리스 에이전트가 이 sidecar를 읽어 JOURNAL/CURRENT/NEXT 정리.
+baton_events_append() {
+  local handoff_dir=$1 type=$2 payload=$3
+  [[ -d "$handoff_dir" ]] || return 1
+  local events_file="$handoff_dir/.events.jsonl"
+  local ts
+  ts=$(baton_iso_now)
+  if command -v jq &>/dev/null; then
+    case "$type" in
+      intent)
+        jq -nc --arg t "$ts" --arg x "$payload" '{type:"intent", ts:$t, text:$x}' \
+          >> "$events_file" 2>/dev/null || return 1
+        ;;
+      harness)
+        jq -nc --arg t "$ts" --arg n "$payload" '{type:"harness", ts:$t, name:$n}' \
+          >> "$events_file" 2>/dev/null || return 1
+        ;;
+      *)
+        jq -nc --arg t "$ts" --arg ty "$type" --arg p "$payload" \
+          '{type:$ty, ts:$t, payload:$p}' >> "$events_file" 2>/dev/null || return 1
+        ;;
+    esac
+  else
+    return 1
+  fi
+}
+
+baton_events_rotate() {
+  # v1.2.4+ — unique suffix (초당 다중 호출 충돌 방지)
+  # 인자 2: bucket (default "processed", fallback 시 "failed")
+  # NOTE: zsh에서 'status'는 read-only special var — 'bucket'으로 명명
+  local handoff_dir=$1
+  local bucket="${2:-processed}"
+  local events_file="$handoff_dir/.events.jsonl"
+  [[ -s "$events_file" ]] || return 0
+  local ts pid rnd target
+  ts=$(date +"%Y%m%d_%H%M%S")
+  pid=$$
+  if command -v gdate >/dev/null 2>&1; then
+    rnd=$(gdate +"%6N")
+  else
+    rnd=$(printf "%06d" $(( RANDOM * 32768 + RANDOM )))
+  fi
+  target="$handoff_dir/.events.${bucket}-${ts}_${pid}_${rnd}.jsonl"
+  while [[ -e "$target" ]]; do
+    rnd=$(printf "%06d" $(( RANDOM * 32768 + RANDOM )))
+    target="$handoff_dir/.events.${bucket}-${ts}_${pid}_${rnd}.jsonl"
+  done
+  # 같은 디렉토리 내 mv = rename(2) syscall = atomic on POSIX.
+  # truncate 단계 제거: 동시 append 라인 손실 방지.
+  if mv "$events_file" "$target" 2>/dev/null; then
+    echo "$target"
+    return 0
+  fi
+  echo "[baton] ❌ events rotate 실패: $events_file → $target" >&2
+  return 1
+}
+
+# v1.2.4+ — save snapshot rotate (LLM에 입력 전 사전 회전)
+# spawn 진행 중 새 hook event가 append되어도 snapshot에 포함 안 됨 → race-free
+baton_events_snapshot_for_save() {
+  local handoff_dir=$1
+  local events_file="$handoff_dir/.events.jsonl"
+  [[ -s "$events_file" ]] || return 0
+  local ts pid rnd target
+  ts=$(date +"%Y%m%d_%H%M%S")
+  pid=$$
+  if command -v gdate >/dev/null 2>&1; then
+    rnd=$(gdate +"%6N")
+  else
+    rnd=$(printf "%06d" $(( RANDOM * 32768 + RANDOM )))
+  fi
+  target="$handoff_dir/.events.snapshot-${ts}_${pid}_${rnd}.jsonl"
+  while [[ -e "$target" ]]; do
+    rnd=$(printf "%06d" $(( RANDOM * 32768 + RANDOM )))
+    target="$handoff_dir/.events.snapshot-${ts}_${pid}_${rnd}.jsonl"
+  done
+  if mv "$events_file" "$target" 2>/dev/null; then
+    echo "$target"
+    return 0
+  fi
+  echo "[baton] ❌ snapshot rotate 실패" >&2
+  return 1
+}
+
+baton_events_count() {
+  local handoff_dir=$1
+  local events_file="$handoff_dir/.events.jsonl"
+  [[ -f "$events_file" ]] || { echo 0; return; }
+  wc -l < "$events_file" 2>/dev/null | tr -d ' '
+}
+
+# v1.2.4+ — snapshot → processed/failed 최종 회전
+# 인자: handoff_dir, snapshot_path, bucket(processed|failed)
+baton_events_processed_finalize() {
+  local handoff_dir=$1 snapshot=$2 bucket=$3
+  [[ -f "$snapshot" ]] || return 1
+  local base="$(basename "$snapshot")"
+  # snapshot suffix 추출 — .events.snapshot-{rest}
+  local rest="${base#.events.snapshot-}"
+  local target="$handoff_dir/.events.${bucket}-${rest}"
+  while [[ -e "$target" ]]; do
+    local rnd
+    rnd=$(printf "%06d" $(( RANDOM * 32768 + RANDOM )))
+    target="$handoff_dir/.events.${bucket}-${rest}.dup-${rnd}"
+  done
+  if mv "$snapshot" "$target" 2>/dev/null; then
+    echo "$target"
+    return 0
+  fi
+  echo "[baton] ❌ finalize 실패: $snapshot → $target" >&2
+  return 1
+}
+
+# v1.2.4+ — save 동시 호출 lock (mkdir atomic)
+# 사용: baton_save_lock_acquire <handoff_dir> || return
+#       trap "baton_save_lock_release <handoff_dir>" EXIT
+baton_save_lock_acquire() {
+  local handoff_dir=$1
+  local lock_dir="$handoff_dir/.save.lock"
+  local timeout="${BATON_SAVE_LOCK_TIMEOUT:-30}"
+  local elapsed=0
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    if [[ "$elapsed" -ge "$timeout" ]]; then
+      # stale lock 감지 (10분 이상 → 무조건 강탈)
+      local lock_age=0
+      if [[ -d "$lock_dir" ]]; then
+        local lock_mtime
+        lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || echo 0)
+        lock_age=$(( $(date +%s) - lock_mtime ))
+      fi
+      if [[ "$lock_age" -gt 600 ]]; then
+        echo "[baton] ⚠️  stale lock 감지(${lock_age}s) — 강제 해제" >&2
+        rm -rf "$lock_dir"
+        continue
+      fi
+      echo "[baton] ❌ save lock 획득 실패 (다른 save 진행 중) — ${timeout}s 초과" >&2
+      return 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  echo "$$" > "$lock_dir/pid" 2>/dev/null || true
+  return 0
+}
+
+baton_save_lock_release() {
+  local handoff_dir=$1
+  local lock_dir="$handoff_dir/.save.lock"
+  rm -rf "$lock_dir" 2>/dev/null || true
+}
 
 # 4-template 일괄 초기화
 baton_init_handoff() {
