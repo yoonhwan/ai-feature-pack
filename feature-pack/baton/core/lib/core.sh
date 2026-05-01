@@ -265,22 +265,234 @@ EOF
   fi
 }
 
-# === /baton:save ===
+# === /baton:save (v1.2.4+ — race-free snapshot pipeline) ===
+# 흐름:
+#   1. lock 획득 (동시 save 차단)
+#   2. .events.jsonl → .events.snapshot-*.jsonl 선 rotate (atomic)
+#   3. spawn 중 새 hook event는 새 .events.jsonl에 적재됨 (다음 save가 처리)
+#   4. spawn에 snapshot 경로 전달 → JOURNAL/CURRENT/NEXT 정리
+#   5. 성공 → snapshot → .processed-*. 실패 → snapshot → .failed-* (raw 보존)
+#   6. lock 해제
 baton_cmd_save() {
+  local skip_spawn=false
+  for a in "$@"; do
+    [[ "$a" == "--skip-spawn" ]] && skip_spawn=true
+  done
+
   baton_guard_main_root save || return 1
   local root
   root=$(baton_active_root)
-  local current="$root/.baton/handoff/CURRENT.md"
-  [[ -f "$current" ]] || { echo "❌ CURRENT.md 없음. /baton:wt-create 또는 /baton:plan 먼저"; return 1; }
+  local handoff_dir="$root/.baton/handoff"
+  local current="$handoff_dir/CURRENT.md"
+  local events_file="$handoff_dir/.events.jsonl"
+
+  [[ -f "$current" ]] || {
+    echo "❌ CURRENT.md 없음. /baton:wt-create 또는 /baton:plan 먼저"
+    return 1
+  }
+
+  # status → paused (frontmatter만 — 워크트리 lock 안전)
   baton_current_set_status paused "$current"
   echo "✓ status → paused, last_updated 갱신"
-  echo
-  echo "에이전트는 다음을 갱신해야 합니다:"
-  echo "  - JOURNAL.md 의 마지막 turn ACTIONS/TODO 채우기"
-  echo "  - CURRENT.md 의 ⚠️ 블로커 / 📌 핵심 결정 / 🔗 핵심 파일 갱신"
-  echo "  - NEXT.md 1페이지 갱신 (다음 세션 첫 컨텍스트)"
+
+  # sidecar 이벤트 없으면 종료
+  if [[ ! -s "$events_file" ]]; then
+    echo "✓ 미처리 이벤트 없음 — 메타데이터만 갱신"
+    baton_tmux_attach_hint
+    return 0
+  fi
+
+  local event_count
+  event_count=$(wc -l < "$events_file" 2>/dev/null | tr -d ' ' || echo 0)
+  echo "  미처리 이벤트: ${event_count}개 (.events.jsonl)"
+
+  if $skip_spawn; then
+    echo "  --skip-spawn 지정됨 — 헤드리스 정리 skip (events 보존)"
+    baton_tmux_attach_hint
+    return 0
+  fi
+
+  # ── (1) save lock 획득 — 동시 save 방지 ──
+  if ! baton_save_lock_acquire "$handoff_dir"; then
+    echo "  ⚠️  save 동시 실행 방지: 다른 save 완료 대기 후 재시도하세요."
+    return 2
+  fi
+  # 단순 trap (spawn 중 SIGINT시 lock 해제 보장)
+  trap "baton_save_lock_release '$handoff_dir'; trap - INT TERM EXIT" INT TERM EXIT
+
+  # ── (2) 선 rotate snapshot — race 원천 차단 ──
+  local snapshot
+  snapshot=$(baton_events_snapshot_for_save "$handoff_dir")
+  if [[ -z "$snapshot" || ! -s "$snapshot" ]]; then
+    echo "  ⚠️  snapshot 생성 실패 — abort"
+    baton_save_lock_release "$handoff_dir"; trap - INT TERM EXIT
+    return 1
+  fi
+  echo "  📸 snapshot: $(basename "$snapshot") (${event_count} events)"
+
+  # ── (3-4) spawn ──
+  local spawn_rc=0
+  if baton_save_spawn_agent "$root" "$snapshot"; then
+    # ── (5a) 성공: snapshot → processed ──
+    local processed
+    processed=$(baton_events_processed_finalize "$handoff_dir" "$snapshot" "processed")
+    if [[ -n "$processed" ]]; then
+      echo "✓ 컨텍스트 정리 완료 → $(basename "$processed")"
+    else
+      echo "✓ 컨텍스트 정리 완료 (processed 회전 경고)"
+    fi
+  else
+    # ── (5b) 실패: fallback dump 시도 → snapshot → failed (raw 보존) ──
+    spawn_rc=1
+    if baton_save_fallback_dump "$root" "$snapshot"; then
+      local processed
+      processed=$(baton_events_processed_finalize "$handoff_dir" "$snapshot" "processed")
+      [[ -n "$processed" ]] && echo "  ✓ fallback 성공 → $(basename "$processed")"
+    else
+      local failed
+      failed=$(baton_events_processed_finalize "$handoff_dir" "$snapshot" "failed")
+      [[ -n "$failed" ]] && echo "  ⚠️  fallback 실패 — events 보존: $(basename "$failed")"
+    fi
+  fi
+
+  # ── (6) lock 해제 ──
+  baton_save_lock_release "$handoff_dir"
+  trap - INT TERM EXIT
+
   echo
   baton_tmux_attach_hint
+  return 0
+}
+
+# baton_events_processed_finalize는 lib/handoff.sh로 이동됨 (1.2.4)
+
+# 헤드리스 에이전트 자동 감지 (BATON_SAVE_AGENT 환경변수 우선)
+baton_save_detect_agent() {
+  if [[ -n "${BATON_SAVE_AGENT:-}" ]]; then
+    echo "$BATON_SAVE_AGENT"
+    return
+  fi
+  # 현 환경 우선 — Claude Code 안이면 claude, OMX/Codex면 codex
+  if [[ -n "${CLAUDECODE:-}" ]] && command -v claude >/dev/null 2>&1; then
+    echo claude
+  elif [[ -n "${CODEX_THREAD_ID:-}${OMX_SESSION_ID:-}" ]] && command -v codex >/dev/null 2>&1; then
+    echo codex
+  elif command -v codex >/dev/null 2>&1; then
+    echo codex
+  elif command -v claude >/dev/null 2>&1; then
+    echo claude
+  elif command -v opencode >/dev/null 2>&1; then
+    echo opencode
+  elif command -v gemini >/dev/null 2>&1; then
+    echo gemini
+  else
+    echo none
+  fi
+}
+
+# 헤드리스 spawn — return 0 성공, 1 실패
+# 인자: root, snapshot_path
+baton_save_spawn_agent() {
+  local root=$1
+  local snapshot="${2:-}"
+  local agent
+  agent=$(baton_save_detect_agent)
+  [[ "$agent" == "none" ]] && {
+    echo "  ⚠️  헤드리스 에이전트 미발견 (claude/codex/gemini/opencode)"
+    return 1
+  }
+
+  local prompt_template="$BATON_HOME/templates/save-prompt.md.template"
+  [[ -f "$prompt_template" ]] || {
+    echo "  ⚠️  save-prompt.md.template 없음 — fallback"
+    return 1
+  }
+
+  local handoff_dir="$root/.baton/handoff"
+  local prompt
+  # snapshot이 있으면 snapshot 경로를 input으로, 없으면 .events.jsonl (legacy 호환)
+  local input_path="${snapshot:-$handoff_dir/.events.jsonl}"
+  prompt=$(sed \
+    -e "s|{{HANDOFF_DIR}}|$handoff_dir|g" \
+    -e "s|{{SNAPSHOT_FILE}}|$input_path|g" \
+    "$prompt_template")
+
+  echo "  🤖 ${agent} 헤드리스 정리 시작..."
+  local log_file="$handoff_dir/.save.log"
+  local rc=0
+
+  case "$agent" in
+    claude)
+      # --bare 제거: OAuth/keychain 인증 거부함 → 일반 사용자 로그인 안 먹음
+      # baton hook은 BATON_SKIP_HOOKS=1로 차단. 다른 hook은 race 무관 (자기 read→edit)
+      # </dev/null: prompt를 인자로 주는데 stdin 대기로 멈추는 현상 방지
+      BATON_SKIP_HOOKS=1 claude -p "$prompt" \
+        --dangerously-skip-permissions \
+        --output-format text \
+        </dev/null \
+        2>>"$log_file" >>"$log_file" || rc=$?
+      ;;
+    codex)
+      BATON_SKIP_HOOKS=1 codex exec \
+        --skip-git-repo-check \
+        --dangerously-bypass-approvals-and-sandbox \
+        -C "$root" \
+        --ephemeral \
+        "$prompt" </dev/null 2>>"$log_file" >>"$log_file" || rc=$?
+      ;;
+    gemini)
+      BATON_SKIP_HOOKS=1 gemini -p "$prompt" --yolo \
+        </dev/null 2>>"$log_file" >>"$log_file" || rc=$?
+      ;;
+    opencode)
+      BATON_SKIP_HOOKS=1 opencode run --pure "$prompt" \
+        </dev/null 2>>"$log_file" >>"$log_file" || rc=$?
+      ;;
+    *)
+      echo "  ⚠️  알 수 없는 에이전트: $agent"
+      return 1
+      ;;
+  esac
+
+  if [[ "$rc" -ne 0 ]]; then
+    echo "  ⚠️  ${agent} spawn 실패 (rc=$rc) — 로그: $log_file"
+    return 1
+  fi
+  echo "  ✓ ${agent} 정리 완료"
+  return 0
+}
+
+# LLM spawn 실패 시 jq로 raw dump
+# 인자: root, events_file (default: snapshot path 또는 .events.jsonl)
+# return: 0 성공, 1 실패 (caller가 .failed-* 회전 결정)
+baton_save_fallback_dump() {
+  local root=$1
+  local events="${2:-$root/.baton/handoff/.events.jsonl}"
+  local handoff_dir="$root/.baton/handoff"
+  local journal="$handoff_dir/JOURNAL.md"
+  [[ -f "$events" ]] || { echo "  ⚠️  fallback: events 파일 없음 ($events)"; return 1; }
+  [[ -f "$journal" ]] || { echo "  ⚠️  fallback: JOURNAL.md 없음"; return 1; }
+  command -v jq >/dev/null 2>&1 || { echo "  ⚠️  fallback: jq 미설치"; return 1; }
+
+  echo "  ⚙️  fallback: jq raw dump"
+  local ts
+  ts=$(baton_human_now)
+  # atomic write: tmp에 쓴 후 mv
+  local tmp_journal
+  tmp_journal=$(mktemp "${TMPDIR:-/tmp}/baton-journal.XXXXXX") || return 1
+  cp "$journal" "$tmp_journal" || { rm -f "$tmp_journal"; return 1; }
+  {
+    echo
+    echo "## ${ts} — Fallback dump (LLM spawn 실패, raw events)"
+    echo "- **INTENT** (사용자 발화 ≤10):"
+    jq -r 'select(.type=="intent") | "  - " + (.text // "?")' < "$events" 2>/dev/null | head -10
+    echo "- **HARNESS** (외부 하네스 ≤10):"
+    jq -r 'select(.type=="harness") | "  - " + (.name // "?")' < "$events" 2>/dev/null | sort -u | head -10
+    echo "- **ACTIONS**: -"
+    echo "- **TODO**: 다음 세션에서 /baton:save 재시도 권장"
+  } >> "$tmp_journal" || { rm -f "$tmp_journal"; return 1; }
+  mv "$tmp_journal" "$journal" 2>/dev/null || { rm -f "$tmp_journal"; return 1; }
+  return 0
 }
 
 # === /baton:resume ===
@@ -340,11 +552,16 @@ baton_cmd_status() {
 
 # === /baton:wt-clean ===
 baton_cmd_wt_clean() {
-  local target="${1:-}"
+  local target=""
   local merged_only=false
-  if [[ "$target" == "--merged" ]]; then
-    merged_only=true; target=""
-  fi
+  # --skip-save 옵션 처리 (finish가 이미 save 한 경우)
+  for a in "$@"; do
+    case "$a" in
+      --merged)    merged_only=true ;;
+      --skip-save) export BATON_WT_CLEAN_SKIP_SAVE=1 ;;
+      *) [[ -z "$target" ]] && target="$a" ;;
+    esac
+  done
   local root
   root=$(baton_project_root)
   if $merged_only; then
@@ -399,6 +616,19 @@ baton_wt_clean_one() {
   case "$PWD" in
     "$wt_path"|"$wt_path"/*) cd "$root" ;;
   esac
+
+  # archive 직전 fallback save (finish 안 거친 워크트리 대비)
+  # 이미 finish가 save를 호출했다면 events.jsonl이 비어 있어 immediate skip.
+  if [[ "${BATON_WT_CLEAN_SKIP_SAVE:-0}" != "1" && -d "$wt_path/.baton/handoff" ]]; then
+    local _ev_count
+    _ev_count=$(baton_events_count "$wt_path/.baton/handoff")
+    if [[ "${_ev_count:-0}" -gt 0 ]]; then
+      echo "📝 archive 전 sidecar 정리 (${_ev_count} events)..."
+      ( cd "$wt_path" && baton_cmd_save ) || echo "  ⚠️  save 실패 — 그대로 archive"
+      echo
+    fi
+  fi
+
   local branch
   branch=$(git -C "$wt_path" branch --show-current 2>/dev/null || echo "unknown")
   echo "─────────────────────────────────────────"
@@ -428,10 +658,31 @@ baton_wt_clean_one() {
 
 # === /baton:finish ===
 baton_cmd_finish() {
+  # --skip-save: 정리 spawn 건너뛰기 (드물게 사용)
+  local skip_save=false
+  for a in "$@"; do
+    [[ "$a" == "--skip-save" ]] && skip_save=true
+  done
+
   baton_guard_main_root finish || return 1
   local root
   root=$(baton_active_root)
   local current="$root/.baton/handoff/CURRENT.md"
+  local handoff_dir="$root/.baton/handoff"
+
+  # save를 먼저 호출 — sidecar 정리 (race 안전, /baton:finish 가 적합한 시점)
+  if ! $skip_save && [[ -d "$handoff_dir" ]]; then
+    local event_count
+    event_count=$(baton_events_count "$handoff_dir")
+    if [[ "${event_count:-0}" -gt 0 ]]; then
+      echo "─────────────────────────────────────────"
+      echo "📦 finish 직전 컨텍스트 정리 (${event_count} events)"
+      echo "─────────────────────────────────────────"
+      baton_cmd_save || true
+      echo
+    fi
+  fi
+
   [[ -f "$current" ]] && baton_current_set_status done "$current"
   echo "✓ status → done"
   echo
@@ -441,6 +692,171 @@ baton_cmd_finish() {
   echo "  3. /baton:wt-clean  # archive 자동 보관"
   echo
   baton_tmux_attach_hint
+}
+
+# === /baton:migrate (v1.2.4+) ===
+# 기존 워크트리(v1.2.2 이하)의 .baton/handoff를 v1.2.4 sidecar 패턴으로 마이그레이션.
+# 비파괴: 기존 JOURNAL/CURRENT/NEXT 보존, .events.jsonl 빈 파일만 보장, version.lock 갱신.
+baton_cmd_migrate() {
+  local dry_run=false
+  local target=""
+  for a in "$@"; do
+    case "$a" in
+      --dry-run) dry_run=true ;;
+      *) [[ -z "$target" ]] && target="$a" ;;
+    esac
+  done
+
+  local root
+  root=$(baton_project_root)
+
+  echo "─────────────────────────────────────────"
+  echo "🔄 baton migrate — v1.2.4 sidecar 패턴 적용"
+  echo "─────────────────────────────────────────"
+  $dry_run && echo "  (dry-run 모드 — 실제 변경 없음)"
+  echo
+
+  local current_version
+  current_version="$(cat "$BATON_HOME/VERSION" 2>/dev/null || echo "unknown")"
+  echo "  Current baton: $current_version"
+  echo "  Project root:  $root"
+  echo
+
+  # 마이그레이션 대상 워크트리 목록
+  local -a worktrees=()
+  if [[ -n "$target" ]]; then
+    worktrees+=("$target")
+  else
+    if [[ -d "$root/.worktrees" ]]; then
+      while IFS= read -r wt; do
+        [[ -d "$wt/.baton/handoff" ]] && worktrees+=("$wt")
+      done < <(find "$root/.worktrees" -maxdepth 1 -mindepth 1 -type d 2>/dev/null)
+    fi
+  fi
+
+  if [[ ${#worktrees[@]} -eq 0 ]]; then
+    echo "  (마이그레이션 대상 워크트리 없음)"
+    return 0
+  fi
+
+  echo "  대상: ${#worktrees[@]} 워크트리"
+  echo
+
+  local migrated=0 skipped=0 already_ok=0
+
+  for wt in "${worktrees[@]}"; do
+    local handoff="$wt/.baton/handoff"
+    local lock_file="$wt/.baton/version.lock"
+    local wt_name
+    wt_name=$(basename "$wt")
+    [[ -d "$handoff" ]] || { skipped=$((skipped+1)); continue; }
+
+    echo "  ── $wt_name ──"
+
+    # ── 이미 v1.2.4 이상? (JSON/plain 둘 다 인식) ──
+    local lock_ver=""
+    if [[ -f "$lock_file" ]]; then
+      if command -v jq >/dev/null 2>&1; then
+        lock_ver=$(jq -r '.baton_version // empty' "$lock_file" 2>/dev/null || echo "")
+      fi
+      if [[ -z "$lock_ver" ]]; then
+        lock_ver=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' "$lock_file" 2>/dev/null | head -1 || echo "")
+      fi
+    fi
+    if [[ -n "$lock_ver" ]] && [[ "$lock_ver" == "$current_version" ]]; then
+      echo "    ✓ 이미 $lock_ver (skip)"
+      already_ok=$((already_ok+1))
+      continue
+    fi
+
+    # ── 작업 1: .events.jsonl 보장 ──
+    if [[ ! -f "$handoff/.events.jsonl" ]]; then
+      if $dry_run; then
+        echo "    + .events.jsonl 생성 (dry-run)"
+      else
+        touch "$handoff/.events.jsonl" 2>/dev/null || true
+        echo "    + .events.jsonl 생성"
+      fi
+    fi
+
+    # ── 작업 2: JOURNAL.md 백업 ──
+    if [[ -f "$handoff/JOURNAL.md" && ! -f "$handoff/JOURNAL.md.pre-1.2.4.bak" ]]; then
+      if $dry_run; then
+        echo "    + JOURNAL.md.pre-1.2.4.bak 백업 (dry-run)"
+      else
+        cp "$handoff/JOURNAL.md" "$handoff/JOURNAL.md.pre-1.2.4.bak" 2>/dev/null || true
+        echo "    + JOURNAL.md.pre-1.2.4.bak 백업"
+      fi
+    fi
+
+    # ── 작업 3: version.lock 갱신 (JSON 우선, plain text fallback) ──
+    if [[ -n "$current_version" ]]; then
+      if $dry_run; then
+        echo "    + version.lock → $current_version (dry-run, ${lock_ver:-?} → $current_version)"
+      else
+        local _migrated_at
+        _migrated_at=$(baton_iso_now)
+        local _from="${lock_ver:-pre-1.2.4}"
+
+        if [[ -f "$lock_file" ]]; then
+          # JSON 형식 감지 (첫 글자 '{')
+          local first_char
+          first_char=$(head -c 1 "$lock_file" 2>/dev/null || echo "")
+          if [[ "$first_char" == "{" ]] && command -v jq >/dev/null 2>&1; then
+            local tmp
+            tmp=$(mktemp)
+            if jq --arg v "$current_version" --arg from "$_from" --arg at "$_migrated_at" \
+                '.baton_version = $v | .migrated_from = $from | .migrated_at = $at' \
+                "$lock_file" > "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+              mv "$tmp" "$lock_file"
+              echo "    + version.lock(JSON) → $current_version"
+            else
+              rm -f "$tmp"
+              echo "    ⚠️  version.lock JSON 변환 실패 — skip"
+            fi
+          else
+            # plain text 갱신 또는 append
+            if grep -q "baton_version" "$lock_file" 2>/dev/null; then
+              local tmp
+              tmp=$(mktemp)
+              sed "s|baton_version[: =].*|baton_version: $current_version|" "$lock_file" > "$tmp" 2>/dev/null \
+                && mv "$tmp" "$lock_file" \
+                && echo "    + version.lock(plain) → $current_version" \
+                || { rm -f "$tmp"; echo "    ⚠️  version.lock plain 변환 실패"; }
+            else
+              echo "baton_version: $current_version" >> "$lock_file"
+              echo "    + version.lock(append) → $current_version"
+            fi
+          fi
+        else
+          # version.lock 없으면 신규 plain
+          cat > "$lock_file" <<EOF
+baton_version: $current_version
+phase_id: $wt_name
+migrated_from: $_from
+migrated_at: $_migrated_at
+EOF
+          echo "    + version.lock(new) → $current_version"
+        fi
+      fi
+    fi
+
+    migrated=$((migrated+1))
+  done
+
+  echo
+  echo "─────────────────────────────────────────"
+  echo "  마이그레이션 결과"
+  echo "─────────────────────────────────────────"
+  echo "  ✓ migrated:  $migrated"
+  echo "  - already:   $already_ok"
+  echo "  ⚠ skipped:   $skipped"
+  echo
+  if [[ "$migrated" -gt 0 ]] && ! $dry_run; then
+    echo "✓ 마이그레이션 완료. 다음 hook 발화부터 sidecar 패턴 적용."
+    echo "  기존 JOURNAL.md 누적 turn은 보존됨."
+    echo "  롤백 필요 시: JOURNAL.md.pre-1.2.4.bak 복원 + ~/.baton/current 심링크 변경"
+  fi
 }
 
 # === /baton:hotfix-mode ===
