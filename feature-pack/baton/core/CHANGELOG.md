@@ -2,6 +2,40 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.5] — 2026-05-22 (RESUME_MSG.md 자동 생성 + /baton:resume 4분류 가드)
+
+### Added — 매 세션 종료 시 카피용 시작 메시지 자동 생성
+- **CURRENT.md frontmatter `last_commit` 필드 신규** — resume 가드 mismatch 비교용. `baton_init_handoff` 가 워크트리 생성 시 채우고, `baton_cmd_save` 마지막에 자동 갱신.
+- **`.baton/handoff/RESUME_MSG.md` 자동 생성 (≤500B hard cap)** — 다음 세션 첫 입력으로 그대로 복붙할 카피용 메시지. `baton_resume_msg_build` (bash-only) + `baton_resume_msg_footer_append` (LLM 본문 후 footer append) + `baton_resume_msg_print` (박스 출력).
+  - **bash-only 경로**: `--skip-spawn` / events=0 / SessionEnd / spawn 실패. 형식 고정 fill-in.
+  - **LLM 경로**: `/baton:save` 정상 spawn에서 LLM이 본문만 작성, bash가 footer(`worktree:`/`branch:`/`commit:`) append.
+  - **사이즈 cap**: 초과 시 INTENT → 오늘 끝내기 → 즉시 이어서 순으로 trim.
+- **save-prompt.md.template Step 7** — RESUME_MSG.md 본문 생성 instruction. 자유 작문 금지, fill-in 템플릿 강제.
+
+### Added — /baton:resume 가드 강화 (4분류)
+- **archive extract hard abort** — `$PWD`가 `/tmp/baton-extracted/*` (macOS는 `/private/tmp/...`)면 즉시 거부. `--force`로도 우회 불가. 데이터 손실 위험 차단.
+- **워크트리/commit mismatch 4분류**:
+  - `match` — 일치 → 그대로 진행
+  - `commit_only` — 해시만 다름 (main 머지 등) → INFO + 1초 wait + 자동 진행
+  - `worktree_only` / `both` — TTY는 `[y/N]` 확인, non-TTY는 `[baton-resume-mismatch] kind=...` 한 줄 stdout + NEXT.md 출력 (LLM이 사용자 확인)
+- **realpath 정규화** — 저장값/현재 양쪽 `pwd -P` + basename 이중 체크. macOS `/tmp` ↔ `/private/tmp` 흡수.
+- **legacy 빈 값 silent 백필** — v1.2.4 이하 워크트리에 `last_commit` 없으면 첫 resume 시 자동 채움.
+- **`--force` flag** — `match` 외 분류 우회 (archive extract 제외).
+
+### Added — SessionEnd 훅 폴리싱
+- status 무관하게 `RESUME_MSG.md` 갱신 (bash-only — Claude는 RESUME_MSG.md를 Read/Edit 안 함, race 안전).
+- events_count ≥ 1 시 `commit:` 라인에 인라인 `(stale, events=N)` 마킹.
+- 출력 메시지에 `RESUME_MSG.md` 위치 안내.
+
+### Migration
+- `/baton:migrate` 가 legacy CURRENT.md에 `last_commit` 자동 백필 추가 (v1.2.4 워크트리 호환).
+- 기존 워크트리는 첫 `/baton:resume` 시 silent 자동 백필. 명시적 `/baton:migrate` 권장.
+
+### Adapters
+- codex / gemini / opencode `INSTRUCTIONS.md` 에 `/baton:resume` 4분류 가드 + `--force` + `[baton-resume-mismatch]` non-TTY 처리 명시 추가.
+
+---
+
 ## [1.2.4] — 2026-05-01 (race-free pipeline 강화 + 마이그레이션)
 
 ### Fixed (codex 리뷰 — HIGH 3)

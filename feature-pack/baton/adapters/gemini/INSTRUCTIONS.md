@@ -154,6 +154,28 @@ ls ~/.gemini/commands/baton/
 
 ---
 
+## /baton:resume 가드 (v1.2.5+)
+
+워크트리/commit mismatch 자동 감지 — 4분류:
+
+| 분류 | 조건 | 동작 |
+|------|------|------|
+| `match` | 워크트리 + commit 일치 | 그대로 NEXT.md 출력 |
+| `commit_only` | 해시만 다름 (main 머지 등) | INFO + 1초 wait + 자동 진행 |
+| `worktree_only` | 다른 워크트리 | TTY는 `[y/N]`, non-TTY는 `[baton-resume-mismatch]` stdout + NEXT.md |
+| `both` | 워크트리 + commit 모두 다름 | 위와 동일 |
+
+**Hard abort**: archive extract 경로(`/tmp/baton-extracted/*`)는 `--force`로도 우회 불가.
+
+```bash
+# mismatch 우회 (archive extract 제외)
+baton resume --force
+```
+
+**non-TTY (gemini -p 비대화형) 경로**: `[baton-resume-mismatch] kind=... saved_worktree=... current_worktree=...` 한 줄을 stdout으로 받으면 그대로 사용자에게 보여주고 진행 여부 확인하세요.
+
+---
+
 ## 트러블슈팅
 
 ### Gemini가 파일 쓰기를 거부

@@ -293,11 +293,17 @@ baton_cmd_save() {
 
   # status → paused (frontmatter만 — 워크트리 lock 안전)
   baton_current_set_status paused "$current"
-  echo "✓ status → paused, last_updated 갱신"
+  # v1.2.5+ — last_commit 갱신 (resume 가드 mismatch 비교용)
+  local _save_last_commit
+  _save_last_commit=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo "—")
+  baton_current_set last_commit "$_save_last_commit" "$current"
+  echo "✓ status → paused, last_updated/last_commit 갱신"
 
-  # sidecar 이벤트 없으면 종료
+  # sidecar 이벤트 없으면 종료 (RESUME_MSG.md만 갱신)
   if [[ ! -s "$events_file" ]]; then
     echo "✓ 미처리 이벤트 없음 — 메타데이터만 갱신"
+    baton_resume_msg_build "$handoff_dir" >/dev/null 2>&1 \
+      && { echo; baton_resume_msg_print "$handoff_dir"; }
     baton_tmux_attach_hint
     return 0
   fi
@@ -308,6 +314,9 @@ baton_cmd_save() {
 
   if $skip_spawn; then
     echo "  --skip-spawn 지정됨 — 헤드리스 정리 skip (events 보존)"
+    # bash-only 경로: RESUME_MSG.md 빌더 호출
+    baton_resume_msg_build "$handoff_dir" >/dev/null 2>&1 \
+      && { echo; baton_resume_msg_print "$handoff_dir"; }
     baton_tmux_attach_hint
     return 0
   fi
@@ -341,6 +350,12 @@ baton_cmd_save() {
     else
       echo "✓ 컨텍스트 정리 완료 (processed 회전 경고)"
     fi
+    # v1.2.5+ — LLM이 본문 작성한 RESUME_MSG.md에 footer append (없으면 bash-only로 fallback)
+    if [[ -f "$handoff_dir/RESUME_MSG.md" ]]; then
+      baton_resume_msg_footer_append "$handoff_dir" || true
+    else
+      baton_resume_msg_build "$handoff_dir" >/dev/null 2>&1 || true
+    fi
   else
     # ── (5b) 실패: fallback dump 시도 → snapshot → failed (raw 보존) ──
     spawn_rc=1
@@ -353,6 +368,8 @@ baton_cmd_save() {
       failed=$(baton_events_processed_finalize "$handoff_dir" "$snapshot" "failed")
       [[ -n "$failed" ]] && echo "  ⚠️  fallback 실패 — events 보존: $(basename "$failed")"
     fi
+    # v1.2.5+ — spawn 실패 경로도 bash-only RESUME_MSG.md 생성
+    baton_resume_msg_build "$handoff_dir" >/dev/null 2>&1 || true
   fi
 
   # ── (6) lock 해제 ──
@@ -360,6 +377,7 @@ baton_cmd_save() {
   trap - INT TERM EXIT
 
   echo
+  baton_resume_msg_print "$handoff_dir" 2>/dev/null || true
   baton_tmux_attach_hint
   return 0
 }
@@ -495,12 +513,151 @@ baton_save_fallback_dump() {
   return 0
 }
 
-# === /baton:resume ===
+# === /baton:resume (v1.2.5+ — 4분류 가드 강화) ===
+# 분류:
+#   match         — 워크트리 + commit 일치 → 기존 동작
+#   commit_only   — 해시만 다름 (main에 새 커밋 머지 등) → INFO + 1s wait + 자동 진행
+#   worktree_only — 다른 워크트리 → TTY [y/N] / non-TTY mismatch info stdout + NEXT.md
+#   both          — 둘 다 다름 → TTY [y/N] / non-TTY mismatch info stdout + NEXT.md
+# Hard abort:
+#   /tmp/baton-extracted/* 경로 (archive extract) — --force로도 우회 불가
 baton_cmd_resume() {
+  local force=false
+  for a in "$@"; do
+    [[ "$a" == "--force" ]] && force=true
+  done
+
+  # ── 1. archive extract 경로 hard abort (force로도 우회 불가) ──
+  # macOS의 /tmp는 /private/tmp 심링크 → pwd -P 가 /private/tmp/... 반환.
+  # /tmp 와 */baton-extracted/* 둘 다 매치.
+  local pwd_real
+  pwd_real=$(cd "$PWD" 2>/dev/null && pwd -P || echo "$PWD")
+  if [[ "$pwd_real" == */baton-extracted/* || "$PWD" == /tmp/baton-extracted/* ]]; then
+    cat >&2 <<EOF
+🚨 archive extract 경로에서 resume 금지: $pwd_real
+   archive extract는 읽기 전용 검토 용도입니다.
+   이어서 작업하려면 /baton:wt-create 로 새 워크트리를 만드세요.
+EOF
+    return 1
+  fi
+
   baton_guard_main_root resume || return 1
   local root
   root=$(baton_active_root)
-  baton_handoff_resume "$root/.baton/handoff/NEXT.md"
+  local current="$root/.baton/handoff/CURRENT.md"
+  local next="$root/.baton/handoff/NEXT.md"
+
+  # CURRENT.md 없으면 NEXT.md만 출력 (구버전 호환)
+  if [[ ! -f "$current" ]]; then
+    baton_handoff_resume "$next"
+    echo
+    baton_tmux_attach_hint
+    return 0
+  fi
+
+  # ── 2. frontmatter 읽기 + legacy 빈 값 silent 백필 ──
+  local saved_worktree saved_commit
+  saved_worktree=$(baton_current_field worktree "$current" 2>/dev/null)
+  saved_commit=$(baton_current_field last_commit "$current" 2>/dev/null)
+
+  local main_root
+  main_root=$(baton_project_root)
+
+  if [[ -z "$saved_worktree" || "$saved_worktree" == "null" ]]; then
+    if [[ -n "$main_root" && "$root" == "$main_root"* && "$root" != "$main_root" ]]; then
+      saved_worktree="${root#$main_root/}"
+    else
+      saved_worktree="."
+    fi
+    baton_current_set worktree "$saved_worktree" "$current" 2>/dev/null || true
+  fi
+
+  if [[ -z "$saved_commit" || "$saved_commit" == "—" || "$saved_commit" == "null" ]]; then
+    saved_commit=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo "—")
+    if grep -q "^last_commit:" "$current" 2>/dev/null; then
+      baton_current_set last_commit "$saved_commit" "$current" 2>/dev/null || true
+    else
+      local _tmp
+      _tmp=$(mktemp)
+      awk -v lc="$saved_commit" '
+        /^---$/ { fm = !fm; print; next }
+        fm && /^last_harness:/ { print; print "last_commit: " lc; next }
+        { print }
+      ' "$current" > "$_tmp" && mv "$_tmp" "$current"
+    fi
+  fi
+
+  # ── 3. realpath 정규화 ──
+  local current_real expected_real
+  current_real=$(cd "$root" 2>/dev/null && pwd -P || echo "$root")
+  if [[ "$saved_worktree" == /* ]]; then
+    expected_real=$(cd "$saved_worktree" 2>/dev/null && pwd -P || echo "$saved_worktree")
+  elif [[ "$saved_worktree" == "." || -z "$saved_worktree" ]]; then
+    expected_real=$(cd "$main_root" 2>/dev/null && pwd -P || echo "$main_root")
+  else
+    expected_real=$(cd "$main_root/$saved_worktree" 2>/dev/null && pwd -P \
+      || echo "$main_root/$saved_worktree")
+  fi
+
+  local current_commit
+  current_commit=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo "—")
+
+  # ── 4. 4분류 ──
+  local wt_match=true commit_match=true
+  if [[ "$current_real" != "$expected_real" ]]; then
+    # basename 이중 체크 (path 정규화 차이 흡수)
+    if [[ "$(basename "$current_real")" != "$(basename "$expected_real")" ]]; then
+      wt_match=false
+    fi
+  fi
+  if [[ "$saved_commit" != "—" && "$current_commit" != "—" \
+        && "$saved_commit" != "$current_commit" ]]; then
+    commit_match=false
+  fi
+
+  local kind="match"
+  if   $wt_match     && ! $commit_match; then kind="commit_only"
+  elif ! $wt_match   && $commit_match;   then kind="worktree_only"
+  elif ! $wt_match   && ! $commit_match; then kind="both"
+  fi
+  $force && kind="match"
+
+  case "$kind" in
+    match)
+      ;;
+    commit_only)
+      cat >&2 <<EOF
+ℹ️  commit hash가 달라요 (저장: $saved_commit → 현재: $current_commit)
+   main에 새 커밋이 머지됐을 가능성. 1초 후 자동 진행...
+EOF
+      sleep 1
+      ;;
+    worktree_only|both)
+      local kind_label="워크트리 경로 mismatch"
+      [[ "$kind" == "both" ]] && kind_label="워크트리 + commit 모두 mismatch"
+      cat >&2 <<EOF
+⚠️  $kind_label
+   저장: $expected_real ($saved_commit)
+   현재: $current_real ($current_commit)
+   다른 워크트리에서 resume 시도 중일 수 있음.
+EOF
+      if [[ -t 0 ]]; then
+        local ans
+        read -r -p "  계속 진행할까요? [y/N] " ans
+        if [[ ! "${ans:-N}" =~ ^[Yy]$ ]]; then
+          echo "  취소됨. --force 로 우회 가능." >&2
+          return 1
+        fi
+      else
+        # non-TTY: abort 대신 mismatch info stdout + NEXT.md (LLM이 사용자 확인)
+        cat <<EOF
+[baton-resume-mismatch] kind=$kind saved_worktree=$expected_real saved_commit=$saved_commit current_worktree=$current_real current_commit=$current_commit
+EOF
+      fi
+      ;;
+  esac
+
+  baton_handoff_resume "$next"
   echo
   baton_tmux_attach_hint
 }
@@ -786,6 +943,30 @@ baton_cmd_migrate() {
       else
         cp "$handoff/JOURNAL.md" "$handoff/JOURNAL.md.pre-1.2.4.bak" 2>/dev/null || true
         echo "    + JOURNAL.md.pre-1.2.4.bak 백업"
+      fi
+    fi
+
+    # ── 작업 2-b (v1.2.5+): CURRENT.md frontmatter last_commit 백필 ──
+    if [[ -f "$handoff/CURRENT.md" ]]; then
+      local _has_lc=""
+      _has_lc=$(awk '/^---$/{f=!f; next} f && /^last_commit:/{print "yes"; exit}' "$handoff/CURRENT.md")
+      if [[ -z "$_has_lc" ]]; then
+        local _wt_commit
+        _wt_commit=$(git -C "$wt" rev-parse --short HEAD 2>/dev/null || echo "—")
+        if $dry_run; then
+          echo "    + last_commit: $_wt_commit (dry-run)"
+        else
+          # last_harness 라인 뒤에 last_commit 라인 추가 (frontmatter 안에서만)
+          local _tmp
+          _tmp=$(mktemp)
+          awk -v lc="$_wt_commit" '
+            /^---$/ { fm = !fm; print; next }
+            fm && /^last_harness:/ { print; print "last_commit: " lc; next }
+            { print }
+          ' "$handoff/CURRENT.md" > "$_tmp"
+          mv "$_tmp" "$handoff/CURRENT.md"
+          echo "    + last_commit: $_wt_commit"
+        fi
       fi
     fi
 

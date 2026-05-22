@@ -179,6 +179,12 @@ baton_init_handoff() {
   now=$(baton_iso_now)
   local human
   human=$(baton_human_now)
+  # v1.2.5+ — last_commit 초기 채움 (resume 가드용)
+  # 워크트리에서 호출되면 그 워크트리 HEAD, main이면 main HEAD. 비-git 환경은 "—"
+  local last_commit
+  local git_dir="$worktree"
+  [[ "$git_dir" == "." || -z "$git_dir" ]] && git_dir="$PWD"
+  last_commit=$(git -C "$git_dir" rev-parse --short HEAD 2>/dev/null || echo "—")
 
   for tpl in PLAN JOURNAL CURRENT NEXT; do
     sed -e "s|{{SESSION_ID}}|$sid|g" \
@@ -190,6 +196,7 @@ baton_init_handoff() {
         -e "s|{{STARTED_AT}}|$now|g" \
         -e "s|{{STARTED_AT_HUMAN}}|$human|g" \
         -e "s|{{LAST_HARNESS}}|null|g" \
+        -e "s|{{LAST_COMMIT}}|$last_commit|g" \
         "$BATON_HOME/templates/${tpl}.md.template" > "$handoff_dir/${tpl}.md"
   done
 }
@@ -337,4 +344,133 @@ baton_handoff_alert() {
 다른 작업: 무시하고 새 요청 입력
 ─────────────────────────────────────────
 EOF
+}
+
+# ============================================================
+# v1.2.5+ — RESUME_MSG.md 자동 생성 (≤500B hard cap)
+# ============================================================
+# 다음 세션 첫 입력으로 복붙할 시작 메시지를 handoff/RESUME_MSG.md에 작성.
+# 본문은 fill-in 템플릿 (자유작문 금지), footer는 항상 bash가 채움.
+#
+# 사용 분기:
+#   - bash-only (--skip-spawn, events=0, SessionEnd): baton_resume_msg_build
+#   - LLM spawn 경로: LLM이 본문만 쓰고 baton_resume_msg_footer_append 호출
+
+# 본문 + footer 일괄 생성 (bash-only 경로)
+# 인자: handoff_dir (default: ./.baton/handoff)
+# stdout: 생성된 RESUME_MSG.md 경로
+baton_resume_msg_build() {
+  local handoff_dir="${1:-./.baton/handoff}"
+  [[ -d "$handoff_dir" ]] || return 1
+
+  local current="$handoff_dir/CURRENT.md"
+  local next="$handoff_dir/NEXT.md"
+  local journal="$handoff_dir/JOURNAL.md"
+  local out="$handoff_dir/RESUME_MSG.md"
+
+  local phase branch worktree last_commit
+  phase=$(baton_current_field phase "$current" 2>/dev/null)
+  branch=$(baton_current_field branch "$current" 2>/dev/null)
+  worktree=$(baton_current_field worktree "$current" 2>/dev/null)
+  last_commit=$(baton_current_field last_commit "$current" 2>/dev/null)
+  [[ -z "$phase" ]] && phase="?"
+  [[ -z "$branch" ]] && branch="?"
+  [[ -z "$worktree" ]] && worktree="?"
+  [[ -z "$last_commit" ]] && last_commit="—"
+
+  # NEXT.md 마커 grep (마커 제거)
+  local immediate="" followup=""
+  if [[ -f "$next" ]]; then
+    immediate=$(grep -m1 '^\*\*즉시 이어서\*\*:' "$next" 2>/dev/null \
+      | sed 's/^\*\*즉시 이어서\*\*:[[:space:]]*//')
+    followup=$(grep -m1 '^\*\*오늘 끝내기\*\*:' "$next" 2>/dev/null \
+      | sed 's/^\*\*오늘 끝내기\*\*:[[:space:]]*//')
+  fi
+
+  # JOURNAL.md 마지막 Turn의 INTENT 1줄 (최대 200자)
+  local last_intent=""
+  if [[ -f "$journal" ]]; then
+    last_intent=$(awk '/^- \*\*INTENT\*\*:/{last=$0} END{print last}' "$journal" 2>/dev/null \
+      | sed 's/^- \*\*INTENT\*\*:[[:space:]]*//' \
+      | head -c 200)
+  fi
+
+  local header="${phase} 이어서. NEXT.md 읽고 시작."
+  local footer
+  footer=$'\n---\n'"worktree: $worktree"$'\n'"branch: $branch"$'\n'"commit: $last_commit"
+
+  # 본문 후보 (전체 → INTENT 컷 → followup 컷 → immediate 컷 순으로 trim)
+  _baton_resume_compose() {
+    local h=$1 imm=$2 foll=$3 intent=$4 ft=$5
+    local b="$h"
+    [[ -n "$intent" ]] && b="$b"$'\n\n'"$intent"
+    [[ -n "$imm" ]]    && b="$b"$'\n\n'"**즉시 이어서**: $imm"
+    [[ -n "$foll" ]]   && b="$b"$'\n'"**오늘 끝내기**: $foll"
+    printf '%s%s\n' "$b" "$ft"
+  }
+
+  local total
+  total=$(_baton_resume_compose "$header" "$immediate" "$followup" "$last_intent" "$footer")
+  if [[ ${#total} -gt 500 ]]; then
+    total=$(_baton_resume_compose "$header" "$immediate" "$followup" "" "$footer")
+  fi
+  if [[ ${#total} -gt 500 ]]; then
+    total=$(_baton_resume_compose "$header" "$immediate" "" "" "$footer")
+  fi
+  if [[ ${#total} -gt 500 ]]; then
+    total=$(_baton_resume_compose "$header" "" "" "" "$footer")
+  fi
+
+  printf '%s' "$total" > "$out"
+  unset -f _baton_resume_compose 2>/dev/null || true
+  echo "$out"
+}
+
+# LLM 경로용 footer 보강 — LLM이 본문만 쓴 RESUME_MSG.md에 footer append
+# idempotent: 이미 footer 있으면 skip
+baton_resume_msg_footer_append() {
+  local handoff_dir="${1:-./.baton/handoff}"
+  local out="$handoff_dir/RESUME_MSG.md"
+  local current="$handoff_dir/CURRENT.md"
+  [[ -f "$out" && -f "$current" ]] || return 1
+
+  # 이미 footer 있으면 skip
+  grep -qE '^worktree:[[:space:]]' "$out" 2>/dev/null && return 0
+
+  local branch worktree last_commit
+  branch=$(baton_current_field branch "$current" 2>/dev/null)
+  worktree=$(baton_current_field worktree "$current" 2>/dev/null)
+  last_commit=$(baton_current_field last_commit "$current" 2>/dev/null)
+  [[ -z "$branch" ]] && branch="?"
+  [[ -z "$worktree" ]] && worktree="?"
+  [[ -z "$last_commit" ]] && last_commit="—"
+
+  {
+    # 마지막 라인 newline 보장
+    [[ -s "$out" ]] && tail -c1 "$out" | read -r _ || echo
+    echo "---"
+    echo "worktree: $worktree"
+    echo "branch: $branch"
+    echo "commit: $last_commit"
+  } >> "$out"
+
+  # hard cap 500B 사후 보정: 초과 시 bash-only 빌더로 재생성 (LLM 본문 폐기)
+  local size
+  size=$(wc -c < "$out" 2>/dev/null | tr -d ' ')
+  if [[ "${size:-0}" -gt 500 ]]; then
+    baton_resume_msg_build "$handoff_dir" >/dev/null
+  fi
+}
+
+# 박스 출력 (save/SessionEnd 마무리)
+baton_resume_msg_print() {
+  local handoff_dir="${1:-./.baton/handoff}"
+  local out="$handoff_dir/RESUME_MSG.md"
+  [[ -f "$out" ]] || return 1
+  echo "═════ 📋 다음 세션 시작 메시지 (복사용) ═════"
+  cat "$out"
+  echo
+  echo "════════════════════════════════════════════"
+  echo "  → 위 메시지를 다음 세션 첫 입력에 복붙하세요."
+  echo "  → 파일: $out"
 }

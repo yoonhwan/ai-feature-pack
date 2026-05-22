@@ -8,6 +8,7 @@ status: active
 started_at: {{STARTED_AT}}
 last_updated: {{STARTED_AT}}
 last_harness: null
+last_commit: {{LAST_COMMIT}}
 ---
 
 ## ⚠️ 블로커
