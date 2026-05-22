@@ -55,10 +55,11 @@ echo "[2] claude-code/commands/baton/ count"
 
 cmd_count=$(find "$PACKAGE_DIR/claude-code/commands/baton/" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 cmd_count="${cmd_count:-0}"
-if [[ "$cmd_count" == "18" ]]; then
-  ok "18 files"
+# 19 = 13 root cmds (doctor/finish/help/hotfix-mode/install/migrate/plan/resume/save/status/upgrade/wt-clean/wt-create) + 6 archive subs (close/extract/list/prune/search/show)
+if [[ "$cmd_count" == "19" ]]; then
+  ok "19 files"
 else
-  ng "$cmd_count files found (expected 18)"
+  ng "$cmd_count files found (expected 19)"
 fi
 
 # [3] hooks count = 5
@@ -175,9 +176,44 @@ else
 fi
 rm -rf "$smoke_dir"
 
-# [10] post-install state (optional)
+# [10] v1.2.5+ — RESUME_MSG.md builder + last_commit field + resume guard
 echo
-echo "[10] post-install state (requires install.sh)"
+echo "[10] v1.2.5 신규 검증"
+
+if grep -q "^baton_resume_msg_build" "$PACKAGE_DIR/core/lib/handoff.sh"; then
+  ok "baton_resume_msg_build (handoff.sh)"
+else
+  ng "baton_resume_msg_build missing"
+fi
+if grep -q "^baton_resume_msg_print" "$PACKAGE_DIR/core/lib/handoff.sh"; then
+  ok "baton_resume_msg_print (handoff.sh)"
+else
+  ng "baton_resume_msg_print missing"
+fi
+if grep -q "^baton_resume_msg_footer_append" "$PACKAGE_DIR/core/lib/handoff.sh"; then
+  ok "baton_resume_msg_footer_append (handoff.sh)"
+else
+  ng "baton_resume_msg_footer_append missing"
+fi
+if grep -q "^last_commit:" "$PACKAGE_DIR/core/templates/CURRENT.md.template"; then
+  ok "CURRENT.md.template last_commit field"
+else
+  ng "CURRENT.md.template last_commit field missing"
+fi
+if grep -q "baton-extracted" "$PACKAGE_DIR/core/lib/core.sh"; then
+  ok "baton_cmd_resume archive extract abort"
+else
+  ng "baton_cmd_resume archive extract abort missing"
+fi
+if grep -q "baton_resume_msg_build" "$PACKAGE_DIR/claude-code/hooks/session-end.sh"; then
+  ok "session-end.sh RESUME_MSG.md 갱신"
+else
+  ng "session-end.sh RESUME_MSG.md 갱신 missing"
+fi
+
+# [11] post-install state (optional)
+echo
+echo "[11] post-install state (requires install.sh)"
 
 if [[ -L "$HOME/.baton/current" ]] && [[ -d "$HOME/.baton/current" ]]; then
   ok "~/.baton/current symlink exists"

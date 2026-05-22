@@ -174,7 +174,7 @@ if [[ "${AGENTS[claude-code]:-0}" == "1" ]]; then
   # 슬래시 명령 등록
   mkdir -p "$HOME/.claude/commands/baton"
   cp -r "$PACKAGE_DIR/claude-code/commands/baton/." "$HOME/.claude/commands/baton/"
-  echo "  [✓] ~/.claude/commands/baton/ (17개 슬래시 명령)"
+  echo "  [✓] ~/.claude/commands/baton/ (19개 슬래시 명령)"
 
   # 스킬 컨텍스트 등록 (심링)
   mkdir -p "$HOME/.claude/skills/baton"

@@ -16,14 +16,15 @@ v1.2.2 이하에서 생성된 워크트리의 `.baton/handoff/` 를 v1.2.4 sidec
 ```
 
 ## 동작 (워크트리당)
-1. 이미 v1.2.4 이상 → skip
+1. 이미 현재 baton 버전과 동일 → skip
 2. `.baton/handoff/.events.jsonl` 없으면 빈 파일 생성 (없어도 첫 hook이 자동 생성하지만 명시적 생성)
 3. `JOURNAL.md` → `JOURNAL.md.pre-1.2.4.bak` 백업 (1회만, 이미 있으면 skip)
-4. `.baton/version.lock` 갱신:
-   - `baton_version: 1.2.4`
+4. **CURRENT.md frontmatter `last_commit` 백필 (v1.2.5+)** — 필드 없으면 `git rev-parse --short HEAD` 로 자동 채움
+5. `.baton/version.lock` 갱신:
+   - `baton_version: <current>`
    - `migrated_from: <이전 버전>`
    - `migrated_at: <ISO8601>`
-5. 결과 요약 출력 (migrated/already_ok/skipped 카운트)
+6. 결과 요약 출력 (migrated/already_ok/skipped 카운트)
 
 ## 실행
 ```bash
