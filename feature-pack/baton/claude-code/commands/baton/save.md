@@ -1,54 +1,63 @@
 ---
 description: 현재 작업 상태를 handoff 파일에 즉시 저장
 argument-hint: [--skip-spawn]
-allowed-tools: Bash
+allowed-tools: Bash, Write, Read
 ---
 
-# /baton:save (v1.2.4+)
+# /baton:save (v1.2.6+)
 
-`.baton/handoff/.events.jsonl` (sidecar)를 헤드리스 에이전트가 JOURNAL.md / CURRENT.md / NEXT.md 로 일괄 정리합니다. Claude Edit tool과의 mtime race를 회피하기 위한 핵심 명령.
+NEXT.md는 **현재 세션이 직접 작성** (풀 컨텍스트 보유).
+`.events.jsonl` → JOURNAL.md / CURRENT.md 정리는 헤드리스 에이전트가 처리.
 
 ## 사용법
 ```
-/baton:save              # 정상 동작 (LLM spawn으로 정리)
+/baton:save              # 정상 동작
 /baton:save --skip-spawn # 메타데이터만 갱신 (긴급 상황)
 ```
 
-## 동작 (race-free pipeline)
-1. main/master root 가드 (옵션 B): 워크트리 안에서만 허용
-2. CURRENT.md frontmatter `status: paused`, `last_updated` 갱신
-3. `.events.jsonl` 비어 있으면 즉시 종료 (메타데이터만 갱신)
-4. **save lock 획득** (`mkdir .save.lock` atomic) — 동시 save 방지, 최대 30s 대기
-5. **선 rotate snapshot**: `.events.jsonl` → `.events.snapshot-{ts}_{pid}_{rnd}.jsonl` (atomic mv)
-   - 새 hook 이벤트는 새 `.events.jsonl`에 적재 → 다음 save가 처리 (race 차단)
-6. 헤드리스 에이전트 spawn (BATON_SKIP_HOOKS=1):
-   - claude `--dangerously-skip-permissions`
-   - codex `exec --ephemeral`
-   - gemini `--yolo`
-   - opencode `run --pure`
-7. spawn에 snapshot 경로 입력 → JOURNAL/CURRENT/NEXT 정리
-8. 결과 분기:
-   - **성공**: snapshot → `.events.processed-*.jsonl`
-   - **fallback 성공**: jq raw dump → `.events.processed-*.jsonl`
-   - **fallback 실패**: snapshot → `.events.failed-*.jsonl` (raw 보존)
-9. lock 해제
+## 동작 (2-step)
 
-## 환경변수
-- `BATON_SAVE_AGENT=claude|codex|gemini|opencode` — spawn 강제 지정
-- `BATON_SAVE_LOCK_TIMEOUT=30` — lock 대기 시간(초)
-- `BATON_SKIP_HOOKS=1` — baton hook 자가 차단 (헤드리스 spawn 시 자동 설정)
+### Step 1: NEXT.md 직접 작성 (현재 세션 — 필수)
 
-## 실행
+헤드리스 에이전트는 `.events.jsonl`(intent + harness 이벤트만 기록)만 볼 수 있어서
+파일경로, 명령어, 실험결과, 성능수치, 배포상태 등 구체적 컨텍스트를 담지 못합니다.
+**현재 세션이 풀 컨텍스트를 보유하고 있으므로 NEXT.md를 직접 작성합니다.**
+
+1. `.baton/handoff/CURRENT.md` frontmatter에서 `phase` 필드를 Read.
+2. `.baton/handoff/NEXT.md`를 Write — 형식:
+
+```
+<phase> 이어서. .baton/handoff/ 의 PLAN.md, JOURNAL.md, CURRENT.md 먼저 읽고 시작.
+
+<현재 세션에서 한 일과 핵심 컨텍스트 3-10줄.
+파일경로, 명령어, 실험결과, 성능수치, 배포상태, 다음 단계 구체 지시 등
+다음 세션이 컨텍스트 없이도 즉시 재개할 수 있는 사실만 포함.>
+
+**즉시 이어서**: <다음 세션이 가장 먼저 할 작업 한 줄 — 구체적 명령어/파일 포함>
+**오늘 끝내기**: <이번 세션 목표 한 줄>
+**마지막 사용 하네스**: <하네스 이름 또는 ->
+```
+
+- ≤1KB. 추측·기획 금지, 구체적 사실만.
+
+### Step 2: bash save 실행
+
 ```bash
 bash ~/.baton/current/bin/baton save $ARGUMENTS
 ```
 
+bash save가 처리하는 것:
+- CURRENT.md frontmatter `status: paused`, `last_updated`, `last_commit` 갱신
+- save lock 획득 → snapshot rotate → 헤드리스 에이전트가 JOURNAL.md 정리
+- RESUME_MSG.md 자동 생성 (Step 1에서 작성한 NEXT.md 마커에서 추출)
+
 ## 주의 / 가드
 - **옵션 B**: main/master 브랜치 root에서 실행 시 거부
 - 동시 `/baton:save` 호출은 lock으로 직렬화됨
-- spawn 중 사용자 다른 hook(omc/gas-town 등)이 핸드오프 파일을 mutate하면 race 재발 가능 — 가능하면 그 hook도 BATON 핸드오프 파일 회피하도록 설정
+- Step 1에서 NEXT.md 작성이 불가능한 경우(컨텍스트 부족 등), Step 2만 실행해도 됨 — bash fallback이 최소한의 RESUME_MSG.md를 생성합니다.
 
 ## 참고
 - SPEC: race-free sidecar pipeline (1.2.4)
-- 자동 호출: `/baton:finish`, `/baton:wt-clean` (events_count > 0 시)
+- v1.2.6: NEXT.md 직접 작성으로 전환 (헤드리스 컨텍스트 부족 문제 해결)
+- 자동 호출: `/baton:finish`, `/baton:wt-clean` (events_count > 0 시) — 이 경로는 bash-only RESUME_MSG.md 빌더 사용
 - 마이그레이션: `/baton:migrate` (v1.2.2 이하 워크트리에서)
