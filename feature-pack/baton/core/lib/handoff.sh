@@ -303,17 +303,26 @@ baton_journal_next_turn() {
   echo $((n + 1))
 }
 
-# /baton:resume — NEXT.md 출력
+# /baton:resume — RESUME_MSG.md 우선, NEXT.md fallback
 baton_handoff_resume() {
   local next="${1:-./.baton/handoff/NEXT.md}"
-  if [[ ! -f "$next" ]]; then
+  local handoff_dir
+  handoff_dir="$(dirname "$next")"
+  local resume_msg="$handoff_dir/RESUME_MSG.md"
+
+  local source=""
+  if [[ -f "$resume_msg" ]]; then
+    source="$resume_msg"
+  elif [[ -f "$next" ]]; then
+    source="$next"
+  else
     echo "📌 일시정지된 핸드오프 없음 (NEXT.md 부재)"
     return 1
   fi
   echo "─────────────────────────────────────────"
   echo "📌 핸드오프 재개"
   echo "─────────────────────────────────────────"
-  cat "$next"
+  cat "$source"
   echo
   echo "─────────────────────────────────────────"
   echo "참고: PLAN.md 와 JOURNAL.md 도 확인하세요."
@@ -356,7 +365,8 @@ EOF
 #   - bash-only (--skip-spawn, events=0, SessionEnd): baton_resume_msg_build
 #   - LLM spawn 경로: LLM이 본문만 쓰고 baton_resume_msg_footer_append 호출
 
-# 본문 + footer 일괄 생성 (bash-only 경로)
+# v1.2.7+ — NEXT.md 전문 + footer (압축 없음)
+# 호출 세션이 풀 컨텍스트로 작성한 NEXT.md를 그대로 사용.
 # 인자: handoff_dir (default: ./.baton/handoff)
 # stdout: 생성된 RESUME_MSG.md 경로
 baton_resume_msg_build() {
@@ -365,64 +375,29 @@ baton_resume_msg_build() {
 
   local current="$handoff_dir/CURRENT.md"
   local next="$handoff_dir/NEXT.md"
-  local journal="$handoff_dir/JOURNAL.md"
   local out="$handoff_dir/RESUME_MSG.md"
 
-  local phase branch worktree last_commit
-  phase=$(baton_current_field phase "$current" 2>/dev/null)
+  local branch worktree last_commit
   branch=$(baton_current_field branch "$current" 2>/dev/null)
   worktree=$(baton_current_field worktree "$current" 2>/dev/null)
   last_commit=$(baton_current_field last_commit "$current" 2>/dev/null)
-  [[ -z "$phase" ]] && phase="?"
   [[ -z "$branch" ]] && branch="?"
   [[ -z "$worktree" ]] && worktree="?"
   [[ -z "$last_commit" ]] && last_commit="—"
 
-  # NEXT.md 마커 grep (마커 제거)
-  local immediate="" followup=""
+  local body=""
   if [[ -f "$next" ]]; then
-    immediate=$(grep -m1 '^\*\*즉시 이어서\*\*:' "$next" 2>/dev/null \
-      | sed 's/^\*\*즉시 이어서\*\*:[[:space:]]*//')
-    followup=$(grep -m1 '^\*\*오늘 끝내기\*\*:' "$next" 2>/dev/null \
-      | sed 's/^\*\*오늘 끝내기\*\*:[[:space:]]*//')
+    body=$(cat "$next")
+  else
+    local phase
+    phase=$(baton_current_field phase "$current" 2>/dev/null)
+    [[ -z "$phase" ]] && phase="?"
+    body="${phase} 이어서. NEXT.md 읽고 시작."
   fi
 
-  # JOURNAL.md 마지막 Turn의 INTENT 1줄 (최대 200자)
-  local last_intent=""
-  if [[ -f "$journal" ]]; then
-    last_intent=$(awk '/^- \*\*INTENT\*\*:/{last=$0} END{print last}' "$journal" 2>/dev/null \
-      | sed 's/^- \*\*INTENT\*\*:[[:space:]]*//' \
-      | head -c 200)
-  fi
+  local footer=$'\n\n---\nworktree: '"$worktree"$'\nbranch: '"$branch"$'\ncommit: '"$last_commit"
 
-  local header="${phase} 이어서. NEXT.md 읽고 시작."
-  local footer
-  footer=$'\n---\n'"worktree: $worktree"$'\n'"branch: $branch"$'\n'"commit: $last_commit"
-
-  # 본문 후보 (전체 → INTENT 컷 → followup 컷 → immediate 컷 순으로 trim)
-  _baton_resume_compose() {
-    local h=$1 imm=$2 foll=$3 intent=$4 ft=$5
-    local b="$h"
-    [[ -n "$intent" ]] && b="$b"$'\n\n'"$intent"
-    [[ -n "$imm" ]]    && b="$b"$'\n\n'"**즉시 이어서**: $imm"
-    [[ -n "$foll" ]]   && b="$b"$'\n'"**오늘 끝내기**: $foll"
-    printf '%s%s\n' "$b" "$ft"
-  }
-
-  local total
-  total=$(_baton_resume_compose "$header" "$immediate" "$followup" "$last_intent" "$footer")
-  if [[ ${#total} -gt 500 ]]; then
-    total=$(_baton_resume_compose "$header" "$immediate" "$followup" "" "$footer")
-  fi
-  if [[ ${#total} -gt 500 ]]; then
-    total=$(_baton_resume_compose "$header" "$immediate" "" "" "$footer")
-  fi
-  if [[ ${#total} -gt 500 ]]; then
-    total=$(_baton_resume_compose "$header" "" "" "" "$footer")
-  fi
-
-  printf '%s' "$total" > "$out"
-  unset -f _baton_resume_compose 2>/dev/null || true
+  printf '%s%s\n' "$body" "$footer" > "$out"
   echo "$out"
 }
 
