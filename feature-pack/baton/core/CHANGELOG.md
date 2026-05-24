@@ -2,6 +2,22 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.6] — 2026-05-24 (NEXT.md 호출 세션 직접 작성)
+
+### Changed — NEXT.md/RESUME_MSG.md 생성 책임 이전
+- **NEXT.md는 호출 세션이 직접 작성** — 헤드리스 에이전트는 `.events.jsonl`(intent + harness 이벤트만)만 볼 수 있어 파일경로, 명령어, 실험결과, 성능수치 등 구체적 컨텍스트를 담지 못했음. 풀 컨텍스트를 보유한 호출 세션이 NEXT.md를 직접 작성하도록 변경.
+- **save-prompt.md.template에서 NEXT.md/RESUME_MSG.md 태스크 제거** — 헤드리스 에이전트 책임을 JOURNAL.md append + CURRENT.md frontmatter 갱신으로 축소. `SCOPE` 절로 명시적 경계 선언.
+- **save.md 2-step 흐름** — Step 1: 세션이 NEXT.md Write → Step 2: `bash save` 실행. `allowed-tools`에 `Write, Read` 추가.
+- **post-spawn RESUME_MSG.md 로직 단순화** — LLM 작성 여부 분기 제거, 항상 `baton_resume_msg_build` (NEXT.md 마커에서 자동 추출).
+
+### Fixed
+- NEXT.md가 2-3줄 빈약한 요약만 생성되던 문제 해결 (근본 원인: 헤드리스 컨텍스트 부족)
+- RESUME_MSG.md에 구체적 컨텍스트(명령어, 파일경로, 실험계획, 성능 수치) 누락 문제 해결
+
+### Unchanged
+- `session-end.sh`, `pre-compact.sh`, `baton_cmd_finish`, `baton_cmd_wt_clean` 내부 save 호출 — 기존 bash-only 경로 유지 (NEXT.md가 이미 작성된 상태이므로 정상 동작).
+- `baton_resume_msg_build`, `baton_resume_msg_footer_append` 함수 — handoff.sh에 보존 (외부 호출 호환).
+
 ## [1.2.5] — 2026-05-22 (RESUME_MSG.md 자동 생성 + /baton:resume 4분류 가드)
 
 ### Added — 매 세션 종료 시 카피용 시작 메시지 자동 생성

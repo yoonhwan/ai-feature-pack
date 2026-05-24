@@ -350,12 +350,8 @@ baton_cmd_save() {
     else
       echo "✓ 컨텍스트 정리 완료 (processed 회전 경고)"
     fi
-    # v1.2.5+ — LLM이 본문 작성한 RESUME_MSG.md에 footer append (없으면 bash-only로 fallback)
-    if [[ -f "$handoff_dir/RESUME_MSG.md" ]]; then
-      baton_resume_msg_footer_append "$handoff_dir" || true
-    else
-      baton_resume_msg_build "$handoff_dir" >/dev/null 2>&1 || true
-    fi
+    # v1.2.6+ — RESUME_MSG.md는 항상 bash 빌더 (호출 세션이 작성한 NEXT.md 마커에서 추출)
+    baton_resume_msg_build "$handoff_dir" >/dev/null 2>&1 || true
   else
     # ── (5b) 실패: fallback dump 시도 → snapshot → failed (raw 보존) ──
     spawn_rc=1
