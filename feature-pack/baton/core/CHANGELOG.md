@@ -2,6 +2,16 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.7] — 2026-05-25 (RESUME_MSG.md 풀 컨텍스트 + resume 통합)
+
+### Changed — RESUME_MSG.md 압축 제거 + resume 통합
+- **`baton_resume_msg_build` 단순화** — NEXT.md 전문 + footer로 구성. 500B 캡/마커 추출/단계적 trim 로직 전부 제거. 호출 세션이 작성한 NEXT.md 내용을 그대로 보존.
+- **`baton_handoff_resume` RESUME_MSG.md 우선 읽기** — resume 시 RESUME_MSG.md가 있으면 우선 사용 (NEXT.md + worktree/branch/commit footer 포함). 없으면 NEXT.md fallback.
+
+### Fixed
+- RESUME_MSG.md가 500B로 압축되어 구체적 컨텍스트(명령어, 파일경로, 실험계획)가 잘리던 문제 해결
+- `/baton:resume`가 RESUME_MSG.md를 읽지 않아 새 세션에서 footer 컨텍스트(worktree/branch/commit) 누락되던 문제 해결
+
 ## [1.2.6] — 2026-05-24 (NEXT.md 호출 세션 직접 작성)
 
 ### Changed — NEXT.md/RESUME_MSG.md 생성 책임 이전
