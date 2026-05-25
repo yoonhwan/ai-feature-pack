@@ -118,6 +118,49 @@ baton_tmux_mobile_ssh_hint() {
   echo "📱 모바일 SSH: ssh ${user}@${tailnet_ip}  → tmux a -t ${session}"
 }
 
+# === fan-out spawn: Claude remote-control 세션 생성 + 메시지 전송 ===
+# args: $1=phase-id, $2=worktree path, $3=prompt message (optional)
+baton_tmux_fanout_spawn() {
+  local phase_id="$1" wt_path="$2" prompt="${3:-}"
+  baton_tmux_enabled || return 1
+  local session
+  session=$(baton_tmux_session_name "$phase_id")
+
+  if baton_tmux_session_exists "$session"; then
+    echo "ℹ️  tmux 세션 이미 존재: $session"
+    return 0
+  fi
+
+  # Claude CLI 명령 해석 (alias chain: ccd → cc → claude)
+  local claude_cmd="claude"
+  for alias_name in ccd cc; do
+    if command -v "$alias_name" >/dev/null 2>&1; then
+      claude_cmd="$alias_name"; break
+    fi
+  done
+
+  tmux new-session -d -s "$session" -c "$wt_path"
+  tmux send-keys -t "$session" "$claude_cmd --remote-control $session" Enter
+
+  if [[ -n "$prompt" ]]; then
+    local max_wait=12 elapsed=0
+    while [[ "$elapsed" -lt "$max_wait" ]]; do
+      if tmux list-panes -t "$session" -F "#{pane_current_command}" 2>/dev/null \
+        | grep -q claude; then
+        sleep 2
+        tmux send-keys -t "$session" -l -- "$prompt"
+        tmux send-keys -t "$session" Enter
+        break
+      fi
+      sleep 1; elapsed=$((elapsed + 1))
+    done
+  fi
+
+  echo "✓ fan-out 세션 생성: $session (Claude remote-control)"
+  echo "  접속: tmux attach -t $session"
+  baton_tmux_mobile_ssh_hint "$session" | sed 's/^/  /'
+}
+
 # === 현재 active phase tmux 세션 attach 안내 한 줄 (plan/save/resume/finish 출력 끝에) ===
 baton_tmux_attach_hint() {
   baton_tmux_enabled || return 0

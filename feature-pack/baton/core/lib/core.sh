@@ -173,9 +173,17 @@ baton_cmd_plan() {
 
 # === /baton:wt-create ===
 baton_cmd_wt_create() {
-  local name="${1:-}"
+  local name="" spawn=false fanout_prompt=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --spawn) spawn=true ;;
+      --prompt) shift; fanout_prompt="${1:-}" ;;
+      *) [[ -z "$name" ]] && name="$1" ;;
+    esac
+    shift
+  done
   if [[ -z "$name" ]]; then
-    echo "사용법: /baton:wt-create <name>"
+    echo "사용법: /baton:wt-create <name> [--spawn] [--prompt <msg>]"
     return 1
   fi
   local caller_branch
@@ -267,6 +275,13 @@ EOF
     if ! command -v tmux >/dev/null 2>&1; then
       echo "       💡 tmux 표준 권장: brew install tmux (또는 apt install tmux)"
     fi
+  fi
+
+  # fan-out spawn (--spawn: Claude remote-control 세션 자동 생성 + 메시지 전송)
+  if $spawn && baton_tmux_enabled && baton_fanout_is_fanout "$caller_branch"; then
+    echo
+    [[ -z "$fanout_prompt" ]] && fanout_prompt="이어서 — $name 작업 시작. PLAN.md 와 JOURNAL.md 참고."
+    baton_tmux_fanout_spawn "$name" "$wt_dir" "$fanout_prompt"
   fi
 }
 
@@ -805,6 +820,11 @@ baton_wt_clean_one() {
     fi
   done
   echo "머지 상태: $merged_status"
+  if [[ "$merged_status" == "✗ 미머지" ]]; then
+    baton_fanout_set_status "$root" "$branch" "abandoned"
+  else
+    baton_fanout_set_status "$root" "$branch" "merged"
+  fi
   echo
   echo "📦 아카이브 생성 중..."
   local archive_file

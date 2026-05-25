@@ -17,6 +17,30 @@ baton_fanout_init() {
   [[ -f "$ledger" ]] || echo '[]' > "$ledger"
 }
 
+# === 동시 쓰기 방지 (mkdir atomic lock) ===
+baton_fanout_lock_acquire() {
+  local root="$1"
+  local lock_dir="$root/.baton/.branches.lock"
+  local timeout=5 elapsed=0
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    if [[ "$elapsed" -ge "$timeout" ]]; then
+      local lock_mtime
+      lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null \
+        || stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
+      if [[ $(( $(date +%s) - lock_mtime )) -gt 60 ]]; then
+        rm -rf "$lock_dir"; continue
+      fi
+      return 1
+    fi
+    sleep 1; elapsed=$((elapsed + 1))
+  done
+  return 0
+}
+
+baton_fanout_lock_release() {
+  rm -rf "${1:-.}/.baton/.branches.lock" 2>/dev/null || true
+}
+
 baton_fanout_register() {
   local root="$1" parent_branch="$2" child_branch="$3"
   local child_worktree="$4" purpose="${5:-}"
@@ -28,6 +52,7 @@ baton_fanout_register() {
     'any(.[]; .child_branch == $cb)' "$ledger" >/dev/null 2>&1; then
     return 0
   fi
+  baton_fanout_lock_acquire "$root" || return 0
   local now
   now=$(baton_iso_now)
   local created_commit
@@ -39,6 +64,7 @@ baton_fanout_register() {
      --arg cc "$created_commit" \
      '. + [{parent_branch:$pb, child_branch:$cb, child_worktree:$cw, purpose:$p, created_at:$ts, created_commit:$cc, status:"active", merged_at:null}]' \
      "$ledger" > "$tmp" 2>/dev/null && mv "$tmp" "$ledger" || rm -f "$tmp"
+  baton_fanout_lock_release "$root"
 }
 
 baton_fanout_set_status() {
@@ -47,6 +73,7 @@ baton_fanout_set_status() {
   local ledger
   ledger=$(baton_fanout_ledger "$root")
   [[ -f "$ledger" ]] || return 0
+  baton_fanout_lock_acquire "$root" || return 0
   local tmp
   tmp=$(mktemp)
   local now
@@ -60,11 +87,15 @@ baton_fanout_set_status() {
       'map(if .child_branch == $cb and .status == "active" then .status = $s else . end)' \
       "$ledger" > "$tmp" 2>/dev/null && mv "$tmp" "$ledger" || rm -f "$tmp"
   fi
+  baton_fanout_lock_release "$root"
 }
 
 # git 상태와 장부 자동 동기화: 머지된/삭제된 브랜치 감지
+# per-invocation dedup: 같은 root에 대해 한 번만 실행
 baton_fanout_auto_sync() {
   local root="${1:-$(baton_project_root)}"
+  [[ "${_BATON_FANOUT_SYNCED:-}" == "$root" ]] && return 0
+  _BATON_FANOUT_SYNCED="$root"
   command -v jq >/dev/null 2>&1 || return 0
   local ledger
   ledger=$(baton_fanout_ledger "$root")
@@ -80,7 +111,6 @@ baton_fanout_auto_sync() {
       baton_fanout_set_status "$root" "$cb" "merged"
       continue
     fi
-    # 생성 커밋과 동일하면 아직 작업 안 한 브랜치 — skip
     if [[ -n "$cc" ]]; then
       local child_head
       child_head=$(git -C "$root" rev-parse "$cb" 2>/dev/null || echo "")
@@ -101,10 +131,18 @@ baton_fanout_unmerged_count() {
   if [[ -n "$parent" ]]; then
     jq --arg pb "$parent" \
       '[.[] | select(.parent_branch == $pb and .status == "active")] | length' \
-      "$ledger" 2>/dev/null
+      "$ledger" 2>/dev/null || echo 0
   else
-    jq '[.[] | select(.status == "active")] | length' "$ledger" 2>/dev/null
+    jq '[.[] | select(.status == "active")] | length' "$ledger" 2>/dev/null || echo 0
   fi
+}
+
+# non-main parent 한정 fan-out 여부
+baton_fanout_is_fanout() {
+  local branch="${1:-}"
+  [[ -n "$branch" ]] || return 1
+  case "$branch" in main|master|unknown|"") return 1 ;; esac
+  return 0
 }
 
 # save/resume/wt-clean 경고 (non-main parent 한정)
