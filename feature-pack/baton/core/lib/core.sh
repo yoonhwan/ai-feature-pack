@@ -13,6 +13,7 @@ BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 . "$BATON_HOME/lib/harnesses.sh"
 . "$BATON_HOME/lib/verify.sh"
 . "$BATON_HOME/lib/tmux.sh"
+. "$BATON_HOME/lib/fanout.sh"
 
 
 baton_detect_agent() {
@@ -172,11 +173,21 @@ baton_cmd_plan() {
 
 # === /baton:wt-create ===
 baton_cmd_wt_create() {
-  local name="${1:-}"
+  local name="" spawn=false fanout_prompt=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --spawn) spawn=true ;;
+      --prompt) shift; fanout_prompt="${1:-}" ;;
+      *) [[ -z "$name" ]] && name="$1" ;;
+    esac
+    shift
+  done
   if [[ -z "$name" ]]; then
-    echo "사용법: /baton:wt-create <name>"
+    echo "사용법: /baton:wt-create <name> [--spawn] [--prompt <msg>]"
     return 1
   fi
+  local caller_branch
+  caller_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
   local root
   root=$(baton_project_root)
   baton_init_project "$root"
@@ -243,6 +254,8 @@ EOF
   # gitignore 추가
   cat "$BATON_HOME/templates/.gitignore.template" > "$wt_dir/.baton/.gitignore"
 
+  baton_fanout_register "$root" "$caller_branch" "$branch" ".worktrees/$name" "$name"
+
   echo "✓ 워크트리 생성: $wt_dir"
   echo "  Branch: $branch"
   echo "  Index: $idx"
@@ -262,6 +275,13 @@ EOF
     if ! command -v tmux >/dev/null 2>&1; then
       echo "       💡 tmux 표준 권장: brew install tmux (또는 apt install tmux)"
     fi
+  fi
+
+  # fan-out spawn (--spawn: Claude remote-control 세션 자동 생성 + 메시지 전송)
+  if $spawn && baton_tmux_enabled && baton_fanout_is_fanout "$caller_branch"; then
+    echo
+    [[ -z "$fanout_prompt" ]] && fanout_prompt="이어서 — $name 작업 시작. PLAN.md 와 JOURNAL.md 참고."
+    baton_tmux_fanout_spawn "$name" "$wt_dir" "$fanout_prompt"
   fi
 }
 
@@ -374,6 +394,7 @@ baton_cmd_save() {
 
   echo
   baton_resume_msg_print "$handoff_dir" 2>/dev/null || true
+  baton_fanout_warn "$root"
   baton_tmux_attach_hint
   return 0
 }
@@ -655,6 +676,7 @@ EOF
 
   baton_handoff_resume "$next"
   echo
+  baton_fanout_warn "$root"
   baton_tmux_attach_hint
 }
 
@@ -695,6 +717,7 @@ baton_cmd_status() {
     else
       echo "    (없음)"
     fi
+    baton_fanout_status "$root"
     if baton_tmux_enabled; then
       echo
       echo "  tmux 통합: ✓ enabled (default — v1.2 표준)"
@@ -789,6 +812,7 @@ baton_wt_clean_one() {
   echo "─────────────────────────────────────────"
   echo "대상: $wt_path"
   echo "브랜치: $branch"
+  baton_fanout_warn "$root" "$branch"
   local merged_status="✗ 미머지"
   for mb in main master; do
     if git -C "$wt_path" merge-base --is-ancestor HEAD "$mb" 2>/dev/null; then
@@ -796,6 +820,11 @@ baton_wt_clean_one() {
     fi
   done
   echo "머지 상태: $merged_status"
+  if [[ "$merged_status" == "✗ 미머지" ]]; then
+    baton_fanout_set_status "$root" "$branch" "abandoned"
+  else
+    baton_fanout_set_status "$root" "$branch" "merged"
+  fi
   echo
   echo "📦 아카이브 생성 중..."
   local archive_file
@@ -806,15 +835,19 @@ baton_wt_clean_one() {
   echo
   echo "🗑️  워크트리 삭제..."
   git -C "$root" worktree remove --force "$wt_path"
+  baton_fanout_auto_sync "$root"
   echo "✓ 정리 완료"
 }
 
 # === /baton:finish ===
 baton_cmd_finish() {
-  # --skip-save: 정리 spawn 건너뛰기 (드물게 사용)
   local skip_save=false
+  local force=false
   for a in "$@"; do
-    [[ "$a" == "--skip-save" ]] && skip_save=true
+    case "$a" in
+      --skip-save) skip_save=true ;;
+      --force) force=true ;;
+    esac
   done
 
   baton_guard_main_root finish || return 1
@@ -834,6 +867,12 @@ baton_cmd_finish() {
       baton_cmd_save || true
       echo
     fi
+  fi
+
+  local _finish_branch
+  _finish_branch=$(git -C "$root" branch --show-current 2>/dev/null)
+  if ! baton_fanout_block_finish "$root" "$_finish_branch" "$force"; then
+    return 1
   fi
 
   [[ -f "$current" ]] && baton_current_set_status done "$current"

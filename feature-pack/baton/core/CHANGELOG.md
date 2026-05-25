@@ -2,6 +2,33 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.9] — 2026-05-25 (fan-out/fan-in 브랜치 추적)
+
+### Added — 병렬 브랜치 fan-out/fan-in 추적
+- **`.baton/branches.json` 장부** — `wt-create` 시 부모-자식 브랜치 관계 자동 기록 (git-tracked). 스키마: `parent_branch`, `child_branch`, `child_worktree`, `purpose`, `status`(active/merged/abandoned), `created_at`, `merged_at`.
+- **자동 머지 감지** — `save`/`finish`/`resume`/`status`/`wt-clean` 호출 시 git 상태와 장부 자동 동기화. 브랜치가 main에 머지되었거나 삭제되면 `status=merged` 자동 갱신.
+- **미병합 경고** — `save`/`resume`/`wt-clean` 시 현재 워크트리에서 분기된 미병합 자식 브랜치 경고 출력 (main/master에서는 silent).
+- **finish 차단** — 미병합 자식 브랜치가 있으면 `finish` 차단. `--force`로 우회 가능.
+- **status 트리 표시** — `status`에 fan-out/fan-in 요약 (총/active/merged 카운트 + 미병합 목록) 표시.
+- **`lib/fanout.sh`** — fan-out 추적 전용 라이브러리 (8함수: register, set_status, auto_sync, unmerged_count, warn, block_finish, status, init).
+
+### Added — tmuxc fan-out spawn 연동
+- **`baton_tmux_fanout_spawn`** — fan-out 워크트리에 Claude `--remote-control` tmux 세션 자동 생성 + 메시지 전송. Claude CLI alias chain(ccd/cc/claude) 자동 해석.
+- **`/baton:wt-create <name> --spawn [--prompt <msg>]`** — fan-out 시 자동으로 Claude 세션 스폰. `--prompt` 미지정 시 기본 메시지 전송. main에서 호출 시 `--spawn` 무시 (fan-out 한정).
+- **tmux send-keys 안전 게이트** — `pane_current_command`에서 Claude 프로세스 확인 후 메시지 전송 (셸 주입 방지, 최대 12초 대기).
+
+### Changed — DA 리뷰 반영 (HIGH 2건 + MEDIUM 1건)
+- **[H1] branches.json 동시 쓰기 race 해결** — `mkdir` atomic lock (`baton_fanout_lock_acquire/release`). 5초 타임아웃, 60초 이상 stale lock 자동 해제. macOS/Linux 호환 (`stat -f %m || stat -c %Y`).
+- **[H2] wt-clean 명시적 장부 갱신** — `auto_sync` 의존 대신 `baton_wt_clean_one`에서 머지 상태 확인 후 직접 `set_status(merged|abandoned)` 호출. 워크트리 삭제 후 브랜치 ref가 남아도 정확히 추적.
+- **[M3] auto_sync 중복 호출 제거** — `_BATON_FANOUT_SYNCED` per-invocation guard. 같은 root에 대해 셸 1회 실행 내 1번만 sync.
+- **`baton_fanout_unmerged_count` jq 실패 시 명시적 `echo 0`** — 빈 문자열 대신 숫자 보장.
+- **`baton_fanout_is_fanout` 헬퍼** — caller branch가 main/master/unknown이 아닌 경우 true.
+
+### Why
+GPU STT/TTS 프로덕션에서 실제 발생: 워크트리 A에서 병렬 브랜치 B를 분기 후 B의 merge 누락 → A가 main에 squash merge된 뒤 B가 diverged 상태로 방치 → 나중에 B merge 시 회귀 위험. fan-out은 잘 되지만 fan-in(병합 완료 추적)이 없었음.
+
+---
+
 ## [1.2.8] — 2026-05-25 (baton:digest — 다중 세션 SSOT 압축)
 
 ### Added — `/baton:digest <topic>`
