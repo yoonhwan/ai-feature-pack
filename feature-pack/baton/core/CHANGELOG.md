@@ -2,6 +2,21 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.9] — 2026-05-25 (fan-out/fan-in 브랜치 추적)
+
+### Added — 병렬 브랜치 fan-out/fan-in 추적
+- **`.baton/branches.json` 장부** — `wt-create` 시 부모-자식 브랜치 관계 자동 기록 (git-tracked). 스키마: `parent_branch`, `child_branch`, `child_worktree`, `purpose`, `status`(active/merged/abandoned), `created_at`, `merged_at`.
+- **자동 머지 감지** — `save`/`finish`/`resume`/`status`/`wt-clean` 호출 시 git 상태와 장부 자동 동기화. 브랜치가 main에 머지되었거나 삭제되면 `status=merged` 자동 갱신.
+- **미병합 경고** — `save`/`resume`/`wt-clean` 시 현재 워크트리에서 분기된 미병합 자식 브랜치 경고 출력 (main/master에서는 silent).
+- **finish 차단** — 미병합 자식 브랜치가 있으면 `finish` 차단. `--force`로 우회 가능.
+- **status 트리 표시** — `status`에 fan-out/fan-in 요약 (총/active/merged 카운트 + 미병합 목록) 표시.
+- **`lib/fanout.sh`** — fan-out 추적 전용 라이브러리 (8함수: register, set_status, auto_sync, unmerged_count, warn, block_finish, status, init).
+
+### Why
+GPU STT/TTS 프로덕션에서 실제 발생: 워크트리 A에서 병렬 브랜치 B를 분기 후 B의 merge 누락 → A가 main에 squash merge된 뒤 B가 diverged 상태로 방치 → 나중에 B merge 시 회귀 위험. fan-out은 잘 되지만 fan-in(병합 완료 추적)이 없었음.
+
+---
+
 ## [1.2.8] — 2026-05-25 (baton:digest — 다중 세션 SSOT 압축)
 
 ### Added — `/baton:digest <topic>`
