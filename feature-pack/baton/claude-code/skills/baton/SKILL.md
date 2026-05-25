@@ -24,7 +24,7 @@ baton은 **LLM 작업 실행을 하지 않습니다**. 계획·실행·검증은
 | 워크트리 작업 신호 | "새 기능", "브랜치 만들어", "작업 시작" | `/baton:wt-create` 안내 |
 | main 코드 수정 요청 | main/master root에서 코드 변경 요청 | 거부 + wt-create 안내 |
 
-## 17 명령 매핑
+## 18 명령 매핑
 
 | 슬래시 명령 | Bash CLI 호출 | 설명 |
 |------------|--------------|------|
@@ -34,6 +34,7 @@ baton은 **LLM 작업 실행을 하지 않습니다**. 계획·실행·검증은
 | `/baton:resume` | `bash ~/.baton/current/bin/baton resume` | NEXT.md 출력 (세션 재개) |
 | `/baton:finish` | `bash ~/.baton/current/bin/baton finish` | 페이즈 완료 (status=done) |
 | `/baton:wt-clean [path] [--merged]` | `bash ~/.baton/current/bin/baton wt-clean $ARGUMENTS` | archive 보관 + 워크트리 삭제 |
+| `/baton:digest <topic>` | *(에이전트 전용 — CLI 없음)* | 다중 세션 컨텍스트 → SSOT 1파일 압축 |
 | `/baton:status` | `bash ~/.baton/current/bin/baton status` | 활성 phase + 워크트리 목록 |
 | `/baton:help` | `bash ~/.baton/current/bin/baton help` | 명령 일람 (ASCII 시퀀스) |
 | `/baton:doctor` | `bash ~/.baton/current/bin/baton doctor` | 환경 진단 |
