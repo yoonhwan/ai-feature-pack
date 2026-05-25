@@ -2,6 +2,19 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.8] — 2026-05-25 (baton:digest — 다중 세션 SSOT 압축)
+
+### Added — `/baton:digest <topic>`
+- **다중 세션 컨텍스트 → 단일 SSOT 파일 압축** — N세션 + 문서 + 코드 + 아키텍처 + auto memory를 `docs/digest/{TOPIC}.md` (≤300줄) 1파일로 압축. 수동 트리거 전용.
+- **7섹션 strict 템플릿** — 세션 히스토리, 현재 상태, 확정 결정, 핵심 수치, 차단/리스크, 남은 작업, 파일 맵+명령어.
+- **git 커밋 대상** — `docs/digest/` 에 저장하여 워크트리 아카이브 후에도 main에서 접근 가능. `.baton/handoff/` 소실 문제 회피.
+- **NEXT.md 연동** — digest 작성 후 NEXT.md에 `**DIGEST**: docs/digest/{TOPIC}.md` 포인터 추가 시 `baton:resume`에서 자동 Read.
+- **증분 업데이트** — 기존 digest 있으면 diff 기반 갱신 (전체 재작성 금지).
+- **main 실행 허용** — 문서 생성이므로 옵션 B (main guard) 면제.
+
+### Changed
+- 명령 매핑 17개 → 18개
+
 ## [1.2.7] — 2026-05-25 (RESUME_MSG.md 풀 컨텍스트 + resume 통합)
 
 ### Changed — RESUME_MSG.md 압축 제거 + resume 통합
