@@ -49,17 +49,17 @@ for f in "${required_files[@]}"; do
   fi
 done
 
-# [2] slash commands count = 17
+# [2] slash commands count = 20
 echo
 echo "[2] claude-code/commands/baton/ count"
 
 cmd_count=$(find "$PACKAGE_DIR/claude-code/commands/baton/" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 cmd_count="${cmd_count:-0}"
-# 19 = 13 root cmds (doctor/finish/help/hotfix-mode/install/migrate/plan/resume/save/status/upgrade/wt-clean/wt-create) + 6 archive subs (close/extract/list/prune/search/show)
-if [[ "$cmd_count" == "19" ]]; then
-  ok "19 files"
+# 20 = 14 root cmds (digest/doctor/finish/help/hotfix-mode/install/migrate/plan/resume/save/status/upgrade/wt-clean/wt-create) + 6 archive subs (close/extract/list/prune/search/show)
+if [[ "$cmd_count" == "20" ]]; then
+  ok "20 files"
 else
-  ng "$cmd_count files found (expected 19)"
+  ng "$cmd_count files found (expected 20)"
 fi
 
 # [3] hooks count = 5
