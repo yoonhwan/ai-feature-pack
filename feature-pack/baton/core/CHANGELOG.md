@@ -2,6 +2,27 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.10] — 2026-06-05 (wt-clean tar 심링크 폭발 fix)
+
+### Fixed — `baton_archive_create` tar 폭발 (수백 MB·수 분 행)
+- **tar `-h` 플래그 제거** — 심링크를 dereference하지 않고 링크 그대로 보관. 워크트리 표준 구조(node_modules/.venv/.env를 메인 트리로 심링크)에서 `-h`가 실체를 따라가 아카이빙하던 문제 차단.
+- **아카이브 대상 축소** — `.env*`/`.claude`/`.omc`/`.baton` 전체 → **`.baton/handoff` + `.worktree-info.json`** (+미머지 `.unmerged-changes.patch` 유지). 핸드오프가 가치 전부, 소스는 git에 있음.
+
+### Why
+2026-06-05 BYZ-Agents 실증: 핸드오프 몇십 KB 보관에 519M·934M tar 생성, 트리당 수 분~행 → wt-clean 배치 사용 불가. 근본 원인 2중: ① `wt-create`가 워크트리 `.baton/archive`를 main `.baton/archive`로 심링크하는데, 구버전이 `.baton` **전체**를 `-h`로 아카이빙 → **과거 아카이브 tar들을 새 tar에 재귀 포함** (눈덩이). ② 심링크된 대용량 디렉토리 실체 추적.
+
+### Verify
+심링크 더미 워크트리(60MB 실체 + main archive 30MB 누적) 회귀 테스트: 구버전 30MB tar → 수정본 **1.1KB / 0.19초**, tar 내용 핸드오프 3종만, 심링크 실체 미추적, 워크트리 삭제·prune 정상.
+
+### Impact
+- archive 내용이 핸드오프 중심으로 축소 — `.env` 시크릿이 git-tracked archive에 들어가던 부수 문제도 해소.
+- `archive search/extract` 동작 불변 (tar 포맷 동일).
+
+### Fixed — test/verify.sh 명령 수 기대값 19→20
+- v1.2.8 `digest.md` 추가분 미반영으로 verify FAIL 나던 기존 버그 수정.
+
+---
+
 ## [1.2.9] — 2026-05-25 (fan-out/fan-in 브랜치 추적)
 
 ### Added — 병렬 브랜치 fan-out/fan-in 추적

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # baton lib/archive.sh — 워크트리 아카이브 (프로젝트 내부 .baton/archive/, git-tracked)
-# da 권고 적용: 프로젝트 내부 위치 + tar -h dereference + chmod 600 + tags 필드
+# da 권고 적용: 프로젝트 내부 위치 + chmod 600 + tags 필드
+# v1.2.10: tar -h 제거 (심링크 dereference가 node_modules/.venv 실체를 따라가 수백 MB tar 생성 — 2026-06-05 BYZ 실증)
 
 set -euo pipefail
 
@@ -59,12 +60,12 @@ baton_archive_create() {
     fi
   done
 
-  # 보관 대상
+  # 보관 대상 — 핸드오프만 (소스는 git에 있음)
+  # v1.2.10: .env/.claude/.omc/.baton 전체 → .baton/handoff + .worktree-info.json 축소
+  # (심링크 구조 워크트리에서 tar 폭발 방지 + 시크릿이 git-tracked archive에 들어가는 문제 해소)
   local items=()
-  for f in .env .env.local .env.worktree .claude .omc .worktree-info.json; do
-    [[ -e "$wt_path/$f" ]] && items+=("$f")
-  done
-  [[ -d "$wt_path/.baton" ]] && items+=(".baton")
+  [[ -d "$wt_path/.baton/handoff" ]] && items+=(".baton/handoff")
+  [[ -e "$wt_path/.worktree-info.json" ]] && items+=(".worktree-info.json")
 
   # 미머지 commit diff
   local diff_file=""
@@ -79,8 +80,8 @@ baton_archive_create() {
     return 1
   fi
 
-  # tar -h: symlink dereference (da 권고)
-  tar czhf "$archive_file" -C "$wt_path" "${items[@]}" 2>/dev/null
+  # 심링크는 링크 그대로 보관 (-h 금지: 실체 추적 시 수백 MB tar — v1.2.10)
+  tar czf "$archive_file" -C "$wt_path" "${items[@]}" 2>/dev/null
   chmod 600 "$archive_file"  # da 권고: archive 권한 제한
   [[ -n "$diff_file" && -f "$diff_file" ]] && rm -f "$diff_file"
 
