@@ -44,8 +44,8 @@ PY
 curl -sf -m1 http://localhost:8790/health >/dev/null 2>&1 \
   && echo "✅ 프록시 가동 중 (8790)" \
   || cat <<'EOF'
-⚠️ 프록시 미기동 — 아래로 기동(token 모드, 압축+캐시 공존):
-HEADROOM_MODE=token HEADROOM_COMPRESS_USER_MESSAGES=1 HEADROOM_CODE_AWARE_ENABLED=1 \
+⚠️ 프록시 미기동 — 아래로 기동(token 모드, 압축+캐시 공존, 텔레메트리 off):
+HEADROOM_MODE=token HEADROOM_COMPRESS_USER_MESSAGES=1 HEADROOM_CODE_AWARE_ENABLED=1 HEADROOM_TELEMETRY=off \
   ~/.headroom-venv/bin/python -m headroom.proxy.server \
   --port 8790 --compress-user-messages --exclude-tools Bash --code-aware
 EOF
