@@ -1,8 +1,41 @@
+<!-- 🤖 AGENT: 이 문서를 끝까지 읽어라. 그다음 ① 아래 "🤖 에이전트 설치·안내 절차"대로 headroom + 토글 스킬을 설치하고 ② 사용자에게 활성화 범위/방식을 물어본 뒤 ③ /headroom on|off|status 사용법을 사용자에게 안내하라. 자동 활성화 금지 — 사용자가 명시한 프로젝트만 켠다. -->
+
 # 🗜️ headroom
 
 > **AI 코딩 에이전트의 컨텍스트 비용을 LLM 도달 전에 깎는 로컬 프록시.** `ANTHROPIC_BASE_URL` 한 줄, 코드 변경 0.
 >
 > 언어 최적화는 착시(«1%). 캐시는 provider가 이미 10x 깎아 max. **남은 유일 레버는 carry/re-prefill되는 토큰 수를 줄이는 압축** — headroom이 그걸 한다.
+
+---
+
+## 🤖 에이전트 설치·안내 절차
+
+> **이 문서를 읽은 에이전트가 따를 절차.** 사람이 읽을 땐 건너뛰고 [📦 설치](#-설치)부터 봐도 된다.
+
+**STEP 1 — headroom 설치** ([📦 설치](#-설치) 참조)
+```bash
+python3.12 -m venv ~/.headroom-venv
+~/.headroom-venv/bin/pip install "headroom-ai[all]"
+```
+
+**STEP 2 — 토글 스킬 설치** (이 폴더의 `SKILL.md`를 사용자 스킬로 배치 + 레지스트리/래퍼 생성)
+```bash
+mkdir -p ~/.claude/skills/headroom ~/.headroom
+cp "$(dirname "$0")/SKILL.md" ~/.claude/skills/headroom/SKILL.md   # 이 폴더의 SKILL.md
+[ -f ~/.headroom/enabled-projects.json ] || echo '[]' > ~/.headroom/enabled-projects.json
+# fail-open + 레지스트리 인식 래퍼 생성 (아래 🚀 사용 섹션의 claude-hr.sh 그대로)
+chmod +x ~/.headroom/claude-hr.sh
+```
+
+**STEP 3 — 사용자에게 질문** (자동 결정 금지, 반드시 물어본다)
+1. 어떤 프로젝트/에이전트에 켤까요? (프로젝트별 수동 토글 — `/headroom on`)
+2. 프록시를 상시 서비스로 둘까요, 세션마다 래퍼로 띄울까요? (상시화는 fail-open 래퍼 필수)
+3. 멀티 프로바이더(Codex/Cursor/Aider/Copilot)도 쓰시나요? → [🔌 멀티 프로바이더](#-멀티-프로바이더-설치-가이드)
+
+**STEP 4 — 사용법 안내** (사용자에게 전달)
+- `/headroom on` = 현재 프로젝트 영구 활성 · `/headroom off` = 영구 비활성 · `/headroom status` = 상태+`cache_bust_count`(0 확인)
+- 실행은 `claude-hr` 래퍼로 (`alias claude-hr='~/.headroom/claude-hr.sh'`). 프록시 죽어도 직결되어 무중단.
+- **효과는 긴 세션·재독 많은 작업에서만 누적** — 단발/소형 입력엔 무의미하다고 솔직히 안내.
 
 ---
 
@@ -163,21 +196,42 @@ OPENAI_TARGET_API_URL=https://custom.endpoint      headroom proxy   # OpenAI 트
 
 ## 🚀 사용
 
-### fail-open 래퍼 (SPOF 제거 — 핵심 안전장치)
+### fail-open + 레지스트리 인식 래퍼 (SPOF 제거 — 핵심 안전장치)
 
-프록시가 살아있을 때만 경유, 죽으면 직결되어 작업이 무중단됩니다:
+`~/.headroom/claude-hr.sh`. **현재 프로젝트가 `enabled-projects.json`에 등록 + 프록시 health OK** 일 때만 8790 경유, 그 외(미등록 / 프록시 다운 / 파싱 실패)는 모두 직결되어 작업이 무중단됩니다. 프로젝트 root는 **canonical(git-common-dir) 기준**이라 워크트리도 메인과 동일 root로 매칭됩니다(한 번 `on` → 워크트리 전체 커버).
 
 ```bash
 #!/bin/zsh
-if curl -sf -m1 http://localhost:8790/health >/dev/null 2>&1; then
-  export ANTHROPIC_BASE_URL=http://localhost:8790
+# headroom fail-open + registry-aware 래퍼
+REGISTRY="$HOME/.headroom/enabled-projects.json"
+PROXY_URL="http://localhost:8790"
+
+# canonical 프로젝트 root (워크트리 → 메인 root로 정규화)
+GIT_COMMON="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+PROJECT_ROOT="$([ -n "$GIT_COMMON" ] && dirname "$GIT_COMMON" || pwd)"
+
+is_enabled() {
+  [ -f "$REGISTRY" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$REGISTRY" "$PROJECT_ROOT" <<'PY' 2>/dev/null
+import json, sys, os
+try:
+    reg = [os.path.realpath(p) for p in json.load(open(sys.argv[1]))]
+    sys.exit(0 if os.path.realpath(sys.argv[2]) in reg else 1)
+except Exception:
+    sys.exit(1)
+PY
+}
+
+if is_enabled && curl -sf -m1 "$PROXY_URL/health" >/dev/null 2>&1; then
+  export ANTHROPIC_BASE_URL="$PROXY_URL"
 else
-  unset ANTHROPIC_BASE_URL    # 프록시 다운 → 직결, 작업 무중단
+  unset ANTHROPIC_BASE_URL    # 미등록 또는 프록시 다운 → 직결, 작업 무중단
 fi
 exec claude "$@"
 ```
 
-`~/.zshrc`에 `alias claude-hr='~/.headroom/claude-hr.sh'` 추가 후 `claude-hr`로 실행.
+`~/.zshrc`에 `alias claude-hr='~/.headroom/claude-hr.sh'` 추가 후 `claude-hr`로 실행. 토글은 `/headroom on|off`(스킬)로 — 래퍼는 레지스트리만 읽는다.
 
 ### 관찰 (`/stats`)
 
