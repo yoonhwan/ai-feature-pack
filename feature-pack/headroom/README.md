@@ -233,6 +233,19 @@ exec claude "$@"
 
 `~/.zshrc`에 `alias claude-hr='~/.headroom/claude-hr.sh'` 추가 후 `claude-hr`로 실행. 토글은 `/headroom on|off`(스킬)로 — 래퍼는 레지스트리만 읽는다.
 
+### 🤖 에이전트 실행 경로 — 어떻게 띄워야 경유하나 (중요)
+
+`ANTHROPIC_BASE_URL`은 **프로세스 시작 시점 env**다. 즉 **claude를 어떤 명령으로 띄웠느냐**가 경유 여부를 결정한다. 두 가지 배치:
+
+| 배치 | 방법 | 커버 범위 |
+|---|---|---|
+| **A. 별도 alias** | `alias claude-hr='~/.headroom/claude-hr.sh'` → 의식적으로 `claude-hr`로 실행 | 사용자가 직접 띄울 때만 |
+| **B. 베이스 alias 재지정 (권장·전체 커버)** | 평소 쓰는 claude alias 자체를 래퍼로: `alias cc='~/.headroom/claude-hr.sh --dangerously-skip-permissions --model "..."'` | **모든 launch + tmux/오케스트레이터가 spawn·증류하는 세션까지** 자동 경유 |
+
+**B를 권장**하는 이유: tmux 멀티세션·오케스트레이터(예: 세션 증류)는 보통 사용자의 베이스 claude alias로 세션을 재기동한다. 베이스 alias를 래퍼로 바꾸면 **그 모든 세션이 fail-open + registry 조건부로 자동 경유**한다(등록 프로젝트+프록시 살아있을 때만, 아니면 직결). 래퍼는 `"$@"`로 flags를 투명 전달하므로 `--model` 등 옵션은 그대로 유지된다.
+
+> ⚠️ **기존에 떠 있던 세션은 소급 적용 안 됨.** env는 시작 시점에 굳으므로, **alias를 바꾼 뒤 새로 띄우거나 세션을 재증류(재기동)해야** 경유가 시작된다. `/stats`의 `api_req`가 0→증가하면 실제 경유 시작 신호다.
+
 ### 관찰 (`/stats`)
 
 ```bash
