@@ -87,6 +87,80 @@ HEADROOM_MODE=token HEADROOM_COMPRESS_USER_MESSAGES=1 HEADROOM_CODE_AWARE_ENABLE
 
 ---
 
+## 🔌 멀티 프로바이더 설치 가이드
+
+headroom은 Claude Code 외 Codex·Cursor·Aider·Copilot·임의 OpenAI 호환 클라이언트에도 붙는다.
+
+### 설치 채널
+
+```bash
+pip install "headroom-ai[all]"                  # Python (전체)
+npm install headroom-ai                          # Node / TypeScript
+docker pull ghcr.io/chopratejas/headroom:latest  # 컨테이너
+```
+
+### 에이전트별 한 줄 wrap
+
+`headroom wrap <agent>` — 프록시 기동 + 에이전트 실행을 한 번에 처리한다.
+
+```bash
+headroom wrap claude        # Claude Code
+headroom wrap codex         # Codex
+headroom wrap cursor        # Cursor
+headroom wrap aider         # Aider
+headroom wrap copilot       # GitHub Copilot CLI
+```
+
+| 에이전트 | wrap | 비고 |
+|---|---|---|
+| Claude Code | ● | `ANTHROPIC_BASE_URL` 경유 |
+| Codex | ● | Claude와 메모리 공유 |
+| Cursor | ● | config 출력 → 1회 붙여넣기 |
+| Aider | ● | 프록시 기동 + 런치 |
+| Copilot CLI | ● | 프록시 기동 + 런치 |
+
+### Copilot 구독 모드
+
+```bash
+headroom wrap copilot --subscription -- --model gpt-4o
+```
+
+OpenAI 호환 Copilot 요청을 가로채 동일 압축 파이프라인 적용 후 Copilot 호스티드 API로 포워드. 런치 시 `COPILOT_PROVIDER_API_URL=...` 출력.
+
+> ⚠️ macOS Keychain auth 재사용은 스모크 검증됨. Windows Credential Manager / Linux Secret Service / Docker·CI 경로는 미검증 — Docker·CI는 host keychain 의존 대신 `GITHUB_COPILOT_TOKEN`(또는 `GITHUB_COPILOT_GITHUB_TOKEN`) 명시 전달 권장.
+
+### OpenAI 호환 클라이언트 (코드 변경 0)
+
+```bash
+headroom proxy --port 8790
+# 클라이언트:
+OPENAI_BASE_URL=http://localhost:8790/v1 your-app
+```
+
+어떤 OpenAI 호환 클라이언트든 프록시 경유 가능. MCP-native 설치: `headroom mcp install`.
+
+### 영구 설치 (상주 서비스)
+
+```bash
+headroom init claude|codex|copilot|openclaw                          # 에이전트별 durable hooks + 라우팅
+headroom install apply --preset persistent-service --providers auto  # 자동 감지 상주 서비스
+headroom install status
+```
+
+### 백엔드 라우팅 (게이트웨이 / 대체 upstream)
+
+upstream을 LiteLLM·Bedrock·Vertex 등으로 바꿀 때:
+
+```bash
+ANTHROPIC_TARGET_API_URL=https://litellm.internal  headroom proxy   # Anthropic 트래픽 라우팅
+OPENAI_TARGET_API_URL=https://custom.endpoint      headroom proxy   # OpenAI 트래픽 라우팅
+# --backend anthropic|openai · Bedrock=[bedrock] extra · any-llm=[anyllm] extra (py3.11+)
+```
+
+> 참고: `HEADROOM_CONTEXT_TOOL=lean-ctx`로 CLI 컨텍스트 도구 교체 가능(기본은 RTK — shell 출력 재작성).
+
+---
+
 ## 🚀 사용
 
 ### fail-open 래퍼 (SPOF 제거 — 핵심 안전장치)
