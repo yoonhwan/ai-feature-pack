@@ -108,15 +108,15 @@ python3.12 -m venv ~/.headroom-venv
 ~/.headroom-venv/bin/headroom --version       # 0.23.0
 ```
 
-프록시 기동 (압축 + 캐시 공존 — 증명된 조합):
+프록시 기동 (압축 + 캐시 공존, **텔레메트리 off** — 아래 🔒 참조):
 
 ```bash
-HEADROOM_MODE=token HEADROOM_COMPRESS_USER_MESSAGES=1 HEADROOM_CODE_AWARE_ENABLED=1 \
+HEADROOM_MODE=token HEADROOM_COMPRESS_USER_MESSAGES=1 HEADROOM_CODE_AWARE_ENABLED=1 HEADROOM_TELEMETRY=off \
   ~/.headroom-venv/bin/python -m headroom.proxy.server \
   --port 8790 --compress-user-messages --exclude-tools Bash --code-aware
 ```
 
-> click `headroom proxy`는 옵션이 제한적 → **`python -m headroom.proxy.server` 직접 실행**이 full 제어.
+> click `headroom proxy`는 옵션이 제한적 → **`python -m headroom.proxy.server` 직접 실행**이 full 제어. (`--no-telemetry` 플래그는 click 전용 → server.py 직접 실행 시 `HEADROOM_TELEMETRY=off` env 사용)
 
 ---
 
@@ -291,6 +291,26 @@ PoC 실측을 그대로 공개합니다 (신뢰의 핵심):
 - **만능 아님**: 기본설정은 코딩 에이전트 도구 출력을 안 건드림. tool_result 압축은 베타(rtk).
 - **디버깅 주의**: CCR은 컨텍스트 내 lossy. 모델이 복원 필요를 모르면 오판할 수 있으니, 디버깅 워크플로우에서는 `headroom_retrieve` 복원 정확도를 별도 점검하세요.
 - 수치는 환경/버전(v0.23)에 따라 다를 수 있음.
+
+---
+
+## 🔒 보안 / 프라이버시 (코드 실측 감사)
+
+"스타 많아도 인젝션·외부유출 우려" — v0.23 코드 직접 감사 결과:
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 프롬프트/코드 외부 전송 | ❌ 없음 | 텔레메트리 payload에 prompt/content/messages/text 필드 0건(`telemetry/beacon.py`) |
+| 크레덴셜(OAuth/API키) | ✅ 로컬 | 의도된 upstream(anthropic 등)으로만. 타처 전송 없음. 내용 로깅(`--log-messages`)은 opt-in |
+| **익명 텔레메트리** | ⚠️ **기본 ON** | 5분마다 vendor Supabase로 **집계 stats만**(tokens_saved/압축률/캐시율/models_used/os/익명uuid). **opt-out: `HEADROOM_TELEMETRY=off`** |
+| 인젝션(`headroom learn`→CLAUDE.md) | ❌ 기본 off | `learn:false` 기본 |
+| 메모리/벡터 외부저장 | ❌ 기본 off | `memory:false` 기본 (Qdrant cloud URL 존재하나 미사용) |
+| 공급망 | ⚠️ 주의 | 번들 RTK 바이너리 + 기동 시 HF 모델 다운로드(huggingface.co) |
+
+**결론: 프롬프트·코드·크레덴셜은 로컬 전용으로 유출 없음. 단 익명 사용량 텔레메트리가 기본 켜짐** → 독점/민감 환경은 **반드시 `HEADROOM_TELEMETRY=off`**(위 기동 명령에 포함). `learn`·`memory`는 끈 채로 둘 것.
+
+### fail-open 주의 (정적 env 상속 함정)
+프록시 URL을 **셸 env에 정적으로 export**하면(또는 그런 셸이 spawn한 세션) 그 세션은 라우팅되지만 **fail-open이 아님** — 프록시가 죽으면 세션도 죽는다. **반드시 [fail-open 래퍼](#-fail-open--레지스트리-인식-래퍼-spof-제거--핵심-안전장치)로 기동**해 매 호출 조건부로 base URL을 set/unset 해야 안전하다. tmux/오케스트레이터가 세션을 spawn할 때 정적 `ANTHROPIC_BASE_URL`을 상속시키지 말 것.
 
 ---
 
