@@ -18,6 +18,12 @@ python3.12 -m venv ~/.headroom-venv
 ~/.headroom-venv/bin/pip install "headroom-ai[all]"
 ```
 
+**STEP 1.5 — 0.23.0 핫픽스 적용** (⚠️ 현 PyPI 최신 0.23.0 필수 — [🚑 에러 케이스 대응](#-에러-케이스-대응-트러블슈팅) 참조)
+```bash
+bash "$(dirname "$0")/patches/apply.sh"   # tree-sitter panic + 빈값 400 차단, 멱등
+```
+> PyPI `headroom-ai==0.23.0`은 tree-sitter thread-local fix가 빠진 갈래에서 태깅돼 **두 결함이 살아 있다**(500/400). 0.24.0이 릴리스되면 `pip install -U headroom-ai` 후 이 단계 불필요. 자세한 내용은 [`patches/README.md`](./patches/README.md).
+
 **STEP 2 — 토글 스킬 설치** (이 폴더의 `SKILL.md`를 사용자 스킬로 배치 + 레지스트리/래퍼 생성)
 ```bash
 mkdir -p ~/.claude/skills/headroom ~/.headroom
@@ -106,7 +112,10 @@ API 경계 프록시(`ANTHROPIC_BASE_URL=localhost:PORT`):
 python3.12 -m venv ~/.headroom-venv
 ~/.headroom-venv/bin/pip install "headroom-ai[all]"
 ~/.headroom-venv/bin/headroom --version       # 0.23.0
+bash patches/apply.sh                          # ⚠️ 0.23.0 핫픽스(필수) — 아래 🚑 참조
 ```
+
+> ⚠️ **0.23.0은 그대로 쓰면 안 된다.** tree-sitter `unsendable` panic(500)과 빈값 400 두 결함이 살아 있다 — `patches/apply.sh`(멱등)로 적용. 0.24.0 릴리스 후엔 불필요. → [🚑 에러 케이스 대응](#-에러-케이스-대응-트러블슈팅) · [`patches/`](./patches/README.md)
 
 프록시 기동 (압축 + 캐시 공존, **텔레메트리 off** — 아래 🔒 참조):
 
@@ -291,6 +300,51 @@ PoC 실측을 그대로 공개합니다 (신뢰의 핵심):
 - **만능 아님**: 기본설정은 코딩 에이전트 도구 출력을 안 건드림. tool_result 압축은 베타(rtk).
 - **디버깅 주의**: CCR은 컨텍스트 내 lossy. 모델이 복원 필요를 모르면 오판할 수 있으니, 디버깅 워크플로우에서는 `headroom_retrieve` 복원 정확도를 별도 점검하세요.
 - 수치는 환경/버전(v0.23)에 따라 다를 수 있음.
+
+---
+
+## 🚑 에러 케이스 대응 (트러블슈팅)
+
+> 다른 피처팩/에이전트 사용자가 헤드룸 경유 중 만나는 3대 증상과 대응. 근본원인은 모두 **PyPI 0.23.0의 미수정 결함** 또는 **프록시 SPOF**다.
+
+### 증상 A — `400 messages.N: user messages must have non-empty content`
+
+- **원인**: 압축이 non-empty 입력을 **빈 문자열로** 압축해 반환 → 프록시가 빈 user-message content를 Anthropic에 전송 → 요청 전체 400 거부. (tree-sitter panic이 빈 content를 유발하는 경로가 대표적)
+- **fix**: `patches/apply.sh` (빈값 가드 — non-empty 입력인데 결과가 비면 원본 fallback). 업스트림 [PR #771](https://github.com/chopratejas/headroom/pull/771).
+- **임시**: 압축 user-message 끄기 — plist/기동 명령에서 `--compress-user-messages` 제거.
+
+### 증상 B — 대용량 요청 500 / `compression_first_stage` RuntimeError / `No response returned`
+
+- **원인**: `code_compressor.py`가 tree-sitter Parser(pyo3 `#[pyclass(unsendable)]`)를 **모듈 전역 dict로 스레드 공유**. 압축은 `ThreadPoolExecutor`에서 도므로 한 스레드의 파서를 다른 워커가 재사용하면 `pyo3_runtime.PanicException` → panic이 `BaseException`이라 `except Exception` 통과 → 500. 526KB+ 대용량에서 빈발.
+- **fix**: `patches/apply.sh` (파서 캐시를 `threading.local()`로 스레드별 격리 + 잔여 panic passthrough). upstream main(0.24.0-dev)엔 이미 반영, **0.23.0 미릴리스 누락**.
+
+### 증상 C — 전 세션 `API Error: Connection refused` (SPOF 마비)
+
+- **원인**: 프록시(8790) 다운. 정적 `ANTHROPIC_BASE_URL` env로 묶인 세션은 **fail-open이 아니라서** 프록시가 죽으면 동시에 전부 마비된다.
+- **복구**:
+  1. **헤드룸 미경유 세션에서** 재기동 — 마비된 세션 안에선 못 한다(자기 연결이 죽음). **다른 프로젝트/루트**(레지스트리 미등록)에서 새 셸/세션을 연다.
+  2. ```bash
+     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.headroom.proxy.plist 2>/dev/null
+     launchctl enable    gui/$(id -u)/com.headroom.proxy
+     launchctl kickstart -k gui/$(id -u)/com.headroom.proxy
+     sleep 1; curl -sf -m1 http://localhost:8790/health && echo " ✅ 8790 복구"
+     ```
+  3. 8790이 살아나면 마비됐던 대화창은 **재시도(같은 입력 재전송)** 로 복귀.
+  4. **예방**: 프록시 작업/모니터 세션은 처음부터 직결로 띄우고, 일반 세션은 정적 env가 아니라 [fail-open 래퍼](#-fail-open--레지스트리-인식-래퍼-spof-제거--핵심-안전장치)로 띄운다. **글로벌 `ANTHROPIC_BASE_URL` 정적 export 금지**(전 세션 SPOF).
+
+### pyo3 panic 로그 식별법
+
+프록시 로그(`~/Library/Logs/headroom/proxy-error.log`)에서 아래가 보이면 증상 A/B의 tree-sitter panic이다:
+
+```
+pyo3_runtime.PanicException: _native::Parser is unsendable, but sent to another thread
+```
+
+`patches/apply.sh` 적용 후엔 0건이어야 한다.
+
+### ⚠️ stomping 주의 (Errno48 크래시루프)
+
+여러 세션이 동시에 `/headroom on` 하며 각자 `python -m headroom.proxy.server`를 띄우면 8790 중복 bind = `Errno48 Address already in use` 크래시루프(2026-06-09 사건). **새 프로세스 spawn 금지** — 8790이 이미 LISTEN이면 재사용, 미가동일 때만 LaunchAgent(`launchctl bootstrap`)로 단일 인스턴스 기동. 스킬 `on` 로직이 이를 강제한다.
 
 ---
 

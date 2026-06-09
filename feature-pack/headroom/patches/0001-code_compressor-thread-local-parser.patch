@@ -1,0 +1,126 @@
+--- a/headroom/transforms/code_compressor.py
++++ b/headroom/transforms/code_compressor.py
+@@ -57,10 +57,26 @@
+ 
+ # Lazy import for optional dependency
+ _tree_sitter_available: bool | None = None
+-_tree_sitter_languages: dict[str, Any] = {}
++# tree-sitter Parser objects (pyo3 native) are *unsendable* — pinned to the
++# thread that created them. Compression runs in a ThreadPoolExecutor, so a
++# parser cached on one thread and reused on another raises
++# pyo3_runtime.PanicException ("_native::Parser is unsendable, but sent to
++# another thread"). Cache parsers per-thread so each stays on its own thread.
++_tree_sitter_thread_local = threading.local()
+ _tree_sitter_lock = threading.Lock()
+ 
++# pyo3 PanicException subclasses BaseException (not Exception), so a plain
++# `except Exception` does NOT catch parser panics — they propagate to the proxy
++# and surface as HTTP 500. Capture the type (when pyo3 is present) so any
++# residual panic degrades to passthrough instead of killing the request.
++try:
++    from pyo3_runtime import PanicException as _Pyo3PanicException
++except Exception:  # pragma: no cover - pyo3 present whenever tree-sitter is
+ 
++    class _Pyo3PanicException(BaseException):
++        """Placeholder when pyo3 is unavailable; never raised."""
++
++
+ def _check_tree_sitter_available() -> bool:
+     """Check if tree-sitter packages are available."""
+     global _tree_sitter_available
+@@ -87,30 +103,40 @@
+         ImportError: If tree-sitter is not installed.
+         ValueError: If language is not supported.
+     """
+-    global _tree_sitter_languages
+-
+     if not _check_tree_sitter_available():
+         raise ImportError(
+             "tree-sitter is not installed. Install with: pip install headroom-ai[code]\n"
+             "This adds ~50MB for tree-sitter grammars."
+         )
+ 
+-    with _tree_sitter_lock:
+-        if language not in _tree_sitter_languages:
+-            try:
++    # Per-thread parser cache: pyo3 Parser is unsendable across threads, so each
++    # ThreadPoolExecutor worker must own the parser it uses.
++    cache = getattr(_tree_sitter_thread_local, "parsers", None)
++    if cache is None:
++        cache = {}
++        _tree_sitter_thread_local.parsers = cache
++
++    if language not in cache:
++        try:
++            # Grammar loading touches shared module state; serialize creation.
++            with _tree_sitter_lock:
+                 from tree_sitter_language_pack import get_parser
+ 
+                 parser = get_parser(language)  # type: ignore[arg-type]
+-                _tree_sitter_languages[language] = parser
+-                logger.debug("Loaded tree-sitter parser for %s", language)
+-            except Exception as e:
+-                raise ValueError(
+-                    f"Language '{language}' is not supported by tree-sitter. "
+-                    f"Supported: python, javascript, typescript, go, rust, java, c, cpp. "
+-                    f"Error: {e}"
+-                ) from e
++            cache[language] = parser
++            logger.debug(
++                "Loaded tree-sitter parser for %s (thread %s)",
++                language,
++                threading.get_ident(),
++            )
++        except Exception as e:
++            raise ValueError(
++                f"Language '{language}' is not supported by tree-sitter. "
++                f"Supported: python, javascript, typescript, go, rust, java, c, cpp. "
++                f"Error: {e}"
++            ) from e
+ 
+-        return _tree_sitter_languages[language]
++    return cache[language]
+ 
+ 
+ def is_tree_sitter_available() -> bool:
+@@ -128,7 +154,7 @@
+     Returns:
+         True if parsers are loaded in memory.
+     """
+-    return len(_tree_sitter_languages) > 0
++    return bool(getattr(_tree_sitter_thread_local, "parsers", None))
+ 
+ 
+ def unload_tree_sitter() -> bool:
+@@ -137,14 +163,14 @@
+     Returns:
+         True if parsers were unloaded, False if none were loaded.
+     """
+-    global _tree_sitter_languages
+-
+-    with _tree_sitter_lock:
+-        if _tree_sitter_languages:
+-            count = len(_tree_sitter_languages)
+-            _tree_sitter_languages.clear()
+-            logger.info("Unloaded %d tree-sitter parsers", count)
+-            return True
++    cache = getattr(_tree_sitter_thread_local, "parsers", None)
++    if cache:
++        count = len(cache)
++        cache.clear()
++        logger.info(
++            "Unloaded %d tree-sitter parsers (thread %s)", count, threading.get_ident()
++        )
++        return True
+ 
+     return False
+ 
+@@ -1065,7 +1091,7 @@
+                 symbol_scores=symbol_scores,
+             )
+ 
+-        except Exception as e:
++        except (Exception, _Pyo3PanicException) as e:
+             logger.warning("AST compression failed: %s, falling back", e)
+             if self.config.fallback_to_kompress:
+                 return self._fallback_compress(code, original_tokens)
