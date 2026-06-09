@@ -39,17 +39,24 @@ print("✅ 활성:", root)
 PY
 ```
 
-2. 프록시 health 확인 → **미기동이면 기동 안내**(자동 기동하지 않고 명령만 제시):
+2. 프록시 가동 확인 → **이미 떠 있으면 절대 새 프로세스를 spawn하지 않는다**(중복 bind = `Errno48 Address already in use` 크래시루프, 2026-06-09 실제 사건). 단일 인스턴스는 LaunchAgent가 보장한다:
 ```bash
-curl -sf -m1 http://localhost:8790/health >/dev/null 2>&1 \
-  && echo "✅ 프록시 가동 중 (8790)" \
-  || cat <<'EOF'
-⚠️ 프록시 미기동 — 아래로 기동(token 모드, 압축+캐시 공존, 텔레메트리 off):
-HEADROOM_MODE=token HEADROOM_COMPRESS_USER_MESSAGES=1 HEADROOM_CODE_AWARE_ENABLED=1 HEADROOM_TELEMETRY=off \
-  ~/.headroom-venv/bin/python -m headroom.proxy.server \
-  --port 8790 --compress-user-messages --exclude-tools Bash --code-aware
-EOF
+# (a) 8790 LISTEN 중이면 재사용 — health OK면 그대로 끝 (spawn 금지)
+if lsof -nP -iTCP:8790 -sTCP:LISTEN >/dev/null 2>&1; then
+  curl -sf -m1 http://localhost:8790/health >/dev/null 2>&1 \
+    && { echo "✅ 프록시 이미 가동 — 재사용 (spawn 안 함)"; return 0 2>/dev/null || true; } \
+    || echo "⚠️ 8790 LISTEN이나 health 실패(좀비 의심) — 아래 kickstart로 재기동만"
+else
+  echo "⚠️ 프록시 미기동 — LaunchAgent로 기동 (raw python spawn 금지)"
+fi
+# (b) LaunchAgent가 단일 관리 인스턴스 보장 — 미기동/불건전일 때만:
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.headroom.proxy.plist 2>/dev/null
+launchctl enable    gui/$(id -u)/com.headroom.proxy 2>/dev/null
+launchctl kickstart -k gui/$(id -u)/com.headroom.proxy 2>/dev/null   # 좀비면 강제 재기동(중복 spawn 아님)
+sleep 1; curl -sf -m1 http://localhost:8790/health >/dev/null 2>&1 && echo "✅ 프록시 가동(8790)" || echo "🔴 기동 실패 — 로그 확인: ~/Library/Logs/headroom/proxy-error.log"
 ```
+
+> ⚠️ **raw `python -m headroom.proxy.server`를 더 이상 안내하지 않는 이유:** 여러 세션이 동시에 `on`하면 각자 8790에 bind를 시도해 `Errno48` 크래시루프가 난다(2026-06-09 사건). `KeepAlive` LaunchAgent는 **단일 인스턴스**를 유지하고 죽어도 자동 부활하므로, `on`은 "떠 있으면 재사용, 없으면 launchctl로만 기동"한다. 동시에 여러 세션이 `on`해도 launchctl이 단일 인스턴스로 수렴시킨다.
 
 3. 사용자에게 안내: 이 프로젝트에서 `claude-hr` 래퍼(`alias claude-hr='~/.headroom/claude-hr.sh'`)로 실행하면 8790을 경유한다. 효과는 **긴 세션·재독 많은 작업**에서만 누적되며 단발 작업엔 무의미하다.
 
@@ -116,3 +123,26 @@ except Exception:
 - 래퍼는 **fail-open**: 프록시가 죽어도 미등록 프로젝트처럼 직결되어 작업 무중단.
 - **프로젝트/크루별 수동 컨트롤만.** 어떤 경우에도 사용자 호출 없이 프로젝트를 자동 등록하지 않는다.
 - 효과 판단: 긴 세션·재독 많은 코딩/전사/RAG = 강타깃. 단발·소형 입력 = 무의미.
+
+---
+
+## 🔒 운영 정책 — 프로젝트 레벨 전용 (SPOF 방지)
+
+- **글로벌 `ANTHROPIC_BASE_URL` 정적 설정 금지.** 셸 rc/환경에 프록시 URL을 export하면 **모든 세션이 프록시에 묶이고**, 프록시가 죽는 순간 전 세션이 동시에 `ConnectionRefused`로 마비된다(정적 env = fail-open 아님). 2026-06-09 실제 사건.
+- 활성화는 **오직 `enabled-projects.json` 레지스트리 + fail-open 래퍼**로만. 프로젝트별 opt-in이고, 미등록/프록시다운이면 자동 직결되어 무중단.
+- 헤드룸은 **프로젝트·크루 단위 도구**다. 전역 기본값으로 만들지 않는다.
+
+## 🚑 §5 SPOF 복구 — 프록시가 죽어 세션이 마비될 때
+
+**증상**: 경유 중이던 Claude/Codex 대화창이 전부 `API Error: Connection refused`. 프록시(8790)가 다운됐고, 그 세션들이 정적 env로 묶여 fail-open이 안 된 상태(래퍼 미경유).
+
+**복구**:
+1. **헤드룸 미경유 세션에서 재기동한다** — 마비된 세션 안에서는 못 한다(자기 연결이 죽어 있음). **다른 프로젝트/루트**(레지스트리 미등록)에서 새 셸/세션을 연다.
+2. ```bash
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.headroom.proxy.plist 2>/dev/null
+   launchctl enable    gui/$(id -u)/com.headroom.proxy
+   launchctl kickstart -k gui/$(id -u)/com.headroom.proxy
+   sleep 1; curl -sf -m1 http://localhost:8790/health && echo " ✅ 8790 복구"
+   ```
+3. 8790이 살아나면 마비됐던 대화창은 **재시도(같은 입력 재전송)** 로 복귀한다.
+4. **근본 예방**: 프록시 작업/모니터 세션은 **처음부터 직결로** 띄우고, 일반 세션은 정적 env가 아니라 **fail-open 래퍼**(`claude-hr.sh`)로 띄운다 — 매 호출 조건부 set/unset이라 프록시가 죽어도 그 세션만 직결로 빠지고 작업은 안 끊긴다.
