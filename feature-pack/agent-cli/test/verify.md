@@ -11,13 +11,13 @@ test -f ~/.claude/skills/agent-cli/references/per-cli.md && echo "✅ per-cli.md
 test -f ~/.claude/skills/agent-cli/references/personas.md && echo "✅ personas.md" || echo "❌ personas.md"
 
 # 3. scripts (실행권한 포함)
-for s in selftest test_opencode resume_chain; do
+for s in detect-env selftest test_opencode resume_chain; do
   f=~/.claude/skills/agent-cli/scripts/$s.sh
   test -x "$f" && echo "✅ $s.sh (x)" || echo "❌ $s.sh missing or not executable"
 done
 
 # 4. 문법 검사
-for s in selftest test_opencode resume_chain; do
+for s in detect-env selftest test_opencode resume_chain; do
   bash -n ~/.claude/skills/agent-cli/scripts/$s.sh && echo "✅ $s.sh syntax" || echo "❌ $s.sh syntax error"
 done
 
