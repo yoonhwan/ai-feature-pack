@@ -1,0 +1,22 @@
+{
+  "name": "agent-cli",
+  "version": "2.0.0",
+  "description": "AI 코딩 에이전트 CLI 툴킷 — 설치·인증·비교·Trust + 비대화 실행·자율주행(dangerous/full-auto/yolo/force)·resume 체인·페르소나(DA/designer/architect) 위임. 세션 내에서 claude·codex·gemini·opencode·cursor-agent 를 소환→자율주행→이어가기. oh-my-*(ulw/ultraplan)·baton·tmuxc 상위 하네스 연계. 2026-06 5종 실증 보정(cursor-agent 비대화 작동, codex resume --last, gemini sid-resume).",
+  "os": ["macos", "linux"],
+  "dependencies": {
+    "cli": ["perl", "python3"],
+    "brew": [],
+    "npm": [],
+    "pip": [],
+    "feature_packs": [],
+    "agent_clis_any_of": ["claude", "codex", "gemini", "opencode", "cursor-agent"]
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "cli_name": null,
+  "cli_package": null,
+  "cli_install_method": "skill copy (외부 에이전트 CLI는 사용자 기존 설치/인증 사용)"
+}
