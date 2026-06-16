@@ -1,0 +1,1 @@
+{"type":"result","subtype":"success","is_error":false,"duration_ms":5715,"duration_api_ms":5715,"result":"BANANA-7","session_id":"5029c811-330f-4893-a87d-22b90876cfa2","request_id":"8896198a-64c5-4dd2-ba38-e69ef006559b","usage":{"inputTokens":3,"outputTokens":7,"cacheReadTokens":0,"cacheWriteTokens":42757}}
