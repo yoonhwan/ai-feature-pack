@@ -12,7 +12,7 @@ AI 코딩 에이전트 CLI(Claude Code · Codex · Gemini · OpenCode · Cursor 
 - **프로바이더 무관 위임** — 같은 작업을 codex/gemini/claude에 던져 cross-check
 - **세션 영속성** — 비대화로도 다회 Q&A·HIL·점진 결정 (`resume`)
 - **설치·비교·Trust 가이드** — 어떤 CLI를 어떻게 깔고 래핑할지
-- **상위 하네스** — oh-my-\*(ulw/ultraplan), baton, tmuxc
+- **상위 하네스**(선택, 로컬 설치 시) — oh-my-\*(ulw/ultraplan), baton, tmuxc. **미설치면 무시** — 핵심 기능(비대화 위임·페르소나·resume)은 이들 없이도 동작
 
 ## 5종 지원 (2026-06 실증 보정)
 
