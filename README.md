@@ -20,6 +20,7 @@
 | 7 | [termaid](feature-pack/termaid/) | Mermaid 다이어그램 터미널 렌더링 — 설계 시각화 자동 발동 | ~2분 | ❌ | ❌ |
 | 8 | [auto](feature-pack/auto/) | AutoResearch 자율 실험 루프 — 베이스라인→목표→자율주행 최적화 | ~1분 | ❌ | ❌ |
 | 9 | [nanoclaw](feature-pack/nanoclaw/) | **AI 멀티 에이전트 플랫폼** — OpenClaw 대체. Claude SDK Brain, Docker 격리, 멀티 크루 | ~15분 | ❌ | Slack |
+| 10 | [cross-cli](feature-pack/cross-cli/) | **타 프로바이더 CLI 비대화 위임** — DA/designer/architect 페르소나 주입, 자율주행, resume (claude·codex·gemini·opencode·cursor) | ~3분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
@@ -33,6 +34,7 @@
 | yt-transcribe | `ytdl` + `whisper-cli` + `ffmpeg` | cargo + brew | ✅ | 빌드 시간 ~5분 |
 | termaid | `termaid-render` | go build + cp | ✅ | Go 필요 |
 | auto | — (순수 스킬) | 스킬 파일 복사 | ✅ | git, python3 필요 |
+| cross-cli | (기존 에이전트 CLI 호출) | 스킬 파일 복사 | ✅ | perl, python3 + 에이전트 CLI ≥1 |
 
 ---
 
