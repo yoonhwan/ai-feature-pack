@@ -73,6 +73,9 @@ $PROMPT"; else FULL="$PROMPT"; fi
         run_to cursor-agent -p -f --output-format json --resume "$SID" "$PROMPT" >"$TMP/r$n.json"
       fi
       res_key "$TMP/r$n.json" ;;
+    agy)
+      if [ -z "$SID" ]; then run_to agy -p "$FULL" --print-timeout 120s --dangerously-skip-permissions; SID=cont
+      else run_to agy -c -p "$PROMPT" --print-timeout 120s --dangerously-skip-permissions; fi ;;
     *) echo "미지원 cli: $CLI" >&2; exit 2 ;;
   esac
 done

@@ -12,7 +12,7 @@ SDIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOGDIR="${CROSS_CLI_LOGDIR:-$SDIR/logs}"; LOG="$LOGDIR/selftest.log"
 rm -rf "$LOGDIR"; mkdir -p "$LOGDIR"
 
-CLIS=("$@"); [ ${#CLIS[@]} -eq 0 ] && CLIS=(claude codex gemini opencode cursor-agent)
+CLIS=("$@"); [ ${#CLIS[@]} -eq 0 ] && CLIS=(claude codex gemini opencode cursor-agent agy)
 TOKEN="BANANA-7"
 R1="Remember this codeword: ${TOKEN}. Reply with exactly: OK ${TOKEN}"
 R2="What was the codeword I gave you earlier? Reply with ONLY the codeword, nothing else."
@@ -72,6 +72,11 @@ run_one(){
       log "[cursor-agent] R1 sid=$sid verdict=$r1"
       if [ -n "$sid" ]; then o2=$(run_to cursor-agent -p -f --output-format json --resume "$sid" "$R2" 2>>"$base.err"); echo "$o2">"$base.r2"; has "$o2" && r2="✅" || r2="❌ 미회상"; else r2="❌ sid없음"; fi
       log "[cursor-agent] R2 verdict=$r2" ;;
+    agy)
+      o1=$(run_to agy -p "$R1" --print-timeout 60s --dangerously-skip-permissions 2>"$base.err"); echo "$o1">"$base.r1"
+      has "$o1" && r1="✅" || r1="⚠️ R1불일치"; log "[agy] R1 verdict=$r1"
+      o2=$(run_to agy -c -p "$R2" --print-timeout 60s --dangerously-skip-permissions 2>>"$base.err"); echo "$o2">"$base.r2"
+      has "$o2" && r2="✅" || r2="❌ 미회상"; log "[agy] R2(-c continue) verdict=$r2" ;;
     *) log "[$cli] 미지원"; ROWS+=("| $cli | ❓ 미지원 | — | — |"); return ;;
   esac
   ROWS+=("| $cli | ✅ | $r1 | $r2 |")
