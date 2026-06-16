@@ -27,7 +27,7 @@ triggers:
   - "opencode 설치"
   - "CLI 비교"
   - "래핑 가이드"
-compatibility: perl + python3 (macOS 기본 내장). 5종 중 최소 1개 에이전트 CLI가 PATH에 설치·인증돼 있을 것.
+compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu는 `apt install perl python3`). 5종 중 최소 1개 에이전트 CLI가 PATH에 설치·인증돼 있을 것. 환경/가용 CLI는 `scripts/detect-env.sh`로 자동 파악.
 ---
 
 # agent-cli — AI 코딩 에이전트 CLI 툴킷 (설치·비교·비대화 위임)
@@ -109,15 +109,17 @@ codex exec --full-auto --skip-git-repo-check \
 
 본 스킬의 핵심 기능(비대화 위임·페르소나·resume·selftest)은 위 3종 **없이도 100% 동작**한다 — 이들은 다세션·장기 오케스트레이션으로 확장하는 **선택 레이어**일 뿐이다.
 
-## 6. 셀프 테스트
+## 6. 환경 파악 & 셀프 테스트
 
-`scripts/selftest.sh [cli ...]` — 각 CLI ①PATH ②비대화+자율 R1 ③resume R2(회상). 로그는 `logs/`(매 실행 삭제·재생성). 미설치는 SKIP. 모든 호출은 강제 타임아웃(프로세스그룹 SIGKILL)으로 보호.
-OpenCode 단독: `scripts/test_opencode.sh [provider/model]`(모델 자동탐색).
+- **환경 자동감지** (먼저 권장): `scripts/detect-env.sh` — OS(macOS/Linux/**WSL**) + **지금 바로 쓸 수 있는 CLI** + 환경별 설치 힌트 + WSL 주의. 처음 쓰거나 WSL이면 이걸 먼저.
+- **셀프 테스트**: `scripts/selftest.sh [cli ...]` — 각 CLI ①PATH ②비대화+자율 R1 ③resume R2(회상). 로그 `logs/`(매 실행 삭제·재생성). 미설치는 SKIP. 모든 호출은 강제 타임아웃(프로세스그룹 SIGKILL)으로 보호.
+- **OpenCode 단독**: `scripts/test_opencode.sh [provider/model]`(모델 자동탐색).
 
 ## 참조
 
 - `references/per-cli.md` — CLI별 비대화/자동주행/resume/JSON 상세
 - `references/install-and-compare.md` — 설치·인증, Trust Level, 래핑 적합도 비교, 컨텍스트 주입, 함정
 - `references/personas.md` — DA / designer / architect 프리셋
+- `scripts/detect-env.sh` — 환경/가용 CLI 자동감지 (macOS/Linux/WSL)
 - `scripts/selftest.sh · test_opencode.sh · resume_chain.sh`
 - 원본: `cli-tools-reference.md` (2026-04 전수 조사 + 2026-06 실증 보정)

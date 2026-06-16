@@ -4,9 +4,17 @@
 
 ## Prerequisites
 
-- `perl`, `python3` (macOS 기본 내장 — 확인만)
+- `perl`, `python3` — macOS 기본 내장. **WSL/Ubuntu에 없으면**: `sudo apt update && sudo apt install -y perl python3`
 - 5종 중 **최소 1개**의 에이전트 CLI 설치·인증: `claude` / `codex` / `gemini` / `opencode` / `cursor-agent`
   (미설치는 자동 SKIP. 설치는 `cli/install.md` 또는 `references/install-and-compare.md`)
+
+## Step 0: 환경 파악 (권장 — macOS / Linux / **WSL** 자동 구분)
+
+```bash
+bash scripts/detect-env.sh
+```
+내 OS(맥/리눅스/WSL)와 **지금 바로 쓸 수 있는 CLI**, 미설치분 설치 힌트, WSL 주의사항을 한눈에 출력한다.
+WSL 사용자는 이걸 먼저 돌려서 가능한 것부터 시작하면 된다.
 
 ## Step 1: 스킬 복사
 

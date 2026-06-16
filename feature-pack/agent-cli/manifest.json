@@ -1,8 +1,8 @@
 {
   "name": "agent-cli",
-  "version": "2.0.0",
-  "description": "AI 코딩 에이전트 CLI 툴킷 — 설치·인증·비교·Trust + 비대화 실행·자율주행(dangerous/full-auto/yolo/force)·resume 체인·페르소나(DA/designer/architect) 위임. 세션 내에서 claude·codex·gemini·opencode·cursor-agent 를 소환→자율주행→이어가기. oh-my-*(ulw/ultraplan)·baton·tmuxc 상위 하네스 연계. 2026-06 5종 실증 보정(cursor-agent 비대화 작동, codex resume --last, gemini sid-resume).",
-  "os": ["macos", "linux"],
+  "version": "2.1.0",
+  "description": "AI 코딩 에이전트 CLI 툴킷 — 설치·인증·비교·Trust + 비대화 실행·자율주행(dangerous/full-auto/yolo/force)·resume 체인·페르소나(DA/designer/architect) 위임. 세션 내에서 claude·codex·gemini·opencode·cursor-agent 를 소환→자율주행→이어가기. macOS·Linux·WSL 지원 + 환경 자동감지(detect-env)로 쓸 수 있는 CLI 안내. oh-my-*(ulw/ultraplan)·baton·tmuxc 상위 하네스 연계. 2026-06 5종 실증 보정(cursor-agent 비대화 작동, codex resume --last, gemini sid-resume).",
+  "os": ["macos", "linux", "wsl"],
   "dependencies": {
     "cli": ["perl", "python3"],
     "brew": [],

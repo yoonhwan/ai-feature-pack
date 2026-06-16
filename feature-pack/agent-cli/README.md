@@ -44,14 +44,22 @@ agent-cli/
 └── test/verify.md                 ← 설치 검증
 ```
 
+## 지원 환경
+
+**macOS · Linux · WSL.** 처음이거나 WSL이면 환경 감지부터:
+```bash
+bash scripts/detect-env.sh   # OS 구분 + 지금 쓸 수 있는 CLI + 설치 힌트 + WSL 주의
+```
+
 ## 설치
 
 `INSTALL.md`를 에이전트에게 전달하거나, 수동으로 `SKILL.md`+`references/`+`scripts/`를 `~/.claude/skills/agent-cli/`에 복사.
 
 ## 의존성
 
-- `perl`, `python3` (macOS 기본 내장)
+- `perl`, `python3` — macOS 내장 / **WSL·Ubuntu**: `sudo apt install -y perl python3`
 - 5종 중 **최소 1개** 에이전트 CLI가 PATH + 자체 인증 (본 팩은 자격증명 미주입)
+- WSL 주의: OAuth는 Windows 브라우저로 열림(URL 수동 복붙 가능) · cursor-agent는 없을 수 있음(자동 SKIP) · 작업은 `~/` 안에서
 
 ## 안전
 

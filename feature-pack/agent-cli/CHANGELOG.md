@@ -1,5 +1,23 @@
 # agent-cli — Changelog
 
+## v2.1.0 (2026-06-16) — WSL/Linux 지원
+
+WSL 사용자 문의 폭주 대응. macOS 편중이던 설치·경로를 cross-platform으로 보강.
+
+### ✨ Added
+- **`scripts/detect-env.sh`** — 실행 환경 자동감지: OS(macOS/Linux/**WSL**) 구분 + **지금 바로 쓸 수 있는 CLI** 목록 + 미설치분 환경별 설치 힌트 + WSL 주의사항을 한 번에 리포트. (읽기 전용 진단) WSL 사용자는 "링크 받고 → detect-env 실행 → 가능한 것부터" 흐름.
+- `INSTALL.md`에 **Step 0: 환경 파악** 추가.
+
+### 🔧 Changed
+- `cli/install.md`: macOS / **Linux / WSL** 3분기 설치표로 재작성 (npm·curl 우선, brew는 mac 한정).
+- WSL 주의 명문화: OAuth는 Windows 브라우저로 열림(URL 수동 복붙) · `cursor-agent`는 WSL PATH에 없을 수 있음(자동 SKIP) · 작업은 WSL 네이티브 FS(`~/`)에서 · `perl/python3` 없으면 `apt install`.
+- `manifest.json` os에 `wsl` 추가, compatibility/README에 지원 환경 명시.
+
+### 🩹 Fixed (사용자 문의)
+- macOS 전용 안내(`/opt/homebrew`, `brew`)만 있어 WSL에서 설치 막막하던 문제 해소 — 환경 자동 분기로 안내.
+
+---
+
 ## v2.0.0 (2026-06-16)
 
 기존 `agent-cli`(설치·비교 가이드)에 비대화 **위임 하네스**(cross-cli)를 통합하고, 5종 CLI를 실기로 재검증해 정정한 메이저 릴리스.
