@@ -21,7 +21,6 @@
 | 8 | [auto](feature-pack/auto/) | AutoResearch 자율 실험 루프 — 베이스라인→목표→자율주행 최적화 | ~1분 | ❌ | ❌ |
 | 9 | [nanoclaw](feature-pack/nanoclaw/) | **AI 멀티 에이전트 플랫폼** — OpenClaw 대체. Claude SDK Brain, Docker 격리, 멀티 크루 | ~15분 | ❌ | Slack |
 | 10 | [agent-cli](feature-pack/agent-cli/) | **AI 코딩 에이전트 CLI 툴킷** — 설치·비교 + 비대화 위임(DA/designer/architect 페르소나·자율주행·resume): claude·codex·gemini·opencode·cursor | ~3분 | ❌ | ❌ |
-| 11 | [cliproxyapi](feature-pack/cliproxyapi/) | **구독 프록시 스택** — headroom(:8790)+CLIProxyAPI(:8317), Hermes cc-cloak, OAuth 멀티계정, 게이트웨이 운영·doctor | ~15분 | ❌ | OAuth 대시보드 |
 
 ### 난이도 & 의존성
 
@@ -36,8 +35,6 @@
 | termaid | `termaid-render` | go build + cp | ✅ | Go 필요 |
 | auto | — (순수 스킬) | 스킬 파일 복사 | ✅ | git, python3 필요 |
 | agent-cli | (기존 에이전트 CLI 호출) | 스킬 파일 복사 | ✅ | perl, python3 + 에이전트 CLI ≥1 |
-| cliproxyapi | `doctor.sh` | LaunchAgent + 패치 | ✅ | [headroom](feature-pack/headroom/) 선행 권장, python3.12 |
-| headroom | `headroom` | venv + LaunchAgent | ✅ | python3.12, `feature-pack/headroom/patches/apply.sh` |
 
 ---
 
