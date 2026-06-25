@@ -1393,3 +1393,10 @@ def test_cmd_set_group_sets_and_clears(tmp_path, monkeypatch):
     cairn.main(["set-group", "project-a", "ms1", ""])
     d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
     assert "group" not in d["projects"][0]["milestones"][0]
+
+
+def test_render_axis_format_compact_dates():
+    # x축 날짜 라벨: 연 2자리 + '.' 구분(26.06.10), 주 단위 눈금으로 간격 확보
+    out = cairn.render(_good())
+    assert "axisFormat %y.%m.%d" in out
+    assert "tickInterval 1week" in out

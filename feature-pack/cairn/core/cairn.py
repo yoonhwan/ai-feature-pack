@@ -78,7 +78,10 @@ def _safe_mermaid_label(name):
 
 def render(data):
     lines = ["# cairn — 전사 간트", "", "```mermaid", "gantt",
-             "    dateFormat YYYY-MM-DD", "    title 전사 마일스톤 타임라인"]
+             "    dateFormat YYYY-MM-DD",
+             "    axisFormat %y.%m.%d",   # x축 라벨: 연 2자리 + '.' 구분 (26.06.10)
+             "    tickInterval 1week",    # 주 단위 눈금 — 매일 라벨 겹침 방지
+             "    title 전사 마일스톤 타임라인"]
     for p in data.get("projects", []):
         proj_label = _safe_mermaid_label(p.get('name', p['id']))
         milestones = p.get("milestones", [])
