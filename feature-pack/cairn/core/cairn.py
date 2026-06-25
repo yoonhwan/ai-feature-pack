@@ -604,6 +604,22 @@ def cmd_validate(data, args):
     print("valid"); return 0
 
 
+def cmd_init(_data, args):
+    plan = REPO / ".cairn" / "plan.yaml"
+    if plan.exists():
+        print("cairn: 이미 초기화됨 (.cairn/plan.yaml)"); return 0
+    seed = {"version": 1, "projects": []}
+    view = REPO / ".cairn" / "views" / "plan.md"
+    view.parent.mkdir(parents=True, exist_ok=True)
+    save_atomic(seed, plan)
+    write_view(seed, view)
+    # 시드 커밋 — 이후 transaction의 git rev-parse HEAD가 동작하려면 첫 커밋 필요
+    git("add", str(plan), str(view))
+    git("commit", "-q", "-m", "cairn init")
+    print(f"cairn 초기화 완료: {REPO / '.cairn'} — 'cairn new-project <name>'으로 시작")
+    return 0
+
+
 def cmd_self_test(_data, args):
     data = load_plan(GOLDEN_PATH)
     if validate(data):
@@ -823,6 +839,8 @@ def main(argv=None):
     sp = sub.add_parser("new-project")
     sp.add_argument("name")
 
+    sub.add_parser("init")
+
     sub.add_parser("reconcile", parents=[file_parent])
     sub.add_parser("validate", parents=[file_parent])
     sub.add_parser("self-test", parents=[file_parent])
@@ -840,8 +858,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     # needs#7: revert/self-test는 SoT 로드 불필요 — 깨진 SoT에서도 복구/진단 가능해야 함
-    if args.cmd in ("revert", "self-test"):
-        handler = {"revert": cmd_revert, "self-test": cmd_self_test}[args.cmd]
+    if args.cmd in ("revert", "self-test", "init"):
+        handler = {"revert": cmd_revert, "self-test": cmd_self_test, "init": cmd_init}[args.cmd]
         try:
             return handler(None, args)
         except (ValueError, RuntimeError, OSError, YAMLError, subprocess.CalledProcessError) as e:

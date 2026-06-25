@@ -981,3 +981,25 @@ def test_find_repo_falls_back_to_cwd_when_no_cairn(tmp_path, monkeypatch):
     # .cairn 없으면 cwd 반환 (신규 프로젝트 init 전)
     monkeypatch.chdir(tmp_path)
     assert cairn._find_repo() == tmp_path
+
+
+def test_init_creates_seed_ledger(tmp_path, monkeypatch):
+    # [추가스펙] 신규 프로젝트 init → 빈 시드 원장
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    for attr, val in [("REPO", tmp_path), ("PLAN_PATH", tmp_path / ".cairn" / "plan.yaml"),
+                      ("VIEW_PATH", tmp_path / ".cairn" / "views" / "plan.md"),
+                      ("LOCK_PATH", tmp_path / ".cairn" / ".lock")]:
+        monkeypatch.setattr(cairn, attr, val)
+    rc = cairn.main(["init"])
+    assert rc == 0
+    d = cairn.load_plan(tmp_path / ".cairn" / "plan.yaml")
+    assert d["version"] == 1 and list(d["projects"]) == []
+    # init 후 new-project가 동작해야 함
+    assert cairn.main(["new-project", "Demo"]) == 0
+
+
+def test_init_idempotent(tmp_path, monkeypatch):
+    # 이미 초기화된 곳에서 init → no-op, rc 0
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["init"])
+    assert rc == 0
