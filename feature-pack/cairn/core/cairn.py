@@ -205,6 +205,25 @@ def _is_stale(t):
     return bool(t.get("execution_ref")) and not t.get("merge_back_to") and t.get("status") == "done"
 
 
+def _node_depth(t, by_id):
+    """spawned_from 체인을 거슬러 루트(분기원 없음)까지의 홉 수 = fan-out 깊이(루트=0).
+    필드(fanout_depth)가 아니라 그래프 구조에서 파생 — 유효 원장(spawned_from
+    순환 없음, validate 통과)에서 일관. 순환은 validate가 사전 차단한다."""
+    depth, cur, seen = 0, t, set()
+    while cur is not None:
+        sf = cur.get("spawned_from")
+        cid = cur.get("id")
+        if not sf or cid in seen:                 # 루트 도달 or 순환 방지
+            break
+        seen.add(cid)
+        parent = by_id.get(sf)
+        if parent is None:                        # 분기원이 그래프 밖
+            break
+        depth += 1
+        cur = parent
+    return depth
+
+
 def render_recovery_map(data, focus=None, show_merged=False):
     lines = ["graph TD"]
     all_tasks = [t for p in data.get("projects", [])
@@ -252,6 +271,21 @@ def render_recovery_map(data, focus=None, show_merged=False):
         mb = t.get("merge_back_to")
         if mb and mb not in hidden:
             lines.append(f"    {tid} ==merge==> {mb}")
+    # fan-out 깊이별 시각 구분(Ops#2: nested fan-out 식별) — depth>=3은 depth3로 클램프.
+    depth_buckets = {}
+    for t in all_tasks:
+        tid = t.get("id")
+        if tid not in visible:
+            continue
+        d = _node_depth(t, by_id)
+        if d >= 1:                                # depth0(루트)은 기본 스타일
+            depth_buckets.setdefault(min(d, 3), []).append(tid)
+    _DEPTH_SHADE = {1: "#eff6ff,stroke:#93c5fd",
+                    2: "#dbeafe,stroke:#3b82f6",
+                    3: "#bfdbfe,stroke:#1d4ed8"}
+    for lvl in sorted(depth_buckets):             # stale 앞에 두어 stale 빨강이 우선
+        lines.append(f"    classDef depth{lvl} fill:{_DEPTH_SHADE[lvl]};")
+        lines.append(f"    class {','.join(depth_buckets[lvl])} depth{lvl};")
     if stale_ids:                                 # 스테일 브랜치 시각 구분
         lines.append("    classDef stale fill:#fee2e2,stroke:#dc2626,stroke-dasharray:4 3;")
         lines.append(f"    class {','.join(stale_ids)} stale;")
@@ -359,6 +393,20 @@ def _has_cycle(nodes):
         return False
 
     return any(color[k] == WHITE and dfs(k) for k in graph)
+
+
+def _has_spawn_cycle(tasks):
+    """spawned_from 단일 부모 체인의 순환(자기참조 포함) 탐지. 순환이면
+    _node_depth가 루트에 도달 못 해 fan-out 깊이가 무의미해진다."""
+    parent = {t["id"]: t.get("spawned_from") for t in tasks if t.get("id")}
+    for start in parent:
+        seen, cur = set(), start
+        while cur is not None and cur in parent:
+            if cur in seen:
+                return True
+            seen.add(cur)
+            cur = parent[cur]
+    return False
 
 
 @contextmanager
@@ -490,10 +538,13 @@ def validate(data):
                     elif dep not in proj_tids:
                         errors.append(f"{pid}/{mid}/{tid}: task depends_on missing target: {dep}")
         # 순환은 프로젝트 전역 태스크 그래프에서 검사 — 크로스-마일스톤 의존도 포착
-        if _has_cycle([tt for mm in p.get("milestones", []) for tt in mm.get("tasks", [])]):
+        proj_tasks = [tt for mm in p.get("milestones", []) for tt in mm.get("tasks", [])]
+        if _has_cycle(proj_tasks):
             errors.append(f"{pid}: dependency cycle in tasks")
         if _has_cycle(p.get("milestones", [])):
             errors.append(f"{pid}: dependency cycle in milestones")
+        if _has_spawn_cycle(proj_tasks):
+            errors.append(f"{pid}: spawned_from cycle in tasks")
     return errors
 
 
