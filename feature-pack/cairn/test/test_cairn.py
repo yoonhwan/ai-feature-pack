@@ -117,6 +117,21 @@ def test_write_view_creates_file(tmp_path):
     assert "gantt" in target.read_text()
 
 
+def test_render_milestone_without_dates_derives_from_tasks():
+    """마일스톤 start/end 미설정 시 하위 태스크 날짜에서 파생.
+    섹션 첫 바가 시작일 없는 ', 1d' 단독이면 mermaid가 'Invalid date'로 거부함."""
+    d = _good()
+    ms = d["projects"][0]["milestones"][0]
+    ms["start"] = None
+    ms["end"] = None
+    ms["tasks"][0]["start"] = "2026-06-10"
+    ms["tasks"][0]["due"] = "2026-06-12"
+    out = cairn.render(d)
+    ms_line = next(l for l in out.splitlines() if f", {ms['id']}," in l)
+    assert not ms_line.rstrip().endswith(", 1d"), ms_line   # 시작일 없는 단독 바 금지
+    assert "2026-06-10" in ms_line                          # 파생 시작일 반영
+
+
 # ── Task5: overdue_list + main ───────────────────────────────────────────────
 import datetime
 
@@ -824,6 +839,145 @@ def test_render_recovery_map_shows_edges():
     assert "t1" in out and "ms1" in out and t["id"] in out
 
 
+def test_derive_wt_br_from_execution_ref():
+    # execution_ref "worktree/X" → wt=X, br 파생(같은 이름)
+    assert cairn._derive_wt_br({"execution_ref": "worktree/distill-store"}) == ("distill-store", "distill-store")
+    # branch 오버라이드 우선
+    assert cairn._derive_wt_br({"execution_ref": "worktree/x", "branch": "feat/y"}) == ("x", "feat/y")
+    # ref 없으면 (None, None)
+    assert cairn._derive_wt_br({}) == (None, None)
+
+
+def test_node_label_shows_six_fields():
+    d = _good()
+    t = d["projects"][0]["milestones"][0]["tasks"][0]
+    t.update({"start": "2026-06-10", "finished_at": "2026-06-12",
+              "execution_ref": "worktree/stt-vad", "session_ref": "session-s1-abc",
+              "note": "merge->t3"})
+    out = cairn.render_recovery_map(d)
+    node = next(l for l in out.splitlines() if l.strip().startswith(f"{t['id']}["))
+    assert "st 2026-06-10" in node and "fin 2026-06-12" in node
+    assert "wt stt-vad" in node and "br stt-vad" in node
+    assert "sess s1-abc" in node           # session- prefix 제거
+    assert "note merge->t3" in node
+
+
+def test_node_label_head_rule_omits_inherited_worktree():
+    # 부모와 같은 워크트리를 공유하는 자식은 wt/br 생략 (전이 아님)
+    d = _good()
+    ms = d["projects"][0]["milestones"][1]
+    parent = ms["tasks"][0]; child = ms["tasks"][1]
+    parent["execution_ref"] = "worktree/shared"
+    child["execution_ref"] = "worktree/shared"; child["spawned_from"] = parent["id"]
+    out = cairn.render_recovery_map(d)
+    pnode = next(l for l in out.splitlines() if l.strip().startswith(f"{parent['id']}["))
+    cnode = next(l for l in out.splitlines() if l.strip().startswith(f"{child['id']}["))
+    assert "wt shared" in pnode            # 부모(전이 시작점)엔 표시
+    assert "wt shared" not in cnode        # 같은 wt 상속 → 생략
+
+
+def test_node_label_head_rule_shows_changed_worktree():
+    # 옆으로 확장하다 워크트리가 바뀐 자식은 head로 wt 표기
+    d = _good()
+    ms = d["projects"][0]["milestones"][1]
+    parent = ms["tasks"][0]; child = ms["tasks"][1]
+    parent["execution_ref"] = "worktree/A"
+    child["execution_ref"] = "worktree/B"; child["spawned_from"] = parent["id"]
+    out = cairn.render_recovery_map(d)
+    cnode = next(l for l in out.splitlines() if l.strip().startswith(f"{child['id']}["))
+    assert "wt B" in cnode                 # 워크트리 변경 → head 표기
+
+
+def test_recovery_map_hides_merged_by_default():
+    # 병합된(merge_back_to) 노드는 기본 뷰에서 숨김, show_merged=True면 표시
+    d = _good()
+    ms = d["projects"][0]["milestones"][1]
+    merged = ms["tasks"][0]
+    merged["merge_back_to"] = ms["tasks"][1]["id"]
+    out = cairn.render_recovery_map(d)
+    assert not any(l.strip().startswith(f"{merged['id']}[") for l in out.splitlines())
+    out2 = cairn.render_recovery_map(d, show_merged=True)
+    assert any(l.strip().startswith(f"{merged['id']}[") for l in out2.splitlines())
+
+
+def test_recovery_map_marks_stale_branch():
+    # 워크트리 있고 미병합 done = 스테일 → classDef로 구분
+    d = _good()
+    stale = d["projects"][0]["milestones"][1]["tasks"][0]
+    stale["execution_ref"] = "worktree/orphan"
+    stale["status"] = "done"
+    stale.pop("merge_back_to", None)
+    out = cairn.render_recovery_map(d)
+    assert "classDef stale" in out
+    assert any(l.strip().startswith("class ") and stale["id"] in l and "stale" in l
+               for l in out.splitlines())
+
+
+def test_recovery_map_drops_edges_to_hidden_merged():
+    # 숨겨진 merged 노드와 연결된 엣지는 함께 제거(고아 엣지 금지)
+    d = _good()
+    ms = d["projects"][0]["milestones"][1]
+    parent = ms["tasks"][0]; merged = ms["tasks"][1]
+    merged["spawned_from"] = parent["id"]
+    merged["merge_back_to"] = parent["id"]
+    out = cairn.render_recovery_map(d)
+    assert f"--> {merged['id']}" not in out
+    assert f"{merged['id']} ==merge==>" not in out
+
+
+def test_cmd_map_passes_show_merged(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    seen = {}
+    real = cairn.render_recovery_map
+    monkeypatch.setattr(cairn, "render_recovery_map",
+                        lambda data, **kw: seen.update(kw) or real(data, **kw))
+    cairn.main(["map"])
+    assert seen.get("show_merged") is False
+    seen.clear()
+    cairn.main(["map", "--show-merged"])
+    assert seen.get("show_merged") is True
+
+
+def test_complete_stamps_finished_at(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    monkeypatch.setattr(cairn, "_today", lambda: datetime.date(2026, 6, 25))
+    cairn.main(["spawn", "Z", "--from", "t2"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    new_tid = d["projects"][0]["milestones"][1]["tasks"][-1]["id"]
+    cairn.main(["complete", new_tid])
+    d2 = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    done = next(t for t in d2["projects"][0]["milestones"][1]["tasks"] if t["id"] == new_tid)
+    assert done["finished_at"] == "2026-06-25"
+
+
+def test_cmd_map_png_renders_and_opens(tmp_path, monkeypatch, capsys):
+    # --png: render_png 호출 + 성공 시 open으로 Preview 표시
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    seen = {}
+    monkeypatch.setattr(cairn, "render_png",
+                        lambda text, png: seen.setdefault("text", text) or Path(str(png)))
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run",
+                        lambda cmd, **kw: opened.append(cmd))
+    cairn.main(["map", "--png"])
+    out = capsys.readouterr().out
+    assert "PNG →" in out
+    assert "graph TD" in seen["text"]                 # recovery-map mermaid 전달
+    assert any("open" in c for c in opened)           # Preview 호출
+
+
+def test_cmd_map_png_failure_falls_back(tmp_path, monkeypatch, capsys):
+    # render_png 실패(None) → 안내만, open 호출 안 함
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    monkeypatch.setattr(cairn, "render_png", lambda text, png: None)
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    cairn.main(["map", "--png"])
+    out = capsys.readouterr().out
+    assert "실패" in out
+    assert not any("open" in c for c in opened)
+
+
 def test_cmd_map_writes_file(tmp_path, monkeypatch):
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
     monkeypatch.setattr(cairn, "MAP_DIR", tmp_path / "cairnmap")
@@ -1019,11 +1173,11 @@ def test_init_idempotent(tmp_path, monkeypatch):
 
 
 def test_render_recovery_map_shows_merge_edge():
-    # [DA-sim] merge_back_to가 state에 있으면 복구그래프에도 머지 엣지가 그려져야
+    # [DA-sim] merge_back_to가 있으면 머지 엣지가 그려져야 (병합 노드는 기본 숨김 → show_merged)
     d = _good()
     t = d["projects"][0]["milestones"][1]["tasks"][0]
     t["merge_back_to"] = "ms1"
-    out = cairn.render_recovery_map(d)
+    out = cairn.render_recovery_map(d, show_merged=True)
     assert "ms1" in out
     assert "merge" in out.lower()   # 머지 엣지 표기 존재
 

@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import io
+import json
 import os
 import re
 import subprocess
@@ -80,11 +81,20 @@ def render(data):
             tag = _ms_tag(m.get("status", ""))
             prefix = f"{tag}, " if tag else ""
             start, end = m.get("start"), m.get("end")
+            tasks = m.get("tasks", [])
+            # 마일스톤 날짜 미설정 시 하위 태스크에서 파생 (mermaid는 섹션 첫 바에 시작일 필수)
+            if not start:
+                cand = [t["start"] for t in tasks if t.get("start")]
+                start = min(cand) if cand else None
+            if not end:
+                cand = [t["due"] for t in tasks if t.get("due")]
+                end = max(cand) if cand else None
             safe_name = _safe_mermaid_label(m["name"])
             if start and end:
                 lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, {end}")
-            else:
-                lines.append(f"    {safe_name} :{prefix}{m['id']}, 1d")
+            elif start:
+                lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, 1d")
+            # else: 날짜 정보 전무 → 유효 간트 위해 마일스톤 요약 바 생략
             for t in m.get("tasks", []):
                 due = t.get("due")
                 if due:
@@ -95,26 +105,131 @@ def render(data):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_recovery_map(data, focus=None):
+def _derive_wt_br(t):
+    """노드 표시용 워크트리/브랜치 파생. execution_ref 'worktree/X' → wt=X
+    (prefix 없으면 ref 전체). br은 branch 필드 우선, 없으면 wt에서 파생. 없으면 None."""
+    er = t.get("execution_ref")
+    if not er:
+        wt = None
+    elif er.startswith("worktree/"):
+        wt = er.split("/", 1)[1]
+    else:
+        wt = er
+    br = t.get("branch") or wt
+    return wt, br
+
+
+def _derive_sess(t):
+    """session_ref 'session-X' → X (prefix 없으면 ref 전체). 없으면 None."""
+    sr = t.get("session_ref")
+    if not sr:
+        return None
+    return sr[len("session-"):] if sr.startswith("session-") else sr
+
+
+def _node_label(t, parent):
+    """6필드 노드 라벨(st·fin·wt·br·sess·note). wt/br는 '전이 마커' —
+    직계 부모(spawned_from)와 워크트리/브랜치가 다른 head 노드에만 표기."""
+    parts = [f"{t.get('id')} · {_safe_mermaid_label(t.get('name', t.get('id')))}"]
+    dates = []
+    if t.get("start"):
+        dates.append(f"st {t['start']}")
+    if t.get("finished_at"):
+        dates.append(f"fin {t['finished_at']}")
+    if dates:
+        parts.append(" · ".join(dates))
+    wt, br = _derive_wt_br(t)
+    if wt:
+        p_wt, p_br = _derive_wt_br(parent) if parent else (None, None)
+        if (wt, br) != (p_wt, p_br):          # 전이 발생 → head
+            seg = f"🌿 wt {wt}"
+            if br:                            # br 파생 불가 시 wt만 (silent fallback 금지)
+                seg += f" · 🔀 br {br}"
+            parts.append(seg)
+    sess = _derive_sess(t)
+    if sess:
+        parts.append(f"🖥 sess {sess}")
+    if t.get("note"):
+        parts.append(f"📝 note {_safe_mermaid_label(str(t['note']))}")
+    return "<br/>".join(parts)
+
+
+def _is_merged(t):
+    """작업이 부모로 병합 완료됨 — merge_back_to 설정 = 통합됨."""
+    return bool(t.get("merge_back_to"))
+
+
+def _is_stale(t):
+    """스테일 워크트리 — execution_ref 있고 미병합인 done 태스크
+    (작업 끝났는데 병합 안 된 채 남은 브랜치)."""
+    return bool(t.get("execution_ref")) and not t.get("merge_back_to") and t.get("status") == "done"
+
+
+def render_recovery_map(data, focus=None, show_merged=False):
     lines = ["graph TD"]
-    for p in data.get("projects", []):
-        for m in p.get("milestones", []):
-            for t in m.get("tasks", []):
-                tid = t.get("id")
-                if focus and focus not in (tid, t.get("spawned_from"), t.get("return_to"), t.get("merge_back_to")):
-                    continue
-                label = _safe_mermaid_label(t.get("name", tid))
-                lines.append(f'    {tid}["{label}"]')
-                sf = t.get("spawned_from")
-                if sf:
-                    lines.append(f"    {sf} --> {tid}")
-                rt = t.get("return_to")
-                if rt:
-                    lines.append(f"    {tid} -.return.-> {rt}")
-                mb = t.get("merge_back_to")
-                if mb:
-                    lines.append(f"    {tid} ==merge==> {mb}")
+    all_tasks = [t for p in data.get("projects", [])
+                 for m in p.get("milestones", [])
+                 for t in m.get("tasks", [])]
+    by_id = {t.get("id"): t for t in all_tasks}
+
+    def _focused(t):
+        tid = t.get("id")
+        return not focus or focus in (tid, t.get("spawned_from"), t.get("return_to"), t.get("merge_back_to"))
+
+    # 가시 노드: 병합된 것은 기본 숨김(show_merged로 해제) + focus 필터
+    visible = {t.get("id") for t in all_tasks
+               if _focused(t) and (show_merged or not _is_merged(t))}
+    hidden = set(by_id) - visible                 # 숨겨진 '태스크'만 (마일스톤 타겟은 항상 유지)
+    stale_ids = []
+    for t in all_tasks:
+        tid = t.get("id")
+        if tid not in visible:
+            continue
+        lines.append(f'    {tid}["{_node_label(t, by_id.get(t.get("spawned_from")))}"]')
+        if _is_stale(t):
+            stale_ids.append(tid)
+        sf = t.get("spawned_from")
+        if sf and sf not in hidden:               # 숨겨진 노드와의 고아 엣지 방지
+            lines.append(f"    {sf} --> {tid}")
+        rt = t.get("return_to")
+        if rt and rt not in hidden:
+            lines.append(f"    {tid} -.return.-> {rt}")
+        mb = t.get("merge_back_to")
+        if mb and mb not in hidden:
+            lines.append(f"    {tid} ==merge==> {mb}")
+    if stale_ids:                                 # 스테일 브랜치 시각 구분
+        lines.append("    classDef stale fill:#fee2e2,stroke:#dc2626,stroke-dasharray:4 3;")
+        lines.append(f"    class {','.join(stale_ids)} stale;")
     return "\n".join(lines) + "\n"
+
+
+def _find_chrome():
+    """puppeteer 캐시의 chrome-headless-shell 경로 자동 탐색.
+    mmdc 기본 Chrome 버전과 캐시 버전 불일치로 인한 'Could not find Chrome' 회피."""
+    cache = Path.home() / ".cache" / "puppeteer"
+    hits = sorted(cache.glob("chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell")) if cache.exists() else []
+    return str(hits[-1]) if hits else None
+
+
+def render_png(text, out_png):
+    """mermaid 텍스트 → PNG (mmdc/puppeteer). 성공 시 Path, 실패 시 None.
+    mermaid 코드블록은 클라이언트에서 안 보이는 경우가 많아 PNG로 구워 Preview에 띄움."""
+    out_png = Path(out_png)
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as td:
+        mmd = Path(td) / "g.mmd"
+        mmd.write_text(text, encoding="utf-8")
+        cmd = ["npx", "-y", "@mermaid-js/mermaid-cli", "-i", str(mmd), "-o", str(out_png), "-b", "white"]
+        chrome = _find_chrome()
+        if chrome:
+            pptr = Path(td) / "pptr.json"
+            pptr.write_text(json.dumps({"executablePath": chrome, "args": ["--no-sandbox"]}), encoding="utf-8")
+            cmd += ["-p", str(pptr)]
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError:        # npx 미설치
+            return None
+    return out_png if (r.returncode == 0 and out_png.exists()) else None
 
 
 def write_view(data, path=VIEW_PATH):
@@ -512,6 +627,7 @@ def cmd_complete(_d, args):
             raise ValueError(f"task {args.task}: no return_to — 복귀 대상 불명 "
                              f"(spawn으로 만들거나 --force)")
         t["status"] = "done"
+        t["finished_at"] = _today().isoformat()   # [DA] 완료일 — due(마감)와 구분, 노드 fin 필드
         if not rt and args.force:       # [DA#5] 강제 완료 추적 표식
             t["forced_complete"] = True
         captured["return_to"] = rt
@@ -534,7 +650,7 @@ def _map_path():
 
 
 def cmd_map(data, args):
-    text = render_recovery_map(data, focus=args.focus)
+    text = render_recovery_map(data, focus=args.focus, show_merged=getattr(args, "show_merged", False))
     out = _map_path()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(f"```mermaid\n{text}```\n")
@@ -544,6 +660,14 @@ def cmd_map(data, args):
             subprocess.run(["termaid", str(out)], check=False)
         except FileNotFoundError:
             print("termaid 미설치 — 파일만 생성됨")
+    if getattr(args, "png", False):
+        png = render_png(text, out.with_suffix(".png"))
+        if png:
+            print(f"PNG → {png}")
+            if sys.platform == "darwin":   # 구운 PNG를 Preview로 띄움(코드블록 비가시 회피)
+                subprocess.run(["open", str(png)], check=False)
+        else:
+            print("PNG 렌더 실패(mmdc/chrome 미설치) — mermaid 파일만 생성됨")
     return 0
 
 
@@ -871,6 +995,9 @@ def main(argv=None):
     sp = sub.add_parser("map")
     sp.add_argument("--focus", default=None)
     sp.add_argument("--render", action="store_true")
+    sp.add_argument("--png", action="store_true", help="PNG로 구워 Preview에 표시(mmdc 필요)")
+    sp.add_argument("--show-merged", dest="show_merged", action="store_true",
+                    help="병합 완료된 노드도 포함(기본은 숨김)")
 
     sp = sub.add_parser("link")
     sp.add_argument("node")
