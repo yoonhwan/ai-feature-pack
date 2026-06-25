@@ -772,20 +772,21 @@ def test_complete_sets_done_and_shows_return(tmp_path, monkeypatch, capsys):
 
 
 def test_complete_blocks_without_return_to(tmp_path, monkeypatch):
+    # t3=todo+return_to없음 (t1은 done이라 was_done no-op로 빠짐)
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
-    rc = cairn.main(["complete", "t1"])
+    rc = cairn.main(["complete", "t3"])
     assert rc == 1
 
 
 def test_complete_force_overrides(tmp_path, monkeypatch):
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
-    rc = cairn.main(["complete", "t1", "--force"])
+    rc = cairn.main(["complete", "t3", "--force"])
     assert rc == 0
     d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
-    t1 = d["projects"][0]["milestones"][0]["tasks"][0]
-    assert t1["status"] == "done"
+    t3 = next(t for t in d["projects"][0]["milestones"][1]["tasks"] if t["id"] == "t3")
+    assert t3["status"] == "done"
     # [DA#5] return_to 없이 강제 완료한 것은 원장에 추적 표식이 남아야 함
-    assert t1["forced_complete"] is True
+    assert t3["forced_complete"] is True
 
 
 def test_complete_with_return_to_no_forced_flag(tmp_path, monkeypatch):
@@ -983,6 +984,18 @@ def test_find_repo_falls_back_to_cwd_when_no_cairn(tmp_path, monkeypatch):
     assert cairn._find_repo() == tmp_path
 
 
+def test_find_repo_prefers_git_toplevel(tmp_path, monkeypatch):
+    # [버그] .cairn 없는 git 프로젝트가 상위 ~/.cairn(설치 디렉토리)을 REPO로 오인하면 안 됨.
+    # git repo면 toplevel을 써야 한다.
+    proj = tmp_path / "proj"; proj.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=proj, check=True)
+    sub = proj / "deep"; sub.mkdir()
+    monkeypatch.chdir(sub)
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         cwd=sub, capture_output=True, text=True).stdout.strip()
+    assert str(cairn._find_repo()) == top
+
+
 def test_init_creates_seed_ledger(tmp_path, monkeypatch):
     # [추가스펙] 신규 프로젝트 init → 빈 시드 원장
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
@@ -1033,3 +1046,48 @@ def test_map_path_differs_by_project(tmp_path, monkeypatch):
     monkeypatch.setattr(cairn, "REPO", tmp_path / "projB")
     pb = cairn._map_path()
     assert pa != pb
+
+
+# === BYZPlan_Ops#1 운영 시뮬 발견 4건: done 노드 상태 전이 검증 ===
+
+def test_complete_on_done_is_noted(tmp_path, monkeypatch, capsys):
+    # [Ops#1-1] 이미 done인 태스크 재완료 → 침묵 말고 "이미 완료됨" 안내
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["spawn", "X", "--from", "t2"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    tid = d["projects"][0]["milestones"][1]["tasks"][-1]["id"]
+    cairn.main(["complete", tid])
+    capsys.readouterr()
+    rc = cairn.main(["complete", tid])
+    cap = capsys.readouterr(); out = cap.out + cap.err
+    assert rc == 0 and "이미" in out
+
+
+def test_return_to_done_node_warns(tmp_path, monkeypatch, capsys):
+    # [Ops#1-2] done 노드로 복귀 시 경고
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-status", "project-a", "task", "ms1", "t1", "done"])
+    capsys.readouterr()
+    rc = cairn.main(["return", "--to", "t1"])
+    cap = capsys.readouterr(); out = cap.out + cap.err
+    assert rc == 0 and "경고" in out
+
+
+def test_spawn_from_done_warns(tmp_path, monkeypatch, capsys):
+    # [Ops#1-3] done 노드에서 분기 시 경고 (재개 시나리오라 허용은 유지)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-status", "project-a", "task", "ms1", "t1", "done"])
+    capsys.readouterr()
+    rc = cairn.main(["spawn", "child", "--from", "t1"])
+    cap = capsys.readouterr(); out = cap.out + cap.err
+    assert rc == 0 and "경고" in out
+
+
+def test_spawn_duplicate_name_warns(tmp_path, monkeypatch, capsys):
+    # [Ops#1-4] 같은 parent에서 동일 이름 분기 시 경고 (id는 유니크라 허용 유지)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["spawn", "dupname", "--from", "t2"])
+    capsys.readouterr()
+    rc = cairn.main(["spawn", "dupname", "--from", "t2"])
+    cap = capsys.readouterr(); out = cap.out + cap.err
+    assert rc == 0 and "경고" in out

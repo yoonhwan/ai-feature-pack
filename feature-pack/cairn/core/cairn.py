@@ -14,10 +14,20 @@ from pathlib import Path
 from ruamel.yaml import YAML, YAMLError
 
 def _find_repo():
-    # [설치형] 실행 cwd부터 상위로 .cairn 디렉토리를 탐색. 없으면 cwd (init 전 신규 프로젝트).
+    # [설치형] git repo면 toplevel(프로젝트 루트=.cairn 위치)을 우선. 설치 디렉토리 ~/.cairn 오인 방지.
+    try:
+        r = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                           capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            return Path(r.stdout.strip())
+    except Exception:
+        pass
+    # 비-git: cwd부터 상위로 .cairn 탐색 (단 홈 설치 디렉토리 ~/.cairn 제외). 없으면 cwd.
     p = Path.cwd()
+    home_cairn = Path.home() / ".cairn"
     for d in [p, *p.parents]:
-        if (d / ".cairn").is_dir():
+        c = d / ".cairn"
+        if c.is_dir() and c != home_cairn:
             return d
     return Path.cwd()
 
@@ -453,6 +463,11 @@ def cmd_spawn(_d, args):
         if len(matches) > 1:
             raise ValueError(f"ambiguous parent {args.parent} (multiple matches)")
         _p, m, parent = matches[0]
+        if parent.get("status") == "done":           # [Ops#1-3] 완료 노드 분기 경고
+            captured["parent_done"] = True
+        for _t in m.get("tasks", []):                # [Ops#1-4] 같은 parent 동일 이름 경고
+            if _t.get("name") == args.name and _t.get("spawned_from") == args.parent:
+                captured["dup_name"] = True; break
         m.setdefault("tasks", [])
         # 복구 메타가 task id를 전역 참조 → spawn id는 전역 유니크여야 함
         existing = {t["id"] for pp in data.get("projects", [])
@@ -472,6 +487,10 @@ def cmd_spawn(_d, args):
             node["session_ref"] = args.session
         m["tasks"].append(node)
     transaction(mutate, f"spawn {args.name} from {args.parent}")
+    if captured.get("parent_done"):
+        print(f"경고: 완료된 노드 {args.parent}에서 분기 — 재개 작업인지 확인", file=sys.stderr)
+    if captured.get("dup_name"):
+        print(f"경고: 동일 이름 '{args.name}'이 {args.parent}에서 이미 분기됨", file=sys.stderr)
     print(f"OK: spawned {captured['tid']} ← from {args.parent} "
           f"(return_to={args.return_to or args.parent})"); return 0
 
@@ -485,6 +504,9 @@ def cmd_complete(_d, args):
         if len(matches) > 1:
             raise ValueError(f"ambiguous task {args.task} (multiple matches)")
         _p, _m, t = matches[0]
+        if t.get("status") == "done":       # [Ops#1-1] 이미 완료 — 멱등 no-op
+            captured["was_done"] = True
+            return
         rt = t.get("return_to")
         if not rt and not args.force:
             raise ValueError(f"task {args.task}: no return_to — 복귀 대상 불명 "
@@ -494,6 +516,8 @@ def cmd_complete(_d, args):
             t["forced_complete"] = True
         captured["return_to"] = rt
     transaction(mutate, f"complete {args.task}")
+    if captured.get("was_done"):           # [Ops#1-1] 재완료 침묵 제거 (mutate 후 판정)
+        print(f"이미 완료됨: {args.task} (no-op)"); return 0
     rt = captured.get("return_to")
     if rt:
         print(f"OK: {args.task} done → 다음: '{rt}'(으)로 돌아가세요 "
@@ -580,6 +604,9 @@ def cmd_link(_d, args):
 def cmd_return(data, args):
     if args.to not in _all_node_ids(data):
         print(f"return: no such node {args.to}"); return 1
+    _m = find_task_anywhere(data, args.to)   # [Ops#1-2] done 노드 복귀 경고
+    if _m and _m[0][2].get("status") == "done":
+        print(f"경고: 완료된 노드 {args.to}(으)로 복귀", file=sys.stderr)
     print(f"재앵커 대상: {args.to}")
     print("컨텍스트 재주입은 baton resume으로: cd 후 `이어서` 또는 /baton:resume")
     return 0
