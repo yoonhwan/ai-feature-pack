@@ -1302,3 +1302,94 @@ def test_spawn_duplicate_name_warns(tmp_path, monkeypatch, capsys):
     rc = cairn.main(["spawn", "dupname", "--from", "t2"])
     cap = capsys.readouterr(); out = cap.out + cap.err
     assert rc == 0 and "경고" in out
+
+
+# ── Schedule-Ops#1: 크로스-마일스톤 태스크 의존 + depends CLI ──────────────────
+def test_validate_allows_cross_milestone_task_depends():
+    # 태스크 의존은 프로젝트 전역에서 해소돼야 함 (t1@ms1 → t2@ms2). 현실 일정:
+    # QA(다른 마일스톤) 태스크가 Backend 태스크에 의존.
+    d = _good()
+    d["projects"][0]["milestones"][0]["tasks"][0]["depends_on"] = ["t2"]
+    assert not any("missing target" in e for e in cairn.validate(d))
+
+
+def test_validate_detects_cross_milestone_task_cycle():
+    # 마일스톤을 가로지르는 순환도 잡아야 함 (t1@ms1 ↔ t2@ms2).
+    d = _good()
+    d["projects"][0]["milestones"][0]["tasks"][0]["depends_on"] = ["t2"]
+    d["projects"][0]["milestones"][1]["tasks"][0]["depends_on"] = ["t1"]
+    assert any("cycle" in e for e in cairn.validate(d))
+
+
+def test_cmd_depends_add_task_sets_depends_on(tmp_path, monkeypatch):
+    # depends CLI: 크로스-마일스톤 태스크 의존을 수기 YAML 없이 설정
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["depends", "project-a", "t1", "--on", "t2"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t1 = d["projects"][0]["milestones"][0]["tasks"][0]
+    assert list(t1["depends_on"]) == ["t2"]
+
+
+def test_cmd_depends_milestone_add_and_remove(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["depends", "project-a", "ms2", "--on", "ms1"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert "ms1" in d["projects"][0]["milestones"][1]["depends_on"]
+    cairn.main(["depends", "project-a", "ms2", "--on", "ms1", "--remove"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert "ms1" not in (d["projects"][0]["milestones"][1].get("depends_on") or [])
+
+
+def test_cmd_depends_type_mismatch_rejected(tmp_path, monkeypatch, capsys):
+    # 태스크가 마일스톤에 의존(또는 그 반대)은 금지 — 일정 의존은 동종 간만
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["depends", "project-a", "t1", "--on", "ms1"])
+    assert rc != 0
+
+
+# ── Schedule-Ops#1: 태스크 기간 막대 렌더 (0d 점 → start→due 간격) ──────────────
+def test_render_task_shows_duration_bar():
+    # 태스크는 start→due 기간 막대로 그려져야 함 (0d 점이 아니라 간격이 보이게)
+    d = _good()
+    t = d["projects"][0]["milestones"][0]["tasks"][0]  # t1@ms1
+    t["start"] = "2026-06-10"; t["due"] = "2026-06-14"
+    out = cairn.render(d)
+    assert "ms1-t1, 2026-06-10, 2026-06-14" in out
+    assert "ms1-t1, 2026-06-14, 0d" not in out
+
+
+def test_render_task_without_start_falls_back_to_marker():
+    # start 없으면 due에 0d 마커로 폴백 (기존 동작 보존)
+    d = _good()
+    t = d["projects"][0]["milestones"][0]["tasks"][0]
+    t.pop("start", None); t["due"] = "2026-06-14"
+    out = cairn.render(d)
+    assert "milestone, ms1-t1, 2026-06-14, 0d" in out
+
+
+# ── Schedule-Ops#1: 그룹(제품/목표묶음) 단위 — 마일스톤 위 한 단계 ─────────────
+def test_render_groups_milestones_into_sections():
+    # group 라벨이 mermaid section으로 묶여 나와야 함
+    d = _good()
+    d["projects"][0]["milestones"][0]["group"] = "Backend"
+    d["projects"][0]["milestones"][1]["group"] = "QA"
+    out = cairn.render(d)
+    assert "section Project A · Backend" in out
+    assert "section Project A · QA" in out
+
+
+def test_validate_rejects_group_control_chars():
+    d = _good()
+    d["projects"][0]["milestones"][0]["group"] = "Bad\nGroup"
+    assert any("group contains control" in e for e in cairn.validate(d))
+
+
+def test_cmd_set_group_sets_and_clears(tmp_path, monkeypatch):
+    # 빈 문자열 = 그룹 제거 (별도 --clear 플래그 없음)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-group", "project-a", "ms1", "Backend"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["projects"][0]["milestones"][0]["group"] == "Backend"
+    cairn.main(["set-group", "project-a", "ms1", ""])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert "group" not in d["projects"][0]["milestones"][0]

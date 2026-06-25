@@ -67,6 +67,10 @@ def _ms_tag(status):
     return {"done": "done", "active": "active", "blocked": "crit"}.get(status, "")
 
 
+def _task_tag(status):
+    return {"done": "done", "doing": "active", "blocked": "crit"}.get(status, "")
+
+
 def _safe_mermaid_label(name):
     """Mermaid gantt 라벨에서 구분자 ':' 충돌 방지 (project section · milestone 공통)."""
     return str(name).replace(":", "-")
@@ -76,30 +80,51 @@ def render(data):
     lines = ["# cairn — 전사 간트", "", "```mermaid", "gantt",
              "    dateFormat YYYY-MM-DD", "    title 전사 마일스톤 타임라인"]
     for p in data.get("projects", []):
-        lines.append(f"    section {_safe_mermaid_label(p.get('name', p['id']))}")
-        for m in p.get("milestones", []):
-            tag = _ms_tag(m.get("status", ""))
-            prefix = f"{tag}, " if tag else ""
-            start, end = m.get("start"), m.get("end")
-            tasks = m.get("tasks", [])
-            # 마일스톤 날짜 미설정 시 하위 태스크에서 파생 (mermaid는 섹션 첫 바에 시작일 필수)
-            if not start:
-                cand = [t["start"] for t in tasks if t.get("start")]
-                start = min(cand) if cand else None
-            if not end:
-                cand = [t["due"] for t in tasks if t.get("due")]
-                end = max(cand) if cand else None
-            safe_name = _safe_mermaid_label(m["name"])
-            if start and end:
-                lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, {end}")
-            elif start:
-                lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, 1d")
-            # else: 날짜 정보 전무 → 유효 간트 위해 마일스톤 요약 바 생략
-            for t in m.get("tasks", []):
-                due = t.get("due")
-                if due:
-                    lines.append(f"    {_safe_mermaid_label(t['name'])} "
-                                 f":milestone, {m['id']}-{t['id']}, {due}, 0d")
+        proj_label = _safe_mermaid_label(p.get('name', p['id']))
+        milestones = p.get("milestones", [])
+        # 그룹(제품/목표묶음) 단위로 버킷화 — 등장순 유지하되 같은 group을 한 섹션에
+        # 연속 배치 (mermaid section은 평면이라 정렬 안 하면 파편화됨). None=기본 섹션.
+        seen_groups = []
+        for m in milestones:
+            g = (m.get("group") or "").strip() or None
+            if g not in seen_groups:
+                seen_groups.append(g)
+        for g in seen_groups:
+            section = proj_label if g is None else f"{proj_label} · {_safe_mermaid_label(g)}"
+            lines.append(f"    section {section}")
+            for m in milestones:
+                if ((m.get("group") or "").strip() or None) != g:
+                    continue
+                tag = _ms_tag(m.get("status", ""))
+                prefix = f"{tag}, " if tag else ""
+                start, end = m.get("start"), m.get("end")
+                tasks = m.get("tasks", [])
+                # 마일스톤 날짜 미설정 시 하위 태스크에서 파생 (mermaid는 섹션 첫 바에 시작일 필수)
+                if not start:
+                    cand = [t["start"] for t in tasks if t.get("start")]
+                    start = min(cand) if cand else None
+                if not end:
+                    cand = [t["due"] for t in tasks if t.get("due")]
+                    end = max(cand) if cand else None
+                safe_name = _safe_mermaid_label(m["name"])
+                if start and end:
+                    lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, {end}")
+                elif start:
+                    lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, 1d")
+                # else: 날짜 정보 전무 → 유효 간트 위해 마일스톤 요약 바 생략
+                for t in m.get("tasks", []):
+                    due = t.get("due")
+                    t_start = t.get("start")
+                    label = _safe_mermaid_label(t['name'])
+                    gid = f"{m['id']}-{t['id']}"
+                    if t_start and due and t_start <= due:
+                        # start→due 기간 막대 (간격이 보이게)
+                        t_tag = _task_tag(t.get("status", ""))
+                        t_prefix = f"{t_tag}, " if t_tag else ""
+                        lines.append(f"    {label} :{t_prefix}{gid}, {t_start}, {due}")
+                    elif due:
+                        # start 없거나 start>due → due에 0d 마커 폴백
+                        lines.append(f"    {label} :milestone, {gid}, {due}, 0d")
         lines.append("")
     lines.append("```")
     return "\n".join(lines).rstrip() + "\n"
@@ -300,6 +325,18 @@ def find_task_anywhere(data, tid):
     return out
 
 
+def _find_sched_node(proj, nid):
+    """프로젝트 내 일정 노드 조회 → (node, 'milestone'|'task'). 없으면 (None, None)."""
+    for m in proj.get("milestones", []):
+        if m.get("id") == nid:
+            return m, "milestone"
+    for m in proj.get("milestones", []):
+        for t in m.get("tasks", []):
+            if t.get("id") == nid:
+                return t, "task"
+    return None, None
+
+
 def _has_cycle(nodes):
     """nodes: list of dicts with id + depends_on. 순환/자기참조면 True."""
     graph = {n["id"]: list(n.get("depends_on") or []) for n in nodes if n.get("id")}
@@ -401,6 +438,8 @@ def validate(data):
                 errors.append(f"{pid}/{mid}: missing name")
             elif _CTRL_RE.search(str(mname)):
                 errors.append(f"{pid}/{mid}: name contains control characters")
+            if m.get("group") and _CTRL_RE.search(str(m.get("group"))):
+                errors.append(f"{pid}/{mid}: group contains control characters")
             if m.get("status") not in STATUS_MS:
                 errors.append(f"{pid}/{mid}: bad ms status: {m.get('status')}")
             for dep in (m.get("depends_on") or []):
@@ -423,8 +462,11 @@ def validate(data):
                         errors.append(f"{pid}/{mid}: start > end ({sv} > {ev})")
                 except ValueError:
                     pass
-            # F4: task depends_on 존재 확인 + 순환
-            all_tids = {t.get("id") for t in m.get("tasks", []) if t.get("id")}
+            # F4: task depends_on 존재 확인 + 순환.
+            # 태스크 의존은 프로젝트 전역에서 해소 — 마일스톤을 가로지르는 의존
+            # (예: QA 태스크 → Backend 태스크)이 현실 일정에 흔하므로. task id는 전역 유니크 강제됨.
+            proj_tids = {tt.get("id") for mm in p.get("milestones", [])
+                         for tt in mm.get("tasks", []) if tt.get("id")}
             tids = set()
             for t in m.get("tasks", []):
                 tid = t.get("id")
@@ -442,10 +484,11 @@ def validate(data):
                 for dep in (t.get("depends_on") or []):
                     if dep == tid:
                         errors.append(f"{pid}/{mid}/{tid}: task self-reference in depends_on")
-                    elif dep not in all_tids:
+                    elif dep not in proj_tids:
                         errors.append(f"{pid}/{mid}/{tid}: task depends_on missing target: {dep}")
-            if _has_cycle(m.get("tasks", [])):
-                errors.append(f"{pid}/{mid}: dependency cycle in tasks")
+        # 순환은 프로젝트 전역 태스크 그래프에서 검사 — 크로스-마일스톤 의존도 포착
+        if _has_cycle([tt for mm in p.get("milestones", []) for tt in mm.get("tasks", [])]):
+            errors.append(f"{pid}: dependency cycle in tasks")
         if _has_cycle(p.get("milestones", [])):
             errors.append(f"{pid}: dependency cycle in milestones")
     return errors
@@ -562,6 +605,21 @@ def cmd_set_date(_d, args):
             if not m: raise ValueError(f"no milestone {args.id}")
             m[args.field] = args.date
     transaction(mutate, f"set-date {args.project}/{args.id} {args.field}={args.date}")
+    print("OK"); return 0
+
+
+def cmd_set_group(_d, args):
+    def mutate(data):
+        p = find_project(data, args.project)
+        if not p: raise ValueError(f"no project {args.project}")
+        m = find_milestone(p, args.milestone)
+        if not m: raise ValueError(f"no milestone {args.milestone} in {args.project}")
+        g = (args.name or "").strip()
+        if g:
+            m["group"] = g
+        else:
+            m.pop("group", None)            # 빈 문자열 = 그룹 제거
+    transaction(mutate, f"set-group {args.project}/{args.milestone}={args.name}")
     print("OK"); return 0
 
 
@@ -757,6 +815,31 @@ def cmd_link(_d, args):
             t["session_chain"] = chain
             t["session_ref"] = args.add_session
     transaction(mutate, f"link {args.node}")
+    print("OK"); return 0
+
+
+def cmd_depends(_d, args):
+    def mutate(data):
+        p = find_project(data, args.project)
+        if not p:
+            raise ValueError(f"no project {args.project}")
+        node, kind = _find_sched_node(p, args.node)
+        if not node:
+            raise ValueError(f"no node {args.node} in {args.project}")
+        target, tkind = _find_sched_node(p, args.on)
+        if not target:
+            raise ValueError(f"no target {args.on} in {args.project}")
+        if args.node == args.on:
+            raise ValueError("self-reference not allowed in depends_on")
+        if kind != tkind:
+            raise ValueError(f"type mismatch: {kind} cannot depend on {tkind}")
+        deps = node.setdefault("depends_on", [])
+        if args.remove:
+            if args.on in deps:
+                deps.remove(args.on)
+        elif args.on not in deps:
+            deps.append(args.on)
+    transaction(mutate, f"depends {args.node} {'-' if args.remove else '+'}{args.on}")
     print("OK"); return 0
 
 
@@ -1042,6 +1125,17 @@ def main(argv=None):
                     help="세션 핸드오프(#1→#2→#3)를 session_chain에 누적")
     sp.add_argument("--merge-back-to", dest="merge_back_to", default=None)
 
+    sp = sub.add_parser("depends")
+    sp.add_argument("project")
+    sp.add_argument("node")
+    sp.add_argument("--on", dest="on", required=True, help="의존 대상 노드 id (동종: ms↔ms, task↔task)")
+    sp.add_argument("--remove", action="store_true", help="의존 제거")
+
+    sp = sub.add_parser("set-group")
+    sp.add_argument("project")
+    sp.add_argument("milestone")
+    sp.add_argument("name", help="제품/목표묶음 그룹 라벨 (빈 문자열이면 제거)")
+
     sp = sub.add_parser("new-project")
     sp.add_argument("name")
 
@@ -1082,7 +1176,8 @@ def main(argv=None):
                "set-priority": cmd_set_priority, "add-task": cmd_add_task,
                "add-milestone": cmd_add_milestone, "new-project": cmd_new_project,
                "spawn": cmd_spawn, "complete": cmd_complete, "return": cmd_return,
-               "map": cmd_map, "link": cmd_link, "reconcile": cmd_reconcile,
+               "map": cmd_map, "link": cmd_link, "depends": cmd_depends,
+               "set-group": cmd_set_group, "reconcile": cmd_reconcile,
                "validate": cmd_validate,
                "remove-task": cmd_remove_task, "remove-milestone": cmd_remove_milestone,
                "remove-project": cmd_remove_project}[args.cmd]
