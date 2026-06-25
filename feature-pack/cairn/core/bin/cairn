@@ -1,0 +1,6 @@
+#!/bin/sh
+# cairn CLI 진입점 — 설치 시 ~/.cairn/current/bin/cairn 으로 PATH 등록.
+# cairn.py는 실행 cwd 프로젝트의 .cairn/ 원장을 대상으로 동작한다.
+CAIRN_HOME="${CAIRN_HOME:-$HOME/.cairn/current}"
+PY="${CAIRN_PYTHON:-python3}"
+exec "$PY" "$CAIRN_HOME/cairn.py" "$@"

@@ -1,0 +1,35 @@
+version: 1
+projects:
+  - id: project-a
+    name: "Project A"
+    status: active
+    owner: yoonhwan
+    priority: high
+    goal: "백엔드 API v2 출시"
+    milestones:
+      - id: ms1
+        name: "Milestone Design"
+        status: done
+        start: "2026-06-10"
+        end: "2026-06-15"
+        depends_on: []
+        tasks:
+          - id: t1
+            name: "PRD Draft"
+            status: done
+            depends_on: []
+      - id: ms2
+        name: "Build"
+        status: active
+        start: "2026-06-16"
+        end: "2026-06-25"
+        depends_on: [ms1]
+        tasks:
+          - id: t2
+            name: "Backend Tasks"
+            status: doing
+            depends_on: []
+          - id: t3
+            name: "Frontend Tasks"
+            status: todo
+            depends_on: []
