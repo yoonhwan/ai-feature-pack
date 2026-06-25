@@ -921,6 +921,30 @@ def test_recovery_map_focus_includes_descendant_subtree():
     assert "stale" in out                            # stale 클래스 적용
 
 
+def test_derive_sess_renders_session_chain():
+    # tmuxc 컨텍스트 핸드오프로 #1→#2→#3 늘어난 세션 체인은 first→last (N)로 압축 표시
+    assert cairn._derive_sess(
+        {"session_chain": ["session-t24-1", "session-t24-2", "session-t24-3"]}
+    ) == "t24-1→t24-3 (3)"
+    # 단일 체인은 그 하나만
+    assert cairn._derive_sess({"session_chain": ["session-t24-1"]}) == "t24-1"
+    # 체인 없으면 기존 session_ref 폴백
+    assert cairn._derive_sess({"session_ref": "session-x"}) == "x"
+
+
+def test_cmd_link_add_session_appends_chain(tmp_path, monkeypatch):
+    # link --add-session: 세션 핸드오프를 체인에 누적. 기존 session_ref를 시드로,
+    # active(session_ref)는 항상 최신으로 갱신.
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["link", "t2", "--session-ref", "session-t2-1"])
+    cairn.main(["link", "t2", "--add-session", "session-t2-2"])
+    cairn.main(["link", "t2", "--add-session", "session-t2-3"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = next(t for t in d["projects"][0]["milestones"][1]["tasks"] if t["id"] == "t2")
+    assert list(t2["session_chain"]) == ["session-t2-1", "session-t2-2", "session-t2-3"]
+    assert t2["session_ref"] == "session-t2-3"       # active = 최신
+
+
 def test_recovery_map_hides_merged_by_default():
     # 병합된(merge_back_to) 노드는 기본 뷰에서 숨김, show_merged=True면 표시
     d = _good()

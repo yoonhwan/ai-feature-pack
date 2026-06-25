@@ -120,12 +120,23 @@ def _derive_wt_br(t):
     return wt, br
 
 
+def _short_sess(sr):
+    return sr[len("session-"):] if sr.startswith("session-") else sr
+
+
 def _derive_sess(t):
-    """session_ref 'session-X' → X (prefix 없으면 ref 전체). 없으면 None."""
+    """세션 표시. session_chain(핸드오프 누적)이 있으면 first→last (N)로 압축,
+    하나면 그 하나만. 없으면 단일 session_ref 'session-X' → X. 둘 다 없으면 None."""
+    chain = t.get("session_chain")
+    if chain:
+        shorts = [_short_sess(s) for s in chain]
+        if len(shorts) == 1:
+            return shorts[0]
+        return f"{shorts[0]}→{shorts[-1]} ({len(shorts)})"
     sr = t.get("session_ref")
     if not sr:
         return None
-    return sr[len("session-"):] if sr.startswith("session-") else sr
+    return _short_sess(sr)
 
 
 def _node_label(t, parent):
@@ -737,6 +748,14 @@ def cmd_link(_d, args):
             t["execution_ref"] = args.execution_ref
         if args.session_ref is not None:
             t["session_ref"] = args.session_ref
+        if args.add_session is not None:
+            # 세션 핸드오프 누적: 기존 session_ref를 시드로 체인 시작, active는 최신으로 갱신
+            chain = list(t.get("session_chain") or [])
+            if not chain and t.get("session_ref"):
+                chain.append(t["session_ref"])
+            chain.append(args.add_session)
+            t["session_chain"] = chain
+            t["session_ref"] = args.add_session
     transaction(mutate, f"link {args.node}")
     print("OK"); return 0
 
@@ -1019,6 +1038,8 @@ def main(argv=None):
     sp.add_argument("node")
     sp.add_argument("--execution-ref", dest="execution_ref", default=None)
     sp.add_argument("--session-ref", dest="session_ref", default=None)
+    sp.add_argument("--add-session", dest="add_session", default=None,
+                    help="세션 핸드오프(#1→#2→#3)를 session_chain에 누적")
     sp.add_argument("--merge-back-to", dest="merge_back_to", default=None)
 
     sp = sub.add_parser("new-project")
