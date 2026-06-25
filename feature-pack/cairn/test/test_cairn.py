@@ -735,6 +735,17 @@ def test_validate_recovery_edge_valid_passes():
     assert cairn.validate(d) == []
 
 
+def test_validate_detects_spawned_from_cycle():
+    # spawned_from 단일 부모 체인의 순환은 복구 그래프를 깨뜨림(depth 파생이 루트에
+    # 도달 못 함) — validate가 잡아야 한다. t1→t2→t1 순환.
+    d = _good()
+    ms = d["projects"][0]["milestones"][1]
+    a, b = ms["tasks"][0], ms["tasks"][1]
+    a["spawned_from"] = b["id"]; b["spawned_from"] = a["id"]
+    errs = cairn.validate(d)
+    assert any("spawned_from" in e and "cycle" in e for e in errs)
+
+
 def test_find_task_anywhere_finds_across_milestones():
     d = _good()
     res = cairn.find_task_anywhere(d, "t1")
@@ -968,6 +979,25 @@ def test_recovery_map_marks_stale_branch():
     assert "classDef stale" in out
     assert any(l.strip().startswith("class ") and stale["id"] in l and "stale" in l
                for l in out.splitlines())
+
+
+def test_recovery_map_distinguishes_fanout_depth():
+    # Ops#2: 팬아웃 안의 팬아웃(depth2 재분기)을 depth1과 시각적으로 구분해야
+    # nested fan-out임을 그래프에서 읽을 수 있다. depth는 spawned_from 체인 홉 수.
+    data = {"projects": [{"milestones": [{"tasks": [
+        {"id": "t21", "name": "parent", "status": "doing"},                       # depth0 루트
+        {"id": "t23", "name": "d1", "status": "doing", "spawned_from": "t21"},     # depth1
+        {"id": "t25", "name": "d2", "status": "doing", "spawned_from": "t23"},     # depth2
+    ]}]}]}
+    out = cairn.render_recovery_map(data)
+    assert "classDef depth1" in out and "classDef depth2" in out
+    assert any(l.strip().startswith("class ") and "t23" in l and "depth1" in l
+               for l in out.splitlines())
+    assert any(l.strip().startswith("class ") and "t25" in l and "depth2" in l
+               for l in out.splitlines())
+    # depth0 루트는 깊이 클래스 없음 (기본 스타일)
+    assert not any(l.strip().startswith("class ") and "t21" in l and "depth" in l
+                   for l in out.splitlines())
 
 
 def test_recovery_map_drops_edges_to_hidden_merged():
