@@ -1,0 +1,5 @@
+#!/bin/sh
+# cairn git post-merge 훅 — 머지 후 worktree↔노드 대조.
+# 설치: ln -s ../../scripts/hooks/post-merge .git/hooks/post-merge
+CAIRN="$(git rev-parse --show-toplevel)/scripts/cairn.py"
+python "$CAIRN" reconcile || true
