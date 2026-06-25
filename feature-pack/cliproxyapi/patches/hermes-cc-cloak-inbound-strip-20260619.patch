@@ -1,0 +1,74 @@
+commit c7fcb5bb4590a3903ab4284dfbbdb50c4fb18333
+Author: doctor-doom <doctor-doom@happylight.com>
+Date:   Fri Jun 19 11:25:22 2026 +0900
+
+    fix(anthropic): strip cloaked tool names on local-proxy responses
+    
+    Outbound build_anthropic_kwargs CamelCase-cloaks tool names for proxied
+    endpoints (headroom/cliproxy via local.anthropic.com), but response
+    normalization only stripped the prefix for OAuth. On a local proxy the
+    Mcp* names came back uncloaked, breaking tool execution.
+    
+    - conversation_loop.py: gate strip_tool_prefix on
+      _is_anthropic_oauth OR _use_cc_tool_cloak(base_url) at both the main
+      (3601) and truncation (1708) normalize_response sites.
+    - chat_completion_helpers.py: base_url falls back to agent.base_url
+      when _anthropic_base_url is unset, so cloak detection sees the proxy.
+    
+    Verified: hermes -z 'Run terminal: echo TOOLCALL_WORKS' round-trips
+    200 with no cliproxy third-party 400.
+
+diff --git a/agent/chat_completion_helpers.py b/agent/chat_completion_helpers.py
+index 496e74e39..ea38c816b 100644
+--- a/agent/chat_completion_helpers.py
++++ b/agent/chat_completion_helpers.py
+@@ -545,7 +545,10 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
+             is_oauth=agent._is_anthropic_oauth,
+             preserve_dots=agent._anthropic_preserve_dots(),
+             context_length=ctx_len,
+-            base_url=getattr(agent, "_anthropic_base_url", None),
++            base_url=(
++                getattr(agent, "_anthropic_base_url", None)
++                or getattr(agent, "base_url", None)
++            ),
+             fast_mode=(agent.request_overrides or {}).get("speed") == "fast",
+             drop_context_1m_beta=bool(getattr(agent, "_oauth_1m_beta_disabled", False)),
+         )
+diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
+index e16419849..0748863ea 100644
+--- a/agent/conversation_loop.py
++++ b/agent/conversation_loop.py
+@@ -1704,8 +1704,16 @@ def run_conversation(
+                     _trunc_msg = None
+                     _trunc_transport = agent._get_transport()
+                     if agent.api_mode == "anthropic_messages":
++                        from agent.anthropic_adapter import _use_cc_tool_cloak
++                        _trunc_strip = (
++                            agent._is_anthropic_oauth
++                            or _use_cc_tool_cloak(
++                                getattr(agent, "_anthropic_base_url", None)
++                                or getattr(agent, "base_url", None)
++                            )
++                        )
+                         _trunc_result = _trunc_transport.normalize_response(
+-                            response, strip_tool_prefix=agent._is_anthropic_oauth
++                            response, strip_tool_prefix=_trunc_strip
+                         )
+                     else:
+                         _trunc_result = _trunc_transport.normalize_response(response)
+@@ -3598,7 +3606,14 @@ def run_conversation(
+             _transport = agent._get_transport()
+             _normalize_kwargs = {}
+             if agent.api_mode == "anthropic_messages":
+-                _normalize_kwargs["strip_tool_prefix"] = agent._is_anthropic_oauth
++                from agent.anthropic_adapter import _use_cc_tool_cloak
++                _normalize_kwargs["strip_tool_prefix"] = (
++                    agent._is_anthropic_oauth
++                    or _use_cc_tool_cloak(
++                        getattr(agent, "_anthropic_base_url", None)
++                        or getattr(agent, "base_url", None)
++                    )
++                )
+             normalized = _transport.normalize_response(response, **_normalize_kwargs)
+             assistant_message = normalized
+             finish_reason = normalized.finish_reason
