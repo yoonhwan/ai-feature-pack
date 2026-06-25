@@ -174,8 +174,23 @@ def render_recovery_map(data, focus=None, show_merged=False):
     by_id = {t.get("id"): t for t in all_tasks}
 
     def _focused(t):
+        if not focus:
+            return True
         tid = t.get("id")
-        return not focus or focus in (tid, t.get("spawned_from"), t.get("return_to"), t.get("merge_back_to"))
+        if focus in (tid, t.get("return_to"), t.get("merge_back_to")):
+            return True
+        # focus의 자손 서브트리 전체 포함 (spawned_from 체인 상향 추적) —
+        # 직계 자식만 보면 손자(depth2+) stale 노드가 누락된다.
+        cur, seen = t, set()
+        while cur is not None:
+            cid = cur.get("id")
+            if cid == focus:
+                return True
+            if cid in seen:                       # 순환 방지
+                break
+            seen.add(cid)
+            cur = by_id.get(cur.get("spawned_from"))
+        return False
 
     # 가시 노드: 병합된 것은 기본 숨김(show_merged로 해제) + focus 필터
     visible = {t.get("id") for t in all_tasks

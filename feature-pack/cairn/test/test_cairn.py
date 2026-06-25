@@ -906,6 +906,21 @@ def test_node_label_main_branch_for_worktreeless_nodes():
     assert "br main" not in cnode           # 같은 main 상속 → 생략
 
 
+def test_recovery_map_focus_includes_descendant_subtree():
+    # focus는 직계 자식뿐 아니라 손자(depth2)까지 전체 자손 서브트리를 포함해야
+    # stale 손자 노드가 복구 그래프에서 사라지지 않음.
+    data = {"projects": [{"milestones": [{"tasks": [
+        {"id": "p", "name": "root", "status": "todo"},
+        {"id": "c", "name": "child", "status": "todo", "spawned_from": "p"},
+        # 손자: done + worktree + 미병합 = stale
+        {"id": "g", "name": "grand", "status": "done",
+         "spawned_from": "c", "execution_ref": "worktree/g"},
+    ]}]}]}
+    out = cairn.render_recovery_map(data, focus="p")
+    assert "g[" in out                               # 손자 노드 포함
+    assert "stale" in out                            # stale 클래스 적용
+
+
 def test_recovery_map_hides_merged_by_default():
     # 병합된(merge_back_to) 노드는 기본 뷰에서 숨김, show_merged=True면 표시
     d = _good()
