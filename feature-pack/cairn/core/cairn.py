@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import fcntl
+import hashlib
 from contextlib import contextmanager
 from pathlib import Path
 from ruamel.yaml import YAML, YAMLError
@@ -90,7 +91,7 @@ def render_recovery_map(data, focus=None):
         for m in p.get("milestones", []):
             for t in m.get("tasks", []):
                 tid = t.get("id")
-                if focus and focus not in (tid, t.get("spawned_from"), t.get("return_to")):
+                if focus and focus not in (tid, t.get("spawned_from"), t.get("return_to"), t.get("merge_back_to")):
                     continue
                 label = _safe_mermaid_label(t.get("name", tid))
                 lines.append(f'    {tid}["{label}"]')
@@ -100,6 +101,9 @@ def render_recovery_map(data, focus=None):
                 rt = t.get("return_to")
                 if rt:
                     lines.append(f"    {tid} -.return.-> {rt}")
+                mb = t.get("merge_back_to")
+                if mb:
+                    lines.append(f"    {tid} ==merge==> {mb}")
     return "\n".join(lines) + "\n"
 
 
@@ -421,6 +425,7 @@ def cmd_set_priority(_d, args):
 
 
 def cmd_add_task(_d, args):
+    captured = {}
     def mutate(data):
         m = find_milestone(find_project(data, args.project) or {}, args.milestone)
         if not m: raise ValueError(f"no milestone {args.milestone}")
@@ -429,16 +434,18 @@ def cmd_add_task(_d, args):
         existing = {t["id"] for pp in data.get("projects", [])
                     for mm in pp.get("milestones", []) for t in mm.get("tasks", [])}
         tid = _next_id(existing, "t")
+        captured["tid"] = tid
         start = _today()
         due = start + datetime.timedelta(days=args.days)
         m["tasks"].append({"id": tid, "name": args.name, "status": "todo",
                            "start": start.isoformat(), "due": due.isoformat(),
                            "depends_on": []})
     transaction(mutate, f"add-task {args.project}/{args.milestone}: {args.name}")
-    print("OK"); return 0
+    print(f"OK: {captured['tid']} 추가 (due {(_today() + datetime.timedelta(days=args.days)).isoformat()})"); return 0
 
 
 def cmd_spawn(_d, args):
+    captured = {}
     def mutate(data):
         matches = find_task_anywhere(data, args.parent)
         if not matches:
@@ -451,6 +458,7 @@ def cmd_spawn(_d, args):
         existing = {t["id"] for pp in data.get("projects", [])
                     for mm in pp.get("milestones", []) for t in mm.get("tasks", [])}
         tid = _next_id(existing, "t")
+        captured["tid"] = tid
         start = _today()
         node = {"id": tid, "name": args.name, "status": "todo",
                 "start": start.isoformat(), "due": start.isoformat(),
@@ -464,7 +472,8 @@ def cmd_spawn(_d, args):
             node["session_ref"] = args.session
         m["tasks"].append(node)
     transaction(mutate, f"spawn {args.name} from {args.parent}")
-    print("OK"); return 0
+    print(f"OK: spawned {captured['tid']} ← from {args.parent} "
+          f"(return_to={args.return_to or args.parent})"); return 0
 
 
 def cmd_complete(_d, args):
@@ -494,10 +503,16 @@ def cmd_complete(_d, args):
     return 0
 
 
+def _map_path():
+    # [DA-sim] 프로젝트별 격리 — 전역 /tmp/cairn/recovery.md 오염 방지
+    rid = hashlib.sha1(str(REPO).encode()).hexdigest()[:10]
+    return MAP_DIR / f"{REPO.name}-{rid}" / "recovery.md"
+
+
 def cmd_map(data, args):
     text = render_recovery_map(data, focus=args.focus)
-    MAP_DIR.mkdir(parents=True, exist_ok=True)
-    out = MAP_DIR / "recovery.md"
+    out = _map_path()
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(f"```mermaid\n{text}```\n")
     print(f"recovery-map → {out}")
     if args.render:

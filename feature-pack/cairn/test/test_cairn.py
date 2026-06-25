@@ -828,7 +828,7 @@ def test_cmd_map_writes_file(tmp_path, monkeypatch):
     monkeypatch.setattr(cairn, "MAP_DIR", tmp_path / "cairnmap")
     rc = cairn.main(["map"])
     assert rc == 0
-    assert (tmp_path / "cairnmap" / "recovery.md").exists()
+    assert cairn._map_path().exists()
 
 
 def test_validate_rejects_global_duplicate_task_id():
@@ -960,7 +960,7 @@ def test_p3_recovery_lifecycle_e2e(tmp_path, monkeypatch, capsys):
     assert "baton resume" in capsys.readouterr().out
     # 4) recovery-map 생성
     assert cairn.main(["map"]) == 0
-    mp = (tmp_path / "cairnmap" / "recovery.md").read_text()
+    mp = cairn._map_path().read_text()
     assert "graph TD" in mp and cid in mp and "t2" in mp
     # 5) 원장 무결성(복구 엣지 유효) + git lineage
     assert cairn.validate(cairn.load_plan(repo / ".cairn" / "plan.yaml")) == []
@@ -1003,3 +1003,33 @@ def test_init_idempotent(tmp_path, monkeypatch):
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
     rc = cairn.main(["init"])
     assert rc == 0
+
+
+def test_render_recovery_map_shows_merge_edge():
+    # [DA-sim] merge_back_to가 state에 있으면 복구그래프에도 머지 엣지가 그려져야
+    d = _good()
+    t = d["projects"][0]["milestones"][1]["tasks"][0]
+    t["merge_back_to"] = "ms1"
+    out = cairn.render_recovery_map(d)
+    assert "ms1" in out
+    assert "merge" in out.lower()   # 머지 엣지 표기 존재
+
+
+def test_spawn_outputs_generated_id(tmp_path, monkeypatch, capsys):
+    # [DA-sim UX] spawn이 생성한 task id를 출력해야 후속 link/complete 가능
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["spawn", "Child", "--from", "t2"])
+    out = capsys.readouterr().out
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    new_tid = d["projects"][0]["milestones"][1]["tasks"][-1]["id"]
+    assert new_tid in out
+
+
+def test_map_path_differs_by_project(tmp_path, monkeypatch):
+    # [DA-sim] recovery-map 산출물이 프로젝트별로 격리돼야 (전역 오염 방지)
+    monkeypatch.setattr(cairn, "MAP_DIR", tmp_path / "m")
+    monkeypatch.setattr(cairn, "REPO", tmp_path / "projA")
+    pa = cairn._map_path()
+    monkeypatch.setattr(cairn, "REPO", tmp_path / "projB")
+    pb = cairn._map_path()
+    assert pa != pb
