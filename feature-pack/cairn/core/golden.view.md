@@ -3,6 +3,8 @@
 ```mermaid
 gantt
     dateFormat YYYY-MM-DD
+    axisFormat %y.%m.%d
+    tickInterval 1week
     title 전사 마일스톤 타임라인
     section Project A
     Milestone Design :done, ms1, 2026-06-10, 2026-06-15
