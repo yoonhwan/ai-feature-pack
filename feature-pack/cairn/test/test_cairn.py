@@ -1,7 +1,7 @@
 from pathlib import Path
 import cairn
 
-GOLDEN = Path(__file__).parent / "golden.yaml"
+GOLDEN = Path(__file__).resolve().parent.parent / "core" / "golden.yaml"
 
 
 def test_load_plan_reads_projects():
@@ -441,7 +441,7 @@ def test_g4_validate_rejects_project_name_control_chars():
 # S1: FileNotFoundError — self-test golden 누락
 def test_self_test_missing_golden_clean_error(tmp_path, monkeypatch, capsys):
     """[S1] golden.yaml 누락 시 rc!=0, traceback 없이 깔끔한 오류 메시지."""
-    monkeypatch.setattr(cairn, "PKG_DIR", tmp_path)   # test/golden.yaml 없는 경로
+    monkeypatch.setattr(cairn, "GOLDEN_PATH", tmp_path / "nope.yaml")   # 없는 경로
     rc = cairn.main(["self-test"])
     captured = capsys.readouterr()
     assert rc != 0
@@ -451,10 +451,9 @@ def test_self_test_missing_golden_clean_error(tmp_path, monkeypatch, capsys):
 # S2: YAML 파싱오류 — handler 내부 load (golden 손상)
 def test_self_test_corrupt_golden_clean_error(tmp_path, monkeypatch, capsys):
     """[S2] handler 내부 load가 손상된 YAML 만나면 rc!=0, traceback 없음."""
-    tests_dir = tmp_path / "test"
-    tests_dir.mkdir()
-    (tests_dir / "golden.yaml").write_text(": {{{invalid yaml")
-    monkeypatch.setattr(cairn, "PKG_DIR", tmp_path)
+    golden = tmp_path / "golden.yaml"
+    golden.write_text(": {{{invalid yaml")
+    monkeypatch.setattr(cairn, "GOLDEN_PATH", golden)
     rc = cairn.main(["self-test"])
     captured = capsys.readouterr()
     assert rc != 0

@@ -22,7 +22,9 @@ def _find_repo():
 
 
 REPO = _find_repo()
-PKG_DIR = Path(__file__).resolve().parent.parent   # 패키지 루트 (self-test golden 등 패키지 자산)
+PKG_DIR = Path(__file__).resolve().parent.parent   # 패키지 루트 (dev: hook 등)
+GOLDEN_PATH = Path(__file__).resolve().parent / "golden.yaml"      # cairn.py 옆 → 설치 시 core와 동행
+GOLDEN_VIEW = Path(__file__).resolve().parent / "golden.view.md"
 PLAN_PATH = REPO / ".cairn" / "plan.yaml"
 VIEW_PATH = REPO / ".cairn" / "views" / "plan.md"
 LOCK_PATH = REPO / ".cairn" / ".lock"
@@ -603,11 +605,11 @@ def cmd_validate(data, args):
 
 
 def cmd_self_test(_data, args):
-    data = load_plan(PKG_DIR / "test" / "golden.yaml")
+    data = load_plan(GOLDEN_PATH)
     if validate(data):
         print("self-test FAIL: golden invalid"); return 1
     # 교정#3: 외부 골든 스냅샷과 비교 (tautology 금지)
-    expected = (PKG_DIR / "test" / "golden.view.md").read_text()
+    expected = GOLDEN_VIEW.read_text()
     # 왕복 안정성: dump_str → reload → render
     again = yaml.load(io.StringIO(dump_str(data)))
     if render(again) != expected:

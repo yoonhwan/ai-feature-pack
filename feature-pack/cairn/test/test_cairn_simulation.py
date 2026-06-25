@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 import cairn
 
-GOLDEN = Path(__file__).parent / "golden.yaml"
+GOLDEN = Path(__file__).resolve().parent.parent / "core" / "golden.yaml"
 
 
 def _init_repo(tmp_path):
