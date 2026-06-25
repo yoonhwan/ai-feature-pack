@@ -183,10 +183,16 @@ projects:
             merge_back_to: ms1        # 머지 목표 (훅 자동: git merge-base)
             fanout_depth: 1           # 분기 깊이 (계산)
             execution_ref: WT-feat-stt   # → baton branches.json (read-only)
-            session_ref: byz#3           # → tmuxc 세션명 (read-only)
+            branch: feat/stt             # 브랜치(execution_ref와 다를 때만; 없으면 wt 파생)
+            session_ref: byz#3           # → tmuxc 세션명 (현재/active, read-only)
+            session_chain: [byz#1, byz#2, byz#3]  # 세션 핸드오프 누적(Ops#2). active=마지막
+            finished_at: 2026-06-25      # 완료일(due=마감과 구분). 노드 fin 필드
+            note: "merge→ms1"            # 작업 내역. 노드 note 필드
             distill_ref: docs/digest/stt.md  # → baton digest (read-only)
             last_reconciled: 2026-06-24T12:00  # stale 방어
 ```
+
+**세션 핸드오프(Ops#2 증류)**: tmuxc 컨텍스트 한계로 한 작업이 세션 #1→#2→#3으로 이어질 때, 단일 `session_ref`로는 연속성을 못 담는다 → `session_chain[]`에 누적하고 `session_ref`는 항상 최신(active)으로 갱신(`cairn link --add-session`). 노드 `sess`는 `first→last (N)`로 압축 표시. **의도적으로 보류(YAGNI)**: `handoff_from/to/reason`(핸드오프 사유·역추적)과 `active_session_ref`/`session_refs` 분리는 `session_chain` 하나로 대부분 포섭되어 v0 제외 — 실제 역추적 수요가 생기면 재평가.
 
 **태스크 일정 정책 (신규 — 일정관리 1급화):**
 - `start`: 태스크 **생성일 자동 기록**(오늘). 불변.
@@ -259,6 +265,39 @@ projects:
 - **서포트 그래프(v2)**: milestone Gantt(전신 보유), worktree-map, distillation-lineage.
 - **stale 방어**: `last_reconciled` 기준 "N일 미갱신=신뢰불가" 음영. stale projection을 의사결정 신뢰면으로 쓰지 못하게 차단(C2).
 - 영구 웹 대시보드 ❌ → projection이 stale돼도 손실 0. (브리프 "regenerable views" 원칙 충실)
+
+### 9.1 복구-맵 노드 표준 포맷 (Design#3 증류 — DA approve)
+
+recovery-map의 각 노드는 **6필드**를 `<br/>` 줄바꿈으로 쌓아 표시한다. 도그푸드 Design#3 라운드에서 DA 적대검증으로 확정한 포맷:
+
+```
+t9 · 증류-저장소-C            ← id · name
+st 06-25 · fin 06-25         ← 시작·완료일
+🌿 wt distill-store · 🔀 br distill-store   ← 워크트리·브랜치(전이 마커, head에만)
+🖥 sess store-c               ← 세션 (체인이면 first→last (N))
+📝 note merge→t3              ← 작업 내역
+```
+
+| 필드 | 출처 | 규칙 |
+|---|---|---|
+| `st` | `start` | 항상 표시(있으면) |
+| `fin` | `finished_at` | 완료일. `due`(마감)와 구분되는 별도 필드 |
+| `wt` | `execution_ref` `worktree/X`→`X` | **전이 마커** — head에만 |
+| `br` | `branch` 우선, 없으면 `wt` 파생, 둘 다 없으면 `main` | **전이 마커** — head에만. main은 워크트리 아니므로 🌿 없음 |
+| `sess` | `session_ref` 또는 `session_chain` | 체인이면 `first→last (N)`로 압축(Ops#2) |
+| `note` | `note` | 작업 내역 |
+
+**전이 마커 규칙(head 판정)**: `wt`/`br`는 노드별 상시가 아니라 **워크트리/브랜치가 직계 부모(`spawned_from`)와 *달라진* 지점(head)에만** 표기한다. 같은 워크트리를 상속하는 자식은 생략(시각적 상속) → 어디서 갈렸는지가 한눈에 보인다. merge로 부모 wt에 복귀하거나 depth2 재분기해도 "부모와 다른가"만 비교하므로 일관.
+
+**엣지**: spawn `-->`, return `-.return.->`, merge `==merge==>`. 병합된(`merge_back_to`) 노드는 기본 숨김(`show_merged`로 해제), 숨겨진 노드로 가는 고아 엣지도 함께 제거.
+
+**stale 표시**: `execution_ref` 있고 미병합인 `done` = 빨강 점선(작업 끝났는데 안 묻힌 브랜치). false-confidence 방어의 시각 신호.
+
+### 9.2 fan-out 깊이 시각 구분 (Ops#2 증류 — bug#1 대응)
+
+팬아웃 안의 팬아웃(depth2 재분기)을 depth1과 **같은 층으로 읽으면 nested fan-out임을 놓친다**(Ops#2 DA가 제기한 표현 버그). 대응: `spawned_from` 체인 홉 수로 깊이를 파생해 **depth별 점증 음영**(depth1 연한 파랑 → depth2 → depth3+ 진한 파랑, depth0 루트는 기본)을 입힌다. `fanout_depth` 필드가 아니라 그래프 구조에서 파생 → **유효 원장(`validate` 통과 = `spawned_from` 순환 없음)에서는 일관**. 순환 원장은 `validate`가 `spawned_from cycle`로 거부하므로 깨진 깊이가 렌더에 도달하지 않는다. stale(빨강)은 depth 음영 뒤에 적용해 우선한다.
+
+> focus 필터(`map --focus`)도 직계 자식이 아니라 `spawned_from` 체인을 상향 추적해 **손자(depth2+) 서브트리 전체**를 포함한다 — stale 손자 노드가 복구 그래프에서 누락되지 않도록(Ops#2 bug#2 대응).
 
 ---
 
