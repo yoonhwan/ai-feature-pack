@@ -12,7 +12,16 @@ from contextlib import contextmanager
 from pathlib import Path
 from ruamel.yaml import YAML, YAMLError
 
-REPO = Path(__file__).resolve().parent.parent
+def _find_repo():
+    # [설치형] 실행 cwd부터 상위로 .cairn 디렉토리를 탐색. 없으면 cwd (init 전 신규 프로젝트).
+    p = Path.cwd()
+    for d in [p, *p.parents]:
+        if (d / ".cairn").is_dir():
+            return d
+    return Path.cwd()
+
+
+REPO = _find_repo()
 PKG_DIR = Path(__file__).resolve().parent.parent   # 패키지 루트 (self-test golden 등 패키지 자산)
 PLAN_PATH = REPO / ".cairn" / "plan.yaml"
 VIEW_PATH = REPO / ".cairn" / "views" / "plan.md"

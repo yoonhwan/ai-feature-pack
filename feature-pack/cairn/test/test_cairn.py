@@ -968,3 +968,17 @@ def test_p3_recovery_lifecycle_e2e(tmp_path, monkeypatch, capsys):
     log = subprocess.run(["git", "log", "--oneline"], cwd=repo,
                          capture_output=True, text=True).stdout
     assert "spawn" in log and "complete" in log
+
+
+def test_find_repo_discovers_from_subdir(tmp_path, monkeypatch):
+    # [설치형] cwd 하위에서 실행해도 상위 .cairn 프로젝트를 찾아야 함
+    (tmp_path / ".cairn").mkdir()
+    sub = tmp_path / "a" / "b"; sub.mkdir(parents=True)
+    monkeypatch.chdir(sub)
+    assert cairn._find_repo() == tmp_path
+
+
+def test_find_repo_falls_back_to_cwd_when_no_cairn(tmp_path, monkeypatch):
+    # .cairn 없으면 cwd 반환 (신규 프로젝트 init 전)
+    monkeypatch.chdir(tmp_path)
+    assert cairn._find_repo() == tmp_path
