@@ -107,7 +107,8 @@ def render(data):
 
 def _derive_wt_br(t):
     """노드 표시용 워크트리/브랜치 파생. execution_ref 'worktree/X' → wt=X
-    (prefix 없으면 ref 전체). br은 branch 필드 우선, 없으면 wt에서 파생. 없으면 None."""
+    (prefix 없으면 ref 전체). br은 branch 필드 우선, 없으면 wt에서 파생,
+    워크트리·브랜치 둘 다 없으면 'main'(워크트리 없음 = main 브랜치 작업)."""
     er = t.get("execution_ref")
     if not er:
         wt = None
@@ -115,7 +116,7 @@ def _derive_wt_br(t):
         wt = er.split("/", 1)[1]
     else:
         wt = er
-    br = t.get("branch") or wt
+    br = t.get("branch") or wt or "main"
     return wt, br
 
 
@@ -139,13 +140,13 @@ def _node_label(t, parent):
     if dates:
         parts.append(" · ".join(dates))
     wt, br = _derive_wt_br(t)
-    if wt:
-        p_wt, p_br = _derive_wt_br(parent) if parent else (None, None)
-        if (wt, br) != (p_wt, p_br):          # 전이 발생 → head
-            seg = f"🌿 wt {wt}"
-            if br:                            # br 파생 불가 시 wt만 (silent fallback 금지)
-                seg += f" · 🔀 br {br}"
-            parts.append(seg)
+    p_wt, p_br = _derive_wt_br(parent) if parent else (None, None)
+    if (wt, br) != (p_wt, p_br):              # 전이 발생 → head
+        if wt:
+            seg = f"🌿 wt {wt} · 🔀 br {br}"
+        else:                                 # 워크트리 없음 = main 브랜치 (🌿 아이콘 없음)
+            seg = f"🔀 br {br}"
+        parts.append(seg)
     sess = _derive_sess(t)
     if sess:
         parts.append(f"🖥 sess {sess}")

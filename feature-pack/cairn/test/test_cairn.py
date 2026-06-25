@@ -844,8 +844,8 @@ def test_derive_wt_br_from_execution_ref():
     assert cairn._derive_wt_br({"execution_ref": "worktree/distill-store"}) == ("distill-store", "distill-store")
     # branch 오버라이드 우선
     assert cairn._derive_wt_br({"execution_ref": "worktree/x", "branch": "feat/y"}) == ("x", "feat/y")
-    # ref 없으면 (None, None)
-    assert cairn._derive_wt_br({}) == (None, None)
+    # ref 없으면 워크트리 없음(wt=None) + 브랜치는 main 폴백
+    assert cairn._derive_wt_br({}) == (None, "main")
 
 
 def test_node_label_shows_six_fields():
@@ -886,6 +886,24 @@ def test_node_label_head_rule_shows_changed_worktree():
     out = cairn.render_recovery_map(d)
     cnode = next(l for l in out.splitlines() if l.strip().startswith(f"{child['id']}["))
     assert "wt B" in cnode                 # 워크트리 변경 → head 표기
+
+
+def test_node_label_main_branch_for_worktreeless_nodes():
+    # 워크트리 없는 노드 = main 브랜치. main 리니지의 head(루트)에만 'br main' 표기,
+    # 상속 자식은 생략. main은 워크트리가 아니므로 🌿(wt) 아이콘 없음.
+    d = _good()
+    ms = d["projects"][0]["milestones"][1]
+    parent = ms["tasks"][0]; child = ms["tasks"][1]
+    for t in (parent, child):
+        t.pop("execution_ref", None); t.pop("branch", None); t.pop("merge_back_to", None)
+    parent.pop("spawned_from", None)       # 루트
+    child["spawned_from"] = parent["id"]
+    out = cairn.render_recovery_map(d)
+    pnode = next(l for l in out.splitlines() if l.strip().startswith(f"{parent['id']}["))
+    cnode = next(l for l in out.splitlines() if l.strip().startswith(f"{child['id']}["))
+    assert "br main" in pnode               # main 리니지 head → 표기
+    assert "🌿" not in pnode                # main은 워크트리 아님 → wt 아이콘 없음
+    assert "br main" not in cnode           # 같은 main 상속 → 생략
 
 
 def test_recovery_map_hides_merged_by_default():
