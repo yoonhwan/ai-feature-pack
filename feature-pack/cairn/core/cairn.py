@@ -1046,6 +1046,15 @@ def cmd_remove_task(data_unused, args):
         for t in tasks:
             if args.task in (t.get("depends_on") or []) and t.get("id") != args.task:
                 raise ValueError(f"task {args.task} is referenced by {t['id']} in depends_on")
+        # [버그] 복구엣지 역참조 사전검사 — fan-out 자식이 다른 milestone에 있을 수 있어
+        # 프로젝트 전역 순회. 누락 시 transaction validate가 사후 raw 'missing node'로만 막아 불친절.
+        for mm in p.get("milestones", []):
+            for t in mm.get("tasks", []):
+                if t.get("id") == args.task:
+                    continue
+                for ref in ("spawned_from", "return_to", "merge_back_to"):
+                    if t.get(ref) == args.task:
+                        raise ValueError(f"task {args.task} is referenced by {t['id']} in {ref}")
         orig = len(tasks)
         ms["tasks"] = [t for t in tasks if t.get("id") != args.task]
         if len(ms["tasks"]) == orig:

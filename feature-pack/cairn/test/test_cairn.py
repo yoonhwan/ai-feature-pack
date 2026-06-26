@@ -573,6 +573,26 @@ def test_remove_task_rejected_when_depended_on(tmp_path, monkeypatch):
     assert rc != 0
 
 
+def test_remove_task_rejected_when_spawn_referenced(tmp_path, monkeypatch, capsys):
+    """[버그] 복구엣지(spawned_from/return_to/merge_back_to)로 참조 중인 task는
+    친절한 사전 메시지('referenced by')로 거부 — validate raw 'missing node'가 아니라.
+    fan-out 자식이 다른 milestone에 있어도 프로젝트 전역으로 잡는다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    # t9를 ms1(다른 milestone)에 두어 크로스-마일스톤 참조 검증
+    ms1 = cairn.find_milestone(cairn.find_project(d, "project-a"), "ms1")
+    ms1["tasks"].append({"id": "t9", "name": "T9", "status": "todo",
+                         "depends_on": [], "spawned_from": "t3"})
+    cairn.save_atomic(d, repo / ".cairn" / "plan.yaml")
+    import subprocess as _sp
+    _sp.run(["git", "add", "-A"], cwd=repo, check=True)
+    _sp.run(["git", "commit", "-q", "-m", "add t9 spawn"], cwd=repo, check=True)
+    rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "t9" in out and "spawned_from" in out and "referenced" in out
+
+
 def test_remove_milestone_requires_empty_tasks(tmp_path, monkeypatch):
     """[needs#3] task가 있는 milestone 삭제 거부 (leaf-first)."""
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
