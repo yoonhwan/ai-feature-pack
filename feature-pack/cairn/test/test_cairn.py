@@ -593,6 +593,28 @@ def test_remove_task_rejected_when_spawn_referenced(tmp_path, monkeypatch, capsy
     assert "t9" in out and "spawned_from" in out and "referenced" in out
 
 
+def test_remove_task_rejected_cross_project_ref(tmp_path, monkeypatch, capsys):
+    """[버그] 다른 프로젝트의 task가 spawned_from으로 참조해도 친절 사전 차단.
+    복구엣지는 cross-project fan-out을 허용하므로 사전검사는 data 전체를 순회해야 한다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    d["projects"].append({
+        "id": "beta", "name": "Beta", "status": "active",
+        "owner": "x", "priority": "medium", "goal": "",
+        "milestones": [{"id": "bms1", "name": "B", "status": "active",
+                        "start": "2026-06-10", "end": "2026-06-20", "depends_on": [],
+                        "tasks": [{"id": "t9", "name": "T9", "status": "todo",
+                                   "depends_on": [], "spawned_from": "t3"}]}]})
+    cairn.save_atomic(d, repo / ".cairn" / "plan.yaml")
+    import subprocess as _sp
+    _sp.run(["git", "add", "-A"], cwd=repo, check=True)
+    _sp.run(["git", "commit", "-q", "-m", "add beta"], cwd=repo, check=True)
+    rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "t9" in out and "referenced" in out and "spawned_from" in out
+
+
 def test_remove_milestone_requires_empty_tasks(tmp_path, monkeypatch):
     """[needs#3] task가 있는 milestone 삭제 거부 (leaf-first)."""
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
