@@ -1196,6 +1196,16 @@ def test_cmd_render_emits_html_by_default(tmp_path, monkeypatch, capsys):
     assert any("open" in c for c in opened)      # 브라우저로 표시
 
 
+def test_cmd_render_no_open_skips_browser(tmp_path, monkeypatch, capsys):
+    # --no-open: HTML은 생성하되 브라우저는 열지 않음 (조용한 렌더)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    cairn.main(["render", "--no-open"])
+    assert cairn.VIEW_PATH.with_suffix(".html").exists()   # HTML은 생성
+    assert not any("open" in c for c in opened)            # 브라우저는 안 열림
+
+
 def test_validate_rejects_global_duplicate_task_id():
     # [DA#2] 복구 메타가 task id를 전역 참조 → milestone 간 중복은 끊긴 노드 위험
     d = _good()
