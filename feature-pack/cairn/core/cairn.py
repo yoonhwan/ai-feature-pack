@@ -1043,18 +1043,20 @@ def cmd_remove_task(data_unused, args):
         ms = find_milestone(p, args.milestone)
         if not ms: raise ValueError(f"no milestone {args.milestone}")
         tasks = ms.get("tasks") or []
-        for t in tasks:
-            if args.task in (t.get("depends_on") or []) and t.get("id") != args.task:
-                raise ValueError(f"task {args.task} is referenced by {t['id']} in depends_on")
-        # [버그] 복구엣지 역참조 사전검사 — fan-out 자식이 다른 milestone에 있을 수 있어
-        # 프로젝트 전역 순회. 누락 시 transaction validate가 사후 raw 'missing node'로만 막아 불친절.
-        for mm in p.get("milestones", []):
-            for t in mm.get("tasks", []):
-                if t.get("id") == args.task:
-                    continue
-                for ref in ("spawned_from", "return_to", "merge_back_to"):
-                    if t.get(ref) == args.task:
-                        raise ValueError(f"task {args.task} is referenced by {t['id']} in {ref}")
+        # [버그] 역참조 사전검사 — data 전체 전역 순회. 복구엣지(spawned_from/return_to/
+        # merge_back_to)는 cross-project fan-out, depends_on은 cross-milestone 의존을 허용하므로
+        # 한 프로젝트만 보면 누락된다. 누락 시 transaction validate가 사후 raw 'missing node'로만
+        # 막아 불친절(삭제하려는 노드 기준이 아니라 참조한 노드 기준 역방향 메시지).
+        for pp in data.get("projects", []):
+            for mm in pp.get("milestones", []):
+                for t in mm.get("tasks", []):
+                    if t.get("id") == args.task:
+                        continue
+                    if args.task in (t.get("depends_on") or []):
+                        raise ValueError(f"task {args.task} is referenced by {t['id']} in depends_on")
+                    for ref in ("spawned_from", "return_to", "merge_back_to"):
+                        if t.get(ref) == args.task:
+                            raise ValueError(f"task {args.task} is referenced by {t['id']} in {ref}")
         orig = len(tasks)
         ms["tasks"] = [t for t in tasks if t.get("id") != args.task]
         if len(ms["tasks"]) == orig:
