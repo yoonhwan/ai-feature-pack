@@ -1138,6 +1138,10 @@ def cmd_set_status(data_unused, args):
         if len(rest) != 2:
             raise ValueError("set-status milestone 사용법: <project> milestone <milestone_id> <status>")
         milestone_id, item_id, status = None, rest[0], rest[1]
+    elif args.kind == "todo":
+        if len(rest) != 2:
+            raise ValueError("set-status todo 사용법: <project> todo <todo_id> <status>")
+        milestone_id, item_id, status = None, rest[0], rest[1]
     else:  # project
         if len(rest) != 1:
             raise ValueError("set-status project 사용법: <project> project <status>")
@@ -1152,6 +1156,10 @@ def cmd_set_status(data_unused, args):
             ms = find_milestone(p, milestone_id)
             if not ms: raise ValueError(f"no milestone {milestone_id}")
             obj = next((t for t in (ms.get("tasks") or []) if t.get("id") == item_id), None)
+        elif args.kind == "todo":
+            obj = next((td for td in data.get("todos", []) if td.get("id") == item_id), None)
+            if obj and obj.get("project") != args.project:
+                raise ValueError(f"todo {item_id} belongs to {obj.get('project')}, not {args.project}")
         else:  # project
             obj = p
         if not obj: raise ValueError(f"no {args.kind} {item_id or args.project}")
@@ -1159,6 +1167,85 @@ def cmd_set_status(data_unused, args):
     label = args.project if args.kind == "project" else f"{args.project}/{item_id}"
     transaction(mutate, f"set-status {label} -> {status}")
     print(f"OK: {label} status={status}")
+    return 0
+
+
+def cmd_add_todo(data_unused, args):
+    captured = {}
+    def mutate(data):
+        if not find_project(data, args.project):
+            raise ValueError(f"no project {args.project}")
+        data.setdefault("todos", [])
+        tdid = _next_id({td["id"] for td in data["todos"]}, "td")
+        captured["tdid"] = tdid
+        td = {"id": tdid, "project": args.project, "title": args.name,
+              "status": "open", "created": _today().isoformat(), "resolved_by": []}
+        if args.parent:
+            td["origin_node"] = args.parent
+        if args.ssot:
+            rel = f"ssot/{args.project}.{tdid}.md"
+            td["ssot"] = rel
+            captured["ssot"] = rel
+        data["todos"].append(td)
+    transaction(mutate, f"add-todo {args.project}: {args.name}")
+    # ssot 파일은 commit 성공 후 생성(best-effort, dirty 게이트 제외) — DA M5
+    if captured.get("ssot"):
+        ssot_path = PLAN_PATH.parent / captured["ssot"]
+        ssot_path.parent.mkdir(parents=True, exist_ok=True)
+        if not ssot_path.exists():
+            ssot_path.write_text(f"# {args.name}\n\n<!-- 자유편집 -->\n", encoding="utf-8")
+    msg = f"OK: added todo {captured['tdid']}"
+    if captured.get("ssot"):
+        msg += f" ({captured['ssot']})"
+    print(msg)
+    return 0
+
+
+def cmd_todos(data, args):
+    todos = data.get("todos") or []
+    rows = [td for td in todos
+            if (not args.project or td.get("project") == args.project)
+            and (not args.status or td.get("status") == args.status)]
+    if not rows:
+        print("(todos 없음)")
+        return 0
+    for td in rows:
+        origin = f"  <-{td['origin_node']}" if td.get("origin_node") else ""
+        rb = td.get("resolved_by") or []
+        rbs = f"  ->[{','.join(rb)}]" if rb else ""
+        line = f"{td['id']}  [{td.get('status','')}]  {td.get('project','')}  {td.get('title','')}{origin}{rbs}"
+        if args.verbose and td.get("ssot"):
+            line += f"  ({td['ssot']})"
+        print(line)
+    return 0
+
+
+def cmd_link_todo(data_unused, args):
+    def mutate(data):
+        td = next((t for t in data.get("todos", []) if t.get("id") == args.todo), None)
+        if not td:
+            raise ValueError(f"no todo {args.todo}")
+        rb = td.setdefault("resolved_by", [])
+        if args.remove:
+            if args.by in rb:
+                rb.remove(args.by)
+        elif args.by not in rb:
+            rb.append(args.by)
+    op = "-=" if args.remove else "+="
+    transaction(mutate, f"link-todo {args.todo} {op} {args.by}")
+    print(f"OK: {args.todo} resolved_by {op} {args.by}")
+    return 0
+
+
+def cmd_remove_todo(data_unused, args):
+    def mutate(data):
+        todos = data.get("todos") or []
+        orig = len(todos)
+        data["todos"] = [t for t in todos if t.get("id") != args.todo]
+        if len(data["todos"]) == orig:
+            raise ValueError(f"no todo {args.todo}")
+    transaction(mutate, f"remove-todo {args.todo}")
+    print(f"OK: removed todo {args.todo}")
     return 0
 
 
@@ -1179,7 +1266,7 @@ def main(argv=None):
 
     sp_ss = sub.add_parser("set-status")
     sp_ss.add_argument("project")
-    sp_ss.add_argument("kind", choices=["project", "milestone", "task"])
+    sp_ss.add_argument("kind", choices=["project", "milestone", "task", "todo"])
     sp_ss.add_argument("rest", nargs="*")
 
     sp = sub.add_parser("set-date")
@@ -1245,6 +1332,23 @@ def main(argv=None):
     sub.add_parser("self-test", parents=[file_parent])
     sub.add_parser("revert")
 
+    sp = sub.add_parser("add-todo")
+    sp.add_argument("project"); sp.add_argument("name")
+    sp.add_argument("--from", dest="parent", default=None)
+    sp.add_argument("--ssot", action="store_true")
+
+    sp = sub.add_parser("todos", parents=[file_parent])
+    sp.add_argument("--project", default=None)
+    sp.add_argument("--status", default=None)
+    sp.add_argument("--verbose", action="store_true")
+
+    sp = sub.add_parser("link-todo")
+    sp.add_argument("todo"); sp.add_argument("--by", required=True)
+    sp.add_argument("--remove", action="store_true")
+
+    sp = sub.add_parser("remove-todo")
+    sp.add_argument("todo")
+
     sp = sub.add_parser("remove-task")
     sp.add_argument("project"); sp.add_argument("milestone"); sp.add_argument("task")
 
@@ -1279,7 +1383,9 @@ def main(argv=None):
                "set-group": cmd_set_group, "reconcile": cmd_reconcile,
                "validate": cmd_validate,
                "remove-task": cmd_remove_task, "remove-milestone": cmd_remove_milestone,
-               "remove-project": cmd_remove_project}[args.cmd]
+               "remove-project": cmd_remove_project,
+               "add-todo": cmd_add_todo, "todos": cmd_todos,
+               "link-todo": cmd_link_todo, "remove-todo": cmd_remove_todo}[args.cmd]
     try:
         return handler(data, args)
     except (ValueError, RuntimeError, OSError, YAMLError, subprocess.CalledProcessError) as e:
