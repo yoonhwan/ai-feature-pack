@@ -674,6 +674,14 @@ def cmd_render(data, args):
         return 1
     write_view(data)
     print(f"rendered → {VIEW_PATH}")
+    # 기본으로 간트 HTML도 생성 + 브라우저 표시 (render의 기본 산출물)
+    md = render(data)   # write_view와 동일 출력 — ```mermaid 간트 블록 추출
+    m = re.search(r"```mermaid\n(.*?)```", md, re.S)
+    html_path = VIEW_PATH.with_suffix(".html")
+    html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
+    print(f"HTML → {html_path}")
+    if sys.platform == "darwin":   # 더블클릭 없이 기본 브라우저로 바로 렌더
+        subprocess.run(["open", str(html_path)], check=False)
     return 0
 
 
