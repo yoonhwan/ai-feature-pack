@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+plan="$root/.cairn/plan.yaml"
+[ -f "$plan" ] || exit 0
+
+if [ -n "${CAIRN_PYTHON:-}" ]; then
+  py="$CAIRN_PYTHON"
+elif [ -x "$HOME/.cairn/venv/bin/python" ]; then
+  py="$HOME/.cairn/venv/bin/python"
+else
+  py="python3"
+fi
+
+"$py" - "$root" "$plan" <<'PY'
+import datetime
+import os
+import re
+import select
+import subprocess
+import sys
+from pathlib import Path
+
+from ruamel.yaml import YAML
+
+root = Path(sys.argv[1])
+plan = Path(sys.argv[2])
+mode = os.environ.get("CAIRN_AUTO_PROGRESS", "propose").strip().lower()
+task_id = os.environ.get("CAIRN_TASK_ID", "").strip()
+status = (
+    os.environ.get("CAIRN_VERIFICATION_STATUS")
+    or os.environ.get("BTS_VERIFICATION_STATUS")
+    or os.environ.get("BTS_EVIDENCE_STATUS")
+    or ""
+).strip().lower()
+
+stdin_text = ""
+try:
+    if select.select([sys.stdin], [], [], 0.0)[0]:
+        stdin_text = sys.stdin.read()
+except (OSError, ValueError):
+    stdin_text = ""
+
+sources = [stdin_text]
+for rel in (
+    ".baton/handoff/CURRENT.md",
+    ".baton/handoff/JOURNAL.md",
+    ".baton/handoff/NEXT.md",
+):
+    path = root / rel
+    if path.exists():
+        sources.append(path.read_text(errors="replace"))
+
+text = "\n".join(sources)
+pass_words = {"pass", "passed", "ok", "green", "success", "verified"}
+explicit_pass = status in pass_words
+text_pass = bool(
+    re.search(r"\b(?:bts|verification|verify|evidence)[^\n]{0,120}\b(?:pass|passed|ok|green|success|verified)\b", text, re.I)
+    or re.search(r"\b(?:pass|passed|ok|green|success|verified)\b[^\n]{0,120}\b(?:bts|verification|verify|evidence)\b", text, re.I)
+)
+text_fail = bool(re.search(r"\b(?:bts|verification|verify|evidence)[^\n]{0,120}\b(?:fail|failed|red|error)\b", text, re.I))
+if not explicit_pass and (not text_pass or text_fail):
+    print("cairn-auto-progress: no verified pass evidence")
+    raise SystemExit(0)
+
+yaml = YAML(typ="safe")
+data = yaml.load(plan.read_text()) or {}
+tasks = []
+for project in data.get("projects", []):
+    for milestone in project.get("milestones", []) or []:
+        for task in milestone.get("tasks", []) or []:
+            tasks.append((project, milestone, task))
+
+task_source = "env"
+if not task_id:
+    branch = subprocess.run(
+        ["git", "-C", str(root), "branch", "--show-current"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).stdout.strip()
+    match = re.search(r"\b(t[0-9]+)\b", branch)
+    if match:
+        task_id = match.group(1)
+        task_source = "branch"
+
+if not task_id:
+    doing = [task for _project, _milestone, task in tasks if task.get("status") == "doing"]
+    if len(doing) == 1:
+        task_id = str(doing[0].get("id"))
+        task_source = "single-doing"
+
+if not task_id:
+    print("cairn-auto-progress: verified pass found, but task id is ambiguous; set CAIRN_TASK_ID")
+    raise SystemExit(0)
+
+task_match = [item for item in tasks if str(item[2].get("id")) == task_id]
+if not task_match:
+    print(f"cairn-auto-progress: task not found: {task_id}")
+    raise SystemExit(0)
+
+project, milestone, task = task_match[0]
+if task.get("status") == "done":
+    print(f"cairn-auto-progress: already done: {task_id}")
+    raise SystemExit(0)
+
+candidate_dir = root / ".cairn" / "auto-progress" / "candidates"
+candidate_dir.mkdir(parents=True, exist_ok=True)
+stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+candidate = candidate_dir / f"{stamp}-{task_id}.md"
+candidate.write_text(
+    "\n".join(
+        [
+            f"# Cairn auto-progress candidate: {task_id}",
+            "",
+            f"- project: {project.get('id')}",
+            f"- milestone: {milestone.get('id')}",
+            f"- task: {task_id} - {task.get('name')}",
+            f"- task_source: {task_source}",
+            f"- mode: {mode}",
+            f"- evidence_env: {status or '-'}",
+            f"- action: cairn complete {task_id}",
+            "",
+        ]
+    )
+)
+print(f"candidate={candidate}")
+
+if mode != "apply":
+    raise SystemExit(0)
+
+if task_source != "env":
+    print("cairn-auto-progress: apply requires explicit CAIRN_TASK_ID")
+    raise SystemExit(0)
+
+cairn = os.environ.get("CAIRN_BIN") or str(Path.home() / ".cairn/current/bin/cairn")
+cmd = [cairn, "complete", task_id]
+if os.environ.get("CAIRN_AUTO_PROGRESS_FORCE") == "1":
+    cmd.append("--force")
+result = subprocess.run(cmd, cwd=root, text=True)
+raise SystemExit(result.returncode)
+PY

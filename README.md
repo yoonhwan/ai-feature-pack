@@ -18,9 +18,12 @@
 | 5 | [tts-say](feature-pack/tts-say/) | 통합 TTS — macOS say + ElevenLabs 음성 합성 | ~3분 | ElevenLabs | ❌ |
 | 6 | [yt-transcribe](feature-pack/yt-transcribe/) | YouTube → STT → 요약 자동 파이프라인 | ~10분 | ❌ | ❌ |
 | 7 | [termaid](feature-pack/termaid/) | Mermaid 다이어그램 터미널 렌더링 — 설계 시각화 자동 발동 | ~2분 | ❌ | ❌ |
-| 8 | [auto](feature-pack/auto/) | AutoResearch 자율 실험 루프 — 베이스라인→목표→자율주행 최적화 | ~1분 | ❌ | ❌ |
-| 9 | [nanoclaw](feature-pack/nanoclaw/) | **AI 멀티 에이전트 플랫폼** — OpenClaw 대체. Claude SDK Brain, Docker 격리, 멀티 크루 | ~15분 | ❌ | Slack |
-| 10 | [agent-cli](feature-pack/agent-cli/) | **AI 코딩 에이전트 CLI 툴킷** — 설치·비교 + 비대화 위임(DA/designer/architect 페르소나·자율주행·resume): claude·codex·gemini·opencode·cursor | ~3분 | ❌ | ❌ |
+| 8 | [baton](feature-pack/baton/) | 멀티 에이전트 handoff/worktree/archive 표준 — Claude Code·Codex·Gemini 간 작업 인계 | ~2분 | ❌ | ❌ |
+| 9 | [cairn](feature-pack/cairn/) | 일정 + 멀티 에이전트 복구 원장 — milestone/task/session lineage, baton/tmuxc 연동 | ~2분 | ❌ | ❌ |
+| 10 | [tmuxc](feature-pack/tmuxc/) | tmux 기반 Claude Code·Codex·OMX 세션 launcher/control — verified send/capture 통신 표준 포함 | ~1분 | ❌ | ❌ |
+| 11 | [auto](feature-pack/auto/) | AutoResearch 자율 실험 루프 — 베이스라인→목표→자율주행 최적화 | ~1분 | ❌ | ❌ |
+| 12 | [nanoclaw](feature-pack/nanoclaw/) | **AI 멀티 에이전트 플랫폼** — OpenClaw 대체. Claude SDK Brain, Docker 격리, 멀티 크루 | ~15분 | ❌ | Slack |
+| 13 | [agent-cli](feature-pack/agent-cli/) | **AI 코딩 에이전트 CLI 툴킷** — 설치·비교 + 비대화 위임(DA/designer/architect 페르소나·자율주행·resume): claude·codex·gemini·opencode·cursor | ~3분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
@@ -33,6 +36,9 @@
 | tts-say | `tts-say` | 스크립트 복사 | ✅ | ElevenLabs API 키 선택적 |
 | yt-transcribe | `ytdl` + `whisper-cli` + `ffmpeg` | cargo + brew | ✅ | 빌드 시간 ~5분 |
 | termaid | `termaid-render` | go build + cp | ✅ | Go 필요 |
+| baton | `baton` | 스크립트 설치 | ✅ | bash, git, tmux 선택 |
+| cairn | `cairn` | 스크립트 설치 + venv | ✅ | python3, git, ruamel.yaml |
+| tmuxc | `tmuxc` | 스크립트 설치 | ✅ | bash, git, tmux |
 | auto | — (순수 스킬) | 스킬 파일 복사 | ✅ | git, python3 필요 |
 | agent-cli | (기존 에이전트 CLI 호출) | 스킬 파일 복사 | ✅ | perl, python3 + 에이전트 CLI ≥1 |
 
@@ -91,6 +97,20 @@ feature-pack/{name}/
 4. **notebooklm** — 지식 Q&A (소스 기반 답변)
 5. **tts-say** — 음성 출력 (편의성)
 6. **imsg** — iMessage 연동 (macOS 전용)
+
+운영형 멀티 에이전트 작업은 다음 순서를 권장합니다.
+
+1. **baton** — worktree/handoff/archive 기준점
+2. **cairn** — schedule/session lineage 원장
+3. **tmuxc** — Claude Code/Codex/OMX tmux 세션 실행과 verified-send 통신
+
+이 세트의 책임 경계:
+
+| 도구 | 담당 |
+|------|------|
+| baton | 작업 시작/저장/복구용 `.baton/handoff/`와 worktree/archive |
+| cairn | `.cairn/plan.yaml` 기반 milestone/task/session lineage와 hook reconcile |
+| tmuxc | live tmux agent session 생성, capture, send, kill, Codex verified-send 표준 |
 
 ---
 

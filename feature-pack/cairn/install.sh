@@ -14,12 +14,16 @@ echo "▶ cairn $VERSION 설치"
 command -v python3 >/dev/null || { echo "✘ python3 필요"; exit 1; }
 command -v git >/dev/null || { echo "✘ git 필요"; exit 1; }
 
-# 2) core 복사 + current 심링
+rm -rf "$TARGET"
 mkdir -p "$TARGET"
 cp -r "$PKG_DIR/core/." "$TARGET/"
+mkdir -p "$TARGET/hooks"
+cp -r "$PKG_DIR/claude-code/hooks/." "$TARGET/hooks/"
 chmod +x "$TARGET/bin/cairn"
+chmod +x "$TARGET/hooks/post-checkout" "$TARGET/hooks/post-merge" "$TARGET/hooks/cairn-auto-progress"
 ln -sfn "$TARGET" "$GLOBAL_BASE/current"
 echo "  core → $TARGET"
+echo "  hooks → $TARGET/hooks"
 
 # 3) Python 의존성 (전용 venv — ruamel.yaml). baton과 달리 cairn은 Python 의존.
 if [ ! -d "$GLOBAL_BASE/venv" ]; then
