@@ -246,7 +246,7 @@ todos:                         # 톱레벨 — 프로젝트 전체 백로그
 **emergent 캡처 워크플로** (세부 태스크 진행 중 발생하는 신규 작업 — 이 설계의 1차 동기):
 ```
 t3 진행 중 신규 작업 발견 →
- 1) cairn todo-add ops2 "발견작업" --from-node t3 --ssot  # SSOT 생성 + plan.yaml todos: 등록(td1)
+ 1) cairn add-todo ops2 "발견작업" --from t3 --ssot  # SSOT 생성 + plan.yaml todos: 등록(td1)
  2) cairn spawn "해결" --from t3  → 노드 t5, td1.resolved_by=[t5]
  3) cairn complete t5  → "td1 resolved 후보" 알림 (자동 아님, 사람 확정)
 ```
