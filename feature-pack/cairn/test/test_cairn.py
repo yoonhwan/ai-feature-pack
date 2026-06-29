@@ -65,6 +65,58 @@ def test_validate_self_reference():
     assert any("self" in e or "cycle" in e for e in cairn.validate(d))
 
 
+# todos 톱레벨 백로그 검증 (§6.2 통합 모델, H2b)
+def _good_with_todos():
+    d = _good()
+    d["todos"] = [
+        {"id": "td1", "project": "project-a", "title": "nested 확장 중 발견",
+         "status": "open", "created": "2026-06-26",
+         "origin_node": "t1", "ssot": "ssot/a.td1.md", "resolved_by": ["t3"]},
+    ]
+    return d
+
+
+def test_validate_accepts_valid_todos():
+    assert cairn.validate(_good_with_todos()) == []
+
+
+def test_validate_todo_unknown_project():
+    d = _good_with_todos(); d["todos"][0]["project"] = "ghost"
+    assert any("td1" in e and "project" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_bad_status_vocab():
+    # node 어휘 'doing'은 todo에 무효 — 어휘 분리(open/claimed/resolved/dropped)
+    d = _good_with_todos(); d["todos"][0]["status"] = "doing"
+    assert any("td1" in e and "status" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_origin_node_missing():
+    d = _good_with_todos(); d["todos"][0]["origin_node"] = "ghost"
+    assert any("td1" in e and "origin_node" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_resolved_by_missing():
+    d = _good_with_todos(); d["todos"][0]["resolved_by"] = ["ghost"]
+    assert any("td1" in e and "resolved_by" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_duplicate_id():
+    d = _good_with_todos(); d["todos"].append(dict(d["todos"][0]))
+    assert any("duplicate todo id" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_origin_node_must_be_task_not_milestone():
+    # [M4] origin_node는 task만 — ms id는 거부(복구/연결은 실행단위=task 대상)
+    d = _good_with_todos(); d["todos"][0]["origin_node"] = "ms1"
+    assert any("td1" in e and "origin_node" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_resolved_by_must_be_task_not_milestone():
+    d = _good_with_todos(); d["todos"][0]["resolved_by"] = ["ms1"]
+    assert any("td1" in e and "resolved_by" in e for e in cairn.validate(d))
+
+
 # ── Task3: save_atomic ───────────────────────────────────────────────────────
 import pytest
 
@@ -571,6 +623,48 @@ def test_remove_task_rejected_when_depended_on(tmp_path, monkeypatch):
     _sp.run(["git", "commit", "-q", "-m", "add t4 dep"], cwd=repo, check=True)
     rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
     assert rc != 0
+
+
+def test_remove_task_rejected_when_spawn_referenced(tmp_path, monkeypatch, capsys):
+    """[버그] 복구엣지(spawned_from/return_to/merge_back_to)로 참조 중인 task는
+    친절한 사전 메시지('referenced by')로 거부 — validate raw 'missing node'가 아니라.
+    fan-out 자식이 다른 milestone에 있어도 프로젝트 전역으로 잡는다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    # t9를 ms1(다른 milestone)에 두어 크로스-마일스톤 참조 검증
+    ms1 = cairn.find_milestone(cairn.find_project(d, "project-a"), "ms1")
+    ms1["tasks"].append({"id": "t9", "name": "T9", "status": "todo",
+                         "depends_on": [], "spawned_from": "t3"})
+    cairn.save_atomic(d, repo / ".cairn" / "plan.yaml")
+    import subprocess as _sp
+    _sp.run(["git", "add", "-A"], cwd=repo, check=True)
+    _sp.run(["git", "commit", "-q", "-m", "add t9 spawn"], cwd=repo, check=True)
+    rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "t9" in out and "spawned_from" in out and "referenced" in out
+
+
+def test_remove_task_rejected_cross_project_ref(tmp_path, monkeypatch, capsys):
+    """[버그] 다른 프로젝트의 task가 spawned_from으로 참조해도 친절 사전 차단.
+    복구엣지는 cross-project fan-out을 허용하므로 사전검사는 data 전체를 순회해야 한다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    d["projects"].append({
+        "id": "beta", "name": "Beta", "status": "active",
+        "owner": "x", "priority": "medium", "goal": "",
+        "milestones": [{"id": "bms1", "name": "B", "status": "active",
+                        "start": "2026-06-10", "end": "2026-06-20", "depends_on": [],
+                        "tasks": [{"id": "t9", "name": "T9", "status": "todo",
+                                   "depends_on": [], "spawned_from": "t3"}]}]})
+    cairn.save_atomic(d, repo / ".cairn" / "plan.yaml")
+    import subprocess as _sp
+    _sp.run(["git", "add", "-A"], cwd=repo, check=True)
+    _sp.run(["git", "commit", "-q", "-m", "add beta"], cwd=repo, check=True)
+    rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "t9" in out and "referenced" in out and "spawned_from" in out
 
 
 def test_remove_milestone_requires_empty_tasks(tmp_path, monkeypatch):
@@ -1430,3 +1524,125 @@ def test_render_axis_format_compact_dates():
     out = cairn.render(_good())
     assert "axisFormat %y.%m.%d" in out
     assert "tickInterval 1week" in out
+
+
+# ---- todos CLI v0 (DA approve된 설계) ----
+def test_add_todo_creates_open_todo(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["add-todo", "project-a", "발견작업", "--from", "t1"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    todos = d.get("todos") or []
+    assert len(todos) == 1
+    td = todos[0]
+    assert td["id"] == "td1" and td["status"] == "open"
+    assert td["project"] == "project-a" and td["origin_node"] == "t1"
+    assert td["title"] == "발견작업" and td["resolved_by"] == []
+
+
+def test_add_todo_with_ssot_creates_file(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["add-todo", "project-a", "T", "--ssot"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["ssot"] == "ssot/project-a.td1.md"
+    assert (repo / ".cairn" / "ssot" / "project-a.td1.md").exists()
+
+
+def test_add_todo_ssot_is_committed(tmp_path, monkeypatch):
+    # §6.2 — ssot는 best-effort 커밋(원장 git 추적). untracked로 남기지 않음.
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T", "--ssot"])
+    tracked = subprocess.run(["git", "-C", str(repo), "ls-files"],
+                             capture_output=True, text=True).stdout
+    assert ".cairn/ssot/project-a.td1.md" in tracked
+
+
+def test_add_todo_rejects_unknown_project(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-todo", "ghost", "T"]) != 0
+
+
+def test_add_todo_rejects_nonexistent_from_node(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-todo", "project-a", "T", "--from", "zzz"]) != 0
+
+
+def test_todos_lists(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "AAA"]); capsys.readouterr()
+    rc = cairn.main(["todos"]); assert rc == 0
+    out = capsys.readouterr().out
+    assert "td1" in out and "AAA" in out and "open" in out
+
+
+def test_todos_empty(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["todos"]); assert rc == 0
+    assert "없음" in capsys.readouterr().out
+
+
+def test_link_todo_adds_resolved_by(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    rc = cairn.main(["link-todo", "td1", "--by", "t1"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["resolved_by"] == ["t1"]
+
+
+def test_link_todo_remove(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    cairn.main(["link-todo", "td1", "--by", "t1"])
+    rc = cairn.main(["link-todo", "td1", "--by", "t1", "--remove"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["resolved_by"] == []
+
+
+def test_link_todo_rejects_nonexistent_node(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    assert cairn.main(["link-todo", "td1", "--by", "zzz"]) != 0
+
+
+def test_set_status_todo(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    rc = cairn.main(["set-status", "project-a", "todo", "td1", "resolved"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["status"] == "resolved"
+
+
+def test_set_status_todo_rejects_bad_vocab(tmp_path, monkeypatch):
+    # node 어휘 'doing'은 todo에 무효 — validate가 차단
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    assert cairn.main(["set-status", "project-a", "todo", "td1", "doing"]) != 0
+
+
+def test_remove_todo(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    rc = cairn.main(["remove-todo", "td1"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert (d.get("todos") or []) == []
+
+
+def test_remove_task_blocked_by_todo_resolved_by(tmp_path, monkeypatch, capsys):
+    # [H2] 사전검사 — task가 todo.resolved_by에 있으면 친절 차단("referenced by")
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T", "--from", "t1"])
+    cairn.main(["link-todo", "td1", "--by", "t3"]); capsys.readouterr()
+    rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "referenced by td1" in out and "resolved_by" in out
+
+
+def test_remove_task_blocked_by_todo_origin_node(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T", "--from", "t1"]); capsys.readouterr()
+    rc = cairn.main(["remove-task", "project-a", "ms1", "t1"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "referenced by td1" in out and "origin_node" in out
