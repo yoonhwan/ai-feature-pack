@@ -1,0 +1,23 @@
+{
+  "name": "tmuxc",
+  "version": "0.1.0",
+  "title": "tmuxc — tmux session launcher for Claude, Codex, and OMX",
+  "description": "프로젝트/워크트리별 tmux 세션을 열고 Claude Code, Codex CLI, OMX를 역할(worker/orchestrator/designer)에 맞게 기동한다. baton handoff와 cairn 일정 원장을 병행하는 멀티에이전트 작업에서 세션 생성·목록·전송·capture 기반 검증 통신 표준을 제공한다.",
+  "category": "workflow",
+  "os": ["darwin", "linux"],
+  "install_time_minutes": 1,
+  "requires_api_key": false,
+  "requires_auth": false,
+  "dependencies": {
+    "required": ["bash>=4", "tmux", "git>=2.30"],
+    "optional": ["claude", "codex", "omx", "baton", "cairn"]
+  },
+  "supported_agents": {
+    "automated_install": ["claude-code", "codex-cli"],
+    "manual_install": ["gemini-cli", "opencode", "openclaw"],
+    "limited": []
+  },
+  "spec_version": "1",
+  "homepage": "https://github.com/yoonhwan/ai-feature-pack",
+  "license": "MIT"
+}

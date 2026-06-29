@@ -1,5 +1,7 @@
 #!/bin/sh
-# cairn git post-checkout 훅 — worktree ↔ 노드 매핑 점검.
-# 설치: ln -s ../../scripts/hooks/post-checkout .git/hooks/post-checkout
-CAIRN="$(git rev-parse --show-toplevel)/scripts/cairn.py"
-python "$CAIRN" reconcile || true
+# cairn git post-checkout hook - worktree/node mapping check.
+if command -v cairn >/dev/null 2>&1; then
+  cairn reconcile || true
+elif [ -x "$HOME/.cairn/current/bin/cairn" ]; then
+  "$HOME/.cairn/current/bin/cairn" reconcile || true
+fi

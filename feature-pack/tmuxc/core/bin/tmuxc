@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+tmuxc - tmux session launcher for Claude, Codex, and OMX
+
+Usage:
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx] [--role worker|orchestrator|designer] [--prompt TEXT] [--dry-run]
+  tmuxc wt <worktree-path> [same options as open]
+  tmuxc list
+  tmuxc attach <name>
+  tmuxc send <name> <message>
+  tmuxc ask <name> [lines]
+  tmuxc msg <name> <message>
+  tmuxc kill <name>
+  tmuxc clean
+
+Defaults:
+  agent: ${TMUXC_AGENT:-claude}
+  role:  worker
+EOF
+}
+
+die() {
+  printf 'tmuxc: %s\n' "$*" >&2
+  exit 1
+}
+
+sanitize_name() {
+  local raw="$1"
+  raw="${raw// /-}"
+  raw="${raw//:/-}"
+  raw="${raw//./-}"
+  printf '%s' "$raw" | LC_ALL=C tr -cd 'A-Za-z0-9_#-'
+}
+
+repo_root_for() {
+  local path="$1"
+  local root
+  root="$(git -C "$path" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$root" ]]; then
+    printf '%s\n' "$root"
+  else
+    cd "$path" && pwd
+  fi
+}
+
+role_alias() {
+  case "${1:-worker}" in
+    worker) printf 'ccs' ;;
+    orchestrator|orch|verify|verifier) printf 'ccd' ;;
+    designer|architect|strategy|strategist) printf 'ccf' ;;
+    *) die "unknown role: $1" ;;
+  esac
+}
+
+zsh_alias_body() {
+  local alias_name="$1"
+  local out
+  out="$(zsh -ic "type $alias_name" 2>/dev/null || true)"
+  if [[ "$out" == *" is an alias for "* ]]; then
+    printf '%s\n' "${out#* is an alias for }"
+  elif command -v "$alias_name" >/dev/null 2>&1; then
+    printf '%s\n' "$alias_name"
+  else
+    return 1
+  fi
+}
+
+resolve_claude_cmd() {
+  local name="$1"
+  local role="$2"
+  local alias_name
+  alias_name="$(role_alias "$role")"
+  local body
+  body="$(zsh_alias_body "$alias_name" || true)"
+  if [[ -z "$body" && "$alias_name" != "ccd" ]]; then
+    body="$(zsh_alias_body ccd || true)"
+  fi
+  if [[ -z "$body" ]]; then
+    body="claude"
+  fi
+  printf '%s --name %q --remote-control %q' "$body" "$name" "$name"
+}
+
+resolve_codex_cmd() {
+  local agent="$1"
+  local role="$2"
+  case "$agent" in
+    codex)
+      case "$role" in
+        worker) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="medium"' ;;
+        orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"' ;;
+        *) die "unknown role: $role" ;;
+      esac
+      ;;
+    omx)
+      case "$role" in
+        worker) printf 'omx --madmax' ;;
+        orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) printf 'omx --madmax --high' ;;
+        *) die "unknown role: $role" ;;
+      esac
+      ;;
+    *) die "unsupported codex agent: $agent" ;;
+  esac
+}
+
+agent_cmd() {
+  local agent="$1"
+  local name="$2"
+  local role="$3"
+  case "$agent" in
+    claude) resolve_claude_cmd "$name" "$role" ;;
+    codex|omx) resolve_codex_cmd "$agent" "$role" ;;
+    *) die "unknown agent: $agent" ;;
+  esac
+}
+
+inject_message() {
+  local session="$1"
+  local message="$2"
+  tmux send-keys -t "$session" -l "$message"
+  sleep 0.3
+  tmux send-keys -t "$session" Enter
+}
+
+cmd_open() {
+  local path=""
+  local name=""
+  local agent="${TMUXC_AGENT:-claude}"
+  local role="${TMUXC_ROLE:-worker}"
+  local prompt=""
+  local dry_run=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --name) name="${2:-}"; shift 2 ;;
+      --agent) agent="${2:-}"; shift 2 ;;
+      --role) role="${2:-}"; shift 2 ;;
+      --prompt) prompt="${2:-}"; shift 2 ;;
+      --dry-run) dry_run=1; shift ;;
+      --help|-h) usage; exit 0 ;;
+      --*) die "unknown option for open: $1" ;;
+      *)
+        if [[ -z "$path" ]]; then
+          path="$1"; shift
+        else
+          die "unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [[ -n "$path" ]] || die "open requires <path>"
+  [[ -d "$path" ]] || die "path does not exist: $path"
+
+  local root
+  root="$(repo_root_for "$path")"
+  if [[ -z "$name" ]]; then
+    name="$(basename "$root")"
+  fi
+  name="$(sanitize_name "$name")"
+  [[ -n "$name" ]] || die "empty session name after sanitize"
+
+  local run_cmd
+  run_cmd="$(agent_cmd "$agent" "$name" "$role")"
+
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
+    return 0
+  fi
+
+  tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
+  tmux new-session -d -s "$name" -c "$root"
+  inject_message "$name" "$run_cmd"
+  sleep 4
+
+  local guide
+  if [[ "$agent" == "claude" ]]; then
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$name. 세션간 메시지는 검증 송신 프로토콜 준수."
+  else
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Codex 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 참고하되, Codex에는 --remote-control이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name."
+  fi
+  inject_message "$name" "$guide"
+  if [[ -n "$prompt" ]]; then
+    sleep 0.8
+    inject_message "$name" "$prompt"
+  fi
+
+  printf 'tmuxc session created\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nattach=tmux attach -t %q\n' "$name" "$root" "$agent" "$role" "$name"
+}
+
+cmd_list() {
+  tmux list-sessions -F '#S	#{session_path}	#{session_attached}' 2>/dev/null || return 0
+}
+
+cmd_ask() {
+  local name="${1:-}"
+  local lines="${2:-40}"
+  [[ -n "$name" ]] || die "ask requires <name>"
+  tmux has-session -t "$name" 2>/dev/null || die "session not found: $name"
+  tmux capture-pane -t "$name" -p | tail -n "$lines"
+}
+
+cmd_send() {
+  local name="${1:-}"
+  shift || true
+  [[ -n "$name" ]] || die "send requires <name>"
+  [[ $# -gt 0 ]] || die "send requires <message>"
+  tmux has-session -t "$name" 2>/dev/null || die "session not found: $name"
+  inject_message "$name" "$*"
+  sleep 1
+  if tmux capture-pane -t "$name" -p | tail -80 | grep -qF "$*"; then
+    printf 'delivered=%s\n' "$name"
+  else
+    printf 'sent=%s verification=not-visible-yet\n' "$name"
+  fi
+}
+
+cmd_clean() {
+  local session command
+  while IFS=$'\t' read -r session command; do
+    if [[ "$command" == "zsh" || "$command" == "bash" || "$command" == "fish" ]]; then
+      printf '%s\n' "$session"
+    fi
+  done < <(tmux list-panes -a -F '#S	#{pane_current_command}' 2>/dev/null || true)
+}
+
+main() {
+  local cmd="${1:-}"
+  [[ -n "$cmd" ]] || { usage; exit 1; }
+  shift || true
+  case "$cmd" in
+    open|wt) cmd_open "$@" ;;
+    list) cmd_list ;;
+    attach)
+      [[ -n "${1:-}" ]] || die "attach requires <name>"
+      tmux attach -t "$1"
+      ;;
+    send) cmd_send "$@" ;;
+    ask) cmd_ask "$@" ;;
+    msg)
+      [[ -n "${1:-}" ]] || die "msg requires <name> <message>"
+      local name="$1"
+      shift
+      cmd_send "$name" "$@"
+      sleep 2
+      cmd_ask "$name" 30
+      ;;
+    kill)
+      [[ -n "${1:-}" ]] || die "kill requires <name>"
+      tmux kill-session -t "$1"
+      ;;
+    clean) cmd_clean ;;
+    help|--help|-h) usage ;;
+    *) die "unknown command: $cmd" ;;
+  esac
+}
+
+main "$@"

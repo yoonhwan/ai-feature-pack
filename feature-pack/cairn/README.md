@@ -14,6 +14,8 @@ bash install.sh          # ~/.cairn 전역 설치 + Claude Code 슬래시/스킬
 cairn self-test          # 검증
 ```
 
+Codex에서 설치할 때는 `bash feature-pack/cairn/install.sh`를 실행하고, Claude Code에는 `feature-pack/cairn/INSTALL.md`를 읽고 설치·검증하도록 요청합니다.
+
 전역 1회 설치 후, **어느 프로젝트 cwd에서 실행하든** 그 프로젝트의 `.cairn/` 원장을 대상으로 동작한다.
 
 ## 일정 명령
@@ -39,6 +41,7 @@ cairn self-test          # 검증
 
 - task id는 **전역 유니크**(복구 메타 전역 참조). `cairn validate`가 끊긴 복구 엣지 0을 보장.
 - 모든 쓰기는 transaction(lock + atomic write + validate + git commit). 더티 가드.
+- 설치본은 `~/.cairn/current/hooks/cairn-auto-progress`를 제공한다. BTS evidence/verification pass가 확인되면 기본적으로 `.cairn/auto-progress/candidates/`에 완료 후보를 남기고, `CAIRN_AUTO_PROGRESS=apply`와 `CAIRN_TASK_ID`가 명시된 경우에만 `cairn complete <task>`를 실행한다.
 
 ## 라이선스
 
