@@ -275,6 +275,20 @@ t3 진행 중 신규 작업 발견 →
 | `cairn map [--focus <node>] [--render]` | recovery-map을 mermaid로 `/tmp/cairn/`에 생성 → termaid 즉시 렌더 |
 | `cairn attach <orphan> --to <node>` | 고아 브랜치/세션을 노드에 연결. **항상 제안→승인**(자동확정 ❌) |
 
+### 7.2.1 todos 백로그 (§6.2 통합 모델 — v0 구현)
+
+emergent 작업(세부 노드 진행 중 발견한 신규 과제)을 톱레벨 `todos:`에 캡처하고 해결 노드에 연결한다. **연결(link)과 상태(set-status)는 직교** — 노드를 붙여도 status는 사람이 확정.
+
+| 명령 | 동작 |
+|---|---|
+| `cairn add-todo <project> <title> [--from NODE] [--ssot]` | open todo 생성(id=`tdN` gap-fill). `--from`=origin_node(task만). `--ssot`=commit 성공 후 `.cairn/ssot/<proj>.<id>.md` 스텁 생성 |
+| `cairn todos [--project P] [--status S] [--verbose]` | 백로그 가시화(읽기전용). `--verbose`=ssot 경로 표시 |
+| `cairn link-todo <todo> --by NODE [--remove]` | `resolved_by`에 해결 노드(task) 연결/해제. **status 불변** |
+| `cairn set-status <project> todo <id> <status>` | status 전이(`open`/`claimed`/`resolved`/`dropped`). `dropped`도 이걸로 |
+| `cairn remove-todo <todo>` | todo 제거(데드락 해소용). ssot 파일은 남김 |
+
+무결성: `remove-task`는 그 노드를 `origin_node`/`resolved_by`로 가리키는 todo가 있으면 친절 차단(`referenced by tdN in …`). `validate`는 origin_node/resolved_by를 **task id로만** 한정.
+
 ### 7.3 v2
 `gantt`(전신 render 확장)·`deps`(dependency graph)·`orphans`(자동 탐지·제안)·`distill-map`(증류 계보).
 
