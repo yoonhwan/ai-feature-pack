@@ -1167,6 +1167,21 @@ def test_cmd_map_writes_file(tmp_path, monkeypatch):
     assert cairn._map_path().exists()
 
 
+def test_cmd_map_html_embeds_mermaid_and_opens(tmp_path, monkeypatch, capsys):
+    # --html: mermaid.js CDN을 임베드한 자체완결 HTML 생성 + macOS면 open으로 표시
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    monkeypatch.setattr(cairn, "MAP_DIR", tmp_path / "cairnmap")
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    cairn.main(["map", "--html"])
+    out = capsys.readouterr().out
+    assert "HTML →" in out
+    html = cairn._map_path().with_suffix(".html").read_text(encoding="utf-8")
+    assert "mermaid.min.js" in html              # CDN 스크립트 임베드(로컬 의존성 0)
+    assert "graph TD" in html                    # 그래프 mermaid 텍스트 포함
+    assert any("open" in c for c in opened)      # 브라우저로 표시
+
+
 def test_validate_rejects_global_duplicate_task_id():
     # [DA#2] 복구 메타가 task id를 전역 참조 → milestone 간 중복은 끊긴 노드 위험
     d = _good()

@@ -322,6 +322,21 @@ def render_png(text, out_png):
     return out_png if (r.returncode == 0 and out_png.exists()) else None
 
 
+def render_html(text):
+    """mermaid 텍스트 → 자체완결 HTML. mermaid.js를 CDN에서 로드해 브라우저에서
+    바로 렌더(termaid/mmdc 등 로컬 의존성 불필요). 파일 하나로 공유 가능."""
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="ko"><head><meta charset="utf-8">\n'
+        "<title>cairn recovery map</title>\n"
+        '<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>\n'
+        "</head><body>\n"
+        f'<pre class="mermaid">\n{text}</pre>\n'
+        "<script>mermaid.initialize({startOnLoad:true});</script>\n"
+        "</body></html>\n"
+    )
+
+
 def write_view(data, path=VIEW_PATH):
     # [DA#1] PLAN과 동일 atomic 경로 — write_view 실패 시 부분쓰기 방지
     _atomic_write_text(render(data), path)
@@ -841,6 +856,12 @@ def cmd_map(data, args):
                 subprocess.run(["open", str(png)], check=False)
         else:
             print("PNG 렌더 실패(mmdc/chrome 미설치) — mermaid 파일만 생성됨")
+    if getattr(args, "html", False):
+        html_path = out.with_suffix(".html")
+        html_path.write_text(render_html(text), encoding="utf-8")
+        print(f"HTML → {html_path}")
+        if sys.platform == "darwin":   # 더블클릭 없이 기본 브라우저로 바로 렌더
+            subprocess.run(["open", str(html_path)], check=False)
     return 0
 
 
@@ -1310,6 +1331,8 @@ def main(argv=None):
     sp.add_argument("--focus", default=None)
     sp.add_argument("--render", action="store_true")
     sp.add_argument("--png", action="store_true", help="PNG로 구워 Preview에 표시(mmdc 필요)")
+    sp.add_argument("--html", action="store_true",
+                    help="자체완결 HTML로 생성해 브라우저에 표시(mermaid.js CDN, 의존성 불필요)")
     sp.add_argument("--show-merged", dest="show_merged", action="store_true",
                     help="병합 완료된 노드도 포함(기본은 숨김)")
 
