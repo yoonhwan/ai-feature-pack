@@ -680,8 +680,8 @@ def cmd_render(data, args):
     html_path = VIEW_PATH.with_suffix(".html")
     html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
     print(f"HTML → {html_path}")
-    if sys.platform == "darwin":   # 더블클릭 없이 기본 브라우저로 바로 렌더
-        subprocess.run(["open", str(html_path)], check=False)
+    if sys.platform == "darwin" and not getattr(args, "no_open", False):
+        subprocess.run(["open", str(html_path)], check=False)   # 기본 브라우저로 바로 렌더
     return 0
 
 
@@ -1301,7 +1301,9 @@ def main(argv=None):
     sp_show.add_argument("project")
     sp_od = sub.add_parser("overdue", parents=[file_parent])
     sp_od.add_argument("--today", default=None)
-    sub.add_parser("render", parents=[file_parent])
+    p_render = sub.add_parser("render", parents=[file_parent])
+    p_render.add_argument("--no-open", dest="no_open", action="store_true",
+                          help="HTML은 생성하되 브라우저는 열지 않음(조용한 렌더)")
 
     sp_ss = sub.add_parser("set-status")
     sp_ss.add_argument("project")
