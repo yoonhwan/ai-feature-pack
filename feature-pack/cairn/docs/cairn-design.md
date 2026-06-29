@@ -209,7 +209,8 @@ projects:
 
 ```
 .cairn/
-  plan.yaml          # SoT (기존 plans/all.yaml 이전·리네임)
+  plan.yaml          # SoT — projects[](그래프·일정·복구) + todos[](톱레벨 통합 백로그, §6.2)
+  ssot/              # 노드/todo별 SSOT 문서(.md) — 사람 자유편집, cairn은 경로만 링크(§6.2)
   config.yaml        # read-only join 소스 경로·설정 (baton/tmuxc/git 위치)
   executions/        # execution 레코드 (current_branch 등 노드에서 분리, D4·D7)
   views/             # 렌더 결과 보관(선택) — 휘발은 /tmp/cairn/
@@ -217,6 +218,43 @@ projects:
 ```
 
 기존 `plans/all.yaml`·`views/plan.md`는 **`.cairn/` 하위로 이전**한다(공존 불가). 모든 원장 파일이 `.cairn/` 한곳에 모인다 — `.baton`이 `.baton/`에 모이듯.
+
+### 6.2 todos·SSOT 연결 — 통합 백로그 + 첨부 분리 (기획 DA approve)
+
+**결정(Opt A 하이브리드)**: 그래프·일정·복구·**백로그(todos)**는 `plan.yaml` **단일 파일**에 두고, 무거운 첨부물(노드/todo별 SSOT 문서)만 `.cairn/ssot/*.md`로 **파일 분리 + 경로 링크**한다. 원장을 노드별로 쪼개지 않는다(거시 전체뷰·병합부담 회피).
+
+**todos는 `plan.yaml` 톱레벨 `todos:` 섹션** (별도 `todos.yaml` 파일 ❌). 별도 파일은 현 `transaction`(plan.yaml 단일파일 load→validate→commit→rollback)을 2-파일로 찢어 **원자커밋 불가(split-brain)·dirty 게이트 누락·validate 2-파일 로드**를 줄줄이 유발한다. 톱레벨 섹션이면 무결성 단일로드·원자성·dirty 게이트가 **전부 plan.yaml과 함께 공짜**. (백로그가 실측 폭증하면 그때 별도 파일로 분리 — reversible.)
+
+**todo ≠ node** (별개 축, 링크로 연결):
+- **todo** = "무엇을 해야 하나"(의도·백로그). 가벼움, 거시 뷰. **node** = "어떻게/어디서 실행"(fan-out 실행단위, worktree/session/복구그래프). 무거움.
+- **분리 근거 = 1:N 카디널리티**: 한 todo가 여러 node로 fan-out(`resolved_by` N개). status=todo node로는 "1 의도 → N 실행"을 표현 못 한다(분기는 spawn 자식일 뿐 부모 의도가 안 남음). node 스키마로 표현 불가 → 별 엔티티 정당.
+
+```yaml
+version: 1
+projects: [ ... ]              # 그래프·일정·복구 (기존)
+todos:                         # 톱레벨 — 프로젝트 전체 백로그
+  - id: td1
+    project: ops2
+    title: "nested 확장 중 발견: spec 증분 검증 누락"
+    status: open              # open → claimed → resolved (/dropped). node.status(todo/doing/done/blocked)와 어휘 분리
+    created: '2026-06-26'
+    origin_node: t3           # emergent 발생 노드 (발생맥락 추적)
+    ssot: ssot/ops2.td1.md    # .cairn 루트 상대, 사람 자유편집
+    resolved_by: [t5]         # 해결 node. 0개=미착수, N개=fan-out
+```
+
+**emergent 캡처 워크플로** (세부 태스크 진행 중 발생하는 신규 작업 — 이 설계의 1차 동기):
+```
+t3 진행 중 신규 작업 발견 →
+ 1) cairn add-todo ops2 "발견작업" --from t3 --ssot  # SSOT 생성 + plan.yaml todos: 등록(td1)
+ 2) cairn spawn "해결" --from t3  → 노드 t5, td1.resolved_by=[t5]
+ 3) cairn complete t5  → "td1 resolved 후보" 알림 (자동 아님, 사람 확정)
+```
+
+**무결성**:
+- remove-task/project는 **복구엣지(`spawned_from`/`return_to`/`merge_back_to`) + (todos 도입 후) `todo.resolved_by`/`origin_node`** 역참조를 **삭제 전 차단**한다. todos가 plan.yaml 같은 dict라 고아를 validate가 사후 INVALID로 잡고, transaction은 validate 통과해야 커밋 → 미차단 시 **삭제 후 원장 잠금**. (복구엣지 차단은 구현됨; todo cross-ref는 todos 구현 시.)
+- validate cross-ref는 **단일 dict 내** `_all_node_ids` 패턴으로 해소 — 현 `validate(data)` 시그니처 유지.
+- SSOT `.md`는 사람 자유편집이라 dirty 게이트 제외 + **best-effort 커밋**(원자성 불요). plan.yaml(todos 포함)만 엄격 원자.
 
 ---
 
@@ -236,6 +274,20 @@ projects:
 | `cairn return [--to <node>]` | 운영자/에이전트를 부모 복구 노드로 재앵커. **cairn 자체 커맨드로 제공하되 컨텍스트 재주입은 baton resume에 연결**(위임 X, 연결 O — D9) |
 | `cairn map [--focus <node>] [--render]` | recovery-map을 mermaid로 `/tmp/cairn/`에 생성 → termaid 즉시 렌더 |
 | `cairn attach <orphan> --to <node>` | 고아 브랜치/세션을 노드에 연결. **항상 제안→승인**(자동확정 ❌) |
+
+### 7.2.1 todos 백로그 (§6.2 통합 모델 — v0 구현)
+
+emergent 작업(세부 노드 진행 중 발견한 신규 과제)을 톱레벨 `todos:`에 캡처하고 해결 노드에 연결한다. **연결(link)과 상태(set-status)는 직교** — 노드를 붙여도 status는 사람이 확정.
+
+| 명령 | 동작 |
+|---|---|
+| `cairn add-todo <project> <title> [--from NODE] [--ssot]` | open todo 생성(id=`tdN` gap-fill). `--from`=origin_node(task만). `--ssot`=commit 성공 후 `.cairn/ssot/<proj>.<id>.md` 스텁 생성 |
+| `cairn todos [--project P] [--status S] [--verbose]` | 백로그 가시화(읽기전용). `--verbose`=ssot 경로 표시 |
+| `cairn link-todo <todo> --by NODE [--remove]` | `resolved_by`에 해결 노드(task) 연결/해제. **status 불변** |
+| `cairn set-status <project> todo <id> <status>` | status 전이(`open`/`claimed`/`resolved`/`dropped`). `dropped`도 이걸로 |
+| `cairn remove-todo <todo>` | todo 제거(데드락 해소용). ssot 파일은 남김 |
+
+무결성: `remove-task`는 그 노드를 `origin_node`/`resolved_by`로 가리키는 todo가 있으면 친절 차단(`referenced by tdN in …`). `validate`는 origin_node/resolved_by를 **task id로만** 한정.
 
 ### 7.3 v2
 `gantt`(전신 render 확장)·`deps`(dependency graph)·`orphans`(자동 탐지·제안)·`distill-map`(증류 계보).
