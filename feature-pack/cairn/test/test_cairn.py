@@ -1182,6 +1182,20 @@ def test_cmd_map_html_embeds_mermaid_and_opens(tmp_path, monkeypatch, capsys):
     assert any("open" in c for c in opened)      # 브라우저로 표시
 
 
+def test_cmd_render_emits_html_by_default(tmp_path, monkeypatch, capsys):
+    # render는 플래그 없이도 기본으로 간트 HTML을 생성 + macOS면 open
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    cairn.main(["render"])
+    out = capsys.readouterr().out
+    assert "HTML →" in out
+    html = cairn.VIEW_PATH.with_suffix(".html").read_text(encoding="utf-8")
+    assert "mermaid.min.js" in html              # CDN 스크립트 임베드
+    assert "gantt" in html                       # 간트차트 mermaid 포함
+    assert any("open" in c for c in opened)      # 브라우저로 표시
+
+
 def test_validate_rejects_global_duplicate_task_id():
     # [DA#2] 복구 메타가 task id를 전역 참조 → milestone 간 중복은 끊긴 노드 위험
     d = _good()
