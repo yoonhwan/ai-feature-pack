@@ -1524,3 +1524,96 @@ def test_render_axis_format_compact_dates():
     out = cairn.render(_good())
     assert "axisFormat %y.%m.%d" in out
     assert "tickInterval 1week" in out
+
+
+# ---- todos CLI v0 (DA approve된 설계) ----
+def test_add_todo_creates_open_todo(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["add-todo", "project-a", "발견작업", "--from", "t1"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    todos = d.get("todos") or []
+    assert len(todos) == 1
+    td = todos[0]
+    assert td["id"] == "td1" and td["status"] == "open"
+    assert td["project"] == "project-a" and td["origin_node"] == "t1"
+    assert td["title"] == "발견작업" and td["resolved_by"] == []
+
+
+def test_add_todo_with_ssot_creates_file(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["add-todo", "project-a", "T", "--ssot"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["ssot"] == "ssot/project-a.td1.md"
+    assert (repo / ".cairn" / "ssot" / "project-a.td1.md").exists()
+
+
+def test_add_todo_rejects_unknown_project(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-todo", "ghost", "T"]) != 0
+
+
+def test_add_todo_rejects_nonexistent_from_node(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-todo", "project-a", "T", "--from", "zzz"]) != 0
+
+
+def test_todos_lists(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "AAA"]); capsys.readouterr()
+    rc = cairn.main(["todos"]); assert rc == 0
+    out = capsys.readouterr().out
+    assert "td1" in out and "AAA" in out and "open" in out
+
+
+def test_todos_empty(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["todos"]); assert rc == 0
+    assert "없음" in capsys.readouterr().out
+
+
+def test_link_todo_adds_resolved_by(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    rc = cairn.main(["link-todo", "td1", "--by", "t1"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["resolved_by"] == ["t1"]
+
+
+def test_link_todo_remove(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    cairn.main(["link-todo", "td1", "--by", "t1"])
+    rc = cairn.main(["link-todo", "td1", "--by", "t1", "--remove"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["resolved_by"] == []
+
+
+def test_link_todo_rejects_nonexistent_node(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    assert cairn.main(["link-todo", "td1", "--by", "zzz"]) != 0
+
+
+def test_set_status_todo(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    rc = cairn.main(["set-status", "project-a", "todo", "td1", "resolved"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["todos"][0]["status"] == "resolved"
+
+
+def test_set_status_todo_rejects_bad_vocab(tmp_path, monkeypatch):
+    # node 어휘 'doing'은 todo에 무효 — validate가 차단
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    assert cairn.main(["set-status", "project-a", "todo", "td1", "doing"]) != 0
+
+
+def test_remove_todo(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T"])
+    rc = cairn.main(["remove-todo", "td1"]); assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert (d.get("todos") or []) == []
