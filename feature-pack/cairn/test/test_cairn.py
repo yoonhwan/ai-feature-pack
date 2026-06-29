@@ -1617,3 +1617,23 @@ def test_remove_todo(tmp_path, monkeypatch):
     rc = cairn.main(["remove-todo", "td1"]); assert rc == 0
     d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
     assert (d.get("todos") or []) == []
+
+
+def test_remove_task_blocked_by_todo_resolved_by(tmp_path, monkeypatch, capsys):
+    # [H2] 사전검사 — task가 todo.resolved_by에 있으면 친절 차단("referenced by")
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T", "--from", "t1"])
+    cairn.main(["link-todo", "td1", "--by", "t3"]); capsys.readouterr()
+    rc = cairn.main(["remove-task", "project-a", "ms2", "t3"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "referenced by td1" in out and "resolved_by" in out
+
+
+def test_remove_task_blocked_by_todo_origin_node(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T", "--from", "t1"]); capsys.readouterr()
+    rc = cairn.main(["remove-task", "project-a", "ms1", "t1"])
+    assert rc != 0
+    out = capsys.readouterr().out
+    assert "referenced by td1" in out and "origin_node" in out

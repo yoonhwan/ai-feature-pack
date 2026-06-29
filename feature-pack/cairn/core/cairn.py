@@ -1091,6 +1091,13 @@ def cmd_remove_task(data_unused, args):
                     for ref in ("spawned_from", "return_to", "merge_back_to"):
                         if t.get(ref) == args.task:
                             raise ValueError(f"task {args.task} is referenced by {t['id']} in {ref}")
+        # todo 역참조 사전검사(H2) — todo가 origin_node/resolved_by로 이 task를 가리키면 차단.
+        # validate가 사후 raw 'missing node'로 잡지만 친절 메시지로 선제 차단.
+        for td in data.get("todos", []):
+            if td.get("origin_node") == args.task:
+                raise ValueError(f"task {args.task} is referenced by {td['id']} in origin_node")
+            if args.task in (td.get("resolved_by") or []):
+                raise ValueError(f"task {args.task} is referenced by {td['id']} in resolved_by")
         orig = len(tasks)
         ms["tasks"] = [t for t in tasks if t.get("id") != args.task]
         if len(ms["tasks"]) == orig:
