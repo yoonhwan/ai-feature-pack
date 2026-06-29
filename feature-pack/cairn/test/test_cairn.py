@@ -1549,6 +1549,15 @@ def test_add_todo_with_ssot_creates_file(tmp_path, monkeypatch):
     assert (repo / ".cairn" / "ssot" / "project-a.td1.md").exists()
 
 
+def test_add_todo_ssot_is_committed(tmp_path, monkeypatch):
+    # §6.2 — ssot는 best-effort 커밋(원장 git 추적). untracked로 남기지 않음.
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-todo", "project-a", "T", "--ssot"])
+    tracked = subprocess.run(["git", "-C", str(repo), "ls-files"],
+                             capture_output=True, text=True).stdout
+    assert ".cairn/ssot/project-a.td1.md" in tracked
+
+
 def test_add_todo_rejects_unknown_project(tmp_path, monkeypatch):
     repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
     assert cairn.main(["add-todo", "ghost", "T"]) != 0

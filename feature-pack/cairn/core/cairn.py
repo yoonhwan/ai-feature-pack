@@ -1201,6 +1201,9 @@ def cmd_add_todo(data_unused, args):
         ssot_path.parent.mkdir(parents=True, exist_ok=True)
         if not ssot_path.exists():
             ssot_path.write_text(f"# {args.name}\n\n<!-- 자유편집 -->\n", encoding="utf-8")
+            # best-effort 커밋 — 원장 git 추적(원자성 불요, 트랜잭션 밖). 실패해도 무시.
+            git("add", str(ssot_path), check=False)
+            git("commit", "-q", "-m", f"add-todo ssot {captured['ssot']}", check=False)
     msg = f"OK: added todo {captured['tdid']}"
     if captured.get("ssot"):
         msg += f" ({captured['ssot']})"
