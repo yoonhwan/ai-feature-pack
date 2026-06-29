@@ -65,6 +65,58 @@ def test_validate_self_reference():
     assert any("self" in e or "cycle" in e for e in cairn.validate(d))
 
 
+# todos 톱레벨 백로그 검증 (§6.2 통합 모델, H2b)
+def _good_with_todos():
+    d = _good()
+    d["todos"] = [
+        {"id": "td1", "project": "project-a", "title": "nested 확장 중 발견",
+         "status": "open", "created": "2026-06-26",
+         "origin_node": "t1", "ssot": "ssot/a.td1.md", "resolved_by": ["t3"]},
+    ]
+    return d
+
+
+def test_validate_accepts_valid_todos():
+    assert cairn.validate(_good_with_todos()) == []
+
+
+def test_validate_todo_unknown_project():
+    d = _good_with_todos(); d["todos"][0]["project"] = "ghost"
+    assert any("td1" in e and "project" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_bad_status_vocab():
+    # node 어휘 'doing'은 todo에 무효 — 어휘 분리(open/claimed/resolved/dropped)
+    d = _good_with_todos(); d["todos"][0]["status"] = "doing"
+    assert any("td1" in e and "status" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_origin_node_missing():
+    d = _good_with_todos(); d["todos"][0]["origin_node"] = "ghost"
+    assert any("td1" in e and "origin_node" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_resolved_by_missing():
+    d = _good_with_todos(); d["todos"][0]["resolved_by"] = ["ghost"]
+    assert any("td1" in e and "resolved_by" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_duplicate_id():
+    d = _good_with_todos(); d["todos"].append(dict(d["todos"][0]))
+    assert any("duplicate todo id" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_origin_node_must_be_task_not_milestone():
+    # [M4] origin_node는 task만 — ms id는 거부(복구/연결은 실행단위=task 대상)
+    d = _good_with_todos(); d["todos"][0]["origin_node"] = "ms1"
+    assert any("td1" in e and "origin_node" in e for e in cairn.validate(d))
+
+
+def test_validate_todo_resolved_by_must_be_task_not_milestone():
+    d = _good_with_todos(); d["todos"][0]["resolved_by"] = ["ms1"]
+    assert any("td1" in e and "resolved_by" in e for e in cairn.validate(d))
+
+
 # ── Task3: save_atomic ───────────────────────────────────────────────────────
 import pytest
 

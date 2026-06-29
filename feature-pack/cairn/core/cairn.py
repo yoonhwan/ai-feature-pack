@@ -45,6 +45,7 @@ MAP_DIR = Path("/tmp/cairn")
 STATUS_PROJECT = {"planned", "active", "done", "paused"}
 STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
+STATUS_TODO = {"open", "claimed", "resolved", "dropped"}
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 yaml = YAML()                      # round-trip
@@ -545,6 +546,39 @@ def validate(data):
             errors.append(f"{pid}: dependency cycle in milestones")
         if _has_spawn_cycle(proj_tasks):
             errors.append(f"{pid}: spawned_from cycle in tasks")
+    # todos 톱레벨 백로그 검증 (§6.2 통합 모델) — 있을 때만(하위호환).
+    # todo는 node가 아니므로 어휘(STATUS_TODO)·cross-ref를 plan.yaml 단일 트랜잭션에서 함께 검증.
+    todos = data.get("todos")
+    if todos is not None:
+        if not isinstance(todos, list):
+            errors.append("top-level 'todos' must be a list")
+        else:
+            # origin_node/resolved_by는 실행단위(task)만 가리킨다 — ms/project id 불가.
+            task_ids = {t.get("id") for p in data.get("projects", [])
+                        for m in p.get("milestones", []) for t in m.get("tasks", [])
+                        if t.get("id")}
+            seen_tdids = set()
+            for td in todos:
+                tdid = td.get("id")
+                if not tdid:
+                    errors.append("todo missing id"); continue
+                if tdid in seen_tdids:
+                    errors.append(f"duplicate todo id: {tdid}")
+                seen_tdids.add(tdid)
+                if "title" not in td:
+                    errors.append(f"todo {tdid}: missing title")
+                elif _CTRL_RE.search(str(td.get("title", ""))):
+                    errors.append(f"todo {tdid}: title has control chars")
+                if td.get("project") not in pids:
+                    errors.append(f"todo {tdid}: unknown project: {td.get('project')}")
+                if td.get("status") not in STATUS_TODO:
+                    errors.append(f"todo {tdid}: bad todo status: {td.get('status')}")
+                origin = td.get("origin_node")
+                if origin is not None and origin not in task_ids:
+                    errors.append(f"todo {tdid}: origin_node missing node: {origin}")
+                for rb in (td.get("resolved_by") or []):
+                    if rb not in task_ids:
+                        errors.append(f"todo {tdid}: resolved_by missing node: {rb}")
     return errors
 
 
