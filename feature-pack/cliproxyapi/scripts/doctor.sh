@@ -82,12 +82,31 @@ if echo "$HR_HEALTH" | grep -q '"ready":true'; then
   if [ "$HR_UP" != "http://127.0.0.1:$CPA_PORT" ]; then
     yellow "  체인 미연결: upstream이 cliproxy가 아님"
     echo "  복구: plist ProgramArguments에 --anthropic-api-url http://127.0.0.1:$CPA_PORT 추가 후"
-    echo "        launchctl bootout gui/$UID_NUM/com.headroom.proxy && launchctl bootstrap gui/$UID_NUM \"$HR_PLIST\""
-    echo "  ⚠️ kickstart -k 는 plist 인자 변경을 반영 안 함 — 반드시 bootout→bootstrap"
+    echo "        SKILL.md의 'headroom plist 변경 후 안전 재로드' 블록 사용"
+    echo "  ⚠️ kickstart -k 는 plist 인자/env 변경을 반영 안 함 — 반드시 반환코드 검증형 bootout→bootstrap"
   fi
 else
+  HR_STATE="$(launchctl print "gui/$UID_NUM/com.headroom.proxy" 2>/dev/null | awk -F'= ' '/state =/{print $2; exit}')"
   yellow "health 실패 — 미기동이거나 startup(모델 로딩) 중"
-  echo "  복구: launchctl kickstart -k gui/$UID_NUM/com.headroom.proxy (기동만)"
+  if [ -z "$HR_STATE" ]; then
+    echo "  LaunchAgent 미등록/언로드 상태"
+    echo "  복구: plutil -lint \"$HR_PLIST\" && launchctl bootstrap gui/$UID_NUM \"$HR_PLIST\" && launchctl enable gui/$UID_NUM/com.headroom.proxy"
+    if [ "$FIX" = "1" ]; then
+      yellow "  --fix: headroom bootstrap 실행"
+      if plutil -lint "$HR_PLIST" >/dev/null 2>&1; then
+        launchctl bootstrap "gui/$UID_NUM" "$HR_PLIST" 2>/dev/null || true
+        launchctl enable "gui/$UID_NUM/com.headroom.proxy" 2>/dev/null || true
+        launchctl kickstart -k "gui/$UID_NUM/com.headroom.proxy" 2>/dev/null || true
+      fi
+    fi
+  else
+    echo "  LaunchAgent state: $HR_STATE"
+    echo "  복구: launchctl kickstart -k gui/$UID_NUM/com.headroom.proxy (기동만)"
+    if [ "$FIX" = "1" ]; then
+      yellow "  --fix: headroom kickstart 실행"
+      launchctl kickstart -k "gui/$UID_NUM/com.headroom.proxy" 2>/dev/null || true
+    fi
+  fi
   echo "  ※ headroom 미기동이어도 claude-hr.sh 래퍼는 fail-open 직결 — 작업은 무중단"
 fi
 

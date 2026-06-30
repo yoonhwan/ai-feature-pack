@@ -24,6 +24,8 @@
 | 11 | [auto](feature-pack/auto/) | AutoResearch 자율 실험 루프 — 베이스라인→목표→자율주행 최적화 | ~1분 | ❌ | ❌ |
 | 12 | [nanoclaw](feature-pack/nanoclaw/) | **AI 멀티 에이전트 플랫폼** — OpenClaw 대체. Claude SDK Brain, Docker 격리, 멀티 크루 | ~15분 | ❌ | Slack |
 | 13 | [agent-cli](feature-pack/agent-cli/) | **AI 코딩 에이전트 CLI 툴킷** — 설치·비교 + 비대화 위임(DA/designer/architect 페르소나·자율주행·resume): claude·codex·gemini·opencode·cursor | ~3분 | ❌ | ❌ |
+| 14 | [headroom](feature-pack/headroom/) | Claude Code·Codex 등 AI 코딩 에이전트 컨텍스트 압축 프록시 + `/headroom` 토글 | ~5분 | ❌ | ❌ |
+| 15 | [cliproxyapi](feature-pack/cliproxyapi/) | headroom → CLIProxyAPI 구독 프록시 스택 — Claude/Codex/Gemini OAuth plan 경유 + Hermes 게이트웨이 | ~10분 | ❌ | OAuth |
 
 ### 난이도 & 의존성
 
@@ -41,6 +43,8 @@
 | tmuxc | `tmuxc` | 스크립트 설치 | ✅ | bash, git, tmux |
 | auto | — (순수 스킬) | 스킬 파일 복사 | ✅ | git, python3 필요 |
 | agent-cli | (기존 에이전트 CLI 호출) | 스킬 파일 복사 | ✅ | perl, python3 + 에이전트 CLI ≥1 |
+| headroom | `headroom` / LaunchAgent | venv + 스킬 파일 복사 | ✅ | python3.12, curl |
+| cliproxyapi | `cli-proxy-api` | 바이너리 + LaunchAgent + 스킬 파일 복사 | ✅ | headroom, OAuth 계정 |
 
 ---
 

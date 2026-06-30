@@ -160,10 +160,46 @@ headroom wrap copilot       # GitHub Copilot CLI
 | 에이전트 | wrap | 비고 |
 |---|---|---|
 | Claude Code | ● | `ANTHROPIC_BASE_URL` 경유 |
-| Codex | ● | Claude와 메모리 공유 |
+| Codex | ● | 운영 표준은 `~/.codex/config.toml` custom provider |
 | Cursor | ● | config 출력 → 1회 붙여넣기 |
 | Aider | ● | 프록시 기동 + 런치 |
 | Copilot CLI | ● | 프록시 기동 + 런치 |
+
+### Codex CLI 운영 표준 (headroom → cliproxy)
+
+구독 프록시 스택을 쓸 때 Codex는 `headroom wrap codex`보다 Codex custom provider로 고정한다. 그래야 일반 `codex`/`codex exec`/tmux가 모두 같은 체인을 탄다.
+
+```toml
+# ~/.codex/config.toml
+model_provider = "headroom"
+
+[model_providers.headroom]
+name = "Headroom"
+base_url = "http://127.0.0.1:8790/v1"
+env_key = "CODEX_DUMMY_API_KEY"
+wire_api = "responses"
+```
+
+```bash
+# ~/.zshrc — 실제 인증은 cliproxy OAuth가 처리하므로 더미 값만 필요
+export CODEX_DUMMY_API_KEY="${CODEX_DUMMY_API_KEY:-dummy}"
+alias codex='npx -y @openai/codex'
+```
+
+검증은 응답만 보지 말고 로그까지 본다:
+
+```bash
+CODEX_DUMMY_API_KEY="${CODEX_DUMMY_API_KEY:-dummy}" \
+  codex exec --skip-git-repo-check --ephemeral -C "$HOME" \
+  'Return exactly CODEX_HEADROOM_OK.'
+
+grep -E 'codex_exec|/v1/responses|openai_responses|127\.0\.0\.1:8317' \
+  ~/.headroom/logs/proxy.log 2>/dev/null | tail -30
+grep -E '/v1/responses|codex|openai|status=200' \
+  ~/Library/Logs/cliproxy/proxy.log 2>/dev/null | tail -30
+```
+
+이 경로는 의도적으로 fail-open이 아니다. headroom/cliproxy 복구용 Codex는 `codex --ignore-user-config` 또는 provider override로 직접 띄운다.
 
 ### Copilot 구독 모드
 
