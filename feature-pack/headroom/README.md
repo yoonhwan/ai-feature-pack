@@ -217,11 +217,11 @@ bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
 
 | 모델군 | 표준 모델명 | 1M 모델명 | 정책 |
 |---|---|---|---|
-| Sonnet | `claude-sonnet-4-6` | 없음 | 200K만 사용. `[1m]` / `[1M]` 별칭을 등록하지 않는다. |
+| Sonnet | `claude-sonnet-4-6` | 없음 | 200K만 사용. 1M 별칭은 대소문자 변형 모두 등록하지 않는다. |
 | Haiku | `claude-haiku-4-5-20251001` | 없음 | 200K만 사용. |
-| Opus | `claude-opus-4-8` | `claude-opus-4-8[1m]` / `[1M]` | 200K와 1M 둘 다 사용 가능. |
+| Opus | `claude-opus-4-8` | `claude-opus-4-8[1m]` | 200K와 1M 둘 다 사용 가능. 1M suffix는 cliproxy 카탈로그와 동일하게 소문자 `[1m]`로 고정한다. |
 
-기본 `cc`/`ccd` alias는 `claude-opus-4-8[1M]` Opus 1M으로 둔다. Opus 200K는 `cc2` 명시 alias로만 쓴다. 1M이 일시 unavailable이면 Claude Code의 Bash safety classifier까지 막힐 수 있다.
+기본 `cc`/`ccd` alias는 `claude-opus-4-8[1m]` Opus 1M으로 둔다. Opus 200K는 `cc2` 명시 alias로만 쓴다. 1M이 일시 unavailable이면 Claude Code의 Bash safety classifier까지 막힐 수 있다.
 
 Sonnet 1M은 Claude Code에서 usage credits가 켜진 경우에만 별도 의도 하에 요청한다. 이 스택은 Sonnet 1M 요청을 200K로 폴백하지 않는다. 권한이 없으면 upstream 429가 나는 것이 맞다. `CLAUDE_CODE_DISABLE_1M_CONTEXT`는 진단용으로만 쓰고 alias에는 넣지 않는다.
 
