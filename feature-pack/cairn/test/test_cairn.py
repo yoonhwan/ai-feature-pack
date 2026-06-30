@@ -1748,3 +1748,94 @@ def test_show_prints_people_when_present(tmp_path, monkeypatch, capsys):
     cairn.main(["show", "project-a"])
     out = capsys.readouterr().out
     assert "👤 철수" in out and "👁 영희" in out
+
+
+# ── 사람별 그래프 (render 필터 + --by) ───────────────────────────────────────
+def _people_data():
+    d = _good()
+    ms2_tasks = d["projects"][0]["milestones"][1]["tasks"]   # t2, t3
+    ms2_tasks[0]["assignee"] = "철수"; ms2_tasks[0]["start"] = "2026-06-16"; ms2_tasks[0]["due"] = "2026-06-20"
+    ms2_tasks[1]["reporter"] = "철수"; ms2_tasks[1]["watchers"] = ["영희"]
+    ms2_tasks[1]["start"] = "2026-06-16"; ms2_tasks[1]["due"] = "2026-06-22"
+    return d
+
+
+def test_render_assignee_filters_to_matching_milestone():
+    d = _people_data()
+    out = cairn.render(d, {"assignee": "철수", "person": None, "reporter": None, "watcher": None})
+    assert "Build" in out          # ms2엔 철수 assignee(t2)
+    assert "Milestone Design" not in out   # ms1엔 사람 없음 → 제외
+    assert "Backend Tasks" in out          # t2 매칭
+    assert "Frontend Tasks" not in out     # t3 assignee 아님
+
+
+def test_render_person_is_union_of_roles():
+    d = _people_data()
+    pf = {"person": "철수", "assignee": None, "reporter": None, "watcher": None}
+    out = cairn.render(d, pf)
+    # 철수는 t2 assignee + t3 reporter → 둘 다 포함
+    assert "Backend Tasks" in out and "Frontend Tasks" in out
+
+
+def test_render_role_badges_present():
+    d = _people_data()
+    out = cairn.render(d, {"assignee": "철수", "person": None, "reporter": None, "watcher": None})
+    assert "👤철수" in out          # assignee 뱃지
+
+
+def test_render_person_emphasizes_assignee():
+    d = _people_data()
+    pf = {"person": "철수", "assignee": None, "reporter": None, "watcher": None}
+    out = cairn.render(d, pf)
+    # t2(assignee 철수) 라인은 active 태그로 진하게
+    t2_line = next(l for l in out.splitlines() if "ms2-t2" in l)
+    assert "active" in t2_line
+
+
+def test_render_by_month_sections():
+    d = _good()
+    out = cairn.render(d, None, "month")
+    assert "2026-06" in out         # ms1/ms2 start 2026-06 → 월 섹션
+
+
+def test_render_by_quarter_sections():
+    d = _good()
+    out = cairn.render(d, None, "quarter")
+    assert "2026 Q2" in out         # 6월 → Q2
+
+
+def test_render_by_undated_milestone_section():
+    d = _good()
+    d["projects"][0]["milestones"][0]["start"] = None
+    d["projects"][0]["milestones"][0]["end"] = None
+    d["projects"][0]["milestones"][0]["tasks"] = []   # 파생 날짜도 없게
+    out = cairn.render(d, None, "quarter")
+    assert "(미정)" in out
+
+
+def test_render_assignee_and_by_combine():
+    d = _people_data()
+    pf = {"assignee": "철수", "person": None, "reporter": None, "watcher": None}
+    out = cairn.render(d, pf, "quarter")
+    assert "2026 Q2" in out and "Backend Tasks" in out
+    assert "Frontend Tasks" not in out
+
+
+def test_cmd_render_filter_skips_write_view(tmp_path, monkeypatch, capsys):
+    # 필터 렌더는 canonical plan.md를 건드리지 않아야(dirty 방지) → 이후 transaction 정상
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-assignee", "project-a", "t2", "철수"]); capsys.readouterr()
+    rc = cairn.main(["render", "--assignee", "철수", "--no-open"])   # --no-open → open 미호출
+    assert rc == 0
+    assert cairn.VIEW_PATH.with_suffix(".html").exists()
+    # plan.md/yaml worktree 깨끗 → 후속 쓰기 명령 성공
+    assert cairn.main(["set-reporter", "project-a", "t2", "영희"]) == 0
+
+
+def test_status_assignee_filter(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-assignee", "project-a", "t2", "철수"]); capsys.readouterr()
+    cairn.main(["status", "--assignee", "철수"])
+    out = capsys.readouterr().out
+    assert "matched" in out and "t2" in out
+    assert "ms1" not in out          # ms1엔 철수 없음 → 미표시
