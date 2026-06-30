@@ -1015,7 +1015,7 @@ def cmd_map(data, args):
         png = render_png(text, out.with_suffix(".png"))
         if png:
             print(f"PNG → {png}")
-            if sys.platform == "darwin":   # 구운 PNG를 Preview로 띄움(코드블록 비가시 회피)
+            if sys.platform == "darwin" and not getattr(args, "no_open", False):   # 구운 PNG를 Preview로
                 subprocess.run(["open", str(png)], check=False)
         else:
             print("PNG 렌더 실패(mmdc/chrome 미설치) — mermaid 파일만 생성됨")
@@ -1023,7 +1023,7 @@ def cmd_map(data, args):
         html_path = out.with_suffix(".html")
         html_path.write_text(render_html(text), encoding="utf-8")
         print(f"HTML → {html_path}")
-        if sys.platform == "darwin":   # 더블클릭 없이 기본 브라우저로 바로 렌더
+        if sys.platform == "darwin" and not getattr(args, "no_open", False):   # 기본 브라우저로 바로 렌더
             subprocess.run(["open", str(html_path)], check=False)
     return 0
 
@@ -1510,6 +1510,8 @@ def main(argv=None):
                     help="자체완결 HTML로 생성해 브라우저에 표시(mermaid.js CDN, 의존성 불필요)")
     sp.add_argument("--show-merged", dest="show_merged", action="store_true",
                     help="병합 완료된 노드도 포함(기본은 숨김)")
+    sp.add_argument("--no-open", dest="no_open", action="store_true",
+                    help="PNG/HTML은 생성하되 브라우저/Preview는 열지 않음(조용한 맵)")
 
     sp = sub.add_parser("link")
     sp.add_argument("node")

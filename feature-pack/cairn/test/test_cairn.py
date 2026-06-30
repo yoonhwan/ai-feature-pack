@@ -1839,3 +1839,16 @@ def test_status_assignee_filter(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "matched" in out and "t2" in out
     assert "ms1" not in out          # ms1엔 철수 없음 → 미표시
+
+
+def test_cmd_map_no_open_skips_browser(tmp_path, monkeypatch):
+    # map --no-open: HTML은 생성하되 브라우저는 열지 않음 (render --no-open과 동일)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    monkeypatch.setattr(cairn.sys, "platform", "darwin")
+    rc = cairn.main(["map", "--html", "--no-open"])
+    assert rc == 0
+    html = cairn._map_path().with_suffix(".html")
+    assert html.exists()                              # HTML은 생성
+    assert not any("open" in c for c in opened)       # 브라우저는 안 열림
