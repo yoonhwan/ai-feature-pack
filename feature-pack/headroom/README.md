@@ -30,11 +30,16 @@ HR_DIR="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p ~/.claude/skills/headroom ~/.headroom
 cp "$HR_DIR/SKILL.md" ~/.claude/skills/headroom/SKILL.md
 cp "$HR_DIR/templates/claude-hr.sh" ~/.headroom/claude-hr.sh
+mkdir -p ~/.claude/skills/headroom-cliproxyapi/scripts
+cp "$HR_DIR/scripts/file-logs.sh" ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh
+cp "$HR_DIR/scripts/clean-proxy-logs.sh" ~/.claude/skills/headroom-cliproxyapi/scripts/clean-proxy-logs.sh
+cp "$HR_DIR/scripts/file-logs.sh" ~/.headroom/headroom-cliproxy-file-logs.sh
+cp "$HR_DIR/scripts/clean-proxy-logs.sh" ~/.headroom/clean-proxy-logs.sh
 [ -f ~/.headroom/enabled-projects.json ] || echo '[]' > ~/.headroom/enabled-projects.json
 [ -f ~/.headroom/disabled-projects.json ] || cp "$HR_DIR/templates/disabled-projects.json" ~/.headroom/disabled-projects.json
 # Slack/Hermes와 동일 체인: Claude Code도 기본 headroom 경유 (해제: rm ~/.headroom/always-route)
 cp "$HR_DIR/templates/always-route" ~/.headroom/always-route
-chmod +x ~/.headroom/claude-hr.sh
+chmod +x ~/.headroom/claude-hr.sh ~/.headroom/headroom-cliproxy-file-logs.sh ~/.headroom/clean-proxy-logs.sh ~/.claude/skills/headroom-cliproxyapi/scripts/*.sh
 ```
 
 **STEP 3 — 사용자에게 질문** (자동 결정 금지, 반드시 물어본다)
@@ -186,17 +191,22 @@ export CODEX_DUMMY_API_KEY="${CODEX_DUMMY_API_KEY:-dummy}"
 alias codex='npx -y @openai/codex'
 ```
 
-검증은 응답만 보지 말고 로그까지 본다:
+검증은 응답만 보지 말고 headroom stats까지 본다. 파일 로그는 평상시 OFF이므로 라우팅 이슈 대응 때만 잠깐 켠다:
 
 ```bash
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on
+
 CODEX_DUMMY_API_KEY="${CODEX_DUMMY_API_KEY:-dummy}" \
   codex exec --skip-git-repo-check --ephemeral -C "$HOME" \
   'Return exactly CODEX_HEADROOM_OK.'
 
-grep -E 'codex_exec|/v1/responses|openai_responses|127\.0\.0\.1:8317' \
-  ~/.headroom/logs/proxy.log 2>/dev/null | tail -30
+curl -sf http://127.0.0.1:8790/stats \
+  | python3 -c 'import json,sys; stats=json.load(sys.stdin); [print(req.get("provider"), req.get("model"), req.get("status_code"), req.get("path")) for req in stats.get("recent_requests", [])[-5:]]'
+
 grep -E '/v1/responses|codex|openai|status=200' \
   ~/Library/Logs/cliproxy/proxy.log 2>/dev/null | tail -30
+
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
 ```
 
 이 경로는 의도적으로 fail-open이 아니다. headroom/cliproxy 복구용 Codex는 `codex --ignore-user-config` 또는 provider override로 직접 띄운다.
@@ -212,6 +222,21 @@ grep -E '/v1/responses|codex|openai|status=200' \
 | Opus | `claude-opus-4-8` | `claude-opus-4-8[1m]` / `[1M]` | 200K와 1M 둘 다 사용 가능. |
 
 Sonnet 1M은 Claude Code에서 usage credits가 켜진 경우에만 별도 의도 하에 요청한다. 이 스택은 Sonnet 1M 요청을 200K로 폴백하지 않는다. 권한이 없으면 upstream 429가 나는 것이 맞다. `CLAUDE_CODE_DISABLE_1M_CONTEXT`는 진단용으로만 쓰고 alias에는 넣지 않는다.
+
+### 로그 운영 정책
+
+headroom/cliproxy 파일 로그는 기본 OFF다. LaunchAgent에는 `StandardOutPath`/`StandardErrorPath`를 두지 않고, headroom 내부 rotating 파일 로그는 `HEADROOM_FILE_LOGGING=off`로 끈다. 평상시 확인은 `/health`, `/stats`, cliproxy `/v1/models`, 실제 smoke 응답으로 한다.
+
+이슈 대응 루프:
+
+```bash
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on
+# 문제 재현 또는 모니터링
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh tail
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
+```
+
+큰 로그 정리는 `~/.headroom/clean-proxy-logs.sh`가 담당한다. 운영 환경에서는 `com.headroom.proxy-log-cleanup` LaunchAgent로 매일 한 번 실행한다.
 
 ### Copilot 구독 모드
 

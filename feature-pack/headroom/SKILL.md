@@ -177,20 +177,22 @@ fi
 
 ### Codex 적용 확정
 
-Codex는 설정 확인만으로 확정하지 않는다. 실제 호출 후 headroom과 cliproxy 양쪽 로그를 같이 본다.
+Codex는 설정 확인만으로 확정하지 않는다. 실제 호출 후 headroom stats를 보고, 라우팅 이슈 대응 때만 임시 파일 로그를 켠다.
 
 ```bash
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on
+
 CODEX_DUMMY_API_KEY="${CODEX_DUMMY_API_KEY:-dummy}" \
   codex exec --skip-git-repo-check --ephemeral -C "$HOME" \
   'Return exactly CODEX_HEADROOM_OK.'
 
-# headroom 요청 로그: codex_exec → /v1/responses → 127.0.0.1:8317
-grep -E 'codex_exec|/v1/responses|openai_responses|127\.0\.0\.1:8317' \
-  ~/.headroom/logs/proxy.log 2>/dev/null | tail -30
+curl -sf http://127.0.0.1:8790/stats \
+  | python3 -c 'import json,sys; stats=json.load(sys.stdin); [print(req.get("provider"), req.get("model"), req.get("status_code"), req.get("path")) for req in stats.get("recent_requests", [])[-5:]]'
 
-# cliproxy gateway 로그: /v1/responses 200
 grep -E '/v1/responses|codex|openai|status=200' \
   ~/Library/Logs/cliproxy/proxy.log 2>/dev/null | tail -30
+
+bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
 ```
 
 ---
@@ -210,6 +212,7 @@ grep -E '/v1/responses|codex|openai|status=200' \
 - **`always-route`는 래퍼 전용** (`~/.headroom/always-route` + `claude-hr.sh`). 매 호출 health 체크 후 set/unset이라 fail-open 유지. Slack/Hermes는 `config.yaml` `base_url`로 동일 headroom 체인.
 - **Codex는 예외적으로 custom provider에 hard-bound** 한다. `~/.codex/config.toml`의 `model_provider=headroom`은 fail-open 래퍼가 아니므로 headroom/cliproxy 진단·복구용 Codex 세션은 `--ignore-user-config` 또는 직접 provider override로 띄운다.
 - Codex provider `env_key`는 실제 OpenAI 키가 아니라 `CODEX_DUMMY_API_KEY=dummy`를 쓴다. 로컬 headroom 요청 헤더를 만족시키기 위한 값이고, 구독 plan 인증은 cliproxy OAuth 토큰이 upstream에서 처리한다.
+- headroom/cliproxy 파일 로그는 기본 OFF다. 이슈 대응 때만 `~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on`으로 켜고, 재현/tail 후 반드시 `off`로 되돌린다.
 - 활성화는 **오직 `enabled-projects.json` 레지스트리 + fail-open 래퍼**로만. 프로젝트별 opt-in이고, 미등록/프록시다운이면 자동 직결되어 무중단.
 - 헤드룸은 **프로젝트·크루 단위 도구**다. 전역 기본값으로 만들지 않는다.
 
