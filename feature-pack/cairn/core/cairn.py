@@ -174,10 +174,9 @@ def render(data, pfilter=None, by=None):
                     due = t.get("due")
                     t_start = t.get("start")
                     label = _safe_mermaid_label(t['name'])
-                    if pfilter is not None:                  # 매칭 task에 역할 뱃지
-                        badge = _people_badges(t)
-                        if badge:
-                            label = f"{label} {badge}"
+                    badge = _people_badges(t)
+                    if badge:
+                        label = f"{label} {badge}"
                     gid = f"{m['id']}-{t['id']}"
                     if t_start and due and t_start <= due:
                         # start→due 기간 막대 (간격이 보이게)
@@ -1450,6 +1449,7 @@ def main(argv=None):
     sp_status.add_argument("--assignee", default=None)
     sp_status.add_argument("--reporter", default=None)
     sp_status.add_argument("--watcher", default=None)
+    sp_status.add_argument("--person", default=None)
     sp_show = sub.add_parser("show", parents=[file_parent])
     sp_show.add_argument("project")
     sp_od = sub.add_parser("overdue", parents=[file_parent])

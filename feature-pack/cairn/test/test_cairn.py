@@ -1859,3 +1859,21 @@ def test_cmd_map_no_open_skips_browser(tmp_path, monkeypatch):
     html = cairn._map_path().with_suffix(".html")
     assert html.exists()                              # HTML은 생성
     assert not any("open" in c for c in opened)       # 브라우저는 안 열림
+
+
+def test_render_badges_without_filter():
+    """필터 없는 기본 render에도 작업자 뱃지(👤)가 표시돼야 한다."""
+    out = cairn.render(_people_data())
+    assert "👤" in out
+
+
+def test_status_person_filter(tmp_path, monkeypatch, capsys):
+    """status --person은 assignee/reporter/watcher 합집합 task를 모두 표시해야 한다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-assignee", "project-a", "t2", "철수"]); capsys.readouterr()
+    cairn.main(["add-reporter", "project-a", "t3", "철수"]); capsys.readouterr()
+    rc = cairn.main(["status", "--person", "철수"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "t2" in out    # assignee 철수
+    assert "t3" in out    # reporter 철수
