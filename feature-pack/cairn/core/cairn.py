@@ -46,6 +46,19 @@ STATUS_PROJECT = {"planned", "active", "done", "paused"}
 STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
 STATUS_TODO = {"open", "claimed", "resolved", "dropped"}
+SCHEMA_VERSION = 2
+NOTE_MAX = 280
+
+def _schema_version(data):
+    """data의 version 필드를 int로 반환. int가 아니면 None."""
+    v = (data.get("version", 1) if data else 1)
+    return v if isinstance(v, int) else None
+
+
+def _note_is_link(s):
+    """URL 또는 파일경로면 True (map 라벨 🔗 판단용)."""
+    return str(s).startswith(("http://", "https://", "/", "./", "../", "~/"))
+
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 yaml = YAML()                      # round-trip
@@ -77,7 +90,53 @@ def _safe_mermaid_label(name):
     return str(name).replace(":", "-")
 
 
-def render(data):
+def _task_matches(t, pf):
+    """사람 필터 매칭. pf=None이면 항상 True. person은 역할 합집합."""
+    if pf is None:
+        return True
+    if pf.get("person"):
+        n = pf["person"]
+        return any(n in (t.get(f) or []) for f in ("assignees", "reporters", "watchers"))
+    if pf.get("assignee") and pf["assignee"] not in (t.get("assignees") or []):
+        return False
+    if pf.get("reporter") and pf["reporter"] not in (t.get("reporters") or []):
+        return False
+    if pf.get("watcher") and pf["watcher"] not in (t.get("watchers") or []):
+        return False
+    return True
+
+
+def _ms_has_match(m, pf):
+    return any(_task_matches(t, pf) for t in m.get("tasks", []))
+
+
+def _people_badges(t):
+    """매칭 task 라벨용 역할 뱃지: 👤assignees · ✍reporters · 👁N(watcher 수)."""
+    badges = []
+    asg = t.get("assignees") or []
+    if asg:
+        badges.append("👤" + ",".join(_safe_mermaid_label(n) for n in asg))
+    rep = t.get("reporters") or []
+    if rep:
+        badges.append("✍" + ",".join(_safe_mermaid_label(n) for n in rep))
+    ws = t.get("watchers") or []
+    if ws:
+        badges.append(f"👁{len(ws)}")
+    return " ".join(badges)
+
+
+def _by_section(m, by):
+    """milestone start 날짜에서 월/분기 섹션 라벨 파생. start 없으면 '(미정)'."""
+    s = m.get("start")
+    if not s:
+        return "(미정)"
+    d = _to_date(s)
+    if by == "quarter":
+        return f"{d.year} Q{(d.month - 1) // 3 + 1}"
+    return f"{d.year}-{d.month:02d}"   # month
+
+
+def render(data, pfilter=None, by=None):
     lines = ["# cairn — 전사 간트", "", "```mermaid", "gantt",
              "    dateFormat YYYY-MM-DD",
              "    axisFormat %y.%m.%d",   # x축 라벨: 연 2자리 + '.' 구분 (26.06.10)
@@ -86,18 +145,24 @@ def render(data):
     for p in data.get("projects", []):
         proj_label = _safe_mermaid_label(p.get('name', p['id']))
         milestones = p.get("milestones", [])
-        # 그룹(제품/목표묶음) 단위로 버킷화 — 등장순 유지하되 같은 group을 한 섹션에
-        # 연속 배치 (mermaid section은 평면이라 정렬 안 하면 파편화됨). None=기본 섹션.
-        seen_groups = []
+        if pfilter is not None:                          # 매칭 task가 있는 milestone만
+            milestones = [m for m in milestones if _ms_has_match(m, pfilter)]
+        # 섹션 키: --by면 start 날짜 파생(월/분기), 아니면 자유텍스트 group. None=기본 섹션.
+        # 등장순 유지하되 같은 키를 한 섹션에 연속 배치 (mermaid section은 평면).
+        def _seckey(m):
+            if by:
+                return _by_section(m, by)
+            return (m.get("group") or "").strip() or None
+        seen_keys = []
         for m in milestones:
-            g = (m.get("group") or "").strip() or None
-            if g not in seen_groups:
-                seen_groups.append(g)
-        for g in seen_groups:
-            section = proj_label if g is None else f"{proj_label} · {_safe_mermaid_label(g)}"
+            k = _seckey(m)
+            if k not in seen_keys:
+                seen_keys.append(k)
+        for k in seen_keys:
+            section = proj_label if k is None else f"{proj_label} · {_safe_mermaid_label(str(k))}"
             lines.append(f"    section {section}")
             for m in milestones:
-                if ((m.get("group") or "").strip() or None) != g:
+                if _seckey(m) != k:
                     continue
                 tag = _ms_tag(m.get("status", ""))
                 prefix = f"{tag}, " if tag else ""
@@ -117,13 +182,22 @@ def render(data):
                     lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, 1d")
                 # else: 날짜 정보 전무 → 유효 간트 위해 마일스톤 요약 바 생략
                 for t in m.get("tasks", []):
+                    if pfilter is not None and not _task_matches(t, pfilter):
+                        continue
                     due = t.get("due")
                     t_start = t.get("start")
                     label = _safe_mermaid_label(t['name'])
+                    badge = _people_badges(t)
+                    if badge:
+                        label = f"{label} {badge}"
                     gid = f"{m['id']}-{t['id']}"
                     if t_start and due and t_start <= due:
                         # start→due 기간 막대 (간격이 보이게)
                         t_tag = _task_tag(t.get("status", ""))
+                        # --person: assignee 매칭 task는 진하게(active), watcher만이면 옅게(태그 없음)
+                        if pfilter is not None and pfilter.get("person") \
+                                and pfilter["person"] in (t.get("assignees") or []):
+                            t_tag = "active"
                         t_prefix = f"{t_tag}, " if t_tag else ""
                         lines.append(f"    {label} :{t_prefix}{gid}, {t_start}, {due}")
                     elif due:
@@ -191,7 +265,11 @@ def _node_label(t, parent):
     if sess:
         parts.append(f"🖥 sess {sess}")
     if t.get("note"):
-        parts.append(f"📝 note {_safe_mermaid_label(str(t['note']))}")
+        note_str = str(t["note"])
+        if _note_is_link(note_str):
+            parts.append(f"🔗 note {note_str}")
+        else:
+            parts.append(f"📝 note {_safe_mermaid_label(note_str)}")
     return "<br/>".join(parts)
 
 
@@ -466,6 +544,11 @@ def validate(data):
     errors = []
     if not data or "projects" not in data:
         return ["missing top-level 'projects'"]
+    v = _schema_version(data)
+    if v is None:
+        errors.append(f"version must be an integer, got: {data.get('version')!r}")
+    elif v > SCHEMA_VERSION:
+        errors.append(f"unsupported schema version: {v} (supported ≤ {SCHEMA_VERSION})")
     node_ids = _all_node_ids(data)
     # [DA#2] task id는 전역 유니크여야 함 — 복구 메타(spawned_from/return_to)가 전역 참조
     global_tids = {}
@@ -544,6 +627,16 @@ def validate(data):
                 tids.add(tid)
                 if t.get("status") not in STATUS_TASK:
                     errors.append(f"{pid}/{mid}/{tid}: bad task status: {t.get('status')}")
+                for fld in ("assignees", "reporters", "watchers"):
+                    lst = t.get(fld)
+                    if lst is None:
+                        continue
+                    if not isinstance(lst, list):
+                        errors.append(f"{pid}/{mid}/{tid}: {fld} must be a list")
+                    else:
+                        for v in lst:
+                            if _CTRL_RE.search(str(v)):
+                                errors.append(f"{pid}/{mid}/{tid}: {fld} contains control characters")
                 for ref in ("spawned_from", "return_to", "merge_back_to"):
                     target = t.get(ref)
                     if target is not None and target not in node_ids:
@@ -635,9 +728,18 @@ def _done_ratio(ms):
 
 
 def cmd_status(data, args):
+    pf = _build_pfilter(args)
     for p in data.get("projects", []):
         print(f"[{p['id']}] {p.get('name','')} · {p.get('status','')} · prio={p.get('priority','-')}")
         for m in p.get("milestones", []):
+            if pf is not None:                           # 사람 필터 — 매칭 task만 표시
+                matched = [t for t in (m.get("tasks") or []) if _task_matches(t, pf)]
+                if not matched:
+                    continue
+                ids = ", ".join(t["id"] for t in matched)
+                print(f"   - {m['id']} {m.get('name','')} [{m.get('status','')}] "
+                      f"{m.get('start','')}~{m.get('end','')} ({len(matched)} matched: {ids})")
+                continue
             r = _done_ratio(m)
             prog = f" ({r[0]}/{r[1]} tasks)" if r else ""
             print(f"   - {m['id']} {m.get('name','')} [{m.get('status','')}] {m.get('start','')}~{m.get('end','')}{prog}")
@@ -649,6 +751,18 @@ def cmd_show(data, args):
     if not p:
         print(f"no such project: {args.project}"); return 1
     print(dump_str({"projects": [p]}))
+    # 사람 협업 필드 요약 — 값이 있을 때만 출력
+    for m in p.get("milestones", []):
+        for t in m.get("tasks", []):
+            people = []
+            if t.get("assignees"):
+                people.append(f"👤 {', '.join(t['assignees'])}")
+            if t.get("reporters"):
+                people.append(f"✍ {', '.join(t['reporters'])}")
+            if t.get("watchers"):
+                people.append(f"👁 {', '.join(t['watchers'])}")
+            if people:
+                print(f"{t['id']}: " + " · ".join(people))
     return 0
 
 
@@ -665,6 +779,12 @@ def cmd_overdue(data, args):
     return 0
 
 
+def _build_pfilter(args):
+    """render/status 공통 사람 필터 dict 생성. 아무 것도 없으면 None."""
+    pf = {k: getattr(args, k, None) for k in ("person", "assignee", "reporter", "watcher")}
+    return pf if any(pf.values()) else None
+
+
 def cmd_render(data, args):
     errors = validate(data)
     if errors:
@@ -672,10 +792,14 @@ def cmd_render(data, args):
             print(f" - {e}", file=sys.stderr)
         print(f"INVALID ({len(errors)} errors)", file=sys.stderr)
         return 1
-    write_view(data)
-    print(f"rendered → {VIEW_PATH}")
-    # 기본으로 간트 HTML도 생성 + 브라우저 표시 (render의 기본 산출물)
-    md = render(data)   # write_view와 동일 출력 — ```mermaid 간트 블록 추출
+    pfilter = _build_pfilter(args)
+    by = getattr(args, "by", None)
+    md = render(data, pfilter, by)
+    # 필터/by 렌더는 부분뷰 — git 추적 canonical view(plan.md)는 건드리지 않는다
+    # (전체 렌더만 write_view; 안 그러면 worktree dirty로 다음 transaction이 막힘).
+    if pfilter is None and by is None:
+        write_view(data)
+        print(f"rendered → {VIEW_PATH}")
     m = re.search(r"```mermaid\n(.*?)```", md, re.S)
     html_path = VIEW_PATH.with_suffix(".html")
     html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
@@ -734,6 +858,67 @@ def cmd_set_group(_d, args):
     print("OK"); return 0
 
 
+def _task_in_project(data, pid, tid):
+    """프로젝트 내 task 노드 조회 (사람 필드 명령용). 없으면 ValueError."""
+    p = find_project(data, pid)
+    if not p:
+        raise ValueError(f"no project {pid}")
+    for m in p.get("milestones", []):
+        t = find_task(m, tid)
+        if t:
+            return t
+    raise ValueError(f"no task {tid} in {pid}")
+
+
+# 역할명(단수) → task 노드의 리스트 필드(복수) 매핑 — add/rm 명령과 필터 공유
+_ROLE_FIELD = {"assignee": "assignees", "reporter": "reporters", "watcher": "watchers"}
+
+
+def _add_people(node, field, names):
+    lst = node.setdefault(field, [])
+    for n in names:
+        if n not in lst:                # 중복 무시
+            lst.append(n)
+
+
+def _rm_people(node, field, names):
+    lst = node.get(field) or []
+    for n in names:
+        if n in lst:                    # 없으면 no-op
+            lst.remove(n)
+    node[field] = lst
+
+
+def _people_cmd(role, op):
+    """add-/rm- 역할 명령 팩토리 — 세 역할(assignee/reporter/watcher)이 공유."""
+    field = _ROLE_FIELD[role]
+    apply = _add_people if op == "add" else _rm_people
+
+    def run(_d, args):
+        def mutate(data):
+            t = _task_in_project(data, args.project, args.task)
+            apply(t, field, args.name)
+        transaction(mutate, f"{op}-{role} {args.project}/{args.task} {' '.join(args.name)}")
+        print("OK"); return 0
+    return run
+
+
+def cmd_set_note(_d, args):
+    note = args.note
+    if note and len(note) > NOTE_MAX:
+        print(f"note는 {NOTE_MAX}자 이하여야 합니다 — 긴 내용은 파일 SSOT 경로/URL을 note에 넣으세요",
+              file=sys.stderr)
+        return 1
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        if note == "":
+            t.pop("note", None)
+        else:
+            t["note"] = note
+    transaction(mutate, f"set-note {args.project}/{args.task}")
+    print("OK"); return 0
+
+
 def cmd_set_priority(_d, args):
     def mutate(data):
         p = find_project(data, args.project)
@@ -760,7 +945,8 @@ def cmd_add_task(_d, args):
         due = start + datetime.timedelta(days=args.days)
         m["tasks"].append({"id": tid, "name": args.name, "status": "todo",
                            "start": start.isoformat(), "due": due.isoformat(),
-                           "depends_on": []})
+                           "depends_on": [],
+                           "assignees": [], "reporters": [], "watchers": []})
     transaction(mutate, f"add-task {args.project}/{args.milestone}: {args.name}")
     print(f"OK: {captured['tid']} 추가 (due {(_today() + datetime.timedelta(days=args.days)).isoformat()})"); return 0
 
@@ -789,6 +975,7 @@ def cmd_spawn(_d, args):
         node = {"id": tid, "name": args.name, "status": "todo",
                 "start": start.isoformat(), "due": start.isoformat(),
                 "depends_on": [],
+                "assignees": [], "reporters": [], "watchers": [],
                 "spawned_from": args.parent,
                 "return_to": args.return_to or args.parent,
                 "fanout_depth": int(parent.get("fanout_depth", 0)) + 1}
@@ -860,7 +1047,7 @@ def cmd_map(data, args):
         png = render_png(text, out.with_suffix(".png"))
         if png:
             print(f"PNG → {png}")
-            if sys.platform == "darwin":   # 구운 PNG를 Preview로 띄움(코드블록 비가시 회피)
+            if sys.platform == "darwin" and not getattr(args, "no_open", False):   # 구운 PNG를 Preview로
                 subprocess.run(["open", str(png)], check=False)
         else:
             print("PNG 렌더 실패(mmdc/chrome 미설치) — mermaid 파일만 생성됨")
@@ -868,7 +1055,7 @@ def cmd_map(data, args):
         html_path = out.with_suffix(".html")
         html_path.write_text(render_html(text), encoding="utf-8")
         print(f"HTML → {html_path}")
-        if sys.platform == "darwin":   # 더블클릭 없이 기본 브라우저로 바로 렌더
+        if sys.platform == "darwin" and not getattr(args, "no_open", False):   # 기본 브라우저로 바로 렌더
             subprocess.run(["open", str(html_path)], check=False)
     return 0
 
@@ -1009,7 +1196,7 @@ def cmd_init(_data, args):
     plan = REPO / ".cairn" / "plan.yaml"
     if plan.exists():
         print("cairn: 이미 초기화됨 (.cairn/plan.yaml)"); return 0
-    seed = {"version": 1, "projects": []}
+    seed = {"version": SCHEMA_VERSION, "projects": []}
     view = REPO / ".cairn" / "views" / "plan.md"
     view.parent.mkdir(parents=True, exist_ok=True)
     save_atomic(seed, plan)
@@ -1018,6 +1205,58 @@ def cmd_init(_data, args):
     git("add", str(plan), str(view))
     git("commit", "-q", "-m", "cairn init")
     print(f"cairn 초기화 완료: {REPO / '.cairn'} — 'cairn new-project <name>'으로 시작")
+    return 0
+
+
+def _warn_schema_version(data):
+    v = _schema_version(data)
+    if v is None:
+        return
+    if v < SCHEMA_VERSION:
+        print(f"cairn: 구버전 원장(v{v}) — 'cairn migrate'로 v{SCHEMA_VERSION} 업그레이드 권장",
+              file=sys.stderr)
+    elif v > SCHEMA_VERSION:
+        print(f"cairn: 원장 v{v} > 지원 v{SCHEMA_VERSION} — cairn 업데이트 필요(읽기만 시도)",
+              file=sys.stderr)
+
+
+def cmd_migrate(data, args):
+    old_v = _schema_version(data)
+    if old_v is None:
+        print("cairn: migrate 중단 — version이 정수가 아님", file=sys.stderr)
+        return 1
+    if old_v > SCHEMA_VERSION:
+        print(f"cairn: migrate 중단 — 원장 v{old_v} > 지원 v{SCHEMA_VERSION}", file=sys.stderr)
+        return 1
+    needs_backfill = any(
+        field not in t
+        for p in (data.get("projects", []) if data else [])
+        for m in p.get("milestones", [])
+        for t in m.get("tasks", [])
+        for field in ("assignees", "reporters", "watchers")
+    )
+    if old_v == SCHEMA_VERSION and not needs_backfill:
+        print(f"이미 최신(v{SCHEMA_VERSION})")
+        return 0
+    count = sum(
+        1
+        for p in (data.get("projects", []) if data else [])
+        for m in p.get("milestones", [])
+        for t in m.get("tasks", [])
+        if any(f not in t for f in ("assignees", "reporters", "watchers"))
+    )
+    print(f"migrate v{old_v}→v{SCHEMA_VERSION}: {count}개 task에 사람필드 백필")
+    if args.dry_run:
+        return 0
+    def mutate(d):
+        d["version"] = SCHEMA_VERSION
+        for p in d.get("projects", []):
+            for m in p.get("milestones", []):
+                for t in m.get("tasks", []):
+                    for field in ("assignees", "reporters", "watchers"):
+                        if field not in t:
+                            t[field] = []
+    transaction(mutate, f"migrate v{old_v}→v{SCHEMA_VERSION}")
     return 0
 
 
@@ -1296,7 +1535,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="cairn")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("status", parents=[file_parent])
+    sp_status = sub.add_parser("status", parents=[file_parent])
+    sp_status.add_argument("--assignee", default=None)
+    sp_status.add_argument("--reporter", default=None)
+    sp_status.add_argument("--watcher", default=None)
+    sp_status.add_argument("--person", default=None)
     sp_show = sub.add_parser("show", parents=[file_parent])
     sp_show.add_argument("project")
     sp_od = sub.add_parser("overdue", parents=[file_parent])
@@ -1304,11 +1547,22 @@ def main(argv=None):
     p_render = sub.add_parser("render", parents=[file_parent])
     p_render.add_argument("--no-open", dest="no_open", action="store_true",
                           help="HTML은 생성하되 브라우저는 열지 않음(조용한 렌더)")
+    p_render.add_argument("--assignee", default=None, help="assignee가 name인 task만")
+    p_render.add_argument("--reporter", default=None, help="reporter가 name인 task만")
+    p_render.add_argument("--watcher", default=None, help="watcher에 name이 포함된 task만")
+    p_render.add_argument("--person", default=None,
+                          help="assignee/reporter/watcher 중 하나라도 name인 task(역할 합집합)")
+    p_render.add_argument("--by", choices=["month", "quarter"], default=None,
+                          help="milestone start 날짜에서 월/분기 섹션 파생(group 모드보다 우선)")
 
     sp_ss = sub.add_parser("set-status")
     sp_ss.add_argument("project")
     sp_ss.add_argument("kind", choices=["project", "milestone", "task", "todo"])
     sp_ss.add_argument("rest", nargs="*")
+
+    sp_set_note = sub.add_parser("set-note")
+    sp_set_note.add_argument("project"); sp_set_note.add_argument("task")
+    sp_set_note.add_argument("note")
 
     sp = sub.add_parser("set-date")
     sp.add_argument("project"); sp.add_argument("id")
@@ -1345,6 +1599,8 @@ def main(argv=None):
                     help="자체완결 HTML로 생성해 브라우저에 표시(mermaid.js CDN, 의존성 불필요)")
     sp.add_argument("--show-merged", dest="show_merged", action="store_true",
                     help="병합 완료된 노드도 포함(기본은 숨김)")
+    sp.add_argument("--no-open", dest="no_open", action="store_true",
+                    help="PNG/HTML은 생성하되 브라우저/Preview는 열지 않음(조용한 맵)")
 
     sp = sub.add_parser("link")
     sp.add_argument("node")
@@ -1365,6 +1621,12 @@ def main(argv=None):
     sp.add_argument("milestone")
     sp.add_argument("name", help="제품/목표묶음 그룹 라벨 (빈 문자열이면 제거)")
 
+    for _cmd in ("add-assignee", "rm-assignee", "add-reporter", "rm-reporter",
+                 "add-watcher", "rm-watcher"):
+        sp = sub.add_parser(_cmd)
+        sp.add_argument("project"); sp.add_argument("task")
+        sp.add_argument("name", nargs="+", help="이름(여러 개 가능)")
+
     sp = sub.add_parser("new-project")
     sp.add_argument("name")
 
@@ -1373,6 +1635,8 @@ def main(argv=None):
     sub.add_parser("reconcile", parents=[file_parent])
     sub.add_parser("validate", parents=[file_parent])
     sub.add_parser("self-test", parents=[file_parent])
+    sp_mig = sub.add_parser("migrate", parents=[file_parent])
+    sp_mig.add_argument("--dry-run", dest="dry_run", action="store_true")
     sub.add_parser("revert")
 
     sp = sub.add_parser("add-todo")
@@ -1416,15 +1680,26 @@ def main(argv=None):
     except Exception as e:
         print(f"cairn: load error: {e}", file=sys.stderr)
         return 1
+    if args.cmd != "migrate":
+        _warn_schema_version(data)
     handler = {"status": cmd_status, "show": cmd_show,
                "overdue": cmd_overdue, "render": cmd_render,
+               "set-note": cmd_set_note,
                "set-status": cmd_set_status, "set-date": cmd_set_date,
                "set-priority": cmd_set_priority, "add-task": cmd_add_task,
                "add-milestone": cmd_add_milestone, "new-project": cmd_new_project,
                "spawn": cmd_spawn, "complete": cmd_complete, "return": cmd_return,
                "map": cmd_map, "link": cmd_link, "depends": cmd_depends,
-               "set-group": cmd_set_group, "reconcile": cmd_reconcile,
+               "set-group": cmd_set_group,
+               "add-assignee": _people_cmd("assignee", "add"),
+               "rm-assignee": _people_cmd("assignee", "rm"),
+               "add-reporter": _people_cmd("reporter", "add"),
+               "rm-reporter": _people_cmd("reporter", "rm"),
+               "add-watcher": _people_cmd("watcher", "add"),
+               "rm-watcher": _people_cmd("watcher", "rm"),
+               "reconcile": cmd_reconcile,
                "validate": cmd_validate,
+               "migrate": cmd_migrate,
                "remove-task": cmd_remove_task, "remove-milestone": cmd_remove_milestone,
                "remove-project": cmd_remove_project,
                "add-todo": cmd_add_todo, "todos": cmd_todos,
