@@ -83,11 +83,10 @@ def _task_matches(t, pf):
         return True
     if pf.get("person"):
         n = pf["person"]
-        return (t.get("assignee") == n or t.get("reporter") == n
-                or n in (t.get("watchers") or []))
-    if pf.get("assignee") and t.get("assignee") != pf["assignee"]:
+        return any(n in (t.get(f) or []) for f in ("assignees", "reporters", "watchers"))
+    if pf.get("assignee") and pf["assignee"] not in (t.get("assignees") or []):
         return False
-    if pf.get("reporter") and t.get("reporter") != pf["reporter"]:
+    if pf.get("reporter") and pf["reporter"] not in (t.get("reporters") or []):
         return False
     if pf.get("watcher") and pf["watcher"] not in (t.get("watchers") or []):
         return False
@@ -99,12 +98,14 @@ def _ms_has_match(m, pf):
 
 
 def _people_badges(t):
-    """매칭 task 라벨용 역할 뱃지: 👤assignee · ✍reporter · 👁N(watcher 수)."""
+    """매칭 task 라벨용 역할 뱃지: 👤assignees · ✍reporters · 👁N(watcher 수)."""
     badges = []
-    if t.get("assignee"):
-        badges.append(f"👤{_safe_mermaid_label(t['assignee'])}")
-    if t.get("reporter"):
-        badges.append(f"✍{_safe_mermaid_label(t['reporter'])}")
+    asg = t.get("assignees") or []
+    if asg:
+        badges.append("👤" + ",".join(_safe_mermaid_label(n) for n in asg))
+    rep = t.get("reporters") or []
+    if rep:
+        badges.append("✍" + ",".join(_safe_mermaid_label(n) for n in rep))
     ws = t.get("watchers") or []
     if ws:
         badges.append(f"👁{len(ws)}")
@@ -183,7 +184,7 @@ def render(data, pfilter=None, by=None):
                         t_tag = _task_tag(t.get("status", ""))
                         # --person: assignee 매칭 task는 진하게(active), watcher만이면 옅게(태그 없음)
                         if pfilter is not None and pfilter.get("person") \
-                                and t.get("assignee") == pfilter["person"]:
+                                and pfilter["person"] in (t.get("assignees") or []):
                             t_tag = "active"
                         t_prefix = f"{t_tag}, " if t_tag else ""
                         lines.append(f"    {label} :{t_prefix}{gid}, {t_start}, {due}")
@@ -605,18 +606,16 @@ def validate(data):
                 tids.add(tid)
                 if t.get("status") not in STATUS_TASK:
                     errors.append(f"{pid}/{mid}/{tid}: bad task status: {t.get('status')}")
-                for fld in ("assignee", "reporter"):
-                    fv = t.get(fld)
-                    if fv is not None and _CTRL_RE.search(str(fv)):
-                        errors.append(f"{pid}/{mid}/{tid}: {fld} contains control characters")
-                ws = t.get("watchers")
-                if ws is not None:
-                    if not isinstance(ws, list):
-                        errors.append(f"{pid}/{mid}/{tid}: watchers must be a list")
+                for fld in ("assignees", "reporters", "watchers"):
+                    lst = t.get(fld)
+                    if lst is None:
+                        continue
+                    if not isinstance(lst, list):
+                        errors.append(f"{pid}/{mid}/{tid}: {fld} must be a list")
                     else:
-                        for w in ws:
-                            if _CTRL_RE.search(str(w)):
-                                errors.append(f"{pid}/{mid}/{tid}: watcher contains control characters")
+                        for v in lst:
+                            if _CTRL_RE.search(str(v)):
+                                errors.append(f"{pid}/{mid}/{tid}: {fld} contains control characters")
                 for ref in ("spawned_from", "return_to", "merge_back_to"):
                     target = t.get(ref)
                     if target is not None and target not in node_ids:
@@ -735,10 +734,10 @@ def cmd_show(data, args):
     for m in p.get("milestones", []):
         for t in m.get("tasks", []):
             people = []
-            if t.get("assignee"):
-                people.append(f"👤 {t['assignee']}")
-            if t.get("reporter"):
-                people.append(f"✍ {t['reporter']}")
+            if t.get("assignees"):
+                people.append(f"👤 {', '.join(t['assignees'])}")
+            if t.get("reporters"):
+                people.append(f"✍ {', '.join(t['reporters'])}")
             if t.get("watchers"):
                 people.append(f"👁 {', '.join(t['watchers'])}")
             if people:
@@ -839,7 +838,7 @@ def cmd_set_group(_d, args):
 
 
 def _task_in_project(data, pid, tid):
-    """프로젝트 내 task 노드 조회 (set-assignee 등 사람 필드 명령용). 없으면 ValueError."""
+    """프로젝트 내 task 노드 조회 (사람 필드 명령용). 없으면 ValueError."""
     p = find_project(data, pid)
     if not p:
         raise ValueError(f"no project {pid}")
@@ -850,41 +849,37 @@ def _task_in_project(data, pid, tid):
     raise ValueError(f"no task {tid} in {pid}")
 
 
-def cmd_set_assignee(_d, args):
-    def mutate(data):
-        t = _task_in_project(data, args.project, args.task)
-        t["assignee"] = (args.name or "").strip() or None    # 빈 문자열 = 클리어
-    transaction(mutate, f"set-assignee {args.project}/{args.task}={args.name}")
-    print("OK"); return 0
+# 역할명(단수) → task 노드의 리스트 필드(복수) 매핑 — add/rm 명령과 필터 공유
+_ROLE_FIELD = {"assignee": "assignees", "reporter": "reporters", "watcher": "watchers"}
 
 
-def cmd_set_reporter(_d, args):
-    def mutate(data):
-        t = _task_in_project(data, args.project, args.task)
-        t["reporter"] = (args.name or "").strip() or None    # 빈 문자열 = 클리어
-    transaction(mutate, f"set-reporter {args.project}/{args.task}={args.name}")
-    print("OK"); return 0
+def _add_people(node, field, names):
+    lst = node.setdefault(field, [])
+    for n in names:
+        if n not in lst:                # 중복 무시
+            lst.append(n)
 
 
-def cmd_add_watcher(_d, args):
-    def mutate(data):
-        t = _task_in_project(data, args.project, args.task)
-        ws = t.setdefault("watchers", [])
-        if args.name not in ws:                              # 중복이면 무시
-            ws.append(args.name)
-    transaction(mutate, f"add-watcher {args.project}/{args.task}+{args.name}")
-    print("OK"); return 0
+def _rm_people(node, field, names):
+    lst = node.get(field) or []
+    for n in names:
+        if n in lst:                    # 없으면 no-op
+            lst.remove(n)
+    node[field] = lst
 
 
-def cmd_rm_watcher(_d, args):
-    def mutate(data):
-        t = _task_in_project(data, args.project, args.task)
-        ws = t.get("watchers") or []
-        if args.name in ws:                                 # 없으면 no-op
-            ws.remove(args.name)
-        t["watchers"] = ws
-    transaction(mutate, f"rm-watcher {args.project}/{args.task}-{args.name}")
-    print("OK"); return 0
+def _people_cmd(role, op):
+    """add-/rm- 역할 명령 팩토리 — 세 역할(assignee/reporter/watcher)이 공유."""
+    field = _ROLE_FIELD[role]
+    apply = _add_people if op == "add" else _rm_people
+
+    def run(_d, args):
+        def mutate(data):
+            t = _task_in_project(data, args.project, args.task)
+            apply(t, field, args.name)
+        transaction(mutate, f"{op}-{role} {args.project}/{args.task} {' '.join(args.name)}")
+        print("OK"); return 0
+    return run
 
 
 def cmd_set_priority(_d, args):
@@ -914,7 +909,7 @@ def cmd_add_task(_d, args):
         m["tasks"].append({"id": tid, "name": args.name, "status": "todo",
                            "start": start.isoformat(), "due": due.isoformat(),
                            "depends_on": [],
-                           "assignee": None, "reporter": None, "watchers": []})
+                           "assignees": [], "reporters": [], "watchers": []})
     transaction(mutate, f"add-task {args.project}/{args.milestone}: {args.name}")
     print(f"OK: {captured['tid']} 추가 (due {(_today() + datetime.timedelta(days=args.days)).isoformat()})"); return 0
 
@@ -943,7 +938,7 @@ def cmd_spawn(_d, args):
         node = {"id": tid, "name": args.name, "status": "todo",
                 "start": start.isoformat(), "due": start.isoformat(),
                 "depends_on": [],
-                "assignee": None, "reporter": None, "watchers": [],
+                "assignees": [], "reporters": [], "watchers": [],
                 "spawned_from": args.parent,
                 "return_to": args.return_to or args.parent,
                 "fanout_depth": int(parent.get("fanout_depth", 0)) + 1}
@@ -1532,9 +1527,11 @@ def main(argv=None):
     sp.add_argument("milestone")
     sp.add_argument("name", help="제품/목표묶음 그룹 라벨 (빈 문자열이면 제거)")
 
-    for _cmd in ("set-assignee", "set-reporter", "add-watcher", "rm-watcher"):
+    for _cmd in ("add-assignee", "rm-assignee", "add-reporter", "rm-reporter",
+                 "add-watcher", "rm-watcher"):
         sp = sub.add_parser(_cmd)
-        sp.add_argument("project"); sp.add_argument("task"); sp.add_argument("name")
+        sp.add_argument("project"); sp.add_argument("task")
+        sp.add_argument("name", nargs="+", help="이름(여러 개 가능)")
 
     sp = sub.add_parser("new-project")
     sp.add_argument("name")
@@ -1595,8 +1592,12 @@ def main(argv=None):
                "spawn": cmd_spawn, "complete": cmd_complete, "return": cmd_return,
                "map": cmd_map, "link": cmd_link, "depends": cmd_depends,
                "set-group": cmd_set_group,
-               "set-assignee": cmd_set_assignee, "set-reporter": cmd_set_reporter,
-               "add-watcher": cmd_add_watcher, "rm-watcher": cmd_rm_watcher,
+               "add-assignee": _people_cmd("assignee", "add"),
+               "rm-assignee": _people_cmd("assignee", "rm"),
+               "add-reporter": _people_cmd("reporter", "add"),
+               "rm-reporter": _people_cmd("reporter", "rm"),
+               "add-watcher": _people_cmd("watcher", "add"),
+               "rm-watcher": _people_cmd("watcher", "rm"),
                "reconcile": cmd_reconcile,
                "validate": cmd_validate,
                "remove-task": cmd_remove_task, "remove-milestone": cmd_remove_milestone,
