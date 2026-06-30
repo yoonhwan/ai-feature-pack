@@ -544,6 +544,18 @@ def validate(data):
                 tids.add(tid)
                 if t.get("status") not in STATUS_TASK:
                     errors.append(f"{pid}/{mid}/{tid}: bad task status: {t.get('status')}")
+                for fld in ("assignee", "reporter"):
+                    fv = t.get(fld)
+                    if fv is not None and _CTRL_RE.search(str(fv)):
+                        errors.append(f"{pid}/{mid}/{tid}: {fld} contains control characters")
+                ws = t.get("watchers")
+                if ws is not None:
+                    if not isinstance(ws, list):
+                        errors.append(f"{pid}/{mid}/{tid}: watchers must be a list")
+                    else:
+                        for w in ws:
+                            if _CTRL_RE.search(str(w)):
+                                errors.append(f"{pid}/{mid}/{tid}: watcher contains control characters")
                 for ref in ("spawned_from", "return_to", "merge_back_to"):
                     target = t.get(ref)
                     if target is not None and target not in node_ids:
@@ -649,6 +661,18 @@ def cmd_show(data, args):
     if not p:
         print(f"no such project: {args.project}"); return 1
     print(dump_str({"projects": [p]}))
+    # 사람 협업 필드 요약 — 값이 있을 때만 출력
+    for m in p.get("milestones", []):
+        for t in m.get("tasks", []):
+            people = []
+            if t.get("assignee"):
+                people.append(f"👤 {t['assignee']}")
+            if t.get("reporter"):
+                people.append(f"✍ {t['reporter']}")
+            if t.get("watchers"):
+                people.append(f"👁 {', '.join(t['watchers'])}")
+            if people:
+                print(f"{t['id']}: " + " · ".join(people))
     return 0
 
 
@@ -734,6 +758,55 @@ def cmd_set_group(_d, args):
     print("OK"); return 0
 
 
+def _task_in_project(data, pid, tid):
+    """프로젝트 내 task 노드 조회 (set-assignee 등 사람 필드 명령용). 없으면 ValueError."""
+    p = find_project(data, pid)
+    if not p:
+        raise ValueError(f"no project {pid}")
+    for m in p.get("milestones", []):
+        t = find_task(m, tid)
+        if t:
+            return t
+    raise ValueError(f"no task {tid} in {pid}")
+
+
+def cmd_set_assignee(_d, args):
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        t["assignee"] = (args.name or "").strip() or None    # 빈 문자열 = 클리어
+    transaction(mutate, f"set-assignee {args.project}/{args.task}={args.name}")
+    print("OK"); return 0
+
+
+def cmd_set_reporter(_d, args):
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        t["reporter"] = (args.name or "").strip() or None    # 빈 문자열 = 클리어
+    transaction(mutate, f"set-reporter {args.project}/{args.task}={args.name}")
+    print("OK"); return 0
+
+
+def cmd_add_watcher(_d, args):
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        ws = t.setdefault("watchers", [])
+        if args.name not in ws:                              # 중복이면 무시
+            ws.append(args.name)
+    transaction(mutate, f"add-watcher {args.project}/{args.task}+{args.name}")
+    print("OK"); return 0
+
+
+def cmd_rm_watcher(_d, args):
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        ws = t.get("watchers") or []
+        if args.name in ws:                                 # 없으면 no-op
+            ws.remove(args.name)
+        t["watchers"] = ws
+    transaction(mutate, f"rm-watcher {args.project}/{args.task}-{args.name}")
+    print("OK"); return 0
+
+
 def cmd_set_priority(_d, args):
     def mutate(data):
         p = find_project(data, args.project)
@@ -760,7 +833,8 @@ def cmd_add_task(_d, args):
         due = start + datetime.timedelta(days=args.days)
         m["tasks"].append({"id": tid, "name": args.name, "status": "todo",
                            "start": start.isoformat(), "due": due.isoformat(),
-                           "depends_on": []})
+                           "depends_on": [],
+                           "assignee": None, "reporter": None, "watchers": []})
     transaction(mutate, f"add-task {args.project}/{args.milestone}: {args.name}")
     print(f"OK: {captured['tid']} 추가 (due {(_today() + datetime.timedelta(days=args.days)).isoformat()})"); return 0
 
@@ -789,6 +863,7 @@ def cmd_spawn(_d, args):
         node = {"id": tid, "name": args.name, "status": "todo",
                 "start": start.isoformat(), "due": start.isoformat(),
                 "depends_on": [],
+                "assignee": None, "reporter": None, "watchers": [],
                 "spawned_from": args.parent,
                 "return_to": args.return_to or args.parent,
                 "fanout_depth": int(parent.get("fanout_depth", 0)) + 1}
@@ -1365,6 +1440,10 @@ def main(argv=None):
     sp.add_argument("milestone")
     sp.add_argument("name", help="제품/목표묶음 그룹 라벨 (빈 문자열이면 제거)")
 
+    for _cmd in ("set-assignee", "set-reporter", "add-watcher", "rm-watcher"):
+        sp = sub.add_parser(_cmd)
+        sp.add_argument("project"); sp.add_argument("task"); sp.add_argument("name")
+
     sp = sub.add_parser("new-project")
     sp.add_argument("name")
 
@@ -1423,7 +1502,10 @@ def main(argv=None):
                "add-milestone": cmd_add_milestone, "new-project": cmd_new_project,
                "spawn": cmd_spawn, "complete": cmd_complete, "return": cmd_return,
                "map": cmd_map, "link": cmd_link, "depends": cmd_depends,
-               "set-group": cmd_set_group, "reconcile": cmd_reconcile,
+               "set-group": cmd_set_group,
+               "set-assignee": cmd_set_assignee, "set-reporter": cmd_set_reporter,
+               "add-watcher": cmd_add_watcher, "rm-watcher": cmd_rm_watcher,
+               "reconcile": cmd_reconcile,
                "validate": cmd_validate,
                "remove-task": cmd_remove_task, "remove-milestone": cmd_remove_milestone,
                "remove-project": cmd_remove_project,
