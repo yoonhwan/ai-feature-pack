@@ -14,6 +14,7 @@ PLIST_BUDDY="/usr/libexec/PlistBuddy"
 
 usage() {
   printf 'usage: %s on|off|status|tail\n' "$0"
+  printf '       HEADROOM_FILE_LOGS_FORCE=1 %s on|off   # restart live stack anyway\n' "$0"
 }
 
 key_exists() {
@@ -28,14 +29,38 @@ set_key() {
   fi
 }
 
+set_env_key() {
+  if ! key_exists "$1" EnvironmentVariables; then
+    "$PLIST_BUDDY" -c "Add :EnvironmentVariables dict" "$1" >/dev/null
+  fi
+  if "$PLIST_BUDDY" -c "Print :EnvironmentVariables:$2" "$1" >/dev/null 2>&1; then
+    "$PLIST_BUDDY" -c "Set :EnvironmentVariables:$2 $3" "$1" >/dev/null
+  else
+    "$PLIST_BUDDY" -c "Add :EnvironmentVariables:$2 string $3" "$1" >/dev/null
+  fi
+}
+
 delete_key() {
   "$PLIST_BUDDY" -c "Delete :$2" "$1" >/dev/null 2>&1 || true
+}
+
+logs_enabled() {
+  local hr_out
+  local hr_err
+  local cpa_out
+  local cpa_err
+  hr_out="$("$PLIST_BUDDY" -c 'Print :StandardOutPath' "$HR_PLIST" 2>/dev/null || true)"
+  hr_err="$("$PLIST_BUDDY" -c 'Print :StandardErrorPath' "$HR_PLIST" 2>/dev/null || true)"
+  cpa_out="$("$PLIST_BUDDY" -c 'Print :StandardOutPath' "$CPA_PLIST" 2>/dev/null || true)"
+  cpa_err="$("$PLIST_BUDDY" -c 'Print :StandardErrorPath' "$CPA_PLIST" 2>/dev/null || true)"
+  [ -n "$hr_out$hr_err$cpa_out$cpa_err" ]
 }
 
 reload_agent() {
   local label="$1"
   local plist="$2"
   local attempt=1
+  plutil -lint "$plist" >/dev/null
   launchctl bootout "gui/$UID_NUM/$label" >/dev/null 2>&1 || true
   while launchctl print "gui/$UID_NUM/$label" >/dev/null 2>&1; do
     if [ "$attempt" -ge 10 ]; then
@@ -54,8 +79,24 @@ reload_agent() {
     sleep 2
   done
   launchctl enable "gui/$UID_NUM/$label" >/dev/null 2>&1 || true
-  launchctl kickstart -k "gui/$UID_NUM/$label" >/dev/null 2>&1 || true
   launchctl print "gui/$UID_NUM/$label" >/dev/null
+}
+
+active_stack_connections() {
+  lsof -nP -iTCP -sTCP:ESTABLISHED 2>/dev/null \
+    | awk '$9 ~ /:(8790|8317)(->|$)/ { print }'
+}
+
+require_restart_window() {
+  if [ "${HEADROOM_FILE_LOGS_FORCE:-0}" = "1" ]; then
+    return 0
+  fi
+  if active_stack_connections | grep -q .; then
+    printf 'refusing to restart proxy stack while active connections exist.\n' >&2
+    printf 'This prevents Claude Code ConnectionRefused stalls during live work.\n' >&2
+    printf 'Wait for sessions to go idle, or run with HEADROOM_FILE_LOGS_FORCE=1 for incident capture.\n' >&2
+    return 1
+  fi
 }
 
 wait_http() {
@@ -79,7 +120,15 @@ reload_stack() {
 }
 
 enable_file_logs() {
+  if logs_enabled; then
+    printf 'file logs already enabled\n'
+    print_status
+    return 0
+  fi
+  require_restart_window
   mkdir -p "$(dirname "$HR_OUT")" "$(dirname "$CPA_OUT")"
+  set_env_key "$HR_PLIST" HEADROOM_FILE_LOGGING off
+  set_env_key "$HR_PLIST" HEADROOM_LOG_FILE /dev/stdout
   set_key "$HR_PLIST" StandardOutPath "$HR_OUT"
   set_key "$HR_PLIST" StandardErrorPath "$HR_ERR"
   set_key "$CPA_PLIST" StandardOutPath "$CPA_OUT"
@@ -89,10 +138,23 @@ enable_file_logs() {
 }
 
 disable_file_logs() {
+  if ! logs_enabled; then
+    set_env_key "$HR_PLIST" HEADROOM_FILE_LOGGING off
+    set_env_key "$HR_PLIST" HEADROOM_LOG_FILE /dev/stdout
+    printf 'file logs already disabled\n'
+    return 0
+  fi
+  set_env_key "$HR_PLIST" HEADROOM_FILE_LOGGING off
+  set_env_key "$HR_PLIST" HEADROOM_LOG_FILE /dev/stdout
   delete_key "$HR_PLIST" StandardOutPath
   delete_key "$HR_PLIST" StandardErrorPath
   delete_key "$CPA_PLIST" StandardOutPath
   delete_key "$CPA_PLIST" StandardErrorPath
+  if [ "${HEADROOM_FILE_LOGS_FORCE:-0}" != "1" ] && active_stack_connections | grep -q .; then
+    printf 'file logs disabled in LaunchAgent plists; active processes keep current file descriptors until the next idle restart.\n'
+    printf 'No proxy restart performed because live connections exist.\n'
+    return 0
+  fi
   reload_stack
   printf 'file logs disabled\n'
 }

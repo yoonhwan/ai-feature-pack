@@ -116,6 +116,7 @@ fi
 - **Sonnet**: `claude-sonnet-4-6` 기본 200K만 표준으로 쓴다. `claude-sonnet-4-6[1m]` / `[1M]` 별칭은 등록하지 않는다.
 - **Haiku**: 200K 표준 윈도우만 쓴다.
 - **Opus**: `claude-opus-4-8` 200K와 `claude-opus-4-8[1m]` / `[1M]` 1M을 둘 다 쓸 수 있다.
+- 기본 `cc`/`ccd` alias는 `claude-opus-4-8[1M]` Opus 1M으로 둔다. Opus 200K는 `cc2` 명시 alias로만 쓴다. 1M이 일시 unavailable이면 Claude Code의 Bash safety classifier까지 막힐 수 있기 때문이다.
 - Sonnet 1M은 Claude Code에서 usage credits가 켜진 경우에만 별도 의도 하에 요청한다. 이 스택은 Sonnet 1M 요청을 200K로 폴백하지 않는다. 권한이 없으면 upstream 429가 나는 것이 맞다.
 - `CLAUDE_CODE_DISABLE_1M_CONTEXT`는 진단용 env다. alias나 표준 실행 경로에 넣지 않는다.
 
@@ -213,6 +214,7 @@ bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
 - **Codex는 예외적으로 custom provider에 hard-bound** 한다. `~/.codex/config.toml`의 `model_provider=headroom`은 fail-open 래퍼가 아니므로 headroom/cliproxy 진단·복구용 Codex 세션은 `--ignore-user-config` 또는 직접 provider override로 띄운다.
 - Codex provider `env_key`는 실제 OpenAI 키가 아니라 `CODEX_DUMMY_API_KEY=dummy`를 쓴다. 로컬 headroom 요청 헤더를 만족시키기 위한 값이고, 구독 plan 인증은 cliproxy OAuth 토큰이 upstream에서 처리한다.
 - headroom/cliproxy 파일 로그는 기본 OFF다. 이슈 대응 때만 `~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on`으로 켜고, 재현/tail 후 반드시 `off`로 되돌린다.
+- `file-logs.sh on/off`는 LaunchAgent 재시작을 동반하므로 라이브 Claude Code 세션 중에는 기본 거부한다. 강제 캡처가 필요할 때만 `HEADROOM_FILE_LOGS_FORCE=1`을 붙인다.
 - 활성화는 **오직 `enabled-projects.json` 레지스트리 + fail-open 래퍼**로만. 프로젝트별 opt-in이고, 미등록/프록시다운이면 자동 직결되어 무중단.
 - 헤드룸은 **프로젝트·크루 단위 도구**다. 전역 기본값으로 만들지 않는다.
 

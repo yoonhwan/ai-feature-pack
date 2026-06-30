@@ -221,11 +221,15 @@ bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
 | Haiku | `claude-haiku-4-5-20251001` | 없음 | 200K만 사용. |
 | Opus | `claude-opus-4-8` | `claude-opus-4-8[1m]` / `[1M]` | 200K와 1M 둘 다 사용 가능. |
 
+기본 `cc`/`ccd` alias는 `claude-opus-4-8[1M]` Opus 1M으로 둔다. Opus 200K는 `cc2` 명시 alias로만 쓴다. 1M이 일시 unavailable이면 Claude Code의 Bash safety classifier까지 막힐 수 있다.
+
 Sonnet 1M은 Claude Code에서 usage credits가 켜진 경우에만 별도 의도 하에 요청한다. 이 스택은 Sonnet 1M 요청을 200K로 폴백하지 않는다. 권한이 없으면 upstream 429가 나는 것이 맞다. `CLAUDE_CODE_DISABLE_1M_CONTEXT`는 진단용으로만 쓰고 alias에는 넣지 않는다.
 
 ### 로그 운영 정책
 
 headroom/cliproxy 파일 로그는 기본 OFF다. LaunchAgent에는 `StandardOutPath`/`StandardErrorPath`를 두지 않고, headroom 내부 rotating 파일 로그는 `HEADROOM_FILE_LOGGING=off`로 끈다. 평상시 확인은 `/health`, `/stats`, cliproxy `/v1/models`, 실제 smoke 응답으로 한다.
+
+`file-logs.sh on/off`는 LaunchAgent stdout/stderr 경로를 바꾸므로 프록시 재시작을 동반한다. 라이브 Claude Code 세션 중 실행하면 headroom 또는 cliproxy 포트가 순간적으로 닫혀 `ConnectionRefused`로 작업 세션이 멈출 수 있다. 스크립트는 활성 TCP 연결이 있으면 기본 거부하며, 정말 사고 캡처가 필요할 때만 `HEADROOM_FILE_LOGS_FORCE=1`을 붙인다.
 
 이슈 대응 루프:
 
@@ -234,6 +238,9 @@ bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on
 # 문제 재현 또는 모니터링
 bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh tail
 bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh off
+
+# 라이브 연결이 있는데도 강제 캡처해야 하는 경우만:
+HEADROOM_FILE_LOGS_FORCE=1 bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on
 ```
 
 큰 로그 정리는 `~/.headroom/clean-proxy-logs.sh`가 담당한다. 운영 환경에서는 `com.headroom.proxy-log-cleanup` LaunchAgent로 매일 한 번 실행한다.
