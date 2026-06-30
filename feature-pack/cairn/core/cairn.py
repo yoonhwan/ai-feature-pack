@@ -77,7 +77,52 @@ def _safe_mermaid_label(name):
     return str(name).replace(":", "-")
 
 
-def render(data):
+def _task_matches(t, pf):
+    """사람 필터 매칭. pf=None이면 항상 True. person은 역할 합집합."""
+    if pf is None:
+        return True
+    if pf.get("person"):
+        n = pf["person"]
+        return (t.get("assignee") == n or t.get("reporter") == n
+                or n in (t.get("watchers") or []))
+    if pf.get("assignee") and t.get("assignee") != pf["assignee"]:
+        return False
+    if pf.get("reporter") and t.get("reporter") != pf["reporter"]:
+        return False
+    if pf.get("watcher") and pf["watcher"] not in (t.get("watchers") or []):
+        return False
+    return True
+
+
+def _ms_has_match(m, pf):
+    return any(_task_matches(t, pf) for t in m.get("tasks", []))
+
+
+def _people_badges(t):
+    """매칭 task 라벨용 역할 뱃지: 👤assignee · ✍reporter · 👁N(watcher 수)."""
+    badges = []
+    if t.get("assignee"):
+        badges.append(f"👤{_safe_mermaid_label(t['assignee'])}")
+    if t.get("reporter"):
+        badges.append(f"✍{_safe_mermaid_label(t['reporter'])}")
+    ws = t.get("watchers") or []
+    if ws:
+        badges.append(f"👁{len(ws)}")
+    return " ".join(badges)
+
+
+def _by_section(m, by):
+    """milestone start 날짜에서 월/분기 섹션 라벨 파생. start 없으면 '(미정)'."""
+    s = m.get("start")
+    if not s:
+        return "(미정)"
+    d = _to_date(s)
+    if by == "quarter":
+        return f"{d.year} Q{(d.month - 1) // 3 + 1}"
+    return f"{d.year}-{d.month:02d}"   # month
+
+
+def render(data, pfilter=None, by=None):
     lines = ["# cairn — 전사 간트", "", "```mermaid", "gantt",
              "    dateFormat YYYY-MM-DD",
              "    axisFormat %y.%m.%d",   # x축 라벨: 연 2자리 + '.' 구분 (26.06.10)
@@ -86,18 +131,24 @@ def render(data):
     for p in data.get("projects", []):
         proj_label = _safe_mermaid_label(p.get('name', p['id']))
         milestones = p.get("milestones", [])
-        # 그룹(제품/목표묶음) 단위로 버킷화 — 등장순 유지하되 같은 group을 한 섹션에
-        # 연속 배치 (mermaid section은 평면이라 정렬 안 하면 파편화됨). None=기본 섹션.
-        seen_groups = []
+        if pfilter is not None:                          # 매칭 task가 있는 milestone만
+            milestones = [m for m in milestones if _ms_has_match(m, pfilter)]
+        # 섹션 키: --by면 start 날짜 파생(월/분기), 아니면 자유텍스트 group. None=기본 섹션.
+        # 등장순 유지하되 같은 키를 한 섹션에 연속 배치 (mermaid section은 평면).
+        def _seckey(m):
+            if by:
+                return _by_section(m, by)
+            return (m.get("group") or "").strip() or None
+        seen_keys = []
         for m in milestones:
-            g = (m.get("group") or "").strip() or None
-            if g not in seen_groups:
-                seen_groups.append(g)
-        for g in seen_groups:
-            section = proj_label if g is None else f"{proj_label} · {_safe_mermaid_label(g)}"
+            k = _seckey(m)
+            if k not in seen_keys:
+                seen_keys.append(k)
+        for k in seen_keys:
+            section = proj_label if k is None else f"{proj_label} · {_safe_mermaid_label(str(k))}"
             lines.append(f"    section {section}")
             for m in milestones:
-                if ((m.get("group") or "").strip() or None) != g:
+                if _seckey(m) != k:
                     continue
                 tag = _ms_tag(m.get("status", ""))
                 prefix = f"{tag}, " if tag else ""
@@ -117,13 +168,23 @@ def render(data):
                     lines.append(f"    {safe_name} :{prefix}{m['id']}, {start}, 1d")
                 # else: 날짜 정보 전무 → 유효 간트 위해 마일스톤 요약 바 생략
                 for t in m.get("tasks", []):
+                    if pfilter is not None and not _task_matches(t, pfilter):
+                        continue
                     due = t.get("due")
                     t_start = t.get("start")
                     label = _safe_mermaid_label(t['name'])
+                    if pfilter is not None:                  # 매칭 task에 역할 뱃지
+                        badge = _people_badges(t)
+                        if badge:
+                            label = f"{label} {badge}"
                     gid = f"{m['id']}-{t['id']}"
                     if t_start and due and t_start <= due:
                         # start→due 기간 막대 (간격이 보이게)
                         t_tag = _task_tag(t.get("status", ""))
+                        # --person: assignee 매칭 task는 진하게(active), watcher만이면 옅게(태그 없음)
+                        if pfilter is not None and pfilter.get("person") \
+                                and t.get("assignee") == pfilter["person"]:
+                            t_tag = "active"
                         t_prefix = f"{t_tag}, " if t_tag else ""
                         lines.append(f"    {label} :{t_prefix}{gid}, {t_start}, {due}")
                     elif due:
@@ -647,9 +708,18 @@ def _done_ratio(ms):
 
 
 def cmd_status(data, args):
+    pf = _build_pfilter(args)
     for p in data.get("projects", []):
         print(f"[{p['id']}] {p.get('name','')} · {p.get('status','')} · prio={p.get('priority','-')}")
         for m in p.get("milestones", []):
+            if pf is not None:                           # 사람 필터 — 매칭 task만 표시
+                matched = [t for t in (m.get("tasks") or []) if _task_matches(t, pf)]
+                if not matched:
+                    continue
+                ids = ", ".join(t["id"] for t in matched)
+                print(f"   - {m['id']} {m.get('name','')} [{m.get('status','')}] "
+                      f"{m.get('start','')}~{m.get('end','')} ({len(matched)} matched: {ids})")
+                continue
             r = _done_ratio(m)
             prog = f" ({r[0]}/{r[1]} tasks)" if r else ""
             print(f"   - {m['id']} {m.get('name','')} [{m.get('status','')}] {m.get('start','')}~{m.get('end','')}{prog}")
@@ -689,6 +759,12 @@ def cmd_overdue(data, args):
     return 0
 
 
+def _build_pfilter(args):
+    """render/status 공통 사람 필터 dict 생성. 아무 것도 없으면 None."""
+    pf = {k: getattr(args, k, None) for k in ("person", "assignee", "reporter", "watcher")}
+    return pf if any(pf.values()) else None
+
+
 def cmd_render(data, args):
     errors = validate(data)
     if errors:
@@ -696,10 +772,14 @@ def cmd_render(data, args):
             print(f" - {e}", file=sys.stderr)
         print(f"INVALID ({len(errors)} errors)", file=sys.stderr)
         return 1
-    write_view(data)
-    print(f"rendered → {VIEW_PATH}")
-    # 기본으로 간트 HTML도 생성 + 브라우저 표시 (render의 기본 산출물)
-    md = render(data)   # write_view와 동일 출력 — ```mermaid 간트 블록 추출
+    pfilter = _build_pfilter(args)
+    by = getattr(args, "by", None)
+    md = render(data, pfilter, by)
+    # 필터/by 렌더는 부분뷰 — git 추적 canonical view(plan.md)는 건드리지 않는다
+    # (전체 렌더만 write_view; 안 그러면 worktree dirty로 다음 transaction이 막힘).
+    if pfilter is None and by is None:
+        write_view(data)
+        print(f"rendered → {VIEW_PATH}")
     m = re.search(r"```mermaid\n(.*?)```", md, re.S)
     html_path = VIEW_PATH.with_suffix(".html")
     html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
@@ -1371,7 +1451,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="cairn")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("status", parents=[file_parent])
+    sp_status = sub.add_parser("status", parents=[file_parent])
+    sp_status.add_argument("--assignee", default=None)
+    sp_status.add_argument("--reporter", default=None)
+    sp_status.add_argument("--watcher", default=None)
     sp_show = sub.add_parser("show", parents=[file_parent])
     sp_show.add_argument("project")
     sp_od = sub.add_parser("overdue", parents=[file_parent])
@@ -1379,6 +1462,13 @@ def main(argv=None):
     p_render = sub.add_parser("render", parents=[file_parent])
     p_render.add_argument("--no-open", dest="no_open", action="store_true",
                           help="HTML은 생성하되 브라우저는 열지 않음(조용한 렌더)")
+    p_render.add_argument("--assignee", default=None, help="assignee가 name인 task만")
+    p_render.add_argument("--reporter", default=None, help="reporter가 name인 task만")
+    p_render.add_argument("--watcher", default=None, help="watcher에 name이 포함된 task만")
+    p_render.add_argument("--person", default=None,
+                          help="assignee/reporter/watcher 중 하나라도 name인 task(역할 합집합)")
+    p_render.add_argument("--by", choices=["month", "quarter"], default=None,
+                          help="milestone start 날짜에서 월/분기 섹션 파생(group 모드보다 우선)")
 
     sp_ss = sub.add_parser("set-status")
     sp_ss.add_argument("project")
