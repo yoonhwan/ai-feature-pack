@@ -59,7 +59,7 @@ elapsed=$(baton_warming_elapsed "$dir" 2>/dev/null || true)
 
 **증상**: 증류 신규 세션 기동 시 `ccs: command not found` 또는 모델/effort가 의도와 다름.
 **원인**: `~/.zshrc`의 3-tier alias 누락/불일치. (2026-06-13 ccs 미정의 + ccd effort 누락 실증)
-**처방**: UC1-4 3-tier 확인 — `ccs`(sonnet/effort max, 워커) / `ccd`(opus/effort high, 오케·검증) / `ccf`(fable/effort medium, 설계). `zsh -ic 'type ccs ccd ccf'`로 해석 검증. send-keys 기동 시 alias 대신 resolved 명령(`~/.headroom/claude-hr.sh --model ... --effort ...`)을 직접 쓰면 alias 의존 회피.
+**처방**: UC1-4 3-tier 확인 — `ccs`(sonnet/effort high, 워커) / `ccd`(opus/effort high, 오케·검증) / `ccf`(fable/effort medium, 설계). `zsh -ic 'type ccs ccd ccf'`로 해석 검증. send-keys 기동 시 alias 대신 resolved 명령(`~/.headroom/claude-hr.sh --model ... --effort ...`)을 직접 쓰면 alias 의존 회피.
 
 ---
 
