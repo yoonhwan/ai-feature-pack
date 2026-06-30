@@ -47,11 +47,17 @@ STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
 STATUS_TODO = {"open", "claimed", "resolved", "dropped"}
 SCHEMA_VERSION = 2
+NOTE_MAX = 280
 
 def _schema_version(data):
     """data의 version 필드를 int로 반환. int가 아니면 None."""
     v = (data.get("version", 1) if data else 1)
     return v if isinstance(v, int) else None
+
+
+def _note_is_link(s):
+    """URL 또는 파일경로면 True (map 라벨 🔗 판단용)."""
+    return str(s).startswith(("http://", "https://", "/", "./", "../", "~/"))
 
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
@@ -259,7 +265,11 @@ def _node_label(t, parent):
     if sess:
         parts.append(f"🖥 sess {sess}")
     if t.get("note"):
-        parts.append(f"📝 note {_safe_mermaid_label(str(t['note']))}")
+        note_str = str(t["note"])
+        if _note_is_link(note_str):
+            parts.append(f"🔗 note {note_str}")
+        else:
+            parts.append(f"📝 note {_safe_mermaid_label(note_str)}")
     return "<br/>".join(parts)
 
 
@@ -891,6 +901,22 @@ def _people_cmd(role, op):
         transaction(mutate, f"{op}-{role} {args.project}/{args.task} {' '.join(args.name)}")
         print("OK"); return 0
     return run
+
+
+def cmd_set_note(_d, args):
+    note = args.note
+    if note and len(note) > NOTE_MAX:
+        print(f"note는 {NOTE_MAX}자 이하여야 합니다 — 긴 내용은 파일 SSOT 경로/URL을 note에 넣으세요",
+              file=sys.stderr)
+        return 1
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        if note == "":
+            t.pop("note", None)
+        else:
+            t["note"] = note
+    transaction(mutate, f"set-note {args.project}/{args.task}")
+    print("OK"); return 0
 
 
 def cmd_set_priority(_d, args):
@@ -1534,6 +1560,10 @@ def main(argv=None):
     sp_ss.add_argument("kind", choices=["project", "milestone", "task", "todo"])
     sp_ss.add_argument("rest", nargs="*")
 
+    sp_set_note = sub.add_parser("set-note")
+    sp_set_note.add_argument("project"); sp_set_note.add_argument("task")
+    sp_set_note.add_argument("note")
+
     sp = sub.add_parser("set-date")
     sp.add_argument("project"); sp.add_argument("id")
     sp.add_argument("field", choices=["start", "end", "due"]); sp.add_argument("date")
@@ -1654,6 +1684,7 @@ def main(argv=None):
         _warn_schema_version(data)
     handler = {"status": cmd_status, "show": cmd_show,
                "overdue": cmd_overdue, "render": cmd_render,
+               "set-note": cmd_set_note,
                "set-status": cmd_set_status, "set-date": cmd_set_date,
                "set-priority": cmd_set_priority, "add-task": cmd_add_task,
                "add-milestone": cmd_add_milestone, "new-project": cmd_new_project,

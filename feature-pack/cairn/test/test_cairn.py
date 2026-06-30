@@ -1982,3 +1982,77 @@ def test_version_non_int_graceful():
     errs = cairn.validate(d)
     assert isinstance(errs, list) and len(errs) > 0
     assert any("version" in e for e in errs)
+
+
+# ── task note ────────────────────────────────────────────────────────────────
+
+def _find_task(data, tid):
+    """로드된 data dict에서 task id로 task 반환."""
+    for p in data["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t.get("id") == tid:
+                    return t
+    return None
+
+
+def test_set_note(tmp_path, monkeypatch):
+    """set-note <proj> <task> <note> → task.note 저장, _node_summary에 📝."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["set-note", "project-a", "t2", "짧은 메모"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert t2 is not None and t2.get("note") == "짧은 메모"
+    assert "📝" in cairn._node_label(t2, None)
+
+
+def test_set_note_clear(tmp_path, monkeypatch):
+    """set-note <proj> <task> "" → note 키 제거."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-note", "project-a", "t2", "임시메모"])
+    rc = cairn.main(["set-note", "project-a", "t2", ""])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert "note" not in t2
+
+
+def test_note_length_limit(tmp_path, monkeypatch, capsys):
+    """281자 note → rc≠0, transaction 진입 전 거부, note 미설정."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    long_note = "가" * 281
+    rc = cairn.main(["set-note", "project-a", "t2", long_note])
+    assert rc != 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert t2.get("note") is None
+
+
+def test_note_file_link(tmp_path, monkeypatch):
+    """파일경로 note → _node_summary에 🔗."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["set-note", "project-a", "t2", "/path/spec.md"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert "🔗" in cairn._node_label(t2, None)
+
+
+def test_validate_allows_legacy_note(tmp_path, monkeypatch):
+    """기존 원장의 281자 note가 있어도 validate 통과 + add-assignee 무관 작업 통과(회귀 방지)."""
+    # 직접 validate 확인
+    d = _good()
+    t = _find_task(d, "t2")
+    t["note"] = "x" * 281
+    assert not any("note" in e for e in cairn.validate(d))
+    # 실제 transaction 게이트 통과 확인
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    pf = repo / ".cairn" / "plan.yaml"
+    d2 = cairn.load_plan(pf)
+    t2 = _find_task(d2, "t2")
+    t2["note"] = "x" * 281
+    pf.write_text(cairn.dump_str(d2))
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "legacy note"], cwd=repo, check=True)
+    assert cairn.main(["add-assignee", "project-a", "t2", "철수"]) == 0
