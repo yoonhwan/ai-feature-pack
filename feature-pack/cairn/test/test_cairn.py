@@ -1380,7 +1380,7 @@ def test_init_creates_seed_ledger(tmp_path, monkeypatch):
     rc = cairn.main(["init"])
     assert rc == 0
     d = cairn.load_plan(tmp_path / ".cairn" / "plan.yaml")
-    assert d["version"] == 1 and list(d["projects"]) == []
+    assert d["version"] == cairn.SCHEMA_VERSION and list(d["projects"]) == []
     # init 후 new-project가 동작해야 함
     assert cairn.main(["new-project", "Demo"]) == 0
 
@@ -1877,3 +1877,108 @@ def test_status_person_filter(tmp_path, monkeypatch, capsys):
     assert rc == 0
     assert "t2" in out    # assignee 철수
     assert "t3" in out    # reporter 철수
+
+
+# ── Schema version + migrate ──────────────────────────────────────────────────
+
+def test_validate_rejects_future_version():
+    """validate: version > SCHEMA_VERSION이면 error를 반환해야 한다."""
+    d = _good()
+    d["version"] = 99
+    errs = cairn.validate(d)
+    assert any("unsupported schema version" in e for e in errs)
+
+
+def test_load_v1_graceful():
+    """v1 원장(사람필드 없음)으로 render 호출 시 예외 없이 정상 동작해야 한다."""
+    d = _good()   # golden.yaml은 version=1, 사람필드 없음
+    out = cairn.render(d)
+    assert "cairn" in out
+
+
+def test_migrate_v1_to_v2(tmp_path, monkeypatch):
+    """v1 원장 migrate → 모든 task에 사람필드 백필 + version==SCHEMA_VERSION."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["migrate"])
+    assert rc == 0
+    d2 = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d2["version"] == cairn.SCHEMA_VERSION
+    for p in d2["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                assert "assignees" in t
+                assert "reporters" in t
+                assert "watchers" in t
+
+
+def test_migrate_idempotent(tmp_path, monkeypatch):
+    """이미 최신 버전 원장 재migrate → no-op, version 그대로."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["migrate"])                        # v1→v2
+    rc = cairn.main(["migrate"])                   # 재실행 → no-op
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["version"] == cairn.SCHEMA_VERSION
+
+
+def test_migrate_dry_run(tmp_path, monkeypatch):
+    """--dry-run은 계획만 출력하고 파일을 변경하지 않아야 한다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    pf = repo / ".cairn" / "plan.yaml"
+    original = pf.read_text()
+    rc = cairn.main(["migrate", "--dry-run"])
+    assert rc == 0
+    assert pf.read_text() == original
+
+
+def test_migrate_rejects_future_version(tmp_path, monkeypatch):
+    """미래버전(v99) 원장에 migrate 시도 → rc≠0, 파일·HEAD 불변."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    pf = repo / ".cairn" / "plan.yaml"
+    d = cairn.load_plan(pf)
+    d["version"] = 99
+    pf.write_text(cairn.dump_str(d))
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "v99 inject"], cwd=repo, check=True)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                          capture_output=True, text=True).stdout.strip()
+    rc = cairn.main(["migrate"])
+    assert rc != 0
+    d2 = cairn.load_plan(pf)
+    assert d2["version"] == 99
+    head2 = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                           capture_output=True, text=True).stdout.strip()
+    assert head2 == head
+
+
+def test_migrate_repairs_v2_missing_fields(tmp_path, monkeypatch):
+    """version=2인데 사람필드 누락 task → migrate → 백필 완료."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["migrate"])   # v1→v2
+    pf = repo / ".cairn" / "plan.yaml"
+    d = cairn.load_plan(pf)
+    for p in d["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t.get("id") == "t2":
+                    t.pop("assignees", None); t.pop("reporters", None); t.pop("watchers", None)
+    pf.write_text(cairn.dump_str(d))
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "v2 missing fields"], cwd=repo, check=True)
+    rc = cairn.main(["migrate"])
+    assert rc == 0
+    d2 = cairn.load_plan(pf)
+    for p in d2["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t.get("id") == "t2":
+                    assert "assignees" in t and "reporters" in t and "watchers" in t
+
+
+def test_version_non_int_graceful():
+    """version이 문자열이면 validate가 crash 없이 error를 반환해야 한다."""
+    d = _good()
+    d["version"] = "99"
+    errs = cairn.validate(d)
+    assert isinstance(errs, list) and len(errs) > 0
+    assert any("version" in e for e in errs)

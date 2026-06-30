@@ -46,6 +46,13 @@ STATUS_PROJECT = {"planned", "active", "done", "paused"}
 STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
 STATUS_TODO = {"open", "claimed", "resolved", "dropped"}
+SCHEMA_VERSION = 2
+
+def _schema_version(data):
+    """data의 version 필드를 int로 반환. int가 아니면 None."""
+    v = (data.get("version", 1) if data else 1)
+    return v if isinstance(v, int) else None
+
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 yaml = YAML()                      # round-trip
@@ -527,6 +534,11 @@ def validate(data):
     errors = []
     if not data or "projects" not in data:
         return ["missing top-level 'projects'"]
+    v = _schema_version(data)
+    if v is None:
+        errors.append(f"version must be an integer, got: {data.get('version')!r}")
+    elif v > SCHEMA_VERSION:
+        errors.append(f"unsupported schema version: {v} (supported ≤ {SCHEMA_VERSION})")
     node_ids = _all_node_ids(data)
     # [DA#2] task id는 전역 유니크여야 함 — 복구 메타(spawned_from/return_to)가 전역 참조
     global_tids = {}
@@ -1158,7 +1170,7 @@ def cmd_init(_data, args):
     plan = REPO / ".cairn" / "plan.yaml"
     if plan.exists():
         print("cairn: 이미 초기화됨 (.cairn/plan.yaml)"); return 0
-    seed = {"version": 1, "projects": []}
+    seed = {"version": SCHEMA_VERSION, "projects": []}
     view = REPO / ".cairn" / "views" / "plan.md"
     view.parent.mkdir(parents=True, exist_ok=True)
     save_atomic(seed, plan)
@@ -1167,6 +1179,58 @@ def cmd_init(_data, args):
     git("add", str(plan), str(view))
     git("commit", "-q", "-m", "cairn init")
     print(f"cairn 초기화 완료: {REPO / '.cairn'} — 'cairn new-project <name>'으로 시작")
+    return 0
+
+
+def _warn_schema_version(data):
+    v = _schema_version(data)
+    if v is None:
+        return
+    if v < SCHEMA_VERSION:
+        print(f"cairn: 구버전 원장(v{v}) — 'cairn migrate'로 v{SCHEMA_VERSION} 업그레이드 권장",
+              file=sys.stderr)
+    elif v > SCHEMA_VERSION:
+        print(f"cairn: 원장 v{v} > 지원 v{SCHEMA_VERSION} — cairn 업데이트 필요(읽기만 시도)",
+              file=sys.stderr)
+
+
+def cmd_migrate(data, args):
+    old_v = _schema_version(data)
+    if old_v is None:
+        print("cairn: migrate 중단 — version이 정수가 아님", file=sys.stderr)
+        return 1
+    if old_v > SCHEMA_VERSION:
+        print(f"cairn: migrate 중단 — 원장 v{old_v} > 지원 v{SCHEMA_VERSION}", file=sys.stderr)
+        return 1
+    needs_backfill = any(
+        field not in t
+        for p in (data.get("projects", []) if data else [])
+        for m in p.get("milestones", [])
+        for t in m.get("tasks", [])
+        for field in ("assignees", "reporters", "watchers")
+    )
+    if old_v == SCHEMA_VERSION and not needs_backfill:
+        print(f"이미 최신(v{SCHEMA_VERSION})")
+        return 0
+    count = sum(
+        1
+        for p in (data.get("projects", []) if data else [])
+        for m in p.get("milestones", [])
+        for t in m.get("tasks", [])
+        if any(f not in t for f in ("assignees", "reporters", "watchers"))
+    )
+    print(f"migrate v{old_v}→v{SCHEMA_VERSION}: {count}개 task에 사람필드 백필")
+    if args.dry_run:
+        return 0
+    def mutate(d):
+        d["version"] = SCHEMA_VERSION
+        for p in d.get("projects", []):
+            for m in p.get("milestones", []):
+                for t in m.get("tasks", []):
+                    for field in ("assignees", "reporters", "watchers"):
+                        if field not in t:
+                            t[field] = []
+    transaction(mutate, f"migrate v{old_v}→v{SCHEMA_VERSION}")
     return 0
 
 
@@ -1541,6 +1605,8 @@ def main(argv=None):
     sub.add_parser("reconcile", parents=[file_parent])
     sub.add_parser("validate", parents=[file_parent])
     sub.add_parser("self-test", parents=[file_parent])
+    sp_mig = sub.add_parser("migrate", parents=[file_parent])
+    sp_mig.add_argument("--dry-run", dest="dry_run", action="store_true")
     sub.add_parser("revert")
 
     sp = sub.add_parser("add-todo")
@@ -1584,6 +1650,8 @@ def main(argv=None):
     except Exception as e:
         print(f"cairn: load error: {e}", file=sys.stderr)
         return 1
+    if args.cmd != "migrate":
+        _warn_schema_version(data)
     handler = {"status": cmd_status, "show": cmd_show,
                "overdue": cmd_overdue, "render": cmd_render,
                "set-status": cmd_set_status, "set-date": cmd_set_date,
@@ -1600,6 +1668,7 @@ def main(argv=None):
                "rm-watcher": _people_cmd("watcher", "rm"),
                "reconcile": cmd_reconcile,
                "validate": cmd_validate,
+               "migrate": cmd_migrate,
                "remove-task": cmd_remove_task, "remove-milestone": cmd_remove_milestone,
                "remove-project": cmd_remove_project,
                "add-todo": cmd_add_todo, "todos": cmd_todos,
