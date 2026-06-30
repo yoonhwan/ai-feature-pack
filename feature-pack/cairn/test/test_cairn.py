@@ -1380,7 +1380,7 @@ def test_init_creates_seed_ledger(tmp_path, monkeypatch):
     rc = cairn.main(["init"])
     assert rc == 0
     d = cairn.load_plan(tmp_path / ".cairn" / "plan.yaml")
-    assert d["version"] == 1 and list(d["projects"]) == []
+    assert d["version"] == cairn.SCHEMA_VERSION and list(d["projects"]) == []
     # init 후 new-project가 동작해야 함
     assert cairn.main(["new-project", "Demo"]) == 0
 
@@ -1685,3 +1685,374 @@ def test_remove_task_blocked_by_todo_origin_node(tmp_path, monkeypatch, capsys):
     assert rc != 0
     out = capsys.readouterr().out
     assert "referenced by td1" in out and "origin_node" in out
+
+
+# ── 사람 협업 필드 (assignees/reporters/watchers — 전부 복수) ─────────────────
+def _get_task(repo, tid):
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    for p in d["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t["id"] == tid:
+                    return t
+    raise AssertionError(f"no task {tid}")
+
+
+def test_add_assignee_multi_names_and_dedup(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-assignee", "project-a", "t2", "철수", "영희"]) == 0   # 멀티 입력
+    cairn.main(["add-assignee", "project-a", "t2", "철수"])   # 중복 무시
+    assert _get_task(repo, "t2")["assignees"] == ["철수", "영희"]
+
+
+def test_rm_assignee_partial_and_noop(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-assignee", "project-a", "t2", "철수", "영희", "민수"])
+    cairn.main(["rm-assignee", "project-a", "t2", "영희", "없는사람"])   # 일부 제거 + no-op
+    assert _get_task(repo, "t2")["assignees"] == ["철수", "민수"]
+
+
+def test_add_reporter_and_watcher_are_lists(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-reporter", "project-a", "t2", "철수"])
+    cairn.main(["add-watcher", "project-a", "t2", "영희", "민수"])
+    t2 = _get_task(repo, "t2")
+    assert t2["reporters"] == ["철수"] and t2["watchers"] == ["영희", "민수"]
+
+
+def test_add_assignee_unknown_task_rejected(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-assignee", "project-a", "ghost", "철수"]) == 1
+
+
+def test_no_set_role_commands(tmp_path, monkeypatch):
+    # set-assignee/set-reporter 단일 덮어쓰기 명령은 폐기됨
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    import pytest
+    with pytest.raises(SystemExit):
+        cairn.main(["set-assignee", "project-a", "t2", "철수"])
+
+
+def test_validate_rejects_control_chars_in_people():
+    d = _good()
+    t2 = d["projects"][0]["milestones"][1]["tasks"][0]
+    t2["assignees"] = ["Bad\nName"]
+    assert any("assignees" in e and "control" in e for e in cairn.validate(d))
+    t2["assignees"] = ["ok"]; t2["watchers"] = ["good", "bad\tone"]
+    assert any("watchers" in e and "control" in e for e in cairn.validate(d))
+
+
+def test_validate_rejects_non_list_people():
+    d = _good()
+    d["projects"][0]["milestones"][1]["tasks"][0]["assignees"] = "철수"
+    assert any("assignees must be a list" in e for e in cairn.validate(d))
+
+
+def test_show_prints_people_when_present(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-assignee", "project-a", "t2", "철수", "영희"])
+    cairn.main(["add-watcher", "project-a", "t2", "민수"]); capsys.readouterr()
+    cairn.main(["show", "project-a"])
+    out = capsys.readouterr().out
+    assert "👤 철수, 영희" in out and "👁 민수" in out
+
+
+# ── 사람별 그래프 (render 필터 + --by) ───────────────────────────────────────
+def _people_data():
+    d = _good()
+    ms2_tasks = d["projects"][0]["milestones"][1]["tasks"]   # t2, t3
+    ms2_tasks[0]["assignees"] = ["철수", "영희"]; ms2_tasks[0]["start"] = "2026-06-16"; ms2_tasks[0]["due"] = "2026-06-20"
+    ms2_tasks[1]["reporters"] = ["철수"]; ms2_tasks[1]["watchers"] = ["영희"]
+    ms2_tasks[1]["start"] = "2026-06-16"; ms2_tasks[1]["due"] = "2026-06-22"
+    return d
+
+
+def test_render_assignee_filters_to_matching_milestone():
+    d = _people_data()
+    out = cairn.render(d, {"assignee": "철수", "person": None, "reporter": None, "watcher": None})
+    assert "Build" in out          # ms2엔 철수 assignee(t2)
+    assert "Milestone Design" not in out   # ms1엔 사람 없음 → 제외
+    assert "Backend Tasks" in out          # t2 매칭
+    assert "Frontend Tasks" not in out     # t3 assignee 아님
+
+
+def test_render_person_is_union_of_roles():
+    d = _people_data()
+    pf = {"person": "철수", "assignee": None, "reporter": None, "watcher": None}
+    out = cairn.render(d, pf)
+    # 철수는 t2 assignee + t3 reporter → 둘 다 포함
+    assert "Backend Tasks" in out and "Frontend Tasks" in out
+
+
+def test_render_role_badges_present():
+    d = _people_data()
+    out = cairn.render(d, {"assignee": "철수", "person": None, "reporter": None, "watcher": None})
+    assert "👤철수" in out          # assignee 뱃지
+
+
+def test_render_person_emphasizes_assignee():
+    d = _people_data()
+    pf = {"person": "철수", "assignee": None, "reporter": None, "watcher": None}
+    out = cairn.render(d, pf)
+    # t2(assignee 철수) 라인은 active 태그로 진하게
+    t2_line = next(l for l in out.splitlines() if "ms2-t2" in l)
+    assert "active" in t2_line
+
+
+def test_render_by_month_sections():
+    d = _good()
+    out = cairn.render(d, None, "month")
+    assert "2026-06" in out         # ms1/ms2 start 2026-06 → 월 섹션
+
+
+def test_render_by_quarter_sections():
+    d = _good()
+    out = cairn.render(d, None, "quarter")
+    assert "2026 Q2" in out         # 6월 → Q2
+
+
+def test_render_by_undated_milestone_section():
+    d = _good()
+    d["projects"][0]["milestones"][0]["start"] = None
+    d["projects"][0]["milestones"][0]["end"] = None
+    d["projects"][0]["milestones"][0]["tasks"] = []   # 파생 날짜도 없게
+    out = cairn.render(d, None, "quarter")
+    assert "(미정)" in out
+
+
+def test_render_assignee_and_by_combine():
+    d = _people_data()
+    pf = {"assignee": "철수", "person": None, "reporter": None, "watcher": None}
+    out = cairn.render(d, pf, "quarter")
+    assert "2026 Q2" in out and "Backend Tasks" in out
+    assert "Frontend Tasks" not in out
+
+
+def test_cmd_render_filter_skips_write_view(tmp_path, monkeypatch, capsys):
+    # 필터 렌더는 canonical plan.md를 건드리지 않아야(dirty 방지) → 이후 transaction 정상
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-assignee", "project-a", "t2", "철수"]); capsys.readouterr()
+    rc = cairn.main(["render", "--assignee", "철수", "--no-open"])   # --no-open → open 미호출
+    assert rc == 0
+    assert cairn.VIEW_PATH.with_suffix(".html").exists()
+    # plan.md/yaml worktree 깨끗 → 후속 쓰기 명령 성공
+    assert cairn.main(["add-reporter", "project-a", "t2", "영희"]) == 0
+
+
+def test_status_assignee_filter(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-assignee", "project-a", "t2", "철수"]); capsys.readouterr()
+    cairn.main(["status", "--assignee", "철수"])
+    out = capsys.readouterr().out
+    assert "matched" in out and "t2" in out
+    assert "ms1" not in out          # ms1엔 철수 없음 → 미표시
+
+
+def test_cmd_map_no_open_skips_browser(tmp_path, monkeypatch):
+    # map --no-open: HTML은 생성하되 브라우저는 열지 않음 (render --no-open과 동일)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    opened = []
+    monkeypatch.setattr(cairn.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    monkeypatch.setattr(cairn.sys, "platform", "darwin")
+    rc = cairn.main(["map", "--html", "--no-open"])
+    assert rc == 0
+    html = cairn._map_path().with_suffix(".html")
+    assert html.exists()                              # HTML은 생성
+    assert not any("open" in c for c in opened)       # 브라우저는 안 열림
+
+
+def test_render_badges_without_filter():
+    """필터 없는 기본 render에도 작업자 뱃지(👤)가 표시돼야 한다."""
+    out = cairn.render(_people_data())
+    assert "👤" in out
+
+
+def test_status_person_filter(tmp_path, monkeypatch, capsys):
+    """status --person은 assignee/reporter/watcher 합집합 task를 모두 표시해야 한다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["add-assignee", "project-a", "t2", "철수"]); capsys.readouterr()
+    cairn.main(["add-reporter", "project-a", "t3", "철수"]); capsys.readouterr()
+    rc = cairn.main(["status", "--person", "철수"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "t2" in out    # assignee 철수
+    assert "t3" in out    # reporter 철수
+
+
+# ── Schema version + migrate ──────────────────────────────────────────────────
+
+def test_validate_rejects_future_version():
+    """validate: version > SCHEMA_VERSION이면 error를 반환해야 한다."""
+    d = _good()
+    d["version"] = 99
+    errs = cairn.validate(d)
+    assert any("unsupported schema version" in e for e in errs)
+
+
+def test_load_v1_graceful():
+    """v1 원장(사람필드 없음)으로 render 호출 시 예외 없이 정상 동작해야 한다."""
+    d = _good()   # golden.yaml은 version=1, 사람필드 없음
+    out = cairn.render(d)
+    assert "cairn" in out
+
+
+def test_migrate_v1_to_v2(tmp_path, monkeypatch):
+    """v1 원장 migrate → 모든 task에 사람필드 백필 + version==SCHEMA_VERSION."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["migrate"])
+    assert rc == 0
+    d2 = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d2["version"] == cairn.SCHEMA_VERSION
+    for p in d2["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                assert "assignees" in t
+                assert "reporters" in t
+                assert "watchers" in t
+
+
+def test_migrate_idempotent(tmp_path, monkeypatch):
+    """이미 최신 버전 원장 재migrate → no-op, version 그대로."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["migrate"])                        # v1→v2
+    rc = cairn.main(["migrate"])                   # 재실행 → no-op
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert d["version"] == cairn.SCHEMA_VERSION
+
+
+def test_migrate_dry_run(tmp_path, monkeypatch):
+    """--dry-run은 계획만 출력하고 파일을 변경하지 않아야 한다."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    pf = repo / ".cairn" / "plan.yaml"
+    original = pf.read_text()
+    rc = cairn.main(["migrate", "--dry-run"])
+    assert rc == 0
+    assert pf.read_text() == original
+
+
+def test_migrate_rejects_future_version(tmp_path, monkeypatch):
+    """미래버전(v99) 원장에 migrate 시도 → rc≠0, 파일·HEAD 불변."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    pf = repo / ".cairn" / "plan.yaml"
+    d = cairn.load_plan(pf)
+    d["version"] = 99
+    pf.write_text(cairn.dump_str(d))
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "v99 inject"], cwd=repo, check=True)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                          capture_output=True, text=True).stdout.strip()
+    rc = cairn.main(["migrate"])
+    assert rc != 0
+    d2 = cairn.load_plan(pf)
+    assert d2["version"] == 99
+    head2 = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                           capture_output=True, text=True).stdout.strip()
+    assert head2 == head
+
+
+def test_migrate_repairs_v2_missing_fields(tmp_path, monkeypatch):
+    """version=2인데 사람필드 누락 task → migrate → 백필 완료."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["migrate"])   # v1→v2
+    pf = repo / ".cairn" / "plan.yaml"
+    d = cairn.load_plan(pf)
+    for p in d["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t.get("id") == "t2":
+                    t.pop("assignees", None); t.pop("reporters", None); t.pop("watchers", None)
+    pf.write_text(cairn.dump_str(d))
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "v2 missing fields"], cwd=repo, check=True)
+    rc = cairn.main(["migrate"])
+    assert rc == 0
+    d2 = cairn.load_plan(pf)
+    for p in d2["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t.get("id") == "t2":
+                    assert "assignees" in t and "reporters" in t and "watchers" in t
+
+
+def test_version_non_int_graceful():
+    """version이 문자열이면 validate가 crash 없이 error를 반환해야 한다."""
+    d = _good()
+    d["version"] = "99"
+    errs = cairn.validate(d)
+    assert isinstance(errs, list) and len(errs) > 0
+    assert any("version" in e for e in errs)
+
+
+# ── task note ────────────────────────────────────────────────────────────────
+
+def _find_task(data, tid):
+    """로드된 data dict에서 task id로 task 반환."""
+    for p in data["projects"]:
+        for m in p.get("milestones", []):
+            for t in m.get("tasks", []):
+                if t.get("id") == tid:
+                    return t
+    return None
+
+
+def test_set_note(tmp_path, monkeypatch):
+    """set-note <proj> <task> <note> → task.note 저장, _node_summary에 📝."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["set-note", "project-a", "t2", "짧은 메모"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert t2 is not None and t2.get("note") == "짧은 메모"
+    assert "📝" in cairn._node_label(t2, None)
+
+
+def test_set_note_clear(tmp_path, monkeypatch):
+    """set-note <proj> <task> "" → note 키 제거."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-note", "project-a", "t2", "임시메모"])
+    rc = cairn.main(["set-note", "project-a", "t2", ""])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert "note" not in t2
+
+
+def test_note_length_limit(tmp_path, monkeypatch, capsys):
+    """281자 note → rc≠0, transaction 진입 전 거부, note 미설정."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    long_note = "가" * 281
+    rc = cairn.main(["set-note", "project-a", "t2", long_note])
+    assert rc != 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert t2.get("note") is None
+
+
+def test_note_file_link(tmp_path, monkeypatch):
+    """파일경로 note → _node_summary에 🔗."""
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    rc = cairn.main(["set-note", "project-a", "t2", "/path/spec.md"])
+    assert rc == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = _find_task(d, "t2")
+    assert "🔗" in cairn._node_label(t2, None)
+
+
+def test_validate_allows_legacy_note(tmp_path, monkeypatch):
+    """기존 원장의 281자 note가 있어도 validate 통과 + add-assignee 무관 작업 통과(회귀 방지)."""
+    # 직접 validate 확인
+    d = _good()
+    t = _find_task(d, "t2")
+    t["note"] = "x" * 281
+    assert not any("note" in e for e in cairn.validate(d))
+    # 실제 transaction 게이트 통과 확인
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    pf = repo / ".cairn" / "plan.yaml"
+    d2 = cairn.load_plan(pf)
+    t2 = _find_task(d2, "t2")
+    t2["note"] = "x" * 281
+    pf.write_text(cairn.dump_str(d2))
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "legacy note"], cwd=repo, check=True)
+    assert cairn.main(["add-assignee", "project-a", "t2", "철수"]) == 0

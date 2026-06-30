@@ -1,0 +1,5 @@
+{
+  "branch": "feat/cairn-people",
+  "created_at": "2026-06-30",
+  "purpose": "cairn 원장에 assignee/reporter/watcher 3필드 + 사람별 그래프 조회 구현"
+}
