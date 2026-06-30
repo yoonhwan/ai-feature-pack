@@ -201,6 +201,18 @@ grep -E '/v1/responses|codex|openai|status=200' \
 
 이 경로는 의도적으로 fail-open이 아니다. headroom/cliproxy 복구용 Codex는 `codex --ignore-user-config` 또는 provider override로 직접 띄운다.
 
+### Claude Code 모델 윈도우 정책
+
+구독 프록시 표준 경로에서는 Sonnet/Haiku를 200K로 고정하고, Opus만 200K와 1M을 둘 다 허용한다.
+
+| 모델군 | 표준 모델명 | 1M 모델명 | 정책 |
+|---|---|---|---|
+| Sonnet | `claude-sonnet-4-6` | 없음 | 200K만 사용. `[1m]` / `[1M]` 별칭을 등록하지 않는다. |
+| Haiku | `claude-haiku-4-5-20251001` | 없음 | 200K만 사용. |
+| Opus | `claude-opus-4-8` | `claude-opus-4-8[1m]` / `[1M]` | 200K와 1M 둘 다 사용 가능. |
+
+Sonnet 1M은 Claude Code에서 usage credits가 켜진 경우에만 별도 의도 하에 요청한다. 이 스택은 Sonnet 1M 요청을 200K로 폴백하지 않는다. 권한이 없으면 upstream 429가 나는 것이 맞다. `CLAUDE_CODE_DISABLE_1M_CONTEXT`는 진단용으로만 쓰고 alias에는 넣지 않는다.
+
 ### Copilot 구독 모드
 
 ```bash

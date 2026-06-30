@@ -111,6 +111,16 @@ fi
 
 ---
 
+## Claude Code 모델 윈도우 정책
+
+- **Sonnet**: `claude-sonnet-4-6` 기본 200K만 표준으로 쓴다. `claude-sonnet-4-6[1m]` / `[1M]` 별칭은 등록하지 않는다.
+- **Haiku**: 200K 표준 윈도우만 쓴다.
+- **Opus**: `claude-opus-4-8` 200K와 `claude-opus-4-8[1m]` / `[1M]` 1M을 둘 다 쓸 수 있다.
+- Sonnet 1M은 Claude Code에서 usage credits가 켜진 경우에만 별도 의도 하에 요청한다. 이 스택은 Sonnet 1M 요청을 200K로 폴백하지 않는다. 권한이 없으면 upstream 429가 나는 것이 맞다.
+- `CLAUDE_CODE_DISABLE_1M_CONTEXT`는 진단용 env다. alias나 표준 실행 경로에 넣지 않는다.
+
+---
+
 ## `/headroom status` — 현재 프로젝트 상태 요약
 
 ```bash
