@@ -1685,3 +1685,66 @@ def test_remove_task_blocked_by_todo_origin_node(tmp_path, monkeypatch, capsys):
     assert rc != 0
     out = capsys.readouterr().out
     assert "referenced by td1" in out and "origin_node" in out
+
+
+# ── 사람 협업 필드 (assignee/reporter/watcher) ───────────────────────────────
+def test_set_assignee_and_reporter(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["set-assignee", "project-a", "t2", "철수"]) == 0
+    assert cairn.main(["set-reporter", "project-a", "t2", "영희"]) == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = next(t for t in d["projects"][0]["milestones"][1]["tasks"] if t["id"] == "t2")
+    assert t2["assignee"] == "철수" and t2["reporter"] == "영희"
+
+
+def test_set_assignee_empty_clears(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-assignee", "project-a", "t2", "철수"])
+    assert cairn.main(["set-assignee", "project-a", "t2", ""]) == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = next(t for t in d["projects"][0]["milestones"][1]["tasks"] if t["id"] == "t2")
+    assert t2["assignee"] is None
+
+
+def test_add_and_rm_watcher_dedup_and_noop(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["add-watcher", "project-a", "t2", "철수"]) == 0
+    cairn.main(["add-watcher", "project-a", "t2", "철수"])   # 중복 무시
+    cairn.main(["add-watcher", "project-a", "t2", "영희"])
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = next(t for t in d["projects"][0]["milestones"][1]["tasks"] if t["id"] == "t2")
+    assert t2["watchers"] == ["철수", "영희"]
+    cairn.main(["rm-watcher", "project-a", "t2", "철수"])
+    cairn.main(["rm-watcher", "project-a", "t2", "없는사람"])  # no-op
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    t2 = next(t for t in d["projects"][0]["milestones"][1]["tasks"] if t["id"] == "t2")
+    assert t2["watchers"] == ["영희"]
+
+
+def test_set_assignee_unknown_task_rejected(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["set-assignee", "project-a", "ghost", "철수"]) == 1
+
+
+def test_validate_rejects_control_chars_in_people():
+    d = _good()
+    t2 = d["projects"][0]["milestones"][1]["tasks"][0]
+    t2["assignee"] = "Bad\nName"
+    assert any("assignee" in e and "control" in e for e in cairn.validate(d))
+    t2["assignee"] = "ok"; t2["watchers"] = ["good", "bad\tone"]
+    assert any("watcher" in e and "control" in e for e in cairn.validate(d))
+
+
+def test_validate_rejects_non_list_watchers():
+    d = _good()
+    d["projects"][0]["milestones"][1]["tasks"][0]["watchers"] = "철수"
+    assert any("watchers must be a list" in e for e in cairn.validate(d))
+
+
+def test_show_prints_people_when_present(tmp_path, monkeypatch, capsys):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-assignee", "project-a", "t2", "철수"])
+    cairn.main(["add-watcher", "project-a", "t2", "영희"]); capsys.readouterr()
+    cairn.main(["show", "project-a"])
+    out = capsys.readouterr().out
+    assert "👤 철수" in out and "👁 영희" in out
