@@ -9,7 +9,7 @@
     "npm": [],
     "pip": [],
     "feature_packs": [],
-    "agent_clis_any_of": ["claude", "codex", "gemini", "opencode", "cursor-agent"]
+    "agent_clis_any_of": ["claude", "codex", "gemini", "opencode", "cursor-agent", "agy"]
   },
   "requires_api_keys": false,
   "requires_google_auth": false,
