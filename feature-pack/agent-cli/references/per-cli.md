@@ -66,3 +66,17 @@ cursor-agent -p -f --output-format json --resume "$SID" "$P2"
 - `cursor`(IDE 바이너리)가 아니라 별도 `cursor-agent` CLI(3.0.12).
 - `-f`/`--force` 필수 — 없으면 Workspace Trust 프롬프트로 블로킹.
 - 페르소나는 프롬프트 prepend. JSON 키 `session_id`.
+
+## Antigravity (`agy`) — Gemini CLI 후속/통합본
+
+```bash
+agy -p "$P" --print-timeout 60s --dangerously-skip-permissions          # R1 비대화+자율
+agy -c -p "$P2" --print-timeout 60s --dangerously-skip-permissions       # 직전 대화 이어가기(resume)
+agy --conversation "$ID" -p "$P2" ...                                    # ID로 특정 대화 resume
+agy models                                                               # 모델 목록
+```
+- `agy`(v1.0.8+) = Google Antigravity CLI. **`gemini` CLI를 흡수·대체** — gemini OAuth가 깨졌어도 agy는 별도 Google 로그인으로 동작(2026-06-16 실증).
+- **멀티모델 게이트웨이**: Gemini 3.5/3.1 Pro·Flash + Claude Sonnet/Opus 4.6 + GPT-OSS. `--model "Claude Opus 4.6 (Thinking)"` 식으로 모델 선택.
+- resume = `-c`(최근 대화) 또는 `--conversation <ID>`. sid JSON 없음 → codex/opencode식 continue 모델.
+- **`--print-timeout` 필수** — 없으면 답 출력 후 프로세스가 self-exit 안 하고 기본 5분 대기. 짧게(30~90s) 주면 즉시 종료.
+- 첫 콜 cold-start 지연 가능(에이전트 데몬 기동) — 타임아웃이 처리. 페르소나는 프롬프트 prepend.
