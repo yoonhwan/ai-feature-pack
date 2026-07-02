@@ -137,6 +137,8 @@
   .sg-toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:60;
     background:var(--panel);border:1px solid #d9822b;color:var(--text);border-radius:8px;
     padding:8px 16px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none}
+  .kcol.kdrop{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:12px}
+  .kcard[draggable]{cursor:grab}
   .note{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:820px;line-height:1.6}
 
   /* ledger dialog */
@@ -263,15 +265,35 @@ function renderKanban(){
   let h='<div class="legend"><span><i class="dot doing"></i>진행중</span><span><i class="dot todo"></i>대기</span><span><i class="dot done"></i>완료</span><span>카드 클릭 → 원장 상세</span></div><div class="kanban">';
   for(const [key,title] of order){
     const list=cols[key].concat(key==="todo"?cols.blocked:[]);
-    h+=`<div class="kcol"><h3>${title}<span class="cnt">${list.length}</span></h3>`;
+    h+=`<div class="kcol" data-col="${key}"><h3>${title}<span class="cnt">${list.length}</span></h3>`;
     list.forEach(t=>{
       const dep=t.dep&&t.dep.length?`<div class="dep">⟵ ${t.dep.join(", ")}</div>`:"";
-      h+=`<div class="kcard ${t.s}" data-tid="${t.id}"><div class="ms">${t.ms} · ${esc(t.msName)}</div>`+
+      h+=`<div class="kcard ${t.s}" data-tid="${t.id}"${CAN_EDIT?' draggable="true"':''}><div class="ms">${t.ms} · ${esc(t.msName)}</div>`+
          `<div class="tt">${esc(t.name)}</div>${whoLine(t)}<div class="tid">${t.id} ›</div>${dep}</div>`;
     });
     h+="</div>";
   }
   document.getElementById("kanban").innerHTML=h+"</div>";
+  wireKanbanDrag();
+}
+// 칸반 카드 컬럼 간 드래그 = status 변경(간트 드래그와 동일 set op 인프라)
+function wireKanbanDrag(){
+  if(!CAN_EDIT)return;
+  const root=document.getElementById("kanban"); if(!root)return;
+  root.querySelectorAll(".kcard[draggable]").forEach(c=>{
+    c.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/plain",c.dataset.tid); c.style.opacity=".5"; });
+    c.addEventListener("dragend",()=>{ c.style.opacity=""; });
+  });
+  root.querySelectorAll("[data-col]").forEach(col=>{
+    col.addEventListener("dragover",e=>{ e.preventDefault(); col.classList.add("kdrop"); });
+    col.addEventListener("dragleave",()=>col.classList.remove("kdrop"));
+    col.addEventListener("drop",e=>{ e.preventDefault(); col.classList.remove("kdrop");
+      const tid=e.dataTransfer.getData("text/plain"), t=TASKMAP[tid], ns=col.dataset.col;
+      if(!t||t.s===ns)return;
+      pushSet(t,"status",ns); t.s=ns;
+      markDirty(); renderAll(); refreshSchedIfActive();
+    });
+  });
 }
 
 // ② Outline tree
