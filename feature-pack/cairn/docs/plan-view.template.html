@@ -139,6 +139,8 @@
     padding:8px 16px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none}
   .kcol.kdrop{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:12px}
   .kcard[draggable]{cursor:grab}
+  .ctog{cursor:pointer;user-select:none;margin-right:4px;opacity:.7;font-size:11px}
+  .ctog:hover{opacity:1}
   .note{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:820px;line-height:1.6}
 
   /* ledger dialog */
@@ -305,10 +307,10 @@ function renderTree(){
     const mstat=m.status==='done'?'done':m.status==='active'?'active':m.status==='blocked'?'blocked':'planned';
     const dates=(m.start||m.end)?`<span class="mdate">📅 ${m.start||"—"} ~ ${m.end||"—"}</span>`:"";
     const mdep=m.dep&&m.dep.length?`<span class="mdep">⟵ ${m.dep.join(", ")}</span>`:"";
-    h+=`<div class="mile"><div class="mhead" data-mid="${m.id}"><span class="badge ${mstat}">${m.id}</span>`+
+    h+=`<div class="mile"><div class="mhead" data-mid="${m.id}"><span class="ctog" data-tog="${m.id}">${collapsed.has(m.id)?'▸':'▾'}</span><span class="badge ${mstat}">${m.id}</span>`+
        `<span class="mname">${esc(m.name)}</span>${dates}${mdep}`+
        `<span class="spacer"></span><div class="pbar"><i style="width:${pct}%"></i></div><span class="pct">${pct}%</span></div>`;
-    m.tasks.forEach(t=>{
+    if(!collapsed.has(m.id)) m.tasks.forEach(t=>{
       const dep=t.dep&&t.dep.length?`<div class="dep">⟵ 선행: ${t.dep.join(", ")}</div>`:"";
       h+=`<div class="trow" data-tid="${t.id}"><span class="tid">${t.id}</span>`+
          `<div class="tbody">${esc(t.name)}${whoLine(t)}${dep}</div>`+
@@ -355,6 +357,8 @@ function renderDepTab(){
 // 최초 렌더 + 재렌더 진입점(편집 저장 후 reloadView가 재호출)
 let TASKMAP={};
 function rebuildTaskMap(){ TASKMAP=Object.fromEntries(allTasks().map(t=>[t.id,t])); }
+const collapsed=new Set();   // 접힌 마일스톤 id(세션 메모리)
+function toggleCollapse(mid){ collapsed.has(mid)?collapsed.delete(mid):collapsed.add(mid); renderAll(); refreshSchedIfActive(); }
 function renderAll(){ rebuildTaskMap(); renderKanban(); renderTree(); renderDepTab(); }
 renderAll();
 
@@ -510,6 +514,8 @@ dlg.addEventListener("click",e=>{
 });
 document.body.addEventListener("click",e=>{
   if(_dragMoved){ _dragMoved=false; return; }   // 드래그 종료 후 click은 다이얼로그 억제
+  const tog=e.target.closest("[data-tog]");
+  if(tog){ toggleCollapse(tog.dataset.tog); return; }
   if(e.target.closest("dialog"))return;
   const el=e.target.closest("[data-tid]");
   if(el){ openTask(el.dataset.tid); return; }
@@ -595,8 +601,8 @@ function renderSchedule(){
       if(m.start===e) msMark=`<div class="sg-diamond" style="left:${l-6}px" title="${esc(m.name)} ${m.start}"></div>`;
       else msMark=`<div class="sg-msbar" style="left:${l}px;width:${(dcount(new Date(m.start),new Date(e))+1)*PX}px" title="${esc(m.name)} ${m.start}~${e}"></div>`;
     }
-    rows+=`<div class="sg-row section" data-mid="${m.id}"><div class="sg-label sec"><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)}</div><div class="sg-track">${msMark}</div></div>`;
-    m.tasks.forEach(t=>{
+    rows+=`<div class="sg-row section" data-mid="${m.id}"><div class="sg-label sec"><span class="ctog" data-tog="${m.id}">${collapsed.has(m.id)?'▸':'▾'}</span><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)}</div><div class="sg-track">${msMark}</div></div>`;
+    if(!collapsed.has(m.id)) m.tasks.forEach(t=>{
       const s=t.start||m.start, e=t.due||m.end||s;
       const left=dayX(s), w=Math.max(PX,(dcount(new Date(s),new Date(e))+1)*PX);
       const who=(t.assignees||[]).length?" · 👤"+t.assignees.join(","):"";
