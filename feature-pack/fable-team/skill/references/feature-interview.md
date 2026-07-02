@@ -35,6 +35,6 @@ AskUserQuestion 또는 대화로 받는다:
 
 ## 4. 설계 확정 → 킥오프
 
-- 확정 내용을 `<project>/.fable-team/features/<slug>.md`에 기록 (피처 한 줄, 파이프라인, 자산 배정, 성공 기준).
+- 확정 내용을 `<project>/.fable-team/features/<slug>.md`에 기록 (피처 한 줄, **파이프라인 형상(파이프라인 + DA 강도)**, 자산 배정, 성공 기준) — 형상은 킥오프 시 state.md frontmatter(`pipeline`/`da`)로 복제돼 세션 복원의 분기 기준이 된다(context-management §4).
 - 이 파일이 planner에게 넘어가는 1차 컨텍스트가 된다.
 - 이후 `orchestration-playbook.md` 파이프라인 시작.

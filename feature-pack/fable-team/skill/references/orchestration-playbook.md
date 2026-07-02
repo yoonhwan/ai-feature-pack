@@ -6,17 +6,24 @@
 
 ```
 0. 킥오프   오케스트레이터: 피처 인터뷰 결과(.fable-team/features/<slug>.md) 확인
+            + state/ACTIVE·state/<slug>.state.md 생성 (형상 포함 — context-management §1)
 1. 수집     ft-checker × N 병렬 (Agent 도구, checker-01…) — 대상 파일 + JSON 보고 형식만 전달
 2. 기획     ft-planner (Workflow agent(), model+effort 명시) — 워커 확인 결과를 인라인/파일로 전달
-            → planner가 설계 파일(design-<slug>.md) Write 후 DESIGN_WRITTEN 반환
+            → planner가 설계 파일(features/design-<slug>-v<N>.md, 재기획마다 v+1) Write 후 DESIGN_WRITTEN 반환
             ★ 오케스트레이터는 설계 내용을 판단하지 않는다. 전달만.
-3. 구현     ft-implementer (Agent 도구) — 설계 파일 경로 전달 ("설계 파일을 Read하고 그대로 구현")
+3. 구현     ft-implementer (Agent 도구) — 구현 SSOT 경로 전달 ("SSOT를 Read하고 그대로 구현")
+            구현 SSOT: 표준 형상 = 설계 파일, 축약 형상(설계 단계 없음) = 피처 파일(features/<slug>.md)
 4. 검증     병렬: ft-tester (Workflow, 설계의 검증 기준 전달) + ft-da review (Agent)
 5. 게이트   ft-da approve loop: APPROVED → 6으로.
-            CHANGES_REQUESTED → 판정+증거를 planner에 재전달(2) → 수정 설계 → 3 재순환.
+            CHANGES_REQUESTED → 판정+증거를 planner에 재전달(2) → 수정 설계(design v+1) → 3 재순환.
             최대 라운드(기본 2) 초과 → 자동 진행 금지, 사용자 에스컬레이션.
 6. 종결     오케스트레이터: tester ALL_PASS + DA APPROVED 증거 수집 → 정리 보고
+            + state.md status: done 기록·state/ACTIVE 제거
 ```
+
+피처 인터뷰에서 축약 형상(확인→구현→테스트, DA 생략 등)을 확정했으면 **해당 단계만 수행** — 형상은 `features/<slug>.md`와 state frontmatter(`pipeline`/`da`)에 기록되고, 세션 복원도 이 형상을 따른다(context-management §4).
+
+**`da: review`의 실행 의미**: stage 4 검증에서 DA review **1회 판정만** 수행하고 stage 5 게이트는 없다 — 판정은 `da-round1.md`로 기록해 종결 보고에 첨부하며, CHANGES_REQUESTED여도 **자동 재기획 재순환 없이** 사용자 판단으로 넘긴다(게이트·재순환은 `da: loop2` 전용).
 
 멈추지 않는 루프의 원리: 오케스트레이터가 두뇌 작업을 안 하므로 각 단계는 "산출물 파일/JSON을 다음 워커에 릴레이"만이다. 판단이 필요한 지점은 전부 planner(설계)와 da(게이트)에 있고, 오케스트레이터는 게이트 결과에 따라 분기만 한다.
 
@@ -24,6 +31,7 @@
 
 - **경로 분리 (필수)**: claude-5 계열(planner fable5, tester sonnet5)은 Workflow `agent()` + `model`/`effort` 명시. 4.6 계열(checker/implementer)은 Agent 도구. 이유는 SKILL.md 함정 참조.
 - **DA 드라이버**: 스킬 설치 후 **새 세션**이면 Agent 도구(`<prefix>-da`, Bash 포함 정의가 시작 시 등록됨). 세션 중 정의를 만들었/고쳤다면 등록 캐시가 구정의라 Bash가 빠질 수 있음 → Workflow `agent()`(model: sonnet, effort: low) + codex 명령 인라인으로 우회 (E2E 실증: gpt-5.5/xhigh APPROVED).
+- **DA 브레인 resume 체인**: approve loop 라운드 2+는 새 one-shot 재인라인 대신 `codex exec resume <session-id>`로 재개(라운드 1 지적 기억 + 토큰 절약). 최초 실행에서 session-id를 판정과 함께 회수해 state.md `brain_sessions`에 기록 — 세션을 넘는 복원 자산(context-management §3).
 - Agent 경로 워커는 `name: <role>-NN` 부여, 프롬프트에 "완료 후 대기하라" — 열린 상태로 두고 SendMessage로 후속 질의(approve loop 재라운드, 추가 확인).
 - 독립 스폰은 한 메시지에 병렬로.
 - 감시: Monitor로 `subagents/agent-a<name>-*.jsonl`에 완료 마커와 **`API Error` 문자열을 함께** 폴링 (조용한 실패 방지). Workflow는 task-notification으로 자동 통지.
