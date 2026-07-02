@@ -341,18 +341,22 @@ function renderDepTab(){
   tab3.textContent="③ 워크트리 / 브랜치";
   const short=t=>{const n=t.name.split(/[:：]/)[0].trim();return (n.length>14?n.slice(0,13)+"…":n);};
   const FEAT=plan.branch||"feat/"+ (plan.project||"project").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  // mermaid gitGraph 기본 브랜치는 이미 main — plan.branch가 main/master면 재생성(branch "main")이
+  // 신택스 에러. 이 경우 기본 브랜치를 그대로 쓰고 별도 feature 브랜치를 만들지 않는다.
+  const isMain=(FEAT==="main"||FEAT==="master");
   let g="gitGraph\n";
-  g+=`  commit id:"main"\n  branch "${FEAT}"\n  checkout "${FEAT}"\n  commit id:"worktree 생성"\n`;
+  g+=`  commit id:"init"\n`;
+  if(!isMain) g+=`  branch "${FEAT}"\n  checkout "${FEAT}"\n  commit id:"worktree 생성"\n`;
   plan.milestones.forEach(m=>{
-    g+=`  branch ${m.id}\n  checkout ${m.id}\n`;
+    g+=`  branch "${m.id}"\n  checkout "${m.id}"\n`;   // id 따옴표 — 하이픈/특수문자 안전
     m.tasks.forEach(t=>{
       const lbl=`${t.id} ${short(t)}`;
       if(t.s==="done")       g+=`  commit id:"${lbl}" tag:"✓"\n`;
       else if(t.s==="doing") g+=`  commit id:"${lbl}" type:HIGHLIGHT\n`;
       else                   g+=`  commit id:"${lbl}" type:REVERSE\n`;
     });
-    g+=`  checkout "${FEAT}"\n`;
-    if(m.status==="done") g+=`  merge ${m.id} tag:"${m.id} merged"\n`;
+    g+=`  checkout "${FEAT}"\n`;   // isMain이면 FEAT="main" → 기본 브랜치로 체크아웃(존재)
+    if(m.status==="done") g+=`  merge "${m.id}" tag:"${m.id} merged"\n`;
   });
   const depNote=plan.milestones.filter(m=>m.dep&&m.dep.length).map(m=>`${m.id} ⟵ ${m.dep.join("+")}`).join(" · ");
   document.getElementById("dep").innerHTML=
