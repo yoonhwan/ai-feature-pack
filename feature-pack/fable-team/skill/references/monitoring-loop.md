@@ -9,7 +9,7 @@
 | Monitor 폴링 | Agent 경로 워커 | `subagents/agent-a<name>-*.jsonl`을 5초 간격 grep — 완료 마커 **와 `API Error` 문자열을 함께** 감시 (조용한 실패 방지). Monitor는 완료 시 자동 통지 |
 | idle_notification | 팀 워커 전체 | 워커가 idle/failed로 전환되면 teammate-message로 자동 수신 — `idleReason: failed`의 `failureReason`을 즉시 원장에 기록 |
 | task-notification | Workflow 워커 | 완료/실패 자동 통지 + `journal.jsonl`로 반환값 검증. **주의: 세션 내 백그라운드는 사용자 개입(ESC·메시지)에 동반 사망** — 개입이 잦은 구간의 장시간 워커는 콘솔 분리 경로(아래 행) 사용 |
-| PID + 출력 파일 | 콘솔 분리(`claude -p`) 워커 | `kill -0 <PID>` 생존 + 출력 파일 mtime/크기 폴링 — 별도 OS 프로세스라 세션 개입과 무관하게 생존 (SKILL.md 스폰 경로 3행) |
+| PID + 출력 파일 + tmux 테일러 | 콘솔 분리(`claude -p`) 워커 | `kill -0 <PID>` 생존 + 출력 파일 mtime/크기 폴링(오케스트레이터 감시) **+ transcript 라이브 테일러 tmux 세션(사람 가시성 — 세션명 보고 의무)** — 별도 OS 프로세스라 세션 개입과 무관하게 생존 (SKILL.md 스폰 경로 3행) |
 
 ## 2. 진로이탈(산으로 가는) 감지 — 지원 체크 루프
 
