@@ -21,7 +21,7 @@
 | `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (팀의 두뇌 — 최상위 모델 권장) | [claude-fable-5 / max] | Workflow 경로로만 스폰 (SKILL.md 스폰 경로 분리 규칙) |
 | `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 확인 워커 브레인? | [claude-sonnet-4-6 / low] | sonnet4.6은 low·medium·high만 |
 | `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / max] | |
-| `{{TESTER_MODEL}}` / `{{TESTER_EFFORT}}` | 테스터 브레인? | [claude-sonnet-5 / high] | sonnet5는 xhigh 불가(max까지) |
+| `{{TESTER_MODEL}}` / `{{TESTER_EFFORT}}` | 테스터 브레인? | [claude-sonnet-5 / high] | claude-5 유효 effort: low/medium/high/max — **xhigh 불가, 표준 high** |
 | `{{DA_BRAIN_MODEL}}` / `{{DA_EFFORT}}` | DA 브레인? | [gpt-5.5 (codex default) / xhigh] | codex는 xhigh 지원 |
 | `{{DA_DRIVER_MODEL}}` | DA 드라이버(codex 호출 셔틀)? | [claude-sonnet-4-6] | 드라이버 effort는 low 고정 |
 | `{{DA_MAX_ROUNDS}}` | approve loop 최대 라운드? | [2] | 초과 시 사용자 에스컬레이션 |
