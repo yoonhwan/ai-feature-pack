@@ -10,6 +10,8 @@ import sys
 import tempfile
 import fcntl
 import hashlib
+import secrets
+import urllib.parse
 from contextlib import contextmanager
 from pathlib import Path
 from ruamel.yaml import YAML, YAMLError
@@ -798,6 +800,8 @@ def _build_pfilter(args):
 
 
 def cmd_render(data, args):
+    if getattr(args, "serve", False):
+        return _serve(args)
     errors = validate(data)
     if errors:
         for e in errors:
@@ -1543,6 +1547,200 @@ def apply_ops(data, ops):
             raise ValueError(f"op[{i}] ({kind}): {e}")
 
 
+# ── 멀티뷰 뷰JSON 매핑 + 웹 저장 코어 (serve 편집 백엔드) ────────────────────
+def to_view(data, pid=None):
+    """plan.yaml → 뷰어 템플릿용 JSON(손실 매핑: status→s, depends_on→dep 등).
+    이건 표시 전용 — 편집은 절대 이 JSON을 역매핑하지 않고 op으로만 보낸다."""
+    projs = data.get("projects", []) or []
+    proj = (find_project(data, pid) if pid else (projs[0] if projs else None)) or {}
+    out = {"pid": proj.get("id"), "project": proj.get("name"), "branch": proj.get("branch"),
+           "type": proj.get("type", "work"), "milestones": []}
+    for m in proj.get("milestones", []) or []:
+        mm = {"id": m["id"], "name": m["name"], "status": m.get("status"),
+              "start": m.get("start"), "end": m.get("end"),
+              "dep": m.get("depends_on") or [], "tasks": []}
+        for t in m.get("tasks", []) or []:
+            tt = {"id": t["id"], "s": t.get("status"), "name": t["name"],
+                  "dep": t.get("depends_on") or []}
+            for k in ("assignees", "reporters", "watchers", "note", "ssot", "branch", "start", "due"):
+                if t.get(k):
+                    tt[k] = t[k]
+            if t.get("execution_ref"):
+                tt["exec"] = t["execution_ref"]
+            mm["tasks"].append(tt)
+        out["milestones"].append(mm)
+    return out
+
+
+def plan_hash(path=None):
+    """sha256(plan.yaml) — 충돌 감지용 콘텐츠 해시(mtime 아님). 호출시점 PLAN_PATH 참조."""
+    return hashlib.sha256(Path(path or PLAN_PATH).read_bytes()).hexdigest()
+
+
+def _op_summary(ops):
+    """web-sync 커밋 body용 op 요약."""
+    parts = []
+    for op in ops[:8]:
+        k = op.get("op"); tgt = op.get("target") or []
+        last = tgt[-1] if tgt else "?"
+        if k in ("set", "set-ms"):
+            parts.append(f"{k} {last}.{op.get('field')}")
+        elif k in ("add-task", "remove-task", "remove-milestone"):
+            parts.append(f"{k} {last}")
+        elif k == "add-milestone":
+            parts.append("add-milestone")
+        else:
+            parts.append(str(k))
+    s = ", ".join(parts)
+    if len(ops) > 8:
+        s += f", +{len(ops) - 8} more"
+    return s
+
+
+def web_save(ops, base_hash):
+    """웹 /save 처리 코어 — (status_code, body_dict) 반환. 저장은 transaction() 1회 경유.
+    싱크 1회 = 커밋 1회(web-sync: 접두 + op 요약). 뷰JSON 재직렬화 없이 op만 적용."""
+    if not isinstance(ops, list):
+        return 400, {"error": "ops must be a list"}
+    if not ops:
+        return 400, {"error": "no ops"}
+    current = plan_hash()
+    if base_hash != current:
+        # 디스크가 외부에서 바뀜 — 재로드용 최신 뷰+해시 동봉(3-way 머지 안 함)
+        return 409, {"conflict": True, "hash": current, "view": to_view(load_plan(PLAN_PATH))}
+    try:
+        transaction(lambda d: apply_ops(d, ops), "web-sync: " + (_op_summary(ops) or "edit"))
+    except ValueError as e:
+        return 400, {"error": str(e)}
+    except RuntimeError as e:   # dirty worktree 등 transaction 가드(F2 2중방어)
+        return 409, {"error": str(e), "hash": plan_hash()}
+    # 성공 → 재로드 없이 연속 편집: 최신 뷰JSON + 새 baseHash 반환
+    return 200, {"ok": True, "hash": plan_hash(), "view": to_view(load_plan(PLAN_PATH))}
+
+
+TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "docs" / "plan-view.template.html"
+
+
+def build_view_html(data, pid=None, token="", base_hash=""):
+    """멀티뷰 템플릿에 뷰JSON + 편집 컨텍스트(token/baseHash) 주입 → 완결 HTML.
+    치환은 데이터 블록 문자열 교체만(로직 최소)."""
+    tpl = TEMPLATE_PATH.read_text(encoding="utf-8")
+    view = to_view(data, pid)
+    i = tpl.index("const plan = ")
+    j = tpl.index("// ==== 데이터 끝 ====")
+    edit_ctx = {"token": token, "baseHash": base_hash, "pid": view.get("pid")}
+    injected = ("const plan = " + json.dumps(view, ensure_ascii=False) + ";\n"
+                + "const CAIRN_EDIT = " + json.dumps(edit_ctx, ensure_ascii=False) + ";\n")
+    return tpl[:i] + injected + tpl[j:]
+
+
+def _os_open(path):
+    """platform별 문서/URL 열기 (serve 모드 /open + 뷰어 자동열기)."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", path], check=False)
+    elif sys.platform.startswith("linux"):
+        subprocess.run(["xdg-open", path], check=False)
+    elif sys.platform in ("win32", "cygwin"):
+        os.startfile(path)  # type: ignore[attr-defined]
+
+
+def _make_server(pid, port):
+    """편집 가능 뷰어 HTTP 서버 + 세션 토큰 반환. 127.0.0.1 바인드 · POST 변이 · Host 검증."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    token = secrets.token_urlsafe(16)
+
+    class Handler(BaseHTTPRequestHandler):
+        def _tok_ok(self):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            return secrets.compare_digest((q.get("t") or [""])[0], token)
+
+        def _host_ok(self):   # DNS rebinding 방어
+            host = (self.headers.get("Host") or "").split(":")[0]
+            return host in ("localhost", "127.0.0.1", "")
+
+        def _send_json(self, code, obj):
+            body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _send_html(self, html):
+            body = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            if not self._host_ok():
+                self._send_json(403, {"error": "bad host"}); return
+            path = urllib.parse.urlparse(self.path).path
+            if not self._tok_ok():
+                self._send_json(403, {"error": "bad token"}); return
+            if path == "/":
+                self._send_html(build_view_html(load_plan(PLAN_PATH), pid, token, plan_hash()))
+            elif path == "/hash":
+                self._send_json(200, {"hash": plan_hash()})
+            elif path == "/view":
+                self._send_json(200, {"view": to_view(load_plan(PLAN_PATH), pid), "hash": plan_hash()})
+            else:
+                self._send_json(404, {"error": "not found"})
+
+        def do_POST(self):
+            if not self._host_ok():
+                self._send_json(403, {"error": "bad host"}); return
+            if not self._tok_ok():
+                self._send_json(403, {"error": "bad token"}); return
+            path = urllib.parse.urlparse(self.path).path
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+            except ValueError:
+                self._send_json(400, {"error": "bad json"}); return
+            if path == "/save":
+                self._send_json(*web_save(payload.get("ops"), payload.get("baseHash")))
+            elif path == "/open":
+                p = payload.get("path")
+                ok = bool(p) and os.path.exists(p)
+                if ok:
+                    _os_open(p)
+                self._send_json(200 if ok else 404, {"ok": ok})
+            else:
+                self._send_json(404, {"error": "not found"})
+
+        def log_message(self, *a):
+            pass
+
+    return ThreadingHTTPServer(("127.0.0.1", port), Handler), token
+
+
+def _serve(args):
+    """cairn render --serve — 편집 가능 멀티뷰 뷰어 서버."""
+    data = load_plan(PLAN_PATH)
+    errors = validate(data)
+    if errors:
+        for e in errors:
+            print(f" - {e}", file=sys.stderr)
+        print(f"INVALID ({len(errors)} errors) — 편집 서버 기동 안 함", file=sys.stderr)
+        return 1
+    srv, token = _make_server(getattr(args, "project", None), getattr(args, "port", 8899))
+    url = f"http://127.0.0.1:{srv.server_address[1]}/?t={token}"
+    print(f"cairn viewer(편집 가능): {url}")
+    print("Ctrl-C 로 종료. 편집은 상단 싱크 버튼으로 저장(web-sync 커밋).")
+    if not getattr(args, "no_open", False):
+        _os_open(url)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n종료")
+    finally:
+        srv.server_close()
+    return 0
+
+
 def cmd_remove_task(data_unused, args):
     def mutate(data):
         p = find_project(data, args.project)
@@ -1739,6 +1937,10 @@ def main(argv=None):
                           help="assignee/reporter/watcher 중 하나라도 name인 task(역할 합집합)")
     p_render.add_argument("--by", choices=["month", "quarter"], default=None,
                           help="milestone start 날짜에서 월/분기 섹션 파생(group 모드보다 우선)")
+    p_render.add_argument("--serve", action="store_true",
+                          help="localhost 편집 서버 기동(멀티뷰 + 원장 편집·싱크). file://은 읽기전용")
+    p_render.add_argument("--port", type=int, default=8899, help="serve 포트(기본 8899)")
+    p_render.add_argument("--project", default=None, help="serve 대상 프로젝트 id(기본 첫 프로젝트)")
 
     sp_ss = sub.add_parser("set-status")
     sp_ss.add_argument("project")

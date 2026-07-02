@@ -2257,3 +2257,140 @@ def test_apply_ops_missing_target_rejected():
         assert False
     except ValueError:
         pass
+
+
+# ── C3: serve 편집 백엔드 (to_view / plan_hash / web_save — transaction 경유) ─
+def test_to_view_maps_fields():
+    d = _good()
+    v = cairn.to_view(d)
+    assert v["pid"] == "project-a"
+    assert v["type"] == "work"   # golden엔 type 없음 → 기본 work
+    assert len(v["milestones"]) == 2
+    tids = [t["id"] for m in v["milestones"] for t in m["tasks"]]
+    assert set(tids) == {"t1", "t2", "t3"}
+    # 손실 매핑 키: status→s
+    t2 = [t for m in v["milestones"] for t in m["tasks"] if t["id"] == "t2"][0]
+    assert t2["s"] == "doing"
+
+
+def test_to_view_maps_ssot_and_exec():
+    d = _good()
+    t = _find_task(d, "t3"); t["ssot"] = "/x.md"; t["execution_ref"] = "worktree/z"
+    v = cairn.to_view(d)
+    t3 = [x for m in v["milestones"] for x in m["tasks"] if x["id"] == "t3"][0]
+    assert t3["ssot"] == "/x.md" and t3["exec"] == "worktree/z"
+
+
+def test_plan_hash_changes_on_edit(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    h1 = cairn.plan_hash()
+    cairn.main(["set-status", "project-a", "task", "ms2", "t3", "done"])
+    assert cairn.plan_hash() != h1
+
+
+def test_web_save_applies_ops_via_transaction(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    base = cairn.plan_hash()
+    status, body = cairn.web_save(
+        [{"op": "set", "target": ["project-a", "ms2", "t3"], "field": "status", "value": "done"}],
+        base)
+    assert status == 200 and body["ok"]
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert _find_task(d, "t3")["status"] == "done"
+    log = subprocess.run(["git", "log", "--oneline"], cwd=repo, capture_output=True, text=True).stdout
+    assert "web-sync" in log
+    assert body["hash"] == cairn.plan_hash()   # 새 baseHash 반환
+
+
+def test_web_save_conflict_returns_409(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    status, body = cairn.web_save(
+        [{"op": "set", "target": ["project-a", "ms2", "t3"], "field": "status", "value": "done"}],
+        "staleHASHstale")
+    assert status == 409 and body.get("conflict")
+    assert "view" in body and body["hash"] == cairn.plan_hash()
+    # 원장 미변경
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert _find_task(d, "t3")["status"] == "todo"
+
+
+def test_web_save_rejects_execution_ref(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    base = cairn.plan_hash()
+    status, body = cairn.web_save(
+        [{"op": "set", "target": ["project-a", "ms2", "t3"], "field": "execution_ref", "value": "worktree/x"}],
+        base)
+    assert status == 400 and "execution_ref" in body["error"]
+    assert cairn.plan_hash() == base   # 미변경
+
+
+def test_web_save_invalid_status_rolls_back(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    base = cairn.plan_hash()
+    status, body = cairn.web_save(
+        [{"op": "set", "target": ["project-a", "ms2", "t3"], "field": "status", "value": "nope"}],
+        base)
+    assert status == 400 and "error" in body
+    assert cairn.plan_hash() == base   # transaction validate 실패 → 원장 미변경
+
+
+def test_web_save_empty_ops_rejected(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    status, body = cairn.web_save([], cairn.plan_hash())
+    assert status == 400
+
+
+# ── C3: serve 서버 스모크 (토큰·Host 검증 + /save transaction) ───────────────
+def test_build_view_html_injects_edit_context():
+    d = _good()
+    html = cairn.build_view_html(d, None, token="TOK123", base_hash="H")
+    assert "CAIRN_EDIT" in html and "TOK123" in html
+    assert "__CAIRN_" not in html   # 미치환 토큰 없음
+    assert '"pid": "project-a"' in html or '"pid":"project-a"' in html
+
+
+def test_serve_smoke(tmp_path, monkeypatch):
+    import json, threading, urllib.request, urllib.error
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    srv, token = cairn._make_server(None, 0)
+    th = threading.Thread(target=srv.serve_forever, daemon=True); th.start()
+    try:
+        base = f"http://127.0.0.1:{srv.server_address[1]}"
+
+        def get(path, headers=None):
+            return urllib.request.urlopen(urllib.request.Request(base + path, headers=headers or {}))
+
+        # 무토큰 → 403
+        try:
+            get("/hash"); assert False, "무토큰은 403이어야 함"
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+        # 토큰 → 200, hash 일치
+        h = json.loads(get(f"/hash?t={token}").read())["hash"]
+        assert h == cairn.plan_hash()
+        # Host 위조 → 403 (DNS rebinding 방어)
+        try:
+            get(f"/hash?t={token}", {"Host": "evil.com"}); assert False
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+        # GET / → 편집 컨텍스트 임베드 HTML
+        html = get(f"/?t={token}").read().decode()
+        assert "CAIRN_EDIT" in html and token in html
+        # POST /save (토큰) → 편집 반영 + web-sync 커밋
+        payload = json.dumps({"ops": [{"op": "set", "target": ["project-a", "ms2", "t3"],
+                                       "field": "status", "value": "done"}], "baseHash": h}).encode()
+        req = urllib.request.Request(base + f"/save?t={token}", data=payload, method="POST",
+                                     headers={"Content-Type": "application/json"})
+        r = urllib.request.urlopen(req)
+        assert r.status == 200
+        d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+        assert _find_task(d, "t3")["status"] == "done"
+        # POST /save 무토큰 → 403
+        try:
+            urllib.request.urlopen(urllib.request.Request(base + "/save", data=payload, method="POST",
+                                   headers={"Content-Type": "application/json"}))
+            assert False
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+    finally:
+        srv.shutdown(); srv.server_close()
