@@ -816,9 +816,13 @@ def cmd_render(data, args):
     if pfilter is None and by is None:
         write_view(data)
         print(f"rendered → {VIEW_PATH}")
-    m = re.search(r"```mermaid\n(.*?)```", md, re.S)
     html_path = VIEW_PATH.with_suffix(".html")
-    html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
+    if getattr(args, "legacy", False):
+        m = re.search(r"```mermaid\n(.*?)```", md, re.S)
+        html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
+    else:
+        # 기본(0.2.0~): 멀티뷰 정적 뷰어(칸반/트리/간트·gitGraph, 읽기전용). 편집은 --serve.
+        html_path.write_text(build_view_html(data, getattr(args, "project", None)), encoding="utf-8")
     print(f"HTML → {html_path}")
     if sys.platform == "darwin" and not getattr(args, "no_open", False):
         subprocess.run(["open", str(html_path)], check=False)   # 기본 브라우저로 바로 렌더
@@ -1745,8 +1749,12 @@ def _serve(args):
         return 1
     srv, token = _make_server(getattr(args, "project", None), getattr(args, "port", 8899))
     url = f"http://127.0.0.1:{srv.server_address[1]}/?t={token}"
-    print(f"cairn viewer(편집 가능): {url}")
-    print("Ctrl-C 로 종료. 편집은 상단 싱크 버튼으로 저장(web-sync 커밋).")
+    # flush=True: nohup/파이프로 띄워도 URL이 즉시 나오게(PYTHONUNBUFFERED 없이도 토큰 URL 확보 가능)
+    print("┌─ cairn 편집 뷰어 (localhost) ─────────────────────────", flush=True)
+    print(f"│  브라우저에서 열기:  {url}", flush=True)
+    print("│  ⚠ 토큰(?t=)은 매 기동 랜덤 — 이 URL 그대로 사용", flush=True)
+    print("│  편집은 상단 싱크 버튼으로 저장(web-sync 커밋) · Ctrl-C 종료", flush=True)
+    print("└──────────────────────────────────────────────────────", flush=True)
     if not getattr(args, "no_open", False):
         _os_open(url)
     try:
@@ -1954,6 +1962,8 @@ def main(argv=None):
                           help="assignee/reporter/watcher 중 하나라도 name인 task(역할 합집합)")
     p_render.add_argument("--by", choices=["month", "quarter"], default=None,
                           help="milestone start 날짜에서 월/분기 섹션 파생(group 모드보다 우선)")
+    p_render.add_argument("--legacy", action="store_true",
+                          help="기존 mermaid 간트 HTML로 렌더(기본은 멀티뷰 뷰어)")
     p_render.add_argument("--serve", action="store_true",
                           help="localhost 편집 서버 기동(멀티뷰 + 원장 편집·싱크). file://은 읽기전용")
     p_render.add_argument("--port", type=int, default=8899, help="serve 포트(기본 8899)")
