@@ -1191,9 +1191,18 @@ def test_cmd_render_emits_html_by_default(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "HTML →" in out
     html = cairn.VIEW_PATH.with_suffix(".html").read_text(encoding="utf-8")
-    assert "mermaid.min.js" in html              # CDN 스크립트 임베드
-    assert "gantt" in html                       # 간트차트 mermaid 포함
+    assert "const plan = " in html               # 기본=멀티뷰 뷰어(데이터 주입)
+    assert "__CAIRN_" not in html                # 치환 토큰 미잔존
     assert any("open" in c for c in opened)      # 브라우저로 표시
+
+
+def test_cmd_render_legacy_emits_gantt(tmp_path, monkeypatch):
+    # --legacy: 기존 mermaid 간트 HTML(옵션으로 유지)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    monkeypatch.setattr(cairn.subprocess, "run", lambda *a, **k: None)
+    assert cairn.main(["render", "--legacy", "--no-open"]) == 0
+    html = cairn.VIEW_PATH.with_suffix(".html").read_text(encoding="utf-8")
+    assert "mermaid.min.js" in html and "gantt" in html   # 기존 간트 유지
 
 
 def test_cmd_render_no_open_skips_browser(tmp_path, monkeypatch, capsys):
@@ -2394,3 +2403,31 @@ def test_serve_smoke(tmp_path, monkeypatch):
             assert e.code == 403
     finally:
         srv.shutdown(); srv.server_close()
+
+
+# ── install-fix: template 경로가 개발/설치 양쪽 레이아웃에서 발견되어야 함 ──
+def test_template_path_exists_dev():
+    # 개발 트리(core 옆 docs)에서 실제 template 존재
+    assert cairn.TEMPLATE_PATH.exists(), f"template 없음: {cairn.TEMPLATE_PATH}"
+
+
+def test_find_template_dev_layout(tmp_path):
+    # core/cairn.py + ../docs/template (개발 레이아웃)
+    (tmp_path/"core").mkdir(); (tmp_path/"docs").mkdir()
+    tpl=(tmp_path/"docs"/"plan-view.template.html"); tpl.write_text("x")
+    assert cairn._find_template(tmp_path/"core"/"cairn.py") == tpl
+
+
+def test_find_template_install_layout(tmp_path):
+    # 설치본: cairn.py 와 docs/ 가 같은 레벨(versions/<ver>/cairn.py + versions/<ver>/docs/template)
+    (tmp_path/"docs").mkdir()
+    tpl=(tmp_path/"docs"/"plan-view.template.html"); tpl.write_text("x")
+    assert cairn._find_template(tmp_path/"cairn.py") == tpl
+
+
+def test_self_test_covers_multiview(tmp_path, monkeypatch, capsys):
+    # self-test가 멀티뷰 build_view_html 렌더까지 검증해야(사각지대 방지)
+    repo=_init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["self-test"]) == 0
+    out=capsys.readouterr().out
+    assert "OK" in out

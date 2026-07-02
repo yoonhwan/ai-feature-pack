@@ -816,9 +816,13 @@ def cmd_render(data, args):
     if pfilter is None and by is None:
         write_view(data)
         print(f"rendered → {VIEW_PATH}")
-    m = re.search(r"```mermaid\n(.*?)```", md, re.S)
     html_path = VIEW_PATH.with_suffix(".html")
-    html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
+    if getattr(args, "legacy", False):
+        m = re.search(r"```mermaid\n(.*?)```", md, re.S)
+        html_path.write_text(render_html(m.group(1) if m else md), encoding="utf-8")
+    else:
+        # 기본(0.2.0~): 멀티뷰 정적 뷰어(칸반/트리/간트·gitGraph, 읽기전용). 편집은 --serve.
+        html_path.write_text(build_view_html(data, getattr(args, "project", None)), encoding="utf-8")
     print(f"HTML → {html_path}")
     if sys.platform == "darwin" and not getattr(args, "no_open", False):
         subprocess.run(["open", str(html_path)], check=False)   # 기본 브라우저로 바로 렌더
@@ -1302,6 +1306,12 @@ def cmd_self_test(_data, args):
     again = yaml.load(io.StringIO(dump_str(data)))
     if render(again) != expected:
         print("self-test FAIL: render mismatch vs tests/golden.view.md"); return 1
+    # 멀티뷰 뷰어: template이 설치본에 실제 존재하고 렌더되는지(설치 누락 사각지대 방지)
+    if not TEMPLATE_PATH.exists():
+        print(f"self-test FAIL: 멀티뷰 template 없음 ({TEMPLATE_PATH}) — install.sh docs 복사 확인"); return 1
+    html = build_view_html(data, None)
+    if "__CAIRN_" in html or "const plan = " not in html:
+        print("self-test FAIL: 멀티뷰 렌더 이상(토큰 잔존 또는 데이터 미주입)"); return 1
     print("self-test OK"); return 0
 
 
@@ -1618,7 +1628,18 @@ def web_save(ops, base_hash):
     return 200, {"ok": True, "hash": plan_hash(), "view": to_view(load_plan(PLAN_PATH))}
 
 
-TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "docs" / "plan-view.template.html"
+def _find_template(script=None):
+    """멀티뷰 뷰어 template 위치 — 개발 트리(core 옆 docs)와 설치본(core/docs) 양쪽 지원.
+    install.sh가 template을 설치본 <ver>/docs/ 로 복사한다."""
+    here = Path(script or __file__).resolve().parent
+    for c in (here.parent / "docs" / "plan-view.template.html",   # 개발: feature-pack/cairn/core → ../docs
+              here / "docs" / "plan-view.template.html"):          # 설치본: ~/.cairn/versions/<ver>/docs
+        if c.exists():
+            return c
+    return here.parent / "docs" / "plan-view.template.html"        # 기본(에러 메시지용)
+
+
+TEMPLATE_PATH = _find_template()
 
 
 def build_view_html(data, pid=None, token="", base_hash=""):
@@ -1728,8 +1749,12 @@ def _serve(args):
         return 1
     srv, token = _make_server(getattr(args, "project", None), getattr(args, "port", 8899))
     url = f"http://127.0.0.1:{srv.server_address[1]}/?t={token}"
-    print(f"cairn viewer(편집 가능): {url}")
-    print("Ctrl-C 로 종료. 편집은 상단 싱크 버튼으로 저장(web-sync 커밋).")
+    # flush=True: nohup/파이프로 띄워도 URL이 즉시 나오게(PYTHONUNBUFFERED 없이도 토큰 URL 확보 가능)
+    print("┌─ cairn 편집 뷰어 (localhost) ─────────────────────────", flush=True)
+    print(f"│  브라우저에서 열기:  {url}", flush=True)
+    print("│  ⚠ 토큰(?t=)은 매 기동 랜덤 — 이 URL 그대로 사용", flush=True)
+    print("│  편집은 상단 싱크 버튼으로 저장(web-sync 커밋) · Ctrl-C 종료", flush=True)
+    print("└──────────────────────────────────────────────────────", flush=True)
     if not getattr(args, "no_open", False):
         _os_open(url)
     try:
@@ -1937,6 +1962,8 @@ def main(argv=None):
                           help="assignee/reporter/watcher 중 하나라도 name인 task(역할 합집합)")
     p_render.add_argument("--by", choices=["month", "quarter"], default=None,
                           help="milestone start 날짜에서 월/분기 섹션 파생(group 모드보다 우선)")
+    p_render.add_argument("--legacy", action="store_true",
+                          help="기존 mermaid 간트 HTML로 렌더(기본은 멀티뷰 뷰어)")
     p_render.add_argument("--serve", action="store_true",
                           help="localhost 편집 서버 기동(멀티뷰 + 원장 편집·싱크). file://은 읽기전용")
     p_render.add_argument("--port", type=int, default=8899, help="serve 포트(기본 8899)")
