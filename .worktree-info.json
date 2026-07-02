@@ -1,5 +1,5 @@
 {
-  "branch": "feat/cairn-people",
-  "created_at": "2026-06-30",
-  "purpose": "cairn 원장에 assignee/reporter/watcher 3필드 + 사람별 그래프 조회 구현"
+  "branch": "feat/cairn-p1p2",
+  "created_at": "2026-07-02",
+  "purpose": "cairn 뷰어 P1/P2 후속 8종 — soft-warn·주말음영·zoom-fit·칸반status드래그 + 접기/진행률바/담당자필터/MS편집 다이얼로그. SSOT=feature-pack/cairn/docs/render-p1p2-enhancements-design.md"
 }
