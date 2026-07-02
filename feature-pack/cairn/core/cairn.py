@@ -1302,6 +1302,12 @@ def cmd_self_test(_data, args):
     again = yaml.load(io.StringIO(dump_str(data)))
     if render(again) != expected:
         print("self-test FAIL: render mismatch vs tests/golden.view.md"); return 1
+    # 멀티뷰 뷰어: template이 설치본에 실제 존재하고 렌더되는지(설치 누락 사각지대 방지)
+    if not TEMPLATE_PATH.exists():
+        print(f"self-test FAIL: 멀티뷰 template 없음 ({TEMPLATE_PATH}) — install.sh docs 복사 확인"); return 1
+    html = build_view_html(data, None)
+    if "__CAIRN_" in html or "const plan = " not in html:
+        print("self-test FAIL: 멀티뷰 렌더 이상(토큰 잔존 또는 데이터 미주입)"); return 1
     print("self-test OK"); return 0
 
 
@@ -1618,7 +1624,18 @@ def web_save(ops, base_hash):
     return 200, {"ok": True, "hash": plan_hash(), "view": to_view(load_plan(PLAN_PATH))}
 
 
-TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "docs" / "plan-view.template.html"
+def _find_template(script=None):
+    """멀티뷰 뷰어 template 위치 — 개발 트리(core 옆 docs)와 설치본(core/docs) 양쪽 지원.
+    install.sh가 template을 설치본 <ver>/docs/ 로 복사한다."""
+    here = Path(script or __file__).resolve().parent
+    for c in (here.parent / "docs" / "plan-view.template.html",   # 개발: feature-pack/cairn/core → ../docs
+              here / "docs" / "plan-view.template.html"):          # 설치본: ~/.cairn/versions/<ver>/docs
+        if c.exists():
+            return c
+    return here.parent / "docs" / "plan-view.template.html"        # 기본(에러 메시지용)
+
+
+TEMPLATE_PATH = _find_template()
 
 
 def build_view_html(data, pid=None, token="", base_hash=""):
