@@ -628,6 +628,7 @@ function renderSchedule(){
     '<div class="note">일정관리 타입: 실제 기간 기반 간트. 좌측 라벨 고정 · 타임라인만 마스킹 스크롤 · 확대/축소로 시간축 밀도 조절. 빨간선=오늘. 바 클릭 → 원장. 바에 호버 → 의존 강조.'+editNote+'</div>'+
     '<div class="legend"><span><i class="dot done"></i>완료</span><span><i class="dot doing"></i>진행중</span><span><i class="dot todo"></i>대기</span><span style="color:#e5534b">■ 블록(막힘)</span><span style="color:#e5534b">▨ 마감초과(overdue)</span><span style="color:var(--doing)">▢ 선행</span><span style="color:var(--wa)">▢ 후행</span></div>'+
     '<div class="sg-toolbar"><button id="gZoomOut" title="축소">－</button><button id="gZoomIn" title="확대">＋</button>'+
+      '<button id="gFit" title="전체 맞춤">맞춤</button><button id="gWk">주</button><button id="gMo">월</button><button id="gQt">분기</button>'+
       `<span id="gZoomLbl" class="zlbl"></span><span style="flex:1"></span>`+
       '<button id="gPrev" title="반칸 왼쪽">‹</button><button id="gToday">오늘</button><button id="gNext" title="반칸 오른쪽">›</button></div>'+
     `<div class="sg-body" id="ganttscroll"><div class="sg-inner" style="width:${innerW}px">`+
@@ -668,14 +669,31 @@ function _clearDepHl(scroll){ scroll.querySelectorAll(".sg-bar.dep-hl,.sg-bar.de
   .forEach(b=>b.classList.remove("dep-hl","dep-pre","dep-post")); }
 function _barOf(scroll,tid){ const r=scroll.querySelector(`.sg-row[data-tid="${tid}"]`); return r&&r.querySelector(".sg-bar"); }
 let _dragMoved=false;
+function _centerDate(){   // 현재 뷰포트 중앙의 날짜(줌 앵커)
+  const sc=document.getElementById("ganttscroll"); if(!sc||!SG.min)return null;
+  const centerX=sc.scrollLeft+sc.clientWidth/2-LABELW;
+  const d=new Date(SG.min); d.setDate(d.getDate()+Math.round(centerX/SG.px)); return d;
+}
+function zoomTo(px){
+  const anchor=_centerDate();
+  SG.px=Math.max(2,Math.min(60,px)); renderSchedule(); fixupSchedule();
+  if(anchor){ const sc=document.getElementById("ganttscroll");
+    sc.scrollLeft=LABELW+dcount(SG.min,anchor)*SG.px-sc.clientWidth/2; }
+}
+function fitZoom(){ const {days}=scheduleBounds(); const sc=document.getElementById("ganttscroll");
+  if(sc) zoomTo(Math.floor((sc.clientWidth-LABELW)/Math.max(1,days))); }
 function wireSchedule(){
   const scroll=document.getElementById("ganttscroll"); if(!scroll)return;
   const half=()=>scroll.clientWidth/2;
   document.getElementById("gPrev").onclick=()=>scroll.scrollBy({left:-half(),behavior:"smooth"});
   document.getElementById("gNext").onclick=()=>scroll.scrollBy({left:half(),behavior:"smooth"});
   document.getElementById("gToday").onclick=()=>centerToday("smooth");
-  document.getElementById("gZoomIn").onclick=()=>{SG.px=Math.min(60,SG.px+6);renderSchedule();fixupSchedule();};
-  document.getElementById("gZoomOut").onclick=()=>{SG.px=Math.max(4,SG.px-6);renderSchedule();fixupSchedule();};
+  document.getElementById("gZoomIn").onclick=()=>zoomTo(SG.px+6);
+  document.getElementById("gZoomOut").onclick=()=>zoomTo(SG.px-6);
+  document.getElementById("gFit").onclick=fitZoom;
+  document.getElementById("gWk").onclick=()=>zoomTo(28);
+  document.getElementById("gMo").onclick=()=>zoomTo(10);
+  document.getElementById("gQt").onclick=()=>zoomTo(5);
   // 의존 하이라이트(바 호버 → 선행/후행 테두리 강조)
   scroll.addEventListener("mouseover",e=>{
     const bar=e.target.closest(".sg-bar"); _clearDepHl(scroll);
