@@ -18,7 +18,7 @@
 
 | 키 | 질문 | 기본값 | 허용값 주의 |
 |----|------|--------|-------------|
-| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (팀의 두뇌 — 최상위 모델 권장) | [claude-fable-5 / max] | Workflow 경로로만 스폰 (SKILL.md 스폰 경로 분리 규칙) |
+| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (팀의 두뇌 — 최상위 모델 권장) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. max는 대형 신규 설계 opt-in — hang 실측 시 high 재발사(SKILL.md 허들 2 등급제) |
 | `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 확인 워커 브레인? | [claude-sonnet-4-6 / low] | sonnet4.6은 low·medium·high만 |
 | `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / max] | |
 | `{{TESTER_MODEL}}` / `{{TESTER_EFFORT}}` | 테스터 브레인? | [claude-sonnet-5 / high] | claude-5 유효 effort: low/medium/high/max — **xhigh 불가, 표준 high** |
@@ -66,5 +66,5 @@
 4. 검증 — 프로브는 **두 경로로 전 워커**를 커버한다 (`orchestration-playbook.md` §프로브):
    - Agent 경로(checker/implementer/da + 크루 드라이버): 팀 하네스 프로브.
    - **Workflow 경로(planner/tester): Workflow `agent()`에 model/effort 명시로 동일 프로브** — Agent 프로브만 돌리면 planner가 목록에 안 떠 설치가 완료된 것처럼 보이는 함정(실사례: `probe-checker/impl/da`만 표시되고 기획 브레인 미검증).
-   - **통과 기준: 신규 세션은 planner(최고성능 max effort 기획 브레인) 프로브 통과가 필수** — planner 프로브가 없으면 설치 미완으로 간주하고 3번부터 재수행.
+   - **통과 기준: 신규 세션은 planner(최상위 기획 브레인 — 기본 high) 프로브 통과가 필수** — planner 프로브가 없으면 설치 미완으로 간주하고 3번부터 재수행.
 5. 실패 패턴: 워커가 `API Error 400 level ... not supported`로 죽으면 effort/모델 조합 오류 — 위 허용값 표로 교정 후 재설치.
