@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>cairn plan — 표현방식 실험</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --done:#238636; --doing:#d29922; --todo:#484f58; --accent:#1f6feb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif}
+  header{padding:16px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10}
+  header h1{margin:0 0 4px;font-size:18px}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  .tabs{display:flex;gap:4px;padding:12px 24px 0;flex-wrap:wrap}
+  .tab{padding:8px 16px;border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;
+       background:var(--panel);color:var(--muted);cursor:pointer;font-size:13px;font-weight:500}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .view{display:none;padding:24px;animation:fade .2s}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .legend{display:flex;gap:16px;margin-bottom:16px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .dot.done{background:var(--done)} .dot.doing{background:var(--doing)} .dot.todo{background:var(--todo)}
+
+  /* ---------- Kanban ---------- */
+  .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .kcol{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;min-height:200px}
+  .kcol h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between}
+  .kcol h3 .cnt{color:var(--muted);font-weight:400}
+  .kcard{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--todo);
+         border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,transform .1s}
+  .kcard:hover{border-color:var(--accent);transform:translateX(2px)}
+  .trow{cursor:pointer}
+  .trow:hover{background:#1c2333}
+  .kcard.done{border-left-color:var(--done)} .kcard.doing{border-left-color:var(--doing)}
+  .kcard .ms{font-size:11px;color:var(--accent);font-weight:600;margin-bottom:3px}
+  .kcard .tid{font-size:11px;color:var(--muted)}
+  .kcard .tt{font-size:13px}
+  .kcard .dep{font-size:11px;color:var(--doing);margin-top:4px}
+
+  /* ---------- Outline tree ---------- */
+  .tree{max-width:900px}
+  .mile{background:var(--panel);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+  .mhead{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+  .mhead .mname{font-weight:600;font-size:15px;flex:1}
+  .mhead .mdep{font-size:11px;color:var(--doing)}
+  .pbar{height:6px;background:var(--todo);border-radius:3px;overflow:hidden;width:120px}
+  .pbar > i{display:block;height:100%;background:var(--done)}
+  .pct{font-size:12px;color:var(--muted);width:38px;text-align:right}
+  .trow{padding:9px 16px 9px 40px;display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid #21262d}
+  .trow:last-child{border-bottom:none}
+  .trow .tid{font-size:11px;color:var(--muted);min-width:34px;padding-top:1px}
+  .trow .tbody{flex:1}
+  .trow .dep{font-size:11px;color:var(--doing);margin-top:2px}
+  .badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;text-transform:uppercase;white-space:nowrap}
+  .badge.done{background:rgba(35,134,54,.2);color:#3fb950}
+  .badge.doing{background:rgba(210,153,34,.2);color:#e3b341}
+  .badge.todo{background:rgba(72,79,88,.3);color:#8b949e}
+
+  /* ---------- mermaid wrap ---------- */
+  .mermaid{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+  .note{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:760px}
+
+  /* ---------- ledger dialog ---------- */
+  dialog#taskModal{background:var(--panel);color:var(--text);border:1px solid var(--border);
+    border-radius:14px;padding:0;max-width:640px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  dialog#taskModal::backdrop{background:rgba(0,0,0,.6)}
+  .modalhead{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)}
+  .modalhead .tid{color:var(--accent);font-weight:700;font-size:15px}
+  .modalhead .mns{color:var(--muted);font-size:13px}
+  .mclose{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 8px}
+  .mclose:hover{color:var(--text)}
+  .modalname{padding:16px 20px;font-size:15px;line-height:1.5;border-bottom:1px solid var(--border)}
+  .mrow{display:flex;padding:9px 20px;border-bottom:1px solid #21262d;font-size:13px}
+  .mrow:last-child{border-bottom:none}
+  .mrow .mk{width:140px;color:var(--muted);flex-shrink:0}
+  .mrow .mv{flex:1}
+  .mrow code{background:var(--bg);padding:1px 6px;border-radius:5px;font-size:12px}
+  .miss{color:#e5534b;font-style:italic}
+  .ssotlink{color:var(--accent);text-decoration:none;font-weight:500}
+  .ssotlink:hover{text-decoration:underline}
+</style>
+</head><body>
+<header>
+  <h1>cairn plan — 표현방식 실험 <span style="color:var(--muted);font-weight:400;font-size:14px">__CAIRN_PROJECT_NAME__</span></h1>
+  <p>같은 원장(plan.yaml)을 4가지 방식으로 렌더 · 탭으로 비교</p>
+</header>
+<div class="tabs">
+  <div class="tab active" data-v="kanban">① 칸반 (상태별)</div>
+  <div class="tab" data-v="tree">② 아웃라인 트리 + 진행바</div>
+  <div class="tab" data-v="dep">③ 워크트리 / 브랜치</div>
+</div>
+
+<div id="kanban" class="view active"></div>
+<div id="tree" class="view"></div>
+<div id="dep" class="view"></div>
+
+<dialog id="taskModal"></dialog>
+
+<script>
+// ---- 원장 데이터 (plan.yaml 인라인) ----
+const plan = /*__CAIRN_PLAN_JSON__*/{};
+const SLABEL={done:"완료",doing:"진행중",todo:"대기"};
+const allTasks=()=>plan.milestones.flatMap(m=>m.tasks.map(t=>({...t,ms:m.id,msName:m.name})));
+
+// ---------- ① Kanban ----------
+(function(){
+  const cols={doing:[],todo:[],done:[]};
+  allTasks().forEach(t=>cols[t.s].push(t));
+  const order=[["doing","진행중 (Doing)"],["todo","대기 (Todo)"],["done","완료 (Done)"]];
+  let h='<div class="legend"><span><i class="dot doing"></i>진행중</span><span><i class="dot todo"></i>대기</span><span><i class="dot done"></i>완료</span></div><div class="kanban">';
+  for(const [key,title] of order){
+    h+=`<div class="kcol"><h3>${title}<span class="cnt">${cols[key].length}</span></h3>`;
+    cols[key].forEach(t=>{
+      const dep=t.dep.length?`<div class="dep">⟵ ${t.dep.join(", ")}</div>`:"";
+      h+=`<div class="kcard ${t.s}" data-tid="${t.id}"><div class="ms">${t.ms} · ${t.msName}</div>`+
+         `<div class="tt">${esc(t.name)}</div><div class="tid">${t.id} ›</div>${dep}</div>`;
+    });
+    h+="</div>";
+  }
+  document.getElementById("kanban").innerHTML=h+"</div>";
+})();
+
+// ---------- ② Outline tree ----------
+(function(){
+  let h='<div class="note">프로젝트 › 마일스톤 › 태스크 계층. 마일스톤마다 완료율 진행바. 의존은 노란 텍스트로 표기.</div><div class="tree">';
+  plan.milestones.forEach(m=>{
+    const done=m.tasks.filter(t=>t.s==="done").length, tot=m.tasks.length;
+    const pct=tot?Math.round(done/tot*100):0;
+    const mdep=m.dep.length?`<span class="mdep">⟵ depends ${m.dep.join(", ")}</span>`:"";
+    h+=`<div class="mile"><div class="mhead"><span class="badge ${m.status==='done'?'done':m.status==='active'?'doing':'todo'}">${m.id}</span>`+
+       `<span class="mname">${esc(m.name)}</span>${mdep}`+
+       `<div class="pbar"><i style="width:${pct}%"></i></div><span class="pct">${pct}%</span></div>`;
+    m.tasks.forEach(t=>{
+      const dep=t.dep.length?`<div class="dep">⟵ 선행: ${t.dep.join(", ")}</div>`:"";
+      h+=`<div class="trow" data-tid="${t.id}"><span class="tid">${t.id}</span><div class="tbody">${esc(t.name)}${dep}</div>`+
+         `<span class="badge ${t.s}">${SLABEL[t.s]}</span></div>`;
+    });
+    h+="</div>";
+  });
+  document.getElementById("tree").innerHTML=h+"</div>";
+})();
+
+// ---------- ③ 워크트리 / 브랜치 (mermaid gitGraph) ----------
+// 원장에 execution_ref/branch가 비어 있어 실제론 feat/v6-realtime-live 워크트리 1개에서
+// 전체 진행 중. 아래는 각 마일스톤을 브랜치로 fan-out했다고 가정한 브랜치 토폴로지
+// (cairn map의 recovery-graph 지향). done 마일스톤은 feature 브랜치로 merge된 모습.
+(function(){
+  const short=t=>{const n=t.name.split(/[:：]/)[0].trim();return (n.length>14?n.slice(0,13)+"…":n);};
+  const FEAT="feat/v6-realtime-live";
+  let g="gitGraph\n";
+  g+=`  commit id:"main"\n`;
+  g+=`  branch "${FEAT}"\n`;
+  g+=`  checkout "${FEAT}"\n`;
+  g+=`  commit id:"worktree 생성"\n`;
+  plan.milestones.forEach(m=>{
+    g+=`  branch ${m.id}\n  checkout ${m.id}\n`;
+    m.tasks.forEach(t=>{
+      const lbl=`${t.id} ${short(t)}`;
+      if(t.s==="done")      g+=`  commit id:"${lbl}" tag:"✓"\n`;
+      else if(t.s==="doing")g+=`  commit id:"${lbl}" type:HIGHLIGHT\n`;
+      else                  g+=`  commit id:"${lbl}" type:REVERSE\n`;
+    });
+    g+=`  checkout "${FEAT}"\n`;
+    if(m.status==="done") g+=`  merge ${m.id} tag:"${m.id} merged"\n`;
+  });
+  const depNote=plan.milestones.filter(m=>m.dep.length).map(m=>`${m.id} ⟵ ${m.dep.join("+")}`).join(" · ");
+  document.getElementById("dep").innerHTML=
+    '<div class="note">원장에 <code>execution_ref/branch</code>가 비어 있어, 실제로는 이 프로젝트 전체가 <b>feat/v6-realtime-live</b> 워크트리 1개에서 진행 중입니다. '+
+    '아래는 각 마일스톤을 브랜치로 fan-out했다고 가정한 <b>브랜치 토폴로지</b>(cairn <code>map</code>이 지향하는 recovery-graph). '+
+    '완료(done) 마일스톤만 feature 브랜치로 merge된 모습. <span style="color:var(--doing)">✓=완료 커밋 · 강조노드=진행중 · 역노드=대기</span></div>'+
+    (depNote?`<div class="legend"><span>마일스톤 의존: ${depNote} (gitGraph는 단일부모만 그려 텍스트로 표기)</span></div>`:"")+
+    `<pre class="mermaid">${g}</pre>`;
+})();
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+// ---------- 원장 다이얼로그 (칸반/트리 공용) ----------
+const TASKMAP=Object.fromEntries(allTasks().map(t=>[t.id,t]));
+const dlg=document.getElementById("taskModal");
+function openTask(tid){
+  const t=TASKMAP[tid]; if(!t)return;
+  const badge=`<span class="badge ${t.s}">${SLABEL[t.s]}</span>`;
+  const row=(k,v)=>`<div class="mrow"><span class="mk">${k}</span><span class="mv">${v}</span></div>`;
+  const empty=`<span class="miss">미기록 (원장 빈 값 — link 훅 필요)</span>`;
+  const dep=t.dep.length?t.dep.map(d=>`<code>${d}</code>`).join(", "):"<span class='miss'>없음</span>";
+  const ssot=t.ssot
+    ? `<a href="file://${t.ssot}" class="ssotlink" title="${t.ssot}">📄 ${t.ssot.split("/").pop()} 열기</a>`
+    : "<span class='miss'>미지정</span>";
+  dlg.innerHTML=
+    `<div class="modalhead"><div><span class="tid">${t.id}</span> · <span class="mns">${t.ms} ${t.msName}</span></div>`+
+    `<button class="mclose" onclick="document.getElementById('taskModal').close()">✕</button></div>`+
+    `<div class="modalname">${esc(t.name)} ${badge}</div>`+
+    row("상태", `${badge}`)+
+    row("선행(depends_on)", dep)+
+    row("기획 SSOT", ssot)+
+    row("execution_ref", t.exec?`<code>${t.exec}</code>`:empty)+
+    row("branch", t.branch?`<code>${t.branch}</code>`:empty)+
+    row("start / due", `${t.start||"—"} / ${t.due||"—"}`)+
+    (t.note?row("note", esc(t.note)):"");
+  dlg.showModal();
+}
+// 배경 클릭 닫기
+dlg.addEventListener("click",e=>{ if(e.target===dlg) dlg.close(); });
+// 카드/행 위임 클릭
+document.body.addEventListener("click",e=>{
+  const el=e.target.closest("[data-tid]");
+  if(el && !e.target.classList.contains("ssotlink")) openTask(el.dataset.tid);
+});
+
+// tab switching + lazy mermaid render
+mermaid.initialize({startOnLoad:false, theme:"dark", themeVariables:{fontSize:"13px"}, flowchart:{nodeSpacing:30,rankSpacing:50}});
+const rendered={};
+async function renderMermaid(view){
+  if(rendered[view])return;
+  const el=document.querySelector(`#${view} .mermaid`);
+  if(el){ await mermaid.run({nodes:[el]}); rendered[view]=true; }
+}
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    tab.classList.add("active");
+    const v=tab.dataset.v;
+    document.getElementById(v).classList.add("active");
+    renderMermaid(v);
+  };
+});
+</script>
+</body></html>
