@@ -1,0 +1,67 @@
+# cairn render 멀티뷰 — design
+
+Date: 2026-07-02
+Origin: plan.html(mermaid gantt)이 "사람이 이해 못 하는 그래프"라는 지적 → 표현방식 실험(scratchpad `plan-view-experiments.html`) → 칸반/트리/워크트리·브랜치 3뷰 채택. 이걸 cairn 기본 제공으로 승격.
+
+## 문제
+
+기존 `cairn render` 산출물(`.cairn/views/plan.md` + `plan.html`)은 mermaid **gantt** 하나뿐인데, 이 데이터엔 부적합하다:
+- task가 대부분 `start == due`(생성일) → 시간축이 정보 0.
+- `depends_on`·milestone 의존·`execution_ref`/`branch` 관계가 그래프에 안 나타남.
+- 라벨이 문장 통째라 뭉갬. 상태(todo/doing/done) 구분 약함.
+
+## 목표
+
+`cairn render`가 **탭 전환형 단일 HTML**(자체완결, mermaid CDN)을 기본 산출. 3뷰:
+1. **칸반** — 진행중/대기/완료 3열, 카드에 milestone·task·선행. "지금 뭐 도는가" 즉시 파악.
+2. **아웃라인 트리 + 진행바** — 프로젝트›마일스톤(완료율%)›task 계층. 긴 라벨 전량 표시.
+3. **워크트리/브랜치** — mermaid `gitGraph`. main→feature 브랜치에서 마일스톤이 브랜치로 fan-out, done만 merge. (recovery-graph = 기존 `cairn map` 지향과 합류)
+
+공통: 카드/행 클릭 → **원장 다이얼로그**(전체 필드) + 기획 **SSOT 파일 링크**(있으면 `file://`로 열기). `execution_ref`/`branch`가 비면 다이얼로그에 "미기록(빨강)"으로 노출 → [agent-lifecycle-hook-design](agent-lifecycle-hook-design.md) 컴포넌트 5가 채워야 함을 사용자에게 상시 상기.
+
+gantt는 폐기(정리).
+
+## 설계
+
+### 템플릿 + 생성기 분리
+- **템플릿**: `docs/plan-view.template.html` (이 커밋에 포함, 실험본에서 데이터만 뽑아낸 것).
+  - 치환 토큰 2개: `/*__CAIRN_PLAN_JSON__*/{}` (JS `plan` 객체), `__CAIRN_PROJECT_NAME__` (헤더 표기).
+- **생성기**: `cairn.py`의 render 경로가 plan.yaml → 뷰 JSON으로 매핑 → `json.dumps` → 토큰 치환 → `plan.html` 기록. 템플릿을 문자열 치환만 하므로 로직 최소.
+
+### 필드 매핑 (yaml → 템플릿 JS)
+
+| cairn yaml | 템플릿 JS 키 | 비고 |
+|-----------|-------------|------|
+| milestone.status | (뷰에서 그대로) | done/active/planned/blocked |
+| task.status | `s` | todo/doing/done/blocked |
+| task.name | `name` | 전문 |
+| task.depends_on | `dep` | 선행 표기 |
+| task.execution_ref | `exec` | 없으면 다이얼로그 "미기록" |
+| (현재 branch) | `branch` | execution_ref와 함께 훅이 기록 |
+| task.ssot | `ssot` | **신규 필드 필요** — 아래 참조 |
+| task.note | `note` | PR#8에서 이미 존재 |
+| milestone.depends_on | (gitGraph 텍스트) | gitGraph 단일부모 한계로 텍스트 표기 |
+
+### 의존 작업 (선행)
+- **`ssot` per-task 필드**: 현재 스키마엔 todo에만 `--ssot`가 있고 task엔 없다. 두 옵션 —
+  - (A) task에 `ssot` 필드 신설 + `cairn set-ssot <task> <path>` (권장, 명시적).
+  - (B) `note`가 링크면(기존 `_note_is_link`) SSOT로 간주(추가 필드 0, 겸용). 
+  - 결정 보류 — 구현 시 택1. 템플릿은 `t.ssot`만 읽으므로 생성기에서 어느 쪽이든 `ssot` 키로 채우면 됨.
+- **execution_ref/branch 채움**: [agent-lifecycle-hook-design](agent-lifecycle-hook-design.md) 컴포넌트 5. 이게 없으면 뷰3(워크트리/브랜치)이 계속 단일 워크트리로 뭉침 — 두 스펙은 상보.
+
+### 미결정 (구현 전 택1)
+- **기본 vs opt-in**: 멀티뷰를 `cairn render` 기본 산출로 할지(gantt 완전 대체), `--view board|gantt` 플래그로 병존할지. 사용자 의향은 "기본 제공" → **기본 대체 권장**, `plan.md`(markdown+mermaid)는 호환 위해 유지하되 내용은 트리 아웃라인으로 대체 검토.
+
+## 테스트
+- 생성기: 샘플 plan.yaml → plan.html 생성 후, 토큰 미잔존(`__CAIRN_`) + JSON 파싱가능 + task 수 일치 확인.
+- 뷰 렌더: 브라우저 없이 검증 어려움 → 최소 HTML 구조/JSON 임베드 단위테스트 + 수동 브라우저 확인(실험본으로 이미 1차 확인).
+- 빈 execution_ref → 다이얼로그 "미기록" 노출 확인.
+
+## 결정 로그
+| 질문 | 결정 |
+|------|------|
+| gantt 유지 여부 | 폐기(정리) |
+| 채택 뷰 | 칸반 + 트리 + 워크트리/브랜치(gitGraph) |
+| 상세 표시 방식 | 인라인 펼치기 아님 → **다이얼로그** + SSOT 파일 링크 |
+| 기본 제공 여부 | 기본 제공 지향(기본 대체 권장, 최종 미확정) |
+| ssot 필드 | task 신설(A) vs note-링크 겸용(B) — 구현 시 택1 |
