@@ -120,6 +120,7 @@
   .sg-bar.todo{background:#3d444d;border-color:#6e7681}
   .sg-bar.blocked{background:#8e2b26;border-color:#e5534b}
   .sg-bar:hover{filter:brightness(1.15)}
+  .sg-weekend{position:absolute;top:0;bottom:0;background:var(--muted);opacity:.06;z-index:0;pointer-events:none}
   .sg-today{position:absolute;top:0;width:2px;background:#e5534b;z-index:2;pointer-events:none}
   /* 오버듀 자동파생(due<today & !done) — blocked(빨간 바)와 분리: 빨간 외곽선+빗금 */
   .sg-bar.overdue{outline:2px solid #e5534b;outline-offset:-1px;
@@ -130,9 +131,21 @@
   .sg-bar.dep-post{box-shadow:0 0 0 2px var(--wa)}            /* 후행 */
   /* 마일스톤 요약 바 / 다이아몬드(start==end) */
   .sg-msbar{position:absolute;top:9px;height:8px;border-radius:4px;background:var(--accent);opacity:.5}
+  .sg-msbar-fill{height:100%;border-radius:4px;background:var(--accent);opacity:1}
+  .secpct{color:var(--muted);font-size:11px;font-weight:400}
   .sg-diamond{position:absolute;top:7px;width:12px;height:12px;background:var(--accent);transform:rotate(45deg)}
   .sg-drag-tip{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--border);color:var(--text);
     border-radius:6px;padding:3px 8px;font-size:11px;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+  .sg-bar.dep-violation{outline:2px dashed #d9822b;outline-offset:-1px}
+  .sg-toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:60;
+    background:var(--panel);border:1px solid #d9822b;color:var(--text);border-radius:8px;
+    padding:8px 16px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none}
+  .kcol.kdrop{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:12px}
+  .kcard[draggable]{cursor:grab}
+  .ctog{cursor:pointer;user-select:none;margin-right:4px;opacity:.7;font-size:11px}
+  .ctog:hover{opacity:1}
+  .filter-host{display:inline-block;padding:8px 24px;font-size:13px;color:var(--muted)}
+  .filter-host select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;margin-left:4px}
   .note{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:820px;line-height:1.6}
 
   /* ledger dialog */
@@ -198,6 +211,7 @@
   <button id="btnSync" class="sync-btn" disabled>싱크(저장)</button>
 </div>
 <div id="extBanner" class="ext-banner" style="display:none">⚠ 디스크가 외부에서 변경됐어요.<button id="btnReload">재로드</button></div>
+<span id="filterHost" class="filter-host"></span>
 
 <div id="kanban" class="view active"></div>
 <div id="tree" class="view"></div>
@@ -239,6 +253,9 @@ let ops=[];                       // 축적된 편집 op 체인지셋(뷰JSON �
 const STATUS_TASK=["todo","doing","done","blocked"];
 const STATUS_MS=["planned","active","blocked","done"];
 const allTasks=()=>plan.milestones.flatMap(m=>m.tasks.map(t=>({...t,ms:m.id,msName:m.name})));
+function msProgress(m){ const total=(m.tasks||[]).length,
+  done=(m.tasks||[]).filter(t=>t.s==="done"||t.status==="done").length;
+  return {done,total,pct:total?Math.round(done/total*100):0}; }
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function whoLine(t){
   const p=[];
@@ -259,15 +276,35 @@ function renderKanban(){
   let h='<div class="legend"><span><i class="dot doing"></i>진행중</span><span><i class="dot todo"></i>대기</span><span><i class="dot done"></i>완료</span><span>카드 클릭 → 원장 상세</span></div><div class="kanban">';
   for(const [key,title] of order){
     const list=cols[key].concat(key==="todo"?cols.blocked:[]);
-    h+=`<div class="kcol"><h3>${title}<span class="cnt">${list.length}</span></h3>`;
+    h+=`<div class="kcol" data-col="${key}"><h3>${title}<span class="cnt">${list.length}</span></h3>`;
     list.forEach(t=>{
       const dep=t.dep&&t.dep.length?`<div class="dep">⟵ ${t.dep.join(", ")}</div>`:"";
-      h+=`<div class="kcard ${t.s}" data-tid="${t.id}"><div class="ms">${t.ms} · ${esc(t.msName)}</div>`+
+      h+=`<div class="kcard ${t.s}" data-tid="${t.id}"${CAN_EDIT?' draggable="true"':''}><div class="ms">${t.ms} · ${esc(t.msName)}</div>`+
          `<div class="tt">${esc(t.name)}</div>${whoLine(t)}<div class="tid">${t.id} ›</div>${dep}</div>`;
     });
     h+="</div>";
   }
   document.getElementById("kanban").innerHTML=h+"</div>";
+  wireKanbanDrag();
+}
+// 칸반 카드 컬럼 간 드래그 = status 변경(간트 드래그와 동일 set op 인프라)
+function wireKanbanDrag(){
+  if(!CAN_EDIT)return;
+  const root=document.getElementById("kanban"); if(!root)return;
+  root.querySelectorAll(".kcard[draggable]").forEach(c=>{
+    c.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/plain",c.dataset.tid); c.style.opacity=".5"; });
+    c.addEventListener("dragend",()=>{ c.style.opacity=""; });
+  });
+  root.querySelectorAll("[data-col]").forEach(col=>{
+    col.addEventListener("dragover",e=>{ e.preventDefault(); col.classList.add("kdrop"); });
+    col.addEventListener("dragleave",()=>col.classList.remove("kdrop"));
+    col.addEventListener("drop",e=>{ e.preventDefault(); col.classList.remove("kdrop");
+      const tid=e.dataTransfer.getData("text/plain"), t=TASKMAP[tid], ns=col.dataset.col;
+      if(!t||t.s===ns)return;
+      pushSet(t,"status",ns); t.s=ns;
+      markDirty(); renderAll(); refreshSchedIfActive();
+    });
+  });
 }
 
 // ② Outline tree
@@ -279,10 +316,10 @@ function renderTree(){
     const mstat=m.status==='done'?'done':m.status==='active'?'active':m.status==='blocked'?'blocked':'planned';
     const dates=(m.start||m.end)?`<span class="mdate">📅 ${m.start||"—"} ~ ${m.end||"—"}</span>`:"";
     const mdep=m.dep&&m.dep.length?`<span class="mdep">⟵ ${m.dep.join(", ")}</span>`:"";
-    h+=`<div class="mile"><div class="mhead"><span class="badge ${mstat}">${m.id}</span>`+
+    h+=`<div class="mile"><div class="mhead" data-mid="${m.id}"><span class="ctog" data-tog="${m.id}">${collapsed.has(m.id)?'▸':'▾'}</span><span class="badge ${mstat}">${m.id}</span>`+
        `<span class="mname">${esc(m.name)}</span>${dates}${mdep}`+
        `<span class="spacer"></span><div class="pbar"><i style="width:${pct}%"></i></div><span class="pct">${pct}%</span></div>`;
-    m.tasks.forEach(t=>{
+    if(!collapsed.has(m.id)) m.tasks.forEach(t=>{
       const dep=t.dep&&t.dep.length?`<div class="dep">⟵ 선행: ${t.dep.join(", ")}</div>`:"";
       h+=`<div class="trow" data-tid="${t.id}"><span class="tid">${t.id}</span>`+
          `<div class="tbody">${esc(t.name)}${whoLine(t)}${dep}</div>`+
@@ -329,7 +366,24 @@ function renderDepTab(){
 // 최초 렌더 + 재렌더 진입점(편집 저장 후 reloadView가 재호출)
 let TASKMAP={};
 function rebuildTaskMap(){ TASKMAP=Object.fromEntries(allTasks().map(t=>[t.id,t])); }
-function renderAll(){ rebuildTaskMap(); renderKanban(); renderTree(); renderDepTab(); }
+const collapsed=new Set();   // 접힌 마일스톤 id(세션 메모리)
+function toggleCollapse(mid){ collapsed.has(mid)?collapsed.delete(mid):collapsed.add(mid); renderAll(); refreshSchedIfActive(); }
+function renderAll(){ rebuildTaskMap(); renderKanban(); renderTree(); renderDepTab(); applyFilter(); }
+// 담당자 필터 — 비매칭 태스크 흐림(스윔레인 아님, assignee 매칭). 전 뷰 공통, 표시만.
+let assigneeFilter=null;
+function applyFilter(){
+  const match=t=>!assigneeFilter||(t.assignees||[]).includes(assigneeFilter);
+  document.querySelectorAll("[data-tid]").forEach(el=>{
+    const t=TASKMAP[el.dataset.tid]; el.style.opacity=(t&&!match(t))?".25":"";
+  });
+}
+function buildFilterUI(){
+  const host=document.getElementById("filterHost"); if(!host)return;
+  const people=[...new Set(allTasks().flatMap(t=>t.assignees||[]))].sort();
+  host.innerHTML=`담당자 <select id="fAssignee"><option value="">전체</option>`+
+    people.map(p=>`<option value="${_av(p)}">${esc(p)}</option>`).join("")+`</select>`;
+  document.getElementById("fAssignee").onchange=e=>{ assigneeFilter=e.target.value||null; applyFilter(); };
+}
 renderAll();
 
 // ==== 원장 다이얼로그 ====
@@ -429,9 +483,52 @@ function deleteTask(){
   if(m) m.tasks=m.tasks.filter(x=>x.id!==t.id);
   markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
 }
+// 마일스톤 필드편집 다이얼로그 — set-ms/remove-milestone op(백엔드 기존)
+function openMilestone(mid){
+  const m=plan.milestones.find(x=>x.id===mid); if(!m)return;
+  if(!CAN_EDIT) return;   // 읽기전용: MS 편집 UI 없음
+  const row=(k,v)=>`<div class="mrow"><span class="mk">${k}</span><span class="mv">${v}</span></div>`;
+  const inp=(id,v,type)=>`<input class="fedit" id="${id}" type="${type||'text'}" value="${_av(v)}">`;
+  const opt=STATUS_MS.map(s=>`<option value="${s}"${s===m.status?' selected':''}>${s}</option>`).join("");
+  const empty=(m.tasks||[]).length===0;
+  const body=row("상태",`<select class="fedit" id="m_status">${opt}</select>`)
+    +row("이름",inp("m_name",m.name))
+    +row("start",inp("m_start",m.start||"","date"))
+    +row("end",inp("m_end",m.end||"","date"))
+    +row("선행(depends_on)",inp("m_dep",(m.dep||m.depends_on||[]).join(", "))+`<span class="fhint">쉼표 구분 ms id</span>`);
+  const foot=`<div class="modalfoot">`+
+    (empty?`<button class="mbtn danger" id="m_del">마일스톤 삭제</button>`:`<span class="fhint">태스크가 있어 삭제 불가</span>`)+
+    `<span style="flex:1"></span><button class="mbtn" data-close="1">취소</button><button class="mbtn primary" id="m_save">확인</button></div>`;
+  dlg.innerHTML=`<div class="modalhead"><div><span class="tid">${m.id}</span> · 마일스톤</div>`+
+    `<button class="mclose" data-close="1">✕</button></div><div class="modalname">${esc(m.name)}</div>`+body+foot;
+  dlg._ms=m; dlg._task=null; dlg.showModal();
+}
+function saveMsForm(){
+  const m=dlg._ms; if(!m)return; const g=id=>dlg.querySelector(id);
+  const pushMs=(field,value)=>ops.push({op:"set-ms",target:[EDIT.pid,m.id],field,value});
+  const name=g("#m_name").value.trim(); if(name&&name!==m.name){ pushMs("name",name); m.name=name; }
+  const st=g("#m_status").value; if(st!==m.status){ pushMs("status",st); m.status=st; }
+  const setOpt=(field,key,raw)=>{ const cur=m[key]||"", nv=(raw||"").trim();
+    if(nv!==cur){ pushMs(field,nv); if(nv)m[key]=nv; else delete m[key]; } };
+  setOpt("start","start",g("#m_start").value); setOpt("end","end",g("#m_end").value);
+  const depCur=(m.dep||m.depends_on||[]).join(", "), depNv=g("#m_dep").value;
+  if(depNv.trim()!==depCur.trim()){ const arr=depNv.split(",").map(s=>s.trim()).filter(Boolean);
+    pushMs("depends_on",arr); m.dep=arr; }
+  markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
+}
+function deleteMilestone(){
+  const m=dlg._ms; if(!m)return;
+  if((m.tasks||[]).length){ alert("태스크가 있어 삭제할 수 없습니다"); return; }
+  if(!confirm(`마일스톤 ${m.id} 삭제?`))return;
+  ops.push({op:"remove-milestone",target:[EDIT.pid,m.id]});
+  plan.milestones=plan.milestones.filter(x=>x.id!==m.id);
+  markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
+}
 dlg.addEventListener("click",e=>{
   if(e.target.id==="f_save"){ saveTaskForm(); return; }
   if(e.target.id==="f_del"){ deleteTask(); return; }
+  if(e.target.id==="m_save"){ saveMsForm(); return; }
+  if(e.target.id==="m_del"){ deleteMilestone(); return; }
   if(e.target===dlg || e.target.dataset.close){ dlg.close(); return; }
   if(e.target.dataset.open){ openSsot(e.target.dataset.open); return; }
   if(e.target.dataset.copy){
@@ -441,9 +538,13 @@ dlg.addEventListener("click",e=>{
 });
 document.body.addEventListener("click",e=>{
   if(_dragMoved){ _dragMoved=false; return; }   // 드래그 종료 후 click은 다이얼로그 억제
+  const tog=e.target.closest("[data-tog]");
+  if(tog){ toggleCollapse(tog.dataset.tog); return; }
   if(e.target.closest("dialog"))return;
   const el=e.target.closest("[data-tid]");
-  if(el) openTask(el.dataset.tid);
+  if(el){ openTask(el.dataset.tid); return; }
+  const mel=e.target.closest("[data-mid]");
+  if(mel) openMilestone(mel.dataset.mid);
 });
 
 // tabs + lazy mermaid
@@ -514,18 +615,23 @@ function renderSchedule(){
     const isMonth=d.getDate()<=7;   // min이 월요일이라 틱은 항상 월요일
     ticks+=`<div class="sg-tick${isMonth?' m':''}" style="left:${i*PX}px">${d.getMonth()+1}/${d.getDate()}</div>`;
   }
+  let weekends="";   // min이 월요일 → 토=+5, 일=+6. sg-inner 레벨 세로 음영(LABELW 오프셋)
+  for(let i=0;i<=days;i+=7){
+    weekends+=`<div class="sg-weekend" style="left:${LABELW+(i+5)*PX}px;width:${2*PX}px"></div>`;
+  }
   let rows="";
   plan.milestones.forEach(m=>{
     const mstat=m.status==='done'?'done':m.status==='active'?'doing':m.status==='blocked'?'blocked':'todo';
     // 마일스톤 요약: start~end 요약 바(start==end면 다이아몬드)
+    const pr=msProgress(m);
     let msMark="";
     if(m.start){
       const e=m.end||m.start, l=dayX(m.start);
       if(m.start===e) msMark=`<div class="sg-diamond" style="left:${l-6}px" title="${esc(m.name)} ${m.start}"></div>`;
-      else msMark=`<div class="sg-msbar" style="left:${l}px;width:${(dcount(new Date(m.start),new Date(e))+1)*PX}px" title="${esc(m.name)} ${m.start}~${e}"></div>`;
+      else msMark=`<div class="sg-msbar" style="left:${l}px;width:${(dcount(new Date(m.start),new Date(e))+1)*PX}px" title="${esc(m.name)} ${m.start}~${e} · ${pr.done}/${pr.total}"><div class="sg-msbar-fill" style="width:${pr.pct}%"></div></div>`;
     }
-    rows+=`<div class="sg-row section"><div class="sg-label sec"><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)}</div><div class="sg-track">${msMark}</div></div>`;
-    m.tasks.forEach(t=>{
+    rows+=`<div class="sg-row section" data-mid="${m.id}"><div class="sg-label sec"><span class="ctog" data-tog="${m.id}">${collapsed.has(m.id)?'▸':'▾'}</span><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)} <span class="secpct">(${pr.done}/${pr.total})</span></div><div class="sg-track">${msMark}</div></div>`;
+    if(!collapsed.has(m.id)) m.tasks.forEach(t=>{
       const s=t.start||m.start, e=t.due||m.end||s;
       const left=dayX(s), w=Math.max(PX,(dcount(new Date(s),new Date(e))+1)*PX);
       const who=(t.assignees||[]).length?" · 👤"+t.assignees.join(","):"";
@@ -540,28 +646,72 @@ function renderSchedule(){
     '<div class="note">일정관리 타입: 실제 기간 기반 간트. 좌측 라벨 고정 · 타임라인만 마스킹 스크롤 · 확대/축소로 시간축 밀도 조절. 빨간선=오늘. 바 클릭 → 원장. 바에 호버 → 의존 강조.'+editNote+'</div>'+
     '<div class="legend"><span><i class="dot done"></i>완료</span><span><i class="dot doing"></i>진행중</span><span><i class="dot todo"></i>대기</span><span style="color:#e5534b">■ 블록(막힘)</span><span style="color:#e5534b">▨ 마감초과(overdue)</span><span style="color:var(--doing)">▢ 선행</span><span style="color:var(--wa)">▢ 후행</span></div>'+
     '<div class="sg-toolbar"><button id="gZoomOut" title="축소">－</button><button id="gZoomIn" title="확대">＋</button>'+
+      '<button id="gFit" title="전체 맞춤">맞춤</button><button id="gWk">주</button><button id="gMo">월</button><button id="gQt">분기</button>'+
       `<span id="gZoomLbl" class="zlbl"></span><span style="flex:1"></span>`+
       '<button id="gPrev" title="반칸 왼쪽">‹</button><button id="gToday">오늘</button><button id="gNext" title="반칸 오른쪽">›</button></div>'+
     `<div class="sg-body" id="ganttscroll"><div class="sg-inner" style="width:${innerW}px">`+
+      weekends+
       `<div class="sg-row sg-axis"><div class="sg-label sec"></div><div class="sg-track" style="width:${trackW}px">${ticks}</div></div>`+
       rows+
       `<div class="sg-today" id="sgToday" style="left:${todayLeft}px"></div>`+
     `</div></div>`;
   document.getElementById("gZoomLbl").textContent=PX+" px/일";
   wireSchedule();
+  markViolations();
+}
+// 의존 위반 soft-warn — 클라 계산·표시 전용(원장 validate 무호출). 선행 due > 이 task start.
+function computeViolations(){
+  const v=new Set(), byId={}; allTasks().forEach(t=>byId[t.id]=t);
+  allTasks().forEach(t=>{
+    const s=t.start; if(!s)return;
+    (t.dep||[]).forEach(pid=>{ const p=byId[pid];
+      if(p&&p.due&&new Date(p.due)>new Date(s)) v.add(t.id); });
+  });
+  return v;
+}
+function markViolations(){
+  const sc=document.getElementById("ganttscroll"); if(!sc)return new Set();
+  sc.querySelectorAll(".sg-bar.dep-violation").forEach(b=>b.classList.remove("dep-violation"));
+  const v=computeViolations();
+  v.forEach(tid=>{ const r=sc.querySelector(`.sg-row[data-tid="${tid}"]`);
+    const b=r&&r.querySelector(".sg-bar"); if(b)b.classList.add("dep-violation"); });
+  return v;
+}
+function toast(msg){
+  let t=document.getElementById("sgToast");
+  if(!t){t=document.createElement("div");t.id="sgToast";t.className="sg-toast";document.body.appendChild(t);}
+  t.textContent=msg; t.style.display="block"; clearTimeout(t._t);
+  t._t=setTimeout(()=>{t.style.display="none";},3000);
 }
 function _clearDepHl(scroll){ scroll.querySelectorAll(".sg-bar.dep-hl,.sg-bar.dep-pre,.sg-bar.dep-post")
   .forEach(b=>b.classList.remove("dep-hl","dep-pre","dep-post")); }
 function _barOf(scroll,tid){ const r=scroll.querySelector(`.sg-row[data-tid="${tid}"]`); return r&&r.querySelector(".sg-bar"); }
 let _dragMoved=false;
+function _centerDate(){   // 현재 뷰포트 중앙의 날짜(줌 앵커)
+  const sc=document.getElementById("ganttscroll"); if(!sc||!SG.min)return null;
+  const centerX=sc.scrollLeft+sc.clientWidth/2-LABELW;
+  const d=new Date(SG.min); d.setDate(d.getDate()+Math.round(centerX/SG.px)); return d;
+}
+function zoomTo(px){
+  const anchor=_centerDate();
+  SG.px=Math.max(2,Math.min(60,px)); renderSchedule(); fixupSchedule();
+  if(anchor){ const sc=document.getElementById("ganttscroll");
+    sc.scrollLeft=LABELW+dcount(SG.min,anchor)*SG.px-sc.clientWidth/2; }
+}
+function fitZoom(){ const {days}=scheduleBounds(); const sc=document.getElementById("ganttscroll");
+  if(sc) zoomTo(Math.floor((sc.clientWidth-LABELW)/Math.max(1,days))); }
 function wireSchedule(){
   const scroll=document.getElementById("ganttscroll"); if(!scroll)return;
   const half=()=>scroll.clientWidth/2;
   document.getElementById("gPrev").onclick=()=>scroll.scrollBy({left:-half(),behavior:"smooth"});
   document.getElementById("gNext").onclick=()=>scroll.scrollBy({left:half(),behavior:"smooth"});
   document.getElementById("gToday").onclick=()=>centerToday("smooth");
-  document.getElementById("gZoomIn").onclick=()=>{SG.px=Math.min(60,SG.px+6);renderSchedule();fixupSchedule();};
-  document.getElementById("gZoomOut").onclick=()=>{SG.px=Math.max(4,SG.px-6);renderSchedule();fixupSchedule();};
+  document.getElementById("gZoomIn").onclick=()=>zoomTo(SG.px+6);
+  document.getElementById("gZoomOut").onclick=()=>zoomTo(SG.px-6);
+  document.getElementById("gFit").onclick=fitZoom;
+  document.getElementById("gWk").onclick=()=>zoomTo(28);
+  document.getElementById("gMo").onclick=()=>zoomTo(10);
+  document.getElementById("gQt").onclick=()=>zoomTo(5);
   // 의존 하이라이트(바 호버 → 선행/후행 테두리 강조)
   scroll.addEventListener("mouseover",e=>{
     const bar=e.target.closest(".sg-bar"); _clearDepHl(scroll);
@@ -621,6 +771,8 @@ function wireDrag(scroll){
     if(ns!==curS){ pushSet(d.t,"start",ns); d.t.start=ns; }
     if(ne!==curE){ pushSet(d.t,"due",ne); d.t.due=ne; }
     markDirty(); renderSchedule(); fixupSchedule();
+    const v=computeViolations();
+    if(v.has(d.t.id)) toast(`⚠ ${d.t.id}: 선행이 이후에 끝남 — soft(저장은 됩니다)`);
   });
 }
 function centerToday(behavior){
@@ -656,6 +808,7 @@ function refreshActiveTab(v){
     if(SCHED){ schedRendered=false; renderSchedule(); schedRendered=true; fixupSchedule(); }
     else { rendered.dep=false; renderMermaid("dep"); }
   }
+  applyFilter();
 }
 function refreshSchedIfActive(){
   const a=document.querySelector(".tab.active");
@@ -728,6 +881,7 @@ function initEdit(){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkExternal(); });
 }
 initEdit();
+buildFilterUI();
 
 // 테마 (다크/라이트/시스템)
 document.querySelectorAll(".theme-seg button").forEach(b=>b.onclick=()=>applyTheme(b.dataset.m));
