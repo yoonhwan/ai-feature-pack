@@ -2105,3 +2105,155 @@ def test_set_ssot_empty_removes(tmp_path, monkeypatch):
     assert cairn.main(["set-ssot", "project-a", "t2", ""]) == 0
     d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
     assert "ssot" not in _find_task(d, "t2")
+
+
+# ── C2: apply_ops 뮤테이터 (편집 ops 체인지셋 → data, exec_ref/branch 거부) ──
+def _ms(data, mid):
+    for p in data["projects"]:
+        for m in p.get("milestones", []):
+            if m.get("id") == mid:
+                return m
+    return None
+
+
+def test_apply_ops_set_task_field():
+    d = _good()
+    cairn.apply_ops(d, [{"op": "set", "target": ["project-a", "ms2", "t3"],
+                         "field": "due", "value": "2026-07-10"}])
+    assert _find_task(d, "t3")["due"] == "2026-07-10"
+
+
+def test_apply_ops_set_status_and_name():
+    d = _good()
+    cairn.apply_ops(d, [
+        {"op": "set", "target": ["project-a", "ms2", "t3"], "field": "status", "value": "doing"},
+        {"op": "set", "target": ["project-a", "ms2", "t3"], "field": "name", "value": "새 이름"}])
+    t = _find_task(d, "t3")
+    assert t["status"] == "doing" and t["name"] == "새 이름"
+
+
+def test_apply_ops_rejects_execution_ref():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "set", "target": ["project-a", "ms2", "t3"],
+                             "field": "execution_ref", "value": "worktree/x"}])
+        assert False, "execution_ref는 읽기전용이어야 함"
+    except ValueError as e:
+        assert "execution_ref" in str(e)
+
+
+def test_apply_ops_rejects_branch():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "set", "target": ["project-a", "ms2", "t3"],
+                             "field": "branch", "value": "feat/x"}])
+        assert False
+    except ValueError as e:
+        assert "branch" in str(e)
+
+
+def test_apply_ops_rejects_id_change():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "set", "target": ["project-a", "ms2", "t3"],
+                             "field": "id", "value": "t99"}])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_apply_ops_set_ssot_empty_removes():
+    d = _good(); _find_task(d, "t3")["ssot"] = "/x.md"
+    cairn.apply_ops(d, [{"op": "set", "target": ["project-a", "ms2", "t3"],
+                         "field": "ssot", "value": ""}])
+    assert "ssot" not in _find_task(d, "t3")
+
+
+def test_apply_ops_set_ms_field():
+    d = _good()
+    cairn.apply_ops(d, [{"op": "set-ms", "target": ["project-a", "ms2"],
+                         "field": "end", "value": "2026-06-30"}])
+    assert _ms(d, "ms2")["end"] == "2026-06-30"
+
+
+def test_apply_ops_set_ms_rejects_id():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "set-ms", "target": ["project-a", "ms2"],
+                             "field": "id", "value": "msX"}])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_apply_ops_add_task_autoid():
+    d = _good()
+    cairn.apply_ops(d, [{"op": "add-task", "target": ["project-a", "ms2"],
+                         "task": {"name": "새 태스크", "status": "todo"}}])
+    names = [t["name"] for t in _ms(d, "ms2")["tasks"]]
+    assert "새 태스크" in names
+    # id 자동생성 + 전역 유니크
+    ids = [t["id"] for p in d["projects"] for m in p["milestones"] for t in m["tasks"]]
+    assert len(ids) == len(set(ids))
+
+
+def test_apply_ops_add_task_rejects_frozen():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "add-task", "target": ["project-a", "ms2"],
+                             "task": {"name": "x", "execution_ref": "worktree/y"}}])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_apply_ops_remove_task():
+    d = _good()
+    cairn.apply_ops(d, [{"op": "remove-task", "target": ["project-a", "ms2", "t3"]}])
+    assert _find_task(d, "t3") is None
+
+
+def test_apply_ops_remove_task_referenced_blocked():
+    d = _good(); _find_task(d, "t3")["depends_on"] = ["t2"]
+    try:
+        cairn.apply_ops(d, [{"op": "remove-task", "target": ["project-a", "ms2", "t2"]}])
+        assert False, "역참조 중인 태스크 삭제는 차단되어야 함"
+    except ValueError as e:
+        assert "referenced" in str(e)
+
+
+def test_apply_ops_add_and_remove_milestone():
+    d = _good()
+    cairn.apply_ops(d, [{"op": "add-milestone", "target": ["project-a"],
+                         "milestone": {"name": "새 마일스톤"}}])
+    new_ms = [m for m in d["projects"][0]["milestones"] if m["name"] == "새 마일스톤"][0]
+    cairn.apply_ops(d, [{"op": "remove-milestone", "target": ["project-a", new_ms["id"]]}])
+    assert all(m["name"] != "새 마일스톤" for m in d["projects"][0]["milestones"])
+
+
+def test_apply_ops_remove_milestone_nonempty_blocked():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "remove-milestone", "target": ["project-a", "ms2"]}])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_apply_ops_unknown_op_rejected():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "frobnicate", "target": ["project-a"]}])
+        assert False
+    except ValueError as e:
+        assert "frobnicate" in str(e)
+
+
+def test_apply_ops_missing_target_rejected():
+    d = _good()
+    try:
+        cairn.apply_ops(d, [{"op": "set", "target": ["project-a", "ms2", "ghost"],
+                             "field": "status", "value": "done"}])
+        assert False
+    except ValueError:
+        pass
