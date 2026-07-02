@@ -26,6 +26,7 @@
 | 13 | [agent-cli](feature-pack/agent-cli/) | **AI 코딩 에이전트 CLI 툴킷** — 설치·비교 + 비대화 위임(DA/designer/architect 페르소나·자율주행·resume): claude·codex·gemini·opencode·cursor | ~3분 | ❌ | ❌ |
 | 14 | [headroom](feature-pack/headroom/) | Claude Code·Codex 등 AI 코딩 에이전트 컨텍스트 압축 프록시 + `/headroom` 토글 | ~5분 | ❌ | ❌ |
 | 15 | [cliproxyapi](feature-pack/cliproxyapi/) | headroom → CLIProxyAPI 구독 프록시 스택 — Claude/Codex/Gemini OAuth plan 경유 + Hermes 게이트웨이 | ~10분 | ❌ | OAuth |
+| 16 | [fable-team](feature-pack/fable-team/) | **팀 오케스트레이션 하네스** — ultracode 오케스트레이터 + planner 브레인 분리, 설치 인터뷰·브레인 가용성 추천·모니터링 루프 | ~5분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
