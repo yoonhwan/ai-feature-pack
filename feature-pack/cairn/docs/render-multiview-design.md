@@ -43,14 +43,11 @@ gantt는 폐기(정리).
 | milestone.depends_on | (gitGraph 텍스트) | gitGraph 단일부모 한계로 텍스트 표기 |
 
 ### 의존 작업 (선행)
-- **`ssot` per-task 필드**: 현재 스키마엔 todo에만 `--ssot`가 있고 task엔 없다. 두 옵션 —
-  - (A) task에 `ssot` 필드 신설 + `cairn set-ssot <task> <path>` (권장, 명시적).
-  - (B) `note`가 링크면(기존 `_note_is_link`) SSOT로 간주(추가 필드 0, 겸용). 
-  - 결정 보류 — 구현 시 택1. 템플릿은 `t.ssot`만 읽으므로 생성기에서 어느 쪽이든 `ssot` 키로 채우면 됨.
+- **`ssot` per-task 필드 (확정: A안)**: task에 `ssot` 필드 신설 + `cairn set-ssot <project> <milestone> <task> <path>` 명령 추가. note와 역할 분리(의도 명확). validate에 ssot 경로 형식 검사(선택). 템플릿은 `t.ssot`를 읽음.
 - **execution_ref/branch 채움**: [agent-lifecycle-hook-design](agent-lifecycle-hook-design.md) 컴포넌트 5. 이게 없으면 뷰3(워크트리/브랜치)이 계속 단일 워크트리로 뭉침 — 두 스펙은 상보.
 
-### 미결정 (구현 전 택1)
-- **기본 vs opt-in**: 멀티뷰를 `cairn render` 기본 산출로 할지(gantt 완전 대체), `--view board|gantt` 플래그로 병존할지. 사용자 의향은 "기본 제공" → **기본 대체 권장**, `plan.md`(markdown+mermaid)는 호환 위해 유지하되 내용은 트리 아웃라인으로 대체 검토.
+### 기본 산출 (확정: 기본 대체)
+- `cairn render`가 멀티뷰 HTML을 **기본 산출**(gantt 완전 폐기). `plan.md`(markdown)는 호환 위해 유지하되 내용은 gantt→트리 아웃라인(마일스톤 완료율 + task 리스트, 순수 markdown)으로 대체. `plan.html`이 멀티뷰 3탭.
 
 ## 테스트
 - 생성기: 샘플 plan.yaml → plan.html 생성 후, 토큰 미잔존(`__CAIRN_`) + JSON 파싱가능 + task 수 일치 확인.
@@ -63,5 +60,5 @@ gantt는 폐기(정리).
 | gantt 유지 여부 | 폐기(정리) |
 | 채택 뷰 | 칸반 + 트리 + 워크트리/브랜치(gitGraph) |
 | 상세 표시 방식 | 인라인 펼치기 아님 → **다이얼로그** + SSOT 파일 링크 |
-| 기본 제공 여부 | 기본 제공 지향(기본 대체 권장, 최종 미확정) |
-| ssot 필드 | task 신설(A) vs note-링크 겸용(B) — 구현 시 택1 |
+| 기본 제공 여부 | **기본 대체 확정** — render가 멀티뷰 기본 산출, gantt 폐기, plan.md는 트리 아웃라인 |
+| ssot 필드 | **A안 확정** — task.ssot 신설 + `cairn set-ssot` 명령 |
