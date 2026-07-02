@@ -11,3 +11,9 @@ feature-pack/cliproxyapi/
 
 # oh-my-claudecode 로컬 상태
 .omc/
+
+# 파이썬 바이트코드 (로컬 산물)
+**/__pycache__/
+
+# omo codegraph 인덱스 심링크 (로컬 전용)
+.codegraph
