@@ -1,6 +1,6 @@
 {
   "name": "cairn",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "cairn — 일정관리 + 멀티에이전트 복구 원장 CLI",
   "description": "결정적 단일 직렬 writer 원장(.cairn/plan.yaml)으로 프로젝트/마일스톤/태스크 일정(start/due/overdue/간트)과 멀티에이전트 fan-out 복구 계보(spawned_from/return_to/merge_back_to)를 관리. 세션 증류·워크트리 정리 후에도 복귀점 보존. git 추적 + 훅 자동캡처.",
   "category": "planning",

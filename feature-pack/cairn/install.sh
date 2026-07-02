@@ -17,6 +17,8 @@ command -v git >/dev/null || { echo "✘ git 필요"; exit 1; }
 rm -rf "$TARGET"
 mkdir -p "$TARGET"
 cp -r "$PKG_DIR/core/." "$TARGET/"
+mkdir -p "$TARGET/docs"
+cp "$PKG_DIR/docs/plan-view.template.html" "$TARGET/docs/"   # 멀티뷰 뷰어 template (render --serve 필수)
 mkdir -p "$TARGET/hooks"
 cp -r "$PKG_DIR/claude-code/hooks/." "$TARGET/hooks/"
 chmod +x "$TARGET/bin/cairn"
