@@ -36,6 +36,7 @@ skill/references/
   feature-interview.md                # 피처 접수 + 프로젝트 자산 서치 → 추천 설계
   orchestration-playbook.md           # 6단계 파이프라인
   monitoring-loop.md                  # 멈춤 감지 + 진로이탈 교정 + 상태 원장
+  context-management.md               # 상태 외재화(디스크 SSOT) + compact/clear/재시작 + 세션 복원
   agent-templates/*.md.tpl            # planner/checker/implementer/tester/da(+da-claude 대체)
 ```
 
