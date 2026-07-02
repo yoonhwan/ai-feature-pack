@@ -54,6 +54,7 @@
 1. `references/agent-templates/*.md.tpl` **5개 전부**(planner/checker/implementer/tester/da)를 Read. 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
 2. 모든 `{{PLACEHOLDER}}`를 답변으로 치환 (빈 값은 빈 문자열, 잔여 `{{`가 남으면 설치 실패로 간주).
 3. 대상 위치에 **`<PREFIX>-planner.md`**, `<PREFIX>-checker.md`, `<PREFIX>-implementer.md`, `<PREFIX>-tester.md`, `<PREFIX>-da.md`(+ 선택 크루 `<PREFIX>-<crew>.md`)로 Write — **planner 누락 금지**. planner .md가 설치돼 있어야 다음 세션부터 Workflow `agentType`으로도 인식된다(세션 시작 등록 타입만 유효).
+3-1. **답변 스냅샷 기록**: 인터뷰 답변 전체(placeholder 키-값 + substitutions + 설치 시각 + 팩 커밋 해시)를 설치 스킬 위치의 `install.json`에 Write — 이후 "FT 업데이트"(`references/update.md`)가 이 파일로 재치환한다(재인터뷰 불요).
 4. 검증 — 프로브는 **두 경로로 전 워커**를 커버한다 (`orchestration-playbook.md` §프로브):
    - Agent 경로(checker/implementer/da + 크루 드라이버): 팀 하네스 프로브.
    - **Workflow 경로(planner/tester): Workflow `agent()`에 model/effort 명시로 동일 프로브** — Agent 프로브만 돌리면 planner가 목록에 안 떠 설치가 완료된 것처럼 보이는 함정(실사례: `probe-checker/impl/da`만 표시되고 기획 브레인 미검증).
