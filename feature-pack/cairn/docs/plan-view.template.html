@@ -283,7 +283,7 @@ function renderTree(){
     const mstat=m.status==='done'?'done':m.status==='active'?'active':m.status==='blocked'?'blocked':'planned';
     const dates=(m.start||m.end)?`<span class="mdate">📅 ${m.start||"—"} ~ ${m.end||"—"}</span>`:"";
     const mdep=m.dep&&m.dep.length?`<span class="mdep">⟵ ${m.dep.join(", ")}</span>`:"";
-    h+=`<div class="mile"><div class="mhead"><span class="badge ${mstat}">${m.id}</span>`+
+    h+=`<div class="mile"><div class="mhead" data-mid="${m.id}"><span class="badge ${mstat}">${m.id}</span>`+
        `<span class="mname">${esc(m.name)}</span>${dates}${mdep}`+
        `<span class="spacer"></span><div class="pbar"><i style="width:${pct}%"></i></div><span class="pct">${pct}%</span></div>`;
     m.tasks.forEach(t=>{
@@ -433,9 +433,52 @@ function deleteTask(){
   if(m) m.tasks=m.tasks.filter(x=>x.id!==t.id);
   markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
 }
+// 마일스톤 필드편집 다이얼로그 — set-ms/remove-milestone op(백엔드 기존)
+function openMilestone(mid){
+  const m=plan.milestones.find(x=>x.id===mid); if(!m)return;
+  if(!CAN_EDIT) return;   // 읽기전용: MS 편집 UI 없음
+  const row=(k,v)=>`<div class="mrow"><span class="mk">${k}</span><span class="mv">${v}</span></div>`;
+  const inp=(id,v,type)=>`<input class="fedit" id="${id}" type="${type||'text'}" value="${_av(v)}">`;
+  const opt=STATUS_MS.map(s=>`<option value="${s}"${s===m.status?' selected':''}>${s}</option>`).join("");
+  const empty=(m.tasks||[]).length===0;
+  const body=row("상태",`<select class="fedit" id="m_status">${opt}</select>`)
+    +row("이름",inp("m_name",m.name))
+    +row("start",inp("m_start",m.start||"","date"))
+    +row("end",inp("m_end",m.end||"","date"))
+    +row("선행(depends_on)",inp("m_dep",(m.dep||m.depends_on||[]).join(", "))+`<span class="fhint">쉼표 구분 ms id</span>`);
+  const foot=`<div class="modalfoot">`+
+    (empty?`<button class="mbtn danger" id="m_del">마일스톤 삭제</button>`:`<span class="fhint">태스크가 있어 삭제 불가</span>`)+
+    `<span style="flex:1"></span><button class="mbtn" data-close="1">취소</button><button class="mbtn primary" id="m_save">확인</button></div>`;
+  dlg.innerHTML=`<div class="modalhead"><div><span class="tid">${m.id}</span> · 마일스톤</div>`+
+    `<button class="mclose" data-close="1">✕</button></div><div class="modalname">${esc(m.name)}</div>`+body+foot;
+  dlg._ms=m; dlg._task=null; dlg.showModal();
+}
+function saveMsForm(){
+  const m=dlg._ms; if(!m)return; const g=id=>dlg.querySelector(id);
+  const pushMs=(field,value)=>ops.push({op:"set-ms",target:[EDIT.pid,m.id],field,value});
+  const name=g("#m_name").value.trim(); if(name&&name!==m.name){ pushMs("name",name); m.name=name; }
+  const st=g("#m_status").value; if(st!==m.status){ pushMs("status",st); m.status=st; }
+  const setOpt=(field,key,raw)=>{ const cur=m[key]||"", nv=(raw||"").trim();
+    if(nv!==cur){ pushMs(field,nv); if(nv)m[key]=nv; else delete m[key]; } };
+  setOpt("start","start",g("#m_start").value); setOpt("end","end",g("#m_end").value);
+  const depCur=(m.dep||m.depends_on||[]).join(", "), depNv=g("#m_dep").value;
+  if(depNv.trim()!==depCur.trim()){ const arr=depNv.split(",").map(s=>s.trim()).filter(Boolean);
+    pushMs("depends_on",arr); m.dep=arr; }
+  markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
+}
+function deleteMilestone(){
+  const m=dlg._ms; if(!m)return;
+  if((m.tasks||[]).length){ alert("태스크가 있어 삭제할 수 없습니다"); return; }
+  if(!confirm(`마일스톤 ${m.id} 삭제?`))return;
+  ops.push({op:"remove-milestone",target:[EDIT.pid,m.id]});
+  plan.milestones=plan.milestones.filter(x=>x.id!==m.id);
+  markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
+}
 dlg.addEventListener("click",e=>{
   if(e.target.id==="f_save"){ saveTaskForm(); return; }
   if(e.target.id==="f_del"){ deleteTask(); return; }
+  if(e.target.id==="m_save"){ saveMsForm(); return; }
+  if(e.target.id==="m_del"){ deleteMilestone(); return; }
   if(e.target===dlg || e.target.dataset.close){ dlg.close(); return; }
   if(e.target.dataset.open){ openSsot(e.target.dataset.open); return; }
   if(e.target.dataset.copy){
@@ -447,7 +490,9 @@ document.body.addEventListener("click",e=>{
   if(_dragMoved){ _dragMoved=false; return; }   // 드래그 종료 후 click은 다이얼로그 억제
   if(e.target.closest("dialog"))return;
   const el=e.target.closest("[data-tid]");
-  if(el) openTask(el.dataset.tid);
+  if(el){ openTask(el.dataset.tid); return; }
+  const mel=e.target.closest("[data-mid]");
+  if(mel) openMilestone(mel.dataset.mid);
 });
 
 // tabs + lazy mermaid
@@ -528,7 +573,7 @@ function renderSchedule(){
       if(m.start===e) msMark=`<div class="sg-diamond" style="left:${l-6}px" title="${esc(m.name)} ${m.start}"></div>`;
       else msMark=`<div class="sg-msbar" style="left:${l}px;width:${(dcount(new Date(m.start),new Date(e))+1)*PX}px" title="${esc(m.name)} ${m.start}~${e}"></div>`;
     }
-    rows+=`<div class="sg-row section"><div class="sg-label sec"><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)}</div><div class="sg-track">${msMark}</div></div>`;
+    rows+=`<div class="sg-row section" data-mid="${m.id}"><div class="sg-label sec"><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)}</div><div class="sg-track">${msMark}</div></div>`;
     m.tasks.forEach(t=>{
       const s=t.start||m.start, e=t.due||m.end||s;
       const left=dayX(s), w=Math.max(PX,(dcount(new Date(s),new Date(e))+1)*PX);
