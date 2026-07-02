@@ -34,13 +34,13 @@
 4. cairn 훅 (state.md 생성 후 — 실패 즉시 이벤트 로그 기록 가능):
    - **정본 = spawn**: `(cd "$MAIN_ROOT" && cairn spawn ft-<slug> --from <parent> --return-to <parent> --worktree "$BRANCH" --session "fable-team:$WT/.fable-team/state/ACTIVE")` — 계보(return_to) 유지로 complete가 `--force` 없이 닫히고, execution_ref·session_ref 원자 설정. `BRANCH=$(git -C "$WT" branch --show-current)` — **execution_ref의 canonical 형식은 브랜치명**(reconcile이 브랜치와 대조 — 경로를 넣으면 항상 orphan 오보).
    - **폴백 = add-task** (parent 부재·사용자 미지정 시): `cairn add-task <project> <milestone> ft-<slug> [--days N]` → `cairn link <tid> --execution-ref "$BRANCH" --session-ref "fable-team:$WT/.fable-team/state/ACTIVE"` — **`--session-ref`는 이 1회뿐**(대입 덮어쓰기). 종결 시 `complete --force` 필요(`forced_complete` 표식) — 트레이드오프를 이벤트 로그에 명기.
-   - 발급 tid를 state.md frontmatter `cairn_task: <id>`에 write-through. **stage 전이·라운드는 cairn에 절대 기록하지 않는다**(2상태 원칙 — 열림→닫힘만).
-5. **required 훅 실패 분기**: 대화형이면 보고·대기(§0). headless `deny`면 **롤백 후 종료** — state.md·ACTIVE 삭제 + `(cd "$MAIN_ROOT" && cairn remove-task <project> <milestone> <tid>)` (3번째 인자 = spawn 발급 task id, 태스크 이름 아님). `allow-degrade`면 요란한 기록 후 독립 속행.
+   - 발급 노드의 **전체 주소를 write-through**: state.md frontmatter `cairn_task: <project>/<milestone>/<tid>` — 롤백 3인자·complete 인자의 유일한 출처(tid만 요구하는 명령은 마지막 요소 사용). **stage 전이·라운드는 cairn에 절대 기록하지 않는다**(2상태 원칙 — 열림→닫힘만).
+5. **required 훅 실패 분기**: 대화형이면 보고·대기(§0). headless `deny`면 **롤백 후 종료** — state.md·ACTIVE 삭제 + `(cd "$MAIN_ROOT" && cairn remove-task <project> <milestone> <tid>)` — **3인자는 frontmatter `cairn_task` 전체 주소를 분해해 조립**(tid = spawn 발급 task id, 태스크 이름 아님). `allow-degrade`면 요란한 기록 후 독립 속행.
 
 ## §2 종결 훅 (stage 6 — status:done 기록·ACTIVE 제거 **후**)
 
 1. baton: `save`(NEXT.md엔 **한 줄 포인터만**: "fable-team 파이프라인 — .fable-team/state/ACTIVE 참조, 재트리거 시 자동 복원") → `finish` — 워크트리 CWD 서브셸. **`wt-clean` 자동 실행 금지**(머지 = 사람 게이트).
-2. cairn: `complete <cairn_task>`(spawn 경로 — return_to 복귀점을 종결 보고에 포함) / add-task 폴백이면 `complete <cairn_task> --force`.
+2. cairn: `complete <tid>`(tid = `cairn_task` 주소의 마지막 요소. spawn 경로 — return_to 복귀점을 종결 보고에 포함) / add-task 폴백이면 `complete <tid> --force`.
 3. PR 권고 보고: `.worktree-info.json` 경과일 + `git -C "$WT" log main..HEAD --oneline | wc -l` 커밋 수 + "PR → 머지 → `/baton:wt-clean --merged`" 1줄.
 4. **훅 실패는 FT 종결을 막지 않는다**(순서가 보장). on=degrade 기록, required=§0 종결 미완 보고·대기(headless는 override 정책).
 

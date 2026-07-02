@@ -27,7 +27,12 @@ done
 
 case "$TARGET_KIND" in
   user) DEST="$HOME/.claude/skills/fable-team" ;;
-  project:*) DEST="${TARGET_KIND#project:}/.claude/skills/fable-team" ;;
+  project:*)
+    PROJ="${TARGET_KIND#project:}"
+    case "$PROJ" in
+      /*) DEST="$PROJ/.claude/skills/fable-team" ;;
+      *) say "usage: install.sh project:/abs/path (절대경로 필수 — 빈 경로/상대경로 거부)"; exit 2 ;;
+    esac ;;
   *) say "usage: install.sh [user|project:/abs/path]"; exit 2 ;;
 esac
 

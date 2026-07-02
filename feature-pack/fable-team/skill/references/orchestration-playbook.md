@@ -23,7 +23,7 @@
             (+연동 훅: baton save/finish·cairn complete·PR 권고 — integrations.md §2 순서 준수)
 ```
 
-피처 인터뷰에서 축약 형상(확인→구현→테스트, DA 생략 등)을 확정했으면 **해당 단계만 수행** — 형상은 `features/<slug>.md`와 state frontmatter(`pipeline`/`da`)에 기록되고, 세션 복원도 이 형상을 따른다(context-management §4).
+피처 인터뷰에서 축약 형상(확인→구현→테스트, DA 생략 등)을 확정했으면 **해당 단계만 수행** — 형상은 `features/<slug>.md`와 state frontmatter(`pipeline`/`da`)에 기록되고, 세션 복원도 이 형상을 따른다(context-management §4). **check-only 형상 = 0(킥오프)→1(수집) 후 보고·종결** — 기획/구현/검증/게이트 단계 없음, 워크트리·연동 훅 전체 skip(integrations.md §1-0).
 
 **`da: review`의 실행 의미**: stage 4 검증에서 DA review **1회 판정만** 수행하고 stage 5 게이트는 없다 — 판정은 `da-round1.md`로 기록해 종결 보고에 첨부하며, CHANGES_REQUESTED여도 **자동 재기획 재순환 없이** 사용자 판단으로 넘긴다(게이트·재순환은 `da: loop2` 전용).
 
@@ -62,5 +62,5 @@ JSON 한 줄로 반환 (키: tools, spawn_test):
 - Agent 팀 하네스: frontmatter `effort:` 미반영 → 세션 effort 상속. ultracode 세션 + claude-5 워커 = 400 즉사. → Workflow 경로.
 - 에이전트 타입 정의는 스폰 시점 캐시 — .md 수정 후 같은 타입 재스폰해도 구정의일 수 있음. 새 이름 or 새 세션.
 - Workflow `agent()`의 `agentType`은 세션 시작 시 등록된 타입만 인식 (세션 중 추가된 커스텀 타입 불가) → `model`/`effort` 직접 지정으로 대체.
-- codex: `npx -y @openai/codex exec --skip-git-repo-check -c model_reasoning_effort="xhigh" "<프롬프트>" < /dev/null`. 헤더 `reasoning effort: xhigh`로 적용 확인. `--full-auto`는 구현 위임시에만.
+- codex: `npx -y @openai/codex exec --skip-git-repo-check -c model_reasoning_effort="xhigh" "<프롬프트>" < /dev/null`. 헤더 `reasoning effort: xhigh`로 적용 확인. `--full-auto`는 구현 위임시에만. (이 줄은 effort 적용 실측 기록 — **드라이버 정본 레시피는 `agent-templates/ft-da.md.tpl`**: `CODEX_DUMMY_API_KEY` + `-C <대상디렉토리>` 포함, 복붙은 그쪽에서.)
 - 워커 모델 실측: `agent-*.meta.json` `model` 필드 + transcript `message.model`.

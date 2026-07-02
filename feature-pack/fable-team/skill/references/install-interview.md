@@ -59,7 +59,7 @@
 
 ## 5. 설치 절차 (인터뷰 완료 후)
 
-1. `references/agent-templates/*.md.tpl` **5개 전부**(planner/checker/implementer/tester/da)를 Read. 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
+1. `references/agent-templates/*.md.tpl` **5개 전부**(planner/checker/implementer/tester/da)를 Read. **단 §0에서 DA를 claude로 대체 확정(substitutions 기록)한 경우 da 템플릿은 `ft-da.md.tpl` 대신 `ft-da-claude.md.tpl`**(brain-availability §3). 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
 2. 모든 `{{PLACEHOLDER}}`를 답변으로 치환 (빈 값은 빈 문자열, 잔여 `{{`가 남으면 설치 실패로 간주).
 3. 대상 위치에 **`<PREFIX>-planner.md`**, `<PREFIX>-checker.md`, `<PREFIX>-implementer.md`, `<PREFIX>-tester.md`, `<PREFIX>-da.md`(+ 선택 크루 `<PREFIX>-<crew>.md`)로 Write — **planner 누락 금지**. planner .md가 설치돼 있어야 다음 세션부터 Workflow `agentType`으로도 인식된다(세션 시작 등록 타입만 유효).
 3-1. **답변 스냅샷 기록**: 인터뷰 답변 전체(placeholder 키-값 + substitutions + 설치 시각 + 팩 커밋 해시)를 설치 스킬 위치의 `install.json`에 Write — 이후 "FT 업데이트"(`references/update.md`)가 이 파일로 재치환한다(재인터뷰 불요).
