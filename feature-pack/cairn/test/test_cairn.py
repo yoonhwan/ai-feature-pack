@@ -2056,3 +2056,52 @@ def test_validate_allows_legacy_note(tmp_path, monkeypatch):
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "legacy note"], cwd=repo, check=True)
     assert cairn.main(["add-assignee", "project-a", "t2", "철수"]) == 0
+
+
+# ── C1: project.type enum + task.ssot 스키마 + set-ssot ──────────────────────
+def test_validate_default_type_is_work():
+    """type 필드 부재 = work(하위호환). golden엔 type 없음 → valid."""
+    assert cairn.validate(_good()) == []
+
+
+def test_validate_accepts_schedule_type():
+    d = _good(); d["projects"][0]["type"] = "schedule"
+    assert cairn.validate(d) == []
+
+
+def test_validate_accepts_work_type():
+    d = _good(); d["projects"][0]["type"] = "work"
+    assert cairn.validate(d) == []
+
+
+def test_validate_rejects_bad_type():
+    d = _good(); d["projects"][0]["type"] = "gantt"
+    assert any("type" in e for e in cairn.validate(d))
+
+
+def test_validate_ssot_control_chars_rejected():
+    d = _good(); _find_task(d, "t2")["ssot"] = "/path\x00evil"
+    assert any("ssot" in e for e in cairn.validate(d))
+
+
+def test_validate_accepts_ssot_path():
+    d = _good(); _find_task(d, "t2")["ssot"] = "/Users/x/spec.md"
+    assert cairn.validate(d) == []
+
+
+def test_set_ssot_persists_and_commits(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    assert cairn.main(["set-ssot", "project-a", "t2", "/Users/x/spec.md"]) == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert _find_task(d, "t2")["ssot"] == "/Users/x/spec.md"
+    log = subprocess.run(["git", "log", "--oneline"], cwd=repo,
+                         capture_output=True, text=True).stdout
+    assert "set-ssot" in log
+
+
+def test_set_ssot_empty_removes(tmp_path, monkeypatch):
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    cairn.main(["set-ssot", "project-a", "t2", "/Users/x/spec.md"])
+    assert cairn.main(["set-ssot", "project-a", "t2", ""]) == 0
+    d = cairn.load_plan(repo / ".cairn" / "plan.yaml")
+    assert "ssot" not in _find_task(d, "t2")
