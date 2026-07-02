@@ -49,6 +49,14 @@
 3. 추가 선택 시: `agent-templates/ft-<crew>.md.tpl` 치환(드라이버 모델 `{{OMO_DRIVER_MODEL}}`/`{{CREW_DRIVER_MODEL}}` 기본 [claude-sonnet-4-6]) 또는 crew-support.md의 일반 계약 골격으로 `<PREFIX>-<crew>.md` Write. B형 크루의 실행 모델은 템플릿에 sonnet4.6 high로 고정돼 있다(질문 불요).
 4. 검증: §5 프로브와 동일 + 하네스 1회 실측 호출 (예: omo 크루 → `omx exec -s read-only '$analyze <간단 질의>' < /dev/null`).
 
+## 4.5 연동(integrations) 감지·선언 — baton·cairn
+
+로컬 하네스 연동 레벨을 선언한다 (`references/integrations.md`가 상세 SSOT):
+
+1. 프로브 2종 Bash 실측: `bash ~/.baton/current/bin/baton status < /dev/null`, `(cd <프로젝트 루트> && bash ~/.cairn/current/bin/cairn status < /dev/null)`.
+2. 감지된 것마다 AskUserQuestion: "연동 레벨? **[off]** / on / required" (미감지면 질문 생략 = off 고정). **required 선택 시 추가 질문 1개**: "무인(headless) 실행에서 required 실패 시? **[deny — fail-fast+롤백]** / allow-degrade — 요란한 기록 후 속행".
+3. 답변을 `install.json.integrations`에 기록 (§5-3-1 스냅샷 포함 — "FT 업데이트"가 보존).
+
 ## 5. 설치 절차 (인터뷰 완료 후)
 
 1. `references/agent-templates/*.md.tpl` **5개 전부**(planner/checker/implementer/tester/da)를 Read. 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
