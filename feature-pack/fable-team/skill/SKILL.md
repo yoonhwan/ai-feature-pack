@@ -1,6 +1,6 @@
 ---
 name: fable-team
-description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 해보자", "FT 하자" 요청 시 사용 (보조 트리거: "fable-team", "팀 구성", "팀 에이전트 설치", "팀으로 진행" / 로컬 패치는 "FT 업데이트"). 오케스트레이터(ultracode 지원 최상위 모델)는 전달·조율만, 기획·문제해결은 planner 브레인(기본 fable5 max)이 전담. 설치 인터뷰 + 피처 설계 인터뷰로 프로젝트별 워커를 커스텀 생성한다. 트리거 시 부팅 시퀀스(피처 입력→추천 설계→프리뷰→컨펌)가 강제된다.
+description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 해보자", "FT 하자" 요청 시 사용 (보조 트리거: "fable-team", "팀 구성", "팀 에이전트 설치", "팀으로 진행" / 로컬 패치는 "FT 업데이트"). 오케스트레이터(ultracode 지원 최상위 모델)는 전달·조율만, 기획·문제해결은 planner 브레인(기본 fable5 high — max는 hang 실측으로 opt-in)이 전담. 설치 인터뷰 + 피처 설계 인터뷰로 프로젝트별 워커를 커스텀 생성한다. 트리거 시 부팅 시퀀스(피처 입력→추천 설계→프리뷰→컨펌)가 강제된다.
 ---
 
 # fable-team — 일반화된 팀 오케스트레이션 하네스
@@ -10,7 +10,7 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 | 층 | 담당 | 모델 | 하는 일 | 안 하는 일 |
 |----|------|------|---------|-----------|
 | **오케스트레이터** | 현재 세션 | ultracode 지원 최상위 모델 (fable5 등 — 일반화) | 태스크 분해, 워커 스폰/전달, 커뮤니케이션, 파이프라인 진행, 게이트 판단 릴레이 | **기획·문제해결 금지** — 두뇌 작업을 직접 하지 않아 멈추지 않는 문제해결 루프가 가능 |
-| **planner (기획 브레인)** | 서브에이전트 | 기본 fable5 + effort max (설치 시 변경 가능) | 원인 분석, 해결 설계 — 컨텍스트를 파일/텍스트로 받아 **설계 파일로 반환** | 구현/실행/오케스트레이션 |
+| **planner (기획 브레인)** | 서브에이전트 | 기본 fable5 + effort **high** (max는 opt-in — hang 실측 2026-07-03, 설치 시 변경 가능) | 원인 분석, 해결 설계 — 컨텍스트를 파일/텍스트로 받아 **설계 파일로 반환** | 구현/실행/오케스트레이션 |
 | **워커 4종** | 서브에이전트 | checker/implementer/tester/da | 확인, 구현, 테스트, DA 판정 | 기획, 서브 스폰 |
 
 ## 트리거 시 체크 게이트 (허들)
@@ -18,7 +18,7 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 스킬 발동 즉시 확인하고, 미충족이면 진행 전 사용자에게 보고한다:
 
 1. **ultracode/effort 설정**: 현재 세션이 ultracode(또는 그에 준하는 최상위 effort + Workflow 오케스트레이션 지원)로 실행 중인가? 아니면 `/effort ultracode` 설정을 안내하고 확인 후 진행.
-2. **세션 effort 상속 함정**: 세션이 xhigh(ultracode)면 claude-5 계열(sonnet-5, fable-5) 워커는 Agent 팀 하네스에서 effort 상속으로 400 에러 즉사 — **스폰 경로 분리 규칙**(아래) 준수. claude-5 유효 effort는 low/medium/high/max(**xhigh 없음**) — 즉사 발생 시 교정: 해당 워커 pane에 `/effort high` 주입 또는 Workflow 경로로 `effort: high` 명시 재스폰. **claude-5 워커 표준 effort = high** (planner의 max만 의도적 예외).
+2. **세션 effort 상속 함정**: 세션이 xhigh(ultracode)면 claude-5 계열(sonnet-5, fable-5) 워커는 Agent 팀 하네스에서 effort 상속으로 400 에러 즉사 — **스폰 경로 분리 규칙**(아래) 준수. claude-5 유효 effort는 low/medium/high/max(**xhigh 없음**) — 즉사 발생 시 교정: 해당 워커 pane에 `/effort high` 주입 또는 Workflow 경로로 `effort: high` 명시 재스폰. **claude-5 워커 표준 effort = high — planner 포함(기본 high)**. **planner 회전 등급제(속도 규범)**: max는 대형 신규 설계에 한한 **명시 opt-in**(사용자 승인) — **max hang 실측(2026-07-03, 두 세션에서 ~10분+ 장기 무산출) 시 즉시 중단하고 high로 재발사**. 기존 설계의 보강·조임 회전은 high(수 분 내), 문구 수준 수정은 오케스트레이터 직접(기획 불요 기계적 — 게이트 처방이 명시된 경우). **비차단 규범**: planner/DA 회전은 백그라운드가 원칙 — 회전 대기로 사용자 개발을 정지시키지 않는다(파일이 증거, 릴레이 도착 시 처리·중간엔 다른 요청 계속).
 3. 에이전트 정의 존재: 대상 위치에 `<prefix>-planner/checker/implementer/tester/da`가 설치돼 있는가? 없으면 설치 인터뷰(`references/install-interview.md`)부터.
 4. **연동 프로브**: install.json `integrations`가 on/required면 가용성 프로브 — required 실패 시 보고 후 대기(headless는 override 정책 — `references/integrations.md` §0), on 실패 시 degrade 기록 후 속행. **프로브 출력(baton status stdout)은 보관해 부팅 시퀀스 1의 discovery가 재사용** — 같은 명령을 다시 실행하지 않는다.
 
@@ -36,9 +36,9 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 
 | 워커 | 경로 | 이유 |
 |------|------|------|
-| planner (fable5 max), tester (sonnet5 high) 등 **claude-5 계열** | **Workflow `agent()`** + `model`/`effort` 명시 | Agent 팀 하네스는 frontmatter `effort:`를 무시하고 세션 effort(xhigh)를 상속시켜 claude-5 계열이 `400 level "xhigh" not supported`로 죽는다. Workflow의 effort 오버라이드는 실증 통과 (sonnet5+high ALL_PASS). |
+| planner (fable5 high), tester (sonnet5 high) 등 **claude-5 계열** | **Workflow `agent()`** + `model`/`effort` 명시 | Agent 팀 하네스는 frontmatter `effort:`를 무시하고 세션 effort(xhigh)를 상속시켜 claude-5 계열이 `400 level "xhigh" not supported`로 죽는다. Workflow의 effort 오버라이드는 실증 통과 (sonnet5+high ALL_PASS). |
 | checker/implementer/da 등 **4.6 계열** | **Agent 도구** (팀 하네스) | xhigh 상속에도 정상 동작 실증. 이름 부여 스폰 → 완료 후 열린 상태 대기 → SendMessage 후속 질의/approve loop 재라운드 가능. |
-| 외부 CLI 하네스 실행 전부 — 장시간 두뇌 작업(claude -p planner), DA(codex exec), 플러그인 크루(claude -p), omo(omx exec) | **미들웨어 드라이버 서브에이전트** (Agent 도구 — **세션 우측 pane 가시**, sonnet4.6 low, 이름 부여. 팀스 별창 아님) — 드라이버가 Bash로 외부 CLI를 `< /dev/null` 실행하고 결과를 SendMessage로 릴레이 | **오케스트레이터가 외부 CLI를 직접 실행하는 것 금지**(직접 `claude -p`/`codex exec`/`omx exec` 발사 금지). 이유: ① 서브에이전트는 세션 우측 pane에 네이티브 가시(별도 tmux 테일러 불요) ② SendMessage는 즉시 전송·유실 위험 낮음(Claude Code 프로토콜 최적화) ③ 자식 CLI는 별도 OS 프로세스라 개입 내성 유지 — 드라이버가 죽어도 계약=프롬프트 파일·결과=출력 파일 낙수로 재회수 가능. 드라이버는 자식을 PID+출력 파일로 감시. **nohup 등 화면 없는 순수 백그라운드 발사 금지.** |
+| 외부 CLI 하네스 실행 전부 — 장시간 두뇌 작업(claude -p planner), DA(codex exec), 플러그인 크루(claude -p), omo(omx exec) | **미들웨어 드라이버 서브에이전트** (Agent 도구 — **세션 우측 pane 가시**, sonnet4.6 low, 이름 부여. 팀스 별창 아님) — 드라이버가 Bash로 외부 CLI를 `< /dev/null` 실행하고 결과를 SendMessage로 릴레이 | **오케스트레이터가 외부 CLI를 직접 실행하는 것 금지**(직접 `claude -p`/`codex exec`/`omx exec` 발사 금지). 이유: ① 서브에이전트는 세션 우측 pane에 네이티브 가시(별도 tmux 테일러 불요) ② SendMessage는 즉시 전송·유실 위험 낮음(Claude Code 프로토콜 최적화) ③ 자식 CLI는 별도 OS 프로세스라 개입 내성 유지 — 드라이버가 죽어도 계약=프롬프트 파일·결과=출력 파일 낙수로 재회수 가능. 드라이버는 자식을 **detach 발사(nohup/setsid — 드라이버 사망에도 자식 생존)** 후 PID+출력 파일 폴링으로 감시(포그라운드 실행 금지 — 드라이버 동반 사망 시 자식까지 죽는 실사고 2026-07-03). "화면 없는 백그라운드 금지"는 **오케스트레이터의 무가시 직접 발사**에 한한다 — 드라이버 경유 detach는 pane 가시가 이미 확보돼 정당. |
 
 planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 출력)이라 Workflow 일회성 호출이 자연스럽다. 대기가 필요한 워커(approve loop 등)만 Agent 경로를 쓴다.
 
@@ -46,7 +46,7 @@ planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 
 
 | 워커 | 브레인 기본값 | effort | 도구 | 전담 |
 |------|--------------|--------|------|------|
-| ft-planner | **fable5** (설치 시 변경 가능) | max | Read, Grep, Glob, Write | 원인 분석·해결 설계 → 설계 파일 |
+| ft-planner | **fable5** (설치 시 변경 가능) | **high** (max는 opt-in — hang 주의, 허들 2) | Read, Grep, Glob, Write | 원인 분석·해결 설계 → 설계 파일 |
 | ft-checker | sonnet 4.6 | low | Read, Grep, Glob | 문서/코드/로그 확인 (병렬 다수) |
 | ft-implementer | opus 4.6 | max | +Bash, Edit, Write, Skill | 설계 파일 기반 구현. 프로젝트 스킬 호출 가능 |
 | ft-tester | sonnet 5 | high | +Bash | 테스트 설계·실행·repro |
