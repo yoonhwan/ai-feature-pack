@@ -37,8 +37,12 @@ skill/references/
   orchestration-playbook.md           # 6단계 파이프라인
   monitoring-loop.md                  # 멈춤 감지 + 진로이탈 교정 + 상태 원장
   context-management.md               # 상태 외재화(디스크 SSOT) + compact/clear/재시작 + 세션 복원
-  agent-templates/*.md.tpl            # planner/checker/implementer/tester/da(+da-claude 대체)
+  agent-templates/*.md.tpl            # planner/checker/implementer/tester/da(+da-claude 대체)/omo 크루
+  crew/crew-support.md                # 크루(로컬 하네스 전문 워커) 공통 계약 — resume 체인·윈도우 관리 기본 제공
+  crew/omx-omo-full-context.md        # omo 크루 하네스 상세 (OMX/OMO 카탈로그·안전 모드·few-shot)
 ```
+
+**크루 (opt-in)**: da(codex)가 원형 — 같은 드라이버 패턴으로 `omo`(OMX/OMO)·`superpowers`·`gstack` 등 로컬 하네스 이름으로 전문 워커를 추가. 세션 승계(resume/inject)와 컨텍스트 윈도우 관리(요약-후-fork)를 기본 계약으로 함께 제공한다.
 
 ## 실측 검증 (2026-07-02, E2E)
 
