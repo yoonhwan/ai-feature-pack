@@ -10,6 +10,8 @@ import sys
 import tempfile
 import fcntl
 import hashlib
+import secrets
+import urllib.parse
 from contextlib import contextmanager
 from pathlib import Path
 from ruamel.yaml import YAML, YAMLError
@@ -42,6 +44,12 @@ VIEW_PATH = REPO / ".cairn" / "views" / "plan.md"
 LOCK_PATH = REPO / ".cairn" / ".lock"
 MAP_DIR = Path("/tmp/cairn")
 
+PROJECT_TYPE = {"work", "schedule"}   # 3번째 뷰 스위치(work=gitGraph / schedule=간트). 데이터 제약 아님.
+# 웹 편집 ops가 절대 건드릴 수 없는 필드 — lifecycle 훅/복구 계보가 정본(수동편집 금지).
+FROZEN_TASK_FIELDS = {"id", "execution_ref", "branch", "spawned_from", "return_to", "merge_back_to"}
+EDITABLE_TASK_FIELDS = {"name", "status", "start", "due", "note", "ssot",
+                        "depends_on", "assignees", "reporters", "watchers"}
+EDITABLE_MS_FIELDS = {"name", "status", "start", "end", "depends_on"}
 STATUS_PROJECT = {"planned", "active", "done", "paused"}
 STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
@@ -575,6 +583,9 @@ def validate(data):
             errors.append(f"{pid}: project name contains control characters")
         if p.get("status") not in STATUS_PROJECT:
             errors.append(f"{pid}: bad project status: {p.get('status')}")
+        # type = 3번째 뷰 스위치(work 기본). 부재 시 work(하위호환). 별칭 금지.
+        if p.get("type", "work") not in PROJECT_TYPE:
+            errors.append(f"{pid}: bad project type: {p.get('type')} (work|schedule)")
         mids = set()
         for m in p.get("milestones", []):
             mid = m.get("id")
@@ -637,6 +648,9 @@ def validate(data):
                         for v in lst:
                             if _CTRL_RE.search(str(v)):
                                 errors.append(f"{pid}/{mid}/{tid}: {fld} contains control characters")
+                # ssot = 기획 문서 경로(선택). note와 역할 분리. 형식은 control char만 차단.
+                if t.get("ssot") is not None and _CTRL_RE.search(str(t.get("ssot"))):
+                    errors.append(f"{pid}/{mid}/{tid}: ssot contains control characters")
                 for ref in ("spawned_from", "return_to", "merge_back_to"):
                     target = t.get(ref)
                     if target is not None and target not in node_ids:
@@ -786,6 +800,8 @@ def _build_pfilter(args):
 
 
 def cmd_render(data, args):
+    if getattr(args, "serve", False):
+        return _serve(args)
     errors = validate(data)
     if errors:
         for e in errors:
@@ -916,6 +932,22 @@ def cmd_set_note(_d, args):
         else:
             t["note"] = note
     transaction(mutate, f"set-note {args.project}/{args.task}")
+    print("OK"); return 0
+
+
+def cmd_set_ssot(_d, args):
+    """task.ssot = 기획 SSOT 문서 경로. note와 역할 분리(의도 명확). 빈 문자열=제거."""
+    path = args.path
+    if path and _CTRL_RE.search(path):
+        print("ssot 경로에 제어문자가 있습니다", file=sys.stderr)
+        return 1
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        if path == "":
+            t.pop("ssot", None)
+        else:
+            t["ssot"] = path
+    transaction(mutate, f"set-ssot {args.project}/{args.task}")
     print("OK"); return 0
 
 
@@ -1338,6 +1370,377 @@ def transaction(mutate, message):
             raise
 
 
+def _task_removal_guard(data, tid):
+    """task 삭제 전 역참조(depends_on·복구엣지·todo) 사전검사. 참조 중이면 ValueError.
+    cmd_remove_task와 웹 편집 apply_ops(remove-task)가 공유 — 웹에서 직접 지워도 이 가드 유지."""
+    for pp in data.get("projects", []):
+        for mm in pp.get("milestones", []):
+            for t in mm.get("tasks", []):
+                if t.get("id") == tid:
+                    continue
+                if tid in (t.get("depends_on") or []):
+                    raise ValueError(f"task {tid} is referenced by {t['id']} in depends_on")
+                for ref in ("spawned_from", "return_to", "merge_back_to"):
+                    if t.get(ref) == tid:
+                        raise ValueError(f"task {tid} is referenced by {t['id']} in {ref}")
+    for td in data.get("todos", []):
+        if td.get("origin_node") == tid:
+            raise ValueError(f"task {tid} is referenced by {td['id']} in origin_node")
+        if tid in (td.get("resolved_by") or []):
+            raise ValueError(f"task {tid} is referenced by {td['id']} in resolved_by")
+
+
+def _ms_removal_guard(proj, mid):
+    """milestone 삭제 전 다른 마일스톤의 depends_on 역참조 검사. 참조 중이면 ValueError."""
+    for other in proj.get("milestones", []):
+        if other.get("id") != mid and mid in (other.get("depends_on") or []):
+            raise ValueError(f"milestone {mid} is referenced by {other['id']} in depends_on")
+
+
+# ── 웹 편집 ops 체인지셋 뮤테이터 (불변규칙 #0-1) ────────────────────────────
+# 브라우저는 손실 매핑된 뷰JSON을 갖고 있으므로 절대 역직렬화하지 않는다. 대신 편집을
+# op 리스트로 축적해 보내고, 서버가 ruamel 로드된 원본 doc에 op만 적용한다.
+# op의 field/value는 원장 필드명·값 그대로(뷰 약어 s/dep 아님). validate는 transaction이 사후검증.
+def _resolve_task(data, target):
+    if not (isinstance(target, list) and len(target) == 3):
+        raise ValueError(f"task op target must be [project, milestone, task]: {target}")
+    pid, mid, tid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    t = find_task(ms, tid)
+    if not t: raise ValueError(f"no task {tid} in {mid}")
+    return p, ms, t
+
+
+def _op_set_task(data, op):
+    field = op.get("field")
+    if field in FROZEN_TASK_FIELDS:
+        raise ValueError(f"field {field!r} is read-only (hook/recovery owns it)")
+    if field not in EDITABLE_TASK_FIELDS:
+        raise ValueError(f"field {field!r} not editable")
+    _p, _ms, t = _resolve_task(data, op.get("target"))
+    value = op.get("value")
+    # 선택 필드는 빈 값이면 제거(name/status는 필수라 validate가 사후 검증)
+    if field in ("note", "ssot", "start", "due") and (value is None or value == ""):
+        t.pop(field, None)
+    else:
+        t[field] = value
+
+
+def _op_set_ms(data, op):
+    field = op.get("field")
+    if field not in EDITABLE_MS_FIELDS:
+        raise ValueError(f"field {field!r} not editable")
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 2):
+        raise ValueError(f"set-ms target must be [project, milestone]: {target}")
+    pid, mid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    value = op.get("value")
+    if field in ("start", "end") and (value is None or value == ""):
+        ms.pop(field, None)
+    else:
+        ms[field] = value
+
+
+def _op_add_task(data, op):
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 2):
+        raise ValueError(f"add-task target must be [project, milestone]: {target}")
+    pid, mid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    spec = op.get("task") or {}
+    bad = set(spec) & FROZEN_TASK_FIELDS
+    if bad:
+        raise ValueError(f"cannot set read-only field(s) on add: {sorted(bad)}")
+    unknown = set(spec) - EDITABLE_TASK_FIELDS
+    if unknown:
+        raise ValueError(f"unknown task field(s): {sorted(unknown)}")
+    existing = {t["id"] for pp in data.get("projects", [])
+                for mm in pp.get("milestones", []) for t in mm.get("tasks", [])}
+    tid = _next_id(existing, "t")
+    node = {"id": tid, "name": spec.get("name") or "새 태스크",
+            "status": spec.get("status", "todo"), "depends_on": spec.get("depends_on", []),
+            "assignees": spec.get("assignees", []), "reporters": spec.get("reporters", []),
+            "watchers": spec.get("watchers", [])}
+    for k in ("start", "due", "note", "ssot"):
+        if spec.get(k):
+            node[k] = spec[k]
+    ms.setdefault("tasks", []).append(node)
+
+
+def _op_remove_task(data, op):
+    target = op.get("target")
+    _p, ms, _t = _resolve_task(data, target)
+    tid = target[2]
+    _task_removal_guard(data, tid)
+    ms["tasks"] = [t for t in ms.get("tasks", []) if t.get("id") != tid]
+
+
+def _op_add_ms(data, op):
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 1):
+        raise ValueError(f"add-milestone target must be [project]: {target}")
+    p = find_project(data, target[0])
+    if not p: raise ValueError(f"no project {target[0]}")
+    spec = op.get("milestone") or {}
+    unknown = set(spec) - EDITABLE_MS_FIELDS - {"id"}
+    if unknown:
+        raise ValueError(f"unknown milestone field(s): {sorted(unknown)}")
+    existing = {m["id"] for m in p.get("milestones", [])}
+    mid = spec.get("id") or _next_id(existing, "ms")
+    if mid in existing:
+        raise ValueError(f"milestone id {mid} already exists")
+    node = {"id": mid, "name": spec.get("name") or "새 마일스톤",
+            "status": spec.get("status", "planned"), "depends_on": spec.get("depends_on", []),
+            "tasks": []}
+    for k in ("start", "end"):
+        if spec.get(k):
+            node[k] = spec[k]
+    p.setdefault("milestones", []).append(node)
+
+
+def _op_remove_ms(data, op):
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 2):
+        raise ValueError(f"remove-milestone target must be [project, milestone]: {target}")
+    pid, mid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    if ms.get("tasks"):
+        raise ValueError(f"milestone {mid} has tasks — remove tasks first")
+    _ms_removal_guard(p, mid)
+    p["milestones"] = [m for m in p.get("milestones", []) if m.get("id") != mid]
+
+
+_OP_HANDLERS = {
+    "set": _op_set_task, "set-ms": _op_set_ms,
+    "add-task": _op_add_task, "remove-task": _op_remove_task,
+    "add-milestone": _op_add_ms, "remove-milestone": _op_remove_ms,
+}
+
+
+def apply_ops(data, ops):
+    """웹 편집 op 리스트를 로드된 원장 doc에 in-place 적용. transaction(mutate, msg)로 감싸 호출."""
+    if not isinstance(ops, list):
+        raise ValueError("ops must be a list")
+    for i, op in enumerate(ops):
+        if not isinstance(op, dict):
+            raise ValueError(f"op[{i}] must be an object")
+        kind = op.get("op")
+        handler = _OP_HANDLERS.get(kind)
+        if not handler:
+            raise ValueError(f"op[{i}]: unknown op {kind!r}")
+        try:
+            handler(data, op)
+        except ValueError as e:
+            raise ValueError(f"op[{i}] ({kind}): {e}")
+
+
+# ── 멀티뷰 뷰JSON 매핑 + 웹 저장 코어 (serve 편집 백엔드) ────────────────────
+def to_view(data, pid=None):
+    """plan.yaml → 뷰어 템플릿용 JSON(손실 매핑: status→s, depends_on→dep 등).
+    이건 표시 전용 — 편집은 절대 이 JSON을 역매핑하지 않고 op으로만 보낸다."""
+    projs = data.get("projects", []) or []
+    proj = (find_project(data, pid) if pid else (projs[0] if projs else None)) or {}
+    out = {"pid": proj.get("id"), "project": proj.get("name"), "branch": proj.get("branch"),
+           "type": proj.get("type", "work"), "milestones": []}
+    for m in proj.get("milestones", []) or []:
+        mm = {"id": m["id"], "name": m["name"], "status": m.get("status"),
+              "start": m.get("start"), "end": m.get("end"),
+              "dep": m.get("depends_on") or [], "tasks": []}
+        for t in m.get("tasks", []) or []:
+            tt = {"id": t["id"], "s": t.get("status"), "name": t["name"],
+                  "dep": t.get("depends_on") or []}
+            for k in ("assignees", "reporters", "watchers", "note", "ssot", "branch", "start", "due"):
+                if t.get(k):
+                    tt[k] = t[k]
+            if t.get("execution_ref"):
+                tt["exec"] = t["execution_ref"]
+            mm["tasks"].append(tt)
+        out["milestones"].append(mm)
+    return out
+
+
+def plan_hash(path=None):
+    """sha256(plan.yaml) — 충돌 감지용 콘텐츠 해시(mtime 아님). 호출시점 PLAN_PATH 참조."""
+    return hashlib.sha256(Path(path or PLAN_PATH).read_bytes()).hexdigest()
+
+
+def _op_summary(ops):
+    """web-sync 커밋 body용 op 요약."""
+    parts = []
+    for op in ops[:8]:
+        k = op.get("op"); tgt = op.get("target") or []
+        last = tgt[-1] if tgt else "?"
+        if k in ("set", "set-ms"):
+            parts.append(f"{k} {last}.{op.get('field')}")
+        elif k in ("add-task", "remove-task", "remove-milestone"):
+            parts.append(f"{k} {last}")
+        elif k == "add-milestone":
+            parts.append("add-milestone")
+        else:
+            parts.append(str(k))
+    s = ", ".join(parts)
+    if len(ops) > 8:
+        s += f", +{len(ops) - 8} more"
+    return s
+
+
+def web_save(ops, base_hash):
+    """웹 /save 처리 코어 — (status_code, body_dict) 반환. 저장은 transaction() 1회 경유.
+    싱크 1회 = 커밋 1회(web-sync: 접두 + op 요약). 뷰JSON 재직렬화 없이 op만 적용."""
+    if not isinstance(ops, list):
+        return 400, {"error": "ops must be a list"}
+    if not ops:
+        return 400, {"error": "no ops"}
+    current = plan_hash()
+    if base_hash != current:
+        # 디스크가 외부에서 바뀜 — 재로드용 최신 뷰+해시 동봉(3-way 머지 안 함)
+        return 409, {"conflict": True, "hash": current, "view": to_view(load_plan(PLAN_PATH))}
+    try:
+        transaction(lambda d: apply_ops(d, ops), "web-sync: " + (_op_summary(ops) or "edit"))
+    except ValueError as e:
+        return 400, {"error": str(e)}
+    except RuntimeError as e:   # dirty worktree 등 transaction 가드(F2 2중방어)
+        return 409, {"error": str(e), "hash": plan_hash()}
+    # 성공 → 재로드 없이 연속 편집: 최신 뷰JSON + 새 baseHash 반환
+    return 200, {"ok": True, "hash": plan_hash(), "view": to_view(load_plan(PLAN_PATH))}
+
+
+TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "docs" / "plan-view.template.html"
+
+
+def build_view_html(data, pid=None, token="", base_hash=""):
+    """멀티뷰 템플릿에 뷰JSON + 편집 컨텍스트(token/baseHash) 주입 → 완결 HTML.
+    치환은 데이터 블록 문자열 교체만(로직 최소)."""
+    tpl = TEMPLATE_PATH.read_text(encoding="utf-8")
+    view = to_view(data, pid)
+    i = tpl.index("const plan = ")
+    j = tpl.index("// ==== 데이터 끝 ====")
+    edit_ctx = {"token": token, "baseHash": base_hash, "pid": view.get("pid")}
+    injected = ("const plan = " + json.dumps(view, ensure_ascii=False) + ";\n"
+                + "const CAIRN_EDIT = " + json.dumps(edit_ctx, ensure_ascii=False) + ";\n")
+    return tpl[:i] + injected + tpl[j:]
+
+
+def _os_open(path):
+    """platform별 문서/URL 열기 (serve 모드 /open + 뷰어 자동열기)."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", path], check=False)
+    elif sys.platform.startswith("linux"):
+        subprocess.run(["xdg-open", path], check=False)
+    elif sys.platform in ("win32", "cygwin"):
+        os.startfile(path)  # type: ignore[attr-defined]
+
+
+def _make_server(pid, port):
+    """편집 가능 뷰어 HTTP 서버 + 세션 토큰 반환. 127.0.0.1 바인드 · POST 변이 · Host 검증."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    token = secrets.token_urlsafe(16)
+
+    class Handler(BaseHTTPRequestHandler):
+        def _tok_ok(self):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            return secrets.compare_digest((q.get("t") or [""])[0], token)
+
+        def _host_ok(self):   # DNS rebinding 방어
+            host = (self.headers.get("Host") or "").split(":")[0]
+            return host in ("localhost", "127.0.0.1", "")
+
+        def _send_json(self, code, obj):
+            body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _send_html(self, html):
+            body = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            if not self._host_ok():
+                self._send_json(403, {"error": "bad host"}); return
+            path = urllib.parse.urlparse(self.path).path
+            if not self._tok_ok():
+                self._send_json(403, {"error": "bad token"}); return
+            if path == "/":
+                self._send_html(build_view_html(load_plan(PLAN_PATH), pid, token, plan_hash()))
+            elif path == "/hash":
+                self._send_json(200, {"hash": plan_hash()})
+            elif path == "/view":
+                self._send_json(200, {"view": to_view(load_plan(PLAN_PATH), pid), "hash": plan_hash()})
+            else:
+                self._send_json(404, {"error": "not found"})
+
+        def do_POST(self):
+            if not self._host_ok():
+                self._send_json(403, {"error": "bad host"}); return
+            if not self._tok_ok():
+                self._send_json(403, {"error": "bad token"}); return
+            path = urllib.parse.urlparse(self.path).path
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+            except ValueError:
+                self._send_json(400, {"error": "bad json"}); return
+            if path == "/save":
+                self._send_json(*web_save(payload.get("ops"), payload.get("baseHash")))
+            elif path == "/open":
+                p = payload.get("path")
+                ok = bool(p) and os.path.exists(p)
+                if ok:
+                    _os_open(p)
+                self._send_json(200 if ok else 404, {"ok": ok})
+            else:
+                self._send_json(404, {"error": "not found"})
+
+        def log_message(self, *a):
+            pass
+
+    return ThreadingHTTPServer(("127.0.0.1", port), Handler), token
+
+
+def _serve(args):
+    """cairn render --serve — 편집 가능 멀티뷰 뷰어 서버."""
+    data = load_plan(PLAN_PATH)
+    errors = validate(data)
+    if errors:
+        for e in errors:
+            print(f" - {e}", file=sys.stderr)
+        print(f"INVALID ({len(errors)} errors) — 편집 서버 기동 안 함", file=sys.stderr)
+        return 1
+    srv, token = _make_server(getattr(args, "project", None), getattr(args, "port", 8899))
+    url = f"http://127.0.0.1:{srv.server_address[1]}/?t={token}"
+    print(f"cairn viewer(편집 가능): {url}")
+    print("Ctrl-C 로 종료. 편집은 상단 싱크 버튼으로 저장(web-sync 커밋).")
+    if not getattr(args, "no_open", False):
+        _os_open(url)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n종료")
+    finally:
+        srv.server_close()
+    return 0
+
+
 def cmd_remove_task(data_unused, args):
     def mutate(data):
         p = find_project(data, args.project)
@@ -1345,27 +1748,9 @@ def cmd_remove_task(data_unused, args):
         ms = find_milestone(p, args.milestone)
         if not ms: raise ValueError(f"no milestone {args.milestone}")
         tasks = ms.get("tasks") or []
-        # [버그] 역참조 사전검사 — data 전체 전역 순회. 복구엣지(spawned_from/return_to/
-        # merge_back_to)는 cross-project fan-out, depends_on은 cross-milestone 의존을 허용하므로
-        # 한 프로젝트만 보면 누락된다. 누락 시 transaction validate가 사후 raw 'missing node'로만
-        # 막아 불친절(삭제하려는 노드 기준이 아니라 참조한 노드 기준 역방향 메시지).
-        for pp in data.get("projects", []):
-            for mm in pp.get("milestones", []):
-                for t in mm.get("tasks", []):
-                    if t.get("id") == args.task:
-                        continue
-                    if args.task in (t.get("depends_on") or []):
-                        raise ValueError(f"task {args.task} is referenced by {t['id']} in depends_on")
-                    for ref in ("spawned_from", "return_to", "merge_back_to"):
-                        if t.get(ref) == args.task:
-                            raise ValueError(f"task {args.task} is referenced by {t['id']} in {ref}")
-        # todo 역참조 사전검사(H2) — todo가 origin_node/resolved_by로 이 task를 가리키면 차단.
-        # validate가 사후 raw 'missing node'로 잡지만 친절 메시지로 선제 차단.
-        for td in data.get("todos", []):
-            if td.get("origin_node") == args.task:
-                raise ValueError(f"task {args.task} is referenced by {td['id']} in origin_node")
-            if args.task in (td.get("resolved_by") or []):
-                raise ValueError(f"task {args.task} is referenced by {td['id']} in resolved_by")
+        # 역참조 사전검사 — 웹 편집 apply_ops와 공유(가드 상실 방지). 복구엣지·cross-milestone
+        # depends_on·todo 참조를 data 전역에서 검사(친절 메시지로 선제 차단).
+        _task_removal_guard(data, args.task)
         orig = len(tasks)
         ms["tasks"] = [t for t in tasks if t.get("id") != args.task]
         if len(ms["tasks"]) == orig:
@@ -1382,9 +1767,7 @@ def cmd_remove_milestone(data_unused, args):
         if not ms: raise ValueError(f"no milestone {args.milestone}")
         if ms.get("tasks"):
             raise ValueError(f"milestone {args.milestone} has tasks — remove tasks first")
-        for other in p.get("milestones", []):
-            if other.get("id") != args.milestone and args.milestone in (other.get("depends_on") or []):
-                raise ValueError(f"milestone {args.milestone} is referenced by {other['id']} in depends_on")
+        _ms_removal_guard(p, args.milestone)
         p["milestones"] = [m for m in p.get("milestones", []) if m.get("id") != args.milestone]
     transaction(mutate, f"remove-milestone {args.project}/{args.milestone}")
     print(f"OK: removed milestone {args.milestone}"); return 0
@@ -1554,6 +1937,10 @@ def main(argv=None):
                           help="assignee/reporter/watcher 중 하나라도 name인 task(역할 합집합)")
     p_render.add_argument("--by", choices=["month", "quarter"], default=None,
                           help="milestone start 날짜에서 월/분기 섹션 파생(group 모드보다 우선)")
+    p_render.add_argument("--serve", action="store_true",
+                          help="localhost 편집 서버 기동(멀티뷰 + 원장 편집·싱크). file://은 읽기전용")
+    p_render.add_argument("--port", type=int, default=8899, help="serve 포트(기본 8899)")
+    p_render.add_argument("--project", default=None, help="serve 대상 프로젝트 id(기본 첫 프로젝트)")
 
     sp_ss = sub.add_parser("set-status")
     sp_ss.add_argument("project")
@@ -1563,6 +1950,9 @@ def main(argv=None):
     sp_set_note = sub.add_parser("set-note")
     sp_set_note.add_argument("project"); sp_set_note.add_argument("task")
     sp_set_note.add_argument("note")
+    sp_set_ssot = sub.add_parser("set-ssot")
+    sp_set_ssot.add_argument("project"); sp_set_ssot.add_argument("task")
+    sp_set_ssot.add_argument("path", help="기획 SSOT 문서 경로(빈 문자열이면 제거)")
 
     sp = sub.add_parser("set-date")
     sp.add_argument("project"); sp.add_argument("id")
@@ -1685,6 +2075,7 @@ def main(argv=None):
     handler = {"status": cmd_status, "show": cmd_show,
                "overdue": cmd_overdue, "render": cmd_render,
                "set-note": cmd_set_note,
+               "set-ssot": cmd_set_ssot,
                "set-status": cmd_set_status, "set-date": cmd_set_date,
                "set-priority": cmd_set_priority, "add-task": cmd_add_task,
                "add-milestone": cmd_add_milestone, "new-project": cmd_new_project,
