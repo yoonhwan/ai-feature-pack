@@ -43,6 +43,11 @@ LOCK_PATH = REPO / ".cairn" / ".lock"
 MAP_DIR = Path("/tmp/cairn")
 
 PROJECT_TYPE = {"work", "schedule"}   # 3번째 뷰 스위치(work=gitGraph / schedule=간트). 데이터 제약 아님.
+# 웹 편집 ops가 절대 건드릴 수 없는 필드 — lifecycle 훅/복구 계보가 정본(수동편집 금지).
+FROZEN_TASK_FIELDS = {"id", "execution_ref", "branch", "spawned_from", "return_to", "merge_back_to"}
+EDITABLE_TASK_FIELDS = {"name", "status", "start", "due", "note", "ssot",
+                        "depends_on", "assignees", "reporters", "watchers"}
+EDITABLE_MS_FIELDS = {"name", "status", "start", "end", "depends_on"}
 STATUS_PROJECT = {"planned", "active", "done", "paused"}
 STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
@@ -1361,6 +1366,183 @@ def transaction(mutate, message):
             raise
 
 
+def _task_removal_guard(data, tid):
+    """task 삭제 전 역참조(depends_on·복구엣지·todo) 사전검사. 참조 중이면 ValueError.
+    cmd_remove_task와 웹 편집 apply_ops(remove-task)가 공유 — 웹에서 직접 지워도 이 가드 유지."""
+    for pp in data.get("projects", []):
+        for mm in pp.get("milestones", []):
+            for t in mm.get("tasks", []):
+                if t.get("id") == tid:
+                    continue
+                if tid in (t.get("depends_on") or []):
+                    raise ValueError(f"task {tid} is referenced by {t['id']} in depends_on")
+                for ref in ("spawned_from", "return_to", "merge_back_to"):
+                    if t.get(ref) == tid:
+                        raise ValueError(f"task {tid} is referenced by {t['id']} in {ref}")
+    for td in data.get("todos", []):
+        if td.get("origin_node") == tid:
+            raise ValueError(f"task {tid} is referenced by {td['id']} in origin_node")
+        if tid in (td.get("resolved_by") or []):
+            raise ValueError(f"task {tid} is referenced by {td['id']} in resolved_by")
+
+
+def _ms_removal_guard(proj, mid):
+    """milestone 삭제 전 다른 마일스톤의 depends_on 역참조 검사. 참조 중이면 ValueError."""
+    for other in proj.get("milestones", []):
+        if other.get("id") != mid and mid in (other.get("depends_on") or []):
+            raise ValueError(f"milestone {mid} is referenced by {other['id']} in depends_on")
+
+
+# ── 웹 편집 ops 체인지셋 뮤테이터 (불변규칙 #0-1) ────────────────────────────
+# 브라우저는 손실 매핑된 뷰JSON을 갖고 있으므로 절대 역직렬화하지 않는다. 대신 편집을
+# op 리스트로 축적해 보내고, 서버가 ruamel 로드된 원본 doc에 op만 적용한다.
+# op의 field/value는 원장 필드명·값 그대로(뷰 약어 s/dep 아님). validate는 transaction이 사후검증.
+def _resolve_task(data, target):
+    if not (isinstance(target, list) and len(target) == 3):
+        raise ValueError(f"task op target must be [project, milestone, task]: {target}")
+    pid, mid, tid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    t = find_task(ms, tid)
+    if not t: raise ValueError(f"no task {tid} in {mid}")
+    return p, ms, t
+
+
+def _op_set_task(data, op):
+    field = op.get("field")
+    if field in FROZEN_TASK_FIELDS:
+        raise ValueError(f"field {field!r} is read-only (hook/recovery owns it)")
+    if field not in EDITABLE_TASK_FIELDS:
+        raise ValueError(f"field {field!r} not editable")
+    _p, _ms, t = _resolve_task(data, op.get("target"))
+    value = op.get("value")
+    # 선택 필드는 빈 값이면 제거(name/status는 필수라 validate가 사후 검증)
+    if field in ("note", "ssot", "start", "due") and (value is None or value == ""):
+        t.pop(field, None)
+    else:
+        t[field] = value
+
+
+def _op_set_ms(data, op):
+    field = op.get("field")
+    if field not in EDITABLE_MS_FIELDS:
+        raise ValueError(f"field {field!r} not editable")
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 2):
+        raise ValueError(f"set-ms target must be [project, milestone]: {target}")
+    pid, mid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    value = op.get("value")
+    if field in ("start", "end") and (value is None or value == ""):
+        ms.pop(field, None)
+    else:
+        ms[field] = value
+
+
+def _op_add_task(data, op):
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 2):
+        raise ValueError(f"add-task target must be [project, milestone]: {target}")
+    pid, mid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    spec = op.get("task") or {}
+    bad = set(spec) & FROZEN_TASK_FIELDS
+    if bad:
+        raise ValueError(f"cannot set read-only field(s) on add: {sorted(bad)}")
+    unknown = set(spec) - EDITABLE_TASK_FIELDS
+    if unknown:
+        raise ValueError(f"unknown task field(s): {sorted(unknown)}")
+    existing = {t["id"] for pp in data.get("projects", [])
+                for mm in pp.get("milestones", []) for t in mm.get("tasks", [])}
+    tid = _next_id(existing, "t")
+    node = {"id": tid, "name": spec.get("name") or "새 태스크",
+            "status": spec.get("status", "todo"), "depends_on": spec.get("depends_on", []),
+            "assignees": spec.get("assignees", []), "reporters": spec.get("reporters", []),
+            "watchers": spec.get("watchers", [])}
+    for k in ("start", "due", "note", "ssot"):
+        if spec.get(k):
+            node[k] = spec[k]
+    ms.setdefault("tasks", []).append(node)
+
+
+def _op_remove_task(data, op):
+    target = op.get("target")
+    _p, ms, _t = _resolve_task(data, target)
+    tid = target[2]
+    _task_removal_guard(data, tid)
+    ms["tasks"] = [t for t in ms.get("tasks", []) if t.get("id") != tid]
+
+
+def _op_add_ms(data, op):
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 1):
+        raise ValueError(f"add-milestone target must be [project]: {target}")
+    p = find_project(data, target[0])
+    if not p: raise ValueError(f"no project {target[0]}")
+    spec = op.get("milestone") or {}
+    unknown = set(spec) - EDITABLE_MS_FIELDS - {"id"}
+    if unknown:
+        raise ValueError(f"unknown milestone field(s): {sorted(unknown)}")
+    existing = {m["id"] for m in p.get("milestones", [])}
+    mid = spec.get("id") or _next_id(existing, "ms")
+    if mid in existing:
+        raise ValueError(f"milestone id {mid} already exists")
+    node = {"id": mid, "name": spec.get("name") or "새 마일스톤",
+            "status": spec.get("status", "planned"), "depends_on": spec.get("depends_on", []),
+            "tasks": []}
+    for k in ("start", "end"):
+        if spec.get(k):
+            node[k] = spec[k]
+    p.setdefault("milestones", []).append(node)
+
+
+def _op_remove_ms(data, op):
+    target = op.get("target")
+    if not (isinstance(target, list) and len(target) == 2):
+        raise ValueError(f"remove-milestone target must be [project, milestone]: {target}")
+    pid, mid = target
+    p = find_project(data, pid)
+    if not p: raise ValueError(f"no project {pid}")
+    ms = find_milestone(p, mid)
+    if not ms: raise ValueError(f"no milestone {mid}")
+    if ms.get("tasks"):
+        raise ValueError(f"milestone {mid} has tasks — remove tasks first")
+    _ms_removal_guard(p, mid)
+    p["milestones"] = [m for m in p.get("milestones", []) if m.get("id") != mid]
+
+
+_OP_HANDLERS = {
+    "set": _op_set_task, "set-ms": _op_set_ms,
+    "add-task": _op_add_task, "remove-task": _op_remove_task,
+    "add-milestone": _op_add_ms, "remove-milestone": _op_remove_ms,
+}
+
+
+def apply_ops(data, ops):
+    """웹 편집 op 리스트를 로드된 원장 doc에 in-place 적용. transaction(mutate, msg)로 감싸 호출."""
+    if not isinstance(ops, list):
+        raise ValueError("ops must be a list")
+    for i, op in enumerate(ops):
+        if not isinstance(op, dict):
+            raise ValueError(f"op[{i}] must be an object")
+        kind = op.get("op")
+        handler = _OP_HANDLERS.get(kind)
+        if not handler:
+            raise ValueError(f"op[{i}]: unknown op {kind!r}")
+        try:
+            handler(data, op)
+        except ValueError as e:
+            raise ValueError(f"op[{i}] ({kind}): {e}")
+
+
 def cmd_remove_task(data_unused, args):
     def mutate(data):
         p = find_project(data, args.project)
@@ -1368,27 +1550,9 @@ def cmd_remove_task(data_unused, args):
         ms = find_milestone(p, args.milestone)
         if not ms: raise ValueError(f"no milestone {args.milestone}")
         tasks = ms.get("tasks") or []
-        # [버그] 역참조 사전검사 — data 전체 전역 순회. 복구엣지(spawned_from/return_to/
-        # merge_back_to)는 cross-project fan-out, depends_on은 cross-milestone 의존을 허용하므로
-        # 한 프로젝트만 보면 누락된다. 누락 시 transaction validate가 사후 raw 'missing node'로만
-        # 막아 불친절(삭제하려는 노드 기준이 아니라 참조한 노드 기준 역방향 메시지).
-        for pp in data.get("projects", []):
-            for mm in pp.get("milestones", []):
-                for t in mm.get("tasks", []):
-                    if t.get("id") == args.task:
-                        continue
-                    if args.task in (t.get("depends_on") or []):
-                        raise ValueError(f"task {args.task} is referenced by {t['id']} in depends_on")
-                    for ref in ("spawned_from", "return_to", "merge_back_to"):
-                        if t.get(ref) == args.task:
-                            raise ValueError(f"task {args.task} is referenced by {t['id']} in {ref}")
-        # todo 역참조 사전검사(H2) — todo가 origin_node/resolved_by로 이 task를 가리키면 차단.
-        # validate가 사후 raw 'missing node'로 잡지만 친절 메시지로 선제 차단.
-        for td in data.get("todos", []):
-            if td.get("origin_node") == args.task:
-                raise ValueError(f"task {args.task} is referenced by {td['id']} in origin_node")
-            if args.task in (td.get("resolved_by") or []):
-                raise ValueError(f"task {args.task} is referenced by {td['id']} in resolved_by")
+        # 역참조 사전검사 — 웹 편집 apply_ops와 공유(가드 상실 방지). 복구엣지·cross-milestone
+        # depends_on·todo 참조를 data 전역에서 검사(친절 메시지로 선제 차단).
+        _task_removal_guard(data, args.task)
         orig = len(tasks)
         ms["tasks"] = [t for t in tasks if t.get("id") != args.task]
         if len(ms["tasks"]) == orig:
@@ -1405,9 +1569,7 @@ def cmd_remove_milestone(data_unused, args):
         if not ms: raise ValueError(f"no milestone {args.milestone}")
         if ms.get("tasks"):
             raise ValueError(f"milestone {args.milestone} has tasks — remove tasks first")
-        for other in p.get("milestones", []):
-            if other.get("id") != args.milestone and args.milestone in (other.get("depends_on") or []):
-                raise ValueError(f"milestone {args.milestone} is referenced by {other['id']} in depends_on")
+        _ms_removal_guard(p, args.milestone)
         p["milestones"] = [m for m in p.get("milestones", []) if m.get("id") != args.milestone]
     transaction(mutate, f"remove-milestone {args.project}/{args.milestone}")
     print(f"OK: removed milestone {args.milestone}"); return 0
