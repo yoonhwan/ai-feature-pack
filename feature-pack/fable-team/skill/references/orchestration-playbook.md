@@ -7,6 +7,7 @@
 ```
 0. 킥오프   오케스트레이터: 피처 인터뷰 결과(.fable-team/features/<slug>.md) 확인
             + state/ACTIVE·state/<slug>.state.md 생성 (형상 포함 — context-management §1)
+            (+연동 훅: wt-create·cairn spawn — integrations.md §1 순서 준수)
 1. 수집     ft-checker × N 병렬 (Agent 도구, checker-01…) — 대상 파일 + JSON 보고 형식만 전달
 2. 기획     ft-planner (Workflow agent(), model+effort 명시) — 워커 확인 결과를 인라인/파일로 전달
             → planner가 설계 파일(features/design-<slug>-v<N>.md, 재기획마다 v+1) Write 후 DESIGN_WRITTEN 반환
@@ -19,6 +20,7 @@
             최대 라운드(기본 2) 초과 → 자동 진행 금지, 사용자 에스컬레이션.
 6. 종결     오케스트레이터: tester ALL_PASS + DA APPROVED 증거 수집 → 정리 보고
             + state.md status: done 기록·state/ACTIVE 제거
+            (+연동 훅: baton save/finish·cairn complete·PR 권고 — integrations.md §2 순서 준수)
 ```
 
 피처 인터뷰에서 축약 형상(확인→구현→테스트, DA 생략 등)을 확정했으면 **해당 단계만 수행** — 형상은 `features/<slug>.md`와 state frontmatter(`pipeline`/`da`)에 기록되고, 세션 복원도 이 형상을 따른다(context-management §4).

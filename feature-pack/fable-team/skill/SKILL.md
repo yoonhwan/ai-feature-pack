@@ -20,16 +20,17 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 1. **ultracode/effort 설정**: 현재 세션이 ultracode(또는 그에 준하는 최상위 effort + Workflow 오케스트레이션 지원)로 실행 중인가? 아니면 `/effort ultracode` 설정을 안내하고 확인 후 진행.
 2. **세션 effort 상속 함정**: 세션이 xhigh(ultracode)면 claude-5 계열(sonnet-5, fable-5) 워커는 Agent 팀 하네스에서 effort 상속으로 400 에러 즉사 — **스폰 경로 분리 규칙**(아래) 준수. claude-5 유효 effort는 low/medium/high/max(**xhigh 없음**) — 즉사 발생 시 교정: 해당 워커 pane에 `/effort high` 주입 또는 Workflow 경로로 `effort: high` 명시 재스폰. **claude-5 워커 표준 effort = high** (planner의 max만 의도적 예외).
 3. 에이전트 정의 존재: 대상 위치에 `<prefix>-planner/checker/implementer/tester/da`가 설치돼 있는가? 없으면 설치 인터뷰(`references/install-interview.md`)부터.
+4. **연동 프로브**: install.json `integrations`가 on/required면 가용성 프로브 — required 실패 시 보고 후 대기(headless는 override 정책 — `references/integrations.md` §0), on 실패 시 degrade 기록 후 속행.
 
 ## 부팅 시퀀스 (트리거 시 강제 — 생략 금지)
 
 허들 통과 후, 파이프라인을 임의로 시작하지 않는다. 아래 순서를 **생략 없이** 수행한다:
 
-1. **복원 체크**: `.fable-team/state/ACTIVE` 존재 → context-management §4 복원이 부팅을 대체. 없으면 2로.
+1. **복원 체크 (integration-aware)**: 현 위치 기준 `.fable-team/state/ACTIVE` 존재 → context-management §4 복원이 부팅을 대체. **없고 integrations가 on/required이며 현 위치가 main 워크트리 내부(판정: integrations.md §공통)면 discovery** — `baton status`(1순위) + `<MAIN_ROOT>/.worktrees/*/.fable-team/state/ACTIVE` glob(보조)으로 활성 FT 워크트리 탐색 → 발견 시 해당 워크트리 **절대경로 운용**으로 §4 복원(cd 금지, 다수면 사용자 선택). 둘 다 없으면 2로.
 2. **피처 입력 인터뷰 (무조건 AskUserQuestion)**: 선택지 구성 — 기존 대화 컨텍스트에서 태스크 후보를 추출할 수 있으면 **①②로 추천 제시**(각 한 줄 요약, 추천이 1개면 ①만), **③ 내용 추가**(직접 입력 — 한 줄 메시지 또는 파일 경로), **④ 채팅에서 이어하기**(인터뷰를 닫고 대화로 피처를 구체화한 뒤 한 줄 재확인). 후보가 없으면 ③④만 제시. **어떤 경로든 사용자 응답 없이 파이프라인 시작 금지.**
 3. **추천 설계**: 입력 기반으로 feature-interview §2~3 수행 — 프로젝트 자산 서치 → 추천안 제시.
-4. **실행 준비 프리뷰 (부팅 보드)**: 확정 전 한 화면으로 보여준다 — ① 피처 한 줄 ② 파이프라인 형상(표준/축약 + DA 강도) ③ 투입 로스터(워커 + 크루, 각 브레인) ④ 산출물 경로(`.fable-team/features/<slug>.md`, `state/`) ⑤ 예상 라운드 한도.
-5. **컨펌 게이트**: 사용자가 승인해야 킥오프(`state/ACTIVE` + state.md 생성 → stage 0). 조정 요청 시 해당 항목만 수정 후 재확인 1회. **컨펌 없이 워커를 스폰하지 않는다.**
+4. **실행 준비 프리뷰 (부팅 보드)**: 확정 전 한 화면으로 보여준다 — ① 피처 한 줄 ② 파이프라인 형상(표준/축약 + DA 강도) ③ 투입 로스터(워커 + 크루, 각 브레인) ④ 산출물 경로(`.fable-team/features/<slug>.md`, `state/`) ⑤ 예상 라운드 한도 ⑥ (integrations on/required 시) 작업 공간: 워크트리 경로·브랜치(wt-create 예정) + cairn 노드(spawn parent 후보 — `cairn status` 요약에서 제시 — 또는 add-task 폴백).
+5. **컨펌 게이트**: 사용자가 승인해야 킥오프(`state/ACTIVE` + state.md 생성 → stage 0). 조정 요청 시 해당 항목만 수정 후 재확인 1회. **컨펌 없이 워커를 스폰하지 않는다.** 킥오프 확장 훅(워크트리·원장 등록)은 `references/integrations.md` §1의 **순서**를 따른다.
 
 ## 스폰 경로 분리 규칙 (실측 — 2026-07-02)
 

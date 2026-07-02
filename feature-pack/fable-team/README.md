@@ -91,6 +91,7 @@ da(codex)가 원형. 같은 드라이버 패턴으로 하네스 이름 그대로
 | [context-management.md](skill/references/context-management.md) | 상태 외재화(디스크 SSOT) + 라운드 무결성 + 세션 복원 |
 | [crew-support.md](skill/references/crew/crew-support.md) | 크루 공통 계약 + 카탈로그 + 신규 크루 추가 절차 |
 | [update.md](skill/references/update.md) | 로컬 패치 업데이트 — 답변 보존 재치환 + 재검증 |
+| [integrations.md](skill/references/integrations.md) | baton·cairn 연동 — 프로파일 게이팅(off/on/required) + 생명주기 훅 + tmuxc 경계 |
 | [docs/](docs/) | 설계 이력 (design-ctx-management, design-round-integrity) |
 
 ## 실측 검증 (2026-07-02, E2E)
