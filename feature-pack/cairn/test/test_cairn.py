@@ -1191,9 +1191,18 @@ def test_cmd_render_emits_html_by_default(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "HTML →" in out
     html = cairn.VIEW_PATH.with_suffix(".html").read_text(encoding="utf-8")
-    assert "mermaid.min.js" in html              # CDN 스크립트 임베드
-    assert "gantt" in html                       # 간트차트 mermaid 포함
+    assert "const plan = " in html               # 기본=멀티뷰 뷰어(데이터 주입)
+    assert "__CAIRN_" not in html                # 치환 토큰 미잔존
     assert any("open" in c for c in opened)      # 브라우저로 표시
+
+
+def test_cmd_render_legacy_emits_gantt(tmp_path, monkeypatch):
+    # --legacy: 기존 mermaid 간트 HTML(옵션으로 유지)
+    repo = _init_repo(tmp_path); _mp(monkeypatch, repo)
+    monkeypatch.setattr(cairn.subprocess, "run", lambda *a, **k: None)
+    assert cairn.main(["render", "--legacy", "--no-open"]) == 0
+    html = cairn.VIEW_PATH.with_suffix(".html").read_text(encoding="utf-8")
+    assert "mermaid.min.js" in html and "gantt" in html   # 기존 간트 유지
 
 
 def test_cmd_render_no_open_skips_browser(tmp_path, monkeypatch, capsys):
