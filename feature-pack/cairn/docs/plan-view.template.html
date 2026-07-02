@@ -133,6 +133,10 @@
   .sg-diamond{position:absolute;top:7px;width:12px;height:12px;background:var(--accent);transform:rotate(45deg)}
   .sg-drag-tip{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--border);color:var(--text);
     border-radius:6px;padding:3px 8px;font-size:11px;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+  .sg-bar.dep-violation{outline:2px dashed #d9822b;outline-offset:-1px}
+  .sg-toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:60;
+    background:var(--panel);border:1px solid #d9822b;color:var(--text);border-radius:8px;
+    padding:8px 16px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none}
   .note{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:820px;line-height:1.6}
 
   /* ledger dialog */
@@ -549,6 +553,31 @@ function renderSchedule(){
     `</div></div>`;
   document.getElementById("gZoomLbl").textContent=PX+" px/일";
   wireSchedule();
+  markViolations();
+}
+// 의존 위반 soft-warn — 클라 계산·표시 전용(원장 validate 무호출). 선행 due > 이 task start.
+function computeViolations(){
+  const v=new Set(), byId={}; allTasks().forEach(t=>byId[t.id]=t);
+  allTasks().forEach(t=>{
+    const s=t.start; if(!s)return;
+    (t.dep||[]).forEach(pid=>{ const p=byId[pid];
+      if(p&&p.due&&new Date(p.due)>new Date(s)) v.add(t.id); });
+  });
+  return v;
+}
+function markViolations(){
+  const sc=document.getElementById("ganttscroll"); if(!sc)return new Set();
+  sc.querySelectorAll(".sg-bar.dep-violation").forEach(b=>b.classList.remove("dep-violation"));
+  const v=computeViolations();
+  v.forEach(tid=>{ const r=sc.querySelector(`.sg-row[data-tid="${tid}"]`);
+    const b=r&&r.querySelector(".sg-bar"); if(b)b.classList.add("dep-violation"); });
+  return v;
+}
+function toast(msg){
+  let t=document.getElementById("sgToast");
+  if(!t){t=document.createElement("div");t.id="sgToast";t.className="sg-toast";document.body.appendChild(t);}
+  t.textContent=msg; t.style.display="block"; clearTimeout(t._t);
+  t._t=setTimeout(()=>{t.style.display="none";},3000);
 }
 function _clearDepHl(scroll){ scroll.querySelectorAll(".sg-bar.dep-hl,.sg-bar.dep-pre,.sg-bar.dep-post")
   .forEach(b=>b.classList.remove("dep-hl","dep-pre","dep-post")); }
@@ -621,6 +650,8 @@ function wireDrag(scroll){
     if(ns!==curS){ pushSet(d.t,"start",ns); d.t.start=ns; }
     if(ne!==curE){ pushSet(d.t,"due",ne); d.t.due=ne; }
     markDirty(); renderSchedule(); fixupSchedule();
+    const v=computeViolations();
+    if(v.has(d.t.id)) toast(`⚠ ${d.t.id}: 선행이 이후에 끝남 — soft(저장은 됩니다)`);
   });
 }
 function centerToday(behavior){
