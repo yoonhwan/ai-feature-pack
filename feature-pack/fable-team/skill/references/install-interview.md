@@ -40,7 +40,16 @@
 프로젝트에 스킬이 있으면(`<project>/.claude/skills/*`) 목록을 보여주고 "구현/테스터 워커가 사용할 스킬"을 고르게 한 뒤, 해당 지침을 `{{EXTRA_INSTRUCTIONS}}`에 넣는다.
 예: `- 이 프로젝트에서 UI 작업 시 frontend-ui-ux-design 스킬을 Skill 도구로 호출하라.`
 
-## 4. 설치 절차 (인터뷰 완료 후)
+## 4. 크루(로컬 하네스 전문 워커) 감지·설치 — opt-in
+
+표준 로스터 외에, 로컬에 설치된 외부 하네스를 전문 구동하는 크루를 추가할 수 있다 (`references/crew/crew-support.md`).
+
+1. **감지** (Bash 실측): `omx --version`(omo), 스킬 목록의 `superpowers:*`, `which gstack` 등. da는 §0 브레인 체크가 이미 커버.
+2. 감지된 하네스마다 "크루 추가?" **opt-in** 질문 — 기본값 [추가 안 함].
+3. 추가 선택 시: `agent-templates/ft-<crew>.md.tpl` 치환(`{{OMO_DRIVER_MODEL}}` 기본 [claude-sonnet-4-6]) 또는 crew-support.md의 일반 계약 골격으로 `<PREFIX>-<crew>.md` Write.
+4. 검증: §5 프로브와 동일 + 하네스 1회 실측 호출 (예: omo 크루 → `omx exec -s read-only '$analyze <간단 질의>' < /dev/null`).
+
+## 5. 설치 절차 (인터뷰 완료 후)
 
 1. `references/agent-templates/*.md.tpl` 4개를 Read.
 2. 모든 `{{PLACEHOLDER}}`를 답변으로 치환 (빈 값은 빈 문자열, 잔여 `{{`가 남으면 설치 실패로 간주).
