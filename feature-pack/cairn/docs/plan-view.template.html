@@ -120,6 +120,7 @@
   .sg-bar.todo{background:#3d444d;border-color:#6e7681}
   .sg-bar.blocked{background:#8e2b26;border-color:#e5534b}
   .sg-bar:hover{filter:brightness(1.15)}
+  .sg-weekend{position:absolute;top:0;bottom:0;background:var(--muted);opacity:.06;z-index:0;pointer-events:none}
   .sg-today{position:absolute;top:0;width:2px;background:#e5534b;z-index:2;pointer-events:none}
   /* 오버듀 자동파생(due<today & !done) — blocked(빨간 바)와 분리: 빨간 외곽선+빗금 */
   .sg-bar.overdue{outline:2px solid #e5534b;outline-offset:-1px;
@@ -596,6 +597,10 @@ function renderSchedule(){
     const isMonth=d.getDate()<=7;   // min이 월요일이라 틱은 항상 월요일
     ticks+=`<div class="sg-tick${isMonth?' m':''}" style="left:${i*PX}px">${d.getMonth()+1}/${d.getDate()}</div>`;
   }
+  let weekends="";   // min이 월요일 → 토=+5, 일=+6. sg-inner 레벨 세로 음영(LABELW 오프셋)
+  for(let i=0;i<=days;i+=7){
+    weekends+=`<div class="sg-weekend" style="left:${LABELW+(i+5)*PX}px;width:${2*PX}px"></div>`;
+  }
   let rows="";
   plan.milestones.forEach(m=>{
     const mstat=m.status==='done'?'done':m.status==='active'?'doing':m.status==='blocked'?'blocked':'todo';
@@ -626,6 +631,7 @@ function renderSchedule(){
       `<span id="gZoomLbl" class="zlbl"></span><span style="flex:1"></span>`+
       '<button id="gPrev" title="반칸 왼쪽">‹</button><button id="gToday">오늘</button><button id="gNext" title="반칸 오른쪽">›</button></div>'+
     `<div class="sg-body" id="ganttscroll"><div class="sg-inner" style="width:${innerW}px">`+
+      weekends+
       `<div class="sg-row sg-axis"><div class="sg-label sec"></div><div class="sg-track" style="width:${trackW}px">${ticks}</div></div>`+
       rows+
       `<div class="sg-today" id="sgToday" style="left:${todayLeft}px"></div>`+
