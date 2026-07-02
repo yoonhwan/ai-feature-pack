@@ -1,0 +1,23 @@
+{
+  "name": "fable-team",
+  "version": "0.1.0",
+  "title": "fable-team — 일반화된 팀 오케스트레이션 하네스 (ultracode 오케스트레이터 + planner 브레인 분리)",
+  "description": "오케스트레이터(ultracode 지원 최상위 모델)는 전달·조율·모니터링만, 기획·문제해결은 planner 브레인(기본 fable5 max)이 전담하는 Claude Code 팀 하네스. 설치 인터뷰로 워커(checker/implementer/tester/DA) 브레인·effort를 커스텀하고, codex/cursor 미가용 시 대응 모델을 추천한다. 서브의 서브 스폰은 도구 화이트리스트로 차단.",
+  "category": "workflow",
+  "os": ["darwin", "linux"],
+  "install_time_minutes": 5,
+  "requires_api_key": false,
+  "requires_auth": false,
+  "dependencies": {
+    "required": ["claude-code>=2.1"],
+    "optional": ["codex", "cursor-agent", "gemini", "agent-cli"]
+  },
+  "supported_agents": {
+    "automated_install": ["claude-code"],
+    "manual_install": [],
+    "limited": ["codex-cli"]
+  },
+  "spec_version": "1",
+  "homepage": "https://github.com/yoonhwan/ai-feature-pack",
+  "license": "MIT"
+}
