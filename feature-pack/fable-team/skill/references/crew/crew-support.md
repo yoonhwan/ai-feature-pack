@@ -11,13 +11,13 @@
   - 후속 라운드·추가 지시는 새 one-shot 대신 **resume/inject 체인 우선**(이전 라운드 맥락 기억 + 재인라인 토큰 절약). 세션 복원 시 §4-6 resume 분기 동일 적용 — 유효 id면 재스폰 아닌 resume.
   - 하네스 세션의 윈도우 압박은 **요약-후-fork**: 현 세션 요약을 새 세션 첫 프롬프트로 인계하고 새 session-id 보고(brain_sessions 교체). 드라이버 자신의 압박은 WINDOW_PRESSURE self-checkpoint(하네스 세션이 승계되므로 드라이버 교체로 충분).
 - `tools: Read, Grep, Glob, Bash` — Agent/Task 없음(서브의 서브 차단), WINDOW_PRESSURE self-checkpoint 계약 포함.
-- 스폰 경로: Agent 도구 (드라이버가 4.6 계열이므로 — SKILL.md 스폰 경로 분리 규칙).
+- 스폰 경로: **Agent 도구 서브에이전트(세션 우측 pane 가시 — 팀스 별창 아님)**. 드라이버가 곧 **미들웨어**다: 외부 CLI를 Bash로 실행하고 결과를 SendMessage로 즉시 릴레이(저유실 채널). **오케스트레이터가 외부 CLI(claude -p·codex·omx)를 직접 실행하는 것 금지** — SKILL.md 스폰 경로 표 3행.
 
 ## 하네스 유형별 구동 방식
 
 **A. 외부 CLI 하네스** (codex, omx): 해당 CLI를 Bash 비대화 실행 — `codex exec ... < /dev/null`, `omx exec ... < /dev/null`.
 
-**B. claude 플러그인/스킬 하네스** (gstack, superpowers, insane-search, ouroboros): **`claude -p` 콘솔 분리 실행** — 현 세션 Skill 호출이 아니라 별도 claude 프로세스로 구동한다. 이유: ① 오케스트레이터/워커 컨텍스트와 완전 분리 ② 디스크-백드 세션이라 resume 가능(4번째 버킷) ③ 플러그인 워크플로가 세션을 오염시키지 않음. **실행 모델은 claude-sonnet-4-6 + effort high 고정.** 커맨드 원형 (2026-07-03 실측):
+**B. claude 플러그인/스킬 하네스** (gstack, superpowers, insane-search, ouroboros): **드라이버 서브에이전트(sonnet4.6 low)가 Bash로 `claude -p`를 실행** — 현 세션 Skill 호출도, 오케스트레이터 직접 발사도 아니다. 이유: ① 드라이버는 우측 pane 가시 + SendMessage 즉시 릴레이(저유실) ② 자식 claude 프로세스는 오케스트레이터/워커 컨텍스트와 완전 분리 + 디스크-백드 세션이라 resume 가능(4번째 버킷) ③ 플러그인 워크플로가 세션을 오염시키지 않음. **실행 모델은 claude-sonnet-4-6 + effort high 고정.** 커맨드 원형 (2026-07-03 실측):
 
 ```bash
 # 최초 실행 — session_id를 JSON 출력에서 회수해 brain_sessions에 기록

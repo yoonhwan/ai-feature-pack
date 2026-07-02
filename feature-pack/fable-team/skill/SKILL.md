@@ -38,7 +38,7 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 |------|------|------|
 | planner (fable5 max), tester (sonnet5 high) 등 **claude-5 계열** | **Workflow `agent()`** + `model`/`effort` 명시 | Agent 팀 하네스는 frontmatter `effort:`를 무시하고 세션 effort(xhigh)를 상속시켜 claude-5 계열이 `400 level "xhigh" not supported`로 죽는다. Workflow의 effort 오버라이드는 실증 통과 (sonnet5+high ALL_PASS). |
 | checker/implementer/da 등 **4.6 계열** | **Agent 도구** (팀 하네스) | xhigh 상속에도 정상 동작 실증. 이름 부여 스폰 → 완료 후 열린 상태 대기 → SendMessage 후속 질의/approve loop 재라운드 가능. |
-| 장시간 두뇌 작업 + **사용자 개입 내성 필요** (planner 장기 설계 등) | **tmux 가시 세션 안의 콘솔 분리 `claude -p`** (별도 OS 프로세스 — 크루 B형 패턴 차용) | 세션 내 백그라운드(Workflow/Agent)는 사용자 개입(ESC·메시지)마다 `[Request interrupted by user]`로 **동반 사망**(자동 재시도도 재개입마다 사망 — 2026-07-02 실측). 계약=프롬프트 파일, 결과=출력 파일 낙수, 감시=PID+출력 파일. **가시화 의무**: 헤드리스는 화면 출력이 종료 시 1회뿐 → transcript(jsonl) 라이브 테일러를 tmux 세션으로 띄우고 스폰 즉시 사용자에게 세션명+`tmux attach -t <세션명>` 보고. **nohup 등 화면 없는 순수 백그라운드 발사 금지.** |
+| 외부 CLI 하네스 실행 전부 — 장시간 두뇌 작업(claude -p planner), DA(codex exec), 플러그인 크루(claude -p), omo(omx exec) | **미들웨어 드라이버 서브에이전트** (Agent 도구 — **세션 우측 pane 가시**, sonnet4.6 low, 이름 부여. 팀스 별창 아님) — 드라이버가 Bash로 외부 CLI를 `< /dev/null` 실행하고 결과를 SendMessage로 릴레이 | **오케스트레이터가 외부 CLI를 직접 실행하는 것 금지**(직접 `claude -p`/`codex exec`/`omx exec` 발사 금지). 이유: ① 서브에이전트는 세션 우측 pane에 네이티브 가시(별도 tmux 테일러 불요) ② SendMessage는 즉시 전송·유실 위험 낮음(Claude Code 프로토콜 최적화) ③ 자식 CLI는 별도 OS 프로세스라 개입 내성 유지 — 드라이버가 죽어도 계약=프롬프트 파일·결과=출력 파일 낙수로 재회수 가능. 드라이버는 자식을 PID+출력 파일로 감시. **nohup 등 화면 없는 순수 백그라운드 발사 금지.** |
 
 planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 출력)이라 Workflow 일회성 호출이 자연스럽다. 대기가 필요한 워커(approve loop 등)만 Agent 경로를 쓴다.
 
@@ -54,7 +54,7 @@ planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 
 
 공통 불변: `tools:`에 Agent/Task 없음(서브의 서브 차단), 워커 모델에 fable-5/opus-4-8 금지(planner의 fable5만 예외), 보고는 최소 토큰 형식 강제.
 
-**크루 (opt-in 확장 로스터)**: 로컬 하네스 전문 드라이버 워커 — ft-da(codex)가 원형이며, 같은 패턴으로 **하네스 이름 그대로** 추가한다. A형(외부 CLI): `omo`(OMX/OMO). B형(claude 플러그인 — **`claude -p` 콘솔 분리, 실행 모델 sonnet4.6 high**): `gstack`·`superpowers`·`insane-search`·`ouroboros`. 템플릿은 `ft-<crew>.md.tpl` 1:1. **세션 승계(resume/inject 체인)와 컨텍스트 윈도우 관리(요약-후-fork + WINDOW_PRESSURE)는 크루의 기본 제공 계약**(brain_sessions 4번째 버킷 규칙 동일 적용). 감지·설치는 install-interview §4, 공통 계약·카탈로그는 `references/crew/crew-support.md`, 하네스별 상세는 `references/crew/<하네스>-full-context.md`.
+**크루 (opt-in 확장 로스터)**: 로컬 하네스 전문 드라이버 워커 — ft-da(codex)가 원형이며, 같은 패턴으로 **하네스 이름 그대로** 추가한다. A형(외부 CLI): `omo`(OMX/OMO). B형(claude 플러그인): `gstack`·`superpowers`·`insane-search`·`ouroboros` — **드라이버 서브에이전트(sonnet4.6 low, 우측 pane 가시)가 Bash로 `claude -p`(자식 실행 모델 sonnet4.6 high)를 실행·릴레이**(스폰 경로 표 3행 — 오케스트레이터 직접 실행 금지). 템플릿은 `ft-<crew>.md.tpl` 1:1. **세션 승계(resume/inject 체인)와 컨텍스트 윈도우 관리(요약-후-fork + WINDOW_PRESSURE)는 크루의 기본 제공 계약**(brain_sessions 4번째 버킷 규칙 동일 적용). 감지·설치는 install-interview §4, 공통 계약·카탈로그는 `references/crew/crew-support.md`, 하네스별 상세는 `references/crew/<하네스>-full-context.md`.
 
 ## 사용 절차
 
@@ -74,4 +74,4 @@ planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 
 - 워커 실제 모델 검증: `~/.claude/projects/<proj>/<session>/subagents/agent-*.meta.json`의 `model` + `agent-*.jsonl`의 `message.model`.
 - 워커 감시: Monitor로 `agent-*.jsonl`에 `API Error` 문자열 포함 폴링 (조용한 실패 방지).
 - **원장이 컨텍스트에만 있으면 자동 컴팩션/재시작/증류로 증발** → 라운드 한도 붕괴·완료 단계 재실행·미승인 종결 위험. 진행 상태는 반드시 디스크 SSOT(`.fable-team/state/`)에 write-through (`references/context-management.md`).
-- **세션 내 백그라운드 워커는 사용자 개입에 동반 사망** — ESC/메시지마다 `[Request interrupted by user]`, 자동 재시도도 재개입 시 재사망(실측). **가시성 규범**: 워커는 ① 팀 pane에 보이거나(사용자가 눈으로 확인 가능) ② **tmux 가시 세션의 콘솔 분리**(사람이 attach로 눈 확인 + PID·출력 파일 실측 감시 병행) 둘 중 하나여야 한다 — 둘 다 아닌 "보이지 않는 백그라운드"는 돌지 않는 것으로 간주하고 금지. PID·파일 실측은 오케스트레이터의 감시 수단이지 **사람 가시성의 대체가 아니다**.
+- **세션 내 백그라운드 워커는 사용자 개입에 동반 사망** — ESC/메시지마다 `[Request interrupted by user]`, 자동 재시도도 재개입 시 재사망(실측). **가시성 규범**: 모든 워커는 **세션 우측 pane에 보여야 한다**(서브에이전트 — Agent 도구. 팀스 별창 방식 아님) — 외부 CLI 실행도 미들웨어 드라이버 서브에이전트 경유(스폰 경로 표 3행)라 우측 pane 가시가 보편 경로다. 보이지 않는 백그라운드는 돌지 않는 것으로 간주하고 금지. PID·파일 실측은 드라이버의 자식 감시 수단이지 **사람 가시성의 대체가 아니다**(tmux 테일러는 선택 보조일 뿐 의무 아님).
