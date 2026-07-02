@@ -1,0 +1,262 @@
+version: 1
+projects:
+  - id: q3-launch
+    name: 2026 Q3 신제품 출시 로드맵
+    status: active
+    type: schedule
+    priority: high
+    milestones:
+      - id: msk
+        name: 킥오프 · 사업 승인
+        status: done
+        start: '2026-05-12'
+        end: '2026-06-05'
+        depends_on: []
+        tasks:
+          - id: t101
+            name: 사업 계획 승인
+            status: done
+            start: '2026-05-12'
+            due: '2026-05-22'
+            depends_on: []
+            assignees: [대표]
+            reporters: [PM_민수]
+            watchers: []
+            note: 예산·인력 확정.
+          - id: t102
+            name: 팀 구성 · 온보딩
+            status: done
+            start: '2026-05-25'
+            due: '2026-06-05'
+            depends_on: [t101]
+            assignees: [PM_민수]
+            reporters: [대표]
+            watchers: [지현, 서연, 도윤, 하은]
+      - id: ms0
+        name: 사전 리서치
+        status: done
+        start: '2026-06-09'
+        end: '2026-06-27'
+        depends_on: []
+        tasks:
+          - id: t1
+            name: 경쟁사/시장 조사
+            status: done
+            start: '2026-06-09'
+            due: '2026-06-18'
+            depends_on: []
+            assignees: [지현]
+            reporters: [PM_민수]
+            watchers: [대표]
+            ssot: /Users/yoonhwan/Project/ai-feature-pack/feature-pack/cairn/docs/render-multiview-design.md
+            note: 경쟁사 3곳 분석. 핵심 차별점=실시간 협업.
+          - id: t2
+            name: 사용자 인터뷰
+            status: done
+            start: '2026-06-19'
+            due: '2026-06-27'
+            depends_on: [t1]
+            assignees: [서연]
+            reporters: [지현]
+            watchers: []
+      - id: ms1
+        name: 기획 확정
+        status: done
+        start: '2026-06-30'
+        end: '2026-07-04'
+        depends_on: [ms0]
+        tasks:
+          - id: t3
+            name: 제품 스펙 문서 확정
+            status: done
+            start: '2026-06-30'
+            due: '2026-07-04'
+            depends_on: [t2]
+            assignees: [민수]
+            reporters: [지현]
+            watchers: [대표, 서연]
+            note: v2 스펙 승인.
+      - id: ms2
+        name: 디자인 시스템
+        status: active
+        start: '2026-07-07'
+        end: '2026-07-25'
+        depends_on: [ms1]
+        tasks:
+          - id: t4
+            name: 컬러/타이포 토큰 정의
+            status: done
+            start: '2026-07-07'
+            due: '2026-07-11'
+            depends_on: []
+            assignees: [서연]
+            reporters: [민수]
+            watchers: [지현]
+          - id: t5
+            name: 컴포넌트 라이브러리 구축
+            status: doing
+            start: '2026-07-14'
+            due: '2026-07-25'
+            depends_on: [t4]
+            assignees: [서연, 하은]
+            reporters: [민수]
+            watchers: [지현, 도윤]
+            execution_ref: /Users/yoonhwan/Project/design-system
+            branch: feat/design-tokens
+            note: Figma → 코드 동기화 자동화 진행 중.
+      - id: ms3
+        name: 백엔드 API
+        status: active
+        start: '2026-07-10'
+        end: '2026-08-01'
+        depends_on: [ms1]
+        tasks:
+          - id: t6
+            name: 인증/세션 API
+            status: done
+            start: '2026-07-10'
+            due: '2026-07-16'
+            depends_on: []
+            assignees: [도윤]
+            reporters: [민수]
+            watchers: []
+            branch: feat/auth-api
+          - id: t7
+            name: 실시간 협업 WebSocket 스파인
+            status: doing
+            start: '2026-07-17'
+            due: '2026-07-28'
+            depends_on: [t6]
+            assignees: [도윤, 지현]
+            reporters: [민수]
+            watchers: [서연]
+            note: Redis pub/sub 기반. 동시접속 1000명 부하테스트 예정.
+          - id: t8
+            name: 결제 연동 (PG 계약)
+            status: blocked
+            start: '2026-06-24'
+            due: '2026-06-30'
+            depends_on: []
+            assignees: [하은]
+            reporters: [PM_민수]
+            watchers: [대표]
+            note: 6/30 마감 넘김. PG사 계약 지연 → 법무 검토 대기 중(막힘).
+      - id: ms4
+        name: 프론트 통합
+        status: planned
+        start: '2026-08-04'
+        end: '2026-08-22'
+        depends_on: [ms2, ms3]
+        tasks:
+          - id: t9
+            name: 협업 에디터 UI
+            status: todo
+            start: '2026-08-04'
+            due: '2026-08-14'
+            depends_on: [t5, t7]
+            assignees: [서연]
+            reporters: [민수]
+            watchers: []
+          - id: t10
+            name: 결제 플로우 UI
+            status: todo
+            start: '2026-08-15'
+            due: '2026-08-22'
+            depends_on: [t8]
+            assignees: [하은]
+            reporters: [민수]
+            watchers: []
+      - id: ms5
+        name: QA
+        status: planned
+        start: '2026-08-25'
+        end: '2026-09-05'
+        depends_on: [ms4]
+        tasks:
+          - id: t11
+            name: E2E 시나리오 QA
+            status: todo
+            start: '2026-08-25'
+            due: '2026-08-31'
+            depends_on: [t9, t10]
+            assignees: [QA_은우]
+            reporters: [민수]
+            watchers: [대표, 지현]
+          - id: t12
+            name: 부하/보안 점검
+            status: todo
+            start: '2026-09-01'
+            due: '2026-09-05'
+            depends_on: [t11]
+            assignees: [도윤]
+            reporters: [민수]
+            watchers: []
+      - id: ms6
+        name: 베타 출시
+        status: planned
+        start: '2026-09-08'
+        end: '2026-09-19'
+        depends_on: [ms5]
+        tasks:
+          - id: t13
+            name: 클로즈드 베타 운영
+            status: todo
+            start: '2026-09-08'
+            due: '2026-09-19'
+            depends_on: [t12]
+            assignees: [PM_민수, 지현]
+            reporters: [대표]
+            watchers: [서연, 하은, 도윤]
+            note: 초대 500명. 피드백 루프 주 2회.
+      - id: ms7
+        name: 정식 출시 + 마케팅
+        status: planned
+        start: '2026-09-22'
+        end: '2026-10-17'
+        depends_on: [ms6]
+        tasks:
+          - id: t14
+            name: 프로덕션 배포 + 모니터링
+            status: todo
+            start: '2026-09-22'
+            due: '2026-09-30'
+            depends_on: [t13]
+            assignees: [도윤]
+            reporters: [PM_민수]
+            watchers: [대표]
+            note: 카나리 → 점진 롤아웃.
+          - id: t15
+            name: 런칭 마케팅 캠페인
+            status: todo
+            start: '2026-10-01'
+            due: '2026-10-17'
+            depends_on: [t14]
+            assignees: [마케팅_유나]
+            reporters: [대표]
+            watchers: [PM_민수]
+      - id: ms8
+        name: 운영 안정화
+        status: planned
+        start: '2026-10-20'
+        end: '2026-11-14'
+        depends_on: [ms7]
+        tasks:
+          - id: t16
+            name: 성능 튜닝 · 비용 최적화
+            status: todo
+            start: '2026-10-20'
+            due: '2026-10-31'
+            depends_on: [t14]
+            assignees: [도윤]
+            reporters: [PM_민수]
+            watchers: []
+          - id: t17
+            name: 고객 피드백 반영 · 로드맵 v2
+            status: todo
+            start: '2026-11-03'
+            due: '2026-11-14'
+            depends_on: [t16, t15]
+            assignees: [PM_민수, 지현]
+            reporters: [대표]
+            watchers: [서연]
+            note: Q4 로드맵 착수 인풋.

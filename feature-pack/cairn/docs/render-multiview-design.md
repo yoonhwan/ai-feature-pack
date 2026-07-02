@@ -60,5 +60,38 @@ gantt는 폐기(정리).
 | gantt 유지 여부 | 폐기(정리) |
 | 채택 뷰 | 칸반 + 트리 + 워크트리/브랜치(gitGraph) |
 | 상세 표시 방식 | 인라인 펼치기 아님 → **다이얼로그** + SSOT 파일 링크 |
-| 기본 제공 여부 | **기본 대체 확정** — render가 멀티뷰 기본 산출, gantt 폐기, plan.md는 트리 아웃라인 |
+| 기본 제공 여부 | **기본 대체 확정** — render가 멀티뷰 기본 산출, plan.md는 트리 아웃라인 |
 | ssot 필드 | **A안 확정** — task.ssot 신설 + `cairn set-ssot` 명령 |
+
+## 구현 확정 (2026-07-02 프로토타입 검증 완료)
+
+프로토타입(`plan-view.template.html` + `gen_plan_view.py` + `serve_plan_view.py`, 예제 `examples/schedule-plan.example.yaml`)으로 아래를 실제 렌더·조작 검증했다. "완벽 동작" 확인.
+
+### 프로젝트 `type` → 3번째 뷰 분기 (신규 확정)
+프로젝트에 `type` 필드 신설(`work` 기본 / `schedule`). ①칸반 ②트리는 공통, **③번째 뷰만 타입별 분기**:
+- `type: work` (코드 작업) → **워크트리/브랜치** = mermaid `gitGraph`. 날짜가 생성일뿐이라 간트 무의미, execution_ref/branch 토폴로지가 맞음.
+- `type: schedule` (일정관리) → **간트**. 워크트리/브랜치 개념이 없고 실제 기간(start~due)이 있어 간트가 최적.
+
+### 간트는 mermaid 아님 — 커스텀 HTML/CSS (신규 확정, 대안 기각 근거 포함)
+mermaid 간트는 **px/일(줌) 미지원 · SVG 균일확대는 세로증가/텍스트왜곡 · 윈도우이동=재렌더 꼼수(깜빡임·부분바잘림) · today 마커 DOM탐지 취약 · 생성 시 텍스트조립/이스케이프 부담**. 따라서 schedule 간트는 **HTML/CSS div-바**로 직접 렌더:
+- **줌(px/일) `＋/－`**: left/width 재계산만으로 시간축 밀도 조절.
+- **고정 뷰어 박스(마스크)**: 좌측 라벨 sticky, 타임라인만 박스 안에서 가로 스크롤(세로 불변).
+- **오늘 중앙 + `‹ 오늘 ›`**: 오늘선을 창 중앙으로, 절반씩 이동.
+- 상태색(완료/진행/대기/**블록=마감넘김·막힘**), 바/행 클릭 → 원장 다이얼로그.
+- mermaid는 `type: work`의 gitGraph에만 유지(정적 그래프엔 mermaid가 적합).
+- 근거: ①②(칸반·트리)가 이미 순수 HTML이라 간트도 HTML이 **일관**하고, 생성은 JSON 주입만이라 **더 단순·안정**. (렌더 로직은 템플릿 JS 1곳.)
+
+### SSOT 열기 = serve 모드 (신규 확정)
+브라우저는 `file://` 페이지에서 로컬 문서 열기를 차단(클릭 시 깜빡+무반응). 따라서 `cairn render --serve` = **localhost 서버 + `/open?path=` 엔드포인트가 서버측 OS open 실행**. `file://` 직접 열람 시엔 경로복사+안내 폴백. (서버 스크립트 프로토타입: `serve_plan_view.py`; 실제 구현은 platform별 open/xdg-open/start 처리 필요.)
+
+### 클릭 → 원장 다이얼로그 (전 뷰 일관)
+칸반 카드 · 트리 행 · **간트 바** 모두 클릭 시 동일 다이얼로그(상태/사람/선행/SSOT/execution_ref/branch/일정/note). execution_ref·branch 빈 값은 "미기록(빨강)"으로 노출 → [agent-lifecycle-hook-design](agent-lifecycle-hook-design.md) 컴포넌트 5 필요성 상시 환기.
+
+### 생성 파이프라인 (검증됨)
+`plan.yaml → gen_plan_view.py (yaml→뷰 JSON 매핑) → 템플릿 데이터 블록 치환 → plan.html`. cairn.py의 render가 이 로직을 내장(JSON 주입만, 뷰 렌더는 템플릿 JS). 프로토타입은 `~/.cairn/venv`(ruamel.yaml)로 10마일스톤·19태스크 렌더 검증.
+
+### 후속 구현 항목
+1. cairn.py: render를 멀티뷰 생성기로 교체(gantt→멀티뷰), 템플릿 임베드 + JSON 주입.
+2. 스키마: 프로젝트 `type`(work/schedule), task `ssot` 필드 + `cairn set-ssot`, validate 반영.
+3. `cairn render --serve`(localhost + /open, platform별 open).
+4. execution_ref/branch 자동기록(agent-lifecycle-hook 컴포넌트 5)과 합류 → work 타입 gitGraph 실데이터화.
