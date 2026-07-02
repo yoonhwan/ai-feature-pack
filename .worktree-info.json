@@ -1,5 +1,5 @@
 {
-  "branch": "feat/cairn-p1p2",
+  "branch": "feat/cairn-gitgraph-fix",
   "created_at": "2026-07-02",
-  "purpose": "cairn 뷰어 P1/P2 후속 8종 — soft-warn·주말음영·zoom-fit·칸반status드래그 + 접기/진행률바/담당자필터/MS편집 다이얼로그. SSOT=feature-pack/cairn/docs/render-p1p2-enhancements-design.md"
+  "purpose": "work 타입 gitGraph 버그 수정 — plan.branch=main일 때 mermaid 기본 브랜치 재생성(branch \"main\") 신택스 에러 + branch/checkout/merge id 따옴표 처리"
 }
