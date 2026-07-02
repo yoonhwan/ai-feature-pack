@@ -144,6 +144,8 @@
   .kcard[draggable]{cursor:grab}
   .ctog{cursor:pointer;user-select:none;margin-right:4px;opacity:.7;font-size:11px}
   .ctog:hover{opacity:1}
+  .filter-host{display:inline-block;padding:8px 24px;font-size:13px;color:var(--muted)}
+  .filter-host select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;margin-left:4px}
   .note{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:820px;line-height:1.6}
 
   /* ledger dialog */
@@ -209,6 +211,7 @@
   <button id="btnSync" class="sync-btn" disabled>싱크(저장)</button>
 </div>
 <div id="extBanner" class="ext-banner" style="display:none">⚠ 디스크가 외부에서 변경됐어요.<button id="btnReload">재로드</button></div>
+<span id="filterHost" class="filter-host"></span>
 
 <div id="kanban" class="view active"></div>
 <div id="tree" class="view"></div>
@@ -365,7 +368,22 @@ let TASKMAP={};
 function rebuildTaskMap(){ TASKMAP=Object.fromEntries(allTasks().map(t=>[t.id,t])); }
 const collapsed=new Set();   // 접힌 마일스톤 id(세션 메모리)
 function toggleCollapse(mid){ collapsed.has(mid)?collapsed.delete(mid):collapsed.add(mid); renderAll(); refreshSchedIfActive(); }
-function renderAll(){ rebuildTaskMap(); renderKanban(); renderTree(); renderDepTab(); }
+function renderAll(){ rebuildTaskMap(); renderKanban(); renderTree(); renderDepTab(); applyFilter(); }
+// 담당자 필터 — 비매칭 태스크 흐림(스윔레인 아님, assignee 매칭). 전 뷰 공통, 표시만.
+let assigneeFilter=null;
+function applyFilter(){
+  const match=t=>!assigneeFilter||(t.assignees||[]).includes(assigneeFilter);
+  document.querySelectorAll("[data-tid]").forEach(el=>{
+    const t=TASKMAP[el.dataset.tid]; el.style.opacity=(t&&!match(t))?".25":"";
+  });
+}
+function buildFilterUI(){
+  const host=document.getElementById("filterHost"); if(!host)return;
+  const people=[...new Set(allTasks().flatMap(t=>t.assignees||[]))].sort();
+  host.innerHTML=`담당자 <select id="fAssignee"><option value="">전체</option>`+
+    people.map(p=>`<option value="${_av(p)}">${esc(p)}</option>`).join("")+`</select>`;
+  document.getElementById("fAssignee").onchange=e=>{ assigneeFilter=e.target.value||null; applyFilter(); };
+}
 renderAll();
 
 // ==== 원장 다이얼로그 ====
@@ -790,6 +808,7 @@ function refreshActiveTab(v){
     if(SCHED){ schedRendered=false; renderSchedule(); schedRendered=true; fixupSchedule(); }
     else { rendered.dep=false; renderMermaid("dep"); }
   }
+  applyFilter();
 }
 function refreshSchedIfActive(){
   const a=document.querySelector(".tab.active");
@@ -862,6 +881,7 @@ function initEdit(){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkExternal(); });
 }
 initEdit();
+buildFilterUI();
 
 // 테마 (다크/라이트/시스템)
 document.querySelectorAll(".theme-seg button").forEach(b=>b.onclick=()=>applyTheme(b.dataset.m));
