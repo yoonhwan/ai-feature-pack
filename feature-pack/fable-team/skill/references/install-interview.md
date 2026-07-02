@@ -51,8 +51,11 @@
 
 ## 5. 설치 절차 (인터뷰 완료 후)
 
-1. `references/agent-templates/*.md.tpl` 4개를 Read.
+1. `references/agent-templates/*.md.tpl` **5개 전부**(planner/checker/implementer/tester/da)를 Read. 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
 2. 모든 `{{PLACEHOLDER}}`를 답변으로 치환 (빈 값은 빈 문자열, 잔여 `{{`가 남으면 설치 실패로 간주).
-3. 대상 위치에 `<PREFIX>-checker.md`, `<PREFIX>-implementer.md`, `<PREFIX>-tester.md`, `<PREFIX>-da.md`로 Write.
-4. 검증: 새 세션 안내 또는 현재 세션의 agent 목록 리프레시 확인 → 각 워커에 "tools 목록 + spawn_test" 프로브를 1회 돌려 도구 화이트리스트/스폰 차단/모델 적용을 확인한다 (`orchestration-playbook.md` §프로브).
+3. 대상 위치에 **`<PREFIX>-planner.md`**, `<PREFIX>-checker.md`, `<PREFIX>-implementer.md`, `<PREFIX>-tester.md`, `<PREFIX>-da.md`(+ 선택 크루 `<PREFIX>-<crew>.md`)로 Write — **planner 누락 금지**. planner .md가 설치돼 있어야 다음 세션부터 Workflow `agentType`으로도 인식된다(세션 시작 등록 타입만 유효).
+4. 검증 — 프로브는 **두 경로로 전 워커**를 커버한다 (`orchestration-playbook.md` §프로브):
+   - Agent 경로(checker/implementer/da + 크루 드라이버): 팀 하네스 프로브.
+   - **Workflow 경로(planner/tester): Workflow `agent()`에 model/effort 명시로 동일 프로브** — Agent 프로브만 돌리면 planner가 목록에 안 떠 설치가 완료된 것처럼 보이는 함정(실사례: `probe-checker/impl/da`만 표시되고 기획 브레인 미검증).
+   - **통과 기준: 신규 세션은 planner(최고성능 max effort 기획 브레인) 프로브 통과가 필수** — planner 프로브가 없으면 설치 미완으로 간주하고 3번부터 재수행.
 5. 실패 패턴: 워커가 `API Error 400 level ... not supported`로 죽으면 effort/모델 조합 오류 — 위 허용값 표로 교정 후 재설치.

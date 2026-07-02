@@ -53,6 +53,8 @@ JSON 한 줄로 반환 (키: tools, spawn_test):
 ```
 기대값: tools에 Agent/Task 없음(팀 하네스가 SendMessage/TaskCreate 등 팀 도구는 자동 부여 — 정상), spawn_test=NO_SPAWN_TOOL, `agent-*.meta.json`의 model이 지정 모델과 일치.
 
+**프로브 경로 이원화 (필수)**: Agent 경로 워커(checker/implementer/da/크루)는 팀 하네스 프로브, **planner/tester는 Workflow `agent()`(model/effort 명시)로 프로브**. Agent 프로브만 돌리면 planner(max effort 기획 브레인)가 안 떠 설치 검증이 비어 보인다 — planner 프로브 부재 = 설치 미완.
+
 ## 실측 함정 (2026-07-02 검증분)
 
 - Agent 팀 하네스: frontmatter `effort:` 미반영 → 세션 effort 상속. ultracode 세션 + claude-5 워커 = 400 즉사. → Workflow 경로.
