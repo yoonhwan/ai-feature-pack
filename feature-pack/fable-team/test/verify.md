@@ -4,12 +4,12 @@
 
 ```bash
 test -f ~/.claude/skills/fable-team/SKILL.md && echo SKILL_OK
-ls ~/.claude/skills/fable-team/references/agent-templates/*.tpl | wc -l   # 기대: 6
+ls ~/.claude/skills/fable-team/references/agent-templates/*.tpl | wc -l   # 기대: 11 (표준 5 + da-claude 대체 + 크루 5: omo/gstack/superpowers/insane-search/ouroboros)
 ```
 
 ## V2. 워커 프로브 (인터뷰 완료 후, 새 세션)
 
-각 워커에 표준 질의 (orchestration-playbook.md §프로브):
+각 워커에 표준 질의 (orchestration-playbook.md §프로브). **경로 이원화 — Agent 프로브(checker/implementer/da/크루) + Workflow 프로브(planner/tester)**. probe 목록에 planner(max effort 기획 브레인)가 없으면 설치 미완:
 
 | 체크 | 기대값 | 실측 근거 |
 |------|--------|-----------|

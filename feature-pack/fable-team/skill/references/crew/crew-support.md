@@ -13,14 +13,35 @@
 - `tools: Read, Grep, Glob, Bash` — Agent/Task 없음(서브의 서브 차단), WINDOW_PRESSURE self-checkpoint 계약 포함.
 - 스폰 경로: Agent 도구 (드라이버가 4.6 계열이므로 — SKILL.md 스폰 경로 분리 규칙).
 
+## 하네스 유형별 구동 방식
+
+**A. 외부 CLI 하네스** (codex, omx): 해당 CLI를 Bash 비대화 실행 — `codex exec ... < /dev/null`, `omx exec ... < /dev/null`.
+
+**B. claude 플러그인/스킬 하네스** (gstack, superpowers, insane-search, ouroboros): **`claude -p` 콘솔 분리 실행** — 현 세션 Skill 호출이 아니라 별도 claude 프로세스로 구동한다. 이유: ① 오케스트레이터/워커 컨텍스트와 완전 분리 ② 디스크-백드 세션이라 resume 가능(4번째 버킷) ③ 플러그인 워크플로가 세션을 오염시키지 않음. **실행 모델은 claude-sonnet-4-6 + effort high 고정.** 커맨드 원형 (2026-07-03 실측):
+
+```bash
+# 최초 실행 — session_id를 JSON 출력에서 회수해 brain_sessions에 기록
+claude -p --model claude-sonnet-4-6 --effort high --output-format json \
+  --permission-mode acceptEdits '/<플러그인 스킬> <작업>' < /dev/null
+# 후속 라운드 — 세션 승계 (resume 체인)
+claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
+```
+
+- 권한 기본값 `--permission-mode acceptEdits`. `--dangerously-skip-permissions`는 **격리 worktree 전용** (omo YOLO 규칙 동형).
+- 조사·검색성 작업은 프롬프트를 읽기 전용으로 계약(파일 수정 금지 명시).
+
 ## 지원 크루 카탈로그
 
-| 크루 | 하네스 | 감지 (Bash 실측) | 템플릿 | 브레인 | 세션 승계(resume) |
-|------|--------|------------------|--------|--------|--------------------|
-| **da** | codex CLI | `npx -y @openai/codex --version` (brain-availability §0이 커버) | `ft-da.md.tpl` | gpt-5.5 xhigh | `codex exec resume <session-id>` |
-| **omo** | OMX/OMO (oh-my-codex) | `omx --version` + `omx list` | `ft-omo.md.tpl` | OMO 스킬 레이어 (OMX 런타임 위 Codex) | `omx exec resume <session-id|--last>` + 실행 중 `omx exec inject <session-id>` (v0.15.1 실측) |
-| **superpowers** | superpowers 플러그인 스킬 | 스킬 목록에 `superpowers:*` 존재 | 없음 — 일반 계약 골격 (Skill 도구 추가) | 현 세션 Skill 호출 | 해당 없음 (세션 비보유 — 파일 SSOT로 충분) |
-| **gstack** | gstack CLI | `which gstack` | 없음 — 일반 계약 골격 | gstack | 설치 시 실측 (resume 표면 확인 후 기록) |
+| 크루 | 하네스 (유형) | 감지 (Bash 실측) | 템플릿 | 브레인 | 세션 승계(resume) |
+|------|--------------|------------------|--------|--------|--------------------|
+| **da** | codex CLI (A) | `npx -y @openai/codex --version` (brain-availability §0이 커버) | `ft-da.md.tpl` | gpt-5.5 xhigh | `codex exec resume <session-id>` |
+| **omo** | OMX/OMO (A) | `omx --version` + `omx list` | `ft-omo.md.tpl` | OMO 스킬 레이어 (OMX 런타임 위 Codex) | `omx exec resume <session-id|--last>` + 실행 중 `omx exec inject <session-id>` (v0.15.1 실측) |
+| **gstack** | gstack 스킬 스위트 (B) | `ls ~/.claude/skills/gstack` | `ft-gstack.md.tpl` | claude -p 세션 (sonnet 4.6 high) + gstack 스킬 | `claude -p --resume <session-id>` |
+| **superpowers** | superpowers 플러그인 (B) | `~/.claude/plugins/cache/claude-plugins-official/superpowers/` | `ft-superpowers.md.tpl` | claude -p 세션 (sonnet 4.6 high) + superpowers 워크플로 | `claude -p --resume <session-id>` (다단계 워크플로라 resume이 핵심) |
+| **insane-search** | insane-search 플러그인 (B) | `~/.claude/plugins/cache/gptaku-plugins/insane-search/` | `ft-insane-search.md.tpl` | claude -p 세션 (sonnet 4.6 high) + insane-search | `claude -p --resume <session-id>` |
+| **ouroboros** | ouroboros 플러그인 (B) | `~/.claude/plugins/cache/ouroboros/ouroboros/` | `ft-ouroboros.md.tpl` | claude -p 세션 (sonnet 4.6 high) + ouroboros | `claude -p --resume <session-id>` |
+
+각 하네스 상세(카탈로그·few-shot·안전 모드): `crew/<하네스>-full-context.md` (omo 수준 레퍼런스 — 드라이버가 필요 시 Read).
 
 템플릿 미보유 크루는 아래 일반 계약 골격으로 생성한다. 새 하네스도 같은 절차로 추가 가능(카탈로그는 열린 목록).
 
