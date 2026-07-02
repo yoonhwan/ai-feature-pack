@@ -407,6 +407,8 @@ omx exec -C /repo - < prompt.md
 omx exec inject <session-id> --prompt '추가 조건: public API는 깨지 말고 변경 후 테스트 결과를 보고해.'
 ```
 
+종료된 세션의 재개는 `omx exec resume <session-id|--last> '<후속 지시>'` — inject는 실행 중 세션, resume은 종료 세션용 (v0.15.1 실측).
+
 용도:
 
 - 긴 작업 중 우선순위 조정

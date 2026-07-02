@@ -35,7 +35,7 @@ planner_rounds: 1   # 기획 라운드 — 동일 규칙 (한도 2)
 respawns: {impl: 0, tester: 0, da: 0, checker: 0}   # failure 사유 재스폰만 카운트(한도 각 2) — 윈도우 압박 등 계획적 재스폰은 한도 비소모(이벤트 로그로 추적)
 design: features/design-<slug>-v1.md   # 최신 설계 파일 (DESIGN_WRITTEN 수신 시에만 갱신)
 brain_sessions: {da: none}   # agent-cli 브레인 session-id (디스크-백드 resume 자산 — 세션 넘어 유효)
-cairn_task: none    # cairn 노드 포인터 (integrations on/required 시 — integrations.md §1)
+cairn_task: none    # cairn 노드 전체 주소 <project>/<milestone>/<tid> (integrations on/required 시 — 롤백·complete 인자의 출처, integrations.md §1)
 updated: 2026-07-02T14:30
 ---
 ## 원장

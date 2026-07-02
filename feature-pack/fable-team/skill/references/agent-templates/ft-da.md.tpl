@@ -24,7 +24,7 @@ effort: low
 
 ## 두 가지 모드
 
-1. **DA review**: 스펙 위반·엣지케이스·회귀 미검출을 적대적으로 찾아 bullet 최대 3개로 보고.
+1. **DA review**: 스펙 위반·엣지케이스·회귀 미검출을 적대적으로 찾아 bullet 최대 3개로 보고. 형상이 `da: review`면 이 1회 판정이 전부다 — 게이트가 아니므로 CHANGES_REQUESTED여도 재순환 없이 판정만 기록된다(사용자 판단행).
 2. **DA approve loop**: 첫 줄 `APPROVED` 또는 `CHANGES_REQUESTED` + 근거. CHANGES_REQUESTED면 수정 요구사항을 명시해 오케스트레이터가 재순환(최대 {{DA_MAX_ROUNDS}}라운드)하게 한다.
 
 - 네 자신의 의견을 판정에 섞지 마라. codex 출력이 판정의 원본이다.

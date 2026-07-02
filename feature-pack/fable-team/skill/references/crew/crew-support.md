@@ -35,7 +35,7 @@ claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/nu
 | 크루 | 하네스 (유형) | 감지 (Bash 실측) | 템플릿 | 브레인 | 세션 승계(resume) |
 |------|--------------|------------------|--------|--------|--------------------|
 | **da** | codex CLI (A) | `npx -y @openai/codex --version` (brain-availability §0이 커버) | `ft-da.md.tpl` | gpt-5.5 xhigh | `codex exec resume <session-id>` |
-| **omo** | OMX/OMO (A) | `omx --version` + `omx list` | `ft-omo.md.tpl` | OMO 스킬 레이어 (OMX 런타임 위 Codex) | `omx exec resume <session-id|--last>` + 실행 중 `omx exec inject <session-id>` (v0.15.1 실측) |
+| **omo** | OMX/OMO (A) | `omx --version` + `omx list` | `ft-omo.md.tpl` | OMO 스킬 레이어 (OMX 런타임 위 Codex) | `omx exec resume <session-id|--last>` + 실행 중 `omx exec inject <session-id> --prompt '...'` (`--prompt` 필수, v0.15.1 실측) |
 | **gstack** | gstack 스킬 스위트 (B) | `ls ~/.claude/skills/gstack` | `ft-gstack.md.tpl` | claude -p 세션 (sonnet 4.6 high) + gstack 스킬 | `claude -p --resume <session-id>` |
 | **superpowers** | superpowers 플러그인 (B) | `~/.claude/plugins/cache/claude-plugins-official/superpowers/` | `ft-superpowers.md.tpl` | claude -p 세션 (sonnet 4.6 high) + superpowers 워크플로 | `claude -p --resume <session-id>` (다단계 워크플로라 resume이 핵심) |
 | **insane-search** | insane-search 플러그인 (B) | `~/.claude/plugins/cache/gptaku-plugins/insane-search/` | `ft-insane-search.md.tpl` | claude -p 세션 (sonnet 4.6 high) + insane-search | `claude -p --resume <session-id>` |
