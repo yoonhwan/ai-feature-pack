@@ -4,12 +4,32 @@
 <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 <style>
   :root{
-    --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --border-soft:#21262d; --text:#e6edf3; --muted:#8b949e;
     --done:#238636; --doing:#d29922; --todo:#484f58; --accent:#1f6feb;
+    --row-alt:rgba(255,255,255,0.045); --row-hover:#1c2333;
+    --wa:#79c0ff; --wr:#d2a8ff; --ww:#8b949e;
+    --bdg-done-bg:rgba(35,134,54,.2); --bdg-done-fg:#3fb950;
+    --bdg-doing-bg:rgba(210,153,34,.2); --bdg-doing-fg:#e3b341;
+    --bdg-todo-bg:rgba(72,79,88,.3); --bdg-todo-fg:#adbac7;
+    --bdg-blocked-bg:rgba(229,83,75,.2); --bdg-blocked-fg:#e5534b;
+  }
+  :root[data-theme="light"]{
+    --bg:#ffffff; --panel:#f6f8fa; --border:#d0d7de; --border-soft:#eaeef2; --text:#1f2328; --muted:#656d76;
+    --done:#1a7f37; --doing:#9a6700; --todo:#8c959f; --accent:#0969da;
+    --row-alt:rgba(0,0,0,0.035); --row-hover:#eef1f5;
+    --wa:#0969da; --wr:#8250df; --ww:#656d76;
+    --bdg-done-bg:rgba(26,127,55,.14); --bdg-done-fg:#1a7f37;
+    --bdg-doing-bg:rgba(154,103,0,.14); --bdg-doing-fg:#7d4e00;
+    --bdg-todo-bg:rgba(140,149,159,.22); --bdg-todo-fg:#57606a;
+    --bdg-blocked-bg:rgba(207,34,46,.12); --bdg-blocked-fg:#cf222e;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif}
   header{padding:16px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10}
+  .theme-seg{position:absolute;top:16px;right:24px;display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .theme-seg button{background:var(--panel);border:none;border-left:1px solid var(--border);color:var(--muted);padding:6px 10px;font-size:12px;cursor:pointer}
+  .theme-seg button:first-child{border-left:none}
+  .theme-seg button.on{background:var(--accent);color:#fff}
   header h1{margin:0 0 4px;font-size:18px}
   header p{margin:0;color:var(--muted);font-size:13px}
   .tabs{display:flex;gap:4px;padding:12px 24px 0;flex-wrap:wrap}
@@ -26,7 +46,7 @@
 
   /* people badges */
   .who{font-size:11px;color:var(--muted);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap}
-  .who .wa{color:#79c0ff} .who .wr{color:#d2a8ff} .who .ww{color:#8b949e}
+  .who .wa{color:var(--wa)} .who .wr{color:var(--wr)} .who .ww{color:var(--ww)}
 
   /* Kanban */
   .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -53,27 +73,27 @@
   .pbar{height:6px;background:var(--todo);border-radius:3px;overflow:hidden;width:120px}
   .pbar > i{display:block;height:100%;background:var(--done)}
   .pct{font-size:12px;color:var(--muted);width:38px;text-align:right}
-  .trow{padding:9px 16px 9px 40px;display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid #21262d;cursor:pointer}
+  .trow{padding:9px 16px 9px 40px;display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid var(--border-soft);cursor:pointer}
   .trow:last-child{border-bottom:none}
-  .trow:hover{background:#1c2333}
+  .trow:hover{background:var(--row-hover)}
   .trow .tid{font-size:11px;color:var(--muted);min-width:34px;padding-top:1px}
   .trow .tbody{flex:1}
   .trow .dep{font-size:11px;color:var(--doing);margin-top:2px}
   .badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;text-transform:uppercase;white-space:nowrap}
-  .badge.done{background:rgba(35,134,54,.2);color:#3fb950}
-  .badge.doing,.badge.active{background:rgba(210,153,34,.2);color:#e3b341}
-  .badge.todo,.badge.planned{background:rgba(72,79,88,.3);color:#8b949e}
-  .badge.blocked{background:rgba(229,83,75,.2);color:#e5534b}
+  .badge.done{background:var(--bdg-done-bg);color:var(--bdg-done-fg)}
+  .badge.doing,.badge.active{background:var(--bdg-doing-bg);color:var(--bdg-doing-fg)}
+  .badge.todo,.badge.planned{background:var(--bdg-todo-bg);color:var(--bdg-todo-fg)}
+  .badge.blocked{background:var(--bdg-blocked-bg);color:var(--bdg-blocked-fg)}
 
   /* mermaid wrap */
   .mermaid{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
   .mermaid .task,.mermaid .taskText,.mermaid rect.task{cursor:pointer}
   .mermaid g[id] .task{cursor:pointer}
   /* gantt 폰트 대비 */
-  #dep .mermaid .sectionTitle{fill:#e6edf3 !important;font-weight:600}
-  #dep .mermaid .titleText{fill:#e6edf3 !important;font-weight:700}
-  #dep .mermaid .grid .tick text{fill:#8b949e !important}
-  #dep .mermaid .grid path,#dep .mermaid .grid line{stroke:#30363d}
+  #dep .mermaid .sectionTitle{fill:var(--text) !important;font-weight:600}
+  #dep .mermaid .titleText{fill:var(--text) !important;font-weight:700}
+  #dep .mermaid .grid .tick text{fill:var(--muted) !important}
+  #dep .mermaid .grid path,#dep .mermaid .grid line{stroke:var(--border)}
   #dep .mermaid .taskText{font-weight:600}
   /* gantt 스크롤 창 + 툴바 */
   /* 커스텀 HTML 간트 (schedule 타입) */
@@ -83,16 +103,16 @@
   .sg-toolbar .zlbl{color:var(--muted);font-size:11px;margin-left:4px}
   .sg-body{overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:12px;background:var(--panel);position:relative}
   .sg-inner{position:relative}
-  .sg-row{display:flex;align-items:center;height:28px;border-bottom:1px solid #21262d}
-  .sg-row.section{height:26px;background:rgba(255,255,255,0.045)}
+  .sg-row{display:flex;align-items:center;height:28px;border-bottom:1px solid var(--border-soft)}
+  .sg-row.section{height:26px;background:var(--row-alt)}
   .sg-row.sg-axis{position:sticky;top:0;z-index:4;height:26px;background:var(--panel);border-bottom:1px solid var(--border)}
   .sg-label{position:sticky;left:0;z-index:3;width:230px;min-width:230px;height:100%;display:flex;align-items:center;gap:6px;
     padding:0 10px;background:var(--panel);border-right:1px solid var(--border);font-size:12px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sg-row.section .sg-label{font-weight:600}
   .sg-track{position:relative;height:100%;flex:1}
-  .sg-tick{position:absolute;top:0;height:100%;border-left:1px solid #21262d;padding-left:3px;font-size:10px;color:var(--muted);line-height:26px}
-  .sg-tick.m{border-left-color:#3d444d;color:#c9d1d9}
+  .sg-tick{position:absolute;top:0;height:100%;border-left:1px solid var(--border-soft);padding-left:3px;font-size:10px;color:var(--muted);line-height:26px}
+  .sg-tick.m{border-left-color:var(--border);color:var(--text)}
   .sg-bar{position:absolute;top:5px;height:18px;border:1px solid;border-radius:5px;font-size:11px;line-height:16px;
     color:#fff;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
   .sg-bar.done{background:#238636;border-color:#3fb950}
@@ -113,7 +133,7 @@
   .mclose{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 8px}
   .mclose:hover{color:var(--text)}
   .modalname{padding:16px 20px;font-size:15px;line-height:1.5;border-bottom:1px solid var(--border)}
-  .mrow{display:flex;padding:9px 20px;border-bottom:1px solid #21262d;font-size:13px}
+  .mrow{display:flex;padding:9px 20px;border-bottom:1px solid var(--border-soft);font-size:13px}
   .mrow:last-child{border-bottom:none}
   .mrow .mk{width:130px;color:var(--muted);flex-shrink:0}
   .mrow .mv{flex:1}
@@ -126,6 +146,9 @@
 </style>
 </head><body>
 <header>
+  <div class="theme-seg">
+    <button data-m="system">시스템</button><button data-m="light">라이트</button><button data-m="dark">다크</button>
+  </div>
   <h1>cairn plan viewer <span id="projname" style="color:var(--muted);font-weight:400;font-size:14px"></span></h1>
   <p>칸반 · 아웃라인 트리 · 워크트리/브랜치 — 카드/행 클릭 시 원장 상세</p>
 </header>
@@ -179,7 +202,7 @@ function whoLine(t){
 }
 document.getElementById("projname").textContent=plan.project||"";
 const SCHED=(plan.type==="schedule");
-let schedRendered=false;
+let schedRendered=false, depWorkHTML=null, _mql=null;
 
 // ① Kanban
 (function(){
@@ -253,6 +276,7 @@ let schedRendered=false;
     '<span style="color:var(--doing)">✓=완료 커밋 · 강조노드=진행중 · 역노드=대기</span></div>'+
     (depNote?`<div class="legend"><span>마일스톤 의존: ${depNote} (gitGraph 단일부모 한계로 텍스트 표기)</span></div>`:"")+
     `<pre class="mermaid">${g}</pre>`;
+  depWorkHTML=document.getElementById("dep").innerHTML;   // 테마 전환 시 재렌더용 원본
 })();
 
 // ==== 원장 다이얼로그 ====
@@ -312,8 +336,8 @@ document.body.addEventListener("click",e=>{
 
 // tabs + lazy mermaid
 window.openTask=openTask;   // mermaid gantt click 콜백에서 참조
-mermaid.initialize({
-  startOnLoad:false, securityLevel:"loose", theme:"dark",
+const MMCFG={
+  startOnLoad:false, securityLevel:"loose",
   themeVariables:{
     fontSize:"13px",
     // gantt 바 (디자인 시스템 매핑, 대비 확보)
@@ -329,7 +353,20 @@ mermaid.initialize({
   },
   gantt:{useMaxWidth:false, barHeight:20, barGap:4, topPadding:40, leftPadding:120},
   flowchart:{nodeSpacing:30,rankSpacing:50},
-});
+};
+function applyTheme(mode){
+  localStorage.setItem("cairnTheme",mode);
+  const dark = mode==="dark" || (mode!=="light" && matchMedia("(prefers-color-scheme:dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark?"dark":"light");
+  document.querySelectorAll(".theme-seg button").forEach(b=>b.classList.toggle("on", b.dataset.m===mode));
+  mermaid.initialize({...MMCFG, theme: dark?"dark":"default"});
+  if(!SCHED && depWorkHTML){   // gitGraph 새 테마로 재렌더
+    const d=document.getElementById("dep"); d.innerHTML=depWorkHTML; rendered.dep=false;
+    if(d.classList.contains("active")) renderMermaid("dep");
+  }
+  if(_mql){ _mql.onchange=null; _mql=null; }
+  if(mode==="system"){ _mql=matchMedia("(prefers-color-scheme:dark)"); _mql.onchange=()=>applyTheme("system"); }
+}
 const rendered={};
 async function renderMermaid(view){
   if(rendered[view])return;
@@ -416,5 +453,9 @@ document.querySelectorAll(".tab").forEach(tab=>{
     if(tab.dataset.v==="dep" && SCHED){ if(!schedRendered){renderSchedule();schedRendered=true;} fixupSchedule(); }
   };
 });
+
+// 테마 (다크/라이트/시스템)
+document.querySelectorAll(".theme-seg button").forEach(b=>b.onclick=()=>applyTheme(b.dataset.m));
+applyTheme(localStorage.getItem("cairnTheme")||"system");
 </script>
 </body></html>
