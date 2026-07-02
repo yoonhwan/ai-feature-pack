@@ -130,6 +130,8 @@
   .sg-bar.dep-post{box-shadow:0 0 0 2px var(--wa)}            /* 후행 */
   /* 마일스톤 요약 바 / 다이아몬드(start==end) */
   .sg-msbar{position:absolute;top:9px;height:8px;border-radius:4px;background:var(--accent);opacity:.5}
+  .sg-msbar-fill{height:100%;border-radius:4px;background:var(--accent);opacity:1}
+  .secpct{color:var(--muted);font-size:11px;font-weight:400}
   .sg-diamond{position:absolute;top:7px;width:12px;height:12px;background:var(--accent);transform:rotate(45deg)}
   .sg-drag-tip{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--border);color:var(--text);
     border-radius:6px;padding:3px 8px;font-size:11px;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4)}
@@ -247,6 +249,9 @@ let ops=[];                       // 축적된 편집 op 체인지셋(뷰JSON �
 const STATUS_TASK=["todo","doing","done","blocked"];
 const STATUS_MS=["planned","active","blocked","done"];
 const allTasks=()=>plan.milestones.flatMap(m=>m.tasks.map(t=>({...t,ms:m.id,msName:m.name})));
+function msProgress(m){ const total=(m.tasks||[]).length,
+  done=(m.tasks||[]).filter(t=>t.s==="done"||t.status==="done").length;
+  return {done,total,pct:total?Math.round(done/total*100):0}; }
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function whoLine(t){
   const p=[];
@@ -595,13 +600,14 @@ function renderSchedule(){
   plan.milestones.forEach(m=>{
     const mstat=m.status==='done'?'done':m.status==='active'?'doing':m.status==='blocked'?'blocked':'todo';
     // 마일스톤 요약: start~end 요약 바(start==end면 다이아몬드)
+    const pr=msProgress(m);
     let msMark="";
     if(m.start){
       const e=m.end||m.start, l=dayX(m.start);
       if(m.start===e) msMark=`<div class="sg-diamond" style="left:${l-6}px" title="${esc(m.name)} ${m.start}"></div>`;
-      else msMark=`<div class="sg-msbar" style="left:${l}px;width:${(dcount(new Date(m.start),new Date(e))+1)*PX}px" title="${esc(m.name)} ${m.start}~${e}"></div>`;
+      else msMark=`<div class="sg-msbar" style="left:${l}px;width:${(dcount(new Date(m.start),new Date(e))+1)*PX}px" title="${esc(m.name)} ${m.start}~${e} · ${pr.done}/${pr.total}"><div class="sg-msbar-fill" style="width:${pr.pct}%"></div></div>`;
     }
-    rows+=`<div class="sg-row section" data-mid="${m.id}"><div class="sg-label sec"><span class="ctog" data-tog="${m.id}">${collapsed.has(m.id)?'▸':'▾'}</span><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)}</div><div class="sg-track">${msMark}</div></div>`;
+    rows+=`<div class="sg-row section" data-mid="${m.id}"><div class="sg-label sec"><span class="ctog" data-tog="${m.id}">${collapsed.has(m.id)?'▸':'▾'}</span><span class="badge ${mstat}">${m.id}</span> ${esc(m.name)} <span class="secpct">(${pr.done}/${pr.total})</span></div><div class="sg-track">${msMark}</div></div>`;
     if(!collapsed.has(m.id)) m.tasks.forEach(t=>{
       const s=t.start||m.start, e=t.due||m.end||s;
       const left=dayX(s), w=Math.max(PX,(dcount(new Date(s),new Date(e))+1)*PX);
