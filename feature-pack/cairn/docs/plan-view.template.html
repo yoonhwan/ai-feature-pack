@@ -143,6 +143,26 @@
   .copybtn{margin-left:8px;background:var(--bg);border:1px solid var(--border);color:var(--muted);
     border-radius:6px;padding:1px 8px;font-size:11px;cursor:pointer}
   .copybtn:hover{border-color:var(--accent);color:var(--text)}
+
+  /* 편집 툴바 + 폼 */
+  .editbar{align-items:center;gap:8px;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--panel)}
+  .editbar button{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .editbar button:hover{border-color:var(--accent)}
+  .editbar .ebspace{flex:1}
+  .dirty-ind{color:var(--doing);font-size:12px;font-weight:600}
+  .sync-btn{background:var(--accent) !important;color:#fff !important;border-color:var(--accent) !important;font-weight:600}
+  .sync-btn:disabled{opacity:.45;cursor:default}
+  .ext-banner{padding:10px 24px;background:var(--bdg-blocked-bg);color:var(--bdg-blocked-fg);border-bottom:1px solid var(--border);font-size:13px}
+  .ext-banner button{margin-left:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:2px 10px;cursor:pointer}
+  .fedit{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font:inherit;font-size:13px}
+  select.fedit{cursor:pointer}
+  textarea.fedit{resize:vertical}
+  .fhint{color:var(--muted);font-size:11px;margin-left:6px}
+  .modalfoot{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--border)}
+  .mbtn{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer}
+  .mbtn:hover{border-color:var(--accent)}
+  .mbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  .mbtn.danger{color:var(--bdg-blocked-fg);border-color:var(--bdg-blocked-fg)}
 </style>
 </head><body>
 <header>
@@ -157,6 +177,15 @@
   <div class="tab" data-v="tree">② 아웃라인 트리 + 진행바</div>
   <div class="tab" data-v="dep" id="tab3">③ 워크트리 / 브랜치</div>
 </div>
+
+<div id="editbar" class="editbar" style="display:none">
+  <button id="btnAddMs">＋ 마일스톤</button>
+  <button id="btnAddTask">＋ 태스크</button>
+  <span class="ebspace"></span>
+  <span id="dirtyInd" class="dirty-ind"></span>
+  <button id="btnSync" class="sync-btn" disabled>싱크(저장)</button>
+</div>
+<div id="extBanner" class="ext-banner" style="display:none">⚠ 디스크가 외부에서 변경됐어요.<button id="btnReload">재로드</button></div>
 
 <div id="kanban" class="view active"></div>
 <div id="tree" class="view"></div>
@@ -191,6 +220,12 @@ const plan = {
 // ==== 데이터 끝 ====
 
 const SLABEL={done:"완료",doing:"진행중",todo:"대기",blocked:"블록"};
+// 편집 컨텍스트(serve가 주입; 정적 file://·gen엔 없음 → 읽기전용)
+const EDIT=(typeof CAIRN_EDIT!=="undefined")?CAIRN_EDIT:{token:"",baseHash:"",pid:null};
+const CAN_EDIT=!!EDIT.token && (location.protocol==="http:"||location.protocol==="https:");
+let ops=[];                       // 축적된 편집 op 체인지셋(뷰JSON 역매핑 아님 — 원장 필드명/값)
+const STATUS_TASK=["todo","doing","done","blocked"];
+const STATUS_MS=["planned","active","blocked","done"];
 const allTasks=()=>plan.milestones.flatMap(m=>m.tasks.map(t=>({...t,ms:m.id,msName:m.name})));
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function whoLine(t){
@@ -205,7 +240,7 @@ const SCHED=(plan.type==="schedule");
 let schedRendered=false, depWorkHTML=null, _mql=null;
 
 // ① Kanban
-(function(){
+function renderKanban(){
   const cols={doing:[],todo:[],done:[],blocked:[]};
   allTasks().forEach(t=>(cols[t.s]||cols.todo).push(t));
   const order=[["doing","진행중 (Doing)"],["todo","대기 (Todo)"],["done","완료 (Done)"]];
@@ -221,10 +256,10 @@ let schedRendered=false, depWorkHTML=null, _mql=null;
     h+="</div>";
   }
   document.getElementById("kanban").innerHTML=h+"</div>";
-})();
+}
 
 // ② Outline tree
-(function(){
+function renderTree(){
   let h='<div class="note">프로젝트 › 마일스톤 › 태스크 계층. 마일스톤마다 완료율 진행바 · 일정 · 의존. 사람(👤작업자 ✍보고자 👁관찰자) 표기.</div><div class="tree">';
   plan.milestones.forEach(m=>{
     const done=m.tasks.filter(t=>t.s==="done").length, tot=m.tasks.length;
@@ -244,10 +279,10 @@ let schedRendered=false, depWorkHTML=null, _mql=null;
     h+="</div>";
   });
   document.getElementById("tree").innerHTML=h+"</div>";
-})();
+}
 
 // ③ 타입 분기: schedule=간트(일정) / work=워크트리·브랜치(gitGraph)
-(function(){
+function renderDepTab(){
   const tab3=document.getElementById("tab3");
   if(SCHED){
     tab3.textContent="③ 간트 (일정)";
@@ -277,50 +312,114 @@ let schedRendered=false, depWorkHTML=null, _mql=null;
     (depNote?`<div class="legend"><span>마일스톤 의존: ${depNote} (gitGraph 단일부모 한계로 텍스트 표기)</span></div>`:"")+
     `<pre class="mermaid">${g}</pre>`;
   depWorkHTML=document.getElementById("dep").innerHTML;   // 테마 전환 시 재렌더용 원본
-})();
+}
+
+// 최초 렌더 + 재렌더 진입점(편집 저장 후 reloadView가 재호출)
+let TASKMAP={};
+function rebuildTaskMap(){ TASKMAP=Object.fromEntries(allTasks().map(t=>[t.id,t])); }
+function renderAll(){ rebuildTaskMap(); renderKanban(); renderTree(); renderDepTab(); }
+renderAll();
 
 // ==== 원장 다이얼로그 ====
-const TASKMAP=Object.fromEntries(allTasks().map(t=>[t.id,t]));
 const dlg=document.getElementById("taskModal");
+const _av=v=>(v==null?"":String(v)).replace(/&/g,"&amp;").replace(/"/g,"&quot;");
 function openTask(tid){
   const t=TASKMAP[tid]; if(!t)return;
   const badge=`<span class="badge ${t.s}">${SLABEL[t.s]||t.s}</span>`;
   const row=(k,v)=>`<div class="mrow"><span class="mk">${k}</span><span class="mv">${v}</span></div>`;
   const empty=`<span class="miss">미기록 (원장 빈 값 — link 훅 필요)</span>`;
-  const nameList=a=>(a&&a.length)?a.map(esc).join(", "):"<span class='miss'>없음</span>";
-  const dep=t.dep&&t.dep.length?t.dep.map(d=>`<code>${d}</code>`).join(", "):"<span class='miss'>없음</span>";
-  const ssot=t.ssot
-    ? `<button class="ssotlink" data-open="${t.ssot}" title="${t.ssot}">📄 ${t.ssot.split("/").pop()} 열기</button>`+
-      `<button class="copybtn" data-copy="${t.ssot}">경로 복사</button>`
-    : "<span class='miss'>미지정</span>";
+  const roE=` <span class="fhint">읽기전용(훅 정본)</span>`;
+  let body, foot="";
+  if(!CAN_EDIT){
+    // 읽기전용(정적 file:// · 서버 아님)
+    const nameList=a=>(a&&a.length)?a.map(esc).join(", "):"<span class='miss'>없음</span>";
+    const dep=t.dep&&t.dep.length?t.dep.map(d=>`<code>${d}</code>`).join(", "):"<span class='miss'>없음</span>";
+    const ssot=t.ssot
+      ? `<button class="ssotlink" data-open="${_av(t.ssot)}" title="${_av(t.ssot)}">📄 ${esc(t.ssot.split("/").pop())} 열기</button>`+
+        `<button class="copybtn" data-copy="${_av(t.ssot)}">경로 복사</button>`
+      : "<span class='miss'>미지정</span>";
+    body=row("상태",badge)+row("작업자 👤",nameList(t.assignees))+row("보고자 ✍",nameList(t.reporters))
+       +row("관찰자 👁",nameList(t.watchers))+row("선행(depends_on)",dep)+row("기획 SSOT",ssot)
+       +row("execution_ref",t.exec?`<code>${t.exec}</code>`:empty)+row("branch",t.branch?`<code>${t.branch}</code>`:empty)
+       +row("start / due",`${t.start||"—"} / ${t.due||"—"}`)+(t.note?row("note",esc(t.note)):"");
+  }else{
+    const inp=(id,v,type)=>`<input class="fedit" id="${id}" type="${type||'text'}" value="${_av(v)}">`;
+    const opt=STATUS_TASK.map(s=>`<option value="${s}"${s===t.s?' selected':''}>${SLABEL[s]}</option>`).join("");
+    const ssotOpen=t.ssot?` <button class="ssotlink" data-open="${_av(t.ssot)}">📄 열기</button>`:"";
+    body=row("상태",`<select class="fedit" id="f_status">${opt}</select>`)
+       +row("이름",inp("f_name",t.name))
+       +row("작업자 👤",inp("f_assignees",(t.assignees||[]).join(", "))+`<span class="fhint">쉼표 구분</span>`)
+       +row("보고자 ✍",inp("f_reporters",(t.reporters||[]).join(", ")))
+       +row("관찰자 👁",inp("f_watchers",(t.watchers||[]).join(", ")))
+       +row("선행(depends_on)",inp("f_dep",(t.dep||[]).join(", "))+`<span class="fhint">쉼표 구분 task id</span>`)
+       +row("기획 SSOT",inp("f_ssot",t.ssot||"")+ssotOpen)
+       +row("execution_ref",(t.exec?`<code>${t.exec}</code>`:empty)+roE)
+       +row("branch",(t.branch?`<code>${t.branch}</code>`:empty)+roE)
+       +row("start",inp("f_start",t.start||"","date"))
+       +row("due",inp("f_due",t.due||"","date"))
+       +row("note",`<textarea class="fedit" id="f_note" rows="2">${esc(t.note||"")}</textarea>`);
+    foot=`<div class="modalfoot"><button class="mbtn danger" id="f_del">태스크 삭제</button>`+
+         `<span style="flex:1"></span><button class="mbtn" data-close="1">취소</button>`+
+         `<button class="mbtn primary" id="f_save">확인</button></div>`;
+  }
   dlg.innerHTML=
     `<div class="modalhead"><div><span class="tid">${t.id}</span> · <span class="mns">${t.ms} ${esc(t.msName)}</span></div>`+
     `<button class="mclose" data-close="1">✕</button></div>`+
-    `<div class="modalname">${esc(t.name)} ${badge}</div>`+
-    row("상태", badge)+
-    row("작업자 👤", nameList(t.assignees))+
-    row("보고자 ✍", nameList(t.reporters))+
-    row("관찰자 👁", nameList(t.watchers))+
-    row("선행(depends_on)", dep)+
-    row("기획 SSOT", ssot)+
-    row("execution_ref", t.exec?`<code>${t.exec}</code>`:empty)+
-    row("branch", t.branch?`<code>${t.branch}</code>`:empty)+
-    row("start / due", `${t.start||"—"} / ${t.due||"—"}`)+
-    (t.note?row("note", esc(t.note)):"");
+    `<div class="modalname">${esc(t.name)} ${badge}</div>`+body+foot;
+  dlg._task=t;
   dlg.showModal();
 }
 function openSsot(path){
-  if(location.protocol==="http:"||location.protocol==="https:"){
-    fetch("/open?path="+encodeURIComponent(path)).then(r=>{if(!r.ok)throw 0;}).catch(()=>{
-      navigator.clipboard?.writeText(path);
-      alert("열기 실패 — 경로를 복사했어요:\n"+path);
-    });
+  if(location.protocol.startsWith("http")){
+    fetch("/open?t="+encodeURIComponent(EDIT.token),{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({path})})
+      .then(r=>{if(!r.ok)throw 0;}).catch(()=>{
+        navigator.clipboard?.writeText(path); alert("열기 실패 — 경로를 복사했어요:\n"+path);});
   } else {
     navigator.clipboard?.writeText(path);
     alert("브라우저 보안상 file:// 직접 열기는 막혀 있어요.\n서버 모드(cairn render --serve)에서 열립니다.\n경로를 클립보드에 복사했어요:\n"+path);
   }
 }
+// 편집 op 축적 + 로컬 뷰 미러 갱신(저장은 싱크 버튼 → /save transaction)
+function pushSet(t,field,value){ ops.push({op:"set",target:[EDIT.pid,t.ms,t.id],field,value}); }
+function saveTaskForm(){
+  const t=dlg._task; if(!t)return;
+  const g=id=>dlg.querySelector(id);
+  const name=g("#f_name").value.trim();
+  if(name && name!==t.name){ pushSet(t,"name",name); t.name=name; }
+  const st=g("#f_status").value;
+  if(st!==t.s){ pushSet(t,"status",st); t.s=st; }
+  const setOpt=(field,viewKey,raw)=>{
+    const cur=t[viewKey]||""; const nv=(raw||"").trim();
+    if(nv!==cur){ pushSet(t,field,nv); if(nv)t[viewKey]=nv; else delete t[viewKey]; }
+  };
+  setOpt("start","start",g("#f_start").value);
+  setOpt("due","due",g("#f_due").value);
+  setOpt("note","note",g("#f_note").value);
+  setOpt("ssot","ssot",g("#f_ssot").value);
+  const setArr=(field,viewKey)=>{
+    const cur=(t[viewKey]||[]).join(", ");
+    const nv=g("#f_"+field).value;
+    if(nv.trim()!==cur.trim()){
+      const arr=nv.split(",").map(s=>s.trim()).filter(Boolean);
+      pushSet(t,field==="dep"?"depends_on":field,arr); t[viewKey]=arr;
+    }
+  };
+  setArr("assignees","assignees"); setArr("reporters","reporters"); setArr("watchers","watchers");
+  setArr("dep","dep");
+  markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
+}
+function deleteTask(){
+  const t=dlg._task; if(!t)return;
+  if(!confirm(`태스크 ${t.id} 삭제? (역참조 중이면 싱크 시 거부됩니다)`))return;
+  ops.push({op:"remove-task",target:[EDIT.pid,t.ms,t.id]});
+  const m=plan.milestones.find(x=>x.id===t.ms);
+  if(m) m.tasks=m.tasks.filter(x=>x.id!==t.id);
+  markDirty(); dlg.close(); renderAll(); refreshSchedIfActive();
+}
 dlg.addEventListener("click",e=>{
+  if(e.target.id==="f_save"){ saveTaskForm(); return; }
+  if(e.target.id==="f_del"){ deleteTask(); return; }
   if(e.target===dlg || e.target.dataset.close){ dlg.close(); return; }
   if(e.target.dataset.open){ openSsot(e.target.dataset.open); return; }
   if(e.target.dataset.copy){
@@ -453,6 +552,91 @@ document.querySelectorAll(".tab").forEach(tab=>{
     if(tab.dataset.v==="dep" && SCHED){ if(!schedRendered){renderSchedule();schedRendered=true;} fixupSchedule(); }
   };
 });
+
+// ==== 편집 · 싱크 (serve 모드) ====
+function updateSyncUI(){
+  const n=ops.length, b=document.getElementById("btnSync"), d=document.getElementById("dirtyInd");
+  if(b){ b.disabled=n===0; b.textContent=n?`싱크(저장) · ${n}건`:"싱크(저장)"; }
+  if(d){ d.textContent=n?`● 미저장 ${n}건`:""; }
+}
+function markDirty(){ updateSyncUI(); }
+function refreshActiveTab(v){
+  if(v==="dep"){
+    if(SCHED){ schedRendered=false; renderSchedule(); schedRendered=true; fixupSchedule(); }
+    else { rendered.dep=false; renderMermaid("dep"); }
+  }
+}
+function refreshSchedIfActive(){
+  const a=document.querySelector(".tab.active");
+  if(a && a.dataset.v==="dep") refreshActiveTab("dep");
+}
+function reloadView(view){
+  // plan 내용 교체 후 전 뷰 재렌더(브라우저 재로드 없이 연속 편집)
+  plan.milestones=view.milestones; plan.type=view.type; plan.project=view.project;
+  ops=[]; schedRendered=false; rendered.dep=false; depWorkHTML=null;
+  renderAll(); updateSyncUI();
+  const a=document.querySelector(".tab.active");
+  if(a) refreshActiveTab(a.dataset.v);
+}
+async function doSync(){
+  if(!ops.length)return;
+  let res, body;
+  try{
+    res=await fetch("/save?t="+encodeURIComponent(EDIT.token),{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({ops,baseHash:EDIT.baseHash})});
+    body=await res.json();
+  }catch(e){ alert("네트워크 오류: "+e); return; }
+  if(res.status===409){
+    if(confirm("디스크가 외부에서 변경됐어요. 재로드할까요?\n(현재 미저장 편집은 버려집니다)")){
+      EDIT.baseHash=body.hash; reloadView(body.view);
+      document.getElementById("extBanner").style.display="none";
+    }
+    return;
+  }
+  if(res.status!==200){ alert("저장 실패: "+(body.error||res.status)); return; }
+  EDIT.baseHash=body.hash; reloadView(body.view);
+  const b=document.getElementById("btnSync"); b.textContent="저장됨 ✓"; setTimeout(updateSyncUI,1200);
+}
+function addMilestone(){
+  const name=prompt("새 마일스톤 이름"); if(!name)return;
+  ops.push({op:"add-milestone",target:[EDIT.pid],milestone:{name}});
+  markDirty(); alert("추가 op 축적됨 — 싱크하면 원장에 반영·표시됩니다.");
+}
+function addTask(){
+  const mids=plan.milestones.map(m=>m.id).join(", ");
+  const mid=prompt("어느 마일스톤? id 입력 ("+mids+")"); if(!mid)return;
+  if(!plan.milestones.some(m=>m.id===mid)){ alert("없는 마일스톤 id: "+mid); return; }
+  const name=prompt("새 태스크 이름"); if(!name)return;
+  ops.push({op:"add-task",target:[EDIT.pid,mid],task:{name}});
+  markDirty(); alert("추가 op 축적됨 — 싱크하면 원장에 반영·표시됩니다.");
+}
+async function checkExternal(){
+  if(!CAN_EDIT)return;
+  try{
+    const r=await fetch("/hash?t="+encodeURIComponent(EDIT.token)); const {hash}=await r.json();
+    document.getElementById("extBanner").style.display=(hash!==EDIT.baseHash)?"block":"none";
+  }catch(e){}
+}
+async function reloadExternal(){
+  try{
+    const r=await fetch("/view?t="+encodeURIComponent(EDIT.token)); const {view,hash}=await r.json();
+    if(ops.length && !confirm("미저장 편집이 있어요. 버리고 재로드할까요?"))return;
+    EDIT.baseHash=hash; reloadView(view);
+    document.getElementById("extBanner").style.display="none";
+  }catch(e){}
+}
+function initEdit(){
+  if(!CAN_EDIT)return;
+  document.getElementById("editbar").style.display="flex";
+  document.getElementById("btnSync").onclick=doSync;
+  document.getElementById("btnAddMs").onclick=addMilestone;
+  document.getElementById("btnAddTask").onclick=addTask;
+  document.getElementById("btnReload").onclick=reloadExternal;
+  updateSyncUI();
+  window.addEventListener("beforeunload",e=>{ if(ops.length){ e.preventDefault(); e.returnValue=""; } });
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkExternal(); });
+}
+initEdit();
 
 // 테마 (다크/라이트/시스템)
 document.querySelectorAll(".theme-seg button").forEach(b=>b.onclick=()=>applyTheme(b.dataset.m));
