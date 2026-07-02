@@ -42,6 +42,7 @@ VIEW_PATH = REPO / ".cairn" / "views" / "plan.md"
 LOCK_PATH = REPO / ".cairn" / ".lock"
 MAP_DIR = Path("/tmp/cairn")
 
+PROJECT_TYPE = {"work", "schedule"}   # 3번째 뷰 스위치(work=gitGraph / schedule=간트). 데이터 제약 아님.
 STATUS_PROJECT = {"planned", "active", "done", "paused"}
 STATUS_MS = {"planned", "active", "done", "blocked"}
 STATUS_TASK = {"todo", "doing", "done", "blocked"}
@@ -575,6 +576,9 @@ def validate(data):
             errors.append(f"{pid}: project name contains control characters")
         if p.get("status") not in STATUS_PROJECT:
             errors.append(f"{pid}: bad project status: {p.get('status')}")
+        # type = 3번째 뷰 스위치(work 기본). 부재 시 work(하위호환). 별칭 금지.
+        if p.get("type", "work") not in PROJECT_TYPE:
+            errors.append(f"{pid}: bad project type: {p.get('type')} (work|schedule)")
         mids = set()
         for m in p.get("milestones", []):
             mid = m.get("id")
@@ -637,6 +641,9 @@ def validate(data):
                         for v in lst:
                             if _CTRL_RE.search(str(v)):
                                 errors.append(f"{pid}/{mid}/{tid}: {fld} contains control characters")
+                # ssot = 기획 문서 경로(선택). note와 역할 분리. 형식은 control char만 차단.
+                if t.get("ssot") is not None and _CTRL_RE.search(str(t.get("ssot"))):
+                    errors.append(f"{pid}/{mid}/{tid}: ssot contains control characters")
                 for ref in ("spawned_from", "return_to", "merge_back_to"):
                     target = t.get(ref)
                     if target is not None and target not in node_ids:
@@ -916,6 +923,22 @@ def cmd_set_note(_d, args):
         else:
             t["note"] = note
     transaction(mutate, f"set-note {args.project}/{args.task}")
+    print("OK"); return 0
+
+
+def cmd_set_ssot(_d, args):
+    """task.ssot = 기획 SSOT 문서 경로. note와 역할 분리(의도 명확). 빈 문자열=제거."""
+    path = args.path
+    if path and _CTRL_RE.search(path):
+        print("ssot 경로에 제어문자가 있습니다", file=sys.stderr)
+        return 1
+    def mutate(data):
+        t = _task_in_project(data, args.project, args.task)
+        if path == "":
+            t.pop("ssot", None)
+        else:
+            t["ssot"] = path
+    transaction(mutate, f"set-ssot {args.project}/{args.task}")
     print("OK"); return 0
 
 
@@ -1563,6 +1586,9 @@ def main(argv=None):
     sp_set_note = sub.add_parser("set-note")
     sp_set_note.add_argument("project"); sp_set_note.add_argument("task")
     sp_set_note.add_argument("note")
+    sp_set_ssot = sub.add_parser("set-ssot")
+    sp_set_ssot.add_argument("project"); sp_set_ssot.add_argument("task")
+    sp_set_ssot.add_argument("path", help="기획 SSOT 문서 경로(빈 문자열이면 제거)")
 
     sp = sub.add_parser("set-date")
     sp.add_argument("project"); sp.add_argument("id")
@@ -1685,6 +1711,7 @@ def main(argv=None):
     handler = {"status": cmd_status, "show": cmd_show,
                "overdue": cmd_overdue, "render": cmd_render,
                "set-note": cmd_set_note,
+               "set-ssot": cmd_set_ssot,
                "set-status": cmd_set_status, "set-date": cmd_set_date,
                "set-priority": cmd_set_priority, "add-task": cmd_add_task,
                "add-milestone": cmd_add_milestone, "new-project": cmd_new_project,
