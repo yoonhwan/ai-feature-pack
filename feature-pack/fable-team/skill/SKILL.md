@@ -42,7 +42,7 @@ planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 
 
 공통 불변: `tools:`에 Agent/Task 없음(서브의 서브 차단), 워커 모델에 fable-5/opus-4-8 금지(planner의 fable5만 예외), 보고는 최소 토큰 형식 강제.
 
-**크루 (opt-in 확장 로스터)**: 로컬 하네스 전문 드라이버 워커 — ft-da(codex)가 원형이며, 같은 패턴으로 `omo`(OMX/OMO — `ft-omo.md.tpl`)·`superpowers`·`gstack` 등 **하네스 이름으로** 추가한다. **세션 승계(resume/inject 체인)와 컨텍스트 윈도우 관리(요약-후-fork + WINDOW_PRESSURE)는 크루의 기본 제공 계약**(brain_sessions 4번째 버킷 규칙 동일 적용). 감지·설치는 install-interview §4, 공통 계약·카탈로그는 `references/crew/crew-support.md`, omo 하네스 상세는 `references/crew/omx-omo-full-context.md`.
+**크루 (opt-in 확장 로스터)**: 로컬 하네스 전문 드라이버 워커 — ft-da(codex)가 원형이며, 같은 패턴으로 **하네스 이름 그대로** 추가한다. A형(외부 CLI): `omo`(OMX/OMO). B형(claude 플러그인 — **`claude -p` 콘솔 분리, 실행 모델 sonnet4.6 high**): `gstack`·`superpowers`·`insane-search`·`ouroboros`. 템플릿은 `ft-<crew>.md.tpl` 1:1. **세션 승계(resume/inject 체인)와 컨텍스트 윈도우 관리(요약-후-fork + WINDOW_PRESSURE)는 크루의 기본 제공 계약**(brain_sessions 4번째 버킷 규칙 동일 적용). 감지·설치는 install-interview §4, 공통 계약·카탈로그는 `references/crew/crew-support.md`, 하네스별 상세는 `references/crew/<하네스>-full-context.md`.
 
 ## 사용 절차
 
