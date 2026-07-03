@@ -89,6 +89,7 @@ opus-4-8[1m] ultracode 세션에서 jsonl `message.model` 하드 검증: **Workf
 5. **컨텍스트 관리** (상태 외재화·compact/clear/재시작·복원): `references/context-management.md` — 디스크 SSOT(`.fable-team/state/`) write-through, ctx 임계 정책, 세션 재시작 복원 절차. **새 세션 트리거 시 피처 인터뷰 이전에 §4(ACTIVE 감지·복원)를 먼저 수행.**
 6. **업데이트** ("FT 업데이트" 시): `references/update.md` — 팩 소스 → 로컬 설치본 패치(스킬 파일 + 에이전트 .md 재치환, 인터뷰 답변 보존) + 새 세션 프로브 재검증.
 7. **강제 게이트** (오케 폭주·컨텍스트 방어): `references/orchestration-gate.md` — 4-레이어(선언·역할·기준·강제) + 프로젝트 설치 지원(`templates/install-gate.sh`). 부팅 시퀀스에서 설치 상태 확인·제안.
+8. **반복 문제해결 루프** (로그드리븐 BTS): `references/rapid-iteration-loop.md` — 큰 수정(재설계) 금지, **빠른 테스트→문제발견→수술적 대응→재테스트 반복**으로 작업리스트 완성. 로그는 얼마든 심고 증명 후 정리. 3자대조(로그↔코드↔스펙). 테스트=byz-e2e/omo qa/ft-tester, 로그·BTS 파악=ft-checker(sonnet), 문제확인=ft-planner+ft-da(approve loop), 수정=ft-implementer(surgical).
 
 ## 강제 게이트 (orchestration-gate) — 선언 아닌 물리 차단
 
