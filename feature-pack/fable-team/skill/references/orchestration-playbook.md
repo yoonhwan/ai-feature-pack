@@ -1,6 +1,6 @@
 # fable-team 오케스트레이션 플레이북
 
-오케스트레이터(ultracode 지원 최상위 모델)가 매 태스크에서 따르는 절차. **오케스트레이터는 전달·조율·커뮤니케이션만 한다** — 기획·문제해결은 planner 브레인에 위임하고, 그 사이에도 파이프라인은 멈추지 않는다.
+오케스트레이터(사다리 최상위 가용 모델 — brain-availability §2)가 매 태스크에서 따르는 절차. **오케스트레이터는 전달·조율·커뮤니케이션만 한다** — 기획·문제해결은 planner 브레인에 위임하고, 그 사이에도 파이프라인은 멈추지 않는다.
 
 ## 파이프라인
 
@@ -55,7 +55,7 @@ JSON 한 줄로 반환 (키: tools, spawn_test):
 ```
 기대값: tools에 Agent/Task 없음(팀 하네스가 SendMessage/TaskCreate 등 팀 도구는 자동 부여 — 정상), spawn_test=NO_SPAWN_TOOL, `agent-*.meta.json`의 model이 지정 모델과 일치.
 
-**프로브 경로 이원화 (필수)**: Agent 경로 워커(checker/implementer/da/크루)는 팀 하네스 프로브, **planner/tester는 Workflow `agent()`(model/effort 명시)로 프로브**. Agent 프로브만 돌리면 planner(max effort 기획 브레인)가 안 떠 설치 검증이 비어 보인다 — planner 프로브 부재 = 설치 미완.
+**프로브 경로 이원화 (필수)**: Agent 경로 워커(checker/implementer/da/크루)는 팀 하네스 프로브, **planner/tester는 Workflow `agent()`(model/effort 명시)로 프로브**. Agent 프로브만 돌리면 planner(기획 브레인)가 안 떠 설치 검증이 비어 보인다 — planner 프로브 부재 = 설치 미완.
 
 ## 실측 함정 (2026-07-02 검증분)
 
