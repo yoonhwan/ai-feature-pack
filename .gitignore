@@ -17,3 +17,9 @@ feature-pack/cliproxyapi/
 
 # omo codegraph 인덱스 심링크 (로컬 전용)
 .codegraph
+
+# Claude Code 개인 로컬 설정
+.claude/settings.local.json
+
+# fable-team 파이프라인 로컬 상태 (세션 SSOT — 커밋 비대상)
+.fable-team/
