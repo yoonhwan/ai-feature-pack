@@ -38,11 +38,14 @@ esac
 
 say "[3/3] 스킬 설치 → $DEST"
 mkdir -p "$DEST"
-rm -rf "$DEST/references"
+rm -rf "$DEST/references" "$DEST/templates"
 cp "$PKG_DIR/skill/SKILL.md" "$DEST/SKILL.md"
 cp -R "$PKG_DIR/skill/references" "$DEST/references"
+cp -R "$PKG_DIR/skill/templates" "$DEST/templates"
+chmod +x "$DEST/templates/install-gate.sh" "$DEST/templates/hooks/"*.sh 2>/dev/null || true
 
 say "✅ 완료. 다음 단계:"
+say "  0) orchestration-gate 설치(프로젝트별): $DEST/templates/install-gate.sh --install <프로젝트>"
 say "  1) 새 Claude Code 세션(ultracode 권장)에서 \"fable-team 설치 인터뷰\" 요청"
 say "  2) 인터뷰가 브레인 가용성 체크 → 에이전트 .md 생성 → 프로브 검증까지 안내한다"
 say "  ⚠ 에이전트 .md 생성/수정 후에는 반드시 새 세션에서 사용 (세션 시작 시 스냅샷 등록)"
