@@ -8,11 +8,11 @@
 0. 킥오프   오케스트레이터: 피처 인터뷰 결과(.fable-team/features/<slug>.md) 확인
             + state/ACTIVE·state/<slug>.state.md 생성 (형상 포함 — context-management §1)
             (+연동 훅: wt-create·cairn spawn — integrations.md §1 순서 준수)
-1. 수집     ft-checker × N 병렬 (Agent 도구, checker-01…) — 대상 파일 + JSON 보고 형식만 전달
+1. 수집     ft-checker × N 병렬 (스폰경로: §스폰 규칙 — [1m] Workflow / 비-[1m] Agent, checker-01…) — 대상 파일 + JSON 보고 형식만 전달
 2. 기획     ft-planner (Workflow agent(), model+effort 명시) — 워커 확인 결과를 인라인/파일로 전달
             → planner가 설계 파일(features/design-<slug>-v<N>.md, 재기획마다 v+1) Write 후 DESIGN_WRITTEN 반환
             ★ 오케스트레이터는 설계 내용을 판단하지 않는다. 전달만.
-3. 구현     ft-implementer (Agent 도구) — 구현 SSOT 경로 전달 ("SSOT를 Read하고 그대로 구현")
+3. 구현     ft-implementer (스폰경로: §스폰 규칙 — [1m] Workflow / 비-[1m] Agent) — 구현 SSOT 경로 전달 ("SSOT를 Read하고 그대로 구현")
             구현 SSOT: 표준 형상 = 설계 파일, 축약 형상(설계 단계 없음) = 피처 파일(features/<slug>.md)
 4. 검증     병렬: ft-tester (Workflow, 설계의 검증 기준 전달) + ft-da review (Agent)
 5. 게이트   ft-da approve loop: APPROVED → 6으로.
@@ -31,8 +31,8 @@
 
 ## 스폰 규칙
 
-- **경로 분리 (필수)**: claude-5 계열(planner fable5, tester sonnet5)은 Workflow `agent()` + `model`/`effort` 명시. 4.6 계열(checker/implementer)은 Agent 도구. 이유는 SKILL.md 함정 참조.
-- **DA 드라이버**: 스킬 설치 후 **새 세션**이면 Agent 도구(`<prefix>-da`, Bash 포함 정의가 시작 시 등록됨). 세션 중 정의를 만들었/고쳤다면 등록 캐시가 구정의라 Bash가 빠질 수 있음 → Workflow `agent()`(model: sonnet, effort: low) + codex 명령 인라인으로 우회 (E2E 실증: gpt-5.5/xhigh APPROVED).
+- **경로 분리 (필수 — SKILL.md 스폰경로 결정표가 단일 SSOT)**: **[1m]/ultracode 세션 = 전 일회성 브레인(planner·checker·implementer·tester) Workflow `agent()` + `model`/`effort` 명시**(Agent-tool leak 교정). 비-[1m] 세션에서는 claude-5 계열(planner fable5, tester sonnet5)은 Workflow, 4.6 계열(checker/implementer)은 Agent 도구. 장수명 드라이버(DA·크루)는 세션 무관 Agent-tool(셔틀 — 외부 CLI가 주입된 full-id로 실행, leak 무관).
+- **DA 드라이버**: 스킬 설치 후 **새 세션**이면 Agent 도구(`<prefix>-da`, Bash 포함 정의가 시작 시 등록됨). 세션 중 정의를 만들었/고쳤다면 등록 캐시가 구정의라 Bash가 빠질 수 있음 → 새 세션에서 재시작하거나, Agent 도구를 새 이름으로 재등록해 우회 (DA=드라이버 Agent+codex wrapper — Workflow 아님, E2E 실증: gpt-5.5/xhigh APPROVED).
 - **DA 브레인 resume 체인**: approve loop 라운드 2+는 새 one-shot 재인라인 대신 `codex exec resume <session-id>`로 재개(라운드 1 지적 기억 + 토큰 절약). 최초 실행에서 session-id를 판정과 함께 회수해 state.md `brain_sessions`에 기록 — 세션을 넘는 복원 자산(context-management §3).
 - Agent 경로 워커는 `name: <role>-NN` 부여, 프롬프트에 "완료 후 대기하라" — 열린 상태로 두고 SendMessage로 후속 질의(approve loop 재라운드, 추가 확인).
 - 독립 스폰은 한 메시지에 병렬로.

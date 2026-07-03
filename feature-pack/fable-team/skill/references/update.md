@@ -12,7 +12,8 @@
    3. 사용자 커스텀(`{{EXTRA_INSTRUCTIONS}}` 영역 등)이 감지되면 덮어쓰기 전에 사용자에게 보여주고 확인.
 4. **기록**: `install.json`에 답변 스냅샷 + `updated: <ISO 시각>` + 팩 커밋 해시를 기록 (구설치본이면 이번에 생성 — 다음 업데이트부터 역추출 불요).
 5. **재시작·재검증 안내**: 에이전트 .md가 1개라도 갱신됐으면 **"새 세션 필수"** 고지(정의는 세션 시작 시 스냅샷 등록 — SKILL.md 함정). 새 세션에서 프로브 재검증 — **경로 이원화(planner 포함) 기준**(install-interview §5-4).
-6. 결과 보고: 갱신된 파일 목록 + 스킵 목록(변경 없음/미설치) + 다음 행동(새 세션) 1줄.
+6. **강제 게이트 4-레이어 재배포** (orchestration-gate 설치된 프로젝트만): `install.sh`가 `templates/`를 설치본에 재복사한다(2번에 포함). 게이트가 설치된 프로젝트(`.claude/hooks/orchestration-gate.sh` 존재)는 `templates/install-gate.sh --install <proj>`로 훅·rules·settings를 **4-레이어 세트로 함께 재배포**(멱등·병합·백업). **선언(SKILL/CLAUDE)·역할(agents)·기준(rules)·강제(hooks) 중 하나만 바뀌면 불일치** — 패치마다 세트로 갱신. 상세 `references/orchestration-gate.md`.
+7. 결과 보고: 갱신된 파일 목록 + 스킵 목록(변경 없음/미설치) + 게이트 재배포 프로젝트 + 다음 행동(새 세션) 1줄.
 
 ## 함정
 
