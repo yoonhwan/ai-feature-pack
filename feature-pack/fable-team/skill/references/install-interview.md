@@ -18,17 +18,17 @@
 
 | 키 | 질문 | 기본값 | 허용값 주의 |
 |----|------|--------|-------------|
-| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (팀의 두뇌 — 최상위 모델 권장) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. max는 대형 신규 설계 opt-in — hang 실측 시 high 재발사(SKILL.md 허들 2 등급제) |
+| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (팀의 두뇌 — 최상위 모델 권장) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. fable-5 미가용 시 §0이 사다리 1순위(opus-4-8/high — D1 표준)를 기본 선택지로 제시 |
 | `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 확인 워커 브레인? | [claude-sonnet-4-6 / low] | sonnet4.6은 low·medium·high만 |
-| `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / max] | |
+| `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / **high**] | D1: 전 좌석 high 표준 |
 | `{{TESTER_MODEL}}` / `{{TESTER_EFFORT}}` | 테스터 브레인? | [claude-sonnet-5 / high] | claude-5 유효 effort: low/medium/high/max — **xhigh 불가, 표준 high** |
 | `{{DA_BRAIN_MODEL}}` / `{{DA_EFFORT}}` | DA 브레인? | [gpt-5.5 (codex default) / xhigh] | codex는 xhigh 지원 |
 | `{{DA_DRIVER_MODEL}}` | DA 드라이버(codex 호출 셔틀)? | [claude-sonnet-4-6] | 드라이버 effort는 low 고정 |
 | `{{DA_MAX_ROUNDS}}` | approve loop 최대 라운드? | [2] | 초과 시 사용자 에스컬레이션 |
 
-**금지 검증 (인터뷰 후 필수)**: planner를 제외한 워커 모델에 `fable-5` 또는 `opus-4-8`이 들어가면 거부하고 재질문. planner만 최상위 모델(fable5) 허용 — 두뇌 역할이기 때문이다.
+**금지 검증 (인터뷰 후 필수)**: planner를 제외한 워커 모델에 `fable-5` 또는 `opus-4-8`이 들어가면 거부하고 재질문. **planner(최상위 브레인 좌석)만 사다리 상단 모델(fable-5, 대체 시 opus-4-8) 허용** — 두뇌 역할이기 때문이다.
 
-**오케스트레이터 게이트**: 설치 완료 후 "오케스트레이터는 ultracode 지원 최상위 모델 세션에서 이 스킬을 트리거해야 하며, 기획·문제해결은 planner에 위임된다"를 사용자에게 고지한다.
+**오케스트레이터 게이트**: 설치 완료 후 "오케스트레이터는 프로파일 충족 세션 — 사다리 첫 가용 모델(brain-availability §2) + 최대 유효 effort(D1 상한 high) + Agent/Workflow 양면 지원 — 에서 이 스킬을 트리거해야 하며, 기획·문제해결은 planner에 위임된다"를 사용자에게 고지한다.
 
 ## 3. 프로젝트 커스텀
 
@@ -45,7 +45,7 @@
 표준 로스터 외에, 로컬에 설치된 외부 하네스를 전문 구동하는 크루를 추가할 수 있다 (`references/crew/crew-support.md`).
 
 1. **감지** (Bash 실측 — crew-support.md 카탈로그 기준): `omx --version`(omo), `ls ~/.claude/skills/gstack`(gstack), `~/.claude/plugins/cache/claude-plugins-official/superpowers/`(superpowers), `~/.claude/plugins/cache/gptaku-plugins/insane-search/`(insane-search), `~/.claude/plugins/cache/ouroboros/ouroboros/`(ouroboros). da는 §0 브레인 체크가 이미 커버.
-2. 감지된 하네스마다 "크루 추가?" **opt-in** 질문 — 기본값 [추가 안 함].
+2. 감지된 하네스마다 "크루 추가?" **opt-in** 질문 — 기본값 [추가 안 함]. §0에서 planner substitution 기록 시(=fable-less) omo·insane-search 질문에 **`★ fable-less 추천` 배지 + 근거 1줄 표시** — 기본값은 [추가 안 함] 그대로(§3 원칙: 기본값 변경 구현 금지).
 3. 추가 선택 시: `agent-templates/ft-<crew>.md.tpl` 치환(드라이버 모델 `{{OMO_DRIVER_MODEL}}`/`{{CREW_DRIVER_MODEL}}` 기본 [claude-sonnet-4-6]) 또는 crew-support.md의 일반 계약 골격으로 `<PREFIX>-<crew>.md` Write. B형 크루의 실행 모델은 템플릿에 sonnet4.6 high로 고정돼 있다(질문 불요).
 4. 검증: §5 프로브와 동일 + 하네스 1회 실측 호출 (예: omo 크루 → `omx exec -s read-only '$analyze <간단 질의>' < /dev/null`).
 
