@@ -7,9 +7,14 @@
 #
 # ★ 안전 제1원칙 — FAIL-OPEN: 어떤 파싱 오류·환경 이상에서도 exit 0(허용).
 #   훅이 세션을 brick하지 않는다(글로벌 프록시 死=전 세션 마비 교훈).
-# ★ 모델 게이팅: transcript의 마지막 assistant model이 TOP 집합일 때만 게이트.
-#   워커 세션(opus-4-6/sonnet-5/sonnet-4-6)은 자기 세션 model이 TOP 아니므로 자유.
-#   → 오케스트레이터만 제한, 워커는 무제한(구현 워커가 여러 파일 편집 정상).
+# ★ 서브에이전트 면제(제1 판별): 위임된 워커(Agent/Task/Workflow)의 tool-call은
+#   훅 입력 JSON에 agent_id/agent_type 필드가 실린다. 오케스트레이터 본인 호출엔 없다.
+#   서브에이전트는 메인 세션의 transcript_path·session_id를 "공유"하므로(둘 다 opus-4-8로 보임)
+#   모델/세션 판별로는 워커와 오케를 구분할 수 없다 → agent_id 유무가 유일하게 신뢰 가능한 신호.
+#   agent_id 있으면 워커 → 게이트 면제(워커는 무제한, 구현 워커가 여러 파일 편집 정상).
+# ★ 모델 게이팅(제2 판별, 폴백): agent_id 없는(=오케) 호출만 transcript 마지막 assistant model
+#   이 TOP 집합일 때 게이트. 워커 모델(opus-4-6/sonnet-5/sonnet-4-6)은 TOP 아니므로 자유.
+#   → 오케스트레이터만 제한.
 
 set +e  # 어떤 명령 실패도 스크립트를 죽이지 않음 (fail-open)
 
@@ -77,6 +82,15 @@ tool = data.get("tool_name", "")
 tin  = data.get("tool_input", {}) or {}
 sid  = data.get("session_id", "nosess")
 tpath = data.get("transcript_path", "")
+
+# ── 0) 서브에이전트(위임된 워커) 면제 — 제1 판별 ──
+# 서브에이전트(Agent/Task/Workflow) tool-call은 메인 세션의 transcript_path·session_id를 그대로
+# 공유한다(실측: 서브의 Edit도 session_id=메인, transcript_path=메인). 따라서 모델/세션 판별로는
+# 워커와 오케를 구분할 수 없다(둘 다 opus-4-8로 판별됨 — 이게 워커 오차단 근본원인).
+# Claude Code는 서브에이전트 호출에만 훅 입력 JSON에 agent_id/agent_type를 싣는다(오케 본인 호출엔 없음).
+# → agent_id/agent_type 존재 = 위임된 워커 → 게이트 면제(워커는 무제한). 카운터 오염도 방지.
+if data.get("agent_id") or data.get("agent_type"):
+    allow()
 
 # ── 1) 세션 모델 판별 (transcript 마지막 assistant message.model) ──
 # 오케스트레이터(TOP) 세션만 게이트. 워커/불명 → 면제(fail-open).
