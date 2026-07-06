@@ -18,17 +18,17 @@
 
 | 키 | 질문 | 기본값 | 허용값 주의 |
 |----|------|--------|-------------|
-| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (**opus-4-8 vs fable-5 필수 선택** — 메인 오케는 항상 opus-4-8이라 planner만 고름) | [선택: claude-opus-4-8 **또는** claude-fable-5 / **high**] | Workflow 경로로만 스폰. **선택을 install.json PLANNER_MODEL에 기록**. max 금지(hang) |
-| `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 대량 서치·로그·문서 워커 브레인? | [claude-sonnet-4-6 / **high**] | sonnet4.6은 low·medium·high만. 서치 단말 세션 = high |
-| `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / **medium**] | opus-4-6 medium 기본(heavy 작업=high). max 금지 |
+| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (**기본 claude-fable-5** — 미가용 시 사다리: claude-sonnet-5 → 병렬 claude-opus-4-6) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. **선택을 install.json PLANNER_MODEL에 기록**. max 금지(hang) |
+| `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 대량 서치·로그·문서 워커 브레인? | [claude-sonnet-4-6 / **medium**] | sonnet4.6은 low·medium·high만. 빠른 확인 BTS 3종 표준 = medium |
+| `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / **high**] | opus-4-6 high 고정. max 금지 |
 | `{{TESTER_MODEL}}` / `{{TESTER_EFFORT}}` | 테스터 브레인? | [claude-sonnet-5 / high] | claude-5 유효 effort: low/medium/high/max — **xhigh 불가, 표준 high** |
 | `{{DA_BRAIN_MODEL}}` / `{{DA_EFFORT}}` | DA 브레인? | [gpt-5.5 (codex default) / xhigh] | codex는 xhigh 지원 |
 | `{{DA_DRIVER_MODEL}}` | DA 드라이버(codex 호출 셔틀)? | [claude-sonnet-4-6] | 드라이버 effort는 low 고정 |
 | `{{DA_MAX_ROUNDS}}` | approve loop 최대 라운드? | [2] | 초과 시 사용자 에스컬레이션 |
 
-**금지 검증 (인터뷰 후 필수)**: planner를 제외한 워커 모델에 `fable-5` 또는 `opus-4-8`이 들어가면 거부하고 재질문. **planner(최상위 브레인 좌석)만 사다리 상단 모델(fable-5, 대체 시 opus-4-8) 허용** — 두뇌 역할이기 때문이다.
+**금지 검증 (인터뷰 후 필수)**: planner를 제외한 워커 모델에 `fable-5`가 들어가면 거부하고 재질문. **planner(최상위 브레인 좌석)만 fable-5 허용** — 두뇌 역할이기 때문이다.
 
-**오케스트레이터 게이트**: 설치 완료 후 "메인 오케스트레이터 = **opus-4-8 ultracode** 세션에서 이 스킬을 트리거하며, 기획·문제해결은 planner(opus-4-8/fable5)에, 구현은 워커에 위임된다"를 사용자에게 고지한다.
+**오케스트레이터 게이트**: 설치 완료 후 "메인 오케스트레이터 = **sonnet-5 또는 fable-5 (ultracode — 세션 시작 시 사용자 선택)** 세션에서 이 스킬을 트리거하며, 기획·문제해결은 planner(fable5 — 사다리 sonnet-5/opus-4-6)에, 구현은 워커에 위임된다"를 사용자에게 고지한다.
 
 **강제 게이트 설치 지원 (필수 제안)**: 설치 완료 후 `templates/install-gate.sh --check <프로젝트>`로 orchestration-gate 설치 상태를 진단하고, 미설치면 **설치를 제안**한다(`--install`). 이는 오케의 코드 직접수정 폭주·컨텍스트 증류를 **훅으로 물리 차단**하는 4-레이어(선언·역할·기준·강제)를 프로젝트 `.claude/`에 배포한다 — 상세 `references/orchestration-gate.md`. **[1m]/opus 오케 세션은 서브에이전트 모델 leak 교정**(resolver env or Workflow 강제 — 스폰 경로 §)도 함께 안내한다.
 

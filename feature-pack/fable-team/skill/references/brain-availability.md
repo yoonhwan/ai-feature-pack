@@ -32,9 +32,9 @@ done
 |-----------|-----------|-----------|------|
 | DA 브레인: codex gpt-5.5 xhigh | **claude-opus-4-6 high** (Agent/Workflow 직접) | gemini (`gemini -p`, 있으면) | 대체 시 **author-review 프로바이더 분리가 깨짐** → implementer와 다른 모델 계열 유지가 최소 조건 (implementer=opus4.6이면 DA=sonnet-4-6 high로 조정). **DA 대체 모델은 planner(대체 포함) 모델과 동일 모델·동일 계열 금지** — planner=opus 계열이면 sonnet/gemini 계열 우선(author-review 분리) |
 | implementer의 codex/cursor 위임 | 위임 없이 claude implementer가 직접 구현 | — | 템플릿의 위임 문단을 제거하고 설치 |
-| planner: fable5 high | **claude-opus-4-8 high** (D1 표준 — 프로브 high 수락 확인, §1-1) | 병렬: **claude-opus-4-6 high** · **claude-sonnet-5 high** (D2 역할 적합 배치 — 설계 안정성=opus-4-6 우선, 최신 반응성=sonnet-5 우선. 한쪽만 가용 시 승계) | fable5 미가용 시. 두뇌 역할 — 가용 최상위 모델 우선 배정 |
+| planner: fable5 high | **claude-sonnet-5 high** (D1 표준 — 프로브 high 수락 확인, §1-1) | **claude-opus-4-6 high** (병렬 다중 인스턴스로 보완 — D2) | fable5 미가용 시. 두뇌 역할 — 가용 최상위 모델 우선 배정 |
 | tester: sonnet5 | claude-sonnet-4-6 high | — | Workflow→Agent 경로로 바꾸면 4.6은 effort 함정도 없음 |
-| 오케스트레이터: fable-5 high | **opus-4-8 high** (D1 표준 — 프로브 high 수락 확인) | **sonnet-5 high** (D1 표준) | Agent/Workflow 양면 지원 선결(D3) — Workflow 부재 시 planner/tester는 미들웨어 드라이버 경유 `claude -p`(스폰 경로 표 3행). planner 겸직 허용. 하네스 프로파일: fable-5=완화형 · opus/sonnet=지침형(§2-4 설계) |
+| 오케스트레이터: fable-5 (ultracode) | **claude-sonnet-5 (ultracode)** — 사용자가 세션 시작 시 직접 선택(자동 폴백 아님) | — | Agent/Workflow 양면 지원 선결(D3) — Workflow 부재 시 planner/tester는 미들웨어 드라이버 경유 `claude -p`(스폰 경로 표 3행). planner 겸직 허용. 하네스 프로파일: fable-5=완화형 · sonnet=지침형(§2-4 설계) |
 
 ## 3. 인터뷰 반영 규칙
 
@@ -51,7 +51,7 @@ done
   "prefix": "ft",
   "brains": {"planner": "claude-fable-5/high", "da": "codex gpt-5.5/xhigh", "...": "..."},
   "substitutions": [{"role": "da", "wanted": "codex", "used": "claude-opus-4-6/high", "reason": "codex MISSING"}],
-  "effort_ceilings": {"claude-opus-4-8": "<probe_result>"},
+  "effort_ceilings": {"claude-sonnet-5": "<probe_result>"},
   "availability": {"codex": true, "cursor-agent": false, "gemini": false}
 }
 ```
