@@ -7,11 +7,11 @@
 
 | 역할 | 모델 | effort | 하는 일 |
 |------|------|--------|---------|
-| **메인 오케스트레이터**(세션) | **opus-4-8** (ultracode) | high/xhigh | 계획·분배·결정·종합. **직접 구현 금지**(게이트로 강제). fable 아님 |
-| **기획/문제해결 planner** | **opus-4-8 또는 fable-5** (구성 시 선택·기록) | high | 원인 분석·해결 설계 → 설계 파일. max 금지(hang) |
-| 구현·추론 워커 | **opus-4-6** | medium (heavy=high) | 설계 기반 구현 |
+| **메인 오케스트레이터**(세션) | **sonnet-5 또는 fable-5** (ultracode — 세션 시작 시 사용자 선택) | ultracode | 계획·분배·결정·종합. **직접 구현 금지**(게이트로 강제) |
+| **기획/문제해결 planner** | **fable-5** (1순위 — 미가용 시 sonnet-5 → 병렬 opus-4-6) | high | 원인 분석·해결 설계 → 설계 파일. max 금지(hang) |
+| 구현·추론 워커 | **opus-4-6** | high | 설계 기반 구현 |
 | 구현·테스트 워커 | **sonnet-5** | high | 구현·테스트·repro |
-| 대량 서치·로그·문서 | **sonnet-4-6** | high | 로그·문서·아키텍처·코드 서치(단말성) |
+| 대량 서치·로그·문서 | **sonnet-4-6** | medium | 로그·문서·아키텍처·코드 서치(단말성) |
 | DA(적대검증) | codex gpt-5.5 | xhigh | 게이트 |
 
 ## 오케스트레이터 직접 처리 (위임 안 함)
@@ -43,4 +43,4 @@
 
 ## 강제 장치와의 관계
 
-이 기준을 어기면 `hooks/orchestration-gate.sh`(PreToolUse)가 실제로 막는다. 규칙은 선언, 훅은 강제 — 둘 다 있어야 우회가 줄어든다. 훅은 **fail-open**(오류 시 허용)이라 세션을 brick하지 않는다. 게이트는 **오케스트레이터(TOP 모델: fable/opus-4-8) 세션에만** 발동 — 워커(opus-4-6/sonnet)는 무제한.
+이 기준을 어기면 `hooks/orchestration-gate.sh`(PreToolUse)가 실제로 막는다. 규칙은 선언, 훅은 강제 — 둘 다 있어야 우회가 줄어든다. 훅은 **fail-open**(오류 시 허용)이라 세션을 brick하지 않는다. 게이트는 **오케스트레이터(TOP 모델: fable-5/sonnet-5) 세션에만** 발동 — 워커는 agent_id 면제(제1 판별 — sonnet-5 tester 포함)로 무제한.

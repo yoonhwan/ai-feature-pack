@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-gstack
 description: {{TEAM_NAME}} gstack 크루 — 브레인은 claude -p 콘솔 분리 세션(sonnet 4.6 high) + gstack 스킬 스위트. QA·ship·design·browse 등 체크리스트형 워크플로를 구동하고 결과를 릴레이한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{CREW_DRIVER_MODEL}}
 effort: low
 ---

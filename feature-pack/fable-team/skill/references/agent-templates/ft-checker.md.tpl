@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-checker
 description: {{TEAM_NAME}} 확인 계열 워커(문서/코드/로그 확인). 읽기 전용, 서브에이전트 스폰 불가. 최소 토큰 보고.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{CHECKER_MODEL}}
 effort: {{CHECKER_EFFORT}}
 ---

@@ -31,7 +31,7 @@
 
 ## 스폰 규칙
 
-- **경로 분리 (필수 — SKILL.md 스폰경로 결정표가 단일 SSOT)**: **[1m]/ultracode 세션 = 전 일회성 브레인(planner·checker·implementer·tester) Workflow `agent()` + `model`/`effort` 명시**(Agent-tool leak 교정). 비-[1m] 세션에서는 claude-5 계열(planner fable5, tester sonnet5)은 Workflow, 4.6 계열(checker/implementer)은 Agent 도구. 장수명 드라이버(DA·크루)는 세션 무관 Agent-tool(셔틀 — 외부 CLI가 주입된 full-id로 실행, leak 무관).
+- **경로 선택 (SKILL.md 스폰경로 결정표가 단일 SSOT — 교정 2026-07-06)**: model leak은 [1m]·비-[1m] 모두 반증됨(`subagent_type`만 지정+model 생략 시 frontmatter full ID 적용) — **일회성 브레인도 Agent 도구 허용**. Workflow는 effort 명시 제어·schema·대량 fan-out이 필요할 때 선택. 단 **xhigh(ultracode) 세션에서 claude-5 계열 워커**(planner fable5, tester sonnet5)는 effort 상속 400 리스크 미재검증 — Workflow `effort` 명시 권장. 장수명 드라이버(DA·크루)는 세션 무관 Agent-tool(셔틀 — 외부 CLI가 주입된 full-id로 실행). bare tier `model:"opus"` 지정은 여전히 금지(model 생략이 정답).
 - **DA 드라이버**: 스킬 설치 후 **새 세션**이면 Agent 도구(`<prefix>-da`, Bash 포함 정의가 시작 시 등록됨). 세션 중 정의를 만들었/고쳤다면 등록 캐시가 구정의라 Bash가 빠질 수 있음 → 새 세션에서 재시작하거나, Agent 도구를 새 이름으로 재등록해 우회 (DA=드라이버 Agent+codex wrapper — Workflow 아님, E2E 실증: gpt-5.5/xhigh APPROVED).
 - **DA 브레인 resume 체인**: approve loop 라운드 2+는 새 one-shot 재인라인 대신 `codex exec resume <session-id>`로 재개(라운드 1 지적 기억 + 토큰 절약). 최초 실행에서 session-id를 판정과 함께 회수해 state.md `brain_sessions`에 기록 — 세션을 넘는 복원 자산(context-management §3).
 - Agent 경로 워커는 `name: <role>-NN` 부여, 프롬프트에 "완료 후 대기하라" — 열린 상태로 두고 SendMessage로 후속 질의(approve loop 재라운드, 추가 확인).
@@ -53,7 +53,7 @@ JSON 한 줄로 반환 (키: tools, spawn_test):
 1. tools: 호출 가능 도구 전체 배열
 2. spawn_test: Agent/Task로 서브 스폰 시도 → "SPAWNED" | "NO_SPAWN_TOOL"
 ```
-기대값: tools에 Agent/Task 없음(팀 하네스가 SendMessage/TaskCreate 등 팀 도구는 자동 부여 — 정상), spawn_test=NO_SPAWN_TOOL, `agent-*.meta.json`의 model이 지정 모델과 일치.
+기대값: tools에 Agent/Task(스폰) 없음 + **SendMessage/TaskCreate/TaskGet/TaskUpdate/TaskList 5종 존재**, spawn_test=NO_SPAWN_TOOL, `agent-*.meta.json`의 model이 지정 모델과 일치. (실측 교정 2026-07-06: frontmatter `tools:` 명시 시 팀 도구는 **자동 부여되지 않는다** — 템플릿 tools 라인에 5종 명시 필수. 프로브에서 SendMessage 부재 = fan-in 사망 = 설치 불량.)
 
 **프로브 경로 이원화 (필수)**: Agent 경로 워커(checker/implementer/da/크루)는 팀 하네스 프로브, **planner/tester는 Workflow `agent()`(model/effort 명시)로 프로브**. Agent 프로브만 돌리면 planner(기획 브레인)가 안 떠 설치 검증이 비어 보인다 — planner 프로브 부재 = 설치 미완.
 

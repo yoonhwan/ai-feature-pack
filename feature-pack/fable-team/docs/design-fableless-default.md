@@ -1,5 +1,7 @@
 # fable-less 디폴트 설계 — fable 부재 환경의 기본 구성 사다리
 
+> **⚠️ 정오표 (2026-07-06)**: 본 문서의 opus-4-8 관련 사다리(O1·P1·A1·A2·B1·B2·C2·C3·E6 등)는 **전면 폐기**되었다 — opus-4-8은 fable-team 로스터에서 완전 삭제(사용자 판정: 실사용 품질 미달). 현행 정본: 오케스트레이터 = sonnet-5 또는 fable-5(ultracode, 세션 시작 시 사용자 선택), planner 사다리 = fable-5 high → sonnet-5 high → 병렬 opus-4-6 high, implementer = opus-4-6 high 고정, checker = sonnet-4-6 medium. 이하 본문은 2026-07-03 시점 설계 사료로만 보존한다.
+
 > 2026-07-03 · planner 산출 · 2026-07-03 아침 토론 결정 D1·D2·D3·D5(a·b) 반영(COMPARE.md 「토론 결정」). 목적: fable-5가 없는 환경(팩 일반 배포·타 계정·모델 미출시)에서 **최대한 동일한 품질·동작**으로 fable-team이 돌아가는 기본값 확정. fable 보유 환경의 차이는 effort 정책뿐(D1 — 전 좌석 high 표준) — 모델 구성은 사다리 최상단 = 현행 그대로다.
 
 ## 1. 원인·요구 분석

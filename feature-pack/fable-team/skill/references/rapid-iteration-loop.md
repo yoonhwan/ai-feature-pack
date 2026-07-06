@@ -33,7 +33,7 @@
 |------|---------------------|--------|
 | 테스트·라이브 e2e·BTS | **byz-e2e 크루** / **omo qa 크루** / **ft-tester** | sonnet-5 |
 | 로그·BTS·아키텍처 문서 파악 | **ft-checker** (병렬 다수, 단말성) | sonnet-4-6 |
-| 문제확인·원인규명·기획 | **ft-planner** | opus-4-8 또는 fable-5 |
+| 문제확인·원인규명·기획 | **ft-planner** | fable-5 (미가용 시 sonnet-5) |
 | 적대검증 게이트 | **ft-da** (approve loop) | codex-5.5-xhigh (fable-5 rate-limit 시 필수) |
 | 수술적 수정 | **ft-implementer** | opus-4-6 |
 

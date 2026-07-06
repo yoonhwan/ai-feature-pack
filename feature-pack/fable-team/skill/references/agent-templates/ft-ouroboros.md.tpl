@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-ouroboros
 description: {{TEAM_NAME}} ouroboros 크루 — 브레인은 claude -p 콘솔 분리 세션(sonnet 4.6 high) + ouroboros 플러그인. 소크라틱 인터뷰로 요구사항을 결정화(Seed)하고 실행·평가·진화 루프를 구동한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{CREW_DRIVER_MODEL}}
 effort: low
 ---
