@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>daily-trend-viewer — 모드1/모드2 통합 Implementation Notes</title>
+<style>
+  body { font-family: -apple-system, "Malgun Gothic", sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+  h1 { font-size: 1.5em; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 1.2em; margin-top: 2em; color: #1a4d8f; }
+  .entry { border-left: 4px solid #ccc; padding: 8px 16px; margin: 12px 0; background: #f8f8f8; }
+  .entry.decision { border-color: #2a7; }
+  .entry.deviation { border-color: #e80; }
+  .entry.tradeoff { border-color: #58a; }
+  .entry.open { border-color: #d33; }
+  .ts { color: #888; font-size: 0.85em; }
+  .loc { font-family: monospace; background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 0.9em; }
+  th { background: #eee; }
+</style>
+</head>
+<body>
+
+<h1>daily-trend-viewer — 모드1(태그/카테고리 통합) + 모드2(구독 관리 통합) Implementation Notes</h1>
+<p class="ts">작성 시작: 2026-07-07</p>
+
+<h2>요청 원문</h2>
+<p>
+모드1) 카테고리/태그 지정 기능을 전 플랫폼(유튜브/쇼츠/AI영상/릴스/트위터/스레드/틱톡)에 통합 —
+현재 유튜브/쇼츠만 카테고리·태그 기반이고 나머지는 구독계정 방식.<br>
+모드2) 구독자/관심 사용자 등록 후 확인하는 기능(현재 릴스/트위터/스레드/틱톡 방식을 통합 검토).
+</p>
+
+<h2>플랫폼별 현황 (구현 전 조사)</h2>
+<table>
+<tr><th>플랫폼</th><th>기존 방식</th><th>모드1 목표</th><th>실현 가능성</th></tr>
+<tr><td>유튜브/쇼츠</td><td>카테고리+자유검색</td><td>-</td><td>이미 충족, 변경 없음</td></tr>
+<tr><td>AI 영상 탭</td><td>고정 쿼리 세트</td><td>-</td><td>이미 카테고리성, 변경 없음</td></tr>
+<tr><td>틱톡</td><td>트렌딩+구독계정</td><td>키워드 검색</td><td><b>가능</b> — tikwm <code>/api/feed/search</code> 실제 호출로 검증 완료</td></tr>
+<tr><td>인스타 릴스</td><td>구독계정</td><td>해시태그 검색</td><td><b>가능(추정)</b> — <code>tags/web_info</code>, 기존 세션쿠키 재사용. 응답 스키마는 문헌 기반 추정 파싱(라이브 미검증 — 유효 세션쿠키 없음)</td></tr>
+<tr><td>X(트위터)</td><td>구독계정(syndication)</td><td>키워드 검색</td><td><b>불가</b> — syndication API는 프로필 타임라인 전용, 비인증 검색 엔드포인트 없음</td></tr>
+<tr><td>스레드</td><td>구독계정(GraphQL doc_id 추측)</td><td>키워드/태그 검색</td><td><b>불가</b> — 공개 태그 검색 GraphQL doc_id 미상, 기존 프로필 조회도 불안정한데 확장은 리스크 가중</td></tr>
+</table>
+
+<div class="entry decision">
+<b>[설계 결정]</b> <span class="ts">2026-07-07</span><br>
+모드1은 "전 플랫폼 100% 균일 구현"이 아니라 <b>기술적으로 실현 가능한 2개 플랫폼(틱톡 키워드, 릴스 해시태그)만 신규 구현</b>하고,
+X·스레드는 서버 API 검색 없이 <b>프론트엔드 링크아웃</b>(입력한 키워드로 <code>x.com/search</code> / <code>threads.net/search</code>를 새 탭으로 여는 버튼)만 제공한다.<br>
+<b>왜:</b> X는 비인증 검색 API가 아예 없고(신드케이션=프로필 전용), 스레드는 기존 프로필 조회조차 doc_id 추측 기반으로 불안정한데 검색까지 확장하면 깨지기 쉬운 코드가 배가된다.
+"요청 이상으로 확장하지 않는다"는 단순성 원칙보다, 여기서는 반대로 <b>안 되는 것을 억지로 만들지 않는다</b>가 핵심 — 불안정한 추측성 구현보다 명확한 링크아웃이 사용자에게 더 정직하다.
+</div>
+
+<div class="entry decision">
+<b>[설계 결정]</b> <span class="ts">2026-07-07</span><br>
+모드2는 신규 플랫폼(예: 유튜브 채널 구독) 확장 없이, <b>기존 4개 플랫폼(릴스/X/스레드/틱톡)의 계정 관리 프론트엔드 코드 중복 제거</b>로 스코프를 좁힌다.<br>
+<b>왜:</b> 사용자 원문이 모드1은 "모든 플랫폼에 통합"이라고 강도 높게 명시한 반면 모드2는 "통합 <b>검토</b>"라고만 되어 있어 요구 강도가 다르다.
+백엔드는 이미 <code>ACCOUNT_SOURCES</code> 딕셔너리로 4개 플랫폼이 통일돼 있고, 실제 격차는 프론트엔드에 <code>renderAccountChips</code>/<code>renderAccChips</code>/<code>renderTtChips</code> 식으로 유사 렌더 함수가 중복돼 있는 것 — 이걸 공통 함수로 합치는 게 "통합 검토"의 실질적 답이다.
+유튜브에 신규 채널-구독 기능을 얹는 건 명시되지 않은 대형 신규 기능이라 스코프 아웃.
+</div>
+
+<div class="entry tradeoff">
+<b>[트레이드오프]</b> <span class="ts">2026-07-07</span><br>
+릴스 해시태그 검색은 IG 세션 쿠키가 있어야만 동작(기존 계정 릴스 조회와 동일 제약). 현재 워크트리에 저장된 유효 세션 쿠키가 없어(<code>ig_session.json</code> 부재) 라이브 응답 스키마 검증을 못 했다.
+파싱은 인스타그램 웹 내부 API의 공개적으로 알려진 <code>tags/web_info</code> 응답 구조(<code>data.top/recent.sections[].layout_content.medias[].media</code>)를 기반으로 방어적으로(<code>.get()</code> 체인) 작성한다.
+</div>
+
+<div class="entry open">
+<b>[미결 질문]</b> <span class="ts">2026-07-07</span><br>
+릴스 해시태그 파싱이 실제 스키마와 다를 경우, IG 로그인 세션을 등록한 뒤 <code>/api/reels?tag=...</code> 실호출로 재검증이 필요하다. 세션 쿠키 로그인 전까지는 "빈 배열 반환 + 에러 없음"으로 안전하게 저하(degrade)되도록 구현.
+</div>
+
+<h2>API 계약 (신규/변경)</h2>
+<table>
+<tr><th>엔드포인트</th><th>변경</th></tr>
+<tr><td><code>GET /api/tiktok?q=검색어</code></td><td>신규 파라미터. 있으면 tikwm 키워드 검색 결과만 반환(트렌딩+구독 병합 생략), 없으면 기존 동작 유지</td></tr>
+<tr><td><code>GET /api/reels?tag=해시태그</code></td><td>신규 파라미터. 있으면 해시태그 릴스만 반환(구독계정 병합 생략), 없으면 기존 동작 유지</td></tr>
+</table>
+
+<h2>진행 로그</h2>
+<div class="entry">
+<span class="ts">2026-07-07</span> — 설계 확정. server.py(백엔드)·index.html(프론트엔드) 구현을 서브에이전트에 병렬 위임 시작.
+</div>
+<div class="entry">
+<span class="ts">2026-07-07</span> — 구현 완료. 테스트 포트(28099)에서 API 회귀·신규 파라미터 curl 검증 + <code>/browse</code>(gstack) 실제 브라우저 검증 완료.
+</div>
+
+<h2>최종 요약</h2>
+<div class="entry decision">
+<b>[완료]</b> <span class="ts">2026-07-07</span><br>
+모드1(태그 통합): 틱톡 <code>/api/tiktok?q=</code> 키워드 검색, 릴스 <code>/api/reels?tag=</code> 해시태그 검색 신규 구현. X/스레드는 설계대로 프론트엔드 링크아웃(<code>window.open</code>)만 제공.<br>
+모드2(구독 관리 통합): 4개 플랫폼(릴스/X/스레드/틱톡)의 계정칩 렌더링을 <code>renderAccChips</code> 단일 함수로 통합, 중복 제거.
+</div>
+<div class="entry">
+<b>[검증 결과]</b> <span class="ts">2026-07-07</span><br>
+<table>
+<tr><th>항목</th><th>결과</th></tr>
+<tr><td>기존 <code>/api/tiktok</code>(무파라미터) 회귀</td><td>통과 — posts 47, accounts 8</td></tr>
+<tr><td>신규 <code>/api/tiktok?q=dance</code></td><td>통과 — API 19건, 브라우저 실검색 13건 정상 렌더링(썸네일·조회수·좋아요·댓글)</td></tr>
+<tr><td>기존 <code>/api/reels</code>(무파라미터) 회귀</td><td>통과 — 세션쿠키 없어 reels 0건(설계된 저하)</td></tr>
+<tr><td>신규 <code>/api/reels?tag=운동</code></td><td>통과 — 세션쿠키 없어 빈 배열, 브라우저에서 "가져온 릴스가 없습니다" 안내 정상 표시, 콘솔 에러 없음</td></tr>
+<tr><td>기존 <code>/api/x</code>, <code>/api/threads</code> 회귀</td><td>통과 — 각 321건/182건</td></tr>
+<tr><td>X 검색 링크아웃</td><td>통과 — <code>window.open</code>이 <code>https://x.com/search?q=AI뉴스&f=live</code>로 정확히 호출됨(헤드리스 팝업 차단으로 실제 새 탭은 안 열리나 로직 자체는 정상)</td></tr>
+<tr><td>스레드 검색 링크아웃</td><td>통과 — <code>https://www.threads.net/search?q=테스트</code>로 정확히 호출됨</td></tr>
+<tr><td>계정칩 렌더링(4개 탭)</td><td>통과 — accChips/xChips/thChips/ttChips 모두 삭제(✕) 버튼 포함 정상 렌더링</td></tr>
+</table>
+</div>
+<div class="entry open">
+<b>[잔존 미결]</b> <span class="ts">2026-07-07</span><br>
+릴스 해시태그 파싱 스키마는 여전히 문헌 기반 추정(실 세션쿠키로 미검증). 향후 IG 로그인 세션 등록 시 <code>/api/reels?tag=...</code> 재검증 필요 — 코드는 <code>.get()</code> 체인 방어로 스키마 불일치 시에도 크래시 없이 빈 배열 반환하도록 이미 설계됨.
+</div>
+
+</body>
+</html>

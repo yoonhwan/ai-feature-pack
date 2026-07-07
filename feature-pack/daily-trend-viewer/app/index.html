@@ -195,11 +195,39 @@
 
   <div id="reelsView" class="ext-section" style="display:none">
     <p class="note">인스타그램 웹 내부 API를 통해 등록된 계정들의 최신 릴스를 가져와 조회수순으로 정렬합니다. 아래에서 즐겨보는 크리에이터 계정을 자유롭게 추가·삭제하세요.</p>
+    <div id="igLoginPanel" style="margin-bottom:20px">
+      <div class="note" id="igLoginStatus" style="margin-bottom:10px"></div>
+      <div id="igLoginForm" style="display:none">
+        <p class="note">
+          1) 아래 버튼으로 인스타그램 로그인 페이지를 새 탭에서 열고 로그인하세요<br>
+          2) 로그인 후 브라우저 개발자도구(F12) → Network 탭 → instagram.com 요청 아무거나 클릭 → Request Headers의 <code>Cookie</code> 값 전체를 복사하세요<br>
+          3) 아래 입력창에 붙여넣고 저장을 누르세요
+        </p>
+        <div class="addbar">
+          <button id="igOpenLoginBtn" type="button">인스타그램 로그인 페이지 열기</button>
+        </div>
+        <div class="addbar">
+          <input id="igCookieInput" type="text" placeholder="sessionid=...; csrftoken=...; ds_user_id=... 전체 붙여넣기">
+          <button id="igSaveCookieBtn" type="button">저장</button>
+        </div>
+      </div>
+      <div id="igLoggedInPanel" class="addbar" style="display:none">
+        <span id="igStatusBadge" class="note" style="margin:0"></span>
+        <button id="igCheckBtn" type="button">새로고침</button>
+        <button id="igRenewBtn" type="button">갱신</button>
+        <button id="igLogoutBtn" type="button">로그아웃</button>
+      </div>
+      <div id="igErrorMsg" class="note" style="display:none;color:#e5484d;margin-top:8px"></div>
+    </div>
     <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
     <div class="acc-chips" id="accChips"></div>
     <div class="addbar">
       <input id="accInput" type="text" placeholder="인스타그램 계정명 (예: runwayapp)">
       <button id="accAdd">계정 추가</button>
+    </div>
+    <div class="addbar">
+      <input id="reelsTagInput" type="search" placeholder="#해시태그 검색 (예: #운동)">
+      <button id="reelsTagBtn" type="button">🔍 검색</button>
     </div>
     <h2 style="font-size:16px;margin:22px 0 12px">📸 인기 릴스</h2>
     <div class="sortbar">
@@ -215,6 +243,11 @@
 
   <div id="xView" class="ext-section" style="display:none">
     <p class="note">트위터 임베드용 공개 API(무인증)로 구독 계정들의 최신 트윗을 참여수와 함께 가져옵니다. 아래 정렬 메뉴로 좋아요·댓글·리트윗순으로 바이럴 글을 볼 수 있습니다.</p>
+    <div class="addbar" style="margin-top:4px">
+      <input id="xSearchInput" type="search" placeholder="X에서 검색할 키워드 (예: AI 광고)">
+      <button id="xSearchBtn" type="button">X에서 검색 열기 ↗</button>
+    </div>
+    <p class="note">🔗 검색 결과는 이 뷰어 안이 아니라 X(트위터) 새 탭에서 열립니다. (X는 공식 무인증 검색 API가 없어요)</p>
     <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
     <div class="acc-chips" id="xChips"></div>
     <div class="addbar">
@@ -234,6 +267,11 @@
 
   <div id="threadsView" class="ext-section" style="display:none">
     <p class="note">스레드는 인스타그램(메타)과 같은 백엔드를 씁니다. 로그인 없이 실시간 조회를 시도하며, 메타의 보안 정책상 조회가 막힌 경우 계정 바로가기로 안내합니다.</p>
+    <div class="addbar" style="margin-top:4px">
+      <input id="thSearchInput" type="search" placeholder="스레드에서 검색할 키워드 (예: AI)">
+      <button id="thSearchBtn" type="button">스레드에서 검색 열기 ↗</button>
+    </div>
+    <p class="note">🔗 검색 결과는 이 뷰어 안이 아니라 스레드 새 탭에서 열립니다. (스레드는 공식 무인증 검색 API가 없어요)</p>
     <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
     <div class="acc-chips" id="thChips"></div>
     <div class="addbar">
@@ -254,6 +292,10 @@
 
   <div id="tiktokView" class="ext-section" style="display:none">
     <p class="note">틱톡 실시간 인기 피드(지역: 한국)와 구독 계정들의 최신 영상을 조회수·좋아요·댓글순으로 모아 보여줍니다. 아래에서 계정을 자유롭게 추가·삭제하세요.</p>
+    <div class="addbar">
+      <input id="ttSearchInput" type="search" placeholder="틱톡 키워드 검색 (예: 챌린지)">
+      <button id="ttSearchBtn" type="button">🔍 검색</button>
+    </div>
     <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
     <div class="acc-chips" id="ttChips"></div>
     <div class="addbar">
@@ -461,16 +503,23 @@ function timeAgo(ts) {
 
 /* ---------- 인스타 릴스 탭 ---------- */
 let reelsData = [];
+let reelsTag = '';
 const reelsState = { sort: 'views' };  // views | likes | comments
 async function loadReels(force = false) {
   const status = document.getElementById('reelsStatus');
   const grid = document.getElementById('reelsGrid');
   status.style.display = 'block';
-  status.textContent = '릴스를 불러오는 중입니다... (계정이 많으면 수십 초 걸릴 수 있어요)';
+  status.textContent = reelsTag
+    ? '#' + reelsTag.replace(/^#/, '') + ' 해시태그 릴스를 불러오는 중입니다...'
+    : '릴스를 불러오는 중입니다... (계정이 많으면 수십 초 걸릴 수 있어요)';
   grid.innerHTML = '';
   try {
-    const data = await (await fetch('/api/reels' + (force ? '?force=1' : ''))).json();
-    renderAccountChips(data.accounts);
+    const params = new URLSearchParams();
+    if (force) params.set('force', '1');
+    if (reelsTag) params.set('tag', reelsTag);
+    const qs = params.toString();
+    const data = await (await fetch('/api/reels' + (qs ? '?' + qs : ''))).json();
+    renderAccChips('accChips', 'reels', data.accounts);
     document.getElementById('updated').textContent =
       '업데이트: ' + new Date(data.fetchedAt * 1000).toLocaleTimeString('ko-KR');
     reelsData = data.reels || [];
@@ -515,18 +564,6 @@ function renderReels() {
   document.getElementById('reelsCount').textContent =
     `${label[f]} 기준 · 총 ${sorted.length}개`;
 }
-function renderAccountChips(accounts) {
-  const box = document.getElementById('accChips');
-  box.innerHTML = '';
-  accounts.forEach(name => {
-    const chip = document.createElement('span');
-    chip.className = 'acc-chip';
-    chip.innerHTML = `@<b></b><button title="삭제">✕</button>`;
-    chip.querySelector('b').textContent = name;
-    chip.querySelector('button').onclick = () => updateAccount('remove', name);
-    box.appendChild(chip);
-  });
-}
 async function updateAccount(action, username) {
   await fetch('/api/reels/accounts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -543,6 +580,119 @@ document.getElementById('accAdd').onclick = () => {
 };
 document.getElementById('accInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('accAdd').click();
+});
+function reelsTagSubmit() {
+  reelsTag = document.getElementById('reelsTagInput').value.trim();
+  loadReels();
+}
+document.getElementById('reelsTagBtn').onclick = reelsTagSubmit;
+document.getElementById('reelsTagInput').addEventListener('keydown', e => { if (e.key === 'Enter') reelsTagSubmit(); });
+
+/* ---------- 인스타 세션 관리 ---------- */
+function showIgError(msg) {
+  const el = document.getElementById('igErrorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearIgError() {
+  const el = document.getElementById('igErrorMsg');
+  el.style.display = 'none';
+  el.textContent = '';
+}
+async function loadIgSession() {
+  try {
+    const data = await (await fetch('/api/instagram/session')).json();
+    renderIgSession(data);
+  } catch (e) {
+    showIgError('세션 정보를 불러오지 못했습니다: ' + e.message);
+  }
+}
+function renderIgSession(data) {
+  const form = document.getElementById('igLoginForm');
+  const logged = document.getElementById('igLoggedInPanel');
+  const status = document.getElementById('igLoginStatus');
+  if (!data.loggedIn) {
+    status.textContent = '⚠️ 인스타그램 로그인이 필요합니다 (릴스 데이터를 가져오려면 세션 쿠키가 있어야 해요)';
+    form.style.display = 'block';
+    logged.style.display = 'none';
+    return;
+  }
+  status.textContent = '';
+  form.style.display = 'none';
+  logged.style.display = 'flex';
+  const validText = data.valid === false ? '⚠️ 만료/무효 (재로그인 필요)' : '✅ 정상';
+  document.getElementById('igStatusBadge').textContent =
+    `${validText} · 저장 후 ${data.daysSinceSaved}일 경과 · 예상 만료까지 약 ${data.estimatedDaysLeft}일 (추정)`;
+  if (data.valid === false && data.detail) {
+    showIgError('⚠️ ' + data.detail);
+  } else {
+    clearIgError();
+  }
+}
+document.getElementById('igOpenLoginBtn').addEventListener('click', () => {
+  window.open('https://www.instagram.com/accounts/login/', '_blank');
+});
+document.getElementById('igSaveCookieBtn').addEventListener('click', async () => {
+  const input = document.getElementById('igCookieInput');
+  const cookie = input.value.trim();
+  clearIgError();
+  if (!cookie) { showIgError('쿠키를 입력해주세요.'); return; }
+  const btn = document.getElementById('igSaveCookieBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/instagram/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save', cookie })
+    });
+    const data = await res.json();
+    if (!res.ok) { showIgError(data.error || '저장에 실패했습니다.'); return; }
+    input.value = '';
+    renderIgSession(data);
+    if (data.valid) loadReels(true);
+  } catch (e) {
+    showIgError('저장 요청에 실패했습니다: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById('igCheckBtn').addEventListener('click', async () => {
+  clearIgError();
+  const btn = document.getElementById('igCheckBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '확인 중...';
+  try {
+    const res = await fetch('/api/instagram/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'check' })
+    });
+    const data = await res.json();
+    if (!res.ok) { showIgError(data.error || '확인에 실패했습니다.'); return; }
+    renderIgSession(data);
+  } catch (e) {
+    showIgError('확인 요청에 실패했습니다: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
+document.getElementById('igRenewBtn').addEventListener('click', () => {
+  document.getElementById('igLoginForm').style.display = 'block';
+  document.getElementById('igLoggedInPanel').style.display = 'none';
+  document.getElementById('igLoginStatus').textContent = '새로 로그인한 뒤 쿠키를 다시 붙여넣어 갱신하세요.';
+  window.open('https://www.instagram.com/accounts/login/', '_blank');
+});
+document.getElementById('igLogoutBtn').addEventListener('click', async () => {
+  clearIgError();
+  try {
+    await fetch('/api/instagram/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear' })
+    });
+    loadIgSession();
+  } catch (e) {
+    showIgError('삭제 요청에 실패했습니다: ' + e.message);
+  }
 });
 
 /* ---------- 소셜(X·스레드) 공통: 접이식 정렬 + 포스트 카드 ---------- */
@@ -679,7 +829,11 @@ function renderAccChips(elId, kind, accounts) {
     chip.className = 'acc-chip';
     chip.innerHTML = `@<b></b><button title="삭제">✕</button>`;
     chip.querySelector('b').textContent = name;
-    chip.querySelector('button').onclick = () => updateSocialAccount(kind, 'remove', name);
+    chip.querySelector('button').onclick = () => {
+      if (kind === 'reels') updateAccount('remove', name);
+      else if (kind === 'tiktok') updateTtAccount('remove', name);
+      else updateSocialAccount(kind, 'remove', name);
+    };
     box.appendChild(chip);
   });
 }
@@ -704,6 +858,19 @@ function wireSocial(kind, inputId, addId, menuId) {
 }
 wireSocial('x', 'xInput', 'xAdd', 'xSortMenu');
 wireSocial('threads', 'thInput', 'thAdd', 'thSortMenu');
+
+/* X·스레드: 공식 검색 API가 없어 새 탭 링크아웃으로 검색 */
+function wireSearchLinkout(inputId, btnId, buildUrl) {
+  const open = () => {
+    const kw = document.getElementById(inputId).value.trim();
+    if (!kw) return;
+    window.open(buildUrl(encodeURIComponent(kw)), '_blank');
+  };
+  document.getElementById(btnId).onclick = open;
+  document.getElementById(inputId).addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+}
+wireSearchLinkout('xSearchInput', 'xSearchBtn', q => 'https://x.com/search?q=' + q + '&f=live');
+wireSearchLinkout('thSearchInput', 'thSearchBtn', q => 'https://www.threads.net/search?q=' + q);
 
 /* ---------- 유튜브/쇼츠 · 릴스 정렬 접이식 메뉴 ---------- */
 function initFoldMenu(menuId, options, stateObj, onPick) {
@@ -751,16 +918,23 @@ initFoldMenu('reelsSortMenu', [
 
 /* ---------- 틱톡 탭 (tikwm 실시간) ---------- */
 let tiktokData = [];
+let ttSearch = '';
 const tiktokState = { sort: 'views' };  // views | likes | comments
 async function loadTikTok(force = false) {
   const status = document.getElementById('ttStatus');
   const grid = document.getElementById('ttGrid');
   status.style.display = 'block';
-  status.textContent = '틱톡 인기 영상을 불러오는 중입니다... (처음엔 10~20초 걸릴 수 있어요)';
+  status.textContent = ttSearch
+    ? '틱톡에서 "' + ttSearch + '" 검색 중입니다...'
+    : '틱톡 인기 영상을 불러오는 중입니다... (처음엔 10~20초 걸릴 수 있어요)';
   grid.innerHTML = '';
   try {
-    const data = await (await fetch('/api/tiktok' + (force ? '?force=1' : ''))).json();
-    renderTtChips(data.accounts);
+    const params = new URLSearchParams();
+    if (force) params.set('force', '1');
+    if (ttSearch) params.set('q', ttSearch);
+    const qs = params.toString();
+    const data = await (await fetch('/api/tiktok' + (qs ? '?' + qs : ''))).json();
+    renderAccChips('ttChips', 'tiktok', data.accounts);
     document.getElementById('updated').textContent =
       '업데이트: ' + new Date(data.fetchedAt * 1000).toLocaleTimeString('ko-KR');
     tiktokData = data.posts || [];
@@ -804,18 +978,6 @@ function renderTikTok() {
   });
   document.getElementById('ttCount').textContent = `${label[f]} 기준 · 총 ${sorted.length}개`;
 }
-function renderTtChips(accounts) {
-  const box = document.getElementById('ttChips');
-  box.innerHTML = '';
-  accounts.forEach(name => {
-    const chip = document.createElement('span');
-    chip.className = 'acc-chip';
-    chip.innerHTML = `@<b></b><button title="삭제">✕</button>`;
-    chip.querySelector('b').textContent = name;
-    chip.querySelector('button').onclick = () => updateTtAccount('remove', name);
-    box.appendChild(chip);
-  });
-}
 async function updateTtAccount(action, username) {
   await fetch('/api/tiktok/accounts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -831,6 +993,12 @@ document.getElementById('ttAdd').onclick = () => {
   updateTtAccount('add', name);
 };
 document.getElementById('ttInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('ttAdd').click(); });
+function ttSearchSubmit() {
+  ttSearch = document.getElementById('ttSearchInput').value.trim();
+  loadTikTok();
+}
+document.getElementById('ttSearchBtn').onclick = ttSearchSubmit;
+document.getElementById('ttSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') ttSearchSubmit(); });
 initFoldMenu('ttSortMenu', [
   { key: 'views', label: '조회수순', icon: '👁️' },
   { key: 'likes', label: '좋아요순', icon: '❤️' },
@@ -853,7 +1021,7 @@ document.getElementById('tabs').onclick = e => {
   document.getElementById('tiktokView').style.display = state.tab === 'tiktok' ? 'block' : 'none';
   if (isVideo) loadVideos();
   else if (state.tab === 'ai') loadAI();
-  else if (state.tab === 'reels') loadReels();
+  else if (state.tab === 'reels') { loadReels(); loadIgSession(); }
   else if (state.tab === 'x') loadSocial('x');
   else if (state.tab === 'threads') loadSocial('threads');
   else if (state.tab === 'tiktok') loadTikTok();
@@ -884,7 +1052,7 @@ document.getElementById('searchForm').addEventListener('submit', e => {
 
 document.getElementById('refreshBtn').onclick = () => {
   if (state.tab === 'ai') loadAI(true);
-  else if (state.tab === 'reels') loadReels(true);
+  else if (state.tab === 'reels') { loadReels(true); loadIgSession(); }
   else if (state.tab === 'x') loadSocial('x', true);
   else if (state.tab === 'threads') loadSocial('threads', true);
   else if (state.tab === 'tiktok') loadTikTok(true);
