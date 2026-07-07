@@ -62,11 +62,46 @@ PERIOD_EXCLUDE = {
 
 # ---------------------------------------------------------------- 인스타그램 릴스
 IG_APP_ID = "936619743392459"  # instagram.com 웹이 쓰는 공개 앱 ID
+# 인스타그램이 비로그인 API 접근을 전면 차단(require_login)해 실계정 세션 쿠키가 필요합니다.
+# 브라우저 로그인 후 개발자도구 > Network > 아무 instagram.com 요청 > Cookie 헤더 값
+# 전체를 그대로 넣으세요 (sessionid=...; csrftoken=...; ds_user_id=... 등 포함).
+IG_SESSION_COOKIE = os.environ.get("IG_SESSION_COOKIE", "")
 ACCOUNTS_FILE = os.path.join(BASE_DIR, "reels_accounts.json")
 DEFAULT_IG_ACCOUNTS = [
     "openai", "runwayapp", "pika_labs", "lumalabsai", "midjourney",
     "klingai_official", "heygen_official", "higgsfield.ai", "googledeepmind",
 ]
+
+# ---- 인스타그램 세션 쿠키 영속 저장소 ----
+IG_SESSION_FILE = os.path.join(BASE_DIR, "ig_session.json")
+IG_COOKIE_ASSUMED_VALIDITY_DAYS = 90  # 실측 만료 API가 없어 보수적으로 잡은 추정 창 — 라이브 체크(valid)가 우선 신호
+_ig_session_lock = threading.Lock()
+
+
+def _load_ig_session():
+    try:
+        with open(IG_SESSION_FILE) as f:
+            data = json.load(f)
+            if isinstance(data, dict) and data.get("cookie"):
+                return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return None
+
+
+def _save_ig_session(data):
+    with open(IG_SESSION_FILE, "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+_ig_session = _load_ig_session()
+
+
+def _current_ig_cookie():
+    with _ig_session_lock:
+        if _ig_session:
+            return str(_ig_session.get("cookie", ""))
+    return os.environ.get("IG_SESSION_COOKIE", "")
 
 # ---------------------------------------------------------------- X (트위터)
 X_ACCOUNTS_FILE = os.path.join(BASE_DIR, "x_accounts.json")
@@ -304,12 +339,41 @@ ACCOUNT_SOURCES = {
 }
 
 
+def _validate_ig_cookie(cookie):
+    """쿠키 유효성을 실제 웹 프로필 API 호출로 확인. (ok, detail) 튜플 반환."""
+    test_account = load_accounts(ACCOUNTS_FILE, DEFAULT_IG_ACCOUNTS)[0]
+    url = ("https://www.instagram.com/api/v1/users/web_profile_info/?username="
+           + quote(test_account))
+    headers = {"x-ig-app-id": IG_APP_ID, "Cookie": cookie}
+    csrf_match = re.search(r"csrftoken=([^;]+)", cookie)
+    if csrf_match:
+        headers["X-CSRFToken"] = csrf_match.group(1)
+    try:
+        http_json(url, headers=headers, timeout=12)
+        return True, None
+    except urllib.error.HTTPError as e:
+        return False, "HTTP %d" % e.code
+    except Exception as e:
+        return False, str(e)
+
+
 def fetch_ig_reels(username: str):
-    """인스타그램 웹 내부 API(무인증)로 계정의 최근 릴스를 가져옵니다."""
+    """인스타그램 웹 내부 API로 계정의 최근 릴스를 가져옵니다.
+
+    인스타그램이 비로그인 요청을 전부 require_login으로 차단하므로
+    세션 쿠키가 설정된 경우에만 실제 데이터를 받아올 수 있습니다.
+    """
+    cookie = _current_ig_cookie()
+    if not cookie:
+        return []
     url = ("https://www.instagram.com/api/v1/users/web_profile_info/?username="
            + quote(username))
+    headers = {"x-ig-app-id": IG_APP_ID, "Cookie": cookie}
+    csrf_match = re.search(r"csrftoken=([^;]+)", cookie)
+    if csrf_match:
+        headers["X-CSRFToken"] = csrf_match.group(1)
     try:
-        data = http_json(url, headers={"x-ig-app-id": IG_APP_ID}, timeout=12)
+        data = http_json(url, headers=headers, timeout=12)
     except Exception:
         return []
     user = (data.get("data") or {}).get("user") or {}
@@ -333,16 +397,65 @@ def fetch_ig_reels(username: str):
     return reels
 
 
-def get_reels(force: bool):
+def _parse_ig_tag_media(m, tag):
+    if m.get("media_type") != 2:
+        return None
+    caption = m.get("caption") or {}
+    cap_text = caption.get("text", "") if isinstance(caption, dict) else ""
+    title = cap_text.split("\n")[0][:120] if cap_text else ""
+    image_candidates = (m.get("image_versions2") or {}).get("candidates") or []
+    thumb = image_candidates[0]["url"] if image_candidates else ""
+    return {
+        "account": "#" + tag,
+        "title": title or "(설명 없음)",
+        "views": m.get("play_count") or m.get("view_count") or 0,
+        "likes": m.get("like_count") or 0,
+        "comments": m.get("comment_count") or 0,
+        "thumbnail": thumb,
+        "url": "https://www.instagram.com/reel/%s/" % m.get("code", ""),
+        "takenAt": m.get("taken_at") or 0,
+    }
+
+
+def fetch_ig_hashtag(tag: str):
+    """인스타그램 해시태그 페이지에서 인기 릴스를 가져옵니다. (세션 쿠키 필요 — fetch_ig_reels와 동일 제약)"""
+    cookie = _current_ig_cookie()
+    if not cookie:
+        return []
+    url = "https://www.instagram.com/api/v1/tags/web_info/?tag_name=" + quote(tag)
+    headers = {"x-ig-app-id": IG_APP_ID, "Cookie": cookie}
+    csrf_match = re.search(r"csrftoken=([^;]+)", cookie)
+    if csrf_match:
+        headers["X-CSRFToken"] = csrf_match.group(1)
+    try:
+        data = http_json(url, headers=headers, timeout=12)
+    except Exception:
+        return []
+    root = data.get("data") or {}
+    sections = (root.get("top") or {}).get("sections") or []
+    sections = sections + ((root.get("recent") or {}).get("sections") or [])
+    reels = []
+    for sec in sections:
+        medias = (sec.get("layout_content") or {}).get("medias") or []
+        for item in medias:
+            parsed = _parse_ig_tag_media(item.get("media") or {}, tag)
+            if parsed:
+                reels.append(parsed)
+    return reels
+
+
+def get_reels(force: bool, tag: str = ""):
     accounts = load_accounts(ACCOUNTS_FILE, DEFAULT_IG_ACCOUNTS)
 
     def fetch():
+        if tag:
+            return fetch_ig_hashtag(tag)
         with ThreadPoolExecutor(max_workers=6) as pool:
             results = pool.map(fetch_ig_reels, accounts)
         merged = [r for chunk in results for r in chunk]
         merged.sort(key=lambda r: r["views"], reverse=True)
         return merged
-    reels, fetched_at = cached(("reels", tuple(accounts)), force, fetch)
+    reels, fetched_at = cached(("reels", tuple(accounts), tag), force, fetch)
     return reels, accounts, fetched_at
 
 
@@ -431,30 +544,25 @@ def get_x_posts(force: bool):
 
 # ================================================================ 스레드(Threads)
 def _threads_lsd_and_userid(username: str):
-    """스레드 프로필 페이지에서 LSD 토큰을, 인스타 API에서 user_id를 얻습니다."""
+    """스레드 프로필 HTML에서 LSD 토큰과 user_id를 함께 얻습니다."""
     lsd = None
-    try:
-        _, body = http_get("https://www.threads.com/@" + quote(username), timeout=12)
-        m = re.search(r'"LSD",\[\],\{"token":"([^"]+)"', body.decode("utf-8", "ignore"))
-        lsd = m.group(1) if m else None
-    except Exception:
-        pass
     user_id = None
     try:
-        info = http_json(
-            "https://www.instagram.com/api/v1/users/web_profile_info/?username=" + quote(username),
-            headers={"x-ig-app-id": IG_APP_ID}, timeout=12)
-        user_id = (info.get("data") or {}).get("user", {}).get("id")
+        # Sec-Fetch-Mode: navigate 없이는 계정 무관 빈 껍데기 HTML만 내려옵니다.
+        _, body = http_get("https://www.threads.com/@" + quote(username),
+                            headers={"Sec-Fetch-Mode": "navigate"}, timeout=12)
+        html = body.decode("utf-8", "ignore")
+        m = re.search(r'"LSD",\[\],\{"token":"([^"]+)"', html)
+        lsd = m.group(1) if m else None
+        m = re.search(r'"user_id":"(\d+)"', html)
+        user_id = m.group(1) if m else None
     except Exception:
         pass
     return lsd, user_id
 
 
 # 스레드 프로필 탭 쿼리의 doc_id는 수시로 바뀌므로, 알려진 후보를 순서대로 시도합니다.
-THREADS_DOC_IDS = [
-    "25073444226023094", "7451607104958938", "23996318550159868",
-    "9925907010825989", "26286467210919721",
-]
+THREADS_DOC_IDS = ["6232751443445612"]
 
 
 def fetch_threads_posts(username: str):
@@ -571,10 +679,22 @@ def fetch_tiktok_trending():
     return [_tiktok_item(v) for v in vids]
 
 
-def get_tiktok(force: bool):
+def fetch_tiktok_search(keyword: str):
+    url = "%s/feed/search?keywords=%s&count=20" % (TIKWM_BASE, quote(keyword))
+    try:
+        d = http_json(url, timeout=15)
+    except Exception:
+        return []
+    vids = (d.get("data") or {}).get("videos") or []
+    return [_tiktok_item(v) for v in vids]
+
+
+def get_tiktok(force: bool, query: str = ""):
     accounts = load_accounts(TIKTOK_ACCOUNTS_FILE, DEFAULT_TIKTOK_ACCOUNTS)
 
     def fetch():
+        if query:
+            return fetch_tiktok_search(query)
         # 트렌딩(전체 인기) + 구독 계정 최신 영상을 합쳐 중복 제거.
         # tikwm 무료 티어의 레이트리밋을 피하려 동시성을 낮춥니다.
         posts = fetch_tiktok_trending()
@@ -587,7 +707,7 @@ def get_tiktok(force: bool):
                 seen.add(p["id"])
                 unique.append(p)
         return unique
-    posts, fetched_at = cached(("tiktok", tuple(accounts)), force, fetch)
+    posts, fetched_at = cached(("tiktok", tuple(accounts), query), force, fetch)
     return posts, accounts, fetched_at
 
 
@@ -720,8 +840,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"categories": ["전체", "AI"] + list(CATEGORIES.keys())})
             return
 
+        if parsed.path == "/api/instagram/session":
+            with _ig_session_lock:
+                sess = dict(_ig_session) if _ig_session else None
+            if not sess:
+                self._send(200, {"loggedIn": False})
+                return
+            now = time.time()
+            days_since = max(0, int((now - float(sess.get("savedAt", now))) // 86400))
+            days_left = max(0, IG_COOKIE_ASSUMED_VALIDITY_DAYS - days_since)
+            self._send(200, {
+                "loggedIn": True,
+                "savedAt": sess.get("savedAt"),
+                "daysSinceSaved": days_since,
+                "estimatedDaysLeft": days_left,
+                "lastCheckedAt": sess.get("lastCheckedAt"),
+                "valid": sess.get("valid"),
+            })
+            return
+
         if parsed.path == "/api/reels":
-            reels, accounts, fetched_at = get_reels(force)
+            ig_tag = qs.get("tag", [""])[0].strip().lstrip("#")
+            reels, accounts, fetched_at = get_reels(force, ig_tag)
             self._send(200, {"reels": reels[:80], "accounts": accounts, "fetchedAt": fetched_at})
             return
 
@@ -736,7 +876,8 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/api/tiktok":
-            posts, accounts, fetched_at = get_tiktok(force)
+            tt_query = qs.get("q", [""])[0].strip()
+            posts, accounts, fetched_at = get_tiktok(force, tt_query)
             self._send(200, {"posts": posts[:100], "accounts": accounts, "fetchedAt": fetched_at})
             return
 
@@ -779,6 +920,61 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        # /api/instagram/session — 세션 쿠키 저장/검증/삭제
+        if parsed.path == "/api/instagram/session":
+            origin = (self.headers.get("Origin") or "").strip().rstrip("/")
+            if origin not in ALLOWED_ORIGINS:
+                self._send(403, {"error": "origin not allowed"})
+                return
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                req = json.loads(self.rfile.read(length).decode()) if length else {}
+            except json.JSONDecodeError:
+                self._send(400, {"error": "invalid json"})
+                return
+            action = req.get("action")
+            global _ig_session
+            if action == "clear":
+                with _ig_session_lock:
+                    _ig_session = None
+                    try:
+                        os.remove(IG_SESSION_FILE)
+                    except OSError:
+                        pass
+                self._send(200, {"loggedIn": False})
+                return
+            if action in ("save", "check"):
+                with _ig_session_lock:
+                    current = dict(_ig_session) if _ig_session else None
+                cookie = (req.get("cookie") or "").strip() if action == "save" else (current or {}).get("cookie", "")
+                if not cookie:
+                    self._send(400, {"error": "cookie required"})
+                    return
+                valid, detail = _validate_ig_cookie(cookie)
+                now = time.time()
+                with _ig_session_lock:
+                    if action == "save" or _ig_session is None:
+                        _ig_session = {"cookie": cookie, "savedAt": now, "lastCheckedAt": now, "valid": valid}
+                    else:
+                        _ig_session["lastCheckedAt"] = now
+                        _ig_session["valid"] = valid
+                    _save_ig_session(_ig_session)
+                    sess = dict(_ig_session)
+                if action == "save":
+                    with _cache_lock:
+                        for k in [k for k in _cache if k[0] == "reels"]:
+                            del _cache[k]
+                days_since = max(0, int((now - float(sess["savedAt"])) // 86400))
+                days_left = max(0, IG_COOKIE_ASSUMED_VALIDITY_DAYS - days_since)
+                self._send(200, {
+                    "loggedIn": True, "valid": valid, "detail": detail,
+                    "savedAt": sess["savedAt"], "daysSinceSaved": days_since,
+                    "estimatedDaysLeft": days_left, "lastCheckedAt": sess["lastCheckedAt"],
+                })
+                return
+            self._send(400, {"error": "unknown action"})
+            return
+
         # /api/{reels|x|threads|tiktok}/accounts — 구독 계정 추가/삭제
         m = re.match(r"^/api/(reels|x|threads|tiktok)/accounts$", parsed.path)
         if m:
