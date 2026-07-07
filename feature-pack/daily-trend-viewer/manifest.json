@@ -1,0 +1,25 @@
+{
+  "name": "daily-trend-viewer",
+  "version": "1.0.0",
+  "description": "유튜브/쇼츠/릴스/X/스레드/틱톡 인기 콘텐츠 + AI 영상 모델·뉴스를 한 화면에 모으는 개인용 로컬 웹앱",
+  "type": "local-web-app",
+  "os": ["mac", "windows"],
+  "dependencies": {
+    "python3": ">=3.8",
+    "packages": []
+  },
+  "install_time_estimate": "1분 미만 (Python 3만 있으면 복사 즉시 실행)",
+  "run": {
+    "port": 8778,
+    "bind": "127.0.0.1",
+    "command_mac": "app/실행-Mac.command (또는 cd app && python3 server.py)",
+    "command_windows": "app\\실행-Windows.bat",
+    "url": "http://localhost:8778"
+  },
+  "security_notes": [
+    "127.0.0.1 전용 바인딩 — 외부 네트워크 비노출",
+    "계정 변경 POST에 Origin 헤더 검증(CSRF 방어) 적용",
+    "이미지 프록시 /api/img는 hostname 정확 매치 allowlist + userinfo(@) 차단",
+    "틱톡 데이터는 서드파티 tikwm.com 경유 (README 고지 참조)"
+  ]
+}
