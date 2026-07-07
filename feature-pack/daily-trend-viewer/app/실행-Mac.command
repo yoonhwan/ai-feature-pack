@@ -13,11 +13,11 @@ fi
 
 echo ""
 echo "  ▶ 데일리 트렌드 뷰어를 시작합니다..."
-echo "  ▶ 잠시 후 브라우저가 자동으로 열립니다. (안 열리면 http://localhost:8778 접속)"
+echo "  ▶ 잠시 후 브라우저가 자동으로 열립니다. (안 열리면 http://localhost:28088 접속)"
 echo "  ▶ 종료하려면 이 창을 닫거나 Ctrl+C 를 누르세요."
 echo ""
 
 # 2초 뒤 브라우저 자동 오픈
-( sleep 2 && open "http://localhost:8778" ) &
+( sleep 2 && open "http://localhost:28088" ) &
 
 python3 server.py
