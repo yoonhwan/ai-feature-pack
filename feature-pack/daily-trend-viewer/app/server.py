@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """트렌드 뷰어 로컬 서버 — 유튜브/쇼츠/릴스 인기 영상과 AI 영상 소식을 제공합니다.
 외부 패키지 없이 파이썬 표준 라이브러리만 사용합니다.
-실행: python3 server.py  →  http://localhost:8778
+실행: python3 server.py  →  http://localhost:28088
 """
 import base64
 import email.utils
@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote
 
-PORT = 8778
+PORT = 28088
 # CSRF 방어: 계정 변경 POST는 이 서버 자신에서 열린 페이지의 요청만 허용
 ALLOWED_ORIGINS = ("http://127.0.0.1:%d" % PORT, "http://localhost:%d" % PORT)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
