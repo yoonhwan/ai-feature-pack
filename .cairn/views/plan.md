@@ -6,4 +6,5 @@ gantt
     axisFormat %y.%m.%d
     tickInterval 1week
     title 전사 마일스톤 타임라인
+
 ```

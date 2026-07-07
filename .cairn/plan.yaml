@@ -1,2 +1,9 @@
 version: 2
-projects: []
+projects:
+  - id: ai-feature-pack
+    name: ai-feature-pack
+    status: planned
+    owner:
+    priority: medium
+    goal: ''
+    milestones: []
