@@ -23,3 +23,7 @@ feature-pack/cliproxyapi/
 
 # fable-team 파이프라인 로컬 상태 (세션 SSOT — 커밋 비대상)
 .fable-team/
+.gstack/
+
+# 인스타그램 세션 쿠키 (민감정보 — 로컬 전용, 커밋 금지)
+feature-pack/daily-trend-viewer/app/ig_session.json
