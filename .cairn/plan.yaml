@@ -13,4 +13,13 @@ projects:
         start:
         end:
         depends_on: []
-        tasks: []
+        tasks:
+          - id: t1
+            name: ft-daily-trend-viewer
+            status: todo
+            start: '2026-07-07'
+            due: '2026-07-07'
+            depends_on: []
+            assignees: []
+            reporters: []
+            watchers: []

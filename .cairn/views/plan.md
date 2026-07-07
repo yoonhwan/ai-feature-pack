@@ -7,5 +7,7 @@ gantt
     tickInterval 1week
     title 전사 마일스톤 타임라인
     section ai-feature-pack
+    features :ms1, 2026-07-07, 2026-07-07
+    ft-daily-trend-viewer :ms1-t1, 2026-07-07, 2026-07-07
 
 ```
