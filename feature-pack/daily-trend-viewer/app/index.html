@@ -18,7 +18,10 @@
   #searchForm { margin-left: auto; display: flex; gap: 6px; }
   #searchInput { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 13px; color: var(--text); font-size: 13px; width: 230px; }
   #searchInput:focus { outline: none; border-color: var(--accent2); }
-  #searchBtn { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  #searchBtn { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  @media (max-width: 360px) {
+    #searchInput { width: 140px; }
+  }
   #refreshBtn { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
   #refreshBtn:hover { border-color: var(--accent2); }
   #updated { color: var(--muted); font-size: 12px; }
@@ -473,7 +476,7 @@ async function loadReels(force = false) {
     reelsData = data.reels || [];
     if (!reelsData.length) {
       document.getElementById('reelsCount').textContent = '';
-      status.textContent = '가져온 릴스가 없습니다. 계정을 추가해 보시거나, 잠시 후 새로고침해 주세요. (인스타그램이 일시적으로 요청을 제한하는 경우가 있습니다)';
+      status.textContent = '가져온 릴스가 없습니다. 인스타그램이 로그인 없는 조회를 막고 있어 당분간 결과가 없을 수 있습니다. (계정을 추가해 보시거나 잠시 후 새로고침해 주세요)';
       return;
     }
     status.style.display = 'none';
@@ -550,7 +553,7 @@ const SORT_OPTS = {
   views: { label: '조회수순', icon: '👁️', field: 'views' },
 };
 const social = {
-  x: { data: [], sort: 'likes', opts: ['likes', 'replies', 'reposts', 'views'], repostField: 'retweets' },
+  x: { data: [], sort: 'likes', opts: ['likes', 'replies', 'reposts'], repostField: 'retweets' },
   threads: { data: [], sort: 'likes', opts: ['likes', 'replies', 'reposts'], repostField: 'reposts' },
 };
 
@@ -643,6 +646,7 @@ async function loadSocial(kind, force = false) {
     social[kind].data = data.posts || [];
     if (!social[kind].data.length) {
       statusEl.style.display = 'none';
+      document.getElementById(kind === 'x' ? 'xCount' : 'thCount').textContent = '';
       if (kind === 'threads') showThreadsFallback(data.accounts);
       else statusEl.style.display = 'block', statusEl.textContent = '가져온 글이 없습니다. 계정을 확인하거나 잠시 후 새로고침해 주세요.';
       return;
