@@ -23,3 +23,6 @@ projects:
             assignees: []
             reporters: []
             watchers: []
+            execution_ref: feat/daily-trend-viewer
+            session_ref: 
+              fable-team:/Users/yoonhwan/Project/ai-feature-pack/.worktrees/daily-trend-viewer/.fable-team/state/ACTIVE
