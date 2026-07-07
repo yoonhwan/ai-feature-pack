@@ -9,16 +9,16 @@
 - 이 디렉토리(`feature-pack/daily-trend-viewer/`)의 `app/` 폴더가 실행 단위 전부다.
 - 사용자가 원하는 위치로 `app/`을 통째 복사해도 되고, 이 위치에서 바로 실행해도 된다.
 - mac: `chmod +x app/실행-Mac.command` 확인.
-- 포트 8778이 사용 중이면 `app/server.py` 상단 `PORT = 8778`을 빈 포트로 변경.
+- 포트 28088이 사용 중이면 `app/server.py` 상단 `PORT = 28088`을 빈 포트로 변경.
 
 ## 3. 실행
 - mac: `app/실행-Mac.command` 더블클릭 (게이트키퍼 경고 시 우클릭→열기), 또는
   `cd app && python3 server.py`
 - windows: `app\실행-Windows.bat` 더블클릭
-- 브라우저에서 http://localhost:8778 접속. 종료는 터미널 창 닫기(Ctrl+C).
+- 브라우저에서 http://localhost:28088 접속. 종료는 터미널 창 닫기(Ctrl+C).
 
 ## 4. 확인
-- `curl -s -o /dev/null -w "%{http_code}" http://localhost:8778/` → `200`
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:28088/` → `200`
 - 상세 검증은 `test/verify.md` 참조.
 
 ## 5. 데이터 파일
