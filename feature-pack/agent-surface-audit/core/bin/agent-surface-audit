@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CORE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$CORE_DIR${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONDONTWRITEBYTECODE=1
+exec python3 -m agent_surface_audit.cli "$@"

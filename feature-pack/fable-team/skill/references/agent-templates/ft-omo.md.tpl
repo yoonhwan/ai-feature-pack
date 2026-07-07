@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-omo
 description: {{TEAM_NAME}} OMO 크루 — 브레인은 OMX 런타임 위의 OMO 스킬 레이어(Codex). Bash로 omx exec를 호출해 $omo:<skill> 라우팅 작업을 수행하고 결과를 릴레이한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{OMO_DRIVER_MODEL}}
 effort: low
 ---

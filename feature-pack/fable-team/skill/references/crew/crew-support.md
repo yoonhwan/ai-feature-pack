@@ -10,7 +10,7 @@
   - 세션형 하네스는 **session-id를 회수해 보고** → 오케스트레이터가 state.md `brain_sessions`에 `<crew>:` 키로 기록 (context-management §3 "agent-cli 브레인 4번째 버킷" 규칙 동일 적용 — 디스크-백드 세션은 오케스트레이터 세션 사망을 넘어 생존).
   - 후속 라운드·추가 지시는 새 one-shot 대신 **resume/inject 체인 우선**(이전 라운드 맥락 기억 + 재인라인 토큰 절약). 세션 복원 시 §4-6 resume 분기 동일 적용 — 유효 id면 재스폰 아닌 resume.
   - 하네스 세션의 윈도우 압박은 **요약-후-fork**: 현 세션 요약을 새 세션 첫 프롬프트로 인계하고 새 session-id 보고(brain_sessions 교체). 드라이버 자신의 압박은 WINDOW_PRESSURE self-checkpoint(하네스 세션이 승계되므로 드라이버 교체로 충분).
-- `tools: Read, Grep, Glob, Bash` — Agent/Task 없음(서브의 서브 차단), WINDOW_PRESSURE self-checkpoint 계약 포함.
+- `tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList` — Agent/Task(스폰) 없음(서브의 서브 차단), **팀협업 도구 5종 명시 필수**(frontmatter `tools:` 지정 시 자동 부여 안 됨 — 미명시=SendMessage 부재로 fan-in 사망, 실측 2026-07-06), WINDOW_PRESSURE self-checkpoint 계약 포함.
 - 스폰 경로: **Agent 도구 서브에이전트(세션 우측 pane 가시 — 팀스 별창 아님)**. 드라이버가 곧 **미들웨어**다: 외부 CLI를 Bash로 실행하고 결과를 SendMessage로 즉시 릴레이(저유실 채널). **오케스트레이터가 외부 CLI(claude -p·codex·omx)를 직접 실행하는 것 금지** — SKILL.md 스폰 경로 표 3행.
 
 ## 하네스 유형별 구동 방식
@@ -59,7 +59,7 @@ claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/nu
 ---
 name: <PREFIX>-<crew>
 description: <TEAM_NAME> <crew> 크루 — 브레인은 <하네스>. Bash로 <cli>를 비대화 호출해 작업을 수행하고 결과를 릴레이한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: <드라이버 모델 — 기본 claude-sonnet-4-6>
 effort: low
 ---

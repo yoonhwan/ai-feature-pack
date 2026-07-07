@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-superpowers
 description: {{TEAM_NAME}} superpowers 크루 — 브레인은 claude -p 콘솔 분리 세션(sonnet 4.6 high) + superpowers 워크플로 스킬. 브레인스토밍→플랜→실행→TDD→리뷰의 다단계 게이트형 개발 방법론을 구동한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{CREW_DRIVER_MODEL}}
 effort: low
 ---
