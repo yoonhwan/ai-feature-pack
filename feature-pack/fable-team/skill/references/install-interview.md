@@ -46,7 +46,7 @@
 
 표준 로스터 외에, 로컬에 설치된 외부 하네스를 전문 구동하는 크루를 추가할 수 있다 (`references/crew/crew-support.md`).
 
-1. **감지** (Bash 실측 — crew-support.md 카탈로그 기준): `omx --version`(omo), `ls ~/.claude/skills/gstack`(gstack), `~/.claude/plugins/cache/claude-plugins-official/superpowers/`(superpowers), `~/.claude/plugins/cache/gptaku-plugins/insane-search/`(insane-search), `~/.claude/plugins/cache/ouroboros/ouroboros/`(ouroboros). da는 §0 브레인 체크가 이미 커버.
+1. **감지** (Bash 실측 — crew-support.md 카탈로그 기준): `omx --version`(omo), `ls ~/.claude/skills/perplexity-direct-api`(perplexity), `ls ~/.claude/skills/gstack`(gstack), `~/.claude/plugins/cache/claude-plugins-official/superpowers/`(superpowers), `~/.claude/plugins/cache/gptaku-plugins/insane-search/`(insane-search), `~/.claude/plugins/cache/ouroboros/ouroboros/`(ouroboros). da는 §0 브레인 체크가 이미 커버.
 2. 감지된 하네스마다 "크루 추가?" **opt-in** 질문 — 기본값 [추가 안 함]. §0에서 planner substitution 기록 시(=fable-less) omo·insane-search 질문에 **`★ fable-less 추천` 배지 + 근거 1줄 표시** — 기본값은 [추가 안 함] 그대로(§3 원칙: 기본값 변경 구현 금지).
 3. 추가 선택 시: `agent-templates/ft-<crew>.md.tpl` 치환(드라이버 모델 `{{OMO_DRIVER_MODEL}}`/`{{CREW_DRIVER_MODEL}}` 기본 [claude-sonnet-4-6]) 또는 crew-support.md의 일반 계약 골격으로 `<PREFIX>-<crew>.md` Write. B형 크루의 실행 모델은 템플릿에 sonnet4.6 high로 고정돼 있다(질문 불요).
 4. 검증: §5 프로브와 동일 + 하네스 1회 실측 호출 (예: omo 크루 → `omx exec -s read-only '$analyze <간단 질의>' < /dev/null`).

@@ -57,6 +57,11 @@ JSON 한 줄로 반환 (키: tools, spawn_test):
 
 **프로브 경로 이원화 (필수)**: Agent 경로 워커(checker/implementer/da/크루)는 팀 하네스 프로브, **planner/tester는 Workflow `agent()`(model/effort 명시)로 프로브**. Agent 프로브만 돌리면 planner(기획 브레인)가 안 떠 설치 검증이 비어 보인다 — planner 프로브 부재 = 설치 미완.
 
+## 워커 도구 능력 ↔ 작업 성격 매칭 (위임 함정)
+
+- **ft-checker는 읽기 전용(`Read, Grep, Glob`) — Bash도 Write도 없다.** 대량 서치·로그·문서·아키텍처 "확인"만 담당한다.
+- **실행성 일회성 작업(외부 스크립트/CLI 호출 + 결과 파일 저장)은 ft-checker에 위임하지 마라 — 도구 부재로 거부당한다(실측).** 예: Perplexity 서치(`perplexity_direct.py` 호출), 임시 스크립트 실행 후 산출물 저장, `git`/빌드/테스트 커맨드 등. 이런 작업은 **Bash+Write를 가진 ft-implementer**에 위임한다(로스터 표: ft-implementer = `+Bash, Edit, Write, Skill`). 검색·조사라도 "실행+저장"이 끼면 checker가 아니라 implementer(또는 해당 크루 드라이버)다.
+
 ## 실측 함정 (2026-07-02 검증분)
 
 - Agent 팀 하네스: frontmatter `effort:` 미반영 → 세션 effort 상속. ultracode 세션 + claude-5 워커 = 400 즉사. → Workflow 경로.

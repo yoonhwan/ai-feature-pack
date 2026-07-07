@@ -17,6 +17,8 @@
 
 **A. 외부 CLI 하네스** (codex, omx): 해당 CLI를 Bash 비대화 실행 — `codex exec ... < /dev/null`, `omx exec ... < /dev/null`.
 
+- **A형 무상태 스크립트 변종** (perplexity): 세션이 없는 API 호출 스크립트(`perplexity_direct.py`)를 Bash 실행한다. 이 경우 §드라이버 패턴의 "resume/컨텍스트 윈도우 관리 기본 계약"은 **적용 대상이 아니다**(하네스에 세션 자체가 없음) — 쿼리마다 fresh one-shot이고, 드라이버는 결과를 지정 경로에 파일로 저장하는 책임만 진다(그래서 이 크루 템플릿만 `tools:`에 Write를 포함한다).
+
 **B. claude 플러그인/스킬 하네스** (gstack, superpowers, insane-search, ouroboros): **드라이버 서브에이전트(sonnet4.6 low)가 Bash로 `claude -p`를 실행** — 현 세션 Skill 호출도, 오케스트레이터 직접 발사도 아니다. 이유: ① 드라이버는 우측 pane 가시 + SendMessage 즉시 릴레이(저유실) ② 자식 claude 프로세스는 오케스트레이터/워커 컨텍스트와 완전 분리 + 디스크-백드 세션이라 resume 가능(4번째 버킷) ③ 플러그인 워크플로가 세션을 오염시키지 않음. **실행 모델은 claude-sonnet-4-6 + effort high 고정.** 커맨드 원형 (2026-07-03 실측):
 
 ```bash
@@ -36,6 +38,7 @@ claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/nu
 |------|--------------|------------------|--------|--------|--------------------|
 | **da** | codex CLI (A) | `npx -y @openai/codex --version` (brain-availability §0이 커버) | `ft-da.md.tpl` | gpt-5.5 xhigh | `codex exec resume <session-id>` |
 | **omo** | OMX/OMO (A) | `omx --version` + `omx list` | `ft-omo.md.tpl` | OMO 스킬 레이어 (OMX 런타임 위 Codex) | `omx exec resume <session-id|--last>` + 실행 중 `omx exec inject <session-id> --prompt '...'` (`--prompt` 필수, v0.15.1 실측) |
+| **perplexity** | `perplexity_direct.py` 스크립트 (A) | `ls ~/.claude/skills/perplexity-direct-api` | `ft-perplexity.md.tpl` | Perplexity Sonar/Search API 자체 | 무상태(API one-shot) — resume 없음, 쿼리마다 fresh 호출 (드라이버가 산출물을 파일로 저장) |
 | **gstack** | gstack 스킬 스위트 (B) | `ls ~/.claude/skills/gstack` | `ft-gstack.md.tpl` | claude -p 세션 (sonnet 4.6 high) + gstack 스킬 | `claude -p --resume <session-id>` |
 | **superpowers** | superpowers 플러그인 (B) | `~/.claude/plugins/cache/claude-plugins-official/superpowers/` | `ft-superpowers.md.tpl` | claude -p 세션 (sonnet 4.6 high) + superpowers 워크플로 | `claude -p --resume <session-id>` (다단계 워크플로라 resume이 핵심) |
 | **insane-search** | insane-search 플러그인 (B) | `~/.claude/plugins/cache/gptaku-plugins/insane-search/` | `ft-insane-search.md.tpl` | claude -p 세션 (sonnet 4.6 high) + insane-search | `claude -p --resume <session-id>` |
@@ -52,6 +55,12 @@ claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/nu
 3. **생성**: `agent-templates/ft-<crew>.md.tpl` 있으면 placeholder 치환, 없으면 아래 골격으로 `<PREFIX>-<crew>.md` Write.
 4. **레퍼런스 연결**: 하네스 상세 컨텍스트 문서는 `references/crew/<하네스>-*.md`로 두고 템플릿에서 **포인터로만** 연결 — 드라이버가 필요 시 Read (워커 컨텍스트 최소화 수칙 준수, 예: omo → `crew/omx-omo-full-context.md`).
 5. **검증**: 프로브(orchestration-playbook §프로브) + 하네스 1회 실측 호출(읽기 전용 질의).
+
+### ⚠️ 신규 크루 .md는 같은 세션에서 즉시 스폰 불가 (실측 함정)
+
+- **템플릿을 실체화해 `~/.claude/agents/ft-<crew>.md`로 Write해도, 그 파일을 Write한 바로 그 세션의 Agent 도구 레지스트리에는 즉시 반영되지 않는다(실측).** Agent 정의는 세션 부팅 시 로드되므로, 신규 크루를 `subagent_type`으로 스폰하려 하면 "unknown agent type"으로 실패한다.
+- **정식 반영 조건**: 세션 재시작 또는 플러그인 리로드(`/reload-plugins` 등) 후에야 새 크루가 스폰 가능해진다. 설치·크루 추가는 "다음 세션부터 유효"가 기본 계약이다.
+- **급할 때 워크어라운드(같은 세션 즉시 대체)**: `general-purpose` 서브에이전트(`subagent_type: general-purpose`)를 스폰하되, **해당 크루 `.md` 파일의 시스템프롬프트 전문(frontmatter 제외 본문 전체)을 프롬프트에 그대로 인라인**한다. general-purpose는 항상 로드돼 있으므로 즉시 스폰되고, 인라인된 드라이버 계약(비대화 호출·결과 릴레이·resume 규칙 등)을 그대로 수행한다. 도구 제약(예: 크루 템플릿의 `tools:` 화이트리스트)은 재현되지 않으므로, 프롬프트에 "서브에이전트 스폰 금지·모델 변경 금지" 등 핵심 제약을 함께 명시하라.
 
 ## 일반 계약 골격 (템플릿 없는 크루)
 
