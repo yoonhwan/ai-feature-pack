@@ -163,6 +163,11 @@ def cached(key, force, fetch_fn):
     result = fetch_fn()
     fetched_at = time.time()
     with _cache_lock:
+        prev = _cache.get(key)
+        if not result and prev and prev[1]:
+            # 업스트림 일시 차단 등으로 빈 결과가 왔을 때, 이미 있던 정상 캐시를
+            # 빈 값으로 덮어써 영구 오염시키지 않도록 이전 값을 유지합니다.
+            return prev[1], prev[0]
         _cache[key] = (fetched_at, result)
     return result, fetched_at
 
@@ -774,8 +779,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        # /api/{reels|x|threads}/accounts — 구독 계정 추가/삭제
-        m = re.match(r"^/api/(reels|x|threads)/accounts$", parsed.path)
+        # /api/{reels|x|threads|tiktok}/accounts — 구독 계정 추가/삭제
+        m = re.match(r"^/api/(reels|x|threads|tiktok)/accounts$", parsed.path)
         if m:
             # CSRF 방어: 브라우저는 POST에 항상 Origin을 붙이므로,
             # Origin이 없거나(비브라우저/구식) 허용 목록 밖이면 거부합니다.
