@@ -6,4 +6,11 @@ projects:
     owner:
     priority: medium
     goal: ''
-    milestones: []
+    milestones:
+      - id: ms1
+        name: features
+        status: planned
+        start:
+        end:
+        depends_on: []
+        tasks: []
