@@ -11,7 +11,7 @@ MODE="${1:-warn}"
 INPUT=$(cat 2>/dev/null)
 [ -z "$INPUT" ] && exit 0
 
-TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|opus-?4-?8}"
+TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|sonnet-?5}"
 WARN_AT="${OMC_DISTILL_WARN_AT:-300000}"
 BLOCK_AT="${OMC_DISTILL_BLOCK_AT:-450000}"
 
@@ -99,7 +99,7 @@ def spawn_text(d):
 #   보여 소프트 경계가 안 먹던 문제 → 절대선(block_at)과 % 트리거의 OR로 확실히 발동.
 win = int(os.environ.get("OMC_CTX_WINDOW", "0") or 0)
 if not win:
-    # 게이트는 TOP 모델(opus-4-8/fable = 대형 윈도우)에서만 발동 → 기본 1M.
+    # 게이트는 TOP 모델(fable/sonnet-5 = 대형 윈도우 가정)에서만 발동 → 기본 1M.
     # message.model이 [1m] suffix를 안 실어도 안전(과차단 방지). 소형 윈도우 세션은 OMC_CTX_WINDOW로 명시.
     win = 200_000 if re.search(r"sonnet-4|haiku", model) else 1_000_000
 pct = (ctx * 100 // win) if win else 0

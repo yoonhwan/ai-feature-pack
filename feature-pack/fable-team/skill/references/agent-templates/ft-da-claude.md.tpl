@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-da
 description: {{TEAM_NAME}} DA(적대검증) 게이트 — claude 대체 구성 (codex 미가용 환경). DA review / DA approve loop를 자체 수행한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{DA_BRAIN_MODEL}}
 effort: {{DA_EFFORT}}
 ---

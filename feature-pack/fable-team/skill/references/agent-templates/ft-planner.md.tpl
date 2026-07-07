@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-planner
 description: {{TEAM_NAME}} 메인 기획·문제해결 브레인. 오케스트레이터가 컨텍스트(파일/텍스트)를 넘기면 원인 분석·해결 설계를 수행해 설계 파일로 반환한다. 팀에서 가장 똑똑한 모델. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Write
+tools: Read, Grep, Glob, Write, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{PLANNER_MODEL}}
 effort: {{PLANNER_EFFORT}}
 ---

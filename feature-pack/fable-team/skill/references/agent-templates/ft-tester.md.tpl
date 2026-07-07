@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-tester
 description: {{TEAM_NAME}} 테스터 전문 워커. 테스트 설계·실행·재현(repro) 전담. 구현 수정 금지, 결과만 보고. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{TESTER_MODEL}}
 effort: {{TESTER_EFFORT}}
 ---

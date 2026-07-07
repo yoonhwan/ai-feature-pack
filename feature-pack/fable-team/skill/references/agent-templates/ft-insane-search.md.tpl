@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-insane-search
 description: {{TEAM_NAME}} insane-search 크루 — 브레인은 claude -p 콘솔 분리 세션(sonnet 4.6 high) + insane-search 플러그인. WebFetch가 402/403/WAF로 막히는 사이트를 적응형 폴백으로 읽어온다. 읽기 전용 성격. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{CREW_DRIVER_MODEL}}
 effort: low
 ---

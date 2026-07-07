@@ -1,5 +1,6 @@
 {
-  "branch": "feat/cairn-gitgraph-fix",
-  "created_at": "2026-07-02",
-  "purpose": "work 타입 gitGraph 버그 수정 — plan.branch=main일 때 mermaid 기본 브랜치 재생성(branch \"main\") 신택스 에러 + branch/checkout/merge id 따옴표 처리"
+  "branch": "feat/daily-trend-viewer",
+  "created_at": "2026-07-07",
+  "purpose": "daily-trend-viewer",
+  "index": 1
 }
