@@ -8,6 +8,7 @@ import email.utils
 import json
 import os
 import re
+import subprocess
 import threading
 import time
 import urllib.request
@@ -363,7 +364,16 @@ def fetch_x_posts(username: str):
     """트위터 syndication(임베드용, 무인증) API로 계정의 최근 트윗을 참여수와 함께 가져옵니다."""
     url = "https://syndication.twitter.com/srv/timeline-profile/screen-name/" + quote(username)
     try:
-        _, body = http_get(url, headers={"Accept": "text/html"}, timeout=12)
+        try:
+            _, body = http_get(url, headers={"Accept": "text/html"}, timeout=12)
+        except urllib.error.HTTPError as e:
+            if e.code != 429:
+                raise
+            # syndication.twitter.com이 urllib의 TLS 핑거프린트를 429로 차단해 curl로 재시도합니다.
+            body = subprocess.run(
+                ["curl", "-sS", "--max-time", "12", "-A", UA, "-H", "Accept: text/html", url],
+                capture_output=True, timeout=17, check=True,
+            ).stdout
         html = body.decode("utf-8", "ignore")
         m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.S)
         if not m:
