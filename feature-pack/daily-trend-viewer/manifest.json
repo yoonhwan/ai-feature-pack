@@ -10,11 +10,11 @@
   },
   "install_time_estimate": "1분 미만 (Python 3만 있으면 복사 즉시 실행)",
   "run": {
-    "port": 8778,
+    "port": 28088,
     "bind": "127.0.0.1",
     "command_mac": "app/실행-Mac.command (또는 cd app && python3 server.py)",
     "command_windows": "app\\실행-Windows.bat",
-    "url": "http://localhost:8778"
+    "url": "http://localhost:28088"
   },
   "security_notes": [
     "127.0.0.1 전용 바인딩 — 외부 네트워크 비노출",

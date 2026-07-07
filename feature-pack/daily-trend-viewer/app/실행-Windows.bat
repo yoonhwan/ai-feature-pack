@@ -18,10 +18,10 @@ if not defined PY (
 
 echo.
 echo   ▶ 데일리 트렌드 뷰어를 시작합니다...
-echo   ▶ 잠시 후 브라우저에서 http://localhost:8778 이 열립니다.
+echo   ▶ 잠시 후 브라우저에서 http://localhost:28088 이 열립니다.
 echo   ▶ 종료하려면 이 창을 닫으세요.
 echo.
 
-start "" http://localhost:8778
+start "" http://localhost:28088
 %PY% server.py
 pause
