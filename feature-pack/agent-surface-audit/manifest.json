@@ -2,6 +2,13 @@
   "name": "agent-surface-audit",
   "version": "0.1.0",
   "description": "Public-safe read-only dry-run inventory for agent skill and hook surfaces.",
+  "dependencies": {
+    "cli": ["bash", "jq", "python3"],
+    "brew": [],
+    "npm": [],
+    "pip": [],
+    "feature_packs": []
+  },
   "commands": [
     {
       "name": "agent-surface-audit",

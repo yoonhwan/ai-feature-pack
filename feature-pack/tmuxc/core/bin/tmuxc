@@ -390,6 +390,11 @@ cmd_restore() {
   restore_load_rows "$since" "$agent_filter" "$loose"
   if [[ "${#R_NAME[@]}" -eq 0 ]]; then
     printf '복구 후보 없음 (최근 %s시간, agent=%s). --since 를 늘려보세요.\n' "$since" "$agent_filter"
+    case "$agent_filter" in
+      codex|all)
+        printf '  힌트: codex 대화형(cli) 세션은 thread_name 없이 익명으로 기록되는 경우가 있어, 최근 세션이 없으면 --since 168 처럼 늘려서 다시 시도해보세요.\n'
+        ;;
+    esac
     return 0
   fi
   restore_print_table

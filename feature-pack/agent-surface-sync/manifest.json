@@ -1,0 +1,33 @@
+{
+  "name": "agent-surface-sync",
+  "version": "0.1.0",
+  "runtime_targets": [
+    {
+      "runtime": "agents",
+      "kind": "command",
+      "target": "~/.agents/bin/agent-surface-sync",
+      "status": "installable"
+    }
+  ],
+  "skill_surfaces": [],
+  "hook_adapters": [],
+  "commands": [
+    {
+      "name": "agent-surface-sync",
+      "kind": "cli-binary",
+      "path": "core/bin/agent-surface-sync"
+    }
+  ],
+  "private_state_exclusions": [
+    ".agents",
+    ".cache",
+    ".pytest_cache",
+    "__pycache__",
+    "settings.json",
+    "hooks.json",
+    "config.toml",
+    "tokens",
+    "auth",
+    "logs"
+  ]
+}

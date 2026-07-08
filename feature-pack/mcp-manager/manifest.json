@@ -1,0 +1,62 @@
+{
+  "spec_version": "0.1",
+  "name": "mcp-manager",
+  "title": "MCP Manager",
+  "version": "0.1.0",
+  "category": "runtime",
+  "description": "Audit, disable, enable, and prune local MCP server surfaces with backup/restore support.",
+  "os": [
+    "macos",
+    "linux"
+  ],
+  "dependencies": [
+    "python3"
+  ],
+  "supported_agents": [
+    "codex-cli",
+    "claude-code"
+  ],
+  "requires_api_key": false,
+  "requires_auth": false,
+  "install_time_minutes": 1,
+  "commands": [
+    {
+      "name": "mcp-manager",
+      "kind": "cli-binary",
+      "path": "core/bin/mcp-manager"
+    }
+  ],
+  "runtime_targets": [
+    {
+      "runtime": "codex-cli",
+      "kind": "config-manager",
+      "target": "~/.codex/config.toml",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "config-audit",
+      "target": "~/.claude/settings.json",
+      "status": "audit-only"
+    }
+  ],
+  "skill_surfaces": [],
+  "hook_adapters": [],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md"
+  ],
+  "private_state_exclusions": [
+    ".agents",
+    ".cache",
+    ".pytest_cache",
+    "__pycache__",
+    "settings.json",
+    "hooks.json",
+    "config.toml",
+    "tokens",
+    "auth",
+    "logs"
+  ],
+  "license": "MIT"
+}

@@ -2,6 +2,8 @@
 
 This first-wave package is intentionally read-only and does not install live runtime surfaces.
 
+Local verification requires `bash`, `python3`, and `jq`.
+
 Run it in place:
 
 ```bash

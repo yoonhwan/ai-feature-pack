@@ -15,6 +15,8 @@ feature-pack/agent-surface-audit/core/bin/agent-surface-audit --dry-run --public
 
 `--dry-run` is required. Findings are report data, not process failures. The command exits non-zero only for invalid arguments or runtime/tool errors.
 
+Verification scripts under `test/` require `bash`, `python3`, and `jq`.
+
 ## Report Scope
 
 The report includes:
