@@ -28,6 +28,7 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 
 _cache = {}
 _cache_lock = threading.Lock()
+_accounts_lock = threading.Lock()  # accounts/tags 파일 R-M-W 원자성 (ThreadingHTTPServer)
 # 썸네일 프록시 메모리 캐시 (url -> (content_type, bytes))
 _img_cache = {}
 _img_lock = threading.Lock()
@@ -59,6 +60,9 @@ PERIOD_EXCLUDE = {
     "week": ("주 전", "개월 전", "년 전"),
     "month": ("개월 전", "년 전"),
 }
+
+# epoch 기반 기간 필터 (릴스/틱톡/X/스레드용)
+PERIOD_SECONDS = {"day": 86400, "week": 604800, "month": 2592000}
 
 # ---------------------------------------------------------------- 인스타그램 릴스
 IG_APP_ID = "936619743392459"  # instagram.com 웹이 쓰는 공개 앱 ID
@@ -148,6 +152,15 @@ def within_period(published: str, period: str) -> bool:
     return not any(word in published for word in PERIOD_EXCLUDE.get(period, ()))
 
 
+def within_period_ts(created_at, period):
+    """createdAt(unix epoch, 정규화된 아이템 기준) 기준 기간 필터.
+    createdAt이 0/None이거나 period가 유효하지 않으면 필터링하지 않고 통과시킨다."""
+    seconds = PERIOD_SECONDS.get(period)
+    if not seconds or not created_at:
+        return True
+    return time.time() - created_at <= seconds
+
+
 def build_search_params(period: str, shorts: bool = False) -> str:
     """정렬=조회수(3) + 필터(업로드날짜, 동영상 타입, 길이) protobuf를 base64로 만듭니다."""
     filters = bytes([0x08, PERIOD_CODE.get(period, 3), 0x10, 0x01])
@@ -189,10 +202,35 @@ def parse_view_count(text: str) -> int:
     return int(digits) if digits else 0
 
 
-def rank_items(items, sort_by="views", limit=100):
-    """views/likes 키 기준 내림차순 공통 정렬. 키 부재/None은 0 취급."""
-    key = "likes" if sort_by == "likes" else "views"
-    return sorted(items, key=lambda x: x.get(key) or 0, reverse=True)[:limit]
+def rank_items(items, sort_by="views", limit=100, order="desc"):
+    """views/likes 키 기준 정렬. 키 부재/None은 0 취급."""
+    key = sort_by if sort_by in ("likes", "createdAt") else "views"
+    reverse = order != "asc"
+    return sorted(items, key=lambda x: x.get(key) or 0, reverse=reverse)[:limit]
+
+
+def _parse_rfc2822(s):
+    try:
+        return int(email.utils.parsedate_to_datetime(s).timestamp())
+    except (TypeError, ValueError):
+        return 0
+
+
+_KO_RELATIVE_UNITS = {
+    "초": 1, "분": 60, "시간": 3600, "일": 86400,
+    "주": 604800, "개월": 2592000, "년": 31536000,
+}
+
+
+def _parse_relative_ko(text):
+    """'N일 전' 같은 한국어 상대시간 텍스트를 근사 epoch(초)로 변환. 파싱 불가 시 0."""
+    if not text:
+        return 0
+    m = re.search(r"(\d+)\s*(초|분|시간|일|주|개월|년)\s*전", text)
+    if not m:
+        return 0
+    n, unit = int(m.group(1)), m.group(2)
+    return int(time.time()) - n * _KO_RELATIVE_UNITS[unit]
 
 
 def _norm_item(platform, raw):
@@ -208,7 +246,7 @@ def _norm_item(platform, raw):
             "views": raw.get("views", 0),
             "likes": raw.get("likes", 0),
             "comments": 0,
-            "createdAt": 0,
+            "createdAt": _parse_relative_ko(raw.get("published", "")),
             "extra": {k: raw[k] for k in ("published", "viewsText", "length") if raw.get(k)},
         }
     if platform == "reels":
@@ -251,7 +289,7 @@ def _norm_item(platform, raw):
             "views": raw.get("views", 0),
             "likes": raw.get("likes", 0),
             "comments": raw.get("replies", 0),
-            "createdAt": 0,
+            "createdAt": _parse_rfc2822(raw.get("createdAt", "")),
             "extra": {k: raw[k] for k in ("retweets", "name", "createdAt") if raw.get(k)},
         }
     if platform == "threads":
@@ -481,6 +519,8 @@ def get_videos(category: str, period: str, shorts: bool, force: bool, enrich: bo
         else:
             queries = [CATEGORIES.get(category, category)]
         vids = merge_yt_searches(queries, period, shorts)
+        for v in vids:
+            v["createdAt"] = _parse_relative_ko(v.get("published", ""))
         if enrich:
             vids = enrich_likes(vids)
         return vids
@@ -492,7 +532,7 @@ def load_accounts(path, defaults):
     try:
         with open(path) as f:
             accounts = json.load(f)
-            if isinstance(accounts, list) and accounts:
+            if isinstance(accounts, list):
                 return accounts
     except (OSError, json.JSONDecodeError):
         pass
@@ -531,7 +571,7 @@ TAG_SOURCES = {
 
 def _validate_ig_cookie(cookie):
     """쿠키 유효성을 실제 웹 프로필 API 호출로 확인. (ok, detail) 튜플 반환."""
-    test_account = load_accounts(ACCOUNTS_FILE, DEFAULT_IG_ACCOUNTS)[0]
+    test_account = (load_accounts(ACCOUNTS_FILE, DEFAULT_IG_ACCOUNTS) or DEFAULT_IG_ACCOUNTS)[0]
     url = ("https://www.instagram.com/api/v1/users/web_profile_info/?username="
            + quote(test_account))
     headers = {"x-ig-app-id": IG_APP_ID, "Cookie": cookie}
@@ -771,20 +811,27 @@ def fetch_threads_posts(username: str):
             "lsd": lsd, "doc_id": doc_id,
             "variables": json.dumps({"userID": str(user_id), "__relay_internal__pv__BarcelonaIsLoggedInrelayprovider": False}),
         }).encode()
-        req = urllib.request.Request("https://www.threads.com/api/graphql", data=payload)
-        req.add_header("User-Agent", UA)
-        for k, v in headers.items():
-            req.add_header(k, v)
-        try:
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                data = json.loads(resp.read().decode())
-        except Exception:
-            continue
-        if data.get("errors"):
-            continue
-        posts = _parse_threads(data, username)
-        if posts:
-            return posts
+        # 단발성 네트워크/그래프QL 오류로 빈 결과가 1시간 캐시에 박히는 걸 막기 위해 1회 재시도
+        for attempt in range(2):
+            req = urllib.request.Request("https://www.threads.com/api/graphql", data=payload)
+            req.add_header("User-Agent", UA)
+            for k, v in headers.items():
+                req.add_header(k, v)
+            try:
+                with urllib.request.urlopen(req, timeout=12) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                if attempt == 0:
+                    time.sleep(0.8)
+                continue
+            if data.get("errors"):
+                if attempt == 0:
+                    time.sleep(0.8)
+                continue
+            posts = _parse_threads(data, username)
+            if posts:
+                return posts
+            break  # 정상 응답인데 0건이면 재시도 없이 다음 doc_id로
     return []
 
 
@@ -1002,15 +1049,15 @@ def _clamp_limit(val):
     return val if val in _VALID_LIMITS else 100
 
 
-def _unsupported(platform, scope, sort_by, notice, errors=None):
+def _unsupported(platform, scope, sort_by, notice, errors=None, order="desc"):
     """unsupported 응답 헬퍼."""
     return {"platform": platform, "scope": scope, "sortBy": sort_by,
-            "support": "unsupported", "notice": notice,
+            "order": order, "support": "unsupported", "notice": notice,
             "items": [], "accountsOrTags": [], "errors": errors or [],
             "fetchedAt": time.time()}
 
 
-def _rank_yt(scope, sort_by, period, limit, force, shorts=False):
+def _rank_yt(scope, sort_by, period, limit, force, shorts=False, order="desc"):
     """YouTube/Shorts 랭킹 어댑터."""
     plat = "shorts" if shorts else "youtube"
     errors = []
@@ -1018,21 +1065,24 @@ def _rank_yt(scope, sort_by, period, limit, force, shorts=False):
     if scope == "accounts":
         if shorts:
             return _unsupported(plat, scope, sort_by,
-                                "쇼츠 채널 등록목록 랭킹은 준비 중이에요")
+                                "쇼츠 채널 등록목록 랭킹은 준비 중이에요", order=order)
         storage_key = "youtube"
         ch_file, default_ch = ACCOUNT_SOURCES[storage_key]
         channels = load_accounts(ch_file, default_ch)
         if not channels:
             return {"platform": plat, "scope": scope, "sortBy": sort_by,
-                    "support": "native", "notice": "",
+                    "order": order, "support": "native", "notice": "",
                     "items": [], "accountsOrTags": [],
                     "errors": [], "fetchedAt": time.time()}
         accts = list(channels)
         ck = ("rank", plat, "accounts", tuple(channels), period)
 
+        fetch_failed = {"v": False}
+
         def fetch_ch():
             with ThreadPoolExecutor(max_workers=4) as pool:
                 results = list(pool.map(yt_channel_uploads, channels))
+            fetch_failed["v"] = all(chunk is None for chunk in results)
             merged, seen = [], set()
             for chunk in results:
                 if chunk is None:
@@ -1058,12 +1108,12 @@ def _rank_yt(scope, sort_by, period, limit, force, shorts=False):
 
         if items is None:
             items = []
-        if not items and channels:
+        if not items and channels and fetch_failed["v"]:
             errors.append({"source": "youtube_browse", "code": "FETCH",
                            "message": "채널 영상을 가져오지 못했어요"})
-        ranked = rank_items([_norm_item(plat, v) for v in items], sort_by, limit)
+        ranked = rank_items([_norm_item(plat, v) for v in items], sort_by, limit, order)
         return {"platform": plat, "scope": scope, "sortBy": sort_by,
-                "support": support, "notice": notice,
+                "order": order, "support": support, "notice": notice,
                 "items": ranked, "accountsOrTags": accts,
                 "errors": errors, "fetchedAt": fat}
 
@@ -1095,14 +1145,14 @@ def _rank_yt(scope, sort_by, period, limit, force, shorts=False):
 
     if items is None:
         items = []
-    ranked = rank_items([_norm_item(plat, v) for v in items], sort_by, limit)
+    ranked = rank_items([_norm_item(plat, v) for v in items], sort_by, limit, order)
     return {"platform": plat, "scope": scope, "sortBy": sort_by,
-            "support": support, "notice": notice,
+            "order": order, "support": support, "notice": notice,
             "items": ranked, "accountsOrTags": accts,
             "errors": errors, "fetchedAt": fat}
 
 
-def _rank_reels(scope, sort_by, period, limit, force):
+def _rank_reels(scope, sort_by, period, limit, force, order="desc"):
     """릴스 랭킹 어댑터."""
     errors = []
     # 쿠키 상태 점검 (메타 = 캐시 밖 매 호출 계산)
@@ -1126,9 +1176,10 @@ def _rank_reels(scope, sort_by, period, limit, force):
         items, fat = cached(ck_all, force, fetch_all)
         if items is None:
             items = []
-        ranked = rank_items([_norm_item("reels", v) for v in items], sort_by, limit)
+        normed = [n for n in (_norm_item("reels", v) for v in items) if within_period_ts(n["createdAt"], period)]
+        ranked = rank_items(normed, sort_by, limit, order)
         return {"platform": "reels", "scope": scope, "sortBy": sort_by,
-                "support": "approx",
+                "order": order, "support": "approx",
                 "notice": "등록 태그 풀 내 상위 콘텐츠예요 (플랫폼 전체 아님)",
                 "items": ranked, "accountsOrTags": tags,
                 "errors": errors, "fetchedAt": fat}
@@ -1153,18 +1204,19 @@ def _rank_reels(scope, sort_by, period, limit, force):
         items, fat = cached(ck, force, fetch)
         support, notice, accts = "post", "", tags
     else:
-        return _unsupported("reels", scope, sort_by, "알 수 없는 scope", errors)
+        return _unsupported("reels", scope, sort_by, "알 수 없는 scope", errors, order=order)
 
     if items is None:
         items = []
-    ranked = rank_items([_norm_item("reels", v) for v in items], sort_by, limit)
+    normed = [n for n in (_norm_item("reels", v) for v in items) if within_period_ts(n["createdAt"], period)]
+    ranked = rank_items(normed, sort_by, limit, order)
     return {"platform": "reels", "scope": scope, "sortBy": sort_by,
-            "support": support, "notice": notice,
+            "order": order, "support": support, "notice": notice,
             "items": ranked, "accountsOrTags": accts,
             "errors": errors, "fetchedAt": fat}
 
 
-def _rank_tiktok(scope, sort_by, period, limit, force):
+def _rank_tiktok(scope, sort_by, period, limit, force, order="desc"):
     """틱톡 랭킹 어댑터."""
     errors = []
 
@@ -1204,13 +1256,14 @@ def _rank_tiktok(scope, sort_by, period, limit, force):
         items, fat = cached(ck, force, fetch)
         accts = tags
     else:
-        return _unsupported("tiktok", scope, sort_by, "알 수 없는 scope")
+        return _unsupported("tiktok", scope, sort_by, "알 수 없는 scope", order=order)
 
     if items is None:
         items = []
-    ranked = rank_items([_norm_item("tiktok", v) for v in items], sort_by, limit)
+    normed = [n for n in (_norm_item("tiktok", v) for v in items) if within_period_ts(n["createdAt"], period)]
+    ranked = rank_items(normed, sort_by, limit, order)
     return {"platform": "tiktok", "scope": scope, "sortBy": sort_by,
-            "support": "post", "notice": "",
+            "order": order, "support": "post", "notice": "",
             "items": ranked, "accountsOrTags": accts,
             "errors": errors, "fetchedAt": fat}
 
@@ -1229,7 +1282,7 @@ def filter_posts_by_tags(posts, tags):
     return filtered
 
 
-def _rank_x(scope, sort_by, period, limit, force):
+def _rank_x(scope, sort_by, period, limit, force, order="desc"):
     """X 랭킹 어댑터."""
     errors = []
 
@@ -1250,41 +1303,45 @@ def _rank_x(scope, sort_by, period, limit, force):
         tags_file, default_tags = TAG_SOURCES["x"]
         tags = load_accounts(tags_file, default_tags)
         filtered = filter_posts_by_tags(items, tags)
-        ranked = rank_items([_norm_item("x", v) for v in filtered], sort_by, limit)
+        normed = [n for n in (_norm_item("x", v) for v in filtered) if within_period_ts(n["createdAt"], period)]
+        ranked = rank_items(normed, sort_by, limit, order)
         return {"platform": "x", "scope": scope, "sortBy": sort_by,
-                "support": "approx",
+                "order": order, "support": "approx",
                 "notice": "텍스트 내 #해시태그 후처리 기반 근사치예요",
                 "items": ranked, "accountsOrTags": tags,
                 "errors": errors, "fetchedAt": fat}
 
     if scope == "all":
         # ① 등록계정 pool top-N 근사
-        ranked = rank_items([_norm_item("x", v) for v in items], sort_by, limit)
+        normed = [n for n in (_norm_item("x", v) for v in items) if within_period_ts(n["createdAt"], period)]
+        ranked = rank_items(normed, sort_by, limit, order)
         return {"platform": "x", "scope": scope, "sortBy": sort_by,
-                "support": "approx",
+                "order": order, "support": "approx",
                 "notice": "등록 계정 풀 내 상위 콘텐츠예요 (플랫폼 전체 아님)",
                 "items": ranked, "accountsOrTags": accounts,
                 "errors": errors, "fetchedAt": fat}
 
     # scope == "accounts" (②)
-    ranked = rank_items([_norm_item("x", v) for v in items], sort_by, limit)
+    normed = [n for n in (_norm_item("x", v) for v in items) if within_period_ts(n["createdAt"], period)]
+    ranked = rank_items(normed, sort_by, limit, order)
     return {"platform": "x", "scope": scope, "sortBy": sort_by,
-            "support": "post", "notice": "",
+            "order": order, "support": "post", "notice": "",
             "items": ranked, "accountsOrTags": accounts,
             "errors": errors, "fetchedAt": fat}
 
 
-def _rank_threads(scope, sort_by, period, limit, force):
+def _rank_threads(scope, sort_by, period, limit, force, order="desc"):
     """Threads 랭킹 어댑터."""
     errors = []
 
     if sort_by == "views":
         return _unsupported("threads", scope, sort_by,
-                            "Threads는 조회수를 제공하지 않아 조회수 정렬을 지원할 수 없어요")
+                            "Threads는 조회수를 제공하지 않아 조회수 정렬을 지원할 수 없어요",
+                            order=order)
 
     if scope == "tags":
         return _unsupported("threads", scope, sort_by,
-                            "Threads 태그 랭킹은 지원할 수 없어요")
+                            "Threads 태그 랭킹은 지원할 수 없어요", order=order)
 
     # ② 등록계정 pool fetch (accounts/all 모두 이 pool을 소스로 사용)
     accounts = load_accounts(THREADS_ACCOUNTS_FILE, DEFAULT_THREADS_ACCOUNTS)
@@ -1297,26 +1354,27 @@ def _rank_threads(scope, sort_by, period, limit, force):
 
     if items is None:
         items = []
-    ranked = rank_items([_norm_item("threads", v) for v in items], sort_by, limit)
+    normed = [n for n in (_norm_item("threads", v) for v in items) if within_period_ts(n["createdAt"], period)]
+    ranked = rank_items(normed, sort_by, limit, order)
 
     if scope == "all":
         # ① 등록계정 pool top-N 근사
         return {"platform": "threads", "scope": scope, "sortBy": sort_by,
-                "support": "approx",
+                "order": order, "support": "approx",
                 "notice": "등록 계정 풀 내 상위 콘텐츠예요 (플랫폼 전체 아님)",
                 "items": ranked, "accountsOrTags": accounts,
                 "errors": errors, "fetchedAt": fat}
 
     # scope == "accounts" (②)
     return {"platform": "threads", "scope": scope, "sortBy": sort_by,
-            "support": "post", "notice": "",
+            "order": order, "support": "post", "notice": "",
             "items": ranked, "accountsOrTags": accounts,
             "errors": errors, "fetchedAt": fat}
 
 
 PLATFORM_ADAPTERS = {
-    "youtube": lambda s, sb, p, l, f: _rank_yt(s, sb, p, l, f, shorts=False),
-    "shorts": lambda s, sb, p, l, f: _rank_yt(s, sb, p, l, f, shorts=True),
+    "youtube": lambda s, sb, p, l, f, o: _rank_yt(s, sb, p, l, f, shorts=False, order=o),
+    "shorts": lambda s, sb, p, l, f, o: _rank_yt(s, sb, p, l, f, shorts=True, order=o),
     "reels": _rank_reels,
     "tiktok": _rank_tiktok,
     "x": _rank_x,
@@ -1325,12 +1383,12 @@ PLATFORM_ADAPTERS = {
 
 
 def get_ranked(platform, scope="all", sort_by="views", period="week",
-               limit=100, force=False):
+               limit=100, force=False, order="desc"):
     """통합 랭킹 진입점 — PLATFORM_ADAPTERS 디스패치 → 응답 dict."""
     adapter = PLATFORM_ADAPTERS.get(platform)
     if not adapter:
-        return _unsupported(platform, scope, sort_by, "지원하지 않는 플랫폼이에요")
-    return adapter(scope, sort_by, period, limit, force)
+        return _unsupported(platform, scope, sort_by, "지원하지 않는 플랫폼이에요", order=order)
+    return adapter(scope, sort_by, period, limit, force, order)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1430,13 +1488,18 @@ class Handler(BaseHTTPRequestHandler):
             platform = qs.get("platform", [""])[0]
             scope = qs.get("scope", ["all"])[0]
             sort_by = qs.get("sort", ["views"])[0]
+            if sort_by not in ("views", "likes", "createdAt"):
+                sort_by = "views"
             period = qs.get("period", ["week"])[0]
             limit = _clamp_limit(qs.get("limit", ["100"])[0])
+            order = qs.get("order", ["desc"])[0]
+            if order not in ("asc", "desc"):
+                order = "desc"
             if not platform:
                 self._send(400, {"error": "platform parameter required"})
                 return
             self._send(200, get_ranked(platform, scope, sort_by, period,
-                                       limit, force))
+                                       limit, force, order))
             return
 
         if parsed.path == "/api/ai":
@@ -1564,6 +1627,40 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": "invalid request body"})
                 return
             action = req.get("action")
+            if action == "batch":
+                def _norm_batch(v):
+                    if v is None:
+                        return []
+                    if not isinstance(v, list) or len(v) > 100:
+                        return None
+                    out = []
+                    for it in v:
+                        if not isinstance(it, str) or not it.strip() or len(it) > 200:
+                            return None
+                        s = it.strip().lstrip("@")
+                        if kind == "tags":
+                            s = s.lstrip("#")
+                        out.append(s if source == "x" else s.lower())
+                    return out
+                add_list = _norm_batch(req.get("add"))
+                rm_list = _norm_batch(req.get("remove"))
+                if add_list is None or rm_list is None or not (add_list or rm_list):
+                    self._send(400, {"error": "invalid batch payload"})
+                    return
+                with _accounts_lock:
+                    entries = load_accounts(path, defaults)
+                    for u in rm_list:
+                        if u in entries:
+                            entries.remove(u)
+                    for u in add_list:
+                        if u and u not in entries:
+                            entries.append(u)
+                    save_accounts(path, entries)
+                self._send(200, {kind: entries})
+                return
+            if action not in ("add", "remove"):
+                self._send(400, {"error": "unknown action"})
+                return
             raw_val = req.get("username")
             if not isinstance(raw_val, str) or len(raw_val) > 200:
                 self._send(400, {"error": "invalid username"})
@@ -1573,12 +1670,13 @@ class Handler(BaseHTTPRequestHandler):
                 raw = raw.lstrip("#")
             # X는 대소문자 보존, 나머지는 소문자
             username = raw if source == "x" else raw.lower()
-            entries = load_accounts(path, defaults)
-            if action == "add" and username and username not in entries:
-                entries.append(username)
-            elif action == "remove" and username in entries:
-                entries.remove(username)
-            save_accounts(path, entries)
+            with _accounts_lock:
+                entries = load_accounts(path, defaults)
+                if action == "add" and username and username not in entries:
+                    entries.append(username)
+                elif action == "remove" and username in entries:
+                    entries.remove(username)
+                save_accounts(path, entries)
             self._send(200, {kind: entries})
             return
         self._send(404, {"error": "not found"})

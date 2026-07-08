@@ -93,6 +93,15 @@
   .acc-chip button { background: var(--panel); border: none; color: var(--muted); border-radius: 50%; width: 18px; height: 18px; cursor: pointer; font-size: 11px; line-height: 1; }
   .acc-chip button:hover { color: var(--accent); }
 
+  /* 편집 모드 */
+  .mgmt-section h2{display:flex;align-items:center;gap:8px}
+  .edit-toggle,.edit-clear{padding:3px 10px;font-size:12px;cursor:pointer;
+    border:1px solid #333;border-radius:6px;background:#1a1a2e;color:#e0e0e0}
+  .edit-clear{color:#e5484d}
+  .mgmt-section:not(.editing) .addbar{display:none}
+  .mgmt-section:not(.editing) .acc-chip button{display:none}
+  .mgmt-section:not(.editing) .edit-clear{display:none}
+
   /* 정렬 접이식 메뉴 */
   .sortbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .sortmenu { position: relative; }
@@ -184,6 +193,7 @@
     <button class="sorttoggle">정렬: <span class="curlabel">조회수순</span> <span class="caret">▼</span></button>
     <div class="sortlist"></div>
   </div>
+  <button class="sorttoggle" id="orderToggleBtn" title="정렬 방향 전환" style="padding:6px 10px;font-size:14px;cursor:pointer;border:1px solid #333;border-radius:6px;background:#1a1a2e;color:#e0e0e0">▼ 내림차순</button>
   <div class="limit-sel">
     <select id="limitSelect">
       <option value="50">50개</option>
@@ -197,16 +207,16 @@
 <main>
   <div id="videoView">
     <div id="rankYtBanner"></div>
-    <div id="ytAccSection" style="display:none">
-      <h2 style="font-size:16px;margin-bottom:10px">👤 등록 채널</h2>
+    <div id="ytAccSection" class="mgmt-section" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:10px">👤 등록 채널 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="ytAccChips"></div>
       <div class="addbar">
         <input id="ytAccInput" type="text" placeholder="유튜브 채널 핸들 (예: @OpenAI)">
         <button id="ytAccAdd">채널 추가</button>
       </div>
     </div>
-    <div id="ytTagSection" style="display:none">
-      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그</h2>
+    <div id="ytTagSection" class="mgmt-section" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="ytTagChips"></div>
       <div class="addbar">
         <input id="ytTagInput" type="text" placeholder="검색 태그 (예: AI 광고)">
@@ -266,16 +276,16 @@
       </div>
       <div id="igErrorMsg" class="note" style="display:none;color:#e5484d;margin-top:8px"></div>
     </div>
-    <div id="reelsAccSection">
-      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
+    <div id="reelsAccSection" class="mgmt-section">
+      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="accChips"></div>
       <div class="addbar">
         <input id="accInput" type="text" placeholder="인스타그램 계정명 (예: runwayapp)">
         <button id="accAdd">계정 추가</button>
       </div>
     </div>
-    <div id="reelsTagSection" style="display:none">
-      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그</h2>
+    <div id="reelsTagSection" class="mgmt-section" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="reelsTagChips"></div>
       <div class="addbar">
         <input id="reelsTagAddInput" type="text" placeholder="해시태그 (예: aivideo)">
@@ -300,16 +310,16 @@
       <button id="xSearchBtn" type="button">X에서 검색 열기 ↗</button>
     </div>
     <p class="note">🔗 검색 결과는 이 뷰어 안이 아니라 X(트위터) 새 탭에서 열립니다. (X는 공식 무인증 검색 API가 없어요)</p>
-    <div id="xAccSection">
-      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
+    <div id="xAccSection" class="mgmt-section">
+      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="xChips"></div>
       <div class="addbar">
         <input id="xInput" type="text" placeholder="X(트위터) 계정명 (예: OpenAI)">
         <button id="xAdd">계정 추가</button>
       </div>
     </div>
-    <div id="xTagSection" style="display:none">
-      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그</h2>
+    <div id="xTagSection" class="mgmt-section" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="xTagChips"></div>
       <div class="addbar">
         <input id="xTagInput" type="text" placeholder="해시태그 (예: AI)">
@@ -329,8 +339,8 @@
       <button id="thSearchBtn" type="button">스레드에서 검색 열기 ↗</button>
     </div>
     <p class="note">🔗 검색 결과는 이 뷰어 안이 아니라 스레드 새 탭에서 열립니다. (스레드는 공식 무인증 검색 API가 없어요)</p>
-    <div id="thAccSection">
-      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
+    <div id="thAccSection" class="mgmt-section">
+      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="thChips"></div>
       <div class="addbar">
         <input id="thInput" type="text" placeholder="스레드 계정명 (예: openai)">
@@ -350,16 +360,16 @@
       <input id="ttSearchInput" type="search" placeholder="틱톡 키워드 검색 (예: 챌린지)">
       <button id="ttSearchBtn" type="button">🔍 검색</button>
     </div>
-    <div id="ttAccSection">
-      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정</h2>
+    <div id="ttAccSection" class="mgmt-section">
+      <h2 style="font-size:16px;margin-bottom:10px">👤 구독 계정 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="ttChips"></div>
       <div class="addbar">
         <input id="ttInput" type="text" placeholder="틱톡 계정명 (@ 없이, 예: khaby.lame)">
         <button id="ttAdd">계정 추가</button>
       </div>
     </div>
-    <div id="ttTagSection" style="display:none">
-      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그</h2>
+    <div id="ttTagSection" class="mgmt-section" style="display:none">
+      <h2 style="font-size:16px;margin-bottom:10px">🏷️ 등록 태그 <button type="button" class="edit-toggle">✏️ 편집</button><button type="button" class="edit-clear">🗑 모두 삭제</button></h2>
       <div class="acc-chips" id="ttTagChips"></div>
       <div class="addbar">
         <input id="ttTagInput" type="text" placeholder="검색 태그 (예: 챌린지)">
@@ -384,7 +394,7 @@
 
 <script>
 const state = { tab: 'youtube', category: '전체', period: 'week', categories: ['전체'], search: '' };
-const rankState = { scope: 'all', sort: 'views', limit: 100 };
+const rankState = { scope: 'all', sort: 'views', limit: 100, order: 'desc' };
 
 const fmt = n => {
   if (n >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억회';
@@ -462,7 +472,8 @@ function renderVideos() {
   const grid = document.getElementById('grid');
   grid.className = 'grid' + (state.tab === 'shorts' ? ' shorts' : '');
   const f = rankState.sort;
-  const sorted = vidData.slice().sort((a, b) => (b[f] || 0) - (a[f] || 0));
+  const dir = rankState.order === 'asc' ? -1 : 1;
+  const sorted = vidData.slice().sort((a, b) => dir * ((b[f] || 0) - (a[f] || 0)));
   grid.innerHTML = '';
   sorted.forEach((v, i) => grid.appendChild(videoCard(v, i + 1)));
 }
@@ -654,6 +665,7 @@ document.getElementById('igLogoutBtn').addEventListener('click', async () => {
 let reelsData = [];
 let reelsTag = '';
 async function loadReels(force = false) {
+  const seq = ++loadSeq;
   const status = document.getElementById('reelsStatus');
   const grid = document.getElementById('reelsGrid');
   status.style.display = 'block';
@@ -667,6 +679,7 @@ async function loadReels(force = false) {
     if (reelsTag) params.set('tag', reelsTag);
     const qs = params.toString();
     const data = await (await fetch('/api/reels' + (qs ? '?' + qs : ''))).json();
+    if (seq !== loadSeq) return;
     document.getElementById('updated').textContent =
       '업데이트: ' + new Date(data.fetchedAt * 1000).toLocaleTimeString('ko-KR');
     reelsData = data.reels || [];
@@ -678,14 +691,16 @@ async function loadReels(force = false) {
     status.style.display = 'none';
     renderReels();
   } catch (e) {
+    if (seq !== loadSeq) return;
     status.textContent = '불러오기에 실패했습니다. 네트워크를 확인해 주세요.';
   }
 }
 function renderReels() {
   const grid = document.getElementById('reelsGrid');
-  const f = rankState.sort;
-  const label = { views: '조회수', likes: '좋아요' };
-  const sorted = reelsData.slice().sort((a, b) => (b[f] || 0) - (a[f] || 0));
+  const f = rankState.sort === 'createdAt' ? 'takenAt' : rankState.sort;
+  const label = { views: '조회수', likes: '좋아요', createdAt: '최신' };
+  const dir = rankState.order === 'asc' ? -1 : 1;
+  const sorted = reelsData.slice().sort((a, b) => dir * ((b[f] || 0) - (a[f] || 0)));
   grid.innerHTML = '';
   sorted.forEach((r, i) => {
     const el = document.createElement('div');
@@ -710,7 +725,7 @@ function renderReels() {
     grid.appendChild(el);
   });
   document.getElementById('reelsCount').textContent =
-    `${label[f] || f} 기준 · 총 ${sorted.length}개`;
+    `${label[rankState.sort] || rankState.sort} 기준 · 총 ${sorted.length}개`;
 }
 function reelsTagSubmit() {
   reelsTag = document.getElementById('reelsTagInput').value.trim();
@@ -724,6 +739,7 @@ document.getElementById('reelsTagInput').addEventListener('keydown', e => { if (
 let tiktokData = [];
 let ttSearch = '';
 async function loadTikTok(force = false) {
+  const seq = ++loadSeq;
   const status = document.getElementById('ttStatus');
   const grid = document.getElementById('ttGrid');
   status.style.display = 'block';
@@ -737,6 +753,7 @@ async function loadTikTok(force = false) {
     if (ttSearch) params.set('q', ttSearch);
     const qs = params.toString();
     const data = await (await fetch('/api/tiktok' + (qs ? '?' + qs : ''))).json();
+    if (seq !== loadSeq) return;
     document.getElementById('updated').textContent =
       '업데이트: ' + new Date(data.fetchedAt * 1000).toLocaleTimeString('ko-KR');
     tiktokData = data.posts || [];
@@ -748,14 +765,16 @@ async function loadTikTok(force = false) {
     status.style.display = 'none';
     renderTikTok();
   } catch (e) {
+    if (seq !== loadSeq) return;
     status.textContent = '불러오기에 실패했습니다. 네트워크를 확인해 주세요.';
   }
 }
 function renderTikTok() {
   const grid = document.getElementById('ttGrid');
   const f = rankState.sort;
-  const label = { views: '조회수', likes: '좋아요' };
-  const sorted = tiktokData.slice().sort((a, b) => (b[f] || 0) - (a[f] || 0));
+  const label = { views: '조회수', likes: '좋아요', createdAt: '최신' };
+  const dir = rankState.order === 'asc' ? -1 : 1;
+  const sorted = tiktokData.slice().sort((a, b) => dir * ((b[f] || 0) - (a[f] || 0)));
   grid.innerHTML = '';
   sorted.forEach((t, i) => {
     const el = document.createElement('div');
@@ -851,17 +870,101 @@ function initFoldMenu(menuId, options, stateObj, onPick) {
 }
 document.addEventListener('click', () => document.querySelectorAll('.sortmenu.open').forEach(m => m.classList.remove('open')));
 
+/* ---------- 편집 모드 ---------- */
+const editState = { active: false, kind: null, base: [], current: [], platform: null };
+const lastChips = {};  // lastChips[platform] = { acc: [], tag: [] }
+const chipKey = tab => tab === 'shorts' ? 'youtube' : tab;
+
+function currentMgmtSection() {
+  const mgmt = RANK_MGMT[editState.platform || state.tab];
+  if (!mgmt) return null;
+  const id = editState.kind === 'tag' ? mgmt.tag : mgmt.acc;
+  return id ? document.getElementById(id) : null;
+}
+function renderEditChips() {
+  const tab = editState.platform || state.tab;
+  const mgmt = RANK_MGMT[tab];
+  if (editState.kind === 'acc') renderAccChips(mgmt.accChips, tab, editState.current);
+  else renderTagChips(mgmt.tagChips, tab, editState.current);
+}
+function editRemove(name) {
+  if (!editState.active) return;
+  editState.current = editState.current.filter(x => x !== name);
+  renderEditChips();
+}
+function editAdd(name) {
+  if (!editState.active || !name || editState.current.includes(name)) return;
+  editState.current = editState.current.concat([name]);
+  renderEditChips();
+}
+function enterEdit() {
+  editState.platform = state.tab;
+  editState.kind = rankState.scope === 'tags' ? 'tag' : 'acc';
+  editState.base = ((lastChips[chipKey(editState.platform)] || {})[editState.kind] || []).slice();
+  editState.current = editState.base.slice();
+  editState.active = true;
+  const sec = currentMgmtSection();
+  if (sec) {
+    sec.classList.add('editing');
+    sec.querySelector('.edit-toggle').textContent = '✔ 완료';
+  }
+}
+function exitEditUI() {
+  const sec = currentMgmtSection();
+  if (sec) {
+    sec.classList.remove('editing');
+    sec.querySelector('.edit-toggle').textContent = '✏️ 편집';
+  }
+  editState.active = false;
+  editState.platform = null;
+}
+async function commitEdit() {
+  const added = editState.current.filter(x => !editState.base.includes(x));
+  const removed = editState.base.filter(x => !editState.current.includes(x));
+  if (!added.length && !removed.length) { exitEditUI(); return; }
+  const ep = editState.platform === 'shorts' ? 'youtube' : editState.platform;
+  const path = editState.kind === 'tag' ? 'tags' : 'accounts';
+  try {
+    const res = await fetch(`/api/${ep}/${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'batch', add: added, remove: removed })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    exitEditUI();
+    loadRank(true);
+  } catch (e) {
+    const platform = editState.platform || state.tab;
+    exitEditUI();
+    const mgmt = RANK_MGMT[platform];
+    if (mgmt && mgmt.banner) document.getElementById(mgmt.banner).innerHTML =
+      '<div class="error-banner">⚠️ 변경 저장에 실패했어요. 편집 버튼을 다시 눌러 시도해 주세요.</div>';
+  }
+}
+async function commitEditIfActive() { if (editState.active) await commitEdit(); }
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('.edit-toggle');
+  if (t) { editState.active ? commitEdit() : enterEdit(); return; }
+  const c = e.target.closest('.edit-clear');
+  if (c && editState.active && confirm('등록된 항목을 모두 삭제할까요? (완료를 눌러야 서버에 반영돼요)')) {
+    editState.current = [];
+    renderEditChips();
+  }
+});
+
 /* ---------- 계정 칩 렌더 (공통) ---------- */
 function renderAccChips(elId, kind, accounts) {
   const box = document.getElementById(elId);
   if (!box) return;
+  if (!lastChips[chipKey(kind)]) lastChips[chipKey(kind)] = { acc: [], tag: [] };
+  lastChips[chipKey(kind)].acc = (accounts || []).slice();
   box.innerHTML = '';
   (accounts || []).forEach(name => {
     const chip = document.createElement('span');
     chip.className = 'acc-chip';
     chip.innerHTML = `@<b></b><button title="삭제">✕</button>`;
     chip.querySelector('b').textContent = name;
-    chip.querySelector('button').onclick = () => updateRankAccount(kind, 'remove', name);
+    chip.querySelector('button').onclick = () => editRemove(name);
     box.appendChild(chip);
   });
 }
@@ -870,33 +973,17 @@ function renderAccChips(elId, kind, accounts) {
 function renderTagChips(elId, platform, tags) {
   const box = document.getElementById(elId);
   if (!box) return;
+  if (!lastChips[chipKey(platform)]) lastChips[chipKey(platform)] = { acc: [], tag: [] };
+  lastChips[chipKey(platform)].tag = (tags || []).slice();
   box.innerHTML = '';
   (tags || []).forEach(name => {
     const chip = document.createElement('span');
     chip.className = 'acc-chip';
     chip.innerHTML = `#<b></b><button title="삭제">✕</button>`;
     chip.querySelector('b').textContent = name;
-    chip.querySelector('button').onclick = () => updateTag(platform, 'remove', name);
+    chip.querySelector('button').onclick = () => editRemove(name);
     box.appendChild(chip);
   });
-}
-
-/* ---------- 계정/태그 등록·삭제 ---------- */
-async function updateRankAccount(platform, action, username) {
-  const ep = (platform === 'shorts') ? 'youtube' : platform;
-  await fetch(`/api/${ep}/accounts`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, username })
-  });
-  loadRank(true);
-}
-async function updateTag(platform, action, tag) {
-  const ep = (platform === 'shorts') ? 'youtube' : platform;
-  await fetch(`/api/${ep}/tags`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, username: tag })
-  });
-  loadRank(true);
 }
 
 /* ========== 통합 랭킹 시스템 ========== */
@@ -924,6 +1011,10 @@ const RANK_MGMT = {
              accChips: 'thChips', tagChips: null },
 };
 
+function updateOrderBtn() {
+  const btn = document.getElementById('orderToggleBtn');
+  if (btn) btn.textContent = rankState.order === 'asc' ? '▲ 오름차순' : '▼ 내림차순';
+}
 function updateRankUI() {
   const p = state.tab;
   if (p === 'ai') return;
@@ -936,16 +1027,18 @@ function updateRankUI() {
   const tagEl = mgmt.tag ? document.getElementById(mgmt.tag) : null;
   if (tagEl) tagEl.style.display = rankState.scope === 'tags' ? '' : 'none';
 
-  // Period selector only for youtube/shorts
-  document.getElementById('periods').style.display =
-    (p === 'youtube' || p === 'shorts') ? 'flex' : 'none';
+  // Period selector for all ranking tabs
+  document.getElementById('periods').style.display = 'flex';
 
   // Update sub-tab active state
   document.querySelectorAll('#scopeTabs .subtab').forEach(b =>
     b.classList.toggle('active', b.dataset.scope === rankState.scope));
 
+  // Rebuild sort menu for current tab
+  rebuildRankSortMenu();
+
   // Update sort label
-  const sortLabel = rankState.sort === 'likes' ? '좋아요순' : '조회수순';
+  const sortLabel = SORT_LABELS[rankState.sort] || '조회수순';
   const curlabel = document.querySelector('#rankSortMenu .curlabel');
   if (curlabel) curlabel.textContent = sortLabel;
 
@@ -963,6 +1056,7 @@ async function loadRank(force = false) {
   const ui = RANK_UI[platform];
   const mgmt = RANK_MGMT[platform];
   if (!ui) return;
+  const seq = ++loadSeq;
 
   // Clear previous banner
   if (mgmt && mgmt.banner) document.getElementById(mgmt.banner).innerHTML = '';
@@ -978,9 +1072,10 @@ async function loadRank(force = false) {
 
   // Build query
   const params = new URLSearchParams({
-    platform, scope: rankState.scope, sort: rankState.sort, limit: rankState.limit
+    platform, scope: rankState.scope, sort: rankState.sort, limit: rankState.limit,
+    order: rankState.order
   });
-  if ((platform === 'youtube' || platform === 'shorts') && state.period) {
+  if (state.period) {
     params.set('period', state.period);
   }
   if (force) params.set('force', '1');
@@ -988,6 +1083,7 @@ async function loadRank(force = false) {
   try {
     const res = await fetch('/api/rank?' + params);
     const data = await res.json();
+    if (seq !== loadSeq) return;
 
     // Update timestamp
     if (data.fetchedAt) {
@@ -1017,7 +1113,7 @@ async function loadRank(force = false) {
     }
 
     // Update account/tag chips from response
-    if (data.accountsOrTags) {
+    if (data.accountsOrTags && !editState.active) {
       if (rankState.scope === 'accounts' && mgmt.accChips) {
         renderAccChips(mgmt.accChips, platform, data.accountsOrTags);
       } else if (rankState.scope === 'tags' && mgmt.tagChips) {
@@ -1027,7 +1123,9 @@ async function loadRank(force = false) {
 
     // Empty results
     if (!data.items || !data.items.length) {
-      statusEl.textContent = '결과가 없습니다.';
+      statusEl.textContent = (rankState.scope !== 'all' && state.period && state.period !== 'month')
+        ? '이 기간에는 새 콘텐츠가 없어요. 기간을 "이번 달"로 넓혀보세요.'
+        : '결과가 없습니다.';
       if (platform === 'threads' && rankState.scope === 'accounts' && data.accountsOrTags) {
         showThreadsFallback(data.accountsOrTags);
       }
@@ -1048,10 +1146,11 @@ async function loadRank(force = false) {
     });
 
     // Count
-    const sortLabel = rankState.sort === 'likes' ? '좋아요' : '조회수';
+    const sortLabel = { likes: '좋아요', createdAt: '최신' }[rankState.sort] || '조회수';
     if (countEl) countEl.textContent = `${sortLabel} 기준 · 총 ${data.items.length}개`;
 
   } catch (e) {
+    if (seq !== loadSeq) return;
     statusEl.textContent = '불러오기에 실패했습니다. 네트워크를 확인해 주세요.';
   }
 }
@@ -1122,11 +1221,22 @@ function rankPostCard(item, rank, platform) {
 }
 
 /* ---------- 랭킹 툴바 초기화 ---------- */
+const SORT_LABELS = { views: '조회수순', likes: '좋아요순', createdAt: '최신순' };
+function rebuildRankSortMenu() {
+  const p = state.tab;
+  const opts = [];
+  if (p !== 'threads') opts.push({ key: 'views', label: '조회수순', icon: '👁️' });
+  opts.push({ key: 'likes', label: '좋아요순', icon: '❤️' });
+  if (['reels', 'x', 'threads', 'tiktok', 'youtube', 'shorts'].includes(p))
+    opts.push({ key: 'createdAt', label: '최신순', icon: '🕒' });
+  initFoldMenu('rankSortMenu', opts, rankState, () => loadRank());
+}
 function initRankToolbar() {
   // Sub-tabs
-  document.getElementById('scopeTabs').onclick = e => {
+  document.getElementById('scopeTabs').onclick = async e => {
     const btn = e.target.closest('.subtab');
     if (!btn) return;
+    await commitEditIfActive();
     rankState.scope = btn.dataset.scope;
     state.search = '';
     reelsTag = '';
@@ -1140,11 +1250,24 @@ function initRankToolbar() {
     loadRank();
   };
 
-  // Sort menu
-  initFoldMenu('rankSortMenu', [
-    { key: 'views', label: '조회수순', icon: '👁️' },
-    { key: 'likes', label: '좋아요순', icon: '❤️' },
-  ], rankState, () => loadRank());
+  // Sort menu (탭별 동적 재구성)
+  rebuildRankSortMenu();
+
+  // Order toggle
+  document.getElementById('orderToggleBtn').onclick = () => {
+    rankState.order = rankState.order === 'desc' ? 'asc' : 'desc';
+    updateOrderBtn();
+    const isVideoTab = state.tab === 'youtube' || state.tab === 'shorts';
+    if (state.search && isVideoTab) {
+      loadVideos();
+    } else if (reelsTag && state.tab === 'reels') {
+      loadReels();
+    } else if (ttSearch && state.tab === 'tiktok') {
+      loadTikTok();
+    } else {
+      loadRank();
+    }
+  };
 
   // Limit selector
   document.getElementById('limitSelect').onchange = e => {
@@ -1161,7 +1284,7 @@ function wireRankMgmt() {
     const name = input.value.trim().replace(/^@/, '');
     if (!name) return;
     input.value = '';
-    updateRankAccount(state.tab, 'add', name);
+    editAdd(name);
   };
   document.getElementById('ytAccInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('ytAccAdd').click();
@@ -1173,7 +1296,7 @@ function wireRankMgmt() {
     const tag = input.value.trim().replace(/^#/, '');
     if (!tag) return;
     input.value = '';
-    updateTag(state.tab, 'add', tag);
+    editAdd(tag);
   };
   document.getElementById('ytTagInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('ytTagAdd').click();
@@ -1185,7 +1308,7 @@ function wireRankMgmt() {
     const name = input.value.trim();
     if (!name) return;
     input.value = '';
-    updateRankAccount('reels', 'add', name);
+    editAdd(name);
   };
   document.getElementById('accInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('accAdd').click();
@@ -1197,7 +1320,7 @@ function wireRankMgmt() {
     const tag = input.value.trim().replace(/^#/, '');
     if (!tag) return;
     input.value = '';
-    updateTag('reels', 'add', tag);
+    editAdd(tag);
   };
   document.getElementById('reelsTagAddInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('reelsTagAddBtn').click();
@@ -1209,7 +1332,7 @@ function wireRankMgmt() {
     const name = input.value.trim();
     if (!name) return;
     input.value = '';
-    updateRankAccount('x', 'add', name);
+    editAdd(name);
   };
   document.getElementById('xInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('xAdd').click();
@@ -1221,7 +1344,7 @@ function wireRankMgmt() {
     const tag = input.value.trim().replace(/^#/, '');
     if (!tag) return;
     input.value = '';
-    updateTag('x', 'add', tag);
+    editAdd(tag);
   };
   document.getElementById('xTagInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('xTagAddBtn').click();
@@ -1233,7 +1356,7 @@ function wireRankMgmt() {
     const name = input.value.trim();
     if (!name) return;
     input.value = '';
-    updateRankAccount('threads', 'add', name);
+    editAdd(name);
   };
   document.getElementById('thInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('thAdd').click();
@@ -1245,7 +1368,7 @@ function wireRankMgmt() {
     const name = input.value.trim().replace(/^@/, '');
     if (!name) return;
     input.value = '';
-    updateRankAccount('tiktok', 'add', name);
+    editAdd(name);
   };
   document.getElementById('ttInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('ttAdd').click();
@@ -1257,7 +1380,7 @@ function wireRankMgmt() {
     const tag = input.value.trim().replace(/^#/, '');
     if (!tag) return;
     input.value = '';
-    updateTag('tiktok', 'add', tag);
+    editAdd(tag);
   };
   document.getElementById('ttTagInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('ttTagAddBtn').click();
@@ -1265,9 +1388,10 @@ function wireRankMgmt() {
 }
 
 /* ---------- 탭 전환 ---------- */
-document.getElementById('tabs').onclick = e => {
+document.getElementById('tabs').onclick = async e => {
   const btn = e.target.closest('.tab');
   if (!btn) return;
+  await commitEditIfActive();
   state.tab = btn.dataset.tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === btn));
 
