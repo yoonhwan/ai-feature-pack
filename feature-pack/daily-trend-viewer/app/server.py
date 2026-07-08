@@ -189,6 +189,89 @@ def parse_view_count(text: str) -> int:
     return int(digits) if digits else 0
 
 
+def rank_items(items, sort_by="views", limit=100):
+    """views/likes 키 기준 내림차순 공통 정렬. 키 부재/None은 0 취급."""
+    key = "likes" if sort_by == "likes" else "views"
+    return sorted(items, key=lambda x: x.get(key) or 0, reverse=True)[:limit]
+
+
+def _norm_item(platform, raw):
+    """플랫폼별 fetcher 출력 dict → 공통 아이템 스키마 매핑."""
+    if platform in ("youtube", "shorts"):
+        vid = raw.get("id", "")
+        return {
+            "id": vid,
+            "title": raw.get("title", ""),
+            "account": raw.get("channel", ""),
+            "url": ("https://www.youtube.com/watch?v=" + vid) if vid else "",
+            "thumbnail": raw.get("thumbnail", ""),
+            "views": raw.get("views", 0),
+            "likes": raw.get("likes", 0),
+            "comments": 0,
+            "createdAt": 0,
+            "extra": {k: raw[k] for k in ("published", "viewsText", "length") if raw.get(k)},
+        }
+    if platform == "reels":
+        url = raw.get("url", "")
+        sc = url.rsplit("/reel/", 1)[-1].rstrip("/") if "/reel/" in url else ""
+        return {
+            "id": sc,
+            "title": raw.get("title", ""),
+            "account": raw.get("account", ""),
+            "url": url,
+            "thumbnail": raw.get("thumbnail", ""),
+            "views": raw.get("views", 0),
+            "likes": raw.get("likes", 0),
+            "comments": raw.get("comments", 0),
+            "createdAt": raw.get("takenAt", 0),
+            "extra": {},
+        }
+    if platform == "tiktok":
+        return {
+            "id": raw.get("id", ""),
+            "title": raw.get("title", ""),
+            "account": raw.get("account", ""),
+            "url": raw.get("url", ""),
+            "thumbnail": raw.get("thumbnail", ""),
+            "views": raw.get("views", 0),
+            "likes": raw.get("likes", 0),
+            "comments": raw.get("comments", 0),
+            "createdAt": raw.get("createdAt", 0),
+            "extra": {k: raw[k] for k in ("shares", "name") if raw.get(k)},
+        }
+    if platform == "x":
+        url = raw.get("url", "")
+        id_str = url.rsplit("/status/", 1)[-1] if "/status/" in url else ""
+        return {
+            "id": id_str,
+            "title": (raw.get("text", "") or "")[:120],
+            "account": raw.get("account", ""),
+            "url": url,
+            "thumbnail": raw.get("media", ""),
+            "views": raw.get("views", 0),
+            "likes": raw.get("likes", 0),
+            "comments": raw.get("replies", 0),
+            "createdAt": 0,
+            "extra": {k: raw[k] for k in ("retweets", "name", "createdAt") if raw.get(k)},
+        }
+    if platform == "threads":
+        url = raw.get("url", "")
+        code = url.rsplit("/post/", 1)[-1] if "/post/" in url else ""
+        return {
+            "id": code,
+            "title": (raw.get("text", "") or "")[:120],
+            "account": raw.get("account", ""),
+            "url": url,
+            "thumbnail": raw.get("media", ""),
+            "views": 0,
+            "likes": raw.get("likes", 0),
+            "comments": raw.get("replies", 0),
+            "createdAt": raw.get("createdAt", 0),
+            "extra": {k: raw[k] for k in ("reposts",) if raw.get(k)},
+        }
+    return raw
+
+
 def cached(key, force, fetch_fn):
     now = time.time()
     with _cache_lock:
@@ -199,9 +282,8 @@ def cached(key, force, fetch_fn):
     fetched_at = time.time()
     with _cache_lock:
         prev = _cache.get(key)
-        if not result and prev and prev[1]:
-            # 업스트림 일시 차단 등으로 빈 결과가 왔을 때, 이미 있던 정상 캐시를
-            # 빈 값으로 덮어써 영구 오염시키지 않도록 이전 값을 유지합니다.
+        if not result and prev is not None:
+            # fetch_fn이 빈 결과(None/[])를 반환하면(업스트림 실패) 이전 정상 캐시를 유지합니다.
             return prev[1], prev[0]
         _cache[key] = (fetched_at, result)
     return result, fetched_at
@@ -272,15 +354,16 @@ def yt_like_count(video_id: str):
 
 
 def enrich_likes(videos, limit=45):
-    """영상 리스트에 좋아요 수(likes)를 병렬로 채웁니다. 이미 채워진 항목은 건너뜁니다."""
-    todo = [v for v in videos[:limit] if not v.get("likes")]
+    """영상 리스트의 복사본에 좋아요 수(likes)를 병렬로 채워 반환합니다. 원본 dict는 변경하지 않습니다."""
+    result = [dict(v) for v in videos]
+    todo = [v for v in result[:limit] if not v.get("likes")]
     if not todo:
-        return videos
+        return result
     with ThreadPoolExecutor(max_workers=12) as pool:
         counts = pool.map(lambda v: yt_like_count(v["id"]), todo)
     for v, c in zip(todo, counts):
         v["likes"] = c
-    return videos
+    return result
 
 
 def merge_yt_searches(queries, period, shorts):
@@ -296,6 +379,97 @@ def merge_yt_searches(queries, period, shorts):
     return merged
 
 
+def _parse_korean_view_count(text):
+    """'조회수 118만회', '1.2억회', '3,456회' 등 한국어 축약 조회수를 파싱합니다."""
+    if not text:
+        return 0
+    m = re.search(r"([\d,.]+)\s*억", text)
+    if m:
+        return int(float(m.group(1).replace(",", "")) * 100_000_000)
+    m = re.search(r"([\d,.]+)\s*만", text)
+    if m:
+        return int(float(m.group(1).replace(",", "")) * 10_000)
+    m = re.search(r"([\d,.]+)\s*천", text)
+    if m:
+        return int(float(m.group(1).replace(",", "")) * 1_000)
+    return parse_view_count(text)
+
+
+def _extract_lockup_videos(node, out):
+    """채널 Videos 탭의 lockupViewModel 구조에서 영상 정보를 추출합니다."""
+    if isinstance(node, dict):
+        lvm = node.get("lockupViewModel")
+        if isinstance(lvm, dict) and lvm.get("contentType") == "LOCKUP_CONTENT_TYPE_VIDEO":
+            vid = lvm.get("contentId", "")
+            meta = (lvm.get("metadata") or {}).get("lockupMetadataViewModel", {})
+            title = (meta.get("title") or {}).get("content", "")
+            rows = ((meta.get("metadata") or {}).get("contentMetadataViewModel") or {}).get("metadataRows", [])
+            views_text, published = "", ""
+            for row in rows:
+                for part in row.get("metadataParts", []):
+                    t = (part.get("text") or {}).get("content", "")
+                    if "조회" in t or "view" in t.lower():
+                        views_text = t
+                    elif "전" in t or "ago" in t.lower():
+                        published = t
+            thumbs = ((lvm.get("contentImage") or {}).get("thumbnailViewModel") or {}).get("image", {}).get("sources", [])
+            out.append({
+                "id": vid,
+                "title": title,
+                "channel": "",
+                "views": _parse_korean_view_count(views_text),
+                "viewsText": views_text,
+                "length": "",
+                "published": published,
+                "thumbnail": thumbs[-1]["url"] if thumbs else "",
+            })
+            return
+        for value in node.values():
+            _extract_lockup_videos(value, out)
+    elif isinstance(node, list):
+        for item in node:
+            _extract_lockup_videos(item, out)
+
+
+def yt_channel_uploads(handle):
+    """채널 핸들(또는 채널 ID)의 업로드 영상 목록을 youtubei/v1/browse로 가져옵니다."""
+    ctx = {"client": {
+        "clientName": "WEB", "clientVersion": "2.20250624.01.00",
+        "hl": "ko", "gl": "KR",
+    }}
+    # 채널 ID(UC...)면 resolve 불필요
+    if handle.startswith("UC") and len(handle) == 24:
+        browse_id = handle
+    else:
+        clean = handle.lstrip("@")
+        try:
+            data = http_json(
+                "https://www.youtube.com/youtubei/v1/navigation/resolve_url",
+                payload={"context": ctx,
+                         "url": "https://www.youtube.com/@" + clean},
+                timeout=12)
+            browse_id = data["endpoint"]["browseEndpoint"]["browseId"]
+        except Exception:
+            return None
+    # Videos 탭(최신순) browse
+    try:
+        data = http_json(
+            "https://www.youtube.com/youtubei/v1/browse",
+            payload={"context": ctx, "browseId": browse_id,
+                     "params": "EgZ2aWRlb3PyBgQKAjoA"},
+            timeout=12)
+    except Exception:
+        return None
+    videos = []
+    _extract_lockup_videos(data, videos)
+    # lockupViewModel에는 ownerText가 없으므로 channel 필드를 handle로 채움
+    clean = handle.lstrip("@")
+    for v in videos:
+        if not v.get("channel"):
+            v["channel"] = clean
+    return videos
+
+
 def get_videos(category: str, period: str, shorts: bool, force: bool, enrich: bool = False, query: str = ""):
     def fetch():
         if query:
@@ -308,7 +482,7 @@ def get_videos(category: str, period: str, shorts: bool, force: bool, enrich: bo
             queries = [CATEGORIES.get(category, category)]
         vids = merge_yt_searches(queries, period, shorts)
         if enrich:
-            enrich_likes(vids)
+            vids = enrich_likes(vids)
         return vids
     return cached(("yt", query or category, period, shorts, enrich), force, fetch)
 
@@ -336,6 +510,22 @@ ACCOUNT_SOURCES = {
     "x": (X_ACCOUNTS_FILE, DEFAULT_X_ACCOUNTS),
     "threads": (THREADS_ACCOUNTS_FILE, DEFAULT_THREADS_ACCOUNTS),
     "tiktok": (TIKTOK_ACCOUNTS_FILE, DEFAULT_TIKTOK_ACCOUNTS),
+}
+# 유튜브 채널 등록 (P3 준비 — 빈 디폴트)
+YT_CHANNELS_FILE = os.path.join(BASE_DIR, "yt_channels.json")
+ACCOUNT_SOURCES["youtube"] = (YT_CHANNELS_FILE, [])
+
+# 태그 등록 저장소 (③분기 인프라)
+YT_TAGS_FILE = os.path.join(BASE_DIR, "yt_tags.json")
+REELS_TAGS_FILE = os.path.join(BASE_DIR, "reels_tags.json")
+TIKTOK_TAGS_FILE = os.path.join(BASE_DIR, "tiktok_tags.json")
+X_TAGS_FILE = os.path.join(BASE_DIR, "x_tags.json")
+
+TAG_SOURCES = {
+    "youtube": (YT_TAGS_FILE, list(CATEGORIES.values())),
+    "reels": (REELS_TAGS_FILE, ["aivideo", "sora"]),
+    "tiktok": (TIKTOK_TAGS_FILE, ["aivideo", "sora"]),
+    "x": (X_TAGS_FILE, ["AI"]),
 }
 
 
@@ -800,6 +990,349 @@ def fetch_oembed(url: str):
         return {"ok": False, "reason": "fetch_failed"}
 
 
+# ================================================================ 랭킹 공통 인프라 (P1)
+_VALID_LIMITS = (50, 100, 150, 200)
+
+
+def _clamp_limit(val):
+    try:
+        val = int(val)
+    except (TypeError, ValueError):
+        return 100
+    return val if val in _VALID_LIMITS else 100
+
+
+def _unsupported(platform, scope, sort_by, notice, errors=None):
+    """unsupported 응답 헬퍼."""
+    return {"platform": platform, "scope": scope, "sortBy": sort_by,
+            "support": "unsupported", "notice": notice,
+            "items": [], "accountsOrTags": [], "errors": errors or [],
+            "fetchedAt": time.time()}
+
+
+def _rank_yt(scope, sort_by, period, limit, force, shorts=False):
+    """YouTube/Shorts 랭킹 어댑터."""
+    plat = "shorts" if shorts else "youtube"
+    errors = []
+
+    if scope == "accounts":
+        if shorts:
+            return _unsupported(plat, scope, sort_by,
+                                "쇼츠 채널 등록목록 랭킹은 준비 중이에요")
+        storage_key = "youtube"
+        ch_file, default_ch = ACCOUNT_SOURCES[storage_key]
+        channels = load_accounts(ch_file, default_ch)
+        if not channels:
+            return {"platform": plat, "scope": scope, "sortBy": sort_by,
+                    "support": "native", "notice": "",
+                    "items": [], "accountsOrTags": [],
+                    "errors": [], "fetchedAt": time.time()}
+        accts = list(channels)
+        ck = ("rank", plat, "accounts", tuple(channels), period)
+
+        def fetch_ch():
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                results = list(pool.map(yt_channel_uploads, channels))
+            merged, seen = [], set()
+            for chunk in results:
+                if chunk is None:
+                    continue
+                for v in chunk:
+                    if v["id"] and v["id"] not in seen and within_period(v.get("published", ""), period):
+                        seen.add(v["id"])
+                        merged.append(v)
+            return merged
+
+        if sort_by == "likes":
+            base, _ = cached(ck, force, fetch_ch)
+            if base is None:
+                base = []
+            items, fat = cached(ck + ("enrich",), force,
+                                lambda: enrich_likes(base))
+            support = "approx"
+            notice = "좋아요 수는 상위 45개만 개별 조회한 근사 순위예요"
+        else:
+            items, fat = cached(ck, force, fetch_ch)
+            support = "native"
+            notice = ""
+
+        if items is None:
+            items = []
+        if not items and channels:
+            errors.append({"source": "youtube_browse", "code": "FETCH",
+                           "message": "채널 영상을 가져오지 못했어요"})
+        ranked = rank_items([_norm_item(plat, v) for v in items], sort_by, limit)
+        return {"platform": plat, "scope": scope, "sortBy": sort_by,
+                "support": support, "notice": notice,
+                "items": ranked, "accountsOrTags": accts,
+                "errors": errors, "fetchedAt": fat}
+
+    if scope == "tags":
+        storage_key = "youtube"  # shorts도 youtube 저장소 공유
+        tags_file, default_tags = TAG_SOURCES[storage_key]
+        queries = load_accounts(tags_file, default_tags)
+        accts = list(queries)
+    else:  # all
+        queries = [CATEGORIES[c] for c in ALL_MERGE]
+        accts = []
+
+    ck = ("rank", plat, scope, tuple(queries), period)
+
+    if sort_by == "likes":
+        base, _ = cached(ck, force,
+                         lambda: merge_yt_searches(queries, period, shorts))
+        if base is None:
+            base = []
+        items, fat = cached(ck + ("enrich",), force,
+                            lambda: enrich_likes(base))
+        support = "approx"
+        notice = "좋아요 수는 상위 45개만 개별 조회한 근사 순위예요"
+    else:
+        items, fat = cached(ck, force,
+                            lambda: merge_yt_searches(queries, period, shorts))
+        support = "native"
+        notice = ""
+
+    if items is None:
+        items = []
+    ranked = rank_items([_norm_item(plat, v) for v in items], sort_by, limit)
+    return {"platform": plat, "scope": scope, "sortBy": sort_by,
+            "support": support, "notice": notice,
+            "items": ranked, "accountsOrTags": accts,
+            "errors": errors, "fetchedAt": fat}
+
+
+def _rank_reels(scope, sort_by, period, limit, force):
+    """릴스 랭킹 어댑터."""
+    errors = []
+    # 쿠키 상태 점검 (메타 = 캐시 밖 매 호출 계산)
+    cookie = _current_ig_cookie()
+    if not cookie:
+        errors.append({"source": "ig_cookie", "code": "AUTH",
+                       "message": "인스타 세션 쿠키가 설정되지 않았어요"})
+    elif _ig_session and _ig_session.get("valid") is False:
+        errors.append({"source": "ig_cookie", "code": "AUTH",
+                       "message": "인스타 세션 쿠키가 만료됐을 수 있어요"})
+
+    if scope == "all":
+        # ① 등록태그 pool 병합 결과 top-N 근사 (③과 동일 소스)
+        tags_file, default_tags = TAG_SOURCES["reels"]
+        tags = load_accounts(tags_file, default_tags)
+        ck_all = ("rank", "reels", "tags", tuple(tags))
+        def fetch_all():
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                res = pool.map(fetch_ig_hashtag, tags)
+            return [r for chunk in res for r in chunk]
+        items, fat = cached(ck_all, force, fetch_all)
+        if items is None:
+            items = []
+        ranked = rank_items([_norm_item("reels", v) for v in items], sort_by, limit)
+        return {"platform": "reels", "scope": scope, "sortBy": sort_by,
+                "support": "approx",
+                "notice": "등록 태그 풀 내 상위 콘텐츠예요 (플랫폼 전체 아님)",
+                "items": ranked, "accountsOrTags": tags,
+                "errors": errors, "fetchedAt": fat}
+
+    if scope == "accounts":
+        accounts = load_accounts(ACCOUNTS_FILE, DEFAULT_IG_ACCOUNTS)
+        ck = ("rank", "reels", "accounts", tuple(accounts))
+        def fetch():
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                res = pool.map(fetch_ig_reels, accounts)
+            return [r for chunk in res for r in chunk]
+        items, fat = cached(ck, force, fetch)
+        support, notice, accts = "post", "", accounts
+    elif scope == "tags":
+        tags_file, default_tags = TAG_SOURCES["reels"]
+        tags = load_accounts(tags_file, default_tags)
+        ck = ("rank", "reels", "tags", tuple(tags))
+        def fetch():
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                res = pool.map(fetch_ig_hashtag, tags)
+            return [r for chunk in res for r in chunk]
+        items, fat = cached(ck, force, fetch)
+        support, notice, accts = "post", "", tags
+    else:
+        return _unsupported("reels", scope, sort_by, "알 수 없는 scope", errors)
+
+    if items is None:
+        items = []
+    ranked = rank_items([_norm_item("reels", v) for v in items], sort_by, limit)
+    return {"platform": "reels", "scope": scope, "sortBy": sort_by,
+            "support": support, "notice": notice,
+            "items": ranked, "accountsOrTags": accts,
+            "errors": errors, "fetchedAt": fat}
+
+
+def _rank_tiktok(scope, sort_by, period, limit, force):
+    """틱톡 랭킹 어댑터."""
+    errors = []
+
+    if scope == "all":
+        ck = ("rank", "tiktok", "all")
+        items, fat = cached(ck, force, fetch_tiktok_trending)
+        accts = []
+    elif scope == "accounts":
+        accounts = load_accounts(TIKTOK_ACCOUNTS_FILE, DEFAULT_TIKTOK_ACCOUNTS)
+        ck = ("rank", "tiktok", "accounts", tuple(accounts))
+        def fetch():
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                res = pool.map(fetch_tiktok_user, accounts)
+            merged, seen = [], set()
+            for chunk in res:
+                for p in chunk:
+                    if p["id"] and p["id"] not in seen:
+                        seen.add(p["id"])
+                        merged.append(p)
+            return merged
+        items, fat = cached(ck, force, fetch)
+        accts = accounts
+    elif scope == "tags":
+        tags_file, default_tags = TAG_SOURCES["tiktok"]
+        tags = load_accounts(tags_file, default_tags)
+        ck = ("rank", "tiktok", "tags", tuple(tags))
+        def fetch():
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                res = pool.map(fetch_tiktok_search, tags)
+            merged, seen = [], set()
+            for chunk in res:
+                for p in chunk:
+                    if p["id"] and p["id"] not in seen:
+                        seen.add(p["id"])
+                        merged.append(p)
+            return merged
+        items, fat = cached(ck, force, fetch)
+        accts = tags
+    else:
+        return _unsupported("tiktok", scope, sort_by, "알 수 없는 scope")
+
+    if items is None:
+        items = []
+    ranked = rank_items([_norm_item("tiktok", v) for v in items], sort_by, limit)
+    return {"platform": "tiktok", "scope": scope, "sortBy": sort_by,
+            "support": "post", "notice": "",
+            "items": ranked, "accountsOrTags": accts,
+            "errors": errors, "fetchedAt": fat}
+
+
+def filter_posts_by_tags(posts, tags):
+    """포스트 텍스트에서 #태그 매칭으로 필터링 (대소문자 무시)."""
+    if not tags:
+        return []
+    filtered = []
+    for p in posts:
+        text = p.get("text") or ""
+        for tag in tags:
+            if re.search(r"#%s\b" % re.escape(tag), text, re.I):
+                filtered.append(p)
+                break
+    return filtered
+
+
+def _rank_x(scope, sort_by, period, limit, force):
+    """X 랭킹 어댑터."""
+    errors = []
+
+    # ② 등록계정 pool fetch (all/accounts/tags 모두 이 pool을 소스로 사용)
+    accounts = load_accounts(X_ACCOUNTS_FILE, DEFAULT_X_ACCOUNTS)
+    ck = ("rank", "x", "accounts", tuple(accounts))
+    def fetch():
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            res = pool.map(fetch_x_posts, accounts)
+        return [p for chunk in res for p in chunk]
+    items, fat = cached(ck, force, fetch)
+
+    if items is None:
+        items = []
+
+    if scope == "tags":
+        # ③ 해시태그 후처리 근사
+        tags_file, default_tags = TAG_SOURCES["x"]
+        tags = load_accounts(tags_file, default_tags)
+        filtered = filter_posts_by_tags(items, tags)
+        ranked = rank_items([_norm_item("x", v) for v in filtered], sort_by, limit)
+        return {"platform": "x", "scope": scope, "sortBy": sort_by,
+                "support": "approx",
+                "notice": "텍스트 내 #해시태그 후처리 기반 근사치예요",
+                "items": ranked, "accountsOrTags": tags,
+                "errors": errors, "fetchedAt": fat}
+
+    if scope == "all":
+        # ① 등록계정 pool top-N 근사
+        ranked = rank_items([_norm_item("x", v) for v in items], sort_by, limit)
+        return {"platform": "x", "scope": scope, "sortBy": sort_by,
+                "support": "approx",
+                "notice": "등록 계정 풀 내 상위 콘텐츠예요 (플랫폼 전체 아님)",
+                "items": ranked, "accountsOrTags": accounts,
+                "errors": errors, "fetchedAt": fat}
+
+    # scope == "accounts" (②)
+    ranked = rank_items([_norm_item("x", v) for v in items], sort_by, limit)
+    return {"platform": "x", "scope": scope, "sortBy": sort_by,
+            "support": "post", "notice": "",
+            "items": ranked, "accountsOrTags": accounts,
+            "errors": errors, "fetchedAt": fat}
+
+
+def _rank_threads(scope, sort_by, period, limit, force):
+    """Threads 랭킹 어댑터."""
+    errors = []
+
+    if sort_by == "views":
+        return _unsupported("threads", scope, sort_by,
+                            "Threads는 조회수를 제공하지 않아 조회수 정렬을 지원할 수 없어요")
+
+    if scope == "tags":
+        return _unsupported("threads", scope, sort_by,
+                            "Threads 태그 랭킹은 지원할 수 없어요")
+
+    # ② 등록계정 pool fetch (accounts/all 모두 이 pool을 소스로 사용)
+    accounts = load_accounts(THREADS_ACCOUNTS_FILE, DEFAULT_THREADS_ACCOUNTS)
+    ck = ("rank", "threads", "accounts", tuple(accounts))
+    def fetch():
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            res = pool.map(fetch_threads_posts, accounts)
+        return [p for chunk in res for p in chunk]
+    items, fat = cached(ck, force, fetch)
+
+    if items is None:
+        items = []
+    ranked = rank_items([_norm_item("threads", v) for v in items], sort_by, limit)
+
+    if scope == "all":
+        # ① 등록계정 pool top-N 근사
+        return {"platform": "threads", "scope": scope, "sortBy": sort_by,
+                "support": "approx",
+                "notice": "등록 계정 풀 내 상위 콘텐츠예요 (플랫폼 전체 아님)",
+                "items": ranked, "accountsOrTags": accounts,
+                "errors": errors, "fetchedAt": fat}
+
+    # scope == "accounts" (②)
+    return {"platform": "threads", "scope": scope, "sortBy": sort_by,
+            "support": "post", "notice": "",
+            "items": ranked, "accountsOrTags": accounts,
+            "errors": errors, "fetchedAt": fat}
+
+
+PLATFORM_ADAPTERS = {
+    "youtube": lambda s, sb, p, l, f: _rank_yt(s, sb, p, l, f, shorts=False),
+    "shorts": lambda s, sb, p, l, f: _rank_yt(s, sb, p, l, f, shorts=True),
+    "reels": _rank_reels,
+    "tiktok": _rank_tiktok,
+    "x": _rank_x,
+    "threads": _rank_threads,
+}
+
+
+def get_ranked(platform, scope="all", sort_by="views", period="week",
+               limit=100, force=False):
+    """통합 랭킹 진입점 — PLATFORM_ADAPTERS 디스패치 → 응답 dict."""
+    adapter = PLATFORM_ADAPTERS.get(platform)
+    if not adapter:
+        return _unsupported(platform, scope, sort_by, "지원하지 않는 플랫폼이에요")
+    return adapter(scope, sort_by, period, limit, force)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("[%s] %s" % (time.strftime("%H:%M:%S"), fmt % args))
@@ -833,7 +1366,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": "unknown category"})
                 return
             videos, fetched_at = get_videos(category, period, shorts, force, enrich, query)
-            self._send(200, {"videos": videos[:60], "fetchedAt": fetched_at})
+            limit_raw = qs.get("limit", [None])[0]
+            cut = _clamp_limit(limit_raw) if limit_raw is not None else 60
+            self._send(200, {"videos": videos[:cut], "fetchedAt": fetched_at})
             return
 
         if parsed.path == "/api/categories":
@@ -862,23 +1397,46 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/reels":
             ig_tag = qs.get("tag", [""])[0].strip().lstrip("#")
             reels, accounts, fetched_at = get_reels(force, ig_tag)
-            self._send(200, {"reels": reels[:80], "accounts": accounts, "fetchedAt": fetched_at})
+            limit_raw = qs.get("limit", [None])[0]
+            cut = _clamp_limit(limit_raw) if limit_raw is not None else 80
+            self._send(200, {"reels": reels[:cut], "accounts": accounts, "fetchedAt": fetched_at})
             return
 
         if parsed.path == "/api/x":
             posts, accounts, fetched_at = get_x_posts(force)
+            limit_raw = qs.get("limit", [None])[0]
+            if limit_raw is not None:
+                posts = posts[:_clamp_limit(limit_raw)]
             self._send(200, {"posts": posts, "accounts": accounts, "fetchedAt": fetched_at})
             return
 
         if parsed.path == "/api/threads":
             posts, accounts, fetched_at = get_threads_posts(force)
+            limit_raw = qs.get("limit", [None])[0]
+            if limit_raw is not None:
+                posts = posts[:_clamp_limit(limit_raw)]
             self._send(200, {"posts": posts, "accounts": accounts, "fetchedAt": fetched_at})
             return
 
         if parsed.path == "/api/tiktok":
             tt_query = qs.get("q", [""])[0].strip()
             posts, accounts, fetched_at = get_tiktok(force, tt_query)
-            self._send(200, {"posts": posts[:100], "accounts": accounts, "fetchedAt": fetched_at})
+            limit_raw = qs.get("limit", [None])[0]
+            cut = _clamp_limit(limit_raw) if limit_raw is not None else 100
+            self._send(200, {"posts": posts[:cut], "accounts": accounts, "fetchedAt": fetched_at})
+            return
+
+        if parsed.path == "/api/rank":
+            platform = qs.get("platform", [""])[0]
+            scope = qs.get("scope", ["all"])[0]
+            sort_by = qs.get("sort", ["views"])[0]
+            period = qs.get("period", ["week"])[0]
+            limit = _clamp_limit(qs.get("limit", ["100"])[0])
+            if not platform:
+                self._send(400, {"error": "platform parameter required"})
+                return
+            self._send(200, get_ranked(platform, scope, sort_by, period,
+                                       limit, force))
             return
 
         if parsed.path == "/api/ai":
@@ -975,8 +1533,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "unknown action"})
             return
 
-        # /api/{reels|x|threads|tiktok}/accounts — 구독 계정 추가/삭제
-        m = re.match(r"^/api/(reels|x|threads|tiktok)/accounts$", parsed.path)
+        # /api/{platform}/(accounts|tags) — 구독 계정/태그 추가/삭제
+        m = re.match(r"^/api/(reels|x|threads|tiktok|youtube)/(accounts|tags)$", parsed.path)
         if m:
             # CSRF 방어: 브라우저는 POST에 항상 Origin을 붙이므로,
             # Origin이 없거나(비브라우저/구식) 허용 목록 밖이면 거부합니다.
@@ -985,24 +1543,43 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(403, {"error": "origin not allowed"})
                 return
             source = m.group(1)
-            path, defaults = ACCOUNT_SOURCES[source]
+            kind = m.group(2)  # "accounts" or "tags"
+            if kind == "tags":
+                if source not in TAG_SOURCES:
+                    self._send(400, {"error": "%s does not support tags" % source})
+                    return
+                path, defaults = TAG_SOURCES[source]
+            else:
+                if source not in ACCOUNT_SOURCES:
+                    self._send(400, {"error": "%s does not support accounts" % source})
+                    return
+                path, defaults = ACCOUNT_SOURCES[source]
             length = int(self.headers.get("Content-Length", 0))
             try:
                 req = json.loads(self.rfile.read(length).decode())
             except json.JSONDecodeError:
                 self._send(400, {"error": "invalid json"})
                 return
+            if not isinstance(req, dict):
+                self._send(400, {"error": "invalid request body"})
+                return
             action = req.get("action")
-            raw = (req.get("username") or "").strip().lstrip("@")
-            # X는 대소문자 보존, 인스타/스레드는 소문자
+            raw_val = req.get("username")
+            if not isinstance(raw_val, str) or len(raw_val) > 200:
+                self._send(400, {"error": "invalid username"})
+                return
+            raw = raw_val.strip().lstrip("@")
+            if kind == "tags":
+                raw = raw.lstrip("#")
+            # X는 대소문자 보존, 나머지는 소문자
             username = raw if source == "x" else raw.lower()
-            accounts = load_accounts(path, defaults)
-            if action == "add" and username and username not in accounts:
-                accounts.append(username)
-            elif action == "remove" and username in accounts:
-                accounts.remove(username)
-            save_accounts(path, accounts)
-            self._send(200, {"accounts": accounts})
+            entries = load_accounts(path, defaults)
+            if action == "add" and username and username not in entries:
+                entries.append(username)
+            elif action == "remove" and username in entries:
+                entries.remove(username)
+            save_accounts(path, entries)
+            self._send(200, {kind: entries})
             return
         self._send(404, {"error": "not found"})
 
