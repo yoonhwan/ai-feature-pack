@@ -8,6 +8,91 @@
   "install_time_minutes": 5,
   "requires_api_key": false,
   "requires_auth": false,
+  "commands": [],
+  "skill_surfaces": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "path": "skill/SKILL.md"
+    }
+  ],
+  "runtime_targets": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "target": "~/.claude/skills/fable-team/SKILL.md",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "support-files",
+      "source": "skill/",
+      "target": "~/.claude/skills/fable-team/",
+      "status": "installable"
+    },
+    {
+      "runtime": "codex-cli",
+      "kind": "policy-docs",
+      "source": "skill/",
+      "target": "policy/docs-only consumption (no executable parity)",
+      "status": "limited"
+    }
+  ],
+  "hook_adapters": [
+    {
+      "runtime": "claude-code",
+      "event": "context-distill-gate",
+      "path": "skill/templates/hooks/context-distill-gate.sh",
+      "mode": "template-only"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "context-hygiene-clean",
+      "path": "skill/templates/hooks/context-hygiene-clean.sh",
+      "mode": "template-only"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "orchestration-gate",
+      "path": "skill/templates/hooks/orchestration-gate.sh",
+      "mode": "template-only"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "orchestration-turn-reset",
+      "path": "skill/templates/hooks/orchestration-turn-reset.sh",
+      "mode": "template-only"
+    }
+  ],
+  "private_state_exclusions": [
+    ".fable-team",
+    ".gstack",
+    ".omc",
+    ".omo",
+    ".omx",
+    ".pytest_cache",
+    "__pycache__",
+    ".cache",
+    "cache",
+    "caches",
+    "log",
+    "logs",
+    "session",
+    "sessions",
+    "auth",
+    "token",
+    "tokens",
+    "settings",
+    "settings.json",
+    "hooks.json"
+  ],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md",
+    "docs/design-round-integrity.md",
+    "docs/design-ctx-management.md",
+    "docs/design-baton-cairn-integration.md"
+  ],
   "dependencies": {
     "required": ["claude-code>=2.1"],
     "optional": ["codex", "cursor-agent", "gemini", "agent-cli"]

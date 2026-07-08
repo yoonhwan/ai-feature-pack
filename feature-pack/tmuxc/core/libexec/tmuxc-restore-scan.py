@@ -324,6 +324,12 @@ def scan_codex(since):
         pay = meta.get("payload") or {}
         sid = pay.get("session_id") or pay.get("id") or ""
         cwd = pay.get("cwd", "")
+        # 헤드리스 판별은 thread_name 유무가 아니라 session_meta.source가 정본:
+        # exec=codex exec 헤드리스(DA 등), dict=subagent 스폰 — 복구 대상 아님.
+        # cli=대화형(익명 가능), source 부재=구버전 → 후보 유지.
+        src = pay.get("source")
+        if src == "exec" or isinstance(src, dict):
+            continue
         last = None
         for line in reversed(tail_lines(path, 20)):
             m = TS_RE.search(line)
@@ -341,7 +347,13 @@ def scan_codex(since):
             continue
         name = (entry.get("thread_name") or "").strip()
         if not name:
-            continue  # 헤드리스/자동 (인덱스에 이름 없는 세션)
+            # 익명 대화형 세션 — 재부팅 직전 쓰던 세션일 수 있어 제외하면 안 됨.
+            # dedupe()가 (agent, name)으로 키를 잡으므로 앞 8자만 쓰면 prefix가
+            # 같은 다른 세션이 충돌해 소실된다(DA 5차 실증: 익명 세션 99개 중 충돌 2쌍).
+            # sid 전체를 이름에 넣어 충돌 자체를 없앤다.
+            name = f"codex-{sid}" if sid else ""
+        if not name:
+            continue  # sid조차 없는 손상 메타
         users = codex_user_msgs(path)
         if not users:
             continue

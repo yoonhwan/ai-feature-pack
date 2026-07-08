@@ -1,0 +1,13 @@
+{
+  "include": ["hooks/runners/*.py"],
+  "reportAny": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownVariableType": "none",
+  "typeCheckingMode": "strict",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["."]
+    }
+  ]
+}

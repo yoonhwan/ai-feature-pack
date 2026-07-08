@@ -28,3 +28,12 @@ projects:
               fable-team:/Users/yoonhwan/Project/ai-feature-pack/.worktrees/daily-trend-viewer/.fable-team/state/ACTIVE
             finished_at: '2026-07-07'
             forced_complete: true
+          - id: t2
+            name: ft-daily-trend-ranking-generalize
+            status: todo
+            start: '2026-07-08'
+            due: '2026-07-08'
+            depends_on: []
+            assignees: []
+            reporters: []
+            watchers: []

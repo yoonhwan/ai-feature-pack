@@ -73,7 +73,7 @@ OpenCode 모델은 설치된 provider/model 만 유효(예: `opencode/deepseek-v
 3. **결과 파싱** — JSON에서 `session_id` + 결과(claude=`result`, gemini=`response`) 추출. 첫 `{`부터 `json.loads(raw, strict=False)`.
 4. **resume 체인** — 후속 라운드는 sid(codex는 `--last`)로 이어가기. 비대화로 다회 Q&A·HIL·점진 결정 가능.
 
-다회전 체인은 `scripts/resume_chain.sh <cli> <persona> "<round1>" ["<round2>" ...]` 로 자동화.
+다회전 체인은 `scripts/resume_chain.sh <cli> <persona> "<round1>" ["<round2>" ...]` 로 자동화. Claude lane은 `CLAUDE_MODEL`, `CLAUDE_EFFORT` 환경변수로 모델과 effort를 고정할 수 있다.
 
 ### 예시 — DA 적대검증 1패스 (codex)
 

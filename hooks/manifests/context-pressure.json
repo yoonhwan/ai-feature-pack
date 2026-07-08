@@ -1,0 +1,69 @@
+{
+  "name": "context-pressure",
+  "version": 1,
+  "description": "Cross-agent context pressure warning scaffold. Warns at consumed-context boundaries and recommends rollover or fanout commands without executing them.",
+  "safety_class": "warn-only",
+  "measurement": "consumed_context_percent",
+  "runner": "runners/context-pressure.sh",
+  "support_files": [
+    "runners/context_pressure.py"
+  ],
+  "recommended_commands": [
+    {
+      "name": "session-rollover",
+      "aliases": ["세션증류", "증류", "세션만들기", "신규세션"],
+      "availability": "pending-implementation"
+    },
+    {
+      "name": "session-fanout",
+      "aliases": ["분리"],
+      "availability": "pending-implementation"
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "boundary",
+      "consumed_context_percent": { "min": 30, "max": 40 },
+      "summary": "Boundary warning and next-session preparation hint.",
+      "message": "컨텍스트 사용량이 30~40% 구간입니다. 다음 경계에서 세션 전환 준비를 시작하세요.",
+      "recommendation": "baton save 준비와 다음 세션 인덱스 점검"
+    },
+    {
+      "id": "warning",
+      "consumed_context_percent": { "min": 60, "max": 70 },
+      "summary": "Stronger warning and rollover recommendation.",
+      "message": "컨텍스트 사용량이 60~70% 구간입니다. 세션 증류 또는 팬아웃 시점을 결정하세요.",
+      "recommendation": "사용자 요청 시 세션증류/증류 또는 분리 실행"
+    }
+  ],
+  "runtime_hooks": [
+    {
+      "runtime": "claude-code",
+      "event": "UserPromptSubmit",
+      "adapter": "claude-context-pressure.sh",
+      "level": "boundary",
+      "status_message": "(context-pressure) Boundary guidance"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "UserPromptSubmit",
+      "adapter": "claude-context-pressure.sh",
+      "level": "warning",
+      "status_message": "(context-pressure) Rollover recommendation"
+    },
+    {
+      "runtime": "codex-cli",
+      "event": "UserPromptSubmit",
+      "adapter": "codex-context-pressure.sh",
+      "level": "boundary",
+      "status_message": "(context-pressure) Boundary guidance"
+    },
+    {
+      "runtime": "codex-cli",
+      "event": "UserPromptSubmit",
+      "adapter": "codex-context-pressure.sh",
+      "level": "warning",
+      "status_message": "(context-pressure) Rollover recommendation"
+    }
+  ]
+}

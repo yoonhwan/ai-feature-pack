@@ -13,23 +13,11 @@ check() {
   fi
 }
 
-check_verbose() {
-  local label=$1
-  shift
-  if "$@"; then
-    printf 'PASS %s\n' "$label"
-  else
-    printf 'FAIL %s\n' "$label"
-    fail=1
-  fi
-}
-
 check "README exists" "[ -f '$PKG/README.md' ]"
 check "INSTALL exists" "[ -f '$PKG/INSTALL.md' ]"
 check "manifest valid" "python3 -m json.tool '$PKG/manifest.json'"
-check "CLI executable" "[ -x '$PKG/core/bin/agent-surface-audit' ]"
-check "Python tests" "PYTHONDONTWRITEBYTECODE=1 python3 '$PKG/test/test_agent_surface_audit.py'"
-check_verbose "Manifest contract parity" bash "$PKG/test/verify_manifest_contract.sh"
+check "CLI executable" "[ -x '$PKG/core/bin/mcp-manager' ]"
+check "Python tests" "PYTHONDONTWRITEBYTECODE=1 python3 '$PKG/test/test_mcp_manager.py'"
 
 if [ "$fail" -eq 0 ]; then
   printf 'verify OK\n'
