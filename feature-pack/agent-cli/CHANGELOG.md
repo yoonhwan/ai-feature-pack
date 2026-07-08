@@ -1,5 +1,17 @@
 # agent-cli — Changelog
 
+## Unreleased (2026-07-07) — Claude review lane pinning
+
+기획/구현 검토를 `resume_chain.sh` 기반 DA 루프로 돌릴 때 Claude 브레인 고정을 명시적으로 제어할 수 있게 보강.
+
+### ✨ Added
+- `resume_chain.sh` Claude lane에 `CLAUDE_MODEL`, `CLAUDE_EFFORT` 환경변수 전달 지원 추가. 첫 호출과 `--resume` 호출 모두 동일하게 적용.
+
+### 🔧 Changed
+- `manifest.json`을 canonical source-surface contract(`commands`, `skill_surfaces`, `runtime_targets`, `hook_adapters`, `private_state_exclusions`, `public_docs`)로 정규화하고 legacy `cli_*` 메타데이터는 additive로 유지.
+- `README.md`, `INSTALL.md`에 `claude-fable-5` + high effort 예시를 추가하고, `SKILL.md`에는 `CLAUDE_MODEL`/`CLAUDE_EFFORT` 고정 지원 문구를 보강.
+- Claude 응답에서 `session_id`를 추출하지 못하면 후속 라운드가 새 세션으로 열릴 수 있음을 stderr 경고로 노출.
+
 ## v2.1.0 (2026-06-16) — WSL/Linux 지원
 
 WSL 사용자 문의 폭주 대응. macOS 편중이던 설치·경로를 cross-platform으로 보강.

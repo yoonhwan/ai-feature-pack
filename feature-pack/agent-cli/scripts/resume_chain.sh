@@ -3,7 +3,7 @@
 # Usage: resume_chain.sh <cli> <persona|-> "<round1>" ["<round2>" ...]
 #   cli:     claude | codex | gemini | opencode | cursor-agent
 #   persona: DA | designer | architect | -(없음)   (references/personas.md에서 로드)
-# 환경: OPENCODE_MODEL(기본 opencode/deepseek-v4-flash-free) · CROSS_CLI_TIMEOUT(초, 기본 150)
+# 환경: OPENCODE_MODEL(기본 opencode/deepseek-v4-flash-free) · CLAUDE_MODEL · CLAUDE_EFFORT · CROSS_CLI_TIMEOUT(초, 기본 150)
 # 주의: 자동주행 플래그 사용 — 격리/신뢰 워크스페이스에서만 실행.
 set -uo pipefail
 exec </dev/null
@@ -14,6 +14,8 @@ CLI="${1:?usage: resume_chain.sh <cli> <persona|-> <round1> [round2 ...]}"
 PERSONA="${2:?persona name or -}"; shift 2
 [ $# -ge 1 ] || { echo "라운드 프롬프트가 최소 1개 필요합니다." >&2; exit 1; }
 OPENCODE_MODEL="${OPENCODE_MODEL:-opencode/deepseek-v4-flash-free}"
+CLAUDE_MODEL="${CLAUDE_MODEL:-}"
+CLAUDE_EFFORT="${CLAUDE_EFFORT:-}"
 TIMEOUT_S="${CROSS_CLI_TIMEOUT:-150}"
 
 command -v "$CLI" >/dev/null 2>&1 || { echo "PATH에 '$CLI' 없음" >&2; exit 127; }
@@ -45,12 +47,22 @@ $PROMPT"; else FULL="$PROMPT"; fi
   echo "── round $n ($CLI) ──" >&2
   case "$CLI" in
     claude)
+      CLAUDE_ARGS=(--dangerously-skip-permissions --output-format json)
+      if [ -n "$CLAUDE_MODEL" ]; then
+        CLAUDE_ARGS=(--model "$CLAUDE_MODEL" "${CLAUDE_ARGS[@]}")
+      fi
+      if [ -n "$CLAUDE_EFFORT" ]; then
+        CLAUDE_ARGS=(--effort "$CLAUDE_EFFORT" "${CLAUDE_ARGS[@]}")
+      fi
       if [ -z "$SID" ]; then
         if [ -n "$P" ]; then PA=(--append-system-prompt "$P"); else PA=(); fi
-        run_to claude -p "$PROMPT" "${PA[@]}" --dangerously-skip-permissions --output-format json >"$TMP/r$n.json"
+        run_to claude -p "$PROMPT" "${PA[@]}" "${CLAUDE_ARGS[@]}" >"$TMP/r$n.json"
         SID=$(sid_json "$TMP/r$n.json")
+        if [ -z "$SID" ]; then
+          echo "WARN: claude session_id 추출 실패. 이후 라운드는 새 세션으로 시작될 수 있습니다." >&2
+        fi
       else
-        run_to claude -p "$PROMPT" --resume "$SID" --dangerously-skip-permissions --output-format json >"$TMP/r$n.json"
+        run_to claude -p "$PROMPT" --resume "$SID" "${CLAUDE_ARGS[@]}" >"$TMP/r$n.json"
       fi
       res_key "$TMP/r$n.json" ;;
     codex)
