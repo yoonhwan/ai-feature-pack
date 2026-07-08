@@ -14,6 +14,13 @@
         ]
       }
     ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/teammate-idle-gc.sh", "timeout": 10000 }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
