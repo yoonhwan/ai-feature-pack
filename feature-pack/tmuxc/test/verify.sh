@@ -100,9 +100,10 @@ printf '%s\n' "$OUT2" | awk -F$'\x1f' '$2 ~ /^A-B#9.*-2$/' | grep -q . || {
 [ "$(printf '%s\n' "$OUT2" | awk -F$'\x1f' '{print $2}' | sort | uniq -d | wc -l)" -eq 0 ] || {
   echo 'FIXTURE FAIL: duplicate tmux names in collapse output'; printf '%s\n' "$OUT2"; exit 1; }
 
-# 익명 codex 대화형 세션 fallback (fix/tmuxc-codex-anon-fallback, ac56819):
+# 익명 codex 대화형 세션 fallback (fix/tmuxc-codex-anon-fallback, ac56819 + DA 5차 수정):
 # source 필드로 헤드리스(exec)/서브에이전트(dict)를 제외하고, thread_name 없는
-# cli(익명) 세션은 codex-{sid앞8자}로 fallback 이름을 받아 후보에 남아야 한다.
+# cli(익명) 세션은 codex-{sid 전체}로 fallback 이름을 받아 후보에 남아야 한다
+# (DA 5차: sid 앞 8자만 쓰면 prefix 충돌 시 dedupe()에서 세션이 소실되는 버그 실증 → sid 전체로 수정).
 # 기존 codex fixture(위 DUP#1/A-B#9)는 source 필드가 없는 구버전 형태로,
 # 이 블록 이후에도 여전히 생존해야 한다(후방호환).
 printf '{"type":"session_meta","payload":{"session_id":"aaaa0010-0000-0000-0000-000000000010","cwd":"%s","source":"cli"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"익명 cli 세션"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
@@ -111,10 +112,18 @@ printf '{"type":"session_meta","payload":{"session_id":"aaaa0011-0000-0000-0000-
   > "$FIX/codex/2026/01/01/rollout-x-aaaa0011-0000-0000-0000-000000000011.jsonl"
 printf '{"type":"session_meta","payload":{"session_id":"aaaa0012-0000-0000-0000-000000000012","cwd":"%s","source":{"type":"subagent","id":"z"}},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"서브에이전트 세션"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
   > "$FIX/codex/2026/01/01/rollout-x-aaaa0012-0000-0000-0000-000000000012.jsonl"
+# ⑤ sid 앞 8자 충돌: 서로 다른 두 익명 세션이 같은 prefix(bbbb0020)를 공유 — 둘 다 생존해야 함
+printf '{"type":"session_meta","payload":{"session_id":"bbbb0020-1111-0000-0000-000000000020","cwd":"%s","source":"cli"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"충돌 세션 A"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-bbbb0020-1111-0000-0000-000000000020.jsonl"
+printf '{"type":"session_meta","payload":{"session_id":"bbbb0020-2222-0000-0000-000000000021","cwd":"%s","source":"cli"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"충돌 세션 B"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-bbbb0020-2222-0000-0000-000000000021.jsonl"
+# ⑥ source:"unknown" (exec도 dict도 아닌 미지 문자열) — fail-safe로 후보에 남아야 함(계약 명시)
+printf '{"type":"session_meta","payload":{"session_id":"cccc0030-0000-0000-0000-000000000030","cwd":"%s","source":"unknown"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"미지 source 세션"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-cccc0030-0000-0000-0000-000000000030.jsonl"
 OUT3="$(scan_fixture)"
-# ① thread_name 없는 cli 세션 → codex-{sid앞8자} fallback 이름으로 생존
-printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $2=="codex-aaaa0010"' | grep -q . || {
-  echo 'FIXTURE FAIL: anonymous cli session must get codex-{sid8} fallback name'; printf '%s\n' "$OUT3"; exit 1; }
+# ① thread_name 없는 cli 세션 → codex-{sid 전체} fallback 이름으로 생존
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $2=="codex-aaaa0010-0000-0000-0000-000000000010"' | grep -q . || {
+  echo 'FIXTURE FAIL: anonymous cli session must get codex-{sid} fallback name'; printf '%s\n' "$OUT3"; exit 1; }
 # ② source:"exec" (헤드리스) → 후보에서 완전 제외
 printf '%s\n' "$OUT3" | awk -F$'\x1f' '$6 ~ /^aaaa0011/' | grep -q . && {
   echo 'FIXTURE FAIL: source=exec session must be excluded'; printf '%s\n' "$OUT3"; exit 1; }
@@ -124,5 +133,13 @@ printf '%s\n' "$OUT3" | awk -F$'\x1f' '$6 ~ /^aaaa0012/' | grep -q . && {
 # 후방호환: source 필드 없는 구버전 codex fixture(DUP#1, A-B#9)가 여전히 생존
 printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $2 ~ /^DUP#1/' | grep -q . || {
   echo 'FIXTURE FAIL: legacy codex fixture without source field must still survive'; printf '%s\n' "$OUT3"; exit 1; }
+# ⑤ sid8 충돌 두 세션 모두 생존(고유 이름) — DA 5차 회귀 방지
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $6=="bbbb0020-1111-0000-0000-000000000020"' | grep -q . || {
+  echo 'FIXTURE FAIL: sid8-collision session A must survive'; printf '%s\n' "$OUT3"; exit 1; }
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $6=="bbbb0020-2222-0000-0000-000000000021"' | grep -q . || {
+  echo 'FIXTURE FAIL: sid8-collision session B must survive (was dropped by dedupe before fix)'; printf '%s\n' "$OUT3"; exit 1; }
+# ⑥ source:"unknown" → fail-safe로 생존해야 함(exec/dict만 명시 제외 계약)
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $6=="cccc0030-0000-0000-0000-000000000030"' | grep -q . || {
+  echo 'FIXTURE FAIL: source=unknown session must survive (only exec/dict are excluded by contract)'; printf '%s\n' "$OUT3"; exit 1; }
 
 echo "tmuxc verify OK"

@@ -348,8 +348,10 @@ def scan_codex(since):
         name = (entry.get("thread_name") or "").strip()
         if not name:
             # 익명 대화형 세션 — 재부팅 직전 쓰던 세션일 수 있어 제외하면 안 됨.
-            # session_id 앞 8자로 fallback 이름 생성 (요약이 첫 user 텍스트를 보여줌)
-            name = f"codex-{sid[:8]}" if sid else ""
+            # dedupe()가 (agent, name)으로 키를 잡으므로 앞 8자만 쓰면 prefix가
+            # 같은 다른 세션이 충돌해 소실된다(DA 5차 실증: 익명 세션 99개 중 충돌 2쌍).
+            # sid 전체를 이름에 넣어 충돌 자체를 없앤다.
+            name = f"codex-{sid}" if sid else ""
         if not name:
             continue  # sid조차 없는 손상 메타
         users = codex_user_msgs(path)
