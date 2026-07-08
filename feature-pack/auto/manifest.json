@@ -15,6 +15,66 @@
   "has_obsidian": false,
   "has_cron": false,
   "install_time_minutes": 2,
+  "commands": [],
+  "skill_surfaces": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "path": "skill/SKILL.md"
+    }
+  ],
+  "runtime_targets": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "target": "~/.claude/skills/auto/SKILL.md",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "support-files",
+      "source": "skill/references/",
+      "target": "~/.claude/skills/auto/references/",
+      "status": "installable"
+    },
+    {
+      "runtime": "project",
+      "kind": "template-copy",
+      "source": "config/templates/",
+      "target": "autoresearch/",
+      "status": "installable"
+    }
+  ],
+  "hook_adapters": [],
+  "private_state_exclusions": [
+    ".venv",
+    ".omc",
+    ".omo",
+    ".omx",
+    ".pytest_cache",
+    "__pycache__",
+    ".cache",
+    "cache",
+    "caches",
+    "log",
+    "logs",
+    "session",
+    "sessions",
+    "auth",
+    "token",
+    "tokens",
+    "settings",
+    "settings.json",
+    "hooks.json",
+    "results.tsv",
+    "run.log",
+    "upstream"
+  ],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md",
+    "test/verify.md"
+  ],
   "cli_name": null,
   "cli_package": null,
   "cli_install_method": "skill copy + templates"
