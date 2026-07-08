@@ -100,4 +100,29 @@ printf '%s\n' "$OUT2" | awk -F$'\x1f' '$2 ~ /^A-B#9.*-2$/' | grep -q . || {
 [ "$(printf '%s\n' "$OUT2" | awk -F$'\x1f' '{print $2}' | sort | uniq -d | wc -l)" -eq 0 ] || {
   echo 'FIXTURE FAIL: duplicate tmux names in collapse output'; printf '%s\n' "$OUT2"; exit 1; }
 
+# 익명 codex 대화형 세션 fallback (fix/tmuxc-codex-anon-fallback, ac56819):
+# source 필드로 헤드리스(exec)/서브에이전트(dict)를 제외하고, thread_name 없는
+# cli(익명) 세션은 codex-{sid앞8자}로 fallback 이름을 받아 후보에 남아야 한다.
+# 기존 codex fixture(위 DUP#1/A-B#9)는 source 필드가 없는 구버전 형태로,
+# 이 블록 이후에도 여전히 생존해야 한다(후방호환).
+printf '{"type":"session_meta","payload":{"session_id":"aaaa0010-0000-0000-0000-000000000010","cwd":"%s","source":"cli"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"익명 cli 세션"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-aaaa0010-0000-0000-0000-000000000010.jsonl"
+printf '{"type":"session_meta","payload":{"session_id":"aaaa0011-0000-0000-0000-000000000011","cwd":"%s","source":"exec"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"헤드리스 exec 세션"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-aaaa0011-0000-0000-0000-000000000011.jsonl"
+printf '{"type":"session_meta","payload":{"session_id":"aaaa0012-0000-0000-0000-000000000012","cwd":"%s","source":{"type":"subagent","id":"z"}},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"서브에이전트 세션"}]},"timestamp":"%s"}\n' "$FIX" "$NOW" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-aaaa0012-0000-0000-0000-000000000012.jsonl"
+OUT3="$(scan_fixture)"
+# ① thread_name 없는 cli 세션 → codex-{sid앞8자} fallback 이름으로 생존
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $2=="codex-aaaa0010"' | grep -q . || {
+  echo 'FIXTURE FAIL: anonymous cli session must get codex-{sid8} fallback name'; printf '%s\n' "$OUT3"; exit 1; }
+# ② source:"exec" (헤드리스) → 후보에서 완전 제외
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$6 ~ /^aaaa0011/' | grep -q . && {
+  echo 'FIXTURE FAIL: source=exec session must be excluded'; printf '%s\n' "$OUT3"; exit 1; }
+# ③ source가 dict(서브에이전트 스폰) → 후보에서 완전 제외
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$6 ~ /^aaaa0012/' | grep -q . && {
+  echo 'FIXTURE FAIL: source=dict (subagent) session must be excluded'; printf '%s\n' "$OUT3"; exit 1; }
+# 후방호환: source 필드 없는 구버전 codex fixture(DUP#1, A-B#9)가 여전히 생존
+printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $2 ~ /^DUP#1/' | grep -q . || {
+  echo 'FIXTURE FAIL: legacy codex fixture without source field must still survive'; printf '%s\n' "$OUT3"; exit 1; }
+
 echo "tmuxc verify OK"
