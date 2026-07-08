@@ -11,6 +11,146 @@
   "install_time_minutes": 3,
   "requires_api_key": false,
   "requires_auth": false,
+  "commands": [
+    {
+      "name": "baton",
+      "kind": "cli-binary",
+      "path": "core/bin/baton"
+    },
+    {
+      "name": "baton",
+      "runtime": "claude-code",
+      "kind": "slash-command-pack",
+      "path": "claude-code/commands/baton/"
+    }
+  ],
+  "skill_surfaces": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "path": "claude-code/skills/baton/SKILL.md"
+    }
+  ],
+  "runtime_targets": [
+    {
+      "runtime": "claude-code",
+      "kind": "commands",
+      "target": "~/.claude/commands/baton/",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "target": "~/.claude/skills/baton/SKILL.md",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "hook-config",
+      "target": "~/.claude/settings.json",
+      "status": "limited"
+    },
+    {
+      "runtime": "codex-cli",
+      "kind": "instructions",
+      "source": "adapters/codex/INSTRUCTIONS.md",
+      "target": "~/.codex/baton/INSTRUCTIONS.md",
+      "status": "installable"
+    },
+    {
+      "runtime": "gemini-cli",
+      "kind": "instructions",
+      "source": "adapters/gemini/INSTRUCTIONS.md",
+      "target": "manual Gemini integration",
+      "status": "limited"
+    },
+    {
+      "runtime": "opencode",
+      "kind": "instructions",
+      "source": "adapters/opencode/INSTRUCTIONS.md",
+      "target": "manual OpenCode integration",
+      "status": "limited"
+    },
+    {
+      "runtime": "hermes",
+      "kind": "plugin",
+      "source": "adapters/hermes/baton.py",
+      "target": "~/.hermes/plugins/baton.py",
+      "status": "installable"
+    },
+    {
+      "runtime": "hermes",
+      "kind": "install-doc",
+      "source": "adapters/hermes/INSTALL.md",
+      "target": "manual Hermes integration",
+      "status": "limited"
+    }
+  ],
+  "hook_adapters": [
+    {
+      "runtime": "claude-code",
+      "event": "post-tool-use",
+      "path": "claude-code/hooks/post-tool-use.sh",
+      "mode": "direct-install"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "pre-compact",
+      "path": "claude-code/hooks/pre-compact.sh",
+      "mode": "direct-install"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "session-end",
+      "path": "claude-code/hooks/session-end.sh",
+      "mode": "direct-install"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "session-start",
+      "path": "claude-code/hooks/session-start.sh",
+      "mode": "direct-install"
+    },
+    {
+      "runtime": "claude-code",
+      "event": "user-prompt-submit",
+      "path": "claude-code/hooks/user-prompt-submit.sh",
+      "mode": "direct-install"
+    }
+  ],
+  "private_state_exclusions": [
+    ".baton",
+    ".omc",
+    ".omo",
+    ".omx",
+    ".pytest_cache",
+    "__pycache__",
+    ".cache",
+    "cache",
+    "caches",
+    "log",
+    "logs",
+    "session",
+    "sessions",
+    "auth",
+    "token",
+    "tokens",
+    "settings",
+    "settings.json",
+    "hooks.json",
+    "archive"
+  ],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md",
+    "core/SPEC.md",
+    "docs/MULTI_AGENT_SCENARIOS.md",
+    "docs/upgrade-session-handoff.md",
+    "adapters/codex/INSTRUCTIONS.md",
+    "adapters/gemini/INSTRUCTIONS.md",
+    "adapters/opencode/INSTRUCTIONS.md",
+    "adapters/hermes/INSTALL.md"
+  ],
   "dependencies": {
     "required": [
       "bash>=4",

@@ -8,6 +8,116 @@
   "install_time_minutes": 2,
   "requires_api_key": false,
   "requires_auth": false,
+  "commands": [
+    {
+      "name": "cairn",
+      "kind": "cli-binary",
+      "path": "core/bin/cairn"
+    },
+    {
+      "name": "cairn",
+      "runtime": "claude-code",
+      "kind": "slash-command-pack",
+      "path": "claude-code/commands/cairn/"
+    }
+  ],
+  "skill_surfaces": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "path": "claude-code/skills/cairn/SKILL.md"
+    }
+  ],
+  "runtime_targets": [
+    {
+      "runtime": "claude-code",
+      "kind": "commands",
+      "target": "~/.claude/commands/cairn/",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "target": "~/.claude/skills/cairn/SKILL.md",
+      "status": "installable"
+    },
+    {
+      "runtime": "cairn-runtime",
+      "kind": "hook-script",
+      "source": "claude-code/hooks/cairn-auto-progress",
+      "target": "~/.cairn/current/hooks/cairn-auto-progress",
+      "status": "installable"
+    },
+    {
+      "runtime": "git",
+      "kind": "hook",
+      "source": "claude-code/hooks/post-merge",
+      "target": ".git/hooks/post-merge",
+      "status": "limited"
+    },
+    {
+      "runtime": "git",
+      "kind": "hook",
+      "source": "claude-code/hooks/post-checkout",
+      "target": ".git/hooks/post-checkout",
+      "status": "limited"
+    },
+    {
+      "runtime": "codex-cli",
+      "kind": "execution",
+      "target": "shell/tmuxc-driven cairn CLI invocation only; no package-owned Codex skill surface",
+      "status": "intent-only"
+    }
+  ],
+  "hook_adapters": [
+    {
+      "runtime": "cairn-runtime",
+      "event": "cairn-auto-progress",
+      "path": "claude-code/hooks/cairn-auto-progress",
+      "mode": "direct-install"
+    },
+    {
+      "runtime": "git",
+      "event": "post-checkout",
+      "path": "claude-code/hooks/post-checkout",
+      "mode": "direct-install"
+    },
+    {
+      "runtime": "git",
+      "event": "post-merge",
+      "path": "claude-code/hooks/post-merge",
+      "mode": "direct-install"
+    }
+  ],
+  "private_state_exclusions": [
+    ".cairn",
+    ".omc",
+    ".omo",
+    ".omx",
+    ".pytest_cache",
+    "__pycache__",
+    ".cache",
+    "cache",
+    "caches",
+    "log",
+    "logs",
+    "session",
+    "sessions",
+    "auth",
+    "token",
+    "tokens",
+    "settings",
+    "settings.json",
+    "hooks.json",
+    "candidates"
+  ],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md",
+    "docs/cairn-design.md",
+    "docs/agent-lifecycle-hook-design.md",
+    "docs/MIGRATION-PLAN.md"
+  ],
   "dependencies": {
     "required": ["python3>=3.9", "git>=2.30"],
     "pip": ["ruamel.yaml"],
