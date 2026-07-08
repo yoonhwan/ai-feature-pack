@@ -1,2 +1,30 @@
 version: 2
-projects: []
+projects:
+  - id: ai-feature-pack
+    name: ai-feature-pack
+    status: planned
+    owner:
+    priority: medium
+    goal: ''
+    milestones:
+      - id: ms1
+        name: features
+        status: planned
+        start:
+        end:
+        depends_on: []
+        tasks:
+          - id: t1
+            name: ft-daily-trend-viewer
+            status: done
+            start: '2026-07-07'
+            due: '2026-07-07'
+            depends_on: []
+            assignees: []
+            reporters: []
+            watchers: []
+            execution_ref: feat/daily-trend-viewer
+            session_ref: 
+              fable-team:/Users/yoonhwan/Project/ai-feature-pack/.worktrees/daily-trend-viewer/.fable-team/state/ACTIVE
+            finished_at: '2026-07-07'
+            forced_complete: true

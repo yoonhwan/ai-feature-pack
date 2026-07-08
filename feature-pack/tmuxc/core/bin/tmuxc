@@ -15,6 +15,7 @@ Usage:
   tmuxc msg <name> <message>
   tmuxc kill <name>
   tmuxc clean
+  tmuxc restore [--since HOURS] [--agent claude|codex|all] [--select 1,3,5|all|claude|codex] [--baton] [--loose] [--go]
 
 Defaults:
   agent: ${TMUXC_AGENT:-claude}
@@ -242,6 +243,189 @@ cmd_clean() {
   done < <(tmux list-panes -a -F '#S	#{pane_current_command}' 2>/dev/null || true)
 }
 
+# ---------- UC11: tmux 서버 사망 복원 (restore) ----------
+
+restore_scan_py() {
+  local self
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  printf '%s/../libexec/tmuxc-restore-scan.py' "$(dirname "$self")"
+}
+
+# 행 배열 (스캐너 TSV와 1:1)
+R_AGENT=() R_NAME=() R_CWD=() R_MODEL=() R_ROUTE=() R_SID=() R_TS=() R_STATUS=() R_SUMMARY=()
+
+restore_load_rows() {
+  local since="$1" agent_filter="$2" loose="$3"
+  local scan_py extra=()
+  scan_py="$(restore_scan_py)"
+  [[ -f "$scan_py" ]] || die "scan engine not found: $scan_py"
+  [[ "$loose" -eq 1 ]] && extra+=(--loose)
+  # 구분자 0x1f: 탭은 IFS whitespace라 빈 중간 필드(cwd="")가 collapse되어 필드가 밀림
+  local a n c m r s t st sum
+  while IFS=$'\x1f' read -r a n c m r s t st sum; do
+    [[ -n "$a" ]] || continue
+    R_AGENT+=("$a"); R_NAME+=("$n"); R_CWD+=("$c"); R_MODEL+=("$m")
+    R_ROUTE+=("$r"); R_SID+=("$s"); R_TS+=("$t"); R_STATUS+=("$st"); R_SUMMARY+=("$sum")
+  done < <(python3 "$scan_py" --since "$since" --agent "$agent_filter" "${extra[@]+"${extra[@]}"}")
+}
+
+restore_cmd_for() {
+  local i="$1" baton="$2"
+  local agent="${R_AGENT[$i]}" name="${R_NAME[$i]}" route="${R_ROUTE[$i]}" sid="${R_SID[$i]}"
+  if [[ "$agent" == "codex" ]]; then
+    printf 'codex resume %s --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"' "$sid"
+    return 0
+  fi
+  local body
+  body="$(resolve_zsh_alias_chain "$route" || true)"
+  [[ -n "$body" ]] || return 1
+  if [[ "$baton" -eq 1 ]]; then
+    printf '%s --name %q --remote-control %q' "$body" "$name" "$name"
+  else
+    printf '%s --resume %s --name %q --remote-control %q' "$body" "$sid" "$name" "$name"
+  fi
+}
+
+restore_print_table() {
+  local i
+  printf '\n복구 후보 (%d개 — 최신순)\n' "${#R_NAME[@]}"
+  printf '%-3s %-7s %-24s %-20s %-5s %-7s %s\n' '#' agent 세션명 모델 route 상태 요약
+  for i in "${!R_NAME[@]}"; do
+    printf '%-3s %-7s %-24s %-20s %-5s %-7s %s\n' \
+      "$((i + 1))" "${R_AGENT[$i]}" "${R_NAME[$i]}" "${R_MODEL[$i]}" "${R_ROUTE[$i]}" "${R_STATUS[$i]}" "${R_SUMMARY[$i]}"
+    printf '    cwd=%s\n' "${R_CWD[$i]}"
+    printf '    cmd=%s\n' "$(restore_cmd_for "$i" 0 || printf '(alias %s 미해석 — 복구 불가)' "${R_ROUTE[$i]}")"
+  done
+}
+
+restore_expand_select() {
+  local spec="$1" i
+  case "$spec" in
+    all)    for i in "${!R_NAME[@]}"; do printf '%s\n' "$i"; done ;;
+    claude|codex)
+      for i in "${!R_NAME[@]}"; do [[ "${R_AGENT[$i]}" == "$spec" ]] && printf '%s\n' "$i"; done ;;
+    *)
+      local tok
+      IFS=',' read -ra toks <<< "$spec"
+      for tok in "${toks[@]}"; do
+        tok="${tok// /}"
+        [[ "$tok" =~ ^[0-9]+$ ]] || die "잘못된 선택: '$tok' (숫자, all, claude, codex만 허용)"
+        [[ "$tok" -ge 1 && "$tok" -le "${#R_NAME[@]}" ]] || die "선택 범위 밖: $tok (1-${#R_NAME[@]})"
+        printf '%s\n' "$((tok - 1))"
+      done
+      ;;
+  esac
+}
+
+restore_wait_ready() {
+  local name="$1" agent="$2" try pane child
+  for try in 1 2 3 4 5 6 7 8; do
+    sleep 3
+    if [[ "$agent" == "claude" ]]; then
+      # resume 세션은 ctx:0%가 아님 — statusline의 ctx: 출현 = 부팅 완료
+      tmux capture-pane -t "$name" -p 2>/dev/null | grep -q 'ctx:' && return 0
+    else
+      pane="$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)"
+      child="$(pgrep -P "${pane:-0}" 2>/dev/null | head -1 || true)"
+      [[ -n "$child" ]] && [[ "$try" -ge 3 ]] && return 0
+    fi
+  done
+  return 1
+}
+
+restore_one() {
+  local i="$1" baton="$2"
+  local agent="${R_AGENT[$i]}" name="${R_NAME[$i]}" cwd="${R_CWD[$i]}" sid="${R_SID[$i]}"
+  if [[ "${R_STATUS[$i]}" != "ok" ]]; then
+    printf '  ⏭  %s: 상태=%s — 스킵\n' "$name" "${R_STATUS[$i]}"
+    return 0
+  fi
+  if tmux has-session -t "$name" 2>/dev/null; then
+    printf '  ⏭  %s: 동명 tmux 세션 이미 존재 — 스킵\n' "$name"
+    return 0
+  fi
+  local run_cmd
+  run_cmd="$(restore_cmd_for "$i" "$baton" || true)"
+  if [[ -z "$run_cmd" ]]; then
+    printf '  ❌ %s: alias %s 해석 실패 — 스킵 (zshrc 확인)\n' "$name" "${R_ROUTE[$i]}"
+    return 0
+  fi
+  tmux new-session -d -s "$name" -c "$cwd"
+  inject_message "$name" "$run_cmd"
+  if restore_wait_ready "$name" "$agent"; then
+    if [[ "$agent" == "claude" ]]; then
+      if [[ "$baton" -eq 1 ]]; then
+        inject_message "$name" "/baton:resume"
+        sleep 1
+      fi
+      inject_message "$name" "[restore→$name] tmux 서버 사망 후 tmuxc restore로 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 Read하고 준수. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."
+    fi
+    printf '  ✅ %s (%s) 복원 완료 — attach: tmux attach -t %q\n' "$name" "$agent" "$name"
+  else
+    printf '  ⚠️  %s: 기동 확인 실패(24초) — 수동 확인 필요: tmux attach -t %q\n' "$name" "$name"
+  fi
+}
+
+cmd_restore() {
+  local since=24 agent_filter="all" select_spec="" baton=0 go=0 loose=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --since) since="${2:-}"; shift 2 ;;
+      --agent) agent_filter="${2:-}"; shift 2 ;;
+      --select) select_spec="${2:-}"; shift 2 ;;
+      --baton) baton=1; shift ;;
+      --loose) loose=1; shift ;;
+      --go) go=1; shift ;;
+      --help|-h) usage; exit 0 ;;
+      *) die "unknown option for restore: $1" ;;
+    esac
+  done
+  case "$agent_filter" in claude|codex|all) ;; *) die "--agent must be claude|codex|all" ;; esac
+
+  if tmux list-sessions >/dev/null 2>&1; then
+    printf '⚠️  tmux 서버가 살아있습니다 (세션 %s개). 서버 사망(UC11)이 아니라 디스커넥트(UC8)일 수 있음 — cmux면 tmuxc recover 검토.\n' \
+      "$(tmux list-sessions 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+
+  restore_load_rows "$since" "$agent_filter" "$loose"
+  if [[ "${#R_NAME[@]}" -eq 0 ]]; then
+    printf '복구 후보 없음 (최근 %s시간, agent=%s). --since 를 늘려보세요.\n' "$since" "$agent_filter"
+    return 0
+  fi
+  restore_print_table
+
+  if [[ -z "$select_spec" ]]; then
+    if [[ "$go" -eq 1 ]]; then
+      die "--go 는 --select 와 함께 사용하세요 (예: --select all --go)"
+    fi
+    if [[ -t 0 ]]; then
+      printf '\n복구할 세션 선택 (예: 1,3,5 / all / claude / codex / q=종료): '
+      read -r select_spec
+      [[ -n "$select_spec" && "$select_spec" != "q" ]] || { printf '취소됨.\n'; return 0; }
+      go=1
+    else
+      printf '\n(plan 모드 — 실행하려면: tmuxc restore --select all --go)\n'
+      return 0
+    fi
+  fi
+
+  local indices=()
+  while IFS= read -r i; do indices+=("$i"); done < <(restore_expand_select "$select_spec")
+  [[ "${#indices[@]}" -gt 0 ]] || { printf '선택된 세션 없음.\n'; return 0; }
+
+  if [[ "$go" -ne 1 ]]; then
+    printf '\n(plan 모드 — 선택 %d개. 실행하려면 --go 추가)\n' "${#indices[@]}"
+    return 0
+  fi
+
+  printf '\n▶ %d개 세션 복원 시작\n' "${#indices[@]}"
+  local i
+  for i in "${indices[@]}"; do
+    restore_one "$i" "$baton"
+  done
+  printf '완료. tmuxc list 로 확인하세요.\n'
+}
+
 main() {
   local cmd="${1:-}"
   [[ -n "$cmd" ]] || { usage; exit 1; }
@@ -268,6 +452,7 @@ main() {
       tmux kill-session -t "$1"
       ;;
     clean) cmd_clean ;;
+    restore) cmd_restore "$@" ;;
     help|--help|-h) usage ;;
     *) die "unknown command: $cmd" ;;
   esac
