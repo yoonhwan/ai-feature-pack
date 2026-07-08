@@ -11,9 +11,14 @@ test -f "$ROOT/claude-code/skills/tmuxc/SKILL.md"
 test -f "$ROOT/claude-code/skills/tmuxc/COMM-GUIDE.md"
 
 # UC11 restore: 스캐너 존재 + 비대화형 plan 모드가 실행/미실행 없이 종료
+# (실호스트 세션 로그가 3.6초 창에 걸리면 flake → 빈 글롭으로 밀폐)
 test -f "$ROOT/core/libexec/tmuxc-restore-scan.py"
-python3 "$ROOT/core/libexec/tmuxc-restore-scan.py" --since 0.001 >/dev/null
-"$ROOT/core/bin/tmuxc" restore --since 0.001 </dev/null | grep -q '복구 후보 없음'
+EMPTY="$(mktemp -d)"
+TMUXC_CLAUDE_GLOB="$EMPTY/none/*.jsonl" TMUXC_CODEX_GLOB="$EMPTY/none/*.jsonl" TMUXC_CODEX_INDEX="$EMPTY/none.jsonl" \
+  python3 "$ROOT/core/libexec/tmuxc-restore-scan.py" --since 0.001 >/dev/null
+_restore=$(TMUXC_CLAUDE_GLOB="$EMPTY/none/*.jsonl" TMUXC_CODEX_GLOB="$EMPTY/none/*.jsonl" TMUXC_CODEX_INDEX="$EMPTY/none.jsonl" \
+  "$ROOT/core/bin/tmuxc" restore --since 0.001 </dev/null)
+echo "$_restore" | grep -q '복구 후보 없음'
 go_out="$("$ROOT/core/bin/tmuxc" restore --go </dev/null 2>&1 || true)"
 printf '%s' "$go_out" | grep -q -- '--go 는 --select' || {
   echo 'restore --go without --select must be rejected'; exit 1; }
@@ -21,7 +26,7 @@ printf '%s' "$go_out" | grep -q -- '--go 는 --select' || {
 # UC11 회귀 fixture (DA 2026-07-08: corrupt-meta / 빈 cwd 필드 보존 / 혼재 동명 /
 # ':' 세션명 sanitize / 무관 reader lsof 오탐)
 FIX="$(mktemp -d)"
-trap 'rm -rf "$FIX"' EXIT
+trap 'rm -rf "$EMPTY" "$FIX"' EXIT
 NOW="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"))')"
 
 mkdir -p "$FIX/claude/proj" "$FIX/codex/2026/01/01"
