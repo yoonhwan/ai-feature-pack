@@ -44,12 +44,35 @@ cmux(cmuxterm.app) 워크스페이스에서 보던 tmux 세션들이 `[server ex
 
 ## UC11: tmux 서버 사망 복원 (`tmuxc restore`)
 
-**tmux 서버 프로세스 자체가 죽어** 모든 세션이 소실된 상황(UC8과 달리 세션이 아예 없음). claude 작업 세션은 디스크(`~/.claude/projects/`)에 보존되므로, **claude 세션 인덱스로 tmux를 재생성하고 `--resume`으로 대화까지 복원**한다.
+**tmux 서버 프로세스 자체가 죽어**(대표: PC 재부팅) 모든 세션이 소실된 상황(UC8과 달리 세션이 아예 없음). claude/codex 작업 세션은 디스크에 보존되므로, **세션 로그에서 복구 대상을 자동 식별해 tmux를 재생성하고 resume으로 대화까지 복원**한다.
+
+### 11-0. 자동 복구 (구현됨 — `tmuxc restore`, v0.2.0)
+
+재부팅 후 이 명령 하나로 복구한다:
+```bash
+tmuxc restore                    # 스캔 → 통합 리스트업 → 대화형 선택 → 복구·레디
+tmuxc restore --select all --go  # 비대화형 일괄 복구
+tmuxc restore --select 1,3,5 --go
+tmuxc restore --select claude --go   # claude 세션만 (codex 도 동일)
+tmuxc restore --baton --select 1 --go  # --resume 없이 새 세션 + /baton:resume (경량)
+tmuxc restore --since 48         # 시간창 확대 (기본 24h)
+tmuxc restore --loose            # 세션명 규약(#N) 필터 해제 — ad-hoc claude 세션까지
+```
+
+**판별 엔진** (`core/libexec/tmuxc-restore-scan.py`) — 2026-07-08 실측 확립 로직:
+- **정렬 키 = jsonl 내부 마지막 유효 라인의 `timestamp`** (재부팅 시 mtime이 한 시각으로 뭉개지므로 mtime 불사용). 파일 끝 64KB만 tail-seek → 833개도 수 초.
+- **claude 스캔** (`~/.claude/projects/*/*.jsonl`): `isSidechain` / baton 헤드리스 / 영어 DA 프롬프트 / user 텍스트 0개 세션 제외. 세션명은 user 메시지의 `세션명(me)=X` → `[A→B]`의 B 순으로 추출(부연 절삭). 기본은 `#N` 카운터 있는 tmuxc 규약 세션만(해제=`--loose`). 모델은 assistant `"model"` 최빈값 → `ccf`/`ccs`/`ccd` alias 라우팅(런타임 `zsh -ic type` 해석 — 미해석 시 해당 세션 스킵+에러 표기, 일반 claude 우회 금지).
+- **codex 스캔** (`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`): 첫 줄 `session_meta`에서 session_id·cwd, 세션명은 `~/.codex/session_index.jsonl`의 `thread_name`(1순위 — 없으면 헤드리스로 간주·제외). resume은 `codex resume {session_id}`(UUID 인자, 0.142.4 확인).
+- **공통 필터**: 같은 base의 증류 체인(`#N`)은 최대 N만 / `lsof`로 로그를 물고 있는 **라이브 프로세스 세션 제외**(살아있는 세션 오탐 방지) / cwd 소실은 `no-cwd`로 표기만 하고 스킵 / 동명 tmux 세션 존재 시 스킵.
+- **레디 확인**: claude는 statusline `ctx:` 출현 폴링(resume 세션은 ctx:0%가 아님), codex는 pane 자식 프로세스 생존. 복원 후 COMM-GUIDE 재주입.
+- tmux 서버가 살아있으면 UC8(디스커넥트) 오진 경고를 먼저 낸다.
 
 ### 11-1. 사망 감지
 ```bash
 tmux list-sessions 2>&1   # "no server running on ..." 또는 "error connecting" = 서버 사망
 ```
+
+> 아래 11-2/11-3은 `tmuxc restore` 미설치 환경이나 수동 개입이 필요할 때의 수동 절차다.
 
 ### 11-2. claude 세션 인덱스 조회
 claude는 프로젝트별로 세션을 저장한다:

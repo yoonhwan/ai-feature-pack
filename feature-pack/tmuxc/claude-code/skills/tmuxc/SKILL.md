@@ -27,7 +27,7 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 | `tmuxc wt {worktree-path} [--prompt P]` | 워크트리 연계 세션 생성 |
 | `tmuxc distill {name} [--to {newbase}]` | **세션 증류** — `{base}#{N+1}` 신규 세션에 컨텍스트 이전 후 구세션 정리 |
 | `tmuxc recover [--all]` | cmux에서 디스커넥트된 tmux 세션 자동 재연결 |
-| `tmuxc restore [--all]` | **tmux 서버 사망 복원** — claude 세션 인덱스 기반 tmux 재생성 + `--resume` |
+| `tmuxc restore [--select 1,3\|all\|claude\|codex] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** — claude+codex 세션 로그 스캔 → 통합 리스트업 → 선택 복구 (UC11) |
 
 ---
 
