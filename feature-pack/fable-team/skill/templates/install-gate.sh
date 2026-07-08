@@ -33,7 +33,7 @@ else
   CM="$PROJ/CLAUDE.md"
   SCOPE_LABEL="프로젝트($PROJ)"
 fi
-HOOKS=(orchestration-gate.sh orchestration-turn-reset.sh context-distill-gate.sh)
+HOOKS=(orchestration-gate.sh orchestration-turn-reset.sh context-distill-gate.sh teammate-idle-gc.sh)
 
 # ── 상태 진단 ──
 hook_ok=true
