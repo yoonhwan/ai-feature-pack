@@ -3,10 +3,12 @@
 
 메인 오케스트레이터(**sonnet-5 또는 fable-5** — ultracode, 세션 시작 시 사용자 선택)는 판단 중심으로 움직인다. 계획·분배·결정·종합만 맡고, 실제 구현은 서브에이전트에 위임한다.
 
-- 기획/문제해결: fable-5 (미가용 시 sonnet-5 → 병렬 opus-4-6 — FT 구성 시 기록)
-- 무거운 추론·구현: opus-4-6 (high)
+- 기획/문제해결: fable-5 또는 codex-5.6-sol(→ft-planner-x) — 세션 인터뷰 선택
+- 진단: opus-4-6 (high) — 3자대조 전담
+- 무거운 추론·구현: opus-4-8 (high)
 - 구현·테스트: sonnet-5 (high)
 - 대량 서치·로그·문서: sonnet-4-6 (medium)
+- DA(적대검증): codex-5.6-sol 또는 grok-4.6 (high) — 세션 인터뷰 선택
 
 **한 턴에 코드 파일 2개까지만 직접 수정한다. 3개째부터는 `hooks/orchestration-gate.sh`가 물리적으로 차단한다.** 코드 수정이 필요하면 ft-implementer/ft-tester에 위임한다. Bash(`sed -i`·`echo >`·`tee`)로 코드파일을 우회 수정하지 않는다. 상세 기준은 `.claude/rules/orchestration.md` 참조.
 
