@@ -18,17 +18,18 @@
 
 | 키 | 질문 | 기본값 | 허용값 주의 |
 |----|------|--------|-------------|
-| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (**기본 claude-fable-5** — 미가용 시 사다리: claude-sonnet-5 → 병렬 claude-opus-4-6) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. **선택을 install.json PLANNER_MODEL에 기록**. max 금지(hang) |
+| `{{PLANNER_MODEL}}` / `{{PLANNER_EFFORT}}` | 기획·문제해결 브레인? (**기본 claude-fable-5** — 미가용 시 `BRAIN_UNAVAILABLE` 보고 후 남은 choices 재제시) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. **선택을 install.json PLANNER_MODEL에 기록**. max 금지(hang). codex-5.6-sol 선택 시 ft-planner-x 드라이버 활성 |
+| `{{ANALYST_MODEL}}` / `{{ANALYST_EFFORT}}` | 진단(analyst) 브레인? | [claude-opus-4-6 / **high**] | Agent 경로. Bash 읽기전용. DIAGNOSIS + ESCALATE_TO_PLANNER 보고 |
 | `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 대량 서치·로그·문서 워커 브레인? | [claude-sonnet-4-6 / **medium**] | sonnet4.6은 low·medium·high만. 빠른 확인 BTS 3종 표준 = medium |
-| `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-6 / **high**] | opus-4-6 high 고정. max 금지 |
+| `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-8 / **high**] | opus-4-8 high 기본. 미가용 시 opus-4-6 유지 보고 후 사용자 결정. max 금지 |
 | `{{TESTER_MODEL}}` / `{{TESTER_EFFORT}}` | 테스터 브레인? | [claude-sonnet-5 / high] | claude-5 유효 effort: low/medium/high/max — **xhigh 불가, 표준 high** |
-| `{{DA_BRAIN_MODEL}}` / `{{DA_EFFORT}}` | DA 브레인? | [gpt-5.5 (codex default) / xhigh] | codex는 xhigh 지원 |
-| `{{DA_DRIVER_MODEL}}` | DA 드라이버(codex 호출 셔틀)? | [claude-sonnet-4-6] | 드라이버 effort는 low 고정 |
+| `{{DA_BRAIN_MODEL}}` / `{{DA_EFFORT}}` | DA 브레인? | [gpt-5.5 (codex default) / **high**] | codex 또는 grok-4.6(cursor-agent) — 세션 인터뷰 스텝1에서 사용자 선택 |
+| `{{DA_DRIVER_MODEL}}` | DA 드라이버(codex/cursor-agent 호출 셔틀)? | [claude-sonnet-4-6] | 드라이버 effort는 low 고정. ft-da-cursor(grok) 드라이버도 동일 모델 |
 | `{{DA_MAX_ROUNDS}}` | approve loop 최대 라운드? | [2] | 초과 시 사용자 에스컬레이션 |
 
 **금지 검증 (인터뷰 후 필수)**: planner를 제외한 워커 모델에 `fable-5`가 들어가면 거부하고 재질문. **planner(최상위 브레인 좌석)만 fable-5 허용** — 두뇌 역할이기 때문이다.
 
-**오케스트레이터 게이트**: 설치 완료 후 "메인 오케스트레이터 = **sonnet-5 또는 fable-5 (ultracode — 세션 시작 시 사용자 선택)** 세션에서 이 스킬을 트리거하며, 기획·문제해결은 planner(fable5 — 사다리 sonnet-5/opus-4-6)에, 구현은 워커에 위임된다"를 사용자에게 고지한다.
+**오케스트레이터 게이트**: 설치 완료 후 "메인 오케스트레이터 = **sonnet-5 또는 fable-5 (ultracode — 세션 시작 시 사용자 선택)** 세션에서 이 스킬을 트리거하며, 기획·문제해결은 planner(fable5 또는 codex-5.6-sol — 세션 인터뷰에서 선택)에, 구현은 워커에 위임된다"를 사용자에게 고지한다.
 
 **강제 게이트 설치 지원 (필수 제안)**: 설치 완료 후 `templates/install-gate.sh --check <프로젝트>`로 orchestration-gate 설치 상태를 진단하고, 미설치면 **설치를 제안**한다(`--install`). 이는 오케의 코드 직접수정 폭주·컨텍스트 증류를 **훅으로 물리 차단**하는 4-레이어(선언·역할·기준·강제)를 프로젝트 `.claude/`에 배포한다 — 상세 `references/orchestration-gate.md`. **[1m]/opus 오케 세션은 서브에이전트 모델 leak 교정**(resolver env or Workflow 강제 — 스폰 경로 §)도 함께 안내한다.
 
@@ -61,7 +62,7 @@
 
 ## 5. 설치 절차 (인터뷰 완료 후)
 
-1. `references/agent-templates/*.md.tpl` **5개 전부**(planner/checker/implementer/tester/da)를 Read. **단 §0에서 DA를 claude로 대체 확정(substitutions 기록)한 경우 da 템플릿은 `ft-da.md.tpl` 대신 `ft-da-claude.md.tpl`**(brain-availability §3). 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
+1. `references/agent-templates/*.md.tpl`에서 필요한 템플릿을 Read. 기본 5종(planner/checker/implementer/tester/da) + 신설 3종(analyst/planner-x/da-cursor)에서 세션 선택에 따라 활성화할 것만. **§0에서 DA를 claude로 대체 확정(substitutions 기록)한 경우 da 템플릿은 `ft-da.md.tpl` 대신 `ft-da-claude.md.tpl`**(brain-availability §3). planner=codex 선택 시 `ft-planner-x.md.tpl` 추가. DA에 grok 선택 시 `ft-da-cursor.md.tpl` 추가. 크루 opt-in(§4)이 있으면 해당 크루 템플릿도.
 2. 모든 `{{PLACEHOLDER}}`를 답변으로 치환 (빈 값은 빈 문자열, 잔여 `{{`가 남으면 설치 실패로 간주).
 3. 대상 위치에 **`<PREFIX>-planner.md`**, `<PREFIX>-checker.md`, `<PREFIX>-implementer.md`, `<PREFIX>-tester.md`, `<PREFIX>-da.md`(+ 선택 크루 `<PREFIX>-<crew>.md`)로 Write — **planner 누락 금지**. planner .md가 설치돼 있어야 다음 세션부터 Workflow `agentType`으로도 인식된다(세션 시작 등록 타입만 유효).
 3-1. **답변 스냅샷 기록**: 인터뷰 답변 전체(placeholder 키-값 + substitutions + 설치 시각 + 팩 커밋 해시)를 설치 스킬 위치의 `install.json`에 Write — 이후 "FT 업데이트"(`references/update.md`)가 이 파일로 재치환한다(재인터뷰 불요).

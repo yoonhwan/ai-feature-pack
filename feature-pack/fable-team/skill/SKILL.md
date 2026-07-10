@@ -10,27 +10,46 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 | 층 | 담당 | 모델 | 하는 일 | 안 하는 일 |
 |----|------|------|---------|-----------|
 | **오케스트레이터** | 현재 세션 | **sonnet-5 또는 fable-5** (ultracode — 세션 시작 시 사용자 선택) | 태스크 분해, 워커 스폰/전달, 커뮤니케이션, 파이프라인 진행, 게이트 판단 릴레이 | **기획·문제해결·구현 금지** — 두뇌 작업을 직접 하지 않아 멈추지 않는 루프 가능 + **orchestration-gate 훅이 코드 3파일째부터 물리 차단**(§강제 게이트) |
-| **planner (기획 브레인)** | 서브에이전트 | **fable5** (1순위 — §부팅) + effort **high**(D1, max 금지) (미가용 시 사다리: sonnet-5 high → 병렬 opus-4-6 high — D2) | 원인 분석, 해결 설계 — 컨텍스트를 파일/텍스트로 받아 **설계 파일로 반환** | 구현/실행/오케스트레이션 |
-| **워커 4종** | 서브에이전트 | checker/implementer/tester/da | 확인, 구현, 테스트, DA 판정 | 기획, 서브 스폰 |
+| **planner (기획 브레인)** | 서브에이전트 | **fable5** (1순위) 또는 **codex-5.6-sol**(→ft-planner-x 드라이버) — 세션 시작 인터뷰에서 사용자 선택 + effort **high**(D1, max 금지) | 원인 분석, 해결 설계 — 컨텍스트를 파일/텍스트로 받아 **설계 파일로 반환** | 구현/실행/오케스트레이션 |
+| **analyst (진단 전문)** | 서브에이전트 | **opus-4-6** high | 로그↔코드↔스펙 3자대조 진단 → DIAGNOSIS + ESCALATE_TO_PLANNER 보고 | 파일 수정, 구현, 서브 스폰 |
+| **워커 5종** | 서브에이전트 | checker/implementer/tester/da/da2 | 확인, 구현, 테스트, DA 판정 | 기획, 서브 스폰 |
 
 ## 트리거 시 체크 게이트 (허들)
 
 스킬 발동 즉시 확인하고, 미충족이면 진행 전 사용자에게 보고한다:
 
-1. **프로파일 체크(D3)**: 현재 세션이 ⓐ Agent/Workflow **양면 지원**(도구 존재 — Workflow는 스킬 지시 호출로 opt-in 충족) ⓑ 사다리 **첫 가용 모델** ⓒ 그 모델의 **최대 유효 effort**(D1 상한 = high)인가? ⓒ만 미달이고 세션 내 조정 가능하면(`/effort high`) 조정 안내 후 진행. ⓑ 미충족(하위 모델 세션)이면 특정 모드 고정 안내(`/effort ultracode` 등) 금지 — **사다리의 다음 프로파일을 충족하는 세션에서 재트리거**하도록 안내 후 중단. ⓐ 중 Workflow만 부재 시 planner/tester 스폰을 미들웨어 드라이버 서브에이전트 경유 `claude -p`(스폰 경로 표 3행)로 전환 선언 후 진행.
+1. **프로파일 체크(D3)**: 현재 세션이 ⓐ Agent/Workflow **양면 지원**(도구 존재 — Workflow는 스킬 지시 호출로 opt-in 충족) ⓑ 로스터 **첫 가용 모델** ⓒ 그 모델의 **최대 유효 effort**(D1 상한 = high)인가? ⓒ만 미달이고 세션 내 조정 가능하면(`/effort high`) 조정 안내 후 진행. ⓑ 미충족(하위 모델 세션)이면 특정 모드 고정 안내(`/effort ultracode` 등) 금지 — **로스터 요건을 충족하는 세션에서 재트리거**하도록 안내 후 중단. ⓐ 중 Workflow만 부재 시 planner/tester 스폰을 미들웨어 드라이버 서브에이전트 경유 `claude -p`(스폰 경로 표 3행)로 전환 선언 후 진행.
 2. **세션 effort 상속 함정**: 세션이 xhigh(ultracode)면 claude-5 계열(sonnet-5, fable-5) 워커는 Agent 팀 하네스에서 effort 상속으로 400 에러 즉사 — **스폰 경로 분리 규칙**(아래) 준수. claude-5 유효 effort는 low/medium/high/max(**xhigh 없음**) — 즉사 발생 시 교정: 해당 워커 pane에 `/effort high` 주입 또는 Workflow 경로로 `effort: high` 명시 재스폰. **claude-5 워커 표준 effort = high — planner 포함(기본 high)**. **planner effort = high(D1 표준 — max 퇴출: fable5/max hang 2세션 실측)**. 기존 설계의 보강·조임 회전은 high(수 분 내), 문구 수준 수정은 오케스트레이터 직접(기획 불요 기계적 — 게이트 처방이 명시된 경우). **비차단 규범**: planner/DA 회전은 백그라운드가 원칙 — 회전 대기로 사용자 개발을 정지시키지 않는다(파일이 증거, 릴레이 도착 시 처리·중간엔 다른 요청 계속).
 3. 에이전트 정의 존재: 대상 위치에 `<prefix>-planner/checker/implementer/tester/da`가 설치돼 있는가? 없으면 설치 인터뷰(`references/install-interview.md`)부터.
 4. **연동 프로브**: install.json `integrations`가 on/required면 가용성 프로브 — required 실패 시 보고 후 대기(headless는 override 정책 — `references/integrations.md` §0), on 실패 시 degrade 기록 후 속행. **프로브 출력(baton status stdout)은 보관해 부팅 시퀀스 1의 discovery가 재사용** — 같은 명령을 다시 실행하지 않는다.
 
-## 부팅 시퀀스 (트리거 시 강제 — 생략 금지)
+## 부팅 시퀀스 — 3스텝 인터뷰 (트리거 시 강제 — 생략 금지)
 
 허들 통과 후, 파이프라인을 임의로 시작하지 않는다. 아래 순서를 **생략 없이** 수행한다:
 
-1. **복원 체크 (integration-aware)**: 현 위치 기준 `.fable-team/state/ACTIVE` 존재 → context-management §4 복원이 부팅을 대체. **없고 integrations가 on/required이며 현 위치가 main 워크트리 내부(판정: integrations.md §공통)면 discovery** — `baton status`(1순위) + `<MAIN_ROOT>/.worktrees/*/.fable-team/state/ACTIVE` glob(보조)으로 활성 FT 워크트리 탐색 → 발견 시 해당 워크트리 **절대경로 운용**으로 §4 복원(cd 금지, 다수면 사용자 선택). 둘 다 없으면 2로.
-2. **피처 입력 인터뷰 (무조건 AskUserQuestion)**: 선택지 구성 — 기존 대화 컨텍스트에서 태스크 후보를 추출할 수 있으면 **①②로 추천 제시**(각 한 줄 요약, 추천이 1개면 ①만), **③ 내용 추가**(직접 입력 — 한 줄 메시지 또는 파일 경로), **④ 채팅에서 이어하기**(인터뷰를 닫고 대화로 피처를 구체화한 뒤 한 줄 재확인). 후보가 없으면 ③④만 제시. **어떤 경로든 사용자 응답 없이 파이프라인 시작 금지.**
-3. **추천 설계**: 입력 기반으로 feature-interview §2~3 수행 — 프로젝트 자산 서치 → 추천안 제시.
-4. **실행 준비 프리뷰 (부팅 보드)**: 확정 전 한 화면으로 보여준다 — ① 피처 한 줄 ② 파이프라인 형상(표준/축약 + DA 강도) ③ 투입 로스터(워커 + 크루, 각 브레인) — **planner 브레인 확인 필수(기본 fable5 — 미가용 시 sonnet-5→병렬 opus-4-6 사다리 제시, 선택은 install.json `PLANNER_MODEL` + state.md 기록. 메인 오케는 sonnet-5 또는 fable-5 ultracode — 세션 시작 시 사용자 선택)** ④ 산출물 경로(`.fable-team/features/<slug>.md`, `state/`) ⑤ 예상 라운드 한도 + **orchestration-gate 설치 상태(`templates/install-gate.sh --check` — 미설치면 설치 제안)** ⑥ (integrations on/required 시) 작업 공간: 워크트리 경로·브랜치(wt-create 예정) + cairn 노드(spawn parent 후보 — `cairn status` 요약에서 제시 — 또는 add-task 폴백).
-5. **컨펌 게이트**: 사용자가 승인해야 킥오프(`state/ACTIVE` + state.md 생성 → stage 0). 조정 요청 시 해당 항목만 수정 후 재확인 1회. **컨펌 없이 워커를 스폰하지 않는다.** 킥오프 확장 훅(워크트리·원장 등록)은 `references/integrations.md` §1의 **순서**를 따른다.
+**스텝 0 (질문 아님, 유지)**: `.fable-team/state/ACTIVE` 존재 → context-management §4 복원이 인터뷰 전체를 대체(브레인 선택 포함 — state.md의 `brains:` 라인 복원). **없고 integrations가 on/required이며 현 위치가 main 워크트리 내부면 discovery** — `baton status`(1순위) + `<MAIN_ROOT>/.worktrees/*/.fable-team/state/ACTIVE` glob(보조)으로 활성 FT 워크트리 탐색 → 발견 시 해당 워크트리 **절대경로 운용**으로 복원. **신규 세션만 스텝 1~3 진행.**
+
+**스텝 1 — 브레인 선택 (세션 1회, AskUserQuestion 1개)**:
+- 질문 대상은 `ask: true` 역할만 = **planner와 DA 레인**. 나머지(analyst/implementer/tester/checker)는 choices[0] 고정 — 언급만 하고 묻지 않는다.
+- 선택지 형태 (조합 제시로 질문 1개 압축):
+  - ① planner=fable-5, da=codex-5.6-sol, da2=grok-4.6 **[기본]**
+  - ② planner=fable-5, da=grok-4.6, da2=codex-5.6-sol
+  - ③ planner=codex-5.6-sol(→ft-planner-x), da=grok-4.6 고정, da2=claude-opus-4-6 — **author-review-split이 codex DA를 선택지에서 제거한 조합**
+  - ④ 직접 조합 (자유 입력 — constraints 위반 시 재제시)
+- 결과를 state.md `brains:` 라인에 write-through. **같은 세션에서 다시 묻지 않는다.**
+- **미가용 발생 시 자동 대체 금지**: 브레인 실패(429·auth·CLI 부재)는 `BRAIN_UNAVAILABLE <role> <model> <사유>` 1줄 보고 → AskUserQuestion으로 남은 choices 재제시 → 사용자 선택 후 state.md 갱신.
+
+**스텝 2 — 문제 입력 (AskUserQuestion 1개)**:
+- 대화 컨텍스트에서 후보 추출 가능하면 ①② 추천(한 줄 요약), ③ 직접 입력(한 줄/파일 경로), ④ 채팅에서 구체화 후 재확인. **어떤 경로든 사용자 응답 없이 파이프라인 시작 금지.**
+
+**스텝 3 — 배치 추천 → AskUserQuestion 킥오프 (1개)**:
+- 오케가 `references/deployment-patterns.md` 카탈로그로 유형 분류 → AskUserQuestion 1개 발사. `question`에 압축 보드 인라인, `options`가 배치 선택지.
+- **① = 오케 추천 배치, label에 `(Recommended)` 접미** — 엔터만 치면 ① 선택 = 즉시 킥오프.
+- **어떤 옵션을 골라도 재확인 없이 즉시 킥오프** — 조정이 옵션에 내장. `직접 조합` 경로에서만 형상 1줄 재확인 1회 → 킥오프.
+- 킥오프 = `state/ACTIVE` + state.md(brains·패턴·선택 형상) write-through → stage 0. 킥오프 확장 훅(워크트리·원장 등록)은 `references/integrations.md` §1의 **순서**를 따른다. **컨펌 없이 워커를 스폰하지 않는다.**
+- **같은 세션의 다음 피처는 스텝 2부터** (스텝 1 생략 — 세션 1회 원칙).
+
+총 질문 수: 신규 세션 첫 피처 = 3개, 이후 피처 = 2개, 복원 세션 = 0개.
 
 ## 스폰 경로 분리 규칙 (실측 — 2026-07-02)
 
@@ -55,24 +74,29 @@ planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 
 
 | 워커 유형 | 스폰 경로 | 모델/effort 제어 |
 |-----------|-----------|------------------|
-| **일회성 브레인** (planner·checker·implementer·tester) | **Agent 도구**(`subagent_type`만, model 생략) 또는 **Workflow `agent()`** + `agentType` + `effort` 명시 | 둘 다 frontmatter/스펙 준수(07-06 실측). claude-5 워커를 xhigh 세션에서 쓸 땐 Workflow `effort` 명시 권장(잔존 리스크 절) |
-| **장수명 드라이버** (codex DA·omx/omo·cursor·claude 플러그인 크루) | **Agent-tool teammate** (sonnet-4-6 low, 우측 pane 가시) — Bash로 외부 CLI를 `< /dev/null` detach 실행 + SendMessage 릴레이 | 드라이버는 **셔틀**(외부 CLI가 실제 브레인). approve loop·SendMessage 대기 때문에 Workflow(일회성) 불가 → Agent 필수. [1m]에서 드라이버 모델 leak은 **무관**(드라이버=셔틀, 외부 CLI가 wrapper의 주입된 full-id/effort로 실행 → 실제 브레인 모델에 영향 없음). mismatch hard-stop은 **일회성 브레인(Workflow 강제)에 적용**, 드라이버에는 해당 없음. 스트림: codex `--json`+`--output-last-message`로 이벤트 파싱·중간보고(ft-update-backlog #1) |
-| **DA 브레인** | codex gpt-5.5 **high/xhigh** (드라이버의 Bash `-c model_reasoning_effort`) | 세션 무관(외부 CLI). 드라이버=sonnet-4-6 low |
-| **planner 대체** (fable 부재 시) | **sonnet-5 high** (Workflow) 또는 병렬 opus-4-6 high (Workflow) 또는 codex gpt-5.5 xhigh (드라이버 경유) | fable 미가용·rate limit 시 대안 |
+| **일회성 브레인** (planner·checker·analyst·implementer·tester) | **Agent 도구**(`subagent_type`만, model 생략) 또는 **Workflow `agent()`** + `agentType` + `effort` 명시 | 둘 다 frontmatter/스펙 준수(07-06 실측). claude-5 워커를 xhigh 세션에서 쓸 땐 Workflow `effort` 명시 권장(잔존 리스크 절) |
+| **analyst (진단 전문)** | **Agent 도구** (opus-4-6 high) | 4.6 계열이라 effort 함정 없음. Bash 읽기 전용(파일 수정 금지). DIAGNOSIS + ESCALATE_TO_PLANNER 보고 계약 |
+| **장수명 드라이버** (codex DA·cursor DA·planner-x·omx/omo·claude 플러그인 크루) | **Agent-tool teammate** (sonnet-4-6 low, 우측 pane 가시) — Bash로 외부 CLI를 `< /dev/null` detach 실행 + SendMessage 릴레이 | 드라이버는 **셔틀**(외부 CLI가 실제 브레인). approve loop·SendMessage 대기 때문에 Workflow(일회성) 불가 → Agent 필수. [1m]에서 드라이버 모델 leak은 **무관**(드라이버=셔틀, 외부 CLI가 wrapper의 주입된 full-id/effort로 실행 → 실제 브레인 모델에 영향 없음). mismatch hard-stop은 **일회성 브레인(Workflow 강제)에 적용**, 드라이버에는 해당 없음. 스트림: codex `--json`+`--output-last-message`로 이벤트 파싱·중간보고(ft-update-backlog #1) |
+| **DA 브레인** | codex gpt-5.5 **high** 또는 grok-4.6 (cursor-agent) — 세션 시작 인터뷰에서 사용자 선택 | 세션 무관(외부 CLI). 드라이버=sonnet-4-6 low |
+| **planner 대체** (fable 부재 시) | **codex-5.6-sol high** (→ft-planner-x 드라이버) — 세션 시작 인터뷰에서 선택. 미가용 시 `BRAIN_UNAVAILABLE` 보고 후 남은 choices 재제시 | fable 미가용·rate limit 시 대안. 자동 폴백 금지 |
 
 **★ full model ID 강제 (bare tier 금지 — 실측 leak 원인)**: 스폰 호출·state 원장·보고에 모델을 적을 땐 **항상 정확한 full ID**로 — `claude-fable-5`·`claude-sonnet-5`·`claude-opus-4-6`·`claude-sonnet-4-6`. **bare tier `"opus"`/`"sonnet"` 절대 금지** — bare tier는 세션 TOP 모델로 해석돼 leak(실측: `model:"opus"` 스폰 → 세션 모델/xhigh). 원장에 "opus/high"처럼 쓰면 세대가 모호 → 반드시 "opus-4-6"으로. Workflow는 `agentType`(frontmatter 정확 ID) 사용이 안전(model 파라미터로 tier 넘기지 말 것).
 
-**준수 게이트(필수)**: **일회성 브레인(Workflow 경로)** 스폰 후 실제 모델을 검증한다 — workflow 디렉토리 `agent-*.jsonl`의 `message.model`. **지정 스펙과 불일치 = hard stop**(해당 워커 중단 → 올바른 경로로 재스폰, leak 미교정 진행 금지). **장수명 드라이버는 제외**(셔틀 — 외부 CLI가 wrapper 주입 full-id로 실행, 드라이버 자체 모델 leak은 무관). "더 강력하니 괜찮다"는 금지 — 로스터의 존재 이유(비용·동작 제어)를 부정. fable-5는 서버 rate limit이 타이트(실측 2회 실패) → 실패 시 sonnet-5 high planner 또는 codex 5.5 xhigh 대체.
+**준수 게이트(필수)**: **일회성 브레인(Workflow 경로)** 스폰 후 실제 모델을 검증한다 — workflow 디렉토리 `agent-*.jsonl`의 `message.model`. **지정 스펙과 불일치 = hard stop**(해당 워커 중단 → 올바른 경로로 재스폰, leak 미교정 진행 금지). **장수명 드라이버는 제외**(셔틀 — 외부 CLI가 wrapper 주입 full-id로 실행, 드라이버 자체 모델 leak은 무관). "더 강력하니 괜찮다"는 금지 — 로스터의 존재 이유(비용·동작 제어)를 부정. fable-5는 서버 rate limit이 타이트(실측 2회 실패) → 실패 시 `BRAIN_UNAVAILABLE` 보고 후 남은 choices(codex-5.6-sol/high 등) 재제시.
 
 ## 표준 로스터 (references/agent-templates/ 와 1:1)
 
-| 워커 | 브레인 기본값 | effort | 도구 | 전담 |
-|------|--------------|--------|------|------|
-| ft-planner | **fable5** (1순위 — 미가용 시 sonnet-5 → 병렬 opus-4-6) | **high** (max 금지) | Read, Grep, Glob, Write | 원인 분석·해결 설계 → 설계 파일 |
-| ft-checker | sonnet 4.6 | **medium** | Read, Grep, Glob | 대량 서치·로그·문서·아키텍처 확인 (병렬 다수, 단말성) |
-| ft-implementer | opus 4.6 | **high** | +Bash, Edit, Write, Skill | 설계 파일 기반 구현. 프로젝트 스킬 호출 가능 |
-| ft-tester | sonnet 5 | high | +Bash | 테스트 설계·실행·repro |
-| ft-da | codex gpt-5.5 xhigh (드라이버: sonnet 4.6 low) | xhigh | +Bash | DA review + DA approve loop |
+| 워커 | 브레인 (선택지) | effort | 스폰 경로 | 도구 | 전담 |
+|------|----------------|--------|-----------|------|------|
+| ft-planner | **fable-5** 또는 **codex-5.6-sol**(→ft-planner-x 드라이버) | **high** (max 금지) | fable-5=Workflow / codex=드라이버 | Read, Grep, Glob, Write | 원인 분석·해결 설계 → 설계 파일 |
+| ft-analyst | **opus-4-6** | **high** | Agent | Read, Grep, Glob, Bash(읽기전용) | 로그↔코드↔스펙 3자대조 진단 |
+| ft-checker | sonnet 4.6 | **medium** | Agent | Read, Grep, Glob | 대량 서치·로그·문서·아키텍처 확인 (병렬 다수, 단말성) |
+| ft-implementer | **opus-4-8** | **high** | Agent | +Bash, Edit, Write, Skill, Monitor | 설계 파일 기반 구현. 프로젝트 스킬 호출 가능 |
+| ft-tester / ft-tester2 | sonnet 5 | high | Workflow(effort 명시) | +Bash, Monitor | 테스트 설계·실행·repro |
+| ft-da | **codex-5.6-sol** 또는 **grok-4.6** (드라이버: sonnet 4.6 low) | **high** | 드라이버 | +Bash, Monitor | DA review + DA approve loop |
+| ft-da2 | **grok-4.6** 또는 **codex-5.6-sol** (da의 반대편) | **high** | 드라이버 | +Bash, Monitor | DA 이종 교차 검증 |
+| ft-planner-x | codex-5.6-sol (planner=codex 선택 시에만 활성) | high (드라이버 low) | 드라이버 | +Bash, Write, Monitor | planner 계약 대행 (codex 출력 → 설계 파일) |
+| ft-da-cursor | grok-4.6 (드라이버: sonnet 4.6 low) | high (드라이버 low) | 드라이버 | +Bash, Monitor | grok DA 판정 릴레이 |
 
 > **메인 오케스트레이터(세션) = sonnet-5 또는 fable-5 (ultracode — 세션 시작 시 사용자 선택)** — 워커 아님(로스터에 없음). 기획·구현을 직접 하지 않고 위임하며, **orchestration-gate 훅**(§강제 게이트)이 코드 3파일째부터 물리 차단한다.
 
@@ -82,10 +106,11 @@ planner는 어차피 **무상태 계약**(컨텍스트 입력 → 설계 파일 
 
 ## 사용 절차
 
-0. **브레인 가용성 체크** (설치 시작 전 필수): `references/brain-availability.md` — codex/cursor 등 미가용 시 대응 모델 추천으로 대체
+0. **브레인 가용성 체크** (설치 시작 전 필수): `references/brain-availability.md` — codex/cursor 등 미가용 시 남은 choices 재제시
 1. **설치 인터뷰** (최초/변경 시): `references/install-interview.md`
-2. **피처 인터뷰** (매 피처 시작 시): `references/feature-interview.md` — 무엇을 할지 한 줄/파일로 받고, 프로젝트의 스킬·플러그인·하네스·도구를 서치해 추천 기반 설계 인터뷰 진행
-3. **오케스트레이션** (파이프라인 실행): `references/orchestration-playbook.md`
+2. **동적 배치 카탈로그**: `references/deployment-patterns.md` — 7패턴(P-BUG/P-FEAT/P-REFAC/P-ANLZ/P-HOT/P-VRFY/P-DOC) + 운영 규칙 4개 + 킥오프 AskUserQuestion 템플릿 7종. 스텝3에서 유형 분류 → 투입 워커 부분집합 추천에 사용
+3. **피처 인터뷰** (매 피처 시작 시): `references/feature-interview.md` — 무엇을 할지 한 줄/파일로 받고, 프로젝트의 스킬·플러그인·하네스·도구를 서치해 추천 기반 설계 인터뷰 진행
+4. **오케스트레이션** (파이프라인 실행): `references/orchestration-playbook.md`
 4. **모니터링·지원 체크 루프** (파이프라인 상시): `references/monitoring-loop.md` — 멈춤 감지 + 진로이탈 교정 + 상태 원장
 5. **컨텍스트 관리** (상태 외재화·compact/clear/재시작·복원): `references/context-management.md` — 디스크 SSOT(`.fable-team/state/`) write-through, ctx 임계 정책, 세션 재시작 복원 절차. **새 세션 트리거 시 피처 인터뷰 이전에 §4(ACTIVE 감지·복원)를 먼저 수행.**
 6. **업데이트** ("FT 업데이트" 시): `references/update.md` — 팩 소스 → 로컬 설치본 패치(스킬 파일 + 에이전트 .md 재치환, 인터뷰 답변 보존) + 새 세션 프로브 재검증.
