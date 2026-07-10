@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-da
 description: {{TEAM_NAME}} DA(적대검증) 게이트. 브레인은 codex {{DA_BRAIN_MODEL}} {{DA_EFFORT}} — Bash로 codex exec를 호출해 DA review / DA approve loop를 수행하고 판정을 릴레이한다. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
+tools: Read, Grep, Glob, Bash, Monitor, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{DA_DRIVER_MODEL}}
 effort: low
 ---
