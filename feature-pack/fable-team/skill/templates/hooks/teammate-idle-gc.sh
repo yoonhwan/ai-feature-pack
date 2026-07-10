@@ -17,9 +17,10 @@ SESSION=$(printf '%s' "$INPUT" | python3 -c "import sys,json; print(json.load(sy
 [[ -z "$TEAMMATE" || -z "$SESSION" ]] && exit 0
 
 # 보호 패턴 → 무조건 유지 (재사용 pane)
-# ft-*: fable-team 로스터 (ft-implementer, ft-tester, ft-planner 등)
+# <PREFIX>-*: fable-team 로스터 (ft-implementer, ft-tester, ft-planner 등 — PREFIX는 install.json에서 런타임 로드)
 # keep-*: 명시적 보호 지정
-[[ "$TEAMMATE" == ft-* || "$TEAMMATE" == keep-* ]] && exit 0
+PREFIX=$(python3 -c "import json; print(json.load(open('${CLAUDE_PROJECT_DIR:-.}/.fable-team/install.json')).get('prefix','ft'))" 2>/dev/null || echo ft)
+[[ "$TEAMMATE" == ${PREFIX}-* || "$TEAMMATE" == keep-* ]] && exit 0
 
 # 1시간 넘은 stale 기록 정리 (이전 세션 잔류물)
 find "$IDLE_DIR" -maxdepth 1 -name "*.idle" -mmin +60 -delete 2>/dev/null || true

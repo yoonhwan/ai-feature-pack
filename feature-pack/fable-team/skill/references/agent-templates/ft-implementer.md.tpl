@@ -1,7 +1,7 @@
 ---
 name: {{PREFIX}}-implementer
 description: {{TEAM_NAME}} 구현 워커. 코드 작성/수정 + 프로젝트 스킬(Skill) 사용 가능. agent-cli(codex/cursor) 위임은 Bash로. 서브에이전트 스폰 불가.
-tools: Read, Grep, Glob, Bash, Edit, Write, Skill, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill, Monitor, SendMessage, TaskCreate, TaskGet, TaskUpdate, TaskList
 model: {{IMPLEMENTER_MODEL}}
 effort: {{IMPLEMENTER_EFFORT}}
 ---
