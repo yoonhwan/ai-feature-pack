@@ -456,7 +456,18 @@ new="${base}#$((N+1))"                        # myproj#4 (또는 myproj#1)
        - 역할/완료 커밋/현재 작업/검증 기준/후속 + 관련 파일 경로 목록(예: 'PLAN: .claude/plans/X.md')
 5. 로드 확인: tmuxc ask {base}#{N+1} → 신규 세션이 컨텍스트 이해했는지 응답 판독.
    부족하면 추가 메시지 발급(얼마든). 신규→구 역질의도 가능: [new→old] 질의 → old가 [old→new] 답.
-6. 완료(신규가 정상 인계 확인)되면 구세션 정리:  tmuxc kill {base}#{N}
+6. 완료(신규가 정상 인계 확인)되면 구세션 정리 — **keep-last-2 하드룰 필수**(lineage당 최근 2개는 항상 보존 — 직전 세션을 무조건 kill하지 않는다):
+   ```bash
+   nums="$(tmux ls -F '#{session_name}' | awk -v b="{base}" '{if(index($0,b"#")==1){n=substr($0,length(b)+2); if(n ~ /^[0-9]+$/) print n}}' | sort -rn)"
+   keep1="$(printf '%s\n' "$nums" | sed -n '1p')"; keep2="$(printf '%s\n' "$nums" | sed -n '2p')"
+   printf '%s\n' "$nums" | while IFS= read -r n; do
+     [ -z "$n" ] && continue
+     [ "$n" = "$keep1" ] && continue
+     [ "$n" = "$keep2" ] && continue
+     tmuxc kill "{base}#$n"
+   done
+   ```
+   통상 케이스(3세대 미만 누적)에선 `{base}#{N+1}`(신규)=keep1, `{base}#{N}`(방금 인계한 구세션)=keep2가 되어 **아무것도 kill되지 않는다** — 이게 정상이다. 3세대 이상 쌓였을 때만 가장 오래된 것부터 정리된다. (fable-team `ft-tmux-distill.sh`의 keep_last=2 로직과 동일 — 2026-07-11 표준승인 전제 조건.)
 ```
 
 ### 10-3. 같은 세션 즉시 리프레시 (hang 복구 변형)
