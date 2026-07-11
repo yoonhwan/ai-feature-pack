@@ -26,12 +26,15 @@
 모든 세션간 메시지는 방향 prefix를 붙인다:
 
 ```
-[{from}→{to}] 메시지 내용
+[{from}->{to}] 메시지 내용
 ```
 
-- 워커 → 오케스트레이터: `[{me}→{orch}] 빌드 완료, 테스트 통과`
-- 오케스트레이터 → 워커: `[{orch}→{me}] 다음 작업: ...`
-- 워커 ↔ 워커: `[{me}→{other}] API 스키마 확정됨, 경로: docs/api.md`
+> 구분자는 **순수 ASCII `->`**. 유니코드 화살표(→)는 tmux pane/Claude TUI 렌더링에서 U+FFFD로 손상돼
+> capture 기반 도달검증이 영구 실패할 수 있다(실측). 프로토콜 prefix는 ASCII만 쓴다. (레거시 `→` 수신은 계속 인식.)
+
+- 워커 → 오케스트레이터: `[{me}->{orch}] 빌드 완료, 테스트 통과`
+- 오케스트레이터 → 워커: `[{orch}->{me}] 다음 작업: ...`
+- 워커 ↔ 워커: `[{me}->{other}] API 스키마 확정됨, 경로: docs/api.md`
 
 prefix가 없는 메시지는 발신자 추적이 불가능하므로 금지.
 
@@ -59,7 +62,7 @@ tmux capture-pane -t {target} -p | grep -vE '^\s*$' | tail -8
 
 ### Step 3: 송신 — `-l`과 Enter는 반드시 별도 호출
 ```bash
-tmux send-keys -t {target} -l "[{me}→{to}] 메시지 내용"
+tmux send-keys -t {target} -l "[{me}->{to}] 메시지 내용"
 sleep 0.3
 tmux send-keys -t {target} Enter
 ```
@@ -69,18 +72,20 @@ tmux send-keys -t {target} Enter
 ### Step 4: 도달 검증 (없으면 재시도, 최대 3회)
 ```bash
 sleep 2
-tmux capture-pane -t {target} -p | grep -qF "[{me}→" \
+# capture엔 TUI 박스문자·잘린 멀티바이트 등 invalid UTF-8이 섞여 UTF-8 로케일 grep이
+# binary 판정/illegal byte로 오판하므로 LC_ALL=C grep -a(바이트매치)로 확인한다.
+tmux capture-pane -t {target} -p | LC_ALL=C grep -aqF "[{me}->" \
   && echo "✅ 도달 확인" \
   || echo "⚠️ 미도달 — Step 2부터 재시도"
 ```
-- 3회 실패 시: 자기 화면에 `⚠️ [{me}→{to}] 전송 3회 실패` 를 출력해 오케스트레이터가 ask로 발견할 수 있게 한다.
+- 3회 실패 시: 자기 화면에 `⚠️ [{me}->{to}] 전송 3회 실패` 를 출력해 오케스트레이터가 ask로 발견할 수 있게 한다.
 - **검증 통과 전 "전송했다"고 보고 금지.**
 
 ---
 
 ## 3. 수신
 
-- 다른 세션이 보낸 `[X→{me}] ...` 메시지는 일반 사용자 입력처럼 도착한다. prefix로 발신자를 식별하고 응답이 필요하면 §2 절차로 회신한다.
+- 다른 세션이 보낸 `[X->{me}] ...` 메시지는 일반 사용자 입력처럼 도착한다. prefix로 발신자를 식별하고 응답이 필요하면 §2 절차로 회신한다.
 - 오케스트레이터는 너의 화면을 `capture-pane`으로 읽는다(polling). **중요한 보고는 반드시 화면에 텍스트로 출력**하라 — 도구 호출 결과 안에만 묻혀 있으면 오케스트레이터가 못 본다.
 
 ---
@@ -92,7 +97,7 @@ tmux capture-pane -t {target} -p | grep -qF "[{me}→" \
 ```bash
 # 1) 자기 화면에 요약 출력 (polling 대비)
 # 2) 능동 보고 (push) — §2 검증 송신으로:
-tmux send-keys -t {orch} -l "[{me}→{orch}] 작업 완료: <한 줄 요약>"
+tmux send-keys -t {orch} -l "[{me}->{orch}] 작업 완료: <한 줄 요약>"
 sleep 0.3
 tmux send-keys -t {orch} Enter
 # 3) Step 4 검증까지 수행
