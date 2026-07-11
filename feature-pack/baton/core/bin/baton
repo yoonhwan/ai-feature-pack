@@ -16,6 +16,7 @@ case "$cmd" in
   plan)         baton_cmd_plan "$@" ;;
   wt-create)    baton_cmd_wt_create "$@" ;;
   save)         baton_cmd_save "$@" ;;
+  next-archive) baton_cmd_next_archive "$@" ;;
   resume)       baton_cmd_resume "$@" ;;
   finish)       baton_cmd_finish "$@" ;;
   wt-clean)     baton_cmd_wt_clean "$@" ;;

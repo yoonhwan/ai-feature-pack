@@ -226,6 +226,67 @@ else
   warn "~/.baton/current not found (install.sh not run -- skipped)"
 fi
 
+# [12] v1.2.14+ — NEXT.md next-archive snapshot
+echo
+echo "[12] v1.2.14 next-archive 검증"
+
+if grep -q "^baton_next_snapshot_rotate" "$PACKAGE_DIR/core/lib/handoff.sh"; then
+  ok "baton_next_snapshot_rotate (handoff.sh)"
+else
+  ng "baton_next_snapshot_rotate missing (handoff.sh)"
+fi
+if grep -q "^baton_cmd_next_archive" "$PACKAGE_DIR/core/lib/core.sh"; then
+  ok "baton_cmd_next_archive (core.sh)"
+else
+  ng "baton_cmd_next_archive missing (core.sh)"
+fi
+if grep -q "next-archive)" "$PACKAGE_DIR/core/bin/baton"; then
+  ok "next-archive dispatch (bin/baton)"
+else
+  ng "next-archive dispatch missing (bin/baton)"
+fi
+
+# behavioral: snapshot copies NEXT.md, leaves live file intact, no-op on empty, prunes >20
+na_dir=$(mktemp -d /tmp/baton-nextarchive-XXXXXX)
+if (
+  set -euo pipefail
+  source "$PACKAGE_DIR/core/lib/handoff.sh"
+  hd="$na_dir/.baton/handoff"
+  mkdir -p "$hd"
+  printf 'phase X 이어서.\n원본 컨텍스트 라인.\n' > "$hd/NEXT.md"
+  orig=$(cat "$hd/NEXT.md")
+
+  baton_next_snapshot_rotate "$hd"
+
+  # (i) archive file created
+  snap=$(ls "$hd/next-archive/"NEXT-*.md 2>/dev/null | head -n1)
+  [[ -n "$snap" ]] || { echo "no archive created"; exit 1; }
+  # (ii) byte-for-byte match
+  cmp -s "$snap" "$hd/NEXT.md" || { echo "archive != original"; exit 1; }
+  # (iii) live NEXT.md unchanged
+  [[ "$(cat "$hd/NEXT.md")" == "$orig" ]] || { echo "live NEXT.md mutated"; exit 1; }
+
+  # (iv) empty NEXT.md → safe no-op (no new archive)
+  before=$(ls "$hd/next-archive/"NEXT-*.md | wc -l | tr -d ' ')
+  : > "$hd/NEXT.md"
+  baton_next_snapshot_rotate "$hd"
+  after=$(ls "$hd/next-archive/"NEXT-*.md | wc -l | tr -d ' ')
+  [[ "$before" == "$after" ]] || { echo "empty NEXT.md created archive"; exit 1; }
+
+  # boundary: exactly 20 existing archives → prune removes nothing (with non-empty NEXT.md)
+  rm -f "$hd/next-archive/"NEXT-*.md
+  for i in $(seq -w 1 20); do : > "$hd/next-archive/NEXT-200001${i}-000000.md"; done
+  printf 'again\n' > "$hd/NEXT.md"
+  baton_next_snapshot_rotate "$hd"   # now 21 → prune 1 oldest → 20 remain
+  cnt=$(ls "$hd/next-archive/"NEXT-*.md | wc -l | tr -d ' ')
+  [[ "$cnt" == "20" ]] || { echo ">20 prune wrong count: $cnt"; exit 1; }
+); then
+  ok "snapshot copy + live-intact + empty no-op + >20 prune"
+else
+  ng "next-archive behavioral test failed"
+fi
+rm -rf "$na_dir"
+
 # summary
 echo
 echo "-----------------------------------------"

@@ -17,6 +17,18 @@ NEXT.md는 **현재 세션이 직접 작성** (풀 컨텍스트 보유).
 
 ## 동작 (2-step)
 
+### Step 0: 기존 NEXT.md 보존 (덮어쓰기 전 — 먼저)
+
+```bash
+bash ~/.baton/current/bin/baton next-archive || true
+```
+
+덮어쓰기 전에 현재 NEXT.md를 `.baton/handoff/next-archive/NEXT-{timestamp}.md`로
+스냅샷합니다(라이브 NEXT.md는 그대로 유지, 다음 단계에서 덮어씀). 최근 20개까지 자동 보관.
+`|| true` 필수 — `next-archive` 서브커맨드가 없는 구버전 설치(v1.2.14 이전)에서는
+"unknown command"로 exit 1 하는데, 이 단계는 부가 기능이라 실패해도 Step 1/2(본 save 동작)를
+막으면 안 됩니다. 구버전에서는 조용히 스킵되고 v1.2.14+ 설치 후 자동으로 동작 시작.
+
 ### Step 1: NEXT.md 직접 작성 (현재 세션 — 필수)
 
 헤드리스 에이전트는 `.events.jsonl`(intent + harness 이벤트만 기록)만 볼 수 있어서
@@ -59,5 +71,6 @@ bash save가 처리하는 것:
 ## 참고
 - SPEC: race-free sidecar pipeline (1.2.4)
 - v1.2.6: NEXT.md 직접 작성으로 전환 (헤드리스 컨텍스트 부족 문제 해결)
+- v1.2.14: Step 0 추가 — 덮어쓰기 전 NEXT.md를 next-archive/로 스냅샷 (`baton next-archive`, 최근 20개 보관)
 - 자동 호출: `/baton:finish`, `/baton:wt-clean` (events_count > 0 시) — 이 경로는 bash-only RESUME_MSG.md 빌더 사용
 - 마이그레이션: `/baton:migrate` (v1.2.2 이하 워크트리에서)

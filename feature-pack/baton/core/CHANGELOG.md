@@ -2,6 +2,16 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.14] — 2026-07-11 (NEXT.md 히스토리 보존)
+
+> 버전 1.2.11~1.2.13은 이 저장소에 커밋된 적 없음(로컬 실험 설치본과 번호 충돌 회피를 위해 1.2.10 다음을 1.2.14로 지정).
+
+### Added
+- **`baton next-archive` 명령 + `baton_next_snapshot_rotate()`** — `/baton:save` Step 1(LLM이 NEXT.md를 직접 Write)이 덮어쓰기 전에 기존 NEXT.md를 `.baton/handoff/next-archive/NEXT-{timestamp}.md`로 스냅샷. 라이브 NEXT.md는 항상 최신 1개만 유지되던 기존 동작은 그대로(런타임 read 대상 불변), 과거 세대는 아카이브에서 조회 가능. 최근 20개 자동 보관, 초과분은 오래된 것부터 정리. (lib/handoff.sh `baton_next_snapshot_rotate`, lib/core.sh `baton_cmd_next_archive`, bin/baton `next-archive` dispatch, claude-code/commands/baton/save.md Step 0)
+- Claude Code 어댑터(save.md)에만 우선 배선. 다른 어댑터(codex/gemini/opencode/hermes)는 `bash ~/.baton/current/bin/baton next-archive` 호출을 각자 save 플로우 문서에 추가하면 동일하게 동작(코어 함수는 어댑터 무관, CLI 레벨) — 미배선이어도 회귀 없음(옵션 기능, optional 명령=minor, 호환 유지).
+
+---
+
 ## [1.2.10] — 2026-06-05 (wt-clean tar 심링크 폭발 fix)
 
 ### Fixed — `baton_archive_create` tar 폭발 (수백 MB·수 분 행)
