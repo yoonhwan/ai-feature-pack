@@ -29,4 +29,4 @@ hard: yes|no
 증류로 신 incarnation이 뜨면, "state.md·자기 산출물 Read 완료 후 `SIG/handover.<신세션명>.token` 에 토큰을 tmp 작성 후 mv" 지시를 받는다. 그 지시의 토큰 문자열을 그대로 원자 기록한다(유일한 인계 증거).
 
 ## WINDOW_PRESSURE
-ctx 70%(Fable 80%) 자각 시 오케에 `[<sess>→orch] WINDOW_PRESSURE <현재 단계 1줄>` 보고 후 지시 대기.
+ctx 70%(Fable 80%) 자각 시 오케에 `[<sess>->orch] WINDOW_PRESSURE <현재 단계 1줄>` 보고 후 지시 대기.

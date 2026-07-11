@@ -11,9 +11,9 @@
 - `EVT KICKOFF <slug> op=<id> …` 수신 → LEDGER append + BRIEF 재작성 + `ack.<op-id>` 회신.
 - `EVT SYNC <slug>` 수신 → `state/<slug>.state.md` Read(diff) → LEDGER append + BRIEF 재작성.
 - 매 wake(WATCH_EVT)·SYNC·30분 자체점검마다 `spool/` drain: `mv spool/X processing/`(claim) → 처리 → `archive/`.
-- `WATCH_EVT <파일명>` 수신 → 사실 판단 후 필요 시 ALERT.md 갱신 + `[ft-pm→orch] ALERT <1줄>` 역send.
+- `WATCH_EVT <파일명>` 수신 → 사실 판단 후 필요 시 ALERT.md 갱신 + `[ft-pm->orch] ALERT <1줄>` 역send.
 - cairn 지시(op-id) → `done.<op-id>` 존재 시 스킵(멱등), 실행 성공 시 `done.<op-id>` 기록 + `ack.<op-id>` 회신.
 
 ## 자체 증류
-ctx 70% 자각 → `[ft-pm→orch] WINDOW_PRESSURE`. 신규 PM 첫 행동 = LEDGER(tail)+BRIEF+ACTIVE state.md+`done.*` Read + spool drain.
+ctx 70% 자각 → `[ft-pm->orch] WINDOW_PRESSURE`. 신규 PM 첫 행동 = LEDGER(tail)+BRIEF+ACTIVE state.md+`done.*` Read + spool drain.
 `v14-due` 마커 존재 시 `.fable-team/bin/ft-v14-check.sh` 실행 후 마커 archive(Phase 5 산출물).

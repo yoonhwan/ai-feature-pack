@@ -17,7 +17,9 @@ done
 [ -n "$SESS" ] && [ -n "$FROM" ] && [ -n "$MSG" ] || { echo "ft-tmux-send: <sess> --from <me> \"<msg>\" 필수" >&2; exit 1; }
 [ -z "$MSGID" ] && MSGID="$(date +%s)-$(printf '%04x' $((RANDOM)))"
 
-PREFIX="[$FROM→$SESS] #$MSGID"
+# 구분자는 순수 ASCII '->'. 유니코드 화살표(→)는 tmux pane/Claude TUI 렌더링 단계에서 U+FFFD로
+# 손상돼(보낸 바이트는 정상이나 pane 저장 바이트가 깨짐, V3 재현 3/3) 도달검증이 영구 실패했다.
+PREFIX="[$FROM->$SESS] #$MSGID"
 LINE="$PREFIX $MSG"
 
 # ── 1) HARD GATE: 대상 agent 프로세스 확인 ─────────────────
@@ -44,10 +46,12 @@ tmux send-keys -t "$SESS" -l "$LINE" 2>/dev/null
 sleep 0.3
 tmux send-keys -t "$SESS" Enter 2>/dev/null
 
-# ── 4) 도달 검증: grep -F 정확 프리픽스, backoff 2→4→8 (총 ≤15s) ──
+# ── 4) 도달 검증: ASCII msg-id(#$MSGID)로 매치, backoff 2->4->8 (총 ≤15s) ──
+# 프리픽스 전체가 아니라 순수 ASCII인 #$MSGID(고유)만 확인한다 — pane 프리픽스 렌더링에
+# 무관하게 견고. LC_ALL=C grep -a로 capture의 잔여 invalid UTF-8도 바이트매치.
 for wait in 2 4 8; do
   sleep "$wait"
-  if tmux capture-pane -p -t "$SESS" 2>/dev/null | LC_ALL=C grep -aqF "$PREFIX"; then
+  if tmux capture-pane -p -t "$SESS" 2>/dev/null | LC_ALL=C grep -aqF "#$MSGID"; then
     echo "SENT $SESS #$MSGID"
     exit 0
   fi

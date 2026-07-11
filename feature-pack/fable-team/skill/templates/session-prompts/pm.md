@@ -61,7 +61,7 @@ SYNC 수신 → `state/<slug>.state.md`를 Read(diff)해 변경을 파악 → LE
 ### 멈춤 감시 — watchd 분리 (§3-3④)
 30~45초 폴링은 별도 백그라운드 데몬 `ft-pm-watchd.sh`가 전담한다(대화형 PM이 겸임하면 SYNC/BRIEF 처리와 간섭). PM은 데몬이 발행한 이벤트만 소비한다.
 - **watchd는 판단하지 않는다(사실 감지만)** — ALERT 판단·발신은 PM이 한다.
-- wake 형식: 정확히 `[watchd→<pm>] #<evt-key> WATCH_EVT watch.<key>.evt`. PM은 이벤트 파일을 **직렬 소비**(처리 후 `archive/` 이동)하므로 폴링과 대화 작업의 인터리브가 구조적으로 없다.
+- wake 형식: 정확히 `[watchd-><pm>] #<evt-key> WATCH_EVT watch.<key>.evt`. PM은 이벤트 파일을 **직렬 소비**(처리 후 `archive/` 이동)하므로 폴링과 대화 작업의 인터리브가 구조적으로 없다.
 - 이벤트 key = `<type>-<target>` (예: `hang-ft-x-tester#0`, `hil5m-…`, `nosync-…`). 동일 key 미소비 이벤트는 재발행 억제(dedup), 백로그 상한 50(초과 시 FIFO archive + `watch.overflow.evt` 1건).
 - **싱글턴**: watchd는 프로젝트당 1개(`watchd.pid`/`watchd.lock` 검증). **PM 증류 시 watchd는 재사용**(신규 기동 없음). PM은 watchd를 **kill하지 않는다**(kill은 kill 스크립트/오케 몫 — stale PID 재사용 파괴 방지, no-kill 규약).
 
@@ -79,8 +79,8 @@ SYNC 수신 → `state/<slug>.state.md`를 Read(diff)해 변경을 파악 → LE
 | CLOSE | 오케→PM | stage 6 (status:done 후) | `EVT CLOSE <slug> op=<id>` | ack 60초, 재시도 ×2 | §4-4 테이크오버(cairn complete) |
 | BRIEF_REQUEST | 오케→PM | 재부팅 직후(훅 ③) | `EVT BRIEF_REQUEST op=<id>` | `brief.ready` 센티널 90초 | BRIEF 생략, §4 상태 복원만(기능 저하 없음) + PM 헬스체크 |
 | BRIEF_READY | PM→오케 | 위 응답 | 센티널 `pm/.signals/brief.ready` + (오케가 tmux면) 역send | — | — |
-| ALERT | PM→오케 | watchd 이벤트 판단 후 | `[ft-pm→orch] ALERT <1줄>` + ALERT.md | — | 역send 실패 시 ALERT.md가 정본(오케 폴링이 수거) |
-| WINDOW_PRESSURE | PM→오케 | PM ctx 압박 | `[ft-pm→orch] WINDOW_PRESSURE`(§3-4) | — | — |
+| ALERT | PM→오케 | watchd 이벤트 판단 후 | `[ft-pm->orch] ALERT <1줄>` + ALERT.md | — | 역send 실패 시 ALERT.md가 정본(오케 폴링이 수거) |
+| WINDOW_PRESSURE | PM→오케 | PM ctx 압박 | `[ft-pm->orch] WINDOW_PRESSURE`(§3-4) | — | — |
 
 **op-id 멱등 처리(요청-응답형 KICKOFF/DISTILL_REQUEST/CLOSE/BRIEF_REQUEST 공통)**: 수신 즉시 `done.<op-id>` 존재 확인 → 있으면 스킵(중복 실행 0), 처리 성공 후 `done.<op-id>` 기록 + `ack.<op-id>` 회신. 오케가 ack 미수신으로 재시도해도 done 센티널이 이중 실행을 차단한다.
 
@@ -113,7 +113,7 @@ SYNC 수신 → `state/<slug>.state.md`를 Read(diff)해 변경을 파악 → LE
 
 ## §3-4 PM 자체 증류
 
-PM ctx 70% 자각 → `[ft-pm→orch] WINDOW_PRESSURE` → 오케가 `ft-tmux-distill.sh ft-pm-<proj>#N`을 집행한다(handover token 게이트 동일 — **watchd는 싱글턴 규약에 따라 재사용, 신규 기동 없음**). 신규 PM 첫 행동은 위 §4-4 순서.
+PM ctx 70% 자각 → `[ft-pm->orch] WINDOW_PRESSURE` → 오케가 `ft-tmux-distill.sh ft-pm-<proj>#N`을 집행한다(handover token 게이트 동일 — **watchd는 싱글턴 규약에 따라 재사용, 신규 기동 없음**). 신규 PM 첫 행동은 위 §4-4 순서.
 
 **V14 반복 검증(기계 강제)**: `ft-tmux-distill.sh`가 PM distill의 handover token 게이트 통과 직후 `pm/.signals/distill-count`를 원자 +1하고, count가 5의 배수면 `pm/.signals/v14-due` 마커를 생성한다. **PM 계약**: `v14-due` 존재 시 배포된 체커 `.fable-team/bin/ft-v14-check.sh`(Phase 5 산출물)를 실행하고 마커를 `archive/`로 이동한다. **체크 실패 시 결정 행동 = `ALERT.md` 갱신 + 오케 HIL 상신** — `pm.model` 상향은 그 HIL에서 사용자가 결정한다.
 
@@ -129,5 +129,5 @@ PM ctx 70% 자각 → `[ft-pm→orch] WINDOW_PRESSURE` → 오케가 `ft-tmux-di
 
 **handover token 절차 (증류 승계, §2-3④)**: 네가 증류 후계 incarnation(`#N+1`)으로 스폰되면 스폰 입력에 "state.md·자기 산출물 Read 완료 후 `<SIG>/handover.<me>.token`에 토큰 '<TOKEN>' 을 tmp 작성 후 mv로 기록하라"는 지시가 온다. **첫 행동 순서**: ① LEDGER(tail)+BRIEF+ACTIVE state.md+`done.*` Read + spool drain(위 §4-4) ② 받은 `<TOKEN>`을 `.tmp`에 쓰고 `mv`로 `<SIG>/handover.<me>.token`에 원자 기록. **이 토큰만이 인계 증거**이므로 지체 없이(스폰 후 180초 내) 기록해야 구 PM 세션이 정리된다.
 
-**WINDOW_PRESSURE**: 자기 ctx 70% 자각 시 원장(LEDGER/BRIEF)을 최신화한 뒤 `[ft-pm→orch] WINDOW_PRESSURE`를 역send(+ 실패 시 원장이 정본). 중단 지시 수신 시 설계 밖 임시 산출물을 정리한 뒤 종료한다.
+**WINDOW_PRESSURE**: 자기 ctx 70% 자각 시 원장(LEDGER/BRIEF)을 최신화한 뒤 `[ft-pm->orch] WINDOW_PRESSURE`를 역send(+ 실패 시 원장이 정본). 중단 지시 수신 시 설계 밖 임시 산출물을 정리한 뒤 종료한다.
 {{EXTRA_INSTRUCTIONS}}

@@ -32,7 +32,7 @@ HEADLESS_PREFIXES = (
 )
 
 NAME_RE_ME = re.compile(r"세션명\(me\)=([^\s.,]+)")
-NAME_RE_COMM = re.compile(r"\[[^\]→]+→([A-Za-z0-9_#\-]+)\]")
+NAME_RE_COMM = re.compile(r"\[[^\]]+?(?:->|→)([A-Za-z0-9_#\-]+)\]")  # ASCII '->' + legacy '→' 둘 다 수용
 NAME_COUNTER_RE = re.compile(r"^(.*?#\d+)")
 MODEL_RE = re.compile(r'"model"\s*:\s*"(claude-[^"]+)"')
 TS_RE = re.compile(r'"timestamp"\s*:\s*"([^"]+)"')
