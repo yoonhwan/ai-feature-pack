@@ -15,7 +15,8 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 
 | 명령 | 설명 |
 |------|------|
-| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx] [--role worker\|analysis\|orchestrator\|implementer\|planner] [--prompt P]` | 프로젝트에 세션 생성 |
+| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx] [--role worker\|analysis\|orchestrator\|implementer\|planner] [--model ID] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성 |
+| `tmuxc model {name}` | 세션의 **라이브 `--model`/`--effort` 조회** (프로세스 argv 기준 — `[1m]` 창 선택자 포함). 증류 모델 승계용 |
 | `tmuxc list` | 활성 세션 목록 + Claude 상태 |
 | `tmuxc attach {name}` | 세션 접속 안내 |
 | `tmuxc send {name} "msg"` | 세션에 메시지 전달 (보안 가드) |
@@ -223,6 +224,26 @@ ccd --name "FB_OPS#9999" --remote-control "FB_OPS#9999"
 - 번호 자릿수는 증류 시 카운터(`#N`)가 아닌 **원래 번호**로 판정 (`FB_OPS#99` → 2자리 = sonnet tier 유지)
 - `#0`(오케스트레이터·온콜)은 0~99 tier이지만 특수 세션이므로 `ccd`로 기동하는 것이 일반적
 
+## UC1-6: 모델/effort 명시 오버라이드 (`--model` / `--effort` / `--like`)
+
+role→alias 매핑(`role_alias`)에 없는 모델(예: `claude-sonnet-5[1m]`)로 기동하거나, **증류 시 구세션의 모델을 그대로 승계**해야 할 때 사용한다.
+
+| 플래그 | 동작 |
+|--------|------|
+| `--model <ID>` | role alias 체인을 **우회**하고 headroom 기동 커맨드를 직접 합성. `ID`의 `[1m]` 창 선택자는 큰따옴표로 보존(글롭 방지). **claude 전용** |
+| `--effort <E>` | 위 오버라이드에 `--effort E` 부가 (미지정 시 생략) |
+| `--like <SESSION>` | 지정한 **라이브 세션**의 `--model`/`--effort`를 상속(= `tmuxc model`이 회수한 값). 명시 `--model`/`--effort`가 우선 |
+
+```bash
+# 명시 모델(1m)로 기동
+tmuxc open . --name FB_X#0 --agent claude --role worker --model 'claude-sonnet-5[1m]' --effort high
+# 구세션과 동일 모델/effort로 증류 신세션 기동
+tmuxc open . --name FB_X#1 --agent claude --role worker --like 'FB_X#0'
+```
+
+- `--model`/`--effort`/`--like`는 **claude에서만** — codex/omx와 함께 쓰면 에러(effort는 role로 고정되므로 무시하지 않고 거부).
+- **`tmuxc model <name>`**: 세션의 라이브 프로세스 argv에서 `model=`/`effort=`를 출력한다. 트랜스크립트의 `"model"` 필드는 `[1m]`·effort를 담지 않으므로(실측) argv가 유일한 authoritative 소스. 라이브 세션에만 유효(미기동/claude 아님 → 비-0 종료).
+
 ## UC2: 세션 목록 (`tmuxc list`)
 
 ```
@@ -419,6 +440,7 @@ new="${base}#$((N+1))"                        # myproj#4 (또는 myproj#1)
 - **다운그레이드 흐름**: ccd(방향 확정) → ccs(문서 확인·로그 분석·아키텍처 문서 업데이트) — 관찰·정리 작업을 분산할 때
 - ccf 자문 세션은 결과 도출 후 ccd·ccs로 넘기고 닫는다 (ccf는 상시 유지 비용 높음)
 - FB_OPS 번호 규약 세션(UC1-5)은 번호 자릿수가 tier를 결정하므로, 다운그레이드 시 번호도 변경 (`#9999` → `#999`)
+- **동일 tier 유지 시 모델 유실 주의(1m/effort)**: role alias 매핑은 `[1m]` 창 선택자·effort를 복원하지 못한다(예: `worker`→plain `ccs`로 강등). 구세션과 **정확히 같은 모델**로 이어가려면 `--like {old}`(라이브 argv 승계) 또는 `--model '...[1m]' --effort ...` 명시 오버라이드(UC1-6)를 사용한다. fable-team `ft-tmux-distill.sh`의 자기증류가 `tmuxc model`로 이 승계를 자동 수행한다.
 
 ```
 1. (선택) 구세션에서 핸드오프 저장:  baton 세션이면 tmuxc send {old} "[00→old] /baton:save"
