@@ -1,0 +1,45 @@
+{
+  "_note": "fable-team v3 install.json schema 3 델타 (Phase 1 산출물). 설치/업데이트(references/update.md·install-interview.md)가 기존 install.json에 이 키들을 병합한다. 기존 schema 2 필드(placeholders/installed_agents/integrations 등)는 그대로 유지. 값은 설계 §0-1·§1-2·Phase 0 프로브 결과(state.md Phase 0) 기준 확정값이며 설치 시 세션 선택으로 덮어쓸 수 있다.",
+  "schema": 3,
+  "spawn_backend": {
+    "default": "tmux",
+    "checker": "tmux",
+    "_enum": ["tmux", "agent-v2", "workflow"]
+  },
+  "tmuxc_caps": {
+    "_note": "P-T0 프로브 확정(2026-07-11). model_full_id/env_passthrough=false → raw_launch_fallback 경로가 claude 워커 정본. 필드명은 Phase 0 결과(state.md) 기준 — 스크립트(ft-tmux-spawn.sh)가 이 키를 판독.",
+    "model_full_id": false,
+    "env_passthrough": false,
+    "non_interactive": true,
+    "probe_ts": "2026-07-11"
+  },
+  "probe": {
+    "codex_ready_regex": "^\\s*[A-Za-z0-9._-]+\\s+(minimal|low|medium|high)\\s+·\\s+\\S+\\s*$",
+    "_codex_note": "P-T2 실측 codex idle 상태줄(model+effort+cwd). busy 시 스피너/esc-interrupt로 대체됨. ft-tmux-spawn.sh readiness 프로브가 사용."
+  },
+  "approvals": {
+    "standing": {
+      "autonomous_ft_kill": {
+        "granted": true,
+        "ts": "2026-07-11",
+        "wording": "fable-team이 ft-tmux-spawn.sh로 직접 띄운 ft-* 세션의 graceful kill·distill은 '이 세션에서 직접 띄운 것' 예외에 포함 — HIL 불요. 타 세션·비-ft·tmuxc clean은 HIL 유지.",
+        "keep_last": 2
+      },
+      "auto_gzip": {
+        "granted": true,
+        "ts": "2026-07-11"
+      }
+    },
+    "spawn_exceptions": ["grok_driver", "checker_workflow", "raw_launch_fallback"]
+  },
+  "pm": {
+    "enabled": true,
+    "model": "claude-sonnet-4-6",
+    "effort": "medium"
+  },
+  "distill": {
+    "worker_ctx": 70,
+    "fable_ctx": 80,
+    "auto": true
+  }
+}
