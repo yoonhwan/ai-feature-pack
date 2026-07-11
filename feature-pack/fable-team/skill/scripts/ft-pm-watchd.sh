@@ -112,10 +112,21 @@ emit_evt() {  # <key> <detail>
   [ -n "$pm" ] && bash "$SEND" "$pm" --from watchd --id "$key" "WATCH_EVT watch.$key.evt" >/dev/null 2>&1
 }
 
-lowcpu_bump() {  # <sess> → 0=hang(2연속) 1=아직
-  local sess="$1" c
-  local f="$PMSIG/.lowcpu.$sess"   # ★ 별도 local — 같은 문 내 $sess 자기참조는 빈 값 전개(위 emit_evt 주석 참조)
-  c="$(cat "$f" 2>/dev/null || echo 0)"; c=$((c+1)); printf '%s' "$c" > "$f"
+# hang 판정: CPU 저조 단독은 thinking(API 응답 대기)의 순간 저CPU를 hang으로 오탐한다(UC12 실증,
+# ALERT 2차 재발) → "CPU<0.3 AND 직전 폴링 대비 화면(capture) 무변화"가 2연속일 때만 진짜 hang.
+# thinking 중엔 스피너·타이머·토큰수가 계속 갱신돼 capture가 매 폴링 달라지므로 리셋된다.
+lowcpu_bump() {  # <sess> → 0=hang(저CPU+화면무변화 2연속) 1=아직
+  local sess="$1" c=0 prevhash="" curhash
+  local f="$PMSIG/.lowcpu.$sess"   # 저장: "<count> <capture-cksum>". ★ 별도 local(자기참조 회피, emit_evt 주석)
+  curhash="$(tmux capture-pane -p -t "$sess" 2>/dev/null | cksum | awk '{print $1"."$2}')"
+  [ -f "$f" ] && read -r c prevhash < "$f" 2>/dev/null
+  case "$c" in ''|*[!0-9]*) c=0;; esac
+  if [ -n "$prevhash" ] && [ "$curhash" = "$prevhash" ]; then
+    c=$((c+1))    # 저CPU + 화면 동일 → 정지 후보(연속 누적)
+  else
+    c=1           # 화면 변화 = thinking 진행 → 리셋(이번 저CPU는 1회)
+  fi
+  printf '%s %s' "$c" "$curhash" > "$f"
   [ "$c" -ge 2 ]
 }
 lowcpu_reset() { rm -f "$PMSIG/.lowcpu.$1" 2>/dev/null; }
