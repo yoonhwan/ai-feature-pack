@@ -53,7 +53,7 @@ fi
 
 # ── ① 신호 디렉토리 pre-create ─────────────────────────────
 if [ "$ROLE" = "pm" ]; then SIG="$(ft_pm_signals "$ROOT")"; else
-  ft_parse_sess "$NAME"; SIG="$(ft_feat_signals "$ROOT" "$FT_SLUG")"
+  SIG="$(ft_signals_for_sess "$ROOT" "$NAME")"   # 비-ft(오케 자기증류)는 global로 라우팅(MINOR-7)
 fi
 mkdir -p "$SIG/archive" 2>/dev/null
 
@@ -73,8 +73,18 @@ if [ "$AGENT" = "claude" ]; then
 fi
 
 # tmuxc role 매핑(codex 경로용 — tmuxc는 worker|analysis|orchestrator|implementer|planner만)
-tmuxc_role() {
-  case "$1" in
+tmuxc_role() {  # <role> [agent]
+  local role="$1" agent="${2:-}"
+  # codex는 tmuxc resolve_codex_cmd 매핑을 탄다: worker=medium / verifier=high / planner=die.
+  # da/da2/planner=codex를 worker로 두면 침묵 강등(medium)·planner 즉사 → verifier(high)로 승격(M-4).
+  if [ "$agent" = "codex" ]; then
+    case "$role" in
+      da|da2|planner) echo verifier;;
+      *) echo worker;;
+    esac
+    return 0
+  fi
+  case "$role" in
     planner) echo planner;; analyst) echo analysis;; implementer) echo implementer;;
     *) echo worker;;
   esac
@@ -85,14 +95,20 @@ launch_ok=0
 if [ "$LAUNCH_MODE" = "raw" ]; then
   # 승인된 raw_launch_fallback: headroom 기동 명령을 tmux 세션으로 합성.
   # FT_WORKER_ROLE env는 exec 교체되는 claude 프로세스까지 셸 레벨 전파(P-T1 실측).
-  HR="$HOME/.headroom/claude-hr.sh"
-  CMD="FT_WORKER_ROLE=$ROLE $HR --dangerously-skip-permissions --model $MODEL"
+  HR="${FT_HR_BIN:-$HOME/.headroom/claude-hr.sh}"        # MINOR-8: 이식성 env 오버라이드
+  # M-6: [1m] 창 선택자가 sh 글롭에 노출되지 않도록 --model 을 큰따옴표로(tmuxc와 동일 인용).
+  CMD="$HR --dangerously-skip-permissions --model \"$MODEL\""
   [ -n "$EFFORT" ] && CMD="$CMD --effort $EFFORT"
   CMD="$CMD --remote-control $NAME"
+  # B-1b: role=orch/미상(오케 자기증류 후계)은 워커 마커 생략 — 후계 오케가 워커로 오염되지 않게.
+  case "$ROLE" in
+    orch|"") ;;
+    *) CMD="FT_WORKER_ROLE=$ROLE $CMD";;
+  esac
   tmux new-session -d -s "$NAME" -c "$ROOT" "$CMD" 2>/dev/null && launch_ok=1
 else
   # 정본 경로: tmuxc open (COMM-GUIDE 주입은 tmuxc UC1 step 8)
-  TR="$(tmuxc_role "$ROLE")"
+  TR="$(tmuxc_role "$ROLE" "$AGENT")"
   set -- tmuxc open "$ROOT" --name "$NAME" --agent "$AGENT" --role "$TR"
   [ -n "$PROMPT_FILE" ] && set -- "$@" --prompt "$PROMPT_FILE"
   "$@" >/dev/null 2>&1 && launch_ok=1
@@ -126,6 +142,11 @@ fi
 
 # ── ⑤ 계약 + 입력 send (send 래퍼 경유) ────────────────────
 SEND="$(dirname "$0")/ft-tmux-send.sh"
+# M-2: raw 모드는 tmuxc UC1 step8을 우회하므로 COMM-GUIDE가 자동 주입되지 않는다 →
+#      readiness 통과 후 spawn 래퍼가 직접 주입(send 래퍼가 §2 도달검증 수행). tmuxc 경로는 이미 주입됨.
+if [ "$LAUNCH_MODE" = "raw" ] && [ "$AGENT" = "claude" ]; then
+  bash "$SEND" "$NAME" --from orch "통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$NAME. 세션간 송신은 검증 송신 프로토콜(§2) 준수 — 도달 확인 전 '전송 완료' 보고 금지." >/dev/null 2>&1
+fi
 if [ -n "$PROMPT_FILE" ] || [ -n "$INPUT" ]; then
   MSG="계약: ${PROMPT_FILE:-없음} Read 후 시작."
   [ -n "$INPUT" ] && MSG="$MSG 입력: $INPUT"

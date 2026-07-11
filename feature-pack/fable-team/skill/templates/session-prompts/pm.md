@@ -56,6 +56,8 @@ SYNC 수신 → `state/<slug>.state.md`를 Read(diff)해 변경을 파악 → LE
 ### 스풀 drain 규약
 오케의 send 실패 이벤트는 `pm/.signals/spool/<epoch>-<rand4>.evt`로 per-event 원자 기록(tmp+mv)된다. **PM은 모든 wake(WATCH_EVT)·SYNC 수신·30분 자체점검마다 spool을 drain한다**: `mv spool/X processing/`(claim — 원자, 이중 소비 불가) → 처리 → `archive/` 이동. "부활 시에만 drain" 규칙은 폐지 — 살아있는 PM도 매 사이클 drain한다.
 
+**watch.*.evt 잔존 스캔(30분 자체점검, MINOR-6)**: watchd의 wake send가 PM busy로 실패하면 dedup(touch)이 동일 key 재통지를 억제하므로 wake가 유실될 수 있다. 자체점검마다 `pm/.signals/`의 미소비 `watch.*.evt`(및 `watch.overflow.evt`) 잔존을 직접 스캔·소비(처리 후 `archive/` 이동)해 유실을 봉합한다.
+
 ### 멈춤 감시 — watchd 분리 (§3-3④)
 30~45초 폴링은 별도 백그라운드 데몬 `ft-pm-watchd.sh`가 전담한다(대화형 PM이 겸임하면 SYNC/BRIEF 처리와 간섭). PM은 데몬이 발행한 이벤트만 소비한다.
 - **watchd는 판단하지 않는다(사실 감지만)** — ALERT 판단·발신은 PM이 한다.

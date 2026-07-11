@@ -36,7 +36,12 @@ ft_parse_sess() {
     *\#*) base="${core%#*}"; inc="${core##*#}";;
     *)    base="$core";      inc=0;;
   esac
-  FT_BASE="ft-${base}"
+  # FT_BASE는 원 세션명의 프리픽스를 보존한다(B-1). 비-ft 세션(사람이 alias로 띄운 오케)에
+  # ft- 를 강제 부여하면 후계가 ft-자칭으로 게이트 면제·lineage 이중화·워커 오염된다.
+  case "$sess" in
+    ft-*) FT_BASE="ft-${base}";;
+    *)    FT_BASE="${base}";;
+  esac
   FT_INC="$inc"
   # PM은 role이 선행(ft-pm-<proj>)
   case "$base" in
@@ -56,6 +61,8 @@ ft_parse_sess() {
 # 세션에 대응하는 신호 디렉토리(feature slug 있으면 feature, 없으면 global)
 ft_signals_for_sess() {
   local root="$1" sess="$2"
+  # 비-ft 세션(오케 자기증류)은 feature/pm 아님 → global signals (state/ 오염 방지, MINOR-7)
+  case "$sess" in ft-*) ;; *) ft_global_signals "$root"; return 0;; esac
   ft_parse_sess "$sess"
   if [ -n "$FT_SLUG" ] && [ "$FT_ROLE" != "pm" ]; then
     ft_feat_signals "$root" "$FT_SLUG"
@@ -120,15 +127,15 @@ ft_has_exception() {  # <root> <name>
 # 반환: 0=허가(standing 또는 토큰 claim 성공) / 3=APPROVAL_REQUIRED
 # 사용: ft_check_approval <root> <op:kill|distill|gzip> <target> <op_token_path|"">
 ft_check_approval() {
-  local root="$1" op="$2" target="$3" token="$4"
-  # 1) standing 승인
+  local root="$1" op="$2" target="$3" token="$4" no_standing="${5:-}"
+  # 1) standing 승인 (no_standing=1이면 건너뜀 — 비-ft 대상은 op-token 전용, B-1c)
   local skey granted
   case "$op" in
     kill|distill) skey="autonomous_ft_kill";;
     gzip)         skey="auto_gzip";;
     *) skey="";;
   esac
-  if [ -n "$skey" ]; then
+  if [ -n "$skey" ] && [ "$no_standing" != "1" ]; then
     granted="$(ft_ijson "$root" "approvals.standing.$skey.granted")"
     if [ "$granted" = "true" ]; then
       ft_audit "$root" "APPROVE-STANDING op=$op target=$target key=$skey"

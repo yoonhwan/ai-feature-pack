@@ -7,15 +7,15 @@
     "_enum": ["tmux", "agent-v2", "workflow"]
   },
   "tmuxc_caps": {
-    "_note": "P-T0 프로브 확정(2026-07-11). model_full_id/env_passthrough=false → raw_launch_fallback 경로가 claude 워커 정본. 필드명은 Phase 0 결과(state.md) 기준 — 스크립트(ft-tmux-spawn.sh)가 이 키를 판독.",
+    "_note": "P-T0 프로브 확정(2026-07-11). model_full_id는 'env(FT_WORKER_ROLE 등)까지 포함한 완전 기동경로를 tmuxc가 지정 가능한가'로 정의한다(M-5). task#8이 tmuxc open --model/--effort를 추가했으나 env 주입은 여전히 불가(P-T0 ② 불변)하므로 false를 유지 → raw_launch_fallback이 claude 워커 정본. true로 갱신하려면 env 주입 부재로 ft-worker-guard가 무력화되므로 worker-guard에 세션명 role 폴백을 먼저 갖춰야 한다. 필드명은 Phase 0 결과(state.md) 기준 — 스크립트(ft-tmux-spawn.sh)가 이 키를 판독.",
     "model_full_id": false,
     "env_passthrough": false,
     "non_interactive": true,
     "probe_ts": "2026-07-11"
   },
   "probe": {
-    "codex_ready_regex": "^\\s*[A-Za-z0-9._-]+\\s+(minimal|low|medium|high)\\s+·\\s+\\S+\\s*$",
-    "_codex_note": "P-T2 실측 codex idle 상태줄(model+effort+cwd). busy 시 스피너/esc-interrupt로 대체됨. ft-tmux-spawn.sh readiness 프로브가 사용."
+    "codex_ready_regex": "^[[:space:]]*[A-Za-z0-9._-]+[[:space:]]+(minimal|low|medium|high)[[:space:]]+·[[:space:]]+[^[:space:]]+[[:space:]]*$",
+    "_codex_note": "P-T2 실측 codex idle 상태줄(model+effort+cwd). busy 시 스피너/esc-interrupt로 대체됨. ft-tmux-spawn.sh readiness 프로브(grep -qE)가 사용. ★POSIX 문자클래스로 기록(MINOR-3) — macOS BSD grep -E는 \\s/\\S 미지원이라 그대로 두면 codex 스폰 90초 전멸."
   },
   "approvals": {
     "standing": {

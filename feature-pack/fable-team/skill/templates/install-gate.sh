@@ -33,7 +33,9 @@ else
   CM="$PROJ/CLAUDE.md"
   SCOPE_LABEL="프로젝트($PROJ)"
 fi
-HOOKS=(orchestration-gate.sh orchestration-turn-reset.sh context-distill-gate.sh teammate-idle-gc.sh pre-compact-writethrough.sh ft-session-restore.sh ft-worker-guard.sh)
+# context-hygiene-clean.sh는 settings-wired 훅이 아니라 context-distill-gate.sh:153이
+# $(dirname)/context-hygiene-clean.sh 로 호출하는 헬퍼 — hooks/에 동반 설치돼야 결번 안 됨(MINOR-2).
+HOOKS=(orchestration-gate.sh orchestration-turn-reset.sh context-distill-gate.sh teammate-idle-gc.sh pre-compact-writethrough.sh ft-session-restore.sh ft-worker-guard.sh context-hygiene-clean.sh)
 
 # ── 상태 진단 ──
 hook_ok=true

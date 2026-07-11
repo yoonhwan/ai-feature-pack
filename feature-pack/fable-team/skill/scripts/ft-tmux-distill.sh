@@ -21,9 +21,13 @@ done
 [ -n "$SESS" ] || { echo "ft-tmux-distill: <sess> 필수" >&2; exit 1; }
 ROOT="$(ft_resolve_root "")"
 
-# ⓪ 승인 판정 (§0-1) — standing 또는 유효 op-token. 둘 다 아니면 exit 3(아무 조치 없음)
-ft_check_approval "$ROOT" distill "$SESS" "$OP_TOKEN"
-[ $? -eq 0 ] || { echo "ft-tmux-distill: APPROVAL_REQUIRED $SESS" >&2; exit 3; }
+# ⓪ 승인 판정 (§0-1) — ft 세션: standing 또는 op-token / 비-ft(오케 자기증류): op-token 전용(B-1c)
+# 비-ft는 standing(autonomous_ft_kill: "ft-* 한정")을 적용하지 않는다 — 하드룰 전파본과 정합.
+case "$SESS" in
+  ft-*) ft_check_approval "$ROOT" distill "$SESS" "$OP_TOKEN" ;;
+  *)    ft_check_approval "$ROOT" distill "$SESS" "$OP_TOKEN" 1 ;;
+esac
+[ $? -eq 0 ] || { echo "ft-tmux-distill: APPROVAL_REQUIRED $SESS (비-ft는 op-token 전용)" >&2; exit 3; }
 
 ft_parse_sess "$SESS"           # FT_BASE FT_SLUG FT_ROLE FT_INC
 BASE="$FT_BASE"; OLDN="$FT_INC"
@@ -73,11 +77,19 @@ if [ "$AGENT" = "claude" ] && [ -z "$MODEL" ]; then
   exit 1
 fi
 
+# M-3: 계약 프롬프트 승계 — FT_ROLE 해석 성공 + 기본 계약 파일 존재 시 자동 지정(호출자 미지정 시).
+# role 미상(비-ft 오케 자기증류)이면 생략 → 후계는 handover 지시만 받음(현행 유지).
+if [ -z "$PROMPT_FILE" ] && [ -n "$FT_ROLE" ]; then
+  cand="$ROOT/.fable-team/prompts/$FT_ROLE.md"
+  [ -f "$cand" ] && PROMPT_FILE="$cand"
+fi
+
 # ② #N+1 스폰 + handover token 명령 포함
+# role 미상(비-ft 자기증류)은 --role orch → 후계 오케가 워커 마커(FT_WORKER_ROLE) 없이 부팅(B-1b)
 TOKEN="$(date +%s)-$(printf '%08x' $((RANDOM*RANDOM)))"
 HANDOVER="$SIG/handover.$NEWSESS.token"
 INPUT="state.md·자기 산출물 Read 완료 후 $HANDOVER 에 토큰 '$TOKEN' 을 tmp 작성 후 mv(atomic)로 기록하라"
-bash "$SPAWN" --root "$ROOT" --name "$NEWSESS" --agent "$AGENT" --role "${FT_ROLE:-worker}" \
+bash "$SPAWN" --root "$ROOT" --name "$NEWSESS" --agent "$AGENT" --role "${FT_ROLE:-orch}" \
   ${MODEL:+--model "$MODEL"} ${EFFORT:+--effort "$EFFORT"} \
   ${PROMPT_FILE:+--prompt-file "$PROMPT_FILE"} --input "$INPUT" >/dev/null 2>&1
 if [ $? -ne 0 ]; then
