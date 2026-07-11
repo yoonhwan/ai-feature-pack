@@ -81,7 +81,15 @@ else
   # flock 부재: mkdir 원자성으로 싱글턴. 획득 실패 시 소유자 생존 확인 → stale이면 회수·재획득.
   # (mkdir 성공~pidfile 기록 사이 극소 경쟁창은 flock -n 근사치로 수용 — --ensure는 저빈도 기동.)
   if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    # 보유자 생존(pidfile 유효) → 종료.
     if watchd_owned; then echo "ft-pm-watchd: 다른 인스턴스가 lock 보유(mkdir) — 종료" >&2; exit 0; fi
+    # TOCTOU 방지(V12 재오픈): pidfile이 아직 없어도 lockdir가 grace(5s) 이내면 경쟁자가
+    # mkdir 성공 직후 pidfile 기록 전일 수 있어 탈취 금지 — 초기화 유예로 종료(중복 데몬 방지).
+    lockmt="$(stat -f %m "$LOCKDIR" 2>/dev/null || stat -c %Y "$LOCKDIR" 2>/dev/null || echo 0)"
+    if [ $(( $(date +%s) - lockmt )) -lt 5 ]; then
+      echo "ft-pm-watchd: lock 초기화 유예(grace) — 종료" >&2; exit 0
+    fi
+    # grace 초과 + pidfile 없음/죽은 PID → 진짜 stale → 회수.
     rmdir "$LOCKDIR" 2>/dev/null
     mkdir "$LOCKDIR" 2>/dev/null || { echo "ft-pm-watchd: lock 경합 — 종료" >&2; exit 0; }
   fi
