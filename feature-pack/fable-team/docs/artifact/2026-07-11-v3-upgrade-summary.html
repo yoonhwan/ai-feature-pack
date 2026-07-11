@@ -1,0 +1,240 @@
+<title>fable-team v3 업그레이드 작업 요약</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --ink:#1e2430; --sub:#5b6472; --line:#e2e5ea;
+    --accent:#215d8f; --accent-soft:#e7eef5;
+    --ok:#1d7a4c; --ok-soft:#e5f4ec;
+    --warn:#9a6b00; --warn-soft:#fbf1dc;
+    --bad:#a3312c; --bad-soft:#faeaea;
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171c; --panel:#1c1f26; --ink:#e7e9ee; --sub:#9aa2b1; --line:#2b2f38;
+    --accent:#6fa8dc; --accent-soft:#1f2c3a;
+    --ok:#4fd08a; --ok-soft:#12291f;
+    --warn:#e0b23e; --warn-soft:#2e2510;
+    --bad:#e57a75; --bad-soft:#2f1616;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15171c; --panel:#1c1f26; --ink:#e7e9ee; --sub:#9aa2b1; --line:#2b2f38;
+      --accent:#6fa8dc; --accent-soft:#1f2c3a;
+      --ok:#4fd08a; --ok-soft:#12291f;
+      --warn:#e0b23e; --warn-soft:#2e2510;
+      --bad:#e57a75; --bad-soft:#2f1616;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,"Apple SD Gothic Neo","Pretendard",BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.6; padding:48px 20px 80px;
+  }
+  .wrap{max-width:880px; margin:0 auto}
+  header{margin-bottom:36px}
+  .eyebrow{
+    color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.04em;
+    text-transform:uppercase; margin-bottom:8px;
+  }
+  h1{font-size:28px; margin:0 0 10px; letter-spacing:-.01em; text-wrap:balance}
+  .lede{color:var(--sub); font-size:15.5px; max-width:62ch}
+  .meta{color:var(--sub); font-size:13px; margin-top:14px}
+
+  section{margin-top:40px}
+  h2{
+    font-size:16px; margin:0 0 4px; padding-bottom:10px;
+    border-bottom:2px solid var(--line);
+  }
+  .h2-desc{color:var(--sub); font-size:13.5px; margin:8px 0 18px}
+
+  .card-list{display:flex; flex-direction:column; gap:10px}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; display:grid; grid-template-columns:28px 1fr; gap:14px; align-items:start;
+  }
+  .card .num{
+    width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;
+    margin-top:2px;
+  }
+  .card h3{margin:0 0 4px; font-size:14.5px}
+  .card p{margin:0; color:var(--sub); font-size:13.5px}
+
+  .story{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:18px 20px; margin-bottom:14px;
+  }
+  .story h3{margin:0 0 8px; font-size:15px; display:flex; align-items:center; gap:8px}
+  .story p{margin:0 0 8px; font-size:13.75px; color:var(--ink)}
+  .story p.sub{color:var(--sub); font-size:13.25px}
+  .story p:last-child{margin-bottom:0}
+
+  .chip{
+    display:inline-flex; align-items:center; font-size:11.5px; font-weight:700;
+    padding:2px 9px; border-radius:999px; letter-spacing:.01em; flex-shrink:0;
+  }
+  .chip.bad{background:var(--bad-soft); color:var(--bad)}
+  .chip.warn{background:var(--warn-soft); color:var(--warn)}
+  .chip.ok{background:var(--ok-soft); color:var(--ok)}
+
+  table{width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .tbl-wrap{overflow-x:auto; border-radius:10px}
+  th,td{text-align:left; padding:12px 14px; font-size:13.5px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{background:var(--accent-soft); color:var(--accent); font-size:12px; text-transform:uppercase; letter-spacing:.03em}
+  tr:last-child td{border-bottom:none}
+  td.what{color:var(--sub)}
+
+  .summary-box{
+    background:var(--accent-soft); border:1px solid var(--line); border-radius:12px;
+    padding:22px 24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:18px;
+  }
+  .stat b{display:block; font-size:22px; color:var(--accent); font-variant-numeric:tabular-nums}
+  .stat span{font-size:12.5px; color:var(--sub)}
+
+  footer{margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--sub); font-size:12.5px}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">작업 요약 · 2026-07-11</div>
+    <h1>fable-team을 tmux 기반으로 전면 개편했습니다</h1>
+    <p class="lede">
+      fable-team은 여러 AI 에이전트(기획/구현/테스트/검증 담당)가 서로 역할을 나눠 협업하는 시스템입니다.
+      이번 작업은 이 시스템이 각 에이전트를 <b>tmux 터미널 세션</b>으로 직접 띄우고, 서로 메시지를 주고받고,
+      작업이 끝나면 스스로 정리하도록 구조를 전면 교체하는 큰 작업이었습니다. 아래는 무엇을 했는지, 중간에
+      어떤 문제가 나왔고 어떻게 고쳤는지를 순서대로 정리한 것입니다.
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 무엇을 만들었나</h2>
+    <p class="h2-desc">큰 작업을 6단계로 나눠 순서대로 진행했습니다.</p>
+    <div class="card-list">
+      <div class="card">
+        <div class="num">1</div>
+        <div>
+          <h3>tmux 연동 방식부터 실측 조사</h3>
+          <p>새 구조를 짜기 전에, tmux 세션 도구(tmuxc)가 실제로 무엇을 할 수 있고 무엇을 못 하는지 먼저 확인했습니다. 예를 들어 "특정 AI 모델을 지정해서 세션을 열 수 있는가" 같은 걸 직접 테스트해봤습니다.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">2</div>
+        <div>
+          <h3>핵심 동작 스크립트 제작</h3>
+          <p>에이전트를 tmux 세션으로 띄우고, 메시지를 보내고, 응답을 확인하고, 세션을 정리하고, 오래된 세션을 새 세션으로 옮기는 등 8개의 핵심 스크립트를 새로 만들었습니다.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">3</div>
+        <div>
+          <h3>안전장치(자동 감시 규칙) 정비</h3>
+          <p>"대화가 압축(요약)되기 직전에 자동으로 상태 저장하기", "세션이 재시작되면 이전 상태 복원하기", "특정 역할이 허용된 파일만 건드리게 막기" 같은 안전장치 3개를 새로 만들고, 기존 2개를 개선했습니다.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">4</div>
+        <div>
+          <h3>역할별 작업지시문 정리</h3>
+          <p>각 역할(기획자·구현자·테스터·검증자·진행관리자 등) 8명에게 세션이 열릴 때 자동으로 전달되는 "너는 이런 역할이고 이렇게 일해라"는 지시문을 새 구조에 맞게 다시 작성했습니다.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">5</div>
+        <div>
+          <h3>관련 문서 6개 최신화</h3>
+          <p>새 구조를 설명하는 안내 문서, 운영 규칙 문서 등을 실제 변경 내용에 맞게 갱신했습니다. 이전 방식(구버전)으로 되돌릴 수 있는 방법도 문서에 그대로 남겨뒀습니다.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">6</div>
+        <div>
+          <h3>실제 설치 + 대규모 동작 검증</h3>
+          <p>만든 걸 실제로 설치해보고, 23가지 상황(정상 동작·비정상 상황·되돌리기 등)을 하나씩 실제로 재현해서 제대로 동작하는지 전부 확인했습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 작업 중간에 추가로 처리한 요청</h2>
+    <p class="h2-desc">위 6단계 작업 도중, 별도로 발견돼 같이 처리한 문제입니다.</p>
+    <div class="story">
+      <h3><span class="chip warn">추가 요청</span> 세션을 압축할 때 "긴 기억력" 설정이 사라지는 문제</h3>
+      <p>
+        AI 세션이 오래 이어지면 대화가 너무 길어져서 "압축(증류)"이라는 걸 하는데, 이때 원래 세션이 갖고 있던
+        모델 설정(예: 훨씬 더 많은 내용을 기억할 수 있는 확장 모드, 추론 강도 등)이 압축 후 새 세션에는 반영이
+        안 되고 기본값으로 떨어지는 문제가 있었습니다. 원인을 찾아서 압축 시 이전 세션의 실제 설정을 그대로
+        이어받도록 고쳤습니다. 이 과정에서 tmux 도구 자체에도 "이 세션이 지금 어떤 설정으로 떠있는지 물어보는"
+        기능을 새로 추가했습니다.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 전문가 재검토에서 나온 문제들</h2>
+    <p class="h2-desc">전체 작업물을 별도의 AI(설계 검토 전담)에게 한 번 더 검토받았고, 아래 문제들을 찾아 전부 고쳤습니다.</p>
+    <div class="story">
+      <h3><span class="chip bad">심각</span> 세션을 압축하면 "관리자" 권한이 "일반 작업자"로 바뀌어버리는 문제</h3>
+      <p>위 2번 수정이 부작용을 하나 만들었습니다 — 사람이 직접 띄운 최상위 관리 세션이 스스로 압축될 때, 새로 열리는 후속 세션이 실수로 "일반 작업자" 취급을 받아서 (a) 원래 있어야 할 관리 권한 체크가 풀리거나 (b) 반대로 일반 작업자에게 걸리는 제한 때문에 정작 관리 세션이 스스로 승인을 못 내리는 상황이 생길 수 있었습니다. 두 경우 다 막았습니다.</p>
+    </div>
+    <div class="story">
+      <h3><span class="chip warn">중요</span> 새 세션이 켜질 때 "통신 규약 안내"를 못 받는 경우</h3>
+      <p>일부 실행 경로로 뜬 세션은 다른 세션과 대화하는 방법(안내문)을 아예 못 받는 상태였습니다. 세션이 준비되면 바로 안내문을 보내도록 고쳤습니다.</p>
+    </div>
+    <div class="story">
+      <h3><span class="chip warn">중요</span> 특정 AI(codex 계열)가 지정한 것보다 낮은 성능으로 몰래 실행되는 문제</h3>
+      <p>검증 담당·기획 대체 담당 AI가 "고성능" 지정을 무시하고 조용히 "중간 성능"으로 실행되거나, 아예 실행 자체가 실패하는 경우가 있었습니다. 지정한 성능대로 정확히 켜지도록 고쳤습니다.</p>
+    </div>
+    <div class="story">
+      <h3><span class="chip warn">중요</span> 그 외 4건</h3>
+      <p>세션이 바쁘게 작업 중인데 무조건 "취소" 신호를 먼저 보내버려서 작업이 끊기던 문제, 세션을 압축할 때 새 세션이 "너는 무슨 역할이고 어떻게 일해야 하는지"에 대한 안내문을 못 받고 뜨던 문제, 모델 지정 방식이 바뀌면 안전장치 하나가 조용히 무력화될 수 있던 설정 문서 미비, 텍스트 안에 특수문자가 있으면 엉뚱한 파일명으로 잘못 실행될 뻔한 위험 — 4건 모두 수정했습니다.</p>
+    </div>
+    <div class="story">
+      <h3><span class="chip ok">경미</span> 그 외 자잘한 것 6건</h3>
+      <p>세션 이름이 비슷할 때 검색이 헷갈리던 것, 백그라운드 정리 기능 하나가 설치 목록에서 빠져있던 것, 특정 검사 코드가 이 컴퓨터 환경과 안 맞을 뻔했던 것 등 — 크게 위험하진 않지만 고쳐두면 좋은 자잘한 문제 6건도 같이 정리했습니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 실제로 돌려보다가 우연히 발견한 버그들</h2>
+    <p class="h2-desc">전문가 재검토와 별개로, 실제 대규모 동작 검증(6번 단계)을 진행하는 도중 라이브로 발견된 문제들입니다. 전부 그 자리에서 고치고 재확인했습니다.</p>
+    <div class="tbl-wrap">
+    <table>
+      <tr><th>발견 경위</th><th>무슨 문제였나</th><th>어떻게 고쳤나</th></tr>
+      <tr>
+        <td class="what">백그라운드 감시 담당이 "AI가 멈췄다"는<br>알림을 계속 잘못 보냄</td>
+        <td>세션 이름에 특수기호(#)가 들어있으면 감시 기록 파일 이름이 통째로 빈 값이 되는 버그가 있었고, 별개로 "AI가 잠깐 생각 중"인 것뿐인데 CPU 사용량이 순간 낮다는 이유만으로 "멈췄다"고 오판하는 버그도 있었습니다.</td>
+        <td>파일 이름이 깨지는 근본 원인(스크립트 문법 실수)을 고치고, "멈췄다" 판정 기준에 "화면 내용도 같이 안 바뀌고 있는지"를 추가해서 오판을 없앴습니다.</td>
+      </tr>
+      <tr>
+        <td class="what">세션 간 메시지 도착 확인이<br>항상 실패로 나옴</td>
+        <td>메시지는 실제로 잘 전달되는데, "도착했는지 확인하는 절차"가 화면에 표시되는 화살표(→) 문자가 터미널 화면에 깨져서 저장되는 바람에 매번 "도착 확인 실패"로 잘못 나왔습니다.</td>
+        <td>깨지기 쉬운 화살표 기호 대신 안전한 일반 문자(-&gt;)로 프로토콜 표기를 바꿔서 근본적으로 해결했습니다.</td>
+      </tr>
+      <tr>
+        <td class="what">이 컴퓨터(Mac) 환경에서<br>백그라운드 감시 프로그램이 이상 동작</td>
+        <td>Mac에는 리눅스에서 쓰던 특정 명령어 2개가 기본으로 없어서, 감시 프로그램이 "떴다"고 보고하지만 실제로는 안 뜬 상태이거나, 같은 프로그램이 실수로 중복 실행돼 서로 방해하는 문제가 있었습니다.</td>
+        <td>Mac에도 있는 대체 명령어로 자동 전환되게 하고, 중복 실행을 막는 잠금 방식도 경쟁 상황에서 안전하게 다시 짰습니다.</td>
+      </tr>
+      <tr>
+        <td class="what">설치 스크립트를 실행하기 직전,<br>실행 전 점검 중 발견</td>
+        <td>이 컴퓨터의 특정 설정 폴더가 "원본 소스 코드 폴더"를 직접 가리키는 바로가기(심볼릭 링크)로 되어 있었는데, 설치 스크립트를 그대로 실행하면 <b>원본 소스 코드 자체를 삭제</b>해버릴 뻔한 상황이었습니다.</td>
+        <td>실행하지 않고 먼저 보고받아 확인했고, 설치 스크립트에 "혹시 원본을 가리키는 바로가기면 삭제하지 말고 건너뛰기"라는 안전장치를 추가했습니다. 실제 삭제는 발생하지 않았습니다.</td>
+      </tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 최종 결과</h2>
+    <div class="summary-box">
+      <div class="stat"><b>19</b><span>총 커밋 (기록 저장 단위)</span></div>
+      <div class="stat"><b>23가지</b><span>실제 재현 검증한 시나리오</span></div>
+      <div class="stat"><b>1 + 6 + 6</b><span>전문가 재검토가 찾은 문제(심각/중요/경미)</span></div>
+      <div class="stat"><b>4건</b><span>실제 테스트 중 우연히 잡은 버그</span></div>
+      <div class="stat"><b>✓</b><span>원격 저장소 반영 완료</span></div>
+      <div class="stat"><b>✓</b><span>이 컴퓨터에 설치 확인 완료</span></div>
+    </div>
+  </section>
+
+  <footer>fable-team v3 업그레이드 · 전체 작업 종료</footer>
+</div>
