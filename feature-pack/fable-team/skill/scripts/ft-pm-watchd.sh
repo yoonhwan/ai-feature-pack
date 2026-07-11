@@ -60,21 +60,37 @@ case "$MODE" in
     if watchd_owned; then echo "WATCHD reuse (owned instance alive)"; exit 0; fi
     # stale/부재 → 재기동(잔존 PID kill 안 함). 실제 싱글턴 guard는 --run의 flock -n.
     [ -f "$PIDFILE" ] && rm -f "$PIDFILE" 2>/dev/null
-    setsid nohup bash "$0" --root "$ROOT" --run >/dev/null 2>&1 &
+    # V12: setsid는 macOS 미탑재(exit127) — 있으면 setsid, 없으면 nohup+&로 detach(둘 다 데몬화 충분).
+    if command -v setsid >/dev/null 2>&1; then
+      setsid nohup bash "$0" --root "$ROOT" --run >/dev/null 2>&1 &
+    else
+      nohup bash "$0" --root "$ROOT" --run >/dev/null 2>&1 &
+    fi
     echo "WATCHD launched"
     exit 0;;
   run) : ;; # 아래로
 esac
 
-# ── --run: 싱글턴 flock -n (비블로킹 — 실패=다른 인스턴스 진행 중, 즉시 종료) ──
-exec 9>"$LOCK"
+# ── --run: 싱글턴 guard — flock -n(Linux) 또는 mkdir 원자 락(macOS 등 flock 부재, V12) ──
+# 기존엔 flock 부재 시 guard가 통째로 스킵돼 중복 데몬 + pidfile 상호파괴가 났다(EXIT trap).
+LOCKDIR="$LOCK.d"; USED_MKDIR_LOCK=0
 if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK"
   flock -n 9 || { echo "ft-pm-watchd: 다른 인스턴스가 lock 보유 — 종료" >&2; exit 0; }
+else
+  # flock 부재: mkdir 원자성으로 싱글턴. 획득 실패 시 소유자 생존 확인 → stale이면 회수·재획득.
+  # (mkdir 성공~pidfile 기록 사이 극소 경쟁창은 flock -n 근사치로 수용 — --ensure는 저빈도 기동.)
+  if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    if watchd_owned; then echo "ft-pm-watchd: 다른 인스턴스가 lock 보유(mkdir) — 종료" >&2; exit 0; fi
+    rmdir "$LOCKDIR" 2>/dev/null
+    mkdir "$LOCKDIR" 2>/dev/null || { echo "ft-pm-watchd: lock 경합 — 종료" >&2; exit 0; }
+  fi
+  USED_MKDIR_LOCK=1
 fi
 # pidfile 기록: "<pid> <lstart> <proj>"
 LSTART="$(ps -o lstart= -p $$ 2>/dev/null | sed 's/^ *//')"
 printf '%s %s %s\n' "$$" "$LSTART" "$ROOT" > "$PIDFILE"
-trap 'rm -f "$PIDFILE" 2>/dev/null' EXIT
+trap 'rm -f "$PIDFILE" 2>/dev/null; [ "$USED_MKDIR_LOCK" = 1 ] && rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
 # 이벤트 발행: dedup(동일 key .evt 존재 시 억제=touch) + 백로그 상한 FIFO
 emit_evt() {  # <key> <detail>

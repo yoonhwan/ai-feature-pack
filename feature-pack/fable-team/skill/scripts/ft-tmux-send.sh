@@ -29,11 +29,13 @@ fi
 # ── 2) 상태 판독: 옵션 모드일 때만 Escape, 미제출 잔류일 때만 C-u (COMM-GUIDE §2 Step2, M-1) ──
 # 무조건 Escape는 busy 타겟의 진행 중 턴을 "Interrupted"로 중단시킨다(COMM-GUIDE 금지사항) →
 # capture로 옵션모드/미제출을 판별해 필요한 키만 보낸다. 감지 실패 시 아무것도 안 보내고 본문 send(안전측).
+# capture-pane 출력엔 TUI 박스문자·ANSI·잘린 멀티바이트 등 invalid UTF-8이 섞여, UTF-8 로케일
+# grep은 입력을 binary로 판정해 스킵하거나 illegal byte sequence로 오판한다(V3) → LC_ALL=C grep -a로 바이트매치.
 _cap="$(tmux capture-pane -p -t "$SESS" 2>/dev/null)"
-if printf '%s\n' "$_cap" | grep -q 'Enter to select'; then
+if printf '%s\n' "$_cap" | LC_ALL=C grep -aq 'Enter to select'; then
   tmux send-keys -t "$SESS" Escape 2>/dev/null; sleep 0.2   # 옵션 모드 탈출
 fi
-if printf '%s\n' "$_cap" | grep -qE '❯[[:space:]]+[^[:space:]]'; then
+if printf '%s\n' "$_cap" | LC_ALL=C grep -aqE '❯[[:space:]]+[^[:space:]]'; then
   tmux send-keys -t "$SESS" C-u 2>/dev/null; sleep 0.2      # 미제출 입력(❯ 텍스트) 클리어
 fi
 
@@ -45,7 +47,7 @@ tmux send-keys -t "$SESS" Enter 2>/dev/null
 # ── 4) 도달 검증: grep -F 정확 프리픽스, backoff 2→4→8 (총 ≤15s) ──
 for wait in 2 4 8; do
   sleep "$wait"
-  if tmux capture-pane -p -t "$SESS" 2>/dev/null | grep -qF "$PREFIX"; then
+  if tmux capture-pane -p -t "$SESS" 2>/dev/null | LC_ALL=C grep -aqF "$PREFIX"; then
     echo "SENT $SESS #$MSGID"
     exit 0
   fi
