@@ -111,6 +111,12 @@ else
   TR="$(tmuxc_role "$ROLE" "$AGENT")"
   set -- tmuxc open "$ROOT" --name "$NAME" --agent "$AGENT" --role "$TR"
   [ -n "$PROMPT_FILE" ] && set -- "$@" --prompt "$PROMPT_FILE"
+  # V2: tmuxc 경로도 model/effort 승계. tmuxc --model/--effort는 claude 전용(codex는 role→effort 고정,
+  #     codex에 --model 넘기면 tmuxc가 die)이므로 claude일 때만 전달.
+  if [ "$AGENT" = "claude" ]; then
+    [ -n "$MODEL" ]  && set -- "$@" --model "$MODEL"
+    [ -n "$EFFORT" ] && set -- "$@" --effort "$EFFORT"
+  fi
   "$@" >/dev/null 2>&1 && launch_ok=1
 fi
 if [ "$launch_ok" != "1" ]; then
