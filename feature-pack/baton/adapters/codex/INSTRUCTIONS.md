@@ -105,7 +105,8 @@ codex --dangerously-bypass-approvals-and-sandbox
 작업 완료 후 반드시:
 1. ~/.baton/current/bin/baton save 실행
 2. .baton/handoff/JOURNAL.md 마지막 Turn의 ACTIONS/TODO 업데이트
-3. .baton/handoff/NEXT.md 에 다음 세션 안내 작성
+3. (v1.2.14+) bash ~/.baton/current/bin/baton next-archive || true — 기존 NEXT.md 보존(스냅샷)
+4. .baton/handoff/NEXT.md 에 다음 세션 안내 작성
 ```
 
 ---

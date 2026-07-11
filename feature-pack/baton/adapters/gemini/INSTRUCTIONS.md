@@ -41,7 +41,8 @@ gemini --approval-mode yolo \
 작업 완료 후 반드시:
 1. baton save 실행
 2. .baton/handoff/JOURNAL.md 마지막 Turn ACTIONS/TODO 업데이트
-3. .baton/handoff/NEXT.md 에 다음 세션 안내 작성"
+3. (v1.2.14+) bash ~/.baton/current/bin/baton next-archive || true — 기존 NEXT.md 보존
+4. .baton/handoff/NEXT.md 에 다음 세션 안내 작성"
 ```
 
 ### 작업 완료 후 baton 저장
@@ -91,7 +92,8 @@ baton status
 작업 완료 시:
 1. `baton save` 실행
 2. JOURNAL.md 마지막 Turn 업데이트 (ACTIONS/TODO)
-3. NEXT.md 갱신 (다음 세션 안내)
+3. (v1.2.14+) `bash ~/.baton/current/bin/baton next-archive || true` — 기존 NEXT.md 보존
+4. NEXT.md 갱신 (다음 세션 안내)
 ```
 
 ---
