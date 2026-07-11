@@ -3,7 +3,7 @@
 
 메인 오케스트레이터(**sonnet-5 또는 fable-5** — ultracode, 세션 시작 시 사용자 선택)는 판단 중심으로 움직인다. 계획·분배·결정·종합만 맡고, 실제 구현은 서브에이전트에 위임한다.
 
-- 기획/문제해결: fable-5 또는 codex-5.6-sol(세션 직접 — ft-planner-x 폐지) — 세션 인터뷰 선택
+- 기획/문제해결: fable-5 또는 codex-5.6-sol(세션 직접 — ft-architect-x 폐지) — 세션 인터뷰 선택
 - 진단: opus-4-6 (high) — 3자대조 전담
 - 무거운 추론·구현: opus-4-8 (high)
 - 구현·테스트: sonnet-5 (high)

@@ -41,7 +41,7 @@ ALLOW = {
     "checker":     r'(^|/)state/[^/]+/checker-[^/]*\.json$|(^|/)\.signals(/|$)',
     "da":          r'(^|/)state/[^/]+/da-[^/]*\.md$|(^|/)\.signals(/|$)',
     "da2":         r'(^|/)state/[^/]+/da-[^/]*\.md$|(^|/)\.signals(/|$)',
-    "planner":     r'(^|/)designs(/|$)|(^|/)state(/|$)',
+    "architect":   r'(^|/)designs(/|$)|(^|/)state(/|$)',
     "pm":          r'(^|/)pm(/|$)|(^|/)\.signals(/|$)',
 }
 

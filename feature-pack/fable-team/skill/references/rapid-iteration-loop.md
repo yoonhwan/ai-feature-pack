@@ -17,7 +17,7 @@
 1. 테스트 (많이)     → byz-e2e / omo qa / ft-tester. 프론트 결과 + 백엔드 BTS 동작 확인
 2. 문제 발견         → 프론트 결과 ↔ 백엔드 BTS 괴리. 많은 테스트로 많은 문제 노출
 3. 로그·컨텍스트 파악 → ft-checker(sonnet)가 로그·BTS·아키텍처 문서 빠르게 파악 (병렬 다수, 단말성)
-4. 문제 확인 (게이트) → ft-planner(기획, 스펙/아키텍처 대조 원인규명) + ft-da(DA approve loop 적대검증)
+4. 문제 확인 (게이트) → ft-architect(기획, 스펙/아키텍처 대조 원인규명) + ft-da(DA approve loop 적대검증)
 5. 수술적 수정       → ft-implementer surgical. 큰 수정 아님, 발견된 문제만
 6. 재테스트          → 1로. 통과할 때까지 반복
 7. 증명 후 로그 정리  → 수정이 증명되면 심은 로그 제거
@@ -33,7 +33,7 @@
 |------|---------------------|--------|
 | 테스트·라이브 e2e·BTS | **byz-e2e 크루** / **omo qa 크루** / **ft-tester** | sonnet-5 |
 | 로그·BTS·아키텍처 문서 파악 | **ft-checker** (병렬 다수, 단말성) | sonnet-4-6 |
-| 문제확인·원인규명·기획 | **ft-planner** | fable-5 (미가용 시 sonnet-5) |
+| 문제확인·원인규명·기획 | **ft-architect** | fable-5 (미가용 시 sonnet-5) |
 | 적대검증 게이트 | **ft-da** (approve loop) | codex-5.5-xhigh (fable-5 rate-limit 시 필수) |
 | 수술적 수정 | **ft-implementer** | opus-4-6 |
 

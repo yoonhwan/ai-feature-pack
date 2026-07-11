@@ -18,9 +18,9 @@
 
 | # | 패턴 | 트리거 신호 | 투입 워커 (스폰 순서) | 파이프라인 형상 | DA 강도 |
 |---|------|------------|----------------------|----------------|---------|
-| P-BUG | 버그 수정 | 에러 로그·재현 절차·회귀 보고 | checker(로그·재현 경로 수집, 병렬 가능) → analyst(3자대조 진단) → [DIAGNOSIS만으로 수정 자명하면 planner 생략] → implementer → tester(repro→PASS) → da | 표준 | approve loop |
-| P-FEAT | 피처 구현 | "추가·구현·만들어" + 스펙/한 줄 요구 | planner(설계 파일) → implementer → tester → da (+ checker는 자산 서치 필요 시만 선행) | 표준 | approve loop |
-| P-REFAC | 리팩토링 | "정리·구조 개선·중복 제거" (행위 불변) | checker(영향 범위·참조 수집) → planner → implementer → tester(**회귀 전후 동일성**) → da | 표준 | approve loop |
+| P-BUG | 버그 수정 | 에러 로그·재현 절차·회귀 보고 | checker(로그·재현 경로 수집, 병렬 가능) → analyst(3자대조 진단) → [DIAGNOSIS만으로 수정 자명하면 architect 생략] → implementer → tester(repro→PASS) → da | 표준 | approve loop |
+| P-FEAT | 피처 구현 | "추가·구현·만들어" + 스펙/한 줄 요구 | architect(설계 파일) → implementer → tester → da (+ checker는 자산 서치 필요 시만 선행) | 표준 | approve loop |
+| P-REFAC | 리팩토링 | "정리·구조 개선·중복 제거" (행위 불변) | checker(영향 범위·참조 수집) → architect → implementer → tester(**회귀 전후 동일성**) → da | 표준 | approve loop |
 | P-ANLZ | 분석·조사 | "왜·원인·확인·조사·아키텍처 파악" (변경 없음) | checker ×N(병렬 서치) → analyst(종합 진단) — implementer/tester/da **미스폰** | 보고 종결 | 없음 (선택: da review 1회) |
 | P-HOT | 긴급 수정 | "지금·프로덕션·장애" + 원인 기지(旣知) | implementer + tester 직행(동시 스폰) → **da review 후행 1회**(비게이트 — 랜딩 차단 안 함, 판정만 기록) | 축약 | review (후행) |
 | P-VRFY | 검증 전용 | "돌려봐·확인해줘·PASS 여부" (구현 완료물) | tester(+tester2 병렬 가능) → da review | 축약 | review |
@@ -47,9 +47,9 @@ PM은 **프로젝트당 1개**(피처 공유) — 이미 열린 `ft-pm-<proj>#0`
 
 ### 2. 실행 중 증원 (에스컬레이션 신호 — 자동 스폰 트리거)
 
-- analyst 보고 `ESCALATE_TO_PLANNER: yes` → planner 투입 (P-BUG가 P-FEAT급 설계로 승격)
+- analyst 보고 `ESCALATE_TO_ARCHITECT: yes` → architect 투입 (P-BUG가 P-FEAT급 설계로 승격)
 - tester `FAIL` 동일 케이스 2회 반복 → analyst 투입 (P-HOT/P-VRFY가 P-BUG로 승격)
-- da `CHANGES_REQUESTED`에 설계 결함 명시 → planner 재회전
+- da `CHANGES_REQUESTED`에 설계 결함 명시 → architect 재회전
 - 증원은 **같은 세션 선택 브레인**을 쓴다(재질문 금지). 증원 사실은 state.md에 1줄 기록.
 
 ### 3. 해산
@@ -93,9 +93,9 @@ question: |
   연동: <1줄>
 options:
   - label: "P-BUG 기본 (Recommended)"
-    description: "checker→analyst→implementer→tester→da approve loop(≤3R). planner는 analyst ESCALATE 시 자동 투입"
-  - label: "+ planner 선투입"
-    description: "다층 원인·아키 변경이 예상될 때 — planner 설계 파일부터 시작"
+    description: "checker→analyst→implementer→tester→da approve loop(≤3R). architect는 analyst ESCALATE 시 자동 투입"
+  - label: "+ architect 선투입"
+    description: "다층 원인·아키 변경이 예상될 때 — architect 설계 파일부터 시작"
   - label: "축약: impl→tester"
     description: "원인 자명(수정 지점 특정됨) — checker/analyst 생략, da는 review 후행 1회"
   - label: "직접 조합"
@@ -112,7 +112,7 @@ question: |
   연동: <1줄>
 options:
   - label: "P-FEAT 기본 (Recommended)"
-    description: "planner→implementer→tester→da approve loop(≤3R)"
+    description: "architect→implementer→tester→da approve loop(≤3R)"
   - label: "+ checker 자산 서치 선행"
     description: "기존 코드·유사 구현·재사용 자산 조사가 설계 품질을 좌우할 때"
   - label: "+ da2 이중 판정"
@@ -131,7 +131,7 @@ question: |
   연동: <1줄>
 options:
   - label: "P-REFAC 기본 (Recommended)"
-    description: "checker(영향 범위)→planner→implementer→tester(회귀 전후 동일성)→da"
+    description: "checker(영향 범위)→architect→implementer→tester(회귀 전후 동일성)→da"
   - label: "축약: checker→impl→tester"
     description: "기계적 변환(rename·이동 등) — 설계 불요, da review 후행"
   - label: "+ tester2 병렬"
@@ -211,7 +211,7 @@ options:
   - label: "implementer 위임"
     description: "코드 3파일+ 이거나 게이트 차단이 예상될 때"
   - label: "P-FEAT로 승격"
-    description: "실은 동작 변경을 수반 — planner부터 표준 파이프라인"
+    description: "실은 동작 변경을 수반 — architect부터 표준 파이프라인"
 ```
 
 (P-DOC은 고유 옵션 3개로 충분 — `직접 조합` 생략 가능한 유일 패턴. `ask_other_builtin: false`인 하네스면 4번째로 추가.)

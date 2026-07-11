@@ -27,7 +27,7 @@ ft_feat_signals() { printf '%s/.fable-team/state/%s/.signals\n' "$1" "$2"; }  # 
 
 # ── 세션명 파싱: ft-<slug>-<role>#N (PM=ft-pm-<proj>#N) ─────
 # 결과 전역: FT_SLUG FT_ROLE FT_INC FT_BASE (FT_BASE = #N 제외한 lineage 베이스)
-FT_KNOWN_ROLES="planner analyst implementer tester2 tester da2 da checker pm"
+FT_KNOWN_ROLES="architect analyst implementer tester2 tester da2 da checker pm"
 ft_parse_sess() {
   local sess="$1"
   local core="${sess#ft-}"          # ft- 프리픽스 제거

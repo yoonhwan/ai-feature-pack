@@ -1,16 +1,16 @@
 # fable-less 디폴트 설계 — fable 부재 환경의 기본 구성 사다리
 
-> **⚠️ 정오표 (2026-07-06)**: 본 문서의 opus-4-8 관련 사다리(O1·P1·A1·A2·B1·B2·C2·C3·E6 등)는 **전면 폐기**되었다 — opus-4-8은 fable-team 로스터에서 완전 삭제(사용자 판정: 실사용 품질 미달). 현행 정본: 오케스트레이터 = sonnet-5 또는 fable-5(ultracode, 세션 시작 시 사용자 선택), planner 사다리 = fable-5 high → sonnet-5 high → 병렬 opus-4-6 high, implementer = opus-4-6 high 고정, checker = sonnet-4-6 medium. 이하 본문은 2026-07-03 시점 설계 사료로만 보존한다.
+> **⚠️ 정오표 (2026-07-06)**: 본 문서의 opus-4-8 관련 사다리(O1·P1·A1·A2·B1·B2·C2·C3·E6 등)는 **전면 폐기**되었다 — opus-4-8은 fable-team 로스터에서 완전 삭제(사용자 판정: 실사용 품질 미달). 현행 정본: 오케스트레이터 = sonnet-5 또는 fable-5(ultracode, 세션 시작 시 사용자 선택), architect 사다리 = fable-5 high → sonnet-5 high → 병렬 opus-4-6 high, implementer = opus-4-6 high 고정, checker = sonnet-4-6 medium. 이하 본문은 2026-07-03 시점 설계 사료로만 보존한다.
 
-> 2026-07-03 · planner 산출 · 2026-07-03 아침 토론 결정 D1·D2·D3·D5(a·b) 반영(COMPARE.md 「토론 결정」). 목적: fable-5가 없는 환경(팩 일반 배포·타 계정·모델 미출시)에서 **최대한 동일한 품질·동작**으로 fable-team이 돌아가는 기본값 확정. fable 보유 환경의 차이는 effort 정책뿐(D1 — 전 좌석 high 표준) — 모델 구성은 사다리 최상단 = 현행 그대로다.
+> 2026-07-03 · architect 산출 · 2026-07-03 아침 토론 결정 D1·D2·D3·D5(a·b) 반영(COMPARE.md 「토론 결정」). 목적: fable-5가 없는 환경(팩 일반 배포·타 계정·모델 미출시)에서 **최대한 동일한 품질·동작**으로 fable-team이 돌아가는 기본값 확정. fable 보유 환경의 차이는 effort 정책뿐(D1 — 전 좌석 high 표준) — 모델 구성은 사다리 최상단 = 현행 그대로다.
 
 ## 1. 원인·요구 분석
 
-- 현행 팩은 두 좌석이 fable에 묶여 있다: ① 오케스트레이터 = "ultracode 지원 최상위 모델(fable5 등)" (SKILL.md 역할 분리 표·허들 1) ② planner 브레인 = fable5 max (install-interview §2 기본값).
-- brain-availability §2에 planner 대체 행이 이미 있으나 ① 세대 구식(1순위 opus-4-6, opus-4-8 미반영) ② 구 "의도적 max 예외"(SKILL.md 허들 2)가 D1(전 좌석 high 표준·max 퇴출)로 폐지되어 예외 조항 정리 필요(기존 sonnet-5 high 표기는 결과적으로 D1과 일치) ③ 오케스트레이터 대체 행 부재. **이 표가 확장의 자연 착지점**이다.
+- 현행 팩은 두 좌석이 fable에 묶여 있다: ① 오케스트레이터 = "ultracode 지원 최상위 모델(fable5 등)" (SKILL.md 역할 분리 표·허들 1) ② architect 브레인 = fable5 max (install-interview §2 기본값).
+- brain-availability §2에 architect 대체 행이 이미 있으나 ① 세대 구식(1순위 opus-4-6, opus-4-8 미반영) ② 구 "의도적 max 예외"(SKILL.md 허들 2)가 D1(전 좌석 high 표준·max 퇴출)로 폐지되어 예외 조항 정리 필요(기존 sonnet-5 high 표기는 결과적으로 D1과 일치) ③ 오케스트레이터 대체 행 부재. **이 표가 확장의 자연 착지점**이다.
 - 설계를 결정하는 관찰 3개:
-  1. **오케스트레이터는 판단하지 않는다**(역할 분리 설계) → 모델 하향의 영향은 절차 준수 신뢰성(복원 §4·라운드 디스패치·형상 게이팅)에 국한. 품질 방어 우선순위 = **planner > DA > 오케스트레이터**. 가용 최상위 모델은 planner 좌석에 우선 배정한다.
-  2. **허들 1은 'ultracode인가?'라는 모드 체크가 아니라 프로파일 체크다**(D3 — codex·omo 블라인드 독립 수렴) — 본질은 ⓐ Agent/Workflow **양면 지원** ⓑ 사다리 **첫 가용 모델** ⓒ 그 모델의 **최대 유효 effort**(D1 상한 = high)다. Workflow 호출은 스킬 지시에 의한 opt-in으로 충족되므로 특정 세션 모드 없이도 가능. 스폰 경로 분리(planner effort 명시)는 전 단에서 유지 — effort 미명시 스폰의 함정은 400 즉사가 아니라 **무증상 effort 다운그레이드**(Agent 상속 = 세션 effort)다.
+  1. **오케스트레이터는 판단하지 않는다**(역할 분리 설계) → 모델 하향의 영향은 절차 준수 신뢰성(복원 §4·라운드 디스패치·형상 게이팅)에 국한. 품질 방어 우선순위 = **architect > DA > 오케스트레이터**. 가용 최상위 모델은 architect 좌석에 우선 배정한다.
+  2. **허들 1은 'ultracode인가?'라는 모드 체크가 아니라 프로파일 체크다**(D3 — codex·omo 블라인드 독립 수렴) — 본질은 ⓐ Agent/Workflow **양면 지원** ⓑ 사다리 **첫 가용 모델** ⓒ 그 모델의 **최대 유효 effort**(D1 상한 = high)다. Workflow 호출은 스킬 지시에 의한 opt-in으로 충족되므로 특정 세션 모드 없이도 가능. 스폰 경로 분리(architect effort 명시)는 전 단에서 유지 — effort 미명시 스폰의 함정은 400 즉사가 아니라 **무증상 effort 다운그레이드**(Agent 상속 = 세션 effort)다.
   3. **DA(codex gpt-5.5 xhigh)는 fable 부재와 독립** — fable-less에서 유일하게 남는 xhigh 브레인 = 품질 백스톱. 중요도가 '높음→치명적'으로 승격된다.
 - effort 실측 제약(준수): claude-5 계열(fable-5/sonnet-5) = low/medium/high/max, xhigh 없음(전 claude 좌석 표준 high — **D1: max 퇴출**, 근거 = fable5/max hang 2세션 실측 + 사용자 결정 "느리고 의미없음". codex DA의 xhigh는 별개 하네스라 D1 범위 밖). opus 계열은 high 지원 기대(과거 단서 "opus는 high까지") → 설치 프로브는 상한 탐색이 아니라 **표준 high 수락 확인**으로 축소(§5-A3). codex = xhigh 가능.
 
@@ -23,13 +23,13 @@
 | **O0 (현행)** | fable-5 | **high** (D1 — max/ultracode급 퇴출) | 모델 구성은 현행 그대로 — effort만 D1 표준. 하네스 = 완화형(§2-4) |
 | **O1** | opus-4-8 | **high** (D1 표준 — 프로브는 high 수락 확인만, §5-A3) | Agent/Workflow 양면 확인 — Workflow는 스킬 지시 호출이 opt-in 충족. 하네스 = 지침형(§2-4) |
 | **O2** | sonnet-5 | **high** (D1 표준) | 동일. 하네스 = 지침형(§2-4) |
-| 폴백 | 어느 단이든 Workflow 도구 부재 세션 | — | planner/tester 스폰을 **미들웨어 드라이버 서브에이전트 경유 `claude -p`**(SKILL.md 스폰 경로 3행 — 드라이버 sonnet4.6 low가 Bash 실행·SendMessage 릴레이, 오케스트레이터 직접 발사 금지)로 전환 — 계약 동일(프롬프트 파일→설계 파일), 파이프라인 형상 불변 |
+| 폴백 | 어느 단이든 Workflow 도구 부재 세션 | — | architect/tester 스폰을 **미들웨어 드라이버 서브에이전트 경유 `claude -p`**(SKILL.md 스폰 경로 3행 — 드라이버 sonnet4.6 low가 Bash 실행·SendMessage 릴레이, 오케스트레이터 직접 발사 금지)로 전환 — 계약 동일(프롬프트 파일→설계 파일), 파이프라인 형상 불변 |
 
-- planner와 동일 모델 겸직 허용 — 역할 분리는 모델 분리가 아니라 **계약 분리**(오케스트레이터 판단 금지)다.
+- architect와 동일 모델 겸직 허용 — 역할 분리는 모델 분리가 아니라 **계약 분리**(오케스트레이터 판단 금지)다.
 - 하네스 프로파일 배정(D5a): O0(fable-5) = 완화형, O1·O2(opus·sonnet) = 지침형 — 상세 §2-4.
 - 기각: 4.6 계열·haiku 오케스트레이터 — 게이트 무결성이 절차 준수 신뢰성에 직결이라 하한을 sonnet-5로 둔다.
 
-### 2-2. planner 브레인
+### 2-2. architect 브레인
 
 | 단 | 모델/effort | 경로 | 비고 |
 |----|-------------|------|------|
@@ -37,10 +37,10 @@
 | **P1 (추천 1순위)** | **opus-4-8 / high** (D1 표준 — 프로브는 high 수락 확인) | Workflow(model/effort 명시) 또는 미들웨어 드라이버 경유 `claude -p` | 비-fable 최상위 tier. 금지 규칙 예외의 일반화 필요(§5-B2) |
 | **P2 (병렬 — 역할 적합 배치)** | opus-4-6 / high **·** sonnet-5 / high | Workflow | 일렬 순위 없음(D2) — 아래 배치 기준 문단으로 선택. 구 "의도적 max 예외" 폐지(D1) |
 
-**역할 적합 배치 기준(D2)**: opus-4-6과 sonnet-5는 잘하는 축이 달라 일렬 순위를 두지 않는다 — **설계 안정성 좌석**(planner 브레인: 원인 분석 깊이·대안 기각 근거의 보수적 완결성)은 **opus-4-6/high** 우선, **최신 세대 반응성 좌석**(오케스트레이터 O2 등 최신 지식·조율 반응성이 관건인 자리)은 **sonnet-5/high** 우선. 한쪽만 가용하면 가용한 쪽이 좌석을 승계한다.
+**역할 적합 배치 기준(D2)**: opus-4-6과 sonnet-5는 잘하는 축이 달라 일렬 순위를 두지 않는다 — **설계 안정성 좌석**(architect 브레인: 원인 분석 깊이·대안 기각 근거의 보수적 완결성)은 **opus-4-6/high** 우선, **최신 세대 반응성 좌석**(오케스트레이터 O2 등 최신 지식·조율 반응성이 관건인 자리)은 **sonnet-5/high** 우선. 한쪽만 가용하면 가용한 쪽이 좌석을 승계한다.
 
 기각 옵션과 근거:
-- **codex gpt-5.5 xhigh를 planner로** — 기각. ① DA 브레인과 동일 프로바이더가 되어 planner-게이트 축에서 **author-review 분리가 붕괴**(같은 모델의 맹점이 게이트를 통과 — brain-availability §2가 DA 대체에서 경계하는 원리와 동형) ② fable-less 환경일수록 codex 가용성 자체가 변수라 디폴트 부적격 ③ codex가 가용하면 그 xhigh는 DA 좌석(검증 게이트)에 두는 편이 전체 품질에 유리. planner=codex는 DA를 claude로 스왑해 분리를 복원하는 **명시적 opt-in 구성**으로만 허용.
+- **codex gpt-5.5 xhigh를 architect로** — 기각. ① DA 브레인과 동일 프로바이더가 되어 architect-게이트 축에서 **author-review 분리가 붕괴**(같은 모델의 맹점이 게이트를 통과 — brain-availability §2가 DA 대체에서 경계하는 원리와 동형) ② fable-less 환경일수록 codex 가용성 자체가 변수라 디폴트 부적격 ③ codex가 가용하면 그 xhigh는 DA 좌석(검증 게이트)에 두는 편이 전체 품질에 유리. architect=codex는 DA를 claude로 스왑해 분리를 복원하는 **명시적 opt-in 구성**으로만 허용.
 - **sonnet-5를 1순위로** — 기각. 두뇌 좌석은 tier 우위(opus-4-8)가 세대 우위보다 우선 — 원인 분석 깊이·대안 기각 근거 생성은 최상위 tier 격차가 크다. opus-4-8 미가용 계정에선 P2 병렬 좌석이 역할 적합 기준(D2)으로 승계.
 
 ### 2-3. 나머지 로스터 — implementer effort만 하향(D1), 그 외 무변경
@@ -64,27 +64,27 @@ checker(sonnet4.6 low)·implementer(**opus4.6 high** — D1로 max에서 하향)
 
 ## 3. 기본 베이스 크루 세트 (fable-less 보강)
 
-원칙: **opt-in 골격·기본값 완전 불변** — 기본값은 전 크루 [추가 안 함] 그대로 둔다. §0에서 planner substitution이 기록된 설치(=fable-less)에 한해, 감지된 해당 크루의 opt-in 질문에 **`★ fable-less 추천` 배지 + 근거 1줄**을 표시할 뿐이다(선택은 전적으로 사용자).
+원칙: **opt-in 골격·기본값 완전 불변** — 기본값은 전 크루 [추가 안 함] 그대로 둔다. §0에서 architect substitution이 기록된 설치(=fable-less)에 한해, 감지된 해당 크루의 opt-in 질문에 **`★ fable-less 추천` 배지 + 근거 1줄**을 표시할 뿐이다(선택은 전적으로 사용자).
 
 | 크루 | fable-less 표시 | 추천 근거(배지 옆 1줄) |
 |------|-----------------|------------------------|
-| **omo** (A형) | **★ fable-less 추천** | 두뇌 공백을 타 프로바이더(OMX 위 Codex 스킬 레이어) 시각으로 보강 — planner 설계 산출물의 second-opinion 채널(`$analyze`). 재기획 라운드 품질 상향 |
+| **omo** (A형) | **★ fable-less 추천** | 두뇌 공백을 타 프로바이더(OMX 위 Codex 스킬 레이어) 시각으로 보강 — architect 설계 산출물의 second-opinion 채널(`$analyze`). 재기획 라운드 품질 상향 |
 | **insane-search** (B형) | **★ fable-less 추천** | 수집(stage 1) 심층화로 설계 **입력** 품질 상향 — 브레인 하향의 직접 보상은 "재료를 더 좋게" |
 | gstack / superpowers / ouroboros | 배지 없음 (현행) | 두뇌 공백과 직교(검증·프로세스는 DA·파이프라인이 커버). 로스터 비대화 방지 |
 
-- da는 크루가 아니라 필수 로스터 — fable-less + codex 미가용의 **이중 공백** 시엔 기존 DA 대체 행을 따르되, **planner 대체 모델과 동일 모델·동일 계열 금지**(author-review 분리 — planner=opus 계열이면 DA 대체는 sonnet/gemini 계열 우선, §5-A5) + 설치 고지에 "품질 열세 구성" 명기.
+- da는 크루가 아니라 필수 로스터 — fable-less + codex 미가용의 **이중 공백** 시엔 기존 DA 대체 행을 따르되, **architect 대체 모델과 동일 모델·동일 계열 금지**(author-review 분리 — architect=opus 계열이면 DA 대체는 sonnet/gemini 계열 우선, §5-A5) + 설치 고지에 "품질 열세 구성" 명기.
 - 크루 계약(resume/inject·요약-후-fork·WINDOW_PRESSURE)·산출물 외재화는 crew-support.md 그대로 — **배지는 추천 표시일 뿐, 기본값·opt-in 계약 모두 무변경(기본값 변경 구현 금지)**.
 
 ## 4. 동일성 비교 평가 프레임 (fable-in vs fable-out)
 
-실행 전제: fable 보유 환경에서 planner/오케스트레이터 모델 override로 fable-out 구성(P1+O1 또는 P2+O2)을 강제 재현 → 두 구성을 같은 픽스처로 비교. verify.md **V5**로 수록(§5-E). 커버리지: E1=통합, E2=오케스트레이터 절차, E3·E4=planner 품질, E5~E7=실험 하네스·전이 메커니즘 견고성, E8·E9=하네스 프로파일 검증(D5·D5a·D5b).
+실행 전제: fable 보유 환경에서 architect/오케스트레이터 모델 override로 fable-out 구성(P1+O1 또는 P2+O2)을 강제 재현 → 두 구성을 같은 픽스처로 비교. verify.md **V5**로 수록(§5-E). 커버리지: E1=통합, E2=오케스트레이터 절차, E3·E4=architect 품질, E5~E7=실험 하네스·전이 메커니즘 견고성, E8·E9=하네스 프로파일 검증(D5·D5a·D5b).
 
 | 케이스 | 시나리오 | 측정 지표 | PASS(동등) 기준 | 실행·판정 |
 |--------|----------|-----------|------------------|-----------|
 | **E1** E2E 완주 | V3 미니 사이클(음수 미지원 mul 픽스처) 양 구성 각 1회 | 무개입 완주 + 단계 산출물 실재(checker JSON·design-v1·impl-round1·tester ALL_PASS·da APPROVED) + 오케스트레이터 직접 판단 0회(**기계 판정** — 아래) | 양 구성 완주 && 산출물 세트 동일 && 금지 패턴 grep 0건 | 표준 파이프라인. 산출물 존재 체크 = checker. **"직접 판단 0회" 기계 판정(V5 고정 스펙)**: 오케스트레이터 세션 transcript(`~/.claude/projects/<proj-slug>/<session-id>.jsonl`의 assistant text)를 금지 regex 3종(grep -E, 행 단위)으로 검사 — R1 판정 자체 생성 `^(VERDICT|SPOT): (APPROVED|CHANGES_REQUESTED)`(인용 프리픽스 `>`·워커명 인용 문맥 행 제외), R2 설계 헤더 자체 생성 `^# Design:|^## (원인 분석|해결 설계|확정 설계)`, R3 diff 블록 자체 생성 '^```diff|^diff --git|^@@ -[0-9]+'. 3종은 정상 릴레이 픽스처(판정 인용·경로 릴레이만 있는 transcript)로 **오탐 0 자가검증 후 고정** — 검증 실패 시 regex를 조정하되 고정 후 변경 금지. **시뮬 확인**: "산출물 세트 동일"의 비교 단위 = 파일 내용 diff가 아니라 **형상 필수 종류의 실재 + 종결 신호 일치**(checker JSON 파싱 가능·design-v1 4섹션·impl IMPLEMENTED·tester ALL_PASS·da APPROVED·status: done) — 여분 라운드 파일은 비교 제외·기록만(라운드 수 판정은 E3 소관). 양 구성은 **격리 픽스처 사본**(코드 원상 + 빈 `.fable-team/`)에서 각각 완주 — 같은 사본 재사용 시 run 1의 수정 코드·잔존 design-v1이 run 2를 오염(라운드 디스패치·완료 판정 규칙이 stale 산출물을 완료로 오판) |
-| **E2** 재기획 크로스오버 복원 | context-management 검증 시나리오 7의 state 픽스처 주입(v2 검토 CHANGES_REQUESTED 후 사망) → 복원 | 복원 분기 선택·카운터 승계·형상 게이팅 준수 | 양 구성 모두 **stage 2** 선택 && 카운터 diff 0 (v2 재구현 선택 = FAIL) | 각 구성의 **오케스트레이터 세션이 직접 복원 수행** — 하향 단의 절차 준수 신뢰성을 직접 측정. 판정 = checker. **시뮬 확인**: 픽스처 = 사전 제작 고정 `.fable-team/` 트리(양 구성 **동일 바이트** — fixtures/ 보관본 주입, 실행 중 생성 금지). "카운터 diff 0"의 판독 파일·기준 = **복원 재개 보고(context-management §4-7) 직후의 `state/<slug>.state.md` frontmatter 3종(da_round 1·planner_rounds 2·respawns 원값) vs 주입 픽스처** — 재기획 디스패치 전 스냅샷이라 재증가 0이 정답. stage 2 선택의 증거 = state.md stage 값 + 이벤트 로그 복원 항목이며, impl 스폰 이벤트·stage 3 기록 검출 = 즉시 FAIL(거부된 v2 재구현 = 게이트 우회) |
-| **E3** DA loop 등가 | 경계조건 누락을 심은 v1 구현 고정 → 재기획→재구현→재판정 루프를 planner만 교체해 실행(DA=codex xhigh 양 구성 공통) | DA 라운드 1 판정 일치율(잣대 자체 검증) + 라운드 수·판정 시퀀스(CR→APPROVED) | 라운드 1 판정 동일 && 시퀀스 동일 && 총 라운드 수 차 0(한도 2 내) | 파이프라인 stage 2~5. 대조 원본 = `state/<slug>/da-round<N>.md`. **시뮬 확인**: 라운드 1 입력(checker JSON·design-v1·impl-round1)은 **공용 고정 픽스처**로 양 구성에 주입 — 각 구성 planner가 v1을 새로 생성하면 설계가 달라져 판정 차이의 귀속이 불가(잣대 검증 불성립). 사전 등록 정답 = 라운드 1 **CHANGES_REQUESTED**(심은 결함 기준): 어느 구성이든 라운드 1 APPROVED 또는 양 구성 판정 불일치면 구성 FAIL이 아니라 **실험 무효** — 픽스처/잣대 결함으로 회귀, 재보정 후 1회 재실행(재차 무효면 E3 미결 기록). fable-in이 한도 내 APPROVED 미도달 시에도 무효(픽스처 과난도), fable-out만 미도달이면 FAIL |
-| **E4** 설계 품질 루브릭 | 동일 checker JSON 입력으로 양 planner가 각각 설계 파일 생성 → 블라인드 채점 | 8점 루브릭: 원인 깊이(증상0/직접1/근본+재발방지2) · 대안 기각 근거(없음0/빈약1/대안≥2 각 근거2) · 검증 시나리오 수(<2:0, 2–3:1, ≥4:2) · 지시 구체성(방향0/파일1/파일:라인2) | 대체안 점수 ≥ fable 점수 − 1 | 채점자 = codex xhigh, 블라인드(산출 모델 미표기·제시 순서 교차). **채점은 증거 인용 JSON 체크리스트 필수** — 항목별 점수마다 설계 파일 라인 인용을 붙이고, **무증거 항목은 무효(0점 처리)**. 동점·경계(±1)면 **제2 채점자(sonnet-4-6 high) 추가 + 증거 인용 개수로 tie-break**. codex 부재 시 1차 채점자 = sonnet-4-6 high(제2 채점자는 opus-4-6). **시뮬 확인**: blind 유지 구체 절차 — ① 설계 2본을 무작위 라벨 `A.md`/`B.md` 사본으로 재명명, 라벨↔구성 매핑은 별도 파일에 밀봉(채점 프롬프트 미포함, 판정 후 개봉) ② 채점 개시 전 사본 2본에 구성 토큰(fable·opus·sonnet·P1/P2/O1/O2) grep 0건 **기계 확인** — 검출 시 해당 표기만 제거 후 재확인 ③ 순서 교차 = A-B·B-A 2회 채점 후 항목 점수 평균(0.5 단위 허용), 2회 간 우열 반전 시 경계(±1)로 취급해 제2 채점자 경로 발동 |
+| **E2** 재기획 크로스오버 복원 | context-management 검증 시나리오 7의 state 픽스처 주입(v2 검토 CHANGES_REQUESTED 후 사망) → 복원 | 복원 분기 선택·카운터 승계·형상 게이팅 준수 | 양 구성 모두 **stage 2** 선택 && 카운터 diff 0 (v2 재구현 선택 = FAIL) | 각 구성의 **오케스트레이터 세션이 직접 복원 수행** — 하향 단의 절차 준수 신뢰성을 직접 측정. 판정 = checker. **시뮬 확인**: 픽스처 = 사전 제작 고정 `.fable-team/` 트리(양 구성 **동일 바이트** — fixtures/ 보관본 주입, 실행 중 생성 금지). "카운터 diff 0"의 판독 파일·기준 = **복원 재개 보고(context-management §4-7) 직후의 `state/<slug>.state.md` frontmatter 3종(da_round 1·architect_rounds 2·respawns 원값) vs 주입 픽스처** — 재기획 디스패치 전 스냅샷이라 재증가 0이 정답. stage 2 선택의 증거 = state.md stage 값 + 이벤트 로그 복원 항목이며, impl 스폰 이벤트·stage 3 기록 검출 = 즉시 FAIL(거부된 v2 재구현 = 게이트 우회) |
+| **E3** DA loop 등가 | 경계조건 누락을 심은 v1 구현 고정 → 재기획→재구현→재판정 루프를 architect만 교체해 실행(DA=codex xhigh 양 구성 공통) | DA 라운드 1 판정 일치율(잣대 자체 검증) + 라운드 수·판정 시퀀스(CR→APPROVED) | 라운드 1 판정 동일 && 시퀀스 동일 && 총 라운드 수 차 0(한도 2 내) | 파이프라인 stage 2~5. 대조 원본 = `state/<slug>/da-round<N>.md`. **시뮬 확인**: 라운드 1 입력(checker JSON·design-v1·impl-round1)은 **공용 고정 픽스처**로 양 구성에 주입 — 각 구성 architect가 v1을 새로 생성하면 설계가 달라져 판정 차이의 귀속이 불가(잣대 검증 불성립). 사전 등록 정답 = 라운드 1 **CHANGES_REQUESTED**(심은 결함 기준): 어느 구성이든 라운드 1 APPROVED 또는 양 구성 판정 불일치면 구성 FAIL이 아니라 **실험 무효** — 픽스처/잣대 결함으로 회귀, 재보정 후 1회 재실행(재차 무효면 E3 미결 기록). fable-in이 한도 내 APPROVED 미도달 시에도 무효(픽스처 과난도), fable-out만 미도달이면 FAIL |
+| **E4** 설계 품질 루브릭 | 동일 checker JSON 입력으로 양 architect가 각각 설계 파일 생성 → 블라인드 채점 | 8점 루브릭: 원인 깊이(증상0/직접1/근본+재발방지2) · 대안 기각 근거(없음0/빈약1/대안≥2 각 근거2) · 검증 시나리오 수(<2:0, 2–3:1, ≥4:2) · 지시 구체성(방향0/파일1/파일:라인2) | 대체안 점수 ≥ fable 점수 − 1 | 채점자 = codex xhigh, 블라인드(산출 모델 미표기·제시 순서 교차). **채점은 증거 인용 JSON 체크리스트 필수** — 항목별 점수마다 설계 파일 라인 인용을 붙이고, **무증거 항목은 무효(0점 처리)**. 동점·경계(±1)면 **제2 채점자(sonnet-4-6 high) 추가 + 증거 인용 개수로 tie-break**. codex 부재 시 1차 채점자 = sonnet-4-6 high(제2 채점자는 opus-4-6). **시뮬 확인**: blind 유지 구체 절차 — ① 설계 2본을 무작위 라벨 `A.md`/`B.md` 사본으로 재명명, 라벨↔구성 매핑은 별도 파일에 밀봉(채점 프롬프트 미포함, 판정 후 개봉) ② 채점 개시 전 사본 2본에 구성 토큰(fable·opus·sonnet·P1/P2/O1/O2) grep 0건 **기계 확인** — 검출 시 해당 표기만 제거 후 재확인 ③ 순서 교차 = A-B·B-A 2회 채점 후 항목 점수 평균(0.5 단위 허용), 2회 간 우열 반전 시 경계(±1)로 취급해 제2 채점자 경로 발동 |
 | **E5** 실험 중단 복원 | E 케이스 직렬 실행 중 "E1 판정 확정·E2 진행 중" 상태에서 오케스트레이터 세션 강제 종료 → 새 세션에서 V5 재트리거 (스테이지드 주입: 결과 원장에 E1 판정 + E2 진행 마커를 기입한 픽스처로 재현 — 본 실행 전체 재수행 불요) | 결과 원장 기반 재개 — 완료 케이스 스킵·진행 케이스 재개 지점 | E1 재실행 0회(원장 판정 그대로 승계) && E2를 자기 픽스처부터 재개·완주 && 재개 후 원장 최종 판정이 본 실행과 diff 0 | 성립 전제 = **케이스 판정 확정마다 결과 원장 write-through**(단계 전이 준용 — 상태 외재화가 실험 자체에도 적용). 판정이 컨텍스트에만 있었으면 FAIL. 판정 = checker(원장 vs 재개 로그) |
 | **E6** 프로브 4상태 전이 (A3) | A3 분류 4상태를 각각 강제: ⓐ 가용 모델 high 실측(성공 — D1 표준) ⓑ `400 level ... not supported`(실 유발, 불가 시 기록 stderr 픽스처) ⓒ 허구 모델 id로 model-unavailable ⓓ rate-limit은 기록 출력 픽스처(결정적 실 유발 불가) | 상태 분류 결과 + 후속 사다리 조치 | 4상태 오분류 0 && 조치가 A3 설계와 일치: ⓐ 그 effort 확정 ⓑ 같은 단 한 단계 하위 effort 강등 재시도**만** ⓒ 강등 없이 다음 단 하강(예: P1→P2) ⓓ 강등·하강 0(보류·재시도) — 특히 ⓒ에서 강등이 나오면 FAIL(오류 유형 혼동 = 사다리 오염) | ⓐⓒ 라이브, ⓑⓓ는 분류기만 픽스처 검증. **E1~E4에 선행 실행** — fable-out 구성(표준 high 수락 여부) 확정이 이 프로브에 의존. 판정 = checker(분류 로그 vs 기대표 4행) |
 | **E7** 지연 Write 덮어쓰기 검출 (실사고 2026-07-03 재현) | 게이트 승인·E4 채점 확정 시점에 대상 설계 파일 sha256을 결과 원장에 기록 → stale 버전 덮어쓰기를 의도 주입 → 다음 소비 시점(구현 디스패치·채점 집계) 직전 재해시 대조 | 해시 불일치 검출 + 차단·에스컬레이션 여부, 오염본 소비 여부 | 불일치 검출 && 오염본 소비 0회 — 검출 없이 구현·채점이 오염본을 읽으면 FAIL | 해시 가드는 V5 실험 절차 내 규정(기록처 = 결과 원장. 파이프라인 전반 승격은 §6 미결). 판정 = checker |
@@ -99,25 +99,25 @@ checker(sonnet4.6 low)·implementer(**opus4.6 high** — D1로 max에서 하향)
 
 ### A. brain-availability.md (주 착지점)
 
-- **A1.** §2 표 planner 행 교체: 1순위 `claude-opus-4-8 high`(D1 표준 — 프로브는 high 수락 확인, §A3), 병렬 중간 좌석 `claude-opus-4-6 high` **·** `claude-sonnet-5 high`(D2 역할 적합 배치 — §2-2 기준 문단을 비고로 전재). **max 표기 전면 제거(D1)**.
-- **A2.** §2 표에 **오케스트레이터 행 신설**: 기본 `fable-5 high` | 1순위 `opus-4-8 high` | 2순위 `sonnet-5 high`(전부 D1 표준) | 비고: Agent/Workflow 양면 지원이 선결(D3) — Workflow 부재 시 planner/tester는 미들웨어 드라이버 경유 `claude -p`(스폰 경로 표 3행). planner 겸직 허용. **하네스 프로파일 배정 병기(D5a)**: fable-5=완화형 · opus/sonnet=지침형(§2-4).
+- **A1.** §2 표 architect 행 교체: 1순위 `claude-opus-4-8 high`(D1 표준 — 프로브는 high 수락 확인, §A3), 병렬 중간 좌석 `claude-opus-4-6 high` **·** `claude-sonnet-5 high`(D2 역할 적합 배치 — §2-2 기준 문단을 비고로 전재). **max 표기 전면 제거(D1)**.
+- **A2.** §2 표에 **오케스트레이터 행 신설**: 기본 `fable-5 high` | 1순위 `opus-4-8 high` | 2순위 `sonnet-5 high`(전부 D1 표준) | 비고: Agent/Workflow 양면 지원이 선결(D3) — Workflow 부재 시 architect/tester는 미들웨어 드라이버 경유 `claude -p`(스폰 경로 표 3행). architect 겸직 허용. **하네스 프로파일 배정 병기(D5a)**: fable-5=완화형 · opus/sonnet=지침형(§2-4).
 - **A3.** §1 프로브 추가 — **claude effort 표준(high) 수락 프로브(D1)**: 대체 후보로 확정된 claude 모델은 1회 실측(`claude -p --model <m> --effort high` 한 줄 질의 `< /dev/null`) 후 결과를 **4상태로 분류**해 처리한다: ⓐ **success** → 그 effort로 확정 ⓑ **400 `level ... not supported`** → 한 단계 하위 effort(medium) 강등 재시도 — effort 강등은 이 오류 유형에서만(high 거부는 이례 — 발생 시 기록·보고) ⓒ **model-unavailable·auth 오류** → effort 문제가 아니므로 강등 금지, **사다리 다음 단으로 하강** ⓓ **budget·rate-limit 등 일시 오류** → 판단 보류·재시도(강등·하강 모두 금지). 확정 결과를 `install.json.effort_ceilings`에 기록(FT 업데이트 시 재프로브 생략).
 - **A4.** §4 JSON 예시에 `"effort_ceilings": {"claude-opus-4-8": "<probe_result>"}` 필드 추가 — 값은 자리표시자로 표기(실측 전 특정 값을 예시가 암시하지 않게).
-- **A5.** §2 DA 대체 행에 겹침 금지 조건 신설: "DA 대체 모델은 **planner(대체 포함) 모델과 동일 모델·동일 계열 금지** — planner=opus 계열이면 sonnet/gemini 계열 우선(author-review 분리)".
+- **A5.** §2 DA 대체 행에 겹침 금지 조건 신설: "DA 대체 모델은 **architect(대체 포함) 모델과 동일 모델·동일 계열 금지** — architect=opus 계열이면 sonnet/gemini 계열 우선(author-review 분리)".
 
 ### B. install-interview.md
 
-- **B1.** §2 PLANNER 행 비고 보강: "fable-5 미가용 시 §0이 사다리 1순위(opus-4-8/high — D1 표준)를 기본 선택지로 제시".
-- **B2.** 금지 검증 일반화: "planner만 최상위 모델(fable5) 허용" → "**planner(최상위 브레인 좌석)만 사다리 상단 모델(fable-5, 대체 시 opus-4-8) 허용**". 워커 금지(fable-5/opus-4-8)는 현행 유지.
+- **B1.** §2 ARCHITECT 행 비고 보강: "fable-5 미가용 시 §0이 사다리 1순위(opus-4-8/high — D1 표준)를 기본 선택지로 제시".
+- **B2.** 금지 검증 일반화: "architect만 최상위 모델(fable5) 허용" → "**architect(최상위 브레인 좌석)만 사다리 상단 모델(fable-5, 대체 시 opus-4-8) 허용**". 워커 금지(fable-5/opus-4-8)는 현행 유지.
 - **B3.** 오케스트레이터 게이트 문구: "ultracode 지원 최상위 모델 세션" → "프로파일 충족 세션 — 사다리 첫 가용 모델(brain-availability §2) + 최대 유효 effort(D1 상한 high) + Agent/Workflow 양면 지원"(D3).
-- **B4.** §4-2 크루 opt-in 보강: "§0에서 planner substitution 기록 시(=fable-less) omo·insane-search 질문에 **`★ fable-less 추천` 배지 + 근거 1줄 표시** — 기본값은 [추가 안 함] 그대로(§3 원칙: 기본값 변경 구현 금지)".
+- **B4.** §4-2 크루 opt-in 보강: "§0에서 architect substitution 기록 시(=fable-less) omo·insane-search 질문에 **`★ fable-less 추천` 배지 + 근거 1줄 표시** — 기본값은 [추가 안 함] 그대로(§3 원칙: 기본값 변경 구현 금지)".
 
 ### C. SKILL.md
 
-- **C1.** 허들 1 재작성(일반화 — D3): "현재 세션이 ⓐ Agent/Workflow **양면 지원**(도구 존재 — Workflow는 스킬 지시 호출로 opt-in 충족) ⓑ 사다리 **첫 가용 모델** ⓒ 그 모델의 **최대 유효 effort**(D1 상한 = high)인가? ⓒ만 미달이고 세션 내 조정 가능하면(`/effort high`) 조정 안내 후 진행. ⓑ 미충족(하위 모델 세션)이면 특정 모드 고정 안내(`/effort ultracode` 등) 금지 — **사다리의 다음 프로파일을 충족하는 세션에서 재트리거**하도록 안내 후 중단. ⓐ 중 Workflow만 부재 시 planner/tester 스폰을 미들웨어 드라이버 서브에이전트 경유 `claude -p`(스폰 경로 표 3행)로 전환 선언 후 진행."
-- **C2.** 역할 분리 표 모델 셀 2곳: 오케스트레이터 "ultracode 지원 최상위 모델 (fable5 등 — 일반화)" → "사다리 첫 가용 모델 + effort high(기본 fable5/high — brain-availability §2, 하네스 프로파일 §2-4)". planner "기본 fable5 + effort max" → "기본 fable5 + effort **high**(D1)"로 교체 후 "(미가용 시 사다리: opus-4-8 high → 병렬 opus-4-6 high·sonnet-5 high — D2 역할 적합)" 병기.
-- **C3.** 표준 로스터 공통 불변 문구: "(planner의 fable5만 예외)" → "(최상위 브레인 좌석 planner만 예외 — 사다리 모델 fable-5/opus-4-8)". ft-planner 행 브레인 셀에 사다리 포인터 각주.
-- **C4.** 스폰 경로 분리 표 planner 행 이유에 1문장 보강: "effort 명시는 모든 세션에서 필수 — 세션 상한 초과 지정은 400 즉사, 미명시는 무증상 effort 다운그레이드(Agent 상속 = 세션 effort)".
+- **C1.** 허들 1 재작성(일반화 — D3): "현재 세션이 ⓐ Agent/Workflow **양면 지원**(도구 존재 — Workflow는 스킬 지시 호출로 opt-in 충족) ⓑ 사다리 **첫 가용 모델** ⓒ 그 모델의 **최대 유효 effort**(D1 상한 = high)인가? ⓒ만 미달이고 세션 내 조정 가능하면(`/effort high`) 조정 안내 후 진행. ⓑ 미충족(하위 모델 세션)이면 특정 모드 고정 안내(`/effort ultracode` 등) 금지 — **사다리의 다음 프로파일을 충족하는 세션에서 재트리거**하도록 안내 후 중단. ⓐ 중 Workflow만 부재 시 architect/tester 스폰을 미들웨어 드라이버 서브에이전트 경유 `claude -p`(스폰 경로 표 3행)로 전환 선언 후 진행."
+- **C2.** 역할 분리 표 모델 셀 2곳: 오케스트레이터 "ultracode 지원 최상위 모델 (fable5 등 — 일반화)" → "사다리 첫 가용 모델 + effort high(기본 fable5/high — brain-availability §2, 하네스 프로파일 §2-4)". architect "기본 fable5 + effort max" → "기본 fable5 + effort **high**(D1)"로 교체 후 "(미가용 시 사다리: opus-4-8 high → 병렬 opus-4-6 high·sonnet-5 high — D2 역할 적합)" 병기.
+- **C3.** 표준 로스터 공통 불변 문구: "(architect의 fable5만 예외)" → "(최상위 브레인 좌석 architect만 예외 — 사다리 모델 fable-5/opus-4-8)". ft-architect 행 브레인 셀에 사다리 포인터 각주.
+- **C4.** 스폰 경로 분리 표 architect 행 이유에 1문장 보강: "effort 명시는 모든 세션에서 필수 — 세션 상한 초과 지정은 400 즉사, 미명시는 무증상 effort 다운그레이드(Agent 상속 = 세션 effort)".
 
 ### D. orchestration-playbook.md (개정 최소)
 
@@ -126,11 +126,11 @@ checker(sonnet4.6 low)·implementer(**opus4.6 high** — D1로 max에서 하향)
 ### E. test/verify.md
 
 - **E1.** **V5 신설** "fable-in/out 동등성 비교": §4의 표(E8·E9 하네스 프로파일 케이스 포함 — D5·D5b) + 종합 판정 규칙 + "fable 보유 환경에서 override로 fable-out 재현" 실행 지침.
-- **E2.** V2 금지 모델 행의 예외 문구를 B2와 동기화("planner 제외" → "planner 좌석 예외 — 사다리 모델").
+- **E2.** V2 금지 모델 행의 예외 문구를 B2와 동기화("architect 제외" → "architect 좌석 예외 — 사다리 모델").
 
 ### F. 무변경 확인 목록
 
-context-management.md · monitoring-loop.md · integrations.md · feature-interview.md · update.md · agent-templates/*.tpl — **무변경**. 전부 모델 비의존 설계(E2가 이를 검증)이고, ft-planner.md.tpl은 placeholder 구조라 §0 치환이 사다리를 흡수한다.
+context-management.md · monitoring-loop.md · integrations.md · feature-interview.md · update.md · agent-templates/*.tpl — **무변경**. 전부 모델 비의존 설계(E2가 이를 검증)이고, ft-architect.md.tpl은 placeholder 구조라 §0 치환이 사다리를 흡수한다.
 
 ### G. 후속 구현 과제 (본 설계 범위 밖 — 명시)
 
@@ -141,7 +141,7 @@ context-management.md · monitoring-loop.md · integrations.md · feature-interv
 ## 6. 리스크·미결
 
 - **opus-4-8 high 수락 미실측**(과거 단서 "opus는 high까지" — 지원 기대, 2026-06-19) → A3 프로브가 설치 시 확인. D1로 상한 탐색은 불요 — 프로브 목적은 표준 high 수락 확인만.
-- **Workflow 도구 가용성이 배포 채널·하네스에 따라 다를 수 있음** → 허들 1 ⓐ 프로브 + 콘솔 분리 폴백이 흡수(형상 불변). 단 planner 좌석의 미들웨어 드라이버 경유 E2E 완주는 B형 크루 실측에 준거한 추정 — V5 실행 시 함께 실측 권장.
+- **Workflow 도구 가용성이 배포 채널·하네스에 따라 다를 수 있음** → 허들 1 ⓐ 프로브 + 콘솔 분리 폴백이 흡수(형상 불변). 단 architect 좌석의 미들웨어 드라이버 경유 E2E 완주는 B형 크루 실측에 준거한 추정 — V5 실행 시 함께 실측 권장.
 - **E4 단일 심판(codex) 편향** — 블라인드·순서 교차로 완화하나 한계 잔존. 필요 시 3-lens 채점(원인 정합/구체성/검증성 별도 프롬프트)으로 확장 가능(미결).
 - **E6의 ⓑⓓ는 분류기 픽스처 검증에 그침** — rate-limit은 결정적 재현 불가, 400 유발은 opus-4-8 상한 실측과 결합돼 사전 보장 불가. 실기에서 자연 발생한 오류 출력을 픽스처로 승격해 지속 갱신.
 - **E7 해시 가드는 V5 실험 절차 내 한정** — 파이프라인 전반 승격(게이트 승인 시 설계 해시를 state.md에 기록 — write-through 4이벤트 확장)은 효익·복잡도 검토 후 별도 회전(미결).

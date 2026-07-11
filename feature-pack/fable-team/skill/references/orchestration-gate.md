@@ -41,12 +41,12 @@ templates/install-gate.sh --install [proj]   # 4-레이어 설치 (멱등·setti
 ## 로스터 (강제 게이트 전제)
 
 - 메인 오케스트레이터(세션) = **sonnet-5 또는 fable-5 (ultracode — 세션 시작 시 사용자 선택)**. 게이트 대상.
-- planner = **fable5** (1순위 — 미가용 시 sonnet-5 → 병렬 opus-4-6). 설계 파일만 산출(코드 아님)이라 실무상 게이트 무영향.
+- architect = **fable5** (1순위 — 미가용 시 sonnet-5 → 병렬 opus-4-6). 설계 파일만 산출(코드 아님)이라 실무상 게이트 무영향.
 - 워커: implementer=opus-4-6/high, tester=sonnet-5/high, checker(대량서치)=sonnet-4-6/medium. 게이트 면제.
 
 ## TOP 모델[1m] 서브에이전트 모델 leak 교정 (sonnet-5/fable-5 포함)
 
-[1m] 세션 Agent 스폰 시 워커가 세션 모델 상속(frontmatter 무시) → 전 워커가 세션 TOP 모델. 교정: ① `.claude/settings.json` env에 `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL` provider ID 지정(tier alias 해석) ② [1m] 세션은 **일회성 브레인 워커(planner/checker/implementer/tester)만** Workflow 경로(explicit model) 강제 — **장수명 드라이버(DA·crew)는 Agent+wrapper 셔틀로 유지**(외부 CLI가 wrapper 주입 full-id로 실행). 일회성 브레인만 스폰 후 `agent-*.meta.json` model 검증(불일치=hard stop).
+[1m] 세션 Agent 스폰 시 워커가 세션 모델 상속(frontmatter 무시) → 전 워커가 세션 TOP 모델. 교정: ① `.claude/settings.json` env에 `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL` provider ID 지정(tier alias 해석) ② [1m] 세션은 **일회성 브레인 워커(architect/checker/implementer/tester)만** Workflow 경로(explicit model) 강제 — **장수명 드라이버(DA·crew)는 Agent+wrapper 셔틀로 유지**(외부 CLI가 wrapper 주입 full-id로 실행). 일회성 브레인만 스폰 후 `agent-*.meta.json` model 검증(불일치=hard stop).
 
 ## 검증 (README §5 — "실제로 막히는지 증명")
 `skill/templates/` 저작 시 합성 stdin으로 전 케이스 실증(2026-07-03): fail-open·워커면제·오케 3째 deny·문서/설정 비카운트·재편집 비증가·Bash우회 deny·300k warn·450k block·설치 멱등·병합보존. 상세 = 피처 `.fable-team/state/orchestration-gate`.
