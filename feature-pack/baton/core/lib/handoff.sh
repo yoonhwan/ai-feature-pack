@@ -355,6 +355,26 @@ baton_handoff_alert() {
 EOF
 }
 
+# v1.2.14+ — NEXT.md 히스토리 보존: save Step 1(LLM Write)이 덮어쓰기 전에
+# 기존 NEXT.md를 next-archive/로 스냅샷. 라이브 NEXT.md는 건드리지 않음(복사만).
+# 인자: handoff_dir (default ./.baton/handoff)
+baton_next_snapshot_rotate() {
+  local handoff_dir="${1:-./.baton/handoff}"
+  local next="$handoff_dir/NEXT.md"
+  [[ -s "$next" ]] || return 0   # 없거나 비어있으면 아카이브할 게 없음 — no-op
+  local dir="$handoff_dir/next-archive"
+  mkdir -p "$dir"
+  local ts
+  ts="$(date +%Y%m%d-%H%M%S)-$$"   # PID suffix — 같은 초 내 중복 save 시 타임스탬프 충돌(직전 스냅샷 덮어쓰기) 방지
+  cp "$next" "$dir/NEXT-${ts}.md"
+  # 20개 초과 시 오래된 것부터 정리(파일명이 타임스탬프라 정렬=시간순)
+  local n
+  n=$(ls "$dir"/NEXT-*.md 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$n" -gt 20 ]]; then
+    ls "$dir"/NEXT-*.md | sort | head -n "$((n - 20))" | while read -r f; do rm -f "$f"; done
+  fi
+}
+
 # ============================================================
 # v1.2.5+ — RESUME_MSG.md 자동 생성 (≤500B hard cap)
 # ============================================================

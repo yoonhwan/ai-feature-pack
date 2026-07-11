@@ -285,6 +285,14 @@ EOF
   fi
 }
 
+# === /baton:next-archive (v1.2.14+ — NEXT.md 덮어쓰기 전 스냅샷) ===
+baton_cmd_next_archive() {
+  baton_guard_main_root next-archive || return 1
+  local root
+  root=$(baton_active_root)
+  baton_next_snapshot_rotate "$root/.baton/handoff"
+}
+
 # === /baton:save (v1.2.4+ — race-free snapshot pipeline) ===
 # 흐름:
 #   1. lock 획득 (동시 save 차단)
