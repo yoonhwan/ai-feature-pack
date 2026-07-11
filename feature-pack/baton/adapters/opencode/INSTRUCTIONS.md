@@ -103,7 +103,8 @@ baton status
 ### 작업 완료 시 반드시 실행
 1. `baton save` — 현재 상태 저장
 2. `.baton/handoff/JOURNAL.md` 마지막 Turn ACTIONS/TODO 업데이트
-3. `.baton/handoff/NEXT.md` 갱신 — 다음 세션 안내 작성
+3. (v1.2.14+) `bash ~/.baton/current/bin/baton next-archive || true` — 기존 NEXT.md 보존
+4. `.baton/handoff/NEXT.md` 갱신 — 다음 세션 안내 작성
 
 ### 키워드 트리거
 "이어서" / "진행" / "go" / "continue" / "next" 입력 시 NEXT.md 확인 후 재개
