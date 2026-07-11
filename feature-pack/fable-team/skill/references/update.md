@@ -9,6 +9,7 @@
 3. **에이전트 .md 패치** (설치된 워커만 — opt-in 미설치 크루는 건드리지 않는다):
    1. 설치 답변 로드: 설치 스킬 위치의 `install.json` Read. **없으면(구설치본)** 설치된 `<PREFIX>-*.md`들의 frontmatter(model/effort/name)와 본문에서 placeholder 값을 역추출.
    2. 각 해당 템플릿(`agent-templates/*.md.tpl`)을 로드된 값으로 재치환 → 설치본 파일과 비교 → **내용이 달라진 파일만** Write. 잔여 `{{` 검사(남으면 실패로 간주, 해당 파일 롤백).
+   2-1. **v3 세션 계약 프롬프트 재치환**: `templates/session-prompts/*.md`(8종)도 동일 로드값으로 재치환 → 설치본 `.fable-team/prompts/<role>.md`와 비교 → 달라진 파일만 Write(잔여 `{{` 검사 동일). agent-templates와 같은 키를 쓰므로 별도 값 불요 — install-interview §5-3-2와 대칭.
    3. 사용자 커스텀(`{{EXTRA_INSTRUCTIONS}}` 영역 등)이 감지되면 덮어쓰기 전에 사용자에게 보여주고 확인.
 4. **기록**: `install.json`에 답변 스냅샷 + `updated: <ISO 시각>` + 팩 커밋 해시를 기록 (구설치본이면 이번에 생성 — 다음 업데이트부터 역추출 불요).
 5. **재시작·재검증 안내**: 에이전트 .md가 1개라도 갱신됐으면 **"새 세션 필수"** 고지(정의는 세션 시작 시 스냅샷 등록 — SKILL.md 함정). 새 세션에서 프로브 재검증 — **경로 이원화(planner 포함) 기준**(install-interview §5-4).

@@ -84,26 +84,45 @@ updated: 2026-07-02T14:30
 | **/clear** | 피처 **종결(stage 6) 후** 다음 피처 전, 같은 세션 && 에이전트 정의 변경 없음 | 대화 전체 소실. 열린 워커 생존 미보장 | 사전: status=done + 열린 워커 전원 해산. 사후: 신규 피처 인터뷰부터 |
 | **세션 재시작(증류)** | ① **500k 토큰 또는 HUD 80%**(90%+는 경계 대기 없이 즉시) ② compact 1회 후 재차 압박(요약의 요약 금지) ③ 에이전트 .md 설치/수정 ④ 세션 오염(400 반복) | Agent 워커 전멸, resumeFromRunId 무효, 대화 소멸. 디스크 유지 | 사전: state.md 최신화 + ACTIVE 확인 + **(integrations on/required && 워크트리 파이프라인) `baton save` — NEXT.md 한 줄 포인터(integrations.md §2 규칙. baton은 워크트리 phase 안에서만 save 가능 — main root 메타 작업은 해당 없음, 실측 2026-07-03)** + "재시작 후 fable-team 재트리거" 안내. 사후: §4 복원 |
 
+**증류 결정 = 3스텝 SOP(§2.5·설계 §2-2)로 라우팅**: 위 임계표의 수단 선택은 "ctx% 높으니 무조건 재시작"이 아니라 `ft-ctx-triage.sh` **진단 → 문제 수정 → RECOMMEND** 3스텝을 거친다(§2.5). 결정 후 **승인 2-모드로 실행 분기**: `standing.autonomous_ft_kill.granted=true`면 1줄 고지 후 **자율 실행**(트리아지·ft-* 워커 distill·오케 자기 compact/distill·비활성 로그 gzip), 미승인이면 **매 건 AskUserQuestion + op-token 발급** 후 래퍼 `--op-token` 호출(exit 3에 막히지 않는 단발 경로). **모드 무관 여전히 HIL**: ft-* 외 세션 조치·`tmuxc clean`·삭제 일반·워커발 HIL 요청 전부(§1-6). **v3에서 워커 증류와 오케 증류는 독립 축** — 오케가 tmux 세션이면 오케 증류에도 워커 tmux 세션은 전원 생존한다(§4 복원의 재부착 분기).
+
 **단계 경계 규칙**: compact/clear/재시작은 **반드시 단계 경계에서** — 단계 중간엔 워커 통지 대기가 걸려 유실 위험. ctx 확인 시점은 매 단계 전이 시(write-through와 같은 타이밍). 안전 경계 우선순위: **stage 2→3(설계 확정 직후)** > stage 5→6(게이트 통과 직후) > 기타. stage 3 진행 중 500k/HUD 80% 도달 시: implementer에 SendMessage로 현 시점 마무리 지시 → 원장에 "구현 중단·재개 필요" 기록 → 재시작(복원은 §4-5 단계 재실행이 흡수).
 
 **자동 컴팩션 방어**: 자동 컴팩션은 예고 없이 온다 — write-through가 유일한 방어선이라 §1의 4개 갱신 시점이 의무다. 컴팩션 인지 순간(요약 시스템 메시지 감지) 즉시 state.md re-Read.
+
+## 2.5 증류 결정 전 트리아지 — `ft-ctx-triage.sh` (자율 증류 SOP)
+
+증류는 "ctx% 높으니 무조건 재시작"이 아니라 **진단 → 수정 → 결정**의 3스텝이다. 300k warn 훅과 단계 전이 자가점검이 이 스크립트를 부른다.
+
+**호출**: `.fable-team/bin/ft-ctx-triage.sh <project-root>` — 사실만 수집하는 결정론 스크립트다. **판단·수정은 오케(LLM) 몫**이며 스크립트는 어떤 파괴·수정도 하지 않는다(읽기·집계 전용).
+
+**독립 체크 3함수 (각각 개별 fail-open)**:
+- `check_bloat` — `find -size +50M -mtime -7`(+ `.git`/`node_modules`/`.venv`/`.worktrees` prune) + `du -sh` 상위 5 → `BLOAT <size> <path>`.
+- `check_state` — ACTIVE→state.md 존재 + `산출:` 라인의 산출물 실재 확인. 부재 시 `STALE_POINTER stage=N missing=<file>`.
+- `check_sessions` — `tmux ls`의 `ft-*` CPU(<0.3) → `HANG_CANDIDATE <sess> cpu=<n>`. tmux 무가용 시 `CHECK_FAIL check_sessions`만 출력하고 나머지 체크는 계속(전멸 금지).
+
+**출력 계약**: stdout ≤15줄. 각 함수 오류는 해당 카테고리만 `CHECK_FAIL <name>` 1줄로 격리되고 reducer는 가용 결과만으로 `RECOMMEND CONTINUE|COMPACT|DISTILL` 1줄을 산출한다(문제 발견 시 DISTILL 전 `FIX …` 수정 지시 병기). 결정론 매핑: hang 존재→DISTILL / 비대 로그만→COMPACT / 그 외→CONTINUE.
+
+**SOP 연결(§2-2)**: 감지(300k warn / 단계 전이 / HUD80%) → [1] 트리아지 실행 → [2] 발견 문제 수정(stale 롤백·`ft-gzip.sh` 압축·hang 워커 `ft-tmux-distill.sh`) → [3] RECOMMEND로 결정 → [4] 승인 모드 분기(standing이면 1줄 고지 후 자율, 미승인이면 AskUserQuestion+op-token) → [5] 실행 → [6] 복원(§4).
 
 ## 3. 워커 컨텍스트 관리
 
 **대원칙: 열린 워커는 최적화이지 필수 경로가 아니다.** 파일 릴레이 덕에 모든 워커는 무상태 재스폰 가능해야 하며, 열린 워커에만 있는 상태(파일에 없는 결정·맥락) 생성을 금지한다.
 
-**워커 자기 윈도우 정책**: 워커 자신의 ctx %도 오케스트레이터가 폴링할 수 없다(오케스트레이터 ctx와 동형) — 따라서 장수명 워커(implementer, da 드라이버)의 계약(템플릿)에 self-checkpoint를 넣는다: **자기 윈도우 압박을 자각하면 진행분을 파일로 flush하고 team-lead에 `WINDOW_PRESSURE` 1줄 보고 후 지시 대기.** 오케스트레이터는 flush 확인 후 해산·재스폰한다(계획적 재스폰 — respawns 한도 비소모). 일회성 워커(checker/planner/tester)와 fresh 프로세스는 누적이 없어 해당 없음.
+> **v3 개정 (tmux 세션 기준)**: 워커는 이제 **독립 tmux 세션**(`ft-<slug>-<role>#N`)이라 오케 증류·재시작에도 생존한다 — v2의 "오케 재시작=워커 전멸" 휘발성이 해소됐다. **그러나 대원칙은 불변**: 워커도 자기 ctx 압박 시 증류당해 `#N+1`로 승계(handover token 게이트)되므로 "열린 워커 머릿속" 의존은 여전히 금지, **파일 센티널·산출물이 SSOT**다. "닫는 시점"은 이제 대부분 **distill(승계) 또는 done→kill**이며 무상태 재스폰은 롤백(agent-v2) 경로에서만 기본이다.
 
-**agent-cli 브레인 세션 — 4번째 버킷(resume 채택)**: codex 등 agent-cli 브레인(크루 드라이버가 구동하는 세션형 하네스 포함 — omx 등, `crew/crew-support.md`)은 Agent(세션 종속)·Workflow(무상태 일회성)와 달리 **디스크-백드 세션**이라 session-id로 resume 가능하고, 오케스트레이터 세션 사망을 넘어 생존하는 유일한 연산-보유 세션이다. 운용 규칙: ① DA approve loop 라운드 2+는 새 one-shot 재인라인 대신 **resume 체인**(예: `codex exec resume <session-id>`)으로 재개 — 라운드 1 지적을 기억해 적대검증이 강해지고 재인라인 토큰이 절약된다. ② session-id는 발급 즉시 state.md `brain_sessions`에 write-through(세션을 넘는 복원 자산). ③ 브레인 윈도우 압박 시 **요약-후-fork**: 현 세션 요약을 새 세션 첫 프롬프트로 인계하고 brain_sessions id 교체.
+**워커 자기 윈도우 정책 (v3)**: 워커 자신의 ctx %는 오케가 폴링할 수 없다(동형) — 따라서 세션 계약 프롬프트(`prompts/<role>.md`)에 self-checkpoint를 넣는다: **자기 ctx 압박(일반 70% / Fable planner 80%) 자각 시 진행분을 산출물 파일로 flush하고 `<SIG>/<me>.msg`에 `WINDOW_PRESSURE <단계 1줄>`을 append**(오케가 tmux면 역send 가속). 오케는 flush 확인 후 **`ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행**(handover token 일치 후에만 구세션 정리, keep_last=2). 계획적 증류라 respawns 한도 비소모. 단명 워커(checker)와 done 직후 세션은 누적 전 종료라 해당 없음. *(Legacy agent-v2 경로에선 team-lead SendMessage 보고 후 해산·재스폰.)*
 
-| 워커 | 열어두는 구간 | 닫는 시점 |
+**agent-cli 브레인 세션 — v3 직접 상주(codex) vs 드라이버(grok)**: v3에서 **codex DA·codex planner는 tmuxc codex 세션에 직접 상주**한다(ft-planner-x·ft-da 드라이버 서브에이전트 폐지) — 세션이 상주하므로 **라운드 2+ resume가 불요**(세션 자체가 이전 라운드 지적을 기억). 운용 규칙: ① 라운드 2+는 재인라인 없이 같은 세션에서 이어 판정. ② 증류당하면 신 incarnation이 `da-round<N>.md` 파일들을 재Read해 라운드 맥락 복원(파일이 세션-넘는 복원 자산 — `brain_sessions`엔 tmux 세션명 기록). ③ **grok(cursor-agent)은 비세션형이라 claude 드라이버 세션 유지**(예외 `grok_driver`): 무상태이므로 라운드 이력을 프롬프트에 재인라인. *(Legacy: codex도 드라이버+`codex exec resume` 체인 — 위 「부록: Legacy spawn」.)*
+
+| 워커 (tmux 세션) | 열어두는 구간 | 닫는 시점 (distill/kill) |
 |------|--------------|-----------|
-| checker | 열지 않음 | 보고 수신 즉시 (후속은 재스폰이 더 싸고 안전) |
-| implementer | stage 3 ~ 게이트 종료 (approve loop 재라운드용) | **APPROVED** 또는 다음 라운드 장기 지연 예상 시(참고 ~15분 — 판단 가이드, 측정 규범 아님) 조기 해산, `WINDOW_PRESSURE` 보고 시 flush 확인 후 해산·재스폰(한도 비소모) |
-| da (Agent 경로) | approve loop 동안 | APPROVED / 라운드 한도 초과 / `WINDOW_PRESSURE`(브레인 세션은 resume/fork로 승계되므로 드라이버만 교체) |
-| planner/tester (Workflow) | 해당 없음 (일회성) | — |
+| checker | 스폰~보고 (단명) | done 센티널 직후 `ft-tmux-kill.sh`(후속은 재스폰이 더 싸고 안전) |
+| implementer | stage 3 ~ 게이트 종료 (approve loop 재라운드용, 세션 상주) | **APPROVED** 시 kill / `WINDOW_PRESSURE` 시 `ft-tmux-distill.sh`로 `#N+1` 승계 |
+| da (codex 직접 / grok 드라이버) | approve loop 동안 상주 | APPROVED / 라운드 한도 초과 시 kill / `WINDOW_PRESSURE` 시 distill 승계 |
+| planner/tester | 설계·검증 동안 상주 | 산출물 done 후 kill / `WINDOW_PRESSURE` 시 distill 승계 |
 
-공통: **stage 5→6 전이 = 전원 해산 지점.** 에스컬레이션(status=blocked) 진입 시에도 전원 해산 — 대기 중 열린 워커는 낭비이자 세션 리스크.
+공통: **stage 5→6 전이 = 전원 kill 지점.** 에스컬레이션(status=blocked) 진입 시에도 전원 정리 — 단 오케 증류는 워커를 건드리지 않는다(독립 축, §2.5). 대기 중 불필요한 상주 세션은 리소스 낭비.
 
 **approve loop 라운드 간 상태 보존**: 라운드 상태는 전부 파일에 있다 — `da_round`(state.md) + `state/<slug>/da-round<N>.md`(판정·증거) + `features/design-<slug>-v<N>.md`(재기획 시 planner가 **v+1 새 파일**로 Write, frontmatter `design:` 갱신 — v1/v2가 파일 존재로 구분된다). implementer가 살아있으면 SendMessage "설계 파일 갱신됨(v2 경로 전달). 재Read 후 차이만 구현" — 빠른 경로. 죽었으면 재스폰(같은 계약이라 결과 동일).
 
@@ -124,8 +143,16 @@ updated: 2026-07-02T14:30
 3. `status: blocked`면 이벤트 로그의 블록 사유를 사용자에게 제시하고 결정부터 받는다(자동 재개 금지).
 4. **산출물 실재 검증**(state는 선언, 파일이 증거): stage 이하 완료 단계 중 **형상에 포함된 단계만** 산출물 존재 확인 — 피처 파일(0), checker JSON(1), `design-<slug>-v<M>.md`(2 — **M = 실재하는 최대 설계 버전**, 카운터가 아니라 파일이 증거), `impl-round<M>.md`(3 — 현재 최대 설계 버전 M 대응만 유효, 이전 버전 파일은 stale로 무시. 축약 형상은 impl-round1), `tester-round<M>`/da 라운드 파일(4-5). **불일치 시 산출물이 실재하는 마지막 단계로 stage 롤백**(예: state=3인데 설계 파일 없음 → stage 2부터. 단 abbrev 형상이면 설계 파일은 검증 대상이 아니므로 checker JSON까지만 확인하고 3부터).
 5. 재개 단계 결정: 검증된 **진행 중이던 단계를 처음부터 재실행**(단계 원자성 — implementer 계약이 멱등이라 안전). stage 5 도중이면 **파일 존재로 분기**: 마지막 `da-round<K>.md`의 판정과 그 파일 첫머리의 **검토 설계 버전 `reviewed: v<M>`**(필드 부재 시 실재하는 마지막 `impl-round<M>`의 M으로 도출)을 읽어 — CHANGES_REQUESTED && `design-<slug>-v<M+1>.md` **없음** → stage 2 재진입(재기획 전), **있음** → stage 3(수정 설계 완료). **DA 라운드 번호 K와 설계 버전 M은 독립 축**(mid-impl 재기획은 K를 움직이지 않고 M만 올린다) — K 기반 `v<K+1>` 산술 금지.
-6. **필요한 워커만 재스폰**: 재개 단계 워커만. 완료 단계 워커(checker 등)는 산출물이 파일에 있으므로 재스폰하지 않는다. 카운터는 state.md 값을 **승계**(da_round=1이었으면 라운드 2부터 — 한도가 세션을 넘어 유효). 단 **산출물 없는 "열린 라운드"**(디스패치로 +1 기록됐으나 대응 `design-v<n>`/`da-round<n>` 부재)는 §1 라운드 디스패치 규칙에 따라 복원 재디스패치 시 **재증가 없이 같은 번호로 재개**한다(같은 논리 라운드를 이중 과금하면 크래시만으로 오탐 에스컬레이션). 복원에 따른 워커 재스폰은 계획적 재스폰(세션 사망 ≠ 워커 failure)으로 respawns 한도 비소모 — 이벤트 로그로만 추적. **`brain_sessions`에 유효 session-id가 있으면 agent-cli 브레인은 재스폰이 아니라 resume으로 재개**(라운드 기억 승계 — 드라이버 워커만 새로 스폰).
+6. **필요한 워커만 재스폰 — v3는 먼저 생존 재부착**: `ft-tmux-spawn.sh` 재스폰 전에 `tmux ls`로 `ft-<slug>-*` 생존 세션을 확인한다 — v3 워커는 오케 재시작에도 생존하므로, 살아있는 재개 단계 워커는 **재스폰이 아니라 `ft-tmux-poll.sh`로 재부착**(상태 판독)한다. 사망·부재한 재개 단계 워커만 재스폰. 완료 단계 워커(checker 등)는 산출물이 파일에 있으므로 재스폰하지 않는다. 카운터는 state.md 값을 **승계**(da_round=1이었으면 라운드 2부터 — 한도가 세션을 넘어 유효). 단 **산출물 없는 "열린 라운드"**(디스패치로 +1 기록됐으나 대응 `design-v<n>`/`da-round<n>` 부재)는 §1 라운드 디스패치 규칙에 따라 복원 재디스패치 시 **재증가 없이 같은 번호로 재개**한다(같은 논리 라운드를 이중 과금하면 크래시만으로 오탐 에스컬레이션). 복원에 따른 워커 재스폰은 계획적 재스폰(세션 사망 ≠ 워커 failure)으로 respawns 한도 비소모 — 이벤트 로그로만 추적. **`brain_sessions`에 유효 session-id가 있으면 agent-cli 브레인은 재스폰이 아니라 resume으로 재개**(라운드 기억 승계 — 드라이버 워커만 새로 스폰).
 7. 사용자에게 1회 재개 보고: 복원된 원장 + "stage N부터 재개, 사유: <이벤트 로그 마지막 줄>" → 파이프라인 속행.
+
+### 4-v3. 세션 복원 오버레이 (SessionStart 훅 + PM BRIEF + watchd + 워커 재부착)
+
+v3에선 위 절차를 **`hooks/ft-session-restore.sh`(SessionStart)** 가 자동 개시한다 — CWD 기준 `.fable-team/state/ACTIVE`(+`.worktrees/*` glob) 탐지 시 `fable-team ACTIVE=<slug> stage=<N> status=<s> — context-management §4 복원 선행` 컨텍스트를 주입한다(부재 시 무출력, fail-open). 이때 상태(§4) 복원과 별개로 아래 v3 축을 함께 수행한다:
+
+1. **PM 맥락 재주입 (상태 복원 전 선행)**: 위 §4-2에서 slug 획득 직후 — `ft-pm-<proj>#0` 생존을 확인하고 생존 시 `EVT BRIEF_REQUEST op=<id>` 송신 → `pm/.signals/brief.ready` 센티널(90초) 또는 역send로 BRIEF 수신 → "지금 어디" 맥락을 재주입한다. **BRIEF는 '맥락', state.md는 '상태 정본'** — 모순 시 state.md 우선(§4-3). **PM 부재/무응답 시 BRIEF 생략하고 §4 상태 복원만으로 진행**(PM은 가속이지 필수 경로 아님 — 기능 저하만).
+2. **워커 생존 재부착**: §4 재개 단계 결정 후, 재스폰 대신 `tmux ls`의 `ft-<slug>-*` 생존 세션을 `ft-tmux-poll.sh`로 재부착(step 6) — 오케 증류·재시작이 워커를 건드리지 않는 것이 v3 계약이므로 대부분 재스폰 0건.
+3. **watchd 헬스 리페어**: SessionStart 훅이 `pm/.signals/watchd.pid`를 검증(pid 존재 ∧ `ps -o lstart=,command=` 일치)한다 — stale면 **잔존 PID를 kill하지 않고**(무관 프로세스 파괴 방지, no-kill 규약) stale pidfile 제거 + `watchd.lock` 하에서 재기동·pid 재작성만 수행. 양성 일치면 재사용(중복 데몬 0).
 
 ## 5. baton·cairn 연동 — `references/integrations.md` 참조 (프로파일 게이팅)
 

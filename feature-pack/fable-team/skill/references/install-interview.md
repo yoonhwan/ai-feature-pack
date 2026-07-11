@@ -66,6 +66,7 @@
 2. 모든 `{{PLACEHOLDER}}`를 답변으로 치환 (빈 값은 빈 문자열, 잔여 `{{`가 남으면 설치 실패로 간주).
 3. 대상 위치에 **`<PREFIX>-planner.md`**, `<PREFIX>-checker.md`, `<PREFIX>-implementer.md`, `<PREFIX>-tester.md`, `<PREFIX>-da.md`(+ 선택 크루 `<PREFIX>-<crew>.md`)로 Write — **planner 누락 금지**. planner .md가 설치돼 있어야 다음 세션부터 Workflow `agentType`으로도 인식된다(세션 시작 등록 타입만 유효).
 3-1. **답변 스냅샷 기록**: 인터뷰 답변 전체(placeholder 키-값 + substitutions + 설치 시각 + 팩 커밋 해시)를 설치 스킬 위치의 `install.json`에 Write — 이후 "FT 업데이트"(`references/update.md`)가 이 파일로 재치환한다(재인터뷰 불요).
+3-2. **v3 세션 계약 프롬프트 설치 (필수 — tmuxc 세션 경로)**: `skill/templates/session-prompts/*.md`(planner/analyst/implementer/tester/da-codex/da-cursor/checker/pm 8종)를 Read → **동일 `{{PLACEHOLDER}}` 키**(`{{TEAM_NAME}}`/`{{DA_BRAIN_MODEL}}`/`{{DA_EFFORT}}`/`{{DA_MAX_ROUNDS}}`/`{{EXTRA_INSTRUCTIONS}}`/`{{TEST_RUNNER_NOTE}}` — 3번과 같은 답변 사용, **신규 인터뷰 질문 불요**)로 치환 → `.fable-team/prompts/<role>.md`로 Write. **잔여 `{{`가 남으면 설치 실패로 간주**(2번과 동일 규칙). da는 세션 선택에 따라 `da-codex`(codex 직접) 또는 `da-cursor`(grok 드라이버) 중 활성만 설치. 이 프롬프트는 v3 tmuxc 세션(`ft-tmux-spawn.sh --prompt-file`)이 스폰 직후 Read하는 역할 계약이다(3번의 `<PREFIX>-*.md` agent 정의는 Legacy/agent-v2 롤백 디스패처용 — 둘 다 설치·유지).
 4. 검증 — 프로브는 **두 경로로 전 워커**를 커버한다 (`orchestration-playbook.md` §프로브):
    - Agent 경로(checker/implementer/da + 크루 드라이버): 팀 하네스 프로브.
    - **Workflow 경로(planner/tester): Workflow `agent()`에 model/effort 명시로 동일 프로브** — Agent 프로브만 돌리면 planner가 목록에 안 떠 설치가 완료된 것처럼 보이는 함정(실사례: `probe-checker/impl/da`만 표시되고 기획 브레인 미검증).
