@@ -1,6 +1,6 @@
 # fable-team 연동 — baton·cairn 프로파일 게이팅
 
-**레이어 정의 (불변)**: FT state(`.fable-team/state/`) = 유일한 파이프라인 SSOT / baton(`.baton/`) = 워크트리·세션 간 내비게이션(앞뒤만, 중간은 포인터) / cairn(`.cairn/`) = 프로젝트 작업 원장(피처 1건 = 노드 1개, 생명주기 경계에서만 터치) / tmuxc = FT 밖(§5). 교환하는 것은 상태 본문이 아니라 **포인터와 이벤트**뿐이다.
+**레이어 정의 (불변)**: FT state(`.fable-team/state/`) = 유일한 파이프라인 SSOT / baton(`.baton/`) = 워크트리·세션 간 내비게이션(앞뒤만, 중간은 포인터) / cairn(`.cairn/`) = 프로젝트 작업 원장(피처 1건 = 노드 1개, 생명주기 경계에서만 터치 — **v3 실행 주체 = PM 단독**, §1·§2·§4) / tmuxc = **FT 워커 실행 기반**(§5 신경계 — v3에서 FT가 그 위에서 실행). 교환하는 것은 상태 본문이 아니라 **포인터와 이벤트**뿐이다.
 
 ## §0 게이팅 모델
 
@@ -22,6 +22,7 @@
 
 - **세션 CWD는 절대 바꾸지 않는다**(cd 금지). 워크트리 작업은 절대경로 변수로: `MAIN_ROOT=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')`(첫 항목=main 워크트리), `WT="$MAIN_ROOT/.worktrees/<slug>"`.
 - **cairn 명령은 항상 프로젝트 루트 CWD 고정 서브셸**: `(cd "$MAIN_ROOT" && bash ~/.cairn/current/bin/cairn <verb> ...)` — cairn은 CWD의 git toplevel로 원장을 해석하고 `--file` 오버라이드가 없어, 워크트리 CWD 실행은 워크트리 로컬 `.cairn` **원장 파편화**를 만든다(baton 기본 shared_links에 `.cairn` 없음). 서브셸이라 세션 CWD 불변.
+- **v3 cairn 실행 주체 = PM 단독**(§4-2): 오케는 cairn을 직접 실행하지 않고 op-id 이벤트(§1·§2·§4)로 PM에 지시한다. **유일 예외 = §4-4 테이크오버**(PM 사망 확인 시 오케가 `flock -w 30`으로 직접 1회). 실행 주체가 PM이든 테이크오버 오케든 위 **CWD 고정 서브셸 규칙은 동일** 적용. frontmatter `cairn_task` write-through만 오케 단독(불변).
 - **baton verb는 워크트리 CWD 고정 서브셸**: `(cd "$WT" && bash ~/.baton/current/bin/baton <verb>)` (main root에선 wt-create 등만, save/finish는 워크트리 안).
 - **main 워크트리 내부 판정**: 경로 문자열이 아니라 `git rev-parse --show-toplevel` == `$MAIN_ROOT` **&&** `git branch --show-current` ∈ {main, master} — main 하위 디렉토리 CWD도 내부로 판정.
 
@@ -31,18 +32,20 @@
 1. (baton on/required && main 내부 && 코드 변경 형상) `/baton:wt-create <slug>` → `WT` 확정. **이미 워크트리 안이면**: 그 워크트리의 `state/ACTIVE` 확인 — **타 피처 ACTIVE 존재 시 무단 재사용 금지**, 보고 후 사용자 결정. `.worktree-info.json`·심링크는 baton이 생성 — FT는 존재 확인만.
 2. **FT 킥오프 선행**: `$WT/.fable-team/state/ACTIVE` + state.md 생성(워크트리 없으면 현 루트). `.fable-team/`은 워크트리 루트에 — main 잔존 금지.
 3. 1의 실패·degrade를 state.md 이벤트 로그에 **소급 기록**(기록처가 state.md 생성 뒤로 강제돼 휘발 없음).
-4. cairn 훅 (state.md 생성 후 — 실패 즉시 이벤트 로그 기록 가능):
-   - **정본 = spawn**: `(cd "$MAIN_ROOT" && cairn spawn ft-<slug> --from <parent> --return-to <parent> --worktree "$BRANCH" --session "fable-team:$WT/.fable-team/state/ACTIVE")` — 계보(return_to) 유지로 complete가 `--force` 없이 닫히고, execution_ref·session_ref 원자 설정. `BRANCH=$(git -C "$WT" branch --show-current)` — **execution_ref의 canonical 형식은 브랜치명**(reconcile이 브랜치와 대조 — 경로를 넣으면 항상 orphan 오보).
-   - **폴백 = add-task** (parent 부재·사용자 미지정 시): `cairn add-task <project> <milestone> ft-<slug> [--days N]` → `cairn link <tid> --execution-ref "$BRANCH" --session-ref "fable-team:$WT/.fable-team/state/ACTIVE"` — **`--session-ref`는 이 1회뿐**(대입 덮어쓰기). 종결 시 `complete --force` 필요(`forced_complete` 표식) — 트레이드오프를 이벤트 로그에 명기.
-   - 발급 노드의 **전체 주소를 write-through**: state.md frontmatter `cairn_task: <project>/<milestone>/<tid>` — 롤백 3인자·complete 인자의 유일한 출처(tid만 요구하는 명령은 마지막 요소 사용). **stage 전이·라운드는 cairn에 절대 기록하지 않는다**(2상태 원칙 — 열림→닫힘만).
-5. **required 훅 실패 분기**: 대화형이면 보고·대기(§0). headless `deny`면 **롤백 후 종료** — state.md·ACTIVE 삭제 + `(cd "$MAIN_ROOT" && cairn remove-task <project> <milestone> <tid>)` — **3인자는 frontmatter `cairn_task` 전체 주소를 분해해 조립**(tid = spawn 발급 task id, 태스크 이름 아님). `allow-degrade`면 요란한 기록 후 독립 속행.
+4. **PM 확보 (v3 신규 — 2번과 5번 사이, §3-1·§4-4)**: 코드 변경 형상(standard/abbrev)이면 `ft-pm-<proj>#0` 생존 확인 → 부재 시 `ft-tmux-spawn.sh --name ft-pm-<proj>#0 --role pm` 개설, 생존 시 재사용 → `EVT KICKOFF <slug> op=<id> shape=… cairn=<parent/milestone>` 송신(ack 60초, 재시도 ×2). check-only·P-DOC는 미개설. 이후 cairn 지시는 전부 PM 경유(아래).
+5. cairn 훅 (state.md 생성 후 — **v3 실행 주체 = PM**, op-id 이벤트로 전달; 오케는 결과 센티널만 수신해 frontmatter write-through):
+   - **정본 = spawn**: PM이 `(cd "$MAIN_ROOT" && cairn spawn ft-<slug> --from <parent> --return-to <parent> --worktree "$BRANCH" --session "fable-team:$WT/.fable-team/state/ACTIVE")` 실행 → `pm/.signals/done.<op-id>` 기록 + `pm/.signals/cairn_task.<slug>` 센티널에 발급 노드 전체 주소 회신 + `ack.<op-id>`. 계보(return_to) 유지로 complete가 `--force` 없이 닫히고, execution_ref·session_ref 원자 설정. `BRANCH=$(git -C "$WT" branch --show-current)` — **execution_ref의 canonical 형식은 브랜치명**(reconcile이 브랜치와 대조 — 경로를 넣으면 항상 orphan 오보).
+   - **폴백 = add-task** (parent 부재·사용자 미지정 시): PM이 `cairn add-task <project> <milestone> ft-<slug> [--days N]` → `cairn link <tid> --execution-ref "$BRANCH" --session-ref "fable-team:$WT/.fable-team/state/ACTIVE"` — **`--session-ref`는 이 1회뿐**(대입 덮어쓰기). 종결 시 `complete --force` 필요(`forced_complete` 표식) — 트레이드오프를 이벤트 로그에 명기.
+   - **오케가 write-through**: PM의 `cairn_task.<slug>` 센티널을 읽어 state.md frontmatter `cairn_task: <project>/<milestone>/<tid>` 기록 — **frontmatter 단독 writer = 오케 불변**. 롤백 3인자·complete 인자의 유일한 출처(tid만 요구하는 명령은 마지막 요소 사용). **stage 전이·라운드는 cairn에 절대 기록하지 않는다**(2상태 원칙 — 열림→닫힘만).
+   - **멱등(op-id)**: PM은 `done.<op-id>` 존재 시 재실행 스킵 — 오케 ack-timeout 재시도가 중복 노드를 만들지 않는다.
+6. **required 훅 실패 분기**: 대화형이면 보고·대기(§0). headless `deny`면 **롤백 후 종료** — state.md·ACTIVE 삭제 + `cairn remove-task <project> <milestone> <tid>`(PM 경유, PM 사망 시 §4-4 테이크오버로 오케 직접) — **3인자는 frontmatter `cairn_task` 전체 주소를 분해해 조립**(tid = spawn 발급 task id, 태스크 이름 아님). `allow-degrade`면 요란한 기록 후 독립 속행. **PM ack 미수신(60초·재시도 소진) = PM 헬스체크 → §4-4 테이크오버 절차**(cairn 미반영 시 오케 직접 실행).
 
 ## §2 종결 훅 (stage 6 — status:done 기록·ACTIVE 제거 **후**)
 
 1. baton: `save`(NEXT.md엔 **한 줄 포인터만**: "fable-team 파이프라인 — .fable-team/state/ACTIVE 참조, 재트리거 시 자동 복원") → `finish` — 워크트리 CWD 서브셸. **`wt-clean` 자동 실행 금지**(머지 = 사람 게이트).
-2. cairn: `complete <tid>`(tid = `cairn_task` 주소의 마지막 요소. spawn 경로 — return_to 복귀점을 종결 보고에 포함) / add-task 폴백이면 `complete <tid> --force`.
+2. cairn: **PM이 `EVT CLOSE <slug> op=<id>` 수신 후 실행** — `complete <tid>`(tid = `cairn_task` 주소의 마지막 요소. spawn 경로 — return_to 복귀점을 종결 보고에 포함) / add-task 폴백이면 `complete <tid> --force`. PM은 `done.<op-id>` 기록 + `ack.<op-id>` 회신. **PM 사망·무응답(ack 60초·재시도 ×2 소진) 시 §4-4 테이크오버** — 오케가 `done.<op-id>`/cairn 반영 확인 후 미반영이면 `flock -w 30`으로 직접 `complete` 1회 + `done.<op-id>` 기록(baton은 세션 로컬이라 여전히 오케 몫).
 3. PR 권고 보고: `.worktree-info.json` 경과일 + `git -C "$WT" log main..HEAD --oneline | wc -l` 커밋 수 + "PR → 머지 → `/baton:wt-clean --merged`" 1줄.
-4. **훅 실패는 FT 종결을 막지 않는다**(순서가 보장). on=degrade 기록, required=§0 종결 미완 보고·대기(headless는 override 정책).
+4. **훅 실패는 FT 종결을 막지 않는다**(순서가 보장). on=degrade 기록, required=§0 종결 미완 보고·대기(headless는 override 정책). **PM CLOSE 후 stage 6 = PM 세션도 정리 대상**(피처 종결 — PM은 프로젝트당 상시라 다른 활성 피처가 없을 때만 kill).
 
 ## §3 세션 재시작 — 발견 채널 vs 복원 정본
 
@@ -53,20 +56,27 @@
 
 ## §4 블록·언블록 훅 (cairn on/required — 상태 동기화가 아니라 가시성 이벤트)
 
+> **v3 실행 주체 = PM**: 아래 `cairn link`는 오케가 op-id 이벤트로 PM에 지시하고 PM이 실행·`done.<op-id>` 기록·ack한다. 오케 직접 실행은 **§4-4 테이크오버**(PM 사망)뿐. CWD 고정 서브셸 규칙 동일.
+
 - 블록(status: blocked 진입): `cairn link <cairn_task> --add-session "fable-team:blocked:<ts> <사유 한 줄>"` — **누적**. `--session-ref` 사용 금지(킥오프 포인터 덮어쓰기). 값에 `fable-team:` 프리픽스 강제.
 - **언블록(대칭)**: 해제 시 `--add-session "fable-team:active:<ts>"` 1줄. set-status 등 상태 필드 조작 금지.
-- 주기록은 언제나 FT 이벤트 로그 — cairn 이벤트는 부가 가시성, 실패는 degrade 흡수.
+- 주기록은 언제나 FT 이벤트 로그 — cairn 이벤트는 부가 가시성, 실패는 degrade 흡수(PM ack 실패도 degrade).
 
-## §5 tmuxc 경계
+## §5 tmuxc 신경계 (v3 실행 기반 통합)
 
-| 영역 | 담당 |
-|------|------|
-| 파이프라인 워커 오케스트레이션·모니터링·원장 | **FT** (Agent/Workflow + state/) |
-| FT 오케스트레이터 세션 자체의 기동·리모트·tmux 복원 | tmuxc |
-| 세션 증류(distill) | tmuxc |
-| FT 밖 신규 작업 세션 기동 | tmuxc |
+**v3 개정**: "FT 워커의 tmuxc 세션 대체 금지"는 **폐기**한다 — v3에서 FT는 tmuxc **위에서 실행**된다. 워커 세션의 생성·증류·정리 실행 주체가 tmuxc 명령(`tmuxc open/kill`)이며, FT는 그 위에 검증 래퍼(`.fable-team/bin/ft-tmux-*.sh`)·파일 센티널·상태 원장을 얹는 신경계다.
 
-금지: FT 파이프라인 워커의 **오케스트레이션을 tmuxc 세션으로 대체**하는 것(스폰 경로 분리 — 외부 CLI는 미들웨어 드라이버 서브에이전트가 Bash 실행). 가시성은 세션 우측 pane(서브에이전트)이 기본 담당 — tmux 테일러는 선택 보조(SKILL.md 가시성 규범).
+| 영역 | 담당 | 실행 기반 |
+|------|------|-----------|
+| 파이프라인 워커 스폰·증류·정리 | FT 검증 래퍼(`ft-tmux-{spawn,distill,kill}.sh`) | **tmuxc `open`/`kill` 경유** — 래퍼가 승인·capability·센티널·감사를 얹음 |
+| 워커 통신·상태 판독 | FT 래퍼(`ft-tmux-send.sh`/`ft-tmux-poll.sh`) | tmux `send-keys`/`capture-pane`/`ps`(COMM-GUIDE §2 절차 — 생성·파괴 아닌 판독·송신) |
+| 파이프라인 상태 원장 | **FT** (`.fable-team/state/`) | 디스크 SSOT |
+| 흐름 기억·cairn 대행·BRIEF | **ft-pm-memory 상시 세션** | tmuxc claude 세션 |
+| 오케 세션 자체의 기동·리모트·tmux 복원 | tmuxc | — |
+| 오케 세션 증류(distill) | FT 래퍼(`ft-tmux-distill.sh`) 또는 tmuxc 재시작 | tmuxc `open`+handover token 게이트 (2-4 A/B) |
+| FT 밖 신규 작업 세션 기동 | tmuxc | — |
+
+**생명주기 명령 경계(§0-2 L3)**: 오케는 `tmuxc open|kill|clean|distill`을 Bash로 **직접 발행하지 않는다** — 생명주기 명령은 `ft-tmux-*.sh` 래퍼 경유만 통과(orchestration-gate가 직접 호출을 deny, 워커·ft-자칭 세션도 예외 없음). `tmuxc clean`(zombie 일괄)은 스크립트화하지 않고 **사용자 확인 경로**를 유지한다. COMM-GUIDE.md·tmuxc SKILL.md는 tmuxc 소유 — FT는 **참조만**(개정 시 추종 갱신, 버전 주석 추적). 가시성은 명명된 tmux 세션 + `ft-tmux-poll.sh` 센티널 판독으로 실현(필요 시 `tmux attach`).
 
 ## §6 버저닝·절연 규칙
 

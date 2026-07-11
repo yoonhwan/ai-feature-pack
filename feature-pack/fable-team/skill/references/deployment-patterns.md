@@ -26,6 +26,19 @@
 | P-VRFY | 검증 전용 | "돌려봐·확인해줘·PASS 여부" (구현 완료물) | tester(+tester2 병렬 가능) → da review | 축약 | review |
 | P-DOC | 문서·설정 | *.md·설정·오타 (코드 2파일 이내) | **워커 미스폰** — 오케 직접 처리 (orchestration-gate 허용 범위) | 없음 | 없음 |
 
+> **v3 스폰 표기**: 위 "투입 워커"는 전부 **tmuxc 세션**(`.fable-team/bin/ft-tmux-spawn.sh --agent claude|codex --role <role>`)으로 스폰된다 — 완료는 파일 센티널(`ft-tmux-poll.sh` 판독), 오케 증류·재시작에도 생존(SKILL.md 「v3 스폰」). checker는 단명(done→`ft-tmux-kill.sh`), 그 외는 approve loop/재라운드 동안 상주하다 kill 또는 `#N+1` distill 승계.
+
+### PM(ft-pm-memory) 개설 — 패턴별
+
+| 패턴 | PM 개설 | 근거 |
+|------|---------|------|
+| P-BUG · P-FEAT · P-REFAC · P-HOT | **개설(상시)** | 코드 변경 형상 — 흐름 기억·cairn 대행·증류 브리핑 필요 |
+| P-VRFY | 조건부 | 구현 완료물 검증 — 다회전·증류 예상 시만 |
+| P-ANLZ (보고 종결) | 미개설 | check-only 성격 — 파이프라인 상태 원장 불요 |
+| P-DOC | 미개설 | 오케 직접 처리 — 워커·PM 미스폰 |
+
+PM은 **프로젝트당 1개**(피처 공유) — 이미 열린 `ft-pm-<proj>#0`가 생존하면 재사용(KICKOFF만 송신). 킥오프 훅에서 확보(integrations.md §1 스텝4).
+
 ## 운영 규칙 (4개)
 
 ### 1. 필요 워커만 스폰
