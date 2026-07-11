@@ -38,11 +38,20 @@ esac
 
 say "[3/3] 스킬 설치 → $DEST"
 mkdir -p "$DEST"
-rm -rf "$DEST/references" "$DEST/templates"
-cp "$PKG_DIR/skill/SKILL.md" "$DEST/SKILL.md"
-cp -R "$PKG_DIR/skill/references" "$DEST/references"
-cp -R "$PKG_DIR/skill/templates" "$DEST/templates"
-chmod +x "$DEST/templates/install-gate.sh" "$DEST/templates/hooks/"*.sh 2>/dev/null || true
+# 심링크 가드: DEST(또는 상위 경로)가 레포 소스(skill/)를 가리키는 심링크면 rm -rf가 심링크를
+# 통과해 레포 원본을 삭제하고, 곧이은 cp 소스도 사라져 실패한다. 물리 경로(pwd -P) 대조로 방어.
+SRC="$PKG_DIR/skill"
+dest_real="$(cd "$DEST" 2>/dev/null && pwd -P || true)"
+src_real="$(cd "$SRC" 2>/dev/null && pwd -P || true)"
+if [ -n "$dest_real" ] && [ "$dest_real" = "$src_real" ]; then
+  say "  [✓] $DEST 는 레포 skill/ 를 가리키는 심링크(라이브) — 복사 스킵, 이미 최신 반영됨."
+else
+  rm -rf "$DEST/references" "$DEST/templates"
+  cp "$PKG_DIR/skill/SKILL.md" "$DEST/SKILL.md"
+  cp -R "$PKG_DIR/skill/references" "$DEST/references"
+  cp -R "$PKG_DIR/skill/templates" "$DEST/templates"
+  chmod +x "$DEST/templates/install-gate.sh" "$DEST/templates/hooks/"*.sh 2>/dev/null || true
+fi
 
 say "✅ 완료. 다음 단계:"
 say "  0) orchestration-gate 설치(프로젝트별): $DEST/templates/install-gate.sh --install <프로젝트>"
