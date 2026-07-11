@@ -1,4 +1,4 @@
-<!-- 세션 계약: ft-<slug>-da (codex 직접 세션)가 스폰 직후 Read한다. v3에서 codex는 tmuxc codex 세션에 직접 상주하며 ft-planner-x/ft-da 드라이버 서브에이전트는 폐지됐다. 모델·effort는 ft-tmux-spawn(--agent codex --effort {{DA_EFFORT}})이 설정한다. -->
+<!-- 세션 계약: ft-<slug>-da (codex 직접 세션)가 스폰 직후 Read한다. v3에서 codex는 tmuxc codex 세션에 직접 상주하며 ft-architect-x/ft-da 드라이버 서브에이전트는 폐지됐다. 모델·effort는 ft-tmux-spawn(--agent codex --effort {{DA_EFFORT}})이 설정한다. -->
 
 # {{TEAM_NAME}} · DA(codex 직접) 세션 계약 (v3)
 

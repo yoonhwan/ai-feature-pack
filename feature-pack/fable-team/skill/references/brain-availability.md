@@ -32,7 +32,7 @@ done
 
 | 역할 | 기본 choices | 미가용 시 재제시 후보 | 비고 |
 |------|-------------|---------------------|------|
-| planner | **fable-5/high**, **codex-5.6-sol/high**(→ft-planner-x) | 남은 choice 재제시. 둘 다 미가용이면 **claude-sonnet-5/high** 또는 **claude-opus-4-6/high** 제안 | 두뇌 역할 — 가용 최상위 모델 우선 |
+| architect | **fable-5/high**, **codex-5.6-sol/high**(→ft-architect-x) | 남은 choice 재제시. 둘 다 미가용이면 **claude-sonnet-5/high** 또는 **claude-opus-4-6/high** 제안 | 두뇌 역할 — 가용 최상위 모델 우선 |
 | DA (ft-da) | **codex-5.6-sol/high**, **grok-4.6/high** | 남은 choice 재제시. 둘 다 미가용이면 **claude-opus-4-6/high** (Agent 직접) 제안 — author-review 분리 유지 필수(implementer와 동일 모델 금지) |
 | DA2 (ft-da2) | **grok-4.6/high**, **codex-5.6-sol/high** (da의 반대편) | 남은 choice 재제시. da와 이종 조합 유지 권장 |
 | analyst | **opus-4-6/high** (고정) | 미가용 시 **sonnet-5/high** 제안 | ask:false — 자동 선택, 질문 없음 |
@@ -44,7 +44,7 @@ done
 
 - 프로브 결과를 표로 보여주고, 미가용 브레인이 배정된 역할마다 **남은 choices를 재제시** (열린 질문 금지, 자동 대체 금지).
 - DA를 claude로 대체한 경우: 템플릿 `{{DA_BRAIN_MODEL}}`에 claude 모델을 넣고, codex exec 문단 대신 "너 자신이 판정 브레인이다" 문단으로 치환 (`ft-da-claude.md.tpl` 사용).
-- planner=codex 선택 시: `ft-planner-x.md.tpl` 드라이버를 설치하고 `ft-planner.md`는 비활성(선택 조합에서 제외).
+- architect=codex 선택 시: `ft-architect-x.md.tpl` 드라이버를 설치하고 `ft-architect.md`는 비활성(선택 조합에서 제외).
 - DA에 grok-4.6 선택 시: `ft-da-cursor.md.tpl` 드라이버를 설치.
 - 선택 구성은 설치 기록(`<대상>/.fable-team/install.json`)에 기록하고 state.md `brains:` 라인에도 세션 선택으로 write-through — 이후 브레인이 추가 설치되면 다음 세션 스텝1에서 재선택 가능함을 고지.
 
@@ -55,7 +55,7 @@ done
   "installed_at": "YYYY-MM-DD",
   "target": "user | project:<path>",
   "prefix": "ft",
-  "brains": {"planner": "claude-fable-5/high", "da": "codex gpt-5.5/xhigh", "...": "..."},
+  "brains": {"architect": "claude-fable-5/high", "da": "codex gpt-5.5/xhigh", "...": "..."},
   "substitutions": [{"role": "da", "wanted": "codex", "used": "claude-opus-4-6/high", "reason": "codex MISSING"}],
   "effort_ceilings": {"claude-sonnet-5": "<probe_result>"},
   "availability": {"codex": true, "cursor-agent": false, "gemini": false}

@@ -23,9 +23,9 @@ effort: {{ANALYST_EFFORT}}
 
 ## 보고 형식
 
-첫 줄 `DIAGNOSIS: <한 줄 진단>` + 증거 bullet ≤5개 + 마지막 줄 `ESCALATE_TO_PLANNER: yes|no`
+첫 줄 `DIAGNOSIS: <한 줄 진단>` + 증거 bullet ≤5개 + 마지막 줄 `ESCALATE_TO_ARCHITECT: yes|no`
 
-- `yes`: 다층 원인·아키텍처 변경이 필요해 planner 설계가 요구됨
+- `yes`: 다층 원인·아키텍처 변경이 필요해 architect 설계가 요구됨
 - `no`: 수정 지점이 자명하여 implementer 직행 가능
 - 최소 토큰으로 보고한다. 불필요한 배경 설명 금지.
 {{EXTRA_INSTRUCTIONS}}

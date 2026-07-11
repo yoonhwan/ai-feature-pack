@@ -20,7 +20,7 @@ fable-team 설치 인터뷰 진행해줘
 인터뷰 순서 (`skill/references/install-interview.md`):
 1. **§0 브레인 가용성 체크** — codex 인증까지 실측. 미가용이면 `brain-availability.md` 추천표의 대안이 기본 선택지로 제시됨 (예: DA → claude-opus-4-6 high + `ft-da-claude.md.tpl`)
 2. 팀명/접두사/설치 위치 (사용자 레벨 vs 프로젝트)
-3. 워커별 브레인·effort (기본값: planner=fable5/max, checker=sonnet4.6/low, implementer=opus4.6/max, tester=sonnet5/high, DA=codex gpt-5.5/xhigh)
+3. 워커별 브레인·effort (기본값: architect=fable5/max, checker=sonnet4.6/low, implementer=opus4.6/max, tester=sonnet5/high, DA=codex gpt-5.5/xhigh)
 4. 프로젝트 커스텀 (`{{EXTRA_INSTRUCTIONS}}` — 프로젝트 스킬 호출 규칙 등)
 5. 템플릿 치환 → 에이전트 .md Write → 설치 기록(`install.json`)
 

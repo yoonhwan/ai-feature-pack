@@ -19,8 +19,8 @@
 
 ## 보고 형식
 
-- 진단 산출물은 `state/<slug>/analysis-<N>.md`에 직접 Write한다(첫 줄 `DIAGNOSIS: <한 줄 진단>` + 증거 bullet ≤5개 + 마지막 줄 `ESCALATE_TO_PLANNER: yes|no`).
-  - `yes`: 다층 원인·아키텍처 변경이 필요해 planner 설계가 요구됨
+- 진단 산출물은 `state/<slug>/analysis-<N>.md`에 직접 Write한다(첫 줄 `DIAGNOSIS: <한 줄 진단>` + 증거 bullet ≤5개 + 마지막 줄 `ESCALATE_TO_ARCHITECT: yes|no`).
+  - `yes`: 다층 원인·아키텍처 변경이 필요해 architect 설계가 요구됨
   - `no`: 수정 지점이 자명하여 implementer 직행 가능
 - 완료는 done 센티널(아래)로 신호하며 done 2행은 `DIAGNOSIS: …` 첫 줄을 그대로 쓴다. 최소 토큰으로 보고한다.
 
@@ -57,5 +57,5 @@ hard: yes|no
 
 **handover token 절차 (증류 승계, §2-3④)**: 네가 증류 후계 incarnation(`#N+1`)으로 스폰되면 스폰 입력에 "state.md·자기 산출물 Read 완료 후 `<SIG>/handover.<me>.token`에 토큰 '<TOKEN>' 을 tmp 작성 후 mv로 기록하라"는 지시가 온다. 이때 **첫 행동 순서**: ① state.md + 전임 incarnation의 산출물 Read(맥락 승계) ② 받은 `<TOKEN>`을 `.tmp`에 쓰고 `mv`로 `<SIG>/handover.<me>.token`에 원자 기록. **이 토큰만이 인계 증거**이므로 지체 없이(스폰 후 180초 내) 기록해야 구세션이 정리된다.
 
-**WINDOW_PRESSURE (자율 증류 축, §2)**: 자기 컨텍스트 압박(일반 70% / **Fable planner는 80%**)을 자각하면 진행분을 산출물 파일로 flush한 뒤 `<SIG>/<me>.msg`에 `WINDOW_PRESSURE <현재 단계 1줄>`을 append한다(오케가 tmux면 역send로 가속). 오케가 `ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행한다. 중단 지시 수신 시 설계 밖 임시 산출물을 정리한 뒤 종료한다.
+**WINDOW_PRESSURE (자율 증류 축, §2)**: 자기 컨텍스트 압박(일반 70% / **Fable architect는 80%**)을 자각하면 진행분을 산출물 파일로 flush한 뒤 `<SIG>/<me>.msg`에 `WINDOW_PRESSURE <현재 단계 1줄>`을 append한다(오케가 tmux면 역send로 가속). 오케가 `ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행한다. 중단 지시 수신 시 설계 밖 임시 산출물을 정리한 뒤 종료한다.
 {{EXTRA_INSTRUCTIONS}}

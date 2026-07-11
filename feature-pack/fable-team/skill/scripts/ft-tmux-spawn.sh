@@ -72,20 +72,20 @@ if [ "$AGENT" = "claude" ]; then
   fi
 fi
 
-# tmuxc role 매핑(codex 경로용 — tmuxc는 worker|analysis|orchestrator|implementer|planner만)
+# tmuxc role 매핑(codex 경로용 — tmuxc는 worker|analysis|orchestrator|implementer|architect만)
 tmuxc_role() {  # <role> [agent]
   local role="$1" agent="${2:-}"
-  # codex는 tmuxc resolve_codex_cmd 매핑을 탄다: worker=medium / verifier=high / planner=die.
-  # da/da2/planner=codex를 worker로 두면 침묵 강등(medium)·planner 즉사 → verifier(high)로 승격(M-4).
+  # codex는 tmuxc resolve_codex_cmd 매핑을 탄다: worker=medium / verifier=high / (미등록 role=die).
+  # da/da2/architect=codex를 worker로 두면 침묵 강등(medium) → verifier(high)로 승격(M-4).
   if [ "$agent" = "codex" ]; then
     case "$role" in
-      da|da2|planner) echo verifier;;
+      da|da2|architect) echo verifier;;
       *) echo worker;;
     esac
     return 0
   fi
   case "$role" in
-    planner) echo planner;; analyst) echo analysis;; implementer) echo implementer;;
+    architect) echo architect;; analyst) echo analysis;; implementer) echo implementer;;
     *) echo worker;;
   esac
 }

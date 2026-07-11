@@ -55,7 +55,7 @@ poll_once() {
   done
   # ④/⑤ CPU 판정 (2회 연속 저CPU=HANG, 카운터는 폴 호출 간 유지)
   local cpu cnt_f cnt fable=0
-  ft_parse_sess "$SESS"; [ "$FT_ROLE" = "planner" ] && fable=1
+  ft_parse_sess "$SESS"; [ "$FT_ROLE" = "architect" ] && fable=1
   cpu="$(ft_sess_cpu "$SESS")"
   cnt_f="$SIG/.$SESS.lowcpu"
   if [ -z "$cpu" ]; then

@@ -41,5 +41,5 @@
 
 - **컨펌 게이트 (SKILL.md 부팅 시퀀스 4~5)**: 확정 전 실행 준비 프리뷰(부팅 보드 — 피처/형상/로스터/산출물 경로/라운드 한도)를 보여주고 사용자 승인을 받는다. **컨펌 없이 워커 스폰 금지.** integrations on/required면 부팅 보드에 워크트리·cairn 노드(spawn parent) 항목 포함(integrations.md §1).
 - 확정 내용을 `<project>/.fable-team/features/<slug>.md`에 기록 (피처 한 줄, **파이프라인 형상(파이프라인 + DA 강도)**, 자산 배정, 성공 기준) — 형상은 킥오프 시 state.md frontmatter(`pipeline`/`da`)로 복제돼 세션 복원의 분기 기준이 된다(context-management §4).
-- 이 파일이 planner에게 넘어가는 1차 컨텍스트가 된다.
+- 이 파일이 architect에게 넘어가는 1차 컨텍스트가 된다.
 - 이후 `orchestration-playbook.md` 파이프라인 시작.
