@@ -1,0 +1,148 @@
+#!/bin/bash
+# ft-tmux-spawn.sh — tmuxc open(또는 승인된 raw_launch_fallback)의 검증 래퍼 (§1-3①)
+# 세션 생성 실행 주체 = tmuxc open. capability 갭(P-T0 확정: model_full_id=false,
+# env_passthrough=false) 시 승인된 raw_launch_fallback 경로로 headroom 기동을 합성한다.
+#
+# Usage:
+#   ft-tmux-spawn.sh --root <dir> --name <sess> --agent claude|codex --role <role> \
+#     --model <id> --effort <e> --prompt-file <계약경로> --input "<1줄>" [--retain-on-fail]
+#
+# Exit: 0 성공 / 1 부팅실패 / 3 APPROVAL_REQUIRED(스폰 예외) / 4 CAPABILITY_GAP /
+#       6 USE_AGENT_V2(spawn_backend=agent-v2 — 오케 롤백 분기)
+set +e
+LIB="$(cd "$(dirname "$0")" && pwd)/ft-lib.sh"; . "$LIB"
+
+ROOT="" NAME="" AGENT="claude" ROLE="" MODEL="" EFFORT="" PROMPT_FILE="" INPUT="" RETAIN=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --root) ROOT="$2"; shift 2;;
+    --name) NAME="$2"; shift 2;;
+    --agent) AGENT="$2"; shift 2;;
+    --role) ROLE="$2"; shift 2;;
+    --model) MODEL="$2"; shift 2;;
+    --effort) EFFORT="$2"; shift 2;;
+    --prompt-file) PROMPT_FILE="$2"; shift 2;;
+    --input) INPUT="$2"; shift 2;;
+    --retain-on-fail) RETAIN=1; shift;;
+    *) echo "ft-tmux-spawn: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+ROOT="$(ft_resolve_root "$ROOT")"
+[ -n "$NAME" ] && [ -n "$ROLE" ] || { echo "ft-tmux-spawn: --name·--role 필수" >&2; exit 1; }
+
+# ── ② spawn_backend 분기 (agent-v2 → 롤백 디스패처로) ──────
+BACKEND="$(ft_ijson "$ROOT" spawn_backend.default)"; [ -z "$BACKEND" ] && BACKEND="tmux"
+# checker는 default를 따른다(롤백 시 default=agent-v2면 checker도 agent-v2 → exit 6).
+# checker 키의 유일한 발산 값은 "workflow"(checker_workflow 예외) — 그때만 오버라이드.
+if [ "$ROLE" = "checker" ]; then
+  cbe="$(ft_ijson "$ROOT" spawn_backend.checker)"
+  [ "$cbe" = "workflow" ] && BACKEND="workflow"
+fi
+if [ "$BACKEND" = "agent-v2" ]; then
+  echo "ft-tmux-spawn: spawn_backend=agent-v2 — 오케 legacy 디스패처로 분기" >&2
+  exit 6
+fi
+if [ "$BACKEND" = "workflow" ]; then
+  # checker 전용 예외 — 레지스트리에 checker_workflow 없으면 무시하고 tmux로 진행
+  if [ "$ROLE" = "checker" ] && ft_has_exception "$ROOT" checker_workflow; then
+    echo "ft-tmux-spawn: checker workflow 예외 — 오케 Workflow 경로 사용" >&2
+    exit 6
+  fi
+  # 승인 안 된 workflow 설정은 무시(tmux 스폰 진행)
+fi
+
+# ── ① 신호 디렉토리 pre-create ─────────────────────────────
+if [ "$ROLE" = "pm" ]; then SIG="$(ft_pm_signals "$ROOT")"; else
+  ft_parse_sess "$NAME"; SIG="$(ft_feat_signals "$ROOT" "$FT_SLUG")"
+fi
+mkdir -p "$SIG/archive" 2>/dev/null
+
+# ── capability 판정 ────────────────────────────────────────
+MODEL_FULL="$(ft_ijson "$ROOT" tmuxc_caps.model_full_id)"   # true/false/""
+LAUNCH_MODE="tmuxc"   # tmuxc | raw
+if [ "$AGENT" = "claude" ]; then
+  # claude 워커는 모델 full-ID 지정이 필요. tmuxc가 못 하면 raw_launch_fallback.
+  if [ "$MODEL_FULL" != "true" ] && [ -n "$MODEL" ]; then
+    if ft_has_exception "$ROOT" raw_launch_fallback; then
+      LAUNCH_MODE="raw"
+    else
+      echo "ft-tmux-spawn: CAPABILITY_GAP — tmuxc 모델 지정 불가 + raw_launch_fallback 미승인" >&2
+      exit 4
+    fi
+  fi
+fi
+
+# tmuxc role 매핑(codex 경로용 — tmuxc는 worker|analysis|orchestrator|implementer|planner만)
+tmuxc_role() {
+  case "$1" in
+    planner) echo planner;; analyst) echo analysis;; implementer) echo implementer;;
+    *) echo worker;;
+  esac
+}
+
+# ── ③ 세션 기동 ────────────────────────────────────────────
+launch_ok=0
+if [ "$LAUNCH_MODE" = "raw" ]; then
+  # 승인된 raw_launch_fallback: headroom 기동 명령을 tmux 세션으로 합성.
+  # FT_WORKER_ROLE env는 exec 교체되는 claude 프로세스까지 셸 레벨 전파(P-T1 실측).
+  HR="$HOME/.headroom/claude-hr.sh"
+  CMD="FT_WORKER_ROLE=$ROLE $HR --dangerously-skip-permissions --model $MODEL"
+  [ -n "$EFFORT" ] && CMD="$CMD --effort $EFFORT"
+  CMD="$CMD --remote-control $NAME"
+  tmux new-session -d -s "$NAME" -c "$ROOT" "$CMD" 2>/dev/null && launch_ok=1
+else
+  # 정본 경로: tmuxc open (COMM-GUIDE 주입은 tmuxc UC1 step 8)
+  TR="$(tmuxc_role "$ROLE")"
+  set -- tmuxc open "$ROOT" --name "$NAME" --agent "$AGENT" --role "$TR"
+  [ -n "$PROMPT_FILE" ] && set -- "$@" --prompt "$PROMPT_FILE"
+  "$@" >/dev/null 2>&1 && launch_ok=1
+fi
+if [ "$launch_ok" != "1" ]; then
+  echo "ft-tmux-spawn: 세션 기동 실패($LAUNCH_MODE) $NAME" >&2
+  exit 1
+fi
+
+# ── ④ readiness 프로브 (5초 간격, 총 90초) ─────────────────
+CLAUDE_READY_RE="${FT_CLAUDE_READY_REGEX:-ctx:|\? for shortcuts|esc to interrupt}"
+CODEX_READY_RE="$(ft_ijson "$ROOT" probe.codex_ready_regex)"
+[ -z "$CODEX_READY_RE" ] && CODEX_READY_RE='^[[:space:]]*[A-Za-z0-9._-]+[[:space:]]+(minimal|low|medium|high)[[:space:]]+·'
+ready=0; waited=0
+while [ "$waited" -lt 90 ]; do
+  cap="$(tmux capture-pane -p -t "$NAME" 2>/dev/null)"
+  if [ "$AGENT" = "codex" ]; then
+    printf '%s\n' "$cap" | grep -qE "$CODEX_READY_RE" && { ready=1; break; }
+  else
+    printf '%s\n' "$cap" | grep -qE "$CLAUDE_READY_RE" && { ready=1; break; }
+  fi
+  sleep 5; waited=$((waited+5))
+done
+if [ "$ready" != "1" ]; then
+  # 부팅 실패: 마지막 30줄 저장 후 반부팅 세션 정리(부팅 실패 pane에 send 금지)
+  tmux capture-pane -p -t "$NAME" 2>/dev/null | tail -30 > "$SIG/$NAME.bootfail.log" 2>/dev/null
+  if [ "$RETAIN" != "1" ]; then tmuxc kill "$NAME" >/dev/null 2>&1; fi
+  echo "ft-tmux-spawn: readiness timeout(90s) $NAME — bootfail.log 저장" >&2
+  exit 1
+fi
+
+# ── ⑤ 계약 + 입력 send (send 래퍼 경유) ────────────────────
+SEND="$(dirname "$0")/ft-tmux-send.sh"
+if [ -n "$PROMPT_FILE" ] || [ -n "$INPUT" ]; then
+  MSG="계약: ${PROMPT_FILE:-없음} Read 후 시작."
+  [ -n "$INPUT" ] && MSG="$MSG 입력: $INPUT"
+  bash "$SEND" "$NAME" --from orch "$MSG" >/dev/null 2>&1
+fi
+
+# ── ⑥ spawn-audit append ───────────────────────────────────
+PANEPID="$(tmux list-panes -t "$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
+ft_append "$SIG/spawn-audit.log" "$(date +%s) $NAME ${MODEL:-<tmuxc-role>} ${PANEPID:-?}"
+
+# ── ⑦ PM 스폰 시: watchd 싱글턴 확보 + pm-session 주소록 기록 ──
+if [ "$ROLE" = "pm" ]; then
+  PMSIG="$(ft_pm_signals "$ROOT")"; mkdir -p "$PMSIG" 2>/dev/null
+  ft_atomic_write "$PMSIG/pm-session" "$NAME"
+  WATCHD="$(dirname "$0")/ft-pm-watchd.sh"
+  bash "$WATCHD" --root "$ROOT" --ensure >/dev/null 2>&1 &
+fi
+
+echo "SPAWNED $NAME mode=$LAUNCH_MODE ready=1"
+exit 0
