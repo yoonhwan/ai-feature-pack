@@ -78,7 +78,10 @@ trap 'rm -f "$PIDFILE" 2>/dev/null' EXIT
 
 # 이벤트 발행: dedup(동일 key .evt 존재 시 억제=touch) + 백로그 상한 FIFO
 emit_evt() {  # <key> <detail>
-  local key="$1" detail="$2" f="$PMSIG/watch.$key.evt"
+  # ★ f는 반드시 별도 local 문으로 — 같은 local 선언 내 $key 자기참조는 bash에서 빈 값으로
+  #   전개돼 파일명이 watch..evt(빈 키)로 뭉개진다(#과 무관, 전 세션 emit 붕괴). 한 줄로 합치지 말 것.
+  local key="$1" detail="$2"
+  local f="$PMSIG/watch.$key.evt"
   if [ -f "$f" ]; then touch "$f" 2>/dev/null; return 0; fi   # dedup
   # 백로그 상한
   local cnt; cnt="$(ls -1 "$PMSIG"/watch.*.evt 2>/dev/null | wc -l | tr -d ' ')"
@@ -94,7 +97,8 @@ emit_evt() {  # <key> <detail>
 }
 
 lowcpu_bump() {  # <sess> → 0=hang(2연속) 1=아직
-  local sess="$1" f="$PMSIG/.lowcpu.$sess" c
+  local sess="$1" c
+  local f="$PMSIG/.lowcpu.$sess"   # ★ 별도 local — 같은 문 내 $sess 자기참조는 빈 값 전개(위 emit_evt 주석 참조)
   c="$(cat "$f" 2>/dev/null || echo 0)"; c=$((c+1)); printf '%s' "$c" > "$f"
   [ "$c" -ge 2 ]
 }
