@@ -24,6 +24,17 @@ _baton_read_frontmatter() {
 }
 
 # ---------------------------------------------------------------------------
+# 헬퍼: NEXT.md에서 "**활성 루프/골**:" 라인 값 읽기
+# ---------------------------------------------------------------------------
+_baton_read_active_loop() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  grep -m1 '^\*\*활성 루프/골\*\*:' "$file" \
+    | sed 's/^\*\*활성 루프\/골\*\*:[[:space:]]*//' \
+    || true
+}
+
+# ---------------------------------------------------------------------------
 # 현재 디렉토리에서 부모 방향으로 .baton/handoff/CURRENT.md 탐색
 # ---------------------------------------------------------------------------
 _find_current_md() {
@@ -116,6 +127,15 @@ if [[ "$status" == "paused" ]]; then
   echo "이어서: \"이어서\" / \"진행\" / \"go\" / \"continue\" / \"next\""
   echo "다른 작업: 무시하고 새 요청 입력"
   echo "─────────────────────────────────────────"
+
+  active_loop="$(_baton_read_active_loop "$wt_root/.baton/handoff/NEXT.md")"
+  if [[ -n "$active_loop" && "$active_loop" != "없음" ]]; then
+    echo "⚠️⚠️  이전 세션 활성 루프/골 인계됨 — 자동 재개되지 않음  ⚠️⚠️"
+    echo "  $active_loop"
+    echo "  → Monitor/ScheduleWakeup/loop는 세션 종속 프로세스라 파일로 안 옮겨짐."
+    echo "  → 바로 다른 작업 시작하지 말고, AskUserQuestion으로 재개 여부부터 물어볼 것."
+    echo "─────────────────────────────────────────"
+  fi
 elif [[ "$status" == "active" && -n "${last_updated:-}" ]]; then
   mins="$(_minutes_since "$last_updated" 2>/dev/null || echo 0)"
   if [[ "$mins" -gt 30 ]]; then
