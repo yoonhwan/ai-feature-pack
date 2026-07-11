@@ -15,7 +15,7 @@ TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|sonnet-?5}"
 WARN_AT="${OMC_DISTILL_WARN_AT:-300000}"
 BLOCK_AT="${OMC_DISTILL_BLOCK_AT:-450000}"
 
-RESULT=$(python3 - "$INPUT" "$TOP_MODELS" "$WARN_AT" "$BLOCK_AT" <<'PYEOF' 2>/dev/null
+RESULT=$(python3 - "$INPUT" "$TOP_MODELS" "$WARN_AT" "$BLOCK_AT" "$MODE" <<'PYEOF' 2>/dev/null
 import json, sys, os, re
 TAIL_CAP = 16 * 1024 * 1024   # 마지막 레코드가 멀티MB여도 통째로 읽되 폭주 방지 상한
 TAIL_CHUNK = 262144
@@ -62,6 +62,7 @@ def scan_model_usage(path):
 try:
     data = json.loads(sys.argv[1]); top_re = sys.argv[2]
     warn_at = int(sys.argv[3]); block_at = int(sys.argv[4])
+    mode = sys.argv[5] if len(sys.argv) > 5 else "warn"
 except Exception:
     print("ALLOW"); sys.exit(0)
 
@@ -94,6 +95,17 @@ def spawn_text(d):
             parts.append(v)
     return " ".join(parts)
 
+# 실제 스폰 시도 판정 — block 모드에서 비스폰 Bash를 오차단해 세션을 brick하지 않기 위함.
+# Task = 항상 스폰. Bash = ft-tmux-spawn.sh 호출만 스폰(§1-5 — 450k block Bash 매처 차단 추가).
+def is_spawn_attempt(d):
+    t = d.get("tool_name", "")
+    if t == "Task":
+        return True
+    if t == "Bash":
+        c = ((d.get("tool_input") or {}).get("command") or "")
+        return bool(re.search(r"ft-tmux-spawn\.sh", c))
+    return False
+
 # 60% 경계 강제 증류: ctx ≥ warn_at(300k) 그리고 ctx% ≥ force_pct(60) → block_at 미만이어도 강제.
 #   윈도우: OMC_CTX_WINDOW 우선, 없으면 model에 1m 있으면 1M·아니면 200k. [1m] 세션은 %가 낮게
 #   보여 소프트 경계가 안 먹던 문제 → 절대선(block_at)과 % 트리거의 OR로 확실히 발동.
@@ -106,13 +118,22 @@ pct = (ctx * 100 // win) if win else 0
 force_pct = int(os.environ.get("OMC_DISTILL_FORCE_PCT", "60") or 60)
 force_distill = (ctx >= block_at) or (ctx >= warn_at and pct >= force_pct)
 
-# 파이썬은 임계 판정만; 모드 분기는 bash가 한다.
+# 파이썬은 임계·스폰 판정; 최종 exit 분기는 bash가 한다.
 if force_distill:
     txt = spawn_text(data)
-    if txt and re.search(BLOCK_EXEMPT, txt, re.I):
-        print("EXEMPT|%d" % k)   # 증류/마무리 전용 스폰 → 예외 허용
+    exempt = bool(txt and re.search(BLOCK_EXEMPT, txt, re.I))
+    if mode == "block":
+        # block 모드(PreToolUse:Task|Bash): 실제 스폰 시도만 차단.
+        # 비스폰 Bash(일반 명령)는 450k여도 통과 — 오차단=세션 brick 방지.
+        if not is_spawn_attempt(data):
+            print("ALLOW|%d" % k)
+        elif exempt:
+            print("EXEMPT|%d" % k)   # 증류/마무리 전용 스폰 → 데드락 회피 예외
+        else:
+            print("BLOCK|%d" % k)
     else:
-        print("BLOCK|%d" % k)
+        # warn 모드(UserPromptSubmit): 임계 경고 주입용 STATE (스폰 여부 무관).
+        print("EXEMPT|%d" % k if exempt else "BLOCK|%d" % k)
 elif ctx >= warn_at:
     print("WARN|%d" % k)
 else:
@@ -149,8 +170,9 @@ if [ "$STATE" = "WARN" ] || [ "$STATE" = "BLOCK" ] || [ "$STATE" = "EXEMPT" ]; t
 import json, sys
 k = sys.argv[1]
 msg = ("⚠️ [context-distill-gate] 컨텍스트 %sk 토큰 — 300k 경계 초과. "
-       "다음 단계 경계에서 반드시 증류하세요: write-through 최신화 → (워크트리면) baton save → "
-       "세션 재시작 후 .fable-team/state/ACTIVE 복원. 450k에서 신규 스폰이 물리 차단됩니다." % k)
+       "지금 .fable-team/bin/ft-ctx-triage.sh <project-root> 실행 → RECOMMEND 결과로 증류 결정: "
+       "CONTINUE(수정만) | COMPACT(경계 예약) | DISTILL(write-through 최신화 → baton save → "
+       "세션 재시작 후 .fable-team/state/ACTIVE 복원). 450k에서 신규 스폰이 물리 차단됩니다." % k)
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": msg}}))
 PYEOF2
 fi
