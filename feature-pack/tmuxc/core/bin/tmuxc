@@ -6,12 +6,13 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, and OMX
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx] [--role worker|analysis|orchestrator|implementer|planner] [--prompt TEXT] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
   tmuxc wt <worktree-path> [same options as open]
   tmuxc list
   tmuxc attach <name>
   tmuxc send <name> <message>
   tmuxc ask <name> [lines]
+  tmuxc model <name>              # 세션의 라이브 --model/--effort 조회 (증류 모델 승계용)
   tmuxc msg <name> <message>
   tmuxc kill <name>
   tmuxc clean
@@ -90,6 +91,18 @@ resolve_zsh_alias_chain() {
 resolve_claude_cmd() {
   local name="$1"
   local role="$2"
+  local model="${3:-}"
+  local effort="${4:-}"
+  # 명시적 --model 오버라이드: role_alias/zsh alias 체인을 우회하고 headroom 기동
+  # 커맨드를 직접 합성한다 (ft-tmux-spawn.sh raw_launch_fallback과 동일 방식 — 방식 분기 금지).
+  # 모델 문자열의 [1m] 창 선택자는 큰따옴표로 보존한다(cc/ccs1m alias와 동일 인용 → 글롭 방지).
+  if [[ -n "$model" ]]; then
+    local cmd
+    cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --model \"$model\""
+    [[ -n "$effort" ]] && cmd="$cmd --effort $effort"
+    printf '%s --name %q --remote-control %q' "$cmd" "$name" "$name"
+    return 0
+  fi
   local alias_name
   alias_name="$(role_alias "$role")"
   local body
@@ -126,11 +139,44 @@ agent_cmd() {
   local agent="$1"
   local name="$2"
   local role="$3"
+  local model="${4:-}"
+  local effort="${5:-}"
   case "$agent" in
-    claude) resolve_claude_cmd "$name" "$role" ;;
+    claude) resolve_claude_cmd "$name" "$role" "$model" "$effort" ;;
     codex|omx) resolve_codex_cmd "$agent" "$role" ;;
     *) die "unknown agent: $agent" ;;
   esac
+}
+
+# 세션의 라이브 claude 프로세스 argv에서 --model/--effort 를 회수한다.
+# 트랜스크립트의 "model" 필드는 [1m] 창 선택자·effort를 담지 않으므로(실측 확인),
+# 프로세스 argv가 유일한 authoritative 소스다. 라이브 세션에만 유효.
+# 출력: "model=<id>" (+ 있으면 "effort=<e>"), 회수 실패 시 비-0 종료.
+session_live_launch() {
+  local sess="$1"
+  tmux has-session -t "$sess" 2>/dev/null || return 1
+  local ppid
+  ppid="$(tmux list-panes -t "$sess" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  [[ -n "$ppid" ]] || return 1
+  local pids pid cmd model="" effort=""
+  pids="$ppid $(pgrep -P "$ppid" 2>/dev/null || true) $(pgrep -g "$ppid" 2>/dev/null || true)"
+  for pid in $pids; do
+    cmd="$(ps -o command= -p "$pid" 2>/dev/null || true)"
+    [[ "$cmd" == *--model* ]] || continue
+    local -a toks=()
+    read -ra toks <<< "$cmd"
+    local tok prev=""
+    for tok in "${toks[@]}"; do
+      [[ "$prev" == "--model" ]] && model="$tok"
+      [[ "$prev" == "--effort" ]] && effort="$tok"
+      prev="$tok"
+    done
+    [[ -n "$model" ]] && break
+  done
+  [[ -n "$model" ]] || return 1
+  printf 'model=%s\n' "$model"
+  [[ -n "$effort" ]] && printf 'effort=%s\n' "$effort"
+  return 0
 }
 
 inject_message() {
@@ -148,12 +194,18 @@ cmd_open() {
   local role="${TMUXC_ROLE:-worker}"
   local prompt=""
   local dry_run=0
+  local model=""
+  local effort=""
+  local like=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --name) name="${2:-}"; shift 2 ;;
       --agent) agent="${2:-}"; shift 2 ;;
       --role) role="${2:-}"; shift 2 ;;
+      --model) model="${2:-}"; shift 2 ;;
+      --effort) effort="${2:-}"; shift 2 ;;
+      --like) like="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
@@ -179,8 +231,21 @@ cmd_open() {
   name="$(sanitize_name "$name")"
   [[ -n "$name" ]] || die "empty session name after sanitize"
 
+  # --model/--effort/--like 오버라이드는 claude 전용 (codex/omx는 role→effort 고정)
+  if [[ -n "$model" || -n "$effort" || -n "$like" ]] && [[ "$agent" != "claude" ]]; then
+    die "--model/--effort/--like 는 --agent claude 에서만 사용 (agent=$agent)"
+  fi
+  # --like SESSION: 지정한 라이브 세션의 모델/effort를 상속 (명시 --model/--effort 가 우선)
+  if [[ -n "$like" ]]; then
+    local like_out
+    like_out="$(session_live_launch "$like" || true)"
+    [[ -n "$like_out" ]] || die "--like: 세션 '$like' 의 라이브 모델 조회 실패 (미기동/claude 아님)"
+    [[ -n "$model" ]]  || model="$(printf '%s\n' "$like_out" | sed -n 's/^model=//p' | head -1)"
+    [[ -n "$effort" ]] || effort="$(printf '%s\n' "$like_out" | sed -n 's/^effort=//p' | head -1)"
+  fi
+
   local run_cmd
-  run_cmd="$(agent_cmd "$agent" "$name" "$role")"
+  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort")"
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
@@ -444,6 +509,10 @@ main() {
       ;;
     send) cmd_send "$@" ;;
     ask) cmd_ask "$@" ;;
+    model)
+      [[ -n "${1:-}" ]] || die "model requires <name>"
+      session_live_launch "$1" || die "session not live or model not found: $1"
+      ;;
     msg)
       [[ -n "${1:-}" ]] || die "msg requires <name> <message>"
       local name="$1"
