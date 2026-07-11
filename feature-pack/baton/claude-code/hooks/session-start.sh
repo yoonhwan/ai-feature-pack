@@ -15,10 +15,12 @@ BATON_HOME="${BATON_HOME:-$HOME/.baton/current}"
 _baton_read_frontmatter() {
   local file="$1" field="$2"
   # ---...--- 사이 YAML frontmatter에서 key: value 추출
+  # 필드 없으면 grep이 exit 1 → pipefail+set -e로 훅 전체가 죽으므로 || true 필수
   awk '/^---$/{f=!f; next} f{print}' "$file" \
     | grep "^${field}:" \
     | head -1 \
-    | sed "s/^${field}:[[:space:]]*//"
+    | sed "s/^${field}:[[:space:]]*//" \
+    || true
 }
 
 # ---------------------------------------------------------------------------
@@ -93,11 +95,11 @@ else
   exit 0
 fi
 
-wt_root="$(dirname "$(dirname "$CURRENT_MD")")"
+wt_root="$(dirname "$(dirname "$(dirname "$CURRENT_MD")")")"
 
 # frontmatter 파싱
 status="$(_baton_read_frontmatter "$CURRENT_MD" "status")"
-phase_id="$(_baton_read_frontmatter "$CURRENT_MD" "phase_id")"
+phase_id="$(_baton_read_frontmatter "$CURRENT_MD" "phase")"
 branch="$(_baton_read_frontmatter "$CURRENT_MD" "branch")"
 last_updated="$(_baton_read_frontmatter "$CURRENT_MD" "last_updated")"
 last_harness="$(_baton_read_frontmatter "$CURRENT_MD" "last_harness")"
