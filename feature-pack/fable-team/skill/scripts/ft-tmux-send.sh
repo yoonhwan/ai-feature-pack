@@ -26,9 +26,16 @@ if ! ft_sess_alive "$SESS"; then
   exit 1
 fi
 
-# ── 2) 상태 판독: 옵션 모드 해제(Escape) + 미제출 입력 클리어(C-u) ──
-tmux send-keys -t "$SESS" Escape 2>/dev/null; sleep 0.2
-tmux send-keys -t "$SESS" C-u 2>/dev/null; sleep 0.2
+# ── 2) 상태 판독: 옵션 모드일 때만 Escape, 미제출 잔류일 때만 C-u (COMM-GUIDE §2 Step2, M-1) ──
+# 무조건 Escape는 busy 타겟의 진행 중 턴을 "Interrupted"로 중단시킨다(COMM-GUIDE 금지사항) →
+# capture로 옵션모드/미제출을 판별해 필요한 키만 보낸다. 감지 실패 시 아무것도 안 보내고 본문 send(안전측).
+_cap="$(tmux capture-pane -p -t "$SESS" 2>/dev/null)"
+if printf '%s\n' "$_cap" | grep -q 'Enter to select'; then
+  tmux send-keys -t "$SESS" Escape 2>/dev/null; sleep 0.2   # 옵션 모드 탈출
+fi
+if printf '%s\n' "$_cap" | grep -qE '❯[[:space:]]+[^[:space:]]'; then
+  tmux send-keys -t "$SESS" C-u 2>/dev/null; sleep 0.2      # 미제출 입력(❯ 텍스트) 클리어
+fi
 
 # ── 3) send-keys -l + sleep 0.3 + 별도 Enter ──────────────
 tmux send-keys -t "$SESS" -l "$LINE" 2>/dev/null

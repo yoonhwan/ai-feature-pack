@@ -48,7 +48,7 @@ poll_once() {
   local h
   for h in "$SIG"/hil-*; do
     [ -f "$h" ] || continue
-    if grep -q "sess=$SESS" "$h" 2>/dev/null; then
+    if grep -qE "sess=$SESS( |\$)" "$h" 2>/dev/null; then   # MINOR-1: 정확 매치(ft-x#1 이 ft-x#10에 오매치 방지)
       printf 'NEEDS_INPUT %s\n' "$(basename "$h" | sed 's/^hil-//')"
       return 0
     fi

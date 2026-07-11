@@ -21,10 +21,10 @@ FT="$ROOT/.fable-team"
 # ── check_bloat: 대용량 파일(>50M, 최근 7일) 상위 5 ──
 check_bloat() {
   local files
+  # find rc는 무시(MINOR-4): 일부 경로 권한오류로 rc!=0여도 부분 결과를 살려 진행(fail-open 철학 정합).
   files="$(find "$ROOT" \
       \( -name .git -o -name node_modules -o -name .venv -o -name venv -o -name .worktrees \) -prune \
-      -o -type f -size +50M -mtime -7 -print 2>/dev/null)" \
-    || { echo "CHECK_FAIL check_bloat"; return 0; }
+      -o -type f -size +50M -mtime -7 -print 2>/dev/null)"
   [ -n "$files" ] || return 0
   printf '%s\n' "$files" | while IFS= read -r f; do
     [ -n "$f" ] || continue
