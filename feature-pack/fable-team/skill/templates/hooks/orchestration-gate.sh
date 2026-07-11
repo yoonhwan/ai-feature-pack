@@ -37,6 +37,24 @@ def deny(msg): # PreToolUse 차단 (stderr → 위임 안내가 모델에 피드
     sys.stderr.write(msg + "\n")
     sys.exit(2)
 
+# ⓪ 생명주기 명령 패턴 (§1-5 — DA-R3 #2 / DA-R4 #1):
+#   경계 클래스에 따옴표 구분자(" ')·`/`(절대경로 프리픽스) 포함 → `bash -c "tmuxc kill …"`
+#   인용 내부·`/usr/local/bin/tmuxc open`도 매치. 언이스케이프된 command 문자열 전역(re.M) 매치.
+LIFECYCLE_RE = re.compile(r'''(^|[/\s;&|"'])tmuxc\s+(open|kill|clean|distill)''', re.M)
+
+def in_ft_tmux():
+    # env 미주입(env_passthrough=false) 폴백: tmux 내부이고 현재 세션명이 ^ft- 이면 워커/ft-세션.
+    # 어떤 오류에서도 False(면제 안 함 — fail-open이되 과면제 방지).
+    if not os.environ.get("TMUX"):
+        return False
+    try:
+        import subprocess
+        r = subprocess.run(["tmux", "display-message", "-p", "#S"],
+                           capture_output=True, text=True, timeout=2)
+        return bool(re.match(r"^ft-", (r.stdout or "").strip()))
+    except Exception:
+        return False
+
 TAIL_CAP = 16 * 1024 * 1024   # 마지막 레코드가 멀티MB여도 통째로 읽되 폭주 방지 상한
 TAIL_CHUNK = 262144
 
@@ -82,6 +100,25 @@ tool = data.get("tool_name", "")
 tin  = data.get("tool_input", {}) or {}
 sid  = data.get("session_id", "nosess")
 tpath = data.get("transcript_path", "")
+
+# ── ⓪ 생명주기 deny — 전 LLM 세션 최우선 (면제 판별보다 먼저 평가, R4 — DA-R3 #2) ──
+# tmuxc open|kill|clean|distill 직접 호출은 역할·세션명 무관 deny(exit 2). 통과 경로는
+# .fable-team/bin/ft-tmux-*.sh 래퍼 경유뿐(래퍼 내부 tmuxc 실행은 스크립트 프로세스 — 훅 대상 아님).
+# 이 deny는 아래 워커/서브에이전트/모델 면제보다 먼저 평가되며 면제가 적용되지 않는다.
+if tool == "Bash":
+    _cmd0 = tin.get("command", "") or ""
+    if LIFECYCLE_RE.search(_cmd0):
+        deny("🚫 [orchestration-gate] tmuxc 생명주기 명령(open/kill/clean/distill) 직접 호출은 물리 차단됩니다.\n"
+             "→ 반드시 래퍼 경유: .fable-team/bin/ft-tmux-{spawn,kill,distill}.sh (승인·토큰·가드 검증).\n"
+             "  (워커·ft-* 세션도 예외 없음 — 생명주기 명령은 래퍼만 통과.)")
+
+# ── ⓐ 워커 면제 (§1-5 — 코드파일 수정 게이트에만 적용, ⓪에는 미적용) ──
+# ① FT_WORKER_ROLE 주입(raw_launch_fallback 셸 env) → 워커 세션 → 면제.
+# ② env 미주입(env_passthrough=false) 폴백: tmux 내부 + 세션명 ^ft- → 워커/ft-세션 → 면제.
+if os.environ.get("FT_WORKER_ROLE"):
+    allow()
+if in_ft_tmux():
+    allow()
 
 # ── 0) 서브에이전트(위임된 워커) 면제 — 제1 판별 ──
 # 서브에이전트(Agent/Task/Workflow) tool-call은 메인 세션의 transcript_path·session_id를 그대로

@@ -33,7 +33,7 @@ else
   CM="$PROJ/CLAUDE.md"
   SCOPE_LABEL="프로젝트($PROJ)"
 fi
-HOOKS=(orchestration-gate.sh orchestration-turn-reset.sh context-distill-gate.sh teammate-idle-gc.sh)
+HOOKS=(orchestration-gate.sh orchestration-turn-reset.sh context-distill-gate.sh teammate-idle-gc.sh pre-compact-writethrough.sh ft-session-restore.sh ft-worker-guard.sh)
 
 # ── 상태 진단 ──
 hook_ok=true
@@ -80,9 +80,9 @@ fi
 echo "─────────────────────────────────────────"
 echo "📊 orchestration-gate 설치 상태 — $CLAUDE_DIR"
 echo "─────────────────────────────────────────"
-echo "  훅 3종(hooks/):      $([ "$hook_ok" = true ] && echo '✅ 설치됨' || echo '❌ 미설치')"
+echo "  훅 ${#HOOKS[@]}종(hooks/):      $([ "$hook_ok" = true ] && echo '✅ 설치됨' || echo '❌ 미설치')"
 echo "  기준(rules/):        $([ "$rules_ok" = true ] && echo '✅ 설치됨' || echo '❌ 미설치')"
-echo "  강제(settings.json): $([ "$settings_ok" = true ] && echo '✅ 연결됨 (3훅 전부)' || echo "❌ 미연결:$settings_missing")"
+echo "  강제(settings.json): $([ "$settings_ok" = true ] && echo "✅ 연결됨 (${#HOOKS[@]}훅 전부)" || echo "❌ 미연결:$settings_missing")"
 
 if [ "$MODE" = "--check" ]; then
   if [ "$hook_ok" = true ] && [ "$rules_ok" = true ] && [ "$settings_ok" = true ]; then
@@ -170,7 +170,7 @@ PYEOF
     echo "  ⏭ settings.json 없음 — 건너뜀"
   fi
 
-  # ③ 훅 3종 제거
+  # ③ 훅 전 종 제거
   for h in "${HOOKS[@]}"; do
     if [ -e "$CLAUDE_DIR/hooks/$h" ]; then rm -f "$CLAUDE_DIR/hooks/$h"; echo "  ✓ 제거 hooks/$h"; fi
   done

@@ -8,9 +8,29 @@
         ]
       },
       {
-        "matcher": "Agent|Workflow|Task",
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ft-worker-guard.sh" }
+        ]
+      },
+      {
+        "matcher": "Agent|Workflow|Task|Bash",
         "hooks": [
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/context-distill-gate.sh block" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact-writethrough.sh", "timeout": 10000 }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ft-session-restore.sh", "timeout": 10000 }
         ]
       }
     ],
