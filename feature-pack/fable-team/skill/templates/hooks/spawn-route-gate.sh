@@ -46,9 +46,25 @@ st = (tin.get("subagent_type") or tin.get("agent_type") or "").strip().lower()
 if not st:
     allow()
 
-# 일회성 브레인 워커(leak 위험) = <prefix->{architect|analyst|checker|implementer|tester[2]|pm}.
+# [DA-R2 H3] PREFIX 스코핑 — 타 시스템 워커(other-architect 등) 과매치 방지.
+# 프로젝트 install.json placeholders.PREFIX의 {prefix}-{role}만 차단. 조회 실패 시 'ft' 기본
+# (기본값도 좁은 스코프 — fable-team 표준 프리픽스만, [a-z0-9]+- 광역 매치 아님).
+prefix = "ft"
+try:
+    import os
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or data.get("cwd") or ""
+    if proj:
+        ij = os.path.join(proj, ".fable-team", "install.json")
+        if os.path.isfile(ij):
+            p = (json.load(open(ij)).get("placeholders", {}) or {}).get("PREFIX", "")
+            if isinstance(p, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]*", p.strip().lower()):
+                prefix = p.strip().lower()
+except Exception:
+    pass  # 조회 실패 → 'ft' 기본 유지 (fail-open 방향이되 과매치 없음)
+
+# 일회성 브레인 워커(leak 위험) = {prefix}-{architect|analyst|checker|implementer|tester[2]|pm}.
 # 드라이버(da/da2/architect-x/da-cursor/gstack/…)는 이 집합에 없으므로 자동 면제(셔틀).
-BRAINS = re.compile(r'^(?:[a-z0-9]+-)?(architect|analyst|checker|implementer|tester2?|pm)$')
+BRAINS = re.compile(r'^' + re.escape(prefix) + r'-(architect|analyst|checker|implementer|tester2?|pm)$')
 m = BRAINS.match(st)
 if not m:
     allow()
