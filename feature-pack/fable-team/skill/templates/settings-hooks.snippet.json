@@ -18,6 +18,12 @@
         "hooks": [
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/context-distill-gate.sh block" }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/spawn-route-gate.sh" }
+        ]
       }
     ],
     "PreCompact": [
