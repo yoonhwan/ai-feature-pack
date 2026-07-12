@@ -1,6 +1,16 @@
 {
   "_note": "fable-team v3 install.json schema 3 델타 (Phase 1 산출물). 설치/업데이트(references/update.md·install-interview.md)가 기존 install.json에 이 키들을 병합한다. 기존 schema 2 필드(placeholders/installed_agents/integrations 등)는 그대로 유지. 값은 설계 §0-1·§1-2·Phase 0 프로브 결과(state.md Phase 0) 기준 확정값이며 설치 시 세션 선택으로 덮어쓸 수 있다.",
   "schema": 3,
+  "installed_prompts": {
+    "_note": "설치된 v3 세션 계약 프롬프트(role) 배열. update.md §3-0b가 '재치환 대상'을 이 목록에서 판정한다. 필드 부재(구설치본) → update.md §3-0b가 ['architect']로 생성(architect는 필수 좌석). 배열 존재+architect 없음 → append. 리네임(구키 planner 등) 매핑은 §3-0a가 제자리 리네임 + stable-dedup. 예: ['architect','analyst','implementer','tester','da','checker','pm'].",
+    "_type": "array<string>",
+    "_example": ["architect"]
+  },
+  "migrated": {
+    "_note": "리네임 이력(구키 → 신키) 기록 객체. update.md §3-0a가 리네임 시 병합 보존한다(TTL/재실행 멱등 판정 근거). 키=구키, 값=신키. 매핑에 없는 키는 불변. 예: {\"planner\":\"architect\"}.",
+    "_type": "object<string,string>",
+    "_example": {}
+  },
   "spawn_backend": {
     "default": "tmux",
     "checker": "tmux",

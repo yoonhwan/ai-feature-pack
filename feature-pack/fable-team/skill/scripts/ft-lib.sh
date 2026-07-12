@@ -189,3 +189,51 @@ ft_sess_alive() {  # <sess>
   pid="$(tmux list-panes -t "$sess" -F '#{pane_pid}' 2>/dev/null | head -1)"
   [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
 }
+
+# ── swap-lock 가드 v3 (§L r5 base + r6 consume-once + r7 토큰 정확비교) ──────
+# 목적: bin 세트 스왑(update.md §P-2) 중 배포 래퍼의 진입을 물리 차단(정상상태/2회차+).
+# 첫 스왑(부트스트랩)은 물리 보장 아님 — quiesce-invariant가 커버(§B1). 물리 보장 주장 금지.
+# 발동 = 배포 래퍼 allowlist 문맥 + 유효 락 + 20초 초과 단일 케이스. 그 외 전부 fail-open.
+# 호출부: 파일 말미 `ft_swap_guard "$@"` — source 시점 호출 스크립트의 위치 파라미터를
+#   함수로 전달해야 bypass consume-once가 `--run` 토큰을 판별할 수 있다(함수 내 "$@"는
+#   함수 인자이므로 무인자 호출 시 빈 값 → 토큰 탐지 불가). $0는 sourced 함수 내에서도
+#   호출 스크립트를 가리키므로 allowlist/bindir 판정은 무영향.
+ft_swap_guard() {
+  # bypass = consume-once 토큰 — 폐기 시점은 체인 종단(--run 데몬)뿐. r7: "$@" 토큰 정확
+  # 비교("--runner"/"--runtime"/공백 포함 인자값 오탐 제거 — $* 부분문자열 판별 폐기).
+  # 체인: 코어 →(명령 접두 env)→ --stop-if-owned / --ensure →(nohup 상속 1회)→ --run 데몬.
+  # --run(체인 종단)에서만 unset → 이후 fork되는 send 자식은 미상속 → 다음 스왑에서 정상 가드.
+  if [ "$FT_SWAP_BYPASS" = "1" ]; then
+    _is_run=0
+    for _arg in "$@"; do [ "$_arg" = "--run" ] && { _is_run=1; break; }; done
+    [ "$_is_run" = 1 ] && unset FT_SWAP_BYPASS
+    unset _is_run _arg
+    return 0
+  fi
+  case "${0##*/}" in                          # H4: 명시 allowlist — 글롭(ft-*.sh) 금지(오발동 방지)
+    ft-tmux-spawn.sh|ft-tmux-send.sh|ft-tmux-poll.sh|ft-tmux-kill.sh|ft-tmux-distill.sh|\
+    ft-pm-watchd.sh|ft-ctx-triage.sh|ft-gzip.sh) ;;
+    *) return 0;;                             # 인터랙티브 셸($0=-zsh/bash)·직접 source — fail-open
+  esac
+  local bindir lock ts now waited
+  bindir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || return 0
+  [ -f "$bindir/ft-lib.sh" ] || return 0      # bin 문맥 아님 — fail-open
+  lock="${bindir%/bin}/.swap.lock"
+  [ "$lock" = "$bindir/.swap.lock" ] && return 0   # /bin 아래 아님(팩 소스 등) — fail-open
+  [ -d "$lock" ] || return 0                  # 평상시: stat 1회 즉시 통과
+  now="$(date +%s)"
+  ts="$(sed -n '1s/^\([0-9][0-9]*\).*/\1/p' "$lock/owner" 2>/dev/null)"
+  [ -n "$ts" ] || ts="$(stat -f %m "$lock" 2>/dev/null || stat -c %Y "$lock" 2>/dev/null)"  # H3 폴백
+  if [ -n "$ts" ] && [ $((now - ts)) -gt "${FT_SWAP_TTL:-600}" ]; then
+    echo "ft-lib: stale swap-lock(>TTL) — 무시하고 진행(잔존 락 수동 정리 권고: $lock)" >&2
+    return 0                                  # stale = fail-open(크래시 잔존 락이 brick 못 함)
+  fi
+  waited=0
+  while [ "$waited" -lt "${FT_SWAP_WAIT:-20}" ]; do
+    sleep 1; waited=$((waited+1))
+    [ -d "$lock" ] || return 0                # 대기 중 해제 → 정상 진행
+  done
+  echo "ft-lib: bin swap in progress — retry ($lock)" >&2
+  exit 7                                      # SWAP_LOCK_BUSY — allowlist 래퍼 프로세스 한정이라 exit 정당
+}
+ft_swap_guard "$@"
