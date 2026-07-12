@@ -22,7 +22,8 @@
       {
         "matcher": "Agent|Task",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/spawn-route-gate.sh" }
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/spawn-route-gate.sh" },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/da-live-evidence-gate.sh" }
         ]
       }
     ],
