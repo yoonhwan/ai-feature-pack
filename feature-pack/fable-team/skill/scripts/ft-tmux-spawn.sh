@@ -8,7 +8,8 @@
 #     --model <id> --effort <e> --prompt-file <계약경로> --input "<1줄>" [--retain-on-fail]
 #
 # Exit: 0 성공 / 1 부팅실패 / 3 APPROVAL_REQUIRED(스폰 예외) / 4 CAPABILITY_GAP /
-#       6 USE_AGENT_V2(spawn_backend=agent-v2 — 오케 롤백 분기)
+#       6 USE_AGENT_V2(spawn_backend=agent-v2 — 오케 롤백 분기) /
+#       7 MODEL_MISMATCH(스폰 후 실모델 ≠ 기대세대 — 모델 leak 방지 kill·abort, 2026-07-12)
 set +e
 LIB="$(cd "$(dirname "$0")" && pwd)/ft-lib.sh"; . "$LIB"
 
@@ -144,6 +145,54 @@ if [ "$ready" != "1" ]; then
   if [ "$RETAIN" != "1" ]; then tmuxc kill "$NAME" >/dev/null 2>&1; fi
   echo "ft-tmux-spawn: readiness timeout(90s) $NAME — bootfail.log 저장" >&2
   exit 1
+fi
+
+# ── ④.5 [2026-07-12] 모델 leak 사후 검증 (claude 워커 — 전 스폰경로 공통 보장) ──
+#   tmuxc/Agent 어느 경로도 install.json 세대를 구조적으로 보장하지 않는다(호출자 --model 신뢰).
+#   실제 status-line 모델을 기대세대와 정규화 대조해 세션모델 leak을 잡는다.
+#   기대 = 호출자 --model 우선, 없으면 install.json placeholders.<ROLE>_MODEL. codex는 대상 아님(effort 표기).
+if [ "$AGENT" = "claude" ] && [ -n "$ROLE" ] && [ "$ROLE" != "orch" ]; then
+  # 정규화: claude- 프리픽스 제거 후 소문자 [a-z0-9]만 (claude-opus-4-8 ↔ "Opus 4.8" → 둘 다 opus48) — C1
+  ft_norm_model() { printf '%s' "$1" | sed -E 's/^claude-//; s/\[1m\]$//' | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9'; }
+  # 기대 모델 SSOT = install.json canonical (호출자 --model은 SSOT와 대조만, 덮어쓰기 금지) — H2
+  CANON=""
+  case "$ROLE" in
+    architect)      CANON="$(ft_ijson "$ROOT" placeholders.ARCHITECT_MODEL)";;
+    analyst)        CANON="$(ft_ijson "$ROOT" placeholders.ANALYST_MODEL)";;
+    checker)        CANON="$(ft_ijson "$ROOT" placeholders.CHECKER_MODEL)";;
+    implementer)    CANON="$(ft_ijson "$ROOT" placeholders.IMPLEMENTER_MODEL)";;
+    tester|tester2) CANON="$(ft_ijson "$ROOT" placeholders.TESTER_MODEL)";;
+    pm)             CANON="$(ft_ijson "$ROOT" pm.model)";;
+  esac
+  # H2: 호출자 --model이 canonical과 불일치면 스폰된 세션을 kill하고 거부(잘못된 세대 요청 차단)
+  if [ -n "$MODEL" ] && [ -n "$CANON" ] && [ "$(ft_norm_model "$MODEL")" != "$(ft_norm_model "$CANON")" ]; then
+    echo "ft-tmux-spawn: --model($MODEL) ≠ install.json canonical($CANON) role=$ROLE — 거부·kill" >&2
+    tmuxc kill "$NAME" >/dev/null 2>&1; exit 7
+  fi
+  EXPECT_MODEL="${CANON:-$MODEL}"
+  if [ -n "$EXPECT_MODEL" ]; then
+    exp_n="$(ft_norm_model "$EXPECT_MODEL")"
+    mdl_disp=""; mtry=0
+    while [ "$mtry" -lt 5 ]; do
+      mdl_disp="$(tmux capture-pane -p -t "$NAME" 2>/dev/null | grep -oE 'Model:[[:space:]]*[A-Za-z]+[[:space:]]*[0-9][0-9.]*' | tail -1 | sed 's/.*Model:[[:space:]]*//')"
+      [ -n "$mdl_disp" ] && break
+      sleep 3; mtry=$((mtry+1))
+    done
+    act_n="$(ft_norm_model "$mdl_disp")"
+    # H1: EXPECT 있는데 판독 실패 = fail-closed(미탐 방지). M1: RETAIN 무관 kill.
+    if [ -z "$act_n" ]; then
+      tmux capture-pane -p -t "$NAME" 2>/dev/null | tail -20 > "$SIG/$NAME.modelunread.log" 2>/dev/null
+      ft_append "$SIG/spawn-audit.log" "$(date +%s) $NAME MODEL_UNREAD expect=$EXPECT_MODEL"
+      echo "ft-tmux-spawn: 모델 status-line 판독 실패(role=$ROLE, expect=$EXPECT_MODEL) — fail-closed kill+abort" >&2
+      tmuxc kill "$NAME" >/dev/null 2>&1; exit 7
+    fi
+    if [ "$exp_n" != "$act_n" ]; then
+      tmux capture-pane -p -t "$NAME" 2>/dev/null | tail -20 > "$SIG/$NAME.modelmismatch.log" 2>/dev/null
+      ft_append "$SIG/spawn-audit.log" "$(date +%s) $NAME MODEL_MISMATCH expected=$EXPECT_MODEL actual=$mdl_disp"
+      echo "ft-tmux-spawn: MODEL_MISMATCH role=$ROLE expected=$EXPECT_MODEL actual='$mdl_disp' — 모델 leak 방지 kill+abort" >&2
+      tmuxc kill "$NAME" >/dev/null 2>&1; exit 7
+    fi
+  fi
 fi
 
 # ── ⑤ 계약 + 입력 send (send 래퍼 경유) ────────────────────
