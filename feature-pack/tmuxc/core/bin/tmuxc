@@ -52,9 +52,15 @@ role_alias() {
   case "${1:-worker}" in
     worker|analysis|analyze|log|logs|doc|docs|review|verify|verifier|check|bts|architect-check|architecture-check) printf 'ccs' ;;
     orchestrator|orch|implementer|implement|implementation|planner|plan|planning|designer|architect|strategy|strategist) printf 'ccd' ;;
+    crew|plugin) printf '__crew__' ;;  # zshrc alias 무의존 — resolve_claude_cmd가 직접 합성 (2026-07-13 이슈: 크루가 ccd=opus-4-8[1m] high로 오폴백)
     *) die "unknown role: $1" ;;
   esac
 }
+
+# crew/plugin role 고정 스펙 — claude 플러그인 크루(agent-cli·omo·gstack 등) 드라이버 자식 세션.
+# fable-team crew-support.md 계약(claude-sonnet-4-6 + medium)과 정합. --model/--effort 명시가 항상 우선.
+CREW_MODEL="claude-sonnet-4-6"
+CREW_EFFORT="medium"
 
 zsh_alias_body() {
   local alias_name="$1"
@@ -105,6 +111,13 @@ resolve_claude_cmd() {
   fi
   local alias_name
   alias_name="$(role_alias "$role")"
+  # crew/plugin role: alias 체인 대신 고정 스펙 직접 합성 (--model 오버라이드 분기와 동일 방식)
+  if [[ "$alias_name" == "__crew__" ]]; then
+    local cmd
+    cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --model \"$CREW_MODEL\" --effort ${effort:-$CREW_EFFORT}"
+    printf '%s --name %q --remote-control %q' "$cmd" "$name" "$name"
+    return 0
+  fi
   local body
   body="$(resolve_zsh_alias_chain "$alias_name" || true)"
   if [[ -z "$body" ]]; then
@@ -119,7 +132,7 @@ resolve_codex_cmd() {
   case "$agent" in
     codex)
       case "$role" in
-        worker) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="medium"' ;;
+        worker|crew|plugin) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="medium"' ;;
         orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"' ;;
         *) die "unknown role: $role" ;;
       esac
