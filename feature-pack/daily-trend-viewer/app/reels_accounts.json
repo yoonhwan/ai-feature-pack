@@ -1,11 +1,5 @@
 [
   "openai",
-  "runwayapp",
-  "pika_labs",
-  "lumalabsai",
   "midjourney",
-  "klingai_official",
-  "heygen_official",
-  "higgsfield.ai",
-  "googledeepmind"
+  "higgsfield.ai"
 ]
