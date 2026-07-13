@@ -15,7 +15,7 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 
 | 명령 | 설명 |
 |------|------|
-| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx] [--role worker\|analysis\|orchestrator\|implementer\|planner] [--model ID] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성 |
+| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선 |
 | `tmuxc model {name}` | 세션의 **라이브 `--model`/`--effort` 조회** (프로세스 argv 기준 — `[1m]` 창 선택자 포함). 증류 모델 승계용 |
 | `tmuxc list` | 활성 세션 목록 + Claude 상태 |
 | `tmuxc attach {name}` | 세션 접속 안내 |
