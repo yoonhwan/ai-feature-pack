@@ -2,6 +2,8 @@
 
 오케스트레이터(사다리 최상위 가용 모델 — brain-availability §2)가 매 태스크에서 따르는 절차. **오케스트레이터는 전달·조율·커뮤니케이션만 한다** — 기획·문제해결은 architect 브레인에 위임하고, 그 사이에도 파이프라인은 멈추지 않는다.
 
+**빅뱅 금지 — 1이슈·원인 먼저 (문제해결 7원칙 §1, rapid-iteration-loop)**: 오케는 **한 번에 한 이슈만** 이 파이프라인에 태운다(stage 1 checker 병렬은 한 이슈 안의 수집 팬아웃이라 예외). 원인 판별을 먼저 닫고 그 다음에만 fix 설계로. **커밋 랜딩 크기는 오케 책임** — 설계가 단일 계약이어도 Tidy First로 구조 선커밋→행위 후커밋 분할한다(rapid-iteration-loop §1).
+
 ## 파이프라인
 
 ```
@@ -10,14 +12,16 @@
             (+연동 훅: wt-create·cairn spawn — integrations.md §1 순서 준수)
 1. 수집     ft-checker × N 병렬 (스폰경로: §스폰 규칙 — [1m] Workflow / 비-[1m] Agent, checker-01…) — 대상 파일 + JSON 보고 형식만 전달
 2. 기획     ft-architect (Workflow agent(), model+effort 명시) — 워커 확인 결과를 인라인/파일로 전달
+            ★ 체커부터 (7원칙 §4): architect에 넘기는 것은 **실제 실행로그+짧은 재현 데이터**여야 한다(정적 코드리딩만으로 설계 착수 금지).
+              계측·재현·수집을 어느 워커로 돌릴지는 오케 자율 — 원인이 계측으로 좁혀지기 전엔 설계로 넘어가지 않는다(7원칙 §2·3).
             → architect가 설계 파일(features/design-<slug>-v<N>.md, 재기획마다 v+1) Write 후 DESIGN_WRITTEN 반환
             ★ 오케스트레이터는 설계 내용을 판단하지 않는다. 전달만.
 3. 구현     ft-implementer (스폰경로: §스폰 규칙 — [1m] Workflow / 비-[1m] Agent) — 구현 SSOT 경로 전달 ("SSOT를 Read하고 그대로 구현")
             구현 SSOT: 표준 형상 = 설계 파일, 축약 형상(설계 단계 없음) = 피처 파일(features/<slug>.md)
 4. 검증     병렬: ft-tester (Workflow, 설계의 검증 기준 전달) + ft-da review (Agent)
-5. 게이트   ft-da approve loop: APPROVED → 6으로.
-            CHANGES_REQUESTED → 판정+증거를 architect에 재전달(2) → 수정 설계(design v+1) → 3 재순환.
-            최대 라운드(기본 2) 초과 → 자동 진행 금지, 사용자 에스컬레이션.
+            ★ 완성=라이브 관찰 (7원칙 §7): tester는 유닛/회귀 GREEN이 아니라 **라이브 반응 관찰**을 종결 증거로 남긴다(운영규율 #3). 1회 판정 아님 — 짧은 반복으로 로그 대조(rapid-iteration-loop §7).
+5. 게이트   ft-da approve loop.
+            ★ 직접 approve loop (7원칙 §5): 설계↔반박 왕복은 architect·DA **둘이 직접 send로 수렴**(스폰 시 상대 세션명 주입), 오케는 중간 릴레이 없이 **최종 APPROVE만 1회** 수거 → 6으로. 설계 pre-gate(구현 전)·post-impl 게이트(이 stage) 어느 접점이든 동일. 라운드 한도·라이브증거·에스컬레이션은 기존 규율 그대로(monitoring-loop §5, 운영규율 #2) — 한도 도달 시 DA가 DA_LOOP_STALLED로 오케에 신호. *(Legacy 비-tmux 경로면 오케 pass-through 릴레이(판단 0)로 폴백.)*
 6. 종결     오케스트레이터: tester ALL_PASS + DA APPROVED 증거 수집 → 정리 보고
             + state.md status: done 기록·state/ACTIVE 제거
             (+연동 훅: baton save/finish·cairn complete·PR 권고 — integrations.md §2 순서 준수)

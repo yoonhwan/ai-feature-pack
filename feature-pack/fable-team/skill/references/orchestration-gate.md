@@ -41,7 +41,7 @@ templates/install-gate.sh --install [proj]   # 4-레이어 설치 (멱등·setti
 ## 로스터 (강제 게이트 전제)
 
 - 메인 오케스트레이터(세션) = **sonnet-5 또는 fable-5 (ultracode — 세션 시작 시 사용자 선택)**. 게이트 대상.
-- architect = **fable5** (1순위 — 미가용 시 sonnet-5 → 병렬 opus-4-6). 설계 파일만 산출(코드 아님)이라 실무상 게이트 무영향.
+- architect = **sonnet-5** (기본) — **fable-5는 에스컬레이션 전용**(신규설계·2연속 DA REJECT·라이브 반증 1회, 증거팩 인라인 필수; 미가용 시 병렬 opus-4-6). 설계 파일만 산출(코드 아님)이라 실무상 게이트 무영향.
 - 워커: implementer=opus-4-6/high, tester=sonnet-5/high, checker(대량서치)=sonnet-4-6/medium. 게이트 면제.
 
 ## TOP 모델[1m] 서브에이전트 모델 leak 교정 (sonnet-5/fable-5 포함)

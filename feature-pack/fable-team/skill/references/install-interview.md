@@ -18,7 +18,7 @@
 
 | 키 | 질문 | 기본값 | 허용값 주의 |
 |----|------|--------|-------------|
-| `{{ARCHITECT_MODEL}}` / `{{ARCHITECT_EFFORT}}` | 기획·문제해결 브레인? (**기본 claude-fable-5** — 미가용 시 `BRAIN_UNAVAILABLE` 보고 후 남은 choices 재제시) | [claude-fable-5 / **high**] | Workflow 경로로만 스폰. **선택을 install.json ARCHITECT_MODEL에 기록**. max 금지(hang). codex-5.6-sol 선택 시 ft-architect-x 드라이버 활성 |
+| `{{ARCHITECT_MODEL}}` / `{{ARCHITECT_EFFORT}}` | 기획·문제해결 브레인? (**기본 claude-sonnet-5** — fable-5는 에스컬레이션 전용(신규설계·2연속 DA REJECT·라이브 반증 1회, 증거팩 인라인 필수). 미가용 시 `BRAIN_UNAVAILABLE` 보고 후 남은 choices 재제시) | [claude-sonnet-5 / **high**] | Workflow 경로로만 스폰. **선택을 install.json ARCHITECT_MODEL에 기록**. max 금지(hang). codex-5.6-sol 선택 시 ft-architect-x 드라이버 활성 |
 | `{{ANALYST_MODEL}}` / `{{ANALYST_EFFORT}}` | 진단(analyst) 브레인? | [claude-opus-4-6 / **high**] | Agent 경로. Bash 읽기전용. DIAGNOSIS + ESCALATE_TO_ARCHITECT 보고 |
 | `{{CHECKER_MODEL}}` / `{{CHECKER_EFFORT}}` | 대량 서치·로그·문서 워커 브레인? | [claude-sonnet-4-6 / **medium**] | sonnet4.6은 low·medium·high만. 빠른 확인 BTS 3종 표준 = medium |
 | `{{IMPLEMENTER_MODEL}}` / `{{IMPLEMENTER_EFFORT}}` | 구현 워커 브레인? | [claude-opus-4-8 / **high**] | opus-4-8 high 기본. 미가용 시 opus-4-6 유지 보고 후 사용자 결정. max 금지 |

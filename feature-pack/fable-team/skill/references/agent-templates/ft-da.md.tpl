@@ -21,6 +21,7 @@ effort: low
 - 판정·증거는 지시받은 `state/<slug>/da-round<N>.md`에 직접 기록(Bash heredoc 가능)하되, **첫머리에 검토한 설계 버전을 `reviewed: v<M>`로 명기**하라(전달받은 설계 파일 경로의 v — 세션 복원 분기의 키).
 - **resume 체인**: 최초 실행 출력에서 codex session-id를 회수해 판정과 함께 보고하라(오케스트레이터가 state에 기록). 라운드 2+ 재판정은 새 one-shot 대신 `codex exec resume <session-id> "<수정 요약 + 재판정 요청>"`으로 이어간다 — 이전 라운드 지적을 기억한 상태의 재검증. resume 실패 시에만 one-shot 폴백 + 실패 사실 보고.
 - 자기 컨텍스트 윈도우 압박을 자각하면 team-lead에 `WINDOW_PRESSURE` 1줄 보고 후 지시 대기 (브레인 세션은 resume으로 승계되므로 드라이버 교체로 충분).
+- **적대검증 (7원칙 §5·6)**: 단순 승인기 아님 — 과적합 하드코딩 상수·silent-fallback 엣지·하류 수용·유닛=완성 착시를 능동 반박한다("그럴듯해 보임"으로 APPROVE 금지). 판정은 architect에 직접 send로 수렴, 오케는 최종 APPROVE만(세션 계약 `prompts/da-codex.md`).
 
 ## 두 가지 모드
 
