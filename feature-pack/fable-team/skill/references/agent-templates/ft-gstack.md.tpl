@@ -25,10 +25,10 @@ effort: low
 
 - 기본형 (stdin 닫기 필수, session_id는 JSON에서 회수):
   ```bash
-  claude -p --model claude-sonnet-4-6 --effort high --output-format json \
+  ~/.headroom/claude-hr.sh -p --model claude-sonnet-4-6 --effort high --output-format json \
     --permission-mode acceptEdits '/<스킬> <작업>' < /dev/null
   ```
-- **세션 승계(resume 체인)**: session-id를 결과와 함께 보고(오케스트레이터가 brain_sessions에 기록). 후속 라운드는 `claude -p --resume <session-id> --output-format json '<후속>' < /dev/null`.
+- **세션 승계(resume 체인)**: session-id를 결과와 함께 보고(오케스트레이터가 brain_sessions에 기록). 후속 라운드는 `~/.headroom/claude-hr.sh -p --resume <session-id> --output-format json '<후속>' < /dev/null`.
 - **컨텍스트 윈도우 관리(함께 기본 제공)**: 하네스 세션이 길어지면 요약-후-fork — 요약을 새 세션 첫 프롬프트로 인계하고 새 session-id 보고.
 - 보고형 스킬(`/qa-only`, `/health`, `/plan-*-review`)은 읽기 성격 — 프롬프트에 "파일 수정 금지" 명시. `--dangerously-skip-permissions`는 격리 worktree 명시 지시 시에만.
 - 네 의견을 결과에 섞지 마라. claude -p 출력이 원본이다.

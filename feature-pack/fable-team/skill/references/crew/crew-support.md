@@ -19,14 +19,15 @@
 
 - **A형 무상태 스크립트 변종** (perplexity): 세션이 없는 API 호출 스크립트(`perplexity_direct.py`)를 Bash 실행한다. 이 경우 §드라이버 패턴의 "resume/컨텍스트 윈도우 관리 기본 계약"은 **적용 대상이 아니다**(하네스에 세션 자체가 없음) — 쿼리마다 fresh one-shot이고, 드라이버는 결과를 지정 경로에 파일로 저장하는 책임만 진다(그래서 이 크루 템플릿만 `tools:`에 Write를 포함한다).
 
-**B. claude 플러그인/스킬 하네스** (gstack, superpowers, insane-search, ouroboros): **드라이버 서브에이전트(sonnet4.6 low)가 Bash로 `claude -p`를 실행** — 현 세션 Skill 호출도, 오케스트레이터 직접 발사도 아니다. 이유: ① 드라이버는 우측 pane 가시 + SendMessage 즉시 릴레이(저유실) ② 자식 claude 프로세스는 오케스트레이터/워커 컨텍스트와 완전 분리 + 디스크-백드 세션이라 resume 가능(4번째 버킷) ③ 플러그인 워크플로가 세션을 오염시키지 않음. **실행 모델은 claude-sonnet-4-6 + effort high 고정.** 커맨드 원형 (2026-07-03 실측):
+**B. claude 플러그인/스킬 하네스** (gstack, superpowers, insane-search, ouroboros): **드라이버 서브에이전트(sonnet4.6 low)가 Bash로 `claude-hr.sh -p`를 실행** — 현 세션 Skill 호출도, 오케스트레이터 직접 발사도 아니다. 이유: ① 드라이버는 우측 pane 가시 + SendMessage 즉시 릴레이(저유실) ② 자식 claude 프로세스는 오케스트레이터/워커 컨텍스트와 완전 분리 + 디스크-백드 세션이라 resume 가능(4번째 버킷) ③ 플러그인 워크플로가 세션을 오염시키지 않음. **실행 모델은 claude-sonnet-4-6 + effort high 고정.** 커맨드 원형 (2026-07-03 실측 · 2026-07-16 headroom 래퍼 경유로 교정 — bare `claude -p`는 env 벗겨진 환경(detach/cron/setsid)에서 프록시 우회 = 토큰 낭비·계정 리밋 리스크):
 
 ```bash
 # 최초 실행 — session_id를 JSON 출력에서 회수해 brain_sessions에 기록
-claude -p --model claude-sonnet-4-6 --effort high --output-format json \
+# ⚠️ bare `claude -p` 금지 — 반드시 headroom fail-open 래퍼 경유 (프록시 死 시 자동 직결 폴백)
+~/.headroom/claude-hr.sh -p --model claude-sonnet-4-6 --effort high --output-format json \
   --permission-mode acceptEdits '/<플러그인 스킬> <작업>' < /dev/null
 # 후속 라운드 — 세션 승계 (resume 체인)
-claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
+~/.headroom/claude-hr.sh -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
 ```
 
 - 권한 기본값 `--permission-mode acceptEdits`. `--dangerously-skip-permissions`는 **격리 worktree 전용** (omo YOLO 규칙 동형).
@@ -39,10 +40,10 @@ claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/nu
 | **da** | codex CLI (A) | `npx -y @openai/codex --version` (brain-availability §0이 커버) | `ft-da.md.tpl` | gpt-5.5 xhigh | `codex exec resume <session-id>` |
 | **omo** | OMX/OMO (A) | `omx --version` + `omx list` | `ft-omo.md.tpl` | OMO 스킬 레이어 (OMX 런타임 위 Codex) | `omx exec resume <session-id|--last>` + 실행 중 `omx exec inject <session-id> --prompt '...'` (`--prompt` 필수, v0.15.1 실측) |
 | **perplexity** | `perplexity_direct.py` 스크립트 (A) | `ls ~/.claude/skills/perplexity-direct-api` | `ft-perplexity.md.tpl` | Perplexity Sonar/Search API 자체 | 무상태(API one-shot) — resume 없음, 쿼리마다 fresh 호출 (드라이버가 산출물을 파일로 저장) |
-| **gstack** | gstack 스킬 스위트 (B) | `ls ~/.claude/skills/gstack` | `ft-gstack.md.tpl` | claude -p 세션 (sonnet 4.6 high) + gstack 스킬 | `claude -p --resume <session-id>` |
-| **superpowers** | superpowers 플러그인 (B) | `~/.claude/plugins/cache/claude-plugins-official/superpowers/` | `ft-superpowers.md.tpl` | claude -p 세션 (sonnet 4.6 high) + superpowers 워크플로 | `claude -p --resume <session-id>` (다단계 워크플로라 resume이 핵심) |
-| **insane-search** | insane-search 플러그인 (B) | `~/.claude/plugins/cache/gptaku-plugins/insane-search/` | `ft-insane-search.md.tpl` | claude -p 세션 (sonnet 4.6 high) + insane-search | `claude -p --resume <session-id>` |
-| **ouroboros** | ouroboros 플러그인 (B) | `~/.claude/plugins/cache/ouroboros/ouroboros/` | `ft-ouroboros.md.tpl` | claude -p 세션 (sonnet 4.6 high) + ouroboros | `claude -p --resume <session-id>` |
+| **gstack** | gstack 스킬 스위트 (B) | `ls ~/.claude/skills/gstack` | `ft-gstack.md.tpl` | claude-hr -p 세션 (sonnet 4.6 high) + gstack 스킬 | `claude-hr.sh -p --resume <session-id>` |
+| **superpowers** | superpowers 플러그인 (B) | `~/.claude/plugins/cache/claude-plugins-official/superpowers/` | `ft-superpowers.md.tpl` | claude-hr -p 세션 (sonnet 4.6 high) + superpowers 워크플로 | `claude-hr.sh -p --resume <session-id>` (다단계 워크플로라 resume이 핵심) |
+| **insane-search** | insane-search 플러그인 (B) | `~/.claude/plugins/cache/gptaku-plugins/insane-search/` | `ft-insane-search.md.tpl` | claude-hr -p 세션 (sonnet 4.6 high) + insane-search | `claude-hr.sh -p --resume <session-id>` |
+| **ouroboros** | ouroboros 플러그인 (B) | `~/.claude/plugins/cache/ouroboros/ouroboros/` | `ft-ouroboros.md.tpl` | claude-hr -p 세션 (sonnet 4.6 high) + ouroboros | `claude-hr.sh -p --resume <session-id>` |
 
 각 하네스 상세(카탈로그·few-shot·안전 모드): `crew/<하네스>-full-context.md` (omo 수준 레퍼런스 — 드라이버가 필요 시 Read).
 

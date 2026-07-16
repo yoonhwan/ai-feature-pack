@@ -17,7 +17,7 @@ done
 
 ### 1-1. claude effort 표준(high) 수락 프로브 (D1)
 
-대체 후보로 확정된 claude 모델은 1회 실측(`claude -p --model <m> --effort high` 한 줄 질의 `< /dev/null`) 후 결과를 **4상태로 분류**해 처리한다:
+대체 후보로 확정된 claude 모델은 1회 실측(`~/.headroom/claude-hr.sh -p --model <m> --effort high` 한 줄 질의 `< /dev/null`) 후 결과를 **4상태로 분류**해 처리한다:
 
 - ⓐ **success** → 그 effort로 확정
 - ⓑ **400 `level ... not supported`** → 한 단계 하위 effort(medium) 강등 재시도 — effort 강등은 이 오류 유형에서만(high 거부는 이례 — 발생 시 기록·보고)
