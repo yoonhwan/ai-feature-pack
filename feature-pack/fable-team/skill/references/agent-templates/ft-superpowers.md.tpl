@@ -24,10 +24,10 @@ effort: low
 
 - 기본형 (stdin 닫기 필수, session_id는 JSON에서 회수):
   ```bash
-  claude -p --model claude-sonnet-4-6 --effort high --output-format json \
+  ~/.headroom/claude-hr.sh -p --model claude-sonnet-4-6 --effort high --output-format json \
     --permission-mode acceptEdits '/superpowers:<skill> <작업>' < /dev/null
   ```
-- **세션 승계(resume 체인) — 이 크루의 핵심 가치**: superpowers 워크플로는 설계 승인·실행방식 선택·태스크별 리뷰가 "같은 대화의 연속"을 전제한다. 최초 실행의 session-id를 보고하고(brain_sessions 기록), 모든 단계 진행은 `claude -p --resume <session-id> --output-format json '<다음 단계 지시>' < /dev/null`로 이어가라. 워크플로 중간에 새 세션을 만들면 게이트 상태가 유실된다.
+- **세션 승계(resume 체인) — 이 크루의 핵심 가치**: superpowers 워크플로는 설계 승인·실행방식 선택·태스크별 리뷰가 "같은 대화의 연속"을 전제한다. 최초 실행의 session-id를 보고하고(brain_sessions 기록), 모든 단계 진행은 `~/.headroom/claude-hr.sh -p --resume <session-id> --output-format json '<다음 단계 지시>' < /dev/null`로 이어가라. 워크플로 중간에 새 세션을 만들면 게이트 상태가 유실된다.
 - **컨텍스트 윈도우 관리(함께 기본 제공)**: 세션이 길어지면 단계 경계에서 요약-후-fork — 현 단계 산출물(플랜 파일 등) + 요약을 새 세션에 인계하고 새 session-id 보고.
 - `--dangerously-skip-permissions`는 격리 worktree 명시 지시 시에만.
 - 네 의견을 결과에 섞지 마라. claude -p 출력이 원본이다.

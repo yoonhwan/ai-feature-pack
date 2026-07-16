@@ -73,10 +73,10 @@ ouroboros 크루원에게 멘탈 모델·기능 카탈로그·`claude -p` 콘솔
 크루는 아래 원형으로 스킬을 구동한다(모델 sonnet-4-6 / effort high 고정):
 
 ```bash
-claude -p --model claude-sonnet-4-6 --effort high --output-format json \
+~/.headroom/claude-hr.sh -p --model claude-sonnet-4-6 --effort high --output-format json \
   --permission-mode acceptEdits '/ouroboros:<skill> <작업>' < /dev/null
 
-claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
+~/.headroom/claude-hr.sh -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
 ```
 
 - `auto`/`evolve`/`ralph` 계열은 MCP 도구(`ouroboros_job_wait` 등)를 **같은 턴 안에서 반복 폴링**하도록 스킬이 지시한다 — 한 번의 `claude -p` 호출이 job이 terminal(성공/실패/수렴/취소)에 이를 때까지 자연스럽게 블로킹된다. 크루가 별도 폴링 루프를 짤 필요는 없다.
@@ -150,9 +150,9 @@ Output:
 
 ## 6. Few-Shot Examples
 
-1. **자율 신규 빌드(헤드리스)** — `claude -p ... '/ouroboros:auto "습관 트래커 CLI" --complete-product' < /dev/null` → bounded 인터뷰(auto-answerer) → A등급 Seed → Run → Ralph 체인 → 완료/블록 시 `auto_session_id`+`stop_reason_code` 보고.
+1. **자율 신규 빌드(헤드리스)** — `~/.headroom/claude-hr.sh -p ... '/ouroboros:auto "습관 트래커 CLI" --complete-product' < /dev/null` → bounded 인터뷰(auto-answerer) → A등급 Seed → Run → Ralph 체인 → 완료/블록 시 `auto_session_id`+`stop_reason_code` 보고.
 2. **브라운필드 후 auto** — `/ouroboros:brownfield detect` 로 `mechanical.toml` 저작 → `/ouroboros:auto "결제 리팩터링" --skip-run` 로 A등급 Seed까지만.
-3. **Ralph 재개** — `claude -p --resume <prior-session-id> '/ouroboros:ralph --lineage-id ralph-payment-a1b2' < /dev/null` → 이전 lineage를 이어받아 `max_generations` 소진 또는 QA pass까지.
+3. **Ralph 재개** — `~/.headroom/claude-hr.sh -p --resume <prior-session-id> '/ouroboros:ralph --lineage-id ralph-payment-a1b2' < /dev/null` → 이전 lineage를 이어받아 `max_generations` 소진 또는 QA pass까지.
 4. **정체 시 lateral debate** — `/ouroboros:unstuck` → 5개 persona 병렬 재구성, 결과는 오케스트레이터에 반환하고 최종 방향은 사람 결정 대기.
 5. **실행 후 공식 검증** — `/ouroboros:evaluate <session_id>` → Mechanical($0)→Semantic→(불확실 시)Consensus로 `run`의 `executed_unverified` 결과를 공식 검증.
 6. **Seed를 팀 이슈로 발행** — `/ouroboros:publish seed.yaml` → `gh` 인증 실패 시 즉시 중단하고 설치/로그인 안내만 반환.
@@ -160,7 +160,7 @@ Output:
 ## 7. 실전 치트시트
 
 ```bash
-BASE='claude -p --model claude-sonnet-4-6 --effort high --output-format json'
+BASE='~/.headroom/claude-hr.sh -p --model claude-sonnet-4-6 --effort high --output-format json'
 
 $BASE --permission-mode acceptEdits '/ouroboros:auto "<goal>" --complete-product' < /dev/null
 $BASE --permission-mode acceptEdits '/ouroboros:run seed.yaml' < /dev/null
@@ -171,7 +171,7 @@ $BASE '/ouroboros:unstuck' < /dev/null
 $BASE '/ouroboros:qa <artifact_or_path>' < /dev/null
 $BASE '/ouroboros:cancel --all' < /dev/null
 
-claude -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
+~/.headroom/claude-hr.sh -p --resume <session-id> --output-format json '<후속 지시>' < /dev/null
 ```
 
 ## 8. 최종 운영 규칙

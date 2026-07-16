@@ -282,6 +282,19 @@ cmd_open() {
     inject_message "$name" "$prompt"
   fi
 
+  # [2026-07-16] headroom 프록시 경유 검증 (claude 전용 — 토큰낭비·계정리밋 방어).
+  # claude-hr.sh는 fail-open이라 프록시가 살아있을 때 직결 프로세스 = 우회 스폰. 경고만(kill 안 함).
+  if [[ "$agent" == "claude" ]]; then
+    local hr_proxy="${TMUXC_HR_PROXY_URL:-http://localhost:8790}" pane_pid claude_pid
+    if curl -sf -m1 "$hr_proxy/health" >/dev/null 2>&1; then
+      pane_pid="$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)"
+      claude_pid="$(pgrep -P "${pane_pid:-0}" 2>/dev/null | head -1 || true)"
+      if [[ -n "$claude_pid" ]] && ! ps eww "$claude_pid" 2>/dev/null | tr ' ' '\n' | grep -q "^ANTHROPIC_BASE_URL=$hr_proxy"; then
+        printf '⚠️  HEADROOM_BYPASS: %s(pid=%s)가 프록시(%s) 미경유 직결 — claude-hr.sh 경유 재기동 권고\n' "$name" "$claude_pid" "$hr_proxy" >&2
+      fi
+    fi
+  fi
+
   printf 'tmuxc session created\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nattach=tmux attach -t %q\n' "$name" "$root" "$agent" "$role" "$name"
 }
 

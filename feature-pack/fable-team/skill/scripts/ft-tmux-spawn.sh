@@ -147,6 +147,22 @@ if [ "$ready" != "1" ]; then
   exit 1
 fi
 
+# ── ④.6 [2026-07-16] headroom 프록시 경유 검증 (claude 워커 — 토큰낭비·계정리밋 방어) ──
+#   claude-hr.sh는 fail-open(프록시 死→직결)이라 세션은 살지만 그 순간부터 프록시 미경유.
+#   프록시가 지금 살아있는데 스폰된 프로세스 env에 ANTHROPIC_BASE_URL이 없으면 = 우회 스폰
+#   (bare claude 직접 기동 등). kill하지 않고 경고+신호파일만 (fail-open 정합 — 판단은 오케).
+HR_PROXY_URL="${FT_HR_PROXY_URL:-http://localhost:8790}"
+if [ "$AGENT" = "claude" ] && curl -sf -m1 "$HR_PROXY_URL/health" >/dev/null 2>&1; then
+  PANE_PID="$(tmux list-panes -t "$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  CLAUDE_PID="$(pgrep -P "${PANE_PID:-0}" 2>/dev/null | head -1)"
+  if [ -n "$CLAUDE_PID" ]; then
+    if ! ps eww "$CLAUDE_PID" 2>/dev/null | tr ' ' '\n' | grep -q "^ANTHROPIC_BASE_URL=$HR_PROXY_URL"; then
+      echo "ft-tmux-spawn: ⚠️ HEADROOM_BYPASS — $NAME(pid=$CLAUDE_PID)가 프록시($HR_PROXY_URL) 미경유 직결. 토큰낭비·계정리밋 리스크 — claude-hr.sh 경유 재스폰 권고" >&2
+      printf 'HEADROOM_BYPASS name=%s pid=%s ts=%s\n' "$NAME" "$CLAUDE_PID" "$(date +%Y-%m-%dT%H:%M:%S)" >> "$SIG/headroom-bypass.log" 2>/dev/null
+    fi
+  fi
+fi
+
 # ── ④.5 [2026-07-12] 모델 leak 사후 검증 (claude 워커 — 전 스폰경로 공통 보장) ──
 #   tmuxc/Agent 어느 경로도 install.json 세대를 구조적으로 보장하지 않는다(호출자 --model 신뢰).
 #   실제 status-line 모델을 기대세대와 정규화 대조해 세션모델 leak을 잡는다.
