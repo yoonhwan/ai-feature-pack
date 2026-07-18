@@ -174,7 +174,7 @@ def main() -> int:
         return 0
     size = facts.get("transcript_bytes")
     bucket = None if not isinstance(size, int) else size // max(1, int_env("BYZ_AUTO_DISTILL_SIGNATURE_BYTES", 250_000))
-    signature = f"{event}|{reason}|{percent}|{transcript_path(payload) or 'no-transcript'}|{bucket}"
+    signature = f"{reason}|{percent}|{transcript_path(payload) or 'no-transcript'}|{bucket}"
     state = load_state()
     now = int(time.time())
     last_triggered_at = state.get("last_triggered_at")

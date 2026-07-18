@@ -2,6 +2,13 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.16] — 2026-07-19 (auto-distill cross-event cooldown)
+
+### Fixed
+- 같은 transcript bucket에서 `Stop`과 `UserPromptSubmit`이 signature를 번갈아 덮어써 매 턴 packet을 재생성하던 문제를 수정. 두 이벤트가 동일 cooldown signature를 공유한다.
+
+---
+
 ## [1.2.15] — 2026-07-19 (Codex auto-distill hook JSON contract)
 
 ### Added
