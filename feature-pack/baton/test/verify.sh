@@ -294,13 +294,14 @@ else
 fi
 rm -rf "$na_dir"
 
-# [13] v1.2.15+ — Codex auto-distill hook stdout contract
+# [13] v1.2.16+ — Codex auto-distill hook contracts
 echo
-echo "[13] v1.2.15 auto-distill hook 검증"
+echo "[13] v1.2.16 auto-distill hook 검증"
 
 adh_dir=$(mktemp -d /tmp/baton-autodistill-XXXXXX)
 mkdir -p "$adh_dir/.baton/handoff/bin"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$adh_dir/.baton/handoff/bin/auto-distill.sh"
+chmod +x "$adh_dir/.baton/handoff/bin/auto-distill.sh"
 payload=$(printf '{"cwd":"%s","hook_event_name":"UserPromptSubmit","byz_auto_distill_force":true}' "$adh_dir")
 if output=$(printf '%s\n' "$payload" | BYZ_AUTO_DISTILL_ROOT="$adh_dir" BYZ_AUTO_DISTILL_DRY_RUN=1 python3 "$PACKAGE_DIR/core/bin/auto-distill-hook.py") \
   && [[ -z "$output" ]] \
@@ -308,6 +309,17 @@ if output=$(printf '%s\n' "$payload" | BYZ_AUTO_DISTILL_ROOT="$adh_dir" BYZ_AUTO
   ok "auto-distill hook exit 0 + empty stdout"
 else
   ng "auto-distill hook stdout contract failed"
+fi
+
+printf '#!/usr/bin/env bash\nprintf "run\\n" >> "%s/runner-count"\n' "$adh_dir" > "$adh_dir/.baton/handoff/bin/auto-distill.sh"
+payload_stop=$(printf '{"cwd":"%s","hook_event_name":"Stop","byz_auto_distill_force":true}' "$adh_dir")
+payload_submit=$(printf '{"cwd":"%s","hook_event_name":"UserPromptSubmit","byz_auto_distill_force":true}' "$adh_dir")
+printf '%s\n' "$payload_stop" | BYZ_AUTO_DISTILL_ROOT="$adh_dir" python3 "$PACKAGE_DIR/core/bin/auto-distill-hook.py"
+printf '%s\n' "$payload_submit" | BYZ_AUTO_DISTILL_ROOT="$adh_dir" python3 "$PACKAGE_DIR/core/bin/auto-distill-hook.py"
+if [[ "$(wc -l < "$adh_dir/runner-count" | tr -d ' ')" == "1" ]]; then
+  ok "Stop/UserPromptSubmit share one cooldown signature"
+else
+  ng "auto-distill cross-event cooldown failed"
 fi
 rm -rf "$adh_dir"
 
