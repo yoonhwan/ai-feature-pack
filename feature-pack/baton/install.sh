@@ -124,7 +124,7 @@ cp -r "$PACKAGE_DIR/core/." "$TARGET/"
 if [[ -d "$PACKAGE_DIR/harnesses" ]]; then
   cp -r "$PACKAGE_DIR/harnesses" "$TARGET/"
 fi
-chmod +x "$TARGET/bin/baton"
+chmod +x "$TARGET/bin/baton" "$TARGET/bin/auto-distill-hook.py"
 
 # current 심링
 ln -sfn "$TARGET" "$GLOBAL_BASE/current"

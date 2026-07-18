@@ -2,6 +2,19 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.15] — 2026-07-19 (Codex auto-distill hook JSON contract)
+
+### Added
+- `core/bin/auto-distill-hook.py` — project-local `.baton/handoff/bin/auto-distill.sh`를 `Stop`/`UserPromptSubmit` 임계치에서 호출하는 Codex hook adapter. `BYZ_AUTO_DISTILL_ROOT` 또는 hook CWD로 프로젝트를 한정하며 runner가 없는 프로젝트에서는 무동작.
+
+### Fixed
+- Codex hook 성공 경로가 일반 상태 문자열을 stdout에 출력해 `invalid stop hook JSON output` / `invalid user prompt submit JSON output`을 발생시키던 계약 위반을 차단. 정상 경로 stdout은 항상 비우고 진단은 project-local log/state에만 기록.
+
+### Verify
+- 강제 dry-run에서 exit 0 + 빈 stdout, source 내 `print()` 부재를 package verify로 고정.
+
+---
+
 ## [1.2.14] — 2026-07-11 (NEXT.md 히스토리 보존)
 
 > 버전 1.2.11~1.2.13은 이 저장소에 커밋된 적 없음(로컬 실험 설치본과 번호 충돌 회피를 위해 1.2.10 다음을 1.2.14로 지정).
