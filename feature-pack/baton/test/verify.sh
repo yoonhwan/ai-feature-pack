@@ -25,6 +25,7 @@ required_files=(
   "core/SPEC.md"
   "core/CHANGELOG.md"
   "core/bin/baton"
+  "core/bin/auto-distill-hook.py"
   "core/lib/core.sh"
   "core/lib/version.sh"
   "core/lib/ports.sh"
@@ -116,6 +117,12 @@ check_syntax() {
 check_syntax "$PACKAGE_DIR/core/bin/baton"  "bin/baton"
 check_syntax "$PACKAGE_DIR/install.sh"       "install.sh"
 check_syntax "$PACKAGE_DIR/uninstall.sh"     "uninstall.sh"
+
+if python3 -m py_compile "$PACKAGE_DIR/core/bin/auto-distill-hook.py"; then
+  ok "bin/auto-distill-hook.py"
+else
+  ng "bin/auto-distill-hook.py (syntax error)"
+fi
 
 for sh in "$PACKAGE_DIR/core/lib/"*.sh; do
   check_syntax "$sh" "lib/$(basename "$sh")"
@@ -286,6 +293,23 @@ else
   ng "next-archive behavioral test failed"
 fi
 rm -rf "$na_dir"
+
+# [13] v1.2.15+ — Codex auto-distill hook stdout contract
+echo
+echo "[13] v1.2.15 auto-distill hook 검증"
+
+adh_dir=$(mktemp -d /tmp/baton-autodistill-XXXXXX)
+mkdir -p "$adh_dir/.baton/handoff/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$adh_dir/.baton/handoff/bin/auto-distill.sh"
+payload=$(printf '{"cwd":"%s","hook_event_name":"UserPromptSubmit","byz_auto_distill_force":true}' "$adh_dir")
+if output=$(printf '%s\n' "$payload" | BYZ_AUTO_DISTILL_ROOT="$adh_dir" BYZ_AUTO_DISTILL_DRY_RUN=1 python3 "$PACKAGE_DIR/core/bin/auto-distill-hook.py") \
+  && [[ -z "$output" ]] \
+  && ! grep -qE '^[[:space:]]*print\(' "$PACKAGE_DIR/core/bin/auto-distill-hook.py"; then
+  ok "auto-distill hook exit 0 + empty stdout"
+else
+  ng "auto-distill hook stdout contract failed"
+fi
+rm -rf "$adh_dir"
 
 # summary
 echo

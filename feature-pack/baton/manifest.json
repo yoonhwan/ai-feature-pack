@@ -1,6 +1,6 @@
 {
   "name": "baton",
-  "version": "1.2.5",
+  "version": "1.2.15",
   "title": "Universal Standard Workflow — worktree + archive + memory",
   "description": "워크트리 라이프사이클 + 아카이브 검색 + 작업 메모리를 표준화. 외부 하네스(superpowers/OMC/deep-interview)에 작업을 위임하되 결과를 baton 메모리에 누적.",
   "category": "workflow",
