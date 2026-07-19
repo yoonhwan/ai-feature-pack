@@ -1,0 +1,203 @@
+<title>fable-team 동작 가이드 — 한 명의 감독과 전문 크루</title>
+<style>
+:root{
+  --bg:#FBFAF7; --ink:#1C2733; --sub:#5B6B7A; --line:#E3E0D8;
+  --accent:#0E6E66; --accent-soft:#E4F0EE; --warn:#B45309; --warn-soft:#F7EBDD;
+  --card:#FFFFFF; --code-bg:#EFEDE6; --mark:#0E6E66;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#141B22; --ink:#E8EAE6; --sub:#9AA8B2; --line:#2A3540;
+    --accent:#4FB3A9; --accent-soft:#1B2F2D; --warn:#E0A35C; --warn-soft:#33271A;
+    --card:#1B242D; --code-bg:#232E38; --mark:#4FB3A9; }
+}
+:root[data-theme="dark"]{ --bg:#141B22; --ink:#E8EAE6; --sub:#9AA8B2; --line:#2A3540;
+  --accent:#4FB3A9; --accent-soft:#1B2F2D; --warn:#E0A35C; --warn-soft:#33271A;
+  --card:#1B242D; --code-bg:#232E38; --mark:#4FB3A9; }
+:root[data-theme="light"]{ --bg:#FBFAF7; --ink:#1C2733; --sub:#5B6B7A; --line:#E3E0D8;
+  --accent:#0E6E66; --accent-soft:#E4F0EE; --warn:#B45309; --warn-soft:#F7EBDD;
+  --card:#FFFFFF; --code-bg:#EFEDE6; --mark:#0E6E66; }
+
+body{ background:var(--bg); color:var(--ink);
+  font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+  line-height:1.75; margin:0; font-size:16.5px; }
+main{ max-width:52rem; margin:0 auto; padding:3.5rem 1.4rem 6rem; }
+h1,h2,h3{ line-height:1.3; text-wrap:balance; }
+h1{ font-size:2.1rem; font-weight:800; letter-spacing:-.02em; margin:.4rem 0 .6rem; }
+h2{ font-size:1.45rem; font-weight:800; letter-spacing:-.01em; margin:3.2rem 0 .9rem;
+    padding-top:1.6rem; border-top:1px solid var(--line); }
+h3{ font-size:1.08rem; font-weight:700; margin:1.8rem 0 .5rem; color:var(--accent); }
+p{ margin:.65rem 0; max-width:46rem; }
+.eyebrow{ text-transform:uppercase; letter-spacing:.14em; font-size:.72rem; font-weight:700;
+  color:var(--accent); margin:0; }
+.lede{ font-size:1.12rem; color:var(--sub); max-width:44rem; }
+code{ font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:.86em;
+  background:var(--code-bg); padding:.12em .4em; border-radius:4px; }
+mark{ background:transparent; color:var(--mark); font-weight:700; }
+table{ border-collapse:collapse; width:100%; font-size:.92rem; }
+.tablewrap{ overflow-x:auto; margin:1rem 0; border:1px solid var(--line); border-radius:8px; }
+th{ text-align:left; font-size:.78rem; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--sub); padding:.6rem .8rem; border-bottom:2px solid var(--line); background:var(--card); }
+td{ padding:.55rem .8rem; border-bottom:1px solid var(--line); vertical-align:top; background:var(--card); }
+tr:last-child td{ border-bottom:none; }
+td b{ color:var(--accent); }
+.cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:.8rem; margin:1.2rem 0; }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:.9rem 1rem; }
+.card .who{ font-weight:800; font-size:.98rem; }
+.card .human{ font-size:.8rem; color:var(--accent); font-weight:700; letter-spacing:.02em; }
+.card p{ font-size:.88rem; color:var(--sub); margin:.4rem 0 0; }
+.note{ background:var(--accent-soft); border-left:3px solid var(--accent); border-radius:0 8px 8px 0;
+  padding:.8rem 1rem; margin:1.2rem 0; font-size:.95rem; }
+.warnbox{ background:var(--warn-soft); border-left:3px solid var(--warn); border-radius:0 8px 8px 0;
+  padding:.8rem 1rem; margin:1.2rem 0; font-size:.95rem; }
+.warnbox b:first-child{ color:var(--warn); }
+ol,ul{ padding-left:1.3rem; max-width:46rem; }
+li{ margin:.4rem 0; }
+li::marker{ color:var(--accent); font-weight:700; }
+pre.mermaid{ background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:1rem; overflow-x:auto; margin:1.2rem 0; }
+.seq{ display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:1rem 0; }
+.seq .step{ background:var(--card); border:1px solid var(--line); border-radius:999px;
+  padding:.35rem .95rem; font-weight:700; font-size:.92rem; }
+.seq .arrow{ color:var(--sub); font-weight:700; }
+footer{ margin-top:4rem; padding-top:1.2rem; border-top:1px solid var(--line);
+  font-size:.82rem; color:var(--sub); }
+@media (prefers-reduced-motion: no-preference){
+  main{ animation:rise .5s ease-out; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:none;} }
+}
+</style>
+<main>
+<p class="eyebrow">fable-team 운영 가이드 · 2026-07</p>
+<h1>한 명의 감독과 전문 크루가 일하는 방식</h1>
+<p class="lede">fable-team은 AI 에이전트 여러 명을 <b>영화 촬영팀처럼</b> 굴리는 시스템입니다. 감독(오케스트레이터)은 직접 카메라를 잡지 않습니다 — 일을 나누고, 전문 크루에게 맡기고, 결과를 판정합니다. 이 문서는 그 동작 원리를 비개발자도 따라갈 수 있게, 그리고 만든 사람이 설계 근거를 다시 확인할 수 있게 정리한 것입니다.</p>
+
+<h2>1. 큰 그림 — 누가 누구에게 일을 시키나</h2>
+<p>사용자(사람)는 <mark>오케스트레이터 한 명</mark>하고만 대화합니다. 오케스트레이터는 문제를 분류해서 필요한 크루만 깨우고, 크루들은 각자 독립된 작업 공간(tmux 세션)에서 일한 뒤 <b>파일로 결과를 남깁니다</b>. 말로 한 보고는 사라지지만 파일은 남기 때문입니다.</p>
+<pre class="mermaid">
+flowchart TD
+    U(("사용자")) <-->|"대화·승인"| O["오케스트레이터<br/>(감독 — 분배·판정만)"]
+    O -->|"조사 지시"| C["체커·애널리스트<br/>(조사반)"]
+    O -->|"설계 지시"| A["아키텍트<br/>(설계자)"]
+    A <-->|"직접 왕복"| D["DA<br/>(반박 전문 심사관)"]
+    O -->|"수정 지시"| I["임플리멘터<br/>(시공자)"]
+    O -->|"검증 지시"| T["테스터<br/>(검수자)"]
+    C -.->|"보고 파일"| O
+    A -.->|"승인된 설계 파일"| O
+    I -.->|"완료 신호"| O
+    T -.->|"라이브 증거"| O
+</pre>
+<div class="note"><b>핵심 설계 1 — 감독은 손을 대지 못한다.</b> 오케스트레이터가 코드를 직접 고치는 건 "하지 말라"는 권고가 아니라 <b>훅(hook)이 물리적으로 차단</b>합니다. 한 턴에 코드 파일 2개까지만 허용, 3개째는 도구 호출 자체가 거부됩니다. 규칙은 선언이고, 훅은 강제입니다.</div>
+
+<h2>2. 크루 소개 — 여덟 가지 역할</h2>
+<div class="cards">
+  <div class="card"><div class="who">오케스트레이터</div><div class="human">= 감독 · PM</div><p>문제 분류, 크루 배치, 최종 판정, 사용자 소통 전담. 직접 구현 금지(게이트 강제).</p></div>
+  <div class="card"><div class="who">체커 checker</div><div class="human">= 조사 요원</div><p>로그·코드·문서를 빠르게 훑어 사실만 수집. 읽기 전용, 여러 명 병렬 투입, 일 끝나면 해산.</p></div>
+  <div class="card"><div class="who">애널리스트 analyst</div><div class="human">= 진단 의사</div><p>로그↔코드↔스펙 3자 대조로 "왜 아픈지" 진단. 설계가 필요한지 여부를 판정해 올림.</p></div>
+  <div class="card"><div class="who">아키텍트 architect</div><div class="human">= 설계자</div><p>실증 데이터를 근거로 해결 설계도를 작성. 추측만으로는 설계 착수 금지.</p></div>
+  <div class="card"><div class="who">DA</div><div class="human">= 반박 전문 심사관</div><p>설계의 허점(과적합·엣지케이스)을 일부러 공격하는 적대 검증. "그럴듯해 보임"으로는 승인 금지.</p></div>
+  <div class="card"><div class="who">임플리멘터 implementer</div><div class="human">= 시공자</div><p>승인된 설계도대로만 수술적으로 수정. 설계에 없는 임의 변경 금지.</p></div>
+  <div class="card"><div class="who">테스터 tester</div><div class="human">= 검수자</div><p>실제 환경에서 돌려보고 반응을 직접 관찰. 증거 파일을 남겨야 "완료"로 인정.</p></div>
+  <div class="card"><div class="who">PM 메모리</div><div class="human">= 기록 비서</div><p>긴 작업의 흐름·원장·브리핑을 기억. 결정은 하지 않고 기록과 알림만.</p></div>
+</div>
+<p>각 크루는 <b>일에 맞는 두뇌(모델)</b>를 씁니다 — 설계는 sonnet-5(막히면 fable-5로 승격), 구현은 opus-4-8, 반박 심사는 아예 다른 회사 모델(codex/grok)로 교차 검증합니다. 같은 두뇌가 만들고 같은 두뇌가 검사하면 같은 실수를 못 보기 때문입니다.</p>
+
+<h2>3. 일이 흘러가는 길 — 메인 루프</h2>
+<p>표준 작업은 여섯 정거장을 지납니다. 각 정거장의 산출물은 전부 파일이라, 중간에 세션이 끊겨도 이어서 갈 수 있습니다.</p>
+<pre class="mermaid">
+flowchart LR
+    S1["① 수집<br/>체커 병렬 조사"] --> S2["② 기획<br/>아키텍트 설계"]
+    S2 <--> G{"③ 승인 게이트<br/>DA 반박·재설계"}
+    G -->|"APPROVE"| S3["④ 구현<br/>임플리멘터"]
+    S3 --> S4["⑤ 검증<br/>테스터 라이브 관찰"]
+    S4 -->|"PASS + 증거"| S5["⑥ 종결<br/>기록·보고"]
+    S4 -->|"FAIL"| S1
+</pre>
+<p>여기서 ②↔③ 구간이 특별합니다. 아키텍트와 DA는 <mark>감독을 거치지 않고 둘이 직접</mark> 설계↔반박을 주고받습니다. 감독은 "승인 확정된 최종본"만 한 번 받습니다 — 감독이 중간 전달자가 되면 병목이 되고, 전달 과정에서 판단이 오염되기 때문입니다.</p>
+
+<h2>4. 문제해결 7원칙 — 팀이 일 잘하는 이유</h2>
+<p>실전 운영에서 검증된 습관을 기본 지침으로 박제한 것입니다. 세부 각본이 아니라 <b>큰 틀</b>만 정하고, 그 안의 판단은 AI 자율에 맡깁니다.</p>
+<ol>
+  <li><b>빅뱅 금지</b> — 한 번에 한 문제만. 원인을 먼저 확정하고, 그 다음에만 고치는 설계로. (여러 문제 동시 착수 = 실패의 지름길)</li>
+  <li><b>계측으로 원인을 좁힌다</b> — 짐작 금지. 후보가 여럿이면 동작을 바꾸지 않는 관찰용 로그를 심어 데이터로 판별.</li>
+  <li><b>의심 가설을 실증으로 반박</b> — "아닌 것 같은" 가설도 증거로 확실히 기각해 틀린 길을 조기 차단.</li>
+  <li><b>체커부터</b> — 실제 실행 로그와 짧은 재현 없이는 설계 착수 금지. 코드만 읽고 세운 계획은 계획이 아니다.</li>
+  <li><b>아키텍트↔DA 직접 승인 루프</b> — 설계와 반박은 둘이 직접 수렴. 감독은 최종 승인본만.</li>
+  <li><b>DA는 반박한다</b> — 특정 사례에만 맞춘 하드코딩 값, 조용히 실패를 삼키는 경로를 반드시 공격.</li>
+  <li><b>완성 = 라이브 반응 관찰</b> — 단위 테스트 통과는 완성이 아니다. 실제로 돌려서 반응을 눈으로 봐야 완료. 한 번 돌려 판정도 금지 — 짧게 여러 번 돌리며 로그를 대조.</li>
+</ol>
+<div class="warnbox"><b>안티패턴 10종도 함께 박제.</b> 추측성 대수술 · 여러 이슈 병렬 조사 · 수집 전 기획 · 감독의 중간 릴레이 · 무반박 승인 · 유닛 통과=완성 착각 · 하류 수용(근원 대신 소비자에서 우회) · 빅뱅 커밋+1회 판정 · <b>감독의 직접 데이터 분석</b> · <b>확인만 반복하며 수정 파이프라인 방치</b>. 전부 실전 실패 사례에서 나왔습니다.</div>
+
+<h2>5. 투 루프 — 정식 코스와 지름길</h2>
+<p>모든 문제가 6정거장 코스를 탈 필요는 없습니다. <b>"한 번 관찰하면 답이 나오는"</b> 문제는 지름길이 있습니다.</p>
+<pre class="mermaid">
+flowchart TD
+    Q{"관찰 1~2회로<br/>가설 판별이 되는가?"}
+    Q -->|"아니오 — 설계가 필요"| M["메인 루프<br/>수집→설계→DA→구현→검증"]
+    Q -->|"예"| DV["다이렉트 확인 루프<br/>즉결 관찰 지시 → 실증팩 작성"]
+    DV -->|"실증팩 송부"| M2["아키텍트가 설계 착수<br/>(규명이 이미 끝난 상태)"]
+    DV -->|"큰 수정이 필요해지면"| M
+</pre>
+<p>다이렉트 확인 루프에서 감독이 할 수 있는 건 <b>관찰 지시뿐</b>입니다 — 테스터에게 즉시 한 번 눌러보게 하거나, 동작을 바꾸지 않는 로그 1~3줄을 심게 하는 것까지. <mark>고치는 건 단 1줄이라도 반드시 설계+DA 승인을 거칩니다.</mark> 활성 이슈는 발동한 세션이 오너가 되어 이중 발주를 막습니다.</p>
+
+<h2>6. 케이스 하네스 — 문제를 받으면 어떤 팀을 꾸리나</h2>
+<p>들어온 문제를 <b>4그룹 · 8케이스</b>로 분류하고, 케이스가 크루 조합(하네스)의 기본값을 정합니다. 상시 모듈(7원칙·계측 위생·검증 송신·파일 보고·게이트)은 어떤 케이스든 자동 포함됩니다.</p>
+<div class="tablewrap"><table>
+  <tr><th>그룹</th><th>케이스</th><th>이런 요청일 때</th><th>기본 크루 조합</th></tr>
+  <tr><td rowspan="2"><b>규명</b><br/>(고치지 않음)</td><td><b>조사보고</b></td><td>"왜? 원인이 뭐야? 구조 파악해줘"</td><td>체커 병렬 → 애널리스트 진단, 보고로 종결</td></tr>
+  <tr><td><b>빠른확인</b></td><td>관찰 한두 번이면 판별 가능</td><td>다이렉트 확인 루프 단독</td></tr>
+  <tr><td rowspan="3"><b>수정</b><br/>(기존 동작 고침)</td><td><b>원인수정</b></td><td>에러 로그·재현 절차가 있는 버그</td><td>수집→진단→(설계)→구현→검증→DA</td></tr>
+  <tr><td><b>긴급직행</b></td><td>"지금 당장!" + 원인은 이미 앎</td><td>구현+검증 동시 직행, DA는 사후 리뷰</td></tr>
+  <tr><td><b>반복수선</b></td><td>이슈 다수·장기 트랙·반복 라이브</td><td>반복 루프 전체 + 기록 비서 (+이중오케 권장)</td></tr>
+  <tr><td rowspan="2"><b>구축</b><br/>(새 것·구조)</td><td><b>신규구축</b></td><td>"추가해줘, 만들어줘"</td><td>설계→DA 승인→구현→검증</td></tr>
+  <tr><td><b>구조정리</b></td><td>"정리해줘" (동작은 그대로)</td><td>수집(영향 범위)→설계→구현→회귀 검증</td></tr>
+  <tr><td><b>판정</b></td><td><b>검증판정</b></td><td>"돌려봐, 통과하는지 확인해줘"</td><td>테스터(+병렬)→DA 리뷰</td></tr>
+  <tr><td>—</td><td><b>직접처리</b></td><td>문서·설정·오타 (코드 ≤2파일)</td><td>크루 없이 감독이 직접 (게이트 허용 범위)</td></tr>
+</table></div>
+<p>케이스 위에 <b>스위치</b>를 얹어 조정합니다: <code>+이중오케</code>(장기 트랙), <code>+기록비서</code>, <code>+빠른확인 선행</code>, <code>+이중판정</code>(고위험이면 심사관 2명), <code>+병렬실증</code>. 실행 중에도 신호에 따라 자동 승격됩니다 — 진단이 "설계 필요"를 올리면 아키텍트 투입, 검증이 같은 지점에서 2회 실패하면 진단 투입.</p>
+
+<h2>7. 장기전이 되면 — 2계층 확장</h2>
+<p>트랙이 길어지면 크루 전원이 습관적으로 감독 한 명에게 직보하기 시작하고, 감독이 전달만 하는 병목이 됩니다(실전에서 실제로 발생). 이때 감독을 둘로 나눕니다.</p>
+<pre class="mermaid">
+flowchart TD
+    U(("사용자")) <--> H["메인오케 (HELM)<br/>제3의 눈 · 할일 관리 · 멈춤 감시 · 사용자 창구"]
+    H <-->|"태스크 단위 위임"| M["수행오케 (Master)<br/>크루 직접 지휘 — 표준 오케 역할 그대로"]
+    M --> W1["체커·애널리스트"]
+    M --> W2["아키텍트 ↔ DA"]
+    M --> W3["임플리멘터·테스터"]
+</pre>
+<h3>언제, 누가 전환을 결정하나 — 진입점 3개</h3>
+<ol>
+  <li><b>시작부터 (사용자 1클릭)</b> — 킥오프 분류에서 장기전 신호(이슈 다수·반복 라이브 예상)가 보이면 감독이 옵션으로 올리고, 사용자가 킥오프에서 확정합니다.</li>
+  <li><b>중간 전환 (감독 제안 + 사용자 승인)</b> — 감독이 <mark>활성 이슈 3건 이상 병행</mark>을 감지하면 전환을 제안합니다. 스스로 전환하지는 못하고, 사용자 승인 1회 후 실행합니다.</li>
+  <li><b>사용자 직접 트리거</b> — "장기전 전환" / "2계층으로"라고 말하면 제안 단계 없이 즉시 전환합니다.</li>
+</ol>
+<h3>전환 절차 — 순서 고정 4단계</h3>
+<p>① 새 세션을 띄워 <b>메인오케로 레디</b>(할일 목록·사용자 창구 인계) → ② <b>기존 감독은 수행오케로 전환</b> — 크루 연결과 작업 맥락을 이미 쥔 쪽이 지휘를 유지하는 게 손실이 가장 적습니다(역할만 바뀌고 세션은 그대로) → ③ 크루 전원에게 "보고는 수행오케에게 직접" 재공지 → ④ 전환 사실을 원장에 기록.</p>
+<div class="warnbox"><b>③을 생략하면 안 됩니다.</b> 크루들이 습관대로 메인오케에 직보해 병목이 재발합니다 — 실전 실증된 함정입니다.</div>
+
+<h2>8. 완료의 정의 — 세 가지 마무리 규율</h2>
+<h3>완성 게이트: 라이브 증거 없이는 "끝"이 없다</h3>
+<p>트랙을 닫으려면(<code>status=done</code>) 실제 실행 관측 증거 파일 첨부가 조건입니다. 단위 테스트 통과와 DA 승인은 중간 이정표일 뿐입니다.</p>
+<h3>계측 위생: 심은 로그는 반드시 걷는다</h3>
+<p>진단용 임시 로그는 커밋하지 않고, 원인이 확정되면 즉시 제거하며, 커밋 전에 diff를 직접 읽어 새어 들어간 게 없는지 확인합니다.</p>
+<h3>출하 시퀀스: 커밋 → 푸시 → 로컬설치</h3>
+<div class="seq">
+  <span class="step">① 커밋</span><span class="arrow">→</span>
+  <span class="step">② 푸시</span><span class="arrow">→</span>
+  <span class="step">③ 로컬설치</span>
+</div>
+<p>fable-team 자체를 고칠 때의 마무리 정의입니다. 소스만 고치고 배포본(전역 규칙·에이전트 정의·프로젝트 설치본)을 안 갱신하면, 현장 크루들이 옛 지침으로 계속 일하게 됩니다. 세 단계가 모두 끝나야 완료입니다.</p>
+
+<h2>9. 설계 철학 요약 — 왜 이렇게 만들었나</h2>
+<ul>
+  <li><b>선언이 아니라 강제.</b> "하지 마세요"는 AI가 우회합니다. 편집 게이트·증류 게이트·스폰 게이트가 물리적으로 막습니다. 단, 훅이 고장 나면 세션을 살리는 쪽(fail-open)으로 — 안전장치가 감옥이 되지 않게.</li>
+  <li><b>파일이 진실.</b> 보고·설계·판정·증거 전부 디스크 파일. 세션이 죽어도 파일은 남고, 새 세션이 파일에서 복원합니다.</li>
+  <li><b>이종 교차.</b> 만드는 두뇌와 검사하는 두뇌를 다른 회사 모델로 — 같은 맹점을 공유하지 않게.</li>
+  <li><b>큰 틀만 고정, 판단은 자율.</b> 케이스·모듈·원칙은 뼈대일 뿐, 세부 각본화는 과적합입니다. 그 안에서의 조합·판단은 오케스트레이터의 지능에 맡깁니다.</li>
+  <li><b>실증이 규칙을 만든다.</b> 이 문서의 모든 규율(7원칙, 안티패턴 10종, 2계층, 오너 가드)은 머리로 만든 게 아니라 실전 실패·성공 사례에서 추출해 박제한 것입니다.</li>
+</ul>
+
+<footer>
+정본 문서: <code>feature-pack/fable-team/skill/SKILL.md</code> · <code>references/rapid-iteration-loop.md</code>(7원칙·투 루프) · <code>references/orchestration-cases.md</code>(케이스 하네스) · <code>references/orchestration-playbook.md</code>(파이프라인) — 이 가이드는 2026-07-15 기준 스냅샷입니다.
+</footer>
+</main>
