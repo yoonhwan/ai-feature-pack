@@ -337,9 +337,16 @@ cmd_clean() {
 # ---------- UC11: tmux 서버 사망 복원 (restore) ----------
 
 restore_scan_py() {
-  local self
+  local self cand
   self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
-  printf '%s/../libexec/tmuxc-restore-scan.py' "$(dirname "$self")"
+  # 정상 설치(심링크)에서는 bin 옆 ../libexec 로 해석된다.
+  cand="$(dirname "$self")/../libexec/tmuxc-restore-scan.py"
+  # bin 이 심링크가 아닌 파일 복사본으로 놓인 경우(로컬 수동 sync — cp),
+  # ../libexec 가 존재하지 않는다. 전역 설치본으로 폴백해 restore 가 깨지지 않게 한다.
+  if [[ ! -f "$cand" && -f "$HOME/.tmuxc/current/core/libexec/tmuxc-restore-scan.py" ]]; then
+    cand="$HOME/.tmuxc/current/core/libexec/tmuxc-restore-scan.py"
+  fi
+  printf '%s' "$cand"
 }
 
 # 행 배열 (스캐너 TSV와 1:1)
