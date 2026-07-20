@@ -69,7 +69,7 @@
 | 영역 | 담당 | 실행 기반 |
 |------|------|-----------|
 | 파이프라인 워커 스폰·증류·정리 | FT 검증 래퍼(`ft-tmux-{spawn,distill,kill}.sh`) | **tmuxc `open`/`kill` 경유** — 래퍼가 승인·capability·센티널·감사를 얹음 |
-| 워커 통신·상태 판독 | FT 래퍼(`ft-tmux-send.sh`/`ft-tmux-poll.sh`) | tmux `send-keys`/`capture-pane`/`ps`(COMM-GUIDE §2 절차 — 생성·파괴 아닌 판독·송신) |
+| 워커 통신·상태 판독 | FT 래퍼(`ft-mbox.sh`/`ft-tmux-send.sh`/`ft-tmux-poll.sh`) | 본문은 파일 큐(`ft-mbox.py` fcntl.flock), tmux는 doorbell 알림 + `capture-pane`/`ps` 판독만(생성·파괴 아닌 판독·알림) |
 | 파이프라인 상태 원장 | **FT** (`.fable-team/state/`) | 디스크 SSOT |
 | 흐름 기억·cairn 대행·BRIEF | **ft-pm-memory 상시 세션** | tmuxc claude 세션 |
 | 오케 세션 자체의 기동·리모트·tmux 복원 | tmuxc | — |

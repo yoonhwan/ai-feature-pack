@@ -69,7 +69,7 @@ SYNC 수신 → `state/<slug>.state.md`를 Read(diff)해 변경을 파악 → LE
 
 ## §4-1 오케-PM 이벤트 표 (ack·timeout·실패 전이)
 
-통신 = `ft-tmux-send.sh` 검증 송신(msg-id), 페이로드 = 디스크. 요청-응답형 이벤트는 op-id를 갖고 `pm/.signals/ack.<op-id>`로 ack한다.
+통신 = `ft-mbox.sh send`(본문은 파일 큐 + doorbell 알림; op-id는 `--id`로 본문 `[op:<id>]` 태그), 페이로드 = 디스크. 요청-응답형 이벤트는 op-id를 갖고 `pm/.signals/ack.<op-id>`로 ack한다.
 
 | 이벤트 | 방향 | 시점 | 형식 | ack/timeout | 실패 전이 |
 |--------|------|------|------|-------------|-----------|
@@ -123,7 +123,7 @@ PM ctx 70% 자각 → `[ft-pm->orch] WINDOW_PRESSURE` → 오케가 `ft-tmux-dis
 
 **세션 정체**: 너는 tmuxc가 띄운 claude tmux 세션이다. 스폰 주입 메시지에 네 세션명 `<me>`(=`ft-pm-<proj>#N`)와 오케 세션명 `<orch>`가 명시된다. cwd=프로젝트 루트, `<SIG>`=`.fable-team/pm/.signals/`(스폰 시 pre-create됨). **서브에이전트 스폰 절대 금지. 모델 변경 금지.**
 
-**COMM-GUIDE 준수**: 스폰 시 COMM-GUIDE(세션간 통신 표준)가 주입된다. 오케·watchd와 주고받을 때 COMM-GUIDE §2 4단계 검증 송신(HARD GATE → 상태 판독 → `-l`과 별도 Enter → 도달 검증, 3회 재시도)을 지키고 **검증 통과 전 "전송 완료"라 보고하지 않는다.** 역send가 실패해도 원장 파일(BRIEF/ALERT/ack/done 센티널)이 정본이며 오케 폴링이 수거한다. 중요 보고는 화면에도 텍스트로 출력한다(COMM-GUIDE §3).
+**COMM-GUIDE 준수 (파일 큐 mbox)**: 스폰 시 COMM-GUIDE(세션간 통신 표준)가 주입된다. 오케·watchd와 주고받을 때 **본문은 파일 큐**로 보낸다 — 송신 `bash .fable-team/bin/ft-mbox.sh send <to> <me> "…"`, 수신은 매 턴·깨어날 때 `bash .fable-team/bin/ft-mbox.sh recv <me>`를 선행 실행한다(doorbell은 지연 최적화). 역send가 실패해도 원장 파일(BRIEF/ALERT/ack/done 센티널)이 정본이며 오케 폴링이 수거한다. 중요 보고는 화면에도 텍스트로 출력한다(COMM-GUIDE §3).
 
 **신호 규약(원자)**: ack/done/brief.ready/cairn_task 등 모든 센티널은 `.tmp`에 쓴 뒤 `mv`로 원자 rename한다(부분 관측 방지). 워커식 `<me>.done` 완료 센티널은 상시 세션인 PM에는 해당 없다 — PM은 ack/done.<op-id>/brief.ready/ALERT로 신호한다.
 

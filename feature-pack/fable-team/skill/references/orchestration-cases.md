@@ -11,7 +11,7 @@
 |------|------------|
 | 문제해결 7원칙 | 빅뱅금지·계측·실증반박·체커선행·직접승인루프·DA반박·라이브관찰 (`rapid-iteration-loop.md`) |
 | 계측 위생 | 진단 로그 미커밋·확정 즉시 제거·diff 직독 (`rapid-iteration-loop.md` §계측 후 정리) |
-| 검증 송신 | 세션간 메시지 COMM-GUIDE §2 4단계 (스폰 시 주입) |
+| mbox 파일 큐 | 세션간 본문 = `ft-mbox.sh send`(파일 큐 + doorbell), 수신 = `recv`(READ 규약). 검증 송신 4단계는 인터랙티브 예외 (COMM-GUIDE, 스폰 시 주입) |
 | 센티널 보고 | 워커 완료 = 파일 센티널, 오케 poll 수거 (`context-management.md`) |
 | 증류·편집 게이트 | ctx 임계 증류 + 오케 코드 2파일 제한 (`orchestration-gate.md`) |
 

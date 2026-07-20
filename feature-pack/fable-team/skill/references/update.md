@@ -33,7 +33,7 @@
 
 ## bin 세트 스왑 (스텝 2-1 상세 — bin 배포/리네임 전파 시)
 
-> **적용 조건**: 팩의 `skill/scripts/` bin 9종이 바뀌었거나(리네임·가드 추가 등) 설치본 bin이 스테일일 때. 문서(.md)만 바뀐 업데이트는 이 절차 불요 — 위 절차 1~7로 충분.
+> **적용 조건**: 팩의 `skill/scripts/` bin 11종(comm v2 = `ft-mbox.py`·`ft-mbox.sh` 포함)이 바뀌었거나(리네임·가드 추가 등) 설치본 bin이 스테일일 때. 문서(.md)만 바뀐 업데이트는 이 절차 불요 — 위 절차 1~7로 충분. mailbox 데이터(`.fable-team/comm/`)는 스왑 비대상 — 업데이트 중 큐 보존.
 > **SSOT**: 설치 답변·상태의 단일 원천은 **프로젝트 `<root>/.fable-team/install.json`**. 후보 2위치(설치 스킬 위치 / 프로젝트 `.fable-team/`)가 상이하면 **상이한 것이 복수일 때만 중단**하고 사용자 확인. 순서는 3-1(스냅샷 로드) → 3-0(키 마이그레이션) → 3-2(프롬프트 재치환).
 
 ### §3-0. 키 마이그레이션 (SSOT 분기 후 — 2분할, 멱등)
@@ -115,9 +115,9 @@ trap cleanup EXIT         # EXIT = 정상 경로 최종 정리만(멱등)
 **코어 내부 순서**:
 1. 락 생성 — §L-1(①mkdir → ②trap 즉시 → ③owner 기록 실패 시 cleanup·중단).
 2. watchd 정지(quiesce 축 ②·fail-closed): `FT_SWAP_BYPASS=1 bash <구bin>/ft-pm-watchd.sh --root <root> --stop-if-owned` → 구 pid 소멸 bounded wait. 실패=중단(trap 락 제거). proj=<root> 데몬만.
-3. 드레인(quiesce 축 ③): `pgrep -f 'ft-tmux-|ft-pm-watchd|ft-ctx-triage|ft-gzip'` 잔존 0까지 1초×최대 10초. **제외 = 명시 PID 2개만: ① 코어 자신(`$$`) ② pgrep 프로세스 자신(기본 제외 — 방어적 명시)**. **`pgrep -P $$` 블랭킷 자식 제외 폐기**(false zero 방지 — 코어 직접 자식이라도 $0이 래퍼면 정확 포착·배출 대기). 10초 초과 → ps 확보·중단(trap 락 제거)·오케 명시 판단 재시도 1회.
+3. 드레인(quiesce 축 ③): `pgrep -f 'ft-tmux-|ft-pm-watchd|ft-ctx-triage|ft-gzip|ft-mbox'` 잔존 0까지 1초×최대 10초. **제외 = 명시 PID 2개만: ① 코어 자신(`$$`) ② pgrep 프로세스 자신(기본 제외 — 방어적 명시)**. **`pgrep -P $$` 블랭킷 자식 제외 폐기**(false zero 방지 — 코어 직접 자식이라도 $0이 래퍼면 정확 포착·배출 대기). 10초 초과 → ps 확보·중단(trap 락 제거)·오케 명시 판단 재시도 1회.
 4. 스왑(임계구간): `mv bin bin.old.<ts> && mv bin.new.<ts> bin` — 둘째 실패 시 마스킹 안에서 즉시 역롤백 후 중단(락 내부).
-5. 사후 검증(락 내부): 9종 `cmp` identical + `-x`. 실패 = ⑦ 롤백.
+5. 사후 검증(락 내부): 11종 `cmp` identical + `-x`. 실패 = ⑦ 롤백.
 6. watchd 재기동(락 내부 — bypass 상속): `FT_SWAP_BYPASS=1 bash <신bin>/ft-pm-watchd.sh --root <root> --ensure`(nohup `--run` 자식까지 env 상속 → 가드 통과 → 락 유지 중 기동) → §W 기동 확증. (락 잔존 수 초 watchd send 호출은 exit 7일 수 있으나 watchd가 무시 → 무해.)
 7. **실패 롤백(락 내부 — B2/NNB1)**: ⑤/⑥ 최종 실패 시 `swap_rollback`(`mv bin bin.failed.<ts> && mv bin.old.<ts> bin`) → 구bin `--ensure` 원상복구. **`swap_rollback` 실패 = `mark_inconsistent` 후 exit — 락 제거 금지**(불일관 bin 노출 방지). + state.md에 `ALERT SWAP-INCONSISTENT — <root>/.fable-team/bin 수동 확인 필요(TTL 600s 내)` 즉시 기록 + 오케 HIL 보고.
 8. **락 제거 = 유일 정상 제거 지점**(성공·롤백 공통, SWAP_INCONSISTENT=0일 때만): owner/RECOVERY rm → rmdir(trap과 이중). 이후 2차 `--ensure` "WATCHD reuse" 확인(락 밖).
