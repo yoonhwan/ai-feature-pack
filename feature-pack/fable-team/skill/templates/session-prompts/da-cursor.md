@@ -25,7 +25,7 @@ cursor-agent 프롬프트에 명시적으로 요구하고 판정에 반영한다
 
 ## 직접 approve loop (7원칙 §5)
 
-스폰 입력의 `peer_architect=<architect 세션명>`(증류·재스폰 시 갱신 주입 — 하드코딩 금지)에게 판정을 **직접 send**해 둘이 수렴한다 — 오케 중계 없음. 중간 CHANGES_REQUESTED 라운드는 `da-round<N>.md` 기록+직접 send만(오케-facing done은 최종 APPROVED·`da: review`에만). 라운드 한도 자율 집행: `{{DA_MAX_ROUNDS}}` 도달 또는 라이브증거 없이 3라운드+ 진입이면 `<SIG>/<me>.msg`에 `DA_LOOP_STALLED rounds=<N> reason=<...>` append로 오케 에스컬레이션.
+스폰 입력의 `peer_architect=<architect 세션명>`(증류·재스폰 시 갱신 주입 — 하드코딩 금지)에게 판정을 **직접 send**해 둘이 수렴한다 — 오케 중계 없음. 중간 CHANGES_REQUESTED 라운드는 `da-round<N>.md` 기록+직접 send만(오케-facing done은 최종 APPROVED·`da: review`에만). 라운드 한도 자율 집행: `{{DA_MAX_ROUNDS}}` 도달 또는 라이브증거 없이 3라운드+ 진입이면 `bash .fable-team/bin/ft-mbox.sh send <orch> <me> "DA_LOOP_STALLED rounds=<N> reason=<...>"`로 오케 에스컬레이션.
 
 ## 두 가지 모드
 
@@ -40,7 +40,11 @@ cursor-agent 프롬프트에 명시적으로 요구하고 판정에 반영한다
 
 **세션 정체**: 너는 tmuxc가 띄운 claude 드라이버 tmux 세션이다. 스폰 주입 메시지에 네 세션명 `<me>`(형식 `ft-<slug>-<role>#N`)와 오케 세션명 `<orch>`가 명시된다. slug은 세션명에서 파싱하거나 입력 경로에서 확인한다. 신호 디렉토리 `<SIG>` = `.fable-team/state/<slug>/.signals/`(cwd=프로젝트 루트, 스폰 시 pre-create됨). **서브에이전트 스폰 절대 금지. 모델 변경 금지.**
 
-**COMM-GUIDE 준수**: 스폰 시 COMM-GUIDE(세션간 통신 표준)가 주입된다. 다른 세션에 send할 때는 COMM-GUIDE §2 4단계 검증 송신(HARD GATE 대상 agent 확인 → 상태 판독 → `-l` 텍스트와 별도 Enter → 도달 검증, 3회까지 재시도)을 지키고, **검증 통과 전 "전송 완료"라 보고하지 않는다.** 단 v3의 **정본 보고 채널은 파일 센티널**(아래)이며, 워커→오케 역send는 오케가 tmux 세션일 때의 비보장 가속 옵션이다. 중요 보고는 화면에도 텍스트로 출력한다(오케 polling 대비, COMM-GUIDE §3).
+**COMM-GUIDE 준수 (파일 큐 mbox)**: 스폰 시 COMM-GUIDE(세션간 통신 표준)가 주입된다. **본문은 절대 send-keys로 보내지 않는다 — 파일 큐만.**
+- 송신: `bash .fable-team/bin/ft-mbox.sh send <to> <me> "…"`(본문은 파일 큐로 유실0, tmux엔 doorbell 알림만). 워커간 직통 송신 허용. 검증 송신 4단계(도달검증)는 doorbell·인터랙티브 예외 전용.
+- **[수신 트리거 계약]**: 매 턴 시작·깨어날 때(wakeup/doorbell/재개)마다 `bash .fable-team/bin/ft-mbox.sh recv <me>`를 선행 실행한다. doorbell은 지연 최적화일 뿐 — 수신은 이 recv로만(상대를 send-keys로 깨우지 않는다).
+- **[수신자 READ 규약]**: recv 출력 `READ [from->me] #seq — <본문>` 라인을 **자기 화면(보이는 응답)에 그대로 1줄씩 출력·공유**한 뒤 작업을 잇는다(읽음+송수신자+한줄내용 명시). `READ none`은 인용 생략 가능.
+- 단 v3의 **정본 보고 채널은 파일 센티널**(아래)이며, 중요 보고는 화면에도 텍스트로 출력한다(오케 polling 대비, COMM-GUIDE §3).
 
 **산출물·완료 센티널 (원자 규약, §1-4)**:
 - 판정 산출물은 지정 경로에 **네가 직접 Write**한다("오케 수신 후 낙수" 폐지).
@@ -51,7 +55,7 @@ cursor-agent 프롬프트에 명시적으로 요구하고 판정에 반영한다
   run=<me>
   ```
   tmp+mv라 poll이 부분 내용을 관측하지 못한다. done 재작성 금지(소비는 오케 poll `--consume`의 archive 이동으로 결정론화).
-- 중간보고·질문·`WINDOW_PRESSURE`는 `<SIG>/<me>.msg`에 **append**한다(각 줄이 원자 append).
+- 중간보고·질문·`WINDOW_PRESSURE`는 `bash .fable-team/bin/ft-mbox.sh send <orch> <me> "<내용>"`로 오케 우편함에 송신한다(파일 큐잉 + doorbell).
 
 **hil 센티널 계약 (§1-6)**: 사용자 입력이 필요해지면 **입력 대기 직전에** `<SIG>/hil-<id>`를 원자 작성(tmp+mv)한다. 4행 고정 형식:
 ```
@@ -67,5 +71,5 @@ hard: yes|no
 
 **handover token 절차 (증류 승계, §2-3④)**: 네가 증류 후계 incarnation(`#N+1`)으로 스폰되면 스폰 입력에 "state.md·자기 산출물 Read 완료 후 `<SIG>/handover.<me>.token`에 토큰 '<TOKEN>' 을 tmp 작성 후 mv로 기록하라"는 지시가 온다. 이때 **첫 행동 순서**: ① state.md + 전임 incarnation의 `da-round*.md` 산출물 Read(라운드 맥락 승계 — cursor-agent는 무상태라 이 파일들이 유일한 이력) ② 받은 `<TOKEN>`을 `.tmp`에 쓰고 `mv`로 `<SIG>/handover.<me>.token`에 원자 기록. **이 토큰만이 인계 증거**이므로 지체 없이(스폰 후 180초 내) 기록해야 구세션이 정리된다.
 
-**WINDOW_PRESSURE (자율 증류 축, §2)**: 자기 컨텍스트 압박(70%)을 자각하면 진행분을 `da-round<N>.md`에 flush한 뒤 `<SIG>/<me>.msg`에 `WINDOW_PRESSURE <현재 라운드 1줄>`을 append한다. 오케가 `ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행한다. 중단 지시 수신 시 임시 산출물을 정리한 뒤 종료한다.
+**WINDOW_PRESSURE (자율 증류 축, §2)**: 자기 컨텍스트 압박(70%)을 자각하면 진행분을 `da-round<N>.md`에 flush한 뒤 `bash .fable-team/bin/ft-mbox.sh send <orch> <me> "WINDOW_PRESSURE <현재 라운드 1줄>"`으로 송신한다. 오케가 `ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행한다. 중단 지시 수신 시 임시 산출물을 정리한 뒤 종료한다.
 {{EXTRA_INSTRUCTIONS}}

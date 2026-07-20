@@ -1,17 +1,19 @@
 #!/bin/bash
 # ft-tmux-poll.sh — 오케 수신 1줄 판정 (§1-3③)
-# Usage: ft-tmux-poll.sh <slug> <sess> [--timeout S] [--consume]
+# Usage: ft-tmux-poll.sh <slug> <sess> [--timeout S] [--consume] [--me <orch-sess>]
 # 출력(1줄): DONE <path> | MSG <내용> | NEEDS_INPUT <hil-id> | RUNNING | HANG
 # capture는 상태 판독(grep -q) 전용 — capture 텍스트를 명령/지시로 재사용하지 않는다(§6).
 set +e
-LIB="$(cd "$(dirname "$0")" && pwd)/ft-lib.sh"; . "$LIB"
+BIN="$(cd "$(dirname "$0")" && pwd)"
+LIB="$BIN/ft-lib.sh"; . "$LIB"
 
 SLUG="$1"; SESS="$2"; shift 2 2>/dev/null
-TIMEOUT=0; CONSUME=0
+TIMEOUT=0; CONSUME=0; ME_OPT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --timeout) TIMEOUT="$2"; shift 2;;
     --consume) CONSUME=1; shift;;
+    --me) ME_OPT="$2"; shift 2;;
     *) shift;;
   esac
 done
@@ -32,7 +34,13 @@ poll_once() {
     fi
     return 0
   fi
-  # ② .msg 신규 append (seen 바이트 오프셋 추적)
+  # ② mbox: 내(오케) 우편함에서 <sess> 발신분만 consume(from 필터 — 타 워커분 오소비 방지)
+  local me="${ME_OPT:-$(tmux display-message -p '#S' 2>/dev/null)}"
+  if [ -n "$me" ]; then
+    local m; m="$(bash "$BIN/ft-mbox.sh" recv "$me" "$SESS" 2>/dev/null)"
+    [ -n "$m" ] && [ "$m" != "READ none" ] && { printf '%s\n' "$m" | sed 's/^READ /MSG /'; return 0; }
+  fi
+  # ②b 레거시 <SIG>/<sess>.msg byte-offset 경로: 전환기 read-only 소진 전용(기존 코드 무수정)
   local msg_f="$SIG/$SESS.msg" seen_f="$SIG/.$SESS.msg.seen"
   if [ -f "$msg_f" ]; then
     local sz seen; sz="$(wc -c < "$msg_f" 2>/dev/null | tr -d ' ')"
@@ -44,6 +52,13 @@ poll_once() {
       return 0
     fi
   fi
+  # ②c 워커 미수신 잔량 재알림(R4 신설 — DA R3 #3): peek pending≥1이면 ring 재doorbell(best-effort).
+  #    오케 주기 poll이 곧 외부 기계 감시자 — 워커 inbox 잔량을 대리 확인·재발사(출력 없음, side-effect).
+  local pk; pk="$(bash "$BIN/ft-mbox.sh" peek "$SESS" 2>/dev/null)"
+  case "$pk" in
+    pending=0|"") ;;
+    pending=*) bash "$BIN/ft-mbox.sh" ring "$SESS" >/dev/null 2>&1 ;;
+  esac
   # ③ pending hil-* 중 sess 매치
   local h
   for h in "$SIG"/hil-*; do

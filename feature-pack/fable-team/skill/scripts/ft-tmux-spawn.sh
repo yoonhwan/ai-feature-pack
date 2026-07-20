@@ -30,6 +30,8 @@ while [ $# -gt 0 ]; do
 done
 ROOT="$(ft_resolve_root "$ROOT")"
 [ -n "$NAME" ] && [ -n "$ROLE" ] || { echo "ft-tmux-spawn: --name·--role 필수" >&2; exit 1; }
+# 세션명 allowlist(mbox NAME_RE와 동일) — 생성·송신 경계 규약 통일(세션명이 doorbell 명령에 삽입).
+case "$NAME" in *[!A-Za-z0-9._#-]*|'') echo "BAD_SESSION_NAME $NAME" >&2; exit 1;; esac
 
 # ── ② spawn_backend 분기 (agent-v2 → 롤백 디스패처로) ──────
 BACKEND="$(ft_ijson "$ROOT" spawn_backend.default)"; [ -z "$BACKEND" ] && BACKEND="tmux"
@@ -214,9 +216,9 @@ fi
 # ── ⑤ 계약 + 입력 send (send 래퍼 경유) ────────────────────
 SEND="$(dirname "$0")/ft-tmux-send.sh"
 # M-2: raw 모드는 tmuxc UC1 step8을 우회하므로 COMM-GUIDE가 자동 주입되지 않는다 →
-#      readiness 통과 후 spawn 래퍼가 직접 주입(send 래퍼가 §2 도달검증 수행). tmuxc 경로는 이미 주입됨.
+#      readiness 통과 후 spawn 래퍼가 직접 주입(send 래퍼가 본문을 파일 큐로 위임). tmuxc 경로는 이미 주입됨.
 if [ "$LAUNCH_MODE" = "raw" ] && [ "$AGENT" = "claude" ]; then
-  bash "$SEND" "$NAME" --from orch "통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$NAME. 세션간 송신은 검증 송신 프로토콜(§2) 준수 — 도달 확인 전 '전송 완료' 보고 금지." >/dev/null 2>&1
+  bash "$SEND" "$NAME" --from orch "통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$NAME. 송신='bash .fable-team/bin/ft-mbox.sh send <to> $NAME \"…\"'(본문은 파일 큐, tmux엔 doorbell만). 수신=매 턴·깨어날 때 'bash .fable-team/bin/ft-mbox.sh recv $NAME' 선행 실행 후 READ 라인을 화면에 인용." >/dev/null 2>&1
 fi
 if [ -n "$PROMPT_FILE" ] || [ -n "$INPUT" ]; then
   MSG="계약: ${PROMPT_FILE:-없음} Read 후 시작."

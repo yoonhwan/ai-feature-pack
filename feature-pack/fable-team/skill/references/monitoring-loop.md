@@ -45,4 +45,5 @@
 - DA approve loop 최대 라운드(기본 2) + **동일 워커 재스폰 최대 2회(failure 사유만 — WINDOW_PRESSURE 등 계획적 재스폰은 한도 비소모)** + architect 재기획 최대 2회.
 - 어느 하나라도 초과 → 자동 진행 금지, 원장과 함께 사용자 에스컬레이션. "멈추지 않는 루프"는 **한도 안에서만** 자율이다.
 - 라운드 소모 판정은 카운터 산술이 아니라 파일 실재 기준(context-management §1 라운드 디스패치 규칙) — 열린 라운드(산출물 부재) 재디스패치는 한도 비소모.
-- **직접 approve loop (7원칙 §5)**: architect↔DA 직접 수렴 구간은 DA가 라운드 한도를 자율 집행하고, 한도 도달 시 `DA_LOOP_STALLED`를 `<SIG>/<me>.msg`에 append해 오케 에스컬레이션 — 직접 루프여도 한도 밖 자율은 없다.
+- **직접 approve loop (7원칙 §5)**: architect↔DA 직접 수렴 구간은 DA가 라운드 한도를 자율 집행하고, 한도 도달 시 `DA_LOOP_STALLED`를 `ft-mbox.sh send <orch> <me>`로 오케 에스컬레이션 — 직접 루프여도 한도 밖 자율은 없다.
+- **오케 주기 mbox drain**: 오케는 poll 사이클마다 자기 우편함을 수거한다 — `ft-tmux-poll.sh <slug> <sess> --me <orch>`가 §②에서 `<sess>` 발신분을 자동 recv하고, §②c가 워커 inbox 잔량을 감지해 재doorbell(`ring`)한다. 단일 mailbox 공유지만 per-to ring이 상한을 보장해 타 워커 폭주에도 오케 수신이 안전하다.

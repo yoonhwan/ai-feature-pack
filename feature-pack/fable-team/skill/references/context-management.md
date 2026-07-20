@@ -111,7 +111,7 @@ updated: 2026-07-02T14:30
 
 > **v3 개정 (tmux 세션 기준)**: 워커는 이제 **독립 tmux 세션**(`ft-<slug>-<role>#N`)이라 오케 증류·재시작에도 생존한다 — v2의 "오케 재시작=워커 전멸" 휘발성이 해소됐다. **그러나 대원칙은 불변**: 워커도 자기 ctx 압박 시 증류당해 `#N+1`로 승계(handover token 게이트)되므로 "열린 워커 머릿속" 의존은 여전히 금지, **파일 센티널·산출물이 SSOT**다. "닫는 시점"은 이제 대부분 **distill(승계) 또는 done→kill**이며 무상태 재스폰은 롤백(agent-v2) 경로에서만 기본이다.
 
-**워커 자기 윈도우 정책 (v3)**: 워커 자신의 ctx %는 오케가 폴링할 수 없다(동형) — 따라서 세션 계약 프롬프트(`prompts/<role>.md`)에 self-checkpoint를 넣는다: **자기 ctx 압박(일반 70% / Fable architect 80%) 자각 시 진행분을 산출물 파일로 flush하고 `<SIG>/<me>.msg`에 `WINDOW_PRESSURE <단계 1줄>`을 append**(오케가 tmux면 역send 가속). 오케는 flush 확인 후 **`ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행**(handover token 일치 후에만 구세션 정리, keep_last=2). 계획적 증류라 respawns 한도 비소모. 단명 워커(checker)와 done 직후 세션은 누적 전 종료라 해당 없음. *(Legacy agent-v2 경로에선 team-lead SendMessage 보고 후 해산·재스폰.)*
+**워커 자기 윈도우 정책 (v3)**: 워커 자신의 ctx %는 오케가 폴링할 수 없다(동형) — 따라서 세션 계약 프롬프트(`prompts/<role>.md`)에 self-checkpoint를 넣는다: **자기 ctx 압박(일반 70% / Fable architect 80%) 자각 시 진행분을 산출물 파일로 flush하고 `ft-mbox.sh send <orch> <me> "WINDOW_PRESSURE <단계 1줄>"`으로 송신**(본문 파일 큐 + doorbell). 오케는 flush 확인 후 **`ft-tmux-distill.sh <me>`로 `#N+1` 승계를 집행**(handover token 일치 후에만 구세션 정리, keep_last=2). 계획적 증류라 respawns 한도 비소모. 단명 워커(checker)와 done 직후 세션은 누적 전 종료라 해당 없음. *(Legacy agent-v2 경로에선 team-lead SendMessage 보고 후 해산·재스폰.)*
 
 **agent-cli 브레인 세션 — v3 직접 상주(codex) vs 드라이버(grok)**: v3에서 **codex DA·codex architect는 tmuxc codex 세션에 직접 상주**한다(ft-architect-x·ft-da 드라이버 서브에이전트 폐지) — 세션이 상주하므로 **라운드 2+ resume가 불요**(세션 자체가 이전 라운드 지적을 기억). 운용 규칙: ① 라운드 2+는 재인라인 없이 같은 세션에서 이어 판정. ② 증류당하면 신 incarnation이 `da-round<N>.md` 파일들을 재Read해 라운드 맥락 복원(파일이 세션-넘는 복원 자산 — `brain_sessions`엔 tmux 세션명 기록). ③ **grok(cursor-agent)은 비세션형이라 claude 드라이버 세션 유지**(예외 `grok_driver`): 무상태이므로 라운드 이력을 프롬프트에 재인라인. *(Legacy: codex도 드라이버+`codex exec resume` 체인 — 위 「부록: Legacy spawn」.)*
 
@@ -148,7 +148,7 @@ updated: 2026-07-02T14:30
 
 ### 4-v3. 세션 복원 오버레이 (SessionStart 훅 + PM BRIEF + watchd + 워커 재부착)
 
-v3에선 위 절차를 **`hooks/ft-session-restore.sh`(SessionStart)** 가 자동 개시한다 — CWD 기준 `.fable-team/state/ACTIVE`(+`.worktrees/*` glob) 탐지 시 `fable-team ACTIVE=<slug> stage=<N> status=<s> — context-management §4 복원 선행` 컨텍스트를 주입한다(부재 시 무출력, fail-open). 이때 상태(§4) 복원과 별개로 아래 v3 축을 함께 수행한다:
+v3에선 위 절차를 **`hooks/ft-session-restore.sh`(SessionStart)** 가 자동 개시한다 — CWD 기준 `.fable-team/state/ACTIVE`(+`.worktrees/*` glob) 탐지 시 `fable-team ACTIVE=<slug> stage=<N> status=<s> — context-management §4 복원 선행` 컨텍스트를 주입한다(부재 시 무출력, fail-open). 또한 `ft-*` 세션이면 훅이 `ft-mbox.sh recv <me>`를 기계 실행해 미수신 MBOX 메시지를 `[MBOX 미수신분 자동회수]`로 additionalContext에 주입한다(comm-filebased D-6 경로3 — consume형, ACTIVE 부재여도 미수신분만 있으면 주입, stderr 로그 병행). 이때 상태(§4) 복원과 별개로 아래 v3 축을 함께 수행한다:
 
 1. **PM 맥락 재주입 (상태 복원 전 선행)**: 위 §4-2에서 slug 획득 직후 — `ft-pm-<proj>#0` 생존을 확인하고 생존 시 `EVT BRIEF_REQUEST op=<id>` 송신 → `pm/.signals/brief.ready` 센티널(90초) 또는 역send로 BRIEF 수신 → "지금 어디" 맥락을 재주입한다. **BRIEF는 '맥락', state.md는 '상태 정본'** — 모순 시 state.md 우선(§4-3). **PM 부재/무응답 시 BRIEF 생략하고 §4 상태 복원만으로 진행**(PM은 가속이지 필수 경로 아님 — 기능 저하만).
 2. **워커 생존 재부착**: §4 재개 단계 결정 후, 재스폰 대신 `tmux ls`의 `ft-<slug>-*` 생존 세션을 `ft-tmux-poll.sh`로 재부착(step 6) — 오케 증류·재시작이 워커를 건드리지 않는 것이 v3 계약이므로 대부분 재스폰 0건.

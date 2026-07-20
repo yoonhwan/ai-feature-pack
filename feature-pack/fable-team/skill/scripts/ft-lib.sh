@@ -1,6 +1,6 @@
 #!/bin/bash
-# ft-lib.sh — fable-team v3 스크립트 7종 공용 헬퍼 (§0-1 승인 판정·원자 규약·감사 로그·세션 파싱)
-# 이 파일은 "스크립트 7종"에 포함되지 않는 구조적 보조(sourced lib)다.
+# ft-lib.sh — fable-team v3 스크립트 9종 공용 헬퍼 (§0-1 승인 판정·원자 규약·감사 로그·세션 파싱)
+# 이 파일은 "스크립트 9종"에 포함되지 않는 구조적 보조(sourced lib)다.
 # 목적: kill/distill/gzip 래퍼가 공유하는 승인 판정(§0-1), 원자 write(tmp+mv),
 #       감사 append, 세션명 파싱, 신호 디렉토리 해석을 단일 소스로 유지(DRY).
 # 안전: 실행 파일이 아니라 sourced — set -e를 강제하지 않는다(호출자가 결정).
@@ -212,7 +212,7 @@ ft_swap_guard() {
   fi
   case "${0##*/}" in                          # H4: 명시 allowlist — 글롭(ft-*.sh) 금지(오발동 방지)
     ft-tmux-spawn.sh|ft-tmux-send.sh|ft-tmux-poll.sh|ft-tmux-kill.sh|ft-tmux-distill.sh|\
-    ft-pm-watchd.sh|ft-ctx-triage.sh|ft-gzip.sh) ;;
+    ft-mbox.sh|ft-pm-watchd.sh|ft-ctx-triage.sh|ft-gzip.sh) ;;
     *) return 0;;                             # 인터랙티브 셸($0=-zsh/bash)·직접 source — fail-open
   esac
   local bindir lock ts now waited

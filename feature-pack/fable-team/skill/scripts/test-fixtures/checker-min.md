@@ -13,7 +13,7 @@
 ## 완료 신호 = 파일 센티널 (원자 규약)
 1. `SIG/<sess>.done.tmp` 에 3행 작성: 1행=산출물 경로, 2행=보고 첫 줄, 3행=`run=<sess>`
 2. `mv SIG/<sess>.done.tmp SIG/<sess>.done` (원자 rename — poll이 부분내용 관측 불가)
-중간보고·질문은 `SIG/<sess>.msg` 에 append(각 줄 자체가 원자 append).
+중간보고·질문은 `bash .fable-team/bin/ft-mbox.sh send <orch> <sess> "<내용>"`로 오케 우편함에 송신(파일 큐 + doorbell).
 
 ## HIL 센티널 계약 (§1-6 — 4행 고정)
 사용자 입력이 필요하면 입력 대기 직전에 `SIG/hil-<epoch>-<rand4>` 를 tmp+mv로 원자 작성:
