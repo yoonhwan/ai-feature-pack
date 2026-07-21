@@ -1,0 +1,33 @@
+--- a/headroom/cache/prefix_tracker.py
++++ b/headroom/cache/prefix_tracker.py
+@@ -960,8 +960,9 @@
+         """Compute a session ID from the request.
+
+         Priority:
+         1. x-headroom-session-id header (explicit)
+-        2. Hash of (model + system prompt) — stable per conversation
++        2. x-claude-code-session-id header (Claude Code's per-session UUID)
++        3. Hash of (model + system prompt) — stable per conversation
+
+         The system prompt is harvested from the LEADING run of ``role:"system"``
+         entries in ``messages`` (everything before the first non-system turn).
+@@ -981,8 +982,19 @@
+         # Check for explicit session header
+         if hasattr(request, "headers"):
+             session_header = request.headers.get("x-headroom-session-id")
+             if session_header:
+                 return str(session_header)
++            # Claude Code stamps every request with a per-session UUID. Use it
++            # to isolate concurrent sessions and subagents that share the same
++            # model + leading system prompt (same worktree / CLAUDE.md / skill
++            # loadout), which would otherwise all collapse to a single
++            # model+system-prompt fallback id and cross-contaminate the
++            # per-session compression cache and frozen-prefix tracker state —
++            # the observed symptom being one session's summary/expansion blocks
++            # and history bleeding into another (#2085).
++            cc_session_header = request.headers.get("x-claude-code-session-id")
++            if cc_session_header:
++                return str(cc_session_header)
+
+         # Fall back to hashing model + the leading system-text run.
+         system_parts: list[str] = []
