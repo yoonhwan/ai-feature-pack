@@ -18,6 +18,8 @@
 
 **영향**: 멀티세션 팬아웃(v6 realtime 등, 다수 세션·서브에이전트가 같은 worktree/CLAUDE.md 공유)에서 세션간 컨텍스트 오염 + prompt cache thrash로 토큰을 낭비하던 결함. UUID 격리로 세션별 독립 tracker/cache 확보.
 
+**부수 정리**: 같은 작업에서 0.32.1 기준 정합성 점검 → `0001`(tree-sitter thread-local, upstream 흡수 `threading.local()`)·`0003`(file-logging off toggle, 0.32.1이 `HEADROOM_FILE_LOGGING` 미참조 = proxy.log 상시 ON)을 `apply.sh`/`patches`에서 제거. proxy.log 상시 ON을 정식 채택(프록시 레벨 간헐 버그의 사후 진단 소스, 60MB rotate 상한).
+
 ---
 
 ## [2026-06-30] 하류 cliproxy 7.2.47 업그레이드 — 체인 재검증 + Codex provider env 의존 제거
