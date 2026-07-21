@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# 왜 필요한가: PyPI 최신 headroom-ai==0.23.0 은 tree-sitter thread-local fix가
-# "빠진 갈래"에서 태깅돼 릴리스됐다(upstream main에는 6/3에 들어갔지만 0.23.0 미포함,
-# 0.24.0 미릴리스). 그래서 0.23.0 을 pip 설치하면 ThreadPoolExecutor 워커에서
-# tree-sitter Parser(pyo3 unsendable)를 스레드 공유하다 PanicException → 500/400.
-# 멱등: 이미 적용됐거나(또는 0.24.0+ 로 이미 thread-local) 이면 건너뛴다.
+# 왜 필요한가: PyPI headroom-ai 를 그대로 pip install 하면 운영에 필요한 결함 수정/
+# 기능이 빠져 있다. 이 스크립트가 검증된 패치를 site-packages에 멱등 적용한다.
+# 멱등: marker가 이미 있으면(적용됐거나 upstream이 흡수) 건너뛴다.
 # 사용:  bash patches/apply.sh  [/path/to/venv/bin/python]
+#
+# 제거 이력(2026-07-21, headroom-ai 0.32.1 기준):
+#   0001 tree-sitter thread-local  → upstream 흡수(0.24.0+ `threading.local()` 반영). 불필요.
+#   0003 file-logging off toggle   → 미채택. proxy.log 상시 ON 유지(프록시 레벨 간헐 버그는
+#                                    사후 로그가 유일 증거 — 진단 가치 > 60MB rotate 비용).
 set -euo pipefail
 
 PYBIN="${1:-${HEADROOM_PYTHON:-$HOME/.headroom-venv/bin/python}}"
@@ -29,7 +32,7 @@ apply_one() {
   local target="$base_dir/$target_file"
   [ -f "$target" ] || { echo "⚠️  $target_file 없음 — 건너뜀"; return 0; }
   if grep -qF "$marker" "$target"; then
-    echo "✅ $target_file — 이미 적용됨(또는 0.24.0+) → skip"
+    echo "✅ $target_file — 이미 적용됨(또는 upstream 흡수) → skip"
     return 0
   fi
   # dry-run 먼저
@@ -45,28 +48,24 @@ apply_one() {
     || { echo "❌ $target_file — 적용 후 마커 미발견(실패)"; return 1; }
 }
 
-# transforms 경로 기준이라 패치의 a/headroom/transforms/ prefix를 strip(-p1) → 파일명만 남김
-# (패치는 repo-root 기준이므로 -p1 대신 transforms 직접 적용을 위해 경로 보정)
+# 패치는 repo-root(a/headroom/…) 기준 → transforms/root 경로에 맞게 prefix 보정
 norm_patch() { sed 's#a/headroom/transforms/#a/#; s#b/headroom/transforms/#b/#' "$1"; }
 norm_root_patch() { sed 's#a/headroom/#a/#; s#b/headroom/#b/#' "$1"; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-norm_patch "$PATCH_DIR/0001-code_compressor-thread-local-parser.patch" > "$TMP/0001.patch"
-norm_patch "$PATCH_DIR/0002-content_router-empty-output-guard.patch"   > "$TMP/0002.patch"
-norm_root_patch "$PATCH_DIR/0003-proxy-file-logging-env-toggle.patch"   > "$TMP/0003.patch"
-norm_root_patch "$PATCH_DIR/0004-streaming-server-tool-result-sse.patch" > "$TMP/0004.patch"
+norm_patch      "$PATCH_DIR/0002-content_router-empty-output-guard.patch"   > "$TMP/0002.patch"
+norm_root_patch "$PATCH_DIR/0004-streaming-server-tool-result-sse.patch"    > "$TMP/0004.patch"
+norm_root_patch "$PATCH_DIR/0005-prefix-tracker-cc-session-id.patch"        > "$TMP/0005.patch"
 
 rc=0
-apply_one "$TRANSFORMS"    "$TMP/0001.patch" "code_compressor.py"          "_tree_sitter_thread_local" || rc=1
-apply_one "$TRANSFORMS"    "$TMP/0002.patch" "content_router.py"           "Empty-output guard"        || rc=1
-apply_one "$HEADROOM_ROOT" "$TMP/0003.patch" "proxy/helpers.py"            "file_logging_enabled"      || rc=1
-apply_one "$HEADROOM_ROOT" "$TMP/0004.patch" "proxy/handlers/streaming.py" "tool_search_tool_result"   || rc=1
+apply_one "$TRANSFORMS"    "$TMP/0002.patch" "content_router.py"           "Empty-output guard"       || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/0004.patch" "proxy/handlers/streaming.py" "tool_search_tool_result"  || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/0005.patch" "cache/prefix_tracker.py"     "x-claude-code-session-id" || rc=1
 
 echo "---"
 if [ "$rc" -eq 0 ]; then
   echo "🎉 완료. 프록시 재기동 권장: launchctl kickstart -k gui/\$(id -u)/com.headroom.proxy"
-  echo "   (0.24.0 릴리스되면 'pip install -U headroom-ai' 후 이 패치 불필요)"
 else
-  echo "⚠️ 일부 실패 — 위 로그 확인. 버전이 0.23.0 인지 점검: $PYBIN -m headroom --version"
+  echo "⚠️ 일부 실패 — 위 로그 확인. 버전: $PYBIN -m headroom --version"
 fi
 exit "$rc"
