@@ -54,11 +54,13 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 norm_patch "$PATCH_DIR/0001-code_compressor-thread-local-parser.patch" > "$TMP/0001.patch"
 norm_patch "$PATCH_DIR/0002-content_router-empty-output-guard.patch"   > "$TMP/0002.patch"
 norm_root_patch "$PATCH_DIR/0003-proxy-file-logging-env-toggle.patch"   > "$TMP/0003.patch"
+norm_root_patch "$PATCH_DIR/0004-streaming-server-tool-result-sse.patch" > "$TMP/0004.patch"
 
 rc=0
-apply_one "$TRANSFORMS"    "$TMP/0001.patch" "code_compressor.py" "_tree_sitter_thread_local" || rc=1
-apply_one "$TRANSFORMS"    "$TMP/0002.patch" "content_router.py"  "Empty-output guard"        || rc=1
-apply_one "$HEADROOM_ROOT" "$TMP/0003.patch" "proxy/helpers.py"   "file_logging_enabled"      || rc=1
+apply_one "$TRANSFORMS"    "$TMP/0001.patch" "code_compressor.py"          "_tree_sitter_thread_local" || rc=1
+apply_one "$TRANSFORMS"    "$TMP/0002.patch" "content_router.py"           "Empty-output guard"        || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/0003.patch" "proxy/helpers.py"            "file_logging_enabled"      || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/0004.patch" "proxy/handlers/streaming.py" "tool_search_tool_result"   || rc=1
 
 echo "---"
 if [ "$rc" -eq 0 ]; then
