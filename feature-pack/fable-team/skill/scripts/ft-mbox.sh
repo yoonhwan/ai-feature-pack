@@ -34,6 +34,12 @@ doorbell() {
   if printf '%s\n' "$cap" | LC_ALL=C grep -aq 'Enter to select'; then
     echo skipped; return 0
   fi
+  # 이미 동일 recv 트리거가 미제출 대기 중이면 중복 억제(연속 send 시 입력창 큐 폭주 방지).
+  # capture는 커서 아래 빈 줄까지 포함하므로 빈 줄 제거 후 마지막 실제 내용 줄만 본다
+  # (tail -1만 쓰면 빈 줄을 잡아 dedup이 무력화됨 — 핵심 버그포인트).
+  if printf '%s\n' "$cap" | LC_ALL=C grep -av '^[[:space:]]*$' | tail -1 | LC_ALL=C grep -aqF "recv $to"; then
+    echo skipped; return 0
+  fi
   if printf '%s\n' "$cap" | LC_ALL=C grep -aqE '❯[[:space:]]+[^[:space:]]'; then
     tmux send-keys -t "$to" C-u 2>/dev/null || true; sleep 0.2
   fi
