@@ -1,0 +1,25 @@
+--- a/headroom/proxy/handlers/streaming.py
++++ b/headroom/proxy/handlers/streaming.py
+@@ -564,7 +564,21 @@
+                         "data": block.get("data", ""),
+                     },
+                 }
+-            elif block.get("type") == "server_tool_use":
++            elif block.get("type") in (
++                # Server-side tool blocks: the upstream returns a fully-formed
++                # block that we replay verbatim as a single content_block_start
++                # (no incremental deltas). `tool_search_tool_result` /
++                # `tool_search_tool_use` are emitted when Anthropic runs
++                # server-side tool search (triggered by large tool lists) — the
++                # buffered->SSE path must pass them through instead of raising.
++                "server_tool_use",
++                "tool_search_tool_use",
++                "tool_search_tool_result",
++                "web_search_tool_result",
++                "code_execution_tool_result",
++                "mcp_tool_use",
++                "mcp_tool_result",
++            ):
+                 block_start = {
+                     "type": "content_block_start",
+                     "index": idx,
