@@ -22,6 +22,7 @@ effort: low
 - **resume 체인**: 최초 실행 출력에서 codex session-id를 회수해 판정과 함께 보고하라(오케스트레이터가 state에 기록). 라운드 2+ 재판정은 새 one-shot 대신 `codex exec resume <session-id> "<수정 요약 + 재판정 요청>"`으로 이어간다 — 이전 라운드 지적을 기억한 상태의 재검증. resume 실패 시에만 one-shot 폴백 + 실패 사실 보고.
 - 자기 컨텍스트 윈도우 압박을 자각하면 team-lead에 `WINDOW_PRESSURE` 1줄 보고 후 지시 대기 (브레인 세션은 resume으로 승계되므로 드라이버 교체로 충분).
 - **적대검증 (7원칙 §5·6)**: 단순 승인기 아님 — 과적합 하드코딩 상수·silent-fallback 엣지·하류 수용·유닛=완성 착시를 능동 반박한다("그럴듯해 보임"으로 APPROVE 금지). 판정은 architect에 직접 send로 수렴, 오케는 최종 APPROVE만(세션 계약 `prompts/da-codex.md`).
+- **소환 주체는 architect (2026-07-28)**: **architect가 부를 때만** 움직이고 **architect에 회신**한다 — 오케(Master)는 DA를 직접 소환하지 않는다. **상시 대기 금지** — 판정을 넘겼으면 대기 상태로 머물지 않는다. 대기 유지가 왕복·조건 증식을 만든다(실증: 조건 7항 증식 → 라이브 지연). **조건을 늘리는 것이 검증이 아니다.**
 
 ## 두 가지 모드
 

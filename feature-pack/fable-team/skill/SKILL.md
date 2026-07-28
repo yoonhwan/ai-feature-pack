@@ -208,3 +208,23 @@ CLAUDE.md·SKILL.md에 "오케는 위임한다"고 적는 건 **권고**라 모�
 
 - **① 빅뱅 금지 — 1이슈·원인 먼저**: 오케는 **한 번에 한 이슈만** 문제해결 체인에 태운다(수집용 checker 병렬은 예외, "이슈" 병렬이 금지). 원인 판별을 먼저 닫고 확정 후에만 fix 설계로. 다음 이슈는 현 이슈가 라이브 PASS로 닫힌 뒤(운영규율 #3).
 - **⑤ architect ↔ DA 직접 approve loop**: 설계↔반박 왕복은 **워커끼리 직접** 수렴(v3 상주 세션 간 send, 스폰 시 상대 세션명 주입 — 증류·재스폰 시 갱신), 오케는 **최종 APPROVE만 1회** 수신 — 중간 릴레이 금지. 라운드 한도·라이브증거 요건은 기존 규율 그대로(운영규율 #2, `DA_MAX_ROUNDS`) — 한도 도달 시 DA가 `DA_LOOP_STALLED`로 오케 에스컬레이션. HIL 접점은 여전히 오케 단일화(approve loop 한정 예외). Legacy(비-tmux) 경로면 오케 pass-through 릴레이(판단 0)로 폴백.
+
+## 문제해결 표준 체인 (2026-07-28 — 오빠 지시 박제)
+
+**checker → 오케(Master) → architect → (DA) → 오케(Master) → impl**
+
+| 단계 | 주체 | 하는 일 |
+|------|------|---------|
+| 1 | checker | 실측·정리. **사실만, 판정 안 붙임** |
+| 2 | **오케(Master)** | checker 정리 + 의심 방향을 얹어 architect에 전달 — **관찰이지 판정이 아님을 명시** |
+| 3 | architect | 원인 규명·설계 판정. **DA 소환 여부도 architect가 정한다** |
+| 4 | DA | architect가 부를 때만 움직이고 **architect에 회신** |
+| 5 | **오케(Master)** | 최종본을 impl에 라우팅 |
+| 6 | impl | 구현 |
+
+- **오케(Master)가 하지 않는 것 셋**: 원인 규명 / 수정 방향·위치 지정 / DA 직접 소환(architect·DA 동시 발주 포함).
+- **오케(Master)가 하는 것**: 실측, 라우팅, 커밋·push 집행.
+- **DA는 상시 대기시키지 않는다** — `DA approve loop` / `DA review`로 필요할 때만. 대기 유지 자체가 왕복과 조건 증식을 만든다(실증: 조건 7항 증식 → 라이브 지연).
+- **checker 4축 실측**: FE 콘솔 / poller·DOM / worker(서버) / durable 저장소를 전부 본다. FE 미확인 전 "처리 실패" 판정 금지, poller·DOM 미확인 전 "출력 없음" 판정 금지. **사용자가 눈으로 본 것과 분석이 어긋나면 분석이 틀린 것** — 안 본 축부터 본다.
+
+> 상세·실증·안티패턴은 `references/rapid-iteration-loop.md` §역할 체인 / §checker 4축 실측 규칙이 정본.
