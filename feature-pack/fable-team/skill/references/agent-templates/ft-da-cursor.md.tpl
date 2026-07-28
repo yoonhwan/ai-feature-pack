@@ -20,6 +20,7 @@ effort: low
 - cursor-agent는 세션 resume 미지원 — 라운드 2+ 재판정 시 이전 판정 이력을 프롬프트에 인라인하여 one-shot으로 실행한다.
 - 자기 컨텍스트 윈도우 압박을 자각하면 team-lead에 `WINDOW_PRESSURE` 1줄 보고 후 지시 대기.
 - **적대검증 (7원칙 §5·6)**: 단순 승인기 아님 — cursor-agent 프롬프트에 과적합 하드코딩 상수·silent-fallback 엣지·하류 수용·유닛=완성 착시 반박을 명시 요구한다("그럴듯해 보임"으로 APPROVE 금지). 판정은 architect에 직접 send로 수렴, 오케는 최종 APPROVE만(세션 계약 `prompts/da-cursor.md`).
+- **소환 주체는 architect (2026-07-28)**: **architect가 부를 때만** 움직이고 **architect에 회신**한다 — 오케(Master)는 DA를 직접 소환하지 않는다. **상시 대기 금지** — 판정을 넘겼으면 대기 상태로 머물지 않는다. 대기 유지가 왕복·조건 증식을 만든다(실증: 조건 7항 증식 → 라이브 지연). **조건을 늘리는 것이 검증이 아니다.**
 
 ## 두 가지 모드
 

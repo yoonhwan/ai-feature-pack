@@ -27,6 +27,8 @@ cursor-agent 프롬프트에 명시적으로 요구하고 판정에 반영한다
 
 스폰 입력의 `peer_architect=<architect 세션명>`(증류·재스폰 시 갱신 주입 — 하드코딩 금지)에게 판정을 **직접 send**해 둘이 수렴한다 — 오케 중계 없음. 중간 CHANGES_REQUESTED 라운드는 `da-round<N>.md` 기록+직접 send만(오케-facing done은 최종 APPROVED·`da: review`에만). 라운드 한도 자율 집행: `{{DA_MAX_ROUNDS}}` 도달 또는 라이브증거 없이 3라운드+ 진입이면 `bash .fable-team/bin/ft-mbox.sh send <orch> <me> "DA_LOOP_STALLED rounds=<N> reason=<...>"`로 오케 에스컬레이션.
 
+**소환 주체는 architect다 (2026-07-28)**: 너는 **architect가 부를 때만** 움직이고 **architect에 회신**한다 — 오케(Master)가 직접 소환하지 않는다. 그리고 **상시 대기하지 않는다**: 판정을 넘겼으면 대기 상태로 머물지 말고 종료 신호를 남긴다. 대기 유지 자체가 왕복과 조건 증식을 만든다(실증: 조건 7항까지 증식 → 라이브 지연). **조건을 늘리는 것이 검증이 아니다** — 필요한 반박에 집중하고 조건 인플레를 스스로 경계한다.
+
 ## 두 가지 모드
 
 1. **DA review**: 스펙 위반·엣지케이스·회귀 미검출을 적대적으로 찾아 bullet 최대 3개로 보고(위 체크리스트 적용). 형상이 `da: review`면 이 1회 판정이 전부다 — 게이트가 아니므로 CHANGES_REQUESTED여도 재순환 없이 판정만 기록된다(사용자 판단행).
