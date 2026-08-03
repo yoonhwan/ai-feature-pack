@@ -15,16 +15,16 @@
 **STEP 1 — headroom 설치** ([📦 설치](#-설치) 참조)
 ```bash
 python3.12 -m venv ~/.headroom-venv
-~/.headroom-venv/bin/pip install "headroom-ai[all]"
+~/.headroom-venv/bin/pip install "headroom-ai==0.33.0"
 ```
 
-**STEP 1.5 — 0.23.0 핫픽스 적용** (⚠️ 현 PyPI 최신 0.23.0 필수 — [🚑 에러 케이스 대응](#-에러-케이스-대응-트러블슈팅) 참조)
+**STEP 1.5 — 0.33.x 운영 패치 적용** ([`patches/README.md`](./patches/README.md) 참조)
 ```bash
-bash "$(dirname "$0")/patches/apply.sh"   # tree-sitter panic + 빈값 400 차단, 멱등
+bash "$(dirname "$0")/patches/apply.sh"   # 버전별 운영 패치, 멱등
 ```
-> PyPI `headroom-ai==0.23.0`은 tree-sitter thread-local fix가 빠진 갈래에서 태깅돼 **두 결함이 살아 있다**(500/400). 0.24.0이 릴리스되면 `pip install -U headroom-ai` 후 이 단계 불필요. 자세한 내용은 [`patches/README.md`](./patches/README.md).
+> 현재 기준은 `headroom-ai==0.33.0`이며 `apply.sh`가 0.33.x에는 0009, 그 외 호환 베이스에는 0006을 선택한다. ML extras(`headroom-ai[ml]`/`[all]`, Kompress)는 캐시 안정성·메모리 비용 때문에 운영 기본 설치에서 제외한다.
 
-**STEP 2 — 토글 스킬 + fail-open 래퍼 설치**
+**STEP 2 — 토글 스킬 + canonical 래퍼 설치**
 ```bash
 HR_DIR="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p ~/.claude/skills/headroom ~/.headroom
@@ -44,12 +44,12 @@ chmod +x ~/.headroom/claude-hr.sh ~/.headroom/headroom-cliproxy-file-logs.sh ~/.
 
 **STEP 3 — 사용자에게 질문** (자동 결정 금지, 반드시 물어본다)
 1. 어떤 프로젝트/에이전트에 켤까요? (프로젝트별 수동 토글 — `/headroom on`)
-2. 프록시를 상시 서비스로 둘까요, 세션마다 래퍼로 띄울까요? (상시화는 fail-open 래퍼 필수)
+2. 프록시를 상시 서비스로 둘까요, 세션마다 래퍼로 띄울까요? (상시화는 canonical 래퍼 필수)
 3. 멀티 프로바이더(Codex/Cursor/Aider/Copilot)도 쓰시나요? → [🔌 멀티 프로바이더](#-멀티-프로바이더-설치-가이드)
 
 **STEP 4 — 사용법 안내** (사용자에게 전달)
 - `/headroom on` = 현재 프로젝트 영구 활성 · `/headroom off` = 영구 비활성 · `/headroom status` = 상태+`cache_bust_count`(0 확인)
-- 실행은 `claude-hr` 래퍼로 (`alias claude-hr='~/.headroom/claude-hr.sh'`). 프록시 죽어도 직결되어 무중단.
+- 실행은 `claude-hr` 래퍼로 (`alias claude-hr='~/.headroom/claude-hr.sh'`). canonical 경유가 요청된 상태에서 프록시가 죽으면 직결로 우회하지 않고 오류를 낸다.
 - **효과는 긴 세션·재독 많은 작업에서만 누적** — 단발/소형 입력엔 무의미하다고 솔직히 안내.
 
 ---
@@ -119,12 +119,12 @@ API 경계 프록시(`ANTHROPIC_BASE_URL=localhost:PORT`):
 
 ```bash
 python3.12 -m venv ~/.headroom-venv
-~/.headroom-venv/bin/pip install "headroom-ai[all]"
-~/.headroom-venv/bin/headroom --version       # 0.23.0
-bash patches/apply.sh                          # ⚠️ 0.23.0 핫픽스(필수) — 아래 🚑 참조
+~/.headroom-venv/bin/pip install "headroom-ai==0.33.0"
+~/.headroom-venv/bin/headroom --version       # 0.33.0
+bash patches/apply.sh                          # 0.33.x 운영 패치 — 버전별 선택
 ```
 
-> ⚠️ **0.23.0은 그대로 쓰면 안 된다.** tree-sitter `unsendable` panic(500)과 빈값 400 두 결함이 살아 있다 — `patches/apply.sh`(멱등)로 적용. 0.24.0 릴리스 후엔 불필요. → [🚑 에러 케이스 대응](#-에러-케이스-대응-트러블슈팅) · [`patches/`](./patches/README.md)
+> 운영 기본은 ML extras 없이 설치한다. Kompress는 선택적 ML 압축 계층이며, 현재 스택에서는 설치하지 않는다. → [`patches/`](./patches/README.md)
 
 프록시 기동 (압축 + 캐시 공존, **텔레메트리 off** — 아래 🔒 참조):
 
@@ -145,7 +145,7 @@ headroom은 Claude Code 외 Codex·Cursor·Aider·Copilot·임의 OpenAI 호환 
 ### 설치 채널
 
 ```bash
-pip install "headroom-ai[all]"                  # Python (전체)
+pip install "headroom-ai==0.33.0"              # Python (ML extras 제외)
 npm install headroom-ai                          # Node / TypeScript
 docker pull ghcr.io/chopratejas/headroom:latest  # 컨테이너
 ```
@@ -191,7 +191,7 @@ export CODEX_DUMMY_API_KEY="${CODEX_DUMMY_API_KEY:-dummy}"
 alias codex='npx -y @openai/codex'
 ```
 
-검증은 응답만 보지 말고 headroom stats까지 본다. 파일 로그는 평상시 OFF이므로 라우팅 이슈 대응 때만 잠깐 켠다:
+검증은 응답만 보지 말고 headroom stats까지 본다. LaunchAgent stdout/stderr 캡처는 평상시 OFF로 두되, 내부 rotating `~/.headroom/logs/proxy.log`는 cache·canonical 경로 사후 증거를 위해 유지한다:
 
 ```bash
 bash ~/.claude/skills/headroom-cliproxyapi/scripts/file-logs.sh on
@@ -289,13 +289,13 @@ OPENAI_TARGET_API_URL=https://custom.endpoint      headroom proxy   # OpenAI 트
 
 ## 🚀 사용
 
-### fail-open + 레지스트리 인식 래퍼 (SPOF 제거 — 핵심 안전장치)
+### canonical route + 레지스트리 인식 래퍼 (SPOF 차단 — 핵심 안전장치)
 
-`~/.headroom/claude-hr.sh`. **always-route ON**(`~/.headroom/always-route`)이면 등록 없이 8790 경유. 아니면 **현재 프로젝트가 `enabled-projects.json`에 등록 + 프록시 health OK** 일 때만 경유. `disabled-projects` opt-out·프록시 다운·파싱 실패는 직결(fail-open). 프로젝트 root는 **canonical(git-common-dir) 기준**이라 워크트리도 메인과 동일 root로 매칭됩니다.
+`~/.headroom/claude-hr.sh`. **always-route ON**(`~/.headroom/always-route`)이면 등록 없이 8790 경유한다. 아니면 **현재 프로젝트가 `enabled-projects.json`에 등록**된 경우 canonical 경유를 요청한다. 명시적 `disabled-projects` opt-out만 직결을 허용하며, canonical 경유가 요청된 상태에서 health 실패·파싱 실패는 직결 fallback 없이 exit 69로 중단한다. 프로젝트 root는 **canonical(git-common-dir) 기준**이라 워크트리도 메인과 동일 root로 매칭됩니다.
 
 ```bash
 #!/bin/zsh
-# headroom fail-open + registry-aware 래퍼
+# headroom canonical-route + registry-aware 래퍼
 REGISTRY="$HOME/.headroom/enabled-projects.json"
 PROXY_URL="http://localhost:8790"
 
@@ -316,10 +316,20 @@ except Exception:
 PY
 }
 
-if is_enabled && curl -sf -m1 "$PROXY_URL/health" >/dev/null 2>&1; then
+route_requested=false
+if is_enabled; then
+  route_requested=true
+fi
+
+if $route_requested; then
+  if ! curl -sf -m1 "$PROXY_URL/health" >/dev/null 2>&1; then
+    print -u2 "headroom: canonical route requested but proxy health check failed; refusing direct fallback"
+    exit 69
+  fi
   export ANTHROPIC_BASE_URL="$PROXY_URL"
+  export ANTHROPIC_CUSTOM_HEADERS="x-headroom-cwd: $PROJECT_ROOT"
 else
-  unset ANTHROPIC_BASE_URL    # 미등록 또는 프록시 다운 → 직결, 작업 무중단
+  unset ANTHROPIC_BASE_URL    # 명시적 opt-out 또는 미등록 프로젝트만 직결
 fi
 exec claude "$@"
 ```
@@ -335,7 +345,7 @@ exec claude "$@"
 | **A. 별도 alias** | `alias claude-hr='~/.headroom/claude-hr.sh'` → 의식적으로 `claude-hr`로 실행 | 사용자가 직접 띄울 때만 |
 | **B. 베이스 alias 재지정 (권장·전체 커버)** | 평소 쓰는 claude alias 자체를 래퍼로: `alias cc='~/.headroom/claude-hr.sh --dangerously-skip-permissions --model "..."'` | **모든 launch + tmux/오케스트레이터가 spawn·증류하는 세션까지** 자동 경유 |
 
-**B를 권장**하는 이유: tmux 멀티세션·오케스트레이터(예: 세션 증류)는 보통 사용자의 베이스 claude alias로 세션을 재기동한다. 베이스 alias를 래퍼로 바꾸면 **그 모든 세션이 fail-open + registry 조건부로 자동 경유**한다(등록 프로젝트+프록시 살아있을 때만, 아니면 직결). 래퍼는 `"$@"`로 flags를 투명 전달하므로 `--model` 등 옵션은 그대로 유지된다.
+**B를 권장**하는 이유: tmux 멀티세션·오케스트레이터(예: 세션 증류)는 보통 사용자의 베이스 claude alias로 세션을 재기동한다. 베이스 alias를 래퍼로 바꾸면 **그 모든 세션이 registry 조건부로 canonical 경유**한다(명시적 opt-out/미등록만 직결, canonical health 실패는 오류). 래퍼는 `"$@"`로 flags를 투명 전달하므로 `--model` 등 옵션은 그대로 유지된다.
 
 > ⚠️ **기존에 떠 있던 세션은 소급 적용 안 됨.** env는 시작 시점에 굳으므로, **alias를 바꾼 뒤 새로 띄우거나 세션을 재증류(재기동)해야** 경유가 시작된다. `/stats`의 `api_req`가 0→증가하면 실제 경유 시작 신호다.
 
@@ -383,13 +393,13 @@ PoC 실측을 그대로 공개합니다 (신뢰의 핵심):
 - **단발 0%는 버그가 아니라 설계.** `DEFAULT_EXCLUDE_TOOLS = {Read,Bash,Grep,Glob,Edit,Write}` + `protect_recent`(기본 4)가 표준 도구 결과와 최근 메시지를 보호합니다. 같은 파일을 **재독(supersede)** 할 때 옛 복사본이 보호 밖으로 밀려 압축이 발동합니다.
 - **만능 아님**: 기본설정은 코딩 에이전트 도구 출력을 안 건드림. tool_result 압축은 베타(rtk).
 - **디버깅 주의**: CCR은 컨텍스트 내 lossy. 모델이 복원 필요를 모르면 오판할 수 있으니, 디버깅 워크플로우에서는 `headroom_retrieve` 복원 정확도를 별도 점검하세요.
-- 수치는 환경/버전(v0.23)에 따라 다를 수 있음.
+- 수치는 환경/버전(v0.33.0)에 따라 다를 수 있음.
 
 ---
 
 ## 🚑 에러 케이스 대응 (트러블슈팅)
 
-> 다른 피처팩/에이전트 사용자가 헤드룸 경유 중 만나는 3대 증상과 대응. 근본원인은 모두 **PyPI 0.23.0의 미수정 결함** 또는 **프록시 SPOF**다.
+> 다른 피처팩/에이전트 사용자가 헤드룸 경유 중 만나는 운영 증상과 대응. 버전별 패치 원인은 [`patches/README.md`](./patches/README.md)에 기록한다.
 
 ### 증상 A — `400 messages.N: user messages must have non-empty content`
 
@@ -414,7 +424,7 @@ PoC 실측을 그대로 공개합니다 (신뢰의 핵심):
      sleep 1; curl -sf -m1 http://localhost:8790/health && echo " ✅ 8790 복구"
      ```
   3. 8790이 살아나면 마비됐던 대화창은 **재시도(같은 입력 재전송)** 로 복귀.
-  4. **예방**: 프록시 작업/모니터 세션은 처음부터 직결로 띄우고, 일반 세션은 정적 env가 아니라 [fail-open 래퍼](#-fail-open--레지스트리-인식-래퍼-spof-제거--핵심-안전장치)로 띄운다. **글로벌 `ANTHROPIC_BASE_URL` 정적 export 금지**(전 세션 SPOF).
+  4. **예방**: 프록시 작업/모니터 세션은 처음부터 직결로 띄우고, 일반 세션은 정적 env가 아니라 [canonical 래퍼](#-canonical-route--레지스트리-인식-래퍼-spof-차단--핵심-안전장치)로 띄운다. **글로벌 `ANTHROPIC_BASE_URL` 정적 export 금지**(전 세션 SPOF).
 
 ### pyo3 panic 로그 식별법
 
@@ -447,8 +457,8 @@ pyo3_runtime.PanicException: _native::Parser is unsendable, but sent to another 
 
 **결론: 프롬프트·코드·크레덴셜은 로컬 전용으로 유출 없음. 단 익명 사용량 텔레메트리가 기본 켜짐** → 독점/민감 환경은 **반드시 `HEADROOM_TELEMETRY=off`**(위 기동 명령에 포함). `learn`·`memory`는 끈 채로 둘 것.
 
-### fail-open 주의 (정적 env 상속 함정)
-프록시 URL을 **셸 env에 정적으로 export**하면(또는 그런 셸이 spawn한 세션) 그 세션은 라우팅되지만 **fail-open이 아님** — 프록시가 죽으면 세션도 죽는다. **반드시 [fail-open 래퍼](#-fail-open--레지스트리-인식-래퍼-spof-제거--핵심-안전장치)로 기동**해 매 호출 조건부로 base URL을 set/unset 해야 안전하다. tmux/오케스트레이터가 세션을 spawn할 때 정적 `ANTHROPIC_BASE_URL`을 상속시키지 말 것.
+### canonical route 주의 (정적 env 상속 함정)
+프록시 URL을 **셸 env에 정적으로 export**하면(또는 그런 셸이 spawn한 세션) 그 세션은 health를 확인할 수 없어 canonical 계약을 보장하지 못한다. **반드시 [canonical 래퍼](#-canonical-route--레지스트리-인식-래퍼-spof-차단--핵심-안전장치)로 기동**해 경유 요청과 오류를 명시적으로 구분한다. tmux/오케스트레이터가 세션을 spawn할 때 정적 `ANTHROPIC_BASE_URL`을 상속시키지 말 것.
 
 ---
 
