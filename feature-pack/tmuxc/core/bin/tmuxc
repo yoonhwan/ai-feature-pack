@@ -452,17 +452,51 @@ restore_expand_select() {
   esac
 }
 
+restore_agent_live() {
+  # pane 아래 claude/codex/headroom 자식이 있으면 기동된 것으로 본다
+  local name="$1" agent="$2" ppid
+  ppid="$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  [[ -n "$ppid" ]] || return 1
+  if [[ "$agent" == "claude" ]]; then
+    pgrep -P "$ppid" -f 'claude|claude-hr|headroom' >/dev/null 2>&1
+  else
+    pgrep -P "$ppid" -f 'codex' >/dev/null 2>&1 || {
+      local child
+      child="$(pgrep -P "$ppid" 2>/dev/null | head -1 || true)"
+      [[ -n "$child" ]]
+    }
+  fi
+}
+
+restore_pane_ready() {
+  local name="$1" agent="$2" pane
+  pane="$(tmux capture-pane -t "$name" -p 2>/dev/null || true)"
+  if [[ "$agent" == "claude" ]]; then
+    # statusline 포맷이 버전마다 다름:
+    #   구형 ctx:12% / 신형 "100% context used" / "bypass permissions" / Model:
+    if [[ -n "$pane" ]] && printf '%s' "$pane" | grep -Eiq \
+      'ctx:|[0-9]+%[[:space:]]*context[[:space:]]*used|bypass permissions|^[[:space:]]*❯|Model:'; then
+      return 0
+    fi
+    restore_agent_live "$name" "$agent"
+    return $?
+  fi
+  restore_agent_live "$name" "$agent"
+}
+
 restore_wait_ready() {
-  local name="$1" agent="$2" try pane child
-  for try in 1 2 3 4 5 6 7 8; do
+  local name="$1" agent="$2" try
+  # resume는 컨텍스트 로드로 24초를 넘기기 쉬움 — 기본 60초(20×3)
+  local max="${TMUXC_RESTORE_READY_TRIES:-20}"
+  for ((try = 1; try <= max; try++)); do
     sleep 3
     if [[ "$agent" == "claude" ]]; then
-      # resume 세션은 ctx:0%가 아님 — statusline의 ctx: 출현 = 부팅 완료
-      tmux capture-pane -t "$name" -p 2>/dev/null | grep -q 'ctx:' && return 0
+      restore_pane_ready "$name" "$agent" && return 0
     else
-      pane="$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)"
-      child="$(pgrep -P "${pane:-0}" 2>/dev/null | head -1 || true)"
-      [[ -n "$child" ]] && [[ "$try" -ge 3 ]] && return 0
+      # codex: 자식이 뜬 뒤 한 박자 더 기다림
+      if restore_agent_live "$name" "$agent" && [[ "$try" -ge 3 ]]; then
+        return 0
+      fi
     fi
   done
   return 1
@@ -492,7 +526,15 @@ restore_one() {
   fi
   tmux new-session -d -s "$name" -c "$cwd"
   inject_message "$name" "$run_cmd"
+  local ready=0 soft=0
   if restore_wait_ready "$name" "$agent"; then
+    ready=1
+  elif restore_agent_live "$name" "$agent"; then
+    # UI 마커는 못 봤지만 에이전트 프로세스는 살아 있음 — soft success
+    ready=1
+    soft=1
+  fi
+  if [[ "$ready" -eq 1 ]]; then
     if [[ "$agent" == "claude" ]]; then
       if [[ "$baton" -eq 1 ]]; then
         inject_message "$name" "/baton:resume"
@@ -500,12 +542,18 @@ restore_one() {
       fi
       inject_message "$name" "[restore→$name] tmux 서버 사망 후 tmuxc restore로 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 Read하고 준수. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."
     fi
-    printf '  ✅ [#%s] %s (%s) 복원 완료\n' "$idx" "$name" "$agent"
+    if [[ "$soft" -eq 1 ]]; then
+      printf '  ✅ [#%s] %s (%s) 복원 완료 (프로세스 확인, UI 마커 지연)\n' "$idx" "$name" "$agent"
+    else
+      printf '  ✅ [#%s] %s (%s) 복원 완료\n' "$idx" "$name" "$agent"
+    fi
     printf '     프로젝트: %s\n' "$proj"
     [[ -n "$work" ]] && printf '     작업: %s\n' "$work"
+    [[ "${R_STATUS[$i]}" == "synth" ]] && printf '     모드: synth (alias 없이 model=%s 직접 기동)\n' "${R_MODEL[$i]}"
     printf '     attach: tmux attach -t %q\n' "$name"
   else
-    printf '  ⚠️  [#%s] %s (%s) · %s — 기동 확인 실패(24초)\n' "$idx" "$name" "$agent" "$proj"
+    printf '  ⚠️  [#%s] %s (%s) · %s — 기동 확인 실패(%ss)\n' \
+      "$idx" "$name" "$agent" "$proj" "$(( ${TMUXC_RESTORE_READY_TRIES:-20} * 3 ))"
     [[ -n "$work" ]] && printf '     작업: %s\n' "$work"
     printf '     수동 확인: tmux attach -t %q\n' "$name"
   fi
