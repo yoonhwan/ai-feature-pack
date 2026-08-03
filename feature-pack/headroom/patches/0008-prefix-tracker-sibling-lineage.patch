@@ -1,0 +1,153 @@
+--- a/headroom/cache/prefix_tracker.py
++++ b/headroom/cache/prefix_tracker.py
+@@ -792,6 +792,14 @@
+     return obj
+ 
+ 
++@dataclass
++class _LineageCheckpoint:
++    """Saved tracker state for a prefix before a branch extends it."""
++
++    messages: list[Any]
++    tracker: PrefixCacheTracker
++
++
+ class SessionTrackerStore:
+     """Manages PrefixCacheTracker instances across sessions.
+ 
+@@ -815,7 +823,76 @@
+         # value, so a synthetic key can never collide with a client-supplied
+         # x-headroom-session-id.
+         self._lineages: dict[str, OrderedDict[str, list[Any]]] = {}
++        self._lineage_checkpoints: dict[str, OrderedDict[str, _LineageCheckpoint]] = {}
+         self._lineage_counter = itertools.count(1)
++
++    @staticmethod
++    def _clone_tracker(tracker: PrefixCacheTracker) -> PrefixCacheTracker:
++        """Clone cache-relevant state before a lineage advances."""
++        clone = PrefixCacheTracker(tracker.provider, tracker.config)
++        clone._cached_token_count = tracker._cached_token_count
++        clone._cached_message_count = tracker._cached_message_count
++        clone._turn_number = tracker._turn_number
++        clone._last_activity = tracker._last_activity
++        # These lists are replaced, not mutated, by update_from_response();
++        # sharing them keeps bounded checkpoints from copying large histories.
++        clone._last_original_messages = tracker._last_original_messages
++        clone._last_forwarded_messages = tracker._last_forwarded_messages
++        clone._idle_seconds_at_fetch = tracker._idle_seconds_at_fetch
++        clone.read_maturation_manager = SessionTrackerStore._clone_read_maturation_manager(
++            tracker.read_maturation_manager
++        )
++        clone._busts_avoided = tracker._busts_avoided
++        clone._tokens_preserved = tracker._tokens_preserved
++        clone._compression_foregone_tokens = tracker._compression_foregone_tokens
++        return clone
++
++    @staticmethod
++    def _clone_read_maturation_manager(manager: Any) -> Any:
++        """Copy branch-local maturation markers without copying its store."""
++        if manager is None:
++            return None
++        clone = copy.copy(manager)
++        matured = getattr(manager, "_matured", None)
++        if isinstance(matured, dict):
++            clone._matured = dict(matured)
++        return clone
++
++    def _remember_lineage_checkpoint(
++        self,
++        session_id: str,
++        messages: list[Any],
++        tracker: PrefixCacheTracker,
++    ) -> None:
++        """Keep the prior prefix state while its active lineage grows."""
++        checkpoints = self._lineage_checkpoints.setdefault(session_id, OrderedDict())
++        key = f"{session_id}\x00checkpoint-{next(self._lineage_counter)}"
++        checkpoints[key] = _LineageCheckpoint(
++            messages=messages,
++            tracker=self._clone_tracker(tracker),
++        )
++        limit = max(1, self._default_config.max_lineages_per_session)
++        while len(checkpoints) > limit:
++            checkpoints.popitem(last=False)
++
++    def _find_lineage_checkpoint(
++        self,
++        session_id: str,
++        messages: list[Any],
++    ) -> _LineageCheckpoint | None:
++        """Find the newest longest saved prefix that contains this history."""
++        best: _LineageCheckpoint | None = None
++        best_len = -1
++        for checkpoint in reversed(self._lineage_checkpoints.get(session_id, {}).values()):
++            if checkpoint.tracker.is_expired:
++                continue
++            chain = checkpoint.messages
++            if len(chain) > len(messages) or len(chain) <= best_len:
++                continue
++            if messages[: len(chain)] == chain:
++                best = checkpoint
++                best_len = len(chain)
++        return best
+
+     def get_or_create(self, session_id: str, provider: str) -> PrefixCacheTracker:
+         """Get existing tracker or create a new one for this session."""
+@@ -943,12 +1020,39 @@
+             else:
+                 best_key = f"{session_id}\x00{next(self._lineage_counter)}"
+ 
+-        # get_or_create (not a private fetch) so test stubs that patch the
+-        # instance method keep intercepting tracker creation; its internal
+-        # cleanup is interval-gated and was armed above, so it cannot prune
+-        # the family before the stamp below.
+-        tracker = self.get_or_create(best_key, provider)
+-        family[best_key] = snap
+-        return tracker
++        # A matching active lineage advances in place. Before its previous
++        # prefix is overwritten, retain a clone so a later sibling can resume
++        # from the same provider-cache checkpoint.
++        if best_key is not None and best_key in family:
++            previous_chain = family[best_key]
++            tracker = self.get_or_create(best_key, provider)
++            if len(snap) > len(previous_chain):
++                self._remember_lineage_checkpoint(session_id, previous_chain, tracker)
++            family[best_key] = snap
++            return tracker
++
++        checkpoint = self._find_lineage_checkpoint(session_id, snap)
++        if checkpoint is not None:
++            cap = self._default_config.max_lineages_per_session
++            if len(family) >= cap:
++                overflow_key = f"{session_id}\x00overflow"
++                return self.get_or_create(overflow_key, provider)
++            branch_key = f"{session_id}\x00{next(self._lineage_counter)}"
++            tracker = self._clone_tracker(checkpoint.tracker)
++            self._trackers[branch_key] = tracker
++            tracker = self.get_or_create(branch_key, provider)
++            family[branch_key] = snap
++            return tracker
++
++        # No active or saved lineage matches this history. Preserve the
++        # pre-lineage behavior for a genuinely unrelated conversation.
++        cap = self._default_config.max_lineages_per_session
++        if len(family) >= cap:
++            overflow_key = f"{session_id}\x00overflow"
++            return self.get_or_create(overflow_key, provider)
++        branch_key = session_id if not family else f"{session_id}\x00{next(self._lineage_counter)}"
++        tracker = self.get_or_create(branch_key, provider)
++        family[branch_key] = snap
++        return tracker
+ 
+     def compute_session_id(
+@@ -1033,4 +1119,11 @@
+                     del self._lineages[base]
+             logger.debug("SessionTrackerStore: cleaned up %d expired sessions", len(expired))
++
++        for base, checkpoints in list(self._lineage_checkpoints.items()):
++            for key, checkpoint in list(checkpoints.items()):
++                if checkpoint.tracker.is_expired:
++                    del checkpoints[key]
++            if not checkpoints:
++                del self._lineage_checkpoints[base]
+ 
+         self._last_cleanup = now

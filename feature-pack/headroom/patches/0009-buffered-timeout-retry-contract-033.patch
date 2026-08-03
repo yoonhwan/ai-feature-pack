@@ -1,0 +1,92 @@
+--- a/headroom/proxy/server.py
++++ b/headroom/proxy/server.py
+@@ -2013,6 +2013,9 @@
+         forwarder_name: str = "server",
+         path_for_log: str | None = None,
+         timeout: httpx.Timeout | float | None = None,
++        max_attempts: int | None = None,
++        retry_transport_errors: bool = True,
++        deadline: float | None = None,
+     ) -> httpx.Response:
+         """Make request with retry and exponential backoff.
+ 
+@@ -2058,8 +2061,22 @@
+         if timeout is not None:
+             post_kwargs["timeout"] = timeout
+ 
+-        for attempt in range(self.config.retry_max_attempts):
++        attempt_limit = max(1, max_attempts or self.config.retry_max_attempts)
++        for attempt in range(attempt_limit):
+             try:
++                if deadline is not None:
++                    remaining = deadline - time.monotonic()
++                    if remaining <= 0:
++                        return self._timeout_response(method, url)
++                    if isinstance(timeout, httpx.Timeout):
++                        post_kwargs["timeout"] = httpx.Timeout(
++                            connect=min(timeout.connect, remaining),
++                            read=min(timeout.read, remaining),
++                            write=min(timeout.write, remaining),
++                            pool=min(timeout.pool, remaining),
++                        )
++                    elif timeout is not None:
++                        post_kwargs["timeout"] = min(float(timeout), remaining)
+                 if stream:
+                     # For streaming, we return early - retry happens at higher level
+                     return await self.http_client.post(  # type: ignore[union-attr]
+@@ -2077,7 +2094,7 @@
+                     if response.status_code in RETRYABLE_OVERLOAD_STATUSES:
+                         if (
+                             not self.config.retry_enabled
+-                            or attempt >= self.config.retry_max_attempts - 1
++                            or attempt >= attempt_limit - 1
+                         ):
+                             return response
+                         delay_ms = retry_after_ms(
+@@ -2122,7 +2139,11 @@
+             except (httpx.TransportError, httpx.HTTPStatusError) as e:
+                 last_error = e
+ 
+-                if not self.config.retry_enabled or attempt >= self.config.retry_max_attempts - 1:
++                if isinstance(e, httpx.TimeoutException) and (
++                    not retry_transport_errors or deadline is not None
++                ):
++                    return self._timeout_response(method, url)
++                if not self.config.retry_enabled or attempt >= attempt_limit - 1:
+                     # On exhaustion, preserve the upstream 5xx status (e.g. 503
+                     # Service Unavailable, 500, 502, 504) so the client can apply
+                     # its own retry/backoff. Collapsing every exhausted 5xx into a
+@@ -2158,6 +2179,21 @@
+                 "retry loop exhausted with no error recorded; retry_max_attempts must be >= 1"
+             )
+         raise last_error
++
++    @staticmethod
++    def _timeout_response(method: str, url: str) -> httpx.Response:
++        return httpx.Response(
++            504,
++            request=httpx.Request(method, url),
++            headers={"content-type": "application/json"},
++            json={
++                "type": "error",
++                "error": {
++                    "type": "timeout",
++                    "message": "Upstream request deadline exceeded",
++                },
++            },
++        )
+ 
+ 
+ def _compression_cache_tokens_saved(stats: dict[str, Any]) -> int:
+--- a/headroom/proxy/handlers/anthropic.py
++++ b/headroom/proxy/handlers/anthropic.py
+@@ -2903,6 +2903,10 @@
+                                 forwarder_name="anthropic_messages",
+                                 path_for_log="/v1/messages",
+                                 timeout=self._anthropic_buffered_request_timeout(),
++                                max_attempts=1,
++                                retry_transport_errors=False,
++                                deadline=time.monotonic()
++                                + self.config.anthropic_buffered_request_timeout_seconds,
+                             )
+                         self.pipeline_extensions.emit(

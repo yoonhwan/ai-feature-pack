@@ -26,6 +26,16 @@ PY
 HEADROOM_ROOT="$(dirname "$TRANSFORMS")"
 [ -d "$TRANSFORMS" ] || { echo "❌ transforms 디렉토리 못 찾음: $TRANSFORMS"; exit 1; }
 echo "🎯 대상: $HEADROOM_ROOT"
+HEADROOM_VERSION="$($PYBIN -c 'import importlib.metadata as m; print(m.version("headroom-ai"))')"
+case "$HEADROOM_VERSION" in
+  0.33.*)
+    RETRY_PATCH_SRC="$PATCH_DIR/0009-buffered-timeout-retry-contract-033.patch"
+    ;;
+  *)
+    RETRY_PATCH_SRC="$PATCH_DIR/0006-buffered-timeout-retry-contract.patch"
+    ;;
+esac
+echo "📦 headroom-ai $HEADROOM_VERSION — retry contract: $(basename "$RETRY_PATCH_SRC")"
 
 apply_one() {
   local base_dir="$1" patch="$2" target_file="$3" marker="$4"
@@ -56,11 +66,17 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 norm_patch      "$PATCH_DIR/0002-content_router-empty-output-guard.patch"   > "$TMP/0002.patch"
 norm_root_patch "$PATCH_DIR/0004-streaming-server-tool-result-sse.patch"    > "$TMP/0004.patch"
 norm_root_patch "$PATCH_DIR/0005-prefix-tracker-cc-session-id.patch"        > "$TMP/0005.patch"
+norm_root_patch "$RETRY_PATCH_SRC"                                          > "$TMP/retry-contract.patch"
+norm_root_patch "$PATCH_DIR/0007-compression-cache-stats-key.patch"         > "$TMP/0007.patch"
+norm_root_patch "$PATCH_DIR/0008-prefix-tracker-sibling-lineage.patch"      > "$TMP/0008.patch"
 
 rc=0
 apply_one "$TRANSFORMS"    "$TMP/0002.patch" "content_router.py"           "Empty-output guard"       || rc=1
 apply_one "$HEADROOM_ROOT" "$TMP/0004.patch" "proxy/handlers/streaming.py" "tool_search_tool_result"  || rc=1
 apply_one "$HEADROOM_ROOT" "$TMP/0005.patch" "cache/prefix_tracker.py"     "x-claude-code-session-id" || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/retry-contract.patch" "proxy/server.py"    "attempt_limit"           || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/0007.patch" "proxy/server.py"              "_compression_cache_tokens_saved" || rc=1
+apply_one "$HEADROOM_ROOT" "$TMP/0008.patch" "cache/prefix_tracker.py"     "_lineage_checkpoints"     || rc=1
 
 echo "---"
 if [ "$rc" -eq 0 ]; then

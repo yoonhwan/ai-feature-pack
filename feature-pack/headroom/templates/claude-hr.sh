@@ -1,10 +1,8 @@
 #!/bin/zsh
-# headroom fail-open 래퍼
 # 경유 조건 (모두 충족 시 8790):
 #   1) 프록시 health OK
 #   2) always-route ON (~/.headroom/always-route) 또는 enabled-projects 등록
 #   3) disabled-projects에 현재 root 없음
-# 미충족 → 직결 (fail-open)
 
 REGISTRY="$HOME/.headroom/enabled-projects.json"
 DISABLED="$HOME/.headroom/disabled-projects.json"
@@ -34,17 +32,25 @@ is_enabled() { _in_list "$REGISTRY"; }
 is_disabled() { _in_list "$DISABLED"; }
 always_route() { [ -f "$ALWAYS_ROUTE" ] || [ "${HEADROOM_ALWAYS_ROUTE:-}" = "1" ]; }
 
-should_route=false
+route_requested=false
 if always_route || is_enabled; then
-  if ! is_disabled && curl -sf -m1 "$PROXY_URL/health" >/dev/null 2>&1; then
-    should_route=true
-  fi
+  route_requested=true
 fi
 
-if $should_route; then
+if is_disabled; then
+  route_requested=false
+fi
+
+if $route_requested; then
+  if ! curl -sf -m1 "$PROXY_URL/health" >/dev/null 2>&1; then
+    print -u2 "headroom: canonical route requested but proxy health check failed; refusing direct fallback"
+    exit 69
+  fi
   export ANTHROPIC_BASE_URL="$PROXY_URL"
+  export ANTHROPIC_CUSTOM_HEADERS="x-headroom-cwd: $PROJECT_ROOT"
 else
   unset ANTHROPIC_BASE_URL
+  unset ANTHROPIC_CUSTOM_HEADERS
 fi
 
 exec ~/.local/bin/claude "$@"

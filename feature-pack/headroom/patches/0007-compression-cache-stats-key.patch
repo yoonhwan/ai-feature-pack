@@ -1,0 +1,23 @@
+--- a/headroom/proxy/server.py
++++ b/headroom/proxy/server.py
+@@ -2043,6 +2043,13 @@
+         raise last_error
+ 
+ 
++def _compression_cache_tokens_saved(stats: dict[str, Any]) -> int:
++    value = stats.get("tokens_saved")
++    if value is None:
++        value = stats.get("total_tokens_saved", 0)
++    return max(0, int(value or 0))
++
++
+ async def _log_toin_stats_periodically(interval_seconds: int = 300) -> None:
+     """Background task that logs TOIN stats periodically.
+ 
+@@ -3554,7 +3561,7 @@
+                 total_entries += s.get("entries", 0)
+                 total_hits += s.get("hits", 0)
+                 total_misses += s.get("misses", 0)
+-                total_tokens_saved += s.get("total_tokens_saved", 0)
++                total_tokens_saved += _compression_cache_tokens_saved(s)
+             compression_cache_stats = {
