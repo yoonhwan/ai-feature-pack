@@ -5,7 +5,7 @@
   - 탭 대신 0x1f인 이유: 탭은 bash IFS whitespace라 빈 중간 필드(cwd="" 등)가 collapse되어
     필드가 밀린다. 0x1f는 non-whitespace라 빈 필드가 보존된다 (DA 2026-07-08 ⑩).
   - route: claude=역할 alias(ccf/ccs/ccd), codex=effort 힌트(high)
-  - status: ok | no-cwd | no-alias
+  - status: ok | synth | no-cwd | no-alias
 정렬 키는 파일 mtime이 아니라 jsonl 내부 마지막 유효 라인의 timestamp (재부팅 시 mtime이 뭉개짐).
 """
 import argparse
@@ -33,9 +33,17 @@ HEADLESS_PREFIXES = (
 
 NAME_RE_ME = re.compile(r"세션명\(me\)=([^\s.,]+)")
 NAME_RE_COMM = re.compile(r"\[[^\]]+?(?:->|→)([A-Za-z0-9_#\-]+)\]")  # ASCII '->' + legacy '→' 둘 다 수용
+NAME_RE_MBOX = re.compile(r"mbox\.sh recv ['\"]?([A-Za-z0-9_#\-]+)")
+NAME_RE_YOU = re.compile(r"너는 ([A-Za-z0-9_#\-]+)(?:\s|이다|이고)")
 NAME_COUNTER_RE = re.compile(r"^(.*?#\d+)")
 MODEL_RE = re.compile(r'"model"\s*:\s*"(claude-[^"]+)"')
 TS_RE = re.compile(r'"timestamp"\s*:\s*"([^"]+)"')
+# 요약/이름 후보에서 제외 — 시스템 주입·노이즈
+NOISE_USER_PREFIXES = (
+    "# AGENTS.md",
+    "<INSTRUCTIONS>",
+    "<environment_context>",
+)
 
 # 모델 → 기동 alias (prefix 매칭 — [1m] suffix 포함 대응)
 MODEL_ALIAS = (
@@ -84,6 +92,85 @@ def safe_name(s):
     """tmux 세션 타깃으로 안전한 이름 (sanitize_name과 동일 문자셋).
     ':' '.' 등은 tmux target 구문과 충돌해 restore를 중단시킨다 (DA ⑪)."""
     return re.sub(r"[^A-Za-z0-9_#-]", "-", s or "")
+
+
+def clip_role_name(name):
+    """'FB_Master#30(메인...' 처럼 부연이 붙으면 #숫자까지만."""
+    m = NAME_COUNTER_RE.match(name or "")
+    return m.group(1) if m else (name or "")
+
+
+def is_noise_user(txt):
+    if not txt:
+        return True
+    if txt.startswith("<"):
+        return True
+    if any(txt.startswith(p) for p in NOISE_USER_PREFIXES):
+        return True
+    # 잘린 화살표 조각 (예: '7→V6_POLISH_ORCH#0] tmuxc...')
+    if not txt.startswith("[") and re.match(r"^[^\[\n]{0,8}(?:->|→)", txt):
+        return True
+    return False
+
+
+def meaningful_users(users):
+    """AGENTS.md/시스템 주입을 제외한 user 메시지. 전부 노이즈면 원본 유지."""
+    kept = [u for u in users if not is_noise_user(u)]
+    return kept or list(users)
+
+
+def pick_context_msg(msgs):
+    """요약 앞부분용 — 역할 부여/화살표 메시지 우선."""
+    for u in msgs:
+        if u.startswith("[") or u.startswith("너는"):
+            return u
+    return msgs[0] if msgs else ""
+
+
+def infer_role_name(users):
+    """user 메시지에서 역할/세션명 추출.
+    우선순위: 세션명(me)= → [A→B]의 B → mbox.sh recv → 너는 ROLE.
+    codex 익명(thread_name 없음) 세션이 UUID로만 보이던 UX 개선용."""
+    for u in users:
+        m = NAME_RE_ME.search(u)
+        if m:
+            return clip_role_name(m.group(1))
+    for u in users:
+        m = NAME_RE_COMM.search(u)
+        if m:
+            return clip_role_name(m.group(1))
+    for u in users:
+        m = NAME_RE_MBOX.search(u)
+        if m:
+            return clip_role_name(m.group(1))
+    for u in users:
+        m = NAME_RE_YOU.search(u)
+        if m:
+            return clip_role_name(m.group(1))
+    return ""
+
+
+def short_work_hint(users, limit=72):
+    """복원 리스트/진행 로그용 — 최근 유의미 user 메시지 한 줄."""
+    msgs = meaningful_users(users)
+    if not msgs:
+        return ""
+    last = msgs[-1]
+    # mbox.sh 절대경로 recv → 역할만 남김
+    m = NAME_RE_MBOX.search(last)
+    if m and "mbox.sh recv" in last:
+        return field(f"mbox recv {m.group(1)}", limit)
+    return field(last, limit)
+
+
+def make_summary(users):
+    msgs = meaningful_users(users)
+    if not msgs:
+        return ""
+    if len(msgs) == 1:
+        return short_work_hint(msgs, 72)
+    head = pick_context_msg(msgs)
+    return f"{field(head, 40)} ⇢ {short_work_hint(msgs, 56)}"
 
 
 def extract_text(content):
@@ -148,21 +235,7 @@ def claude_full_parse(path):
             if "Another Claude session sent" in txt:
                 continue
             users.append(txt)
-    name = ""
-    for u in users:
-        m = NAME_RE_ME.search(u)
-        if m:
-            name = m.group(1)
-            break
-        m = NAME_RE_COMM.search(u)
-        if m:
-            name = m.group(1)
-            break
-    # 'FB_Master#30(메인...' 처럼 부연이 붙으면 #숫자까지만
-    m = NAME_COUNTER_RE.match(name)
-    if m:
-        name = m.group(1)
-    return users, models, name
+    return users, models, infer_role_name(users)
 
 
 def model_to_alias(models):
@@ -237,14 +310,16 @@ def scan_claude(since, loose=False):
             continue  # 라이브 프로세스가 물고 있음 — 죽은 세션 아님
         model, alias = model_to_alias(models)
         sid = os.path.basename(path)[: -len(".jsonl")]
-        summary = f"{field(users[0], 56)} ⇢ {field(users[-1], 56)}"
+        summary = make_summary(users)
         if not name:
             name = os.path.basename(cwd or "unknown") + "#0"
         status = "ok"
         if not cwd or not os.path.isdir(cwd):
             status = "no-cwd"
         elif not alias:
-            status = "no-alias"
+            # alias가 없어도 모델을 알면 tmuxc가 headroom 기동을 직접 합성해 복구한다.
+            # 모델까지 없을 때만 진짜 복구 불가.
+            status = "synth" if model else "no-alias"
         rows.append({
             "agent": "claude", "name": name, "cwd": cwd, "model": model or "?",
             "route": alias or "?", "sid": sid, "ts": ts, "status": status,
@@ -345,21 +420,24 @@ def scan_codex(since):
         ts = max(candidates)
         if ts < since:
             continue
+        users = codex_user_msgs(path)
+        if not users:
+            continue
+        if file_in_use(path):
+            continue  # 라이브 codex가 물고 있음
+        # thread_name → 메시지에서 역할명 추론 → UUID 폴백.
+        # 익명 세션이 codex-{uuid}로만 찍히면 복원 중 무슨 작업인지 판별 불가.
         name = (entry.get("thread_name") or "").strip()
         if not name:
-            # 익명 대화형 세션 — 재부팅 직전 쓰던 세션일 수 있어 제외하면 안 됨.
+            name = infer_role_name(users)
+        if not name:
             # dedupe()가 (agent, name)으로 키를 잡으므로 앞 8자만 쓰면 prefix가
             # 같은 다른 세션이 충돌해 소실된다(DA 5차 실증: 익명 세션 99개 중 충돌 2쌍).
             # sid 전체를 이름에 넣어 충돌 자체를 없앤다.
             name = f"codex-{sid}" if sid else ""
         if not name:
             continue  # sid조차 없는 손상 메타
-        users = codex_user_msgs(path)
-        if not users:
-            continue
-        if file_in_use(path):
-            continue  # 라이브 codex가 물고 있음
-        summary = f"{field(users[0], 56)} ⇢ {field(users[-1], 56)}"
+        summary = make_summary(users)
         status = "ok" if cwd and os.path.isdir(cwd) else "no-cwd"
         rows.append({
             "agent": "codex", "name": name, "cwd": cwd, "model": "gpt-5.5",
