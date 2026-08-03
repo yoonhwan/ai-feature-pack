@@ -28,7 +28,7 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 | `tmuxc wt {worktree-path} [--prompt P]` | 워크트리 연계 세션 생성 |
 | `tmuxc distill {name} [--to {newbase}]` | **세션 증류** — `{base}#{N+1}` 신규 세션에 컨텍스트 이전 후 구세션 정리 |
 | `tmuxc recover [--all]` | cmux에서 디스커넥트된 tmux 세션 자동 재연결 |
-| `tmuxc restore [--select 1,3\|all\|claude\|codex] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** — claude+codex 세션 로그 스캔 → 통합 리스트업 → 선택 복구 (UC11). 상태 `synth`=alias 없이 모델로 명령 합성해 복구(effort 기본 high, `TMUXC_SYNTH_EFFORT`로 조정) / `no-alias`=모델까지 미상이라 수동. codex 익명은 user 메시지에서 역할명 추론(`me=`/`[A→B]`/`mbox.sh recv`). 진행 로그에 프로젝트·작업 표시. `--select` 인덱스는 **필터 적용 후 목록 기준** |
+| `tmuxc restore [--select 1,3\|all\|claude\|codex] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** — claude+codex 세션 로그 스캔 → 통합 리스트업 → 선택 복구 (UC11). 상태 `synth`=alias 없이 모델로 명령 합성해 복구(effort 기본 high, `TMUXC_SYNTH_EFFORT`로 조정) / `no-alias`=모델까지 미상이라 수동. codex 익명은 user 메시지에서 역할명 추론(`me=`/`[A→B]`/`mbox.sh recv`). 진행 로그에 프로젝트·작업 표시. 종료 시 결과 표(#번호/세션명/이전 대화 요약). `--select` 인덱스는 **필터 적용 후 목록 기준** |
 
 ---
 
