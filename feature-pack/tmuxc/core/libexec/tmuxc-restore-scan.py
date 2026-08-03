@@ -320,9 +320,11 @@ def scan_claude(since, loose=False):
             # alias가 없어도 모델을 알면 tmuxc가 headroom 기동을 직접 합성해 복구한다.
             # 모델까지 없을 때만 진짜 복구 불가.
             status = "synth" if model else "no-alias"
+        # route 열: alias 없으면 상태 힌트를 넣어 복구 리스트에서 원인을 바로 보이게
+        route = alias or ("synth" if status == "synth" else "?")
         rows.append({
             "agent": "claude", "name": name, "cwd": cwd, "model": model or "?",
-            "route": alias or "?", "sid": sid, "ts": ts, "status": status,
+            "route": route, "sid": sid, "ts": ts, "status": status,
             "summary": summary,
         })
     return rows
