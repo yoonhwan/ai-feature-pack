@@ -167,4 +167,23 @@ printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $6=="bbbb0020-2222-0000-00
 printf '%s\n' "$OUT3" | awk -F$'\x1f' '$1=="codex" && $6=="cccc0030-0000-0000-0000-000000000030"' | grep -q . || {
   echo 'FIXTURE FAIL: source=unknown session must survive (only exec/dict are excluded by contract)'; printf '%s\n' "$OUT3"; exit 1; }
 
+# ⑦ codex 익명 세션 역할명 추론 + AGENTS.md 노이즈 요약 제거
+# thread_name 없어도 mbox/화살표/me= 에서 역할명을 뽑아 UUID 대신 쓴다.
+printf '{"type":"session_meta","payload":{"session_id":"dddd0040-0000-0000-0000-000000000040","cwd":"%s","source":"cli"},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions <INSTRUCTIONS> noise"}]},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"[V6_HELM#28→V6_POLISH_ORCH#0] tmuxc Codex 세션. 통신 표준"}]},"timestamp":"%s"}\n{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"bash %s/.fable-team/comm/mbox.sh recv V6_POLISH_ORCH#0"}]},"timestamp":"%s"}\n' \
+  "$FIX" "$NOW" "$NOW" "$NOW" "$FIX" "$NOW" \
+  > "$FIX/codex/2026/01/01/rollout-x-dddd0040-0000-0000-0000-000000000040.jsonl"
+# ⑧ alias 없는 모델 → status=synth (복구 가능). claude-opus-5는 MODEL_ALIAS 미매핑.
+printf '{"type":"user","message":{"content":"세션명(me)=synth-role#1 시작"},"timestamp":"%s","cwd":"%s"}\n{"type":"assistant","message":{"model":"claude-opus-5"},"timestamp":"%s"}\n' \
+  "$NOW" "$FIX" "$NOW" \
+  > "$FIX/claude/proj/aaaaaaaa-0000-0000-0000-0000000000aa.jsonl"
+OUT4="$(scan_fixture)"
+printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="codex" && $2=="V6_POLISH_ORCH#0" && $6=="dddd0040-0000-0000-0000-000000000040"' | grep -q . || {
+  echo 'FIXTURE FAIL: anonymous codex must infer role name from mbox/arrow'; printf '%s\n' "$OUT4"; exit 1; }
+printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="codex" && $6=="dddd0040-0000-0000-0000-000000000040" && $9 ~ /AGENTS\.md/' | grep -q . && {
+  echo 'FIXTURE FAIL: summary must not lead with AGENTS.md noise'; printf '%s\n' "$OUT4"; exit 1; }
+printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="codex" && $6=="dddd0040-0000-0000-0000-000000000040" && $9 ~ /mbox recv V6_POLISH_ORCH#0/' | grep -q . || {
+  echo 'FIXTURE FAIL: summary should surface mbox recv work hint'; printf '%s\n' "$OUT4"; exit 1; }
+printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="claude" && $2=="synth-role#1" && $8=="synth"' | grep -q . || {
+  echo 'FIXTURE FAIL: unmapped model must be status=synth (restorable)'; printf '%s\n' "$OUT4"; exit 1; }
+
 echo "tmuxc verify OK"
