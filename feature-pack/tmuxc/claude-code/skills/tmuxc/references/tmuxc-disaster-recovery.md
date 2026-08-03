@@ -49,6 +49,7 @@ cmux(cmuxterm.app) 워크스페이스에서 보던 tmux 세션들이 `[server ex
 ### 11-0. 자동 복구 (구현됨 — `tmuxc restore`, v0.2.0)
 
 복원 진행 로그는 `#N · 세션명 · 프로젝트 · 작업`을 함께 찍는다.
+복원 종료 시 **결과 표**로 `#번호 / 세션명 / 결과 / 프로젝트 / 이전 대화 요약`을 한 번에 출력한다.
 codex 익명(`thread_name` 없음) 세션은 user 메시지에서 역할명을 추론한다
 (`세션명(me)=` → `[A→B]` → `mbox.sh recv` → `너는 ROLE`) — UUID만 보이던 UX 개선.
 

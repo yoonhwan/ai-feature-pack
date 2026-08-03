@@ -186,4 +186,20 @@ printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="codex" && $6=="dddd0040-0000-0000-00
 printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="claude" && $2=="synth-role#1" && $8=="synth"' | grep -q . || {
   echo 'FIXTURE FAIL: unmapped model must be status=synth (restorable)'; printf '%s\n' "$OUT4"; exit 1; }
 
+# ⑨ 복원 결과 리포트 헬퍼 — 세션명/번호/이전 대화 요약 출력 계약
+_rep=$(bash -c '
+  source /dev/null
+  eval "$(sed -n "/^restore_summary_clip()/,/^}/p; /^restore_record()/,/^}/p; /^restore_print_final_report()/,/^}/p" "'"$ROOT"'/core/bin/tmuxc")"
+  RESTORE_REP_IDX=() RESTORE_REP_NAME=() RESTORE_REP_AGENT=()
+  RESTORE_REP_PROJ=() RESTORE_REP_OUTCOME=() RESTORE_REP_SUMMARY=()
+  restore_record 14 LOOM_DOMAIN#0 claude loom-domain-hierarchy ok "[LOOM_PACK#0→LOOM_DOMAIN#0] … ⇢ 아키텍처 크론/임베딩"
+  restore_record 16 ft-loomdomain-da#0 codex loom-domain-hierarchy ok "mbox recv ft-loomdomain-da#0"
+  restore_print_final_report
+')
+printf '%s\n' "$_rep" | grep -q '복원 결과 2개' || { echo 'FIXTURE FAIL: final report header'; printf '%s\n' "$_rep"; exit 1; }
+printf '%s\n' "$_rep" | grep -q 'LOOM_DOMAIN#0' || { echo 'FIXTURE FAIL: final report session name'; printf '%s\n' "$_rep"; exit 1; }
+printf '%s\n' "$_rep" | grep -q '#14' || { echo 'FIXTURE FAIL: final report index'; printf '%s\n' "$_rep"; exit 1; }
+printf '%s\n' "$_rep" | grep -q '이전 대화 요약' || { echo 'FIXTURE FAIL: final report summary column'; printf '%s\n' "$_rep"; exit 1; }
+printf '%s\n' "$_rep" | grep -q 'mbox recv ft-loomdomain-da#0' || { echo 'FIXTURE FAIL: final report prior summary'; printf '%s\n' "$_rep"; exit 1; }
+
 echo "tmuxc verify OK"

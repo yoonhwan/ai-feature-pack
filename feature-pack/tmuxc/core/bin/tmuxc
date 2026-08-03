@@ -502,26 +502,89 @@ restore_wait_ready() {
   return 1
 }
 
+# 복원 결과 리포트용 (restore_one이 채움)
+RESTORE_REP_IDX=() RESTORE_REP_NAME=() RESTORE_REP_AGENT=()
+RESTORE_REP_PROJ=() RESTORE_REP_OUTCOME=() RESTORE_REP_SUMMARY=()
+
+restore_record() {
+  # $1=idx $2=name $3=agent $4=proj $5=outcome $6=summary
+  RESTORE_REP_IDX+=("$1")
+  RESTORE_REP_NAME+=("$2")
+  RESTORE_REP_AGENT+=("$3")
+  RESTORE_REP_PROJ+=("$4")
+  RESTORE_REP_OUTCOME+=("$5")
+  RESTORE_REP_SUMMARY+=("$6")
+}
+
+restore_summary_clip() {
+  # 이전 대화 요약 — 전체 summary를 표에 맞게 자름 (⇢ 앞뒤 유지)
+  local s="$1" limit="${2:-72}"
+  s="$(printf '%s' "$s" | tr '\n' ' ')"
+  s="${s#"${s%%[![:space:]]*}"}"
+  if ((${#s} > limit)); then
+    s="${s:0:limit-1}…"
+  fi
+  printf '%s' "$s"
+}
+
+restore_print_final_report() {
+  local n="${#RESTORE_REP_IDX[@]}" j outcome mark
+  [[ "$n" -gt 0 ]] || return 0
+  printf '\n════════════════════════════════════════════════════════════\n'
+  printf '복원 결과 %d개 — 세션명 / 번호 / 이전 대화 요약\n' "$n"
+  printf '════════════════════════════════════════════════════════════\n'
+  printf '%-4s %-7s %-28s %-8s %-22s %s\n' '#' agent 세션명 결과 프로젝트 '이전 대화 요약'
+  for j in "${!RESTORE_REP_IDX[@]}"; do
+    outcome="${RESTORE_REP_OUTCOME[$j]}"
+    case "$outcome" in
+      ok|soft) mark='✅' ;;
+      exists|skip) mark='⏭' ;;
+      fail) mark='⚠️' ;;
+      error) mark='❌' ;;
+      *) mark='·' ;;
+    esac
+    printf '%-4s %-7s %-28s %-8s %-22s %s\n' \
+      "#${RESTORE_REP_IDX[$j]}" "${RESTORE_REP_AGENT[$j]}" "${RESTORE_REP_NAME[$j]}" \
+      "$mark$outcome" "${RESTORE_REP_PROJ[$j]}" \
+      "$(restore_summary_clip "${RESTORE_REP_SUMMARY[$j]}" 72)"
+  done
+  printf '\n'
+  local first_ok=""
+  for j in "${!RESTORE_REP_OUTCOME[@]}"; do
+    case "${RESTORE_REP_OUTCOME[$j]}" in ok|soft)
+      first_ok="${RESTORE_REP_NAME[$j]}"; break ;;
+    esac
+  done
+  if [[ -n "$first_ok" ]]; then
+    printf 'attach 예: tmux attach -t %q\n' "$first_ok"
+  fi
+  printf '전체 목록: tmuxc list\n'
+}
+
 restore_one() {
   local i="$1" baton="$2"
   local agent="${R_AGENT[$i]}" name="${R_NAME[$i]}" cwd="${R_CWD[$i]}" sid="${R_SID[$i]}"
-  local proj work idx
+  local proj work idx summary
   idx="$((i + 1))"
   proj="$(restore_cwd_short "$cwd")"
   work="$(restore_work_hint "${R_SUMMARY[$i]}")"
+  summary="$(restore_summary_clip "${R_SUMMARY[$i]}" 96)"
   # ok=정상, synth=alias 없이 모델로 기동 합성 가능 — 둘 다 복구 대상
   if [[ "${R_STATUS[$i]}" != "ok" && "${R_STATUS[$i]}" != "synth" ]]; then
     printf '  ⏭  [#%s] %s (%s) · %s — 상태=%s 스킵\n' "$idx" "$name" "$agent" "$proj" "${R_STATUS[$i]}"
+    restore_record "$idx" "$name" "$agent" "$proj" "skip" "$summary"
     return 0
   fi
   if tmux has-session -t "$name" 2>/dev/null; then
     printf '  ⏭  [#%s] %s (%s) · %s — 동명 세션 이미 존재\n' "$idx" "$name" "$agent" "$proj"
+    restore_record "$idx" "$name" "$agent" "$proj" "exists" "$summary"
     return 0
   fi
   local run_cmd
   run_cmd="$(restore_cmd_for "$i" "$baton" || true)"
   if [[ -z "$run_cmd" ]]; then
     printf '  ❌ [#%s] %s: alias %s 해석 실패 + 모델 미상 — 스킵\n' "$idx" "$name" "${R_ROUTE[$i]}"
+    restore_record "$idx" "$name" "$agent" "$proj" "error" "$summary"
     return 0
   fi
   tmux new-session -d -s "$name" -c "$cwd"
@@ -544,18 +607,23 @@ restore_one() {
     fi
     if [[ "$soft" -eq 1 ]]; then
       printf '  ✅ [#%s] %s (%s) 복원 완료 (프로세스 확인, UI 마커 지연)\n' "$idx" "$name" "$agent"
+      restore_record "$idx" "$name" "$agent" "$proj" "soft" "$summary"
     else
       printf '  ✅ [#%s] %s (%s) 복원 완료\n' "$idx" "$name" "$agent"
+      restore_record "$idx" "$name" "$agent" "$proj" "ok" "$summary"
     fi
     printf '     프로젝트: %s\n' "$proj"
     [[ -n "$work" ]] && printf '     작업: %s\n' "$work"
+    [[ -n "$summary" ]] && printf '     이전 대화: %s\n' "$summary"
     [[ "${R_STATUS[$i]}" == "synth" ]] && printf '     모드: synth (alias 없이 model=%s 직접 기동)\n' "${R_MODEL[$i]}"
     printf '     attach: tmux attach -t %q\n' "$name"
   else
     printf '  ⚠️  [#%s] %s (%s) · %s — 기동 확인 실패(%ss)\n' \
       "$idx" "$name" "$agent" "$proj" "$(( ${TMUXC_RESTORE_READY_TRIES:-20} * 3 ))"
     [[ -n "$work" ]] && printf '     작업: %s\n' "$work"
+    [[ -n "$summary" ]] && printf '     이전 대화: %s\n' "$summary"
     printf '     수동 확인: tmux attach -t %q\n' "$name"
+    restore_record "$idx" "$name" "$agent" "$proj" "fail" "$summary"
   fi
 }
 
@@ -617,11 +685,13 @@ cmd_restore() {
   fi
 
   printf '\n▶ %d개 세션 복원 시작\n' "${#indices[@]}"
+  RESTORE_REP_IDX=() RESTORE_REP_NAME=() RESTORE_REP_AGENT=()
+  RESTORE_REP_PROJ=() RESTORE_REP_OUTCOME=() RESTORE_REP_SUMMARY=()
   local i
   for i in "${indices[@]}"; do
     restore_one "$i" "$baton"
   done
-  printf '완료. tmuxc list 로 확인하세요.\n'
+  restore_print_final_report
 }
 
 main() {
