@@ -6,7 +6,7 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, and OMX
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
   tmuxc wt <worktree-path> [same options as open]
   tmuxc list
   tmuxc attach <name>
@@ -148,6 +148,19 @@ resolve_codex_cmd() {
   esac
 }
 
+# opencode 는 role→effort 매핑이 없다(reasoning effort 개념 부재) — 모델이 유일한 등급 축이다.
+# 따라서 role 은 받되 커맨드에 반영하지 않고, --model 만 그대로 넘긴다.
+# --auto: 명시적으로 deny 되지 않은 권한을 자동 승인. claude 의 --dangerously-skip-permissions,
+# codex 의 --dangerously-bypass-approvals-and-sandbox 와 같은 자리 — tmuxc 세션은 워커용이라
+# 매 승인에 사람이 붙지 않는 것이 전제다.
+resolve_opencode_cmd() {
+  local model="${1:-}"
+  local cmd="opencode --auto"
+  # 모델 미지정이면 opencode 기본값(설정/최근 사용)을 따른다 — 여기서 임의 기본값을 박지 않는다.
+  [[ -n "$model" ]] && cmd="$cmd --model $(printf '%q' "$model")"
+  printf '%s' "$cmd"
+}
+
 agent_cmd() {
   local agent="$1"
   local name="$2"
@@ -157,6 +170,7 @@ agent_cmd() {
   case "$agent" in
     claude) resolve_claude_cmd "$name" "$role" "$model" "$effort" ;;
     codex|omx) resolve_codex_cmd "$agent" "$role" ;;
+    opencode) resolve_opencode_cmd "$model" ;;
     *) die "unknown agent: $agent" ;;
   esac
 }
@@ -244,9 +258,14 @@ cmd_open() {
   name="$(sanitize_name "$name")"
   [[ -n "$name" ]] || die "empty session name after sanitize"
 
-  # --model/--effort/--like 오버라이드는 claude 전용 (codex/omx는 role→effort 고정)
-  if [[ -n "$model" || -n "$effort" || -n "$like" ]] && [[ "$agent" != "claude" ]]; then
-    die "--model/--effort/--like 는 --agent claude 에서만 사용 (agent=$agent)"
+  # --model 은 claude/opencode 에서 쓴다. codex/omx 는 role→effort 고정이라 불가.
+  if [[ -n "$model" ]] && [[ "$agent" != "claude" && "$agent" != "opencode" ]]; then
+    die "--model 은 --agent claude|opencode 에서만 사용 (agent=$agent)"
+  fi
+  # --effort/--like 는 claude 전용. opencode 는 reasoning effort 개념이 없고,
+  # --like 는 claude 프로세스 argv 에서 모델을 회수하는 방식이라 성립하지 않는다.
+  if [[ -n "$effort" || -n "$like" ]] && [[ "$agent" != "claude" ]]; then
+    die "--effort/--like 는 --agent claude 에서만 사용 (agent=$agent)"
   fi
   # --like SESSION: 지정한 라이브 세션의 모델/effort를 상속 (명시 --model/--effort 가 우선)
   if [[ -n "$like" ]]; then
