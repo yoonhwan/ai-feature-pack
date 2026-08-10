@@ -52,7 +52,7 @@ compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu
 
 | CLI | 비대화 | 자동주행(자율) | resume | JSON | 비고 |
 |-----|--------|---------------|--------|------|------|
-| **Claude Code** | `claude -p` | `--dangerously-skip-permissions` | `--resume <sid>` | `--output-format json` | sid는 JSON `session_id` |
+| **Claude Code** | `claude -p`* | `--dangerously-skip-permissions` | `--resume <sid>` | `--output-format json` | sid는 JSON `session_id` · *로컬 래퍼 있으면 그 경유(§2 스텝 0) |
 | **Codex** | `codex exec` | `--full-auto` ⎮ `--yolo`* | `codex exec resume --last`** | `--output-schema` | full-auto/yolo **택1** |
 | **Gemini** | `gemini -p` | `--approval-mode yolo`*** | `--resume <session_id>`**** | `-o json` | sid resume(‘latest’는 hang 사례) |
 | **OpenCode** | `opencode run` | 기본 무승인 | `-s <sid>` / `-c` | `--format json` | **유효 provider/model 필수** |
@@ -68,6 +68,9 @@ OpenCode 모델은 설치된 provider/model 만 유효(예: `opencode/deepseek-v
 
 ## 2. 표준 실행 루프 (4스텝)
 
+0. **로컬 래퍼/알리아스 탐지 (필수 선행)** — CLI를 바이너리 직호출하기 전에 로컬 환경의 코딩 에이전트 래퍼·프록시 설정을 확인하고, **있으면 반드시 그걸 경유**한다. bare 호출은 구독 프록시를 우회해 토큰 낭비·계정 리밋 문제를 일으킨다(비대화 셸엔 alias가 적용되지 않으므로 **래퍼는 경로로 직접 호출**).
+   - 탐지: `grep -E "^alias (cc|ccd|claude|cx|codex)" ~/.zshrc` / `test -x ~/.headroom/claude-hr.sh` / `ps eww $$ | grep ANTHROPIC_BASE_URL`
+   - 예(이 환경): claude 계열 alias(`cc`/`ccs`/`ccf` 등)가 전부 `~/.headroom/claude-hr.sh`(fail-open 프록시 래퍼)를 가리킴 → 비대화 호출은 `claude -p` 대신 `~/.headroom/claude-hr.sh -p`. 스크립트는 `CLAUDE_BIN`으로 오버라이드 가능.
 1. **프롬프트 조립** — 미션 + (선택) 페르소나 system-prompt + 출력형식 강제. 페르소나는 `references/personas.md` 프리셋.
 2. **자율 invoke** — 매트릭스의 비대화+자동주행 플래그로 1줄 실행. stdin EOF 대기로 hang하는 CLI는 `< /dev/null`(특히 `codex exec`). 호출은 타임아웃으로 감쌀 것(scripts 참조).
 3. **결과 파싱** — JSON에서 `session_id` + 결과(claude=`result`, gemini=`response`) 추출. 첫 `{`부터 `json.loads(raw, strict=False)`.
