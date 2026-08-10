@@ -41,6 +41,8 @@ description: 일반화된 팀 오케스트레이션 하네스. "FT 구성", "FT 
 
 허들 통과 후, 파이프라인을 임의로 시작하지 않는다. 아래 순서를 **생략 없이** 수행한다:
 
+**스텝 -1 — 출력 스타일 (오케 필수, 2026-08-11)**: 오케 세션은 부팅 시퀀스 진입 시 `i-have-adhd` 스킬을 로드한다(`/i-have-adhd` 또는 Skill 도구). architect·DA 세션은 템플릿·COMM-GUIDE가 자체 로드하고, 작업자 워커(implementer/tester)·checker·analyst·pm은 로드 금지(보고 포맷 계약 보호 — COMM-GUIDE 「출력 스타일 스킬」).
+
 **스텝 0 (질문 아님, 유지)**: `.fable-team/state/ACTIVE` 존재 → context-management §4 복원이 인터뷰 전체를 대체(브레인 선택 포함 — state.md의 `brains:` 라인 복원). **없고 integrations가 on/required이며 현 위치가 main 워크트리 내부면 discovery** — `baton status`(1순위) + `<MAIN_ROOT>/.worktrees/*/.fable-team/state/ACTIVE` glob(보조)으로 활성 FT 워크트리 탐색 → 발견 시 해당 워크트리 **절대경로 운용**으로 복원. **신규 세션만 스텝 1~3 진행.**
 
 **스텝 1 — 브레인 선택 (세션 1회, AskUserQuestion 1개)**:
