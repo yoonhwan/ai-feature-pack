@@ -13,6 +13,12 @@ LOGDIR="${CROSS_CLI_LOGDIR:-$SDIR/logs}"; LOG="$LOGDIR/selftest.log"
 rm -rf "$LOGDIR"; mkdir -p "$LOGDIR"
 
 CLIS=("$@"); [ ${#CLIS[@]} -eq 0 ] && CLIS=(claude codex gemini opencode cursor-agent agy)
+
+# 로컬 프록시 래퍼 우선 (SKILL.md §2 스텝 0) — bare claude는 구독 프록시 우회. CLAUDE_BIN으로 오버라이드.
+CLAUDE_BIN="${CLAUDE_BIN:-}"
+if [ -z "$CLAUDE_BIN" ]; then
+  if [ -x "$HOME/.headroom/claude-hr.sh" ]; then CLAUDE_BIN="$HOME/.headroom/claude-hr.sh"; else CLAUDE_BIN="claude"; fi
+fi
 TOKEN="BANANA-7"
 R1="Remember this codeword: ${TOKEN}. Reply with exactly: OK ${TOKEN}"
 R2="What was the codeword I gave you earlier? Reply with ONLY the codeword, nothing else."
@@ -45,10 +51,10 @@ run_one(){
   log "[$cli] bin=$(command -v "$cli") · timeout=${TIMEOUT_S}s"
   case "$cli" in
     claude)
-      o1=$(run_to claude -p "$R1" --dangerously-skip-permissions --output-format json 2>"$base.err"); echo "$o1">"$base.r1"
+      o1=$(run_to "$CLAUDE_BIN" -p "$R1" --dangerously-skip-permissions --output-format json 2>"$base.err"); echo "$o1">"$base.r1"
       sid=$(sid_json "$base.r1"); has "$o1" && r1="✅" || r1="⚠️ R1불일치"
       log "[claude] R1 sid=$sid verdict=$r1"
-      if [ -n "$sid" ]; then o2=$(run_to claude -p "$R2" --resume "$sid" --dangerously-skip-permissions --output-format json 2>>"$base.err"); echo "$o2">"$base.r2"; has "$o2" && r2="✅" || r2="❌ 미회상"; else r2="❌ sid없음"; fi
+      if [ -n "$sid" ]; then o2=$(run_to "$CLAUDE_BIN" -p "$R2" --resume "$sid" --dangerously-skip-permissions --output-format json 2>>"$base.err"); echo "$o2">"$base.r2"; has "$o2" && r2="✅" || r2="❌ 미회상"; else r2="❌ sid없음"; fi
       log "[claude] R2 verdict=$r2" ;;
     codex)
       o1=$(run_to codex exec --full-auto --skip-git-repo-check "$R1" 2>"$base.err"); echo "$o1">"$base.r1"

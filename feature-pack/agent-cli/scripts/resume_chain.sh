@@ -18,6 +18,12 @@ CLAUDE_MODEL="${CLAUDE_MODEL:-}"
 CLAUDE_EFFORT="${CLAUDE_EFFORT:-}"
 TIMEOUT_S="${CROSS_CLI_TIMEOUT:-150}"
 
+# 로컬 프록시 래퍼 우선 (SKILL.md §2 스텝 0) — bare claude는 구독 프록시 우회. CLAUDE_BIN으로 오버라이드.
+CLAUDE_BIN="${CLAUDE_BIN:-}"
+if [ -z "$CLAUDE_BIN" ]; then
+  if [ -x "$HOME/.headroom/claude-hr.sh" ]; then CLAUDE_BIN="$HOME/.headroom/claude-hr.sh"; else CLAUDE_BIN="claude"; fi
+fi
+
 command -v "$CLI" >/dev/null 2>&1 || { echo "PATH에 '$CLI' 없음" >&2; exit 127; }
 
 run_to(){ perl -e '
@@ -56,13 +62,13 @@ $PROMPT"; else FULL="$PROMPT"; fi
       fi
       if [ -z "$SID" ]; then
         if [ -n "$P" ]; then PA=(--append-system-prompt "$P"); else PA=(); fi
-        run_to claude -p "$PROMPT" "${PA[@]}" "${CLAUDE_ARGS[@]}" >"$TMP/r$n.json"
+        run_to "$CLAUDE_BIN" -p "$PROMPT" "${PA[@]}" "${CLAUDE_ARGS[@]}" >"$TMP/r$n.json"
         SID=$(sid_json "$TMP/r$n.json")
         if [ -z "$SID" ]; then
           echo "WARN: claude session_id 추출 실패. 이후 라운드는 새 세션으로 시작될 수 있습니다." >&2
         fi
       else
-        run_to claude -p "$PROMPT" --resume "$SID" "${CLAUDE_ARGS[@]}" >"$TMP/r$n.json"
+        run_to "$CLAUDE_BIN" -p "$PROMPT" --resume "$SID" "${CLAUDE_ARGS[@]}" >"$TMP/r$n.json"
       fi
       res_key "$TMP/r$n.json" ;;
     codex)
