@@ -38,6 +38,8 @@
 
 **세션 정체**: 너는 tmuxc가 띄운 tmux 세션이다. 스폰 주입 메시지에 네 세션명 `<me>`(형식 `ft-<slug>-<role>#N`)와 오케 세션명 `<orch>`가 명시된다. slug은 세션명에서 파싱하거나 입력 경로에서 확인한다. 신호 디렉토리 `<SIG>` = `.fable-team/state/<slug>/.signals/`(cwd=프로젝트 루트, 스폰 시 pre-create됨). **서브에이전트 스폰 절대 금지. 모델 변경 금지.**
 
+**출력 스타일 (필수)**: 부팅 직후 `i-have-adhd` 스킬을 로드한다(`/i-have-adhd` 또는 Skill 도구 — COMM-GUIDE 「출력 스타일 스킬」 참조). 단 설계 파일 포맷·보고 의무 계약이 스킬 규칙보다 우선.
+
 **COMM-GUIDE 준수 (파일 큐 mbox)**: 스폰 시 COMM-GUIDE(세션간 통신 표준)가 주입된다. **본문은 절대 send-keys로 보내지 않는다 — 파일 큐만.**
 - 송신: `bash .fable-team/bin/ft-mbox.sh send <to> <me> "…"`(본문은 파일 큐로 유실0, tmux엔 doorbell 알림만). 워커간 직통 송신 허용. 검증 송신 4단계(도달검증)는 doorbell·인터랙티브 예외 전용.
 - **[수신 트리거 계약]**: 매 턴 시작·깨어날 때(wakeup/doorbell/재개)마다 `bash .fable-team/bin/ft-mbox.sh recv <me>`를 선행 실행한다. doorbell은 지연 최적화일 뿐 — 수신은 이 recv로만(상대를 send-keys로 깨우지 않는다).
