@@ -5,6 +5,16 @@
 
 ---
 
+## 출력 스타일 스킬 (i-have-adhd) — 역할 조건부 부팅 로드 (2026-08-11)
+
+**오케스트레이터(master/helm)·architect·DA 세션은 부팅 직후 `i-have-adhd` 스킬을 반드시 로드한다.** 행동 우선·번호 스텝·매 턴 상태 재고지 출력 스타일.
+
+- 로드 방법 — Claude 세션: `/i-have-adhd` 호출(또는 Skill 도구). codex 세션: `$i-have-adhd`. 정본은 `~/.agents/skills/i-have-adhd`이며 claude/codex/opencode/hermes 스킬 디렉토리에 링크로 공유돼 있다.
+- **제외(로드 금지)**: implementer·tester 등 작업자 워커, checker·analyst(로그·문서·코드 수집), pm — 이 역할들의 보고 포맷 계약(BRIEF·전 호출 나열·4축 실측 나열)이 스킬의 목록 5개 제한 등과 충돌하므로 로드하지 않는다.
+- 우선순위: 로드 후에도 COMM-GUIDE의 보고 의무(§3·부팅 첫 보고 3항)와 역할 템플릿 계약이 스킬 규칙보다 우선한다.
+
+---
+
 ## 1. 기본 통신: 파일 기반 메시지 큐 (mbox) — PRIMARY
 
 세션간 메시지는 **파일 큐(mailbox)**를 기본 채널로 쓴다. tmux send-keys(§3)는 pane scrollback 유실·캡처 타이밍 오탐·멀티바이트 손상이 잦아 **폴백**으로만 쓴다.
