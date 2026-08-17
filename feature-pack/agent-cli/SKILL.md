@@ -2,7 +2,7 @@
 name: agent-cli
 description: >-
   AI 코딩 에이전트 CLI 툴킷 — 설치·비교·**비대화 실행·자율주행·resume 체인·페르소나 위임**.
-  지원: Claude Code · Codex · Gemini · OpenCode · Cursor Agent (+ Aider/Amp/Pi 참고).
+  지원: Claude Code · Codex · Gemini · OpenCode · Cursor Agent · Command Code (+ Aider/Amp/Pi 참고).
   현재 코딩/채팅 세션 안에서 OTHER 프로바이더 CLI를 비대화로 띄워 자율 주행시키고(dangerous/full-auto/yolo/force),
   페르소나(DA/designer/architect)를 주입하고, resume으로 이어간다. 판별 신호는 "현재 세션과 다른 모델/에이전트에
   작업·판단을 위임". 다음에서 발동: 다른 모델의 second opinion·적대검증(DA)·설계/아키텍처 패스·cross-check,
@@ -48,7 +48,7 @@ compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu
 
 핵심 가치: **author ↔ review 분리**(내가 짠 걸 다른 모델이 적대검증), **프로바이더 무관 위임**, **세션 영속성**.
 
-## 1. CLI 자동주행 + 영속성 매트릭스 (✅ 2026-06 5종 실증)
+## 1. CLI 자동주행 + 영속성 매트릭스 (✅ 2026-06 5종 실증 · 2026-08 Command Code 추가)
 
 | CLI | 비대화 | 자동주행(자율) | resume | JSON | 비고 |
 |-----|--------|---------------|--------|------|------|
@@ -57,6 +57,7 @@ compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu
 | **Gemini** | `gemini -p` | `--approval-mode yolo`*** | `--resume <session_id>`**** | `-o json` | sid resume(‘latest’는 hang 사례) |
 | **OpenCode** | `opencode run` | 기본 무승인 | `-s <sid>` / `-c` | `--format json` | **유효 provider/model 필수** |
 | **Cursor Agent** | `cursor-agent -p` | `-f` / `--force` | `--resume <chatId>` | `--output-format json` | **`cursor` IDE 아님 — 비대화 작동** |
+| **Command Code** | `cmd -p` | `--yolo` | `-r <sid>` ⎮ `--session <id>` ⎮ `-c` | `--output-format json` | sid는 최종 `result` 라인 `sessionId`(**stdout**) · **크레딧 구독 필수**(잔액 0이면 exit 10) |
 
 \* Codex `--full-auto`(무승인+workspace-write) vs `--yolo`(=`--dangerously-bypass-approvals-and-sandbox`)는 택1.
 \*\* Codex는 session id를 **stderr**로만 노출 → stdout 파싱 대신 `resume --last`(직전 세션).
