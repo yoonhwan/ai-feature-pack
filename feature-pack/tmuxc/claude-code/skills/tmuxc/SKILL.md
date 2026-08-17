@@ -15,7 +15,7 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 
 | 명령 | 설명 |
 |------|------|
-| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선 |
+| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx\|opencode\|cmd] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선. 플래그 적용 범위: `--model`=claude·opencode·**cmd** / `--effort`=claude·**cmd** / `--like`=claude 전용 |
 | `tmuxc model {name}` | 세션의 **라이브 `--model`/`--effort` 조회** (프로세스 argv 기준 — `[1m]` 창 선택자 포함). 증류 모델 승계용 |
 | `tmuxc list` | 활성 세션 목록 + Claude 상태 |
 | `tmuxc attach {name}` | 세션 접속 안내 |
@@ -37,6 +37,17 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 ```
 tmuxc open /path/to/project --name my-session --agent omx --role worker --prompt "NEXT.md 읽고 시작"
 ```
+
+### `--agent cmd` (Command Code) — 2026-08-17 신설
+
+commandcode.ai의 코딩 에이전트(바이너리 `cmd`, macOS/Linux/WSL. 네이티브 Windows는 `cmdc`).
+합성 커맨드: `cmd --yolo --trust --skip-onboarding --name {세션명} [--model ID] [--effort E]`
+
+- **`--model`/`--effort` 둘 다 받는다** — 이 축에서 claude 다음으로 자유롭다(codex/omx는 role 고정, opencode는 effort 개념 없음).
+- **role→effort 자동 매핑은 하지 않는다.** `cmd --help`가 effort를 *"depends on the model"*로 명시하고 오픈모델 다수가 reasoning effort 개념이 없다 — 자동 주입하면 미지원 모델에서 조용히 깨진다. **필요하면 `--effort`를 명시로 넘긴다.**
+- 모델 미지정 시 Command Code 기본값(`deepseek/deepseek-v4-flash`)을 따른다. 목록은 `cmd --list-models`(55종: `claude-*`, `gpt-5.6-*`, `google/gemini-*`, 오픈모델 30종).
+- ★**크레딧 잔액 0이면 무료 모델(`poolside/laguna-s-2.1-free`)조차 거부하고 `exit 10`으로 죽는다.** 세션이 열리자마자 조용히 빈 pane이 되면 권한·경로를 의심하기 전에 **크레딧부터 확인**한다(`cmd status`, https://commandcode.ai/billing). 구독 최소 플랜은 Go $1/mo.
+- 인증: `cmd login`(브라우저 OAuth) → `~/.commandcode/auth.json`. 세션 스폰 전에 `cmd status`가 `Authentication verified`인지 확인.
 
 **동작:**
 1. 프로젝트 경로 존재 확인

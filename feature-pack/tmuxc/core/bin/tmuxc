@@ -6,7 +6,7 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, and OMX
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
   tmuxc wt <worktree-path> [same options as open]
   tmuxc list
   tmuxc attach <name>
@@ -161,6 +161,23 @@ resolve_opencode_cmd() {
   printf '%s' "$cmd"
 }
 
+# Command Code(commandcode.ai, 바이너리 `cmd`) 는 --model 과 --effort 를 둘 다 받는다.
+# 단 --help 가 effort 를 "depends on the model" 로 명시한다 — 오픈모델 다수가 reasoning
+# effort 개념이 없으므로 role→effort 를 자동 주입하지 않는다(미지원 모델에서 조용히 깨진다).
+# effort 는 명시로 넘어올 때만 붙이고, role 은 받되 커맨드에 반영하지 않는다.
+# --yolo: 권한 프롬프트 전량 우회(=--dangerously-skip-permissions). claude 의 같은 자리.
+# --trust: 프로젝트 신뢰 프롬프트 스킵. --skip-onboarding: taste 온보딩 스킵(자동화용).
+resolve_cmdcode_cmd() {
+  local name="$1"
+  local model="${2:-}"
+  local effort="${3:-}"
+  local cc="cmd --yolo --trust --skip-onboarding --name $(printf '%q' "$name")"
+  # 모델 미지정이면 Command Code 기본값(deepseek-v4-flash)을 따른다 — 임의 기본값을 박지 않는다.
+  [[ -n "$model" ]]  && cc="$cc --model $(printf '%q' "$model")"
+  [[ -n "$effort" ]] && cc="$cc --effort $(printf '%q' "$effort")"
+  printf '%s' "$cc"
+}
+
 agent_cmd() {
   local agent="$1"
   local name="$2"
@@ -171,6 +188,7 @@ agent_cmd() {
     claude) resolve_claude_cmd "$name" "$role" "$model" "$effort" ;;
     codex|omx) resolve_codex_cmd "$agent" "$role" ;;
     opencode) resolve_opencode_cmd "$model" ;;
+    cmd) resolve_cmdcode_cmd "$name" "$model" "$effort" ;;
     *) die "unknown agent: $agent" ;;
   esac
 }
@@ -258,14 +276,17 @@ cmd_open() {
   name="$(sanitize_name "$name")"
   [[ -n "$name" ]] || die "empty session name after sanitize"
 
-  # --model 은 claude/opencode 에서 쓴다. codex/omx 는 role→effort 고정이라 불가.
-  if [[ -n "$model" ]] && [[ "$agent" != "claude" && "$agent" != "opencode" ]]; then
-    die "--model 은 --agent claude|opencode 에서만 사용 (agent=$agent)"
+  # --model 은 claude/opencode/cmd 에서 쓴다. codex/omx 는 role→effort 고정이라 불가.
+  if [[ -n "$model" ]] && [[ "$agent" != "claude" && "$agent" != "opencode" && "$agent" != "cmd" ]]; then
+    die "--model 은 --agent claude|opencode|cmd 에서만 사용 (agent=$agent)"
   fi
-  # --effort/--like 는 claude 전용. opencode 는 reasoning effort 개념이 없고,
-  # --like 는 claude 프로세스 argv 에서 모델을 회수하는 방식이라 성립하지 않는다.
-  if [[ -n "$effort" || -n "$like" ]] && [[ "$agent" != "claude" ]]; then
-    die "--effort/--like 는 --agent claude 에서만 사용 (agent=$agent)"
+  # --effort 는 claude/cmd 전용. opencode 는 reasoning effort 개념이 없다.
+  if [[ -n "$effort" ]] && [[ "$agent" != "claude" && "$agent" != "cmd" ]]; then
+    die "--effort 는 --agent claude|cmd 에서만 사용 (agent=$agent)"
+  fi
+  # --like 는 claude 전용 — claude 프로세스 argv 에서 모델을 회수하는 방식이라 타 에이전트엔 성립하지 않는다.
+  if [[ -n "$like" ]] && [[ "$agent" != "claude" ]]; then
+    die "--like 는 --agent claude 에서만 사용 (agent=$agent)"
   fi
   # --like SESSION: 지정한 라이브 세션의 모델/effort를 상속 (명시 --model/--effort 가 우선)
   if [[ -n "$like" ]]; then
@@ -292,6 +313,8 @@ cmd_open() {
   local guide
   if [[ "$agent" == "claude" ]]; then
     guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$name. 세션간 메시지는 검증 송신 프로토콜 준수."
+  elif [[ "$agent" == "cmd" ]]; then
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Command Code 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것 — 특히 「Command Code(--agent cmd) 세션 특이사항」 절. --remote-control 이 없으므로 tmux verified-send/capture-pane 방식으로 보고한다. 너의 세션명(me)=$name."
   else
     guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Codex 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 참고하되, Codex에는 --remote-control이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name."
   fi
