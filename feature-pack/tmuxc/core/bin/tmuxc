@@ -29,6 +29,18 @@ die() {
   exit 1
 }
 
+prepare_color_environment() {
+  unset NO_COLOR || true
+  tmux set-environment -gu NO_COLOR 2>/dev/null || true
+}
+
+create_tmux_session() {
+  local name="$1"
+  local root="$2"
+  prepare_color_environment
+  tmux new-session -d -s "$name" -c "$root"
+}
+
 sanitize_name() {
   local raw="$1"
   raw="${raw// /-}"
@@ -306,7 +318,7 @@ cmd_open() {
   fi
 
   tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
-  tmux new-session -d -s "$name" -c "$root"
+  create_tmux_session "$name" "$root"
   inject_message "$name" "$run_cmd"
   sleep 4
 
@@ -629,7 +641,7 @@ restore_one() {
     restore_record "$idx" "$name" "$agent" "$proj" "error" "$summary"
     return 0
   fi
-  tmux new-session -d -s "$name" -c "$cwd"
+  create_tmux_session "$name" "$cwd"
   inject_message "$name" "$run_cmd"
   local ready=0 soft=0
   if restore_wait_ready "$name" "$agent"; then
