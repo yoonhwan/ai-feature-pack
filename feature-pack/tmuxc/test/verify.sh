@@ -5,6 +5,70 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 "$ROOT/core/bin/tmuxc" --help >/dev/null
 "$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_VERIFY --agent codex --role worker --dry-run | grep -q 'session=TMUXC_VERIFY'
 
+# tmuxc는 호출자나 기존 tmux 서버의 NO_COLOR를 세션 기본값으로 상속하지 않는다.
+# 격리 소켓에서 신규 서버와 기존 서버를 각각 실제 기동해 pane 환경까지 확인한다.
+COLOR_NEW="$(mktemp -d)"
+COLOR_EXISTING="$(mktemp -d)"
+cleanup_color_tmux() {
+  env -u TMUX TMUX_TMPDIR="$COLOR_NEW" tmux kill-server 2>/dev/null || true
+  env -u TMUX TMUX_TMPDIR="$COLOR_EXISTING" tmux kill-server 2>/dev/null || true
+  rm -rf "$COLOR_NEW" "$COLOR_EXISTING"
+}
+trap cleanup_color_tmux EXIT
+run_color_spawn() {
+  env -u TMUX NO_COLOR=1 TMUX_TMPDIR="$1" bash -c '
+    eval "$(sed -n "/^prepare_color_environment()/,/^}/p; /^create_tmux_session()/,/^}/p" "$1")"
+    create_tmux_session "$2" "$3"
+  ' _ "$ROOT/core/bin/tmuxc" "$2" "$ROOT"
+}
+assert_no_color() {
+  local socket_dir="$1" session="$2" pane_env try
+  env -u TMUX TMUX_TMPDIR="$socket_dir" tmux show-environment -g NO_COLOR 2>/dev/null | grep -q '^NO_COLOR=' && {
+    echo "FAIL: tmux global NO_COLOR survived for $session"; exit 1;
+  }
+  pane_env="$socket_dir/$session.env"
+  env -u TMUX TMUX_TMPDIR="$socket_dir" tmux send-keys -t "$session" -l "env > '$pane_env'"
+  env -u TMUX TMUX_TMPDIR="$socket_dir" tmux send-keys -t "$session" Enter
+  for try in 1 2 3 4 5; do
+    [ -s "$pane_env" ] && break
+    sleep 0.2
+  done
+  [ -s "$pane_env" ] || {
+    echo "FAIL: pane environment capture timed out for $session"; exit 1;
+  }
+  grep -q '^NO_COLOR=' "$pane_env" && {
+    echo "FAIL: pane inherited NO_COLOR for $session"; exit 1;
+  }
+  return 0
+}
+
+run_color_spawn "$COLOR_NEW" TMUXC_COLOR_NEW
+assert_no_color "$COLOR_NEW" TMUXC_COLOR_NEW
+
+env -u TMUX NO_COLOR=1 TMUX_TMPDIR="$COLOR_EXISTING" tmux new-session -d -s TMUXC_COLOR_SENTINEL -c "$ROOT"
+env -u TMUX TMUX_TMPDIR="$COLOR_EXISTING" tmux show-environment -g NO_COLOR | grep -q '^NO_COLOR=1$' || {
+  echo 'FAIL: existing-server fixture did not seed NO_COLOR=1'; exit 1;
+}
+run_color_spawn "$COLOR_EXISTING" TMUXC_COLOR_EXISTING
+env -u TMUX TMUX_TMPDIR="$COLOR_EXISTING" tmux has-session -t TMUXC_COLOR_SENTINEL || {
+  echo 'FAIL: color preparation destroyed the existing sentinel session'; exit 1;
+}
+assert_no_color "$COLOR_EXISTING" TMUXC_COLOR_EXISTING
+
+python3 - "$ROOT/core/bin/tmuxc" <<'PY'
+import sys
+
+lines = open(sys.argv[1], encoding="utf-8").read().splitlines()
+calls = [i for i, line in enumerate(lines) if line.strip().startswith('create_tmux_session "')]
+if len(calls) != 2:
+    raise SystemExit(f"FAIL: expected open and restore to share 2 guarded spawn calls, found {len(calls)}")
+raw_spawns = [i for i, line in enumerate(lines) if line.strip().startswith("tmux new-session ")]
+if len(raw_spawns) != 1:
+    raise SystemExit(f"FAIL: unguarded tmux spawn path found; expected 1 centralized spawn, found {len(raw_spawns)}")
+PY
+cleanup_color_tmux
+trap - EXIT
+
 # --model/--effort 오버라이드: alias 우회 + headroom 직접 합성 + [1m] 대괄호 인용 보존
 # (증류 시 1m/effort 유실 회귀 방지 — task #8). dry-run은 zshrc/파일 존재에 비의존(밀폐).
 _ov="$("$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_OVR --agent claude --role worker \
@@ -15,9 +79,9 @@ printf '%s\n' "$_ov" | grep -qF -- '--model "claude-sonnet-5[1m]"' || {
 printf '%s\n' "$_ov" | grep -q -- '--effort high' || { echo 'FAIL: --effort not applied'; exit 1; }
 printf '%s\n' "$_ov" | grep -q 'claude-hr.sh --dangerously-skip-permissions --model' || {
   echo 'FAIL: --model override must synthesize headroom launch (alias bypass)'; printf '%s\n' "$_ov"; exit 1; }
-# --model/--effort/--like 는 claude 전용 — codex agent와 함께 쓰면 거부(침묵 무시 금지)
+# --model은 claude/opencode/cmd 전용 — codex agent와 함께 쓰면 거부(침묵 무시 금지)
 _ovc="$("$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_OVR2 --agent codex --role worker --model x --dry-run 2>&1 || true)"
-printf '%s\n' "$_ovc" | grep -q 'claude 에서만' || {
+printf '%s\n' "$_ovc" | grep -q 'claude|opencode|cmd 에서만' || {
   echo 'FAIL: --model with codex must be rejected'; printf '%s\n' "$_ovc"; exit 1; }
 # model 서브커맨드: 미기동 세션 조회는 실패로 종료(침묵 성공 금지)
 if "$ROOT/core/bin/tmuxc" model TMUXC_NO_SUCH_SESSION_XYZ >/dev/null 2>&1; then
