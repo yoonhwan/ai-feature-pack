@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$SLUG" ] && [ -n "$SESS" ] || { echo "ft-tmux-poll: <slug> <sess> 필수" >&2; exit 1; }
 
-ROOT="$(ft_resolve_root "")"
+ROOT="$(ft_resolve_self_root)"
 SIG="$(ft_feat_signals "$ROOT" "$SLUG")"
 mkdir -p "$SIG/archive" 2>/dev/null
 

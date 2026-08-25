@@ -130,7 +130,9 @@ fi
 # ── ④ readiness 프로브 (5초 간격, 총 90초) ─────────────────
 CLAUDE_READY_RE="${FT_CLAUDE_READY_REGEX:-ctx:|\? for shortcuts|esc to interrupt}"
 CODEX_READY_RE="$(ft_ijson "$ROOT" probe.codex_ready_regex)"
-[ -z "$CODEX_READY_RE" ] && CODEX_READY_RE='^[[:space:]]*[A-Za-z0-9._-]+[[:space:]]+(minimal|low|medium|high)[[:space:]]+·'
+# 문자클래스에 '/' 필수 — OpenRouter 모델 ID는 provider/model 형태(stealth/ox-alpha)이고,
+# 없으면 statusline을 못 읽어 정상 부팅 좌석을 readiness timeout으로 kill한다(2026-08-23 실측).
+[ -z "$CODEX_READY_RE" ] && CODEX_READY_RE='^[[:space:]]*[A-Za-z0-9._/-]+[[:space:]]+(minimal|low|medium|high|xhigh)[[:space:]]+·'
 ready=0; waited=0
 while [ "$waited" -lt 90 ]; do
   cap="$(tmux capture-pane -p -t "$NAME" 2>/dev/null)"
