@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$SESS" ] || { echo "ft-tmux-distill: <sess> 필수" >&2; exit 1; }
-ROOT="$(ft_resolve_root "")"
+ROOT="$(ft_resolve_self_root)"
 
 # ⓪ 승인 판정 (§0-1) — ft 세션: standing 또는 op-token / 비-ft(오케 자기증류): op-token 전용(B-1c)
 # 비-ft는 standing(autonomous_ft_kill: "ft-* 한정")을 적용하지 않는다 — 하드룰 전파본과 정합.
