@@ -6,8 +6,12 @@
 set +e
 BINDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$BINDIR/ft-lib.sh"                       # ft_swap_guard 발동 + ft_sess_alive 등 헬퍼
-ROOT="$(ft_resolve_root "")"
-export FT_MBOX_DIR="$ROOT/.fable-team/comm" # py 데이터 경로 주입(bin과 데이터 분리)
+# ★2026-08-25 — 여기서 FT_MBOX_DIR 을 «덮어쓰지» 않는다★
+# 이전: ROOT 를 cwd 기준(ft_resolve_root)으로 잡아 FT_MBOX_DIR 을 export 했다. 그래서
+# (a) 같은 스크립트가 «부른 사람의 cwd» 에 따라 다른 우편함을 썼고 (b) 사용자가 env 로
+# 명시한 FT_MBOX_DIR 마저 덮어써서 회피가 불가능했다 — 실제로 메시지 유실이 났다.
+# 지금: 경로 결정은 ft-mbox.py 가 «스크립트 위치에서 유도한 정본» 으로 한다.
+# ★ft_resolve_root 자체는 안 건드렸다★ — 다른 ft-* 8개가 그 함수를 쓴다(최소 절개).
 MBOXPY="$BINDIR/ft-mbox.py"
 
 # 세션명 allowlist(py NAME_RE와 동일) — 세션명이 doorbell send-keys 명령에 삽입되므로 하드 거부.
@@ -46,7 +50,9 @@ doorbell() {
   pane="$(pane_of "$to")"
   [ -n "$pane" ] || { echo absent; return 0; }
   # 고정 명령 문자열 — 가변부는 allowlist 통과 세션명뿐. 짧아서 유실·손상 안전.
-  tmux send-keys -t "$pane" -l "bash .fable-team/bin/ft-mbox.sh recv $to" 2>/dev/null || true
+  # ★절대경로로 주입한다★ — 상대경로면 수신자의 cwd 에서 해석돼 «보낸 우편함과 다른 곳»을
+  # 열거나 아예 파일을 못 찾는다. 유실 기제의 «나머지 절반» 이 여기였다.
+  tmux send-keys -t "$pane" -l "bash $BINDIR/ft-mbox.sh recv $to" 2>/dev/null || true
   sleep 0.3
   tmux send-keys -t "$pane" Enter 2>/dev/null || true
   echo sent

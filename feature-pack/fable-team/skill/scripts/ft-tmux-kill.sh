@@ -13,7 +13,7 @@ while [ $# -gt 0 ]; do
     *) TARGET="$1"; shift;;
   esac
 done
-ROOT="$(ft_resolve_root "")"
+ROOT="$(ft_resolve_self_root)"
 
 # ── ① 가드: ft- prefix 아니면 무조건 거부(승인·토큰 무관하게 선행) ──
 guard_ft() {  # <name>
@@ -37,6 +37,7 @@ do_kill() {  # <sess>
     bash "$(dirname "$0")/ft-pm-watchd.sh" --root "$ROOT" --stop-if-owned >/dev/null 2>&1
   fi
   tmuxc kill "$sess" >/dev/null 2>&1
+  ft_warn_foreign_slug "$ROOT" "$sess" "${FT_SLUG:-}"
   ft_audit "$ROOT" "KILL $sess"
 }
 

@@ -14,7 +14,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$FILE" ] || { echo "ft-gzip: <file> 필수" >&2; exit 1; }
-ROOT="$(ft_resolve_root "")"
+ROOT="$(ft_resolve_self_root)"
 
 # ⓪ 승인 판정 (standing.auto_gzip 또는 op-token op=gzip·target 일치)
 ft_check_approval "$ROOT" gzip "$FILE" "$OP_TOKEN"

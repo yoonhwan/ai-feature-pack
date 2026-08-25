@@ -18,6 +18,43 @@ ft_resolve_root() {
   printf '%s\n' "$(pwd)"   # 폴백 — 호출자가 .fable-team 부재를 별도 처리
 }
 
+# ★자기앵커 root — cwd 에 안 갈린다★ (DESIGN-FT-RESOLVE-ROOT §1)
+# 승인·감사·신호·프롬프트는 «그 설치의 성질» 이지 «부른 사람 cwd 의 성질» 이 아니다.
+# 기존 ft_resolve_root 는 한 글자도 안 바꿨다 — 8개 소비처가 얹혀 있다(최소 절개).
+# 앵커는 ${BASH_SOURCE[0]} — $0 은 sourced 컨텍스트에서 부모 셸을 가리켜 깨진다.
+# 심링크 경유 호출도 같은 답을 내도록 readlink 루프로 실물을 찾는다.
+ft_resolve_self_root() {
+  local src="${BASH_SOURCE[0]}" dir
+  while [ -L "$src" ]; do
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    case "$src" in /*) ;; *) src="$dir/$src";; esac
+  done
+  dir="$(cd -P "$(dirname "$src")" && pwd)"          # <root>/.fable-team/bin
+  local root; root="$(cd -P "$dir/../.." && pwd)"     # <root>
+  # ★설치 검증 — 조용한 폴백 금지(#0 RULE)★. install.json 이 그 설치의 신분증이다.
+  if [ ! -f "$root/.fable-team/install.json" ]; then
+    echo "ft: INSTALL_INVALID — 이 스크립트가 속한 설치에 install.json 이 없다: $root" >&2
+    echo "ft: (스크립트를 설치 밖으로 복사했거나 설치가 손상됐다)" >&2
+    exit 8
+  fi
+  printf '%s\n' "$root"
+}
+
+# ★대상이 «이 설치» 소속인지 경고한다★ (DESIGN §1 DA 조건③)
+# 차단하지 않는 이유: lineage→설치 매핑이 없어 오탐이 정상 운용을 막는다(과설계).
+# 그러나 «소리 없이» 지나가면 타 설치 세션을 남의 승인으로 죽인 기록이 안 남는다.
+# ★함수로 둔 이유★: 인라인 분기는 테스트가 도달할 수 없어 «있다»만 검증되고
+# «동작한다»는 검증이 안 된다(2026-08-25 뮤테이션 K1 이 MISSED 로 그걸 잡았다).
+ft_warn_foreign_slug() {  # <root> <sess> <slug>
+  local root="$1" sess="$2" slug="$3"
+  [ -n "$slug" ] || return 0
+  [ -d "$root/.fable-team/state/$slug" ] && return 0
+  echo "ft-tmux-kill: ★경고★ 대상 $sess (slug=$slug) 이 이 설치($root)의 state 에 없다 — 타 설치 세션일 수 있다" >&2
+  ft_audit "$root" "KILL-FOREIGN-SLUG $sess slug=$slug"
+  return 0
+}
+
 ft_dir()       { printf '%s/.fable-team\n' "$1"; }                       # <root>
 ft_approvals() { printf '%s/.fable-team/approvals\n' "$1"; }             # <root>
 ft_global_signals() { printf '%s/.fable-team/.signals\n' "$1"; }        # <root>
@@ -93,7 +130,10 @@ ft_append() {  # <file> <line>  — append-only(원자 append: 각 write는 O_AP
 
 # 감사 로그(append-only, §0-2 L3)
 ft_audit() {  # <root> <line>
-  ft_append "$(ft_approvals "$1")/approvals-audit.log" "$(date +%s) $2"
+  # ★root= 와 script= 를 함께 남긴다★ — «어느 설치가 승인했나»와 «어느 실행체가 했나»는
+  # 다른 질문이고, 둘이 어긋난 순간(타 설치 스크립트로 남의 세션을 겨눔)이 위험하다.
+  ft_append "$(ft_approvals "$1")/approvals-audit.log" \
+    "$(date +%s) $2 root=$1 script=${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}"
 }
 
 # ── install.json 판독 ─────────────────────────────────────
