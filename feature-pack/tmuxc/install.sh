@@ -82,5 +82,14 @@ fi
 say "[5/5] 검증"
 "$LOCAL_BIN/tmuxc" --help >/dev/null
 "$LOCAL_BIN/tmuxc" list >/dev/null || true
+# 스냅샷 엔진 존재·구동 확인 (tmux 세션 없어도 실패하지 않게 --help 로만)
+if [ -f "$TARGET/core/libexec/tmuxc-snapshot.py" ]; then
+  python3 "$TARGET/core/libexec/tmuxc-snapshot.py" --help >/dev/null 2>&1 \
+    && say "  [✓] 스냅샷 엔진 (tmuxc save)" \
+    || say "  [!] 스냅샷 엔진 구동 실패 — python3 확인 필요"
+else
+  say "  [!] core/libexec/tmuxc-snapshot.py 누락 — tmuxc save 불가"
+fi
 say "✅ tmuxc $VERSION 설치 완료"
 say '   smoke: tmuxc open "$PWD" --name TMUXC_SMOKE --agent codex --role worker --dry-run'
+say '   종료 전: tmuxc save   /   재부팅 후: tmuxc restore'

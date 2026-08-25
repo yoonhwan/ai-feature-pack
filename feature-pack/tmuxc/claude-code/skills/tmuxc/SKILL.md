@@ -1,6 +1,6 @@
 ---
 name: tmuxc
-description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "claude/codex/omx 세션 만들어", "tmuxc", "tmc", "리모트 세션", "remote session", "프로젝트 세션 생성", "tmux 목록", "tmux 정리", "세션 정리", "세션 증류", "세션 클린업", "세션 복원", "세션 복구", "양방향 메시지", "세션간 메시지" 요청 시 자동 실행. (global) (user)
+description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "claude/codex/omx 세션 만들어", "tmuxc", "tmc", "리모트 세션", "remote session", "프로젝트 세션 생성", "tmux 목록", "tmux 정리", "세션 정리", "세션 증류", "세션 클린업", "세션 복원", "세션 복구", "세션 저장", "스냅샷", "종료 전 저장", "재시작 준비", "양방향 메시지", "세션간 메시지" 요청 시 자동 실행. (global) (user)
 ---
 
 # tmuxc — tmux + Claude/Codex/OMX Session Control
@@ -15,7 +15,7 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 
 | 명령 | 설명 |
 |------|------|
-| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx\|opencode\|cmd] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선. 플래그 적용 범위: `--model`=claude·opencode·**cmd** / `--effort`=claude·**cmd** / `--like`=claude 전용 |
+| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx\|opencode\|cmd] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--ctx 1m] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선. 플래그 적용 범위: `--model`=claude·opencode·cmd·**codex** / `--effort`=claude·**cmd** / `--ctx`=claude 전용 / `--like`=claude 전용 |
 | `tmuxc model {name}` | 세션의 **라이브 `--model`/`--effort` 조회** (프로세스 argv 기준 — `[1m]` 창 선택자 포함). 증류 모델 승계용 |
 | `tmuxc list` | 활성 세션 목록 + Claude 상태 |
 | `tmuxc attach {name}` | 세션 접속 안내 |
@@ -28,7 +28,8 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 | `tmuxc wt {worktree-path} [--prompt P]` | 워크트리 연계 세션 생성 |
 | `tmuxc distill {name} [--to {newbase}]` | **세션 증류** — `{base}#{N+1}` 신규 세션에 컨텍스트 이전 후 구세션 정리 |
 | `tmuxc recover [--all]` | cmux에서 디스커넥트된 tmux 세션 자동 재연결 |
-| `tmuxc restore [--select 1,3\|all\|claude\|codex] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** — claude+codex 세션 로그 스캔 → 통합 리스트업 → 선택 복구 (UC11). 상태 `synth`=alias 없이 모델로 명령 합성해 복구(effort 기본 high, `TMUXC_SYNTH_EFFORT`로 조정) / `no-alias`=모델까지 미상이라 수동. codex 익명은 user 메시지에서 역할명 추론(`me=`/`[A→B]`/`mbox.sh recv`). 진행 로그에 프로젝트·작업 표시. 종료 시 결과 표(#번호/세션명/이전 대화 요약). `--select` 인덱스는 **필터 적용 후 목록 기준** |
+| `tmuxc save [--keep N] [--dry-run]` | ★**종료 전 전역 세션 스냅샷** (UC13) — 모든 tmux 세션의 모델(**`[1m]` 포함**)·effort·session_id·작업 힌트를 라이브 argv 기준으로 파일에 굳힌다. `~/.tmuxc/snapshots/` + `latest.json`, 최근 N개 롤링(기본 20, `TMUXC_SNAPSHOT_KEEP`). claude·codex·opencode·cmd 4종 지원 |
+| `tmuxc restore [--from latest\|PATH] [--scan] [--select 1,3\|all\|claude\|codex\|opencode\|cmd] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** (UC11/UC13). **스냅샷이 있으면 자동으로 스냅샷 경로**(나이 표시) — `[1m]`/effort/opencode/cmd가 보존된다. `--scan`=스냅샷 무시하고 로그 포렌식 강제. 로그 스캔 상태 `synth`=alias 없이 모델로 명령 합성해 복구(effort 기본 high, `TMUXC_SYNTH_EFFORT`로 조정) / `no-alias`=모델까지 미상이라 수동. 진행 로그에 프로젝트·작업 표시. 종료 시 결과 표(#번호/세션명/이전 대화 요약). `--select` 인덱스는 **필터 적용 후 목록 기준** |
 
 ---
 
@@ -235,24 +236,35 @@ ccd --name "FB_OPS#9999" --remote-control "FB_OPS#9999"
 - 번호 자릿수는 증류 시 카운터(`#N`)가 아닌 **원래 번호**로 판정 (`FB_OPS#99` → 2자리 = sonnet tier 유지)
 - `#0`(오케스트레이터·온콜)은 0~99 tier이지만 특수 세션이므로 `ccd`로 기동하는 것이 일반적
 
-## UC1-6: 모델/effort 명시 오버라이드 (`--model` / `--effort` / `--like`)
+## UC1-6: 모델/effort/창 명시 오버라이드 (`--model` / `--ctx` / `--effort` / `--like`)
 
 role→alias 매핑(`role_alias`)에 없는 모델(예: `claude-sonnet-5[1m]`)로 기동하거나, **증류 시 구세션의 모델을 그대로 승계**해야 할 때 사용한다.
 
 | 플래그 | 동작 |
 |--------|------|
-| `--model <ID>` | role alias 체인을 **우회**하고 headroom 기동 커맨드를 직접 합성. `ID`의 `[1m]` 창 선택자는 큰따옴표로 보존(글롭 방지). **claude 전용** |
-| `--effort <E>` | 위 오버라이드에 `--effort E` 부가 (미지정 시 생략) |
-| `--like <SESSION>` | 지정한 **라이브 세션**의 `--model`/`--effort`를 상속(= `tmuxc model`이 회수한 값). 명시 `--model`/`--effort`가 우선 |
+| `--model <ID>` | role alias 체인을 **우회**하고 headroom 기동 커맨드를 직접 합성. `ID`의 `[1m]` 창 선택자는 큰따옴표로 보존(글롭 방지). claude·opencode·cmd·codex |
+| `--ctx <창>` | ★모델 ID에 `[창]` 컨텍스트 선택자를 부착(`--ctx 1m` → `claude-opus-5[1m]`). **멱등** — 이미 `[..]`가 있으면 덧붙이지 않는다. **claude 전용** |
+| `--effort <E>` | 위 오버라이드에 `--effort E` 부가 (미지정 시 생략). claude·cmd |
+| `--like <SESSION>` | 지정한 **라이브 세션**의 `--model`/`--effort`를 상속(= `tmuxc model`이 회수한 값). 명시 `--model`/`--effort`가 우선. claude 전용 |
 
 ```bash
 # 명시 모델(1m)로 기동
 tmuxc open . --name FB_X#0 --agent claude --role worker --model 'claude-sonnet-5[1m]' --effort high
+# 같은 것을 --ctx 로 (모델 ID를 직접 안 써도 된다)
+tmuxc open . --name FB_X#0 --agent claude --role worker --ctx 1m
 # 구세션과 동일 모델/effort로 증류 신세션 기동
 tmuxc open . --name FB_X#1 --agent claude --role worker --like 'FB_X#0'
 ```
 
-- `--model`/`--effort`/`--like`는 **claude에서만** — codex/omx와 함께 쓰면 에러(effort는 role로 고정되므로 무시하지 않고 거부).
+### ★ `--ctx` 가 필요한 이유 (2026-08-25 신설)
+
+`role_alias()`는 `worker→ccs` / `orchestrator→ccd` 두 갈래뿐이고 **1m 경로가 없다**. `ccs`는 `claude-sonnet-5`(1m 없음)로 해석되므로 **`--role worker`로는 어떤 방법으로도 1m 세션을 열 수 없었다.** zshrc에 `ccs1m`이 있어도 `role_alias()`가 거기로 가지 않는다(fable-team `state.md:64`에 진단만 되고 미해결로 남았던 건).
+
+`--ctx`는 **alias 본문의 `--model X`를 그 자리에서 `--model "X[1m]"`으로 치환**한다. 특정 alias(`ccs1m`) 존재에 의존하지 않으므로 zshrc를 건드리지 않고 **모든 role에서 1m이 가능**해진다. 모델이 1m을 지원하지 않으면 claude CLI가 시끄럽게 거부한다(조용한 폴백 없음).
+
+> 치환은 오프셋 슬라이싱으로만 한다. `${var/pat/rep}`를 쓰면 모델의 `[1m]`이 **글롭 문자클래스**로 해석돼 조용히 어긋난다.
+
+- `--model`/`--effort`/`--ctx`/`--like`의 적용 범위는 위 표대로 — 범위 밖 agent와 함께 쓰면 무시하지 않고 **에러로 거부**한다.
 - **`tmuxc model <name>`**: 세션의 라이브 프로세스 argv에서 `model=`/`effort=`를 출력한다. 트랜스크립트의 `"model"` 필드는 `[1m]`·effort를 담지 않으므로(실측) argv가 유일한 authoritative 소스. 라이브 세션에만 유효(미기동/claude 아님 → 비-0 종료).
 
 ## UC2: 세션 목록 (`tmuxc list`)
@@ -514,6 +526,58 @@ baton 세션(`.baton/handoff/` 존재)은 증류 시 `/baton:save`(구) → `/ba
 - **UC8 (cmux 디스커넥트)**: `[server exited unexpectedly]`로 세션이 끊겼으나 `tmux list-sessions`에 `attached=0`로 살아있음 → cmux 미러만 끊긴 것. cmux CLI로 재연결. (`tmux -CC` control 모드 금지가 근본 규칙.)
 - **UC11 (서버 사망)**: `tmux list-sessions`가 `no server running` 에러 → 서버 프로세스 자체 사망. `~/.claude/projects/*/sessions-index.json`으로 tmux 재생성 + `claude --resume {sessionId}`로 대화 복원.
 - **먼저 구분**: `attached=0` = UC8 / `no server running` = UC11. 상세 절차·함정은 위 reference.
+
+---
+
+## UC13: 종료 전 스냅샷 & 복원 (`tmuxc save` / `restore --from`)
+
+**컴퓨터를 끄기 전에 `tmuxc save` 한 번.** 이게 복구 품질을 결정한다.
+
+```bash
+tmuxc save                      # 종료 전 — 전역 tmux 세션 상태를 파일로 굳힌다
+# 재부팅 후
+tmuxc restore                   # 스냅샷이 있으면 자동으로 스냅샷 경로 (나이 표시)
+tmuxc restore --select all --go # 일괄 복구
+```
+
+### 13-1. 왜 필요한가 — 로그 스캔이 구조적으로 못 하는 것
+
+UC11 `restore`(로그 스캔)는 **사후 포렌식**이다. 세션 로그에서 "무엇이 살아 있었는지"를 추론하므로, **로그에 기록되지 않는 것은 복구할 수 없다.**
+
+★**`[1m]` 창 선택자와 effort는 트랜스크립트에 기록되지 않는다** (2026-08-25 실측: 최근 2일 jsonl 전량 grep → `"model":"claude-opus-5"` 같은 bare ID만, `[1m]` 히트 **0건**). 그래서 로그 스캔으로 되살린 1M 세션은 조용히 200K로 뜬다.
+
+`[1m]`·effort가 살아 있는 유일한 소스는 **라이브 프로세스 argv**다(`tmuxc model`이 읽는 그것). `tmuxc save`는 그 argv를 죽기 전에 파일로 굳힌다.
+
+| 축 | 로그 스캔(`--scan`) | 스냅샷(`save`) |
+|---|---|---|
+| `[1m]` 창 선택자 | ❌ 전량 유실 | ✅ 보존 |
+| effort | ❌ `high` 일괄 추정 | ✅ 보존 |
+| opencode / Command Code | ❌ 미지원 | ✅ 지원 |
+| codex 모델 | ❌ `gpt-5.5` 하드코딩 | ✅ `-c model=` 보존 |
+| 비-tmuxc 세션(`#N` 없음) | ❌ `--loose` 필요 | ✅ 전량 포함 |
+| 복구 커맨드 | alias 런타임 추론(실패 가능) | ✅ save 시점 완제품 replay |
+
+### 13-2. 산출물
+
+`~/.tmuxc/snapshots/snapshot-<UTC>.json` + `latest.json` 심링크. **최근 N개 롤링 보관**(기본 20 · `--keep N` · `TMUXC_SNAPSHOT_KEEP`), 초과분은 저장 시 자동 삭제. 쓰기는 `.tmp` → `os.replace` **원자적** — 종료 직전에 부분 기록된 스냅샷을 남기지 않는다.
+
+세션당 기록: `name` / `cwd` / `agent` / `model`(`[1m]` 포함) / `effort` / `session_id` / `sid_source` / `title`(작업 힌트) / `attached` / `pane_command` / **`resume_cmd`**(완제품 복구 커맨드).
+
+### 13-3. session_id 해석 — 4패스 + 선점
+
+`argv`(정본) → `transcript`(`세션명(me)={name}` 마커) → `name-match`(본문에 이름 등장) → `cwd-latest`(cwd 안 최신).
+
+★**한 sid가 두 세션에 붙지 않도록 확신도 높은 패스가 먼저 선점한다.** 선점이 없으면 같은 워크트리를 공유하는 세션들이 같은 트랜스크립트를 물어 **한 대화가 두 세션으로 복원된다**(2026-08-25 실측으로 잡힌 결함 — CFO_OPSALERT#0 / CFO_SSOT#0). `sid_source` 열이 어느 패스였는지 남기므로 `cwd-latest`는 사람이 한 번 눈으로 확인한다.
+
+- codex/opencode는 트랜스크립트에 세션명 마커가 없어 **`cwd-latest`에서만** 해석된다(구조적 한계).
+- opencode는 sqlite(`~/.local/share/opencode/opencode.db`)가 정본 — `storage/session/*.json`은 레거시로 라이브 세션이 안 남는다. `mode=ro`로만 연다.
+
+### 13-4. 운용 규칙
+
+- **`save`는 읽기 전용**이다. tmux를 건드리지 않는다.
+- **`restore`는 `--go` 없이는 아무것도 실행하지 않는다** — 표만 찍는다. 먼저 표로 확인하고 `--select`로 고른다.
+- 스냅샷이 24시간을 넘으면 경고한다. 그 이후 생긴 세션은 스냅샷에 없으므로 `--scan` 병행을 검토한다.
+- 상세·함정은 `references/tmuxc-disaster-recovery.md` §11-0-snap.
 
 ---
 

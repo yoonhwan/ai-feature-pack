@@ -46,7 +46,47 @@ cmux(cmuxterm.app) 워크스페이스에서 보던 tmux 세션들이 `[server ex
 
 **tmux 서버 프로세스 자체가 죽어**(대표: PC 재부팅) 모든 세션이 소실된 상황(UC8과 달리 세션이 아예 없음). claude/codex 작업 세션은 디스크에 보존되므로, **세션 로그에서 복구 대상을 자동 식별해 tmux를 재생성하고 resume으로 대화까지 복원**한다.
 
-### 11-0. 자동 복구 (구현됨 — `tmuxc restore`, v0.2.0)
+### 11-0-snap. 스냅샷 복구 (권장 — `tmuxc save` / `restore --from`, v0.3.0)
+
+**평상시(특히 컴퓨터 종료 전)에 `tmuxc save` 한 번**이 복구 품질을 결정한다. 로그 스캔이 구조적으로 못 하는 것을 스냅샷은 한다.
+
+```bash
+tmuxc save                      # 종료 전 — 전역 tmux 세션 상태를 파일로 굳힌다
+tmuxc save --keep 5             # 보관 개수 조정 (기본 20, TMUXC_SNAPSHOT_KEEP)
+tmuxc save --dry-run            # 파일 안 쓰고 JSON만 stdout
+
+tmuxc restore                   # 스냅샷이 있으면 «자동으로» 스냅샷 경로 (나이 표시)
+tmuxc restore --from latest     # 명시
+tmuxc restore --from ~/.tmuxc/snapshots/snapshot-20260825T084759Z.json
+tmuxc restore --scan            # 스냅샷 무시하고 기존 로그 포렌식 강제
+```
+
+**산출물**: `~/.tmuxc/snapshots/snapshot-<UTC>.json` + `latest.json` 심링크. **최근 N개만 롤링 보관**하고 나머지는 저장 시 자동 삭제한다. 쓰기는 `.tmp` → `os.replace` 원자적 — 종료 직전에 부분 기록된 스냅샷을 남기지 않는다.
+
+**로그 스캔 대비 이점** (실측 49세션):
+
+| 축 | 로그 스캔 | 스냅샷 |
+|---|---|---|
+| `[1m]` 창 선택자 | ❌ 전량 유실 (트랜스크립트 미기록) | ✅ argv에서 보존 |
+| effort | ❌ `high`로 일괄 추정 | ✅ argv에서 보존 |
+| opencode / Command Code | ❌ 스캔 대상 아님 | ✅ 지원 |
+| codex 모델 | ❌ `gpt-5.5` 하드코딩 | ✅ `-c model=` 보존 |
+| 비-tmuxc 세션(`#N` 없음) | ❌ `--loose` 필요 | ✅ 전량 포함 |
+| 복구 커맨드 | alias 런타임 추론(실패 가능) | ✅ save 시점 완제품 replay |
+
+**동작**: ① tmux 전 세션 열거(`#S`/`session_path`/`attached`/`pane_current_command`) → ② pane 후손 프로세스 argv에서 agent·model·effort·sid 판별 → ③ argv에 sid가 없으면 세션 로그에서 해석 → ④ 에이전트별 복구 커맨드 합성 → ⑤ JSON 기록.
+
+**sid 해석은 4패스 + 선점**이다. `argv`(정본) → `transcript`(`세션명(me)={name}` 마커) → `name-match`(본문에 이름 등장) → `cwd-latest`(cwd 안 최신). **한 sid가 두 세션에 붙지 않도록 확신도 높은 패스가 먼저 선점한다** — 선점이 없으면 cwd를 공유하는 세션들(같은 워크트리의 CFO_OPSALERT#0 / CFO_SSOT#0)이 같은 트랜스크립트를 물어 **한 대화가 두 세션으로 복원되는** 결함이 난다(2026-08-25 실측으로 잡힘). `sid_source` 열이 어느 패스였는지 남기므로 `cwd-latest`는 사람이 한 번 눈으로 확인한다.
+
+- codex/opencode는 트랜스크립트에 세션명 마커가 없어 **`cwd-latest` 패스에서만** 해석된다(구조적 한계).
+- opencode는 sqlite(`~/.local/share/opencode/opencode.db`)가 정본이다 — `storage/session/*.json`은 레거시로 라이브 세션이 안 남는다(2026-08-25 실측). `mode=ro`로만 연다.
+- `title`(직전 작업 힌트)은 복구 표에서 "이게 무슨 세션인가"를 보여준다. opencode는 db의 `title` 컬럼, 나머지는 트랜스크립트의 첫/마지막 유의미 user 메시지.
+
+---
+
+### 11-0. 자동 복구 — 로그 스캔 폴백 (`tmuxc restore --scan`, v0.2.0)
+
+> 스냅샷이 없을 때의 경로다. `[1m]`·effort·opencode·cmd는 이 경로로 복구되지 않는다(§11-0a-정정).
 
 복원 진행 로그는 `#N · 세션명 · 프로젝트 · 작업`을 함께 찍는다.
 복원 종료 시 **결과 표**로 `#번호 / 세션명 / 결과 / 프로젝트 / 이전 대화 요약`을 한 번에 출력한다.
@@ -79,9 +119,21 @@ tmuxc restore --loose            # 세션명 규약(#N) 필터 해제 — ad-hoc
 **원인**: 스캐너의 `MODEL_ALIAS` 매핑(`ccf`/`ccs`/`ccd`)에 해당 모델이 없고 zshrc에도 alias가 없으면, alias 체인 해석에 실패해 기동 명령 자체를 못 만든다. **모델은 세션 로그에서 이미 알고 있는데 alias 부재만으로 포기하던 구조.**
 
 **수정(적용됨)**: alias 미해석 시 **모델로 headroom 기동을 직접 합성**하는 폴백을 넣었다. 상태 표기도 `no-alias`(진짜 불가) / **`synth`(합성 복구 가능)**로 분리했다.
-- `core/bin/tmuxc` `restore_cmd_for()`: alias 실패 → `claude-hr.sh --model "{모델}" --effort ${TMUXC_SYNTH_EFFORT:-high}` 합성. 모델 문자열은 `[1m]` suffix를 포함한 원본이라 **창 크기도 승계**된다.
+- `core/bin/tmuxc` `restore_cmd_for()`: alias 실패 → `claude-hr.sh --model "{모델}" --effort ${TMUXC_SYNTH_EFFORT:-high}` 합성.
 - `core/libexec/tmuxc-restore-scan.py`: `status = "synth" if model else "no-alias"`.
-- effort는 로그에 남지 않아 기본 `high` — 원본이 medium이었으면 `TMUXC_SYNTH_EFFORT=medium tmuxc restore ...`로 지정한다.
+
+### ⚠️ 11-0a-정정 (2026-08-25) — 로그 스캔은 `[1m]`·effort를 복원하지 못한다
+
+**이 문서는 위 항목에서 "모델 문자열은 `[1m]` suffix를 포함한 원본이라 창 크기도 승계된다"고 적고 있었다. 그 문장은 틀렸다.**
+
+실측(2026-08-25): 최근 2일치 `~/.claude/projects/**/*.jsonl` 전량 grep 결과 기록되는 값은 `"model":"claude-opus-5"` 같은 **bare ID뿐이고 `[1m]` 히트는 0건**이다. effort도 트랜스크립트에 없다. 즉 로그 스캔 경로(`synth` 포함)는 구조적으로:
+
+- `[1m]` 창 선택자를 **잃는다** → 1M 세션이 200K로 되살아난다
+- effort를 **잃는다** → `TMUXC_SYNTH_EFFORT` 기본 `high`로 일괄 추정된다
+
+`[1m]`·effort가 살아 있는 유일한 소스는 **라이브 프로세스 argv**다(`tmuxc model {name}`이 읽는 그것). 그래서 살아 있을 때 argv를 파일로 굳히는 **`tmuxc save` 스냅샷**이 도입됐다 — §11-0-snap 참조.
+
+**따라서 복구 우선순위는**: `tmuxc save` 스냅샷 > 로그 스캔(`--scan`). 스냅샷이 없으면 1m/effort는 복구 후 **수동으로 확인**해야 한다(`tmuxc model {name}`으로 대조).
 
 **남는 수동 축 2개** (합성으로 못 메우는 것):
 1. **cwd 오판** — 세션 로그의 cwd가 워크트리가 아닌 리포 루트로 잡히는 경우가 있다(실증: impl#52). 복구 전 `cwd=` 줄을 눈으로 확인하고, 틀리면 `tmux new-session -s '{name}' -c {정확한cwd}` 후 명령을 수동 주입한다.
