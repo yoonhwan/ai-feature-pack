@@ -1,8 +1,8 @@
 {
   "name": "tmuxc",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "title": "tmuxc — tmux session launcher for Claude, Codex, and OMX",
-  "description": "프로젝트/워크트리별 tmux 세션을 열고 Claude Code, Codex CLI, OMX를 역할(worker/orchestrator/designer)에 맞게 기동한다. baton handoff와 cairn 일정 원장을 병행하는 멀티에이전트 작업에서 세션 생성·목록·전송·capture 기반 검증 통신 표준을 제공한다.",
+  "description": "프로젝트/워크트리별 tmux 세션을 열고 Claude Code, Codex CLI, OMX, opencode, Command Code를 역할(worker/orchestrator/designer)에 맞게 기동한다. 종료 전 `tmuxc save`로 전역 세션 상태(모델·[1m] 창 선택자·effort·session_id)를 스냅샷으로 굳히고 `tmuxc restore --from`으로 되살린다. baton handoff와 cairn 일정 원장을 병행하는 멀티에이전트 작업에서 세션 생성·목록·전송·capture 기반 검증 통신 표준을 제공한다.",
   "category": "workflow",
   "os": [
     "darwin",
@@ -21,6 +21,11 @@
       "name": "tmuxc-restore-scan",
       "kind": "cli-support",
       "path": "core/libexec/tmuxc-restore-scan.py"
+    },
+    {
+      "name": "tmuxc-snapshot",
+      "kind": "cli-support",
+      "path": "core/libexec/tmuxc-snapshot.py"
     }
   ],
   "skill_surfaces": [
@@ -72,7 +77,8 @@
     "settings.json",
     "hooks.json",
     "captures",
-    "transcripts"
+    "transcripts",
+    "snapshots"
   ],
   "public_docs": [
     "README.md",

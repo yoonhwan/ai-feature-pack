@@ -6,7 +6,7 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, and OMX
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
   tmuxc wt <worktree-path> [same options as open]
   tmuxc list
   tmuxc attach <name>
@@ -16,11 +16,16 @@ Usage:
   tmuxc msg <name> <message>
   tmuxc kill <name>
   tmuxc clean
-  tmuxc restore [--since HOURS] [--agent claude|codex|all] [--select 1,3,5|all|claude|codex] [--baton] [--loose] [--go]
+  tmuxc save [--keep N] [--dry-run]   # 종료 전 전역 세션 스냅샷 (argv 기준 — [1m]/effort 보존)
+  tmuxc restore [--from latest|PATH] [--scan] [--since HOURS] [--agent claude|codex|all] [--select 1,3,5|all|claude|codex|opencode|cmd] [--baton] [--loose] [--go]
 
 Defaults:
   agent: ${TMUXC_AGENT:-claude}
   role:  worker
+  save:  ~/.tmuxc/snapshots/ (최근 ${TMUXC_SNAPSHOT_KEEP:-20}개 롤링 보관)
+
+복원 우선순위: 스냅샷(tmuxc save) > 로그 스캔(--scan). 스냅샷만이 [1m]/effort/
+opencode/cmd 를 보존한다 — 트랜스크립트에는 [1m]·effort 가 기록되지 않는다.
 EOF
 }
 
@@ -74,6 +79,38 @@ role_alias() {
 CREW_MODEL="claude-sonnet-4-6"
 CREW_EFFORT="medium"
 
+# --ctx 컨텍스트 창 선택자 — 모델 ID에 "[1m]" 형태로 덧붙인다.
+# 1m 을 alias 존재(ccs1m 등)에 의존하지 않는 명시 축으로 올린다: role_alias() 에는
+# 1m 경로가 없어 --role worker 는 어떤 방법으로도 1m 을 못 얻던 문제(2026-08 실증)의 대응.
+# 멱등 — 이미 [..] 가 붙은 모델에는 덧붙이지 않는다.
+apply_ctx_window() {
+  local model="$1" ctx="${2:-}"
+  [[ -n "$ctx" ]] || { printf '%s' "$model"; return 0; }
+  [[ "$model" == *'['*']' ]] && { printf '%s' "$model"; return 0; }
+  printf '%s[%s]' "$model" "$ctx"
+}
+
+# alias 본문의 `--model X` / `--model "X"` 를 `--model "X[ctx]"` 로 치환한다.
+# 치환은 오프셋 슬라이싱으로만 한다 — ${var/pat/rep} 는 모델의 "[1m]" 을 글롭
+# 문자클래스로 해석해 조용히 어긋난다.
+alias_body_apply_ctx() {
+  local body="$1" ctx="${2:-}"
+  [[ -n "$ctx" ]] || { printf '%s' "$body"; return 0; }
+  [[ "$body" == *"--model "* ]] || die "--ctx: alias 본문에서 --model 을 찾지 못했습니다: $body"
+  local pre rest m post
+  pre="${body%%--model *}"
+  rest="${body#*--model }"
+  if [[ "$rest" == '"'* ]]; then
+    m="${rest#\"}"; m="${m%%\"*}"
+    post="${rest:$(( ${#m} + 2 ))}"
+  else
+    m="${rest%% *}"
+    post="${rest:${#m}}"
+  fi
+  [[ -n "$m" ]] || die "--ctx: alias 본문의 --model 값이 비어 있습니다: $body"
+  printf '%s--model "%s"%s' "$pre" "$(apply_ctx_window "$m" "$ctx")" "$post"
+}
+
 zsh_alias_body() {
   local alias_name="$1"
   local out
@@ -111,12 +148,13 @@ resolve_claude_cmd() {
   local role="$2"
   local model="${3:-}"
   local effort="${4:-}"
+  local ctx="${5:-}"
   # 명시적 --model 오버라이드: role_alias/zsh alias 체인을 우회하고 headroom 기동
   # 커맨드를 직접 합성한다 (ft-tmux-spawn.sh raw_launch_fallback과 동일 방식 — 방식 분기 금지).
   # 모델 문자열의 [1m] 창 선택자는 큰따옴표로 보존한다(cc/ccs1m alias와 동일 인용 → 글롭 방지).
   if [[ -n "$model" ]]; then
     local cmd
-    cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --model \"$model\""
+    cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --model \"$(apply_ctx_window "$model" "$ctx")\""
     [[ -n "$effort" ]] && cmd="$cmd --effort $effort"
     printf '%s --name %q --remote-control %q' "$cmd" "$name" "$name"
     return 0
@@ -126,7 +164,7 @@ resolve_claude_cmd() {
   # crew/plugin role: alias 체인 대신 고정 스펙 직접 합성 (--model 오버라이드 분기와 동일 방식)
   if [[ "$alias_name" == "__crew__" ]]; then
     local cmd
-    cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --model \"$CREW_MODEL\" --effort ${effort:-$CREW_EFFORT}"
+    cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --model \"$(apply_ctx_window "$CREW_MODEL" "$ctx")\" --effort ${effort:-$CREW_EFFORT}"
     printf '%s --name %q --remote-control %q' "$cmd" "$name" "$name"
     return 0
   fi
@@ -135,17 +173,25 @@ resolve_claude_cmd() {
   if [[ -z "$body" ]]; then
     die "missing Claude alias for role '$role': $alias_name"
   fi
+  # --ctx 는 alias 본문의 모델을 그 자리에서 승격한다 — ccs1m 같은 특정 alias 존재에
+  # 의존하지 않으므로 zshrc 를 건드리지 않고 모든 role 에서 1m 이 가능해진다.
+  body="$(alias_body_apply_ctx "$body" "$ctx")"
   printf '%s --name %q --remote-control %q' "$body" "$name" "$name"
 }
 
 resolve_codex_cmd() {
   local agent="$1"
   local role="$2"
+  local model="${3:-}"
+  # codex 전용 모델 오버라이드: -c model="ID" 로 codex config.toml 의 model 키를 세션 한정 재정의.
+  # 전역 config.toml 은 건드리지 않는다 — CLI -c 오버라이드는 그 프로세스에만 적용된다.
+  local model_opt=""
+  [[ -n "$model" ]] && model_opt=" -c model=\"$model\""
   case "$agent" in
     codex)
       case "$role" in
-        worker|crew|plugin) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="medium"' ;;
-        orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"' ;;
+        worker|crew|plugin) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="medium"%s' "$model_opt" ;;
+        orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"%s' "$model_opt" ;;
         *) die "unknown role: $role" ;;
       esac
       ;;
@@ -196,9 +242,10 @@ agent_cmd() {
   local role="$3"
   local model="${4:-}"
   local effort="${5:-}"
+  local ctx="${6:-}"
   case "$agent" in
-    claude) resolve_claude_cmd "$name" "$role" "$model" "$effort" ;;
-    codex|omx) resolve_codex_cmd "$agent" "$role" ;;
+    claude) resolve_claude_cmd "$name" "$role" "$model" "$effort" "$ctx" ;;
+    codex|omx) resolve_codex_cmd "$agent" "$role" "$model" ;;
     opencode) resolve_opencode_cmd "$model" ;;
     cmd) resolve_cmdcode_cmd "$name" "$model" "$effort" ;;
     *) die "unknown agent: $agent" ;;
@@ -254,6 +301,7 @@ cmd_open() {
   local model=""
   local effort=""
   local like=""
+  local ctx=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -261,6 +309,7 @@ cmd_open() {
       --agent) agent="${2:-}"; shift 2 ;;
       --role) role="${2:-}"; shift 2 ;;
       --model) model="${2:-}"; shift 2 ;;
+      --ctx) ctx="${2:-}"; shift 2 ;;
       --effort) effort="${2:-}"; shift 2 ;;
       --like) like="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
@@ -288,13 +337,20 @@ cmd_open() {
   name="$(sanitize_name "$name")"
   [[ -n "$name" ]] || die "empty session name after sanitize"
 
-  # --model 은 claude/opencode/cmd 에서 쓴다. codex/omx 는 role→effort 고정이라 불가.
-  if [[ -n "$model" ]] && [[ "$agent" != "claude" && "$agent" != "opencode" && "$agent" != "cmd" ]]; then
-    die "--model 은 --agent claude|opencode|cmd 에서만 사용 (agent=$agent)"
+  # --model 은 claude/opencode/cmd/codex 에서 쓴다. omx 는 role→effort 고정이라 불가(모델 오버라이드 미지원).
+  if [[ -n "$model" ]] && [[ "$agent" != "claude" && "$agent" != "opencode" && "$agent" != "cmd" && "$agent" != "codex" ]]; then
+    die "--model 은 --agent claude|opencode|cmd|codex 에서만 사용 (agent=$agent)"
   fi
   # --effort 는 claude/cmd 전용. opencode 는 reasoning effort 개념이 없다.
   if [[ -n "$effort" ]] && [[ "$agent" != "claude" && "$agent" != "cmd" ]]; then
     die "--effort 는 --agent claude|cmd 에서만 사용 (agent=$agent)"
+  fi
+  # --ctx 는 claude 전용 — 컨텍스트 창 선택자 "model[1m]" 은 claude CLI 문법이다.
+  if [[ -n "$ctx" ]] && [[ "$agent" != "claude" ]]; then
+    die "--ctx 는 --agent claude 에서만 사용 (agent=$agent)"
+  fi
+  if [[ -n "$ctx" && ! "$ctx" =~ ^[0-9]+[mk]$ ]]; then
+    die "--ctx 값 형식 오류: '$ctx' (예: 1m)"
   fi
   # --like 는 claude 전용 — claude 프로세스 argv 에서 모델을 회수하는 방식이라 타 에이전트엔 성립하지 않는다.
   if [[ -n "$like" ]] && [[ "$agent" != "claude" ]]; then
@@ -310,7 +366,7 @@ cmd_open() {
   fi
 
   local run_cmd
-  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort")"
+  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx")"
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
@@ -388,6 +444,223 @@ cmd_clean() {
   done < <(tmux list-panes -a -F '#S	#{pane_current_command}' 2>/dev/null || true)
 }
 
+# ---------- UC13: 종료 전 스냅샷 (save) ----------
+
+SNAP_DIR="${TMUXC_SNAPSHOT_DIR:-$HOME/.tmuxc/snapshots}"
+SEP=$'\x1f'
+
+snapshot_helper_py() {
+  local self cand
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  cand="$(dirname "$self")/../libexec/tmuxc-snapshot.py"
+  if [[ ! -f "$cand" && -f "$HOME/.tmuxc/current/core/libexec/tmuxc-snapshot.py" ]]; then
+    cand="$HOME/.tmuxc/current/core/libexec/tmuxc-snapshot.py"
+  fi
+  printf '%s' "$cand"
+}
+
+# pane 아래 모든 후손 pid (얕은 pgrep -P 는 npm exec → node → 실바이너리 체인을 놓친다)
+pane_descendant_pids() {
+  # local 은 워드를 «전부 확장한 뒤» 대입한다 — 같은 local 문에서 앞 변수를 참조하면
+  # set -u 아래서 unbound 로 죽는다. 반드시 문장을 분리한다.
+  local root="$1"
+  local queue=("$root")
+  local out=() cur kids depth=0
+  while [[ "${#queue[@]}" -gt 0 && "$depth" -lt 8 ]]; do
+    local next=()
+    for cur in "${queue[@]}"; do
+      out+=("$cur")
+      kids="$(pgrep -P "$cur" 2>/dev/null || true)"
+      [[ -n "$kids" ]] && next+=($kids)
+    done
+    queue=("${next[@]+"${next[@]}"}")
+    depth=$((depth + 1))
+  done
+  printf '%s\n' "${out[@]+"${out[@]}"}"
+}
+
+# 세션의 라이브 에이전트를 argv 에서 판별한다.
+# argv 가 [1m] 창 선택자·effort 의 유일한 authoritative 소스다 — 트랜스크립트에는
+# 둘 다 기록되지 않는다(2026-08-25 실측: jsonl 전량 grep 결과 [1m] 히트 0).
+# 출력: agent/model/effort/sid 를 KEY=VALUE 줄로. 에이전트 미검출 시 비-0.
+session_agent_probe() {
+  local sess="$1"
+  local ppid
+  ppid="$(tmux list-panes -t "$sess" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  [[ -n "$ppid" ]] || return 1
+  local pid cmd agent="" model="" effort="" sid=""
+  for pid in $(pane_descendant_pids "$ppid"); do
+    cmd="$(ps -o command= -p "$pid" 2>/dev/null || true)"
+    [[ -n "$cmd" ]] || continue
+    local -a toks=()
+    read -ra toks <<< "$cmd"
+    local t prev="" base kind="" i=0 want_resume=0
+    kind=""
+    for t in "${toks[@]}"; do
+      base="${t##*/}"
+      case "$base" in
+        claude) kind="claude" ;;
+        codex)  kind="codex" ;;
+        opencode|opencode.exe) kind="opencode" ;;
+        cmd|cmdc) kind="cmd" ;;
+      esac
+      [[ -n "$kind" ]] && break
+    done
+    [[ -n "$kind" ]] || continue
+    # npm exec 래퍼는 인자를 *** 로 가린다 — sid 를 못 주는 프로세스는 후보로만 두고 계속 찾는다
+    local p_model="" p_effort="" p_sid=""
+    prev=""
+    for t in "${toks[@]}"; do
+      case "$prev" in
+        --model|-m) p_model="$t" ;;
+        --effort)   p_effort="$t" ;;
+        --resume|--session|-s) [[ "$t" != -* ]] && p_sid="$t" ;;
+      esac
+      case "$t" in
+        -c) : ;;
+        model=*)                   p_model="${t#model=}";   p_model="${p_model%\"}"; p_model="${p_model#\"}" ;;
+        model_reasoning_effort=*)  p_effort="${t#model_reasoning_effort=}"; p_effort="${p_effort%\"}"; p_effort="${p_effort#\"}" ;;
+      esac
+      # `codex resume <uuid>` 위치 인자
+      if [[ "$kind" == "codex" && "$prev" == "resume" && "$t" != -* && "$t" != "***" ]]; then
+        p_sid="$t"
+      fi
+      prev="$t"
+    done
+    # 더 구체적인 프로세스(sid/model 을 실제로 가진 쪽)를 우선 채택
+    agent="$kind"
+    [[ -n "$p_model"  ]] && model="$p_model"
+    [[ -n "$p_effort" ]] && effort="$p_effort"
+    [[ -n "$p_sid"    ]] && sid="$p_sid"
+    [[ -n "$sid" && -n "$model" ]] && break
+  done
+  [[ -n "$agent" ]] || return 1
+  printf 'agent=%s\n' "$agent"
+  [[ -n "$model"  ]] && printf 'model=%s\n' "$model"
+  [[ -n "$effort" ]] && printf 'effort=%s\n' "$effort"
+  [[ -n "$sid"    ]] && printf 'sid=%s\n' "$sid"
+  return 0
+}
+
+# 스냅샷 행 → 복구 커맨드 합성. open 경로와 같은 합성기를 쓴다(방식 분기 금지).
+snapshot_resume_cmd() {
+  local agent="$1" name="$2" model="$3" effort="$4" sid="$5"
+  case "$agent" in
+    claude)
+      local cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions"
+      [[ -n "$model"  ]] && cmd="$cmd --model \"$model\""
+      [[ -n "$effort" ]] && cmd="$cmd --effort $effort"
+      [[ -n "$sid"    ]] && cmd="$cmd --resume $sid"
+      printf '%s --name %q --remote-control %q' "$cmd" "$name" "$name"
+      ;;
+    codex)
+      local cmd="codex"
+      [[ -n "$sid" ]] && cmd="$cmd resume $sid"
+      cmd="$cmd --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=\"${effort:-high}\""
+      [[ -n "$model" ]] && cmd="$cmd -c model=\"$model\""
+      printf '%s' "$cmd"
+      ;;
+    opencode)
+      local cmd="opencode --auto"
+      [[ -n "$sid"   ]] && cmd="$cmd -s $(printf '%q' "$sid")"
+      [[ -n "$model" ]] && cmd="$cmd --model $(printf '%q' "$model")"
+      printf '%s' "$cmd"
+      ;;
+    cmd)
+      local cmd="cmd --yolo --trust --skip-onboarding --name $(printf '%q' "$name")"
+      [[ -n "$sid"    ]] && cmd="$cmd --session $(printf '%q' "$sid")"
+      [[ -n "$model"  ]] && cmd="$cmd --model $(printf '%q' "$model")"
+      [[ -n "$effort" ]] && cmd="$cmd --effort $(printf '%q' "$effort")"
+      printf '%s' "$cmd"
+      ;;
+    *) printf '' ;;   # shell 전용 pane — 복구 커맨드 없음
+  esac
+}
+
+snapshot_prune() {
+  local keep="$1" f n=0
+  [[ -d "$SNAP_DIR" ]] || return 0
+  while IFS= read -r f; do
+    n=$((n + 1))
+    if [[ "$n" -gt "$keep" ]]; then
+      rm -f "$f"
+      printf '  🗑  롤링 삭제: %s\n' "$(basename "$f")"
+    fi
+  done < <(ls -1t "$SNAP_DIR"/snapshot-*.json 2>/dev/null || true)
+}
+
+cmd_save() {
+  local dry_run=0 keep="${TMUXC_SNAPSHOT_KEEP:-20}"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --keep) keep="${2:-}"; shift 2 ;;
+      --dry-run) dry_run=1; shift ;;
+      --help|-h) usage; exit 0 ;;
+      *) die "unknown option for save: $1" ;;
+    esac
+  done
+  [[ "$keep" =~ ^[0-9]+$ && "$keep" -ge 1 ]] || die "--keep 는 1 이상의 정수 (받음: $keep)"
+
+  local helper
+  helper="$(snapshot_helper_py)"
+  [[ -f "$helper" ]] || die "snapshot engine not found: $helper"
+  tmux list-sessions >/dev/null 2>&1 || die "tmux 서버가 없습니다 — 저장할 세션 없음"
+
+  # 1단계: tmux 열거 + argv 수집
+  local raw="" name cwd attached pane_cmd probe agent model effort sid
+  while IFS=$'\t' read -r name cwd attached pane_cmd; do
+    [[ -n "$name" ]] || continue
+    agent="" model="" effort="" sid=""
+    probe="$(session_agent_probe "$name" 2>/dev/null || true)"
+    if [[ -n "$probe" ]]; then
+      agent="$(printf '%s\n' "$probe" | sed -n 's/^agent=//p'  | head -1)"
+      model="$(printf '%s\n' "$probe" | sed -n 's/^model=//p'  | head -1)"
+      effort="$(printf '%s\n' "$probe" | sed -n 's/^effort=//p' | head -1)"
+      sid="$(printf '%s\n' "$probe" | sed -n 's/^sid=//p'    | head -1)"
+    fi
+    [[ -n "$agent" ]] || agent="shell"
+    raw+="${name}${SEP}${cwd}${SEP}${attached}${SEP}${pane_cmd}${SEP}${agent}${SEP}${model}${SEP}${effort}${SEP}${sid}"$'\n'
+  done < <(tmux list-sessions -F '#S	#{session_path}	#{session_attached}	#{pane_current_command}' 2>/dev/null)
+
+  [[ -n "$raw" ]] || die "열거된 세션이 없습니다"
+
+  # 2단계: sid 미상 행을 세션 로그에서 해석 (agent별 경로 — python)
+  local resolved
+  resolved="$(printf '%s' "$raw" | python3 "$helper" resolve)"
+
+  # 3단계: 복구 커맨드 합성 (bash — open 경로와 단일 합성기 유지)
+  local final="" sid_src title rcmd
+  while IFS=$'\x1f' read -r name cwd attached pane_cmd agent model effort sid sid_src title; do
+    [[ -n "$name" ]] || continue
+    rcmd="$(snapshot_resume_cmd "$agent" "$name" "$model" "$effort" "$sid")"
+    final+="${name}${SEP}${cwd}${SEP}${attached}${SEP}${pane_cmd}${SEP}${agent}${SEP}${model}${SEP}${effort}${SEP}${sid}${SEP}${sid_src}${SEP}${title}${SEP}${rcmd}"$'\n'
+    # $(...) 는 후행 개행을 전부 제거한다 — '%s' 로 흘리면 마지막 행이 미종단이라
+    # read 가 EOF 에서 false 를 반환해 «마지막 세션 1개»가 조용히 빠진다. '%s\n' 필수.
+  done < <(printf '%s\n' "$resolved")
+
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf '%s' "$final" | python3 "$helper" emit --stdout
+    return 0
+  fi
+
+  mkdir -p "$SNAP_DIR"
+  local stamp out
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  out="$SNAP_DIR/snapshot-$stamp.json"
+  printf '%s' "$final" | python3 "$helper" emit --out "$out"
+  ln -sfn "$out" "$SNAP_DIR/latest.json"
+
+  local n
+  n="$(printf '%s' "$final" | grep -c . || true)"
+  printf '📸 스냅샷 저장 완료\n'
+  printf '   파일: %s\n' "$out"
+  printf '   세션: %s개\n' "$n"
+  printf '   미해석 sid: %s개\n' "$(printf '%s' "$final" | awk -F"\x1f" '$9=="none" && $5!="shell"' | grep -c . || true)"
+  snapshot_prune "$keep"
+  printf '   보관: 최근 %s개 (--keep 로 조정)\n' "$keep"
+  printf '   복원: tmuxc restore --from latest\n'
+}
+
 # ---------- UC11: tmux 서버 사망 복원 (restore) ----------
 
 restore_scan_py() {
@@ -403,8 +676,71 @@ restore_scan_py() {
   printf '%s' "$cand"
 }
 
-# 행 배열 (스캐너 TSV와 1:1)
-R_AGENT=() R_NAME=() R_CWD=() R_MODEL=() R_ROUTE=() R_SID=() R_TS=() R_STATUS=() R_SUMMARY=()
+# 행 배열 (스캐너 TSV와 1:1). R_RESUME 은 스냅샷 경로에서만 채워진다 —
+# 채워져 있으면 alias 추론을 통째로 건너뛴다(스냅샷이 이미 완제품 커맨드를 갖고 있다).
+R_AGENT=() R_NAME=() R_CWD=() R_MODEL=() R_ROUTE=() R_SID=() R_TS=() R_STATUS=() R_SUMMARY=() R_RESUME=()
+
+# 스냅샷 JSON → 스캐너와 동일한 행 배열. 파싱은 python 이 하고 bash 는 채우기만 한다.
+restore_load_snapshot() {
+  local snap="$1"
+  local a n c m r s t st sum rc
+  while IFS=$'\x1f' read -r a n c m r s t st sum rc; do
+    [[ -n "$a" ]] || continue
+    R_AGENT+=("$a"); R_NAME+=("$n"); R_CWD+=("$c"); R_MODEL+=("$m")
+    R_ROUTE+=("$r"); R_SID+=("$s"); R_TS+=("$t"); R_STATUS+=("$st")
+    R_SUMMARY+=("$sum"); R_RESUME+=("$rc")
+  done < <(python3 - "$snap" <<'PY'
+import json, os, sys
+SEP = "\x1f"
+with open(sys.argv[1], encoding="utf-8") as f:
+    doc = json.load(f)
+created = doc.get("created_at", "")
+for s in doc.get("sessions", []):
+    rc = s.get("resume_cmd") or ""
+    cwd = s.get("cwd") or ""
+    if not rc:
+        status = "skip"          # shell 전용 pane — 복구 대상 아님
+    elif not cwd or not os.path.isdir(cwd):
+        status = "no-cwd"
+    else:
+        status = "ok"
+    print(SEP.join([
+        s.get("agent") or "?",
+        s.get("name") or "?",
+        cwd,
+        s.get("model") or "?",
+        s.get("effort") or (s.get("sid_source") or "snap"),
+        s.get("session_id") or "",
+        created,
+        status,
+        s.get("title") or "",
+        rc,
+    ]))
+PY
+  )
+}
+
+# 스냅샷 나이를 사람이 읽는 문자열로 (분/시간/일)
+snapshot_age_human() {
+  local iso="$1"
+  python3 - "$iso" <<'PY'
+import sys
+from datetime import datetime, timezone
+try:
+    t = datetime.strptime(sys.argv[1], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+except ValueError:
+    print("?"); raise SystemExit
+sec = (datetime.now(timezone.utc) - t).total_seconds()
+if sec < 90:
+    print("방금 전")
+elif sec < 5400:
+    print(f"{int(sec // 60)}분 전")
+elif sec < 172800:
+    print(f"{int(sec // 3600)}시간 전")
+else:
+    print(f"{int(sec // 86400)}일 전")
+PY
+}
 
 restore_load_rows() {
   local since="$1" agent_filter="$2" loose="$3"
@@ -418,14 +754,30 @@ restore_load_rows() {
     [[ -n "$a" ]] || continue
     R_AGENT+=("$a"); R_NAME+=("$n"); R_CWD+=("$c"); R_MODEL+=("$m")
     R_ROUTE+=("$r"); R_SID+=("$s"); R_TS+=("$t"); R_STATUS+=("$st"); R_SUMMARY+=("$sum")
+    R_RESUME+=("")   # 로그 스캔 경로엔 완제품 커맨드가 없다 — 인덱스 정렬만 유지
   done < <(python3 "$scan_py" --since "$since" --agent "$agent_filter" "${extra[@]+"${extra[@]}"}")
 }
 
 restore_cmd_for() {
   local i="$1" baton="$2"
   local agent="${R_AGENT[$i]}" name="${R_NAME[$i]}" route="${R_ROUTE[$i]}" sid="${R_SID[$i]}"
+  # 스냅샷 경로: save 시점의 라이브 argv 로 이미 완제품이 만들어져 있다.
+  # alias 추론을 타지 않으므로 [1m]/effort/opencode/cmd 가 그대로 살아온다.
+  local snap_cmd="${R_RESUME[$i]:-}"
+  if [[ -n "$snap_cmd" ]]; then
+    if [[ "$baton" -eq 1 && "$agent" == "claude" ]]; then
+      # --baton 은 대화 복원 없이 가볍게 — --resume <sid> 만 떼어낸다.
+      printf '%s' "$snap_cmd" | sed -E 's/ --resume [^ ]+//'
+    else
+      printf '%s' "$snap_cmd"
+    fi
+    return 0
+  fi
   if [[ "$agent" == "codex" ]]; then
-    printf 'codex resume %s --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"' "$sid"
+    # R_MODEL 은 restore_load_rows 에서 이미 스캔돼 있다 — "?"(미상)면 기존과 동일하게 생략.
+    local rmodel="${R_MODEL[$i]}" model_opt=""
+    [[ -n "$rmodel" && "$rmodel" != "?" ]] && model_opt=" -c model=\"$rmodel\""
+    printf 'codex resume %s --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"%s' "$sid" "$model_opt"
     return 0
   fi
   local body
@@ -475,7 +827,9 @@ restore_work_hint() {
 }
 
 restore_print_table() {
-  local i
+  # baton 을 그대로 넘긴다 — 표는 «실제로 실행될 커맨드»를 보여야 한다.
+  # (사용자가 이 표를 보고 --go 를 결정하므로 표와 실행이 갈리면 안 된다.)
+  local baton="${1:-0}" i
   printf '\n복구 후보 (%d개 — 최신순)\n' "${#R_NAME[@]}"
   printf '%-3s %-7s %-28s %-18s %-5s %-7s %s\n' '#' agent 세션명 프로젝트 route 상태 작업
   for i in "${!R_NAME[@]}"; do
@@ -483,7 +837,7 @@ restore_print_table() {
       "$((i + 1))" "${R_AGENT[$i]}" "${R_NAME[$i]}" "$(restore_cwd_short "${R_CWD[$i]}")" \
       "${R_ROUTE[$i]}" "${R_STATUS[$i]}" "$(restore_work_hint "${R_SUMMARY[$i]}")"
     printf '    cwd=%s\n' "${R_CWD[$i]}"
-    printf '    cmd=%s\n' "$(restore_cmd_for "$i" 0 || printf '(alias %s 미해석 — 복구 불가)' "${R_ROUTE[$i]}")"
+    printf '    cmd=%s\n' "$(restore_cmd_for "$i" "$baton" || printf '(alias %s 미해석 — 복구 불가)' "${R_ROUTE[$i]}")"
   done
 }
 
@@ -491,14 +845,14 @@ restore_expand_select() {
   local spec="$1" i
   case "$spec" in
     all)    for i in "${!R_NAME[@]}"; do printf '%s\n' "$i"; done ;;
-    claude|codex)
+    claude|codex|opencode|cmd)
       for i in "${!R_NAME[@]}"; do [[ "${R_AGENT[$i]}" == "$spec" ]] && printf '%s\n' "$i"; done ;;
     *)
       local tok
       IFS=',' read -ra toks <<< "$spec"
       for tok in "${toks[@]}"; do
         tok="${tok// /}"
-        [[ "$tok" =~ ^[0-9]+$ ]] || die "잘못된 선택: '$tok' (숫자, all, claude, codex만 허용)"
+        [[ "$tok" =~ ^[0-9]+$ ]] || die "잘못된 선택: '$tok' (숫자, all, claude, codex, opencode, cmd만 허용)"
         [[ "$tok" -ge 1 && "$tok" -le "${#R_NAME[@]}" ]] || die "선택 범위 밖: $tok (1-${#R_NAME[@]})"
         printf '%s\n' "$((tok - 1))"
       done
@@ -507,14 +861,22 @@ restore_expand_select() {
 }
 
 restore_agent_live() {
-  # pane 아래 claude/codex/headroom 자식이 있으면 기동된 것으로 본다
-  local name="$1" agent="$2" ppid
+  # pane 아래 해당 에이전트 자식이 있으면 기동된 것으로 본다
+  local name="$1" agent="$2" ppid pat
   ppid="$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)"
   [[ -n "$ppid" ]] || return 1
+  case "$agent" in
+    claude)   pat='claude|claude-hr|headroom' ;;
+    codex)    pat='codex' ;;
+    opencode) pat='opencode' ;;
+    cmd)      pat='cmd|cmdc' ;;
+    *)        pat='' ;;
+  esac
   if [[ "$agent" == "claude" ]]; then
-    pgrep -P "$ppid" -f 'claude|claude-hr|headroom' >/dev/null 2>&1
+    pgrep -P "$ppid" -f "$pat" >/dev/null 2>&1
   else
-    pgrep -P "$ppid" -f 'codex' >/dev/null 2>&1 || {
+    { [[ -n "$pat" ]] && pgrep -P "$ppid" -f "$pat" >/dev/null 2>&1; } || {
+      # 래퍼(npm exec/node)가 중간에 끼면 이름 매칭이 실패한다 — 자식 존재로 폴백
       local child
       child="$(pgrep -P "$ppid" 2>/dev/null | head -1 || true)"
       [[ -n "$child" ]]
@@ -683,8 +1045,11 @@ restore_one() {
 
 cmd_restore() {
   local since=24 agent_filter="all" select_spec="" baton=0 go=0 loose=0
+  local from="" force_scan=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --from) from="${2:-}"; shift 2 ;;
+      --scan) force_scan=1; shift ;;
       --since) since="${2:-}"; shift 2 ;;
       --agent) agent_filter="${2:-}"; shift 2 ;;
       --select) select_spec="${2:-}"; shift 2 ;;
@@ -696,23 +1061,59 @@ cmd_restore() {
     esac
   done
   case "$agent_filter" in claude|codex|all) ;; *) die "--agent must be claude|codex|all" ;; esac
+  [[ -n "$from" && "$force_scan" -eq 1 ]] && die "--from 과 --scan 은 함께 쓸 수 없습니다"
+
+  # 소스 결정: 명시 --from > (스냅샷 존재 && --scan 아님) > 로그 스캔
+  local snap=""
+  if [[ -n "$from" ]]; then
+    if [[ "$from" == "latest" ]]; then
+      snap="$SNAP_DIR/latest.json"
+    else
+      snap="$from"
+    fi
+    [[ -f "$snap" ]] || die "스냅샷을 찾을 수 없습니다: $snap"
+  elif [[ "$force_scan" -eq 0 && -f "$SNAP_DIR/latest.json" ]]; then
+    snap="$SNAP_DIR/latest.json"
+  fi
 
   if tmux list-sessions >/dev/null 2>&1; then
     printf '⚠️  tmux 서버가 살아있습니다 (세션 %s개). 서버 사망(UC11)이 아니라 디스커넥트(UC8)일 수 있음 — cmux면 tmuxc recover 검토.\n' \
       "$(tmux list-sessions 2>/dev/null | wc -l | tr -d ' ')"
   fi
 
-  restore_load_rows "$since" "$agent_filter" "$loose"
-  if [[ "${#R_NAME[@]}" -eq 0 ]]; then
-    printf '복구 후보 없음 (최근 %s시간, agent=%s). --since 를 늘려보세요.\n' "$since" "$agent_filter"
-    case "$agent_filter" in
-      codex|all)
-        printf '  힌트: codex 대화형(cli) 세션은 thread_name 없이 익명으로 기록되는 경우가 있어, 최근 세션이 없으면 --since 168 처럼 늘려서 다시 시도해보세요.\n'
-        ;;
+  if [[ -n "$snap" ]]; then
+    restore_load_snapshot "$snap"
+    if [[ "${#R_NAME[@]}" -eq 0 ]]; then
+      printf '스냅샷에 세션이 없습니다: %s\n' "$snap"
+      printf '  로그 스캔으로 전환: tmuxc restore --scan\n'
+      return 0
+    fi
+    local created age
+    created="${R_TS[0]}"
+    age="$(snapshot_age_human "$created")"
+    printf '📸 스냅샷 사용: %s (%s, %s개 세션)\n' "$(basename "$(readlink "$snap" 2>/dev/null || printf '%s' "$snap")")" "$age" "${#R_NAME[@]}"
+    printf '   생성: %s   로그 스캔으로 전환: tmuxc restore --scan\n' "$created"
+    case "$age" in
+      *일\ 전) printf '⚠️  스냅샷이 오래됐습니다(%s) — 이후 생긴 세션은 빠집니다. `tmuxc restore --scan` 병행 검토.\n' "$age" ;;
     esac
-    return 0
+  else
+    restore_load_rows "$since" "$agent_filter" "$loose"
+    if [[ "${#R_NAME[@]}" -eq 0 ]]; then
+      printf '복구 후보 없음 (최근 %s시간, agent=%s). --since 를 늘려보세요.\n' "$since" "$agent_filter"
+      case "$agent_filter" in
+        codex|all)
+          printf '  힌트: codex 대화형(cli) 세션은 thread_name 없이 익명으로 기록되는 경우가 있어, 최근 세션이 없으면 --since 168 처럼 늘려서 다시 시도해보세요.\n'
+          ;;
+      esac
+      printf '  스냅샷이 있으면 더 정확합니다 — 평소 종료 전 `tmuxc save` 를 실행하세요.\n'
+      return 0
+    fi
+    # 로그 스캔은 트랜스크립트에 없는 것을 복구할 수 없다 — 조용히 200K 로 되살리지 않도록 명시.
+    printf '🔎 로그 스캔 경로 — 트랜스크립트에 [1m]·effort 가 기록되지 않아 %s\n' \
+      '창 크기/effort 는 복원되지 않습니다.'
+    printf '   다음부터는 종료 전 `tmuxc save` 로 스냅샷을 남기세요.\n'
   fi
-  restore_print_table
+  restore_print_table "$baton"
 
   if [[ -z "$select_spec" ]]; then
     if [[ "$go" -eq 1 ]]; then
@@ -778,6 +1179,7 @@ main() {
       tmux kill-session -t "$1"
       ;;
     clean) cmd_clean ;;
+    save|snapshot) cmd_save "$@" ;;
     restore) cmd_restore "$@" ;;
     help|--help|-h) usage ;;
     *) die "unknown command: $cmd" ;;

@@ -27,6 +27,8 @@ tmuxc send <name> "message"
 tmuxc msg <name> "message"
 tmuxc kill <name>
 tmuxc clean
+tmuxc save [--keep N]                 # 종료 전 전역 세션 스냅샷 ([1m]/effort/session_id 보존)
+tmuxc restore [--from latest] [--go]  # 재부팅 후 복원 (스냅샷 우선, --scan 으로 로그 스캔 강제)
 ```
 
 ## BYZ 권장 패턴
