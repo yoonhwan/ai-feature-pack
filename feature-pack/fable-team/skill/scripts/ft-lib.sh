@@ -139,8 +139,11 @@ ft_audit() {  # <root> <line>
 # ── install.json 판독 ─────────────────────────────────────
 # 파이썬으로 점(dot)경로 조회. 부재/오류 시 빈 문자열.
 ft_ijson() {  # <root> <dot.path>  (예: approvals.standing.auto_gzip.granted)
-  local root="$1" path="$2"
-  python3 - "$root/.fable-team/install.json" "$path" <<'PY' 2>/dev/null
+  # ★zsh 에서 path 는 PATH 와 연동된 특수변수★ — local path=... 는 함수 스코프의
+  # PATH 를 통째로 덮어써 python3 가 사라진다(실측: rc=127 → 승인이 «거부» 로 뒤집혔다).
+  # bash 에서는 무해하지만 이름 하나로 그 창을 없앤다.
+  local root="$1" dotpath="$2"
+  python3 - "$root/.fable-team/install.json" "$dotpath" <<'PY' 2>/dev/null
 import json,sys
 try:
     d=json.load(open(sys.argv[1]))
