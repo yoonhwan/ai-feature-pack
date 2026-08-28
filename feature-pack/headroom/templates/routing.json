@@ -1,0 +1,7 @@
+{
+  "default": {
+    "headroom": false,
+    "cliproxy": false
+  },
+  "projects": {}
+}

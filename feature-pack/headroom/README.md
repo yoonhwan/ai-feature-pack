@@ -35,10 +35,8 @@ cp "$HR_DIR/scripts/file-logs.sh" ~/.claude/skills/headroom-cliproxyapi/scripts/
 cp "$HR_DIR/scripts/clean-proxy-logs.sh" ~/.claude/skills/headroom-cliproxyapi/scripts/clean-proxy-logs.sh
 cp "$HR_DIR/scripts/file-logs.sh" ~/.headroom/headroom-cliproxy-file-logs.sh
 cp "$HR_DIR/scripts/clean-proxy-logs.sh" ~/.headroom/clean-proxy-logs.sh
-[ -f ~/.headroom/enabled-projects.json ] || echo '[]' > ~/.headroom/enabled-projects.json
-[ -f ~/.headroom/disabled-projects.json ] || cp "$HR_DIR/templates/disabled-projects.json" ~/.headroom/disabled-projects.json
-# Slack/Hermes와 동일 체인: Claude Code도 기본 headroom 경유 (해제: rm ~/.headroom/always-route)
-cp "$HR_DIR/templates/always-route" ~/.headroom/always-route
+# 라우팅 SSOT — 기본은 둘 다 off(직결). 켜기는 `route` 서브커맨드로.
+[ -f ~/.headroom/routing.json ] || cp "$HR_DIR/templates/routing.json" ~/.headroom/routing.json
 chmod +x ~/.headroom/claude-hr.sh ~/.headroom/headroom-cliproxy-file-logs.sh ~/.headroom/clean-proxy-logs.sh ~/.claude/skills/headroom-cliproxyapi/scripts/*.sh
 ```
 
@@ -48,8 +46,8 @@ chmod +x ~/.headroom/claude-hr.sh ~/.headroom/headroom-cliproxy-file-logs.sh ~/.
 3. 멀티 프로바이더(Codex/Cursor/Aider/Copilot)도 쓰시나요? → [🔌 멀티 프로바이더](#-멀티-프로바이더-설치-가이드)
 
 **STEP 4 — 사용법 안내** (사용자에게 전달)
-- `/headroom on` = 현재 프로젝트 영구 활성 · `/headroom off` = 영구 비활성 · `/headroom status` = 상태+`cache_bust_count`(0 확인)
-- 실행은 `claude-hr` 래퍼로 (`alias claude-hr='~/.headroom/claude-hr.sh'`). canonical 경유가 요청된 상태에서 프록시가 죽으면 직결로 우회하지 않고 오류를 낸다.
+- 토글은 래퍼의 `route` 서브커맨드 — `claude-hr.sh route headroom on|off` · `route cliproxy on|off` · `route status`. `--global` 을 붙이면 전 프로젝트 기본값.
+- 실행은 `claude-hr` 래퍼로 (`alias claude-hr='~/.headroom/claude-hr.sh'`). 경유가 요청된 레이어가 죽어 있으면 직결로 우회하지 않고 exit 69 로 중단한다.
 - **효과는 긴 세션·재독 많은 작업에서만 누적** — 단발/소형 입력엔 무의미하다고 솔직히 안내.
 
 ---
@@ -289,52 +287,46 @@ OPENAI_TARGET_API_URL=https://custom.endpoint      headroom proxy   # OpenAI 트
 
 ## 🚀 사용
 
-### canonical route + 레지스트리 인식 래퍼 (SPOF 차단 — 핵심 안전장치)
+### 라우팅 스위처 래퍼 (SPOF 차단 — 핵심 안전장치)
 
-`~/.headroom/claude-hr.sh`. **always-route ON**(`~/.headroom/always-route`)이면 등록 없이 8790 경유한다. 아니면 **현재 프로젝트가 `enabled-projects.json`에 등록**된 경우 canonical 경유를 요청한다. 명시적 `disabled-projects` opt-out만 직결을 허용하며, canonical 경유가 요청된 상태에서 health 실패·파싱 실패는 직결 fallback 없이 exit 69로 중단한다. 프로젝트 root는 **canonical(git-common-dir) 기준**이라 워크트리도 메인과 동일 root로 매칭됩니다.
+`~/.headroom/claude-hr.sh` 가 **headroom(:8790, 압축)** 과 **cliproxy(:8317, 멀티계정 회전)** 두 레이어를 독립 토글한다.
+
+| headroom | cliproxy | `ANTHROPIC_BASE_URL` |
+|---|---|---|
+| on | on | `http://localhost:8790` — 압축 → 회전 → 구독 |
+| off | on | `http://127.0.0.1:8317` — 회전 → 구독, 압축 생략 |
+| off | off | unset — Anthropic 직결 |
+| **on** | **off** | ⛔ **불가**. headroom LaunchAgent 의 `--anthropic-api-url` 이 `127.0.0.1:8317` 에 고정돼 cliproxy 를 우회할 수 없다. 래퍼가 **exit 78** 로 거부한다 |
 
 ```bash
-#!/bin/zsh
-# headroom canonical-route + registry-aware 래퍼
-REGISTRY="$HOME/.headroom/enabled-projects.json"
-PROXY_URL="http://localhost:8790"
-
-# canonical 프로젝트 root (워크트리 → 메인 root로 정규화)
-GIT_COMMON="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
-PROJECT_ROOT="$([ -n "$GIT_COMMON" ] && dirname "$GIT_COMMON" || pwd)"
-
-is_enabled() {
-  [ -f "$REGISTRY" ] || return 1
-  command -v python3 >/dev/null 2>&1 || return 1
-  python3 - "$REGISTRY" "$PROJECT_ROOT" <<'PY' 2>/dev/null
-import json, sys, os
-try:
-    reg = [os.path.realpath(p) for p in json.load(open(sys.argv[1]))]
-    sys.exit(0 if os.path.realpath(sys.argv[2]) in reg else 1)
-except Exception:
-    sys.exit(1)
-PY
-}
-
-route_requested=false
-if is_enabled; then
-  route_requested=true
-fi
-
-if $route_requested; then
-  if ! curl -sf -m1 "$PROXY_URL/health" >/dev/null 2>&1; then
-    print -u2 "headroom: canonical route requested but proxy health check failed; refusing direct fallback"
-    exit 69
-  fi
-  export ANTHROPIC_BASE_URL="$PROXY_URL"
-  export ANTHROPIC_CUSTOM_HEADERS="x-headroom-cwd: $PROJECT_ROOT"
-else
-  unset ANTHROPIC_BASE_URL    # 명시적 opt-out 또는 미등록 프로젝트만 직결
-fi
-exec claude "$@"
+HR=~/.headroom/claude-hr.sh
+$HR route status                    # 현재 프로젝트 유효값 + 프로세스 실상태
+$HR route headroom on|off           # 이 프로젝트
+$HR route cliproxy on|off
+$HR route headroom on --global      # 전 프로젝트 기본값
+$HR route reset [--global]
 ```
 
-`~/.zshrc`에 `alias claude-hr='~/.headroom/claude-hr.sh'` 추가 후 `claude-hr`로 실행. 토글은 `/headroom on|off`(스킬)로 — 래퍼는 레지스트리만 읽는다.
+상태 SSOT 는 `~/.headroom/routing.json` **하나**다.
+
+```json
+{
+  "default":  { "headroom": false, "cliproxy": false },
+  "projects": { "/abs/project/root": { "headroom": true, "cliproxy": true } }
+}
+```
+
+- 프로젝트 항목이 있으면 그것, 없으면 `default`. 파일이 없으면 **직결**(opt-in 이 기본).
+- 프로젝트 root 는 **canonical(git-common-dir) 기준** — 워크트리도 메인과 같은 root 로 접힌다.
+- 1회성 오버라이드: `HEADROOM_ROUTE=0|1` · `CLIPROXY_ROUTE=0|1` env (설정보다 우선).
+- **fail-closed**: 경유가 요청된 레이어가 죽었으면 직결로 몰래 새지 않고 exit 69. 조용한 폴백은 과금 경로를 바꿔놓고 아무도 모르게 만든다.
+- **모델 프리플라이트**: `--model` 이 cliproxy 카탈로그에 없으면 기동 전 stderr 경고(차단은 안 함). 예 — `claude-opus-5[1m]` 은 카탈로그에 없고 `claude-opus-5`(200K) 만 있다.
+
+계약은 `tests/test_claude_hr_wrapper.py` 가 정본 템플릿과 설치본 **양쪽에** 걸어 검증한다.
+
+> 레거시 `always-route` · `enabled-projects.json` · `disabled-projects.json` 는 **더 이상 읽지 않는다** (2026-08-29 스위처 개편).
+
+`~/.zshrc` 에 `alias claude-hr='~/.headroom/claude-hr.sh'` 추가 후 `claude-hr` 로 실행.
 
 ### 🤖 에이전트 실행 경로 — 어떻게 띄워야 경유하나 (중요)
 
