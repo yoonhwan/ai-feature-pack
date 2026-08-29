@@ -1,3 +1,0 @@
-# Claude Code(cc/ccd)도 Hermes Slack과 동일하게 headroom(:8790) 기본 경유.
-# 생성: 2026-06-17 — cliproxy 체인(headroom→8317)과 정렬.
-# 해제: rm ~/.headroom/always-route
