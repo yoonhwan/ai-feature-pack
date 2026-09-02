@@ -42,12 +42,16 @@ def _repo_root(start):
             gp = os.path.dirname(parent)
             return os.path.dirname(gp) if os.path.basename(gp) == ".worktrees" else parent
         d = os.path.dirname(d)
-    return os.path.abspath(start)
+    return None  # ★F4: .fable-team 조상이 없으면 정본을 «유도할 수 없다» — 조용히 만들지 않는다.
 
 
 _ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
 # ★명시가 추론을 이긴다★ — env 로 준 FT_MBOX_DIR 은 그대로 존중한다(이전엔 래퍼가 덮어썼다).
-CANON = os.environ.get("FT_MBOX_DIR") or os.path.join(_ROOT, ".fable-team", "comm")
+# ★F4: env 도 조상도 없으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
+CANON = os.environ.get("FT_MBOX_DIR") or (os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None)
+if not CANON:
+    sys.stderr.write("NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n")
+    sys.exit(2)
 os.makedirs(CANON, exist_ok=True)
 
 
@@ -56,6 +60,8 @@ def _legacy_dirs():
 
     손으로 쓴 목록은 다음에 생기는 워크트리를 못 잡는다.
     """
+    if not _ROOT:  # ★F4: 루트를 못 유도했으면(env 만으로 동작) 레거시도 없다.
+        return []
     out, wt = [], os.path.join(_ROOT, ".worktrees")
     if os.path.isdir(wt):
         for name in sorted(os.listdir(wt)):
@@ -113,7 +119,8 @@ def _guard_log():
 
 
 def _body_hash(body):
-    return hashlib.md5(body[:200].encode("utf-8")).hexdigest()
+    # ★F2: 전문 해시 — 앞 200자만 보면 같은 템플릿 헤더로 시작하는 다른 보고가 오탐된다.
+    return hashlib.md5(body.encode("utf-8")).hexdigest()
 
 
 def _guard_record(to, frm, body):
@@ -138,13 +145,18 @@ def _guard_verdict(to, frm, body):
     now = time.time()
     log = _guard_log()
     h = _body_hash(body)
+    # ★F1: 발신 기록 시각이 아니라 «실제 큐»에 같은 본문이 pending 인지로 판정 — 소비됐으면 통과.
+    dup = next((r for r in _load(CANON) if r.get("from") == frm
+                and r.get("to") == to and _body_hash(r.get("body", "")) == h), None)
     last = max((r.get("t", 0) for r in log
                 if r.get("f") == frm and r.get("to") == to and r.get("h") == h), default=0)
-    if last and now - last < RESEND_COOL:
-        return ("RESEND_COOLDOWN from=%s to=%s %ds<%ds" % (frm, to, int(now - last), RESEND_COOL),
-                "같은 본문은 이미 큐에 있다 — 받는 쪽이 «가져갈» 때까지 기다린다. "
+    if dup and last and now - last < RESEND_COOL:
+        return ("RESEND_COOLDOWN from=%s to=%s seq=%s %ds<%ds"
+                % (frm, to, dup.get("seq"), int(now - last), RESEND_COOL),
+                "같은 본문이 큐에 pending(seq=%s) — 받는 쪽이 «가져갈» 때까지 기다린다. "
                 "pending 동안 재발신 금지. 수신 여부가 궁금하면 pane 캡처로 확인하고, "
-                "%ds 경과 후 1회만 재발신한다(시간이 지나면 자동 통과)." % RESEND_COOL)
+                "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
+                % (dup.get("seq"), RESEND_COOL))
     others = sorted({r["to"] for r in log
                      if r.get("f") == frm and r.get("h") == h and r.get("to") != to
                      and now - r.get("t", 0) < FANOUT_WIN})
@@ -207,7 +219,7 @@ def send(to, frm, body, force=False):
             % (dropped, to, MAX_PER_TO, pend, dropped))
 
 
-def relay(to, frm, path, summary):
+def relay(to, frm, path, summary, force=False):
     """긴 본문의 «정본 절차» — 원문은 파일, 큐엔 사람이 쓴 요약 + 경로만.
 
     ★원본을 «가리키지» 않고 «복사»한다★ — 보낸 뒤 원본이 바뀌거나 지워지면
@@ -231,8 +243,9 @@ def relay(to, frm, path, summary):
         n += 1
         dest = "%s%d-%s" % (base, n, safe)
     shutil.copyfile(path, dest)
+    # ★F3: relay 도 재발신 탈출구를 send 로 전달 — 힌트대로 --force 를 붙이면 실제로 풀리게.
     send(to, frm, "%s\n상세(전문): %s (%d B)"
-         % (summary.strip(), dest, os.path.getsize(dest)))
+         % (summary.strip(), dest, os.path.getsize(dest)), force=force)
 
 
 def _rows_for(d, me, frm):
@@ -302,7 +315,7 @@ if __name__ == "__main__":
                        "|recv <me> [<from>] [--all]|peek <me>}")
     c = a[0]
     if c == "send": send(a[1], a[2], " ".join(a[3:]), force)
-    elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]))
+    elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]), force)
     elif c == "recv": recv(a[1], a[2] if len(a) > 2 else None, None if show_all else RECV_LIMIT)
     elif c == "peek": peek(a[1])
     else: sys.exit("unknown cmd")
