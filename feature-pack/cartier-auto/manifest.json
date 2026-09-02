@@ -1,0 +1,89 @@
+{
+  "name": "cartier-auto",
+  "version": "1.0.0",
+  "description": "까르띠에 공식 몰 리스톡(wishlist) 자동 구매 감시 — 구매 예약 감시, 위시리스트 상품 추적, 네이버페이 결제 자동화. 사용자는 CAPTCHA와 네이버페이 보안 키패드 두 단계만 직접 처리.",
+  "os": ["macos"],
+  "dependencies": {
+    "cli": ["bash", "python3", "tmux"],
+    "brew": ["google-chrome"],
+    "npm": [],
+    "pip": ["playwright"],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "commands": ["cartier-auto"],
+  "skill_surfaces": [
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "path": "skill/SKILL.md"
+    },
+    {
+      "runtime": "codex",
+      "kind": "skill",
+      "path": "skill/SKILL.md"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "command",
+      "path": "skill/commands/cartier-auto.md"
+    }
+  ],
+  "runtime_targets": [
+    {
+      "runtime": "installer",
+      "kind": "script",
+      "source": "skill/scripts/install.sh",
+      "target": "run: bash",
+      "status": "installable"
+    },
+    {
+      "runtime": "installer",
+      "kind": "script",
+      "source": "skill/scripts/setup-credentials.sh",
+      "target": "run: bash",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "skill",
+      "target": "~/.claude/skills/cartier-auto",
+      "status": "installable"
+    },
+    {
+      "runtime": "codex",
+      "kind": "skill",
+      "target": "~/.codex/skills/cartier-auto",
+      "status": "installable"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "command",
+      "target": "~/.claude/commands/cartier-auto.md",
+      "status": "installable"
+    }
+  ],
+  "hook_adapters": [],
+  "private_state_exclusions": [
+    "__pycache__",
+    "*.pyc",
+    "logs",
+    "sessions",
+    "installed.json",
+    "credentials.env",
+    ".venv"
+  ],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md",
+    "skill/SHARING.md",
+    "test/verify.md"
+  ],
+  "cli_name": "cartier-auto",
+  "cli_package": null,
+  "cli_install_method": "install.sh (대화형 설치기) + 스킬 파일 복사"
+}
