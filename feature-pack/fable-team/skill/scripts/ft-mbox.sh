@@ -70,18 +70,19 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
     to="${1:?to}"; from="${2:?from}"; shift 2
-    notify=1; force=(); dbf=0
+    notify=1; force=(); dispatch=(); dbf=0
     args=()
     for a in "$@"; do
       case "$a" in
         --no-notify) notify=0 ;;
         --force)     force=(--force); dbf=1 ;;
+        --dispatch)  dispatch=(--dispatch); dbf=1 ;;   # ★F5: 발주 — EMPTY_BODY만 판정, doorbell 강제 유지.
         *)           args+=("$a") ;;
       esac
     done
     # py가 allowlist 검증(BAD_SESSION_NAME exit 1) + 발신 가드(BLOCKED exit 3) + 큐잉.
     # 거부되면 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
-    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} ${dispatch[@]+"${dispatch[@]}"})" || exit $?
     if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf")"; else db=off; fi
     echo "$py_out doorbell=$db"
     ;;
