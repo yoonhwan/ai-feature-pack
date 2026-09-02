@@ -1,0 +1,92 @@
+#!/bin/bash
+# mbox-guard.sh — 발신 규율 가드 회귀 실측(F1~F6). 격리 우편함·doorbell 없음(--no-notify).
+# 케이스별 기대 rc/값을 실측값과 비교해 PASS/FAIL 누적, 끝에 PASS=n FAIL=m, FAIL>0이면 exit 1.
+# zsh 함정 회피: 명시적 #!/bin/bash, 배열 인자는 quoting.
+set +e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+MBOX="$HERE/../skill/scripts/ft-mbox.sh"
+MBOXPY="$HERE/../skill/scripts/ft-mbox.py"
+export FT_MBOX_DIR="$(mktemp -d)"
+export FT_MBOX_RELAY_DIR="$(mktemp -d)"
+export FT_MBOX_RATE_N=100          # RATE 간섭 회피 — RATE 케이스만 서브셸에서 5로 재설정.
+
+PASS=0; FAIL=0
+ok() {  # $1=desc  $2=expected  $3=actual
+  if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "PASS $1 (=$3)"
+  else FAIL=$((FAIL+1)); echo "FAIL $1 (expected $2 got $3)"; fi
+}
+
+PFX=$(printf 'x%.0s' {1..250})    # 250자 접두(>200, F2 검증용)
+
+# T1 send rc0
+bash "$MBOX" send seatA orch "hello-body-1" --no-notify >/dev/null 2>&1; ok "T1 send" 0 $?
+# T2 같은 본문 pending 재발신 rc3 RESEND
+bash "$MBOX" send seatA orch "hello-body-1" --no-notify >/dev/null 2>&1; ok "T2 resend-pending RESEND" 3 $?
+# T3 recv에 READ 1행
+out=$(bash "$MBOX" recv seatA 2>&1)
+ok "T3 recv 1 READ" 1 "$(printf '%s\n' "$out" | grep -c '^READ ')"
+# T4 소비 후 같은 본문 rc0 (F1)
+bash "$MBOX" send seatA orch "hello-body-1" --no-notify >/dev/null 2>&1; ok "T4 resend-after-consume" 0 $?
+# T5 250자 접두 + tail-ONE rc0
+bash "$MBOX" send seatC orch "${PFX}ONE" --no-notify >/dev/null 2>&1; ok "T5 250prefix-ONE" 0 $?
+# T6 같은 접두 + tail-TWO rc0 (F2 전문 해시라 ONE≠TWO)
+bash "$MBOX" send seatC orch "${PFX}TWO" --no-notify >/dev/null 2>&1; ok "T6 250prefix-TWO (F2)" 0 $?
+# T7 T5 본문을 다른 좌석으로 rc3 FANOUT
+bash "$MBOX" send seatD orch "${PFX}ONE" --no-notify >/dev/null 2>&1; ok "T7 FANOUT other-seat" 3 $?
+# T8 --force로 pending 중복 rc0, peek pending=2
+bash "$MBOX" send seatE orch "dup-body-8" --no-notify >/dev/null 2>&1
+bash "$MBOX" send seatE orch "dup-body-8" --no-notify --force >/dev/null 2>&1; ok "T8 force-dup" 0 $?
+pk=$(bash "$MBOX" peek seatE 2>&1)
+ok "T8 peek pending=2" 2 "$(printf '%s\n' "$pk" | grep -oE 'pending=[0-9]+' | head -1 | cut -d= -f2)"
+# T9 빈 본문 rc3 EMPTY_BODY
+bash "$MBOX" send seatF orch "" --no-notify >/dev/null 2>&1; ok "T9 empty EMPTY_BODY" 3 $?
+# T10 빈 본문 --force rc0
+bash "$MBOX" send seatF orch "" --no-notify --force >/dev/null 2>&1; ok "T10 empty-force" 0 $?
+# T11 RATE_N=5에서 6번째 rc3 (서브셸 격리 + 전용 from으로 사전 발신 누적 회피)
+(
+  export FT_MBOX_RATE_N=5
+  for i in 1 2 3 4 5; do bash "$MBOX" send seatR rateuser "rate-body-$i" --no-notify >/dev/null 2>&1; done
+  bash "$MBOX" send seatR rateuser "rate-body-6" --no-notify >/dev/null 2>&1; exit $?
+)
+ok "T11 RATE 6th" 3 $?
+# T12 relay 요약 공백 보존(READ에 원문 그대로)
+echo "content-12" > "$FT_MBOX_RELAY_DIR/src12.txt"
+bash "$MBOX" relay seatG orch "$FT_MBOX_RELAY_DIR/src12.txt" "hello   spaced   summary" --no-notify >/dev/null 2>&1
+out=$(bash "$MBOX" recv seatG 2>&1)
+printf '%s\n' "$out" | grep -q 'hello   spaced   summary'; ok "T12 relay ws-preserved" 0 $?
+# T13 개행 보존
+bash "$MBOX" send seatH orch "$(printf 'aaa\nbbb')" --no-notify >/dev/null 2>&1
+out=$(bash "$MBOX" recv seatH 2>&1)
+printf '%s\n' "$out" | grep -qx 'bbb'; ok "T13 newline-preserved" 0 $?
+# T14 relay --force가 요약에 안 섞임(READ 본문에 --force 없음) (F3)
+echo "content-14" > "$FT_MBOX_RELAY_DIR/src14.txt"
+bash "$MBOX" relay seatI orch "$FT_MBOX_RELAY_DIR/src14.txt" "summary14" --no-notify --force >/dev/null 2>&1; rc=$?
+out=$(bash "$MBOX" recv seatI 2>&1)
+if [ "$rc" = 0 ] && ! printf '%s\n' "$out" | grep -q -- '--force'; then ok "T14 relay-force not-in-summary" 0 0
+else ok "T14 relay-force not-in-summary" 0 1; fi
+# T15 relay 같은 요약 2회 — 스냅샷 경로가 달라 전문 해시가 다르므로 rc0
+echo "content-15" > "$FT_MBOX_RELAY_DIR/src15.txt"
+bash "$MBOX" relay seatJ orch "$FT_MBOX_RELAY_DIR/src15.txt" "same-summary-15" --no-notify >/dev/null 2>&1
+bash "$MBOX" relay seatJ orch "$FT_MBOX_RELAY_DIR/src15.txt" "same-summary-15" --no-notify >/dev/null 2>&1
+ok "T15 relay-same-summary-twice (경로차→해시차)" 0 $?
+# T16 FT_MBOX_DIR 미설정 + 스크립트를 /tmp 복사본으로 실행 시 rc2 NO_MAILBOX_ROOT (F4)
+TC=$(mktemp -d); cp "$MBOXPY" "$TC/"
+( unset FT_MBOX_DIR; python3 "$TC/ft-mbox.py" send seatK orch "body16" >/dev/null 2>&1; exit $? )
+ok "T16 NO_MAILBOX_ROOT" 2 $?
+[ -d "$TC/.fable-team" ] && ok "T16 no-leaked-mailbox" 0 1 || ok "T16 no-leaked-mailbox" 0 0
+# T17 --dispatch 700자 초과 rc0, --dispatch 빈 본문 rc3 (F5)
+BIG=$(printf 'y%.0s' {1..800})
+bash "$MBOX" send seatL orch "$BIG" --no-notify --dispatch >/dev/null 2>&1; ok "T17a dispatch-800chars" 0 $?
+bash "$MBOX" send seatL orch "" --no-notify --dispatch >/dev/null 2>&1; ok "T17b dispatch-empty" 3 $?
+# T18 본문 안의 --force 단어가 보존
+bash "$MBOX" send seatM orch "please use --force here" --no-notify >/dev/null 2>&1
+out=$(bash "$MBOX" recv seatM 2>&1)
+printf '%s\n' "$out" | grep -q -- 'please use --force here'; ok "T18 force-word-in-body preserved" 0 $?
+# T19 동시 3건 같은 본문 send(force 없이, 백그라운드 &) → 정확히 1건만 QUEUED (F6)
+for i in 1 2 3; do bash "$MBOX" send seatN concurrent "same-concurrent-body" --no-notify >/dev/null 2>&1 & done
+wait
+pk=$(bash "$MBOX" peek seatN 2>&1)
+ok "T19 concurrent-exactly-1 (F6)" 1 "$(printf '%s\n' "$pk" | grep -oE 'pending=[0-9]+' | head -1 | cut -d= -f2)"
+
+echo "PASS=$PASS FAIL=$FAIL"
+[ "$FAIL" -gt 0 ] && exit 1 || exit 0
