@@ -88,14 +88,15 @@ case "$cmd" in
   relay)
     # 긴 본문의 정본 절차: 원문을 RELAY_DIR(기본 /tmp/mbox)로 복사하고 요약+경로만 큐잉.
     to="${1:?to}"; from="${2:?from}"; file="${3:?file}"; shift 3
-    notify=1; args=()
+    notify=1; args=(); force=()
     for a in "$@"; do
       case "$a" in
         --no-notify) notify=0 ;;
+        --force)     force=(--force) ;;   # ★F3: relay 도 재발신 탈출구 — 요약 텍스트에 안 섞이게 파싱.
         *)           args+=("$a") ;;
       esac
     done
-    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
+    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     if [ "$notify" = 1 ]; then db="$(doorbell "$to")"; else db=off; fi
     echo "$py_out doorbell=$db"
     ;;
