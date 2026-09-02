@@ -176,17 +176,16 @@ def _guard_verdict(to, frm, body, dispatch=False):
 
 def send(to, frm, body, force=False, dispatch=False):
     _check_name(to); _check_name(frm)
-    # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
-    try:
-        verdict = None if force else _guard_verdict(to, frm, body, dispatch)
-    except Exception:
-        verdict = None
-    if verdict:
-        reason, hint = verdict
-        sys.stderr.write("BLOCKED %s\n%s\n정말 필요하면 --force 를 붙인다.\n" % (reason, hint))
-        sys.exit(3)
     def op():
         rows = _load(CANON)
+        # ★F6: 가드 판정을 잠금 «안»에서(load 직후) — 밖이면 동시 send 가 서로의 큐를 못 봐 둘 다 통과.
+        # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
+        try:
+            verdict = None if force else _guard_verdict(to, frm, body, dispatch)
+        except Exception:
+            verdict = None
+        if verdict:
+            return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 해제 후 처리.
         seq = max((r.get("seq", 0) for r in rows), default=0) + 1
         rows.append({"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
                      "to": to, "from": frm, "body": body})
@@ -211,7 +210,12 @@ def send(to, frm, body, force=False, dispatch=False):
         except Exception:
             pass
         return seq, sum(1 for r in keep if r["to"] == to), dropped
-    seq, pend, dropped = _locked(CANON, op)
+    res = _locked(CANON, op)
+    if res[0] == "__BLOCKED__":
+        reason, hint = res[1]
+        sys.stderr.write("BLOCKED %s\n%s\n정말 필요하면 --force 를 붙인다.\n" % (reason, hint))
+        sys.exit(3)
+    seq, pend, dropped = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
