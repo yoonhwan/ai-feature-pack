@@ -27,6 +27,7 @@
 | 14 | [headroom](feature-pack/headroom/) | Claude Code·Codex 등 AI 코딩 에이전트 컨텍스트 압축 프록시 + `/headroom` 토글 | ~5분 | ❌ | ❌ |
 | 15 | [cliproxyapi](feature-pack/cliproxyapi/) | headroom → CLIProxyAPI 구독 프록시 스택 — Claude/Codex/Gemini OAuth plan 경유 + Hermes 게이트웨이 | ~10분 | ❌ | OAuth |
 | 16 | [fable-team](feature-pack/fable-team/) | **팀 오케스트레이션 하네스** — ultracode 오케스트레이터 + planner 브레인 분리, 설치 인터뷰·브레인 가용성 추천·모니터링 루프 | ~5분 | ❌ | ❌ |
+| 17 | [cartier-auto](feature-pack/cartier-auto/) | 까르띠에 공식 몰 리스톡 자동 구매 감시 — 예약 감시·위시리스트 추적·네이버페이 결제 (CAPTCHA·보안 키패드는 사용자) | ~3분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
@@ -43,6 +44,7 @@
 | cairn | `cairn` | 스크립트 설치 + venv | ✅ | python3, git, ruamel.yaml |
 | tmuxc | `tmuxc` | 스크립트 설치 | ✅ | bash, git, tmux |
 | auto | — (순수 스킬) | 스킬 파일 복사 | ✅ | git, python3 필요 |
+| cartier-auto | `cartier-auto` | `install.sh` (대화형) + venv | ✅ | bash, python3.11+, Google Chrome, tmux(선택) |
 | agent-cli | (기존 에이전트 CLI 호출) | 스킬 파일 복사 | ✅ | perl, python3 + 에이전트 CLI ≥1 |
 | headroom | `headroom` / LaunchAgent | venv + 스킬 파일 복사 | ✅ | python3.12, curl |
 | cliproxyapi | `cli-proxy-api` | 바이너리 + LaunchAgent + 스킬 파일 복사 | ✅ | headroom, OAuth 계정 |

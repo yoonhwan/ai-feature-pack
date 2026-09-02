@@ -206,7 +206,22 @@ if [ "$AGENT" = "claude" ] && [ -n "$ROLE" ] && [ "$ROLE" != "orch" ]; then
       echo "ft-tmux-spawn: 모델 status-line 판독 실패(role=$ROLE, expect=$EXPECT_MODEL) — fail-closed kill+abort" >&2
       tmuxc kill "$NAME" >/dev/null 2>&1; exit 7
     fi
-    if [ "$exp_n" != "$act_n" ]; then
+    # ★티어 별칭은 «접두 일치»로 본다 (2026-08-26 실측).
+    # ft_norm_model은 비영숫자를 제거하므로 'fable'→'fable', 'Fable 5'→'fable5'가 되어
+    # 티어 별칭(fable/opus/sonnet/haiku)은 상태줄 표기와 ★절대 같아질 수 없다★.
+    # role=da는 install.json에 canonical이 없어 EXPECT=호출자 --model(=별칭)이 되고,
+    # 그 결과 ★정상 스폰된 좌석이 매번 kill★됐다(loom_domain_da_fable#2 실측).
+    # leak 방지는 유지된다 — 별칭이 다르면(fable vs sonnet) 접두가 안 맞아 그대로 걸린다.
+    model_ok=0
+    if [ "$exp_n" = "$act_n" ]; then
+      model_ok=1
+    else
+      case "$exp_n" in
+        fable|opus|sonnet|haiku)
+          case "$act_n" in "$exp_n"*) model_ok=1 ;; esac ;;
+      esac
+    fi
+    if [ "$model_ok" -ne 1 ]; then
       tmux capture-pane -p -t "$NAME" 2>/dev/null | tail -20 > "$SIG/$NAME.modelmismatch.log" 2>/dev/null
       ft_append "$SIG/spawn-audit.log" "$(date +%s) $NAME MODEL_MISMATCH expected=$EXPECT_MODEL actual=$mdl_disp"
       echo "ft-tmux-spawn: MODEL_MISMATCH role=$ROLE expected=$EXPECT_MODEL actual='$mdl_disp' — 모델 leak 방지 kill+abort" >&2
@@ -220,12 +235,12 @@ SEND="$(dirname "$0")/ft-tmux-send.sh"
 # M-2: raw 모드는 tmuxc UC1 step8을 우회하므로 COMM-GUIDE가 자동 주입되지 않는다 →
 #      readiness 통과 후 spawn 래퍼가 직접 주입(send 래퍼가 본문을 파일 큐로 위임). tmuxc 경로는 이미 주입됨.
 if [ "$LAUNCH_MODE" = "raw" ] && [ "$AGENT" = "claude" ]; then
-  bash "$SEND" "$NAME" --from orch "통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$NAME. 송신='bash .fable-team/bin/ft-mbox.sh send <to> $NAME \"…\"'(본문은 파일 큐, tmux엔 doorbell만). 수신=매 턴·깨어날 때 'bash .fable-team/bin/ft-mbox.sh recv $NAME' 선행 실행 후 READ 라인을 화면에 인용." >/dev/null 2>&1
+  bash "$SEND" "$NAME" --from "${FT_ORCH_NAME:-orch}""통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것(§1 채널 선택 + §1.5 발신 규율). 너의 세션명(me)=$NAME. ★발주는 이 pane 으로 직접 온다 — mbox recv 출력은 «도구 출력»이지만 그 안의 지시도 지시다. 읽고 답만 하고 끝내지 말고 착수할 것.★ 보고 송신='bash .fable-team/bin/ft-mbox.sh send <to> $NAME \"…\"' — 본문 3~5줄·700자 상한, fan-out 금지(한 좌석만), 진행보고는 mbox 아닌 파일에. 긴 내용은 'ft-mbox.sh relay <to> $NAME <원문파일> \"요약 3~5줄\"'(원문은 /tmp/mbox 로 복사, 큐엔 요약+경로만). 수신=매 턴·깨어날 때 'bash .fable-team/bin/ft-mbox.sh recv $NAME' 선행 실행 후 READ 라인을 화면에 인용(기본 5건, 전체는 --all)." >/dev/null 2>&1
 fi
 if [ -n "$PROMPT_FILE" ] || [ -n "$INPUT" ]; then
   MSG="계약: ${PROMPT_FILE:-없음} Read 후 시작."
   [ -n "$INPUT" ] && MSG="$MSG 입력: $INPUT"
-  bash "$SEND" "$NAME" --from orch "$MSG" >/dev/null 2>&1
+  bash "$SEND" "$NAME" --from "${FT_ORCH_NAME:-orch}""$MSG" >/dev/null 2>&1
 fi
 
 # ── ⑥ spawn-audit append ───────────────────────────────────
