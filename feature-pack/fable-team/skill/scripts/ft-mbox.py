@@ -131,11 +131,14 @@ def _guard_record(to, frm, body):
         json.dump(log[-200:], f)
 
 
-def _guard_verdict(to, frm, body):
+def _guard_verdict(to, frm, body, dispatch=False):
     """통과면 None, 아니면 (reason, hint). 판정만 하고 기록은 _guard_record 가 한다."""
     n = len(body)
     if not body.strip():
         return ("EMPTY_BODY", "빈 메시지는 받는 쪽을 깨우기만 하고 아무것도 전하지 않는다.")
+    # ★F5: 발주(--dispatch)는 EMPTY_BODY만 판정 — 길이·RESEND·FANOUT·RATE 면제(좌석마다 동일 본문 연속 주입).
+    if dispatch:
+        return None
     if n > MAX_BODY:
         return ("BODY_TOO_LONG len=%d max=%d" % (n, MAX_BODY),
                 "본문은 3~5줄. 원문은 파일에 쓰고 «경로»만 보낸다 — 정본 절차:\n"
@@ -171,11 +174,11 @@ def _guard_verdict(to, frm, body):
     return None
 
 
-def send(to, frm, body, force=False):
+def send(to, frm, body, force=False, dispatch=False):
     _check_name(to); _check_name(frm)
     # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
     try:
-        verdict = None if force else _guard_verdict(to, frm, body)
+        verdict = None if force else _guard_verdict(to, frm, body, dispatch)
     except Exception:
         verdict = None
     if verdict:
@@ -308,13 +311,14 @@ def peek(me):
 if __name__ == "__main__":
     a = sys.argv[1:]
     force = "--force" in a
+    dispatch = "--dispatch" in a
     show_all = "--all" in a
-    a = [x for x in a if x not in ("--force", "--all")]
+    a = [x for x in a if x not in ("--force", "--all", "--dispatch")]
     if not a: sys.exit("usage: mbox {send <to> <from> <body> [--force]"
                        "|relay <to> <from> <file> <summary>"
                        "|recv <me> [<from>] [--all]|peek <me>}")
     c = a[0]
-    if c == "send": send(a[1], a[2], " ".join(a[3:]), force)
+    if c == "send": send(a[1], a[2], " ".join(a[3:]), force, dispatch)
     elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]), force)
     elif c == "recv": recv(a[1], a[2] if len(a) > 2 else None, None if show_all else RECV_LIMIT)
     elif c == "peek": peek(a[1])

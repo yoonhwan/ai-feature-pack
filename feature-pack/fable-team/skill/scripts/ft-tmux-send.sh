@@ -30,7 +30,7 @@ BODY="$MSG"
 
 # ② ft-mbox.sh send 위임(--no-doorbell → --no-notify). 출력·exit(QUEUED … doorbell=…) 그대로 전파.
 #
-# ★--force 는 «발주는 절대 막지 않는다» 는 뜻이다★ (2026-09-01 회귀 대응).
+# ★--dispatch 는 «발주는 절대 막지 않는다» 는 뜻이다★ (2026-09-01 회귀 대응).
 # 여기는 «발주» 경로다. ft-mbox.sh 의 발신 가드(본문 700자·fan-out·rate)는 «보고» 채널을
 # 겨냥한 것인데, 이 shim 이 본문을 같은 send 로 위임하는 바람에 발주까지 걸렸다:
 # 발주 본문은 대개 700자를 넘으므로 BLOCKED(exit 3) → 큐에도 안 들어가고 doorbell 도 안 울려
@@ -38,7 +38,7 @@ BODY="$MSG"
 # 규율(짧게 쓰기)은 사람과 문서가 지킨다 — ★가드가 발주를 삼키게 두지 않는다★.
 MBOX="$BINDIR/ft-mbox.sh"
 if [ "$NOTIFY" = 0 ]; then
-  exec bash "$MBOX" send "$SESS" "$FROM" "$BODY" --no-notify --force
+  exec bash "$MBOX" send "$SESS" "$FROM" "$BODY" --no-notify --dispatch
 else
-  exec bash "$MBOX" send "$SESS" "$FROM" "$BODY" --force
+  exec bash "$MBOX" send "$SESS" "$FROM" "$BODY" --dispatch
 fi
