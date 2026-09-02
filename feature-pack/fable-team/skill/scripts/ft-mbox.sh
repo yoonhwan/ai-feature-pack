@@ -29,8 +29,9 @@ pane_of() {
 
 # doorbell: 대상 세션에 recv 트리거만 주입(본문 아님). 전부 non-fatal(본문은 이미 큐에).
 # echoes: sent | skipped | absent
+# $2=force(1) 이면 시간 억제를 뚫는다 — 발주는 «반드시» 창에 떠야 한다.
 doorbell() {
-  local to="$1" cap pane
+  local to="$1" dbforce="${2:-0}" cap pane _db_stamp _db_last
   ft_sess_alive "$to" || { echo absent; return 0; }
   # 상태 판독: 옵션모드(Enter to select)면 skip(Escape 금지 — HIL 프롬프트 파괴 방지, 본문은 큐에 안전).
   # 미제출 잔류(❯ 텍스트)면 C-u로 클리어. capture는 invalid UTF-8 섞임 → LC_ALL=C grep -a 바이트매치(V3).
@@ -38,12 +39,19 @@ doorbell() {
   if printf '%s\n' "$cap" | LC_ALL=C grep -aq 'Enter to select'; then
     echo skipped; return 0
   fi
-  # 이미 동일 recv 트리거가 미제출 대기 중이면 중복 억제(연속 send 시 입력창 큐 폭주 방지).
-  # capture는 커서 아래 빈 줄까지 포함하므로 빈 줄 제거 후 마지막 실제 내용 줄만 본다
-  # (tail -1만 쓰면 빈 줄을 잡아 dedup이 무력화됨 — 핵심 버그포인트).
-  if printf '%s\n' "$cap" | LC_ALL=C grep -av '^[[:space:]]*$' | tail -1 | LC_ALL=C grep -aqF "recv $to"; then
+  # ★억제는 «화면 텍스트»가 아니라 «시간»으로 한다★ — 원래 여기서 tail -1 에 `recv $to` 가
+  # 보이면 스킵했는데, 그 조건은 «한 번도 참이 된 적이 없다»(2026-09-01 실측 6좌석 전수).
+  # Claude Code UI 는 프롬프트 «아래»에 상태줄이 있어 tail -1 이 늘 `⏵⏵ bypass permissions on …`
+  # 이나 힌트 조각 `/r` 을 잡는다 — 입력줄이 아니다. 그래서 매 send 마다 주입이 들어갔고,
+  # 그게 사용자 터미널 입력을 막은 두 번째 기제였다. 게다가 이 스킵이 «아래 C-u 클리어보다 앞»에
+  # 있어서, 정말로 트리거가 미제출로 걸렸을 때 그걸 치우는 유일한 코드에 영영 도달하지 못했다.
+  # 화면 텍스트 매칭은 UI 가 바뀌면 조용히 죽고, 죽어도 증상이 «더 많이 보내는 것»뿐이라 아무도 모른다.
+  _db_stamp="${TMPDIR:-/tmp}/mbox-doorbell-$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  _db_last="$(stat -f %m "$_db_stamp" 2>/dev/null || echo 0)"
+  if [ "$dbforce" != 1 ] && [ "$(( $(date +%s) - _db_last ))" -lt "${FT_MBOX_DOORBELL_MIN:-3}" ]; then
     echo skipped; return 0
   fi
+  : > "$_db_stamp" 2>/dev/null || true
   if printf '%s\n' "$cap" | LC_ALL=C grep -aqE '❯[[:space:]]+[^[:space:]]'; then
     tmux send-keys -t "$to" C-u 2>/dev/null || true; sleep 0.2
   fi
@@ -62,16 +70,38 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
     to="${1:?to}"; from="${2:?from}"; shift 2
-    notify=1
-    args=(); for a in "$@"; do [ "$a" = "--no-notify" ] && notify=0 || args+=("$a"); done
-    # py가 allowlist 검증(BAD_SESSION_NAME + exit 1) + 큐잉. 실패 시 그대로 전파.
-    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}")" || exit 1
+    notify=1; force=(); dbf=0
+    args=()
+    for a in "$@"; do
+      case "$a" in
+        --no-notify) notify=0 ;;
+        --force)     force=(--force); dbf=1 ;;
+        *)           args+=("$a") ;;
+      esac
+    done
+    # py가 allowlist 검증(BAD_SESSION_NAME exit 1) + 발신 가드(BLOCKED exit 3) + 큐잉.
+    # 거부되면 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
+    if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf")"; else db=off; fi
+    echo "$py_out doorbell=$db"
+    ;;
+  relay)
+    # 긴 본문의 정본 절차: 원문을 RELAY_DIR(기본 /tmp/mbox)로 복사하고 요약+경로만 큐잉.
+    to="${1:?to}"; from="${2:?from}"; file="${3:?file}"; shift 3
+    notify=1; args=()
+    for a in "$@"; do
+      case "$a" in
+        --no-notify) notify=0 ;;
+        *)           args+=("$a") ;;
+      esac
+    done
+    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
     if [ "$notify" = 1 ]; then db="$(doorbell "$to")"; else db=off; fi
     echo "$py_out doorbell=$db"
     ;;
-  recv)  exec python3 "$MBOXPY" recv "${1:?me}" ${2:+"$2"} ;;
+  recv)  me="${1:?me}"; shift; exec python3 "$MBOXPY" recv "$me" "$@" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
          db="$(doorbell "$sess")"; echo "RING $sess doorbell=$db" ;;
-  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--no-notify]|recv <me> [<from>]|peek <me>|ring <sess>}" >&2; exit 2;;
+  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--no-notify] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess>}" >&2; exit 2;;
 esac

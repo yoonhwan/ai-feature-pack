@@ -194,6 +194,7 @@ CLAUDE.md·SKILL.md에 "오케는 위임한다"고 적는 건 **권고**라 모�
 - 워커 감시: Monitor로 `agent-*.jsonl`에 `API Error` 문자열 포함 폴링 (조용한 실패 방지).
 - **원장이 컨텍스트에만 있으면 자동 컴팩션/재시작/증류로 증발** → 라운드 한도 붕괴·완료 단계 재실행·미승인 종결 위험. 진행 상태는 반드시 디스크 SSOT(`.fable-team/state/`)에 write-through (`references/context-management.md`).
 - **세션 내 백그라운드 워커는 사용자 개입에 동반 사망** — ESC/메시지마다 `[Request interrupted by user]`, 자동 재시도도 재개입 시 재사망(실측). **v3 가시성 규범**: v3 워커는 **독립 tmux 세션**이라 오케 세션 개입에 동반 사망하지 않는다(생명주기 분리 = v3 핵심 이득) — 사용자는 필요 시 `tmux attach`로 임의 워커를 직접 관찰한다. 오케의 HIL 집중 게이트(§1-6)가 사용자 접점을 단일화하므로 상시 attach는 불요하다. "보이지 않는 백그라운드는 돌지 않는 것으로 간주" 원칙은 유지되되, v3에선 이를 **우측 pane**이 아니라 **명명된 tmux 세션 + `ft-tmux-poll.sh` 센티널 판독**으로 실현한다(무가시 직접 발사는 여전히 금지). *(Legacy agent-v2 경로에선 우측 pane 서브에이전트 가시가 규범 — 위 「부록: Legacy spawn」 참조.)*
+- **[2026-09-01] Serena MCP 세션별 스폰 금지 — 프로젝당 공유서버 1개 connect (tmuxc UC1-7)**: tmuxc 세션 N개 × serena stdio → uvx serena 54개(~750MB×N + 자식 TS-LSP 3~4개/인스턴스)로 메모리 폭발(스왑 22GB 실측). 공식 해법(oraios/serena #1103 maintainer) = **프로젝트당 HTTP 서버 1개 + 전 세션 streamable-http connect**. 2026-09-01 적용 완료: `~/.claude/scripts/serena-mcp.sh ensure <project>`(tmuxc open 훅 자동), claude config는 `{"type":"http"}` — 워커/오케는 serena를 절대 직접 스폰하지 않고, "serena 없다"면 ensure 먼저. 상태 `serena-status`, 전체종료 `serena-mcp.sh stop-all`. ft-tmux-spawn.sh는 tmuxc 정본 경유라 별도 처리 불요.
 
 ## 운영 규율 4종 (2026-07-12 BYZ v6 retro §4.1 — 선언층. 훅 물리화는 backlog #2 최우선)
 
