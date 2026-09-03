@@ -31,27 +31,33 @@ pane_of() {
 # echoes: sent | skipped | absent
 # $2=force(1) 이면 시간 억제를 뚫는다 — 발주는 «반드시» 창에 떠야 한다.
 doorbell() {
-  local to="$1" dbforce="${2:-0}" cap pane _db_stamp _db_last
+  local to="$1" dbforce="${2:-0}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last
   ft_sess_alive "$to" || { echo absent; return 0; }
+  _seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  _db_stamp="${TMPDIR:-/tmp}/mbox-doorbell-$_seat"
+  _db_recv="${TMPDIR:-/tmp}/mbox-recv-$_seat"
+  # ★outstanding doorbell — pane 을 «읽지 않고» 판정한다★ (설계 §3-2):
+  # 마지막 doorbell 이 마지막 recv 보다 나중이면 «아직 소비 안 된 doorbell 이 창에 떠 있다» →
+  # 재주입 불필요. capture-pane 을 부르기 «전»에 파일 stat 만으로 끝낸다.
+  # 두 스탬프 다 없으면(첫 발신) 통과. --force/dbforce=1 은 뚫는다.
+  # ★조용한 폴백 금지★: stat 이 못 읽으면 값이 0 이 되어 첫 발신과 같이 «울리는 쪽»으로 기운다
+  #   (안 울려서 못 받는 것이 더 나쁘다).
+  _db_last="$(stat -f %m "$_db_stamp" 2>/dev/null || echo 0)"
+  _db_recv_last="$(stat -f %m "$_db_recv" 2>/dev/null || echo 0)"
+  if [ "$dbforce" != 1 ] && [ "$_db_last" -gt "$_db_recv_last" ]; then
+    echo skipped; return 0
+  fi
+  # 시간 억제(기존 FT_MBOX_DOORBELL_MIN) — 여전히 파일 stat 만, capture-pane 앞이다.
+  if [ "$dbforce" != 1 ] && [ "$(( $(date +%s) - _db_last ))" -lt "${FT_MBOX_DOORBELL_MIN:-3}" ]; then
+    echo skipped; return 0
+  fi
+  # ★여기까지 통과했을 때만 pane 을 읽는다★ — 옵션모드 보호와 ❯ 잔류 정리는 실제 주입 직전에만 필요하다.
   # 상태 판독: 옵션모드(Enter to select)면 skip(Escape 금지 — HIL 프롬프트 파괴 방지, 본문은 큐에 안전).
   # 미제출 잔류(❯ 텍스트)면 C-u로 클리어. capture는 invalid UTF-8 섞임 → LC_ALL=C grep -a 바이트매치(V3).
   cap="$(tmux capture-pane -p -t "$to" 2>/dev/null)"
   if printf '%s\n' "$cap" | LC_ALL=C grep -aq 'Enter to select'; then
     echo skipped; return 0
   fi
-  # ★억제는 «화면 텍스트»가 아니라 «시간»으로 한다★ — 원래 여기서 tail -1 에 `recv $to` 가
-  # 보이면 스킵했는데, 그 조건은 «한 번도 참이 된 적이 없다»(2026-09-01 실측 6좌석 전수).
-  # Claude Code UI 는 프롬프트 «아래»에 상태줄이 있어 tail -1 이 늘 `⏵⏵ bypass permissions on …`
-  # 이나 힌트 조각 `/r` 을 잡는다 — 입력줄이 아니다. 그래서 매 send 마다 주입이 들어갔고,
-  # 그게 사용자 터미널 입력을 막은 두 번째 기제였다. 게다가 이 스킵이 «아래 C-u 클리어보다 앞»에
-  # 있어서, 정말로 트리거가 미제출로 걸렸을 때 그걸 치우는 유일한 코드에 영영 도달하지 못했다.
-  # 화면 텍스트 매칭은 UI 가 바뀌면 조용히 죽고, 죽어도 증상이 «더 많이 보내는 것»뿐이라 아무도 모른다.
-  _db_stamp="${TMPDIR:-/tmp}/mbox-doorbell-$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
-  _db_last="$(stat -f %m "$_db_stamp" 2>/dev/null || echo 0)"
-  if [ "$dbforce" != 1 ] && [ "$(( $(date +%s) - _db_last ))" -lt "${FT_MBOX_DOORBELL_MIN:-3}" ]; then
-    echo skipped; return 0
-  fi
-  : > "$_db_stamp" 2>/dev/null || true
   if printf '%s\n' "$cap" | LC_ALL=C grep -aqE '❯[[:space:]]+[^[:space:]]'; then
     tmux send-keys -t "$to" C-u 2>/dev/null || true; sleep 0.2
   fi
@@ -63,6 +69,7 @@ doorbell() {
   tmux send-keys -t "$pane" -l "bash $BINDIR/ft-mbox.sh recv $to" 2>/dev/null || true
   sleep 0.3
   tmux send-keys -t "$pane" Enter 2>/dev/null || true
+  : > "$_db_stamp" 2>/dev/null || true   # ★실제 주입 직후에만 doorbell 스탬프 갱신★
   echo sent
 }
 
@@ -101,7 +108,11 @@ case "$cmd" in
     if [ "$notify" = 1 ]; then db="$(doorbell "$to")"; else db=off; fi
     echo "$py_out doorbell=$db"
     ;;
-  recv)  me="${1:?me}"; shift; exec python3 "$MBOXPY" recv "$me" "$@" ;;
+  recv)  me="${1:?me}"; shift
+         # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. py 는 여러 경로로 불리므로
+         #   sh 래퍼의 recv case 에서 touch 한다(설계 §3-2). exec 전에 해야 실행된다.
+         : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
+         exec python3 "$MBOXPY" recv "$me" "$@" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
          db="$(doorbell "$sess")"; echo "RING $sess doorbell=$db" ;;
