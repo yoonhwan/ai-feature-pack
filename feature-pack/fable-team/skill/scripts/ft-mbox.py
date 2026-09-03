@@ -74,6 +74,43 @@ def _legacy_dirs():
 def _mbox(d): return os.path.join(d, "mailbox.jsonl")
 
 
+# ★seq 는 «파일에 남은 행» 이 아니라 «카운터» 에서 받는다★ (2026-09-03)
+#   recv 가 읽은 행을 파일에서 지우므로, max(rows)+1 은 큰 번호가 소비되면 «되감긴다».
+#   되감긴 번호는 에러 없이 다른 메시지를 가리켜 조용히 틀린다(격리 실측 30건 중 7건 중복).
+_SEQCTR = os.path.join(CANON, ".mbox-seq")
+# 부트스트랩 하한. 전수 실측(2026-09-03) 우편함·아카이브 6곳의 max 가 1556 이었다.
+# ★1601★ — v6 계보와 번호 공간을 어긋나게 두지 않으려는 하한(첫 seq=1602).
+SEQ_FLOOR = int(os.environ.get("FT_MBOX_SEQ_FLOOR") or 1601)
+
+
+def _next_seq(rows):
+    """★high-water mark 를 한 칸 올려 돌려준다★ — 호출자가 이미 mailbox.lock 을 쥐고 있다.
+
+    ★새 잠금을 걸지 않는다★: flock 은 블로킹이라 물고 죽은 프로세스가 send 를 멈춘다.
+    같은 잠금 안에서 하므로 원자성은 기존 잠금이 준다.
+
+    ★`rows` 의 max 도 함께 본다★ — 카운터를 모르는 «구버전 사본» 이 같은 우편함에
+    큰 번호를 남겼을 때 그것을 덮어쓰지 않기 위해서다. 단 이것이 공존을 안전하게
+    만들지는 «않는다» — 구버전은 이 카운터를 안 읽으므로 여전히 되감는다.
+    ⇒ ★사본 전부를 동시에 갈아야 한다★. 하나라도 남으면 오염이 계속된다.
+    """
+    try:
+        with open(_SEQCTR, encoding="utf-8") as f:
+            hwm = int(f.read().strip())
+    except FileNotFoundError:
+        hwm = SEQ_FLOOR
+    except (ValueError, OSError) as e:
+        # ★삼키지 않는다★ — 여기서 파일 max 로 폴백하면 고치려던 그 병으로 되돌아간다.
+        raise RuntimeError("mbox seq counter unreadable: %s (%s)" % (_SEQCTR, e))
+    seq = max(hwm, max((r.get("seq", 0) for r in rows), default=0)) + 1
+    # ★원자적 교체★ — 쓰다 죽어도 반쪽 숫자가 남지 않는다(반쪽은 위 ValueError 로 간다).
+    tmp = _SEQCTR + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(str(seq))
+    os.replace(tmp, _SEQCTR)
+    return seq
+
+
 def _check_name(n):
     if not n or not NAME_RE.match(n):
         sys.stderr.write("BAD_SESSION_NAME %s\n" % n)
@@ -186,7 +223,7 @@ def send(to, frm, body, force=False, dispatch=False):
             verdict = None
         if verdict:
             return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 해제 후 처리.
-        seq = max((r.get("seq", 0) for r in rows), default=0) + 1
+        seq = _next_seq(rows)
         rows.append({"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
                      "to": to, "from": frm, "body": body})
         byto = {}
