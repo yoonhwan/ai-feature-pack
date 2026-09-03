@@ -13,9 +13,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BACKUP_DIR="${SCRIPT_DIR}"
 
-# 11개 매핑: "<백업파일명>|<런타임 상대경로>"
+# 12개 매핑: "<백업파일명>|<런타임 상대경로>"
+#
+# ★mbox.sh 를 뒤늦게 넣은 이유 (2026-09-03)★
+#   최초 등록은 「정본 mbox.py + bin/ 도구 10」이었는데, 좌석이 실제로 «치는» 명령은
+#   `bash .../comm/mbox.sh recv <me>` 다 — doorbell 주입 문자열도 이것이고, 억제 로직도
+#   여기 산다. 그런데 이 파일은 v6 워크트리에만 있는 «일반 파일»이라 백업이 없었다.
+#   ★그 워크트리를 정리하면 전 좌석의 mbox 진입점이 통째로 사라진다★ — mbox.py 가
+#   살아 있어도 아무도 그걸 부르지 못한다. 도구 10개보다 이쪽이 더 치명적이다.
 MAP=(
   "mbox.py|.claude/fable-team/bin/mbox.py"
+  "mbox.sh|.worktrees/v6-realtime-live/.fable-team/comm/mbox.sh"
   "ft-broadcast.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-broadcast.sh"
   "ft-claude-context.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-claude-context.sh"
   "ft-context-monitor.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh"

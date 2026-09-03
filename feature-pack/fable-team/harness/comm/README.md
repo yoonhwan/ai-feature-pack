@@ -4,24 +4,25 @@
 실제 좌석 통신은 아래 「런타임 실제 경로」의 추적 밖(untracked) 파일들이 담당한다.
 이 디렉터리는 **어떤 심링크의 대상도 아니므로**, 브랜치 전환에 사라져도 통신은 죽지 않는다 — 그래서 추적해도 안전하다.
 
-## 런타임 실제 경로 (정본 1 + 도구 10)
+## 런타임 실제 경로 (정본 1 + 진입점 1 + 도구 10)
 
 | # | 파일 | 런타임 경로 | 성격 |
 |---|------|-------------|------|
 | 1 | mbox.py | `.claude/fable-team/bin/mbox.py` | 정본(실파일). 워크트리 경로가 상대 심링크로 이걸 가리킨다 |
-| 2 | ft-broadcast.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-broadcast.sh` | 도구 |
-| 3 | ft-claude-context.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-claude-context.sh` | 도구 |
-| 4 | ft-context-monitor.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh` | 도구 |
-| 5 | ft-master-tick.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh` | 도구 |
-| 6 | ft-pm-tick.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-pm-tick.sh` | 도구 |
-| 7 | ft-reach-check.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-reach-check.sh` | 도구 |
-| 8 | ft-seat-status.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-seat-status.sh` | 도구 |
-| 9 | ft-send-verified.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-send-verified.sh` | 도구 |
-| 10 | ft-wall-check.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-wall-check.sh` | 도구 |
-| 11 | ft-wall-read.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-wall-read.sh` | 도구 |
+| 2 | mbox.sh | `.worktrees/v6-realtime-live/.fable-team/comm/mbox.sh` | ★좌석이 실제로 «치는» 진입점★. doorbell 주입·억제가 여기 산다. 심링크 아닌 일반 파일이라 이 워크트리에만 있다 |
+| 3 | ft-broadcast.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-broadcast.sh` | 도구 |
+| 4 | ft-claude-context.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-claude-context.sh` | 도구 |
+| 5 | ft-context-monitor.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh` | 도구 |
+| 6 | ft-master-tick.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh` | 도구 |
+| 7 | ft-pm-tick.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-pm-tick.sh` | 도구 |
+| 8 | ft-reach-check.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-reach-check.sh` | 도구 |
+| 9 | ft-seat-status.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-seat-status.sh` | 도구 |
+| 10 | ft-send-verified.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-send-verified.sh` | 도구 |
+| 11 | ft-wall-check.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-wall-check.sh` | 도구 |
+| 12 | ft-wall-read.sh | `.worktrees/v6-realtime-live/.fable-team/bin/ft-wall-read.sh` | 도구 |
 
 > `.gitignore` 의 `.fable-team/` 와 `.claude/fable-team/` 두 줄이 위 경로를 이미 물리 차단한다. **건드리지 마라.**
-> 도구 10개는 `v6-realtime-live` 워크트리에만 있다 — 그 워크트리를 정리하면 통신 검증 도구가 통째로 소멸하니 주의.
+> ★11개(mbox.sh + 도구 10)가 `v6-realtime-live` 워크트리에만 있다★ — 그 워크트리를 정리하면 통신 검증 도구뿐 아니라 ★좌석이 치는 진입점(mbox.sh)까지 사라진다★. mbox.py 가 살아 있어도 아무도 부르지 못한다.
 
 ## 왜 런타임이 untracked 인가 (작동 원리 — 결함 아님)
 
@@ -37,15 +38,26 @@ git 은 브랜치 전환에서 **untracked 파일을 지우지 않는다.** 그�
 # 정본 mbox.py 복구
 cp tools/comm-canonical/mbox.py .claude/fable-team/bin/mbox.py
 
-# 도구 10개 복구
+# ★진입점 mbox.sh 복구 — 목적지가 bin/ 이 아니라 comm/ 다★
+#   이것부터 살려야 한다. mbox.py 만 살리면 좌석이 부를 명령이 없다.
+mkdir -p .worktrees/v6-realtime-live/.fable-team/comm
+cp tools/comm-canonical/mbox.sh .worktrees/v6-realtime-live/.fable-team/comm/mbox.sh
+
+# 도구 10개 복구 (이쪽은 bin/)
 for f in ft-broadcast.sh ft-claude-context.sh ft-context-monitor.sh \
          ft-master-tick.sh ft-pm-tick.sh ft-reach-check.sh \
          ft-seat-status.sh ft-send-verified.sh ft-wall-check.sh ft-wall-read.sh; do
   cp "tools/comm-canonical/$f" ".worktrees/v6-realtime-live/.fable-team/bin/$f"
 done
 
+# 워크트리 심링크 재생성(정본을 가리키게) — 없으면 그 워크트리 좌석이 별도 우편함을 판다
+ln -sfn ../../../../.claude/fable-team/bin/mbox.py \
+        .worktrees/v6-realtime-live/.fable-team/comm/mbox.py
+
 # 실행권한 확인
-chmod +x .claude/fable-team/bin/mbox.py .worktrees/v6-realtime-live/.fable-team/bin/ft-*.sh
+chmod +x .claude/fable-team/bin/mbox.py \
+         .worktrees/v6-realtime-live/.fable-team/comm/mbox.sh \
+         .worktrees/v6-realtime-live/.fable-team/bin/ft-*.sh
 ```
 
 ## 드리프트 확인 (자동 반영 안 함 — 사람이 판단)
