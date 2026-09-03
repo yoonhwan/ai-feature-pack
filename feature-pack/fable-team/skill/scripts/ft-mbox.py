@@ -9,7 +9,7 @@ v6-realtime-live mbox.py 계승 + 팩 추가분: FT_MBOX_DIR 경로 주입·세�
 union 을 두는 이유 — 경로를 «순간에» 바꾸면 바꾸기 직전 큐잉된 메시지가 옛 파일에 남아
 ★아무도 안 읽는다★. 레거시가 전부 0행이 되면 그때 걷어낸다(그 판단은 별도).
 """
-import sys, os, re, json, time, fcntl, hashlib, shutil
+import sys, os, re, json, time, fcntl, hashlib, shutil, glob
 
 MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
@@ -39,8 +39,18 @@ def _repo_root(start):
     while d != os.path.dirname(d):
         if os.path.basename(d) == ".fable-team":
             parent = os.path.dirname(d)
-            gp = os.path.dirname(parent)
-            return os.path.dirname(gp) if os.path.basename(gp) == ".worktrees" else parent
+            # ★워크트리 이름이 «한 단계»라는 보장이 없다★ (2026-09-03 실측)
+            #   브랜치명에 슬래시가 있으면 `.worktrees/feat/loom-pack-layer` 처럼 두 단계가
+            #   된다(BYZ 에 실존). 조부모만 보고 판정하면 그 경우 `.worktrees` 를 못 만나
+            #   ★자기 워크트리 «안»을 정본으로 잡아 조용히 별도 우편함을 판다★ — 에러가
+            #   안 나고 send/recv 는 성공하므로, 그 좌석만 아무에게도 안 닿는다.
+            #   그래서 깊이를 가정하지 않고 «`.worktrees` 조상을 만날 때까지» 올라간다.
+            a = parent
+            while a != os.path.dirname(a):
+                if os.path.basename(a) == ".worktrees":
+                    return os.path.dirname(a)
+                a = os.path.dirname(a)
+            return parent
         d = os.path.dirname(d)
     return None  # ★F4: .fable-team 조상이 없으면 정본을 «유도할 수 없다» — 조용히 만들지 않는다.
 
@@ -64,10 +74,15 @@ def _legacy_dirs():
         return []
     out, wt = [], os.path.join(_ROOT, ".worktrees")
     if os.path.isdir(wt):
-        for name in sorted(os.listdir(wt)):
-            d = os.path.join(wt, name, ".fable-team", "comm")
-            if os.path.isdir(d) and os.path.abspath(d) != os.path.abspath(CANON):
-                out.append(d)
+        # ★깊이를 «1» 로 가정하지 않는다★ — _repo_root 와 같은 함정이 여기에도 있었다.
+        #   브랜치명에 슬래시가 있으면 워크트리는 `.worktrees/feat/loom-pack-layer` 처럼
+        #   두 단계다(BYZ 실존). 한 단계만 훑으면 그 안에 큐잉된 메시지를 union 이 못 봐
+        #   ★아무도 안 읽는다★ — recv 는 정상 종료하므로 유실이 무증상으로 남는다.
+        for depth in (1, 2, 3):
+            pat = os.path.join(wt, *(["*"] * depth), ".fable-team", "comm")
+            for d in sorted(glob.glob(pat)):
+                if os.path.isdir(d) and os.path.abspath(d) != os.path.abspath(CANON):
+                    out.append(d)
     return out
 
 
