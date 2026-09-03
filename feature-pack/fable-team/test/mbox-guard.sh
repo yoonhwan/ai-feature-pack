@@ -88,5 +88,25 @@ wait
 pk=$(bash "$MBOX" peek seatN 2>&1)
 ok "T19 concurrent-exactly-1 (F6)" 1 "$(printf '%s\n' "$pk" | grep -oE 'pending=[0-9]+' | head -1 | cut -d= -f2)"
 
+# T20 seq 단조증가: send 3 → recv 전량 소비 → send 1. 마지막 seq가 소비된 최대 seq보다 커야 함.
+#   (수정 전이면 recv가 max 행을 지워 seq가 되감겨 s4<=s3 으로 실패한다.)
+s1=$(bash "$MBOX" send seatT20 t20user "t20-body-1" --no-notify 2>&1 | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+s2=$(bash "$MBOX" send seatT20 t20user "t20-body-2" --no-notify 2>&1 | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+s3=$(bash "$MBOX" send seatT20 t20user "t20-body-3" --no-notify 2>&1 | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+bash "$MBOX" recv seatT20 --all >/dev/null 2>&1     # 전량 소비 → 파일 max 되감김 유발
+s4=$(bash "$MBOX" send seatT20 t20user "t20-body-4" --no-notify 2>&1 | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+[ -n "$s3" ] && [ -n "$s4" ] && [ "$s4" -gt "$s3" ]; ok "T20 seq-monotonic-after-consume (s3=$s3 s4=$s4)" 0 $?
+
+# T21 카운터 손상 fail-loud: garbage 카운터 → rc≠0 이고 stderr에 카운터 경로 (격리 우편함).
+t21dir="$(mktemp -d)"
+printf 'garbage\n' > "$t21dir/.mbox-seq"
+err=$(FT_MBOX_DIR="$t21dir" bash "$MBOX" send seatT21 t21user "t21-body" --no-notify 2>&1); rc=$?
+[ "$rc" != 0 ]; ok "T21a corrupt-counter rc≠0 (rc=$rc)" 0 $?
+printf '%s\n' "$err" | grep -q '\.mbox-seq'; ok "T21b corrupt-counter path-in-stderr" 0 $?
+
+# T22 SEQ_FLOOR: 빈 우편함 첫 send seq가 1601 초과(≥1602 = floor 1601 + 1) (격리 우편함).
+s22=$(FT_MBOX_DIR="$(mktemp -d)" bash "$MBOX" send seatT22 t22user "t22-body" --no-notify 2>&1 | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+[ -n "$s22" ] && [ "$s22" -ge 1602 ]; ok "T22 SEQ_FLOOR first-seq≥1602 (=$s22)" 0 $?
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
