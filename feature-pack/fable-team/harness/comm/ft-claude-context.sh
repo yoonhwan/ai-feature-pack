@@ -1,5 +1,5 @@
 #!/bin/bash
-# ★이 파일은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # Claude 좌석의 tmux 이름을 세션 JSONL usage에 결속해 ctx 사용률을 계산한다.
 
 set -uo pipefail

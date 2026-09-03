@@ -1,5 +1,5 @@
 #!/bin/bash
-# ★이 파일은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # ft-v65-master#3 크론 틱 — 상태 점검 + HIL 상신 트리거
 #
 # 2026-08-17 신설 (사용자 지시): "pm, master 디바운스 크론 등록.

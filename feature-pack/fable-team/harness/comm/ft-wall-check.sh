@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ★이 파일은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # 작업 전 벽 읽음 체크 — 원장 sha != 현재 벽 sha 면 재읽기 요구
 set -euo pipefail
 SEAT="${1:?seat}"

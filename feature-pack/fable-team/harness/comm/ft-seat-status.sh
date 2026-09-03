@@ -1,5 +1,5 @@
 #!/bin/bash
-# ★이 파일은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # 좌석 busy/IDLE 판정 — 눈대중 금지, 이 스크립트가 정본.
 #
 # 2026-09-01 신설 (오빠: "또 안멈춰있게 체크루프 모니터링 확실히")

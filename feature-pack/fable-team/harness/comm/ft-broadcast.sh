@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ★이 파일은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # 여러 좌석에 같은 본문을 보내고 ★좌석별 도달 결과를 집계★한다.
 #
 # ─ 왜 스크립트여야 하나 (zsh 단어분할 재발 방지) ────────────────────────────

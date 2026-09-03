@@ -1,5 +1,5 @@
 #!/bin/bash
-# ★이 파일은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # ft-v65 좌석 컨텍스트 사용률·compaction 후 재개 실패 감시.
 
 set -uo pipefail
