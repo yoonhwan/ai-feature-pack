@@ -108,5 +108,36 @@ printf '%s\n' "$err" | grep -q '\.mbox-seq'; ok "T21b corrupt-counter path-in-st
 s22=$(FT_MBOX_DIR="$(mktemp -d)" bash "$MBOX" send seatT22 t22user "t22-body" --no-notify 2>&1 | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
 [ -n "$s22" ] && [ "$s22" -ge 1602 ]; ok "T22 SEQ_FLOOR first-seq≥1602 (=$s22)" 0 $?
 
+# T23 워크트리 깊이: 브랜치명에 슬래시가 있으면 `.worktrees/feat/wt` 처럼 두 단계다.
+#     한 단계로 가정하면 «자기 워크트리 안»을 정본으로 잡아 조용히 별도 우편함을 판다
+#     (에러 없이 send/recv 성공 → 그 좌석만 아무에게도 안 닿는다).
+t23="$(mktemp -d)"
+mkdir -p "$t23/repo/.worktrees/feat/wt1/.fable-team/bin" "$t23/repo/.worktrees/wt2/.fable-team/bin"
+cp "$MBOXPY" "$t23/repo/.worktrees/feat/wt1/.fable-team/bin/"
+cp "$MBOXPY" "$t23/repo/.worktrees/wt2/.fable-team/bin/"
+canon_of() {  # <스크립트경로> → 그 사본이 정본으로 잡는 comm 디렉터리
+  (unset FT_MBOX_DIR; python3 -c "
+import importlib.util
+sp=importlib.util.spec_from_file_location('m','$1')
+m=importlib.util.module_from_spec(sp); sp.loader.exec_module(m); print(m.CANON)" 2>/dev/null)
+}
+want="$t23/repo/.fable-team/comm"
+c1="$(canon_of "$t23/repo/.worktrees/feat/wt1/.fable-team/bin/ft-mbox.py")"
+c2="$(canon_of "$t23/repo/.worktrees/wt2/.fable-team/bin/ft-mbox.py")"
+[ "$c1" = "$want" ]; ok "T23a two-level worktree → repo root" 0 $?
+[ "$c2" = "$want" ]; ok "T23b one-level worktree → repo root (회귀)" 0 $?
+
+# T23c union 읽기도 깊이를 가정하면 안 된다 — 두 단계 워크트리에 큐잉된 메시지가
+#      보이지 않으면 그건 무증상 유실이다(recv 는 정상 종료한다).
+# ★정본 판정은 «스크립트 위치»에서 유도되므로, 임시 리포 안에 사본을 두고 그걸 부른다★
+#   (FT_MBOX_DIR 로 CANON 만 바꾸면 legacy 스캔은 여전히 팩 리포를 훑어 시험이 무의미해진다.)
+mkdir -p "$t23/repo/.fable-team/bin" "$t23/repo/.worktrees/feat/wt1/.fable-team/comm"
+cp "$MBOXPY" "$MBOX" "$t23/repo/.fable-team/bin/"
+cp "$HERE/../skill/scripts/ft-lib.sh" "$t23/repo/.fable-team/bin/" 2>/dev/null
+FT_MBOX_DIR="$t23/repo/.worktrees/feat/wt1/.fable-team/comm" \
+  bash "$MBOX" send seatT23 t23user "t23-legacy-body" --no-notify >/dev/null 2>&1
+out="$(bash "$t23/repo/.fable-team/bin/ft-mbox.sh" recv seatT23 2>&1)"
+printf '%s' "$out" | grep -q 't23-legacy-body'; ok "T23c union reads two-level worktree mailbox" 0 $?
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
