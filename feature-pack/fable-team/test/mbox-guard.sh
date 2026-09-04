@@ -139,5 +139,31 @@ FT_MBOX_DIR="$t23/repo/.worktrees/feat/wt1/.fable-team/comm" \
 out="$(bash "$t23/repo/.fable-team/bin/ft-mbox.sh" recv seatT23 2>&1)"
 printf '%s' "$out" | grep -q 't23-legacy-body'; ok "T23c union reads two-level worktree mailbox" 0 $?
 
+# T24 doorbell 굶김 상한: outstanding 억제만 있으면 좌석이 «영구 벙어리»가 된다.
+#     doorbell 은 주입됐는데 좌석이 그 입력을 삼키면 recv 가 영영 안 돌고, 이후 모든
+#     send 가 skip 된다(실측: 좌석 2개가 19시간 벙어리였다). 오래된 outstanding 은
+#     소비될 가망이 없다고 보고 다시 울려야 한다.
+#     ★doorbell 은 살아 있는 tmux 세션이 필요하다★ — 없으면 이 케이스는 건너뛴다.
+if command -v tmux >/dev/null 2>&1; then
+  t24sess="mbox-guard-t24-$$"
+  tmux new-session -d -s "$t24sess" -c /tmp 2>/dev/null; sleep 0.4
+  t24tmp="$(mktemp -d)"
+  db() { FT_MBOX_DIR="$(mktemp -d)" TMPDIR="$t24tmp" FT_MBOX_DOORBELL_MIN=0 \
+         bash "$MBOX" send "$t24sess" t24user "$1" 2>&1 | grep -oE 'doorbell=[a-z]+'; }
+  a="$(db t24-a)"; b="$(db t24-b)"
+  [ "$a" = "doorbell=sent" ]; ok "T24a 첫 doorbell sent (=$a)" 0 $?
+  [ "$b" = "doorbell=skipped" ]; ok "T24b outstanding 억제 (=$b)" 0 $?
+  # recv 없이 doorbell 스탬프만 과거로 → «삼켜진 채 오래된» 상태를 만든다
+  touch -t "$(date -v-130S '+%Y%m%d%H%M.%S')" \
+        "$t24tmp/mbox-doorbell-$(printf '%s' "$t24sess" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null
+  c="$(db t24-c)"
+  [ "$c" = "doorbell=sent" ]; ok "T24c 굶김 상한 초과 → 다시 울린다 (=$c)" 0 $?
+  d="$(db t24-d)"
+  [ "$d" = "doorbell=skipped" ]; ok "T24d 최근 outstanding 은 여전히 억제 (=$d)" 0 $?
+  tmux kill-session -t "$t24sess" 2>/dev/null || true
+else
+  echo "SKIP T24 doorbell-starvation (tmux 없음)"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
