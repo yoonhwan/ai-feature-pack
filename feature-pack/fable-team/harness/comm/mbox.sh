@@ -27,6 +27,14 @@ doorbell() {
   local to="$1" dbforce="${2:-0}" pane seat stamp recvstamp last recvlast now
   pane="$(pane_of "$to")"
   [ -n "$pane" ] || return 0
+  # ★에이전트가 떠 있는지 확인한다★ — pane 이 살아 있는 것과 에이전트가 도는 것은 다르다.
+  #   맨 셸에 주입하면 recv 명령이 «셸에서 실행»되고, pane 발주 본문은 셸에 떨어진다.
+  #   실측(2026-09-04): CloneWorks#0 · ft-v65-diag-lstseg#1 pane 에
+  #   `zsh: bad pattern: [전체공지` — 공지가 Claude 프롬프트가 아니라 셸로 갔다.
+  #   본문에 백틱·세미콜론이 있었으면 그대로 «실행»된다. COMM-GUIDE §2 Step1·§5-3 이
+  #   이미 금지한 것인데 코드에 없었다.
+  _ppid="$(tmux list-panes -t "$to" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  if [ -n "$_ppid" ] && ! pgrep -P "$_ppid" >/dev/null 2>&1; then return 0; fi
   seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   stamp="${TMPDIR:-/tmp}/mbox-doorbell-$seat"
   recvstamp="${TMPDIR:-/tmp}/mbox-recv-$seat"
