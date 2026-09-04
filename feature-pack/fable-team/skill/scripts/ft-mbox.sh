@@ -31,8 +31,21 @@ pane_of() {
 # echoes: sent | skipped | absent
 # $2=force(1) 이면 시간 억제를 뚫는다 — 발주는 «반드시» 창에 떠야 한다.
 doorbell() {
-  local to="$1" dbforce="${2:-0}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last
+  local to="$1" dbforce="${2:-0}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last _ppid
   ft_sess_alive "$to" || { echo absent; return 0; }
+  # ★에이전트가 떠 있는지 확인한다 — pane 이 «살아 있다»와 «에이전트가 돈다»는 다르다★
+  #   ft_sess_alive 는 pane_pid 에 kill -0 만 하므로 ★맨 셸도 통과★한다. 그 상태에서
+  #   주입하면 recv 명령이 «셸에서 실행»되고, 더 나쁘게는 pane 발주 본문이 셸에 떨어진다.
+  #   실측(2026-09-04): CloneWorks#0 · ft-v65-diag-lstseg#1 pane 에
+  #   `zsh: bad pattern: [전체공지` — 공지가 Claude 프롬프트가 아니라 셸에 떨어졌다.
+  #   본문에 백틱·세미콜론이 있었으면 그대로 «실행»된다. COMM-GUIDE §2 Step1·§5-3 이
+  #   이미 금지한 것인데 코드에 없었다.
+  #   ★ft_sess_alive 자체는 안 고친다★ — 다른 ft-* 스크립트들이 공유하는 함수라
+  #   의미를 바꾸면 그쪽 계약까지 흔든다. 여기서만 한 겹 더 본다.
+  _ppid="$(tmux list-panes -t "$to" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  if [ -n "$_ppid" ] && ! pgrep -P "$_ppid" >/dev/null 2>&1; then
+    echo noagent; return 0
+  fi
   _seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   _db_stamp="${TMPDIR:-/tmp}/mbox-doorbell-$_seat"
   _db_recv="${TMPDIR:-/tmp}/mbox-recv-$_seat"
