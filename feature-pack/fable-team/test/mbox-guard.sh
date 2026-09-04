@@ -147,6 +147,10 @@ printf '%s' "$out" | grep -q 't23-legacy-body'; ok "T23c union reads two-level w
 if command -v tmux >/dev/null 2>&1; then
   t24sess="mbox-guard-t24-$$"
   tmux new-session -d -s "$t24sess" -c /tmp 2>/dev/null; sleep 0.4
+  # ★프로브를 «좌석처럼» 만든다★ — doorbell 은 에이전트 없는 맨 셸에는 주입하지 않는다
+  #   (noagent). 실좌석은 pane 아래에 agent 프로세스가 있으므로, 자식을 하나 띄워
+  #   그 조건을 맞춘다. 안 그러면 이 테스트는 «가드가 옳아서» 빨개진다.
+  tmux send-keys -t "$t24sess" 'sleep 600' Enter 2>/dev/null; sleep 0.6
   t24tmp="$(mktemp -d)"
   db() { FT_MBOX_DIR="$(mktemp -d)" TMPDIR="$t24tmp" FT_MBOX_DOORBELL_MIN=0 \
          bash "$MBOX" send "$t24sess" t24user "$1" 2>&1 | grep -oE 'doorbell=[a-z]+'; }
