@@ -272,7 +272,14 @@ def send(to, frm, body, force=False):
         verdict = None
     if verdict:
         reason, hint = verdict
-        sys.stderr.write("BLOCKED %s\n%s\n정말 필요하면 --force 를 붙인다.\n" % (reason, hint))
+        # ★마지막 줄에 이유를 «다시» 싣는다★ (2026-09-04 실측)
+        #   사람은 stderr 를 tail 로 받는다. 이유가 첫 줄에만 있으면 `tail -1` 은
+        #   "--force 를 붙인다" 만 보여주고, BODY_TOO_LONG 처럼 hint 가 여러 줄인 가드는
+        #   ★`tail -3` 으로도 이유가 밀려나 안 잡힌다★. 그러면 받는 사람은 «왜 막혔는지
+        #   모른 채» 본문만 줄여 재발송한다 — 오늘 실제로 그 일이 났고 당사자는 어느
+        #   가드였는지 사후에도 확정하지 못했다. 잘리는 쪽을 정할 수 없으니 양 끝에 둔다.
+        sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n"
+                         % (reason, hint, reason))
         sys.exit(3)
     def op():
         rows = _load(CANON)
