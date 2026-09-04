@@ -42,9 +42,19 @@ doorbell() {
   # 두 스탬프 다 없으면(첫 발신) 통과. --force/dbforce=1 은 뚫는다.
   # ★조용한 폴백 금지★: stat 이 못 읽으면 값이 0 이 되어 첫 발신과 같이 «울리는 쪽»으로 기운다
   #   (안 울려서 못 받는 것이 더 나쁘다).
+  # ★굶김 상한★ (2026-09-04 실측 회귀 — 이 상한이 없으면 좌석이 «영구 벙어리»가 된다)
+  #   outstanding 만으로 억제하면 이런 경로가 열린다: doorbell 은 주입됐는데 좌석이
+  #   그 입력을 «삼켰다»(턴 실행 중 입력 유실은 실측된 동작) → recv 가 영영 안 돌고
+  #   recv 스탬프도 안 생긴다 → 이후 모든 send 가 skip → ★그 좌석은 다시는 안 울린다★.
+  #   실측: FB_CFO#4 는 09-03 17:00 doorbell 이후 recv 0회로 19시간 벙어리였다.
+  #   그래서 «오래된» outstanding 은 소비될 가망이 없다고 보고 다시 울린다.
+  #   안 울려서 못 받는 것이 두 번 울리는 것보다 나쁘다 — 억제의 취지는 홍수 방지지
+  #   침묵이 아니다.
   _db_last="$(stat -f %m "$_db_stamp" 2>/dev/null || echo 0)"
   _db_recv_last="$(stat -f %m "$_db_recv" 2>/dev/null || echo 0)"
-  if [ "$dbforce" != 1 ] && [ "$_db_last" -gt "$_db_recv_last" ]; then
+  _db_age="$(( $(date +%s) - _db_last ))"
+  if [ "$dbforce" != 1 ] && [ "$_db_last" -gt "$_db_recv_last" ] \
+     && [ "$_db_age" -lt "${FT_MBOX_DOORBELL_STARVE:-120}" ]; then
     echo skipped; return 0
   fi
   # 시간 억제(기존 FT_MBOX_DOORBELL_MIN) — 여전히 파일 stat 만, capture-pane 앞이다.
