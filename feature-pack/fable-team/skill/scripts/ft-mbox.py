@@ -17,7 +17,15 @@ NAME_RE = re.compile(r'^[A-Za-z0-9._#-]+$')
 
 # ── 발신 규율 물리 가드 (COMM-GUIDE §1.5) ──────────────────────────────
 # 홍수는 사용자 입력을 막고, ring(MAX_PER_TO) 상한을 넘긴 메시지를 조용히 유실시킨다.
-MAX_BODY = int(os.environ.get("FT_MBOX_MAX_BODY") or 700)        # 본문 문자 상한(3~5줄)
+# ★2026-09-05 — 길이는 «발신 차단»이 아니라 «수신 절단» 기준이다★
+#   상한으로 send 를 실패시켰더니 사람이 배운 것은 relay 가 아니라 `--force` 였다:
+#   실측(2026-09-05) 정본 큐 51건 중 ★16건(31%)이 700자 초과★인데 relay 형식은 ★0건★.
+#   차단은 규율을 «가르치지 못했고», 대신 «막히면 --force» 라는 우회를 가르쳤다.
+#   ⇒ ①send 는 길이로 막지 않는다 ②700자를 넘으면 전문을 파일에 «먼저» 박는다
+#     ③recv 가 잘라 읽고 전문 경로를 함께 준다.
+#   받는 쪽 컨텍스트는 그대로 보호되고(태우는 것은 «읽는 쪽»이다), 보내는 쪽은 아무것도
+#   잃지 않는다. relay 는 여전히 최선이다 — 사람이 쓴 요약은 기계 절단이 못 만든다.
+MAX_BODY = int(os.environ.get("FT_MBOX_MAX_BODY") or 700)        # 본문 «절단» 기준(3~5줄)
 FANOUT_WIN = int(os.environ.get("FT_MBOX_FANOUT_WINDOW") or 600)  # 동일 본문 다중 좌석 판정 창(초)
 RATE_N = int(os.environ.get("FT_MBOX_RATE_N") or 5)               # from당 발신 건수
 RATE_WIN = int(os.environ.get("FT_MBOX_RATE_WINDOW") or 60)       # 그 창(초)
@@ -87,6 +95,49 @@ def _legacy_dirs():
 
 
 def _mbox(d): return os.path.join(d, "mailbox.jsonl")
+
+
+def _bodies_dir(d): return os.path.join(d, "bodies")
+
+
+def _stash_body(d, seq, body):
+    """★전문을 «큐에 넣기 전»에 우편함 안에 박는다★ (2026-09-05).
+
+    ★/tmp 를 쓰지 않는다★ — `/tmp/mbox` 는 relay 스냅샷 자리라 섞이면 둘 다 못 믿게 되고,
+    /tmp 는 재부팅에 비워진다. 여기(우편함 디렉터리)는 gitignore 아래이고 ★우편함과 수명이
+    같다★ — 행이 살아 있는 한 전문도 살아 있다.
+
+    ★실패하면 None 을 돌려준다★ — 그러면 recv 가 «자르지 않는다»(_clip 참조).
+    되찾을 수 없는 절단은 받는 쪽에서의 유실이고, 그건 이 개정이 없애려던 병 그 자체다.
+    """
+    try:
+        bd = _bodies_dir(d)
+        os.makedirs(bd, exist_ok=True)
+        p = os.path.join(bd, "%d.txt" % seq)
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(body)
+        return p
+    except OSError:
+        return None
+
+
+def _clip(r):
+    """★수신측 절단★ (2026-09-05) — MAX_BODY 를 넘으면 잘라 주고 전문 경로를 붙인다.
+
+    ★RECV_LIMIT(표시 «건수» 5)과 다른 축이다★ — 저건 «몇 건을 보여줄까», 이건 «한 건을
+    얼마나 보여줄까». 둘을 섞으면 «5건 넘게 왔는데 안 보인다»와 «본문이 잘렸다»가
+    같은 증상으로 보인다.
+
+    ★전문을 «되찾을 수 있을 때만» 자른다★ — body_full 이 없거나(구버전이 큐잉한 행)
+    파일이 사라졌으면 통째로 출력한다.
+    """
+    body = r.get("body", "")
+    if len(body) <= MAX_BODY:
+        return body, None
+    full = r.get("body_full")
+    if not full or not os.path.exists(full):
+        return body, None
+    return body[:MAX_BODY], "전문: %s (%d자)" % (full, len(body))
 
 
 # ★seq 는 «파일에 남은 행» 이 아니라 «카운터» 에서 받는다★ (2026-09-03)
@@ -185,18 +236,14 @@ def _guard_record(to, frm, body):
 
 def _guard_verdict(to, frm, body, dispatch=False):
     """통과면 None, 아니면 (reason, hint). 판정만 하고 기록은 _guard_record 가 한다."""
-    n = len(body)
     if not body.strip():
         return ("EMPTY_BODY", "빈 메시지는 받는 쪽을 깨우기만 하고 아무것도 전하지 않는다.")
-    # ★F5: 발주(--dispatch)는 EMPTY_BODY만 판정 — 길이·RESEND·FANOUT·RATE 면제(좌석마다 동일 본문 연속 주입).
+    # ★F5: 발주(--dispatch)는 EMPTY_BODY만 판정 — RESEND·FANOUT·RATE 면제(좌석마다 동일 본문 연속 주입).
     if dispatch:
         return None
-    if n > MAX_BODY:
-        return ("BODY_TOO_LONG len=%d max=%d" % (n, MAX_BODY),
-                "본문은 3~5줄. 원문은 파일에 쓰고 «경로»만 보낸다 — 정본 절차:\n"
-                "  ft-mbox.sh relay %s %s <원문파일> \"요약 3~5줄\"\n"
-                "  (원문을 %s 로 «복사»하고 요약+경로만 큐잉한다)\n"
-                "진행보고는 mbox 가 아니라 파일에." % (to, frm, RELAY_DIR))
+    # ★길이로 막지 않는다★ (2026-09-05, BODY_TOO_LONG 제거) — 근거는 MAX_BODY 주석.
+    #   긴 본문은 send 가 전문을 파일에 박고 recv 가 잘라 읽는다. 상한이 가르친 것은
+    #   relay 가 아니라 --force 였고, 우회를 가르치는 가드는 규율이 아니라 소음이다.
     now = time.time()
     log = _guard_log()
     h = _body_hash(body)
@@ -239,8 +286,15 @@ def send(to, frm, body, force=False, dispatch=False):
         if verdict:
             return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 해제 후 처리.
         seq = _next_seq(rows)
-        rows.append({"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                     "to": to, "from": frm, "body": body})
+        row = {"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+               "to": to, "from": frm, "body": body}
+        # ★전문 보관은 «큐에 넣기 전»★ — 행은 큐에 있는데 전문은 없는 순간을 만들지 않는다.
+        #   그 순간이 있으면 그 사이에 도착한 recv 가 «되찾을 수 없는 절단»을 하게 된다.
+        if len(body) > MAX_BODY:
+            full = _stash_body(CANON, seq, body)
+            if full:
+                row["body_full"] = full
+        rows.append(row)
         byto = {}
         for r in rows: byto.setdefault(r["to"], []).append(r)
         keep, dropped = [], 0
@@ -267,7 +321,7 @@ def send(to, frm, body, force=False, dispatch=False):
         reason, hint = res[1]
         # ★마지막 줄에 이유를 «다시» 싣는다★ (2026-09-04 실측)
         #   사람은 stderr 를 tail 로 받는다. 이유가 첫 줄에만 있으면 `tail -1` 은
-        #   "--force 를 붙인다" 만 보여주고, BODY_TOO_LONG 처럼 hint 가 여러 줄인 가드는
+        #   "--force 를 붙인다" 만 보여주고, RESEND_COOLDOWN 처럼 hint 가 여러 줄인 가드는
         #   ★`tail -3` 으로도 이유가 밀려나 안 잡힌다★. 그러면 받는 사람은 «왜 막혔는지
         #   모른 채» 본문만 줄여 재발송한다 — 실제로 오늘 그 일이 났고, 당사자는 어느
         #   가드였는지 사후에도 확정하지 못했다.
@@ -352,7 +406,10 @@ def recv(me, frm=None, limit=None):
         _consume(d, seqs)
     for d, r in got:
         tag = "" if os.path.abspath(d) == os.path.abspath(CANON) else " (legacy)"
-        print(f"READ [{r['from']}->{me}] #{r['seq']}{tag} — {r['body']}")
+        shown, note = _clip(r)
+        print(f"READ [{r['from']}->{me}] #{r['seq']}{tag} — {shown}")
+        if note:
+            print(note)
     if held:
         print(f"HELD {len(held)} more — 큐에 남겨둠. 전체는 `recv {me} --all`")
         for _, r in held:

@@ -86,10 +86,17 @@ doorbell() {
   fi
   pane="$(pane_of "$to")"
   [ -n "$pane" ] || { echo absent; return 0; }
-  # 고정 명령 문자열 — 가변부는 allowlist 통과 세션명뿐. 짧아서 유실·손상 안전.
+  # ★주입하는 것은 «명령»이 아니라 «지시문»이다★ (2026-09-05, A1)
+  #   이전엔 `bash .../mbox.sh recv <me>` 만 넣었다. 좌석 입장에서 그건 «자기가 실행한 도구»이고
+  #   본문은 «도구 출력»으로 나온다 — 도구 출력은 참고 정보로 읽히지 ★지시로 읽히지 않는다★.
+  #   실측(COMM-GUIDE §1): arch-fable 은 mbox 판정 요청에 IDLE 이었는데 같은 본문을 pane 에
+  #   직접 넣자 즉시 착수했다. 유실이 아니라 «읽혔지만 행동으로 안 옮겨진» 층의 결함이다.
+  #   그래서 명령 앞뒤에 «무엇이 왔고 무엇을 하라»를 붙여 사용자 메시지로 읽히게 한다.
+  #   ★그래도 착수를 보장하지는 않는다★ — 이건 관측 대상으로 남긴다(§1).
+  # 가변부는 여전히 allowlist 통과 세션명뿐이다 — 명령 삽입 차단은 그대로다.
   # ★절대경로로 주입한다★ — 상대경로면 수신자의 cwd 에서 해석돼 «보낸 우편함과 다른 곳»을
   # 열거나 아예 파일을 못 찾는다. 유실 기제의 «나머지 절반» 이 여기였다.
-  tmux send-keys -t "$pane" -l "bash $BINDIR/ft-mbox.sh recv $to" 2>/dev/null || true
+  tmux send-keys -t "$pane" -l "[발주 도착] bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라" 2>/dev/null || true
   sleep 0.3
   tmux send-keys -t "$pane" Enter 2>/dev/null || true
   : > "$_db_stamp" 2>/dev/null || true   # ★실제 주입 직후에만 doorbell 스탬프 갱신★

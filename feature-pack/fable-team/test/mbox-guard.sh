@@ -1,5 +1,6 @@
 #!/bin/bash
-# mbox-guard.sh — 발신 규율 가드 회귀 실측(F1~F6). 격리 우편함·doorbell 없음(--no-notify).
+# mbox-guard.sh — 발신 규율 가드 회귀 실측(F1~F6 · seq · doorbell 굶김 · 수신측 절단).
+# 격리 우편함·doorbell 없음(--no-notify). T24 만 살아 있는 tmux 세션을 쓴다.
 # 케이스별 기대 rc/값을 실측값과 비교해 PASS/FAIL 누적, 끝에 PASS=n FAIL=m, FAIL>0이면 exit 1.
 # zsh 함정 회피: 명시적 #!/bin/bash, 배열 인자는 quoting.
 set +e
@@ -168,6 +169,32 @@ if command -v tmux >/dev/null 2>&1; then
 else
   echo "SKIP T24 doorbell-starvation (tmux 없음)"
 fi
+
+# T25 길이 규율 전환(B1, 2026-09-05): 700자는 «발신 차단»이 아니라 «수신 절단» 기준이다.
+#     이전엔 초과 send 가 BODY_TOO_LONG(rc3)으로 막혔는데, 그 상한이 사람에게 가르친 것은
+#     relay 가 아니라 --force 였다(실측: 정본 큐 51건 중 16건(31%)이 700자 초과, relay 형식 0건).
+#     이제 ①send 는 통과 ②전문을 <CANON>/bodies/<seq>.txt 에 «큐잉 전»에 박음 ③recv 가 잘라 읽음.
+#     ★RECV_LIMIT(표시 «건수» 5)과 다른 축이다★ — 이건 «본문 길이» 절단이다.
+T25BIG=$(printf 'z%.0s' {1..800})
+out=$(bash "$MBOX" send seatT25 t25user "$T25BIG" --no-notify 2>&1); ok "T25a 800자 send 차단 안 됨" 0 $?
+t25seq=$(printf '%s\n' "$out" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+# T25c 는 recv «전»에 본다 — recv 는 행을 소비하므로 순서가 바뀌면 seq 를 잃는다.
+t25body="$FT_MBOX_DIR/bodies/$t25seq.txt"
+[ -f "$t25body" ]; ok "T25c bodies/<seq>.txt 존재 (seq=$t25seq)" 0 $?
+[ "$(cat "$t25body" 2>/dev/null)" = "$T25BIG" ]; ok "T25c 전문이 원문과 동일" 0 $?
+out=$(bash "$MBOX" recv seatT25 2>&1)
+printf '%s\n' "$out" | grep -qF "전문: $t25body (800자)"; ok "T25b recv 전문경로+글자수" 0 $?
+ok "T25b 본문 700자에서 잘림" 700 "$(printf '%s\n' "$out" | grep '^READ ' | head -1 \
+    | python3 -c "import sys;print(len(sys.stdin.readline().rstrip(chr(10)).split(' — ',1)[1]))")"
+# T25d 회귀: 700자 «이하»는 절단도 전문경로 부착도 없다.
+T25OK=$(printf 'w%.0s' {1..700})
+bash "$MBOX" send seatT25d t25user "$T25OK" --no-notify >/dev/null 2>&1
+out=$(bash "$MBOX" recv seatT25d 2>&1)
+ok "T25d 700자는 전문경로 없음" 0 "$(printf '%s\n' "$out" | grep -c '전문:')"
+ok "T25d 700자 본문 온전" 700 "$(printf '%s\n' "$out" | grep '^READ ' | head -1 \
+    | python3 -c "import sys;print(len(sys.stdin.readline().rstrip(chr(10)).split(' — ',1)[1]))")"
+[ -e "$FT_MBOX_DIR/bodies/$(bash "$MBOX" peek seatT25d 2>/dev/null | grep -oE 'latest_seq=[0-9]+' | cut -d= -f2).txt" ]
+ok "T25d 700자는 bodies 파일도 안 만든다" 1 $?
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
