@@ -23,8 +23,14 @@ pane_of() {
 # 화면 텍스트 매칭은 UI 가 바뀌면 조용히 죽고, 죽어도 증상이 «더 많이 보내는 것»뿐이라 아무도 모른다.
 DOORBELL_MIN="${FT_MBOX_DOORBELL_MIN:-3}"   # 같은 좌석에 이 초 안에 두 번 울리지 않는다
 # $2=force(1) 이면 시간 억제를 뚫는다 — 발주는 «반드시» 창에 떠야 한다.
+# $3=seq(선택) — 이번 발주의 큐 번호. 있으면 주입 문자열 앞에 `[발주 #<seq>]` 로 실린다.
+#   ★없으면 지금까지의 문자열 그대로다★ — 큐에 넣지 않고 울리기만 하는 호출부는 실을
+#   seq 가 없다. 없는 번호를 지어내면 그 번호가 가리키는 것이 아무것도 없다.
 doorbell() {
-  local to="$1" dbforce="${2:-0}" pane seat stamp recvstamp last recvlast now
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" pane seat stamp recvstamp last recvlast now msg
+  # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 호출부가 우리 자신의
+  #   py 출력에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부 신뢰»에 맡기지 않는다.
+  case "$dbseq" in ''|*[!0-9]*) dbseq="" ;; esac
   pane="$(pane_of "$to")"
   [ -n "$pane" ] || return 0
   # ★에이전트가 떠 있는지 확인한다★ — pane 이 살아 있는 것과 에이전트가 도는 것은 다르다.
@@ -61,13 +67,32 @@ doorbell() {
   #   직접 넣자 즉시 착수했다. 유실이 아니라 «읽혔지만 행동으로 안 옮겨진» 층의 결함이다.
   #   그래서 명령 앞뒤에 «무엇이 왔고 무엇을 하라»를 붙여 사용자 메시지로 읽히게 한다.
   #   ★그래도 착수를 보장하지는 않는다★ — 이건 관측 대상으로 남긴다(§1).
-  # 가변부는 여전히 allowlist 통과 세션명뿐이다 — 명령 삽입 차단은 그대로다.
+  # 가변부는 여전히 allowlist 통과 세션명 + 숫자뿐이다 — 명령 삽입 차단은 그대로다.
   # ★절대경로로 주입한다★ — 상대경로면 수신자의 cwd 에서 해석돼 «보낸 우편함과 다른 곳»을
   # 열거나 아예 파일을 못 찾는다. 유실 기제의 «나머지 절반» 이 여기였다.
-  tmux send-keys -t "$pane" -l "[발주 도착] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라" 2>/dev/null || true
+  # ★`#<seq>` 를 «앞»에 싣는다★ (2026-09-06, F5) — 발주마다 고유한 번호가 창에 뜨면
+  #   ①사람이 «몇 번 발주가 떴는지» 한눈에 보고 ②판정기(ft-send-verified.sh)가 «이번»
+  #   발주만 골라 도달을 확인한다. 이전엔 전부 `[발주 도착]` 이라 두 발주가 구분되지 않았다.
+  # ★마커가 «짧아야 한다»는 요구는 판정 층에는 없다★ (2026-09-06 실측)
+  #   짧게 두는 이유는 «사람이 화면에서 읽을 때» 편하기 때문이지 판정 때문이 아니다.
+  #   도달 판정은 pane capture 가 아니라 세션 jsonl 층에서 한다 — jsonl user 레코드는
+  #   653자 본문도 «통째로» 한 줄에 담고 줄바꿈이 0개다(pane 의 폭 기반 줄바꿈은 기록에
+  #   안 섞인다). ⇒ 마커 길이는 판정에 무관하다. ★이 구분을 지우지 마라★ — 근거를
+  #   「짧아야 판정된다」로 잘못 적으면 다음 사람이 판정 층을 다시 pane 으로 되돌린다.
+  if [ -n "$dbseq" ]; then
+    msg="[발주 #$dbseq] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+  else
+    msg="[발주 도착] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+  fi
+  tmux send-keys -t "$pane" -l "$msg" 2>/dev/null || true
   sleep 0.3
   tmux send-keys -t "$pane" Enter 2>/dev/null || true
 }
+
+# py 의 `QUEUED seq=<N> …` 한 줄에서 이번 발주의 번호만 뽑는다. 못 뽑으면 빈 값.
+# ★`set -euo pipefail` 이라 실패를 «반드시» 삼켜야 한다★ — grep 이 0건이면 rc1 이고
+#   pipefail 이 그것을 파이프라인 rc 로 올린다. 호출부에서 `|| seq=""` 로 받는다.
+seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
@@ -83,9 +108,15 @@ case "$cmd" in
       esac
     done
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
-    python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} || exit $?
+    # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
+    #   `$( )` 로 잡으면 py 의 stdout 이 여기서 멈추므로 ★아래에서 반드시 그대로 다시 찍는다★.
+    #   안 그러면 `QUEUED seq=…` 를 읽던 사람·스크립트가 조용히 아무것도 못 보게 된다.
+    #   stderr(BLOCKED·DROPPED)는 안 잡으므로 지금처럼 그대로 흐른다.
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
+    seq="$(seq_of "$py_out")" || seq=""
+    echo "$py_out"
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ]; then doorbell "$to" "$dbf"; fi
+    if [ "$notify" = 1 ]; then doorbell "$to" "$dbf" "$seq"; fi
     ;;
   relay)
     # 긴 본문의 정본 절차: 원문을 /tmp/mbox 로 복사하고 요약+경로만 큐잉.
@@ -97,8 +128,11 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
-    python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}" || exit $?
-    if [ "$notify" = 1 ]; then doorbell "$to"; fi
+    # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
+    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
+    seq="$(seq_of "$py_out")" || seq=""
+    echo "$py_out"
+    if [ "$notify" = 1 ]; then doorbell "$to" 0 "$seq"; fi
     ;;
   recv)  me="${1:?me}"; shift
          # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. exec 전에 해야 실행된다.

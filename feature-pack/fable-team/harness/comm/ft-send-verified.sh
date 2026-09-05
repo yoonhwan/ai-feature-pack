@@ -27,6 +27,30 @@
 # 제출이 늦어지므로 «얼마나 기다릴지»를 정하는 데만 쓴다. 그래서 running 이
 # 오탐해도 중복 전송이 생기지 않는다.
 #
+# ─ 2026-09-06 개정 (F5): 본문을 창에 밀어 넣지 않는다 — A1 규약으로 전환 ─────
+# 개정 전에는 «본문 전체»를 `send-keys -l` 로 pane 에 직접 넣고, 마커를 그 본문의
+# ★첫 줄★로 잡았다. 두 가지가 동시에 틀렸다.
+#
+#   ① 본문이 창으로 간다 — COMM-GUIDE §1(A1) 이 금지한 그 경로다. send-keys 는
+#      멀티바이트 손상·미제출 잔류·긴 본문 유실이 «여전히 사실»이고, 발주 본문일수록
+#      길어서 그 위험이 제일 크다. 본문은 파일 큐로 가야 한다.
+#   ② 마커가 «본문 첫 줄» 이다 — 두 발주가 같은 첫 줄을 공유하면(공지 접두사처럼
+#      아주 흔하다) 두 발주가 판정에서 구분되지 않는다. 그러면 ★2차 발주가 1차의
+#      도달로 통과★ 하거나 반대로 도달한 것이 미도달로 읽힌다.
+#
+# 지금은 mbox send 에 위임한다 — 본문은 파일 큐에 들어가고, 창에는 mbox 의 doorbell
+# 한 줄(`[발주 #<seq>] bash …/mbox.sh recv <좌석> — …`)만 뜬다. 마커는 그 ★seq★ 다.
+# seq 는 큐가 발급하는 단조증가 번호라 발주마다 고유하고, 따라서 «이번 발주»만 정확히
+# 골라낸다. 기준값(baseline)은 그래서 항상 0 이다 — 새 번호가 과거 기록에 있을 수 없다.
+#
+# ★마커를 짧게 두는 이유는 «사람이 화면에서 읽을 때» 이지 판정 때문이 아니다★
+#   (2026-09-06 실측) 도달 판정은 jsonl 층에서 한다. jsonl user 레코드는 653자 본문도
+#   통째로 한 줄에 담고 줄바꿈이 0개다 — pane 의 폭 기반 줄바꿈(32컬럼에서 프리픽스가
+#   쪼개져 미도달로 오판된 사고)은 ★기록에 안 섞인다★. 마커 길이는 판정에 무관하다.
+#   이 구분을 지우지 마라 — 근거를 잘못 적으면 다음 사람이 판정 층을 pane 으로 되돌린다.
+#
+# ★인터페이스는 그대로다★ — ft-broadcast.sh 는 이 스크립트를 rc 로만 쓴다(0/1/2/5).
+#
 # usage: ft-send-verified.sh <session> <text>
 #   exit 0 = OK / 1 = SEND_FAILED / 2 = NOT_SUBMITTED / 5 = UNVERIFIED(사람 확인)
 set -uo pipefail
@@ -36,15 +60,30 @@ TEXT="${2:?text required}"
 # zsh 로 실행되면 BASH_SOURCE 배열이 없다 → `parameter not set` 으로 죽는다.
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REACH="$HERE/ft-reach-check.sh"
+# 본문 큐. 경로는 이 리포의 정본이고, 테스트·다른 설치가 갈아끼울 수 있게 env 를 먼저 본다.
+MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"
+# 발신자 이름 — mbox 의 세션명 allowlist(`[A-Za-z0-9._#-]+`)를 통과해야 한다.
+FROM="${FT_SEND_FROM:-dispatch}"
 
-# 마커는 본문 첫 줄로 잡는다. jsonl 에는 개행이 이스케이프되어 저장되므로 여러
-# 줄을 통째로 grep 하면 «있는데도 없다»가 나온다.
-MARKER="$(printf '%s' "$TEXT" | head -1)"
+# 마커는 발주 «후»에 정해진다 — 번호를 발급하는 것은 큐다.
+MARKER=""
 
-send_once() {
-    tmux send-keys -t "$SESSION" -l "$1" 2>/dev/null || return 1
-    sleep 0.4
-    tmux send-keys -t "$SESSION" Enter 2>/dev/null || return 1
+# 발주 1회 = mbox send(본문은 파일 큐) + doorbell 주입. 성공하면 MARKER 를 갱신한다.
+#
+# ★`--force` 를 붙인다★ — 두 가지를 동시에 뚫어야 한다:
+#   (a) 발신 가드(RESEND·FANOUT·RATE) — 브로드캐스트는 «같은 본문을 여러 좌석에» 이고
+#       재발주는 «같은 본문을 다시» 다. 둘 다 가드가 막으라고 만든 패턴이지만, 여기는
+#       사람이 명시적으로 «검증된 발주» 를 요청한 경로다.
+#   (b) doorbell 억제(시간·outstanding) — 발주는 ★반드시★ 창에 떠야 판정이 성립한다.
+#       억제되면 아무것도 안 뜨고, 그건 미도달과 구분이 안 된다.
+dispatch_once() {
+    local out seq
+    out="$(bash "$MBOX" send "$SESSION" "$FROM" "$TEXT" --force)" || return 1
+    seq="$(printf '%s\n' "$out" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
+    # ★번호를 못 읽으면 실패로 본다★ — 번호 없이 판정하면 무엇을 기다리는지 모른다.
+    [ -n "$seq" ] || return 1
+    MARKER="[발주 #$seq]"
+    printf '%s\n' "$out"
     return 0
 }
 
@@ -61,14 +100,22 @@ running() {
         | grep -qE '\([0-9]+(m [0-9]+)?s '
 }
 
-# ★보내기 전에 기준값을 잡는다★ — 같은 텍스트를 두 번 보내는 경우(재전송 포함)
-# 이전 제출과 구분이 안 된다.
-BASE="$(FT_REACH_COUNT_ONLY=1 bash "$REACH" "$SESSION" "$MARKER" 2>/dev/null)"
-BASE_RC=$?
-if [ "$BASE_RC" -ne 0 ]; then
-    # 판정 불가를 화면 판정으로 «폴백하지 않는다». 발주는 하되 확인이 안 됐다는
-    # 사실을 그대로 드러낸다(#0 RULE — 조용한 폴백 금지).
-    send_once "$TEXT"
+if [ ! -f "$MBOX" ]; then
+    # ★조용히 send-keys 로 폴백하지 않는다★ — 그 폴백이 바로 이 개정이 없앤 경로다.
+    echo "SEND_FAILED session=$SESSION — mbox 래퍼가 없다: $MBOX (FT_MBOX_SH 로 지정하라)" >&2
+    exit 1
+fi
+
+# ★기준값을 «세지» 않는다 — 판정 층이 «읽히는지»만 미리 본다★
+# 마커에 이번 발주만의 seq 가 들어가므로 과거 기록에 있을 수 없다 ⇒ 기준값은 항상 0 이다.
+# 그래도 이 프로브는 남긴다: jsonl 디렉터리를 못 읽는 상태(비-ASCII 경로·첫 프롬프트 전·
+# 세션 없음)를 ★발주 전에★ 알아야 「발주는 했으나 확인 못 했다(UNVERIFIED)」를 정직하게
+# 낼 수 있다. 판정 불가를 화면 판정으로 폴백하지 않는다(#0 RULE — 조용한 폴백 금지).
+if ! FT_REACH_COUNT_ONLY=1 bash "$REACH" "$SESSION" "__ft_send_verified_probe__" >/dev/null 2>&1; then
+    dispatch_once >/dev/null || {
+        echo "SEND_FAILED session=$SESSION (mbox send 실패 — 세션명 거부·가드 차단·큐 오류)" >&2
+        exit 1
+    }
     echo "UNVERIFIED session=$SESSION — 발주는 했으나 jsonl 층을 못 읽었다. 사람이 확인해야 한다" >&2
     exit 5
 fi
@@ -78,15 +125,17 @@ fi
 QUEUED=0
 if running; then QUEUED=1; fi
 
-if ! send_once "$TEXT"; then
-    echo "SEND_FAILED session=$SESSION (세션이 없거나 tmux 오류)" >&2
+if ! dispatch_once; then
+    echo "SEND_FAILED session=$SESSION (mbox send 실패 — 세션명 거부·가드 차단·큐 오류)" >&2
     exit 1
 fi
 
 TIMEOUT=20
 [ "$QUEUED" -eq 1 ] && TIMEOUT=60
 
-if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" "$BASE"; then
+# 기준값 0 을 ★명시★해 넘긴다 — 빈 값으로 넘기면 ft-reach-check 가 자기 나름대로
+# 세는데, 그건 이 마커에 대해 늘 0 이라도 «왜 0 인지»가 코드에서 안 보인다.
+if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" 0; then
     [ "$QUEUED" -eq 1 ] && echo "  (좌석이 작업 중이었다 — 대기열을 거쳐 제출됐다)"
     exit 0
 fi
@@ -97,10 +146,15 @@ if [ "$RC" -eq 5 ]; then
     exit 5
 fi
 
-# Enter 재전송은 안 먹는다. 텍스트를 통째로 다시 보내야 제출된다.
+# doorbell 이 창에 안 떴거나 좌석이 그 입력을 삼켰다. 다시 발주한다.
+# ★재발주는 «새 seq» 를 받으므로 MARKER 가 갱신된다★ — dispatch_once 안에서 갱신된다.
+#   1차 마커로 재판정하면 그 번호는 두 번 다시 안 나오므로 ★영원히 미도달로 보인다★.
 echo "RESEND session=$SESSION (1차 미도달 — jsonl 에 제출 기록 없음)" >&2
-send_once "$TEXT"
-if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" "$BASE"; then
+if ! dispatch_once; then
+    echo "SEND_FAILED session=$SESSION (재발주 실패 — mbox send 오류)" >&2
+    exit 1
+fi
+if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" 0; then
     exit 0
 fi
 
