@@ -196,5 +196,40 @@ ok "T25d 700자 본문 온전" 700 "$(printf '%s\n' "$out" | grep '^READ ' | hea
 [ -e "$FT_MBOX_DIR/bodies/$(bash "$MBOX" peek seatT25d 2>/dev/null | grep -oE 'latest_seq=[0-9]+' | cut -d= -f2).txt" ]
 ok "T25d 700자는 bodies 파일도 안 만든다" 1 $?
 
+# T26 bodies TTL 청소(2026-09-06): 전문 파일을 «시간»으로 자른다 — 보존 14일.
+#     ★«소비 여부»가 아니라 «시간»이 기준★ — 행이 recv 로 소비돼도 그 경로는 보고서·인계에
+#     «인용»되어 3~4일 뒤 열린다(실측). 소비 시점 삭제는 그 인용을 죽인다.
+#     14일 = 좌석 수명 실측 p90/max 4.2일의 3배 여유. 비용 4KB/건(gitignore 아래).
+T26AGED="$(date -v-20d '+%Y%m%d%H%M.%S')"
+# T26a/T26b 한 우편함에서 같이 본다 — «오래된 건 지우고 최근 건은 남긴다»가 한 쌍의 주장이다.
+t26="$(mktemp -d)"; mkdir -p "$t26/bodies"
+echo "t26-old-full" > "$t26/bodies/1.txt"
+echo "t26-new-full" > "$t26/bodies/2.txt"
+touch -t "$T26AGED" "$t26/bodies/1.txt"
+rm -f "$t26/.bodies-pruned"                 # 억제 스탬프 제거 → 이번 send 가 청소를 돈다
+FT_MBOX_DIR="$t26" bash "$MBOX" send seatT26 t26user "t26-trigger" --no-notify >/dev/null 2>&1
+[ ! -e "$t26/bodies/1.txt" ]; ok "T26a TTL 경과 전문 삭제(20일 과거)" 0 $?
+[ -f "$t26/bodies/2.txt" ];   ok "T26b 최근 전문 보존" 0 $?
+
+# T26c 억제: 스탬프가 «방금» 찍혀 있으면 오래된 파일도 안 지운다.
+#     이게 없으면 매 send 가 bodies 전체를 listdir 해 파일 수에 비례해 느려진다.
+t26c="$(mktemp -d)"; mkdir -p "$t26c/bodies"
+echo "t26c-old-full" > "$t26c/bodies/1.txt"
+touch -t "$T26AGED" "$t26c/bodies/1.txt"
+touch "$t26c/.bodies-pruned"                # 방금 돌았다고 표시
+FT_MBOX_DIR="$t26c" bash "$MBOX" send seatT26c t26user "t26c-trigger" --no-notify >/dev/null 2>&1
+[ -f "$t26c/bodies/1.txt" ]; ok "T26c 1시간 억제 — 오래된 파일도 안 지움" 0 $?
+
+# T26d 회귀: TTL «안»의 전문은 살아 있어야 하고, recv 가 여전히 전문 경로를 준다.
+#     청소가 «지금 온 메시지»의 전문까지 지우면 T25 가 되찾으려던 것을 다시 잃는다.
+t26d="$(mktemp -d)"
+T26BIG=$(printf 'q%.0s' {1..800})
+out=$(FT_MBOX_DIR="$t26d" bash "$MBOX" send seatT26d t26user "$T26BIG" --no-notify 2>&1)
+t26seq=$(printf '%s\n' "$out" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)
+[ -f "$t26d/bodies/$t26seq.txt" ]; ok "T26d 청소 후에도 방금 전문 생존 (seq=$t26seq)" 0 $?
+out=$(FT_MBOX_DIR="$t26d" bash "$MBOX" recv seatT26d 2>&1)
+printf '%s\n' "$out" | grep -qF "전문: $t26d/bodies/$t26seq.txt (800자)"
+ok "T26d recv 가 전문 경로 제공(회귀)" 0 $?
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
