@@ -67,6 +67,8 @@ FROM="${FT_SEND_FROM:-dispatch}"
 
 # 마커는 발주 «후»에 정해진다 — 번호를 발급하는 것은 큐다.
 MARKER=""
+# 이번 발주의 doorbell 상태(sent|skipped|absent|noagent|error) — mbox 가 실어 보낸다.
+DOORBELL=""
 
 # 발주 1회 = mbox send(본문은 파일 큐) + doorbell 주입. 성공하면 MARKER 를 갱신한다.
 #
@@ -83,6 +85,9 @@ dispatch_once() {
     # ★번호를 못 읽으면 실패로 본다★ — 번호 없이 판정하면 무엇을 기다리는지 모른다.
     [ -n "$seq" ] || return 1
     MARKER="[발주 #$seq]"
+    # doorbell 상태를 같이 받는다 (2026-09-06, 가). 없으면 빈 값 — 옛 mbox 와도 돌아간다
+    # (그 경우 아래 분기가 안 걸리고 지금까지의 «기다린다» 경로로 간다).
+    DOORBELL="$(printf '%s\n' "$out" | grep -oE 'doorbell=[a-z]+' | tail -1 | cut -d= -f2)"
     printf '%s\n' "$out"
     return 0
 }
@@ -129,6 +134,30 @@ if ! dispatch_once; then
     echo "SEND_FAILED session=$SESSION (mbox send 실패 — 세션명 거부·가드 차단·큐 오류)" >&2
     exit 1
 fi
+
+# ★울릴 «대상»이 없으면 기다리지 않는다★ (2026-09-06, 가)
+#   `absent` = 그 이름의 좌석이 tmux 에 없다 / `noagent` = pane 은 있으나 에이전트가
+#   안 떠 있다(맨 셸). 두 경우 doorbell 은 ★아무것도 주입하지 않았다★ — 창에 뜬 것이
+#   없으므로 좌석이 제출할 것도 없고, 20초씩 두 번(실측 41초) 기다려도 값은 안 바뀐다.
+#   그 대기는 판정이 아니라 ★순환 전체를 느리게 하는 순수 손실★ 이다.
+#
+#   ★rc 5(UNVERIFIED)로 내는 근거★ — rc 집합(0/1/2/5)은 ft-broadcast.sh 가 집계에
+#   쓰므로 새로 만들지 않고 기존 넷 중에 고른다.
+#     · rc 1(SEND_FAILED) 이 아니다 — 발신은 ★성공★했다. 본문은 큐에 온전히 들어가 있어
+#       좌석이 나중에 떠서 recv 하면 그대로 읽는다. 실패로 찍으면 사람이 다시 보내고
+#       그러면 같은 발주가 큐에 두 벌 쌓인다.
+#     · rc 2(NOT_SUBMITTED) 도 아니다 — 그 값의 뜻은 「창에 떴는데 좌석이 제출을 안 했다」,
+#       즉 ★좌석 쪽 문제★다. 여기는 창에 뜬 적조차 없다. 두 상태를 한 값으로 묶으면
+#       「좌석이 굼뜨다」와 「좌석이 없다」를 구분 못 해 엉뚱한 처방(재발주)을 부른다.
+#     · rc 5(UNVERIFIED)가 남는다. 뜻이 「발주는 했으나 도달을 ★확인할 수 없다★ — 사람이
+#       봐야 한다」이고, 좌석 부재·에이전트 부재는 정확히 그 축이다(사람이 좌석을 띄우거나
+#       이름을 고쳐야 풀린다). ft-broadcast 도 이 값을 「판정불가」로 따로 세어 이름을 남긴다.
+case "$DOORBELL" in
+    absent|noagent)
+        echo "UNVERIFIED session=$SESSION — doorbell=$DOORBELL (본문은 큐에 있다. 좌석이 없거나 에이전트가 안 떠 있어 창에 아무것도 안 떴다 — 사람이 확인해야 한다)" >&2
+        exit 5
+        ;;
+esac
 
 TIMEOUT=20
 [ "$QUEUED" -eq 1 ] && TIMEOUT=60

@@ -14,7 +14,16 @@ pane_of() {
     | awk -F'|' -v s="$1" '$1==s{print $2; exit}'
 }
 
-# doorbell: 대상 pane 에 recv 트리거만 주입(본문 아님). send·relay 가 공유한다.
+# doorbell: 대상 pane 에 recv 트리거만 주입(본문 아님). send·relay·ring 이 공유한다.
+#
+# ★상태를 «돌려준다»★ (2026-09-06, 가) — echoes: sent | skipped | absent | noagent
+#   이전엔 모든 분기가 `return 0` 이라 호출자가 «좌석이 아예 없다/에이전트가 안 떴다»를
+#   알 방법이 없었다. 그래서 ft-send-verified.sh 는 ★울릴 대상조차 없는 발주★에도
+#   도달을 20초씩 두 번 기다린 뒤에야 미도달로 떨어졌다(실측 41초 — 매 발주가 그만큼
+#   느려지고, 브로드캐스트는 좌석 수만큼 곱해진다). 상태를 실어 보내면 그 대기를 안 한다.
+#   ★팩(ft-mbox.sh)과 같은 계약이다★ — 두 계보가 다른 말을 하면 판정기를 계보마다 따로
+#   짜게 된다(F1·F2 에서 배운 것).
+#   ★반환값(rc)은 그대로 0 이다★ — doorbell 실패는 non-fatal 이다(본문은 이미 큐에 있다).
 #
 # ★억제는 «화면 텍스트»가 아니라 «시간»으로 한다★ — 원래는 tail -1 에 `recv $to` 가 보이면
 # 스킵했는데, 그 조건은 «한 번도 참이 된 적이 없다»(2026-09-01 실측 6좌석 전수). Claude Code UI 는
@@ -32,7 +41,7 @@ doorbell() {
   #   py 출력에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부 신뢰»에 맡기지 않는다.
   case "$dbseq" in ''|*[!0-9]*) dbseq="" ;; esac
   pane="$(pane_of "$to")"
-  [ -n "$pane" ] || return 0
+  [ -n "$pane" ] || { echo absent; return 0; }
   # ★에이전트가 떠 있는지 확인한다★ — pane 이 살아 있는 것과 에이전트가 도는 것은 다르다.
   #   맨 셸에 주입하면 recv 명령이 «셸에서 실행»되고, pane 발주 본문은 셸에 떨어진다.
   #   실측(2026-09-04): CloneWorks#0 · ft-v65-diag-lstseg#1 pane 에
@@ -40,7 +49,7 @@ doorbell() {
   #   본문에 백틱·세미콜론이 있었으면 그대로 «실행»된다. COMM-GUIDE §2 Step1·§5-3 이
   #   이미 금지한 것인데 코드에 없었다.
   _ppid="$(tmux list-panes -t "$to" -F '#{pane_pid}' 2>/dev/null | head -1)"
-  if [ -n "$_ppid" ] && ! pgrep -P "$_ppid" >/dev/null 2>&1; then return 0; fi
+  if [ -n "$_ppid" ] && ! pgrep -P "$_ppid" >/dev/null 2>&1; then echo noagent; return 0; fi
   seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   stamp="${TMPDIR:-/tmp}/mbox-doorbell-$seat"
   recvstamp="${TMPDIR:-/tmp}/mbox-recv-$seat"
@@ -57,8 +66,8 @@ doorbell() {
   # 그래서 «오래된» outstanding 은 소비될 가망이 없다고 보고 다시 울린다. 억제의 취지는
   # 홍수 방지지 침묵이 아니다 — 안 울려서 못 받는 것이 두 번 울리는 것보다 나쁘다.
   if [ "$dbforce" != 1 ] && [ "$last" -gt "$recvlast" ] \
-     && [ "$((now - last))" -lt "${FT_MBOX_DOORBELL_STARVE:-120}" ]; then return 0; fi
-  if [ "$dbforce" != 1 ] && [ "$((now - last))" -lt "$DOORBELL_MIN" ]; then return 0; fi
+     && [ "$((now - last))" -lt "${FT_MBOX_DOORBELL_STARVE:-120}" ]; then echo skipped; return 0; fi
+  if [ "$dbforce" != 1 ] && [ "$((now - last))" -lt "$DOORBELL_MIN" ]; then echo skipped; return 0; fi
   : > "$stamp" 2>/dev/null || true
   # ★주입하는 것은 «명령»이 아니라 «지시문»이다★ (2026-09-05, A1)
   #   이전엔 `bash .../mbox.sh recv <me>` 만 넣었다. 좌석 입장에서 그건 «자기가 실행한 도구»이고
@@ -87,6 +96,19 @@ doorbell() {
   tmux send-keys -t "$pane" -l "$msg" 2>/dev/null || true
   sleep 0.3
   tmux send-keys -t "$pane" Enter 2>/dev/null || true
+  echo sent
+}
+
+# doorbell 을 «캡처해서» 부른다 — 상태 한 줄을 호출자에게 실어 보내기 위해서다.
+# ★`set -euo pipefail` 이라 캡처가 위험하다★: doorbell 안에서 무엇이 비정상 종료하면
+#   그 rc 가 여기로 올라와 ★send 전체가 죽는다★. 본문은 이미 큐에 들어간 뒤라 그건
+#   「보냈는데 실패했다고 보고」가 된다 — 가장 나쁜 거짓말이다. 그래서 실패를 흡수하고
+#   상태를 `error` 로 표기한다(조용히 `sent` 로 위장하지 않는다 — #0 RULE).
+doorbell_status() {
+  local st
+  st="$(doorbell "$@")" || st=error
+  [ -n "$st" ] || st=error
+  printf '%s' "$st"
 }
 
 # py 의 `QUEUED seq=<N> …` 한 줄에서 이번 발주의 번호만 뽑는다. 못 뽑으면 빈 값.
@@ -114,9 +136,9 @@ case "$cmd" in
     #   stderr(BLOCKED·DROPPED)는 안 잡으므로 지금처럼 그대로 흐른다.
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
-    echo "$py_out"
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ]; then doorbell "$to" "$dbf" "$seq"; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=off; fi
+    echo "$py_out doorbell=$db"
     ;;
   relay)
     # 긴 본문의 정본 절차: 원문을 /tmp/mbox 로 복사하고 요약+경로만 큐잉.
@@ -131,8 +153,8 @@ case "$cmd" in
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
-    echo "$py_out"
-    if [ "$notify" = 1 ]; then doorbell "$to" 0 "$seq"; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=off; fi
+    echo "$py_out doorbell=$db"
     ;;
   recv)  me="${1:?me}"; shift
          # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. exec 전에 해야 실행된다.
