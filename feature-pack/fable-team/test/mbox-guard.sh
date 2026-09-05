@@ -265,5 +265,60 @@ else
   FT_MBOX_DIR="$t27c" bash "$BYZ_MBOX" send seatT27c t27user "${PFX}THREE" --no-notify >/dev/null 2>&1
   ok "T27d 소비 후 재발신 통과(F1)" 0 $?
 fi
+# T28 fail-loud(F4, 2026-09-06): `.fable-team` 조상도 FT_MBOX_DIR 도 없으면 ★NO_MAILBOX_ROOT 로 죽는다★.
+#   그전(BYZ)엔 `_repo_root` 가 실패해도 `abspath(start)` 를 돌려줘서, 스크립트 «옆»에
+#   `.fable-team/comm` 을 파고 send 가 QUEUED 로 정상 종료했다 — ★아무도 안 읽는 우편함★ 이
+#   생기고 보낸 쪽은 성공했다고 믿는다(무증상 유실). 음성대조 실측: 패치 전 사본은 exit 0 +
+#   `QUEUED seq=1601` + 디렉터리 생성. 두 계보를 같은 케이스로 잠근다.
+#   ★FT_MBOX_DIR 을 반드시 걷어내고 실행한다★ — 이 테스트는 파일 상단에서 그것을 export 하는데,
+#   env 가 남아 있으면 «명시가 추론을 이겨» 정상 동작하고 케이스가 조용히 무의미해진다.
+t28_case() {  # $1=라벨  $2=원본 py 경로
+  local label="$1" src="$2" d
+  d=$(mktemp -d)/nodot; mkdir -p "$d"; cp "$src" "$d/m.py"
+  local err rc
+  err=$(cd "$d" && env -u FT_MBOX_DIR python3 ./m.py send t28to t28from "t28 body" 2>&1); rc=$?
+  ok "T28 $label fail-loud rc2" 2 $rc
+  printf '%s\n' "$err" | grep -q 'NO_MAILBOX_ROOT'
+  ok "T28 $label 사유가 NO_MAILBOX_ROOT" 0 $?
+  [ -d "$d/.fable-team" ]
+  ok "T28 $label 우편함 «미생성»" 1 $?
+  # 명시가 추론을 이긴다 — FT_MBOX_DIR 을 주면 조상이 없어도 정상 발신.
+  local box; box=$(mktemp -d)
+  (cd "$d" && FT_MBOX_DIR="$box" python3 ./m.py send t28to t28from "t28 env body" >/dev/null 2>&1)
+  ok "T28 $label FT_MBOX_DIR 지정 시 통과" 0 $?
+}
+t28_case pack "$MBOXPY"
+
+# T29 F6 동시성(2026-09-06): 같은 본문 2건을 ★동시에★ 보내면 정확히 1건만 큐에 든다.
+#   가드 판정이 잠금 «밖»이면 두 send 가 서로의 큐를 못 봐 ★둘 다 통과★ 한다.
+#   음성대조 실측(BYZ 패치 전): 5회 중 4회가 QUEUED=2 — ★경합은 가끔 안 겹치므로 1회로 판정하지 않는다★.
+#   그래서 5회를 돌려 합계로 본다(5 QUEUED / 5 BLOCKED).
+t29_case() {  # $1=라벨  $2=발신자A 실행문(래퍼 경로)  $3=발신자B
+  local label="$1" wa="$2" wb="$3" q=0 b=0 i box body
+  for i in 1 2 3 4 5; do
+    box=$(mktemp -d); body="t29 $label concurrent body round $i"
+    ( FT_MBOX_DIR="$box" bash "$wa" send seatT29 t29user "$body" --no-notify >"$box/o1" 2>"$box/e1" ) &
+    ( FT_MBOX_DIR="$box" bash "$wb" send seatT29 t29user "$body" --no-notify >"$box/o2" 2>"$box/e2" ) &
+    wait
+    q=$((q + $(cat "$box"/o1 "$box"/o2 2>/dev/null | grep -c '^QUEUED')))
+    b=$((b + $(cat "$box"/e1 "$box"/e2 2>/dev/null | grep -c '^BLOCKED')))
+  done
+  ok "T29 $label 5회 중 QUEUED 합계" 5 $q
+  ok "T29 $label 5회 중 BLOCKED 합계" 5 $b
+}
+t29_case pack∥pack "$MBOX" "$MBOX"
+
+# ★BYZ 정본 계보★ — 없으면 SKIP(팩 단독 환경이 남의 리포에 의존해 깨지면 안 된다).
+BYZ_MBOXPY="$(dirname "$BYZ_MBOX")/mbox.py"
+if [ ! -f "$BYZ_MBOX" ] || [ ! -f "$BYZ_MBOXPY" ]; then
+  echo "SKIP T28/T29 BYZ 계보 — BYZ 래퍼·정본 없음 ($BYZ_MBOX)"
+else
+  t28_case BYZ "$BYZ_MBOXPY"
+  t29_case BYZ∥BYZ "$BYZ_MBOX" "$BYZ_MBOX"
+  # ★대칭★ — 계보를 «건너» 동시에 보내도 같아야 합치다(F1·F2 때 배운 것). 양방향 모두 본다.
+  t29_case pack∥BYZ "$MBOX" "$BYZ_MBOX"
+  t29_case BYZ∥pack "$BYZ_MBOX" "$MBOX"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
