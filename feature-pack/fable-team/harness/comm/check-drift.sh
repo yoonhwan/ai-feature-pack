@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BACKUP_DIR="${SCRIPT_DIR}"
 
-# 12개 매핑: "<백업파일명>|<런타임 상대경로>"
+# 14개 매핑: "<백업파일명>|<런타임 상대경로>"
 #
 # ★mbox.sh 를 뒤늦게 넣은 이유 (2026-09-03)★
 #   최초 등록은 「정본 mbox.py + bin/ 도구 10」이었는데, 좌석이 실제로 «치는» 명령은
@@ -34,6 +34,19 @@ MAP=(
   "ft-send-verified.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-send-verified.sh"
   "ft-wall-check.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-wall-check.sh"
   "ft-wall-read.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-wall-read.sh"
+  # ★loom 워크트리의 ft-mbox.sh 2종을 뒤늦게 넣은 이유 (2026-09-06)★
+  #   감시 목록에서 빠진 파일은 다음 드리프트를 ★조용히 통과★ 시킨다 — 체커가 초록인데
+  #   그 파일만 갈려 있는 상태가 무증상으로 남는다. mbox.sh 를 넣었던 이유와 같은 계열이다.
+  #
+  # ★백업 «이름»을 구분한 이유★: 둘 다 basename 이 `ft-mbox.sh` 로 같다. 같은 이름을 쓰면
+  #   백업 파일 하나를 두 런타임이 공유하게 되어, 뒤엣것이 앞엣것을 덮고 ★둘 다 못 믿게★ 된다
+  #   (한쪽은 항상 SAME, 다른 쪽은 항상 DRIFT 로 보인다). 그래서 워크트리명을 이름에 박는다.
+  #
+  # ★이 둘의 «상류»는 팩(ai-feature-pack) 의 ft-mbox.sh 다★ — 여기 백업은 «현재 런타임을
+  #   그대로 뜬 사본» 일 뿐 정본이 아니다. ⇒ 팩이 바뀌어 런타임이 갱신되면 ★여기 백업도
+  #   같이 갱신해야★ DRIFT 가 안 뜬다. (2026-09-06 실측: loom 2종과 팩 ft-mbox.sh 는 동일.)
+  "ft-mbox.loom-domain-hierarchy.sh|.worktrees/loom-domain-hierarchy/.fable-team/bin/ft-mbox.sh"
+  "ft-mbox.loom-pack-layer.sh|.worktrees/feat/loom-pack-layer/.fable-team/bin/ft-mbox.sh"
 )
 
 rc=0
