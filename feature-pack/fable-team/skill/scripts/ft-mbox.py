@@ -34,6 +34,14 @@ RATE_WIN = int(os.environ.get("FT_MBOX_RATE_WINDOW") or 60)       # 그 창(초)
 RESEND_COOL = int(os.environ.get("FT_MBOX_RESEND_COOLDOWN") or 300)
 RECV_LIMIT = int(os.environ.get("FT_MBOX_RECV_LIMIT") or 5)       # recv 기본 표시 건수
 RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"    # 긴 본문의 정본 자리
+# ★2026-09-06 — 전문 파일은 «시간»으로 자른다★
+#   bodies/<seq>.txt 는 행이 recv 로 소비돼도 남는다. 그래야 하는 이유가 있다 —
+#   그 경로는 보고서·인계 문서에 «인용»되어 3~4일 뒤에 열린다(실측). 소비 시점에
+#   지우면 그 인용이 죽는다. ⇒ ★«소비 여부»가 아니라 «시간»이 기준이다★.
+#   14일 근거: 좌석 수명 실측 median 2.6일 · p90/max 4.2일 → p90 의 3배 여유.
+#   비용은 건당 4KB(gitignore 아래)라 여유를 크게 잡는 편이 싸다.
+BODIES_TTL_DAYS = int(os.environ.get("FT_MBOX_BODIES_TTL_DAYS") or 14)
+BODIES_PRUNE_EVERY = 3600   # 청소 주기(초) — 매 send 마다 listdir 하지 않는다.
 
 
 def _repo_root(start):
@@ -138,6 +146,48 @@ def _clip(r):
     if not full or not os.path.exists(full):
         return body, None
     return body[:MAX_BODY], "전문: %s (%d자)" % (full, len(body))
+
+
+def _prune_bodies(d):
+    """★TTL 지난 전문 파일을 지운다★ (2026-09-06) — 보존 BODIES_TTL_DAYS 일.
+
+    ★«소비 여부»가 아니라 «시간»으로 자른다★ — 근거는 BODIES_TTL_DAYS 주석.
+
+    설계 제약 셋 — 전부 «청소가 통신을 해치지 않게» 하려는 것이다:
+      ①★send 를 막지 않는다★ — 전체를 삼킨다(except Exception: pass).
+        청소 실패는 통신 실패보다 훨씬 가볍다. 여기서 예외가 새면 그 send 가 죽는다.
+      ②★1시간에 한 번만 돈다★ — `<d>/.bodies-pruned` 스탬프 mtime 으로 억제.
+        안 그러면 매 send 가 bodies 전체를 listdir 해 파일 수에 비례해 느려진다.
+        ★스탬프를 «청소 전»에 찍는다★ — 중간에 죽어도 다음 send 가 곧바로 재시도해
+        같은 비용을 다시 물지 않는다.
+      ③★잠금 «밖»에서 부른다★ — _locked 안에서 listdir 하면 잠금 보유 시간이 파일
+        수에 비례해 늘고, 그동안 다른 좌석의 send 가 통째로 막힌다.
+    """
+    try:
+        bd = _bodies_dir(d)
+        if not os.path.isdir(bd):
+            return
+        now = time.time()
+        stamp = os.path.join(d, ".bodies-pruned")
+        try:
+            if now - os.path.getmtime(stamp) < BODIES_PRUNE_EVERY:
+                return
+        except OSError:
+            pass  # 스탬프 없음/못 읽음 = 아직 안 돌았다 → 이번에 돈다.
+        with open(stamp, "w", encoding="utf-8") as f:
+            f.write(str(int(now)))
+        cutoff = now - BODIES_TTL_DAYS * 86400
+        for name in os.listdir(bd):
+            if not name.endswith(".txt"):
+                continue
+            p = os.path.join(bd, name)
+            try:
+                if os.path.getmtime(p) < cutoff:
+                    os.remove(p)
+            except OSError:
+                pass   # 한 건이 안 지워져도 나머지는 계속 지운다.
+    except Exception:
+        pass
 
 
 # ★seq 는 «파일에 남은 행» 이 아니라 «카운터» 에서 받는다★ (2026-09-03)
@@ -338,6 +388,10 @@ def send(to, frm, body, force=False, dispatch=False):
             "DROPPED %d oldest to=%s (ring=%d 포화) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
             "가장 오래된 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
             % (dropped, to, MAX_PER_TO, pend, dropped))
+    # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도
+    #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
+    #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
+    _prune_bodies(CANON)
 
 
 def relay(to, frm, path, summary, force=False):
