@@ -320,6 +320,52 @@ else
   t29_case BYZ∥pack "$BYZ_MBOX" "$MBOX"
 fi
 
+# ─ T31 doorbell 상태 출력 (2026-09-06, 가) ────────────────────────────────────
+# 질문 하나다: ★«울릴 대상이 없다»를 호출자가 알 수 있는가★.
+#
+# 패치 전 BYZ `doorbell()` 은 모든 분기가 `return 0` 이라 상태를 안 돌려줬다. 그래서
+# `ft-send-verified.sh` 는 좌석이 아예 없거나(absent) 에이전트가 안 떠 있는(noagent)
+# 발주에도 도달을 20초씩 두 번 기다린 뒤에야 미도달로 떨어졌다 — ★실측 41초★, 그리고
+# 브로드캐스트는 그것이 좌석 수만큼 곱해진다. 창에 아무것도 안 떴는데 «떴을지 모른다»고
+# 기다리는 것은 판정이 아니라 순수 손실이다.
+#
+# ★두 계보를 같은 케이스로 잠근다★ — 팩은 이미 `doorbell=` 를 실어 보냈고 BYZ 만 안
+#   보냈다. 계보마다 계약이 다르면 판정기를 계보마다 따로 짜게 된다(F1·F2 에서 배운 것).
+#
+# ★라이브 «에이전트» 좌석은 필요 없다★ — 이 케이스가 묻는 것은 doorbell 이 대상의
+#   상태를 어떻게 분류하는가이지 좌석이 무엇을 하는가가 아니다. 필요한 것은 tmux 뿐이다.
+#   (자식 없는 맨 셸 = noagent, 자식 있는 셸 = sent, 없는 세션 = absent.)
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "SKIP T31 doorbell 상태 출력 (tmux 없음)"
+else
+  t31bare="mbox-guard-t31-bare-$$"      # 자식 0 — 에이전트 없는 맨 셸
+  t31live="mbox-guard-t31-live-$$"      # 자식 1 — 좌석처럼 보이게
+  tmux new-session -d -s "$t31bare" -c /tmp 2>/dev/null
+  tmux new-session -d -s "$t31live" -c /tmp 2>/dev/null; sleep 0.4
+  tmux send-keys -t "$t31live" 'sleep 600' Enter 2>/dev/null; sleep 0.8
+  # ★호출마다 TMPDIR 을 새로 판다★ — doorbell 스탬프는 TMPDIR 에 산다. 한 디렉터리를
+  #   공유하면 ★먼저 울린 계보가 뒤 계보를 outstanding 으로 억제★해서, 두 번째 계보만
+  #   `skipped` 가 나와 «계약이 다르다»로 오독된다(실측: BYZ 만 skipped 로 빨개졌다).
+  #   억제 자체의 회귀는 T24 가 이미 잠근다 — 여기서 묻는 것은 «상태 분류» 뿐이다.
+  t31db() {  # $1=래퍼  $2=대상세션  → doorbell=<상태>
+    FT_MBOX_DIR="$(mktemp -d)" TMPDIR="$(mktemp -d)" FT_MBOX_DOORBELL_MIN=0 \
+      bash "$1" send "$2" t31user "t31 body $2 $RANDOM" 2>&1 | grep -oE 'doorbell=[a-z]+' | tail -1
+  }
+  t31_case() {  # $1=라벨  $2=래퍼경로
+    local label="$1" w="$2" v
+    v="$(t31db "$w" "$t31bare")"
+    ok "T31 $label 맨 셸 좌석 → noagent (=$v)" "doorbell=noagent" "$v"
+    v="$(t31db "$w" "$t31live")"
+    ok "T31 $label 자식 있는 좌석 → sent (=$v)" "doorbell=sent" "$v"
+    v="$(t31db "$w" "T31NOSUCH$$")"
+    ok "T31 $label 없는 세션 → absent (=$v)" "doorbell=absent" "$v"
+  }
+  t31_case pack "$MBOX"
+  if [ -f "$BYZ_MBOX" ]; then t31_case BYZ "$BYZ_MBOX"; else echo "SKIP T31 BYZ 계보 — 래퍼 없음 ($BYZ_MBOX)"; fi
+  tmux kill-session -t "$t31bare" 2>/dev/null || true
+  tmux kill-session -t "$t31live" 2>/dev/null || true
+fi
+
 # ─ T30 발주 판별자 (2026-09-06, F5) ─────────────────────────────────────────────
 # 질문 하나다: ★«이번» 발주의 도달만 골라내는가, 아니면 «남의 도달»로도 통과하는가★.
 #
