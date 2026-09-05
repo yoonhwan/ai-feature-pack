@@ -231,5 +231,39 @@ out=$(FT_MBOX_DIR="$t26d" bash "$MBOX" recv seatT26d 2>&1)
 printf '%s\n' "$out" | grep -qF "전문: $t26d/bodies/$t26seq.txt (800자)"
 ok "T26d recv 가 전문 경로 제공(회귀)" 0 $?
 
+
+# T27 계보 합치(2026-09-06, F1·F2): pack 과 BYZ 정본은 «같은» .mbox-guard.json 을 공유하는데
+#   해시 방식이 갈리면 서로의 기록을 못 읽어 RESEND·FANOUT 이 계보를 건너면 반쪽만 작동했다.
+#   실측: 같은 본문 206자로 BYZ→QUEUED, 곧바로 pack→★QUEUED(안 막힘)★, 다시 BYZ→BLOCKED.
+#   BYZ 정본에 F1(큐 pending 판정)·F2(전문 해시)를 넣은 뒤의 회귀를 여기서 잠근다.
+#   ★BYZ 래퍼가 없는 환경(팩 단독)에서는 SKIP★ — 팩 테스트가 남의 리포에 의존해 깨지면 안 된다.
+BYZ_MBOX="${FT_BYZ_MBOX:-$HOME/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/comm/mbox.sh}"
+if [ ! -f "$BYZ_MBOX" ]; then
+  echo "SKIP T27 계보 합치 — BYZ 래퍼 없음 ($BYZ_MBOX)"
+else
+  t27=$(mktemp -d)
+  # T27a BYZ 로 send → pack 으로 같은 본문 재발신 → RESEND 로 막혀야 한다(계보를 건너 억제).
+  FT_MBOX_DIR="$t27" bash "$BYZ_MBOX" send seatT27 t27user "${PFX}ONE" --no-notify >/dev/null 2>&1
+  ok "T27a BYZ send" 0 $?
+  err=$(FT_MBOX_DIR="$t27" bash "$MBOX" send seatT27 t27user "${PFX}ONE" --no-notify 2>&1); rc=$?
+  ok "T27a pack 재발신 차단(계보 건너)" 3 $rc
+  printf '%s\n' "$err" | grep -q 'RESEND_COOLDOWN'
+  ok "T27a 사유가 RESEND_COOLDOWN" 0 $?
+  # T27b 앞 200자 동일 · 꼬리 다른 두 본문은 ★서로 막지 않는다★ (F2 전문 해시 = 오탐 제거).
+  FT_MBOX_DIR="$t27" bash "$MBOX" send seatT27 t27user "${PFX}TWO" --no-notify >/dev/null 2>&1
+  ok "T27b 200자 동일·꼬리 다름 → 통과(F2)" 0 $?
+  # T27c 반대 방향도 같아야 «합치»다 — pack 으로 send → BYZ 로 같은 본문 재발신 → 차단.
+  t27c=$(mktemp -d)
+  FT_MBOX_DIR="$t27c" bash "$MBOX" send seatT27c t27user "${PFX}THREE" --no-notify >/dev/null 2>&1
+  ok "T27c pack send" 0 $?
+  err=$(FT_MBOX_DIR="$t27c" bash "$BYZ_MBOX" send seatT27c t27user "${PFX}THREE" --no-notify 2>&1); rc=$?
+  ok "T27c BYZ 재발신 차단(계보 건너)" 3 $rc
+  printf '%s\n' "$err" | grep -q 'RESEND_COOLDOWN'
+  ok "T27c 사유가 RESEND_COOLDOWN" 0 $?
+  # T27d F1 회귀: 소비되면 계보를 건너서도 통과한다(큐 pending 판정이지 시각 판정이 아니다).
+  FT_MBOX_DIR="$t27c" bash "$BYZ_MBOX" recv seatT27c >/dev/null 2>&1
+  FT_MBOX_DIR="$t27c" bash "$BYZ_MBOX" send seatT27c t27user "${PFX}THREE" --no-notify >/dev/null 2>&1
+  ok "T27d 소비 후 재발신 통과(F1)" 0 $?
+fi
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
