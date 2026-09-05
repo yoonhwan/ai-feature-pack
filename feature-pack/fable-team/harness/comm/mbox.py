@@ -98,12 +98,20 @@ def _repo_root(start):
                 a = os.path.dirname(a)
             return parent
         d = os.path.dirname(d)
-    return os.path.abspath(start)
+    # ★F4: `.fable-team` 조상이 없으면 정본을 «유도할 수 없다» — 조용히 만들지 않는다.
+    #   예전엔 `os.path.abspath(start)` 를 돌려줬다. 그러면 스크립트 «옆»에
+    #   `.fable-team/comm` 을 파고 send 가 QUEUED 로 정상 종료한다 — ★아무도 안 읽는
+    #   우편함★ 이 생기고, 보낸 쪽은 성공했다고 믿는다(무증상 유실).
+    return None
 
 
 _ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
 # ★명시가 추론을 이긴다★ — env 로 준 FT_MBOX_DIR 은 그대로 존중한다(이전엔 래퍼가 덮어썼다).
-CANON = os.environ.get("FT_MBOX_DIR") or os.path.join(_ROOT, ".fable-team", "comm")
+# ★F4: env 도 조상도 없으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
+CANON = os.environ.get("FT_MBOX_DIR") or (os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None)
+if not CANON:
+    sys.stderr.write("NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n")
+    sys.exit(2)
 
 # ★seq 의 정본은 파일 «내용» 이 아니다★ (2026-09-03 신설).
 #   그전엔 `max(파일에 남은 seq) + 1` 이었다. 그런데 recv 가 읽은 행을 «파일에서 지우므로»
@@ -159,6 +167,8 @@ def _legacy_dirs():
 
     손으로 쓴 목록은 다음에 생기는 워크트리를 못 잡는다.
     """
+    if not _ROOT:  # ★F4: 루트를 못 유도했으면(env 만으로 동작) 레거시도 없다.
+        return []
     out, wt = [], os.path.join(_ROOT, ".worktrees")
     if os.path.isdir(wt):
         # ★여기에도 같은 깊이 함정이 있다★ — 한 단계만 훑으면 2단계 워크트리에 큐잉된
@@ -337,10 +347,9 @@ def _guard_verdict(to, frm, body):
     # ★F1: 발신 기록 시각이 아니라 «실제 큐» 에 같은 본문이 pending 인지로 판정★
     #   — 소비됐으면 통과한다. 기존은 가드 로그의 last 시각만 봐서, 받는 쪽이
     #   이미 recv 로 가져간 뒤에도 RESEND_COOL 동안 보고를 막았다.
-    #   ★BYZ 특이점★ 여기서는 verdict 가 send() 의 잠금 «밖» 에서 불리므로
-    #   이 _load(CANON) 은 더티 리드다. 최악은 «한 번 더 막히거나 한 번 덜 막히거나»이고,
-    #   F1 은 «소비됐으면 통과» 방향이라 보고를 «덜 막는» 쪽으로 기울어 안전하다.
-    #   (verdict 를 잠금 안으로 옮기는 것은 이번 범위 밖.)
+    #   ★F6 이후 이 _load(CANON) 은 더티 리드가 아니다★ — send() 가 우편함 잠금을 쥔 채
+    #   불러주므로, 동시에 들어온 다른 send 가 이미 큐에 넣은 행을 «본다». 그전에는
+    #   판정이 잠금 밖이라 두 send 가 서로의 큐를 못 보고 ★둘 다 통과★ 했다(실측 5회 중 4회).
     dup = next((r for r in _load(CANON) if r.get("from") == frm
                 and r.get("to") == to and _body_hash(r.get("body", "")) == h), None)
     last = max((r.get("t", 0) for r in log
@@ -368,24 +377,16 @@ def _guard_verdict(to, frm, body):
 
 def send(to, frm, body, force=False):
     _check_name(to); _check_name(frm)
-    # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
-    try:
-        verdict = None if force else _guard_verdict(to, frm, body)
-    except Exception:
-        verdict = None
-    if verdict:
-        reason, hint = verdict
-        # ★마지막 줄에 이유를 «다시» 싣는다★ (2026-09-04 실측)
-        #   사람은 stderr 를 tail 로 받는다. 이유가 첫 줄에만 있으면 `tail -1` 은
-        #   "--force 를 붙인다" 만 보여주고, RESEND_COOLDOWN 처럼 hint 가 여러 줄인 가드는
-        #   ★`tail -3` 으로도 이유가 밀려나 안 잡힌다★. 그러면 받는 사람은 «왜 막혔는지
-        #   모른 채» 본문만 줄여 재발송한다 — 오늘 실제로 그 일이 났고 당사자는 어느
-        #   가드였는지 사후에도 확정하지 못했다. 잘리는 쪽을 정할 수 없으니 양 끝에 둔다.
-        sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n"
-                         % (reason, hint, reason))
-        sys.exit(3)
     def op():
         rows = _load(CANON)
+        # ★F6: 가드 판정을 잠금 «안»에서(load 직후) — 밖이면 동시 send 가 서로의 큐를 못 봐 둘 다 통과.
+        # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
+        try:
+            verdict = None if force else _guard_verdict(to, frm, body)
+        except Exception:
+            verdict = None
+        if verdict:
+            return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 락 파일을 쥔 채 죽는다.
         seq = _next_seq(rows)
         row = {"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
                "to": to, "from": frm, "body": body}
@@ -417,7 +418,19 @@ def send(to, frm, body, force=False):
         except Exception:
             pass
         return seq, sum(1 for r in keep if r["to"] == to), dropped
-    seq, pend, dropped = _locked(CANON, op)
+    res = _locked(CANON, op)
+    if res[0] == "__BLOCKED__":
+        reason, hint = res[1]
+        # ★마지막 줄에 이유를 «다시» 싣는다★ (2026-09-04 실측)
+        #   사람은 stderr 를 tail 로 받는다. 이유가 첫 줄에만 있으면 `tail -1` 은
+        #   "--force 를 붙인다" 만 보여주고, RESEND_COOLDOWN 처럼 hint 가 여러 줄인 가드는
+        #   ★`tail -3` 으로도 이유가 밀려나 안 잡힌다★. 그러면 받는 사람은 «왜 막혔는지
+        #   모른 채» 본문만 줄여 재발송한다 — 실제로 그 일이 났고 당사자는 어느
+        #   가드였는지 사후에도 확정하지 못했다. 잘리는 쪽을 정할 수 없으니 양 끝에 둔다.
+        sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n"
+                         % (reason, hint, reason))
+        sys.exit(3)
+    seq, pend, dropped = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
