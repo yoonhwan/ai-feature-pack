@@ -304,7 +304,16 @@ def _guard_log():
 
 
 def _body_hash(body):
-    return hashlib.md5(body[:200].encode("utf-8")).hexdigest()
+    # ★F2: 전문 해시★ — 앞 200자만 보면 같은 템플릿 헤더로 시작하는 «다른» 보고가
+    #   RESEND·FANOUT 으로 오탐되어 막혔다. 또 계보마다 해시 방식이 갈리면 같은
+    #   .mbox-guard.json 을 공유하면서도 서로의 기록을 못 읽어 가드가 반쪽만 작동한다.
+    #   ★라이브 실측(2026-09-06)★ 같은 본문 206자(앞 200자 동일)로
+    #     ① BYZ send → QUEUED  ② 곧바로 pack 으로 같은 본문 → ★QUEUED(안 막힘)★
+    #     ③ BYZ 로 또 → BLOCKED RESEND_COOLDOWN / 가드 로그는 기록 2건에 고유 해시 2종.
+    #   ★부작용★ 기존 .mbox-guard.json 의 200자 해시 기록은 전부 무효화된다
+    #   ⇒ 억제가 1회 리셋된다(이전에 막히던 재발신이 한 번 통과). 홍수가 아니고,
+    #   두 계보의 해시를 통일하는 것 자체가 정상화다.
+    return hashlib.md5(body.encode("utf-8")).hexdigest()
 
 
 def _guard_record(to, frm, body):
@@ -325,13 +334,24 @@ def _guard_verdict(to, frm, body):
     now = time.time()
     log = _guard_log()
     h = _body_hash(body)
+    # ★F1: 발신 기록 시각이 아니라 «실제 큐» 에 같은 본문이 pending 인지로 판정★
+    #   — 소비됐으면 통과한다. 기존은 가드 로그의 last 시각만 봐서, 받는 쪽이
+    #   이미 recv 로 가져간 뒤에도 RESEND_COOL 동안 보고를 막았다.
+    #   ★BYZ 특이점★ 여기서는 verdict 가 send() 의 잠금 «밖» 에서 불리므로
+    #   이 _load(CANON) 은 더티 리드다. 최악은 «한 번 더 막히거나 한 번 덜 막히거나»이고,
+    #   F1 은 «소비됐으면 통과» 방향이라 보고를 «덜 막는» 쪽으로 기울어 안전하다.
+    #   (verdict 를 잠금 안으로 옮기는 것은 이번 범위 밖.)
+    dup = next((r for r in _load(CANON) if r.get("from") == frm
+                and r.get("to") == to and _body_hash(r.get("body", "")) == h), None)
     last = max((r.get("t", 0) for r in log
                 if r.get("f") == frm and r.get("to") == to and r.get("h") == h), default=0)
-    if last and now - last < RESEND_COOL:
-        return ("RESEND_COOLDOWN from=%s to=%s %ds<%ds" % (frm, to, int(now - last), RESEND_COOL),
-                "같은 본문은 이미 큐에 있다 — 받는 쪽이 «가져갈» 때까지 기다린다. "
+    if dup and last and now - last < RESEND_COOL:
+        return ("RESEND_COOLDOWN from=%s to=%s seq=%s %ds<%ds"
+                % (frm, to, dup.get("seq"), int(now - last), RESEND_COOL),
+                "같은 본문이 큐에 pending(seq=%s) — 받는 쪽이 «가져갈» 때까지 기다린다. "
                 "pending 동안 재발신 금지. 수신 여부가 궁금하면 pane 캡처로 확인하고, "
-                "%ds 경과 후 1회만 재발신한다(시간이 지나면 자동 통과)." % RESEND_COOL)
+                "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
+                % (dup.get("seq"), RESEND_COOL))
     others = sorted({r["to"] for r in log
                      if r.get("f") == frm and r.get("h") == h and r.get("to") != to
                      and now - r.get("t", 0) < FANOUT_WIN})
