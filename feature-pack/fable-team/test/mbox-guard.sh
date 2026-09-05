@@ -320,5 +320,140 @@ else
   t29_case BYZ∥pack "$BYZ_MBOX" "$MBOX"
 fi
 
+# ─ T30 발주 판별자 (2026-09-06, F5) ─────────────────────────────────────────────
+# 질문 하나다: ★«이번» 발주의 도달만 골라내는가, 아니면 «남의 도달»로도 통과하는가★.
+#
+# 패치 전 `ft-send-verified.sh` 는 마커를 «본문 첫 줄» 로 잡았다. 그래서 같은 본문을
+# 두 번 보내면(재발주·브로드캐스트 — 가장 흔한 경우) 두 발주가 판정에서 구분되지 않고,
+# ★아무것도 안 보낸 발주가 남의 도달로 통과★한다. 패치 후 마커는 큐가 발급한 `[발주 #<seq>]`
+# 라 발주마다 고유하다.
+#
+# ★대칭(pack∥BYZ)을 걸지 않는다★ — `ft-send-verified.sh` 는 BYZ 에만 있다(팩엔 없고
+#   tools/comm-canonical/* 는 백업이지 실행 경로가 아니다). 판별자는 «BYZ 안에서 연속·동시
+#   2발주» 다. 없는 대칭을 만들면 F6 때처럼 판별자가 아닌 것을 판별자로 착각하게 된다.
+#
+# ★옵트인★ — 라이브 좌석(jsonl 을 쓰는 실제 에이전트)이 필요하다. `FT_T30_SEAT` 를 줄 때만
+#   돈다. 기본 SKIP 이라 팩 단독 실행의 케이스 수는 그대로다.
+#     FT_T30_SEAT='PROBE_REACH#0' bash test/mbox-guard.sh
+T30SEAT="${FT_T30_SEAT:-}"
+BYZ_SENDV="${FT_BYZ_SENDV:-$(dirname "$BYZ_MBOX")/../bin/ft-send-verified.sh}"
+BYZ_REACH="$(dirname "$BYZ_SENDV")/ft-reach-check.sh"
+if [ -z "$T30SEAT" ]; then
+  echo "SKIP T30 발주 판별자 — FT_T30_SEAT 미지정(라이브 좌석 필요)"
+elif [ ! -f "$BYZ_SENDV" ] || [ ! -f "$BYZ_REACH" ]; then
+  echo "SKIP T30 발주 판별자 — BYZ ft-send-verified.sh/ft-reach-check.sh 없음 ($BYZ_SENDV)"
+else
+  t30="$(mktemp -d)"; t30box="$(mktemp -d)"
+  t30nonce="$$-$(date +%s)"
+  # ★마커가 «이 실행에서만» 유일해야 한다★ — 격리 우편함은 매번 1602 부터 시작하므로
+  #   그대로 두면 지난 실행이 좌석 jsonl 에 남긴 `[발주 #1602]` 와 충돌한다. 판정이
+  #   조용히 «과거의 도달»을 집는다 — 이 테스트가 잡으려는 그 결함 그 자체다.
+  t30floor="$(date +%s)"
+  # 좌석 jsonl 에서 마커가 «제출된» 횟수. 판정기가 쓰는 것과 같은 계기다.
+  t30count() { FT_REACH_COUNT_ONLY=1 bash "$BYZ_REACH" "$T30SEAT" "$1" 2>/dev/null; }
+  # ★«마지막» seq 를 본다★ (2026-09-06 실측으로 고침) — 1차 doorbell 이 좌석 입력 큐에
+  #   삼켜지면 판정기가 재발주하고, 그때 «새» seq 가 발급된다. 그 경우 출력에 QUEUED 가
+  #   두 줄이고 ★실제로 판정된 것은 뒤엣것★ 이다. head -1 을 보면 삼켜진 번호를 집어
+  #   「도달했다는데 기록엔 없다」는 모순된 값이 나온다(실측: seq 286 은 type=queue-operation·
+  #   attachment 로만 남고 type=user 레코드가 없었다 — 재발주된 287 이 도달분이었다).
+  t30seq() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | tail -1 | cut -d= -f2; }
+  t30send() {  # $1=본문 → 격리 우편함·유일 floor 로 1회 발주
+    FT_MBOX_DIR="$t30box" FT_MBOX_SEQ_FLOOR="$t30floor" \
+      bash "$BYZ_SENDV" "$T30SEAT" "$1" 2>&1
+  }
+
+  # ── T30a 연속 2발주(본문 다름) → 각자 «자기 seq» 로 판정된다 ──────────────────
+  o1="$(t30send "T30a-$t30nonce 첫 발주 본문")"; rc1=$?
+  ok "T30a 1차 발주 도달" 0 $rc1
+  o2="$(t30send "T30a-$t30nonce 둘째 발주 본문(내용이 다르다)")"; rc2=$?
+  ok "T30a 2차 발주 도달" 0 $rc2
+  s1="$(t30seq "$o1")"; s2="$(t30seq "$o2")"
+  { [ -n "$s1" ] && [ -n "$s2" ] && [ "$s1" != "$s2" ]; }
+  ok "T30a 두 발주의 seq 가 다르다 (=$s1/$s2)" 0 $?
+  # ★각 마커가 «각각 1회»★ — 서로의 도달로 계산되지 않았다는 뜻이다.
+  ok "T30a [발주 #$s1] 이 1회" 1 "$(t30count "[발주 #$s1]")"
+  ok "T30a [발주 #$s2] 이 1회" 1 "$(t30count "[발주 #$s2]")"
+
+  # ── T30b 음성대조 — 패치 «전» 사본으로 같은 흐름 ─────────────────────────────
+  # 패치 전 사본은 git 에서 꺼낸다. 못 꺼내면 SKIP — 없는 것을 지어내 «재현했다»고 말하지 않는다.
+  # ★`HEAD:` 도 `main:` 도 쓰지 않고 «커밋을 못 박는다»★ (2026-09-06 실측으로 고침)
+  #   - `HEAD:` — 런타임이 사는 워크트리는 `feat/v6-realtime-live` 이고 그 브랜치엔
+  #     `tools/comm-canonical/` 자체가 없다(실측: `path ... does not exist in 'HEAD'`).
+  #   - `main:` — 이 개정의 백업 갱신이 머지되는 순간 «패치 후»가 되어, 음성대조가
+  #     ★조용히 자기 자신을 대조하게 된다★. 그러면 이 케이스는 영원히 재현 실패로 보인다.
+  #   ⇒ 패치 «전» 상태가 확정된 커밋을 못 박는다. 그 커밋이 없는 환경(얕은 클론 등)은 SKIP.
+  T30_PRE_SHA="${FT_T30_PRE_SHA:-61fe2109a7b2433c979e143d965e5b1facc26964}"
+  t30pre="${FT_T30_PREPATCH:-$t30/prepatch.sh}"
+  if [ ! -s "$t30pre" ]; then
+    git -C "$(dirname "$BYZ_SENDV")" show \
+      "${T30_PRE_SHA}:tools/comm-canonical/ft-send-verified.sh" > "$t30pre" 2>/dev/null || true
+  fi
+  if ! grep -q "MARKER=\"\$(printf '%s' \"\$TEXT\" | head -1)\"" "$t30pre" 2>/dev/null; then
+    echo "SKIP T30b 음성대조 — 패치 전 사본을 못 얻었다 ($t30pre)"
+  else
+    # ★판정기를 사본 «옆»에 둔다★ — 두 스크립트 다 `$HERE/ft-reach-check.sh` 를 부른다.
+    #   안 두면 `bash <없는 파일>` 이 rc127 을 내고, 그것이 «판정 불가(UNVERIFIED rc5)» 로
+    #   둔갑해 ★결함이 재현 안 된 것처럼 보인다★(2026-09-06 실측: T30b 가 0 대신 5 를 냈다).
+    cp "$BYZ_REACH" "$t30/ft-reach-check.sh"
+    # ★계측★: `send_once` 를 no-op 으로 바꾼다. 이 케이스의 질문은 「미도달인데 도달로
+    #   읽는가」이므로 ★실제 전송이 없어야★ 한다. 판정 논리는 원본 그대로 둔다.
+    t30preN="$t30/prepatch-noop.sh"
+    python3 - "$t30pre" "$t30preN" <<'PYEOF'
+import io, sys
+src = io.open(sys.argv[1], encoding="utf-8").read()
+old = ('send_once() {\n'
+       '    tmux send-keys -t "$SESSION" -l "$1" 2>/dev/null || return 1\n'
+       '    sleep 0.4\n'
+       '    tmux send-keys -t "$SESSION" Enter 2>/dev/null || return 1\n'
+       '    return 0\n'
+       '}\n')
+assert src.count(old) == 1, "send_once block not found"
+io.open(sys.argv[2], "w", encoding="utf-8").write(
+    src.replace(old, 'send_once() { return 0; }   # ★계측★ 음성대조 — 실제 전송 없음\n'))
+PYEOF
+    ok "T30b 패치 전 사본 계측 준비" 0 $?
+    T30BODY="T30b-$t30nonce 같은 본문 재발주(브로드캐스트·재전송에서 늘 이렇다)"
+    # ① 아무것도 안 보내는 B 를 «먼저» 띄운다 → 기준값 0 을 잡고 폴링에 들어간다.
+    ( bash "$t30preN" "$T30SEAT" "$T30BODY" >"$t30/b.out" 2>&1; echo $? > "$t30/b.rc" ) &
+    t30bpid=$!
+    sleep 3
+    # ② 그 «뒤에» 같은 본문을 진짜로 보낸다(원본 사본 — 실제 전송). 마커가 같으므로
+    #    B 의 폴링이 이 도달을 집는다.
+    bash "$t30pre" "$T30SEAT" "$T30BODY" >"$t30/a.out" 2>&1
+    wait "$t30bpid" 2>/dev/null
+    t30brc="$(cat "$t30/b.rc" 2>/dev/null || echo 99)"
+    # ★기대값이 «0(통과)» 인 이유★ — 여기서 0 은 «옳다»가 아니라 ★결함이 재현됐다★는 뜻이다.
+    #   아무것도 안 보낸 발주가 남의 도달로 REACHED 를 받았다.
+    ok "T30b 음성대조: 패치 전은 남의 도달로 통과(결함 재현)" 0 "$t30brc"
+
+    # ③ 같은 상황을 «패치 후» 로. 큐 번호만 발급하고 창에는 아무것도 주입하지 않는
+    #    스텁 우편함을 물린다 → 내 마커는 절대 안 나타난다 ⇒ 정직하게 미도달이어야 한다.
+    cat > "$t30/stubmbox.sh" <<'EOS'
+#!/bin/bash
+# ★계측★ — 큐 번호만 발급하고 doorbell 을 울리지 않는다(미도달 상황을 만든다).
+echo "QUEUED seq=$(date +%s)$RANDOM to=$2 pending=1"
+EOS
+    FT_MBOX_SH="$t30/stubmbox.sh" bash "$BYZ_SENDV" "$T30SEAT" "$T30BODY" >/dev/null 2>&1
+    ok "T30b 패치 후 같은 상황: 정직한 미도달(NOT_SUBMITTED)" 2 $?
+  fi
+
+  # ── T30c 재전송 경로 — 1차 미도달을 만들고 «새 seq» 로 판정되는지 ─────────────
+  # 1회차는 번호만 발급하고 주입하지 않는다(미도달), 2회차는 진짜로 보낸다.
+  # ★1차 마커로 재판정하면 그 번호는 두 번 다시 안 나오므로 영원히 미도달로 보인다★ —
+  # 재발주가 마커를 갱신하는지가 이 케이스의 질문이다.
+  cat > "$t30/flaky.sh" <<EOS
+#!/bin/bash
+n="\$(cat "$t30/flaky.n" 2>/dev/null || echo 0)"; n=\$((n+1)); echo "\$n" > "$t30/flaky.n"
+if [ "\$n" = 1 ]; then echo "QUEUED seq=\$(date +%s)\$RANDOM to=\$2 pending=1"; exit 0; fi
+exec env FT_MBOX_DIR="$t30box" FT_MBOX_SEQ_FLOOR="$t30floor" bash "$BYZ_MBOX" "\$@"
+EOS
+  o3="$(FT_MBOX_SH="$t30/flaky.sh" bash "$BYZ_SENDV" "$T30SEAT" "T30c-$t30nonce 재전송 경로 본문" 2>&1)"
+  ok "T30c 1차 미도달 → 재발주로 도달" 0 $?
+  printf '%s\n' "$o3" | grep -q '^RESEND '
+  ok "T30c 재발주 경로를 실제로 탔다" 0 $?
+  s3="$(printf '%s\n' "$o3" | grep -oE 'seq=[0-9]+' | tail -1 | cut -d= -f2)"
+  ok "T30c 재발주의 «새» seq 로 판정 (=$s3)" 1 "$(t30count "[발주 #$s3]")"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -gt 0 ] && exit 1 || exit 0
