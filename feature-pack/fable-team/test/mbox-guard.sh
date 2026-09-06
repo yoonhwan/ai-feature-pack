@@ -25,7 +25,13 @@ bash "$MBOX" send seatA orch "hello-body-1" --no-notify >/dev/null 2>&1; ok "T1 
 bash "$MBOX" send seatA orch "hello-body-1" --no-notify >/dev/null 2>&1; ok "T2 resend-pending RESEND" 3 $?
 # T3 recv에 READ 1행
 out=$(bash "$MBOX" recv seatA 2>&1)
-ok "T3 recv 1 READ" 1 "$(printf '%s\n' "$out" | grep -c '^READ ')"
+# ★`grep -c '^READ '` 로 세지 않는다★ (2026-09-06 — T32d 와 같은 계열의 가짜 통과)
+#   메시지가 «0건»이면 mbox 는 `READ none` 을 찍는데 그 줄도 `^READ ` 에 걸린다.
+#   ⇒ 「1건 왔다」와 「아무것도 안 왔다」가 ★같은 값 1★ 이 되어, 우편함을 잘못 가리켜
+#   아무것도 안 읽은 실행에서도 이 케이스만 초록으로 지나간다(실측: 빈 우편함 → 1).
+#   그래서 ★본문 nonce 를 세고(양성) `READ none` 부재를 함께 본다(음성)★.
+ok "T3 recv 1 READ" 1 "$(printf '%s\n' "$out" | grep -c 'hello-body-1')"
+ok "T3 recv 는 «READ none» 이 아니다" 0 "$(printf '%s\n' "$out" | grep -c 'READ none')"
 # T4 소비 후 같은 본문 rc0 (F1)
 bash "$MBOX" send seatA orch "hello-body-1" --no-notify >/dev/null 2>&1; ok "T4 resend-after-consume" 0 $?
 # T5 250자 접두 + tail-ONE rc0
