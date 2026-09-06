@@ -1,0 +1,81 @@
+# tmm 설치 (에이전트 자동 수행)
+
+이 문서를 읽은 에이전트는 다음을 자동 수행한다.
+
+## 사전 요구
+
+```bash
+command -v bash >/dev/null && [ "${BASH_VERSINFO[0]}" -ge 4 ]   # macOS 기본 bash 3.2 는 불가 → brew install bash
+command -v tmux >/dev/null
+command -v fzf  >/dev/null                                       # brew install fzf
+```
+
+선택:
+
+- `tmuxc` (feature-pack/tmuxc) — `tmm s` 도달확인, `tmm save`. 없으면 send 는 `tmux send-keys` 폴백.
+- Tailscale — 집 밖 접속.
+
+## 설치 단계
+
+### 1) install.sh 실행
+
+```bash
+bash feature-pack/tmm/install.sh
+```
+
+수행 내용:
+
+1. `bash>=4`, `tmux`, `fzf` 확인 (누락 시 exit 2 + 설치 명령 안내)
+2. `~/.tmm/versions/<version>/core/` 에 본체·libexec 복사, `~/.tmm/current` 심링 갱신
+3. `~/.local/bin/tmm` 심링 (기존 일반 파일이 있으면 백업 후 교체)
+4. `~/.local/bin` PATH 미등록이면 `~/.zshrc`/`~/.bashrc` 에 추가
+5. `~/.zshrc` 에 `alias tmm=` 이 있으면 경고 (alias 가 바이너리를 가로챔)
+6. `~/.tmm/categories` 가 없으면 예시 복사 (있으면 보존)
+7. `tmm doctor` 로 검증
+
+### 2) 카테고리 규칙 편집
+
+`~/.tmm/categories` 를 열어 실제 세션명 접두에 맞게 고친다. 형식은 `글롭<TAB>라벨`, 위에서부터 첫 매치. 규칙에 안 걸리면 세션명의 첫 토큰(`-`/`_` 앞)이 라벨이 된다.
+
+```bash
+tmux ls -F '#S' | sed 's/#[0-9]*$//' | sort -u     # 현재 접두 목록 보기
+```
+
+### 3) 검증
+
+```bash
+tmm doctor
+tmm ls | head            # 목록 (상태 열이 ? 면 seat-scan 경로 확인 → TMM_SCAN)
+bash feature-pack/tmm/test/verify.sh   # 격리 tmux 소켓에서 회귀 (기존 세션 무접촉)
+```
+
+### 4) 모바일 연결 (Termius 예)
+
+1. Mac: 시스템 설정 → 일반 → 공유 → 원격 로그인 켜기.
+2. 키: `ssh-keygen -t ed25519 -f ~/.ssh/mobile_ed25519 -N ''` → `cat ~/.ssh/mobile_ed25519.pub >> ~/.ssh/authorized_keys`.
+   개인키(`~/.ssh/mobile_ed25519`)는 1Password 등에 저장 → 폰 Termius Keychain 에 붙여넣기.
+3. 주소: 같은 Wi-Fi 면 `ipconfig getifaddr en0`, 밖에서는 `tailscale ip -4`.
+4. Termius 호스트: 주소 · 포트 22 · 사용자 · 키 · **Startup command: `tmm`**.
+5. 데스크탑에서 자가 테스트:
+   ```bash
+   ssh -i ~/.ssh/mobile_ed25519 -o IdentitiesOnly=yes <IP> -t 'zsh -ilc tmm'
+   ```
+   비대화 ssh 는 PATH 가 `/usr/bin:/bin` 뿐이라 `zsh -ilc`(로그인+인터랙티브) 로 감싸야 `tmux`/`tmm` 이 잡힌다. Termius 의 Startup command 는 로그인 셸에서 실행되므로 그대로 `tmm` 이면 된다.
+
+## 제거
+
+```bash
+bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
+```
+
+## 트러블슈팅
+
+| 증상 | 원인 / 처방 |
+|---|---|
+| Enter 를 눌러도 attach 안 됨, `can't use /dev/tty` | 구버전(fzf execute 안에서 attach). 0.1.0 은 fzf 밖에서 attach — 재설치 |
+| Enter 가 필터만 갱신하는 듯 | 목록 로딩 중(`0/0`) 에 누름. `--sync` 로 첫 화면이 완성 후 뜨니 `좌석>` 가 보이면 누른다 |
+| 화면 오른쪽·아래가 점(…)으로 채워짐 | `-i`(ignore-size) attach. 기본 `tmm a NAME` 은 폰 크기 추종 |
+| 상태 열이 전부 `?` | seat-scan 미발견. `tmm doctor` → `TMM_SCAN=/path/seat-scan.sh` |
+| 목록이 3초 넘게 걸림 | 좌석 수 × seat-scan. `TMM_CACHE_TTL` 을 늘리면 필터·재정렬은 캐시. 첫 로딩은 못 줄임 |
+| 메시지가 셸에 타이핑됨 | tmm 가드는 pane 자식 프로세스 유무로 판정. 에이전트가 pane 의 자식이 아닌 구조(예: nohup)면 `tmm ss` 로 상태 먼저 확인 |
+| `tmm` 이 엉뚱한 동작 | `type tmm` → alias 면 `~/.zshrc` 에서 제거 |
