@@ -2,11 +2,21 @@
 # 파일 기반 세션 메시지 큐 (mbox) — 파일 큐 + push 알림 하이브리드.
 # send = 파일 append + 수신자 tmux에 recv 트리거 주입(push). 본문은 파일(유실0), tmux엔 트리거만.
 # LIFO·per-to 10 ring·fcntl.flock·consume-on-read·to==me grep.
-# Usage: mbox.sh {send <to> <from> <body...> [--no-notify] | recv <me> | peek <me>}
+# Usage: mbox.sh {send <to> <from> <body...> [--no-notify] | recv <me> | peek <me> | ring <sess> [seq]}
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MBOXPY="$DIR/mbox.py"
 SELF="$DIR/mbox.sh"
+
+# 세션명 allowlist(py NAME_RE 와 동일).
+# ★ring 을 위해 필요하다★ — send/relay 는 py 가 먼저 검증하지만 ring 은 py 를 안 탄다.
+#   그런데 세션명은 doorbell 이 만드는 send-keys 문자열에 그대로 삽입된다. 검증이 없으면
+#   ring 만 명령 삽입 구멍이 된다 — 「py 가 해 준다」는 전제가 이 경로에선 거짓이다.
+_check_name() {
+  case "$1" in
+    ''|*[!A-Za-z0-9._#-]*) echo "BAD_SESSION_NAME $1" >&2; return 1;;
+  esac
+}
 
 # 세션명 → pane_id 정확 매칭 (#-suffix 세션명 send-keys 파싱 함정 회피)
 pane_of() {
@@ -161,5 +171,14 @@ case "$cmd" in
          : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
          exec python3 "$MBOXPY" recv "$me" "$@" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--no-notify] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>}" >&2; exit 2;;
+  # ring — ★큐를 건드리지 않고 doorbell 만 울린다★ (2026-09-06, 나)
+  #   재발주가 이 경로로 온다. 이전엔 재발주가 `send` 재호출이라 ★같은 본문이 큐에 두 번★
+  #   들어갔고, 좌석은 recv 에서 같은 발주를 2건 봤다(실측: pending=2, mailbox.jsonl 2행).
+  #   중복의 «자리»가 창에서 큐로 옮겨갔을 뿐 총량은 그대로였다.
+  #   ★seq 를 그대로 다시 싣는다★ — 새 번호를 만들지 않으므로 1차 마커가 그대로 유효하다.
+  #   ★force=1 로 억제를 뚫는다★ — 재발주는 «반드시» 창에 떠야 한다. 억제되면 아무것도
+  #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
+  ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
+         db="$(doorbell_status "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--no-notify] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
 esac

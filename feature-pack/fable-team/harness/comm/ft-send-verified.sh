@@ -49,6 +49,20 @@
 #   쪼개져 미도달로 오판된 사고)은 ★기록에 안 섞인다★. 마커 길이는 판정에 무관하다.
 #   이 구분을 지우지 마라 — 근거를 잘못 적으면 다음 사람이 판정 층을 pane 으로 되돌린다.
 #
+# ─ 2026-09-06 개정 (나): 재발주는 본문을 다시 넣지 않는다 ────────────────────
+# 개정 전 재발주는 `mbox send` 재호출이었다. 그러면 ★같은 본문이 큐에 한 벌 더★ 들어가고
+# 좌석은 recv 에서 같은 발주를 2건 본다(실측: pending=2, mailbox.jsonl 2행). F5 가 본문을
+# 창에서 큐로 옮긴 뒤에도 ★중복의 «자리»만 옮겨갔지 총량은 그대로★ 였다.
+#
+# 미도달의 실체는 「본문이 큐에 없다」가 아니라 「창에 뜬 doorbell 을 좌석이 삼켰다」이다.
+# 큐에는 이미 온전히 있다. 그러니 다시 넣을 것이 아니라 ★다시 울리기만★ 하면 된다.
+# 그래서 재발주는 `mbox ring <좌석> <최초 seq>` 다 — 큐를 안 건드리고 doorbell 만 울린다.
+#
+# ★마커는 최초 seq 그대로다★ — 새 번호를 안 만드니 판정 마커도 안 바뀐다. F5 가 여기에
+#   「재발주하면 새 번호가 나오니 마커를 갱신해야 한다」고 적었는데, 이 개정으로 그 문장은
+#   ★거짓이 됐다★. COMM-GUIDE §1 의 같은 문장도 함께 고쳤다 — 한쪽만 고치면 다음 사람이
+#   반대로 읽는다.
+#
 # ★인터페이스는 그대로다★ — ft-broadcast.sh 는 이 스크립트를 rc 로만 쓴다(0/1/2/5).
 #
 # usage: ft-send-verified.sh <session> <text>
@@ -67,6 +81,9 @@ FROM="${FT_SEND_FROM:-dispatch}"
 
 # 마커는 발주 «후»에 정해진다 — 번호를 발급하는 것은 큐다.
 MARKER=""
+# 최초 발주의 큐 번호. 재발주(ring)가 ★이 번호를 그대로 다시 울린다★ — 새 번호를 만들지
+# 않으므로 MARKER 도 그대로 유효하다.
+SEQ=""
 # 이번 발주의 doorbell 상태(sent|skipped|absent|noagent|error) — mbox 가 실어 보낸다.
 DOORBELL=""
 
@@ -84,6 +101,7 @@ dispatch_once() {
     seq="$(printf '%s\n' "$out" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
     # ★번호를 못 읽으면 실패로 본다★ — 번호 없이 판정하면 무엇을 기다리는지 모른다.
     [ -n "$seq" ] || return 1
+    SEQ="$seq"
     MARKER="[발주 #$seq]"
     # doorbell 상태를 같이 받는다 (2026-09-06, 가). 없으면 빈 값 — 옛 mbox 와도 돌아간다
     # (그 경우 아래 분기가 안 걸리고 지금까지의 «기다린다» 경로로 간다).
@@ -175,14 +193,25 @@ if [ "$RC" -eq 5 ]; then
     exit 5
 fi
 
-# doorbell 이 창에 안 떴거나 좌석이 그 입력을 삼켰다. 다시 발주한다.
-# ★재발주는 «새 seq» 를 받으므로 MARKER 가 갱신된다★ — dispatch_once 안에서 갱신된다.
-#   1차 마커로 재판정하면 그 번호는 두 번 다시 안 나오므로 ★영원히 미도달로 보인다★.
-echo "RESEND session=$SESSION (1차 미도달 — jsonl 에 제출 기록 없음)" >&2
-if ! dispatch_once; then
-    echo "SEND_FAILED session=$SESSION (재발주 실패 — mbox send 오류)" >&2
+# doorbell 이 창에 안 떴거나 좌석이 그 입력을 삼켰다. ★다시 «울린다» — 다시 «넣지» 않는다★.
+# 본문은 1차 발주에서 이미 큐에 온전히 들어갔다. send 를 다시 부르면 같은 본문이 한 벌 더
+# 들어가 좌석이 recv 에서 2건을 본다(실측 pending=2). 그래서 큐를 안 건드리는 ring 을 쓴다.
+# ★마커는 최초 seq 그대로다★ — ring 이 같은 번호를 다시 울리므로 갱신할 것이 없다.
+echo "RESEND session=$SESSION (1차 미도달 — jsonl 에 제출 기록 없음. 본문 재큐잉 없이 doorbell 만 재주입)" >&2
+# ★조용히 send 로 폴백하지 않는다★ — ring 이 없는 mbox(구버전·스텁)를 만나면 그 사실을
+#   드러내고 죽는다. 폴백하면 이 개정이 없앤 중복이 무증상으로 되살아난다(#0 RULE).
+if ! RING_OUT="$(bash "$MBOX" ring "$SESSION" "$SEQ" 2>&1)"; then
+    echo "SEND_FAILED session=$SESSION (재발주 실패 — mbox ring 오류: $RING_OUT)" >&2
     exit 1
 fi
+printf '%s\n' "$RING_OUT"
+DOORBELL="$(printf '%s\n' "$RING_OUT" | grep -oE 'doorbell=[a-z]+' | tail -1 | cut -d= -f2)"
+case "$DOORBELL" in
+    absent|noagent)
+        echo "UNVERIFIED session=$SESSION — 재발주 doorbell=$DOORBELL (본문은 큐에 있다 — 사람이 확인해야 한다)" >&2
+        exit 5
+        ;;
+esac
 if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" 0; then
     exit 0
 fi
