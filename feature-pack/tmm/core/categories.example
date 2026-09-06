@@ -1,0 +1,17 @@
+# tmm 카테고리 규칙 — "글롭<TAB>라벨" 한 줄씩. 위에서부터 첫 매치. 세션명의 `#N` 카운터는 떼고 비교.
+# 라벨은 5자 안이 폰 화면에 맞는다. 규칙에 안 걸리면 세션명 첫 토큰(-/_ 앞)이 라벨이 된다.
+# 이 파일: ~/.tmm/categories  (TMM_CATEGORIES 로 경로 변경 가능)
+ft-v65-*	v65
+ft-kakao-*	kakao
+KakaoBot	kakao
+ft-*	ft
+FB_VEC*	VEC
+FB_CFO*	CFO
+CFO_*	CFO
+cfo_*	CFO
+FB_CTO*	CTO
+CTO_*	CTO
+LOOM_*	LOOM
+loom_*	LOOM
+DATA_PG	LOOM
+FB_*	FB

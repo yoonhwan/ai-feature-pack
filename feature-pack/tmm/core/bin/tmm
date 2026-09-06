@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+# tmm — 모바일(Termius/SSH) 전용 tmux 좌석 TUI. 폰 60~80열 기준. fzf 기반 커서 이동·필터·미리보기.
+#   tmm              TUI 피커 (↑↓ 커서 · 타이핑=필터 · Enter=attach · 아래 키 참조)
+#   tmm ls [PAT]     텍스트 목록 (비대화용)
+#   tmm a NAME [-i]  attach (기본 폰 크기 추종 · -i 면 데스크탑 크기 고정+점 채움)
+#   tmm p NAME [N]   pane 최근 N줄 (기본 30)
+#   tmm s NAME MSG   메시지 (에이전트 없는 좌석 차단 + 도달확인)
+#   tmm ss           전 좌석 상태 스캔 (seat-scan)
+#   tmm h            HUMAN/BLOCK/STUCK 좌석만
+#   tmm save         tmuxc save
+#   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
+#   tmm doctor       의존성·환경 점검
+#
+# TUI 키:  Enter/^E attach · ^S 메시지 · ^H 대기좌석만 · ^A 전체 · ^T 최근순 · ^W 대기우선 · ^G 카테고리순
+#          ^R 새로고침 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ? 도움말
+# 정렬:   기본 = 마지막 응답 시각 역순(진입 시 최신 대화가 맨 위). ^W = 대기(HUMAN/BLOCK/STUCK) 상단 고정 후 최근순.
+#          ^G = 카테고리 묶음 안 최근순. ^H = 대기 좌석만 필터.
+# 시각:   claude "done 오후 H:MM" 마커 1순위(`12:34`), 없으면 tmux window_activity(`12~34`)
+#
+# 환경변수:
+#   TMM_CATEGORIES   카테고리 규칙 파일 (기본 ~/.tmm/categories) — "glob<TAB>라벨" 한 줄씩, 위에서부터 첫 매치
+#   TMM_SCAN         seat-scan 스크립트 경로 (기본: 설치본 libexec → ~/.claude/skills/tmuxc/scripts)
+#   TMM_CACHE_TTL    상태 스캔 캐시 초 (기본 20). 폰에서 ^R/필터 반복 시 재스캔 부하 방지. 0=항상 재스캔
+#   TMM_PREVIEW_LINES 미리보기 줄 수 (기본 40)
+set -uo pipefail
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+SELF="$(command -v tmm 2>/dev/null || printf '%s' "$0")"
+HERE="$(cd "$(dirname "$(readlink "$SELF" 2>/dev/null || printf '%s' "$SELF")")" && pwd)"
+SCAN="${TMM_SCAN:-}"
+[ -n "$SCAN" ] || for c in "$HERE/../libexec/seat-scan.sh" "$HOME/.claude/skills/tmuxc/scripts/seat-scan.sh"; do
+  [ -f "$c" ] && { SCAN="$c"; break; }
+done
+CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
+CACHE_TTL="${TMM_CACHE_TTL:-20}"
+CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u).cache"
+PREVIEW_LINES="${TMM_PREVIEW_LINES:-40}"
+
+# ---------- 카테고리 ----------
+# 규칙 파일이 있으면 그것을, 없으면 세션명 접두(문자·숫자·_·- 중 첫 토큰)를 카테고리로.
+cat_of() {
+  local n="${1%%#*}" glob label
+  if [ -f "$CAT_FILE" ]; then
+    while IFS=$'\t' read -r glob label; do
+      [ -z "$glob" ] || [ "${glob#\#}" != "$glob" ] && continue
+      # shellcheck disable=SC2254
+      case "$n" in $glob) printf '%s' "$label"; return;; esac
+    done < "$CAT_FILE"
+  fi
+  n="${n%%[-_]*}"; printf '%s' "${n:0:5}"
+}
+
+# ---------- 상태 스캔 (캐시) ----------
+# seat-scan 은 좌석당 capture 2회라 65좌석에 ~2초. 폰에서 필터/^R 을 연타해도 TTL 안에서는 재사용.
+scan_cached() {
+  [ -n "$SCAN" ] || { return 0; }
+  if [ "$CACHE_TTL" -gt 0 ] && [ -f "$CACHE" ]; then
+    local age=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || stat -c %Y "$CACHE") ))
+    [ "$age" -lt "$CACHE_TTL" ] && { cat "$CACHE"; return; }
+  fi
+  bash "$SCAN" 2>/dev/null | tee "$CACHE.tmp" >/dev/null; mv -f "$CACHE.tmp" "$CACHE"; cat "$CACHE"
+}
+scan_fresh() { rm -f "$CACHE"; scan_cached; }
+
+# 대기(사람이 봐야 할) 상태 = 항상 최상단 고정
+wait_rank() { case "$1" in HUMAN) echo 0;; BLOCK) echo 1;; STUCK) echo 2;; *) echo 5;; esac; }
+
+# ---------- 마지막 메시지 시각 ----------
+# 1순위 claude 완료 마커 "done 오후 12:56"(줄바꿈 분리 대비 공백 병합),
+# 2순위 tmux window_activity(pane 마지막 출력 — idle 좌석은 안 움직이므로 유효, BUSY 좌석은 ≈now).
+last_epoch() {  # $1 session  $2 window_activity  $3 midnight_epoch  $4 now  →  "epoch <:|~>"
+  local txt ampm h m t
+  txt="$(tmux capture-pane -t "=$1:" -p -S -300 2>/dev/null | tr -s '\n ' '  ')"
+  # 한국어 로케일 "done 오후 12:56" / 영어 로케일 "done 12:56 PM" 둘 다
+  if [[ "$txt" =~ done\ +(오전|오후)\ +([0-9]{1,2}):([0-9]{2}) ]]; then
+    ampm="${BASH_REMATCH[1]}"; h=$((10#${BASH_REMATCH[2]})); m=$((10#${BASH_REMATCH[3]}))
+  elif [[ "$txt" =~ done\ +([0-9]{1,2}):([0-9]{2})\ +(AM|PM) ]]; then
+    h=$((10#${BASH_REMATCH[1]})); m=$((10#${BASH_REMATCH[2]})); ampm="${BASH_REMATCH[3]}"
+  else
+    echo "${2:-0} ~"; return
+  fi
+  { case "$ampm" in 오후|PM) [ $h -lt 12 ] && h=$((h+12));; 오전|AM) [ $h -eq 12 ] && h=0;; esac; } || true
+  if true; then
+    t=$(( $3 + h*3600 + m*60 )); [ $t -gt $(( $4 + 120 )) ] && t=$((t-86400))
+    echo "$t :"
+  fi
+}
+age_of() {  # 상대 나이 3자: 3m / 2h / 1d
+  local d=$(( $2 - $1 ))
+  [ "$1" -le 0 ] && { echo "  -"; return; }
+  if [ $d -lt 3600 ]; then printf '%2dm' $((d/60)); elif [ $d -lt 86400 ]; then printf '%2dh' $((d/3600)); else printf '%2dd' $((d/86400)); fi
+}
+midnight() { date -v0H -v0M -v0S +%s 2>/dev/null || date -d 'today 00:00' +%s; }
+fmt_hm()   { date -r "$1" "+%H$2%M" 2>/dev/null || date -d "@$1" "+%H$2%M" 2>/dev/null || echo '--:--'; }
+
+# ---------- rows ----------
+# rows [time|wait|cat] [h] [fresh]  →  "표시줄\t세션명\t카테고리"
+# tmux 호출 2회(list-panes -a + seat-scan) + 좌석당 capture 1회(시각). 좌석별 display/list-panes 루프 금지.
+cmd_rows() {
+  local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat pcmd live act ep src now mid
+  declare -A ST
+  if [ "$fresh" = fresh ]; then
+    while read -r name state _; do ST["$name"]="$state"; done < <(scan_fresh)
+  else
+    while read -r name state _; do ST["$name"]="$state"; done < <(scan_cached)
+  fi
+  now=$(date +%s); mid=$(midnight)
+  # 시각 추출은 좌석당 capture 1회 — 직렬이면 부하 시 1~2초라 8병렬로 (순서 무관, 뒤에서 sort)
+  declare -A EP
+  while IFS=$'\t' read -r s ep src; do EP["$s"]="$ep $src"; done < <(
+    tmux list-panes -a -F $'#{session_name}\t#{window_activity}' 2>/dev/null | awk -F'\t' '!seen[$1]++' \
+    | xargs -P 8 -L 1 bash -c 'source "$0" __lib; printf "%s\t%s\n" "$3" "$(last_epoch "$3" "$4" "$1" "$2")"' "$SELF" "$mid" "$now" 2>/dev/null
+  )
+  while IFS=$'\t' read -r s pcmd act cwd; do
+    st="${ST[$s]:-?}"
+    [ "$only" = "h" ] && ! [[ "$st" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && continue
+    case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○";; *) live="●";; esac
+    cwd="${cwd##*/}"; cat="$(cat_of "$s")"; read -r ep src <<<"${EP[$s]:-$act ~}"
+    printf '%s\t%s\t%s\t%-5s %s %-22s %-5s %s %s %s\t%s\t%s\n' \
+      "$(wait_rank "$st")" "$ep" "$cat" \
+      "$cat" "$live" "${s:0:22}" "$st" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:14}" \
+      "$s" "$cat"
+  done < <(tmux list-panes -a -F $'#{session_name}\t#{pane_current_command}\t#{window_activity}\t#{pane_current_path}' 2>/dev/null | awk -F'\t' '!seen[$1]++') \
+  | { case "$mode" in
+        cat)  sort -t$'\t' -k3,3 -k2,2nr;;            # 카테고리 → 최근순
+        wait) sort -t$'\t' -k1,1n -k2,2nr;;           # 대기(HUMAN/BLOCK/STUCK) 상단 고정 → 최근순
+        *)    sort -t$'\t' -k2,2nr;;                  # time(기본): 마지막 응답 역순 — 진입 시 최신 대화가 맨 위
+      esac; } | cut -f4-
+}
+
+cmd_ls() { local pat="${1:-}"; cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; }
+
+# ---------- 동작 ----------
+cmd_attach() {
+  local n="${1:-}" flags=""
+  [ -n "$n" ] || { echo "(목록 로딩 중 — 잠시 후 다시 Enter)"; sleep 1; return 0; }
+  tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
+  [ "${2:-}" = "-i" ] && flags="-f ignore-size"
+  if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$n"; else tmux attach -t "=$n" $flags; fi
+}
+
+cmd_peek() {
+  local n="$1" k="${2:-30}"
+  tmux capture-pane -t "=$n:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
+}
+
+is_shell_cmd() { case "$1" in zsh|bash|sh|fish|-zsh|-bash|"") return 0;; *) return 1;; esac; }
+live_mark() {  # ● 에이전트 실행 중 / ○ shell only  (send 가드용 단건 조회)
+  # pane_current_command 기준 — pgrep -P 는 zsh 플러그인 자식(gitstatusd 등)을 에이전트로 오판한다(verify 실측)
+  local cmd; cmd="$(tmux display -p -t "=$1:" '#{pane_current_command}' 2>/dev/null)"
+  is_shell_cmd "$cmd" && echo "○" || echo "●"
+}
+
+cmd_send() {
+  local n="$1"; shift
+  # HARD GATE: pane 자식(에이전트) 없으면 셸에 타이핑되므로 차단 (tmuxc send 자체엔 가드 없음)
+  [ "$(live_mark "$n")" = "●" ] || { echo "❌ $n 에 에이전트가 실행 중이 아님 — 셸 오타이핑 방지로 차단"; return 1; }
+  if command -v tmuxc >/dev/null; then
+    tmuxc send "$n" "[mobile→$n] $*"
+  else
+    tmux send-keys -t "=$n:" -l "[mobile→$n] $*"; sleep 0.3; tmux send-keys -t "=$n:" Enter
+  fi && { sleep 2; echo "── 도달 확인 ──"; cmd_peek "$n" 6; }
+}
+
+# TUI 안 ^S: fzf 밖(정상 tty)에서 프롬프트
+cmd_sendp() {
+  local n="$1" m
+  echo "→ $n  (빈 입력 = 취소)"
+  read -r -p "메시지: " m
+  [ -n "$m" ] && cmd_send "$n" "$m"
+  read -r -n1 -p "[아무 키] " _
+}
+
+cmd_scan()  { [ -n "$SCAN" ] && bash "$SCAN" || echo "seat-scan 없음 (TMM_SCAN 지정)"; }
+cmd_human() { cmd_scan | grep -E '^\S+\s+(HUMAN|BLOCK|STUCK)\b' || echo "(사람 입력 대기·차단 좌석 없음)"; }
+
+cmd_doctor() {
+  local ok=0
+  for c in tmux fzf; do command -v "$c" >/dev/null && echo "  [✓] $c $(command -v $c)" || { echo "  [✗] $c 없음"; ok=1; }; done
+  command -v tmuxc >/dev/null && echo "  [✓] tmuxc (send 도달확인 경로)" || echo "  [!] tmuxc 없음 — send 는 tmux send-keys 폴백"
+  [ -n "$SCAN" ] && echo "  [✓] seat-scan: $SCAN" || { echo "  [✗] seat-scan 없음 (상태 열이 ? 로 나옴)"; ok=1; }
+  [ -f "$CAT_FILE" ] && echo "  [✓] categories: $CAT_FILE" || echo "  [!] categories 없음 → 세션명 첫 토큰으로 자동 분류 ($CAT_FILE 에 규칙 작성 가능)"
+  tmux ls >/dev/null 2>&1 && echo "  [✓] tmux 서버 ($(tmux ls | wc -l | tr -d ' ') 세션)" || echo "  [!] tmux 서버 없음"
+  echo "  cache: $CACHE (ttl ${CACHE_TTL}s)"
+  return $ok
+}
+
+HELP='⏎/^E attach ^S 메시지 ^H 대기만 ^A 전체 ^T 최근순 ^W 대기우선 ^G 카테고리 ^R 갱신 ^P/^O 미리보기 ^X 종료
+필터=타이핑 (카테고리·상태·이름) · 기본=최근 응답순 · 12:34=완료시각 12~34=출력시각'
+
+cmd_tui() {
+  command -v fzf >/dev/null || { echo "fzf 없음 → 숫자 메뉴 (brew install fzf 권장)"; menu; return; }
+  local R="$SELF rows" out key sel
+  # ★attach/메시지는 fzf 밖에서 실행★ — execute() 안에서는 /dev/tty 를 못 잡아
+  #   "open terminal failed: can't use /dev/tty". fzf 는 --expect 로 (키, 선택줄)만 돌려주고,
+  #   이 루프가 attach → detach 후 다시 피커를 띄운다.
+  while :; do
+    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index \
+      --layout=reverse --cycle --no-mouse --info=inline-right --sync \
+      --prompt='좌석> ' --pointer='▶' \
+      --header="$HELP" --header-first \
+      --preview="$SELF p {2} $PREVIEW_LINES" --preview-window='down,50%,wrap,border-top' \
+      --preview-label=' pane ' \
+      --expect=enter,ctrl-e,ctrl-s,double-click \
+      --bind "ctrl-h:reload($R wait h)+change-prompt(대기> )" \
+      --bind "ctrl-a:reload($R time)+change-prompt(좌석> )" \
+      --bind "ctrl-t:reload($R time)+change-prompt(최근순> )" \
+      --bind "ctrl-w:reload($R wait)+change-prompt(대기우선> )" \
+      --bind "ctrl-g:reload($R cat)+change-prompt(카테고리> )" \
+      --bind "ctrl-r:reload($R time '' fresh)+refresh-preview" \
+      --bind "ctrl-p:toggle-preview" \
+      --bind "ctrl-o:change-preview-window(down,80%,wrap,border-top|down,50%,wrap,border-top)" \
+      --bind "ctrl-x:abort" \
+      --bind "?:change-header($HELP)" \
+      < <(cmd_rows time))" || return 0          # ^X / Esc → 종료
+    key="${out%%$'\n'*}"; sel="${out#*$'\n'}"; sel="$(printf '%s' "$sel" | cut -f2)"
+    [ -n "$sel" ] || continue
+    case "$key" in
+      ctrl-s) cmd_sendp "$sel";;
+      *)      cmd_attach "$sel";;                 # enter / ctrl-e / double-click → attach, detach 후 루프 재진입
+    esac
+  done
+}
+
+menu() {
+  while :; do
+    cat <<'EOF'
+
+ ┌─ tmm ──────────────────────────────┐
+ │ 1 세션 목록      5 전 좌석 스캔      │
+ │ 2 attach         6 HUMAN 대기만     │
+ │ 3 pane 읽기      7 tmuxc save       │
+ │ 4 메시지 보내기  q 종료             │
+ └────────────────────────────────────┘
+EOF
+    read -r -p " 선택: " c
+    case "$c" in
+      1) read -r -p " 필터(엔터=전체): " p; cmd_ls "$p";;
+      2) read -r -p " 세션명: " n; cmd_attach "$n";;
+      3) read -r -p " 세션명: " n; cmd_peek "$n";;
+      4) read -r -p " 세션명: " n; read -r -p " 메시지: " m; cmd_send "$n" "$m";;
+      5) cmd_scan;;
+      6) cmd_human;;
+      7) tmuxc save;;
+      q|Q|"") exit 0;;
+    esac
+  done
+}
+
+case "${1:-}" in
+  __lib)     return 0 2>/dev/null || exit 0;;   # source 용 — 함수만 정의하고 끝 (병렬 워커)
+  "")        cmd_tui;;
+  rows)      cmd_rows "${2:-time}" "${3:-}" "${4:-}";;
+  ls|l)      cmd_ls "${2:-}";;
+  a|attach)  cmd_attach "${2:-}" "${3:-}";;
+  p|peek)    cmd_peek "$2" "${3:-30}";;
+  s|send)    n="$2"; shift 2; cmd_send "$n" "$@";;
+  sendp)     cmd_sendp "$2";;
+  ss|scan)   cmd_scan;;
+  h|human)   cmd_human;;
+  save)      tmuxc save;;
+  menu)      menu;;
+  doctor)    cmd_doctor;;
+  -h|--help|help) sed -n '2,25p' "$0";;
+  *)         sed -n '2,25p' "$0"; exit 1;;
+esac
