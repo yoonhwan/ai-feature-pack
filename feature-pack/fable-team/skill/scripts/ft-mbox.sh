@@ -2,7 +2,7 @@
 # ft-mbox.sh — 파일 기반 세션 메시지 큐 래퍼 (fable-team). COMM-GUIDE §1 {mbox}의 실체.
 # 본문 = 파일 큐(ft-mbox.py, 유실0), tmux엔 doorbell(recv 트리거)만 주입 — 손상·유실 안전.
 # v6-realtime-live mbox.sh 계승 + ft-lib 통합(swap_guard·ROOT 해석)·ft_sess_alive 게이트·ring.
-# Usage: ft-mbox.sh {send <to> <from> <body...> [--no-notify] | recv <me> [<from>] | peek <me> | ring <sess>}
+# Usage: ft-mbox.sh {send <to> <from> <body...> [--no-notify] | recv <me> [<from>] | peek <me> | ring <sess> [seq]}
 set +e
 BINDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$BINDIR/ft-lib.sh"                       # ft_swap_guard 발동 + ft_sess_alive 등 헬퍼
@@ -170,7 +170,12 @@ case "$cmd" in
          : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
          exec python3 "$MBOXPY" recv "$me" "$@" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
+  # ring — ★큐를 건드리지 않고 doorbell 만 울린다★. 재발주가 이 경로로 온다.
+  #   ★seq 를 실을 수 있다★ (2026-09-06, 나) — 재발주는 1차 발주의 번호를 «그대로» 다시
+  #   울린다. 새 번호를 만들면 큐에 없는 번호가 창에 뜨고, 판정 마커도 따라 바뀐다.
+  #   ★force=1★ — 재발주는 «반드시» 창에 떠야 한다. 시간·outstanding 억제에 걸려 아무것도
+  #   안 뜨면 그건 미도달과 구분이 안 된다. 억제의 취지는 홍수 방지지 재발주 봉쇄가 아니다.
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
-         db="$(doorbell "$sess")"; echo "RING $sess doorbell=$db" ;;
-  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--no-notify] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess>}" >&2; exit 2;;
+         db="$(doorbell "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
+  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--no-notify] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
 esac
