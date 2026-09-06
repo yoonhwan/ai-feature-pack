@@ -320,6 +320,52 @@ else
   t29_case BYZ∥pack "$BYZ_MBOX" "$MBOX"
 fi
 
+# ─ T31 doorbell 상태 출력 (2026-09-06, 가) ────────────────────────────────────
+# 질문 하나다: ★«울릴 대상이 없다»를 호출자가 알 수 있는가★.
+#
+# 패치 전 BYZ `doorbell()` 은 모든 분기가 `return 0` 이라 상태를 안 돌려줬다. 그래서
+# `ft-send-verified.sh` 는 좌석이 아예 없거나(absent) 에이전트가 안 떠 있는(noagent)
+# 발주에도 도달을 20초씩 두 번 기다린 뒤에야 미도달로 떨어졌다 — ★실측 41초★, 그리고
+# 브로드캐스트는 그것이 좌석 수만큼 곱해진다. 창에 아무것도 안 떴는데 «떴을지 모른다»고
+# 기다리는 것은 판정이 아니라 순수 손실이다.
+#
+# ★두 계보를 같은 케이스로 잠근다★ — 팩은 이미 `doorbell=` 를 실어 보냈고 BYZ 만 안
+#   보냈다. 계보마다 계약이 다르면 판정기를 계보마다 따로 짜게 된다(F1·F2 에서 배운 것).
+#
+# ★라이브 «에이전트» 좌석은 필요 없다★ — 이 케이스가 묻는 것은 doorbell 이 대상의
+#   상태를 어떻게 분류하는가이지 좌석이 무엇을 하는가가 아니다. 필요한 것은 tmux 뿐이다.
+#   (자식 없는 맨 셸 = noagent, 자식 있는 셸 = sent, 없는 세션 = absent.)
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "SKIP T31 doorbell 상태 출력 (tmux 없음)"
+else
+  t31bare="mbox-guard-t31-bare-$$"      # 자식 0 — 에이전트 없는 맨 셸
+  t31live="mbox-guard-t31-live-$$"      # 자식 1 — 좌석처럼 보이게
+  tmux new-session -d -s "$t31bare" -c /tmp 2>/dev/null
+  tmux new-session -d -s "$t31live" -c /tmp 2>/dev/null; sleep 0.4
+  tmux send-keys -t "$t31live" 'sleep 600' Enter 2>/dev/null; sleep 0.8
+  # ★호출마다 TMPDIR 을 새로 판다★ — doorbell 스탬프는 TMPDIR 에 산다. 한 디렉터리를
+  #   공유하면 ★먼저 울린 계보가 뒤 계보를 outstanding 으로 억제★해서, 두 번째 계보만
+  #   `skipped` 가 나와 «계약이 다르다»로 오독된다(실측: BYZ 만 skipped 로 빨개졌다).
+  #   억제 자체의 회귀는 T24 가 이미 잠근다 — 여기서 묻는 것은 «상태 분류» 뿐이다.
+  t31db() {  # $1=래퍼  $2=대상세션  → doorbell=<상태>
+    FT_MBOX_DIR="$(mktemp -d)" TMPDIR="$(mktemp -d)" FT_MBOX_DOORBELL_MIN=0 \
+      bash "$1" send "$2" t31user "t31 body $2 $RANDOM" 2>&1 | grep -oE 'doorbell=[a-z]+' | tail -1
+  }
+  t31_case() {  # $1=라벨  $2=래퍼경로
+    local label="$1" w="$2" v
+    v="$(t31db "$w" "$t31bare")"
+    ok "T31 $label 맨 셸 좌석 → noagent (=$v)" "doorbell=noagent" "$v"
+    v="$(t31db "$w" "$t31live")"
+    ok "T31 $label 자식 있는 좌석 → sent (=$v)" "doorbell=sent" "$v"
+    v="$(t31db "$w" "T31NOSUCH$$")"
+    ok "T31 $label 없는 세션 → absent (=$v)" "doorbell=absent" "$v"
+  }
+  t31_case pack "$MBOX"
+  if [ -f "$BYZ_MBOX" ]; then t31_case BYZ "$BYZ_MBOX"; else echo "SKIP T31 BYZ 계보 — 래퍼 없음 ($BYZ_MBOX)"; fi
+  tmux kill-session -t "$t31bare" 2>/dev/null || true
+  tmux kill-session -t "$t31live" 2>/dev/null || true
+fi
+
 # ─ T30 발주 판별자 (2026-09-06, F5) ─────────────────────────────────────────────
 # 질문 하나다: ★«이번» 발주의 도달만 골라내는가, 아니면 «남의 도달»로도 통과하는가★.
 #
@@ -351,11 +397,10 @@ else
   t30floor="$(date +%s)"
   # 좌석 jsonl 에서 마커가 «제출된» 횟수. 판정기가 쓰는 것과 같은 계기다.
   t30count() { FT_REACH_COUNT_ONLY=1 bash "$BYZ_REACH" "$T30SEAT" "$1" 2>/dev/null; }
-  # ★«마지막» seq 를 본다★ (2026-09-06 실측으로 고침) — 1차 doorbell 이 좌석 입력 큐에
-  #   삼켜지면 판정기가 재발주하고, 그때 «새» seq 가 발급된다. 그 경우 출력에 QUEUED 가
-  #   두 줄이고 ★실제로 판정된 것은 뒤엣것★ 이다. head -1 을 보면 삼켜진 번호를 집어
-  #   「도달했다는데 기록엔 없다」는 모순된 값이 나온다(실측: seq 286 은 type=queue-operation·
-  #   attachment 로만 남고 type=user 레코드가 없었다 — 재발주된 287 이 도달분이었다).
+  # ★«마지막» seq 를 본다★ — 재발주가 «새» seq 를 발급하던 때(F5)의 잔재다. 2026-09-06 (나)
+  #   개정으로 재발주는 `ring <좌석> <최초 seq>` 라 ★번호를 새로 만들지 않는다★ ⇒ 출력의
+  #   `seq=` 는 한 줄뿐이고 head 든 tail 이든 같은 값이다. 그래도 tail 로 둔다: 구버전 mbox 를
+  #   물린 환경(재발주가 여전히 send)에서도 «실제로 판정된» 번호를 집기 때문이다.
   t30seq() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | tail -1 | cut -d= -f2; }
   t30send() {  # $1=본문 → 격리 우편함·유일 floor 로 1회 발주
     FT_MBOX_DIR="$t30box" FT_MBOX_SEQ_FLOOR="$t30floor" \
@@ -437,10 +482,11 @@ EOS
     ok "T30b 패치 후 같은 상황: 정직한 미도달(NOT_SUBMITTED)" 2 $?
   fi
 
-  # ── T30c 재전송 경로 — 1차 미도달을 만들고 «새 seq» 로 판정되는지 ─────────────
-  # 1회차는 번호만 발급하고 주입하지 않는다(미도달), 2회차는 진짜로 보낸다.
-  # ★1차 마커로 재판정하면 그 번호는 두 번 다시 안 나오므로 영원히 미도달로 보인다★ —
-  # 재발주가 마커를 갱신하는지가 이 케이스의 질문이다.
+  # ── T30c 재전송 경로 — 1차 미도달 뒤 «최초 seq 그대로» 판정되는지 ────────────
+  # 1회차는 번호만 발급하고 주입하지 않는다(미도달), 2회차는 진짜로 울린다.
+  # ★2026-09-06 (나) 로 질문이 뒤집혔다★ — F5 때는 「재발주가 «새» 마커로 갱신되는가」였다.
+  #   지금 재발주는 `ring <좌석> <최초 seq>` 라 큐를 안 건드리고 ★같은 번호를 다시 울린다★.
+  #   그래서 질문은 「최초 마커가 그대로 유효한가」다. (본문 재큐잉이 없다는 축은 T32 가 본다.)
   cat > "$t30/flaky.sh" <<EOS
 #!/bin/bash
 n="\$(cat "$t30/flaky.n" 2>/dev/null || echo 0)"; n=\$((n+1)); echo "\$n" > "$t30/flaky.n"
@@ -452,7 +498,128 @@ EOS
   printf '%s\n' "$o3" | grep -q '^RESEND '
   ok "T30c 재발주 경로를 실제로 탔다" 0 $?
   s3="$(printf '%s\n' "$o3" | grep -oE 'seq=[0-9]+' | tail -1 | cut -d= -f2)"
-  ok "T30c 재발주의 «새» seq 로 판정 (=$s3)" 1 "$(t30count "[발주 #$s3]")"
+  ok "T30c 최초 seq 그대로 판정 (=$s3)" 1 "$(t30count "[발주 #$s3]")"
+fi
+
+# ─ T32 재발주 큐 중복 (2026-09-06, 나) ─────────────────────────────────────────
+# 질문 하나다: ★1차 미도달 뒤 재발주가 «본문을 큐에 한 벌 더» 넣는가★.
+#
+# 패치 전 재발주는 `mbox send` 재호출이었다. 그러면 같은 본문이 큐에 두 벌 들어가고
+# 좌석은 recv 에서 같은 발주를 2건 본다(음성대조 실측: pending=2, mailbox.jsonl 2행).
+# F5 가 본문을 창에서 큐로 옮긴 뒤에도 ★중복의 «자리»만 옮겨갔지 총량은 그대로★ 였다.
+# 미도달의 실체는 「본문이 큐에 없다」가 아니라 「창에 뜬 doorbell 을 좌석이 삼켰다」이므로,
+# 다시 넣을 것이 아니라 ★다시 울리기만★ 하면 된다 ⇒ `ring <좌석> <최초 seq>`.
+#
+# ★라이브 «에이전트» 좌석을 안 쓴다★ — 이 케이스의 질문은 「도달하는가」가 아니라
+#   「큐에 몇 건 들어가는가」다. 그래서 판정기(ft-reach-check.sh)를 계측 스텁으로 바꿔
+#   도달 여부를 «고정»하고 큐만 본다. 20초×2 대기도 사라져 기본 실행에 넣을 수 있다.
+#   (T30 은 판정 «자체»가 질문이라 라이브 좌석이 필요했다 — 여기는 다른 축이다.)
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "SKIP T32 재발주 큐 중복 (tmux 없음)"
+elif [ ! -f "$BYZ_SENDV" ] || [ ! -f "$BYZ_MBOX" ]; then
+  echo "SKIP T32 재발주 큐 중복 — BYZ ft-send-verified.sh/mbox.sh 없음 ($BYZ_SENDV)"
+else
+  t32="$(mktemp -d)"
+  t32seat="mbox-guard-t32-$$"
+  # ★자식을 하나 띄운다★ — doorbell 은 에이전트 없는 맨 셸에 주입하지 않는다(noagent).
+  #   그 상태면 발주가 STEP1 의 단축 분기로 빠져 재발주 경로에 도달하지 못한다.
+  tmux new-session -d -s "$t32seat" -c /tmp 2>/dev/null; sleep 0.4
+  tmux send-keys -t "$t32seat" 'sleep 900' Enter 2>/dev/null; sleep 0.8
+
+  # ★계측 1 — 판정기★: 도달 여부를 시험이 지정한다. probe(FT_REACH_COUNT_ONLY)는 통과시켜야
+  #   ft-send-verified 가 「판정 불가(rc5)」로 조기 이탈하지 않는다.
+  t32_reach() {  # $1=대상디렉터리  $2=always4|always0|fail-then-ok
+    cat > "$1/ft-reach-check.sh" <<EOS
+#!/bin/bash
+[ -n "\${FT_REACH_COUNT_ONLY:-}" ] && { echo 0; exit 0; }
+case "$2" in
+  always4) exit 4 ;;
+  always0) echo "REACHED(stub)"; exit 0 ;;
+  fail-then-ok)
+    n="\$(cat "$1/reach.n" 2>/dev/null || echo 0)"; n=\$((n+1)); echo "\$n" > "$1/reach.n"
+    [ "\$n" = 1 ] && exit 4
+    echo "REACHED(stub)"; exit 0 ;;
+esac
+EOS
+  }
+  # ★계측 2 — mbox 호출 기록★: 재발주가 `send` 인지 `ring` 인지, ring 이 «어떤 번호»를
+  #   실었는지를 argv 로 직접 본다. 화면(pane)으로 보면 폭 기반 줄바꿈에 쪼개질 수 있다.
+  cat > "$t32/mboxlog.sh" <<EOS
+#!/bin/bash
+printf '%s\n' "\$*" >> "$t32/calls.log"
+exec bash "$BYZ_MBOX" "\$@"
+EOS
+  # ★준비와 실행을 나눈다★ — 실행은 `o="$(t32run …)"` 로 «명령치환 서브셸»에서 돈다.
+  #   거기서 만든 우편함 경로는 부모에 남지 않는다. 한 함수로 묶으면 뒤이은 검증(t32rows·
+  #   peek·recv)이 ★빈 경로★ 를 보게 되고, 빈 FT_MBOX_DIR 은 mbox.py 에서 «추론»으로
+  #   넘어가 ★리포의 정본 우편함★ 을 가리킨다 — 시험이 실운영 큐를 건드린다.
+  #   (실측으로 이 함정을 밟았다. 그래서 아래 t32run 에 fail-loud 가드를 둔다.)
+  t32prep() {  # $1=판정기모드  $2=사본디렉터리 — ★부모 셸에서 부른다★
+    T32BOX="$(mktemp -d)"; : > "$t32/calls.log"; rm -f "$t32/reach.n"
+    t32_reach "$2" "$1"
+  }
+  t32run() {  # $1=사본디렉터리  $2=본문 → 출력, rc
+    [ -n "${T32BOX:-}" ] || { echo "T32 BUG: T32BOX 미설정 — 정본 우편함 오염 위험" >&2; return 99; }
+    FT_MBOX_DIR="$T32BOX" FT_MBOX_SH="$t32/mboxlog.sh" \
+      bash "$1/ft-send-verified.sh" "$t32seat" "$2" 2>&1
+  }
+  t32rows() { wc -l < "${T32BOX:?T32BOX 미설정}/mailbox.jsonl" | tr -d ' '; }
+  t32call() { sed -n "$1p" "$t32/calls.log" | awk '{print $1}'; }
+
+  # ── T32a 1차 미도달 → 재발주해도 큐 레코드는 1건 ────────────────────────────
+  mkdir -p "$t32/post"; cp "$BYZ_SENDV" "$t32/post/ft-send-verified.sh"
+  t32prep always4 "$t32/post"
+  o="$(t32run "$t32/post" "T32a-$$ 재발주 본문")"; rc=$?
+  ok "T32a rc=NOT_SUBMITTED" 2 $rc
+  ok "T32a 큐 레코드 1건" 1 "$(t32rows)"
+  ok "T32a peek pending=1" 1 "$(FT_MBOX_DIR="${T32BOX:?}" bash "$BYZ_MBOX" peek "$t32seat" 2>/dev/null \
+      | grep -oE 'pending=[0-9]+' | head -1 | cut -d= -f2)"
+  ok "T32a mbox 호출 2회" 2 "$(wc -l < "$t32/calls.log" | tr -d ' ')"
+  ok "T32a 1회차는 send" send "$(t32call 1)"
+  ok "T32a 2회차는 ring (본문 재큐잉 없음)" ring "$(t32call 2)"
+  # ★마커가 안 바뀐다★ — ring 이 실은 번호가 최초 QUEUED 의 seq 와 같아야 한다.
+  t32s1="$(printf '%s\n' "$o" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
+  t32s2="$(sed -n '2p' "$t32/calls.log" | awk '{print $3}')"
+  ok "T32a 재발주가 «최초» seq 를 다시 울린다 (=$t32s1/$t32s2)" "$t32s1" "$t32s2"
+  printf '%s\n' "$o" | grep -q '^RING '
+  ok "T32a RING 경로를 실제로 탔다" 0 $?
+
+  # ── T32b 음성대조 — 패치 «전» 사본은 큐에 두 벌 넣는다 ──────────────────────
+  # ★커밋을 못 박는다★ — `main:` 으로 두면 이 개정의 백업 갱신이 머지되는 순간 «패치 후»를
+  #   대조하게 되어 음성대조가 ★조용히 죽는다★(F5 에서 배운 것).
+  T32_PRE_SHA="${FT_T32_PRE_SHA:-182679b8623f324287adc8439e20e589664c1357}"
+  mkdir -p "$t32/pre"
+  git -C "$(dirname "$BYZ_SENDV")" show \
+    "${T32_PRE_SHA}:tools/comm-canonical/ft-send-verified.sh" > "$t32/pre/ft-send-verified.sh" 2>/dev/null || true
+  if ! grep -q 'dispatch_once' "$t32/pre/ft-send-verified.sh" 2>/dev/null; then
+    echo "SKIP T32b 음성대조 — 패치 전 사본을 못 얻었다 (${T32_PRE_SHA})"
+  else
+    t32prep always4 "$t32/pre"
+  o="$(t32run "$t32/pre" "T32b-$$ 음성대조 본문")"; rc=$?
+    ok "T32b 음성대조: 패치 전 rc=NOT_SUBMITTED" 2 $rc
+    # ★기대값 2 는 «옳다»가 아니라 ★결함이 재현됐다★는 뜻이다.
+    ok "T32b 음성대조: 패치 전은 큐 레코드 2건(결함 재현)" 2 "$(t32rows)"
+    ok "T32b 음성대조: 재발주가 send 재호출이었다" send "$(t32call 2)"
+  fi
+
+  # ── T32c 회귀: 1차에 도달하면 재발주가 «아예» 안 일어난다 ───────────────────
+  t32prep always0 "$t32/post"
+  o="$(t32run "$t32/post" "T32c-$$ 1차 도달 본문")"; rc=$?
+  ok "T32c 1차 도달 rc0" 0 $rc
+  ok "T32c mbox 호출 1회(재발주 없음)" 1 "$(wc -l < "$t32/calls.log" | tr -d ' ')"
+  ok "T32c 큐 레코드 1건" 1 "$(t32rows)"
+  printf '%s\n' "$o" | grep -qc '^RESEND ' >/dev/null; printf '%s\n' "$o" | grep -q '^RESEND '
+  ok "T32c RESEND 줄이 없다" 1 $?
+
+  # ── T32d 회귀: 재발주 후 도달하면 rc0 이고 좌석은 본문을 «1건» 만 읽는다 ────
+  t32prep fail-then-ok "$t32/post"
+  o="$(t32run "$t32/post" "T32d-$$ 재발주 후 도달 본문")"; rc=$?
+  ok "T32d 재발주 후 도달 rc0" 0 $rc
+  ok "T32d 큐 레코드 1건" 1 "$(t32rows)"
+  ok "T32d 좌석 recv 시 READ 1건" 1 "$(FT_MBOX_DIR="${T32BOX:?}" bash "$BYZ_MBOX" recv "$t32seat" 2>&1 \
+      | grep -c '^READ ')"
+
+  tmux kill-session -t "$t32seat" 2>/dev/null || true
 fi
 
 echo "PASS=$PASS FAIL=$FAIL"
