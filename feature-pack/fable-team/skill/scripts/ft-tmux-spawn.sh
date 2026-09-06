@@ -155,15 +155,37 @@ fi
 #   claude-hr.sh는 fail-open(프록시 死→직결)이라 세션은 살지만 그 순간부터 프록시 미경유.
 #   프록시가 지금 살아있는데 스폰된 프로세스 env에 ANTHROPIC_BASE_URL이 없으면 = 우회 스폰
 #   (bare claude 직접 기동 등). kill하지 않고 경고+신호파일만 (fail-open 정합 — 판단은 오케).
-HR_PROXY_URL="${FT_HR_PROXY_URL:-http://localhost:8790}"
-if [ "$AGENT" = "claude" ] && curl -sf -m1 "$HR_PROXY_URL/health" >/dev/null 2>&1; then
+#
+# ★2026-09-06 — «기대 URL» 을 하드코딩하지 않고 claude-hr.sh 에게 «묻는다»★
+#   이전엔 headroom(:8790) 문자열 하나만 grep 했다. 그런데 라우팅은 프로젝트별로 3상태다:
+#   headroom 경유(:8790) / cliproxy 경유(:8317) / 직결(unset). 8790 만 보면 ★cliproxy 로
+#   정상 경유 중인 좌석을 «직결»로 찍는다★ — 실측(2026-09-06): FB_VEC 트랙 4좌석 전부
+#   ANTHROPIC_BASE_URL=http://127.0.0.1:8317 로 «경유 중»인데 새 좌석에 BYPASS 경고가 떴고,
+#   그 좌석 오너가 없는 문제를 고치려 kill·재스폰(=컨텍스트 유실) 직전까지 갔다.
+#   ⇒ 기대값의 SSOT 는 `claude-hr.sh route status` 다. 그것과 실제 env 를 대조한다.
+#   ★직결이 «정상» 인 프로젝트도 있다★(headroom=off·cliproxy=off) — 그때 unset 은 위반이 아니다.
+#   상태를 못 읽으면 ★조용히 통과시키지 않고★ 그 사실을 경고로 남긴다(판단은 사람·오케).
+if [ "$AGENT" = "claude" ]; then
+  HR_BIN="${FT_HR_BIN:-$HOME/.headroom/claude-hr.sh}"
+  HR_STATUS="$(cd "$ROOT" 2>/dev/null && zsh "$HR_BIN" route status 2>/dev/null)"
+  # "  → ANTHROPIC_BASE_URL=http://127.0.0.1:8317  (…)" / "  → unset  (Anthropic 직결)"
+  HR_WANT="$(printf '%s\n' "$HR_STATUS" | sed -nE 's/^[[:space:]]*→ ANTHROPIC_BASE_URL=([^[:space:]]+).*/\1/p' | head -1)"
+  HR_DIRECT="$(printf '%s\n' "$HR_STATUS" | grep -c '→ unset')"
   PANE_PID="$(tmux list-panes -t "$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
   CLAUDE_PID="$(pgrep -P "${PANE_PID:-0}" 2>/dev/null | head -1)"
-  if [ -n "$CLAUDE_PID" ]; then
-    if ! ps eww "$CLAUDE_PID" 2>/dev/null | tr ' ' '\n' | grep -q "^ANTHROPIC_BASE_URL=$HR_PROXY_URL"; then
-      echo "ft-tmux-spawn: ⚠️ HEADROOM_BYPASS — $NAME(pid=$CLAUDE_PID)가 프록시($HR_PROXY_URL) 미경유 직결. 토큰낭비·계정리밋 리스크 — claude-hr.sh 경유 재스폰 권고" >&2
-      printf 'HEADROOM_BYPASS name=%s pid=%s ts=%s\n' "$NAME" "$CLAUDE_PID" "$(date +%Y-%m-%dT%H:%M:%S)" >> "$SIG/headroom-bypass.log" 2>/dev/null
-    fi
+  HR_GOT="$(ps eww "${CLAUDE_PID:-0}" 2>/dev/null | tr ' ' '\n' | sed -nE 's/^ANTHROPIC_BASE_URL=(.+)$/\1/p' | head -1)"
+  if [ -z "$CLAUDE_PID" ]; then
+    :                                        # 프로세스를 못 잡았다 — readiness 단계가 이미 다룬다
+  elif [ -z "$HR_STATUS" ]; then
+    echo "ft-tmux-spawn: ⚠️ HEADROOM_UNKNOWN — $NAME: claude-hr.sh route status 를 못 읽어 경유 여부를 판정하지 못했다(직결일 수도 있다). 사람 확인" >&2
+  elif [ "$HR_DIRECT" != 0 ]; then
+    :                                        # 이 프로젝트는 직결이 정본 — unset 이 정상
+  elif [ -n "$HR_WANT" ] && [ "$HR_GOT" = "$HR_WANT" ]; then
+    :                                        # 기대와 실제가 일치 — 경유 중
+  else
+    echo "ft-tmux-spawn: ⚠️ HEADROOM_BYPASS — $NAME(pid=$CLAUDE_PID) 기대=${HR_WANT:-?} 실제=${HR_GOT:-없음(직결)}. 토큰낭비·계정리밋 리스크 — claude-hr.sh 경유 재스폰 권고" >&2
+    printf 'HEADROOM_BYPASS name=%s pid=%s want=%s got=%s ts=%s\n' \
+      "$NAME" "$CLAUDE_PID" "${HR_WANT:-?}" "${HR_GOT:-unset}" "$(date +%Y-%m-%dT%H:%M:%S)" >> "$SIG/headroom-bypass.log" 2>/dev/null
   fi
 fi
 
