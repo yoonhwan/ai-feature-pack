@@ -521,6 +521,7 @@ elif [ ! -f "$BYZ_SENDV" ] || [ ! -f "$BYZ_MBOX" ]; then
 else
   t32="$(mktemp -d)"
   t32seat="mbox-guard-t32-$$"
+  t32nonce="$$-$(date +%s)"
   # ★자식을 하나 띄운다★ — doorbell 은 에이전트 없는 맨 셸에 주입하지 않는다(noagent).
   #   그 상태면 발주가 STEP1 의 단축 분기로 빠져 재발주 경로에 도달하지 못한다.
   tmux new-session -d -s "$t32seat" -c /tmp 2>/dev/null; sleep 0.4
@@ -569,7 +570,7 @@ EOS
   # ── T32a 1차 미도달 → 재발주해도 큐 레코드는 1건 ────────────────────────────
   mkdir -p "$t32/post"; cp "$BYZ_SENDV" "$t32/post/ft-send-verified.sh"
   t32prep always4 "$t32/post"
-  o="$(t32run "$t32/post" "T32a-$$ 재발주 본문")"; rc=$?
+  o="$(t32run "$t32/post" "T32a-$t32nonce 재발주 본문")"; rc=$?
   ok "T32a rc=NOT_SUBMITTED" 2 $rc
   ok "T32a 큐 레코드 1건" 1 "$(t32rows)"
   ok "T32a peek pending=1" 1 "$(FT_MBOX_DIR="${T32BOX:?}" bash "$BYZ_MBOX" peek "$t32seat" 2>/dev/null \
@@ -595,7 +596,7 @@ EOS
     echo "SKIP T32b 음성대조 — 패치 전 사본을 못 얻었다 (${T32_PRE_SHA})"
   else
     t32prep always4 "$t32/pre"
-  o="$(t32run "$t32/pre" "T32b-$$ 음성대조 본문")"; rc=$?
+  o="$(t32run "$t32/pre" "T32b-$t32nonce 음성대조 본문")"; rc=$?
     ok "T32b 음성대조: 패치 전 rc=NOT_SUBMITTED" 2 $rc
     # ★기대값 2 는 «옳다»가 아니라 ★결함이 재현됐다★는 뜻이다.
     ok "T32b 음성대조: 패치 전은 큐 레코드 2건(결함 재현)" 2 "$(t32rows)"
@@ -604,7 +605,7 @@ EOS
 
   # ── T32c 회귀: 1차에 도달하면 재발주가 «아예» 안 일어난다 ───────────────────
   t32prep always0 "$t32/post"
-  o="$(t32run "$t32/post" "T32c-$$ 1차 도달 본문")"; rc=$?
+  o="$(t32run "$t32/post" "T32c-$t32nonce 1차 도달 본문")"; rc=$?
   ok "T32c 1차 도달 rc0" 0 $rc
   ok "T32c mbox 호출 1회(재발주 없음)" 1 "$(wc -l < "$t32/calls.log" | tr -d ' ')"
   ok "T32c 큐 레코드 1건" 1 "$(t32rows)"
@@ -613,11 +614,17 @@ EOS
 
   # ── T32d 회귀: 재발주 후 도달하면 rc0 이고 좌석은 본문을 «1건» 만 읽는다 ────
   t32prep fail-then-ok "$t32/post"
-  o="$(t32run "$t32/post" "T32d-$$ 재발주 후 도달 본문")"; rc=$?
+  o="$(t32run "$t32/post" "T32d-$t32nonce 재발주 후 도달 본문")"; rc=$?
   ok "T32d 재발주 후 도달 rc0" 0 $rc
   ok "T32d 큐 레코드 1건" 1 "$(t32rows)"
-  ok "T32d 좌석 recv 시 READ 1건" 1 "$(FT_MBOX_DIR="${T32BOX:?}" bash "$BYZ_MBOX" recv "$t32seat" 2>&1 \
-      | grep -c '^READ ')"
+  # ★`grep -c '^READ '` 로 세지 않는다★ — 메시지가 «0건»일 때 mbox 는 `READ none` 을 찍고,
+  #   그 줄도 `^READ ` 에 걸린다. 즉 그 계기는 「1건 왔다」와 「아무것도 안 왔다」를 ★같은 값 1★
+  #   로 찍는다 — 통과가 통과를 뜻하지 않는다(실측으로 이 함정을 밟았다: 우편함을 잘못 가리켜
+  #   0건을 읽은 실행이 이 케이스만 초록으로 통과했다).
+  #   ⇒ ①본문 nonce 를 세고 ②`READ none` 이 «아님»을 따로 확인한다(양성대조 한 쌍).
+  t32recv="$(FT_MBOX_DIR="${T32BOX:?}" bash "$BYZ_MBOX" recv "$t32seat" 2>&1)"
+  ok "T32d 좌석 recv 시 본문 «1건»" 1 "$(printf '%s\n' "$t32recv" | grep -c -- "T32d-$t32nonce")"
+  ok "T32d recv 가 «0건»이 아니다 (READ none 아님)" 0 "$(printf '%s\n' "$t32recv" | grep -c '^READ none')"
 
   tmux kill-session -t "$t32seat" 2>/dev/null || true
 fi
