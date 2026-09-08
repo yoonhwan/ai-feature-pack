@@ -23,7 +23,7 @@ for cmd in bash tmux fzf; do
     say "  [✗] $cmd 누락"
     case "$cmd" in
       tmux) say "      macOS: brew install tmux / Ubuntu: sudo apt install tmux" ;;
-      fzf)  say "      macOS: brew install fzf  / Ubuntu: sudo apt install fzf (>=0.44 권장)" ;;
+      fzf)  say "      macOS: brew install fzf  / Ubuntu: sudo apt install fzf (>=0.54 필요 — 자동 갱신·벨)" ;;
     esac
     missing=$((missing + 1))
   fi

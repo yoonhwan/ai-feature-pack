@@ -12,16 +12,21 @@
 #   tmm doctor       의존성·환경 점검
 #
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^H 대기좌석만 · ^A 전체 · ^T 최근순 · ^W 대기우선 · ^G 카테고리순
-#          ^R 새로고침 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ? 도움말
+#          ^R 새로고침 · ^U 자동갱신 off/15/30/60 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ? 도움말
 # 정렬:   기본 = 마지막 응답 시각 역순(진입 시 최신 대화가 맨 위). ^W = 대기(HUMAN/BLOCK/STUCK) 상단 고정 후 최근순.
 #          ^G = 카테고리 묶음 안 최근순. ^H = 대기 좌석만 필터.
 # 시각:   claude "done 오후 H:MM" 마커 1순위(`12:34`), 없으면 tmux window_activity(`12~34`)
+# 자동갱신: 2단 — 커서 좌석 미리보기는 TMM_AUTO_PREVIEW 초마다, 전좌석 목록(상태·시각)은 TMM_AUTO 초마다.
+#          attach 중엔 멈추고 떼면 재개. 새로 HUMAN/BLOCK/STUCK 이 된 좌석이 생기면 터미널 벨.
 #
 # 환경변수:
 #   TMM_CATEGORIES   카테고리 규칙 파일 (기본 ~/.tmm/categories) — "glob<TAB>라벨" 한 줄씩, 위에서부터 첫 매치
 #   TMM_SCAN         seat-scan 스크립트 경로 (기본: 설치본 libexec → ~/.claude/skills/tmuxc/scripts)
 #   TMM_CACHE_TTL    상태 스캔 캐시 초 (기본 20). 폰에서 ^R/필터 반복 시 재스캔 부하 방지. 0=항상 재스캔
 #   TMM_PREVIEW_LINES 미리보기 줄 수 (기본 40)
+#   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 30, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 순환
+#   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 10). TMM_AUTO 가 0 이면 같이 멈춤
+#   TMM_BELL         새 대기 좌석 벨 (기본 1, 0=끔)
 set -uo pipefail
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
@@ -35,6 +40,13 @@ CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
 CACHE_TTL="${TMM_CACHE_TTL:-20}"
 CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u).cache"
 PREVIEW_LINES="${TMM_PREVIEW_LINES:-40}"
+AUTO="${TMM_AUTO:-30}"; AUTO_PREVIEW="${TMM_AUTO_PREVIEW:-10}"; BELL="${TMM_BELL:-1}"
+AUTO_PRESETS="15 30 60"
+# TUI 상태(정렬 모드·자동 갱신 초·직전 대기 좌석 집합·벨 플래그) — fzf 바인딩과 백그라운드 핑거가 파일로 공유.
+# ★인스턴스별★ — 폰·데스크탑에서 tmm 을 여럿 띄우면 한쪽 ^U/^W 가 다른 쪽 자동 갱신을 바꾸므로 TUI 마다 run-<pid>/.
+# fzf 가 띄우는 바인딩 자식은 env 를 물려받으니 TMM_RUN 으로 자기 디렉터리를 안다. 캐시는 공유(그냥 캐시).
+STATE="${TMPDIR:-/tmp}/tmm-$(id -u)"; RUN="${TMM_RUN:-$STATE}"; mkdir -p "$RUN"
+[ "${1:-}" = --auto ] && { AUTO="${2:-30}"; shift 2; }
 
 # ---------- 카테고리 ----------
 # 규칙 파일이 있으면 그것을, 없으면 세션명 접두(문자·숫자·_·- 중 첫 토큰)를 카테고리로.
@@ -104,6 +116,7 @@ cmd_rows() {
   else
     while read -r name state _; do ST["$name"]="$state"; done < <(scan_cached)
   fi
+  wait_delta
   now=$(date +%s); mid=$(midnight)
   # 시각 추출은 좌석당 capture 1회 — 직렬이면 부하 시 1~2초라 8병렬로 (순서 무관, 뒤에서 sort)
   declare -A EP
@@ -126,6 +139,51 @@ cmd_rows() {
         wait) sort -t$'\t' -k1,1n -k2,2nr;;           # 대기(HUMAN/BLOCK/STUCK) 상단 고정 → 최근순
         *)    sort -t$'\t' -k2,2nr;;                  # time(기본): 마지막 응답 역순 — 진입 시 최신 대화가 맨 위
       esac; } | cut -f4-
+}
+
+# 직전 스캔 대비 «새로» 대기(HUMAN/BLOCK/STUCK)가 된 좌석이 있으면 벨 플래그. 호출자(cmd_rows)의 ST 를 읽는다.
+# 첫 스캔(비교 대상 없음)은 기록만 — 진입하자마자 기존 대기 좌석으로 울리지 않게.
+wait_delta() {
+  local k cur
+  cur="$(for k in "${!ST[@]}"; do [[ "${ST[$k]}" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && echo "$k"; done | sort)"
+  if [ -f "$RUN/waitset" ]; then
+    comm -23 <(printf '%s\n' "$cur") "$RUN/waitset" | grep -q . && : > "$RUN/bell"
+  fi
+  printf '%s\n' "$cur" > "$RUN/waitset"
+}
+
+# 정렬 모드는 파일에 남긴다 — ^R·자동 갱신이 «현재 모드»로 다시 그리게 (전엔 ^R 이 늘 time 으로 되돌렸다)
+cmd_mode()     { printf '%s %s\n' "$1" "${2:-}" > "$RUN/mode"; }
+cmd_rows_cur() { local m o; { read -r m o < "$RUN/mode"; } 2>/dev/null; cmd_rows "${m:-time}" "${o:-}" "${1:-}"; }
+
+# ---------- 자동 갱신 ----------
+auto_now() { cat "$RUN/auto" 2>/dev/null || echo "$AUTO"; }
+cmd_auto_cycle() {  # off → 15 → 30 → 60 → off. 프리셋 밖의 값(env 45 등)이면 다음으로 큰 프리셋
+  local cur p next=0; cur="$(auto_now)"
+  for p in $AUTO_PRESETS; do [ "$p" -gt "$cur" ] && { next=$p; break; }; done
+  echo "$next" | tee "$RUN/auto"
+}
+cmd_header() {
+  local a; a="$(auto_now)"
+  printf '%s\n' "$HELP"
+  [ "$a" -gt 0 ] && printf 'auto:%ss pane:%ss' "$a" "$AUTO_PREVIEW" || printf 'auto:off'
+  printf ' · 12:34 완료시각 12~34 출력시각\n'
+}
+cmd_post() { curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d "$2"; }
+# 백그라운드 핑거: 1초 틱마다 상태 파일을 다시 읽어 ^U 변경이 즉시 반영. fzf 가 끝나면 cmd_tui 가 죽인다 —
+# attach 중엔 fzf 가 없으므로 자연히 멈추고, 떼고 돌아오면 새 fzf 와 함께 다시 뜬다.
+auto_loop() {
+  local sock="$1" i=0 gap
+  while :; do
+    sleep 1; i=$((i+1))
+    [ -S "$sock" ] || continue
+    gap="$(auto_now)"
+    if [ "$gap" -gt 0 ]; then
+      [ "$AUTO_PREVIEW" -gt 0 ] && [ $((i % AUTO_PREVIEW)) -eq 0 ] && cmd_post "$sock" 'refresh-preview'
+      [ $((i % gap)) -eq 0 ] && cmd_post "$sock" "reload($SELF rows-cur fresh)"
+    fi
+    [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
+  done
 }
 
 cmd_ls() { local pat="${1:-}"; cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; }
@@ -181,38 +239,53 @@ cmd_doctor() {
   [ -n "$SCAN" ] && echo "  [✓] seat-scan: $SCAN" || { echo "  [✗] seat-scan 없음 (상태 열이 ? 로 나옴)"; ok=1; }
   [ -f "$CAT_FILE" ] && echo "  [✓] categories: $CAT_FILE" || echo "  [!] categories 없음 → 세션명 첫 토큰으로 자동 분류 ($CAT_FILE 에 규칙 작성 가능)"
   tmux ls >/dev/null 2>&1 && echo "  [✓] tmux 서버 ($(tmux ls | wc -l | tr -d ' ') 세션)" || echo "  [!] tmux 서버 없음"
-  echo "  cache: $CACHE (ttl ${CACHE_TTL}s)"
+  local fv; fv="$(fzf --version 2>/dev/null | cut -d' ' -f1)"
+  if [ -n "$fv" ]; then
+    [ "$(printf '%s\n0.54.0\n' "$fv" | sort -V | head -1)" = "0.54.0" ] && echo "  [✓] fzf $fv (--listen/--track/bell)" \
+      || { echo "  [✗] fzf $fv < 0.54.0 — 자동 갱신·벨 불가 (brew upgrade fzf)"; ok=1; }
+  fi
+  command -v curl >/dev/null || { echo "  [✗] curl 없음 — 자동 갱신 불가"; ok=1; }
+  echo "  cache: $CACHE (ttl ${CACHE_TTL}s) · state: $STATE/run-<pid> · auto: ${AUTO}s pane:${AUTO_PREVIEW}s bell:$BELL"
   return $ok
 }
 
-HELP='⏎/^E attach ^S 메시지 ^H 대기만 ^A 전체 ^T 최근순 ^W 대기우선 ^G 카테고리 ^R 갱신 ^P/^O 미리보기 ^X 종료
-필터=타이핑 (카테고리·상태·이름) · 기본=최근 응답순 · 12:34=완료시각 12~34=출력시각'
+# ★폰 60열 기준 — fzf 는 헤더를 줄바꿈하지 않고 «자른다». 각 줄 표시폭(한글=2) 60 이내 (verify 가 잰다)
+HELP='⏎ attach ^S 메시지 ^H 대기만 ^A 전체 ^U 자동 ^R 갱신 ^X 끝
+^T 최근순 ^W 대기우선 ^G 카테고리 ^P/^O 미리보기 ?=도움'
 
 cmd_tui() {
   command -v fzf >/dev/null || { echo "fzf 없음 → 숫자 메뉴 (brew install fzf 권장)"; menu; return; }
-  local R="$SELF rows" out key sel
+  local R="$SELF rows" M="$SELF mode" out key sel rc pinger sock
+  export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
+  printf '%s\n' "$AUTO" > "$RUN/auto"; cmd_mode time   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
+  trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
   # ★attach/메시지는 fzf 밖에서 실행★ — execute() 안에서는 /dev/tty 를 못 잡아
   #   "open terminal failed: can't use /dev/tty". fzf 는 --expect 로 (키, 선택줄)만 돌려주고,
   #   이 루프가 attach → detach 후 다시 피커를 띄운다.
+  # ★핑거도 fzf 한 번의 수명에 묶는다★ — attach 중(fzf 없음)엔 갱신이 없어야 하므로.
   while :; do
-    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index \
-      --layout=reverse --cycle --no-mouse --info=inline-right --sync \
+    rm -f "$sock"; auto_loop "$sock" & pinger=$!
+    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track \
+      --layout=reverse --cycle --no-mouse --info=inline-right --sync --listen="$sock" \
       --prompt='좌석> ' --pointer='▶' \
-      --header="$HELP" --header-first \
+      --header="$(cmd_header)" --header-first \
       --preview="$SELF p {2} $PREVIEW_LINES" --preview-window='down,50%,wrap,border-top' \
       --preview-label=' pane ' \
       --expect=enter,ctrl-e,ctrl-s,double-click \
-      --bind "ctrl-h:reload($R wait h)+change-prompt(대기> )" \
-      --bind "ctrl-a:reload($R time)+change-prompt(좌석> )" \
-      --bind "ctrl-t:reload($R time)+change-prompt(최근순> )" \
-      --bind "ctrl-w:reload($R wait)+change-prompt(대기우선> )" \
-      --bind "ctrl-g:reload($R cat)+change-prompt(카테고리> )" \
-      --bind "ctrl-r:reload($R time '' fresh)+refresh-preview" \
+      --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
+      --bind "ctrl-a:execute-silent($M time)+reload($R time)+change-prompt(좌석> )" \
+      --bind "ctrl-t:execute-silent($M time)+reload($R time)+change-prompt(최근순> )" \
+      --bind "ctrl-w:execute-silent($M wait)+reload($R wait)+change-prompt(대기우선> )" \
+      --bind "ctrl-g:execute-silent($M cat)+reload($R cat)+change-prompt(카테고리> )" \
+      --bind "ctrl-r:reload($SELF rows-cur fresh)+refresh-preview" \
+      --bind "ctrl-u:execute-silent($SELF auto-cycle)+transform-header($SELF header)" \
       --bind "ctrl-p:toggle-preview" \
       --bind "ctrl-o:change-preview-window(down,80%,wrap,border-top|down,50%,wrap,border-top)" \
       --bind "ctrl-x:abort" \
-      --bind "?:change-header($HELP)" \
-      < <(cmd_rows time))" || return 0          # ^X / Esc → 종료
+      --bind "?:transform-header($SELF header)" \
+      < <(cmd_rows time))"; rc=$?
+    kill "$pinger" 2>/dev/null; wait "$pinger" 2>/dev/null; rm -f "$sock"
+    [ $rc -eq 0 ] || return 0                   # ^X / Esc → 종료
     key="${out%%$'\n'*}"; sel="${out#*$'\n'}"; sel="$(printf '%s' "$sel" | cut -f2)"
     [ -n "$sel" ] || continue
     case "$key" in
@@ -251,6 +324,11 @@ case "${1:-}" in
   __lib)     return 0 2>/dev/null || exit 0;;   # source 용 — 함수만 정의하고 끝 (병렬 워커)
   "")        cmd_tui;;
   rows)      cmd_rows "${2:-time}" "${3:-}" "${4:-}";;
+  rows-cur)  cmd_rows_cur "${2:-}";;            # 상태 파일의 현재 정렬 모드로 (^R·자동 갱신용)
+  mode)      cmd_mode "${2:-time}" "${3:-}";;
+  auto-cycle) cmd_auto_cycle;;
+  header)    cmd_header;;
+  __post)    cmd_post "$2" "$3";;                # 핑거 → fzf --listen 소켓 액션 전송
   ls|l)      cmd_ls "${2:-}";;
   a|attach)  cmd_attach "${2:-}" "${3:-}";;
   p|peek)    cmd_peek "$2" "${3:-30}";;
