@@ -23,7 +23,7 @@
 #   TMM_CATEGORIES   카테고리 규칙 파일 (기본 ~/.tmm/categories) — "glob<TAB>라벨" 한 줄씩, 위에서부터 첫 매치
 #   TMM_SCAN         seat-scan 스크립트 경로 (기본: 설치본 libexec → ~/.claude/skills/tmuxc/scripts)
 #   TMM_CACHE_TTL    상태 스캔 캐시 초 (기본 20). 폰에서 ^R/필터 반복 시 재스캔 부하 방지. 0=항상 재스캔
-#   TMM_PREVIEW_LINES 미리보기 줄 수 (기본 40)
+#   TMM_PREVIEW_LINES 미리보기 줄 수 (기본 40). 색 유지·입력박스/statusline 제거·최신(바닥)부터 표시
 #   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 30, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 순환
 #   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 10). TMM_AUTO 가 0 이면 같이 멈춤
 #   TMM_BELL         새 대기 좌석 벨 (기본 1, 0=끔)
@@ -197,9 +197,38 @@ cmd_attach() {
   if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$n"; else tmux attach -t "=$n" $flags; fi
 }
 
-cmd_peek() {
+cmd_peek() {  # 비대화용(tmm p): 색 없음·빈 줄 제거·폭 자름
   local n="$1" k="${2:-30}"
   tmux capture-pane -t "=$n:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
+}
+
+# TUI 미리보기 전용 렌더러 — 폰 가독성 3축을 여기서 푼다:
+#  ① -e 로 SGR 색을 살린다 — Claude TUI 는 응답=굵게·도구출력=회색·완료=초록이라 색이 곧 구조다.
+#  ② 바닥 입력박스(── ❯ ──)와 statusline 을 잘라 12행 미리보기에서 대화만 보이게. 연속 빈 줄은 1줄로.
+#  ③ fzf follow 로 바닥(최신)부터. -J 는 tmux 소프트랩만 되돌린다 — Claude TUI 의 하드 줄바꿈(216열 문단이
+#     폰 60열에서 다시 접혀 ↳ 조각이 나는 것)은 여기서 못 고친다(실측: -J 유무 표시행 동일).
+cmd_preview() {
+  local n="$1" k="${2:-$PREVIEW_LINES}"
+  tmux capture-pane -t "=$n:" -p -e -J -S -200 2>/dev/null | render_pane | tail -n "$k"
+}
+render_pane() {  # stdin: capture-pane -e -J 원문 → 입력박스 이하 제거·연속 빈 줄 압축 (verify 가 골든으로 잰다)
+  awk '
+    { s=$0; gsub(/\033\[[0-9;?]*[a-zA-Z]/, "", s); sub(/[ \t]+$/, "", s) }
+    # 구분선 판정은 «바이트 안전»하게 — macOS awk 는 멀티바이트 문자에 (─)+ 를 못 건다
+    # 첫 구분선엔 세션명이 박힌다(«──── NAME ────») — ─ 를 지운 나머지가 원문의 1/4 미만이면 구분선
+    { t = s; gsub(/─/, "", t); sep[NR] = (length(s) >= 30 && length(t) * 4 < length(s)) }
+    # 입력박스: Claude = «구분선 → ❯ 로 시작하는 줄» 쌍(본문 속 표 구분선은 뒤에 ❯ 가 없어 안 잘림),
+    #           Codex  = «› Ask Codex …» 프롬프트 줄. 그 아래 statusline·모델 줄은 통째로 버린다.
+    NR > 1 && sep[NR-1] && s ~ /^❯/ && !cut { cut = NR - 1 }
+    s ~ /^› Ask Codex/ && !cut { cut = NR }
+    { lines[NR] = $0; blank[NR] = (s == "") }
+    END {
+      last = cut ? cut - 1 : NR
+      for (i = 1; i <= last; i++) {
+        if (blank[i] && (i == 1 || blank[i-1])) continue
+        print lines[i]
+      }
+    }'
 }
 
 is_shell_cmd() { case "$1" in zsh|bash|sh|fish|-zsh|-bash|"") return 0;; *) return 1;; esac; }
@@ -269,7 +298,7 @@ cmd_tui() {
       --layout=reverse --cycle --no-mouse --info=inline-right --sync --listen="$sock" \
       --prompt='좌석> ' --pointer='▶' \
       --header="$(cmd_header)" --header-first \
-      --preview="$SELF p {2} $PREVIEW_LINES" --preview-window='down,50%,wrap,border-top' \
+      --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window='down,50%,wrap,follow,noinfo,border-top' \
       --preview-label=' pane ' \
       --expect=enter,ctrl-e,ctrl-s,double-click \
       --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
@@ -280,7 +309,7 @@ cmd_tui() {
       --bind "ctrl-r:reload($SELF rows-cur fresh)+refresh-preview" \
       --bind "ctrl-u:execute-silent($SELF auto-cycle)+transform-header($SELF header)" \
       --bind "ctrl-p:toggle-preview" \
-      --bind "ctrl-o:change-preview-window(down,80%,wrap,border-top|down,50%,wrap,border-top)" \
+      --bind "ctrl-o:change-preview-window(down,80%,wrap,follow,noinfo,border-top|down,50%,wrap,follow,noinfo,border-top)" \
       --bind "ctrl-x:abort" \
       --bind "?:transform-header($SELF header)" \
       < <(cmd_rows time))"; rc=$?
@@ -332,6 +361,8 @@ case "${1:-}" in
   ls|l)      cmd_ls "${2:-}";;
   a|attach)  cmd_attach "${2:-}" "${3:-}";;
   p|peek)    cmd_peek "$2" "${3:-30}";;
+  preview)   cmd_preview "$2" "${3:-}";;         # TUI 미리보기 (색·문단 재접기·바닥 상태줄 제거)
+  __render)  render_pane;;                       # stdin 렌더 (verify 골든용)
   s|send)    n="$2"; shift 2; cmd_send "$n" "$@";;
   sendp)     cmd_sendp "$2";;
   ss|scan)   cmd_scan;;
