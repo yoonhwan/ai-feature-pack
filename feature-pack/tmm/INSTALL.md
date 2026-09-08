@@ -80,7 +80,7 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 | 목록이 3초 넘게 걸림 | 좌석 수 × seat-scan. `TMM_CACHE_TTL` 을 늘리면 필터·재정렬은 캐시. 첫 로딩은 못 줄임 |
 | 메시지가 셸에 타이핑됨 | tmm 가드는 pane 자식 프로세스 유무로 판정. 에이전트가 pane 의 자식이 아닌 구조(예: nohup)면 `tmm ss` 로 상태 먼저 확인 |
 | `tmm` 이 엉뚱한 동작 | `type tmm` → alias 면 `~/.zshrc` 에서 제거 |
-| 자동 갱신이 안 돎 (헤더는 `auto:30s`) | `tmm doctor` 의 fzf 버전(≥0.54)·curl 확인. 소켓은 `$TMPDIR/tmm-<uid>/run-<pid>/fzf.sock` |
+| 자동 갱신이 안 돎 (헤더는 `pane:5s all:20s`) | `tmm doctor` 의 fzf 버전(≥0.54)·curl 확인. 소켓은 `$TMPDIR/tmm-<uid>/run-<pid>/fzf.sock` |
 | 헤더 뒤쪽 키 안내·`auto:` 가 안 보임 | 0.1.0 헤더가 60열을 넘어 fzf 가 잘랐음. 0.2.0 은 3줄·각 60열 이내 — 재설치 |
 | `^R` 누르면 정렬이 최근순으로 돌아감 | 0.1.0 결함. 0.2.0 은 현재 모드 유지 — 재설치 |
 | 미리보기가 흑백·바닥에 branch/OMC 줄·오래된 내용부터 | 0.2.0 이하 렌더. 0.2.1 은 색 유지·statusline 제거·바닥 우선 — 재설치. 그래도 statusline 이 남으면 `tmux capture-pane -p -e -J -t '=NAME:' \| tail -8` 로 입력박스 모양이 «구분선→`❯`» 인지 확인 |

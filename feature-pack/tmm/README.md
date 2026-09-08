@@ -5,7 +5,7 @@
 ```
 ⏎ attach ^S 메시지 ^H 대기만 ^A 전체 ^U 자동 ^R 갱신 ^X 끝
 ^T 최근순 ^W 대기우선 ^G 카테고리 ^P/^O 미리보기 ?=도움
-auto:30s pane:10s · 12:34 완료시각 12~34 출력시각
+pane:5s all:20s · 12:34 완료시각 12~34 출력시각
 좌석> v65 impl                                                            2/65
 ──────────────────────────────────────────────────────────────────────────────
 ▶ CFO   ● FB_CFO#6               HUMAN 12:33 26m c-level-planni
@@ -47,7 +47,7 @@ auto:30s pane:10s · 12:34 완료시각 12~34 출력시각
 | `^H` / `^A` | 대기 좌석만 / 전체 |
 | `^T` / `^W` / `^G` | 최근순(기본) / 대기우선 / 카테고리순 |
 | `^R` | 상태 재스캔 (캐시 무시). 현재 정렬·필터 모드 유지 |
-| `^U` | 자동 갱신 순환 off → 15 → 30 → 60초. 헤더 3행에 `auto:30s pane:10s` |
+| `^U` | 미리보기 자동 갱신 순환 5 → 10 → 15초. 헤더 3행에 `pane:5s all:20s` |
 | `^P` / `^O` | 미리보기 끄기·켜기 / 크게·작게 |
 | `^X` | 종료 |
 
@@ -68,19 +68,19 @@ auto:30s pane:10s · 12:34 완료시각 12~34 출력시각
 
 | 단 | 무엇을 | 기본 주기 | 비용 |
 |---|---|---|---|
-| pane | 커서 좌석 미리보기만 다시 그림 | 10초 (`TMM_AUTO_PREVIEW`) | `capture-pane` 1회 |
-| 전좌석 | 상태(HUMAN/BUSY…)·마지막 시각·정렬 다시 계산 | 30초 (`TMM_AUTO`, `^U`) | seat-scan 1회 (65좌석 2~3초) |
+| pane | 커서 좌석 미리보기만 다시 그림 | 5초 (`^U`로 5/10/15 순환, `TMM_AUTO_PREVIEW`) | `capture-pane` 1회 |
+| 전좌석 | 상태(HUMAN/BUSY…)·마지막 시각·정렬 다시 계산 | 20초 고정 (`TMM_AUTO`) | seat-scan 1회 (65좌석 2~3초) |
 
 - **attach 중엔 멈추고, `C-a d`로 떼면 재개**됩니다. 갱신기는 피커(fzf) 한 번의 수명에 묶여 있어서 붙어 있는 동안은 아무것도 돌지 않습니다.
 - 갱신돼도 **커서는 보고 있던 좌석을 따라갑니다**(`--track`). 타이핑한 필터도 유지.
 - **새로 HUMAN/BLOCK/STUCK이 된 좌석이 생기면 터미널 벨**이 울립니다(Termius가 알림으로 올림). 진입 시점에 이미 대기 중이던 좌석으로는 울리지 않습니다. `TMM_BELL=0`으로 끔.
-- `^U`로 off로 두면 pane 단도 같이 멈춥니다. 정확한 초는 `TMM_AUTO=45 tmm` 또는 `tmm --auto 45`.
+- `^U`는 **미리보기 주기만** 돌립니다(off 없음 — 폰에서 실수로 꺼져 "갱신이 안 된다"가 되지 않게). 전좌석 20초는 seat-scan 부하 상한이라 키로 못 줄이고 `TMM_AUTO=N`으로만 바꿉니다. 미리보기를 끄려면 `TMM_AUTO_PREVIEW=0`, 프리셋 밖 초는 `tmm --auto N`.
 
 ## CLI 서브명령
 
 ```bash
 tmm                 # TUI
-tmm --auto N        # TUI, 전좌석 자동 갱신 N초 (0=off)
+tmm --auto N        # TUI, 미리보기 자동 갱신 N초 (0=off)
 tmm ls [PAT]        # 텍스트 목록 (필터)
 tmm h               # HUMAN/BLOCK/STUCK 좌석만
 tmm p NAME [N]      # pane 최근 N줄
@@ -100,8 +100,8 @@ tmm menu            # fzf 없을 때 숫자 메뉴
 | 상태 스캔 캐시 | `TMM_CACHE_TTL` | 20초. 필터·재정렬 연타 시 재스캔 방지. `^R`은 무시 |
 | seat-scan 경로 | `TMM_SCAN` | 설치본 `libexec/seat-scan.sh` → `~/.claude/skills/tmuxc/scripts/seat-scan.sh` |
 | 미리보기 줄 수 | `TMM_PREVIEW_LINES` | 40 |
-| 전좌석 자동 갱신 | `TMM_AUTO` / `tmm --auto N` / `^U` | 30초. 0=off |
-| pane 자동 갱신 | `TMM_AUTO_PREVIEW` | 10초. `TMM_AUTO`가 0이면 같이 멈춤 |
+| pane 자동 갱신 | `TMM_AUTO_PREVIEW` / `tmm --auto N` / `^U` | 5초. `^U`는 5/10/15 순환. 0=off |
+| 전좌석 자동 갱신 | `TMM_AUTO` | 20초 고정(키로 안 바뀜). 0=off |
 | 새 대기 좌석 벨 | `TMM_BELL` | 1 (0=끔) |
 
 ## 모바일 접속 (Termius)

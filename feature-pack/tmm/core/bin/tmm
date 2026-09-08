@@ -12,11 +12,11 @@
 #   tmm doctor       의존성·환경 점검
 #
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^H 대기좌석만 · ^A 전체 · ^T 최근순 · ^W 대기우선 · ^G 카테고리순
-#          ^R 새로고침 · ^U 자동갱신 off/15/30/60 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ? 도움말
+#          ^R 새로고침 · ^U 미리보기 자동갱신 5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ? 도움말
 # 정렬:   기본 = 마지막 응답 시각 역순(진입 시 최신 대화가 맨 위). ^W = 대기(HUMAN/BLOCK/STUCK) 상단 고정 후 최근순.
 #          ^G = 카테고리 묶음 안 최근순. ^H = 대기 좌석만 필터.
 # 시각:   claude "done 오후 H:MM" 마커 1순위(`12:34`), 없으면 tmux window_activity(`12~34`)
-# 자동갱신: 2단 — 커서 좌석 미리보기는 TMM_AUTO_PREVIEW 초마다, 전좌석 목록(상태·시각)은 TMM_AUTO 초마다.
+# 자동갱신: 2단 — 커서 좌석 미리보기는 ^U 로 5/10/15초 순환(기본 5), 전좌석 목록(상태·시각)은 20초 고정.
 #          attach 중엔 멈추고 떼면 재개. 새로 HUMAN/BLOCK/STUCK 이 된 좌석이 생기면 터미널 벨.
 #
 # 환경변수:
@@ -24,8 +24,8 @@
 #   TMM_SCAN         seat-scan 스크립트 경로 (기본: 설치본 libexec → ~/.claude/skills/tmuxc/scripts)
 #   TMM_CACHE_TTL    상태 스캔 캐시 초 (기본 20). 폰에서 ^R/필터 반복 시 재스캔 부하 방지. 0=항상 재스캔
 #   TMM_PREVIEW_LINES 미리보기 줄 수 (기본 40). 색 유지·입력박스/statusline 제거·최신(바닥)부터 표시
-#   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 30, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 순환
-#   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 10). TMM_AUTO 가 0 이면 같이 멈춤
+#   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 5, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 5/10/15 순환
+#   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 20 고정, 0=off). ^U 로는 안 바뀐다 — seat-scan 부하 상한
 #   TMM_BELL         새 대기 좌석 벨 (기본 1, 0=끔)
 set -uo pipefail
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -40,13 +40,13 @@ CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
 CACHE_TTL="${TMM_CACHE_TTL:-20}"
 CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u).cache"
 PREVIEW_LINES="${TMM_PREVIEW_LINES:-40}"
-AUTO="${TMM_AUTO:-30}"; AUTO_PREVIEW="${TMM_AUTO_PREVIEW:-10}"; BELL="${TMM_BELL:-1}"
-AUTO_PRESETS="15 30 60"
+AUTO="${TMM_AUTO:-20}"; AUTO_PREVIEW="${TMM_AUTO_PREVIEW:-5}"; BELL="${TMM_BELL:-1}"
+AUTO_PRESETS="5 10 15"
 # TUI 상태(정렬 모드·자동 갱신 초·직전 대기 좌석 집합·벨 플래그) — fzf 바인딩과 백그라운드 핑거가 파일로 공유.
 # ★인스턴스별★ — 폰·데스크탑에서 tmm 을 여럿 띄우면 한쪽 ^U/^W 가 다른 쪽 자동 갱신을 바꾸므로 TUI 마다 run-<pid>/.
 # fzf 가 띄우는 바인딩 자식은 env 를 물려받으니 TMM_RUN 으로 자기 디렉터리를 안다. 캐시는 공유(그냥 캐시).
 STATE="${TMPDIR:-/tmp}/tmm-$(id -u)"; RUN="${TMM_RUN:-$STATE}"; mkdir -p "$RUN"
-[ "${1:-}" = --auto ] && { AUTO="${2:-30}"; shift 2; }
+[ "${1:-}" = --auto ] && { AUTO_PREVIEW="${2:-5}"; shift 2; }
 
 # ---------- 카테고리 ----------
 # 규칙 파일이 있으면 그것을, 없으면 세션명 접두(문자·숫자·_·- 중 첫 토큰)를 카테고리로.
@@ -157,16 +157,18 @@ cmd_mode()     { printf '%s %s\n' "$1" "${2:-}" > "$RUN/mode"; }
 cmd_rows_cur() { local m o; { read -r m o < "$RUN/mode"; } 2>/dev/null; cmd_rows "${m:-time}" "${o:-}" "${1:-}"; }
 
 # ---------- 자동 갱신 ----------
-auto_now() { cat "$RUN/auto" 2>/dev/null || echo "$AUTO"; }
-cmd_auto_cycle() {  # off → 15 → 30 → 60 → off. 프리셋 밖의 값(env 45 등)이면 다음으로 큰 프리셋
-  local cur p next=0; cur="$(auto_now)"
+# ^U 가 돌리는 것은 «미리보기» 주기다. 전좌석 주기(AUTO)는 seat-scan 부하 상한이라 키로 못 줄인다.
+auto_now() { cat "$RUN/auto" 2>/dev/null || echo "$AUTO_PREVIEW"; }
+cmd_auto_cycle() {  # 5 → 10 → 15 → 5. off 는 없다 — 폰에서 실수로 꺼져 «갱신이 안 된다»가 되지 않게. 끄려면 TMM_AUTO_PREVIEW=0
+  local cur p next="${AUTO_PRESETS%% *}"; cur="$(auto_now)"
   for p in $AUTO_PRESETS; do [ "$p" -gt "$cur" ] && { next=$p; break; }; done
   echo "$next" | tee "$RUN/auto"
 }
 cmd_header() {
   local a; a="$(auto_now)"
   printf '%s\n' "$HELP"
-  [ "$a" -gt 0 ] && printf 'auto:%ss pane:%ss' "$a" "$AUTO_PREVIEW" || printf 'auto:off'
+  [ "$a" -gt 0 ] && printf 'pane:%ss' "$a" || printf 'pane:off'
+  [ "$AUTO" -gt 0 ] && printf ' all:%ss' "$AUTO" || printf ' all:off'
   printf ' · 12:34 완료시각 12~34 출력시각\n'
 }
 cmd_post() { curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d "$2"; }
@@ -178,10 +180,8 @@ auto_loop() {
     sleep 1; i=$((i+1))
     [ -S "$sock" ] || continue
     gap="$(auto_now)"
-    if [ "$gap" -gt 0 ]; then
-      [ "$AUTO_PREVIEW" -gt 0 ] && [ $((i % AUTO_PREVIEW)) -eq 0 ] && cmd_post "$sock" 'refresh-preview'
-      [ $((i % gap)) -eq 0 ] && cmd_post "$sock" "reload($SELF rows-cur fresh)"
-    fi
+    [ "$gap" -gt 0 ] && [ $((i % gap)) -eq 0 ] && cmd_post "$sock" 'refresh-preview'
+    [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && cmd_post "$sock" "reload($SELF rows-cur fresh)"
     [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
   done
 }
@@ -274,7 +274,7 @@ cmd_doctor() {
       || { echo "  [✗] fzf $fv < 0.54.0 — 자동 갱신·벨 불가 (brew upgrade fzf)"; ok=1; }
   fi
   command -v curl >/dev/null || { echo "  [✗] curl 없음 — 자동 갱신 불가"; ok=1; }
-  echo "  cache: $CACHE (ttl ${CACHE_TTL}s) · state: $STATE/run-<pid> · auto: ${AUTO}s pane:${AUTO_PREVIEW}s bell:$BELL"
+  echo "  cache: $CACHE (ttl ${CACHE_TTL}s) · state: $STATE/run-<pid> · pane:${AUTO_PREVIEW}s all:${AUTO}s bell:$BELL"
   return $ok
 }
 
@@ -286,7 +286,7 @@ cmd_tui() {
   command -v fzf >/dev/null || { echo "fzf 없음 → 숫자 메뉴 (brew install fzf 권장)"; menu; return; }
   local R="$SELF rows" M="$SELF mode" out key sel rc pinger sock
   export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
-  printf '%s\n' "$AUTO" > "$RUN/auto"; cmd_mode time   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
+  printf '%s\n' "$AUTO_PREVIEW" > "$RUN/auto"; cmd_mode time   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
   trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
   # ★attach/메시지는 fzf 밖에서 실행★ — execute() 안에서는 /dev/tty 를 못 잡아
   #   "open terminal failed: can't use /dev/tty". fzf 는 --expect 로 (키, 선택줄)만 돌려주고,
