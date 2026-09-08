@@ -58,4 +58,5 @@ ssh -i ~/.ssh/termius_mobile_ed25519 -o IdentitiesOnly=yes 100.92.216.120 -t 'zs
 - 첫 로딩은 seat-scan 시간(65좌석 2~3초, 부하 시 더)에 묶인다. 캐시 TTL 20초로 재진입만 빠르다. TUI 가 떠 있는 동안은 자동 갱신(기본 30초)이 캐시를 갱신하지만 첫 진입은 여전히 스캔을 기다린다.
 - 헤더는 fzf 가 폭에 맞춰 «자른다»(줄바꿈 없음). 각 줄 표시폭 ≤ 60 을 verify.sh 가 재고, 넘기면 폰에서 뒤쪽 키가 안 보인다.
 - 자동 갱신은 fzf `--listen` 소켓 + 백그라운드 핑거(1초 틱). 핑거 수명 = fzf 한 번 — attach 중 정지는 이 구조에서 나온다. 상태 파일은 `$TMPDIR/tmm-<uid>/run-<pid>/` 인스턴스별.
+- 미리보기 렌더러(`render_pane`)도 TUI 모양에 의존한다 — Claude 입력박스 «구분선→`❯`», Codex «`› Ask Codex`». macOS awk `length()` 는 바이트라 멀티바이트 정규식(`(─)+`)을 쓰지 않는다. 골든은 `verify.sh` (k).
 - seat-scan 은 Claude Code TUI 문자열(`Enter to select`, `API Error`)에 의존한다. Claude Code 가 문구를 바꾸면 상태 열이 틀어진다.

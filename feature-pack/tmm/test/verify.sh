@@ -101,4 +101,22 @@ sleep 0.5
 tm capture-pane -t '=TMM_VERIFY_A:' -p | grep -q 'ZZ>' || { echo 'FAIL: post 한 change-prompt 가 화면에 반영 안 됨'; tm capture-pane -t '=TMM_VERIFY_A:' -p; exit 1; }
 tm send-keys -t '=TMM_VERIFY_A:' Escape
 
+# (k) 미리보기 렌더러 골든 — Claude 입력박스(구분선+❯)·statusline 제거, Codex 프롬프트 제거, 본문 표 구분선 보존, 색 유지, 연속 빈줄 1줄
+SEP="$(printf '─%.0s' $(seq 1 60))"
+render_in="$(printf '%b\n' \
+  '⏺ 첫 응답' '' '' '  Ran 1 shell command' "$SEP" '  표 아래 본문 — 구분선 뒤에 프롬프트가 없으니 자르면 안 됨' \
+  '\033[1m⏺ 굵은 응답\033[0m' '✻ Cooked for 3s · done 오후 10:41' \
+  "\033[38;2;136;136;136m${SEP} sess#1 ${SEP}\033[39m" '\033[38;2;153;153;153m❯ \033[39m' "$SEP" \
+  '  branch:main | !1' '  [OMC#5.3.0L] | Model: X' '  ⏵⏵ auto mode on')"
+render_out="$(printf '%s\n' "$render_in" | env -u TMUX "$TMM" __render)"
+plain="$(printf '%s\n' "$render_out" | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g')"
+printf '%s\n' "$plain" | grep -q '표 아래 본문' || { echo 'FAIL: 본문 속 표 구분선에서 잘림'; printf '%s\n' "$plain"; exit 1; }
+printf '%s\n' "$plain" | grep -qE '❯|branch:main|OMC#|auto mode' && { echo 'FAIL: 입력박스/statusline 이 남음'; printf '%s\n' "$plain"; exit 1; }
+[ "$(printf '%s\n' "$plain" | tail -1)" = '✻ Cooked for 3s · done 오후 10:41' ] || { echo 'FAIL: 마지막 줄이 완료 마커가 아님'; printf '%s\n' "$plain"; exit 1; }
+blank_n="$(printf '%s\n' "$render_in" | env -u TMUX "$TMM" __render | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | grep -c '^$')"
+[ "$blank_n" -eq 1 ] || { echo "FAIL: 연속 빈 줄이 1줄로 안 눌림 (blank=$blank_n)"; printf '%s\n' "$plain"; exit 1; }
+printf '%s\n' "$render_out" | LC_ALL=C grep -aq $'\x1b\[1m' || { echo 'FAIL: SGR 색 코드가 사라짐'; exit 1; }
+codex_out="$(printf '%s\n' '• Ran rg foo' '' '› Ask Codex to do anything' '' '  gpt-6 high · main · Context 31% left' | env -u TMUX "$TMM" __render)"
+[ "$codex_out" = '• Ran rg foo' ] || { echo 'FAIL: Codex 프롬프트 이하가 안 잘림'; printf '%s\n' "$codex_out"; exit 1; }
+
 echo "✅ tmm verify OK"
