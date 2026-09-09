@@ -192,8 +192,8 @@ def scan_claude(since_epoch, live_names, opened):
             if o.get("isSidechain"):
                 users = []
                 break
-        if not cwd:
-            continue
+        if not cwd or not os.path.isdir(cwd) or "/scratchpad/" in cwd or cwd.startswith("/private/tmp/") or cwd.startswith("/tmp/"):
+            continue   # 사라진 cwd·스크래치패드·임시 디렉터리 세션은 복구 가치 없음 (프로브·일회성)
         tail = tail_bytes(path, 400 * 1024)
         last_ts = 0
         for m in TS_RE.finditer(tail):
