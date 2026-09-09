@@ -79,7 +79,7 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 |---|---|
 | Enter 를 눌러도 attach 안 됨, `can't use /dev/tty` | 구버전(fzf execute 안에서 attach). 0.1.0 은 fzf 밖에서 attach — 재설치 |
 | Enter 가 필터만 갱신하는 듯 | 목록 로딩 중(`0/0`) 에 누름. `--sync` 로 첫 화면이 완성 후 뜨니 `좌석>` 가 보이면 누른다 |
-| 화면 오른쪽·아래가 점(…)으로 채워짐 | `-i`(ignore-size) attach. 기본 `tmm a NAME` 은 폰 크기 추종 |
+| 화면 오른쪽·아래가 점(…)으로 채워짐 | ① `-i`(ignore-size) attach 였나 ② `tmux show -wv -t '=NAME:' window-size` 가 `manual` — 좌석의 `resize-window` 관행이 남긴 것. 0.4.8 은 attach 직전 자동 해제 — 재설치. 수동: `tmux set -wu -t '=NAME:' window-size` |
 | 상태 열이 전부 `?` | seat-scan 미발견. `tmm doctor` → `TMM_SCAN=/path/seat-scan.sh` |
 | 목록이 3초 넘게 걸림 | 좌석 수 × seat-scan. `TMM_CACHE_TTL` 을 늘리면 필터·재정렬은 캐시. 첫 로딩은 못 줄임 |
 | 메시지가 셸에 타이핑됨 | tmm 가드는 pane 자식 프로세스 유무로 판정. 에이전트가 pane 의 자식이 아닌 구조(예: nohup)면 `tmm ss` 로 상태 먼저 확인 |

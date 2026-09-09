@@ -172,6 +172,7 @@ tmm restore-all [--since H] [--dry-run] [--yes]   # 창 안 전부 복구 (attac
 - **`tmuxc send`엔 에이전트 가드가 없습니다**: 셸만 있는 pane에 그대로 타이핑됩니다. tmm은 `pane_current_command`가 셸이면 차단. `pgrep -P`는 zsh 플러그인 자식(gitstatusd)을 에이전트로 오판하므로 쓰지 않습니다.
 - **capture-pane 타깃은 `=NAME:`**: `=NAME`만 쓰면 pane을 못 찾습니다. `has-session`/`display`는 `=NAME`으로 됩니다.
 - **`-f ignore-size` attach**는 데스크탑 창 크기를 지키는 대신 폰 화면이 점(…)으로 채워집니다. 기본은 일반 attach(`window-size latest`라 데스크탑에서 키를 치면 즉시 복귀).
+- **붙었는데 창이 80x24 등 작은 크기에 갇히고 나머지가 점으로 채워지면 `window-size manual`입니다.** 원인은 스폰이 아니라 **좌석들이 ctx 게이지를 읽으려고 `tmux resize-window -x 200` 후 원복하는 관행** — `resize-window`는 창 옵션을 `manual`로 박고, 그 뒤엔 어떤 클라이언트가 붙어도 안 커집니다(격리 재현: 원복 후 64x66 attach → 80x24 유지). 0.4.8부터 tmm은 **attach 직전에 그 옵션을 풉니다**(`set -wu window-size`, `-i`는 제외). 수동 확인: `tmux show -wv -t '=NAME:' window-size`가 `manual`이면 그것.
 - **셸 alias 충돌**: `alias tm=…` 같은 짧은 alias가 있으면 그게 우선됩니다. 그래서 이름이 `tmm`입니다.
 - **tmuxc 는 필수 세트**입니다(0.4.1부터 `install.sh`가 없으면 중단). send 도달확인·`tmm save`·복구 규약(COMM-GUIDE 안내 주입·부팅 대기)·seat-scan 원본이 tmuxc 쪽에 있습니다.
 - **전체 폭은 `FZF_COLUMNS + FZF_PREVIEW_COLUMNS`**로 계산합니다. fzf 자식에서 `tput cols`는 80으로 고정이고(실측), `FZF_COLUMNS`는 목록 폭이라 오른쪽 미리보기가 켜지면 절반이 됩니다. 마지막 값을 상태 파일에 남겨 폭을 못 받는 호출도 따릅니다.

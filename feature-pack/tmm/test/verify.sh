@@ -256,4 +256,31 @@ printf '%s\n' "$out" | grep -qE '── 완료: ✅ [0-9]+ +❌ [0-9]+ +/ [0-9]+
 tm kill-session -t 'ft-fx-impl#3' 2>/dev/null || true; tm kill-session -t 'ft-fx-codex#1' 2>/dev/null || true
 for x in ft-fx-cmd#0 ft-fx-arch#0; do tm kill-session -t "$x" 2>/dev/null || true; done
 
+# (p) attach 는 창 옵션 window-size(manual) 를 풀고 붙는다 — 좌석들의 `resize-window -x 200 → 원복` 관행이 남긴 manual 때문에
+#     폰(64x66)이 붙어도 80x24 에 갇히던 증상. 진짜 pty 로 attach 해 창이 클라이언트 크기를 따르는지 잰다. -i 는 안 건드린다.
+tm new-session -d -s TMM_WS -c /tmp
+tm resize-window -t '=TMM_WS:' -x 200; tm resize-window -t '=TMM_WS:' -x 80
+[ "$(tm show -wv -t '=TMM_WS:' window-size)" = manual ] || { echo 'FAIL: (p) 전제 — resize-window 원복 뒤 manual 이 아님 (tmux 동작 변경?)'; exit 1; }
+TMUX_TMPDIR="$SOCK_DIR" TMM_BIN="$TMM" python3 - <<'PY' || exit 1
+import os, pty, time, fcntl, termios, struct, subprocess, signal, sys
+env = {k: v for k, v in os.environ.items() if k != 'TMUX'}
+def R(*a): return subprocess.run(['tmux', *a], capture_output=True, text=True, env=env).stdout.strip()
+def go(args, cols, rows):
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execvpe(args[0], args, env)
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+    time.sleep(1.5); out = (R('show', '-wv', '-t', '=TMM_WS:', 'window-size'), R('display', '-p', '-t', '=TMM_WS:', '#{window_width}'))
+    R('detach-client', '-s', 'TMM_WS'); time.sleep(0.4)
+    try: os.kill(pid, signal.SIGKILL)
+    except OSError: pass
+    return out
+o, w = go([env['TMM_BIN'], 'a', 'TMM_WS'], 64, 30)
+if o != '' or w != '64': print(f"FAIL: (p) tmm a 뒤 opt='{o}' width={w} (기대 opt='' width=64)"); sys.exit(1)
+R('resize-window', '-t', '=TMM_WS:', '-x', '80')                      # 다시 manual 로
+o, w = go([env['TMM_BIN'], 'a', 'TMM_WS', '-i'], 64, 30)
+if o != 'manual': print(f"FAIL: (p) -i 인데 window-size 를 건드림 opt='{o}'"); sys.exit(1)
+PY
+tm kill-session -t TMM_WS
+
 echo "✅ tmm verify OK"
