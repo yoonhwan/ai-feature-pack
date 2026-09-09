@@ -6,7 +6,8 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, and OMX
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--like SESSION] [--prompt TEXT] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--fast on|off] [--like SESSION] [--prompt TEXT] [--dry-run]
+      --effort: claude·cmd·codex(-c model_reasoning_effort) / --fast: codex 전용(-c service_tier=priority)
   tmuxc wt <worktree-path> [same options as open]
   tmuxc list
   tmuxc attach <name>
@@ -44,7 +45,10 @@ create_tmux_session() {
   local name="$1"
   local root="$2"
   prepare_color_environment
-  tmux new-session -d -s "$name" -c "$root"
+  tmux new-session -d -s "$name" -c "$root" || return 1
+  # ★detached 생성은 창 옵션을 window-size=manual(80x24) 로 박는다★ — 나중에 큰 클라이언트가 붙어도 안 커지고
+  #   오른쪽·아래가 점으로 채워진다(2026-09-09 실측: 재부팅 후 스폰된 25좌석 전부). 창 옵션을 풀어 서버 기본(latest)을 따른다.
+  tmux set -wu -t "=$name:" window-size 2>/dev/null || true
 }
 
 sanitize_name() {
@@ -243,17 +247,24 @@ resolve_codex_cmd() {
   local agent="$1"
   local role="$2"
   local model="${3:-}"
-  # codex 전용 모델 오버라이드: -c model="ID" 로 codex config.toml 의 model 키를 세션 한정 재정의.
-  # 전역 config.toml 은 건드리지 않는다 — CLI -c 오버라이드는 그 프로세스에만 적용된다.
-  local model_opt=""
+  local effort="${4:-}"
+  local fast="${5:-}"
+  # codex 전용 오버라이드 3축 — 전부 -c key=value 로 «그 프로세스에만» 적용(전역 config.toml 불변):
+  #   model  : -c model="ID"
+  #   effort : -c model_reasoning_effort="E"  (명시 없으면 role 매핑 worker=medium / orch·verifier·architect=high)
+  #   fast   : -c service_tier="priority"|"default"  (codex TUI 의 /fast 가 바꾸는 키 — 세션 로그 실측 2026-09-09.
+  #            config.toml 의 fast_default_opt_out=true 면 새 세션은 off 로 뜨므로 좌석마다 손으로 켜야 했다)
+  local model_opt="" fast_opt="" role_effort
   [[ -n "$model" ]] && model_opt=" -c model=\"$model\""
+  case "$fast" in on|1|true) fast_opt=' -c service_tier="priority"' ;; off|0|false) fast_opt=' -c service_tier="default"' ;; "") ;; *) die "--fast 는 on|off (got: $fast)" ;; esac
   case "$agent" in
     codex)
       case "$role" in
-        worker|crew|plugin) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="medium"%s' "$model_opt" ;;
-        orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high"%s' "$model_opt" ;;
+        worker|crew|plugin) role_effort=medium ;;
+        orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) role_effort=high ;;
         *) die "unknown role: $role" ;;
       esac
+      printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="%s"%s%s' "${effort:-$role_effort}" "$model_opt" "$fast_opt"
       ;;
     omx)
       case "$role" in
@@ -303,9 +314,10 @@ agent_cmd() {
   local model="${4:-}"
   local effort="${5:-}"
   local ctx="${6:-}"
+  local fast="${7:-}"
   case "$agent" in
     claude) resolve_claude_cmd "$name" "$role" "$model" "$effort" "$ctx" ;;
-    codex|omx) resolve_codex_cmd "$agent" "$role" "$model" ;;
+    codex|omx) resolve_codex_cmd "$agent" "$role" "$model" "$effort" "$fast" ;;
     opencode) resolve_opencode_cmd "$model" ;;
     cmd) resolve_cmdcode_cmd "$name" "$model" "$effort" ;;
     *) die "unknown agent: $agent" ;;
@@ -362,9 +374,11 @@ cmd_open() {
   local effort=""
   local like=""
   local ctx=""
+  local fast=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --fast) fast="${2:-on}"; case "$fast" in on|off|1|0|true|false) shift 2 ;; *) fast=on; shift ;; esac ;;
       --name) name="${2:-}"; shift 2 ;;
       --agent) agent="${2:-}"; shift 2 ;;
       --role) role="${2:-}"; shift 2 ;;
@@ -401,9 +415,13 @@ cmd_open() {
   if [[ -n "$model" ]] && [[ "$agent" != "claude" && "$agent" != "opencode" && "$agent" != "cmd" && "$agent" != "codex" ]]; then
     die "--model 은 --agent claude|opencode|cmd|codex 에서만 사용 (agent=$agent)"
   fi
-  # --effort 는 claude/cmd 전용. opencode 는 reasoning effort 개념이 없다.
-  if [[ -n "$effort" ]] && [[ "$agent" != "claude" && "$agent" != "cmd" ]]; then
-    die "--effort 는 --agent claude|cmd 에서만 사용 (agent=$agent)"
+  # --effort 는 claude/cmd/codex. opencode 는 reasoning effort 개념이 없고 omx 는 role 고정.
+  if [[ -n "$effort" ]] && [[ "$agent" != "claude" && "$agent" != "cmd" && "$agent" != "codex" ]]; then
+    die "--effort 는 --agent claude|cmd|codex 에서만 사용 (agent=$agent)"
+  fi
+  # --fast 는 codex 전용 (service_tier=priority). 다른 agent 에는 그런 축이 없다.
+  if [[ -n "$fast" ]] && [[ "$agent" != "codex" ]]; then
+    die "--fast 는 --agent codex 에서만 사용 (agent=$agent)"
   fi
   # --ctx 는 claude 전용 — 컨텍스트 창 선택자 "model[1m]" 은 claude CLI 문법이다.
   if [[ -n "$ctx" ]] && [[ "$agent" != "claude" ]]; then
@@ -426,7 +444,7 @@ cmd_open() {
   fi
 
   local run_cmd
-  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx")"
+  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast")"
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
