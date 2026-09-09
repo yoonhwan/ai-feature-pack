@@ -13,7 +13,7 @@
 #   tmm dead [PAT] [--since H] [--all]   종료된 세션 목록 (재부팅·kill 로 사라진 좌석 — tmuxc 미관리 포함)
 #   tmm dp NAME|SID [N]                  종료 세션의 마지막 대화 N줄
 #   tmm restore NAME [--dry-run]         종료 세션 1건 복구 (resume) → attach
-#   tmm restore-all [--since H] [--dry-run] [--yes]   창 안 종료 세션 «전부» 복구 (attach 없음) — tmuxc restore --scan --loose 의 폰판
+#   tmm restore-all [--since H] [--dry-run] [--yes]   창 안 종료 세션 «전부» 복구 — 5개씩 배치 병렬(TMM_RESTORE_BATCH), 결과 $RUN/restore-<ts>.log(ok|fail) — tmuxc restore --scan --loose 의 폰판
 #
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^H 대기좌석만 · ^A 전체 · ^T 최근순 · ^W 대기우선 · ^G 카테고리순
 #          ^R 새로고침 · ^U 미리보기 자동갱신 5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
@@ -278,26 +278,42 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
 }
 # 현재 창(since)·계보(gen)에 보이는 종료 세션을 «전부» 순서대로 복구 — tmuxc restore --scan --loose --select all --go 의 폰판.
 # 창을 ^] 로 넓힌 뒤 다시 실행하면 새로 드러난 것만 이어서 복구된다(이미 살아있는 것은 ⏭). attach 는 하지 않는다.
-cmd_restore_all() {  # [--dry-run] [--yes]
-  local dry="" yes="" names n total=0 ok=0 skip=0 fail=0 t0 a
+cmd_restore_all() {  # [--dry-run] [--yes] [--since H]  — ★5개씩 배치 병렬★ (TMM_RESTORE_BATCH, 기본 5). 한 배치가 다 끝나야 다음 배치.
+  local dry="" yes="" names n total=0 ok=0 fail=0 t0 a batch="${TMM_RESTORE_BATCH:-5}" res i=0 bno=0 chunk
   while [ $# -gt 0 ]; do case "$1" in --dry-run) dry=--dry-run;; --yes|-y) yes=1;; --since) cmd_since "$2" >/dev/null; shift;; esac; shift; done
-  names="$(cmd_dead_rows time fresh | cut -f2)"; total="$(printf '%s\n' "$names" | grep -c .)"
+  names="$(cmd_dead_rows time fresh | cut -f2 | grep .)"; total="$(printf '%s\n' "$names" | grep -c .)"
   [ "$total" -gt 0 ] || { echo "(창 ${DEAD_SINCE0}h 안에 종료 세션 없음 — ^] 로 창을 넓히세요)"; sleep 1.5; return 0; }
-  echo "▶ 일괄 복구: 창 $(since_now)h · 계보 $(gen_now) · ${total}건 (attach 없음, 부팅 대기 ≤$(( ${TMM_RESTORE_TRIES:-20}*3 ))s/건)"
+  echo "▶ 일괄 복구: 창 $(since_now)h · 계보 $(gen_now) · ${total}건 · ${batch}개씩 배치 (attach 없음, 배치당 ≤$(( ${TMM_RESTORE_TRIES:-20}*3 ))s)"
   if [ -z "$yes" ] && [ -z "$dry" ]; then
     printf '%s\n' "$names" | sed 's/^/   ◌ /' | head -40; [ "$total" -gt 40 ] && echo "   … (+$((total-40)))"
     read -r -p "전부 복구? [y/N] " a; [ "$a" = y ] || [ "$a" = Y ] || { echo "(취소)"; sleep 1; return 0; }
   fi
-  t0=$(date +%s)
-  while IFS= read -r n; do
-    [ -n "$n" ] || continue
-    if [ -n "$dry" ]; then cmd_restore_one "$n" --dry-run | grep -E '^(session|cmd)=' | tr '\n' ' '; echo; continue; fi
-    if cmd_restore_one "$n" --no-attach; then
-      tmux has-session -t "=$n" 2>/dev/null && ok=$((ok+1)) || fail=$((fail+1))
-    else fail=$((fail+1)); fi
-  done <<<"$names"
+  if [ -n "$dry" ]; then
+    while IFS= read -r n; do cmd_restore_one "$n" --dry-run | grep -E '^(session|cmd)=' | tr '\n' ' '; echo; done <<<"$names"; return 0
+  fi
+  # 결과 파일 $RUN/restore-<epoch>.log — «ok|fail<TAB>세션명<TAB>사유» 한 줄씩. 워커는 화면에 안 쓰고 파일로만 보고.
+  t0=$(date +%s); res="$RUN/restore-$t0.log"; : > "$res"
+  # 배치 루프: 5개를 백그라운드로 띄우고 wait — 한 배치의 부팅이 전부 끝나야 다음 5개 (헤드룸·API 동시 부하 상한)
+  while :; do
+    chunk="$(printf '%s\n' "$names" | sed -n "$((i+1)),$((i+batch))p")"; [ -n "$chunk" ] || break
+    bno=$((bno+1)); echo "── 배치 $bno: $(printf '%s' "$chunk" | tr '\n' ' ')"
+    while IFS= read -r n; do
+      [ -n "$n" ] || continue
+      ( out="$("$SELF" restore "$n" --no-attach </dev/null 2>&1)"; rc=$?
+        if [ $rc -eq 0 ] && tmux has-session -t "=$n" 2>/dev/null && ! printf '%s' "$out" | grep -q '부팅 확인 못 함'; then
+          printf 'ok\t%s\t\n' "$n" >> "$res"; printf '  ✅ %s\n' "$n"
+        else
+          printf 'fail\t%s\t%s\n' "$n" "$(printf '%s' "$out" | grep -E '❌|⚠' | tail -1 | cut -c1-80)" >> "$res"; printf '  ❌ %s\n' "$n"
+        fi ) &
+    done <<<"$chunk"
+    wait
+    i=$((i+batch))
+  done
+  ok="$(grep -c '^ok' "$res")"; fail="$(grep -c '^fail' "$res")"
   rm -f "$RUN/dead.tsv"
-  [ -n "$dry" ] || { echo "── 완료: ✅ $ok  ❌ $fail  / $total  ($(( $(date +%s)-t0 ))s) — 살아난 좌석은 ^A 좌석뷰에서 확인"; read -r -n1 -p "[아무 키] " _; }
+  echo "── 완료: ✅ $ok  ❌ $fail  / $total  ($(( $(date +%s)-t0 ))s) — 결과: $res"
+  [ "$fail" -gt 0 ] && { echo "── 실패:"; grep '^fail' "$res" | cut -f2,3 | sed $'s/\t/ — /;s/^/   ❌ /'; }
+  echo "살아난 좌석은 ^A 좌석뷰에서 확인"; read -r -n1 -p "[아무 키] " _
 }
 
 # ---------- 자동 갱신 ----------
