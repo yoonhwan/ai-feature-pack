@@ -7,7 +7,8 @@
 ```bash
 command -v bash >/dev/null && [ "${BASH_VERSINFO[0]}" -ge 4 ]   # macOS 기본 bash 3.2 는 불가 → brew install bash
 command -v tmux >/dev/null
-command -v fzf  >/dev/null                                       # brew install fzf — 0.54 이상 (bell·--listen·--track)
+command -v fzf  >/dev/null                                       # brew install fzf
+command -v python3 >/dev/null                                    # 종료 뷰 스캐너 (표준 라이브러리만) — 0.54 이상 (bell·--listen·--track)
 command -v curl >/dev/null                                       # 자동 갱신이 fzf 소켓에 POST 할 때 사용
 ```
 
@@ -80,6 +81,10 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 | 목록이 3초 넘게 걸림 | 좌석 수 × seat-scan. `TMM_CACHE_TTL` 을 늘리면 필터·재정렬은 캐시. 첫 로딩은 못 줄임 |
 | 메시지가 셸에 타이핑됨 | tmm 가드는 pane 자식 프로세스 유무로 판정. 에이전트가 pane 의 자식이 아닌 구조(예: nohup)면 `tmm ss` 로 상태 먼저 확인 |
 | `tmm` 이 엉뚱한 동작 | `type tmm` → alias 면 `~/.zshrc` 에서 제거 |
+| 종료 뷰가 0건 | `tmm doctor` 의 dead-scan 줄 확인. 창이 좁으면 `^]`. 방금 재부팅했는데 0건이면 `TMM_LIVE_GRACE` 안(90초)이라 제외된 것 — 잠시 후 `^R` |
+| 종료 뷰에 스냅샷 없는 세션이 안 보임 | 정상 — 스냅샷 없이도 트랜스크립트로 잡는다. 안 보이면 `~/.claude/projects/*/*.jsonl` 에 그 세션 파일이 있는지, mtime 이 창 안인지 확인 |
+| 복구했더니 200K 창으로 떴다 | `tmuxc model NAME` 로 확인. fable 이 아닌데 `[1m]` 이 없다면 SNAP 경로(스냅샷 argv 그대로)였을 가능성 — 스냅샷이 200K 로 저장된 세션. 세션 안에서 `/model` 로 바꾸거나 `tmuxc save` 를 다시 |
+| 복구 후 «부팅 확인 못 함» | 세션은 남아 있다. attach 해서 pane 을 본다. 대개 headroom 프록시 지연 |
 | 자동 갱신이 안 돎 (헤더는 `pane:5s all:20s`) | `tmm doctor` 의 fzf 버전(≥0.54)·curl 확인. 소켓은 `$TMPDIR/tmm-<uid>/run-<pid>/fzf.sock` |
 | 헤더 뒤쪽 키 안내·`auto:` 가 안 보임 | 0.1.0 헤더가 60열을 넘어 fzf 가 잘랐음. 0.2.0 은 3줄·각 60열 이내 — 재설치 |
 | `^R` 누르면 정렬이 최근순으로 돌아감 | 0.1.0 결함. 0.2.0 은 현재 모드 유지 — 재설치 |
