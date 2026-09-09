@@ -18,7 +18,9 @@ bash -n "$TMM" "$SCAN" "$ROOT/install.sh" "$ROOT/uninstall.sh"
 SOCK_DIR="$(mktemp -d)"
 tm()  { env -u TMUX TMUX_TMPDIR="$SOCK_DIR" tmux "$@"; }
 # TMPDIR 도 격리 — tmm 의 상태 파일(mode/auto/waitset/bell)과 캐시가 실사용본과 섞이지 않게
-tmm() { env -u TMUX TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null "$TMM" "$@"; }
+# TMM_RUN 도 지운다 — 개발 셸에 export 된 수동 실험용 TMM_RUN 이 상속되면 상태 파일이 격리 밖으로 새어
+# (f) 가 «mode 파일 없음» 으로 실패한다 (2026-09-09 복원 세션 실측). 코드 결함이 아니라 환경 오염.
+tmm() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null "$TMM" "$@"; }
 STATE="$SOCK_DIR/tmm-$(id -u)"
 cleanup() {
   env -u TMUX TMUX_TMPDIR="$SOCK_DIR" tmux kill-server 2>/dev/null || true
