@@ -85,7 +85,10 @@ scan_cached() {
     local age=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || stat -c %Y "$CACHE") ))
     [ "$age" -lt "$CACHE_TTL" ] && { cat "$CACHE"; return; }
   fi
-  bash "$SCAN" 2>/dev/null | tee "$CACHE.tmp" >/dev/null; mv -f "$CACHE.tmp" "$CACHE"; cat "$CACHE"
+  # 캐시는 인스턴스 간 공유 — 폰·PC 가 동시에 갱신하면 같은 .tmp 를 놓고 경합해 «mv: No such file» 이 튄다(실측).
+  # 프로세스별 임시 파일로 쓰고 mv 는 조용히 — 진 쪽은 이긴 쪽의 결과를 읽으면 되니 실패해도 무해.
+  local tmp="$CACHE.$$.tmp"
+  bash "$SCAN" 2>/dev/null > "$tmp"; mv -f "$tmp" "$CACHE" 2>/dev/null || rm -f "$tmp"; cat "$CACHE" 2>/dev/null
 }
 scan_fresh() { rm -f "$CACHE"; scan_cached; }
 
