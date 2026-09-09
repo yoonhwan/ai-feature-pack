@@ -258,7 +258,9 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
   tmux send-keys -t "=$name:" -l "$cmd"; sleep 0.3; tmux send-keys -t "=$name:" Enter
   for try in $(seq 1 "${TMM_RESTORE_TRIES:-20}"); do
     sleep 3
-    tmux capture-pane -t "=$name:" -p 2>/dev/null | grep -qE 'ctx:|❯|bypass permissions|Model:|context used' && break
+    # 부팅 판정: claude(❯/ctx:/bypass) · codex(› Ask Codex / Pursuing goal) · cmd/opencode 는 pane 이 셸이 아니면 살아있는 것
+    tmux capture-pane -t "=$name:" -p 2>/dev/null | grep -qE 'ctx:|❯|bypass permissions|Model:|context used|› Ask Codex|Pursuing goal|Ask Codex to' && break
+    [ "$try" -ge 3 ] && ! is_shell_cmd "$(tmux display -p -t "=$name:" '#{pane_current_command}' 2>/dev/null)" && [ "$agent" != claude ] && break
     [ "$try" -eq "${TMM_RESTORE_TRIES:-20}" ] && echo "⚠ 부팅 확인 못 함 (세션은 남김)"
   done
   if [ "$agent" = claude ] && [ "$try" -lt "${TMM_RESTORE_TRIES:-20}" ]; then
