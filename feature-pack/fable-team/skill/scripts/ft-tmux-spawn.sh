@@ -109,6 +109,8 @@ if [ "$LAUNCH_MODE" = "raw" ]; then
     *) CMD="FT_WORKER_ROLE=$ROLE $CMD";;
   esac
   tmux new-session -d -s "$NAME" -c "$ROOT" "$CMD" 2>/dev/null && launch_ok=1
+  # detached 생성은 창을 80x24 manual 로 박는다(큰 클라이언트가 붙어도 안 커짐, 2026-09-09 실측) — 창 옵션 해제
+  [ "$launch_ok" = 1 ] && tmux set -wu -t "=$NAME:" window-size 2>/dev/null
 else
   # 정본 경로: tmuxc open (COMM-GUIDE 주입은 tmuxc UC1 step 8)
   TR="$(tmuxc_role "$ROLE" "$AGENT")"
