@@ -123,6 +123,31 @@ age_of() {  # 상대 나이 3자: 3m / 2h / 1d
 midnight() { date -v0H -v0M -v0S +%s 2>/dev/null || date -d 'today 00:00' +%s; }
 fmt_hm()   { date -r "$1" "+%H$2%M" 2>/dev/null || date -d "@$1" "+%H$2%M" 2>/dev/null || echo '--:--'; }
 
+# ---------- 모델 표기 ----------
+# 폰 60열에 맞춰 8자 안으로: claude-opus-5[1m]→opus5·1m · claude-sonnet-5→sonn5 · claude-fable-5-1→fabl51 · gpt-5.6-luna→luna
+# gpt-6-astra→astra · gpt-5.6-terra→terra. 알 수 없으면 뒤 7자.
+model_short() {
+  local m="$1" ctx=""
+  case "$m" in *\[1m\]*) ctx="·1m"; m="${m%%\[*}";; esac
+  case "$m" in
+    claude-opus-*)   m="opus${m#claude-opus-}";;
+    claude-sonnet-*) m="sonn${m#claude-sonnet-}";;
+    claude-haiku-*)  m="haik${m#claude-haiku-}";;
+    claude-fable-*)  m="fabl${m#claude-fable-}";;
+    gpt-*-*)         m="${m##*-}";;          # gpt-5.6-luna → luna, gpt-6-astra → astra
+    "")              m="?";;
+  esac
+  m="${m//-/}"; printf '%s%s' "${m:0:6}" "$ctx"
+}
+# 라이브 좌석의 모델: pane 자식 프로세스 argv 의 --model / -c model= (tmuxc model 과 같은 정본). codex 에 -c model 이 없으면 config 기본.
+live_model_of() {  # pane_pid [session]
+  local c m; c="$(pgrep -P "$1" 2>/dev/null | head -1)"; [ -n "$c" ] || { printf ''; return; }
+  m="$(ps -o args= -p "$c" 2>/dev/null | sed -nE 's/.*(--model[ =]|-c model=)"?([^" ]+)"?.*/\2/p' | head -1)"
+  # codex 가 config 기본 모델로 떴으면 argv 에 없다 → pane 하단 «gpt-6-astra medium fast» 에서 읽는다
+  [ -z "$m" ] && [ -n "${2:-}" ] && m="$(tmux capture-pane -t "=$2:" -p 2>/dev/null | grep -oE '\bgpt-[0-9.]+-[a-z]+\b' | tail -1)"
+  printf '%s' "$m"
+}
+
 # ---------- rows ----------
 # rows [time|wait|cat] [h] [fresh]  →  "표시줄\t세션명\t카테고리"
 # tmux 호출 2회(list-panes -a + seat-scan) + 좌석당 capture 1회(시각). 좌석별 display/list-panes 루프 금지.
@@ -137,19 +162,19 @@ cmd_rows() {
   wait_delta
   now=$(date +%s); mid=$(midnight)
   # 시각 추출은 좌석당 capture 1회 — 직렬이면 부하 시 1~2초라 8병렬로 (순서 무관, 뒤에서 sort)
-  declare -A EP
-  while IFS=$'\t' read -r s ep src; do EP["$s"]="$ep $src"; done < <(
-    tmux list-panes -a -F $'#{session_name}\t#{window_activity}' 2>/dev/null | awk -F'\t' '!seen[$1]++' \
-    | xargs -P 8 -L 1 bash -c 'source "$0" __lib; printf "%s\t%s\n" "$3" "$(last_epoch "$3" "$4" "$1" "$2")"' "$SELF" "$mid" "$now" 2>/dev/null
+  declare -A EP MD
+  while IFS=$'\t' read -r s ep src md; do EP["$s"]="$ep $src"; MD["$s"]="$md"; done < <(
+    tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_pid}' 2>/dev/null | awk -F'\t' '!seen[$1]++' \
+    | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
   )
   while IFS=$'\t' read -r s pcmd act cwd; do
     st="${ST[$s]:-?}"
     [ "$only" = "h" ] && ! [[ "$st" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && continue
     case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○";; *) live="●";; esac
     cwd="${cwd##*/}"; cat="$(cat_of "$s")"; read -r ep src <<<"${EP[$s]:-$act ~}"
-    printf '%s\t%s\t%s\t%-5s %s %-22s %-5s %s %s %s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%-5s %s %-20s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$(wait_rank "$st")" "$ep" "$cat" \
-      "$cat" "$live" "${s:0:22}" "$st" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:14}" \
+      "$cat" "$live" "${s:0:20}" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:6}" \
       "$s" "$cat"
   done < <(tmux list-panes -a -F $'#{session_name}\t#{pane_current_command}\t#{window_activity}\t#{pane_current_path}' 2>/dev/null | awk -F'\t' '!seen[$1]++') \
   | { case "$mode" in
@@ -195,16 +220,16 @@ dead_tsv() {  # [fresh]
 }
 # 표시줄: 카테고리 ◌ 이름(22) 배지(5) 시각 나이 cwd(14)  — live 와 같은 폭. 키 필드(2)=세션명, 3=카테고리
 cmd_dead_rows() {  # [time|wait|cat] [fresh]
-  local mode="${1:-time}" now line src name cwd lm la cat
+  local mode="${1:-time}" now line src name cwd lm la cat md
   now=$(date +%s)
   while IFS= read -r line; do
     src="$(printf '%s' "$line" | cut -f1)"; name="$(printf '%s' "$line" | cut -f3)"; cwd="$(printf '%s' "$line" | cut -f4)"
-    lm="$(printf '%s' "$line" | cut -f7)"; la="$(printf '%s' "$line" | cut -f8)"
+    lm="$(printf '%s' "$line" | cut -f7)"; la="$(printf '%s' "$line" | cut -f8)"; md="$(printf '%s' "$line" | cut -f6)"
     [ -n "$name" ] || continue
     cat="$(cat_of "$name")"
-    printf '%s\t%s\t%s\t%-5s ◌ %-22s %-5s %s %s %s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%-5s ◌ %-20s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$([ "$src" = SNAP ] && echo 0 || echo 5)" "$la" "$cat" \
-      "$cat" "${name:0:22}" "$src" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-14)" \
+      "$cat" "${name:0:20}" "$src" "$(model_short "$(with_1m_if_claude "$md")")" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-6)" \
       "$name" "$cat"
   done < <(dead_tsv "${2:-}") \
   | { case "$mode" in
@@ -229,6 +254,7 @@ cmd_dead_preview() {  # NAME|SID [N]
 }
 
 # 복구 커맨드 합성 — ★fable 계열 제외 전부 [1m]★ (오빠 확정 2026-09-09: 작은 창으로 절대 열지 않는다)
+with_1m_if_claude() { case "$1" in claude-*) with_1m "$1";; *) printf '%s' "$1";; esac; }
 with_1m() { case "$1" in *fable*|*\[*\]*) printf '%s' "$1";; "") printf '%s' "$1";; *) printf '%s[1m]' "$1";; esac; }
 restore_cmd_for() {  # agent model sid name resume
   local agent="$1" model="$2" sid="$3" name="$4" resume="$5" bin
@@ -347,8 +373,8 @@ cmd_header() {
   hdr_live
   printf '\033[33m상태\033[0m '
   [ "$a" -gt 0 ] && printf 'pane %ss' "$a" || printf 'pane off'
-  [ "$AUTO" -gt 0 ] && printf ' · 전체 %ss' "$AUTO" || printf ' · 전체 off'
-  printf ' · 12:34 완료 12~34 출력\n'
+  [ "$AUTO" -gt 0 ] && printf ' 전체 %ss' "$AUTO" || printf ' 전체 off'
+  printf ' · 12:34 완료 12~34 출력 · 1m=1M창\n'
 }
 cmd_post() { curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d "$2"; }
 # 백그라운드 핑거: 1초 틱마다 상태 파일을 다시 읽어 ^U 변경이 즉시 반영. fzf 가 끝나면 cmd_tui 가 죽인다 —

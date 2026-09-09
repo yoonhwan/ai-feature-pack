@@ -65,7 +65,7 @@ tmm rows-cur | grep -q 'TMM_VERIFY_A' || { echo 'FAIL: time 모드 rows-cur 에 
 
 # (g) ^U 는 «미리보기» 주기만 순환: 5 → 10 → 15 → 5 (off 없음). 전좌석 주기는 20 고정, 헤더에 둘 다 표시
 rm -f "$STATE/auto"
-tmm header | grep -q 'pane 5s · 전체 20s' || { echo "FAIL: 기본 헤더가 pane 5s · 전체 20s 아님"; tmm header; exit 1; }
+tmm header | grep -q 'pane 5s 전체 20s' || { echo "FAIL: 기본 헤더가 pane 5s 전체 20s 아님"; tmm header; exit 1; }
 [ "$(tmm auto-cycle)" = 10 ] || { echo "FAIL: auto-cycle 5→10 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 15 ] || { echo "FAIL: auto-cycle 10→15 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 5 ]  || { echo "FAIL: auto-cycle 15→5 아님 (off 가 끼어들었나)"; exit 1; }
