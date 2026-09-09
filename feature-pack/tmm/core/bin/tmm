@@ -13,11 +13,13 @@
 #   tmm dead [PAT] [--since H] [--all]   종료된 세션 목록 (재부팅·kill 로 사라진 좌석 — tmuxc 미관리 포함)
 #   tmm dp NAME|SID [N]                  종료 세션의 마지막 대화 N줄
 #   tmm restore NAME [--dry-run]         종료 세션 1건 복구 (resume) → attach
+#   tmm restore-all [--since H] [--dry-run] [--yes]   창 안 종료 세션 «전부» 복구 (attach 없음) — tmuxc restore --scan --loose 의 폰판
 #
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^H 대기좌석만 · ^A 전체 · ^T 최근순 · ^W 대기우선 · ^G 카테고리순
-#          ^R 새로고침 · ^U 미리보기 자동갱신 5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ? 도움말
+#          ^R 새로고침 · ^U 미리보기 자동갱신 5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
+#          ^B = 창 안 «전부» 일괄 복구(확인 y 후, attach 없음). 창을 ^] 로 넓히고 ^B 를 다시 누르면 새로 드러난 것만 이어서.
 #          상태 열 = 출처 배지 SNAP(스냅샷 argv 완제품)/CC/CDX/CMD/OC. ^W 는 SNAP 우선. 마커 ◌ = 종료.
 # 복구 모델: 스냅샷이면 그 argv, 아니면 트랜스크립트 model + effort high. ★fable 계열 제외 전부 [1m]★ (작은 창 금지)
 # 정렬:   기본 = 마지막 응답 시각 역순(진입 시 최신 대화가 맨 위). ^W = 대기(HUMAN/BLOCK/STUCK) 상단 고정 후 최근순.
@@ -238,9 +240,12 @@ restore_cmd_for() {  # agent model sid name resume
   esac
 }
 # tmuxc restore_one 과 같은 순서: 세션 생성 → resume 커맨드 주입 → 부팅 대기 → (claude) 복원 안내 주입 → attach
-cmd_restore_one() {  # NAME [--dry-run]
+cmd_restore_one() {  # NAME [--dry-run|--no-attach]
   local n="$1" dry="${2:-}" row src agent name cwd sid model lm la base gen resume cmd try
-  tmux has-session -t "=$n" 2>/dev/null && { echo "이미 살아있음 → attach"; cmd_attach "$n"; return; }
+  if tmux has-session -t "=$n" 2>/dev/null; then
+    [ "$dry" = --no-attach ] && { echo "⏭ $n 이미 살아있음"; return 0; }
+    echo "이미 살아있음 → attach"; cmd_attach "$n"; return
+  fi
   row="$(dead_row "$n")"; [ -n "$row" ] || { echo "❌ 종료 목록에 없음: $n"; sleep 1; return 1; }
   src="$(printf '%s' "$row" | cut -f1)"; agent="$(printf '%s' "$row" | cut -f2)"; name="$(printf '%s' "$row" | cut -f3)"
   cwd="$(printf '%s' "$row" | cut -f4)"; sid="$(printf '%s' "$row" | cut -f5)"; model="$(printf '%s' "$row" | cut -f6)"
@@ -259,8 +264,32 @@ cmd_restore_one() {  # NAME [--dry-run]
   if [ "$agent" = claude ] && [ "$try" -lt "${TMM_RESTORE_TRIES:-20}" ]; then
     sleep 1; tmux send-keys -t "=$name:" -l "[restore→$name] tmm 에서 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 Read하고 준수. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."; sleep 0.3; tmux send-keys -t "=$name:" Enter
   fi
+  [ "$dry" = --no-attach ] && { [ "$try" -lt "${TMM_RESTORE_TRIES:-20}" ] && echo "  ✅ $name"; return 0; }
   rm -f "$RUN/dead.tsv"   # 다음 목록에서 이 행이 사라지게
   cmd_attach "$name"
+}
+# 현재 창(since)·계보(gen)에 보이는 종료 세션을 «전부» 순서대로 복구 — tmuxc restore --scan --loose --select all --go 의 폰판.
+# 창을 ^] 로 넓힌 뒤 다시 실행하면 새로 드러난 것만 이어서 복구된다(이미 살아있는 것은 ⏭). attach 는 하지 않는다.
+cmd_restore_all() {  # [--dry-run] [--yes]
+  local dry="" yes="" names n total=0 ok=0 skip=0 fail=0 t0 a
+  while [ $# -gt 0 ]; do case "$1" in --dry-run) dry=--dry-run;; --yes|-y) yes=1;; --since) cmd_since "$2" >/dev/null; shift;; esac; shift; done
+  names="$(cmd_dead_rows time fresh | cut -f2)"; total="$(printf '%s\n' "$names" | grep -c .)"
+  [ "$total" -gt 0 ] || { echo "(창 ${DEAD_SINCE0}h 안에 종료 세션 없음 — ^] 로 창을 넓히세요)"; sleep 1.5; return 0; }
+  echo "▶ 일괄 복구: 창 $(since_now)h · 계보 $(gen_now) · ${total}건 (attach 없음, 부팅 대기 ≤$(( ${TMM_RESTORE_TRIES:-20}*3 ))s/건)"
+  if [ -z "$yes" ] && [ -z "$dry" ]; then
+    printf '%s\n' "$names" | sed 's/^/   ◌ /' | head -40; [ "$total" -gt 40 ] && echo "   … (+$((total-40)))"
+    read -r -p "전부 복구? [y/N] " a; [ "$a" = y ] || [ "$a" = Y ] || { echo "(취소)"; sleep 1; return 0; }
+  fi
+  t0=$(date +%s)
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    if [ -n "$dry" ]; then cmd_restore_one "$n" --dry-run | grep -E '^(session|cmd)=' | tr '\n' ' '; echo; continue; fi
+    if cmd_restore_one "$n" --no-attach; then
+      tmux has-session -t "=$n" 2>/dev/null && ok=$((ok+1)) || fail=$((fail+1))
+    else fail=$((fail+1)); fi
+  done <<<"$names"
+  rm -f "$RUN/dead.tsv"
+  [ -n "$dry" ] || { echo "── 완료: ✅ $ok  ❌ $fail  / $total  ($(( $(date +%s)-t0 ))s) — 살아난 좌석은 ^A 좌석뷰에서 확인"; read -r -n1 -p "[아무 키] " _; }
 }
 
 # ---------- 자동 갱신 ----------
@@ -271,17 +300,31 @@ cmd_auto_cycle() {  # 5 → 10 → 15 → 5. off 는 없다 — 폰에서 실수
   for p in $AUTO_PRESETS; do [ "$p" -gt "$cur" ] && { next=$p; break; }; done
   echo "$next" | tee "$RUN/auto"
 }
+# 헤더: 키 2줄 + 상태 1줄. 전체 폭 ≥240(초광폭)일 때만 키 2줄을 한 줄로. 기준은 tput cols(전체 폭) — FZF_COLUMNS 는 목록 폭이라
+# 오른쪽 미리보기가 켜지면 절반이 돼 흔들린다. resize 이벤트로 재계산.
+# 전체 폭: fzf 자식에서 tput cols 는 80 으로 고정(실측) — FZF_COLUMNS(목록 폭) + FZF_PREVIEW_COLUMNS(미리보기 폭, 켜져 있을 때).
+# 미리보기가 오른쪽이면 둘의 합이 전체, 아래면 FZF_COLUMNS 가 곧 전체. 상태 파일 $RUN/cols 에 마지막 값을 남겨 폭이 안 잡히는 호출도 따른다.
+term_cols() {
+  local c="${FZF_COLUMNS:-}" p="${FZF_PREVIEW_COLUMNS:-0}" pw
+  if [ -n "$c" ]; then
+    pw="$(cat "$RUN/pw" 2>/dev/null)"; case "$pw" in right*) c=$((c + p + 1));; esac
+    printf '%s\n' "$c" > "$RUN/cols"; printf '%s' "$c"; return
+  fi
+  cat "$RUN/cols" 2>/dev/null || tput cols 2>/dev/null || echo "${COLUMNS:-60}"
+}
+TMM_VERSION="$(cat "$HERE/../VERSION" 2>/dev/null || echo dev)"
 cmd_header() {
-  local a; a="$(auto_now)"
+  local a w; a="$(auto_now)"; w="$(term_cols)"
   if [ "$(view_now)" = dead ]; then
-    printf '%s\n' "$HELP_DEAD"
-    printf '창:%sh(%s건) 계보:%s · ^]+12h ^\\-12h ^L 계보\n' "$(since_now)" "$(dead_tsv | wc -l | tr -d ' ')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
+    hdr_dead
+    printf '\033[33m상태\033[0m 창 %sh · %s건 · 계보 %s · SNAP/CC/CDX/CMD/OC\n' "$(since_now)" "$(dead_tsv | wc -l | tr -d ' ')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
     return
   fi
-  printf '%s\n' "$HELP"
-  [ "$a" -gt 0 ] && printf 'pane:%ss' "$a" || printf 'pane:off'
-  [ "$AUTO" -gt 0 ] && printf ' all:%ss' "$AUTO" || printf ' all:off'
-  printf ' · 12:34 완료시각 12~34 출력시각\n'
+  hdr_live
+  printf '\033[33m상태\033[0m '
+  [ "$a" -gt 0 ] && printf 'pane %ss' "$a" || printf 'pane off'
+  [ "$AUTO" -gt 0 ] && printf ' · 전체 %ss' "$AUTO" || printf ' · 전체 off'
+  printf ' · 12:34 완료 12~34 출력\n'
 }
 cmd_post() { curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d "$2"; }
 # 백그라운드 핑거: 1초 틱마다 상태 파일을 다시 읽어 ^U 변경이 즉시 반영. fzf 가 끝나면 cmd_tui 가 죽인다 —
@@ -377,7 +420,7 @@ cmd_human() { cmd_scan | grep -E '^\S+\s+(HUMAN|BLOCK|STUCK)\b' || echo "(사람
 cmd_doctor() {
   local ok=0
   for c in tmux fzf; do command -v "$c" >/dev/null && echo "  [✓] $c $(command -v $c)" || { echo "  [✗] $c 없음"; ok=1; }; done
-  command -v tmuxc >/dev/null && echo "  [✓] tmuxc (send 도달확인 경로)" || echo "  [!] tmuxc 없음 — send 는 tmux send-keys 폴백"
+  command -v tmuxc >/dev/null && echo "  [✓] tmuxc $(cat "$HOME/.tmuxc/current/core/VERSION" 2>/dev/null) (세트 — send 도달확인·save·restore 규약)" || { echo "  [✗] tmuxc 없음 — tmm 은 tmuxc 와 세트. feature-pack/tmuxc 먼저 설치"; ok=1; }
   [ -n "$SCAN" ] && echo "  [✓] seat-scan: $SCAN" || { echo "  [✗] seat-scan 없음 (상태 열이 ? 로 나옴)"; ok=1; }
   [ -f "$CAT_FILE" ] && echo "  [✓] categories: $CAT_FILE" || echo "  [!] categories 없음 → 세션명 첫 토큰으로 자동 분류 ($CAT_FILE 에 규칙 작성 가능)"
   tmux ls >/dev/null 2>&1 && echo "  [✓] tmux 서버 ($(tmux ls | wc -l | tr -d ' ') 세션)" || echo "  [!] tmux 서버 없음"
@@ -396,10 +439,30 @@ cmd_doctor() {
 }
 
 # ★폰 60열 기준 — fzf 는 헤더를 줄바꿈하지 않고 «자른다». 각 줄 표시폭(한글=2) 60 이내 (verify 가 잰다)
-HELP='⏎ attach ^S 메시지 ^H 대기만 ^D 종료뷰 ^U 자동 ^R 갱신 ^X 끝
-^T 최근순 ^W 대기우선 ^G 카테고리 ^P/^O 미리보기 ?=도움'
-HELP_DEAD='⏎ 복구(resume) ^A 좌석뷰 ^R 갱신 ^P/^O 미리보기 ^X 끝
-^T 최근순 ^W SNAP우선 ^G 카테고리 · ◌종료 SNAP/CC/CDX/CMD/OC'
+# 미리보기 창 배치: 전체 폭 <120 (폰) 아래 50% / ≥120 (PC) 오른쪽 55%. big = 같은 방향에서 크게↔기본 토글(상태 파일).
+cmd_pw() {
+  local w big=""; w="$(term_cols)"
+  if [ "${1:-}" = big ]; then [ -f "$RUN/pwbig" ] && rm -f "$RUN/pwbig" || : > "$RUN/pwbig"; fi
+  [ -f "$RUN/pwbig" ] && big=1
+  local out
+  if [ "$w" -ge 120 ]; then out="right,$([ -n "$big" ] && echo 75% || echo 55%),wrap,follow,noinfo,border-left"
+  else out="down,$([ -n "$big" ] && echo 80% || echo 50%),wrap,follow,noinfo,border-top"; fi
+  printf '%s' "$out" > "$RUN/pw"; printf '%s' "$out"
+}
+
+# 헤더 — 섹션별로 «키(청록 굵게) 설명(회색)» 쌍. 폰 60열 기준 한 줄 ≤60 표시폭(ANSI 제외, verify 가 잰다). 3~4줄.
+K() { printf '\033[1;36m%s\033[0m\033[2m %s\033[0m' "$1" "$2"; }   # key + label
+S() { printf '\033[33m%s\033[0m' "$1"; }                               # 섹션 표시
+hdr_live() {
+  printf '%s %s  %s  %s  %s\n' "$(S 이동)" "$(K ⏎ attach)" "$(K ^S 메시지)" "$(K ^D 종료뷰)" "$(K ^X 끝)"
+  printf '%s %s  %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W 대기)" "$(K ^G 분류)" "$(K ^H 대기만)" "$(K ^A 전체)"
+  printf '%s %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^/ 도움)"
+}
+hdr_dead() {
+  printf '%s %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 창전체)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
+  printf '%s %s  %s  %s  %s\n' "$(S 창)" "$(K ^] +12h)" "$(K ^\\ -12h)" "$(K ^L 계보)" "$(K ^R 갱신)"
+  printf '%s %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W SNAP)" "$(K ^G 분류)" "$(K ^P/^O 미리보기)"
+}
 
 cmd_tui() {
   command -v fzf >/dev/null || { echo "fzf 없음 → 숫자 메뉴 (brew install fzf 권장)"; menu; return; }
@@ -417,9 +480,12 @@ cmd_tui() {
       --layout=reverse --cycle --no-mouse --info=inline-right --sync --listen="$sock" \
       --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || echo '좌석> ')" --pointer='▶' \
       --header="$(cmd_header)" --header-first \
-      --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window='down,50%,wrap,follow,noinfo,border-top' \
+      --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
+      --bind "resize:transform-header($SELF header)+transform($SELF pw-action)" \
+      --bind "start:transform($SELF pw-action)" \
       --preview-label=' pane ' \
-      --expect=enter,ctrl-e,ctrl-s,double-click \
+      --border=top --border-label=" tmm $TMM_VERSION " --border-label-pos=-3:top \
+      --expect=enter,ctrl-e,ctrl-s,ctrl-b,double-click \
       --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
       --bind "ctrl-a:execute-silent($SELF view live)+execute-silent($M time)+reload($R time)+change-prompt(좌석> )+transform-header($SELF header)" \
       --bind "ctrl-d:execute-silent($SELF view dead)+execute-silent($M time)+reload($SELF dead-rows time fresh)+change-prompt(종료> )+transform-header($SELF header)" \
@@ -432,16 +498,18 @@ cmd_tui() {
       --bind "ctrl-r:reload($SELF rows-cur fresh)+refresh-preview" \
       --bind "ctrl-u:execute-silent($SELF auto-cycle)+transform-header($SELF header)" \
       --bind "ctrl-p:toggle-preview" \
-      --bind "ctrl-o:change-preview-window(down,80%,wrap,follow,noinfo,border-top|down,50%,wrap,follow,noinfo,border-top)" \
+      --bind "ctrl-o:transform($SELF pw-action big)" \
       --bind "ctrl-x:abort" \
-      --bind "?:transform-header($SELF header)" \
+      --bind "ctrl-/:transform-header($SELF header)" \
       < <(cmd_rows_cur))"; rc=$?
     kill "$pinger" 2>/dev/null; wait "$pinger" 2>/dev/null; rm -f "$sock"
     [ $rc -eq 0 ] || return 0                   # ^X / Esc → 종료
     key="${out%%$'\n'*}"; sel="${out#*$'\n'}"; sel="$(printf '%s' "$sel" | cut -f2)"
+    if [ "$(view_now)" = dead ] && [ "$key" = ctrl-b ]; then cmd_restore_all; continue; fi   # 창 전체 일괄 복구 (선택 무관)
     [ -n "$sel" ] || continue
     if [ "$(view_now)" = dead ]; then
       case "$key" in
+        ctrl-b) cmd_restore_all;;
         ctrl-s) echo "(종료된 세션에는 메시지를 보낼 수 없음 — Enter 로 먼저 복구)"; sleep 1.5;;
         *)      cmd_restore_one "$sel";;          # enter / ctrl-e / double-click → resume 복구 → attach, 떼면 dead 뷰로 복귀
       esac
@@ -491,9 +559,12 @@ case "${1:-}" in
   dead)      shift; cmd_dead_ls "$@";;
   dp)        cmd_dead_preview "$2" "${3:-40}";;
   restore)   cmd_restore_one "$2" "${3:-}";;
+  restore-all) shift; cmd_restore_all "$@";;      # 현재 창(--since 로 조정) 전부 — tmm dead --since 24 >/dev/null; tmm restore-all
   mode)      cmd_mode "${2:-time}" "${3:-}";;
   auto-cycle) cmd_auto_cycle;;
   header)    cmd_header;;
+  pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
+  pw-action) printf 'change-preview-window(%s)' "$(cmd_pw "${2:-}")";;   # fzf transform() 용 액션 문자열
   __post)    cmd_post "$2" "$3";;                # 핑거 → fzf --listen 소켓 액션 전송
   ls|l)      cmd_ls "${2:-}";;
   a|attach)  cmd_attach "${2:-}" "${3:-}";;

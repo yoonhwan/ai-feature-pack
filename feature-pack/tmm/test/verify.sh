@@ -63,25 +63,27 @@ tmm rows-cur | grep -q 'TMM_VERIFY_A' || { echo 'FAIL: time 모드 rows-cur 에 
 
 # (g) ^U 는 «미리보기» 주기만 순환: 5 → 10 → 15 → 5 (off 없음). 전좌석 주기는 20 고정, 헤더에 둘 다 표시
 rm -f "$STATE/auto"
-tmm header | grep -q 'pane:5s all:20s' || { echo "FAIL: 기본 헤더가 pane:5s all:20s 아님"; tmm header; exit 1; }
+tmm header | grep -q 'pane 5s · 전체 20s' || { echo "FAIL: 기본 헤더가 pane 5s · 전체 20s 아님"; tmm header; exit 1; }
 [ "$(tmm auto-cycle)" = 10 ] || { echo "FAIL: auto-cycle 5→10 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 15 ] || { echo "FAIL: auto-cycle 10→15 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 5 ]  || { echo "FAIL: auto-cycle 15→5 아님 (off 가 끼어들었나)"; exit 1; }
-tmm header | grep -q 'pane:5s' || { echo "FAIL: 순환 후 헤더에 pane:5s 없음"; tmm header; exit 1; }
-[ "$(TMM_AUTO=30 tmm header | grep -o 'all:[0-9]*s')" = 'all:30s' ] || { echo "FAIL: TMM_AUTO 가 all: 에 반영 안 됨"; exit 1; }
+tmm header | grep -q 'pane 5s' || { echo "FAIL: 순환 후 헤더에 pane 5s 없음"; tmm header; exit 1; }
+[ "$(TMM_AUTO=30 tmm header | grep -o '전체 [0-9]*s')" = '전체 30s' ] || { echo "FAIL: TMM_AUTO 가 전체 에 반영 안 됨"; exit 1; }
 rm -f "$STATE/auto"   # 상태 파일이 env 보다 우선 — TUI 진입 시 env 로 다시 쓰므로 여기선 지우고 잰다
-[ "$(TMM_AUTO_PREVIEW=0 tmm header | grep -o 'pane:[a-z0-9]*')" = 'pane:off' ] || { echo "FAIL: TMM_AUTO_PREVIEW=0 인데 pane:off 아님"; exit 1; }
+[ "$(TMM_AUTO_PREVIEW=0 tmm header | grep -o 'pane [a-z0-9]*')" = 'pane off' ] || { echo "FAIL: TMM_AUTO_PREVIEW=0 인데 pane off 아님"; exit 1; }
 
 # (j) 헤더는 폰 60열에서 잘리지 않아야 한다 — fzf 는 헤더를 줄바꿈 없이 자르므로 각 줄 표시폭(동아시아 W/F=2) ≤ 60
-for a in 0 15; do
-  printf '%s\n' "$a" > "$STATE/auto"
+for a in 0 15 dead; do
+  if [ "$a" = dead ]; then tmm view dead >/dev/null; printf '24\n' > "$STATE/since"; else tmm view live >/dev/null; printf '%s\n' "$a" > "$STATE/auto"; fi
   tmm header | python3 -c '
-import sys, unicodedata
-bad = [(len_, l) for l in sys.stdin.read().splitlines()
-       for len_ in [sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in l)] if len_ > 60]
-for w, l in bad: print(f"FAIL: 헤더 {w}열 > 60: {l}")
+import sys, re, unicodedata
+bad = [(len_, l) for raw in sys.stdin.read().splitlines()
+       for l in [re.sub(r"\x1b\[[0-9;]*m", "", raw)]
+       for len_ in [sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in l)] if len_ > 58]
+for w, l in bad: print(f"FAIL: 헤더 {w}열 > 58 (fzf 들여쓰기 2 포함 60): {l}")
 sys.exit(1 if bad else 0)' || exit 1
 done
+tmm view live >/dev/null; rm -f "$STATE/since"
 
 # (h) 벨 플래그: 직전 스캔 대비 «새로» HUMAN/BLOCK/STUCK 이 된 좌석이 있을 때만 bell 파일 생성
 printf '#!/usr/bin/env bash\necho "TMM_VERIFY_A IDLE"\n'  > "$SOCK_DIR/scan-idle.sh"
@@ -225,5 +227,31 @@ npane="$(tm capture-pane -t '=ft-fx-impl#3:' -p 2>/dev/null)"
 printf '%s\n' "$npane" | grep -q 'sleep 20' || { echo 'FAIL: (n) pane 에 resume_cmd(sleep 20) 가 안 보임'; printf '%s\n' "$npane"; exit 1; }
 printf '%s\n' "$npane" | grep -q '\[restore→ft-fx-impl#3\]' || { echo 'FAIL: (n) pane 에 claude 복원 안내가 안 보임'; printf '%s\n' "$npane"; exit 1; }
 tm kill-session -t 'ft-fx-impl#3' 2>/dev/null || true
+
+# (o) 일괄 복구 — 창 안 «전부». dry-run 은 건수·커맨드만, 실행은 스냅샷 픽스처를 impl#3·codex#1 두 건으로 넓혀
+#     둘 다 가짜 resume_cmd 로 격리 tmux 에 뜨는지 + 이미 살아있는 건 ⏭ 로 건너뛰는지 + 집계 줄.
+csid_real="$(grep -o '"session_id": *"[^"]*"' "$FIX"/.codex/sessions/2026/09/09/rollout-*.jsonl | head -1 | sed 's/.*: *"//;s/"//')"
+python3 - "$FIX" "$csid_real" <<'PY'
+import json, os, sys
+FIX, csid = sys.argv[1], sys.argv[2]
+p = os.path.join(FIX, "snap.json"); snap = json.load(open(p))
+snap["sessions"] = [x for x in snap["sessions"] if x["name"] != "ft-fx-codex#1"]
+snap["sessions"].append({"name": "ft-fx-codex#1", "session_id": csid, "resume_cmd": "printf 'ctx:0%% ❯ \\n'; sleep 20", "model": ""})
+json.dump(snap, open(p, "w"), ensure_ascii=False)
+PY
+dry="$(dtmm restore-all --dry-run 2>&1)"   # 조용히 — 검사만
+n_dry="$(printf '%s\n' "$dry" | grep -c '^session=')"
+[ "$n_dry" -ge 3 ] || { echo "FAIL: (o) restore-all --dry-run 건수 $n_dry < 3"; printf '%s\n' "$dry"; exit 1; }
+printf '%s\n' "$dry" | grep -qE '일괄 복구: 창 [0-9]+h' || { echo 'FAIL: (o) dry-run 헤더에 창 표시 없음'; printf '%s\n' "$dry"; exit 1; }
+# 실행: impl#3 을 먼저 살려 두어 ⏭ 경로를 만든다
+tm new-session -d -s 'ft-fx-impl#3' -x 80 -y 24 'sleep 30'
+out="$(dtmm restore-all --yes </dev/null 2>&1 || true)"
+# 살아있는 세션(impl#3)은 스캐너 --live 로 목록에서 제외되므로 복구 대상에 나타나면 안 된다
+printf '%s\n' "$out" | grep -q '✅ ft-fx-impl#3' && { echo 'FAIL: (o) 살아있는 impl#3 을 다시 복구했다'; printf '%s\n' "$out"; exit 1; }
+tm has-session -t '=ft-fx-codex#1' 2>/dev/null || { echo 'FAIL: (o) 일괄 복구 후 ft-fx-codex#1 세션 없음'; printf '%s\n' "$out"; exit 1; }
+tm capture-pane -t '=ft-fx-codex#1:' -p | grep -q 'sleep 20' || { echo 'FAIL: (o) codex#1 pane 에 resume_cmd 없음'; exit 1; }
+printf '%s\n' "$out" | grep -qE '── 완료: ✅ [0-9]+ +❌ [0-9]+ +/ [0-9]+' || { echo 'FAIL: (o) 집계 줄 없음'; printf '%s\n' "$out"; exit 1; }
+tm kill-session -t 'ft-fx-impl#3' 2>/dev/null || true; tm kill-session -t 'ft-fx-codex#1' 2>/dev/null || true
+for x in ft-fx-cmd#0 ft-fx-arch#0; do tm kill-session -t "$x" 2>/dev/null || true; done
 
 echo "✅ tmm verify OK"

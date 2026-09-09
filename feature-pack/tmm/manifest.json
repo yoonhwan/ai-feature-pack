@@ -1,6 +1,6 @@
 {
   "name": "tmm",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "title": "tmm — 모바일(SSH) tmux 좌석 TUI",
   "description": "폰(Termius 등 SSH 클라이언트)에서 수십 개 tmux 에이전트 세션을 커서로 고르고, pane 미리보기·마지막 메시지 시각·상태(HUMAN/BLOCK/STUCK/IDLE/BUSY)를 한 화면에 보며 attach·메시지 전송을 한다. fzf 기반. 사람 입력을 기다리는 좌석은 항상 최상단. ^D 로 «종료된 세션» 뷰: 재부팅·kill 로 사라진 claude/codex/cmd/opencode 세션을 트랜스크립트에서 발견(tmuxc 미관리 포함, 12h 창 ^] 확장), 마지막 대화 미리보기 후 Enter 로 resume 복구(fable 제외 [1m]).",
   "category": "workflow",
@@ -21,8 +21,8 @@
   "private_state_exclusions": [".tmm", "categories", "*.cache"],
   "public_docs": ["README.md", "INSTALL.md"],
   "dependencies": {
-    "required": ["bash>=4", "tmux>=3.2", "fzf>=0.54", "python3>=3.9"],
-    "optional": ["tmuxc", "tailscale"]
+    "required": ["bash>=4", "tmux>=3.2", "fzf>=0.54", "python3>=3.9", "tmuxc>=0.3.0"],
+    "optional": ["tailscale"]
   },
   "supported_agents": {
     "automated_install": ["claude-code", "codex-cli"],
