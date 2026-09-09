@@ -33,6 +33,7 @@
 | `●` / `○` | 에이전트 실행 중 / 셸만 있음 |
 | 세션명 | tmux 세션명 (22자까지) |
 | `HUMAN` `BLOCK` `STUCK` `IDLE` `BUSY` | seat-scan 판정. HUMAN=사람 입력 대기, BLOCK=API 오류로 멈춤, STUCK=미제출 입력 잔류 |
+| `opus5·1m` `sonn5` `fabl51` `luna` `astra` | 사용 모델(축약). Claude는 프로세스 argv, Codex는 argv 없으면 pane 하단에서. `·1m`=1M 창. 종료 뷰는 복구 시 붙을 모델(fable 제외 `·1m`) |
 | `12:33` / `12~33` | 마지막 메시지 시각. `:`=Claude 완료 마커에서 읽음, `~`=마커가 없어 tmux 마지막 출력 시각 |
 | `26m` | 지금 기준 경과 (m/h/d) |
 | 폴더 | pane cwd 마지막 디렉터리 |
