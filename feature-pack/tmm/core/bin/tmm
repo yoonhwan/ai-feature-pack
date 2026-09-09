@@ -255,6 +255,9 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
   if [ "$dry" = --dry-run ]; then printf 'session=%s\ncwd=%s\nsrc=%s\ncmd=%s\n' "$name" "$cwd" "$src" "$cmd"; return 0; fi
   echo "▶ 복구 $name ($src, $agent) · $(basename "$cwd")"
   tmux new-session -d -s "$name" -c "$cwd" || { echo "❌ tmux new-session 실패"; sleep 1; return 1; }
+  # ★detached 로 만든 세션은 tmux 가 창을 80x24 «manual» 로 고정한다★ — 나중에 데스크탑이 붙어도 안 커진다(실측 2026-09-09:
+  #   복구 좌석 10개 전부 manual, 화면 오른쪽·아래가 점으로 채워짐). 창 옵션을 풀어 서버 기본(latest)을 따르게 한다.
+  tmux set -wu -t "=$name:" window-size 2>/dev/null
   tmux send-keys -t "=$name:" -l "$cmd"; sleep 0.3; tmux send-keys -t "=$name:" Enter
   for try in $(seq 1 "${TMM_RESTORE_TRIES:-20}"); do
     sleep 3
