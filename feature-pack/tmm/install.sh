@@ -28,11 +28,14 @@ for cmd in bash tmux fzf; do
     missing=$((missing + 1))
   fi
 done
+# tmuxc 는 필수 세트 — send 도달확인·save·restore 규약(COMM-GUIDE 주입·부팅 대기)·seat-scan 원본이 tmuxc 쪽에 있다.
 if command -v tmuxc >/dev/null 2>&1; then
-  say "  [✓] tmuxc (선택 — send 도달확인·save 연동)"
+  say "  [✓] tmuxc $(cat "$HOME/.tmuxc/current/core/VERSION" 2>/dev/null || echo '?')"
 else
-  say "  [!] tmuxc 없음 (선택) — send 는 tmux send-keys 폴백, 'tmm save' 불가. feature-pack/tmuxc 설치 권장"
+  say "  [✗] tmuxc 누락 — tmm 은 tmuxc 와 세트다. 먼저: bash feature-pack/tmuxc/install.sh"
+  missing=$((missing + 1))
 fi
+command -v python3 >/dev/null 2>&1 && say "  [✓] python3" || { say "  [✗] python3 누락 — 종료 세션 스캐너 불가"; missing=$((missing + 1)); }
 
 if [ "$missing" -gt 0 ]; then
   say "❌ 필수 의존성 ${missing}개 누락. 설치 후 재실행하세요."

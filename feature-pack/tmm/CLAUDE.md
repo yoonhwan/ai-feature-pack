@@ -47,6 +47,9 @@ ssh -i ~/.ssh/termius_mobile_ed25519 -o IdentitiesOnly=yes 100.92.216.120 -t 'zs
 - **복구 커맨드는 fable 계열 제외 전부 `[1m]`** (`with_1m`). 사용자 확정 2026-09-09 — «작은 창으로 절대 열지 않는다». 스냅샷 `resume_cmd` 는 그대로 존중.
 - **종료 세션 스캐너(`tmm-dead-scan.py`)는 읽기 전용**. 트랜스크립트·스냅샷·opencode DB 를 쓰지 않는다. 라이브 세션 제외 3중(ps argv uuid · tmux 세션명 · mtime 90초)을 빼지 않는다 — 빼면 살아있는 세션을 «종료» 로 보여 주고 복구가 동명 세션 생성으로 실패한다.
 - **`rows-cur` 는 `$RUN/view` 를 따른다.** ^R·20초 자동 갱신이 이것만 부르므로, dead 뷰 분기를 여기서 빼면 20초 뒤 살아있는 목록으로 되돌아간다.
+- **헤더는 4섹션(이동/정렬/화면/상태 · dead 는 복구/창/정렬/상태) + 색(키 청록·설명 회색·섹션 노랑)**. 각 줄 표시폭 ≤58(fzf 들여쓰기 2). 새 키는 해당 섹션에 넣고 verify (j) 로 잰다. `?` 는 필터 문자 — 바인드 금지(도움말은 `^/`).
+- **레이아웃 폭 판정은 `term_cols`** (= FZF_COLUMNS + FZF_PREVIEW_COLUMNS). `tput cols` 는 fzf 자식에서 80 고정이라 쓰지 않는다. fzf 0.74 에 `transform-preview-window` 없음 → `transform($SELF pw-action)`.
+- **tmuxc 는 필수 세트** — install.sh 가드·doctor·manifest required 를 같이 유지.
 - `SELF`/`HERE` 는 `$0` 기준(심링 해석). `command -v tmm` 으로 잡으면 소스 트리 실행이 설치본 libexec 를 본다.
 
 ## 현재 설계 결정 (사용자 확정)

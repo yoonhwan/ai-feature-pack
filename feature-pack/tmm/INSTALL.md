@@ -12,9 +12,12 @@ command -v python3 >/dev/null                                    # 종료 뷰 �
 command -v curl >/dev/null                                       # 자동 갱신이 fzf 소켓에 POST 할 때 사용
 ```
 
+필수 세트:
+
+- `tmuxc` (feature-pack/tmuxc) — `tmm s` 도달확인, `tmm save`, 복구 규약. **없으면 install.sh 가 중단**한다. 먼저 `bash feature-pack/tmuxc/install.sh`.
+
 선택:
 
-- `tmuxc` (feature-pack/tmuxc) — `tmm s` 도달확인, `tmm save`. 없으면 send 는 `tmux send-keys` 폴백.
 - Tailscale — 집 밖 접속.
 
 ## 설치 단계
