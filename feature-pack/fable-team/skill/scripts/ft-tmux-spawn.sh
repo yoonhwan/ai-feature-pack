@@ -114,12 +114,13 @@ else
   TR="$(tmuxc_role "$ROLE" "$AGENT")"
   set -- tmuxc open "$ROOT" --name "$NAME" --agent "$AGENT" --role "$TR"
   [ -n "$PROMPT_FILE" ] && set -- "$@" --prompt "$PROMPT_FILE"
-  # V2: tmuxc 경로도 model/effort 승계. tmuxc --model/--effort는 claude 전용(codex는 role→effort 고정,
-  #     codex에 --model 넘기면 tmuxc가 die)이므로 claude일 때만 전달.
-  if [ "$AGENT" = "claude" ]; then
-    [ -n "$MODEL" ]  && set -- "$@" --model "$MODEL"
-    [ -n "$EFFORT" ] && set -- "$@" --effort "$EFFORT"
-  fi
+  # V2: tmuxc 경로도 model/effort 승계. tmuxc 0.3.x: --model 은 claude·codex(-c model=ID)·opencode·cmd,
+  #     --effort 는 claude·cmd 만(codex 는 role→effort 고정). 2026-09-09 실측 — 옛 가드(«codex 에 --model 넘기면 die»)는
+  #     tmuxc 가 codex --model 을 받기 전 얘기라 codex 좌석이 전부 config.toml 기본 모델로 뜨던 원인(luna↔astra 분리 불가).
+  case "$AGENT" in
+    claude|cmd)      [ -n "$MODEL" ] && set -- "$@" --model "$MODEL"; [ -n "$EFFORT" ] && set -- "$@" --effort "$EFFORT" ;;
+    codex|opencode)  [ -n "$MODEL" ] && set -- "$@" --model "$MODEL" ;;
+  esac
   "$@" >/dev/null 2>&1 && launch_ok=1
 fi
 if [ "$launch_ok" != "1" ]; then
