@@ -44,6 +44,7 @@ ssh -i ~/.ssh/termius_mobile_ed25519 -o IdentitiesOnly=yes 100.92.216.120 -t 'zs
 - **`tmuxc send` 는 무가드**다. 셸 pane 에 그대로 타이핑된다. tmm 의 가드를 우회하는 경로를 만들지 않는다.
 - 이름을 `tm` 으로 바꾸지 않는다 — 사용자 zshrc 의 `alias tm=` 이 가로챈다.
 - 시각 마커 정규식은 한국어(`done 오후 12:56`)·영어(`done 12:56 PM`) 둘 다 유지.
+- **attach 직전 `set -wu window-size`** (`cmd_attach`, `-i` 제외). `window-size manual` 의 출처는 `new-session -d` 가 아니라 좌석들의 `resize-window -x 200 → 원복`(ctx 읽기) 관행이다 — 격리 실측 2026-09-09. 스폰 경로의 `set -wu` 는 보험일 뿐 근본 방어가 아니다. verify (p).
 - **복구 커맨드는 fable 계열 제외 전부 `[1m]`** (`with_1m`). 사용자 확정 2026-09-09 — «작은 창으로 절대 열지 않는다». 스냅샷 `resume_cmd` 는 그대로 존중.
 - **종료 세션 스캐너(`tmm-dead-scan.py`)는 읽기 전용**. 트랜스크립트·스냅샷·opencode DB 를 쓰지 않는다. 라이브 세션 제외 3중(ps argv uuid · tmux 세션명 · mtime 90초)을 빼지 않는다 — 빼면 살아있는 세션을 «종료» 로 보여 주고 복구가 동명 세션 생성으로 실패한다.
 - **`rows-cur` 는 `$RUN/view` 를 따른다.** ^R·20초 자동 갱신이 이것만 부르므로, dead 뷰 분기를 여기서 빼면 20초 뒤 살아있는 목록으로 되돌아간다.

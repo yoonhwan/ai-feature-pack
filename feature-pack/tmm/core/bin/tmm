@@ -284,8 +284,9 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
   if [ "$dry" = --dry-run ]; then printf 'session=%s\ncwd=%s\nsrc=%s\ncmd=%s\n' "$name" "$cwd" "$src" "$cmd"; return 0; fi
   echo "▶ 복구 $name ($src, $agent) · $(basename "$cwd")"
   tmux new-session -d -s "$name" -c "$cwd" || { echo "❌ tmux new-session 실패"; sleep 1; return 1; }
-  # ★detached 로 만든 세션은 tmux 가 창을 80x24 «manual» 로 고정한다★ — 나중에 데스크탑이 붙어도 안 커진다(실측 2026-09-09:
-  #   복구 좌석 10개 전부 manual, 화면 오른쪽·아래가 점으로 채워짐). 창 옵션을 풀어 서버 기본(latest)을 따르게 한다.
+  # 창 옵션 window-size 를 서버 기본(latest)으로. ★정정 2026-09-09★: new-session -d 자체는 manual 을 박지 않는다
+  #   (격리 실측: 생성 직후 opt='' 상속). 좌석들이 `resize-window -x 200`(ctx 읽기) 뒤 원복할 때 manual 이 남는 것이
+  #   원인이라, 근본 방어는 cmd_attach 의 set -wu 다. 여기 것은 무해한 보험으로 남긴다.
   tmux set -wu -t "=$name:" window-size 2>/dev/null
   tmux send-keys -t "=$name:" -l "$cmd"; sleep 0.3; tmux send-keys -t "=$name:" Enter
   for try in $(seq 1 "${TMM_RESTORE_TRIES:-20}"); do
@@ -399,6 +400,11 @@ cmd_attach() {
   [ -n "$n" ] || { echo "(목록 로딩 중 — 잠시 후 다시 Enter)"; sleep 1; return 0; }
   tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
   [ "${2:-}" = "-i" ] && flags="-f ignore-size"
+  # ★attach 직전에 창 옵션 window-size 를 푼다★ — 좌석들이 ctx 게이지를 읽으려고 `resize-window -x 200` → 원복을
+  #   반복하는데, resize-window 는 창 옵션을 manual 로 박아 이후 어떤 클라이언트가 붙어도 그 크기(80x24 등)에 갇힌다
+  #   (격리 재현 2026-09-09: 200→80 원복 뒤 64x66 attach → 80x24 그대로 · set -wu 뒤 → 64x65). 스폰 경로 탓이 아니다.
+  #   -i(ignore-size) 는 사용자가 «고정» 을 원한 것이므로 건드리지 않는다.
+  [ -z "$flags" ] && tmux set -wu -t "=$n:" window-size 2>/dev/null
   if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$n"; else tmux attach -t "=$n" $flags; fi
 }
 
