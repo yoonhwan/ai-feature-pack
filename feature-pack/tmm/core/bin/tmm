@@ -19,7 +19,8 @@
 #          ^R 새로고침 · ^U 미리보기 자동갱신 5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
-#          ^B = 창 안 «전부» 일괄 복구(확인 y 후, attach 없음). 창을 ^] 로 넓히고 ^B 를 다시 누르면 새로 드러난 것만 이어서.
+#          ^B = «지금 화면에 보이는 행 전부» 일괄 복구(필터·카테고리 적용분만, 확인 y 후, attach 없음).
+#               필터 없이 누르면 창 전체. 창을 ^] 로 넓히고 다시 누르면 새로 드러난 것만 이어서.
 #          상태 열 = 출처 배지 SNAP(스냅샷 argv 완제품)/CC/CDX/CMD/OC. ^W 는 SNAP 우선. 마커 ◌ = 종료.
 # 복구 모델: 스냅샷이면 그 argv, 아니면 트랜스크립트 model + effort high. ★fable 계열 제외 전부 [1m]★ (작은 창 금지)
 # 정렬:   기본 = 마지막 응답 시각 역순(진입 시 최신 대화가 맨 위). ^W = 대기(HUMAN/BLOCK/STUCK) 상단 고정 후 최근순.
@@ -306,11 +307,14 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
 # 현재 창(since)·계보(gen)에 보이는 종료 세션을 «전부» 순서대로 복구 — tmuxc restore --scan --loose --select all --go 의 폰판.
 # 창을 ^] 로 넓힌 뒤 다시 실행하면 새로 드러난 것만 이어서 복구된다(이미 살아있는 것은 ⏭). attach 는 하지 않는다.
 cmd_restore_all() {  # [--dry-run] [--yes] [--since H]  — ★5개씩 배치 병렬★ (TMM_RESTORE_BATCH, 기본 5). 한 배치가 다 끝나야 다음 배치.
-  local dry="" yes="" names n total=0 ok=0 fail=0 t0 a batch="${TMM_RESTORE_BATCH:-5}" res i=0 bno=0 chunk
-  while [ $# -gt 0 ]; do case "$1" in --dry-run) dry=--dry-run;; --yes|-y) yes=1;; --since) cmd_since "$2" >/dev/null; shift;; esac; shift; done
-  names="$(cmd_dead_rows time fresh | cut -f2 | grep .)"; total="$(printf '%s\n' "$names" | grep -c .)"
+  local dry="" yes="" names n total=0 ok=0 fail=0 t0 a batch="${TMM_RESTORE_BATCH:-5}" res i=0 bno=0 chunk nf="" scope=""
+  while [ $# -gt 0 ]; do case "$1" in --dry-run) dry=--dry-run;; --yes|-y) yes=1;; --names-file) nf="$2"; shift;; --since) cmd_since "$2" >/dev/null; shift;; esac; shift; done
+  # --names-file: fzf 가 «지금 화면에 보이는(필터된)» 행만 넘긴 목록. 없으면 창 전체(CLI 경로).
+  if [ -n "$nf" ] && [ -s "$nf" ]; then names="$(cut -f2 < "$nf" | grep .)"; scope="화면 $(printf '%s\n' "$names" | grep -c .)건"
+  else names="$(cmd_dead_rows time fresh | cut -f2 | grep .)"; scope="창 $(since_now)h 전체"; fi
+  total="$(printf '%s\n' "$names" | grep -c .)"
   [ "$total" -gt 0 ] || { echo "(창 ${DEAD_SINCE0}h 안에 종료 세션 없음 — ^] 로 창을 넓히세요)"; sleep 1.5; return 0; }
-  echo "▶ 일괄 복구: 창 $(since_now)h · 계보 $(gen_now) · ${total}건 · ${batch}개씩 배치 (attach 없음, 배치당 ≤$(( ${TMM_RESTORE_TRIES:-20}*3 ))s)"
+  echo "▶ 일괄 복구: ${scope} · 계보 $(gen_now) · ${total}건 · ${batch}개씩 배치 (attach 없음, 배치당 ≤$(( ${TMM_RESTORE_TRIES:-20}*3 ))s)"
   if [ -z "$yes" ] && [ -z "$dry" ]; then
     printf '%s\n' "$names" | sed 's/^/   ◌ /' | head -40; [ "$total" -gt 40 ] && echo "   … (+$((total-40)))"
     read -r -p "전부 복구? [y/N] " a; [ "$a" = y ] || [ "$a" = Y ] || { echo "(취소)"; sleep 1; return 0; }
@@ -515,14 +519,14 @@ hdr_live() {
   printf '%s %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^/ 도움)"
 }
 hdr_dead() {
-  printf '%s %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 창전체)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
+  printf '%s %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 보이는것)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
   printf '%s %s  %s  %s  %s\n' "$(S 창)" "$(K ^] +12h)" "$(K ^\\ -12h)" "$(K ^L 계보)" "$(K ^R 갱신)"
   printf '%s %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W SNAP)" "$(K ^G 분류)" "$(K ^P/^O 미리보기)"
 }
 
 cmd_tui() {
   command -v fzf >/dev/null || { echo "fzf 없음 → 숫자 메뉴 (brew install fzf 권장)"; menu; return; }
-  local R="$SELF rows" M="$SELF mode" out key sel rc pinger sock
+  local R="$SELF rows" M="$SELF mode" out key sel rows rc pinger sock
   export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
   printf '%s\n' "$AUTO_PREVIEW" > "$RUN/auto"; cmd_mode time; cmd_view live   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
   trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
@@ -541,7 +545,7 @@ cmd_tui() {
       --bind "start:transform($SELF pw-action)" \
       --preview-label=' pane ' \
       --border=top --border-label=" tmm $TMM_VERSION " --border-label-pos=-3:top \
-      --expect=enter,ctrl-e,ctrl-s,ctrl-b,double-click \
+      --multi --expect=enter,ctrl-e,ctrl-s,double-click \
       --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
       --bind "ctrl-a:execute-silent($SELF view live)+execute-silent($M time)+reload($R time)+change-prompt(좌석> )+transform-header($SELF header)" \
       --bind "ctrl-d:execute-silent($SELF view dead)+execute-silent($M time)+reload($SELF dead-rows time fresh)+change-prompt(종료> )+transform-header($SELF header)" \
@@ -555,17 +559,24 @@ cmd_tui() {
       --bind "ctrl-u:execute-silent($SELF auto-cycle)+transform-header($SELF header)" \
       --bind "ctrl-p:toggle-preview" \
       --bind "ctrl-o:transform($SELF pw-action big)" \
+      --bind "ctrl-b:execute-silent(: > $RUN/bulk)+select-all+accept" \
       --bind "ctrl-x:abort" \
       --bind "ctrl-/:transform-header($SELF header)" \
       < <(cmd_rows_cur))"; rc=$?
     kill "$pinger" 2>/dev/null; wait "$pinger" 2>/dev/null; rm -f "$sock"
     [ $rc -eq 0 ] || return 0                   # ^X / Esc → 종료
-    key="${out%%$'\n'*}"; sel="${out#*$'\n'}"; sel="$(printf '%s' "$sel" | cut -f2)"
-    if [ "$(view_now)" = dead ] && [ "$key" = ctrl-b ]; then cmd_restore_all; continue; fi   # 창 전체 일괄 복구 (선택 무관)
+    key="${out%%$'\n'*}"; rows="${out#*$'\n'}"; sel="$(printf '%s' "$rows" | head -1 | cut -f2)"
+    # ^B = «지금 화면에 보이는(필터·정렬 적용된) 행 전부» 일괄 복구. select-all+accept 로 전 행이 out 에 실려 온다.
+    if [ -f "$RUN/bulk" ]; then
+      rm -f "$RUN/bulk"
+      if [ "$(view_now)" = dead ]; then
+        printf '%s\n' "$rows" > "$RUN/bulk-names"; cmd_restore_all --names-file "$RUN/bulk-names"
+      else echo "(^B 는 종료 뷰 전용 — ^D 로 전환)"; sleep 1.2; fi
+      continue
+    fi
     [ -n "$sel" ] || continue
     if [ "$(view_now)" = dead ]; then
       case "$key" in
-        ctrl-b) cmd_restore_all;;
         ctrl-s) echo "(종료된 세션에는 메시지를 보낼 수 없음 — Enter 로 먼저 복구)"; sleep 1.5;;
         *)      cmd_restore_one "$sel";;          # enter / ctrl-e / double-click → resume 복구 → attach, 떼면 dead 뷰로 복귀
       esac
