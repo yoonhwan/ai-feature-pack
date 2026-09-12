@@ -300,6 +300,29 @@ def resolve_cmd(name, cwd, mode, claimed):
 _codex_cache = None
 
 
+def head_lines(path, max_lines=5, max_bytes=1 << 20):
+    """처음 몇 줄을 «줄 단위로 온전하게» 읽는다. head_bytes(고정 바이트) 로 자르면
+    마지막 줄이 중간에서 끊겨 json 파싱이 실패한다 — 2026-09-13 실측: codex
+    session_meta 한 줄이 18,593바이트라 8192바이트 head 에서 통째로 잘렸고,
+    그 세션이 codex_index() 후보에서 조용히 빠졌다(tmuxc fork --from 라이브
+    검증 중 발견). readline 은 줄 경계에서만 끊으므로 크기와 무관하게 안전하다."""
+    out = []
+    try:
+        with open(path, "rb") as f:
+            total = 0
+            for _ in range(max_lines):
+                line = f.readline()
+                if not line:
+                    break
+                total += len(line)
+                out.append(line.decode("utf-8", "ignore"))
+                if total >= max_bytes:
+                    break
+    except OSError:
+        pass
+    return out
+
+
 def codex_index():
     """realpath(cwd) → (sid, path) 를 «한 번만» 만든다. 세션마다 전체 rollout 을
     다시 훑으면 codex 세션 수만큼 배로 느려진다(실측 병목).
@@ -311,7 +334,7 @@ def codex_index():
     idx = {}
     for path in glob.glob(os.path.expanduser(CODEX_GLOB)):
         meta_cwd, sid = "", ""
-        for line in head_bytes(path, 8192).splitlines():
+        for line in head_lines(path):
             try:
                 o = json.loads(line)
             except (json.JSONDecodeError, ValueError):
