@@ -60,8 +60,8 @@ import sys
 
 lines = open(sys.argv[1], encoding="utf-8").read().splitlines()
 calls = [i for i, line in enumerate(lines) if line.strip().startswith('create_tmux_session "')]
-if len(calls) != 2:
-    raise SystemExit(f"FAIL: expected open and restore to share 2 guarded spawn calls, found {len(calls)}")
+if len(calls) != 3:
+    raise SystemExit(f"FAIL: expected open, restore and fork to share 3 guarded spawn calls, found {len(calls)}")
 raw_spawns = [i for i, line in enumerate(lines) if line.strip().startswith("tmux new-session ")]
 if len(raw_spawns) != 1:
     raise SystemExit(f"FAIL: unguarded tmux spawn path found; expected 1 centralized spawn, found {len(raw_spawns)}")
@@ -424,5 +424,160 @@ for bad in 0 -1 abc; do
   "$ROOT/core/bin/tmuxc" save --keep "$bad" --dry-run >/dev/null 2>&1 && {
     echo "FAIL: save --keep $bad must be rejected"; exit 1; }
 done
+
+# ---------- fork: 네이티브 conversation fork (mocked argv — 실제 CLI 미호출) ----------
+
+# ⑰ 필수 인자 누락 거부
+"$ROOT/core/bin/tmuxc" fork "$ROOT" --name F1 --dry-run >/dev/null 2>&1 && {
+  echo 'FAIL: fork without --from/--source must be rejected'; exit 1; }
+"$ROOT/core/bin/tmuxc" fork "$ROOT" --source sid-x --agent claude --dry-run >/dev/null 2>&1 && {
+  echo 'FAIL: fork without --name must be rejected'; exit 1; }
+
+# ⑱ --from 과 --source 는 상호배타
+_fboth="$("$ROOT/core/bin/tmuxc" fork "$ROOT" --name F2 --from X --source Y --agent claude --dry-run 2>&1 || true)"
+printf '%s\n' "$_fboth" | grep -q 'mutually exclusive' || {
+  echo 'FAIL: --from + --source must be rejected as mutually exclusive'; printf '%s\n' "$_fboth"; exit 1; }
+
+# ⑲ --source 는 --agent 필수
+_fnoagent="$("$ROOT/core/bin/tmuxc" fork "$ROOT" --name F3 --source sid-x --dry-run 2>&1 || true)"
+printf '%s\n' "$_fnoagent" | grep -q -- '--source requires --agent' || {
+  echo 'FAIL: --source without --agent must be rejected'; printf '%s\n' "$_fnoagent"; exit 1; }
+
+# ⑳ 지원 안 되는 엔진(omx) 거부
+_fomx="$("$ROOT/core/bin/tmuxc" fork "$ROOT" --name F4 --source sid-x --agent omx --dry-run 2>&1 || true)"
+printf '%s\n' "$_fomx" | grep -q 'unsupported agent' || {
+  echo 'FAIL: fork --agent omx must be rejected (no native fork)'; printf '%s\n' "$_fomx"; exit 1; }
+
+# ㉑ 존재하지 않는 라이브 세션 --from → 실패
+_fnosess="$("$ROOT/core/bin/tmuxc" fork "$ROOT" --name F5 --from TMUXC_FORK_NO_SUCH_SESSION_XYZ --dry-run 2>&1 || true)"
+printf '%s\n' "$_fnosess" | grep -q 'source session not found' || {
+  echo 'FAIL: fork --from missing session must be rejected'; printf '%s\n' "$_fnosess"; exit 1; }
+
+# ㉒ 에이전트 미검출 라이브 세션(순수 shell) --from → 실패 (격리 tmux 서버)
+FORKISO="$(mktemp -d)"
+cleanup_fork_iso() { env -u TMUX TMUX_TMPDIR="$FORKISO" tmux kill-server 2>/dev/null || true; rm -rf "$FORKISO"; }
+trap cleanup_fork_iso EXIT
+env -u TMUX TMUX_TMPDIR="$FORKISO" tmux new-session -d -s FORK_SHELL_ONLY -c "$ROOT"
+_fnoagentproc="$(env -u TMUX TMUX_TMPDIR="$FORKISO" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name F6 --from FORK_SHELL_ONLY --dry-run 2>&1 || true)"
+printf '%s\n' "$_fnoagentproc" | grep -q 'cannot determine source engine' || {
+  echo 'FAIL: fork --from a shell-only session must be rejected'; printf '%s\n' "$_fnoagentproc"; exit 1; }
+cleanup_fork_iso
+trap - EXIT
+
+# ㉓ --from 라이브 세션의 트랜스크립트 해석 (argv 에 sid 없는 «갓 연 세션» 경로) — 격리 fixture
+FORKFIX="$(mktemp -d)"
+cleanup_fork_fix() {
+  env -u TMUX TMUX_TMPDIR="$FORKISO2" tmux kill-server 2>/dev/null || true
+  rm -rf "$FORKFIX" "$FORKISO2"
+}
+FORKISO2="$(mktemp -d)"
+trap cleanup_fork_fix EXIT
+FORKCWD="$(mktemp -d)"
+mkdir -p "$FORKFIX/claude/$(printf '%s' "$FORKCWD" | sed 's|[/.]|-|g')"
+printf '{"type":"user","message":{"content":"세션명(me)=FORKSRC#0 시작"},"timestamp":"2026-09-13T00:00:00.000Z","cwd":"%s"}\n{"type":"assistant","message":{"model":"claude-sonnet-5"},"timestamp":"2026-09-13T00:00:00.000Z"}\n' "$FORKCWD" \
+  > "$FORKFIX/claude/$(printf '%s' "$FORKCWD" | sed 's|[/.]|-|g')/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl"
+env -u TMUX TMUX_TMPDIR="$FORKISO2" tmux new-session -d -s FORKSRC#0 -c "$FORKCWD"
+env -u TMUX TMUX_TMPDIR="$FORKISO2" tmux send-keys -t 'FORKSRC#0' -l 'exec -a claude sleep 300'
+env -u TMUX TMUX_TMPDIR="$FORKISO2" tmux send-keys -t 'FORKSRC#0' Enter
+sleep 1
+_ffromdry="$(env -u TMUX TMUX_TMPDIR="$FORKISO2" TMUXC_CLAUDE_PROJECTS="$FORKFIX/claude" \
+  "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FORKED_CHILD --from 'FORKSRC#0' --dry-run 2>&1 || true)"
+printf '%s\n' "$_ffromdry" | grep -q 'source_agent=claude' || {
+  echo 'FAIL: fork --from must resolve agent=claude via live process probe'; printf '%s\n' "$_ffromdry"; exit 1; }
+printf '%s\n' "$_ffromdry" | grep -q 'source_id=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' || {
+  echo 'FAIL: fork --from must resolve conversation id via transcript fallback (no --resume in argv)'; printf '%s\n' "$_ffromdry"; exit 1; }
+printf '%s\n' "$_ffromdry" | grep -qF -- '--resume aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee --fork-session' || {
+  echo 'FAIL: resolved conversation id must reach the native --resume --fork-session argv'; printf '%s\n' "$_ffromdry"; exit 1; }
+# 교차엔진 불일치 — 실제론 claude 인데 --agent codex 요구 시 거부
+_fcross="$(env -u TMUX TMUX_TMPDIR="$FORKISO2" TMUXC_CLAUDE_PROJECTS="$FORKFIX/claude" \
+  "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FORKED_X --from 'FORKSRC#0' --agent codex --dry-run 2>&1 || true)"
+printf '%s\n' "$_fcross" | grep -q 'cross-engine mismatch' || {
+  echo 'FAIL: --agent mismatching the probed source engine must be rejected'; printf '%s\n' "$_fcross"; exit 1; }
+cleanup_fork_fix
+trap - EXIT
+
+# ㉔ 4엔진 argv 빌더 — --source 직접 지정 경로. exists 확인을 통과시키려면 각 엔진
+# 저장소에 «그 sid 를 실제로 담은» fixture 가 있어야 한다(㉖ not-found 경로와 대칭).
+EMPTYSTORE="$(mktemp -d)"
+mkdir -p "$EMPTYSTORE/claude/proj" "$EMPTYSTORE/codex/2026/01/01" "$EMPTYSTORE/opensessions/proj" "$EMPTYSTORE/cmd/proj"
+: > "$EMPTYSTORE/claude/proj/sid-claude-1.jsonl"
+: > "$EMPTYSTORE/codex/2026/01/01/rollout-x-019f0000-0000-0000-0000-0000000000fc.jsonl"
+: > "$EMPTYSTORE/codex/2026/01/01/rollout-x-019f0000-0000-0000-0000-0000000000fd.jsonl"
+: > "$EMPTYSTORE/opensessions/proj/ses_abc123.json"
+printf '%s\n' "my session name" | sed 's/ /_/g' > /dev/null  # (no-op — cmd fixture keyed by literal id below)
+: > "$EMPTYSTORE/cmd/proj/my session name.jsonl"
+
+_fc="$(TMUXC_CLAUDE_PROJECTS="$EMPTYSTORE/claude" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC1 \
+  --source sid-claude-1 --agent claude --model 'claude-opus-5' --effort high --ctx 1m --dry-run 2>&1 || true)"
+printf '%s\n' "$_fc" | grep -qF -- '--resume sid-claude-1 --fork-session' || {
+  echo 'FAIL: claude fork argv must carry --resume <id> --fork-session'; printf '%s\n' "$_fc"; exit 1; }
+printf '%s\n' "$_fc" | grep -qF -- '--model "claude-opus-5[1m]"' || {
+  echo 'FAIL: claude fork must apply --model with --ctx window'; printf '%s\n' "$_fc"; exit 1; }
+printf '%s\n' "$_fc" | grep -q -- '--effort high' || { echo 'FAIL: claude fork --effort'; printf '%s\n' "$_fc"; exit 1; }
+
+_fcodex="$(TMUXC_CODEX_GLOB="$EMPTYSTORE/codex/*/*/*/rollout-*.jsonl" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC2 \
+  --source 019f0000-0000-0000-0000-0000000000fc --agent codex --model 'openai/gpt-5.6' --dry-run 2>&1 || true)"
+printf '%s\n' "$_fcodex" | grep -qF -- 'codex fork 019f0000-0000-0000-0000-0000000000fc --dangerously-bypass-approvals-and-sandbox' || {
+  echo 'FAIL: codex fork argv must be `codex fork SESSION_ID ...`'; printf '%s\n' "$_fcodex"; exit 1; }
+printf '%s\n' "$_fcodex" | grep -qF -- '-c model_reasoning_effort="medium"' || {
+  echo 'FAIL: codex fork must default role(worker) effort to medium'; printf '%s\n' "$_fcodex"; exit 1; }
+printf '%s\n' "$_fcodex" | grep -qF -- '-c model="openai/gpt-5.6"' || {
+  echo 'FAIL: codex fork --model must synthesize -c model='; printf '%s\n' "$_fcodex"; exit 1; }
+_fcodexo="$(TMUXC_CODEX_GLOB="$EMPTYSTORE/codex/*/*/*/rollout-*.jsonl" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC2B \
+  --source 019f0000-0000-0000-0000-0000000000fd --agent codex --role orchestrator --dry-run 2>&1 || true)"
+printf '%s\n' "$_fcodexo" | grep -qF -- '-c model_reasoning_effort="high"' || {
+  echo 'FAIL: codex fork --role orchestrator must default effort to high'; printf '%s\n' "$_fcodexo"; exit 1; }
+
+_fopen="$(TMUXC_OPENCODE_DB="$EMPTYSTORE/none.db" TMUXC_OPENCODE_SESSIONS="$EMPTYSTORE/opensessions" \
+  "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC3 --source ses_abc123 --agent opencode --model 'anthropic/claude-opus-5' --dry-run 2>&1 || true)"
+printf '%s\n' "$_fopen" | grep -qF -- 'opencode --auto --session ses_abc123 --fork' || {
+  echo 'FAIL: opencode fork argv must be `--session ID --fork`'; printf '%s\n' "$_fopen"; exit 1; }
+printf '%s\n' "$_fopen" | grep -qF -- '--model anthropic/claude-opus-5' || {
+  echo 'FAIL: opencode fork --model must pass through'; printf '%s\n' "$_fopen"; exit 1; }
+_fopeneff="$(TMUXC_OPENCODE_DB="$EMPTYSTORE/none.db" TMUXC_OPENCODE_SESSIONS="$EMPTYSTORE/opensessions" \
+  "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC3B --source ses_abc123 --agent opencode --effort high --dry-run 2>&1 || true)"
+printf '%s\n' "$_fopeneff" | grep -q -- '--effort 는' || {
+  echo 'FAIL: opencode fork must reject --effort (no reasoning-effort concept)'; printf '%s\n' "$_fopeneff"; exit 1; }
+
+# cmd: --source 에 공백 포함 이름 (quoting 회귀 방지 — cmd --resume 는 id 뿐 아니라 name 도 받는다)
+_fcmd="$(TMUXC_CMD_PROJECTS="$EMPTYSTORE/cmd" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name 'FC4 seat#9' \
+  --source 'my session name' --agent cmd --effort low --dry-run 2>&1 || true)"
+# printf %q 의 정확한 이스케이프 스타일(작은따옴표 vs 백슬래시)은 bash 버전마다 다르다 —
+# «셸로 다시 파싱했을 때 하나의 토큰으로 복원되는지»만 검증한다(스타일이 아니라 안전성).
+_fcmd_argv="$(printf '%s\n' "$_fcmd" | sed -n 's/^command=//p')"
+eval "set -- $_fcmd_argv"
+_fcmd_src=""
+for ((_i = 1; _i <= $#; _i++)); do
+  [[ "${!_i}" == "--resume" ]] && { _j=$((_i + 1)); _fcmd_src="${!_j}"; break; }
+done
+[[ "$_fcmd_src" == "my session name" ]] || {
+  echo "FAIL: cmd fork must quote a space-bearing --source name so it survives shell re-parsing (got: '$_fcmd_src')"
+  printf '%s\n' "$_fcmd"; exit 1; }
+printf '%s\n' "$_fcmd" | grep -q -- 'session=FC4-seat#9' || {
+  echo 'FAIL: fork --name sanitize must preserve # while collapsing spaces (parity with open)'; printf '%s\n' "$_fcmd"; exit 1; }
+
+# ㉕ --ctx 는 claude 전용 (codex fork 에서 거부)
+_fctxc="$(TMUXC_CODEX_GLOB="$EMPTYSTORE/codex/*/*/*/rollout-*.jsonl" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC5 \
+  --source 019f0000-0000-0000-0000-0000000000fc --agent codex --ctx 1m --dry-run 2>&1 || true)"
+printf '%s\n' "$_fctxc" | grep -q -- '--ctx 는' || {
+  echo 'FAIL: fork --ctx with codex must be rejected'; printf '%s\n' "$_fctxc"; exit 1; }
+
+# ㉖ --source 존재 확인 — 저장소에 없는 id 는 거부, 있는 id 는 통과 (claude, glob 기반)
+NOTFOUNDSTORE="$(mktemp -d)/claude"; mkdir -p "$NOTFOUNDSTORE/proj"
+_fnf="$(TMUXC_CLAUDE_PROJECTS="$NOTFOUNDSTORE" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC6 \
+  --source ffffffff-0000-0000-0000-000000000000 --agent claude --dry-run 2>&1 || true)"
+printf '%s\n' "$_fnf" | grep -q 'not found in claude' || {
+  echo 'FAIL: --source id absent from the engine store must be rejected'; printf '%s\n' "$_fnf"; exit 1; }
+mkdir -p "$NOTFOUNDSTORE/proj"
+: > "$NOTFOUNDSTORE/proj/ffffffff-0000-0000-0000-000000000000.jsonl"
+_ffound="$(TMUXC_CLAUDE_PROJECTS="$NOTFOUNDSTORE" "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC7 \
+  --source ffffffff-0000-0000-0000-000000000000 --agent claude --dry-run 2>&1)"
+printf '%s\n' "$_ffound" | grep -q 'source_id=ffffffff-0000-0000-0000-000000000000' || {
+  echo 'FAIL: --source id present in the engine store must be accepted'; printf '%s\n' "$_ffound"; exit 1; }
+
+# ㉗ dry-run 은 side-effect-free — 세션이 실제로 생성되지 않는다
+tmux has-session -t FC7 2>/dev/null && { echo 'FAIL: fork --dry-run must not create a tmux session'; exit 1; }
+
+rm -rf "$EMPTYSTORE" "$NOTFOUNDSTORE" "$FORKCWD"
 
 echo "tmuxc verify OK"

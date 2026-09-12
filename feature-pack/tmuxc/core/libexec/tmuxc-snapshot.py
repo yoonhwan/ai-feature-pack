@@ -564,6 +564,39 @@ def cmd_emit(out_path, to_stdout):
     os.replace(tmp, out_path)
 
 
+def cmd_exists(agent, sid):
+    """tmuxc fork --source 용 best-effort 존재 확인. 저장소가 없으면(미구성 엔진)
+    판별 불가 = 'unknown' — «모른다»를 «없다»로 단정하지 않는다(fail-open)."""
+    if not sid:
+        print("unknown")
+        return
+    try:
+        if agent == "claude":
+            found = bool(glob.glob(os.path.join(os.path.expanduser(CLAUDE_PROJECTS), "*", sid + ".jsonl")))
+        elif agent == "cmd":
+            found = bool(glob.glob(os.path.join(os.path.expanduser(CMD_PROJECTS), "*", sid + ".jsonl")))
+        elif agent == "codex":
+            found = any(sid in os.path.basename(p) for p in glob.glob(os.path.expanduser(CODEX_GLOB)))
+        elif agent == "opencode":
+            found = False
+            db = os.path.expanduser(OPENCODE_DB)
+            if os.path.exists(db):
+                con = sqlite3.connect("file:" + db + "?mode=ro", uri=True, timeout=5)
+                try:
+                    found = con.execute("select 1 from session where id=?", (sid,)).fetchone() is not None
+                finally:
+                    con.close()
+            if not found:
+                found = bool(glob.glob(os.path.join(os.path.expanduser(OPENCODE_SESSIONS), "*", sid + ".json")))
+        else:
+            print("unknown")
+            return
+    except (OSError, sqlite3.Error):
+        print("unknown")
+        return
+    print("found" if found else "not-found")
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -571,9 +604,14 @@ def main():
     e = sub.add_parser("emit")
     e.add_argument("--out", default="")
     e.add_argument("--stdout", action="store_true")
+    x = sub.add_parser("exists")
+    x.add_argument("agent")
+    x.add_argument("sid")
     args = ap.parse_args()
     if args.cmd == "resolve":
         cmd_resolve()
+    elif args.cmd == "exists":
+        cmd_exists(args.agent, args.sid)
     else:
         cmd_emit(args.out, args.stdout)
 

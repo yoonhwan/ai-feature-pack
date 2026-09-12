@@ -9,6 +9,10 @@ Usage:
   tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--fast on|off] [--like SESSION] [--prompt TEXT] [--dry-run]
       --effort: claude·cmd·codex(-c model_reasoning_effort) / --fast: codex 전용(-c service_tier=priority)
   tmuxc wt <worktree-path> [same options as open]
+  tmuxc fork <path> --name NEW_NAME (--from LIVE_SESSION | --source ID --agent claude|codex|opencode|cmd) [--model ID] [--ctx 1m] [--effort E] [--role R] [--prompt TEXT] [--dry-run]
+      네이티브 fork — 부모 대화를 건드리지 않고 새 세션ID로 분기한다 (claude --fork-session / codex fork / opencode --fork / cmd --fork-session).
+      --from: 라이브 tmux 세션명에서 엔진·모델·effort·conversation id 를 그대로 조회 (--agent 는 교차엔진 검증용, 생략 가능)
+      --source: conversation id 를 직접 지정 (이때 --agent 필수 — --last 류의 경쟁적 추론은 하지 않는다)
   tmuxc list
   tmuxc attach <name>
   tmuxc send <name> <message>
@@ -324,6 +328,74 @@ agent_cmd() {
   esac
 }
 
+# ---------- fork: 네이티브 분기 (부모 대화 불변, 자식은 새 conversation id) ----------
+#
+# 4엔진 각각의 «네이티브 fork» 플래그 (2026-09-13 --help 실측, --last 류 경쟁 추론 없음):
+#   claude    : --resume <ID> --fork-session   (신규 세션ID 발급, 원본 이어쓰기 아님)
+#   codex     : codex fork <SESSION_ID> [PROMPT]  (0.154.0 --help; -c model=/-c model_reasoning_effort= 그대로 통함)
+#   opencode  : --session <ID> --fork             (1.18.20 --help; --continue --fork 도 가능하나 경쟁 축이라 미사용)
+#   cmd       : --resume <ID> --fork-session       (1.41.0 --help; --session 은 fork 계약에 없음)
+# omx 는 fork 근거 없음 — 대상에서 제외(TASK 범위: claude/codex/opencode/cmd).
+
+resolve_claude_fork_cmd() {
+  local name="$1" source_id="$2" model="${3:-}" effort="${4:-}" ctx="${5:-}"
+  local cmd
+  cmd="$HOME/.headroom/claude-hr.sh --dangerously-skip-permissions --resume $(printf '%q' "$source_id") --fork-session"
+  [[ -n "$model"  ]] && cmd="$cmd --model \"$(apply_ctx_window "$model" "$ctx")\""
+  [[ -n "$effort" ]] && cmd="$cmd --effort $effort"
+  printf '%s --name %q --remote-control %q' "$cmd" "$name" "$name"
+}
+
+resolve_codex_fork_cmd() {
+  local role="$1" source_id="$2" model="${3:-}" effort="${4:-}"
+  local role_effort model_opt=""
+  case "$role" in
+    worker|crew|plugin) role_effort=medium ;;
+    orchestrator|orch|verify|verifier|designer|architect|strategy|strategist) role_effort=high ;;
+    *) die "unknown role: $role" ;;
+  esac
+  [[ -n "$model" ]] && model_opt=" -c model=\"$model\""
+  printf 'codex fork %s --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="%s"%s' \
+    "$(printf '%q' "$source_id")" "${effort:-$role_effort}" "$model_opt"
+}
+
+resolve_opencode_fork_cmd() {
+  local source_id="$1" model="${2:-}"
+  local cmd="opencode --auto --session $(printf '%q' "$source_id") --fork"
+  [[ -n "$model" ]] && cmd="$cmd --model $(printf '%q' "$model")"
+  printf '%s' "$cmd"
+}
+
+resolve_cmdcode_fork_cmd() {
+  local name="$1" source_id="$2" model="${3:-}" effort="${4:-}"
+  local cc="cmd --yolo --trust --skip-onboarding --name $(printf '%q' "$name") --resume $(printf '%q' "$source_id") --fork-session"
+  [[ -n "$model"  ]] && cc="$cc --model $(printf '%q' "$model")"
+  [[ -n "$effort" ]] && cc="$cc --effort $(printf '%q' "$effort")"
+  printf '%s' "$cc"
+}
+
+agent_fork_cmd() {
+  local agent="$1" name="$2" role="$3" source_id="$4" model="${5:-}" effort="${6:-}" ctx="${7:-}"
+  case "$agent" in
+    claude)   resolve_claude_fork_cmd "$name" "$source_id" "$model" "$effort" "$ctx" ;;
+    codex)    resolve_codex_fork_cmd "$role" "$source_id" "$model" "$effort" ;;
+    opencode) resolve_opencode_fork_cmd "$source_id" "$model" ;;
+    cmd)      resolve_cmdcode_fork_cmd "$name" "$source_id" "$model" "$effort" ;;
+    *) die "fork not supported for agent: $agent (claude|codex|opencode|cmd only)" ;;
+  esac
+}
+
+# --source 로 직접 준 conversation id 가 그 엔진의 저장소에 실재하는지 best-effort 확인.
+# 헬퍼/저장소가 없으면(구성 안 된 엔진) 판별 불가 = fail-open — «모른다»를 «없다»로 단정하지 않는다.
+# --from 경로는 이미 실제 트랜스크립트를 찾아 sid 를 얻은 것이라 이 확인이 불필요하다.
+source_id_known_to_engine() {
+  local agent="$1" sid="$2"
+  local helper
+  helper="$(snapshot_helper_py)"
+  [[ -f "$helper" ]] || return 2
+  python3 "$helper" exists "$agent" "$sid" 2>/dev/null
+}
+
 # 세션의 라이브 claude 프로세스 argv에서 --model/--effort 를 회수한다.
 # 트랜스크립트의 "model" 필드는 [1m] 창 선택자·effort를 담지 않으므로(실측 확인),
 # 프로세스 argv가 유일한 authoritative 소스다. 라이브 세션에만 유효.
@@ -485,6 +557,159 @@ cmd_open() {
   fi
 
   printf 'tmuxc session created\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nattach=tmux attach -t %q\n' "$name" "$root" "$agent" "$role" "$name"
+}
+
+# --from <라이브 세션명> 의 conversation id 를 얻는다. argv 에 --resume/--session 이 없으면
+# (=처음 열린 세션, 가장 흔한 경우) 트랜스크립트 해석으로 폴백한다 — cmd_save 의 2단계
+# (session_agent_probe → tmuxc-snapshot.py resolve) 와 동일 파이프라인을 그대로 재사용한다.
+# cwd 매칭 기반이라 «--last 경쟁»이 아니라 «이 세션이 실제로 쓴 그 파일»을 찾는다.
+resolve_fork_source_from_live() {
+  local from="$1"
+  tmux has-session -t "$from" 2>/dev/null || die "source session not found: $from"
+  local probe
+  probe="$(session_agent_probe "$from" || true)"
+  [[ -n "$probe" ]] || die "fork: cannot determine source engine for live session '$from' (no known agent process found)"
+  local a m e s
+  a="$(printf '%s\n' "$probe" | sed -n 's/^agent=//p'  | head -1)"
+  m="$(printf '%s\n' "$probe" | sed -n 's/^model=//p'  | head -1)"
+  e="$(printf '%s\n' "$probe" | sed -n 's/^effort=//p' | head -1)"
+  s="$(printf '%s\n' "$probe" | sed -n 's/^sid=//p'    | head -1)"
+  if [[ -z "$s" ]]; then
+    local cwd helper row resolved
+    cwd="$(tmux display-message -p -t "$from" '#{session_path}' 2>/dev/null || true)"
+    [[ -n "$cwd" ]] || die "fork: cannot resolve cwd of source session '$from'"
+    helper="$(snapshot_helper_py)"
+    [[ -f "$helper" ]] || die "snapshot engine not found: $helper"
+    row="${from}${SEP}${cwd}${SEP}1${SEP}${SEP}${a}${SEP}${m}${SEP}${e}${SEP}"
+    resolved="$(printf '%s\n' "$row" | python3 "$helper" resolve)"
+    s="$(printf '%s\n' "$resolved" | awk -F"$SEP" '{print $8}')"
+    [[ -n "$s" ]] || die "fork: could not resolve conversation id for live session '$from' (no matching transcript found — is it a fresh, unresumed session with no prior turns yet?)"
+  fi
+  printf 'agent=%s\nmodel=%s\neffort=%s\nsid=%s\n' "$a" "$m" "$e" "$s"
+}
+
+cmd_fork() {
+  local path="" name="" agent="" role="${TMUXC_ROLE:-worker}"
+  local model="" effort="" ctx="" prompt="" dry_run=0
+  local from="" source_id=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --name) name="${2:-}"; shift 2 ;;
+      --agent) agent="${2:-}"; shift 2 ;;
+      --role) role="${2:-}"; shift 2 ;;
+      --from) from="${2:-}"; shift 2 ;;
+      --source) source_id="${2:-}"; shift 2 ;;
+      --model) model="${2:-}"; shift 2 ;;
+      --ctx) ctx="${2:-}"; shift 2 ;;
+      --effort) effort="${2:-}"; shift 2 ;;
+      --prompt) prompt="${2:-}"; shift 2 ;;
+      --dry-run) dry_run=1; shift ;;
+      --help|-h) usage; exit 0 ;;
+      --*) die "unknown option for fork: $1" ;;
+      *)
+        if [[ -z "$path" ]]; then
+          path="$1"; shift
+        else
+          die "unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [[ -n "$path" ]] || die "fork requires <path>"
+  [[ -d "$path" ]] || die "path does not exist: $path"
+  [[ -n "$name" ]] || die "fork requires --name"
+  name="$(sanitize_name "$name")"
+  [[ -n "$name" ]] || die "empty session name after sanitize"
+
+  [[ -n "$from" && -n "$source_id" ]] && die "fork: --from and --source are mutually exclusive"
+  [[ -n "$from" || -n "$source_id" ]] || die "fork requires --from <live-session> or --source <conversation-id> --agent <engine>"
+
+  local src_agent="" src_id="" src_model="" src_effort=""
+  if [[ -n "$from" ]]; then
+    local resolved
+    resolved="$(resolve_fork_source_from_live "$from")"
+    src_agent="$(printf '%s\n' "$resolved" | sed -n 's/^agent=//p'  | head -1)"
+    src_model="$(printf '%s\n' "$resolved" | sed -n 's/^model=//p'  | head -1)"
+    src_effort="$(printf '%s\n' "$resolved" | sed -n 's/^effort=//p' | head -1)"
+    src_id="$(printf '%s\n' "$resolved" | sed -n 's/^sid=//p'    | head -1)"
+    if [[ -n "$agent" && "$agent" != "$src_agent" ]]; then
+      die "fork: cross-engine mismatch — source '$from' is $src_agent, requested --agent $agent"
+    fi
+    agent="$src_agent"
+  else
+    [[ -n "$agent" ]] || die "fork: --source requires --agent (engine of the given conversation id)"
+    src_agent="$agent"
+    src_id="$source_id"
+  fi
+
+  case "$agent" in
+    claude|codex|opencode|cmd) ;;
+    *) die "fork: unsupported agent '$agent' (claude|codex|opencode|cmd only — omx has no native fork)" ;;
+  esac
+
+  # --source(직접 지정) 경로만 실재 확인 — --from 은 이미 실제 트랜스크립트로 sid 를 얻었다.
+  if [[ -n "$source_id" ]]; then
+    local exists_check
+    exists_check="$(source_id_known_to_engine "$agent" "$source_id" || true)"
+    [[ "$exists_check" == "not-found" ]] && \
+      die "fork: --source $source_id not found in $agent's session store (wrong id, or cross-engine mismatch) — verify the id or use --from <live-seat> instead"
+  fi
+
+  [[ -n "$model"  ]] || model="$src_model"
+  [[ -n "$effort" ]] || effort="$src_effort"
+
+  # 옵션 호환성 — cmd_open 의 규칙과 동일(방식 분기 금지)
+  if [[ -n "$effort" ]] && [[ "$agent" != "claude" && "$agent" != "cmd" && "$agent" != "codex" ]]; then
+    die "--effort 는 --agent claude|cmd|codex 에서만 사용 (agent=$agent)"
+  fi
+  if [[ -n "$ctx" ]] && [[ "$agent" != "claude" ]]; then
+    die "--ctx 는 --agent claude 에서만 사용 (agent=$agent)"
+  fi
+  if [[ -n "$ctx" && ! "$ctx" =~ ^[0-9]+[mk]$ ]]; then
+    die "--ctx 값 형식 오류: '$ctx' (예: 1m)"
+  fi
+
+  local root
+  root="$(repo_root_for "$path")"
+
+  local run_cmd
+  run_cmd="$(agent_fork_cmd "$agent" "$name" "$role" "$src_id" "$model" "$effort" "$ctx")"
+
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\nsource_agent=%s\nsource_id=%s\ncommand=%s\n' \
+      "$name" "$root" "$agent" "$role" "$src_agent" "$src_id" "$run_cmd"
+    return 0
+  fi
+
+  tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
+  ensure_serena "$root"
+  create_tmux_session "$name" "$root"
+  inject_message "$name" "$run_cmd"
+  sleep 4
+
+  local parent_hint="${from:-source=$source_id}"
+  # 뒤이어 --prompt 가 올 수도, 안 올 수도 있다 — "아래 작업만 수행하라"처럼 작업이
+  # 반드시 뒤따른다고 단정하면 --prompt 없이 fork 했을 때 자식이 «없는 작업»을
+  # 찾는 모순이 생긴다(2026-09-13 실라이브 검증에서 자식이 직접 지적).
+  local task_hint="뒤이어 --prompt 로 온 지시가 있으면 그것을 수행하고, 없으면 다음 지시를 대기하라."
+  local guide
+  if [[ "$agent" == "claude" ]]; then
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] FORK 세션(부모: $parent_hint) — 네이티브 fork 로 분기된 «새» 대화다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — 독립 좌석으로서 $task_hint"
+  elif [[ "$agent" == "cmd" ]]; then
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Command Code FORK 세션(부모: $parent_hint). 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 의 「Command Code 세션 특이사항」 절을 따를 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — $task_hint"
+  else
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc ${agent} FORK 세션(부모: $parent_hint). Codex/opencode 에는 --remote-control 이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — $task_hint"
+  fi
+  inject_message "$name" "$guide"
+  if [[ -n "$prompt" ]]; then
+    sleep 0.8
+    inject_message "$name" "$prompt"
+  fi
+
+  printf 'tmuxc fork created\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nsource_agent=%s\nsource_id=%s\nattach=tmux attach -t %q\n' \
+    "$name" "$root" "$agent" "$role" "$src_agent" "$src_id" "$name"
 }
 
 cmd_list() {
@@ -1364,6 +1589,7 @@ main() {
   shift || true
   case "$cmd" in
     open|wt) cmd_open "$@" ;;
+    fork) cmd_fork "$@" ;;
     list) cmd_list ;;
     attach)
       [[ -n "${1:-}" ]] || die "attach requires <name>"
