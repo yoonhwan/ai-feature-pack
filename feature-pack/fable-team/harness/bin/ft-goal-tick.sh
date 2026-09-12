@@ -50,6 +50,16 @@ ${ALERT:+$ALERT
 
 $BODY"
 
+# ★조용한 틱 (오빠 결정 2026-09-12)★ — rc=0(GOAL-OK) 은 «발주하지 않는다».
+#   이유: doorbell 은 pane 을 읽지 않고 주입한다(mbox.sh §doorbell 주석 그대로) — 좌석이 press
+#   한복판이어도 4분마다 「즉시 착수하라」가 타이핑돼 작업을 끊었다(실측: press 3회 도는 동안 연속).
+#   골 소실 방지의 강제력은 이 발주가 아니라 ⓑ commit-msg 훅 + ⓒ ft-goal-check 만료 판정에 있고,
+#   그 둘은 rc 와 무관하게 그대로 산다. 그래서 rc=3(REREAD-REQUIRED)·연속 미독 경보만 좌석을 부른다.
+if [ "$GATE_RC" -eq 0 ]; then
+  echo "$(date '+%F %T') tick quiet target=$TARGET rc=0 streak=$STREAK — $(printf '%s' "$GATE_OUT" | head -1 | cut -c1-160)"
+  exit 0
+fi
+
 # 긴 본문은 relay 정본 절차(요약+경로) — 700자 넘는 것을 큐에 직접 넣지 않는다.
 TMP="$(mktemp /tmp/goal-tick.XXXXXX)"; printf '%s\n' "$MSG" > "$TMP"
 SUMMARY="[goal-tick $(date '+%H:%M')] rc=$GATE_RC · $(printf '%s' "$GATE_OUT" | head -1 | cut -c1-160)${ALERT:+ · ★연속 ${STREAK}틱 미독★}"
