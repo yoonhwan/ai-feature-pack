@@ -496,6 +496,57 @@ printf '%s\n' "$_fcross" | grep -q 'cross-engine mismatch' || {
 cleanup_fork_fix
 trap - EXIT
 
+# ㉓-b session_agent_probe: cmd(Command Code, Node/Ink) 는 부팅 직후 자기
+# process.title 을 덮어써 ps 에 원래 argv("cmd ...")가 안 남는다 — «command-code»
+# (idle, 첫 턴 전)와 «⌘ <세션명>»(첫 턴 처리 후) 두 형태 모두 실측됐다
+# (2026-09-13, 크레딧 미소비 상태로 재현: exec -a 로 동일 문자열을 합성해
+# 실제 cmd 바이너리/크레딧 없이도 결정적으로 재현한다). 수정 전에는 이 두 형태
+# 모두 미검출이라 `tmuxc fork --from <라이브 cmd 세션>`이 항상
+# "cannot determine source engine"로 실패했다.
+CMDTITLEISO="$(mktemp -d)"
+cleanup_cmdtitle_iso() { env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux kill-server 2>/dev/null || true; rm -rf "$CMDTITLEISO" "$CMDFIX_ROOT"; }
+trap cleanup_cmdtitle_iso EXIT
+env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux new-session -d -s CMDTITLE_COLD -c /tmp
+env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux send-keys -t CMDTITLE_COLD -l 'exec -a command-code sleep 300'
+env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux send-keys -t CMDTITLE_COLD Enter
+env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux new-session -d -s CMDTITLE_HOT -c /tmp
+env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux send-keys -t CMDTITLE_HOT -l 'exec -a "⌘ CMDTITLE_HOT" sleep 300'
+env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux send-keys -t CMDTITLE_HOT Enter
+sleep 1
+_probe_cold="$(env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" bash -c '
+  eval "$(sed -n "/^pane_descendant_pids()/,/^}/p; /^session_agent_probe()/,/^}/p" "'"$ROOT"'/core/bin/tmuxc")"
+  session_agent_probe CMDTITLE_COLD
+' || true)"
+printf '%s\n' "$_probe_cold" | grep -q '^agent=cmd$' || {
+  echo 'FAIL: session_agent_probe must detect the cold-boot cmd title "command-code"'; printf '%s\n' "$_probe_cold"; exit 1; }
+_probe_hot="$(env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" bash -c '
+  eval "$(sed -n "/^pane_descendant_pids()/,/^}/p; /^session_agent_probe()/,/^}/p" "'"$ROOT"'/core/bin/tmuxc")"
+  session_agent_probe CMDTITLE_HOT
+' || true)"
+printf '%s\n' "$_probe_hot" | grep -q '^agent=cmd$' || {
+  echo 'FAIL: session_agent_probe must detect the post-turn cmd title "⌘ <name>"'; printf '%s\n' "$_probe_hot"; exit 1; }
+# 탐지가 고쳐졌으니 fork --from 이 "에이전트 미검출"을 넘어 트랜스크립트 해석까지
+# 진행되는지 — fixture 트랜스크립트를 붙여 실제 sid 해석까지 종단 검증한다.
+# 디렉터리명은 cwd_slug(실제 tmux 가 보고하는 cwd) 와 정확히 같아야 한다 —
+# tmux 는 -c /tmp 를 realpath(/private/tmp 등)로 보고할 수 있어 리터럴 "/tmp" 로
+# 슬러그를 만들면 어긋난다(ⓐ 실측: macOS 에서 /tmp 는 /private/tmp 심링크).
+CMDHOT_CWD="$(env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" tmux display-message -p -t CMDTITLE_HOT '#{session_path}')"
+CMDFIX_ROOT="$(mktemp -d)"; CMDFIX="$CMDFIX_ROOT/cmd"
+CMDHOT_SLUG="$(printf '%s' "$CMDHOT_CWD" | sed 's|[/.]|-|g')"
+mkdir -p "$CMDFIX/$CMDHOT_SLUG"
+printf '{"type":"user","message":{"content":"세션명(me)=CMDTITLE_HOT 시작"},"timestamp":"2026-09-13T00:00:00.000Z","cwd":"%s"}\n' "$CMDHOT_CWD" \
+  > "$CMDFIX/$CMDHOT_SLUG/11111111-2222-3333-4444-555555555555.jsonl"
+_ffromcmd="$(env -u TMUX TMUX_TMPDIR="$CMDTITLEISO" TMUXC_CMD_PROJECTS="$CMDFIX" \
+  "$ROOT/core/bin/tmuxc" fork "$CMDHOT_CWD" --name CMDTITLE_CHILD --from CMDTITLE_HOT --dry-run 2>&1 || true)"
+printf '%s\n' "$_ffromcmd" | grep -q 'source_agent=cmd' || {
+  echo 'FAIL: fork --from must resolve agent=cmd via the fixed title detection'; printf '%s\n' "$_ffromcmd"; exit 1; }
+printf '%s\n' "$_ffromcmd" | grep -q 'source_id=11111111-2222-3333-4444-555555555555' || {
+  echo 'FAIL: fork --from cmd must resolve the conversation id via transcript fallback'; printf '%s\n' "$_ffromcmd"; exit 1; }
+printf '%s\n' "$_ffromcmd" | grep -qF -- "--resume 11111111-2222-3333-4444-555555555555 --fork-session" || {
+  echo 'FAIL: resolved cmd conversation id must reach the native --resume --fork-session argv'; printf '%s\n' "$_ffromcmd"; exit 1; }
+cleanup_cmdtitle_iso
+trap - EXIT
+
 # ㉔ 4엔진 argv 빌더 — --source 직접 지정 경로. exists 확인을 통과시키려면 각 엔진
 # 저장소에 «그 sid 를 실제로 담은» fixture 가 있어야 한다(㉖ not-found 경로와 대칭).
 EMPTYSTORE="$(mktemp -d)"

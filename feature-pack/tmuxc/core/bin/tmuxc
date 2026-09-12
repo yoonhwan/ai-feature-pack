@@ -807,6 +807,13 @@ session_agent_probe() {
         codex)  kind="codex" ;;
         opencode|opencode.exe) kind="opencode" ;;
         cmd|cmdc) kind="cmd" ;;
+        # cmd(Command Code, Node/Ink)는 부팅 직후 process.title 을 자기 이름으로
+        # 덮어쓴다 — ps 에는 원래 argv("cmd ...")가 아니라 "command-code"(idle,
+        # 첫 턴 전)나 "⌘ <세션명>"(첫 턴 처리 후)만 보인다(2026-09-13 실측, 크레딧
+        # 미소비 상태로 재현: 부팅만 하고 질의는 안 보냄). 그래서 원래 판정은
+        # cmd 세션을 «에이전트 미검출»로 놓쳐 tmuxc fork --from 이 항상 실패했다.
+        command-code) kind="cmd" ;;
+        '⌘') kind="cmd" ;;
       esac
       [[ -n "$kind" ]] && break
     done
