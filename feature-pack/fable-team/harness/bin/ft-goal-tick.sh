@@ -13,6 +13,10 @@
 #      (b) commit-msg 훅이 같은 상태를 읽어 만료면 커밋 거부 (c) 연속 3틱 REREAD-REQUIRED 면
 #      사람 호출 줄을 프롬프트에 추가 + ~/.claude/…/goal-tick-alert 스탬프.
 set -uo pipefail
+# [master#39 2026-09-12] 크론 기본 PATH 에 tmux 가 없어 5회 연속 "target absent" 로 헛돌았다
+#   (11:32/36/40/44/48/52 · 세션은 실재 · env -i PATH=/usr/bin:/bin tmux -> "No such file").
+#   crontab 한 줄로 고치는 대신 스크립트가 자기 PATH 를 보장한다 — 승계·재설치 때도 따라간다.
+PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH
 ROOT="${FT_GOAL_TICK_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
 TARGET="${FT_GOAL_TICK_TARGET:-ft-v65-master#39}"
 STREAK_FILE="${FT_GOAL_TICK_STREAK:-/tmp/ft-goal-tick.streak}"
