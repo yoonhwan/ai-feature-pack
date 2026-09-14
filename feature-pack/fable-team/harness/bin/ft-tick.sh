@@ -104,7 +104,8 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
-    if v.get("_replaced_by") or v.get("role") not in ("master", "da", "pm", "nano", "harness-design"): continue
+    # impl/checker 는 나노 계열이라 정지 감시 대상. tester 는 press 슬롯을 master 가 게이트하므로 제외.
+    if v.get("_replaced_by") or v.get("role") not in ("master", "da", "pm", "nano", "impl", "checker", "harness-design"): continue
     print(f"{k}\t{v.get('role','')}")
 PY
 }
