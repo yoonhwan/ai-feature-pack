@@ -429,6 +429,16 @@ cmd_preview() {
 }
 render_pane() {  # stdin: capture-pane -e -J 원문 → 입력박스 이하 제거·연속 빈 줄 압축 (verify 가 골든으로 잰다)
   awk '
+    # 줄 끝 공백만 제거하고 끝에 붙은 SGR 은 되돌려 붙인다 (색 유지 + 불필요 wrap 제거)
+    function rstrip(l,   tail, changed) {
+      tail = ""
+      do {
+        changed = 0
+        if (match(l, /[ \t]+$/))                    { l = substr(l, 1, RSTART-1); changed = 1 }
+        if (match(l, /\033\[[0-9;?]*[a-zA-Z]$/))    { tail = substr(l, RSTART) tail; l = substr(l, 1, RSTART-1); changed = 1 }
+      } while (changed)
+      return l tail
+    }
     { s=$0; gsub(/\033\[[0-9;?]*[a-zA-Z]/, "", s); sub(/[ \t]+$/, "", s) }
     # 구분선 판정은 «바이트 안전»하게 — macOS awk 는 멀티바이트 문자에 (─)+ 를 못 건다
     # 첫 구분선엔 세션명이 박힌다(«──── NAME ────») — ─ 를 지운 나머지가 원문의 1/4 미만이면 구분선
@@ -442,7 +452,7 @@ render_pane() {  # stdin: capture-pane -e -J 원문 → 입력박스 이하 제�
       last = cut ? cut - 1 : NR
       for (i = 1; i <= last; i++) {
         if (blank[i] && (i == 1 || blank[i-1])) continue
-        print lines[i]
+        print rstrip(lines[i])
       }
     }'
 }
@@ -505,8 +515,8 @@ cmd_pw() {
   if [ "${1:-}" = big ]; then [ -f "$RUN/pwbig" ] && rm -f "$RUN/pwbig" || : > "$RUN/pwbig"; fi
   [ -f "$RUN/pwbig" ] && big=1
   local out
-  if [ "$w" -ge 120 ]; then out="right,$([ -n "$big" ] && echo 75% || echo 55%),wrap,follow,noinfo,border-left"
-  else out="down,$([ -n "$big" ] && echo 80% || echo 50%),wrap,follow,noinfo,border-top"; fi
+  if [ "$w" -ge 120 ]; then out="right,$([ -n "$big" ] && echo 75% || echo 55%),wrap-word,follow,noinfo,border-left"
+  else out="down,$([ -n "$big" ] && echo 80% || echo 50%),wrap-word,follow,noinfo,border-top"; fi
   printf '%s' "$out" > "$RUN/pw"; printf '%s' "$out"
 }
 
@@ -541,7 +551,8 @@ cmd_tui() {
       --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || echo '좌석> ')" --pointer='▶' \
       --header="$(cmd_header)" --header-first \
       --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
-      --bind "resize:transform-header($SELF header)+transform($SELF pw-action)" \
+      --preview-wrap-sign='' \
+      --bind "resize:transform($SELF pw-action)" \
       --bind "start:transform($SELF pw-action)" \
       --preview-label=' pane ' \
       --border=top --border-label=" tmm $TMM_VERSION " --border-label-pos=-3:top \
@@ -564,7 +575,11 @@ cmd_tui() {
       --bind "ctrl-/:transform-header($SELF header)" \
       < <(cmd_rows_cur))"; rc=$?
     kill "$pinger" 2>/dev/null; wait "$pinger" 2>/dev/null; rm -f "$sock"
-    [ $rc -eq 0 ] || return 0                   # ^X / Esc → 종료
+    case "$rc" in
+      0)   ;;                                   # 선택 — 아래에서 키 처리
+      130) return 0 ;;                          # ^X / Esc → 진짜 종료
+      *)   printf '(화면이 끊겼습니다 — 다시 엽니다)\n' >&2; sleep 0.5; continue ;;   # 리사이즈 중 fzf 사망 등
+    esac
     key="${out%%$'\n'*}"; rows="${out#*$'\n'}"; sel="$(printf '%s' "$rows" | head -1 | cut -f2)"
     # ^B = «지금 화면에 보이는(필터·정렬 적용된) 행 전부» 일괄 복구. select-all+accept 로 전 행이 out 에 실려 온다.
     if [ -f "$RUN/bulk" ]; then
