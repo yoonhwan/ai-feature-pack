@@ -11,7 +11,8 @@
 #   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
 #   tmm doctor       의존성·환경 점검
 #   ※ TUI 는 tmux 세션 «tmm» 안에서 뜬다(터미널이 창 리사이즈 중 pty 를 회수해도 안 죽게). 좌석에 붙었다가
-#     돌아올 때는 tmux 기본 키 C-a L(직전 세션) 또는 C-a s(세션 트리). TMM_NO_WRAP=1 로 끄고, TMM_SESSION 으로 이름 변경.
+#     좌석에 붙었다가 C-a d 를 누르면 피커로 돌아온다(조건부 바인딩 — 피커 세션에서는 원래대로 detach).
+#     TMM_NO_WRAP=1 로 래핑을, TMM_NO_DBIND=1 로 그 바인딩을 끄고, TMM_SESSION 으로 세션명을 바꾼다.
 #   tmm dead [PAT] [--since H] [--all]   종료된 세션 목록 (재부팅·kill 로 사라진 좌석 — tmuxc 미관리 포함)
 #   tmm dp NAME|SID [N]                  종료 세션의 마지막 대화 N줄
 #   tmm restore NAME [--dry-run]         종료 세션 1건 복구 (resume) → attach
@@ -79,7 +80,15 @@ tui_wrap() {
   [ "${TMM_NO_WRAP:-0}" != 1 ] || return 0             # 명시적 비래핑
   command -v tmux >/dev/null 2>&1 || return 0
   local sess="${TMM_SESSION:-tmm}"
-  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}"
+  # ★좌석에서 C-a d 를 누르면 피커로 돌아온다★ — 기본 detach 는 tmux 밖(셸)으로 떨어져 «tmm 이 끝난» 것처럼 보인다.
+  #   조건부 바인딩: 지금이 피커 세션이면 원래대로 detach, 아니면 피커 세션으로 switch.
+  #   피커 세션이 없으면(=tmm 안 씀) 기본 detach 그대로라 다른 워크플로를 깨지 않는다. TMM_NO_DBIND=1 로 끈다.
+  local dbind=()
+  if [ "${TMM_NO_DBIND:-0}" != 1 ]; then
+    dbind=(';' bind-key d if-shell -F "#{==:#{session_name},$sess}" detach-client \
+           "if-shell 'tmux has-session -t =$sess' 'switch-client -t =$sess' detach-client")
+  fi
+  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" "${dbind[@]}"
 }
 
 # ---------- 카테고리 ----------
