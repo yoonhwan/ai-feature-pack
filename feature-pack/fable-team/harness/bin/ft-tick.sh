@@ -22,6 +22,15 @@ PIDFILE="${FT_TICK_PIDFILE:-/tmp/ft-tick.pid}"
 MASTER_INTERVAL="${FT_TICK_MASTER_INTERVAL:-900}"; MASTER_MIN_GAP="${FT_TICK_MASTER_MIN_GAP:-840}"
 PM_INTERVAL="${FT_TICK_PM_INTERVAL:-600}";         PM_MIN_GAP="${FT_TICK_PM_MIN_GAP:-540}"
 GOAL_INTERVAL="${FT_TICK_GOAL_INTERVAL:-240}"
+# ★정지 감시 (2026-09-14 오빠: 「멈춰있으면 안 돼. 안 멈춰있게 장치 마련」)★
+#   판정 = ft-seat-status.sh(jsonl mtime AND pane) — 정지면 그 좌석 창에 «깨우는 한 줄»을 넣고,
+#   2회 깨워도 그대로면 master 에 --urgent. 사람 입력(옵션 모드) 대기면 깨우지 않고 바로 master(09-02 원장).
+#   대상 = seats.json 현역 중 role ∈ master·da·pm·nano·harness-design (tester 는 제외 — press 슬롯은 master 게이트).
+STALL_INTERVAL="${FT_TICK_STALL_INTERVAL:-300}"   # 감시 주기(초)
+STALL_MIN="${FT_TICK_STALL_MIN:-15}"              # 이 분 이상 jsonl 무활동이면 정지
+STALL_WAKE_GAP="${FT_TICK_STALL_WAKE_GAP:-900}"   # 같은 좌석 재깨움 최소 간격(초)
+SEAT_STATUS="${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
+MBOX="${FT_TICK_MBOX:-$HERE/../comm/mbox.sh}"
 ONCE=0; DRY=0
 for a in "$@"; do case "$a" in --once) ONCE=1;; --dry-run) DRY=1;; *) echo "usage: $0 [--once] [--dry-run]" >&2; exit 2;; esac; done
 
@@ -43,7 +52,11 @@ PY
 }
 master_seat() { awk -F'\t' '$3=="master"{print $1; exit}' <<< "$1"; }
 
-MASTER_MSG="[cron-tick] master 점검 틱 — ★i-have-adhd 스타일로 출력(행동 우선·표·상태 재고지)★. ①★세션별 상세 테이블 필수★: 좌석명 / 에이전트 / ★지금 무슨 작업을 하는가★ / 상태(작업중·대기·응답없음·소진) — mbox 로 확인하고 pane 캡처로 판정 금지 ②★arch 가 지정한 구현 윈도우 상태★: 지금 닫는 인덱스 번호와 제목 / 사이클 단계(①기획~⑥정리 중 어디) / ★무엇을 구현 중인가★ / 남은 것 ③사용자 확인이 필요한 항목 — 있으면 모아서 한 번에(워커가 직접 묻지 않는다) ④press 순번 충돌과 GPU 창 잔여 ⑤미커밋 산출물이 있으면 커밋 ⑥★새 지시가 있었으면 USER-ORDERS-REGISTER 에 등록됐는지 확인★ ⑦★★oc 좌석 정지 감지★★ — impl-oc·checker-oc·tester-oc 등 opencode 좌석은 ★가끔 조용히 멈춘다★. 판별: ★작업 중인 파일의 mtime 이 10분 이상 정지★ + ★git diff --stat 변화 없음★ + ctx·비용 거의 안 움직임. ★★멈춘 것으로 보이면 오빠께 즉시 개입 요청★★(오빠가 취소 후 continue 를 걸면 재개된다). 실측 근거(파일 mtime·경과분)를 함께 올릴 것. 변화 없으면 \"변화 없음\" 1줄."
+# ★master 틱 = «뉴스 발행» (2026-09-14 오빠 지시 원문: 「master는 메세지가 이런게 아니고 진행중과 남은작업을 정리해서 현재 어떤 작업을
+#   하고 있다는 뉴스가 발행되야하낟. 테스트는 어떻게 계획중이고 완성까지 전망을 발행. 멈춘거면 어디 세션을 확인하라고 알리던가
+#   master가 인터뷰 걸어서 나에게 알리고 선택하면 전파 돌파」). 점검 항목 나열이 아니라 «지금·남은·테스트·전망» 네 칸의 짧은 뉴스다.
+#   정지는 ft-tick 의 stall 감시가 [stall] 로 master 에 올린다 — master 는 그걸 받으면 «어느 세션을 보라» 한 줄 또는 AskUserQuestion.
+MASTER_MSG="[cron-tick · 뉴스 발행] 아래 네 칸을 «뉴스»로 발행(i-have-adhd, 각 칸 1~3줄, 값·경로·좌석명으로): ▶지금: 어느 인덱스(indices/진행/ 파일명)를 누가(좌석) 어느 단계(①press②원인③DA④구현⑤재press⑥클로즈)에서 하고 있나 ▶남은 것: indices/대기/ 상위 3개 + 각각의 선행 조건 ▶테스트 계획: 다음 press 는 무엇을 재고(인덱스 §완료 조건 값) 언제(선행이 무엇 끝나면) 쏘나 ▶완성 전망: 열린 M?/K? 축 중 이번 인덱스가 닫는 것과 그 다음 — 시각이 아니라 «press 몇 회·단위 몇 개» 로. ★정지 처리★: mbox 에 [stall] 이 있으면 뉴스 첫 줄에 «확인할 세션: <좌석> — <이유>» 를 넣고, 좌석 교체·사람 개입 중 선택이 필요하면 AskUserQuestion 으로 오빠에게 묻고 답을 그 좌석·pm 에 전파한다. 그 외 ⑤미커밋 커밋 ⑥USER-ORDERS 등재 확인은 뉴스 끝에 한 줄. 변화 없으면 \"변화 없음 — 지금: <한 줄>\" 1줄."
 pm_msg() { # $1 = report_to
   echo "[cron-tick] pm 점검 틱(v65 정본 기준, 2026-09-13 master-sonnet#0 개정 — PROGRESS.md/fable-orch/ammo 계열 폐기, 참조 금지) — RUNLOG-pm1-v65-timeline.md(최신 E번호)·NANO-LEDGER-pm1-temp-sessions.md·GOAL-LEDGER-v65.md·GOAL-20260912-clear-list.md 대조해 ①골 대조 한 줄(지금 진행 중인 것이 M?/G? 어느 축인가) ②원장 미등재 항목 유무 ③활성 나노(ft-v65-temp-*) 전수 @zc_v65_active 태그 확인 — 0 인 활성 좌석은 이 틱에서 즉시 tmux set-option 으로 표식 ④사람 확인 필요 항목은 모아서 $1 에. 변화 없으면 \"변화 없음\" 1줄."
 }
@@ -81,8 +94,58 @@ goal() {
   now > "$stamp"
 }
 
+# seats.json 현역 전부(tick 유무 무관) → "seat<TAB>role". stop-ready·_replaced_by·tester 제외.
+active_seats() {
+  python3 - "$SEATS" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for k, v in d.items():
+    if k.startswith("_") or not isinstance(v, dict): continue
+    if v.get("_replaced_by") or v.get("role") not in ("master", "da", "pm", "nano", "harness-design"): continue
+    print(f"{k}\t{v.get('role','')}")
+PY
+}
+
+stall() {
+  local stamp gap rows seat role line pane age agent thr p wstamp wgap cnt msg master
+  stamp="$(stamp_of _all stall)"; gap=$(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) ))
+  if [ "$DRY" = 1 ]; then echo "DRY kind=stall interval=${STALL_INTERVAL}s min=${STALL_MIN}m seats=$(active_seats 2>/dev/null | cut -f1 | tr '\n' ' ')"; return 0; fi
+  [ "$gap" -ge "$STALL_INTERVAL" ] || return 0
+  now > "$stamp"
+  [ -f "$SEAT_STATUS" ] || { echo "$(date '+%F %T') stall: seat-status missing $SEAT_STATUS" >&2; return 0; }
+  rows="$(active_seats 2>/dev/null)" || { echo "$(date '+%F %T') stall: seats.json unreadable" >&2; return 0; }
+  master="$(awk -F'\t' '$2=="master"{print $1; exit}' <<< "$rows")"
+  thr=$(( STALL_MIN * 60 ))
+  while IFS=$'\t' read -r seat role; do
+    [ -n "$seat" ] || continue
+    p="$(pane_of "$seat")"; [ -n "$p" ] || continue          # 세션 없음은 정지가 아니라 부재 — master 틱이 본다
+    line="$(bash "$SEAT_STATUS" one "$seat" 2>/dev/null)"
+    read -r _ pane age agent _ <<< "$line"
+    case "$age" in ''|*[!0-9]*) continue;; esac              # 비-claude 는 jsonl 없음 — 여기선 판정 안 함
+    # 정지 = jsonl ≥ thr AND (pane IDLE  OR  jsonl ≥ 2×thr) — 후자는 «완료 요약행 BUSY 오판» 대비
+    if [ "$age" -ge "$thr" ] && { [ "$pane" = IDLE ] || [ "$age" -ge $(( thr * 2 )) ]; }; then
+      if tmux capture-pane -t "$p" -p 2>/dev/null | LC_ALL=C grep -qa 'Enter to select'; then
+        [ -n "$master" ] && [ "$seat" != "$master" ] && bash "$MBOX" send "$master" ft-tick "[stall] $seat 가 사람 입력(옵션 모드) 대기 ${age}s — 깨우지 않았다. 오빠 개입 필요" --urgent >/dev/null 2>&1
+        log "stall $seat — option mode (age=${age}s), escalated to ${master:-none}"; continue
+      fi
+      wstamp="$(stamp_of "$seat" stall)"; wgap=$(( $(now) - $(cat "$wstamp" 2>/dev/null || echo 0) ))
+      [ "$wgap" -ge "$STALL_WAKE_GAP" ] || continue
+      cnt=$(( $(cat "$wstamp.count" 2>/dev/null || echo 0) + 1 )); echo "$cnt" > "$wstamp.count"
+      msg="[stall-wake $((age/60))분 정지 · ${cnt}회] 멈춰 있지 마라. ① bash $MBOX recv $seat ② $SEATS 의 내 행 index/inbox 를 열어 다음 단위 착수 ③ 정말 할 일이 없으면 ${master:-master} 에 mbox 로 «정지 레디» 1줄 보고 후 대기. 판단이 갈리면 묻지 말고 값과 함께 ${master:-master} 에."
+      tmux send-keys -t "$p" -l "$msg"; sleep 0.3; tmux send-keys -t "$p" Enter
+      now > "$wstamp"; log "stall-wake sent to $seat (age=${age}s pane=$pane cnt=$cnt)"
+      if [ "$cnt" -ge 2 ] && [ -n "$master" ] && [ "$seat" != "$master" ]; then
+        bash "$MBOX" send "$master" ft-tick "[stall] $seat ${age}s 정지 · 깨움 ${cnt}회 무응답(pane=$pane, role=$role) — 좌석 교체(ft-role-spawn/ft-nano-spawn) 또는 오빠 개입 판단" --urgent >/dev/null 2>&1
+      fi
+    else
+      rm -f "$(stamp_of "$seat" stall).count" 2>/dev/null   # 회복 → 카운터 리셋
+    fi
+  done <<< "$rows"
+}
+
 pass() {
   local rows seat tick role report_to
+  stall
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
   report_to="$(master_seat "$rows")"; report_to="${FT_TICK_PM_REPORT_TO:-${report_to:-ft-v65-master}}"
