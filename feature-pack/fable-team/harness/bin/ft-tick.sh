@@ -10,6 +10,13 @@
 #              ③ pane busy·미제출 입력 스킵 ④ 전송 후 제출 검증(미제출이면 Enter 1회)
 #   ft-tick.sh [--once] [--dry-run]   --once=한 바퀴만 · --dry-run=대상·메시지 앞 80자만 출력(전송·stamp 없음)
 #   seats.json 을 못 읽으면 stderr 에 찍고 다음 루프(조용히 건너뛰지 않는다). 세션명에 '#' 가 있어 pane_id 로 송신.
+#
+#   ★Seatbelt 1.1 (2026-09-14 오빠: 「대상세션 pane읽어서 작업 안하고있으면 master에도 mbox 리드 메세지 직접 보내는것으로 하자」)★
+#   idle_watch(): 매 루프(60s) 현역 좌석 전부(master 제외)의 «턴 경계»를 ft-seat-status.sh turn 으로 읽어 WORKING→IDLE
+#   «전이 순간» 1회만 master 우편함에 [idle-detected] 를 --urgent 로 묶어 보낸다(DRAFT-harness-upgrade-v65.md §7). stall() 은 회복 경로로 그대로.
+#   env: FT_TICK_IDLE_ENABLED(1) · FT_TICK_STATE_DIR(/tmp/ft-tick-state · --dry-run 은 /tmp/ft-tick-state-dry — 실전 상태를 안 건드린다)
+#        FT_TICK_TURN_FIXTURE_DIR(<dir>/<seat>.jsonl 이 있으면 그 파일로 판정 — 완료조건 dry-run 3회 시험용)
+#   --dry-run 도 상태파일은 쓴다(전송만 생략) — 전이 판정을 3회 연속 실행으로 검증하기 위해.
 set -uo pipefail
 PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -33,6 +40,9 @@ SEAT_STATUS="${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
 MBOX="${FT_TICK_MBOX:-$HERE/../comm/mbox.sh}"
 ONCE=0; DRY=0
 for a in "$@"; do case "$a" in --once) ONCE=1;; --dry-run) DRY=1;; *) echo "usage: $0 [--once] [--dry-run]" >&2; exit 2;; esac; done
+IDLE_ENABLED="${FT_TICK_IDLE_ENABLED:-1}"
+STATE_DIR="${FT_TICK_STATE_DIR:-/tmp/ft-tick-state$([ "$DRY" = 1 ] && echo -dry)}"
+FIXTURE_DIR="${FT_TICK_TURN_FIXTURE_DIR:-}"
 
 log() { echo "$(date '+%F %T') $*"; }
 now() { date +%s; }
@@ -149,8 +159,89 @@ stall() {
   done <<< "$rows"
 }
 
+# ── Seatbelt 1.1 idle 전이 알림 ──────────────────────────────────────────────────────────────
+# seats.json 현역 «전부» → "seat<TAB>role" (_ 키·_replaced_by·role=stop-ready 제외 · role 무관 — 오빠 「어떤 세션이던 제네럴하게」)
+all_seats() {
+  python3 - "$SEATS" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for k, v in d.items():
+    if k.startswith("_") or not isinstance(v, dict): continue
+    if v.get("_replaced_by") or v.get("role") == "stop-ready": continue
+    print(f"{k}\t{v.get('role','')}")
+PY
+}
+iso_epoch() { TZ=UTC date -j -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null; }
+turn_line() {  # $1 seat → "STATE TURN_END DURATION_MS REPORTED SOURCE" (픽스처가 있으면 그 파일로)
+  if [ -n "$FIXTURE_DIR" ] && [ -f "$FIXTURE_DIR/$1.jsonl" ]; then bash "$SEAT_STATUS" turn --file "$FIXTURE_DIR/$1.jsonl" 2>/dev/null
+  else bash "$SEAT_STATUS" turn "$1" 2>/dev/null; fi
+}
+
+# 상태파일 STATE_DIR/<seat>.turn = "state turn_end notified" 3값. 알림 = «전이 순간» 1회 (같은 turn_end 로 두 번 안 보낸다).
+#   jsonl 좌석: 이전 상태가 IDLE 이 아니거나 turn_end 가 바뀌었으면(사이에 한 턴이 끝남) 전이. 첫 관측은 전이가 아니다 —
+#              turn_end 가 2×LOOP_SEC 안쪽이면 알리고 아니면 심기만(오래된 idle 은 stall() 몫 · 재기동 폭풍 0).
+#   pane 좌석(jsonl 없는 codex·cmd·opencode): WORKING→IDLE1(1루프 조용)→IDLE 로 2루프 연속 디바운스. 첫 관측 IDLE 은 그냥 심는다.
+#   옵션모드(Enter to select) = waiting=human — 전이·창 무관하게 대상, 키는 <turn_end>/human 으로 1회.
+#   pane 없는 좌석은 상태파일 삭제·무알림(부재는 master 틱·close 몫). 한 루프의 대상 전부 → master 에 한 메시지 --urgent.
+idle_watch() {
+  local rows master seat role p st end dur rep src pst pend pnot notify key human ep lines targets n body rc t_seat t_st t_end t_key hhmm secs
+  [ "$IDLE_ENABLED" = 1 ] || { log "idle_watch disabled (FT_TICK_IDLE_ENABLED=$IDLE_ENABLED)"; return 0; }
+  [ -f "$SEAT_STATUS" ] || { echo "$(date '+%F %T') idle_watch: seat-status missing $SEAT_STATUS" >&2; return 0; }
+  rows="$(all_seats 2>/dev/null)" || { echo "$(date '+%F %T') idle_watch: seats.json unreadable ($SEATS)" >&2; return 0; }
+  master="$(awk -F'\t' '$2=="master"{print $1; exit}' <<< "$rows")"
+  [ -n "$master" ] || { echo "$(date '+%F %T') idle_watch: no active master in $SEATS" >&2; return 0; }
+  mkdir -p "$STATE_DIR"
+  lines=""; targets=""; n=0
+  while IFS=$'\t' read -r seat role; do
+    [ -n "$seat" ] && [ "$seat" != "$master" ] || continue
+    p="$(pane_of "$seat")"
+    [ -n "$p" ] || { rm -f "$STATE_DIR/$seat.turn"; continue; }
+    read -r st end dur rep src <<< "$(turn_line "$seat")"
+    [ -n "$st" ] || continue
+    read -r pst pend pnot <<< "$(cat "$STATE_DIR/$seat.turn" 2>/dev/null)"
+    human=0; tmux capture-pane -t "$p" -p 2>/dev/null | LC_ALL=C grep -qa 'Enter to select' && human=1
+    notify=no; key="$end"
+    if [ "$src" = pane ]; then
+      key="pane@$(now)"
+      case "${pst:-}:$st" in
+        WORKING:IDLE) st=IDLE1;;
+        IDLE1:IDLE)   notify=yes;;
+      esac
+    elif [ "$st" = IDLE ]; then
+      if [ -z "${pst:-}" ]; then
+        ep="$(iso_epoch "$end")"; [ -n "$ep" ] && [ $(( $(now) - ep )) -le $(( 2 * LOOP_SEC )) ] && notify=yes
+      elif [ "$pst" != IDLE ] || [ "$end" != "$pend" ]; then notify=yes
+      fi
+      [ "$key" = "${pnot:-}" ] && notify=no
+    fi
+    if [ "$human" = 1 ]; then key="$end/human"; [ "$key" != "${pnot:-}" ] && notify=yes; fi
+    [ "$DRY" = 1 ] && echo "DRY kind=idle seat=$seat state=$st prev=${pst:--} turn_end=$end notify=$notify"
+    if [ "$notify" != yes ]; then echo "$st $end ${pnot:--}" > "$STATE_DIR/$seat.turn"; continue; fi
+    # 알림 대상은 여기서 상태를 쓰지 않는다 — send 결과를 본 뒤 쓴다(실패면 이전 상태 유지 → 다음 루프 재감지)
+    secs="-"; case "$dur" in ''|-|*[!0-9]*) ;; *) secs=$(( dur / 1000 ));; esac
+    hhmm="-"; ep="$(iso_epoch "$end")"; [ -n "$ep" ] && hhmm="$(date -r "$ep" +%T)"
+    lines+="[idle-detected] $seat role=$role turn=${secs}s end=$hhmm reported=$rep source=$src$([ "$human" = 1 ] && echo ' waiting=human')"$'\n'
+    targets+="$seat"$'\t'"$st"$'\t'"$end"$'\t'"$key"$'\t'"${pst:-}"$'\t'"${pend:-}"$'\t'"${pnot:-}"$'\n'; n=$(( n + 1 ))
+  done <<< "$rows"
+  [ "$n" -gt 0 ] || return 0
+  body="${lines}mbox recv 뒤 다음 발주 판단"
+  if [ "$DRY" = 1 ]; then echo "DRY kind=idle send to=$master n=$n"; rc=0
+  else bash "$MBOX" send "$master" ft-tick "$body" --urgent >/dev/null 2>&1; rc=$?; fi
+  while IFS=$'\t' read -r t_seat t_st t_end t_key t_pst t_pend t_pnot; do
+    [ -n "$t_seat" ] || continue
+    if [ "$rc" = 0 ]; then echo "$t_st $t_end $t_key" > "$STATE_DIR/$t_seat.turn"
+    else
+      echo "$(date '+%F %T') idle_watch: mbox failed rc=$rc seat=$t_seat" >&2
+      if [ -n "$t_pst" ]; then echo "$t_pst $t_pend ${t_pnot:--}" > "$STATE_DIR/$t_seat.turn"; else rm -f "$STATE_DIR/$t_seat.turn"; fi
+    fi
+  done <<< "$targets"
+  [ "$rc" = 0 ] && [ "$DRY" != 1 ] && log "idle-detected ×$n sent to $master"
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to
+  idle_watch
   stall
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
