@@ -88,6 +88,20 @@ v3 기본값은 **전 역할 tmuxc 세션**이다(비-tmuxc 경로 0 — 승인�
 - **모델 라우팅**: `tmuxc open --name <sess> --agent claude|codex --role <role> --prompt <계약경로>`가 정본. 모델 full-ID·effort·`FT_WORKER_ROLE` env 주입 가능 여부는 install.json `tmuxc_caps`가 판정 — 갭 시 승인된 `raw_launch_fallback`(headroom 기동 합성) 또는 스폰 스크립트 `exit 4 CAPABILITY_GAP` HIL 상신.
 - **역할 계약 전달**: `~/.claude/agents/ft-*.md`는 tmux 세션에 미적용 → 본문을 세션 계약 프롬프트 `.fable-team/prompts/<role>.md`로 이관(Phase 3 산출). 스폰 후 `[orch-><sess>] 계약: <path> Read 후 시작. 입력: <경로들>` 1줄 send.
 - **설치 배선**: 세션 계약 프롬프트 원본은 `skill/templates/session-prompts/*.md`(8종) — 설치·업데이트 시 `agent-templates`와 **동일 `{{...}}` 키로 치환**해 `.fable-team/prompts/<role>.md`로 복사한다(신규 인터뷰 질문 불요). 절차는 `references/install-interview.md` §5-3-2, 재치환은 `references/update.md`. 잔여 `{{`는 설치 실패로 간주.
+- **Seatbelt 1.0.0 — 좌석 명부·인덱스·나노 생명주기·틱**: `references/SEATBELT.md` (부팅 5단계 · 인덱스=작업 · 상태=폴더 · 좌석은 갈아 끼운다). 알림 여부는 `seats.json`(`tick`) 이 정한다 — `ft-mbox.sh send` 의 `--no-notify` 는 WARN+무시, `--urgent` 는 항상 울림. 템플릿 `templates/seats.json.example` · `templates/index.md.example`.
+
+  | 스크립트 | 하는 일 | exit |
+  |---|---|---|
+  | `ft-index-lint.sh <index.md>…` | 인덱스가 «누가 읽어도 착수 가능»한가(골 3줄 바이트 일치 · 6절 · 닫는 증거 정본 실재 · 인용 ≤4 · 경로 실재) | 0 OK · 1 REJECT · 2 usage |
+  | `ft-index-move.sh <index.md> <대기\|진행\|완성> [--da F#§N] [--seat S]` | 상태=폴더. 대기→진행 은 lint+`--seat`, 진행→완성 은 `--da` 판정문에 「닫힘」/「CLOSE」 필수 | 0 · 1 · 2 |
+  | `ft-nano-spawn.sh <indices/대기/X.md> [--agent] [--model] [--dry-run]` | 나노 좌석 한 번에: lint → 워크트리 → tmuxc open → remain-on-exit+태그 → seats.json → 대기→진행 → 첫 발주 → jsonl 도달 | 0 · 1 · 2 · 5(도달 미확인) |
+  | `ft-nano-close.sh <좌석> --result P --recv SEQ [--kill]` | 값 3종(결과 실재 · master 회수 seq · 유휴)으로 닫고 명부 삭제·원장 append. kill 은 keep-last-2 밖일 때만 | 0 · 1 · 2 · 3(HIL) |
+  | `ft-role-spawn.sh <master\|da\|pm> [--agent] [--model] [--dry-run]` | 역할 좌석 교체(행 추가+계보 `_replaced_by`/`_replaces`) + 인박스 첫 발주. 구 좌석 kill 안 함 | 0 · 1 · 2 · 5 |
+  | `ft-tick.sh [--once] [--dry-run]` | 통합 틱: seats.json 을 매 루프 다시 읽어 master(900s+goal 240s)·pm(600s) 프롬프트 + `stall()` 정지 감시(5분) | — |
+  | `ft-tick.plist` · `ft-tick-install.sh [--uninstall]` | launchd KeepAlive 로 틱 생존(`com.byz.ft-tick`, 로그 `/tmp/ft-tick.log`) | — |
+  | `ft-seat-status.sh list\|one <좌석>\|stalled [--min N]` | 좌석 정지 판정 정본 = jsonl mtime AND pane 스피너. pane 텍스트 단독 판정 금지 | — |
+
+  v65 고유 상수는 env 기본값(`FT_NANO_PREFIX` `FT_NANO_WT_PREFIX` `FT_ACTIVE_TAG` `FT_NANO_LEDGER` `FT_GOAL_LEDGER` `FT_GOAL_LINES_FILE` `FT_SEATBELT_README` `FT_INBOX_ROOT` `FT_TICK_MASTER_MSG` `FT_TICK_PM_MSG`) — 로직 무변경. `ft-tick.sh` 의 goal-tick 은 `FT_TICK_GOAL_TICK`(기본 옆 `ft-goal-tick.sh`, 팩 미포함 — 없으면 로그 한 줄 후 건너뜀).
 - **보고·통신**: 산출물은 워커가 직접 Write, 완료는 파일 센티널(`<sess>.done` 원자 tmp+mv), 오케 수신은 `ft-tmux-poll.sh` 1줄 호출(`DONE <path>`/`MSG`/`NEEDS_INPUT`/`RUNNING`/`HANG`). 세션간 메시지 본문은 **파일 큐 mbox**(`ft-mbox.sh send`=파일 큐+doorbell / `recv`=READ 규약) — send-keys 본문 운반 폐지, doorbell은 지연 최적화. 상세 = 설계 §1-4·§1-6·comm-filebased.
 - **가시성**: 워커는 독립 tmux 세션이다 — 우측 pane 상주가 아니라 **필요 시 사용자가 `tmux attach`로 관찰**한다(사용자 승인 2026-07-11). 오케의 HIL 집중 게이트(§1-6 hil 센티널)가 사용자 접점을 단일화하므로 상시 attach는 불요.
 - **롤백 진입점**: `install.json spawn_backend.default: "agent-v2"`면 `ft-tmux-spawn.sh`가 `exit 6 USE_AGENT_V2`를 반환 → 오케가 아래 **Legacy spawn 부록** 절차(Agent 도구 스폰 + checker=Workflow)로 전환한다.
