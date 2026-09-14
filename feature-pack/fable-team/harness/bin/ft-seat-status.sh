@@ -22,7 +22,9 @@
 #        ft-seat-status.sh stalled [--min N] [regex] [--json]     (기본 20분)
 #        ft-seat-status.sh one <seat> [--json]
 #        ft-seat-status.sh idle [regex]                            (IDLE 좌석만 — 깨울 대상, pane 층만)
-# 출력 4열: 좌석  PANE(BUSY|IDLE|NOSEAT)  JSONL_AGE(초|-)  AGENT
+#        ft-seat-status.sh turn <seat> [--json]                    (Seatbelt 1.1 · 턴 경계 판정 — 아래 turn_of_file 주석)
+#        ft-seat-status.sh turn --file <jsonl> [--json]            (픽스처 · 좌석 해석 생략)
+# 출력 4열: 좌석  PANE(BUSY|IDLE|NOSEAT)  JSONL_AGE(초|-)  AGENT   /  turn 은 1줄 5열: STATE TURN_END_ISO DURATION_MS REPORTED SOURCE
 # 스피너 토큰은 버전마다 늘어난다. 목록을 여기 한 곳에서만 고친다.
 
 set -uo pipefail
@@ -112,6 +114,89 @@ jsonl_age_of() {
   echo $(( $(date +%s) - $(stat -f %m "$p") ))
 }
 
+# ★Seatbelt 1.1 — 턴 경계 판정 (DRAFT-harness-upgrade-v65.md §7-2)★
+#   Claude Code jsonl 은 턴이 끝날 때 항상 system/stop_hook_summary → system/turn_duration 을 찍고 다음 턴은 user 로 연다.
+#   STATE = 마지막 turn_duration 뒤에 user/assistant 있으면 WORKING · 없으면 IDLE
+#           · turn_duration 뒤 queue-operation enqueue 만 있으면(dequeue/remove 로 닫히지 않음) PENDING
+#           · tail 창(FT_SEAT_TAIL_BYTES, 기본 1MB)에 turn_duration 이 없으면 UNKNOWN
+#   REPORTED = «그 턴»(직전 turn_duration ~ 마지막 turn_duration) 의 assistant tool_use 입력에
+#              `mbox.sh send <master>` 문자열 실재(yes/no) — «보고가 옳았다»가 아니라 «문자열이 있다»다. master 미상이면 '-'.
+#   mtime·pane 을 쓰지 않는다 — idle 중 away_summary 가 mtime 을 갱신하고 완료요약행이 pane 을 BUSY 로 보이게 한다.
+# 출력 1줄: STATE TURN_END_ISO DURATION_MS REPORTED SOURCE   (SOURCE=jsonl · 파일이 없으면 pane 스피너로 `STATE - - - pane`)
+master_seat_of_json() {  # seats.json 현역 master 1명 (FT_MASTER_SEAT 로 덮어쓴다 — 픽스처용)
+  [ -n "${FT_MASTER_SEAT:-}" ] && { printf '%s' "$FT_MASTER_SEAT"; return; }
+  [ -f "$SEATS_JSON" ] || return 0
+  python3 - "$SEATS_JSON" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+for k, v in d.items():
+    if k.startswith("_") or not isinstance(v, dict): continue
+    if v.get("role") == "master" and not v.get("_replaced_by"):
+        print(k); break
+PY
+}
+
+turn_of_file() {  # $1=jsonl → "STATE\tTURN_END_ISO\tDURATION_MS\tREPORTED"
+  FILE="$1" TAIL_BYTES="${FT_SEAT_TAIL_BYTES:-1048576}" MASTER="$(master_seat_of_json)" python3 - <<'PY'
+import json, os
+path = os.environ["FILE"]; cap = int(os.environ["TAIL_BYTES"]); master = os.environ.get("MASTER", "")
+size = os.path.getsize(path)
+with open(path, "rb") as fh:
+    if size > cap:
+        fh.seek(size - cap); fh.readline()          # 잘린 첫 줄 버림
+    data = fh.read()
+recs = []
+for line in data.split(b"\n"):
+    if not line.strip(): continue
+    try: recs.append(json.loads(line))
+    except ValueError: continue                   # 손상 행은 건너뛴다 (마지막 미완 행 포함)
+ends = [i for i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
+if not ends:
+    print("UNKNOWN\t-\t-\t-"); raise SystemExit
+last = ends[-1]; prev = ends[-2] if len(ends) > 1 else -1
+end = recs[last]
+state, pending = "IDLE", False
+for r in recs[last + 1:]:
+    t = r.get("type")
+    if t in ("user", "assistant"): state = "WORKING"; break
+    if t == "queue-operation":
+        pending = r.get("operation") == "enqueue"
+if state == "IDLE" and pending: state = "PENDING"
+reported = "-"
+if master:
+    needle = "mbox.sh send " + master
+    reported = "no"
+    for r in recs[prev + 1:last]:
+        if r.get("type") != "assistant": continue
+        content = (r.get("message") or {}).get("content")
+        if not isinstance(content, list): continue
+        for b in content:
+            if isinstance(b, dict) and b.get("type") == "tool_use" and needle in json.dumps(b.get("input", {}), ensure_ascii=False):
+                reported = "yes"; break
+        if reported == "yes": break
+print("%s\t%s\t%s\t%s" % (state, end.get("timestamp", "-"), end.get("durationMs", "-"), reported))
+PY
+}
+
+turn_of_seat() {  # $1=seat → 5열 탭 행. jsonl 없으면 pane 스피너(BUSY→WORKING · IDLE→IDLE · NOSEAT→UNKNOWN), source=pane
+  local f; f="$(newest_jsonl_of "$1")"
+  if [ -n "$f" ]; then printf '%s\tjsonl\n' "$(turn_of_file "$f")"; return; fi
+  case "$(status_of "$1")" in BUSY) printf 'WORKING';; IDLE) printf 'IDLE';; *) printf 'UNKNOWN';; esac
+  printf '\t-\t-\t-\tpane\n'
+}
+
+emit_turn() {  # stdin = 5열 탭 1행
+  if [ "$JSON" = 1 ]; then
+    python3 -c '
+import json, sys
+s, e, d, r, src = sys.stdin.readline().rstrip("\n").split("\t")
+print(json.dumps({"state": s, "turn_end": None if e == "-" else e, "duration_ms": None if d == "-" else int(d),
+                  "reported": None if r == "-" else r, "source": src}, ensure_ascii=False))'
+  else
+    tr '\t' ' '
+  fi
+}
+
 # 한 좌석의 4열 값 → "seat\tpane\tage\tagent\treplaced"
 row_of() {
   local agent rep
@@ -139,12 +224,14 @@ print(json.dumps(rows, ensure_ascii=False))'
 
 # ─ 인자 파싱: 서브커맨드 · --json · --min N · 나머지 1개 = regex/seat ─
 CMD="${1:-list}"; shift || true
-JSON=0; MIN=20; ARG=""
+JSON=0; MIN=20; ARG=""; FILE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1 ;;
     --min)  MIN="${2:?--min N}"; shift ;;
     --min=*) MIN="${1#--min=}" ;;
+    --file) FILE="${2:?--file <jsonl>}"; shift ;;
+    --file=*) FILE="${1#--file=}" ;;
     *) ARG="$1" ;;
   esac
   shift
@@ -163,5 +250,12 @@ case "$CMD" in
   one)    row_of "${ARG:?seat}" | emit ;;
   idle)   # IDLE 좌석만 — 깨울 대상 (pane 층만 · 정지 판정은 stalled 를 쓴다)
     for s in $(seats "${ARG:-^ft-}"); do [ "$(status_of "$s")" = "IDLE" ] && echo "$s"; done ;;
-  *) echo "usage: $0 {list [regex]|stalled [--min N] [regex]|one <seat>|idle [regex]} [--json]" >&2; exit 2 ;;
+  turn)   # 턴 경계 판정 — `--file <jsonl>` 이면 좌석 해석 생략(픽스처용)
+    if [ -n "$FILE" ]; then
+      [ -f "$FILE" ] || { echo "turn: no such file $FILE" >&2; exit 2; }
+      printf '%s\tjsonl\n' "$(turn_of_file "$FILE")" | emit_turn
+    else
+      turn_of_seat "${ARG:?seat}" | emit_turn
+    fi ;;
+  *) echo "usage: $0 {list [regex]|stalled [--min N] [regex]|one <seat>|idle [regex]|turn <seat>|turn --file <jsonl>} [--json]" >&2; exit 2 ;;
 esac
