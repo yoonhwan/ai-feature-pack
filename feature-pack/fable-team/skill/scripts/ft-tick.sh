@@ -1,5 +1,5 @@
 #!/bin/bash
-# ★런타임 사본은 git 추적 밖이다 — 실전은 <워크트리>/.fable-team/bin/ 의 사본으로 돌린다. 이 파일이 팩 SSOT(Seatbelt 1.0.0).★
+# ★런타임 사본은 git 추적 밖이다 — 실전은 <워크트리>/.fable-team/bin/ 의 사본으로 돌린다. 이 파일이 팩 SSOT(Seatbelt 1.0.1).★
 # ft-tick.sh — Seatbelt 0.4 통합 틱 (ft-master-tick.sh · ft-pm-tick.sh · ft-goal-tick.sh 를 한 프로세스로)
 #   한 루프마다 <리포루트>/.fable-team/seats.json 을 «다시 읽어» tick != null 이고 _replaced_by 없는 좌석마다
 #   그 tick 종류의 간격·프롬프트를 적용한다. 승계 = seats.json 한 줄 교체(env 재기동 0회).
@@ -57,7 +57,10 @@ master_seat() { awk -F'\t' '$3=="master"{print $1; exit}' <<< "$1"; }
 #   하고 있다는 뉴스가 발행되야하낟. 테스트는 어떻게 계획중이고 완성까지 전망을 발행. 멈춘거면 어디 세션을 확인하라고 알리던가
 #   master가 인터뷰 걸어서 나에게 알리고 선택하면 전파 돌파」). 점검 항목 나열이 아니라 «지금·남은·테스트·전망» 네 칸의 짧은 뉴스다.
 #   정지는 ft-tick 의 stall 감시가 [stall] 로 master 에 올린다 — master 는 그걸 받으면 «어느 세션을 보라» 한 줄 또는 AskUserQuestion.
-MASTER_MSG="${FT_TICK_MASTER_MSG:-[cron-tick · 뉴스] ★제품(M0–M7·K1–K5)만★ — 하네스·좌석·커밋 얘기 금지(오빠 「제품에 대한 얘기만」). ★인덱스는 «이름만» 최소로, 항목은 불릿★(오빠 「인덱스 최소화·항목은 불릿」). 형식: 「▶지금」 아래 불릿 1~2(인덱스명 · 단계①~⑥ · 좌석) / 「▶남은 것」 불릿 ≤3(인덱스명 · 선행) / 「▶테스트」 불릿 1~2(다음 press 가 재는 값 · 선행) / 「▶전망」 불릿 1~2(닫히는 M?/K? · press 몇 회) — 문장 아닌 불릿, 경로·설명 반복 금지. [stall] 있으면 맨 위 «확인할 세션: <좌석> — <이유>» 1줄, 선택 필요하면 AskUserQuestion. 운영(미커밋·USER-ORDERS)은 «하고» 뉴스엔 안 쓴다. 변화 없으면 \"변화 없음 — <제품 한 줄>\".}"
+# 오빠 정정 3회차(2026-09-14): 「이거봐 인덱스 덩어리자나. 그리고 어디 세션이 무엇을하는지 세션 상태는 마지막에 따로 공유」
+#   ⇒ 인덱스 «파일명»(M5-owner-live-operation-id 같은 슬러그)을 뉴스에 쓰지 않는다 — 그건 좌표지 뉴스가 아니다.
+#      뉴스는 «사람 말»로: 무엇이 안 되던 것을 무엇으로 고치는 중인가. 좌석·세션은 뉴스 밖 «세션 상태» 절에 따로.
+MASTER_MSG="${FT_TICK_MASTER_MSG:-[cron-tick · 뉴스] 제품(M0–M7·K1–K5)만. ★인덱스 파일명·슬러그·경로·좌석명을 뉴스 본문에 쓰지 않는다★ — 「M5-owner-live-…」 같은 덩어리는 좌표지 뉴스가 아니다(오빠 「인덱스 덩어리자나」). 사람 말로 불릿: ▶지금 — «어떤 증상»을 «무엇으로» 고치는 중, 단계(①press②원인③DA④구현⑤재press⑥클로즈) 1~2불릿 / ▶남은 것 — 다음에 고칠 증상 ≤3불릿(선행이 있으면 «~뒤») / ▶테스트 — 다음 press 가 «무엇이 0/≥1 이면 통과» 1~2불릿 / ▶전망 — 닫히는 축(M?/K? 한 글자만) · press 몇 회 1불릿. 그 아래 빈 줄 뒤 「세션 상태」 절 따로 — 불릿 한 줄씩 ★«세션명 - 상태 - 역할 - 진행내용»★(오빠 5회차 「앞에 상태를 두자 - 세션명 - 상태 - 역할 - 진행내용」). 상태는 ft-seat-status.sh 값(작업중/대기/정지레디/정지)이지 «받았다» 같은 이벤트가 아니다 — «DA — 판정요청 2건 받음» 은 상태가 아니라 «대기»다. 예: 「- ft-v65-arch-fable#41 - 작업중 - DA - 팩 mbox seats.json 경로 차이 판정」 「- ft-v65-temp-owner-opid#0 - 대기 - 오너-충돌 수정 나노 - 산출 완료, 재press 대기」. ★뉴스·세션 상태를 쓰고 «끝내지 않는다»★ — 발행 뒤 같은 턴에 «내가 지금 굴릴 수 있는 것»(대기 중 좌석에 다음 단위 발주·press 슬롯 GO·pm 정렬 요청) 을 최소 1건 착수한다. 좌석이 전부 «대기»면 그건 master 가 발주를 안 한 것이다(오빠 「이렇게 쓰고 아무것도 안하는건 master 문제인가?」 → 그렇다). 뉴스와 섞지 않는다. [stall] 있으면 맨 위 «확인할 세션: <좌석> — <이유>», 선택 필요하면 AskUserQuestion. 운영(미커밋·USER-ORDERS)은 하고 쓰지 않는다. 변화 없으면 \"변화 없음 — <증상 한 줄>\" + 세션 상태 절.}"
 pm_msg() { # $1 = report_to
   echo "${FT_TICK_PM_MSG:-[cron-tick] pm 점검 틱(v65 정본 기준, 2026-09-13 master-sonnet#0 개정 — PROGRESS.md/fable-orch/ammo 계열 폐기, 참조 금지) — RUNLOG-pm1-v65-timeline.md(최신 E번호)·NANO-LEDGER-pm1-temp-sessions.md·GOAL-LEDGER-v65.md·GOAL-20260912-clear-list.md 대조해 ①골 대조 한 줄(지금 진행 중인 것이 M?/G? 어느 축인가) ②원장 미등재 항목 유무 ③활성 나노(ft-v65-temp-*) 전수 @zc_v65_active 태그 확인 — 0 인 활성 좌석은 이 틱에서 즉시 tmux set-option 으로 표식 ④사람 확인 필요 항목은 모아서 $1 에. 변화 없으면 \"변화 없음\" 1줄.}"
 }
@@ -102,7 +105,8 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
-    if v.get("_replaced_by") or v.get("role") not in ("master", "da", "pm", "nano", "harness-design"): continue
+    # impl/checker 는 나노 계열이라 정지 감시 대상. tester 는 press 슬롯을 master 가 게이트하므로 제외.
+    if v.get("_replaced_by") or v.get("role") not in ("master", "da", "pm", "nano", "impl", "checker", "harness-design"): continue
     print(f"{k}\t{v.get('role','')}")
 PY
 }

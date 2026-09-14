@@ -284,4 +284,21 @@ if o != 'manual': print(f"FAIL: (p) -i 인데 window-size 를 건드림 opt='{o}
 PY
 tm kill-session -t TMM_WS
 
+# (q) 좌석 종료(^K) — 대상은 죽고, 피커 자신은 거부된다
+tm new-session -d -s TMM_KILL_ME 'sleep 60'
+sleep 0.4
+tmm kill TMM_KILL_ME --yes >/dev/null 2>&1
+if tm has-session -t '=TMM_KILL_ME' 2>/dev/null; then echo 'FAIL: (q) kill 했는데 세션이 남아있다'; exit 1; fi
+tm new-session -d -s TMM_SELF 'sleep 60'
+sleep 0.4
+self_out="$(env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SESSION=TMM_SELF \
+  TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null "$TMM" kill TMM_SELF --yes 2>&1 || true)"
+printf '%s\n' "$self_out" | grep -q '피커 자신' || { echo 'FAIL: (q) 피커 자신을 닫으려는데 거부하지 않았다'; printf '%s\n' "$self_out"; exit 1; }
+tm has-session -t '=TMM_SELF' 2>/dev/null || { echo 'FAIL: (q) 거부했는데 피커 세션이 죽었다'; exit 1; }
+# 피커 세션은 좌석 목록에도 안 나온다
+self_rows="$(env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SESSION=TMM_SELF \
+  TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null "$TMM" rows time 2>/dev/null || true)"
+if printf '%s\n' "$self_rows" | grep -q 'TMM_SELF'; then echo 'FAIL: (q) 피커 자신이 좌석 목록에 나온다'; exit 1; fi
+tm kill-session -t TMM_SELF 2>/dev/null || true
+
 echo "✅ tmm verify OK"

@@ -10,6 +10,7 @@
 #   tmm save         tmuxc save
 #   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
 #   tmm doctor       의존성·환경 점검
+#   tmm kill NAME [--yes]                좌석 종료 (tmux 세션 + 그 안의 에이전트)
 #   ※ TUI 는 tmux 세션 «tmm» 안에서 뜬다(터미널이 창 리사이즈 중 pty 를 회수해도 안 죽게). 좌석에 붙었다가
 #     좌석에 붙었다가 C-a d 를 누르면 피커로 돌아온다(조건부 바인딩 — 피커 세션에서는 원래대로 detach).
 #     TMM_NO_WRAP=1 로 래핑을, TMM_NO_DBIND=1 로 그 바인딩을 끄고, TMM_SESSION 으로 세션명을 바꾼다.
@@ -88,7 +89,7 @@ tui_wrap() {
     dbind=(';' bind-key d if-shell -F "#{==:#{session_name},$sess}" detach-client \
            "if-shell 'tmux has-session -t =$sess' 'switch-client -t =$sess' detach-client")
   fi
-  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" "${dbind[@]}"
+  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 TMM_SESSION='$sess' '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" "${dbind[@]}"
 }
 
 # ---------- 카테고리 ----------
@@ -224,6 +225,7 @@ cmd_rows() {
     | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
   )
   while IFS=$'\t' read -r s pcmd act cwd; do
+    [ -n "${TMM_SESSION:-}" ] && [ "$s" = "$TMM_SESSION" ] && continue   # 피커 자신은 좌석이 아니다
     st="${ST[$s]:-?}"
     [ "$only" = "h" ] && ! [[ "$st" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && continue
     case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○";; *) live="●";; esac
@@ -540,6 +542,26 @@ cmd_sendp() {
   read -r -n1 -p "[아무 키] " _
 }
 
+
+# 좌석 종료 — 그 안의 에이전트도 함께 끝난다. 확인 프롬프트는 fzf 밖(정상 tty)에서 받는다.
+# tmuxc 가 있으면 graceful 경로(/exit 전송 → kill)를 쓴다.
+cmd_kill() {  # NAME [--yes]
+  local n="${1:-}" yes="${2:-}" a
+  [ -n "$n" ] || { echo "(선택된 좌석 없음)"; sleep 1; return 0; }
+  [ -n "${TMM_SESSION:-}" ] && [ "$n" = "$TMM_SESSION" ] && { echo "❌ 피커 자신($n)은 여기서 못 닫는다 — ^X 로 끝내세요"; sleep 1.5; return 1; }
+  tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
+  if [ "$yes" != --yes ]; then
+    printf '좌석 «%s» 를 종료합니다 — tmux 세션과 그 안의 에이전트가 끝납니다.\n' "$n"
+    cmd_peek "$n" 4
+    read -r -p "종료? [y/N] " a
+    case "$a" in y|Y) ;; *) echo "(취소)"; sleep 0.8; return 0 ;; esac
+  fi
+  if command -v tmuxc >/dev/null; then tmuxc kill "$n" >/dev/null 2>&1; else tmux kill-session -t "=$n" 2>/dev/null; fi
+  sleep 0.5
+  if tmux has-session -t "=$n" 2>/dev/null; then echo "⚠ 아직 살아있음: $n"; else echo "✅ 종료됨: $n"; fi
+  [ "$yes" = --yes ] || read -r -n1 -p "[아무 키] " _
+}
+
 cmd_scan()  { [ -n "$SCAN" ] && bash "$SCAN" || echo "seat-scan 없음 (TMM_SCAN 지정)"; }
 cmd_human() { cmd_scan | grep -E '^\S+\s+(HUMAN|BLOCK|STUCK)\b' || echo "(사람 입력 대기·차단 좌석 없음)"; }
 
@@ -580,7 +602,7 @@ cmd_pw() {
 K() { printf '\033[1;36m%s\033[0m\033[2m %s\033[0m' "$1" "$2"; }   # key + label
 S() { printf '\033[33m%s\033[0m' "$1"; }                               # 섹션 표시
 hdr_live() {
-  printf '%s %s  %s  %s  %s\n' "$(S 이동)" "$(K ⏎ attach)" "$(K ^S 메시지)" "$(K ^D 종료뷰)" "$(K ^X 끝)"
+  printf '%s %s  %s  %s  %s  %s\n' "$(S 이동)" "$(K ⏎ attach)" "$(K ^S 메시지)" "$(K ^K 좌석닫기)" "$(K ^D 종료뷰)" "$(K ^X 끝)"
   printf '%s %s  %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W 대기)" "$(K ^G 분류)" "$(K ^H 대기만)" "$(K ^A 전체)"
   printf '%s %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^/ 도움)"
 }
@@ -614,7 +636,7 @@ cmd_tui() {
       --bind "start:transform($SELF pw-action)" \
       --preview-label=' pane ' \
       --border=top --border-label=" tmm $TMM_VERSION " --border-label-pos=-3:top \
-      --multi --expect=enter,ctrl-e,ctrl-s,double-click \
+      --multi --expect=enter,ctrl-e,ctrl-s,ctrl-k,double-click \
       --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
       --bind "ctrl-a:execute-silent($SELF view live)+execute-silent($M time)+reload($R time)+change-prompt(좌석> )+transform-header($SELF header)" \
       --bind "ctrl-d:execute-silent($SELF view dead)+execute-silent($M time)+reload($SELF dead-rows time fresh)+change-prompt(종료> )+transform-header($SELF header)" \
@@ -653,11 +675,13 @@ cmd_tui() {
     if [ "$(view_now)" = dead ]; then
       case "$key" in
         ctrl-s) echo "(종료된 세션에는 메시지를 보낼 수 없음 — Enter 로 먼저 복구)"; sleep 1.5;;
+        ctrl-k) echo "(이미 종료된 세션입니다)"; sleep 1.2;;
         *)      cmd_restore_one "$sel";;          # enter / ctrl-e / double-click → resume 복구 → attach, 떼면 dead 뷰로 복귀
       esac
     else
       case "$key" in
         ctrl-s) cmd_sendp "$sel";;
+        ctrl-k) cmd_kill "$sel";;
         *)      cmd_attach "$sel";;                 # enter / ctrl-e / double-click → attach, detach 후 루프 재진입
       esac
     fi
@@ -714,6 +738,7 @@ case "${1:-}" in
   preview)   cmd_preview "$2" "${3:-}";;         # TUI 미리보기 (색·문단 재접기·바닥 상태줄 제거)
   __render)  render_pane;;                       # stdin 렌더 (verify 골든용)
   s|send)    n="$2"; shift 2; cmd_send "$n" "$@";;
+  kill)      cmd_kill "${2:-}" "${3:-}";;
   sendp)     cmd_sendp "$2";;
   ss|scan)   cmd_scan;;
   h|human)   cmd_human;;

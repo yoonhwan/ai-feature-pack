@@ -1,4 +1,4 @@
-# Seatbelt — 하네스 운영 지침 (이 파일 하나로 시작한다) · 팩 SSOT 사본 1.0.0
+# Seatbelt — 하네스 운영 지침 (이 파일 하나로 시작한다) · 팩 SSOT 사본 1.0.1
 
 > **이 파일은 fable-team 팩의 정본 사본이다.** 원본은 v65 트랙 `design/v65/SEATBELT-README.md`(BYZ-Agents 리포).
 > 아래 본문의 `design/v65/…`·`ft-v65-temp-`·`@zc_v65_active`·`NANO-LEDGER-pm1-…`·`GOAL-LEDGER-v65.md` 는 **전부 v65 트랙의 «예시» 값**이다.
@@ -93,13 +93,28 @@ role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-mast
 | 버전 | 닫힌 것 | 증거 |
 |---|---|---|
 | **1.0.0** | §0 닫는 증거 성립 — 「나노 1건이 대기→진행→완성 을 스크립트로만 통과하고, 그 사이 좌석 정지·메시지 소실·판정 오기입 0」 (2026-09-14 · ft-harness-upgrade-design#0 판정) | 나노 3건이 `ft-nano-spawn`→산출→`ft-nano-close` 만으로 완주 · launchd 틱 running + `stall()` 실측 · recv 3중 읽기 0 · lint REJECT 0 / 완성/ 이동은 DA §N 필수. **미실전 1**: `ft-role-spawn.sh da` (dry-run 4종 OK) |
+| **1.0.1** | 팩 재동기 — 모델 순위(`ft-nano-spawn.sh --tier {checker\|tester\|impl}[:N]` · `FT_CMD_ENABLED` 게이트) + 뉴스 5차(제품만·사람 말·불릿·「세션 상태」 절 «세션명 - 상태 - 역할 - 진행내용»·발행 뒤 1건 착수) + stall 대상 role 에 impl·checker (v65 런타임 2026-09-14 오빠 지시 4건, 나노 `sb-pack-resync-tier`) | `bash -n` 3파일 · `--dry-run` tester/tester:2/impl/impl:2/`FT_CMD_ENABLED=1 tester` 5종 PLAN · 런타임↔팩 diff 는 env 기본값 줄만 |
 
 0.1 → 0.4.1 의 단계별 증거표는 원본 `design/v65/SEATBELT-README.md` §6 (BYZ-Agents 리포, 예시 트랙) 을 본다 — 팩 사본은 «현재 버전 한 행»만 둔다.
+
+## 5-1. 역할별 기본 모델 (오빠 2026-09-14 「checker·tester 는 컨텍스트가 많이 필요하니 … 되는 모델로 속도와 컨텍스트 낭비를 막자. sonnet 이 가장 마지막 선택지. 비싸니까」)
+
+| 역할 | 1순위 | 2순위 | 3순위 | 마지막 | 왜 |
+|---|---|---|---|---|---|
+| **checker · tester** (press 실행·poller/BTS 대조·읽기조사) | **luna** `--agent codex --model gpt-5.6-luna --effort high --fast on` | **sonnet** `--agent claude --model claude-sonnet-5[1m]` | (cmd — `FT_CMD_ENABLED=1` 일 때 1순위로 복귀) | — | 오빠 확정 「luna > sonnet」(2026-09-14: zcode 구독 없음 → 제외 · cmd 월제한 9/18 해제까지 제외 「cmd도 넘기자」). 로그·poller 를 통째로 읽어 컨텍스트를 많이 먹는다 — 싸고 빠른 것부터, sonnet 은 마지막 |
+| **impl** (구현 나노) | `claude` `claude-fable-5-1[1m]` — **메인** | luna | (cmd, `FT_CMD_ENABLED=1` 시 :2) | — | 오빠 「fable 이 구현은 메인으로 사용」. 인덱스 1건을 컨텍스트 안에서 끝내는 자리. 싼 순위는 «컨텍스트 소모형 구현»(로그 파싱·대량 치환·회귀 돌리기)에 선택 |
+| master · da · pm | 현행(README §2) | | | | |
+
+★워커 종류는 셋 — **checker(BTS+poller 대조) · tester(press 실행) · impl(구현)** — 전부 «나노» 로 열고 `--tier` 로 모델을 고른다★ (오빠 「checker(bts+poller), tester, impl 다양하게 워커로 사용 … 그외 여러 컨텍스트 소모 작업에 다양하게 선택 사용」). 인덱스 §구현 범위가 «읽고 대조·press 쏘기» 면 checker/tester 1순위(zcode), «코드를 고친다» 면 impl 1순위(fable). 한 인덱스에 둘 다 있으면 나노 2개(impl 뒤 checker) — 한 좌석에 섞지 않는다(HARNESS-TREE checker 계약: 판정 라벨 금지).
+
+- 한 줄: `ft-nano-spawn.sh <인덱스> --tier tester[:N]` — N 생략=1순위 luna, `:2` sonnet (impl 은 `:1` fable `:2` luna). **cmd 복귀**: 9/18 월제한 해제 뒤 `FT_CMD_ENABLED=1` 을 주면 tester `:1`·impl `:2` 에 cmd 가 끼어들고 나머지가 한 칸 밀린다. 한도·거부(`usage_limit_reached`·429·「insufficient credits」)면 다음 N 으로 재spawn — 전환은 master 가 seats.json 행 교체로. ★사다리 첫 실측(2026-09-14)★: zcode «No payment method»(구독 없음 → 제외) · cmd 「insufficient credits」(월제한, 9/18 해제 → 그때까지 제외) · luna OK.
+- codex 좌석은 `--ctx` 를 받지 않고 게이지가 «남은 %»다(§2 증류선). cmd 는 `cmd status` 크레딧 확인(COMM-GUIDE §cmd).
+- 마지막 선택지(sonnet)를 쓸 땐 세션 상태 진행내용에 «sonnet 사용 — 앞 3순위 불가 사유» 를 적는다.
 
 ## 6-1. 멈춰 있지 않는다 (오빠 2026-09-14)
 
 - **좌석**: `[stall-wake]` 가 창에 뜨면 그 순서대로 — ① `mbox recv` ② 내 `index`/inbox 열어 다음 단위 ③ 정말 없으면 master 에 «정지 레디» 1줄. 판단이 갈리면 묻지 말고 값과 함께 master 에.
-- **master**: 틱마다 «뉴스»(지금·남은 것·테스트 계획·완성 전망). `[stall]` 이 오면 뉴스 첫 줄에 «확인할 세션: <좌석> — <이유>», 교체·개입 선택은 AskUserQuestion 으로 오빠께 묻고 답을 그 좌석·pm 에 전파.
+- **master**: 틱마다 «뉴스»(지금·남은 것·테스트 계획·완성 전망 — 제품만·사람 말·불릿·인덱스 파일명 0) + 빈 줄 + 「세션 상태」 절 «- 세션명 - 상태 - 역할 - 진행내용»(상태는 `ft-seat-status.sh` 값). `[stall]` 이 오면 뉴스 첫 줄에 «확인할 세션: <좌석> — <이유>», 교체·개입 선택은 AskUserQuestion 으로 오빠께 묻고 답을 그 좌석·pm 에 전파. ★발행하고 끝내지 않는다★ — 같은 턴에 대기 좌석에 발주·press GO·pm 정렬 중 1건 착수. 좌석이 전부 «대기»면 master 가 안 굴린 것이다(오빠 2026-09-14).
 - 정지 판정 정본 = `ft-seat-status.sh stalled`(jsonl mtime AND pane). pane 텍스트 단독 판정 금지.
 
 ## 7. 하지 않는다
