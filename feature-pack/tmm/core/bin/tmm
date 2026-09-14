@@ -165,7 +165,9 @@ model_short() {
     gpt-*-*)         m="${m##*-}";;          # gpt-5.6-luna → luna, gpt-6-astra → astra
     "")              m="?";;
   esac
-  m="${m//-/}"; printf '%s%s' "${m:0:6}" "$ctx"
+  # 열 폭 8 을 넘지 않게 — ctx(·1m, 3칸) 가 붙으면 본체는 5칸까지 (fabl51·1m 이 9칸이 되어 행이 밀렸다)
+  m="${m//-/}"
+  if [ -n "$ctx" ]; then printf '%s%s' "${m:0:5}" "$ctx"; else printf '%s' "${m:0:8}"; fi
 }
 # 라이브 좌석의 모델: pane 자식 프로세스 argv 의 --model / -c model= (tmuxc model 과 같은 정본). codex 에 -c model 이 없으면 config 기본.
 live_model_of() {  # pane_pid [session]
@@ -176,11 +178,37 @@ live_model_of() {  # pane_pid [session]
   printf '%s' "$m"
 }
 
+# ---------- 열 너비 (목록 폭에 맞춘다) ----------
+# 폰 60열 기준 고정폭이던 것을 «남는 만큼» 세션명·cwd 에 준다 — 넓은 창에서 이름 뒤 #N 과 경로 뒷부분이 보이게.
+# 기준 폭은 FZF_COLUMNS(=목록 영역). 미리보기가 오른쪽이면 그만큼 이미 빠져 있다.
+col_widths() {  # → "이름폭 cwd폭"
+  local w extra n=20 c=6
+  w="${FZF_COLUMNS:-${COLUMNS:-60}}"
+  extra=$(( w - 59 ))                      # 59 = 60열에서 쓰던 합계
+  if [ "$extra" -gt 0 ]; then
+    n=$(( 20 + extra * 6 / 10 )); [ "$n" -gt 44 ] && n=44
+    c=$(( 6  + extra * 4 / 10 )); [ "$c" -gt 28 ] && c=28
+  fi
+  printf '%s %s' "$n" "$c"
+}
+# 이름이 폭을 넘으면 «가운데»를 접고 끝의 #N 을 남긴다 — ft-v65-master-sonnet#5 / #6 이 20자에서 잘려
+# 똑같이 보이던 문제(2026-09-14 사용자 지적). 인덱스가 곧 좌석의 구분자다.
+clip_name() {  # <이름> <폭>
+  local s="$1" w="$2" idx="" base keep
+  [ "${#s}" -le "$w" ] && { printf '%s' "$s"; return; }
+  case "$s" in *\#*) idx="#${s##*#}" ;; esac
+  keep=$(( w - ${#idx} - 1 ))
+  [ "$keep" -lt 4 ] && { printf '%s' "${s:0:$w}"; return; }
+  base="${s%"$idx"}"
+  printf '%s…%s' "${base:0:$keep}" "$idx"
+}
+
 # ---------- rows ----------
 # rows [time|wait|cat] [h] [fresh]  →  "표시줄\t세션명\t카테고리"
 # tmux 호출 2회(list-panes -a + seat-scan) + 좌석당 capture 1회(시각). 좌석별 display/list-panes 루프 금지.
 cmd_rows() {
-  local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat pcmd live act ep src now mid
+  local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat pcmd live act ep src now mid nw cw
+  read -r nw cw <<<"$(col_widths)"
   declare -A ST
   if [ "$fresh" = fresh ]; then
     while read -r name state _; do ST["$name"]="$state"; done < <(scan_fresh)
@@ -200,9 +228,9 @@ cmd_rows() {
     [ "$only" = "h" ] && ! [[ "$st" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && continue
     case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○";; *) live="●";; esac
     cwd="${cwd##*/}"; cat="$(cat_of "$s")"; read -r ep src <<<"${EP[$s]:-$act ~}"
-    printf '%s\t%s\t%s\t%-5s %s %-20s %-5s %-8s %s %s %s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$(wait_rank "$st")" "$ep" "$cat" \
-      "$cat" "$live" "${s:0:20}" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:6}" \
+      "$cat" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
       "$s" "$cat"
   done < <(tmux list-panes -a -F $'#{session_name}\t#{pane_current_command}\t#{window_activity}\t#{pane_current_path}' 2>/dev/null | awk -F'\t' '!seen[$1]++') \
   | { case "$mode" in
@@ -248,16 +276,17 @@ dead_tsv() {  # [fresh]
 }
 # 표시줄: 카테고리 ◌ 이름(22) 배지(5) 시각 나이 cwd(14)  — live 와 같은 폭. 키 필드(2)=세션명, 3=카테고리
 cmd_dead_rows() {  # [time|wait|cat] [fresh]
-  local mode="${1:-time}" now line src name cwd lm la cat md
+  local mode="${1:-time}" now line src name cwd lm la cat md nw cw
+  read -r nw cw <<<"$(col_widths)"
   now=$(date +%s)
   while IFS= read -r line; do
     src="$(printf '%s' "$line" | cut -f1)"; name="$(printf '%s' "$line" | cut -f3)"; cwd="$(printf '%s' "$line" | cut -f4)"
     lm="$(printf '%s' "$line" | cut -f7)"; la="$(printf '%s' "$line" | cut -f8)"; md="$(printf '%s' "$line" | cut -f6)"
     [ -n "$name" ] || continue
     cat="$(cat_of "$name")"
-    printf '%s\t%s\t%s\t%-5s ◌ %-20s %-5s %-8s %s %s %s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%-5s ◌ %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$([ "$src" = SNAP ] && echo 0 || echo 5)" "$la" "$cat" \
-      "$cat" "${name:0:20}" "$src" "$(model_short "$(with_1m_if_claude "$md")")" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-6)" \
+      "$cat" "$nw" "$(clip_name "$name" "$nw")" "$src" "$(model_short "$(with_1m_if_claude "$md")")" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-"$cw")" \
       "$name" "$cat"
   done < <(dead_tsv "${2:-}") \
   | { case "$mode" in
