@@ -80,18 +80,18 @@ seat_projects_dir() {
   printf '%s/.claude/projects/%s' "$HOME" "$enc"
 }
 
-# 좌석명 매칭 jsonl 중 ★mtime 최신★ 파일의 age(초). 매칭 0 → '-'
+# 좌석명 매칭 jsonl 중 ★mtime 최신★ 파일의 «경로». 매칭 0 → 빈 출력
 # ★전문 grep 금지★ — 한 cwd 의 jsonl 이 392개·2.2GB 라 `grep -l … *.jsonl` 은 좌석당 20초(실측 2026-09-14).
 # 좌석명 레코드(agent-name/custom-title)는 파일 «앞»에 쓰인다(339파일 전수: 첫 출현 최대 482KB).
-# 그래서 각 파일 앞 FT_SEAT_HEAD_BYTES(기본 1MB)만 읽는다. 그 밖에 있으면 못 보고 '-' 가 된다 — 상한을 늘려라.
-jsonl_age_of() {
+# 그래서 각 파일 앞 FT_SEAT_HEAD_BYTES(기본 1MB)만 읽는다. 그 밖에 있으면 못 보고 빈 값이 된다 — 상한을 늘려라.
+newest_jsonl_of() {
   local dir
-  dir="$(seat_projects_dir "$1")" || { echo "-"; return; }
+  dir="$(seat_projects_dir "$1")" || return 0
   SEAT="$1" DIR="$dir" HEAD_BYTES="${FT_SEAT_HEAD_BYTES:-1048576}" python3 -c '
-import glob, os, time
+import glob, os
 seat = os.environ["SEAT"].encode(); d = os.environ["DIR"]; cap = int(os.environ["HEAD_BYTES"])
 needles = (b"\"agentName\":\"" + seat + b"\"", b"\"customTitle\":\"" + seat + b"\"")
-newest = 0
+newest = (0, "")
 for p in glob.glob(os.path.join(d, "*.jsonl")):
     try:
         with open(p, "rb") as fh:
@@ -99,9 +99,17 @@ for p in glob.glob(os.path.join(d, "*.jsonl")):
     except OSError:
         continue
     if any(n in head for n in needles):
-        newest = max(newest, int(os.stat(p).st_mtime))
-print("-" if newest == 0 else int(time.time()) - newest)
+        m = int(os.stat(p).st_mtime)
+        if m > newest[0]: newest = (m, p)
+print(newest[1])
 '
+}
+
+# 그 파일의 age(초). 매칭 0 → '-'
+jsonl_age_of() {
+  local p; p="$(newest_jsonl_of "$1")"
+  [ -n "$p" ] || { echo "-"; return; }
+  echo $(( $(date +%s) - $(stat -f %m "$p") ))
 }
 
 # 한 좌석의 4열 값 → "seat\tpane\tage\tagent\treplaced"
