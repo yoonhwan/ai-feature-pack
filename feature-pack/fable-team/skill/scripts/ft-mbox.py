@@ -82,22 +82,29 @@ os.makedirs(CANON, exist_ok=True)
 
 
 def _legacy_dirs():
-    """레거시 우편함 — ★손으로 나열하지 않고 워크트리 목록에서 «유도»한다★.
+    """레거시 우편함 — ★기본은 «없음»★ (2026-09-14 · 하네스 업그레이드 §4-1 · 오빠 결정 Q2).
 
-    손으로 쓴 목록은 다음에 생기는 워크트리를 못 잡는다.
+    ★왜 union 을 걷었나 (실측 2026-09-14)★
+      · 워크트리 `.fable-team` 이 루트로 가는 «심링크»인 곳(v65-input-admission·proof-store)이
+        glob 에 잡혀 ★같은 inode 를 3번 읽었다★ — 좌석마다 recv 가 같은 메시지를 `(legacy)`
+        꼬리로 세 번 찍었고(#13038·#13041·#13046), 모든 좌석의 recv 컨텍스트가 3배였다.
+      · 남은 레거시 파일은 c-level(1행, 09-09)·v6-realtime-live 워크트리(77행, 전부 08-24 이전,
+        수신 좌석 26종 «전부 사망»)·나머지 0행 — 살아 있는 좌석 앞으로 온 행은 0 이었다.
+      · 트랙이 다른 우편함(c-level·loom)이 v65 좌석 recv 에 섞일 이유도 없다.
+    ★되돌리는 문은 남긴다★ — `FT_MBOX_LEGACY=1` 이면 예전 union(중복은 realpath 로 제거)을 돈다.
+      옛 파일에 뭔가 남았다고 의심될 때 «한 번» 켜서 보고 끄는 용도다. 기본값으로 켜 두지 않는다.
     """
-    if not _ROOT:  # ★F4: 루트를 못 유도했으면(env 만으로 동작) 레거시도 없다.
+    if not _ROOT or os.environ.get("FT_MBOX_LEGACY") != "1":
         return []
-    out, wt = [], os.path.join(_ROOT, ".worktrees")
+    out, seen, wt = [], {os.path.realpath(CANON)}, os.path.join(_ROOT, ".worktrees")
     if os.path.isdir(wt):
-        # ★깊이를 «1» 로 가정하지 않는다★ — _repo_root 와 같은 함정이 여기에도 있었다.
-        #   브랜치명에 슬래시가 있으면 워크트리는 `.worktrees/feat/loom-pack-layer` 처럼
-        #   두 단계다(BYZ 실존). 한 단계만 훑으면 그 안에 큐잉된 메시지를 union 이 못 봐
-        #   ★아무도 안 읽는다★ — recv 는 정상 종료하므로 유실이 무증상으로 남는다.
         for depth in (1, 2, 3):
             pat = os.path.join(wt, *(["*"] * depth), ".fable-team", "comm")
             for d in sorted(glob.glob(pat)):
-                if os.path.isdir(d) and os.path.abspath(d) != os.path.abspath(CANON):
+                rp = os.path.realpath(d)
+                # ★realpath 로 가른다★ — abspath 는 심링크를 못 본다. 같은 파일을 두 번 읽지 않는다.
+                if os.path.isdir(d) and rp not in seen:
+                    seen.add(rp)
                     out.append(d)
     return out
 
