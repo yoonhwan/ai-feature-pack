@@ -16,7 +16,7 @@
 #   tmm restore-all [--since H] [--dry-run] [--yes]   창 안 종료 세션 «전부» 복구 — 5개씩 배치 병렬(TMM_RESTORE_BATCH), 결과 $RUN/restore-<ts>.log(ok|fail) — tmuxc restore --scan --loose 의 폰판
 #
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^H 대기좌석만 · ^A 전체 · ^T 최근순 · ^W 대기우선 · ^G 카테고리순
-#          ^R 새로고침 · ^U 미리보기 자동갱신 5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
+#          ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초 · ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
 #          ^B = «지금 화면에 보이는 행 전부» 일괄 복구(필터·카테고리 적용분만, 확인 y 후, attach 없음).
@@ -34,7 +34,7 @@
 #   TMM_SCAN         seat-scan 스크립트 경로 (기본: 설치본 libexec → ~/.claude/skills/tmuxc/scripts)
 #   TMM_CACHE_TTL    상태 스캔 캐시 초 (기본 20). 폰에서 ^R/필터 반복 시 재스캔 부하 방지. 0=항상 재스캔
 #   TMM_PREVIEW_LINES 미리보기 줄 수 (기본 40). 색 유지·입력박스/statusline 제거·최신(바닥)부터 표시
-#   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 5, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 5/10/15 순환
+#   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 5, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 1/5/10/15 순환
 #   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 20 고정, 0=off). ^U 로는 안 바뀐다 — seat-scan 부하 상한
 #   TMM_BELL         새 대기 좌석 벨 (기본 1, 0=끔)
 set -uo pipefail
@@ -55,7 +55,7 @@ CACHE_TTL="${TMM_CACHE_TTL:-20}"
 CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u).cache"
 PREVIEW_LINES="${TMM_PREVIEW_LINES:-40}"
 AUTO="${TMM_AUTO:-20}"; AUTO_PREVIEW="${TMM_AUTO_PREVIEW:-5}"; BELL="${TMM_BELL:-1}"
-AUTO_PRESETS="5 10 15"
+AUTO_PRESETS="1 5 10 15"
 DEAD_SCAN="$HERE/../libexec/tmm-dead-scan.py"
 DEAD_SINCE0="${TMM_DEAD_SINCE:-12}"
 # TUI 상태(정렬 모드·자동 갱신 초·직전 대기 좌석 집합·벨 플래그) — fzf 바인딩과 백그라운드 핑거가 파일로 공유.
@@ -350,7 +350,7 @@ cmd_restore_all() {  # [--dry-run] [--yes] [--since H]  — ★5개씩 배치 �
 # ---------- 자동 갱신 ----------
 # ^U 가 돌리는 것은 «미리보기» 주기다. 전좌석 주기(AUTO)는 seat-scan 부하 상한이라 키로 못 줄인다.
 auto_now() { cat "$RUN/auto" 2>/dev/null || echo "$AUTO_PREVIEW"; }
-cmd_auto_cycle() {  # 5 → 10 → 15 → 5. off 는 없다 — 폰에서 실수로 꺼져 «갱신이 안 된다»가 되지 않게. 끄려면 TMM_AUTO_PREVIEW=0
+cmd_auto_cycle() {  # 1 → 5 → 10 → 15 → 1. off 는 없다 — 폰에서 실수로 꺼져 «갱신이 안 된다»가 되지 않게. 끄려면 TMM_AUTO_PREVIEW=0
   local cur p next="${AUTO_PRESETS%% *}"; cur="$(auto_now)"
   for p in $AUTO_PRESETS; do [ "$p" -gt "$cur" ] && { next=$p; break; }; done
   echo "$next" | tee "$RUN/auto"
@@ -540,6 +540,8 @@ cmd_tui() {
   export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
   printf '%s\n' "$AUTO_PREVIEW" > "$RUN/auto"; cmd_mode time; cmd_view live   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
   trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
+  _sig() { printf '%s SIG%s pid=%s cols=%s\n' "$(date +%FT%T)" "$1" "$$" "$(term_cols 2>/dev/null)" >> "$STATE/fzf-stderr.log"; exit 129; }
+  for _s in HUP TERM QUIT; do trap "_sig $_s" "$_s"; done
   # ★attach/메시지는 fzf 밖에서 실행★ — execute() 안에서는 /dev/tty 를 못 잡아
   #   "open terminal failed: can't use /dev/tty". fzf 는 --expect 로 (키, 선택줄)만 돌려주고,
   #   이 루프가 attach → detach 후 다시 피커를 띄운다.

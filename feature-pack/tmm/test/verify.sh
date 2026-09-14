@@ -68,7 +68,8 @@ rm -f "$STATE/auto"
 tmm header | grep -q 'pane 5s 전체 20s' || { echo "FAIL: 기본 헤더가 pane 5s 전체 20s 아님"; tmm header; exit 1; }
 [ "$(tmm auto-cycle)" = 10 ] || { echo "FAIL: auto-cycle 5→10 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 15 ] || { echo "FAIL: auto-cycle 10→15 아님"; exit 1; }
-[ "$(tmm auto-cycle)" = 5 ]  || { echo "FAIL: auto-cycle 15→5 아님 (off 가 끼어들었나)"; exit 1; }
+[ "$(tmm auto-cycle)" = 1 ]  || { echo "FAIL: auto-cycle 15→1 아님 (off 가 끼어들었나)"; exit 1; }
+[ "$(tmm auto-cycle)" = 5 ]  || { echo "FAIL: auto-cycle 1→5 아님"; exit 1; }
 tmm header | grep -q 'pane 5s' || { echo "FAIL: 순환 후 헤더에 pane 5s 없음"; tmm header; exit 1; }
 [ "$(TMM_AUTO=30 tmm header | grep -o '전체 [0-9]*s')" = '전체 30s' ] || { echo "FAIL: TMM_AUTO 가 전체 에 반영 안 됨"; exit 1; }
 rm -f "$STATE/auto"   # 상태 파일이 env 보다 우선 — TUI 진입 시 env 로 다시 쓰므로 여기선 지우고 잰다
