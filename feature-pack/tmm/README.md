@@ -4,7 +4,7 @@
 
 ```
 ─────────────────────────────────────────────────────────────── tmm 0.4.1 ──
-  이동 ⏎ attach  ^S 메시지  ^D 종료뷰  ^X 끝
+  이동 ⏎ attach  ^S 메시지  ^K 좌석닫기  ^D 종료뷰  ^X 끝
   정렬 ^T 최근  ^W 대기  ^G 분류  ^H 대기만  ^A 전체
   화면 ^P/^O 미리보기  ^U 자동  ^R 갱신  ^/ 도움
   상태 pane 5s · 전체 20s · 12:34 완료 12~34 출력
@@ -142,6 +142,7 @@ tmm h               # HUMAN/BLOCK/STUCK 좌석만
 tmm p NAME [N]      # pane 최근 N줄
 tmm s NAME "msg"    # 메시지 (가드 + 도달확인)
 tmm a NAME [-i]     # attach (-i: 데스크탑 창 크기 고정 — 폰 화면 남는 곳은 점으로 채워짐)
+tmm kill NAME [--yes]  # 좌석 종료 (tmux 세션 + 그 안의 에이전트). TUI 에서는 ^K
 tmm ss              # seat-scan 원본 출력
 tmm save            # tmuxc save (tmuxc 필요)
 tmm doctor          # 의존성·환경 점검
