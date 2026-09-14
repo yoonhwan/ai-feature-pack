@@ -63,14 +63,14 @@ tmm rows-cur | grep -q 'TMM_VERIFY_A' && { echo 'FAIL: 대기만(h) 모드인데
 tmm mode time
 tmm rows-cur | grep -q 'TMM_VERIFY_A' || { echo 'FAIL: time 모드 rows-cur 에 TMM_VERIFY_A 없음'; exit 1; }
 
-# (g) ^U 는 «미리보기» 주기만 순환: 5 → 10 → 15 → 5 (off 없음). 전좌석 주기는 20 고정, 헤더에 둘 다 표시
+# (g) ^U 는 «미리보기» 주기만 순환: 1 → 5 → 10 → 15 → 1 (off 없음). 전좌석 주기는 20 고정, 헤더에 둘 다 표시
 rm -f "$STATE/auto"
-tmm header | grep -q 'pane 5s 전체 20s' || { echo "FAIL: 기본 헤더가 pane 5s 전체 20s 아님"; tmm header; exit 1; }
+tmm header | grep -q 'pane 1s 전체 20s' || { echo "FAIL: 기본 헤더가 pane 1s 전체 20s 아님"; tmm header; exit 1; }
+[ "$(tmm auto-cycle)" = 5 ]  || { echo "FAIL: auto-cycle 1→5 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 10 ] || { echo "FAIL: auto-cycle 5→10 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 15 ] || { echo "FAIL: auto-cycle 10→15 아님"; exit 1; }
 [ "$(tmm auto-cycle)" = 1 ]  || { echo "FAIL: auto-cycle 15→1 아님 (off 가 끼어들었나)"; exit 1; }
-[ "$(tmm auto-cycle)" = 5 ]  || { echo "FAIL: auto-cycle 1→5 아님"; exit 1; }
-tmm header | grep -q 'pane 5s' || { echo "FAIL: 순환 후 헤더에 pane 5s 없음"; tmm header; exit 1; }
+tmm header | grep -q 'pane 1s' || { echo "FAIL: 한 바퀴 돌면 pane 1s 로 돌아와야 한다"; tmm header; exit 1; }
 [ "$(TMM_AUTO=30 tmm header | grep -o '전체 [0-9]*s')" = '전체 30s' ] || { echo "FAIL: TMM_AUTO 가 전체 에 반영 안 됨"; exit 1; }
 rm -f "$STATE/auto"   # 상태 파일이 env 보다 우선 — TUI 진입 시 env 로 다시 쓰므로 여기선 지우고 잰다
 [ "$(TMM_AUTO_PREVIEW=0 tmm header | grep -o 'pane [a-z0-9]*')" = 'pane off' ] || { echo "FAIL: TMM_AUTO_PREVIEW=0 인데 pane off 아님"; exit 1; }

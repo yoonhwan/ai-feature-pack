@@ -7,7 +7,7 @@
   이동 ⏎ attach  ^S 메시지  ^K 좌석닫기  ^D 종료뷰  ^X 끝
   정렬 ^T 최근  ^W 대기  ^G 분류  ^H 대기만  ^A 전체
   화면 ^P/^O 미리보기  ^U 자동  ^R 갱신  ^/ 도움
-  상태 pane 5s · 전체 20s · 12:34 완료 12~34 출력
+  상태 pane 1s · 전체 20s · 12:34 완료 12~34 출력
 좌석> v65 impl                                                            2/65
 ──────────────────────────────────────────────────────────────────────────────
 ▶ CFO   ● FB_CFO#6               HUMAN 12:33 26m c-level-planni
@@ -50,7 +50,7 @@
 | `^H` / `^A` | 대기 좌석만 / 전체 |
 | `^T` / `^W` / `^G` | 최근순(기본) / 대기우선 / 카테고리순 |
 | `^R` | 상태 재스캔 (캐시 무시). 현재 정렬·필터 모드 유지 |
-| `^U` | 미리보기 자동 갱신 순환 5 → 10 → 15초. 헤더 3행에 `pane:5s all:20s` |
+| `^U` | 미리보기 자동 갱신 순환 1 → 5 → 10 → 15초. 헤더 3행에 `pane 1s 전체 20s` |
 | `^P` / `^O` | 미리보기 끄기·켜기 / 크게·작게 |
 | `^D` / `^A` | **종료된 세션 뷰** ↔ 살아있는 좌석 뷰 (완전 전환, 아래 절) |
 | `^/` | 도움말(헤더) 다시 그림. `?`는 필터 문자로 그냥 타이핑 |
@@ -124,7 +124,7 @@ CLI: `tmm dead [PAT] [--since H] [--all]` · `tmm dp NAME [N]` · `tmm restore N
 
 | 단 | 무엇을 | 기본 주기 | 비용 |
 |---|---|---|---|
-| pane | 커서 좌석 미리보기만 다시 그림 | 5초 (`^U`로 5/10/15 순환, `TMM_AUTO_PREVIEW`) | `capture-pane` 1회 |
+| pane | 커서 좌석 미리보기만 다시 그림 | 1초 (`^U`로 1/5/10/15 순환, `TMM_AUTO_PREVIEW`) | `capture-pane` 1회 |
 | 전좌석 | 상태(HUMAN/BUSY…)·마지막 시각·정렬 다시 계산 | 20초 고정 (`TMM_AUTO`) | seat-scan 1회 (65좌석 2~3초) |
 
 - **attach 중엔 멈추고, `C-a d`로 떼면 재개**됩니다. 갱신기는 피커(fzf) 한 번의 수명에 묶여 있어서 붙어 있는 동안은 아무것도 돌지 않습니다.
@@ -161,7 +161,7 @@ tmm restore-all [--since H] [--dry-run] [--yes]   # 창 안 전부 복구 (attac
 | 상태 스캔 캐시 | `TMM_CACHE_TTL` | 20초. 필터·재정렬 연타 시 재스캔 방지. `^R`은 무시 |
 | seat-scan 경로 | `TMM_SCAN` | 설치본 `libexec/seat-scan.sh` → `~/.claude/skills/tmuxc/scripts/seat-scan.sh` |
 | 미리보기 줄 수 | `TMM_PREVIEW_LINES` | 40 |
-| pane 자동 갱신 | `TMM_AUTO_PREVIEW` / `tmm --auto N` / `^U` | 5초. `^U`는 5/10/15 순환. 0=off |
+| pane 자동 갱신 | `TMM_AUTO_PREVIEW` / `tmm --auto N` / `^U` | 1초. `^U`는 1/5/10/15 순환. 0=off |
 | 전좌석 자동 갱신 | `TMM_AUTO` | 20초 고정(키로 안 바뀜). 0=off |
 | 새 대기 좌석 벨 | `TMM_BELL` | 1 (0=끔) |
 | 종료 뷰 진입 창 | `TMM_DEAD_SINCE` | 12 (시간) |
