@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- ★런타임 사본은 git 추적 밖이다 — 팩 SSOT(Seatbelt 1.0.0).★
+     Seatbelt 0.4 ft-tick launchd 템플릿 — ft-tick-install.sh 가 __WORKTREE__ / __SCRIPT__ 를 치환해
+     ~/Library/LaunchAgents/com.byz.ft-tick.plist 로 쓴다. 직접 bootstrap 하지 않는다(치환 전). -->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.byz.ft-tick</string>
+  <key>ProgramArguments</key><array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__SCRIPT__</string>
+  </array>
+  <key>WorkingDirectory</key><string>__WORKTREE__</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>LANG</key><string>ko_KR.UTF-8</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>5</integer>
+  <key>StandardOutPath</key><string>/tmp/ft-tick.log</string>
+  <key>StandardErrorPath</key><string>/tmp/ft-tick.log</string>
+</dict></plist>
