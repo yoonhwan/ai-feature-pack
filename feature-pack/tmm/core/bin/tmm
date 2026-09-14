@@ -52,7 +52,10 @@ SCAN="${TMM_SCAN:-}"
 done
 CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
 CACHE_TTL="${TMM_CACHE_TTL:-20}"
-CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u).cache"
+# ★캐시는 tmux 서버별로 가른다★ — 격리 소켓(TMUX_TMPDIR)에서 돌린 tmm 이 실사용 캐시를 덮어써
+#   전 좌석 상태가 «?» 로 죽는 사고가 났다(2026-09-14 실측: 캐시에 격리 세션 1줄만 남음).
+#   소켓 경로를 섞어 파일명을 만든다 — 같은 서버를 보는 인스턴스끼리만 공유.
+CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u)-$(tmux display -p '#{socket_path}' 2>/dev/null | cksum | cut -d' ' -f1 || echo 0).cache"
 PREVIEW_LINES="${TMM_PREVIEW_LINES:-40}"
 AUTO="${TMM_AUTO:-20}"; AUTO_PREVIEW="${TMM_AUTO_PREVIEW:-5}"; BELL="${TMM_BELL:-1}"
 AUTO_PRESETS="1 5 10 15"
