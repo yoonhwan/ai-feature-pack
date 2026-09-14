@@ -573,12 +573,14 @@ cmd_tui() {
       --bind "ctrl-b:execute-silent(: > $RUN/bulk)+select-all+accept" \
       --bind "ctrl-x:abort" \
       --bind "ctrl-/:transform-header($SELF header)" \
-      < <(cmd_rows_cur))"; rc=$?
+      2>>"$STATE/fzf-stderr.log" < <(cmd_rows_cur))"; rc=$?
     kill "$pinger" 2>/dev/null; wait "$pinger" 2>/dev/null; rm -f "$sock"
     case "$rc" in
       0)   ;;                                   # 선택 — 아래에서 키 처리
       130) return 0 ;;                          # ^X / Esc → 진짜 종료
-      *)   printf '(화면이 끊겼습니다 — 다시 엽니다)\n' >&2; sleep 0.5; continue ;;   # 리사이즈 중 fzf 사망 등
+      *)   printf '(화면이 끊겼습니다 rc=%s — 다시 엽니다. 로그: %s)\n' "$rc" "$STATE/fzf-stderr.log" >&2
+           printf '%s exit=%s cols=%s\n' "$(date +%FT%T)" "$rc" "$(term_cols)" >> "$STATE/fzf-stderr.log"
+           sleep 0.5; continue ;;                                   # 리사이즈 중 fzf 사망 등
     esac
     key="${out%%$'\n'*}"; rows="${out#*$'\n'}"; sel="$(printf '%s' "$rows" | head -1 | cut -f2)"
     # ^B = «지금 화면에 보이는(필터·정렬 적용된) 행 전부» 일괄 복구. select-all+accept 로 전 행이 out 에 실려 온다.
