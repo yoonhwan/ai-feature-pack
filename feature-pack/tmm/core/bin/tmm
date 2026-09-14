@@ -10,6 +10,8 @@
 #   tmm save         tmuxc save
 #   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
 #   tmm doctor       의존성·환경 점검
+#   ※ TUI 는 tmux 세션 «tmm» 안에서 뜬다(터미널이 창 리사이즈 중 pty 를 회수해도 안 죽게). 좌석에 붙었다가
+#     돌아올 때는 tmux 기본 키 C-a L(직전 세션) 또는 C-a s(세션 트리). TMM_NO_WRAP=1 로 끄고, TMM_SESSION 으로 이름 변경.
 #   tmm dead [PAT] [--since H] [--all]   종료된 세션 목록 (재부팅·kill 로 사라진 좌석 — tmuxc 미관리 포함)
 #   tmm dp NAME|SID [N]                  종료 세션의 마지막 대화 N줄
 #   tmm restore NAME [--dry-run]         종료 세션 1건 복구 (resume) → attach
@@ -65,7 +67,20 @@ DEAD_SINCE0="${TMM_DEAD_SINCE:-12}"
 # ★인스턴스별★ — 폰·데스크탑에서 tmm 을 여럿 띄우면 한쪽 ^U/^W 가 다른 쪽 자동 갱신을 바꾸므로 TUI 마다 run-<pid>/.
 # fzf 가 띄우는 바인딩 자식은 env 를 물려받으니 TMM_RUN 으로 자기 디렉터리를 안다. 캐시는 공유(그냥 캐시).
 STATE="${TMPDIR:-/tmp}/tmm-$(id -u)"; RUN="${TMM_RUN:-$STATE}"; mkdir -p "$RUN"
-[ "${1:-}" = --auto ] && { AUTO_PREVIEW="${2:-5}"; shift 2; }
+[ "${1:-}" = --auto ] && { AUTO_PREVIEW="${2:-5}"; TMM_WRAP_AUTO="$AUTO_PREVIEW"; shift 2; }
+
+# ---------- TUI 는 tmux 안에서 (pty 회수 방어) ----------
+# Ghostty 가 창 드래그·리사이즈 중 pty 를 회수하면 거기 직접 붙은 프로세스는 SIGHUP 으로 죽는다
+# (실측 2026-09-14: 고아 fzf fd2=revoked, 고아 8개, run-* 49개 = EXIT trap 미실행 = 즉사).
+# tmux 가 pty 를 소유하면 클라이언트만 떨어지고 tmm 은 살아남는다 — 좌석에 attach 중일 때 안 죽던 이유.
+# 인자 없는 TUI 실행일 때만 래핑한다(ls/dead/restore 등 비대화 경로는 그대로).
+tui_wrap() {
+  [ -z "${TMUX:-}" ] || return 0                       # 이미 tmux 안
+  [ "${TMM_NO_WRAP:-0}" != 1 ] || return 0             # 명시적 비래핑
+  command -v tmux >/dev/null 2>&1 || return 0
+  local sess="${TMM_SESSION:-tmm}"
+  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}"
+}
 
 # ---------- 카테고리 ----------
 # 규칙 파일이 있으면 그것을, 없으면 세션명 접두(문자·숫자·_·- 중 첫 토큰)를 카테고리로.
@@ -638,7 +653,7 @@ EOF
 
 case "${1:-}" in
   __lib)     return 0 2>/dev/null || exit 0;;   # source 용 — 함수만 정의하고 끝 (병렬 워커)
-  "")        cmd_tui;;
+  "")        tui_wrap; cmd_tui;;
   rows)      cmd_rows "${2:-time}" "${3:-}" "${4:-}";;
   rows-cur)  cmd_rows_cur "${2:-}";;            # 상태 파일의 현재 정렬 모드·뷰로 (^R·자동 갱신용)
   dead-rows) cmd_dead_rows "${2:-time}" "${3:-}";;

@@ -97,6 +97,15 @@
 
 CLI: `tmm dead [PAT] [--since H] [--all]` · `tmm dp NAME [N]` · `tmm restore NAME [--dry-run]` · `tmm restore-all [--since H] [--dry-run] [--yes]`
 
+## TUI 는 tmux 안에서 돕니다 (0.5.0)
+
+`tmm`을 인자 없이 실행하면 **`tmm` 이라는 tmux 세션을 만들고 그 안에서** 피커가 뜹니다. 터미널이 창 드래그·리사이즈 중 pty 를 회수해도 tmux 가 pty 를 들고 있어 피커가 죽지 않습니다.
+
+- **왜**: Ghostty 에서 창을 잡고 크기를 바꾸면 pty 가 회수되고(`fd2 (revoked)` 실측), 거기 직접 붙어 있던 tmm(bash) 이 SIGHUP 으로 즉사했습니다. 고아 fzf 8개와 정리 안 된 상태 디렉터리 49개가 그 반복의 흔적입니다. 좌석에 attach 중일 때만 멀쩡했던 이유도 같습니다 — 그때는 tmux 가 화면을 들고 있었습니다.
+- **검증**: pty 를 강제로 회수하는 A/B 에서 래핑 없으면 피커가 사라지고, 래핑하면 `tmm` 세션과 피커가 그대로 살아남았습니다.
+- **좌석에 붙었다가 돌아오기**: 피커에서 Enter 로 좌석에 가면 `switch-client` 로 전환됩니다. 돌아올 때는 tmux 기본 키 `C-a L`(직전 세션) 또는 `C-a s`(세션 트리)로 `tmm` 을 고릅니다.
+- **끄기**: `TMM_NO_WRAP=1 tmm`. 세션 이름 변경은 `TMM_SESSION=이름`. `tmm ls`·`tmm dead`·`tmm restore` 같은 비대화 서브명령은 래핑하지 않습니다.
+
 ## pane 미리보기가 보여주는 것
 
 미리보기는 `capture-pane` 원문이 아니라 **대화만** 보이게 손질한 것입니다.

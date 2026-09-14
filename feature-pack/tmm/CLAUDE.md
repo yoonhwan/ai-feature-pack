@@ -51,6 +51,8 @@ ssh -i ~/.ssh/termius_mobile_ed25519 -o IdentitiesOnly=yes 100.92.216.120 -t 'zs
 - **헤더는 4섹션(이동/정렬/화면/상태 · dead 는 복구/창/정렬/상태) + 색(키 청록·설명 회색·섹션 노랑)**. 각 줄 표시폭 ≤58(fzf 들여쓰기 2). 새 키는 해당 섹션에 넣고 verify (j) 로 잰다. `?` 는 필터 문자 — 바인드 금지(도움말은 `^/`).
 - **레이아웃 폭 판정은 `term_cols`** (= FZF_COLUMNS + FZF_PREVIEW_COLUMNS). `tput cols` 는 fzf 자식에서 80 고정이라 쓰지 않는다. fzf 0.74 에 `transform-preview-window` 없음 → `transform($SELF pw-action)`.
 - **tmuxc 는 필수 세트** — install.sh 가드·doctor·manifest required 를 같이 유지.
+- **TUI 는 tmux 세션 안에서 돈다**(`tui_wrap`, 0.5.0). 터미널이 창 드래그 중 pty 를 회수하면 그 pty 에 직접 붙은 프로세스는 SIGHUP 으로 즉사한다 — A/B 실측: 래핑 없으면 피커 소멸, 래핑하면 세션·피커 생존. **비대화 서브명령은 래핑하지 않는다**(ls/dead/restore 가 tmux 세션을 만들면 안 된다). 끄기 `TMM_NO_WRAP=1`.
+- **스캔 캐시는 tmux 서버별**(`socket_path` 해시). 격리 소켓 테스트가 실사용 캐시를 덮어써 전 좌석 상태가 `?` 가 된 사고(2026-09-14) 재발 방지 — 수동 격리 테스트 때 `TMPDIR` 도 같이 갈아끼운다.
 - `SELF`/`HERE` 는 `$0` 기준(심링 해석). `command -v tmm` 으로 잡으면 소스 트리 실행이 설치본 libexec 를 본다.
 
 ## 현재 설계 결정 (사용자 확정)
