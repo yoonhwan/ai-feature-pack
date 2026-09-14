@@ -103,8 +103,8 @@ CLI: `tmm dead [PAT] [--since H] [--all]` · `tmm dp NAME [N]` · `tmm restore N
 
 - **왜**: Ghostty 에서 창을 잡고 크기를 바꾸면 pty 가 회수되고(`fd2 (revoked)` 실측), 거기 직접 붙어 있던 tmm(bash) 이 SIGHUP 으로 즉사했습니다. 고아 fzf 8개와 정리 안 된 상태 디렉터리 49개가 그 반복의 흔적입니다. 좌석에 attach 중일 때만 멀쩡했던 이유도 같습니다 — 그때는 tmux 가 화면을 들고 있었습니다.
 - **검증**: pty 를 강제로 회수하는 A/B 에서 래핑 없으면 피커가 사라지고, 래핑하면 `tmm` 세션과 피커가 그대로 살아남았습니다.
-- **좌석에 붙었다가 돌아오기**: 피커에서 Enter 로 좌석에 가면 `switch-client` 로 전환됩니다. 돌아올 때는 tmux 기본 키 `C-a L`(직전 세션) 또는 `C-a s`(세션 트리)로 `tmm` 을 고릅니다.
-- **끄기**: `TMM_NO_WRAP=1 tmm`. 세션 이름 변경은 `TMM_SESSION=이름`. `tmm ls`·`tmm dead`·`tmm restore` 같은 비대화 서브명령은 래핑하지 않습니다.
+- **좌석에 붙었다가 돌아오기**: `C-a d` 를 누르면 피커로 돌아옵니다. 피커 세션에서 `C-a d` 를 누르면 원래대로 tmux 를 떠납니다. tmm 세션이 없을 때는 기본 detach 그대로라 다른 워크플로를 깨지 않습니다(`TMM_NO_DBIND=1` 로 끔).
+- **끄기**: 래핑은 `TMM_NO_WRAP=1 tmm`, `C-a d` 재바인딩은 `TMM_NO_DBIND=1`. 세션 이름 변경은 `TMM_SESSION=이름`. `tmm ls`·`tmm dead`·`tmm restore` 같은 비대화 서브명령은 래핑하지 않습니다.
 
 ## pane 미리보기가 보여주는 것
 
