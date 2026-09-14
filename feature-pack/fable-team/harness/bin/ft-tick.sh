@@ -105,6 +105,8 @@ d = json.load(open(sys.argv[1]))
 for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
     # impl/checker 는 나노 계열이라 정지 감시 대상. tester 는 press 슬롯을 master 가 게이트하므로 제외.
+    # role=stop-ready 는 «정지가 정상»인 좌석 — 깨우지 않는다(실측 2026-09-14: 정지 레디 좌석을 17분마다 깨웠다).
+    #   정지 레디로 갈 때 seats.json 행의 role 을 stop-ready 로 바꾼다(arch-fable#40 선례). 되살리면 role 을 원래로.
     if v.get("_replaced_by") or v.get("role") not in ("master", "da", "pm", "nano", "impl", "checker", "harness-design"): continue
     print(f"{k}\t{v.get('role','')}")
 PY
