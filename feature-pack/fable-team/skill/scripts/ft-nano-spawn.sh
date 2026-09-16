@@ -39,7 +39,7 @@ ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
-SEATS="$ROOT/.fable-team/seats.json"; MBOX="$HERE/../comm/mbox.sh"
+SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; MBOX="$HERE/../comm/mbox.sh"
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
