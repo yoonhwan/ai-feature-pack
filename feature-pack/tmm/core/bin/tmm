@@ -80,16 +80,59 @@ tui_wrap() {
   [ -z "${TMUX:-}" ] || return 0                       # 이미 tmux 안
   [ "${TMM_NO_WRAP:-0}" != 1 ] || return 0             # 명시적 비래핑
   command -v tmux >/dev/null 2>&1 || return 0
-  local sess="${TMM_SESSION:-tmm}"
+  # ★창마다 독립 피커★ — 0.5.0~0.5.4 는 `new-session -A` 가 «같은 이름 세션에 붙는» 탓에 창을 몇 개 열든
+  #   전부 한 화면을 공유했다(한쪽에서 커서를 옮기면 다른 쪽도 같이 움직임 — 2026-09-16 사용자 지적).
+  #   붙어 있는 클라이언트가 «없는» 세션만 재사용하고(= 떼고 돌아온 경우 이어받기), 이미 누가 보고 있으면
+  #   tmm-2, tmm-3 … 으로 새로 만든다.
+  local base sess i=2                                  # ★한 local 문 안에서 앞 변수를 참조하면 set -u 에 걸린다★
+  base="${TMM_SESSION:-tmm}"; sess="$base"
+  while tmux has-session -t "=$sess" 2>/dev/null \
+     && [ -n "$(tmux list-clients -t "=$sess" -F x 2>/dev/null)" ]; do
+    sess="$base-$i"; i=$((i+1)); [ "$i" -gt 32 ] && break
+  done
   # ★좌석에서 C-a d 를 누르면 피커로 돌아온다★ — 기본 detach 는 tmux 밖(셸)으로 떨어져 «tmm 이 끝난» 것처럼 보인다.
-  #   조건부 바인딩: 지금이 피커 세션이면 원래대로 detach, 아니면 피커 세션으로 switch.
-  #   피커 세션이 없으면(=tmm 안 씀) 기본 detach 그대로라 다른 워크플로를 깨지 않는다. TMM_NO_DBIND=1 로 끈다.
+  #   피커가 여럿이라 세션명을 바인딩에 박을 수 없다(서버 전역 바인딩이라 마지막 tmm 이 덮어쓴다).
+  #   대신 «그 클라이언트가 직전에 있던 세션»으로 돌아간다 — 각 창이 자기 피커로 복귀한다. TMM_NO_DBIND=1 로 끈다.
   local dbind=()
   if [ "${TMM_NO_DBIND:-0}" != 1 ]; then
-    dbind=(';' bind-key d if-shell -F "#{==:#{session_name},$sess}" detach-client \
-           "if-shell 'tmux has-session -t =$sess' 'switch-client -t =$sess' detach-client")
+    dbind=(';' bind-key d run-shell "'$SELF' dkey '#{client_tty}' '#{session_name}'")
   fi
-  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 TMM_SESSION='$sess' '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" "${dbind[@]}"
+  exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 TMM_SESSION='$sess' '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" \
+       ';' set -t "=$sess:" @tmm_picker 1 "${dbind[@]}"
+}
+
+# ^B = 선택복구 모드 토글 (종료 뷰 전용). fzf 바인딩은 정적이라 «몇 번째 누름인지»를 파일로 들고,
+# transform 이 그때그때 다른 액션을 뱉는다. 스페이스는 평소엔 «필터 문자»라서 모드일 때만 rebind 한다.
+#   1회: 전체 선택 + 스페이스=체크/해제
+#   2회: 모드 종료 — 선택이 있으면 그것만 복구, 없으면 그냥 빠져나온다 (2026-09-16 사용자 스펙)
+cmd_bkey() {
+  [ "$(view_now)" = dead ] || { printf 'change-prompt(^B 는 종료 뷰 전용 — ^D> )'; return; }
+  if [ -f "$RUN/selmode" ]; then
+    rm -f "$RUN/selmode"
+    if [ "${FZF_SELECT_COUNT:-0}" -gt 0 ]; then
+      : > "$RUN/bulk"; printf 'unbind(space)+accept'
+    else
+      printf 'unbind(space)+deselect-all+change-prompt(종료> )'
+    fi
+  else
+    : > "$RUN/selmode"; printf 'select-all+rebind(space)+change-prompt(선택복구 space=체크 ^B=실행> )'
+  fi
+}
+
+# C-a d 처리 — 좌석이면 «그 클라이언트가 직전에 있던» 피커로 복귀, 피커면 원래대로 detach.
+# 피커 판별은 세션 옵션 @tmm_picker 로 한다(이름은 tmm-2 … 로 늘어나므로 이름 비교는 못 쓴다).
+cmd_dkey() {  # <client_tty> <현재 세션명>
+  local tty="${1:-}" cur="${2:-}" last
+  [ -n "$tty" ] || return 0
+  if [ "$(tmux show -t "=$cur:" -qv @tmm_picker 2>/dev/null)" = 1 ]; then
+    tmux detach-client -t "$tty" 2>/dev/null; return 0
+  fi
+  last="$(tmux display -p -c "$tty" '#{client_last_session}' 2>/dev/null)"
+  if [ -n "$last" ] && [ "$(tmux show -t "=$last:" -qv @tmm_picker 2>/dev/null)" = 1 ]; then
+    tmux switch-client -c "$tty" -t "=$last" 2>/dev/null
+  else
+    tmux detach-client -t "$tty" 2>/dev/null
+  fi
 }
 
 # ---------- 카테고리 ----------
@@ -224,8 +267,11 @@ cmd_rows() {
     tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_pid}' 2>/dev/null | awk -F'\t' '!seen[$1]++' \
     | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
   )
+  # 피커 세션은 «자신이든 다른 창의 것이든» 좌석이 아니다. list-sessions 한 번으로 받는다(좌석당 루프 금지).
+  local picks=" $(tmux list-sessions -F '#{session_name}' -f '#{@tmm_picker}' 2>/dev/null | tr '\n' ' ')"
   while IFS=$'\t' read -r s pcmd act cwd; do
-    [ -n "${TMM_SESSION:-}" ] && [ "$s" = "$TMM_SESSION" ] && continue   # 피커 자신은 좌석이 아니다
+    case "$picks" in *" $s "*) continue ;; esac
+    [ -n "${TMM_SESSION:-}" ] && [ "$s" = "$TMM_SESSION" ] && continue   # 래핑 안 쓴 경우의 폴백
     st="${ST[$s]:-?}"
     [ "$only" = "h" ] && ! [[ "$st" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && continue
     case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○";; *) live="●";; esac
@@ -607,7 +653,7 @@ hdr_live() {
   printf '%s %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^/ 도움)"
 }
 hdr_dead() {
-  printf '%s %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 보이는것)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
+  printf '%s %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 선택복구)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
   printf '%s %s  %s  %s  %s\n' "$(S 창)" "$(K ^] +12h)" "$(K ^\\ -12h)" "$(K ^L 계보)" "$(K ^R 갱신)"
   printf '%s %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W SNAP)" "$(K ^G 분류)" "$(K ^P/^O 미리보기)"
 }
@@ -633,13 +679,14 @@ cmd_tui() {
       --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
       --preview-wrap-sign='' \
       --bind "resize:transform($SELF pw-action)" \
-      --bind "start:transform($SELF pw-action)" \
+      --bind "start:transform($SELF pw-action)+unbind(space)" \
       --preview-label=' pane ' \
       --border=top --border-label=" tmm $TMM_VERSION " --border-label-pos=-3:top \
       --multi --expect=enter,ctrl-e,ctrl-s,ctrl-k,double-click \
+      --print-query --query="$(cat "$RUN/query" 2>/dev/null)" \
       --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
-      --bind "ctrl-a:execute-silent($SELF view live)+execute-silent($M time)+reload($R time)+change-prompt(좌석> )+transform-header($SELF header)" \
-      --bind "ctrl-d:execute-silent($SELF view dead)+execute-silent($M time)+reload($SELF dead-rows time fresh)+change-prompt(종료> )+transform-header($SELF header)" \
+      --bind "ctrl-a:execute-silent(rm -f $RUN/selmode)+unbind(space)+deselect-all+execute-silent($SELF view live)+execute-silent($M time)+reload($R time)+change-prompt(좌석> )+transform-header($SELF header)" \
+      --bind "ctrl-d:execute-silent(rm -f $RUN/selmode)+unbind(space)+deselect-all+execute-silent($SELF view dead)+execute-silent($M time)+reload($SELF dead-rows time fresh)+change-prompt(종료> )+transform-header($SELF header)" \
       --bind "ctrl-]:execute-silent($SELF since +)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
       --bind "ctrl-\\:execute-silent($SELF since -)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
       --bind "ctrl-l:execute-silent($SELF gen)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
@@ -650,7 +697,8 @@ cmd_tui() {
       --bind "ctrl-u:execute-silent($SELF auto-cycle)+transform-header($SELF header)" \
       --bind "ctrl-p:toggle-preview" \
       --bind "ctrl-o:transform($SELF pw-action big)" \
-      --bind "ctrl-b:execute-silent(: > $RUN/bulk)+select-all+accept" \
+      --bind "space:toggle" \
+      --bind "ctrl-b:transform($SELF bkey)" \
       --bind "ctrl-x:abort" \
       --bind "ctrl-/:transform-header($SELF header)" \
       2>>"$STATE/fzf-stderr.log" < <(cmd_rows_cur))"; rc=$?
@@ -662,6 +710,9 @@ cmd_tui() {
            printf '%s exit=%s cols=%s\n' "$(date +%FT%T)" "$rc" "$(term_cols)" >> "$STATE/fzf-stderr.log"
            sleep 0.5; continue ;;                                   # 리사이즈 중 fzf 사망 등
     esac
+    # --print-query 로 첫 줄은 «타이핑한 필터». 좌석에 붙었다 돌아와도, 뷰를 바꿔도 그대로 되살린다
+    # (2026-09-16 사용자 요청: 「전환간에 카테고리나 검색을 유지」). 정렬·뷰는 이미 $RUN/mode·view 에 산다.
+    printf '%s' "${out%%$'\n'*}" > "$RUN/query"; out="${out#*$'\n'}"
     key="${out%%$'\n'*}"; rows="${out#*$'\n'}"; sel="$(printf '%s' "$rows" | head -1 | cut -f2)"
     # ^B = «지금 화면에 보이는(필터·정렬 적용된) 행 전부» 일괄 복구. select-all+accept 로 전 행이 out 에 실려 온다.
     if [ -f "$RUN/bulk" ]; then
@@ -729,6 +780,8 @@ case "${1:-}" in
   mode)      cmd_mode "${2:-time}" "${3:-}";;
   auto-cycle) cmd_auto_cycle;;
   header)    cmd_header;;
+  bkey)      cmd_bkey;;                          # ^B 선택복구 모드 토글 (fzf transform 용 액션)
+  dkey)      cmd_dkey "${2:-}" "${3:-}";;        # tmux C-a d 바인딩이 부른다 (피커 복귀/detach)
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
   pw-action) printf 'change-preview-window(%s)' "$(cmd_pw "${2:-}")";;   # fzf transform() 용 액션 문자열
   __post)    cmd_post "$2" "$3";;                # 핑거 → fzf --listen 소켓 액션 전송
