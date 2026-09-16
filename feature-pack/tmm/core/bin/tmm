@@ -101,6 +101,21 @@ tui_wrap() {
        ';' set -t "=$sess:" @tmm_picker 1 "${dbind[@]}"
 }
 
+# 미리보기 라벨 — 커서가 놓인 좌석의 «온전한» 이름을 보여준다. 목록의 이름 열은 폭에 맞춰 잘리므로
+# (60열 폰에서는 20칸) 어느 좌석을 보고 있는지 라벨이 정본이다. focus 이벤트로 커서를 옮길 때마다 갱신.
+cmd_plabel() {  # <세션명|SID>
+  local n="${1:-}"
+  [ -n "$n" ] || { printf ' pane '; return; }
+  printf ' %s ' "$n"
+}
+
+# 상단 테두리 라벨 — 버전 + 매치수. --info=hidden 으로 비운 «한 줄»을 여기로 옮겼다(폰에서 목록 한 줄이 귀하다).
+cmd_blabel() {  # fzf 가 result/load 에서 부른다. 매치수는 환경변수로 온다.
+  local m="${FZF_MATCH_COUNT:-}" t="${FZF_TOTAL_COUNT:-}"
+  if [ -n "$m" ] && [ -n "$t" ]; then printf ' tmm %s · %s/%s ' "$TMM_VERSION" "$m" "$t"
+  else printf ' tmm %s ' "$TMM_VERSION"; fi
+}
+
 # ^B = 선택복구 모드 토글 (종료 뷰 전용). fzf 바인딩은 정적이라 «몇 번째 누름인지»를 파일로 들고,
 # transform 이 그때그때 다른 액션을 뱉는다. 스페이스는 평소엔 «필터 문자»라서 모드일 때만 rebind 한다.
 #   1회: 전체 선택 + 스페이스=체크/해제
@@ -495,7 +510,11 @@ auto_loop() {
     [ -S "$sock" ] || continue
     gap="$(auto_now)"
     [ "$gap" -gt 0 ] && [ $((i % gap)) -eq 0 ] && cmd_post "$sock" 'refresh-preview'
-    [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && cmd_post "$sock" "reload($SELF rows-cur fresh)"
+    # ★선택복구 모드(^B)에서는 전좌석 갱신을 멈춘다★ — fzf 의 reload 는 «선택을 전부 지운다».
+    #   20초마다 체크가 통째로 풀려서 «시간이 지나면 선택이 해제된다» 로 보였다(2026-09-16 사용자 지적).
+    #   미리보기 갱신(refresh-preview)은 선택을 건드리지 않으므로 그대로 둔다.
+    [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && [ ! -f "$RUN/selmode" ] \
+      && cmd_post "$sock" "reload($SELF rows-cur fresh)"
     [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
   done
 }
@@ -638,9 +657,11 @@ cmd_pw() {
   local w big=""; w="$(term_cols)"
   if [ "${1:-}" = big ]; then [ -f "$RUN/pwbig" ] && rm -f "$RUN/pwbig" || : > "$RUN/pwbig"; fi
   [ -f "$RUN/pwbig" ] && big=1
-  local out
-  if [ "$w" -ge 120 ]; then out="right,$([ -n "$big" ] && echo 75% || echo 55%),wrap-word,follow,noinfo,border-left"
-  else out="down,$([ -n "$big" ] && echo 80% || echo 50%),wrap-word,follow,noinfo,border-top"; fi
+  # 종료 뷰 미리보기의 첫 줄은 «[CC] 세션명 · cwd · 모델» 메타라 스크롤해도 붙잡아 둔다(~1).
+  # 살아있는 좌석은 pane 원문이라 고정할 머리줄이 없다.
+  local out hdr=""; [ "$(view_now)" = dead ] && hdr=",~1"
+  if [ "$w" -ge 120 ]; then out="right,$([ -n "$big" ] && echo 75% || echo 55%),wrap-word,follow,noinfo,border-left$hdr"
+  else out="down,$([ -n "$big" ] && echo 80% || echo 50%),wrap-word,follow,noinfo,border-top$hdr"; fi
   printf '%s' "$out" > "$RUN/pw"; printf '%s' "$out"
 }
 
@@ -672,8 +693,10 @@ cmd_tui() {
   # ★핑거도 fzf 한 번의 수명에 묶는다★ — attach 중(fzf 없음)엔 갱신이 없어야 하므로.
   while :; do
     rm -f "$sock"; auto_loop "$sock" & pinger=$!
-    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track \
-      --layout=reverse --cycle --no-mouse --info=inline-right --sync --listen="$sock" \
+    # --scheme=path: 구분자(-·#·/) 뒤 첫 글자에 보너스. 실측(16좌석·질의 5개)에서 4건 동일·1건 개선
+    # (`v65m` → ft-v65-master 가 1위로). 좌석명이 ft-v65-master-sonnet#7 처럼 구분자로 쪼개져 있어 맞는다.
+    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track --scheme=path \
+      --layout=reverse --cycle --no-mouse --info=hidden --sync --listen="$sock" \
       --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || echo '좌석> ')" --pointer='▶' \
       --header="$(cmd_header)" --header-first \
       --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
@@ -681,7 +704,10 @@ cmd_tui() {
       --bind "resize:transform($SELF pw-action)" \
       --bind "start:transform($SELF pw-action)+unbind(space)" \
       --preview-label=' pane ' \
-      --border=top --border-label=" tmm $TMM_VERSION " --border-label-pos=-3:top \
+      --bind "focus:transform-preview-label($SELF plabel {2})" \
+      --bind "result:transform-border-label($SELF blabel)" \
+      --bind "load:transform-border-label($SELF blabel)" \
+      --border=top --border-label="$(cmd_blabel)" --border-label-pos=-3:top \
       --multi --expect=enter,ctrl-e,ctrl-s,ctrl-k,double-click \
       --print-query --query="$(cat "$RUN/query" 2>/dev/null)" \
       --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
@@ -780,6 +806,8 @@ case "${1:-}" in
   mode)      cmd_mode "${2:-time}" "${3:-}";;
   auto-cycle) cmd_auto_cycle;;
   header)    cmd_header;;
+  plabel)    cmd_plabel "${2:-}";;               # 미리보기 라벨 = 커서 좌석의 온전한 이름 (focus)
+  blabel)    cmd_blabel;;                        # 상단 테두리 라벨 = 버전 + 매치수 (result/load)
   bkey)      cmd_bkey;;                          # ^B 선택복구 모드 토글 (fzf transform 용 액션)
   dkey)      cmd_dkey "${2:-}" "${3:-}";;        # tmux C-a d 바인딩이 부른다 (피커 복귀/detach)
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
