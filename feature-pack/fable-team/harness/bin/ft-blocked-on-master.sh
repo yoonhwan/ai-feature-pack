@@ -9,7 +9,10 @@ for s in $(tmux list-sessions -F '#S' 2>/dev/null | grep '^ft-v65' | grep -v 'ma
   line=$(tmux capture-pane -p -S -25 -t "$s" 2>/dev/null | grep -nE "$PAT" | tail -1)
   [ -z "$line" ] && continue
   age=$(bash "$ROOT/.worktrees/v6-realtime-live/.fable-team/bin/ft-seat-status.sh" one "$s" 2>/dev/null | awk '{print $3}')
-  printf '  ★%s★ (jsonl %ss 전)\n    %s\n' "$s" "${age:-?}" "$(echo "$line" | cut -c1-150)"
+  # ★움직이는 좌석은 «기다리는» 것이 아니다★ — pane 스크롤백엔 옛 「대기」 줄이 남는다(오탐 원인).
+  # jsonl 이 120초 안에 갱신됐으면 그 좌석은 지금 일하는 중이다.
+  case "$age" in ''|*[!0-9]*) ;; *) [ "$age" -lt 120 ] && continue;; esac
+  printf '  ★%s★ (jsonl %ss 전 · ★멈춰 있다★)\n    %s\n' "$s" "${age:-?}" "$(echo "$line" | cut -c1-150)"
   hit=$((hit+1))
 done
 echo "BLOCKED-ON-MASTER=$hit"
