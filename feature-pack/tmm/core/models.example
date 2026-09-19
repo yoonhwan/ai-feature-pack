@@ -1,0 +1,43 @@
+# tmm 모델 별칭 — fork 대상 에이전트별 별칭 정의.
+# 형식: agent<TAB>alias<TAB>model-id<TAB>extra-flags   (위에서부터 첫 매치, # 주석)
+#   agent     : claude | codex | opencode | cmd
+#   alias     : TUI fork 메뉴에 보이는 이름 (짧게)
+#   model-id  : 각 CLI 의 --model 에 그대로 넘는 값 (opencode/cmd 는 provider/model)
+#   extra     : (선택) tmuxc open/fork 에 그대로 넘길 추가 플래그 — 예: --effort high / --fast on
+# tmm 은 claude 대상일 때 fable 계열이 아니면 --ctx 1m 을 자동으로 붙인다(작은 창 금지 규칙).
+# 이 파일: ~/.tmm/models  (TMM_MODELS 로 경로 변경 가능). 없으면 fork 모델 메뉴가 비어 --model 직접 지정만 가능.
+
+# ---- Claude Code ----
+claude	opus	claude-opus-5
+claude	sonnet	claude-sonnet-5
+claude	fable	claude-fable-5-1
+claude	haiku	claude-haiku-4-5
+
+# ---- Codex ----
+codex	astra	gpt-6-astra
+codex	terra	gpt-5.6-terra
+codex	luna	gpt-5.6-luna
+codex	sol	gpt-5.6-sol
+codex	gpt55	gpt-5.5
+
+# ---- opencode ----
+opencode	opus	opencode/claude-opus-5
+opencode	sonnet	opencode/claude-sonnet-5
+opencode	fable	opencode/claude-fable-5-1
+opencode	astra	opencode/gpt-6-astra
+opencode	terra	opencode/gpt-5.6-terra
+opencode	luna	opencode/gpt-5.6-luna
+opencode	deepseek	opencode/deepseek-v4-pro
+opencode	glm	opencode/glm-5.3
+opencode	kimi	opencode/kimi-k3
+opencode	gemini	opencode/gemini-3.8-flash
+
+# ---- Command Code (cmd) ----
+cmd	deepseek	deepseek/deepseek-v4.1-flash
+cmd	glm	zai-org/glm-5.3
+cmd	kimi	moonshotai/kimi-k3
+cmd	minimax	minimaxai/minimax-m3
+cmd	qwen	qwen/qwen3.8-max
+cmd	sonnet	claude-sonnet-5
+cmd	opus	claude-opus-5
+cmd	fable	claude-fable-5-1

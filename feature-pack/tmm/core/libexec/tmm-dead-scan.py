@@ -398,6 +398,240 @@ def find_transcript(sid):
     return None, None
 
 
+# ---------- resolve: 세션 → 대화 기록 인덱스 경로 (라이브 + 종료 공통) ----------
+# 「리스트에 보이는 세션의 트랜스크립트 파일」을 이름/엔진/트랜스크립트에서 해석한다.
+# 읽기 전용. 종료 세션은 sid 로, 라이브 세션은 (cwd, 이름) 으로 찾는다.
+def claude_project_dirs(cwd):
+    # claude project 디렉터리 슬러그 = cwd 의 '/'와 '.'를 '-'로 (실측: .worktrees → --worktrees).
+    # tmux pane_current_path 는 심링크를 해석(/private/var/…)하므로 cwd 와 realpath 후보를 모두 시도한다.
+    root = os.path.dirname(os.path.dirname(CLAUDE_GLOB))
+    cands = set()
+    c = cwd or ""
+    if c:
+        cands.add(c)
+        try:
+            cands.add(os.path.realpath(c))
+        except Exception:
+            pass
+        cands.add(c[len("/private"):] if c.startswith("/private/") else "/private" + c)
+    return [os.path.join(root, re.sub(r"[/.]", "-", x)) for x in cands if x]
+
+
+def _cwd_eq(a, b):
+    if not a or not b:
+        return True
+    if a == b:
+        return True
+    try:
+        return os.path.realpath(a) == os.path.realpath(b)
+    except Exception:
+        return False
+
+
+def _head_agent_name(path):
+    for line in head_lines(path, 120):
+        o = jl(line)
+        if o and o.get("agentName"):
+            return o["agentName"]
+        if o and o.get("type") == "user":
+            break
+    return ""
+
+
+def _sid_of(path):
+    return os.path.basename(path)[:-6] if path.endswith(".jsonl") else os.path.basename(path)
+
+
+def _find_sid(sid, agent):
+    a, p = find_transcript(sid)
+    return (agent, sid, p, "exact") if p and a == agent else None
+
+
+def resolve_claude(name, cwd, sid=""):
+    if sid:
+        return _find_sid(sid, "claude")
+    d = claude_project_dirs(cwd)
+    best = None
+    seen = set()
+    for dd in d:
+        for p in glob.glob(os.path.join(dd, "*.jsonl")):
+            if "/subagents/" in p or p in seen:
+                continue
+            seen.add(p)
+            if name and _head_agent_name(p) == name:
+                return ("claude", _sid_of(p), p, "exact")
+            try:
+                mt = os.path.getmtime(p)
+            except OSError:
+                continue
+            if best is None or mt > best[0]:
+                best = (mt, p)
+    # 이름 매치 실패 시 폴백은 «지금 쓰이고 있는 파일»만 — 방치된 남의 세션을 집어오지 않게.
+    if best and time.time() - best[0] < LIVE_GRACE:
+        return ("claude", _sid_of(best[1]), best[1], "fallback")
+    return None
+
+
+def _codex_meta(path):
+    meta, users = None, []
+    for line in head_lines(path, 40):
+        o = jl(line)
+        if not o:
+            continue
+        if meta is None and o.get("type") == "session_meta":
+            meta = o.get("payload") or {}
+        p = o.get("payload") or {}
+        if o.get("type") == "response_item" and p.get("type") == "message" and p.get("role") == "user":
+            t = text_of(p.get("content"))
+            if not is_noise_user(t):
+                users.append(t)
+    return meta, users
+
+
+def resolve_codex(name, cwd, sid=""):
+    if sid:
+        return _find_sid(sid, "codex")
+    best = None
+    for p in glob.glob(CODEX_GLOB):
+        meta, users = _codex_meta(p)
+        if not meta or not _cwd_eq(meta.get("cwd") or "", cwd):
+            continue
+        s = meta.get("session_id") or meta.get("id") or _sid_of(p)
+        if name and infer_name(users) == name:
+            return ("codex", s, p, "exact")
+        try:
+            mt = os.path.getmtime(p)
+        except OSError:
+            continue
+        if best is None or mt > best[0]:
+            best = (mt, s, p)
+    return ("codex", best[1], best[2], "cwd") if best else None
+
+
+def _cmd_meta(path):
+    o = jl((head_lines(path, 1) or [""])[0])
+    if not o or o.get("type") != "session":
+        return None, ""
+    title = ""
+    try:
+        with open(path[:-6] + ".meta.json", "r", encoding="utf-8") as f:
+            title = json.load(f).get("title") or ""
+    except Exception:
+        pass
+    return o, title
+
+
+def resolve_cmd(name, cwd, sid=""):
+    if sid:
+        return _find_sid(sid, "cmd")
+    best = None
+    for p in glob.glob(CMD_GLOB):
+        if ".checkpoints." in p:
+            continue
+        o, title = _cmd_meta(p)
+        if not o or not _cwd_eq(o.get("cwd") or "", cwd):
+            continue
+        s = o.get("id") or _sid_of(p)
+        if name and title == name:
+            return ("cmd", s, p, "exact")
+        try:
+            mt = os.path.getmtime(p)
+        except OSError:
+            continue
+        if best is None or mt > best[0]:
+            best = (mt, s, p)
+    return ("cmd", best[1], best[2], "cwd") if best else None
+
+
+def resolve_opencode(name, cwd, sid=""):
+    if not os.path.isfile(OPENCODE_DB):
+        return None
+    try:
+        con = sqlite3.connect("file:" + OPENCODE_DB + "?mode=ro&immutable=1", uri=True, timeout=3)
+        if sid:
+            rows = con.execute("select id, title from session where id=?", (sid,)).fetchall()
+        elif name:
+            rows = con.execute("select id, title from session where title=? order by time_updated desc",
+                               (name,)).fetchall()
+            if not rows and cwd:
+                rows = con.execute("select id, title from session where directory=? order by time_updated desc",
+                                   (cwd,)).fetchall()
+        elif cwd:
+            rows = con.execute("select id, title from session where directory=? order by time_updated desc",
+                               (cwd,)).fetchall()
+        else:
+            rows = []
+        con.close()
+    except Exception:
+        return None
+    if not rows:
+        return None
+    match = "exact" if (name and (rows[0][1] or "") == name) else "cwd"
+    return ("opencode", rows[0][0], OPENCODE_DB, match)
+
+
+RESOLVERS = {"claude": resolve_claude, "codex": resolve_codex, "cmd": resolve_cmd, "opencode": resolve_opencode}
+
+
+def cmd_resolve(a):
+    agents = [a.agent] if a.agent else ["claude", "codex", "cmd", "opencode"]
+    name, cwd = a.name or "", a.cwd or ""
+    # 1패스: 이름 정확매치 — 같은 cwd 에 claude·codex 가 섞여 있어도 남의 것을 집지 않는다.
+    for ag in agents:
+        fn = RESOLVERS.get(ag)
+        if not fn:
+            continue
+        try:
+            res = fn(name, cwd, a.sid or "") if (name or a.sid) else None
+        except Exception:
+            res = None
+        if res and res[3] == "exact":
+            print(SEP.join([res[0], res[1], res[2] or "", cwd, res[3]]))
+            return 0
+    # 2패스: cwd 기반 폴백 (라이브 신규 세션 — 이름 매치가 없을 때)
+    for ag in agents:
+        fn = RESOLVERS.get(ag)
+        if not fn:
+            continue
+        try:
+            res = fn("", cwd, a.sid or "")
+        except Exception:
+            res = None
+        if res:
+            print(SEP.join([res[0], res[1], res[2] or "", cwd, res[3]]))
+            return 0
+    return 1
+
+
+# ---------- excerpt: fork 컨텍스트용 발췌 (평문, ANSI 없음) ----------
+def cmd_excerpt(a):
+    agent, path = find_transcript(a.sid)
+    if a.agent:
+        agent = a.agent
+    if not path:
+        print("(트랜스크립트 없음: %s)" % a.sid)
+        return 1
+    out = ["# fork context — %s" % a.sid,
+           "- source agent: %s" % agent,
+           "- transcript: %s" % path]
+    if a.cwd:
+        out.append("- cwd: %s" % a.cwd)
+    out.append("")
+    fn = {"claude": tail_claude, "codex": tail_codex, "cmd": tail_cmd}.get(agent)
+    if not fn:
+        out.append("(이 엔진은 대화 tail 미지원 — 위 transcript 경로를 직접 참조)")
+    else:
+        msgs = fn(path, a.n)
+        if not msgs:
+            out.append("(대화 없음)")
+        for role, ts, txt in msgs:
+            out.append("## %s · %s" % (role or "?", ts or ""))
+            out.append(txt.strip())
+            out.append("")
+    print("\n".join(out))
+    return 0
+
+
 # ---------- 렌더 ----------
 def render(msgs, width):
     """Claude TUI 흉내: user=회색 `❯`, assistant=굵게 `⏺`, 끝에 완료 마커. render_pane 이 그대로 먹는다."""
@@ -475,8 +709,24 @@ def main():
     t.add_argument("--sid", required=True)
     t.add_argument("--n", type=int, default=40)
     t.add_argument("--width", type=int, default=200)
+    r = sub.add_parser("resolve")
+    r.add_argument("--name", default="")
+    r.add_argument("--cwd", default="")
+    r.add_argument("--agent", default="")
+    r.add_argument("--sid", default="")
+    x = sub.add_parser("excerpt")
+    x.add_argument("--sid", required=True)
+    x.add_argument("--agent", default="")
+    x.add_argument("--cwd", default="")
+    x.add_argument("--n", type=int, default=40)
     a = ap.parse_args()
-    return cmd_scan(a) if a.cmd == "scan" else cmd_tail(a)
+    if a.cmd == "scan":
+        return cmd_scan(a)
+    if a.cmd == "tail":
+        return cmd_tail(a)
+    if a.cmd == "resolve":
+        return cmd_resolve(a)
+    return cmd_excerpt(a)
 
 
 if __name__ == "__main__":

@@ -3,10 +3,10 @@
 `tmm`은 폰(Termius 등 SSH 클라이언트)에서 수십 개의 tmux 에이전트 세션("좌석")을 **커서로 고르고, 붙지 않고 미리보고, 메시지를 보내는** 한 화면짜리 TUI입니다. `tmuxc`로 띄운 Claude Code·Codex·OMX 좌석 운영을 전제로 만들었지만 일반 tmux 세션에도 그대로 씁니다.
 
 ```
-─────────────────────────────────────────────────────────────── tmm 0.4.1 ──
-  이동 ⏎ attach  ^S 메시지  ^K 좌석닫기  ^D 종료뷰  ^X 끝
+─────────────────────────────────────────────────────────────── tmm 0.6.0 ──
+  이동 ⏎ attach  ^S 메시지  ^K 닫기  ^F fork  ^D 종료  ^X 끝
   정렬 ^T 최근  ^W 대기  ^G 분류  ^H 대기만  ^A 전체
-  화면 ^P/^O 미리보기  ^U 자동  ^R 갱신  ^/ 도움
+  화면 ^P/^O 미리보기  ^U 자동  ^R 갱신  ^Y 경로  ^/ 도움
   상태 pane 1s · 전체 20s · 12:34 완료 12~34 출력
 좌석> v65 impl                                                            2/65
 ──────────────────────────────────────────────────────────────────────────────
@@ -47,6 +47,9 @@
 | ↑↓ / 타이핑 | 커서 이동 / 퍼지 필터 (`v65 impl`, `HUMAN`, `CFO` …) |
 | Enter, `^E`, 더블탭 | attach. `C-a d`(prefix d)로 떼면 피커로 복귀 |
 | `^S` | 커서 좌석에 메시지. `[mobile→세션명] …` 접두 + 2초 뒤 도달 확인. 에이전트 없는 좌석은 차단 |
+| `^K` | 좌석 종료 (tmux 세션 + 그 안의 에이전트) |
+| `^F` | **fork** — 소스 대화를 새 에이전트 세션으로 이어받기 (아래 절) |
+| `^Y` | **대화 기록 인덱스** — 커서 세션의 트랜스크립트 경로를 화면에 표시 (아래 절) |
 | `^H` / `^A` | 대기 좌석만 / 전체 |
 | `^T` / `^W` / `^G` | 최근순(기본) / 대기우선 / 카테고리순 |
 | `^R` | 상태 재스캔 (캐시 무시). 현재 정렬·필터 모드 유지 |
@@ -96,6 +99,39 @@
 **tmuxc restore 와의 관계**: `tmuxc restore`는 데스크탑용 일괄 복구(표 → `--select` → `--go`)이고 스냅샷을 우선합니다. tmm 종료 뷰는 폰용 개별 복구이고 **트랜스크립트를 우선**합니다 — 2026-09-09 재부팅 때 직전 살아있던 54세션 중 스냅샷에 있는 것이 0개였기 때문입니다. 스냅샷은 있을 때 `resume_cmd`를 빌려 쓰는 보조 인덱스로만 씁니다. 발견 규칙(세션명 복원·노이즈 필터·계보 dedupe)은 `tmuxc-restore-scan.py`에서 옮겨 왔고, assistant 메시지 파서와 opencode/cmd 지원은 tmm 쪽에만 있습니다.
 
 CLI: `tmm dead [PAT] [--since H] [--all]` · `tmm dp NAME [N]` · `tmm restore NAME [--dry-run]` · `tmm restore-all [--since H] [--dry-run] [--yes]`
+
+## 대화 기록 인덱스 (`^Y` · `tmm idx`)
+
+리스트에 보이는 세션(살아있든 종료됐든)의 **트랜스크립트 파일 경로**를 해석해 준다. 코딩 에이전트에게 "이전 대화는 이 파일"이라고 바로 알려주는 용도다.
+
+- `^Y`: 커서 세션의 `agent · session_id · cwd · transcript · match` 를 화면에 표시(아무 키로 복귀). 커서는 그대로.
+- `tmm idx NAME|SID`: 같은 정보를 CLI 로. `--path` 는 경로만(에이전트 파이프용), `--json` 은 JSON.
+- **해석 규칙**: 라이브는 `cwd` 의 claude project 슬러그 + `agentName` 정확매치(없으면 지금 쓰이는 최근 파일), 종료는 세션 id. codex/cmd 는 cwd 매칭, opencode 는 DB(경로 = `opencode.db`, session id 별도).
+- `match`: `exact`(이름/agentName 정확매치) · `cwd`(cwd 기반) · `fallback`(라이브 최근 활성 파일).
+
+```bash
+tmm idx ft-v65-master-claude#5 --path
+# /Users/…/.claude/projects/-Users-…-v6-realtime-live/933c0e56-….jsonl
+```
+
+## fork (`^F` · `tmm fork`) — 대화를 다른 에이전트로 이어받기
+
+클로드 레이트리밋 등으로 **살아있는/종료된 세션을 다른 엔진으로 옮겨 이어가는** 기능. 소스 대화는 건드리지 않는다.
+
+- **동일 엔진** = `tmuxc fork` 네이티브 분기 — 전체 히스토리 그대로, 부모 불변, 새 conversation id. 모델·effort 만 바꿔 이어가기.
+- **크로스 엔진** = `tmuxc open` 새 세션 + **컨텍스트 주입** — 트랜스크립트 원문 경로 + 최근 대화 발췌(`~/.tmm/forks/<시각>-<소스>.md`)를 프롬프트로 준다. 발췌를 먼저 읽고 원문을 참조해 이어가라는 지시가 붙는다.
+- 이름 기본값 = 소스의 `#N` 을 `#N+1` 로 (사용자 편집). 이미 있으면 빈 이름까지 자동 증가.
+- `^F`: 이름·에이전트(claude/codex/opencode/cmd)·모델을 고르면 **백그라운드 생성 후 피커 복귀**. 로그 `~/.tmm/forks/.last-fork.log`.
+- 모델 별칭은 `~/.tmm/models` (`agent<TAB>alias<TAB>model-id<TAB>extra`). claude 는 fable 제외 `--ctx 1m` 자동.
+- 스폰·창옵션·COMM-GUIDE 주입은 전부 `tmuxc` 에 위임한다(동일엔진은 `tmuxc fork`, 크로스엔진은 `tmuxc open`).
+
+```bash
+# CLI — 전 파라미터. dry-run 으로 커맨드만 확인(부작용 없음)
+tmm fork ft-v65-master-claude#5 --agent codex --model astra --dry-run
+tmm fork ft-v65-master-claude#5 --agent claude --model sonnet --attach   # 동일엔진 네이티브 fork
+tmm fork cmd-e56bb022 --agent opencode --model deepseek --name v65-impl#8
+tmm models codex                                                         # 별칭 목록
+```
 
 ## TUI 는 tmux 안에서 돕니다 (0.5.0)
 
@@ -153,6 +189,10 @@ tmm dead [PAT] [--since H] [--all]   # 종료된 세션 목록
 tmm dp NAME|SID [N] # 종료 세션의 마지막 대화 N줄
 tmm restore NAME [--dry-run]         # 종료 세션 1건 복구 → attach
 tmm restore-all [--since H] [--dry-run] [--yes]   # 창 안 전부 복구 (attach 없음)
+tmm idx NAME|SID [--json|--path]     # 세션의 대화 기록(트랜스크립트) 경로 — 라이브·종료 공통
+tmm fork SRC --agent AG --model M [--name N] [--cwd C] [--effort E] [--ctx 1m] [--prompt P] [--dry-run] [--attach]
+                                     # 소스 대화를 새 에이전트 세션으로 이어받기 (동일=네이티브 fork, 크로스=경로·발췌 주입)
+tmm models [AG]                      # fork 모델 별칭 목록 (~/.tmm/models)
 ```
 
 ## 설정
@@ -160,6 +200,9 @@ tmm restore-all [--since H] [--dry-run] [--yes]   # 창 안 전부 복구 (attac
 | 항목 | 위치 / 변수 | 기본 |
 |---|---|---|
 | 카테고리 규칙 | `~/.tmm/categories` (`TMM_CATEGORIES`) | 설치 시 예시 복사. `글롭<TAB>라벨` 한 줄씩 |
+| fork 모델 별칭 | `~/.tmm/models` (`TMM_MODELS`) | 설치 시 예시 복사. `agent<TAB>alias<TAB>id<TAB>extra` |
+| fork 발췌 파일 | `~/.tmm/forks/` (`TMM_FORKS`) | 크로스엔진 fork 시 생성. 피커 종료 후에도 새 에이전트가 읽음 |
+| fork 발췌 메시지 수 | `TMM_FORK_EXCERPT_N` | 40 |
 | 상태 스캔 캐시 | `TMM_CACHE_TTL` | 20초. 필터·재정렬 연타 시 재스캔 방지. `^R`은 무시 |
 | seat-scan 경로 | `TMM_SCAN` | 설치본 `libexec/seat-scan.sh` → `~/.claude/skills/tmuxc/scripts/seat-scan.sh` |
 | 미리보기 줄 수 | `TMM_PREVIEW_LINES` | 40 |

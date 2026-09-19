@@ -140,6 +140,8 @@ SNAP_FIX="$FIX/nosnap.json"; RTRIES=20   # (n) 에서 snap.json·3 으로 바꾼
 dtmm() {
   env -u TMUX TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" \
       TMM_RUN="$DEAD_RUN" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null \
+      TMM_MODELS="$ROOT/core/models.example" TMM_FORKS="$SOCK_DIR/forks" \
+      TMUXC_CLAUDE_PROJECTS="$FIX/.claude/projects" \
       TMM_CLAUDE_GLOB="$FIX/.claude/projects/*/*.jsonl" \
       TMM_CODEX_GLOB="$FIX/.codex/sessions/*/*/*/rollout-*.jsonl" \
       TMM_CMD_GLOB="$FIX/.commandcode/projects/*/*.jsonl" \
@@ -300,5 +302,51 @@ self_rows="$(env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" T
   TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null "$TMM" rows time 2>/dev/null || true)"
 if printf '%s\n' "$self_rows" | grep -q 'TMM_SELF'; then echo 'FAIL: (q) 피커 자신이 좌석 목록에 나온다'; exit 1; fi
 tm kill-session -t TMM_SELF 2>/dev/null || true
+
+# (r) 대화 기록 인덱스 (idx) — 라이브(이름+cwd)와 종료(sid) 공통 해석, --path/--json
+LIVESLUG="$(python3 -c 'import re,sys;print(re.sub(r"[/.]","-",sys.argv[1]))' "$FIX")"
+python3 - "$FIX" "$LIVESLUG" <<'PY'
+import json, os, sys
+FIX, slug = sys.argv[1], sys.argv[2]
+p = os.path.join(FIX, ".claude/projects", slug, "11111111-2222-3333-4444-555566667777.jsonl")
+os.makedirs(os.path.dirname(p), exist_ok=True)
+recs = [{"type": "agent-name", "agentName": "TMM_IDX_LIVE#0"},
+        {"type": "user", "cwd": FIX, "timestamp": "2026-09-19T00:00:00.000Z", "message": {"content": "hi"}},
+        {"type": "assistant", "timestamp": "2026-09-19T00:00:00.000Z",
+         "message": {"model": "claude-sonnet-5", "content": [{"type": "text", "text": "LIVE ANSWER"}]}}]
+open(p, "w", encoding="utf-8").write("\n".join(json.dumps(r, ensure_ascii=False) for r in recs) + "\n")
+PY
+tm new-session -d -s 'TMM_IDX_LIVE#0' -c "$FIX"
+sleep 0.4
+idx_live="$(dtmm idx 'TMM_IDX_LIVE#0')"
+printf '%s\n' "$idx_live" | grep -q '11111111-2222-3333-4444-555566667777' || { echo 'FAIL: (r) 라이브 idx 가 fixture sid 를 못 찾음'; printf '%s\n' "$idx_live"; exit 1; }
+printf '%s\n' "$idx_live" | grep -q 'agent:      claude' || { echo 'FAIL: (r) 라이브 idx agent≠claude'; printf '%s\n' "$idx_live"; exit 1; }
+idx_path="$(dtmm idx 'TMM_IDX_LIVE#0' --path)"
+printf '%s\n' "$idx_path" | grep -qF -- "$LIVESLUG" || { echo 'FAIL: (r) idx --path 가 슬러그 경로 아님'; printf '%s\n' "$idx_path"; exit 1; }
+idx_json="$(dtmm idx 'TMM_IDX_LIVE#0' --json)"
+printf '%s\n' "$idx_json" | python3 -c 'import json,sys;d=json.load(sys.stdin);assert d["session_id"]=="11111111-2222-3333-4444-555566667777" and d["agent"]=="claude"' || { echo 'FAIL: (r) idx --json 파싱/필드 오류'; printf '%s\n' "$idx_json"; exit 1; }
+tm kill-session -t 'TMM_IDX_LIVE#0' 2>/dev/null || true
+idx_dead="$(dtmm idx 'ft-fx-impl#3')"
+printf '%s\n' "$idx_dead" | grep -q "$SID_CC" || { echo 'FAIL: (r) 종료 claude idx 가 sid 를 못 찾음'; printf '%s\n' "$idx_dead"; exit 1; }
+printf '%s\n' "$idx_dead" | grep -q 'agent:      claude' || { echo 'FAIL: (r) 종료 claude idx agent≠claude'; printf '%s\n' "$idx_dead"; exit 1; }
+idx_cmd="$(dtmm idx 'ft-fx-cmd#0')"
+printf '%s\n' "$idx_cmd" | grep -q 'agent:      cmd' || { echo 'FAIL: (r) cmd 종료 idx 가 claude 로 오분류'; printf '%s\n' "$idx_cmd"; exit 1; }
+dtmm idx 'NO_SUCH_SEAT#99' >/dev/null 2>&1 && { echo 'FAIL: (r) 없는 세션 idx 가 성공함'; exit 1; }
+
+# (s) fork — dry-run 만 (실제 CLI 미호출). 동일엔진=네이티브 fork, 크로스엔진=open+주입, 이름 #N+1.
+f_same="$(dtmm fork 'ft-fx-impl#3' --agent claude --model sonnet --dry-run 2>&1 || true)"
+printf '%s\n' "$f_same" | grep -qF -- '--fork-session' || { echo 'FAIL: (s) 동일엔진 fork 에 --fork-session 없음'; printf '%s\n' "$f_same"; exit 1; }
+printf '%s\n' "$f_same" | grep -qF -- "--resume $SID_CC --fork-session" || { echo 'FAIL: (s) 동일엔진 fork 가 소스 sid 로 분기 안 함'; printf '%s\n' "$f_same"; exit 1; }
+printf '%s\n' "$f_same" | grep -qF 'claude-sonnet-5[1m]' || { echo 'FAIL: (s) claude fork 모델 [1m] 규칙 아님'; printf '%s\n' "$f_same"; exit 1; }
+printf '%s\n' "$f_same" | grep -q 'name=ft-fx-impl#4' || { echo 'FAIL: (s) 이름 자동증가(#3→#4) 아님'; printf '%s\n' "$f_same"; exit 1; }
+f_cross="$(dtmm fork 'ft-fx-impl#3' --agent codex --model astra --dry-run 2>&1 || true)"
+printf '%s\n' "$f_cross" | grep -qF 'gpt-6-astra' || { echo 'FAIL: (s) 크로스엔진 codex 모델 매핑 실패'; printf '%s\n' "$f_cross"; exit 1; }
+printf '%s\n' "$f_cross" | grep -qF 'same_engine=0' || { echo 'FAIL: (s) 크로스엔진 판정 아님'; printf '%s\n' "$f_cross"; exit 1; }
+printf '%s\n' "$f_cross" | grep -qF -- '--fork-session' && { echo 'FAIL: (s) 크로스엔진인데 네이티브 fork 플래그가 붙음'; printf '%s\n' "$f_cross"; exit 1; }
+f_raw="$(dtmm fork 'ft-fx-impl#3' --agent opencode --model opencode/glm-5.3 --dry-run 2>&1 || true)"
+printf '%s\n' "$f_raw" | grep -qF 'opencode/glm-5.3' || { echo 'FAIL: (s) raw 모델 id 통과 실패'; printf '%s\n' "$f_raw"; exit 1; }
+dtmm fork 'ft-fx-impl#3' --agent omx --dry-run >/dev/null 2>&1 && { echo 'FAIL: (s) omx fork 가 거부되지 않음'; exit 1; }
+# 크로스엔진 실제 생성 경로의 발췌 파일 — dry-run 은 파일을 만들지 않아야 한다
+[ -e "$SOCK_DIR/forks" ] && [ -n "$(ls -A "$SOCK_DIR/forks" 2>/dev/null)" ] && { echo 'FAIL: (s) dry-run 인데 발췌 파일이 생성됨'; ls -la "$SOCK_DIR/forks"; exit 1; }
 
 echo "✅ tmm verify OK"

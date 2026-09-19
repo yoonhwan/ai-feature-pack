@@ -30,7 +30,9 @@ for cmd in bash tmux fzf; do
 done
 # tmuxc 는 필수 세트 — send 도달확인·save·restore 규약(COMM-GUIDE 주입·부팅 대기)·seat-scan 원본이 tmuxc 쪽에 있다.
 if command -v tmuxc >/dev/null 2>&1; then
-  say "  [✓] tmuxc $(cat "$HOME/.tmuxc/current/core/VERSION" 2>/dev/null || echo '?')"
+  tcv="$(cat "$HOME/.tmuxc/current/core/VERSION" 2>/dev/null || echo 0)"
+  say "  [✓] tmuxc $tcv"
+  [ "$(printf '%s\n0.4.0\n' "$tcv" | sort -V | head -1)" = "0.4.0" ] || say "  [!] tmuxc $tcv < 0.4.0 — 동일엔진 fork 불가 (크로스엔진 fork 는 동작). tmuxc 재설치 권장"
 else
   say "  [✗] tmuxc 누락 — tmm 은 tmuxc 와 세트다. 먼저: bash feature-pack/tmuxc/install.sh"
   missing=$((missing + 1))
@@ -83,6 +85,14 @@ else
   cp "$PKG_DIR/core/categories.example" "$GLOBAL_BASE/categories"
   say "  [✓] $GLOBAL_BASE/categories 생성 (예시 — 세션명 접두에 맞게 편집)"
 fi
+# fork 모델 별칭 — 없으면 예시 복사(있으면 보존). fork 는 이 파일로 별칭→모델 id 를 푼다.
+if [ -f "$GLOBAL_BASE/models" ]; then
+  say "  [✓] $GLOBAL_BASE/models 유지 (기존 별칭)"
+else
+  cp "$PKG_DIR/core/models.example" "$GLOBAL_BASE/models"
+  say "  [✓] $GLOBAL_BASE/models 생성 (fork 모델 별칭 — 예시)"
+fi
+mkdir -p "$GLOBAL_BASE/forks"
 
 say "[5/5] 검증"
 "$LOCAL_BIN/tmm" doctor || true

@@ -14,7 +14,8 @@ command -v curl >/dev/null                                       # 자동 갱신
 
 필수 세트:
 
-- `tmuxc` (feature-pack/tmuxc) — `tmm s` 도달확인, `tmm save`, 복구 규약. **없으면 install.sh 가 중단**한다. 먼저 `bash feature-pack/tmuxc/install.sh`.
+- `tmuxc` (feature-pack/tmuxc) **>= 0.4.0** — `tmm s` 도달확인, `tmm save`, 복구 규약, 그리고 **fork**(동일엔진 네이티브 `tmuxc fork`). **없으면 install.sh 가 중단**한다. 먼저 `bash feature-pack/tmuxc/install.sh`.
+  - 0.4.0 미만이면 크로스엔진 fork 는 되지만 동일엔진 네이티브 fork 는 안 된다(경고만).
 
 선택:
 
@@ -36,7 +37,8 @@ bash feature-pack/tmm/install.sh
 4. `~/.local/bin` PATH 미등록이면 `~/.zshrc`/`~/.bashrc` 에 추가
 5. `~/.zshrc` 에 `alias tmm=` 이 있으면 경고 (alias 가 바이너리를 가로챔)
 6. `~/.tmm/categories` 가 없으면 예시 복사 (있으면 보존)
-7. `tmm doctor` 로 검증
+7. `~/.tmm/models` 가 없으면 예시 복사 (fork 모델 별칭 — 있으면 보존), `~/.tmm/forks/` 생성
+8. `tmm doctor` 로 검증
 
 ### 2) 카테고리 규칙 편집
 
@@ -92,3 +94,8 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 | 헤더 뒤쪽 키 안내·`auto:` 가 안 보임 | 0.1.0 헤더가 60열을 넘어 fzf 가 잘랐음. 0.2.0 은 3줄·각 60열 이내 — 재설치 |
 | `^R` 누르면 정렬이 최근순으로 돌아감 | 0.1.0 결함. 0.2.0 은 현재 모드 유지 — 재설치 |
 | 미리보기가 흑백·바닥에 branch/OMC 줄·오래된 내용부터 | 0.2.0 이하 렌더. 0.2.1 은 색 유지·statusline 제거·바닥 우선 — 재설치. 그래도 statusline 이 남으면 `tmux capture-pane -p -e -J -t '=NAME:' \| tail -8` 로 입력박스 모양이 «구분선→`❯`» 인지 확인 |
+| `tmm idx NAME` 이 "인덱스 없음" | `tmm idx NAME --json` 의 `match` 확인. 라이브 claude 는 cwd 슬러그 + `agentName` 매치 실패 시에만 실패(신규 세션은 최근 활성 파일로 폴백). codex/cmd 는 cwd 매칭, opencode 는 `opencode.db` |
+| `^Y` 를 눌러도 화면이 안 바뀜 | fzf ≥ 0.54 필요(`execute`). `tmm doctor` 로 fzf 확인. 정보화면은 아무 키로 복귀 |
+| fork 했는데 동일엔진인데도 전체 히스토리가 안 이어짐 | `tmuxc fork` 부재(tmuxc < 0.4.0). `tmuxc fork` 실행해 usage 나오는지 확인 → tmuxc 재설치. 그 전엔 크로스엔진 경로(경로·발췌 주입)만 동작 |
+| fork 모델 메뉴가 빔 | `~/.tmm/models` 없음. `install.sh` 재실행(예시 복사) 또는 직접 작성. `tmm models` 로 확인 |
+| fork 후 새 세션이 직전 작업을 못 이어감 | 발췌 파일(`~/.tmm/forks/`) 존재·크기 확인. `TMM_FORK_EXCERPT_N` 를 늘리거나 `--prompt` 로 지시 보강. 라이브 소스는 `^Y` 로 원문 경로를 확인해 새 세션에 직접 주소를 줄 수 있다 |
