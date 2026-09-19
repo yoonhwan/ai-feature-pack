@@ -29,7 +29,25 @@ tmuxc kill <name>
 tmuxc clean
 tmuxc save [--keep N]                 # 종료 전 전역 세션 스냅샷 ([1m]/effort/session_id 보존)
 tmuxc restore [--from latest] [--go]  # 재부팅 후 복원 (스냅샷 우선, --scan 으로 로그 스캔 강제)
+tmuxc fork <path> --name NEW (--from LIVE_SESSION | --source ID --agent claude|codex|opencode|cmd) [--model ID] [--ctx 1m] [--effort E] [--prompt TEXT]
+                                      # 네이티브 conversation fork — 부모 대화 불변, 자식은 새 세션ID로 분기
 ```
+
+### tmuxc fork (네이티브 분기)
+
+부모 세션을 건드리지 않고 새 conversation id로 분기한다 — 모델/effort만 바꿔 이어가거나
+실험 브랜치를 딸 때 쓴다. 4엔진 각각의 네이티브 플래그를 쓴다:
+
+| 엔진 | argv | 비고 |
+|---|---|---|
+| claude | `--resume <ID> --fork-session` | headroom 래퍼 경유, `[1m]`/effort 승계 |
+| codex | `codex fork <ID>` | `-c model=`/`-c model_reasoning_effort=` 통과 |
+| opencode | `--session <ID> --fork` | `--model` 그대로 |
+| cmd | `--resume <ID> --fork-session` | `--model`/`--effort` |
+
+- `--from <라이브세션>`: 엔진·모델·conversation id를 라이브 프로세스/트랜스크립트에서 해석. **교차엔진 불가**(같은 엔진만).
+- `--source <ID> --agent <엔진>`: id 직접 지정. 엔진 저장소 실재 여부를 best-effort 확인.
+- `omx`는 네이티브 fork가 없어 대상에서 제외.
 
 ## BYZ 권장 패턴
 
