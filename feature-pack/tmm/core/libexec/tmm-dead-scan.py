@@ -492,7 +492,13 @@ def resolve_codex(name, cwd, sid=""):
     if sid:
         return _find_sid(sid, "codex")
     best = None
+    cutoff = time.time() - RESOLVE_WINDOW
     for p in glob.glob(CODEX_GLOB):
+        try:
+            if os.path.getmtime(p) < cutoff:
+                continue
+        except OSError:
+            continue
         meta, users = _codex_meta(p)
         if not meta or not _cwd_eq(meta.get("cwd") or "", cwd):
             continue
@@ -525,8 +531,14 @@ def resolve_cmd(name, cwd, sid=""):
     if sid:
         return _find_sid(sid, "cmd")
     best = None
+    cutoff = time.time() - RESOLVE_WINDOW
     for p in glob.glob(CMD_GLOB):
         if ".checkpoints." in p:
+            continue
+        try:
+            if os.path.getmtime(p) < cutoff:
+                continue
+        except OSError:
             continue
         o, title = _cmd_meta(p)
         if not o or not _cwd_eq(o.get("cwd") or "", cwd):
@@ -570,6 +582,7 @@ def resolve_opencode(name, cwd, sid=""):
     return ("opencode", rows[0][0], OPENCODE_DB, match)
 
 
+RESOLVE_WINDOW = int(os.environ.get("TMM_RESOLVE_WINDOW", "172800"))  # 48h — 이름/ cwd 해석은 최근 파일만
 RESOLVERS = {"claude": resolve_claude, "codex": resolve_codex, "cmd": resolve_cmd, "opencode": resolve_opencode}
 
 

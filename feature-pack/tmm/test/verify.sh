@@ -349,4 +349,19 @@ dtmm fork 'ft-fx-impl#3' --agent omx --dry-run >/dev/null 2>&1 && { echo 'FAIL: 
 # 크로스엔진 실제 생성 경로의 발췌 파일 — dry-run 은 파일을 만들지 않아야 한다
 [ -e "$SOCK_DIR/forks" ] && [ -n "$(ls -A "$SOCK_DIR/forks" 2>/dev/null)" ] && { echo 'FAIL: (s) dry-run 인데 발췌 파일이 생성됨'; ls -la "$SOCK_DIR/forks"; exit 1; }
 
+# (t) 모델 소스 — 사용자 파일 + 생성본 병합(사용자 우선), refresh(정적), find
+UMOD="$SOCK_DIR/user-models"; GMOD="$SOCK_DIR/gen-models"
+printf 'opencode\tglm\topenrouter/z-ai/glm-5.3-flash\nopencode\tshared\topenrouter/USER-WINS\n' > "$UMOD"
+printf '# gen\nopencode\tshared\topenrouter/GEN-LOSES\nopencode\tdeepseek\topenrouter/deepseek/deepseek-v4.1-flash\n' > "$GMOD"
+mtmm() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null \
+  TMM_MODELS="$UMOD" TMM_MODELS_GEN="$GMOD" TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" "$TMM" "$@"; }
+mtmm models opencode | grep -q 'openrouter/USER-WINS' || { echo 'FAIL: (t) 사용자 별칭이 병합 안 됨'; mtmm models opencode; exit 1; }
+mtmm models opencode | grep -q 'GEN-LOSES' && { echo 'FAIL: (t) 사용자 우선이 아님(생성본이 덮음)'; mtmm models opencode; exit 1; }
+mtmm models opencode | grep -q 'openrouter/deepseek/deepseek-v4.1-flash' || { echo 'FAIL: (t) 생성본 별칭이 병합 안 됨'; mtmm models opencode; exit 1; }
+mtmm models find deepseek-v4.1 | grep -q 'deepseek-v4.1-flash' || { echo 'FAIL: (t) models find 실패'; mtmm models find deepseek-v4.1; exit 1; }
+# refresh(정적 에이전트만) — opencode/cmd CLI 미호출이라 결정적. 사용자 파일을 건드리지 않게 명시 경로로.
+RFGEN="$SOCK_DIR/refresh.tsv"
+python3 "$ROOT/core/libexec/tmm-models-sync.py" --out "$RFGEN" --agents claude >/dev/null 2>&1
+grep -qE '^claude\topus\tclaude-opus-5$' "$RFGEN" || { echo 'FAIL: (t) models refresh 정적 생성 실패'; cat "$RFGEN" 2>/dev/null; exit 1; }
+
 echo "✅ tmm verify OK"

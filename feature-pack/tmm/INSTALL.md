@@ -56,6 +56,19 @@ tmm ls | head            # 목록 (상태 열이 ? 면 seat-scan 경로 확인 �
 bash feature-pack/tmm/test/verify.sh   # 격리 tmux 소켓에서 회귀 (기존 세션 무접촉)
 ```
 
+### 3-1) fork 모델 별칭 (선택)
+
+`~/.tmm/models` 에 자주 쓰는 별칭을 직접 적거나, 라이브 목록에서 생성한다.
+
+```bash
+tmm models refresh                       # 각 CLI 라이브 목록 → ~/.tmm/models.generated (opencode=openrouter 기본)
+TMM_MODELS_PROVIDER=opencode tmm models refresh   # opencode zen 게이트웨이로 생성
+tmm models find deepseek-v4.1            # 별칭/모델 id 검색
+```
+
+**opencode 프로바이더 주의**: `--model` 접두사가 곧 게이트웨이다. `opencode/...` = zen(자체), `openrouter/...` = OpenRouter.
+크레딧이 OpenRouter 에 있으면 별칭이 `openrouter/...` 여야 한다(`opencode/deepseek-v4.1-flash` 는 없고 `openrouter/deepseek/deepseek-v4.1-flash` 에 있다).
+
 ### 4) 모바일 연결 (Termius 예)
 
 1. Mac: 시스템 설정 → 일반 → 공유 → 원격 로그인 켜기.
@@ -97,5 +110,8 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 | `tmm idx NAME` 이 "인덱스 없음" | `tmm idx NAME --json` 의 `match` 확인. 라이브 claude 는 cwd 슬러그 + `agentName` 매치 실패 시에만 실패(신규 세션은 최근 활성 파일로 폴백). codex/cmd 는 cwd 매칭, opencode 는 `opencode.db` |
 | `^Y` 를 눌러도 화면이 안 바뀜 | fzf ≥ 0.54 필요(`execute`). `tmm doctor` 로 fzf 확인. 정보화면은 아무 키로 복귀 |
 | fork 했는데 동일엔진인데도 전체 히스토리가 안 이어짐 | `tmuxc fork` 부재(tmuxc < 0.4.0). `tmuxc fork` 실행해 usage 나오는지 확인 → tmuxc 재설치. 그 전엔 크로스엔진 경로(경로·발췌 주입)만 동작 |
-| fork 모델 메뉴가 빔 | `~/.tmm/models` 없음. `install.sh` 재실행(예시 복사) 또는 직접 작성. `tmm models` 로 확인 |
+| fork 모델 메뉴가 빔 | `~/.tmm/models` 없음. `install.sh` 재실행(예시 복사) 또는 `tmm models refresh` |
+| fork 모델 메뉴에 원하는 모델이 없음 | `tmm models refresh` (라이브 목록 갱신) → `tmm models find QUERY` 로 확인. 별칭은 `~/.tmm/models` 에 직접 추가 가능 |
+| fork 가 opencode zen 으로 열려 크레딧이 안 잡힘 | 별칭이 `openrouter/...` 인지 확인. `TMM_MODELS_PROVIDER=openrouter tmm models refresh`. `opencode/` = zen(자체), `openrouter/` = OpenRouter |
+| fork 하다가 취소하고 싶다 | 어느 프롬프트에서든 `^C`(이름/에이전트/모델은 `q`). 생성 중에는 아무 키 — 만들어지던 세션까지 정리하고 피커로 복귀 |
 | fork 후 새 세션이 직전 작업을 못 이어감 | 발췌 파일(`~/.tmm/forks/`) 존재·크기 확인. `TMM_FORK_EXCERPT_N` 를 늘리거나 `--prompt` 로 지시 보강. 라이브 소스는 `^Y` 로 원문 경로를 확인해 새 세션에 직접 주소를 줄 수 있다 |

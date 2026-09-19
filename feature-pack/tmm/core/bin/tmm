@@ -22,7 +22,9 @@
 #   tmm fork SRC --agent AG --model M [--name N] [--cwd C] [--effort E] [--ctx 1m] [--prompt P] [--dry-run] [--attach]
 #                                        소스 대화를 «새 에이전트 세션»으로 이어받기. 동일 엔진=네이티브 tmuxc fork(전체 히스토리·부모 불변),
 #                                        크로스 엔진=tmuxc open 새 세션 + 트랜스크립트 경로·발췌 주입(~/.tmm/forks). 이름 기본=소스 #N+1
-#   tmm models [AG]                      fork 모델 별칭 목록 (~/.tmm/models)
+#   tmm models [AG] | refresh [AG...] | find QUERY   fork 모델 별칭 — refresh 는 라이브 목록(opencode 프로바이더 접두사)에서 생성
+#                                        opencode 의 --model 접두사가 곧 프로바이더다: opencode/=zen, openrouter/=OpenRouter (TMM_MODELS_PROVIDER)
+#                                        ^F 는 어느 단계에서든 ^C(또는 이름/에이전트/모델에서 q)로 취소, 생성 중 아무 키=취소 → 피커 복귀
 #
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^K 좌석닫기 · ^F fork · ^Y 대화기록 경로 · ^H 대기좌석만 · ^A 전체
 #          ^T 최근순 · ^W 대기우선 · ^G 카테고리순 · ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초
@@ -64,7 +66,10 @@ SCAN="${TMM_SCAN:-}"
   [ -f "$c" ] && { SCAN="$c"; break; }
 done
 CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
-MODELS_FILE="${TMM_MODELS:-$HOME/.tmm/models}"          # fork 모델 별칭 (agent<TAB>alias<TAB>id<TAB>extra)
+MODELS_FILE="${TMM_MODELS:-$HOME/.tmm/models}"          # fork 모델 별칭 (agent<TAB>alias<TAB>id<TAB>extra) — 사용자
+MODELS_GEN="${TMM_MODELS_GEN:-$HOME/.tmm/models.generated}"  # `tmm models refresh` 생성본 — 사용자 파일이 우선
+MODELS_SYNC="$HERE/../libexec/tmm-models-sync.py"       # 라이브 목록 → 생성본
+MODELS_PROVIDER="${TMM_MODELS_PROVIDER:-openrouter}"    # opencode 프로바이더 접두사 (opencode/=zen, openrouter/=OpenRouter)
 FORKS_DIR="${TMM_FORKS:-$HOME/.tmm/forks}"              # fork 발췌 파일 (영속 — 피커 종료 후에도 새 에이전트가 읽음)
 FORK_EXCERPT_N="${TMM_FORK_EXCERPT_N:-40}"              # 발췌에 담을 최근 메시지 수
 CACHE_TTL="${TMM_CACHE_TTL:-20}"
@@ -385,20 +390,42 @@ cmd_dead_preview() {  # NAME|SID [N]
   python3 "$DEAD_SCAN" tail --sid "$sid" --n "${2:-$PREVIEW_LINES}" --width "${COLUMNS:-80}" 2>/dev/null | render_pane
 }
 
+# 라이브 좌석의 엔진 판별 — pane 자식 프로세스 argv(+cmd 는 pane title). resolve 가 이 힌트로 해당 엔진만 훑게 한다
+# (힌트 없이 4엔진을 다 훑으면 codex/cmd 글롭 전수 head-read 로 opencode 좌석이 7~11초 걸렸다 — 2026-09-19 실측).
+live_agent_of() {  # session → claude|codex|opencode|cmd|""
+  local ppid pid args title
+  ppid="$(tmux display -p -t "=$1:" '#{pane_pid}' 2>/dev/null)"
+  [ -n "$ppid" ] || return 0
+  for pid in "$ppid" $(pgrep -P "$ppid" 2>/dev/null); do
+    args="$(ps -o args= -p "$pid" 2>/dev/null)"
+    case "$args" in
+      *claude*)   echo claude; return 0;;
+      *codex*)    echo codex; return 0;;
+      *opencode*) echo opencode; return 0;;
+      *command-code*|*"cmd "*) echo cmd; return 0;;
+    esac
+  done
+  title="$(tmux display -p -t "=$1:" '#{pane_title}' 2>/dev/null)"
+  case "$title" in command-code|"⌘"*) echo cmd;; esac
+}
+
 # ---------- 대화 기록 인덱스 (기능1) ----------
 # 리스트에 보이는 세션(라이브·종료 공통)의 트랜스크립트 파일 경로를 해석한다.
 # 라이브는 (이름,cwd) 로, 종료는 sid 로 찾는다. 결과: "agent<TAB>sid<TAB>path<TAB>cwd<TAB>match"
 idx_row() {  # NAME|SID
-  local n="${1:-}" cwd row sid
+  local n="${1:-}" cwd row sid ag
   [ -n "$n" ] || return 1
   if tmux has-session -t "=$n" 2>/dev/null; then
     cwd="$(tmux display -p -t "=$n:" '#{pane_current_path}' 2>/dev/null)"
-    python3 "$DEAD_SCAN" resolve --name "$n" --cwd "$cwd" 2>/dev/null
+    ag="$(live_agent_of "$n")"
+    local -a rargs=(--name "$n" --cwd "$cwd"); [ -n "$ag" ] && rargs+=(--agent "$ag")
+    python3 "$DEAD_SCAN" resolve "${rargs[@]}" 2>/dev/null
     return
   fi
   row="$(dead_row "$n")"; [ -n "$row" ] || return 1
-  sid="$(printf '%s' "$row" | cut -f5)"; cwd="$(printf '%s' "$row" | cut -f4)"
-  python3 "$DEAD_SCAN" resolve --sid "$sid" --cwd "$cwd" 2>/dev/null
+  sid="$(printf '%s' "$row" | cut -f5)"; cwd="$(printf '%s' "$row" | cut -f4)"; ag="$(printf '%s' "$row" | cut -f2)"
+  local -a dargs=(--sid "$sid" --cwd "$cwd"); [ -n "$ag" ] && dargs+=(--agent "$ag")
+  python3 "$DEAD_SCAN" resolve "${dargs[@]}" 2>/dev/null
 }
 cmd_idx() {  # NAME|SID [--json|--path]
   local n="${1:-}" mode="${2:-}"
@@ -446,9 +473,9 @@ free_name() {  # NAME → tmux 에 없는 이름까지 증가
   while tmux has-session -t "=$n" 2>/dev/null && [ "$i" -lt 50 ]; do n="$(bump_name "$n")"; i=$((i+1)); done
   printf '%s' "$n"
 }
-models_of() {  # agent → "alias<TAB>id<TAB>extra" 줄들 (설정 파일)
-  [ -f "$MODELS_FILE" ] || return 0
-  awk -F'\t' -v a="$1" '!/^[[:space:]]*#/ && $1==a && $2!="" {print $2"\t"$3"\t"$4}' "$MODELS_FILE"
+models_of() {  # agent → "alias<TAB>id<TAB>extra" (사용자 파일 먼저 → 생성본; 별칭 중복은 사용자 우선)
+  { [ -f "$MODELS_FILE" ] && cat "$MODELS_FILE"; [ -f "$MODELS_GEN" ] && cat "$MODELS_GEN"; } 2>/dev/null \
+    | awk -F'\t' -v a="$1" '!/^[[:space:]]*#/ && $1==a && $2!="" && !seen[$2]++ {print $2"\t"$3"\t"$4}'
 }
 model_id_of()    { models_of "$1" | awk -F'\t' -v al="$2" '$1==al {print $2; exit}'; }
 model_extra_of() { models_of "$1" | awk -F'\t' -v al="$2" '$1==al {print $3; exit}'; }
@@ -550,6 +577,7 @@ cmd_fork() {  # SRC [--agent AG] [--model M] [--name N] [--cwd C] [--effort E] [
   if [ "$attach" = 1 ]; then cmd_attach "$name"; else echo "attach: tmm a '$name'"; fi
 }
 # TUI ^F — fzf 밖(정상 tty)에서 이름·에이전트·모델을 프롬프트하고 백그라운드 생성 → 피커 복귀.
+# ★어느 단계에서든 ^C(또는 이름/에이전트/모델에서 q) 로 취소 → 피커로 복귀★. 생성 중 아무 키=취소.
 cmd_forkp() {  # SRC
   local src="${1:-}"
   [ -n "$src" ] || { echo "(선택된 좌석 없음)"; sleep 1; return 0; }
@@ -558,37 +586,95 @@ cmd_forkp() {  # SRC
   [ -n "$idxline" ] || { echo "❌ 소스 인덱스 없음: $src"; sleep 1.5; return 1; }
   local sagent ssid spath scwd smatch
   IFS=$'\t' read -r sagent ssid spath scwd smatch <<<"$idxline"
-  local def name agent ag list ms model="" p
+
+  local cancelled=0 def name agent ag list ms model="" p
+  trap 'cancelled=1' INT
+  _fcancel() { trap - INT; echo "(취소)"; sleep 0.8; }
+
   def="$(free_name "$(bump_name "$src")")"
-  printf '\033[1;36m── fork\033[0m %s (%s) → 새 세션\n' "$src" "$sagent"
-  read -r -p "이름 [$def]: " name; [ -n "$name" ] || name="$def"
+  printf '\033[1;36m── fork\033[0m %s (%s) → 새 세션  \033[2m(^C 취소)\033[0m\n' "$src" "$sagent"
+  read -r -p "이름 [$def]: " name || cancelled=1
+  [ "$cancelled" = 1 ] && { _fcancel; return 0; }
+  case "$name" in q|Q|취소) { _fcancel; return 0; };; esac
+  [ -n "$name" ] || name="$def"
+
   printf '에이전트: 1 claude  2 codex  3 opencode  4 cmd\n'
-  read -r -p "선택 [1]: " ag
-  case "$ag" in 2) agent=codex;; 3) agent=opencode;; 4) agent=cmd;; *) agent=claude;; esac
+  read -r -p "선택 [1]: " ag || cancelled=1
+  [ "$cancelled" = 1 ] && { _fcancel; return 0; }
+  case "$ag" in q|Q|취소) { _fcancel; return 0; };; 2) agent=codex;; 3) agent=opencode;; 4) agent=cmd;; *) agent=claude;; esac
+
   list="$(models_of "$agent")"
-  if [ -n "$list" ]; then
-    printf '모델(%s) — 번호 또는 별칭, 엔터=소스모델:\n' "$agent"
-    printf '%s\n' "$list" | awk -F'\t' '{printf "  %2d %-10s %s\n", NR, $1, $2}'
-    read -r -p "선택: " ms
+  if [ -n "$list" ] && command -v fzf >/dev/null; then
+    ms="$(printf '%s\n' "$list" | awk -F'\t' '{print $1"\t"$2}' \
+      | fzf --delimiter=$'\t' --with-nth=1,2 --nth=1,2 --reverse --height=70% \
+            --prompt="모델($agent)> " --header='엔터=선택 · 타이핑=검색 · Esc=취소(소스모델)' 2>/dev/null)"
+    [ -z "$ms" ] && { _fcancel; return 0; }
+    model="$(printf '%s' "$ms" | cut -f1)"
+  elif [ -n "$list" ]; then
+    printf '모델(%s) — 번호/별칭, 엔터=소스모델, q=취소:\n' "$agent"
+    printf '%s\n' "$list" | awk -F'\t' '{printf "  %2d %-14s %s\n", NR, $1, $2}'
+    read -r -p "선택: " ms || cancelled=1
+    [ "$cancelled" = 1 ] && { _fcancel; return 0; }
+    case "$ms" in q|Q|취소) { _fcancel; return 0; };; esac
     if [ -n "$ms" ]; then
       if [[ "$ms" =~ ^[0-9]+$ ]]; then model="$(printf '%s\n' "$list" | sed -n "${ms}p" | cut -f1)"; else model="$ms"; fi
     fi
   else
-    read -r -p "모델 id (엔터=소스모델): " model
+    read -r -p "모델 id (엔터=소스모델, q=취소): " model || cancelled=1
+    case "$model" in q|Q|취소) { _fcancel; return 0; };; esac
   fi
+  [ "$cancelled" = 1 ] && { _fcancel; return 0; }
+
+  read -r -p "추가 프롬프트(엔터=없음, ^C 취소): " p || cancelled=1
+  [ "$cancelled" = 1 ] && { _fcancel; return 0; }
+
   local -a args=(fork "$src" --agent "$agent" --name "$name")
   [ -n "$model" ] && args+=(--model "$model")
-  read -r -p "추가 프롬프트(엔터=없음): " p
   [ -n "$p" ] && args+=(--prompt "$p")
   mkdir -p "$FORKS_DIR"
-  printf '▶ 생성 중(백그라운드): %s %s\n' "$agent" "$name"
-  ( "$SELF" "${args[@]}" >"$FORKS_DIR/.last-fork.log" 2>&1 & ) 2>/dev/null
+  printf '▶ 생성 중… %s %s  \033[2m(아무 키=취소 · 기다리면 완료)\033[0m\n' "$agent" "$name"
+  "$SELF" "${args[@]}" >"$FORKS_DIR/.last-fork.log" 2>&1 &
+  local fpid=$! waited=0
+  while kill -0 "$fpid" 2>/dev/null; do
+    [ "$cancelled" = 1 ] && break
+    read -r -t 1 -n1 _ && { cancelled=1; break; }
+    waited=$((waited+1)); [ "$waited" -ge 90 ] && break
+  done
+  if [ "$cancelled" = 1 ]; then
+    kill "$fpid" 2>/dev/null; pkill -P "$fpid" 2>/dev/null
+    tmux kill-session -t "=$name" 2>/dev/null   # 이미 만들어진 «우리» 세션 정리(free_name 으로 비어있던 이름)
+    trap - INT; printf '(취소됨 — %s)\n' "$name"; sleep 1.2; return 0
+  fi
+  wait "$fpid" 2>/dev/null
+  trap - INT
+  if grep -qE 'created|command=|^session=' "$FORKS_DIR/.last-fork.log" 2>/dev/null; then
+    echo "✅ 생성 완료: $name (좌석 목록은 ^R 로 갱신)"
+  else
+    echo "⚠ 확인 필요 — 로그: $FORKS_DIR/.last-fork.log"; tail -3 "$FORKS_DIR/.last-fork.log" 2>/dev/null
+  fi
   sleep 1.2
-  echo "완료되면 좌석 목록에 나타납니다. 로그: $FORKS_DIR/.last-fork.log"
 }
-cmd_models() {  # [agent]
-  if [ -n "${1:-}" ]; then models_of "$1"
-  else local a; for a in claude codex opencode cmd; do printf '# %s\n' "$a"; models_of "$a"; done; fi
+cmd_models() {  # [agent] | refresh [agent...] | find QUERY
+  local sub="${1:-}"
+  case "$sub" in
+    refresh)
+      shift
+      command -v python3 >/dev/null || { echo "❌ python3 필요"; return 1; }
+      local args=(--out "$MODELS_GEN" --provider "$MODELS_PROVIDER")
+      [ $# -gt 0 ] && args+=(--agents "$(printf '%s,' "$@")")
+      python3 "$MODELS_SYNC" "${args[@]}" || return 1
+      echo "  생성본: $MODELS_GEN (프로바이더 $MODELS_PROVIDER) — 사용자 별칭 $MODELS_FILE 이 우선"
+      ;;
+    find)
+      shift; local q="${1:-}"
+      [ -n "$q" ] || { echo "usage: tmm models find QUERY"; return 1; }
+      { [ -f "$MODELS_FILE" ] && cat "$MODELS_FILE"; [ -f "$MODELS_GEN" ] && cat "$MODELS_GEN"; } 2>/dev/null \
+        | awk -F'\t' -v q="$q" '!/^#/ && $2!="" && (index(tolower($2),tolower(q)) || index(tolower($3),tolower(q))) {print $1"\t"$2"\t"$3}' | sort -u
+      ;;
+    "")
+      local a; for a in claude codex opencode cmd; do printf '# %s\n' "$a"; models_of "$a"; done;;
+    *) models_of "$sub";;
+  esac
 }
 
 # 복구 커맨드 합성 — ★fable 계열 제외 전부 [1m]★ (오빠 확정 2026-09-09: 작은 창으로 절대 열지 않는다)
@@ -856,6 +942,7 @@ cmd_doctor() {
   [ "$(printf '%s\n0.4.0\n' "$tcv" | sort -V | head -1)" = "0.4.0" ] && echo "  [✓] tmuxc fork (동일엔진 네이티브 분기)" \
     || echo "  [!] tmuxc $tcv < 0.4.0 — 동일엔진 fork 불가 (tmuxc 재설치; 크로스엔진 fork 는 동작)"
   [ -f "$MODELS_FILE" ] && echo "  [✓] models: $MODELS_FILE ($(grep -cvE '^\s*#|^\s*$' "$MODELS_FILE" 2>/dev/null) 별칭)" || echo "  [!] models 없음 → fork 모델 메뉴가 빔 ($MODELS_FILE — install.sh 가 예시 복사)"
+  [ -f "$MODELS_GEN" ] && echo "  [✓] models.generated: $(grep -cvE '^\s*#|^\s*$' "$MODELS_GEN" 2>/dev/null)개 (opencode provider=$MODELS_PROVIDER)" || echo "  [!] models.generated 없음 → 'tmm models refresh' 로 라이브 목록 생성 (opencode=$MODELS_PROVIDER)"
   [ -n "$SCAN" ] && echo "  [✓] seat-scan: $SCAN" || { echo "  [✗] seat-scan 없음 (상태 열이 ? 로 나옴)"; ok=1; }
   [ -f "$CAT_FILE" ] && echo "  [✓] categories: $CAT_FILE" || echo "  [!] categories 없음 → 세션명 첫 토큰으로 자동 분류 ($CAT_FILE 에 규칙 작성 가능)"
   tmux ls >/dev/null 2>&1 && echo "  [✓] tmux 서버 ($(tmux ls | wc -l | tr -d ' ') 세션)" || echo "  [!] tmux 서버 없음"
@@ -1030,7 +1117,7 @@ case "${1:-}" in
   idxp)      cmd_idxp "${2:-}";;                # TUI ^Y 정보화면
   fork)      shift; cmd_fork "$@";;             # 소스 대화를 새 에이전트 세션으로 이어받기
   forkp)     cmd_forkp "${2:-}";;               # TUI ^F 프롬프트
-  models)    cmd_models "${2:-}";;              # 모델 별칭 목록
+  models)    shift; cmd_models "$@";;              # models [AG] | refresh [AG...] | find QUERY
   restore)   cmd_restore_one "$2" "${3:-}";;
   restore-all) shift; cmd_restore_all "$@";;      # 현재 창(--since 로 조정) 전부 — tmm dead --since 24 >/dev/null; tmm restore-all
   mode)      cmd_mode "${2:-time}" "${3:-}";;

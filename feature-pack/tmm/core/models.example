@@ -21,16 +21,18 @@ codex	sol	gpt-5.6-sol
 codex	gpt55	gpt-5.5
 
 # ---- opencode ----
-opencode	opus	opencode/claude-opus-5
-opencode	sonnet	opencode/claude-sonnet-5
-opencode	fable	opencode/claude-fable-5-1
-opencode	astra	opencode/gpt-6-astra
-opencode	terra	opencode/gpt-5.6-terra
-opencode	luna	opencode/gpt-5.6-luna
-opencode	deepseek	opencode/deepseek-v4-pro
-opencode	glm	opencode/glm-5.3
-opencode	kimi	opencode/kimi-k3
-opencode	gemini	opencode/gemini-3.8-flash
+# ★opencode 의 --model 접두사가 곧 프로바이더다★ — opencode/=zen(자체 게이트웨이), openrouter/=OpenRouter.
+#   크레딧이 OpenRouter 에 있으면 반드시 openrouter/... 를 쓴다. `tmm models refresh` 가 openrouter 기준으로 생성한다.
+opencode	opus	openrouter/anthropic/claude-opus-5
+opencode	sonnet	openrouter/anthropic/claude-sonnet-5
+opencode	fable	openrouter/anthropic/claude-fable-5.1
+opencode	astra	openrouter/~openai/gpt-astra-latest
+opencode	terra	openrouter/~openai/gpt-terra-latest
+opencode	luna	openrouter/~openai/gpt-luna-latest
+opencode	deepseek	openrouter/deepseek/deepseek-v4.1-flash
+opencode	glm	openrouter/~z-ai/glm-latest
+opencode	kimi	openrouter/moonshotai/kimi-k3
+opencode	gemini	openrouter/~google/gemini-flash-latest
 
 # ---- Command Code (cmd) ----
 cmd	deepseek	deepseek/deepseek-v4.1-flash

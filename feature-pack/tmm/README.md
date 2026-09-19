@@ -121,8 +121,11 @@ tmm idx ft-v65-master-claude#5 --path
 - **동일 엔진** = `tmuxc fork` 네이티브 분기 — 전체 히스토리 그대로, 부모 불변, 새 conversation id. 모델·effort 만 바꿔 이어가기.
 - **크로스 엔진** = `tmuxc open` 새 세션 + **컨텍스트 주입** — 트랜스크립트 원문 경로 + 최근 대화 발췌(`~/.tmm/forks/<시각>-<소스>.md`)를 프롬프트로 준다. 발췌를 먼저 읽고 원문을 참조해 이어가라는 지시가 붙는다.
 - 이름 기본값 = 소스의 `#N` 을 `#N+1` 로 (사용자 편집). 이미 있으면 빈 이름까지 자동 증가.
-- `^F`: 이름·에이전트(claude/codex/opencode/cmd)·모델을 고르면 **백그라운드 생성 후 피커 복귀**. 로그 `~/.tmm/forks/.last-fork.log`.
-- 모델 별칭은 `~/.tmm/models` (`agent<TAB>alias<TAB>model-id<TAB>extra`). claude 는 fable 제외 `--ctx 1m` 자동.
+- `^F`: 이름·에이전트(claude/codex/opencode/cmd)·모델을 고르면 **생성 후 피커 복귀**. 로그 `~/.tmm/forks/.last-fork.log`.
+- **취소/돌아가기**: 어느 단계에서든 `^C`(또는 이름·에이전트·모델에서 `q`) 로 취소 → 피커 복귀. 생성 중에는 **아무 키=취소**(만들어지던 세션 정리). 모델은 fzf 검색창으로 고른다(600+ 별칭 대응, Esc=취소).
+- 모델 별칭은 `~/.tmm/models`(사용자) + `~/.tmm/models.generated`(생성본) 를 병합한다 — 사용자 파일이 우선.
+- `tmm models refresh` = 각 CLI 라이브 목록에서 생성본을 만든다. **opencode 는 프로바이더 접두사가 곧 게이트웨이**라 `TMM_MODELS_PROVIDER`(기본 `openrouter`)로 고른다 — 크레딧이 OpenRouter 면 `openrouter/`, zen 이면 `opencode/`. `tmm models find Q` 로 검색.
+- claude 는 fable 제외 `--ctx 1m` 자동.
 - 스폰·창옵션·COMM-GUIDE 주입은 전부 `tmuxc` 에 위임한다(동일엔진은 `tmuxc fork`, 크로스엔진은 `tmuxc open`).
 
 ```bash
@@ -130,7 +133,9 @@ tmm idx ft-v65-master-claude#5 --path
 tmm fork ft-v65-master-claude#5 --agent codex --model astra --dry-run
 tmm fork ft-v65-master-claude#5 --agent claude --model sonnet --attach   # 동일엔진 네이티브 fork
 tmm fork cmd-e56bb022 --agent opencode --model deepseek --name v65-impl#8
-tmm models codex                                                         # 별칭 목록
+tmm models refresh                       # 라이브 목록 → ~/.tmm/models.generated (openrouter 기본)
+TMM_MODELS_PROVIDER=opencode tmm models refresh opencode   # zen 게이트웨이로 생성
+tmm models find deepseek-v4.1            # 별칭/모델 id 검색
 ```
 
 ## TUI 는 tmux 안에서 돕니다 (0.5.0)
@@ -192,7 +197,9 @@ tmm restore-all [--since H] [--dry-run] [--yes]   # 창 안 전부 복구 (attac
 tmm idx NAME|SID [--json|--path]     # 세션의 대화 기록(트랜스크립트) 경로 — 라이브·종료 공통
 tmm fork SRC --agent AG --model M [--name N] [--cwd C] [--effort E] [--ctx 1m] [--prompt P] [--dry-run] [--attach]
                                      # 소스 대화를 새 에이전트 세션으로 이어받기 (동일=네이티브 fork, 크로스=경로·발췌 주입)
-tmm models [AG]                      # fork 모델 별칭 목록 (~/.tmm/models)
+tmm models [AG]                      # fork 모델 별칭 목록 (사용자 + 생성본)
+tmm models refresh [AG...]           # 라이브 목록에서 생성본 갱신 (opencode 프로바이더 = TMM_MODELS_PROVIDER)
+tmm models find QUERY                # 별칭/모델 id 검색
 ```
 
 ## 설정
@@ -200,7 +207,9 @@ tmm models [AG]                      # fork 모델 별칭 목록 (~/.tmm/models)
 | 항목 | 위치 / 변수 | 기본 |
 |---|---|---|
 | 카테고리 규칙 | `~/.tmm/categories` (`TMM_CATEGORIES`) | 설치 시 예시 복사. `글롭<TAB>라벨` 한 줄씩 |
-| fork 모델 별칭 | `~/.tmm/models` (`TMM_MODELS`) | 설치 시 예시 복사. `agent<TAB>alias<TAB>id<TAB>extra` |
+| fork 모델 별칭 | `~/.tmm/models` (`TMM_MODELS`) | 설치 시 예시 복사. `agent<TAB>alias<TAB>id<TAB>extra`. 사용자 파일이 생성본보다 우선 |
+| fork 모델 생성본 | `~/.tmm/models.generated` (`TMM_MODELS_GEN`) | `tmm models refresh` 가 라이브 목록에서 생성. 직접 편집 금지 |
+| opencode 프로바이더 | `TMM_MODELS_PROVIDER` | `openrouter` — `opencode/`=zen, `openrouter/`=OpenRouter |
 | fork 발췌 파일 | `~/.tmm/forks/` (`TMM_FORKS`) | 크로스엔진 fork 시 생성. 피커 종료 후에도 새 에이전트가 읽음 |
 | fork 발췌 메시지 수 | `TMM_FORK_EXCERPT_N` | 40 |
 | 상태 스캔 캐시 | `TMM_CACHE_TTL` | 20초. 필터·재정렬 연타 시 재스캔 방지. `^R`은 무시 |

@@ -1,32 +1,74 @@
 {
   "name": "tmm",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "title": "tmm — 모바일(SSH) tmux 좌석 TUI",
-  "description": "폰(Termius 등 SSH 클라이언트)에서 수십 개 tmux 에이전트 세션을 커서로 고르고, pane 미리보기·마지막 메시지 시각·상태(HUMAN/BLOCK/STUCK/IDLE/BUSY)를 한 화면에 보며 attach·메시지 전송을 한다. fzf 기반. 사람 입력을 기다리는 좌석은 항상 최상단. ^D 로 «종료된 세션» 뷰: 재부팅·kill 로 사라진 claude/codex/cmd/opencode 세션을 트랜스크립트에서 발견(tmuxc 미관리 포함, 12h 창 ^] 확장), 마지막 대화 미리보기 후 Enter 로 resume 복구(fable 제외 [1m]). ^Y = 대화 기록(트랜스크립트) 인덱스 경로(tmm idx), ^F = fork — 소스 대화를 새 에이전트로 이어받기(동일 엔진은 tmuxc fork 네이티브, 크로스 엔진은 경로·발췌 주입).",
+  "description": "폰(Termius 등 SSH 클라이언트)에서 수십 개 tmux 에이전트 세션을 커서로 고르고, pane 미리보기·마지막 메시지 시각·상태(HUMAN/BLOCK/STUCK/IDLE/BUSY)를 한 화면에 보며 attach·메시지 전송을 한다. fzf 기반. 사람 입력을 기다리는 좌석은 항상 최상단. ^D 로 «종료된 세션» 뷰: 재부팅·kill 로 사라진 claude/codex/cmd/opencode 세션을 트랜스크립트에서 발견(tmuxc 미관리 포함, 12h 창 ^] 확장), 마지막 대화 미리보기 후 Enter 로 resume 복구(fable 제외 [1m]). ^Y = 대화 기록(트랜스크립트) 인덱스 경로(tmm idx), ^F = fork — 소스 대화를 새 에이전트로 이어받기(동일 엔진은 tmuxc fork 네이티브, 크로스 엔진은 경로·발췌 주입). tmm models refresh 로 모델 별칭을 라이브 목록에서 생성(opencode 프로바이더 선택).",
   "category": "workflow",
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "install_time_minutes": 1,
   "requires_api_key": false,
   "requires_auth": false,
   "commands": [
-    { "name": "tmm", "kind": "cli-binary", "path": "core/bin/tmm" },
-    { "name": "seat-scan", "kind": "cli-support", "path": "core/libexec/seat-scan.sh" },
-    { "name": "tmm-dead-scan", "kind": "cli-support", "path": "core/libexec/tmm-dead-scan.py" }
+    {
+      "name": "tmm",
+      "kind": "cli-binary",
+      "path": "core/bin/tmm"
+    },
+    {
+      "name": "seat-scan",
+      "kind": "cli-support",
+      "path": "core/libexec/seat-scan.sh"
+    },
+    {
+      "name": "tmm-dead-scan",
+      "kind": "cli-support",
+      "path": "core/libexec/tmm-dead-scan.py"
+    }
   ],
   "skill_surfaces": [],
   "runtime_targets": [
-    { "runtime": "ssh-client", "kind": "execution", "target": "Termius Startup command: tmm", "status": "execution-only" }
+    {
+      "runtime": "ssh-client",
+      "kind": "execution",
+      "target": "Termius Startup command: tmm",
+      "status": "execution-only"
+    }
   ],
   "hook_adapters": [],
-  "private_state_exclusions": [".tmm", "categories", "*.cache"],
-  "public_docs": ["README.md", "INSTALL.md"],
+  "private_state_exclusions": [
+    ".tmm",
+    "categories",
+    "*.cache"
+  ],
+  "public_docs": [
+    "README.md",
+    "INSTALL.md"
+  ],
   "dependencies": {
-    "required": ["bash>=4", "tmux>=3.2", "fzf>=0.54", "python3>=3.9", "tmuxc>=0.4.0"],
-    "optional": ["tailscale"]
+    "required": [
+      "bash>=4",
+      "tmux>=3.2",
+      "fzf>=0.54",
+      "python3>=3.9",
+      "tmuxc>=0.4.0"
+    ],
+    "optional": [
+      "tailscale"
+    ]
   },
   "supported_agents": {
-    "automated_install": ["claude-code", "codex-cli"],
-    "manual_install": ["gemini-cli", "opencode", "openclaw"],
+    "automated_install": [
+      "claude-code",
+      "codex-cli"
+    ],
+    "manual_install": [
+      "gemini-cli",
+      "opencode",
+      "openclaw"
+    ],
     "limited": []
   },
   "spec_version": "1",
