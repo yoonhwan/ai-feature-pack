@@ -1,0 +1,15 @@
+{
+  "verdict": "H-C_OTHER",
+  "reload_observed": "yes@+72s (href lost token/query, ~57s after entry; NOT the +25s the 10s seed-timeout would predict)",
+  "dialog_reappeared": "no",
+  "guest_console_before_ptt": "unavailable (capture not persisted to file this run; see both-console.txt)",
+  "upload_identity": "SWAP confirmed via gateway+worker logs: pulse_session=realtime-1783053474051 (guest's actual EN audio, 'Hello nice to meet you') -> utterance.released user_id=tester2 source_lang=ko text='안녕하세요. 만나서 반가워요.' (groq ko-forced hallucination). pulse_session=realtime-1783053465948 (likely host's ko audio) -> utterance.released user_id=guest-27f7d36d source_lang=en text='' (EN chain fireworks 401 -> empty, matches test's host_empty).",
+  "timeline_highlights": [
+    "+15.05s guest entry done, host turn starts",
+    "+63.12s host turn result: hyp='' error=host_empty",
+    "+71.14s guest PTT start",
+    "+72.25s guest tab href drops ?source/target/token/nickname query (reload-like), dialog NOT shown, record button stays present/enabled",
+    "+90.34s guest PTT result: ok=true hyp='안녕하세요. 만나서 반가워요.' (Korean hallucination of EN speech)"
+  ],
+  "notes": "Reload-like href change is real but its own diagnostic signature (no re-entry dialog, wrong timing vs 10s window) rules OUT the literal onGuestStaleClear/useGuestSeedTimeout codepath (H-A) since that path clearGuestSession()+reload always forces GuestEntryDialog on next mount. The actual bug is a bidirectional pulse_session/user_id/lang cross-wire between the two concurrent STT connections (host's connection ends up tagged guest-en, guest's connection ends up tagged host-ko) -- not simply 'guest falls back to host identity'. Root cause of the cross-wire (which connect() call binds to which pulse_session_id) needs code-level trace of use-realtime-stt.ts connect() sequencing under interleave, not covered by H-A/H-B as literally described."
+}
