@@ -5,7 +5,17 @@
 set -u
 ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
 WT=$ROOT/.worktrees/v6-realtime-live
-ME=ft-v65-master-claude#3
+# ME 는 seats.json 의 «현역 master» 에서 읽는다 — 좌석명을 박아두면 승계 때마다 죽은 큐를 읽는다
+# (실측 2026-09-22: 박힌 값이 ft-v65-master-claude#3 인데 그 좌석은 없고 현역은 ft-v65-master-opus#7).
+# 못 찾으면 #0 RULE 대로 죽는다 — 엉뚱한 좌석 큐를 조용히 읽어 「pending=0」을 거짓으로 만들지 않는다.
+ME=${FT_ME:-$(python3 -c "
+import json
+d=json.load(open('$ROOT/.fable-team/seats.json'))
+print(next((k for k,v in d.items()
+            if isinstance(v,dict) and v.get('role')=='master' and not v.get('_replaced_by')), ''))
+" 2>/dev/null)}
+[ -n "$ME" ] || { echo "ERROR: seats.json 에 현역 master 가 없다 — FT_ME 로 좌석명을 지정해라" >&2; exit 2; }
+echo "ME=$ME (seats.json 현역 master)"
 echo "════ ① 내 큐 비우기 ════"
 bash "$ROOT/.fable-team/comm/mbox.sh" recv "$ME" --all 2>&1 | grep -vE '^SCANNED' | head -40
 echo; echo "════ ①-b ★나를 기다리는 좌석★ ════"

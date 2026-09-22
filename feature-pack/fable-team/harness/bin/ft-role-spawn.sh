@@ -64,15 +64,22 @@ tmux set-option -t "$PANE" remain-on-exit on
 tmux set-option -t "$PANE" @zc_v65_active 1
 [ "$(tmux show-option -qv -t "$PANE" @zc_v65_active)" = 1 ] || { echo "REJECT 태그 확인 실패: $NAME"; exit 1; }
 
-# seats.json 행 교체 — 구 행은 남기고 _replaced_by 만 찍는다. 새 행 tick=null(알림 울림).
+# seats.json 행 교체 — 구 행은 남기고 _replaced_by 만 찍는다. ★새 행의 tick 은 «구 좌석에서 물려받는다»★.
+# 2026-09-22 실측: 새 행을 tick=null 로 만들면 구 master 를 _replaced_by 로 닫는 순간 틱 대상이 0 이 되어
+# ft-tick.sh 가 «no active seat with tick» 만 찍고 뉴스 발행이 통째로 멈춘다(15:03~15:08 · 5틱 연속).
+# 위 11행 주석의 「틱 데몬이 seats.json 을 따라오는 것은 0.4 — 그 전엔 null 이 안전」은 stale 이다 —
+# 지금 도는 ft-tick.sh 가 이미 그 0.4 이고, 매 루프 seats.json 을 다시 읽는다.
 python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" <<'PY'
 import json, sys, collections
 p, name, role, agent, model, inbox = sys.argv[1:7]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name]
+# 승계는 «자리»를 잇는 것이라 그 자리의 틱도 잇는다. 구 좌석이 없으면 역할 기본값.
+tick = next((d[k].get("tick") for k in old if d[k].get("tick")), None) \
+       or {"master": "ft-master-tick", "pm": "ft-pm-tick"}.get(role)
 for k in old:
     d[k]["_replaced_by"] = name
-d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", None), ("model", model), ("index", inbox + "/"), ("_replaces", old)])
+d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", tick), ("model", model), ("index", inbox + "/"), ("_replaces", old)])
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 echo "SEATS role=$ROLE now=$NAME replaced=[${OLD:-<없음>}] — 구 좌석은 정지 레디(kill 은 사람 승인)"
