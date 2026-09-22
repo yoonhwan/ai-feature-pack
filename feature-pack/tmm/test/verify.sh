@@ -362,6 +362,12 @@ mtmm models find deepseek-v4.1 | grep -q 'deepseek-v4.1-flash' || { echo 'FAIL: 
 # refresh(정적 에이전트만) — opencode/cmd CLI 미호출이라 결정적. 사용자 파일을 건드리지 않게 명시 경로로.
 RFGEN="$SOCK_DIR/refresh.tsv"
 python3 "$ROOT/core/libexec/tmm-models-sync.py" --out "$RFGEN" --agents claude >/dev/null 2>&1
-grep -qE '^claude\topus\tclaude-opus-5$' "$RFGEN" || { echo 'FAIL: (t) models refresh 정적 생성 실패'; cat "$RFGEN" 2>/dev/null; exit 1; }
+grep -qE '^claude\topus\tclaude-opus-5-5$' "$RFGEN" || { echo 'FAIL: (t) models refresh 정적 생성 실패(opus=5.5)'; cat "$RFGEN" 2>/dev/null; exit 1; }
+grep -qE '^claude\topus5\tclaude-opus-5$' "$RFGEN" || { echo 'FAIL: (t) opus5 별칭(구 Opus 5) 없음'; cat "$RFGEN" 2>/dev/null; exit 1; }
+
+# (u) 모델 표기 — opus-5-5 와 opus-5 가 1m 창에서도 구분돼야 한다 (5칸 절단으로 둘 다 opus5·1m 이 되던 충돌)
+eval "$(sed -n '/^model_short()/,/^}/p' "$TMM")"
+_ms="$(model_short 'claude-opus-5-5[1m]')|$(model_short 'claude-opus-5[1m]')|$(model_short claude-opus-5-5)|$(model_short claude-opus-5)"
+[ "$_ms" = 'op55·1m|opus5·1m|op55|opus5' ] || { echo "FAIL: (u) model_short opus-5-5 구분 실패: $_ms"; exit 1; }
 
 echo "✅ tmm verify OK"
