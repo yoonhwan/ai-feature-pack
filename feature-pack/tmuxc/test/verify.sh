@@ -250,6 +250,10 @@ printf '{"type":"session_meta","payload":{"session_id":"dddd0040-0000-0000-0000-
 printf '{"type":"user","message":{"content":"세션명(me)=synth-role#1 시작"},"timestamp":"%s","cwd":"%s"}\n{"type":"assistant","message":{"model":"claude-opus-5"},"timestamp":"%s"}\n' \
   "$NOW" "$FIX" "$NOW" \
   > "$FIX/claude/proj/aaaaaaaa-0000-0000-0000-0000000000aa.jsonl"
+# ⑧-b Opus 5.5 — prefix 매칭으로 다른 모델 alias(ccd 등)에 흡수되면 복원 모델이 바뀐다. synth 여야 한다.
+printf '{"type":"user","message":{"content":"세션명(me)=opus55-role#1 시작"},"timestamp":"%s","cwd":"%s"}\n{"type":"assistant","message":{"model":"claude-opus-5-5"},"timestamp":"%s"}\n' \
+  "$NOW" "$FIX" "$NOW" \
+  > "$FIX/claude/proj/aaaaaaaa-0000-0000-0000-0000000005a5.jsonl"
 OUT4="$(scan_fixture)"
 printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="codex" && $2=="V6_POLISH_ORCH#0" && $6=="dddd0040-0000-0000-0000-000000000040"' | grep -q . || {
   echo 'FIXTURE FAIL: anonymous codex must infer role name from mbox/arrow'; printf '%s\n' "$OUT4"; exit 1; }
@@ -259,6 +263,8 @@ printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="codex" && $6=="dddd0040-0000-0000-00
   echo 'FIXTURE FAIL: summary should surface mbox recv work hint'; printf '%s\n' "$OUT4"; exit 1; }
 printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="claude" && $2=="synth-role#1" && $8=="synth"' | grep -q . || {
   echo 'FIXTURE FAIL: unmapped model must be status=synth (restorable)'; printf '%s\n' "$OUT4"; exit 1; }
+printf '%s\n' "$OUT4" | awk -F$'\x1f' '$1=="claude" && $2=="opus55-role#1" && $8=="synth"' | grep -q . || {
+  echo 'FIXTURE FAIL: claude-opus-5-5 must be status=synth (no alias capture)'; printf '%s\n' "$OUT4"; exit 1; }
 
 # ⑨ 복원 결과 리포트 헬퍼 — 세션명/번호/이전 대화 요약 출력 계약
 _rep=$(bash -c '
@@ -283,6 +289,10 @@ _c1="$("$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_CTX1 --agent claude --ro
   --model claude-opus-5 --effort high --ctx 1m --dry-run)"
 printf '%s\n' "$_c1" | grep -qF -- '--model "claude-opus-5[1m]"' || {
   echo 'FAIL: --ctx 1m must append [1m] to explicit --model'; printf '%s\n' "$_c1"; exit 1; }
+_c1b="$("$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_CTX1B --agent claude --role worker \
+  --model claude-opus-5-5 --effort high --ctx 1m --dry-run)"
+printf '%s\n' "$_c1b" | grep -qF -- '--model "claude-opus-5-5[1m]"' || {
+  echo 'FAIL: --ctx 1m must append [1m] to claude-opus-5-5'; printf '%s\n' "$_c1b"; exit 1; }
 
 # ⑪ 멱등 — 이미 [1m] 인 모델에 이중 부착 금지
 _c2="$("$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_CTX2 --agent claude --role worker \
