@@ -41,3 +41,6 @@ R=v6-realtime-live-redis-1
 echo "PEL=$(docker exec $R redis-cli --no-auth-warning XINFO GROUPS lst_stt_requests 2>/dev/null | sed -n '6p') lease=$(docker exec $R redis-cli --no-auth-warning EVAL "local c=0 local cur='0' repeat local r=redis.call('SCAN',cur,'MATCH','lst_stt_requests:lease:*','COUNT',5000) cur=r[1] c=c+#r[2] until cur=='0' return c" 0 2>/dev/null) $(docker exec $R redis-cli --no-auth-warning INFO memory 2>/dev/null | grep used_memory_human | tr -d '\r')"
 WPID=$(lsof -ti:8081 -sTCP:LISTEN 2>/dev/null | head -1)
 [ -n "$WPID" ] && echo "worker pid=$WPID 기동=$(ps -o lstart= -p $WPID | sed 's/^ *//')  최신제품커밋=$(git -C "$WT" log -1 --format='%h %ad' --date=format:'%m-%d %H:%M:%S' -- worker shared gateway clients)"
+echo; echo "════ ⑥ 완성본 하는 일 트리 (뉴스에 그대로 · 상태는 카드 폴더·seats.json 에서) ════"
+TREE="${FT_NEWS_TREE:-$WT/design/v65/NEWS-TREE.md}"
+if [ -f "$TREE" ]; then python3 "$WT/.fable-team/bin/ft-news-tree.py" "$TREE"; else echo "ERROR: 트리 원본 없음 — $TREE" >&2; fi
