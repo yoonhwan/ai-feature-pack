@@ -721,7 +721,7 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
     [ "$try" -eq "${TMM_RESTORE_TRIES:-20}" ] && echo "⚠ 부팅 확인 못 함 (세션은 남김)"
   done
   if [ "$agent" = claude ] && [ "$try" -lt "${TMM_RESTORE_TRIES:-20}" ]; then
-    sleep 1; tmux send-keys -t "=$name:" -l "[restore→$name] tmm 에서 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 Read하고 준수. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."; sleep 0.3; tmux send-keys -t "=$name:" Enter
+    sleep 1; tmux send-keys -t "=$name:" -l "[restore→$name] tmm 에서 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 Read하고 준수 — 전문 COMM-GUIDE.md 는 열지 않는다. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."; sleep 0.3; tmux send-keys -t "=$name:" Enter
   fi
   [ "$dry" = --no-attach ] && { [ "$try" -lt "${TMM_RESTORE_TRIES:-20}" ] && echo "  ✅ $name"; return 0; }
   rm -f "$RUN/dead.tsv"   # 다음 목록에서 이 행이 사라지게

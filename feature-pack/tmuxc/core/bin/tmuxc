@@ -531,11 +531,11 @@ cmd_open() {
 
   local guide
   if [[ "$agent" == "claude" ]]; then
-    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$name. 세션간 메시지는 검증 송신 프로토콜 준수."
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 지금 Read하고 그대로 따를 것 — 전문 COMM-GUIDE.md 는 열지 않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read. 너의 세션명(me)=$name. 세션간 메시지는 검증 송신 프로토콜 준수."
   elif [[ "$agent" == "cmd" ]]; then
-    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Command Code 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것 — 특히 「Command Code(--agent cmd) 세션 특이사항」 절. --remote-control 이 없으므로 tmux verified-send/capture-pane 방식으로 보고한다. 너의 세션명(me)=$name."
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Command Code 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 지금 Read하고 그대로 따를 것 — 전문 COMM-GUIDE.md 는 열지 않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read — 특히 「Command Code(--agent cmd) 세션 특이사항」 절. --remote-control 이 없으므로 tmux verified-send/capture-pane 방식으로 보고한다. 너의 세션명(me)=$name."
   else
-    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Codex 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 참고하되, Codex에는 --remote-control이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name."
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Codex 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 참고하되(전문 COMM-GUIDE.md 는 열지 말 것), Codex에는 --remote-control이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name."
   fi
   inject_message "$name" "$guide"
   if [[ -n "$prompt" ]]; then
@@ -696,9 +696,9 @@ cmd_fork() {
   local task_hint="뒤이어 --prompt 로 온 지시가 있으면 그것을 수행하고, 없으면 다음 지시를 대기하라."
   local guide
   if [[ "$agent" == "claude" ]]; then
-    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] FORK 세션(부모: $parent_hint) — 네이티브 fork 로 분기된 «새» 대화다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — 독립 좌석으로서 $task_hint"
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] FORK 세션(부모: $parent_hint) — 네이티브 fork 로 분기된 «새» 대화다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 지금 Read하고 그대로 따를 것 — 전문 COMM-GUIDE.md 는 열지 않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — 독립 좌석으로서 $task_hint"
   elif [[ "$agent" == "cmd" ]]; then
-    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Command Code FORK 세션(부모: $parent_hint). 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 의 「Command Code 세션 특이사항」 절을 따를 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — $task_hint"
+    guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Command Code FORK 세션(부모: $parent_hint). 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄) + COMM-GUIDE.md 의 「Command Code 세션 특이사항」 절(BOOT 매핑표 줄 범위로 offset/limit Read)을 따를 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — $task_hint"
   else
     guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc ${agent} FORK 세션(부모: $parent_hint). Codex/opencode 에는 --remote-control 이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — $task_hint"
   fi
@@ -1330,7 +1330,7 @@ restore_one() {
         inject_message "$name" "/baton:resume"
         sleep 1
       fi
-      inject_message "$name" "[restore→$name] tmux 서버 사망 후 tmuxc restore로 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 Read하고 준수. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."
+      inject_message "$name" "[restore→$name] tmux 서버 사망 후 tmuxc restore로 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 Read하고 준수 — 전문 COMM-GUIDE.md 는 열지 않는다. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."
     fi
     if [[ "$soft" -eq 1 ]]; then
       printf '  ✅ [#%s] %s (%s) 복원 완료 (프로세스 확인, UI 마커 지연)\n' "$idx" "$name" "$agent"

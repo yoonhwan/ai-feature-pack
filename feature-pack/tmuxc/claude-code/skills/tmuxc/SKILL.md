@@ -72,7 +72,7 @@ commandcode.ai의 코딩 에이전트(바이너리 `cmd`, macOS/Linux/WSL. 네�
 7. `tmux send-keys -t {name} "{resolved-cmd}" Enter`
 8. **[필수] 통신 가이드 주입**: claude 부팅 대기(아래 "부팅 대기 패턴") 후 COMM-GUIDE 주입 메시지를 첫 메시지로 전송:
    ```bash
-   tmux send-keys -t {name} -l "[{orch}→{name}] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE.md 를 지금 Read하고 그대로 따를 것. 너의 세션명(me)={name}, 오케스트레이터(orch)={orch}. 세션간 메시지는 반드시 검증 송신 프로토콜(가이드 §2) 준수 — send 후 도달 확인 전 '전송 완료' 보고 금지."
+   tmux send-keys -t {name} -l "[{orch}→{name}] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 지금 Read하고 그대로 따를 것 — 전문 COMM-GUIDE.md 는 열지 않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read. 너의 세션명(me)={name}, 오케스트레이터(orch)={orch}. 세션간 메시지는 반드시 검증 송신 프로토콜(가이드 §2) 준수 — send 후 도달 확인 전 '전송 완료' 보고 금지."
    tmux send-keys -t {name} Enter
    ```
    - `{orch}` = 이 tmuxc를 실행 중인 오케스트레이터 세션명 (자신이 tmux 안이면 `tmux display-message -p '#S'`, 아니면 `00` 등 호출자 지정)
@@ -472,7 +472,7 @@ new="${base}#$((N+1))"                        # myproj#4 (또는 myproj#1)
    tmux send-keys -t {base}#{N+1} -l "{ccs|ccd|cc2|ccf-resolved} --name {base}#{N+1} --remote-control {base}#{N+1}"
    tmux send-keys -t {base}#{N+1} Enter
 3. remote ready 대기(부팅): 9~12초 후 capture-pane으로 `❯`(ctx:0%) 확인 (아래 "부팅 대기 패턴")
-3-1. **통신 가이드 주입** (UC1 step 8과 동일 — COMM-GUIDE.md 경로 + me={base}#{N+1}, orch 명시)
+3-1. **통신 가이드 주입** (UC1 step 8과 동일 — COMM-GUIDE-BOOT.md 경로(전문 아님) + me={base}#{N+1}, orch 명시)
 4. 컨텍스트 이전(둘 중 택1):
    (a) baton 세션:   tmuxc send {base}#{N+1} "[00→new] /baton:resume"   # NEXT.md/CURRENT 자동 복원
    (b) 비-baton:     구세션 핵심 컨텍스트 풀 메시지 + 파일 인덱스 경로를 send
