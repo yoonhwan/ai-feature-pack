@@ -29,10 +29,21 @@ def card_folder(indices: Path, idx: str) -> str | None:
     return None
 
 
+def nano_slug(idx: str) -> str:
+    # ft-nano-spawn.sh 49행과 같은 규칙 — 소문자 · [a-z0-9-] 밖은 '-' · 앞 40자
+    return re.sub(r"[^a-z0-9-]", "-", idx.lower())[:40]
+
+
 def seats_on(seats: dict, idx: str) -> list[str]:
+    # index 필드가 없는 재가동 좌석이 있다(2026-09-23 ptt-mic#0) — 그때는 스폰 이름 규칙으로 찾는다
+    slug = nano_slug(idx)
     out = []
     for name, v in seats.items():
-        if isinstance(v, dict) and not v.get("_replaced_by") and str(v.get("index", "")).endswith(f"/{idx}.md"):
+        if not isinstance(v, dict) or v.get("_replaced_by"):
+            continue
+        by_index = str(v.get("index", "")).endswith(f"/{idx}.md")
+        by_name = not v.get("index") and re.sub(r"#\d+$", "", name).endswith(f"-{slug}")
+        if by_index or by_name:
             out.append(name)
     return out
 
