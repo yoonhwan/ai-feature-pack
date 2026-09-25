@@ -249,8 +249,8 @@ sweep_wt() {
   [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
   [ -x "$WT_SWEEP" ] || { echo "$(date '+%F %T') sweep_wt: missing $WT_SWEEP" >&2; return 0; }
   if [ "$DRY" = 1 ]; then echo "DRY kind=wt-sweep bin=$WT_SWEEP plans=$(bash "$WT_SWEEP" --dry-run 2>/dev/null | grep -c '^DRY ')"; return 0; fi
-  out="$(bash "$WT_SWEEP" 2>&1)" || true
-  log "wt-sweep: $(printf '%s\n' "$out" | tail -1)"
+  out="$(bash "$WT_SWEEP" 2>&1)"; rc=$?
+  log "wt-sweep: rc=$rc $(printf '%s\n' "$out" | grep -v '^$' | tail -1)"
   hil="$(printf '%s\n' "$out" | grep '^\[HIL\]')" || return 0
   rows="$(read_seats 2>/dev/null)"; master="$(master_seat "$rows")"
   [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending but no active master" >&2; return 0; }
