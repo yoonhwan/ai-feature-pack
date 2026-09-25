@@ -26,8 +26,9 @@ LEDGER="${FT_NANO_LEDGER:-design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md}"
 WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
 
 # 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/v65-<seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
+# key 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
 _wt_clean_plan() {
-  local key="${SEAT#"$NANO_PREFIX"}"; key="${key%#*}"
+  local key="$_KEY"
   local wt="$ROOT/.worktrees/v65-$key"
   PLAN=""; WT_MARK=none
   [ -d "$wt" ] || return 0
@@ -128,24 +129,35 @@ elif ! { [ -f "$COMM/bodies/$RECV.txt" ] || grep -q "\"seq\": *$RECV," "$COMM/ma
 fi
 # ③ 실제 유휴 — pane 이 아니라 jsonl 마지막 레코드 시각 (pane ❯ 는 ghost 를 못 가른다)
 # pane_id 경유 — `-t "=$SEAT"` 는 `#` 든 이름에 display-message 가 빈 값을 돌려준다(실측 2026-09-14)
-PANE="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')"
+# 하네스 0.5 행 2 r6(DA r5 MAJOR 1): tmux 조회 자체의 성공을 먼저 본다 — 계획 본문 가드 ①(:66-69)과 같은 규칙.
+# rc≠0 인데 「no server running」(소켓 파일 없음 포함) 이 아니면 tmux 장애 ≠ 좌석 부재 → REJECT(살아있는 좌석을 명부·원장에서 지우는 사고 방지).
+tmux_out="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; tmux_rc=$?; tmux_ok=1
+if [ "$tmux_rc" -ne 0 ]; then
+  case "$tmux_out" in
+    *"no server running"*|*"No such file or directory"*) tmux_out="";;
+    *) tmux_ok=0; bad+=("③tmux 조회 실패(rc=$tmux_rc: ${tmux_out:0:60})");;
+  esac
+fi
+PANE="$(printf '%s\n' "$tmux_out" | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')"
 cwd="$([ -n "$PANE" ] && tmux display-message -p -t "$PANE" '#{pane_current_path}' 2>/dev/null)"
 # 하네스 0.5 행 2 r5(오빠 판정 #30467): 세션이 먼저 죽은 좌석 — 세션 없음 + 워크트리 실재는 REJECT 대신 「세션 없음 자체가 충족」(유휴 검사 불요).
-# 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다.
+# 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다. tmux_ok=0 이면 이 블록 전체를 건너뛴다(위에서 이미 REJECT 사유 기록).
 _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"
 ABSENT=0
-if [ -z "$cwd" ]; then
-  if [ -d "$ROOT/.worktrees/v65-$_KEY" ]; then ABSENT=1; else bad+=("③세션 없음: $SEAT"); fi
-else
-  enc="$(printf '%s' "$cwd" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"; dir="$HOME/.claude/projects/$enc"
-  f="$(grep -lE "\"(agentName|customTitle)\":\"$(printf '%s' "$SEAT" | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null | head -1)"
-  if [ -z "$f" ]; then
-    # codex/cmd/opencode 는 claude jsonl 이 없다 — 파일 mtime 으로 대신(에이전트 무관 하한)
-    last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
-    [ -z "$last" ] || bad+=("③워크트리에 ${IDLE_MIN}분 내 편집: $last")
+if [ "$tmux_ok" = 1 ]; then
+  if [ -z "$cwd" ]; then
+    if [ -d "$ROOT/.worktrees/v65-$_KEY" ]; then ABSENT=1; else bad+=("③세션 없음: $SEAT"); fi
   else
-    age=$(( ( $(date +%s) - $(stat -f %m "$f") ) / 60 ))
-    [ "$age" -ge "$IDLE_MIN" ] || bad+=("③jsonl 마지막 활동 ${age}분 전 < ${IDLE_MIN}분")
+    enc="$(printf '%s' "$cwd" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"; dir="$HOME/.claude/projects/$enc"
+    f="$(grep -lE "\"(agentName|customTitle)\":\"$(printf '%s' "$SEAT" | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null | head -1)"
+    if [ -z "$f" ]; then
+      # codex/cmd/opencode 는 claude jsonl 이 없다 — 파일 mtime 으로 대신(에이전트 무관 하한)
+      last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
+      [ -z "$last" ] || bad+=("③워크트리에 ${IDLE_MIN}분 내 편집: $last")
+    else
+      age=$(( ( $(date +%s) - $(stat -f %m "$f") ) / 60 ))
+      [ "$age" -ge "$IDLE_MIN" ] || bad+=("③jsonl 마지막 활동 ${age}분 전 < ${IDLE_MIN}분")
+    fi
   fi
 fi
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
@@ -164,6 +176,8 @@ _lock="$LEDGER.lock"; _i=0
 until mkdir "$_lock" 2>/dev/null; do _i=$((_i+1)); [ "$_i" -lt 100 ] || { echo "WARN 원장 락 10s 초과($_lock) — 락 없이 처리" >&2; _lock=""; break; }; sleep 0.1; done
 if [ "$ABSENT" = 1 ] && grep -qF "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null; then
   # r5(오빠 판정 #30467): 세션이 먼저 죽어 이미 닫힘 행이 있는 좌석(백필) — 새 행을 만들지 않고 마지막 행의 wt= 만 표식(mark() 와 같은 방식).
+  # r6(DA r5 MINOR c): 이 경로는 닫힘 행이 이미 있어 「잃을 것」이 append 와 다르다 — 락 실패는 강행이 아니라 REJECT(재시도).
+  [ -n "$_lock" ] || { echo "REJECT $SEAT"; echo "  - 원장 락 10s 초과(재시도) — 닫힘 행 이미 있음, 표식은 락 아래서만"; exit 1; }
   python3 - "$LEDGER" "$SEAT" "$WT_MARK" <<'PY'
 import os, re, sys
 p, seat, val = sys.argv[1:4]
@@ -175,13 +189,17 @@ tmp = p + ".tmp.%d" % os.getpid()
 with open(tmp, "w", encoding="utf-8") as f: f.write("\n".join(lines)); f.flush(); os.fsync(f.fileno())
 os.replace(tmp, p)
 PY
+  # r6(DA r5 MINOR b): mark-only 도 종료코드를 본다(#0 RULE — 실패를 삼키지 않는다).
+  _mrc=$?; [ -z "$_lock" ] || rmdir "$_lock"
+  [ "$_mrc" -eq 0 ] || { echo "REJECT $SEAT"; echo "  - 원장 표식 실패(rc=$_mrc)"; exit 1; }
 else
   printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③%s. kill=%s · wt=%s\n' \
     "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$([ "$ABSENT" = 1 ] && echo "세션 없음(백필)" || echo "유휴 jsonl/mtime ≥${IDLE_MIN}분")" "$KILL" "$WT_MARK" >> "$LEDGER"
+  [ -z "$_lock" ] || rmdir "$_lock"
 fi
-[ -z "$_lock" ] || rmdir "$_lock"
 [ -z "$PLAN" ] || echo "워크트리 정리 계획: $PLAN (실행은 세션 종료 뒤 — --kill 직후 또는 ft-wt-sweep.sh)"
-if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT (명부 확인 · 원장 표식) — 워크트리 정리 계획만"; exit 0; fi
+# r6(DA r5 MINOR e): 명부 pop 은 ABSENT 여부와 무관하게 위에서 항상 실행된다 — 「명부 확인」은 사실과 달랐다.
+if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT (명부 삭제 · 원장 표식) — 워크트리 정리 계획만"; exit 0; fi
 echo "CLOSED $SEAT (명부 삭제 · 원장 append) — 좌석은 정지 레디"
 
 [ "$KILL" = 1 ] || exit 0
