@@ -7,7 +7,7 @@
 # 하네스 0.5 행 2 r3 (표준승인 2026-09-25 · ~/.claude/CLAUDE.md HIL 절 · DA r1 조건 1~7 · DA r2 조건 1~5):
 #   close 는 워크트리 정리 계획을 «생성만» 한다(.fable-team/state/wt-clean/<seat>.sh · 원장 행 wt=planned). 조건 ③이 세션 실재를 요구하므로
 #   close 시점엔 좌석이 살아 있다 — 실행은 «세션이 사라진 뒤»: --kill 이 KILLED 를 낸 직후, 또는 ft-wt-sweep.sh(ft-tick.sh 가 매 루프 호출 · r3 배선).
-#   계획 스크립트가 가드 6(계보 세션 자기 포함 0 · 워크트리 cwd 보유 프로세스 0 · info branch nano/* · HEAD=branch+도달성 · 실작업물 0 · ignored 보관)과
+#   계획 스크립트가 가드 6(계보 세션 자기 포함 0 · 워크트리 cwd 보유 프로세스 0 · info branch nano/* · HEAD=branch+도달성 · 실작업물은 WIP 커밋(r7) · ignored 보관)과
 #   원장 표식(wt=… · 좌석명 행 · mkdir 락)을 맡는다. ★가드 도구(lsof·tmux) 실패 = skipped(fail-closed · DA r2 R12)★. 브랜치는 절대 지우지 않는다.
 #   FT_WT_AUTOCLEAN=0 = 실행 경로 전부 끔(계획만 남김). 원장 경로는 리포 고정(ROOT 기준 · DA r2 MINOR C) — FT_NANO_LEDGER 로 override.
 set -uo pipefail
@@ -83,10 +83,10 @@ case "$br" in nano/*) ;; *) fail "branch=${br:-?} (nano/* 아님)";; esac
 hb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
 [ "$hb" = "$br" ] || fail "HEAD=${hb:-detached} ≠ info $br"
 git -C "$WT" merge-base --is-ancestor HEAD "refs/heads/$br" || fail "HEAD 가 $br 에 미포함"
-# ⑤ 미커밋 실작업물(.serena/project.yml 제외) 0 — untracked 포함
+# ⑤ 미커밋 상태 확인 — 실작업물(untracked 포함)도 REJECT 하지 않고 아래 WIP 커밋 경로로 보낸다
+#   (r7 · 하네스 0.5 행 2 · 오빠 판정 #30467 「dirty 는 [wip] 커밋 경로」 · DA r6 잔여 질문 2 정리).
+#   브랜치는 지우지 않으므로 커밋해 두면 baton wt-clean 뒤에도 git 이력으로 복원 가능 — REJECT 로 워크트리를 잔존시키는 쪽이 더 나쁘다(#0 RULE).
 dirty="$(git -C "$WT" status --porcelain)"
-real="$(printf '%s\n' "$dirty" | grep -v '\.serena/project\.yml$' | grep -c .)"
-[ "$real" -eq 0 ] || fail "실작업물 미커밋 ${real}파일"
 # ⑥ ignored — 재생성 허용 목록(이름 · «임의 깊이»의 경로 요소에 적용 · DA r2 A)을 뺀 나머지를 <PLAN>.ignored.tar.gz 로 보관한 뒤 진행 (DA r1 R1③')
 #   ★파일 단위로 센다(`ls-files -o -i`)★ — `status --ignored` 는 «내용이 전부 ignored 인 디렉터리»를 `clients/` 한 줄로 접어 그 안의 node_modules 가 안 보인다(r3 실측).
 allow="${FT_WT_IGNORED_ALLOW:-.env .venv venv .worktree-info.json .serena node_modules .next __pycache__ .pytest_cache .ruff_cache .mypy_cache .turbo dist build coverage}"
@@ -101,7 +101,7 @@ nkeep="$(grep -c . "$list")"
 if [ "$nkeep" -gt 0 ]; then
   tar -C "$WT" -czf "$PLAN.ignored.tar.gz" -T "$list" || fail "ignored 보관 실패(${nkeep}파일)"
 else rm -f "$list"; fi
-# 미커밋(serena yml)은 WIP 커밋 성공 뒤에만
+# 미커밋(실작업물 포함, r7)은 WIP 커밋 성공 뒤에만 진행 — 실패하면 정리 자체를 REJECT(#0 RULE, 조용히 버리지 않는다)
 if [ -n "$dirty" ]; then git -C "$WT" add -A && git -C "$WT" commit -q -m "[wip] nano close $SEAT" || fail "wip commit 실패"; fi
 BATON_TMUX_DISABLE=true "$BATON" wt-clean "$WT" || fail "baton wt-clean 실패"
 [ -d "$WT" ] && fail "baton 뒤에도 워크트리 남음"
@@ -129,17 +129,23 @@ elif ! { [ -f "$COMM/bodies/$RECV.txt" ] || grep -q "\"seq\": *$RECV," "$COMM/ma
 fi
 # ③ 실제 유휴 — pane 이 아니라 jsonl 마지막 레코드 시각 (pane ❯ 는 ghost 를 못 가른다)
 # pane_id 경유 — `-t "=$SEAT"` 는 `#` 든 이름에 display-message 가 빈 값을 돌려준다(실측 2026-09-14)
-# 하네스 0.5 행 2 r6(DA r5 MAJOR 1): tmux 조회 자체의 성공을 먼저 본다 — 계획 본문 가드 ①(:66-69)과 같은 규칙.
-# rc≠0 인데 「no server running」(소켓 파일 없음 포함) 이 아니면 tmux 장애 ≠ 좌석 부재 → REJECT(살아있는 좌석을 명부·원장에서 지우는 사고 방지).
+# 하네스 0.5 행 2 r6(DA r5 MAJOR 1): tmux 조회 자체의 성공을 먼저 본다 — 계획 본문 가드 ①(:68-70)과 같은 규칙.
+# r7(DA r6 MAJOR 2ⓐ): no-server 판정을 좁힌다 — rc=1 «이고» 메시지에 no server running|error connecting to 가 있을 때만 0세션.
+# (r6 의 "No such file or directory" 단독 매칭은 bad interpreter rc126 도 삼켰다 — 그 메시지도 그 부분 문자열을 담고 있었다.)
 tmux_out="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; tmux_rc=$?; tmux_ok=1
 if [ "$tmux_rc" -ne 0 ]; then
-  case "$tmux_out" in
-    *"no server running"*|*"No such file or directory"*) tmux_out="";;
+  case "$tmux_rc:$tmux_out" in
+    1:*"no server running"*|1:*"error connecting to"*) tmux_out="";;
     *) tmux_ok=0; bad+=("③tmux 조회 실패(rc=$tmux_rc: ${tmux_out:0:60})");;
   esac
 fi
 PANE="$(printf '%s\n' "$tmux_out" | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')"
-cwd="$([ -n "$PANE" ] && tmux display-message -p -t "$PANE" '#{pane_current_path}' 2>/dev/null)"
+# r7(DA r6 MAJOR 2ⓑ): PANE 은 있는데 display-message 가 실패하거나 빈 경로를 주면 ABSENT 가 아니라 REJECT — ABSENT 는 «PANE 자체가 없을 때」만.
+cwd=""
+if [ -n "$PANE" ]; then
+  cwd="$(tmux display-message -p -t "$PANE" '#{pane_current_path}' 2>&1)"; dm_rc=$?
+  if [ "$dm_rc" -ne 0 ] || [ -z "$cwd" ]; then bad+=("③pane 경로 조회 실패(rc=$dm_rc)"); tmux_ok=0; cwd=""; fi
+fi
 # 하네스 0.5 행 2 r5(오빠 판정 #30467): 세션이 먼저 죽은 좌석 — 세션 없음 + 워크트리 실재는 REJECT 대신 「세션 없음 자체가 충족」(유휴 검사 불요).
 # 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다. tmux_ok=0 이면 이 블록 전체를 건너뛴다(위에서 이미 REJECT 사유 기록).
 _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"
@@ -149,7 +155,9 @@ if [ "$tmux_ok" = 1 ]; then
     if [ -d "$ROOT/.worktrees/v65-$_KEY" ]; then ABSENT=1; else bad+=("③세션 없음: $SEAT"); fi
   else
     enc="$(printf '%s' "$cwd" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"; dir="$HOME/.claude/projects/$enc"
-    f="$(grep -lE "\"(agentName|customTitle)\":\"$(printf '%s' "$SEAT" | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null | head -1)"
+    # r7(DA r6 MAJOR 1): 같은 좌석명 jsonl 이 여러 개(재기동)일 수 있다 — 「이름순 첫 파일」(head -1) 대신 «매칭 전부 중 mtime 최대».
+    f="$(grep -lE "\"(agentName|customTitle)\":\"$(printf '%s' "$SEAT" | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null \
+        | while IFS= read -r mf; do stat -f '%m %N' "$mf"; done | sort -rn | head -1 | cut -d' ' -f2-)"
     if [ -z "$f" ]; then
       # codex/cmd/opencode 는 claude jsonl 이 없다 — 파일 mtime 으로 대신(에이전트 무관 하한)
       last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
