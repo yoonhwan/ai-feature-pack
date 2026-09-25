@@ -76,7 +76,8 @@ for line in open(os.path.join(root, ledger_md), encoding="utf-8"):
     unit = re.sub(r"\*\*", "", cells[0]).split()[0]
     if not re.fullmatch(r"M[0-7]", unit): continue
     status = cells[status_idx]
-    closed = bool(re.search(r"CLOSE|닫힘", status)) and not re.search(r"미|진행|후보", status)
+    status_head = status.split(" — ")[0]  # 상태 칸 머리(첫 « — » 앞)만 판정 — 뒤 범위 서술의 「미관측」 이 CLOSE 행을 열지 않게
+    closed = bool(re.search(r"CLOSE|닫힘", status_head)) and not re.search(r"미|진행|후보", status_head)
     rows.append((unit, cells[1], status, closed, "K4" in line))
 open_rows = [r for r in rows if not r[3]]
 pick = ([r for r in open_rows if r[4]] or open_rows or [None])[0]
