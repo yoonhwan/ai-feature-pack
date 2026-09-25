@@ -38,6 +38,9 @@ STALL_MIN="${FT_TICK_STALL_MIN:-15}"              # 이 분 이상 jsonl 무활�
 STALL_WAKE_GAP="${FT_TICK_STALL_WAKE_GAP:-900}"   # 같은 좌석 재깨움 최소 간격(초)
 SEAT_STATUS="${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
 MBOX="${FT_TICK_MBOX:-$HERE/../comm/mbox.sh}"
+# ★워크트리 정리 sweep (하네스 0.5 행 2 r3 · DA r2 조건 2)★ — 닫힌 나노의 계획(.fable-team/state/wt-clean/*.sh)을 매 루프 실행. 가드·원장 표식은 계획이 맡는다.
+#   [HIL] 줄이 나오면 현역 master 우편함으로 올린다(계획이 mbox 를 직접 쏘지 않는다 — 오빠 규칙 2026-09-25). FT_TICK_WT_SWEEP=0 으로 끔.
+WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT_TICK_WT_SWEEP:-1}"
 ONCE=0; DRY=0
 for a in "$@"; do case "$a" in --once) ONCE=1;; --dry-run) DRY=1;; *) echo "usage: $0 [--once] [--dry-run]" >&2; exit 2;; esac; done
 IDLE_ENABLED="${FT_TICK_IDLE_ENABLED:-1}"
@@ -241,10 +244,25 @@ idle_watch() {
   return 0
 }
 
+sweep_wt() {
+  local out hil master rows
+  [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
+  [ -x "$WT_SWEEP" ] || { echo "$(date '+%F %T') sweep_wt: missing $WT_SWEEP" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=wt-sweep bin=$WT_SWEEP plans=$(bash "$WT_SWEEP" --dry-run 2>/dev/null | grep -c '^DRY ')"; return 0; fi
+  out="$(bash "$WT_SWEEP" 2>&1)" || true
+  log "wt-sweep: $(printf '%s\n' "$out" | tail -1)"
+  hil="$(printf '%s\n' "$out" | grep '^\[HIL\]')" || return 0
+  rows="$(read_seats 2>/dev/null)"; master="$(master_seat "$rows")"
+  [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending but no active master" >&2; return 0; }
+  bash "$MBOX" send "$master" ft-tick "[HIL] 워크트리 정리 사람 판정 $(printf '%s\n' "$hil" | grep -c .)건 — $(printf '%s\n' "$hil" | head -3 | cut -c1-160 | tr '\n' ' ')" --urgent >/dev/null 2>&1 \
+    || echo "$(date '+%F %T') sweep_wt: mbox failed" >&2
+}
+
 pass() {
   local rows seat tick role report_to
   idle_watch
   stall
+  sweep_wt
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
   report_to="$(master_seat "$rows")"; report_to="${FT_TICK_PM_REPORT_TO:-${report_to:-ft-v65-master}}"
