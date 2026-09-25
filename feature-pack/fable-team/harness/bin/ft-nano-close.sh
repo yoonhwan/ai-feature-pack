@@ -37,7 +37,8 @@ _wt_clean_plan() {
   {
     printf '#!/bin/bash\n# wt-clean 계획 — ft-nano-close.sh 가 %s 에 생성. 가드 6 → ignored 보관 → WIP 커밋 → baton wt-clean → 원장 표식. 브랜치는 지우지 않는다.\n' "$(date '+%Y-%m-%d %H:%M')"
     printf '# baton 부작용(승인 범위에 명시): 아카이브 30일 초과분 prune · 분기 원장(.baton/branches.json) 의 같은 child_branch 행 status=abandoned.\n'
-    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN"
+    # FT_NANO_WIP 는 close 실행 시점 값을 계획에 «굽는다» — sweep 은 나중 다른 프로세스/환경에서 돌아 close 의 env 를 못 물려받는다.
+    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}"
     cat <<'SH'
 set -uo pipefail
 BATON="${BATON_BIN:-$HOME/.baton/current/bin/baton}"
@@ -65,9 +66,15 @@ PY
 fail() { mark "skipped:$1"; echo "skipped:$1"; exit 1; }
 [ -d "$WT" ] || { mark none; echo none; exit 0; }
 # ① 계보(<PREFIX><KEY>#N) 세션 — «자기 포함» 0. tmux 실패는 「no server running」만 0세션으로 인정, 그 외(바이너리 없음·소켓 오류)는 skipped (DA r2 R12)
+# r8(DA r7 조건1): rc=1 요건 추가 — 「소켓 없음」 문구만 0세션(그 외 rc1 연결 장애는 skipped, close 쪽과 같은 좁힘).
 [ -x "$TMUX_BIN" ] || fail "tmux 실행 불가($TMUX_BIN)"
 out="$("$TMUX_BIN" ls -F '#{session_name}' 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ]; then case "$out" in *"no server running"*|*"No such file or directory"*) out="";; *) fail "tmux 조회 실패(rc=$rc: ${out:0:60})";; esac; fi
+if [ "$rc" -ne 0 ]; then
+  case "$rc:$out" in
+    1:*"no server running"*|1:*"error connecting to "*"(No such file or directory)"*) out="";;
+    *) fail "tmux 조회 실패(rc=$rc: ${out:0:60})";;
+  esac
+fi
 live="$(printf '%s\n' "$out" | grep -x "${PREFIX}${KEY}#[0-9]*" | tr '\n' ' ')"
 [ -z "$live" ] || fail "좌석 ${live% }"
 # ② 워크트리를 cwd 로 쥔 프로세스 0 (tmux 밖 node·mcp·zsh 포함). lsof 절대경로 + 실행 가능 + 종료코드를 grep 과 분리(fail-closed · DA r2 R12)
@@ -83,10 +90,30 @@ case "$br" in nano/*) ;; *) fail "branch=${br:-?} (nano/* 아님)";; esac
 hb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
 [ "$hb" = "$br" ] || fail "HEAD=${hb:-detached} ≠ info $br"
 git -C "$WT" merge-base --is-ancestor HEAD "refs/heads/$br" || fail "HEAD 가 $br 에 미포함"
-# ⑤ 미커밋 상태 확인 — 실작업물(untracked 포함)도 REJECT 하지 않고 아래 WIP 커밋 경로로 보낸다
-#   (r7 · 하네스 0.5 행 2 · 오빠 판정 #30467 「dirty 는 [wip] 커밋 경로」 · DA r6 잔여 질문 2 정리).
-#   브랜치는 지우지 않으므로 커밋해 두면 baton wt-clean 뒤에도 git 이력으로 복원 가능 — REJECT 로 워크트리를 잔존시키는 쪽이 더 나쁘다(#0 RULE).
-dirty="$(git -C "$WT" status --porcelain)"
+# ⑤ 미커밋 상태 확인.
+#   r8(DA r7 잔여 질문1): #30467 「dirty 는 [wip] 커밋」은 20건 백필 맥락이었다 — 답 전까지 «백필 한정 플래그»로 분리해
+#   어느 판정이든(영구 적용/백필 한정) 수용한다. FT_NANO_WIP=1 일 때만 아래 새 경로, 미설정(기본)은 r6 이전 기존 REJECT.
+if [ "${FT_NANO_WIP:-0}" = 1 ]; then
+  # r7 · 하네스 0.5 행 2 · 오빠 판정 #30467 「dirty 는 [wip] 커밋 경로」 · DA r6 잔여 질문 2 정리.
+  # 브랜치는 지우지 않으므로 커밋해 두면 baton wt-clean 뒤에도 git 이력으로 복원 가능 — REJECT 로 워크트리를 잔존시키는 쪽이 더 나쁘다(#0 RULE).
+  # r8(DA r7 MAJOR 2): baton 자신이 만드는 임시 재생성물 .unmerged-changes.patch 는 커밋 대상이 아니다 — add -A 전에 지운다(언제든 재생성됨).
+  rm -f "$WT/.unmerged-changes.patch"
+  dirty="$(git -C "$WT" status --porcelain)"
+  # r8(DA r7 MAJOR 2): untracked 합계 상한 — baton 산출물이 중단돼 수 GB 로 남으면 커밋이 눈덩이가 된다(k6/k7 실측). 상한 초과는 REJECT(사람 판정).
+  cap="${FT_WT_DIRTY_CAP_BYTES:-52428800}"
+  usum=0
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    sz="$(stat -f '%z' "$WT/$p" 2>/dev/null || echo 0)"
+    usum=$((usum + sz))
+  done < <(git -C "$WT" ls-files -o --exclude-standard)
+  [ "$usum" -le "$cap" ] || fail "dirty 대용량(${usum}B > ${cap}B)"
+else
+  # 기존(r6 이전) 동작 — 실작업물(.serena/project.yml 제외) 있으면 REJECT, .serena 만 있으면 그 아래 WIP 커밋으로.
+  dirty="$(git -C "$WT" status --porcelain)"
+  real="$(printf '%s\n' "$dirty" | grep -v '\.serena/project\.yml$' | grep -c .)"
+  [ "$real" -eq 0 ] || fail "실작업물 미커밋 ${real}파일"
+fi
 # ⑥ ignored — 재생성 허용 목록(이름 · «임의 깊이»의 경로 요소에 적용 · DA r2 A)을 뺀 나머지를 <PLAN>.ignored.tar.gz 로 보관한 뒤 진행 (DA r1 R1③')
 #   ★파일 단위로 센다(`ls-files -o -i`)★ — `status --ignored` 는 «내용이 전부 ignored 인 디렉터리»를 `clients/` 한 줄로 접어 그 안의 node_modules 가 안 보인다(r3 실측).
 allow="${FT_WT_IGNORED_ALLOW:-.env .venv venv .worktree-info.json .serena node_modules .next __pycache__ .pytest_cache .ruff_cache .mypy_cache .turbo dist build coverage}"
@@ -129,13 +156,14 @@ elif ! { [ -f "$COMM/bodies/$RECV.txt" ] || grep -q "\"seq\": *$RECV," "$COMM/ma
 fi
 # ③ 실제 유휴 — pane 이 아니라 jsonl 마지막 레코드 시각 (pane ❯ 는 ghost 를 못 가른다)
 # pane_id 경유 — `-t "=$SEAT"` 는 `#` 든 이름에 display-message 가 빈 값을 돌려준다(실측 2026-09-14)
-# 하네스 0.5 행 2 r6(DA r5 MAJOR 1): tmux 조회 자체의 성공을 먼저 본다 — 계획 본문 가드 ①(:68-70)과 같은 규칙.
+# 하네스 0.5 행 2 r6(DA r5 MAJOR 1): tmux 조회 자체의 성공을 먼저 본다 — 계획 본문 가드 ①(:71-77)과 같은 규칙.
 # r7(DA r6 MAJOR 2ⓐ): no-server 판정을 좁힌다 — rc=1 «이고» 메시지에 no server running|error connecting to 가 있을 때만 0세션.
-# (r6 의 "No such file or directory" 단독 매칭은 bad interpreter rc126 도 삼켰다 — 그 메시지도 그 부분 문자열을 담고 있었다.)
+# r8(DA r7 MAJOR 1 — 회귀): r7 의 "error connecting to" 단독 매칭이 «모든» 소켓 연결 장애(Operation not permitted 등, 전부 rc1)를
+# 서버없음으로 삼켰다 — 생존 좌석까지 ABSENT 로 넘겼다(재현 C1). 「소켓 파일 자체가 없다」는 문구까지 요구해 좁힌다.
 tmux_out="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; tmux_rc=$?; tmux_ok=1
 if [ "$tmux_rc" -ne 0 ]; then
   case "$tmux_rc:$tmux_out" in
-    1:*"no server running"*|1:*"error connecting to"*) tmux_out="";;
+    1:*"no server running"*|1:*"error connecting to "*"(No such file or directory)"*) tmux_out="";;
     *) tmux_ok=0; bad+=("③tmux 조회 실패(rc=$tmux_rc: ${tmux_out:0:60})");;
   esac
 fi
