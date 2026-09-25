@@ -4,6 +4,8 @@
 #   exit 0 = 닫힘(명부 삭제·원장 append[·kill]) · 1 = REJECT(조건 미충족, 사유 stdout) · 2 = usage · 3 = kill 은 사람 승인 필요
 # 종료조건 3 (전부 «값»): ①--result 경로 실재 ②--recv master 회수 seq 가 우편함/bodies 에 실재 ③jsonl 마지막 활동 ≥ IDLE_MIN 분 전
 # kill 은 --kill 일 때만, 그것도 lineage keep-last-2 안이면 exit 3 (글로벌 HIL 하한). 기본은 «정지 레디 + 명부 삭제».
+# 하네스 0.5 행 2 (표준승인 2026-09-25 · ~/.claude/CLAUDE.md HIL 절): 원장 append 뒤 워크트리 정리 스크립트를 «생성»(.fable-team/state/wt-clean/<seat>.sh)
+#   하고 «기본으로 실행»한다(FT_WT_AUTOCLEAN 기본 1 · 끄기 = FT_WT_AUTOCLEAN=0 → 생성만 + 사람 `!` 경로). 브랜치는 절대 지우지 않는다.
 set -uo pipefail
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
 RESULT=""; RECV=""; KILL=0; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"
@@ -15,6 +17,58 @@ WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 LEDGER="$WT/${FT_NANO_LEDGER:-design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md}"
+WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
+
+# 워크트리 정리 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/v65-<seat 에서 접두·#N 제거>. 없으면 PLAN="" .
+# 실행은 사람(`! bash <경로>`) 또는 FT_WT_AUTOCLEAN=1. 브랜치는 절대 지우지 않는다(복원 = git worktree add <경로> <브랜치>).
+_wt_clean_plan() {
+  local key="${SEAT#"$NANO_PREFIX"}"; key="${key%#*}"
+  local wt="$ROOT/.worktrees/v65-$key"
+  PLAN=""
+  [ -d "$wt" ] || { echo "워크트리 없음: $wt"; return 0; }
+  mkdir -p "$WT_CLEAN_DIR"; PLAN="$WT_CLEAN_DIR/$SEAT.sh"
+  {
+    printf '#!/bin/bash\n# wt-clean 계획 — ft-nano-close.sh 가 %s 에 생성. 가드 3 → WIP 커밋 → baton wt-clean. 브랜치는 지우지 않는다.\n' "$(date '+%Y-%m-%d %H:%M')"
+    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX"
+    cat <<'SH'
+set -uo pipefail
+BATON="${BATON_BIN:-$HOME/.baton/current/bin/baton}"
+fail() { echo "skipped:$1"; exit 1; }
+[ -d "$WT" ] || fail "워크트리 없음"
+# ① 좌석 — 같은 계보(<PREFIX><KEY>#N)의 «다른» 세션이 살아 있으면 중단. 닫힌 좌석 자신($SEAT)은 정지 레디라 제외(close 조건 ③이 세션 실재를 요구한다).
+live="$(tmux ls -F '#{session_name}' 2>/dev/null | grep -x "${PREFIX}${KEY}#[0-9]*" | grep -vx "$SEAT" | tr '\n' ' ')"
+[ -z "$live" ] || fail "좌석 ${live% }"
+# ② .worktree-info.json 의 branch 가 nano/*
+br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
+case "$br" in nano/*) ;; *) fail "branch=${br:-?} (nano/* 아님)";; esac
+# ③ 미커밋 실작업물(.serena/project.yml 제외) 0 — untracked 포함
+dirty="$(git -C "$WT" status --porcelain)"
+real="$(printf '%s\n' "$dirty" | grep -v '\.serena/project\.yml$' | grep -c .)"
+[ "$real" -eq 0 ] || fail "실작업물 미커밋 ${real}파일"
+# 미커밋(serena yml)은 WIP 커밋 뒤에만 진행
+if [ -n "$dirty" ]; then git -C "$WT" add -A && git -C "$WT" commit -q -m "[wip] nano close $SEAT" || fail "wip commit 실패"; fi
+BATON_TMUX_DISABLE=true "$BATON" wt-clean "$WT" || fail "baton wt-clean 실패"
+[ -d "$WT" ] && fail "baton 뒤에도 워크트리 남음"
+echo cleaned
+SH
+  } > "$PLAN"
+  chmod 755 "$PLAN"
+}
+# FT_WT_AUTOCLEAN=1: 계획을 그 자리에서 실행하고 결과 1줄을 원장 닫힘 행 끝에 append. 실패해도 CLOSED 는 유지(닫힘과 정리는 분리).
+_wt_clean_run() {
+  local res
+  res="$(/bin/bash "$PLAN" 2>&1 | tee "$PLAN.log" | tail -1)"
+  case "$res" in cleaned|skipped:*) ;; *) res="skipped:${res:-실행 실패}";; esac
+  python3 - "$LEDGER" "$res" <<'PY'
+import sys
+p, r = sys.argv[1:3]
+s = open(p, encoding="utf-8").read().rstrip("\n")
+open(p, "w", encoding="utf-8").write(s + " · wt=" + r + "\n")
+PY
+  # skipped = 사람 판정 분기(좌석 생존·비nano 브랜치·실작업물 미커밋…) — 스크립트는 mbox 를 쏘지 않는다. 호출자가 이 줄을 [HIL] 로 CFO 에 올린다(오빠 규칙 2026-09-25).
+  case "$res" in skipped:*) echo "[HIL] ${res#skipped:} · 스크립트 $PLAN";; esac
+  echo "워크트리 정리: $res (로그 $PLAN.log)"
+}
 bad=()
 # ① 결과 보존
 [ -n "$RESULT" ] && [ -e "$RESULT" ] || bad+=("①결과 경로 없음: ${RESULT:-<미지정>}")
@@ -52,6 +106,10 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open
 PY
 printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③유휴 jsonl/mtime ≥%s분. kill=%s\n' \
   "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$IDLE_MIN" "$KILL" >> "$LEDGER"
+_wt_clean_plan
+if [ -n "$PLAN" ]; then
+  if [ "${FT_WT_AUTOCLEAN:-1}" != 0 ]; then _wt_clean_run; else echo "워크트리 정리: ! bash $PLAN"; fi
+fi
 echo "CLOSED $SEAT (명부 삭제 · 원장 append) — 좌석은 정지 레디"
 
 [ "$KILL" = 1 ] || exit 0
