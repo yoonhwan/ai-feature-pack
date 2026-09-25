@@ -130,7 +130,12 @@ fi
 # pane_id 경유 — `-t "=$SEAT"` 는 `#` 든 이름에 display-message 가 빈 값을 돌려준다(실측 2026-09-14)
 PANE="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')"
 cwd="$([ -n "$PANE" ] && tmux display-message -p -t "$PANE" '#{pane_current_path}' 2>/dev/null)"
-if [ -z "$cwd" ]; then bad+=("③세션 없음: $SEAT")
+# 하네스 0.5 행 2 r5(오빠 판정 #30467): 세션이 먼저 죽은 좌석 — 세션 없음 + 워크트리 실재는 REJECT 대신 「세션 없음 자체가 충족」(유휴 검사 불요).
+# 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다.
+_KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"
+ABSENT=0
+if [ -z "$cwd" ]; then
+  if [ -d "$ROOT/.worktrees/v65-$_KEY" ]; then ABSENT=1; else bad+=("③세션 없음: $SEAT"); fi
 else
   enc="$(printf '%s' "$cwd" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"; dir="$HOME/.claude/projects/$enc"
   f="$(grep -lE "\"(agentName|customTitle)\":\"$(printf '%s' "$SEAT" | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null | head -1)"
@@ -156,11 +161,27 @@ PY
 _wt_clean_plan
 # 원장 append 도 계획의 mark() 와 «같은» mkdir 락(<원장>.lock) 아래 — 락 밖 >> 와 mark 의 read→replace 가 겹치면 행이 소실된다(DA r3 실측 204/8000). 락 실패는 REJECT 가 아니라 append 강행(닫힘 행이 없는 것이 더 나쁘다) + 경고.
 _lock="$LEDGER.lock"; _i=0
-until mkdir "$_lock" 2>/dev/null; do _i=$((_i+1)); [ "$_i" -lt 100 ] || { echo "WARN 원장 락 10s 초과($_lock) — 락 없이 append" >&2; _lock=""; break; }; sleep 0.1; done
-printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③유휴 jsonl/mtime ≥%s분. kill=%s · wt=%s\n' \
-  "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$IDLE_MIN" "$KILL" "$WT_MARK" >> "$LEDGER"
+until mkdir "$_lock" 2>/dev/null; do _i=$((_i+1)); [ "$_i" -lt 100 ] || { echo "WARN 원장 락 10s 초과($_lock) — 락 없이 처리" >&2; _lock=""; break; }; sleep 0.1; done
+if [ "$ABSENT" = 1 ] && grep -qF "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null; then
+  # r5(오빠 판정 #30467): 세션이 먼저 죽어 이미 닫힘 행이 있는 좌석(백필) — 새 행을 만들지 않고 마지막 행의 wt= 만 표식(mark() 와 같은 방식).
+  python3 - "$LEDGER" "$SEAT" "$WT_MARK" <<'PY'
+import os, re, sys
+p, seat, val = sys.argv[1:4]
+s = open(p, encoding="utf-8").read(); lines = s.split("\n")
+key = "`%s` 닫힘(ft-nano-close)" % seat
+idx = [i for i, l in enumerate(lines) if key in l]
+i = idx[-1]; lines[i] = re.sub(r"( · wt=.*)?$", " · wt=" + val, lines[i], count=1)
+tmp = p + ".tmp.%d" % os.getpid()
+with open(tmp, "w", encoding="utf-8") as f: f.write("\n".join(lines)); f.flush(); os.fsync(f.fileno())
+os.replace(tmp, p)
+PY
+else
+  printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③%s. kill=%s · wt=%s\n' \
+    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$([ "$ABSENT" = 1 ] && echo "세션 없음(백필)" || echo "유휴 jsonl/mtime ≥${IDLE_MIN}분")" "$KILL" "$WT_MARK" >> "$LEDGER"
+fi
 [ -z "$_lock" ] || rmdir "$_lock"
 [ -z "$PLAN" ] || echo "워크트리 정리 계획: $PLAN (실행은 세션 종료 뒤 — --kill 직후 또는 ft-wt-sweep.sh)"
+if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT (명부 확인 · 원장 표식) — 워크트리 정리 계획만"; exit 0; fi
 echo "CLOSED $SEAT (명부 삭제 · 원장 append) — 좌석은 정지 레디"
 
 [ "$KILL" = 1 ] || exit 0
