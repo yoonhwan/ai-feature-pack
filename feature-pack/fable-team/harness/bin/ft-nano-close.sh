@@ -71,7 +71,15 @@ fail() { mark "skipped:$1"; echo "skipped:$1"; exit 1; }
 out="$("$TMUX_BIN" ls -F '#{session_name}' 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ]; then
   case "$rc:$out" in
-    1:*"no server running"*|1:*"error connecting to "*"(No such file or directory)"*) out="";;
+    1:*"no server running"*) out="";;
+    1:*"error connecting to "*"(No such file or directory)"*)
+      # r9(오빠 판정 ㉙ Q5): 소켓 파일만 없고 서버 프로세스가 살아있으면 고아 서버 — 0세션이 아니라 REJECT.
+      n="$(pgrep -u "$USER" -x tmux 2>/dev/null | wc -l | tr -d ' ')"
+      if [ -n "${FT_TMUX_BIN:-}" ]; then
+        n=$((n + $(pgrep -u "$USER" -f "$TMUX_BIN" 2>/dev/null | wc -l | tr -d ' ')))
+      fi
+      [ "${n:-0}" -eq 0 ] || fail "③고아 tmux 서버(pgrep ${n} · 소켓 부재)"
+      out="";;
     *) fail "tmux 조회 실패(rc=$rc: ${out:0:60})";;
   esac
 fi
@@ -129,6 +137,11 @@ if [ "$nkeep" -gt 0 ]; then
   tar -C "$WT" -czf "$PLAN.ignored.tar.gz" -T "$list" || fail "ignored 보관 실패(${nkeep}파일)"
 else rm -f "$list"; fi
 # 미커밋(실작업물 포함, r7)은 WIP 커밋 성공 뒤에만 진행 — 실패하면 정리 자체를 REJECT(#0 RULE, 조용히 버리지 않는다)
+# r9(오빠 판정 ㉙ Q4): .serena/project.yml 은 activate_project 가 매번 갱신하는 노이즈 — WIP 커밋 전에 되돌린다(tracked 인 경우만 · untracked 는 대상 아님).
+if git -C "$WT" ls-files --error-unmatch .serena/project.yml >/dev/null 2>&1; then
+  git -C "$WT" checkout -- .serena/project.yml || fail ".serena/project.yml checkout 실패"
+  dirty="$(git -C "$WT" status --porcelain)"
+fi
 if [ -n "$dirty" ]; then git -C "$WT" add -A && git -C "$WT" commit -q -m "[wip] nano close $SEAT" || fail "wip commit 실패"; fi
 BATON_TMUX_DISABLE=true "$BATON" wt-clean "$WT" || fail "baton wt-clean 실패"
 [ -d "$WT" ] && fail "baton 뒤에도 워크트리 남음"
@@ -163,7 +176,16 @@ fi
 tmux_out="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; tmux_rc=$?; tmux_ok=1
 if [ "$tmux_rc" -ne 0 ]; then
   case "$tmux_rc:$tmux_out" in
-    1:*"no server running"*|1:*"error connecting to "*"(No such file or directory)"*) tmux_out="";;
+    1:*"no server running"*) tmux_out="";;
+    1:*"error connecting to "*"(No such file or directory)"*)
+      # r9(오빠 판정 ㉙ Q5): 소켓 파일만 없고 서버 프로세스가 살아있으면 고아 서버 — 0세션이 아니라 REJECT(같은 화이트리스트, 계획 본문 guard①과 동일).
+      n="$(pgrep -u "$USER" -x tmux 2>/dev/null | wc -l | tr -d ' ')"
+      if [ -n "${FT_TMUX_BIN:-}" ]; then
+        n=$((n + $(pgrep -u "$USER" -f "$FT_TMUX_BIN" 2>/dev/null | wc -l | tr -d ' ')))
+      fi
+      if [ "${n:-0}" -gt 0 ]; then tmux_ok=0; bad+=("③고아 tmux 서버(pgrep ${n} · 소켓 부재)")
+      else tmux_out=""; fi
+      ;;
     *) tmux_ok=0; bad+=("③tmux 조회 실패(rc=$tmux_rc: ${tmux_out:0:60})");;
   esac
 fi
