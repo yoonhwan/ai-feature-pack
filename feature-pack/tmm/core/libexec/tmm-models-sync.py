@@ -22,7 +22,8 @@ import sys
 SEP = "\t"
 
 STATIC = {
-    "claude": [("opus", "claude-opus-5-5"), ("opus5", "claude-opus-5"), ("sonnet", "claude-sonnet-5"),
+    "claude": [("opus", "claude-opus-5-5"), ("opus5", "claude-opus-5"),
+               ("sonnet", "claude-sonnet-5-5"), ("sonnet5", "claude-sonnet-5"),
                ("fable", "claude-fable-5-1"), ("haiku", "claude-haiku-4-5")],
     "codex": [("astra", "gpt-6-astra"), ("sol", "gpt-5.6-sol"), ("terra", "gpt-5.6-terra"),
               ("luna", "gpt-5.6-luna"), ("gpt55", "gpt-5.5"), ("gpt54", "gpt-5.4"),
