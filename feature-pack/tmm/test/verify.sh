@@ -337,7 +337,7 @@ dtmm idx 'NO_SUCH_SEAT#99' >/dev/null 2>&1 && { echo 'FAIL: (r) 없는 세션 id
 f_same="$(dtmm fork 'ft-fx-impl#3' --agent claude --model sonnet --dry-run 2>&1 || true)"
 printf '%s\n' "$f_same" | grep -qF -- '--fork-session' || { echo 'FAIL: (s) 동일엔진 fork 에 --fork-session 없음'; printf '%s\n' "$f_same"; exit 1; }
 printf '%s\n' "$f_same" | grep -qF -- "--resume $SID_CC --fork-session" || { echo 'FAIL: (s) 동일엔진 fork 가 소스 sid 로 분기 안 함'; printf '%s\n' "$f_same"; exit 1; }
-printf '%s\n' "$f_same" | grep -qF 'claude-sonnet-5[1m]' || { echo 'FAIL: (s) claude fork 모델 [1m] 규칙 아님'; printf '%s\n' "$f_same"; exit 1; }
+printf '%s\n' "$f_same" | grep -qF 'claude-sonnet-5-5[1m]' || { echo 'FAIL: (s) claude fork 모델 [1m] 규칙 아님(sonnet 별칭→5.5)'; printf '%s\n' "$f_same"; exit 1; }
 printf '%s\n' "$f_same" | grep -q 'name=ft-fx-impl#4' || { echo 'FAIL: (s) 이름 자동증가(#3→#4) 아님'; printf '%s\n' "$f_same"; exit 1; }
 f_cross="$(dtmm fork 'ft-fx-impl#3' --agent codex --model astra --dry-run 2>&1 || true)"
 printf '%s\n' "$f_cross" | grep -qF 'gpt-6-astra' || { echo 'FAIL: (s) 크로스엔진 codex 모델 매핑 실패'; printf '%s\n' "$f_cross"; exit 1; }
@@ -364,10 +364,14 @@ RFGEN="$SOCK_DIR/refresh.tsv"
 python3 "$ROOT/core/libexec/tmm-models-sync.py" --out "$RFGEN" --agents claude >/dev/null 2>&1
 grep -qE '^claude\topus\tclaude-opus-5-5$' "$RFGEN" || { echo 'FAIL: (t) models refresh 정적 생성 실패(opus=5.5)'; cat "$RFGEN" 2>/dev/null; exit 1; }
 grep -qE '^claude\topus5\tclaude-opus-5$' "$RFGEN" || { echo 'FAIL: (t) opus5 별칭(구 Opus 5) 없음'; cat "$RFGEN" 2>/dev/null; exit 1; }
+grep -qE '^claude\tsonnet\tclaude-sonnet-5-5$' "$RFGEN" || { echo 'FAIL: (t) models refresh 정적 생성 실패(sonnet=5.5)'; cat "$RFGEN" 2>/dev/null; exit 1; }
+grep -qE '^claude\tsonnet5\tclaude-sonnet-5$' "$RFGEN" || { echo 'FAIL: (t) sonnet5 별칭(구 Sonnet 5) 없음'; cat "$RFGEN" 2>/dev/null; exit 1; }
 
-# (u) 모델 표기 — opus-5-5 와 opus-5 가 1m 창에서도 구분돼야 한다 (5칸 절단으로 둘 다 opus5·1m 이 되던 충돌)
+# (u) 모델 표기 — opus-5-5 와 opus-5 (및 sonnet 동형) 가 1m 창에서도 구분돼야 한다 (5칸 절단으로 둘 다 opus5·1m/sonn5·1m 이 되던 충돌)
 eval "$(sed -n '/^model_short()/,/^}/p' "$TMM")"
 _ms="$(model_short 'claude-opus-5-5[1m]')|$(model_short 'claude-opus-5[1m]')|$(model_short claude-opus-5-5)|$(model_short claude-opus-5)"
 [ "$_ms" = 'op55·1m|opus5·1m|op55|opus5' ] || { echo "FAIL: (u) model_short opus-5-5 구분 실패: $_ms"; exit 1; }
+_ms2="$(model_short 'claude-sonnet-5-5[1m]')|$(model_short 'claude-sonnet-5[1m]')|$(model_short claude-sonnet-5-5)|$(model_short claude-sonnet-5)"
+[ "$_ms2" = 'sn55·1m|sonn5·1m|sn55|sonn5' ] || { echo "FAIL: (u) model_short sonnet-5-5 구분 실패: $_ms2"; exit 1; }
 
 echo "✅ tmm verify OK"

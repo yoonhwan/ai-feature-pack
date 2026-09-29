@@ -33,7 +33,7 @@
 | `●` / `○` | 에이전트 실행 중 / 셸만 있음 |
 | 세션명 | tmux 세션명. **창 폭에 따라 20~44칸**으로 늘어납니다. 잘릴 때는 가운데를 접고 끝의 `#N` 인덱스를 남깁니다(`ft-v65-master-son…#5`) — 같은 이름 여러 세대를 구분하는 유일한 표시라서입니다 |
 | `HUMAN` `BLOCK` `STUCK` `IDLE` `BUSY` | seat-scan 판정. HUMAN=사람 입력 대기, BLOCK=API 오류로 멈춤, STUCK=미제출 입력 잔류 |
-| `opus5·1m` `op55·1m` `sonn5` `fabl51` `luna` `astra` | 사용 모델(축약 — 두 마디 버전의 Opus는 `op55`처럼 `op`로 줄여 opus-5 와 구분). Claude는 프로세스 argv, Codex는 argv 없으면 pane 하단에서. `·1m`=1M 창. 종료 뷰는 복구 시 붙을 모델(fable 제외 `·1m`) |
+| `opus5·1m` `op55·1m` `sonn5` `sn55·1m` `fabl51` `luna` `astra` | 사용 모델(축약 — 두 마디 버전의 Opus는 `op55`, Sonnet은 `sn55`처럼 줄여 opus-5·sonnet-5 와 구분). Claude는 프로세스 argv, Codex는 argv 없으면 pane 하단에서. `·1m`=1M 창. 종료 뷰는 복구 시 붙을 모델(fable 제외 `·1m`) |
 | `12:33` / `12~33` | 마지막 메시지 시각. `:`=Claude 완료 마커에서 읽음, `~`=마커가 없어 tmux 마지막 출력 시각 |
 | `26m` | 지금 기준 경과 (m/h/d) |
 | 폴더 | pane cwd 마지막 디렉터리. 창 폭에 따라 **6~28칸**으로 늘어납니다 |
@@ -125,6 +125,7 @@ tmm idx ft-v65-master-claude#5 --path
 - **취소/돌아가기**: 어느 단계에서든 `^C`(또는 이름·에이전트·모델에서 `q`) 로 취소 → 피커 복귀. 생성 중에는 **아무 키=취소**(만들어지던 세션 정리). 모델은 fzf 검색창으로 고른다(600+ 별칭 대응, Esc=취소).
 - 모델 별칭은 `~/.tmm/models`(사용자) + `~/.tmm/models.generated`(생성본) 를 병합한다 — 사용자 파일이 우선.
 - claude `opus` 별칭은 최신 Opus(`claude-opus-5-5`), 구 Opus 5 는 `opus5`. opencode·cmd 의 `opus` 는 각 CLI 카탈로그에 5.5 가 올라올 때까지 `claude-opus-5` 로 둔다(2026-09-23 기준 models.dev·cmd 미등록).
+- claude `sonnet` 별칭도 동일 규칙 — 최신 Sonnet(`claude-sonnet-5-5`), 구 Sonnet 5 는 `sonnet5`. opencode·cmd 의 `sonnet` 은 각 CLI 카탈로그 미등록이라 `claude-sonnet-5` 로 둔다(2026-09-29 기준).
 - `tmm models refresh` = 각 CLI 라이브 목록에서 생성본을 만든다. **opencode 는 프로바이더 접두사가 곧 게이트웨이**라 `TMM_MODELS_PROVIDER`(기본 `openrouter`)로 고른다 — 크레딧이 OpenRouter 면 `openrouter/`, zen 이면 `opencode/`. `tmm models find Q` 로 검색.
 - claude 는 fable 제외 `--ctx 1m` 자동.
 - 스폰·창옵션·COMM-GUIDE 주입은 전부 `tmuxc` 에 위임한다(동일엔진은 `tmuxc fork`, 크로스엔진은 `tmuxc open`).

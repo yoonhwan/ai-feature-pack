@@ -10,7 +10,8 @@
 # ---- Claude Code ----
 claude	opus	claude-opus-5-5
 claude	opus5	claude-opus-5
-claude	sonnet	claude-sonnet-5
+claude	sonnet	claude-sonnet-5-5
+claude	sonnet5	claude-sonnet-5
 claude	fable	claude-fable-5-1
 claude	haiku	claude-haiku-4-5
 

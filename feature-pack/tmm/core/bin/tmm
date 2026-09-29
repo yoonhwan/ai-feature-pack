@@ -228,7 +228,7 @@ midnight() { date -v0H -v0M -v0S +%s 2>/dev/null || date -d 'today 00:00' +%s; }
 fmt_hm()   { date -r "$1" "+%H$2%M" 2>/dev/null || date -d "@$1" "+%H$2%M" 2>/dev/null || echo '--:--'; }
 
 # ---------- 모델 표기 ----------
-# 폰 60열에 맞춰 8자 안으로: claude-opus-5[1m]→opus5·1m · claude-opus-5-5[1m]→op55·1m · claude-sonnet-5→sonn5 · claude-fable-5-1→fabl51 · gpt-5.6-luna→luna
+# 폰 60열에 맞춰 8자 안으로: claude-opus-5[1m]→opus5·1m · claude-opus-5-5[1m]→op55·1m · claude-sonnet-5→sonn5 · claude-sonnet-5-5[1m]→sn55·1m · claude-fable-5-1→fabl51 · gpt-5.6-luna→luna
 # gpt-6-astra→astra · gpt-5.6-terra→terra. 알 수 없으면 뒤 7자.
 model_short() {
   local m="$1" ctx=""
@@ -236,6 +236,7 @@ model_short() {
   case "$m" in
     claude-opus-*-*) m="op${m#claude-opus-}";;   # 5-5 처럼 두 마디면 op55 — opus55·1m 은 5칸 절단에 opus5·1m 이 되어 opus-5 와 겹친다
     claude-opus-*)   m="opus${m#claude-opus-}";;
+    claude-sonnet-*-*) m="sn${m#claude-sonnet-}";;   # 5-5 처럼 두 마디면 sn55 — sonn55·1m 은 5칸 절단에 sonn5·1m 이 되어 sonnet-5 와 겹친다
     claude-sonnet-*) m="sonn${m#claude-sonnet-}";;
     claude-haiku-*)  m="haik${m#claude-haiku-}";;
     claude-fable-*)  m="fabl${m#claude-fable-}";;
