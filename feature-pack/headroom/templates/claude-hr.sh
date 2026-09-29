@@ -167,8 +167,9 @@ try:
     ids = {m["id"] for m in json.load(sys.stdin)["data"]}
 except Exception:
     sys.exit(0)
-if wanted not in ids:
-    near = sorted(i for i in ids if wanted.split("[")[0] in i)
+base = wanted.split("[")[0]  # [1m] 은 CC 가 beta 헤더로 바꿔 보내는 접미사 — 카탈로그엔 base id 만 있다
+if base not in ids:
+    near = sorted(i for i in ids if base in i)
     sys.stderr.write(f"claude-hr: 경고 — cliproxy 카탈로그에 {wanted!r} 없음. "
                      f"세션이 모델 미지원으로 실패할 수 있다.\n")
     if near:
