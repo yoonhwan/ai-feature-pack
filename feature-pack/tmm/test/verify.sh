@@ -374,4 +374,132 @@ _ms="$(model_short 'claude-opus-5-5[1m]')|$(model_short 'claude-opus-5[1m]')|$(m
 _ms2="$(model_short 'claude-sonnet-5-5[1m]')|$(model_short 'claude-sonnet-5[1m]')|$(model_short claude-sonnet-5-5)|$(model_short claude-sonnet-5)"
 [ "$_ms2" = 'sn55·1m|sonn5·1m|sn55|sonn5' ] || { echo "FAIL: (u) model_short sonnet-5-5 구분 실패: $_ms2"; exit 1; }
 
+# ---------- (v)(w)(x)(y) 0.7.0 — 탭 뷰 · 뷰별 키워드 · 복귀 경로 ----------
+# (v) 탭 뷰: 상단 카테고리 탭 줄 + Tab/S-Tab 회전 + 선택 탭만 보이는 목록, 목록↔탭(^V)
+for n in TABX_A TABX_B TABY_A; do tm new-session -d -s "$n"; done
+sleep 0.4
+tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/tabsel" "$STATE/tabs"
+tmm header | grep -q 'TABX' && { echo 'FAIL: (v) 목록 모드 헤더에 탭 줄이 나옴'; exit 1; }
+[ "$(tmm tabkey next)" = 'toggle+down' ] || { echo 'FAIL: (v) 목록 모드 Tab 이 원래 동작(toggle+down)이 아님'; exit 1; }
+[ "$(tmm tabkey prev)" = 'toggle+up' ]   || { echo 'FAIL: (v) 목록 모드 S-Tab 이 원래 동작(toggle+up)이 아님'; exit 1; }
+tmm vtab | grep -q 'reload' || { echo 'FAIL: (v) ^V 가 reload 액션을 안 냄'; exit 1; }
+[ -f "$STATE/tab" ] || { echo 'FAIL: (v) ^V 후 tab 상태 파일 없음'; exit 1; }
+all_out="$(tmm rows-cur | grep TAB)"
+for n in TABX_A TABX_B TABY_A; do printf '%s\n' "$all_out" | grep -q "$n" || { echo "FAIL: (v) 전체 탭에 $n 없음"; exit 1; }; done
+printf '%s\n' "$all_out" | awk -F'\t' '$2=="TABX_A"{print $1}' | grep -q '^TABX ' || { echo 'FAIL: (v) 전체 탭은 카테고리 열을 유지해야 함'; exit 1; }
+grep -qP '^\*\t' "$STATE/tabs" 2>/dev/null || grep -q "^\*$(printf '\t')" "$STATE/tabs" || { echo 'FAIL: (v) tabs 파일 첫 줄이 전체(*)가 아님'; cat "$STATE/tabs"; exit 1; }
+[ "$(awk -F'\t' '$1=="TABX"{print $2}' "$STATE/tabs")" = 2 ] || { echo 'FAIL: (v) TABX 카운트≠2'; cat "$STATE/tabs"; exit 1; }
+[ "$(awk -F'\t' '$1=="TABY"{print $2}' "$STATE/tabs")" = 1 ] || { echo 'FAIL: (v) TABY 카운트≠1'; cat "$STATE/tabs"; exit 1; }
+bar="$(tmm header | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g')"
+printf '%s\n' "$bar" | grep -q '전체' && printf '%s\n' "$bar" | grep -q 'TABX 2' && printf '%s\n' "$bar" | grep -q 'TABY 1' || { echo "FAIL: (v) 헤더 첫 줄이 탭 줄이 아님: $bar"; exit 1; }
+# Tab = 다음 탭 → 그 카테고리만, 카테고리 열은 뗀다
+nx="$(tmm tabkey next)"
+printf '%s\n' "$nx" | grep -q 'reload' && printf '%s\n' "$nx" | grep -q 'first' || { echo "FAIL: (v) Tab 이 reload+first 가 아님: $nx"; exit 1; }
+first_cat="$(sed -n 2p "$STATE/tabs" | cut -f1)"
+[ "$(cat "$STATE/tabsel")" = "$first_cat" ] || { echo "FAIL: (v) Tab 후 선택 탭≠첫 카테고리($first_cat): $(cat "$STATE/tabsel")"; exit 1; }
+sel_out="$(tmm rows-cur)"
+[ "$(printf '%s\n' "$sel_out" | awk -F'\t' -v c="$first_cat" '$3!=c' | wc -l | tr -d ' ')" = 0 ] || { echo 'FAIL: (v) 선택 탭에 다른 카테고리 행이 섞임'; printf '%s\n' "$sel_out"; exit 1; }
+printf '%s\n' "$sel_out" | awk -F'\t' '{print $1}' | grep -qE '^[●○] ' || { echo 'FAIL: (v) 선택 탭에서 카테고리 열이 안 떼짐'; printf '%s\n' "$sel_out" | head -3; exit 1; }
+tmm header | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q "$first_cat" || { echo 'FAIL: (v) 탭 줄에 선택 카테고리 없음'; exit 1; }
+# 한 바퀴 돌면 전체로 돌아온다 (탭 수 = tabs 줄 수)
+ntab="$(wc -l < "$STATE/tabs" | tr -d ' ')"
+for _ in $(seq 2 "$ntab"); do tmm tabkey next >/dev/null; done
+[ "$(cat "$STATE/tabsel")" = '*' ] || { echo "FAIL: (v) $ntab 번 Tab 후 전체(*)로 안 돌아옴: $(cat "$STATE/tabsel")"; exit 1; }
+# S-Tab = 이전: 전체에서 뒤로 가면 마지막 카테고리
+tmm tabkey prev >/dev/null
+[ "$(cat "$STATE/tabsel")" = "$(tail -1 "$STATE/tabs" | cut -f1)" ] || { echo "FAIL: (v) 전체에서 S-Tab 이 마지막 탭이 아님: $(cat "$STATE/tabsel")"; exit 1; }
+# 고른 카테고리가 사라졌으면 전체로 (죽은 탭에 갇히지 않게)
+printf 'NOPE\n' > "$STATE/tabsel"
+tmm rows-cur | grep -q 'TABX_A' || { echo 'FAIL: (v) 없는 탭이면 전체를 보여야 함'; exit 1; }
+# 탭 줄은 폰 60열(표시폭 ≤58)에서 잘리지 않는다 — 모든 탭이 선택된 상태에서 잰다
+for i in $(seq 1 "$ntab"); do
+  FZF_COLUMNS=60 tmm header | sed -n 1p | python3 -c '
+import sys, re, unicodedata
+l = re.sub(r"\x1b\[[0-9;]*m", "", sys.stdin.readline().rstrip("\n"))
+w = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in l)
+if w > 58: print(f"FAIL: 탭 줄 {w}열 > 58: {l}"); sys.exit(1)' || exit 1
+  tmm tabkey next >/dev/null
+done
+printf '*\n' > "$STATE/tabsel"
+tmm blabel | grep -q '탭' || { echo 'FAIL: (v) 탭 모드 상단 라벨에 「탭」 없음'; exit 1; }
+tmm onload | grep -q 'transform-header' || { echo 'FAIL: (v) 탭 모드 load 이벤트가 헤더를 안 갱신'; exit 1; }
+tmm vtab >/dev/null; [ -f "$STATE/tab" ] && { echo 'FAIL: (v) ^V 재입력이 목록으로 안 돌아옴'; exit 1; }
+tmm header | grep -q 'TABX' && { echo 'FAIL: (v) 목록 복귀 후에도 탭 줄이 나옴'; exit 1; }
+tmm onload | grep -q 'transform-header' && { echo 'FAIL: (v) 목록 모드 load 이벤트가 헤더를 건드림(종료 뷰에서는 무거운 스캔)'; exit 1; }
+# 종료 뷰에는 탭이 없다 — Tab 은 원래 동작
+tmm view dead >/dev/null; tmm vtab | grep -q '탭은 좌석뷰 전용' || { echo 'FAIL: (v) 종료 뷰 ^V 안내 없음'; exit 1; }
+[ -f "$STATE/tab" ] && { echo 'FAIL: (v) 종료 뷰 ^V 가 상태를 바꿈'; exit 1; }
+: > "$STATE/tab"; [ "$(tmm tabkey next)" = 'toggle+down' ] || { echo 'FAIL: (v) 종료 뷰 Tab 이 원래 동작이 아님'; exit 1; }
+tmm view live >/dev/null
+rm -f "$STATE/tab" "$STATE/tabsel" "$STATE/tabs"
+
+# (w) 뷰별 키워드: ^A/^D 는 나가는 뷰의 질의를 저장하고 들어가는 뷰의 질의를 복원한다
+rm -f "$STATE"/query.*; tmm view live >/dev/null
+w1="$(tmm vswitch dead 'live-kw')"
+[ "$(cat "$STATE/view")" = dead ] || { echo 'FAIL: (w) vswitch dead 후 view≠dead'; exit 1; }
+[ "$(cat "$STATE/query.live")" = 'live-kw' ] || { echo 'FAIL: (w) 나가는 뷰 질의가 저장 안 됨'; exit 1; }
+printf '%s\n' "$w1" | grep -q 'change-query()$' || { echo "FAIL: (w) 처음 들어가는 종료 뷰는 질의가 비어야 함: $w1"; exit 1; }
+printf '%s\n' "$w1" | grep -q 'change-prompt(종료> )' || { echo 'FAIL: (w) 종료 프롬프트 아님'; exit 1; }
+w2="$(tmm vswitch live 'dead)+kw')"
+[ "$(cat "$STATE/query.dead")" = 'dead)+kw' ] || { echo 'FAIL: (w) 특수문자 질의 저장 실패'; exit 1; }
+printf '%s\n' "$w2" | grep -qF '+change-query:live-kw' || { echo "FAIL: (w) 좌석뷰 복귀 시 live 키워드 복원 아님: $w2"; exit 1; }
+w3="$(tmm vswitch dead 'live-kw')"
+printf '%s\n' "$w3" | grep -qF '+change-query:dead)+kw' || { echo "FAIL: (w) 종료뷰 재진입 시 dead 키워드 복원 아님(콜론 형식 마지막): $w3"; exit 1; }
+tmm vswitch live '' >/dev/null; rm -f "$STATE"/query.*
+
+# (x) 피커 세션은 tmux 프리픽스를 끈다(^A 가 프리픽스로 먹혀 ^D 가 detach 가 되던 것) — tui_wrap 코드 고정
+grep -q "set -t \"=\$sess:\" prefix None" "$TMM" || { echo 'FAIL: (x) tui_wrap 이 피커 세션 prefix None 을 안 검'; exit 1; }
+grep -q -- '--expect=enter,ctrl-e,ctrl-s,ctrl-k,ctrl-f,double-click' "$TMM" || { echo 'FAIL: (x) enter 가 --expect 에서 빠짐(attach 키 회귀)'; exit 1; }
+
+# (y) 좌석 → 피커 복귀(dkey): 출발 피커 기록 → 직전이 좌석이어도 복귀 → 피커 없으면 detach.  pty 클라이언트를 python 으로 붙인다.
+pty_attach() {  # <세션> — 백그라운드 pty 클라이언트(최대 40초)
+  python3 - "$SOCK_DIR" "$1" <<'PYC' &
+import os, pty, sys, time, fcntl, termios, struct
+sock, sess = sys.argv[1:3]
+env = dict(os.environ, TMUX_TMPDIR=sock, TERM="xterm-256color"); env.pop("TMUX", None)
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvpe("tmux", ["tmux", "attach", "-t", "=" + sess], env)
+fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+end = time.time() + 40
+while time.time() < end:
+    try:
+        if not os.read(fd, 4096): break
+    except OSError: break
+PYC
+}
+first_client() { tm list-clients -F '#{client_tty}' 2>/dev/null | head -1; }
+wait_client() { for _ in $(seq 1 30); do [ -n "$(first_client)" ] && return 0; sleep 0.2; done; echo "FAIL: (y) pty 클라이언트가 안 붙음"; exit 1; }
+cur_sess() { tm list-clients -F '#{client_session}' 2>/dev/null | head -1; }
+for n in PICKA PICKB; do tm new-session -d -s "$n"; tm set -t "=$n:" @tmm_picker 1; done
+for n in SEATX SEATY; do tm new-session -d -s "$n"; done
+pty_attach SEATX; wait_client
+YTTY="$(first_client)"; YKEY="$(printf '%s' "$YTTY" | tr -c 'A-Za-z0-9' '_')"
+# ① 출발 피커 기록이 있으면 «직전 세션이 뭐든» 거기로
+tm set -g "@tmm_home_$YKEY" PICKA
+tm switch-client -c "$YTTY" -t =SEATY; tm switch-client -c "$YTTY" -t =SEATX   # 직전(last)=SEATY(좌석)
+tmm dkey "$YTTY" SEATX; sleep 0.3
+[ "$(cur_sess)" = PICKA ] || { echo "FAIL: (y) 출발 피커(PICKA)로 복귀 안 함 → $(cur_sess)"; exit 1; }
+# ② 출발 기록이 없고 직전도 좌석이면 «붙은 클라이언트 없는 피커»로 (예전엔 detach=tmm 종료)
+tm set -gu "@tmm_home_$YKEY"
+tm switch-client -c "$YTTY" -t =SEATY; tm switch-client -c "$YTTY" -t =SEATX
+tmm dkey "$YTTY" SEATX; sleep 0.3
+case "$(cur_sess)" in PICK*) ;; *) echo "FAIL: (y) 직전이 좌석일 때 피커로 복귀 안 함 → $(cur_sess)"; exit 1;; esac
+# ③ 피커 세션에서 누르면 원래대로 detach(피커 자체를 떼는 동작은 유지)
+YCUR="$(cur_sess)"; tmm dkey "$YTTY" "$YCUR"; sleep 0.5
+[ -z "$(first_client)" ] || { echo 'FAIL: (y) 피커에서의 dkey 가 detach 가 아님'; exit 1; }
+# ④ 피커가 하나도 없으면 detach
+pty_attach SEATX; wait_client; YTTY="$(first_client)"
+tm set -t =PICKA: @tmm_picker 0; tm set -t =PICKB: @tmm_picker 0
+tmm dkey "$YTTY" SEATX; sleep 0.5
+[ -z "$(first_client)" ] || { echo 'FAIL: (y) 피커가 없을 때 detach 가 아님'; exit 1; }
+# ⑤ cmd_attach 가 피커 안에서 출발 피커를 기록한다
+tm set -t =PICKA: @tmm_picker 1
+pty_attach PICKA; wait_client; YTTY="$(first_client)"; YKEY="$(printf '%s' "$YTTY" | tr -c 'A-Za-z0-9' '_')"
+tm send-keys -t '=PICKA:' -l "'$TMM' a SEATY"; tm send-keys -t '=PICKA:' Enter
+for _ in $(seq 1 30); do [ "$(cur_sess)" = SEATY ] && break; sleep 0.2; done
+[ "$(cur_sess)" = SEATY ] || { echo "FAIL: (y) 피커 안의 tmm a 가 좌석으로 전환 못함 → $(cur_sess)"; exit 1; }
+[ "$(tm show -gqv "@tmm_home_$YKEY")" = PICKA ] || { echo "FAIL: (y) cmd_attach 가 출발 피커를 기록 안 함: '$(tm show -gqv "@tmm_home_$YKEY")'"; exit 1; }
+tm detach-client -t "$YTTY" 2>/dev/null || true
+
 echo "✅ tmm verify OK"

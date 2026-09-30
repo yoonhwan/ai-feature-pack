@@ -29,6 +29,7 @@
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^K 좌석닫기 · ^F fork · ^Y 대화기록 경로 · ^H 대기좌석만 · ^A 전체
 #          ^T 최근순 · ^W 대기우선 · ^G 카테고리순 · ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초
 #          ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
+#          ^V 목록↔탭 뷰(상단 카테고리 탭 줄) · Tab/S-Tab 다음/이전 탭(탭 뷰에서만 — 아니면 원래 Tab). 키워드는 뷰(^A/^D)별로 기억
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
 #          ^B = «지금 화면에 보이는 행 전부» 일괄 복구(필터·카테고리 적용분만, 확인 y 후, attach 없음).
@@ -49,6 +50,7 @@
 #   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 1, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 1/5/10/15 순환
 #   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 20 고정, 0=off). ^U 로는 안 바뀐다 — seat-scan 부하 상한
 #   TMM_BELL         새 대기 좌석 벨 (기본 1, 0=끔)
+#   TMM_TAB          1 이면 탭 뷰로 진입 (기본 0=목록, ^V 로 전환)
 #   TMM_MODELS       fork 모델 별칭 파일 (기본 ~/.tmm/models) — "agent<TAB>alias<TAB>id<TAB>extra"
 #   TMM_FORKS        fork 발췌 파일 디렉터리 (기본 ~/.tmm/forks) — 피커 종료 후에도 새 에이전트가 읽음
 #   TMM_FORK_EXCERPT_N  fork 발췌에 담을 최근 메시지 수 (기본 40)
@@ -114,8 +116,11 @@ tui_wrap() {
   if [ "${TMM_NO_DBIND:-0}" != 1 ]; then
     dbind=(';' bind-key d run-shell "'$SELF' dkey '#{client_tty}' '#{session_name}'")
   fi
+  # ★피커 세션만 tmux 프리픽스를 끈다★ — 전역 프리픽스가 C-a 라서 피커 안의 ^A(좌석뷰)가 fzf 에 닿지 않고 프리픽스로 먹혔다.
+  #   그 뒤 ^D(종료뷰)가 «프리픽스+d» = dkey 가 되어 피커를 detach → tmm 이 통째로 끝났다(2026-09-30 사용자 지적:
+  #   「^a ^d 로 뒤로갈때 tmm 으로 안 돌아가고 종료로 넘어간다」). 좌석 세션의 C-a d 는 그대로다. 피커 종료는 ^X.
   exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 TMM_SESSION='$sess' '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" \
-       ';' set -t "=$sess:" @tmm_picker 1 "${dbind[@]}"
+       ';' set -t "=$sess:" @tmm_picker 1 ';' set -t "=$sess:" prefix None "${dbind[@]}"
 }
 
 # 미리보기 라벨 — 커서가 놓인 좌석의 «온전한» 이름을 보여준다. 목록의 이름 열은 폭에 맞춰 잘리므로
@@ -128,9 +133,10 @@ cmd_plabel() {  # <세션명|SID>
 
 # 상단 테두리 라벨 — 버전 + 매치수. --info=hidden 으로 비운 «한 줄»을 여기로 옮겼다(폰에서 목록 한 줄이 귀하다).
 cmd_blabel() {  # fzf 가 result/load 에서 부른다. 매치수는 환경변수로 온다.
-  local m="${FZF_MATCH_COUNT:-}" t="${FZF_TOTAL_COUNT:-}"
-  if [ -n "$m" ] && [ -n "$t" ]; then printf ' tmm %s · %s/%s ' "$TMM_VERSION" "$m" "$t"
-  else printf ' tmm %s ' "$TMM_VERSION"; fi
+  local m="${FZF_MATCH_COUNT:-}" t="${FZF_TOTAL_COUNT:-}" tr=""
+  tab_on && tr=" 탭"
+  if [ -n "$m" ] && [ -n "$t" ]; then printf ' tmm %s%s · %s/%s ' "$TMM_VERSION" "$tr" "$m" "$t"
+  else printf ' tmm %s%s ' "$TMM_VERSION" "$tr"; fi
 }
 
 # ^B = 선택복구 모드 토글 (종료 뷰 전용). fzf 바인딩은 정적이라 «몇 번째 누름인지»를 파일로 들고,
@@ -153,18 +159,23 @@ cmd_bkey() {
 
 # C-a d 처리 — 좌석이면 «그 클라이언트가 직전에 있던» 피커로 복귀, 피커면 원래대로 detach.
 # 피커 판별은 세션 옵션 @tmm_picker 로 한다(이름은 tmm-2 … 로 늘어나므로 이름 비교는 못 쓴다).
+is_picker() { [ "$(tmux show -t "=$1:" -qv @tmm_picker 2>/dev/null)" = 1 ]; }
+tty_key()   { printf '%s' "${1//[^A-Za-z0-9]/_}"; }      # /dev/ttys004 → _dev_ttys004 (tmux 사용자 옵션명용)
+# ★복귀 대상 3단★ — 예전엔 «직전 세션이 피커일 때만» 돌아가고 아니면 detach(=tmm 종료)였다. 좌석 A → (choose-tree 로) 좌석 B 에서
+#   C-a d 를 누르면 직전이 좌석 A 라 피커로 못 돌아가고 밖으로 떨어졌다(2026-09-30).
+#   ①cmd_attach 가 남긴 «이 클라이언트의 출발 피커» → ②직전 세션이 피커면 그것 → ③붙은 클라이언트가 없는 피커 → ④그래도 없으면 detach.
 cmd_dkey() {  # <client_tty> <현재 세션명>
-  local tty="${1:-}" cur="${2:-}" last
+  local tty="${1:-}" cur="${2:-}" home last p
   [ -n "$tty" ] || return 0
-  if [ "$(tmux show -t "=$cur:" -qv @tmm_picker 2>/dev/null)" = 1 ]; then
-    tmux detach-client -t "$tty" 2>/dev/null; return 0
-  fi
+  if is_picker "$cur"; then tmux detach-client -t "$tty" 2>/dev/null; return 0; fi
+  home="$(tmux show -gqv "@tmm_home_$(tty_key "$tty")" 2>/dev/null)"
   last="$(tmux display -p -c "$tty" '#{client_last_session}' 2>/dev/null)"
-  if [ -n "$last" ] && [ "$(tmux show -t "=$last:" -qv @tmm_picker 2>/dev/null)" = 1 ]; then
-    tmux switch-client -c "$tty" -t "=$last" 2>/dev/null
-  else
-    tmux detach-client -t "$tty" 2>/dev/null
-  fi
+  for p in "$home" "$last"; do
+    [ -n "$p" ] && tmux has-session -t "=$p" 2>/dev/null && is_picker "$p" \
+      && { tmux switch-client -c "$tty" -t "=$p" 2>/dev/null; return 0; }
+  done
+  p="$(tmux list-sessions -F $'#{session_attached}\t#{session_name}' -f '#{@tmm_picker}' 2>/dev/null | awk -F'\t' '$1==0{print $2; exit}')"
+  if [ -n "$p" ]; then tmux switch-client -c "$tty" -t "=$p" 2>/dev/null; else tmux detach-client -t "$tty" 2>/dev/null; fi
 }
 
 # ---------- 카테고리 ----------
@@ -337,7 +348,100 @@ wait_delta() {
 cmd_mode()     { printf '%s %s\n' "$1" "${2:-}" > "$RUN/mode"; }
 cmd_rows_cur() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여기만 부르므로, dead 뷰인데 live 목록으로 되돌아가면 안 된다
   local m o; { read -r m o < "$RUN/mode"; } 2>/dev/null
-  if [ "$(view_now)" = dead ]; then cmd_dead_rows "${m:-time}" "${1:-}"; else cmd_rows "${m:-time}" "${o:-}" "${1:-}"; fi
+  if [ "$(view_now)" = dead ]; then cmd_dead_rows "${m:-time}" "${1:-}"
+  elif [ -f "$RUN/tab" ]; then cmd_rows "${m:-time}" "${o:-}" "${1:-}" | tab_rows
+  else cmd_rows "${m:-time}" "${o:-}" "${1:-}"; fi
+}
+
+# ---------- 탭 뷰 (좌석뷰의 «추가 모드», 0.7.0) ----------
+# 목록 = 정렬된 평면 행. 탭 = 상단에 «카테고리 탭 줄»(전체 · ft · v65 …)을 두고 Tab/S-Tab 으로 회전, 목록은 그 카테고리만 보인다.
+#   카테고리 = cat_of(^G 와 같은 규칙). 탭 순서 = 정렬 모드가 정한 «맨 위 좌석이 나오는 순서»(^T 최근순이면 최근 활동 카테고리가 앞).
+#   상태 파일: $RUN/tab(있으면 탭 뷰) · $RUN/tabsel(현재 탭, `*`=전체) · $RUN/tabs(마지막으로 센 «카테고리\t수\t대기수» — 탭 줄·회전이 읽음).
+#   특정 탭에서는 카테고리 열(5칸)을 뗀다 — 어차피 전부 같은 값이라 폰 60열의 5칸이 아깝다. ●○ 앞을 자르는 byte 기반 index() 라 한글 카테고리도 안전.
+tab_on() { [ "$(view_now)" = live ] && [ -f "$RUN/tab" ]; }
+tab_rows() {
+  local sel; sel="$(cat "$RUN/tabsel" 2>/dev/null)"; [ -n "$sel" ] || sel='*'
+  awk -F'\t' -v sel="$sel" -v out="$RUN/tabs" '
+    { n++; c[n] = $3; L[n] = $0; if (!($3 in cnt)) ord[++G] = $3; cnt[$3]++
+      if ($1 ~ / (HUMAN|BLOCK|STUCK) /) { wt[$3]++; tw++ } }
+    END {
+      if (sel != "*" && !(sel in cnt)) sel = "*"            # 고른 카테고리가 사라졌으면 전체로
+      printf "*\t%d\t%d\n", n, tw > out
+      for (g = 1; g <= G; g++) printf "%s\t%d\t%d\n", ord[g], cnt[ord[g]], wt[ord[g]] >> out
+      for (i = 1; i <= n; i++) {
+        if (sel == "*") { print L[i]; continue }
+        if (c[i] != sel) continue
+        split(L[i], f, "\t"); s = f[1]; a = index(s, "●"); b = index(s, "○")
+        p = (a > 0 && (b == 0 || a < b)) ? a : b
+        if (p > 0) s = substr(s, p)
+        print s "\t" f[2] "\t" f[3]
+      }
+    }'
+}
+dwidth() {  # 표시폭 — 한글 2칸. 로케일이 바이트 모드면 과대추정(안전한 쪽)
+  local s="$1" ch b; ch="${#s}"; b="$(printf '%s' "$s" | LC_ALL=C wc -c | tr -d ' ')"
+  echo $(( ch + (b - ch) / 2 ))
+}
+# 헤더 맨 윗줄 — 현재 탭은 청록 반전, 대기(HUMAN/BLOCK/STUCK)가 있는 탭은 빨강 ⚠N. 폭이 모자라면 현재 탭이 보이게 창을 밀고 ‹ › 로 표시.
+tab_bar() {
+  [ -s "$RUN/tabs" ] || return 0
+  local sel avail n=0 act=1 start i cur=0 out="" cat cnt wt lab
+  local -a cats=() labs=() wids=() wts=()
+  sel="$(cat "$RUN/tabsel" 2>/dev/null)"; [ -n "$sel" ] || sel='*'
+  avail=$(( $(term_cols) - 4 ))
+  while IFS=$'\t' read -r cat cnt wt; do
+    n=$((n+1)); cats[n]="$cat"; wts[n]="${wt:-0}"
+    if [ "$cat" = '*' ]; then lab="전체 $cnt"; else lab="$cat $cnt"; fi
+    [ "${wt:-0}" -gt 0 ] && lab+="⚠$wt"
+    labs[n]="$lab"; wids[n]=$(dwidth " $lab ")
+    [ "$cat" = "$sel" ] && act=$n
+  done < "$RUN/tabs"
+  start=1; cur=0
+  for ((i=1;i<=act;i++)); do cur=$((cur + wids[i])); done
+  while [ "$cur" -gt "$avail" ] && [ "$start" -lt "$act" ]; do cur=$((cur - wids[start])); start=$((start+1)); done
+  [ "$start" -gt 1 ] && { out+=$'\033[2m‹\033[0m'; cur=$((cur+1)); }
+  cur=0
+  for ((i=start;i<=n;i++)); do
+    if [ $((cur + wids[i] + 1)) -gt "$avail" ] && [ "$i" -gt "$act" ]; then out+=$'\033[2m›\033[0m'; break; fi
+    cur=$((cur + wids[i]))
+    if [ "$i" = "$act" ]; then out+=$'\033[1;30;46m '"${labs[i]}"$' \033[0m'
+    elif [ "${wts[i]}" -gt 0 ]; then out+=$'\033[31m '"${labs[i]}"$' \033[0m'
+    else out+=$'\033[2m '"${labs[i]}"$' \033[0m'; fi
+  done
+  printf '%s\n' "$out"
+}
+# ^V — 목록 ↔ 탭. 종료 뷰에는 탭이 없다.
+cmd_vtab() {
+  if [ "$(view_now)" = dead ]; then printf 'change-prompt(탭은 좌석뷰 전용 — ^A 로 먼저> )'; return; fi
+  if [ -f "$RUN/tab" ]; then rm -f "$RUN/tab"; else : > "$RUN/tab"; fi
+  printf 'reload(%s rows-cur)+transform-header(%s header)+change-prompt(%s)' "$SELF" "$SELF" "$([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> ')"
+}
+# Tab / S-Tab — 탭 뷰: 다음/이전 탭(전체 → 카테고리들 → 전체 …). 목록·종료 뷰는 원래 동작(선택 토글 + 아래/위).
+cmd_tabkey() {  # next|prev
+  local dir="${1:-next}" cur nxt
+  tab_on || { [ "$dir" = next ] && printf 'toggle+down' || printf 'toggle+up'; return; }
+  [ -s "$RUN/tabs" ] || { printf 'ignore'; return; }
+  cur="$(cat "$RUN/tabsel" 2>/dev/null)"; [ -n "$cur" ] || cur='*'
+  nxt="$(awk -F'\t' -v cur="$cur" -v dir="$dir" '{ t[NR] = $1 }
+    END { idx = 1; for (i = 1; i <= NR; i++) if (t[i] == cur) idx = i
+          if (dir == "next") idx = idx % NR + 1; else idx = (idx - 2 + NR) % NR + 1
+          print t[idx] }' "$RUN/tabs")"
+  printf '%s\n' "$nxt" > "$RUN/tabsel"
+  printf 'reload(%s rows-cur)+transform-header(%s header)+first' "$SELF" "$SELF"
+}
+# load 이벤트 — 상단 라벨(매치수) 갱신. 탭 뷰면 방금 다시 센 탭 줄(수·⚠)도 같이.
+cmd_onload() { printf 'transform-border-label(%s blabel)' "$SELF"; tab_on && printf '+transform-header(%s header)' "$SELF"; return 0; }
+# ^A / ^D — 뷰 전환. 뷰마다 «자기 키워드»를 기억한다(2026-09-30 사용자 확정): 나가는 뷰의 질의를 저장하고 들어가는 뷰의 질의를 복원.
+#   change-query 는 «콜론 형식»이어야 질의 속 `)`·`+` 가 액션 구문을 깨지 않는다 → 반드시 액션 체인의 마지막.
+cmd_vswitch() {  # <live|dead> <현재 질의>
+  local to="$1" q="${2:-}" from acts saved; from="$(view_now)"
+  printf '%s' "$q" > "$RUN/query.$from"
+  rm -f "$RUN/selmode"; cmd_view "$to"; cmd_mode time
+  saved="$(cat "$RUN/query.$to" 2>/dev/null)"
+  if [ "$to" = dead ]; then acts="unbind(space)+deselect-all+reload($SELF rows-cur fresh)+change-prompt(종료> )"
+  else acts="unbind(space)+deselect-all+reload($SELF rows-cur)+change-prompt($([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> '))"; fi
+  acts+="+transform-header($SELF header)"
+  if [ -n "$saved" ]; then printf '%s+change-query:%s' "$acts" "$saved"; else printf '%s+change-query()' "$acts"; fi
 }
 view_now()  { cat "$RUN/view" 2>/dev/null || echo live; }
 since_now() { cat "$RUN/since" 2>/dev/null || echo "$DEAD_SINCE0"; }
@@ -800,6 +904,7 @@ cmd_header() {
     printf '\033[33m상태\033[0m 창 %sh · %s건 · 계보 %s · SNAP/CC/CDX/CMD/OC\n' "$(since_now)" "$(dead_tsv | wc -l | tr -d ' ')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
     return
   fi
+  tab_on && tab_bar
   hdr_live
   printf '\033[33m상태\033[0m '
   [ "$a" -gt 0 ] && printf 'pane %ss' "$a" || printf 'pane off'
@@ -838,7 +943,16 @@ cmd_attach() {
   #   (격리 재현 2026-09-09: 200→80 원복 뒤 64x66 attach → 80x24 그대로 · set -wu 뒤 → 64x65). 스폰 경로 탓이 아니다.
   #   -i(ignore-size) 는 사용자가 «고정» 을 원한 것이므로 건드리지 않는다.
   [ -z "$flags" ] && tmux set -wu -t "=$n:" window-size 2>/dev/null
-  if [ -n "${TMUX:-}" ]; then tmux switch-client -t "=$n"; else tmux attach -t "=$n" $flags; fi
+  if [ -n "${TMUX:-}" ]; then
+    # 출발 피커를 이 클라이언트에 적어 둔다 — 좌석에서 C-a d 가 «직전 세션» 추정 없이 정확히 돌아오게(cmd_dkey)
+    local me tty
+    me="$(tmux display -p -t "${TMUX_PANE:-}" '#{session_name}' 2>/dev/null)"
+    if [ -n "$me" ] && is_picker "$me"; then
+      while read -r tty; do [ -n "$tty" ] && tmux set -g "@tmm_home_$(tty_key "$tty")" "$me" 2>/dev/null; done \
+        < <(tmux list-clients -t "=$me" -F '#{client_tty}' 2>/dev/null)
+    fi
+    tmux switch-client -t "=$n"
+  else tmux attach -t "=$n" $flags; fi
 }
 
 cmd_peek() {  # 비대화용(tmm p): 색 없음·빈 줄 제거·폭 자름
@@ -983,6 +1097,7 @@ hdr_live() {
   printf '%s %s  %s  %s  %s  %s  %s\n' "$(S 이동)" "$(K ⏎ attach)" "$(K ^S 메시지)" "$(K ^K 닫기)" "$(K ^F fork)" "$(K ^D 종료)" "$(K ^X 끝)"
   printf '%s %s  %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W 대기)" "$(K ^G 분류)" "$(K ^H 대기만)" "$(K ^A 전체)"
   printf '%s %s  %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^Y 경로)" "$(K ^/ 도움)"
+  printf '%s %s  %s\n' "$(S 탭)" "$(K ^V 목록↔탭)" "$(K Tab/S-Tab 다음/이전)"
 }
 hdr_dead() {
   printf '%s %s  %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 선택복구)" "$(K ^F fork)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
@@ -995,6 +1110,7 @@ cmd_tui() {
   local R="$SELF rows" M="$SELF mode" out key sel rows rc pinger sock
   export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
   printf '%s\n' "$AUTO_PREVIEW" > "$RUN/auto"; cmd_mode time; cmd_view live   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
+  [ "${TMM_TAB:-0}" = 1 ] && : > "$RUN/tab"                                    # 탭을 기본 뷰로 (기본은 목록 — ^V 로 전환)
   trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
   _sig() { printf '%s SIG%s pid=%s cols=%s\n' "$(date +%FT%T)" "$1" "$$" "$(term_cols 2>/dev/null)" >> "$STATE/fzf-stderr.log"; exit 129; }
   for _s in HUP TERM QUIT; do trap "_sig $_s" "$_s"; done
@@ -1008,7 +1124,7 @@ cmd_tui() {
     # (`v65m` → ft-v65-master 가 1위로). 좌석명이 ft-v65-master-sonnet#7 처럼 구분자로 쪼개져 있어 맞는다.
     out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track --scheme=path \
       --layout=reverse --cycle --no-mouse --info=hidden --sync --listen="$sock" \
-      --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || echo '좌석> ')" --pointer='▶' \
+      --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || { tab_on && echo '탭> ' || echo '좌석> '; })" --pointer='▶' \
       --header="$(cmd_header)" --header-first \
       --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
       --preview-wrap-sign='' \
@@ -1017,13 +1133,16 @@ cmd_tui() {
       --preview-label=' pane ' \
       --bind "focus:transform-preview-label($SELF plabel {2})" \
       --bind "result:transform-border-label($SELF blabel)" \
-      --bind "load:transform-border-label($SELF blabel)" \
+      --bind "load:transform($SELF onload)" \
       --border=top --border-label="$(cmd_blabel)" --border-label-pos=-3:top \
       --multi --expect=enter,ctrl-e,ctrl-s,ctrl-k,ctrl-f,double-click \
-      --print-query --query="$(cat "$RUN/query" 2>/dev/null)" \
-      --bind "ctrl-h:execute-silent($M wait h)+reload($R wait h)+change-prompt(대기> )" \
-      --bind "ctrl-a:execute-silent(rm -f $RUN/selmode)+unbind(space)+deselect-all+execute-silent($SELF view live)+execute-silent($M time)+reload($R time)+change-prompt(좌석> )+transform-header($SELF header)" \
-      --bind "ctrl-d:execute-silent(rm -f $RUN/selmode)+unbind(space)+deselect-all+execute-silent($SELF view dead)+execute-silent($M time)+reload($SELF dead-rows time fresh)+change-prompt(종료> )+transform-header($SELF header)" \
+      --bind "tab:transform($SELF tabkey next)" \
+      --bind "btab:transform($SELF tabkey prev)" \
+      --bind "ctrl-v:transform($SELF vtab)" \
+      --print-query --query="$(cat "$RUN/query.$(view_now)" 2>/dev/null)" \
+      --bind "ctrl-h:execute-silent($M wait h)+reload($SELF rows-cur)+change-prompt(대기> )" \
+      --bind "ctrl-a:transform($SELF vswitch live {q})" \
+      --bind "ctrl-d:transform($SELF vswitch dead {q})" \
       --bind "ctrl-]:execute-silent($SELF since +)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
       --bind "ctrl-\\:execute-silent($SELF since -)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
       --bind "ctrl-l:execute-silent($SELF gen)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
@@ -1050,7 +1169,8 @@ cmd_tui() {
     esac
     # --print-query 로 첫 줄은 «타이핑한 필터». 좌석에 붙었다 돌아와도, 뷰를 바꿔도 그대로 되살린다
     # (2026-09-16 사용자 요청: 「전환간에 카테고리나 검색을 유지」). 정렬·뷰는 이미 $RUN/mode·view 에 산다.
-    printf '%s' "${out%%$'\n'*}" > "$RUN/query"; out="${out#*$'\n'}"
+    # 키워드는 «뷰별»($RUN/query.live·query.dead) — ^A/^D 로 뷰를 바꿔도 다른 뷰의 키워드가 넘어오지 않는다(2026-09-30).
+    printf '%s' "${out%%$'\n'*}" > "$RUN/query.$(view_now)"; out="${out#*$'\n'}"
     key="${out%%$'\n'*}"; rows="${out#*$'\n'}"; sel="$(printf '%s' "$rows" | head -1 | cut -f2)"
     # ^B = «지금 화면에 보이는(필터·정렬 적용된) 행 전부» 일괄 복구. select-all+accept 로 전 행이 out 에 실려 온다.
     if [ -f "$RUN/bulk" ]; then
@@ -1128,6 +1248,10 @@ case "${1:-}" in
   plabel)    cmd_plabel "${2:-}";;               # 미리보기 라벨 = 커서 좌석의 온전한 이름 (focus)
   blabel)    cmd_blabel;;                        # 상단 테두리 라벨 = 버전 + 매치수 (result/load)
   bkey)      cmd_bkey;;                          # ^B 선택복구 모드 토글 (fzf transform 용 액션)
+  vswitch)   cmd_vswitch "${2:-live}" "${3:-}";;     # ^A/^D 뷰 전환 (뷰별 키워드)
+  vtab)      cmd_vtab;;                          # ^V 목록↔탭
+  tabkey)    cmd_tabkey "${2:-next}";;           # Tab/S-Tab: 다음/이전 탭
+  onload)    cmd_onload;;                        # fzf load 이벤트 (라벨 + 탭 줄)
   dkey)      cmd_dkey "${2:-}" "${3:-}";;        # tmux C-a d 바인딩이 부른다 (피커 복귀/detach)
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
   pw-action) printf 'change-preview-window(%s)' "$(cmd_pw "${2:-}")";;   # fzf transform() 용 액션 문자열

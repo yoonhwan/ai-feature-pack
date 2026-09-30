@@ -92,6 +92,9 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 
 | 증상 | 원인 / 처방 |
 |---|---|
+| `^A` `^D` 를 누르면 뷰가 안 바뀌고 tmm 이 종료됨 | 0.6.x 결함 — tmux 프리픽스(`C-a`)가 피커의 `^A` 를 먹음. 0.7.0 은 피커 세션 프리픽스를 끔 — 재설치 후 **`tmm` 세션을 새로 연다**(이미 떠 있는 옛 `tmm` 세션은 옵션이 없음: `^X` 로 끝내고 다시 실행) |
+| 좌석에서 `C-a d` 가 tmm 으로 안 돌아오고 셸로 나감 | 0.6.x — 직전 세션이 피커가 아니면 detach. 0.7.0 은 출발 피커를 기록해 복귀 |
+| 종료 뷰에 좌석뷰에서 친 키워드가 남아 있음 | 0.6.x — 키워드가 뷰 간 공유. 0.7.0 은 뷰별 기억 |
 | Enter 를 눌러도 attach 안 됨, `can't use /dev/tty` | 구버전(fzf execute 안에서 attach). 0.1.0 은 fzf 밖에서 attach — 재설치 |
 | Enter 가 필터만 갱신하는 듯 | 목록 로딩 중(`0/0`) 에 누름. `--sync` 로 첫 화면이 완성 후 뜨니 `좌석>` 가 보이면 누른다 |
 | 화면 오른쪽·아래가 점(…)으로 채워짐 | ① `-i`(ignore-size) attach 였나 ② `tmux show -wv -t '=NAME:' window-size` 가 `manual` — 좌석의 `resize-window` 관행이 남긴 것. 0.4.8 은 attach 직전 자동 해제 — 재설치. 수동: `tmux set -wu -t '=NAME:' window-size` |
