@@ -29,7 +29,7 @@
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^K 좌석닫기 · ^F fork · ^Y 대화기록 경로 · ^H 대기좌석만 · ^A 전체
 #          ^T 최근순 · ^W 대기우선 · ^G 카테고리순 · ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초
 #          ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
-#          ^V 목록↔탭 뷰(상단 카테고리 탭 줄) · Tab/S-Tab 다음/이전 탭(탭 뷰에서만 — 아니면 원래 Tab). 키워드는 뷰(^A/^D)별로 기억
+#          ^V 목록↔탭 뷰(검색창 위 카테고리 탭 줄, 전체는 맨 뒤) · Tab/S-Tab 다음/이전 탭(탭 뷰에서만 — 아니면 원래 Tab). 키워드는 뷰(^A/^D)별로 기억
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
 #          ^B = «지금 화면에 보이는 행 전부» 일괄 복구(필터·카테고리 적용분만, 확인 y 후, attach 없음).
@@ -50,7 +50,7 @@
 #   TMM_AUTO_PREVIEW 커서 좌석 미리보기 자동 갱신 초 (기본 1, 0=off). `tmm --auto N` 과 같음. TUI 안에서 ^U 로 1/5/10/15 순환
 #   TMM_AUTO         전좌석 목록 자동 갱신 초 (기본 20 고정, 0=off). ^U 로는 안 바뀐다 — seat-scan 부하 상한
 #   TMM_BELL         새 대기 좌석 벨 (기본 1, 0=끔)
-#   TMM_TAB          1 이면 탭 뷰로 진입 (기본 0=목록, ^V 로 전환)
+#   TMM_TAB          탭 뷰로 진입 (기본 1=탭, 0=목록으로 시작 — ^V 로 언제든 전환)
 #   TMM_MODELS       fork 모델 별칭 파일 (기본 ~/.tmm/models) — "agent<TAB>alias<TAB>id<TAB>extra"
 #   TMM_FORKS        fork 발췌 파일 디렉터리 (기본 ~/.tmm/forks) — 피커 종료 후에도 새 에이전트가 읽음
 #   TMM_FORK_EXCERPT_N  fork 발췌에 담을 최근 메시지 수 (기본 40)
@@ -189,6 +189,13 @@ cat_of() {
       case "$n" in $glob) printf '%s' "$label"; return;; esac
     done < "$CAT_FILE"
   fi
+  # ★일반화 폴백★ — 규칙에 안 걸리면 «역할 접두»(기본 `FB_ ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 5자)을 라벨로.
+  #   FB_CCU#0 → CCU(=CCU_ARCH 와 한 탭) · FB_CFO#33 → CFO · ft-v65-master → v65 · ft-airag-arch → airag.
+  #   접두가 «프로젝트»를 가리던 것(FB_*→FB, ft-*→ft)이 프로젝트별 규칙을 하나씩 늘려야 했던 원인이다.
+  local pfx lower="${n,,}" pl
+  for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do
+    pl="${pfx,,}"; [ "${lower#"$pl"}" != "$lower" ] && [ "${#n}" -gt "${#pfx}" ] && { n="${n:${#pfx}}"; break; }
+  done
   n="${n%%[-_]*}"; printf '%s' "${n:0:5}"
 }
 
@@ -307,11 +314,28 @@ cmd_rows() {
   wait_delta
   now=$(date +%s); mid=$(midnight)
   # 시각 추출은 좌석당 capture 1회 — 직렬이면 부하 시 1~2초라 8병렬로 (순서 무관, 뒤에서 sort)
-  declare -A EP MD
-  while IFS=$'\t' read -r s ep src md; do EP["$s"]="$ep $src"; MD["$s"]="$md"; done < <(
-    tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_pid}' 2>/dev/null | awk -F'\t' '!seen[$1]++' \
-    | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
-  )
+  # ★좌석별 결과 캐시★ — (window_activity, pane_pid) 가 직전과 같으면 그 좌석의 «완료 시각·모델»은 그대로다(출력이 없었으니 done 마커도,
+  #   프로세스 argv 도 안 바뀜). 64좌석 중 움직인 것만 다시 캡처한다: 병렬 구간 1.3초 → 활동 좌석 수에 비례. 캐시는 $STATE/ep.cache(원자적 교체).
+  declare -A EP MD CA CE CM KEY
+  local ecache="$STATE/ep.cache" todo="" a2 p2
+  if [ -f "$ecache" ]; then
+    while IFS=$'\t' read -r s a2 p2 ep src md; do CA["$s"]="$a2:$p2"; CE["$s"]="$ep $src"; CM["$s"]="$md"; done < "$ecache"
+  fi
+  while IFS=$'\t' read -r s a2 p2; do
+    KEY["$s"]="$a2:$p2"
+    if [ "${CA[$s]:-}" = "$a2:$p2" ]; then EP["$s"]="${CE[$s]}"; MD["$s"]="${CM[$s]}"
+    else todo+="$s"$'\t'"$a2"$'\t'"$p2"$'\n'; fi
+  done < <(tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_pid}' 2>/dev/null | awk -F'\t' '!seen[$1]++')
+  if [ -n "$todo" ]; then
+    while IFS=$'\t' read -r s ep src md; do EP["$s"]="$ep $src"; MD["$s"]="$md"; done < <(
+      printf '%s' "$todo" | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
+    )
+  fi
+  { for s in "${!KEY[@]}"; do
+      [ -n "${EP[$s]:-}" ] || continue
+      read -r ep src <<<"${EP[$s]}"; a2="${KEY[$s]%%:*}"; p2="${KEY[$s]##*:}"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$s" "$a2" "$p2" "$ep" "$src" "${MD[$s]:-}"
+    done; } > "$ecache.$$.tmp" 2>/dev/null && mv -f "$ecache.$$.tmp" "$ecache" 2>/dev/null || rm -f "$ecache.$$.tmp" 2>/dev/null
   # 피커 세션은 «자신이든 다른 창의 것이든» 좌석이 아니다. list-sessions 한 번으로 받는다(좌석당 루프 금지).
   local picks=" $(tmux list-sessions -F '#{session_name}' -f '#{@tmm_picker}' 2>/dev/null | tr '\n' ' ')"
   while IFS=$'\t' read -r s pcmd act cwd; do
@@ -349,25 +373,48 @@ cmd_mode()     { printf '%s %s\n' "$1" "${2:-}" > "$RUN/mode"; }
 cmd_rows_cur() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여기만 부르므로, dead 뷰인데 live 목록으로 되돌아가면 안 된다
   local m o; { read -r m o < "$RUN/mode"; } 2>/dev/null
   if [ "$(view_now)" = dead ]; then cmd_dead_rows "${m:-time}" "${1:-}"
-  elif [ -f "$RUN/tab" ]; then cmd_rows "${m:-time}" "${o:-}" "${1:-}" | tab_rows
-  else cmd_rows "${m:-time}" "${o:-}" "${1:-}"; fi
+  else
+    local tmp="$STATE/rows.snap.$$"
+    cmd_rows "${m:-time}" "${o:-}" "${1:-}" > "$tmp"
+    if [ -f "$RUN/tab" ]; then tab_rows < "$tmp"; else cat "$tmp"; fi
+    # 부팅 즉시 그릴 «직전 화면» — 시간순·전체 필터일 때만(부팅 모드와 같아야 그대로 쓴다). 원자적 교체.
+    if [ "${m:-time}" = time ] && [ -z "${o:-}" ] && [ -s "$tmp" ]; then mv -f "$tmp" "$STATE/rows.snap" 2>/dev/null; else rm -f "$tmp"; fi
+  fi
 }
+# ★부팅 = 직전 화면 먼저, 갱신은 뒤에서★ — 첫 화면이 전체 스캔(seat-scan 2.5초 + 좌석별 캡처, 부하 시 10초)을 기다리던 것을 없앤다.
+#   스냅샷(최대 30분)이 있고 지금 부팅 모드와 같으면 그것을 즉시 내고, fzf start 이벤트가 boot-reload 로 진짜 목록을 바꿔 끼운다.
+#   낡은 행에서 Enter 를 눌러도 cmd_attach 가 has-session 으로 막는다. 스냅샷이 없으면(첫 실행) 예전처럼 rows-cur.
+cmd_rows_boot() {
+  local snap="$STATE/rows.snap" m o
+  { read -r m o < "$RUN/mode"; } 2>/dev/null
+  if [ "$(view_now)" = live ] && [ "${m:-time}" = time ] && [ -z "${o:-}" ] && [ -s "$snap" ] \
+     && [ $(( $(date +%s) - $(stat -f %m "$snap" 2>/dev/null || stat -c %Y "$snap") )) -lt 1800 ]; then
+    : > "$RUN/bootstale"
+    if [ -f "$RUN/tab" ]; then tab_rows < "$snap"; else cat "$snap"; fi
+  else
+    cmd_rows_cur
+  fi
+}
+cmd_boot_reload() { [ -f "$RUN/bootstale" ] && { rm -f "$RUN/bootstale"; printf 'reload(%s rows-cur)' "$SELF"; }; return 0; }
 
 # ---------- 탭 뷰 (좌석뷰의 «추가 모드», 0.7.0) ----------
 # 목록 = 정렬된 평면 행. 탭 = 상단에 «카테고리 탭 줄»(전체 · ft · v65 …)을 두고 Tab/S-Tab 으로 회전, 목록은 그 카테고리만 보인다.
 #   카테고리 = cat_of(^G 와 같은 규칙). 탭 순서 = 정렬 모드가 정한 «맨 위 좌석이 나오는 순서»(^T 최근순이면 최근 활동 카테고리가 앞).
-#   상태 파일: $RUN/tab(있으면 탭 뷰) · $RUN/tabsel(현재 탭, `*`=전체) · $RUN/tabs(마지막으로 센 «카테고리\t수\t대기수» — 탭 줄·회전이 읽음).
+#   ★`전체`(`*`)는 «마지막» 탭이다★ — 전체는 행이 제일 많아 가장 무겁다(2026-09-30 사용자 지정). 그래서 시작 탭도 전체가 아니라
+#   «첫 카테고리»다. 선택이 비었거나 고른 카테고리가 사라져도 첫 카테고리로 간다(전체로 튀지 않는다).
+#   상태 파일: $RUN/tab(있으면 탭 뷰) · $RUN/tabsel(현재 탭, `*`=전체, 없음=첫 카테고리) · $RUN/tabs(마지막으로 센 «카테고리\t수\t대기수», 마지막 줄이 `*` — 탭 줄·회전이 읽음).
 #   특정 탭에서는 카테고리 열(5칸)을 뗀다 — 어차피 전부 같은 값이라 폰 60열의 5칸이 아깝다. ●○ 앞을 자르는 byte 기반 index() 라 한글 카테고리도 안전.
 tab_on() { [ "$(view_now)" = live ] && [ -f "$RUN/tab" ]; }
 tab_rows() {
-  local sel; sel="$(cat "$RUN/tabsel" 2>/dev/null)"; [ -n "$sel" ] || sel='*'
+  local sel; sel="$(cat "$RUN/tabsel" 2>/dev/null)"
   awk -F'\t' -v sel="$sel" -v out="$RUN/tabs" '
     { n++; c[n] = $3; L[n] = $0; if (!($3 in cnt)) ord[++G] = $3; cnt[$3]++
       if ($1 ~ / (HUMAN|BLOCK|STUCK) /) { wt[$3]++; tw++ } }
     END {
-      if (sel != "*" && !(sel in cnt)) sel = "*"            # 고른 카테고리가 사라졌으면 전체로
-      printf "*\t%d\t%d\n", n, tw > out
+      if (sel != "*" && !(sel in cnt)) sel = (G > 0) ? ord[1] : "*"   # 선택 없음·사라진 카테고리 → 첫 카테고리(전체는 가장 무겁다)
+      printf "" > out
       for (g = 1; g <= G; g++) printf "%s\t%d\t%d\n", ord[g], cnt[ord[g]], wt[ord[g]] >> out
+      printf "*\t%d\t%d\n", n, tw >> out                                # 전체는 마지막
       for (i = 1; i <= n; i++) {
         if (sel == "*") { print L[i]; continue }
         if (c[i] != sel) continue
@@ -382,12 +429,12 @@ dwidth() {  # 표시폭 — 한글 2칸. 로케일이 바이트 모드면 과대
   local s="$1" ch b; ch="${#s}"; b="$(printf '%s' "$s" | LC_ALL=C wc -c | tr -d ' ')"
   echo $(( ch + (b - ch) / 2 ))
 }
-# 헤더 맨 윗줄 — 현재 탭은 청록 반전, 대기(HUMAN/BLOCK/STUCK)가 있는 탭은 빨강 ⚠N. 폭이 모자라면 현재 탭이 보이게 창을 밀고 ‹ › 로 표시.
+# 헤더 맨 아랫줄(프롬프트 바로 위) — 현재 탭은 청록 반전, 대기(HUMAN/BLOCK/STUCK)가 있는 탭은 빨강 ⚠N. 폭이 모자라면 현재 탭이 보이게 창을 밀고 ‹ › 로 표시.
 tab_bar() {
   [ -s "$RUN/tabs" ] || return 0
   local sel avail n=0 act=1 start i cur=0 out="" cat cnt wt lab
   local -a cats=() labs=() wids=() wts=()
-  sel="$(cat "$RUN/tabsel" 2>/dev/null)"; [ -n "$sel" ] || sel='*'
+  sel="$(cat "$RUN/tabsel" 2>/dev/null)"        # 비었거나 목록에 없으면 act=1 = 첫 카테고리(tab_rows 와 같은 규칙)
   avail=$(( $(term_cols) - 4 ))
   while IFS=$'\t' read -r cat cnt wt; do
     n=$((n+1)); cats[n]="$cat"; wts[n]="${wt:-0}"
@@ -421,7 +468,7 @@ cmd_tabkey() {  # next|prev
   local dir="${1:-next}" cur nxt
   tab_on || { [ "$dir" = next ] && printf 'toggle+down' || printf 'toggle+up'; return; }
   [ -s "$RUN/tabs" ] || { printf 'ignore'; return; }
-  cur="$(cat "$RUN/tabsel" 2>/dev/null)"; [ -n "$cur" ] || cur='*'
+  cur="$(cat "$RUN/tabsel" 2>/dev/null)"        # 비면 awk 가 못 찾아 idx=1(첫 카테고리)로 취급
   nxt="$(awk -F'\t' -v cur="$cur" -v dir="$dir" '{ t[NR] = $1 }
     END { idx = 1; for (i = 1; i <= NR; i++) if (t[i] == cur) idx = i
           if (dir == "next") idx = idx % NR + 1; else idx = (idx - 2 + NR) % NR + 1
@@ -904,12 +951,13 @@ cmd_header() {
     printf '\033[33m상태\033[0m 창 %sh · %s건 · 계보 %s · SNAP/CC/CDX/CMD/OC\n' "$(since_now)" "$(dead_tsv | wc -l | tr -d ' ')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
     return
   fi
-  tab_on && tab_bar
   hdr_live
   printf '\033[33m상태\033[0m '
   [ "$a" -gt 0 ] && printf 'pane %ss' "$a" || printf 'pane off'
   [ "$AUTO" -gt 0 ] && printf ' 전체 %ss' "$AUTO" || printf ' 전체 off'
   printf ' · 12:34 완료 12~34 출력 · 1m=1M창\n'
+  # ★탭 줄은 헤더의 «마지막» 줄 — 검색 프롬프트 바로 위(0.7.1, 사용자 지정). `&&` 로 끝내면 탭 꺼짐일 때 종료코드 1 이 된다(pipefail 에서 헤더 호출이 실패로 잡힘)
+  if tab_on; then tab_bar; fi
 }
 cmd_post() { curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d "$2"; }
 # 백그라운드 핑거: 1초 틱마다 상태 파일을 다시 읽어 ^U 변경이 즉시 반영. fzf 가 끝나면 cmd_tui 가 죽인다 —
@@ -1110,7 +1158,7 @@ cmd_tui() {
   local R="$SELF rows" M="$SELF mode" out key sel rows rc pinger sock
   export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
   printf '%s\n' "$AUTO_PREVIEW" > "$RUN/auto"; cmd_mode time; cmd_view live   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
-  [ "${TMM_TAB:-0}" = 1 ] && : > "$RUN/tab"                                    # 탭을 기본 뷰로 (기본은 목록 — ^V 로 전환)
+  [ "${TMM_TAB:-1}" = 1 ] && : > "$RUN/tab"                                    # 탭이 기본 뷰 (0.7.1). 목록으로 시작하려면 TMM_TAB=0 — ^V 로 언제든 전환
   trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
   _sig() { printf '%s SIG%s pid=%s cols=%s\n' "$(date +%FT%T)" "$1" "$$" "$(term_cols 2>/dev/null)" >> "$STATE/fzf-stderr.log"; exit 129; }
   for _s in HUP TERM QUIT; do trap "_sig $_s" "$_s"; done
@@ -1129,7 +1177,7 @@ cmd_tui() {
       --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
       --preview-wrap-sign='' \
       --bind "resize:transform($SELF pw-action)" \
-      --bind "start:transform($SELF pw-action)+unbind(space)" \
+      --bind "start:transform($SELF pw-action)+unbind(space)+transform($SELF boot-reload)" \
       --preview-label=' pane ' \
       --bind "focus:transform-preview-label($SELF plabel {2})" \
       --bind "result:transform-border-label($SELF blabel)" \
@@ -1158,7 +1206,7 @@ cmd_tui() {
       --bind "ctrl-y:execute($SELF idxp {2})" \
       --bind "ctrl-x:abort" \
       --bind "ctrl-/:transform-header($SELF header)" \
-      2>>"$STATE/fzf-stderr.log" < <(cmd_rows_cur))"; rc=$?
+      2>>"$STATE/fzf-stderr.log" < <(cmd_rows_boot))"; rc=$?
     kill "$pinger" 2>/dev/null; wait "$pinger" 2>/dev/null; rm -f "$sock"
     case "$rc" in
       0)   ;;                                   # 선택 — 아래에서 키 처리
@@ -1228,6 +1276,8 @@ case "${1:-}" in
   __lib)     return 0 2>/dev/null || exit 0;;   # source 용 — 함수만 정의하고 끝 (병렬 워커)
   "")        tui_wrap; cmd_tui;;
   rows)      cmd_rows "${2:-time}" "${3:-}" "${4:-}";;
+  rows-boot) cmd_rows_boot;;                    # 부팅 첫 화면: 직전 스냅샷 즉시 → start 에서 갱신
+  boot-reload) cmd_boot_reload;;
   rows-cur)  cmd_rows_cur "${2:-}";;            # 상태 파일의 현재 정렬 모드·뷰로 (^R·자동 갱신용)
   dead-rows) cmd_dead_rows "${2:-time}" "${3:-}";;
   view)      cmd_view "${2:-live}";;

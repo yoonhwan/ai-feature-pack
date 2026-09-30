@@ -58,6 +58,11 @@ ssh -i ~/.ssh/termius_mobile_ed25519 -o IdentitiesOnly=yes 100.92.216.120 -t 'zs
 - **`resolve` 의 cwd 비교는 `_cwd_eq`(realpath)** — tmux `pane_current_path`는 심링크를 해석(`/private/var/…`)하므로 cwd 슬러그는 원본·realpath 후보를 모두 시도한다.
 - **TUI 는 tmux 세션 안에서 돈다**(`tui_wrap`, 0.5.0). 터미널이 창 드래그 중 pty 를 회수하면 그 pty 에 직접 붙은 프로세스는 SIGHUP 으로 즉사한다 — A/B 실측: 래핑 없으면 피커 소멸, 래핑하면 세션·피커 생존. **비대화 서브명령은 래핑하지 않는다**(ls/dead/restore 가 tmux 세션을 만들면 안 된다). 끄기 `TMM_NO_WRAP=1`.
 - **스캔 캐시는 tmux 서버별**(`socket_path` 해시). 격리 소켓 테스트가 실사용 캐시를 덮어써 전 좌석 상태가 `?` 가 된 사고(2026-09-14) 재발 방지 — 수동 격리 테스트 때 `TMPDIR` 도 같이 갈아끼운다.
+- **피커 세션은 tmux 프리픽스를 끈다**(`tui_wrap`, `prefix None`). 전역 프리픽스가 `C-a` 면 피커의 `^A` 가 fzf 에 안 닿고, 이어 `^D` 가 «프리픽스+d» 로 detach → tmm 종료(2026-09-30). 좌석 세션의 `C-a d` 는 그대로(`cmd_dkey` 가 출발 피커 → 직전 → 빈 피커 순 복귀). verify (x)(y).
+- **키워드는 뷰별**(`$RUN/query.live`·`query.dead`)이다 — 뷰 전환은 fzf 안 `vswitch` 로 저장·복원한다. `change-query:` 는 콜론 형식이며 액션 체인의 «마지막»이어야 질의 속 `)`·`+` 가 구문을 안 깬다.
+- **탭 뷰(기본)**: 탭 줄은 헤더의 «마지막» 줄(프롬프트 바로 위), `전체`(`*`)는 «마지막 탭», 시작 탭은 «첫 카테고리»(전체는 가장 무겁다 — 사용자 지정 2026-09-30). `Tab`/`S-Tab` 은 탭 뷰에서만 가로챈다(목록·종료 뷰는 원래 toggle). `cmd_header` 를 `cmd && x` 로 끝내지 않는다 — 탭이 꺼져 있으면 종료코드 1.
+- **카테고리는 일반화 폴백이 정본**(`cat_of`): 역할 접두(`FB_ ft-`)를 떼고 첫 토큰. 규칙 파일에 프로젝트별 줄을 늘리지 않는다. verify (z).
+- **부팅 속도 3종을 빼지 않는다**: ① `rows-boot`(직전 스냅샷 즉시 + `boot-reload`) ② `ep.cache`(좌석별 `(window_activity,pane_pid)` 키) ③ dead-scan 의 `lsof -c …` 범위 축소(전체 `lsof` 는 5초). verify (zz).
 - `SELF`/`HERE` 는 `$0` 기준(심링 해석). `command -v tmm` 으로 잡으면 소스 트리 실행이 설치본 libexec 를 본다.
 
 ## 현재 설계 결정 (사용자 확정)

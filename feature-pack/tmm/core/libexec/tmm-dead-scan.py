@@ -134,7 +134,9 @@ def live_sids():
     except Exception:
         pass
     try:
-        lo = subprocess.run(["lsof", "-Fn"], capture_output=True, text=True, timeout=8).stdout
+        # ★에이전트 프로세스로 범위를 좁힌다★ — 시스템 전체 `lsof -Fn` 이 종료 뷰 스캔 6.3초 중 5.8초였다(실측 2026-09-30, 결과 동일·0.16초).
+        lo = subprocess.run(["lsof", "-Fn", "-c", "claude", "-c", "codex", "-c", "opencode", "-c", "cmd", "-c", "node"],
+                            capture_output=True, text=True, timeout=8).stdout
         for l in lo.splitlines():
             if l.startswith("n") and l.endswith(".jsonl"):
                 out.update(UUID_RE.findall(l))
