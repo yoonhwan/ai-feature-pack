@@ -60,7 +60,7 @@ chk(){ # 이름 포트 경로들
   ep=$(python3 -c "
 import subprocess,datetime,re
 o=subprocess.run(['ps','-o','lstart=','-p','$pid'],capture_output=True,text=True).stdout.strip()
-m=re.search(r'(\\d{1,2})/(\\d{1,2})\\s+(\\d{2}):(\\d{2}):(\\d{2})\\s+(\\d{4})',o)
+m=re.search(r'(\\d{1,2})/\\s*(\\d{1,2})\\s+(\\d{2}):(\\d{2}):(\\d{2})\\s+(\\d{4})',o)
 if m:
     mo,dd,hh,mi,ss,yy=map(int,m.groups())
     print(int(datetime.datetime(yy,mo,dd,hh,mi,ss).timestamp()))
