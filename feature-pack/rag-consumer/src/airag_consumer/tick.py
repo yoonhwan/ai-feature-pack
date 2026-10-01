@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import fcntl
+from functools import lru_cache
 import io
 import json
 import os
@@ -140,7 +141,12 @@ def append_log(log_dir: Path, now: datetime, line: str) -> None:
             fd = -1
             os.replace(target, log_dir / f"tick-{day}.log.1")
             fd = _open_regular(target, flags)
-        os.write(fd, data)
+        view = memoryview(data)
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError("log write incomplete")
+            view = view[written:]
     finally:
         if fd >= 0:
             os.close(fd)
@@ -191,13 +197,31 @@ def _counts(data: Mapping[str, object]) -> dict[str, object]:
     return summary
 
 
+@lru_cache(maxsize=1)
+def _known_codes() -> frozenset[str]:
+    """Reason codes this software really emits: every uppercase literal in its own sources."""
+    roots = [Path(__file__).resolve().parent]
+    try:
+        import airag
+
+        roots.append(Path(airag.__file__).resolve().parent)
+    except Exception:
+        pass
+    found: set[str] = set()
+    for root in roots:
+        for path in root.rglob("*.py"):
+            try:
+                found.update(re.findall(r"""["']([A-Z][A-Z0-9_]{1,100})["']""", path.read_text(encoding="utf-8")))
+            except OSError:
+                continue
+    return frozenset(found)
+
+
 def _safe_code(value: object) -> str:
-    """A reason code only if its shape cannot carry a secret: short words, no long hex run."""
-    if not isinstance(value, str) or _CODE.fullmatch(value) is None:
-        return "RUNTIME_FAILED"
-    if any(len(word) > 24 for word in value.split("_")) or re.search(r"[0-9A-F]{16}", value.replace("_", "")):
-        return "RUNTIME_FAILED"
-    return value
+    """Report a reason code only if it is a known literal; an error message is data, not a code."""
+    if isinstance(value, str) and _CODE.fullmatch(value) and value in _known_codes():
+        return value
+    return "RUNTIME_FAILED"
 
 
 def _error_fields(stream: str) -> tuple[str, str]:
@@ -212,21 +236,35 @@ def _error_fields(stream: str) -> tuple[str, str]:
 
 @contextmanager
 def _discard_component_output():
-    """Whatever components print during the pass is dropped, at the Python and the file-descriptor level."""
-    sys.stdout.flush()
-    sys.stderr.flush()
-    saved = [os.dup(1), os.dup(2)]
-    null = os.open(os.devnull, os.O_WRONLY)
+    """Whatever components print during the pass is dropped, at the Python and the file-descriptor level.
+
+    Stream objects held from before the pass are flushed while fds 1 and 2 still point to /dev/null,
+    so nothing buffered can surface after the real destinations are restored.
+    """
+    original = (sys.stdout, sys.stderr)
+    for stream in original:
+        stream.flush()
+    saved: list[int] = []
+    null = -1
     try:
+        saved.append(os.dup(1))
+        saved.append(os.dup(2))
+        null = os.open(os.devnull, os.O_WRONLY)
         os.dup2(null, 1)
         os.dup2(null, 2)
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             yield
     finally:
+        for stream in original:
+            try:
+                stream.flush()
+            except Exception:
+                pass
         for number, fd in zip((1, 2), saved):
             os.dup2(fd, number)
             os.close(fd)
-        os.close(null)
+        if null >= 0:
+            os.close(null)
 
 
 def main(
@@ -243,13 +281,14 @@ def main(
     exit_code = EXIT_INTERNAL
     try:
         args = _parser().parse_args(list(sys.argv[1:] if argv is None else argv))
-        log_dir = Path(args.log_dir).expanduser()
         config = Path(args.config).expanduser()
+        candidate = Path(args.log_dir).expanduser()
+        candidate.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if candidate.is_symlink() or not candidate.is_dir():
+            raise TickError(EXIT_CONFIG, "LOG_DIR_UNSAFE")
+        log_dir = candidate  # from here on, and only from here on, this directory may be logged to
         if not config.is_file():
             raise TickError(EXIT_CONFIG, "CONFIG_FILE_UNAVAILABLE")
-        log_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if log_dir.is_symlink() or not log_dir.is_dir():
-            raise TickError(EXIT_CONFIG, "LOG_DIR_UNSAFE")
         try:
             lock_fd = _open_regular(log_dir / "tick.lock", os.O_RDWR | os.O_CREAT)
         except OSError:
@@ -292,7 +331,9 @@ def main(
         **({"summary": summary} if summary else {}),
     }, sort_keys=True, separators=(",", ":"))
     out.write(line + "\n")
-    if log_dir is not None:
+    if log_dir is None:
+        sys.stderr.write("tick log_unavailable\n")
+    else:
         try:
             append_log(log_dir, now, line)
         except OSError:

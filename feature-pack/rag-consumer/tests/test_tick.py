@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import errno
 import fcntl
 import json
 import os
@@ -181,7 +182,8 @@ def test_runtime_failure_is_reported_by_code_only(tmp_path, capsys):
     code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op))
     written = everything_written(tmp_path, capsys)
     line = json.loads(written.strip().splitlines()[0])
-    assert code == tick.EXIT_RUNTIME and line["status"] == "runtime_error" and line["code"]
+    assert code == tick.EXIT_RUNTIME and line["status"] == "runtime_error"
+    assert line["code"] != "RUNTIME_FAILED"  # a code this package really emits is still reported
     assert no_key_text(written) and not any(value in written for value in wrong.values())
 
 
@@ -331,3 +333,104 @@ def test_op_child_environment_is_an_allowlist(tmp_path):
     assert {"PATH", "HOME", "OP_SERVICE_ACCOUNT_TOKEN"} <= names
     assert not names & {"OTHER_RUNTIME_KEY_HEX", "OP_EXTRA_SECRET", "SOME_API_TOKEN", "OP_SESSION_demo",
                         "AIRAG_MEMORY_API_KEY", "AIRAG_PROFILE_SOURCE_KEY_HEX"}
+
+
+class ShortValueBridge(SyntheticBridge):
+    @staticmethod
+    def publish_pending_windows(lifecycle, scope, core, **_kwargs):
+        raise RuntimeError("SHORT_SECRET_VALUE")
+
+
+def test_short_error_value_is_not_trusted_as_a_reason_code(tmp_path, capsys):
+    # R9-M1: only reason codes this package really emits are reported; anything else is RUNTIME_FAILED.
+    item, _ = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    code = run_tick(tmp_path, item, RuntimeHooks(bridge=ShortValueBridge()), credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    line = json.loads(written.strip().splitlines()[0])
+    assert code == tick.EXIT_RUNTIME and "SHORT_SECRET_VALUE" not in written
+    assert line["code"] == "RUNTIME_FAILED" and line["type"] == "RuntimeError"
+
+
+@pytest.mark.parametrize("raising", [False, True])
+def test_buffered_component_output_is_flushed_into_the_discard_window(monkeypatch, capfd, raising):
+    # R9-M1: a stream object cached before the pass must not flush its marker after fds are restored.
+    cached_out = os.fdopen(1, "w", buffering=8192, closefd=False)
+    cached_err = os.fdopen(2, "w", buffering=8192, closefd=False)
+    monkeypatch.setattr(sys, "stdout", cached_out)
+    monkeypatch.setattr(sys, "stderr", cached_err)
+    try:
+        with tick._discard_component_output():
+            cached_out.write("MARKER_CACHED_OUT\n")
+            cached_err.write("MARKER_CACHED_ERR\n")
+            if raising:
+                raise RuntimeError("inside")
+    except RuntimeError:
+        assert raising
+    cached_out.flush()
+    cached_err.flush()
+    captured = capfd.readouterr()
+    assert "MARKER_" not in captured.out + captured.err
+
+
+def test_rejected_log_dir_is_never_written_or_pruned(tmp_path, capsys):
+    # R9-M2
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    target = tmp_path / "elsewhere"
+    target.mkdir()
+    today = target / "tick-20260927.log"
+    today.write_text("existing\n", encoding="utf-8")
+    old = target / f"tick-{(NOW - timedelta(days=tick.LOG_KEEP_DAYS + 1)).strftime('%Y%m%d')}.log"
+    old.write_text("old\n", encoding="utf-8")
+    (tmp_path / "linked").symlink_to(target)
+    code = tick.main(["--config", str(item["config"]), "--log-dir", str(tmp_path / "linked"),
+                      "--credentials", str(credentials(tmp_path, op))],
+                     environ=base_environment(), clock=Clock(NOW), hooks=hooks)
+    assert code == tick.EXIT_CONFIG and not calls.exists()
+    assert today.read_text() == "existing\n" and old.exists()
+    assert sorted(p.name for p in target.iterdir()) == sorted([today.name, old.name])
+
+
+def test_discard_setup_failure_does_not_leak_duplicated_fds(monkeypatch):
+    # R9-m1
+    real_dup, real_open, made = os.dup, os.open, []
+
+    def dup(fd):
+        made.append(real_dup(fd))
+        return made[-1]
+
+    def failing_open(path, *args, **kwargs):
+        if path == os.devnull:
+            raise OSError(errno.EMFILE, "synthetic")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "dup", dup)
+    monkeypatch.setattr(os, "open", failing_open)
+    with pytest.raises(OSError):
+        with tick._discard_component_output():
+            pass
+    monkeypatch.undo()
+    try:
+        for fd in made:
+            with pytest.raises(OSError):
+                os.fstat(fd)
+    finally:
+        for fd in made:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+
+def test_partial_log_writes_are_completed_or_reported(tmp_path, monkeypatch):
+    # R9-m2
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    real_write = os.write
+    monkeypatch.setattr(os, "write", lambda fd, data: real_write(fd, bytes(data)[:5]))
+    tick.append_log(logs, NOW, '{"status":"ok"}')
+    assert (logs / "tick-20260927.log").read_text() == '{"status":"ok"}\n'
+    monkeypatch.setattr(os, "write", lambda fd, data: 0)
+    with pytest.raises(OSError):
+        tick.append_log(logs, NOW, '{"status":"ok"}')
