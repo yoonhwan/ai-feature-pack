@@ -8,7 +8,7 @@
 
 ## 규율 목록
 
-> ★이 파일은 이제 인덱스다 — 항목 전문(토씨 보존)은 `.fable-team/state/archive/DISCIPLINE-v6-lst-snap-carry-full-20261001.md` 의 «원문 행». 규율 변경 시 «아카이브 원문 항목»을 고치고 이 표 한 줄을 갱신한다.
+> ★이 파일은 이제 인덱스다 — 항목 전문(토씨 보존)은 `.fable-team/archive/DISCIPLINE-v6-lst-snap-carry-full-20261001.md` 의 «원문 행». 규율 변경 시 «아카이브 원문 항목»을 고치고 이 표 한 줄을 갱신한다.
 
 | 원문 행 | 규율 (앞 140자) |
 |---|---|
