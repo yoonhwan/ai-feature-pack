@@ -311,6 +311,11 @@ def _manifest(set_path: Path, *, state: str = "verified") -> dict:
     return _validate_manifest(data, state)
 
 
+def read_backup_manifest(set_path: Path) -> dict:
+    """Return the validated manifest of a verified, owned backup set."""
+    return _manifest(Path(set_path).absolute())
+
+
 def _verify_contents(set_path: Path, data: dict, database_keys: Mapping[str, bytes],
                      link_check: _RestoreLinkCheck, now: datetime) -> None:
     expected = _expected_set_entries(data)

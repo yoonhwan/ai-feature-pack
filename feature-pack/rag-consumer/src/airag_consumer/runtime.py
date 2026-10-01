@@ -39,6 +39,7 @@ from .operations import (
     create_backup_set,
     load_store_keys,
     prune_backup_sets,
+    read_backup_manifest,
     verify_backup_set,
 )
 
@@ -818,7 +819,7 @@ class AIRAGRuntime:
                 result.append(path.name)
         return sorted(result)
 
-    def _confirmed_archives(self, ledger: Ledger) -> list[dict[str, object]]:
+    def _archive_receipts(self, ledger: Ledger) -> list[dict[str, object]]:
         rows = ledger._con.execute(
             """SELECT DISTINCT archive_receipt_json,payload_json
                FROM airag_lifecycle_archive_queue
@@ -838,19 +839,24 @@ class AIRAGRuntime:
             if len(item["scopes"]) != 1:
                 _error("ARCHIVE_RECEIPT_SCOPE_CONFLICT")
             receipt = item["receipt"]
-            path = Path(receipt["path"])
-            if (
-                not path.is_absolute() or path.parent != self.config.archive_root
-                or path.is_symlink() or not path.is_file()
-            ):
-                _error("UNTRUSTED_ARCHIVE_RECEIPT_PATH")
             result.append({
-                "bundle_id": bundle, "path": path,
+                "bundle_id": bundle, "path": Path(receipt["path"]),
                 "scope": next(iter(item["scopes"])),
                 "ciphertext_sha256": receipt["ciphertext_sha256"],
                 "records": receipt["records"],
             })
         return sorted(result, key=lambda item: item["bundle_id"])
+
+    def _confirmed_archives(self, ledger: Ledger) -> list[dict[str, object]]:
+        result = self._archive_receipts(ledger)
+        for item in result:
+            path = item["path"]
+            if (
+                not path.is_absolute() or path.parent != self.config.archive_root
+                or path.is_symlink() or not path.is_file()
+            ):
+                _error("UNTRUSTED_ARCHIVE_RECEIPT_PATH")
+        return result
 
     def _archive_components(
         self, archives: Sequence[dict[str, object]],
@@ -916,7 +922,7 @@ class AIRAGRuntime:
                 if not restored_state["read_gate"]["open"]:
                     _error("RESTORED_EXPIRY_RECONCILIATION_FAILED")
                 archive_components = self._archive_components(
-                    self._confirmed_archives(restored_ledger),
+                    self._archive_receipts(restored_ledger),
                 )
                 if set(restored) != {"consumer", "projection", *archive_components}:
                     _error("RESTORED_COMPONENT_SET_MISMATCH")
@@ -1261,13 +1267,17 @@ class AIRAGRuntime:
         with self._lock():
             ledger = self._open_ledger()
             try:
+                keys = {
+                    "consumer": self.keys["consumer_ledger"],
+                    "projection": self.keys["projection_db"],
+                }
+                for item in read_backup_manifest(path)["components"]:
+                    # Sets made before archives became kind='archive' hold them as
+                    # archive-key databases; their integrity is still checked.
+                    if item["kind"] == "database" and item["name"].startswith("archive_"):
+                        keys[item["name"]] = self.keys["archive"]
                 data = verify_backup_set(
-                    path,
-                    {
-                        "consumer": self.keys["consumer_ledger"],
-                        "projection": self.keys["projection_db"],
-                    },
-                    self._restore_link_check(), now=_aware(self.clock),
+                    path, keys, self._restore_link_check(), now=_aware(self.clock),
                 )
                 return {
                     "backup_id": backup_id, "verified": True,

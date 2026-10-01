@@ -19,7 +19,7 @@ from airag.db import connect
 from airag_consumer import bridge, reference
 from airag_consumer.cli import main
 from airag_consumer.ledger import open_ledger
-from airag_consumer.operations import OperationsError
+from airag_consumer.operations import DatabaseSource, OperationsError, create_backup_set
 from airag_consumer.runtime import (
     AIRAGRuntime,
     PROFILE_SOURCE_KEY_ENV,
@@ -886,3 +886,52 @@ def test_coverage_is_incomplete_while_an_enrolled_source_has_no_collector_state(
     status = runtime.status()
     assert [row["source_id"] for row in status["collector_sources"]] == ["synthetic-rollout"]
     assert status["coverage_complete"] is False
+
+
+def test_backup_verifies_without_the_original_archive_files(tmp_path):
+    # R2-M2: isolated restore verification must use the backup's own archive copies.
+    runtime, _, _, _ = two_archive_runtime(tmp_path)
+    backup_id = Path(runtime.backup(force=True)["path"]).name
+    live = sorted(runtime.config.archive_root.glob("*.db"))
+    offline = [path.with_suffix(".preserved-offline") for path in live]
+    for source, target in zip(live, offline):
+        source.rename(target)
+    try:
+        assert runtime.verify_backup(backup_id)["verified"] is True
+    finally:
+        for source, target in zip(live, offline):
+            target.rename(source)
+
+
+def test_legacy_manifest_with_archive_as_database_component_still_verifies(tmp_path):
+    # R2-M1: backups made when archives were recorded as kind='database' stay verifiable.
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    item = project(
+        tmp_path, now=now, content="legacy archive marker",
+        occurred_at=(now - timedelta(days=91)).isoformat(),
+    )
+    runtime = AIRAGRuntime(
+        RuntimeConfig.load(item["config"]), environ=environment(), clock=Clock(now),
+    )
+    runtime.init()
+    assert len(runtime.run_once(explicit_save=True)["archives"]) == 1
+    with open_ledger(runtime.config.consumer_db, CONSUMER_KEY) as ledger:
+        components = runtime._archive_components(runtime._confirmed_archives(ledger))
+    legacy = create_backup_set(
+        runtime.config.backup_root,
+        [
+            DatabaseSource("consumer", runtime.config.consumer_db, CONSUMER_KEY),
+            DatabaseSource("projection", runtime.config.projection_db, PROJECTION_KEY),
+            *(
+                DatabaseSource(name, entry["path"], ARCHIVE_KEY)
+                for name, entry in components.items()
+            ),
+        ],
+        [], runtime._restore_link_check(), now=now + timedelta(seconds=1),
+    )
+    manifest = json.loads((legacy / "manifest.json").read_text(encoding="utf-8"))
+    assert {entry["kind"] for entry in manifest["components"]
+            if entry["name"].startswith("archive_")} == {"database"}
+    assert runtime.verify_backup(legacy.name)["verified"] is True
+    current = Path(runtime.backup(force=True)["path"]).name
+    assert runtime.verify_backup(current)["verified"] is True
