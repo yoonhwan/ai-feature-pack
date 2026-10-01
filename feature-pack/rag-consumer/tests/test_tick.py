@@ -494,3 +494,24 @@ def test_child_rejects_bad_stdin_without_any_result(tmp_path, stdin_value):
     item, _ = synthetic_service(tmp_path)
     code, data = run_child("normal", item["config"], stdin_value, tmp_path)
     assert code == 2 and data == b""
+
+
+def test_tick_key_names_match_the_operations_registry():
+    from airag_consumer import operations
+
+    assert tick.NAMES == tuple(operations.KEY_NAMES.values())
+
+
+def test_tick_parent_never_imports_the_component_stack():
+    import subprocess
+
+    probe = (
+        "import sys, airag_consumer.tick\n"
+        "heavy = ('cli', 'runtime', 'bridge', 'operations')\n"
+        "found = [m for m in sys.modules if m == 'sqlcipher3' or m.startswith('sqlcipher3.')\n"
+        "         or m in ['airag_consumer.' + h for h in heavy]]\n"
+        "print(found)\n"
+    )
+    proc = subprocess.run([sys.executable, "-c", probe], env=child_env(), capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr[-300:]
+    assert proc.stdout.strip() == "[]"

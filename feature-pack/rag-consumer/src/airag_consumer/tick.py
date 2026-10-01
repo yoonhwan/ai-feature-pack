@@ -26,9 +26,9 @@ import time
 from typing import Callable, Mapping, Sequence, TextIO
 
 from ._result import RESULT_MAX_BYTES, validate_frame
-from .operations import KEY_NAMES
 
-NAMES = tuple(KEY_NAMES.values())
+# Kept in step with operations.KEY_NAMES by a test: importing operations here would load sqlcipher3 into the tick.
+NAMES = ("AIRAG_CONSUMER_KEY_HEX", "AIRAG_PROJECTION_KEY_HEX", "AIRAG_ARCHIVE_KEY_HEX")
 EXIT_OK, EXIT_SKIPPED, EXIT_CONFIG, EXIT_KEYS, EXIT_RUNTIME, EXIT_INTERNAL = 0, 10, 20, 30, 40, 50
 STATUS = {
     EXIT_OK: "ok", EXIT_SKIPPED: "skipped", EXIT_CONFIG: "config_error",
