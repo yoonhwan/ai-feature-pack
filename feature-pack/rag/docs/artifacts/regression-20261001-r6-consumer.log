@@ -1,0 +1,15 @@
+# AIRAG offline regression — consumer-u1
+# date: 2026-10-01 14:42:54 +0900
+# commit: 53bc160 (branch feature/rag-transplant)
+# cwd: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag-consumer
+# command: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/bin/python -m pytest tests -q -p no:cacheprovider --basetemp=<scratch> 
+# python: Python 3.13.12
+# disk-before: 68Gi free
+# ---- pytest output follows; summary line = last pytest line ----
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 94%]
+............                                                             [100%]
+228 passed in 16.89s
+EXIT=0
+# disk-after: 67Gi free
