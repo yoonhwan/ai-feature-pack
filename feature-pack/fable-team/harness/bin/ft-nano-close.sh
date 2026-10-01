@@ -229,10 +229,10 @@ if [ "$tmux_ok" = 1 ]; then
     fi
   fi
 fi
-# ④ press/시험 카드면 마지막 checkpoint 표 실재 + 경보 아님 (팩 SEATBELT.md §6-2 · 설정 없는 프로젝트는 경고만)
+# ④ 카드가 checkpoint 를 요구하면(`ft-checkpoint.sh` 줄) 마지막 checkpoint 표 실재 + 경보 아님 (팩 SEATBELT.md §6-2 · 설정 없는 프로젝트는 경고만)
 IDX="$(jq -r --arg s "$SEAT" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; CARD=""
 for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX"; do [ -n "$IDX" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
-if [ -n "$CARD" ] && grep -qiE 'press|시험' "$CARD"; then
+if [ -n "$CARD" ] && grep -qF 'ft-checkpoint.sh' "$CARD"; then
   CPCFG="${FT_CHECKPOINT_JSON:-$ROOT/.fable-team/checkpoint.json}"; CPST="$ROOT/.fable-team/checkpoint/${SEAT//\//_}.last"
   if [ ! -f "$CPCFG" ]; then echo "WARN ④press/시험 카드인데 checkpoint 미설정($CPCFG) — 경고만(§6-2)"
   elif [ ! -f "$CPST" ]; then bad+=("④press/시험 카드인데 checkpoint 실행 기록 없음: ft-checkpoint.sh <증거폴더> --seat $SEAT")
