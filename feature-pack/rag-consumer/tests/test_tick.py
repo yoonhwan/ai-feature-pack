@@ -790,3 +790,43 @@ def test_a_declared_reason_code_is_kept(tmp_path, capsys):
     assert run_tick(tmp_path, item, "declared", env=keyed_env()) == tick.EXIT_RUNTIME
     line, _ = tick_line(tmp_path, capsys)
     assert line["code"] == "SYMLINK_PATH_REJECTED"
+
+
+def reference_service(tmp_path):
+    (tmp_path / "svc").mkdir()
+    item = project(tmp_path / "svc", now=NOW, content="I prefer concise answers and the fix worked.",
+                   with_reference=True)
+    AIRAGRuntime(
+        RuntimeConfig.load(item["config"]), environ=environment(), clock=Clock(NOW),
+        hooks=RuntimeHooks(bridge=SyntheticBridge()),
+    ).init()
+    return item
+
+
+def env_without_reference_key(**extra):
+    env = keyed_env()
+    env.pop("AIRAG_REFERENCE_SOURCE_KEY_HEX", None)
+    return {**env, **extra}
+
+
+def test_a_reference_config_ticks_without_any_reference_key(tmp_path, capsys, monkeypatch):
+    item = reference_service(tmp_path)
+    calls = spy_component_run(monkeypatch)
+    assert run_tick(tmp_path, item, "normal", env=env_without_reference_key()) == tick.EXIT_OK
+    line, written = tick_line(tmp_path, capsys)
+    assert line["status"] == "ok" and "MISSING_OR_INVALID_REFERENCE_SOURCE_KEY" not in written
+    argv, kwargs = next(c for c in calls if "--config" in c[0])
+    assert "AIRAG_REFERENCE_SOURCE_KEY_HEX" not in kwargs["env"]  # the tick still hands over the three store keys only
+    assert json.loads(kwargs["input"]) == KEYS
+
+
+def test_a_garbage_reference_key_still_stops_the_tick_without_echoing_it(tmp_path, capsys):
+    item = reference_service(tmp_path)
+    env = env_without_reference_key(AIRAG_REFERENCE_SOURCE_KEY_HEX="zz-not-a-hex-key")
+    code = tick.main(
+        ["--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")],
+        environ=env, clock=Clock(NOW), component=component_for("normal"),
+    )
+    line, written = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_RUNTIME and line["code"] == "MISSING_OR_INVALID_REFERENCE_SOURCE_KEY"
+    assert "zz-not-a-hex-key" not in written

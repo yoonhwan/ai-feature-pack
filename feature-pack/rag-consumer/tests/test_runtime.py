@@ -335,10 +335,6 @@ def test_actual_core_init_run_restart_search_backup_and_verify(tmp_path):
 def test_reference_config_requires_exact_allowlist_and_separate_source_key(tmp_path):
     now = datetime(2026, 9, 27, 4, tzinfo=UTC)
     item = project(tmp_path, now=now, with_reference=True)
-    missing = environment()
-    missing.pop("AIRAG_REFERENCE_SOURCE_KEY_HEX")
-    with pytest.raises(RuntimeError, match="MISSING_OR_INVALID_REFERENCE_SOURCE_KEY"):
-        AIRAGRuntime(RuntimeConfig.load(item["config"]), environ=missing, clock=Clock(now))
     reused = {
         **environment(), "AIRAG_REFERENCE_SOURCE_KEY_HEX": PROJECTION_KEY.hex(),
     }
@@ -352,6 +348,122 @@ def test_reference_config_requires_exact_allowlist_and_separate_source_key(tmp_p
     item["config"].write_text(json.dumps(invalid), encoding="utf-8")
     with pytest.raises(RuntimeError, match="REFERENCE_SOURCE_ALLOWLIST_MISMATCH"):
         RuntimeConfig.load(item["config"])
+
+
+REF_ENV = "AIRAG_REFERENCE_SOURCE_KEY_HEX"
+
+
+def without_reference_key(**extra):
+    env = environment()
+    env.pop(REF_ENV)
+    return {**env, **extra}
+
+
+def reference_runtime(tmp_path, env, **kwargs):
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    item = project(tmp_path, now=now, with_reference=True)
+    runtime = AIRAGRuntime(RuntimeConfig.load(item["config"]), environ=env, clock=Clock(now), **kwargs)
+    return item, runtime
+
+
+@pytest.mark.parametrize("env", [
+    without_reference_key(), without_reference_key(**{REF_ENV: ""}), without_reference_key(**{REF_ENV: None}),
+])
+def test_reference_key_may_be_absent_empty_or_none_at_construction(tmp_path, env):
+    _, runtime = reference_runtime(tmp_path, env)
+    assert runtime.reference_source_key is None
+
+
+@pytest.mark.parametrize("value", [
+    " ", "zz", "z" * 64, "a" * 63, "a" * 65, "a" * 62 + "  ", "a" * 62 + "\t\n", 0, False, b"", b"r" * 32,
+])
+def test_a_present_but_malformed_reference_key_is_still_refused_at_construction(tmp_path, value):
+    with pytest.raises(RuntimeError, match="MISSING_OR_INVALID_REFERENCE_SOURCE_KEY"):
+        reference_runtime(tmp_path, without_reference_key(**{REF_ENV: value}))
+
+
+@pytest.mark.parametrize("reused", [
+    CONSUMER_KEY.hex(), PROJECTION_KEY.hex(), ARCHIVE_KEY.hex(), PROFILE_SOURCE_KEY.hex(),
+])
+def test_a_reference_key_equal_to_any_other_key_is_refused(tmp_path, reused):
+    with pytest.raises(RuntimeError, match="REFERENCE_SOURCE_KEY_MUST_BE_DISTINCT"):
+        reference_runtime(tmp_path, without_reference_key(**{REF_ENV: reused}))
+
+
+@pytest.mark.parametrize("name", [
+    "AIRAG_CONSUMER_KEY_HEX", "AIRAG_PROJECTION_KEY_HEX", "AIRAG_ARCHIVE_KEY_HEX",
+])
+def test_a_missing_store_key_is_still_refused_without_a_reference_key(tmp_path, name):
+    env = without_reference_key()
+    env.pop(name)
+    with pytest.raises(Exception, match="MISSING_OR_INVALID_STORE_KEY"):
+        reference_runtime(tmp_path, env)
+
+
+def test_initial_bootstrap_still_requires_the_profile_key_without_a_reference_key(tmp_path):
+    env = without_reference_key()
+    env.pop(PROFILE_SOURCE_KEY_ENV)
+    with pytest.raises(RuntimeError, match="MISSING_OR_INVALID_PROFILE_SOURCE_KEY"):
+        reference_runtime(tmp_path, env)
+
+
+def test_a_config_without_reference_is_unchanged_by_the_reference_key(tmp_path):
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    item = project(tmp_path, now=now)
+    runtime = AIRAGRuntime(RuntimeConfig.load(item["config"]), environ=without_reference_key(), clock=Clock(now))
+    assert runtime.reference_source_key is None and runtime.config.reference is None
+
+
+def test_run_once_and_status_never_need_the_reference_key(tmp_path):
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    clock = Clock(now)
+    item = project(tmp_path, now=now, with_reference=True)
+    args = ["--config", str(item["config"])]
+    env = without_reference_key()
+    assert invoke([*args, "init"], env=env, clock=clock)[0] == 0
+    with patch("airag.embeddings.embed_documents", side_effect=vectors):
+        code, result = invoke([*args, "run", "--once", "--save"], env=env, clock=clock)
+    assert code == 0, result
+    code, status = invoke([*args, "status"], env=env, clock=clock)
+    assert code == 0 and status["data"]["reference_enabled"] is True
+    assert list((item["root"] / "reference-snapshots").glob("reference-*.db")) == []
+    assert item["reference_source"].read_bytes() == item["reference_original"]
+
+
+def test_search_without_the_reference_key_is_refused_before_any_lock_ledger_or_search(tmp_path):
+    calls = []
+
+    class Spy:
+        @staticmethod
+        def search_history(**kwargs):
+            calls.append("search_history")
+
+    env = without_reference_key()
+    item, runtime = reference_runtime(tmp_path, env, hooks=RuntimeHooks(bridge=Spy))
+    for name in ("_lock", "_open_ledger", "_open_projection"):
+        setattr(runtime, name, lambda *a, _n=name, **k: calls.append(_n))
+    with pytest.raises(RuntimeError, match="MISSING_OR_INVALID_REFERENCE_SOURCE_KEY"):
+        runtime.search("q")
+    # argument validation still comes first
+    with pytest.raises(RuntimeError, match="INVALID_SEARCH_REQUEST"):
+        runtime.search("   ")
+    with pytest.raises(RuntimeError, match="INVALID_SEARCH_REQUEST"):
+        runtime.search("q", limit=0)
+    assert calls == [] and not (item["root"] / "reference-snapshots").exists()
+
+
+def test_a_reference_source_that_is_also_the_profile_source_is_read_with_the_profile_key_only(tmp_path):
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    clock = Clock(now)
+    item = project(tmp_path, now=now, with_reference=True)
+    configured = json.loads(item["config"].read_text())
+    configured["reference"]["source_db"] = configured["profile_source_db"]
+    item["config"].write_text(json.dumps(configured), encoding="utf-8")
+    args = ["--config", str(item["config"])]
+    code, result = invoke([*args, "init"], env=without_reference_key(), clock=clock)
+    assert code == 0, result  # bootstrap reads that file with the explicit profile key; no reference key involved
+    assert not (item["root"] / "reference-snapshots").exists() or not list(
+        (item["root"] / "reference-snapshots").glob("reference-*.db"))
 
 
 def test_combined_query_returns_separate_conversation_and_reference_groups(tmp_path):

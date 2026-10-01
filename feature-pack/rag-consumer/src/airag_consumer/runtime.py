@@ -451,17 +451,19 @@ class AIRAGRuntime:
             _error("MISSING_OR_INVALID_PROFILE_SOURCE_KEY")
         self.reference_source_key = None
         if config.reference is not None:
+            # Only `search` uses this key, so absence is checked there; a value that is present must be valid.
             raw_reference_key = environ.get(config.reference.source_key_env)
-            if not isinstance(raw_reference_key, str) or re.fullmatch(
-                r"[0-9a-fA-F]{64}", raw_reference_key,
-            ) is None:
-                _error("MISSING_OR_INVALID_REFERENCE_SOURCE_KEY")
-            self.reference_source_key = bytes.fromhex(raw_reference_key)
-            distinct = {*self.keys.values()}
-            if self.profile_source_key is not None:
-                distinct.add(self.profile_source_key)
-            if self.reference_source_key in distinct:
-                _error("REFERENCE_SOURCE_KEY_MUST_BE_DISTINCT")
+            if raw_reference_key is not None and raw_reference_key != "":
+                if not isinstance(raw_reference_key, str) or re.fullmatch(
+                    r"[0-9a-fA-F]{64}", raw_reference_key,
+                ) is None:
+                    _error("MISSING_OR_INVALID_REFERENCE_SOURCE_KEY")
+                self.reference_source_key = bytes.fromhex(raw_reference_key)
+                distinct = {*self.keys.values()}
+                if self.profile_source_key is not None:
+                    distinct.add(self.profile_source_key)
+                if self.reference_source_key in distinct:
+                    _error("REFERENCE_SOURCE_KEY_MUST_BE_DISTINCT")
         self.config = config
         self.clock = clock
         self.tokenizer = tokenizer
@@ -1121,6 +1123,8 @@ class AIRAGRuntime:
     def search(self, query: str, *, limit: int = 5) -> dict[str, object]:
         if not isinstance(query, str) or not query.strip() or type(limit) is not int or not 1 <= limit <= 100:
             _error("INVALID_SEARCH_REQUEST")
+        if self.config.reference is not None and self.reference_source_key is None:
+            _error("MISSING_OR_INVALID_REFERENCE_SOURCE_KEY")
         with self._lock():
             ledger = self._open_ledger()
             projection = None
