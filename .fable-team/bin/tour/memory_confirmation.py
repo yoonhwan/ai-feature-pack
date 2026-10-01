@@ -66,6 +66,14 @@ def receipt_for_run(app, run):
     return receipt
 
 
+def assert_fresh(app, receipt):
+    """Receipt and verified backup are both within the window at the current clock."""
+    for stamp in (receipt['at'], receipt['completed_at']):
+        age = (app.clock() - datetime.fromisoformat(stamp)).total_seconds()
+        if not 0 <= age <= MAX_RECEIPT_AGE_S:
+            collection.fail('BACKUP_RECEIPT_STALE')
+
+
 def verified_receipt(app, run):
     """Fresh receipt from this run whose backup passes isolated restore verification right now."""
     receipt = receipt_for_run(app, run)
@@ -79,9 +87,8 @@ def verified_receipt(app, run):
     if verified.get('verified') is not True:
         collection.fail('BACKUP_VERIFICATION_FAILED')
     # The receipt's own fields can be rewritten; the verified set's completion time cannot be faked by that.
-    completed_age = (app.clock() - datetime.fromisoformat(verified['completed_at'])).total_seconds()
-    if not 0 <= completed_age <= MAX_RECEIPT_AGE_S:
-        collection.fail('BACKUP_RECEIPT_STALE')
+    receipt = {**receipt, 'completed_at': verified['completed_at']}
+    assert_fresh(app, receipt)
     return receipt
 
 
@@ -100,6 +107,7 @@ def decide(app, approve, verify, reject, run):
         return {'results': [], 'noop': True, 'log_complete': True, 'status': counts(app)}
     receipt = verified_receipt(app, run)
     with decision_lock(app):
+        assert_fresh(app, receipt)  # the wait for the lock may have outlived the window
         path = log_path(app)
         saved = json.loads(path.read_text()) if path.is_file() else []
         entry = {'entry_id': uuid.uuid4().hex, 'at': app.clock().isoformat(), 'backup_id': receipt['backup_id'],

@@ -76,6 +76,20 @@ def check(name, condition, detail=''):
         raise SystemExit(f'FAILED: {name}')
 
 
+def finish():
+    failed = [name for name, ok in RESULTS if not ok]
+    if failed:
+        print(f'\nFAILED {len(failed)} of {len(RESULTS)} CHECKS: ' + '; '.join(failed))
+        raise SystemExit(1)
+    print(f'\nALL {len(RESULTS)} CHECKS PASSED · scratch {BASE}')
+
+
+if os.environ.get('ISO14_SELFTEST_FAIL') == '1':
+    # Child entry for the R6-m1 check: one deliberately failing check, then the normal summary.
+    check('synthetic failing check', False)
+    finish()
+
+
 def expect_error(name, code, call):
     try:
         call()
@@ -218,6 +232,52 @@ check('R5-M1 both overlapping decisions applied', set(outcome) == {'A', 'B'} and
 check('R5-M1 both decisions stay in the log', recorded == set(pending) and all(e['status'] == 'done' for e in entries),
       f'{len(entries)} entries')
 
+# ---- R6-m1: KEEP_GOING keeps running but the final line and exit code still report the failure
+selftest = subprocess.run([sys.executable, str(Path(__file__).resolve())], text=True, capture_output=True,
+                          env={**os.environ, 'ISO14_KEEP_GOING': '1', 'ISO14_SELFTEST_FAIL': '1'})
+last_line = selftest.stdout.strip().splitlines()[-1]
+check('R6-m1 KEEP_GOING failure ends with a failing summary', last_line.startswith('FAILED') and 'PASSED' not in last_line, last_line)
+check('R6-m1 KEEP_GOING failure exits non-zero', selftest.returncode != 0, f'exit {selftest.returncode}')
+
+# ---- R6-M1: freshness is re-checked after waiting for the decision lock
+item, app, clock = make('lockwait')
+helper.work('backup', app=app, run='run-W')
+clock.value = NOW + timedelta(hours=5, minutes=59)
+holder = subprocess.Popen(
+    [sys.executable, '-c', 'import fcntl,sys\nf=open(sys.argv[1],"a")\nfcntl.flock(f,fcntl.LOCK_EX)\n'
+     'print("locked",flush=True)\nsys.stdin.readline()', str(app.config.project_root / 'tour-14.lock')],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+check('R6-M1 lock holder is running', holder.stdout.readline().strip() == 'locked')
+gate_passed, wait_result = threading.Event(), {}
+real_gate = helper.verified_receipt
+
+
+def gate_then_signal(*arguments):
+    receipt = real_gate(*arguments)
+    gate_passed.set()
+    return receipt
+
+
+def waiting_decide():
+    try:
+        wait_result['out'] = helper.work('decide', app=app, approve=first_id(app), run='run-W')
+    except Exception as error:
+        wait_result['error'] = str(error)
+
+
+with patch.object(helper, 'verified_receipt', side_effect=gate_then_signal):
+    waiter = threading.Thread(target=waiting_decide)
+    waiter.start()
+    check('R6-M1 gate passed while the lock is held elsewhere', gate_passed.wait(10))
+    check('R6-M1 decision is waiting, core untouched', waiter.is_alive() and visible(app) == 0)
+    clock.value += timedelta(minutes=2)
+    holder.stdin.write('\n')
+    holder.stdin.flush()
+    holder.wait(10)
+    waiter.join(20)
+check('R6-M1 stale-after-wait decision is refused', wait_result.get('error') == 'BACKUP_RECEIPT_STALE', str(wait_result.get('error')))
+check('R6-M1 core unchanged after refusal', visible(app) == 0)
+
 # ---- normal tour: all 7 cells through the real notebook runner, helper in a synthetic subprocess
 item, app, clock = make('tour')
 os.environ['ISO14_CONFIG'] = str(item['config'])
@@ -251,4 +311,4 @@ check('전체실행 stops before the write cell', '전체실행을 멈추고 Ent
 check('out-of-range pick is re-asked', '사이 번호를 쉼표로 입력하세요' in output)
 after = synthetic_runtime(item['config']).status()
 check('tour result: 3 memories, nothing waiting', after['visible_memories'] == 3 and not after['memory_awaiting_confirmation_ids'])
-print(f'\nALL {len(RESULTS)} CHECKS PASSED · scratch {BASE}')
+finish()
