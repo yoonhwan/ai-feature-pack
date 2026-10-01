@@ -60,7 +60,7 @@ provider: claude-code session (ft-airag-arch-claude#0, effort=high)
 - R3: 변수가 **비어있지 않은데 64hex 가 아님** → 생성자에서 `MISSING_OR_INVALID_REFERENCE_SOURCE_KEY`(지금과 동일 fail-closed — 잘못 설정된 키가 조용히 무시되지 않는다).
 - R4: 변수가 64hex 이고 스토어 3키·프로필 키와 같은 값 → 생성자에서 `REFERENCE_SOURCE_KEY_MUST_BE_DISTINCT`(지금과 동일).
 - R5: `search` 는 reference 절이 있고 `reference_source_key is None` 이면 **락·원장 열기 이전**(인자 검증 직후)에 `MISSING_OR_INVALID_REFERENCE_SOURCE_KEY` 로 거부한다 — 지금은 번들 검색까지 수행한 뒤 1146 에서 늦게 실패한다. 기존 1146-1147 방어 분기는 유지(이중 방어).
-- R6: reference 키가 없을 때 `search_tour_reference`·투어 DB 열기·스냅샷 파일 생성은 일어나지 않는다.
+- R6: reference 키가 없을 때 reference 검색/helper(`search_tour_reference`)와 그 경로의 source DB open·snapshot DB 생성은 일어나지 않는다. (DA 설계 r1 D2·코드 r12 R12-m2 반영 — profile bootstrap 은 별도의 명시 profile 키로 보호되며, `profile_source_db` 가 `reference.source_db` 와 같은 물리 파일이면 profile 키로 읽힐 수 있다. 새 경로 alias 금지는 요구하지 않는다.)
 
 ### 3.2 변경 위치 (HEAD c0cb5e1)
 | 위치 | 변경 |
