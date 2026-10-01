@@ -2,7 +2,8 @@
 
 Personal settings (vault references, token file, op path) live in a local credentials file given by
 ``--credentials``; nothing about them is stored in the repository. Existing environment keys win.
-The consumer pass runs in-process (``cli.main``), so keys never appear in any child argv.
+The consumer pass runs in a child process (``_pass_child``): keys go to it on stdin only, and its
+streams never reach this process.
 Each call is one pass: no loop, no sleep. launchd's next interval is the retry.
 """
 
@@ -10,10 +11,8 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import fcntl
-import io
 import json
 import os
 from pathlib import Path
@@ -22,10 +21,11 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Callable, Mapping, Sequence, TextIO
 
-from ._result import error_fields, summarize
+from ._result import RESULT_MAX_BYTES, validate_frame
 from .operations import KEY_NAMES
 
 NAMES = tuple(KEY_NAMES.values())
@@ -158,43 +158,47 @@ def append_log(log_dir: Path, now: datetime, line: str) -> None:
                 pass
 
 
-@contextmanager
-def _discard_component_output():
-    """Whatever components print during the pass is dropped, at the Python and the file-descriptor level.
+def _run_component(
+    config: Path, environment: Mapping[str, str], log_dir: Path, command: Sequence[str],
+) -> dict[str, object]:
+    """Run one consumer pass in a child process and return its sanitized, re-validated frame.
 
-    Stream objects held from before the pass are flushed while fds 1 and 2 still point to /dev/null,
-    so nothing buffered can surface after the real destinations are restored.
+    The child gets the keys on stdin only; its stdout is an anonymous file in the verified log dir and its
+    stderr is discarded. Completion is the child's exit, never EOF, so a forked descendant cannot delay it.
     """
-    original = (sys.stdout, sys.stderr)
-    for stream in original:
-        stream.flush()
-    saved: list[int] = []
-    null = -1
+    child_env = {k: v for k, v in environment.items() if k not in NAMES}
+    keys = json.dumps({name: environment[name] for name in NAMES})
+    argv = [*command, "--config", str(config)]
     try:
-        saved.append(os.dup(1))
-        saved.append(os.dup(2))
-        null = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(null, 1)
-        os.dup2(null, 2)
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            yield
-    finally:
-        for stream in original:
-            try:
-                stream.flush()
-            except Exception:
-                pass
-        for number, fd in zip((1, 2), saved):
-            os.dup2(fd, number)
-            os.close(fd)
-        if null >= 0:
-            os.close(null)
+        with tempfile.TemporaryFile(dir=log_dir) as result:
+            returncode = subprocess.run(
+                argv, input=keys, text=True, env=child_env, stdout=result,
+                stderr=subprocess.DEVNULL, close_fds=True, check=False,
+            ).returncode
+            size = os.fstat(result.fileno()).st_size
+            data = b""
+            if returncode == 0 and 0 < size <= RESULT_MAX_BYTES:
+                result.seek(0)
+                data = result.read(size)
+    except OSError:
+        raise TickError(EXIT_RUNTIME, "COMPONENT_PROCESS_UNAVAILABLE") from None
+    if returncode == 3 or size > RESULT_MAX_BYTES:
+        raise TickError(EXIT_RUNTIME, "RUNTIME_OUTPUT_INVALID")
+    if returncode != 0:
+        raise TickError(EXIT_RUNTIME, "COMPONENT_PROCESS_FAILED")
+    try:
+        frame = validate_frame(json.loads(data))
+    except ValueError:
+        frame = None
+    if frame is None:
+        raise TickError(EXIT_RUNTIME, "RUNTIME_OUTPUT_INVALID")
+    return frame
 
 
 def main(
     argv: Sequence[str] | None = None, *, environ: Mapping[str, str] | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
-    stdout: TextIO | None = None, hooks: object | None = None,
+    stdout: TextIO | None = None, component: Sequence[str] | None = None,
 ) -> int:
     """Run one tick and return its exit code (see EXIT_*); prints one value-free JSON line."""
     out = sys.stdout if stdout is None else stdout
@@ -224,23 +228,16 @@ def main(
                 raise TickError(EXIT_SKIPPED, "PREVIOUS_TICK_RUNNING") from None
             environment = dict(os.environ if environ is None else environ)
             load_keys(environment, Path(args.credentials).expanduser() if args.credentials else None)
-            from .cli import main as cli_main
-
-            stdout_buffer, stderr_buffer = io.StringIO(), io.StringIO()
             started = time.monotonic()
-            with _discard_component_output():
-                result = cli_main(
-                    ["--config", str(config), "run", "--once"], environ=environment, hooks=hooks,
-                    stdout=stdout_buffer, stderr=stderr_buffer,
-                )
-            if result != 0:
-                reason, kind = error_fields(stderr_buffer.getvalue())
-                raise TickError(EXIT_RUNTIME, reason, kind)
-            try:
-                data = json.loads(stdout_buffer.getvalue())["data"]
-            except (ValueError, KeyError, TypeError):
-                raise TickError(EXIT_RUNTIME, "RUNTIME_OUTPUT_INVALID") from None
-            summary = summarize(data if isinstance(data, dict) else {})
+            frame = _run_component(
+                config, environment, log_dir,
+                component if component is not None else [sys.executable, "-m", "airag_consumer._pass_child"],
+            )
+            if frame["exit"] != 0:
+                raise TickError(EXIT_RUNTIME, frame["code"] or "RUNTIME_FAILED", frame["type"])
+            if frame["code"] == "RUNTIME_OUTPUT_INVALID":
+                raise TickError(EXIT_RUNTIME, "RUNTIME_OUTPUT_INVALID")
+            summary = dict(frame["summary"])
             summary["pass_elapsed_s"] = round(time.monotonic() - started, 3)
             exit_code = EXIT_OK
         finally:

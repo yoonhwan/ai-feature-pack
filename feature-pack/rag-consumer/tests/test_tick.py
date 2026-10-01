@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-import errno
 import fcntl
 import json
 import os
@@ -77,19 +76,23 @@ def synthetic_service(tmp_path: Path, *, memory: bool = False):
     AIRAGRuntime(
         RuntimeConfig.load(item["config"]), environ=environment(), clock=Clock(NOW), hooks=hooks,
     ).init()
-    return item, hooks
+    return item, "memory" if memory else "normal"
+
+
+def component_for(mode):
+    return [sys.executable, str(COMPONENT), mode]
 
 
 def base_environment() -> dict[str, str]:
     return {k: v for k, v in environment().items() if k not in KEYS}
 
 
-def run_tick(tmp_path, item, hooks, *, credentials_path=None, env=None, extra=()):
+def run_tick(tmp_path, item, mode, *, credentials_path=None, env=None, extra=()):
     args = ["--config", str(item["config"]), "--log-dir", str(tmp_path / "logs"), *extra]
     if credentials_path is not None:
         args += ["--credentials", str(credentials_path)]
     return tick.main(args, environ=base_environment() if env is None else env,
-                     clock=Clock(NOW), hooks=hooks)
+                     clock=Clock(NOW), component=component_for(mode))
 
 
 def everything_written(tmp_path, capsys) -> str:
@@ -166,7 +169,7 @@ def test_missing_credentials_or_config_is_a_configuration_error(tmp_path, capsys
     assert run_tick(tmp_path, item, hooks) == tick.EXIT_CONFIG  # keys absent and no settings given
     missing = tick.main(
         ["--config", str(tmp_path / "absent-runtime.json"), "--log-dir", str(tmp_path / "logs")],
-        environ=base_environment(), clock=Clock(NOW), hooks=hooks,
+        environ=base_environment(), clock=Clock(NOW), component=component_for(hooks),
     )
     assert missing == tick.EXIT_CONFIG
     assert tick.main(["--bogus"], environ={}, clock=Clock(NOW)) == tick.EXIT_CONFIG
@@ -240,43 +243,16 @@ def test_first_pass_summary_carries_collection_progress_and_memory_observations(
 KEYLIKE = "AB" * 32  # a code-shaped, key-shaped string: uppercase hex that passes naive code regexes
 
 
-class RaisingBridge(SyntheticBridge):
-    @staticmethod
-    def publish_pending_windows(lifecycle, scope, core, **_kwargs):
-        raise RuntimeError(KEYLIKE)
-
-
-class ChattyBridge(SyntheticBridge):
-    @staticmethod
-    def publish_pending_windows(lifecycle, scope, core, **kwargs):
-        print("MARKER_BODY_PRINT")
-        sys.stderr.write("MARKER_QUOTE_STDERR\n")
-        os.write(1, b"MARKER_FD_STDOUT\n")
-        os.write(2, b"MARKER_FD_STDERR\n")
-        return SyntheticBridge.publish_pending_windows(lifecycle, scope, core, **kwargs)
-
-
 def test_key_shaped_error_text_never_reaches_output_or_log(tmp_path, capsys):
     # R8-M1: an error message that looks like a code must not be trusted as one.
     item, _ = synthetic_service(tmp_path)
     op, _ = stub_op(tmp_path)
-    code = run_tick(tmp_path, item, RuntimeHooks(bridge=RaisingBridge()), credentials_path=credentials(tmp_path, op))
+    code = run_tick(tmp_path, item, "keylike", credentials_path=credentials(tmp_path, op))
     written = everything_written(tmp_path, capsys)
     line = json.loads(written.strip().splitlines()[0])
     assert code == tick.EXIT_RUNTIME and line["status"] == "runtime_error"
     assert KEYLIKE.lower() not in written.lower() and no_key_text(written.lower())
     assert line["code"] == "RUNTIME_FAILED" and line["type"] == "RuntimeError"
-
-
-def test_component_output_is_discarded_at_process_level(tmp_path, capfd):
-    # R8-M1: whatever a component prints during the pass must not reach launchd's stdout/stderr.
-    item, _ = synthetic_service(tmp_path)
-    op, _ = stub_op(tmp_path)
-    code = run_tick(tmp_path, item, RuntimeHooks(bridge=ChattyBridge()), credentials_path=credentials(tmp_path, op))
-    captured = capfd.readouterr()
-    assert code == tick.EXIT_OK
-    assert "MARKER_" not in captured.out + captured.err
-    assert json.loads(captured.out.strip().splitlines()[-1])["status"] == "ok"
 
 
 def test_symlinked_log_or_lock_is_refused_and_new_files_are_private(tmp_path, capsys):
@@ -302,7 +278,7 @@ def test_symlinked_log_or_lock_is_refused_and_new_files_are_private(tmp_path, ca
     try:
         assert tick.main(["--config", str(item["config"]), "--log-dir", str(fresh), "--credentials",
                           str(credentials(tmp_path, op))], environ=base_environment(), clock=Clock(NOW),
-                         hooks=hooks) == tick.EXIT_OK
+                         component=component_for(hooks)) == tick.EXIT_OK
     finally:
         os.umask(previous)
     assert stat.S_IMODE(fresh.stat().st_mode) == 0o700
@@ -335,42 +311,15 @@ def test_op_child_environment_is_an_allowlist(tmp_path):
                         "AIRAG_MEMORY_API_KEY", "AIRAG_PROFILE_SOURCE_KEY_HEX"}
 
 
-class ShortValueBridge(SyntheticBridge):
-    @staticmethod
-    def publish_pending_windows(lifecycle, scope, core, **_kwargs):
-        raise RuntimeError("SHORT_SECRET_VALUE")
-
-
 def test_short_error_value_is_not_trusted_as_a_reason_code(tmp_path, capsys):
     # R9-M1: only reason codes this package really emits are reported; anything else is RUNTIME_FAILED.
     item, _ = synthetic_service(tmp_path)
     op, _ = stub_op(tmp_path)
-    code = run_tick(tmp_path, item, RuntimeHooks(bridge=ShortValueBridge()), credentials_path=credentials(tmp_path, op))
+    code = run_tick(tmp_path, item, "short", credentials_path=credentials(tmp_path, op))
     written = everything_written(tmp_path, capsys)
     line = json.loads(written.strip().splitlines()[0])
     assert code == tick.EXIT_RUNTIME and "SHORT_SECRET_VALUE" not in written
     assert line["code"] == "RUNTIME_FAILED" and line["type"] == "RuntimeError"
-
-
-@pytest.mark.parametrize("raising", [False, True])
-def test_buffered_component_output_is_flushed_into_the_discard_window(monkeypatch, capfd, raising):
-    # R9-M1: a stream object cached before the pass must not flush its marker after fds are restored.
-    cached_out = os.fdopen(1, "w", buffering=8192, closefd=False)
-    cached_err = os.fdopen(2, "w", buffering=8192, closefd=False)
-    monkeypatch.setattr(sys, "stdout", cached_out)
-    monkeypatch.setattr(sys, "stderr", cached_err)
-    try:
-        with tick._discard_component_output():
-            cached_out.write("MARKER_CACHED_OUT\n")
-            cached_err.write("MARKER_CACHED_ERR\n")
-            if raising:
-                raise RuntimeError("inside")
-    except RuntimeError:
-        assert raising
-    cached_out.flush()
-    cached_err.flush()
-    captured = capfd.readouterr()
-    assert "MARKER_" not in captured.out + captured.err
 
 
 def test_rejected_log_dir_is_never_written_or_pruned(tmp_path, capsys):
@@ -386,41 +335,10 @@ def test_rejected_log_dir_is_never_written_or_pruned(tmp_path, capsys):
     (tmp_path / "linked").symlink_to(target)
     code = tick.main(["--config", str(item["config"]), "--log-dir", str(tmp_path / "linked"),
                       "--credentials", str(credentials(tmp_path, op))],
-                     environ=base_environment(), clock=Clock(NOW), hooks=hooks)
+                     environ=base_environment(), clock=Clock(NOW), component=component_for(hooks))
     assert code == tick.EXIT_CONFIG and not calls.exists()
     assert today.read_text() == "existing\n" and old.exists()
     assert sorted(p.name for p in target.iterdir()) == sorted([today.name, old.name])
-
-
-def test_discard_setup_failure_does_not_leak_duplicated_fds(monkeypatch):
-    # R9-m1
-    real_dup, real_open, made = os.dup, os.open, []
-
-    def dup(fd):
-        made.append(real_dup(fd))
-        return made[-1]
-
-    def failing_open(path, *args, **kwargs):
-        if path == os.devnull:
-            raise OSError(errno.EMFILE, "synthetic")
-        return real_open(path, *args, **kwargs)
-
-    monkeypatch.setattr(os, "dup", dup)
-    monkeypatch.setattr(os, "open", failing_open)
-    with pytest.raises(OSError):
-        with tick._discard_component_output():
-            pass
-    monkeypatch.undo()
-    try:
-        for fd in made:
-            with pytest.raises(OSError):
-                os.fstat(fd)
-    finally:
-        for fd in made:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
 
 
 def test_partial_log_writes_are_completed_or_reported(tmp_path, monkeypatch):
@@ -436,44 +354,64 @@ def test_partial_log_writes_are_completed_or_reported(tmp_path, monkeypatch):
         tick.append_log(logs, NOW, '{"status":"ok"}')
 
 
-NATIVE_CHILD = '''
-import ctypes, sys
+RUNNER = '''
+import json, os, sys
 from datetime import datetime, timezone
 from airag_consumer import tick
-from airag_consumer.runtime import RuntimeHooks
-from test_runtime import Clock, SyntheticBridge
+from test_runtime import Clock
 
-
-class NativeBridge(SyntheticBridge):
-    @staticmethod
-    def publish_pending_windows(lifecycle, scope, core, **kwargs):
-        ctypes.CDLL(None).printf(b"MARKER_NATIVE\\n")  # libc stdio, deliberately never flushed
-        return SyntheticBridge.publish_pending_windows(lifecycle, scope, core, **kwargs)
-
-
-import json, os
-env = json.loads(os.environ["TICK_CHILD_ENV"])
-code = tick.main(sys.argv[1:], environ=env, clock=Clock(datetime(2026, 9, 27, 4, tzinfo=timezone.utc)),
-                 hooks=RuntimeHooks(bridge=NativeBridge()))
-sys.exit(0 if code == 0 else 1)
+component = json.loads(os.environ["TICK_COMPONENT"])
+fds_before = (os.fstat(1).st_ino, os.fstat(2).st_ino, len(os.listdir("/dev/fd")))
+code = tick.main(sys.argv[1:], environ=json.loads(os.environ["TICK_CHILD_ENV"]),
+                 clock=Clock(datetime(2026, 9, 27, 4, tzinfo=timezone.utc)), component=component or None)
+fds_after = (os.fstat(1).st_ino, os.fstat(2).st_ino, len(os.listdir("/dev/fd")))
+sys.stderr.write("FDS_SAME=%s\\n" % (fds_before == fds_after))
+sys.exit(code)
 '''
 
 
-def test_native_libc_output_does_not_reach_the_tick_stdout(tmp_path):
-    # S1 Red (R10-M1): libc stdio flushed at interpreter exit must not appear on the tick's stdout.
+def run_isolated_tick(tmp_path, item, component, env=None):
+    """Run the real ``tick.main`` in a separate Python so libc and interpreter-exit flushes are observed."""
     import subprocess
 
-    item, _ = synthetic_service(tmp_path)
-    here = Path(__file__).resolve().parent
-    env = {**base_environment(), **KEYS}
-    proc = subprocess.run(
-        [sys.executable, "-c", NATIVE_CHILD, "--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")],
-        env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{here.parent / 'src'}:{here}",
-             "TICK_CHILD_ENV": json.dumps(env)},
+    return subprocess.run(
+        [sys.executable, "-c", RUNNER, "--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")],
+        env={**child_env(), "TICK_COMPONENT": json.dumps(component),
+             "TICK_CHILD_ENV": json.dumps(env or {**base_environment(), **KEYS})},
         capture_output=True, text=True,
     )
+
+
+def test_native_libc_output_does_not_reach_the_tick_streams(tmp_path):
+    # R10-M1 (was the S1 Red): libc stdio flushed at exit, Python prints and direct fd writes are all dropped.
+    item, _ = synthetic_service(tmp_path)
+    proc = run_isolated_tick(tmp_path, item, component_for("native"))
     assert proc.returncode == 0, proc.stderr[-300:]
-    assert "MARKER_NATIVE" not in proc.stdout + proc.stderr
+    assert "MARKER_" not in proc.stdout + proc.stderr
+    lines = proc.stdout.strip().splitlines()
+    assert len(lines) == 1 and json.loads(lines[0])["status"] == "ok"
+    assert "FDS_SAME=True" in proc.stderr
+
+
+def test_native_output_before_an_exception_is_dropped_too(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    proc = run_isolated_tick(tmp_path, item, component_for("native-raise"))
+    assert proc.returncode == tick.EXIT_RUNTIME
+    assert "MARKER_" not in proc.stdout + proc.stderr
+    line = json.loads(proc.stdout.strip().splitlines()[0])
+    # cli.main maps a non-code exception message to INTERNAL_ERROR (a registered code) before the frame is built
+    assert line["code"] in {"RUNTIME_FAILED", "INTERNAL_ERROR"} and line["type"] == "RuntimeError"
+    assert "FDS_SAME=True" in proc.stderr
+
+
+def test_python_and_direct_fd_output_never_reach_the_tick(tmp_path, capfd):
+    item, mode = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    code = run_tick(tmp_path, item, "chatty", credentials_path=credentials(tmp_path, op))
+    captured = capfd.readouterr()
+    assert code == tick.EXIT_OK
+    assert "MARKER_" not in captured.out + captured.err
+    assert json.loads(captured.out.strip().splitlines()[-1])["status"] == "ok"
 
 
 GOOD_OK = {"exit": 0, "summary": {"sources": 1, "coverage_complete": True}, "code": "", "type": ""}
