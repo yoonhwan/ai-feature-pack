@@ -407,6 +407,15 @@ sel_out="$(tmm rows-cur)"
 [ "$(printf '%s\n' "$sel_out" | awk -F'\t' -v c="$first_cat" '$3!=c' | wc -l | tr -d ' ')" = 0 ] || { echo 'FAIL: (v) 선택 탭에 다른 카테고리 행이 섞임'; printf '%s\n' "$sel_out"; exit 1; }
 printf '%s\n' "$sel_out" | awk -F'\t' '{print $1}' | grep -qE '^[●○] ' || { echo 'FAIL: (v) 선택 탭에서 카테고리 열이 안 떼짐'; printf '%s\n' "$sel_out" | head -3; exit 1; }
 tmm header | sed -n '$p' | sed 's/\x1b\[[0-9;]*m//g' | grep -q "$first_cat" || { echo 'FAIL: (v) 탭 줄에 선택 카테고리 없음'; exit 1; }
+# →/← 는 Tab/S-Tab 과 같다(탭 뷰). 선택 탭이 Tab 과 같은 규칙으로 움직인다
+printf '%s\n' "$first_cat" > "$STATE/tabsel"
+ar="$(tmm arrowkey next)"; printf '%s\n' "$ar" | grep -q 'reload' && printf '%s\n' "$ar" | grep -q 'first' || { echo "FAIL: (v) → 가 Tab 과 같은 reload+first 가 아님: $ar"; exit 1; }
+nxt_sel="$(cat "$STATE/tabsel")"; printf '%s\n' "$first_cat" > "$STATE/tabsel"; tmm tabkey next >/dev/null
+[ "$nxt_sel" = "$(cat "$STATE/tabsel")" ] || { echo "FAIL: (v) → 와 Tab 의 결과 탭이 다름($nxt_sel vs $(cat "$STATE/tabsel"))"; exit 1; }
+printf '%s\n' "$nxt_sel" > "$STATE/tabsel"; tmm arrowkey prev >/dev/null; tmm_back="$(cat "$STATE/tabsel")"
+printf '%s\n' "$nxt_sel" > "$STATE/tabsel"; tmm tabkey prev >/dev/null
+[ "$tmm_back" = "$(cat "$STATE/tabsel")" ] || { echo 'FAIL: (v) ← 와 S-Tab 의 결과 탭이 다름'; exit 1; }
+printf '%s\n' "$first_cat" > "$STATE/tabsel"
 # 한 바퀴 돌면 전체로 돌아온다 (탭 수 = tabs 줄 수)
 ntab="$(wc -l < "$STATE/tabs" | tr -d ' ')"
 for _ in $(seq 2 "$ntab"); do tmm tabkey next >/dev/null; done
@@ -432,12 +441,14 @@ printf '*\n' > "$STATE/tabsel"
 tmm blabel | grep -q '탭' || { echo 'FAIL: (v) 탭 모드 상단 라벨에 「탭」 없음'; exit 1; }
 tmm onload | grep -q 'transform-header' || { echo 'FAIL: (v) 탭 모드 load 이벤트가 헤더를 안 갱신'; exit 1; }
 tmm vtab >/dev/null; [ -f "$STATE/tab" ] && { echo 'FAIL: (v) ^V 재입력이 목록으로 안 돌아옴'; exit 1; }
+[ "$(tmm arrowkey next)" = forward-char ] && [ "$(tmm arrowkey prev)" = backward-char ] || { echo 'FAIL: (v) 목록 뷰 방향키가 입력창 커서 이동(forward/backward-char)이 아님'; exit 1; }
 tmm header | grep -q 'TABX' && { echo 'FAIL: (v) 목록 복귀 후에도 탭 줄이 나옴'; exit 1; }
 tmm onload | grep -q 'transform-header' && { echo 'FAIL: (v) 목록 모드 load 이벤트가 헤더를 건드림(종료 뷰에서는 무거운 스캔)'; exit 1; }
 # 종료 뷰에는 탭이 없다 — Tab 은 원래 동작
 tmm view dead >/dev/null; tmm vtab | grep -q '탭은 좌석뷰 전용' || { echo 'FAIL: (v) 종료 뷰 ^V 안내 없음'; exit 1; }
 [ -f "$STATE/tab" ] && { echo 'FAIL: (v) 종료 뷰 ^V 가 상태를 바꿈'; exit 1; }
-: > "$STATE/tab"; [ "$(tmm tabkey next)" = 'toggle+down' ] || { echo 'FAIL: (v) 종료 뷰 Tab 이 원래 동작이 아님'; exit 1; }
+: > "$STATE/tab"; [ "$(tmm arrowkey next)" = forward-char ] || { echo 'FAIL: (v) 종료 뷰 → 가 커서 이동이 아님'; exit 1; }
+[ "$(tmm tabkey next)" = 'toggle+down' ] || { echo 'FAIL: (v) 종료 뷰 Tab 이 원래 동작이 아님'; exit 1; }
 tmm view live >/dev/null
 rm -f "$STATE/tab" "$STATE/tabsel" "$STATE/tabs"
 

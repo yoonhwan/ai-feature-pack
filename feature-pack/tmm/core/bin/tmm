@@ -29,7 +29,7 @@
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^K 좌석닫기 · ^F fork · ^Y 대화기록 경로 · ^H 대기좌석만 · ^A 전체
 #          ^T 최근순 · ^W 대기우선 · ^G 카테고리순 · ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초
 #          ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
-#          ^V 목록↔탭 뷰(검색창 위 카테고리 탭 줄, 전체는 맨 뒤) · Tab/S-Tab 다음/이전 탭(탭 뷰에서만 — 아니면 원래 Tab). 키워드는 뷰(^A/^D)별로 기억
+#          ^V 목록↔탭 뷰(검색창 위 카테고리 탭 줄, 전체는 맨 뒤) · Tab·→ / S-Tab·← 다음/이전 탭(탭 뷰에서만 — 아니면 원래 동작). 키워드는 뷰(^A/^D)별로 기억
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
 #          ^B = «지금 화면에 보이는 행 전부» 일괄 복구(필터·카테고리 적용분만, 확인 y 후, attach 없음).
@@ -475,6 +475,12 @@ cmd_tabkey() {  # next|prev
           print t[idx] }' "$RUN/tabs")"
   printf '%s\n' "$nxt" > "$RUN/tabsel"
   printf 'reload(%s rows-cur)+transform-header(%s header)+first' "$SELF" "$SELF"
+}
+# → / ← — 탭 뷰: Tab / S-Tab 과 같다(다음/이전 탭). 목록·종료 뷰는 원래 동작(입력창 커서 이동).
+#   탭 뷰에서는 입력창 안 커서 이동에 방향키를 못 쓴다(Backspace·^W 로 고친다) — 사용자 지정 2026-10-01.
+cmd_arrowkey() {  # next|prev
+  if tab_on; then cmd_tabkey "${1:-next}"
+  elif [ "${1:-next}" = next ]; then printf 'forward-char'; else printf 'backward-char'; fi
 }
 # load 이벤트 — 상단 라벨(매치수) 갱신. 탭 뷰면 방금 다시 센 탭 줄(수·⚠)도 같이.
 cmd_onload() { printf 'transform-border-label(%s blabel)' "$SELF"; tab_on && printf '+transform-header(%s header)' "$SELF"; return 0; }
@@ -1145,7 +1151,7 @@ hdr_live() {
   printf '%s %s  %s  %s  %s  %s  %s\n' "$(S 이동)" "$(K ⏎ attach)" "$(K ^S 메시지)" "$(K ^K 닫기)" "$(K ^F fork)" "$(K ^D 종료)" "$(K ^X 끝)"
   printf '%s %s  %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W 대기)" "$(K ^G 분류)" "$(K ^H 대기만)" "$(K ^A 전체)"
   printf '%s %s  %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^Y 경로)" "$(K ^/ 도움)"
-  printf '%s %s  %s\n' "$(S 탭)" "$(K ^V 목록↔탭)" "$(K Tab/S-Tab 다음/이전)"
+  printf '%s %s  %s  %s\n' "$(S 탭)" "$(K ^V 목록↔탭)" "$(K Tab/→ 다음)" "$(K S-Tab/← 이전)"
 }
 hdr_dead() {
   printf '%s %s  %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 선택복구)" "$(K ^F fork)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
@@ -1186,6 +1192,8 @@ cmd_tui() {
       --multi --expect=enter,ctrl-e,ctrl-s,ctrl-k,ctrl-f,double-click \
       --bind "tab:transform($SELF tabkey next)" \
       --bind "btab:transform($SELF tabkey prev)" \
+      --bind "right:transform($SELF arrowkey next)" \
+      --bind "left:transform($SELF arrowkey prev)" \
       --bind "ctrl-v:transform($SELF vtab)" \
       --print-query --query="$(cat "$RUN/query.$(view_now)" 2>/dev/null)" \
       --bind "ctrl-h:execute-silent($M wait h)+reload($SELF rows-cur)+change-prompt(대기> )" \
@@ -1301,6 +1309,7 @@ case "${1:-}" in
   vswitch)   cmd_vswitch "${2:-live}" "${3:-}";;     # ^A/^D 뷰 전환 (뷰별 키워드)
   vtab)      cmd_vtab;;                          # ^V 목록↔탭
   tabkey)    cmd_tabkey "${2:-next}";;           # Tab/S-Tab: 다음/이전 탭
+  arrowkey)  cmd_arrowkey "${2:-next}";;         # →/←: 탭 뷰면 Tab/S-Tab, 아니면 입력창 커서 이동
   onload)    cmd_onload;;                        # fzf load 이벤트 (라벨 + 탭 줄)
   dkey)      cmd_dkey "${2:-}" "${3:-}";;        # tmux C-a d 바인딩이 부른다 (피커 복귀/detach)
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
