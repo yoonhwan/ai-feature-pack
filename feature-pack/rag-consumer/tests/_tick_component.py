@@ -79,6 +79,8 @@ def hooks_for(mode: str):
                 sys.stderr.write("MARKER_HUGE_RAW" * 350_000)
             if mode == "envname":
                 raise RuntimeError("OP_SERVICE_ACCOUNT_TOKEN")
+            if mode == "declared":
+                raise RuntimeError("SYMLINK_PATH_REJECTED")  # a code the sources declare
             if mode in ("fork-descendant", "fork-descendant-chatty"):
                 fork_descendant(chatty=mode.endswith("chatty"))
             if mode == "env-probe":

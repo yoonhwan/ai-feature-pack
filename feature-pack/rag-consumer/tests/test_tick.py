@@ -754,3 +754,18 @@ def test_default_command_runs_the_pass_child_module(tmp_path, monkeypatch):
     monkeypatch.undo()
     assert subprocess.run([sys.executable, "-c", "import airag_consumer._pass_child"],
                           env=child_env(), check=False).returncode == 0
+
+
+def test_an_environment_variable_name_is_not_reported_as_a_code(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "envname", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, written = tick_line(tmp_path, capsys)
+    assert line["code"] == "RUNTIME_FAILED" and line["type"] == "RuntimeError"
+    assert "OP_SERVICE_ACCOUNT_TOKEN" not in written
+
+
+def test_a_declared_reason_code_is_kept(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "declared", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, _ = tick_line(tmp_path, capsys)
+    assert line["code"] == "SYMLINK_PATH_REJECTED"
