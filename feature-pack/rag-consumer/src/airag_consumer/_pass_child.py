@@ -1,0 +1,108 @@
+"""One consumer pass in its own process, so nothing a component prints can reach the tick's streams.
+
+Protocol (the tick is the parent): the three store keys arrive as one JSON object on stdin; the parent's
+stdout is an anonymous result file, which is duplicated and then kept private while fds 1 and 2 are
+permanently pointed at /dev/null *before* any component code is imported. The only thing written to the
+result file is one sanitized frame (see ``_result``). Exit 0 = frame delivered, 2 = protocol failure,
+3 = frame too large.
+"""
+
+from __future__ import annotations
+
+import argparse
+import io
+import json
+import os
+import sys
+from typing import Sequence
+
+from . import _result
+from .tick import NAMES
+
+_STDIN_LIMIT = 64 * 1024
+_KEY_HEX = 64
+
+
+def _read_keys() -> dict[str, str] | None:
+    raw = sys.stdin.buffer.read(_STDIN_LIMIT + 1)
+    if len(raw) > _STDIN_LIMIT:
+        return None
+    try:
+        keys = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(keys, dict) or set(keys) != set(NAMES):
+        return None
+    values = []
+    for name in NAMES:
+        value = keys[name]
+        if not isinstance(value, str) or len(value) != _KEY_HEX:
+            return None
+        try:
+            values.append(bytes.fromhex(value))
+        except ValueError:
+            return None
+    if len(set(values)) != len(NAMES):
+        return None
+    return keys
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError("result write incomplete")
+        view = view[written:]
+
+
+def child_main(argv: Sequence[str] | None = None, *, hooks: object | None = None) -> int:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--config", required=True)
+    try:
+        args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
+    except SystemExit:
+        return 2
+    keys = _read_keys()
+    if keys is None:
+        return 2
+    try:
+        result_fd = os.dup(1)
+        null = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(null, 1)
+        os.dup2(null, 2)
+        os.close(null)
+    except OSError:
+        return 2
+    # From here on fds 1 and 2 are /dev/null for good; component imports and output go there.
+    stdout_buffer, stderr_buffer = io.StringIO(), io.StringIO()
+    try:
+        from .cli import main as cli_main
+
+        environ = {**os.environ, **keys}
+        code = cli_main(
+            ["--config", args.config, "run", "--once"], environ=environ, hooks=hooks,
+            stdout=stdout_buffer, stderr=stderr_buffer,
+        )
+    except BaseException as error:
+        code = 2
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO(json.dumps(
+            {"ok": False, "error": {"code": "RUNTIME_FAILED", "type": type(error).__name__}},
+        ))
+    frame = _result.build_frame(code, stdout_buffer.getvalue(), stderr_buffer.getvalue())
+    payload = json.dumps(frame, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    if len(payload) > _result.RESULT_MAX_BYTES:
+        os.close(result_fd)
+        return 3
+    try:
+        _write_all(result_fd, payload)
+    except OSError:
+        return 2
+    finally:
+        os.close(result_fd)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(child_main())

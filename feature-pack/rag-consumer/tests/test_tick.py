@@ -511,3 +511,48 @@ def test_frame_building_keeps_only_whitelisted_numbers_and_reason_codes():
     assert _result.build_frame(0, "not json", "")["code"] == "RUNTIME_OUTPUT_INVALID"
     assert _result.build_frame(0, json.dumps({"ok": True, "data": "text"}), "")["code"] == "RUNTIME_OUTPUT_INVALID"
     assert all(_result.validate_frame(f) == f for f in (ok, failed))
+
+
+COMPONENT = Path(__file__).resolve().parent / "_tick_component.py"
+
+
+def child_env():
+    src = Path(__file__).resolve().parents[1] / "src"
+    return {**{k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "TMPDIR")},
+            "PYTHONPATH": f"{src}:{COMPONENT.parent}"}
+
+
+def run_child(mode, config, stdin_text, tmp_path):
+    import subprocess
+
+    out = tmp_path / "child-result.bin"
+    with out.open("wb") as result:
+        proc = subprocess.run(
+            [sys.executable, str(COMPONENT), mode, "--config", str(config)], input=stdin_text,
+            text=True, stdout=result, stderr=subprocess.DEVNULL, env=child_env(), check=False,
+        )
+    return proc.returncode, out.read_bytes()
+
+
+def test_child_protocol_writes_exactly_one_value_free_frame(tmp_path):
+    from airag_consumer import _result
+
+    item, _ = synthetic_service(tmp_path)
+    code, data = run_child("normal", item["config"], json.dumps(KEYS), tmp_path)
+    assert code == 0 and data.count(b"\n") == 0
+    frame = _result.validate_frame(json.loads(data))
+    assert frame is not None and frame["exit"] == 0 and frame["summary"]["accepted"] >= 1
+    assert not any(v.encode() in data for v in KEYS.values())
+
+
+@pytest.mark.parametrize("stdin_value", [
+    "not json", "[]", json.dumps({k: v for k, v in KEYS.items() if k != "AIRAG_ARCHIVE_KEY_HEX"}),
+    json.dumps({**KEYS, "EXTRA": "x"}), json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": 5}),
+    json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": "zz" * 32}),
+    json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": KEYS["AIRAG_CONSUMER_KEY_HEX"]}),
+    "x" * (64 * 1024 + 2),
+])
+def test_child_rejects_bad_stdin_without_any_result(tmp_path, stdin_value):
+    item, _ = synthetic_service(tmp_path)
+    code, data = run_child("normal", item["config"], stdin_value, tmp_path)
+    assert code == 2 and data == b""
