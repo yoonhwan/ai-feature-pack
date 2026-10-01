@@ -515,3 +515,242 @@ def test_tick_parent_never_imports_the_component_stack():
     proc = subprocess.run([sys.executable, "-c", probe], env=child_env(), capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr[-300:]
     assert proc.stdout.strip() == "[]"
+
+
+# --- S4: process-isolation tests (synthetic components only) -------------------------------------------------
+
+def keyed_env(**extra):
+    return {**base_environment(), **KEYS, **extra}
+
+
+def tick_line(tmp_path, capsys):
+    written = everything_written(tmp_path, capsys)
+    return json.loads(written.strip().splitlines()[0]), written
+
+
+def spy_component_run(monkeypatch, capture=None):
+    """Record every ``subprocess.run`` the tick makes, then really run it; ``capture`` sees the result file."""
+    import subprocess
+
+    calls = []
+    real = subprocess.run
+
+    def run(argv, **kwargs):
+        calls.append((list(argv), kwargs))
+        proc = real(argv, **kwargs)
+        if capture is not None and "--config" in argv:
+            capture(kwargs["stdout"])
+        return proc
+
+    monkeypatch.setattr(subprocess, "run", run)
+    return calls
+
+
+@pytest.mark.parametrize("mode", ["normal", "native-raise", "missing"])
+def test_tick_fds_are_untouched_on_every_path(tmp_path, mode):
+    item, _ = synthetic_service(tmp_path)
+    component = ["/nonexistent/python"] if mode == "missing" else component_for(mode)
+    proc = run_isolated_tick(tmp_path, item, component)
+    assert proc.returncode == (0 if mode == "normal" else tick.EXIT_RUNTIME)
+    assert "FDS_SAME=True" in proc.stderr and "MARKER_" not in proc.stdout + proc.stderr
+
+
+def test_keys_reach_the_child_on_stdin_only(tmp_path, monkeypatch):
+    import subprocess
+
+    item, _ = synthetic_service(tmp_path)
+    calls = spy_component_run(monkeypatch)
+    assert run_tick(tmp_path, item, "normal", env=keyed_env()) == tick.EXIT_OK
+    argv, kwargs = next(c for c in calls if "--config" in c[0])
+    assert not any(name in kwargs["env"] for name in KEYS)
+    assert not any(value in " ".join(argv) for value in KEYS.values())
+    assert json.loads(kwargs["input"]) == KEYS
+    assert not kwargs.get("pass_fds")
+    assert kwargs["stdout"] is not subprocess.PIPE and hasattr(kwargs["stdout"], "fileno")
+    assert kwargs["stderr"] == subprocess.DEVNULL and kwargs["close_fds"] is True
+
+
+def test_keys_are_not_in_the_component_or_its_grandchild_environment(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    marker = tmp_path / "marker.json"
+    assert run_tick(tmp_path, item, "env-probe", env=keyed_env(TICK_MARKER=str(marker))) == tick.EXIT_OK
+    assert json.loads(marker.read_text()) == {"own_has_names": False, "grandchild_has_names": False}
+
+
+@pytest.mark.parametrize("mode,code", [
+    ("bad-protocol", "RUNTIME_OUTPUT_INVALID"), ("bad-protocol-large", "RUNTIME_OUTPUT_INVALID"),
+    ("oversize-frame", "RUNTIME_OUTPUT_INVALID"), ("forged-frame", "RUNTIME_OUTPUT_INVALID"),
+    ("forged-extra-key", "RUNTIME_OUTPUT_INVALID"), ("crash", "COMPONENT_PROCESS_FAILED"),
+])
+def test_protocol_violations_are_static_codes_only(tmp_path, capsys, mode, code):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, mode, env=keyed_env()) == tick.EXIT_RUNTIME
+    line, written = tick_line(tmp_path, capsys)
+    assert line["code"] == code and "type" not in line
+    assert not any(text in written for text in ("MARKER_", "ZZ_FORGED_CODE", "not json"))
+
+
+def test_an_oversized_result_is_rejected_without_reading_it(tmp_path, monkeypatch, capsys):
+    item, _ = synthetic_service(tmp_path)
+    reads = []
+
+    class Spy:
+        def __init__(self, real):
+            self._real = real
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+        def __enter__(self):
+            self._real.__enter__()
+            return self
+
+        def __exit__(self, *exc):
+            return self._real.__exit__(*exc)
+
+        def read(self, *args):
+            reads.append(args)
+            return self._real.read(*args)
+
+    real = tick.tempfile.TemporaryFile
+    monkeypatch.setattr(tick.tempfile, "TemporaryFile", lambda **kw: Spy(real(**kw)))
+    assert run_tick(tmp_path, item, "bad-protocol-large", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, _ = tick_line(tmp_path, capsys)
+    assert line["code"] == "RUNTIME_OUTPUT_INVALID" and reads == []
+
+
+def test_child_exits_3_and_writes_nothing_when_its_frame_would_be_oversized(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    code, data = run_child("oversize-frame", item["config"], json.dumps(KEYS), tmp_path)
+    assert code == 3 and data == b""
+
+
+@pytest.mark.parametrize("mode", ["keylike", "short", "chatty", "huge-raw", "body-in-output", "normal"])
+def test_raw_component_output_is_never_persisted_in_the_result_file(tmp_path, monkeypatch, mode):
+    from airag_consumer import _result
+
+    item, _ = synthetic_service(tmp_path)
+    captured = []
+    spy_component_run(monkeypatch, lambda f: captured.append(os.pread(f.fileno(), 1 << 20, 0)))
+    run_tick(tmp_path, item, mode, env=keyed_env())
+    data = captured[0]
+    text = data.decode("utf-8", "replace").lower()
+    assert 0 < len(data) <= _result.RESULT_MAX_BYTES
+    frame = _result.validate_frame(json.loads(data))
+    assert frame is not None and set(frame) == {"exit", "summary", "code", "type"}
+    assert not any(value.lower() in text for value in KEYS.values())
+    assert not any(bad.lower() in text for bad in (KEYLIKE, "MARKER_", "/synthetic/path"))
+
+
+def test_parent_rejects_a_forged_frame_even_when_the_schema_fits(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "forged-frame", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, written = tick_line(tmp_path, capsys)
+    assert line["code"] == "RUNTIME_OUTPUT_INVALID" and "ZZ_FORGED_CODE" not in written
+
+
+def wait_for(path, seconds=10):
+    import time
+
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def test_a_forked_descendant_neither_delays_the_tick_nor_holds_the_lock(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    marker = tmp_path / "marker.json"
+    env = keyed_env(TICK_MARKER=str(marker))
+    assert run_tick(tmp_path, item, "fork-descendant", env=env) == tick.EXIT_OK
+    assert not marker.exists()  # the grandchild is still sleeping: the tick did not wait for it
+    # The tick lock is the parent's alone, so the next tick is never "skipped". (A descendant forked mid-pass
+    # still shares the runtime's own project lock, so that tick may report PROJECT_BUSY until it exits.)
+    assert run_tick(tmp_path, item, "normal", env=env) != tick.EXIT_SKIPPED
+    assert wait_for(marker, 20)
+
+
+def test_a_descendant_holding_the_result_file_sees_only_a_value_free_frame(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    marker = tmp_path / "marker.json"
+    assert run_tick(tmp_path, item, "fork-descendant", env=keyed_env(TICK_MARKER=str(marker))) == tick.EXIT_OK
+    assert wait_for(marker, 20)
+    import time
+
+    time.sleep(0.2)  # the grandchild writes the marker in one call; give it a moment to finish
+    assert json.loads(marker.read_text()) == {"alive_nlink0": True, "value_free": True}
+
+
+def test_descendant_stream_output_does_not_reach_the_tick(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    proc = run_isolated_tick(tmp_path, item, component_for("fork-descendant-chatty"),
+                             env=keyed_env(TICK_MARKER=str(tmp_path / "marker.json")))
+    assert proc.returncode == 0 and "MARKER_DESC" not in proc.stdout + proc.stderr
+    assert wait_for(tmp_path / "marker.json", 20)  # let the grandchild finish so nothing outlives the test
+
+
+def test_cli_is_imported_only_after_fds_1_and_2_are_devnull(tmp_path):
+    import subprocess
+
+    item, _ = synthetic_service(tmp_path)
+    marker = tmp_path / "marker.json"
+    with (tmp_path / "out.bin").open("wb") as result:
+        subprocess.run(
+            [sys.executable, str(COMPONENT), "import-probe", "--config", str(item["config"])],
+            input=json.dumps(KEYS), text=True, stdout=result, stderr=subprocess.DEVNULL,
+            env={**child_env(), "TICK_MARKER": str(marker)}, check=False,
+        )
+    assert json.loads(marker.read_text()) == {"fds_are_devnull": True}
+
+
+def test_unavailable_component_is_a_static_code_and_releases_the_lock(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    args = ["--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")]
+    code = tick.main(args, environ=keyed_env(), clock=Clock(NOW), component=["/nonexistent/python"])
+    line, _ = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_RUNTIME and line["code"] == "COMPONENT_PROCESS_UNAVAILABLE"
+    fd = os.open(tmp_path / "logs" / "tick.lock", os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # raises if the tick left the lock held
+    finally:
+        os.close(fd)
+
+
+def test_child_import_failure_is_a_static_code_without_a_traceback(tmp_path, capfd):
+    item, _ = synthetic_service(tmp_path)
+    args = ["--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")]
+    code = tick.main(args, environ=keyed_env(), clock=Clock(NOW))  # default command, no PYTHONPATH
+    captured = capfd.readouterr()
+    assert code == tick.EXIT_RUNTIME
+    assert json.loads(captured.out.strip().splitlines()[0])["code"] == "COMPONENT_PROCESS_FAILED"
+    assert "Traceback" not in captured.out + captured.err
+
+
+def test_held_lock_skips_before_any_component_is_started(tmp_path, monkeypatch):
+    item, _ = synthetic_service(tmp_path)
+    (tmp_path / "logs").mkdir(mode=0o700)
+    held = os.open(tmp_path / "logs" / "tick.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(held, fcntl.LOCK_EX)
+    calls = spy_component_run(monkeypatch)
+    try:
+        assert run_tick(tmp_path, item, "normal", env=keyed_env()) == tick.EXIT_SKIPPED
+    finally:
+        os.close(held)
+    assert calls == []
+
+
+def test_default_command_runs_the_pass_child_module(tmp_path, monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    item, _ = synthetic_service(tmp_path)
+    seen = []
+    monkeypatch.setattr(subprocess, "run", lambda argv, **kw: seen.append(list(argv)) or SimpleNamespace(returncode=1))
+    args = ["--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")]
+    tick.main(args, environ=keyed_env(), clock=Clock(NOW))
+    assert seen[0][:3] == [sys.executable, "-m", "airag_consumer._pass_child"]
+    monkeypatch.undo()
+    assert subprocess.run([sys.executable, "-c", "import airag_consumer._pass_child"],
+                          env=child_env(), check=False).returncode == 0
