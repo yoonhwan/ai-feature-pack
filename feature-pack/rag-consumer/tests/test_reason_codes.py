@@ -156,3 +156,49 @@ def test_a_method_call_on_another_receiver_with_conflicting_definitions_is_ambig
 def test_an_unambiguous_name_defined_in_another_module_still_binds():
     sources = {"reason.py": CODE_MODULE, "caller.py": 'from reason import _identifier\n_identifier(v, "WW_CODE")\n'}
     assert kind_of_value(sources, "caller.py", "WW_CODE") == "declaration"
+
+
+# --- R14-m1: same-named classes (constructor bindings) must not overwrite each other ----------------------
+
+CHOICE_DATA = 'class Choice:\n    def __init__(self, field): ...\nChoice("PATH")\n'
+CHOICE_REASON = 'class Choice:\n    def __init__(self, code): ...\nChoice("VALID_CODE")\n'
+
+
+def kinds_by_place(sources: dict[str, str]) -> dict[tuple[str, str], str]:
+    return {(o.path, o.value): o.kind for o in regen.scan(sources)}
+
+
+@pytest.mark.parametrize("order", [("data.py", "reason.py"), ("reason.py", "data.py")])
+def test_same_named_classes_keep_their_own_constructor_binding_in_any_file_order(order):
+    files = {"data.py": CHOICE_DATA, "reason.py": CHOICE_REASON}
+    sources = {name: files[name] for name in order}
+    kinds = kinds_by_place(sources)
+    assert kinds[("reason.py", "VALID_CODE")] == "declaration"
+    assert kinds[("data.py", "PATH")] != "declaration"
+    assert "PATH" not in regen.classify(regen.scan(sources), {}).registry
+
+
+def test_class_collision_result_does_not_depend_on_file_order():
+    files = {"data.py": CHOICE_DATA, "reason.py": CHOICE_REASON,
+             "caller.py": 'from reason import Choice\nChoice("ZZ_CODE")\n'}
+    forward = kinds_by_place(dict(files))
+    backward = kinds_by_place(dict(reversed(list(files.items()))))
+    assert forward == backward
+    assert forward[("caller.py", "ZZ_CODE")] == "structural"  # imported name, conflicting definitions: a person decides
+
+
+@pytest.mark.parametrize("flip", [False, True])
+def test_a_subclass_of_a_base_name_defined_twice_is_ambiguous_in_any_order(flip):
+    files = {
+        "a.py": 'class Base:\n    def __init__(self, code): ...\n',
+        "b.py": 'class Base:\n    def __init__(self, field): ...\n',
+        "c.py": 'class Child(Base): ...\nChild("QQ_CODE")\n',
+    }
+    items = list(files.items())
+    kinds = kinds_by_place(dict(reversed(items) if flip else items))
+    assert kinds[("c.py", "QQ_CODE")] == "structural"
+
+
+def test_an_exception_subclass_of_a_package_base_still_reports_its_message_as_the_code():
+    sources = {"e.py": 'class AppError(Exception): ...\nclass Narrow(AppError): ...\nNarrow("EE_CODE")\n'}
+    assert kinds_by_place(sources)[("e.py", "EE_CODE")] == "declaration"
