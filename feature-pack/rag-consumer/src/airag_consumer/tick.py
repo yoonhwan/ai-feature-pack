@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import fcntl
 import io
@@ -18,6 +19,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -36,14 +38,17 @@ LOG_MAX_BYTES = 1_000_000
 LOG_KEEP_DAYS = 14
 _KEY = re.compile(r"[0-9a-fA-F]{64}")
 _CODE = re.compile(r"[A-Z][A-Z0-9_]{1,100}")
+_TYPE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,60}")
+# The only environment an `op` child gets besides the service-account token.
+OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
 
 
 class TickError(Exception):
     """Carries an exit code and a value-free reason code."""
 
-    def __init__(self, exit_code: int, code: str):
+    def __init__(self, exit_code: int, code: str, kind: str = ""):
         super().__init__(code)
-        self.exit_code, self.code = exit_code, code
+        self.exit_code, self.code, self.kind = exit_code, code, kind
 
 
 class _Parser(argparse.ArgumentParser):
@@ -89,11 +94,7 @@ def load_keys(environment: dict[str, str], credentials: Path | None) -> None:
             raise TickError(EXIT_KEYS, "OP_SERVICE_ACCOUNT_UNAVAILABLE") from None
         if not token:
             raise TickError(EXIT_KEYS, "OP_SERVICE_ACCOUNT_TOKEN_EMPTY")
-        child = {
-            k: v for k, v in environment.items()
-            if not (k in NAMES or k.startswith("OP_SESSION_")
-                    or k in ("OP_CONNECT_TOKEN", "OP_CONNECT_HOST", "OP_SERVICE_ACCOUNT_TOKEN"))
-        }
+        child = {name: environment[name] for name in OP_ENV_ALLOWLIST if name in environment}
         child["OP_SERVICE_ACCOUNT_TOKEN"] = token
 
         def read(name: str) -> tuple[str, str]:
@@ -116,19 +117,41 @@ def load_keys(environment: dict[str, str], credentials: Path | None) -> None:
     environment.update(fetched)
 
 
+def _open_regular(path: Path, flags: int) -> int:
+    """Open without following a final symlink, never block on special files, and require a regular file."""
+    fd = os.open(path, flags | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise OSError("not a regular file")
+    return fd
+
+
 def append_log(log_dir: Path, now: datetime, line: str) -> None:
-    """Append one line to today's log; cap its size (one rotated copy) and drop old days."""
+    """Append one line to today's log, rotating first if it would pass the size cap; drop old days."""
     day = now.astimezone(timezone.utc).strftime("%Y%m%d")
     target = log_dir / f"tick-{day}.log"
-    if target.exists() and target.stat().st_size > LOG_MAX_BYTES:
-        os.replace(target, log_dir / f"tick-{day}.log.1")
-    with target.open("a", encoding="utf-8") as stream:
-        stream.write(line + "\n")
+    data = (line + "\n").encode("utf-8")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
+    fd = _open_regular(target, flags)
+    try:
+        size = os.fstat(fd).st_size
+        if size > 0 and size + len(data) > LOG_MAX_BYTES:
+            os.close(fd)
+            fd = -1
+            os.replace(target, log_dir / f"tick-{day}.log.1")
+            fd = _open_regular(target, flags)
+        os.write(fd, data)
+    finally:
+        if fd >= 0:
+            os.close(fd)
     oldest = (now.astimezone(timezone.utc) - timedelta(days=LOG_KEEP_DAYS)).strftime("%Y%m%d")
     for path in log_dir.glob("tick-????????.log*"):
         stamp = path.name[5:13]
         if stamp.isdigit() and stamp < oldest:
-            path.unlink(missing_ok=True)
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _counts(data: Mapping[str, object]) -> dict[str, object]:
@@ -168,12 +191,42 @@ def _counts(data: Mapping[str, object]) -> dict[str, object]:
     return summary
 
 
-def _error_code(stream: str) -> str:
-    try:
-        code = json.loads(stream.strip().splitlines()[-1])["error"]["code"]
-    except (ValueError, KeyError, IndexError, TypeError):
+def _safe_code(value: object) -> str:
+    """A reason code only if its shape cannot carry a secret: short words, no long hex run."""
+    if not isinstance(value, str) or _CODE.fullmatch(value) is None:
         return "RUNTIME_FAILED"
-    return code if isinstance(code, str) and _CODE.fullmatch(code) else "RUNTIME_FAILED"
+    if any(len(word) > 24 for word in value.split("_")) or re.search(r"[0-9A-F]{16}", value.replace("_", "")):
+        return "RUNTIME_FAILED"
+    return value
+
+
+def _error_fields(stream: str) -> tuple[str, str]:
+    try:
+        error = json.loads(stream.strip().splitlines()[-1])["error"]
+    except (ValueError, KeyError, IndexError, TypeError):
+        return "RUNTIME_FAILED", ""
+    kind = error.get("type") if isinstance(error, dict) else None
+    kind = kind if isinstance(kind, str) and _TYPE.fullmatch(kind) and not re.search(r"[0-9a-fA-F]{16}", kind) else ""
+    return _safe_code(error.get("code") if isinstance(error, dict) else None), kind
+
+
+@contextmanager
+def _discard_component_output():
+    """Whatever components print during the pass is dropped, at the Python and the file-descriptor level."""
+    sys.stdout.flush()
+    sys.stderr.flush()
+    saved = [os.dup(1), os.dup(2)]
+    null = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(null, 1)
+        os.dup2(null, 2)
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            yield
+    finally:
+        for number, fd in zip((1, 2), saved):
+            os.dup2(fd, number)
+            os.close(fd)
+        os.close(null)
 
 
 def main(
@@ -186,7 +239,7 @@ def main(
     now = clock()
     log_dir: Path | None = None
     summary: dict[str, object] = {}
-    code = ""
+    code = kind = ""
     exit_code = EXIT_INTERNAL
     try:
         args = _parser().parse_args(list(sys.argv[1:] if argv is None else argv))
@@ -194,10 +247,16 @@ def main(
         config = Path(args.config).expanduser()
         if not config.is_file():
             raise TickError(EXIT_CONFIG, "CONFIG_FILE_UNAVAILABLE")
-        log_dir.mkdir(parents=True, exist_ok=True)
-        with (log_dir / "tick.lock").open("a") as lock:
+        log_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if log_dir.is_symlink() or not log_dir.is_dir():
+            raise TickError(EXIT_CONFIG, "LOG_DIR_UNSAFE")
+        try:
+            lock_fd = _open_regular(log_dir / "tick.lock", os.O_RDWR | os.O_CREAT)
+        except OSError:
+            raise TickError(EXIT_CONFIG, "LOCK_FILE_UNSAFE") from None
+        try:
             try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise TickError(EXIT_SKIPPED, "PREVIOUS_TICK_RUNNING") from None
             environment = dict(os.environ if environ is None else environ)
@@ -206,12 +265,14 @@ def main(
 
             stdout_buffer, stderr_buffer = io.StringIO(), io.StringIO()
             started = time.monotonic()
-            result = cli_main(
-                ["--config", str(config), "run", "--once"], environ=environment, hooks=hooks,
-                stdout=stdout_buffer, stderr=stderr_buffer,
-            )
+            with _discard_component_output():
+                result = cli_main(
+                    ["--config", str(config), "run", "--once"], environ=environment, hooks=hooks,
+                    stdout=stdout_buffer, stderr=stderr_buffer,
+                )
             if result != 0:
-                raise TickError(EXIT_RUNTIME, _error_code(stderr_buffer.getvalue()))
+                reason, kind = _error_fields(stderr_buffer.getvalue())
+                raise TickError(EXIT_RUNTIME, reason, kind)
             try:
                 data = json.loads(stdout_buffer.getvalue())["data"]
             except (ValueError, KeyError, TypeError):
@@ -219,13 +280,16 @@ def main(
             summary = _counts(data if isinstance(data, dict) else {})
             summary["pass_elapsed_s"] = round(time.monotonic() - started, 3)
             exit_code = EXIT_OK
+        finally:
+            os.close(lock_fd)
     except TickError as error:
-        exit_code, code = error.exit_code, error.code
+        exit_code, code, kind = error.exit_code, error.code, error.kind
     except Exception as error:  # type only: messages may carry values
         exit_code, code = EXIT_INTERNAL, type(error).__name__
     line = json.dumps({
         "ts": now.astimezone(timezone.utc).isoformat(), "status": STATUS[exit_code], "exit": exit_code,
-        **({"code": code} if code else {}), **({"summary": summary} if summary else {}),
+        **({"code": code} if code else {}), **({"type": kind} if kind else {}),
+        **({"summary": summary} if summary else {}),
     }, sort_keys=True, separators=(",", ":"))
     out.write(line + "\n")
     if log_dir is not None:

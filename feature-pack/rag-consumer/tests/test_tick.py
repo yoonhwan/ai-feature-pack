@@ -8,6 +8,7 @@ from pathlib import Path
 import plistlib
 import re
 import stat
+import sys
 
 import pytest
 
@@ -232,3 +233,101 @@ def test_first_pass_summary_carries_collection_progress_and_memory_observations(
     assert isinstance(summary["pass_elapsed_s"], float) and summary["pass_elapsed_s"] >= 0
     assert "Prefer concise answers" not in written and "fix worked" not in written  # no memory text
     assert no_key_text(written)
+
+
+KEYLIKE = "AB" * 32  # a code-shaped, key-shaped string: uppercase hex that passes naive code regexes
+
+
+class RaisingBridge(SyntheticBridge):
+    @staticmethod
+    def publish_pending_windows(lifecycle, scope, core, **_kwargs):
+        raise RuntimeError(KEYLIKE)
+
+
+class ChattyBridge(SyntheticBridge):
+    @staticmethod
+    def publish_pending_windows(lifecycle, scope, core, **kwargs):
+        print("MARKER_BODY_PRINT")
+        sys.stderr.write("MARKER_QUOTE_STDERR\n")
+        os.write(1, b"MARKER_FD_STDOUT\n")
+        os.write(2, b"MARKER_FD_STDERR\n")
+        return SyntheticBridge.publish_pending_windows(lifecycle, scope, core, **kwargs)
+
+
+def test_key_shaped_error_text_never_reaches_output_or_log(tmp_path, capsys):
+    # R8-M1: an error message that looks like a code must not be trusted as one.
+    item, _ = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    code = run_tick(tmp_path, item, RuntimeHooks(bridge=RaisingBridge()), credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    line = json.loads(written.strip().splitlines()[0])
+    assert code == tick.EXIT_RUNTIME and line["status"] == "runtime_error"
+    assert KEYLIKE.lower() not in written.lower() and no_key_text(written.lower())
+    assert line["code"] == "RUNTIME_FAILED" and line["type"] == "RuntimeError"
+
+
+def test_component_output_is_discarded_at_process_level(tmp_path, capfd):
+    # R8-M1: whatever a component prints during the pass must not reach launchd's stdout/stderr.
+    item, _ = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    code = run_tick(tmp_path, item, RuntimeHooks(bridge=ChattyBridge()), credentials_path=credentials(tmp_path, op))
+    captured = capfd.readouterr()
+    assert code == tick.EXIT_OK
+    assert "MARKER_" not in captured.out + captured.err
+    assert json.loads(captured.out.strip().splitlines()[-1])["status"] == "ok"
+
+
+def test_symlinked_log_or_lock_is_refused_and_new_files_are_private(tmp_path, capsys):
+    # R8-M2
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("untouched\n", encoding="utf-8")
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "tick-20260927.log").symlink_to(outside)
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op)) == tick.EXIT_OK
+    assert outside.read_text() == "untouched\n"
+    assert "log_write_failed" in capsys.readouterr().err
+    (logs / "tick-20260927.log").unlink()
+    (logs / "tick.lock").unlink()
+    (logs / "tick.lock").symlink_to(outside)
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op)) == tick.EXIT_CONFIG
+    assert outside.read_text() == "untouched\n"
+    (logs / "tick.lock").unlink()
+    fresh = tmp_path / "fresh-logs"
+    previous = os.umask(0)
+    try:
+        assert tick.main(["--config", str(item["config"]), "--log-dir", str(fresh), "--credentials",
+                          str(credentials(tmp_path, op))], environ=base_environment(), clock=Clock(NOW),
+                         hooks=hooks) == tick.EXIT_OK
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE(fresh.stat().st_mode) == 0o700
+    assert {stat.S_IMODE(p.stat().st_mode) for p in fresh.glob("tick*")} == {0o600}
+
+
+def test_log_is_rotated_before_a_line_would_cross_the_cap(tmp_path):
+    # R8-m1
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    today = logs / "tick-20260927.log"
+    today.write_text("x" * tick.LOG_MAX_BYTES, encoding="utf-8")
+    tick.append_log(logs, NOW, "{}")
+    assert (logs / "tick-20260927.log.1").stat().st_size == tick.LOG_MAX_BYTES
+    assert today.read_text() == "{}\n"
+
+
+def test_op_child_environment_is_an_allowlist(tmp_path):
+    # R8-m2
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    seen = tmp_path / "op-env-names.txt"
+    op.write_text(op.read_text().replace('echo "$2" >> ', f'env | sed "s/=.*//" >> "{seen}"\necho "$2" >> ', 1))
+    env = {**base_environment(), "OTHER_RUNTIME_KEY_HEX": "ab" * 32, "OP_EXTRA_SECRET": "x",
+           "SOME_API_TOKEN": "y", "OP_SESSION_demo": "z", "HOME": str(tmp_path)}
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=env) == tick.EXIT_OK
+    names = set(seen.read_text().split())
+    assert {"PATH", "HOME", "OP_SERVICE_ACCOUNT_TOKEN"} <= names
+    assert not names & {"OTHER_RUNTIME_KEY_HEX", "OP_EXTRA_SECRET", "SOME_API_TOKEN", "OP_SESSION_demo",
+                        "AIRAG_MEMORY_API_KEY", "AIRAG_PROFILE_SOURCE_KEY_HEX"}
