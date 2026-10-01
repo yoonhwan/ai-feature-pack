@@ -475,6 +475,9 @@ _SCHEMA = (
             ('pending_materialization','awaiting_confirmation','unverified','conflict','materialized','rejected')),
         memory_id TEXT,
         reason_code TEXT)""",
+    """CREATE TABLE IF NOT EXISTS airag_memory_verification_cursor (
+        lineage_id TEXT PRIMARY KEY,
+        last_batch_ordinal INTEGER NOT NULL CHECK(last_batch_ordinal >= 0))""",
     """CREATE TABLE IF NOT EXISTS airag_memory_failure_policy (
         extraction_id TEXT PRIMARY KEY REFERENCES airag_memory_extractions(extraction_id),
         retryable INTEGER NOT NULL CHECK(retryable IN (0,1)))""",
@@ -715,9 +718,21 @@ def _unverified_batch(connection: Any, lineage_id: str) -> _Batch | None:
            WHERE b.lineage_id=? AND e.state='complete' AND EXISTS (
                SELECT 1 FROM airag_memory_candidates c
                WHERE c.extraction_id=e.extraction_id AND c.disposition='unverified')
-           ORDER BY b.batch_ordinal LIMIT 1""", (lineage_id,),
+           ORDER BY b.batch_ordinal <= COALESCE((
+               SELECT last_batch_ordinal FROM airag_memory_verification_cursor
+               WHERE lineage_id=b.lineage_id), -1),
+               b.batch_ordinal LIMIT 1""", (lineage_id,),
     ).fetchone()
-    return None if row is None else _batch_from_row(row)
+    if row is None:
+        return None
+    batch = _batch_from_row(row)
+    with _transaction(connection):
+        connection.execute(
+            """INSERT INTO airag_memory_verification_cursor VALUES (?,?)
+               ON CONFLICT(lineage_id) DO UPDATE SET last_batch_ordinal=excluded.last_batch_ordinal""",
+            (lineage_id, batch.ordinal),
+        )
+    return batch
 
 
 def _has_unassigned(

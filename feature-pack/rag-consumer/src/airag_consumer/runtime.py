@@ -32,6 +32,7 @@ from .events import AccessScope
 from .ledger import Ledger, open_ledger
 from .lifecycle import AuthenticatedScope, Lifecycle
 from .operations import (
+    ArchiveSource,
     DatabaseSource,
     KEY_NAMES,
     backup_due,
@@ -900,12 +901,8 @@ class AIRAGRuntime:
                 if ledger.checkpoint(normalized_source) != normalized_offset:
                     _error("RESTORED_COLLECTOR_CHECKPOINT_MISMATCH")
 
-    def _restore_link_check(
-        self, archive_components: Mapping[str, dict[str, object]],
-    ) -> Callable[[Mapping[str, Path], datetime], None]:
+    def _restore_link_check(self) -> Callable[[Mapping[str, Path], datetime], None]:
         def check(restored: Mapping[str, Path], current_now: datetime) -> None:
-            if set(restored) != {"consumer", "projection", *archive_components}:
-                _error("RESTORED_COMPONENT_SET_MISMATCH")
             restored_ledger = open_ledger(restored["consumer"], self.keys["consumer_ledger"])
             try:
                 self._verify_ledger_links(restored_ledger)
@@ -918,6 +915,11 @@ class AIRAGRuntime:
                 restored_state = restored_lifecycle.refresh(self.config.scope)
                 if not restored_state["read_gate"]["open"]:
                     _error("RESTORED_EXPIRY_RECONCILIATION_FAILED")
+                archive_components = self._archive_components(
+                    self._confirmed_archives(restored_ledger),
+                )
+                if set(restored) != {"consumer", "projection", *archive_components}:
+                    _error("RESTORED_COMPONENT_SET_MISMATCH")
             finally:
                 restored_ledger.close()
             projection = open_encrypted(restored["projection"], self.keys["projection_db"])
@@ -960,14 +962,13 @@ class AIRAGRuntime:
         databases = [
             DatabaseSource("consumer", self.config.consumer_db, self.keys["consumer_ledger"]),
             DatabaseSource("projection", self.config.projection_db, self.keys["projection_db"]),
-            *(
-                DatabaseSource(name, item["path"], self.keys["archive"])
-                for name, item in archive_components.items()
-            ),
+        ]
+        archive_sources = [
+            ArchiveSource(name, item["path"]) for name, item in archive_components.items()
         ]
         backup = create_backup_set(
-            self.config.backup_root, databases, [],
-            self._restore_link_check(archive_components), now=now,
+            self.config.backup_root, databases, archive_sources,
+            self._restore_link_check(), now=now,
         )
         self._record_verified_backup(ledger, now, backup)
         removed = prune_backup_sets(
@@ -1093,7 +1094,9 @@ class AIRAGRuntime:
                     "memory_awaiting_confirmation_ids": awaiting_memory_ids,
                     "gaps": gaps, "token_mode": self.config.token_mode,
                     "collector_sources": collector_sources,
-                    "coverage_complete": bool(collector_sources) and all(
+                    "coverage_complete": bool(collector_sources) and {
+                        item["source_id"] for item in collector_sources
+                    } == {item.source_id for item in self.config.sources} and all(
                         item["coverage_complete"] for item in collector_sources
                     ),
                     "token_estimate_label": "estimated_utf8_bytes_div_4" if self.config.token_mode == "estimated" else None,
@@ -1258,16 +1261,13 @@ class AIRAGRuntime:
         with self._lock():
             ledger = self._open_ledger()
             try:
-                archives = self._confirmed_archives(ledger)
-                components = self._archive_components(archives)
                 data = verify_backup_set(
                     path,
                     {
                         "consumer": self.keys["consumer_ledger"],
                         "projection": self.keys["projection_db"],
-                        **{name: self.keys["archive"] for name in components},
                     },
-                    self._restore_link_check(components), now=_aware(self.clock),
+                    self._restore_link_check(), now=_aware(self.clock),
                 )
                 return {
                     "backup_id": backup_id, "verified": True,

@@ -897,3 +897,33 @@ def test_interrupted_recovery_refuses_any_recorded_candidate_count():
     with pytest.raises(Exception, match="INTERRUPTED_BATCH_HAS_RESULTS"):
         recover_interrupted_memory_batches(runtime, auth, model_id="model", expected_extraction_ids=[pending], clock=clock)
     assert con.execute("SELECT state FROM airag_memory_extractions").fetchone() == ("pending",)
+
+
+def test_unverified_batches_take_turns_when_verifier_returns_later():
+    # M3: a batch that stays unverified must not take every later verifier pass.
+    con, clock, runtime, auth = runtime_with_messages()
+    calls: list[str] = []
+
+    def provider(request):
+        source = request.messages[0]
+        text = f"solution-{len(calls)}"
+        calls.append(text)
+        return {"candidates": [candidate(
+            source, kind="verified_solution", text=text, quote=source.text, proof=True,
+        )]}
+
+    options = dict(model_id="da-verifier", clock=clock, max_messages_per_batch=1)
+    for _ in range(3):
+        extract_memories(runtime, auth, extractor=provider, **options)
+    checked: list[str] = []
+
+    def verifier(value, messages):
+        checked.append(value.text)
+        return value.text == "solution-2"
+
+    for _ in range(3):
+        extract_memories(runtime, auth, extractor=provider, verifier=verifier, **options)
+    assert sorted(set(checked)) == ["solution-0", "solution-1", "solution-2"]
+    assert con.execute(
+        "SELECT count(*) FROM airag_memory_candidates WHERE disposition='materialized'"
+    ).fetchone() == (1,)

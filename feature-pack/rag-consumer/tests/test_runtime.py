@@ -806,3 +806,83 @@ def test_real_backup_restore_reconciles_expired_conversation_and_memory(tmp_path
     assert {x["entity_type"] for x in restored["archive_only_expiry_candidates"]} == {"message", "memory"}
     for name, contents in before.items():
         assert (backup_path / name).read_bytes() == contents
+
+
+def append_archived_message(item, runtime, *, ordinal: int, marker: str, now: datetime):
+    record = {
+        "timestamp": (now - timedelta(days=91)).isoformat(), "ordinal": ordinal,
+        "type": "response_item", "payload": {
+            "type": "message", "id": f"message-{ordinal}", "role": "user",
+            "content": [{"type": "input_text", "text": marker}],
+        },
+    }
+    with item["source"].open("ab") as out:
+        out.write(native_line(record))
+    return runtime.run_once(explicit_save=True)
+
+
+def two_archive_runtime(tmp_path):
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    clock = Clock(now)
+    item = project(
+        tmp_path, now=now, content="archive first marker",
+        occurred_at=(now - timedelta(days=91)).isoformat(),
+    )
+    runtime = AIRAGRuntime(
+        RuntimeConfig.load(item["config"]), environ=environment(), clock=clock,
+    )
+    runtime.init()
+    first = runtime.run_once(explicit_save=True)
+    backup_id = Path(first["backup"]["path"]).name
+    assert runtime.verify_backup(backup_id)["verified"] is True
+    second = append_archived_message(
+        item, runtime, ordinal=2, marker="archive second marker", now=now,
+    )
+    assert len(second["archives"]) == 1
+    assert len(list(runtime.config.archive_root.glob("*.db"))) == 2
+    return runtime, clock, now, backup_id
+
+
+def test_backup_and_daily_run_succeed_with_two_archive_bundles(tmp_path):
+    # B1: every archive bundle shares the archive key; backup must not demand distinct keys.
+    runtime, clock, now, _ = two_archive_runtime(tmp_path)
+    forced = runtime.backup(force=True)
+    components = sorted(path.name for path in Path(forced["path"]).glob("archive_*.bin"))
+    assert len(components) == 2
+    assert runtime.verify_backup(Path(forced["path"]).name)["verified"] is True
+    clock.value = now + timedelta(days=1)
+    daily = runtime.run_once()["backup"]
+    assert daily["created"] is True
+    assert runtime.verify_backup(Path(daily["path"]).name)["verified"] is True
+
+
+def test_past_backup_reverifies_after_new_archive_bundle_is_added(tmp_path):
+    # M1: a backup's component set is judged by its own restored ledger, not today's ledger.
+    runtime, _, _, old_backup_id = two_archive_runtime(tmp_path)
+    assert runtime.verify_backup(old_backup_id)["verified"] is True
+
+
+def test_coverage_is_incomplete_while_an_enrolled_source_has_no_collector_state(tmp_path):
+    # M2: a source rejected before its first collection must not vanish from coverage.
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    item = project(tmp_path, now=now)
+    bad = item["root"] / "second-rollout.jsonl"
+    bad.write_text(json.dumps({
+        "timestamp": now.isoformat(), "ordinal": 0, "type": "session_meta",
+        "payload": {"id": "wrong-session"},
+    }) + "\n", encoding="utf-8")
+    config = dict(item["config_data"])
+    config["sources"] = [*config["sources"], {
+        "path": str(bad), "session_id": "expected-second-session",
+        "source_id": "second-source",
+    }]
+    item["config"].write_text(json.dumps(config), encoding="utf-8")
+    runtime = AIRAGRuntime(
+        RuntimeConfig.load(item["config"]), environ=environment(), clock=Clock(now),
+    )
+    runtime.init()
+    with pytest.raises(Exception, match="SESSION_SCOPE_MISMATCH"):
+        runtime.run_once()
+    status = runtime.status()
+    assert [row["source_id"] for row in status["collector_sources"]] == ["synthetic-rollout"]
+    assert status["coverage_complete"] is False
