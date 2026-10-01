@@ -67,3 +67,54 @@ def error_fields(stream: str) -> tuple[str, str]:
     kind = error.get("type") if isinstance(error, dict) else None
     kind = kind if isinstance(kind, str) and _TYPE.fullmatch(kind) and not re.search(r"[0-9a-fA-F]{16}", kind) else ""
     return _safe_code(error.get("code") if isinstance(error, dict) else None), kind
+
+
+RESULT_MAX_BYTES = 64 * 1024
+SUMMARY_INT_KEYS = frozenset({
+    "sources", "accepted", "gaps", "committed_native_offset_total", "pending_bytes_total",
+    "published_attempted", "published_succeeded", "memory_attempts", "memory_candidate_count",
+    "memory_materialized_count", "memory_awaiting_confirmation_count", "memory_unverified_count",
+    "memory_conflict_count", "memory_rejected_count", "memory_batch_message_count", "archived",
+})
+SUMMARY_BOOL_KEYS = frozenset({
+    "coverage_complete", "memory_enabled", "memory_provider_called", "backup_due", "backup_created",
+})
+FRAME_KEYS = frozenset({"exit", "summary", "code", "type"})
+FRAME_CODES = REASON_CODES | {"RUNTIME_FAILED", "RUNTIME_OUTPUT_INVALID"}
+
+
+def _clean_type(value: object) -> str:
+    return value if isinstance(value, str) and _TYPE.fullmatch(value) and not re.search(r"[0-9a-fA-F]{16}", value) else ""
+
+
+def build_frame(exit_code: int, stdout_text: str, stderr_text: str) -> dict[str, object]:
+    """Reduce a pass's raw CLI output to ``{exit, summary, code, type}``: numbers, flags, known codes."""
+    if exit_code == 0:
+        try:
+            data = json.loads(stdout_text)["data"]
+        except (ValueError, KeyError, TypeError):
+            data = None
+        if not isinstance(data, dict):
+            return {"exit": 0, "summary": {}, "code": "RUNTIME_OUTPUT_INVALID", "type": ""}
+        return {"exit": 0, "summary": summarize(data), "code": "", "type": ""}
+    code, kind = error_fields(stderr_text)
+    return {"exit": exit_code, "summary": {}, "code": code, "type": kind}
+
+
+def validate_frame(frame: object) -> dict[str, object] | None:
+    """Strict re-check of a frame; anything outside the closed schema is rejected (None)."""
+    if not isinstance(frame, dict) or set(frame) != FRAME_KEYS:
+        return None
+    if type(frame["exit"]) is not int or not isinstance(frame["summary"], dict):
+        return None
+    for key, value in frame["summary"].items():
+        if not (
+            (key in SUMMARY_INT_KEYS and type(value) is int)
+            or (key in SUMMARY_BOOL_KEYS and type(value) is bool)
+        ):
+            return None
+    if frame["code"] != "" and frame["code"] not in FRAME_CODES:
+        return None
+    if frame["type"] != "" and _clean_type(frame["type"]) != frame["type"]:
+        return None
+    return frame

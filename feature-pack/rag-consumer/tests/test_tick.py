@@ -474,3 +474,40 @@ def test_native_libc_output_does_not_reach_the_tick_stdout(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr[-300:]
     assert "MARKER_NATIVE" not in proc.stdout + proc.stderr
+
+
+GOOD_OK = {"exit": 0, "summary": {"sources": 1, "coverage_complete": True}, "code": "", "type": ""}
+GOOD_FAIL = {"exit": 2, "summary": {}, "code": "RUNTIME_FAILED", "type": "RuntimeError"}
+
+
+def test_frame_validation_accepts_only_the_closed_schema():
+    from airag_consumer import _result
+
+    assert _result.validate_frame(dict(GOOD_OK)) == GOOD_OK
+    assert _result.validate_frame(dict(GOOD_FAIL)) == GOOD_FAIL
+    bad = [
+        None, [], "x", {**GOOD_OK, "extra": 1}, {k: v for k, v in GOOD_OK.items() if k != "type"},
+        {**GOOD_OK, "exit": True}, {**GOOD_OK, "exit": "0"},
+        {**GOOD_OK, "summary": {"unknown_key": 1}},
+        {**GOOD_OK, "summary": {"sources": "1"}}, {**GOOD_OK, "summary": {"sources": True}},
+        {**GOOD_OK, "summary": {"coverage_complete": 1}}, {**GOOD_OK, "summary": []},
+        {**GOOD_FAIL, "code": "NOT_A_KNOWN_CODE_ZZ"}, {**GOOD_FAIL, "code": "lowercase"},
+        {**GOOD_FAIL, "type": "AB" * 16}, {**GOOD_FAIL, "type": "not a type!"},
+    ]
+    for frame in bad:
+        assert _result.validate_frame(frame) is None, frame
+
+
+def test_frame_building_keeps_only_whitelisted_numbers_and_reason_codes():
+    from airag_consumer import _result
+
+    ok = _result.build_frame(0, json.dumps({"ok": True, "data": {
+        "collected": [{"accepted_count": 3, "gap_count": 0, "committed_native_offset": 9,
+                       "pending_bytes": 0, "coverage_complete": True, "note": "MARKER_BODY"}],
+    }}), "")
+    assert ok["exit"] == 0 and ok["summary"]["accepted"] == 3 and "MARKER_BODY" not in json.dumps(ok)
+    failed = _result.build_frame(2, "", json.dumps({"ok": False, "error": {"code": KEYLIKE, "type": "RuntimeError"}}))
+    assert failed == {"exit": 2, "summary": {}, "code": "RUNTIME_FAILED", "type": "RuntimeError"}
+    assert _result.build_frame(0, "not json", "")["code"] == "RUNTIME_OUTPUT_INVALID"
+    assert _result.build_frame(0, json.dumps({"ok": True, "data": "text"}), "")["code"] == "RUNTIME_OUTPUT_INVALID"
+    assert all(_result.validate_frame(f) == f for f in (ok, failed))
