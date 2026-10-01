@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template only. Fill the double-underscore placeholders for your machine, save as
+  ~/Library/LaunchAgents/com.airag.consumer.plist and load it yourself.
+  __PYTHON__       python of the installed consumer runtime
+  __CONFIG__       path of runtime.json
+  __CREDENTIALS__  local credentials settings file (vault references, token file); never committed
+  __LOG_DIR__      log directory (one tick line per day file, size-capped)
+  One tick = one single consumer pass (run once). launchd's next interval is the retry; the tick never loops.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.airag.consumer</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>-m</string>
+    <string>airag_consumer.tick</string>
+    <string>--config</string>
+    <string>__CONFIG__</string>
+    <string>--credentials</string>
+    <string>__CREDENTIALS__</string>
+    <string>--log-dir</string>
+    <string>__LOG_DIR__</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/launchd.err.log</string>
+</dict>
+</plist>

@@ -1,0 +1,234 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+import fcntl
+import json
+import os
+from pathlib import Path
+import plistlib
+import re
+import stat
+
+import pytest
+
+from airag_consumer import tick
+from airag_consumer.runtime import AIRAGRuntime, RuntimeConfig, RuntimeHooks
+from test_runtime import (
+    ARCHIVE_KEY, CONSUMER_KEY, PROJECTION_KEY, Clock, DecisionExtractor, SyntheticBridge,
+    environment, project,
+)
+
+
+UTC = timezone.utc
+NOW = datetime(2026, 9, 27, 4, tzinfo=UTC)
+KEYS = {
+    "AIRAG_CONSUMER_KEY_HEX": CONSUMER_KEY.hex(),
+    "AIRAG_PROJECTION_KEY_HEX": PROJECTION_KEY.hex(),
+    "AIRAG_ARCHIVE_KEY_HEX": ARCHIVE_KEY.hex(),
+}
+REFERENCES = {
+    "AIRAG_CONSUMER_KEY_HEX": "op://synthetic/consumer",
+    "AIRAG_PROJECTION_KEY_HEX": "op://synthetic/projection",
+    "AIRAG_ARCHIVE_KEY_HEX": "op://synthetic/archive",
+}
+TOKEN = "synthetic-service-token"
+
+
+def stub_op(tmp_path: Path, *, keys=None, fail=False, leak_to_stderr=False) -> tuple[Path, Path]:
+    """A fake `op`: records the references it was asked for and prints a synthetic key."""
+    keys = KEYS if keys is None else keys
+    calls = tmp_path / "op-calls.txt"
+    by_reference = {REFERENCES[name]: value for name, value in keys.items()}
+    cases = "\n".join(f'  "{reference}") VALUE="{value}";;' for reference, value in by_reference.items())
+    script = tmp_path / "op"
+    script.write_text(
+        "#!/bin/sh\n"
+        f'echo "$2" >> "{calls}"\n'
+        f'[ "$1" = read ] || exit 2\n'
+        f'[ "$OP_SERVICE_ACCOUNT_TOKEN" = "{TOKEN}" ] || exit 4\n'
+        'case "$2" in\n' + cases + "\n  *) exit 3;;\nesac\n"
+        + ('echo "boom $VALUE" >&2\nexit 9\n' if fail or leak_to_stderr else "")
+        + 'echo "$VALUE"\n',
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    return script, calls
+
+
+def credentials(tmp_path: Path, op: Path) -> Path:
+    token = tmp_path / "token"
+    token.write_text(TOKEN + "\n", encoding="utf-8")
+    path = tmp_path / "credentials.json"
+    path.write_text(json.dumps({
+        "token_file": str(token), "op": str(op), "references": REFERENCES,
+    }), encoding="utf-8")
+    return path
+
+
+def synthetic_service(tmp_path: Path, *, memory: bool = False):
+    (tmp_path / "svc").mkdir()
+    item = project(tmp_path / "svc", now=NOW, memory=memory,
+                   content="I prefer concise answers and the fix worked.")
+    hooks = RuntimeHooks(
+        bridge=SyntheticBridge(), memory_extractor=DecisionExtractor() if memory else None,
+    )
+    AIRAGRuntime(
+        RuntimeConfig.load(item["config"]), environ=environment(), clock=Clock(NOW), hooks=hooks,
+    ).init()
+    return item, hooks
+
+
+def base_environment() -> dict[str, str]:
+    return {k: v for k, v in environment().items() if k not in KEYS}
+
+
+def run_tick(tmp_path, item, hooks, *, credentials_path=None, env=None, extra=()):
+    args = ["--config", str(item["config"]), "--log-dir", str(tmp_path / "logs"), *extra]
+    if credentials_path is not None:
+        args += ["--credentials", str(credentials_path)]
+    return tick.main(args, environ=base_environment() if env is None else env,
+                     clock=Clock(NOW), hooks=hooks)
+
+
+def everything_written(tmp_path, capsys) -> str:
+    captured = capsys.readouterr()
+    logs = "".join(p.read_text(encoding="utf-8") for p in (tmp_path / "logs").glob("*") if p.is_file()) \
+        if (tmp_path / "logs").exists() else ""
+    return captured.out + captured.err + logs
+
+
+def no_key_text(text: str) -> bool:
+    return not any(value in text for value in KEYS.values())
+
+
+def test_normal_tick_fills_keys_runs_once_and_leaks_nothing(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    assert code == tick.EXIT_OK
+    assert sorted(calls.read_text().split()) == sorted(REFERENCES.values())
+    line = json.loads(written.strip().splitlines()[0])
+    assert line["status"] == "ok" and line["exit"] == 0
+    assert line["summary"]["sources"] == 1 and line["summary"]["accepted"] >= 1
+    assert "backup_created" in line["summary"] and "published_attempted" in line["summary"]
+    assert no_key_text(written) and TOKEN not in written
+    log = next((tmp_path / "logs").glob("tick-20260927.log"))
+    assert len(log.read_text().strip().splitlines()) == 1
+    assert not any(name in os.environ for name in KEYS)  # keys never reach the real process environment
+
+
+def test_existing_environment_keys_win_and_op_is_not_called(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    env = {**base_environment(), **KEYS}
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=env)
+    assert code == tick.EXIT_OK and not calls.exists()
+    assert no_key_text(everything_written(tmp_path, capsys))
+
+
+def test_only_missing_keys_are_read_from_op(tmp_path):
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    env = {**base_environment(), "AIRAG_CONSUMER_KEY_HEX": KEYS["AIRAG_CONSUMER_KEY_HEX"]}
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=env) == tick.EXIT_OK
+    assert sorted(calls.read_text().split()) == sorted(
+        [REFERENCES["AIRAG_PROJECTION_KEY_HEX"], REFERENCES["AIRAG_ARCHIVE_KEY_HEX"]])
+
+
+def test_overlapping_tick_skips_without_touching_keys_or_runtime(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    (tmp_path / "logs").mkdir()
+    with (tmp_path / "logs" / "tick.lock").open("a") as holder:
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    assert code == tick.EXIT_SKIPPED and not calls.exists()
+    assert json.loads(written.strip().splitlines()[0])["status"] == "skipped"
+
+
+def test_key_loading_failure_has_its_own_exit_code_and_leaks_nothing(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path, leak_to_stderr=True)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS
+    assert json.loads(written.strip().splitlines()[0])["code"] == "OP_KEY_READ_OR_FORMAT_FAILED"
+    assert no_key_text(written) and "boom" not in written
+
+
+def test_missing_credentials_or_config_is_a_configuration_error(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, hooks, credentials_path=tmp_path / "absent.json") == tick.EXIT_CONFIG
+    assert run_tick(tmp_path, item, hooks) == tick.EXIT_CONFIG  # keys absent and no settings given
+    missing = tick.main(
+        ["--config", str(tmp_path / "absent-runtime.json"), "--log-dir", str(tmp_path / "logs")],
+        environ=base_environment(), clock=Clock(NOW), hooks=hooks,
+    )
+    assert missing == tick.EXIT_CONFIG
+    assert tick.main(["--bogus"], environ={}, clock=Clock(NOW)) == tick.EXIT_CONFIG
+    codes = [json.loads(line)["code"] for line in everything_written(tmp_path, capsys).splitlines()
+             if line.startswith("{")]
+    assert "CREDENTIAL_SETTINGS_UNAVAILABLE" in codes and "CONFIG_FILE_UNAVAILABLE" in codes
+
+
+def test_runtime_failure_is_reported_by_code_only(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    wrong = {name: bytes([index + 1]).hex() * 32 for index, name in enumerate(KEYS)}
+    op, _ = stub_op(tmp_path, keys=wrong)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    line = json.loads(written.strip().splitlines()[0])
+    assert code == tick.EXIT_RUNTIME and line["status"] == "runtime_error" and line["code"]
+    assert no_key_text(written) and not any(value in written for value in wrong.values())
+
+
+def test_log_rotation_caps_size_and_prunes_old_days(tmp_path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    today = logs / "tick-20260927.log"
+    today.write_text("x" * (tick.LOG_MAX_BYTES + 1), encoding="utf-8")
+    old = logs / f"tick-{(NOW - timedelta(days=tick.LOG_KEEP_DAYS + 3)).strftime('%Y%m%d')}.log"
+    old.write_text("old\n", encoding="utf-8")
+    recent = logs / f"tick-{(NOW - timedelta(days=2)).strftime('%Y%m%d')}.log"
+    recent.write_text("recent\n", encoding="utf-8")
+    tick.append_log(logs, NOW, '{"status":"ok"}')
+    assert today.read_text() == '{"status":"ok"}\n'
+    assert (logs / "tick-20260927.log.1").stat().st_size == tick.LOG_MAX_BYTES + 1
+    assert not old.exists() and recent.exists()
+
+
+def test_plist_template_is_a_placeholder_only_five_minute_job():
+    raw = (Path(__file__).resolve().parents[1] / "ops" / "com.airag.consumer.plist.template").read_text()
+    placeholders = set(re.findall(r"__[A-Z]+(?:_[A-Z]+)*__", raw))
+    assert placeholders == {"__PYTHON__", "__CONFIG__", "__CREDENTIALS__", "__LOG_DIR__"}
+    filled = raw
+    for name in placeholders:
+        filled = filled.replace(name, "/tmp/synthetic")
+    data = plistlib.loads(filled.encode("utf-8"))
+    assert data["Label"] == "com.airag.consumer"
+    assert data["StartInterval"] == 300 and data["RunAtLoad"] is True
+    assert data["ProgramArguments"][1:3] == ["-m", "airag_consumer.tick"]
+    assert "KeepAlive" not in data
+    assert "KEY_HEX" not in raw and "op://" not in raw
+
+
+def test_first_pass_summary_carries_collection_progress_and_memory_observations(tmp_path, capsys):
+    # U4 observation values, taken from the real run_once result keys (numbers only).
+    item, hooks = synthetic_service(tmp_path, memory=True)
+    op, _ = stub_op(tmp_path)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op))
+    written = everything_written(tmp_path, capsys)
+    assert code == tick.EXIT_OK
+    summary = json.loads(written.strip().splitlines()[0])["summary"]
+    assert summary["committed_native_offset_total"] == len(item["original"])
+    assert summary["pending_bytes_total"] == 0
+    assert summary["memory_enabled"] is True and summary["memory_provider_called"] is True
+    assert summary["memory_attempts"] == 1 and summary["memory_candidate_count"] == 2
+    assert summary["memory_conflict_count"] == 0 and summary["memory_rejected_count"] == 0
+    assert summary["memory_batch_message_count"] == 1
+    assert summary["memory_awaiting_confirmation_count"] == 1 and summary["memory_unverified_count"] == 1
+    assert isinstance(summary["pass_elapsed_s"], float) and summary["pass_elapsed_s"] >= 0
+    assert "Prefer concise answers" not in written and "fix worked" not in written  # no memory text
+    assert no_key_text(written)
