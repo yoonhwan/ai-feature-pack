@@ -1,0 +1,152 @@
+{
+  "format": "terminal_notebook",
+  "interaction": [
+    "Enter: 셀 설명",
+    "Enter/실행: 실제 명령 실행",
+    "결과와 해설",
+    "Enter: 다음 셀"
+  ],
+  "controls": [
+    "raw",
+    "재실행",
+    "전체실행",
+    "종료"
+  ],
+  "creation_rule": "향후 투어는 이 폴더에 번호별로 추가하고 notebook.py의 공통 진행 방식을 사용한다. 사용자 투어 확인 뒤 다음 단계로 진행한다.",
+  "tours": [
+    {
+      "id": "01-conversation",
+      "title": "대화 검색과 백업",
+      "launcher": "01-conversation.command",
+      "user_accepted": true
+    },
+    {
+      "id": "02-operations",
+      "title": "운영 준비",
+      "launcher": "02-operations.command",
+      "user_accepted": true,
+      "outcome": "configuration_ready"
+    },
+    {
+      "id": "03-initialize",
+      "title": "운영 설정과 초기화",
+      "launcher": "03-initialize.command",
+      "user_accepted": true,
+      "outcome": "operational_stores_initialized"
+    },
+    {
+      "id": "04-first-collection",
+      "title": "첫 수집과 중복 방지",
+      "launcher": "04-first-collection.command",
+      "user_accepted": true,
+      "outcome": "bounded_collection_and_replay_verified"
+    },
+    {
+      "id": "05-first-search",
+      "title": "첫 색인과 질문 검색",
+      "launcher": "05-first-search.command",
+      "user_accepted": true,
+      "outcome": "first_index_and_search_verified"
+    },
+    {
+      "id": "06-memory",
+      "title": "기억 후보와 확인 보류",
+      "launcher": "06-memory.command",
+      "user_accepted": true,
+      "outcome": "memory_selection_verified"
+    },
+    {
+      "id": "07-backup",
+      "title": "백업과 격리 복원 검증",
+      "launcher": "07-backup.command",
+      "user_accepted": true,
+      "outcome": "backup_restore_and_reopen_verified"
+    },
+    {
+      "id": "08-readiness",
+      "title": "남은 입력과 자동 실행 준비",
+      "launcher": "08-readiness.command",
+      "user_accepted": true,
+      "outcome": "operational_preflight_rejection_review"
+    },
+    {
+      "id": "09-reviewed-collection",
+      "title": "거부 기록 검토와 범위 수집",
+      "launcher": "09-reviewed-collection.command",
+      "user_accepted": true,
+      "outcome": "reviewed_snapshot_collected"
+    },
+    {
+      "id": "10-publish",
+      "title": "개선된 병렬 색인과 검색",
+      "launcher": "10-publish.command",
+      "user_accepted": true,
+      "revision": 2,
+      "previous_attempt": "cancelled_by_user",
+      "optimization_report": "../../airag/processing-optimization-result.json",
+      "outcome": "reviewed_snapshot_indexed_and_searched"
+    },
+    {
+      "id": "11-memory",
+      "title": "승인 범위의 기억 확장",
+      "launcher": "11-memory.command",
+      "user_accepted": true,
+      "revision": 2,
+      "previous_attempt": "exited_by_user",
+      "optimization_report": "../../airag/memory-optimization-result.json",
+      "runtime_verified": true,
+      "outcome": "reviewed_memory_selection_verified",
+      "load_repro_result": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/.fable-team/airag/traces/airag-m6-20260928T095627Z.result.json",
+      "accepted_at": "2026-10-01",
+      "accepted_evidence": "user ran 11-memory.command: 151/151, windows 30, memories 411, all 7 cells complete"
+    },
+    {
+      "id": "11-load-repro",
+      "title": "기억 추출 부하 재현(남은 9배치)",
+      "launcher": "11-load-repro.command",
+      "user_accepted": false,
+      "acceptance_status": "executed_no_separate_acceptance",
+      "run_status": "completed",
+      "outcome": "9/9 requests success, 151/151 batches",
+      "result": "../../airag/traces/airag-m6-20260928T095627Z.result.json",
+      "note": "2026-09-28 19:16:49~19:17:45 KST 사용자 전체실행 완료. 11-memory 수용에 포함되어 별도 수용 기록은 없음"
+    },
+    {
+      "id": "12-load",
+      "title": "3분 연속 합성 부하",
+      "launcher": "12-load.command",
+      "user_accepted": false,
+      "acceptance_status": "no_acceptance_record",
+      "run_status": "executed",
+      "outcome": "synthetic runs c=2 44/44·44/44, c=4 77/77 (operational_db_opened=false)",
+      "result": "../../airag/traces/comparison-2-vs-4-20260928.json",
+      "note": "실행 결과는 있으나 사용자 수용 기록·노트북 상태 파일 없음"
+    },
+    {
+      "id": "13-multi-load",
+      "title": "멀티 인스턴스 부하",
+      "launcher": "13-multi-load.command",
+      "user_accepted": false,
+      "acceptance_status": "on_hold_by_user",
+      "run_status": "stage1_stopped",
+      "outcome": "1프로세스 1단계 REQUEST_LATENCY_EXCEEDED 중단(제출44·성공42·실패0·취소2); 2·4·8 미실행",
+      "result": "../../airag/traces/airag-multi-20260928T133613Z-e4e658/stop-analysis.json",
+      "note": "사용자 보류 2026-10-01 (멀티 부하 사다리)"
+    },
+    {
+      "id": "14-memory-confirmation",
+      "title": "기억 후보 확인·거절·검증",
+      "launcher": "14-memory-confirmation.command",
+      "user_accepted": false,
+      "acceptance_status": "awaiting_user_run",
+      "outcome": "memory_confirmation_reviewed",
+      "note": "4순위: 백업·검증 후 사용자가 고른 후보만 승인·거절·검증. 실운영 실행·수용은 사용자 몫"
+    }
+  ],
+  "credentials": {
+    "mode": "1password-service-account-to-process-environment",
+    "configuration": "../../airag/credential-source.json",
+    "values_saved": false,
+    "existing_environment_precedence": true
+  }
+}
