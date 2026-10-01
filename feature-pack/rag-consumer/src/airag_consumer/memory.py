@@ -1565,3 +1565,153 @@ def confirm_candidate(
         "candidate_id": candidate_id, "state": "materialized",
         "memory_id": memory["memory_id"], "confirmed_at": _now(clock),
     }
+
+
+_DECIDABLE = ("awaiting_confirmation", "unverified")
+_CANDIDATE_COLUMNS = (
+    """c.candidate_id,c.extraction_id,c.kind,c.text,c.anchor_ids_json,
+       c.proof_anchor_ids_json,c.supporting_quotes_json,c.conflict,c.disposition,
+       c.memory_id,e.batch_id,c.reason_code"""
+)
+
+
+def _scoped_candidate_row(connection: Any, scope: AuthenticatedScope, candidate_id: str) -> tuple:
+    row = connection.execute(
+        f"""SELECT {_CANDIDATE_COLUMNS}
+            FROM airag_memory_candidates c JOIN airag_memory_extractions e
+              ON e.extraction_id=c.extraction_id
+            WHERE c.candidate_id=? AND e.owner_id=? AND e.tenant_id=? AND e.project_id=?
+              AND e.streams_digest=?""",
+        (candidate_id, scope.owner_id, scope.tenant_id, scope.project_id,
+         _digest(list(scope.enrolled_streams))),
+    ).fetchone()
+    if row is None:
+        _error("MEMORY_CANDIDATE_NOT_FOUND_OR_SCOPE_DENIED")
+    return row
+
+
+def list_candidates(
+    lifecycle: Lifecycle, scope: AuthenticatedScope, *, disposition: str,
+    limit: int = 10, skip: int = 0,
+) -> dict[str, object]:
+    """Read candidates waiting for a user decision, with their source evidence. Writes nothing."""
+    if not isinstance(lifecycle, Lifecycle) or not isinstance(scope, AuthenticatedScope):
+        _error("LIFECYCLE_AND_SCOPE_REQUIRED")
+    if (
+        disposition not in _DECIDABLE or type(limit) is not int or not 1 <= limit <= 50
+        or type(skip) is not int or skip < 0
+    ):
+        _error("INVALID_CANDIDATE_LIST_REQUEST")
+    connection = lifecycle._con
+    initialize_memory(connection)
+    where = (
+        """FROM airag_memory_candidates c JOIN airag_memory_extractions e
+             ON e.extraction_id=c.extraction_id
+           WHERE c.disposition=? AND e.owner_id=? AND e.tenant_id=? AND e.project_id=?
+             AND e.streams_digest=?"""
+    )
+    parameters = (
+        disposition, scope.owner_id, scope.tenant_id, scope.project_id,
+        _digest(list(scope.enrolled_streams)),
+    )
+    total = connection.execute(f"SELECT count(*) {where}", parameters).fetchone()[0]
+    rows = connection.execute(
+        f"SELECT {_CANDIDATE_COLUMNS} {where} ORDER BY c.candidate_id LIMIT ? OFFSET ?",
+        (*parameters, limit, skip),
+    ).fetchall()
+    current = _current_sources(lifecycle, scope)
+    messages = {item.anchor_id: item for item in current.messages}
+    items = []
+    for row in rows:
+        candidate = _candidate_from_row(row[:9])
+        batch = _load_batch(connection, row[10])
+        items.append({
+            "candidate_id": candidate.candidate_id, "kind": candidate.kind,
+            "disposition": row[8], "reason_code": row[11],
+            "conflict": candidate.conflict, "text": candidate.text,
+            "supporting_quotes": [
+                {"anchor_id": quote.anchor_id, "quote": quote.quote}
+                for quote in candidate.supporting_quotes
+            ],
+            "proof_messages": [
+                {"anchor_id": anchor, "role": messages[anchor].role, "text": messages[anchor].text}
+                for anchor in candidate.proof_anchor_ids if anchor in messages
+            ],
+            "source_current": _batch_context(connection, batch, current) is not None,
+        })
+    return {"disposition": disposition, "total": total, "skipped": skip, "candidates": items}
+
+
+def reject_candidate(
+    lifecycle: Lifecycle, scope: AuthenticatedScope, candidate_id: str,
+) -> dict[str, object]:
+    """Record the user's decision not to keep a waiting candidate. Terminal: it is never confirmable again."""
+    if not isinstance(lifecycle, Lifecycle) or not isinstance(scope, AuthenticatedScope):
+        _error("LIFECYCLE_AND_SCOPE_REQUIRED")
+    candidate_id = _identifier(candidate_id, "INVALID_MEMORY_CANDIDATE_ID")
+    connection = lifecycle._con
+    initialize_memory(connection)
+    row = _scoped_candidate_row(connection, scope, candidate_id)
+    if row[8] == "materialized":
+        _error("CANDIDATE_ALREADY_MATERIALIZED")
+    if row[8] == "rejected":
+        return {"candidate_id": candidate_id, "state": "rejected", "reason": row[11]}
+    if row[8] not in _DECIDABLE:
+        _error("CANDIDATE_NOT_AWAITING_DECISION")
+    _mark_candidate(connection, candidate_id, "rejected", memory_id=None, reason="USER_REJECTED")
+    return {"candidate_id": candidate_id, "state": "rejected", "reason": "USER_REJECTED"}
+
+
+def verify_candidate(
+    lifecycle: Lifecycle, scope: AuthenticatedScope, candidate_id: str, *,
+    clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+) -> dict[str, object]:
+    """Materialize one unverified solution after the user checked its source evidence."""
+    if not isinstance(lifecycle, Lifecycle) or not isinstance(scope, AuthenticatedScope):
+        _error("LIFECYCLE_AND_SCOPE_REQUIRED")
+    candidate_id = _identifier(candidate_id, "INVALID_MEMORY_CANDIDATE_ID")
+    connection = lifecycle._con
+    initialize_memory(connection)
+    row = _scoped_candidate_row(connection, scope, candidate_id)
+    candidate = _candidate_from_row(row[:9])
+    if candidate.kind != "verified_solution":
+        _error("CANDIDATE_NOT_A_SOLUTION")
+    if row[8] == "materialized":
+        return {"candidate_id": candidate_id, "state": "materialized", "memory_id": row[9]}
+    if row[8] != "unverified":
+        _error("CANDIDATE_NOT_AWAITING_VERIFICATION")
+    try:
+        with _transaction(connection):
+            current = _current_sources(lifecycle, scope)
+            batch = _load_batch(connection, row[10])
+            if _batch_context(connection, batch, current) is None:
+                connection.execute(
+                    """UPDATE airag_memory_candidates
+                       SET disposition='rejected',memory_id=NULL,
+                           reason_code='SOURCE_CHANGED_BEFORE_CONFIRMATION'
+                       WHERE candidate_id=?""",
+                    (candidate_id,),
+                )
+                return {
+                    "candidate_id": candidate_id, "state": "rejected",
+                    "reason": "SOURCE_CHANGED_BEFORE_CONFIRMATION",
+                }
+            memory = lifecycle.create_memory(
+                scope, kind="verified_solution", text=candidate.text,
+                anchor_ids=candidate.anchor_ids, proof_anchor_ids=candidate.proof_anchor_ids,
+            )
+            connection.execute(
+                """UPDATE airag_memory_candidates
+                   SET disposition='materialized',memory_id=?,reason_code=NULL
+                   WHERE candidate_id=?""",
+                (memory["memory_id"], candidate_id),
+            )
+    except LifecycleError as exc:
+        _mark_candidate(
+            connection, candidate_id, "rejected", memory_id=None, reason=str(exc),
+        )
+        return {"candidate_id": candidate_id, "state": "rejected", "reason": str(exc)}
+    return {
+        "candidate_id": candidate_id, "state": "materialized",
+        "memory_id": memory["memory_id"], "confirmed_at": _now(clock),
+    }

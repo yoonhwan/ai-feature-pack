@@ -19,6 +19,9 @@ from airag_consumer.memory import (
     VerificationDecision,
     confirm_candidate,
     extract_memories,
+    list_candidates,
+    reject_candidate,
+    verify_candidate,
 )
 from airag_consumer.redaction import redact_event
 
@@ -927,3 +930,118 @@ def test_unverified_batches_take_turns_when_verifier_returns_later():
     assert con.execute(
         "SELECT count(*) FROM airag_memory_candidates WHERE disposition='materialized'"
     ).fetchone() == (1,)
+
+
+def pending_decisions():
+    """Three batches: a preference, a solution with proof, and an instruction."""
+    con, clock, runtime, auth = runtime_with_messages()
+
+    def provider(request):
+        source = request.messages[0]
+        if "SQLite" in source.text:
+            return {"candidates": [candidate(
+                source, kind="verified_solution", text="SQLite adoption worked",
+                quote="decided to use SQLite", proof=True,
+            )]}
+        if "halfway" in source.text:
+            return {"candidates": [candidate(
+                source, kind="preference", text="Finish migration first", quote="halfway done",
+            )]}
+        return {"candidates": [candidate(
+            source, kind="instruction_quote", text="Answer concisely",
+            quote="prefer concise answers",
+        )]}
+
+    options = dict(model_id="user-decisions", clock=clock, max_messages_per_batch=1)
+    for _ in range(3):
+        extract_memories(runtime, auth, extractor=provider, **options)
+    return con, clock, runtime, auth
+
+
+def test_candidate_listing_shows_text_quotes_and_proof_without_writing():
+    con, clock, runtime, auth = pending_decisions()
+    before = con.execute("SELECT candidate_id,disposition,reason_code FROM airag_memory_candidates ORDER BY 1").fetchall()
+    waiting = list_candidates(runtime, auth, disposition="awaiting_confirmation")
+    assert waiting["total"] == 2 and waiting["skipped"] == 0
+    by_kind = {item["kind"]: item for item in waiting["candidates"]}
+    assert set(by_kind) == {"preference", "instruction_quote"}
+    assert by_kind["preference"]["text"] == "Finish migration first"
+    assert by_kind["preference"]["supporting_quotes"][0]["quote"] == "halfway done"
+    assert by_kind["preference"]["source_current"] is True
+    unverified = list_candidates(runtime, auth, disposition="unverified")
+    solution = unverified["candidates"][0]
+    assert solution["kind"] == "verified_solution" and unverified["total"] == 1
+    assert solution["proof_messages"][0]["text"] == "We decided to use SQLite."
+    page = [
+        list_candidates(runtime, auth, disposition="awaiting_confirmation", limit=1, skip=skip)
+        for skip in (0, 1)
+    ]
+    assert page[0]["candidates"][0]["candidate_id"] != page[1]["candidates"][0]["candidate_id"]
+    assert page[1]["skipped"] == 1 and page[1]["total"] == 2
+    assert list_candidates(runtime, scope("other-owner"), disposition="unverified")["total"] == 0
+    assert con.execute("SELECT candidate_id,disposition,reason_code FROM airag_memory_candidates ORDER BY 1").fetchall() == before
+    with pytest.raises(Exception, match="INVALID_CANDIDATE_LIST_REQUEST"):
+        list_candidates(runtime, auth, disposition="materialized")
+
+
+def test_user_rejection_is_terminal_and_never_creates_memory():
+    con, clock, runtime, auth = pending_decisions()
+    waiting = list_candidates(runtime, auth, disposition="awaiting_confirmation")["candidates"]
+    target = waiting[0]["candidate_id"]
+    assert reject_candidate(runtime, auth, target) == {
+        "candidate_id": target, "state": "rejected", "reason": "USER_REJECTED",
+    }
+    assert reject_candidate(runtime, auth, target)["state"] == "rejected"
+    with pytest.raises(Exception, match="CANDIDATE_NOT_AWAITING_CONFIRMATION"):
+        confirm_candidate(runtime, auth, target, clock=clock)
+    assert [item["candidate_id"] for item in list_candidates(
+        runtime, auth, disposition="awaiting_confirmation")["candidates"]] != [target]
+    assert con.execute("SELECT count(*) FROM airag_lifecycle_memories").fetchone() == (0,)
+    solution = list_candidates(runtime, auth, disposition="unverified")["candidates"][0]["candidate_id"]
+    assert reject_candidate(runtime, auth, solution)["reason"] == "USER_REJECTED"
+    confirmed = next(item for item in waiting if item["candidate_id"] != target)["candidate_id"]
+    confirm_candidate(runtime, auth, confirmed, clock=clock)
+    with pytest.raises(Exception, match="CANDIDATE_ALREADY_MATERIALIZED"):
+        reject_candidate(runtime, auth, confirmed)
+    with pytest.raises(Exception, match="MEMORY_CANDIDATE_NOT_FOUND_OR_SCOPE_DENIED"):
+        reject_candidate(runtime, scope("other-owner"), confirmed)
+
+
+def test_user_verification_materializes_only_the_named_solution():
+    con, clock, runtime, auth = pending_decisions()
+    solution = list_candidates(runtime, auth, disposition="unverified")["candidates"][0]["candidate_id"]
+    preference = list_candidates(runtime, auth, disposition="awaiting_confirmation")["candidates"][0]["candidate_id"]
+    with pytest.raises(Exception, match="CANDIDATE_NOT_A_SOLUTION"):
+        verify_candidate(runtime, auth, preference, clock=clock)
+    assert con.execute("SELECT count(*) FROM airag_lifecycle_memories").fetchone() == (0,)
+    done = verify_candidate(runtime, auth, solution, clock=clock)
+    assert done["state"] == "materialized"
+    assert verify_candidate(runtime, auth, solution, clock=clock)["memory_id"] == done["memory_id"]
+    assert con.execute("SELECT kind FROM airag_lifecycle_memories").fetchall() == [("verified_solution",)]
+    assert list_candidates(runtime, auth, disposition="unverified")["total"] == 0
+    with pytest.raises(Exception, match="MEMORY_CANDIDATE_NOT_FOUND_OR_SCOPE_DENIED"):
+        verify_candidate(runtime, scope("other-owner"), solution, clock=clock)
+
+
+def test_user_verification_rejects_a_solution_whose_source_changed():
+    con = database()
+    created = datetime(2026, 1, 1, tzinfo=UTC)
+    clock = Clock(created + timedelta(days=89))
+    insert(con, accepted("e1", "m1", 1, "The fix worked.", occurred_at=created.isoformat()))
+    runtime = Lifecycle(con, clock=clock)
+    auth = scope()
+
+    def provider(request):
+        source = request.messages[0]
+        return {"candidates": [candidate(
+            source, kind="verified_solution", text="Fix worked", quote="fix worked", proof=True,
+        )]}
+
+    extract_memories(runtime, auth, extractor=provider, model_id="model", clock=clock)
+    solution = con.execute("SELECT candidate_id FROM airag_memory_candidates").fetchone()[0]
+    clock.value = created + timedelta(days=91)
+    assert verify_candidate(runtime, auth, solution, clock=clock) == {
+        "candidate_id": solution, "state": "rejected",
+        "reason": "SOURCE_CHANGED_BEFORE_CONFIRMATION",
+    }
+    assert con.execute("SELECT count(*) FROM airag_lifecycle_memories").fetchone() == (0,)

@@ -1250,6 +1250,35 @@ class AIRAGRuntime:
             finally:
                 ledger.close()
 
+    def _memory_decision(self, api: str, *arguments: object, **options: object) -> dict[str, object]:
+        with self._lock():
+            ledger = self._open_ledger()
+            try:
+                lifecycle = self._lifecycle(ledger)
+                lifecycle.refresh(self.config.scope)
+                handler = getattr(self._memory(), api, None)
+                if not callable(handler):
+                    _error("MEMORY_DECISION_API_UNAVAILABLE")
+                result = handler(lifecycle, self.config.scope, *arguments, **options)
+                if not isinstance(result, dict):
+                    _error("INVALID_MEMORY_RESULT")
+                return result
+            finally:
+                ledger.close()
+
+    def memory_candidates(
+        self, state: str, *, limit: int = 10, skip: int = 0,
+    ) -> dict[str, object]:
+        return self._memory_decision("list_candidates", disposition=state, limit=limit, skip=skip)
+
+    def memory_reject(self, candidate_id: str) -> dict[str, object]:
+        _opaque(candidate_id, "INVALID_MEMORY_CANDIDATE_ID")
+        return self._memory_decision("reject_candidate", candidate_id)
+
+    def memory_verify(self, candidate_id: str) -> dict[str, object]:
+        _opaque(candidate_id, "INVALID_MEMORY_CANDIDATE_ID")
+        return self._memory_decision("verify_candidate", candidate_id, clock=self.clock)
+
     def backup(self, *, force: bool = True) -> dict[str, object]:
         with self._lock():
             ledger = self._open_ledger()

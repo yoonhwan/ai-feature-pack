@@ -935,3 +935,70 @@ def test_legacy_manifest_with_archive_as_database_component_still_verifies(tmp_p
     assert runtime.verify_backup(legacy.name)["verified"] is True
     current = Path(runtime.backup(force=True)["path"]).name
     assert runtime.verify_backup(current)["verified"] is True
+
+
+class DecisionExtractor:
+    synthetic_test_double = True
+
+    def __call__(self, request):
+        message = request.messages[0]
+        return {"candidates": [
+            {
+                "kind": "preference", "text": "Prefer concise answers",
+                "anchor_ids": [message.anchor_id], "proof_anchor_ids": [],
+                "supporting_quotes": [{
+                    "anchor_id": message.anchor_id, "quote": "prefer concise answers",
+                }],
+                "conflict": False,
+            },
+            {
+                "kind": "verified_solution", "text": "The fix worked",
+                "anchor_ids": [message.anchor_id], "proof_anchor_ids": [message.anchor_id],
+                "supporting_quotes": [{
+                    "anchor_id": message.anchor_id, "quote": "fix worked",
+                }],
+                "conflict": False,
+            },
+        ]}
+
+
+def test_cli_lists_then_rejects_or_verifies_only_named_candidates(tmp_path):
+    now = datetime(2026, 9, 27, 4, tzinfo=UTC)
+    clock = Clock(now)
+    item = project(
+        tmp_path, now=now, memory=True,
+        content="I prefer concise answers and the fix worked.",
+    )
+    hooks = RuntimeHooks(bridge=SyntheticBridge(), memory_extractor=DecisionExtractor())
+    args = ["--config", str(item["config"])]
+
+    def call(*command):
+        return invoke([*args, *command], env=environment(), clock=clock, hooks=hooks)
+
+    assert call("init")[0] == 0
+    code, run = call("run", "--once", "--save")
+    assert code == 0, run
+    assert (run["data"]["memory"]["awaiting_confirmation_count"],
+            run["data"]["memory"]["unverified_count"]) == (1, 1)
+    code, waiting = call("memory-candidates", "--state", "awaiting_confirmation")
+    assert code == 0 and waiting["data"]["total"] == 1
+    preference = waiting["data"]["candidates"][0]
+    assert preference["text"] == "Prefer concise answers"
+    assert preference["supporting_quotes"][0]["quote"] == "prefer concise answers"
+    code, unverified = call("memory-candidates", "--state", "unverified", "--limit", "1")
+    solution = unverified["data"]["candidates"][0]
+    assert code == 0 and "fix worked" in solution["proof_messages"][0]["text"]
+    assert call("memory-candidates", "--state", "materialized")[0] == 2
+    code, missing = call("memory-reject", "0" * 64)
+    assert code == 2 and missing["error"]["code"] == "MEMORY_CANDIDATE_NOT_FOUND_OR_SCOPE_DENIED"
+    status = call("status")[1]["data"]
+    assert status["visible_memories"] == 0
+    code, rejected = call("memory-reject", preference["candidate_id"])
+    assert code == 0 and rejected["data"]["reason"] == "USER_REJECTED"
+    assert call("memory-confirm", preference["candidate_id"])[0] == 2
+    code, verified = call("memory-verify", solution["candidate_id"])
+    assert code == 0 and verified["data"]["state"] == "materialized"
+    status = call("status")[1]["data"]
+    assert status["visible_memories"] == 1
+    assert status["memory_awaiting_confirmation_ids"] == []
+    assert call("memory-candidates", "--state", "unverified")[1]["data"]["total"] == 0

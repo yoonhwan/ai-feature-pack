@@ -49,6 +49,15 @@ def _parser() -> argparse.ArgumentParser:
     confirm = commands.add_parser("memory-confirm")
     confirm.add_argument("candidate_id")
 
+    candidates = commands.add_parser("memory-candidates")
+    candidates.add_argument("--state", required=True)
+    candidates.add_argument("--limit", type=int, default=10)
+    candidates.add_argument("--skip", type=int, default=0)
+    reject = commands.add_parser("memory-reject")
+    reject.add_argument("candidate_id")
+    solution = commands.add_parser("memory-verify")
+    solution.add_argument("candidate_id")
+
     commands.add_parser("backup")
     verify = commands.add_parser("verify")
     verify.add_argument("backup_id")
@@ -117,6 +126,12 @@ def main(
             data = runtime.archive_search(args.query, limit=args.limit)
         elif args.command == "memory-confirm":
             data = runtime.memory_confirm(args.candidate_id)
+        elif args.command == "memory-candidates":
+            data = runtime.memory_candidates(args.state, limit=args.limit, skip=args.skip)
+        elif args.command == "memory-reject":
+            data = runtime.memory_reject(args.candidate_id)
+        elif args.command == "memory-verify":
+            data = runtime.memory_verify(args.candidate_id)
         elif args.command == "backup":
             data = runtime.backup(force=True)
         elif args.command == "verify":
