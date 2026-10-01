@@ -31,6 +31,12 @@
 
 ---
 
+## checkpoint 적용 (프로젝트당 1회 · Seatbelt 1.0.2 · SEATBELT.md §6-2)
+
+1. 프로젝트가 «회차 고정 칸 표» 를 내는 명령을 만든다(값만 · 해석 금지 · 경보면 exit 3). 팩 `scripts/ft-checkpoint.sh` 를 `.fable-team/bin/` 에 복사한다.
+2. `<리포 루트>/.fable-team/checkpoint.json`: `{"command":"python3 tests/e2e/press_round_checkpoint.py {evid} --prev {prev}","alarm_exit":3,"table":"{evid}/checkpoint.md","required_cells":["완료","교정","sealed"]}` — 파일이 없으면 ft-checkpoint 는 exit 5 «미설정» 경고, nano-close 는 경고만(무음 통과 없음).
+3. press/시험 카드의 §완료 조건에 「checkpoint 표 첨부 · exit 3 이면 arch 보고 후 수정 루프」 1줄 · 닫기는 `ft-nano-close.sh` 가 ④로 검사한다(`.fable-team/checkpoint/<좌석>.last`).
+
 ## bin 세트 스왑 (스텝 2-1 상세 — bin 배포/리네임 전파 시)
 
 > **적용 조건**: 팩의 `skill/scripts/` bin 11종(comm v2 = `ft-mbox.py`·`ft-mbox.sh` 포함)이 바뀌었거나(리네임·가드 추가 등) 설치본 bin이 스테일일 때. 문서(.md)만 바뀐 업데이트는 이 절차 불요 — 위 절차 1~7로 충분. mailbox 데이터(`.fable-team/comm/`)는 스왑 비대상 — 업데이트 중 큐 보존.

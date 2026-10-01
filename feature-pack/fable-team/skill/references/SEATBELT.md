@@ -117,6 +117,14 @@ role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-mast
 - **master**: 틱마다 «뉴스»(지금·남은 것·테스트 계획·완성 전망 — 제품만·사람 말·불릿·인덱스 파일명 0) + 빈 줄 + 「세션 상태」 절 «- 세션명 - 상태 - 역할 - 진행내용»(상태는 `ft-seat-status.sh` 값). `[stall]` 이 오면 뉴스 첫 줄에 «확인할 세션: <좌석> — <이유>», 교체·개입 선택은 AskUserQuestion 으로 오빠께 묻고 답을 그 좌석·pm 에 전파. ★발행하고 끝내지 않는다★ — 같은 턴에 대기 좌석에 발주·press GO·pm 정렬 중 1건 착수. 좌석이 전부 «대기»면 master 가 안 굴린 것이다(오빠 2026-09-14).
 - 정지 판정 정본 = `ft-seat-status.sh stalled`(jsonl mtime AND pane). pane 텍스트 단독 판정 금지.
 
+## 6-2. 회차 checkpoint — 시험·press 를 돌린 워커가 그 회차의 tester·checker 다 (1.0.2 · 오빠 2026-10-01 · v65 가 첫 어댑터, CFO·main·CCU 공용)
+
+- **계약**: 시험·press 를 돌린 워커가 그 회차의 tester·checker(BTS 4축 + poller)다. 「VALID」 한 단어로 보고하지 않는다.
+- **매 회차 끝 직후** `bash <팩>/scripts/ft-checkpoint.sh <증거폴더> --seat <나> [--prev <앞 회차 표>]` — 프로젝트가 `.fable-team/checkpoint.json` 에 선언한 명령(고정 칸 표: 값만, 해석·판정 없음)을 돌리고 표 경로·exit 를 낸다. 표를 보고에 첨부한다.
+- **경보(exit = 설정의 `alarm_exit`, 관례 3)** 면 VALID·완료 보고 금지 → 4축 정리 파일 → arch(+DA) 처방 → 같은 워커가 수정 → 재실행, 경보가 풀릴 때까지. exit 4 = 표 없음·필수 칸 누락·명령 실패(= 못 본 것, 통과 아님). exit 5 = 미설정(경고 — 무음 통과 금지, #0 RULE).
+- **닫기 조건**: `ft-nano-close.sh` 는 인덱스 카드에 press/시험이 있으면 마지막 checkpoint 기록(`.fable-team/checkpoint/<좌석>.last`)의 표 실재 + `alarm=no` 를 요구한다(④). checkpoint 미설정 프로젝트는 경고만.
+- 적용 절차·설정 예시: `references/update.md` §checkpoint.
+
 ## 7. 하지 않는다
 
 - pane `❯` 텍스트를 지시·제출로 읽지 않는다 — 판정은 jsonl(`ft-reach-check.sh`) · 상태는 seats.json.

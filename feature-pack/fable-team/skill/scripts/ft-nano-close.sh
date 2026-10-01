@@ -4,6 +4,7 @@
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append[·kill]) · 1 = REJECT(조건 미충족, 사유 stdout) · 2 = usage · 3 = kill 은 사람 승인 필요
 # 종료조건 3 (전부 «값»): ①--result 경로 실재 ②--recv master 회수 seq 가 우편함/bodies 에 실재 ③jsonl 마지막 활동 ≥ IDLE_MIN 분 전
+# 종료조건 ④ (1.0.2): press/시험 카드면 마지막 checkpoint 표 실재 + alarm=no (checkpoint 미설정 프로젝트는 경고만)
 # kill 은 --kill 일 때만, 그것도 lineage keep-last-2 안이면 exit 3 (글로벌 HIL 하한). 기본은 «정지 레디 + 명부 삭제».
 set -uo pipefail
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
@@ -39,6 +40,19 @@ else
   else
     age=$(( ( $(date +%s) - $(stat -f %m "$f") ) / 60 ))
     [ "$age" -ge "$IDLE_MIN" ] || bad+=("③jsonl 마지막 활동 ${age}분 전 < ${IDLE_MIN}분")
+  fi
+fi
+# ④ press/시험 카드면 마지막 checkpoint 표 실재 + 경보 아님 (SEATBELT.md §6-2 · 설정 없는 프로젝트는 경고만)
+IDX="$(jq -r --arg s "$SEAT" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; CARD=""
+for c in "$WT/$IDX" "$ROOT/$IDX"; do [ -n "$IDX" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
+if [ -n "$CARD" ] && grep -qiE 'press|시험' "$CARD"; then
+  CPCFG="${FT_CHECKPOINT_JSON:-$ROOT/.fable-team/checkpoint.json}"; CPST="$ROOT/.fable-team/checkpoint/${SEAT//\//_}.last"
+  if [ ! -f "$CPCFG" ]; then echo "WARN ④press/시험 카드인데 checkpoint 미설정($CPCFG) — 경고만(§6-2)"
+  elif [ ! -f "$CPST" ]; then bad+=("④press/시험 카드인데 checkpoint 실행 기록 없음: ft-checkpoint.sh <증거폴더> --seat $SEAT")
+  else
+    cp_tab="$(jq -r '.table // empty' "$CPST")"; cp_al="$(jq -r '.alarm // empty' "$CPST")"; cp_ex="$(jq -r '.exit // empty' "$CPST")"
+    [ -n "$cp_tab" ] && [ -f "$cp_tab" ] || bad+=("④checkpoint 표 없음: ${cp_tab:-<빈 경로>}")
+    [ "$cp_al" = "no" ] || bad+=("④마지막 checkpoint alarm=$cp_al exit=$cp_ex — 경보면 4축 정리 → arch(+DA) 처방 → 수정 → 재실행 후 닫는다")
   fi
 fi
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
