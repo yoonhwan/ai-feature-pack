@@ -13,6 +13,7 @@ import argparse
 import io
 import json
 import os
+import re
 import sys
 from typing import Sequence
 
@@ -20,7 +21,7 @@ from . import _result
 from .tick import NAMES
 
 _STDIN_LIMIT = 64 * 1024
-_KEY_HEX = 64
+_KEY = re.compile(r"[0-9a-fA-F]{64}")
 
 
 def _read_keys() -> dict[str, str] | None:
@@ -36,12 +37,9 @@ def _read_keys() -> dict[str, str] | None:
     values = []
     for name in NAMES:
         value = keys[name]
-        if not isinstance(value, str) or len(value) != _KEY_HEX:
+        if not isinstance(value, str) or _KEY.fullmatch(value) is None:  # exact hex: fromhex alone accepts spaces
             return None
-        try:
-            values.append(bytes.fromhex(value))
-        except ValueError:
-            return None
+        values.append(bytes.fromhex(value))
     if len(set(values)) != len(NAMES):
         return None
     return keys

@@ -115,6 +115,10 @@ def raw_mode(mode: str) -> int | None:
     if mode == "bad-protocol-large":
         os.write(1, b"x" * (1 << 20))
         return 0
+    if mode.startswith("forged-code-"):
+        code = {"list": ["MARKER_CODE"], "dict": {"MARKER_CODE": 1}, "null": None, "int": 7}[mode[len("forged-code-"):]]
+        os.write(1, json.dumps({"exit": 0, "summary": {}, "code": code, "type": ""}).encode())
+        return 0
     if mode in ("forged-frame", "forged-extra-key"):
         frame = {"exit": 40, "summary": {}, "code": "ZZ_FORGED_CODE", "type": ""}
         if mode == "forged-extra-key":

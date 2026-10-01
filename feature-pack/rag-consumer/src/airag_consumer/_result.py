@@ -113,7 +113,7 @@ def validate_frame(frame: object) -> dict[str, object] | None:
             or (key in SUMMARY_BOOL_KEYS and type(value) is bool)
         ):
             return None
-    if frame["code"] != "" and frame["code"] not in FRAME_CODES:
+    if not isinstance(frame["code"], str) or (frame["code"] != "" and frame["code"] not in FRAME_CODES):
         return None
     if frame["type"] != "" and _clean_type(frame["type"]) != frame["type"]:
         return None

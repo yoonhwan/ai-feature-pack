@@ -489,6 +489,11 @@ def test_child_protocol_writes_exactly_one_value_free_frame(tmp_path):
     json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": "zz" * 32}),
     json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": KEYS["AIRAG_CONSUMER_KEY_HEX"]}),
     "x" * (64 * 1024 + 2),
+    # R11-m2: fromhex tolerates whitespace, so "64 chars that decode" is not "64 hex digits" (each is 31 bytes)
+    json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": "a1b2c3" * 10 + "a1" + "  "}),
+    json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": "a1b2c3" * 10 + "a1" + "\t\n"}),
+    json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": " " + "a1b2c3" * 10 + "a1 "}),
+    json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": "a1 " + "b2c3" * 15 + " "}),
 ])
 def test_child_rejects_bad_stdin_without_any_result(tmp_path, stdin_value):
     item, _ = synthetic_service(tmp_path)
@@ -647,6 +652,22 @@ def test_parent_rejects_a_forged_frame_even_when_the_schema_fits(tmp_path, capsy
     assert run_tick(tmp_path, item, "forged-frame", env=keyed_env()) == tick.EXIT_RUNTIME
     line, written = tick_line(tmp_path, capsys)
     assert line["code"] == "RUNTIME_OUTPUT_INVALID" and "ZZ_FORGED_CODE" not in written
+
+
+@pytest.mark.parametrize("kind", ["list", "dict", "null", "int"])
+def test_a_non_string_code_is_a_rejected_frame_not_an_internal_error(tmp_path, capsys, kind):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, f"forged-code-{kind}", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, written = tick_line(tmp_path, capsys)
+    assert line["code"] == "RUNTIME_OUTPUT_INVALID" and line["status"] == "runtime_error"
+    assert "MARKER_CODE" not in written
+
+
+@pytest.mark.parametrize("code", [["X"], {"X": 1}, None, 7, True, b"X"])
+def test_validate_frame_rejects_a_non_string_code(code):
+    from airag_consumer import _result
+
+    assert _result.validate_frame({"exit": 0, "summary": {}, "code": code, "type": ""}) is None
 
 
 def wait_for(path, seconds=10):
