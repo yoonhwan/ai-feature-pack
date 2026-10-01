@@ -13,7 +13,7 @@ import sys
 import pytest
 
 from airag_consumer import tick
-from airag_consumer.runtime import AIRAGRuntime, RuntimeConfig, RuntimeHooks
+from airag_consumer.runtime import PROFILE_SOURCE_KEY_ENV, AIRAGRuntime, RuntimeConfig, RuntimeHooks
 from test_runtime import (
     ARCHIVE_KEY, CONSUMER_KEY, PROJECTION_KEY, Clock, DecisionExtractor, SyntheticBridge,
     environment, project,
@@ -647,6 +647,24 @@ def test_raw_component_output_is_never_persisted_in_the_result_file(tmp_path, mo
     assert not any(bad.lower() in text for bad in (KEYLIKE, "MARKER_", "/synthetic/path"))
 
 
+@pytest.mark.parametrize("mode,code", [
+    ("huge-cli-stdout", "RUNTIME_OUTPUT_INVALID"), ("huge-cli-stderr", "RUNTIME_FAILED"),
+])
+def test_megabytes_of_raw_cli_output_shrink_to_a_tiny_frame(tmp_path, monkeypatch, capsys, mode, code):
+    from airag_consumer import _result
+
+    item, _ = synthetic_service(tmp_path)
+    captured = []
+    spy_component_run(monkeypatch, lambda f: captured.append(os.pread(f.fileno(), 1 << 20, 0)))
+    assert run_tick(tmp_path, item, mode, env=keyed_env()) == tick.EXIT_RUNTIME
+    data = captured[0]
+    assert 0 < len(data) < 512 and "MARKER_" not in data.decode("utf-8", "replace")
+    frame = _result.validate_frame(json.loads(data))
+    assert frame is not None and frame["code"] == code and frame["summary"] == {}
+    line, written = tick_line(tmp_path, capsys)
+    assert line["code"] == code and "MARKER_" not in written
+
+
 def test_parent_rejects_a_forged_frame_even_when_the_schema_fits(tmp_path, capsys):
     item, _ = synthetic_service(tmp_path)
     assert run_tick(tmp_path, item, "forged-frame", env=keyed_env()) == tick.EXIT_RUNTIME
@@ -830,3 +848,29 @@ def test_a_garbage_reference_key_still_stops_the_tick_without_echoing_it(tmp_pat
     line, written = tick_line(tmp_path, capsys)
     assert code == tick.EXIT_RUNTIME and line["code"] == "MISSING_OR_INVALID_REFERENCE_SOURCE_KEY"
     assert "zz-not-a-hex-key" not in written
+
+
+@pytest.mark.parametrize("keys_from_op", [False, True], ids=["store-keys-in-env", "store-keys-from-op"])
+@pytest.mark.parametrize("installed", [False, True], ids=["profile-key-left", "three-keys-only"])
+def test_a_reference_config_ticks_in_every_key_supply_variant(tmp_path, capsys, monkeypatch, keys_from_op, installed):
+    """R12-m1: the store keys may come from op or the env, and an installed service has no profile/reference key."""
+    item = reference_service(tmp_path)
+    env = {k: v for k, v in base_environment().items() if k != "AIRAG_REFERENCE_SOURCE_KEY_HEX"}
+    if installed:
+        env.pop(PROFILE_SOURCE_KEY_ENV)  # the databases already exist, so bootstrap no longer needs it
+    if not keys_from_op:
+        env.update(KEYS)
+    credentials_path = op_calls = None
+    if keys_from_op:
+        op, op_calls = stub_op(tmp_path)
+        credentials_path = credentials(tmp_path, op)
+    spy = spy_component_run(monkeypatch)
+    assert run_tick(tmp_path, item, "normal", credentials_path=credentials_path, env=env) == tick.EXIT_OK
+    line, written = tick_line(tmp_path, capsys)
+    assert line["status"] == "ok" and "MISSING_OR_INVALID" not in written
+    if op_calls is not None:
+        assert sorted(op_calls.read_text().split()) == sorted(REFERENCES.values())
+    _, kwargs = next(c for c in spy if "--config" in c[0])
+    assert json.loads(kwargs["input"]) == KEYS
+    assert not any(name in kwargs["env"] for name in ("AIRAG_REFERENCE_SOURCE_KEY_HEX", *KEYS))
+    assert (PROFILE_SOURCE_KEY_ENV in kwargs["env"]) is (not installed)

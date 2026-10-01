@@ -158,6 +158,22 @@ if __name__ == "__main__":
 
         _result.RESULT_MAX_BYTES = 10
         raise SystemExit(child_main(sys.argv[2:], hooks=hooks_for("normal")))
+    if mode in ("huge-cli-stdout", "huge-cli-stderr"):
+        # A synthetic CLI that fills the StringIO it is really handed: raw output far over the result limit.
+        import types
+
+        def cli_main(argv, *, environ=None, hooks=None, stdout=None, stderr=None):
+            big = "MARKER_HUGE_CLI" * 350_000  # ~5 MiB, not JSON
+            if mode == "huge-cli-stdout":
+                stdout.write(big)
+                return 0
+            stderr.write(big)
+            return 2
+
+        fake = types.ModuleType("airag_consumer.cli")
+        fake.main = cli_main
+        sys.modules["airag_consumer.cli"] = fake
+        raise SystemExit(child_main(sys.argv[2:]))
     if mode == "body-in-output":
         from airag_consumer.runtime import AIRAGRuntime
 
