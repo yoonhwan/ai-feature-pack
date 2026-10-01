@@ -1,0 +1,30 @@
+{
+  "artifact": "2026-09-09-rag-visual-atlas.html",
+  "artifact_type": "planning visualization (HTML/JS demo, example data — not a RAG engine test)",
+  "date": "2026-09-09",
+  "html_sha256": "af114c07e40eb3463caac06d614e57a19a201899156286d948e780bc2767c2da",
+  "html_sha256_note": "hash of the promoted copy at visuals/2026-09-09-rag-visual-atlas.html (this file), computed after promotion",
+  "pre_promotion_html_sha256": "554d7f686b5b7d0fc3d4c12caf918c98470a4c51f27418bf4c1c831b9630f32d",
+  "pre_promotion_html_sha256_note": "hash of the original reviewed file the 58 checks below actually ran against, before promotion. Promotion changed only the small top-corner tag label ('기획 매거진 · 예시' -> '기획 매거진 · 정본 시각화(예시 데이터)'); no interactive/JS behavior was touched. The promoted copy itself was verified only by a quick load + zero-console-error + node-count check, not by re-running the full 58-check suite.",
+  "browser_checks": {
+    "tool": "Playwright + Chromium, headless",
+    "total": 58,
+    "passed": 58,
+    "failed": 0,
+    "console_errors": 0
+  },
+  "checked": [
+    "7개 소스 선택, HWP/HWPX만 어댑터-검증-예정 표시",
+    "구성 지도: Docling 추출/OCR · HWP/HWPX 어댑터 · 경량 파서 노드 분리",
+    "PDF 디지털/스캔 토글 실제 라우트 전환",
+    "표준 MD/구조·앵커 라벨, 엑셀 표 미리보기와 앵커 정합",
+    "재수입 pending/success/failure/delete/restore 상태 전이",
+    "반환 장면 현재/보관 리비전 전환 시 봉투·원본·표준MD 텍스트 일관성",
+    "확장 깊이·최대 조각·의미 유사도 조합별 결정적 반환 개수",
+    "확장에서 고른 집합이 반환 장면까지 동일하게 전달",
+    "소비자/CLI 경계 시각화: add/update/delete/result 화살표 방향과 노드 분리",
+    "재생/일시정지/탐색 상태 전이",
+    "데스크톱(1280x900)/모바일(390x844) 레이아웃 오버플로 없음"
+  ],
+  "note": "위 58건은 승격 전 원본 파일(pre_promotion_html_sha256)에 대해 실행됐다. 승격 사본(html_sha256)은 상단 라벨 문구만 바꾼 뒤 별도로 로드+콘솔에러 0건만 확인했으며 58건을 재실행하지 않았다. 이 JSON은 상세 QA 로그(스크린샷 경로 등)를 패키지 안으로 옮기지 않고 요약만 보존한다 — 상세 로그는 원 작업 세션의 임시 산출물이며 패키지 배포에 포함되지 않는다."
+}

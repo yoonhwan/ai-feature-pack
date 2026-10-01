@@ -1,0 +1,59 @@
+{
+  "phase": "P-02",
+  "title": "저장·입력 계약 — collections/sources/source_revisions/generations/jobs/request_ledger, CAS, 멱등성, 스테이징/발행 경계, CLI/API",
+  "generated_at": "2026-09-09T21:30:00+09:00",
+  "git": { "branch": "feature/rag-transplant" },
+  "schema": {
+    "current_version": 2,
+    "migration": "v1 (P-01: db_meta, schema_migrations) -> v2 adds collections/sources/source_revisions/generations/jobs/request_ledger. Migration is atomic (BEGIN IMMEDIATE, version re-checked under the lock, single commit/rollback) — a mid-migration failure leaves v1 fully intact (verified by injecting a failure after the first table and confirming version stays 1, the partial table is gone, and pre-existing db_meta rows survive). Concurrent reopen of the same v1 DB by multiple connections migrates exactly once; the rest take a no-op fast path.",
+    "invariants_fixed_before_acceptance": [
+      "sources.head_revision_id / ready_generation_id are explicit pointers, never inferred via MAX(revision_id) — an A->B->A content history creates a fresh revision row (no UNIQUE(source_id, content_hash) constraint) and head_revision_id is what tracks 'current', not aggregate queries",
+      "generations has no UNIQUE(revision_id, profile_key) — a retry/re-index after failure is a new immutable row, never an update to an old one",
+      "jobs carries revision_id (input), generation_id (output, set on claim), and expected_state_version (CAS captured at claim time) — populated by add/update, not left NULL despite being in the DDL"
+    ]
+  },
+  "cas_and_idempotency_model": {
+    "revision_token": "opaque base64('v1:<source_id>:<state_version>'), never a content hash — see D-009 for the full worked example (add -> update(same) no-op -> update(new) -> delete -> restore, with the pre-delete token proven stale post-restore despite unchanged content)",
+    "idempotency_ledger_check": "moved INSIDE each mutation's BEGIN IMMEDIATE transaction — checking before acquiring the write lock let two concurrent identical retries both miss the ledger and then collide on a UNIQUE constraint instead of one cleanly replaying (found+fixed, regression test uses two real threads with real separate connections)",
+    "identical_retry_before_cas": "an exact retry (same request_id + same fingerprint) replays the stored result WITHOUT re-checking expected_revision, even if the source has genuinely moved on since the original call — verified"
+  },
+  "staging_publish_boundary_for_p03": {
+    "stage_generation": "captures state_version at staging time on the generation row itself; refuses staging a non-head (superseded) revision; refuses staging against a deleted source; job_id linking requires the job to match source+revision, be status='pending', and be unclaimed (generation_id IS NULL) — a completed/running/failed job cannot be silently reassigned (found+fixed, real-DB regression)",
+    "publish_generation": "takes ONLY a generation_id — no caller-supplied expected_revision at all (closes a gap where a stale generation could publish if the caller simply refreshed its token externally). Validates: generation still 'staged', source not deleted, generation's revision still equals the source's current head, and the source's CURRENT state_version equals the value captured at staging. On success, ALSO advances state_version by 1 (found+fixed: without this, two generations staged against the same token could both publish, the second silently clobbering the first out of order) and completes any linked job atomically with the ready-pointer move.",
+    "fail_generation": "marks a staged generation failed without touching ready_generation_id — a previously-published generation's content stays exactly as searchable as before",
+    "not_claimed_as_real_search": "P-02 never runs real chunking/embedding — stage/publish/fail are DB primitives P-03 will drive with real processing output; the synthetic profile_key strings used in tests are placeholders, not real embedding profiles"
+  },
+  "processing_status_model": {
+    "fields": "head_revision_id, ready_generation_id, ready_revision_id, searchable (bool), processing_status (not_indexed|pending|ready|stale_ready)",
+    "rule": "deleted is never searchable regardless of any ready pointer; a head that has moved past what was last published is 'stale_ready' (still searchable — the old ready content is real) not silently reported as plain 'ready' or dropped to not_indexed (found+fixed: an earlier draft collapsed this to one boolean that was true whenever ANY ready pointer existed)"
+  },
+  "cli_and_api": {
+    "shared_entrypoint": "airag/api.py owns the envelope (schema_version/request_id/ok/command/data/error) AND all operational-failure-to-error-code mapping (map_exception) — used by BOTH the CLI and any direct Python caller, not duplicated per-handler. map_exception covers store.ApiError, connect.py's identity/schema exceptions, sqlite3.OperationalError AND sqlcipher3.OperationalError (a DISTINCT, non-subclass exception class from the actual driver in use — missing this let real lock contention escape unmapped until fixed against a real two-connection contention test), ValueError/TypeError, OSError; anything unrecognized propagates as a genuine bug rather than being hidden.",
+    "commands": ["init", "manage doctor", "manage verify", "add", "update", "delete", "manage restore", "manage status", "manage list", "manage show", "fetch original"],
+    "request_id": "REQUIRED (not silently auto-generated) for single-item add/update and for delete/manage restore — an auto-generated id would defeat consumer-supplied idempotency (a genuine retry with no id would get a fresh id each time and never dedupe). Not required when --batch is used (each item supplies its own); the CLI's --request-id becomes the outer batch envelope's own id when given. Preserved on every error path, including failures before any store call runs (missing key, missing DB, file read failure).",
+    "argument_errors": "a custom ArgumentParser subclass emits the standard JSON envelope (code ARGUMENT_ERROR) for parser/unknown-argument failures instead of argparse's default usage-text-to-stderr; --help/-h is the one deliberate exception and stays plain text",
+    "file_input": "bounded reads (reads at most limit+1 bytes, never an unbounded read then a post-hoc size check), regular-file-only (refuses directories and FIFOs/sockets/devices before opening, avoiding an indefinite block on a FIFO with no writer), captured exactly once. media_type/origin_uri default via extension-guessing/file:// URI when not explicitly given (never silently defaulting a binary file to text/plain) — IDENTICAL inference logic shared between the single-item CLI path and each batch item (found+fixed: batch items originally defaulted text/plain unconditionally, diverging from the single-item path and failing UTF-8 validation on real binary content)",
+    "batch": "a real, importable Python function (api.add_batch/update_batch), not a CLI-only code path. One malformed item never aborts the rest; each result item is a FULL envelope (its own request_id preserved for both success and failure) plus its batch index. Whole-batch structural validation (not a list, not valid JSON/UTF-8, non-finite numbers) is refused before any item is processed. --batch cannot be combined with --content-file/--text."
+  },
+  "test_suite": {
+    "command": "feature-pack/rag/.venv/bin/python -m pytest tests/ -v",
+    "files": [
+      "test_keys.py", "test_connect.py", "test_vecext.py", "test_fts5_vec0_data.py",
+      "test_encryption_opacity.py", "test_cli.py (P-01)",
+      "test_migration.py (v1->v2, atomicity, concurrency)",
+      "test_store.py (CAS/idempotency/staging/publish/reads, real SQLCipher)",
+      "test_api.py (shared exception mapping, real lock contention)",
+      "test_cli_p02.py (add/update/delete/restore/status/list/show/fetch, batch, argument errors, request_id, doctor)"
+    ],
+    "result": "117 passed, 0 failed, 0 skipped. No unittest.mock/fake DB objects anywhere. The four P-02-specific files (test_migration.py, test_store.py, test_api.py, test_cli_p02.py) drive ONLY real sqlcipher3 connections against real temp-file encrypted DBs — no stdlib sqlite3 connection is opened anywhere in them (verified by grep). The P-01 carryover files in this same 117-file run (test_connect.py, test_encryption_opacity.py) deliberately use stdlib sqlite3 in a few places — a genuine plaintext/foreign-DB fixture, and the 'ordinary sqlite3 cannot read this' check — documented in p01-encrypted-install.json; 'every test in this run is SQLCipher' would be an overclaim, so this is stated precisely per file group rather than as one blanket line. Includes real multi-thread/multi-connection races: concurrent identical-request-id retries, concurrent competing updates on the same CAS token, concurrent v1 DB migration, and real lock contention between two live connections.",
+    "no_destructive_cleanup": "all tests use pytest tmp_path (unique per test); no test DB is ever deleted mid-run or reused across tests",
+    "owner_independent_verification": "owner independently re-ran the full suite (117 passed in 3.57s, unique --basetemp) and separately drove the installed CLI from outside the repo through an 11-step flow (add / retry / update / fetch a past original / delete / restore / stale-token rejection / missing-file rejection) plus a real 2-process concurrent update with a barrier (1 success + 1 CONFLICT_STALE_REVISION, matching the in-process test's result)"
+  },
+  "limitations_and_out_of_scope": [
+    "No real chunking/embedding/search — stage/publish/fail are DB-only primitives for P-03 to drive",
+    "No filesystem watcher/poller in core (D-002, unchanged)",
+    "'fetch source' from the original PLAN.md draft vocabulary is treated as identical to 'fetch original' — one CLI verb implemented, not two",
+    "No compiled DB-level FK enforcement across the two-hop sources.ready_generation_id -> generations.revision_id -> source_revisions.source_id chain (SQLite cannot express this declaratively) — enforced in store.py's publish_generation instead, and tested",
+    "Batch item count bounded at 1000 (MAX_BATCH_ITEMS); content size bounded at 50MB (MAX_CONTENT_BYTES), enforced during bounded reads"
+  ]
+}

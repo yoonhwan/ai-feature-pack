@@ -1,0 +1,47 @@
+{
+  "db_path_RETAINED_NOT_DELETED": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-p03a-vec-probe-a4bpi572/probe.db",
+  "db_key_hex_FIXED_SYNTHETIC_ONLY": "b03ab03ab03ab03ab03ab03ab03ab03ab03ab03ab03ab03ab03ab03ab03ab03a",
+  "distance_metric": "cosine",
+  "sqlite_vec_version": "v0.1.9",
+  "cipher_version": "4.12.0 community",
+  "dim": 8,
+  "literal_rows": [
+    {"id": 100, "vector": [1.0146, -0.0078, 0.0031, -0.0112, 0.0087, -0.0054, 0.0163, -0.0021], "collection": "colA", "active": 1},
+    {"id": 101, "vector": [0.9967, 0.0091, -0.0145, 0.0062, -0.0177, 0.0104, -0.0018, 0.0139], "collection": "colA", "active": 1},
+    {"id": 102, "vector": [1.0122, -0.0166, 0.0057, -0.0089, 0.0014, 0.0178, -0.0102, 0.0045], "collection": "colA", "active": 1},
+    {"id": 199, "vector": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "collection": "colA", "active": 0},
+    {"id": 200, "vector": [-0.0142, 1.0119, -0.0067, 0.0155, -0.0033, 0.0088, -0.0176, 0.0021], "collection": "colB", "active": 1},
+    {"id": 201, "vector": [0.0164, 0.9909, 0.0128, -0.0055, 0.0173, -0.0119, 0.0042, -0.0187], "collection": "colB", "active": 1},
+    {"id": 202, "vector": [-0.0108, 1.0173, -0.0044, 0.0091, -0.0159, 0.0026, 0.0137, -0.0083], "collection": "colB", "active": 1},
+    {"id": 299, "vector": [1.0031, -0.0018, 0.0009, -0.0027, 0.0021, -0.0013, 0.0038, -0.0005], "collection": "colB", "active": 0}
+  ],
+  "literal_query_vector": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  "manual_cosine_cross_check": [
+    {"id": 100, "manual_cosine_dist_to_query": 0.000277},
+    {"id": 101, "manual_cosine_dist_to_query": 0.000478},
+    {"id": 102, "manual_cosine_dist_to_query": 0.000405},
+    {"id": 199, "manual_cosine_dist_to_query": 0.0},
+    {"id": 200, "manual_cosine_dist_to_query": 1.014027},
+    {"id": 201, "manual_cosine_dist_to_query": 0.98346},
+    {"id": 202, "manual_cosine_dist_to_query": 1.010613},
+    {"id": 299, "manual_cosine_dist_to_query": 1.6e-05}
+  ],
+  "unfiltered_topk": [
+    {"id": 199, "collection": "colA", "active": 0, "distance": 0.0},
+    {"id": 299, "collection": "colB", "active": 0, "distance": 1.5957037248881534e-05},
+    {"id": 100, "collection": "colA", "active": 1, "distance": 0.0002771681174635887},
+    {"id": 102, "collection": "colA", "active": 1, "distance": 0.0004050367570016533}
+  ],
+  "filtered_topk": [
+    {"id": 100, "collection": "colA", "active": 1, "distance": 0.0002771681174635887},
+    {"id": 102, "collection": "colA", "active": 1, "distance": 0.0004050367570016533},
+    {"id": 101, "collection": "colA", "active": 1, "distance": 0.0004775065463036299}
+  ],
+  "distractor_would_win_without_filter": true,
+  "distractor_correctly_excluded_with_filter": true,
+  "filtered_rows_all_colA_active": true,
+  "filtered_count_matches_eligible_rows": true,
+  "metadata_column_IN_operator_supported": true,
+  "metadata_column_IN_operator_error": null,
+  "note": "this is a COPY of the out.json written next to the retained probe.db under the mkdtemp path above; the copy is for convenient repo-adjacent reading, the retained DB itself lives only at the mkdtemp path (not copied into the repo — it is a synthetic SQLCipher binary with no repo purpose beyond being left un-deleted for this review cycle)"
+}

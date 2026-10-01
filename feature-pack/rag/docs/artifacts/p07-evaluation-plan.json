@@ -1,0 +1,43 @@
+{
+  "defined_at": "2026-09-13",
+  "status": "criteria_fixed_before_execution",
+  "scope": "Bounded local RAG acceptance evaluation; synthetic fixtures, not a claim about all documents or production scale.",
+  "quality": {
+    "provider": "actual configured BYZ embedding and LLM; never substitute synthetic vectors for semantic quality",
+    "top_1_minimum": 0.9,
+    "top_3_minimum": 1.0,
+    "source_and_original_anchor_accuracy": 1.0,
+    "critical_fact_preservation": 1.0,
+    "unsupported_claims_allowed": 0,
+    "languages": ["ko", "en"],
+    "documents": [
+      {"key": "library", "text": "해솔도서관은 화요일부터 토요일까지 오전 9시부터 오후 6시까지 운영한다. 월요일과 일요일은 휴관한다. 책은 한 사람당 최대 5권을 14일 동안 빌릴 수 있다.", "facts": ["5", "14"], "questions": ["해솔도서관에서 책을 몇 권까지 며칠 동안 빌릴 수 있나요?", "How many books can I borrow from Haesol Library and for how long?"]},
+      {"key": "refund", "text": "푸른상점의 미개봉 상품은 수령일부터 7일 이내에 환불을 요청할 수 있다. 주문번호와 구매 영수증이 필요하다. 단순 변심의 반송 배송비는 구매자가 부담한다.", "facts": ["7"], "questions": ["푸른상점의 미개봉 상품 환불 기간과 필요한 서류는?", "What is the refund window for unopened items at Pureun Store, and what proof is required?"]},
+      {"key": "garden", "text": "별빛정원의 야간 관람은 금요일과 토요일 오후 7시에 시작한다. 입장료는 성인 8000원이며 만 6세 미만은 무료이다. 반려동물은 동반할 수 없다.", "facts": ["8000", "6"], "questions": ["별빛정원 야간 관람의 성인 요금과 무료 입장 조건은?", "How much is night admission to Starlight Garden and which children enter free?"]},
+      {"key": "clinic", "text": "나무의원 예방접종은 사전 예약이 필요하다. 예약 변경은 방문 하루 전 오후 4시까지 전화로 신청한다. 진료 당일에는 신분증과 예방접종 기록을 지참한다.", "facts": ["4"], "questions": ["나무의원 예방접종 예약은 언제까지 어떤 방법으로 변경하나요?", "When and how can I change a vaccination appointment at Namu Clinic?"]},
+      {"key": "bus", "text": "공항버스 740번은 중앙역 3번 출구에서 출발한다. 첫차는 오전 5시 20분이며 배차 간격은 30분이다. 공항까지 예상 소요 시간은 70분이다.", "facts": ["740", "3", "30", "70"], "questions": ["중앙역 공항버스 740번 탑승 위치와 배차 간격은?", "Where does airport bus 740 depart from Central Station and how often does it run?"]},
+      {"key": "backup", "text": "오로라 프로젝트는 매일 오전 2시에 암호화 백업을 생성한다. 백업은 30일 동안 보관한다. 복원 연습은 매월 첫째 수요일에 별도 검증 환경에서 진행한다.", "facts": ["2", "30"], "questions": ["오로라 프로젝트의 백업 보관 기간과 복원 연습 일정은?", "How long does Aurora retain backups and when are restoration drills held?"]},
+      {"key": "workshop", "text": "달빛공방 도예 수업은 토요일 오전 10시에 시작하며 120분 동안 진행한다. 정원은 8명이다. 완성된 작품은 건조와 소성을 거쳐 수업 3주 뒤 수령한다.", "facts": ["120", "8", "3"], "questions": ["달빛공방 도예 수업의 소요 시간과 작품 수령 시점은?", "How long is the Moonlight pottery class and when can finished work be collected?"]},
+      {"key": "network", "text": "사내 방문자 무선망의 이름은 GUEST-ORBIT이다. 접속 코드는 안내 데스크에서 발급하며 유효 시간은 4시간이다. 방문자 무선망에서는 내부 업무 서버에 접근할 수 없다.", "facts": ["GUEST-ORBIT", "4"], "questions": ["방문자 무선망 접속 코드는 어디서 받고 얼마나 유효한가요?", "Where can visitors obtain access to GUEST-ORBIT, and how long is the code valid?"]},
+      {"key": "museum", "text": "바다박물관의 특별전은 9월 15일부터 10월 20일까지 열린다. 특별전 관람권에는 상설전 입장이 포함된다. 사진 촬영은 가능하지만 플래시와 삼각대는 사용할 수 없다.", "facts": ["15", "20"], "questions": ["바다박물관 특별전에서 허용되지 않는 촬영 장비는?", "Which photography equipment is prohibited at the Ocean Museum special exhibition?"]},
+      {"key": "subscription", "text": "새벽뉴스의 월 구독료는 4500원이다. 구독 해지는 다음 결제일 24시간 전까지 신청해야 한다. 해지 후에도 이미 결제한 기간이 끝날 때까지 기사를 읽을 수 있다.", "facts": ["4500", "24"], "questions": ["새벽뉴스 구독은 결제일 기준 언제까지 해지해야 하나요?", "How far in advance of renewal must I cancel Dawn News, and does access stop immediately?"]},
+      {"key": "hiking", "text": "솔바람길 탐방로는 왕복 6킬로미터이며 평균 2시간이 걸린다. 폭우 경보가 발령되면 입산이 통제된다. 탐방로 입구에서 식수를 준비해야 하며 중간 급수대는 없다.", "facts": ["6", "2"], "questions": ["솔바람길 탐방로 길이와 예상 소요 시간, 식수 준비 사항은?", "How long is the Solbaram hiking route, how much time does it take, and is water available en route?"]},
+      {"key": "delivery", "text": "은하택배의 당일 배송 접수는 평일 오전 11시에 마감된다. 제주와 도서 지역은 당일 배송 대상이 아니다. 배송 상태는 운송장 번호 12자리로 조회한다.", "facts": ["11", "12"], "questions": ["은하택배 당일 배송 접수 마감과 제외 지역은?", "What is the same-day delivery cutoff for Galaxy Parcel and which regions are excluded?"]}
+    ],
+    "enrichment_review": "For every document inspect stored tags, summary, translation, source-unit membership and original anchor. Numeric/literal checks are necessary but do not alone prove translation quality; record manual semantic verdict and failures."
+  },
+  "scale": {
+    "source_counts": [100, 1000],
+    "chunks_per_source": 5,
+    "vector_dimension": 1024,
+    "queries_per_size": 30,
+    "search_p95_seconds_max": 2.0,
+    "expansion_p95_seconds_max": 3.0,
+    "peak_rss_mib_max": 2048,
+    "disk_mib_max_at_1000_sources": 512,
+    "publication_seconds_max_at_1000_sources": 300,
+    "provider": "deterministic synthetic vectors for isolated local indexing/search resource measurements; external model latency reported separately",
+    "limits": "Measured on this machine at 500/5000 chunks; no extrapolation to larger corpora or concurrency. Threshold failures remain visible and require scoped remediation or an explicit scope decision."
+  },
+  "requirements": ["Retain per-question ranking and original source evidence", "Report all failed cases", "Separate offline synthetic and actual-model runs", "Keep unavailable real-model verification incomplete"]
+}

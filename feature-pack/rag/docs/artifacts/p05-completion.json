@@ -1,0 +1,75 @@
+{
+  "category": "P-05",
+  "status": "COMPLETE_STOP_READY",
+  "completed_at": "2026-09-10T17:21:21.246938+09:00",
+  "worktree": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant",
+  "branch": "feature/rag-transplant",
+  "schema_version": 5,
+  "graph_version": 1,
+  "completed_tasks": [
+    "P05-01",
+    "P05-02",
+    "P05-03",
+    "P05-04",
+    "P05-05"
+  ],
+  "validation": {
+    "offline": {
+      "command": ".venv/bin/python -m pytest tests/ -q --tb=short --disable-warnings",
+      "passed": 360,
+      "skipped": 1,
+      "deselected": 19,
+      "seconds": 92.06
+    },
+    "live": {
+      "command": "AIRAG_EMBED_REVISION=integration-probe-unverified-weights-2026-09-10 AIRAG_P05_REPORT=docs/artifacts/p05-live-validation.json .venv/bin/python -m pytest -m integration tests/test_expansion_live.py -q --tb=short",
+      "passed": 1,
+      "seconds": 70.32,
+      "installed_cli_commands": 12,
+      "evidence": "p05-live-validation.json"
+    },
+    "synthetic_cli": {
+      "test": "tests/test_cli_expansion.py",
+      "passed": 1,
+      "seconds": 31.9,
+      "note": "Explicit synthetic HTTP fixture; not real-model quality evidence."
+    },
+    "package": "p05-package-verification.json"
+  },
+  "live_observation": {
+    "included_chunks": 5,
+    "payload_tokens": 10757,
+    "payload_bytes": 48950,
+    "relations": [
+      "next",
+      "references",
+      "similar"
+    ],
+    "classifications": [
+      "explicit_reference",
+      "inferred",
+      "structural"
+    ]
+  },
+  "contracts": {
+    "inline": "search and expansion use the same read transaction; their two manifests commit together after it closes",
+    "standalone": "inherits collection/space/source-key/MIME scope; compares ready generations, revision IDs, state versions and graph versions; changed snapshots fail STALE_SNAPSHOT",
+    "history": "fetch expansion returns stored immutable evidence with historical=true, without traversing current data",
+    "graph": "generation-owned structural edges, locators and original-source reference intent commit atomically with content/indices",
+    "references": "CommonMark links via pinned Marko source spans; source-key directives; original conversation links/reply_to; retained native Docling hyperlinks. Targets resolve only inside the snapshot; no URL or file fetch.",
+    "similar": "opt-in exact cosine top-N using stored vectors in the same space and snapshot, explicitly inferred",
+    "budgets": "seeds included; canonical compact UTF-8 JSON of the complete evidence value is token/byte counted using the locally cached captured tokenizer, without special tokens or truncation"
+  },
+  "scope_and_limits": [
+    "Standalone historical traversal is intentionally not provided. Changed state needs a new search; saved expansion replay remains available.",
+    "Old manifests without state snapshots remain readable but cannot be expanded. v4 graphs are backfilled without model calls; graph-limit failures preserve old search/original access and report GRAPH_UNAVAILABLE.",
+    "Structural group edges connect consecutive members, not every pair. Parent/child edges use representative chunks for observed section hierarchy, not a claim of text containment.",
+    "References are limited to supported original syntax and metadata retained by the adapters. Missing native hyperlink metadata, external unregistered targets and prose-implied references are not guessed.",
+    "Semantic graph edges use configured top-N and threshold; cosine is not a probability or proof of identical facts. Exact similarity is O(N) per expanded node.",
+    "max_edges counts processed candidates; at most one extra candidate is fetched to detect truncation. It is not a bound on internal SQL scan work.",
+    "Token/byte accounting covers evidence only, not the API wrapper, scope or usage metadata. A different downstream model can have different token counts.",
+    "No arbitrary summaries are created to fit budgets. Distinct chunks retain distinct provenance even when their text is equal.",
+    "Remote model weights remain operator/probe declarations as already tracked in P03-06; broad quality/scale evaluation remains P07."
+  ],
+  "preservation": "No source database deletion, worker-seat cleanup, cloud-resource mutation, branch switch, commit or publication. P06 not started."
+}

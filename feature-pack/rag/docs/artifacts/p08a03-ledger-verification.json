@@ -1,0 +1,63 @@
+{
+  "date": "2026-09-27",
+  "stage": "P08A-03",
+  "status": "synthetic_ledger_boundary_verified_DA7_PASS",
+  "independent_code_review": {
+    "model": "claude-fable-5-1",
+    "round": 7,
+    "verdict": "PASS",
+    "blockers": 0,
+    "consumer_tests_reproduced": 96,
+    "scope": "events_jsonl_conversation_ledger_redaction_implementation_boundary",
+    "project_code_RAG_reviewed": false
+  },
+  "implementation": [
+    "strict_user_assistant_event_contract_with_source_ordinal",
+    "deterministic_opaque_message_anchors_and_order",
+    "SQLCipher_private_ledger_schema_3",
+    "redaction_before_durable_event_write",
+    "atomic_event_receipt_and_checkpoint_commit",
+    "idempotent_replay_and_event_ordinal_conflict_detection",
+    "explicit_audited_rejection_skip_and_coverage_gap",
+    "provenance_based_empty_search_body_handling"
+  ],
+  "command": "../rag/.venv/bin/python -m pytest tests ../rag/tests/test_normalize.py -q",
+  "workdir": "feature-pack/rag-consumer",
+  "tests": {"consumer": 96, "existing_normalize": 26, "total_passed": 122, "seconds": 0.90},
+  "verified_faults": [
+    "wrong_key_plaintext_foreign_or_empty_database_rejected",
+    "encrypted_DB_bytes_do_not_expose_public_or_secret_marker",
+    "redaction_failure_and_partial_line_do_not_ack",
+    "same_event_different_payload_rolls_back_entire_batch",
+    "transaction_fault_after_event_insert_rolls_back",
+    "checkpoint_write_fault_rolls_back_events_and_audit",
+    "lost_ack_and_restart_replay_once",
+    "concurrent_identical_delivery_commits_once",
+    "source_scope_incarnation_and_policy_mismatch_rejected",
+    "same_ordinal_different_event_rejected",
+    "rejected_record_then_valid_record_can_progress_with_explicit_gap_receipt",
+    "skip_replay_and_digest_conflict_and_failure_are_atomic",
+    "valid_or_incomplete_or_multiple_records_cannot_be_skipped",
+    "user_literal_placeholder_is_not_silently_removed"
+  ],
+  "test_encrypted_databases_created": "pytest_temporary_directories_only_ephemeral_random_keys",
+  "operational_DB_created": false,
+  "real_history_ingested": false,
+  "core_source_modified": false,
+  "provider_called": false,
+  "not_implemented": [
+    "native_rollout_source_adapter_and_file_integrity_reader",
+    "producer_scope_assignment_and_runtime_access_policy",
+    "grant_revoke_and_correction_reducer",
+    "production_key_rotation_recovery_and_retention",
+    "segment_sealing_and_window_lifecycle",
+    "RAG_publication_search_memory_runtime",
+    "project_code_indexing_and_Serena_LSP_integration"
+  ],
+  "known_policy_tradeoffs": [
+    "ambiguous_tag_prose_is_fail_closed_explicit_skip_creates_visible_gap",
+    "numeric_named_token_values_are_conservatively_redacted",
+    "policy_upgrade_requires_new_ledger_generation_and_explicit_reprocessing",
+    "source_file_identity_and_prefix_validation_are_future_adapter_responsibility"
+  ]
+}

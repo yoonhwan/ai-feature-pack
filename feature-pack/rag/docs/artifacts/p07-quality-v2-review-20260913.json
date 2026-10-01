@@ -1,0 +1,10 @@
+{
+  "status": "failed_semantic_review",
+  "source_report": "p07-quality-v2-20260913.json",
+  "retrieval": {"queries": 24, "top_1": 1.0, "top_3": 1.0},
+  "corrected_initial_failures": ["clinic no longer becomes tree medicine", "delivery grouping metadata is now English"],
+  "failures": [{"document": "refund", "field": "group_summary", "observed": "with a purchase order and receipt", "reason": "Order number is an identifier, not a purchase-order document; the detailed restatement changes the requirement."}],
+  "other_observations": ["Proper-name rendering still varies between group summaries and translation; final translation fields preserve the factual content."],
+  "remediation": "Define grouping metadata as English topic descriptions, leaving detailed facts and names in original text and translation. Version the prompt v3, thereby separating the new processing profile/space. Do not change acceptance thresholds or discard the failed outputs.",
+  "reviewer": "primary agent semantic comparison of all 12 source/group/translation records"
+}

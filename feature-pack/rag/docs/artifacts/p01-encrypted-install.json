@@ -1,0 +1,133 @@
+{
+  "phase": "P-01",
+  "title": "격리 설치 + SQLCipher/FTS5/vec0 암호화 검증",
+  "generated_at": "2026-09-09T16:55:00+09:00",
+  "git": {
+    "branch": "feature/rag-transplant",
+    "commit_at_time_of_run": "ff61435"
+  },
+  "environment": {
+    "isolated_venv_path": "feature-pack/rag/.venv (gitignored, worktree-local)",
+    "python_version": "3.13.12",
+    "uv_version": "0.10.0",
+    "install_command": "uv venv --python 3.13 .venv && uv pip install -e . --group dev --python .venv/bin/python",
+    "installed_packages": {
+      "ai-feature-rag": "0.1.0 (editable, this package)",
+      "sqlcipher3": "0.6.2 (prebuilt cp313 macOS wheel from PyPI, no system libsqlcipher/homebrew dependency needed)",
+      "sqlite-vec": "0.1.9 (core dependency, not an optional extra — review item 6)",
+      "pytest": "9.1.1"
+    },
+    "no_global_or_kakaobot_env_modified": true,
+    "uv_pin": "[tool.uv] required-version relaxed from an exact '==0.10.0' pin to a floor '>=0.10.0'"
+  },
+  "cli_entrypoints": {
+    "ai-rag": "verified working from outside repo (cwd=/private/tmp, PYTHONPATH unset)",
+    "krb-rag": "verified working, same behavior as ai-rag (shared main())"
+  },
+  "manage_doctor_output_observed": {
+    "sqlcipher": { "available": true, "sqlite_version": "3.51.1", "cipher_version": "4.12.0 community" },
+    "fts5": { "available": true },
+    "vec0": { "available": true, "version": "v0.1.9" },
+    "key_providers": { "key_fd": true, "macos_keychain": false }
+  },
+  "owner_review_rounds": {
+    "round1_p01_review_txt": [
+      "engine/schema identity check added (db_meta.engine=='airag' + exact schema_migrations version match) — open_encrypted no longer trusts a valid key alone",
+      "PRAGMA cipher_version asserted non-empty as proof of real SQLCipher, not just 'module imported + SELECT worked'",
+      "key length validated before any file/connection is touched",
+      "sqlite-vec promoted to a core dependency; uv exact-version pin relaxed to a floor"
+    ],
+    "round2_live_review": [
+      "found+fixed: journal_mode=WAL mutates on-disk bytes even with no row-data change (measured empirically) — was being applied BEFORE identity/schema verification, violating 'refuse foreign DB without modification'. Now deferred to _enable_wal(), called only after verification succeeds (or on a brand-new DB being created)",
+      "found+fixed: schema check used '> SCHEMA_VERSION' which let a missing/lower/None version through — changed to exact '!= SCHEMA_VERSION'",
+      "found+fixed: init_db's exists-then-create was a TOCTOU race; original fix (flock-guarded sidecar lock file, deleted after use) had a genuine double-init bug caught live by a 4-thread concurrency test — a deleted-then-recreated lock file let two threads lock *different* inodes under the same path name. Replaced entirely with os.open(path, O_CREAT|O_EXCL) as the sole exclusivity mechanism: atomic, no sidecar file, and as a side effect now also refuses a pre-existing *empty* placeholder file (previously allowed)",
+      "changed: a failed init no longer auto-deletes its partial artifact (DB/-wal/-shm) — preserved for human inspection, consistent with 'no destructive delete without a human'",
+      "open_encrypted now connects via a `mode=rw` URI so the SQLite driver itself refuses to create a missing file, on top of the earlier app-level exists() check"
+    ],
+    "round3_live_review": [
+      "found+fixed: the mode=rw URI was hand-built as f\"file:{p}?mode=rw\" — a path containing ?, #, or % would be misparsed as URI query/fragment/percent-escapes and could open the wrong file. Fixed to Path.resolve().as_uri() + \"?mode=rw\", which percent-encodes the path correctly; verified with a real round-trip test using a path containing spaces, #, %, and ?"
+    ],
+    "round4_live_review": [
+      "found+fixed: key validation only checked length, not type. init_db(path, 'x'*32) (a 32-char str, not bytes) passed the length check, then os.open(O_EXCL) created the file, and only then did key_bytes.hex() raise AttributeError inside _apply_raw_key — i.e. the file got created before the bad input was rejected. Reproduced live, then fixed: _validate_key_length now checks isinstance(key_bytes, bytes) first (TypeError) before the length check, and both init_db and open_encrypted validate before touching the filesystem/connecting. Regression tests added for both entry points confirming no file is created."
+    ],
+    "round5_owner_independent_rerun": [
+      "owner independently re-ran the full 46/46 suite and confirmed it, then cross-checked evidence claims against actual test code and found two gaps: fixed both, see below",
+      "found+fixed: test_extension_loading_disabled_even_on_failure did not call vecext.try_load_vec0 at all — it re-implemented the enable/disable sequence inline in the test itself, so a real bug in try_load_vec0's failure path would not have been caught. Rewritten to monkeypatch sqlite_vec.load to raise, call the real try_load_vec0(con), and assert both its return value (False) and that extension loading is disabled afterward on that same live connection",
+      "added: test_fts5_and_vec0_rollback_together_in_one_transaction — previously only FTS5 rollback was tested in isolation; this exercises FTS5 + vec0 inserts inside one BEGIN, rolled back together, both absent afterward",
+      "corrected: this evidence file's blanket 'every test opens a real SQLCipher connection' claim was imprecise — see test_suite.result below for the accurate breakdown"
+    ]
+  },
+  "encrypted_db_lifecycle_verified": {
+    "key_fd_32_byte_synthetic_key_input": "pass — bounded os.read() loop, does not overread trailing bytes placed after the key on the same fd",
+    "correct_reopen": "pass — init_db then open_encrypted with same key, schema_version readable",
+    "wrong_key_rejection": "pass",
+    "no_key_rejection": "pass — CLI: exit code 4, no partial DB left",
+    "foreign_plaintext_db_refusal_without_modification": "pass — byte-identical before/after the rejected open",
+    "foreign_encrypted_db_refusal_with_correct_key_without_modification": "pass — correctly-keyed but non-airag SQLCipher DB rejected; file bytes AND absence of -wal/-shm siblings verified after the rejected attempt",
+    "future_and_stale_and_missing_schema_version_refusal": "pass — version 999 (future), version 0 (stale), and an empty schema_migrations table (None) are all rejected; only an exact SCHEMA_VERSION match is accepted",
+    "non_creating_reopen": "pass — missing path raises without creating a file (SQLite-driver-level mode=rw, not just an app check)",
+    "temp_store_memory / foreign_keys_on / wal_journal_mode / bounded_busy_timeout": "pass — all four pragma values verified by direct PRAGMA query",
+    "real_sqlcipher_assertion": "pass — PRAGMA cipher_version == '4.12.0 community' (observed)",
+    "exclusive_atomic_init": "pass — O_CREAT|O_EXCL path reservation; 4-thread same-key race (exactly 1 success, DB intact) and 2-thread different-key race (exactly 1 winner, loser's key correctly fails against it); pre-existing non-empty AND empty files both refused without modification",
+    "special_characters_in_db_path": "pass — full init/reopen roundtrip on a path containing spaces, #, %, ?",
+    "extension_load_enabled_only_while_needed": "pass — vecext.try_load_vec0 disables extension loading in a finally, verified on both success and forced-failure paths",
+    "no_keys_in_argv_or_log_or_error_output": "pass — subprocess test asserts key hex/bytes absent from argv, stdout, stderr"
+  },
+  "fts5_vec0_data_lifecycle_verified": {
+    "fts5_insert_and_search": "pass",
+    "vec0_insert_and_query": "pass — real vec0 virtual table, float[4] vectors, MATCH + distance ORDER BY",
+    "commit_reopen_persistence": "pass — survives wal_checkpoint(TRUNCATE) + close + reopen",
+    "rollback": "pass",
+    "synthetic_plaintext_marker_absent_from_db_and_wal_bytes": "pass",
+    "ordinary_sqlite3_cannot_read_encrypted_db": "pass"
+  },
+  "test_suite": {
+    "command": "feature-pack/rag/.venv/bin/python -m pytest tests/ -v",
+    "location": "feature-pack/rag/tests/",
+    "files": [
+      "tests/conftest.py", "tests/test_keys.py", "tests/test_connect.py",
+      "tests/test_vecext.py", "tests/test_fts5_vec0_data.py",
+      "tests/test_encryption_opacity.py", "tests/test_cli.py"
+    ],
+    "result": "47 passed, 0 failed, 0 skipped. No test uses unittest.mock/fake objects standing in for the DB driver. Breakdown by connection type: the large majority open a real SQLCipher connection via sqlcipher3 against a temp file or :memory:; a deliberate minority open a real stdlib sqlite3 (non-SQLCipher) connection — this is intentional, not a mock, in exactly two places: (1) creating a genuine plaintext SQLite fixture file to prove the encrypted-open path refuses it, and (2) proving a genuine stdlib sqlite3.connect() cannot read an already-encrypted file. test_vecext.py's monkeypatch (round5) patches sqlite_vec.load to inject a failure, and still calls the real vecext.try_load_vec0 against a real sqlite3 connection — the DB layer itself is never mocked, only the third-party extension's load() is made to fail on purpose. Includes real 4-thread and 2-thread concurrency races against the actual O_EXCL init path."
+  },
+  "keychain_capability": {
+    "status": "not implemented in phase 1 (honest stub)",
+    "keychain_available_returns": false,
+    "p01_not_blocked_by_this": "all P-01 tests use --key-fd / read_key_from_fd, per dispatch scope"
+  },
+  "cli_contract_notes": {
+    "envelope": "{schema_version, request_id, ok, command, data, error} verified on init/manage doctor/manage verify",
+    "json_stdout_only": "verified",
+    "exit_codes": "0 on ok=true, 4 on ok=false (envelope error), 2 on argparse usage error"
+  },
+  "limitations_and_out_of_scope": [
+    "No add/update/delete/search/expand/fetch CLI commands exist yet — those are P-02/P-03/P-06",
+    "macOS Keychain key provider remains unimplemented (honest stub)",
+    "sqlite-vec loaded via Python extension loading, not compiled into sqlcipher3 — unchanged design",
+    "No filesystem watcher/poller/scheduler in core (by design, D-002)",
+    "Exclusivity relies on O_CREAT|O_EXCL on a local filesystem, same class of guarantee SQLite's own file locking relies on — not evaluated on a network filesystem"
+  ],
+  "local_capability_inventory_p03_p04": {
+    "purpose": "read-only survey for future P-03/P-04 — no model downloads, no document ingestion, no remote provider calls",
+    "embedding": {
+      "lm_studio_openai_compatible_endpoint": {
+        "url": "http://localhost:1234/v1 (observed reachable)",
+        "models_listed": ["text-embedding-qwen3-embedding-0.6b", "text-embedding-nomic-embed-text-v1.5"]
+      },
+      "ollama": {
+        "endpoint": "http://localhost:11434 (observed reachable)",
+        "models_listed": ["gemma4:26b (25.8B, Q4_K_M, gguf) — chat/vision, not embedding-specific"]
+      }
+    },
+    "vision_ocr": {
+      "tesseract": "installed via Homebrew, CLI binary present",
+      "easyocr": "not installed",
+      "docling": "not installed"
+    },
+    "unknowns": [
+      "Embedding dimension/max-sequence-length for the two LM Studio models — not queried (would require a live call)",
+      "GPU/Metal acceleration status — not probed"
+    ]
+  }
+}

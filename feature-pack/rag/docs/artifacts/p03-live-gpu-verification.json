@@ -1,0 +1,1402 @@
+{
+  "captured_at": "2026-09-10T11:36:54.097824+09:00",
+  "status": "passed",
+  "scope": "Real dual-GPU API and installed CLI integration on synthetic Korean text; no mocked model responses",
+  "api_pytest": {
+    "result": "1 passed",
+    "duration_s": 20.94,
+    "test": "tests/test_pipeline_live.py"
+  },
+  "config": {
+    "embedding": {
+      "provider": "openai-compatible",
+      "endpoint": "http://127.0.0.1:18811/v1",
+      "model": "byz-embed",
+      "revision": "integration-probe-unverified-weights-2026-09-10",
+      "dimension": 1024,
+      "tokenizer_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "max_tokens": 8192,
+      "timeout_s": 60
+    },
+    "llm": {
+      "provider": "byz-vllm",
+      "endpoint": "http://127.0.0.1:18002/v1",
+      "model": "byz-llm",
+      "weights_revision": null,
+      "context_length": 24576,
+      "timeout_s": 90
+    }
+  },
+  "weights_revision_attested": false,
+  "retained_cli_workdir": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r",
+  "key_persistence": "Ephemeral memory and pipe only; no key bytes in this report or command arguments",
+  "trace": [
+    {
+      "command": [
+        "init",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db"
+      ],
+      "seconds": 0.147,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "569a028d-26e8-4110-9f6b-e859e9653387",
+        "ok": true,
+        "command": "init",
+        "data": {
+          "path": "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+          "schema_version": 4
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "manage",
+        "profile",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--config",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/profile.json"
+      ],
+      "seconds": 1.659,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "bc7b1c00-a8fd-4448-99e2-f9b117e574b5",
+        "ok": true,
+        "command": "manage profile",
+        "data": {
+          "profile_key": "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+          "space_id": 1,
+          "llm_enrichment": true
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "add",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--request-id",
+        "cli-add",
+        "--profile-key",
+        "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+        "--text",
+        "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다."
+      ],
+      "seconds": 9.583,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "cli-add",
+        "ok": true,
+        "command": "add",
+        "data": {
+          "source_id": 1,
+          "generation_id": 1,
+          "revision_id": 1,
+          "status": "ready",
+          "state_version": 2,
+          "revision_token": "djE6MToy",
+          "chunk_count": 1,
+          "searchable": true,
+          "processing_status": "ready"
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "add",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--request-id",
+        "cli-add",
+        "--profile-key",
+        "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+        "--text",
+        "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다."
+      ],
+      "seconds": 1.084,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "cli-add",
+        "ok": true,
+        "command": "add",
+        "data": {
+          "source_id": 1,
+          "generation_id": 1,
+          "revision_id": 1,
+          "status": "ready",
+          "state_version": 2,
+          "revision_token": "djE6MToy",
+          "chunk_count": 1,
+          "searchable": true,
+          "processing_status": "ready"
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "search",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--query",
+        "고양이는 얼마나 자나요?",
+        "--profile-key",
+        "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800"
+      ],
+      "seconds": 5.131,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "ffb5a496-bbc3-434d-8273-722de1978756",
+        "ok": true,
+        "command": "search",
+        "data": {
+          "manifest_id": 1,
+          "collection": "live",
+          "original_query": "고양이는 얼마나 자나요?",
+          "search_query_text": "How much do cats sleep?",
+          "space_id": 1,
+          "profile_key": "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+          "query_provenance": {
+            "original_query": "고양이는 얼마나 자나요?",
+            "translated_query": "How much do cats sleep?",
+            "translated": true,
+            "metadata": {
+              "model_echoed": "byz-llm",
+              "finish_reason": "stop",
+              "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+              "usage": {
+                "prompt_tokens": 159,
+                "total_tokens": 207,
+                "completion_tokens": 48,
+                "prompt_tokens_details": {
+                  "cached_tokens": 128,
+                  "created_cache_tokens": 0,
+                  "multimodal_tokens": null
+                },
+                "completion_tokens_details": null
+              },
+              "configured_weights_revision": null,
+              "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "input_unit_ids": [
+                "query"
+              ]
+            }
+          },
+          "ranking": {
+            "rrf_k": 60,
+            "candidate_limit": 40,
+            "exact_cosine": true
+          },
+          "eligible": {
+            "sources": [
+              {
+                "source_id": 1,
+                "revision_id": 1,
+                "generation_id": 1
+              }
+            ],
+            "count": 1
+          },
+          "results": [
+            {
+              "chunk_id": 1,
+              "source_id": 1,
+              "source_key": "cats",
+              "collection": "live",
+              "generation_id": 1,
+              "revision_id": 1,
+              "origin_uri": null,
+              "content_hash": "8f018d1a74025765f2e74fc8d23f984db7a6522a5c89902e17cb4718c175c966",
+              "embedded_text": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+              "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+              "is_translated": true,
+              "original_text_is_contiguous": true,
+              "provenance_granularity": "semantic_group",
+              "anchor": {
+                "headings": [],
+                "items": [
+                  {
+                    "granularity": "exact",
+                    "kind": "text_span",
+                    "unit": "char",
+                    "start": 0,
+                    "end": 51,
+                    "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                    "self_ref": "#/texts/0"
+                  }
+                ],
+                "llm_enrichment": {
+                  "group_id": "group-0-0",
+                  "source_unit_ids": [
+                    "chunk-0"
+                  ],
+                  "source_units": [
+                    {
+                      "unit_id": "chunk-0",
+                      "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                      "contextualized_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                      "anchor": {
+                        "headings": [],
+                        "items": [
+                          {
+                            "granularity": "exact",
+                            "kind": "text_span",
+                            "unit": "char",
+                            "start": 0,
+                            "end": 51,
+                            "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                            "self_ref": "#/texts/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                  "original_text_is_contiguous": true,
+                  "tags": [
+                    "cats",
+                    "sleep",
+                    "behavior"
+                  ],
+                  "summary": "The text describes the sleeping habits and active periods of cats.",
+                  "translation_en": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+                  "group_summary": "This unit describes the sleeping habits and active periods of cats.",
+                  "group_tags": [
+                    "cats",
+                    "behavior",
+                    "sleep"
+                  ],
+                  "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                  "llm_configured_weights_revision": null,
+                  "enrichment_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 186,
+                      "total_tokens": 254,
+                      "completion_tokens": 68,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                    "input_unit_ids": [
+                      "group-0-0"
+                    ]
+                  },
+                  "grouping_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 219,
+                      "total_tokens": 264,
+                      "completion_tokens": 45,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 192,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                    "input_unit_ids": [
+                      "chunk-0"
+                    ]
+                  },
+                  "provenance_granularity": "semantic_group",
+                  "translation_part": 0,
+                  "translation_part_count": 1,
+                  "embedding_text": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk."
+                }
+              },
+              "rrf_score": 0.03278688524590164,
+              "bm25_rank": 1,
+              "bm25_score": -2e-06,
+              "vec_rank": 1,
+              "vec_distance": 0.24915587902069092
+            }
+          ],
+          "historical": false
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "fetch",
+        "source",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--generation-id",
+        "1"
+      ],
+      "seconds": 0.043,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "14ef59fb-d107-4df8-b406-7663f900b7a4",
+        "ok": true,
+        "command": "fetch source",
+        "data": {
+          "generation_id": 1,
+          "revision_id": 1,
+          "content_hash": "8f018d1a74025765f2e74fc8d23f984db7a6522a5c89902e17cb4718c175c966",
+          "origin_uri": null,
+          "source_id": 1,
+          "source_key": "cats",
+          "collection": "live",
+          "historical": true,
+          "standard_md": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+          "structured": {
+            "schema_name": "DoclingDocument",
+            "version": "1.10.0",
+            "name": "cats",
+            "furniture": {
+              "self_ref": "#/furniture",
+              "children": [],
+              "content_layer": "furniture",
+              "name": "_root_",
+              "label": "unspecified"
+            },
+            "body": {
+              "self_ref": "#/body",
+              "children": [
+                {
+                  "$ref": "#/texts/0"
+                }
+              ],
+              "content_layer": "body",
+              "name": "_root_",
+              "label": "unspecified"
+            },
+            "groups": [],
+            "texts": [
+              {
+                "self_ref": "#/texts/0",
+                "parent": {
+                  "$ref": "#/body"
+                },
+                "children": [],
+                "content_layer": "body",
+                "label": "text",
+                "prov": [],
+                "orig": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                "text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다."
+              }
+            ],
+            "pictures": [],
+            "tables": [],
+            "key_value_items": [],
+            "form_items": [],
+            "pages": {},
+            "llm_enrichment": {
+              "profile": {
+                "config": {
+                  "provider": "byz-vllm",
+                  "endpoint": "http://127.0.0.1:18002/v1",
+                  "model": "byz-llm",
+                  "weights_revision": null,
+                  "context_length": 24576,
+                  "timeout_s": 90,
+                  "max_tokens": 2048
+                },
+                "pipeline_version": "semantic-groups-english-v1",
+                "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "source_unit_max_tokens": 512,
+                "semantic_window_units": 4
+              },
+              "groups": [
+                {
+                  "group_id": "group-0-0",
+                  "source_unit_ids": [
+                    "chunk-0"
+                  ],
+                  "source_units": [
+                    {
+                      "unit_id": "chunk-0",
+                      "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                      "contextualized_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                      "anchor": {
+                        "headings": [],
+                        "items": [
+                          {
+                            "granularity": "exact",
+                            "kind": "text_span",
+                            "unit": "char",
+                            "start": 0,
+                            "end": 51,
+                            "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                            "self_ref": "#/texts/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                  "original_text_is_contiguous": true,
+                  "tags": [
+                    "cats",
+                    "sleep",
+                    "behavior"
+                  ],
+                  "summary": "The text describes the sleeping habits and active periods of cats.",
+                  "translation_en": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+                  "group_summary": "This unit describes the sleeping habits and active periods of cats.",
+                  "group_tags": [
+                    "cats",
+                    "behavior",
+                    "sleep"
+                  ],
+                  "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                  "llm_configured_weights_revision": null,
+                  "enrichment_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 186,
+                      "total_tokens": 254,
+                      "completion_tokens": 68,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                    "input_unit_ids": [
+                      "group-0-0"
+                    ]
+                  },
+                  "grouping_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 219,
+                      "total_tokens": 264,
+                      "completion_tokens": 45,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 192,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                    "input_unit_ids": [
+                      "chunk-0"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "fetch",
+        "chunk",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--chunk-id",
+        "1"
+      ],
+      "seconds": 0.042,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "8bb3f23b-f427-4b62-9cc6-b7ae91d23019",
+        "ok": true,
+        "command": "fetch chunk",
+        "data": {
+          "generation_id": 1,
+          "revision_id": 1,
+          "content_hash": "8f018d1a74025765f2e74fc8d23f984db7a6522a5c89902e17cb4718c175c966",
+          "origin_uri": null,
+          "source_id": 1,
+          "source_key": "cats",
+          "collection": "live",
+          "historical": true,
+          "chunk_id": 1,
+          "embedded_text": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "granularity": "exact",
+                "kind": "text_span",
+                "unit": "char",
+                "start": 0,
+                "end": 51,
+                "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                "self_ref": "#/texts/0"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                  "contextualized_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "granularity": "exact",
+                        "kind": "text_span",
+                        "unit": "char",
+                        "start": 0,
+                        "end": 51,
+                        "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                        "self_ref": "#/texts/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+              "original_text_is_contiguous": true,
+              "tags": [
+                "cats",
+                "sleep",
+                "behavior"
+              ],
+              "summary": "The text describes the sleeping habits and active periods of cats.",
+              "translation_en": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+              "group_summary": "This unit describes the sleeping habits and active periods of cats.",
+              "group_tags": [
+                "cats",
+                "behavior",
+                "sleep"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 186,
+                  "total_tokens": 254,
+                  "completion_tokens": 68,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 219,
+                  "total_tokens": 264,
+                  "completion_tokens": 45,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 192,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk."
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "fetch",
+        "original",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--revision-id",
+        "1",
+        "--include-bytes"
+      ],
+      "seconds": 0.045,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "89019d6c-0c3f-4ad7-8e4a-024565e09b28",
+        "ok": true,
+        "command": "fetch original",
+        "data": {
+          "source_id": 1,
+          "revision_id": 1,
+          "is_head": true,
+          "revision_token": "djE6MToy",
+          "content_hash": "8f018d1a74025765f2e74fc8d23f984db7a6522a5c89902e17cb4718c175c966",
+          "byte_length": 123,
+          "media_type": "text/plain",
+          "origin_uri": null,
+          "created_at_ms": 1789007816889,
+          "deleted": false,
+          "head_revision_id": 1,
+          "ready_generation_id": 1,
+          "ready_revision_id": 1,
+          "searchable": true,
+          "processing_status": "ready",
+          "content_base64": "6rOg7JaR7J2064qUIO2VmOujqOyXkCDsl7TrkZAg7Iuc6rCE7JeQ7IScIOyXtOyXrOyEryDsi5zqsIQg7KCV64+EIOyeoOydhCDsnpTri6QuIOyDiOuyveqzvCDtlbQg7KeIIOustOugteyXkCDtmZzrsJztlZjri6Qu"
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "update",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--request-id",
+        "cli-update",
+        "--expected-revision",
+        "djE6MToy",
+        "--profile-key",
+        "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+        "--text",
+        "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다."
+      ],
+      "seconds": 9.355,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "cli-update",
+        "ok": true,
+        "command": "update",
+        "data": {
+          "source_id": 1,
+          "generation_id": 2,
+          "revision_id": 2,
+          "status": "ready",
+          "state_version": 4,
+          "revision_token": "djE6MTo0",
+          "chunk_count": 1,
+          "searchable": true,
+          "processing_status": "ready"
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "fetch",
+        "manifest",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--manifest-id",
+        "1"
+      ],
+      "seconds": 0.047,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "6ceb273c-b747-48cb-82c1-1f69e2cbc082",
+        "ok": true,
+        "command": "fetch manifest",
+        "data": {
+          "manifest_id": 1,
+          "collection": "live",
+          "original_query": "고양이는 얼마나 자나요?",
+          "search_query_text": "How much do cats sleep?",
+          "space_id": 1,
+          "profile_key": "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+          "query_provenance": {
+            "original_query": "고양이는 얼마나 자나요?",
+            "translated_query": "How much do cats sleep?",
+            "translated": true,
+            "metadata": {
+              "model_echoed": "byz-llm",
+              "finish_reason": "stop",
+              "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+              "usage": {
+                "prompt_tokens": 159,
+                "total_tokens": 207,
+                "completion_tokens": 48,
+                "prompt_tokens_details": {
+                  "cached_tokens": 128,
+                  "created_cache_tokens": 0,
+                  "multimodal_tokens": null
+                },
+                "completion_tokens_details": null
+              },
+              "configured_weights_revision": null,
+              "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "input_unit_ids": [
+                "query"
+              ]
+            }
+          },
+          "ranking": {
+            "rrf_k": 60,
+            "candidate_limit": 40,
+            "exact_cosine": true
+          },
+          "eligible": {
+            "sources": [
+              {
+                "source_id": 1,
+                "revision_id": 1,
+                "generation_id": 1
+              }
+            ],
+            "count": 1
+          },
+          "results": [
+            {
+              "chunk_id": 1,
+              "source_id": 1,
+              "source_key": "cats",
+              "collection": "live",
+              "generation_id": 1,
+              "revision_id": 1,
+              "origin_uri": null,
+              "content_hash": "8f018d1a74025765f2e74fc8d23f984db7a6522a5c89902e17cb4718c175c966",
+              "embedded_text": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+              "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+              "is_translated": true,
+              "original_text_is_contiguous": true,
+              "provenance_granularity": "semantic_group",
+              "anchor": {
+                "headings": [],
+                "items": [
+                  {
+                    "granularity": "exact",
+                    "kind": "text_span",
+                    "unit": "char",
+                    "start": 0,
+                    "end": 51,
+                    "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                    "self_ref": "#/texts/0"
+                  }
+                ],
+                "llm_enrichment": {
+                  "group_id": "group-0-0",
+                  "source_unit_ids": [
+                    "chunk-0"
+                  ],
+                  "source_units": [
+                    {
+                      "unit_id": "chunk-0",
+                      "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                      "contextualized_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                      "anchor": {
+                        "headings": [],
+                        "items": [
+                          {
+                            "granularity": "exact",
+                            "kind": "text_span",
+                            "unit": "char",
+                            "start": 0,
+                            "end": 51,
+                            "matched_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                            "self_ref": "#/texts/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "original_text": "고양이는 하루에 열두 시간에서 열여섯 시간 정도 잠을 잔다. 새벽과 해 질 무렵에 활발하다.",
+                  "original_text_is_contiguous": true,
+                  "tags": [
+                    "cats",
+                    "sleep",
+                    "behavior"
+                  ],
+                  "summary": "The text describes the sleeping habits and active periods of cats.",
+                  "translation_en": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk.",
+                  "group_summary": "This unit describes the sleeping habits and active periods of cats.",
+                  "group_tags": [
+                    "cats",
+                    "behavior",
+                    "sleep"
+                  ],
+                  "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                  "llm_configured_weights_revision": null,
+                  "enrichment_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 186,
+                      "total_tokens": 254,
+                      "completion_tokens": 68,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                    "input_unit_ids": [
+                      "group-0-0"
+                    ]
+                  },
+                  "grouping_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 219,
+                      "total_tokens": 264,
+                      "completion_tokens": 45,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 192,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                    "input_unit_ids": [
+                      "chunk-0"
+                    ]
+                  },
+                  "provenance_granularity": "semantic_group",
+                  "translation_part": 0,
+                  "translation_part_count": 1,
+                  "embedding_text": "Cats sleep for about twelve to sixteen hours a day. They are active at dawn and dusk."
+                }
+              },
+              "rrf_score": 0.03278688524590164,
+              "bm25_rank": 1,
+              "bm25_score": -2e-06,
+              "vec_rank": 1,
+              "vec_distance": 0.24915587902069092
+            }
+          ],
+          "created_at_ms": 1789007831569,
+          "historical": true
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "delete",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--request-id",
+        "cli-delete",
+        "--expected-revision",
+        "djE6MTo0"
+      ],
+      "seconds": 1.372,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "cli-delete",
+        "ok": true,
+        "command": "delete",
+        "data": {
+          "source_id": 1,
+          "revision_token": "djE6MTo1",
+          "state_version": 5,
+          "deleted": true,
+          "searchable": false,
+          "processing_status": "not_indexed"
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "search",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--query",
+        "고양이 수면 시간",
+        "--profile-key",
+        "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800"
+      ],
+      "seconds": 5.215,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "2b13b427-37f0-4395-80cc-5ce97f5b03ba",
+        "ok": true,
+        "command": "search",
+        "data": {
+          "manifest_id": 2,
+          "collection": "live",
+          "original_query": "고양이 수면 시간",
+          "search_query_text": "Cat sleep time",
+          "space_id": 1,
+          "profile_key": "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+          "query_provenance": {
+            "original_query": "고양이 수면 시간",
+            "translated_query": "Cat sleep time",
+            "translated": true,
+            "metadata": {
+              "model_echoed": "byz-llm",
+              "finish_reason": "stop",
+              "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+              "usage": {
+                "prompt_tokens": 157,
+                "total_tokens": 205,
+                "completion_tokens": 48,
+                "prompt_tokens_details": {
+                  "cached_tokens": 128,
+                  "created_cache_tokens": 0,
+                  "multimodal_tokens": null
+                },
+                "completion_tokens_details": null
+              },
+              "configured_weights_revision": null,
+              "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "input_unit_ids": [
+                "query"
+              ]
+            }
+          },
+          "ranking": {
+            "rrf_k": 60,
+            "candidate_limit": 40,
+            "exact_cosine": true
+          },
+          "eligible": {
+            "sources": [],
+            "count": 0
+          },
+          "results": [],
+          "historical": false
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "manage",
+        "restore",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--request-id",
+        "cli-restore",
+        "--expected-revision",
+        "djE6MTo1"
+      ],
+      "seconds": 1.077,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "cli-restore",
+        "ok": true,
+        "command": "manage restore",
+        "data": {
+          "source_id": 1,
+          "revision_token": "djE6MTo2",
+          "state_version": 6,
+          "deleted": false,
+          "head_revision_id": 2,
+          "ready_generation_id": 2,
+          "ready_revision_id": 2,
+          "searchable": true,
+          "processing_status": "ready"
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "search",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--query",
+        "고양이 수면 시간",
+        "--profile-key",
+        "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800"
+      ],
+      "seconds": 4.995,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "993bc3a3-9182-4f9e-a64a-99bc75e7f326",
+        "ok": true,
+        "command": "search",
+        "data": {
+          "manifest_id": 3,
+          "collection": "live",
+          "original_query": "고양이 수면 시간",
+          "search_query_text": "Cat sleep time",
+          "space_id": 1,
+          "profile_key": "7386e05a4ebe026f11f14aeeb1e32ba320da502d5efcac0581262b542fd4d800",
+          "query_provenance": {
+            "original_query": "고양이 수면 시간",
+            "translated_query": "Cat sleep time",
+            "translated": true,
+            "metadata": {
+              "model_echoed": "byz-llm",
+              "finish_reason": "stop",
+              "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+              "usage": {
+                "prompt_tokens": 157,
+                "total_tokens": 205,
+                "completion_tokens": 48,
+                "prompt_tokens_details": {
+                  "cached_tokens": 128,
+                  "created_cache_tokens": 0,
+                  "multimodal_tokens": null
+                },
+                "completion_tokens_details": null
+              },
+              "configured_weights_revision": null,
+              "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "input_unit_ids": [
+                "query"
+              ]
+            }
+          },
+          "ranking": {
+            "rrf_k": 60,
+            "candidate_limit": 40,
+            "exact_cosine": true
+          },
+          "eligible": {
+            "sources": [
+              {
+                "source_id": 1,
+                "revision_id": 2,
+                "generation_id": 2
+              }
+            ],
+            "count": 1
+          },
+          "results": [
+            {
+              "chunk_id": 2,
+              "source_id": 1,
+              "source_key": "cats",
+              "collection": "live",
+              "generation_id": 2,
+              "revision_id": 2,
+              "origin_uri": null,
+              "content_hash": "1be69098de3657dd9d76b284d533d340ae3e4c6d808659742226da0e81846fd7",
+              "embedded_text": "Cats sleep for about fourteen to eighteen hours a day.",
+              "original_text": "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다.",
+              "is_translated": true,
+              "original_text_is_contiguous": true,
+              "provenance_granularity": "semantic_group",
+              "anchor": {
+                "headings": [],
+                "items": [
+                  {
+                    "granularity": "exact",
+                    "kind": "text_span",
+                    "unit": "char",
+                    "start": 0,
+                    "end": 33,
+                    "matched_text": "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다.",
+                    "self_ref": "#/texts/0"
+                  }
+                ],
+                "llm_enrichment": {
+                  "group_id": "group-0-0",
+                  "source_unit_ids": [
+                    "chunk-0"
+                  ],
+                  "source_units": [
+                    {
+                      "unit_id": "chunk-0",
+                      "original_text": "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다.",
+                      "contextualized_text": "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다.",
+                      "anchor": {
+                        "headings": [],
+                        "items": [
+                          {
+                            "granularity": "exact",
+                            "kind": "text_span",
+                            "unit": "char",
+                            "start": 0,
+                            "end": 33,
+                            "matched_text": "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다.",
+                            "self_ref": "#/texts/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "original_text": "고양이는 하루에 열네 시간에서 열여덟 시간 정도 잠을 잔다.",
+                  "original_text_is_contiguous": true,
+                  "tags": [
+                    "cats",
+                    "sleep",
+                    "habits"
+                  ],
+                  "summary": "The text describes the amount of sleep cats get in a day.",
+                  "translation_en": "Cats sleep for about fourteen to eighteen hours a day.",
+                  "group_summary": "This unit describes the amount of sleep cats typically get in a day.",
+                  "group_tags": [
+                    "cats",
+                    "sleep",
+                    "facts"
+                  ],
+                  "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                  "llm_configured_weights_revision": null,
+                  "enrichment_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 175,
+                      "total_tokens": 237,
+                      "completion_tokens": 62,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                    "input_unit_ids": [
+                      "group-0-0"
+                    ]
+                  },
+                  "grouping_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 208,
+                      "total_tokens": 255,
+                      "completion_tokens": 47,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 64,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": null,
+                    "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                    "input_unit_ids": [
+                      "chunk-0"
+                    ]
+                  },
+                  "provenance_granularity": "semantic_group",
+                  "translation_part": 0,
+                  "translation_part_count": 1,
+                  "embedding_text": "Cats sleep for about fourteen to eighteen hours a day."
+                }
+              },
+              "rrf_score": 0.03278688524590164,
+              "bm25_rank": 1,
+              "bm25_score": -1e-06,
+              "vec_rank": 1,
+              "vec_distance": 0.2319682240486145
+            }
+          ],
+          "historical": false
+        },
+        "error": null
+      }
+    },
+    {
+      "command": [
+        "fetch",
+        "original",
+        "--db",
+        "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-cli-cxytfd3r/live.db",
+        "--collection",
+        "live",
+        "--source-key",
+        "cats",
+        "--revision-id",
+        "1",
+        "--include-bytes"
+      ],
+      "seconds": 0.047,
+      "exit_code": 0,
+      "response": {
+        "schema_version": 1,
+        "request_id": "39940dae-cec7-4ea4-9531-8648f69e8d42",
+        "ok": true,
+        "command": "fetch original",
+        "data": {
+          "source_id": 1,
+          "revision_id": 1,
+          "is_head": false,
+          "revision_token": "djE6MTo2",
+          "content_hash": "8f018d1a74025765f2e74fc8d23f984db7a6522a5c89902e17cb4718c175c966",
+          "byte_length": 123,
+          "media_type": "text/plain",
+          "origin_uri": null,
+          "created_at_ms": 1789007816889,
+          "deleted": false,
+          "head_revision_id": 2,
+          "ready_generation_id": 2,
+          "ready_revision_id": 2,
+          "searchable": true,
+          "processing_status": "ready",
+          "content_base64": "6rOg7JaR7J2064qUIO2VmOujqOyXkCDsl7TrkZAg7Iuc6rCE7JeQ7IScIOyXtOyXrOyEryDsi5zqsIQg7KCV64+EIOyeoOydhCDsnpTri6QuIOyDiOuyveqzvCDtlbQg7KeIIOustOugteyXkCDtmZzrsJztlZjri6Qu"
+        },
+        "error": null
+      }
+    }
+  ],
+  "assertions": [
+    "real model ingestion/search",
+    "durable exact completed-response replay",
+    "query English translation provenance",
+    "normalized source/chunk and exact original byte fetch",
+    "new revision on update",
+    "historical manifest unchanged across update",
+    "deletion excluded from current search",
+    "restore exposes updated generation",
+    "historic original unchanged"
+  ],
+  "total_cli_seconds": 39.842,
+  "mixed_topic_semantic_probe": {
+    "status": "passed",
+    "retained_workdir": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-live-semantic-mv9iy2uc",
+    "max_embedding_tokens": 96,
+    "source_unit_count": 4,
+    "semantic_group_count": 3,
+    "chunk_count": 3,
+    "group_summaries": [
+      "This unit provides information about cat sleep patterns and how to maintain their sleep rhythm.",
+      "This unit describes the current and forecasted weather in Seoul.",
+      "These units explain the process and techniques for extracting espresso from coffee beans."
+    ],
+    "query": "에스프레소의 맛이 너무 싱거우면 원두 분쇄를 어떻게 바꿔야 하나요?",
+    "translated_query": "If the espresso tastes too weak, how should I change the coffee bean grind?",
+    "top_original_text": "에스프레소는 곱게 간 원두에 높은 압력의 뜨거운 물을 통과시켜 추출한다. 분쇄 입자가 너무 굵으면 물이 빨리 통과해 싱거워질 수 있다.\n\n원두를 곱게 갈고 추출 시간을 조절하여 맛의 균형을 맞춘다.",
+    "query_provenance": {
+      "original_query": "에스프레소의 맛이 너무 싱거우면 원두 분쇄를 어떻게 바꿔야 하나요?",
+      "translated_query": "If the espresso tastes too weak, how should I change the coffee bean grind?",
+      "translated": true,
+      "metadata": {
+        "model_echoed": "byz-llm",
+        "finish_reason": "stop",
+        "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+        "usage": {
+          "prompt_tokens": 176,
+          "total_tokens": 249,
+          "completion_tokens": 73,
+          "prompt_tokens_details": {
+            "cached_tokens": 128,
+            "created_cache_tokens": 0,
+            "multimodal_tokens": null
+          },
+          "completion_tokens_details": null
+        },
+        "configured_weights_revision": null,
+        "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+        "input_unit_ids": [
+          "query"
+        ]
+      }
+    },
+    "seconds": 29.517
+  },
+  "completed_at": "2026-09-10T11:39:36.297851+09:00",
+  "retained_tunnels": {
+    "llm": {
+      "base_url": "http://127.0.0.1:18002/v1",
+      "vm": "byz-agents-gce-llm-dev",
+      "remote_port": 8000,
+      "pid": 16727
+    },
+    "embedding": {
+      "base_url": "http://127.0.0.1:18811/v1",
+      "vm": "byz-agents-gce-stt-tts-dev",
+      "remote_port": 8100,
+      "pid": 16728
+    },
+    "project": "byz-agents-484214",
+    "zone": "asia-northeast3-a",
+    "previous_tunnels": "Old listeners on 8002/18810 were preserved; fresh authenticated local tunnels use separate ports."
+  }
+}

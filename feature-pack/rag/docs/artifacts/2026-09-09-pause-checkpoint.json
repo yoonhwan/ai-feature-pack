@@ -1,0 +1,86 @@
+{
+  "captured_at": "2026-09-09T18:59:36+09:00",
+  "status": "STOP_READY_user_requested_pause",
+  "user_request": "증류하고 정지대기 집가서한다.",
+  "overall_rag_complete": false,
+  "worktree": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant",
+  "branch": "feature/rag-transplant",
+  "persistence": "Files are saved in this worktree. git status still reports docs/design-rag-transplant.md and feature-pack/rag/ as untracked; no commit or publication was performed by the architect.",
+  "canonical_documents": [
+    "../README.md",
+    "../DECISIONS.md",
+    "../PLAN.md"
+  ],
+  "completed_and_verified": {
+    "P01": "Isolated Python 3.13 environment; installed ai-rag/krb-rag; real SQLCipher 4.12.0, FTS5 and sqlite-vec 0.1.9, encryption/key/foreign-DB/atomic-init checks.",
+    "P02": "Encrypted original revisions, processing generations, source CAS tokens, request idempotency, logical delete/restore, historical original fetch, Python/CLI JSON contracts. Architect independently ran 117 tests, 11 installed-CLI operations and a real two-process CAS race.",
+    "P03_partial_architect_verified": "Native DoclingDocument normalization and HybridChunker, original text spans/conversation JSON pointers, retained Markdown and structure, tokenizer revision pin and heading-only preservation. Architect independently ran 161 tests including the two opt-in integrations before worker4 continuation.",
+    "worker4_current_report": "Schema v4, captured profile/job association, lease/epoch recovery and fencing, generic embedding validation and profile helpers implemented. Latest worker offline run: 219 passed, 1 skipped (placeholder), 5 integration tests deselected. Final updated modules still need architect-wide independent review; full RAG pipeline/search are not implemented."
+  },
+  "current_source_modules": [
+    "src/airag/db/connect.py",
+    "src/airag/db/schema.py",
+    "src/airag/db/vecext.py",
+    "src/airag/store.py",
+    "src/airag/api.py",
+    "src/airag/cli/main.py",
+    "src/airag/normalize.py",
+    "src/airag/chunking.py",
+    "src/airag/embeddings.py",
+    "src/airag/profiles.py",
+    "src/airag/_json.py",
+    "src/airag/_fileio.py"
+  ],
+  "latest_user_model_direction": {
+    "requested": "Use the existing BYZ-Agents GPU embedding model and LLM via IAP/GCE/howtotalk for tagging, summary, semantic chunk separation and English translation.",
+    "local_lm_studio_status": "Earlier local Qwen 1024-dimensional probes remain historical evidence; local Qwen is not the chosen production default after this user direction.",
+    "enrichment_boundary": "Original bytes/Markdown/structure/anchors remain preserved. LLM tags, summaries, segmentation and translation are derived generation artifacts, not final user-facing agent answers. Integration design is prepared, implementation is not complete."
+  },
+  "gpu_facts_observed_by_worker": {
+    "accessible_project_id": "byz-agents-484214",
+    "project_number": "1024379410733",
+    "zone": "asia-northeast3-a",
+    "vm": "byz-agents-gce-llm-dev",
+    "vm_status_at_probe": "RUNNING",
+    "local_base_url": "http://localhost:8002/v1",
+    "model_alias": "byz-llm",
+    "reported_model_root": "google/gemma-4-12B-it-qat-w4a16-ct",
+    "reported_max_model_len": 24576,
+    "runtime_fingerprint_only": "vllm-0.28.0-6d404153",
+    "model_weights_revision": "NOT established by the runtime fingerprint",
+    "chat_probe": "HTTP 200 for one synthetic tagging/summary/English-translation request. Response contained fenced JSON. Strict semantic-group ID coverage has not yet been validated.",
+    "embedding_probe": "POST /v1/embeddings returned 404 on this one forwarded LLM endpoint. This does not establish that embeddings are absent on other ports/containers/VMs/projects.",
+    "howtotalk": "Unresolved. A permission-denied/not-found describe response cannot establish global nonexistence or rule out a display name/another accessible environment."
+  },
+  "preserved_iap_tunnel": {
+    "listener_pid_observed_by_architect": 45064,
+    "local_bind": "127.0.0.1:8002 and [::1]:8002",
+    "target": "byz-agents-gce-llm-dev:8000, asia-northeast3-a",
+    "state_at_pause": "Listener verified locally; tunnel is retained, not stopped. Recheck connectivity after travel/sleep before relying on it.",
+    "cloud_mutations": "No VM/GPU/IAM/firewall modifications were reported; only this new local IAP tunnel was started."
+  },
+  "remaining_work": [
+    "Resolve the actual GPU embedding service/model/dimension/tokenizer/runtime limits without inferring absence from the single chat-only endpoint.",
+    "Finalize D-011 and profile contracts for GPU LLM tagging, summary, semantic segmentation and English translation; validate original-unit coverage and derived provenance.",
+    "Complete processing pipeline with immutable final responses and fenced atomic normalized-artifact/FTS/vector/ready-pointer publication.",
+    "Complete BM25/cosine/RRF search, same-snapshot evidence and search manifest replay, public API/CLI integration.",
+    "P04 PDF/DOCX/XLSX/HWP/HWPX/image/OCR adapters; HWP/HWPX are separate adapters, not Docling-supported formats.",
+    "P05 bounded graph expansion; P06 remaining operations/retry/reindex/encrypted backup; P07 actual consumer simulation; P08 user tour; P09 completion judgment and final KakaoBot integration report."
+  ],
+  "coordination_state": {
+    "architect_session": "ft-airag-arch-astra",
+    "worker_session": "ft-airag-worker-sonnet#4",
+    "worker_model_verified": "sonnet[1m], high effort",
+    "worker_stop": "STOP_READY acknowledged and idle pane verified; editing stopped.",
+    "worker_checkpoint": ".fable-team/airag/worker4-checkpoint.json",
+    "existing_task_briefs": [
+      ".fable-team/airag/goal-p03b-dispatch.txt",
+      ".fable-team/airag/p03-embedding-review.txt",
+      ".fable-team/airag/gpu-access-dispatch.txt",
+      ".fable-team/airag/gpu-enrichment-design.txt"
+    ],
+    "goal_metadata": "usageLimited remains in the goal tool; it was not reset or marked complete. The architect's earlier decision to stop solely for that metadata was corrected after the user objected. The current pause is explicitly user-requested.",
+    "kakaobot": "The user explicitly authorized the GPU-access inquiry. No overall-completion/integration report has been sent. A later follow-up was not sent because the KakaoBot pane contained an unsubmitted user draft; that draft was preserved."
+  },
+  "preservation_note": "No cleanup is part of this pause. Sessions, source files, DBs and the local tunnel are preserved. Earlier deletion of two synthetic probe DBs is documented in p03a-provider-probe.json; later probe scripts and the pytest basetemp guard preserve test evidence."
+}

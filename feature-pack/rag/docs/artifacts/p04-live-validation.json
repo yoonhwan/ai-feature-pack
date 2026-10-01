@@ -1,0 +1,2251 @@
+{
+  "captured_at": "2026-09-10T15:22:08.653384+09:00",
+  "scope": "Actual parsers/OCR/vision, real GPU enrichment+embedding+search, exact original byte recovery. Small controlled fixtures; no general format-quality guarantee.",
+  "workdir": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-p04-live-y1ye_kdg",
+  "embedding": {
+    "provider": "openai-compatible",
+    "endpoint": "http://127.0.0.1:18811/v1",
+    "model": "byz-embed",
+    "revision": "integration-probe-unverified-weights-2026-09-10",
+    "dimension": 1024,
+    "tokenizer_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+    "max_tokens": 8192,
+    "timeout_s": 60
+  },
+  "llm": {
+    "provider": "byz-vllm",
+    "endpoint": "http://127.0.0.1:18002/v1",
+    "model": "byz-llm",
+    "weights_revision": null,
+    "context_length": 24576,
+    "timeout_s": 90
+  },
+  "key_persistence": "Ephemeral memory only, not included in evidence",
+  "status": "passed",
+  "cases": [
+    {
+      "name": "pdf",
+      "media_type": "application/pdf",
+      "input_bytes": 1480,
+      "input_sha256": "470e47eb72f4ae3e74f5f69ba6662739c07143d16508683f1a950b519025b633",
+      "query": "How much coffee is in the inventory?",
+      "status": "passed",
+      "profile_key": "7252ec76bdab7bfeee91cda2d4bbfa95e627eb6ba20e4b6cc24248af1411bcfa",
+      "seconds": 15.712,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 1,
+          "source_id": 1,
+          "source_key": "pdf",
+          "collection": "pdf",
+          "generation_id": 1,
+          "revision_id": 1,
+          "origin_uri": null,
+          "content_hash": "470e47eb72f4ae3e74f5f69ba6662739c07143d16508683f1a950b519025b633",
+          "embedded_text": "Coffee inventory  \nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17",
+          "original_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "page_region",
+                "locator": {
+                  "format": "pdf",
+                  "docling_ref": "#/texts/0",
+                  "provenance": [
+                    {
+                      "page_no": 1,
+                      "bbox": {
+                        "l": 60.0,
+                        "t": 788.616,
+                        "r": 147.37199999999999,
+                        "b": 777.516,
+                        "coord_origin": "BOTTOMLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        16
+                      ]
+                    }
+                  ]
+                },
+                "text_origin": "extracted",
+                "extracted_text": "Coffee inventory",
+                "matched_text": null,
+                "self_ref": "#/texts/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "page_region",
+                "locator": {
+                  "format": "pdf",
+                  "docling_ref": "#/tables/0",
+                  "provenance": [
+                    {
+                      "page_no": 1,
+                      "bbox": {
+                        "l": 58.611520811462405,
+                        "t": 753.3821058223933,
+                        "r": 420.7630219621902,
+                        "b": 671.2050191508677,
+                        "coord_origin": "BOTTOMLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| Item   |   Quantity |\n|--------|------------|\n| Coffee |         42 |\n| Tea    |         17 |",
+                "matched_text": null,
+                "self_ref": "#/tables/0"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17",
+                  "contextualized_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "page_region",
+                        "locator": {
+                          "format": "pdf",
+                          "docling_ref": "#/texts/0",
+                          "provenance": [
+                            {
+                              "page_no": 1,
+                              "bbox": {
+                                "l": 60.0,
+                                "t": 788.616,
+                                "r": 147.37199999999999,
+                                "b": 777.516,
+                                "coord_origin": "BOTTOMLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                16
+                              ]
+                            }
+                          ]
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "Coffee inventory",
+                        "matched_text": null,
+                        "self_ref": "#/texts/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "page_region",
+                        "locator": {
+                          "format": "pdf",
+                          "docling_ref": "#/tables/0",
+                          "provenance": [
+                            {
+                              "page_no": 1,
+                              "bbox": {
+                                "l": 58.611520811462405,
+                                "t": 753.3821058223933,
+                                "r": 420.7630219621902,
+                                "b": 671.2050191508677,
+                                "coord_origin": "BOTTOMLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                0
+                              ]
+                            }
+                          ]
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| Item   |   Quantity |\n|--------|------------|\n| Coffee |         42 |\n| Tea    |         17 |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "inventory",
+                "coffee",
+                "tea",
+                "quantity"
+              ],
+              "summary": "The text lists the inventory quantities for coffee and tea.",
+              "translation_en": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17",
+              "group_summary": "A list showing the current inventory quantities for coffee and tea.",
+              "group_tags": [
+                "inventory",
+                "coffee",
+                "tea",
+                "stock"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 184,
+                  "total_tokens": 264,
+                  "completion_tokens": 80,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "created_cache_tokens": 128,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 217,
+                  "total_tokens": 265,
+                  "completion_tokens": 48,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "created_cache_tokens": 192,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "Coffee inventory  \nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17"
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -2.375e-06,
+          "vec_rank": 1,
+          "vec_distance": 0.2743283808231354
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "documents_v1",
+        "warnings": [
+          "PDF extracted text and OCR share page-region provenance; no original byte-offset claim"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "extracted"
+        ]
+      },
+      "page_text_sources": [
+        {
+          "page_no": 1,
+          "native_text_cells": 8,
+          "ocr_text_cells": 0
+        }
+      ],
+      "manifest_id": 1,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "docx",
+      "media_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "input_bytes": 37267,
+      "input_sha256": "166a53d5b0cd327d2c2975405ac988978b50e6395ece3b0032c0f60e8e2fd627",
+      "query": "How much coffee is in the inventory?",
+      "status": "passed",
+      "profile_key": "643bc77f801d6c099cc7b76ded92d95d9161f01e55add1ee002a222e3f335ebc",
+      "seconds": 9.596,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 2,
+          "source_id": 2,
+          "source_key": "docx",
+          "collection": "docx",
+          "generation_id": 2,
+          "revision_id": 2,
+          "origin_uri": null,
+          "content_hash": "166a53d5b0cd327d2c2975405ac988978b50e6395ece3b0032c0f60e8e2fd627",
+          "embedded_text": "Inventory  \nRepeated source paragraph  \nRepeated source paragraph  \nCoffee, Quantity = 42",
+          "original_text": "Repeated source paragraph\nRepeated source paragraph\nCoffee, Quantity = 42",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [
+              "Inventory"
+            ],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "xml_element",
+                "locator": {
+                  "format": "docx",
+                  "member": "word/document.xml",
+                  "xpath": "/w:document/w:body/w:p[2]",
+                  "namespaces": {
+                    "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+                    "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
+                    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+                    "mv": "urn:schemas-microsoft-com:mac:vml",
+                    "o": "urn:schemas-microsoft-com:office:office",
+                    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                    "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+                    "v": "urn:schemas-microsoft-com:vml",
+                    "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+                    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+                    "w10": "urn:schemas-microsoft-com:office:word",
+                    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+                    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+                    "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+                    "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+                    "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+                    "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                  }
+                },
+                "text_origin": "extracted",
+                "extracted_text": "Repeated source paragraph",
+                "matched_text": null,
+                "self_ref": "#/texts/1"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "xml_element",
+                "locator": {
+                  "format": "docx",
+                  "member": "word/document.xml",
+                  "xpath": "/w:document/w:body/w:p[3]",
+                  "namespaces": {
+                    "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+                    "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
+                    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+                    "mv": "urn:schemas-microsoft-com:mac:vml",
+                    "o": "urn:schemas-microsoft-com:office:office",
+                    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                    "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+                    "v": "urn:schemas-microsoft-com:vml",
+                    "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+                    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+                    "w10": "urn:schemas-microsoft-com:office:word",
+                    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+                    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+                    "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+                    "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+                    "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+                    "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                  }
+                },
+                "text_origin": "extracted",
+                "extracted_text": "Repeated source paragraph",
+                "matched_text": null,
+                "self_ref": "#/texts/2"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "xml_element",
+                "locator": {
+                  "format": "docx",
+                  "member": "word/document.xml",
+                  "xpath": "/w:document/w:body/w:tbl",
+                  "namespaces": {
+                    "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+                    "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
+                    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+                    "mv": "urn:schemas-microsoft-com:mac:vml",
+                    "o": "urn:schemas-microsoft-com:office:office",
+                    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                    "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+                    "v": "urn:schemas-microsoft-com:vml",
+                    "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+                    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+                    "w10": "urn:schemas-microsoft-com:office:word",
+                    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+                    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+                    "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+                    "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+                    "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+                    "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                  }
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| Item   |   Quantity |\n|--------|------------|\n| Coffee |         42 |",
+                "matched_text": null,
+                "self_ref": "#/tables/0"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "Repeated source paragraph\nRepeated source paragraph\nCoffee, Quantity = 42",
+                  "contextualized_text": "Inventory\nRepeated source paragraph\nRepeated source paragraph\nCoffee, Quantity = 42",
+                  "anchor": {
+                    "headings": [
+                      "Inventory"
+                    ],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "xml_element",
+                        "locator": {
+                          "format": "docx",
+                          "member": "word/document.xml",
+                          "xpath": "/w:document/w:body/w:p[2]",
+                          "namespaces": {
+                            "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+                            "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
+                            "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+                            "mv": "urn:schemas-microsoft-com:mac:vml",
+                            "o": "urn:schemas-microsoft-com:office:office",
+                            "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                            "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+                            "v": "urn:schemas-microsoft-com:vml",
+                            "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+                            "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+                            "w10": "urn:schemas-microsoft-com:office:word",
+                            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+                            "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+                            "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+                            "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+                            "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+                            "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                          }
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "Repeated source paragraph",
+                        "matched_text": null,
+                        "self_ref": "#/texts/1"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "xml_element",
+                        "locator": {
+                          "format": "docx",
+                          "member": "word/document.xml",
+                          "xpath": "/w:document/w:body/w:p[3]",
+                          "namespaces": {
+                            "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+                            "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
+                            "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+                            "mv": "urn:schemas-microsoft-com:mac:vml",
+                            "o": "urn:schemas-microsoft-com:office:office",
+                            "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                            "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+                            "v": "urn:schemas-microsoft-com:vml",
+                            "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+                            "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+                            "w10": "urn:schemas-microsoft-com:office:word",
+                            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+                            "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+                            "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+                            "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+                            "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+                            "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                          }
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "Repeated source paragraph",
+                        "matched_text": null,
+                        "self_ref": "#/texts/2"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "xml_element",
+                        "locator": {
+                          "format": "docx",
+                          "member": "word/document.xml",
+                          "xpath": "/w:document/w:body/w:tbl",
+                          "namespaces": {
+                            "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
+                            "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
+                            "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+                            "mv": "urn:schemas-microsoft-com:mac:vml",
+                            "o": "urn:schemas-microsoft-com:office:office",
+                            "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+                            "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+                            "v": "urn:schemas-microsoft-com:vml",
+                            "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+                            "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+                            "w10": "urn:schemas-microsoft-com:office:word",
+                            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+                            "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+                            "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+                            "wpi": "http://schemas.microsoft.com/office/word/2010/wordprocessingInk",
+                            "wne": "http://schemas.microsoft.com/office/word/2006/wordml",
+                            "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                          }
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| Item   |   Quantity |\n|--------|------------|\n| Coffee |         42 |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "Repeated source paragraph\nRepeated source paragraph\nCoffee, Quantity = 42",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "inventory",
+                "coffee",
+                "quantity"
+              ],
+              "summary": "The text lists an inventory item for coffee with a quantity of 42.",
+              "translation_en": "Inventory\nRepeated source paragraph\nRepeated source paragraph\nCoffee, Quantity = 42",
+              "group_summary": "A list showing inventory details including repeated source paragraphs and a coffee quantity.",
+              "group_tags": [
+                "inventory",
+                "data",
+                "list"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 178,
+                  "total_tokens": 254,
+                  "completion_tokens": 76,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 211,
+                  "total_tokens": 258,
+                  "completion_tokens": 47,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "Inventory  \nRepeated source paragraph  \nRepeated source paragraph  \nCoffee, Quantity = 42"
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -2.0397350993377485e-06,
+          "vec_rank": 1,
+          "vec_distance": 0.32486408948898315
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "documents_v1",
+        "warnings": [
+          "DOCX locators are package XML elements, not rendered page coordinates",
+          "Automatic LibreOffice rendering is disabled; non-bitmap DrawingML shapes are retained in the original, not rasterized"
+        ],
+        "resource_count": 1,
+        "text_origins": [
+          "extracted"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 2,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "xlsx",
+      "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "input_bytes": 5421,
+      "input_sha256": "94c73714e1c446b8e207fddd446db3c482d8b1e05c61f0903700d035089f3b59",
+      "query": "What is the count of coffee beans?",
+      "status": "passed",
+      "profile_key": "643bc77f801d6c099cc7b76ded92d95d9161f01e55add1ee002a222e3f335ebc",
+      "seconds": 11.293,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 3,
+          "source_id": 3,
+          "source_key": "xlsx",
+          "collection": "xlsx",
+          "generation_id": 3,
+          "revision_id": 3,
+          "origin_uri": null,
+          "content_hash": "94c73714e1c446b8e207fddd446db3c482d8b1e05c61f0903700d035089f3b59",
+          "embedded_text": "Beans, Count = 42  \nMerged heading. Merged heading  \nLeaves, Count = 17  \nCoffee!C2: =B2*2",
+          "original_text": "Beans, Count = 42\nMerged heading. Merged heading\nLeaves, Count = 17\nCoffee!C2: =B2*2",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "sheet_region",
+                "locator": {
+                  "format": "xlsx",
+                  "docling_ref": "#/tables/0",
+                  "provenance": [
+                    {
+                      "page_no": 1,
+                      "bbox": {
+                        "l": 0.0,
+                        "t": 0.0,
+                        "r": 2.0,
+                        "b": 2.0,
+                        "coord_origin": "TOPLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        0
+                      ]
+                    }
+                  ],
+                  "sheet": "Coffee"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| Item   |   Count |\n|--------|---------|\n| Beans  |      42 |",
+                "matched_text": null,
+                "self_ref": "#/tables/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "sheet_region",
+                "locator": {
+                  "format": "xlsx",
+                  "docling_ref": "#/tables/1",
+                  "provenance": [
+                    {
+                      "page_no": 1,
+                      "bbox": {
+                        "l": 0.0,
+                        "t": 3.0,
+                        "r": 2.0,
+                        "b": 4.0,
+                        "coord_origin": "TOPLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        0
+                      ]
+                    }
+                  ],
+                  "sheet": "Coffee"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| Merged heading   | Merged heading   |\n|------------------|------------------|",
+                "matched_text": null,
+                "self_ref": "#/tables/1"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "sheet_region",
+                "locator": {
+                  "format": "xlsx",
+                  "docling_ref": "#/tables/2",
+                  "provenance": [
+                    {
+                      "page_no": 2,
+                      "bbox": {
+                        "l": 0.0,
+                        "t": 0.0,
+                        "r": 2.0,
+                        "b": 2.0,
+                        "coord_origin": "TOPLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        0
+                      ]
+                    }
+                  ],
+                  "sheet": "Tea"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| Item   |   Count |\n|--------|---------|\n| Leaves |      17 |",
+                "matched_text": null,
+                "self_ref": "#/tables/2"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "cell",
+                "locator": {
+                  "format": "xlsx",
+                  "sheet": "Coffee",
+                  "cell": "C2"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "Coffee!C2: =B2*2",
+                "matched_text": null,
+                "self_ref": "#/texts/0"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "Beans, Count = 42\nMerged heading. Merged heading\nLeaves, Count = 17\nCoffee!C2: =B2*2",
+                  "contextualized_text": "Beans, Count = 42\nMerged heading. Merged heading\nLeaves, Count = 17\nCoffee!C2: =B2*2",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "sheet_region",
+                        "locator": {
+                          "format": "xlsx",
+                          "docling_ref": "#/tables/0",
+                          "provenance": [
+                            {
+                              "page_no": 1,
+                              "bbox": {
+                                "l": 0.0,
+                                "t": 0.0,
+                                "r": 2.0,
+                                "b": 2.0,
+                                "coord_origin": "TOPLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                0
+                              ]
+                            }
+                          ],
+                          "sheet": "Coffee"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| Item   |   Count |\n|--------|---------|\n| Beans  |      42 |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "sheet_region",
+                        "locator": {
+                          "format": "xlsx",
+                          "docling_ref": "#/tables/1",
+                          "provenance": [
+                            {
+                              "page_no": 1,
+                              "bbox": {
+                                "l": 0.0,
+                                "t": 3.0,
+                                "r": 2.0,
+                                "b": 4.0,
+                                "coord_origin": "TOPLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                0
+                              ]
+                            }
+                          ],
+                          "sheet": "Coffee"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| Merged heading   | Merged heading   |\n|------------------|------------------|",
+                        "matched_text": null,
+                        "self_ref": "#/tables/1"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "sheet_region",
+                        "locator": {
+                          "format": "xlsx",
+                          "docling_ref": "#/tables/2",
+                          "provenance": [
+                            {
+                              "page_no": 2,
+                              "bbox": {
+                                "l": 0.0,
+                                "t": 0.0,
+                                "r": 2.0,
+                                "b": 2.0,
+                                "coord_origin": "TOPLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                0
+                              ]
+                            }
+                          ],
+                          "sheet": "Tea"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| Item   |   Count |\n|--------|---------|\n| Leaves |      17 |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/2"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "cell",
+                        "locator": {
+                          "format": "xlsx",
+                          "sheet": "Coffee",
+                          "cell": "C2"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "Coffee!C2: =B2*2",
+                        "matched_text": null,
+                        "self_ref": "#/texts/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "Beans, Count = 42\nMerged heading. Merged heading\nLeaves, Count = 17\nCoffee!C2: =B2*2",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "beans",
+                "leaves",
+                "coffee",
+                "formula"
+              ],
+              "summary": "A list of items including bean and leaf counts with a coffee calculation formula.",
+              "translation_en": "Beans, Count = 42\nMerged heading. Merged heading\nLeaves, Count = 17\nCoffee!C2: =B2*2",
+              "group_summary": "A data snippet containing counts for beans and leaves along with a merged heading and a spreadsheet formula.",
+              "group_tags": [
+                "data",
+                "counts",
+                "formula"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 192,
+                  "total_tokens": 284,
+                  "completion_tokens": 92,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 225,
+                  "total_tokens": 306,
+                  "completion_tokens": 81,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "Beans, Count = 42  \nMerged heading. Merged heading  \nLeaves, Count = 17  \nCoffee!C2: =B2*2"
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -1.1371727793746411,
+          "vec_rank": 1,
+          "vec_distance": 0.4322226345539093
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "documents_v1",
+        "warnings": [
+          "Formula strings and cached values are preserved separately; no formula recalculation is performed"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "extracted"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 3,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "hwp",
+      "media_type": "application/x-hwp",
+      "input_bytes": 17408,
+      "input_sha256": "ed97e2136e53cbb09ab6362d5631f6f1e4f752a5e53f09e85e4bc9c19f9e6d35",
+      "query": "ABC 123",
+      "status": "passed",
+      "profile_key": "09a3737599dfaf4d90e22046bba845e728454bd994a2bce600efa39361775267",
+      "seconds": 12.761,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 4,
+          "source_id": 4,
+          "source_key": "hwp",
+          "collection": "hwp",
+          "generation_id": 4,
+          "revision_id": 4,
+          "origin_uri": null,
+          "content_hash": "ed97e2136e53cbb09ab6362d5631f6f1e4f752a5e53f09e85e4bc9c19f9e6d35",
+          "embedded_text": "ABC  \n123, 1 = DEF. ABC  \n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456  \n, 1 =",
+          "original_text": "ABC\n123, 1 = DEF. ABC\n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456\n, 1 = ",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "table",
+                "locator": {
+                  "format": "hwp",
+                  "path": "section[0]/paragraph[0]/control[2]"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| ABC 123   | DEF   | GHI   |\n|-----------|-------|-------|\n| LMN       | OPQ   | STR   |\n| UVM       | 123   | 456   |",
+                "matched_text": null,
+                "self_ref": "#/tables/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "table",
+                "locator": {
+                  "format": "hwp",
+                  "path": "section[0]/paragraph[3]/control[0]"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "|    |    |\n|----|----|",
+                "matched_text": null,
+                "self_ref": "#/tables/1"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "ABC\n123, 1 = DEF. ABC\n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456\n, 1 = ",
+                  "contextualized_text": "ABC\n123, 1 = DEF. ABC\n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456\n, 1 = ",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "table",
+                        "locator": {
+                          "format": "hwp",
+                          "path": "section[0]/paragraph[0]/control[2]"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| ABC 123   | DEF   | GHI   |\n|-----------|-------|-------|\n| LMN       | OPQ   | STR   |\n| UVM       | 123   | 456   |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "table",
+                        "locator": {
+                          "format": "hwp",
+                          "path": "section[0]/paragraph[3]/control[0]"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "|    |    |\n|----|----|",
+                        "matched_text": null,
+                        "self_ref": "#/tables/1"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "ABC\n123, 1 = DEF. ABC\n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456\n, 1 = ",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "alphabet",
+                "numbers",
+                "sequence"
+              ],
+              "summary": "A sequence of letters and numbers organized into groups with numerical labels.",
+              "translation_en": "ABC\n123, 1 = DEF. ABC\n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456\n, 1 = ",
+              "group_summary": "A sequence of alphanumeric strings and mathematical-style expressions.",
+              "group_tags": [
+                "alphanumeric",
+                "expressions",
+                "data"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 225,
+                  "total_tokens": 345,
+                  "completion_tokens": 120,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 258,
+                  "total_tokens": 304,
+                  "completion_tokens": 46,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 128,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "ABC  \n123, 1 = DEF. ABC  \n123, 2 = GHI. LMN, 1 = OPQ. LMN, 2 = STR. UVM, 1 = 123. UVM, 2 = 456  \n, 1 ="
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -2.2240164784357006,
+          "vec_rank": 1,
+          "vec_distance": 0.4340795576572418
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "hwplib",
+        "warnings": [
+          "Section/paragraph/control locators only; hwplib does not provide rendered page numbers",
+          "Unsupported control types: ControlColumnDefine, ControlSectionDefine"
+        ],
+        "resource_count": 1,
+        "text_origins": [
+          "extracted"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 4,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "hwpx",
+      "media_type": "application/hwp+zip",
+      "input_bytes": 13315,
+      "input_sha256": "502d75c289813ce4b99648ecbc3cbe333bd8acd78e9f4b4b370566f308c1e6de",
+      "query": "What numbers are present in the table?",
+      "status": "passed",
+      "profile_key": "643bc77f801d6c099cc7b76ded92d95d9161f01e55add1ee002a222e3f335ebc",
+      "seconds": 10.319,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 5,
+          "source_id": 5,
+          "source_key": "hwpx",
+          "collection": "hwpx",
+          "generation_id": 5,
+          "revision_id": 5,
+          "origin_uri": null,
+          "content_hash": "502d75c289813ce4b99648ecbc3cbe333bd8acd78e9f4b4b370566f308c1e6de",
+          "embedded_text": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4",
+          "original_text": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4",
+          "is_translated": false,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "table",
+                "locator": {
+                  "format": "hwpx",
+                  "member": "Contents/section0.xml",
+                  "section": 0,
+                  "element_path": "/sec[1]/p[1]/run[1]/tbl[1]",
+                  "element_id": "1137126797"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "|   1 |   1 |   2 |\n|-----|-----|-----|\n|   1 |   1 |   3 |\n|   5 |   4 |   4 |",
+                "matched_text": null,
+                "self_ref": "#/tables/0"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4",
+                  "contextualized_text": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "table",
+                        "locator": {
+                          "format": "hwpx",
+                          "member": "Contents/section0.xml",
+                          "section": 0,
+                          "element_path": "/sec[1]/p[1]/run[1]/tbl[1]",
+                          "element_id": "1137126797"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "|   1 |   1 |   2 |\n|-----|-----|-----|\n|   1 |   1 |   3 |\n|   5 |   4 |   4 |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "math",
+                "equations",
+                "numbers"
+              ],
+              "summary": "A series of simple arithmetic equations involving small integers.",
+              "translation_en": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4",
+              "group_summary": "A sequence of mathematical equations and expressions.",
+              "group_tags": [
+                "math",
+                "equations",
+                "arithmetic"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 208,
+                  "total_tokens": 308,
+                  "completion_tokens": 100,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 241,
+                  "total_tokens": 283,
+                  "completion_tokens": 42,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "1, 1 = 1. 1, 2 = 2. 1, 1 = 1. 1, 2 = 3. 5, 1 = 4. 5, 2 = 4"
+            }
+          },
+          "rrf_score": 0.01639344262295082,
+          "bm25_rank": null,
+          "bm25_score": null,
+          "vec_rank": 1,
+          "vec_distance": 0.5759309530258179
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "hwpx_xml_v1",
+        "warnings": [
+          "Section/paragraph/table XML locators are not rendered page coordinates"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "extracted"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 5,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "hwpx_text",
+      "media_type": "application/hwp+zip",
+      "input_bytes": 16165,
+      "input_sha256": "516db143466d3bc43e6808d4d5dc9da63abf014ec637ef01594f27998a0bd6c2",
+      "query": "수학에 대한 내용",
+      "status": "passed",
+      "profile_key": "643bc77f801d6c099cc7b76ded92d95d9161f01e55add1ee002a222e3f335ebc",
+      "seconds": 8.55,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 6,
+          "source_id": 6,
+          "source_key": "hwpx_text",
+          "collection": "hwpx_text",
+          "generation_id": 6,
+          "revision_id": 6,
+          "origin_uri": null,
+          "content_hash": "516db143466d3bc43e6808d4d5dc9da63abf014ec637ef01594f27998a0bd6c2",
+          "embedded_text": "Math  \n  We are math. More",
+          "original_text": "수학\n  우리는 수학 이다.더",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "paragraph",
+                "locator": {
+                  "format": "hwpx",
+                  "member": "Contents/section0.xml",
+                  "section": 0,
+                  "element_path": "/sec[1]/p[1]",
+                  "element_id": "2764991984"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "수학",
+                "matched_text": null,
+                "self_ref": "#/texts/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "paragraph",
+                "locator": {
+                  "format": "hwpx",
+                  "member": "Contents/section0.xml",
+                  "section": 0,
+                  "element_path": "/sec[1]/p[2]",
+                  "element_id": "0"
+                },
+                "text_origin": "extracted",
+                "extracted_text": "  우리는 수학 이다.더",
+                "matched_text": null,
+                "self_ref": "#/texts/1"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "수학\n  우리는 수학 이다.더",
+                  "contextualized_text": "수학\n  우리는 수학 이다.더",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "paragraph",
+                        "locator": {
+                          "format": "hwpx",
+                          "member": "Contents/section0.xml",
+                          "section": 0,
+                          "element_path": "/sec[1]/p[1]",
+                          "element_id": "2764991984"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "수학",
+                        "matched_text": null,
+                        "self_ref": "#/texts/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "paragraph",
+                        "locator": {
+                          "format": "hwpx",
+                          "member": "Contents/section0.xml",
+                          "section": 0,
+                          "element_path": "/sec[1]/p[2]",
+                          "element_id": "0"
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "  우리는 수학 이다.더",
+                        "matched_text": null,
+                        "self_ref": "#/texts/1"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "수학\n  우리는 수학 이다.더",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "math",
+                "identity"
+              ],
+              "summary": "The text states that 'we are math' and includes the word 'more'.",
+              "translation_en": "Math\n  We are math. More",
+              "group_summary": "A brief, incomplete sentence starting with the word 'Mathematics'.",
+              "group_tags": [
+                "mathematics",
+                "incomplete text"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 168,
+                  "total_tokens": 229,
+                  "completion_tokens": 61,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 201,
+                  "total_tokens": 246,
+                  "completion_tokens": 45,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "Math  \n  We are math. More"
+            }
+          },
+          "rrf_score": 0.01639344262295082,
+          "bm25_rank": null,
+          "bm25_score": null,
+          "vec_rank": 1,
+          "vec_distance": 0.4855930209159851
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "hwpx_xml_v1",
+        "warnings": [
+          "Section/paragraph/table XML locators are not rendered page coordinates"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "extracted"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 6,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "mixed_pdf",
+      "media_type": "application/pdf",
+      "input_bytes": 21583,
+      "input_sha256": "d2b8f74be598cb90c406bdf9381f2b2c4493dd12c7c7472f47108a05694f5c6f",
+      "query": "고양이는 무엇을 많이 하나요?",
+      "status": "passed",
+      "profile_key": "7252ec76bdab7bfeee91cda2d4bbfa95e627eb6ba20e4b6cc24248af1411bcfa",
+      "seconds": 12.657,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 7,
+          "source_id": 7,
+          "source_key": "mixed_pdf",
+          "collection": "mixed_pdf",
+          "generation_id": 7,
+          "revision_id": 7,
+          "origin_uri": null,
+          "content_hash": "d2b8f74be598cb90c406bdf9381f2b2c4493dd12c7c7472f47108a05694f5c6f",
+          "embedded_text": "Coffee inventory  \nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17  \nCows sleep a lot. Seoul's SNE is clear. Please grind the coffee beans finely.",
+          "original_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17\n고 양 이 는 잠 을 많이 잡니다. 서 울 의 SNE 맑 습니다. 커피 원 두 를 곱게 갈아 주세요.",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "extracted",
+            "ocr"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "page_region",
+                "locator": {
+                  "format": "pdf",
+                  "docling_ref": "#/texts/0",
+                  "provenance": [
+                    {
+                      "page_no": 1,
+                      "bbox": {
+                        "l": 60.0,
+                        "t": 788.616,
+                        "r": 147.37199999999999,
+                        "b": 777.516,
+                        "coord_origin": "BOTTOMLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        16
+                      ]
+                    }
+                  ]
+                },
+                "text_origin": "extracted",
+                "extracted_text": "Coffee inventory",
+                "matched_text": null,
+                "self_ref": "#/texts/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "page_region",
+                "locator": {
+                  "format": "pdf",
+                  "docling_ref": "#/tables/0",
+                  "provenance": [
+                    {
+                      "page_no": 1,
+                      "bbox": {
+                        "l": 58.611520811462405,
+                        "t": 753.3821058223933,
+                        "r": 420.7630219621902,
+                        "b": 671.2050191508677,
+                        "coord_origin": "BOTTOMLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "text_origin": "extracted",
+                "extracted_text": "| Item   |   Quantity |\n|--------|------------|\n| Coffee |         42 |\n| Tea    |         17 |",
+                "matched_text": null,
+                "self_ref": "#/tables/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "page_region",
+                "locator": {
+                  "format": "pdf",
+                  "docling_ref": "#/texts/1",
+                  "provenance": [
+                    {
+                      "page_no": 2,
+                      "bbox": {
+                        "l": 61.333333333333336,
+                        "t": 623.2231333333334,
+                        "r": 352.3333333333333,
+                        "b": 526.8898,
+                        "coord_origin": "BOTTOMLEFT"
+                      },
+                      "charspan": [
+                        0,
+                        56
+                      ]
+                    }
+                  ]
+                },
+                "text_origin": "ocr",
+                "extracted_text": "고 양 이 는 잠 을 많이 잡니다. 서 울 의 SNE 맑 습니다. 커피 원 두 를 곱게 갈아 주세요.",
+                "matched_text": null,
+                "self_ref": "#/texts/1"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17\n고 양 이 는 잠 을 많이 잡니다. 서 울 의 SNE 맑 습니다. 커피 원 두 를 곱게 갈아 주세요.",
+                  "contextualized_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17\n고 양 이 는 잠 을 많이 잡니다. 서 울 의 SNE 맑 습니다. 커피 원 두 를 곱게 갈아 주세요.",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "page_region",
+                        "locator": {
+                          "format": "pdf",
+                          "docling_ref": "#/texts/0",
+                          "provenance": [
+                            {
+                              "page_no": 1,
+                              "bbox": {
+                                "l": 60.0,
+                                "t": 788.616,
+                                "r": 147.37199999999999,
+                                "b": 777.516,
+                                "coord_origin": "BOTTOMLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                16
+                              ]
+                            }
+                          ]
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "Coffee inventory",
+                        "matched_text": null,
+                        "self_ref": "#/texts/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "page_region",
+                        "locator": {
+                          "format": "pdf",
+                          "docling_ref": "#/tables/0",
+                          "provenance": [
+                            {
+                              "page_no": 1,
+                              "bbox": {
+                                "l": 58.611520811462405,
+                                "t": 753.3821058223933,
+                                "r": 420.7630219621902,
+                                "b": 671.2050191508677,
+                                "coord_origin": "BOTTOMLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                0
+                              ]
+                            }
+                          ]
+                        },
+                        "text_origin": "extracted",
+                        "extracted_text": "| Item   |   Quantity |\n|--------|------------|\n| Coffee |         42 |\n| Tea    |         17 |",
+                        "matched_text": null,
+                        "self_ref": "#/tables/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "page_region",
+                        "locator": {
+                          "format": "pdf",
+                          "docling_ref": "#/texts/1",
+                          "provenance": [
+                            {
+                              "page_no": 2,
+                              "bbox": {
+                                "l": 61.333333333333336,
+                                "t": 623.2231333333334,
+                                "r": 352.3333333333333,
+                                "b": 526.8898,
+                                "coord_origin": "BOTTOMLEFT"
+                              },
+                              "charspan": [
+                                0,
+                                56
+                              ]
+                            }
+                          ]
+                        },
+                        "text_origin": "ocr",
+                        "extracted_text": "고 양 이 는 잠 을 많이 잡니다. 서 울 의 SNE 맑 습니다. 커피 원 두 를 곱게 갈아 주세요.",
+                        "matched_text": null,
+                        "self_ref": "#/texts/1"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17\n고 양 이 는 잠 을 많이 잡니다. 서 울 의 SNE 맑 습니다. 커피 원 두 를 곱게 갈아 주세요.",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "inventory",
+                "coffee",
+                "translation"
+              ],
+              "summary": "The text contains a coffee inventory list and a Korean passage about sleep, Seoul's weather, and coffee grinding.",
+              "translation_en": "Coffee inventory\nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17\nCows sleep a lot. Seoul's SNE is clear. Please grind the coffee beans finely.",
+              "group_summary": "A record of coffee inventory and a short Korean text about coffee and sleep.",
+              "group_tags": [
+                "inventory",
+                "coffee",
+                "korean"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 216,
+                  "total_tokens": 327,
+                  "completion_tokens": 111,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 249,
+                  "total_tokens": 298,
+                  "completion_tokens": 49,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 192,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "Coffee inventory  \nItem, 1 = Quantity. Coffee, 1 = 42. Tea, 1 = 17  \nCows sleep a lot. Seoul's SNE is clear. Please grind the coffee beans finely."
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -2.2559031827591185,
+          "vec_rank": 1,
+          "vec_distance": 0.7143718600273132
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "documents_v1",
+        "warnings": [
+          "PDF extracted text and OCR share page-region provenance; no original byte-offset claim"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "extracted",
+          "ocr"
+        ]
+      },
+      "page_text_sources": [
+        {
+          "page_no": 1,
+          "native_text_cells": 8,
+          "ocr_text_cells": 0
+        },
+        {
+          "page_no": 2,
+          "native_text_cells": 0,
+          "ocr_text_cells": 21
+        }
+      ],
+      "manifest_id": 7,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "ocr",
+      "media_type": "image/png",
+      "input_bytes": 18565,
+      "input_sha256": "a0b4da10367f5da6ece4a15fe68924aa83086f0001278b5a9bdcf025670a8b2b",
+      "query": "고양이는 무엇을 많이 하나요?",
+      "status": "passed",
+      "profile_key": "c5c7abb6b3aa9aaf6704b5a6c203b3f7a73ef9ef945693cb395f3fdff107ae64",
+      "seconds": 9.517,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 8,
+          "source_id": 8,
+          "source_key": "ocr",
+          "collection": "ocr",
+          "generation_id": 8,
+          "revision_id": 8,
+          "origin_uri": null,
+          "content_hash": "a0b4da10367f5da6ece4a15fe68924aa83086f0001278b5a9bdcf025670a8b2b",
+          "embedded_text": "The cat sleeps a lot.  \nThe weather in Seoul is clear.  \nPlease grind the coffee beans finely.",
+          "original_text": "고 양 이 는 잠 을 많이 잡니다.\n서 울 의 날 씨 는 맑 습니다.\n커피 원 두 를 곱게 갈아 주세요.",
+          "is_translated": true,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "ocr"
+          ],
+          "contains_inference": false,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "image_region",
+                "locator": {
+                  "format": "image",
+                  "frame": 0,
+                  "coordinate_unit": "pixel",
+                  "bbox": [
+                    43,
+                    32,
+                    568,
+                    92
+                  ],
+                  "confidence": 0.92077486
+                },
+                "text_origin": "ocr",
+                "extracted_text": "고 양 이 는 잠 을 많이 잡니다.",
+                "matched_text": null,
+                "self_ref": "#/texts/0"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "image_region",
+                "locator": {
+                  "format": "image",
+                  "frame": 0,
+                  "coordinate_unit": "pixel",
+                  "bbox": [
+                    43,
+                    111,
+                    512,
+                    151
+                  ],
+                  "confidence": 0.9223850450000001
+                },
+                "text_origin": "ocr",
+                "extracted_text": "서 울 의 날 씨 는 맑 습니다.",
+                "matched_text": null,
+                "self_ref": "#/texts/1"
+              },
+              {
+                "kind": "document_location",
+                "granularity": "image_region",
+                "locator": {
+                  "format": "image",
+                  "frame": 0,
+                  "coordinate_unit": "pixel",
+                  "bbox": [
+                    45,
+                    186,
+                    624,
+                    226
+                  ],
+                  "confidence": 0.9518321228571428
+                },
+                "text_origin": "ocr",
+                "extracted_text": "커피 원 두 를 곱게 갈아 주세요.",
+                "matched_text": null,
+                "self_ref": "#/texts/2"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "고 양 이 는 잠 을 많이 잡니다.\n서 울 의 날 씨 는 맑 습니다.\n커피 원 두 를 곱게 갈아 주세요.",
+                  "contextualized_text": "고 양 이 는 잠 을 많이 잡니다.\n서 울 의 날 씨 는 맑 습니다.\n커피 원 두 를 곱게 갈아 주세요.",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "image_region",
+                        "locator": {
+                          "format": "image",
+                          "frame": 0,
+                          "coordinate_unit": "pixel",
+                          "bbox": [
+                            43,
+                            32,
+                            568,
+                            92
+                          ],
+                          "confidence": 0.92077486
+                        },
+                        "text_origin": "ocr",
+                        "extracted_text": "고 양 이 는 잠 을 많이 잡니다.",
+                        "matched_text": null,
+                        "self_ref": "#/texts/0"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "image_region",
+                        "locator": {
+                          "format": "image",
+                          "frame": 0,
+                          "coordinate_unit": "pixel",
+                          "bbox": [
+                            43,
+                            111,
+                            512,
+                            151
+                          ],
+                          "confidence": 0.9223850450000001
+                        },
+                        "text_origin": "ocr",
+                        "extracted_text": "서 울 의 날 씨 는 맑 습니다.",
+                        "matched_text": null,
+                        "self_ref": "#/texts/1"
+                      },
+                      {
+                        "kind": "document_location",
+                        "granularity": "image_region",
+                        "locator": {
+                          "format": "image",
+                          "frame": 0,
+                          "coordinate_unit": "pixel",
+                          "bbox": [
+                            45,
+                            186,
+                            624,
+                            226
+                          ],
+                          "confidence": 0.9518321228571428
+                        },
+                        "text_origin": "ocr",
+                        "extracted_text": "커피 원 두 를 곱게 갈아 주세요.",
+                        "matched_text": null,
+                        "self_ref": "#/texts/2"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "고 양 이 는 잠 을 많이 잡니다.\n서 울 의 날 씨 는 맑 습니다.\n커피 원 두 를 곱게 갈아 주세요.",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "animals",
+                "weather",
+                "coffee"
+              ],
+              "summary": "The text contains three unrelated sentences about a cat sleeping, the weather in Seoul, and grinding coffee beans.",
+              "translation_en": "The cat sleeps a lot.\nThe weather in Seoul is clear.\nPlease grind the coffee beans finely.",
+              "group_summary": "A collection of unrelated Korean sentences about cats, weather, and coffee.",
+              "group_tags": [
+                "korean",
+                "sentences",
+                "mixed content"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 190,
+                  "total_tokens": 268,
+                  "completion_tokens": 78,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 223,
+                  "total_tokens": 272,
+                  "completion_tokens": 49,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "The cat sleeps a lot.  \nThe weather in Seoul is clear.  \nPlease grind the coffee beans finely."
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -1.8253328956965404,
+          "vec_rank": 1,
+          "vec_distance": 0.4582505524158478
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "image_v1",
+        "warnings": [
+          "OCR is recognized text; vision descriptions are inference, not verbatim original text"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "ocr"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 8,
+      "original_byte_roundtrip": true
+    },
+    {
+      "name": "vision",
+      "media_type": "image/png",
+      "input_bytes": 1455,
+      "input_sha256": "154fbe9f21fe0b472513a6a6d4788f7a0bda39a44f1d8bde72722b1ff479f003",
+      "query": "Which red geometric shape is visible?",
+      "status": "passed",
+      "profile_key": "b91f176db61af1e404d61810f1e1de9c2a7268a63dc0f37b7974f304b90ff247",
+      "seconds": 12.989,
+      "chunk_count": 1,
+      "results": [
+        {
+          "chunk_id": 9,
+          "source_id": 9,
+          "source_key": "vision",
+          "collection": "vision",
+          "generation_id": 9,
+          "revision_id": 9,
+          "origin_uri": null,
+          "content_hash": "154fbe9f21fe0b472513a6a6d4788f7a0bda39a44f1d8bde72722b1ff479f003",
+          "embedded_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+          "original_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+          "is_translated": false,
+          "original_text_is_contiguous": false,
+          "text_origins": [
+            "inferred"
+          ],
+          "contains_inference": true,
+          "provenance_granularity": "semantic_group",
+          "anchor": {
+            "headings": [],
+            "items": [
+              {
+                "kind": "document_location",
+                "granularity": "image",
+                "locator": {
+                  "format": "image",
+                  "frame": 0,
+                  "size": [
+                    384,
+                    256
+                  ],
+                  "prompt_version": "airag.image_description.v1"
+                },
+                "text_origin": "inferred",
+                "extracted_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+                "matched_text": null,
+                "self_ref": "#/texts/0"
+              }
+            ],
+            "llm_enrichment": {
+              "group_id": "group-0-0",
+              "source_unit_ids": [
+                "chunk-0"
+              ],
+              "source_units": [
+                {
+                  "unit_id": "chunk-0",
+                  "original_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+                  "contextualized_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+                  "anchor": {
+                    "headings": [],
+                    "items": [
+                      {
+                        "kind": "document_location",
+                        "granularity": "image",
+                        "locator": {
+                          "format": "image",
+                          "frame": 0,
+                          "size": [
+                            384,
+                            256
+                          ],
+                          "prompt_version": "airag.image_description.v1"
+                        },
+                        "text_origin": "inferred",
+                        "extracted_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+                        "matched_text": null,
+                        "self_ref": "#/texts/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "original_text": "A red circle and a blue square are positioned side-by-side on a white background.",
+              "original_text_is_contiguous": false,
+              "tags": [
+                "shapes",
+                "colors",
+                "geometry"
+              ],
+              "summary": "The text describes a red circle and a blue square next to each other on a white background.",
+              "translation_en": "A red circle and a blue square are positioned side-by-side on a white background.",
+              "group_summary": "A description of a red circle and a blue square on a white background.",
+              "group_tags": [
+                "shapes",
+                "colors",
+                "composition"
+              ],
+              "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+              "llm_configured_weights_revision": null,
+              "enrichment_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 175,
+                  "total_tokens": 250,
+                  "completion_tokens": 75,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 0,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                "input_unit_ids": [
+                  "group-0-0"
+                ]
+              },
+              "grouping_metadata": {
+                "model_echoed": "byz-llm",
+                "finish_reason": "stop",
+                "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                "usage": {
+                  "prompt_tokens": 208,
+                  "total_tokens": 256,
+                  "completion_tokens": 48,
+                  "prompt_tokens_details": {
+                    "cached_tokens": 128,
+                    "created_cache_tokens": 64,
+                    "multimodal_tokens": null
+                  },
+                  "completion_tokens_details": null
+                },
+                "configured_weights_revision": null,
+                "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v1",
+                "input_unit_ids": [
+                  "chunk-0"
+                ]
+              },
+              "provenance_granularity": "semantic_group",
+              "translation_part": 0,
+              "translation_part_count": 1,
+              "embedding_text": "A red circle and a blue square are positioned side-by-side on a white background."
+            }
+          },
+          "rrf_score": 0.03278688524590164,
+          "bm25_rank": 1,
+          "bm25_score": -1.7042876388861787,
+          "vec_rank": 1,
+          "vec_distance": 0.41296377778053284
+        }
+      ],
+      "normalization_summary": {
+        "adapter": "image_v1",
+        "warnings": [
+          "OCR is recognized text; vision descriptions are inference, not verbatim original text"
+        ],
+        "resource_count": 0,
+        "text_origins": [
+          "inferred"
+        ]
+      },
+      "page_text_sources": null,
+      "manifest_id": 9,
+      "original_byte_roundtrip": true
+    }
+  ],
+  "finished_at": "2026-09-10T15:23:52.055057+09:00"
+}

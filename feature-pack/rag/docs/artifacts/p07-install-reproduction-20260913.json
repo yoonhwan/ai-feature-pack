@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "package": "ai-feature-rag==0.1.0",
+  "wheel": "/tmp/airag-p07-wheel-final-20260913/ai_feature_rag-0.1.0-py3-none-any.whl",
+  "wheel_sha256": "a6eeda880294a93dbd8cafa37aee3048d0ad3a3442f4df900bbf3a58cb93bae0",
+  "wheel_bytes": 123834,
+  "build_cwd": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag",
+  "environment": "/tmp/airag-independent-KCG7SW/venv",
+  "final_consumer_cwd": "/tmp/airag-independent-final-YtkOQl",
+  "tools": {"uv": "0.10.0", "python": "3.13.12"},
+  "commands": [
+    "uv build --wheel --out-dir /tmp/airag-p07-wheel-final-20260913",
+    "uv venv --python 3.13 /tmp/airag-independent-KCG7SW/venv",
+    "uv pip install --python /tmp/airag-independent-KCG7SW/venv/bin/python '/tmp/airag-p07-wheel-final-20260913/ai_feature_rag-0.1.0-py3-none-any.whl[documents]'",
+    "/tmp/airag-independent-KCG7SW/venv/bin/python /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/scripts/verify_installed_consumer.py --profile /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/operational-profile-20260913.json --output /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/p07-independent-install-final-20260913.json"
+  ],
+  "execution_note": "The fresh environment first installed an earlier wheel with documents extra, then ai-feature-rag alone was reinstalled from the final wheel using uv pip install --reinstall-package ai-feature-rag. The commands above show the equivalent one-pass reproduction with the final wheel. Both earlier and final execution reports are retained.",
+  "actual_final_reinstall": "uv pip install --python /tmp/airag-independent-KCG7SW/venv/bin/python --reinstall-package ai-feature-rag /tmp/airag-p07-wheel-final-20260913/ai_feature_rag-0.1.0-py3-none-any.whl",
+  "report": "p07-independent-install-final-20260913.json",
+  "dependencies": "Exact installed distribution versions, runtime module location, Python version and all 13 CLI command responses are in the linked report.",
+  "independence": "Runtime module is under the new environment site-packages and cwd is outside the repository. The driver/profile are input artifacts; no PYTHONPATH/editable install/source checkout package import is used."
+}

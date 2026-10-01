@@ -1,0 +1,43 @@
+{
+  "date": "2026-09-27",
+  "stage": "P08A-03",
+  "status": "initial_pure_input_adapter_complete_stage_in_progress",
+  "package": "feature-pack/rag-consumer",
+  "implemented": [
+    "strict_normalized_event_validation",
+    "trusted_scope_equality_and_pending_scope_rejection",
+    "replay_fingerprint_excluding_ingested_at_with_policy_version",
+    "byte_addressed_JSONL_snapshot_parsing",
+    "incomplete_final_line_and_split_UTF8_deferral",
+    "create_only_core_conversation_serialization",
+    "scope_qualified_message_ids"
+  ],
+  "test_command": "../rag/.venv/bin/python -m pytest tests ../rag/tests/test_normalize.py -q",
+  "test_workdir": "feature-pack/rag-consumer",
+  "tests": {"consumer": 44, "existing_normalize": 26, "total_passed": 70, "seconds": 0.68},
+  "real_docling_integration": "synthetic_JSONL_to_DoclingDocument_and_original_message_anchors_passed",
+  "unsupported_rejected": [
+    "grant_revoke_until_policy_adapter_exists",
+    "correction_events_in_create_only_serialization",
+    "mixed_scope_conversation",
+    "duplicate_event_or_message_without_ledger_resolution"
+  ],
+  "not_implemented": [
+    "native_rollout_adapter",
+    "redaction_policy",
+    "SQLCipher_consumer_ledger",
+    "durable_checkpoint_and_ack",
+    "event_dedup_ledger",
+    "correction_reducer",
+    "sealed_segments",
+    "window_lifecycle",
+    "RAG_publication_and_history_search",
+    "memory_troubleshoot_runtime"
+  ],
+  "source_core_code_modified": false,
+  "real_history_ingested": false,
+  "DB_created": false,
+  "provider_called": false,
+  "independent_code_DA": "not_yet_run",
+  "impact_check": "Serena references for new symbols returned empty; exhaustive package rg confirmed callers in parser and tests"
+}

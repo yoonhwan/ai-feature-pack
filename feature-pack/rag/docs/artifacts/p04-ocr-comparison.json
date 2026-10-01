@@ -1,0 +1,27 @@
+{
+  "sample": "Three rendered Korean sentences; Arial Unicode 44px; 1050x280; no claim of corpus-wide OCR superiority",
+  "expected": "고양이는 잠을 많이 잡니다.\n서울의 날씨는 맑습니다.\n커피 원두를 곱게 갈아 주세요.",
+  "comparison": [
+    {
+      "engine": "tesseract",
+      "tesseract_psm": 3,
+      "recognized": "[ 스 다.\n서 울 의 날 씨 는 맑 습니\n~\nAl\n때\n0\nIF",
+      "cer_without_whitespace": 0.6944444444444444,
+      "cer_including_whitespace": 0.7446808510638298
+    },
+    {
+      "engine": "tesseract",
+      "tesseract_psm": 6,
+      "recognized": "고 양 이 는 잠 을 많이 잡니다.\n서 울 의 날 씨 는 맑 습니다.\n커피 원 두 를 곱게 갈아 주세요.",
+      "cer_without_whitespace": 0.0,
+      "cer_including_whitespace": 0.23404255319148937
+    },
+    {
+      "engine": "easyocr",
+      "tesseract_psm": null,
+      "recognized": "고양이논 잠울 많이 잡니다.\n서울의 날씨는 맑습니다 .\n커피 원무름 급게 갈아 주세요.",
+      "cer_without_whitespace": 0.1388888888888889,
+      "cer_including_whitespace": 0.1276595744680851
+    }
+  ]
+}

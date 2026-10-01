@@ -1,0 +1,157 @@
+{
+  "artifact": "gpu-provider-probe",
+  "date": "2026-09-09",
+  "scope": "Bounded, read-only investigation of the existing BYZ-Agents GCE GPU access path, per .fable-team/airag/gpu-access-dispatch.txt. No VM/GPU/IAM/firewall changes made. One NEW loopback IAP tunnel started (authorized by dispatch). No model weights downloaded.",
+  "moved_input_doc": "feature-pack/rag/docs/artifacts/byz-gpu-endpoint-notes.md (originally docs/byz-gpu-endpoint-notes.md, supplied by KakaoBot#0)",
+
+  "howtotalk_resolution": {
+    "question": "is 'howtotalk' a GCP project id, matching numeric project 1024379410733?",
+    "method": "gcloud projects describe howtotalk (read-only); gcloud projects list --filter=projectNumber=1024379410733",
+    "result": "'howtotalk' is NOT an accessible/existing GCP project for this account (PERMISSION_DENIED or not found). The numeric project 1024379410733 resolves to projectId='byz-agents-484214', name='byz-agents' — matching this account's current active gcloud config project exactly.",
+    "conclusion": "CORRECTED (over-claim identified 2026-09-09, mid-review): the active project resolving from project_number 1024379410733 is byz-agents-484214, and a describe call on a project literally named 'howtotalk' failed (PERMISSION_DENIED-or-not-found). That does NOT prove 'howtotalk' does not exist — it could be a DISPLAY NAME rather than a project ID (gcloud projects describe matches project ID, not display name), or exist under a different account/environment this session cannot see. A broader accessible-projects listing surfaced several 'how-to-*' NAMED projects (how-to-works-console, how-to-works-homepage, howto-ads — see gcp_identity_supplemental below) that were NOT individually cross-checked against 'howtotalk' before this session was told to stop; that narrowing is unfinished, not negative evidence. No skill/guide file named howtotalk*/how-to-talk* was found under ~/.claude/skills, ~/.codex/skills, ~/.agents/skills, or the BYZ-Agents repo — that part of the search (guide/skill file, as opposed to project identity) stands as a real zero-match result."
+  },
+
+  "gcp_identity_supplemental": {
+    "note": "STOP_READY correction pass only — this list was already captured before the stop instruction; no new gcloud calls were made after being told to stop.",
+    "other_accessible_projects_with_howto-like_names": [
+      {"projectId": "how-to-works-console", "projectNumber": "621554127801", "name": "how-to-works-console"},
+      {"projectId": "how-to-works-homepage", "projectNumber": "679523467846", "name": "how-to-works-homepage"},
+      {"projectId": "howto-ads", "projectNumber": "831154559477", "name": "Howto Ads"}
+    ],
+    "unresolved": "whether any of these (or a project not in this account's list at all) is what 'howtotalk' actually refers to — NOT narrowed further per the stop instruction."
+  },
+
+  "gcp_identity": {
+    "active_account": "developer.ts@byourz.com",
+    "active_project": "byz-agents-484214",
+    "project_number": "1024379410733",
+    "command": "gcloud config get-value project / account; gcloud projects list --filter=projectNumber=..."
+  },
+
+  "vm_status": {
+    "byz-agents-gce-llm-dev": {"zone": "asia-northeast3-a", "machine_type": "g2-standard-8", "status": "RUNNING"},
+    "byz-agents-gce-stt-tts-dev": {"zone": "asia-northeast3-a", "machine_type": "g2-standard-8", "status": "RUNNING", "note": "out of scope per dispatch — not probed further"},
+    "command": "gcloud compute instances list / describe (read-only, no start/stop/restart issued)"
+  },
+
+  "iap_tunnel": {
+    "pre_existing_tunnel_for_llm_port": false,
+    "pre_existing_listener_found_on_8001": "an unrelated local Python process already listens on 8001 (not touched, not identified further — out of this task's scope per dispatch's STT/TTS port note)",
+    "new_tunnel_started": true,
+    "command": "gcloud compute start-iap-tunnel byz-agents-gce-llm-dev 8000 --local-host-port=localhost:8002 --zone=asia-northeast3-a & (background, kept running)",
+    "local_port": 8002,
+    "remote_vm_port": 8000,
+    "verified_listening": true,
+    "no_vm_iam_firewall_change": true
+  },
+
+  "model_api_probe": {
+    "endpoint_base": "http://localhost:8002/v1 (via the new tunnel above)",
+    "v1_models_response": {
+      "id": "byz-llm",
+      "object": "model",
+      "owned_by": "vllm",
+      "root": "google/gemma-4-12B-it-qat-w4a16-ct",
+      "max_model_len": 24576
+    },
+    "v1_embeddings_probe": {
+      "request": "POST /v1/embeddings {model: byz-llm, input: [ping]}",
+      "http_status": 404,
+      "body": "{\"detail\":\"Not Found\"}",
+      "conclusion": "CORRECTED (over-claim identified 2026-09-09): this ONE checked endpoint (port 8000 on byz-agents-gce-llm-dev, this vLLM instance) does NOT expose an embeddings route. This does NOT establish that no embedding endpoint exists anywhere — the same VM could run another container/port not probed here, and no other port on either VM was checked (bounded scope: only the one documented LLM port was tunneled). Confirms dispatch's own warning that a chat-model endpoint may not ALSO serve embeddings — narrower than 'no embedding endpoint exists'."
+    },
+    "v1_chat_completions_probe": {
+      "request_summary": "single synthetic prompt asking for strict-JSON {translation_en, tags, summary} of a short Korean sentence, max_tokens=200, temperature=0",
+      "http_status": 200,
+      "model_echoed": "byz-llm",
+      "system_fingerprint": "vllm-0.28.0-6d404153",
+      "usage": {"prompt_tokens": 55, "completion_tokens": 59, "total_tokens": 114},
+      "output_shape_note": "model wrapped the JSON in a ```json fence rather than returning bare JSON — a real integration would need response_format=json_object (if this vLLM/model combo supports it) or fence-stripping, not assumed here",
+      "content_quality": "translation/tags/summary all correct and relevant for this one synthetic example",
+      "conclusion": "the CHAT/LLM half of the requested capability (tagging, summarization, translation, semantic grouping via an LLM call) is demonstrably reachable and working through this tunnel today. usage is actually returned here (unlike the local LM Studio /v1/embeddings probe in p03a, which always returned prompt_tokens=0) — token accounting for THIS path is real, not silent-zero."
+    }
+  },
+
+  "embedding_model_search_in_byz-agents_repo": {
+    "method": "grep -rli embedding across worker/shared/gateway .py/.yaml/.env files in the BYZ-Agents repo",
+    "finding": "worker/services/embedding.py (git blob c86a0245a3c4d6dabc35c929bc160e7dd3907701, last touched 2026-01-25) implements EmbeddingService as a LOCAL-CPU FastEmbed model (BAAI/bge-small-en-v1.5, 384-dim default) with an OpenAI-API fallback (text-embedding-3-small, 1536-dim) and a random-vector MOCK as final fallback — it never calls any GCE/GPU endpoint. worker/graph/nodes/common/embedding_caller.py's _sync_embed_batch is explicitly a TODO stub emitting hardcoded [0.0]*384 mock vectors, not wired to EmbeddingService at all.",
+    "conclusion": "CORRECTED (over-claim identified 2026-09-09): the CURRENT application code's embedding path (worker/services/embedding.py, embedding_caller.py) does not call any GCE/GPU endpoint today — that part is a direct code reading, not an inference. It does NOT, by itself, prove no GPU-hosted embedding model exists anywhere in this GCP project/account — only that this application does not currently use one. 'gcloud compute instances list' showing 2 VMs rules out a THIRD dedicated VM, but does not rule out another container/port/service running on either of the 2 existing VMs (not probed — only VM port 8000 was tunneled and checked). Treat as 'not found in the code path or the one endpoint checked', not 'does not exist'."
+  },
+
+  "provenance": {
+    "d4-gpu-vm-control-design.md_at_read_time": "d206e98914b6b2def4f16737c6de604ae5d726ad (2026-08-15, BYZ-Agents repo)",
+    "worker/services/embedding.py_at_read_time": "c86a0245a3c4d6dabc35c929bc160e7dd3907701 (2026-01-25, BYZ-Agents repo)",
+    "byz-agents_repo_head_at_read_time": "f6d0baa8b29f7ef86b7c64d97fefa2be5578918f",
+    "note": "these BYZ-Agents git provenance values describe the OTHER repository's state as read, not this (ai-feature-pack) repo's own history."
+  },
+
+  "identity_and_revision_honesty": {
+    "correction_2026-09-09": "system_fingerprint='vllm-0.28.0-6d404153' attests the SERVING RUNTIME (the vLLM engine build), NOT the model WEIGHTS revision — these are two different things and must not be conflated. It is not evidence of which exact weight checkpoint is loaded, only which server software served the response.",
+    "model_weights_revision": "UNCONFIRMED — the echoed model root 'google/gemma-4-12B-it-qat-w4a16-ct' names a model family/quantization, not a pinned commit/file-hash the way p03a's GGUF sha256 did for the local Qwen embedding model. No file-hash-level revision proof was captured for this GPU model.",
+    "no_embedding_revision_claim": "not applicable to the one endpoint checked — see corrected embedding-absence claims above; whether an embedding endpoint exists elsewhere is unconfirmed, not ruled out."
+  },
+
+  "conclusion_for_D011": {
+    "gpu_llm_reachable_for": "tagging / summarization / English translation / semantic grouping via chat completion on the ONE endpoint checked (port 8000, byz-agents-gce-llm-dev) — reachable and working for one synthetic example; runtime version attested (vllm-0.28.0-6d404153), model WEIGHTS revision unconfirmed",
+    "gpu_embedding_location": "UNCONFIRMED, not established absent — only one endpoint (chat, port 8000) was checked; other ports/containers on either existing VM, and other GCP projects this account can reach, were not probed before the stop instruction",
+    "not_declaring_a_default": "per ft-airag-arch-astra 2026-09-09 direction, this probe does not commit local Qwen/LM Studio (or this GCE chat model) as THE product default embedding/enrichment provider — embeddings.py's EmbeddingSpaceConfig remains provider-agnostic; this is evidence for D011, not a D011 decision itself",
+    "root_kakao_followup": "root is separately asking KakaoBot about a dedicated embedding path — this probe's job was bounded investigation of the ALREADY-KNOWN endpoint, not a from-scratch infra survey"
+  },
+
+  "followup_2026-09-09b_narrowing": {
+    "howtotalk_candidates_ruled_out": "The 3 'how-to-*'-named projects this account can list (how-to-works-console, how-to-works-homepage, howto-ads) all return 'Compute Engine API has not been used / is disabled' — none of them hosts ANY VM infrastructure. This does not prove 'howtotalk' doesn't exist elsewhere, but it rules out these 3 specific candidates as a GPU access route.",
+    "vm_container_config_read_via_describe": {
+      "container-image": "asia-northeast3-docker.pkg.dev/byz-agents-484214/byz-agents-docker-dev/vllm-llm:gemma4-12b-qat-w4a16ct-v028",
+      "container-args": "--model google/gemma-4-12B-it-qat-w4a16-ct --served-model-name byz-llm --max-model-len 24576 --max-num-seqs 128 --gpu-memory-utilization 0.92 --enable-prompt-tokens-details",
+      "finding_SCOPED": "This is the VM's DECLARED single Container-Optimized-OS metadata (container-image/container-args/container-env) — direct config evidence that ONE container is declared this way, not a runtime process audit. It does not by itself rule out an additional undeclared process/sidecar running outside that declared container. gpu-memory-utilization=0.92 is the vLLM launch FLAG value (a configured request), not a measured live VRAM occupancy reading — 'no headroom for a second model' is an inference from that flag, not a directly observed memory metric. Recorded as evidence with this scope, not as a certainty."
+    },
+    "firewall_rules_read_only": {
+      "byz-agents-allow-iap-dev": "tcp:22,tcp:8000,tcp:8100 — the only ports IAP is permitted to forward to on these VMs",
+      "byz-agents-allow-connector-dev": "tcp:8000 (gpu-serving tag)",
+      "finding": "No firewall rule permits reaching any port on either VM besides 22/8000/8100. Even if some other process were listening on a different port, IAP could not reach it under the current rules. This closes the 'maybe another port on the same VM' gap for THIS VM specifically."
+    },
+    "remaining_gap": "The second VM (byz-agents-gce-stt-tts-dev, port 8100) was still not probed — out of scope per dispatch.",
+    "no_vm_iam_firewall_changes_made": true
+  },
+
+  "followup_2026-09-09c_exhaustive_project_sweep": {
+    "method": "gcloud compute instances list --project=<p> for every OTHER project in this account's accessible list (read-only; no enable/IAM changes made in response to the prompts)",
+    "result": {
+      "amplified-hull-484011-s7": "Compute Engine API disabled — no compute resources",
+      "stable-hologram-500204-b0": "Compute Engine API disabled — no compute resources",
+      "sunny-emissary-484011-f3": "Compute Engine API disabled — no compute resources",
+      "gen-lang-client-0730989186": "Compute Engine API disabled — no compute resources",
+      "how-to-works-console / how-to-works-homepage / howto-ads": "Compute Engine API disabled — SCOPED: this rules out Compute Engine VM resources specifically (the API must be enabled to create/list instances), not every possible GCP resource type (e.g. GKE/Cloud Run/Vertex AI endpoints were not individually checked in these projects)",
+      "byourz-app": "BLOCKED — Compute Engine API IS enabled here, but this account lacks the 'compute.instances.list' IAM permission. This is the one genuine permission gap found; not resolved (no IAM change made, per dispatch)."
+    },
+    "conclusion": "Of all 9 projects this account can see, byz-agents-484214 is the ONLY one with any confirmed compute infrastructure. byourz-app is UNKNOWN (permission-blocked, not confirmed empty) — flagged as the one real blocker for a human to grant compute.instances.list (or equivalent viewer role) on, if that project is relevant. Combined with the container/firewall findings above, this is now a near-exhaustive (not absolute) sweep of this account's reachable surface, not a single-endpoint inference.",
+    "no_iam_changes_requested_or_made": true
+  },
+
+  "followup_2026-09-09d_MAJOR_CORRECTION_embedding_found": {
+    "who_found_it": "ft-airag-arch-astra, via a read-only SSH/IAP-22 guest inspection running `docker ps` directly on byz-agents-gce-stt-tts-dev — this is why the VM's DECLARED container metadata (checked earlier in this file) did not surface it: an actual running container can differ from what a single metadata key declares, exactly the gap this file's earlier 'finding_SCOPED' note flagged as unverified.",
+    "endpoint": {
+      "vm": "byz-agents-gce-stt-tts-dev (the VM previously marked out-of-scope/STT-TTS-only)",
+      "remote_port": 8100,
+      "new_iap_tunnel": "http://127.0.0.1:18810/v1 -> stt-tts-dev:8100, PID 98627 (kept running, not stopped)",
+      "no_vm_iam_container_changes_made": true
+    },
+    "independently_reverified_by_worker_2026-09-09": {
+      "v1_models": {"id": "byz-embed", "owned_by": "vllm", "root": "/models/qwen3-embed", "max_model_len": 8192},
+      "v1_embeddings_real_call": {
+        "input": "2 English sentences",
+        "http_status": 200,
+        "n_items": 2, "indices": [0, 1], "dims": [1024, 1024],
+        "finite": true, "nonzero": true,
+        "note_unit_norm": "measured vector norm ~= 0.9999999778 — this server's output is UNIT-NORMALIZED (unlike the local LM Studio Qwen probe in p03a, which was NOT normalized) — a real, measured difference between the two providers that a shared EmbeddingSpaceConfig/profile must not silently assume away.",
+        "usage": {"prompt_tokens": 8, "total_tokens": 8},
+        "note_real_usage": "unlike LM Studio's /v1/embeddings (always usage.prompt_tokens=0, per p03a), THIS server returns real non-zero token usage — token-truncation detection is actually possible here."
+      }
+    },
+    "revised_conclusion": "A real GPU-hosted embedding model (byz-embed, root /models/qwen3-embed, likely a Qwen3 embedding variant, 1024-dim, max_model_len 8192, unit-normalized output, real usage accounting) DOES exist and IS reachable from this account, on the SECOND VM this probe had marked out-of-scope. The earlier 'GPU embedding not confirmed to exist' conclusion in this file is SUPERSEDED for this specific finding — it was a correct statement of what THIS investigation's bounded scope had found at the time, not a permanent fact. model_weights_revision for byz-embed is still UNCONFIRMED (same caveat as byz-llm — a served alias/root path is not a file-hash pin); architect is separately gathering remote model config/file-revision evidence.",
+    "next_step": "Wire pipeline.py against this REAL confirmed GPU embedding endpoint (EmbeddingSpaceConfig with endpoint=http://127.0.0.1:18810/v1, model=byz-embed, dimension=1024) plus the byz-llm chat endpoint for D-011 enrichment — this supersedes any local-LM-Studio-as-interim-default framing for production profile selection (still not this worker's D-011 decision to finalize, but the blocking 'does GPU embedding exist' question is now answered yes)."
+  },
+
+  "no_kakaobot_report_sent": true,
+  "status": "GPU_PROVIDER_READY_CONFIRMED (2026-09-09, superseding the earlier STOPPED status) — BOTH the byz-llm chat/enrichment endpoint (localhost:8002) AND the byz-embed embedding endpoint (127.0.0.1:18810, stt-tts-dev:8100, 1024-dim, unit-normalized) are real, reachable, and independently re-verified by the worker. No VM/IAM/container changes made at any point. Weights-revision pinning for both models remains open — architect is gathering further evidence."
+}

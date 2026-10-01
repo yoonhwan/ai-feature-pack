@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="8" time="18.873" timestamp="2026-09-13T04:06:51.114963+09:00" hostname="MacBook-Pro.local"><testcase classname="tests.test_llm_enrichment" name="test_count_tokens_against_real_byz_llm_tokenize_endpoint" time="0.533"><failure message="assert 16 == 3">tests/test_llm_enrichment.py:287: in test_count_tokens_against_real_byz_llm_tokenize_endpoint
+    assert n == 3  # independently verified via curl in this session
+    ^^^^^^^^^^^^^
+E   assert 16 == 3</failure></testcase><testcase classname="tests.test_llm_enrichment" name="test_enrich_units_against_real_byz_llm_small_scale" time="7.398" /><testcase classname="tests.test_llm_enrichment" name="test_plan_semantic_groups_against_real_byz_llm_small_scale" time="5.758" /><testcase classname="tests.test_embeddings" name="test_embed_query_and_documents_against_real_lmstudio" time="0.796"><failure message="airag.embeddings.EmbeddingError: embedding provider request failed (connection)">/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:1319: in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1358: in request
+    self._send_request(method, url, body, headers, encode_chunked)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1404: in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1353: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1113: in _send_output
+    self.send(msg)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1057: in send
+    self.connect()
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1023: in connect
+    self.sock = self._create_connection(
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/socket.py:864: in create_connection
+    raise exceptions[0]
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/socket.py:849: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+src/airag/embeddings.py:305: in _post_embeddings
+    with urllib.request.urlopen(req, timeout=cfg.timeout_s) as resp:  # noqa: S310 - local/operator-configured endpoint
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:189: in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:489: in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:506: in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:466: in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:1348: in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:1322: in do_open
+    raise URLError(err)
+E   urllib.error.URLError: &lt;urlopen error [Errno 61] Connection refused&gt;
+
+The above exception was the direct cause of the following exception:
+tests/test_embeddings.py:365: in test_embed_query_and_documents_against_real_lmstudio
+    q_vec = struct.unpack("1024f", embeddings.embed_query(cfg, "고양이 수면 습관"))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/airag/embeddings.py:433: in embed_query
+    payload = _post_embeddings(cfg, [wrapped])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/airag/embeddings.py:317: in _post_embeddings
+    raise EmbeddingError(
+E   airag.embeddings.EmbeddingError: embedding provider request failed (connection)</failure></testcase><testcase classname="tests.test_embeddings" name="test_embed_documents_on_batch_hook_fires_per_batch" time="0.001"><failure message="airag.embeddings.EmbeddingError: embedding provider request failed (connection)">/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:1319: in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1358: in request
+    self._send_request(method, url, body, headers, encode_chunked)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1404: in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1353: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1113: in _send_output
+    self.send(msg)
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1057: in send
+    self.connect()
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/http/client.py:1023: in connect
+    self.sock = self._create_connection(
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/socket.py:864: in create_connection
+    raise exceptions[0]
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/socket.py:849: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+src/airag/embeddings.py:305: in _post_embeddings
+    with urllib.request.urlopen(req, timeout=cfg.timeout_s) as resp:  # noqa: S310 - local/operator-configured endpoint
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:189: in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:489: in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:506: in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:466: in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:1348: in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/urllib/request.py:1322: in do_open
+    raise URLError(err)
+E   urllib.error.URLError: &lt;urlopen error [Errno 61] Connection refused&gt;
+
+The above exception was the direct cause of the following exception:
+tests/test_embeddings.py:391: in test_embed_documents_on_batch_hook_fires_per_batch
+    embeddings.embed_documents(
+src/airag/embeddings.py:467: in embed_documents
+    payload = _post_embeddings(cfg, batch)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/airag/embeddings.py:317: in _post_embeddings
+    raise EmbeddingError(
+E   airag.embeddings.EmbeddingError: embedding provider request failed (connection)</failure></testcase><testcase classname="tests.test_embeddings" name="test_embed_query_too_long_is_rejected_not_truncated" time="0.876" /><testcase classname="tests.test_chunking" name="test_chunk_document_with_real_qwen_tokenizer_korean_and_english" time="0.002" /><testcase classname="tests.test_chunking" name="test_chunk_document_real_tokenizer_long_paragraph_split_gets_exact_subspans" time="0.825" /></testsuite></testsuites>

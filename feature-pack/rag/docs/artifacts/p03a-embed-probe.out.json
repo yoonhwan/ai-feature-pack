@@ -1,0 +1,128 @@
+{
+  "models_listed": [
+    "text-embedding-qwen3-embedding-0.6b",
+    "text-embedding-nomic-embed-text-v1.5"
+  ],
+  "embed_model_used": "text-embedding-qwen3-embedding-0.6b",
+  "batch_dim": 1024,
+  "single_dim": 1024,
+  "finite_ok": true,
+  "nonzero_ok": true,
+  "batch_latency_s": 0.8773,
+  "single_latency_s": 0.0259,
+  "usage_batch": {
+    "prompt_tokens": 0,
+    "total_tokens": 0
+  },
+  "model_field_in_response": "text-embedding-qwen3-embedding-0.6b",
+  "task_description_used_for_wrap": "Given a web search query, retrieve relevant passages that answer the query",
+  "query_texts_raw": {
+    "q_cat_ko": "고양이 수면 습관",
+    "q_db_en": "what is a lightweight embedded database"
+  },
+  "query_texts_wrapped": {
+    "q_cat_ko": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:고양이 수면 습관",
+    "q_db_en": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:what is a lightweight embedded database"
+  },
+  "doc_texts": {
+    "d1_ko_cat": "고양이는 하루의 대부분을 잠으로 보내는 동물이다.",
+    "d2_ko_db": "SQLite는 파일 하나로 동작하는 경량 관계형 데이터베이스이다.",
+    "d3_en_cat": "Cats are animals that spend most of the day sleeping.",
+    "d4_en_db": "SQLite is a lightweight relational database that runs as a single file.",
+    "d5_ko_weather": "오늘 서울의 날씨는 맑고 기온은 25도이다."
+  },
+  "rank_results_raw_query": {
+    "q_cat_ko": [
+      {
+        "doc": "d1_ko_cat",
+        "cosine": 0.4773
+      },
+      {
+        "doc": "d3_en_cat",
+        "cosine": 0.4087
+      },
+      {
+        "doc": "d4_en_db",
+        "cosine": 0.3805
+      },
+      {
+        "doc": "d2_ko_db",
+        "cosine": 0.3298
+      },
+      {
+        "doc": "d5_ko_weather",
+        "cosine": 0.1632
+      }
+    ],
+    "q_db_en": [
+      {
+        "doc": "d4_en_db",
+        "cosine": 0.7483
+      },
+      {
+        "doc": "d2_ko_db",
+        "cosine": 0.6476
+      },
+      {
+        "doc": "d3_en_cat",
+        "cosine": 0.2011
+      },
+      {
+        "doc": "d1_ko_cat",
+        "cosine": 0.146
+      },
+      {
+        "doc": "d5_ko_weather",
+        "cosine": 0.1426
+      }
+    ]
+  },
+  "rank_results_wrapped_query": {
+    "q_cat_ko": [
+      {
+        "doc": "d1_ko_cat",
+        "cosine": 0.6173
+      },
+      {
+        "doc": "d3_en_cat",
+        "cosine": 0.4329
+      },
+      {
+        "doc": "d4_en_db",
+        "cosine": 0.1724
+      },
+      {
+        "doc": "d2_ko_db",
+        "cosine": 0.1642
+      },
+      {
+        "doc": "d5_ko_weather",
+        "cosine": 0.0858
+      }
+    ],
+    "q_db_en": [
+      {
+        "doc": "d4_en_db",
+        "cosine": 0.5665
+      },
+      {
+        "doc": "d2_ko_db",
+        "cosine": 0.5341
+      },
+      {
+        "doc": "d3_en_cat",
+        "cosine": 0.138
+      },
+      {
+        "doc": "d1_ko_cat",
+        "cosine": 0.1281
+      },
+      {
+        "doc": "d5_ko_weather",
+        "cosine": 0.1206
+      }
+    ]
+  },
+  "repeat_batch_dim_stable": true,
+  "repeat_batch_same_order": true
+}

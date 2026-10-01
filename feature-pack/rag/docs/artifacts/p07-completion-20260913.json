@@ -1,0 +1,165 @@
+{
+  "date": "2026-09-13",
+  "status": "P08_READY",
+  "scope": "P06-05 through P07 complete; P08 user tour, P09 completion approval and P10 review magazine remain future work",
+  "verification": {
+    "offline": {
+      "report": "p07-offline-final-20260913.xml",
+      "tests": 465,
+      "passed": 464,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "seconds": 181.604
+    },
+    "actual_models": {
+      "report": "p07-live-final-20260913.xml",
+      "tests": 19,
+      "passed": 19,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 200.55
+    },
+    "full_format_lifecycle": {
+      "report": "p07-lifecycle-final-20260913.xml",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 541.444
+    }
+  },
+  "offline_skip_reason": "One pre-existing placeholder test explicitly superseded by other identity-field tests; no missing required scenario",
+  "lifecycle_formats": [
+    {
+      "kind": "ocr",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format5/lifecycle-report.json"
+    },
+    {
+      "kind": "xlsx",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format2/lifecycle-report.json"
+    },
+    {
+      "kind": "hwp",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format3/lifecycle-report.json"
+    },
+    {
+      "kind": "hwpx",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format4/lifecycle-report.json"
+    },
+    {
+      "kind": "en",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format10/lifecycle-report.json"
+    },
+    {
+      "kind": "conversation",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format11/lifecycle-report.json"
+    },
+    {
+      "kind": "long",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format8/lifecycle-report.json"
+    },
+    {
+      "kind": "docx",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format1/lifecycle-report.json"
+    },
+    {
+      "kind": "vision",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format6/lifecycle-report.json"
+    },
+    {
+      "kind": "empty",
+      "status": "passed",
+      "commands": 11,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format7/lifecycle-report.json"
+    },
+    {
+      "kind": "pdf",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format0/lifecycle-report.json"
+    },
+    {
+      "kind": "ko",
+      "status": "passed",
+      "commands": 13,
+      "retained_trace": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-pytest-q8rswzhv/test_installed_cli_full_format9/lifecycle-report.json"
+    }
+  ],
+  "lifecycle_command_count": 154,
+  "quality": "p07-quality-final-review-20260913.json",
+  "quality_raw": "p07-quality-v3-20260913.json",
+  "quality_criteria": "p07-evaluation-plan.json",
+  "scale": "p07-scale-20260913.json",
+  "model_identity": "p03-operational-model-identity-20260913.json",
+  "profile": "operational-profile-20260913.json",
+  "independent_install": "p07-independent-install-final-20260913.json",
+  "install_reproduction": "p07-install-reproduction-20260913.json",
+  "source_sha256": {
+    "src/airag/__init__.py": "0b9d892b828c8dff4c9cf64d27fc98043d1fe3d735aa0315e7cd7c7e20cd3bb6",
+    "src/airag/_fileio.py": "a6683208c48bca131d41c2d6a532f5bbdd51f1e40c69678c911a9db14a13e3b6",
+    "src/airag/_json.py": "20e8a16cf7cb429a2320b71a7b96c1c4b887c45f6c564be5719f4fecefc01bce",
+    "src/airag/api.py": "d9403ca68dff506388cc9ffea968ae41621e61fa63a6b84749d497eb6dd95cfb",
+    "src/airag/backups.py": "c053538eb902a5dc0212fa4d8ee2cd43df9d5137136c6ba4d16a4101d9306efd",
+    "src/airag/chunking.py": "36c6c7e5ca5b212459f4fec163f5b4b63a9bffe8fca665a978e488c9cf80b512",
+    "src/airag/cli/__init__.py": "5384bfdb2df380b6557cc7a71d16891415bccaa87699406e236f752c6415389f",
+    "src/airag/cli/main.py": "f83b446b9edea8e3e6b5867612cff0b733d6a6c069417049b5f174c41bec5d96",
+    "src/airag/db/__init__.py": "5384bfdb2df380b6557cc7a71d16891415bccaa87699406e236f752c6415389f",
+    "src/airag/db/connect.py": "507b079b4eb175f7225b469c09abc73cb70272c43aca4f75a75b92229b01ad46",
+    "src/airag/db/schema.py": "26e3f09d2640fb402c66e676fbbf6077424a201a7da6acbb191186ef1a6fb2eb",
+    "src/airag/db/vecext.py": "159a2f7ccc929e43a9aefc518380cfe4559b2a32f41f576e15caaa78d2aa12bb",
+    "src/airag/diagnostics.py": "10041084fb8cf6965693d9c81024736c100e41e2219fee9bf2c91f720d331b06",
+    "src/airag/document_adapters.py": "edee516231a40ab2fafef7d1c74632922dec26c4c8690602c5c4469b88bc3aae",
+    "src/airag/embeddings.py": "17e6a0082bc1066944e652159e3103e68102b7423c0a2448232ca8d8fc63b113",
+    "src/airag/expansion.py": "8c0b593feea346ecfb59ff85e8716054d47ed3f65da11e8417ffab39f70b9e9a",
+    "src/airag/image_adapters.py": "0f74b7aea3fb8a1a38c6fa19944e36bcb1c5c96199e8b69a2b0fcd1d9ba0ff79",
+    "src/airag/keys.py": "0c4143767ef8f53b6dbcd1a801346854f6ca622bb45acb42ca7600a048986416",
+    "src/airag/llm_enrichment.py": "998dc854f1c899e17105f04186bb1fc42fcce4e3336457010b5670a4ea64b85c",
+    "src/airag/normalize.py": "f4e9f88434c8888ef80cdd7279be0c2e122addaa90c97444eaf87635eda9c750",
+    "src/airag/pipeline.py": "95fdd68895142363abb435380cbf0d58268f06dde3b30a5c9b1d6be5ce34a2eb",
+    "src/airag/profiles.py": "aee31d95190c0c6bccb569691fc918dc5bb8f7ddefc3fa29732578c974f23f32",
+    "src/airag/relations.py": "aeae49ae6a435e7b935d3fe6269f546bdd89fdbc533d853fa89705034f4025cb",
+    "src/airag/search.py": "291dc78917e0ef2b3c44083aa75eb3c6f003bb7cea214434a8655196c70cbccd",
+    "src/airag/store.py": "e540ccf469cf8a22bee57cbac260c2dde071c05c599a0b3ca9275954856efd7d"
+  },
+  "commands": {
+    "offline": ".venv/bin/python -m pytest tests/ -q --tb=short --junitxml=docs/artifacts/p07-offline-final-20260913.xml",
+    "actual_models": ".venv/bin/python -m pytest tests/ --ignore=tests/test_acceptance_live.py -m integration -q --tb=short --junitxml=docs/artifacts/p07-live-final-20260913.xml",
+    "full_format_lifecycle": ".venv/bin/python -m pytest tests/test_acceptance_live.py -m integration -q --tb=short --junitxml=docs/artifacts/p07-lifecycle-final-20260913.xml",
+    "quality": ".venv/bin/python scripts/evaluate_acceptance.py quality --plan docs/artifacts/p07-evaluation-plan.json --profile docs/artifacts/operational-profile-20260913.json --output <fresh-report.json>",
+    "scale": ".venv/bin/python scripts/evaluate_acceptance.py scale --plan docs/artifacts/p07-evaluation-plan.json --output <fresh-report.json>"
+  },
+  "integration_environment": {
+    "AIRAG_EMBED_ENDPOINT": "http://127.0.0.1:18811/v1",
+    "AIRAG_LLM_ENDPOINT": "http://127.0.0.1:18002/v1",
+    "AIRAG_EMBED_REVISION": "served-path-sha256:0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+    "AIRAG_LLM_REVISION": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee"
+  },
+  "limitations": [
+    "Quality acceptance is bounded to the fixed synthetic corpus, not arbitrary user material.",
+    "Scale benchmark uses synthetic vectors and separates external model latency.",
+    "Serving-path weights/cache identities are not GPU-memory attestation.",
+    "Initial failed semantic runs and validation-harness corrections are retained, not relabeled as passes.",
+    "User tour has not happened and is not replaced by automated validation."
+  ]
+}

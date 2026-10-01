@@ -1,0 +1,20 @@
+{
+  "embedding": {
+    "provider": "openai-compatible",
+    "endpoint": "http://127.0.0.1:18811/v1",
+    "model": "byz-embed",
+    "revision": "served-path-sha256:0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+    "dimension": 1024,
+    "tokenizer_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+    "max_tokens": 8192,
+    "timeout_s": 60
+  },
+  "llm": {
+    "provider": "byz-vllm",
+    "endpoint": "http://127.0.0.1:18002/v1",
+    "model": "byz-llm",
+    "weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+    "context_length": 24576,
+    "timeout_s": 90
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "status": "failed_semantic_review",
+  "source_report": "p07-quality-20260913.json",
+  "retrieval": {"queries": 24, "top_1": 1.0, "top_3": 1.0},
+  "failures": [
+    {"document": "clinic", "field": "group_summary", "observed": "Information regarding the reservation process and required items for tree medicine vaccinations.", "reason": "The proper clinic name 나무의원 was misinterpreted as tree medicine; this is not faithful to the source."},
+    {"document": "delivery", "field": "group_summary/group_tags", "observed": "Korean summary and Korean tags", "reason": "The grouping contract requests English output but the provider returned Korean."}
+  ],
+  "other_findings": ["Garden and museum proper-name rendering varies across summary fields; literal semantics remain correct but consistent transliteration is preferred."],
+  "remediation": "Strengthen the general grouping prompt's English/proper-name/factual-fidelity instructions, version it as plan_semantic_groups.v2, and rerun the fixed corpus without changing acceptance thresholds.",
+  "critical_translation_facts": "All 12 final translation_en fields preserved the source facts in the initial review; grouping metadata still prevents an overall pass.",
+  "reviewer": "primary agent compared generated text with each Korean source; this is not a user acceptance tour"
+}

@@ -1,0 +1,165 @@
+{
+  "category": "P-04",
+  "status": "COMPLETE_STOP_READY",
+  "completed_at": "2026-09-10T15:39:29.482256+09:00",
+  "worktree": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant",
+  "branch": "feature/rag-transplant",
+  "source_commit": "uncommitted worktree",
+  "runtime": {
+    "python": "3.13.12",
+    "platform": "macOS-15.0.1-arm64-arm-64bit-Mach-O",
+    "java": "openjdk version \"16.0.1\" 2021-04-20"
+  },
+  "supported_media_types": [
+    "application/haansofthwp",
+    "application/hwp+zip",
+    "application/pdf",
+    "application/vnd.hancom.hwp",
+    "application/vnd.hancom.hwpx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/x-hwp",
+    "application/x-hwpx",
+    "image/bmp",
+    "image/jpeg",
+    "image/png",
+    "image/tiff"
+  ],
+  "example_normalizer_configuration": {
+    "adapter": "documents_v1",
+    "adapter_version": 1,
+    "pdf_artifacts_path": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/share/docling-models",
+    "ocr_engine": "tesseract",
+    "ocr_languages": [
+      "ko",
+      "en"
+    ],
+    "tesseract_psm": 6,
+    "tessdata_path": "/opt/homebrew/share/tessdata/",
+    "ocr_model_path": null,
+    "image_mode": "ocr+vision",
+    "max_pages": 200,
+    "max_expanded_bytes": 134217728,
+    "max_image_pixels": 20000000,
+    "timeout_s": 120,
+    "hwp_classpath": "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/share/airag/hwplib-1.1.11.jar",
+    "hwp_sha256": "fd464ff56eec7f58d463f7533da7501d4bb8261a225c20b7b19bed9e137f7e04",
+    "dependency_versions": {
+      "docling-slim": "2.126.0",
+      "docling-core": "2.95.0",
+      "python-docx": "1.2.0",
+      "openpyxl": "3.1.5",
+      "Pillow": "12.3.0",
+      "tesseract": "tesseract 5.5.2"
+    },
+    "vision_prompt_version": "airag.image_description.v1",
+    "model_fingerprints": {
+      "kor.traineddata": "6b85e11d9bbf07863b97b3523b1b112844c43e713df8b66418a081fd1060b3b2",
+      "eng.traineddata": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "osd.traineddata": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff",
+      "docling-project--docling-layout-heron": "7fc780d5d1400267a42306e80e07664f9eb084aa02f137c340ab98afb4b6d50c",
+      "docling-project--docling-models/model_artifacts/tableformer/accurate": "63028389f96e44d87a58462d270c833348b93c3d8de960eff136d56286bfcc46"
+    }
+  },
+  "setup_commands": [
+    "uv sync --extra documents",
+    "Prepare Docling layout/table models explicitly with docling.utils.model_downloader.download_models; disable unrelated model families",
+    "Prepare EasyOCR ko/en models explicitly under ocr_model_path; ingestion has download_enabled=False",
+    "Provide the local Apache-2.0 hwplib 1.1.11 jar; verify the captured SHA-256 before JVM parsing"
+  ],
+  "validation": {
+    "offline": {
+      "command": ".venv/bin/python -m pytest tests/ -q --tb=short --disable-warnings",
+      "passed": 326,
+      "skipped": 1,
+      "integration_deselected_at_run": 9,
+      "seconds": 59.18,
+      "note": "The reusable nine-case P04 live test module was added after this full offline run; its cases are integration-marked and were run separately."
+    },
+    "final_config_guard": {
+      "command": ".venv/bin/python -m pytest tests/test_document_adapters.py::test_document_profile_captures_dependencies_and_rejects_drift -q",
+      "passed": 1
+    },
+    "live_pytest": {
+      "command": "AIRAG_EMBED_REVISION=integration-probe-unverified-weights-2026-09-10 .venv/bin/python -m pytest -m integration tests/test_documents_live.py -q --tb=short --disable-warnings",
+      "passed": 9,
+      "seconds": 118.56
+    },
+    "live_api_cases": "p04-live-validation.json",
+    "installed_cli": "p04-cli-validation.json",
+    "ocr_comparison": "p04-ocr-comparison.json",
+    "package": {
+      "wheel": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/airag-p04-final-wheel-0lmnvop_/ai_feature_rag-0.1.0-py3-none-any.whl",
+      "wheel_sha256": "b88676bc940135e9c08f6988becddadaf2323a053f5d6682cf0c9237b4807932",
+      "document_modules_and_java_source_match_current_source": true,
+      "documents_extra_present": true
+    }
+  },
+  "completed_tasks": {
+    "P04-01": true,
+    "P04-02": true,
+    "P04-03": true,
+    "P04-04": true,
+    "P04-05": true,
+    "P04-06": true,
+    "P04-07": true,
+    "P04-08": true,
+    "P04-09": true
+  },
+  "fixture_sources": [
+    {
+      "name": "SimplePicture.hwpx",
+      "source": "https://github.com/neolord0/hwpxlib/blob/main/testFile/reader_writer/SimplePicture.hwpx",
+      "sha256": "7ed3bdf89986fd88fdbcd92eaeac3f852aa6984fb1f7ddf4dd4f582afe20084c",
+      "bytes": 79447
+    },
+    {
+      "name": "SimpleTable.hwpx",
+      "source": "https://github.com/neolord0/hwpxlib/blob/main/testFile/reader_writer/SimpleTable.hwpx",
+      "sha256": "502d75c289813ce4b99648ecbc3cbe333bd8acd78e9f4b4b370566f308c1e6de",
+      "bytes": 13315
+    },
+    {
+      "name": "sample1.hwpx",
+      "source": "https://github.com/neolord0/hwpxlib/blob/main/testFile/reader_writer/sample1.hwpx",
+      "sha256": "516db143466d3bc43e6808d4d5dc9da63abf014ec637ef01594f27998a0bd6c2",
+      "bytes": 16165
+    },
+    {
+      "name": "각주미주.hwp",
+      "source": "https://github.com/neolord0/hwplib/blob/main/sample_hwp/basic/각주미주.hwp",
+      "sha256": "165e38d72326a997f0d01bd5d88c858c71c743d4f541211533acd76bc2135706",
+      "bytes": 15360
+    },
+    {
+      "name": "그림.hwp",
+      "source": "https://github.com/neolord0/hwplib/blob/main/sample_hwp/basic/그림.hwp",
+      "sha256": "c9d6726edce369955821a06d9a0f9b3887d733e9d99ee122b23299c6db4d2d92",
+      "bytes": 25088
+    },
+    {
+      "name": "글상자.hwp",
+      "source": "https://github.com/neolord0/hwplib/blob/main/sample_hwp/basic/글상자.hwp",
+      "sha256": "ea79f759223ad167ebbcca19e1a683c8e173a84aab3e89285dc237cec0bccbcd",
+      "bytes": 16384
+    },
+    {
+      "name": "표.hwp",
+      "source": "https://github.com/neolord0/hwplib/blob/main/sample_hwp/basic/표.hwp",
+      "sha256": "ed97e2136e53cbb09ab6362d5631f6f1e4f752a5e53f09e85e4bc9c19f9e6d35",
+      "bytes": 17408
+    }
+  ],
+  "scope_and_limits": [
+    "PDF/DOCX/XLSX use native Docling structures, HWP uses hwplib, HWPX uses the package spine/XML; normalized Markdown is not reparsed for chunking.",
+    "PDF page regions, DOCX XML paths, XLSX sheet/cell regions, HWP/HWPX section/paragraph/table locations are observed locators, not fabricated original byte positions.",
+    "Ordinary XLSX formula strings and cached values are preserved separately. No recalculation; array/data-table formulas fail explicitly.",
+    "Protected/DRM/distribution HWP is unsupported. Unrendered controls and DOCX non-bitmap DrawingML limitations are returned as warnings.",
+    "Embedded document image resources are extracted/preserved; they are not automatically sent through standalone image vision. Standalone PNG/JPEG/BMP/TIFF has explicit OCR/vision modes.",
+    "OCR scores cover three controlled Korean sentences only. Default Tesseract PSM 6 assumes a text block; it is not a universal layout/accuracy guarantee.",
+    "Vision is explicitly labeled inferred and alpha is composited on white. Remote model weights revisions remain unverified as already tracked by P03-06.",
+    "Docling Tesseract PDF OCR uses mode-0600 temporary PNGs and finally cleanup, verified on successful conversion. Abrupt process termination can leave private temporary files; this is not a no-plaintext-temporaries guarantee.",
+    "No P05 expansion, P06 remaining operations, P07 broad evaluation or P08 user tour was completed by this category."
+  ],
+  "stop_state": "No P05 implementation started. Existing GPU tunnels and worker seats preserved; no cloud resource mutations or external completion report."
+}

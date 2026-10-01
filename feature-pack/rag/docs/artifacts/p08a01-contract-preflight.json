@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-27",
+  "stage": "P08A-01",
+  "status": "partial_contract_preflight_pass",
+  "contract_review": {
+    "round": 4,
+    "model": "claude-fable-5-1",
+    "verdict": "PASS_implementation_contract_only",
+    "B4_B5_B6_field_consistency_check": "PASS",
+    "projection_and_consumer_target_DBs_created": false,
+    "operational_policies_still_pending": true
+  },
+  "checks": {
+    "contract_json_parse": "PASS",
+    "synthetic_jsonl_required_fields": "PASS",
+    "synthetic_record_count": 2,
+    "existing_conversation_adapter": "PASS",
+    "docling_document_creation": "PASS",
+    "message_id_original_pointer_and_text_preservation": "PASS",
+    "existing_normalize_tests": {"passed": 26, "seconds": 1.36}
+  },
+  "test_command": "feature-pack/rag/.venv/bin/python -m pytest feature-pack/rag/tests/test_normalize.py -q",
+  "real_data_ingested": false,
+  "selected_input_readonly_probe": {
+    "session_meta_id_matches_current_session": true,
+    "session_historical_cwd_is_not_identity": true,
+    "observed_assistant_phases": ["commentary", "final_answer"],
+    "public_message_ids_present_and_unique_at_probe": true,
+    "message_bodies_exported": false,
+    "tour_db_open_readonly": true,
+    "tour_db_query_only": true,
+    "allowed_source_count": 17,
+    "all_sources_active_at_probe": true,
+    "all_revision_tokens_match_tour_state_at_probe": true,
+    "tour_db_bytes_unchanged": true
+  },
+  "selected_profile_readonly_probe": {
+    "profile_key": "cb98ca939d44340d796e2eaa0388c66f1a2771f637739fdc3f1b94f84181633c",
+    "registered_in_tour_db": true,
+    "normalizer_config": {},
+    "embedding_model": "byz-embed",
+    "embedding_tokenizer": "Qwen/Qwen3-Embedding-0.6B",
+    "embedding_tokenizer_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+    "response_model_tokenizer_confirmed": false,
+    "new_target_profile_registered": false,
+    "provider_called": false
+  },
+  "provider_calls": false,
+  "not_verified": [
+    "consumer_runtime",
+    "window_lifecycle",
+    "embedding_and_history_search",
+    "contract_cases_C01_through_C14",
+    "production_keys_retention_tenant_and_response_tokenizer"
+  ]
+}

@@ -1,0 +1,857 @@
+<title>자료가 근거가 되는 길</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#faf7f1; --ink:#1f2430; --muted:#6b7280;
+  --original:#57606f; --md:#0f766e; --md-bg:#e7f5f3;
+  --chunk1:#c07a1f; --chunk2:#2563eb; --chunk3:#c0392b; --chunk4:#7c3aed; --chunk5:#0d9268;
+  --index:#111827; --accent:#b8452f; --border:#ddd6c7; --card:#ffffff;
+  --warn:#b45309; --warn-bg:#fdf1e0;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;line-height:1.45;}
+.app{max-width:1180px;margin:0 auto;padding:22px 22px 48px;}
+button{font:inherit;cursor:pointer;}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px;}
+
+/* header */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;margin-bottom:4px;}
+.title-block{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+h1{font-size:1.7rem;margin:0;font-weight:800;letter-spacing:-.01em;}
+.tag{font-size:.72rem;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:2px 10px;white-space:nowrap;}
+.subcap{margin:2px 0 14px;color:var(--muted);font-size:.95rem;}
+.view-toggle{display:flex;gap:6px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--card);}
+.view-toggle button{border:none;background:transparent;padding:7px 14px;border-radius:8px;font-weight:600;color:var(--muted);}
+.view-toggle button[aria-pressed="true"]{background:var(--ink);color:#fff;}
+
+/* source picker */
+.source-picker{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;}
+.src-btn{display:flex;flex-direction:column;align-items:center;gap:2px;border:2px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;min-width:76px;color:var(--ink);}
+.src-btn svg{color:var(--muted);}
+.src-btn span{font-size:.8rem;font-weight:600;}
+.src-btn[aria-pressed="true"]{border-color:var(--ink);background:#f3f1ea;}
+.src-btn[aria-pressed="true"] svg{color:var(--ink);}
+.src-btn.unverified{border-style:dashed;border-color:var(--warn);}
+.src-btn.unverified em{font-style:normal;font-size:.62rem;color:var(--warn);font-weight:700;}
+
+/* stage area */
+.stage-area{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 18px 14px;}
+.stage-caption{font-size:1.02rem;font-weight:600;margin:0 0 12px;min-height:1.4em;}
+.stage-viewport{position:relative;min-height:300px;padding:6px;}
+.connectors{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.stage-canvas{position:relative;z-index:1;}
+
+.journey-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+.journey-controls button{border:1px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-weight:600;}
+.journey-controls button:disabled{opacity:.4;cursor:not-allowed;}
+.journey-controls input[type="range"]{flex:1;min-width:120px;}
+#stageIndicator{font-size:.85rem;color:var(--muted);white-space:nowrap;}
+
+/* generic scene building blocks */
+.card-row{display:flex;flex-wrap:wrap;gap:22px;align-items:center;justify-content:center;padding:14px 4px;}
+.card{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.07);min-width:140px;text-align:center;}
+.card.small{min-width:110px;padding:10px 12px;font-size:.85rem;}
+.card-title{font-weight:700;font-size:.92rem;margin-top:4px;}
+.card-sub{font-size:.8rem;color:var(--muted);margin-top:3px;word-break:break-word;}
+.badge{display:inline-block;margin-top:6px;font-size:.68rem;font-weight:700;background:#eee;color:var(--muted);border-radius:999px;padding:2px 9px;}
+.badge.warn{background:var(--warn-bg);color:var(--warn);}
+
+.card.original{border:2px dashed var(--original);color:var(--original);}
+.card.md{border-left:6px solid var(--md);background:var(--md-bg);text-align:left;min-width:200px;}
+.card.md.compact{min-width:170px;}
+.md-heading{font-weight:800;color:var(--md);margin-bottom:4px;}
+.mini-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:2px;}
+.mini-table td{padding:3px 6px;border-bottom:1px dashed var(--border);}
+.mini-table .mdcell-k{color:var(--muted);font-weight:700;width:36px;}
+.pdf-toggle{display:flex;gap:6px;margin-bottom:12px;}
+.pdf-toggle button{border:1px solid var(--border);background:#fff;border-radius:999px;padding:5px 14px;font-size:.82rem;font-weight:600;color:var(--muted);}
+.pdf-toggle button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink);}
+.md-line{padding:3px 6px;border-radius:5px;font-size:.85rem;margin:2px 0;transition:background .25s;}
+.md-line.active{background:#fff;box-shadow:0 0 0 2px var(--hl,var(--md)) inset;font-weight:700;}
+.card.structure{text-align:left;min-width:190px;}
+.anchor-list{list-style:none;margin:6px 0 0;padding:0;font-size:.82rem;}
+.anchor-list li{padding:3px 0;border-bottom:1px dashed var(--border);}
+.anchor-list li:last-child{border-bottom:none;}
+
+.card.digital{border:2px solid var(--md);}
+.card.scan{border:2px solid var(--accent);position:relative;overflow:hidden;}
+.scan-beam{position:absolute;left:0;top:0;width:100%;height:6px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scanmove 1.6s linear infinite;}
+@keyframes scanmove{0%{top:0;}100%{top:96%;}}
+.card.result{border:2px solid var(--ink);}
+.card.pending{border:2px dashed var(--warn);background:var(--warn-bg);}
+
+.vault{background:var(--index);color:#fff;border-radius:12px;padding:12px 16px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:130px;}
+.vault.mini{padding:8px 12px;font-size:.78rem;}
+.vault .card-sub{color:#d1d5db;}
+
+.chunk-stack{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
+.card.chunk{border-top:6px solid var(--c,#999);background:#fff;min-width:130px;border-width:0;border-top-width:6px;}
+button.card.chunk{border:none;border-top:6px solid var(--c,#999);}
+.card.chunk.mini{min-width:100px;padding:8px 10px;font-size:.78rem;}
+.card.chunk.seed{outline:3px solid var(--ink);}
+.card.chunk[aria-pressed="true"], .card.chunk.selected{outline:3px solid var(--ink);}
+
+.index-box{background:var(--index);color:#fff;border-radius:12px;padding:14px 18px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:150px;}
+.index-lane{font-size:.78rem;background:rgba(255,255,255,.14);border-radius:999px;padding:2px 12px;}
+
+.flow-arrow{font-size:1.4rem;color:var(--muted);}
+.flow-arrow.up{transform:rotate(0deg);}
+
+.reimport-actions{display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+.reimport-actions button{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:8px;padding:8px 14px;font-weight:700;}
+
+.query-bubble{background:var(--ink);color:#fff;border-radius:16px 16px 16px 4px;padding:10px 16px;font-weight:600;}
+.lane-col{display:flex;flex-direction:column;gap:6px;align-items:center;}
+.lane-label{font-size:.78rem;font-weight:700;color:var(--muted);}
+.rank-chip{display:flex;align-items:center;gap:6px;border-top:4px solid var(--c,#999);background:#fff;border-radius:8px;padding:5px 10px;font-size:.8rem;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+.rank-no{background:var(--ink);color:#fff;border-radius:50%;width:16px;height:16px;font-size:.65rem;display:flex;align-items:center;justify-content:center;}
+.mini-details{margin-top:10px;font-size:.82rem;color:var(--muted);}
+.mini-details pre{white-space:pre-wrap;background:#f6f4ee;border-radius:8px;padding:10px;}
+
+.expand-controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:12px;font-size:.85rem;}
+
+.envelope{border:2px solid var(--ink);border-radius:12px;padding:14px;min-width:200px;text-align:left;}
+.envelope .card.chunk.mini{display:block;margin:4px 0;text-align:left;}
+.preview{min-width:220px;text-align:left;}
+.preview-tabs{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
+.preview-tabs button{border:1px solid var(--border);background:#fff;border-radius:999px;padding:4px 12px;font-size:.8rem;font-weight:600;}
+.preview-tabs button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.preview-body{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fff;min-height:60px;}
+.card.agent{border:2px solid var(--accent);color:var(--accent);font-weight:800;}
+mark{background:#ffe89a;padding:0 2px;border-radius:3px;}
+
+/* composition map */
+.map-columns{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start;justify-content:center;padding:10px 4px 6px;}
+.map-col{display:flex;flex-direction:column;gap:8px;align-items:center;}
+.map-col.sources{display:grid;grid-template-columns:repeat(2,minmax(70px,1fr));gap:8px;}
+.node{border:2px solid var(--border);background:#fff;border-radius:10px;padding:9px 12px;font-size:.82rem;font-weight:700;text-align:center;min-width:96px;}
+.node:hover{border-color:var(--ink);}
+.node.unverified{border-style:dashed;border-color:var(--warn);color:var(--warn);}
+.node.foundation{background:var(--index);color:#fff;border:none;width:100%;padding:10px 14px;}
+.map-loop{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px;}
+.map-loop button{border:1px dashed var(--md);background:#fff;color:var(--md);border-radius:999px;padding:6px 16px;font-weight:700;font-size:.82rem;}
+.map-loop button.exclude{color:var(--muted);border-color:var(--muted);}
+.map-foundation{margin-top:8px;}
+.consumer-region{border:2px dashed var(--muted);border-radius:12px;padding:10px 14px 12px;margin-bottom:16px;}
+.consumer-region .region-label{font-size:.72rem;font-weight:800;color:var(--muted);margin-bottom:8px;letter-spacing:.02em;}
+.event-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+.event-chip{border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 14px;font-size:.8rem;font-weight:700;color:var(--ink);}
+.cli-boundary{border:2px solid var(--ink);border-radius:14px;padding:20px 10px 10px;position:relative;}
+.cli-boundary .region-label{position:absolute;top:-11px;left:16px;background:var(--card);padding:0 8px;font-size:.72rem;font-weight:800;color:var(--ink);}
+
+.evidence-drawer{margin-top:18px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:2px 16px;}
+.evidence-drawer summary{cursor:pointer;font-weight:700;padding:12px 0;}
+.evidence-body{padding-bottom:16px;font-size:.88rem;}
+.evidence-body h3{font-size:.92rem;margin:14px 0 6px;}
+.evidence-body table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.evidence-body th,.evidence-body td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top;}
+.evidence-body th{background:#f3f1ea;}
+.cite-list{columns:2;font-size:.8rem;padding-left:18px;}
+.cite-list a{color:var(--md);word-break:break-all;}
+
+@media (max-width:520px){
+  .app{padding:14px 12px 34px;}
+  h1{font-size:1.32rem;}
+  .card-row{flex-direction:column;gap:14px;}
+  .map-columns{flex-direction:column;align-items:stretch;}
+  .map-col.sources{grid-template-columns:repeat(3,1fr);}
+  .stage-viewport{min-height:220px;padding:2px;}
+  .cite-list{columns:1;}
+  .flow-arrow{transform:rotate(90deg);}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition:none !important;}
+}
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="title-block">
+      <h1>자료가 근거가 되는 길</h1>
+      <span class="tag">기획 매거진 · 정본 시각화(예시 데이터)</span>
+    </div>
+    <div class="view-toggle" role="tablist" aria-label="보기 전환">
+      <button type="button" data-view="map" aria-pressed="true">구성 지도</button>
+      <button type="button" data-view="journey" aria-pressed="false">자료의 여행</button>
+    </div>
+  </header>
+  <p class="subcap">일곱 가지 형식이 어떻게 표준화 → 청크 → 색인을 거쳐 근거로 돌아오는지 한눈에 봅니다.</p>
+
+  <div class="source-picker" id="sourcePicker" role="group" aria-label="원본 형식 선택"></div>
+
+  <main class="stage-area">
+    <p class="stage-caption" id="stageCaption" aria-live="polite"></p>
+    <div class="stage-viewport" id="stageViewport">
+      <svg class="connectors" id="connectors" aria-hidden="true"></svg>
+      <div class="stage-canvas" id="stageCanvas"></div>
+    </div>
+    <div class="journey-controls" id="journeyControls" hidden>
+      <button type="button" id="btnBack" aria-label="이전 단계">◀ 이전</button>
+      <button type="button" id="btnPlay" aria-label="재생">▶ 재생</button>
+      <button type="button" id="btnNext" aria-label="다음 단계">다음 ▶</button>
+      <input type="range" id="seek" min="0" max="8" step="1" value="0" aria-label="단계 이동">
+      <span id="stageIndicator"></span>
+    </div>
+  </main>
+
+  <details class="evidence-drawer" id="evidenceDrawer">
+    <summary>근거 / 세부설계</summary>
+    <div class="evidence-body">
+      <h3>형식 지원 매트릭스</h3>
+      <table>
+        <thead><tr><th>형식</th><th>경로</th><th>근거 세밀도</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td>PDF</td><td>Docling 직접 지원</td><td>page / bbox / charspan</td><td>DoclingDocument의 ProvenanceItem 필드로 확인됨</td></tr>
+          <tr><td>Word(DOCX)</td><td>Docling 직접 지원</td><td>문단 단위</td><td>좌표(bbox)는 확인되지 않아 표기하지 않음</td></tr>
+          <tr><td>Excel(XLSX)</td><td>Docling 직접 지원</td><td>시트/행(계획, 미확정)</td><td>구조상 시트별 TableItem은 남지만 export_to_markdown은 시트를 한 MD로 평탄화(이슈 #1292, 중간 신뢰도). 수식 보존·재계산은 어떤 1차 자료에서도 확인되지 않음</td></tr>
+          <tr><td>HWP</td><td>비-Docling 어댑터 (hwplib 후보)</td><td>문단(추정) · 검증 예정</td><td>Docling 형식 레지스트리에 없음. hwplib=Apache-2.0/JVM, README로 텍스트 추출 확인. 암호화 파일·이미지/PDF 렌더링은 미지원</td></tr>
+          <tr><td>HWPX</td><td>비-Docling 어댑터 (hwpxlib 후보)</td><td>문단(추정) · 검증 예정</td><td>hwpxlib=Apache-2.0/JVM, README로 텍스트 추출 기능 확인. 표/이미지 추출은 README에서 명시 확인되지 않음</td></tr>
+          <tr><td>이미지</td><td>Docling + OCR 백엔드</td><td>OCR 인식 영역</td><td>EasyOCR·Tesseract 모두 한국어 지원이 Docling 문서에서 확인됨. 정확도 우열은 미검증(3자 자료뿐)</td></tr>
+          <tr><td>대화</td><td>경량 어댑터</td><td>메시지 단위</td><td>문서 변환 엔진을 거치지 않는 별도 파서 — 이미 구조화된 텍스트라 Docling 왕복이 불필요</td></tr>
+        </tbody>
+      </table>
+      <h3>세 겹의 표준화 결과물</h3>
+      <p>① 원본 바이트(original_ref, 불변) · ② 표준 MD(사람이 읽는 뷰, 자체 해시/버전 보유) · ③ 구조화 표현 + 앵커 + 청크(검색 단위, provenance 보유) — 셋은 서로 연결되지만 별개의 산출물입니다. HybridChunker는 재-파싱한 MD 문자열이 아니라 DoclingDocument(구조화 표현)를 직접 입력으로 받습니다.</p>
+      <h3>OCR · 비전 설명 · 임베딩 구분</h3>
+      <p>OCR(이미지 속 가시 텍스트 인식) · 비전 설명(모델의 해석 캡션, 사실이 아닌 해석으로 별도 라벨) · 임베딩(검색용 벡터, 위 결과들로부터 생성)은 서로 다른 층이며 하나로 합쳐 표기하지 않습니다. 혼합 페이지(디지털+스캔)는 페이지/영역 단위 처리가 필요할 수 있으나, Docling의 정확한 기본 자동판별 알고리즘은 이번 조사에서 확인되지 않았습니다.</p>
+      <h3>책임 경계 — 외부 배선 vs AI RAG CLI</h3>
+      <p>신규/변경/삭제 감지, 파일 워처·폴링·스케줄·자동 폴더 탐색은 이 코어의 책임이 아니라 <b>사용하는 프로젝트(소비자)</b> 쪽 외부 배선입니다. AI RAG CLI는 add/update/delete/search/expand/fetch 같은 <b>명시적 요청</b>만 받아 표준화·청크·색인·불변 원본/이력 관리를 수행하고 결과를 반환하는 일반 처리기입니다. 내장 디렉터리 워처나 상시 감시 루프는 core 범위가 아닙니다. delete 요청은 원본 파일이 이미 사라진 뒤에도 등록된 소스를 식별해 검색에서 제외하고, 관리 이력·원본은 보존합니다(원격 파일 자체를 지우지 않음). 요청 정확성(충돌 판정, 원자적 발행/tombstone, 재현 가능한 조회 스냅숏)은 트리거 타이밍과 무관하게 core 안에서 보장됩니다.</p>
+      <h3>API 예시 (세부설계용, 신규 서버 불필요)</h3>
+      <pre>POST /sources
+{ "op": "add|update|delete", "source_key": "pdf-release-notes",
+  "request_id": "uuid", "expected_revision": "v1" }
+→ { "status": "accepted|conflict", "revision": "v2", "evidence": [...] }</pre>
+      <h3>사전 리서치 메모</h3>
+      <p>2026-08-26에 스크랩한 개인 메모 1건이 Docling/Unstructured.io를 이미 언급하고 있었습니다(엔터프라이즈 RAG는 원본을 바로 벡터화하지 말고 구조화 파서를 거쳐야 한다는 요지). 이 메모는 사전 리서치 전체를 대표하지 않으며, 이번 매거진의 세부 근거는 아래 1차 출처를 새로 확인한 결과입니다.</p>
+      <h3>인용 (확정 공식 출처)</h3>
+      <ul class="cite-list">
+        <li><a href="https://docling-project.github.io/docling/usage/supported_formats/" target="_blank" rel="noopener">Docling 지원 형식 레지스트리</a></li>
+        <li><a href="https://docling-project.github.io/docling/concepts/chunking/" target="_blank" rel="noopener">Docling Chunking 개념 (HybridChunker)</a></li>
+        <li><a href="https://docling-project.github.io/docling/concepts/OCR/" target="_blank" rel="noopener">Docling OCR 개념 · 백엔드</a></li>
+        <li><a href="https://research.ibm.com/blog/docling-generative-AI" target="_blank" rel="noopener">IBM Research 블로그 (Docling)</a></li>
+        <li><a href="https://raw.githubusercontent.com/neolord0/hwplib/main/README.md" target="_blank" rel="noopener">hwplib README (HWP 어댑터 후보)</a></li>
+        <li><a href="https://raw.githubusercontent.com/neolord0/hwpxlib/main/README.md" target="_blank" rel="noopener">hwpxlib README (HWPX 어댑터 후보)</a></li>
+      </ul>
+    </div>
+  </details>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var SOURCES = {
+  pdf:  {label:"PDF",   kindIcon:"doc",   originalTitle:"릴리스노트.pdf",   snippet:'p.1 "출시일: 2026-09-18"', route:"docling",     adapterName:null,      anchorKind:"page"},
+  docx: {label:"Word",  kindIcon:"doc",   originalTitle:"릴리스노트.docx",  snippet:'"출시일: 2026-09-18"',      route:"docling",     adapterName:null,      anchorKind:"para"},
+  xlsx: {label:"Excel", kindIcon:"sheet", originalTitle:"릴리스일정.xlsx",  snippet:"B2: 2026-09-18",           route:"docling",     adapterName:null,      anchorKind:"cell", isTable:true},
+  hwp:  {label:"HWP",   kindIcon:"doc",   originalTitle:"릴리스노트.hwp",   snippet:'"출시일: 2026-09-18"',      route:"adapter",     adapterName:"hwplib",  anchorKind:"para-guess"},
+  hwpx: {label:"HWPX",  kindIcon:"doc",   originalTitle:"릴리스노트.hwpx",  snippet:'"출시일: 2026-09-18"',      route:"adapter",     adapterName:"hwpxlib", anchorKind:"para-guess"},
+  image:{label:"이미지", kindIcon:"image", originalTitle:"릴리스노트_scan.png", snippet:'"출시일: 2026-09-18"',    route:"docling-ocr", adapterName:null,      anchorKind:"ocr"},
+  chat: {label:"대화",  kindIcon:"chat",  originalTitle:"#release 채널 로그", snippet:'"9/18에 나갑니다"',        route:"lightweight", adapterName:null,      anchorKind:"msg"},
+};
+var SOURCE_ORDER = ["pdf","docx","xlsx","hwp","hwpx","image","chat"];
+
+var REVISIONS = { v1:{date:"2026-09-18", disp:"9/18"}, v2:{date:"2026-09-25", disp:"9/25"} };
+var CHUNK_META = [
+  {id:"c1", color:"var(--chunk1)", title:"제목"},
+  {id:"c2", color:"var(--chunk2)", title:"핵심 사실"},
+  {id:"c3", color:"var(--chunk3)", title:"안내"},
+];
+var EXTRA_CHUNKS = [
+  {id:"c4", color:"var(--chunk4)", title:"부록",       text:"배포 체크리스트 v1"},
+  {id:"c5", color:"var(--chunk5)", title:"이전 릴리스", text:"v0 릴리스 노트(8/1) · 문구 유사"},
+];
+
+var STAGE_TITLES = ["입력","읽기 / OCR","표준화","청크","색인","재수입","검색","확장","반환"];
+var CAPTIONS = [
+  "입력 모습이 달라도, 원본은 그대로 보관해요.",
+  "글자는 추출하고, 스캔은 읽어내요.",
+  "같은 문서 언어로 옮기고, 원래 위치도 기억해요.",
+  "긴 자료를 찾기 좋은 조각으로 나눠요.",
+  "단어와 의미로 찾을 준비를 해요.",
+  "필요하면 언제든 최신 내용으로 바꿔요, 이전 증거는 그대로 남아요.",
+  "묻는 말과 가까운 근거를 찾아요.",
+  "필요하면 연결된 근거까지 모아요.",
+  "이제 에이전트가 활용해요."
+];
+
+var state = {
+  view: "map",
+  sourceId: "pdf",
+  stage: 0,
+  playing: false,
+  timer: null,
+  reduceMotion: window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  reimport: {status:"idle", liveVersion:"v1", liveDate:"9/18", archiveVersion:null, archiveDate:null, prevLive:null},
+  search: {query:"출시일이 언제야?", depth:1, maxCount:3, semanticOn:false},
+  pdfMode: "digital",
+  selectedChunkId: null,
+  originalsView: "current",
+  originalsTab: "original"
+};
+
+function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+function $(sel, root){ return (root||document).querySelector(sel); }
+function $all(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+
+var ICONS = {
+  doc:   '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 2h9l5 5v15H6z" stroke="currentColor" stroke-width="1.6"/><path d="M15 2v5h5" stroke="currentColor" stroke-width="1.6"/></svg>',
+  sheet: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16" stroke="currentColor" stroke-width="1.1"/></svg>',
+  image: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 17l5-5 4 4 3-3 4 4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  chat:  '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h16v11H9l-4 4V5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+};
+var LOCK_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"/></svg>';
+
+function iconFor(sourceId){ return ICONS[SOURCES[sourceId].kindIcon] || ICONS.doc; }
+
+function anchorLabel(src, idx){
+  switch(src.anchorKind){
+    case "page": return "p.1, bbox #" + (idx+1);
+    case "para": return "문단 " + (idx+1);
+    case "cell": return "시트1!" + (["A1","B2","B3"][idx] || ("R"+(idx+1)));
+    case "para-guess": return "문단 " + (idx+1) + " (추정)";
+    case "ocr": return "OCR 영역 " + (idx+1);
+    case "msg": return "메시지 #" + (12+idx);
+    default: return "위치 " + (idx+1);
+  }
+}
+function chunkIndex(id){ for(var i=0;i<CHUNK_META.length;i++){ if(CHUNK_META[i].id===id) return i; } return 0; }
+function activeRevisionKey(view){
+  if(view === "archive") return state.reimport.archiveVersion || "v1";
+  return state.reimport.liveVersion || state.reimport.archiveVersion || "v1";
+}
+function chunkMeta(id){
+  var m = CHUNK_META.filter(function(c){return c.id===id;})[0];
+  return m || EXTRA_CHUNKS.filter(function(c){return c.id===id;})[0];
+}
+function chunkText(id, revKey){
+  if(id==="c1") return "OO 서비스 릴리스 노트";
+  if(id==="c2") return "출시일: " + REVISIONS[revKey || activeRevisionKey()].date;
+  if(id==="c3") return "문의: support@example.com";
+  var extra = EXTRA_CHUNKS.filter(function(c){return c.id===id;})[0];
+  return extra ? extra.text : "";
+}
+function chunkView(id, revKey){
+  var m = chunkMeta(id);
+  return {id:id, color:m.color, title:m.title, text: chunkText(id, revKey)};
+}
+function originRefFor(id){
+  if(id==="c4") return "부록 체크리스트 원본";
+  if(id==="c5") return "v0 릴리스 노트 원본 (8/1)";
+  return anchorLabel(SOURCES[state.sourceId], chunkIndex(id));
+}
+function computeReturnedChunks(){
+  var s = state.search;
+  var order = [{id:"c2", badge:"시드", edgeStyle:null}];
+  if(s.depth>=1){ order.push({id:"c1", badge:"앞뒤", edgeStyle:"solid"}); order.push({id:"c3", badge:"앞뒤", edgeStyle:"solid"}); }
+  if(s.depth>=2){ order.push({id:"c4", badge:"참조", edgeStyle:"solid"}); }
+  if(s.semanticOn && s.depth>=1){ order.push({id:"c5", badge:"비슷함", edgeStyle:"dotted"}); }
+  return order.slice(0, s.maxCount);
+}
+
+function rrfMerge(rankA, rankB, k){
+  k = k || 60;
+  var ids = [];
+  rankA.concat(rankB).forEach(function(id){ if(ids.indexOf(id)<0) ids.push(id); });
+  var scored = ids.map(function(id){
+    var rA = rankA.indexOf(id), rB = rankB.indexOf(id), score = 0;
+    if(rA>=0) score += 1/(k+rA+1);
+    if(rB>=0) score += 1/(k+rB+1);
+    return {id:id, score:score};
+  });
+  scored.sort(function(a,b){ return b.score-a.score; });
+  return scored.map(function(s){ return s.id; });
+}
+function rrfDetailText(rankA, rankB, k){
+  k = k || 60;
+  var ids = [];
+  rankA.concat(rankB).forEach(function(id){ if(ids.indexOf(id)<0) ids.push(id); });
+  return ids.map(function(id){
+    var rA = rankA.indexOf(id), rB = rankB.indexOf(id);
+    var sA = rA>=0 ? 1/(k+rA+1) : 0;
+    var sB = rB>=0 ? 1/(k+rB+1) : 0;
+    return id + ": keyword=" + sA.toFixed(4) + " + meaning=" + sB.toFixed(4) + " = " + (sA+sB).toFixed(4);
+  }).join("\n");
+}
+function rankChip(id, i){
+  var c = chunkMeta(id);
+  return '<div class="rank-chip" style="--c:'+c.color+'"><span class="rank-no">'+(i+1)+'</span>'+esc(c.title)+'</div>';
+}
+
+/* ---------- connectors ---------- */
+function updateConnectors(container, svg, edges){
+  if(!container || !svg) return;
+  var rect = container.getBoundingClientRect();
+  svg.setAttribute("viewBox", "0 0 " + rect.width + " " + rect.height);
+  var parts = [];
+  (edges||[]).forEach(function(e){
+    var fromEl = typeof e.from === "string" ? container.querySelector(e.from) : e.from;
+    var toEl = typeof e.to === "string" ? container.querySelector(e.to) : e.to;
+    if(!fromEl || !toEl) return;
+    var a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+    var x1 = a.left + a.width/2 - rect.left, y1 = a.top + a.height/2 - rect.top;
+    var x2 = b.left + b.width/2 - rect.left, y2 = b.top + b.height/2 - rect.top;
+    var dash = e.style === "dotted" ? '2,7' : (e.style === "dashed" ? '7,5' : '');
+    parts.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="'+(e.color||'#999')+'" stroke-width="2.4" '+(dash?'stroke-dasharray="'+dash+'"':'')+' stroke-linecap="round"/>');
+    if(e.label){
+      var mx = (x1+x2)/2, my = (y1+y2)/2;
+      parts.push('<rect x="'+(mx-16).toFixed(1)+'" y="'+(my-9).toFixed(1)+'" width="32" height="16" rx="4" fill="#faf7f1"/>');
+      parts.push('<text x="'+mx.toFixed(1)+'" y="'+(my+4).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'+(e.color||'#999')+'">'+e.label+'</text>');
+    }
+  });
+  svg.innerHTML = parts.join("");
+}
+
+/* ---------- source picker ---------- */
+function renderSourcePicker(){
+  var root = $("#sourcePicker");
+  root.innerHTML = SOURCE_ORDER.map(function(id){
+    var s = SOURCES[id];
+    var unverified = s.route === "adapter";
+    return '<button type="button" class="src-btn'+(unverified?' unverified':'')+'" data-source="'+id+'" aria-pressed="'+(state.sourceId===id)+'">'
+      + iconFor(id) + '<span>'+esc(s.label)+'</span>'
+      + (unverified ? '<em>어댑터 검증 필요</em>' : '')
+      + '</button>';
+  }).join("");
+  $all("[data-source]", root).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      state.sourceId = btn.dataset.source;
+      render();
+    });
+  });
+}
+
+/* ---------- stage renderers ---------- */
+function renderStage0(root){
+  var src = SOURCES[state.sourceId];
+  root.innerHTML =
+    '<div class="card-row">'
+    + '<div class="card small" id="s0-request" style="border:2px dashed var(--muted);color:var(--muted);"><div class="card-title">add 요청</div><div class="card-sub">사용하는 프로젝트 → CLI</div></div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="card original" id="s0-original">'+iconFor(state.sourceId)+'<div class="card-title">'+esc(src.originalTitle)+'</div><div class="card-sub">'+esc(src.snippet)+'</div><div class="badge">원본 · 변경 불가</div></div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="vault" id="s0-vault">'+LOCK_ICON+'<div>원본 보관소</div><div class="card-sub">사본 1건 저장됨</div></div>'
+    + '</div>';
+  return [
+    {from:"#s0-request", to:"#s0-original", style:"solid", color:"var(--accent)"},
+    {from:"#s0-original", to:"#s0-vault", style:"solid", color:"var(--original)"}
+  ];
+}
+
+function renderStage1(root){
+  var src = SOURCES[state.sourceId];
+  var isPdf = state.sourceId === "pdf";
+  var isScanRoute = state.sourceId === "image" || (isPdf && state.pdfMode === "scan");
+  var pdfToggle = isPdf ?
+    '<div class="pdf-toggle" role="group" aria-label="PDF 읽기 경로 선택">'
+    + '<button type="button" data-pdfmode="digital" aria-pressed="'+(state.pdfMode==="digital")+'">글자 PDF</button>'
+    + '<button type="button" data-pdfmode="scan" aria-pressed="'+(state.pdfMode==="scan")+'">스캔 PDF</button>'
+    + '</div>' : "";
+  var routeLabel = isScanRoute ? "OCR 스캔 인식"
+    : src.route === "adapter" ? ("어댑터 텍스트 추출 (" + src.adapterName + ")")
+    : src.route === "lightweight" ? "경량 어댑터 파싱"
+    : "디지털 텍스트 추출 (Docling)";
+  root.innerHTML =
+    pdfToggle
+    + '<div class="card-row">'
+    + '<div class="card original small" id="s1-src">'+iconFor(state.sourceId)+'<div class="card-title">'+esc(src.originalTitle)+'</div></div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="card '+(isScanRoute?'scan':'digital')+'" id="s1-route">'
+      + (isScanRoute ? '<div class="scan-beam" aria-hidden="true"></div>' : '')
+      + '<div class="card-title">'+routeLabel+'</div>'
+      + (isScanRoute ? '<div class="card-sub">후보 엔진: EasyOCR · Tesseract (둘 다 한국어 지원 확인, 정확도 우열 미검증)</div>' : '')
+      + (src.route==="adapter" ? '<div class="badge warn">검증 예정</div>' : '')
+    + '</div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="card result" id="s1-result"><div class="card-title">인식된 텍스트</div><div class="card-sub">'+esc(src.snippet)+'</div></div>'
+    + '</div>';
+  if(isPdf){
+    $all("[data-pdfmode]", root).forEach(function(btn){
+      btn.addEventListener("click", function(){ state.pdfMode = btn.dataset.pdfmode; renderCurrent(); });
+    });
+  }
+  return [
+    {from:"#s1-src", to:"#s1-route", style:"solid", color:"var(--original)"},
+    {from:"#s1-route", to:"#s1-result", style:"solid", color: isScanRoute ? "var(--accent)" : "var(--md)"}
+  ];
+}
+
+function renderStage2(root){
+  var src = SOURCES[state.sourceId];
+  var factText = chunkText("c2");
+  var mdBody = src.isTable
+    ? '<div class="md-heading">표 (시트1)</div>'
+      + '<table class="mini-table"><tbody>'
+      + '<tr id="s2-line-title"><td class="mdcell-k">A1</td><td class="mdcell-v">OO 서비스 릴리스 일정</td></tr>'
+      + '<tr id="s2-line-fact"><td class="mdcell-k">B2</td><td class="mdcell-v">'+esc(factText.replace("출시일: ",""))+'</td></tr>'
+      + '<tr id="s2-line-contact"><td class="mdcell-k">B3</td><td class="mdcell-v">support@example.com</td></tr>'
+      + '</tbody></table>'
+      + '<div class="badge">시트 표 유지 · 수식 재계산 미확인</div>'
+    : '<div class="md-heading"># 릴리스 노트</div>'
+      + '<div class="md-line" id="s2-line-title">OO 서비스 릴리스 노트</div>'
+      + '<div class="md-line" id="s2-line-fact">'+esc(factText)+'</div>'
+      + '<div class="md-line" id="s2-line-contact">문의: support@example.com</div>';
+  root.innerHTML =
+    '<div class="card-row" style="align-items:flex-start;">'
+    + '<div class="card md" id="s2-md">'
+      + '<div class="badge" style="margin-bottom:6px;">표준 MD</div>'
+      + mdBody
+      + (src.route==="adapter" ? '<div class="badge warn">어댑터 산출 · 검증 예정</div>' : '')
+    + '</div>'
+    + '<div class="card structure" id="s2-structure">'
+      + '<div class="card-title">구조·앵커</div>'
+      + '<ul class="anchor-list">'
+        + '<li id="s2-anchor-title">제목 — '+anchorLabel(src,0)+'</li>'
+        + '<li id="s2-anchor-fact">핵심 사실 — '+anchorLabel(src,1)+'</li>'
+        + '<li id="s2-anchor-contact">안내 — '+anchorLabel(src,2)+'</li>'
+      + '</ul>'
+    + '</div>'
+    + '</div>';
+  return [
+    {from:"#s2-line-title", to:"#s2-anchor-title", style:"solid", color:"var(--chunk1)"},
+    {from:"#s2-line-fact", to:"#s2-anchor-fact", style:"solid", color:"var(--chunk2)"},
+    {from:"#s2-line-contact", to:"#s2-anchor-contact", style:"solid", color:"var(--chunk3)"}
+  ];
+}
+
+function renderStage3(root){
+  var src = SOURCES[state.sourceId];
+  var chunks = CHUNK_META.map(function(m){ return chunkView(m.id); });
+  root.innerHTML =
+    '<div class="card-row" style="align-items:flex-start;">'
+    + '<div class="card md compact" id="s3-md">'
+      + '<div class="badge" style="margin-bottom:4px;">표준 MD + 구조</div>'
+      + '<div class="md-heading"># 릴리스 노트</div>'
+      + '<div class="md-line'+(state.selectedChunkId==="c1"?" active":"")+'" style="--hl:var(--chunk1)" data-chunk="c1">'+esc(chunkText("c1"))+'</div>'
+      + '<div class="md-line'+(state.selectedChunkId==="c2"?" active":"")+'" style="--hl:var(--chunk2)" data-chunk="c2">'+esc(chunkText("c2"))+'</div>'
+      + '<div class="md-line'+(state.selectedChunkId==="c3"?" active":"")+'" style="--hl:var(--chunk3)" data-chunk="c3">'+esc(chunkText("c3"))+'</div>'
+    + '</div>'
+    + '<div class="flow-arrow" style="display:flex;flex-direction:column;align-items:center;gap:0;">⇒<span style="font-size:.62rem;color:var(--muted);font-weight:700;">구조 기반</span></div>'
+    + '<div class="chunk-stack" id="s3-chunks">'
+    + chunks.map(function(c){
+        return '<button type="button" class="card chunk'+(state.selectedChunkId===c.id?' selected':'')+'" style="--c:'+c.color+'" data-chunk="'+c.id+'" id="s3-chunk-'+c.id+'" aria-pressed="'+(state.selectedChunkId===c.id)+'"><div class="card-title">'+c.title+'</div><div class="card-sub">'+esc(c.text)+'</div></button>';
+      }).join("")
+    + '</div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="card original small" id="s3-original"><div class="card-title">원본 위치</div><div class="card-sub" id="s3-anchor-label">'+(state.selectedChunkId ? anchorLabel(src, chunkIndex(state.selectedChunkId)) : "청크를 클릭하세요")+'</div></div>'
+    + '</div>';
+  $all("[data-chunk]", root).forEach(function(el){
+    el.addEventListener("click", function(){ state.selectedChunkId = el.dataset.chunk; renderCurrent(); });
+  });
+  var edges = chunks.map(function(c){ return {from:'.md-line[data-chunk="'+c.id+'"]', to:"#s3-chunk-"+c.id, style:"solid", color:c.color}; });
+  if(state.selectedChunkId){
+    var col = chunkMeta(state.selectedChunkId).color;
+    edges.push({from:"#s3-chunk-"+state.selectedChunkId, to:"#s3-original", style:"solid", color:col});
+  }
+  return edges;
+}
+
+function renderStage4(root){
+  root.innerHTML =
+    '<div class="card-row">'
+    + '<div class="chunk-stack" id="s4-chunks">' + CHUNK_META.map(function(c){ return '<div class="card chunk mini" style="--c:'+c.color+'" id="s4-chunk-'+c.id+'">'+c.title+'</div>'; }).join("") + '</div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="index-box" id="s4-index">'+LOCK_ICON+'<div class="index-lane">키워드</div><div class="index-lane">의미</div></div>'
+    + '<div class="vault mini" id="s4-vault">'+LOCK_ICON+'<div>원본 보관소</div></div>'
+    + '</div>';
+  return CHUNK_META.map(function(c){ return {from:"#s4-chunk-"+c.id, to:"#s4-index", style:"solid", color:c.color}; });
+}
+
+function reimportTransition(action){
+  var r = state.reimport;
+  if(action==="change"){ r.status="pending"; }
+  else if(action==="success"){ r.status="success"; r.liveVersion="v2"; r.liveDate="9/25"; r.archiveVersion="v1"; r.archiveDate="9/18"; }
+  else if(action==="fail"){ r.status="failure"; r.liveVersion="v1"; r.liveDate="9/18"; }
+  else if(action==="delete"){ r.prevLive={version:r.liveVersion, date:r.liveDate}; r.status="deleted"; r.liveVersion=null; r.liveDate=null; }
+  else if(action==="restore"){ r.status="success"; r.liveVersion=r.prevLive.version; r.liveDate=r.prevLive.date; }
+  renderCurrent();
+}
+
+function renderStage5(root){
+  var r = state.reimport;
+  var liveLabel = r.liveVersion ? (r.liveVersion+" ("+r.liveDate+")") : "없음 (삭제됨)";
+  var archiveLabel = r.archiveVersion ? (r.archiveVersion+" ("+r.archiveDate+")") : "없음 (아직 재수입 안 함)";
+  var actions = "";
+  if(r.status==="idle") actions = '<button type="button" id="btn-reimport-change">외부 update 요청 (9/18 → 9/25)</button>';
+  else if(r.status==="pending") actions = '<button type="button" id="btn-reimport-success">CLI 발행 성공</button><button type="button" id="btn-reimport-fail">CLI 발행 실패</button>';
+  else if(r.status==="failure") actions = '<button type="button" id="btn-reimport-change">외부 update 재요청 (9/18 → 9/25)</button>';
+  else if(r.status==="success") actions = '<button type="button" id="btn-reimport-delete">외부 delete 요청</button>';
+  else if(r.status==="deleted") actions = '<button type="button" id="btn-reimport-restore">외부 add 요청(복원)</button>';
+
+  root.innerHTML =
+    '<div class="badge" style="margin-bottom:8px;">요청 출처: 사용하는 프로젝트 → CLI 처리</div>'
+    + '<div class="card-row" style="align-items:flex-start;">'
+    + '<div class="vault" id="s5-vault">'+LOCK_ICON+'<div>원본 보관소</div><div class="card-sub">v1(9/18) 원본 불변 보관</div></div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="card '+(r.status==="pending"?"pending":"md")+'" id="s5-live"><div class="card-title">현재 라이브</div><div class="card-sub" id="s5-live-value">'+esc(liveLabel)+'</div>'+(r.status==="pending"?'<div class="badge warn">처리 중… (기존 v1 유지)</div>':'')+'</div>'
+    + '<div class="card original" id="s5-archive"><div class="card-title">보관본 (항상 이전 버전)</div><div class="card-sub" id="s5-archive-value">'+esc(archiveLabel)+'</div></div>'
+    + '</div>'
+    + '<div class="reimport-actions">'+actions+'</div>';
+
+  var mapBtn = function(id, action){ var b=$(id, root); if(b) b.addEventListener("click", function(){ reimportTransition(action); }); };
+  mapBtn("#btn-reimport-change","change");
+  mapBtn("#btn-reimport-success","success");
+  mapBtn("#btn-reimport-fail","fail");
+  mapBtn("#btn-reimport-delete","delete");
+  mapBtn("#btn-reimport-restore","restore");
+  return [{from:"#s5-vault", to:"#s5-live", style:"solid", color:"var(--original)"}];
+}
+
+function renderStage6(root){
+  var q = state.search.query;
+  var keywordRank = ["c2","c1","c3"];
+  var meaningRank = ["c2","c3","c1"];
+  var merged = rrfMerge(keywordRank, meaningRank).slice(0,3);
+  root.innerHTML =
+    '<div class="card-row" style="align-items:flex-start;">'
+    + '<div class="query-bubble" id="s6-query">"'+esc(q)+'"</div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="lane-col"><div class="lane-label">키워드</div>' + keywordRank.map(rankChip).join("") + '</div>'
+    + '<div class="lane-col"><div class="lane-label">의미</div>' + meaningRank.map(rankChip).join("") + '</div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="chunk-stack" id="s6-results">' + merged.map(function(id){ var c=chunkMeta(id); return '<div class="card chunk mini" style="--c:'+c.color+'">'+c.title+'</div>'; }).join("") + '</div>'
+    + '</div>'
+    + '<details class="mini-details"><summary>RRF 계산 보기</summary><pre>'+esc(rrfDetailText(keywordRank, meaningRank))+'</pre></details>';
+  return [{from:"#s6-query", to:"#s6-results", style:"solid", color:"var(--ink)"}];
+}
+
+function renderStage7(root){
+  var returned = computeReturnedChunks();
+  var html = returned.map(function(item){
+    var c = chunkView(item.id);
+    return '<div class="card chunk mini'+(item.id==="c2"?" seed":"")+'" style="--c:'+c.color+'" id="s7-'+item.id+'">'+c.title+'<div class="badge">'+item.badge+'</div></div>';
+  }).join("");
+  var edges = returned.filter(function(item){ return item.edgeStyle; }).map(function(item){
+    return {from:"#s7-c2", to:"#s7-"+item.id, style:item.edgeStyle, color: chunkMeta(item.id).color};
+  });
+  root.innerHTML =
+    '<div class="expand-controls">'
+    + '<label>깊이: <select id="s7-depth">' + [0,1,2].map(function(d){ return '<option value="'+d+'"'+(d===state.search.depth?' selected':'')+'>'+d+'</option>'; }).join("") + '</select></label>'
+    + '<label>최대 조각: <select id="s7-maxcount">' + [1,2,3,4,5].map(function(n){ return '<option value="'+n+'"'+(n===state.search.maxCount?' selected':'')+'>'+n+'</option>'; }).join("") + '</select></label>'
+    + '<label><input type="checkbox" id="s7-semantic" '+(state.search.semanticOn?'checked':'')+'> 의미 유사도</label>'
+    + '<span class="badge" id="s7-count">반환됨: '+returned.length+'장</span>'
+    + '</div>'
+    + '<div class="card-row" id="s7-graph">'+html+'</div>';
+  $("#s7-depth", root).addEventListener("change", function(e){ state.search.depth = Number(e.target.value); renderCurrent(); });
+  $("#s7-maxcount", root).addEventListener("change", function(e){ state.search.maxCount = Number(e.target.value); renderCurrent(); });
+  $("#s7-semantic", root).addEventListener("change", function(e){ state.search.semanticOn = e.target.checked; renderCurrent(); });
+  return edges;
+}
+
+function previewBody(tab, revKey, chunk){
+  var rev = REVISIONS[revKey];
+  if(tab==="original") return '<div class="card-sub">원본 ('+revKey+', '+rev.disp+') — "출시일: '+rev.date+'"</div><div class="card-sub">original_ref: orig_'+revKey+'_'+state.sourceId+'</div>';
+  if(tab==="md") return '<div class="card-sub">표준 MD ('+revKey+') — 하이라이트: <mark>'+esc(chunk.text)+'</mark></div>';
+  return '<div class="card-sub">청크 · '+chunk.title+' — '+esc(chunk.text)+'<br>원본 위치: '+originRefFor(chunk.id)+'</div>';
+}
+
+function renderStage8(root){
+  var r = state.reimport;
+  var view = state.originalsView;
+  var tab = state.originalsTab;
+  var canArchive = !!r.archiveVersion;
+  var revKey = activeRevisionKey(view);
+  var rev = REVISIONS[revKey];
+  var returned = computeReturnedChunks();
+  var envelopeChunks = returned.map(function(item){ return chunkView(item.id, revKey); });
+  var selId = "c2";
+  for(var i=0;i<returned.length;i++){ if(returned[i].id===state.selectedChunkId){ selId = state.selectedChunkId; break; } }
+  var selChunk = chunkView(selId, revKey);
+
+  root.innerHTML =
+    '<div class="card-row" style="align-items:flex-start;">'
+    + '<div class="envelope" id="s8-envelope"><div class="card-title">근거 봉투 ('+envelopeChunks.length+'장)</div>'
+      + envelopeChunks.map(function(c){ return '<div class="card chunk mini" style="--c:'+c.color+'">'+c.title+': '+esc(c.text)+'</div>'; }).join("")
+      + '<div class="card-sub">원본: '+esc(SOURCES[state.sourceId].originalTitle)+' · '+revKey+' ('+rev.disp+')</div></div>'
+    + '<div class="flow-arrow">→</div>'
+    + '<div class="preview" id="s8-preview">'
+      + (canArchive ? ('<div class="preview-tabs">'
+          + '<button type="button" data-ov="current" class="'+(view==="current"?"active":"")+'">현재('+(r.liveVersion||"없음")+')</button>'
+          + '<button type="button" data-ov="archive" class="'+(view==="archive"?"active":"")+'">보관('+r.archiveVersion+')</button></div>') : '')
+      + '<div class="preview-tabs">'
+        + '<button type="button" data-tab="original" class="'+(tab==="original"?"active":"")+'">원본</button>'
+        + '<button type="button" data-tab="md" class="'+(tab==="md"?"active":"")+'">표준 MD</button>'
+        + '<button type="button" data-tab="chunk" class="'+(tab==="chunk"?"active":"")+'">청크</button>'
+      + '</div>'
+      + '<div class="preview-body" id="s8-preview-body">'+previewBody(tab, revKey, selChunk)+'</div>'
+    + '</div>'
+    + '<div class="flow-arrow up">↑</div>'
+    + '<div class="card agent" id="s8-agent">소비자 / 에이전트<div class="card-sub">CLI 결과가 요청한 쪽으로 반환돼요.</div></div>'
+    + '</div>';
+
+  $all("[data-ov]", root).forEach(function(b){ b.addEventListener("click", function(){ state.originalsView = b.dataset.ov; renderCurrent(); }); });
+  $all("[data-tab]", root).forEach(function(b){ b.addEventListener("click", function(){ state.originalsTab = b.dataset.tab; renderCurrent(); }); });
+  return [
+    {from:"#s8-envelope", to:"#s8-preview", style:"solid", color:"var(--md)"},
+    {from:"#s8-preview", to:"#s8-agent", style:"solid", color:"var(--ink)"}
+  ];
+}
+
+var STAGE_RENDERERS = [renderStage0, renderStage1, renderStage2, renderStage3, renderStage4, renderStage5, renderStage6, renderStage7, renderStage8];
+
+/* ---------- journey view ---------- */
+function renderJourney(){
+  $("#journeyControls").hidden = false;
+  $("#stageCaption").textContent = CAPTIONS[state.stage];
+  $("#stageIndicator").textContent = (state.stage+1) + " / 9 · " + STAGE_TITLES[state.stage];
+  $("#seek").value = state.stage;
+  var root = $("#stageCanvas");
+  root.className = "stage-canvas stage-" + state.stage;
+  var edges = STAGE_RENDERERS[state.stage](root) || [];
+  requestAnimationFrame(function(){ updateConnectors($("#stageViewport"), $("#connectors"), edges); });
+  updatePlayButton();
+  $("#btnBack").disabled = state.stage===0;
+  $("#btnNext").disabled = state.stage===8;
+}
+
+/* ---------- composition map ---------- */
+var MAP_STAGE_OF = { extract:1, standard:2, chunk:3, index:4, reimport:5, search:6, expand:7, ret:8 };
+
+function routeCategory(id){
+  var r = SOURCES[id].route;
+  if(r==="adapter") return "adapter";
+  if(r==="lightweight") return "lightweight";
+  return "extract";
+}
+var ROUTE_NODE = { extract:"#map-extract", adapter:"#map-adapter", lightweight:"#map-lightweight" };
+
+function renderMap(){
+  $("#journeyControls").hidden = true;
+  $("#stageCaption").textContent = "형식별 입력이 추출 → 표준화 → 청크/색인을 거쳐 검색·확장·근거 반환까지 이어지는 전체 구성입니다. 노드를 클릭하면 해당 장면이 열립니다.";
+  var root = $("#stageCanvas");
+  root.className = "stage-canvas map";
+
+  var sourcesHtml = SOURCE_ORDER.map(function(id){
+    var s = SOURCES[id];
+    var cls = "node" + (s.route==="adapter" ? " unverified" : "") + (state.sourceId===id ? "" : "");
+    return '<button type="button" class="'+cls+'" data-map-source="'+id+'">'+esc(s.label)+'</button>';
+  }).join("");
+
+  root.innerHTML =
+    '<div class="consumer-region" id="consumer-region">'
+    + '<div class="region-label">사용하는 프로젝트 (외부 배선 — 감지/스케줄은 여기)</div>'
+    + '<div class="event-chips">'
+      + '<button type="button" class="event-chip" id="ev-add" data-map-stage="extract">신규 감지 → add</button>'
+      + '<button type="button" class="event-chip" id="ev-update" data-map-stage="reimport">변경 감지 → update</button>'
+      + '<button type="button" class="event-chip" id="ev-delete" data-map-stage="reimport">삭제 감지 → delete</button>'
+      + '<button type="button" class="event-chip" id="ev-result" data-map-stage="ret">결과 받기 ← result</button>'
+    + '</div>'
+    + '</div>'
+    + '<div class="cli-boundary" id="cli-boundary">'
+    + '<div class="region-label">AI RAG CLI (일반 처리기 — 명시 요청만 받음)</div>'
+    + '<div class="map-columns" id="mapColumns">'
+    + '<div class="map-col sources" id="map-sources">'+sourcesHtml+'</div>'
+    + '<div class="map-col" id="map-routes">'
+      + '<button type="button" class="node" id="map-extract" data-map-stage="extract">Docling<br>추출 / OCR</button>'
+      + '<button type="button" class="node unverified" id="map-adapter" data-map-stage="extract">HWP/HWPX<br>어댑터</button>'
+      + '<button type="button" class="node" id="map-lightweight" data-map-stage="extract">경량 파서<br>(대화)</button>'
+    + '</div>'
+    + '<div class="map-col"><button type="button" class="node" id="map-standard" data-map-stage="standard">표준화<br>(MD + 구조)</button></div>'
+    + '<div class="map-col"><button type="button" class="node" id="map-chunk" data-map-stage="chunk">청크</button></div>'
+    + '<div class="map-col"><button type="button" class="node" id="map-index" data-map-stage="index">색인</button></div>'
+    + '<div class="map-col"><button type="button" class="node" id="map-search" data-map-stage="search">검색</button></div>'
+    + '<div class="map-col"><button type="button" class="node" id="map-expand" data-map-stage="expand">확장</button></div>'
+    + '<div class="map-col"><button type="button" class="node" id="map-return" data-map-stage="ret">반환 / 근거</button></div>'
+    + '</div>'
+    + '<div class="map-loop">'
+      + '<button type="button" id="map-reimport" data-map-stage="reimport">↺ 재수입 처리 — update 요청을 받아 표준화 단계부터 다시 처리 (클릭)</button>'
+      + '<button type="button" class="exclude" id="map-delete-exclude" data-map-stage="reimport">⊘ 삭제 처리 — 색인 제외, 이력·원본 보존 (클릭)</button>'
+    + '</div>'
+    + '<div class="map-foundation"><button type="button" class="node foundation" id="map-vault">암호화 저장 · 원본 보관소 — 전 과정의 토대</button></div>'
+    + '</div>';
+
+  $all("[data-map-source]", root).forEach(function(btn){
+    btn.addEventListener("click", function(){ state.sourceId = btn.dataset.mapSource; state.view="journey"; state.stage=0; render(); });
+  });
+  $all("[data-map-stage]", root).forEach(function(btn){
+    btn.addEventListener("click", function(){ state.view="journey"; state.stage = MAP_STAGE_OF[btn.dataset.mapStage]; render(); });
+  });
+  $("#map-vault", root).addEventListener("click", function(){ state.view="journey"; state.stage=0; render(); });
+
+  var edges = SOURCE_ORDER.map(function(id){
+    var cat = routeCategory(id);
+    return {from:"#map-sources [data-map-source='"+id+"']", to:ROUTE_NODE[cat], style: cat==="adapter" ? "dashed" : "solid", color: cat==="adapter" ? "var(--warn)" : "var(--border)"};
+  });
+  edges.push({from:"#ev-add", to:"#map-sources", style:"solid", color:"#b8452f", label:"add"});
+  edges.push({from:"#ev-update", to:"#map-reimport", style:"solid", color:"#b8452f", label:"update"});
+  edges.push({from:"#ev-delete", to:"#map-delete-exclude", style:"dashed", color:"#b8452f", label:"delete"});
+  edges.push({from:"#map-delete-exclude", to:"#map-vault", style:"dashed", color:"var(--muted)"});
+  edges.push({from:"#map-extract", to:"#map-standard", style:"solid", color:"var(--md)"});
+  edges.push({from:"#map-adapter", to:"#map-standard", style:"dashed", color:"var(--warn)"});
+  edges.push({from:"#map-lightweight", to:"#map-standard", style:"solid", color:"var(--md)"});
+  edges.push({from:"#map-standard", to:"#map-chunk", style:"solid", color:"var(--chunk2)"});
+  edges.push({from:"#map-chunk", to:"#map-index", style:"solid", color:"var(--ink)"});
+  edges.push({from:"#map-index", to:"#map-search", style:"solid", color:"var(--ink)"});
+  edges.push({from:"#map-search", to:"#map-expand", style:"solid", color:"var(--ink)"});
+  edges.push({from:"#map-expand", to:"#map-return", style:"solid", color:"var(--ink)"});
+  edges.push({from:"#map-return", to:"#ev-result", style:"solid", color:"#b8452f", label:"result"});
+  requestAnimationFrame(function(){ updateConnectors($("#stageViewport"), $("#connectors"), edges); });
+}
+
+/* ---------- top-level render / controls ---------- */
+function renderCurrent(){ if(state.view==="journey") renderJourney(); else renderMap(); }
+
+function render(){
+  $all(".view-toggle button").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.view===state.view); });
+  renderSourcePicker();
+  renderCurrent();
+}
+
+function updatePlayButton(){
+  var b = $("#btnPlay");
+  if(!b) return;
+  b.textContent = state.playing ? "⏸ 일시정지" : "▶ 재생";
+}
+function setStage(i){
+  state.stage = Math.max(0, Math.min(8, i));
+  renderJourney();
+}
+function pause(){
+  state.playing = false;
+  if(state.timer) clearInterval(state.timer);
+  state.timer = null;
+  updatePlayButton();
+}
+function play(){
+  if(state.playing) return;
+  if(state.stage>=8) state.stage = 0;
+  state.playing = true;
+  updatePlayButton();
+  state.timer = setInterval(function(){
+    if(state.stage>=8){ pause(); return; }
+    setStage(state.stage+1);
+  }, state.reduceMotion ? 900 : 1700);
+}
+
+function initControls(){
+  $all(".view-toggle button").forEach(function(b){
+    b.addEventListener("click", function(){
+      pause();
+      state.view = b.dataset.view;
+      render();
+    });
+  });
+  $("#btnBack").addEventListener("click", function(){ pause(); setStage(state.stage-1); });
+  $("#btnNext").addEventListener("click", function(){ pause(); setStage(state.stage+1); });
+  $("#btnPlay").addEventListener("click", function(){ state.playing ? pause() : play(); });
+  $("#seek").addEventListener("input", function(e){ pause(); setStage(Number(e.target.value)); });
+
+  document.addEventListener("keydown", function(e){
+    if(state.view!=="journey") return;
+    var tag = (document.activeElement && document.activeElement.tagName) || "";
+    if(tag==="INPUT" && document.activeElement.type==="range") return;
+    if(e.key==="ArrowRight"){ pause(); setStage(state.stage+1); }
+    else if(e.key==="ArrowLeft"){ pause(); setStage(state.stage-1); }
+  });
+
+  var resizeTimer;
+  window.addEventListener("resize", function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderCurrent, 150);
+  });
+}
+
+initControls();
+render();
+})();
+</script>

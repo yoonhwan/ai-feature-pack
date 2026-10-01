@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "report": "p07-quality-v3-20260913.json",
+  "criteria": "p07-evaluation-plan.json",
+  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v3",
+  "scope": "12 synthetic Korean documents, 24 Korean/English questions; actual configured BYZ models. Not a universal quality guarantee or user tour.",
+  "retrieval": {"queries": 24, "top_1": 1.0, "top_3": 1.0, "top1_source_correct": 24},
+  "source_anchors": {"exact_source_slices_checked": 12, "correct": 12},
+  "semantic_grouping": {
+    "quality_corpus_limit": "The 12 short quality documents each have one source unit, so they do not independently establish boundary-selection quality.",
+    "separate_test": "tests/test_llm_enrichment.py::test_plan_semantic_groups_against_real_byz_llm_small_scale",
+    "result": "passed using v3 and the actual BYZ LLM; four ordered units on cats and SQLite produced exactly [p1,p2] and [p3,p4]",
+    "evidence": "p07-live-final-20260913.xml"
+  },
+  "semantic_review": {
+    "reviewer": "primary agent compared every final translation, summary, tags, grouping summary and grouping tags with the fixed Korean source",
+    "documents_reviewed": ["library", "refund", "garden", "clinic", "bus", "backup", "workshop", "network", "museum", "subscription", "hiking", "delivery"],
+    "critical_fact_preservation": 1.0,
+    "unsupported_factual_claims_observed": 0,
+    "verdict": "All stated amounts, dates, deadlines, prohibitions and eligibility conditions are preserved in translation. Summaries are intentionally selective; detailed facts remain in the translation and original. Tags and grouping metadata describe the source topic without replacing source evidence.",
+    "proper_name_note": "Some noncritical names use English translation or transliteration variants (Sea/Maritime Museum, Jungang/Central Station). The original Korean names and exact anchors remain available; this sample showed no source-identity or factual confusion.",
+    "prior_failures": ["p07-quality-initial-review-20260913.json", "p07-quality-v2-review-20260913.json"],
+    "prior_failures_resolved": ["clinic topic no longer becomes tree medicine", "delivery grouping metadata is English", "refund grouping summary no longer invents a purchase-order document"]
+  },
+  "compatibility": "Captured v1/v2/v3 prompts remain supported with their own descriptor/fingerprint and original instructions. New registrations default to v3."
+}

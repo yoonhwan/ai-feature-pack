@@ -1,0 +1,46 @@
+{
+  "observed_at": "2026-09-13",
+  "status": "served_path_and_cache_identity_recorded",
+  "profile_file": "operational-profile-20260913.json",
+  "evidence_type": "read-only runtime model listing, running-container command and filesystem observations",
+  "automatic_gpu_memory_attestation": false,
+  "limitations": [
+    "The file hash and cache revision identify the weights on the configured serving path; they are not cryptographic attestation of the tensors resident in GPU memory.",
+    "No VM restart, model reload, model download, IAM or container configuration change was made.",
+    "Local IAP port numbers are operational connection settings, not model identity.",
+    "The earlier integration-probe-unverified-weights marker is not promoted into an operational revision."
+  ],
+  "embedding": {
+    "vm": "byz-agents-gce-stt-tts-dev",
+    "zone": "asia-northeast3-a",
+    "container": "byz-embed",
+    "image_id": "sha256:5324a36b4d5db95e2591f9099a206a0294b099ae25e962dc1a4e50ccf1714552",
+    "served_model": "byz-embed",
+    "runtime_model_root": "/models/qwen3-embed",
+    "command_model_path": "/models/qwen3-embed",
+    "mount_source": "/mnt/stateful_partition/models/qwen3-embed",
+    "mount_readonly": true,
+    "weights_file": "/models/qwen3-embed/model.safetensors",
+    "weights_sha256": "0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+    "config_sha256": "b5bf1f51fc45be473a54718cef92448d90a1be001bf9b9a44b8c7f10a19feaa9",
+    "tokenizer_file_sha256": "def76fb086971c7867b829c23a26261e38d9d74e02139253b38aeb9df8b4b50a",
+    "dimension": 1024,
+    "runtime_max_model_len": 8192,
+    "profile_revision": "served-path-sha256:0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd"
+  },
+  "llm": {
+    "vm": "byz-agents-gce-llm-dev",
+    "zone": "asia-northeast3-a",
+    "container": "gpu-serving",
+    "image_id": "sha256:4062301411fdeb2cb985857d182e53c22f4584432dc6246d43d40a5788e88add",
+    "served_model": "byz-llm",
+    "runtime_model_root": "google/gemma-4-12B-it-qat-w4a16-ct",
+    "command_model": "google/gemma-4-12B-it-qat-w4a16-ct",
+    "hf_cached_main_revision": "1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+    "config_sha256": "aa3ba82096a857e8b9a157df21a50df15a67e889a84b7580a4eb4f2b86c28d78",
+    "weights_cache_blob_name": "60b6e3989502969d8ae04185d72ecbbc7db63978d5af747a493d53895aa6bfa3",
+    "weights_sha256_measured": "60b6e3989502969d8ae04185d72ecbbc7db63978d5af747a493d53895aa6bfa3",
+    "runtime_max_model_len": 24576,
+    "profile_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee"
+  }
+}

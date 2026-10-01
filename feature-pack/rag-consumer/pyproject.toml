@@ -1,0 +1,22 @@
+[project]
+name = "ai-feature-rag-consumer"
+version = "0.1.0"
+description = "External event contracts and adapters for airag"
+requires-python = ">=3.13,<3.14"
+dependencies = ["sqlcipher3==0.6.2", "ai-feature-rag==0.1.0"]
+
+[project.scripts]
+ai-rag-consumer = "airag_consumer.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airag_consumer"]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

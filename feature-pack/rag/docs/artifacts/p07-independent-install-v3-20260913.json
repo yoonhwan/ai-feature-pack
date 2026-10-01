@@ -1,0 +1,1267 @@
+{
+  "status": "passed",
+  "python": "3.13.12 (main, Feb  4 2026, 00:05:32) [Clang 21.1.4 ]",
+  "prefix": "/tmp/airag-independent-KCG7SW/venv",
+  "module": "/tmp/airag-independent-KCG7SW/venv/lib/python3.13/site-packages/airag/__init__.py",
+  "cwd": "/private/tmp/airag-independent-run-n0UlPA",
+  "trace": [
+    {
+      "binary": "ai-rag",
+      "command": [
+        "init",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db"
+      ],
+      "exit_code": 0,
+      "seconds": 0.22085304200300016,
+      "response": {
+        "schema_version": 1,
+        "request_id": "ac5ebe09-de14-4fa9-8219-fbcede2744d6",
+        "ok": true,
+        "command": "init",
+        "data": {
+          "path": "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+          "schema_version": 5
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "profile",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--config",
+        "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/operational-profile-20260913.json"
+      ],
+      "exit_code": 0,
+      "seconds": 3.498610375012504,
+      "response": {
+        "schema_version": 1,
+        "request_id": "698f259d-8c32-49dd-b441-5dca60bc9d27",
+        "ok": true,
+        "command": "manage profile",
+        "data": {
+          "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+          "space_id": 1,
+          "llm_enrichment": true
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "add",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--collection",
+        "installed",
+        "--source-key",
+        "library",
+        "--text",
+        "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+        "--profile-key",
+        "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+        "--request-id",
+        "add-library"
+      ],
+      "exit_code": 0,
+      "seconds": 10.610052957985317,
+      "response": {
+        "schema_version": 1,
+        "request_id": "add-library",
+        "ok": true,
+        "command": "add",
+        "data": {
+          "source_id": 1,
+          "generation_id": 1,
+          "revision_id": 1,
+          "status": "ready",
+          "state_version": 2,
+          "revision_token": "djE6MToy",
+          "chunk_count": 1,
+          "searchable": true,
+          "processing_status": "ready"
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "krb-rag",
+      "command": [
+        "search",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--collection",
+        "installed",
+        "--query",
+        "책을 몇 권 며칠 빌리나요?",
+        "--profile-key",
+        "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7"
+      ],
+      "exit_code": 0,
+      "seconds": 7.285806750005577,
+      "response": {
+        "schema_version": 1,
+        "request_id": "ab6cfc88-f53d-4870-a7ac-96b55b28922a",
+        "ok": true,
+        "command": "search",
+        "data": {
+          "manifest_id": 1,
+          "collection": "installed",
+          "original_query": "책을 몇 권 며칠 빌리나요?",
+          "search_query_text": "How many books and for how many days can I borrow?",
+          "space_id": 1,
+          "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+          "query_provenance": {
+            "original_query": "책을 몇 권 며칠 빌리나요?",
+            "translated_query": "How many books and for how many days can I borrow?",
+            "translated": true,
+            "metadata": {
+              "model_echoed": "byz-llm",
+              "finish_reason": "stop",
+              "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+              "usage": {
+                "prompt_tokens": 163,
+                "total_tokens": 225,
+                "completion_tokens": 62,
+                "prompt_tokens_details": {
+                  "cached_tokens": 128,
+                  "created_cache_tokens": 0,
+                  "multimodal_tokens": null
+                },
+                "completion_tokens_details": null
+              },
+              "configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+              "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "input_unit_ids": [
+                "query"
+              ]
+            }
+          },
+          "ranking": {
+            "rrf_k": 60,
+            "candidate_limit": 40,
+            "exact_cosine": true
+          },
+          "eligible": {
+            "sources": [
+              {
+                "source_id": 1,
+                "revision_id": 1,
+                "generation_id": 1
+              }
+            ],
+            "count": 1
+          },
+          "results": [
+            {
+              "chunk_id": 1,
+              "source_id": 1,
+              "source_key": "library",
+              "collection": "installed",
+              "generation_id": 1,
+              "revision_id": 1,
+              "origin_uri": null,
+              "content_hash": "1d114f04c46df603e9afb7514b61a0ca9b92b605b49ad210eda5df529039bbeb",
+              "embedded_text": "Haesol Library is open from Tuesday to Saturday, and you can borrow 5 books for 14 days.",
+              "original_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+              "is_translated": true,
+              "original_text_is_contiguous": true,
+              "text_origins": [
+                "original"
+              ],
+              "contains_inference": false,
+              "provenance_granularity": "semantic_group",
+              "anchor": {
+                "headings": [],
+                "items": [
+                  {
+                    "granularity": "exact",
+                    "kind": "text_span",
+                    "unit": "char",
+                    "start": 0,
+                    "end": 45,
+                    "matched_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                    "self_ref": "#/texts/0"
+                  }
+                ],
+                "llm_enrichment": {
+                  "group_id": "group-0-0",
+                  "source_unit_ids": [
+                    "chunk-0"
+                  ],
+                  "source_units": [
+                    {
+                      "unit_id": "chunk-0",
+                      "original_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                      "contextualized_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                      "anchor": {
+                        "headings": [],
+                        "items": [
+                          {
+                            "granularity": "exact",
+                            "kind": "text_span",
+                            "unit": "char",
+                            "start": 0,
+                            "end": 45,
+                            "matched_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                            "self_ref": "#/texts/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "original_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                  "original_text_is_contiguous": true,
+                  "tags": [
+                    "library",
+                    "hours",
+                    "rules"
+                  ],
+                  "summary": "The text describes the operating hours and borrowing rules of Haesol Library.",
+                  "translation_en": "Haesol Library is open from Tuesday to Saturday, and you can borrow 5 books for 14 days.",
+                  "group_summary": "Information regarding library operating hours and book lending policies.",
+                  "group_tags": [
+                    "library",
+                    "hours",
+                    "lending"
+                  ],
+                  "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v3",
+                  "llm_configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+                  "enrichment_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 184,
+                      "total_tokens": 260,
+                      "completion_tokens": 76,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+                    "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                    "input_unit_ids": [
+                      "group-0-0"
+                    ]
+                  },
+                  "grouping_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 307,
+                      "total_tokens": 351,
+                      "completion_tokens": 44,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 256,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+                    "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v3",
+                    "input_unit_ids": [
+                      "chunk-0"
+                    ]
+                  },
+                  "provenance_granularity": "semantic_group",
+                  "translation_part": 0,
+                  "translation_part_count": 1,
+                  "embedding_text": "Haesol Library is open from Tuesday to Saturday, and you can borrow 5 books for 14 days."
+                }
+              },
+              "rrf_score": 0.03278688524590164,
+              "bm25_rank": 1,
+              "bm25_score": -5.999999999999999e-06,
+              "vec_rank": 1,
+              "vec_distance": 0.2756805717945099
+            }
+          ],
+          "historical": false,
+          "scope": {
+            "source_keys": null,
+            "media_types": null
+          },
+          "snapshot": {
+            "version": 1,
+            "collection": "installed",
+            "space_id": 1,
+            "scope": {
+              "source_keys": null,
+              "media_types": null
+            },
+            "fingerprint": "1c825c7c19d63e5757ed419654cfc36a4810db3873af730a3817891d87e25d39"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "fetch",
+        "original",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--collection",
+        "installed",
+        "--source-key",
+        "library",
+        "--include-bytes"
+      ],
+      "exit_code": 0,
+      "seconds": 0.057155332993716,
+      "response": {
+        "schema_version": 1,
+        "request_id": "39fb2e7d-7e96-4493-bb85-54f2cae69b99",
+        "ok": true,
+        "command": "fetch original",
+        "data": {
+          "source_id": 1,
+          "revision_id": 1,
+          "is_head": true,
+          "revision_token": "djE6MToy",
+          "content_hash": "1d114f04c46df603e9afb7514b61a0ca9b92b605b49ad210eda5df529039bbeb",
+          "byte_length": 107,
+          "media_type": "text/plain",
+          "origin_uri": null,
+          "created_at_ms": 1789239714282,
+          "deleted": false,
+          "head_revision_id": 1,
+          "ready_generation_id": 1,
+          "ready_revision_id": 1,
+          "searchable": true,
+          "processing_status": "ready",
+          "content_base64": "7ZW07IaU64+E7ISc6rSA7J2AIO2ZlOyalOydvOu2gO2EsCDthqDsmpTsnbzquYzsp4Ag7Jq07JiB7ZWY66mwIOyxhSA16raM7J2EIDE07J28IOuPmeyViCDruYzrprQg7IiYIOyeiOuLpC4="
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "reindex",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--collection",
+        "installed",
+        "--source-key",
+        "library",
+        "--expected-revision",
+        "djE6MToy",
+        "--profile-key",
+        "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+        "--request-id",
+        "reindex-library"
+      ],
+      "exit_code": 0,
+      "seconds": 10.730311958992388,
+      "response": {
+        "schema_version": 1,
+        "request_id": "reindex-library",
+        "ok": true,
+        "command": "manage reindex",
+        "data": {
+          "source_id": 1,
+          "generation_id": 2,
+          "revision_id": 1,
+          "status": "ready",
+          "state_version": 3,
+          "revision_token": "djE6MToz",
+          "chunk_count": 1,
+          "searchable": true,
+          "processing_status": "ready",
+          "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7"
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "fetch",
+        "manifest",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--manifest-id",
+        "1"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05892675000359304,
+      "response": {
+        "schema_version": 1,
+        "request_id": "7dfc2bf3-4343-4880-ab9b-fb55af8adf2d",
+        "ok": true,
+        "command": "fetch manifest",
+        "data": {
+          "manifest_id": 1,
+          "collection": "installed",
+          "original_query": "책을 몇 권 며칠 빌리나요?",
+          "search_query_text": "How many books and for how many days can I borrow?",
+          "space_id": 1,
+          "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+          "query_provenance": {
+            "original_query": "책을 몇 권 며칠 빌리나요?",
+            "translated_query": "How many books and for how many days can I borrow?",
+            "translated": true,
+            "metadata": {
+              "model_echoed": "byz-llm",
+              "finish_reason": "stop",
+              "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+              "usage": {
+                "prompt_tokens": 163,
+                "total_tokens": 225,
+                "completion_tokens": 62,
+                "prompt_tokens_details": {
+                  "cached_tokens": 128,
+                  "created_cache_tokens": 0,
+                  "multimodal_tokens": null
+                },
+                "completion_tokens_details": null
+              },
+              "configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+              "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+              "input_unit_ids": [
+                "query"
+              ]
+            }
+          },
+          "ranking": {
+            "rrf_k": 60,
+            "candidate_limit": 40,
+            "exact_cosine": true
+          },
+          "eligible": {
+            "sources": [
+              {
+                "source_id": 1,
+                "revision_id": 1,
+                "generation_id": 1
+              }
+            ],
+            "count": 1
+          },
+          "results": [
+            {
+              "chunk_id": 1,
+              "source_id": 1,
+              "source_key": "library",
+              "collection": "installed",
+              "generation_id": 1,
+              "revision_id": 1,
+              "origin_uri": null,
+              "content_hash": "1d114f04c46df603e9afb7514b61a0ca9b92b605b49ad210eda5df529039bbeb",
+              "embedded_text": "Haesol Library is open from Tuesday to Saturday, and you can borrow 5 books for 14 days.",
+              "original_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+              "is_translated": true,
+              "original_text_is_contiguous": true,
+              "text_origins": [
+                "original"
+              ],
+              "contains_inference": false,
+              "provenance_granularity": "semantic_group",
+              "anchor": {
+                "headings": [],
+                "items": [
+                  {
+                    "granularity": "exact",
+                    "kind": "text_span",
+                    "unit": "char",
+                    "start": 0,
+                    "end": 45,
+                    "matched_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                    "self_ref": "#/texts/0"
+                  }
+                ],
+                "llm_enrichment": {
+                  "group_id": "group-0-0",
+                  "source_unit_ids": [
+                    "chunk-0"
+                  ],
+                  "source_units": [
+                    {
+                      "unit_id": "chunk-0",
+                      "original_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                      "contextualized_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                      "anchor": {
+                        "headings": [],
+                        "items": [
+                          {
+                            "granularity": "exact",
+                            "kind": "text_span",
+                            "unit": "char",
+                            "start": 0,
+                            "end": 45,
+                            "matched_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                            "self_ref": "#/texts/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "original_text": "해솔도서관은 화요일부터 토요일까지 운영하며 책 5권을 14일 동안 빌릴 수 있다.",
+                  "original_text_is_contiguous": true,
+                  "tags": [
+                    "library",
+                    "hours",
+                    "rules"
+                  ],
+                  "summary": "The text describes the operating hours and borrowing rules of Haesol Library.",
+                  "translation_en": "Haesol Library is open from Tuesday to Saturday, and you can borrow 5 books for 14 days.",
+                  "group_summary": "Information regarding library operating hours and book lending policies.",
+                  "group_tags": [
+                    "library",
+                    "hours",
+                    "lending"
+                  ],
+                  "enrich_prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                  "group_prompt_version": "airag.llm_enrichment.plan_semantic_groups.v3",
+                  "llm_configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+                  "enrichment_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 184,
+                      "total_tokens": 260,
+                      "completion_tokens": 76,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 128,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+                    "prompt_version": "airag.llm_enrichment.enrich_units.v1",
+                    "input_unit_ids": [
+                      "group-0-0"
+                    ]
+                  },
+                  "grouping_metadata": {
+                    "model_echoed": "byz-llm",
+                    "finish_reason": "stop",
+                    "system_fingerprint_RUNTIME_NOT_WEIGHTS": "vllm-0.28.0-6d404153",
+                    "usage": {
+                      "prompt_tokens": 307,
+                      "total_tokens": 351,
+                      "completion_tokens": 44,
+                      "prompt_tokens_details": {
+                        "cached_tokens": 256,
+                        "created_cache_tokens": 0,
+                        "multimodal_tokens": null
+                      },
+                      "completion_tokens_details": null
+                    },
+                    "configured_weights_revision": "served-cache-hf:1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee",
+                    "prompt_version": "airag.llm_enrichment.plan_semantic_groups.v3",
+                    "input_unit_ids": [
+                      "chunk-0"
+                    ]
+                  },
+                  "provenance_granularity": "semantic_group",
+                  "translation_part": 0,
+                  "translation_part_count": 1,
+                  "embedding_text": "Haesol Library is open from Tuesday to Saturday, and you can borrow 5 books for 14 days."
+                }
+              },
+              "rrf_score": 0.03278688524590164,
+              "bm25_rank": 1,
+              "bm25_score": -5.999999999999999e-06,
+              "vec_rank": 1,
+              "vec_distance": 0.2756805717945099
+            }
+          ],
+          "created_at_ms": 1789239729417,
+          "historical": true,
+          "scope": {
+            "source_keys": null,
+            "media_types": null
+          },
+          "snapshot": {
+            "version": 1,
+            "collection": "installed",
+            "space_id": 1,
+            "scope": {
+              "source_keys": null,
+              "media_types": null
+            },
+            "fingerprint": "1c825c7c19d63e5757ed419654cfc36a4810db3873af730a3817891d87e25d39"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "backup",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+        "--output",
+        "/private/tmp/airag-independent-run-n0UlPA/backup.db"
+      ],
+      "exit_code": 0,
+      "seconds": 2.7856693750072736,
+      "response": {
+        "schema_version": 1,
+        "request_id": "7a464e13-8355-4cc1-bdeb-a22152ad2425",
+        "ok": true,
+        "command": "manage backup",
+        "data": {
+          "path": "/private/tmp/airag-independent-run-n0UlPA/backup.db",
+          "source_path": "/private/tmp/airag-independent-run-n0UlPA/independent.db",
+          "verified": true,
+          "encrypted": true,
+          "schema_version": 5,
+          "counts": {
+            "sources": 2,
+            "source_revisions": 2,
+            "generations": 3,
+            "jobs": 3,
+            "processing_profiles": 1,
+            "embedding_spaces": 1,
+            "chunks": 3,
+            "normalized_documents": 3,
+            "request_ledger": 4,
+            "search_manifests": 1,
+            "expansion_manifests": 0
+          },
+          "diagnostics": {
+            "healthy": true,
+            "issues": []
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "restore-backup",
+        "--backup",
+        "/private/tmp/airag-independent-run-n0UlPA/backup.db",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/restored.db"
+      ],
+      "exit_code": 0,
+      "seconds": 2.7140755000000354,
+      "response": {
+        "schema_version": 1,
+        "request_id": "00daf937-5304-4ada-89d2-1941f612114b",
+        "ok": true,
+        "command": "manage restore-backup",
+        "data": {
+          "path": "/private/tmp/airag-independent-run-n0UlPA/restored.db",
+          "source_path": "/private/tmp/airag-independent-run-n0UlPA/backup.db",
+          "verified": true,
+          "encrypted": true,
+          "schema_version": 5,
+          "counts": {
+            "sources": 2,
+            "source_revisions": 2,
+            "generations": 3,
+            "jobs": 3,
+            "processing_profiles": 1,
+            "embedding_spaces": 1,
+            "chunks": 3,
+            "normalized_documents": 3,
+            "request_ledger": 4,
+            "search_manifests": 1,
+            "expansion_manifests": 0
+          },
+          "diagnostics": {
+            "healthy": true,
+            "issues": []
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "verify",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/restored.db"
+      ],
+      "exit_code": 0,
+      "seconds": 2.9404841670184396,
+      "response": {
+        "schema_version": 1,
+        "request_id": "adaa8496-2de6-412c-975b-8d2ecc776178",
+        "ok": true,
+        "command": "manage verify",
+        "data": {
+          "scope": "database",
+          "read_only": true,
+          "provider_connectivity": "not_checked",
+          "healthy": true,
+          "jobs": {
+            "pending": 0,
+            "running": 0,
+            "failed": 0,
+            "done": 3,
+            "items": []
+          },
+          "profiles": [
+            {
+              "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+              "space_id": 1,
+              "valid": true,
+              "embedding": {
+                "provider": "openai-compatible",
+                "model": "byz-embed",
+                "revision": "served-path-sha256:0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+                "dimension": 1024,
+                "endpoint_configured": true
+              },
+              "llm": {
+                "configured": true,
+                "valid": true
+              }
+            }
+          ],
+          "checks": [
+            {
+              "code": "PROFILE_CONFIGURATION_INVALID",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "HEAD_POINTER_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "READY_POINTER_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "GENERATION_PROFILE_MISSING",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "JOB_PROFILE_MISSING",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FTS_MISSING_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FTS_UNEXPECTED_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC0_UNAVAILABLE",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_MISSING_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_UNEXPECTED_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_ROW_IDENTITY_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_DIMENSION_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "DATABASE_INTEGRITY_FAILED",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FOREIGN_KEY_MISMATCH",
+              "ok": true,
+              "count": 0
+            }
+          ],
+          "issues": [],
+          "path": "/private/tmp/airag-independent-run-n0UlPA/restored.db",
+          "schema_version": 5
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "doctor",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/restored.db"
+      ],
+      "exit_code": 0,
+      "seconds": 2.9321965830167755,
+      "response": {
+        "schema_version": 1,
+        "request_id": "60a2c564-fe93-437d-9ef1-adc8a59aaa94",
+        "ok": true,
+        "command": "manage doctor",
+        "data": {
+          "scope": "database",
+          "read_only": true,
+          "provider_connectivity": "not_checked",
+          "healthy": true,
+          "jobs": {
+            "pending": 0,
+            "running": 0,
+            "failed": 0,
+            "done": 3,
+            "items": []
+          },
+          "profiles": [
+            {
+              "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+              "space_id": 1,
+              "valid": true,
+              "embedding": {
+                "provider": "openai-compatible",
+                "model": "byz-embed",
+                "revision": "served-path-sha256:0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+                "dimension": 1024,
+                "endpoint_configured": true
+              },
+              "llm": {
+                "configured": true,
+                "valid": true
+              }
+            }
+          ],
+          "checks": [
+            {
+              "code": "PROFILE_CONFIGURATION_INVALID",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "HEAD_POINTER_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "READY_POINTER_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "GENERATION_PROFILE_MISSING",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "JOB_PROFILE_MISSING",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FTS_MISSING_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FTS_UNEXPECTED_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC0_UNAVAILABLE",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_MISSING_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_UNEXPECTED_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_ROW_IDENTITY_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_DIMENSION_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "DATABASE_INTEGRITY_FAILED",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FOREIGN_KEY_MISMATCH",
+              "ok": true,
+              "count": 0
+            }
+          ],
+          "issues": []
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "ai-rag",
+      "command": [
+        "manage",
+        "status",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/restored.db"
+      ],
+      "exit_code": 0,
+      "seconds": 2.935613874986302,
+      "response": {
+        "schema_version": 1,
+        "request_id": "0489fe8a-6838-4c2c-afa6-02f397419df8",
+        "ok": true,
+        "command": "manage status",
+        "data": {
+          "scope": "database",
+          "read_only": true,
+          "provider_connectivity": "not_checked",
+          "healthy": true,
+          "jobs": {
+            "pending": 0,
+            "running": 0,
+            "failed": 0,
+            "done": 3,
+            "items": []
+          },
+          "profiles": [
+            {
+              "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7",
+              "space_id": 1,
+              "valid": true,
+              "embedding": {
+                "provider": "openai-compatible",
+                "model": "byz-embed",
+                "revision": "served-path-sha256:0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd",
+                "dimension": 1024,
+                "endpoint_configured": true
+              },
+              "llm": {
+                "configured": true,
+                "valid": true
+              }
+            }
+          ],
+          "checks": [
+            {
+              "code": "PROFILE_CONFIGURATION_INVALID",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "HEAD_POINTER_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "READY_POINTER_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "GENERATION_PROFILE_MISSING",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "JOB_PROFILE_MISSING",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FTS_MISSING_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FTS_UNEXPECTED_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC0_UNAVAILABLE",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_MISSING_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_UNEXPECTED_ROWS",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_ROW_IDENTITY_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "VEC_DIMENSION_MISMATCH",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "DATABASE_INTEGRITY_FAILED",
+              "ok": true,
+              "count": 0
+            },
+            {
+              "code": "FOREIGN_KEY_MISMATCH",
+              "ok": true,
+              "count": 0
+            }
+          ],
+          "issues": []
+        },
+        "error": null
+      }
+    },
+    {
+      "binary": "krb-rag",
+      "command": [
+        "fetch",
+        "original",
+        "--db",
+        "/private/tmp/airag-independent-run-n0UlPA/restored.db",
+        "--collection",
+        "installed",
+        "--source-key",
+        "library",
+        "--include-bytes"
+      ],
+      "exit_code": 0,
+      "seconds": 0.06772008299594745,
+      "response": {
+        "schema_version": 1,
+        "request_id": "b149b7e9-20ee-4b33-9fac-d901519e9be0",
+        "ok": true,
+        "command": "fetch original",
+        "data": {
+          "source_id": 1,
+          "revision_id": 1,
+          "is_head": true,
+          "revision_token": "djE6MToz",
+          "content_hash": "1d114f04c46df603e9afb7514b61a0ca9b92b605b49ad210eda5df529039bbeb",
+          "byte_length": 107,
+          "media_type": "text/plain",
+          "origin_uri": null,
+          "created_at_ms": 1789239714282,
+          "deleted": false,
+          "head_revision_id": 1,
+          "ready_generation_id": 2,
+          "ready_revision_id": 1,
+          "searchable": true,
+          "processing_status": "ready",
+          "content_base64": "7ZW07IaU64+E7ISc6rSA7J2AIO2ZlOyalOydvOu2gO2EsCDthqDsmpTsnbzquYzsp4Ag7Jq07JiB7ZWY66mwIOyxhSA16raM7J2EIDE07J28IOuPmeyViCDruYzrprQg7IiYIOyeiOuLpC4="
+        },
+        "error": null
+      }
+    }
+  ],
+  "key_persisted": false,
+  "packages": {
+    "shellingham": "1.5.4",
+    "numpy": "2.5.3",
+    "scikit-image": "0.26.0",
+    "pandas": "3.0.5",
+    "torchvision": "0.29.0",
+    "doclang": "0.7.3",
+    "rpds-py": "2026.6.3",
+    "colorlog": "6.12.0",
+    "filelock": "3.32.6",
+    "marko": "2.2.4",
+    "lxml": "6.1.3",
+    "click": "8.5.0",
+    "ImageIO": "2.37.4",
+    "olefile": "0.47",
+    "packaging": "26.3",
+    "accelerate": "1.15.0",
+    "tree-sitter-c": "0.24.2",
+    "charset-normalizer": "3.5.1",
+    "Pygments": "2.21.0",
+    "typer": "0.26.8",
+    "jsonschema-specifications": "2025.9.1",
+    "requests": "2.34.2",
+    "defusedxml": "0.7.1",
+    "hf-xet": "1.6.0",
+    "ninja": "1.13.2",
+    "rich": "15.0.0",
+    "openpyxl": "3.1.5",
+    "python-bidi": "0.6.11",
+    "huggingface_hub": "1.31.0",
+    "networkx": "3.6.1",
+    "websockets": "16.1.1",
+    "jsonschema": "4.26.0",
+    "Faker": "40.38.0",
+    "lazy-loader": "0.5",
+    "python-pptx": "1.0.2",
+    "mail-parser": "4.6.5",
+    "et_xmlfile": "2.0.0",
+    "pydantic_core": "2.46.5",
+    "shapely": "2.1.2",
+    "docling-parse": "7.19.1",
+    "torch": "2.14.0",
+    "tifffile": "2026.9.9",
+    "tree-sitter": "0.26.0",
+    "docling-core": "2.96.0",
+    "tokenizers": "0.23.2",
+    "httpcore": "1.0.9",
+    "sympy": "1.14.0",
+    "transformers": "5.17.0",
+    "fsspec": "2026.7.0",
+    "rapidocr": "3.9.2",
+    "mpire": "2.10.2",
+    "safetensors": "0.8.0",
+    "tqdm": "4.70.1",
+    "setuptools": "84.0.0",
+    "soupsieve": "2.9.2",
+    "h11": "0.16.0",
+    "pydantic": "2.13.5",
+    "pydantic-settings": "2.15.0",
+    "polyfactory": "3.3.0",
+    "mdurl": "0.1.2",
+    "python-dateutil": "2.9.0.post0",
+    "mpmath": "1.3.0",
+    "PyYAML": "6.0.3",
+    "jsonref": "1.1.0",
+    "opencv-python": "5.0.0.93",
+    "tree-sitter-typescript": "0.23.2",
+    "idna": "3.19",
+    "antlr4-python3-runtime": "4.9.3",
+    "docling": "2.126.0",
+    "ai-feature-rag": "0.1.0",
+    "docling-slim": "2.126.0",
+    "certifi": "2026.7.22",
+    "docling-ibm-models": "4.0.2",
+    "easyocr": "1.7.2",
+    "rtree": "1.4.1",
+    "Jinja2": "3.1.6",
+    "annotated-types": "0.8.0",
+    "pylatexenc": "2.11",
+    "referencing": "0.37.0",
+    "latex2mathml": "3.81.1",
+    "omegaconf": "2.3.1",
+    "tree-sitter-python": "0.25.0",
+    "markdown-it-py": "4.2.0",
+    "semchunk": "3.2.5",
+    "sqlcipher3": "0.6.2",
+    "annotated-doc": "0.0.5",
+    "MarkupSafe": "3.0.3",
+    "pyclipper": "1.4.0",
+    "typing-inspection": "0.4.4",
+    "tabulate": "0.10.0",
+    "pluggy": "1.6.0",
+    "python-docx": "1.2.0",
+    "attrs": "26.1.0",
+    "python-dotenv": "1.2.3",
+    "xlsxwriter": "3.2.9",
+    "urllib3": "2.7.0",
+    "httpx": "0.28.1",
+    "typing_extensions": "4.16.0",
+    "beautifulsoup4": "4.15.0",
+    "pypdfium2": "5.13.0",
+    "filetype": "1.2.0",
+    "psutil": "7.2.2",
+    "multiprocess": "0.70.19",
+    "regex": "2026.9.10",
+    "pillow": "12.3.0",
+    "anyio": "4.15.1",
+    "six": "1.17.0",
+    "python-oxmsg": "0.0.2",
+    "scipy": "1.18.1",
+    "dill": "0.4.1",
+    "sqlite-vec": "0.1.9",
+    "tree-sitter-javascript": "0.25.0",
+    "opencv-python-headless": "5.0.0.93"
+  },
+  "python_api": {
+    "pending": {
+      "schema_version": 1,
+      "request_id": "api-pending",
+      "ok": true,
+      "command": "add",
+      "data": {
+        "source_id": 2,
+        "revision_id": 2,
+        "revision_token": "djE6Mjox",
+        "state_version": 1,
+        "content_hash": "52cee2c95ec569122b73db30a6c371edade4ac650447f64416f636200998e97e",
+        "no_op": false,
+        "content_changed": true,
+        "head_revision_id": 2,
+        "ready_generation_id": null,
+        "ready_revision_id": null,
+        "searchable": false,
+        "processing_status": "pending",
+        "job_id": 3,
+        "generation_id": null
+      },
+      "error": null
+    },
+    "processed": {
+      "schema_version": 1,
+      "request_id": "api-process",
+      "ok": true,
+      "command": "manage retry",
+      "data": {
+        "source_id": 2,
+        "generation_id": 3,
+        "revision_id": 2,
+        "status": "ready",
+        "state_version": 2,
+        "revision_token": "djE6Mjoy",
+        "chunk_count": 1,
+        "searchable": true,
+        "processing_status": "ready",
+        "target_job_id": 3,
+        "executed_job_id": 3,
+        "profile_key": "002e5a81bbf23d75502ded8cb2cfcbb0af5ec79403f5e1f49d5d1d6b79ba9da7"
+      },
+      "error": null
+    }
+  },
+  "source_original_sha256": "1d114f04c46df603e9afb7514b61a0ca9b92b605b49ad210eda5df529039bbeb"
+}
