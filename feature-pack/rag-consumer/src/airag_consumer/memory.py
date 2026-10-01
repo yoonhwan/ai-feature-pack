@@ -1625,19 +1625,22 @@ def list_candidates(
     for row in rows:
         candidate = _candidate_from_row(row[:9])
         batch = _load_batch(connection, row[10])
+        source_current = _batch_context(connection, batch, current) is not None
         items.append({
             "candidate_id": candidate.candidate_id, "kind": candidate.kind,
             "disposition": row[8], "reason_code": row[11],
-            "conflict": candidate.conflict, "text": candidate.text,
+            "conflict": candidate.conflict,
+            # Derived text and quotes follow the source: outside the active window only metadata.
+            "text": candidate.text if source_current else None,
             "supporting_quotes": [
                 {"anchor_id": quote.anchor_id, "quote": quote.quote}
                 for quote in candidate.supporting_quotes
-            ],
+            ] if source_current else [],
             "proof_messages": [
                 {"anchor_id": anchor, "role": messages[anchor].role, "text": messages[anchor].text}
                 for anchor in candidate.proof_anchor_ids if anchor in messages
-            ],
-            "source_current": _batch_context(connection, batch, current) is not None,
+            ] if source_current else [],
+            "source_current": source_current,
         })
     return {"disposition": disposition, "total": total, "skipped": skip, "candidates": items}
 

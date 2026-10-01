@@ -1045,3 +1045,19 @@ def test_user_verification_rejects_a_solution_whose_source_changed():
         "reason": "SOURCE_CHANGED_BEFORE_CONFIRMATION",
     }
     assert con.execute("SELECT count(*) FROM airag_lifecycle_memories").fetchone() == (0,)
+
+
+def test_expired_source_candidates_expose_metadata_only():
+    # R4-M2: outside the 90-day active window a candidate's body and quotes stay hidden.
+    con, clock, runtime, auth = pending_decisions()
+    clock.value = datetime(2026, 5, 1, tzinfo=UTC)
+    state = runtime.refresh(auth)
+    assert state["reduction"]["eligible_message_keys"] == []
+    for disposition in ("awaiting_confirmation", "unverified"):
+        listed = list_candidates(runtime, auth, disposition=disposition)
+        assert listed["total"] > 0
+        for item in listed["candidates"]:
+            assert item["source_current"] is False
+            assert item["text"] is None
+            assert item["supporting_quotes"] == [] and item["proof_messages"] == []
+            assert item["kind"] and item["candidate_id"] and item["disposition"] == disposition
