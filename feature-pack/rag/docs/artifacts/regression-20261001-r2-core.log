@@ -1,0 +1,61 @@
+# AIRAG offline regression — core-r2
+# date: 2026-10-01 12:18:17 +0900
+# commit: 19e4a41 (branch feature/rag-transplant)
+# cwd: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag
+# command: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/bin/python -m pytest tests -q -p no:cacheprovider --basetemp=<scratch> 
+# python: Python 3.13.12
+# disk-before: 88Gi free
+# ---- pytest output follows; summary line = last pytest line ----
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+.....s.................................................................. [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+=============================== warnings summary ===============================
+tests/test_document_adapters.py::test_pdf_table_and_page_anchors
+tests/test_document_adapters.py::test_mixed_digital_scanned_pdf_and_private_ocr_temp_cleanup
+  /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/lib/python3.13/site-packages/pydantic/main.py:542: DeprecationWarning: `force_full_page_ocr` is deprecated; set `mode=OcrMode.FULL_PAGE` instead.
+    return self.__pydantic_serializer__.to_json(
+
+tests/test_document_adapters.py::test_korean_ocr_has_observed_regions_and_never_claims_original_byte_offsets[easyocr]
+  /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/lib/python3.13/site-packages/easyocr/detection.py:81: DeprecationWarning: torch.ao.quantization is deprecated and will be removed in 2.10. 
+  For migrations of users: 
+  1. Eager mode quantization (torch.ao.quantization.quantize, torch.ao.quantization.quantize_dynamic), please migrate to use torchao eager mode quantize_ API instead 
+  2. FX graph mode quantization (torch.ao.quantization.quantize_fx.prepare_fx,torch.ao.quantization.quantize_fx.convert_fx, please migrate to use torchao pt2e quantization API instead (prepare_pt2e, convert_pt2e) 
+  3. pt2e quantization has been migrated to torchao (https://github.com/pytorch/ao/tree/main/torchao/quantization/pt2e) 
+  see https://github.com/pytorch/ao/issues/2259 for more details
+    torch.quantization.quantize_dynamic(net, dtype=torch.qint8, inplace=True)
+
+tests/test_document_adapters.py::test_korean_ocr_has_observed_regions_and_never_claims_original_byte_offsets[easyocr]
+tests/test_document_adapters.py::test_korean_ocr_has_observed_regions_and_never_claims_original_byte_offsets[easyocr]
+  /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/lib/python3.13/site-packages/torch/ao/quantization/quantize.py:570: DeprecationWarning: torch.ao.quantization is deprecated and will be removed in 2.10. 
+  For migrations of users: 
+  1. Eager mode quantization (torch.ao.quantization.quantize, torch.ao.quantization.quantize_dynamic), please migrate to use torchao eager mode quantize_ API instead 
+  2. FX graph mode quantization (torch.ao.quantization.quantize_fx.prepare_fx,torch.ao.quantization.quantize_fx.convert_fx, please migrate to use torchao pt2e quantization API instead (prepare_pt2e, convert_pt2e) 
+  3. pt2e quantization has been migrated to torchao (https://github.com/pytorch/ao/tree/main/torchao/quantization/pt2e) 
+  see https://github.com/pytorch/ao/issues/2259 for more details
+    convert(model, mapping, inplace=True)
+
+tests/test_document_adapters.py::test_korean_ocr_has_observed_regions_and_never_claims_original_byte_offsets[easyocr]
+  /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/lib/python3.13/site-packages/easyocr/recognition.py:177: DeprecationWarning: torch.ao.quantization is deprecated and will be removed in 2.10. 
+  For migrations of users: 
+  1. Eager mode quantization (torch.ao.quantization.quantize, torch.ao.quantization.quantize_dynamic), please migrate to use torchao eager mode quantize_ API instead 
+  2. FX graph mode quantization (torch.ao.quantization.quantize_fx.prepare_fx,torch.ao.quantization.quantize_fx.convert_fx, please migrate to use torchao pt2e quantization API instead (prepare_pt2e, convert_pt2e) 
+  3. pt2e quantization has been migrated to torchao (https://github.com/pytorch/ao/tree/main/torchao/quantization/pt2e) 
+  see https://github.com/pytorch/ao/issues/2259 for more details
+    torch.quantization.quantize_dynamic(model, dtype=torch.qint8, inplace=True)
+
+tests/test_document_adapters.py::test_korean_ocr_has_observed_regions_and_never_claims_original_byte_offsets[easyocr]
+  /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/lib/python3.13/site-packages/torch/ao/nn/quantized/dynamic/modules/rnn.py:162: UserWarning: torch.quantize_per_tensor, torch.quantize_per_channel and other quantized tensor creation functions that produce tensors with dtype torch.quint8, torch.qint8, and torch.qint32 are deprecated and will be removed in a future PyTorch release. Please see https://github.com/pytorch/pytorch/issues/184982 for more information. (Triggered internally at /Users/runner/work/pytorch/pytorch/aten/src/ATen/quantized/Quantizer.cpp:116.)
+    w_ih = torch.quantize_per_tensor(
+
+tests/test_document_adapters.py::test_korean_ocr_has_observed_regions_and_never_claims_original_byte_offsets[easyocr]
+  /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/.venv/lib/python3.13/site-packages/torch/utils/data/dataloader.py:759: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+    super().__init__(loader)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+502 passed, 1 skipped, 31 deselected, 8 warnings in 188.75s (0:03:08)
+EXIT=0
+# disk-after: 88Gi free
