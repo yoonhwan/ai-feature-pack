@@ -434,3 +434,43 @@ def test_partial_log_writes_are_completed_or_reported(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "write", lambda fd, data: 0)
     with pytest.raises(OSError):
         tick.append_log(logs, NOW, '{"status":"ok"}')
+
+
+NATIVE_CHILD = '''
+import ctypes, sys
+from datetime import datetime, timezone
+from airag_consumer import tick
+from airag_consumer.runtime import RuntimeHooks
+from test_runtime import Clock, SyntheticBridge
+
+
+class NativeBridge(SyntheticBridge):
+    @staticmethod
+    def publish_pending_windows(lifecycle, scope, core, **kwargs):
+        ctypes.CDLL(None).printf(b"MARKER_NATIVE\\n")  # libc stdio, deliberately never flushed
+        return SyntheticBridge.publish_pending_windows(lifecycle, scope, core, **kwargs)
+
+
+import json, os
+env = json.loads(os.environ["TICK_CHILD_ENV"])
+code = tick.main(sys.argv[1:], environ=env, clock=Clock(datetime(2026, 9, 27, 4, tzinfo=timezone.utc)),
+                 hooks=RuntimeHooks(bridge=NativeBridge()))
+sys.exit(0 if code == 0 else 1)
+'''
+
+
+def test_native_libc_output_does_not_reach_the_tick_stdout(tmp_path):
+    # S1 Red (R10-M1): libc stdio flushed at interpreter exit must not appear on the tick's stdout.
+    import subprocess
+
+    item, _ = synthetic_service(tmp_path)
+    here = Path(__file__).resolve().parent
+    env = {**base_environment(), **KEYS}
+    proc = subprocess.run(
+        [sys.executable, "-c", NATIVE_CHILD, "--config", str(item["config"]), "--log-dir", str(tmp_path / "logs")],
+        env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{here.parent / 'src'}:{here}",
+             "TICK_CHILD_ENV": json.dumps(env)},
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr[-300:]
+    assert "MARKER_NATIVE" not in proc.stdout + proc.stderr
