@@ -1,0 +1,33 @@
+# deselected (integration marker) test ids — rag core, collected 2026-10-01
+# command: .venv/bin/python -m pytest tests --collect-only -q -p no:cacheprovider -m integration
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[pdf]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[docx]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[xlsx]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[hwp]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[hwpx]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[ocr]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[vision]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[empty]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[long]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[ko]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[en]
+tests/test_acceptance_live.py::test_installed_cli_full_format_state_lifecycle[conversation]
+tests/test_chunking.py::test_chunk_document_with_real_qwen_tokenizer_korean_and_english
+tests/test_chunking.py::test_chunk_document_real_tokenizer_long_paragraph_split_gets_exact_subspans
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[pdf]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[docx]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[xlsx]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[hwp]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[hwpx]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[hwpx_text]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[mixed_pdf]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[ocr]
+tests/test_documents_live.py::test_actual_document_gpu_roundtrip[vision]
+tests/test_embeddings.py::test_embed_query_and_documents_against_real_lmstudio
+tests/test_embeddings.py::test_embed_documents_on_batch_hook_fires_per_batch
+tests/test_embeddings.py::test_embed_query_too_long_is_rejected_not_truncated
+tests/test_expansion_live.py::test_real_gpu_cli_expansion_snapshot_budget_and_replay
+tests/test_llm_enrichment.py::test_count_tokens_against_real_byz_llm_tokenize_endpoint
+tests/test_llm_enrichment.py::test_enrich_units_against_real_byz_llm_small_scale
+tests/test_llm_enrichment.py::test_plan_semantic_groups_against_real_byz_llm_small_scale
+tests/test_pipeline_live.py::test_live_gpu_enrichment_embedding_search_and_manifest
