@@ -113,3 +113,46 @@ def test_codes_are_reported_without_reading_any_source(monkeypatch):
     stream = json.dumps({"ok": False, "error": {"code": "SYMLINK_PATH_REJECTED", "type": "RuntimeError"}})
     assert _result.error_fields(stream) == ("SYMLINK_PATH_REJECTED", "RuntimeError")
     assert _result.error_fields(json.dumps({"error": {"code": "OP_SERVICE_ACCOUNT_TOKEN"}}))[0] == "RUNTIME_FAILED"
+
+
+# --- R11-m3: callee identity (same-named functions in different modules must not share a binding) -----------
+
+CODE_MODULE = 'def _identifier(value, code):\n    raise RuntimeError(code)\n'
+FIELD_MODULE = 'def _identifier(value, field):\n    return value\n_identifier(v, "PATH")\n'
+
+
+def kind_of_value(sources: dict[str, str], path: str, value: str) -> str:
+    return next(o.kind for o in regen.scan(sources) if o.path == path and o.value == value)
+
+
+def test_a_same_named_function_with_a_field_parameter_does_not_declare_its_literal():
+    sources = {"reason.py": CODE_MODULE, "data.py": FIELD_MODULE}
+    assert kind_of_value(sources, "data.py", "PATH") != "declaration"
+    assert "PATH" not in regen.classify(regen.scan(sources), {}).registry
+
+
+def test_a_local_definition_wins_for_a_plain_call():
+    sources = {"reason.py": CODE_MODULE + '_identifier(v, "XX_CODE")\n', "data.py": FIELD_MODULE}
+    assert kind_of_value(sources, "reason.py", "XX_CODE") == "declaration"
+
+
+def test_an_imported_name_with_conflicting_definitions_is_ambiguous_not_guessed():
+    sources = {
+        "reason.py": CODE_MODULE, "data.py": FIELD_MODULE,
+        "caller.py": 'from reason import _identifier\n_identifier(v, "YY_CODE")\n',
+    }
+    assert kind_of_value(sources, "caller.py", "YY_CODE") == "structural"  # review decides, never a silent union
+
+
+def test_a_method_call_on_another_receiver_with_conflicting_definitions_is_ambiguous():
+    sources = {
+        "a.py": 'class A:\n    def check(self, code):\n        ...\n',
+        "b.py": 'class B:\n    def check(self, other):\n        ...\n',
+        "c.py": 'obj.check("ZZ_CODE")\n',
+    }
+    assert kind_of_value(sources, "c.py", "ZZ_CODE") == "structural"
+
+
+def test_an_unambiguous_name_defined_in_another_module_still_binds():
+    sources = {"reason.py": CODE_MODULE, "caller.py": 'from reason import _identifier\n_identifier(v, "WW_CODE")\n'}
+    assert kind_of_value(sources, "caller.py", "WW_CODE") == "declaration"

@@ -78,24 +78,39 @@ def _is_dataclass(node: ast.ClassDef) -> bool:
     return any(_name(d.func if isinstance(d, ast.Call) else d) == "dataclass" for d in node.decorator_list)
 
 
-def build_bindings(trees: dict[str, ast.Module]) -> tuple[dict[str, Binding], set[str]]:
-    """Code-parameter bindings by callee name (functions, methods, constructors) + exception class names."""
-    functions: dict[str, Binding] = {}
+@dataclass(frozen=True)
+class Bindings:
+    """Code-parameter bindings by definition site: per module, and across all modules."""
+
+    local: dict[str, dict[str, frozenset[Binding]]]
+    anywhere: dict[str, frozenset[Binding]]
+
+    def lookup(self, path: str, call: ast.Call) -> Binding | None:
+        """The binding a call's callee resolves to; None when same-named definitions disagree (ambiguous).
+
+        A plain name or ``self``/``cls`` receiver prefers the calling module's own definition; any other
+        receiver, or a name defined elsewhere, only resolves when every definition agrees.
+        """
+        func = call.func
+        name = _name(func)
+        own_scope = isinstance(func, ast.Name) or (
+            isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id in ("self", "cls")
+        )
+        found = self.local.get(path, {}).get(name) if own_scope else None
+        if not found:
+            found = self.anywhere.get(name, frozenset())
+        if not found:
+            return _NONE
+        return next(iter(found)) if len(found) == 1 else None
+
+
+def build_bindings(trees: dict[str, ast.Module]) -> Bindings:
+    """Code-parameter bindings (functions, methods, constructors) plus exception messages-as-codes."""
     classes: dict[str, ast.ClassDef] = {}
     for tree in trees.values():
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 classes[node.name] = node
-    for tree in trees.values():
-        methods = {id(f) for c in ast.walk(tree) if isinstance(c, ast.ClassDef)
-                   for f in c.body if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))}
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name != "__init__":
-                b = _binding(_params(node.args, method=id(node) in methods))
-                old = functions.get(node.name, _NONE)
-                functions[node.name] = Binding(old.positional | b.positional, old.keywords | b.keywords)
-
-    exceptions: set[str] = set()
 
     def is_exception(name: str, seen: frozenset[str] = frozenset()) -> bool:
         if name in seen:
@@ -121,33 +136,42 @@ def build_bindings(trees: dict[str, ast.Module]) -> tuple[dict[str, Binding], se
                 return inherited
         return None
 
-    constructors: dict[str, Binding] = {}
-    for name in classes:
-        if is_exception(name):
-            exceptions.add(name)
-        found = class_binding(name)
-        if found is not None and (found.positional or found.keywords):
-            constructors[name] = found
-        elif name in exceptions:
-            constructors[name] = Binding(frozenset({0}), frozenset())  # the message is the reported code
-        else:
-            constructors.setdefault(name, _NONE)
+    message_is_code = Binding(frozenset({0}), frozenset())
+    local: dict[str, dict[str, set[Binding]]] = {}
+    anywhere: dict[str, set[Binding]] = {}
+
+    def define(path: str, name: str, binding: Binding) -> None:
+        local.setdefault(path, {}).setdefault(name, set()).add(binding)
+        anywhere.setdefault(name, set()).add(binding)
+
+    for path, tree in trees.items():
+        methods = {id(f) for c in ast.walk(tree) if isinstance(c, ast.ClassDef)
+                   for f in c.body if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name != "__init__":
+                define(path, node.name, _binding(_params(node.args, method=id(node) in methods)))
+            elif isinstance(node, ast.ClassDef):
+                found = class_binding(node.name)
+                if found is not None and (found.positional or found.keywords):
+                    define(path, node.name, found)
+                elif is_exception(node.name):
+                    define(path, node.name, message_is_code)  # the message is the reported code
+                else:
+                    define(path, node.name, _NONE)
     for name in dir(builtins):
         if is_exception(name):
-            exceptions.add(name)
-            constructors.setdefault(name, Binding(frozenset({0}), frozenset()))
-    merged = dict(functions)
-    for name, binding in constructors.items():
-        old = merged.get(name, _NONE)
-        merged[name] = Binding(old.positional | binding.positional, old.keywords | binding.keywords)
-    return merged, exceptions
+            anywhere.setdefault(name, set()).add(message_is_code)
+    return Bindings(
+        {p: {n: frozenset(b) for n, b in names.items()} for p, names in local.items()},
+        {n: frozenset(b) for n, b in anywhere.items()},
+    )
 
 
 def _parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     return {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
 
 
-def _kind(node: ast.Constant, parents: dict[ast.AST, ast.AST], bindings: dict[str, Binding]) -> str:
+def _kind(node: ast.Constant, parents: dict[ast.AST, ast.AST], path: str, bindings: Bindings) -> str:
     parent = parents.get(node)
     if isinstance(parent, (ast.Tuple, ast.List, ast.Set)) and isinstance(parents.get(parent), ast.Compare):
         return "compare"
@@ -157,13 +181,17 @@ def _kind(node: ast.Constant, parents: dict[ast.AST, ast.AST], bindings: dict[st
         callee = _name(parent.func)
         if any(isinstance(a, ast.Starred) for a in parent.args[:parent.args.index(node)]):
             return "structural"
-        if parent.args.index(node) in bindings.get(callee, _NONE).positional:
+        bound = bindings.lookup(path, parent)
+        if bound is None:
+            return "structural"  # same-named definitions disagree: a person decides
+        if parent.args.index(node) in bound.positional:
             return "declaration"
         return "data" if callee in DATA_CALLS else "structural"
     if isinstance(parent, ast.keyword):
         call = parents.get(parent)
         if parent.arg in PARAMS:
-            if isinstance(call, ast.Call) and parent.arg in bindings.get(_name(call.func), _NONE).keywords:
+            bound = bindings.lookup(path, call) if isinstance(call, ast.Call) else None
+            if bound is not None and parent.arg in bound.keywords:
                 return "declaration"
             return "structural"
         return "data"
@@ -182,13 +210,13 @@ def _kind(node: ast.Constant, parents: dict[ast.AST, ast.AST], bindings: dict[st
 
 def scan(sources: dict[str, str]) -> list[Occurrence]:
     trees = {path: ast.parse(text, filename=path) for path, text in sources.items()}
-    bindings, _ = build_bindings(trees)
+    bindings = build_bindings(trees)
     found: list[Occurrence] = []
     for path, tree in trees.items():
         parents = _parents(tree)
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and CODE.fullmatch(node.value):
-                found.append(Occurrence(path, node.lineno, node.value, _kind(node, parents, bindings)))
+                found.append(Occurrence(path, node.lineno, node.value, _kind(node, parents, path, bindings)))
     return sorted(found, key=lambda o: (o.path, o.line, o.value))
 
 
