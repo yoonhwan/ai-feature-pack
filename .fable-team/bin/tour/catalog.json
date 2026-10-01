@@ -137,10 +137,12 @@
       "id": "14-memory-confirmation",
       "title": "기억 후보 확인·거절·검증",
       "launcher": "14-memory-confirmation.command",
-      "user_accepted": false,
+      "user_accepted": true,
       "acceptance_status": "awaiting_user_run",
       "outcome": "memory_confirmation_reviewed",
-      "note": "4순위: 백업·검증 후 사용자가 고른 후보만 승인·거절·검증. 실운영 실행·수용은 사용자 몫"
+      "note": "4순위: 백업·검증 후 사용자가 고른 후보만 승인·거절·검증. 실운영 실행·수용은 사용자 몫",
+      "accepted_at": "2026-10-01",
+      "accepted_evidence": "user run 2026-10-01 14:19-14:20: backup airag-set-20261001T141910-vtr794ux verified; approve 10 materialized; verify 10 materialized; remaining awaiting 51 / unverified 25 held by user decision"
     }
   ],
   "credentials": {
