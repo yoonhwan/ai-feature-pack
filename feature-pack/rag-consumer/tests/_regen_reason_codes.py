@@ -106,35 +106,40 @@ class Bindings:
 
 def build_bindings(trees: dict[str, ast.Module]) -> Bindings:
     """Code-parameter bindings (functions, methods, constructors) plus exception messages-as-codes."""
-    classes: dict[str, ast.ClassDef] = {}
+    classes: dict[str, list[ast.ClassDef]] = {}  # every definition of a class name, never one overwriting another
     for tree in trees.values():
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                classes[node.name] = node
+                classes.setdefault(node.name, []).append(node)
 
-    def is_exception(name: str, seen: frozenset[str] = frozenset()) -> bool:
-        if name in seen:
-            return False
-        if name in classes:
-            return any(is_exception(_name(b), seen | {name}) for b in classes[name].bases)
+    def builtin_exception(name: str) -> bool:
         return isinstance(getattr(builtins, name, None), type) and issubclass(getattr(builtins, name), BaseException)
 
-    def class_binding(name: str, seen: frozenset[str] = frozenset()) -> Binding | None:
-        node = classes.get(name)
-        if node is None or name in seen:
-            return None
+    def is_exception(node: ast.ClassDef, seen: frozenset[int] = frozenset()) -> bool:
+        if id(node) in seen:
+            return False
+        return any(
+            any(is_exception(c, seen | {id(node)}) for c in classes[_name(b)]) if _name(b) in classes
+            else builtin_exception(_name(b))
+            for b in node.bases
+        )
+
+    def class_bindings(node: ast.ClassDef, seen: frozenset[int] = frozenset()) -> frozenset[Binding]:
+        """Constructor bindings this exact class can have; several when a same-named base is defined twice."""
+        if id(node) in seen:
+            return frozenset()
         for item in node.body:
             if isinstance(item, ast.FunctionDef) and item.name == "__init__":
-                return _binding(_params(item.args, method=True))
+                return frozenset({_binding(_params(item.args, method=True))})
         if _is_dataclass(node):
             fields = [t.target.id for t in node.body if isinstance(t, ast.AnnAssign) and isinstance(t.target, ast.Name)
                       and "ClassVar" not in ast.dump(t.annotation)]
-            return _binding([(f, i) for i, f in enumerate(fields)])
+            return frozenset({_binding([(f, i) for i, f in enumerate(fields)])})
         for base in node.bases:
-            inherited = class_binding(_name(base), seen | {name})
-            if inherited is not None:
+            inherited = frozenset().union(*(class_bindings(c, seen | {id(node)}) for c in classes.get(_name(base), ())))
+            if inherited:
                 return inherited
-        return None
+        return frozenset()
 
     message_is_code = Binding(frozenset({0}), frozenset())
     local: dict[str, dict[str, set[Binding]]] = {}
@@ -151,15 +156,15 @@ def build_bindings(trees: dict[str, ast.Module]) -> Bindings:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name != "__init__":
                 define(path, node.name, _binding(_params(node.args, method=id(node) in methods)))
             elif isinstance(node, ast.ClassDef):
-                found = class_binding(node.name)
-                if found is not None and (found.positional or found.keywords):
-                    define(path, node.name, found)
-                elif is_exception(node.name):
-                    define(path, node.name, message_is_code)  # the message is the reported code
-                else:
-                    define(path, node.name, _NONE)
+                for binding in class_bindings(node) or {_NONE}:
+                    if binding.positional or binding.keywords:
+                        define(path, node.name, binding)
+                    elif is_exception(node):
+                        define(path, node.name, message_is_code)  # the message is the reported code
+                    else:
+                        define(path, node.name, _NONE)
     for name in dir(builtins):
-        if is_exception(name):
+        if name not in classes and builtin_exception(name):
             anywhere.setdefault(name, set()).add(message_is_code)
     return Bindings(
         {p: {n: frozenset(b) for n, b in names.items()} for p, names in local.items()},
