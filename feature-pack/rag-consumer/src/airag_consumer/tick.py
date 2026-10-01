@@ -13,7 +13,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import fcntl
-from functools import lru_cache
 import io
 import json
 import os
@@ -26,6 +25,7 @@ import sys
 import time
 from typing import Callable, Mapping, Sequence, TextIO
 
+from ._result import error_fields, summarize
 from .operations import KEY_NAMES
 
 NAMES = tuple(KEY_NAMES.values())
@@ -38,8 +38,6 @@ DEFAULT_LOG_DIR = Path.home() / ".local" / "share" / "airag" / "logs"
 LOG_MAX_BYTES = 1_000_000
 LOG_KEEP_DAYS = 14
 _KEY = re.compile(r"[0-9a-fA-F]{64}")
-_CODE = re.compile(r"[A-Z][A-Z0-9_]{1,100}")
-_TYPE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,60}")
 # The only environment an `op` child gets besides the service-account token.
 OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
 
@@ -160,80 +158,6 @@ def append_log(log_dir: Path, now: datetime, line: str) -> None:
                 pass
 
 
-def _counts(data: Mapping[str, object]) -> dict[str, object]:
-    """Numbers and flags only: never conversation, memory text, quotes or paths."""
-    summary: dict[str, object] = {}
-    collected = data.get("collected")
-    if isinstance(collected, list):
-        rows = [row for row in collected if isinstance(row, dict)]
-        summary["sources"] = len(rows)
-        summary["accepted"] = sum(row.get("accepted_count", 0) for row in rows if type(row.get("accepted_count")) is int)
-        summary["gaps"] = sum(row.get("gap_count", 0) for row in rows if type(row.get("gap_count")) is int)
-        for key in ("committed_native_offset", "pending_bytes"):
-            summary[f"{key}_total"] = sum(row[key] for row in rows if type(row.get(key)) is int)
-        summary["coverage_complete"] = bool(rows) and all(row.get("coverage_complete") is True for row in rows)
-    published = data.get("published")
-    if isinstance(published, dict):
-        for key in ("attempted", "succeeded"):
-            if type(published.get(key)) is int:
-                summary[f"published_{key}"] = published[key]
-    memory = data.get("memory")
-    if isinstance(memory, dict):
-        summary["memory_enabled"] = memory.get("enabled") is True
-        for key in (
-            "attempts", "candidate_count", "materialized_count", "awaiting_confirmation_count",
-            "unverified_count", "conflict_count", "rejected_count", "batch_message_count",
-        ):
-            if type(memory.get(key)) is int:
-                summary[f"memory_{key}"] = memory[key]
-        if isinstance(memory.get("provider_called"), bool):
-            summary["memory_provider_called"] = memory["provider_called"]
-    if isinstance(data.get("archives"), list):
-        summary["archived"] = len(data["archives"])
-    backup = data.get("backup")
-    if isinstance(backup, dict):
-        summary["backup_due"] = backup.get("due") is True
-        summary["backup_created"] = backup.get("created") is True
-    return summary
-
-
-@lru_cache(maxsize=1)
-def _known_codes() -> frozenset[str]:
-    """Reason codes this software really emits: every uppercase literal in its own sources."""
-    roots = [Path(__file__).resolve().parent]
-    try:
-        import airag
-
-        roots.append(Path(airag.__file__).resolve().parent)
-    except Exception:
-        pass
-    found: set[str] = set()
-    for root in roots:
-        for path in root.rglob("*.py"):
-            try:
-                found.update(re.findall(r"""["']([A-Z][A-Z0-9_]{1,100})["']""", path.read_text(encoding="utf-8")))
-            except OSError:
-                continue
-    return frozenset(found)
-
-
-def _safe_code(value: object) -> str:
-    """Report a reason code only if it is a known literal; an error message is data, not a code."""
-    if isinstance(value, str) and _CODE.fullmatch(value) and value in _known_codes():
-        return value
-    return "RUNTIME_FAILED"
-
-
-def _error_fields(stream: str) -> tuple[str, str]:
-    try:
-        error = json.loads(stream.strip().splitlines()[-1])["error"]
-    except (ValueError, KeyError, IndexError, TypeError):
-        return "RUNTIME_FAILED", ""
-    kind = error.get("type") if isinstance(error, dict) else None
-    kind = kind if isinstance(kind, str) and _TYPE.fullmatch(kind) and not re.search(r"[0-9a-fA-F]{16}", kind) else ""
-    return _safe_code(error.get("code") if isinstance(error, dict) else None), kind
-
-
 @contextmanager
 def _discard_component_output():
     """Whatever components print during the pass is dropped, at the Python and the file-descriptor level.
@@ -310,13 +234,13 @@ def main(
                     stdout=stdout_buffer, stderr=stderr_buffer,
                 )
             if result != 0:
-                reason, kind = _error_fields(stderr_buffer.getvalue())
+                reason, kind = error_fields(stderr_buffer.getvalue())
                 raise TickError(EXIT_RUNTIME, reason, kind)
             try:
                 data = json.loads(stdout_buffer.getvalue())["data"]
             except (ValueError, KeyError, TypeError):
                 raise TickError(EXIT_RUNTIME, "RUNTIME_OUTPUT_INVALID") from None
-            summary = _counts(data if isinstance(data, dict) else {})
+            summary = summarize(data if isinstance(data, dict) else {})
             summary["pass_elapsed_s"] = round(time.monotonic() - started, 3)
             exit_code = EXIT_OK
         finally:
