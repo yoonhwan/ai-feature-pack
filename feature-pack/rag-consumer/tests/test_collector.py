@@ -495,3 +495,144 @@ def test_a_changed_device_does_not_bypass_the_prefix_and_truncation_checks(tmp_p
         path.write_bytes(meta)
         with pytest.raises(EventError, match="SOURCE_TRUNCATED"):
             run_collect(ledger, path, collector_scope)
+
+
+def test_a_replacement_file_is_still_rejected_even_when_the_device_also_changed(tmp_path, collector_scope, monkeypatch):
+    path = tmp_path / "rollout.jsonl"
+    original = write_rollout(path, session_meta(), message(1, "user-1", "user", ["body"]))
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        replacement = tmp_path / "replacement.jsonl"
+        replacement.write_bytes(original)
+        os.replace(replacement, path)  # new inode, identical bytes
+        shift_device(monkeypatch, path)
+        with pytest.raises(EventError, match="COLLECTOR_SOURCE_BINDING_MISMATCH"):
+            run_collect(ledger, path, collector_scope)
+
+
+def _collect_as(ledger, path, *, source_path=None, session=SESSION, tenant="synthetic", project="airag-collector"):
+    return collect_codex_rollout(
+        ledger, source_path=source_path or path, allowed_real_paths=(source_path or path,),
+        source_id="synthetic-rollout", expected_session_id=session,
+        expected_scope=AccessScope(tenant, project, session),
+        clock=lambda: datetime(2026, 9, 27, 1, 2, 3, tzinfo=timezone.utc),
+    )
+
+
+@pytest.mark.parametrize("field", ["path", "session", "tenant", "project", "normalized_source_id"])
+def test_every_identity_field_other_than_the_device_is_still_enforced(tmp_path, collector_scope, field):
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["body"]))
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)  # same source_id keeps the same primary key
+        if field == "path":
+            alias = tmp_path / "alias.jsonl"
+            os.link(path, alias)  # same inode and device, other path
+            attempt = lambda: _collect_as(ledger, path, source_path=alias)
+        elif field == "session":
+            write_rollout(path, session_meta(session_id="other-session-02"), message(1, "user-1", "user", ["body"]))
+            attempt = lambda: _collect_as(ledger, path, session="other-session-02")
+        elif field == "tenant":
+            attempt = lambda: _collect_as(ledger, path, tenant="other-tenant")
+        elif field == "project":
+            attempt = lambda: _collect_as(ledger, path, project="other-project")
+        else:
+            ledger._con.execute("UPDATE airag_rollout_collector_sources SET normalized_source_id='tampered'")
+            ledger._con.commit()
+            attempt = lambda: run_collect(ledger, path, collector_scope)
+        with pytest.raises(EventError, match="COLLECTOR_SOURCE_BINDING_MISMATCH"):
+            attempt()
+
+
+@pytest.mark.parametrize("column,value", [
+    ("incarnation", "codex-rollout:" + "0" * 64), ("device", "424242"), ("inode", "424242"),
+])
+def test_a_tampered_stored_row_is_rejected_by_its_own_consistency_check(tmp_path, collector_scope, column, value):
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["body"]))
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        ledger._con.execute(f"UPDATE airag_rollout_collector_sources SET {column}=?", (value,))
+        ledger._con.commit()
+        with pytest.raises(EventError, match="COLLECTOR_SOURCE_BINDING_MISMATCH"):
+            run_collect(ledger, path, collector_scope)
+
+
+def test_a_pending_plan_replays_after_a_device_change_without_touching_the_epoch(tmp_path, collector_scope, monkeypatch):
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["durable body"]))
+    original = collector._finalize_plan
+    failed = False
+
+    def lose_ack(ledger, fd, source, plan, expected_scope, opened):
+        nonlocal failed
+        if plan.disposition == "accepted" and not failed:
+            failed = True
+            raise RuntimeError("synthetic lost ack")
+        return original(ledger, fd, source, plan, expected_scope, opened)
+
+    monkeypatch.setattr(collector, "_finalize_plan", lose_ack)
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        with pytest.raises(RuntimeError, match="lost ack"):
+            run_collect(ledger, path, collector_scope)
+        before_events = stored_events(ledger)
+        before_row = source_row(ledger)
+        plan = ledger._con.execute(
+            "SELECT first_seen_at,normalized_sha256 FROM airag_rollout_collector_plans WHERE disposition='accepted'"
+        ).fetchone()
+    monkeypatch.setattr(collector, "_finalize_plan", original)
+    shift_device(monkeypatch, path)  # the "reboot" happens between the crash and the restart
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        state = ledger._con.execute(
+            "SELECT state,first_seen_at,normalized_sha256 FROM airag_rollout_collector_plans WHERE disposition='accepted'"
+        ).fetchone()
+        assert state == ("finalized", *plan)
+        assert stored_events(ledger) == before_events and source_row(ledger) == before_row
+
+
+@pytest.mark.parametrize("how", ["zero_limit", "interrupted"])
+def test_a_row_with_nothing_consumed_yet_survives_a_device_change(tmp_path, collector_scope, monkeypatch, how):
+    """A zero-prefix row proves nothing about past bytes; B2 fields alone admit it and the epoch is kept."""
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["body"]))
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        if how == "zero_limit":
+            run_collect(ledger, path, collector_scope, captured_byte_limit=0)
+        else:
+            def boom(*args, **kwargs):
+                raise RuntimeError("synthetic interruption")
+
+            with monkeypatch.context() as patch:
+                patch.setattr(collector, "_pending_plan", boom)
+                with pytest.raises(RuntimeError, match="interruption"):
+                    run_collect(ledger, path, collector_scope)
+        row = source_row(ledger)
+        assert ledger._con.execute("SELECT next_native_offset FROM airag_rollout_collector_sources").fetchone() == (0,)
+        shift_device(monkeypatch, path)
+        run_collect(ledger, path, collector_scope)
+        assert len(stored_events(ledger)) == 1 and source_row(ledger) == row
+
+
+def test_cross_volume_clone_with_the_same_prefix_is_accepted_by_design(tmp_path, collector_scope, monkeypatch):
+    """INTENDED CONTRACT: content continuity, not physical volume identity.
+
+    A different physical file that reports the same inode number on another device, at the same path with the
+    same session and the same consumed prefix, is taken as the same source and its new suffix is collected under
+    the old epoch. Physical volume identity is not guaranteed (design 3.2). A different inode on the same device
+    is still refused (see the replacement test).
+    """
+    path = tmp_path / "rollout.jsonl"
+    original = write_rollout(path, session_meta(), message(1, "user-1", "user", ["body"]))
+    stored_inode = os.stat(path).st_ino
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        epoch = stored_events(ledger)[0]["producer_epoch"]
+        clone = tmp_path / "clone.jsonl"
+        clone.write_bytes(original + native_line(message(2, "user-2", "user", ["divergent suffix"])))
+        os.replace(clone, path)
+        assert os.stat(path).st_ino != stored_inode  # a genuinely different file...
+        shift_device(monkeypatch, path, inode=stored_inode)  # ...that claims the old inode on another device
+        run_collect(ledger, path, collector_scope)
+        events = stored_events(ledger)
+        assert len(events) == 2 and {e["producer_epoch"] for e in events} == {epoch}
