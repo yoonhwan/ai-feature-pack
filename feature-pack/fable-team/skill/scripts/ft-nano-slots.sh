@@ -2,12 +2,46 @@
 # ft-nano-slots.sh — 나노 슬롯 채움 상태 1블록 (오빠 2026-10-02 16:2x 「나노가 또 놀고있네? … 열었다 닫고 다음거 안시키고 슬롯을 비워두네」)
 #   규칙: 메인(master)이 정한 나노 슬롯(FT_NANO_SLOTS · 기본 6)은 «항상 채운다» — 닫는 같은 턴에 대기/ 카드로 spawn.
 #   arch 지정을 기다리지 않는다. 예외(시험 겹침 · 최우선 작업이 슬롯을 요구)는 그 사유를 보고에 한 줄로 쓴다.
+#   --inventory = 미랜딩 nano/* 브랜치 전수 행(M7 범위 5 · single_set_testing §3 말미 «간과 금지»): 매 틱 호출용이라 브랜치별 git cherry 금지(590개에 120 s+).
+#     분모 = `for-each-ref --no-merged=<feat> refs/heads/nano/`(조상 미포함) − 랜딩 원장(FT_NANO_LANDING_LEDGER jsonl {branch,tip,squash_sha}) 중 tip 이 현재 tip 과 같은 것.
+#     squash 는 조상 관계를 안 만들어 원장 없이는 랜딩된 브랜치가 영원히 «미랜딩» 으로 남는다. 행: 브랜치\t마지막 커밋 날짜\t미랜딩 커밋 수\t카드 상태(대기|진행|완성|없음).
 #   출력만 한다(판정·spawn 은 master). ft-nano-close.sh 가 CLOSED 직후 부른다 · ft-news-tick 에서도 부를 수 있다.
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 MAX="${FT_NANO_SLOTS:-6}"
 IDX_DIR="${FT_INDEX_DIR:-$WT/design/v65/indices}"
+if [ "${1:-}" = "--inventory" ]; then
+  FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"; LANDING="${FT_NANO_LANDING_LEDGER:-$ROOT/.fable-team/state/nano-landing.jsonl}"
+  refs="$(git -C "$WT" for-each-ref --no-merged="$FEAT" --format='%(refname:short)|%(committerdate:short)|%(objectname)|%(ahead-behind:'"$FEAT"')' refs/heads/nano/)" \
+    || { echo "FAIL ft-nano-slots --inventory — git for-each-ref 실패(feat=$FEAT)" >&2; exit 1; }
+  python3 - "$LANDING" "$IDX_DIR" "$FEAT" "$refs" <<'PY'
+import json, os, sys
+ledger, idx, feat, refs = sys.argv[1:5]
+landed = {}
+if os.path.isfile(ledger):
+    for ln in open(ledger, encoding="utf-8"):
+        ln = ln.strip()
+        if ln:
+            r = json.loads(ln)
+            landed[r["branch"]] = r["tip"]
+rows, total = [], 0
+for ln in refs.splitlines():
+    name, date, tip, ab = ln.split("|", 3)
+    total += 1
+    if landed.get(name) == tip:
+        continue
+    ahead = ab.split()[0] if ab.strip() else "?"
+    slug = name.split("/", 1)[1]
+    card = next((st for st in ("진행", "대기", "완성") if os.path.isfile(os.path.join(idx, st, slug + ".md"))), "없음")
+    rows.append((date, name, ahead, card))
+rows.sort()
+print(f"INVENTORY unlanded={len(rows)} (분모: 조상 미포함 {feat} --no-merged nano/* {total}개 − 랜딩 원장 tip 일치 {total - len(rows)}개 · 오래된 순)")
+for date, name, ahead, card in rows:
+    print(f"{name}\t{date}\t{ahead}\t{card}")
+PY
+  exit $?
+fi
 LIVE="$(tmux ls -F '#S' 2>/dev/null)"
 IDLE_MIN="${FT_NANO_IDLE_MIN:-10}"
 # 좌석별 턴 상태(WORKING/IDLE …) + 마지막 활동 초 — 「press·DA 대기로 노는 석」도 슬롯을 먹는다(오빠 10-02 실측: 9석 중 3석 대기)
