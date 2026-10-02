@@ -242,6 +242,17 @@ if [ -n "$CARD" ] && grep -qF 'ft-checkpoint.sh' "$CARD"; then
     [ "$cp_al" = "no" ] || bad+=("④마지막 checkpoint alarm=$cp_al exit=$cp_ex — 경보면 4축 정리 → arch(+DA) 처방 → 수정 → 재실행 후 닫는다")
   fi
 fi
+# ⑤ 산출물 회수 — 그 좌석 브랜치의 «+» 커밋(git cherry <feat> <branch>)이 0 (G4 · 골좌표 M7). 좌석이 닫혔다 ≠ 산출물이 들어왔다.
+#   feat = FT_NANO_FEAT(기본 feat/v6-realtime-live) · 브랜치 = 워크트리 .worktree-info.json 의 branch, 워크트리가 없으면 nano/<key>. 못 찾으면 REJECT(침묵 통과 0).
+_gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$ROOT/.worktrees/v65-$_KEY/.worktree-info.json" 2>/dev/null)"
+[ -n "$_gate_br" ] || _gate_br="nano/$_KEY"
+if [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
+  _gate_out="$("$HERE/ft-nano-cherry-gate.sh" "${FT_NANO_FEAT:-feat/v6-realtime-live}" "$_gate_br" --repo "$ROOT" 2>&1)"; _gate_rc=$?
+  [ "$_gate_rc" -eq 0 ] || bad+=("⑤$(printf '%s' "$_gate_out" | sed '2,$s/^/    /')")
+  [ "$_gate_rc" -ne 0 ] || echo "$_gate_out"
+else
+  bad+=("⑤cherry 게이트 스크립트 없음: $HERE/ft-nano-cherry-gate.sh (런타임 bin 에 같이 복사)")
+fi
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
 
 # 재실행 감지 — 명부에 좌석이 이미 없으면(해제/kill 실패 뒤 같은 close 재호출) 원장 닫힘 행이 이미 있는 한 append 하지 않는다(멱등).
