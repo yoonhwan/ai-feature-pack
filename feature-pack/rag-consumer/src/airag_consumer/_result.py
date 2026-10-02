@@ -142,6 +142,8 @@ def _publish_group_ok(summary: Mapping[str, object]) -> bool:
     keys = [(-count, code) for count, code in tally]
     if any(count <= 0 for count, _ in tally) or any(a >= b for a, b in zip(keys, keys[1:])):
         return False
+    if len({code for _, code in tally}) != k:  # a code owns one rank, whatever its count
+        return False
     if sum(count for count, _ in tally) + other != failed:
         return False
     return not (k < len(_SLOTS) and other != 0) and not (failed == 0 and k != 0)
