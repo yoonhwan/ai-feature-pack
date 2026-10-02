@@ -907,9 +907,8 @@ def test_tally_top3_with_other_and_tie_order():
              + failing("CORE_NOT_SEARCHABLE") + failing("CORE_PUBLICATION_FAILED"))
     s = summary_of(items)["summary"]
     assert (s["published_failed"], s["published_failed_other"]) == (7, 2)
-    assert [s[f"published_failed_code_{i}"] for i in (1, 2, 3)] == [
-        "PROVIDER_TIMEOUT", "PROVIDER_UNREACHABLE", "CORE_NOT_SEARCHABLE"][:0] or True
     codes = [s[f"published_failed_code_{i}"] for i in (1, 2, 3)]
+    assert codes == ["PROVIDER_TIMEOUT", "PROVIDER_UNREACHABLE", "CORE_NOT_SEARCHABLE"]  # count desc, ties by code
     counts = [s[f"published_failed_count_{i}"] for i in (1, 2, 3)]
     assert counts == [2, 2, 1] and codes[:2] == sorted(codes[:2]) and sum(counts) + s["published_failed_other"] == 7
 
