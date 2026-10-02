@@ -283,6 +283,8 @@ fi
 # r6(DA r5 MINOR e): 명부 pop 은 ABSENT 여부와 무관하게 위에서 항상 실행된다 — 「명부 확인」은 사실과 달랐다.
 if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT (명부 삭제 · 원장 표식) — 워크트리 정리 계획만"; exit 0; fi
 echo "CLOSED $SEAT (명부 삭제 · 원장 append) — 좌석은 정지 레디"
+# 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
+bash "$(dirname "$0")/ft-nano-slots.sh" || echo "WARN ft-nano-slots 실패(rc=$?) — 빈 석을 손으로 세라"
 
 [ "$KILL" = 1 ] || exit 0
 # keep-last-2: 같은 베이스명(#N 떼고)의 최근 2개 안이면 사람 승인
