@@ -35,9 +35,9 @@ WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
 # key 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
 _wt_clean_plan() {
   local key="$_KEY"
-  local wt="$ROOT/.worktrees/v65-$key"
+  local wt="$SEAT_WT"   # _resolve_seat_wt 의 값(-rN 포함) — 여기서 다시 조립하지 않는다
   PLAN=""; WT_MARK=none
-  [ -d "$wt" ] || return 0
+  [ -n "$wt" ] && [ -d "$wt" ] || return 0
   mkdir -p "$WT_CLEAN_DIR"; PLAN="$WT_CLEAN_DIR/$SEAT.sh"; WT_MARK=planned
   [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || WT_MARK="planned(autoclean=0)"
   {
@@ -215,10 +215,40 @@ fi
 # 하네스 0.5 행 2 r5(오빠 판정 #30467): 세션이 먼저 죽은 좌석 — 세션 없음 + 워크트리 실재는 REJECT 대신 「세션 없음 자체가 충족」(유휴 검사 불요).
 # 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다. tmux_ok=0 이면 이 블록 전체를 건너뛴다(위에서 이미 REJECT 사유 기록).
 _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"
+# 좌석 워크트리 해석 «한 곳» (M7 · 재착수 -rN) — spawn 은 옛 브랜치가 있으면 v65-<key>-r2·-r3… 로 만든다. 아래 ③·⑥·⑤ 와 wt-clean 계획이 전부 이 값(SEAT_WT·SEAT_BR)만 쓴다.
+#   «등록된 후보» = 현재 리포 `git worktree list --porcelain` 에 있고 ∧ $ROOT/.worktrees/ 아래 ∧ 좌석 브랜치(nano/<key>[-rN])를 체크아웃한 워크트리 (DA607 H2 — 외부 리포·경계 밖 경로는 후보가 아니다).
+#   ①살아 있는 pane cwd 의 toplevel 이 등록된 후보면 그것(아니면 ②로 후퇴) ②후보 중 이름이 v65-<key>[-rN] 인 것이 «정확히 1개»일 때만.
+#   SEAT_WT_ERR(후보 2개 이상 · pane 살아 있는데 후보 0) = cwd 유무·역할과 무관하게 아래에서 REJECT(DA607 H1 · 추측 금지 · fail-closed) · 세션 없음 ∧ 후보 0 = 빈 값(기존 «워크트리 없음» 판정).
+_is_seat_branch() { [[ "$1" =~ ^nano/${_KEY}(-r[0-9]+)?$ ]]; }
+_resolve_seat_wt() {
+  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""
+  local top="" p br rel i hits=() brs=() lp=() lb=() base="$ROOT/.worktrees/"
+  while IFS=$'\t' read -r p br; do
+    rel="${p#"$base"}"; [ "$rel" != "$p" ] || continue
+    _is_seat_branch "$br" || continue
+    lp+=("$p"); lb+=("$br")
+  done < <(git -C "$ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}')
+  if [ -n "$cwd" ]; then
+    top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
+    for ((i=0; i<${#lp[@]}; i++)); do
+      if [ -n "$top" ] && [ "${lp[$i]}" = "$top" ]; then SEAT_WT="$top"; SEAT_BR="${lb[$i]}"; return 0; fi
+    done
+  fi
+  for ((i=0; i<${#lp[@]}; i++)); do
+    rel="${lp[$i]#"$base"}"
+    [[ "$rel" =~ ^v65-${_KEY}(-r[0-9]+)?$ ]] || continue
+    hits+=("${lp[$i]}"); brs+=("${lb[$i]}")
+  done
+  if [ "${#hits[@]}" -eq 1 ]; then SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"
+  elif [ "${#hits[@]}" -gt 1 ]; then SEAT_WT_ERR="좌석 워크트리 후보 ${#hits[@]}개(${hits[*]}) — 추측 금지, 어느 것인지 사람 판정"
+  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 v65-<key>[-rN] 후보도 0개 — 추측 금지"; fi
+}
+_resolve_seat_wt
+[ -z "$SEAT_WT_ERR" ] || bad+=("③$SEAT_WT_ERR")
 ABSENT=0
 if [ "$tmux_ok" = 1 ]; then
   if [ -z "$cwd" ]; then
-    if [ -d "$ROOT/.worktrees/v65-$_KEY" ]; then ABSENT=1; else bad+=("③세션 없음: $SEAT"); fi
+    if [ -n "$SEAT_WT" ]; then ABSENT=1; elif [ -z "$SEAT_WT_ERR" ]; then bad+=("③세션 없음: $SEAT"); fi
   else
     enc="$(printf '%s' "$cwd" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"; dir="$HOME/.claude/projects/$enc"
     # r7(DA r6 MAJOR 1): 같은 좌석명 jsonl 이 여러 개(재기동)일 수 있다 — 「이름순 첫 파일」(head -1) 대신 «매칭 전부 중 mtime 최대».
@@ -255,13 +285,13 @@ if [ "$_role" = nano ] && [ -z "$CARD" ]; then
   bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} (후보 $WT/·$ROOT/·$LEDGER_WT/ 아래 어디에도 없음) — 증거 줄을 대조할 카드가 없다")
 elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
   if [ ! -x "$HERE/ft-nano-evidence-check.sh" ]; then bad+=("⑥증거 검사 스크립트 없음: $HERE/ft-nano-evidence-check.sh (런타임 bin 에 같이 복사)")
-  elif [ ! -d "$ROOT/.worktrees/v65-$_KEY" ]; then bad+=("⑥나노 워크트리 없음: $ROOT/.worktrees/v65-$_KEY — 증거 줄의 HEAD 를 대조할 수 없다")
+  elif [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/v65-<key>[-rN]} — 증거 줄의 HEAD 를 대조할 수 없다")
   else
     # 언제부터 요구하나: 워크트리 .worktree-info.json created_at 날짜 >= FT_EVIDENCE_SINCE(기본 2026-10-03)인 나노만 REJECT — 그 전에 열린 진행 나노는 WARN 만(한 번에 막히지 않게).
     #   created_at 을 못 읽으면 요구한다(fail-closed · 값 추론 금지).
-    _ev_created="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("created_at","")[:10])' "$ROOT/.worktrees/v65-$_KEY/.worktree-info.json" 2>/dev/null)"
+    _ev_created="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("created_at","")[:10])' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
     _ev_since="${FT_EVIDENCE_SINCE:-2026-10-03}"
-    _ev_out="$("$HERE/ft-nano-evidence-check.sh" "$CARD" --repo "$ROOT/.worktrees/v65-$_KEY" --feat "${FT_NANO_FEAT:-feat/v6-realtime-live}" 2>&1)"; _ev_rc=$?
+    _ev_out="$("$HERE/ft-nano-evidence-check.sh" "$CARD" --repo "$SEAT_WT" --feat "${FT_NANO_FEAT:-feat/v6-realtime-live}" 2>&1)"; _ev_rc=$?
     if [ "$_ev_rc" -eq 0 ]; then echo "$_ev_out"
     elif [ -n "$_ev_created" ] && [[ "$_ev_created" < "$_ev_since" ]]; then echo "WARN ⑥증거 줄 미충족(grandfather — 워크트리 created_at $_ev_created < $_ev_since): $(printf '%s' "$_ev_out" | head -1)"
     else bad+=("⑥$(printf '%s' "$_ev_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
@@ -269,8 +299,8 @@ elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
 fi
 # ⑤ 산출물 회수 — 그 좌석 브랜치의 «+» 커밋(git cherry <feat> <branch>)이 0 (G4 · 골좌표 M7). 좌석이 닫혔다 ≠ 산출물이 들어왔다.
 #   feat = FT_NANO_FEAT(기본 feat/v6-realtime-live) · 브랜치 = 워크트리 .worktree-info.json 의 branch, 워크트리가 없으면 nano/<key>. 못 찾으면 REJECT(침묵 통과 0).
-_gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$ROOT/.worktrees/v65-$_KEY/.worktree-info.json" 2>/dev/null)"
-[ -n "$_gate_br" ] || _gate_br="nano/$_KEY"
+_gate_br=""; [ -z "$SEAT_WT" ] || _gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
+[ -n "$_gate_br" ] || _gate_br="${SEAT_BR:-nano/$_KEY}"
 if [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   # --cherry-override 는 ⑤ 에만 전달한다(①~④·⑥ 영향 0). FT_SEAT 로 원장 행 seat 칸이 좌석명이 된다.
   _gate_args=(--repo "$ROOT" --mode close); [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
