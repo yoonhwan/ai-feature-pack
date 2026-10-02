@@ -125,6 +125,15 @@ role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-mast
 - **닫기 조건**: `ft-nano-close.sh` 는 인덱스 카드에 press/시험이 있으면 마지막 checkpoint 기록(`.fable-team/checkpoint/<좌석>.last`)의 표 실재 + `alarm=no` 를 요구한다(④). checkpoint 미설정 프로젝트는 경고만.
 - 적용 절차·설정 예시: `references/update.md` §checkpoint.
 
+## 6-3. 단일 세트 · 나노 생애 — 오래된 나노는 «루트부터» (1.0.3 · 오빠 2026-10-02 · BYZ v65 사고)
+
+- **사고**: 09-25 카드(옛 세계)를 10-02 코드에 재대조 없이 집행 · 옛 sha worker 로 A/B 한 결과로 HEAD 를 덮어쓸 뻔함 · 그 나노 브랜치는 base 20:17 로 221커밋 뒤처진 채 방치 · 미랜딩 nano 브랜치 277/590.
+- **단일 세트**: 서버·러너·FE 는 같은 워크트리 같은 HEAD(dirty 0)에서만 뜬다. 세트 id 가 다르면 발사 거절. 옛 sha 실행은 비교 전용 — 결론(revert·CLOSE)은 HEAD 위 결정적 RED + DA 뒤.
+- **나노 생애(오빠 원문 절차)**: ① 완성→대기 진입 시 base ≠ 루트 HEAD 판정 ② 최신 루트 병합(그 사이 새 버전이면 다시) — 나노 워크트리·브랜치 최신화 ③ 그 워크트리 세트로 시험 ④ 브랜치 이슈 추가 확인 — 없으면 닫고 끝 · 있으면 완성 또는 상위로 ⑤ 나노 완료·닫기·**squash 병합**(가능하면).
+- **루트부터 확인**: 착수·재개·시험·랜딩 «전» `bash <팩>/scripts/ft-nano-freshness.sh <브랜치|워크트리> [--root <통합 브랜치>]`(루트 기본 = `$FT_ROOT_BRANCH` → 메인 워크트리 브랜치). exit 0 FRESH · 1 STALE · 2 STALE-OVERLAP(재대조) · 3 LANDED(닫기만) · 4 오류.
+- **랜딩 = 라이브 1회까지**: 제품 커밋 묶음 랜딩 뒤 다음 랜딩 전에 재기동 + 3버블 1회. 쌓아두기 금지.
+- **방치 0**: 미랜딩 nano/* 브랜치 전수는 위 ①~⑤ 로만 닫힌다(삭제는 사람 판정).
+
 ## 7. 하지 않는다
 
 - pane `❯` 텍스트를 지시·제출로 읽지 않는다 — 판정은 jsonl(`ft-reach-check.sh`) · 상태는 seats.json.
