@@ -5,15 +5,19 @@
 #   design/ 만 건드린 «+» 는 WARN 목록 + exit 0(브랜치 보존으로 복구 가능 — G4 실측 docs-only 134 를 전부 막으면 닫기 정지) · «+» 0 이면 `OK` + exit 0.
 #   코드 «+» 는 ①merge-tree 실제 delta 가 design/ 밖 0 → PASS(content_landed_via_merge_tree) ②충돌·delta 면 «+» 경로마다 tip 의 (mode,blob) 이 feat 역사에 있으면 PASS(content_landed_then_superseded) ③아니면 REJECT.
 #   면제 목록·무조건 우회 없음. 유일한 사람 우회 = `--override "<사유>"`(코드 «+» 의 내용 REJECT 만 · 사유 빈 문자열 거부 · ERROR 로그 + 원장 1행 — #0 RULE 예외 3조건).
+#   --mode land|close (기본 close = 위 동작 그대로): land = 랜딩 «요청» 시점 — nano 가 feat HEAD 를 조상으로 포함(최신 루트 병합 완료)하지 않으면 REJECT(M7 · single_set_testing §2 규칙 2).
+#   close 에는 이 검사를 걸지 않는다 — squash 랜딩 뒤엔 feat 가 앞서 가 «포함» 이 항상 거짓이다(REVIEW arch141 §2-3).
 #   exit 0 = 통과 · 1 = REJECT(+ 있음 / ref 없음 / git 실패 — 전부 사유 stdout) · 2 = usage. ★침묵 통과 0★ — 어느 경로든 한 줄 이상 출력한다.
 set -uo pipefail
-FEAT="${1:-}"; NANO="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--override <사유>]" >&2; exit 2; }
-REPO="."; HAVE_OVERRIDE=0; OVERRIDE=""
+FEAT="${1:-}"; NANO="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>]" >&2; exit 2; }
+REPO="."; HAVE_OVERRIDE=0; OVERRIDE=""; MODE="close"
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) REPO="${2:-.}"; shift 2 2>/dev/null || shift ;;
+    --mode) MODE="${2:-}"; shift 2 2>/dev/null || shift
+            case "$MODE" in land|close) ;; *) echo "usage: --mode land|close (받은 값: ${MODE:-<빈 값>})" >&2; exit 2 ;; esac ;;
     --override) HAVE_OVERRIDE=1; OVERRIDE="${2:-}"; shift 2 2>/dev/null || shift ;;
-    *) echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--override <사유>]" >&2; exit 2 ;;
+    *) echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>]" >&2; exit 2 ;;
   esac
 done
 if [ "$HAVE_OVERRIDE" -eq 1 ] && [ -z "${OVERRIDE//[[:space:]]/}" ]; then
@@ -22,6 +26,11 @@ fi
 for r in "$FEAT" "$NANO"; do
   git -C "$REPO" rev-parse --verify -q "refs/heads/$r" >/dev/null || { echo "REJECT cherry 게이트 — 브랜치 없음: $r (refs/heads/)"; exit 1; }
 done
+if [ "$MODE" = land ] && ! git -C "$REPO" merge-base --is-ancestor "$FEAT" "$NANO"; then
+  _mb="$(git -C "$REPO" merge-base "$FEAT" "$NANO" 2>/dev/null)"
+  echo "REJECT cherry 게이트 — land: $NANO 가 feat HEAD($(git -C "$REPO" rev-parse --short "$FEAT"))를 포함하지 않음(merge-base ${_mb:0:7}) — 최신 루트를 병합한 뒤 다시 랜딩 요청 (docs/rules/single_set_testing.md §3 ②)"
+  exit 1
+fi
 out="$(git -C "$REPO" cherry "$FEAT" "$NANO" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }
 plus="$(printf '%s\n' "$out" | grep '^+' || true)"

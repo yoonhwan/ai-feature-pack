@@ -6,8 +6,10 @@
 #     규칙에 네 번 적었고 네 번 빠뜨렸다 — 기억이 아니라 종료코드로 막는다.
 # 쓰기: ft-press-gate.sh   → 통과 0 / 막힘 1. tester 는 이걸 통과해야만 쏜다.
 set -u
-WT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live
-ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
+# 경로·feat 브랜치는 env 로 바꾼다(ai-feature-pack 일반화 · 기본값 = BYZ 현행 — 동작 변경 0)
+WT="${FT_PRESS_WT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
+ROOT="${FT_PRESS_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
+FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
@@ -28,7 +30,6 @@ print(' '.join(sorted(out)))" 2>/dev/null)
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
-  N=$(git -C "$W" log --oneline feat/v6-realtime-live..HEAD 2>/dev/null | wc -l | tr -d ' ')
   # 제품 경로를 건드린 미랜딩만 센다(문서만이면 press 에 영향 0)
   # ★cherry-pick -x 로 이미 feat 에 올라간 것은 «미랜딩이 아니다»★ — 원본 sha 는 조상이 아니므로
   # 제목으로 대조한다(이 오탐 때문에 9건이 미랜딩으로 잡혔다).
@@ -38,15 +39,15 @@ for W in $LIVE_WT; do
   #   ⒝feat 커밋 «본문»에 그 sha 가 인용돼 있다(통행증 규격으로 «재작성»해 올린 경우 — 실제로 있었다)
   #   ⒞sha 가 feat 의 조상이다
   P=0
-  FEAT_SUBJ=$(git log feat/v6-realtime-live --format='%s' -400)
-  FEAT_BODY=$(git log feat/v6-realtime-live --format='%H%n%B' -60)
+  FEAT_SUBJ=$(git log "$FEAT" --format='%s' -400)
+  FEAT_BODY=$(git log "$FEAT" --format='%H%n%B' -60)
   while IFS=$'\t' read -r h t; do
     [ -z "$h" ] && continue
     printf '%s\n' "$FEAT_SUBJ" | grep -qxF "$t" && continue
     printf '%s\n' "$FEAT_BODY" | grep -q "${h:0:9}" && continue
-    git merge-base --is-ancestor "$h" feat/v6-realtime-live 2>/dev/null && continue
+    git merge-base --is-ancestor "$h" "$FEAT" 2>/dev/null && continue
     P=$((P+1)); say "  ·" "미랜딩 후보: $t"
-  done < <(git -C "$W" log --format='%H%t%s' feat/v6-realtime-live..HEAD -- worker shared gateway clients ':(exclude)*__tests__*' ':(exclude)tests/*' 2>/dev/null | sed 's/\(^[0-9a-f]*\)/\1\t/' )
+  done < <(git -C "$W" log --format='%H%t%s' "$FEAT"..HEAD -- worker shared gateway clients ':(exclude)*__tests__*' ':(exclude)tests/*' 2>/dev/null | sed 's/\(^[0-9a-f]*\)/\1\t/' )
   [ "${P:-0}" != "0" ] && { say "✗" "미랜딩 제품 커밋 $P — $(basename "$W")"; UNLANDED=$((UNLANDED+P)); }
 done
 [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
@@ -116,6 +117,22 @@ if [ -n "$wpid" ]; then
     ps eww "$wpid" 2>/dev/null | tr ' ' '\n' | grep -q "^${k}=" || { say "✗" "env 없음: $k"; miss=$((miss+1)); }
   done < <(sed -n '/^WORKER_ENV_SPEC=(/,/^)/p' scripts/server/ready-check.sh | grep -oE '"[A-Z0-9_]+=' | tr -d '"=')
   [ "$miss" = "0" ] && say "✓" "필수 env 전부 실림" || FAIL=1
+fi
+
+# ⑤ 세트 축(M7 · single_set_testing §1 규칙 1) — 러너 파일 워크트리 HEAD == worker·gateway pid cwd 워크트리 HEAD · 세트 경로 dirty 0. 정의 본체는 ft-press-set-check.sh.
+_cwd_of(){ lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
+# 기동 stamp = 서비스 pid 프로세스 시작시각(epoch) — set-check 가 «워크트리 HEAD 가 기동 뒤 움직였나» 를 가른다(A4). 못 구하면 빈 값 → set-check 가 REJECT.
+_start_of(){ LC_ALL=C date -j -f '%a %b %e %T %Y' "$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null)" +%s 2>/dev/null; }
+gpid=$(lsof -ti:8080 -sTCP:LISTEN 2>/dev/null | head -1)
+if [ -z "${wpid:-}" ] || [ -z "$gpid" ]; then
+  say "✗" "세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음"; FAIL=1
+else
+  wcwd=$(_cwd_of "$wpid"); gcwd=$(_cwd_of "$gpid")
+  if [ -z "$wcwd" ] || [ -z "$gcwd" ]; then say "✗" "세트 축 — pid cwd 조회 실패(worker=$wpid gateway=$gpid)"; FAIL=1
+  else
+    "$(dirname "$0")/ft-press-set-check.sh" --runner "$WT/tests/e2e/realtime_multi_e2e.py" --worker-cwd "$wcwd" --gateway-cwd "$gcwd" \
+      --worker-start "$(_start_of "$wpid")" --gateway-start "$(_start_of "$gpid")" || FAIL=1
+  fi
 fi
 
 echo

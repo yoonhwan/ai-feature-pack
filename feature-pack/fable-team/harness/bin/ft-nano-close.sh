@@ -242,12 +242,32 @@ if [ -n "$CARD" ] && grep -qF 'ft-checkpoint.sh' "$CARD"; then
     [ "$cp_al" = "no" ] || bad+=("④마지막 checkpoint alarm=$cp_al exit=$cp_ex — 경보면 4축 정리 → arch(+DA) 처방 → 수정 → 재실행 후 닫는다")
   fi
 fi
+# ⑥ 나노 생애 ③④ 증거 줄 (M7 · REVIEW arch141 §2-2) — role=nano 좌석만: 카드 «## 상태» 의 `세트: <HEAD> · 시험: … rc=0 · 이슈: …` 가 현재 나노 HEAD 와 맞아야 닫힌다.
+#   impl·tester·checker 등 tier 좌석은 대상 아님(role 이 nano 가 아님). 루트 포함은 cherry-gate --mode land 가 랜딩 요청 시점에 맡는다(close 에는 걸지 않는다).
+_role="$(jq -r --arg s "$SEAT" '.[$s].role // empty' "$SEATS" 2>/dev/null)"
+if [ "$_role" = nano ] && [ -z "$CARD" ]; then
+  # 카드를 못 찾으면 증거를 대조할 수 없다 — 건너뛰고 CLOSED 하면 무음 통과(#0 RULE · DA⑥ 관측 A3). grandfather 와 무관하게 REJECT.
+  bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} (후보 $WT/·$ROOT/·$LEDGER_WT/ 아래 어디에도 없음) — 증거 줄을 대조할 카드가 없다")
+elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
+  if [ ! -x "$HERE/ft-nano-evidence-check.sh" ]; then bad+=("⑥증거 검사 스크립트 없음: $HERE/ft-nano-evidence-check.sh (런타임 bin 에 같이 복사)")
+  elif [ ! -d "$ROOT/.worktrees/v65-$_KEY" ]; then bad+=("⑥나노 워크트리 없음: $ROOT/.worktrees/v65-$_KEY — 증거 줄의 HEAD 를 대조할 수 없다")
+  else
+    # 언제부터 요구하나: 워크트리 .worktree-info.json created_at 날짜 >= FT_EVIDENCE_SINCE(기본 2026-10-03)인 나노만 REJECT — 그 전에 열린 진행 나노는 WARN 만(한 번에 막히지 않게).
+    #   created_at 을 못 읽으면 요구한다(fail-closed · 값 추론 금지).
+    _ev_created="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("created_at","")[:10])' "$ROOT/.worktrees/v65-$_KEY/.worktree-info.json" 2>/dev/null)"
+    _ev_since="${FT_EVIDENCE_SINCE:-2026-10-03}"
+    _ev_out="$("$HERE/ft-nano-evidence-check.sh" "$CARD" --repo "$ROOT/.worktrees/v65-$_KEY" --feat "${FT_NANO_FEAT:-feat/v6-realtime-live}" 2>&1)"; _ev_rc=$?
+    if [ "$_ev_rc" -eq 0 ]; then echo "$_ev_out"
+    elif [ -n "$_ev_created" ] && [[ "$_ev_created" < "$_ev_since" ]]; then echo "WARN ⑥증거 줄 미충족(grandfather — 워크트리 created_at $_ev_created < $_ev_since): $(printf '%s' "$_ev_out" | head -1)"
+    else bad+=("⑥$(printf '%s' "$_ev_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
+  fi
+fi
 # ⑤ 산출물 회수 — 그 좌석 브랜치의 «+» 커밋(git cherry <feat> <branch>)이 0 (G4 · 골좌표 M7). 좌석이 닫혔다 ≠ 산출물이 들어왔다.
 #   feat = FT_NANO_FEAT(기본 feat/v6-realtime-live) · 브랜치 = 워크트리 .worktree-info.json 의 branch, 워크트리가 없으면 nano/<key>. 못 찾으면 REJECT(침묵 통과 0).
 _gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$ROOT/.worktrees/v65-$_KEY/.worktree-info.json" 2>/dev/null)"
 [ -n "$_gate_br" ] || _gate_br="nano/$_KEY"
 if [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
-  _gate_out="$("$HERE/ft-nano-cherry-gate.sh" "${FT_NANO_FEAT:-feat/v6-realtime-live}" "$_gate_br" --repo "$ROOT" 2>&1)"; _gate_rc=$?
+  _gate_out="$("$HERE/ft-nano-cherry-gate.sh" "${FT_NANO_FEAT:-feat/v6-realtime-live}" "$_gate_br" --repo "$ROOT" --mode close 2>&1)"; _gate_rc=$?
   [ "$_gate_rc" -eq 0 ] || bad+=("⑤$(printf '%s' "$_gate_out" | sed '2,$s/^/    /')")
   # 나노 생애(오빠 ORDERS 103 · docs/rules/single_set_testing.md §3): 미랜딩이면 «루트부터» 판정과 다음 수(최신 루트 병합→시험→squash 랜딩)를 같이 낸다.
   if [ "$_gate_rc" -ne 0 ] && [ -x "$HERE/ft-nano-freshness.sh" ]; then
