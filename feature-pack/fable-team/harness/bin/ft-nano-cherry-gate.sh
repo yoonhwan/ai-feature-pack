@@ -16,6 +16,7 @@ plus="$(printf '%s\n' "$out" | grep '^+' || true)"
 # «+» 커밋을 둘로 가른다 — design/ 밖 경로(코드·시험·스크립트)를 건드린 것 = 차단 · design/ 만 건드린 것 = WARN 통과(브랜치가 남아 복구 가능 · arch#137)
 #   ★경로 목록은 변수로 «완독» 한 뒤 분류한다(DA 575 H2: `diff-tree | grep -qv` 는 grep 조기 종료 → SIGPIPE → 큰 혼합 커밋이 «design/ 만» 으로 판정) · diff-tree·log 각 rc 를 따로 본다(H1: 실패가 WARN 통과)★
 block=""; warn=""
+plus_paths="$(mktemp)"; merged_paths="$(mktemp)"; trap 'rm -f "$plus_paths" "$merged_paths"' EXIT
 while read -r _ sha; do
   [ -n "$sha" ] || continue
   line="$(git -C "$REPO" log -1 --format='  + %h %s' "$sha")"; lrc=$?
@@ -23,6 +24,7 @@ while read -r _ sha; do
   line="${line:0:120}"
   paths="$(git -C "$REPO" diff-tree --no-commit-id --name-only -r -m --root "$sha")"; prc=$?
   [ "$prc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree 실패(rc=$prc) 커밋 ${sha:0:9} — 경로를 못 읽어 분류 불가"; exit 1; }
+  [ -z "$paths" ] || printf '%s\n' "$paths" >> "$plus_paths"
   outside=0
   while IFS= read -r p; do
     [ -n "$p" ] || continue
@@ -32,6 +34,27 @@ while read -r _ sha; do
 done <<< "$plus"
 nb="$(printf '%s' "$block" | grep -c . || true)"; nw="$(printf '%s' "$warn" | grep -c . || true)"
 if [ "$nb" -gt 0 ]; then
+  # G4c: patch-id 는 «같은 변경» 의 충분조건일 뿐(cherry-pick 이 다른 문맥 base 에 앉으면 «+» 로 남는다). 정본은 «머지하면 무엇이 바뀌나» = merge-tree.
+  # «+» 커밋이 건드린 경로 전부가 merge-tree 결과에서 feat HEAD 와 같으면 내용은 이미 들어와 있다 → PASS. ★종료코드는 1행 OID 와 따로 본다(5c)★
+  mt="$(git -C "$REPO" merge-tree --write-tree "$FEAT" "$NANO")"; mrc=$?
+  if [ "$mrc" -eq 1 ]; then
+    echo "REJECT cherry 게이트 — $NANO 와 $FEAT 의 merge-tree 충돌(rc=1) — 사람이 판정:"; printf '%s' "$block" | head -20; exit 1
+  elif [ "$mrc" -ne 0 ]; then
+    echo "REJECT cherry 게이트 — git merge-tree 실패(rc=$mrc): ${mt:0:120}"; exit 1
+  fi
+  tree="${mt%%$'\n'*}"
+  git -C "$REPO" -c core.quotepath=off diff-tree -r --name-only --no-commit-id "$FEAT^{tree}" "$tree" > "$merged_paths"; drc=$?
+  [ "$drc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree(merge-tree 결과 대조) 실패(rc=$drc)"; exit 1; }
+  sort -u "$plus_paths" -o "$plus_paths"; sort -u "$merged_paths" -o "$merged_paths"
+  differ="$(comm -12 "$plus_paths" "$merged_paths")"; crc=$?
+  [ "$crc" -eq 0 ] || { echo "REJECT cherry 게이트 — comm 실패(rc=$crc)"; exit 1; }
+  if [ -z "$differ" ]; then
+    np="$(grep -c . "$plus_paths" || true)"
+    echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개(경로 ${np}개)는 git cherry 로는 미랜딩이나 merge-tree 결과가 $FEAT 와 같음 — 통과 (사유 content_landed_via_merge_tree)"
+    exit 0
+  fi
+  echo "REJECT cherry 게이트 — $NANO 의 «+» 커밋 경로 중 $FEAT 에 내용이 안 들어온 것 $(printf '%s\n' "$differ" | grep -c .)개 (merge-tree 결과가 $FEAT 와 다름):"
+  printf '%s\n' "$differ" | head -20
   echo "REJECT cherry 게이트 — $NANO 에 $FEAT 로 안 들어온 코드·시험·스크립트 커밋 ${nb}개 (git cherry '+' · design/ 밖 경로):"
   printf '%s' "$block" | head -20
   [ "$nb" -le 20 ] || echo "  … 외 $((nb - 20))개"
