@@ -10,6 +10,7 @@ set -u
 WT="${FT_PRESS_WT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
 ROOT="${FT_PRESS_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
 FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"
+HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로 불러도 형제 스크립트(ft-press-set-check.sh)를 찾는다
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
@@ -27,6 +28,22 @@ for k,v in d.items():
     m=re.match(r'ft-v65-temp-(.+?)#\\d+$',k) or re.match(r'ft-v65-(mr|le)-track#\\d+$',k)
     if m: out.add('v65-'+m.group(1))
 print(' '.join(sorted(out)))" 2>/dev/null)
+# ★세트 소속 표시(M7 · 표시만 — 차단 판정·FAIL 코드 불변)★ press 가 시험하는 세트 경로의 정의는 ft-press-set-check.sh 한 곳 — 여기서 복사하지 않고 읽는다.
+SETP=()
+while IFS= read -r p; do [ -n "$p" ] && SETP+=("$p"); done < <("$HERE/ft-press-set-check.sh" --print-set-paths 2>/dev/null)
+_set_member(){ # 워크트리 → 이 나노의 «순 변경»(feat 와 merge-base 기준 3점 · 되돌림·merge 는 사라진다)이 press 세트에 닿는지 한 줄
+  local w="$1" net n files
+  net=$(git -C "$w" diff --name-only "$FEAT"...HEAD -- "${SETP[@]}" 2>/dev/null) || { say "  ⚠" "세트 소속 조회 실패 — $(basename "$w")"; return; }
+  n=$(printf '%s\n' "$net" | grep -c .)
+  if [ "$n" = "0" ]; then
+    say "  ⊘" "세트 밖($(basename "$w")) — 랜딩해도 press 세트 불변(남은 커밋 = 되돌림·merge·문서)"
+  else
+    files=$(printf '%s\n' "$net" | head -5 | paste -sd, - | sed 's/,/, /g')
+    [ "$n" -gt 5 ] && files="$files +$((n-5))"
+    say "  ⊕" "press 세트 포함 예정($(basename "$w")) — 랜딩 전에는 이 press 가 이 수정을 시험하지 않는다: $files"
+  fi
+}
+[ "${#SETP[@]}" = "0" ] && say "  ⚠" "ft-press-set-check.sh --print-set-paths 실패 — 세트 소속 표시 생략(차단 판정은 그대로)"
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
@@ -49,6 +66,7 @@ for W in $LIVE_WT; do
     P=$((P+1)); say "  ·" "미랜딩 후보: $t"
   done < <(git -C "$W" log --format='%H%t%s' "$FEAT"..HEAD -- worker shared gateway clients ':(exclude)*__tests__*' ':(exclude)tests/*' 2>/dev/null | sed 's/\(^[0-9a-f]*\)/\1\t/' )
   [ "${P:-0}" != "0" ] && { say "✗" "미랜딩 제품 커밋 $P — $(basename "$W")"; UNLANDED=$((UNLANDED+P)); }
+  [ "${#SETP[@]}" != "0" ] && _set_member "$W"
 done
 [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
 

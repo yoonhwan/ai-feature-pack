@@ -12,10 +12,12 @@
 #   pid→cwd 해석(lsof)은 호출자(ft-press-gate.sh) 몫. FE stamp·/health code_sha·러너 자체 거절은 603 카드에 남긴다.
 #   exit 0 = 세트 일치 · 1 = REJECT(사유 stdout) · 2 = usage. ★침묵 통과 0 — 어느 경로든 evid 한 줄 이상 출력★
 set -uo pipefail
+SET_PATHS=(worker gateway shared clients/web/src tests/e2e scripts/server)
 RUNNER=""; WCWD=""; GCWD=""; WSTART=""; GSTART=""
-usage() { echo "usage: $0 --runner <file> --worker-cwd <dir> --gateway-cwd <dir> --worker-start <epoch> --gateway-start <epoch>" >&2; exit 2; }
+usage() { echo "usage: $0 --runner <file> --worker-cwd <dir> --gateway-cwd <dir> --worker-start <epoch> --gateway-start <epoch> | --print-set-paths" >&2; exit 2; }
 while [ $# -gt 0 ]; do
   case "$1" in
+    --print-set-paths) printf '%s\n' "${SET_PATHS[@]}"; exit 0 ;;  # ft-press-gate.sh ① 의 «세트 소속» 표시가 이 상수를 읽는다(복사 정의 0)
     --runner) RUNNER="${2:-}"; shift 2 2>/dev/null || usage ;;
     --worker-cwd) WCWD="${2:-}"; shift 2 2>/dev/null || usage ;;
     --gateway-cwd) GCWD="${2:-}"; shift 2 2>/dev/null || usage ;;
@@ -25,7 +27,6 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$RUNNER" ] && [ -n "$WCWD" ] && [ -n "$GCWD" ] || usage
-SET_PATHS=(worker gateway shared clients/web/src tests/e2e scripts/server)
 problems=(); evid=""
 HEADVAL=""; TOPVAL=""
 _inspect() { # 이름 경로 → evid 한 줄 추가 · HEADVAL=그 워크트리 HEAD(서브셸 금지 — problems 가 사라진다)
