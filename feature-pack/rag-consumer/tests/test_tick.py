@@ -8,6 +8,7 @@ from pathlib import Path
 import plistlib
 import re
 import stat
+import subprocess
 import sys
 
 import pytest
@@ -161,6 +162,57 @@ def test_key_loading_failure_has_its_own_exit_code_and_leaks_nothing(tmp_path, c
     assert code == tick.EXIT_KEYS
     assert json.loads(written.strip().splitlines()[0])["code"] == "OP_KEY_READ_OR_FORMAT_FAILED"
     assert no_key_text(written) and "boom" not in written
+
+
+def _op_read_raises(monkeypatch, error):
+    """Make only the `op read` subprocess raise ``error``; every other subprocess.run is real."""
+    real = subprocess.run
+
+    def run(argv, **kwargs):
+        if len(argv) > 1 and argv[1] == "read":
+            raise error
+        return real(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+
+class Key0123456789abcdef0123(OSError):  # a class name that would look like key material
+    pass
+
+
+@pytest.mark.parametrize("error", [
+    subprocess.TimeoutExpired(["op", "MARKER_ARGV_SECRET"], 30),
+    FileNotFoundError(2, "MARKER_MESSAGE_SECRET", "/MARKER/PATH/op"),
+    PermissionError(13, "MARKER_MESSAGE_SECRET", "/MARKER/PATH/op"),
+    BlockingIOError(11, "MARKER_MESSAGE_SECRET"),
+])
+def test_op_read_unavailable_records_only_the_exception_class_name(tmp_path, capsys, monkeypatch, error):
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    _op_read_raises(monkeypatch, error)
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op)) == tick.EXIT_KEYS
+    line, written = tick_line(tmp_path, capsys)
+    assert (line["status"], line["exit"], line["code"]) == ("key_error", 30, "OP_READ_UNAVAILABLE")
+    assert line["type"] == type(error).__name__
+    assert "MARKER_" not in written and "/MARKER" not in written and no_key_text(written)
+
+
+def test_op_read_unavailable_drops_a_class_name_that_could_carry_a_value(tmp_path, capsys, monkeypatch):
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    _op_read_raises(monkeypatch, Key0123456789abcdef0123(2, "MARKER_MESSAGE_SECRET"))
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op)) == tick.EXIT_KEYS
+    line, written = tick_line(tmp_path, capsys)
+    assert line["code"] == "OP_READ_UNAVAILABLE" and "type" not in line
+    assert "Key0123456789abcdef0123" not in written and "MARKER_" not in written
+
+
+def test_an_op_answer_that_is_rejected_carries_no_type(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path, fail=True)
+    assert run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op)) == tick.EXIT_KEYS
+    line, _ = tick_line(tmp_path, capsys)
+    assert line["code"] == "OP_KEY_READ_OR_FORMAT_FAILED" and "type" not in line
 
 
 def test_missing_credentials_or_config_is_a_configuration_error(tmp_path, capsys):
