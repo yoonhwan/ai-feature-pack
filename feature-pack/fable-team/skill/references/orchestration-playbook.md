@@ -79,3 +79,9 @@ JSON 한 줄로 반환 (키: tools, spawn_test):
 - Workflow `agent()`의 `agentType`은 세션 시작 시 등록된 타입만 인식 (세션 중 추가된 커스텀 타입 불가) → `model`/`effort` 직접 지정으로 대체.
 - codex: `npx -y @openai/codex exec --skip-git-repo-check -c model_reasoning_effort="xhigh" "<프롬프트>" < /dev/null`. 헤더 `reasoning effort: xhigh`로 적용 확인. `--full-auto`는 구현 위임시에만. (이 줄은 effort 적용 실측 기록 — **드라이버 정본 레시피는 `agent-templates/ft-da.md.tpl`**: `CODEX_DUMMY_API_KEY` + `-C <대상디렉토리>` 포함, 복붙은 그쪽에서.)
 - 워커 모델 실측: `agent-*.meta.json` `model` 필드 + transcript `message.model`.
+
+## 워크트리 위생 — Serena `project.yml` (2026-10-02 BYZ 실측)
+
+- `.serena/project.yml` 은 Serena 가 버전마다 자동 업그레이드하는 파일이라 모든 워크트리에서 세션마다 modified 로 뜬다(실측: 37줄 변경 중 실제 설정 3줄·전부 빈 값). 프로젝트 `.gitignore` 에 넣고 `git rm --cached` 로 추적을 해제한다. 좌석은 `git add -A`·`git add .` 로 섞지 않는다.
+- Serena 활성화는 ★본인 워크트리 절대경로★ 로 한다(`activate_project(project="<내 워크트리 절대경로>")`). 다른 워크트리의 경로·이름을 복붙하면 그쪽 파일을 편집한다.
+- 추적 해제 커밋을 받은 워크트리에서 `project.yml` 이 «삭제»로 보이면 사본을 떠 두고 병합한 뒤 되돌려 놓는다.
