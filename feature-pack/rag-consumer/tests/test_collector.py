@@ -400,3 +400,98 @@ def test_incarnation_matches_the_golden_value_and_the_stored_row(tmp_path, colle
         run_collect(ledger, path, collector_scope)
         stored = ledger._con.execute("SELECT incarnation FROM airag_rollout_collector_sources").fetchone()[0]
     assert stored == collector._incarnation(os.path.realpath(path), SESSION, str(info.st_dev), str(info.st_ino))
+
+
+# --- binding: device number is not identity (reboot changes st_dev; content continuity decides) ---------------
+
+class _ShiftedOs:
+    """``collector.os`` stand-in: reports one file's st_dev shifted (and optionally a forced st_ino)."""
+
+    def __init__(self, real_os, target: Path, delta: int, inode: int | None):
+        self._os, self._real, self._delta, self._inode = real_os, os.path.realpath(target), delta, inode
+        self._key = self._ident(real_os.stat(target))
+
+    @staticmethod
+    def _ident(info):
+        return (info.st_dev, info.st_ino)
+
+    def _shift(self, info):
+        fields = list(tuple(info)[:10])
+        fields[2] += self._delta  # st_dev
+        if self._inode is not None:
+            fields[1] = self._inode  # st_ino
+        return self._os.stat_result(fields)
+
+    def lstat(self, path, *args, **kwargs):
+        info = self._os.lstat(path, *args, **kwargs)
+        return self._shift(info) if self._os.path.realpath(path) == self._real else info
+
+    def fstat(self, fd):
+        info = self._os.fstat(fd)
+        return self._shift(info) if self._ident(info) == self._key else info
+
+    def __getattr__(self, name):
+        return getattr(self._os, name)
+
+
+def shift_device(monkeypatch, path: Path, delta: int = 1, *, inode: int | None = None) -> None:
+    """From now on the collector sees ``path``'s file on a different device (``delta`` added to st_dev)."""
+    monkeypatch.setattr(collector, "os", _ShiftedOs(os, path, delta, inode))
+
+
+def source_row(ledger) -> tuple:
+    return ledger._con.execute(
+        "SELECT device,inode,incarnation FROM airag_rollout_collector_sources"
+    ).fetchone()
+
+
+def append(path: Path, *records: dict) -> None:
+    with path.open("ab") as handle:
+        handle.write(b"".join(native_line(record) for record in records))
+
+
+def test_a_changed_device_number_does_not_stop_collection_of_the_same_file(tmp_path, collector_scope, monkeypatch):
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["first body"]))
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        before = source_row(ledger)
+        first_epoch = stored_events(ledger)[0]["producer_epoch"]
+        shift_device(monkeypatch, path)
+        append(path, message(2, "user-2", "user", ["second body"]))
+        result = run_collect(ledger, path, collector_scope)
+        assert result.committed_native_offset == path.stat().st_size
+        events = stored_events(ledger)
+        assert [e["producer_epoch"] for e in events] == [first_epoch, first_epoch]
+        assert source_row(ledger) == before  # stored device/inode/incarnation are never rewritten
+
+
+def test_repeated_device_changes_keep_collecting_with_a_monotonic_chain(tmp_path, collector_scope, monkeypatch):
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["body 1"]))
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        offsets = []
+        for index, delta in enumerate((1, 2, 5), start=2):
+            shift_device(monkeypatch, path, delta)
+            append(path, message(index, f"user-{index}", "user", [f"body {index}"]))
+            run_collect(ledger, path, collector_scope)
+            offsets.append(ledger._con.execute(
+                "SELECT next_native_offset FROM airag_rollout_collector_sources").fetchone()[0])
+        assert offsets == sorted(set(offsets)) and len(stored_events(ledger)) == 4
+
+
+def test_a_changed_device_does_not_bypass_the_prefix_and_truncation_checks(tmp_path, collector_scope, monkeypatch):
+    path = tmp_path / "rollout.jsonl"
+    meta = native_line(session_meta())
+    original = native_line(message(1, "user-1", "user", ["AAAA"]))
+    path.write_bytes(meta + original)
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        shift_device(monkeypatch, path)
+        path.write_bytes(meta + native_line(message(1, "user-1", "user", ["BBBB"])))
+        with pytest.raises(EventError, match="SOURCE_PREFIX_REWRITTEN"):
+            run_collect(ledger, path, collector_scope)
+        path.write_bytes(meta)
+        with pytest.raises(EventError, match="SOURCE_TRUNCATED"):
+            run_collect(ledger, path, collector_scope)

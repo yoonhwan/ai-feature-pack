@@ -306,7 +306,6 @@ def _load_or_create_source(
 ) -> _Source:
     con = ledger._con
     normalized_source_id = f"{source_id}:codex-rollout-normalized"
-    incarnation = _incarnation(real_path, expected_session_id, str(opened.st_dev), str(opened.st_ino))
     try:
         con.execute("BEGIN IMMEDIATE")
         row = con.execute(
@@ -316,6 +315,7 @@ def _load_or_create_source(
                 FROM {_TABLE_PREFIX}sources WHERE source_id=?""", (source_id,),
         ).fetchone()
         if row is None:
+            incarnation = _incarnation(real_path, expected_session_id, str(opened.st_dev), str(opened.st_ino))
             con.execute(
                 f"INSERT INTO {_TABLE_PREFIX}sources VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
@@ -327,11 +327,18 @@ def _load_or_create_source(
             )
             result = _Source(source_id, normalized_source_id, incarnation, 0, _EMPTY_SHA256, 0, None)
         else:
+            # The device number is a boot-time detail, not identity: only path, inode, session, scope and the
+            # stored row's own consistency decide; the consumed-prefix hash (checked later) proves continuity.
             binding = (
-                source_path, real_path, str(opened.st_dev), str(opened.st_ino),
+                source_path, real_path, str(opened.st_ino),
                 expected_session_id, expected_scope.tenant_id, expected_scope.project_id,
             )
-            if row[7:] != binding or row[1] != normalized_source_id or row[2] != incarnation:
+            stored_device, stored_inode = row[9], row[10]
+            stored_row_is_consistent = row[2] == _incarnation(real_path, expected_session_id, stored_device, stored_inode)
+            if (
+                (*row[7:9], *row[10:]) != binding or row[1] != normalized_source_id
+                or not stored_row_is_consistent
+            ):
                 raise EventError("COLLECTOR_SOURCE_BINDING_MISMATCH")
             result = _source_row(row[:7])
         con.execute("COMMIT")
