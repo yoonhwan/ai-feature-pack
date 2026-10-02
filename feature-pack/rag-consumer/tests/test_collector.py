@@ -385,3 +385,18 @@ def test_lagging_collector_replays_after_peer_finishes(tmp_path, collector_scope
         assert lagging.result(timeout=10).accepted_count == 2
     with open_ledger(ledger_path, KEY) as ledger:
         assert ledger._con.execute("SELECT count(*) FROM events").fetchone() == (2,)
+
+
+GOLDEN_INCARNATION = "codex-rollout:2e4f85f21c4005db065505d6c5462ccc05b7578b57919e8b0e3083ffd0c6435d"
+
+
+def test_incarnation_matches_the_golden_value_and_the_stored_row(tmp_path, collector_scope):
+    """Structure-only guard: the incarnation seed (path, session, device, inode) never changes its output."""
+    assert collector._incarnation("/synthetic/rollout.jsonl", SESSION, "16777231", "1186756666") == GOLDEN_INCARNATION
+    path = tmp_path / "rollout.jsonl"
+    write_rollout(path, session_meta(), message(1, "user-1", "user", ["body"]))
+    info = os.stat(path)
+    with open_ledger(tmp_path / "ledger.db", KEY) as ledger:
+        run_collect(ledger, path, collector_scope)
+        stored = ledger._con.execute("SELECT incarnation FROM airag_rollout_collector_sources").fetchone()[0]
+    assert stored == collector._incarnation(os.path.realpath(path), SESSION, str(info.st_dev), str(info.st_ino))

@@ -295,17 +295,18 @@ def _reload_source(ledger: Ledger, source_id: str) -> _Source:
     return _source_row(row)
 
 
+def _incarnation(real_path: str, session_id: str, device: str, inode: str) -> str:
+    seed = _canonical(["codex-rollout-incarnation-v1", real_path, session_id, device, inode])
+    return f"codex-rollout:{_sha256(seed)}"
+
+
 def _load_or_create_source(
     ledger: Ledger, *, source_id: str, source_path: str, real_path: str,
     opened: os.stat_result, expected_session_id: str, expected_scope: AccessScope,
 ) -> _Source:
     con = ledger._con
     normalized_source_id = f"{source_id}:codex-rollout-normalized"
-    seed = _canonical([
-        "codex-rollout-incarnation-v1", real_path, expected_session_id,
-        str(opened.st_dev), str(opened.st_ino),
-    ])
-    incarnation = f"codex-rollout:{_sha256(seed)}"
+    incarnation = _incarnation(real_path, expected_session_id, str(opened.st_dev), str(opened.st_ino))
     try:
         con.execute("BEGIN IMMEDIATE")
         row = con.execute(
