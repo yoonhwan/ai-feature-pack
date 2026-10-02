@@ -249,6 +249,11 @@ _gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("
 if [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   _gate_out="$("$HERE/ft-nano-cherry-gate.sh" "${FT_NANO_FEAT:-feat/v6-realtime-live}" "$_gate_br" --repo "$ROOT" 2>&1)"; _gate_rc=$?
   [ "$_gate_rc" -eq 0 ] || bad+=("⑤$(printf '%s' "$_gate_out" | sed '2,$s/^/    /')")
+  # 나노 생애(오빠 ORDERS 103 · docs/rules/single_set_testing.md §3): 미랜딩이면 «루트부터» 판정과 다음 수(최신 루트 병합→시험→squash 랜딩)를 같이 낸다.
+  if [ "$_gate_rc" -ne 0 ] && [ -x "$HERE/ft-nano-freshness.sh" ]; then
+    _fresh_out="$(cd "$ROOT" && "$HERE/ft-nano-freshness.sh" "$_gate_br" --root "${FT_NANO_FEAT:-feat/v6-realtime-live}" 2>&1 | grep -E '^(base|branch|overlap|다음|VERDICT|  )')"
+    bad+=("⑤-생애 $(printf '%s' "$_fresh_out" | sed '2,$s/^/    /')")
+  fi
   [ "$_gate_rc" -ne 0 ] || echo "$_gate_out"
 else
   bad+=("⑤cherry 게이트 스크립트 없음: $HERE/ft-nano-cherry-gate.sh (런타임 bin 에 같이 복사)")
