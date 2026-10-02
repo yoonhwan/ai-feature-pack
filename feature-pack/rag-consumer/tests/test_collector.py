@@ -612,6 +612,9 @@ def test_a_row_with_nothing_consumed_yet_survives_a_device_change(tmp_path, coll
         shift_device(monkeypatch, path)
         run_collect(ledger, path, collector_scope)
         assert len(stored_events(ledger)) == 1 and source_row(ledger) == row
+        stored_incarnation = row[2]
+        assert stored_events(ledger)[0]["producer_epoch"] == stored_incarnation
+        assert ledger._con.execute("SELECT incarnation FROM sources").fetchone() == (stored_incarnation,)
 
 
 def test_cross_volume_clone_with_the_same_prefix_is_accepted_by_design(tmp_path, collector_scope, monkeypatch):
