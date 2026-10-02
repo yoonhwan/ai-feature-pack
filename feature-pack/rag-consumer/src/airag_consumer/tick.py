@@ -34,6 +34,7 @@ STATUS = {
     EXIT_OK: "ok", EXIT_SKIPPED: "skipped", EXIT_CONFIG: "config_error",
     EXIT_KEYS: "key_error", EXIT_RUNTIME: "runtime_error", EXIT_INTERNAL: "internal_error",
 }
+STATUS_DEGRADED = "degraded"  # exit 0, but at least one publication failed this pass
 DEFAULT_LOG_DIR = Path.home() / ".local" / "share" / "airag" / "logs"
 LOG_MAX_BYTES = 1_000_000
 LOG_KEEP_DAYS = 14
@@ -247,7 +248,9 @@ def main(
     except Exception as error:  # type only: messages may carry values
         exit_code, code = EXIT_INTERNAL, type(error).__name__
     line = json.dumps({
-        "ts": now.astimezone(timezone.utc).isoformat(), "status": STATUS[exit_code], "exit": exit_code,
+        "ts": now.astimezone(timezone.utc).isoformat(), "status": (
+            STATUS_DEGRADED if exit_code == EXIT_OK and summary.get("published_failed", 0) > 0 else STATUS[exit_code]
+        ), "exit": exit_code,
         **({"code": code} if code else {}), **({"type": kind} if kind else {}),
         **({"summary": summary} if summary else {}),
     }, sort_keys=True, separators=(",", ":"))
