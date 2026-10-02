@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill]
+# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>"]
+#   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
@@ -13,8 +14,12 @@
 #   FT_WT_AUTOCLEAN=0 = 실행 경로 전부 끔(계획만 남김). 원장 경로는 리포 고정(ROOT 기준 · DA r2 MINOR C) — FT_NANO_LEDGER 로 override.
 set -uo pipefail
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
-RESULT=""; RECV=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"
-while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
+RESULT=""; RECV=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0
+while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;;
+  --cherry-override) [ $# -ge 2 ] || { echo "usage: --cherry-override <사유> (사유 인자 누락)" >&2; exit 2; }; HAVE_CHERRY_OVERRIDE=1; CHERRY_OVERRIDE="$2"; shift 2;;
+  *) echo "unknown $1" >&2; exit 2;; esac; done
+# ⑤ cherry 게이트 사람 우회 — 사유 빈 문자열은 cherry-gate 의 REJECT 에 기대지 않고 close 입구에서 usage(2) (M7 · arch#141 #53675)
+if [ "$HAVE_CHERRY_OVERRIDE" -eq 1 ] && [ -z "${CHERRY_OVERRIDE//[[:space:]]/}" ]; then echo "usage: --cherry-override 사유가 비어 있음(사유 없는 우회 거부)" >&2; exit 2; fi
 NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"
 case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 temp- 접두)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -267,7 +272,9 @@ fi
 _gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$ROOT/.worktrees/v65-$_KEY/.worktree-info.json" 2>/dev/null)"
 [ -n "$_gate_br" ] || _gate_br="nano/$_KEY"
 if [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
-  _gate_out="$("$HERE/ft-nano-cherry-gate.sh" "${FT_NANO_FEAT:-feat/v6-realtime-live}" "$_gate_br" --repo "$ROOT" --mode close 2>&1)"; _gate_rc=$?
+  # --cherry-override 는 ⑤ 에만 전달한다(①~④·⑥ 영향 0). FT_SEAT 로 원장 행 seat 칸이 좌석명이 된다.
+  _gate_args=(--repo "$ROOT" --mode close); [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
+  _gate_out="$(FT_SEAT="$SEAT" "$HERE/ft-nano-cherry-gate.sh" "${FT_NANO_FEAT:-feat/v6-realtime-live}" "$_gate_br" "${_gate_args[@]}" 2>&1)"; _gate_rc=$?
   [ "$_gate_rc" -eq 0 ] || bad+=("⑤$(printf '%s' "$_gate_out" | sed '2,$s/^/    /')")
   # 나노 생애(오빠 ORDERS 103 · docs/rules/single_set_testing.md §3): 미랜딩이면 «루트부터» 판정과 다음 수(최신 루트 병합→시험→squash 랜딩)를 같이 낸다.
   if [ "$_gate_rc" -ne 0 ] && [ -x "$HERE/ft-nano-freshness.sh" ]; then
