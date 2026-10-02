@@ -25,7 +25,7 @@ import tempfile
 import time
 from typing import Callable, Mapping, Sequence, TextIO
 
-from ._result import RESULT_MAX_BYTES, validate_frame
+from ._result import RESULT_MAX_BYTES, _clean_type, validate_frame
 
 # Kept in step with operations.KEY_NAMES by a test: importing operations here would load sqlcipher3 into the tick.
 NAMES = ("AIRAG_CONSUMER_KEY_HEX", "AIRAG_PROJECTION_KEY_HEX", "AIRAG_ARCHIVE_KEY_HEX")
@@ -102,8 +102,8 @@ def load_keys(environment: dict[str, str], credentials: Path | None) -> None:
                 result = subprocess.run(
                     [op, "read", references[name]], env=child, capture_output=True, text=True, timeout=30,
                 )
-            except (OSError, subprocess.TimeoutExpired):
-                raise TickError(EXIT_KEYS, "OP_READ_UNAVAILABLE") from None
+            except (OSError, subprocess.TimeoutExpired) as error:  # class name only: timeout vs exec failure
+                raise TickError(EXIT_KEYS, "OP_READ_UNAVAILABLE", _clean_type(type(error).__name__)) from None
             value = result.stdout.strip()
             if result.returncode or not _KEY.fullmatch(value):
                 raise TickError(EXIT_KEYS, "OP_KEY_READ_OR_FORMAT_FAILED")
