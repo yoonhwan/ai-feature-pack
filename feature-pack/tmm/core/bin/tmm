@@ -186,17 +186,19 @@ cat_of() {
     while IFS=$'\t' read -r glob label; do
       [ -z "$glob" ] || [ "${glob#\#}" != "$glob" ] && continue
       # shellcheck disable=SC2254
-      case "$n" in $glob) printf '%s' "$label"; return;; esac
+      case "$n" in $glob) printf '%s' "${label,,}"; return;; esac
     done < "$CAT_FILE"
   fi
-  # ★일반화 폴백★ — 규칙에 안 걸리면 «역할 접두»(기본 `FB_ ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 5자)을 라벨로.
+  # ★일반화 폴백★ — 규칙에 안 걸리면 «역할 접두»(기본 `FB_ ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 8자)을 라벨로(전부 소문자).
   #   FB_CCU#0 → CCU(=CCU_ARCH 와 한 탭) · FB_CFO#33 → CFO · ft-v65-master → v65 · ft-airag-arch → airag.
   #   접두가 «프로젝트»를 가리던 것(FB_*→FB, ft-*→ft)이 프로젝트별 규칙을 하나씩 늘려야 했던 원인이다.
   local pfx lower="${n,,}" pl
   for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do
     pl="${pfx,,}"; [ "${lower#"$pl"}" != "$lower" ] && [ "${#n}" -gt "${#pfx}" ] && { n="${n:${#pfx}}"; break; }
   done
-  n="${n%%[-_]*}"; printf '%s' "${n:0:5}"
+  # ★라벨은 전부 소문자★ — KK / kk, CCU / ccu 가 다른 탭으로 갈라지던 것(2026-10-02). 그룹 키는 8자(ARCHDOC 이 ARCHD 로 잘리지 않게),
+  #   목록의 카테고리 «열»만 5자로 자른다(cmd_rows / cmd_dead_rows).
+  n="${n%%[-_]*}"; n="${n,,}"; printf '%s' "${n:0:8}"
 }
 
 # ---------- 상태 스캔 (캐시) ----------
@@ -347,7 +349,7 @@ cmd_rows() {
     cwd="${cwd##*/}"; cat="$(cat_of "$s")"; read -r ep src <<<"${EP[$s]:-$act ~}"
     printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$(wait_rank "$st")" "$ep" "$cat" \
-      "$cat" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
+      "${cat:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
       "$s" "$cat"
   done < <(tmux list-panes -a -F $'#{session_name}\t#{pane_current_command}\t#{window_activity}\t#{pane_current_path}' 2>/dev/null | awk -F'\t' '!seen[$1]++') \
   | { case "$mode" in
@@ -376,7 +378,8 @@ cmd_rows_cur() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여
   else
     local tmp="$STATE/rows.snap.$$"
     cmd_rows "${m:-time}" "${o:-}" "${1:-}" > "$tmp"
-    if [ -f "$RUN/tab" ]; then tab_rows < "$tmp"; else cat "$tmp"; fi
+    if [ -f "$RUN/tab" ]; then tab_rows < "$tmp"; else cat "$tmp"; fi | tee "$RUN/shown.$$" 
+    mv -f "$RUN/shown.$$" "$RUN/shown" 2>/dev/null
     # 부팅 즉시 그릴 «직전 화면» — 시간순·전체 필터일 때만(부팅 모드와 같아야 그대로 쓴다). 원자적 교체.
     if [ "${m:-time}" = time ] && [ -z "${o:-}" ] && [ -s "$tmp" ]; then mv -f "$tmp" "$STATE/rows.snap" 2>/dev/null; else rm -f "$tmp"; fi
   fi
@@ -390,12 +393,38 @@ cmd_rows_boot() {
   if [ "$(view_now)" = live ] && [ "${m:-time}" = time ] && [ -z "${o:-}" ] && [ -s "$snap" ] \
      && [ $(( $(date +%s) - $(stat -f %m "$snap" 2>/dev/null || stat -c %Y "$snap") )) -lt 1800 ]; then
     : > "$RUN/bootstale"
-    if [ -f "$RUN/tab" ]; then tab_rows < "$snap"; else cat "$snap"; fi
+    if [ -f "$RUN/tab" ]; then tab_rows < "$snap"; else cat "$snap"; fi | tee "$RUN/shown.$$"
+    mv -f "$RUN/shown.$$" "$RUN/shown" 2>/dev/null
   else
     cmd_rows_cur
   fi
 }
-cmd_boot_reload() { [ -f "$RUN/bootstale" ] && { rm -f "$RUN/bootstale"; printf 'reload(%s rows-cur)' "$SELF"; }; return 0; }
+# ---------- 탭별 커서 기억 (0.7.3) ----------
+# 탭마다 «마지막으로 커서가 있던 세션»을 $RUN/tabcur(`탭\t세션명`) 에 둔다. 탭을 옮길 때·좌석에 붙을 때 저장하고, 돌아오면 그 세션에 커서를 놓는다.
+#   (전엔 탭 전환이 늘 `first` 라 커서가 매번 맨 위로 갔고, --track 은 --id-nth 없이 «줄 전체» 가 같아야 추적해 시각·상태가 바뀌는 20초 갱신마다 커서가 튀었다.)
+tab_cur_id() {  # 지금 탭 id — 선택이 없거나 사라졌으면 첫 카테고리(tab_rows 와 같은 규칙)
+  local sel; sel="$(cat "$RUN/tabsel" 2>/dev/null)"
+  if [ -s "$RUN/tabs" ] && cut -f1 "$RUN/tabs" | grep -qxF -- "$sel"; then printf '%s' "$sel"; else sed -n 1p "$RUN/tabs" 2>/dev/null | cut -f1; fi
+}
+cur_tab_key() { if tab_on; then tab_cur_id; else printf 'list'; fi; }
+tabcur_set() {  # <탭> <세션명>
+  [ -n "${1:-}" ] && [ -n "${2:-}" ] || return 0
+  { awk -F'\t' -v t="$1" '$1!=t' "$RUN/tabcur" 2>/dev/null; printf '%s\t%s\n' "$1" "$2"; } > "$RUN/tabcur.$$" && mv -f "$RUN/tabcur.$$" "$RUN/tabcur"
+}
+tabcur_get() { awk -F'\t' -v t="${1:-}" '$1==t{print $2; exit}' "$RUN/tabcur" 2>/dev/null; }
+row_pos() {  # <목록파일> <세션명...> — 먼저 찾아지는 세션의 줄 번호(1부터). 없으면 빈 출력
+  local f="$1" n p; shift
+  for n in "$@"; do
+    [ -n "$n" ] || continue
+    p="$(awk -F'\t' -v n="$n" '$2==n{print NR; exit}' "$f" 2>/dev/null)"; [ -n "$p" ] && { printf '%s' "$p"; return; }
+  done
+}
+cmd_boot_reload() {  # fzf start — ①기억한 커서 복원 ②스냅샷 부팅이면 진짜 목록으로 갱신(--track 이 커서를 지켜 준다)
+  local acts="" p
+  p="$(row_pos "$RUN/shown" "$(tabcur_get "$(cur_tab_key)")")"; [ -n "$p" ] && acts="pos($p)"
+  if [ -f "$RUN/bootstale" ]; then rm -f "$RUN/bootstale"; acts+="${acts:++}reload($SELF rows-cur)"; fi
+  printf '%s' "$acts"; return 0
+}
 
 # ---------- 탭 뷰 (좌석뷰의 «추가 모드», 0.7.0) ----------
 # 목록 = 정렬된 평면 행. 탭 = 상단에 «카테고리 탭 줄»(전체 · ft · v65 …)을 두고 Tab/S-Tab 으로 회전, 목록은 그 카테고리만 보인다.
@@ -464,26 +493,38 @@ cmd_vtab() {
   printf 'reload(%s rows-cur)+transform-header(%s header)+change-prompt(%s)' "$SELF" "$SELF" "$([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> ')"
 }
 # Tab / S-Tab — 탭 뷰: 다음/이전 탭(전체 → 카테고리들 → 전체 …). 목록·종료 뷰는 원래 동작(선택 토글 + 아래/위).
-cmd_tabkey() {  # next|prev
-  local dir="${1:-next}" cur nxt
+cmd_tabkey() {  # next|prev [커서 세션명]
+  local dir="${1:-next}" here="${2:-}" cur nxt p
   tab_on || { [ "$dir" = next ] && printf 'toggle+down' || printf 'toggle+up'; return; }
   [ -s "$RUN/tabs" ] || { printf 'ignore'; return; }
-  cur="$(cat "$RUN/tabsel" 2>/dev/null)"        # 비면 awk 가 못 찾아 idx=1(첫 카테고리)로 취급
+  cur="$(tab_cur_id)"; tabcur_set "$cur" "$here"      # 떠나는 탭의 커서 저장
   nxt="$(awk -F'\t' -v cur="$cur" -v dir="$dir" '{ t[NR] = $1 }
     END { idx = 1; for (i = 1; i <= NR; i++) if (t[i] == cur) idx = i
           if (dir == "next") idx = idx % NR + 1; else idx = (idx - 2 + NR) % NR + 1
           print t[idx] }' "$RUN/tabs")"
   printf '%s\n' "$nxt" > "$RUN/tabsel"
-  printf 'reload(%s rows-cur)+transform-header(%s header)+first' "$SELF" "$SELF"
+  # 새 탭 목록을 «여기서» 만들어 위치를 계산한 뒤 reload-sync 로 바꿔 끼운다(캐시 적중 ~0.5초). 후보 순서: 이 탭에서 기억한 세션 → 지금 세션(전체 탭 등에 있으면) → 맨 위.
+  cmd_rows_cur > "$RUN/tabrows"
+  p="$(row_pos "$RUN/tabrows" "$(tabcur_get "$(tab_cur_id)")" "$here")"
+  # ★`reload-sync(...)+pos/first` 는 안 먹는다★ — --track 이 reload 가 끝난 뒤 커서를 «이전 줄 번호»로 되돌려 pos/first 를 덮는다(최소 예제 실측 2026-10-02).
+  #   그래서 원하는 줄 번호를 $RUN/wantpos 에 적고 reload 를 걸면, fzf `load` 이벤트(cmd_onload)가 reload 직후 pos 를 준다.
+  printf '%s\n' "${p:-1}" > "$RUN/wantpos"
+  printf 'reload(cat %s)+transform-header(%s header)' "$RUN/tabrows" "$SELF"
 }
 # → / ← — 탭 뷰: Tab / S-Tab 과 같다(다음/이전 탭). 목록·종료 뷰는 원래 동작(입력창 커서 이동).
 #   탭 뷰에서는 입력창 안 커서 이동에 방향키를 못 쓴다(Backspace·^W 로 고친다) — 사용자 지정 2026-10-01.
-cmd_arrowkey() {  # next|prev
-  if tab_on; then cmd_tabkey "${1:-next}"
+cmd_arrowkey() {  # next|prev [커서 세션명]
+  if tab_on; then cmd_tabkey "${1:-next}" "${2:-}"
   elif [ "${1:-next}" = next ]; then printf 'forward-char'; else printf 'backward-char'; fi
 }
 # load 이벤트 — 상단 라벨(매치수) 갱신. 탭 뷰면 방금 다시 센 탭 줄(수·⚠)도 같이.
-cmd_onload() { printf 'transform-border-label(%s blabel)' "$SELF"; tab_on && printf '+transform-header(%s header)' "$SELF"; return 0; }
+cmd_onload() {
+  local w
+  printf 'transform-border-label(%s blabel)' "$SELF"
+  tab_on && printf '+transform-header(%s header)' "$SELF"
+  if [ -f "$RUN/wantpos" ]; then w="$(cat "$RUN/wantpos")"; rm -f "$RUN/wantpos"; [ -n "$w" ] && printf '+pos(%s)' "$w"; fi
+  return 0
+}
 # ^A / ^D — 뷰 전환. 뷰마다 «자기 키워드»를 기억한다(2026-09-30 사용자 확정): 나가는 뷰의 질의를 저장하고 들어가는 뷰의 질의를 복원.
 #   change-query 는 «콜론 형식»이어야 질의 속 `)`·`+` 가 액션 구문을 깨지 않는다 → 반드시 액션 체인의 마지막.
 cmd_vswitch() {  # <live|dead> <현재 질의>
@@ -525,7 +566,7 @@ cmd_dead_rows() {  # [time|wait|cat] [fresh]
     cat="$(cat_of "$name")"
     printf '%s\t%s\t%s\t%-5s ◌ %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$([ "$src" = SNAP ] && echo 0 || echo 5)" "$la" "$cat" \
-      "$cat" "$nw" "$(clip_name "$name" "$nw")" "$src" "$(model_short "$(with_1m_if_claude "$md")")" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-"$cw")" \
+      "${cat:0:5}" "$nw" "$(clip_name "$name" "$nw")" "$src" "$(model_short "$(with_1m_if_claude "$md")")" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-"$cw")" \
       "$name" "$cat"
   done < <(dead_tsv "${2:-}") \
   | { case "$mode" in
@@ -1176,7 +1217,7 @@ cmd_tui() {
     rm -f "$sock"; auto_loop "$sock" & pinger=$!
     # --scheme=path: 구분자(-·#·/) 뒤 첫 글자에 보너스. 실측(16좌석·질의 5개)에서 4건 동일·1건 개선
     # (`v65m` → ft-v65-master 가 1위로). 좌석명이 ft-v65-master-sonnet#7 처럼 구분자로 쪼개져 있어 맞는다.
-    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track --scheme=path \
+    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track --id-nth=2 --scheme=path \
       --layout=reverse --cycle --no-mouse --info=hidden --sync --listen="$sock" \
       --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || { tab_on && echo '탭> ' || echo '좌석> '; })" --pointer='▶' \
       --header="$(cmd_header)" --header-first \
@@ -1190,10 +1231,10 @@ cmd_tui() {
       --bind "load:transform($SELF onload)" \
       --border=top --border-label="$(cmd_blabel)" --border-label-pos=-3:top \
       --multi --expect=enter,ctrl-e,ctrl-s,ctrl-k,ctrl-f,double-click \
-      --bind "tab:transform($SELF tabkey next)" \
-      --bind "btab:transform($SELF tabkey prev)" \
-      --bind "right:transform($SELF arrowkey next)" \
-      --bind "left:transform($SELF arrowkey prev)" \
+      --bind "tab:transform($SELF tabkey next {2})" \
+      --bind "btab:transform($SELF tabkey prev {2})" \
+      --bind "right:transform($SELF arrowkey next {2})" \
+      --bind "left:transform($SELF arrowkey prev {2})" \
       --bind "ctrl-v:transform($SELF vtab)" \
       --print-query --query="$(cat "$RUN/query.$(view_now)" 2>/dev/null)" \
       --bind "ctrl-h:execute-silent($M wait h)+reload($SELF rows-cur)+change-prompt(대기> )" \
@@ -1237,6 +1278,7 @@ cmd_tui() {
       continue
     fi
     [ -n "$sel" ] || continue
+    [ "$(view_now)" = live ] && tabcur_set "$(cur_tab_key)" "$sel"      # 좌석에 붙었다 돌아오면 같은 세션에 커서
     if [ "$(view_now)" = dead ]; then
       case "$key" in
         ctrl-s) echo "(종료된 세션에는 메시지를 보낼 수 없음 — Enter 로 먼저 복구)"; sleep 1.5;;
@@ -1308,8 +1350,8 @@ case "${1:-}" in
   bkey)      cmd_bkey;;                          # ^B 선택복구 모드 토글 (fzf transform 용 액션)
   vswitch)   cmd_vswitch "${2:-live}" "${3:-}";;     # ^A/^D 뷰 전환 (뷰별 키워드)
   vtab)      cmd_vtab;;                          # ^V 목록↔탭
-  tabkey)    cmd_tabkey "${2:-next}";;           # Tab/S-Tab: 다음/이전 탭
-  arrowkey)  cmd_arrowkey "${2:-next}";;         # →/←: 탭 뷰면 Tab/S-Tab, 아니면 입력창 커서 이동
+  tabkey)    cmd_tabkey "${2:-next}" "${3:-}";;           # Tab/S-Tab: 다음/이전 탭
+  arrowkey)  cmd_arrowkey "${2:-next}" "${3:-}";;         # →/←: 탭 뷰면 Tab/S-Tab, 아니면 입력창 커서 이동
   onload)    cmd_onload;;                        # fzf load 이벤트 (라벨 + 탭 줄)
   dkey)      cmd_dkey "${2:-}" "${3:-}";;        # tmux C-a d 바인딩이 부른다 (피커 복귀/detach)
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)

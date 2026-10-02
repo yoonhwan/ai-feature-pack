@@ -1,11 +1,9 @@
 # tmm 카테고리 규칙 — "글롭<TAB>라벨" 한 줄씩. 위에서부터 첫 매치. 세션명의 `#N` 카운터는 떼고 비교.
 # 이 파일: ~/.tmm/categories  (TMM_CATEGORIES 로 경로 변경 가능)
 #
-# ★대부분은 규칙이 필요 없다★ — 규칙에 안 걸리면 «역할 접두»(`FB_`·`ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 5자)이 라벨:
-#   FB_CCU#0 → CCU   FB_CFO#33 → CFO   ft-v65-master-claude#86 → v65   ft-airag-arch-astra → airag   CCU_ARCH#3 → CCU
+# ★대부분은 규칙이 필요 없다★ — 규칙에 안 걸리면 «역할 접두»(`FB_`·`ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 8자)이 라벨:
+#   FB_CCU#0 → ccu   FB_CFO#33 → cfo   ft-v65-master-claude#86 → v65   ft-airag-arch-astra → airag   CCU_ARCH#3 → ccu
 # 아래는 «일반화로 안 되는 것»만 적는다 — 별칭 병합·대소문자 통일·다른 이름으로 부르고 싶은 것.
-# 라벨은 5자 안이 폰 화면에 맞는다.
+# ★라벨은 전부 소문자로 정규화된다★(KK/kk 가 한 탭). 그룹 키는 8자, 목록 열은 5자.
 KakaoBot	kakao
-cfo_*	CFO
-loom_*	LOOM
-DATA_PG	LOOM
+DATA_PG	loom

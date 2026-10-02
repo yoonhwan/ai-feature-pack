@@ -61,7 +61,8 @@ ssh -i ~/.ssh/termius_mobile_ed25519 -o IdentitiesOnly=yes 100.92.216.120 -t 'zs
 - **피커 세션은 tmux 프리픽스를 끈다**(`tui_wrap`, `prefix None`). 전역 프리픽스가 `C-a` 면 피커의 `^A` 가 fzf 에 안 닿고, 이어 `^D` 가 «프리픽스+d» 로 detach → tmm 종료(2026-09-30). 좌석 세션의 `C-a d` 는 그대로(`cmd_dkey` 가 출발 피커 → 직전 → 빈 피커 순 복귀). verify (x)(y).
 - **키워드는 뷰별**(`$RUN/query.live`·`query.dead`)이다 — 뷰 전환은 fzf 안 `vswitch` 로 저장·복원한다. `change-query:` 는 콜론 형식이며 액션 체인의 «마지막»이어야 질의 속 `)`·`+` 가 구문을 안 깬다.
 - **탭 뷰(기본)**: 탭 줄은 헤더의 «마지막» 줄(프롬프트 바로 위), `전체`(`*`)는 «마지막 탭», 시작 탭은 «첫 카테고리»(전체는 가장 무겁다 — 사용자 지정 2026-09-30). `Tab`/`S-Tab` 과 `→`/`←` 는 탭 뷰에서만 가로챈다(목록·종료 뷰는 Tab=toggle, 방향키=forward/backward-char — `arrowkey`). `cmd_header` 를 `cmd && x` 로 끝내지 않는다 — 탭이 꺼져 있으면 종료코드 1.
-- **카테고리는 일반화 폴백이 정본**(`cat_of`): 역할 접두(`FB_ ft-`)를 떼고 첫 토큰. 규칙 파일에 프로젝트별 줄을 늘리지 않는다. verify (z).
+- **카테고리는 일반화 폴백이 정본**(`cat_of`): 역할 접두(`FB_ ft-`)를 떼고 첫 토큰, ★라벨은 전부 소문자·그룹 키 8자(열 표시만 5자)★. 규칙 파일에 프로젝트별 줄을 늘리지 않는다. verify (z).
+- **탭 전환 후 커서는 `reload-sync(...)+pos/first` 로 못 준다** — `--track` 이 reload 뒤 «이전 줄 번호» 로 되돌려 덮는다(최소 예제 실측 2026-10-02). `$RUN/wantpos` 에 줄 번호를 적고 `reload(cat …)` → fzf `load` 이벤트(`cmd_onload`)가 `pos(N)`. 커서 추적은 `--track --id-nth=2`(세션명) 필수 — 빼면 20초 갱신마다 커서가 튄다. 탭별 마지막 세션은 `$RUN/tabcur`. verify (zc).
 - **부팅 속도 3종을 빼지 않는다**: ① `rows-boot`(직전 스냅샷 즉시 + `boot-reload`) ② `ep.cache`(좌석별 `(window_activity,pane_pid)` 키) ③ dead-scan 의 `lsof -c …` 범위 축소(전체 `lsof` 는 5초). verify (zz).
 - `SELF`/`HERE` 는 `$0` 기준(심링 해석). `command -v tmm` 으로 잡으면 소스 트리 실행이 설치본 libexec 를 본다.
 

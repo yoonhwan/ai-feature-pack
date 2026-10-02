@@ -379,7 +379,7 @@ _ms2="$(model_short 'claude-sonnet-5-5[1m]')|$(model_short 'claude-sonnet-5[1m]'
 for n in TABX_A TABX_B TABY_A; do tm new-session -d -s "$n"; done
 sleep 0.4
 tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/tabsel" "$STATE/tabs"
-tmm header | grep -q 'TABX' && { echo 'FAIL: (v) 목록 모드 헤더에 탭 줄이 나옴'; exit 1; }
+tmm header | grep -q 'tabx' && { echo 'FAIL: (v) 목록 모드 헤더에 탭 줄이 나옴'; exit 1; }
 [ "$(tmm tabkey next)" = 'toggle+down' ] || { echo 'FAIL: (v) 목록 모드 Tab 이 원래 동작(toggle+down)이 아님'; exit 1; }
 [ "$(tmm tabkey prev)" = 'toggle+up' ]   || { echo 'FAIL: (v) 목록 모드 S-Tab 이 원래 동작(toggle+up)이 아님'; exit 1; }
 tmm vtab | grep -q 'reload' || { echo 'FAIL: (v) ^V 가 reload 액션을 안 냄'; exit 1; }
@@ -390,17 +390,17 @@ printf '*\n' > "$STATE/tabsel"; all_total="$(tmm rows-cur | wc -l | tr -d ' ')"
 [ "$default_n" -lt "$all_total" ] || { echo "FAIL: (v) 시작 탭이 전체임(default=$default_n all=$all_total) — 첫 카테고리여야 함"; exit 1; }
 all_out="$(tmm rows-cur | grep TAB)"
 for n in TABX_A TABX_B TABY_A; do printf '%s\n' "$all_out" | grep -q "$n" || { echo "FAIL: (v) 전체 탭에 $n 없음"; exit 1; }; done
-printf '%s\n' "$all_out" | awk -F'\t' '$2=="TABX_A"{print $1}' | grep -q '^TABX ' || { echo 'FAIL: (v) 전체 탭은 카테고리 열을 유지해야 함'; exit 1; }
+printf '%s\n' "$all_out" | awk -F'\t' '$2=="TABX_A"{print $1}' | grep -q '^tabx ' || { echo 'FAIL: (v) 전체 탭은 카테고리 열을 유지해야 함'; exit 1; }
 [ "$(tail -1 "$STATE/tabs" | cut -f1)" = '*' ] || { echo 'FAIL: (v) tabs 파일 «마지막» 줄이 전체(*)가 아님'; cat "$STATE/tabs"; exit 1; }
 [ "$(sed -n 1p "$STATE/tabs" | cut -f1)" != '*' ] || { echo 'FAIL: (v) 전체가 첫 탭에 있음'; exit 1; }
-[ "$(awk -F'\t' '$1=="TABX"{print $2}' "$STATE/tabs")" = 2 ] || { echo 'FAIL: (v) TABX 카운트≠2'; cat "$STATE/tabs"; exit 1; }
-[ "$(awk -F'\t' '$1=="TABY"{print $2}' "$STATE/tabs")" = 1 ] || { echo 'FAIL: (v) TABY 카운트≠1'; cat "$STATE/tabs"; exit 1; }
+[ "$(awk -F'\t' '$1=="tabx"{print $2}' "$STATE/tabs")" = 2 ] || { echo 'FAIL: (v) TABX 카운트≠2'; cat "$STATE/tabs"; exit 1; }
+[ "$(awk -F'\t' '$1=="taby"{print $2}' "$STATE/tabs")" = 1 ] || { echo 'FAIL: (v) TABY 카운트≠1'; cat "$STATE/tabs"; exit 1; }
 bar="$(tmm header | sed -n '$p' | sed 's/\x1b\[[0-9;]*m//g')"
 printf '%s\n' "$bar" | grep -qE '전체 [0-9]+ *$' || { echo "FAIL: (v) 전체가 탭 줄의 «마지막»이 아님: $bar"; exit 1; }
-printf '%s\n' "$bar" | grep -q '전체' && printf '%s\n' "$bar" | grep -q 'TABX 2' && printf '%s\n' "$bar" | grep -q 'TABY 1' || { echo "FAIL: (v) 헤더 마지막 줄이 탭 줄이 아님: $bar"; exit 1; }
+printf '%s\n' "$bar" | grep -q '전체' && printf '%s\n' "$bar" | grep -q 'tabx 2' && printf '%s\n' "$bar" | grep -q 'taby 1' || { echo "FAIL: (v) 헤더 마지막 줄이 탭 줄이 아님: $bar"; exit 1; }
 # Tab = 다음 탭. 전체(마지막)에서 누르면 첫 카테고리로 돈다 → 그 카테고리만, 카테고리 열은 뗀다
 nx="$(tmm tabkey next)"
-printf '%s\n' "$nx" | grep -q 'reload' && printf '%s\n' "$nx" | grep -q 'first' || { echo "FAIL: (v) Tab 이 reload+first 가 아님: $nx"; exit 1; }
+printf '%s\n' "$nx" | grep -q '^reload(cat ' && [ -n "$(cat "$STATE/wantpos" 2>/dev/null)" ] || { echo "FAIL: (v) Tab 이 reload(cat …)+wantpos 가 아님: $nx"; exit 1; }
 first_cat="$(sed -n 1p "$STATE/tabs" | cut -f1)"
 [ "$(cat "$STATE/tabsel")" = "$first_cat" ] || { echo "FAIL: (v) Tab 후 선택 탭≠첫 카테고리($first_cat): $(cat "$STATE/tabsel")"; exit 1; }
 sel_out="$(tmm rows-cur)"
@@ -409,7 +409,7 @@ printf '%s\n' "$sel_out" | awk -F'\t' '{print $1}' | grep -qE '^[●○] ' || { 
 tmm header | sed -n '$p' | sed 's/\x1b\[[0-9;]*m//g' | grep -q "$first_cat" || { echo 'FAIL: (v) 탭 줄에 선택 카테고리 없음'; exit 1; }
 # →/← 는 Tab/S-Tab 과 같다(탭 뷰). 선택 탭이 Tab 과 같은 규칙으로 움직인다
 printf '%s\n' "$first_cat" > "$STATE/tabsel"
-ar="$(tmm arrowkey next)"; printf '%s\n' "$ar" | grep -q 'reload' && printf '%s\n' "$ar" | grep -q 'first' || { echo "FAIL: (v) → 가 Tab 과 같은 reload+first 가 아님: $ar"; exit 1; }
+ar="$(tmm arrowkey next)"; printf '%s\n' "$ar" | grep -q '^reload(cat ' || { echo "FAIL: (v) → 가 Tab 과 같은 reload(cat …) 가 아님: $ar"; exit 1; }
 nxt_sel="$(cat "$STATE/tabsel")"; printf '%s\n' "$first_cat" > "$STATE/tabsel"; tmm tabkey next >/dev/null
 [ "$nxt_sel" = "$(cat "$STATE/tabsel")" ] || { echo "FAIL: (v) → 와 Tab 의 결과 탭이 다름($nxt_sel vs $(cat "$STATE/tabsel"))"; exit 1; }
 printf '%s\n' "$nxt_sel" > "$STATE/tabsel"; tmm arrowkey prev >/dev/null; tmm_back="$(cat "$STATE/tabsel")"
@@ -442,7 +442,7 @@ tmm blabel | grep -q '탭' || { echo 'FAIL: (v) 탭 모드 상단 라벨에 「�
 tmm onload | grep -q 'transform-header' || { echo 'FAIL: (v) 탭 모드 load 이벤트가 헤더를 안 갱신'; exit 1; }
 tmm vtab >/dev/null; [ -f "$STATE/tab" ] && { echo 'FAIL: (v) ^V 재입력이 목록으로 안 돌아옴'; exit 1; }
 [ "$(tmm arrowkey next)" = forward-char ] && [ "$(tmm arrowkey prev)" = backward-char ] || { echo 'FAIL: (v) 목록 뷰 방향키가 입력창 커서 이동(forward/backward-char)이 아님'; exit 1; }
-tmm header | grep -q 'TABX' && { echo 'FAIL: (v) 목록 복귀 후에도 탭 줄이 나옴'; exit 1; }
+tmm header | grep -q 'tabx' && { echo 'FAIL: (v) 목록 복귀 후에도 탭 줄이 나옴'; exit 1; }
 tmm onload | grep -q 'transform-header' && { echo 'FAIL: (v) 목록 모드 load 이벤트가 헤더를 건드림(종료 뷰에서는 무거운 스캔)'; exit 1; }
 # 종료 뷰에는 탭이 없다 — Tab 은 원래 동작
 tmm view dead >/dev/null; tmm vtab | grep -q '탭은 좌석뷰 전용' || { echo 'FAIL: (v) 종료 뷰 ^V 안내 없음'; exit 1; }
@@ -553,15 +553,45 @@ tmm mode wait h; printf 'FAKE\tFAKE_SNAP_SESSION\tFAKE\n' > "$STATE/rows.snap"; 
 tmm mode time; rm -f "$STATE/rows.snap" "$STATE/bootstale" "$STATE/ep.cache" "$STATE/ep.cache.bak"
 grep -q '"lsof", "-Fn", "-c", "claude"' "$ROOT/core/libexec/tmm-dead-scan.py" || { echo 'FAIL: (zz) dead-scan lsof 가 전체 스캔으로 되돌아감(5초)'; exit 1; }
 
+# (zc) 탭별 커서 기억 · 세션명 추적 — 탭을 옮겼다 돌아오면 그 탭에서 마지막으로 있던 세션에 커서가 간다(전엔 늘 맨 위 · 줄 전체로 추적해 갱신마다 튐)
+grep -q -- '--track --id-nth=2' "$TMM" || { echo 'FAIL: (zc) fzf --track 에 --id-nth=2(세션명 추적)가 없음'; exit 1; }
+for n in TABX_A TABX_B TABY_A; do tm has-session -t "=$n" 2>/dev/null || tm new-session -d -s "$n"; done
+sleep 0.3; tmm view live >/dev/null; tmm mode time; : > "$STATE/tab"; rm -f "$STATE/tabcur" "$STATE/tabrows"; tmm rows-cur >/dev/null
+printf 'tabx\n' > "$STATE/tabsel"; tmm rows-cur >/dev/null
+tabx_n="$(tmm rows-cur | cut -f2 | grep -nx 'TABX_B' | cut -d: -f1)"
+[ -n "$tabx_n" ] || { echo 'FAIL: (zc) tabx 탭에 TABX_B 가 없음'; exit 1; }
+go="$(tmm tabkey next TABX_B)"     # tabx 를 TABX_B 에 둔 채 떠난다
+printf '%s\n' "$go" | grep -q '^reload(cat ' || { echo "FAIL: (zc) 탭 전환이 reload(cat …) 가 아님: $go"; exit 1; }
+printf '%s\n' "$go" | grep -q 'reload-sync' && { echo 'FAIL: (zc) reload-sync 는 --track 이 pos 를 덮어 쓸 수 없다'; exit 1; }
+[ "$(awk -F'\t' '$1=="tabx"{print $2}' "$STATE/tabcur")" = TABX_B ] || { echo 'FAIL: (zc) 떠나는 탭의 커서가 저장 안 됨'; cat "$STATE/tabcur"; exit 1; }
+[ "$(cat "$STATE/tabsel")" != tabx ] || { echo 'FAIL: (zc) 탭이 안 옮겨짐'; exit 1; }
+back="$(tmm tabkey prev "$(tmm rows-cur | cut -f2 | sed -n 1p)")"   # 돌아온다
+[ "$(cat "$STATE/tabsel")" = tabx ] || { echo "FAIL: (zc) prev 로 tabx 에 못 돌아옴: $(cat "$STATE/tabsel")"; exit 1; }
+[ "$(cat "$STATE/wantpos")" = "$tabx_n" ] || { echo "FAIL: (zc) tabx 로 돌아왔는데 기억한 TABX_B(줄 $tabx_n)를 wantpos 에 안 적음: $(cat "$STATE/wantpos")"; exit 1; }
+onl="$(tmm onload)"; printf '%s\n' "$onl" | grep -q "+pos($tabx_n)\$" || { echo "FAIL: (zc) load 이벤트가 pos($tabx_n) 를 안 줌: $onl"; exit 1; }
+[ -f "$STATE/wantpos" ] && { echo 'FAIL: (zc) wantpos 가 소비되지 않음(20초 갱신마다 커서가 끌려감)'; exit 1; }
+tmm onload | grep -q 'pos(' && { echo 'FAIL: (zc) wantpos 없는 load 가 pos 를 줌'; exit 1; }
+# 기억이 없고 지금 세션도 새 탭에 없으면 맨 위
+rm -f "$STATE/tabcur"; printf 'tabx\n' > "$STATE/tabsel"
+tmm tabkey next TABX_B >/dev/null; [ -n "$(cat "$STATE/wantpos" 2>/dev/null)" ] || { echo 'FAIL: (zc) 기억 없는 탭 이동에 wantpos(1 이상)가 없음'; exit 1; }
+rm -f "$STATE/wantpos"
+# 부팅(start) 때 기억한 커서 복원 — shown 은 마지막으로 그린 목록
+rm -f "$STATE/tabcur"; printf 'tabx\n' > "$STATE/tabsel"; tmm rows-cur >/dev/null
+printf 'tabx\tTABX_B\n' > "$STATE/tabcur"
+tmm boot-reload | grep -q "pos($tabx_n)" || { echo "FAIL: (zc) boot-reload 가 기억한 커서(pos $tabx_n)를 복원 안 함: $(tmm boot-reload)"; exit 1; }
+# 목록 뷰 키는 'list'
+rm -f "$STATE/tab" "$STATE/tabcur"; [ "$(printf 'x'; bash -c 'source "'"$TMM"'" __lib; RUN="'"$STATE"'"; cur_tab_key')" = xlist ] || { echo 'FAIL: (zc) 목록 뷰 커서 키가 list 가 아님'; exit 1; }
+rm -f "$STATE/tabsel" "$STATE/tabcur" "$STATE/tabrows"
+
 # (z) 카테고리 일반화 — 역할 접두(FB_·ft-)를 뗀 첫 토큰. 프로젝트별 규칙을 늘리지 않고 같은 프로젝트가 한 탭에 모인다
 CAT_FILE="$ROOT/core/categories.example"
 eval "$(sed -n '/^cat_of()/,/^}/p' "$TMM")"
 _cat() { cat_of "$1"; }
-for pair in 'FB_CCU#0:CCU' 'CCU_ARCH#3:CCU' 'FB_CFO#33:CFO' 'CFO_F_NANO#17:CFO' 'cfo_x#1:CFO' 'ft-v65-master-claude#86:v65' 'ft-airag-arch-astra:airag' \
-            'ft-kakao-impl#2:kakao' 'KakaoBot#5:kakao' 'FB_VEC_IMPL#5:VEC' 'LOOM_A#1:LOOM' 'loom_a#1:LOOM' 'DATA_PG:LOOM' 'plain-shell:plain'; do
+for pair in 'FB_CCU#0:ccu' 'CCU_ARCH#3:ccu' 'FB_CFO#33:cfo' 'CFO_F_NANO#17:cfo' 'cfo_x#1:cfo' 'ft-v65-master-claude#86:v65' 'ft-airag-arch-astra:airag' \
+            'ft-kakao-impl#2:kakao' 'KakaoBot#5:kakao' 'FB_VEC_IMPL#5:vec' 'LOOM_A#1:loom' 'loom_a#1:loom' 'DATA_PG:loom' 'plain-shell:plain' 'FB_KK#0:kk' 'ft-kk-temp-x#0:kk' 'FB_ARCHDOC#8:archdoc'; do
   got="$(_cat "${pair%%:*}")"; [ "$got" = "${pair#*:}" ] || { echo "FAIL: (z) cat_of ${pair%%:*} → '$got' (기대 ${pair#*:})"; exit 1; }
 done
-[ "$(TMM_CAT_STRIP='X_' _cat 'X_ABC#1')" = ABC ] || { echo 'FAIL: (z) TMM_CAT_STRIP 로 접두 변경 안 됨'; exit 1; }
+[ "$(TMM_CAT_STRIP='X_' _cat 'X_ABC#1')" = abc ] || { echo 'FAIL: (z) TMM_CAT_STRIP 로 접두 변경 안 됨'; exit 1; }
 [ "$(_cat 'ft-')" = 'ft' ] || { echo "FAIL: (z) 접두만 있는 이름(ft-)이 빈 라벨: '$(_cat 'ft-')'"; exit 1; }
 
 echo "✅ tmm verify OK"
