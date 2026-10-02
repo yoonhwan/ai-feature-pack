@@ -14,11 +14,21 @@ out="$(git -C "$REPO" cherry "$FEAT" "$NANO" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }
 plus="$(printf '%s\n' "$out" | grep '^+' || true)"
 # «+» 커밋을 둘로 가른다 — design/ 밖 경로(코드·시험·스크립트)를 건드린 것 = 차단 · design/ 만 건드린 것 = WARN 통과(브랜치가 남아 복구 가능 · arch#137)
+#   ★경로 목록은 변수로 «완독» 한 뒤 분류한다(DA 575 H2: `diff-tree | grep -qv` 는 grep 조기 종료 → SIGPIPE → 큰 혼합 커밋이 «design/ 만» 으로 판정) · diff-tree·log 각 rc 를 따로 본다(H1: 실패가 WARN 통과)★
 block=""; warn=""
 while read -r _ sha; do
   [ -n "$sha" ] || continue
-  line="$(git -C "$REPO" log -1 --format='  + %h %s' "$sha" | cut -c1-120)"
-  if git -C "$REPO" diff-tree --no-commit-id --name-only -r -m --root "$sha" | grep -qv '^design/'; then block="${block}${line}"$'\n'; else warn="${warn}${line}"$'\n'; fi
+  line="$(git -C "$REPO" log -1 --format='  + %h %s' "$sha")"; lrc=$?
+  [ "$lrc" -eq 0 ] && [ -n "$line" ] || { echo "REJECT cherry 게이트 — git log 실패(rc=$lrc) 커밋 ${sha:0:9}"; exit 1; }
+  line="${line:0:120}"
+  paths="$(git -C "$REPO" diff-tree --no-commit-id --name-only -r -m --root "$sha")"; prc=$?
+  [ "$prc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree 실패(rc=$prc) 커밋 ${sha:0:9} — 경로를 못 읽어 분류 불가"; exit 1; }
+  outside=0
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in design/*) ;; *) outside=1; break ;; esac
+  done <<< "$paths"
+  if [ "$outside" -eq 1 ]; then block="${block}${line}"$'\n'; else warn="${warn}${line}"$'\n'; fi
 done <<< "$plus"
 nb="$(printf '%s' "$block" | grep -c . || true)"; nw="$(printf '%s' "$warn" | grep -c . || true)"
 if [ "$nb" -gt 0 ]; then
