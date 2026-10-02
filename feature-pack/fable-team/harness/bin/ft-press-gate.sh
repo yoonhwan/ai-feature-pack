@@ -84,12 +84,29 @@ grep -q 'activation bundle established' /tmp/byz-worker.log \
   || { say "✗" "활성화 번들 줄 없음 — legacy lane 의심"; FAIL=1; }
 code=$(curl -s -m 4 -o /dev/null -w '%{http_code}' http://localhost:8081/health 2>/dev/null)
 [ "$code" = "200" ] && say "✓" "worker health 200" || { say "✗" "worker health=$code"; FAIL=1; }
+# FE SSE 는 Caddy :8443 경유(run.command NEXT_PUBLIC_SSE_URL) — 죽으면 press 무효(2026-10-01 m7-rt-ledger 2회 · /health 는 307 이라 api 경로)
+code2=$(curl -sk -m 4 -o /dev/null -w '%{http_code}' https://localhost:8443/api/v1/health/ 2>/dev/null)
+[ "$code2" = "200" ] && say "✓" "Caddy 8443 health 200" || { say "✗" "Caddy 8443 health=$code2 — 리스너 없으면 run.command 로 기동"; FAIL=1; }
 # HTTP 200 이어도 본문 consumer_ready=false 면 PTT disabled — press 가 no_viable_target 으로 무효(2026-09-26 long3m-002)
 cr=$(curl -s -m 4 http://localhost:8081/health 2>/dev/null | python3 -c 'import sys,json
 try: d=json.load(sys.stdin)
 except Exception: print("unparsed"); sys.exit()
 print("ok" if d.get("consumer_ready") is True else "status=%s consumer_ready=%s" % (d.get("status"), d.get("consumer_ready")))' 2>/dev/null)
 [ "$cr" = "ok" ] && say "✓" "worker consumer_ready=true" || { say "✗" "worker ${cr:-unparsed} — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)"; FAIL=1; }
+# 재기동 직후 LOOM selfhost 프리워밍(전 튜플 실 LLM 호출 · ≈3 분)이 press 와 겹치면 vLLM 프리필 포화 → 번역 7 s 타임아웃 → 봉인 실패
+# (2026-10-02 10:12 K5 p1 무효 · 타임아웃 30건). 이번 기동의 «Warming up» 줄 «뒤»에 prewarm SUMMARY 가 있어야 한다.
+boot_ln=$(grep -n 'Worker Starting - Warming up services' /tmp/byz-worker.log 2>/dev/null | tail -1 | cut -d: -f1)
+sum_ln=$(grep -n 'selfhost prewarm SUMMARY' /tmp/byz-worker.log 2>/dev/null | tail -1 | cut -d: -f1)
+# SUMMARY 줄 «존재»만으로 통과시키지 않는다 — FAILED>0 이면 vLLM 이 그 순간 포화였다는 뜻(2026-10-02 20:22 K4 p1 무효 · 22 ok/14 FAILED 를 PASS).
+sum_txt=$([ -n "$sum_ln" ] && sed -n "${sum_ln}p" /tmp/byz-worker.log | grep -oE 'SUMMARY: [0-9]+ ok / [0-9]+ FAILED')
+sum_failed=$(printf '%s' "$sum_txt" | grep -oE '[0-9]+ FAILED' | grep -oE '[0-9]+')
+if [ -n "$boot_ln" ] && [ -n "$sum_ln" ] && [ "$sum_ln" -gt "$boot_ln" ] && [ "${sum_failed:-1}" -gt 0 ]; then
+  say "✗" "LOOM prewarm SUMMARY FAILED>0 ($sum_txt) — 공유 vLLM 포화 의심(다른 트랙 worker 기동·측정) → 원인 정리 뒤 worker 재기동"; FAIL=1
+elif [ -n "$boot_ln" ] && [ -n "$sum_ln" ] && [ "$sum_ln" -gt "$boot_ln" ]; then
+  say "✓" "LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음($sum_txt)"
+else
+  say "✗" "LOOM selfhost 프리워밍 진행 중/미완 — SUMMARY 줄이 뜬 뒤 발사(겹치면 번역 타임아웃으로 회차 무효)"; FAIL=1
+fi
 
 # ④ 워커 필수 env(WORKER_ENV_SPEC 키 이름만 대조 · 값 복제 0)
 wpid=$(lsof -ti:8081 -sTCP:LISTEN 2>/dev/null | head -1)
