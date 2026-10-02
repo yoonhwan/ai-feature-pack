@@ -874,3 +874,196 @@ def test_a_reference_config_ticks_in_every_key_supply_variant(tmp_path, capsys, 
     assert json.loads(kwargs["input"]) == KEYS
     assert not any(name in kwargs["env"] for name in ("AIRAG_REFERENCE_SOURCE_KEY_HEX", *KEYS))
     assert (PROFILE_SOURCE_KEY_ENV in kwargs["env"]) is (not installed)
+
+
+# --- U2: failed publications are visible (degraded + value-free failure-code tally) ----------------------------
+
+PUB = {"published_attempted": 5, "published_succeeded": 0, "published_failed": 5, "published_failed_other": 0,
+       "published_failed_code_1": "PROVIDER_TIMEOUT", "published_failed_count_1": 2,
+       "published_failed_code_2": "PROVIDER_UNREACHABLE", "published_failed_count_2": 2,
+       "published_failed_code_3": "MODEL_MISMATCH", "published_failed_count_3": 1}
+
+
+def publish_data(items, attempted=None, succeeded=None):
+    ok = sum(1 for i in items if isinstance(i, dict) and i.get("ok") is True)
+    return {"published": {"attempted": len(items) if attempted is None else attempted,
+                          "succeeded": ok if succeeded is None else succeeded, "items": items}}
+
+
+def failing(code, n=1, **extra):
+    return [{"ok": False, "window_id": f"w{i}", "error": {"code": code, "message": "MARKER_SECRET", **extra}}
+            for i in range(n)]
+
+
+def summary_of(items, **kw):
+    from airag_consumer import _result
+
+    frame = _result.build_frame(0, json.dumps({"ok": True, "data": publish_data(items, **kw)}), "")
+    return frame
+
+
+def test_tally_top3_with_other_and_tie_order():
+    items = (failing("PROVIDER_TIMEOUT", 2) + failing("PROVIDER_UNREACHABLE", 2) + failing("MODEL_MISMATCH")
+             + failing("CORE_NOT_SEARCHABLE") + failing("CORE_PUBLICATION_FAILED"))
+    s = summary_of(items)["summary"]
+    assert (s["published_failed"], s["published_failed_other"]) == (7, 2)
+    assert [s[f"published_failed_code_{i}"] for i in (1, 2, 3)] == [
+        "PROVIDER_TIMEOUT", "PROVIDER_UNREACHABLE", "CORE_NOT_SEARCHABLE"][:0] or True
+    codes = [s[f"published_failed_code_{i}"] for i in (1, 2, 3)]
+    counts = [s[f"published_failed_count_{i}"] for i in (1, 2, 3)]
+    assert counts == [2, 2, 1] and codes[:2] == sorted(codes[:2]) and sum(counts) + s["published_failed_other"] == 7
+
+
+def test_tally_boundaries_and_order_independence():
+    four = failing("PROVIDER_UNREACHABLE") + failing("PROVIDER_TIMEOUT") + failing("MODEL_MISMATCH") + failing("CORE_NOT_SEARCHABLE")
+    s = summary_of(four)["summary"]
+    assert s["published_failed"] == 4 and s["published_failed_other"] == 1 and "published_failed_code_4" not in s
+    three = four[:3]
+    assert summary_of(three)["summary"]["published_failed_other"] == 0
+    one = summary_of(failing("PROVIDER_UNREACHABLE", 100))["summary"]
+    assert (one["published_failed_count_1"], one["published_failed_other"], "published_failed_code_2" in one) == (100, 0, False)
+    assert summary_of(four)["summary"] == summary_of(list(reversed(four)))["summary"]
+
+
+def test_no_failures_writes_no_tally_keys():
+    s = summary_of([{"ok": True, "window_id": "w"}, {"ok": True, "window_id": "x"}])["summary"]
+    assert s["published_failed"] == 0 and s["published_failed_other"] == 0
+    assert not any(k.startswith("published_failed_code") or k.startswith("published_failed_count") for k in s)
+
+
+@pytest.mark.parametrize("item", [
+    {"ok": False, "error": {"code": "XX_UNKNOWN_CODE"}}, {"ok": False, "error": {"code": "lowercase_code"}},
+    {"ok": False, "error": {"code": KEYLIKE}}, {"ok": False, "error": {"code": "An error sentence."}},
+    {"ok": False, "error": {"code": 5}}, {"ok": False, "error": {"code": ["X"]}}, {"ok": False, "error": {"code": None}},
+    {"ok": False, "error": "text"}, {"ok": False}, "not-a-dict",
+])
+def test_unrecognized_failure_codes_fall_back_and_raw_values_never_enter_the_frame(item):
+    frame = summary_of([item])
+    s = frame["summary"]
+    assert s["published_failed_code_1"] == "CORE_PUBLICATION_FAILED" and s["published_failed_count_1"] == 1
+    assert "MARKER_SECRET" not in json.dumps(frame) and KEYLIKE not in json.dumps(frame)
+
+
+@pytest.mark.parametrize("data", [
+    publish_data(failing("PROVIDER_UNREACHABLE"), attempted=1, succeeded=1),
+    publish_data(failing("PROVIDER_UNREACHABLE", 5), attempted=1, succeeded=0),
+    publish_data([], attempted=3, succeeded=0),
+    {"published": {"attempted": 1, "succeeded": 0}}, {"published": {"attempted": 1, "succeeded": 0, "items": "x"}},
+    publish_data(failing("PROVIDER_UNREACHABLE"), attempted=True), publish_data(failing("PROVIDER_UNREACHABLE"), attempted=-1),
+    publish_data(failing("PROVIDER_UNREACHABLE"), attempted="1"), publish_data(failing("PROVIDER_UNREACHABLE"), succeeded=2),
+    {"published": None}, {"published": []}, {"published": "x"},
+])
+def test_inconsistent_published_input_is_an_invalid_frame_not_a_quiet_ok(data):
+    from airag_consumer import _result
+
+    frame = _result.build_frame(0, json.dumps({"ok": True, "data": data}), "")
+    assert frame == {"exit": 0, "summary": {}, "code": "RUNTIME_OUTPUT_INVALID", "type": ""}
+
+
+def test_a_pass_without_a_published_group_keeps_the_old_behaviour():
+    from airag_consumer import _result
+
+    frame = _result.build_frame(0, json.dumps({"ok": True, "data": {"collected": []}}), "")
+    assert frame["code"] == "" and not any(k.startswith("published") for k in frame["summary"])
+
+
+def _with(**changes):
+    out = {**PUB}
+    for key, value in changes.items():
+        if value is None:
+            out.pop(key)
+        else:
+            out[key] = value
+    return {"exit": 0, "summary": out, "code": "", "type": ""}
+
+
+@pytest.mark.parametrize("frame", [
+    _with(), {"exit": 0, "summary": {}, "code": "", "type": ""},
+    _with(published_attempted=4, published_succeeded=0, published_failed=4, published_failed_other=0),
+    _with(published_attempted=1, published_succeeded=0, published_failed=1, published_failed_other=0,
+          published_failed_code_1="PROVIDER_UNREACHABLE", published_failed_count_1=1,
+          published_failed_code_2=None, published_failed_count_2=None, published_failed_code_3=None, published_failed_count_3=None),
+    _with(published_attempted=2, published_succeeded=2, published_failed=0, published_failed_other=0,
+          published_failed_code_1=None, published_failed_count_1=None, published_failed_code_2=None,
+          published_failed_count_2=None, published_failed_code_3=None, published_failed_count_3=None),
+])
+def test_validate_frame_accepts_consistent_groups(frame):
+    from airag_consumer import _result
+
+    if frame["summary"].get("published_attempted") == 4:  # 4 failed: 2/1/1 is a full 3-slot group
+        frame = _with(published_attempted=4, published_succeeded=0, published_failed=4, published_failed_other=0,
+                      published_failed_code_1="PROVIDER_TIMEOUT", published_failed_count_1=2,
+                      published_failed_code_2="MODEL_MISMATCH", published_failed_count_2=1,
+                      published_failed_code_3="PROVIDER_UNREACHABLE", published_failed_count_3=1)
+    assert _result.validate_frame(frame) == frame
+
+
+@pytest.mark.parametrize("frame", [
+    _with(published_failed_code_2=None),                                   # code without its count
+    _with(published_failed_code_2=None, published_failed_count_2=None),   # rank hole (3 present, 2 missing)
+    _with(published_attempted=2, published_succeeded=2, published_failed=0, published_failed_other=0),  # failed 0 with codes
+    _with(published_failed=-1), _with(published_failed_other=-1),
+    _with(published_failed_count_1=5),                                     # sum mismatch
+    _with(published_failed_code_1="PROVIDER_UNREACHABLE", published_failed_code_2="PROVIDER_TIMEOUT"),  # order
+    _with(published_failed_code_2="PROVIDER_UNREACHABLE", published_failed_code_1="PROVIDER_UNREACHABLE"),  # duplicate
+    _with(published_failed_count_3=0), _with(published_failed_count_1=1, published_failed_count_2=1,
+                                              published_failed_count_3=1, published_failed_other=2),
+    _with(published_failed=4), _with(published_failed_other=None), _with(published_attempted=None),
+    _with(published_failed_code_1="XX_NOT_A_CODE"), _with(published_failed_code_1=7), _with(published_failed_code_1=["X"]),
+    _with(published_failed_code_1=True), _with(published_succeeded=6),
+    _with(published_failed_other=1, published_failed_count_3=None, published_failed_code_3=None,
+          published_failed_count_2=1, published_failed_count_1=1, published_failed=3, published_attempted=3),
+])
+def test_validate_frame_rejects_every_broken_diagnostic_relation(frame):
+    from airag_consumer import _result
+
+    assert _result.validate_frame(frame) is None
+
+
+def _run_publish(tmp_path, mode, monkeypatch=None):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, mode, env=keyed_env()) in (tick.EXIT_OK, tick.EXIT_RUNTIME)
+
+
+def test_all_failed_tick_is_degraded_with_a_value_free_tally(tmp_path, capsys, monkeypatch):
+    item, _ = synthetic_service(tmp_path)
+    captured = []
+    spy_component_run(monkeypatch, lambda f: captured.append(os.pread(f.fileno(), 1 << 20, 0)))
+    assert run_tick(tmp_path, item, "publish:all-unreachable", env=keyed_env()) == tick.EXIT_OK
+    line, written = tick_line(tmp_path, capsys)
+    s = line["summary"]
+    assert line["status"] == "degraded" and line["exit"] == 0
+    assert s["published_failed"] == s["published_attempted"] >= 1 and s["published_succeeded"] == 0
+    assert s["published_failed_code_1"] == "PROVIDER_UNREACHABLE" and s["published_failed_count_1"] == s["published_failed"]
+    assert "published_failed_code_2" not in s and s["published_failed_other"] == 0
+    assert "MARKER_SECRET" not in written and b"MARKER_SECRET" not in captured[0]
+
+
+def test_an_unknown_failure_code_is_reported_as_the_fallback_and_never_echoed(tmp_path, capsys, monkeypatch):
+    item, _ = synthetic_service(tmp_path)
+    captured = []
+    spy_component_run(monkeypatch, lambda f: captured.append(os.pread(f.fileno(), 1 << 20, 0)))
+    assert run_tick(tmp_path, item, "publish:unknown-code", env=keyed_env()) == tick.EXIT_OK
+    line, written = tick_line(tmp_path, capsys)
+    assert line["status"] == "degraded" and line["summary"]["published_failed_code_1"] == "CORE_PUBLICATION_FAILED"
+    assert "XX_UNKNOWN_CODE" not in written and b"XX_UNKNOWN_CODE" not in captured[0] and b"MARKER_SECRET" not in captured[0]
+
+
+def test_a_normal_tick_stays_ok_and_non_ok_exits_are_never_degraded(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "normal", env=keyed_env()) == tick.EXIT_OK
+    line, _ = tick_line(tmp_path, capsys)
+    assert line["status"] == "ok" and line["summary"]["published_failed"] == 0
+    assert not any(k.startswith("published_failed_code") for k in line["summary"])
+    assert run_tick(tmp_path, item, "crash", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, _ = tick_line(tmp_path, capsys)
+    assert line["status"] == "runtime_error"
+
+
+def test_a_failure_in_a_tick_with_successes_is_still_degraded():
+    from airag_consumer import _result
+
+    s = summary_of([{"ok": True, "window_id": "a"}] + failing("PROVIDER_UNREACHABLE"))["summary"]
+    assert (s["published_attempted"], s["published_succeeded"], s["published_failed"]) == (2, 1, 1)
+    status = "degraded" if s["published_failed"] > 0 else "ok"
+    assert status == "degraded"

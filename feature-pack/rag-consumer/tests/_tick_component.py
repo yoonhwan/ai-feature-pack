@@ -56,6 +56,32 @@ def fork_descendant(chatty: bool) -> None:
         os._exit(status)
 
 
+def _failures(lifecycle, scope, codes, *, ok=0, message="MARKER_SECRET"):
+    """Claim the pending windows and report them failed with ``codes`` (then ``ok`` successes)."""
+    state = lifecycle.refresh(scope)
+    out = []
+    for index, window_id in enumerate(state["pending_publication_ids"]):
+        lifecycle.claim_publication(scope, window_id)
+        if index < ok:
+            lifecycle.finish_publication(scope, window_id, success=True)
+            out.append({"ok": True, "window_id": window_id})
+        else:
+            code = codes[(index - ok) % len(codes)]
+            lifecycle.finish_publication(scope, window_id, success=False, error_code="CORE_PUBLICATION_FAILED")
+            out.append({"ok": False, "window_id": window_id,
+                        "error": {"code": code, "retryable": True, "message": message}})
+    return out
+
+
+PUBLISH_CASES = {
+    "all-unreachable": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"]),
+    "unknown-code": lambda lc, sc: _failures(lc, sc, ["XX_UNKNOWN_CODE"]),
+    "partial": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"], ok=1),
+    "mismatch": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"])[:0] + [
+        {"ok": True, "window_id": "w1"}, {"ok": False, "window_id": "w2", "error": {"code": "PROVIDER_UNREACHABLE"}}][:1],
+}
+
+
 def hooks_for(mode: str):
     import ctypes
 
@@ -81,6 +107,9 @@ def hooks_for(mode: str):
                 raise RuntimeError("OP_SERVICE_ACCOUNT_TOKEN")
             if mode == "declared":
                 raise RuntimeError("SYMLINK_PATH_REJECTED")  # a code the sources declare
+            if mode.startswith("publish:"):
+                # publish:<name> -> a list result of failing windows, built from PUBLISH_CASES
+                return PUBLISH_CASES[mode.split(":", 1)[1]](lifecycle, scope)
             if mode in ("fork-descendant", "fork-descendant-chatty"):
                 fork_descendant(chatty=mode.endswith("chatty"))
             if mode == "env-probe":
