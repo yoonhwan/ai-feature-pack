@@ -77,6 +77,8 @@ PUBLISH_CASES = {
     "all-unreachable": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"]),
     "unknown-code": lambda lc, sc: _failures(lc, sc, ["XX_UNKNOWN_CODE"]),
     "partial": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"], ok=1),
+    "mixed": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"], ok=1) + [
+        {"ok": False, "window_id": "w-extra", "error": {"code": "PROVIDER_UNREACHABLE", "message": "MARKER_SECRET"}}],
     "mismatch": lambda lc, sc: _failures(lc, sc, ["PROVIDER_UNREACHABLE"])[:0] + [
         {"ok": True, "window_id": "w1"}, {"ok": False, "window_id": "w2", "error": {"code": "PROVIDER_UNREACHABLE"}}][:1],
 }
@@ -147,6 +149,13 @@ def raw_mode(mode: str) -> int | None:
     if mode.startswith("forged-code-"):
         code = {"list": ["MARKER_CODE"], "dict": {"MARKER_CODE": 1}, "null": None, "int": 7}[mode[len("forged-code-"):]]
         os.write(1, json.dumps({"exit": 0, "summary": {}, "code": code, "type": ""}).encode())
+        return 0
+    if mode == "forged-dup-code":  # schema-valid, strictly ordered counts 2/1, but one code in two ranks
+        frame = {"exit": 0, "summary": {
+            "published_attempted": 3, "published_succeeded": 0, "published_failed": 3, "published_failed_other": 0,
+            "published_failed_code_1": "PROVIDER_TIMEOUT", "published_failed_count_1": 2,
+            "published_failed_code_2": "PROVIDER_TIMEOUT", "published_failed_count_2": 1}, "code": "", "type": ""}
+        os.write(1, json.dumps(frame).encode())
         return 0
     if mode in ("forged-frame", "forged-extra-key"):
         frame = {"exit": 40, "summary": {}, "code": "ZZ_FORGED_CODE", "type": ""}

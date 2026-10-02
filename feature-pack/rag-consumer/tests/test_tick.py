@@ -1006,6 +1006,10 @@ def test_validate_frame_accepts_consistent_groups(frame):
     _with(published_failed_count_1=5),                                     # sum mismatch
     _with(published_failed_code_1="PROVIDER_UNREACHABLE", published_failed_code_2="PROVIDER_TIMEOUT"),  # order
     _with(published_failed_code_2="PROVIDER_UNREACHABLE", published_failed_code_1="PROVIDER_UNREACHABLE"),  # duplicate
+    _with(published_attempted=3, published_failed=3, published_failed_code_1="PROVIDER_TIMEOUT",
+          published_failed_count_1=2, published_failed_code_2="PROVIDER_TIMEOUT", published_failed_count_2=1,
+          published_failed_code_3=None, published_failed_count_3=None),  # same code in two ranks, counts 2/1
+    _with(published_failed_code_3="PROVIDER_TIMEOUT"),                       # same code in ranks 1 and 3
     _with(published_failed_count_3=0), _with(published_failed_count_1=1, published_failed_count_2=1,
                                               published_failed_count_3=1, published_failed_other=2),
     _with(published_failed=4), _with(published_failed_other=None), _with(published_attempted=None),
@@ -1058,6 +1062,23 @@ def test_a_normal_tick_stays_ok_and_non_ok_exits_are_never_degraded(tmp_path, ca
     assert run_tick(tmp_path, item, "crash", env=keyed_env()) == tick.EXIT_RUNTIME
     line, _ = tick_line(tmp_path, capsys)
     assert line["status"] == "runtime_error"
+
+
+def test_parent_rejects_a_duplicate_code_group_even_with_strictly_ordered_counts(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "forged-dup-code", env=keyed_env()) == tick.EXIT_RUNTIME
+    line, _ = tick_line(tmp_path, capsys)
+    assert line["status"] == "runtime_error" and line["code"] == "RUNTIME_OUTPUT_INVALID"
+
+
+def test_a_partial_failure_tick_is_degraded_with_exit_zero(tmp_path, capsys):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "publish:mixed", env=keyed_env()) == tick.EXIT_OK
+    line, written = tick_line(tmp_path, capsys)
+    s = line["summary"]
+    assert s["published_succeeded"] >= 1 and s["published_failed"] >= 1
+    assert line["status"] == "degraded" and line["exit"] == 0
+    assert json.loads(written.strip().splitlines()[-1])["status"] == "degraded"  # the log line agrees
 
 
 def test_a_failure_in_a_tick_with_successes_is_still_degraded():
