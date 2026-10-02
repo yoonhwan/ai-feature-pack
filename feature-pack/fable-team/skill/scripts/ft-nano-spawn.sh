@@ -38,7 +38,7 @@ ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
-SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; MBOX="$HERE/../comm/mbox.sh"
+SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
@@ -81,7 +81,7 @@ PY
   if [ -n "$_chg" ]; then
     _ok=0
     if [ -n "$RECHECK" ] && [ -f "$RECHECK" ]; then
-      for _t in $(grep -oE '[0-9a-f]{7,40}' "$RECHECK" | sort -u); do case "$CUR_HEAD" in "$_t"*) _ok=1; break;; esac; done
+      while read -r _t; do case "$CUR_HEAD" in "$_t"*) _ok=1; break;; esac; done < <(grep -oE '[0-9a-f]{7,40}' "$RECHECK" | sort -u)
     fi
     [ "$_ok" = 1 ] || { echo "REJECT 카드 base_sha ${CARD_BASE:0:9} 이후 feat HEAD ${CUR_HEAD:0:9} 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 $(printf '%s' "$_chg" | cut -d' ' -f2)개 · 바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-)"; exit 1; }
     echo "RECHECK 통과 — 판정문 $RECHECK 가 현재 HEAD ${CUR_HEAD:0:9} 를 적음(바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-))"
@@ -95,7 +95,23 @@ NAME="$BASE_NAME#$N"
 BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
 BASE_BRANCH="$(git -C "$WT" rev-parse --abbrev-ref HEAD)"
 IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
-IDX_REL="${IDX_ABS#$WT/}"
+IDX_REL="${IDX_ABS#"$WT"/}"
+
+# ②-0 옛 nano 브랜치 충돌 (M7 · 10-02 슬러그 충돌 5회) — 나노 닫기는 워크트리만 지우고 브랜치는 보존한다(09-25 승인).
+#   워크트리 없음 ∧ 브랜치 실재 → 그 브랜치를 cherry 게이트로 판정. 반입이면 -r2, -r3 … 후보마다 브랜치가 있으면 «워크트리 유무와
+#   무관하게» 같은 판정(DA⑥ 53519 H1 — 살아 있는 -rN 워크트리도 미반입이면 재사용 0). 반입 + 워크트리 있음 = 재사용 · 브랜치 없음 = 새로.
+#   미반입이면 REJECT — 옛 브랜치·워크트리 삭제·덮기·재사용 0(판정은 arch). base 워크트리 재발주 재사용(아래 ②)은 그대로.
+#   ①b 카드 base_sha 기록보다 «앞» 이라 REJECT 면 카드 파일도 안 건드린다.
+if [ ! -d "$WTDIR" ] && git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then
+  WT_BASE="$WTDIR"; R=1
+  while git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; do
+    gate="$(bash "$HERE/ft-nano-cherry-gate.sh" "$BASE_BRANCH" "$BRANCH" --repo "$ROOT")" \
+      || { echo "REJECT 옛 브랜치 미반입 — $BRANCH (삭제·덮기·재사용 0 · 판정 arch):"; printf '%s\n' "$gate"; exit 1; }
+    echo "old_branch=$BRANCH landed=yes gate=${gate%% *}"
+    [ -d "$WTDIR" ] && break
+    R=$((R+1)); BRANCH="nano/$SLUG-r$R"; WTDIR="$WT_BASE-r$R"
+  done
+fi
 
 # tmuxc 옵션은 에이전트별로 다르다 — `--ctx` 는 claude 만, `--effort` 는 claude·cmd·codex, `--fast` 는 codex 만 (ft-role-spawn 과 같은 분기)
 OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
