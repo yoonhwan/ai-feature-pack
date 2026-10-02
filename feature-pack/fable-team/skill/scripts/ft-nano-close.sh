@@ -68,6 +68,8 @@ PY
 printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③유휴 jsonl/mtime ≥%s분. kill=%s\n' \
   "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$IDLE_MIN" "$KILL" >> "$LEDGER"
 echo "CLOSED $SEAT (명부 삭제 · 원장 append) — 좌석은 정지 레디"
+# 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
+bash "$(dirname "$0")/ft-nano-slots.sh" || echo "WARN ft-nano-slots 실패(rc=$?) — 빈 석을 손으로 세라"
 
 [ "$KILL" = 1 ] || exit 0
 # keep-last-2: 같은 베이스명(#N 떼고)의 최근 2개 안이면 사람 승인
