@@ -71,6 +71,9 @@ if [ "$nb" -gt 0 ]; then
   fi
   # G4c r3: 반영 «뒤» feat 가 같은 파일을 더 고치면 merge-tree 는 충돌/delta 가 된다(G4b 실가동). 판정 단순화 = «이 브랜치 내용이 feat 역사에 한 번이라도 있었나».
   # «+» 커밋이 건드린 경로 P 전부(NUL 완독)에 대해 tip 의 (mode,blob) 이 feat 역사의 P 에 존재 → 전부 있으면 PASS. tip 에서 P 가 삭제됐으면 feat HEAD 에도 없을 때만 존재로 친다.
+  # ★superseded 증거 = merge-base(NANO,FEAT)..FEAT 구간의 «새 blob» 뿐(DA 599 H1)★ — 분기 전 역사의 옛 blob 으로 rollback 한 브랜치를 PASS 시키지 않는다.
+  mbase="$(git -C "$REPO" merge-base "$NANO" "$FEAT")"; mbrc=$?
+  [[ "$mbrc" -eq 0 && "$mbase" =~ ^[0-9a-f]{40,64}$ ]] || { echo "REJECT cherry 게이트 — git merge-base 실패(rc=$mbrc) — superseded 증거 구간을 못 정함"; exit 1; }
   sort -z -u -o "$plus_file" "$plus_file"
   nsup=0; nmiss=0; missing=""; sup_commit=""
   while IFS= read -r -d '' p; do
@@ -85,17 +88,17 @@ if [ "$nb" -gt 0 ]; then
       continue
     fi
     meta="${entry%%$'\t'*}"; mode="${meta%% *}"; sha1="${meta##* }"
-    raw="$(git --literal-pathspecs -C "$REPO" -c core.quotepath=false log "$FEAT" --no-renames --format='commit %h' --raw --no-abbrev -- "$p")"; lrc2=$?
+    raw="$(git --literal-pathspecs -C "$REPO" -c core.quotepath=false log "$mbase..$FEAT" --no-renames --format='commit %h' --raw --no-abbrev -- "$p")"; lrc2=$?
     [ "$lrc2" -eq 0 ] || { echo "REJECT cherry 게이트 — git log($FEAT) 실패(rc=$lrc2) 경로 $p"; exit 1; }
     hit=""; cur=""
     while IFS= read -r ln; do
       case "$ln" in commit\ *) cur="${ln#commit }" ;; esac
       if [[ "$ln" =~ ^:[0-7]{6}\ $mode\ [0-9a-f]+\ $sha1\ [A-Z] ]]; then hit="$cur"; break; fi
     done <<< "$raw"
-    if [ -n "$hit" ]; then nsup=$((nsup + 1)); sup_commit="$hit"; else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip ${mode} ${sha1:0:9} 가 $FEAT 역사에 없음)"$'\n'; fi
+    if [ -n "$hit" ]; then nsup=$((nsup + 1)); sup_commit="$hit"; else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip ${mode} ${sha1:0:9} 가 분기 뒤 $FEAT 구간(${mbase:0:9}..)에 새 blob 으로 없음)"$'\n'; fi
   done < "$plus_file"
   if [ -z "$missing" ] && [ "$nsup" -gt 0 ]; then
-    echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 전부 tip 내용이 $FEAT 역사에 있음(예 $sup_commit) — 통과 (사유 content_landed_then_superseded)"
+    echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 전부 tip 내용이 분기 뒤 $FEAT 구간에 새 blob 으로 있음(예 $sup_commit) — 통과 (사유 content_landed_then_superseded)"
     exit 0
   fi
   if [ "$conflict" -eq 1 ]; then
@@ -111,9 +114,16 @@ if [ "$nb" -gt 0 ]; then
   [ "$nw" -eq 0 ] || { echo "  (별도 WARN: design/ 만 건드린 미랜딩 문서 커밋 ${nw}개)"; printf '%s' "$warn" | head -5; }
   echo "  → cherry-pick -x 로 $FEAT 에 반영하거나 폐기 사유를 값으로 적은 뒤 닫는다 (사람 우회: --override \"<사유>\")"
   if [ "$HAVE_OVERRIDE" -eq 1 ]; then
-    root="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)"; root="${root%/.git}"
+    # 원장 메타는 행 합성 «전» 에 각각 조회 · rc 와 값 검증 — 하나라도 실패하면 빈 값 행 없이 exit 1 (DA 599 H2)
+    root="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)"; r1=$?
+    tip_s="$(git -C "$REPO" rev-parse --short "$NANO")"; r2=$?
+    feat_s="$(git -C "$REPO" rev-parse --short "$FEAT")"; r3=$?
+    root="${root%/.git}"
+    if [ "$r1" -ne 0 ] || [ "$r2" -ne 0 ] || [ "$r3" -ne 0 ] || [ ! -d "$root" ] || [[ ! "$tip_s" =~ ^[0-9a-f]{7,64}$ ]] || [[ ! "$feat_s" =~ ^[0-9a-f]{7,64}$ ]]; then
+      echo "REJECT cherry 게이트 — --override 원장 메타 조회 실패(common-dir rc=$r1 tip rc=$r2 feat rc=$r3) — 원장 행 0 · 우회 불가"; exit 1
+    fi
     ledger="${FT_CHERRY_OVERRIDE_LEDGER:-$root/.fable-team/state/cherry-gate-override.log}"
-    row="$(date '+%F %T')	seat=${FT_SEAT:-$NANO}	nano=$NANO	tip=$(git -C "$REPO" rev-parse --short "$NANO")	feat=$(git -C "$REPO" rev-parse --short "$FEAT")	reason=$(printf '%s' "$OVERRIDE" | tr '\n\t' '  ')"
+    row="$(date '+%F %T')	seat=${FT_SEAT:-$NANO}	nano=$NANO	tip=$tip_s	feat=$feat_s	reason=$(printf '%s' "$OVERRIDE" | tr '\n\t' '  ')"
     { mkdir -p "$(dirname "$ledger")" && printf '%s\n' "$row" >> "$ledger"; } || { echo "REJECT cherry 게이트 — --override 원장 기록 실패($ledger) — 보이는 기록 없이는 우회 불가"; exit 1; }
     echo "ERROR cherry 게이트 OVERRIDE — 위 REJECT 를 사람 사유로 우회: $OVERRIDE (원장 $ledger)" >&2
     echo "OVERRIDE cherry 게이트 — 위 REJECT 를 우회해 통과 · 사유: $OVERRIDE · 원장 1행 기록: $ledger"
