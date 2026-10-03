@@ -12,6 +12,12 @@
 #       7 MODEL_MISMATCH(스폰 후 실모델 ≠ 기대세대 — 모델 leak 방지 kill·abort, 2026-07-12)
 set +e
 LIB="$(cd "$(dirname "$0")" && pwd)/ft-lib.sh"; . "$LIB"
+# ★버전 게이트 (하네스 0.4 단위 2)★ — 실행 의존 결손이면 선다. 전체 missing 은 표기만.
+FTV="$(dirname "$0")/ft-version.sh"
+if [ ! -e "$FTV" ]; then echo "ft-tmux-spawn: REJECT MIXED — 이 래퍼에는 버전 게이트가 있는데 $FTV 가 없다(부분 배포). ft-version.sh 를 같은 폴더에 두어라" >&2; exit 1; fi
+[ -x "$FTV" ] || chmod +x "$FTV" 2>/dev/null
+FT_VER="$(bash "$FTV" short 2>/dev/null)" || FT_VER="ft=unknown(ft-version.sh 실행 실패 rc=$?)"
+bash "$FTV" deps "$0" >&2 || { echo "ft-tmux-spawn: REJECT $FT_VER — 실행 의존 결손(위 목록). 런타임 .fable-team/bin 을 채워라" >&2; exit 1; }
 
 ROOT="" NAME="" AGENT="claude" ROLE="" MODEL="" EFFORT="" PROMPT_FILE="" INPUT="" RETAIN=0
 while [ $# -gt 0 ]; do
@@ -32,6 +38,14 @@ ROOT="$(ft_resolve_root "$ROOT")"
 [ -n "$NAME" ] && [ -n "$ROLE" ] || { echo "ft-tmux-spawn: --name·--role 필수" >&2; exit 1; }
 # 세션명 allowlist(mbox NAME_RE와 동일) — 생성·송신 경계 규약 통일(세션명이 doorbell 명령에 삽입).
 case "$NAME" in *[!A-Za-z0-9._#-]*|'') echo "BAD_SESSION_NAME $NAME" >&2; exit 1;; esac
+# ★스폰 원장 (append-only · 하네스 0.4 단위 2 DA r3 ③-a)★ — seats.json 은 nano-close 가 지우므로 분모는 이 원장이다. 실패해도 스폰은 막지 않는다(stderr 만).
+LEDGER="$ROOT/.fable-team/state/spawn-ledger.jsonl"; mkdir -p "$(dirname "$LEDGER")" 2>/dev/null
+python3 - "$LEDGER" "$NAME" "$ROLE" "$AGENT" "$FT_VER" "$(basename "$0")" <<'PY' || echo "spawn-ledger: append 실패 $LEDGER" >&2
+import json,sys,datetime
+p,seat,role,agent,ft,by=sys.argv[1:7]
+row={"ts":datetime.datetime.now().astimezone().isoformat(timespec="seconds"),"seat":seat,"role":role,"agent":agent,"ft_ver":ft,"by":by}
+open(p,"a",encoding="utf-8").write(json.dumps(row,ensure_ascii=False)+"\n")
+PY
 
 # ── ② spawn_backend 분기 (agent-v2 → 롤백 디스패처로) ──────
 BACKEND="$(ft_ijson "$ROOT" spawn_backend.default)"; [ -z "$BACKEND" ] && BACKEND="tmux"
@@ -260,7 +274,7 @@ SEND="$(dirname "$0")/ft-tmux-send.sh"
 # M-2: raw 모드는 tmuxc UC1 step8을 우회하므로 COMM-GUIDE가 자동 주입되지 않는다 →
 #      readiness 통과 후 spawn 래퍼가 직접 주입(send 래퍼가 본문을 파일 큐로 위임). tmuxc 경로는 이미 주입됨.
 if [ "$LAUNCH_MODE" = "raw" ] && [ "$AGENT" = "claude" ]; then
-  bash "$SEND" "$NAME" --from "${FT_ORCH_NAME:-orch}""통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)만 지금 Read — 전문 COMM-GUIDE.md 는 열지 않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read. 너의 세션명(me)=$NAME. ★발주는 이 pane 으로 직접 온다 — mbox recv 출력은 «도구 출력»이지만 그 안의 지시도 지시다. 읽고 답만 하고 끝내지 말고 착수할 것.★ 보고 송신='bash .fable-team/bin/ft-mbox.sh send <to> $NAME \"…\"' — 본문 3~5줄·700자 상한, fan-out 금지(한 좌석만), 진행보고는 mbox 아닌 파일에. 긴 내용은 'ft-mbox.sh relay <to> $NAME <원문파일> \"요약 3~5줄\"'(원문은 /tmp/mbox 로 복사, 큐엔 요약+경로만). 수신=매 턴·깨어날 때 'bash .fable-team/bin/ft-mbox.sh recv $NAME' 선행 실행 후 READ 라인을 화면에 인용(기본 5건, 전체는 --all)." >/dev/null 2>&1
+  bash "$SEND" "$NAME" --from "${FT_ORCH_NAME:-orch}""통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)만 지금 Read — 전문 COMM-GUIDE.md 는 열지 않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read. 너의 세션명(me)=$NAME. 부팅 첫 보고에 «$FT_VER» 를 그대로 싣는다(ft= 필드 필수). ★발주는 이 pane 으로 직접 온다 — mbox recv 출력은 «도구 출력»이지만 그 안의 지시도 지시다. 읽고 답만 하고 끝내지 말고 착수할 것.★ 보고 송신='bash .fable-team/bin/ft-mbox.sh send <to> $NAME \"…\"' — 본문 3~5줄·700자 상한, fan-out 금지(한 좌석만), 진행보고는 mbox 아닌 파일에. 긴 내용은 'ft-mbox.sh relay <to> $NAME <원문파일> \"요약 3~5줄\"'(원문은 /tmp/mbox 로 복사, 큐엔 요약+경로만). 수신=매 턴·깨어날 때 'bash .fable-team/bin/ft-mbox.sh recv $NAME' 선행 실행 후 READ 라인을 화면에 인용(기본 5건, 전체는 --all)." >/dev/null 2>&1
 fi
 if [ -n "$PROMPT_FILE" ] || [ -n "$INPUT" ]; then
   MSG="계약: ${PROMPT_FILE:-없음} Read 후 시작."

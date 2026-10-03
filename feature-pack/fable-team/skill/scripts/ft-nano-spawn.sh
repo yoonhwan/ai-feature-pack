@@ -36,6 +36,12 @@ esac
 # 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
 ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★버전 게이트 (하네스 0.4 단위 2)★ — 이 래퍼가 «실제로 실행하는» 의존이 없으면 여기서 선다(전체 팩 대비 missing 은 표기만).
+FTV="$HERE/ft-version.sh"
+if [ ! -e "$FTV" ]; then echo "REJECT MIXED — 이 래퍼에는 버전 게이트가 있는데 $FTV 가 없다(부분 배포). ft-version.sh 를 같은 폴더에 두어라" >&2; exit 1; fi
+[ -x "$FTV" ] || chmod +x "$FTV" 2>/dev/null
+FT_VER="$(bash "$FTV" short 2>/dev/null)" || FT_VER="ft=unknown(ft-version.sh 실행 실패 rc=$?)"
+bash "$FTV" deps "${BASH_SOURCE[0]:-$0}" >&2 || { echo "REJECT $FT_VER — 실행 의존 결손(위 목록). 런타임 .fable-team/bin 을 채워라" >&2; exit 1; }
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
@@ -164,12 +170,21 @@ tmux set-option -t "$PANE" remain-on-exit on
 tmux set-option -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}" 1
 [ "$(tmux show-option -qv -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}")" = 1 ] || { echo "REJECT 태그 확인 실패: $NAME"; exit 1; }
 
+# ★스폰 원장 (append-only · 하네스 0.4 단위 2 DA r3 ③-a)★ — seats.json 은 nano-close 가 지우므로 분모는 이 원장이다. 실패해도 스폰은 막지 않는다(stderr 만).
+LEDGER="$ROOT/.fable-team/state/spawn-ledger.jsonl"; mkdir -p "$(dirname "$LEDGER")" 2>/dev/null
+python3 - "$LEDGER" "$NAME" "$ROLE" "$AGENT" "$FT_VER" "$(basename "${BASH_SOURCE[0]:-$0}")" <<'PY' || echo "spawn-ledger: append 실패 $LEDGER" >&2
+import json,sys,datetime
+p,seat,role,agent,ft,by=sys.argv[1:7]
+row={"ts":datetime.datetime.now().astimezone().isoformat(timespec="seconds"),"seat":seat,"role":role,"agent":agent,"ft_ver":ft,"by":by}
+open(p,"a",encoding="utf-8").write(json.dumps(row,ensure_ascii=False)+"\n")
+PY
+
 # ⑤ seats.json 등록 (tick=null → 알림 울림)
-python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" <<'PY'
+python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" "$FT_VER" <<'PY'
 import json, sys, collections
-p, name, agent, model, idx, role = sys.argv[1:7]
+p, name, agent, model, idx, role, ft_ver = sys.argv[1:8]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
-d[name] = collections.OrderedDict([("role",role),("agent",agent),("tick",None),("model",model),("index",idx.replace("/대기/","/진행/"))])
+d[name] = collections.OrderedDict([("role",role),("agent",agent),("tick",None),("model",model),("index",idx.replace("/대기/","/진행/")),("ft_ver",ft_ver)])
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 
@@ -178,7 +193,7 @@ bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || { echo "REJECT 인
 NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
-BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $WT/${FT_SEATBELT_README:-design/v65/SEATBELT-README.md} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기)."
+BODY="[Seatbelt 발주] [$FT_VER] 네 인덱스: $WT/$NEW_IDX — 먼저 $WT/${FT_SEATBELT_README:-design/v65/SEATBELT-README.md} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). 첫 보고 ft= 는 이 발주문 맨 앞 대괄호 값 그대로."
 sleep 8   # 에이전트 부팅. 짧으면 doorbell 이 셸에 떨어진다(noagent)
 if FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; then
   echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0

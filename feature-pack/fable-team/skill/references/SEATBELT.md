@@ -122,7 +122,7 @@ role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-mast
 - **계약**: 시험·press 를 돌린 워커가 그 회차의 tester·checker(BTS 4축 + poller)다. 「VALID」 한 단어로 보고하지 않는다.
 - **매 회차 끝 직후** `bash <팩>/scripts/ft-checkpoint.sh <증거폴더> --seat <나> [--prev <앞 회차 표>]` — 프로젝트가 `.fable-team/checkpoint.json` 에 선언한 명령(고정 칸 표: 값만, 해석·판정 없음)을 돌리고 표 경로·exit 를 낸다. 표를 보고에 첨부한다.
 - **경보(exit = 설정의 `alarm_exit`, 관례 3)** 면 VALID·완료 보고 금지 → 4축 정리 파일 → arch(+DA) 처방 → 같은 워커가 수정 → 재실행, 경보가 풀릴 때까지. exit 4 = 표 없음·필수 칸 누락·명령 실패(= 못 본 것, 통과 아님). exit 5 = 미설정(경고 — 무음 통과 금지, #0 RULE).
-- **닫기 조건**: `ft-nano-close.sh` 는 인덱스 카드에 press/시험이 있으면 마지막 checkpoint 기록(`.fable-team/checkpoint/<좌석>.last`)의 표 실재 + `alarm=no` 를 요구한다(④). checkpoint 미설정 프로젝트는 경고만.
+- **닫기 조건**: `ft-nano-close.sh` 는 인덱스 카드가 checkpoint 를 요구하면(완료 조건에 `ft-checkpoint.sh` 줄 — press 회차를 요구하는 카드에 arch 가 넣는다) 마지막 checkpoint 기록(`.fable-team/checkpoint/<좌석>.last`)의 표 실재 + `alarm=no` 를 요구한다(④). checkpoint 미설정 프로젝트는 경고만.
 - 적용 절차·설정 예시: `references/update.md` §checkpoint.
 
 ## 6-3. 단일 세트 · 나노 생애 — 오래된 나노는 «루트부터» (1.0.3 · 오빠 2026-10-02 · BYZ v65 사고)

@@ -20,6 +20,12 @@ while [ $# -gt 0 ]; do case "$1" in
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★버전 게이트 (하네스 0.4 단위 2)★ — 이 래퍼가 «실제로 실행하는» 의존이 없으면 여기서 선다(전체 팩 대비 missing 은 표기만).
+FTV="$HERE/ft-version.sh"
+if [ ! -e "$FTV" ]; then echo "REJECT MIXED — 이 래퍼에는 버전 게이트가 있는데 $FTV 가 없다(부분 배포). ft-version.sh 를 같은 폴더에 두어라" >&2; exit 1; fi
+[ -x "$FTV" ] || chmod +x "$FTV" 2>/dev/null
+FT_VER="$(bash "$FTV" short 2>/dev/null)" || FT_VER="ft=unknown(ft-version.sh 실행 실패 rc=$?)"
+bash "$FTV" deps "${BASH_SOURCE[0]:-$0}" >&2 || { echo "REJECT $FT_VER — 실행 의존 결손(위 목록). 런타임 .fable-team/bin 을 채워라" >&2; exit 1; }
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
 SEATS="$ROOT/.fable-team/seats.json"
@@ -54,6 +60,15 @@ if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit $?; fi
 # 실전은 도달 판정기가 같은 디렉터리에 있어야 한다(런타임 .fable-team/bin). 추적 사본(scripts/)에서 dry-run 만 돌리는 경우는 위에서 끝났다.
 [ -x "$HERE/ft-send-verified.sh" ] || { echo "REJECT ft-send-verified.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 
+# ★스폰 원장 (append-only · 하네스 0.4 단위 2 DA r3 ③-a)★ — seats.json 은 nano-close 가 지우므로 분모는 이 원장이다. 실패해도 스폰은 막지 않는다(stderr 만).
+LEDGER="$ROOT/.fable-team/state/spawn-ledger.jsonl"; mkdir -p "$(dirname "$LEDGER")" 2>/dev/null
+python3 - "$LEDGER" "$NAME" "$ROLE" "$AGENT" "$FT_VER" "$(basename "${BASH_SOURCE[0]:-$0}")" <<'PY' || echo "spawn-ledger: append 실패 $LEDGER" >&2
+import json,sys,datetime
+p,seat,role,agent,ft,by=sys.argv[1:7]
+row={"ts":datetime.datetime.now().astimezone().isoformat(timespec="seconds"),"seat":seat,"role":role,"agent":agent,"ft_ver":ft,"by":by}
+open(p,"a",encoding="utf-8").write(json.dumps(row,ensure_ascii=False)+"\n")
+PY
+
 # 열기 — 모델 인자의 대괄호는 bash 라 글롭 안 됨(zsh 함정은 이 스크립트 밖)
 "${OPEN[@]}" >/dev/null 2>&1 || { echo "REJECT tmuxc open 실패 ($NAME)"; exit 1; }
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME"; exit 1; }
@@ -66,20 +81,20 @@ tmux set-option -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}" 1
 [ "$(tmux show-option -qv -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}")" = 1 ] || { echo "REJECT 태그 확인 실패: $NAME"; exit 1; }
 
 # seats.json 행 교체 — 구 행은 남기고 _replaced_by 만 찍는다. 새 행 tick=null(알림 울림).
-python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" <<'PY'
+python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$FT_VER" <<'PY'
 import json, sys, collections
-p, name, role, agent, model, inbox = sys.argv[1:7]
+p, name, role, agent, model, inbox, ft_ver = sys.argv[1:8]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name]
 for k in old:
     d[k]["_replaced_by"] = name
-d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", None), ("model", model), ("index", inbox + "/"), ("_replaces", old)])
+d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", None), ("model", model), ("index", inbox + "/"), ("_replaces", old), ("ft_ver", ft_ver)])
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 echo "SEATS role=$ROLE now=$NAME replaced=[${OLD:-<없음>}] — 구 좌석은 정지 레디(kill 은 사람 승인)"
 
 # 첫 발주 = README §2 → inbox 정렬. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
-BODY="[Seatbelt 역할 교체] 너는 $ROLE 후계 좌석($NAME). 먼저 $README §2 부팅 5단계(첫 보고까지), 그 다음 $INBOX/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 ${OLD:-없음} 은 정지 레디(kill 금지). 보고는 mbox 로 $FROM 에."
+BODY="[Seatbelt 역할 교체] [$FT_VER] 너는 $ROLE 후계 좌석($NAME). 먼저 $README §2 부팅 5단계(첫 보고까지), 그 다음 $INBOX/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 ${OLD:-없음} 은 정지 레디(kill 금지). 보고는 mbox 로 $FROM 에. 첫 보고 ft= 는 이 발주문 맨 앞 대괄호 값 그대로."
 sleep 8   # 에이전트 부팅. 짧으면 doorbell 이 셸에 떨어진다(noagent)
 if FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; then
   echo "SPAWNED $NAME role=$ROLE inbox=$INBOX_REL wt=$WT"; exit 0
