@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-role-spawn.sh <master|da|pm> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
+# ft-role-spawn.sh <master|da|pm|arch> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 # ft-nano-spawn.sh 를 본떴다. 차이 셋:
@@ -11,8 +11,8 @@
 # 새 좌석의 tick 은 null(=doorbell 울림). 틱 데몬이 seats.json 을 따라오는 것은 0.4(ft-tick.sh) — 그 전엔 알림이 울리는 쪽이 안전하다.
 # ★런타임 자리는 <워크트리>/.fable-team/bin/ (gitignore) — 추적 사본은 scripts/fable-team-bin/ (ft-goal-check 관례).★
 set -uo pipefail
-ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
-case "$ROLE" in master|da|pm) ;; *) echo "usage: role 은 master|da|pm (받은 값: $ROLE)" >&2; exit 2;; esac
+ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
+case "$ROLE" in master|da|pm|arch) ;; *) echo "usage: role 은 master|da|pm|arch (받은 값: $ROLE)" >&2; exit 2;; esac
 AGENT="claude"; MODEL="claude-fable-5-1[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;

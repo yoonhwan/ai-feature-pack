@@ -113,8 +113,10 @@ PY
     ;;
 
   close)
-    ID="${1:-}"
-    [ -n "$ID" ] || { echo "usage: $0 close <index-id>" >&2; exit 2; }
+    ID="${1:-}"; shift || true
+    DA=""
+    while [ $# -gt 0 ]; do case "$1" in --da) DA="${2:-}"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+    [ -n "$ID" ] || { echo "usage: $0 close <index-id> [--da <판정문#§N>]" >&2; exit 2; }
     [ -s "$OPEN" ] || { echo "REJECT 열린 인덱스가 없다" >&2; exit 1; }
     cur="$(_json_get id)"; conf="$(_json_get confirmed_at)"
     [ "$cur" = "$ID" ] || { echo "REJECT 열린 것은 $cur 이다 (요청: $ID)" >&2; exit 1; }
@@ -124,7 +126,29 @@ PY
       echo "  먼저: $0 confirm $ID <오빠 확정 근거>" >&2
       exit 1
     fi
-    _append "{\"ts\":\"$(_now)\",\"ev\":\"close\",\"id\":\"$ID\"}"
+    # 하네스 0.5 행 3 — id 에 카드(<toplevel>/design/v65/indices/{진행,대기,완성}/<id>.md)가 있으면 원장 close 는
+    #   ft-index-move.sh 완성 이동이 «유일하게» 기록한다(이중 기록 금지 · DA r1 R3: 세 폴더 · toplevel 기준).
+    #   --da 는 gate 가 지어내지 않는다. ★전제: ft-index-move.sh 는 이 파일과 같은 폴더($HERE)에 있다.★
+    TOP="$(git rev-parse --show-toplevel 2>/dev/null)"
+    CARD=""; CARD_DIR=""
+    for d in 진행 대기 완성; do f="$TOP/design/v65/indices/$d/$ID.md"; [ -f "$f" ] && { CARD="$f"; CARD_DIR="$d"; break; }; done
+    if [ -n "$CARD" ] && [ "$TRACK" != v65 ] && [ "$TRACK" != selftest ]; then
+      # 트랙 규칙 하나(DA r1 R2 · r2 N1): design/v65/indices 카드의 원장은 v65 다. 비었든(default 추론) 다른 이름을 «명시»했든
+      #   open·confirm 은 이미 $TRACK 원장에 갔으니 close 만 v65 로 보내도 갈린다 → REJECT. selftest 는 회귀 전용 예외.
+      echo "REJECT 카드 $CARD 는 v65 카드인데 FT_TRACK=$TRACK 이다(open·confirm 은 $LEDGER) — FT_TRACK=v65 로 open 부터 다시. 정리: rm $OPEN (open·confirm 행은 원장에 남는다 · close 0 이라 측정에 안 잡힌다)" >&2; exit 1
+    fi
+    if [ -n "$CARD" ] && [ "$CARD_DIR" = 완성 ]; then
+      grep -qF "\"ev\":\"close\",\"id\":\"$ID\"" "$LEDGER" 2>/dev/null \
+        || { echo "REJECT 카드가 이미 완성/ 에 있는데 원장에 close 가 없다(손 이동) — 복구: git mv 완성/→진행/ 뒤 ft-index-move.sh … 완성 --da" >&2; exit 1; }
+      echo "원장 close 이미 있음(index-move) — append 생략"
+    elif [ -n "$CARD" ]; then
+      [ -n "$DA" ] || { echo "REJECT 카드 $CARD 가 있다 — close 에 --da <판정문#§N> 가 필요하다(gate 가 지어내지 않는다)" >&2; exit 1; }
+      HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+      FT_TRACK="$TRACK" FT_INDEX_STATE_DIR="$STATE_DIR" bash "$HERE/ft-index-move.sh" "$CARD" 완성 --da "$DA" --seat "$(_json_get seat)" \
+        || { echo "REJECT 완성 이동 실패 — close 하지 않는다(열린 상태 유지)" >&2; exit 1; }
+    else
+      _append "{\"ts\":\"$(_now)\",\"ev\":\"close\",\"id\":\"$ID\",\"via\":\"gate\"}" || exit 1
+    fi
     rm -f "$OPEN"
     echo "CLOSED $ID — 다음 인덱스를 열 수 있다"
     ;;
