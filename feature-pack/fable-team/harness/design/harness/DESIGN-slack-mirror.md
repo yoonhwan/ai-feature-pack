@@ -56,6 +56,7 @@
 - 새 seq 없음 → 게시 0 · 하트비트 0 · 「정상」 게시 0(템플릿 §1-6 그대로).
 - 필터: `to` 가 `--seat` 정규식에 맞는 것만. 도어벨·ring 알림 같은 기계 메시지는 `from` 허용 목록이 아니라 **본문 첫 줄에 `[` 로 시작하는 태그가 없는 것**도 일단 «보고»로 게시(조용히 버리는 필터를 만들지 않는다 — 버려지는 걸 아무도 못 본다). 소음이 실측되면 그때 규칙을 추가.
 - 실패 = raise · 재시도 0 · exit 비0. stderr → `~/.hermes/logs/byz_mbox_slack_mirror.err`. launchd `KeepAlive` + `ThrottleInterval 30` — 죽으면 launchd 가 다시 띄우고, 다시 뜬 뒤에도 같은 실패면 `.err` 가 계속 쌓여 보인다(조용히 멈추지 않는다).
+- **seq 공백 가드(오빠 조건 1 · 구현됨)**: mbox.py 가 사본 기록에 실패하면 stderr WARN 만 남고 그 seq 는 사본에서 빠진다 — 미러가 행 사이 seq 공백(`BLOCKED` 는 seq 를 소모하지 않으므로 공백 = 기록 누락)을 감지해 `[BLOCK] mirror #GAP-<a>-<b>` 1건을 채널에 올린다(공백 알림도 exactly-once). 유실이 조용하지 않다.
 - 모니터 연결: `harness-monitor.sh`(#806)에 «미러 마지막 게시 seq vs sent 마지막 seq 격차» 검사 1줄 추가 — 격차가 크면 WARN.
 
 ## 7. 배치
