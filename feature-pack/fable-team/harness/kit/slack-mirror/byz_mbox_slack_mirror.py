@@ -18,9 +18,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
+from mirror_deliver import Deliverer, seed_threads  # noqa: E402
 
 API = "https://slack.com/api"
-MAX_THREADS = 500  # (키 → thread_ts) 맵 상한 — 오래된 키부터 밀려난다(무한 증가 0)
 
 
 def read_token(path: Path) -> str:
@@ -67,37 +67,12 @@ class Mirror:
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
         self.seat = re.compile(a.seat)
         self.token = "" if a.dry_run else read_token(Path(a.token_file).expanduser())
+        self.threads_path = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json"
+        self.deliv = Deliverer(a.api_base, self.token, a.channel, self.threads_path)
         self.posted = 0
 
-    def _post(self, text: str, thread_ts: str | None = None) -> str:
-        return lib.post(self.a.api_base, self.token, self.a.channel, text, thread_ts)
-
-    def _thread_ts(self, st: dict[str, object], item: dict[str, object], resume: bool) -> str:
-        threads = st.setdefault("threads", {})
-        assert isinstance(threads, dict)
-        key = str(item.get("key", lib.OTHER_KEY))
-        if key not in threads:
-            ts = self._find_root(key) if resume else None  # 루트만 올라가고 죽은 경우 되찾는다
-            threads[key] = ts or self._post(lib.root_text(key, str(item.get("what", "")) or key))
-            while len(threads) > MAX_THREADS:
-                del threads[next(iter(threads))]
-            save_state(self.state_path, st)
-        return str(threads[key])
-
-    def _find_root(self, key: str) -> str | None:
-        marker = lib.root_marker(key)
-        for ts, text in lib.channel_roots(self.a.api_base, self.token, self.a.channel):
-            if lib.has_marker([text], marker):
-                return ts
-        return None
-
-    def _send_item(self, st: dict[str, object], item: dict[str, object], resume: bool) -> None:
-        ts = self._thread_ts(st, item, resume)
-        if resume:  # 조회가 실패하면 raise — 중복보다 지연
-            texts = lib.thread_texts(self.a.api_base, self.token, self.a.channel, ts)
-            if lib.has_marker(texts, str(item["id"])):
-                return
-        self._post(str(item["text"]), ts)
+    def _send_item(self, item: dict[str, object], resume: bool) -> None:
+        self.deliv.send(item, resume)
 
     def deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
         if self.a.dry_run:
@@ -106,7 +81,7 @@ class Mirror:
         else:
             st["pending"] = item
             save_state(self.state_path, st)
-            self._send_item(st, item, resume)
+            self._send_item(item, resume)
             st.update(last_seq=item["seq"], pending=None)
             save_state(self.state_path, st)
         self.posted += 1
@@ -118,9 +93,11 @@ class Mirror:
         if st is None:  # 첫 실행 — 과거 행을 쏟아내지 않는다
             base = int(str(rows[-1]["seq"])) if rows else 0
             if not self.a.dry_run:
-                save_state(self.state_path, {"last_seq": base, "pending": None, "threads": {}})
+                save_state(self.state_path, {"last_seq": base, "pending": None})
             print(f"baseline last_seq={base}", file=sys.stderr)
             return 0
+        if not self.a.dry_run:  # 옛 state 의 스레드 맵 → 공유 맵 이관(맵 파일이 없을 때만)
+            seed_threads(self.threads_path, dict(st.get("threads") or {}))
         if st.get("pending"):
             self.deliver(st, st["pending"], resume=True)
         for r in rows:
