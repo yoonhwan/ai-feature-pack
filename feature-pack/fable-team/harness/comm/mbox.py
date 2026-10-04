@@ -72,6 +72,12 @@ RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"    # 긴 본문�
 #   비용은 건당 4KB(gitignore 아래)라 여유를 크게 잡는 편이 싸다.
 BODIES_TTL_DAYS = int(os.environ.get("FT_MBOX_BODIES_TTL_DAYS") or 14)
 BODIES_PRUNE_EVERY = 3600   # 청소 주기(초) — 매 send 마다 listdir 하지 않는다.
+# ★보낸 행의 «추가 전용» 사본 (2026-10-04 · Slack 미러 입력 · D1)★
+#   mailbox.jsonl 은 consume-on-read 라 recv 하면 행이 사라지고, ring 은 오래된 행을 버린다.
+#   읽는 쪽(미러)이 짧은 보고를 놓치지 않으려면 «보낸 모든 행» 이 남는 파일이 따로 필요하다.
+#   큐 동작은 건드리지 않는다. 한도 초과 시 .1 로 한 번 회전해 최대 2×한도로 묶는다(무한 증가 0).
+SENT_LOG = "mailbox.log.jsonl"
+SENT_LOG_MAX_BYTES = int(os.environ.get("FT_MBOX_LOG_MAX_BYTES") or 5 * 1024 * 1024)
 
 
 def _repo_root(start):
@@ -163,20 +169,29 @@ os.makedirs(CANON, exist_ok=True)
 
 
 def _legacy_dirs():
-    """레거시 우편함 — ★손으로 나열하지 않고 워크트리 목록에서 «유도»한다★.
+    """레거시 우편함 — ★기본은 «없음»★ (2026-09-14 · 하네스 업그레이드 §4-1 · 오빠 결정 Q2).
 
-    손으로 쓴 목록은 다음에 생기는 워크트리를 못 잡는다.
+    ★왜 union 을 걷었나 (실측 2026-09-14)★
+      · 워크트리 `.fable-team` 이 루트로 가는 «심링크»인 곳(v65-input-admission·proof-store)이
+        glob 에 잡혀 ★같은 inode 를 3번 읽었다★ — 좌석마다 recv 가 같은 메시지를 `(legacy)`
+        꼬리로 세 번 찍었고(#13038·#13041·#13046), 모든 좌석의 recv 컨텍스트가 3배였다.
+      · 남은 레거시 파일은 c-level(1행, 09-09)·v6-realtime-live 워크트리(77행, 전부 08-24 이전,
+        수신 좌석 26종 «전부 사망»)·나머지 0행 — 살아 있는 좌석 앞으로 온 행은 0 이었다.
+      · 트랙이 다른 우편함(c-level·loom)이 v65 좌석 recv 에 섞일 이유도 없다.
+    ★되돌리는 문은 남긴다★ — `FT_MBOX_LEGACY=1` 이면 예전 union(중복은 realpath 로 제거)을 돈다.
+      옛 파일에 뭔가 남았다고 의심될 때 «한 번» 켜서 보고 끄는 용도다. 기본값으로 켜 두지 않는다.
     """
-    if not _ROOT:  # ★F4: 루트를 못 유도했으면(env 만으로 동작) 레거시도 없다.
+    if not _ROOT or os.environ.get("FT_MBOX_LEGACY") != "1":
         return []
-    out, wt = [], os.path.join(_ROOT, ".worktrees")
+    out, seen, wt = [], {os.path.realpath(CANON)}, os.path.join(_ROOT, ".worktrees")
     if os.path.isdir(wt):
-        # ★여기에도 같은 깊이 함정이 있다★ — 한 단계만 훑으면 2단계 워크트리에 큐잉된
-        #   메시지를 union 이 못 봐 ★아무도 안 읽는다★. recv 는 정상 종료하므로 무증상이다.
         for depth in (1, 2, 3):
             pat = os.path.join(wt, *(["*"] * depth), ".fable-team", "comm")
             for d in sorted(glob.glob(pat)):
-                if os.path.isdir(d) and os.path.abspath(d) != os.path.abspath(CANON):
+                rp = os.path.realpath(d)
+                # ★realpath 로 가른다★ — abspath 는 심링크를 못 본다. 같은 파일을 두 번 읽지 않는다.
+                if os.path.isdir(d) and rp not in seen:
+                    seen.add(rp)
                     out.append(d)
     return out
 
@@ -375,6 +390,23 @@ def _guard_verdict(to, frm, body):
     return None
 
 
+def _log_sent(d, row):
+    """보낸 행을 추가 전용 사본에 1줄 쓴다. 실패해도 send 는 산다 — 단 «조용히» 삼키지 않는다.
+
+    통신이 사본 때문에 끊기는 쪽이 더 크므로 raise 하지 않고, 대신 stderr WARN 으로 드러낸다
+    (미러는 이 사본이 비면 보고를 못 올리므로 «보이는 실패» 여야 한다). 우편함 잠금 안에서 부른다.
+    """
+    p = os.path.join(d, SENT_LOG)
+    try:
+        if os.path.exists(p) and os.path.getsize(p) > SENT_LOG_MAX_BYTES:
+            os.replace(p, p + ".1")
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError as e:
+        sys.stderr.write("WARN %s 사본 기록 실패(%s) — 이 행은 Slack 미러에 안 올라간다. 큐에는 정상 적재됨.\n"
+                         % (SENT_LOG, type(e).__name__))
+
+
 def send(to, frm, body, force=False):
     _check_name(to); _check_name(frm)
     def op():
@@ -409,6 +441,7 @@ def send(to, frm, body, force=False):
                 dropped = len(rs) - MAX_PER_TO
             keep.extend(rs[-MAX_PER_TO:])
         _save(CANON, keep)
+        _log_sent(CANON, row)
         # ★가드 기록을 «이미 잡고 있는» 우편함 잠금 안에서 한다★ — 밖에서 하면 동시 send 가
         # 읽고-고쳐-쓰기로 겹쳐 기록이 유실되고(실측 20건 중 일부), 가드가 «덜 잡는» 쪽으로 샌다.
         # 잠금을 새로 «거는» 것은 오히려 나쁘다 — flock 은 블로킹이라 물고 죽은 프로세스가
