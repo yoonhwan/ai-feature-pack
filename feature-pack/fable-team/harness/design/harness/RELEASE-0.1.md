@@ -20,5 +20,7 @@
 ## 머신별 반영
 | 머신 | 상태 | sha |
 |---|---|---|
-| 로컬 (yoonhwan 맥 · harness-ops 워크트리) | 반영됨 (훅 파일 라이브 · 이 세션에서 heredoc 통과 확인) | 98abb2b63c |
-| 그 외 머신 | 미반영 — main 머지 후 회수 | |
+| 로컬 · harness-ops 워크트리 | 반영됨 (라이브 heredoc 통과 확인) | dedceb2ba6 (main squash · PR #802) |
+| 로컬 · 그 외 워크트리 130개 (10-04 측정) | 반영 1 · 구버전 85 · 훅 없음 44 (main 체크아웃·c-level-planning 포함) — 각 워크트리는 자기 브랜치가 main 을 병합할 때 반영됨, 일괄 덮어쓰기 안 함 | |
+| 로컬 · v6-realtime-live | 구버전 (3a72b159de) — 다음 main 병합 때 반영 | |
+| jarvis | 미반영 · 머신 키트 뒤 | |
