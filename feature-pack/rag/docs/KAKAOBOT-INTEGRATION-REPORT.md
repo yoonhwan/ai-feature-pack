@@ -118,7 +118,7 @@ launchd: `feature-pack/rag-consumer/ops/com.airag.consumer.plist.template` — `
 
 ## 절 B. 승인 요구 ↔ 증거 추적표
 
-읽는 법: «기록»은 PLAN.md 체크박스 상태(체크는 PLAN.md 가 적은 상태일 뿐 이 문서의 판정이 아님). «근거»는 [인용]한 산출물 또는 [실행] 한 것. fixture·합성 자료 통과와 실제 운영 완료는 열을 나눠 적었다. 이 문서는 P01~P07 의 **실제 모델 회귀를 재실행하지 않았다**(서버가 필요한 integration 31건은 deselect). 모델 없이 도는 부분만 2026-10-04 에 다시 돌렸다(아래 core 회귀) — 이 문서 작성 중 현재 HEAD 에서 [실행]한 것은 절 A 의 core CLI 스모크와 아래 core 회귀 1건뿐이다. consumer 회귀 수치는 과거 실행 기록이며 [인용]으로 적었다.
+읽는 법: «기록»은 PLAN.md 체크박스 상태(체크는 PLAN.md 가 적은 상태일 뿐 이 문서의 판정이 아님). «근거»는 [인용]한 산출물 또는 [실행] 한 것. fixture·합성 자료 통과와 실제 운영 완료는 열을 나눠 적었다. 이 문서는 P01~P07 의 **실제 모델 회귀를 재실행하지 않았다**(서버가 필요한 integration 31건은 deselect). 모델 없이 도는 부분만 2026-10-04 에 다시 돌렸다(아래 core 회귀) — 이 문서 작성 중 현재 HEAD 에서 [실행]한 것은 절 A 의 core CLI 스모크·휠 설치 확인(A.1)과 아래 core 회귀 1건이다. 이번에 재실행한 회귀는 core 1건뿐이고 consumer 회귀 수치는 과거 실행 기록이며 [인용]으로 적었다.
 
 core 회귀 [실행, 2026-10-04, HEAD `3503fbe`]: `feature-pack/rag` 에서 `.venv/bin/python -m pytest tests -q -p no:cacheprovider --basetemp <전용 폴더>` → 종료 0 · `502 passed, 1 skipped, 31 deselected`(177.77s). deselect 31건은 `integration` 마커(pyproject `addopts = "-m 'not integration'"`)로 실제 임베딩·LLM 서버 또는 토크나이저 다운로드가 필요한 시험이다 — 목록 `artifacts/regression-20261001-deselected.txt` 의 test ID 31행(주석 2줄 제외, 파일 33줄)과 개수가 같다. skipped 1건은 `tests/test_embeddings.py:110` 의 고정 skip(«placeholder case superseded…»). 이 실행은 `documents` extra 가 들어 있는 dev `.venv` 기준이며 core-only 환경에서의 pytest 가 아니다.
 
