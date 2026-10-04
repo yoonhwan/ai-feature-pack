@@ -8,3 +8,12 @@
 3. R1(백틱 훅) 수정 1건 = 축 C 첫 발행: 훅이 mbox 인자만 검사하도록(heredoc 본문 제외) · 셔뱅 -n · 실측 1회 → 커밋 → PR(main) → design/harness/RELEASE-0.1.md(변경·설치 명령 · 머신 행: 로컬 1) → planner mbox 3줄(경로·sha·남은 일).
 4. 축 A: 모니터 체크 1벌 정의(훅 로그 · 좌석 부팅 실패 · mbox DROPPED · 자동로드 예산 hygiene-check.sh rules) → 10분 루프는 좌석 자체(틱 데몬 0).
 금지: 제품 코드 · 라이브 인프라 · 다른 머신 세션 send-keys · 글로벌 CLAUDE.md 하드 룰 변경(= [HIL] → planner).
+
+## 닫는 증거 (10-04 마감 · planner #56528 인정)
+| 항목 | 증거 |
+|---|---|
+| 1 Issue 인수 | #733·#737·#761 코멘트 「인수 · 담당 ft-harness-ops#0」 |
+| 2 R1~R3 등록 | Issue #799·#800·#801 · REQUEST-LEDGER 행 |
+| 3 R1 수정·발행 | PR #802 main dedceb2ba6 · RELEASE-0.1.md · R3 PR #804 f38294ffac |
+| 4 모니터 체크 | PR #806 03368493dd · scripts/fable-team-bin/harness-monitor.sh |
+| 별건 | #805 test_vllm_cached_tokens 2건 → issue-manager 하위 나노 |
