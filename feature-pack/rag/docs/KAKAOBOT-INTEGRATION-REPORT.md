@@ -26,10 +26,10 @@ uv build --wheel --out-dir <wheel-dir>                      # feature-pack/rag �
 uv venv --python 3.13 <venv>
 uv pip install --python <venv>/bin/python '<wheel-dir>/ai_feature_rag-0.1.0-py3-none-any.whl[documents]'
 ```
-- `[documents]` extra(docling·easyocr)는 PDF/DOCX/XLSX/HWP 계열·OCR 입력에 필요하다. 텍스트·대화만 쓰면 extra 없이 `ai_feature_rag-0.1.0-...whl` 만 설치한다(이 조합의 별도 설치 검증은 **미확인**).
+- `[documents]` extra(docling·easyocr)는 PDF/DOCX/XLSX/HWP 계열·OCR 입력에 필요하다. 텍스트·대화만 쓰면 extra 없이 `ai_feature_rag-0.1.0-...whl` 만 설치한다. extra 없는 core 설치 재현 [실행, 2026-10-04, HEAD `3503fbe` clean 사본에서 휠 새 빌드]: 새 venv(Python 3.13.12)에 `uv pip install <rag wheel>` 종료 0 · `docling`·`easyocr` 미설치 상태에서 `import airag.cli.main` 정상 · `ai-rag --help`·`krb-rag --help` 종료 0 · 설치된 핵심 의존 `sqlcipher3 0.6.2`·`sqlite-vec 0.1.9`·`marko 2.2.4`·`docling-core 2.99.0`(패키지 받기에 네트워크 사용, 실패 없음). **여전히 미확인**: `[documents]` extra 를 설치한 환경에서의 문서 포맷 add 동작 · extra 없는 환경에서 PDF/DOCX 등을 add 했을 때의 오류 메시지(이번에 add 를 실행하지 않음 — add 는 임베딩 서버 필요).
 - 네이티브 의존성: `sqlcipher3==0.6.2`, `sqlite-vec>=0.1.9`(`pyproject.toml`). 독립 설치 후 두 진입점 13개 명령을 통과한 기록 [인용]: `artifacts/p07-independent-install-final-20260913.json`.
 - 현재 HEAD 의 `feature-pack/rag/.venv` 에는 `ai-rag`·`krb-rag` 가 있고 `ai-rag-consumer` 진입점은 **없다**[실행: `ls .venv/bin`]. consumer 는 `PYTHONPATH=feature-pack/rag-consumer/src` 로 실행해 확인했다.
-- consumer wheel 의 독립 설치·재현 명령 기록: **미확인**(consumer 는 `ai-feature-rag==0.1.0` 에 의존; tick/launchd 는 설치된 consumer 런타임의 python 을 요구 — `ops/com.airag.consumer.plist.template` 주석).
+- consumer wheel 설치 재현 [실행, 2026-10-04, HEAD `3503fbe` clean 사본에서 휠 새 빌드 `ai_feature_rag_consumer-0.1.0` 94,628B]: ①consumer 휠 + rag 휠을 함께 준 새 venv 는 `uv pip install` 종료 0 · `import airag`·`airag_consumer`·`airag_consumer.cli` 정상 · `ai-rag-consumer --help` 종료 0(서브명령 `init run status search archive-search memory-confirm memory-candidates memory-reject memory-verify backup verify`) — 홈·환경변수를 비운 환경(`env -i`)에서 실행. ②consumer 휠 **단독** 설치는 종료 1 — `ai-feature-rag was not found in the package registry`(consumer 가 `ai-feature-rag==0.1.0` 에 의존하는데 레지스트리에 그 패키지가 없음). 따라서 consumer 는 **rag 휠과 함께만** 설치된다. tick/launchd 는 설치된 consumer 런타임의 python 을 요구한다(`ops/com.airag.consumer.plist.template` 주석). 재현에 쓴 명령·로그는 작업 scratch 폴더에만 있고 이 저장소에는 없다. **여전히 미확인**: 이 임시 venv 로 tick/launchd 를 실제로 띄우는 경로(운영 런타임 무접촉 범위 밖).
 
 ### A.2 키 전달
 | 대상 | 방법 | 비고 |
@@ -68,9 +68,18 @@ consumer(`ai-rag-consumer --config <runtime.json> <command>`): `init`·`run [--o
 응답 envelope [실행 확인]: `{"schema_version":1,"request_id":…,"ok":true|false,"command":…,"data":…,"error":null|{"code","message","retryable"}}`.
 - 멱등: 같은 `request_id` 로 다시 보내면 **저장된 응답을 그대로 재생**한다(외부 모델 호출 0·추가 행 0 — T07 근거 [인용] PLAN.md P-08 서두). 새 요청이면 새 `request_id` 를 쓴다.
 - 갱신 충돌: 오래된 revision 토큰은 `CONFLICT_STALE_REVISION`(`retryable:true`). 현재 `revision_token` 을 다시 읽은 뒤 새 요청으로 재시도한다.
-- `retryable:true` 로 선언된 코드(소스 확인): `CONFLICT_STALE_REVISION` · `LEASE_NOT_EXPIRED`(이전 시도의 lease 가 아직 유효 — 만료 후 재시도) · `IN_PROGRESS`(같은 소스의 다른 job 이 활성 — 그 job 이 끝난 뒤 재시도) · `DB_BUSY`(락 경합). 그 밖의 `ApiError`(`NOT_FOUND`·`VALIDATION_ERROR`·`ALREADY_DELETED`·`INVALID_JOB_STATE`·`STALE_CLAIM_FENCED`·`BACKUP_*`·`DESTINATION_EXISTS`·`INVALID_BACKUP_PATH`)는 소스에서 `retryable:false` 로 선언돼 있다(`PROCESSING_FAILED` 의 retryable 값은 호출 지점마다 달라 **미확인** — 응답의 `error.retryable` 을 따를 것).
+- `retryable:true` 로 선언된 코드(소스 확인): `CONFLICT_STALE_REVISION` · `LEASE_NOT_EXPIRED`(이전 시도의 lease 가 아직 유효 — 만료 후 재시도) · `IN_PROGRESS`(같은 소스의 다른 job 이 활성 — 그 job 이 끝난 뒤 재시도) · `DB_BUSY`(락 경합). 그 밖의 `ApiError`(`NOT_FOUND`·`VALIDATION_ERROR`·`ALREADY_DELETED`·`INVALID_JOB_STATE`·`STALE_CLAIM_FENCED`·`BACKUP_*`·`DESTINATION_EXISTS`·`INVALID_BACKUP_PATH`)는 소스에서 `retryable:false` 로 선언돼 있다`PROCESSING_FAILED` 는 소스에서 만드는 지점이 **1곳**이다: `api.py:186-187`(`_finish_ingestion`) 이 `retryable=False` 로 고정해 던진다(`grep -rn PROCESSING_FAILED feature-pack` 소스 선언 1곳 — `rag-consumer/.../reason_codes.py:383` 은 이유 코드 문자열 목록이고 선언이 아니다). 이 줄은 job 이 failed 인데 저장된 final 응답에 failed error 가 없을 때만 닿는다. 저장된 final 응답에 error 가 있으면 `api.py:182-184` 가 그 `code`·`message`·`retryable` 을 **그대로** 다시 던진다 — 저장 당시 값은 파이프라인 예외를 `api.map_exception` 으로 바꾼 결과다(`pipeline.py:200-207`·`store.py:1982-1986`; 예: 임베딩 서버 타임아웃·도달 불가는 `retryable=True`, `embeddings.py:315,318`). 즉 실패 job 을 다시 조회하면 원인 예외의 code·retryable 이 돌아오거나, 매핑되지 않은 예외였다면 `PROCESSING_FAILED`(retryable=false)가 돌아온다. `PROCESSING_FAILED` 를 `retryable=true` 로 던지는 줄은 찾지 못했다(위 grep). 이전 판의 «호출 지점마다 달라 미확인» 문구는 이 확인으로 정정한다. 응답의 `error.retryable` 을 따르는 것은 그대로 맞다.
 - job 재처리: 실패/대기 job 은 `ai-rag manage retry --db … --job-id J --request-id R [--profile-key P]`. 원래 실패 응답은 바뀌지 않고 새 job 이 생긴다(P06-03 [인용]). 프로필 전환 재색인은 `manage reindex`.
-- 종료코드 표: 틀린 키 = 4 [실행]. 그 밖 코드 → **미확인**(코드 번호표는 문서화돼 있지 않음 — `error.code` 를 기준으로 분기할 것).
+- 종료코드 표(core CLI `ai-rag`·`krb-rag`, 소스 읽기 + 2026-10-04 임시 venv 실행으로 확인):
+
+| 종료코드 | 의미 | 근거 |
+|---|---|---|
+| 0 | 응답 envelope 의 `ok == true`(모든 성공 명령). `--help`/`-h` 는 argparse 가 직접 0 으로 끝낸다 | `cli/main.py:599`(`return 0 if envelope['ok'] else 4`) · `:66-70`(help 는 argparse 내장 동작이라는 docstring) · [실행] `ai-rag --help` 종료 0 |
+| 2 | 인자 오류(알 수 없는 서브명령·필수 서브명령 누락 등). stdout 에 envelope(`error.code = ARGUMENT_ERROR`)를 쓰고 종료 | `cli/main.py:64-73`(`_JsonArgumentParser.error` → `SystemExit(2)`) · 서브파서 `:369`·`:377`·`:487` · [실행] `ai-rag bogus` 종료 2 · `ai-rag`(서브명령 없음) 종료 2 |
+| 4 | envelope 의 `ok == false` 인 **모든** 실패. 실패 종류는 번호가 아니라 `error.code` 로 구분한다(틀린 키 `KEY_OR_DB_VERIFICATION_FAILED`, 키 소스 없음 `NO_KEY_SOURCE` 등) | `cli/main.py:589-599`(예외 → `api.map_exception` → envelope → 4) · `api.py:57-90` · [실행] 틀린 키 `manage verify` 종료 4 · `--key-fd` 없이 실행 종료 4(`NO_KEY_SOURCE`) |
+| (번호 없음) | `api.map_exception` 이 `None` 을 돌려주는 예외는 `main.py:593-594` 가 다시 던진다 — 소스에 종료번호를 정하는 줄이 없고 파이썬의 미처리 예외 기본 동작(보통 1)에 맡겨진다. 이 경로는 이번에 실행하지 않았다 | `cli/main.py:591-594` · `api.py:90`(`return None`) |
+
+  종료를 정하는 줄은 `main.py:73`(`SystemExit(2)`)·`:603`(`sys.exit(main())`) 두 곳뿐이다(`grep -rnE "SystemExit|sys\.exit|os\._exit|\bexit\(" feature-pack/rag/src/airag`). 따라서 실패 분기는 종료코드 번호가 아니라 `error.code`(와 `error.retryable`)로 한다. 이 표는 core CLI 만 다룬다 — consumer 틱 종료코드는 아래 줄.
 - consumer 틱 종료코드(소스 `tick.py`): `0` ok · `10` skipped(이전 틱 실행 중) · `20` config 오류 · `30` 키 오류 · `40` runtime 오류 · `50` 내부 오류. 출력은 값 없는 JSON 한 줄(`status`·`exit`·`code`·`type`·`summary`)이고 같은 줄이 `--log-dir/tick-YYYYMMDD.log` 에 남는다. 재시도는 launchd 의 다음 주기가 한다(틱은 루프·sleep 이 없다).
 
 ### A.6 백업 계약
@@ -109,9 +118,11 @@ launchd: `feature-pack/rag-consumer/ops/com.airag.consumer.plist.template` — `
 
 ## 절 B. 승인 요구 ↔ 증거 추적표
 
-읽는 법: «기록»은 PLAN.md 체크박스 상태(체크는 PLAN.md 가 적은 상태일 뿐 이 문서의 판정이 아님). «근거»는 [인용]한 산출물 또는 [실행] 한 것. fixture·합성 자료 통과와 실제 운영 완료는 열을 나눠 적었다. 이 문서는 P01~P07 을 **재실행하지 않았다**(core 회귀·실제 모델 회귀는 이번에 돌리지 않음) — 아래 [실행] 은 절 A 의 core CLI 스모크와 consumer 회귀뿐이다.
+읽는 법: «기록»은 PLAN.md 체크박스 상태(체크는 PLAN.md 가 적은 상태일 뿐 이 문서의 판정이 아님). «근거»는 [인용]한 산출물 또는 [실행] 한 것. fixture·합성 자료 통과와 실제 운영 완료는 열을 나눠 적었다. 이 문서는 P01~P07 의 **실제 모델 회귀를 재실행하지 않았다**(서버가 필요한 integration 31건은 deselect). 모델 없이 도는 부분만 2026-10-04 에 다시 돌렸다(아래 core 회귀) — 아래 [실행] 은 절 A 의 core CLI 스모크와 이 두 회귀뿐이다.
 
-consumer 회귀 [실행, 이 브랜치 작업 중 마지막 전체 실행]: `364 passed`(`feature-pack/rag-consumer`, `../rag/.venv/bin/python -m pytest tests -q -p no:cacheprovider`).
+core 회귀 [실행, 2026-10-04, HEAD `3503fbe`]: `feature-pack/rag` 에서 `.venv/bin/python -m pytest tests -q -p no:cacheprovider --basetemp <전용 폴더>` → 종료 0 · `502 passed, 1 skipped, 31 deselected`(177.77s). deselect 31건은 `integration` 마커(pyproject `addopts = "-m 'not integration'"`)로 실제 임베딩·LLM 서버 또는 토크나이저 다운로드가 필요한 시험이다 — 목록 `artifacts/regression-20261001-deselected.txt` 31행과 개수가 같다. skipped 1건은 `tests/test_embeddings.py:110` 의 고정 skip(«placeholder case superseded…»). 이 실행은 `documents` extra 가 들어 있는 dev `.venv` 기준이며 core-only 환경에서의 pytest 가 아니다.
+
+consumer 회귀: 이 브랜치 작업 중 마지막 전체 실행 [실행] `364 passed`(`feature-pack/rag-consumer`, `../rag/.venv/bin/python -m pytest tests -q -p no:cacheprovider`). 그 뒤 HEAD 에서 `428 passed` 라는 Master 확인(2026-10-02) [인용 — 이번에 재실행하지 않음].
 
 ### B.1 원래 범위 P01~P08
 
@@ -150,7 +161,7 @@ consumer 회귀 [실행, 이 브랜치 작업 중 마지막 전체 실행]: `364
 | 요구 | 기록 | 대응 코드·명령 | fixture·합성 근거 | 실제 운영 근거 | 미완·한계 |
 |---|---|---|---|---|---|
 | P08A-01 사건·권한·보존 계약 | [ ] | `events.py`·`redaction.py`·D-014 | [인용] `p08a01-contract.json`·DA PASS | 허용 경로 17개 source+현재 세션 고정(사용자 선택) | 운영 정책·인수 시험 남음(PLAN 문구) |
-| P08A-02 자료 변경 consumer(wiki/DB/문서 이벤트) | [ ] | — | 해당 구현 증거 **미확인** | 없음 | 실제 wiki/DB 서비스 미선정이면 fixture 와 실연동을 분리 표기해야 함(PLAN 문구) |
+| P08A-02 자료 변경 consumer(wiki/DB/문서 이벤트) | [ ] **미구현** — `PLAN.md:164` `[ ]` | 대응 구현 없음(아래 검색 근거) | fixture·합성 근거 **없음** | 없음 | PLAN 이 요구한 문서·이미지 완료 이벤트 / wiki 게시 revision / DB committed CDC·snapshot 이벤트 → 출처별 add/update/delete/restore/reindex 연결, 부분 목록 미삭제, source별 receipt/offset 복구에 대응하는 코드·시험·커밋을 찾지 못했다. 실제 wiki/DB 서비스 미선정이면 fixture 와 실연동을 분리 표기해야 함(PLAN 문구) |
 | P08A-03 대화 JSONL·윈도우 문서 | [ ] | `jsonl.py`·`ledger.py`·`collector.py`·`lifecycle.py` | [인용] `p08a03-input-adapter-verification.json`·`p08a03-ledger-verification.json`(122 passed) · [실행] consumer 회귀 364 passed | 실제 Codex rollout 수집: 선택 세션 고정 prefix 28,156,963B 로 442건 수집(2026-09-28) · 운영 launchd 틱 수집(2026-10-02) | `AMBIGUOUS_INJECTED_BLOCK` 감사 gap 1건 → `coverage_complete=false` · 소스는 계속 자라는 세션 |
 | P08A-04 히스토리 검색·N개 활성 창 | [ ] | `bridge.py`·`runtime.search` | [인용] `final-integration-result.json`(검색창 28·활성 4) | 실제 통합 질의: 대화 5건+투어 17출처/11그룹 별도 순위 [인용] | 운영 환경 published(발행) 결과는 **절 C 에서 갱신 예정** |
 | P08A-05 기억·트러블슈팅 | [ ] | `memory.py` | [인용] 기억 337개·118 추출 완료 | memory 서버(18703) 도달 여부 **미확인** | 사용자 확인·해결 검증 필요 후보는 자동 승인하지 않음 |
@@ -159,6 +170,8 @@ consumer 회귀 [실행, 이 브랜치 작업 중 마지막 전체 실행]: `364
 | P08A-08 실제 연결·사용자 시연 | [ ] | — | — | 투어 14 수용 · 운영 launchd 틱 3회 exit 0 | 사용자 확인·DA 최종 대조 남음 |
 | P08A-09 90일 만료·파일 아카이브 | [ ] | `run_once`(`_archive_pending`) | [인용] 가상 시간 89/91일 시험 | 운영 만료 대상 0 | — |
 | P08A-10 일일 백업·30일 보관 | [ ] | `operations.py`·`runtime._backup` | [인용] DA r1~r3 보강 PASS(2026-10-01) | 운영 백업 2세트(투어 07·14) · 03:00 슬롯 자동 생성 **관찰 전** | 외부 복제·키 보관은 사용자 책임 |
+
+P08A-02 «미구현» 검색 근거 [인용: checker 사실 수집 2026-10-04, 읽기 전용]: `grep -rniwE "wiki|cdc" feature-pack/rag-consumer feature-pack/rag/src` 0건 · `git log -S"wiki"`·`-S"CDC"`(rag-consumer·rag/src 경로) 0 커밋 · `git log --grep="P08A-02"` 0 커밋 · `git log -S"P08A-02" -- feature-pack` 3 커밋(`bd5386a`·`7831272`·`a4e589b`)은 모두 문서·보존 커밋이고 구현 커밋이 아님. 비교로 consumer 가 가진 것: `events.py:134-138` 이벤트 종류 create/edit/delete/restore 는 **대화 메시지** 이벤트이고, `bridge.py:228-308` 이 core 로 보내는 요청 kind 는 `add`·`retry` 뿐이며 대상은 대화 윈도우 문서다(update/delete/reindex/restore 를 core 로 보내는 줄 없음).
 
 ### B.3 프로젝트 지식 확장 P08B
 
@@ -171,8 +184,26 @@ consumer 회귀 [실행, 이 브랜치 작업 중 마지막 전체 실행]: `364
 - phase 9 `completion`: approved_requirements_traceability(이 절 B) · no_unreported_incomplete_capabilities(절 D, 작성 예정) · user_tour_done · final_kakaobot_integration_report(이 문서).
 
 ### B.5 이 절에서 확인하지 못한 것
-- PLAN.md 가 적은 «[x] 완료»의 재실행: 이번에 하지 않음(core 회귀·실제 모델 회귀 미실행).
-- P08A-02 구현 증거, memory 서버 도달 상태, consumer wheel 독립 설치 재현, core 종료코드 번호표.
+2026-10-04 기준으로 다시 센 결과다.
+
+**이번에 사실로 바뀐 것(더 이상 «미확인» 아님)**
+1. core 종료코드 번호표 → 절 A.5 표(0·2·4 + 번호 없는 경로, 근거 파일:줄).
+2. `PROCESSING_FAILED` retryable → 절 A.5(생성 지점 1곳 `api.py:187` `retryable=False`; 이전 «호출 지점마다 달라» 문구는 정정).
+3. P08A-02 consumer 구현 → **미구현**(절 B.2 행 + 검색 근거). «증거 미확인»이 아니라 «구현 없음».
+4. consumer 휠 설치 재현 → 절 A.1(rag 휠과 함께만 설치 · 단독은 종료 1). extra 없는 core 설치 → 절 A.1(종료 0).
+5. 15:12 틱 호출 주체 → 절 C.2 마지막 줄(지시 원장 기록).
+6. 모델 없는 core 회귀 재실행 → 절 B 서두(502 passed·1 skipped·31 deselected, 종료 0).
+
+**여전히 미확인(7건 — 이유)**
+1. memory 서버(18703) 도달 상태 — 서버가 필요하다(사용자 기동 대기).
+2. integration 31건 = 실제 모델·서버 회귀 재실행 — 서버가 필요하다.
+3. rag-consumer 테스트 이번 재실행 — 이번 라운드 범위 밖(`428 passed` 는 Master 10-02 확인 인용).
+4. `[documents]` extra 설치본의 문서 포맷 add 동작, extra 없는 환경에서 문서 포맷 add 의 오류 메시지 — add 는 임베딩 서버가 필요하다.
+5. 절 A.7 add/search/fetch/reindex 예제 실행 — 서버가 필요하다.
+6. 15:12 틱: 지시 원장은 «재수동 3회(15:12~15:14)» 라 하나 틱 로그에는 그 구간 줄이 1개 — 줄이 3개가 아닌 이유는 로그만으로 알 수 없다(절 C.2).
+7. published 수치·03:00 백업 슬롯 자동 생성 관찰 — 서버 복구와 서비스 재개 뒤(절 C).
+
+지시 원장 재료의 «8건» 과 옛 5개 목록의 숫자 차이는 위 계수로 대체한다(원장의 8건 목록 원문은 이 문서에서 대조하지 않았다).
 
 ---
 
@@ -196,7 +227,8 @@ consumer 회귀 [실행, 이 브랜치 작업 중 마지막 전체 실행]: `364
 
 - 위 표는 로그 줄 그대로다 **[실행]**. 등록 이후 줄은 6개이고 그중 1개(15:42)가 exit 30 `OP_READ_UNAVAILABLE` 이다. 앞서 Master 가 3틱까지만 관찰하고 보고했고(정지 신호 해당 없음 판정), «6틱 exit 0» 이라는 인계 문서 문구는 로그와 다르다 — **Master 확인: 로그가 맞다**(2026-10-02 20:1x 로그 직접 재독). exit 30 은 한 번이었고 다음 틱(15:47)은 ok 로 회복했다. 원인은 이 문서에서 판정하지 않는다.
 - 첫 틱: 소스 46,457,618 B 전량 소화 **[인용]**. `launchd.err.log` 0 B **[실행]**. 로그 줄에 64자리 16진 문자열 0건 **[인용]**(이 절에서 재확인하지 않음).
-- 등록 이전 시각(15:12)에 ok 틱 줄이 1개(accepted 746 · `backup_created` true · 128.5s) 있다 **[실행]**. 인계 문서의 «재수동 3회(HELM 대행)» 와 같은 것으로 보이나 로그만으로는 호출 주체 **근거 미확인**.
+- 등록 이전 시각(15:12 KST = 06:12Z)에 ok 틱 줄이 1개(accepted 746 · `backup_created` true · 128.5s) 있다 **[실행]**. 호출 주체 근거 **[인용]**: 지시 원장 `.fable-team/state/INSTRUCTION-LEDGER-airag.md:94-95`(«결과·결정 2026-10-02 15:2x») 가 «재수동 3회(HELM 실행, 15:12~15:14): exit 0 … accepted 746 · backup_created true · pass 128s» 로 적었고 `:88` 이 «HELM 이 대신 실행 — 이번 1회 한정 승인» 으로 적었다. accepted 746·backup_created true·소요 128 초가 로그 줄과 같다.
+- 줄 수 차이 **[실행]**: `tick-20261002.log` 는 모두 8줄이다(01:45Z `runtime_error` 40 `COLLECTOR_SOURCE_BINDING_MISMATCH` 1줄 · 06:12Z ok 1줄 · 06:23Z 이후 등록 틱 6줄). 15:12~15:14 KST 구간 줄은 06:12:20Z 1개뿐이어서 원장의 «3회» 와 줄 수가 맞지 않는다. 나머지 2회가 이 로그에 남지 않은 이유(수동 실행이 틱 로그를 쓰지 않았는지 등)는 **미확인**. 로그 전체에 64자리 16진 문자열은 0건이다 **[실행]**.
 
 ### C.3 15:54 bootout 경위 [인용]
 - published 가 성공하지 못한 원인으로 확정된 것은 임베딩 서버(127.0.0.1:18712) 도달 불가: 실패 창 14개가 `PROVIDER_UNREACHABLE`, 재시도 대기 작업 52, 다른 코드 0(architect 판정 `18d72ec`, 발주 #2061).
@@ -228,7 +260,8 @@ consumer 회귀 [실행, 이 브랜치 작업 중 마지막 전체 실행]: `364
 4. **투어 미수용 3건** — `11-load-repro` · `12-load` · `13-multi-load` 는 사용자 수용 기록이 없다. 사용자 범위 결정으로 기록한다. 근거: PLAN.md 2026-09-28 투어11·12 절.
 5. **보류 76건** — 확인대기 51 · 검증대기 25 는 사용자가 보류했다(사용자 범위 결정). 근거: `artifacts/phase89-report-draft-20261002.md` 표 · 지시 원장.
 6. **memory 서버(18703) 도달 불가** — 이 문서 작성 시점의 로컬 상태로, 서버 기동은 사용자 몫이다. 복구 전후 상태는 서버 복구 뒤 기록. 근거: 인계 문서 #3.
-7. **미확인 항목** — 절 B.5 에 적은 것을 그대로 가리킨다(PLAN.md «[x]» 재실행, P08A-02 구현 증거, memory 서버 도달 상태, consumer 휠 독립 설치 재현, core 종료코드 번호표). 지시 원장 재료는 «8건» 이라 했으나 B.5 본문에서 센 항목은 5개여서 숫자는 적지 않는다.
+7. **미확인 항목** — 절 B.5 의 «여전히 미확인(7건)» 목록을 그대로 가리킨다(memory 서버 도달 · integration 31건 · rag-consumer 테스트 재실행 · documents extra 관련 add · A.7 add/search 예제 · 15:12 틱 줄 수 차이 · published/03:00 슬롯 관찰). 이번 라운드에 사실로 바뀐 6건(종료코드 표·`PROCESSING_FAILED`·P08A-02·휠 설치·15:12 호출 주체·core 회귀)도 B.5 에 있다. 근거: 절 B.5.
+11. **P08A-02 자료 변경 consumer 는 구현이 없다** — PLAN.md:164 `[ ]`. 문서·이미지 완료 이벤트, wiki 게시 revision, DB committed CDC/snapshot 이벤트를 core 요청으로 연결하는 코드·시험·커밋을 찾지 못했다(검색 방법은 절 B.2 표 아래). consumer 의 이벤트 처리는 대화 메시지 대상이다. 완료로 표시하지 않는다. 근거: `PLAN.md:164` · checker 사실 수집(2026-10-04) · 절 B.2.
 8. **테스트 minor** — 코드 DA r2 의 minor(tally 코드값 단언이 항상 참)는 실제 값 비교 단언으로 교체했다(같은 세션의 별도 `[test]` 커밋). 기록만 남긴다. 근거: `artifacts/da-20261002-sol-diag-code-r2.md`.
 9. **`final-integration-result.json` 의 limits (인용)** — ①운영 환경 키 미공급·운영 서비스 미활성(당시 기록) ②악성 주입 블록 gap 1건 인정, `coverage_complete=false` ③`captured_byte_limit` API 로 고정한 유한 스냅샷 — 이후 소스 추가분의 커버리지 아님 ④독립 해결책 검증·선호/지침 확인은 계속 필요 ⑤초기 전량 수집 지연이 큼 — 처리량·규모 보장 아님 ⑥최신 코드 변경은 본 테스트·실제 실행으로만 확인, 새 독립 DA 라운드 아님. 근거: `.fable-team/airag/final-integration-result.json`(09-28 기록). 이 목록은 당시 시점의 것이며 현재 상태와 다를 수 있다.
 10. **수집기는 codex rollout 형식만 수집한다 — Claude 좌석 대화는 수집 불가** — 사용자 결정 기록 [인용: `.fable-team/state/INSTRUCTION-LEDGER-airag.md:45` «사실 기록(A04 판정 때 재검토)»] · 코드 근거 [실행: checker 사실 수집 #2152] `feature-pack/rag-consumer/src/airag_consumer/collector.py` — `:1-3` 모듈 설명 «Codex rollout adapter» · `:266-280` `_verify_session_meta` 가 파일 첫 줄의 `session_meta` 와 session id 일치를 요구(아니면 `SESSION_META_REQUIRED`·`SESSION_SCOPE_MISMATCH`) · `:352-356` `_ordinal` 이 레코드의 `ordinal` 필드를 요구(`INVALID_NATIVE_ORDINAL`) · `:441-445` 최상위 record type 이 `response_item` 이 아니면 `UNKNOWN_NATIVE_RECORD_TYPE`. 한계: Claude 좌석 JSONL 의 실제 레코드 구조와의 대조는 하지 않았다(코드가 요구하는 필드만 사실로 기록).
