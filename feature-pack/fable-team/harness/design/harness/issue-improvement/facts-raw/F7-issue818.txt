@@ -1,0 +1,3 @@
+TITLE: [docs] DESIGN-live-bin-sync — 라이브 하네스 bin = main 추적본 1:1 설계 (#816)
+STATE: OPEN
+BODY: Why: planner 56634(오빠 17:1x). What: 라이브 실측(FT_BIN 은 v6-realtime-live 워크트리 사본 · 38개 중 다름 10·없음 4) + 방향 문제(라이브가 대체로 최신 → main→라이브 복사는 퇴행) → ⓪ 채택 먼저·설치 스크립트·3자 드리프트·변화 시 BLOCK·FT_BIN 이전(HIL). Verify: sha·mtime 실측. Impact: 문서만.

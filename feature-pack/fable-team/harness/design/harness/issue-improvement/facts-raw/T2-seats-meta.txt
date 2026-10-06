@@ -1,0 +1,6 @@
+seats.json: _name=Seatbelt _version=1.2.0 _master=None _hil_route=None
+seats-harness.json: _name=Seatbelt-HARNESS _version=1.0.0 _master=ft-harness-ops#2 _hil_route=byz-planner-arch#3
+seats-issues.json: _name=Seatbelt-ISSUES _version=1.0.0 _master=ft-issue-manager#0 _hil_route=byz-planner-arch#3
+seats-planner.json: _name=Seatbelt-PLANNER _version=1.0.0 _master=byz-planner-arch#3 _hil_route=오빠 직접(최상위) — planner pane AskUserQuestion · 현역 좌석 = _master
+seats-kk.json: _name=Seatbelt-KK _version=1.0.0 _master=None _hil_route=None
+seats-cfo.json: _name=Seatbelt-CFO _version=1.0.0 _master=None _hil_route=None

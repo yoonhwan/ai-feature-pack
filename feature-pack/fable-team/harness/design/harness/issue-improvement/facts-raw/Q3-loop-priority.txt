@@ -1,0 +1,9 @@
+   1 10
+   1 11→10
+   1 orphan 1(test_s2_orphan_obligation_close)·po_* 5(tests/shared/services/test_runtime_branch_snapshot) 재현 · open_wait 86 vs 이슈 14 불일치(환경 vs main 미판별) · 코멘트 736#5977610833
+   1 —
+   1 ①
+   2 ②
+   6 ③
+   1 마
+   1 우

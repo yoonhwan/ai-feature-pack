@@ -1,0 +1,30 @@
+2:# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>"]
+3:#   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
+4:#   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
+5:#   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
+6:#   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
+10:#   close 는 워크트리 정리 계획을 «생성만» 한다(.fable-team/state/wt-clean/<seat>.sh · 원장 행 wt=planned). 조건 ③이 세션 실재를 요구하므로
+11:#   close 시점엔 좌석이 살아 있다 — 실행은 «세션이 사라진 뒤»: --kill 이 KILLED 를 낸 직후, 또는 ft-wt-sweep.sh(ft-tick.sh 가 매 루프 호출 · r3 배선).
+12:#   계획 스크립트가 가드 6(계보 세션 자기 포함 0 · 워크트리 cwd 보유 프로세스 0 · info branch nano/* · HEAD=branch+도달성 · 실작업물은 WIP 커밋(r7) · ignored 보관)과
+16:SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
+18:while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;;
+19:  --cherry-override) [ $# -ge 2 ] || { echo "usage: --cherry-override <사유> (사유 인자 누락)" >&2; exit 2; }; HAVE_CHERRY_OVERRIDE=1; CHERRY_OVERRIDE="$2"; shift 2;;
+21:# ⑤ cherry 게이트 사람 우회 — 사유 빈 문자열은 cherry-gate 의 REJECT 에 기대지 않고 close 입구에서 usage(2) (M7 · arch#141 #53675)
+22:if [ "$HAVE_CHERRY_OVERRIDE" -eq 1 ] && [ -z "${CHERRY_OVERRIDE//[[:space:]]/}" ]; then echo "usage: --cherry-override 사유가 비어 있음(사유 없는 우회 거부)" >&2; exit 2; fi
+24:case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 temp- 접두)
+29:# 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
+30:LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"
+34:# 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/v65-<seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
+35:# key 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
+44:    printf '#!/bin/bash\n# wt-clean 계획 — ft-nano-close.sh 가 %s 에 생성. 가드 6 → ignored 보관 → WIP 커밋 → baton wt-clean → 원장 표식. 브랜치는 지우지 않는다.\n' "$(date '+%Y-%m-%d %H:%M')"
+53:# 원장 표식 — 좌석명 행(그 좌석의 «마지막» 닫힘 행)의 wt= 필드 교체. mkdir 락(<원장>.lock · 최대 10s) 아래 read→write · 실패는 stdout+exit 1 (#0 RULE · DA r2 B)
+61:key = "`%s` 닫힘(ft-nano-close)" % seat
+74:# ① 계보(<PREFIX><KEY>#N) 세션 — «자기 포함» 0. tmux 실패는 「no server running」만 0세션으로 인정, 그 외(바이너리 없음·소켓 오류)는 skipped (DA r2 R12)
+75:# r8(DA r7 조건1): rc=1 요건 추가 — 「소켓 없음」 문구만 0세션(그 외 rc1 연결 장애는 skipped, close 쪽과 같은 좁힘).
+82:      # r9(오빠 판정 ㉙ Q5)+r10(DA r9 M1·M2): 소켓 파일만 없고 서버 프로세스가 살아있으면 고아 서버 — 0세션이 아니라 REJECT.
+98:# ② 워크트리를 cwd 로 쥔 프로세스 0 (tmux 밖 node·mcp·zsh 포함). lsof 절대경로 + 실행 가능 + 종료코드를 grep 과 분리(fail-closed · DA r2 R12)
+104:# ③ .worktree-info.json 의 branch 가 nano/*
+105:br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
+111:# ⑤ 미커밋 상태 확인.
+112:#   r8(DA r7 잔여 질문1): #30467 「dirty 는 [wip] 커밋」은 20건 백필 맥락이었다 — 답 전까지 «백필 한정 플래그»로 분리해
+115:  # r7 · 하네스 0.5 행 2 · 오빠 판정 #30467 「dirty 는 [wip] 커밋 경로」 · DA r6 잔여 질문 2 정리.

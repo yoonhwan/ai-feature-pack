@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_github as gh  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
-from byz_mbox_slack_mirror import read_token, save_state  # noqa: E402
 from mirror_deliver import Deliverer  # noqa: E402
 
 API = "https://slack.com/api"
@@ -34,13 +33,13 @@ class GithubMirror:
         self.state_path = Path(a.state_dir) / f"byz_github_slack_mirror.{slug}.json"
         self.gh_token = gh.read_token()
         self.deliv = None if a.dry_run else Deliverer(
-            a.api_base, read_token(Path(a.token_file).expanduser()), a.channel,
+            a.api_base, lib.read_token(Path(a.token_file).expanduser()), a.channel,
             Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json")
         self.posted = 0
 
     def _save(self, st: dict[str, object]) -> None:
         if not self.a.dry_run:
-            save_state(self.state_path, st)
+            lib.save_state(self.state_path, st)
 
     def _item(self, issue: dict[str, object], kind: str) -> dict[str, object]:
         n, title = int(str(issue["number"])), str(issue.get("title", ""))
@@ -54,9 +53,10 @@ class GithubMirror:
             s = None
         iid = f"github #{n} {kind}"
         row: dict[str, object] = {"from": "github", "seq": iid}
-        text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts)
+        url = str(issue.get("html_url") or "") or lib.issue_url(self.a.repo, f"#{n}")
+        text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts, None, [url] if url else None)
         text = text.replace(f"(github · #{iid}", f"({iid}")  # 꼬리 = 마커(id) 그대로
-        return {"id": iid, "num": n, "kind": kind, "key": f"#{n}", "what": s["what"] if s else title, "text": text}
+        return {"id": iid, "num": n, "kind": kind, "key": f"#{n}", "url": lib.issue_url(self.a.repo, f"#{n}"), "what": s["what"] if s else title, "text": text}
 
     def _deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
         if self.deliv is None:

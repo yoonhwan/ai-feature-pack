@@ -1,0 +1,12 @@
+| P2 | 시험 맞춤 | 닫힘 — REPORT §6 9a778b8d9d · pick 36~42 |
+| P3 | DA⑥ 고정분 | 닫힘 — DA-631 APPROVE 9c79008253 |
+| S1 | 게이트 차분 | 닫힘 — READ ce59429a52(새 실패 23·error 5 PASS) |
+| S2 | 증분 DA⑥ | 닫힘(기계 증거) — c20015eaa6 · REPORT 39e4ebe84f |
+| S3 | 전체 단위 세트 | 닫힘 — READ ce59429a52 차집합 0 |
+| S4 | 깨끗한 병합 + 재생 | 닫힘 — 313903d113 · 비문서 diff 0 |
+| S5 | 로컬 3버블 | 닫힘 — READ e8bdff3c74(이중 0 · 누락 0 · checkpoint exit 0 · Issues 0)
+| S6 | feat push | 닫힘 — origin/feat 7d82dcda88 |
+| S7 | main push | 닫힘 — origin/main 419dc33962 |
+| S8 | CD + dev 라이브 | 닫힘 — 리비전 3/3 · READ 59928dafd3(이중 0 · 누락 0 · 과금 12행 잔액 일치 
+| S9 | 청크 원문 로그 0 | 닫힘 — [chore] 5dafac482f · main f8c815511b · CD 37114097708 s
+| S10 | 첫 랜딩 CI 새 실패 처분 | 수용 — S10 커밋 3(시험만 · 제품 0): a687fbe11a usage_history(ma

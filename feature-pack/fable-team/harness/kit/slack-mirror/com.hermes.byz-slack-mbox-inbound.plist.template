@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.hermes.byz-slack-mbox-inbound</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PY__</string>
+    <string>__HOME__/.hermes/scripts/byz_slack_mbox_inbound.py</string>
+    <string>--channel</string><string>__CHANNEL__</string>
+    <string>--human</string><string>__MENTION__</string>
+    <string>--mbox</string><string>__MBOX__</string>
+    <string>--seats-file</string><string>__SEATS__</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>__HOME__/.hermes/logs/byz_slack_mbox_inbound.out</string>
+  <key>StandardErrorPath</key><string>__HOME__/.hermes/logs/byz_slack_mbox_inbound.err</string>
+</dict>
+</plist>

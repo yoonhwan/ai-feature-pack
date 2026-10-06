@@ -1,0 +1,29 @@
+--- .worktrees/v6-realtime-live/.fable-team/bin ---
+-rwxr-xr-x@ 1 yoonhwan  staff  12576 10  2 23:49 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh
+-rwxr-xr-x@ 1 yoonhwan  staff   3718 10  2 21:48 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh.bak-g4c-1002
+-rwxr-xr-x@ 1 yoonhwan  staff   5714 10  2 22:07 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh.bak-g4cr3-1002
+-rwxr-xr-x@ 1 yoonhwan  staff  11530 10  2 22:07 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh.bak-m7-1002
+-rwxr-xr-x@ 1 yoonhwan  staff  33004 10  3 14:10 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh
+-rwxr-xr-x@ 1 yoonhwan  staff  13784  9 26 14:39 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-34e17e98
+-rwxr-xr-x@ 1 yoonhwan  staff  19810  9 26 14:39 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-34e31113
+-rwxr-xr-x@ 1 yoonhwan  staff   4713  9 26 00:03 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-4a53ee23
+-rwxr-xr-x@ 1 yoonhwan  staff  22191  9 27 14:07 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-checkpoint-1001
+-rwxr-xr-x@ 1 yoonhwan  staff  24946 10  2 21:30 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-g4b-1002
+-rwxr-xr-x@ 1 yoonhwan  staff  28812 10  3 00:17 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-m124-cherryov
+-rwxr-xr-x@ 1 yoonhwan  staff  26474 10  2 23:25 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-m7-1002
+-rwxr-xr-x@ 1 yoonhwan  staff  23858 10  2 20:25 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh.bak-untag-1002
+-rwxr-xr-x@ 1 yoonhwan  staff   3637 10  2 23:22 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-freshness.sh
+-rwxr-xr-x@ 1 yoonhwan  staff   5605 10  2 23:49 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-slots.sh
+-rw-r--r--@ 1 yoonhwan  staff   3531 10  2 16:26 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-slots.sh.bak-m7-1002
+-rwxr-xr-x@ 1 yoonhwan  staff  15594 10  3 01:40 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh
+-rwxr-xr-x@ 1 yoonhwan  staff   9842  9 26 09:24 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh.bak-archivebase-0924
+-rwxr-xr-x@ 1 yoonhwan  staff  14223 10  2 23:57 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh.bak-m124-slug
+-rwxr-xr-x@ 1 yoonhwan  staff  10466 10  2 23:40 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh.bak-m7-1002
+-rwxr-xr-x@ 1 yoonhwan  staff   9869  9 28 18:54 .worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh.bak-m70-opus55
+--- scripts/fable-team-bin ---
+--- /Users/yoonhwan/.claude/fable-team/bin ---
+ft-nano-slots.sh -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-slots.sh
+ft-nano-spawn.sh -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh
+ft-nano-close.sh -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh
+ft-nano-freshness.sh -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-freshness.sh
+ft-nano-cherry-gate.sh -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh

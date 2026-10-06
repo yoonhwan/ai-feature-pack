@@ -12,6 +12,7 @@
     <string>--seat</string><string>__SEAT__</string>
     <string>--channel</string><string>__CHANNEL__</string>
     <string>--mention</string><string>__MENTION__</string>
+    <string>--repo</string><string>__REPO__</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

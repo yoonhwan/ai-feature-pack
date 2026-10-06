@@ -1,0 +1,5 @@
+.worktrees/c-level-planning/design/cfo/CLOSEOUT-cfo-accounts-20261003.md
+.worktrees/kk-lang/design/kk/CLOSEOUT-kk-20261003.md
+.worktrees/v6-realtime-live/design/ccu/CLOSEOUT-ccu-ramp-20261004.md
+.worktrees/v6-realtime-live/design/ccu/CLOSEOUT-ccu-u-staircase-20261004.md
+.worktrees/ccu-stress/design/ccu/CLOSEOUT-ccu-u-staircase-20261004.md

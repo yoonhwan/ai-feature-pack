@@ -1,0 +1,15 @@
+clients/web/src/domains/lecture/use-lecture-station.ts:206:  // 실 캡처 시작: getUserMedia → MediaRecorder → chunker.start + VAD 시각화 (usePtt.press 와 동형).
+clients/web/src/domains/realtime/use-realtime-stt.ts:40: * 강의(use-lecture-station)가 검증한 V4 패턴을 거울로: getUserMedia → MediaRecorder → usePulseChunker
+clients/web/src/domains/realtime/use-realtime-stt.ts:47: * 에러는 표면화(#0 RULE) — pulse POST/SSE 실패, getUserMedia 실패 모두 error 로.
+clients/web/src/domains/realtime/use-realtime-solo-v5.ts:430:  // V5 에코 차단: press 중 TTS 스피커 재생 → mic(echoCancellation:false) 재유입 → ghost final 청크
+clients/web/src/domains/realtime/use-realtime-solo-v5.ts:1282:      const stream = await pressPromise; // getUserMedia 완료 대기
+clients/web/src/domains/realtime/use-realtime-solo-v5.ts:1300:      // 레이스 가드: await(initV5Session/getUserMedia) 동안 release/abort/toggle 이 앞질러
+clients/web/src/domains/realtime/use-realtime-solo-v5.ts:1387:      // ●●● 입력중 표시는 press 최상단(306)에서 set — await(init/getUserMedia) 전 hoist 라 즉시 표시.
+clients/web/src/domains/audio/energy-chunker-props.ts:13:  getMediaStream?: () => MediaStream | null; // 주입 시 내부 getUserMedia 생략 — PTT mic 재사용 (iOS 이중 캡처 방지)
+clients/web/src/domains/audio/use-calibration.ts:183:    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+clients/web/src/domains/audio/pcm-capture.ts:22:  getUserMediaWithFallback?: (audio: boolean) => Promise<MediaStream>;
+clients/web/src/domains/audio/pcm-capture.ts:48:  getUserMediaWithFallback = (globalThis as { getUserMediaWithFallback?: (audio: boolean) => Promise<MediaStream> }).getUserMediaWithFallback,
+clients/web/src/domains/audio/pcm-capture.ts:52:  if (typeof getUserMediaWithFallback === "function") {
+clients/web/src/domains/audio/pcm-capture.ts:53:    mediaStream = await getUserMediaWithFallback(true);
+clients/web/src/domains/audio/pcm-capture.ts:55:    const audioConstraints: MediaTrackConstraints = {
+clients/web/src/domains/audio/pcm-capture.ts:57:      echoCancellation: false,

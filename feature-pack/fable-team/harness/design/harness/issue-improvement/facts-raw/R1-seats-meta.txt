@@ -1,0 +1,2 @@
+seats-planner.json rows= 5 _doc= planner(메인 PM) 트랙 좌석 레지스트리 (byz-planner-arch#0 · 2026-10-04 · seats-kk.json 꼴). v65 seats.json·seats-cfo.json 과 섞지 않는다. 틱 없음 — planner 는 mbox 수신 기반. 카드 = .workt _hil_route= 오빠 직접(최상위) — planner pane AskUserQuestion · 현역 좌석 = _master
+seats-issues.json rows= 2 _doc= issue-manager(메인 팀 ② 이슈 모니터·생성·종료·배분) 좌석 레지스트리 (planner P10 · 오빠 GO 2026-10-04 13:0x · 원문 8). 틱 없음 — 좌석 자체 10분 모니터. 카드 = .worktrees/issue-manager/design/issues/ _hil_route= byz-planner-arch#3

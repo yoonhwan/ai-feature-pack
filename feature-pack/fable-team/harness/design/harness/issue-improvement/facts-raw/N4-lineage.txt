@@ -1,0 +1,15 @@
+.worktrees/v6-realtime-live/.fable-team/bin/ft-blocked-on-master.sh:4:ROOT="$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-checkpoint.sh:17:WT="$(git rev-parse --show-toplevel)"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-checkpoint.sh:18:ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-env-fingerprint.sh:12:cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 2
+.worktrees/v6-realtime-live/.fable-team/bin/ft-goal-check.sh:16:ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-goal-check.sh:29:HEAD_SHA="$(git -C "$ROOT" rev-parse --short HEAD)"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-gate.sh:29:ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-gate.sh:132:    TOP="$(git rev-parse --show-toplevel 2>/dev/null)"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-lint.sh:9:ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-move.sh:36:  WT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$IDX_ROOT")"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-move.sh:87:  ROOT="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-move.sh:113:print(next((k for k, v in s.items() if isinstance(v, dict) and v.get("role") == "arch-canon" and "_replaced_by" not in v), ""))
+.worktrees/v6-realtime-live/.fable-team/bin/ft-mbox-bridge.sh:38:  wt="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+.worktrees/v6-realtime-live/.fable-team/bin/ft-mbox-bridge.sh:39:  root="$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh:27:  git -C "$REPO" rev-parse --verify -q "refs/heads/$r" >/dev/null || { echo "REJECT cherry 게이트 — 브랜치 없음: $r (refs/heads/)"; exit 1; }

@@ -1,0 +1,1 @@
+lrwxr-xr-x@ 1 yoonhwan  staff  41 10  2 15:36 /Users/yoonhwan/.local/bin/tmm -> /Users/yoonhwan/.tmm/current/core/bin/tmm

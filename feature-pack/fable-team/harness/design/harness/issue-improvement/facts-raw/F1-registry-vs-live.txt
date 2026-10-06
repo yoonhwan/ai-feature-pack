@@ -1,0 +1,124 @@
+LIVE_SESSIONS 30
+
+## session -> registry file(s)
+FB_CCU#12	명부 밖(OUTSIDE)
+FB_CFO#52	seats.json,seats-cfo.json
+KakaoBot#14	명부 밖(OUTSIDE)
+KakaoBot#17	명부 밖(OUTSIDE)
+byz-planner-arch#1	seats-planner.json
+byz-planner-arch#3	seats-planner.json
+ft-airag-helm-claude#4	명부 밖(OUTSIDE)
+ft-airag-helm-claude#5	명부 밖(OUTSIDE)
+ft-airag-master-claude#2	명부 밖(OUTSIDE)
+ft-harness-arch#0	명부 밖(OUTSIDE)
+ft-harness-da#1	명부 밖(OUTSIDE)
+ft-harness-nano#1	명부 밖(OUTSIDE)
+ft-harness-ops#0	seats-harness.json
+ft-harness-ops#1	seats-harness.json
+ft-issue-manager#0	seats-issues.json
+ft-kakao-architect#27	명부 밖(OUTSIDE)
+ft-kakao-architect#28	명부 밖(OUTSIDE)
+ft-kakao-da#21	명부 밖(OUTSIDE)
+ft-kakao-nano-canary-inject#0	명부 밖(OUTSIDE)
+ft-kakao-nano-ops-005-notice-wire#0	명부 밖(OUTSIDE)
+ft-kakao-nano-send-preview#0	명부 밖(OUTSIDE)
+ft-kakao-nano-send-preview#1	명부 밖(OUTSIDE)
+ft-v65-arch-claude#155	seats.json
+ft-v65-master-claude#135	명부 밖(OUTSIDE)
+ft-v65-master-claude#136	seats.json
+ft-v65-temp-m7-p90-lang-update-gap-decomposition#0	seats.json
+ft-v65-temp-m7-p90f-n06-n10-durable-four-of-five-rea#0	seats.json
+ft-v65-tester-claude#13	seats.json
+repro-e2e#0	seats-issues.json
+tmm	명부 밖(OUTSIDE)
+
+## file -> row count / status vocab / active rows
+
+seats.json: rows=799 role={'stop-ready': 486, 'da': 43, 'arch': 98, 'orch': 10, 'master': 44, 'stopped': 56, 'tester': 12, 'worker': 4, 'nano': 31, 'arch-canon-retired': 1, 'stop': 3, 'master-retired': 1, 'arch-canon': 9, 'research': 1}
+  status/_session vocab: {'killed': 93, 'replaced': 480, 'active': 187, 'gone': 39}
+  _replaced_by=570 _session=killed=93
+  active(no replace,not killed)=192 · active-not-in-tmux=186
+    OUT ft-v65-da-claude#10 role=stop-ready
+    OUT ft-v65-mainmerge-astra#2 role=stop-ready
+    OUT ft-v65-mainmerge-worker#6 role=stop-ready
+    OUT ft-v65-mr-track#0 role=stop-ready
+    OUT ft-v65-le-track#0 role=stop-ready
+    OUT ft-v65-temp-m3-lst-pel-orphan-never-acked-error-floo#1 role=stop-ready
+    OUT ft-v65-temp-m5-residual-raw-position-lost-window-dea#1 role=stop-ready
+    OUT ft-v65-temp-g1-rt-v65-core-fix-canonization#1 role=stop-ready
+    OUT ft-v65-temp-m5-first-bubble-completion-event-missing#1 role=stop-ready
+    OUT ft-v65-temp-a7-records-missing-fatal-max-attempt-con#0 role=stop-ready
+    OUT ft-v65-pm-claude#6 role=stop-ready
+    OUT ft-v65-temp-a8-press-audio-silent-deterministic-sile#0 role=stop-ready
+    OUT ft-v65-temp-a7-beta2-refined-axis-slice-and-live-pin#0 role=stop-ready
+    OUT ft-v65-arch-astra#2 role=stop-ready
+    OUT ft-v65-temp-mainmerge-v65-rt-main-sync-20260923#0 role=stop-ready
+    OUT ft-v65-temp-m7-diffusion-owner-lane-pacing-supply#0 role=stop-ready
+    OUT ft-v65-temp-m7-press-gate-e1-press-epoch-subsecond-a#0 role=stop-ready
+    OUT ft-v65-tester-checker-ds#20 role=stop-ready
+    OUT ft-v65-temp-m0-mobile-viewport-vh-dvh-unit-mismatch#0 role=stop-ready
+    OUT ft-v65-temp-m0-ptt-trace-instrumentation-baseline#1 role=stop-ready
+    OUT ft-v65-temp-m0-ptt-mic-reacquire-graceful-start-guar#0 role=stop-ready
+    OUT ft-v65-temp-sb-harness-0-4-unit1-hook-r3#0 role=stop-ready
+    OUT ft-v65-temp-m7-diffusion-deadline-cursor-catch-up#1 role=stop-ready
+    OUT ft-v65-temp-m0-owner-ledger-two-row-adjacent-tiling#0 role=stop-ready
+    OUT ft-v65-temp-m0-dev-remote-web-trusted-ptt-press#0 role=stop-ready
+
+seats-harness.json: rows=2 role={'master': 2}
+  status/_session vocab: {'replaced': 1, 'active': 1}
+  _replaced_by=1 _session=killed=0
+  active(no replace,not killed)=1 · active-not-in-tmux=0
+
+seats-issues.json: rows=2 role={'master': 1, 'tester': 1}
+  status/_session vocab: {'active': 2}
+  _replaced_by=0 _session=killed=0
+  active(no replace,not killed)=2 · active-not-in-tmux=0
+
+seats-planner.json: rows=5 role={'closed': 4, 'arch': 1}
+  status/_session vocab: {'active': 5}
+  _replaced_by=0 _session=killed=0
+  active(no replace,not killed)=5 · active-not-in-tmux=3
+    OUT byz-planner-arch#0 role=closed
+    OUT byz-planner-da#0 role=closed
+    OUT byz-planner-arch#2 role=closed
+
+seats-kk.json: rows=12 role={'closed': 10, 'master': 1, 'nano': 1}
+  status/_session vocab: {'replaced': 5, 'active': 4, 'closed': 2, 'closing — 오빠가 종료(2026-10-04 인터뷰)': 1}
+  _replaced_by=6 _session=killed=0
+  active(no replace,not killed)=6 · active-not-in-tmux=6
+    OUT ft-kk-temp-kk-v65-rebase#0 role=closed
+    OUT ft-kk-temp-kk-press-3bubble#1 role=closed
+    OUT ft-kk-temp-kk-quality-round#1 role=closed
+    OUT ft-kk-temp-kk-arch#2 role=closed
+    OUT FB_KK#4 role=master
+    OUT ft-kk-temp-main-landing#0 role=nano
+
+seats-cfo.json: rows=102 role={'stop-ready': 30, 'da': 2, 'impl': 1, 'stopped': 26, 'orch': 1, 'master': 13, 'worker': 17, 'arch': 2, 'architect': 6, 'research': 1, 'closed': 3}
+  status/_session vocab: {'replaced': 63, 'active': 38, '정지 — 착수 전 종료(#42 정정 #46025 · 발주 166 취소 · loom 은 NANO#29 발주 165 로 진행)': 1}
+  _replaced_by=63 _session=killed=0
+  active(no replace,not killed)=39 · active-not-in-tmux=38
+    OUT CFO_PM_INDEX#5 role=stop-ready
+    OUT DATA_PG#4 role=da
+    OUT CFO_DA#1 role=da
+    OUT CFO_IMPL#4 role=impl
+    OUT FB_CFO#11 role=stop-ready
+    OUT FB_CFO#26 role=stopped
+    OUT FB_CFO_B2B#0 role=stopped
+    OUT FB_CFO_B2B#1 role=orch
+    OUT CFO_F_NANO#20 role=worker
+    OUT CFO_F_NANO#21 role=worker
+    OUT CFO_F_NANO#22 role=worker
+    OUT CFO_OPS_ARCH#2 role=arch
+    OUT CFO_F_NANO#23 role=worker
+    OUT CFO_F_NANO#24 role=worker
+    OUT CFO_F_NANO#25 role=worker
+    OUT CFO_F_NANO#26 role=worker
+    OUT CFO_F_NANO#27 role=worker
+    OUT CFO_F_NANO#29 role=worker
+    OUT CFO_LOOM_DEPLOY#0 role=worker
+    OUT CFO_F_NANO#30 role=worker
+    OUT CFO_F_NANO#31 role=worker
+    OUT CFO_F_NANO#32 role=worker
+    OUT CFO_F_NANO#34 role=worker
+    OUT CFO_F_NANO#35 role=worker
+    OUT CFO_F_NANO#36 role=stopped

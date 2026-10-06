@@ -1,0 +1,5 @@
+81:5. **E2E trusted 클릭**: mic/record/PTT 버튼은 trusted 클릭 + 기존 e2e 러너만 → 「🔍 문제 해결 방식」
+161:- ★**E2E 오디오/STT = trusted 클릭 + 기존 러너만**★: mic/record/PTT 는 CDP `Input.dispatchMouseEvent` 만. `el.click()`·`window.startX()` 는 isTrusted=false → getUserMedia 실패 → 무음. 무음/0B 면 «클릭이 trusted 인가» 먼저. 기존 e2e 러너(`_real_click`) 우선.
+183:## 🔌 로컬 테스트 환경 분리 (멀티 워크트리 동시 실행)
+191:- ★★**오디오 E2E는 동시 실행 불가** — BlackHole 루프백은 **시스템 전역 장치가 하나**라 두 테스트가 동시에 발화하면 오디오가 섞인다. Chrome CDP 탭도 같다(동명 탭 전부 닫고 시작). ★**"서버는 동시에, 오디오 press는 순차로"**가 정답이고 순번은 오케가 잡는다.
+192:- ★**"포트가 막힘"과 "오디오가 막힘"은 다른 문제다.** 전자는 자리를 만들면 되고 후자는 기다려야 한다. **뭉쳐서 "대기"로 처리하면 안 해도 될 대기를 한다.**

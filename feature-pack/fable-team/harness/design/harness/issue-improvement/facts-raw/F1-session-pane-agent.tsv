@@ -1,0 +1,30 @@
+FB_CCU#12	43081	2.1.289	43155 2.1.289
+FB_CFO#52	31411	2.1.288	31492 2.1.288
+KakaoBot#14	86260	2.1.287	86344 2.1.287
+KakaoBot#17	8042	2.1.289	8168 2.1.289
+byz-planner-arch#1	92929	2.1.289	93111 2.1.289
+byz-planner-arch#3	24612	2.1.289	24754 2.1.289
+ft-airag-helm-claude#4	45123	2.1.288	45536 mcp-server-darw
+ft-airag-helm-claude#5	16741	2.1.289	16882 mcp-server-darw
+ft-airag-master-claude#2	42073	2.1.289	44300 2.1.289
+ft-harness-arch#0	45397	2.1.289	45475 2.1.289
+ft-harness-da#1	58949	node	59158 node
+ft-harness-nano#1	59550	opencode	
+ft-harness-ops#0	42277	2.1.289	42417 2.1.289
+ft-harness-ops#1	28386	2.1.289	28595 2.1.289
+ft-issue-manager#0	71392	2.1.289	71535 2.1.289
+ft-kakao-architect#27	22436	2.1.289	22638 2.1.289
+ft-kakao-architect#28	62212	2.1.289	62307 2.1.289
+ft-kakao-da#21	16137	node	16234 node
+ft-kakao-nano-canary-inject#0	88623	2.1.289	89137 2.1.289
+ft-kakao-nano-ops-005-notice-wire#0	77441	2.1.289	77554 2.1.289
+ft-kakao-nano-send-preview#0	95513	2.1.289	95701 2.1.289
+ft-kakao-nano-send-preview#1	33123	2.1.289	33220 2.1.289
+ft-v65-arch-claude#155	45931	2.1.289	46253 2.1.289
+ft-v65-master-claude#135	88527	2.1.289	88695 2.1.289
+ft-v65-master-claude#136	9509	2.1.289	9637 2.1.289
+ft-v65-temp-m7-p90-lang-update-gap-decomposition#0	6407	2.1.289	6505 2.1.289
+ft-v65-temp-m7-p90f-n06-n10-durable-four-of-five-rea#0	11570	2.1.289	11716 2.1.289
+ft-v65-tester-claude#13	87113	2.1.289	87260 2.1.289
+repro-e2e#0	72434	2.1.289	72516 2.1.289
+tmm	34049	bash	75450 bash,75452 bash

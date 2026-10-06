@@ -1,0 +1,20 @@
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:10:REPORT_TO="${1:-ft-v65-master#10}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:11:FROM_SESSION="${2:-ft-v65-pm-codex#0}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:12:FABLE_ORCH="${FT_CTX_FABLE_ORCH:-ft-v65-fable-orch#9}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:13:SESSION_PREFIX="${FT_CTX_SESSION_PREFIX:-ft-v65-}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:14:EXCLUDE_SESSIONS="${FT_CTX_EXCLUDE_SESSIONS:-ft-v65-master#7,ft-v65-master#8,ft-v65-master#9,ft-v65-architect#4,ft-v65-architect#6,ft-v65-arch-fable#1,ft-v65-arch-fable#5,ft-v65-arch-fable#9,ft-v65-arch-judge#0,ft-v65-fable-orch#1,ft-v65-fable-orch#2,ft-v65-fable-orch#3,ft-v65-fable-orch#4,ft-v65-fable-orch#5,ft-v65-fable-orch#6,ft-v65-fable-orch#7,ft-v65-fable-orch#8}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:15:STATE_FILE="${FT_CTX_STATE_FILE:-/tmp/ft-v65-context-monitor.state}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-goal-tick.sh:4:#   대상 좌석: FT_GOAL_TICK_TARGET (기본 ft-v65-master#39) — 승계 시 crontab 한 줄만 바꾼다.
+.worktrees/v6-realtime-live/.fable-team/bin/ft-goal-tick.sh:21:TARGET="${FT_GOAL_TICK_TARGET:-ft-v65-master#39}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-lst-cron-ping.sh:2:# 세션-독립 디바운스 체크 트리거 — OS crontab에서 실행, ft-v65-master#32 세션이 죽어도(재부팅/크래시) 계속 발신된다.
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-lst-cron-ping.sh:9:bash "$MBOX" send ft-v65-master#32 os-cron "[LST자율주행 체크 · OS크론] ft-v65-master#32 정기점검:
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh:3:# ft-v65-master#3 크론 틱 — 상태 점검 + HIL 상신 트리거
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh:20:TARGET_SESSION="${FT_MASTER_TICK_TARGET:-ft-v65-master#4}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh:23:NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh:92:BASE_NAME="${FT_NANO_PREFIX:-ft-v65-temp-}$SLUG"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tick-cfo.sh:7:# 사용: bash ft-news-tick-cfo.sh [ME]   (기본 ME = seats.json 의 FB_CFO#N 최신 · 없으면 FT_ME)
+.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tick-cfo.sh:13:ME=${1:-${FT_ME:-$(tmux ls -F '#{session_name}' 2>/dev/null | grep -E '^FB_CFO#[0-9]+$' | sort -t'#' -k2 -n | tail -1)}}
+.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tick-cfo.sh:14:[ -n "$ME" ] || { echo "ERROR: FB_CFO#N tmux 세션이 없다 — 인자나 FT_ME 로 좌석명을 줘라" >&2; exit 2; }
+.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tick-cfo.sh:19:for S in $(tmux ls -F '#{session_name}' 2>/dev/null | grep -E '^(FB_CFO|CFO_HARNESS|CFO_SINBO|ft-v65-temp-sb-harness-0-5-row[0-9]+)' | sort); do
+.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tick.sh:9:# (실측 2026-09-22: 박힌 값이 ft-v65-master-claude#4 인데 그 좌석은 없고 현역은 ft-v65-master-opus#7).
+.worktrees/v6-realtime-live/.fable-team/bin/ft-pm-tick.sh:3:# ft-v65-pm-codex#0 크론 틱 — 보드 리뷰·프로그레스 공유 트리거

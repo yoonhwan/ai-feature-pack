@@ -1,0 +1,6 @@
+open 93
+labels [('scope:main', 83), ('status:needs-triage', 81), ('phase:pre-completion', 55), ('team:cfo', 46), ('status:blocked-no-seat', 46), ('phase:post-completion', 35), ('type:feature', 35), ('team:v65', 29), ('type:agent-ops', 20), ('type:research', 15), ('type:test-request', 12), ('type:bug', 9), ('scope:direct', 7), ('team:planner', 7), ('team:harness-ops', 6), ('release:v1.0', 5), ('size:small', 4), ('team:shared-harness', 4), ('status:needs-review', 4), ('scope:satellite', 3), ('phase:hold', 3), ('status:in-progress', 3), ('hil:needed', 3), ('status:blocked', 3), ('area:realtime', 3), ('priority:p1', 3), ('type:task', 2), ('priority:p0', 2), ('type:perf', 1), ('status:hil-needed', 1), ('team:ccu', 1), ('epic:auth', 1), ('epic:deploy', 1), ('epic:e2e', 1), ('epic:guest', 1), ('priority:p2', 1), ('epic:credit', 1), ('status:research-needed', 1), ('status:evidence-needed', 1), ('decision:hold', 1)]
+age days: min 1 median 1 max 144 >30d 9
+no team label 0
+priority-ish labels ['priority:p0', 'priority:p1', 'priority:p2']
+assigned 0

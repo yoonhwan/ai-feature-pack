@@ -1,0 +1,5 @@
+41:| 자원(부하·메모리 열) | 태스크당 1 vCPU · 1Gi 출발(실시간 페이스 오디오 전송 + ffmpeg 1회 변환 + SSE 수신) · 나노 도구가 N=1 에서 실측 후 조정 — 태스크가 포화되면 «측정기 포화»라 값이 오염되므로 회차마다 태스크 CPU 최대를 기록 |
+51:- ★FE 가 보내는 모든 호출을 재현한다★(호출 표 = `RESEARCH-api-call-table.md` §1): health·cache/readiness·sessions/init·owner SSE(★매 press 재구독★)·owner-snapshot·ack·credits/events SSE·secondary_index DELETE 포함. 재현 못 한 것(pagehide release·client_trace·룸 heartbeat)은 「미재현」 라벨.
+63:- A3 통과 조건 · A4 u 산정(접두 최대 · 비단조 ×2 · 사전등록 u 덮어쓰기 금지) · A5 순서는 `input/ORDER-arch95-…DRAFT.md` 원문을 그대로 상속. ★단 클라우드용 재정의 필요 항목★ — ①A2 「FE cover 시각」 은 FE 없음 → «이벤트 수신 시각(SSE)» 으로 대체 ②A3-③ [V6-LAG] 는 Cloud Run worker 로그에서(로컬 worker 로그 아님) ③B2 Redis 정리는 클라우드 Redis 가 공유인지 확인 뒤(§7) ④B2 :9333 탭 조항 삭제. 이 네 가지는 계단 발사 전 사전등록 v1 로 고정해 tracked 커밋(결과를 본 뒤 바꾸지 않는다).
+102:| 3 | ★재현 = 셋 다 재현★: health(마운트 1회+30 s) · cache/readiness(마운트 1회+`refresh_after_ms` 주기) · credits/events SSE(상시 1연결) | 서버 부하(연결 수·캐시 준비)에 기여 → 빼면 클라우드 u 낙관. 미재현 3(pagehide·client_trace·룸 heartbeat)은 라벨 |
+118:- 구조 vs 버그: 미판정(제품 결함으로 보지 않음 — 관측 사실만). 원인 미확인: 인스턴스가 2분 사이 두 번 교체된 이유.

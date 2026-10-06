@@ -1,0 +1,26 @@
+ai.hermes.gateway-watchdog.plist
+ai.hermes.gateway-zion.plist
+ai.hermes.gateway.plist
+com.hermes.byz-github-slack-mirror.plist
+com.hermes.byz-mbox-slack-mirror.plist
+com.hermes.byz-slack-mbox-inbound.plist
+com.hermes.vertex-openai-proxy.plist
+-	0	ai.hermes.gateway-watchdog
+11187	1	ai.hermes.gateway
+702	0	ai.hermes.gateway-zion
+710	0	com.hermes.vertex-openai-proxy
+-	0	com.apple.preference.displays.MirrorDisplays
+README.md
+backups
+index.json
+slack
+436:slack:
+448:      Role SSoT: `~/.hermes/channel_roles/slack/C0BE4BL0C8Z.md` (먼저 읽어 따른다).
+468:      이미지 필요 시 `cairn map --png --no-open` → PNG 첨부(files_upload_v2 / slack_media_send.py).
+485:      Role SSoT: `~/.hermes/channel_roles/slack/C0BEWQC79U0.md` (먼저 읽어 따른다).
+508:      시각화는 `cairn map --png --no-open` → PNG 첨부(files_upload_v2/slack_media_send.py).
+524:      This Slack channel is #kids-cafe: 고하준(2022.08.28생, 연나이 5세) 주말/평일 키즈카페 빈자리 조회·예약
+542:      - Channel role SSoT: `~/.hermes/channel_roles/slack/C0ANC7CCXS5.md`
+555:      This Slack channel/thread is the SRT K-Skill operations project.
+608:      This Slack channel/thread is #trading-info: family ETF / bond recovery advisory
+628:      - Channel role: `~/.hermes/channel_roles/slack/C0AHDSBMAS1.md`

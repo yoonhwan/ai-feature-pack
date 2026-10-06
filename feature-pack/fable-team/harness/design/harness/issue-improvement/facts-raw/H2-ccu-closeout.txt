@@ -1,0 +1,8 @@
+7:★측정 축★ 「3명 동시에하면 fe, gateway, redis, worker 기준으로 몇개 구성에 각 부하는 어디있고 세부적으로 내부에 어디 걸린다」
+12:| API 레벨 가입 > 테스트 (Cloud Run Job 분산 주입 · TTS 오디오 API 송신) | 닫힘 | J0 j0-1004c 3/3 (935c84611e) · U 계단 9회차 (200e4328d4) |
+13:| 측정 축 — 구성·층별 부하 | 닫힘(층 단위) | RESULT 최종 요약 (0ccbfbafb3): 첫 위반 N=4(v8 N=1 풀링 6982 ms 대비 2.17·2.18배 재현) · 층 포화 신호 0 · 최대 상승 worker CPU 0.18→0.34 |
+14:| 측정 축 — «내부에 어디 걸리나» | 열림 | worker 내부 구간 계측 없음 → J 전에 계측 카드 |
+25:- Cloud Run ccu-stress-gateway 00004-nk5 · ccu-stress-worker 00005-zps · Redis ccu-stress-redis 10.232.84.75 = 살아 있음. 합계 시간당 약 0.25달러.
+30:- «완성 후»: J1~J3(6×2→12→25) · worker 오토스케일 효과 · 문단 끝→첫 번역 21~25 s(N=1 에서도 · v65 관찰 대상).
+33:1. planner(byz-planner-arch#2)에 J 창 신청 1통(이 파일 + RESULT 경로 · 조건 = 7 s abort 0 · 예열 쌍 상한 · GCE on-demand 비용). 창은 회차마다 개별 허가.
+35:3. worker 내부 구간 계측 카드 먼저 → VM 2대 start → /health 200 · vLLM 예열 → 계측 터널 → 같은 창에서 N=1 ×2 기준선부터.

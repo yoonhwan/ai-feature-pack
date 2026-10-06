@@ -1,0 +1,8 @@
+9:> 하위 상시 좌석 repro-e2e#0: 워크트리 .worktrees/repro-main(main HEAD 전용 · 코드 수정 0) · 등록 시 재현 → Issue 「재현 스텝」 블록 + 코멘트 · 종료 전 같은 스텝 PASS 코멘트 없이는 close 0. 오디오는 기존 러너(tests/e2e/realtime_multi_e2e.py)만 · 라이브 접촉 0. ★재현 스텝 가드: «외부 공급자 호출 0» — 앱 함수 직접 호출·워머·클라이언트 생성이 Gemini/Cartesia/vLLM 등 외부로 나가면 안 된다(10-04 #736 재현 중 cachedContents.create 라이브 403 1회 위반 · 단위 시험·코드 읽기·fake 만). 모든 재현 스텝 블록 첫 줄에 「외부 공급자 호출: 0」을 명시한다.★
+18:## 부팅 5단계
+25:## 루프 — 시작 노드 ①~⑥ (오빠 승인 원문 11 · 정본 design/planner/PROPOSAL-slack-driven-ops.md §14 · planner 는 발주 0, 분류 «값»만)
+29:3. **출범** — 메인 오케(v65/cfo master)에 「Issue #N 착수」 발주 1통 · 작은 건(테스트·CI·문서) = 하위 나노 직접. ★출범 가능 팀 = harness-ops · 매니저 하위 나노만 (10-04 16:xx: cfo 메인 하네스 마감 — 판정 299 · design/cfo/CLOSEOUT-cfo-accounts-20261003.md §5 · v65 는 GO #767 전)★. 좌석 없는 team:cfo·team:v65 Issue 는 size:small(테스트·문서·CI)만 하위 나노, 그 외는 라벨 `status:blocked-no-seat` 로 보류 — 재개 신호는 planner 1통. 발주 seq 는 LOOP-LEDGER 「출범 발주 seq」 열에 기록.
+31:5. **랜딩** — PR `Closes #N` → CodeRabbit → DA → 메인 오케 머지.
+| 환경 위험 | 기록 | 이 머신 6379·38391 = ssh 터널(타 세션) — 기본 redis 설정 시험은 원격 redis 접촉 위험 → 재현은 임시 redis | 10-04 |
+| #819 후속 | PR #823 머지(main bd6d0022dc) · 분리 Issue 등록 | 마커 red 분리 #825(97건·15파일) · 비-RED 10건 #826 · 둘 다 team:v65, 출범 = v65 press 끝난 뒤 · #819 닫힘 = 게이트 2잡 GREEN 1회 | 10-04 |
+| 신규 #827 | 등록 | worker D job 직렬 줄서기(CCU 증거) · team:v65 type:perf phase:post-completion · 출범 = press 끝난 뒤 ③ 경로 | 10-04 |

@@ -1,0 +1,12 @@
+tests/e2e/m1_cadence_round_metrics.py:3:입력 = tcc8 evidence 디렉터리(result.json · poller_dom.jsonl · worker_log_span.txt) + fixture manifest.
+tests/e2e/m1_cadence_round_metrics.py:77:def elegance_axis(poller_path: str, press_epoch: float | None, release_epoch: float | None,
+tests/e2e/m1_cadence_round_metrics.py:256:# ---------- DOM (poller_dom.jsonl · 한 시계 time.time()) ----------
+tests/e2e/m1_cadence_round_metrics.py:257:def dom_axis(poller_path: str, press_epoch: float | None, release_epoch: float | None,
+tests/e2e/m1_cadence_round_metrics.py:1034:    dom = dom_axis(os.path.join(ev, "poller_dom.jsonl"), press, release, ref_norm)
+tests/e2e/m1_cadence_round_metrics.py:1119:        "elegance": elegance_axis(os.path.join(ev, "poller_dom.jsonl"), press, release,
+tests/e2e/m1_round_timeline.py:12:  ⓒ 화면       poller_dom self 말풍선 origText 가 «바뀐» 샘플만
+tests/e2e/m1_round_timeline.py:87:    poller = os.path.join(evidence_dir, "poller_dom.jsonl")
+tests/e2e/tcc8_completion_press.py:144:POLLER_INTENT_PATH = os.path.join(EVID, "poller_intent.json")
+tests/e2e/tcc8_completion_press.py:145:POLLER_CAPTURE_END_PATH = os.path.join(EVID, "poller_capture_end.json")
+tests/e2e/tcc8_completion_press.py:191:def _publish_poller_intent(
+tests/e2e/tcc8_completion_press.py:196:    write_intent(POLLER_INTENT_PATH, PollerIntent(

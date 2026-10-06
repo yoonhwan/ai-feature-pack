@@ -9,7 +9,6 @@ seq 공백(= 사본 기록 실패·로그 손실)은 «기타» 스레드에 1�
 import argparse
 import fcntl
 import json
-import os
 import re
 import sys
 import time
@@ -18,19 +17,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
+import mirror_questions as mq  # noqa: E402
 from mirror_deliver import Deliverer, seed_threads  # noqa: E402
 
 API = "https://slack.com/api"
 
 
-def read_token(path: Path) -> str:
-    try:
-        for ln in path.read_text(encoding="utf-8").splitlines():
-            if ln.startswith("YOONHWAN_BOT_TOKEN=") and ln.split("=", 1)[1].strip():
-                return ln.split("=", 1)[1].strip()
-    except OSError as e:
-        raise lib.MirrorError(f"토큰 파일 읽기 실패: {path} ({type(e).__name__})") from e
-    raise lib.MirrorError(f"토큰 파일에 YOONHWAN_BOT_TOKEN 없음: {path}")
+def format_gap(first: int, last: int) -> str:
+    n = last - first + 1
+    return (f"슬랙에 못 올라간 보고가 {n}건 있어요 — 보낸 기록이 비어 있어요\n"
+            f"할 일 없음 — 하네스 담당이 확인해요\n(mirror · #GAP-{first}-{last})")
 
 
 def read_rows(log: Path) -> list[dict[str, object]]:
@@ -51,28 +47,36 @@ def read_rows(log: Path) -> list[dict[str, object]]:
     return [rows[k] for k in sorted(rows)]
 
 
-def save_state(path: Path, st: dict[str, object]) -> None:
-    tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(st, f, ensure_ascii=False)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
-
-
 class Mirror:
     def __init__(self, a: argparse.Namespace):
         self.a = a
         self.log = Path(a.mailbox)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
         self.seat = re.compile(a.seat)
-        self.token = "" if a.dry_run else read_token(Path(a.token_file).expanduser())
+        self.token = "" if a.dry_run else lib.read_token(Path(a.token_file).expanduser())
         self.threads_path = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json"
+        self.qpath = Path(a.state_dir) / f"byz_slack_questions.{a.channel}.json"
         self.deliv = Deliverer(a.api_base, self.token, a.channel, self.threads_path)
         self.posted = 0
 
     def _send_item(self, item: dict[str, object], resume: bool) -> None:
+        q = item.get("question")
+        if isinstance(q, dict):  # 루트 확보 → 질문 등록 → 카드 게시: 카드 직후 답해도 열린 질문이 이미 있다
+            ts = self.deliv.thread_ts(item, resume)
+            mq.add(self.qpath, int(str(item["seq"])), {**q, "thread_ts": ts})
+            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel)
         self.deliv.send(item, resume)
+
+    def _close_answered(self, r: dict[str, object], key: str) -> None:
+        """답이 전달된 질문은 «그 좌석이 같은 키로 다음 보고를 올릴 때» 닫힌다 — 좌석이 값으로 움직였다는 증거."""
+        if self.a.dry_run or not self.qpath.exists():
+            return
+        mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel)  # 이전 패스에서 close 만 되고 끊긴 보드도 맞춘다(글이 같으면 호출 0)
+        seqs = mq.delivered_for(mq.load(self.qpath), key, str(r.get("from", "")), int(str(r["seq"])))
+        for q in seqs:
+            mq.close(self.qpath, q)
+        if seqs:
+            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel)
 
     def deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
         if self.a.dry_run:
@@ -80,10 +84,10 @@ class Mirror:
             st["last_seq"] = item["seq"]  # 메모리만 — 저장 0 (안 올리면 다음 행이 가짜 공백으로 보인다)
         else:
             st["pending"] = item
-            save_state(self.state_path, st)
+            lib.save_state(self.state_path, st)
             self._send_item(item, resume)
             st.update(last_seq=item["seq"], pending=None)
-            save_state(self.state_path, st)
+            lib.save_state(self.state_path, st)
         self.posted += 1
 
     def run_pass(self) -> int:
@@ -93,7 +97,7 @@ class Mirror:
         if st is None:  # 첫 실행 — 과거 행을 쏟아내지 않는다
             base = int(str(rows[-1]["seq"])) if rows else 0
             if not self.a.dry_run:
-                save_state(self.state_path, {"last_seq": base, "pending": None})
+                lib.save_state(self.state_path, {"last_seq": base, "pending": None})
             print(f"baseline last_seq={base}", file=sys.stderr)
             return 0
         if not self.a.dry_run:  # 옛 state 의 스레드 맵 → 공유 맵 이관(맵 파일이 없을 때만)
@@ -117,17 +121,25 @@ class Mirror:
             return
         if s > prev + 1:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
-                              "what": "슬랙 미러가 알리는 기록 공백", "text": lib.format_gap(prev + 1, s - 1)})
-        if not self.seat.search(str(r.get("to", ""))):
+                              "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
+        if not self.seat.search(str(r.get("to", ""))) or str(r.get("from", "")) == "slack-oppa":  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:
-                save_state(self.state_path, st)
+                lib.save_state(self.state_path, st)
             return
         label, text = lib.classify(str(r.get("body", "")))
-        summary = self._summarize(s, label, text)
-        self.deliver(st, {"id": f"#{s}", "seq": s, "key": lib.thread_key(r, text),
-                          "what": summary["what"] if summary else lib.first_sentence(text),
-                          "text": lib.format_row(r, label, self.a.mention, summary, text)})
+        full = lib.read_full(r)
+        summary = self._summarize(s, label, full or text)
+        key = lib.thread_key(r, text)
+        url = lib.issue_url(self.a.repo, key)
+        urls = lib.links([text, full or ""], url)
+        what = summary["what"] if summary else lib.first_sentence(text)
+        opts = mq.parse_options(full or text) if label == "HIL" else []
+        question = {"key": key, "seat": str(r.get("from", "")), "what": what, "options": opts} if label == "HIL" else None
+        self._close_answered(r, key)
+        self.deliver(st, {"id": f"#{s}", "seq": s, "key": key, "url": url, "what": what, "question": question,
+                          "text": lib.format_row(r, label, self.a.mention, summary, text, full, urls,
+                                                 mq.format_options(opts, s) if label == "HIL" else None)})
 
 
 def parse() -> argparse.Namespace:
@@ -136,6 +148,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--mailbox", required=True, help="mailbox.log.jsonl 경로")
     p.add_argument("--seat", required=True, help="수신 좌석 정규식 예: ^byz-planner-arch#\\d+$")
     p.add_argument("--channel", required=True)
+    p.add_argument("--repo", default="", help="Issue 링크용 <소유자>/<저장소> — 비우면 링크 줄을 만들지 않는다")
     p.add_argument("--state-dir", default=str(Path.home() / ".hermes" / "state"))
     p.add_argument("--token-file", default="~/.hermes/secrets/yoonhwan_bot.env")
     p.add_argument("--mention", default="", help="[HIL] 에서 멘션할 Slack 사용자 ID 1개(고정)")

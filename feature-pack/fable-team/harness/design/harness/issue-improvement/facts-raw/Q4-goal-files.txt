@@ -1,0 +1,6 @@
+.worktrees/v6-realtime-live/design/v65/20260909/GOAL-archastra-lst-on-off-completion.md : Y (     151 lines)
+.worktrees/v6-realtime-live/design/cfo/GOAL.md : N
+.worktrees/v6-realtime-live/design/ccu/GOAL.md : N
+.worktrees/v6-realtime-live/design/kk/GOAL.md : N
+.worktrees/harness-ops/design/harness/GOAL-harness.md : Y (      22 lines)
+.worktrees/issue-manager/design/issues/GOAL-issues.md : Y (      20 lines)

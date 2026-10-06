@@ -1,0 +1,72 @@
+bug	Something isn't working	#d73a4a
+documentation	Improvements or additions to documentation	#00
+duplicate	This issue or pull request already exists	#cfd3d7
+enhancement	New feature or request	#a2eeef
+good first issue	Good for newcomers	#7057ff
+help wanted	Extra attention is needed	#008672
+invalid	This doesn't seem right	#e4e669
+question	Further information is requested	#d876e3
+wontfix	This will not be worked on	#ffffff
+source:community-research	Community signal or pain point sou
+source:feature-research	New feature/research source	#7057ff
+status:research-needed	Needs research enrichment before plan
+status:da-validation-needed	Needs planning DA validation	#fb
+status:evidence-needed	Needs E2E/prototype/evidence result	#
+status:hil-needed	Needs human-in-the-loop approval	#fbca04
+status:ready-for-dev	Approved and ready for development exec
+hil:needed	Human approval is required	#d93f0b
+hil:approved	Human approved the scoped work	#0e8a16
+hil:rejected	Human rejected the scoped work	#b60205
+decision:proceed-to-evidence	DA decision: collect evidence b
+decision:ready-for-hil	DA decision: ready for HIL approval	#
+decision:hold	DA decision: hold and monitor	#cccccc
+decision:reject	DA decision: reject	#b60205
+type:agent-ops	Agent operating-system/setup work	#5319e7
+source:user-report	Human/user report or direction	#7057ff
+source:hermes-e2e	Hermes user-proxy E2E source	#7057ff
+source:sentry	Sentry/observability event source	#7057ff
+source:trend-monitor	Trend monitor source	#7057ff
+source:ai-review	AI review finding source	#7057ff
+type:bug	Bug or defect	#d73a4a
+type:feature	Feature request	#a2eeef
+type:research	Research work item	#a2eeef
+type:test-request	E2E or test request	#a2eeef
+type:pr-review-finding	PR review finding	#a2eeef
+status:needs-triage	Needs intake/triage decision	#fbca04
+status:in-progress	Work is currently in progress	#1d76db
+status:needs-repro	Needs reproduction/evidence	#fbca04
+status:needs-review	Needs review/QA	#fbca04
+status:blocked	Blocked by missing info/dependency	#d93f0b
+area:realtime	Realtime interpretation area	#c5def5
+area:chatroom-v2	Chatroom v2 area	#c5def5
+area:lecture	Lecture transcription area	#c5def5
+area:gateway	Gateway/backend API area	#c5def5
+area:worker	Worker pipeline area	#c5def5
+area:frontend	Frontend/UI area	#c5def5
+area:infra	Infrastructure area	#c5def5
+epic:auth	인증 시스템 (본계정+게스트)	#5319E7
+release:v1.0	V1.0 릴리즈 마일스톤	#0052CC
+epic:credit	크레딧 시스템	#E99695
+epic:e2e	E2E 테스트 + 품질 게이트	#0E8A16
+epic:guest	게스트 시스템 (QR 입장)	#1D76DB
+epic:deploy	프로덕션 배포 + 판매 준비	#D93F0B
+priority:p0	보안/차단 이슈	#B60205
+priority:p1	릴리즈 필수	#D93F0B
+priority:p2	릴리즈 권장	#FBCA04
+team:planner		#0E8A16
+team:v65		#1D76DB
+team:ccu		#FBCA04
+team:cfo		#5319E7
+team:kk		#D93F0B
+team:shared-harness		#006B75
+scope:main		#C5DEF5
+scope:direct		#E99695
+scope:satellite		#BFD4F2
+phase:post-completion		#0052CC
+phase:pre-completion		#B60205
+phase:hold		#CCCCCC
+size:small	Small unit (one nano seat, one PR)	#C2E0C6
+team:harness-ops	harness-ops 팀	#5319e7
+type:task	분류·정리 작업	#0e8a16
+status:blocked-no-seat	착수 좌석 없음(팀 메인 하네스 마감/GO 전) — 재개 신호는 p
+type:perf	성능·확장	#fbca04

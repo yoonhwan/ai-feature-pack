@@ -1,0 +1,10 @@
+-- bin-cfo --
+ft-goal-tick-cfo.sh ft-seat-status.sh ft-tick-cfo.plist ft-tick.plist.pack-template ft-tick.sh ft-tick.sh.bak-verdict47-202609272110 
+-- bin-harness --
+harness-env.sh 
+-- bin-issues --
+issues-env.sh 
+-- bin-kk --
+ft-goal-tick-kk.sh ft-seat-status.sh ft-tick-kk.plist ft-tick.sh kk-env.sh kk-env.sh.bak-kk1 kk-env.sh.bak-kk2-feat kk-env.sh.bak-kk3 
+-- bin-planner --
+planner-env.sh 

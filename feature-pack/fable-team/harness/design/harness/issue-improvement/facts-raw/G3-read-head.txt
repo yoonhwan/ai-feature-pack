@@ -1,0 +1,15 @@
+# READ — 병합 게이트 S1 차분 + S3 전체 세트 @ 게이트 9671b1fb2d (tester#11 · 2026-10-03 · 사실만, 판정 0)
+
+골 원문: 목표는 빠른 유용 원문, 실시간 교정, N언어의 병렬·독립 발행, 소실·비의도 중복 없는 최종 말풍선이다. / LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다. / 단순히 실패 사례를 많이 모았다는 이유로 실험을 닫지 않는다.
+골좌표: M7 / 「독립 checker 4축, DA, 관련 local gates와 feature 브랜치 master push; main 통합은 전체 v65 완성 후」 — CHECKLIST-v65-main-landing §2 S1·S3(local gates). 카드: indices/inbox/tester/07-merge-gate-s1-s3-9671b1fb2d.md (arch#152 발주 #55692)
+
+트리: v65-merge-gate-set @ 9671b1fb2d (이후 39e4ebe84f ff 는 guards 만 — 이 문서 값은 9671b1fb2d 트리). 기준선 = READ-tester11-merge-gate-set 4a17fd9e00 (feat 1080bf65c3 · main 23e37d5621 재실행 0).
+
+## S1 차분 (9671b1fb2d · 105 파일 + nodeid 28 · -v · hangguard)
+| 항목 | 값 |
+|---|---|
+| READ §2 새 실패 23 nodeid | 23 PASSED |
+| READ §2 error 5 (test_usage_billing_consumer_unit_fields_red) | 5 PASSED |
+| tests/unit/guards 전체 | 97 passed · 0 failed |
+| pick 32~42 변경 모듈(vad_resume_sweep · lst_language_publication · v5_publisher · v5_error · worker.main · polish 퓨샷 yaml)을 import 하는 시험 105 파일 | 936 passed · 14 failed · HANGGUARD 0 |
+S1 failed 14 = test_v65_open_wait_closing_event_b_red(12) · test_v65_open_wait_dl_retire_red(2) — ★feat 기준선 1080bf65c3 에서 같은 두 파일 단독 14 failed(동일 nodeid) · main 에는 두 파일 없음★ = 기존 feat 기준선 실패. 병합이 만든 새 실패 0.

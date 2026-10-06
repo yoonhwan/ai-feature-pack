@@ -1,0 +1,10 @@
+/Users/yoonhwan/.claude/skills/zombie-clean//SKILL.md.pre-keep1.bak:2:name: zombie-clean
+/Users/yoonhwan/.claude/skills/zombie-clean//SKILL.md.pre-keep1.bak:15:- **tmuxc 정책 정리 (built-in)**: lineage(베이스명 `#N` 계열)당 최근 2개 보존, 초과 유령 세션만 `kill-session`. 표준승인(CLAUDE.md 2026-07-11) 근거 — `kill-server`는 HIL이라 안 함. auto 모드에서 좀비 수확과 함께 동반 실행. **활성 세션(idle<120분)은 전부 보호** — 실사용 세션 24개 × serena LSP는 좀비가 아니라 정상 과잉이라 정리 대상이 아니다(세션 수가 곧 메모리)
+/Users/yoonhwan/.claude/skills/zombie-clean//SKILL.md.pre-keep1.bak:97:- 세션 프로세스 자체(claude/codex)는 절대 kill 안 함 — tmux kill-session 절차로만
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:12:#  · 세션 프로세스 자체(claude/codex)는 절대 죽이지 않는다 (tmux kill-session 절차로만)
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:246:# tmuxc 정책 정리: lineage(베이스명 #N 계열)당 최근 KEEP개 보존, 초과 유령만 kill-session.
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:247:# 표준승인(2026-07-11 CLAUDE.md): kill-session은 메모리 relief용 상시 자율 정리 허용,
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:255:    local sess; sess=$(tmux list-sessions -F '#{session_name}|#{session_activity}' 2>/dev/null) || return 0
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:259:    local killed=0 total idx activity name idle pp srvhit
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:267:        while IFS='|' read -r activity name; do
+/Users/yoonhwan/.claude/skills/zombie-clean//scripts/zombie-clean.sh.pre-keep1.bak:268:            [[ -z "$name" ]] && continue

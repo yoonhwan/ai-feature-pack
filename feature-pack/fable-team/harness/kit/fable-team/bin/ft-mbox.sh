@@ -1,0 +1,232 @@
+#!/bin/bash
+# ft-mbox.sh — 파일 기반 세션 메시지 큐 래퍼 (fable-team). COMM-GUIDE §1 {mbox}의 실체.
+# 본문 = 파일 큐(ft-mbox.py, 유실0), tmux엔 doorbell(recv 트리거)만 주입 — 손상·유실 안전.
+# v6-realtime-live mbox.sh 계승 + ft-lib 통합(swap_guard·ROOT 해석)·ft_sess_alive 게이트·ring.
+# Usage: ft-mbox.sh {send <to> <from> <body...> [--urgent] | recv <me> [<from>] | peek <me> | ring <sess> [seq]}
+# Seatbelt 1.0.0: 알림 여부는 seats.json(tick) 이 정한다 — --no-notify 는 WARN+무시, --urgent 는 항상 울림.
+set +e
+BINDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$BINDIR/ft-lib.sh"                       # ft_swap_guard 발동 + ft_sess_alive 등 헬퍼
+# ★2026-08-25 — 여기서 FT_MBOX_DIR 을 «덮어쓰지» 않는다★
+# 이전: ROOT 를 cwd 기준(ft_resolve_root)으로 잡아 FT_MBOX_DIR 을 export 했다. 그래서
+# (a) 같은 스크립트가 «부른 사람의 cwd» 에 따라 다른 우편함을 썼고 (b) 사용자가 env 로
+# 명시한 FT_MBOX_DIR 마저 덮어써서 회피가 불가능했다 — 실제로 메시지 유실이 났다.
+# 지금: 경로 결정은 ft-mbox.py 가 «스크립트 위치에서 유도한 정본» 으로 한다.
+# ★ft_resolve_root 자체는 안 건드렸다★ — 다른 ft-* 8개가 그 함수를 쓴다(최소 절개).
+MBOXPY="$BINDIR/ft-mbox.py"
+
+# 세션명 allowlist(py NAME_RE와 동일) — 세션명이 doorbell send-keys 명령에 삽입되므로 하드 거부.
+_check_name() {
+  case "$1" in
+    ''|*[!A-Za-z0-9._#-]*) echo "BAD_SESSION_NAME $1" >&2; return 1;;
+  esac
+}
+
+# 세션명 → pane_id 정확 매칭(#-suffix 세션명 send-keys 파싱 함정 회피, v6 계승)
+pane_of() {
+  tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>/dev/null \
+    | awk -F'|' -v s="$1" '$1==s{print $2; exit}'
+}
+
+# doorbell: 대상 세션에 recv 트리거만 주입(본문 아님). 전부 non-fatal(본문은 이미 큐에).
+# echoes: sent | skipped | absent
+# $2=force(1) 이면 시간 억제를 뚫는다 — 발주는 «반드시» 창에 떠야 한다.
+# $3=seq(선택) — 이번 발주의 큐 번호. 있으면 주입 문자열 앞에 `[발주 #<seq>]` 로 실린다.
+#   ★없으면 지금까지의 문자열 그대로다★ — ring 처럼 «큐에 넣지 않고 울리기만» 하는
+#   호출부는 실을 seq 가 없다. 없는 번호를 지어내면 그 번호가 가리키는 것이 아무것도 없다.
+doorbell() {
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last _ppid _msg
+  # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 지금 호출부는 우리
+  #   자신의 py 출력(`seq=<digits>`)에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부
+  #   신뢰»에 맡기지 않는다(세션명 allowlist 와 같은 이유). 이상하면 조용히 버리고 무번호로 간다.
+  case "$dbseq" in ''|*[!0-9]*) dbseq="" ;; esac
+  ft_sess_alive "$to" || { echo absent; return 0; }
+  # ★에이전트가 떠 있는지 확인한다 — pane 이 «살아 있다»와 «에이전트가 돈다»는 다르다★
+  #   ft_sess_alive 는 pane_pid 에 kill -0 만 하므로 ★맨 셸도 통과★한다. 그 상태에서
+  #   주입하면 recv 명령이 «셸에서 실행»되고, 더 나쁘게는 pane 발주 본문이 셸에 떨어진다.
+  #   실측(2026-09-04): CloneWorks#0 · ft-v65-diag-lstseg#1 pane 에
+  #   `zsh: bad pattern: [전체공지` — 공지가 Claude 프롬프트가 아니라 셸에 떨어졌다.
+  #   본문에 백틱·세미콜론이 있었으면 그대로 «실행»된다. COMM-GUIDE §2 Step1·§5-3 이
+  #   이미 금지한 것인데 코드에 없었다.
+  #   ★ft_sess_alive 자체는 안 고친다★ — 다른 ft-* 스크립트들이 공유하는 함수라
+  #   의미를 바꾸면 그쪽 계약까지 흔든다. 여기서만 한 겹 더 본다.
+  _ppid="$(tmux list-panes -t "$to" -F '#{pane_pid}' 2>/dev/null | head -1)"
+  # ★`-a` 필수★ (2026-09-14 실측): macOS pgrep 은 «호출자 자신과 그 조상»을 기본 제외한다.
+  #   좌석이 자기 자신·자기 조상 좌석에게 send 하면 claude 프로세스가 pane_pid 의 자식으로
+  #   버젓이 있는데도 rc=1 → `noagent` → doorbell 미주입. 자기 앞 self-test 4건 전부 재현,
+  #   `pgrep -a -P` 는 4/4 잡았다. 남의 좌석엔 안 나타나 오래 숨어 있었다.
+  if [ -n "$_ppid" ] && ! pgrep -a -P "$_ppid" >/dev/null 2>&1; then
+    echo noagent; return 0
+  fi
+  _seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  _db_stamp="${TMPDIR:-/tmp}/mbox-doorbell-$_seat"
+  _db_recv="${TMPDIR:-/tmp}/mbox-recv-$_seat"
+  # ★outstanding doorbell — pane 을 «읽지 않고» 판정한다★ (설계 §3-2):
+  # 마지막 doorbell 이 마지막 recv 보다 나중이면 «아직 소비 안 된 doorbell 이 창에 떠 있다» →
+  # 재주입 불필요. capture-pane 을 부르기 «전»에 파일 stat 만으로 끝낸다.
+  # 두 스탬프 다 없으면(첫 발신) 통과. --force/dbforce=1 은 뚫는다.
+  # ★조용한 폴백 금지★: stat 이 못 읽으면 값이 0 이 되어 첫 발신과 같이 «울리는 쪽»으로 기운다
+  #   (안 울려서 못 받는 것이 더 나쁘다).
+  # ★굶김 상한★ (2026-09-04 실측 회귀 — 이 상한이 없으면 좌석이 «영구 벙어리»가 된다)
+  #   outstanding 만으로 억제하면 이런 경로가 열린다: doorbell 은 주입됐는데 좌석이
+  #   그 입력을 «삼켰다»(턴 실행 중 입력 유실은 실측된 동작) → recv 가 영영 안 돌고
+  #   recv 스탬프도 안 생긴다 → 이후 모든 send 가 skip → ★그 좌석은 다시는 안 울린다★.
+  #   실측: FB_CFO#4 는 09-03 17:00 doorbell 이후 recv 0회로 19시간 벙어리였다.
+  #   그래서 «오래된» outstanding 은 소비될 가망이 없다고 보고 다시 울린다.
+  #   안 울려서 못 받는 것이 두 번 울리는 것보다 나쁘다 — 억제의 취지는 홍수 방지지
+  #   침묵이 아니다.
+  _db_last="$(stat -f %m "$_db_stamp" 2>/dev/null || echo 0)"
+  _db_recv_last="$(stat -f %m "$_db_recv" 2>/dev/null || echo 0)"
+  _db_age="$(( $(date +%s) - _db_last ))"
+  if [ "$dbforce" != 1 ] && [ "$_db_last" -gt "$_db_recv_last" ] \
+     && [ "$_db_age" -lt "${FT_MBOX_DOORBELL_STARVE:-120}" ]; then
+    echo skipped; return 0
+  fi
+  # 시간 억제(기존 FT_MBOX_DOORBELL_MIN) — 여전히 파일 stat 만, capture-pane 앞이다.
+  if [ "$dbforce" != 1 ] && [ "$(( $(date +%s) - _db_last ))" -lt "${FT_MBOX_DOORBELL_MIN:-3}" ]; then
+    echo skipped; return 0
+  fi
+  # ★여기까지 통과했을 때만 pane 을 읽는다★ — 옵션모드 보호와 ❯ 잔류 정리는 실제 주입 직전에만 필요하다.
+  # 상태 판독: 옵션모드(Enter to select)면 skip(Escape 금지 — HIL 프롬프트 파괴 방지, 본문은 큐에 안전).
+  # 미제출 잔류(❯ 텍스트)면 C-u로 클리어. capture는 invalid UTF-8 섞임 → LC_ALL=C grep -a 바이트매치(V3).
+  cap="$(tmux capture-pane -p -t "$to" 2>/dev/null)"
+  if printf '%s\n' "$cap" | LC_ALL=C grep -aq 'Enter to select'; then
+    echo skipped; return 0
+  fi
+  if printf '%s\n' "$cap" | LC_ALL=C grep -aqE '❯[[:space:]]+[^[:space:]]'; then
+    tmux send-keys -t "$to" C-u 2>/dev/null || true; sleep 0.2
+  fi
+  pane="$(pane_of "$to")"
+  [ -n "$pane" ] || { echo absent; return 0; }
+  # ★주입하는 것은 «명령»이 아니라 «지시문»이다★ (2026-09-05, A1)
+  #   이전엔 `bash .../mbox.sh recv <me>` 만 넣었다. 좌석 입장에서 그건 «자기가 실행한 도구»이고
+  #   본문은 «도구 출력»으로 나온다 — 도구 출력은 참고 정보로 읽히지 ★지시로 읽히지 않는다★.
+  #   실측(COMM-GUIDE §1): arch-fable 은 mbox 판정 요청에 IDLE 이었는데 같은 본문을 pane 에
+  #   직접 넣자 즉시 착수했다. 유실이 아니라 «읽혔지만 행동으로 안 옮겨진» 층의 결함이다.
+  #   그래서 명령 앞뒤에 «무엇이 왔고 무엇을 하라»를 붙여 사용자 메시지로 읽히게 한다.
+  #   ★그래도 착수를 보장하지는 않는다★ — 이건 관측 대상으로 남긴다(§1).
+  # 가변부는 여전히 allowlist 통과 세션명 + 숫자뿐이다 — 명령 삽입 차단은 그대로다.
+  # ★절대경로로 주입한다★ — 상대경로면 수신자의 cwd 에서 해석돼 «보낸 우편함과 다른 곳»을
+  # 열거나 아예 파일을 못 찾는다. 유실 기제의 «나머지 절반» 이 여기였다.
+  # ★`#<seq>` 를 «앞»에 싣는다★ (2026-09-06, F5) — 발주마다 고유한 번호가 창에 뜨면
+  #   ①사람이 «몇 번 발주가 떴는지» 한눈에 보고 ②판정기(ft-send-verified.sh)가 «이번»
+  #   발주만 골라 도달을 확인한다. 이전엔 전부 `[발주 도착]` 이라 두 발주가 구분되지 않았다.
+  # ★마커가 «짧아야 한다»는 요구는 판정 층에는 없다★ (2026-09-06 실측)
+  #   짧게 두는 이유는 «사람이 화면에서 읽을 때» 편하기 때문이지 판정 때문이 아니다.
+  #   도달 판정은 pane capture 가 아니라 세션 jsonl 층에서 한다 — jsonl user 레코드는
+  #   653자 본문도 «통째로» 한 줄에 담고 줄바꿈이 0개다(pane 의 폭 기반 줄바꿈은 기록에
+  #   안 섞인다). ⇒ 마커 길이는 판정에 무관하다. ★이 구분을 지우지 마라★ — 근거를
+  #   「짧아야 판정된다」로 잘못 적으면 다음 사람이 판정 층을 다시 pane 으로 되돌린다.
+  if [ -n "$dbseq" ]; then
+    _msg="[발주 #$dbseq] bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+  else
+    _msg="[발주 도착] bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+  fi
+  tmux send-keys -t "$pane" -l "$_msg" 2>/dev/null || true
+  sleep 0.3
+  tmux send-keys -t "$pane" Enter 2>/dev/null || true
+  : > "$_db_stamp" 2>/dev/null || true   # ★실제 주입 직후에만 doorbell 스탬프 갱신★
+  echo sent
+}
+
+# ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · Seatbelt §2-2 · 오빠 결정 Q1)
+#   실측: --no-notify 를 틱 없는 좌석(arch-fable#40)에 써서 4틱 무응답(CLAUDE.md STRUCTURAL FIX).
+#   HARNESS-TREE 는 「좌석→master 는 무음」, CLAUDE.md 는 「틱 없는 좌석엔 금지」 — 둘 다 맞고
+#   ★보내는 쪽이 받는 쪽의 틱 유무를 알 길이 없어서★ 매 send 가 사람 판단이었다.
+#   seats.json 의 tick 필드가 그 판단을 대신한다: tick 있음 → 조용히(자기 틱이 recv 한다),
+#   tick 없음·미등록 → 울린다(모르는 좌석을 침묵시키지 않는다 — 안 울려 못 받는 쪽이 더 나쁘다).
+#   `--urgent` 만 남는다(항상 울림). `--no-notify` 는 받아 주되 ★무시하고 경고★한다 —
+#   옛 호출부(틱 스크립트·좌석 습관)가 한동안 남기 때문이고, 무시해야 이 결정이 «강제»가 된다.
+#   레지스트리 경로: 정본 우편함 옆 (<루트>/.fable-team/seats.json). env FT_SEATS_JSON 이 이긴다.
+#   ★팩에서는 우편함 자리를 py 가 정한다(위 2026-08-25 주석)★ — 셸은 같은 규칙을 «그대로» 따라간다:
+#   FT_MBOX_DIR 이 있으면 그 옆, 없으면 스크립트 위치에서 `.fable-team` 조상 → `.worktrees` 조상(있으면 그 부모)
+#   = py `_repo_root` 와 같은 걸음. 못 찾으면 빈 값 → notify_policy 가 ring(fail-loud).
+_seats_json() {
+  [ -n "${FT_SEATS_JSON:-}" ] && { printf '%s' "$FT_SEATS_JSON"; return; }
+  [ -n "${FT_MBOX_DIR:-}" ] && { printf '%s/../seats.json' "$FT_MBOX_DIR"; return; }
+  local d="$BINDIR" root=""
+  while [ "$d" != "/" ]; do
+    if [ "$(basename "$d")" = ".fable-team" ]; then
+      root="$(dirname "$d")"; local a="$root"
+      while [ "$a" != "/" ]; do [ "$(basename "$a")" = ".worktrees" ] && { root="$(dirname "$a")"; break; }; a="$(dirname "$a")"; done
+      break
+    fi
+    d="$(dirname "$d")"
+  done
+  [ -n "$root" ] && printf '%s/.fable-team/seats.json' "$root"
+}
+# echoes: quiet | ring — 판정 불가(파일 없음·JSON 깨짐)는 ring (fail-loud 쪽).
+notify_policy() {
+  local to="$1" sj; sj="$(_seats_json)"
+  [ -f "$sj" ] || { echo ring; return 0; }
+  python3 - "$sj" "$to" <<'PYEOF' 2>/dev/null || echo ring
+import json, sys
+sj, to = sys.argv[1], sys.argv[2]
+try:
+    d = json.load(open(sj, encoding="utf-8"))
+except Exception:
+    print("ring"); sys.exit(0)
+e = d.get(to)
+print("quiet" if isinstance(e, dict) and e.get("tick") else "ring")
+PYEOF
+}
+
+# py 의 `QUEUED seq=<N> …` 한 줄에서 이번 발주의 번호만 뽑는다. 못 뽑으면 빈 값 —
+# doorbell 은 그때 무번호 문자열로 간다(조용히 틀린 번호를 싣지 않는다).
+seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  send)
+    to="${1:?to}"; from="${2:?from}"; shift 2
+    force=(); dispatch=(); dbf=0; urgent=0
+    args=()
+    for a in "$@"; do
+      case "$a" in
+        --no-notify) echo "WARN --no-notify 는 무시된다 — 알림은 seats.json 이 정한다(§2-2). 급하면 --urgent" >&2 ;;
+        --urgent)    urgent=1 ;;
+        --force)     force=(--force); dbf=1 ;;
+        --dispatch)  dispatch=(--dispatch); dbf=1 ;;   # ★F5: 발주 — EMPTY_BODY만 판정, doorbell 강제 유지.
+        *)           args+=("$a") ;;
+      esac
+    done
+    if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
+    # py가 allowlist 검증(BAD_SESSION_NAME exit 1) + 발신 가드(BLOCKED exit 3) + 큐잉.
+    # 거부되면 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} ${dispatch[@]+"${dispatch[@]}"})" || exit $?
+    if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf" "$(seq_of "$py_out")")"; else db=quiet; fi
+    echo "$py_out doorbell=$db"
+    ;;
+  relay)
+    # 긴 본문의 정본 절차: 원문을 RELAY_DIR(기본 /tmp/mbox)로 복사하고 요약+경로만 큐잉.
+    to="${1:?to}"; from="${2:?from}"; file="${3:?file}"; shift 3
+    args=(); force=(); urgent=0
+    for a in "$@"; do
+      case "$a" in
+        --no-notify) echo "WARN --no-notify 는 무시된다 — 알림은 seats.json 이 정한다(§2-2). 급하면 --urgent" >&2 ;;
+        --urgent)    urgent=1 ;;
+        --force)     force=(--force) ;;   # ★F3: relay 도 재발신 탈출구 — 요약 텍스트에 안 섞이게 파싱.
+        *)           args+=("$a") ;;
+      esac
+    done
+    if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
+    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
+    # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
+    if [ "$notify" = 1 ]; then db="$(doorbell "$to" 0 "$(seq_of "$py_out")")"; else db=quiet; fi
+    echo "$py_out doorbell=$db"
+    ;;
+  recv)  me="${1:?me}"; shift
+         # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. py 는 여러 경로로 불리므로
+         #   sh 래퍼의 recv case 에서 touch 한다(설계 §3-2). exec 전에 해야 실행된다.
+         : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
+         exec python3 "$MBOXPY" recv "$me" "$@" ;;
+  peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
+  # ring — ★큐를 건드리지 않고 doorbell 만 울린다★. 재발주가 이 경로로 온다.
+  #   ★seq 를 실을 수 있다★ (2026-09-06, 나) — 재발주는 1차 발주의 번호를 «그대로» 다시
+  #   울린다. 새 번호를 만들면 큐에 없는 번호가 창에 뜨고, 판정 마커도 따라 바뀐다.
+  #   ★force=1★ — 재발주는 «반드시» 창에 떠야 한다. 시간·outstanding 억제에 걸려 아무것도
+  #   안 뜨면 그건 미도달과 구분이 안 된다. 억제의 취지는 홍수 방지지 재발주 봉쇄가 아니다.
+  ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
+         db="$(doorbell "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
+  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
+esac

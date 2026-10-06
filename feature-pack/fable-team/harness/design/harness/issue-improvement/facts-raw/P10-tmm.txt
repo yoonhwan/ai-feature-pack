@@ -1,0 +1,53 @@
+/Users/yoonhwan/.tmm/:
+categories
+categories.bak-20260930
+current
+forks
+models
+models.generated
+versions
+
+/Users/yoonhwan/.tmm/current/:
+core
+# tmm — 모바일(Termius/SSH) 전용 tmux 좌석 TUI. 폰 60~80열 기준. fzf 기반 커서 이동·필터·미리보기.
+#   tmm              TUI 피커 (↑↓ 커서 · 타이핑=필터 · Enter=attach · 아래 키 참조)
+#   tmm ls [PAT]     텍스트 목록 (비대화용)
+#   tmm a NAME [-i]  attach (기본 폰 크기 추종 · -i 면 데스크탑 크기 고정+점 채움)
+#   tmm p NAME [N]   pane 최근 N줄 (기본 30)
+#   tmm s NAME MSG   메시지 (에이전트 없는 좌석 차단 + 도달확인)
+#   tmm ss           전 좌석 상태 스캔 (seat-scan)
+#   tmm h            HUMAN/BLOCK/STUCK 좌석만
+#   tmm save         tmuxc save
+#   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
+#   tmm doctor       의존성·환경 점검
+#   tmm kill NAME [--yes]                좌석 종료 (tmux 세션 + 그 안의 에이전트)
+#   ※ TUI 는 tmux 세션 «tmm» 안에서 뜬다(터미널이 창 리사이즈 중 pty 를 회수해도 안 죽게). 좌석에 붙었다가
+#     좌석에 붙었다가 C-a d 를 누르면 피커로 돌아온다(조건부 바인딩 — 피커 세션에서는 원래대로 detach).
+#     TMM_NO_WRAP=1 로 래핑을, TMM_NO_DBIND=1 로 그 바인딩을 끄고, TMM_SESSION 으로 세션명을 바꾼다.
+#   tmm dead [PAT] [--since H] [--all]   종료된 세션 목록 (재부팅·kill 로 사라진 좌석 — tmuxc 미관리 포함)
+#   tmm dp NAME|SID [N]                  종료 세션의 마지막 대화 N줄
+#   tmm restore NAME [--dry-run]         종료 세션 1건 복구 (resume) → attach
+#   tmm restore-all [--since H] [--dry-run] [--yes]   창 안 종료 세션 «전부» 복구 — 5개씩 배치 병렬(TMM_RESTORE_BATCH), 결과 $RUN/restore-<ts>.log(ok|fail) — tmuxc restore --scan --loose 의 폰판
+#   tmm idx NAME|SID [--json|--path]     세션의 대화 기록(트랜스크립트) 인덱스 경로 — 라이브·종료 공통. 에이전트가 이전 대화를 바로 찾게
+#   tmm fork SRC --agent AG --model M [--name N] [--cwd C] [--effort E] [--ctx 1m] [--prompt P] [--dry-run] [--attach]
+#                                        소스 대화를 «새 에이전트 세션»으로 이어받기. 동일 엔진=네이티브 tmuxc fork(전체 히스토리·부모 불변),
+#                                        크로스 엔진=tmuxc open 새 세션 + 트랜스크립트 경로·발췌 주입(~/.tmm/forks). 이름 기본=소스 #N+1
+#   tmm models [AG] | refresh [AG...] | find QUERY   fork 모델 별칭 — refresh 는 라이브 목록(opencode 프로바이더 접두사)에서 생성
+#                                        opencode 의 --model 접두사가 곧 프로바이더다: opencode/=zen, openrouter/=OpenRouter (TMM_MODELS_PROVIDER)
+#                                        ^F 는 어느 단계에서든 ^C(또는 이름/에이전트/모델에서 q)로 취소, 생성 중 아무 키=취소 → 피커 복귀
+#
+# TUI 키:  Enter/^E attach · ^S 메시지 · ^K 좌석닫기 · ^F fork · ^Y 대화기록 경로 · ^H 대기좌석만 · ^A 전체
+#          ^T 최근순 · ^W 대기우선 · ^G 카테고리순 · ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초
+#          ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
+#          ^V 목록↔탭 뷰(검색창 위 카테고리 탭 줄, 전체는 맨 뒤) · Tab·→ / S-Tab·← 다음/이전 탭(탭 뷰에서만 — 아니면 원래 동작). 키워드는 뷰(^A/^D)별로 기억
+# tmm 카테고리 규칙 — "글롭<TAB>라벨" 한 줄씩. 위에서부터 첫 매치. 세션명의 `#N` 카운터는 떼고 비교.
+# 이 파일: ~/.tmm/categories  (TMM_CATEGORIES 로 경로 변경 가능)
+#
+# ★대부분은 규칙이 필요 없다★ — 규칙에 안 걸리면 «역할 접두»(`FB_`·`ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 5자)이 라벨:
+#   FB_CCU#0 → CCU   FB_CFO#33 → CFO   ft-v65-master-claude#86 → v65   ft-airag-arch-astra → airag   CCU_ARCH#3 → CCU
+# 아래는 «일반화로 안 되는 것»만 적는다 — 별칭 병합·대소문자 통일·다른 이름으로 부르고 싶은 것.
+# 라벨은 5자 안이 폰 화면에 맞는다.
+KakaoBot	kakao
+cfo_*	CFO
+loom_*	LOOM
+DATA_PG	LOOM

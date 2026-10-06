@@ -1,0 +1,6 @@
+40 ## 1. v65 마무리 (메인 · 오케 ft-v65-master-claude#134 · 출처 = HANDOFF 133→134 「열린 일」 · CLOSEOUT §3 · NEWS-TREE)
+24 ## 5. 열린 질문 (한 값 한 좌석)
+22 ## 2. cfo next 로 v65 와 협의해 넘긴 작업 (출처 = `design/v65/PENDING-cfo-async-sync-io-canon.md` 절 제목 그대로 · FB_CFO#52 확인 대기)
+8 ## 4. 도구 → 이 판의 단계 (BRIEF 4단계 매핑 · 한 줄씩)
+7 ## 골 원문 (CLAUDE.md ACTIVE TRACK GOAL · 바이트 일치 · 모든 분류의 기준)
+6 ## 3. cfo 메인 작업 (정본 = `c-level-planning/design/cfo/indices/{진행,대기,완성}` + 렌더 `design/cfo/NEWS-TREE.md` · FB_CFO#52 #55968 · BOARD 는 배정·상태만)

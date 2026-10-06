@@ -1,0 +1,20 @@
+admin-piece1-structure {'branch': 'feat/admin-piece1-structure', 'purpose': 'F-OPS-ADMIN piece1 structure split (order 150)', 'ports': None, 'base_port': None, 'created_at': '2026-10-01T14:48:47+09:00'}
+admin-piece2a-accounts {'branch': 'feat/admin-piece2a-accounts', 'purpose': 'F-OPS-ADMIN piece 2a accounts live (order 152)', 'ports': None, 'base_port': None, 'created_at': '2026-10-01T15:22:15+09:00'}
+arch-canon-ops-cfo {'branch': 'docs/arch-canon-ops-cfo', 'purpose': '운영툴·CFO 아키텍처 정본 초안(발주 155)', 'ports': None, 'base_port': None, 'created_at': '2026-10-01'}
+arch-canon {'branch': 'track/arch-canon', 'purpose': '아키텍처 정본 별도 트랙 (ORDERS 55·56)', 'ports': None, 'base_port': None, 'created_at': '2026-10-01T15:37:51+09:00'}
+c-level-planning {'branch': 'feat/c-level-planning', 'purpose': 'c-level-planning', 'ports': None, 'base_port': None, 'created_at': '2026-07-20'}
+ccu-stress {'branch': 'feat/ccu-stress-cloud', 'purpose': 'CCU 스트레스(클라우드 API) 별 트랙 — CFO 처럼 완전 분리 · 오케 FB_CCU · 오빠 지시 2026-09-30', 'ports': None, 'base_port': None, 'created_at': '2026-09-30T10:04:28+09:00'}
+cfo-credit-admin-add {'branch': 'feat/credit-admin-add', 'purpose': '발주 70 — 과금 셋째 단위 둘째 조각 관리자 추가 기록 구현 (CFO_F_NANO#9)', 'ports': None, 'base_port': None, 'created_at': '2026-09-29T05:19:26'}
+cfo-credit-expire-record {'branch': 'feat/credit-expire-record', 'purpose': '과금 셋째 단위 첫 조각 — 만료 회수 기록 구현 (발주 62 · CFO_F_NANO#8)', 'ports': None, 'base_port': None, 'created_at': '2026-09-29T02:20:30+0900'}
+cfo-ops {'branch': 'feat/cfo-ops-console', 'purpose': 'CFO 대분류 출범 — 오빠 지시 「codex astra 태워서 대분류로 워크트리 브랜치 출범」', 'ports': None, 'base_port': None, 'created_at': '2026-09-22'}
+cfo-pg {'branch': 'feat/cfo-pg-seoul', 'purpose': 'CFO 대분류 출범 — 오빠 지시 「codex astra 태워서 대분류로 워크트리 브랜치 출범」', 'ports': None, 'base_port': None, 'created_at': '2026-09-22'}
+cfo-pgvec {'branch': 'feat/cfo-pgvec-rag', 'purpose': 'CFO 대분류 출범 — 오빠 지시 「codex astra 태워서 대분류로 워크트리 브랜치 출범」', 'ports': None, 'base_port': None, 'created_at': '2026-09-22'}
+cfo-track-c {'branch': 'feat/cfo-track-c-expiry', 'purpose': 'Track C 타입별 만료+lazy sweep 구현 (설계 DA 5R APPROVED, trackc-design.md)', 'ports': None, 'base_port': None, 'created_at': '2026-07-13'}
+client-uid-billing-gw {'branch': 'fix/client-uid-billing-gw', 'purpose': 'PR-2 gateway uid billing enforcement (design F-X-CLIENT-USER-ID-FIX #1~#8 + STT WS)', 'ports': None, 'base_port': None, 'created_at': '2026-10-02'}
+client-uid-billing {'branch': 'fix/client-uid-billing-fe', 'purpose': '판정 252 헤더 과금 구멍 수정 — PR-1 FE(fix/client-uid-billing-fe) · PR-2 gateway(fix/client-uid-billing-gw) · 발주 ORDER-client-uid-billing-impl-20261002.md', 'ports': None, 'base_port': None, 'created_at': '2026-10-02T13:5x+09:00'}
+cost-gcs-standard-seoul {'branch': 'docs/cost-gcs-standard-seoul', 'purpose': 'COST_BASE_TABLE §5.1-d GCS Standard Seoul unit price + cost-references/gcp-storage.md (order 89, FB_CFO#31)', 'ports': None, 'base_port': None, 'created_at': '2026-09-29T07:45:11Z'}
+credit-migrate-lua-atomic {'branch': 'feat/credit-migrate-lua-atomic', 'purpose': '발주 78 legacy 환산 _MIGRATE_LUA 원자화 구현 (판정 110)', 'ports': None, 'base_port': None, 'created_at': '2026-09-29T11:49:09'}
+credit-welcome-evidence {'branch': 'feat/credit-welcome-evidence', 'purpose': '발주 81 웰컴 지급 적용 증거 구현 (판정 116)', 'ports': None, 'base_port': None, 'created_at': '2026-09-29T15:06:46'}
+fb-tqa-realtime {'branch': 'feat/fb-tqa-realtime', 'purpose': 'fb-tqa-realtime', 'ports': None, 'base_port': None, 'created_at': '2026-06-05'}
+fix-admin-routes-auth {'branch': 'fix/admin-routes-auth', 'purpose': '무인증 관리성 라우트 인증 가드 (판정 123 · FB_CFO#31)', 'ports': None, 'base_port': None, 'created_at': '2026-09-29T07:38:53Z'}
+fix-credit-expire-alert-and-safeguards {'branch': 'fix/credit-expire-alert-and-safeguards', 'purpose': 'CFO F 과금 · 판정 ㊻ · PR #631 부분 발췌 cherry-pick 12커밋(안전장치 5 + 만료알림 생산 8) → 새 PR · 집행 설계 design/cfo/PR631-CHERRYPICK-EXEC-20260927.md(a5aa6f090) · 좌석 CFO_F_NANO#0 · 개설 FB_CFO#21', 'ports': None, 'base_port': None, 'created_at': '2026-09-27T20:22:21+0900'}

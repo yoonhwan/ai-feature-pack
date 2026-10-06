@@ -1,0 +1,21 @@
+lecture_multi_e2e.py
+multi_listener_lecture_e2e.py
+multi_realtime_corpus
+realtime_multi_e2e.py
+tcc8_completion_press.py
+tcc8_fixture_texts.py
+test_tcc8_implant10_corpus.py
+test_tcc8_long3m_audio_gate.py
+test_tcc8_multi_turn_and_poller.py
+test_tcc8_s3_target_reacquire.py
+test_tcc8_trans_order_exhaustive_count.py
+tests/e2e/test_tcc8_multi_turn_and_poller.py:1:"""tcc8 다회 PTT 턴 + poller n채록 — architect#21 2026-09-03 발주(press 0).
+tests/e2e/test_tcc8_multi_turn_and_poller.py:4:(N=1 이면 기존 단일-press 흐름과 완전히 동일 — 추가 턴 0개) ⑵ 산출물에 poller_dom.jsonl
+tests/e2e/test_tcc8_multi_turn_and_poller.py:5:경로가 실려 말풍선 수·DOM 순서가 잡히는지(poller_dom.py 자체 수집 검증은
+tests/e2e/test_tcc8_multi_turn_and_poller.py:6:test_poller_dom_order_version_capture.py 가 별도로 덮는다).
+tests/e2e/test_tcc8_multi_turn_and_poller.py:152:def test_result_carries_poller_dom_path_field_and_turn_config():
+tests/e2e/test_tcc8_multi_turn_and_poller.py:153:    """산출물(RESULT)에 말풍선 수·DOM 순서를 담을 poller_dom.jsonl 경로와 턴 설정이 실린다."""
+tests/e2e/test_tcc8_multi_turn_and_poller.py:154:    assert "poller_dom_path" not in tcc8.RESULT  # 아직 press_flow_thread 실행 전(구조만 확인)
+tests/e2e/test_tcc8_multi_turn_and_poller.py:157:    assert 'RESULT["poller_dom_path"] = poller_out' in text
+tests/e2e/test_tcc8_multi_turn_and_poller.py:162:def test_poller_duration_preserves_default_for_long_hold_and_accepts_explicit_override(
+tests/e2e/test_tcc8_multi_turn_and_poller.py:167:    tcc8._configure_poller_duration(inherited)

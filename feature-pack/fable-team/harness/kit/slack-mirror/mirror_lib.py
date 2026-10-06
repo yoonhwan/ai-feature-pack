@@ -5,14 +5,35 @@ ok!=true·네트워크 오류는 전부 MirrorError 로 raise 한다(BYZ #0 RULE
 포맷 = 역할 파일 §1-4(사람 말 3줄) · §1-5(작업 1개 = 스레드 1개).
 """
 import json
+import os
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 
 class MirrorError(RuntimeError):
     pass
+
+
+def read_token(path: Path) -> str:
+    try:
+        for ln in path.read_text(encoding="utf-8").splitlines():
+            if ln.startswith("YOONHWAN_BOT_TOKEN=") and ln.split("=", 1)[1].strip():
+                return ln.split("=", 1)[1].strip()
+    except OSError as e:
+        raise MirrorError(f"토큰 파일 읽기 실패: {path} ({type(e).__name__})") from e
+    raise MirrorError(f"토큰 파일에 YOONHWAN_BOT_TOKEN 없음: {path}")
+
+
+def save_state(path: Path, st: dict[str, object]) -> None:
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(st, f, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 
 def esc(value: object) -> str:
@@ -35,6 +56,24 @@ def api_call(base: str, token: str, method: str, params: dict[str, object], *, g
     if not body.get("ok"):
         raise MirrorError(f"{method} ok=false: {body.get('error')}")
     return body
+
+
+MAX_PAGES = 20
+
+
+def paged(base: str, token: str, method: str, params: dict[str, object]) -> list[dict[str, object]]:
+    """next_cursor 를 끝까지 따라간다 — 상한을 넘으면 조용히 자르지 않고 raise."""
+    out: list[dict[str, object]] = []
+    cursor = ""
+    for _ in range(MAX_PAGES):
+        body = api_call(base, token, method, {**params, **({"cursor": cursor} if cursor else {})}, get=True)
+        msgs = body.get("messages", [])
+        out += [m for m in msgs if isinstance(m, dict)] if isinstance(msgs, list) else []
+        meta = body.get("response_metadata")
+        cursor = str(meta.get("next_cursor") or "") if isinstance(meta, dict) else ""
+        if not cursor:
+            return out
+    raise MirrorError(f"{method} 가 {MAX_PAGES}쪽을 넘었어요 — 읽기 창을 줄여야 해요")
 
 
 def post(base: str, token: str, channel: str, text: str, thread_ts: str | None = None) -> str:
@@ -65,7 +104,11 @@ def has_marker(texts: list[str], marker: str) -> bool:
 
 _PREFIX = re.compile(r"^\s*\[[^\]]*->[^\]]*\]\s*")
 _TAG = re.compile(r"^\s*\[(HIL|BLOCK)\]\s*", re.IGNORECASE)
-_ISSUE = re.compile(r"(?<![\w#])#(\d{1,4})(?!\d)")  # 5자리 mbox seq 는 제외
+# Issue 키 = «명시된 것»만: 「Issue/이슈/PR #N」 또는 본문 맨 앞 「#N」·「[#N]」. 좌석명 #N(승계 #0->#1)·5자리 mbox seq·#0 은 키가 아니다.
+_ISSUE = re.compile(r"(?:\b(?:Issue|issue|이슈|PR|pr)\s*#|^\s*\[?#)([1-9]\d{0,3})(?!\d)")
+_FULL = re.compile(r"상세\(전문\):\s*(\S+)")
+FULL_ROOTS = ("/tmp/mbox/", "/private/tmp/mbox/")
+FULL_CAP = 3500
 OTHER_KEY = "기타"
 
 
@@ -85,20 +128,58 @@ def thread_key(row: dict[str, object], text: str) -> str:
     return seat or OTHER_KEY
 
 
+def read_full(row: dict[str, object]) -> str | None:
+    """relay·긴 보고의 전문 파일(mbox 가 /tmp/mbox 에 보관) — 읽을 수 없으면 None(요약만 간다)."""
+    m = _FULL.search(str(row.get("body", "")))
+    path = str(row.get("body_full") or (m.group(1) if m else ""))
+    if not path.startswith(FULL_ROOTS):
+        return None
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def format_full(full: str) -> str:
+    """스레드에 남길 전문 — 인용 블록. 길면 앞부분 + 잘림 표시(전문 경로는 꼬리에 있다)."""
+    body = full.strip()
+    cut = len(body) > FULL_CAP
+    lines = esc(body[:FULL_CAP]).split("\n")
+    return "\n".join(["", "전문"] + ["> " + ln for ln in lines] + (["> … (이하 생략)"] if cut else []))
+
+
+_GH_URL = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/\d+(?:#issue(?:comment)?-?\w+)?")
+
+
+def issue_url(repo: str, key: str) -> str | None:
+    """키 「#N」 → Issue URL (PR 번호여도 /issues/N 이 /pull/N 으로 이동한다). 키가 번호가 아니면 None."""
+    m = re.fullmatch(r"#(\d+)", key)
+    return f"https://github.com/{repo}/issues/{m.group(1)}" if repo and m else None
+
+
+def links(texts: list[str], fallback: str | None) -> list[str]:
+    """본문에서 GitHub Issue/PR/코멘트 URL(앵커 포함)을 모은다. 없으면 fallback(Issue URL)."""
+    found: list[str] = []
+    for t in texts:
+        found += [u for u in _GH_URL.findall(t) if u not in found]
+    return found[:3] or ([fallback] if fallback else [])
+
+
 def first_sentence(text: str, cap: int = 120) -> str:
     one = " ".join(text.split())
     return re.split(r"(?<=[.!?。])\s| · ", one, maxsplit=1)[0][:cap] or "(빈 본문)"
 
 
-def root_text(key: str, what: str) -> str:
-    return f"{esc(key)} 시작 — {esc(what)}"
+def root_text(key: str, what: str, url: str | None = None) -> str:
+    return f"{esc(key)} 시작 — {esc(what)}" + (f"\n{esc(url)}" if url else "")
 
 
 def root_marker(key: str) -> str:
     return f"{esc(key)} 시작"
 
 
-def format_row(row: dict[str, object], label: str, mention: str, summary: dict[str, str | None] | None, text: str) -> str:
+def format_row(row: dict[str, object], label: str, mention: str, summary: dict[str, str | None] | None, text: str,
+               full: str | None = None, urls: list[str] | None = None, options_text: str | None = None) -> str:
     """사람 말 3줄 — 1줄 무슨 일 · 2줄 오빠 할 일 · 3줄 소문자 꼬리. summary 가 None 이면 원문 첫 문장(꼬리에 표시)."""
     what = summary["what"] if summary else first_sentence(text)
     todo = summary["todo"] if summary else None
@@ -110,10 +191,7 @@ def format_row(row: dict[str, object], label: str, mention: str, summary: dict[s
         tail.append(f"전문 {esc(row['body_full'])}")
     if summary is None:
         tail.append("원문 그대로")
-    return f"{esc(what)}\n{who}{esc(todo) if todo else '할 일 없음'}\n({' · '.join(tail)})"
-
-
-def format_gap(first: int, last: int) -> str:
-    n = last - first + 1
-    return (f"슬랙에 못 올라간 보고가 {n}건 있어요 — 보낸 기록이 비어 있어요\n"
-            f"할 일 없음 — 하네스 담당이 확인해요\n(mirror · #GAP-{first}-{last})")
+    head = f"{esc(what)}\n{who}{esc(todo) if todo else '할 일 없음'}\n({' · '.join(tail)})"
+    head = head + (f"\n{options_text}" if options_text else "")
+    head = head + ("\n링크: " + " ".join(esc(u) for u in urls) if urls else "")
+    return head + format_full(full) if full else head

@@ -1,0 +1,1 @@
+ft-v65-master-claude#136	in_tmux=Y	_was=None	model=claude-sonnet-5-5[1m]	_session=None

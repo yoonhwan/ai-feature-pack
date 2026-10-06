@@ -1,0 +1,101 @@
+#!/bin/bash
+# ft-tmux-poll.sh — 오케 수신 1줄 판정 (§1-3③)
+# Usage: ft-tmux-poll.sh <slug> <sess> [--timeout S] [--consume] [--me <orch-sess>]
+# 출력(1줄): DONE <path> | MSG <내용> | NEEDS_INPUT <hil-id> | RUNNING | HANG
+# capture는 상태 판독(grep -q) 전용 — capture 텍스트를 명령/지시로 재사용하지 않는다(§6).
+set +e
+BIN="$(cd "$(dirname "$0")" && pwd)"
+LIB="$BIN/ft-lib.sh"; . "$LIB"
+
+SLUG="$1"; SESS="$2"; shift 2 2>/dev/null
+TIMEOUT=0; CONSUME=0; ME_OPT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --timeout) TIMEOUT="$2"; shift 2;;
+    --consume) CONSUME=1; shift;;
+    --me) ME_OPT="$2"; shift 2;;
+    *) shift;;
+  esac
+done
+[ -n "$SLUG" ] && [ -n "$SESS" ] || { echo "ft-tmux-poll: <slug> <sess> 필수" >&2; exit 1; }
+
+ROOT="$(ft_resolve_self_root)"
+SIG="$(ft_feat_signals "$ROOT" "$SLUG")"
+mkdir -p "$SIG/archive" 2>/dev/null
+
+poll_once() {
+  # ① done 센티널
+  local done_f="$SIG/$SESS.done"
+  if [ -f "$done_f" ]; then
+    local path; path="$(head -1 "$done_f" 2>/dev/null)"
+    printf 'DONE %s\n' "$path"
+    if [ "$CONSUME" = "1" ]; then
+      mv "$done_f" "$SIG/archive/$SESS.done.$(date +%s)" 2>/dev/null
+    fi
+    return 0
+  fi
+  # ② mbox: 내(오케) 우편함에서 <sess> 발신분만 consume(from 필터 — 타 워커분 오소비 방지)
+  local me="${ME_OPT:-$(tmux display-message -p '#S' 2>/dev/null)}"
+  if [ -n "$me" ]; then
+    local m; m="$(bash "$BIN/ft-mbox.sh" recv "$me" "$SESS" 2>/dev/null)"
+    [ -n "$m" ] && [ "$m" != "READ none" ] && { printf '%s\n' "$m" | sed 's/^READ /MSG /'; return 0; }
+  fi
+  # ②b 레거시 <SIG>/<sess>.msg byte-offset 경로: 전환기 read-only 소진 전용(기존 코드 무수정)
+  local msg_f="$SIG/$SESS.msg" seen_f="$SIG/.$SESS.msg.seen"
+  if [ -f "$msg_f" ]; then
+    local sz seen; sz="$(wc -c < "$msg_f" 2>/dev/null | tr -d ' ')"
+    seen="$(cat "$seen_f" 2>/dev/null || echo 0)"
+    if [ "${sz:-0}" -gt "${seen:-0}" ] 2>/dev/null; then
+      local new; new="$(tail -c "+$((seen+1))" "$msg_f" 2>/dev/null | tail -1)"
+      printf '%s' "$sz" > "$seen_f" 2>/dev/null
+      printf 'MSG %s\n' "$new"
+      return 0
+    fi
+  fi
+  # ②c 워커 미수신 잔량 재알림(R4 신설 — DA R3 #3): peek pending≥1이면 ring 재doorbell(best-effort).
+  #    오케 주기 poll이 곧 외부 기계 감시자 — 워커 inbox 잔량을 대리 확인·재발사(출력 없음, side-effect).
+  local pk; pk="$(bash "$BIN/ft-mbox.sh" peek "$SESS" 2>/dev/null)"
+  case "$pk" in
+    pending=0|"") ;;
+    pending=*) bash "$BIN/ft-mbox.sh" ring "$SESS" >/dev/null 2>&1 ;;
+  esac
+  # ③ pending hil-* 중 sess 매치
+  local h
+  for h in "$SIG"/hil-*; do
+    [ -f "$h" ] || continue
+    if grep -qE "sess=$SESS( |\$)" "$h" 2>/dev/null; then   # MINOR-1: 정확 매치(ft-x#1 이 ft-x#10에 오매치 방지)
+      printf 'NEEDS_INPUT %s\n' "$(basename "$h" | sed 's/^hil-//')"
+      return 0
+    fi
+  done
+  # ④/⑤ CPU 판정 (2회 연속 저CPU=HANG, 카운터는 폴 호출 간 유지)
+  local cpu cnt_f cnt fable=0
+  ft_parse_sess "$SESS"; [ "$FT_ROLE" = "architect" ] && fable=1
+  cpu="$(ft_sess_cpu "$SESS")"
+  cnt_f="$SIG/.$SESS.lowcpu"
+  if [ -z "$cpu" ]; then
+    printf 'HANG\n'; return 0   # 세션/프로세스 부재 — 정지로 간주
+  fi
+  if awk -v c="$cpu" 'BEGIN{exit !(c+0 >= 0.3)}'; then
+    rm -f "$cnt_f" 2>/dev/null
+    printf 'RUNNING\n'; return 0
+  fi
+  cnt="$(cat "$cnt_f" 2>/dev/null || echo 0)"; cnt=$((cnt+1))
+  printf '%s' "$cnt" > "$cnt_f" 2>/dev/null
+  if [ "$cnt" -ge 2 ]; then printf 'HANG\n'; else printf 'RUNNING\n'; fi
+  return 0
+}
+
+# --timeout: DONE/MSG/NEEDS_INPUT 이 나올 때까지 5초 간격 재시도(상한 timeout)
+if [ "${TIMEOUT:-0}" -gt 0 ] 2>/dev/null; then
+  waited=0
+  while :; do
+    out="$(poll_once)"
+    case "$out" in DONE*|MSG*|NEEDS_INPUT*) printf '%s\n' "$out"; exit 0;; esac
+    [ "$waited" -ge "$TIMEOUT" ] && { printf '%s\n' "$out"; exit 0; }
+    sleep 5; waited=$((waited+5))
+  done
+else
+  poll_once
+fi
+exit 0

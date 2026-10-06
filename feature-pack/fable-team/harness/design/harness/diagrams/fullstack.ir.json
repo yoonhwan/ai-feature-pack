@@ -1,0 +1,2536 @@
+{
+ "schema": "drawio-skill/diagram-ir/v1",
+ "metadata": {
+  "title": "BYZ 풀스택 시스템 다이어그램 (정본 IR)",
+  "facts": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+  "orch_tree": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+  "collected_utc": "2026-10-05T13:37Z",
+  "head": "5e53d60f63",
+  "layers": [
+   "①외부서비스",
+   "②머신·인프라",
+   "③앱 서비스(로컬 dev)",
+   "④하네스",
+   "⑤파일시스템"
+  ],
+  "edge_kinds": {
+   "sync/async/read/write": "데이터",
+   "control": "제어",
+   "mbox": "mbox 메시지",
+   "deploy": "배포"
+  }
+ },
+ "nodes": [
+  {
+   "id": "slack",
+   "label": "Slack",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "importance": 9,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 14
+   }
+  },
+  {
+   "id": "github",
+   "label": "GitHub (Issue·PR)",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "importance": 9,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 15
+   }
+  },
+  {
+   "id": "supabase",
+   "label": "Supabase (인증·DB)",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 16
+   }
+  },
+  {
+   "id": "gcp-cloudrun",
+   "label": "GCP Cloud Run (ccu-stress gateway·worker·redis — CCU 배포 · prod 인벤토리는 별도 출처 필요)",
+   "kind": "external",
+   "group": "①외부서비스/GCP",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "importance": 9,
+    "environment": "ccu-stress",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 17
+   }
+  },
+  {
+   "id": "gcp-iap",
+   "label": "GCP IAP (터널 인증)",
+   "kind": "external",
+   "group": "①외부서비스/GCP",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 19
+   }
+  },
+  {
+   "id": "gcp-gce-gpu",
+   "label": "GCE dev VM (터널 대상 기준): byz-agents-gce-llm-dev · byz-agents-gce-stt-tts-dev · ccu-stress-vllm (+ccu-stress-stt-tts BREACH 원장) — 원격 실재 미검증",
+   "kind": "external",
+   "group": "①외부서비스/GCP",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "environment": "gpu-vm",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ps -o command= -p 95175/31647/84055 (start-iap-tunnel 인스턴스·포트) + state/gce-op-model/BREACH.md"
+   }
+  },
+  {
+   "id": "stt-providers",
+   "label": "STT: Deepgram·Fireworks·Groq·ReturnZero·Soniox·Gemini·Clova",
+   "kind": "external",
+   "group": "①외부서비스/AI 프로바이더",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 20
+   }
+  },
+  {
+   "id": "tts-providers",
+   "label": "TTS: ElevenLabs·Cartesia·Supertone·Google·Clova",
+   "kind": "external",
+   "group": "①외부서비스/AI 프로바이더",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 21
+   }
+  },
+  {
+   "id": "llm-providers",
+   "label": "LLM: Anthropic·OpenAI·Gemini·xAI",
+   "kind": "external",
+   "group": "①외부서비스/AI 프로바이더",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 22
+   }
+  },
+  {
+   "id": "mt-providers",
+   "label": "번역: DeepL·Google Translate",
+   "kind": "external",
+   "group": "①외부서비스/AI 프로바이더",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 23
+   }
+  },
+  {
+   "id": "qdrant",
+   "label": "Qdrant (loom embed 벡터)",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 25
+   }
+  },
+  {
+   "id": "langsmith",
+   "label": "LangSmith (관측)",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 26
+   }
+  },
+  {
+   "id": "perplexity",
+   "label": "Perplexity (검색·fact-check)",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 24
+   }
+  },
+  {
+   "id": "cloudflare",
+   "label": "Cloudflare (터널)",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 28
+   }
+  },
+  {
+   "id": "agent-upstream",
+   "label": "에이전트 CLI 상류: Claude·Codex·OpenRouter",
+   "kind": "external",
+   "group": "①외부서비스",
+   "properties": {
+    "status": "사실",
+    "layer": "①외부서비스",
+    "trust_boundary": "external",
+    "importance": 7,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 29
+   }
+  },
+  {
+   "id": "mac",
+   "label": "MacBook-Pro (개발·하네스 머신 · tailscale yoonhwans-macbook-pro)",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "host": "MacBook-Pro",
+    "importance": 10,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 3
+   }
+  },
+  {
+   "id": "jarvis",
+   "label": "jarvis (OCI VM · 원격 hermes 1기 — 로컬 hermes 와 쌍으로 슬랙 양방향 · 하네스 미반영) — tailscale 목록엔 없음",
+   "kind": "service",
+   "group": "②머신·인프라/머신 3기",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "host": "jarvis",
+    "environment": "machine-2",
+    "importance": 6,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/planner/PROPOSAL-slack-driven-ops.md",
+    "line": 40
+   }
+  },
+  {
+   "id": "byz-mac",
+   "label": "byz mac = tailscale byzs-mac-mini (macOS · online · 역할 미확인 · 하네스 미반영)",
+   "kind": "service",
+   "group": "②머신·인프라/머신 3기",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "host": "byzs-mac-mini",
+    "environment": "machine-3",
+    "importance": 6,
+    "role": "미확인",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "tailscale status (2026-10-05T13:55Z) · 오빠 값 VALUES-fullstack Q1"
+   }
+  },
+  {
+   "id": "tailscale",
+   "label": "tailscale 메시 (이 Mac · byzs-mac-mini online · gamfss-mac-mini-2 offline 16d · iOS 3)",
+   "kind": "gateway",
+   "group": "②머신·인프라",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "tailscale status (2026-10-05T13:55Z)"
+   }
+  },
+  {
+   "id": "launchd",
+   "label": "launchd LaunchAgents (틱·가드·미러 데몬)",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "runtime": "launchd",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 27
+   }
+  },
+  {
+   "id": "tmux",
+   "label": "tmux 서버 (2026-10-05T13:48Z 실측 17 세션 — 목록은 README §4)",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "runtime": "tmux",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "tmux list-sessions (13:48Z)"
+   }
+  },
+  {
+   "id": "caddy",
+   "label": "Caddy :8443 (dev h2 프록시)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "host": "MacBook-Pro",
+    "port": "8443",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 45
+   }
+  },
+  {
+   "id": "iap-tunnel-stt",
+   "label": "IAP 터널 :8001 → GPU 10.0.0.x:8000 (STT · 로그 파일명 근거)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "8001",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 46
+   }
+  },
+  {
+   "id": "iap-tunnel-llm",
+   "label": "IAP 터널 :38311 → ccu-stress-vllm:8000 (cwd ccu-stress)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "38311",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ps -o command= -p 31647 · lsof -p 31647 cwd"
+   }
+  },
+  {
+   "id": "iap-tunnel-embed",
+   "label": "IAP 터널 :8100 → byz-agents-gce-stt-tts-dev:8100 (cwd c-level-planning)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "8100",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ps -o command= -p 84055 · lsof -p 84055 cwd"
+   }
+  },
+  {
+   "id": "py-8000",
+   "label": "IAP 터널 :8000 → byz-agents-gce-llm-dev:8000 (cwd ccu-stress)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "8000",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ps -o command= -p 95175 · lsof -p 95175 cwd"
+   }
+  },
+  {
+   "id": "ssh-tunnels",
+   "label": "colima ssh mux 포트 포워드 :10254/10255/3100/5432/54321/38391 (docker VM → 호스트)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "multi",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ps -o command= -p 85595 (ssh …/.colima/_lima/colima/ssh.sock [mux]) · colima status"
+   }
+  },
+  {
+   "id": "postgres-local",
+   "label": "postgres homebrew @14 (launchd 로드 · :5432 는 docker vectoragent-postgres 가 listen — 어느 쪽이 앱 DB 인지 미확정)",
+   "kind": "database",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "5432?",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "launchctl list | grep postgresql@14 · docker ps · lsof :5432"
+   }
+  },
+  {
+   "id": "ops-accounts-pg",
+   "label": "docker ops-accounts-pg :38391 (postgres:16)",
+   "kind": "database",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "38391",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 52
+   }
+  },
+  {
+   "id": "redis-fixtures",
+   "label": "docker redis ×40+ (pytest 픽스처 잔여)",
+   "kind": "database",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "random→6379",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 53
+   }
+  },
+  {
+   "id": "supabase-local",
+   "label": "docker supabase 로컬 스택 cfo-p0-pg (kong :54321 · db :54322 · studio :54323 · mailpit :54324)",
+   "kind": "database",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "54321-54324",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "docker ps --format (2026-10-05T13:48Z)"
+   }
+  },
+  {
+   "id": "qdrant-local",
+   "label": "docker vectoragent-qdrant :6333/6334",
+   "kind": "database",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "6333,6334",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "docker ps --format (2026-10-05T13:48Z)"
+   }
+  },
+  {
+   "id": "pg-containers",
+   "label": "docker postgres: vectoragent-postgres :5432 · langfuse-postgres :5433 · onecli-postgres :5434",
+   "kind": "database",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "5432,5433,5434",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "docker ps --format (2026-10-05T13:48Z)"
+   }
+  },
+  {
+   "id": "langfuse",
+   "label": "docker langfuse-server :3100 · onecli :10254/10255",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)/docker",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "3100,10254,10255",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "docker ps --format (2026-10-05T13:48Z)"
+   }
+  },
+  {
+   "id": "cliproxy",
+   "label": "cliproxy :8317 (구독 프록시)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "8317",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 54
+   }
+  },
+  {
+   "id": "headroom",
+   "label": "headroom :8787/:8790 (헤드룸 프록시 · 프로젝트 레벨)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "8787,8790",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 55
+   }
+  },
+  {
+   "id": "cloudflared",
+   "label": "cloudflared (로컬 데몬)",
+   "kind": "gateway",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "runtime": "launchd",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 28
+   }
+  },
+  {
+   "id": "ollama",
+   "label": "ollama :11434 · LM Studio :1234 (로컬 LLM)",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "11434,1234",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 56
+   }
+  },
+  {
+   "id": "chrome-cdp",
+   "label": "Chrome CDP :9333 (press 전용)",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "port": "9333",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 50
+   }
+  },
+  {
+   "id": "gce-guard",
+   "label": "gce-guard-check (GPU 봉투 감시 · breach 26h)",
+   "kind": "service",
+   "group": "②머신·인프라/MacBook-Pro(이 머신)",
+   "properties": {
+    "status": "사실",
+    "layer": "②머신·인프라",
+    "runtime": "launchd",
+    "importance": 7,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 59
+   }
+  },
+  {
+   "id": "gateway",
+   "label": "gateway :8080 (FastAPI)",
+   "kind": "gateway",
+   "group": "③앱 서비스(로컬 dev)",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "port": "8080",
+    "environment": "dev",
+    "importance": 10,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 42
+   }
+  },
+  {
+   "id": "worker",
+   "label": "worker :8081 (STT·번역·TTS 파이프라인)",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "port": "8081",
+    "environment": "dev",
+    "importance": 10,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 43
+   }
+  },
+  {
+   "id": "web",
+   "label": "Next.js web :3001",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "port": "3001",
+    "environment": "dev",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 44
+   }
+  },
+  {
+   "id": "flutter",
+   "label": "Flutter web :3002 (지금 미기동)",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "port": "3002",
+    "environment": "dev",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "docs/rules/dev_scripts.md",
+    "line": 19
+   }
+  },
+  {
+   "id": "redis-dev",
+   "label": "Redis dev = docker v6-realtime-live-redis-1 :6379 (설정상 REDIS_URL → loopback · 트래픽 미관측)",
+   "kind": "database",
+   "group": "③앱 서비스(로컬 dev)",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "environment": "dev",
+    "port": "6379",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "docker ps (v6-realtime-live-redis-1 0.0.0.0:6379->6379) · .worktrees/v6-realtime-live/.env 키 이름만"
+   }
+  },
+  {
+   "id": "hermes-gw",
+   "label": "Hermes 게이트웨이 (ai.hermes.gateway · Slack/Discord)",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)/데몬",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "runtime": "launchd",
+    "importance": 7,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 27
+   }
+  },
+  {
+   "id": "slack-mirror",
+   "label": "슬랙 미러 3 데몬 — plist 설치됨 · launchctl 미로드(실행 0) (github→slack · mbox→slack · slack→mbox inbound)",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)/데몬",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "runtime": "launchd(미로드)",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ls ~/Library/LaunchAgents | grep byz-.*-mirror|inbound · launchctl list | grep hermes.byz = 0행"
+   }
+  },
+  {
+   "id": "ft-ticks",
+   "label": "ft-tick 데몬 (v65 · cfo · kakao) — plist 설치됨 · launchctl 미로드(실행 0)",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)/데몬",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "runtime": "launchd(미로드)",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "ls ~/Library/LaunchAgents | grep ft-tick · launchctl list | grep ft-tick = 0행"
+   }
+  },
+  {
+   "id": "zombie-clean",
+   "label": "zombie-clean (세션·프로세스 정리)",
+   "kind": "service",
+   "group": "③앱 서비스(로컬 dev)/데몬",
+   "properties": {
+    "status": "사실",
+    "layer": "③앱 서비스(로컬 dev)",
+    "runtime": "launchd",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "launchctl list | grep zombie-clean"
+   }
+  },
+  {
+   "id": "oppa",
+   "label": "오빠 (HIL)",
+   "kind": "actor",
+   "group": "④하네스",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 10,
+    "trust_boundary": "human",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "line": 74
+   }
+  },
+  {
+   "id": "tmm",
+   "label": "tmm (폰 피커) / tmux attach",
+   "kind": "service",
+   "group": "④하네스",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "line": 74
+   }
+  },
+  {
+   "id": "planner",
+   "label": "planner byz-planner-arch#3 [fable-5-1]",
+   "kind": "service",
+   "group": "④하네스/planner(컨트롤 베이스)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 10,
+    "model": "fable-5-1",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "line": 76
+   }
+  },
+  {
+   "id": "issue-manager",
+   "label": "issue-manager ft-issue-manager#0 (세션 0 · 명부만)",
+   "kind": "service",
+   "group": "④하네스/planner(컨트롤 베이스)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 7,
+    "model": "sonnet-5-5",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 72
+   }
+  },
+  {
+   "id": "repro-e2e",
+   "label": "tester repro-e2e#0 (세션 0)",
+   "kind": "service",
+   "group": "④하네스/planner(컨트롤 베이스)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 72
+   }
+  },
+  {
+   "id": "v65-master",
+   "label": "v65 master ft-v65-master-claude#135·#136·#137 (13:48Z 셋 다 세션 있음) [sonnet-5-5]",
+   "kind": "service",
+   "group": "④하네스/v65(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 9,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "cmd": "tmux list-sessions (13:48Z)"
+   }
+  },
+  {
+   "id": "v65-seats",
+   "label": "v65 arch·tester·nano (지금 세션 0 · 명부 seats.json)",
+   "kind": "service",
+   "group": "④하네스/v65(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 72
+   }
+  },
+  {
+   "id": "cfo-master",
+   "label": "cfo FB_CFO#52 [opus-5-5]",
+   "kind": "service",
+   "group": "④하네스/cfo(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 9,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "cfo-seats",
+   "label": "cfo 하위 22행 (세션 0 · 정지 표시 누락)",
+   "kind": "service",
+   "group": "④하네스/cfo(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "line": 93
+   }
+  },
+  {
+   "id": "ho-master",
+   "label": "harness-ops ft-harness-ops#3 [sonnet-5-5]",
+   "kind": "service",
+   "group": "④하네스/harness-ops(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 9,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "ho-arch",
+   "label": "arch ft-harness-arch#3 [fable-5-1]",
+   "kind": "service",
+   "group": "④하네스/harness-ops(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "ho-da",
+   "label": "da ft-harness-da#1 [gpt-6.1-sol · codex]",
+   "kind": "service",
+   "group": "④하네스/harness-ops(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "ho-nano",
+   "label": "nano ft-harness-nano#1 [deepseek flash · opencode]",
+   "kind": "service",
+   "group": "④하네스/harness-ops(메인)",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "ccu",
+   "label": "ccu FB_CCU#12 (위성 · 지금 세션 0 · 명부 0)",
+   "kind": "service",
+   "group": "④하네스/위성",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "kk",
+   "label": "kk FB_KK#4 (위성 · 랜딩 후 닫힘)",
+   "kind": "service",
+   "group": "④하네스/위성",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "line": 105
+   }
+  },
+  {
+   "id": "mbox",
+   "label": "mbox 파일 큐 (.fable-team/comm/mailbox.jsonl · log · bodies · relay)",
+   "kind": "queue",
+   "group": "④하네스/공용 키트",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 9,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 75
+   }
+  },
+  {
+   "id": "seats",
+   "label": "명부 seats*.json ×6 (v65·cfo·kk·planner·harness·issues)",
+   "kind": "database",
+   "group": "④하네스/공용 키트",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 74
+   }
+  },
+  {
+   "id": "ft-bin",
+   "label": "ft-*.sh 36개 (실행 사본 = .worktrees/v6-realtime-live/.fable-team/bin)",
+   "kind": "service",
+   "group": "④하네스/공용 키트",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "importance": 7,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 76
+   }
+  },
+  {
+   "id": "other-repos",
+   "label": "같은 tmux 의 다른 레포: KakaoBot ×2 · airag ×2",
+   "kind": "service",
+   "group": "④하네스/트리 밖",
+   "properties": {
+    "status": "사실",
+    "layer": "④하네스",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 71
+   }
+  },
+  {
+   "id": "repo",
+   "label": "BYZ-Agents 루트 (main)",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 83
+   }
+  },
+  {
+   "id": "src",
+   "label": "gateway/ · worker/ · shared/ · clients/ · tests/ · scripts/",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 83
+   }
+  },
+  {
+   "id": "design",
+   "label": "design/ (harness · planner · v65 · cfo · ccu · kk)",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 85
+   }
+  },
+  {
+   "id": "docs",
+   "label": "docs/rules · CLAUDE.md",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 83
+   }
+  },
+  {
+   "id": "dot-claude",
+   "label": ".claude/ (hooks 15 · skills 17 · rules · agents)",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "importance": 7,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 84
+   }
+  },
+  {
+   "id": "dot-fable",
+   "label": ".fable-team/ (seats · comm · bin-* · state · checkpoint)",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 87
+   }
+  },
+  {
+   "id": "worktrees",
+   "label": ".worktrees/ ×137",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "importance": 7,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 86
+   }
+  },
+  {
+   "id": "state-gce",
+   "label": "state/gce-op-model/ (BREACH 원장)",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 59
+   }
+  },
+  {
+   "id": "baton",
+   "label": ".baton/ · .omc/ (세션 배턴·상태)",
+   "kind": "service",
+   "group": "⑤파일시스템/리포 BYZ-Agents",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 83
+   }
+  },
+  {
+   "id": "home-claude",
+   "label": "~/.claude (CLAUDE.md · rules · skills · hooks · archives · projects/*.jsonl)",
+   "kind": "service",
+   "group": "⑤파일시스템/홈 ~",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "importance": 8,
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 89
+   }
+  },
+  {
+   "id": "home-hermes",
+   "label": "~/.hermes (SOUL.md · config.yaml · bin · channel_roles)",
+   "kind": "service",
+   "group": "⑤파일시스템/홈 ~",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 90
+   }
+  },
+  {
+   "id": "home-codex",
+   "label": "~/.codex (AGENTS.md · config.toml)",
+   "kind": "service",
+   "group": "⑤파일시스템/홈 ~",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 90
+   }
+  },
+  {
+   "id": "home-baton",
+   "label": "~/.baton (current · versions)",
+   "kind": "service",
+   "group": "⑤파일시스템/홈 ~",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 90
+   }
+  },
+  {
+   "id": "launchagents",
+   "label": "~/Library/LaunchAgents/*.plist",
+   "kind": "service",
+   "group": "⑤파일시스템/홈 ~",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 14
+   }
+  },
+  {
+   "id": "tmp",
+   "label": "/tmp/mbox/*.md · /tmp/byz-*.log (30여)",
+   "kind": "service",
+   "group": "⑤파일시스템/tmp",
+   "properties": {
+    "status": "사실",
+    "layer": "⑤파일시스템",
+    "owner": "harness-ops"
+   },
+   "provenance": {
+    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "line": 91
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "web--gateway--sync",
+   "source": "web",
+   "target": "gateway",
+   "label": "HTTPS/SSE/WS",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "flutter--gateway--sync",
+   "source": "flutter",
+   "target": "gateway",
+   "label": "HTTPS",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "caddy--gateway--sync",
+   "source": "caddy",
+   "target": "gateway",
+   "label": "h2 역프록시",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "caddy--web--sync",
+   "source": "caddy",
+   "target": "web",
+   "label": "h2 역프록시",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "gateway--worker--async",
+   "source": "gateway",
+   "target": "worker",
+   "label": "job 발행",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "gateway--redis-dev--write",
+   "source": "gateway",
+   "target": "redis-dev",
+   "label": "상태·큐 (설정상)",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "worker--redis-dev--write",
+   "source": "worker",
+   "target": "redis-dev",
+   "label": "청크·결과 (설정상)",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "gateway--supabase--sync",
+   "source": "gateway",
+   "target": "supabase",
+   "label": "인증·DB",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--stt-providers--sync",
+   "source": "worker",
+   "target": "stt-providers",
+   "label": "STT",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--tts-providers--sync",
+   "source": "worker",
+   "target": "tts-providers",
+   "label": "TTS",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--llm-providers--sync",
+   "source": "worker",
+   "target": "llm-providers",
+   "label": "번역·polish",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--mt-providers--sync",
+   "source": "worker",
+   "target": "mt-providers",
+   "label": "번역",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--iap-tunnel-stt--sync",
+   "source": "worker",
+   "target": "iap-tunnel-stt",
+   "label": "GPU STT",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--py-8000--sync",
+   "source": "worker",
+   "target": "py-8000",
+   "label": "GPU LLM (설정상 · 트래픽 미관측)",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "py-8000--gcp-iap--sync",
+   "source": "py-8000",
+   "target": "gcp-iap",
+   "label": "IAP",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "iap-tunnel-embed--gcp-iap--sync",
+   "source": "iap-tunnel-embed",
+   "target": "gcp-iap",
+   "label": "IAP",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--iap-tunnel-embed--sync",
+   "source": "worker",
+   "target": "iap-tunnel-embed",
+   "label": "loom embed",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "iap-tunnel-embed--qdrant--sync",
+   "source": "iap-tunnel-embed",
+   "target": "qdrant",
+   "label": "벡터 (설정상 · env 이름 근거)",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "worker--langsmith--async",
+   "source": "worker",
+   "target": "langsmith",
+   "label": "트레이스",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "iap-tunnel-stt--gcp-iap--sync",
+   "source": "iap-tunnel-stt",
+   "target": "gcp-iap",
+   "label": "IAP",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "iap-tunnel-llm--gcp-iap--sync",
+   "source": "iap-tunnel-llm",
+   "target": "gcp-iap",
+   "label": "IAP",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "gcp-iap--gcp-gce-gpu--sync",
+   "source": "gcp-iap",
+   "target": "gcp-gce-gpu",
+   "label": "터널",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "gce-guard--gcp-gce-gpu--read",
+   "source": "gce-guard",
+   "target": "gcp-gce-gpu",
+   "label": "봉투 감시",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "gce-guard--state-gce--write",
+   "source": "gce-guard",
+   "target": "state-gce",
+   "label": "BREACH 원장",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "ssh-tunnels--pg-containers--sync",
+   "source": "ssh-tunnels",
+   "target": "pg-containers",
+   "label": "colima 포트 포워드",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "gateway--postgres-local--sync",
+   "source": "gateway",
+   "target": "postgres-local",
+   "label": "로컬 DB (설정상 · 미확정)",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "mac--supabase-local--control",
+   "source": "mac",
+   "target": "supabase-local",
+   "label": "docker 호스트 (사용 앱 미기재)",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "mac--qdrant-local--control",
+   "source": "mac",
+   "target": "qdrant-local",
+   "label": "docker 호스트 (사용 앱 미기재)",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "mac--pg-containers--control",
+   "source": "mac",
+   "target": "pg-containers",
+   "label": "docker 호스트 (사용 앱 미기재)",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "mac--langfuse--control",
+   "source": "mac",
+   "target": "langfuse",
+   "label": "docker 호스트 (사용 앱 미기재)",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "ssh-tunnels--langfuse--sync",
+   "source": "ssh-tunnels",
+   "target": "langfuse",
+   "label": "colima 포트 포워드",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "ssh-tunnels--supabase-local--sync",
+   "source": "ssh-tunnels",
+   "target": "supabase-local",
+   "label": "colima 포트 포워드",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "src--ops-accounts-pg--read",
+   "source": "src",
+   "target": "ops-accounts-pg",
+   "label": "pytest 픽스처",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "src--redis-fixtures--read",
+   "source": "src",
+   "target": "redis-fixtures",
+   "label": "pytest 픽스처",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "cloudflared--cloudflare--sync",
+   "source": "cloudflared",
+   "target": "cloudflare",
+   "label": "터널",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "chrome-cdp--web--sync",
+   "source": "chrome-cdp",
+   "target": "web",
+   "label": "press (trusted click)",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "ollama--worker--sync",
+   "source": "ollama",
+   "target": "worker",
+   "label": "로컬 LLM(선택)",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "github--gcp-cloudrun--deploy",
+   "source": "github",
+   "target": "gcp-cloudrun",
+   "label": "배포(CD)",
+   "kind": "deploy",
+   "properties": {}
+  },
+  {
+   "id": "repo--github--deploy",
+   "source": "repo",
+   "target": "github",
+   "label": "push",
+   "kind": "deploy",
+   "properties": {}
+  },
+  {
+   "id": "gcp-cloudrun--supabase--sync",
+   "source": "gcp-cloudrun",
+   "target": "supabase",
+   "label": "prod 인증·DB",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "gcp-cloudrun--stt-providers--sync",
+   "source": "gcp-cloudrun",
+   "target": "stt-providers",
+   "label": "prod STT",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "cliproxy--agent-upstream--sync",
+   "source": "cliproxy",
+   "target": "agent-upstream",
+   "label": "구독 상류",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "headroom--cliproxy--sync",
+   "source": "headroom",
+   "target": "cliproxy",
+   "label": "fail-open 래퍼",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "tmux--headroom--sync",
+   "source": "tmux",
+   "target": "headroom",
+   "label": "프로젝트 레벨 BASE_URL",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "tmux--agent-upstream--sync",
+   "source": "tmux",
+   "target": "agent-upstream",
+   "label": "claude·codex 직결",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "tmux--perplexity--sync",
+   "source": "tmux",
+   "target": "perplexity",
+   "label": "리서치",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "mac--launchd--control",
+   "source": "mac",
+   "target": "launchd",
+   "label": "데몬 호스트",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "mac--tmux--control",
+   "source": "mac",
+   "target": "tmux",
+   "label": "좌석 호스트",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--ft-ticks--control",
+   "source": "launchd",
+   "target": "ft-ticks",
+   "label": "plist 있음 · 미로드",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--slack-mirror--control",
+   "source": "launchd",
+   "target": "slack-mirror",
+   "label": "plist 있음 · 미로드",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--hermes-gw--control",
+   "source": "launchd",
+   "target": "hermes-gw",
+   "label": "기동",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--gce-guard--control",
+   "source": "launchd",
+   "target": "gce-guard",
+   "label": "기동",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--zombie-clean--control",
+   "source": "launchd",
+   "target": "zombie-clean",
+   "label": "기동",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--cliproxy--control",
+   "source": "launchd",
+   "target": "cliproxy",
+   "label": "기동",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--headroom--control",
+   "source": "launchd",
+   "target": "headroom",
+   "label": "기동",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchd--cloudflared--control",
+   "source": "launchd",
+   "target": "cloudflared",
+   "label": "기동",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "launchagents--launchd--read",
+   "source": "launchagents",
+   "target": "launchd",
+   "label": "plist",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "zombie-clean--tmux--control",
+   "source": "zombie-clean",
+   "target": "tmux",
+   "label": "세션 정리 (keep-last-1)",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "ft-ticks--mbox--mbox",
+   "source": "ft-ticks",
+   "target": "mbox",
+   "label": "틱 알림 (설정 · 비활성)",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "oppa--tmm--control",
+   "source": "oppa",
+   "target": "tmm",
+   "label": "폰·터미널",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "tmm--tmux--control",
+   "source": "tmm",
+   "target": "tmux",
+   "label": "attach",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "oppa--planner--control",
+   "source": "oppa",
+   "target": "planner",
+   "label": "지시 · AskUserQuestion",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "planner--issue-manager--control",
+   "source": "planner",
+   "target": "issue-manager",
+   "label": "Issue 큐 도구 (Issue 배분은 매니저)",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "issue-manager--repro-e2e--control",
+   "source": "issue-manager",
+   "target": "repro-e2e",
+   "label": "재현 e2e",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "issue-manager--github--sync",
+   "source": "issue-manager",
+   "target": "github",
+   "label": "Issue 폴링·PR",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "planner--v65-master--mbox",
+   "source": "planner",
+   "target": "v65-master",
+   "label": "큐 갱신·판정 통지 (mbox)",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "planner--cfo-master--mbox",
+   "source": "planner",
+   "target": "cfo-master",
+   "label": "큐 갱신·판정 통지 (mbox)",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "planner--ho-master--mbox",
+   "source": "planner",
+   "target": "ho-master",
+   "label": "큐 갱신·판정 통지 (mbox)",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "planner--ccu--mbox",
+   "source": "planner",
+   "target": "ccu",
+   "label": "큐 갱신·판정 통지 (mbox · 위성)",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "planner--kk--mbox",
+   "source": "planner",
+   "target": "kk",
+   "label": "큐 갱신·판정 통지 (mbox · 위성)",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "v65-master--v65-seats--mbox",
+   "source": "v65-master",
+   "target": "v65-seats",
+   "label": "발주·보고",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "cfo-master--cfo-seats--mbox",
+   "source": "cfo-master",
+   "target": "cfo-seats",
+   "label": "발주·보고",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "ho-master--ho-arch--mbox",
+   "source": "ho-master",
+   "target": "ho-arch",
+   "label": "발주·보고",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "ho-arch--ho-da--mbox",
+   "source": "ho-arch",
+   "target": "ho-da",
+   "label": "DA 사실 정합",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "ho-arch--ho-nano--mbox",
+   "source": "ho-arch",
+   "target": "ho-nano",
+   "label": "사실 수집 발주",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "ccu--v65-master--mbox",
+   "source": "ccu",
+   "target": "v65-master",
+   "label": "GPU·오디오 순번 요청",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "ho-master--planner--mbox",
+   "source": "ho-master",
+   "target": "planner",
+   "label": "[HIL] _hil_route",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "issue-manager--planner--mbox",
+   "source": "issue-manager",
+   "target": "planner",
+   "label": "[HIL] _hil_route",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "planner--mbox--mbox",
+   "source": "planner",
+   "target": "mbox",
+   "label": "send/recv",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "v65-master--mbox--mbox",
+   "source": "v65-master",
+   "target": "mbox",
+   "label": "send/recv",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "cfo-master--mbox--mbox",
+   "source": "cfo-master",
+   "target": "mbox",
+   "label": "send/recv",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "ho-master--mbox--mbox",
+   "source": "ho-master",
+   "target": "mbox",
+   "label": "send/recv",
+   "kind": "mbox",
+   "properties": {}
+  },
+  {
+   "id": "mbox--slack-mirror--async",
+   "source": "mbox",
+   "target": "slack-mirror",
+   "label": "mbox→slack 미러 (설정 · 비활성)",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "slack-mirror--slack--async",
+   "source": "slack-mirror",
+   "target": "slack",
+   "label": "발행 (설정 · 비활성)",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "slack--slack-mirror--async",
+   "source": "slack",
+   "target": "slack-mirror",
+   "label": "inbound → mbox (설정 · 비활성)",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "slack-mirror--mbox--async",
+   "source": "slack-mirror",
+   "target": "mbox",
+   "label": "slack→mbox inbound (설정 · 비활성)",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "github--slack-mirror--async",
+   "source": "github",
+   "target": "slack-mirror",
+   "label": "Issue·PR 이벤트 (설정 · 비활성)",
+   "kind": "async",
+   "properties": {}
+  },
+  {
+   "id": "hermes-gw--slack--sync",
+   "source": "hermes-gw",
+   "target": "slack",
+   "label": "Slack/Discord 봇",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "ho-master--slack--deploy",
+   "source": "ho-master",
+   "target": "slack",
+   "label": "배포 발행 (RELEASE)",
+   "kind": "deploy",
+   "properties": {}
+  },
+  {
+   "id": "slack--jarvis--deploy",
+   "source": "slack",
+   "target": "jarvis",
+   "label": "배포 수신 → 반영 (표 C · 아직 0)",
+   "kind": "deploy",
+   "properties": {}
+  },
+  {
+   "id": "slack--byz-mac--deploy",
+   "source": "slack",
+   "target": "byz-mac",
+   "label": "배포 수신 → 반영 (표 C · 아직 0)",
+   "kind": "deploy",
+   "properties": {}
+  },
+  {
+   "id": "mac--tailscale--sync",
+   "source": "mac",
+   "target": "tailscale",
+   "label": "100.x 메시",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "tailscale--byz-mac--sync",
+   "source": "tailscale",
+   "target": "byz-mac",
+   "label": "tailscale ping 1회 direct 미성립 (relay 경로 · 미확정)",
+   "kind": "sync",
+   "properties": {}
+  },
+  {
+   "id": "seats--mbox--read",
+   "source": "seats",
+   "target": "mbox",
+   "label": "tick 유무 → 도어벨",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "tmux--seats--read",
+   "source": "tmux",
+   "target": "seats",
+   "label": "좌석 실재",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "ft-bin--seats--write",
+   "source": "ft-bin",
+   "target": "seats",
+   "label": "spawn/close 가 씀",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "ft-bin--mbox--read",
+   "source": "ft-bin",
+   "target": "mbox",
+   "label": "tick peek/recv",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "ft-bin--home-claude--read",
+   "source": "ft-bin",
+   "target": "home-claude",
+   "label": "reach-check: projects/*.jsonl 세션 기록 읽기",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "other-repos--tmux--control",
+   "source": "other-repos",
+   "target": "tmux",
+   "label": "같은 서버",
+   "kind": "control",
+   "properties": {}
+  },
+  {
+   "id": "ho-arch--design--write",
+   "source": "ho-arch",
+   "target": "design",
+   "label": "설계 정본 (diagrams/)",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "ho-arch--dot-claude--read",
+   "source": "ho-arch",
+   "target": "dot-claude",
+   "label": "스킬 drawio-skill 사용",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "v65-master--worktrees--read",
+   "source": "v65-master",
+   "target": "worktrees",
+   "label": "v6-realtime-live",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "cfo-master--worktrees--read",
+   "source": "cfo-master",
+   "target": "worktrees",
+   "label": "c-level-planning",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "ho-master--worktrees--read",
+   "source": "ho-master",
+   "target": "worktrees",
+   "label": "harness-ops",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "planner--worktrees--read",
+   "source": "planner",
+   "target": "worktrees",
+   "label": "v6-realtime-live",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "worktrees--ft-bin--read",
+   "source": "worktrees",
+   "target": "ft-bin",
+   "label": "실행 사본 위치",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "dot-fable--mbox--read",
+   "source": "dot-fable",
+   "target": "mbox",
+   "label": "comm/",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "dot-fable--seats--read",
+   "source": "dot-fable",
+   "target": "seats",
+   "label": "seats*.json",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--src--read",
+   "source": "repo",
+   "target": "src",
+   "label": "코드",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--design--read",
+   "source": "repo",
+   "target": "design",
+   "label": "설계",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--docs--read",
+   "source": "repo",
+   "target": "docs",
+   "label": "규칙",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--dot-claude--read",
+   "source": "repo",
+   "target": "dot-claude",
+   "label": "훅·스킬",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--dot-fable--read",
+   "source": "repo",
+   "target": "dot-fable",
+   "label": "하네스 상태",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--worktrees--read",
+   "source": "repo",
+   "target": "worktrees",
+   "label": "137",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--state-gce--read",
+   "source": "repo",
+   "target": "state-gce",
+   "label": "원장",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "repo--baton--read",
+   "source": "repo",
+   "target": "baton",
+   "label": "배턴",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "home-claude--tmux--read",
+   "source": "home-claude",
+   "target": "tmux",
+   "label": "전역 CLAUDE.md·rules·hooks 로드",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "home-claude--dot-claude--read",
+   "source": "home-claude",
+   "target": "dot-claude",
+   "label": "글로벌 ↔ 프로젝트 훅",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "home-hermes--hermes-gw--read",
+   "source": "home-hermes",
+   "target": "hermes-gw",
+   "label": "SOUL·config",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "home-codex--ho-da--read",
+   "source": "home-codex",
+   "target": "ho-da",
+   "label": "AGENTS.md",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "home-baton--baton--read",
+   "source": "home-baton",
+   "target": "baton",
+   "label": "버전",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "mbox--tmp--write",
+   "source": "mbox",
+   "target": "tmp",
+   "label": "relay 전문",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "gateway--tmp--write",
+   "source": "gateway",
+   "target": "tmp",
+   "label": "byz-*.log",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "worker--tmp--write",
+   "source": "worker",
+   "target": "tmp",
+   "label": "byz-*.log",
+   "kind": "write",
+   "properties": {}
+  },
+  {
+   "id": "src--gateway--read",
+   "source": "src",
+   "target": "gateway",
+   "label": "코드",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "src--worker--read",
+   "source": "src",
+   "target": "worker",
+   "label": "코드",
+   "kind": "read",
+   "properties": {}
+  },
+  {
+   "id": "src--web--read",
+   "source": "src",
+   "target": "web",
+   "label": "코드",
+   "kind": "read",
+   "properties": {}
+  }
+ ],
+ "views": [
+  {
+   "id": "a-fullstack",
+   "name": "ⓐ 풀스택 개관",
+   "direction": "TB",
+   "nodes": [
+    "slack",
+    "github",
+    "supabase",
+    "gcp-cloudrun",
+    "gcp-iap",
+    "gcp-gce-gpu",
+    "stt-providers",
+    "llm-providers",
+    "agent-upstream",
+    "mac",
+    "jarvis",
+    "byz-mac",
+    "tailscale",
+    "tmux",
+    "iap-tunnel-stt",
+    "cliproxy",
+    "gateway",
+    "worker",
+    "web",
+    "redis-dev",
+    "slack-mirror",
+    "oppa",
+    "planner",
+    "v65-master",
+    "cfo-master",
+    "ho-master",
+    "mbox",
+    "ft-bin",
+    "repo",
+    "dot-fable",
+    "worktrees",
+    "home-claude"
+   ]
+  },
+  {
+   "id": "b-infra",
+   "name": "ⓑ 인프라·배포 (머신·포트·터널·표 C 자리)",
+   "direction": "TB",
+   "nodes": [
+    "slack",
+    "github",
+    "supabase",
+    "gcp-cloudrun",
+    "gcp-iap",
+    "gcp-gce-gpu",
+    "stt-providers",
+    "tts-providers",
+    "llm-providers",
+    "mt-providers",
+    "qdrant",
+    "langsmith",
+    "perplexity",
+    "cloudflare",
+    "agent-upstream",
+    "mac",
+    "jarvis",
+    "byz-mac",
+    "tailscale",
+    "launchd",
+    "tmux",
+    "caddy",
+    "iap-tunnel-stt",
+    "iap-tunnel-llm",
+    "iap-tunnel-embed",
+    "py-8000",
+    "ssh-tunnels",
+    "postgres-local",
+    "ops-accounts-pg",
+    "redis-fixtures",
+    "supabase-local",
+    "qdrant-local",
+    "pg-containers",
+    "langfuse",
+    "cliproxy",
+    "headroom",
+    "cloudflared",
+    "ollama",
+    "chrome-cdp",
+    "gce-guard",
+    "gateway",
+    "worker",
+    "web",
+    "flutter",
+    "redis-dev",
+    "hermes-gw",
+    "slack-mirror",
+    "ft-ticks",
+    "zombie-clean",
+    "repo",
+    "state-gce",
+    "launchagents",
+    "tmp",
+    "src"
+   ]
+  },
+  {
+   "id": "c-harness",
+   "name": "ⓒ 하네스 오케 트리·메시지 흐름 (P2·P8)",
+   "direction": "TB",
+   "nodes": [
+    "oppa",
+    "tmm",
+    "planner",
+    "issue-manager",
+    "repro-e2e",
+    "v65-master",
+    "v65-seats",
+    "cfo-master",
+    "cfo-seats",
+    "ho-master",
+    "ho-arch",
+    "ho-da",
+    "ho-nano",
+    "ccu",
+    "kk",
+    "mbox",
+    "seats",
+    "ft-bin",
+    "other-repos",
+    "tmux",
+    "launchd",
+    "slack",
+    "github",
+    "slack-mirror",
+    "hermes-gw",
+    "ft-ticks",
+    "zombie-clean",
+    "jarvis",
+    "byz-mac",
+    "worktrees",
+    "dot-fable",
+    "tmp"
+   ]
+  },
+  {
+   "id": "d-filesystem",
+   "name": "ⓓ 로컬 파일시스템 지도",
+   "direction": "TB",
+   "nodes": [
+    "repo",
+    "src",
+    "design",
+    "docs",
+    "dot-claude",
+    "dot-fable",
+    "worktrees",
+    "state-gce",
+    "baton",
+    "home-claude",
+    "home-hermes",
+    "home-codex",
+    "home-baton",
+    "launchagents",
+    "tmp",
+    "tmux",
+    "mbox",
+    "seats",
+    "ft-bin",
+    "gateway",
+    "worker",
+    "web",
+    "gce-guard",
+    "launchd",
+    "hermes-gw",
+    "ho-da",
+    "ho-arch",
+    "github"
+   ]
+  }
+ ]
+}

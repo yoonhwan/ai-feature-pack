@@ -1,0 +1,6 @@
+# GCE 감시 — 미해소 사건 2026-10-05T13:23:48Z
+
+- **A1P:ccu-stress-stt-tts** · escalated · 최초 2026-10-04 19:27 · 26h 경과
+- **A1P:ccu-stress-vllm** · escalated · 최초 2026-10-04 19:27 · 26h 경과
+
+상세: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/state/gce-op-model/gce-guard-check.last.log · 원장: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/state/gce-op-model/BREACH.ledger (해소 시 자동으로 이 뷰에서 빠짐)

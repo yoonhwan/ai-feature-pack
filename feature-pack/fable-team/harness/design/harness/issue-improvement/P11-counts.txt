@@ -1,0 +1,3 @@
+worktrees(git):      137
+remote branches:      419
+.worktrees dirs:      135

@@ -1,0 +1,26 @@
+last_epoch() {  # $1 session  $2 window_activity  $3 midnight_epoch  $4 now  →  "epoch <:|~>"
+  local txt ampm h m t
+  txt="$(tmux capture-pane -t "=$1:" -p -S -300 2>/dev/null | tr -s '\n ' '  ')"
+  # 한국어 로케일 "done 오후 12:56" / 영어 로케일 "done 12:56 PM" 둘 다
+  if [[ "$txt" =~ done\ +(오전|오후)\ +([0-9]{1,2}):([0-9]{2}) ]]; then
+    ampm="${BASH_REMATCH[1]}"; h=$((10#${BASH_REMATCH[2]})); m=$((10#${BASH_REMATCH[3]}))
+  elif [[ "$txt" =~ done\ +([0-9]{1,2}):([0-9]{2})\ +(AM|PM) ]]; then
+    h=$((10#${BASH_REMATCH[1]})); m=$((10#${BASH_REMATCH[2]})); ampm="${BASH_REMATCH[3]}"
+  else
+    echo "${2:-0} ~"; return
+  fi
+200:  #   목록의 카테고리 «열»만 5자로 자른다(cmd_rows / cmd_dead_rows).
+217:scan_fresh() { rm -f "$CACHE"; scan_cached; }
+307:cmd_rows() {
+308:  local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat pcmd live act ep src now mid nw cw
+312:    while read -r name state _; do ST["$name"]="$state"; done < <(scan_fresh)
+362:# 직전 스캔 대비 «새로» 대기(HUMAN/BLOCK/STUCK)가 된 좌석이 있으면 벨 플래그. 호출자(cmd_rows)의 ST 를 읽는다.
+375:cmd_rows_cur() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여기만 부르므로, dead 뷰인데 live 목록으로 되돌아가면 안 된다
+380:    cmd_rows "${m:-time}" "${o:-}" "${1:-}" > "$tmp"
+390:cmd_rows_boot() {
+399:    cmd_rows_cur
+507:  cmd_rows_cur > "$RUN/tabrows"
+1028:cmd_ls() { local pat="${1:-}"; cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; }
+1258:      2>>"$STATE/fzf-stderr.log" < <(cmd_rows_boot))"; rc=$?
+1328:  rows)      cmd_rows "${2:-time}" "${3:-}" "${4:-}";;
+1329:  rows-boot) cmd_rows_boot;;                    # 부팅 첫 화면: 직전 스냅샷 즉시 → start 에서 갱신

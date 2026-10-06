@@ -1,0 +1,34 @@
+SESSION	CREATED_EPOCH	AGENT	WORKTREE	CHILD
+FB_CCU#12	1791098795	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ccu-stress	43155 2.1.289
+FB_CFO#52	1791033499	claude(2.1.288)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning	31492 2.1.288
+KakaoBot#14	1790923144	claude(2.1.287)	/Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap	86344 2.1.287
+KakaoBot#17	1791087658	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap	8168 2.1.289
+byz-planner-arch#1	1791083974	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	93111 2.1.289
+byz-planner-arch#3	1791100133	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	24754 2.1.289
+ft-airag-helm-claude#4	1791002691	claude(2.1.288)	/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant	45536 mcp-server-darw
+ft-airag-helm-claude#5	1791084080	claude(2.1.289)	/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant	16882 mcp-server-darw
+ft-airag-master-claude#2	1791084184	claude(2.1.289)	/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant	44300 2.1.289
+ft-harness-arch#0	1791114309	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	45475 2.1.289
+ft-harness-da#1	1791169826	codex(node)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	59158 node
+ft-harness-nano#1	1791169832	opencode	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	
+ft-harness-ops#0	1791087835	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	42417 2.1.289
+ft-harness-ops#1	1791101341	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	28595 2.1.289
+ft-harness-ops#2	1791170883	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	959 2.1.289
+ft-issue-manager#0	1791088003	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/issue-manager	71535 2.1.289
+ft-kakao-architect#27	1791090165	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap	22638 2.1.289
+ft-kakao-architect#28	1791111378	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap	62307 2.1.289
+ft-kakao-da#21	1791169516	codex(node)	/Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap	16234 node
+ft-kakao-nano-canary-inject#0	1791170074	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/v65-canary-inject	89137 2.1.289
+ft-kakao-nano-ops-005-notice-wire#0	1791091817	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/v65-ops-005-notice-wire	77554 2.1.289
+ft-kakao-nano-send-preview#0	1791102495	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/v65-send-preview	95701 2.1.289
+ft-kakao-nano-send-preview#1	1791108951	claude(2.1.289)	/Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap	33220 2.1.289
+ft-v65-arch-claude#155	1791100245	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-732-redis-audio-ref	46253 2.1.289
+ft-v65-master-claude#135	1791073031	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	88695 2.1.289
+ft-v65-master-claude#136	1791100034	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	9637 2.1.289
+ft-v65-temp-m7-p90-lang-update-gap-decomposition#0	1791104768	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-p90-lang-update-gap-decomposition	6505 2.1.289
+ft-v65-temp-m7-p90f-n06-n10-durable-four-of-five-rea#0	1791104790	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-p90f-n06-n10-durable-four-of-five-rea	11716 2.1.289
+ft-v65-tester-claude#13	1791101991	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	87260 2.1.289
+repro-e2e#0	1791088008	claude(2.1.289)	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/repro-main	72516 2.1.289
+tmm	1791086498	shell/none	/Users/yoonhwan	97356 bash
+
+TOTAL=31

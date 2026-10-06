@@ -1,0 +1,10 @@
+[tcc8] 07:04:34 ★E-4 채록★ {'services': {'fe': {'port': 3001, 'pid': 68407, 'started_utc': '2026-10-02T21:56:25Z'}, 'gateway': {'port': 8080, 'pid': 68342, 'started_utc': '2026-10-02T21:56:24Z'}, 'worker': {'port': 8081, 'pid': 15269, 'started_utc': '2026-10-02T22:00:14Z'}}, 'latest_product_commit': {'sha': 'b63beaf443d9bc6e1d6da56e57fa8f332da1d145', 'utc': '2026-10-02T21:49:57Z'}}
+[tcc8] 07:04:34 tab closed target=B2225C0FC0EDCF61C7E4FBC5ECA88BB5
+[tcc8] 07:04:34 opening fresh tab: http://localhost:3001/realtime?mockHostId=m7-press-seq-live-001&lst=1&polishDiff=1&domain=dental_snudh&audience=clinician&environment=clinical_visit&diag=tcc8comp
+[tcc8] 07:04:34 ★press_lst=1★ (LST ON) url=http://localhost:3001/realtime?mockHostId=m7-press-seq-live-001&lst=1&polishDiff=1&domain=dental_snudh&audience=clinician&environment=clinical_visit&diag=tcc8comp
+[tcc8] 07:04:34 new tab ws=ws://localhost:9333/devtools/page/92929A35789D78919394EC30C18016D8 target_id=92929A35789D78919394EC30C18016D8
+[tcc8] 07:04:34 ★poller_dom★ 기동 pid=65850 -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/scratchpad/tcc8-completion-press/m7-press-seq-live-001/poller_dom.jsonl
+[tcc8] 07:04:34 ★FE-CONSOLE★ Runtime.consoleAPICalled {"type": "info", "args": [{"type": "string", "value": "[conversation:settings]"}, {"type": "object", "className": "Object", "description": "Object", "objectId": "-3366277823287187322.2.1", "preview": {"type": "object", "description": "Object", "overflow": fals
+[tcc8] 07:04:35 pump start (poller live capture) budget=220.0s groups=4
+[tcc8] 07:04:35 [A8-DEV:pre] out=Multi-Output Device in=BlackHole 2ch sr_in=None sr_out=None
+

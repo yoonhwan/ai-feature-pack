@@ -1,0 +1,96 @@
+# C16 ft-issue-classify.sh 실제 열린 Issue 1회 읽기 (gh issue list --state open · 읽기 전용 · gh 쓰기 0) — 2026-10-06 00:21 KST
+번호 | 작성 경로 | 처리 분기 | 발견 지연 | 판단 근거 | 빠진 라벨 계열 | 제목
+#827 | 미분류 | 그대로 | 미발견 · 나이 1일6시간 | 마커 없음 | priority | worker D job 직렬 줄서기 — 확정 지연이 동시 사용자 수에 비례 (N=1 6.9
+#826 | 미분류 | 그대로 | 미발견 · 나이 1일6시간 | 마커 없음 | priority | worker 단위 시험 비-RED 실패 10건 — custody_probe 5·vad_ca
+#825 | 미분류 | 그대로 | 미발견 · 나이 1일6시간 | 마커 없음 | priority | pytest 마커 red 분리 — _red.py 의도 RED 97건(15파일)을 게이트에서
+#821 | 미분류 | 그대로 | 미발견 · 나이 1일7시간 | 마커 없음 | priority | 세로 분할 타임라인에서 partial 번역 미표시 — VerticalSplitLayout 
+#820 | 미분류 | 그대로 | 발견 +0시간 | 마커 없음 | priority | Slack→mbox 역방향 — #byz-planner 스레드 reply 가 소유 좌석 mb
+#819 | 미분류 | 그대로 | 발견 +0시간 | 마커 없음 | priority | main CI 빨강 — Python Test·Web Test 2잡 연속 failure (d
+#816 | 미분류 | 그대로 | 미발견 · 나이 1일7시간 | 마커 없음 | priority | [harness] 라이브 하네스 bin = main 추적본 1:1 — 채택·설치·드리프트 
+#813 | 미분류 | 그대로 | 미발견 · 나이 1일7시간 | 마커 없음 | priority | [harness] mbox.sh 추적본≠라이브 (diff 81줄) — 라이브를 정본으로 동
+#809 | 미분류 | 그대로 | 미발견 · 나이 1일8시간 | 마커 없음 | priority | main 4e13c158d4 전체 세트 136 failed/22 errors 분류
+#800 | 미분류 | 그대로 | 미발견 · 나이 1일10시간 | 마커 없음 | priority | [harness] R2 COMM-GUIDE-BOOT 매핑표 sha 정합 미검 · ft-ve
+#798 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] category-base-domain-sharing — 카테고리 그룹별 베이스 
+#797 | 미분류 | 그대로 | 미발견 · 나이 1일11시간 | 마커 없음 | priority | [v65] V28 라이브 STT VM metadata container-image v3 ≠
+#796 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] static-gate-frozen-anchor — 정적 게이트가 기준점을 얼린 
+#795 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] selfhost-pricing-alignment — 자체 서버로 돌려도 과금은 
+#794 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] rag-query-leaves-our-server — 지식 검색 질의가 ★우리 
+#793 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] ops-accounts-sa-repair — 운영툴 계정 «수리 버튼» + ga
+#792 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] data-sovereignty-switch — 번역이 우리 서버에서만 도는지는 
+#791 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] arch-canon-ops-cfo — 운영툴·CFO 작업 아키텍처 정본화
+#790 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] worker-unit-test-speed — 테스트 하나하나가 너무 느린 것
+#789 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] rag-ops-console-connect — 관리자 등록 지식(RAG)을 실제
+#788 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] org-result-cache-on — 고객사 도메인 번역 결과 캐시 ON (세
+#787 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] migrate-lua-partial-write — legacy 환산 `_MIGR
+#786 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] live-defects-from-pr1-fe-check — PR-1 라이브 FE
+#785 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] compose-inputs-to-db — 합성 입력 전부 DB 로 이관
+#784 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] auth-route-log-pii-traceback — 인증 라우트 공용 로그가
+#783 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] vector-rag-ready — 오픈 기준 D — vector·RAG 가 준비
+#782 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] two-domain-live — 오픈 기준 A — 호텔·병원 두 도메인 동시로 
+#781 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] slot-rem-disposition — 얼어붙은 잔여 필드 처분 — ★오빠 판
+#780 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] seoul-migration — 서울 Cloud SQL·Memorystore 생
+#779 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] sales-pipeline — 누가 어느 단계에 있나
+#778 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] overdraft-recording-8-3 — 약관 8조3항 — 초과 사용 기록
+#777 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] ops-console — 기획·목업·검토가 이미 있다
+#776 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] ops-accounts-pg-canon — 판정 266 오빠 지시 「accoun
+#775 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] hotel-mou — 협회 검토 의견 수신 후 ★회신 발송 완료★(2026-09
+#774 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] domain-layer-compose — 오픈 기준 C — 도메인 계층이 실제로
+#773 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] credit-durability — 잔액이 Redis 에만 살아 RPO 1시간(
+#772 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] cost-ssot — 1494행 · version_hash c5647 · 오늘 
+#771 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] credit-consume-failure-recovery-ledger-l1-l6
+#770 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] credit-consume-failure-postmerge-hardening —
+#769 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | planner_task 칸 골좌표 + 닫는 증거 | priority | [cfo] contract-clause8 — 계약 조항 8 (v3.4).
+#768 | 미분류 | 그대로 | 미발견 · 나이 1일11시간 | 마커 없음 | priority | [planner] P5 OCI 나노 호스트 PoC(jarvis · 문서 카드 1장 → PR
+#767 | 미분류 | 그대로 | 발견 +0시간 | 마커 없음 | priority | [planner] v65 착수 GO 행 — 순서 추천 V12→V13→V1 · 오빠 GO 줄
+#766 | 미분류 | 그대로 | 미발견 · 나이 1일11시간 | 마커 없음 | priority | [planner] P2 미분류 3묶음(FB_ARCHDOC·ft-airag·KakaoBot)
+#765 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C15 main G1 가드 broad_catch 해석기 변경 통지 수용/반론
+#763 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] C13e uk 라이브 LST ON 실측 선행
+#762 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] C13d 한 조각 FATAL 뒤 press 나머지 폐기(0819 계약) 변경
+#761 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [harness] C13c FT pack wip/ft-version-0923 9b7b93c
+#760 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C13b 완성 후 이관 4(HIL-master129-002 #2)
+#759 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] C13a seam 꼬리 «봉인까지 일시 이중» 길이 진단
+#758 | ① 기획 세션 | 그대로 | 발견 +0시간 | BOARD 행 표 골좌표 | priority | [cfo] C12 공용 Redis socket_timeout=None 무기한 await —
+#757 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C11 LOOM_KNOWLEDGE_PACK_KEY 켜기 전 확인 4항(ORDER
+#756 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [planner] C10 CCU 리포트 7 인계 분류
+#755 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65/cfo] C9 완성 후 묶음 7(PTT 재증명·CPU 2단계·455 포렌식·원자성
+#754 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C8 R4 코퍼스 학습 동의(약관·토글·끄기)
+#753 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [ccu] C7b TTL 원장 측정 입력(동시접속 하 키 수·만료)
+#752 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C7a Redis 키 TTL·lease 정리 원장
+#751 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [planner] C6 worker 수평 확장·서브워커 — 분류 판정(ccu u 값 뒤)
+#750 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C5 시간·비용 축 원장 재작성 · ops 조회 출처 · 코퍼스 30일 배치 ·
+#749 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C4 외부 호출 7s 전역 상수 · 비라이브 진입점 5~8
+#748 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C3 loom DB 매 조회 설계
+#747 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C2 공용 직렬 큐
+#746 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [cfo] C1 async 루프 위 동기 I/O 정본화 + DB 풀 + Redis 원자성(
+#744 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [planner] V26 워크트리 정리 2차 — ① 10·② 1·③ dirty 77·④ 6
+#743 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V25 restart-worker 가 c2c worker 못 내림 — DA⑥ 6
+#742 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V24 P1 order floor·C2 재발행 — dev 라이브 4자 표 1회
+#741 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V23 세션 소유 결속 1단계 init fence — DA⑥ 재심(inbox/d
+#740 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [planner] V22 진행/ 카드 재분류 잔여 — C 4장 대기/ 복귀 + 진행/ 잔존
+#739 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V21 PEL B 영구 거절 분류 재설계 — 여는 조건 PEL 재발
+#738 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V20 아티팩트 4종 같은 URL 갱신(ccu u 값 뒤)
+#737 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [harness] V19 트랙별 FT 분담 적용(env 표준화·CCU launchd·나노 
+#736 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V17 act_green_polisher frozen dataclass·orph
+#735 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V16 CI 에 v65 worker 시험 편입(redis-server·외부 공급
+#733 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [harness] V14 세트 버저닝 아키텍처 — 한 세트 버전 기동·각인·불일치 거절
+#732 | ① 기획 세션 | 그대로 | 발견 +4시간 | BOARD 행 표 골좌표 | priority | [v65] V13 Redis 음성 요청 기록 384MB→3MB(455) 최종 판정·라이브
+#730 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V11 번역 동시 자리 4·완료 자리 5 — 라이브 확인 press 1·2
+#729 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V9 작은 목소리 press 번역 0 · no_output_fatal 4/4
+#728 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V8 LST ON 폴리싱·번역 지연 p50 23 s → 1100 ms 틱 폴리싱
+#727 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V7 K4 롱프레스 꼬리 — 이월 중복 A1 HOLD 보정 뒤 LST ON pr
+#726 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V6 과금 결제자 고정 6a — DA⑥ 540 재판정
+#725 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V5 과금 카드 4·5 — LST 비율·이력 라벨 사람 로그인 확인
+#724 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V4 PTT 재오픈 라이브 ms(22초→7초)
+#723 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V3 R4 코퍼스 GCS 라이브 1건 + capacity-full 거절 화면
+#722 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V2 K2 본선 이월 — 다른 구간 글자를 안 지움
+#721 | ① 기획 세션 | 그대로 | 미발견 · 나이 1일11시간 | BOARD 행 표 골좌표 | priority | [v65] V1 p90 다섯 숫자 재측정 — 랜딩 sha 한 세트 12회차
+#298 | 미분류 | 그대로 | 발견 +121일14시간 | 마커 없음 | priority | [bug] GPU TTS(Supertonic onnxruntime-gpu) sustaine
+#189 | 미분류 | 그대로 | 발견 +133일15시간 | 마커 없음 | priority | [RunPod] STT+TTS 자체 호스팅 프로덕션화 — 후속 작업 추적
+#173 | 미분류 | 그대로 | 발견 +136일23시간 | 마커 없음 |  | [Epic] 강의/통역 4페이지 Next.js 컴포넌트 전면 리디자인 — static→Re
+#172 | 미분류 | 그대로 | 발견 +136일23시간 | 마커 없음 |  | [Auth] speech/lecture/realtime JWT 인증 전환 — compat 
+#170 | 미분류 | 그대로 | 발견 +137일19시간 | 마커 없음 |  | [Epic] Production Deploy + 판매 준비
+#169 | 미분류 | 그대로 | 발견 +137일19시간 | 마커 없음 |  | [Epic] E2E 테스트 + 품질 게이트
+#168 | 미분류 | 그대로 | 발견 +137일19시간 | 마커 없음 |  | [Epic] Guest 시스템 — QR 입장 + 권한 제한
+#167 | 미분류 | 그대로 | 발견 +137일19시간 | 마커 없음 |  | [Epic] Credit 시스템 릴리즈 — 과금 + 충전 + 대시보드
+#151 | 미분류 | 그대로 | 발견 +143일2시간 | 마커 없음 | priority | [V5 UX] Pretext layout + diffusion motion system f
+SUMMARY total=93 ①=70 ②=0 ③=0 ④=0 미분류=23 보완=0 반려=0 그대로=93 미발견=79
