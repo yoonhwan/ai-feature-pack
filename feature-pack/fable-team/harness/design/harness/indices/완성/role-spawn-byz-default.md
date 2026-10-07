@@ -24,6 +24,9 @@
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: 1aca03ade2f098175548f1c549ed4be6b837ea6d (spawn 2026-10-07)
 - base: kit-bin-adopt 랜딩 뒤 최신 origin/main. 옆 카드 nano-spawn-close-team-env 와 파일 겹침 0 → 2석 동시 가능.
 - 2026-10-07 — 대기/ 생성 (byz-harness-arch-claude#5 · master#8 발주 58707 · arch 58640 ①).
 - 정본 영향 없음: 하네스 좌석 도구·시험만 — docs/architect 제품 정본 변경 없음
+- 2026-10-07 13:32 — 대기→진행 · 좌석 byz-harness-nano-role-spawn-byz-default#0
+- 2026-10-07 13:43 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§27

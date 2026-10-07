@@ -27,6 +27,9 @@
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: 1aca03ade2f098175548f1c549ed4be6b837ea6d (spawn 2026-10-07)
 - base: kit-bin-adopt 랜딩 뒤 최신 origin/main(키트가 단일 원본이 된 뒤). 그 전에 열면 추적본·키트 바이트가 달라 sync 시험이 깨진다.
 - 2026-10-07 — 대기/ 생성 (byz-harness-arch-claude#5 · master#8 발주 58692 + arch 58640 후속 ②③ 합침).
 - 정본 영향 없음: 하네스 나노 도구·시험만 — docs/architect 제품 정본 변경 없음
+- 2026-10-07 13:32 — 대기→진행 · 좌석 byz-harness-nano-nano-spawn-close-team-env#0
+- 2026-10-07 13:43 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§26
