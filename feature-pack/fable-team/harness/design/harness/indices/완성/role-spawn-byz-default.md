@@ -30,3 +30,4 @@
 - 정본 영향 없음: 하네스 좌석 도구·시험만 — docs/architect 제품 정본 변경 없음
 - 2026-10-07 13:32 — 대기→진행 · 좌석 byz-harness-nano-role-spawn-byz-default#0
 - 2026-10-07 13:43 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§27
+- 세트: 86d77d5f6ac70472f5db9d34a60309a20c7d5049 · 시험: bash tests/harness/test_role_spawn_name.sh rc=0 · 이슈: 0

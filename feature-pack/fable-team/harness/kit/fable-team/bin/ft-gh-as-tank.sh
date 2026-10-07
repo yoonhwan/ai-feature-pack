@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-gh-as-tank.sh <create|comment|label|close|reopen> … [--apply] — Issue 쓰기를 Tank 봇(byz-tank) 이름으로 실행하는 gh 래퍼
+# ft-gh-as-tank.sh <create|comment|label|close|reopen|edit> … [--apply] — Issue 쓰기를 Tank 봇(byz-tank) 이름으로 실행하는 gh 래퍼
 #
 # 왜 있나: 좌석이 gh 기본 로그인으로 Issue 를 쓰면 등록자·코멘트·라벨·close 가 전부 오빠 계정(yoonhwan)으로 올라간다(10-07 #839 등).
 #   모든 Issue 쓰기는 이 래퍼 → Tank 토큰으로만 나간다. 직접 호출은 gh-issue-author-guard.sh 훅이 막는다. 읽기(view·list)는 래퍼 불필요.
@@ -12,6 +12,10 @@
 #   label   <번호> [--add a,b] [--remove c,d]
 #   close   <번호> [--comment <본문파일>] [--reason completed|not-planned]
 #   reopen  <번호> [--comment <본문파일>]
+#   edit    <번호> [--title <제목>] [--body-file <파일>]   (둘 중 하나 이상)
+#       --apply 는 수정 «전» 현재 제목·본문을 `gh issue view` 로 읽어 보관 폴더(FT_ISSUE_EDIT_BAK_DIR 또는
+#       git common dir 루트의 .fable-team/state/issue-edit-bak/)에 <번호>-<UTC시각>.body.md · .title.txt 로 저장한 «뒤에만» 수정한다.
+#       보관 실패(조회 실패·빈 응답·쓰기 실패)면 수정 시도 0 · exit 1. 성공 출력 끝에 bak=<본문 파일> + 되돌림 명령 1줄.
 #   pr-comment <번호> <본문파일>
 #   pr-create  <제목> <본문파일> [--base B] [--head H]
 #       dry-run 은 --base/--head 생략 가능. --apply 는 --base main 고정(아니면 exit 2) · --head 필수(없으면 exit 2) ·
@@ -25,7 +29,7 @@ REPO="${FT_ISSUE_REPO:-SecondWindStudio/byz-agents}"
 TANK="${FT_TANK_LOGIN:-byz-tank}"
 
 die() { echo "REJECT $1" >&2; exit "${2:-1}"; }
-usage() { die "usage: $0 <create|comment|label|close|reopen|pr-comment|pr-create> … [--apply]" 2; }
+usage() { die "usage: $0 <create|comment|label|close|reopen|edit|pr-comment|pr-create> … [--apply]" 2; }
 need_num() { [[ "${1:-}" =~ ^[0-9]+$ ]] || die "Issue 번호(정수) 필요: ${1:-없음}" 2; }
 need_file() { [ -f "${1:-}" ] || die "본문 파일이 없다: ${1:-없음}" 2; }
 
@@ -77,6 +81,19 @@ case "$ACTION" in
     CMD=(issue edit "$NUM" -R "$REPO")
     [ -n "$ADD" ] && CMD+=(--add-label "$ADD")
     [ -n "$REM" ] && CMD+=(--remove-label "$REM");;
+  edit)
+    need_num "${1:-}"; NUM="$1"; shift; ETITLE=""; EBODY=""; HAS_TITLE=0
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --title) [ $# -ge 2 ] && [ -n "$2" ] || die "--title 값은 빈 문자열일 수 없다" 2; ETITLE="$2"; HAS_TITLE=1; shift 2;;
+        --body-file) [ $# -ge 2 ] || die "--body-file 값 필요" 2; EBODY="$2"; need_file "$EBODY"; shift 2;;
+        *) die "알 수 없는 인자: $1" 2;;
+      esac
+    done
+    [ $HAS_TITLE -eq 1 ] || [ -n "$EBODY" ] || die "edit 는 --title 또는 --body-file 필요" 2
+    CMD=(issue edit "$NUM" -R "$REPO")
+    [ $HAS_TITLE -eq 1 ] && CMD+=(--title "$ETITLE")
+    [ -n "$EBODY" ] && CMD+=(--body-file "$EBODY");;
   close|reopen)
     need_num "${1:-}"; NUM="$1"; shift; REASON=""
     while [ $# -gt 0 ]; do
@@ -112,6 +129,26 @@ WHO="$(GH_TOKEN="$TOK" gh api user --jq .login 2>/dev/null || true)"
 if [ "$ACTION" = create ]; then
   FT_ISSUE_BOT_TOKEN="$TOK" bash "$HERE/ft-issue-create-pair.sh" "$@" --apply; exit $?
 fi
+if [ "$ACTION" = edit ]; then
+  # 수정 «전» 원문 보관 — 보관이 안 되면 수정 시도 0(#0 RULE: 조용히 건너뛰지 않는다)
+  BAKDIR="${FT_ISSUE_EDIT_BAK_DIR:-}"
+  if [ -z "$BAKDIR" ]; then
+    COMMON="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
+    [ -n "$COMMON" ] || die "보관 폴더를 정할 수 없다(git common dir 없음 · FT_ISSUE_EDIT_BAK_DIR 미지정) — 수정 시도 0" 1
+    BAKDIR="$COMMON/.fable-team/state/issue-edit-bak"
+  fi
+  mkdir -p "$BAKDIR" || die "보관 폴더 생성 실패: $BAKDIR — 수정 시도 0" 1
+  VIEW="$(GH_TOKEN="$TOK" gh issue view "$NUM" -R "$REPO" --json title,body 2>&1)" || die "수정 전 원문 조회 실패 — 수정 시도 0: $VIEW" 1
+  [ -n "$VIEW" ] || die "수정 전 원문 조회 응답이 비었다 — 수정 시도 0" 1
+  BAK_BODY="$BAKDIR/$NUM-$(date -u +%Y%m%dT%H%M%SZ).body.md"; BAK_TITLE="${BAK_BODY%.body.md}.title.txt"
+  printf '%s' "$VIEW" | python3 -c 'import json,sys
+d=json.load(sys.stdin); t=d["title"]; b=d["body"]
+assert isinstance(t,str) and t and isinstance(b,str)
+open(sys.argv[1],"w",encoding="utf-8",newline="").write(b)
+open(sys.argv[2],"w",encoding="utf-8",newline="").write(t)' "$BAK_BODY" "$BAK_TITLE" 2>&1 \
+    || die "수정 전 원문 보관 실패(응답 해석·쓰기) — 수정 시도 0: $VIEW" 1
+  [ -s "$BAK_TITLE" ] && [ -f "$BAK_BODY" ] || die "보관 파일 확인 실패: $BAK_BODY — 수정 시도 0" 1
+fi
 if [ -n "$COMMENT_FILE" ]; then CMD+=(--comment "$(cat "$COMMENT_FILE")"); fi
 if [ "$ACTION" = pr-create ]; then
   GH_TOKEN="$TOK" gh api "repos/$REPO/branches/$PR_HEAD" >/dev/null 2>&1 \
@@ -124,5 +161,10 @@ if [ "$ACTION" = pr-create ]; then
   AUTHOR="$(GH_TOKEN="$TOK" gh api "repos/$REPO/pulls/$NUM" --jq .user.login 2>/dev/null || true)"
   [ "$AUTHOR" = "$TANK" ] || die "PR 작성자가 $TANK 가 아니다(작성자=${AUTHOR:-확인 불가}) — $PR_URL" 1
   OUT="$PR_URL"
+fi
+if [ "$ACTION" = edit ]; then
+  echo "OK as=$TANK edit $NUM ${OUT:+— $OUT }bak=$BAK_BODY"
+  echo "되돌림: bash $HERE/ft-gh-as-tank.sh edit $NUM --body-file $BAK_BODY --title \"\$(cat $BAK_TITLE)\" --apply"
+  exit 0
 fi
 echo "OK as=$TANK $ACTION ${NUM:-${1:-}} ${OUT:+— $OUT}"

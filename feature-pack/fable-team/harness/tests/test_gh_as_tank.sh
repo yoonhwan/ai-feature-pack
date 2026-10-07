@@ -18,6 +18,8 @@ echo "GH_TOKEN=${GH_TOKEN:-} $*" >> "$STUB_LOG"
 case "$1 $2" in
   "api user") echo "${STUB_LOGIN:-byz-tank}";;
   "issue create") echo "https://github.com/o/r/issues/99";;
+  "issue view") echo "${STUB_VIEW_JSON-}"; exit "${STUB_VIEW_RC:-0}";;
+  "issue edit") echo "https://github.com/SecondWindStudio/byz-agents/issues/${3:-0}";;
   "pr create") echo "https://github.com/SecondWindStudio/byz-agents/pull/123";;
   "api repos/"*"/branches/"*) [ "${STUB_BRANCH_RC:-0}" = 0 ] || exit 1;;
   "api repos/"*"/pulls/"*) echo "${STUB_PR_AUTHOR:-byz-tank}";;
@@ -45,6 +47,9 @@ dry comment 5 "$T/body.md";                    want "gh issue comment 5 -R Secon
 dry label 5 --add harness,bug --remove wip;    want "gh issue edit 5 -R SecondWindStudio/byz-agents --add-label harness,bug --remove-label wip" "label"
 dry close 5 --comment "$T/body.md" --reason not-planned; want "gh issue close 5 -R SecondWindStudio/byz-agents --reason not planned --comment <$T/body.md>" "close"
 dry reopen 5;                                  want "gh issue reopen 5 -R SecondWindStudio/byz-agents" "reopen"
+dry edit 5 --title 새제목;                       want "gh issue edit 5 -R SecondWindStudio/byz-agents --title 새제목" "edit 제목만"
+dry edit 5 --body-file "$T/body.md";           want "gh issue edit 5 -R SecondWindStudio/byz-agents --body-file $T/body.md" "edit 본문만"
+dry edit 5 --title 새제목 --body-file "$T/body.md"; want "gh issue edit 5 -R SecondWindStudio/byz-agents --title 새제목 --body-file $T/body.md" "edit 둘 다"
 dry pr-comment 7 "$T/body.md";                 want "gh pr comment 7 -R SecondWindStudio/byz-agents --body-file $T/body.md" "pr-comment"
 dry pr-create "PR제목" "$T/body.md" --base main; want "gh pr create -R SecondWindStudio/byz-agents --title PR제목 --body-file $T/body.md --base main" "pr-create"
 dry pr-create "PR제목" "$T/body.md";           want "gh pr create -R SecondWindStudio/byz-agents --title PR제목 --body-file $T/body.md" "pr-create (--base/--head 생략)"
@@ -52,7 +57,8 @@ dry pr-create "PR제목" "$T/body.md" --base dev --head feat/x; want "--base dev
 [ ! -s "$LOG" ] && ok "dry-run 은 gh 호출 0" || bad "dry-run 인데 gh 호출됨: $(cat "$LOG")"
 
 # ── usage 오류 exit 2 ──
-for args in "" "bogus" "comment x $T/body.md" "comment 5 /nonexistent" "label 5" "close 5 --reason weird" "reopen 5 --reason completed"; do
+for args in "" "bogus" "comment x $T/body.md" "comment 5 /nonexistent" "label 5" "close 5 --reason weird" "reopen 5 --reason completed" \
+  "edit 5" "edit x --title t" "edit 5 --body-file /nonexistent" "edit 5 --title t --bogus" "edit 5 --title t --body-file"; do
   # shellcheck disable=SC2086
   bash "$WRAP" $args >/dev/null 2>&1; [ $? -eq 2 ] && ok "usage exit 2: [$args]" || bad "usage exit 2 여야 함: [$args]"
 done
@@ -98,6 +104,38 @@ for pat in "issue comment 5" "issue edit 5 -R SecondWindStudio/byz-agents --add-
 done
 grep -F "issue create" "$LOG" | grep -q "ft-origin" && bad "로그에 본문 마커?" || ok "create = 쌍 스크립트 경유(PAIR)"
 
+bash "$WRAP" edit 5 --title "" >/dev/null 2>&1; [ $? -eq 2 ] && ok "usage exit 2: edit --title 빈 문자열" || bad "edit --title '' → exit 2 여야 함"
+
+# ── edit --apply: 수정 전 원문 보관(제목·본문) → 그 뒤에만 gh issue edit ──
+BAK="$T/bak"; export STUB_VIEW_JSON='{"title":"옛 제목","body":"옛 본문\n둘째줄"}'
+eapply() { out="$(FT_ISSUE_BOT_TOKEN=$TOKEN FT_ISSUE_EDIT_BAK_DIR="$BAK" bash "$WRAP" edit 5 "$@" --apply 2>&1)"; rc=$?; }
+: > "$LOG"
+eapply --title 새제목 --body-file "$T/body.md"
+[ $rc -eq 0 ] && ok "edit --apply 성공 rc=0" || bad "edit --apply → rc=$rc $out"
+! grep -qF "$TOKEN" <<<"$out" && ok "edit 출력에 토큰 없음" || bad "edit 출력에 토큰 노출"
+BB="$(ls "$BAK"/5-*.body.md 2>/dev/null | head -1)"; BT="${BB%.body.md}.title.txt"
+[ -f "$BB" ] && [ -f "$BT" ] && ok "보관 두 파일 실재(.body.md · .title.txt)" || bad "보관 파일 없음: $(ls "$BAK" 2>&1)"
+[ "$(cat "$BB")" = "$(printf '옛 본문\n둘째줄')" ] && ok "보관 본문 = 수정 전 본문" || bad "보관 본문 불일치: $(cat "$BB")"
+[ "$(cat "$BT")" = "옛 제목" ] && ok "보관 제목 = 수정 전 제목" || bad "보관 제목 불일치: $(cat "$BT")"
+grep -q "bak=$BB" <<<"$out" && ok "성공 출력 끝에 bak=<본문 경로>" || bad "bak= 누락: $out"
+grep -qF "edit 5 --body-file $BB --title \"\$(cat $BT)\" --apply" <<<"$out" && ok "되돌림 명령 1줄 출력" || bad "되돌림 줄 누락: $out"
+VN="$(grep -n "issue view 5" "$LOG" | head -1 | cut -d: -f1)"; EN="$(grep -n "issue edit 5 -R SecondWindStudio/byz-agents --title 새제목 --body-file" "$LOG" | head -1 | cut -d: -f1)"
+[ -n "$VN" ] && [ -n "$EN" ] && [ "$VN" -lt "$EN" ] && ok "issue view 가 issue edit 보다 먼저" || bad "호출 순서 이상 view=$VN edit=$EN"
+grep -F "GH_TOKEN=$TOKEN" "$LOG" | grep -qF "issue view 5" && ok "view 도 Tank 토큰" || bad "view 토큰 누락"
+# 보관 실패 3종 → rc=1 · 수정 시도 0
+: > "$LOG"; STUB_VIEW_RC=1 eapply --title t; [ $rc -eq 1 ] && ok "view 실패 → rc=1" || bad "view 실패 → rc=$rc $out"
+grep -q "issue edit" "$LOG" && bad "view 실패인데 issue edit 호출됨" || ok "view 실패 시 issue edit 0건"
+: > "$LOG"; STUB_VIEW_JSON="" eapply --title t; [ $rc -eq 1 ] && ok "view 빈 응답 → rc=1" || bad "빈 응답 → rc=$rc $out"
+grep -q "issue edit" "$LOG" && bad "빈 응답인데 issue edit 호출됨" || ok "빈 응답 시 issue edit 0건"
+: > "$LOG"; touch "$T/notadir"; out="$(FT_ISSUE_BOT_TOKEN=$TOKEN FT_ISSUE_EDIT_BAK_DIR="$T/notadir" bash "$WRAP" edit 5 --title t --apply 2>&1)"; rc=$?
+[ $rc -eq 1 ] && ok "보관 쓰기 실패 → rc=1" || bad "보관 쓰기 실패 → rc=$rc $out"
+grep -q "issue edit" "$LOG" && bad "보관 실패인데 issue edit 호출됨" || ok "보관 실패 시 issue edit 0건"
+# 토큰 주인 불일치 → rc=1 · view·edit 0건
+: > "$LOG"; out="$(STUB_LOGIN=yoonhwan FT_ISSUE_BOT_TOKEN=$TOKEN FT_ISSUE_EDIT_BAK_DIR="$BAK" bash "$WRAP" edit 5 --title t --apply 2>&1)"; rc=$?
+[ $rc -eq 1 ] && grep -q "주인=yoonhwan" <<<"$out" && ok "edit 토큰 주인 불일치 → rc=1" || bad "주인 불일치 → rc=$rc $out"
+grep -qE "issue (view|edit)" "$LOG" && bad "주인 불일치인데 view/edit 호출됨" || ok "주인 불일치 시 view·edit 0건"
+unset STUB_VIEW_JSON
+
 # ── 가드 ──
 # 임시 git 리포(원격만 지정 · 네트워크 0): SWS = SecondWindStudio 원격 · OTHER = 다른 owner · NOGIT = git 아님
 SWS="$T/sws"; OTHER="$T/other"; NOGIT="$T/nogit"; mkdir "$SWS" "$OTHER" "$NOGIT"
@@ -121,6 +159,7 @@ mpass()  { rc_is 0 "$SWS" "$1" main; }
 block 'gh issue create --title x --body y'
 block 'gh issue comment 5 -b hi'
 block 'gh issue edit 5 --add-label x'
+block 'gh issue edit 5 --body x'
 block 'gh issue close 5'
 block 'gh issue reopen 5'
 block "gh -R $OWN issue close 5"

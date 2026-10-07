@@ -53,8 +53,13 @@ OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
 case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
 
+# 첫 발주 = README §2 → inbox 정렬. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
+BODY="[Seatbelt 역할 교체] 너는 $ROLE 후계 좌석($NAME). 먼저 $README §2 부팅 5단계(첫 보고까지), 그 다음 $INBOX/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 ${OLD:-없음} 은 정지 레디(kill 금지). 보고는 mbox 로 $FROM 에."
+# 세션 크론은 승계로 옮겨지지 않는다 — master·arch 후계는 부팅 보고 그 턴에 체크 틱을 직접 건다(BOOT 16 · 원장 R13). da·pm·tester 는 해당 없음.
+case "$ROLE" in master|arch) BODY="$BODY ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★";; esac
+
 echo "PLAN seat=$NAME role=$ROLE agent=$AGENT model=$MODEL wt=$WT inbox=$INBOX_REL replaces=[${OLD:-<없음>}] (구 좌석 kill 안 함)"
-if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit $?; fi
+if [ "$DRY" = 1 ]; then echo "BODY $BODY"; "${OPEN[@]}" --dry-run; exit $?; fi
 # 실전은 도달 판정기가 같은 디렉터리에 있어야 한다(런타임 .fable-team/bin). 추적 사본(scripts/)에서 dry-run 만 돌리는 경우는 위에서 끝났다.
 [ -x "$HERE/ft-send-verified.sh" ] || { echo "REJECT ft-send-verified.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 
@@ -91,8 +96,6 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open
 PY
 echo "SEATS role=$ROLE now=$NAME replaced=[${OLD:-<없음>}] — 구 좌석은 정지 레디(kill 은 사람 승인)"
 
-# 첫 발주 = README §2 → inbox 정렬. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
-BODY="[Seatbelt 역할 교체] 너는 $ROLE 후계 좌석($NAME). 먼저 $README §2 부팅 5단계(첫 보고까지), 그 다음 $INBOX/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 ${OLD:-없음} 은 정지 레디(kill 금지). 보고는 mbox 로 $FROM 에."
 sleep 8   # 에이전트 부팅. 짧으면 doorbell 이 셸에 떨어진다(noagent)
 if FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; then
   echo "SPAWNED $NAME role=$ROLE inbox=$INBOX_REL wt=$WT"; exit 0

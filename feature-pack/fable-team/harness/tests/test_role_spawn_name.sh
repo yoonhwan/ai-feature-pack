@@ -57,4 +57,18 @@ done
 write_seats "$SEATS_NONE"
 expect "두 계보 없음 → #0" "$(plan - arch)" "byz-v65-arch-claude#0" "<없음>"
 
+# R13 — master·arch 후계 BODY 에만 크론 문장 (BOOT 16). --dry-run 의 BODY 줄이 관측점.
+mkdir -p "$REPO/design/v65/indices/inbox/master" "$REPO/design/v65/indices/inbox/da" "$REPO/design/v65/indices/inbox/pm"
+body() { (cd "$REPO" && env -u FT_ROLE_BASE_PREFIX PATH="$FAKE:$PATH" bash "$SPAWN" "$1" --dry-run 2>&1 | grep '^BODY '); }
+for r in master arch; do
+  b="$(body $r)"
+  echo "$b" | grep -qF "CronCreate 10분" && echo "$b" | grep -qF "cron=<job id>" \
+    && ok "BODY $r 크론 문장 포함" || bad "BODY $r 에 크론 문장 없음: $b"
+done
+for r in da pm tester; do
+  b="$(body $r)"
+  [ -n "$b" ] && ! echo "$b" | grep -qF "CronCreate" \
+    && ok "BODY $r 크론 문장 없음" || bad "BODY $r 기대 불일치(BODY 줄 있고 CronCreate 0): $b"
+done
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
