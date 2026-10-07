@@ -13,7 +13,9 @@
 #   close   <번호> [--comment <본문파일>] [--reason completed|not-planned]
 #   reopen  <번호> [--comment <본문파일>]
 #   pr-comment <번호> <본문파일>
-#   pr-create  <제목> <본문파일> [--base B] [--head H] — ★dry-run 전용★: Tank(triage) 권한으로 PR 생성이 되는지 «권한 미확인». --apply 는 exit 2(시험 금지)
+#   pr-create  <제목> <본문파일> [--base B] [--head H]
+#       dry-run 은 --base/--head 생략 가능. --apply 는 --base main 고정(아니면 exit 2) · --head 필수(없으면 exit 2) ·
+#       생성 전 `gh api repos/$REPO/branches/<head>` 로 원격 실재 확인(없으면 exit 1 · PR 생성 시도 0) · 생성 뒤 PR 작성자가 Tank 인지 확인(아니면 exit 1 · URL 출력)
 #   (PR merge 는 래퍼·가드 대상이 아니다)
 # exit 0 = 완료/dry-run · 1 = 실행 실패 또는 작성자 불일치(사유 stderr) · 2 = usage/토큰 없음
 set -uo pipefail
@@ -48,16 +50,20 @@ case "$ACTION" in
     need_num "$1"; need_file "$2"
     CMD=(pr comment "$1" -R "$REPO" --body-file "$2");;
   pr-create)
-    # 권한 미확인: byz-tank 은 triage 권한 — PR 생성 가능 여부를 실행으로 확인한 적 없다. 명령 출력만 지원.
-    [ $APPLY -eq 0 ] || die "pr-create 는 dry-run 전용 — Tank(triage) 의 PR 생성 권한 미확인(실행 시험 금지)" 2
     [ $# -ge 2 ] || die "usage: $0 pr-create <제목> <본문파일> [--base B] [--head H]" 2
     T="$1"; need_file "$2"; CMD=(pr create -R "$REPO" --title "$T" --body-file "$2"); shift 2
+    PR_BASE=""; PR_HEAD=""
     while [ $# -gt 0 ]; do
       case "$1" in
-        --base|--head) CMD+=("$1" "${2:?$1 값 필요}"); shift 2;;
+        --base) PR_BASE="${2:?--base 값 필요}"; CMD+=(--base "$PR_BASE"); shift 2;;
+        --head) PR_HEAD="${2:?--head 값 필요}"; CMD+=(--head "$PR_HEAD"); shift 2;;
         *) die "알 수 없는 인자: $1" 2;;
       esac
-    done;;
+    done
+    if [ $APPLY -eq 1 ]; then
+      [ "$PR_BASE" = main ] || die "pr-create --apply 는 --base main 고정(받은 값: ${PR_BASE:-없음})" 2
+      [ -n "$PR_HEAD" ] || die "pr-create --apply 는 --head 필수" 2
+    fi;;
   label)
     need_num "${1:-}"; NUM="$1"; shift; ADD=""; REM=""
     while [ $# -gt 0 ]; do
@@ -107,5 +113,16 @@ if [ "$ACTION" = create ]; then
   FT_ISSUE_BOT_TOKEN="$TOK" bash "$HERE/ft-issue-create-pair.sh" "$@" --apply; exit $?
 fi
 if [ -n "$COMMENT_FILE" ]; then CMD+=(--comment "$(cat "$COMMENT_FILE")"); fi
+if [ "$ACTION" = pr-create ]; then
+  GH_TOKEN="$TOK" gh api "repos/$REPO/branches/$PR_HEAD" >/dev/null 2>&1 \
+    || die "원격에 head 브랜치가 없다: $PR_HEAD — push 먼저(PR 생성 시도 0)" 1
+fi
 OUT="$(GH_TOKEN="$TOK" gh "${CMD[@]}" 2>&1)" || die "gh ${CMD[0]} ${CMD[1]} 실패: $OUT" 1
+if [ "$ACTION" = pr-create ]; then
+  PR_URL="$(grep -Eo 'https://[^ ]+/pull/[0-9]+' <<<"$OUT" | tail -1)"; NUM="${PR_URL##*/}"
+  [[ "$NUM" =~ ^[0-9]+$ ]] || die "PR URL 해석 실패 — 출력: $OUT" 1
+  AUTHOR="$(GH_TOKEN="$TOK" gh api "repos/$REPO/pulls/$NUM" --jq .user.login 2>/dev/null || true)"
+  [ "$AUTHOR" = "$TANK" ] || die "PR 작성자가 $TANK 가 아니다(작성자=${AUTHOR:-확인 불가}) — $PR_URL" 1
+  OUT="$PR_URL"
+fi
 echo "OK as=$TANK $ACTION ${NUM:-${1:-}} ${OUT:+— $OUT}"
