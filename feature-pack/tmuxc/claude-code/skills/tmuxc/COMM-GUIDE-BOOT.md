@@ -1,4 +1,4 @@
-# COMM-GUIDE-BOOT — 부팅 필수 14줄 (이것만 읽으면 통신 가능)
+# COMM-GUIDE-BOOT — 부팅 필수 16줄 (이것만 읽으면 통신 가능)
 
 > 전문 `COMM-GUIDE.md`(40KB ≈ 20k 토큰)는 **읽지 않는다**. 필요한 절만 아래 매핑표의 줄 범위로 `Read(offset, limit≤200)`.
 > 전문 Read·cat·큰 limit 은 PreToolUse 훅(`boot-read-gate.sh`)이 막는다. (하네스 0.4 단위 5 · GOAL-harness-v2 축 A)
@@ -19,6 +19,7 @@
 13. **좌석 이름·수신자 확인**(2026-10-07): 신규·승계 좌석 이름 = `byz-<팀>-<역할>-<에이전트>#N`(메인 팀 오케 역할 = `master` 통일 · 번호는 옛 번호 이어받음 · 검사 `ft-name-lint.sh <이름>`). ★승계로 이름이 바뀌므로 발신 전 `ft-harness-info.sh seats` 로 «현역 이름»을 확인한다★ — 옛 이름으로 보낸 쪽지는 옛 세션에 쌓인다(실측: planner arch#3→master#4). 정본 `~/.claude/skills/fable-team/references/main-team-governance.md`.
 14. **하네스 조회**: 어디에 뭐가 있는지 모르면 먼저 `bash <루트>/scripts/fable-team-bin/ft-harness-info.sh map`(정본 목차 1장) · `rules`(정본 실재) · `seats`(라이브 좌석+이름 lint) · `requests`(하네스 요청 원장) · `find 키워드`. 이슈 처리는 **오빠 컨펌 전 착수 0**(진입로 3 · 컨펌 경로 = planner 인터뷰 · 하위 좌석은 `[HIL]` 로 올림) — 상세는 위 정본 §2.
 15. **master 손 = 집행뿐**(2026-10-07 오빠 「코드를 왜 너가 작업해」): master 가 하는 것 = 랜딩·커밋·push·좌석 개설/닫기·명부·원장 기록·검증된 파일의 설치 복사(cp+cmp). ★코드·시안·카드 증거 줄은 직접 편집 0★ — 코드=나노 · 시안·설계=arch · 나노 증거 REJECT=그 나노에 반송(닫힌 나노면 재spawn). 게이트가 안 막아도 같다. 정본 `references/main-team-governance.md` §6.
+16. **체크 크론 = 부팅 보고 직후**(2026-10-07 오빠 「크론 이관받았어? 못받았으면 버그」 · 원장 R13): master·planner·arch 좌석(신규·승계 전부)은 부팅 보고를 보낸 그 턴에 `CronCreate` 10분 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — ★없으면 착수 0★. 크론은 세션 종속이라 승계로 «옮겨지지 않는다»(launchd 뉴스 틱 `ft-tick` 과 별개). 부팅 보고에 `cron=<job id>` 를 적고, 받는 오케는 그 칸이 비면 그 턴에 되묻는다. 닫는 세션은 `CronDelete` 후 닫는다.
 
 ## 절 → 전문 매핑표 (COMM-GUIDE.md · 줄 = Read offset · «BOOT» 열은 조항 단위: 그 절의 «읽기 전에 실행되는 계약» 이 위 12줄에 본문으로 실렸는가)
 
