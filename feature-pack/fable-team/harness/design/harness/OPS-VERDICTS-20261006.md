@@ -214,3 +214,10 @@
 - 설계 결정: 원격 사용은 값을 `origin/<b>` 로 «명시»할 때만(main→origin/main 자동 치환 0) · fetch 실패 시 옛 ref 대조 0(#0 RULE) · 좌석(nano) 브랜치는 로컬만.
 - arch 정정: R18(§ 없음 · PLAN-r18) 에서 arch 가 정한 cfo-env `FT_NANO_FEAT=main` 은 틀린 값이었다 → `origin/main`(master 반영 완료). harness-env `feat/slack-inbound-820`(옛 트랙) → `ops/main-base`(하네스 나노는 ops/main-base 에서 갈라지고 master 가 그 줄기에 cherry-pick 한 뒤 닫는다 · 로컬 브랜치라 fetch 0).
 - 잔여 위험(수용): 원격 ref 를 쓰는 팀은 닫기마다 네트워크 1회 — 실패는 REJECT(조용한 통과 0). 라이브 RT 3파일은 옛판 → 랜딩 뒤 단독 cp(816 일괄과 별개로 이 3파일만).
+
+## §38 gh 가드에 PR 쓰기 5종 차단 + Tank 래퍼 pr-edit·pr-close (R6 ②) — 닫힘 (byz-harness-arch-claude#7 #60270·#60358 · master#10 · 2026-10-07)
+- 나노 커밋 `fb18b3a370`(4파일: gh-issue-author-guard 템플릿 · ft-gh-as-tank.sh 추적본+키트 같은 바이트 · test_gh_as_tank.sh). base = PR 874 병합 1840d5e9f6.
+- master 독립 검증: test_gh_as_tank rc=0 · kit_bin_sync ALL PASS · 래퍼 cmp 동일 · `gh pr edit 5 --body x` rc=2 + Tank 안내. arch 재현: 같은 두 시험 rc=0 · bash -n OK · 가드 직접 호출 7사례(차단 3 · 통과 4 — 코멘트 없는 close · 라벨만 edit · graphql query · 개인 리포) 기대대로.
+- 설계 결정(승인 #60270): PR 리뷰 판정(approve·request-changes)은 래퍼 대체 없이 차단 — 사람(오빠)만 · 코멘트는 pr-comment.
+- 잔여 위험(수용): 가드는 클라이언트 쪽 장치라 훅을 안 거치는 경로(다른 셸·토큰 직접 사용)는 못 막는다(§21 한계 그대로) · `gh pr review 5`(플래그 없음 · 대화형)는 통과로 둠 — 좌석은 대화형을 못 쓴다.
+- 라이브 반영: 홈 `~/.claude/hooks/gh-issue-author-guard.sh` cp + cmp + `gh pr edit 1 --body x` 차단 실측 1회 · 라이브 RT ft-gh-as-tank.sh 단독 cp — 둘 다 master 집행(랜딩 뒤).

@@ -20,6 +20,8 @@ case "$1 $2" in
   "issue create") echo "https://github.com/o/r/issues/99";;
   "issue view") echo "${STUB_VIEW_JSON-}"; exit "${STUB_VIEW_RC:-0}";;
   "issue edit") echo "https://github.com/SecondWindStudio/byz-agents/issues/${3:-0}";;
+  "pr view") echo "${STUB_VIEW_JSON-}"; exit "${STUB_VIEW_RC:-0}";;
+  "pr edit") echo "https://github.com/SecondWindStudio/byz-agents/pull/${3:-0}";;
   "pr create") echo "https://github.com/SecondWindStudio/byz-agents/pull/123";;
   "api repos/"*"/branches/"*) [ "${STUB_BRANCH_RC:-0}" = 0 ] || exit 1;;
   "api repos/"*"/pulls/"*) echo "${STUB_PR_AUTHOR:-byz-tank}";;
@@ -52,13 +54,19 @@ dry edit 5 --body-file "$T/body.md";           want "gh issue edit 5 -R SecondWi
 dry edit 5 --title 새제목 --body-file "$T/body.md"; want "gh issue edit 5 -R SecondWindStudio/byz-agents --title 새제목 --body-file $T/body.md" "edit 둘 다"
 dry pr-comment 7 "$T/body.md";                 want "gh pr comment 7 -R SecondWindStudio/byz-agents --body-file $T/body.md" "pr-comment"
 dry pr-create "PR제목" "$T/body.md" --base main; want "gh pr create -R SecondWindStudio/byz-agents --title PR제목 --body-file $T/body.md --base main" "pr-create"
+dry pr-edit 5 --title 새제목;                    want "gh pr edit 5 -R SecondWindStudio/byz-agents --title 새제목" "pr-edit 제목만"
+dry pr-edit 5 --body-file "$T/body.md";        want "gh pr edit 5 -R SecondWindStudio/byz-agents --body-file $T/body.md" "pr-edit 본문만"
+dry pr-edit 5 --title 새제목 --body-file "$T/body.md"; want "gh pr edit 5 -R SecondWindStudio/byz-agents --title 새제목 --body-file $T/body.md" "pr-edit 둘 다"
+dry pr-close 5 --comment "$T/body.md";          want "gh pr close 5 -R SecondWindStudio/byz-agents --comment <$T/body.md>" "pr-close 코멘트 있음"
+dry pr-close 5;                                want "gh pr close 5 -R SecondWindStudio/byz-agents" "pr-close 코멘트 없음"
 dry pr-create "PR제목" "$T/body.md";           want "gh pr create -R SecondWindStudio/byz-agents --title PR제목 --body-file $T/body.md" "pr-create (--base/--head 생략)"
 dry pr-create "PR제목" "$T/body.md" --base dev --head feat/x; want "--base dev --head feat/x" "pr-create (dry-run 은 base 검사 안 함)"
 [ ! -s "$LOG" ] && ok "dry-run 은 gh 호출 0" || bad "dry-run 인데 gh 호출됨: $(cat "$LOG")"
 
 # ── usage 오류 exit 2 ──
 for args in "" "bogus" "comment x $T/body.md" "comment 5 /nonexistent" "label 5" "close 5 --reason weird" "reopen 5 --reason completed" \
-  "edit 5" "edit x --title t" "edit 5 --body-file /nonexistent" "edit 5 --title t --bogus" "edit 5 --title t --body-file"; do
+  "edit 5" "edit x --title t" "edit 5 --body-file /nonexistent" "edit 5 --title t --bogus" "edit 5 --title t --body-file" \
+  "pr-edit 5" "pr-edit x --title t" "pr-edit 5 --body-file /nonexistent" "pr-close x" "pr-close 5 --comment /nonexistent" "pr-close 5 --bogus"; do
   # shellcheck disable=SC2086
   bash "$WRAP" $args >/dev/null 2>&1; [ $? -eq 2 ] && ok "usage exit 2: [$args]" || bad "usage exit 2 여야 함: [$args]"
 done
@@ -134,6 +142,21 @@ grep -q "issue edit" "$LOG" && bad "보관 실패인데 issue edit 호출됨" ||
 : > "$LOG"; out="$(STUB_LOGIN=yoonhwan FT_ISSUE_BOT_TOKEN=$TOKEN FT_ISSUE_EDIT_BAK_DIR="$BAK" bash "$WRAP" edit 5 --title t --apply 2>&1)"; rc=$?
 [ $rc -eq 1 ] && grep -q "주인=yoonhwan" <<<"$out" && ok "edit 토큰 주인 불일치 → rc=1" || bad "주인 불일치 → rc=$rc $out"
 grep -qE "issue (view|edit)" "$LOG" && bad "주인 불일치인데 view/edit 호출됨" || ok "주인 불일치 시 view·edit 0건"
+# ── pr-edit --apply: 보관(pr<번호>-…) → 그 뒤에만 gh pr edit · 보관 실패면 pr edit 0건 ──
+PRBAK="$T/prbak"
+pe() { out="$(FT_ISSUE_BOT_TOKEN=$TOKEN FT_ISSUE_EDIT_BAK_DIR="$PRBAK" bash "$WRAP" pr-edit 5 "$@" --apply 2>&1)"; rc=$?; }
+: > "$LOG"; pe --title 새제목 --body-file "$T/body.md"
+[ $rc -eq 0 ] && ok "pr-edit --apply 성공 rc=0" || bad "pr-edit --apply → rc=$rc $out"
+PB="$(ls "$PRBAK"/pr5-*.body.md 2>/dev/null | head -1)"; PT="${PB%.body.md}.title.txt"
+[ -f "$PB" ] && [ -f "$PT" ] && [ "$(cat "$PT")" = "옛 제목" ] && ok "pr-edit 보관 pr5-*.body.md·.title.txt" || bad "pr-edit 보관 이상: $(ls "$PRBAK" 2>&1)"
+grep -q "bak=$PB" <<<"$out" && grep -qF "ft-gh-as-tank.sh pr-edit 5 --body-file $PB" <<<"$out" && ok "pr-edit bak= + 되돌림 1줄" || bad "pr-edit bak/되돌림 누락: $out"
+PV="$(grep -n "pr view 5" "$LOG" | head -1 | cut -d: -f1)"; PE="$(grep -n "pr edit 5 -R SecondWindStudio/byz-agents --title 새제목" "$LOG" | head -1 | cut -d: -f1)"
+[ -n "$PV" ] && [ -n "$PE" ] && [ "$PV" -lt "$PE" ] && ok "pr view 가 pr edit 보다 먼저" || bad "pr 호출 순서 이상 view=$PV edit=$PE"
+: > "$LOG"; STUB_VIEW_RC=1 pe --title t; [ $rc -eq 1 ] && ok "pr-edit view 실패 → rc=1" || bad "pr-edit view 실패 → rc=$rc $out"
+grep -q "pr edit" "$LOG" && bad "pr-edit 보관 실패인데 pr edit 호출됨" || ok "pr-edit 보관 실패 시 pr edit 0건"
+# pr-close --apply: 파일 내용이 --comment 문자열로 나간다
+: > "$LOG"; out="$(FT_ISSUE_BOT_TOKEN=$TOKEN bash "$WRAP" pr-close 5 --comment "$T/body.md" --apply 2>&1)"; rc=$?
+[ $rc -eq 0 ] && grep -F "GH_TOKEN=$TOKEN" "$LOG" | grep -qF "pr close 5 -R SecondWindStudio/byz-agents --comment 본문" && ok "pr-close --apply: 파일 내용 --comment + Tank 토큰" || bad "pr-close apply → rc=$rc $out · $(cat "$LOG")"
 unset STUB_VIEW_JSON
 
 # ── 가드 ──
@@ -165,6 +188,14 @@ block 'gh issue reopen 5'
 block "gh -R $OWN issue close 5"
 block "gh issue -R $OWN comment 5 -b hi"
 block 'gh pr comment 7 -b hi'
+block 'gh pr review 5 --approve'
+block 'gh pr review 5 --comment -b x'
+block 'gh pr close 5 -c bye'
+block 'gh pr edit 5 --body x'
+block 'gh pr edit 5 --title t'
+block "gh api -X PATCH repos/$OWN/pulls/5 -f body=x"
+block "gh api repos/$OWN/pulls/5/comments -f body=x"
+block "gh api graphql -f query='mutation { x }'"
 block "gh api repos/$OWN/issues/5/comments -f body=x"
 block "gh api -X PATCH repos/$OWN/issues/5 -f state=closed"
 block "gh api --method POST repos/$OWN/issues/5/labels -f labels[]=x"
@@ -192,6 +223,11 @@ pass 'gh pr checkout 7'
 pass 'gh pr diff 7'
 pass 'gh pr view 7'
 pass "gh api repos/$OWN/pulls/7"
+pass 'gh pr close 5'
+pass 'gh pr edit 5 --add-label x'
+pass 'gh pr review 5'
+pass "gh api graphql -f query='query { x }'"
+rc_is 0 "$SWS" 'gh pr edit 5 --body x -R yoonhwan/p' "개인 리포 PR edit"
 # 명령이 아닌 문자열(따옴표·heredoc)·타 도구·비정상 입력
 pass 'echo "gh issue close 5"'
 pass 'git commit -m "docs: gh issue comment 래퍼 안내"'

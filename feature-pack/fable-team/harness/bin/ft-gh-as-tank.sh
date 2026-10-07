@@ -20,7 +20,9 @@
 #   pr-create  <제목> <본문파일> [--base B] [--head H]
 #       dry-run 은 --base/--head 생략 가능. --apply 는 --base main 고정(아니면 exit 2) · --head 필수(없으면 exit 2) ·
 #       생성 전 `gh api repos/$REPO/branches/<head>` 로 원격 실재 확인(없으면 exit 1 · PR 생성 시도 0) · 생성 뒤 PR 작성자가 Tank 인지 확인(아니면 exit 1 · URL 출력)
-#   (PR merge 는 래퍼·가드 대상이 아니다)
+#   pr-edit  <번호> [--title <제목>] [--body-file <파일>]   (둘 중 하나 이상 · Issue edit 와 같은 보관 규약 — 파일명 pr<번호>-<UTC시각>.body.md · .title.txt)
+#   pr-close <번호> [--comment <본문파일>]                  (gh pr close 에는 파일 인자가 없어 래퍼가 파일 내용을 --comment 문자열로 넘긴다)
+#   (PR merge 는 래퍼·가드 대상이 아니다 · PR 리뷰 approve/request-changes 는 대체 동작 없음 — 사람만)
 # exit 0 = 완료/dry-run · 1 = 실행 실패 또는 작성자 불일치(사유 stderr) · 2 = usage/토큰 없음
 set -uo pipefail
 unset GH_TOKEN
@@ -29,7 +31,7 @@ REPO="${FT_ISSUE_REPO:-SecondWindStudio/byz-agents}"
 TANK="${FT_TANK_LOGIN:-byz-tank}"
 
 die() { echo "REJECT $1" >&2; exit "${2:-1}"; }
-usage() { die "usage: $0 <create|comment|label|close|reopen|edit|pr-comment|pr-create> … [--apply]" 2; }
+usage() { die "usage: $0 <create|comment|label|close|reopen|edit|pr-comment|pr-create|pr-edit|pr-close> … [--apply]" 2; }
 need_num() { [[ "${1:-}" =~ ^[0-9]+$ ]] || die "Issue 번호(정수) 필요: ${1:-없음}" 2; }
 need_file() { [ -f "${1:-}" ] || die "본문 파일이 없다: ${1:-없음}" 2; }
 
@@ -81,8 +83,9 @@ case "$ACTION" in
     CMD=(issue edit "$NUM" -R "$REPO")
     [ -n "$ADD" ] && CMD+=(--add-label "$ADD")
     [ -n "$REM" ] && CMD+=(--remove-label "$REM");;
-  edit)
+  edit|pr-edit)
     need_num "${1:-}"; NUM="$1"; shift; ETITLE=""; EBODY=""; HAS_TITLE=0
+    EKIND=issue; BAKPFX=""; [ "$ACTION" = pr-edit ] && { EKIND=pr; BAKPFX=pr; }
     while [ $# -gt 0 ]; do
       case "$1" in
         --title) [ $# -ge 2 ] && [ -n "$2" ] || die "--title 값은 빈 문자열일 수 없다" 2; ETITLE="$2"; HAS_TITLE=1; shift 2;;
@@ -91,9 +94,18 @@ case "$ACTION" in
       esac
     done
     [ $HAS_TITLE -eq 1 ] || [ -n "$EBODY" ] || die "edit 는 --title 또는 --body-file 필요" 2
-    CMD=(issue edit "$NUM" -R "$REPO")
+    CMD=("$EKIND" edit "$NUM" -R "$REPO")
     [ $HAS_TITLE -eq 1 ] && CMD+=(--title "$ETITLE")
     [ -n "$EBODY" ] && CMD+=(--body-file "$EBODY");;
+  pr-close)
+    need_num "${1:-}"; NUM="$1"; shift
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --comment) COMMENT_FILE="${2:?--comment 값 필요}"; need_file "$COMMENT_FILE"; shift 2;;
+        *) die "알 수 없는 인자: $1" 2;;
+      esac
+    done
+    CMD=(pr close "$NUM" -R "$REPO");;
   close|reopen)
     need_num "${1:-}"; NUM="$1"; shift; REASON=""
     while [ $# -gt 0 ]; do
@@ -129,7 +141,7 @@ WHO="$(GH_TOKEN="$TOK" gh api user --jq .login 2>/dev/null || true)"
 if [ "$ACTION" = create ]; then
   FT_ISSUE_BOT_TOKEN="$TOK" bash "$HERE/ft-issue-create-pair.sh" "$@" --apply; exit $?
 fi
-if [ "$ACTION" = edit ]; then
+if [ "$ACTION" = edit ] || [ "$ACTION" = pr-edit ]; then
   # 수정 «전» 원문 보관 — 보관이 안 되면 수정 시도 0(#0 RULE: 조용히 건너뛰지 않는다)
   BAKDIR="${FT_ISSUE_EDIT_BAK_DIR:-}"
   if [ -z "$BAKDIR" ]; then
@@ -138,9 +150,9 @@ if [ "$ACTION" = edit ]; then
     BAKDIR="$COMMON/.fable-team/state/issue-edit-bak"
   fi
   mkdir -p "$BAKDIR" || die "보관 폴더 생성 실패: $BAKDIR — 수정 시도 0" 1
-  VIEW="$(GH_TOKEN="$TOK" gh issue view "$NUM" -R "$REPO" --json title,body 2>&1)" || die "수정 전 원문 조회 실패 — 수정 시도 0: $VIEW" 1
+  VIEW="$(GH_TOKEN="$TOK" gh "$EKIND" view "$NUM" -R "$REPO" --json title,body 2>&1)" || die "수정 전 원문 조회 실패 — 수정 시도 0: $VIEW" 1
   [ -n "$VIEW" ] || die "수정 전 원문 조회 응답이 비었다 — 수정 시도 0" 1
-  BAK_BODY="$BAKDIR/$NUM-$(date -u +%Y%m%dT%H%M%SZ).body.md"; BAK_TITLE="${BAK_BODY%.body.md}.title.txt"
+  BAK_BODY="$BAKDIR/$BAKPFX$NUM-$(date -u +%Y%m%dT%H%M%SZ).body.md"; BAK_TITLE="${BAK_BODY%.body.md}.title.txt"
   printf '%s' "$VIEW" | python3 -c 'import json,sys
 d=json.load(sys.stdin); t=d["title"]; b=d["body"]
 assert isinstance(t,str) and t and isinstance(b,str)
@@ -162,9 +174,9 @@ if [ "$ACTION" = pr-create ]; then
   [ "$AUTHOR" = "$TANK" ] || die "PR 작성자가 $TANK 가 아니다(작성자=${AUTHOR:-확인 불가}) — $PR_URL" 1
   OUT="$PR_URL"
 fi
-if [ "$ACTION" = edit ]; then
-  echo "OK as=$TANK edit $NUM ${OUT:+— $OUT }bak=$BAK_BODY"
-  echo "되돌림: bash $HERE/ft-gh-as-tank.sh edit $NUM --body-file $BAK_BODY --title \"\$(cat $BAK_TITLE)\" --apply"
+if [ "$ACTION" = edit ] || [ "$ACTION" = pr-edit ]; then
+  echo "OK as=$TANK $ACTION $NUM ${OUT:+— $OUT }bak=$BAK_BODY"
+  echo "되돌림: bash $HERE/ft-gh-as-tank.sh $ACTION $NUM --body-file $BAK_BODY --title \"\$(cat $BAK_TITLE)\" --apply"
   exit 0
 fi
 echo "OK as=$TANK $ACTION ${NUM:-${1:-}} ${OUT:+— $OUT}"

@@ -1,8 +1,9 @@
 #!/bin/bash
 # fable-team gh-issue-author-guard — PreToolUse:Bash
 # 왜: 좌석이 gh 기본 로그인으로 Issue·PR 코멘트를 쓰면 작성자가 오빠 계정(yoonhwan)으로 올라간다. 쓰기는 Tank 래퍼로만.
-# 차단(exit 2): gh issue (create|comment|edit|close|reopen|label …) · gh pr comment · 쓰기용 gh api …/issues(/N/comments|/labels …)
-# 통과: 래퍼(ft-gh-as-tank.sh)·ft-issue-create-pair.sh 경유 · gh issue view/list/status · gh pr create/merge/checkout/diff/view · 모든 조회
+# 차단(exit 2): gh issue (create|comment|edit|close|reopen|label …) · gh pr comment · gh pr review(판정·코멘트 플래그) · gh pr close -c · gh pr edit(--body/--title)
+#   · 쓰기용 gh api …/issues(/N/comments|/labels …) · gh api …/pulls/N(PATCH) · …/pulls/N/(comments|reviews)(POST·PATCH) · gh api graphql mutation
+# 통과: 래퍼(ft-gh-as-tank.sh)·ft-issue-create-pair.sh 경유 · gh issue view/list/status · gh pr create/merge/checkout/diff/view · 코멘트 없는 gh pr close · label 만 바꾸는 gh pr edit · graphql query · 모든 조회
 # 판정 단위 = 명령 «위치»에 gh 가 오는 구간(; && || | 개행으로 분리 · bash -c/eval 안쪽 재귀) — 따옴표 안 문자열·heredoc 본문은 명령이 아니다.
 # 차단 범위 = SecondWindStudio 리포 · 판정 불가 = 통과 · main 만 보호
 #   리포 범위: 위 차단은 대상 리포 owner 가 GUARDED_OWNERS 일 때만. owner 결정 순서 = -R/--repo → 구간 앞 GH_REPO= → gh api 경로 repos/<owner>/ →
@@ -113,6 +114,34 @@ def api_is_issue_write(method, has_body, path):
     if method == "GET": return False
     return method in WRITE_METHODS or (method is None and has_body)
 
+def api_is_pr_write(method, has_body, path):
+    if not path: return False
+    p = path.split("?", 1)[0].rstrip("/")
+    if re.search(r"(^|/)pulls/\d+$", p): return method == "PATCH"
+    if re.search(r"(^|/)pulls/\d+/(comments|reviews)(/|$)", p):
+        return method in ("POST", "PATCH") or (method is None and has_body)
+    return False
+
+def api_is_graphql_mutation(args):
+    if not args or "graphql" not in args: return False
+    for i, t in enumerate(args[:-1]):
+        if t in ("-f", "-F", "--field", "--raw-field") and args[i + 1].startswith("query="):
+            if re.sub(r"\s+", "", args[i + 1][len("query="):]).startswith("mutation"): return True
+    return False
+
+PR_REVIEW_FLAGS = ({"--approve", "--request-changes", "--comment", "--body", "--body-file"}, {"-a", "-r", "-c", "-b", "-F"})
+PR_CLOSE_FLAGS = ({"--comment"}, {"-c"})
+PR_EDIT_FLAGS = ({"--body", "--body-file", "--title"}, {"-b", "-F", "-t"})
+
+def has_flag(toks, flags):
+    longs, shorts = flags
+    return any(t.split("=", 1)[0] in longs or (t[:2] in shorts and not t.startswith("--")) for t in toks if t.startswith("-"))
+
+def pr_write_reason(verb, rest):
+    if verb == "comment": return "gh pr comment"
+    flags = {"review": PR_REVIEW_FLAGS, "close": PR_CLOSE_FLAGS, "edit": PR_EDIT_FLAGS}.get(verb)
+    return "gh pr " + verb if flags and has_flag(rest, flags) else None
+
 def api_is_main_rewrite(method, path):
     if method not in ("DELETE", "PATCH") or not path: return False
     p = path.split("?", 1)[0].rstrip("/")
@@ -219,11 +248,15 @@ def violation(seg, cwd):
     kind = reason = None
     if pos[0] == "issue" and len(pos) > 1 and pos[1] not in ISSUE_READ:
         kind, reason = "author", "gh issue " + pos[1]
-    elif pos[0] == "pr" and len(pos) > 1 and pos[1] == "comment":
-        kind, reason = "author", "gh pr comment"
+    elif pos[0] == "pr" and len(pos) > 1:
+        reason = pr_write_reason(pos[1], rest)
+        if reason: kind = "author"
     elif pos[0] == "api":
-        method, has_body, path = api_parts(rest[rest.index("api") + 1:] if "api" in rest else [])
+        api_args = rest[rest.index("api") + 1:] if "api" in rest else []
+        method, has_body, path = api_parts(api_args)
         if api_is_issue_write(method, has_body, path): kind, reason = "author", "gh api …/issues 쓰기"
+        elif api_is_pr_write(method, has_body, path): kind, reason = "author", "gh api …/pulls 쓰기"
+        elif api_is_graphql_mutation(api_args): kind, reason = "author", "gh api graphql mutation"
         elif api_is_main_rewrite(method, path): kind, reason = "main", "gh api main 브랜치 삭제·변경"
         owners.append(api_path_owner(path))
     elif pos[0] == "repo" and len(pos) > 1 and pos[1] == "delete":
@@ -241,8 +274,9 @@ try:
         if v:
             sys.stderr.write(
                 "🚫 [gh-issue-author-guard] %s 직접 호출 금지 — 오빠 계정(yoonhwan) 이름으로 올라간다. "
-                "Tank 래퍼를 써라: bash scripts/fable-team-bin/ft-gh-as-tank.sh <create|comment|label|close|reopen|pr-comment> … --apply "
-                "(Issue 생성 쌍 = ft-issue-create-pair.sh). 조회(view·list)는 gh 그대로.\n" % v[1])
+                "Tank 래퍼를 써라: bash scripts/fable-team-bin/ft-gh-as-tank.sh <create|comment|label|close|reopen|pr-comment|pr-edit|pr-close> … --apply "
+                "(Issue 생성 쌍 = ft-issue-create-pair.sh). 조회(view·list)는 gh 그대로. "
+                "PR 리뷰 판정(approve·request-changes)은 사람만 — 래퍼 대체 없음, 코멘트는 pr-comment.\n" % v[1])
             sys.exit(2)
 except SystemExit:
     raise
