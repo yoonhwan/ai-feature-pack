@@ -25,7 +25,8 @@ INPUT=$(cat 2>/dev/null)
 MAX_CODE_FILES="${OMC_GATE_MAX_CODE_FILES:-2}"   # 한 턴 코드파일 직접수정 허용 상한
 # TOP 오케스트레이터 모델 토큰 (정규화된 문자열에 부분일치, 소문자·하이픈형). 목록 밖 = 워커 = 면제.
 # sonnet-?5 → "sonnet 5"·"sonnet-5"·"sonnet5"·"claude-sonnet-5[1m]"·"Claude Sonnet 5" 모두 매치 (sonnet-4-6 비매치).
-TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|sonnet-?5}"
+# 단 sonnet-5-5(Sonnet 5.5: 나노·tester 워커 모델)는 (?!-?5) 로 제외 — 정규식은 python re 로 평가되므로 lookahead 사용 가능.
+TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|sonnet-?5(?!-?5)}"   # (?!-?5): sonnet-5-5(Sonnet 5.5)는 워커 면제 — 2026-09-29
 
 python3 - "$INPUT" "$MAX_CODE_FILES" "$TOP_MODELS" <<'PYEOF'
 import json, sys, os, re, hashlib, shlex

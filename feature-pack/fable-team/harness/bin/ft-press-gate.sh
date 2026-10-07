@@ -22,10 +22,82 @@ _baseline_gate(){
   printf '%s\n' "$out" | sed 's/^/  /'
   [ "$rc" = "0" ] && say "✓" "⑥ 기준선 — $FT_PRESS_CARD" || { say "✗" "⑥ 기준선 막힘(rc=$rc) — 위 BLOCK 칸을 닫아라"; FAIL=1; }
 }
-# 자체시험(FT_PRESS_GATE_SELFTEST=1): ①~⑤ 는 stub · ⑥ 만 진짜. 성공 = exit 3(GO 아님 — `gate && launch` 는 여기서 멈춘다) · 막힘 = 1. 「발화해도 된다」는 찍지 않는다.
+# ⑦ 좌석 역할(R15 카드 H · PLAN-r15 ②) — press 는 tester·checker 좌석만. 이름 = byz-<팀>-<역할>-…#N (옛 ft-<팀>-<역할>-…#N 도 셋째 토막). 조회 실패는 fail-closed.
+SEAT=""; ROLE=""
+_seat_name(){ # SELFTEST 에서만 FT_PRESS_SEAT(시험용)를 읽는다 — 보통 모드는 TMUX_PANE 의 세션명뿐 · 못 구하면 빈 값
+  if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ] && [ -n "${FT_PRESS_SEAT:-}" ]; then printf '%s' "$FT_PRESS_SEAT"; return; fi
+  [ -n "${TMUX_PANE:-}" ] && tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null
+}
+_role_gate(){
+  local name; name="$(_seat_name)"
+  if [ "${BYZ_PRESS_HUMAN:-}" = "1" ]; then
+    # 좌석이 사람 행세(BYZ_PRESS_HUMAN)로 역할 검사를 피하는 길을 닫는다 — 이름 lint 를 통과하는 세션이면 좌석이다.
+    if [ -n "$name" ] && "$HERE/ft-name-lint.sh" "$name" >/dev/null 2>&1; then
+      say "✗" "⑦ 좌석($name)이 BYZ_PRESS_HUMAN 으로 사람 행세 — 금지(R15)"; FAIL=1; return
+    fi
+    echo "ERROR: BYZ_PRESS_HUMAN=1 — 사람 직접 press. ⑦ 좌석 역할 검사를 건너뛴다(R15)" >&2
+    SEAT=human; ROLE=human; say "✓" "⑦ 사람 직접 press(BYZ_PRESS_HUMAN)"; return
+  fi
+  if [ -z "$name" ]; then
+    say "✗" "⑦ 좌석 이름을 알 수 없다(FT_PRESS_SEAT·TMUX_PANE 둘 다 없거나 tmux 조회 실패) — fail-closed(R15)"; FAIL=1; return
+  fi
+  SEAT="$name"
+  if [[ "$name" =~ ^[a-z0-9]+-[a-z0-9]+-([a-z0-9]+)(-[a-z0-9-]+)?#[0-9]+$ ]]; then ROLE="${BASH_REMATCH[1]}"
+  else say "✗" "⑦ 역할 $name — 이름 형식 불일치(byz-<팀>-<역할>-…#N) · press 는 tester·checker 만(R15)"; FAIL=1; return; fi
+  case "$ROLE" in
+    tester|checker) say "✓" "⑦ 역할 $ROLE — $name" ;;
+    *) say "✗" "⑦ 역할 $ROLE — press 는 tester·checker 만(R15) [$name]"; FAIL=1 ;;
+  esac
+}
+# ⑧ 직전 회차 BTS 표(R15 카드 H · PLAN-r15 ③) — 이 좌석의 직전 허가가 가리키는 증거 폴더의 BTS.md 4자 표가 채워져 있어야 다음 회차를 쏜다.
+PERMIT_DIR="${FT_PRESS_PERMIT_DIR:-$HERE/../../.fable-team/state/press-permits}"
+_bts_missing(){ # BTS.md → 모자란 칸 이름(" / " 구분 · 빈 출력 = 통과)
+  awk -F'|' '
+    function t(s){ gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    function empty(s){ return s=="" || s=="-" || s=="TODO" || s=="?" }
+    BEGIN{ split("아키텍처 문서,코드,로그,화면", L, ",") }
+    { if (t($2)=="축" && t($3)=="사실" && t($4)=="시간") hdr=1
+      for (i=1;i<=4;i++) if (t($2)==L[i]) { seen[i]=1; if (empty(t($3)) || empty(t($4))) bad[i]=1 } }
+    END{ o=""; if(!hdr) o="표머리"; for(i=1;i<=4;i++) if(!seen[i]||bad[i]) o=o (o==""?"":" / ") L[i]; print o }' "$1"
+}
+_bts_gate(){
+  local pf prev miss
+  if [ -z "${FT_PRESS_EVID:-}" ]; then say "✗" "⑧ 증거 폴더 미지정 — FT_PRESS_EVID=<이번 회차 증거 폴더> ft-press-gate.sh"; FAIL=1; return; fi
+  if [ -z "$SEAT" ]; then say "⊘" "⑧ 건너뜀 — 좌석을 알 수 없어(⑦ 막힘) 직전 허가를 찾지 못한다"; return; fi
+  pf="$PERMIT_DIR/$SEAT.json"
+  if [ ! -f "$pf" ]; then
+    say "✓" "⑧ 첫 회차 — 직전 허가 없음($SEAT)"
+  else
+    prev="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("evid",""))' "$pf" 2>/dev/null)"
+    if [ -z "$prev" ] || [ ! -f "$prev/BTS.md" ]; then
+      say "✗" "⑧ 직전 회차 BTS.md 없음(${prev:-evid 칸 없음}) — 직전 허가 $pf 의 증거 폴더에 4자 표를 채워라"; FAIL=1; return
+    fi
+    miss="$(_bts_missing "$prev/BTS.md")"
+    if [ -n "$miss" ]; then say "✗" "⑧ 직전 회차 BTS 표 미완 — 모자란 칸: $miss ($prev/BTS.md)"; FAIL=1; return; fi
+    say "✓" "⑧ 직전 회차 BTS 표 4행 완료 — $prev/BTS.md"
+  fi
+  # 통과 → 이번 회차 골격(있으면 건드리지 않는다)
+  if [ ! -e "$FT_PRESS_EVID/BTS.md" ]; then
+    mkdir -p "$FT_PRESS_EVID" && printf '# BTS 4자 표 — %s\n\n| 축 | 사실 | 시간 |\n|---|---|---|\n| 아키텍처 문서 |  |  |\n| 코드 |  |  |\n| 로그 |  |  |\n| 화면 |  |  |\n' "$SEAT" > "$FT_PRESS_EVID/BTS.md" \
+      && say "  ·" "이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: $FT_PRESS_EVID/BTS.md" \
+      || { say "✗" "⑧ BTS.md 골격 쓰기 실패($FT_PRESS_EVID)"; FAIL=1; }
+  fi
+}
+# 허가 파일 발급(R15 카드 H · PLAN-r15 ④) — ①~⑧ 전부 통과한 PASS 에서만. 임시파일 + mv · 같은 좌석은 덮어쓴다 · 이력은 permits.log.
+_issue_permit(){
+  local pf="$PERMIT_DIR/$SEAT.json" tmp ts head
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; head="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
+  mkdir -p "$PERMIT_DIR" && tmp="$(mktemp "$PERMIT_DIR/.tmp.XXXXXX")" || return 1
+  python3 -c 'import json,sys; k=["seat","role","runner_head","card","evid","ts"]; print(json.dumps(dict(zip(k,sys.argv[1:7])),ensure_ascii=False))' \
+    "$SEAT" "$ROLE" "$head" "${FT_PRESS_CARD:-}" "$FT_PRESS_EVID" "$ts" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
+  printf '%s\t%s\t%s\t%s\t%s\n' "$ts" "$SEAT" "$ROLE" "${FT_PRESS_CARD:-}" "$FT_PRESS_EVID" >> "$PERMIT_DIR/permits.log" || return 1
+  [ "$SEAT" = "human" ] && { mkdir -p "$FT_PRESS_EVID" && printf 'human press %s by %s card=%s\n' "$ts" "$(whoami)" "${FT_PRESS_CARD:-}" > "$FT_PRESS_EVID/human.txt" || return 1; }
+  say "✓" "허가 파일 발급 — $pf"
+}
+# 자체시험(FT_PRESS_GATE_SELFTEST=1): ①~⑤ 는 stub · ⑥⑦⑧ 은 진짜(허가 파일은 쓰지 않는다). 성공 = exit 3(GO 아님 — `gate && launch` 는 여기서 멈춘다) · 막힘 = 1. 「발화해도 된다」는 찍지 않는다.
 if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ]; then
   for n in ① ② ③ ④ ⑤; do say "⚠" "SELFTEST stub $n — 실제 검사 0"; done
-  _baseline_gate
+  _baseline_gate; _role_gate; _bts_gate
   echo; [ "$FAIL" = "0" ] && { echo "PRESS-GATE SELFTEST PASS"; exit 3; }
   echo "PRESS-GATE SELFTEST BLOCK"; exit 1
 fi
@@ -171,7 +243,12 @@ fi
 # ⑥ 기준선 — 보통 모드에 시험 환경 변수가 «있기만 해도» 막는다(상속된 SELFTEST 로 실발사 0 · §7 C2 잔여 2)
 [ -n "${FT_PRESS_GATE_SELFTEST+x}" ] && { say "✗" "⑥ 시험 모드 상속 — 발사 금지(FT_PRESS_GATE_SELFTEST=${FT_PRESS_GATE_SELFTEST} 를 unset)"; FAIL=1; }
 _baseline_gate
+# ⑦ 보통 모드에 FT_PRESS_SEAT 가 «있기만 해도» 막는다 — 좌석이 tester 이름을 변수 한 줄로 위조해 역할 검사를 통과하는 길(⑥ 의 시험 변수 상속 차단과 같은 규약)
+[ -n "${FT_PRESS_SEAT+x}" ] && { say "✗" "⑦ 시험 변수 상속 — FT_PRESS_SEAT 는 SELFTEST 전용(unset)"; FAIL=1; }
+_role_gate
+_bts_gate
 
 echo
+if [ "$FAIL" = "0" ] && ! _issue_permit; then say "✗" "허가 파일 발급 실패($PERMIT_DIR) — 허가 없이 통과시키면 다음 회차 ⑧ 이 열리지 않으므로 BLOCK"; FAIL=1; fi
 [ "$FAIL" = "0" ] && { echo "PRESS-GATE PASS — 발화해도 된다"; exit 0; }
 echo "PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)"; exit 1

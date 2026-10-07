@@ -71,4 +71,13 @@ for r in da pm tester; do
     && ok "BODY $r 크론 문장 없음" || bad "BODY $r 기대 불일치(BODY 줄 있고 CronCreate 0): $b"
 done
 
+# R21 — 고스트 서제스천 문장은 전 역할 BODY 에 (BOOT 17). master 는 크론 문장이 고스트 문장보다 앞.
+for r in master arch tester da; do
+  b="$(body $r)"
+  echo "$b" | grep -qF "자동완성 제안" && echo "$b" | grep -qF "BOOT 17" \
+    && ok "BODY $r 고스트 서제스천 문장 포함" || bad "BODY $r 에 고스트 문장 없음: $b"
+done
+b="$(body master)"; pre="${b%%CronCreate 10분*}"; post="${b%%자동완성 제안*}"
+[ "${#pre}" -lt "${#post}" ] && ok "BODY master 크론 문장이 고스트 문장보다 앞" || bad "BODY master 문장 순서: $b"
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

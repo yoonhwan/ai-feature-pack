@@ -52,6 +52,7 @@ card() { # 이름 머리줄… → 카드 경로
 gate() { # FT_PRESS_CARD(빈 값 = 미지정) [env…] → 최종 exit · 출력은 $OUT
   local c="$1"; shift
   OUT="$(env -u FT_PRESS_GATE_SELFTEST -u FT_PRESS_CARD FT_PRESS_WT="$R" FT_PRESS_ROOT="$T/root" \
+    FT_PRESS_SEAT='byz-v65-tester-claude#0' FT_PRESS_EVID="$T/evid" FT_PRESS_PERMIT_DIR="$T/permits" \
     ${c:+FT_PRESS_CARD="$c"} "$@" bash "$GATE" 2>&1)"; }
 expect() { # 기대exit 출력패턴(막힌 칸·통과 줄) 설명 카드 [env…]
   local want="$1" pat="$2" desc="$3"; shift 3; n=$((n+1))

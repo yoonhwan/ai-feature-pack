@@ -23,9 +23,10 @@ done
 if [ "$HAVE_OVERRIDE" -eq 1 ] && [ -z "${OVERRIDE//[[:space:]]/}" ]; then
   echo "REJECT cherry 게이트 — --override 사유가 비어 있음(사유 없는 우회 거부)"; exit 1
 fi
-for r in "$FEAT" "$NANO"; do
-  git -C "$REPO" rev-parse --verify -q "refs/heads/$r" >/dev/null || { echo "REJECT cherry 게이트 — 브랜치 없음: $r (refs/heads/)"; exit 1; }
-done
+# feat 는 로컬 브랜치 또는 원격 추적 ref(origin/<b>) — 좌석(nano) 브랜치는 로컬이어야 한다(R22).
+git -C "$REPO" rev-parse --verify -q "refs/heads/$FEAT" >/dev/null || git -C "$REPO" rev-parse --verify -q "refs/remotes/$FEAT" >/dev/null \
+  || { echo "REJECT cherry 게이트 — 브랜치 없음: $FEAT (refs/heads/ · refs/remotes/)"; exit 1; }
+git -C "$REPO" rev-parse --verify -q "refs/heads/$NANO" >/dev/null || { echo "REJECT cherry 게이트 — 브랜치 없음: $NANO (refs/heads/)"; exit 1; }
 if [ "$MODE" = land ] && ! git -C "$REPO" merge-base --is-ancestor "$FEAT" "$NANO"; then
   _mb="$(git -C "$REPO" merge-base "$FEAT" "$NANO" 2>/dev/null)"
   echo "REJECT cherry 게이트 — land: $NANO 가 feat HEAD($(git -C "$REPO" rev-parse --short "$FEAT"))를 포함하지 않음(merge-base ${_mb:0:7}) — 최신 루트를 병합한 뒤 다시 랜딩 요청 (docs/rules/single_set_testing.md §3 ②)"

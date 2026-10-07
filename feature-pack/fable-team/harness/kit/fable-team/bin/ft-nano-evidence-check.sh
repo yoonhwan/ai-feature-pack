@@ -35,7 +35,8 @@ else
 fi
 [ "$rc" = "0" ] || { echo "REJECT 증거 줄 — 시험 rc=$rc (0 아님)"; exit 1; }
 if [ "$DOC" = 1 ]; then
-  git -C "$REPO" rev-parse --verify -q "refs/heads/$FEAT" >/dev/null || { echo "REJECT 증거 줄 — 문서 전용 검증용 feat 브랜치 없음: $FEAT (--feat)"; exit 1; }
+  git -C "$REPO" rev-parse --verify -q "refs/heads/$FEAT" >/dev/null || git -C "$REPO" rev-parse --verify -q "refs/remotes/$FEAT" >/dev/null \
+    || { echo "REJECT 증거 줄 — 문서 전용 검증용 feat 브랜치 없음: $FEAT (refs/heads/ · refs/remotes/ · --feat)"; exit 1; }
   mb="$(git -C "$REPO" merge-base "$FEAT" "$tip" 2>/dev/null)" || { echo "REJECT 증거 줄 — merge-base($FEAT, $tip) 실패"; exit 1; }
   paths="$(git -C "$REPO" -c core.quotepath=off diff --name-only "$mb" "$tip")" || { echo "REJECT 증거 줄 — git diff 실패(문서 전용 검증)"; exit 1; }
   code="$(printf '%s\n' "$paths" | grep -vE '^(design/|docs/)|\.md$' | grep . || true)"

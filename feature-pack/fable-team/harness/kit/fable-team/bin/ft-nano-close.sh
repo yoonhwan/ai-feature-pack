@@ -341,6 +341,19 @@ fi
 _FEAT="${FT_NANO_FEAT:-}"
 [ -n "$_FEAT" ] || [ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
 _FEAT="${_FEAT:-feat/v6-realtime-live}"
+# R22: base 가 원격 추적 ref(origin/<b>)면 닫기 직전 그 ref 하나만 fetch — 옛 ref 로 대조하지 않는다(#0 RULE). 로컬 브랜치 값이면 fetch 0.
+_fetch_remote_feat() {
+  local feat="$1" remote br
+  git -C "$ROOT" rev-parse --verify -q "refs/heads/$feat" >/dev/null && return 0
+  git -C "$ROOT" rev-parse --verify -q "refs/remotes/$feat" >/dev/null || return 0
+  remote="${feat%%/*}"; br="${feat#*/}"
+  if git -C "$ROOT" fetch -q "$remote" "$br" >/dev/null 2>&1; then
+    echo "INFO feat=$feat @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$feat") (fetch 완료)"
+  else
+    bad+=("⑤ feat 원격 ref fetch 실패: $feat — 옛값으로 대조하지 않는다")
+  fi
+}
+_fetch_remote_feat "$_FEAT"
 ABSENT=0
 if [ "$tmux_ok" = 1 ]; then
   if [ -z "$cwd" ]; then
