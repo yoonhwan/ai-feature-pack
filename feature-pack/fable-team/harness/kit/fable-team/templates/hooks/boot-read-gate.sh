@@ -39,7 +39,7 @@ except Exception as e:
 FULL = re.compile(r"COMM-GUIDE\.md")          # BOOT 는 «COMM-GUIDE-BOOT.md» 라 안 걸린다
 MAXL = 200
 MSG = ("🚫 [boot-read-gate] COMM-GUIDE.md «전문»(40KB≈20k 토큰) 로드 차단 — GOAL-harness-v2 축 A.\n"
-       "→ ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄) 를 읽고, 필요한 절만 BOOT 매핑표의 줄 범위로 Read(offset, limit≤200) 하라.\n"
+       "→ ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(14줄) 를 읽고, 필요한 절만 BOOT 매핑표의 줄 범위로 Read(offset, limit≤200) 하라.\n"
        "   Bash 는 sed -n N,Mp(폭≤200) 또는 grep 만. 감지: %s")
 def deny(what):
     print(MSG % what, file=sys.stderr); log("deny", "%s %s" % (tool, what)); sys.exit(2)
