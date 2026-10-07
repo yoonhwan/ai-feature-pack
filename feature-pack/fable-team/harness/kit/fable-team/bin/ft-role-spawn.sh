@@ -31,18 +31,20 @@ README="$WT/design/v65/SEATBELT-README.md"
 [ -d "$INBOX" ] || { echo "REJECT 인박스 폴더 없음: $INBOX (indices/inbox/<role>/ 가 먼저 있어야 후계가 읽을 것이 있다)"; exit 1; }
 [ -f "$README" ] || { echo "REJECT SEATBELT-README 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }
 
-# 이름: ft-v65-<role>-<agent>#<N+1> — N = tmux 세션 + seats.json 키 중 같은 베이스의 최댓값 (없으면 -1 → #0)
-BASE_NAME="ft-v65-$ROLE-$AGENT"
+# 이름: byz-v65-<role>-<agent>#<N+1> — N = tmux 세션 + seats.json 키 중 «세 베이스(BASE_NAME·NEW_BASE·OLD_BASE)» 의 최댓값 (없으면 -1 → #0)
+BASE_NAME="${FT_ROLE_BASE_PREFIX:-byz-v65-}$ROLE-$AGENT"   # 기본 = 정본 이름 byz-v65-… (오빠 10-07) · FT_ROLE_BASE_PREFIX 로 바꿀 수 있음
+NEW_BASE="byz-v65-$ROLE-$AGENT"                             # 정본 계보
+OLD_BASE="ft-v65-$ROLE-$AGENT"                              # 옛 계보 — 접두를 무엇으로 주든 두 계보 모두 번호 이어받기·교체 대상
 maxn="$( { tmux ls -F '#{session_name}' 2>/dev/null; python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1],encoding="utf-8")).keys()))' "$SEATS"; } \
-  | awk -v b="$BASE_NAME#" 'index($0,b)==1{n=substr($0,length(b)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1} END{print (f?m:-1)}')"
+  | awk -v a="$BASE_NAME#" -v b="$NEW_BASE#" -v c="$OLD_BASE#" '{p=""; if(index($0,a)==1){p=a}else if(index($0,b)==1){p=b}else if(index($0,c)==1){p=c}; if(p!=""){n=substr($0,length(p)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1}} END{print (f?m:-1)}')"
 N=$((maxn+1)); while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 
 # 교체 대상 = 같은 role 이고 아직 _replaced_by 가 없는 행 (읽기만 — 실제 교체는 좌석이 뜬 뒤)
-OLD="$(python3 - "$SEATS" "$ROLE" <<'PY'
+OLD="$(python3 - "$SEATS" "$ROLE" "$BASE_NAME" "$NEW_BASE" "$OLD_BASE" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1], encoding="utf-8"))
-print(" ".join(k for k, v in d.items() if isinstance(v, dict) and v.get("role") == sys.argv[2] and not v.get("_replaced_by")))
+print(" ".join(k for k, v in d.items() if isinstance(v, dict) and v.get("role") == sys.argv[2] and not v.get("_replaced_by") and k.split("#")[0] in (sys.argv[3], sys.argv[4], sys.argv[5])))
 PY
 )"
 # tmuxc 옵션은 에이전트별로 다르다(tmuxc 도움말: `--ctx` 는 claude 만 · `--effort` 는 claude·cmd·codex). 안 받는 옵션을 넘기면
@@ -72,13 +74,13 @@ tmux set-option -t "$PANE" @zc_v65_active 1
 # ft-tick.sh 가 «no active seat with tick» 만 찍고 뉴스 발행이 통째로 멈춘다(15:03~15:08 · 5틱 연속).
 # 위 11행 주석의 「틱 데몬이 seats.json 을 따라오는 것은 0.4 — 그 전엔 null 이 안전」은 stale 이다 —
 # 지금 도는 ft-tick.sh 가 이미 그 0.4 이고, 매 루프 seats.json 을 다시 읽는다.
-python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" <<'PY'
+python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$NEW_BASE" "$OLD_BASE" <<'PY'
 import json, sys, collections
-p, name, role, agent, model, inbox = sys.argv[1:7]
+p, name, role, agent, model, inbox, new_base, old_base = sys.argv[1:9]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 # 같은 계열(베이스명 = #N 앞)만 잇는다 — 역할만 같으면 다른 트랙(CFO_F_ARCH 등) 좌석까지 닫는다(2026-09-29 CFO#30 제보).
 base = name.split("#")[0]
-old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name and k.split("#")[0] == base]
+old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name and k.split("#")[0] in (base, new_base, old_base)]
 # 승계는 «자리»를 잇는 것이라 그 자리의 틱도 잇는다. 구 좌석이 없으면 역할 기본값.
 tick = next((d[k].get("tick") for k in old if d[k].get("tick")), None) \
        or {"master": "ft-master-tick", "pm": "ft-pm-tick"}.get(role)

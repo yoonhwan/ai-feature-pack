@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--recheck <판정문>] [--dry-run]
+# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--dry-run]
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 # 한 번에: ①lint ②워크트리+.venv/.env 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/opus-5.5)
@@ -7,11 +7,25 @@
 # ★팩 ft-tmux-spawn.sh 를 안 쓰는 이유★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06
 #   「install.json 부재 = exit 4」). 오빠 §0-A: 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 를 직접 부른다.
 set -uo pipefail
-IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; MODEL="${FT_IMPL_MODEL:-claude-opus-5-5[1m]}"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; FAST=""; TIER=""; RECHECK=""
+IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent A] [--model M] [--effort E] [--from SEAT] [--base REF] [--dry-run]" >&2; exit 2; }
+AGENT="claude"; MODEL=""; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;
-  --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --tier) TIER="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+  --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
+ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+# ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
+#   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 는 default)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. 파일이 없으면 추측 없이 REJECT.
+if [ -z "${FT_NANO_PREFIX:-}" ]; then
+  _team=""; [[ "$IDX" =~ design/([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[1]}" != v65 ] && _team="${BASH_REMATCH[1]}"
+  if [ -n "$_team" ]; then
+    _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
+    [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
+    . "$_tenv"
+  fi
+  echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-ft-v65-temp-} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+fi
 # ★--tier checker|tester[:N] = 싼 모델 순위 (오빠 2026-09-14 확정 「zcode > cmd > luna > sonnet」 · README §5-1)★
 #   N 생략 = 1순위. 한도·거부(usage_limit_reached·429·exit 10 크레딧)면 발주자가 :2 :3 :4 로 다음 순위. sonnet(4) 은 마지막.
 #   zcode 슬러그는 설치마다 다르다 — FT_ZCODE_MODEL 로 준다(없으면 REJECT — 없는 모델을 지어내지 않는다).
@@ -35,9 +49,13 @@ case "$TIER" in
 esac
 # 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
 ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
-ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+# --model 미지정(티어도 안 정함)이면 에이전트별 기본 — claude 는 FT_IMPL_MODEL, 그 밖은 모델을 지어내지 않고 정해진 것만(opencode 등은 REJECT)
+if [ -z "$MODEL" ]; then case "$AGENT" in
+  claude) MODEL="${FT_IMPL_MODEL:-claude-opus-5-5[1m]}";;
+  codex)  MODEL="${FT_LUNA_MODEL:-gpt-6-luna}";;
+  cmd)    MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}";;
+  *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
+fi
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
@@ -45,12 +63,22 @@ case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 �
 
 # ① lint — 누가 읽어도 착수 가능한가
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
+# ①a 머리줄 4줄(C6 · SPEC-roles P3-1) — 없으면 REJECT 가 아니라 «spawn 후보 제외» 경고(ft-nano-slots.sh 와 같은 검사 · 현행 동작 보존)
+_hmiss="$(awk '/^##[[:space:]]/{exit} {print}' "$IDX" | python3 -c "
+import re, sys
+h = sys.stdin.read()
+print(' '.join(k.replace(' ', '_') for k in ('Issue', '상태', '선행', '시험 입력') if not re.search(r'^\s*[-*]?\s*' + k + r':[ \t]*\S', h, re.M)))")"
+[ -z "$_hmiss" ] || echo "WARN 후보 제외 — 카드 머리줄 없음: $_hmiss (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $IDX"
+# ①a-2 기준값 머리줄(C20 · SPEC-github-issue-driven §12-1) — 없거나 빈칸이면 REJECT 가 아니라 «후보 제외» 경고(위 4줄 검사와 같은 방식 · 현행 동작 보존).
+#   지표가 없으면 「없음 → 대체 축」 을 적어야 하며 빈칸은 안 된다(design/harness/BASELINE-TEMPLATE.md).
+awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:space:]]*기준값:[[:space:]]*[^[:space:]]' \
+  || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · design/harness/BASELINE-TEMPLATE.md): $IDX"
 
 # ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
 #   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).
 #   있으면 재개·재spawn = base_sha..HEAD 사이에 카드 «## 구현 범위» 가 인용한 파일(경로 토큰 · `관련 파일:` 줄 포함 · 인용 0 이면 세트 경로 전체 worker/ gateway/ shared/ clients/web/src/ tests/e2e/ scripts/server/)이 바뀌었으면 REJECT.
 #   통과 = `--recheck <판정문>` 이 실재하고 그 판정문이 «현재 HEAD sha»(7자 이상 접두)를 적고 있을 때만.
-CUR_HEAD="$(git -C "$WT" rev-parse HEAD)" || { echo "REJECT 기준 브랜치 HEAD 조회 실패"; exit 1; }
+CUR_HEAD="$(git -C "$WT" rev-parse "${BASE_REF:-HEAD}^{commit}")" || { echo "REJECT 기준 ${BASE_REF:+ref(--base) }HEAD 조회 실패: ${BASE_REF:-HEAD}"; exit 1; }
 CARD_BASE="$(grep -E '^[[:space:]-]*base_sha:[[:space:]]*[0-9a-f]{40}' "$IDX" | head -1 | grep -oE '[0-9a-f]{40}' | head -1)"
 if [ -z "$CARD_BASE" ]; then
   STAMP_BASE=1
@@ -93,7 +121,7 @@ BASE_NAME="${FT_NANO_PREFIX:-ft-v65-temp-}$SLUG"
 N=0; while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
-BASE_BRANCH="$(git -C "$WT" rev-parse --abbrev-ref HEAD)"
+BASE_BRANCH="${BASE_REF:-$(git -C "$WT" rev-parse --abbrev-ref HEAD)}"
 IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
 IDX_REL="${IDX_ABS#"$WT"/}"
 

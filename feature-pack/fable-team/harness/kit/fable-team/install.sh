@@ -55,5 +55,21 @@ echo "== fable-team 키트 부팅 보고 =="
 echo "machine=$MACHINE team=$TEAM mode=$MODE dest=$DEST"
 echo "files=$COUNT kit_sha=$KIT_SHA"
 printf '%s' "$LISTING"
+
+# 홈 훅 확인(읽기 전용) — 키트 훅이 «실제로 도는» 홈 훅과 같은가 · settings.json 에 등록됐나. 복사·등록은 하지 않는다.
+SETTINGS="$HOME_DIR/.claude/settings.json"
+H_SAME=0; H_DIFF=0; H_ABSENT=0; H_REG=0
+for tpl in "$KIT"/templates/hooks/*.sh; do
+  [ -f "$tpl" ] || continue
+  name="$(basename "$tpl")"
+  if [ ! -f "$HOME_DIR/.claude/hooks/$name" ]; then h_state="absent"; H_ABSENT=$((H_ABSENT+1))
+  elif cmp -s "$tpl" "$HOME_DIR/.claude/hooks/$name"; then h_state="same"; H_SAME=$((H_SAME+1))
+  else h_state="diff"; H_DIFF=$((H_DIFF+1)); fi
+  if [ -f "$SETTINGS" ] && grep -qF "hooks/$name" "$SETTINGS"; then s_state="registered"; H_REG=$((H_REG+1))
+  else s_state="absent"; fi
+  echo "hook $name home=$h_state settings=$s_state"
+done
+echo "hooks same=$H_SAME diff=$H_DIFF absent=$H_ABSENT registered=$H_REG"
+
 [ "$MODE" = "dry-run" ] && echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"
 echo "== 끝 =="

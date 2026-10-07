@@ -6,7 +6,7 @@ set -u
 ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
 WT=$ROOT/.worktrees/v6-realtime-live
 # ME 는 seats.json 의 «현역 master» 에서 읽는다 — 좌석명을 박아두면 승계 때마다 죽은 큐를 읽는다
-# (실측 2026-09-22: 박힌 값이 ft-v65-master-claude#3 인데 그 좌석은 없고 현역은 ft-v65-master-opus#7).
+# (실측 2026-09-22: 박힌 값이 ft-v65-master-claude#4 인데 그 좌석은 없고 현역은 ft-v65-master-opus#7).
 # 못 찾으면 #0 RULE 대로 죽는다 — 엉뚱한 좌석 큐를 조용히 읽어 「pending=0」을 거짓으로 만들지 않는다.
 ME=${FT_ME:-$(python3 -c "
 import json
@@ -20,6 +20,8 @@ echo "════ ① 내 큐 비우기 ════"
 bash "$ROOT/.fable-team/comm/mbox.sh" recv "$ME" --all 2>&1 | grep -vE '^SCANNED' | head -40
 echo; echo "════ ①-b ★나를 기다리는 좌석★ ════"
 bash "$WT/.fable-team/bin/ft-blocked-on-master.sh" 2>/dev/null
+echo; echo "════ ①-c ★나노 순환 — 끝난 석 닫기 → 빈 석 재배정 (이 틱에 집행 · 오빠 10-03 「나노 끝나면 정리 재배정 순환 잊지마」)★ ════"
+bash "$WT/.fable-team/bin/ft-nano-slots.sh" 2>/dev/null | head -8
 echo; echo "════ ② 좌석 적체 ════"
 bash "$WT/.fable-team/bin/ft-mbox-census.sh" 3
 echo; echo "════ ③ 좌석 상태 ════"
@@ -41,6 +43,7 @@ R=v6-realtime-live-redis-1
 echo "PEL=$(docker exec $R redis-cli --no-auth-warning XINFO GROUPS lst_stt_requests 2>/dev/null | sed -n '6p') lease=$(docker exec $R redis-cli --no-auth-warning EVAL "local c=0 local cur='0' repeat local r=redis.call('SCAN',cur,'MATCH','lst_stt_requests:lease:*','COUNT',5000) cur=r[1] c=c+#r[2] until cur=='0' return c" 0 2>/dev/null) $(docker exec $R redis-cli --no-auth-warning INFO memory 2>/dev/null | grep used_memory_human | tr -d '\r')"
 WPID=$(lsof -ti:8081 -sTCP:LISTEN 2>/dev/null | head -1)
 [ -n "$WPID" ] && echo "worker pid=$WPID 기동=$(ps -o lstart= -p $WPID | sed 's/^ *//')  최신제품커밋=$(git -C "$WT" log -1 --format='%h %ad' --date=format:'%m-%d %H:%M:%S' -- worker shared gateway clients)"
-echo; echo "════ ⑥ 완성본 하는 일 트리 (뉴스에 그대로 · 상태는 카드 폴더·seats.json 에서) ════"
+[ -n "$WPID" ] && echo "worker pid=$WPID 기동=$(ps -o lstart= -p $WPID | sed 's/^ *//')  최신제품커밋=$(git -C "$WT" log -1 --format='%h %ad' --date=format:'%m-%d %H:%M:%S' -- worker shared gateway clients)"
+echo; echo "════ ⑥ ★⓪ 완성 상태 트리 — 뉴스 «맨 위»에 그대로 붙인다 · 빠지면 발행 금지★ (오빠 09-30 「왜 작업 트리 출력안해 자꾸」 · 원본 design/v65/NEWS-TREE.md = 완성 정의 + 오빠 지시 원장 열린 행 · 원장 행이 바뀌면 같은 턴에 고친다) · 기본 = 요약본(🔄⏳❌ 만 · 오빠 10-01) · 오빠가 «전체»를 요청할 때만 FT_NEWS_FULL=1 ════"
 TREE="${FT_NEWS_TREE:-$WT/design/v65/NEWS-TREE.md}"
 if [ -f "$TREE" ]; then python3 "$WT/.fable-team/bin/ft-news-tree.py" "$TREE"; else echo "ERROR: 트리 원본 없음 — $TREE" >&2; fi

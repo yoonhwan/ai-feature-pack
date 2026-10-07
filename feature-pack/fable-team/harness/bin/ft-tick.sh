@@ -74,7 +74,7 @@ master_seat() { awk -F'\t' '$3=="master"{print $1; exit}' <<< "$1"; }
 #      뉴스는 «사람 말»로: 무엇이 안 되던 것을 무엇으로 고치는 중인가. 좌석·세션은 뉴스 밖 «세션 상태» 절에 따로.
 # ★2026-09-14 오빠: 「중간 뉴스랑 크론 메세지 길이 확인 너무 중복 매번 발행량이 많은듯」 — 1923B 규칙서를 매 틱 pane 에 꽂던 것을 «한 줄 + 정본 포인터»로.
 #   규칙 본문은 SEATBELT-README §6-1(master 항)에 있다 — 프롬프트는 형식을 «가리키고», 뉴스 4칸 + 세션 상태 절 자체는 짧게(변화 없으면 1줄).
-MASTER_MSG="[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(뉴스 4칸 ≤6불릿 · 빈 줄 · 세션 상태 절 · 같은 턴에 1건 착수). 변화 없으면 \"변화 없음 — <증상 한 줄>\" 만. 총 ≤900자."
+MASTER_MSG="[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tick ⑥ 출력 그대로 맨 위★ · 뉴스 4칸 ≤6불릿 · 빈 줄 · 세션 상태 트리 · 같은 턴에 1건 착수). 변화 없으면 \"변화 없음 — <증상 한 줄>\" 만. 총 ≤900자."
 pm_msg() { # $1 = report_to — 규칙은 README §6-1 · 정본 3종은 pm 인박스 README 에. 여기선 4항 이름만.
   echo "[cron-tick] pm 틱 — ①골 대조 1줄(M?/G?) ②원장 미등재 ③활성 나노 @zc_v65_active 전수(0 이면 즉시 set-option) ④사람 확인 필요분 → $1. 변화 없으면 \"변화 없음\" 1줄. 정본·형식: SEATBELT-README §6-1."
 }
@@ -272,7 +272,9 @@ pass() {
         # ★2026-09-14 오빠 「중간 뉴스랑 크론 메세지 … 너무 중복」★ — idle-detected 가 방금 master 에 갔으면 뉴스 틱은 그 턴에 겹치지 않는다
         #   (master 는 이미 행동할 이벤트를 받았다). 실측 18:24~19:31: 뉴스 15회 + idle 14회 = 4.4분마다 1건이 pane 에 꽂혔다.
         igap=$(( $(now) - $(cat "$(stamp_of _all idle-sent)" 2>/dev/null || echo 0) ))
-        if [ "$igap" -lt "${FT_TICK_IDLE_QUIET_SEC:-$MASTER_MIN_GAP}" ] && [ "$DRY" != 1 ]; then log "skip $seat/master — idle-detected ${igap}s ago (news deferred)"
+        # ★2026-09-28 master#69 실측: idle-detected 가 1~2분마다 와서 17:01 뒤 뉴스 0회(굶음) — 연기는 최대 FT_TICK_NEWS_MAX_DEFER 까지만★
+        ngap=$(( $(now) - $(cat "$(stamp_of "$seat" master)" 2>/dev/null || echo 0) ))
+        if [ "$igap" -lt "${FT_TICK_IDLE_QUIET_SEC:-$MASTER_MIN_GAP}" ] && [ "$ngap" -lt "${FT_TICK_NEWS_MAX_DEFER:-900}" ] && [ "$DRY" != 1 ]; then log "skip $seat/master — idle-detected ${igap}s ago (news deferred · last news ${ngap}s)"
         else fire "$seat" master "$MASTER_INTERVAL" "$MASTER_MIN_GAP" "$MASTER_MSG"; fi
         goal "$seat";;
       ft-pm-tick)     fire "$seat" pm "$PM_INTERVAL" "$PM_MIN_GAP" "$(pm_msg "$report_to")";;
