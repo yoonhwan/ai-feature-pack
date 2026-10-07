@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-role-spawn.sh <master|da|pm|arch> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
+# ft-role-spawn.sh <master|da|pm|arch|tester> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 # ft-nano-spawn.sh 를 본떴다. 차이 셋:
@@ -11,12 +11,15 @@
 # 새 좌석의 tick 은 null(=doorbell 울림). 틱 데몬이 seats.json 을 따라오는 것은 0.4(ft-tick.sh) — 그 전엔 알림이 울리는 쪽이 안전하다.
 # ★런타임 자리는 <워크트리>/.fable-team/bin/ (gitignore) — 추적 사본은 scripts/fable-team-bin/ (ft-goal-check 관례).★
 set -uo pipefail
-ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
-case "$ROLE" in master|da|pm|arch) ;; *) echo "usage: role 은 master|da|pm|arch (받은 값: $ROLE)" >&2; exit 2;; esac
-AGENT="claude"; MODEL="claude-fable-5-1[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0
+ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch|tester> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
+case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac
+# 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
+# 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
+case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
@@ -29,17 +32,18 @@ README="$WT/design/v65/SEATBELT-README.md"
 [ -f "$README" ] || { echo "REJECT SEATBELT-README 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }
 
 # 이름: ft-v65-<role>-<agent>#<N+1> — N = tmux 세션 + seats.json 키 중 같은 베이스의 최댓값 (없으면 -1 → #0)
-BASE_NAME="ft-v65-$ROLE-$AGENT"
+BASE_NAME="${FT_ROLE_BASE_PREFIX:-ft-v65-}$ROLE-$AGENT"   # 정본 이름 byz-v65-… 로 띄우려면 FT_ROLE_BASE_PREFIX=byz-v65- (arch#5 · 2026-10-07)
+LEGACY_BASE="ft-v65-$ROLE-$AGENT"                           # 옛 이름 계보도 번호 이어받기·교체 대상에 포함
 maxn="$( { tmux ls -F '#{session_name}' 2>/dev/null; python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1],encoding="utf-8")).keys()))' "$SEATS"; } \
-  | awk -v b="$BASE_NAME#" 'index($0,b)==1{n=substr($0,length(b)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1} END{print (f?m:-1)}')"
+  | awk -v b="$BASE_NAME#" -v l="$LEGACY_BASE#" '{p=""; if(index($0,b)==1){p=b}else if(index($0,l)==1){p=l}; if(p!=""){n=substr($0,length(p)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1}} END{print (f?m:-1)}')"
 N=$((maxn+1)); while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 
 # 교체 대상 = 같은 role 이고 아직 _replaced_by 가 없는 행 (읽기만 — 실제 교체는 좌석이 뜬 뒤)
-OLD="$(python3 - "$SEATS" "$ROLE" <<'PY'
+OLD="$(python3 - "$SEATS" "$ROLE" "$BASE_NAME" "$LEGACY_BASE" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1], encoding="utf-8"))
-print(" ".join(k for k, v in d.items() if isinstance(v, dict) and v.get("role") == sys.argv[2] and not v.get("_replaced_by")))
+print(" ".join(k for k, v in d.items() if isinstance(v, dict) and v.get("role") == sys.argv[2] and not v.get("_replaced_by") and k.split("#")[0] in (sys.argv[3], sys.argv[4])))
 PY
 )"
 # tmuxc 옵션은 에이전트별로 다르다(tmuxc 도움말: `--ctx` 는 claude 만 · `--effort` 는 claude·cmd·codex). 안 받는 옵션을 넘기면
@@ -69,11 +73,13 @@ tmux set-option -t "$PANE" @zc_v65_active 1
 # ft-tick.sh 가 «no active seat with tick» 만 찍고 뉴스 발행이 통째로 멈춘다(15:03~15:08 · 5틱 연속).
 # 위 11행 주석의 「틱 데몬이 seats.json 을 따라오는 것은 0.4 — 그 전엔 null 이 안전」은 stale 이다 —
 # 지금 도는 ft-tick.sh 가 이미 그 0.4 이고, 매 루프 seats.json 을 다시 읽는다.
-python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" <<'PY'
+python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$LEGACY_BASE" <<'PY'
 import json, sys, collections
-p, name, role, agent, model, inbox = sys.argv[1:7]
+p, name, role, agent, model, inbox, legacy = sys.argv[1:8]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
-old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name]
+# 같은 계열(베이스명 = #N 앞)만 잇는다 — 역할만 같으면 다른 트랙(CFO_F_ARCH 등) 좌석까지 닫는다(2026-09-29 CFO#30 제보).
+base = name.split("#")[0]
+old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name and k.split("#")[0] in (base, legacy)]
 # 승계는 «자리»를 잇는 것이라 그 자리의 틱도 잇는다. 구 좌석이 없으면 역할 기본값.
 tick = next((d[k].get("tick") for k in old if d[k].get("tick")), None) \
        or {"master": "ft-master-tick", "pm": "ft-pm-tick"}.get(role)

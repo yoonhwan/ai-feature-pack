@@ -16,7 +16,6 @@ TREE.md 한 줄 = 한 노드. 들여쓰기 2칸 = 한 단계. `#` 로 시작하�
   좌석 행 card = 카드 id(트리 [idx:] 와 매칭) · job = 역할 · doing = 진행내용 — 오케가 발주할 때 seats.json 에 적는다.
   대상 = 이름이 FB_CFO·CFO_ 로 시작하고 (tmux 가 살아 있거나 · 대체 없이 멈춘) 행.
 """
-
 import json
 import os
 import re
@@ -26,9 +25,7 @@ from pathlib import Path
 
 GLYPHS = "✅🔄⏳⏸❌"
 FOLDER_GLYPH = {"완성": "✅", "진행": "🔄", "대기": "⏳", "inbox": "⏳"}
-LINE = re.compile(
-    r"^(?P<ind> *)(?:\[(?P<st>[" + GLYPHS + r"])?\s*(?:idx:(?P<idx>[^\]\s]+))?\]\s*)?(?P<text>.*)$"
-)
+LINE = re.compile(r"^(?P<ind> *)(?:\[(?P<st>[" + GLYPHS + r"])?\s*(?:idx:(?P<idx>[^\]\s]+))?\]\s*)?(?P<text>.*)$")
 
 
 def card_folder(indices: Path, idx: str) -> str | None:
@@ -59,9 +56,7 @@ def seats_on(seats: dict, idx: str) -> list[str]:
 
 def seat_turn(status_sh: Path, seat: str) -> str:
     try:
-        r = subprocess.run(
-            ["bash", str(status_sh), "turn", seat], capture_output=True, text=True, timeout=10
-        )
+        r = subprocess.run(["bash", str(status_sh), "turn", seat], capture_output=True, text=True, timeout=10)
         return (r.stdout.split() or ["?"])[0]
     except (OSError, subprocess.TimeoutExpired):
         return "?"
@@ -85,12 +80,8 @@ def seat_state(ctx: dict, seat: str) -> str:
     if role == "stop-ready":
         return "정지레디"
     turn = seat_turn(ctx["status_sh"], seat)
-    if (
-        turn == "UNKNOWN"
-    ):  # 첫 턴이 안 끝난 새 좌석은 jsonl 에 turn_duration 이 없다 — pane 스피너로 판정
-        r = subprocess.run(
-            ["bash", str(ctx["status_sh"]), "one", seat], capture_output=True, text=True, timeout=10
-        )
+    if turn == "UNKNOWN":  # 첫 턴이 안 끝난 새 좌석은 jsonl 에 turn_duration 이 없다 — pane 스피너로 판정
+        r = subprocess.run(["bash", str(ctx["status_sh"]), "one", seat], capture_output=True, text=True, timeout=10)
         turn = {"BUSY": "WORKING", "IDLE": "IDLE"}.get((r.stdout.split() or ["", "?"])[1], turn)
     return TURN_KO.get(turn, turn)
 
@@ -101,9 +92,7 @@ def session_block(ctx: dict) -> list[str]:
         if not isinstance(v, dict) or not SEAT_PREFIX.match(name):
             continue
         if name in ctx["alive"] or (v.get("role") == "stopped" and not v.get("_replaced_by")):
-            rows.append(
-                f"- {name} - {seat_state(ctx, name)} - {v.get('job', '-')} - {v.get('doing', '-')}"
-            )
+            rows.append(f"- {name} - {seat_state(ctx, name)} - {v.get('job', '-')} - {v.get('doing', '-')}")
     return rows
 
 
@@ -114,13 +103,7 @@ def parse(path: Path) -> list[dict]:
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
         m = LINE.match(raw.rstrip())
-        node = {
-            "level": len(m["ind"]) // 2,
-            "st": m["st"],
-            "idx": m["idx"],
-            "text": m["text"],
-            "children": [],
-        }
+        node = {"level": len(m["ind"]) // 2, "st": m["st"], "idx": m["idx"], "text": m["text"], "children": []}
         while stack[-1]["level"] >= node["level"]:
             stack.pop()
         stack[-1]["children"].append(node)
@@ -145,17 +128,8 @@ def resolve(node: dict, ctx: dict) -> str:
     elif node["st"]:
         st = node["st"]
     elif kids:
-        st = (
-            "❌"
-            if "❌" in kids
-            else "✅"
-            if all(k == "✅" for k in kids)
-            else "⏸"
-            if all(k == "⏸" for k in kids)
-            else "🔄"
-            if ("🔄" in kids or "✅" in kids)
-            else "⏳"
-        )
+        st = ("❌" if "❌" in kids else "✅" if all(k == "✅" for k in kids) else "⏸" if all(k == "⏸" for k in kids)
+              else "🔄" if ("🔄" in kids or "✅" in kids) else "⏳")
     else:
         st = "⏳"
     node["out_st"], node["note"] = st, note
@@ -192,22 +166,10 @@ def main() -> int:
         print(__doc__, file=sys.stderr)
         return 2
     tree = Path(args[0])
-    wt = Path(
-        subprocess.run(
-            ["git", "-C", str(tree.parent), "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-    )
-    common = Path(
-        subprocess.run(
-            ["git", "-C", str(wt), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-    ).parent
+    wt = Path(subprocess.run(["git", "-C", str(tree.parent), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, check=True).stdout.strip())
+    common = Path(subprocess.run(["git", "-C", str(wt), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                                 capture_output=True, text=True, check=True).stdout.strip()).parent
     ctx = {
         "indices": tree.parent / "indices",
         "seats": json.loads((common / ".fable-team" / "seats.json").read_text(encoding="utf-8")),

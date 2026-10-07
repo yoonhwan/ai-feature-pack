@@ -45,6 +45,16 @@ case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 �
 
 # ① lint — 누가 읽어도 착수 가능한가
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
+# ①a 머리줄 4줄(C6 · SPEC-roles P3-1) — 없으면 REJECT 가 아니라 «spawn 후보 제외» 경고(ft-nano-slots.sh 와 같은 검사 · 현행 동작 보존)
+_hmiss="$(awk '/^##[[:space:]]/{exit} {print}' "$IDX" | python3 -c "
+import re, sys
+h = sys.stdin.read()
+print(' '.join(k.replace(' ', '_') for k in ('Issue', '상태', '선행', '시험 입력') if not re.search(r'^\s*[-*]?\s*' + k + r':[ \t]*\S', h, re.M)))")"
+[ -z "$_hmiss" ] || echo "WARN 후보 제외 — 카드 머리줄 없음: $_hmiss (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $IDX"
+# ①a-2 기준값 머리줄(C20 · SPEC-github-issue-driven §12-1) — 없거나 빈칸이면 REJECT 가 아니라 «후보 제외» 경고(위 4줄 검사와 같은 방식 · 현행 동작 보존).
+#   지표가 없으면 「없음 → 대체 축」 을 적어야 하며 빈칸은 안 된다(design/harness/BASELINE-TEMPLATE.md).
+awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:space:]]*기준값:[[:space:]]*[^[:space:]]' \
+  || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · design/harness/BASELINE-TEMPLATE.md): $IDX"
 
 # ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
 #   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).
