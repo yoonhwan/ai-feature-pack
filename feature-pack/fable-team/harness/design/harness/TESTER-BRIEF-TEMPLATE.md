@@ -15,6 +15,8 @@
 - 카드: `<카드#>` · 묶음 좌석: `<tester 세션명>`
 - 시험 프로필(`test_bundle.mode`): `<press-mic | press-api | press-inject | alt>` — `alt` 면 대체 축 `<alt_axes 목록>` 으로 시험한다(press 없음)
 - 열린 계기(`open_event`): `<mbox seq>`
+- press 카드 머리줄(press-* 만 · Issue #834): `기준선: <self | design/v65/baselines/BASELINE-<세트12>.md>` · `실험: <key=값,… | 없음>` · `프로필: <default-3bubble | …>` — 형식 `design/v65/baselines/README.md`
+- 발사 = `FT_PRESS_CARD=<카드> scripts/fable-team-bin/ft-press-gate.sh` 가 0 일 때만(⑥ 기준선 막힘 = 쏘지 않는다 · SELFTEST exit 3 은 허가 아님). 판정 어휘 3(기준선 공유 / 미관측·기원 미확정 / 변경 전 실재) = `docs/rules/e2e_testing.md` 「press 기준선」
 
 ## 보고 수신
 - ★보고 수신 = architect(`<architect 세션명>`)★ — 묶음 결과는 architect 에게 직접 보낸다.
