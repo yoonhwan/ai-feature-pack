@@ -221,3 +221,10 @@
 - 설계 결정(승인 #60270): PR 리뷰 판정(approve·request-changes)은 래퍼 대체 없이 차단 — 사람(오빠)만 · 코멘트는 pr-comment.
 - 잔여 위험(수용): 가드는 클라이언트 쪽 장치라 훅을 안 거치는 경로(다른 셸·토큰 직접 사용)는 못 막는다(§21 한계 그대로) · `gh pr review 5`(플래그 없음 · 대화형)는 통과로 둠 — 좌석은 대화형을 못 쓴다.
 - 라이브 반영: 홈 `~/.claude/hooks/gh-issue-author-guard.sh` cp + cmp + `gh pr edit 1 --body x` 차단 실측 1회 · 라이브 RT ft-gh-as-tank.sh 단독 cp — 둘 다 master 집행(랜딩 뒤).
+## §39 라이브 도구 폴더 ↔ main 키트 드리프트 검사 — tick 경고 + 나노 spawn·close 입구 BLOCK (Issue 816 ②③) — 닫힘 (byz-harness-arch-claude#8 #60537·#60568 · master#10 · 2026-10-07)
+- 나노 커밋 `66cee5fd68`(9파일: ft-live-bin-drift-check.sh 신규 · ft-nano-spawn.sh · ft-nano-close.sh · ft-tick.sh — 추적본+키트 같은 바이트 · test_live_bin_drift_check.sh). base = 9b10aba7b2(RELEASE 0.4 라이브 1:1 교체 뒤).
+- master 독립 검증: test_live_bin_drift_check ALL PASS · kit_bin_sync ALL PASS · nano_feat_remote_ref fail=0 · role_spawn_name ALL PASS · 4스크립트 cmp 동일. arch 재현: 같은 시험 ALL PASS · kit_bin_sync ALL PASS · 실제 라이브 bin 에 새 검사 1회(읽기만) `OK ref=origin/main@16201f18ea7c files=74`.
+- 설계 결정(카드 · 816 범위 축소 승인 planner #60527 · issues #60531): 기준 = git ref(origin/main) 트리 blob — 체크아웃 아님(로컬 main 18k 뒤) · 검사는 fetch 0 · 자동 cp 0 · ref 못 풀면 exit 3(조용한 통과 0) · spawn·close 우회 스위치 0(끄는 것은 tick 경고 FT_TICK_DRIFT=0 하나) · 설치 꼴(*/.fable-team/bin) 밖 실행은 검사 건너뜀(추적본 개발·기존 시험 무변화).
+- 운영 순서(새 규칙): 키트 bin 을 바꾸는 랜딩은 «origin/main 병합 → fetch → 라이브 cp → 그 나노 close». ★ops/main-base 커밋만으로 라이브 cp 하면 라이브 ≠ origin/main 이 돼 전 팀 spawn·close 가 BLOCK 된다★ — cp 는 main 병합 뒤에만.
+- 잔여 위험(수용): origin/main 이 다른 랜딩으로 앞서가면(키트 bin 변경 포함) 라이브 cp 전까지 전 팀 spawn·close 가 막힌다 — 의도된 동작(1:1 유지) · 풀이 = master 라이브 cp. CFO 틱(com.byz.ft-tick-cfo)은 라이브가 아니라 별도 사본 `.fable-team/bin-cfo/ft-tick.sh` 를 돌린다 — 설치 꼴(*/.fable-team/bin) 밖이라 drift_watch 는 거기서 꺼져 있고, 그 사본 자체도 이 검사 범위 밖(키트와 어긋날 수 있는 두 번째 자리 · 후속 후보).
+- 라이브 반영(master 집행): main 병합 → fetch → 라이브 bin 에 새 검사 + spawn·close·tick 4파일 cp → 새 검사 `OK` 1줄 → 나노 close. ★tick 경고(drift_watch)는 틱 재개 시 자동 적용 — 지금 launchd `com.byz.ft-tick` 미적재(/tmp/ft-tick.log 마지막 2026-10-03 20:39 · 재적재는 planner 판단)★ · spawn·close 입구 BLOCK 은 틱과 무관하게 cp 직후부터 작동.

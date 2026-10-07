@@ -48,6 +48,15 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
   fi
   echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-ft-v65-temp-} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
+# ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 닫지 않는다(bad=() 에 안 넣고 입구에서 종료).
+#   검사 스크립트가 없는 것도 드리프트(설치 누락). 우회 스위치 없음 — 해결은 master 라이브 cp.
+case "$HERE" in
+  */.fable-team/bin|*/.fable-team/*/bin)
+    if [ ! -f "$HERE/ft-live-bin-drift-check.sh" ]; then echo "REJECT 라이브 도구가 main 키트와 다르다 — master 라이브 cp 뒤 다시 (ft-live-bin-drift-check.sh 설치 누락)"; exit 1; fi
+    _dout="$(bash "$HERE/ft-live-bin-drift-check.sh" --bin "$HERE" --repo "$ROOT")" || { printf '%s\n' "$_dout"; echo "REJECT 라이브 도구가 main 키트와 다르다 — master 라이브 cp 뒤 다시"; exit 1; }
+    printf '%s\n' "$_dout";;
+  *) echo "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $HERE";;
+esac
 NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"
 # 좌석 워크트리 접두(spawn 123행과 같은 env) — 정규식에 들어가므로 소문자·숫자·'-' 만 허용(그 밖은 추측 없이 REJECT).
 WT_PREFIX="${FT_NANO_WT_PREFIX:-v65-}"

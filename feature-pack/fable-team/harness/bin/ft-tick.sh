@@ -41,6 +41,9 @@ MBOX="${FT_TICK_MBOX:-$HERE/../comm/mbox.sh}"
 # ★워크트리 정리 sweep (하네스 0.5 행 2 r3 · DA r2 조건 2)★ — 닫힌 나노의 계획(.fable-team/state/wt-clean/*.sh)을 매 루프 실행. 가드·원장 표식은 계획이 맡는다.
 #   [HIL] 줄이 나오면 현역 master 우편함으로 올린다(계획이 mbox 를 직접 쏘지 않는다 — 오빠 규칙 2026-09-25). FT_TICK_WT_SWEEP=0 으로 끔.
 WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT_TICK_WT_SWEEP:-1}"
+# ★라이브 bin 드리프트 경고 (카드 live-bin-drift-check · Issue 816 ③)★ — 설치 꼴(*/.fable-team/bin)에서 돌 때만, 라이브 도구 ↔ origin/main 키트를 FT_TICK_DRIFT_INTERVAL(600s)마다 대조.
+#   어긋남 목록이 «바뀐 때만» master 우편함 1회(서명 $STATE_DIR/drift.sig). FT_TICK_DRIFT=0 으로 끔(경고만 끄는 스위치 — spawn·close 입구 BLOCK 은 끌 수 없다).
+DRIFT_CHECK="${FT_TICK_DRIFT_BIN:-$HERE/ft-live-bin-drift-check.sh}"; DRIFT_ENABLED="${FT_TICK_DRIFT:-1}"; DRIFT_INTERVAL="${FT_TICK_DRIFT_INTERVAL:-600}"
 ONCE=0; DRY=0
 for a in "$@"; do case "$a" in --once) ONCE=1;; --dry-run) DRY=1;; *) echo "usage: $0 [--once] [--dry-run]" >&2; exit 2;; esac; done
 IDLE_ENABLED="${FT_TICK_IDLE_ENABLED:-1}"
@@ -258,11 +261,38 @@ sweep_wt() {
     || echo "$(date '+%F %T') sweep_wt: mbox failed" >&2
 }
 
+drift_watch() {
+  local out rc hdr items sig sigf stamp rows master
+  [ "$DRIFT_ENABLED" = 1 ] || return 0
+  case "$HERE" in */.fable-team/bin|*/.fable-team/*/bin) ;; *) return 0;; esac
+  stamp="$(stamp_of _all drift)"
+  if [ "$DRY" != 1 ] && [ $(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) )) -lt "$DRIFT_INTERVAL" ]; then return 0; fi
+  [ -f "$DRIFT_CHECK" ] || { echo "$(date '+%F %T') drift_watch: missing $DRIFT_CHECK" >&2; return 0; }
+  out="$(bash "$DRIFT_CHECK" --bin "$HERE" ${ROOT:+--repo "$ROOT"} 2>&1)"; rc=$?
+  if [ "$DRY" = 1 ]; then echo "DRY kind=drift bin=$HERE rc=$rc"; return 0; fi
+  now > "$stamp"; sigf="$STATE_DIR/drift.sig"; mkdir -p "$STATE_DIR"
+  case "$rc" in
+    0) [ -f "$sigf" ] && { rm -f "$sigf"; log "drift: OK"; };;
+    1)
+      hdr="$(printf '%s\n' "$out" | head -1)"; items="$(printf '%s\n' "$out" | grep -E '^(MISSING|DIFF|MODE|EXTRA) ')"
+      log "drift: ${hdr#DRIFT } $(printf '%s\n' "$items" | head -3 | tr '\n' ' ')"
+      sig="$(printf '%s\n' "$items" | shasum | cut -c1-40)"
+      [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
+      rows="$(read_seats 2>/dev/null)"; master="$(master_seat "$rows")"
+      [ -n "$master" ] || { echo "$(date '+%F %T') drift_watch: drift pending but no active master" >&2; return 0; }
+      if bash "$MBOX" send "$master" ft-tick "[drift] 라이브 bin ↔ main 키트 어긋남 ${hdr#DRIFT } — $(printf '%s\n' "$items" | head -3 | tr '\n' ' ')— master 라이브 cp 필요" >/dev/null 2>&1; then echo "$sig" > "$sigf"
+      else echo "$(date '+%F %T') drift_watch: mbox failed" >&2; fi;;
+    *) echo "$(date '+%F %T') drift_watch: check rc=$rc: $(printf '%s\n' "$out" | head -1)" >&2;;
+  esac
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to
   idle_watch
   stall
   sweep_wt
+  drift_watch
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
   report_to="$(master_seat "$rows")"; report_to="${FT_TICK_PM_REPORT_TO:-${report_to:-ft-v65-master}}"
