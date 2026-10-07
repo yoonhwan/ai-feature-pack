@@ -17,3 +17,5 @@
 - **[2026-10-06 00:27 KST, `date` 실측] `ft-harness-temp-c10-bundle-ops-lite#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/OPS-VERDICTS-20261006.md` ②회수 seq 57270 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
 - **[2026-10-06 00:27 KST, `date` 실측] `ft-harness-temp-c19-seat-request#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/OPS-VERDICTS-20261006.md` ②회수 seq 57275 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
 - **[2026-10-06 00:35 KST, `date` 실측] `ft-harness-temp-c18-branch-candidates#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/OPS-VERDICTS-20261006.md` ②회수 seq 57287 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
+- **[2026-10-07 11:14 KST, `date` 실측] `ft-harness-temp-tmm-group-tab-generalize#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/RESULT-tmm-group-tab-20261007.md` ②회수 seq 58290 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
+- **[2026-10-07 11:28 KST, `date` 실측] `ft-harness-temp-gh-as-tank-wrapper-guard#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/RESULT-gh-as-tank-20261007.md` ②회수 seq 58365 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
