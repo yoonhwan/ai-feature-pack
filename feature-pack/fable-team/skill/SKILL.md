@@ -84,7 +84,7 @@ v3 기본값은 **전 역할 tmuxc 세션**이다(비-tmuxc 경로 0 — 승인�
 | ft-checker | sonnet-4-6/medium | `--agent claude --role checker` (단명 — done 후 kill) | `prompts/checker.md` |
 | **ft-pm-memory** (신설) | sonnet-4-6/medium | `--name ft-pm-<proj>#0 --role pm` (상시 세션) | `prompts/pm.md` |
 
-- **세션명 규약**: `ft-<slug>-<role>#0` (증류 시 `#N+1` — tmuxc UC10). PM은 `ft-pm-<proj basename>#0`(프로젝트당 1개, 피처 공유).
+- **세션명 규약**: `ft-<slug>-<role>#0` (증류 시 `#N+1` — tmuxc UC10). PM은 `ft-pm-<proj basename>#0`(프로젝트당 1개, 피처 공유). ★신규 좌석 이름·메인 팀 오케 `master` 통일·이슈 진입로/컨펌 게이트 = `references/main-team-governance.md` (정본 · 2026-10-07)★
 - **모델 라우팅**: `tmuxc open --name <sess> --agent claude|codex --role <role> --prompt <계약경로>`가 정본. 모델 full-ID·effort·`FT_WORKER_ROLE` env 주입 가능 여부는 install.json `tmuxc_caps`가 판정 — 갭 시 승인된 `raw_launch_fallback`(headroom 기동 합성) 또는 스폰 스크립트 `exit 4 CAPABILITY_GAP` HIL 상신.
 - **역할 계약 전달**: `~/.claude/agents/ft-*.md`는 tmux 세션에 미적용 → 본문을 세션 계약 프롬프트 `.fable-team/prompts/<role>.md`로 이관(Phase 3 산출). 스폰 후 `[orch-><sess>] 계약: <path> Read 후 시작. 입력: <경로들>` 1줄 send.
 - **설치 배선**: 세션 계약 프롬프트 원본은 `skill/templates/session-prompts/*.md`(8종) — 설치·업데이트 시 `agent-templates`와 **동일 `{{...}}` 키로 치환**해 `.fable-team/prompts/<role>.md`로 복사한다(신규 인터뷰 질문 불요). 절차는 `references/install-interview.md` §5-3-2, 재치환은 `references/update.md`. 잔여 `{{`는 설치 실패로 간주.
