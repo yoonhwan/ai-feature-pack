@@ -105,11 +105,11 @@ setup "$SHA_OLD" "$SHARED"
 out="$(close --result "$SHARED/out/result.md")"
 has "$out" "REJECT" "--shared-wt 없이 공유 cwd 좌석 → 지금처럼 REJECT"; has "$out" "추측 금지" "  └ 사유 = 추측 금지(기존 fail-closed)"
 
-GIT worktree add -q "$REPO/.worktrees/v65-s" -b nano/s
+GIT worktree add -q "$REPO/.worktrees/planner-s" -b nano/s   # planner 팀 좌석의 전용 워크트리 접두 = planner- (FT_NANO_WT_PREFIX)
 setup "$SHA_OLD" "$SHARED"
 out="$(close --shared-wt --result "$SHARED/out/result.md")"
 has "$out" "전용 경로로 닫아라" "전용 워크트리 있는 좌석 + --shared-wt → REJECT(전용 경로로)"
-GIT worktree remove --force "$REPO/.worktrees/v65-s"; GIT branch -q -D nano/s
+GIT worktree remove --force "$REPO/.worktrees/planner-s"; GIT branch -q -D nano/s
 
 GIT worktree add -q "$REPO/.worktrees/other" -b nano/other
 setup "$SHA_OLD" "$REPO/.worktrees/other"
@@ -157,6 +157,42 @@ out="$(run FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 bash "$T/bin/ft-nano-close
 out="$(run FT_NANO_FEAT=feat/explicit FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 bash "$T/bin/ft-nano-close.sh" 'byz-planner-nano-b#0' --recv 1 --result "$REPO/.fable-team/seats-planner.json")"
 [ "$(cat "$T/cherry.feat" 2>/dev/null)" = "feat/explicit" ] && ok "FT_NANO_FEAT 명시 → 그 값이 이긴다" || bad "cherry base=$(cat "$T/cherry.feat" 2>/dev/null)"
 GIT worktree remove --force "$REPO/.worktrees/v65-b"
+
+echo "== close · 좌석 워크트리 접두 = FT_NANO_WT_PREFIX (세션 없음 ABSENT · cwd 없음 → ② 이름 규칙으로만 해석)"
+mkdir -p "$REPO/.fable-team/bin-feature" "$REPO/design/feature/indices/진행"
+cat > "$REPO/.fable-team/bin-feature/feature-env.sh" <<EOF
+export FT_SEATS_JSON=$REPO/.fable-team/seats-feature.json
+export FT_NANO_PREFIX=byz-feature-nano-
+export FT_NANO_WT_PREFIX=feature-
+export FT_NANO_LEDGER=$T/ledger.md
+EOF
+printf '{"byz-feature-nano-k#0":{"role":"nano","index":"design/feature/indices/진행/k.md"}}\n' > "$REPO/.fable-team/seats-feature.json"
+echo '## 상태' > "$REPO/design/feature/indices/진행/k.md"; : > "$T/panes"
+fclose() { run FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean2" bash "$T/bin/ft-nano-close.sh" 'byz-feature-nano-k#0' --recv 1 --result "$REPO/.fable-team/seats-feature.json"; }
+GIT worktree add -q "$REPO/.worktrees/feature-k" -b nano/k
+out="$(fclose)"
+hasnt "$out" "⑥나노 워크트리" "feature 팀 · feature-k 워크트리 → ⑥ REJECT 아님(후보 1개로 해석)"
+hasnt "$out" "후보도 0개" "  └ 0-후보 에러 없음"
+has "$out" "⑥증거 줄 — 카드" "  └ 워크트리 해석을 지나 증거 줄 검사까지 도달(카드에 증거 줄 없음 = 이 시험의 기대 REJECT)"
+GIT worktree remove --force "$REPO/.worktrees/feature-k"; GIT branch -q -D nano/k
+GIT worktree add -q "$REPO/.worktrees/v65-k" -b nano/k
+out="$(fclose)"
+has "$out" "⑥나노 워크트리 없음: $REPO/.worktrees/feature-<key>[-rN]" "feature 팀 · 이름이 v65-k 면 0 후보(다른 팀 워크트리를 집지 않음) · 문구는 접두 반영"
+GIT worktree remove --force "$REPO/.worktrees/v65-k"; GIT branch -q -D nano/k
+GIT worktree add -q "$REPO/.worktrees/feature-k-r2" -b nano/k-r2
+out="$(fclose)"
+hasnt "$out" "⑥나노 워크트리" "feature 팀 · 재착수 feature-k-r2 → 해석됨"
+has "$out" "⑥증거 줄 — 카드" "  └ 증거 줄 검사까지 도달"
+GIT worktree remove --force "$REPO/.worktrees/feature-k-r2"; GIT branch -q -D nano/k-r2
+out="$(run FT_NANO_WT_PREFIX='a.b' bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0')"
+has "$out" "REJECT FT_NANO_WT_PREFIX(a.b)" "접두에 정규식 문자 → REJECT(추측 0)"
+printf '{"ft-v65-temp-k#0":{"role":"nano","index":"design/v65/indices/대기/c.md"}}\n' > "$REPO/.fable-team/seats.json"
+GIT worktree add -q "$REPO/.worktrees/v65-k" -b nano/k
+out="$(run FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean3" bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0' --recv 1 --result "$REPO/.fable-team/seats.json")"
+hasnt "$out" "⑥나노 워크트리" "env 없는 옛 좌석 · v65-k → 지금처럼 해석"
+GIT worktree remove --force "$REPO/.worktrees/v65-k"; GIT branch -q -D nano/k
+out="$(run FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0' --recv 1 --result "$REPO/.fable-team/seats.json")"
+has "$out" "⑥나노 워크트리 없음: $REPO/.worktrees/v65-<key>[-rN]" "env 없는 옛 좌석 · 에러 문구 바이트 그대로(v65-<key>[-rN])"
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

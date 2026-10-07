@@ -24,6 +24,10 @@
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: c6af1da79e47e139c07c7bb613589ecfc08311da (spawn 2026-10-07)
 - base: nano-close-named-wt(0103bccf3e) 랜딩 뒤 최신 origin/main.
 - 2026-10-07 — 대기/ 생성 (byz-harness-arch-claude#6 · 원장 R14 후속 · master#9 #59484).
 - 정본 영향 없음: 하네스 나노 도구·시험만 — docs/architect 제품 정본 변경 없음
+- 2026-10-07 20:13 — 대기→진행 · 좌석 byz-harness-nano-nano-close-wt-prefix#0
+- 세트: 5310ddb0e5e59a4362b1471ee42dbda50528a179 · 시험: bash tests/harness/test_nano_team_env.sh rc=0 · 이슈: 0
+- 2026-10-07 20:18 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§33

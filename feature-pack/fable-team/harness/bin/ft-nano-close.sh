@@ -49,6 +49,9 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
   echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-ft-v65-temp-} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
 NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"
+# 좌석 워크트리 접두(spawn 123행과 같은 env) — 정규식에 들어가므로 소문자·숫자·'-' 만 허용(그 밖은 추측 없이 REJECT).
+WT_PREFIX="${FT_NANO_WT_PREFIX:-v65-}"
+[[ "$WT_PREFIX" =~ ^[a-z0-9-]+$ ]] || { echo "REJECT FT_NANO_WT_PREFIX(${WT_PREFIX}) 는 소문자·숫자·'-' 만 허용"; exit 1; }
 case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 temp- 접두)
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
@@ -56,7 +59,7 @@ LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDG
 LEDGER="${FT_NANO_LEDGER:-design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md}"; case "$LEDGER" in /*) ;; *) LEDGER="$LEDGER_WT/$LEDGER";; esac
 WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
 
-# 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/v65-<seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
+# 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/<WT 접두(기본 v65-)><seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
 # key 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
 _wt_clean_plan() {
   local key="$_KEY"
@@ -245,9 +248,9 @@ fi
 # 하네스 0.5 행 2 r5(오빠 판정 #30467): 세션이 먼저 죽은 좌석 — 세션 없음 + 워크트리 실재는 REJECT 대신 「세션 없음 자체가 충족」(유휴 검사 불요).
 # 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다. tmux_ok=0 이면 이 블록 전체를 건너뛴다(위에서 이미 REJECT 사유 기록).
 _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"
-# 좌석 워크트리 해석 «한 곳» (M7 · 재착수 -rN) — spawn 은 옛 브랜치가 있으면 v65-<key>-r2·-r3… 로 만든다. 아래 ③·⑥·⑤ 와 wt-clean 계획이 전부 이 값(SEAT_WT·SEAT_BR)만 쓴다.
+# 좌석 워크트리 해석 «한 곳» (M7 · 재착수 -rN) — spawn 은 옛 브랜치가 있으면 <접두><key>-r2·-r3… 로 만든다. 아래 ③·⑥·⑤ 와 wt-clean 계획이 전부 이 값(SEAT_WT·SEAT_BR)만 쓴다.
 #   «등록된 후보» = 현재 리포 `git worktree list --porcelain` 에 있고 ∧ $ROOT/.worktrees/ 아래 ∧ 좌석 브랜치(nano/<key>[-rN])를 체크아웃한 워크트리 (DA607 H2 — 외부 리포·경계 밖 경로는 후보가 아니다).
-#   ①살아 있는 pane cwd 의 toplevel 이 등록된 후보면 그것(아니면 ②로 후퇴) ②후보 중 이름이 v65-<key>[-rN] 인 것이 «정확히 1개»일 때만.
+#   ①살아 있는 pane cwd 의 toplevel 이 등록된 후보면 그것(아니면 ②로 후퇴) ②후보 중 이름이 <접두><key>[-rN] (접두 = FT_NANO_WT_PREFIX, 기본 v65-) 인 것이 «정확히 1개»일 때만.
 #   SEAT_WT_ERR(후보 2개 이상 · pane 살아 있는데 후보 0) = cwd 유무·역할과 무관하게 아래에서 REJECT(DA607 H1 · 추측 금지 · fail-closed) · 세션 없음 ∧ 후보 0 = 빈 값(기존 «워크트리 없음» 판정).
 _is_seat_branch() { [[ "$1" =~ ^nano/${_KEY}(-r[0-9]+)?$ ]]; }
 _resolve_seat_wt() {
@@ -266,12 +269,12 @@ _resolve_seat_wt() {
   fi
   for ((i=0; i<${#lp[@]}; i++)); do
     rel="${lp[$i]#"$base"}"
-    [[ "$rel" =~ ^v65-${_KEY}(-r[0-9]+)?$ ]] || continue
+    [[ "$rel" =~ ^${WT_PREFIX}${_KEY}(-r[0-9]+)?$ ]] || continue
     hits+=("${lp[$i]}"); brs+=("${lb[$i]}")
   done
   if [ "${#hits[@]}" -eq 1 ]; then SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"
   elif [ "${#hits[@]}" -gt 1 ]; then SEAT_WT_ERR="좌석 워크트리 후보 ${#hits[@]}개(${hits[*]}) — 추측 금지, 어느 것인지 사람 판정"
-  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 v65-<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1; fi
+  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1; fi
 }
 _resolve_seat_wt
 # ★--shared-wt (오빠 10-07 · 원장 R8)★ ⓐ전용 워크트리가 «없다» ⓑpane cwd toplevel 이 등록된 워크트리이고 브랜치가 nano/* 가 «아니다». 하나라도 아니면 REJECT.
@@ -390,7 +393,7 @@ elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
       _ev_out="$("$HERE/ft-nano-evidence-check.sh" "$CARD" --repo "$SH_TOP" --feat "$_FEAT" --ancestor-of HEAD 2>&1)"; _ev_rc=$?
       if [ "$_ev_rc" -eq 0 ]; then echo "$_ev_out"; else bad+=("ⓔ$(printf '%s' "$_ev_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
     fi
-  elif [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/v65-<key>[-rN]} — 증거 줄의 HEAD 를 대조할 수 없다")
+  elif [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/${WT_PREFIX}<key>[-rN]} — 증거 줄의 HEAD 를 대조할 수 없다")
   else
     # 언제부터 요구하나: 워크트리 .worktree-info.json created_at 날짜 >= FT_EVIDENCE_SINCE(기본 2026-10-03)인 나노만 REJECT — 그 전에 열린 진행 나노는 WARN 만(한 번에 막히지 않게).
     #   created_at 을 못 읽으면 요구한다(fail-closed · 값 추론 금지).
