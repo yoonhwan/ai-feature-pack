@@ -29,6 +29,54 @@ section_body() {  # $1=file $2=heading-prefix → 그 절 본문(다음 ## 전�
 #   바이트 그대로 대조하면 «복붙인데 불일치»가 난다(실측 2026-09-14: M5 「…20초 초과…」 hit 0 —
 #   정본이 `**20초 초과**`). 줄바꿈→공백, `**` 제거, 연속 공백 1개. 그 뒤 F 매칭.
 norm() { tr '\n' ' ' | sed -e 's/\*\*//g' -e 's/  */ /g'; }
+path_exists() { [ -e "$ROOT/$1" ] || [ -e "$1" ]; }  # $1=경로 → 리포 루트 기준 또는 그대로 실재하면 0
+# ⑦ 사전검증 · ⑧ 조사 근거 — 팀 env 스위치 FT_CARD_REQUIRE_PREVERIFY=1 일 때만 불린다(원장 R16: DA·조사 없이 열린 구현 나노 차단).
+#   형식만 본다 — 판정문 «내용»이나 인용 «내용»은 대조하지 않는다.
+NAME_LINT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-name-lint.sh"
+last_verdict() { grep -owE 'APPROVE|HOLD|REJECT' "$1" | tail -1; }  # DA 판정 형식은 이 셋뿐(단어 경계 — SUPABASE_PASSWORD·시험 요약 «PASS» 에 안 걸린다)
+check_da_verdict() {  # $1=사전검증 본문 → bad+=
+  local dpath v
+  dpath="$(printf '%s\n' "$1" | grep -E '^[-* ]*DA: *[^ ]' | head -1 | tr -d '`' | sed -E 's/^[-* ]*DA: *//; s/[[:space:]].*$//; s/#.*$//')"
+  [ -n "$dpath" ] || { bad+=("사전검증: 소환 예인데 「DA: <판정문 경로>」 줄 없음"); return; }
+  path_exists "$dpath" || { bad+=("사전검증: DA 판정문 경로 없음 ($dpath)"); return; }
+  v="$(last_verdict "$ROOT/$dpath" 2>/dev/null || true)"; [ -n "$v" ] || v="$(last_verdict "$dpath" 2>/dev/null || true)"
+  case "$v" in APPROVE) ;; *) bad+=("사전검증: DA 판정문의 마지막 판정이 APPROVE 가 아니다 (${v:-판정 단어 없음})");; esac
+}
+check_exemption() {  # $1=사전검증 본문 → bad+=
+  local line reason seat role
+  line="$(printf '%s\n' "$1" | grep -E '^[-* ]*면제: *.+ — arch 서명 +[^ ]' | head -1 | tr -d '`')"
+  [ -n "$line" ] || { bad+=("사전검증: 소환 아니오인데 「면제: <사유> — arch 서명 <좌석명>」 줄 없음"); return; }
+  reason="$(printf '%s' "$line" | sed -E 's/^[-* ]*면제: *//; s/ *— arch 서명 .*$//')"
+  seat="$(printf '%s' "$line" | sed -E 's/^.* — arch 서명 +//; s/[[:space:]].*$//')"
+  [ "${#reason}" -ge 10 ] || bad+=("사전검증: 면제 사유 10자 미만 (${#reason}자)")
+  [ -f "$NAME_LINT" ] && bash "$NAME_LINT" "$seat" >/dev/null 2>&1 || { bad+=("사전검증: 서명 좌석명이 ft-name-lint 를 통과하지 못한다 ($seat)"); return; }
+  IFS='-' read -r _ _ role _ <<< "${seat%#*}"
+  [ "$role" = arch ] || bad+=("사전검증: 서명 좌석의 역할이 arch 가 아니다 ($role)")
+}
+check_preverify() {  # $1=file → bad+=
+  local body mode
+  grep -qE '^## 사전검증' "$1" || { bad+=("절 없음: 사전검증 (⑦)"); return; }
+  body="$(section_body "$1" '사전검증')"
+  mode="$(printf '%s\n' "$body" | grep -E '^[-* ]*소환: *(예|아니오) *$' | head -1 | sed -E 's/^[-* ]*소환: *//; s/ *$//')"
+  case "$mode" in
+    예) check_da_verdict "$body";;
+    아니오) check_exemption "$body";;
+    *) bad+=("사전검증: 「소환: 예」 또는 「소환: 아니오」 줄 없음");;
+  esac
+}
+check_evidence() {  # $1=file → bad+=  (경로:줄 — 경로 실재 + 줄 번호 ≤ 파일 줄 수)
+  local refs ref p n total
+  grep -qE '^## 조사 근거' "$1" || { bad+=("절 없음: 조사 근거 (⑧)"); return; }
+  refs="$(section_body "$1" '조사 근거' | tr -d '`' | grep -oE '[^[:space:]:()]+\.[A-Za-z0-9]+:[0-9]+' | sort -u)"
+  [ -n "$refs" ] || { bad+=("조사 근거: 「경로:줄」 인용이 하나도 없다"); return; }
+  while IFS= read -r ref; do
+    p="${ref%:*}"; n="${ref##*:}"
+    [ -f "$ROOT/$p" ] && p="$ROOT/$p"
+    [ -f "$p" ] || { bad+=("조사 근거: 경로 없음 ($ref)"); continue; }
+    total="$(awk 'END{print NR}' "$p")"
+    { [ "$n" -ge 1 ] && [ "$n" -le "$total" ]; } || bad+=("조사 근거: 줄 번호가 파일 줄 수(${total})를 벗어남 ($ref)")
+  done <<< "$refs"
+}
 for f in "$@"; do
   bad=()
   [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }
@@ -59,9 +107,10 @@ for f in "$@"; do
   #   후보 = 백틱 안 경로(확장자 있는 것) + 맨 경로. 인덱스가 있는 워크트리 루트 기준으로 존재 확인.
   paths="$(section_body "$f" '구현 범위' | grep -oE '[A-Za-z0-9_./-]+/[A-Za-z0-9_.-]+\.[a-z]{1,5}' | sort -u)"
   if [ -n "$paths" ]; then
-    ok=0; while IFS= read -r p; do [ -e "$ROOT/$p" ] || [ -e "$p" ] && { ok=1; break; }; done <<< "$paths"
+    ok=0; while IFS= read -r p; do path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
+  if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi
   if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
 done
 exit $rc

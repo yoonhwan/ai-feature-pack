@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# test_index_lint.sh — ft-index-lint 시험: 스위치 꺼짐(기존 동작 그대로) · 켜짐(⑦ 사전검증 · ⑧ 조사 근거). 임시 리포에서만 돈다.
+set -uo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+LINT="$HERE/../../scripts/harness-install/fable-team/bin/ft-index-lint.sh"
+fail=0
+ok()  { echo "PASS $1"; }
+bad() { echo "FAIL $1"; fail=$((fail+1)); }
+
+bash -n "$LINT" && ok "bash -n" || bad "bash -n"
+
+T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+cd "$T" && git init -q . || { echo "FAIL git init"; exit 1; }
+mkdir -p design src
+G1='골 첫 줄 시험용 문장이다.'; G2='골 둘째 줄 시험용 문장이다.'; G3='골 셋째 줄 시험용 문장이다.'
+printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > goal.txt
+echo '원장 본문: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > design/LEDGER.md
+printf 'l1\nl2\nl3\n' > src/target.sh
+printf '판정 1: HOLD\n판정 2: APPROVE\n' > design/da-ok.md
+printf '판정 1: APPROVE\n판정 2: HOLD\n' > design/da-hold.md
+printf '내용 단어 없음\n' > design/da-empty.md
+printf '판정: HOLD\nSUPABASE_PASSWORD 줄\n' > design/da-hold-password.md
+printf '판정: HOLD\n시험 요약 26 PASS\n' > design/da-hold-pass.md
+export FT_GOAL_LINES_FILE="$T/goal.txt" FT_GOAL_LEDGER="design/LEDGER.md"
+
+# mk <이름> <사전검증 본문|-> <조사 근거 본문|-> — "-" 면 그 절을 만들지 않는다. 카드 경로를 출력.
+mk() {
+  local f="$T/$1.md"
+  { echo "# 인덱스: $1"; echo "## 골 원문"; printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3"
+    echo "## 골좌표"; echo '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」'
+    echo "## 배경"; echo '시험 카드.'
+    echo "## 구현 범위"; echo '1. src/target.sh 수정'
+    echo "## 완료 조건"; echo '시험 통과.'
+    [ "$2" != "-" ] && { echo "## 사전검증"; printf '%b\n' "$2"; }
+    [ "$3" != "-" ] && { echo "## 조사 근거"; printf '%b\n' "$3"; }
+    echo "## 상태"; echo '- 시험'; } > "$f"
+  echo "$f"
+}
+GOODPV='소환: 예\nDA: design/da-ok.md#§1'
+GOODEV='- src/target.sh:2 확인'
+SW=""
+run() { ( cd "$T" && FT_CARD_REQUIRE_PREVERIFY="$SW" bash "$LINT" "$1" 2>&1 ); }
+expect_ok()  { local out rc; out="$(run "$1")"; rc=$?; [ $rc -eq 0 ] && echo "$out" | grep -q '^OK ' && ok "$2" || bad "$2 → rc=$rc $out"; }
+expect_rej() { local out rc; out="$(run "$1")"; rc=$?; [ $rc -eq 1 ] && echo "$out" | grep -q "$3" && ok "$2" || bad "$2 → rc=$rc $out"; }
+
+# ── 스위치 꺼짐: 지금 동작 그대로 ──
+SW=""
+expect_ok  "$(mk off-ok - -)" "꺼짐: 기존 OK 카드 OK (⑦⑧ 절 없어도)"
+f="$(mk off-bad - -)"; sed -i.bak "s/^$G1\$/골 틀린 줄/" "$f"; rm -f "$f.bak"
+expect_rej "$f" "꺼짐: 골 줄 불일치 REJECT 그대로" "골 1줄 불일치"
+SW=0;   expect_ok "$(mk sw0 - -)"   "스위치 0 = 꺼짐"
+SW=yes; expect_ok "$(mk swyes - -)" "스위치 1 이외 값 = 꺼짐"
+SW=""
+a="$(run "$(mk bytes - -)")"; SW=0; b="$(run "$T/bytes.md")"; [ "$a" = "$b" ] && ok "꺼짐 출력 바이트 동일(빈값 vs 0)" || bad "꺼짐 출력 상이"
+
+# ── 스위치 켜짐: ⑦ 사전검증 ──
+SW=1
+expect_ok  "$(mk on-ok "$GOODPV" "$GOODEV")" "켜짐: 정상 카드 OK"
+expect_rej "$(mk pv-none - "$GOODEV")"                          "⑦ 절 없음 REJECT"            "절 없음: 사전검증"
+expect_rej "$(mk pv-noline '아무 줄도 없음' "$GOODEV")"          "⑦ 소환 줄 없음 REJECT"        "소환: 예.* 또는"
+expect_rej "$(mk pv-nofile '소환: 예\nDA: design/없음.md' "$GOODEV")" "⑦ 소환 예 + 판정문 없음 REJECT" "DA 판정문 경로 없음"
+expect_rej "$(mk pv-noda '소환: 예' "$GOODEV")"                  "⑦ 소환 예 + DA 줄 없음 REJECT" "DA: <판정문 경로>"
+expect_rej "$(mk pv-hold '소환: 예\nDA: design/da-hold.md' "$GOODEV")" "⑦ 마지막 판정 HOLD(앞에 APPROVE) REJECT" "APPROVE 가 아니다 (HOLD)"
+expect_rej "$(mk pv-holdpw '소환: 예\nDA: design/da-hold-password.md' "$GOODEV")" "⑦ HOLD 뒤 PASSWORD 줄 REJECT" "APPROVE 가 아니다 (HOLD)"
+expect_rej "$(mk pv-holdpass '소환: 예\nDA: design/da-hold-pass.md' "$GOODEV")" "⑦ HOLD 뒤 26 PASS 줄 REJECT" "APPROVE 가 아니다 (HOLD)"
+expect_rej "$(mk pv-empty '소환: 예\nDA: design/da-empty.md' "$GOODEV")" "⑦ 판정 단어 없음 REJECT" "판정 단어 없음"
+expect_ok  "$(mk pv-abs "소환: 예\nDA: $T/design/da-ok.md" "$GOODEV")" "⑦ 마지막 APPROVE + 절대경로 OK"
+EXOK='소환: 아니오\n면제: 오타 수정 한 줄이라 설계 불필요 — arch 서명 byz-harness-arch-claude#6'
+expect_ok  "$(mk ex-ok "$EXOK" "$GOODEV")" "⑦ 아니오 + 면제 + arch 서명 OK"
+expect_rej "$(mk ex-short '소환: 아니오\n면제: 아홉글자사유입니다 — arch 서명 byz-harness-arch-claude#6' "$GOODEV")" "⑦ 면제 사유 9자 REJECT" "10자 미만 (9자)"
+expect_ok  "$(mk ex-ten '소환: 아니오\n면제: 열글자사유입니다요오 — arch 서명 byz-harness-arch-claude#6' "$GOODEV")" "⑦ 면제 사유 10자 경계 OK"
+expect_rej "$(mk ex-nano '소환: 아니오\n면제: 오타 수정 한 줄이라 설계 불필요 — arch 서명 byz-harness-nano-x-card#0' "$GOODEV")" "⑦ nano 서명 REJECT" "역할이 arch 가 아니다 (nano)"
+expect_rej "$(mk ex-badname '소환: 아니오\n면제: 오타 수정 한 줄이라 설계 불필요 — arch 서명 foo' "$GOODEV")" "⑦ 형식 틀린 좌석명 REJECT" "ft-name-lint"
+expect_rej "$(mk ex-noline '소환: 아니오' "$GOODEV")" "⑦ 아니오 + 면제 줄 없음 REJECT" "면제:"
+
+# ── 스위치 켜짐: ⑧ 조사 근거 ──
+expect_rej "$(mk ev-none "$GOODPV" -)"                          "⑧ 절 없음 REJECT"         "절 없음: 조사 근거"
+expect_rej "$(mk ev-noref "$GOODPV" '- 인용 없음')"              "⑧ 인용 0 REJECT"          "인용이 하나도 없다"
+expect_rej "$(mk ev-nopath "$GOODPV" '- src/없음.sh:2')"          "⑧ 없는 경로 REJECT"        "경로 없음 (src/없음.sh:2)"
+expect_rej "$(mk ev-long "$GOODPV" '- src/target.sh:4')"         "⑧ 줄 번호 > 파일 길이 REJECT" "벗어남"
+expect_rej "$(mk ev-zero "$GOODPV" '- src/target.sh:0')"         "⑧ 줄 0 REJECT"            "벗어남"
+expect_ok  "$(mk ev-last "$GOODPV" '- `src/target.sh:3` 끝 줄')"  "⑧ 마지막 줄 번호 + 백틱 OK"
+
+echo "fail=$fail"; [ $fail -eq 0 ]
