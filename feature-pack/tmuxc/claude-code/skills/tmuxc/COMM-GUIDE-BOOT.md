@@ -1,4 +1,4 @@
-# COMM-GUIDE-BOOT — 부팅 필수 16줄 (이것만 읽으면 통신 가능)
+# COMM-GUIDE-BOOT — 부팅 필수 17줄 (이것만 읽으면 통신 가능)
 
 > 전문 `COMM-GUIDE.md`(40KB ≈ 20k 토큰)는 **읽지 않는다**. 필요한 절만 아래 매핑표의 줄 범위로 `Read(offset, limit≤200)`.
 > 전문 Read·cat·큰 limit 은 PreToolUse 훅(`boot-read-gate.sh`)이 막는다. (하네스 0.4 단위 5 · GOAL-harness-v2 축 A)
@@ -10,7 +10,7 @@
 4. **mbox**: `{mbox} send {to} {me} "본문"`(3~5줄 · 700자 넘으면 수신측 절단+전문경로) · `{mbox} recv {me}`(READ 라인을 화면에 인용) · `{mbox} peek {me}` · 긴 내용은 `{mbox} relay {to} {me} <파일> "요약"`. `{mbox}` 경로는 주입문의 것을 쓴다. 알림 여부는 seats.json 의 tick 유무가 정한다(`--no-notify` 는 무시·경고만, 급하면 `--urgent`). 진행보고는 mbox 가 아니라 파일에. **master 로는 두 가지만**: 집행 요청(커밋·push·좌석 개설) · 사람 판정이 필요한 것. fan-out 금지(한 값은 한 좌석) · 답 안 받은 상대에게 겹쳐 보내지 않는다.
 5. **메시지 포맷**: `[{from}->{to}] 내용` — 화살표는 ASCII `->` 만.
 6. **tmux 폴백**(mbox 없을 때만): `-l` 과 `Enter` 는 반드시 별도 호출 · 전송 뒤 §2 Step4 도달검증(3회 실패면 화면에 경고) — 「보냈다」≠「도착했다」.
-7. **금지**: prefix 없는 메시지 · 옵션모드/미제출 입력 잔류 상태로 send-keys · **agent 미실행 pane 에 send-keys(§2 Step1 HARD GATE: `pgrep -P <pane_pid>` 0건이면 send 금지)** · 작업 중 pane 에 Escape. `❯ 텍스트` 잔류는 고스트 서제스천일 수 있다 — Enter 를 보내지 마라.
+7. **금지**: prefix 없는 메시지 · 옵션모드/미제출 입력 잔류 상태로 send-keys · **agent 미실행 pane 에 send-keys(§2 Step1 HARD GATE: `pgrep -P <pane_pid>` 0건이면 send 금지)** · 작업 중 pane 에 Escape · `❯` 뒤 잔류 글자에 Enter(→ 17).
 8. **「안 보내고 대기」 금지(§1.05)**: 회신·질문은 mbox `send` 로 «마쳐야» 완료. 「대기」 선언 전 peek + 상대 pane + 자기 입력줄 제출 3확인. ★**하위 좌석은 AskUserQuestion 금지**(2026-09-25 오빠) — 사용자가 그 pane 을 못 본다. 사람 판정은 mbox `[HIL]` 로 최상위 오케(메인 팀은 `_hil_route` 의 현역 planner)에 올리고 오케가 인터뷰를 띄워 값으로 내려보낸다.★
 9. **i-have-adhd**: master·architect·pm·DA 기본 탑재 · implementer·tester·checker·analyst 는 로드 금지.
 10. **버전 정합**(tester·checker, press 전 필수 §4c): worker/gateway/frontend 기동시각 > 최신커밋 · redis 컨테이너+잔여키 keep/flush 명시. hot reload 불신.
@@ -20,6 +20,7 @@
 14. **하네스 조회**: 어디에 뭐가 있는지 모르면 먼저 `bash <루트>/scripts/fable-team-bin/ft-harness-info.sh map`(정본 목차 1장) · `rules`(정본 실재) · `seats`(라이브 좌석+이름 lint) · `requests`(하네스 요청 원장) · `find 키워드`. 이슈 처리는 **오빠 컨펌 전 착수 0**(진입로 3 · 컨펌 경로 = planner 인터뷰 · 하위 좌석은 `[HIL]` 로 올림) — 상세는 위 정본 §2.
 15. **master 손 = 집행뿐**(2026-10-07 오빠 「코드를 왜 너가 작업해」): master 가 하는 것 = 랜딩·커밋·push·좌석 개설/닫기·명부·원장 기록·검증된 파일의 설치 복사(cp+cmp). ★코드·시안·카드 증거 줄은 직접 편집 0★ — 코드=나노 · 시안·설계=arch · 나노 증거 REJECT=그 나노에 반송(닫힌 나노면 재spawn). 게이트가 안 막아도 같다. 정본 `references/main-team-governance.md` §6.
 16. **체크 크론 = 부팅 보고 직후**(2026-10-07 오빠 「크론 이관받았어? 못받았으면 버그」 · 원장 R13): master·planner·arch 좌석(신규·승계 전부)은 부팅 보고를 보낸 그 턴에 `CronCreate` 10분 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — ★없으면 착수 0★. 크론은 세션 종속이라 승계로 «옮겨지지 않는다»(launchd 뉴스 틱 `ft-tick` 과 별개). 부팅 보고에 `cron=<job id>` 를 적고, 받는 오케는 그 칸이 비면 그 턴에 되묻는다. 닫는 세션은 `CronDelete` 후 닫는다.
+17. **고스트 서제스천 = 메인 지침**(2026-10-07 오빠 「심각하네 그거 서제스천인데 … 착각하지 마라」 · 원장 R21): 남의 pane `❯` 뒤에 남은 글자 = 자동완성 제안이다. ★사용자 입력·미제출 명령으로 착각 금지★ — 그 줄을 근거로 보고·인터뷰·Enter 0. 좌석 상태 판단 근거는 jsonl 이력(`ft-reach-check.sh`)과 `✻ … done` 줄뿐. 유휴 좌석을 깨울 땐 Escape 1회 → `{mbox} ring`(작업 중 pane 은 Escape 금지 · 7). 전역 `~/.claude/CLAUDE.md` 하드 룰 10 과 같은 문장.
 
 ## 절 → 전문 매핑표 (COMM-GUIDE.md · 줄 = Read offset · «BOOT» 열은 조항 단위: 그 절의 «읽기 전에 실행되는 계약» 이 위 12줄에 본문으로 실렸는가)
 
