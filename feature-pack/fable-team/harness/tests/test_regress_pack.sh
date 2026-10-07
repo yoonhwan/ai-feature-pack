@@ -73,8 +73,12 @@ out="$(FT_REGRESS_PRESS_MAX=1 run add --issue 6 --closed-sha "$BASE" --repro-cmd
 echo "$out" | grep -q '^WARN press 활성 행 2 > 상한 1' && ok "상한 초과 경고" || bad "상한 경고: $out"
 out="$(run select "$BASE" "$CAND")"; ! echo "$out" | grep -q '^WARN' && ok "상한 이하 경고 없음(기본 20)" || bad "상한 이하: $out"
 
-# 저장소의 예시 팩 형식(2행 · 실제 1 + 합성 1) 이 jq 로 읽히는지
-PK="$HERE/../regression/issue_pack.jsonl"
-[ "$(jq -s 'length' "$PK" 2>/dev/null)" = "2" ] && ok "issue_pack.jsonl 예시 2행" || bad "issue_pack.jsonl 예시 2행"
+# 저장소의 팩 형식(행 ≥1 · 키 9 · 합성 예시 1) 이 jq 로 읽히는지 — 팩은 운영 데이터라 행 수는 고정하지 않는다
+PK="${FT_REGRESS_PACK_FILE:-$HERE/../regression/issue_pack.jsonl}"
+KEYS9='all(.[]; has("issue") and has("closed_sha") and has("repro_cmd") and has("expected") and has("files") and has("mode") and has("team") and has("added_at") and has("retired_at"))'
+[ "$(jq -s 'length >= 1' "$PK" 2>/dev/null)" = "true" ] \
+  && [ "$(jq -s "$KEYS9" "$PK" 2>/dev/null)" = "true" ] \
+  && [ "$(jq -s '[.[] | select(.issue==900000)] | length' "$PK" 2>/dev/null)" = "1" ] \
+  && ok "issue_pack.jsonl 형식(행 ≥1 · 키 9 · 합성 예시 1)" || bad "issue_pack.jsonl 형식(행 ≥1 · 키 9 · 합성 예시 1)"
 
 echo "fail=$fail"; [ $fail -eq 0 ]

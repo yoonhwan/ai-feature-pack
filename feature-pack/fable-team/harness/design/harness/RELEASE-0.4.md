@@ -38,9 +38,9 @@
 
 | 머신 | 상태 | sha |
 |---|---|---|
-| 이 Mac | 반영됨 10-07 23:2x — 키트 bin 73파일 → 라이브 v6-realtime-live/.fable-team/bin 덮어쓰기 · diff -rq 키트↔라이브 0줄 · bash -n 전부 OK · press 게이트 SELFTEST OK · 되돌림 tar = .fable-team/state/live-bin-pre-0.4-1007.tar (슬랙 ts 는 게시 뒤 기입) | 키트 소스 a3532619ba (origin/main · PR 878 드리프트 검사 포함 · 10-08 재실측 diff -rq 키트↔라이브 실파일 0줄 · 이전 51beb7be05) |
+| 이 Mac | 반영됨 10-07 23:2x — 키트 bin 73파일 → 라이브 v6-realtime-live/.fable-team/bin 덮어쓰기 · diff -rq 키트↔라이브 0줄 · bash -n 전부 OK · press 게이트 SELFTEST OK · 되돌림 tar = .fable-team/state/live-bin-pre-0.4-1007.tar (슬랙 게시 10-08 01:1x — mbox 미러 #60815 · 스레드 ts 1791389359.569739 · 요약기 실패로 첫 문장만 게시됨) | 키트 소스 1a577c3aa7 (origin/main · PR 882 R15 T 포함 · 라이브 drift-check OK · 이전 a3532619ba (PR 878 드리프트 검사 포함 · 10-08 재실측 diff -rq 키트↔라이브 실파일 0줄 · 이전 51beb7be05) |
 | jarvis | 미확인 | |
-| byzs-mac-mini | 미확인 | |
+| byzs-mac-mini | 반영됨 10-08 — ssh byz@100.71.41.107(키) · 키트 git archive origin/main → ~/.fable-team/harness 104파일 · 원격 diff -rq 키트↔설치 bin 0줄 · bash -n 87(원격 bin 72 + templates 15 는 동일 바이트로 이 Mac /bin/bash 3.2.57 에서 -n OK · arch#8 #60805) · 백업 없음(신규 디렉터리 — 이전에 없었음) · 되돌림 = 원격 ~/.fable-team 과 ~/.fable-team-kit-0.4-tmp 삭제(HIL) · 주의: 원격 bash 3.2 런타임이라 좌석 운용 전 env bash 스크립트 52개 호환 시험 별건 · tmux 없음 | 키트 소스 1a577c3aa7 (kit_sha=38d57db630ea · files=104) |
 
 ## 이 릴리스에 안 넣은 것 (다음으로)
 | 무엇 | 언제 | 근거 |

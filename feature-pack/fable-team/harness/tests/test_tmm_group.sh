@@ -59,4 +59,16 @@ check bot   "byz-bot-master-claude#1" "byz-bot-master-claude#1"
 printf 'byz-v65-*\tvx\n' > "$CATS.prio"
 check vx "$NEW_ALL" "byz-v65-master-claude#143" "$CATS.prio"; rm -f "$CATS.prio"
 
+# bash 4 가드(맨 위) — macOS 기본 /bin/bash 3.x 에서: 후보 없음 → 멈춤+문구 · 후보 있음 → 재실행으로 도움말 출력.
+#   (doctor 는 소스 트리에서 helper 부재로 bash5 도 rc=1 이라 가드 시험엔 쓰지 않는다 → -h)
+if [ -x /bin/bash ] && /bin/bash -c '[ "${BASH_VERSINFO[0]}" = 3 ]'; then
+  B5="$(command -v bash)"
+  out="$(TMM_BASH4_CANDIDATES=/nonexistent /bin/bash "$TMM" -h 2>&1)"; rc=$?
+  [ "$rc" != 0 ] && [[ "$out" == *"bash 4 이상 필요"* ]] && ok "[bash3.2] 후보 없음 → rc=$rc + 'bash 4 이상 필요'" || bad "[bash3.2] 후보 없음 가드 (rc=$rc out='$out')"
+  out="$(TMM_BASH4_CANDIDATES="$B5" /bin/bash "$TMM" -h 2>&1)"; rc=$?
+  [ "$rc" = 0 ] && [[ "$out" == *"tmm — 모바일"* ]] && ok "[bash3.2] 후보 $B5 → 재실행 rc=0" || bad "[bash3.2] 후보 있음 재실행 (rc=$rc out='${out:0:80}')"
+else
+  echo "SKIP bash3 없음"
+fi
+
 echo "---"; [ $fail -eq 0 ] && echo "ALL PASS" || echo "FAILED=$fail"; exit $fail

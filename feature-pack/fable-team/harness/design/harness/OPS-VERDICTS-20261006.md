@@ -236,3 +236,23 @@
 - 최종 DA 소환: 안 함 — 문자열 1문장 삽입·제어 흐름 0·바이트 대조로 범위 이탈 0 확인(arch 서명 면제 그대로).
 - 잔여: 정본 충돌 2곳(design/v65/SEATBELT-README.md:211 규칙 15 · docs/rules/single_set_testing.md:25)이 아직 「나노 press」 를 허용하는 문장 — v65·문서 몫(master#11 → planner 경유 통지). 하네스 쪽 조치 끝.
 - 라이브 반영(master 집행): main 병합 → fetch → 라이브 bin 에 ft-nano-spawn.sh cp → ft-live-bin-drift-check.sh OK 1줄.
+
+## §41 test_regress_pack 의 「예시 2행」 고정 기대 → 형식 검사 (야간 자율 단위 3) — 닫힘 (byz-harness-arch-claude#8 #60847 · master#11 #60854 · 2026-10-08)
+- 나노 커밋 `4143c964f1`(1파일: tests/harness/test_regress_pack.sh · +7/−3).
+- 조사 결론(arch): 늘 빨간 원인 = 시험 기대 낡음 — 10-06 시험이 팩 «정확히 2행»을 요구했는데 10-07 7b04fc2c4f 가 실제 회귀 행 #834 를 추가해 3행. 팩 3행 모두 키 9 동일(파일 결함 0).
+- master 독립 검증: bash·/bin/bash 3.2 둘 다 rc=0 fail=0. arch 재현: 같은 두 실행 fail=0 + 음성 대조(첫 행 repro_cmd 키 삭제 복사 팩 → FAIL · fail=1).
+- 최종 DA 소환: 안 함 — 시험 1줄 기대 변경 · 제품·하네스 코드 0 · 음성 대조로 검사가 여전히 결함을 잡는 것 확인.
+- 효과: 하네스 시험 32개 중 «늘 빨간» 것 0(bash5 기준) — 다음 회귀가 빨간색으로 보인다.
+- 라이브 반영: 불요(시험 파일).
+
+## §42 tmm 을 bash 4+ 전용으로 명시 — 3.2 가드 + 가드 동작 시험 (원장 R24 · 야간 자율 단위 2) — 닫힘 (byz-harness-arch-claude#9 · master#11 #60866 · 2026-10-08)
+- 나노 커밋 `2f6562f17e`(반송 r1 재작업 · 2파일: scripts/harness-install/tmm/tmm · tests/harness/test_tmm_group.sh). r0 `3b534a71e6`(소문자 6곳 _lc 교체)는 이 커밋으로 되돌려졌다 — base `293199de75` 대비 순변경 = 추가 25줄·삭제 0.
+- 조사 결론(arch#8 반송 r1): tmm 은 연관 배열(declare -A)을 써서 bash 3.2 에선 소문자만 고쳐도 본 경로가 못 돈다 · _lc 는 서브셸+tr 이라 3배 느림 → «3.2 호환» 대신 «bash 4+ 전용 명시 + 3.2 로 불리면 bash 4+ 후보로 재실행, 없으면 문구+rc=1 로 멈춤».
+- master 독립 검증: _lc 0건 · bash·/bin/bash 3.2 test_tmm_group rc=0 ALL PASS · 후보 없음 시 rc=1 + 「tmm: bash 4 이상 필요 (지금 3.2.57)」.
+- arch 재현(#9): ①base 대비 tmm 변경은 가드 13줄 추가뿐 · 삭제 0 → 소문자 6곳(202·210·215·221·232·236행)이 base 와 바이트 동일. 7번째 `,,}` 는 가드 주석(59행) ②시험 bash5 rc=0 · /bin/bash 3.2 rc=0 · 가드 PASS 줄 2개(후보 없음 rc=1+문구 · 후보 /opt/homebrew/bin/bash 재실행 rc=0) ③cat_of 이름 150개: 새판 0.84 s vs base 0.86 s(속도 원복) ④음성 대조: 가드 없는 base 를 /bin/bash 3.2 + 후보 없음으로 -h → rc=0·문구 없음 → 시험 첫 줄이 FAIL 로 잡는다.
+- 카드 지시와 다른 1점(수용): 후보 있음 시험을 doctor 가 아니라 -h 로 — 소스 트리에선 helper 부재로 bash5 직접 실행 doctor 도 rc=1 이라 가드 판별에 못 쓴다. -h 도 exec 재실행 경로를 그대로 지난다.
+- 최종 DA 소환: 안 함 — 하네스 도구 1개 진입부 가드 + 시험 · 제품 코드 0 · 3.2/5 양쪽 실행 + 음성 대조로 검사가 결함을 잡는 것 확인. HOLD 1회(반송 r1) 뒤 1회 통과.
+- 효과: macOS 기본 bash 3.2 에서 tmm 이 «조용히 반쯤 도는» 대신 homebrew bash 로 재실행되거나 원인 문구를 내고 멈춘다.
+- 남은 것(카드 밖 · 사람 승인 영역): ~/.tmm/versions/ 새 버전 설치·current 전환 · byzs-mac-mini homebrew bash 설치(원격 쓰기) — 아침 브리핑 결정 후보 ③④.
+- 라이브 반영: 미반영(설치는 위 사람 승인 뒤). 정본 영향 없음: tmm 추적 사본·시험만 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 2f6562f17e98fade1c9333914108f85b880edc8e · 시험: bash tests/harness/test_tmm_group.sh rc=0 · 이슈: 0`

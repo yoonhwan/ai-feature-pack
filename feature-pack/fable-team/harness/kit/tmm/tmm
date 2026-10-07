@@ -54,6 +54,19 @@
 #   TMM_MODELS       fork 모델 별칭 파일 (기본 ~/.tmm/models) — "agent<TAB>alias<TAB>id<TAB>extra"
 #   TMM_FORKS        fork 발췌 파일 디렉터리 (기본 ~/.tmm/forks) — 피커 종료 후에도 새 에이전트가 읽음
 #   TMM_FORK_EXCERPT_N  fork 발췌에 담을 최근 메시지 수 (기본 40)
+#   TMM_BASH4_CANDIDATES  bash 4+ 후보 경로(공백 구분, 기본 homebrew) — 아래 가드가 bash 3.2 에서 재실행할 때 쓴다
+
+# ★bash 4+ 전용★ — 연관 배열(declare -A)·`${x,,}` 를 쓴다. macOS 기본 /bin/bash 3.2 에선 본 경로가 못 돈다.
+#   3.2 로 불리면 bash 4+ 후보로 다시 실행하고, 없으면 «조용히 진행하지 않고» 멈춘다. (source tmm __lib 는 재실행하지 않는다)
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  if [ "${1:-}" != __lib ]; then
+    for b in ${TMM_BASH4_CANDIDATES:-/opt/homebrew/bin/bash /usr/local/bin/bash}; do
+      [ -x "$b" ] && "$b" -c '[ "${BASH_VERSINFO[0]}" -ge 4 ]' 2>/dev/null && exec "$b" "$0" "$@"
+    done
+  fi
+  echo "tmm: bash 4 이상 필요 (지금 $BASH_VERSION) — brew install bash" >&2
+  return 1 2>/dev/null || exit 1
+fi
 set -uo pipefail
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
