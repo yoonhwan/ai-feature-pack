@@ -38,7 +38,7 @@
 
 | 머신 | 상태 | sha |
 |---|---|---|
-| 이 Mac | 반영됨 10-07 23:2x — 키트 bin 73파일 → 라이브 v6-realtime-live/.fable-team/bin 덮어쓰기 · diff -rq 키트↔라이브 0줄 · bash -n 전부 OK · press 게이트 SELFTEST OK · 되돌림 tar = .fable-team/state/live-bin-pre-0.4-1007.tar (슬랙 ts 는 게시 뒤 기입) | 키트 소스 51beb7be05 (origin/main 16201f18ea 포함) |
+| 이 Mac | 반영됨 10-07 23:2x — 키트 bin 73파일 → 라이브 v6-realtime-live/.fable-team/bin 덮어쓰기 · diff -rq 키트↔라이브 0줄 · bash -n 전부 OK · press 게이트 SELFTEST OK · 되돌림 tar = .fable-team/state/live-bin-pre-0.4-1007.tar (슬랙 ts 는 게시 뒤 기입) | 키트 소스 a3532619ba (origin/main · PR 878 드리프트 검사 포함 · 10-08 재실측 diff -rq 키트↔라이브 실파일 0줄 · 이전 51beb7be05) |
 | jarvis | 미확인 | |
 | byzs-mac-mini | 미확인 | |
 

@@ -228,3 +228,11 @@
 - 운영 순서(새 규칙): 키트 bin 을 바꾸는 랜딩은 «origin/main 병합 → fetch → 라이브 cp → 그 나노 close». ★ops/main-base 커밋만으로 라이브 cp 하면 라이브 ≠ origin/main 이 돼 전 팀 spawn·close 가 BLOCK 된다★ — cp 는 main 병합 뒤에만.
 - 잔여 위험(수용): origin/main 이 다른 랜딩으로 앞서가면(키트 bin 변경 포함) 라이브 cp 전까지 전 팀 spawn·close 가 막힌다 — 의도된 동작(1:1 유지) · 풀이 = master 라이브 cp. CFO 틱(com.byz.ft-tick-cfo)은 라이브가 아니라 별도 사본 `.fable-team/bin-cfo/ft-tick.sh` 를 돌린다 — 설치 꼴(*/.fable-team/bin) 밖이라 drift_watch 는 거기서 꺼져 있고, 그 사본 자체도 이 검사 범위 밖(키트와 어긋날 수 있는 두 번째 자리 · 후속 후보).
 - 라이브 반영(master 집행): main 병합 → fetch → 라이브 bin 에 새 검사 + spawn·close·tick 4파일 cp → 새 검사 `OK` 1줄 → 나노 close. ★tick 경고(drift_watch)는 틱 재개 시 자동 적용 — 지금 launchd `com.byz.ft-tick` 미적재(/tmp/ft-tick.log 마지막 2026-10-03 20:39 · 재적재는 planner 판단)★ · spawn·close 입구 BLOCK 은 틱과 무관하게 cp 직후부터 작동.
+
+## §40 나노 첫 발주문(ft-nano-spawn BODY)에 「press 금지」 1문장 (R15 T ①) — 닫힘 (byz-harness-arch-claude#8 #60760·#60766 · master#11 #60761·#60775 · 2026-10-08)
+- 나노 커밋 `613122a5cc`(3파일: ft-nano-spawn.sh 추적본+키트 같은 바이트 · test_nano_spawn_body_press.sh 신규).
+- master 독립 검증: 새 문장 BODY 218행 1줄 변경 · 추적본↔키트 cmp 동일 · test_nano_spawn_body_press·test_kit_bin_sync·test_nano_team_env·test_live_bin_drift_check 전부 rc=0. arch 재현: test_nano_spawn_body_press ALL PASS(음성 대조 포함) · 옛판 대비 «앵커 뒤 1문장 삽입» 외 바이트 변화 0(exact-insert True).
+- 설계 결정: 강제는 이미 ft-press-gate ⑦(R15 H · §35)이 한다 — 이 카드는 «시작 시 알림»뿐(동작 변화 0). spawn --dry-run 은 BODY 를 출력하지 않아 시험은 정적 grep.
+- 최종 DA 소환: 안 함 — 문자열 1문장 삽입·제어 흐름 0·바이트 대조로 범위 이탈 0 확인(arch 서명 면제 그대로).
+- 잔여: 정본 충돌 2곳(design/v65/SEATBELT-README.md:211 규칙 15 · docs/rules/single_set_testing.md:25)이 아직 「나노 press」 를 허용하는 문장 — v65·문서 몫(master#11 → planner 경유 통지). 하네스 쪽 조치 끝.
+- 라이브 반영(master 집행): main 병합 → fetch → 라이브 bin 에 ft-nano-spawn.sh cp → ft-live-bin-drift-check.sh OK 1줄.

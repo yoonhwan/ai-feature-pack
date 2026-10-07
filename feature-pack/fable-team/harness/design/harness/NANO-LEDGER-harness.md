@@ -36,3 +36,4 @@
 - **[2026-10-07 21:28 KST, `date` 실측] `byz-harness-nano-r21-role-spawn-ghost-line#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/r21-role-spawn-ghost-line.md` ②회수 seq 60216 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-07 21:32 KST, `date` 실측] `byz-harness-nano-r22-nano-feat-remote-ref#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/r22-nano-feat-remote-ref.md` ②회수 seq 60230 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 8파일 보관)
 - **[2026-10-07 22:17 KST, `date` 실측] `byz-harness-nano-r6b-pr-write-guard#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/r6b-pr-write-guard.md` ②회수 seq 60353 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-07 23:59 KST, `date` 실측] `byz-harness-nano-live-bin-drift-check#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/live-bin-drift-check.md` ②회수 seq 60566 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 8파일 보관)
