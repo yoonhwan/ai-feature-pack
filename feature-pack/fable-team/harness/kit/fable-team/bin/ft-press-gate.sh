@@ -14,6 +14,21 @@ HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
+# ⑥ 기준선(Issue #834 · DESIGN-834-baseline-gate-arch165.md §7 r2) — 카드가 가리키는 v65 기본 동작 기준선 없이는 발사 0. 값 검사 본체는 ft-press-baseline-check.sh.
+_baseline_gate(){
+  local out rc
+  if [ -z "${FT_PRESS_CARD:-}" ]; then say "✗" "⑥ 카드 미지정 — FT_PRESS_CARD=<카드> ft-press-gate.sh 로 발사(기준선 없는 발사 차단 · #834)"; FAIL=1; return; fi
+  out="$("$HERE/ft-press-baseline-check.sh" --card "$FT_PRESS_CARD" --repo "$WT" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | sed 's/^/  /'
+  [ "$rc" = "0" ] && say "✓" "⑥ 기준선 — $FT_PRESS_CARD" || { say "✗" "⑥ 기준선 막힘(rc=$rc) — 위 BLOCK 칸을 닫아라"; FAIL=1; }
+}
+# 자체시험(FT_PRESS_GATE_SELFTEST=1): ①~⑤ 는 stub · ⑥ 만 진짜. 성공 = exit 3(GO 아님 — `gate && launch` 는 여기서 멈춘다) · 막힘 = 1. 「발화해도 된다」는 찍지 않는다.
+if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ]; then
+  for n in ① ② ③ ④ ⑤; do say "⚠" "SELFTEST stub $n — 실제 검사 0"; done
+  _baseline_gate
+  echo; [ "$FAIL" = "0" ] && { echo "PRESS-GATE SELFTEST PASS"; exit 3; }
+  echo "PRESS-GATE SELFTEST BLOCK"; exit 1
+fi
 
 # ① 현역 나노 브랜치 미랜딩 0
 UNLANDED=0
@@ -152,6 +167,10 @@ else
       --worker-start "$(_start_of "$wpid")" --gateway-start "$(_start_of "$gpid")" || FAIL=1
   fi
 fi
+
+# ⑥ 기준선 — 보통 모드에 시험 환경 변수가 «있기만 해도» 막는다(상속된 SELFTEST 로 실발사 0 · §7 C2 잔여 2)
+[ -n "${FT_PRESS_GATE_SELFTEST+x}" ] && { say "✗" "⑥ 시험 모드 상속 — 발사 금지(FT_PRESS_GATE_SELFTEST=${FT_PRESS_GATE_SELFTEST} 를 unset)"; FAIL=1; }
+_baseline_gate
 
 echo
 [ "$FAIL" = "0" ] && { echo "PRESS-GATE PASS — 발화해도 된다"; exit 0; }
