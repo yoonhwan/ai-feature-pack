@@ -85,3 +85,76 @@
 ## §10 DA 소환 판단
 - r1(DA HOLD-1 · design/harness/DA-proposal-flow-20261008.md): P1 = 확인·생성을 한 진입점(ft-proposal-register.sh)으로 묶고 실패 시 Tank 0회 시험 · ★수락 범위 = «제안서 표준 진입점의 실패 차단»★ — raw Tank 경로(ft-gh-as-tank.sh create)의 전역 강제 차단은 이 단위 범위 밖(키트 래퍼·가드 변경 + 라이브 반영이 필요 · 완성 후 후보로 정본에 «선언» 표기) · P2 = rN 별 원격 표식(정확 첫 줄) + 단계 상태 posting→posted→done + 불명 차단 + 첨부만 재시도 · §7 시험 2·3 장애 주입. 같은 범위 교정 1회.
 - **소환함(사전검증 1회 · 10분+10분 · 2 HOLD 면 중단)**. 볼 곳 2: ①«컨펌 전 Issue 0»이 선언뿐인가 — 집행 장치는 `ft-proposal-check.sh`(issues master 가 돌림)뿐이고 Tank 래퍼(`ft-gh-as-tank.sh create`)에는 걸지 않았다(키트 bin = 드리프트 BLOCK). 이 수준이 충분한가 ②슬랙 발행의 재게시 0 — 매거진과 달리 posting 단계 없이 «게시 전 채널 정확 첫 줄 확인»만 두는 것이 수동 실행 전제에서 충분한가.
+
+---
+
+# r2 — 판정 357 제안서 흐름 업그레이드 (byz-harness-arch-claude#11 · 2026-10-08 · master#13 #61756 · planner#8 원 발주)
+
+★골 원문 (GOAL-harness.md 복붙)★ — 발주문 머리에는 v65 골 3줄이 붙어 왔다(planner 발주 템플릿 오류 · 판정 359 와 같은 함정). 이 설계의 골은 아래 3줄이다.
+> 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
+> 하네스 스킬 관리 오케는 메인오케들과 위성오케들에게 개선요청을 직접받아 등록관리하고 사용자와 협의해 개선하는 축도 필요함.
+> 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
+
+골의 축: 6-b(요청 접수 → 사용자 협의 → 개선). 오빠 원문(10-08 11:5x): 「제안서 프로세스에 지금 제안서는 풀 컨텍스트로 깃헙 이슈에 등록 작업시 참고하라 하고 · 역시 제안서도 내가 읽기 편하게 eli5 세트로 제안서 기반 작성 · 실험과 예측 시뮬도 포함하면 더 좋지 · 하네스 마스터 발주해 다음 제안서부터 반영 업그레이드」.
+범위: 첫 사례(#887)는 r1 그대로 마감 · 다음 제안서부터. r1 §0~§10 의 상태 머리줄·명령 이름·뿌리 글 첫 줄은 바꾸지 않는다.
+
+## §r2-0 결론
+세 가지 모두 «기존 도구에 덧붙이기»로 된다. 새 파일은 eli5 판 2개(모듈 1 · 템플릿 1)뿐이고, 매거진 모듈은 «부르기만» 한다 — 매거진 파일 변경은 `magazine_attach.CONTENT_TYPES` 에 md 1키 추가뿐(매거진 동작 변경 0 — 매일 08:00 발행 위험 0).
+| 요구 | 어디를 | 재사용 |
+|---|---|---|
+| ① Issue = 풀 컨텍스트 | `ft-proposal-register.sh` 본문 생성부(38-48행) + 분할 코멘트 | Tank 래퍼 `create`·`comment`(이미 있음) |
+| ② 제안서 = md + eli5 HTML 세트 | 신규 `proposal_eli5.py` + `proposal_eli5_template.html` · `byz_proposal_publish.py` 에 HTML 첨부 단계 | `magazine_eli5_batches.explain`(묶음·검증·보이는 생략) · `magazine_eli5._skill`·`_h`·`Eli5HTML` · `magazine_summary.run_cmd` · `magazine_slack.upload_file` |
+| ③ 실험·예측 시뮬 절 | `docs/rules/proposal_template.md` · `proposal_flow.md` · `ft-proposal-card.sh` 완료 조건 1줄 | — |
+
+## §r2-1 Issue 본문 = 제안서 전문 (①)
+- 본문 순서: ①머리말 1줄 「구현 시 이 본문을 참고 — 제안서 전문(판정 N 승인본)」 ②`제안서: <리포 상대경로> @ <파일의 마지막 commit sha 10자>` ③`오빠 컨펌: 판정 N (승인)` ④`증거 폴더: design/<팀>/evidence/proposal-<slug>/`(있을 때만 · 그 안 파일 목록 줄마다) ⑤`---` 뒤 제안서 «전문» 그대로(머리줄 포함 · 변형 0). 링크가 아니라 본문 — 브랜치가 push 전이어도 Issue 만 읽고 구현할 수 있게.
+- 분할: GitHub 본문 한도 65,536자 → 안전 한도 60,000자. 넘으면 ①~④ + 전문 앞부분을 create, 나머지를 줄 경계에서 60,000자 이하 조각으로 나눠 `comment` 를 순서대로(각 조각 첫 줄 `(이어서 k/N)`). 120줄 한도 안에서는 사실상 분할 0 — 부록 파일이 붙을 때 대비.
+- ★제안서 식별자(DA R2-A 교정)★: `ID = <리포>:<제안서 상대경로>@판정<N>#<제안서 파일 sha256 앞 16자>`. 본문 첫 줄 = `<!-- byz-proposal-id: <ID> -->`(숨은 표식) · 둘째 줄에 같은 값을 보이게. 제목은 검색 힌트일 뿐 동일성 근거가 아니다.
+- ★시도 기록★: `~/.hermes/state/proposal_register.json` = `{"<ID>": {"phase": "creating|created|comment-k|labeled|done", "issue": M}}`. create «전» `creating` 기록(저장 실패면 Tank 0) → create 응답에서 #M 받자마자 `created` → 조각마다 `comment-k` → label 뒤 `done`.
+- ★create 전 원격 확인(읽기 전용 · `${FT_GH_READ:-gh}` 주입 가능)★: 후보 = 표식 hash 본문 검색 ∪ 정확 제목 검색(열림·닫힘) → 후보마다 본문을 읽어 첫 줄 표식을 «완전 일치»로 대조.
+  - 같은 ID 1건 → 「이미 등록됨 #M(채택) · 머리줄에 Issue #M 기입 · 남은 조각·라벨은 기록 phase 기준 수동」 · create 0.
+  - 제목만 같고 ID 다름 → 「제목 충돌 #M — 다른 제안서」 rc≠0 · create 0(채택 0 · 제목을 바꿔 다시).
+  - 없음 + 기록 없음 → `creating` → create. 없음 + 기록 `creating`(앞 실행 응답 유실·검색 지연 가능) → 「불명: <ID> 생성 결과 확인 필요 — GitHub 에서 표식 확인 뒤 --force-create」 rc≠0 · create 0(자동 새 create 0).
+  - 조회 실패·불완전(오류·페이지 끝 미확인) → rc≠0 · Tank 0.
+- 실패: create 가 «확실히 거절»(Tank rc≠0 + issue=# 없음 + 오류 응답) → 기록 삭제 · rc≠0 · label 0 · comment 0. 결과 불명(시간 초과·출력에 번호 없음) → `creating` 유지 · rc≠0(다음 실행은 위 «불명» 으로 막힌다). comment k 실패 → 즉시 멈춤 · `comment-(k-1)` 유지 · rc≠0 · 「#M 등록됨 · 조각 k 는 원격에 생겼을 수도 있음 — Issue #M 댓글을 확인한 뒤 k(또는 k+1)부터 수동」(자동 재시도 0). label 은 모든 comment 성공 뒤.
+- 확인 3조건(승인 머리줄 · Issue # 없음 · 검증 칸)과 «확인 실패 = Tank 0» 은 r1 그대로.
+
+## §r2-2 제안서 세트 = md + eli5 HTML (②)
+- 나노 산출은 md 1개 그대로(나노는 LLM 호출·HTML 생성 0). HTML 은 팀 master 가 `byz_proposal_publish.py` 를 돌릴 때 만든다 — 매거진과 같은 «부가물» 지위(사실 = md · AI 풀이 = 보조).
+- `proposal_eli5.py`(≤120줄) `build(md_path, cmd) -> Eli5HTML`:
+  - 첫 화면 = 「오빠가 결정할 것」 박스 — 그 절 원문 그대로(AI 풀이 없음 · 선택지·추천 그대로) + 「되돌림」 원문 1줄.
+  - 카드 = 절 단위 단위(unit): 결론 · 제안 · 영향 범위 · 검증 · 실험·예측 시뮬(있을 때). 각 카드 = 원문 영역(절 원문 줄 그대로 · scrub) + AI 풀이 영역(비유 1 + 풀이 1~3줄). unit path = `<팀>/<slug>#<절 이름>`.
+  - AI 호출 = `magazine_eli5_batches.explain(units, cmd, _skill(), run_cmd)` 그대로(12개 묶음 · 180초 · 단위별 보이는 생략 · AI 0건이면 Eli5Error). 절 수 ≤6 이라 호출 1회.
+  - 각주표 = 제안서 `## 각주표` 원문 그대로. 바닥 줄 = 매거진과 같은 「AI 풀이 N/전체 · 생략 M(사유별)」.
+  - 템플릿 `proposal_eli5_template.html` = 매거진 eli5 템플릿 사본에서 제목·머리(`제안서 <팀>/<slug> — 쉬운 판`)와 결정 박스 1개로만 바꾼 것. ★매거진 템플릿을 인자화하지 않는다★ — 막 랜딩해 매일 도는 파일이라 공유보다 격리가 싸다(CSS 중복 약 40줄 수락).
+- publish 순서(r1 상태 머신에 단계 1개 추가):
+  1. 원문 고정(DA R2-B 교정): `md_hash` = 제안서 파일 sha256. rN 기록에 처음 `posting` 을 쓸 때 `md_hash` 를 같이 쓴다. 이미 rN 기록이 있는데 지금 md_hash 가 다르면 → raise 「<팀>/<slug> <rN> 은 <앞 hash> 원문으로 진행됨 — 바뀐 원문은 다음 rN(--revision)」(게시 0 · 캐시 채택 0).
+  2. 글 쓰기 «전» HTML 생성 → 캐시 `~/.hermes/state/proposal/<팀>-<slug>-<rN>-<md_hash 16>.html`(이름에 원문 hash — 다른 원문의 HTML 채택 불가 · 있으면 LLM 재호출 0). Eli5Error → HTML 없음 + ERROR 줄 + 본문 끝 「쉬운 판 못 만들었어요 — <사유>」 1줄 + rN 기록 `html: {"phase": "omitted", "reason", "md_hash"}`(재실행이 침묵으로 바뀌지 않게 — omitted rN 은 HTML 재시도 0 · 다시 원하면 다음 rN). 사실 영역 오류(절 파싱·템플릿 없음)는 raise(발행 0).
+  3. 글: r1 그대로(`posting` → 글 → `posted` · 원격 첫 줄 표식 · 불명 차단). 첨부: ★`magazine_attach.attach` 를 그대로 쓴다★(원격 파일 제목 정확 일치 채택 → 없는데 시도 기록 `sharing` 이면 «불명» AttachError · file_id 받자마자 시도 기록 → 전송 → 공유 · 확정 실패만 `failed`). 파일 제목 = `제안서 <팀>/<slug> <rN> MD <md_hash 8>` · `… HTML <md_hash 8>` — 원격 표식에 원문 hash 가 들어가 내용이 바뀐 파일을 채택하지 않는다. 시도 기록 = rN 기록의 `files.md`·`files.html`. 순서 md → html(omitted 면 생략) → `done`. `magazine_attach.CONTENT_TYPES` 에 `"md": "text/markdown"` 1키 추가(매거진 동작 변경 0) · 사람이 채널 확인 뒤 `--force-file <md|html>`.
+  4. 재실행 수렴: `done` → skip · `posted` + files.md done → html 만 · 원격 제목 표식 있으면 채택(업로드 0) · `sharing` + 표식 없음 → 불명 차단(자동 새 파일 0).
+- 파일 한도: publish 184줄 → 단계 추가로 200줄을 넘으면 상태 helper(`read_state`·`set_phase`)를 `proposal_state.py` 로 먼저 분리([structure] 커밋 · 동작 변경 0) 뒤 기능 커밋.
+- 설치: `install-magazine.sh` COMPANION 에 `proposal_eli5.py`·`proposal_eli5_template.html` 추가(판정 49 의 누락 사례와 같은 함정 — 카드 완료 조건에 명시).
+
+## §r2-3 템플릿 「## 실험·예측 시뮬」 (③)
+- 위치: `## 검증` 다음 · `## 근거` 앞. 세 형식 중 하나만:
+  - 실측 — 무엇을 돌렸나(명령·환경 1줄) · 결과 수치 · 산출물 경로 `design/<팀>/evidence/proposal-<slug>/…`(예: #887 제안서의 헤드리스 Chromium 렌더 실측).
+  - 예측 — 모델(식·가정 1줄) · 입력 수치와 출처 · 결과 범위.
+  - 「없음 — <사유>」(실측도 예측 근거도 없을 때).
+  ★지어내기 0 — 출처 없는 수치는 쓰지 않는다★.
+- 도구 강제: publish·register 는 이 절을 «필수 칸»으로 검사하지 않는다(r1 제안서·첫 사례 호환). 대신 `ft-proposal-card.sh` 완료 조건에 「템플릿 `## 실험·예측 시뮬` 칸을 세 형식 중 하나로 채운다 · 실측 산출물은 `design/<팀>/evidence/proposal-<slug>/`」 1줄. 나노 범위는 «읽기 전용 + 그 evidence 폴더 쓰기»로 넓힌다(코드·설정 수정 0 은 그대로).
+- 120줄 한도는 그대로 — 실험 원자료는 evidence 폴더.
+
+## §r2-4 시험
+1. `test_proposal_register.sh` 추가: 본문 = 머리말·경로@sha·판정·전문 전체(제안서 바이트가 본문에 그대로) · 60,000자 초과 가짜 제안서 → create 1 + comment N-1(순서·「(이어서 k/N)」) · comment 2번째 실패 → rc≠0 · label 0 · 출력 「#M 등록됨 · 분할 2/N 부터 수동」 · 같은 ID Issue 있음 → 채택·create 0 · 같은 제목·다른 ID → 충돌 rc≠0·create 0 · 기록 creating + 원격 없음(응답 유실·검색 지연 흉내) → 불명 rc≠0·create 0 · `--force-create` 뒤에만 create · 조회 실패·불완전 → rc≠0·Tank 0 · create 확정 거절 → 기록 삭제 · 확인 실패 3종 → Tank 0(기존).
+2. `test_proposal_publish.py` 추가(가짜 Slack · 가짜 LLM): md + HTML 두 첨부(text/markdown · text/html) · `md` 상태에서 재실행 → HTML 첨부만 · LLM 0건 성공(Eli5Error) → md 만 + 본문 끝 경고 줄 + ERROR 로그 + 기록 omitted(재실행 HTML 0) · HTML 캐시 있으면 LLM 호출 0 · ★md·html 각각: complete 성공 뒤 응답 유실 → 재실행이 제목 표식 채택(업로드 0) · 공유 뒤 상태 쓰기 실패 → 같은 채택 · sharing + 표식 없음 → 불명 차단★ · ★같은 rN 에서 md 내용 변경 → raise·게시 0 · 다른 hash 캐시 채택 0★ · 기존 장애 주입 전부 통과.
+3. `test_proposal_eli5.py` 신규: 결정 박스 = 원문 바이트 · 절 카드 수 = 절 수 · 단위 하나 차단 단어 → 그 카드만 「AI 풀이 없음 — 차단 단어」 · 각주표 원문 그대로.
+4. `test_proposal_card.sh` 1항: 완료 조건에 실험 절 줄 · 기존 28 그대로. 5. 매거진 시험 전부 그대로(매거진 파일 변경 = `git diff` 에 magazine_attach.py 1줄뿐 확인).
+
+## §r2-5 나노·랜딩
+- 나노 1석(`indices/대기/proposal-flow-r2.md`): 도구 3(register·publish·card) + eli5 2 + 문서 2(template·flow) + 시험. 정본 `docs/rules/proposal_flow.md` 에 §r2 요약(세트 · 풀 컨텍스트 · 실험 절).
+- 랜딩 PR 1 → `install-magazine.sh`(복사만) WARN 0 확인 → 다음 제안서 1건에서 세트 2 첨부 + Issue 본문 전문 확인 = 닫는 증거.
+- 되돌림: PR revert + `~/.hermes/scripts/proposal_eli5*` 삭제(나머지는 r1 파일 덮어쓰기 복원).
+
+## §r2-6 DA 소환 판단
+- r2 교정 1(DA HOLD-1 · DA-proposal-flow §r2 R2-A·R2-B): A = 본문 고정 식별자 + 시도 기록 + 불명 차단 + 제목 충돌 비채택 · B = magazine_attach 재사용(제목에 원문 hash) + rN md_hash 고정 + hash 이름 캐시 + omitted 기록. Eli5Error 저하는 DA 수락 그대로. — 소환함(사전검증 1회 · r2 범위만 · 10분+10분 · 2 HOLD 면 중단)
+볼 곳 2 (둘 다 외부 부작용의 실패 상태): ①Issue 분할 comment 의 부분 실패 — «멈춤 + 수동 안내» + create 전 정확 제목 원격 조회로 중복 Issue 가 0 인가 · 같은 제목의 다른 제안서(제목 충돌)를 «이미 등록»으로 오판하는 경우의 처리 ②publish 의 `md` 단계 추가와 HTML 캐시 — 첨부 2중·누락 없이 재실행이 수렴하는가 · Eli5Error 일 때 md 발행을 계속하는 것이 #0 RULE 의 허용 형태(명시 표시 + ERROR)에 드는가.

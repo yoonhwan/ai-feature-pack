@@ -99,4 +99,10 @@ out="$(run faketwo two-lines --origin x --signer "$SIGNER")"; rc=$?
 out="$(FT_PROPOSAL_DESIGN_REF=design/fake/NOPE.md run fake no-design --origin x --signer "$SIGNER")"; rc=$?
 [ $rc -eq 0 ] && echo "$out" | grep -q '^OK design/fake/indices/대기/proposal-no-design.md' && grep -q 'git show origin/main:design/fake/NOPE.md' design/fake/indices/대기/proposal-no-design.md && ok "설계·템플릿 파일이 없는 리포에서도 lint OK" || bad "설계 파일 없음 rc=$rc"
 
+# --- r2(판정 357): 실험·예측 시뮬 완료 조건 + 나노 범위의 evidence 폴더 쓰기 허용 ---
+CARD=design/fake/indices/대기/proposal-ko-line-break.md
+grep -qF '템플릿 `## 실험·예측 시뮬` 칸을 세 형식(실측 · 예측 · 「없음 — 사유」) 중 하나로 채운다.' "$CARD" && grep -qF '실측 산출물은 `design/fake/evidence/proposal-ko-line-break/`' "$CARD" && ok "완료 조건에 실험 절 줄 + 산출물 폴더" || bad "완료 조건에 실험 절 줄 없음"
+grep -qF '`design/fake/evidence/proposal-ko-line-break/` 에 쓸 수 있다(그 폴더 쓰기 허용' "$CARD" && grep -q '^금지: 코드·설정 수정 0' "$CARD" && ok "나노 범위 = evidence 폴더 쓰기 허용 + 코드·설정 수정 0 유지" || bad "나노 범위 evidence 줄 없음"
+awk '/^## 구현 범위/{f=1;next}/^## /{f=0}f' "$CARD" | grep -qF 'Issue 쓰기 0' && ok "Issue 쓰기 0 금지 유지" || bad "금지선이 사라졌다"
+
 [ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

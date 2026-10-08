@@ -1,40 +1,15 @@
 #!/usr/bin/env bash
-# test_proposal_register.sh — ft-proposal-register.sh 시험(설계 §7-2): 가짜 Tank(FT_TANK_CMD = 호출을 파일에 적는 스크립트).
-#   확인 실패 5종 → rc≠0 + ★Tank 호출 0회★ · 승인 — 판정 351 → create 1회 + label 1회 · create 실패 → label 0회 · --check → 호출 0.
+# test_proposal_register.sh — ft-proposal-register.sh 시험(설계 §7-2 + r2 §r2-4 1): 임시 git 리포 · 가짜 Tank · 가짜 gh 읽기. 원격 0.
+#   확인 실패 → rc≠0 + ★Tank 호출 0회★ · 승인 — 판정 351 → create 1회 + label 1회 · create 실패 → label 0회 · --check → 호출 0.
+#   r2(판정 357): 본문 = 제안서 전문 · 분할 comment · 식별자 채택/충돌/불명 · 확정 거절만 기록 삭제 → test_proposal_register_r2.sh 가 이어서 돈다.
 set -uo pipefail
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REG="$HERE/../../scripts/harness-install/proposal/ft-proposal-register.sh"
-fail=0
-ok()  { echo "PASS $1"; }
-bad() { echo "FAIL $1"; fail=$((fail+1)); }
+# shellcheck source=_proposal_register_env.sh
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/_proposal_register_env.sh"
 
 bash -n "$REG" && ok "bash -n" || bad "bash -n"
-
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-export TANK_LOG="$T/tank.log"
-cat > "$T/fake-tank.sh" <<'EOF'
-#!/usr/bin/env bash
-echo "$1" >> "$TANK_LOG"
-case "$1" in
-  create) [ -n "${TANK_FAIL_CREATE:-}" ] && { echo "boom" >&2; exit 1; }; echo "OK as=byz-tank create — PAIR issue=#901 manager=x";;
-  label)  [ -n "${TANK_FAIL_LABEL:-}" ] && exit 1; echo "OK as=byz-tank label $2";;
-esac
-EOF
-export FT_TANK_CMD="bash $T/fake-tank.sh"
-calls() { [ -f "$TANK_LOG" ] && wc -l < "$TANK_LOG" | tr -d ' ' || echo 0; }
-
-# mk <상태 머리줄> <검증 본문|-> [추가 본문줄] → 제안서 경로
-mk() {
-  local f="$T/p-$RANDOM.md"
-  { echo '# 제안서 — 줄바꿈 CSS'; echo "- 상태: $1"; echo; echo '## 결론'; echo '한 줄이면 된다.'
-    [ "$2" != "-" ] && { echo; echo '## 검증'; printf '%b\n' "$2"; }
-    [ -n "${3:-}" ] && { echo; echo "$3"; }; } > "$f"
-  echo "$f"
-}
-GOODV='화면에서 줄이 단어 중간에서 안 끊긴다.'
-
+bash -n "$HERE/_proposal_register_env.sh" && ok "bash -n env" || bad "bash -n env"
 fails() {  # <이름> <파일> — rc≠0 + Tank 호출 0회
-  : > "$TANK_LOG"
+  reset
   local out rc; out="$(bash "$REG" "$2" --apply 2>&1)"; rc=$?
   local n; n="$(calls)"
   echo "    [$1] rc=$rc · Tank 호출 ${n}회 · $(echo "$out" | head -1)"
@@ -53,29 +28,29 @@ P_DUP="$T/dup-status.md"
 fails "머리 상태 줄 2개(승인 다음 폐기)" "$P_DUP"
 fails "파일 없음"               "$T/없는.md"
 
-: > "$TANK_LOG"
+reset
 P="$(mk '승인 — 판정 351' "$GOODV")"
 out="$(bash "$REG" "$P" --apply 2>&1)"; rc=$?
 echo "    $out"
 [ $rc -eq 0 ] && [ "$(grep -c '^create$' "$TANK_LOG")" = 1 ] && [ "$(grep -c '^label$' "$TANK_LOG")" = 1 ] && ok "승인 — 판정 351 → create 1회 + label 1회" || bad "승인 경로 rc=$rc 호출=$(tr '\n' ' ' < "$TANK_LOG")"
 echo "$out" | grep -qx 'REGISTERED #901 판정 351' && ok "출력 REGISTERED #901 판정 351" || bad "REGISTERED 줄 없음"
 
-: > "$TANK_LOG"
+reset
 out="$(TANK_FAIL_CREATE=1 bash "$REG" "$P" --apply 2>&1)"; rc=$?
 [ $rc -ne 0 ] && [ "$(grep -c '^create$' "$TANK_LOG")" = 1 ] && [ "$(grep -c '^label$' "$TANK_LOG")" = 0 ] && ok "create 실패 → rc≠0 · label 0회" || bad "create 실패 rc=$rc 호출=$(tr '\n' ' ' < "$TANK_LOG")"
 
-: > "$TANK_LOG"
+reset
 out="$(TANK_FAIL_LABEL=1 bash "$REG" "$P" --apply 2>&1)"; rc=$?
 [ $rc -ne 0 ] && echo "$out" | grep -q '#901 등록됨 · 라벨 수동' && ok "label 실패 → rc≠0 + 「#901 등록됨 · 라벨 수동」" || bad "label 실패 rc=$rc"
 
-: > "$TANK_LOG"
+reset
 out="$(bash "$REG" "$P" --check 2>&1)"; rc=$?
 [ $rc -eq 0 ] && [ "$(calls)" = 0 ] && ok "--check → rc=0 · Tank 호출 0" || bad "--check rc=$rc 호출 $(calls)"
-: > "$TANK_LOG"
+reset
 bash "$REG" "$(mk '초안' "$GOODV")" --check >/dev/null 2>&1; rc=$?
 [ $rc -ne 0 ] && [ "$(calls)" = 0 ] && ok "--check 틀린 머리줄 → rc≠0 · Tank 호출 0" || bad "--check 틀린 머리줄 rc=$rc"
 
-: > "$TANK_LOG"
+reset
 out="$(bash "$REG" "$P" 2>&1)"; rc=$?
 [ "$(grep -c '^label$' "$TANK_LOG")" = 0 ] && echo "$out" | grep -q '^DRY ' && ok "--apply 없음 → create(dry-run)만 · label 0" || bad "dry 경로 rc=$rc 호출=$(tr '\n' ' ' < "$TANK_LOG")"
 
@@ -89,8 +64,10 @@ cat > "$T/mutating-tank.sh" <<EOF
 echo "\$1" >> "$TANK_LOG"; [ "\$1" = create ] && echo "OK PAIR issue=#902"
 exit 0
 EOF
-: > "$TANK_LOG"
+reset
 out="$(FT_TANK_CMD="bash $T/mutating-tank.sh" bash "$REG" "$P2" --apply 2>&1)"
 echo "$out" | grep -qx 'REGISTERED #902 판정 77' && ok "1회 읽기: 읽은 값(판정 77)으로 일관되게 등록" || bad "1회 읽기 $out"
+
+bash "$HERE/test_proposal_register_r2.sh" || fail=$((fail+1))
 
 [ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -104,10 +104,12 @@ mkdir -p "$(dirname "$CARD")"
   echo "## 구현 범위 (이 목록만 — 닫힌 목록)"
   echo "1. \`design/$TEAM/PROPOSAL-$SLUG-${TODAY//-/}.md\` 제안서 1개만 쓴다(템플릿 $(ref "$TEMPLATE_REF") 칸 순서 그대로 · 머리줄 \`- 상태: 초안\`)."
   echo "2. 자료 수집·현황 확인은 읽기 전용. 읽기: 팀 골 원장 \`$LEDGER_REL\` · 설계 참고: $(ref "$DESIGN_REF")"
+  echo "3. 실험·예측 시뮬의 실측 산출물만 \`design/$TEAM/evidence/proposal-$SLUG/\` 에 쓸 수 있다(그 폴더 쓰기 허용 — 그 밖은 읽기 전용)."
   echo "금지: 코드·설정 수정 0 · Issue 쓰기 0 · 외부 게시(슬랙 포함) 0 · push 0 · AskUserQuestion 0. 커밋은 자기 브랜치."
   echo
   echo "## 완료 조건"
   echo "- 제안서의 템플릿 칸이 전부 채워졌고 120줄 이하. 머리줄 상태는 「초안」 그대로(상태를 올리는 손은 팀 master)."
+  echo "- 템플릿 \`## 실험·예측 시뮬\` 칸을 세 형식(실측 · 예측 · 「없음 — 사유」) 중 하나로 채운다. 실측 산출물은 \`design/$TEAM/evidence/proposal-$SLUG/\` (지어내기 0 — 출처 없는 수치 금지)."
   echo "- 닫힘 판단은 팀 master. 슬랙 발행도 팀 master 가 \`byz_proposal_publish.py\` 로 집행한다."
   echo
   echo "## 상태"

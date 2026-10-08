@@ -1,37 +1,36 @@
 #!/usr/bin/env python3
 """byz_proposal_publish — 제안서 md 를 슬랙 기존 채널에 발행한다 (제안서 흐름 2단계 끝 · 설계 §3).
 
-뿌리 글 = 첫 줄 `*제안서 <팀>/<slug>*` + 제안서 칸 3줄(결론·오빠가 결정할 것·되돌림 — 요약 LLM 0) → 스레드에 md 첨부.
-`--revision rN` = 같은 스레드 답글(첫 줄 `*제안서 <팀>/<slug> rN*`) + 새 md 첨부. 한 제안서 = 슬랙 스레드 1개.
-상태 파일 {<팀>/<slug>: {root_ts, revs: {r0, r1…: {phase, at, ts}}}} 의 phase: posting(게시 «전» 기록) → posted(글 ts 받자마자) → done(첨부 완료).
+뿌리 글 = 첫 줄 `*제안서 <팀>/<slug>*` + 제안서 칸 3줄(결론·오빠가 결정할 것·되돌림 — 요약 LLM 0) → 스레드에 md + 쉬운 판 HTML 첨부(판정 357).
+`--revision rN` = 같은 스레드 답글(첫 줄 `*제안서 <팀>/<slug> rN*`) + 새 첨부. 한 제안서 = 슬랙 스레드 1개.
+상태 파일 {<팀>/<slug>: {root_ts, revs: {r0, r1…: {phase, at, ts, md_hash, html, files}}}} 의 phase: posting(게시 «전» 기록) → posted(글 ts 받자마자) → done(첨부 완료).
+원문은 «한 번만» 읽는다(칸·해시·HTML·첨부가 같은 바이트). 같은 rN 에 다른 원문이 오면 raise — 세부는 proposal_files.py.
 글을 쓰기 «전» 항상 원격에서 «정확한 첫 줄» 을 찾는다 — 있으면 그 ts 채택(응답 유실·상태 쓰기 실패·상태 분실 복구).
 posting 인데 원격 표식이 없으면 자동 재게시 0 → exit 1 (사람이 채널을 보고 --force-post). 슬랙 실패는 전부 raise(#0 RULE).
 --dry-run = 글 텍스트를 stdout 에만 낸다(토큰·게시·상태 0).
 """
 import argparse
-import json
 import logging
 import os
 import re
 import sys
+import tempfile
 import time
-from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-from magazine_slack import SLACK_BASE, Target, find_first_line, upload_file
-from mirror_lib import MirrorError, esc, paged, post, read_token, save_state
+import proposal_eli5
+from magazine_attach import AttachError
+from magazine_slack import SLACK_BASE, Target, eli5_warning_line, find_first_line
+from mirror_lib import MirrorError, esc, paged, post, read_token
+from mirror_summary import DEFAULT_CMD
+from proposal_files import attach_all, check_pinned, make_html, md_hash
+from proposal_state import PublishError, read_state, set_phase
 
 LOG = logging.getLogger("byz_proposal_publish")
 HOME = Path.home()
-KST = ZoneInfo("Asia/Seoul")
 MAX_LINES = 120
 STATUS_OK = re.compile(r"^(초안|컨펌 대기|수정 요청 r[1-9]\d*)$")
 NAME = re.compile(r"^PROPOSAL-([a-z0-9-]+)-\d{8}\.md$")
-
-
-class PublishError(RuntimeError):
-    pass
 
 
 def _section_first(lines: list[str], head: str) -> str:
@@ -49,10 +48,15 @@ def _section_first(lines: list[str], head: str) -> str:
 
 
 def parse(path: Path) -> dict[str, str]:
+    return parse_text(path, path.read_text(encoding="utf-8"))
+
+
+def parse_text(path: Path, text: str) -> dict[str, str]:
+    """이미 읽은 원문(text)을 파싱한다 — publish 는 파일을 «한 번만» 읽고 이 함수로 칸을 뽑는다(DA R2 ⑤)."""
     m = NAME.match(path.name)
     if not m:
         raise PublishError(f"파일 이름이 PROPOSAL-<slug>-YYYYMMDD.md 가 아니다: {path.name}")
-    lines = path.read_text(encoding="utf-8").splitlines()
+    lines = text.splitlines()
     if len(lines) > MAX_LINES:
         raise PublishError(f"제안서가 {len(lines)}줄 > {MAX_LINES}줄 — 부록 파일로 나눈다")
     head = lines[: next((n for n, ln in enumerate(lines) if ln.startswith("## ")), len(lines))]
@@ -71,32 +75,9 @@ def first_line(key: str, rev: str) -> str:
     return f"*제안서 {key}*" if rev == "r0" else f"*제안서 {key} {rev}*"
 
 
-def text_of(p: dict[str, str], rev: str) -> str:
-    return "\n".join([first_line(p["key"], rev)] + [f"{k}: {esc(p[k])}" for k in ("결론", "오빠가 결정할 것", "되돌림")])
-
-
-def read_state(path: Path) -> dict[str, dict]:
-    if not path.exists():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise PublishError(f"상태 파일 읽기 실패: {path} ({type(e).__name__})") from e
-    if not isinstance(data, dict):
-        raise PublishError(f"상태 파일 형식 오류: {path}")
-    return data
-
-
-def set_phase(path: Path, key: str, rev: str, phase: str, **fields: str) -> None:
-    try:
-        st = read_state(path)
-        rec = st.setdefault(key, {"revs": {}})
-        rec.setdefault("revs", {})[rev] = {"phase": phase, "at": datetime.now(KST).isoformat(timespec="seconds"), **fields}
-        if rev == "r0" and fields.get("ts"):
-            rec["root_ts"] = fields["ts"]
-        save_state(path, st)  # type: ignore[arg-type]
-    except OSError as e:
-        raise PublishError(f"상태 쓰기 실패({phase}): {path} ({type(e).__name__})") from e
+def text_of(p: dict[str, str], rev: str, warn: str | None = None) -> str:
+    lines = [first_line(p["key"], rev)] + [f"{k}: {esc(p[k])}" for k in ("결론", "오빠가 결정할 것", "되돌림")]
+    return "\n".join(lines + ([esc(eli5_warning_line(warn))] if warn else []))
 
 
 def find_reply(t: Target, root_ts: str, line: str) -> str | None:
@@ -116,12 +97,19 @@ def _root_ts(t: Target, key: str, st_path: Path, lookback: float) -> str:
     return found
 
 
-def publish(t: Target, p: dict[str, str], md: Path, rev: str, st_path: Path, *, force_post: bool = False, lookback: float = 60.0) -> dict[str, str]:
+def publish(t: Target, md: Path, rev: str, st_path: Path, *, force_post: bool = False, force_file: str = "", lookback: float = 60.0,
+            cmd: str = DEFAULT_CMD, cache_dir: Path = HOME / ".hermes/state/proposal", build=proposal_eli5.build) -> dict[str, str]:
+    data = md.read_bytes()  # ★한 번 읽기★ — 칸·해시·HTML·첨부가 전부 이 바이트에서 나온다(읽은 뒤 파일이 바뀌어도 어긋나지 않는다)
+    text = data.decode("utf-8")
+    p, h = parse_text(md, text), md_hash(data)
     key, line = p["key"], first_line(p["key"], rev)
     rec = read_state(st_path).get(key, {}).get("revs", {}).get(rev, {})
+    check_pinned(key, rev, rec, h)  # 캐시·키 판단 «전» — 같은 rN 의 원문 불변 확인
     phase = rec.get("phase", "")
     if phase == "done":
         return {"action": "skip", "ts": rec.get("ts", "")}
+    html, info = make_html(key, rev, h, text, rec, cmd, cache_dir, build)
+    base = {"md_hash": h, "html": info}
     root = _root_ts(t, key, st_path, lookback) if rev != "r0" else ""
     if phase == "posted" and rec.get("ts"):
         ts = rec["ts"]
@@ -133,11 +121,15 @@ def publish(t: Target, p: dict[str, str], md: Path, rev: str, st_path: Path, *, 
         elif phase == "posting" and not force_post:
             raise PublishError(f"불명: {key} {rev} 글 확인 필요 — 앞 실행이 게시를 시도했는데 채널에 표식이 없음. 채널 확인 뒤 --force-post")
         else:
-            set_phase(st_path, key, rev, "posting")
-            ts = post(t.base, t.token, t.channel, text_of(p, rev), root or None)
-        set_phase(st_path, key, rev, "posted", ts=ts)
-    upload_file(t, root or ts, md, f"제안서 {key} {rev} ({p['status']})", "text/markdown")
-    set_phase(st_path, key, rev, "done", ts=ts)
+            set_phase(st_path, key, rev, "posting", **base)
+            warn = (info.get("reason") or "원인 불명") if info["phase"] == "omitted" else None
+            ts = post(t.base, t.token, t.channel, text_of(p, rev, warn), root or None)
+        set_phase(st_path, key, rev, "posted", ts=ts, **base)
+    with tempfile.TemporaryDirectory() as td:  # 같은 읽기 스냅샷의 md 를 올린다(HTML 도 같은 바이트에서 만들어졌다)
+        snap = Path(td) / md.name
+        snap.write_bytes(data)
+        attach_all(t, root or ts, key, rev, h, [("md", snap), ("html", html)], st_path, base, force_file)
+    set_phase(st_path, key, rev, "done", ts=ts, **base)
     return {"action": "published", "ts": ts}
 
 
@@ -147,6 +139,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     a.add_argument("--revision", help="rN(N>=1) — 같은 스레드 답글 + 새 첨부")
     a.add_argument("--dry-run", action="store_true", help="글 텍스트만 stdout — 토큰·게시·상태 0")
     a.add_argument("--force-post", action="store_true", help="posting+표식 없음(불명)을 사람이 채널에서 확인한 뒤 재게시")
+    a.add_argument("--force-file", choices=("md", "html"), help="sharing+표식 없음(불명) 첨부를 사람이 채널에서 확인한 뒤 새로 올림")
+    a.add_argument("--summary-cmd", default=DEFAULT_CMD, help="쉬운 판(eli5) 풀이용 LLM 명령")
+    a.add_argument("--cache-dir", default=str(HOME / ".hermes/state/proposal"), help="쉬운 판 HTML 캐시(이름에 원문 hash)")
     a.add_argument("--state", default=str(HOME / ".hermes/state/byz_proposal_publish.json"))
     a.add_argument("--token-file", default=str(HOME / ".hermes/secrets/yoonhwan_bot.env"))
     a.add_argument("--slack-base", default=SLACK_BASE)
@@ -162,16 +157,16 @@ def run(args: argparse.Namespace) -> int:
         return 1
     try:
         md = Path(args.proposal)
-        p = parse(md)
         if args.dry_run:
-            print(text_of(p, rev))
+            print(text_of(parse(md), rev))
             return 0
         t = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
-        res = publish(t, p, md, rev, Path(args.state).expanduser(), force_post=args.force_post, lookback=args.lookback_days)
-    except (PublishError, MirrorError, OSError) as e:
+        res = publish(t, md, rev, Path(args.state).expanduser(), force_post=args.force_post, force_file=args.force_file or "",
+                      lookback=args.lookback_days, cmd=args.summary_cmd, cache_dir=Path(args.cache_dir).expanduser())
+    except (PublishError, AttachError, MirrorError, OSError, ValueError) as e:
         print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
         return 1
-    print(f"{res['action']} {p['key']} {rev} ts={res['ts']}")
+    print(f"{res['action']} {parse(md)['key']} {rev} ts={res['ts']}")
     return 0
 
 

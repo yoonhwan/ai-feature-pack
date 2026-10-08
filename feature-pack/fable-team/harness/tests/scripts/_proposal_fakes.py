@@ -11,6 +11,7 @@ import pytest
 from _magazine_fakes import KIT  # noqa: F401 — sys.path 에 키트 경로를 넣는다
 
 import byz_proposal_publish as bp
+from magazine_eli5_batches import Eli5Error
 from magazine_slack import Target
 
 BODY = """# 제안서 — 한국어 줄바꿈 CSS
@@ -41,8 +42,11 @@ class FakeSlack:
         self.msgs: list[dict] = []
         self.files: list[dict] = []
         self.upload_types: list[str] = []
+        self.upload_bodies: list[bytes] = []
         self.drop_next_post = False
         self.fail_complete = False
+        self.complete_faults: dict[int, str] = {}  # n번째 complete → "applied"(공유됐는데 응답 유실) · "dropped"(공유 안 됐고 응답 유실) · "rejected"(ok=false 거절)
+        self._completes = 0
         self._seq = 0
         outer = self
 
@@ -62,6 +66,7 @@ class FakeSlack:
                 data = self.rfile.read(int(self.headers["Content-Length"]))
                 if self.path.startswith("/upload/"):
                     outer.upload_types.append(self.headers["Content-Type"])
+                    outer.upload_bodies.append(data)
                     return self._reply({"ok": True})
                 req = json.loads(data)
                 outer._seq += 1
@@ -84,9 +89,19 @@ class FakeSlack:
                     return self._reply({"ok": True, "messages": thread})
                 if u.path.endswith("files.getUploadURLExternal"):
                     return self._reply({"ok": True, "upload_url": f"{outer.base}/upload/F1", "file_id": "F1"})
-                if outer.fail_complete:
+                outer._completes += 1
+                fault = outer.complete_faults.get(outer._completes)
+                if outer.fail_complete or fault == "rejected":
                     return self._reply({"ok": False, "error": "internal_error"})
-                outer.files.append({"title": json.loads(q["files"])[0]["title"], "thread_ts": q["thread_ts"]})
+                if fault != "dropped":
+                    title = json.loads(q["files"])[0]["title"]
+                    outer.files.append({"title": title, "thread_ts": q["thread_ts"]})
+                    for m in outer.msgs:  # 실 슬랙처럼 스레드 봇 글에 files 가 보인다(has_file_title 의 원격 표식) — 뿌리 글에 붙인다
+                        if m["ts"] == q["thread_ts"]:
+                            m.setdefault("files", []).append({"title": title})
+                if fault:
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    return
                 self._reply({"ok": True})
 
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
@@ -120,8 +135,27 @@ def make_md(tmp_path: Path, status: str = "컨펌 대기", mutate=None) -> Path:
     return p
 
 
-def pub(t, md, tmp_path, rev="r0", **kw):
-    return bp.publish(t, bp.parse(md), md, rev, tmp_path / "state.json", **kw)
+class FakeBuild:
+    """쉬운 판 생성기 대역 — 호출 기록(calls) · fail=Eli5Error 사유(없으면 성공). 실 LLM 0."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.fail = ""
+
+    def __call__(self, text: str, key: str, cmd: str) -> str:
+        self.calls.append((key, text))
+        if self.fail:
+            raise Eli5Error(self.fail)
+        return f"<html>fake eli5 {key}</html>"
+
+
+@pytest.fixture
+def build() -> FakeBuild:
+    return FakeBuild()
+
+
+def pub(t, md, tmp_path, rev="r0", build=None, **kw):
+    return bp.publish(t, md, rev, tmp_path / "state.json", cache_dir=tmp_path / "cache", build=build or FakeBuild(), **kw)
 
 
 KEY = "feature/ko-line-break"

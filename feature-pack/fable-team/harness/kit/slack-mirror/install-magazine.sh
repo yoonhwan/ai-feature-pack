@@ -25,7 +25,8 @@ REQUIRED="byz_morning_magazine.py magazine_emit.py magazine_render.py magazine_s
   magazine_render_full.py magazine_attach.py magazine_reattach.py magazine_cli_args.py"
 # 풀 디테일 세트의 다른 나노 산출(수집 detail · eli5 HTML) — 통합 전 브랜치에는 없을 수 있어 «있으면 복사 · 없으면 WARN»(조용한 건너뛰기 아님).
 # 통합(cherry-pick) 뒤 설치할 때는 WARN 이 0 이어야 한다. 없는 채로 돌면 실행 때 ImportError/「쉬운 판 못 만들었어요」 로 보인다.
-COMPANION="magazine_collect_detail.py magazine_collect_decisions.py magazine_eli5.py magazine_eli5_batches.py magazine_eli5_template.html"
+COMPANION="magazine_collect_detail.py magazine_collect_decisions.py magazine_eli5.py magazine_eli5_batches.py magazine_eli5_template.html
+  proposal_eli5.py proposal_eli5_template.html proposal_state.py proposal_files.py"
 
 [ -x "$PY" ] || { echo "ERROR: python 없음: $PY" >&2; exit 1; }
 for f in $REQUIRED; do [ -f "$KIT/$f" ] || { echo "ERROR: 키트 파일 없음: $f" >&2; exit 1; }; done

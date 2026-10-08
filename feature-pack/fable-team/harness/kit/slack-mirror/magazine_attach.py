@@ -15,7 +15,7 @@ from pathlib import Path
 from magazine_slack import Target, has_file_title, upload_file
 
 LOG = logging.getLogger("byz_morning_magazine")
-CONTENT_TYPES = {"pdf": "application/pdf", "html": "text/html"}
+CONTENT_TYPES = {"pdf": "application/pdf", "html": "text/html", "md": "text/markdown"}
 
 
 class AttachError(RuntimeError):

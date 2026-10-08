@@ -376,3 +376,15 @@
 - 설치·반영(master): ①`.fable-team/bin-cfo/goal-lines-cfo.txt` 에 GOAL-cfo.md 16행 「작업은 파일로 남아서, 세션이 죽어도 다음 세션이 열어서 잇는다.」 추가(.bak-1008-r26 · lint 는 앞 3줄만 보므로 다른 경로 영향 0) — 없으면 CFO 카드는 여전히 3줄 ②도구는 리포 경로 호출이라 main 랜딩 뒤 각 팀이 main 을 받으면 반영(CFO 는 docs/cfo-main 에 main 병합 또는 harness 경로 호출).
 - 정본 영향 없음: 하네스 제안서 카드 도구와 그 시험만이고 docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: 091fc811d20ea429de3cee9b650752b1250b7289 · 시험: bash tests/harness/test_proposal_card.sh rc=0 · 이슈: 0`
+
+## §53 제안서 흐름 r2 — Issue 본문 = 제안서 전문 · 제안서 md + eli5 HTML 세트 · 실험·예측 시뮬 절 (판정 357 · 나노 proposal-flow-r2) — 닫힘 (byz-harness-arch-claude#11 · master#14 #61972 · 2026-10-08)
+- 나노 커밋 `97e97796c8` [structure] publish 상태 helper → proposal_state.py(동작 변경 0) · `966368a8f9` [feature] md+eli5 HTML 세트·원문 hash 고정 · `342fc17a9d` [feature] Issue 본문 = 전문·식별자·시도 기록·분할 comment · `1f834a7536` [feature] 카드·정본 실험 절. 브랜치 nano/proposal-flow-r2(base 801e66649e) · 20파일 +1049/−125.
+- 설계 DESIGN-proposal-flow-20261008.md «# r2» · DA §r2 HOLD-1(R2-A 제목만 동일성·생성 응답 유실 / R2-B 첨부 완료 불명·캐시 원문 불일치) → §r2 교정 1 APPROVE(design/harness/DA-proposal-flow-20261008.md). Eli5Error 보이는 저하(경고 줄+ERROR+md 계속)는 DA 수락.
+- master 독립 검증(#61972): ruff 0 · shellcheck 0 · 200줄 초과 0 · register 59 + card 31 + r2 시험 ALL PASS · pytest publish/faults/eli5 33 + 매거진 185 passed.
+- arch 재현(#11): ①`test_proposal_register.sh`·`test_proposal_register_r2.sh`·`test_proposal_card.sh` ALL PASS ②`pytest test_proposal_publish.py test_proposal_publish_faults.py test_proposal_eli5.py` 33 passed ③매거진 회귀 `pytest tests/scripts -k magazine` 185 passed ④ruff All checks passed ⑤매거진 파일 변경 = magazine_attach.py `CONTENT_TYPES` md 1키뿐(diff --stat 1줄) ⑥install-magazine.sh COMPANION 에 proposal_eli5.py·proposal_eli5_template.html·proposal_state.py·proposal_files.py ⑦카드 증거 검사 `--feat 801e66649e` OK.
+- DA 구현 조건 6 소스 대조: ①확정 거절 = Tank rc=2 뿐(ft-proposal-register.sh — ft-gh-as-tank.sh·ft-issue-create-pair.sh 의 exit 2 는 usage·토큰 없음·좌석 불명으로 전부 `gh issue create` 호출 «전» 확인) · rc≠0·번호 없는 출력은 creating 유지 «불명» ②기록에 issue 번호 있으면 검색 없이 그 번호 본문 첫 줄 표식 직접 대조 → ADOPT 또는 「사람이 확인(새 create 0)」(proposal_register_lib.py cmd_plan) ③set_phase 가 기존 rN 기록을 `{**old, …}` 로 덧써 md_hash·html·files 보존(proposal_state.py) ④attach 는 magazine_attach.attach 그대로 · AttachError 를 잡지 않음(proposal_files.attach_all) ⑤md 는 `read_bytes()` 1회 → 칸·hash·HTML·첨부가 같은 바이트(첨부는 그 바이트를 임시 파일로) · check_pinned 가 make_html(캐시 판단) «전»(byz_proposal_publish.py:102-111) ⑥md 중간 상태 = files.md.phase=done 으로 표현(attach_all docstring 「md 완료와 같은 의미」).
+- 관찰(반송 아님): 제목 충돌 후보가 여럿이면 첫 번호만 보고 · 같은 표식 2건 이상이면 ADOPT 첫 번호 + 건수 표기(보이는 출력 — 사람 확인 몫).
+- 최종 DA 소환: 안 함 — §r2 교정 1 APPROVE 범위 안 · 구현 조건 6 전부 소스·시험으로 확인 · 반송 0.
+- 남은 증거(완성 후 아님 — 이 단위의 닫는 증거): 실 Slack·GitHub 원격 0 이라 다음 제안서 1건에서 ①슬랙 스레드 md+HTML 두 첨부(제목에 md_hash 8) ②Issue 본문 첫 줄 표식 + 제안서 전문 확인 → 정본 §첫 사례 줄처럼 1회 기록.
+- 라이브 반영(master): 랜딩 → `install-magazine.sh`(복사만 · WARN 0 · proposal_* 4파일 확인). 정본 영향 없음: 하네스 제안서 도구·eli5 판·템플릿·흐름 정본과 시험이고 docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 1f834a7536… (카드 진행/proposal-flow-r2.md 의 40hex) · 시험: bash tests/harness/test_proposal_register.sh rc=0 · 이슈: 0`
