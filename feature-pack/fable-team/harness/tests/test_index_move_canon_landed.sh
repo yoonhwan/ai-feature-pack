@@ -103,11 +103,16 @@ out="$(mv_ "$c" 완성 --da "$d#§5" --seat s)"
 
 # ⑧ 쪽지 수신자 — _arch 있음 = 그 좌석 · 없음 = 쪽지 0 + INFO
 printf '{"_arch":"team-arch#3"}\n' > "$T/seats-arch.json"; : > "$MBOX_LOG"
-c="$(card k8 없음)"; d="$(da da8 "## §1 닫힘: k8 k8b")"
-out="$(FT_SEATS_JSON="$T/seats-arch.json" mv_ "$c" 완성 --da "$d#§1" --seat s)"
+G checkout -q -b c8; edit_x v8; C8="$(sha)"; G checkout -q main; G merge -q --squash c8 >/dev/null; G commit -qm "squash c8"; S8="$(sha)"
+c="$(card k8 갱신)"; d="$(da da8 "## §1 닫힘: k8 k8b k8c" "정본 diff 확인: $X §절A @$C8 — v8")"
+out="$(FT_SEATS_JSON="$T/seats-arch.json" mv_ "$c" 완성 --da "$d#§1" --seat s --landed "$S8")"
 grep -q '^send team-arch#3 ' "$MBOX_LOG" && echo "$out" | grep -q '^NOTIFIED' && ok "8 _arch 있음 → 그 좌석에 쪽지" || bad "8: $out / $(cat "$MBOX_LOG")"
-: > "$MBOX_LOG"; printf '{"seats":{}}\n' > "$T/seats-none.json"; c="$(card k8b 없음)"
-out="$(FT_SEATS_JSON="$T/seats-none.json" mv_ "$c" 완성 --da "$d#§1" --seat s)"
+: > "$MBOX_LOG"; printf '{"seats":{}}\n' > "$T/seats-none.json"; c="$(card k8b 갱신)"
+out="$(FT_SEATS_JSON="$T/seats-none.json" mv_ "$c" 완성 --da "$d#§1" --seat s --landed "$S8")"
 [ ! -s "$MBOX_LOG" ] && echo "$out" | grep -q '^INFO 정본 쪽지 생략 — 명부에 _arch 없음' && [ -f "$IDX/완성/k8b.md" ] && ok "8b _arch 없음 → 쪽지 0·INFO·이동 완료" || bad "8b: $out / $(cat "$MBOX_LOG")"
+# ⑧c (R41) _arch 있음 + 「정본 영향 없음」 카드 → 쪽지 0 + INFO 1줄 + 이동 완료
+: > "$MBOX_LOG"; c="$(card k8c 없음)"
+out="$(FT_SEATS_JSON="$T/seats-arch.json" mv_ "$c" 완성 --da "$d#§1" --seat s --landed "$S8")"
+[ ! -s "$MBOX_LOG" ] && echo "$out" | grep -q '^INFO 정본 쪽지 생략 — 정본 영향 없음 카드' && ! echo "$out" | grep -q '^NOTIFIED' && [ -f "$IDX/완성/k8c.md" ] && ok "8c _arch 있음 + 영향 없음 카드 → 쪽지 0·INFO·이동 완료" || bad "8c: $out / $(cat "$MBOX_LOG")"
 
 echo "fail=$fail"; [ "$fail" = 0 ]

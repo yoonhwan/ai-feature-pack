@@ -98,6 +98,10 @@ printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
 if [ "$DST" = 완성 ]; then
   # 정본 갱신 신호 — 수신자 = 명부(env FT_SEATS_JSON 우선) 최상위 `_arch`(팀 현역 arch). 키 없음·빈 값 = 쪽지 0 + INFO 1줄.
   #   게이트 아님: 발신이 실패해도 이동은 이미 끝났고 exit 0 이다(경고 1줄만). 회복 경로 = CANON-DEBT 미반영 행.
+  #   「정본 영향 없음:」 카드는 arch 가 할 일이 없으므로 쪽지 0 + INFO 1줄(R41) — 정본 쪽지는 정본을 고칠 때만 간다.
+  case "${CANON_NOTE:-}" in
+    정본\ 영향\ 없음:*) echo "INFO 정본 쪽지 생략 — 정본 영향 없음 카드"; exit 0 ;;
+  esac
   SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
   ARCH="$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1])).get("_arch",""); print(v if isinstance(v,str) else "")' "$SEATS" 2>/dev/null)"
   if [ -z "$ARCH" ]; then
