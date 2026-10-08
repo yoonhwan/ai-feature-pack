@@ -182,7 +182,8 @@ esac""")
 def test_collect_assembles_detail_with_the_fixture_shape(repo, tmp_path, monkeypatch):
     fake_gh(tmp_path, monkeypatch, """echo '{"comments":[{"body":"닫는 증거"}]}'""")
     mbox = tmp_path / "mbox.jsonl"
-    mbox.write_text(json.dumps({"ts": "2026-10-07T09:00:00", "from": "byz-planner-m#7", "to": "x#1", "body": "[a->b] 판정 354 본문"}, ensure_ascii=False), encoding="utf-8")
+    head = {"ts": "2026-10-06T10:00:00", "from": "byz-cfo-master-claude#3", "to": "x#1", "body": "창 앞을 덮는 첫 줄"}  # collect_decisions 도 창 앞 덮음을 검사한다
+    mbox.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in (head, {"ts": "2026-10-07T09:00:00", "from": "byz-planner-m#7", "to": "x#1", "body": "[a->b] 판정 354 본문"})), encoding="utf-8")
     m = {"git": {"main": {}, "merges": [{"sha": repo["c1"]}], "docs": []}, "gh": {"issues_opened": [], "issues_closed": [{"number": 880}]}, "mbox": {"verdicts": [], "mbox": {}, "seats": {}}}
     monkeypatch.setattr(magazine_collect, "collect_git", lambda *a: m["git"])
     monkeypatch.setattr(magazine_collect, "collect_gh", lambda *a: m["gh"])

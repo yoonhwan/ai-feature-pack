@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from magazine_collect_mbox import PLANNER, PREFIX_RE, TS_FMT, VERDICT_RE, _read
+from magazine_collect_mbox import PLANNER, PREFIX_RE, TS_FMT, VERDICT_RE, read_window
 from magazine_window import MagazineError
 
 RELAY_RE = re.compile(r"/tmp/mbox/[^\s]+\.md")
@@ -47,8 +47,8 @@ def _decision(n: int, rows: list[dict[str, str]]) -> dict[str, object]:
 
 
 def collect_decisions(path: Path, start: datetime, end: datetime) -> list[dict[str, object]]:
-    rows, _ = _read(Path(path))
     s, e = start.strftime(TS_FMT), end.strftime(TS_FMT)
+    rows, _ = read_window(Path(path), s)
     groups: dict[int, list[dict[str, str]]] = {}
     for r in rows:
         if s <= r["ts"] < e and r["from"].startswith(PLANNER):

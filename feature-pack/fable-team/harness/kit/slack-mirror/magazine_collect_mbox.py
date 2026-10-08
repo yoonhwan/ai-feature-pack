@@ -55,6 +55,41 @@ def _read(path: Path) -> tuple[list[dict[str, str]], int]:
     return rows, bad
 
 
+def _dedupe_seq(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """seq 가 있는 행은 처음 나온 것만 — 회전 경계에 같은 seq 가 두 파일에 있을 수 있다. seq 없는 행은 그대로."""
+    seen: set[object] = set()
+    out: list[dict[str, str]] = []
+    for r in rows:
+        k = r.get("seq")
+        if isinstance(k, (int, str)):
+            if k in seen:
+                continue
+            seen.add(k)
+        out.append(r)
+    return out
+
+
+def read_window(path: Path, s: str) -> tuple[list[dict[str, str]], int]:
+    """(유효 줄 목록, 깨진 줄 수). 현재 파일이 창 시작 `s` 를 덮지 못하면 회전본 `<이름>.1` 을 앞에 이어 읽는다.
+
+    회전본은 1개(.1)뿐 — mbox 회전 설계가 1개다. 이어도 못 덮으면 raise (창 앞부분 누락을 숨기지 않는다).
+    """
+    rows, bad = _read(path)
+    if rows and rows[0]["ts"] <= s:
+        return rows, bad
+    rotated = path.with_name(path.name + ".1")
+    if not rotated.is_file():
+        raise MagazineError(f"mbox 사본이 창 앞부분을 덮지 못해요(첫 정상 기록 ts={rows[0]['ts'] if rows else '없음'} > 창 시작 {s}): {path}")
+    old, old_bad = _read(rotated)
+    merged = sorted(_dedupe_seq([*old, *rows]), key=lambda r: r["ts"])  # 안정 정렬 — _seats 가 ts 순서를 가정한다
+    if not merged or merged[0]["ts"] > s:
+        raise MagazineError(
+            f"mbox 사본이 회전본을 이어도 창 앞부분을 덮지 못해요(창 시작 {s}): "
+            f"{rotated} 첫 ts={old[0]['ts'] if old else '없음'} · {path} 첫 ts={rows[0]['ts'] if rows else '없음'}"
+        )
+    return merged, bad + old_bad
+
+
 def lineage(seat: str) -> str:
     """좌석 계보 = `#N` 뗀 이름 — 승계로 #N+1 이 돼도 같은 계보다."""
     m = SEAT_RE.match(seat)
@@ -92,10 +127,8 @@ def _seats(rows: list[dict[str, str]], s: str, e: str) -> dict[str, list[list[st
 
 
 def collect_mbox(path: Path, start: datetime, end: datetime) -> dict[str, object]:
-    rows, bad = _read(path)
     s, e = start.strftime(TS_FMT), end.strftime(TS_FMT)
-    if not rows or rows[0]["ts"] > s:
-        raise MagazineError(f"mbox 사본이 창 앞부분을 덮지 못해요(첫 정상 기록 ts={rows[0]['ts'] if rows else '없음'} > 창 시작 {s}): {path}")
+    rows, bad = read_window(path, s)
     inwin = [r for r in rows if s <= r["ts"] < e]
     counts: dict[str, int] = {}
     recent: dict[str, list[str]] = {}

@@ -1285,3 +1285,25 @@
   ⑥ ★오탐 1건이면 즉시 원복★(② 백업 · 원장 기록 · 카드 반송).
   ⑦ 완료 보고 = 랜딩 sha + 재생 행 rc 1줄.
 - 정본 영향 없음: 하네스 훅 템플릿·시험·대조표만 — docs/architect 제품 정본 변경 없음.
+
+## §102 판정 601 아침 매거진 미발행 — mbox 사본 회전본(.1) 이어 읽기 + install-magazine 설치 목록 = import 닫힘 (master#21 쪽지 #67164 · 나노 mag601-mbox-rotation-and-install-list) — 닫힘 · 독립 재현 통과 + 구현 DA r2 APPROVE (byz-harness-arch-claude#22 · 2026-10-09)
+- 골 축: C(배포 발행(슬랙) — 아침 매거진이 mbox 로그 회전 뒤에도 나간다 · 키트 설치 목록 = 실제 import 집합 → 새 머신 설치 ImportError 0).
+- 대상 카드: mag601-mbox-rotation-and-install-list (대기 `1ba6e42cf9` → 진행)
+- 발단(실측): `.fable-team/comm/mailbox.log.jsonl` 5MB 회전(10-08 21:03) → 현재 파일 첫 ts `2026-10-08T21:04:13` · 회전본 `.1` 끝 ts `21:03:41`. `collect_mbox` 는 현재 파일만 읽고 «첫 ts > 창 시작 08:00» 이면 raise(설계상 누락 은폐 금지) → 10-09 호 미발행. 같은 사본을 `collect_decisions` 는 `_read` 로 현재 파일만 읽어 회전 앞쪽 판정을 조용히 놓치고 있었다. `install-magazine.sh` 에는 `magazine_collect_open.py`(+DA 가 찾은 `mirror_lib.py`·`mirror_summary.py` · 나노가 찾은 `thread_post_update.py`)가 없었다.
+- 나노 커밋 2개(브랜치 `nano/mag601-mbox-rotation-and-install-list` · base origin/main · push 0):
+  ①`fdc56ddd46`([fix] `read_window` — 현재 파일이 창 시작을 못 덮으면 같은 폴더 `.1` 을 앞에 이어 읽고 seq 중복 제거 · 그래도 못 덮으면 두 경로·첫 ts 를 담아 raise · `.1` 없으면 기존 raise · `collect_mbox`·`collect_decisions` 둘 다 사용 · REQUIRED +`magazine_collect_open.py`·`thread_post_update.py` · 새 시험 `tests/harness/test_magazine_install_list.sh`) → DA r1(`design/harness/DA-mag601-mbox-rotation-20261009.md`) Q1 APPROVE · Q2 HOLD(이어 붙인 순서가 ts 순이 아니면 `_seats` break 로 창 안 행 소실 · 합성 반례) · Q3 HOLD(import 닫힘 38개 중 `mirror_lib.py`·`mirror_summary.py` 누락 · 시험이 install.sh 목록까지 합쳐 숨김) → 반송 r1.
+  ②`dd19902b71`([fix] 이어 붙인 경로만 ts 안정 정렬 · REQUIRED +`mirror_lib.py`·`mirror_summary.py` · 시험은 install-magazine.sh 목록만 비교 + collect_open·mirror_lib 제거 변이 · Q2 반례 행) → DA r2 Q2·Q3 APPROVE.
+- ★arch 독립 재현(#22)★: `dd19902b71` 아카이브 → `mktemp -d`: `tests/scripts/test_magazine_collect_mbox.py` **21 passed**(base 13) · `test_magazine_collect_detail.py` 9 passed · `tests/harness/test_magazine_plist.sh` rc=0 · `test_magazine_install_list.sh` rc=0(새 시험을 base 에 돌리면 FAILED = 누락 검출) · `test_magazine_cli.py` 5 failed = base 와 실패 목록 md5 동일(기존 실패 · 이 단위 무관 · 별건).
+  · arch AST 독립 닫힘(진입 `byz_morning_magazine.py`·`byz_proposal_publish.py`·`byz_thread_post.py`) = 38개 · install-magazine.sh REQUIRED∪COMPANION 누락 **0**.
+  · ★실데이터 읽기 전용 dry★(실제 mailbox · 창 2026-10-08 08:00 ~ 10-09 08:00): 새 판 = OK(쪽지 6091 · 깨진 줄 0 · 판정 258 · decisions 240 · 신규 좌석 178 · 승계 101) · origin/main 판 = RAISE(첫 ts 21:04:13 > 08:00) — 미발행 원인 재현·해소.
+- ★arch 판단 서명★: ①회전본은 `.1` 1개만(mbox 회전 설계) · 그래도 못 덮으면 raise 유지(NO SILENT FALLBACK) ②매거진 설치기 하나로 닫힘 — 미러 설치 선행 가정 0 ③카드 밖 2건(`thread_post_update.py` 추가 · detail fixture 창 앞 줄) = 같은 원인의 직접 결과로 수락.
+- 별건(카드 밖 · 큐): `tests/scripts/test_magazine_cli.py` 기존 5 실패(origin/main 에서도 동일).
+- 카드 증거 줄(나노 RESULT r1): `세트: dd19902b7119a7d4aa1bbe5df59883004140df77 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_mbox.py rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 2개) → 병합(`--body-file` · CI 확인과 병합 별 명령).
+  ② `bash scripts/harness-install/slack-mirror/install-magazine.sh`(백업은 스크립트가 `.bak-<시각>` 로 · WARN 0 확인 · `--load` 는 기존 plist 상태대로).
+  ③ 홈 `~/.hermes/scripts/` 의 `magazine_collect_mbox.py`·`magazine_collect_decisions.py`·`install` 대상 = 병합 키트 cmp.
+  ④ 수집만 dry 1회(오늘 창 · raise 0 · 쪽지 수 > 0).
+  ⑤ 10-09 호 수동 재발행 → Slack 게시 확인 1줄.
+  ⑥ 완료 보고 = 랜딩 sha + 재발행 게시 링크.
+- 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.

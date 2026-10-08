@@ -170,3 +170,91 @@ def test_no_valid_line_raises_even_if_all_broken(tmp_path):
 def test_missing_file_raises(tmp_path):
     with pytest.raises(MagazineError, match="mbox"):
         mm.collect_mbox(tmp_path / "없음.jsonl", START, END)
+
+
+# ── 회전본(.1) 이어 읽기 ──
+def rotated(tmp_path: Path, cur: list[str], old: list[str] | bytes) -> Path:
+    p = write(tmp_path, cur)
+    one = tmp_path / "mailbox.log.jsonl.1"
+    if isinstance(old, bytes):
+        one.write_bytes(old)
+    else:
+        one.write_text("\n".join(old) + "\n", encoding="utf-8")
+    return p
+
+
+def test_rotated_file_covers_window_start_and_boundary_seq_counts_once(tmp_path):
+    p = rotated(
+        tmp_path,
+        cur=[row(3, "2026-10-07T10:00:00", "byz-cfo-master-claude#3", "x", "경계 중복"), row(4, "2026-10-07T11:00:00", "byz-cfo-master-claude#3", "x", "현재 파일")],
+        old=[HEAD, row(2, "2026-10-07T09:00:00", "byz-cfo-master-claude#3", "x", "회전본"), row(3, "2026-10-07T10:00:00", "byz-cfo-master-claude#3", "x", "경계 중복")],
+    )
+    mb = mm.collect_mbox(p, START, END)["mbox"]
+    assert mb["total"] == 3 and mb["bad_lines"] == 0
+
+
+def test_rotated_file_bad_lines_are_summed(tmp_path):
+    p = rotated(
+        tmp_path,
+        cur=["{현재 깨짐", row(4, "2026-10-07T11:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        old=[HEAD, "{회전본 깨짐"],
+    )
+    assert mm.collect_mbox(p, START, END)["mbox"]["bad_lines"] == 2
+
+
+def test_rotated_file_that_still_does_not_cover_raises_with_both_paths(tmp_path):
+    p = rotated(
+        tmp_path,
+        cur=[row(4, "2026-10-07T11:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        old=[row(2, "2026-10-07T09:00:00", "byz-cfo-master-claude#3", "x", "회전본도 늦음")],
+    )
+    with pytest.raises(MagazineError) as ei:
+        mm.collect_mbox(p, START, END)
+    msg = str(ei.value)
+    assert "mailbox.log.jsonl.1" in msg and "2026-10-07T09:00:00" in msg and "2026-10-07T11:00:00" in msg
+
+
+def test_no_rotated_file_keeps_original_raise_message(tmp_path):
+    p = write(tmp_path, [row(1, "2026-10-07T08:00:01", "byz-cfo-master-claude#3", "x", "너무 늦은 첫 줄")])
+    with pytest.raises(MagazineError) as ei:
+        mm.collect_mbox(p, START, END)
+    assert "앞부분" in str(ei.value) and "회전본" not in str(ei.value) and "첫 정상 기록 ts=2026-10-07T08:00:01" in str(ei.value)
+
+
+def test_current_file_covering_start_never_reads_rotated_file(tmp_path):
+    p = rotated(
+        tmp_path,
+        cur=[HEAD, row(2, "2026-10-07T09:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        old=b"\xff\xfe\x00 \xff",  # 읽으면 UnicodeDecodeError — 안 읽어야 통과
+    )
+    assert mm.collect_mbox(p, START, END)["mbox"]["total"] == 1
+
+
+def test_rows_without_seq_are_not_deduped(tmp_path):
+    nos = json.dumps({"ts": "2026-10-07T10:00:00", "from": "byz-cfo-master-claude#3", "to": "x", "body": "seq 없음"}, ensure_ascii=False)
+    p = rotated(tmp_path, cur=[nos, row(4, "2026-10-07T11:00:00", "byz-cfo-master-claude#3", "x", "현재")], old=[HEAD, nos])
+    assert mm.collect_mbox(p, START, END)["mbox"]["total"] == 3
+
+
+def test_decisions_reads_verdict_inside_rotated_file(tmp_path):
+    import magazine_collect_decisions as md
+
+    p = rotated(
+        tmp_path,
+        cur=[row(9, "2026-10-07T12:00:00", "byz-cfo-master-claude#3", "byz-planner-arch#2", "현재 파일")],
+        old=[HEAD, row(5, "2026-10-07T09:00:00", "byz-planner-arch#2", "byz-harness-master-claude#12", "판정 601 회전본 안 판정 되돌림: 없음")],
+    )
+    out = md.collect_decisions(p, START, END)
+    assert [d["n"] for d in out] == [601]
+
+
+def test_rotated_rows_are_ts_sorted_so_seats_do_not_drop_in_window_rows(tmp_path):
+    end = datetime(2026, 10, 7, 9, tzinfo=KST)
+    p = rotated(
+        tmp_path,
+        cur=[row(3, "2026-10-07T08:30:00", "byz-harness-nano-late#0", "x", "회전 뒤 현재 파일")],
+        old=[row(1, "2026-10-07T08:00:00", "byz-cfo-master-claude#3", "x", "회전본 앞"), row(2, "2026-10-07T09:00:00", "byz-cfo-master-claude#3", "x", "창 끝")],
+    )
+    out = mm.collect_mbox(p, START, end)
+    assert out["mbox"]["total"] == 2
+    assert "byz-harness-nano-late#0" in out["seats"]["new"]
