@@ -27,7 +27,10 @@ printf '%s' "$BODY" | python3 "$HERE/ft_board_root.py" root > "$TMP/body.txt" \
   || { echo "ft-board-publish: 뿌리 글 본문 만들기 실패 — 발행 0" >&2; exit 1; }
 
 # 바뀜 판정(FT_BOARD_ONLY_CHANGED=1 일 때만): 머리 시각·«정지 N분» 숫자만 지운 꼴이 직전 발행본과 같고 reply_pending 표식이 없으면 스냅샷·발행 0
-norm() { sed -E '1s/[0-9]{2}:[0-9]{2}//; s/정지 [0-9]+분/정지 N분/g' "$1"; }
+# R62: 분마다 바뀌는 조각(원 쪽지 뒤 N분·턴 끝 HH:MM·작업중↔정지 N분)도 비교 키에서만 지운다 — ⚠(3분 넘김)는 «먼저» ⚠STALL 로 남긴다
+norm() { sed -E -e '1s/[0-9]{2}:[0-9]{2}//' -e 's/정지 [0-9]+분/정지 N분/g' -e 's/원 쪽지 뒤 [0-9]+분/원 쪽지 뒤 N분/g' \
+  -e 's/\(턴 끝 ([0-9]{2}:[0-9]{2}|확인 불가)\)/(턴 끝 *)/g' -e 's/⚠정지 N분\(턴 끝 \*\)/⚠STALL/g' \
+  -e 's/정지 N분\(턴 끝 \*\)/활동/g' -e 's/작업중(\(pane\))?/활동/g' -e 's/확인 불가\(첫 턴 전\)/활동/g' "$1"; }
 FIRST_OF_DAY=0; [ -f "$SD/$DAY/published.txt" ] || FIRST_OF_DAY=1
 if [ "${FT_BOARD_ONLY_CHANGED:-0}" = 1 ]; then
   if [ "$FIRST_OF_DAY" = 0 ] && [ ! -f "$SD/$DAY/reply_pending" ] \

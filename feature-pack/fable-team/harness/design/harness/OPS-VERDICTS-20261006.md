@@ -1067,3 +1067,17 @@
   ④ 확인 1회: 임의 좌석 둘 사이 `쪽지 #<받은 seq>` 회신 1건 = QUEUED · 가드 파일 마지막 행 `r` = `[seq]` · 미러 로그에 요약 모델 haiku-5-5 · planner 회신 1건 뒤 슬랙 해당 스레드에 「planner 처리」 1줄(새 글 0).
   되돌림: 세 묶음을 직전 sha 로 cp + 미러 재시작(가드 파일 형식 호환 — 옛 코드는 `r` list 를 truthy 로 읽어 면제로 본다).
 - 정본 영향 없음: 하네스 통신·미러 도구·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §90 R60+R62 보드 발행 — launchd 템플릿 WorkingDirectory + 바뀜 판정(비교 키 전용) 정규화 누락 5종 (원장 R60·R62 · 나노 r60-r62-board-publish-workdir-norm) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 없음 — arch 독립 재현·서명(카드 결정)★
+- 대상 카드: r60-r62-board-publish-workdir-norm
+- 나노 커밋 1개(브랜치 `nano/r60-r62-board-publish-workdir-norm` · base origin/main · push 0):
+  `e329aad0d3`([fix] `scripts/fable-team-bin/ft-board-publish.sh` `norm()` 1줄 → 4줄(69→72줄 · 비교 키 전용 · 발행 본문 불변) + 키트 사본 · 템플릿 `scripts/harness-install/slack-mirror/com.byz.ft-board-publish.plist.template` 에 `WorkingDirectory=__BYZ_ROOT__` 1줄 · 새 `tests/harness/test_board_publish_norm.sh` 77줄 ⓙ~ⓜ + 변이 2 · 4파일 +86 −2).
+- ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `e329aad0d3` 아카이브 → 스크래치패드 새 폴더: test_board_publish_norm **14 PASS** · test_board_publish_tick 14 · test_board_publish 14 · test_kit_bin_sync 6 — 전부 rc=0 · `plutil -lint` 템플릿 OK · `bash -n` + 추적본↔키트 cmp 동일.
+  ★실측 render 대조(카드 작성 때)★: 25초 간격 실제 보드 render 2개에 같은 규칙을 적용 → 남은 차이 = `완료 선언 0↔1`·`정지(3분+) 2↔3`·완료 선언 꼬리 추가(진짜 바뀜)만 · 머리 시각·원 쪽지 뒤 N분·턴 끝 시각·작업중↔정지 차이 0.
+- ★arch 판단 서명 1건 — 승인★: 카드 변이 문장 「⚠ 선처리 규칙을 빼면 ⓛ 첫 쌍 FAIL」은 틀렸다 — 그 규칙을 빼도 다음 규칙(`정지 N분(턴 끝 *)` → `활동`)이 ⚠ 뒤 글자만 바꿔 `⚠활동` 이 남으므로 ⓛ 첫 쌍은 여전히 다르다(arch 카드 문장 오류). 나노가 바꾼 변이(활동 규칙이 `⚠?` 로 ⚠ 까지 삼키게 하면 ⓛ 첫 쌍이 같아짐 = 검사가 «⚠ 보존» 을 실제로 지킨다)가 지키려는 성질(3분 넘김은 진짜 바뀜)을 정확히 시험한다 → 승인.
+- 기준값 대비(카드 머리줄): ①템플릿에 WorkingDirectory 없음 → 다른 머신·재설치 때 cwd=/ 로 render 실패 재발 → 이 단위 뒤 = 템플릿 = 라이브 plist 키. ②가동 뒤 「변화 없음」 0회 · 매 틱 발행·스냅샷(01:3x 기준 11장 3.7MB · 그대로면 ~109MB/일) → 이 단위 뒤 = 상태가 실제로 바뀐 틱만 발행·스냅샷.
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: e329aad0d3e6d711bd525209da970d094101f8dd · 시험: bash tests/harness/test_board_publish_tick.sh rc=0 · 이슈: 0` (+ `bash tests/harness/test_board_publish_norm.sh rc=0`).
+- 사전검증·구현 DA: 소환 안 함(카드 면제 — 템플릿 키 1개(라이브 검증 값) + 비교 키 정규화 · 발행 본문 불변 · 실패 꼴 = 덜 발행 · 새 글 경로 0) — arch 서명 byz-harness-arch-claude#20.
+- ★랜딩 뒤 master 집행 순서(카드 밖)★: ① PR(origin/main · 커밋 1개) → 병합 ② 라이브 FT_BIN `ft-board-publish.sh` cp+cmp ③ 라이브 plist 와 템플릿 치환본 키 대조(`plutil -p` 두 개 · 차이 0 — 재로드 불필요) ④ 첫 1시간 관찰(12틱 · 원장 1줄): `/tmp/byz-ft-board-publish.log` 「변화 없음」 줄 수 > 0 · 스냅샷 장수 증가 = 발행 수 · 발행된 틱 1개를 골라 직전 발행본과 diff → 진짜 바뀜(⚠·정지 수·완료 선언·진행/큐 수)인지 확인.
+  되돌림: `ft-board-publish.sh` 이전 sha 로 cp(비교가 다시 엄격해질 뿐 — 발행 동작 동일).
+- 정본 영향 없음: 하네스 발행 비교 키·launchd 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
