@@ -896,3 +896,15 @@
   - ★planner 판단★: 인박스 도입 전 열린 질문 27건(seq 60888~62640 · 원 쪽지가 회전본 `mailbox.log.jsonl.1` 에만 있어 `ft-inbox ingest` 의 `find_mail` 이 못 찾음)은 닫는 사건이 없어 보드에 영구 `인박스 밖 27건` + `결정 대기 36건` 으로 남는다 — 일괄 닫기(명시 명령 1회 · tombstone)할지 결정.
   - 별 카드 후보(ft-inbox 소유): `find_mail` 이 회전본 `.1` 도 읽기 — 위 27건 같은 이관 실패의 근본.
 - 정본 영향 없음: 하네스 슬랙 미러 스크립트·설치기·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §82 ft-nano-close ③ 유휴 게이트 = jsonl «timestamp 있는 마지막 기록» 시각 (파일 mtime 아님 · 기록 없으면 REJECT · mtime 대체 0) (R53 · v65 master#149 #65422 → planner#13 #65428 → master#18 #65434 · 나노 r53-nano-close-jsonl-last-ts) — 닫힘 (byz-harness-arch-claude#18 · 2026-10-08)
+- 대상 카드: r53-nano-close-jsonl-last-ts
+- 원인(arch 실측): 사건 좌석 `ft-v65-temp-m5-floating-debug-timeline-default-off-r#0` jsonl 꼬리 = `system/turn_duration 13:34:23Z` 뒤에 Claude Code 가 timestamp 없는 `last-prompt`·`cost-state` 를 덧붙여 mtime 만 22:37·22:39 로 밀림 → ③ 4회 REJECT → master 가 `FT_NANO_IDLE_MIN=0` 우회.
+- 나노 커밋 1개(브랜치 `nano/r53-nano-close-jsonl-last-ts` · base origin/main 75bf03175f · 좌석 byz-harness-nano-r53-nano-close-jsonl-last-ts#0 Sonnet 5.5 high · push 0): `2084e038a1`([fix] 5파일 +199 −6 · 새 `scripts/fable-team-bin/ft-jsonl-last-ts.py`(57줄 · 파일 끝에서 64KB 단위로 거꾸로 읽어 timestamp 키가 있는 첫 기록 → `<epoch> <type>[/<subtype>]` · 깨진 줄 건너뜀 · 없거나 못 읽으면 stderr `ERROR:` rc=1) · `ft-nano-close.sh` ③ `age` 계산 4줄 교체(`FT_JSONL_LAST_TS` 주입 가능 · 기본 같은 디렉터리) + 원장 문구 1줄 · 키트 사본 2 · 새 `tests/harness/test_jsonl_last_ts.sh`).
+- ★arch 독립 재현(#18)★: `git archive 2084e038a1 scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더: `test_jsonl_last_ts.sh` rc=0(FAIL=0 · ① timestamp 없는 꼬리 2줄 건너뜀 · ⑥ ③ 블록 발췌 3경우 · ⑦ 변이 대조 「마지막 줄만 봄」 → ① 깨짐) · `test_nano_close_named_wt.sh`·`test_nano_close_sha_base.sh`·`test_kit_bin_sync.sh` rc=0 · ruff 0 · `bash -n` 0 · 사본 2 cmp 같음 · 실행 비트 755=755 · 판정 식(`age ≥ IDLE_MIN`)·IDLE_MIN 기본 3·jsonl 선택(좌석명 매칭·mtime 최대 파일)·codex 경로(워크트리 편집 시각) 무변경 확인 · `HERE` 정의 실재(:37).
+  ★실데이터(사건 좌석 jsonl 그대로 · 읽기 전용)★: 헬퍼 출력 `1791466463 system/turn_duration` = **13:34:23Z(22:34:23 KST)** · 같은 파일 mtime 22:39:41 — 오탐의 5분 차이를 정확히 걷어냄.
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 2084e038a15ff49321bddf57e954bdf9f084725f · 시험: bash tests/harness/test_jsonl_last_ts.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: 면제(게이트 입력 값 하나 = 시각 출처만 · 판정 식·임계·다른 종료조건 무변경 · 실패 쪽 더 엄격 · 작업 중 좌석 오통과 위험 ≤ mtime — 카드 「사전검증」 arch#18 서명). 구현 DA: 소환 안 함 — arch 서명 byz-harness-arch-claude#18.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN cp+cmp(`ft-jsonl-last-ts.py` 실행 비트 포함 · `ft-nano-close.sh`) → 다음 나노 닫기 1회를 `FT_NANO_IDLE_MIN` 우회 없이 통과 확인 → v65 master#149 에 1줄(우회 환경변수 사용 중지).
+- 남는 일(카드 밖 · 완성 후): «마지막 timestamp 기록 = `system/turn_duration` 일 때만 통과»(ft-seat-status IDLE 정의와 일치 · 더 엄격)는 Escape 로 끊긴 턴의 새 오탐 우려로 채택 안 함 — 필요해지면 별 카드.
+- 정본 영향 없음: 하네스 도구·시험만.
