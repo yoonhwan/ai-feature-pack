@@ -349,6 +349,14 @@ fi
 # base 정합 (카드 §3): FT_NANO_FEAT «명시» → 그 값 · 아니면 좌석 워크트리 .worktree-info.json 의 base · 그것도 없으면 지금 기본값.
 _FEAT="${FT_NANO_FEAT:-}"
 [ -n "$_FEAT" ] || [ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
+# R42: info.base 가 ref 가 아니고 commit(sha)이면 «랜딩 브랜치 정보 없음» — 기본 사슬로 랜딩 브랜치를 정한다(FT_NANO_FEAT 명시값은 그대로 우선). 조상 확인은 fetch 뒤.
+_BASE_SHA=""
+if [ -z "${FT_NANO_FEAT:-}" ] && [ -n "$_FEAT" ] \
+   && ! git -C "$ROOT" rev-parse --verify -q "refs/heads/$_FEAT" >/dev/null \
+   && ! git -C "$ROOT" rev-parse --verify -q "refs/remotes/$_FEAT" >/dev/null \
+   && git -C "$ROOT" rev-parse --verify -q "$_FEAT^{commit}" >/dev/null; then
+  _BASE_SHA="$_FEAT"; _FEAT=""
+fi
 _FEAT="${_FEAT:-feat/v6-realtime-live}"
 # R22: base 가 원격 추적 ref(origin/<b>)면 닫기 직전 그 ref 하나만 fetch — 옛 ref 로 대조하지 않는다(#0 RULE). 로컬 브랜치 값이면 fetch 0.
 _fetch_remote_feat() {
@@ -363,6 +371,13 @@ _fetch_remote_feat() {
   fi
 }
 _fetch_remote_feat "$_FEAT"
+if [ -n "$_BASE_SHA" ]; then
+  if git -C "$ROOT" merge-base --is-ancestor "$_BASE_SHA" "$_FEAT" 2>/dev/null; then
+    echo "INFO base sha ${_BASE_SHA:0:9} → 랜딩 브랜치 $_FEAT"
+  else
+    bad+=("base 가 sha ${_BASE_SHA:0:9} 이고 $_FEAT 의 조상이 아니다 — FT_NANO_FEAT=<랜딩 브랜치> 로 다시")
+  fi
+fi
 ABSENT=0
 if [ "$tmux_ok" = 1 ]; then
   if [ -z "$cwd" ]; then

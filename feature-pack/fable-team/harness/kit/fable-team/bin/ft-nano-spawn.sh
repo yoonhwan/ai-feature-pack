@@ -131,6 +131,13 @@ N=0; while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
 BASE_BRANCH="${BASE_REF:-$(git -C "$WT" rev-parse --abbrev-ref HEAD)}"
+# R42: --base 가 ref 가 아니고 commit(sha)이면 info 에는 «랜딩 브랜치» 를 쓴다(닫기 게이트의 비교 기준) — sha 는 base_sha 칸.
+INFO_BASE="$BASE_BRANCH"
+if [ -n "${BASE_REF:-}" ] && ! git -C "$ROOT" rev-parse --verify -q "refs/heads/$BASE_REF" >/dev/null \
+   && ! git -C "$ROOT" rev-parse --verify -q "refs/remotes/$BASE_REF" >/dev/null \
+   && git -C "$ROOT" rev-parse --verify -q "$BASE_REF^{commit}" >/dev/null; then
+  INFO_BASE="${FT_NANO_FEAT:-$(git -C "$WT" rev-parse --abbrev-ref HEAD)}"
+fi
 IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
 IDX_REL="${IDX_ABS#"$WT"/}"
 
@@ -174,7 +181,7 @@ if [ ! -d "$WTDIR" ]; then
   git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
   for l in .venv .env; do [ -e "$ROOT/$l" ] && ln -sfn "../../$l" "$WTDIR/$l"; done
   # base_sha(오빠 ORDERS 103 · single_set_testing §3 ①): 갈라진 시점을 남겨 ft-nano-freshness 가 «루트부터» 판정한다.
-  printf '{"branch":"%s","base":"%s","base_sha":"%s","created_at":"%s","purpose":"nano · %s"}\n' "$BRANCH" "$BASE_BRANCH" "$(git -C "$ROOT" rev-parse --short "$BASE_BRANCH")" "$(date '+%F %T')" "$IDX_REL" > "$WTDIR/.worktree-info.json"
+  printf '{"branch":"%s","base":"%s","base_sha":"%s","created_at":"%s","purpose":"nano · %s"}\n' "$BRANCH" "$INFO_BASE" "$(git -C "$ROOT" rev-parse --short "$BASE_BRANCH")" "$(date '+%F %T')" "$IDX_REL" > "$WTDIR/.worktree-info.json"
   # ★Serena project_name 충돌 차단 (2026-09-16 사고 1 · arch#49 #17015)★
   #   워크트리 41개가 전부 project_name "BYZ-Agents" 라 «나중 활성이 이긴다» — 형제 좌석의
   #   Serena 편집 8파일이 남의 워크트리에 떨어졌다(손실 0으로 복구). 절대경로 활성도 이름
