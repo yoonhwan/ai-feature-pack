@@ -2,7 +2,7 @@
 # 파일 기반 세션 메시지 큐 (mbox) — 파일 큐 + push 알림 하이브리드.
 # send = 파일 append + 수신자 tmux에 recv 트리거 주입(push). 본문은 파일(유실0), tmux엔 트리거만.
 # LIFO·per-to 10 ring·fcntl.flock·consume-on-read·to==me grep.
-# Usage: mbox.sh {send <to> <from> <body...> [--no-notify] | recv <me> | peek <me> | ring <sess> [seq]}
+# Usage: mbox.sh {send <to> <from> <body...> [--urgent] | recv <me> | peek <me> | ring <sess> [seq]}
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MBOXPY="$DIR/mbox.py"
@@ -59,7 +59,11 @@ doorbell() {
   #   본문에 백틱·세미콜론이 있었으면 그대로 «실행»된다. COMM-GUIDE §2 Step1·§5-3 이
   #   이미 금지한 것인데 코드에 없었다.
   _ppid="$(tmux list-panes -t "$to" -F '#{pane_pid}' 2>/dev/null | head -1)"
-  if [ -n "$_ppid" ] && ! pgrep -P "$_ppid" >/dev/null 2>&1; then echo noagent; return 0; fi
+  # ★`-a` 필수★ (2026-09-14 실측): macOS pgrep 은 «호출자 자신과 그 조상»을 기본 제외한다.
+  #   좌석이 자기 자신·자기 조상 좌석에게 send 하면 claude 프로세스가 pane_pid 의 자식으로
+  #   버젓이 있는데도 rc=1 → `noagent` → doorbell 미주입. 자기 앞 self-test 4건 전부 재현,
+  #   `pgrep -a -P` 는 4/4 잡았다. 남의 좌석엔 안 나타나 오래 숨어 있었다.
+  if [ -n "$_ppid" ] && ! pgrep -a -P "$_ppid" >/dev/null 2>&1; then echo noagent; return 0; fi
   seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   stamp="${TMPDIR:-/tmp}/mbox-doorbell-$seat"
   recvstamp="${TMPDIR:-/tmp}/mbox-recv-$seat"
@@ -121,24 +125,63 @@ doorbell_status() {
   printf '%s' "$st"
 }
 
+# ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · 하네스 업그레이드 §2-2 · 오빠 결정 Q1)
+#   실측: --no-notify 를 틱 없는 좌석(arch-fable#40)에 써서 4틱 무응답(CLAUDE.md STRUCTURAL FIX).
+#   HARNESS-TREE 는 「좌석→master 는 무음」, CLAUDE.md 는 「틱 없는 좌석엔 금지」 — 둘 다 맞고
+#   ★보내는 쪽이 받는 쪽의 틱 유무를 알 길이 없어서★ 매 send 가 사람 판단이었다.
+#   seats.json 의 tick 필드가 그 판단을 대신한다: tick 있음 → 조용히(자기 틱이 recv 한다),
+#   tick 없음·미등록 → 울린다(모르는 좌석을 침묵시키지 않는다 — 안 울려 못 받는 쪽이 더 나쁘다).
+#   `--urgent` 만 남는다(항상 울림). `--no-notify` 는 받아 주되 ★무시하고 경고★한다 —
+#   옛 호출부(틱 스크립트·좌석 습관)가 한동안 남기 때문이고, 무시해야 이 결정이 «강제»가 된다.
+#   레지스트리 경로: 정본 우편함 옆 (<루트>/.fable-team/seats.json). env FT_SEATS_JSON 이 이긴다.
+_seats_json() {
+  [ -n "${FT_SEATS_JSON:-}" ] && { printf '%s' "$FT_SEATS_JSON"; return; }
+  local d="$DIR"
+  while [ "$d" != "/" ]; do
+    case "$(basename "$d")" in .worktrees) printf '%s/.fable-team/seats.json' "$(dirname "$d")"; return;; esac
+    d="$(dirname "$d")"
+  done
+  printf '%s/../seats.json' "$DIR"
+}
+# echoes: quiet | ring — 판정 불가(파일 없음·JSON 깨짐)는 ring (fail-loud 쪽).
+notify_policy() {
+  local to="$1" sj; sj="$(_seats_json)"
+  [ -f "$sj" ] || { echo ring; return 0; }
+  python3 - "$sj" "$to" <<'PY' 2>/dev/null || echo ring
+import json, sys
+sj, to = sys.argv[1], sys.argv[2]
+try:
+    d = json.load(open(sj, encoding="utf-8"))
+except Exception:
+    print("ring"); sys.exit(0)
+e = d.get(to)
+print("quiet" if isinstance(e, dict) and e.get("tick") else "ring")
+PY
+}
+
 # py 의 `QUEUED seq=<N> …` 한 줄에서 이번 발주의 번호만 뽑는다. 못 뽑으면 빈 값.
 # ★`set -euo pipefail` 이라 실패를 «반드시» 삼켜야 한다★ — grep 이 0건이면 rc1 이고
 #   pipefail 이 그것을 파이프라인 rc 로 올린다. 호출부에서 `|| seq=""` 로 받는다.
 seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
+# 인박스 적재(판정 425-B) — 큐 적재 직후 1줄 · 규칙표만 즉시(Haiku 는 ft-inbox 가 분리 실행) · 실패는 stderr WARN, 전송 rc 불변.
+inbox_ingest() { [ -z "$1" ] || FT_ROOT="${FT_ROOT:-$DIR/../..}" bash "$DIR/../bin/ft-inbox.sh" ingest "$1" >/dev/null 2>&1 || echo "WARN inbox ingest 실패 seq=$1 (쪽지 전송은 완료)" >&2; return 0; }
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
     to="${1:?to}"; from="${2:?from}"; shift 2
-    notify=1; force=(); dbf=0
+    force=(); dbf=0; urgent=0
     args=()
     for a in "$@"; do
       case "$a" in
-        --no-notify) notify=0 ;;
+        --no-notify) echo "WARN --no-notify 는 무시된다 — 알림은 seats.json 이 정한다(§2-2). 급하면 --urgent" >&2 ;;
+        --urgent)    urgent=1 ;;
         --force)     force=(--force); dbf=1 ;;
         *)           args+=("$a") ;;
       esac
     done
+    if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
     # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
     #   `$( )` 로 잡으면 py 의 stdout 이 여기서 멈추므로 ★아래에서 반드시 그대로 다시 찍는다★.
@@ -146,24 +189,28 @@ case "$cmd" in
     #   stderr(BLOCKED·DROPPED)는 안 잡으므로 지금처럼 그대로 흐른다.
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
+    inbox_ingest "$seq"
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=off; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
   relay)
     # 긴 본문의 정본 절차: 원문을 /tmp/mbox 로 복사하고 요약+경로만 큐잉.
     to="${1:?to}"; from="${2:?from}"; file="${3:?file}"; shift 3
-    notify=1; args=()
+    urgent=0; args=()
     for a in "$@"; do
       case "$a" in
-        --no-notify) notify=0 ;;
+        --no-notify) echo "WARN --no-notify 는 무시된다 — 알림은 seats.json 이 정한다(§2-2). 급하면 --urgent" >&2 ;;
+        --urgent)    urgent=1 ;;
         *)           args+=("$a") ;;
       esac
     done
+    if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
-    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=off; fi
+    inbox_ingest "$seq"
+    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
   recv)  me="${1:?me}"; shift
@@ -180,5 +227,5 @@ case "$cmd" in
   #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
          db="$(doorbell_status "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--no-notify] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
 esac

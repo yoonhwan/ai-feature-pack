@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-index-move.sh <indices/<from>/X.md> <대기|진행|완성> [--da <판정문경로#§N>] [--seat <좌석명>]
+# ft-index-move.sh <indices/<from>/X.md> <대기|진행|완성> [--da <판정문경로#§N>] [--seat <좌석명>] [--landed <sha>]
 #   Seatbelt 0.3 · 인덱스 상태 = 폴더. «닫힘» 글자를 손으로 쓸 자리를 없앤다.
 #   exit 0 = 이동 · 1 = REJECT · 2 = usage
 # 규칙:
@@ -7,10 +7,12 @@
 #   진행→완성 : --da 필수. 판정문 파일이 실재하고 그 §N 절에 「닫힘」 또는 「CLOSE」가 있어야 한다.
 #               (DA 가 안 쓴 「닫힘」은 없다 — pm·master 가 대신 쓸 길을 두지 않는다.)
 #   기타 방향 : 되돌리기(진행→대기 등)는 --seat 로 사유만 남기고 허용.
+#   슬랙(판정 405) : 카드에 `- 슬랙:` 줄이 있으면 이동 «전»에 대기→진행=착수 답글 · 진행→완성=결과 답글 확인/발송.
+#               도구 = env FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py) · 실패·장부 불명·도구 없음 = REJECT(이동 0 · 폴백 0).
 set -uo pipefail
-SRC="${1:-}"; DST="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <index.md> <대기|진행|완성> [--da <file#§N>] [--seat <name>]" >&2; exit 2; }
-DA=""; SEAT=""
-while [ $# -gt 0 ]; do case "$1" in --da) DA="$2"; shift 2;; --seat) SEAT="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+SRC="${1:-}"; DST="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <index.md> <대기|진행|완성> [--da <file#§N>] [--seat <name>] [--landed <sha>]" >&2; exit 2; }
+DA=""; SEAT=""; LANDED=""
+while [ $# -gt 0 ]; do case "$1" in --da) DA="$2"; shift 2;; --seat) SEAT="$2"; shift 2;; --landed) LANDED="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
 case "$DST" in 대기|진행|완성) ;; *) echo "REJECT dst 는 대기|진행|완성" >&2; exit 2;; esac
 [ -f "$SRC" ] || { echo "REJECT 없음: $SRC"; exit 1; }
 SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경로 — 상대경로면 아래 git -C ls-files 추적 판정이 untracked 로 떨어져 mv 가 된다(DA r1 R5)
@@ -76,6 +78,31 @@ PY
     REJECT) echo "REJECT 정본 게이트 — $CANON_NOTE (이동 0 · 카드에 줄을 쓰고 다시 이동)"; exit 1;;
     *) echo "REJECT 정본 게이트 검사 실행 실패(python3) — 이동 0"; exit 1;;
   esac
+fi
+# 슬랙 단위 스레드(판정 405 §4) — «게시 대상» = 카드의 `- 슬랙:` 줄 유무(장부 아님). 이동 «전»에 끝낸다: 실패면 이동 0.
+if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; }; then
+  if grep -q '^- 슬랙:' "$SRC"; then
+    TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
+    [ -f "$TP" ] || { echo "REJECT 카드에 「- 슬랙:」 줄이 있는데 발행 도구가 없다: $TP (FT_THREAD_POST) — 이동 0"; exit 1; }
+    tp() { if [ -x "$TP" ]; then "$TP" "$@"; else python3 "$TP" "$@"; fi; }
+    S_ISSUE="$(sed -n 's/^- Issue:[[:space:]]*//p' "$SRC" | head -1 | awk '{print $1}')"; S_ISSUE="${S_ISSUE:-없음}"
+    S_SEAT="${SEAT:-없음}"; S_CANON=없음
+    case "${CANON_NOTE:-}" in 정본\ docs/architect/*) S_CANON="$WT/$(printf '%s' "$CANON_NOTE" | awk '{print $2}')";; esac
+    S_BLK=(--issue "$S_ISSUE" --seat "$S_SEAT" --canon "$S_CANON" --resume-script "$HERE/ft-resume-cmd.sh")
+    if [ "$DST" = 진행 ]; then
+      out="$(tp progress --card "$SRC" --text "착수 — ${SEAT:-좌석 미지정}" --next "구현·완료 조건 확인" "${S_BLK[@]}" 2>&1)" \
+        || { echo "REJECT 슬랙 착수 답글 실패 — 이동 0: $out"; exit 1; }
+    else
+      tp check --card "$SRC" >/dev/null 2>&1; rc=$?
+      case "$rc" in
+        0) ;;
+        1) out="$(tp result --card "$SRC" --verdict "$DA" ${LANDED:+--landed "$LANDED"} --next "없음" "${S_BLK[@]}" 2>&1)" \
+             || { echo "REJECT 슬랙 결과 답글 실패 — 이동 0: $out"; exit 1; };;
+        3) echo "REJECT 장부 복구 필요 — byz_thread_post.py repair --card $SRC (이동 0)"; exit 1;;
+        *) echo "REJECT 슬랙 장부 확인 실패 rc=$rc — 이동 0"; exit 1;;
+      esac
+    fi
+  fi
 fi
 mkdir -p "$IDX_ROOT/$DST"
 NEW="$IDX_ROOT/$DST/$(basename "$SRC")"
