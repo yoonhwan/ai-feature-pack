@@ -124,4 +124,61 @@
 ※ X13~X17 = DA r1 반송(Q1): 같은 명령의 실행 소비 구간이 «대입 해소 + realpath ≠ F» 로 증명돼야 본문을 뺀다. X13 미해소 `$RUNFILE` · X14 다른 이름 심링크(시험이 임시 폴더에 other595.sh → body595.txt 생성) · X15 `R=…` 뒤 `$R` 실행 · X16 `$D/../tmp/c.md` 우회 · X17 `sudo bash`.
 ※ X18·X19 = DA r2 반송(Q1): 대입은 «구간 순서대로» — 검사 뒤에 대입된 값(X18 뒤쪽 `RUNFILE=/tmp/safe.sh` · X19 `R=F` 재대입)은 앞 구간 검사에 쓰지 않는다. X20~X23 = 1차 구현이 더한 행: X20 본문 안 구분자 줄 · X21 같은 끝 이름 별칭 · X22 글롭 · X23 따옴표 모양 문자열로 따옴표 없는 구분자를 가림.
 ※ 변이: M3 = F 를 가리키는 토큰 검사 빼기(X12 → 0) · M4 = realpath 비교 빼기(두 곳 · X14 → 0) · M12 = 실행 소비 구간 «비-F 증명» 빼기(X13·X17 → 0) · M7 = 대입을 전 구간 최종 값으로(r1 동작 · X18 → 0) · M8 = 따옴표 구분자 요구 빼기(X4 → 0) · M9 = 훅이 `INJ_SRC` 대신 `EFFECTIVE` 를 봄(F1a·F1b → 2) · M10 = 본문 안 구분자 줄 검사 빼기(X20 → 0). ★이중 방어★: X15·X16·X19 는 «끝 이름 검사» 와 «realpath 검사» 가 둘 다 잡는다.
-※ 알고 둔 범위 밖: 카드의 X7(`redis-cli $(cat <<'EOF'`⏎`SET k v` — 동사가 다음 줄) 은 기존 `INJECT_REDIS` 가 못 보는 빈틈이라 이 카드 범위 밖(키트 원본·본 변경 모두 rc=0) — 별 카드 후보. 게시 래퍼 판별은 파일 «끝 이름»(`ft-gh-as-tank.sh`)이라 같은 이름의 다른 스크립트도 래퍼로 본다(닫힌 목록의 알려진 한계). 증명 불가 꼴(`eval`·`source`·`.`·`xargs`·`env`·`sudo`·`-c`·옵션 붙은 셸·`find -exec`·`read`/`declare` 등 변수 변경 명령·`$` 첫 단어)은 전부 Inelig = 명령 전체 검사.
+※ 알고 둔 범위 밖: 카드의 X7(`redis-cli $(cat <<'EOF'`⏎`SET k v` — 동사가 다음 줄) 은 기존 `INJECT_REDIS` 가 못 보는 빈틈이라 이 카드 범위 밖이었다(키트 원본·595 변경 모두 rc=0) → 아래 «X7 계열 추가 행» 이 닫는다. 게시 래퍼 판별은 파일 «끝 이름»(`ft-gh-as-tank.sh`)이라 같은 이름의 다른 스크립트도 래퍼로 본다(닫힌 목록의 알려진 한계). 증명 불가 꼴(`eval`·`source`·`.`·`xargs`·`env`·`sudo`·`-c`·옵션 붙은 셸·`find -exec`·`read`/`declare` 등 변수 변경 명령·`$` 첫 단어)은 전부 Inelig = 명령 전체 검사.
+
+## X7 계열 추가 행 — redis-cli 가 쓰기 동사를 argv 밖(치환·heredoc·stdin·파이프·xargs·줄 이음·실행 코드 인자 안 stdin)에서 받는 꼴 (카드 `x7-inject-redis-indirect-input` · 판정 595 후속 · DA r1·r2 반송 반영)
+
+시험: `bash tests/harness/test_block_destructive_inject_post.sh` rc=0 (통과 F·Q·W 18 · 차단 X·Y·Z·V 43 · 변이 21) · 기존 `test_block_destructive_inject.sh` rc=0 (22/32/15) · `test_block_destructive.sh` rc=0 · 훅 `/bin/bash -n` OK · 판정기 200줄. 명령 전문은 시험 파일(JSON 문자열일 뿐, 실행 0). 변경 = 훅 INJECT 블록(대안 3개 + 옵션 접두 뒤 치환 대안 · `||` 제외 · stdin 은 `INJECT_STDIN` 별도 · 줄 잇기 `INJ_J` · `redis-cli` 가 안 든 따옴표 구간만 `<` 를 비운 `CHK_R` · 표지 `INJ_MARK`) + 판정기 `--inject` 경로만 단어 인용 복원(`judge(cmd, cwd, q)` · 기본 호출 출력 불변).
+
+| 행 | 명령 | 기대 rc | 실제 rc |
+|---|---|---|---|
+| Y1 | `redis-cli $(cat <<'EOF'⏎SET k v⏎EOF⏎)` | 2 | 2 |
+| Y2 | `` redis-cli `printf 'SET k v'` `` | 2 | 2 |
+| Y3 | `redis-cli <<'EOF'⏎SET k v⏎EOF` | 2 | 2 |
+| Y4 | `redis-cli <<< 'SET k v'` | 2 | 2 |
+| Y5 | `redis-cli --pipe < /tmp/data.txt` | 2 | 2 |
+| Y6 | `printf 'SET k v' \| redis-cli` | 2 | 2 |
+| Y7 | `echo 'HSET k f v' \| redis-cli -p 6380` | 2 | 2 |
+| Y8 | `echo k \| xargs redis-cli SET` | 2 | 2 |
+| Q1 | `redis-cli GET $(cat key.txt)` | 0 | 0 |
+| Q2 | `redis-cli --scan --pattern 'x:*' \| head` | 0 | 0 |
+| Q3 | `grep -n 'redis-cli <<' docs/a.md` | 0 | 0 |
+| Q4 | `echo 'printf SET \| redis-cli 는 금지'` | 0 | 0 |
+| Z1 | `printf 'SET k v\n' \|⏎redis-cli` | 2 | 2 |
+| Z2 | `printf 'SET k v' \|   ⏎  redis-cli -p 6380` | 2 | 2 |
+| Z3 | `redis-cli \⏎SET k v` | 2 | 2 |
+| Z4 | `printf 'SET k v' \⏎\| redis-cli` | 2 | 2 |
+| Z5 | `redis-cli -n '<1>' < /tmp/d.txt` | 2 | 2 |
+| Z6 | `redis-''cli <<< 'SET k v'` | 2 | 2 |
+| Z7 | `curl 'http://h/dev/bubble-replay?<x>'` | 2 | 2 |
+| W1 | `redis-cli GET '<literal-key>'` | 0 | 0 |
+| W2 | `redis-cli GET "a<b"` | 0 | 0 |
+| W3 | `false \|\| redis-cli GET k` | 0 | 0 |
+| W4 | `false \|\|⏎redis-cli GET k` | 0 | 0 |
+| W5 | `redis-cli --scan --pattern 'x:*' \|⏎head -3` | 0 | 0 |
+| W6 | `redis-cli GET k 2>/dev/null` | 0 | 0 |
+| V1 | `bash -c "redis-cli < /tmp/data.txt"` | 2 | 2 |
+| V2 | `sh -c 'redis-cli < /tmp/data.txt'` | 2 | 2 |
+| V3 | `python3 -c "import os; os.system('redis-cli < /tmp/data.txt')"` | 2 | 2 |
+| V4 | `bash -c 'redis-cli</tmp/d'` | 2 | 2 |
+| V5 | `bash -c "REDIS-CLI < /tmp/d"` | 2 | 2 |
+| V6 | `ssh h 'redis-cli -p 1 < /tmp/d'` | 2 | 2 |
+| W7 | `bash -c "echo hi"; redis-cli GET '<k>'` | 0 | 0 |
+| M12-X13 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file /tmp/body595.txt; bash "$RUNFILE"` | 0 | 0 |
+| M12-X17 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/body595.txt --apply; sudo bash x.sh` | 0 | 0 |
+| M5-Y1 | `redis-cli $(cat <<'EOF'⏎SET k v⏎EOF⏎)` | 0 | 0 |
+| M5-Y6 | `printf 'SET k v' \| redis-cli` | 0 | 0 |
+| M6-Q1 | `redis-cli GET $(cat key.txt)` | 2 | 2 |
+| M6-Q2 | `redis-cli --scan --pattern 'x:*' \| head` | 2 | 2 |
+| M6-Q3 | `grep -n 'redis-cli <<' docs/a.md` | 2 | 2 |
+| M6-Q4 | `echo 'printf SET \| redis-cli 는 금지'` | 2 | 2 |
+| M10q-W1 | `redis-cli GET '<literal-key>'` | 2 | 2 |
+| M10q-W2 | `redis-cli GET "a<b"` | 2 | 2 |
+| M11-Z1 | `printf 'SET k v\n' \|⏎redis-cli` | 0 | 0 |
+| M11-Z3 | `redis-cli \⏎SET k v` | 0 | 0 |
+| M12-V1 | `bash -c "redis-cli < /tmp/data.txt"` | 0 | 0 |
+| M12-V3 | `python3 -c "import os; os.system('redis-cli < /tmp/data.txt')"` | 0 | 0 |
+
+※ 변이: M5 = 추가 줄 + stdin 검사 제거(Y1·Y6 → 0) · M6 = 백틱 이스케이프(`\``) 빼기 → 큰따옴표 안에서 명령 치환이 시작돼 훅이 깨지고 전 명령이 rc=2(Q1~Q4 → 2) · M10q = 판정기 `--inject` 단어 인용 복원 끄기(W1·W2 → 2, 카드의 M10) · M11 = 줄 잇기 끄기(Z1·Z3 → 0). M12 = 표지 단계(redis-cli → \001) 빼기 = r1 동작(V1·V3 → 0). 기존 M9 는 `INJ_J` 입력을 `EFFECTIVE` 로 바꾼 꼴로 갱신.
+※ 카드 설계 정정(r0): 카드는 M6 을 «`[|]` → `\|` 복사본» 으로 적었으나 BSD grep(/usr/bin/grep 2.6.0-FreeBSD)에서 `\|` 는 빈 대안이 아니라 글자 `|` 라 Q 행이 안 깨진다(arch 재실측 BAD 0 으로 확인) → 훅 주석의 해당 문장 삭제, 이스케이프 없는 백틱 꼴을 M6 으로 둔다. `[|]` 표기는 유지.
+※ 경계: Q1 `redis-cli GET $(cat key.txt)`(동사 뒤 치환)·Q2 출력 파이프·Q3 검색 인용·Q4 쪽지 글자·W1~W6(따옴표 인자 안 `<`·`||`·출력 파이프 줄 이음·`2>`) 통과. 알고 둔 범위 밖: 변수·별칭 우회(`r=redis-cli; $r SET k v`)·스크립트 파일 안 주입 — 명령줄 글자 훅의 한계(BOOT 20 이 맡음).

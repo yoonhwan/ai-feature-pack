@@ -1258,3 +1258,30 @@
   ⑥ ★오탐 1건이면 즉시 원복★(② 백업 cp · 원장 기록 · 카드 반송).
   ⑦ 완료 보고 = 랜딩 sha + 재생 행 rc 1줄 → arch 가 X7 카드 spawn 요청.
 - 정본 영향 없음: 하네스 훅 템플릿·시험·대조표만 — docs/architect 제품 정본 변경 없음.
+
+## §101 가드 ㉠(INJECT) X7 계열 — redis-cli 가 쓰기 명령을 argv 밖(치환·백틱·heredoc·`<<<`·`<` 파일·파이프 수신·xargs·줄 이음·실행 코드 인자 안 stdin)에서 받는 꼴 차단 (§100 명시 제한 해소 · master#21 판정 #67070 · 나노 x7-inject-redis-indirect-input) — 닫힘 (byz-harness-arch-claude#22 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q1·Q2 · r2 HOLD Q1 → 연속 리뷰 종료) → arch 처방·독립 재현 서명(bounded_da_review · §95·§100 선례)★
+- 골 축: A(오빠 절대지침 「임의 레디스 쓰기 금지」 장치의 빈틈 닫기) + C(키트 = 전 머신 설치본).
+- 대상 카드: x7-inject-redis-indirect-input (대기 `3d43b91764` → 진행)
+- 기준값(카드 머리줄 · arch 실측): §100 설치본에서 Y1~Y8(치환·백틱·heredoc·`<<<`·`<` 파일·파이프 수신·echo 파이프·xargs) 전부 rc=0.
+- 나노 커밋 3개(브랜치 `nano/x7-inject-redis-indirect-input` · base origin/main `483ba4ec67` 이후 · push 0):
+  ①`bab4802246`([fix] `INJECT_PATTERN` 대안 4개 1줄: 파이프 수신 · stdin 리다이렉트 · xargs · 동사 자리 치환) → DA r1(`design/harness/DA-x7-inject-redis-indirect-input-20261009.md`) Q3 APPROVE · Q1 HOLD(줄끝 `|` 로 이어진 여러 줄 파이프 rc0) · Q2 HOLD(`redis-cli GET '<literal-key>'` rc2 오탐) → 반송 r1(arch 프로토 처방 · 덤: `false || redis-cli GET k` 오탐).
+  ②`fffc667ac5`([fix] 판정기 `--inject` 경로만 단어 인용 복원(`judge(cmd, cwd, q)` · 기본 q=False) · 훅 줄 잇기 `INJ_J`(끝 `\`·`|`) · stdin 대안을 `INJECT_STDIN`+`CHK_R`(`<` 든 따옴표 구간을 Q 로 비움)로 분리 · 파이프 대안 `(^|[^|])`) → DA r2 Q2 APPROVE · Q1 HOLD(`CHK_R` 이 실행 코드 인자까지 비워 `bash -c "redis-cli < f"`·`sh -c`·`python3 -c "os.system('redis-cli < f')"` rc0) · 연속 리뷰 종료 → 반송 r2(arch 처방).
+  ③`90c9c7db39`([fix] `CHK_R` 은 redis-cli(대소문자 무시)가 안 든 따옴표 구간만 비움 — 표지 `INJ_MARK`(\001)).
+  최종 = 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(97줄) · `…/hooks/block-destructive-judge.py`(200줄 · 3줄 변경) · 시험 `tests/harness/test_block_destructive_inject_post.sh` · 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
+- ★arch 독립 재현(#22 · 이 재현이 닫는 증거)★: `90c9c7db39` 아카이브 → `mktemp -d` 새 폴더: test_block_destructive_inject **rc=0** · test_block_destructive_inject_post **rc=0** · test_block_destructive **rc=0** · `/bin/bash -n` OK · 훅 INJECT 블록 = arch r2 프로토와 변수 이름 외 동일.
+  · arch 프로브 5종(`/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r22/x7/` · JSON · 명령 실행 0) 전부 BAD 0: `probe_x7r2.py` 9(V1~V6 = 2 · W1·W2·W7 = 0) · `probe_x7r1.py` 13(Z1~Z7 = 2 · W1~W6 = 0) · `probe_x7.py` 12(Y1~Y8 = 2 · Q1~Q4 = 0) · `probe_r2.py` 7 · `probe595.py` 19(§100 F·X 행 · X7 = 2 로 닫힘).
+  · ★arch 독립 변이 2개★: (가) 표지 단계 제거 → V1~V6 6행 rc0. (나) `--inject` 의 q 인용 복원 끔 → W1·W2 rc2. 두 줄 모두 실제로 막고 있다.
+  · 기본 판정 경로(인자 2개 · 파괴 PATTERN 용) 출력 = origin/main 판정기와 3입력 동일(DA r2 도 q=False 경로 동일 확인).
+- ★arch 판단 서명 — 승인★: ①stdin 리다이렉트는 «redis-cli 가 안 든» 따옴표 구간(데이터 인자)만 비운 사본에서 본다 — redis-cli 가 든 따옴표 구간은 실행 코드일 수 있어 남긴다(fail-closed). ②줄끝 `\`·`|` 는 셸이 한 줄로 실행하므로 검사도 한 줄로 본다. ③`||` 는 파이프가 아니다.
+- ★정정 기록★: 카드 «함정 2» 의 「큰따옴표 안 ERE `\|` 는 macOS grep 에서 빈 대안」 은 틀렸다(arch 재실측: `\|` 변이 = BAD 0 · BSD grep -E 에서 글자 `|`). 첫 시도 붕괴 원인은 이스케이프 없는 백틱(대입 순간 명령 치환 → 전 명령 차단). 나노가 M6 을 백틱 변이로 대체했고 훅 주석도 정정됨.
+- ★알고 둔 경계(이 훅 범위 밖)★: 따옴표 안 이어붙임 난독화(`bash -c "redis-''cli < f"`)·`eval` 조립·별칭 — 의도적 난독화(§93·§95·§100 과 같은 성질 · BOOT 20 증거 무효) · 스크립트 «파일 안» 주입(§92 증거 검사 몫).
+- 카드 증거 줄(나노 RESULT r2): `세트: 90c9c7db39b357418c29e41dcd88b82132c3bfc5 · 시험: bash tests/harness/test_block_destructive_inject_post.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 3개) → 병합. PR 본문 `--body-file` · CI 확인과 병합 별 명령.
+  ② 홈 현재 = §100 설치본(hook `7835a47dec2b` · judge `582691ebb7d6`) 확인 → 백업 `.bak-x7-20261009`(두 파일).
+  ③ 병합된 origin/main 키트 «두 파일» → 홈 cp+cmp.
+  ④ `/bin/bash` 홈 설치본 JSON 재생: Y1(X7) = 2 · Z1(여러 줄 파이프) = 2 · V1(`bash -c "redis-cli < f"`) = 2 · W1(`GET '<literal-key>'`) = 0 · F1a(§100 실사례) = 0 · P6(정본 mbox 인용) = 0.
+  ⑤ 적용 뒤 «첫 도구 호출» 실측 — 평범한 Bash 1회 + 다른 좌석 1곳.
+  ⑥ ★오탐 1건이면 즉시 원복★(② 백업 · 원장 기록 · 카드 반송).
+  ⑦ 완료 보고 = 랜딩 sha + 재생 행 rc 1줄.
+- 정본 영향 없음: 하네스 훅 템플릿·시험·대조표만 — docs/architect 제품 정본 변경 없음.

@@ -43,6 +43,10 @@ INJECT_VERBS='SET|SETEX|SETNX|MSET|HSET|HMSET|HSETNX|XADD|PUBLISH|LPUSH|RPUSH|SA
 INJECT_SKIP='(^|[[:space:];&|(])(git[[:space:]]+grep|rg|ag|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit|view))([[:space:]][^;&|]*|$)'
 INJECT_REDIS="redis-cli([[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]*)?([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+['\"]?($INJECT_VERBS)['\"]?[[:space:]]+[^[:space:]]"
 INJECT_PATTERN="$INJECT_REDIS|/dev/bubble-replay"
+# X7: 쓰기 동사가 argv 밖(파이프 수신·stdin 리다이렉트·xargs·동사 자리 치환)으로 들어오는 꼴. 정규식 안 백틱은 \` 로 이스케이프(안 하면 대입 순간 명령 치환 → 전 명령 차단).
+# stdin 리다이렉트는 '<' 가 든 따옴표 인자(GET '<k>')를 Q 로 비운 사본 CHK_R 에서만 본다(DA x7 r1 Q2).
+INJECT_STDIN='redis-cli[^;&|]*<'
+INJECT_PATTERN="$INJECT_PATTERN|(^|[^|])[|][[:space:]]*([^|;&]*[[:space:]])?redis-cli|xargs[^;&|]*redis-cli|redis-cli([[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]*)?([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+([\$][(]|\`)"
 # 실행 치환($( )·백틱·<( )·>( ))이 하나라도 있으면 검색·게시 예외 0 — 셸이 «실행»하는 구간이라 글자가 아니다(DA r1 Q2).
 INJ_SRC=$(judge --inject "$CMD" "$INPUT" 2>/dev/null) || INJ_SRC=$EFFECTIVE   # 판정 595: 게시 싱크의 따옴표 heredoc 본문은 글자(실행 경로는 EFFECTIVE 와 같이 전체 검사)
 case "$INJ_SRC" in
@@ -50,8 +54,13 @@ case "$INJ_SRC" in
   *) INJECT_SED="s#$INJECT_SKIP#\\1#g; s#app/dev/bubble-replay##g" ;;
 esac
 # 따옴표·역슬래시 제거 — 셸 단어 이어붙임(redis-''cli·S""ET)을 한 단어로 본다(DA r2 Q2). 검색·게시 제거(sed)가 먼저라 따옴표 안 검색 패턴은 이미 빠진 뒤.
-CHK=$(printf '%s' "$INJ_SRC" | LC_ALL=C sed -E "$INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK=$INJ_SRC
-if printf '%s' "$CHK" | grep -qiE "$INJECT_PATTERN"; then
+# 줄 잇기 — 끝이 \ 또는 | 인 줄은 다음 줄과 한 줄로(셸은 그렇게 실행한다 · grep 은 줄 단위 · DA x7 r1 Q1).
+INJ_J=$(printf '%s\n' "$INJ_SRC" | awk '{ if (sub(/\\$/, " ") || sub(/[|][[:space:]]*$/, "| ")) printf "%s", $0; else print }') || INJ_J=$INJ_SRC
+CHK=$(printf '%s' "$INJ_J" | LC_ALL=C sed -E "$INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK=$INJ_J
+# 비우는 것은 «redis-cli 가 안 든» 따옴표 구간뿐 — bash -c "redis-cli < f"·os.system('redis-cli < f') 는 실행 코드라 남긴다(DA x7 r2 Q1 · 표지 \001).
+INJ_MARK=$(printf '\001')
+CHK_R=$(printf '%s' "$INJ_J" | LC_ALL=C sed -E "s/[Rr][Ee][Dd][Ii][Ss]-[Cc][Ll][Ii]/$INJ_MARK/g; s/'[^'$INJ_MARK]*<[^'$INJ_MARK]*'/Q/g; s/\"[^\"$INJ_MARK]*<[^\"$INJ_MARK]*\"/Q/g; s/$INJ_MARK/redis-cli/g; $INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK_R=$CHK
+if printf '%s' "$CHK" | grep -qiE "$INJECT_PATTERN" || printf '%s' "$CHK_R" | grep -qiE "$INJECT_STDIN"; then
   printf '🚫 측정 조작 차단 — 임의 Redis 쓰기·말풍선 DOM 주입(오빠 절대지침 · BOOT 20 · 전역 하드 룰 11)\n' >&2
   printf '명령: %s\n' "$CMD" >&2
   printf '측정은 trusted 클릭 + 기존 e2e 러너(tests/e2e/realtime_multi_e2e.py)만. 정당한 운영 쓰기는 파일에 쓰고 사람이 ! 로 실행하세요.\n' >&2

@@ -91,7 +91,7 @@ def classify(toks, sep, cwd, moved):
 def fileout(g):
     return g["cmd"] == "tee" or any(o in FILE_OUT and t != "/dev/null" and not (o == ">&" and re.fullmatch(r"\d+|-", t))
                                     for o, t in g["redirs"])
-def judge(cmd, cwd):
+def judge(cmd, cwd, q=False):   # q = --inject: 단어를 셸 인용으로 되살려 낸다(따옴표 안 < 와 리다이렉트 < 구분 · DA x7 r1 Q2)
     if re.search(r"\$\(|`|[<>]\(|\$'|\\\n|\$\{!", cmd): raise Inelig
     text, body, n = strip_heredoc(cmd)
     moved = bool(MOVE.search(re.sub(r"[\\'\"]", "", cmd)))   # 이동 판별은 따옴표·역슬래시를 지운 글자로(c''d·c\d) — DA r1 Q2
@@ -111,7 +111,7 @@ def judge(cmd, cwd):
             j += 1
             if segs[j]["cmd"] not in FILTERS or any(a.startswith("--compress-program") for a in segs[j]["words"]): raise Inelig
     body_in = n and not any(g["hd"] and g["kind"] == "sink" and g["cmd"] in ("cat", "tee") for g in segs)
-    lines = [" ".join(g["toks"]) for g in others] + ([body] if body_in else [])
+    lines = [" ".join(shlex.quote(t) if q and t not in REDIR and not re.fullmatch(r"[<>&|;()]+", t) else t for t in g["toks"]) for g in others] + ([body] if body_in else [])
     if any(g["kind"] == "assign" for g in segs) and any("$" in l for l in lines): raise Inelig
     return "\n".join(lines)
 
@@ -194,7 +194,7 @@ inj = sys.argv[1:2] == ["--inject"] and len(sys.argv) == 4      # 판정 595: �
 cmd = sys.argv[2] if inj else sys.argv[1]
 try:
     cwd = json.loads(sys.argv[-1]).get("cwd"); cwd = cwd if isinstance(cwd, str) else None
-    try: print(judge(cmd, cwd))
+    try: print(judge(cmd, cwd, inj))
     except Inelig: print(inject_view(cmd, cwd) if inj else cmd)
 except Exception:
     print(cmd)
