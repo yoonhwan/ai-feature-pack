@@ -15,10 +15,18 @@ FOLDERS = ("대기", "진행", "완성")
 QUEUE_TOP = 5
 
 
+TITLE_SCAN_LINES = 5
+
+
 def _title(path: Path) -> str:
+    """첫 5줄 안의 첫 H1(`# `) 줄 — 빈 줄·`<!--` 주석·`##` 절 제목은 건너뛴다. 없으면 «<id> (제목 없음)» (다른 줄을 고르지 않는다)."""
     with path.open(encoding="utf-8") as f:
-        first = f.readline().strip()
-    return re.sub(r"^#+\s*(인덱스:\s*)?", "", first)[:80]
+        head = [f.readline() for _ in range(TITLE_SCAN_LINES)]
+    for line in head:
+        m = re.match(r"#\s+(?:인덱스:\s*)?(.*)", line.strip())
+        if m:
+            return m.group(1)[:80]
+    return f"{path.stem} (제목 없음)"
 
 
 def read_cards(cards_dir: Path) -> dict:

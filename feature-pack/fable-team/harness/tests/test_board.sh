@@ -197,6 +197,24 @@ S6="$(FT_BOARD_NOW=2026-10-10T09:00:00 board snapshot)"; eq "날짜 바뀜 prev_
 # prune
 eq "prune 30일 안 = 삭제 0" "$(FT_BOARD_NOW=2026-10-10T09:00:00 board prune --days 30)" "[]"
 eq "prune 0일 = 전날 폴더 삭제" "$(FT_BOARD_NOW=2026-10-10T09:00:00 board prune --days 0)" '["2026-10-09"]'
+# 카드 제목 = 첫 5줄 안 첫 H1 (R52) — zeta 팀 대기 카드 5종(id 순서 = 큐 순서)
+mkdir -p "$FT_ROOT/zeta/대기"
+printf '<!-- ledger: design/zeta/GOAL-zeta.md -->\n# 인덱스: 진짜 제목\n본문\n' > "$FT_ROOT/zeta/대기/z1-comment-first.md"
+printf '\n<!-- ledger: x -->\n# 제목\n본문\n' > "$FT_ROOT/zeta/대기/z2-blank-comment.md"
+printf '## 골 원문 절\n본문\n# 인덱스: X\n' > "$FT_ROOT/zeta/대기/z3-section-first.md"
+printf '본문만\n## 절\n<!-- c -->\n\n끝\n' > "$FT_ROOT/zeta/대기/z4-no-h1.md"
+printf '# 인덱스: 기존 형식\n본문\n' > "$FT_ROOT/zeta/대기/z5-legacy.md"
+printf '{"_label":"제타","_cards":"zeta"}' > "$FB/seats-zeta.json"
+ZETA="$(board collect | jq -r '.teams[]|select(.key=="zeta")|.queue[]|"\(.idx)\t\(.title)"')"
+echo "--- 시험 ①~④ 픽스처 렌더 제목 ---"; printf '%s\n' "$ZETA" | head -4
+eq "제목 ① 주석 첫 줄 → 둘째 줄 H1" "$(printf '%s\n' "$ZETA" | sed -n 1p)" "$(printf 'z1-comment-first\t진짜 제목')"
+eq "제목 ② 빈 줄+주석 → H1" "$(printf '%s\n' "$ZETA" | sed -n 2p)" "$(printf 'z2-blank-comment\t제목')"
+eq "제목 ③ ## 절 건너뛰고 H1" "$(printf '%s\n' "$ZETA" | sed -n 3p)" "$(printf 'z3-section-first\tX')"
+eq "제목 ④ 첫 5줄 H1 없음 → (제목 없음)" "$(printf '%s\n' "$ZETA" | sed -n 4p)" "$(printf 'z4-no-h1\tz4-no-h1 (제목 없음)')"
+eq "제목 ⑤ 기존 첫 줄 형식 그대로" "$(printf '%s\n' "$ZETA" | sed -n 5p)" "$(printf 'z5-legacy\t기존 형식')"
+lacks "제목 ⑥ 슬랙 렌더에 <!-- 0" "$(board render --slack)" "<!--"
+lacks "제목 ⑥ term full 렌더에 <!-- 0" "$(board render --term --full)" "<!--"
+rm -rf "$FT_ROOT/zeta" "$FB/seats-zeta.json"
 # 팀 추가 = 명부 파일 1개 (코드 0)
 printf '{"_label":"감마"}' > "$FB/seats-gamma.json"
 has "팀 추가 = 명부 1개만으로 나타남" "$(board render --term)" "- 감마 | 지금: 카드 폴더 미지정"

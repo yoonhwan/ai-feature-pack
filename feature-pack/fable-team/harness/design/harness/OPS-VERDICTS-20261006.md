@@ -825,3 +825,15 @@
 - 사전검증 DA: 421 설계 2 HOLD bounded → 오빠 컨펌 430·431 · 496 범위 `design/harness/DA-slack-readonly-share-20261008.md` 「판정 496 r2 판정」 APPROVE. 구현 DA: 소환 예(카드 완료 조건) — `design/harness/DA-v421-board-impl-20261008.md` 「## 판정」 r1 HOLD(I1 입력 유래 문자열 필터 누락 · I2 APPROVE · #64890) → 반송 r2(`.fable-team/state/drafts-r21/REJECT-v421-board-r2.md` · 최종 출력 경계 하나) → r3 `bd4032c4e4` 구현 DA r2(I1 만) APPROVE(byz-harness-da-codex#0 #64954 · decision `:110`·모든 데이터 줄 `:114-117` 최종 scrub · 고정 줄 제외는 위치 기준이라 입력 흉내 불가 · 독립 probe 5 PASS · I2 APPROVE 유지) — arch 서명 byz-harness-arch-claude#17.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN 반영 → 명부 9개 `_cards`·`_cards_wt`·`_label` 기입(cfo 카드 폴더는 루트·v6-realtime-live 에 없음 — 실재 워크트리 확인) + `_tree` 4팀(cfo·kk·planner·v65) → 실제 루트 `ft-board.py render --term` 1회(옛 좌석 0 · 팀 수 = 명부 수) · 5팀(harness·feature·issues·loom·ops) 트리 작성 요청 · 발행·호출부 교체는 v423 카드.
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §78 상태판 카드 제목 = 첫 5줄 안의 첫 H1(`# `) 줄 · `<!--` 주석·빈 줄·`##` 절 제목 건너뜀 · 없으면 `<id> (제목 없음)` (R52 · master#18 #65016 · 나노 r52-board-card-title) — 닫힘 (byz-harness-arch-claude#18 · 2026-10-08)
+- 대상 카드: r52-board-card-title
+- 나노 커밋 1개(base origin/main a7fcb904bb): `6a3165ca75`([fix] 3파일 +38 −4 · `scripts/fable-team-bin/ft_board_collect.py` `_title` + 키트 사본 `scripts/harness-install/fable-team/bin/ft_board_collect.py` 같은 바이트 · `tests/harness/test_board.sh` 단언 7). RESULT 전문 `.fable-team/comm/bodies/65041.txt`.
+- ★arch 독립 재현(#18)★: `git archive 6a3165ca75 scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더:
+  ①`test_board.sh` rc=0 ALL PASS(제목 ①~⑥ 포함 — ④ `(제목 없음)` · ⑤ 기존 첫 줄 형식 그대로 · ⑥ 슬랙·term full 렌더 `<!--` 0) · `test_kit_bin_sync.sh` rc=0 ALL PASS · 사본 6개(`ft_board_{collect,env,render,render_tree,snapshot,tree}.py`) cmp OK · ruff 0 · 범위 밖 파일 0(`git diff --stat origin/main...6a3165ca75` = 위 3파일만).
+  ②실데이터(9팀 정본 카드 1020장 · 명부 키 표 `.fable-team/state/drafts-r21/BOARD-ROSTER-KEYS-20261008.md` 의 `_cards_wt`) — 옛 `_title`(origin/main) ↔ 새 `_title` 직접 호출 대조: 주석 제목 62 → 0(cfo 8 · feature 15 · issues 3 · planner 3 · v65 33 — 카드 기준값 62 와 일치) · 바뀐 제목 70 = 주석 62 + v65 기타 8(첫 줄 `> ★이관 …` 인용 2장 → 셋째 줄 `# 인덱스:` 진짜 제목 · 첫 줄 `## 골 원문 …` 6장 → `(제목 없음)`) · 나머지 950장 결과 그대로 · `(제목 없음)` = v65 완성 6장(M1-census 3 · M5 2 · M7-first-orig-p90-cohort12 — 첫 5줄에 H1 없음 실측, 카드 기준값 6 과 일치).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 6a3165ca75c5c740c96f5741c063a1b2e7459d49 · 시험: bash tests/harness/test_board.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: 면제(표시 전용 읽기 규칙 1개 · 상태·계수·스냅샷 계약 무변경 · 판정 §77 설계 범위 안 표시 결함 — 카드 「사전검증」 arch#17 서명). 구현 DA: 소환 안 함(카드 완료 조건에 DA 없음 · 되돌림 = 함수 1개) — arch 서명 byz-harness-arch-claude#18.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN `ft_board_collect.py` cp+cmp → 실제 루트 `ft-board.py render --term` 1회(`<!--` 제목 0 · `(제목 없음)` = v65 6장) → `ft-index-move.sh <카드> 완성 --da OPS-VERDICTS-20261006.md#§78`.
+- 남는 일(카드 밖 · 완성 후): v65 완성 카드 6장은 첫 5줄에 H1 이 없어 `(제목 없음)` 으로 보인다 — 카드 파일 손질은 v65 master 몫(이 카드는 읽는 쪽만 고침).
+- 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.

@@ -73,3 +73,4 @@
 - **[2026-10-08 19:46 KST, `date` 실측] `byz-harness-nano-r43-tick-skip-stale-master-row#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r43-tick-skip-stale-master-row.md` ②회수 seq 64001 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 20:30 KST, `date` 실측] `byz-harness-nano-r44-block-destructive-push-refspec#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r44-block-destructive-push-refspec.md` ②회수 seq 64334 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 21:17 KST, `date` 실측] `byz-harness-nano-slack-readonly-share#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/slack-readonly-share.md` ②회수 seq 64573 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 3파일 보관)
+- **[2026-10-08 21:45 KST, `date` 실측] `byz-harness-nano-v421-board#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v421-board.md` ②회수 seq 64924 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 2개
