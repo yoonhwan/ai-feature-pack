@@ -20,7 +20,7 @@ cat > "$T/probe.py" <<'PYEOF'
 import contextlib, io, json, os, sys, time, types
 C, scen = sys.argv[1], sys.argv[2]
 sys.path.insert(0, C)
-import mbox
+import mbox, mbox_guard
 
 def quiet_send(*a, **k):
     with contextlib.redirect_stdout(io.StringIO()):
@@ -69,8 +69,8 @@ elif scen == "cap":
 elif scen == "win":
     clock = [1000.0]
     real = time
-    mbox.time = types.SimpleNamespace(**{n: getattr(real, n) for n in dir(real) if not n.startswith("__")})
-    mbox.time.time = lambda: clock[0]
+    mbox_guard.time = types.SimpleNamespace(**{n: getattr(real, n) for n in dir(real) if not n.startswith("__")})
+    mbox_guard.time.time = lambda: clock[0]
     mbox._guard_record("t#1", "f#1", "a", [111])
     clock[0] = 1300.0
     mbox._guard_record("t#1", "f#1", "b", [222])
@@ -81,7 +81,7 @@ PYEOF
 
 run() {  # <mbox.py 경로> <시나리오> [env=값…] → 새 임시 comm 에서 실행
   local py="$1" scen="$2"; shift 2
-  local c="$T/comm-$RANDOM$RANDOM"; mkdir -p "$c"; cp "$py" "$c/mbox.py"
+  local c="$T/comm-$RANDOM$RANDOM"; mkdir -p "$c"; cp "$(dirname "$py")"/mbox*.py "$c/"
   env FT_MBOX_DIR="$c" "$@" python3 "$T/probe.py" "$c" "$scen" 2>&1 | grep -E '^(REEX|CAP|WIN)'
 }
 
@@ -91,19 +91,22 @@ eq "⑨ EXEMPT_CAP=3 → 새 seq 회신 면제 0 · stderr EXEMPT_CAP 1줄 · �
 eq "⑩ 창(600초) 지난 면제 행은 저장 때 빠진다 · 안 지난 건 남는다" "$(run "$SRC" win)" "WIN [[222], []]"
 
 # 변이 대조 — 사본의 한 줄만 바꿔 위 시험이 «잡는지» 본다
-mut() {  # <원문> <대체> → $T/mut.py
-  python3 - "$SRC" "$T/mut.py" "$1" "$2" <<'PYEOF'
-import sys
-s = open(sys.argv[1], encoding="utf-8").read()
-assert sys.argv[3] in s, "변이 대상 없음: " + sys.argv[3]
-open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4], 1))
+mut() {  # <원문> <대체> → $T/mut/mbox.py (모듈 전부 복사 뒤 대상 글자가 든 모듈 하나만 변이)
+  mkdir -p "$T/mut"; cp "$(dirname "$SRC")"/mbox*.py "$T/mut/"
+  python3 - "$T/mut" "$1" "$2" <<'PYEOF'
+import glob, os, sys
+d, t, r = sys.argv[1], sys.argv[2], sys.argv[3]
+hit = [p for p in sorted(glob.glob(os.path.join(d, "mbox*.py"))) if t in open(p, encoding="utf-8").read()]
+assert len(hit) == 1, "변이 대상 없음/중복: %s %s" % (t, hit)
+s = open(hit[0], encoding="utf-8").read()
+open(hit[0], "w", encoding="utf-8").write(s.replace(t, r, 1))
 PYEOF
 }
 mut 'log = sorted([r for r in log if not _is_exempt_row(r)][-200:] + ex[-EXEMPT_CAP:], key=lambda r: r.get("t", 0))' 'log = log[-200:]'
-r="$(run "$T/mut.py" a | sed 's/ LOG .*//')"
+r="$(run "$T/mut/mbox.py" a | sed 's/ LOG .*//')"
 [ "$r" != "REEX [] KEPT True" ] && ok "변이: 면제 행 분리 보존을 빼면 ⑦ 이 FAIL(첫 seq 가 재면제됨): $r" || bad "변이: 분리 보존을 빼도 ⑦ 이 통과함"
 mut '>= EXEMPT_CAP:  # 이력이' '>= 10**9:  # 이력이'
-r="$(run "$T/mut.py" cap FT_MBOX_EXEMPT_CAP=3)"
+r="$(run "$T/mut/mbox.py" cap FT_MBOX_EXEMPT_CAP=3)"
 case "$r" in "CAP []"*) bad "변이: 상한 검사를 빼도 ⑨ 가 통과함: $r";; *) ok "변이: 상한 검사를 빼면 ⑨ 가 FAIL(새 seq 가 면제됨): $r";; esac
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -23,6 +23,10 @@ BACKUP_DIR="${SCRIPT_DIR}"
 #   살아 있어도 아무도 그걸 부르지 못한다. 도구 10개보다 이쪽이 더 치명적이다.
 MAP=(
   "mbox.py|.claude/fable-team/bin/mbox.py"
+  "mbox_conf.py|.claude/fable-team/bin/mbox_conf.py"
+  "mbox_store.py|.claude/fable-team/bin/mbox_store.py"
+  "mbox_guard.py|.claude/fable-team/bin/mbox_guard.py"
+  "mbox_ops.py|.claude/fable-team/bin/mbox_ops.py"
   # v6-realtime-live 워크트리 소멸 뒤 라이브 = 루트 .fable-team/comm — 분리 쌍만 고침, 나머지 행은 별 카드
   "mbox.sh|.fable-team/comm/mbox.sh"
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"

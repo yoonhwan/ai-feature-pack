@@ -1207,3 +1207,27 @@
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 2e70f54e390755465d71321bc0c7bcaca429c148 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0`.
 - ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-mbox-sh-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치» ①~⑦(★도우미 먼저 cp+cmp → 진입점 `cp … .new && mv -f` 원자 교체★ · self 왕복 + 다른 좌석 실발주 1통으로 도어벨 확인 · check-drift `mbox.sh`·`mbox_doorbell.sh` SAME 두 줄 · 실패 1건이면 즉시 원복).
 - 정본 영향 없음: 통신 도구 구조 분리·시험·README 만 — docs/architect 제품 정본 변경 없음.
+
+## §99 mbox.py 637줄 → 진입 + 4모듈(상수·저장·가드·명령) · 각 200줄 이하 · 동작 변화 0 (planner 판정 592 순서 ④ · 나노 mbox-py-split-200) — 닫힘 · 독립 재현 통과 + 최종 DA r1 HOLD Q2 → 보강 → r2 APPROVE · 라이브 설치 master 잔여 (byz-harness-arch-claude#21 · 2026-10-09)
+- 골 축: C(통신 큐 본체를 200줄 규칙 안으로 — 통신 기능 카드가 한도에 걸려 반송되지 않게).
+- 대상 카드: mbox-py-split-200 (arch#21 작성 커밋 `21f8bb5dc5`·`64e423b159` · 처방 도구 4개 `design/harness/evidence/mbox-py-split-200/` = arch 사본 실측 그대로)
+- 나노 커밋 4개(③`e4fec82c2f` [structure] 진입 sys.path 1줄 · ④`a82e30df17` [test] 링크 import fixture — 아래 DA r1 · 브랜치 `nano/mbox-py-split-200` · base origin/main `9b774bef56` = 현 tip · push 0):
+  ①`5626a173d0`([structure]) `tools/comm-canonical/mbox.py` 637→125(머리·import·정본 루트·CANON·makedirs·묶기 11줄·main) + 새 `mbox_conf.py` 41(env 상수) · `mbox_store.py` 186(seq·레거시·저장·잠금) · `mbox_guard.py` 146(가드·발신 사본 로그) · `mbox_ops.py` 167(send·relay·recv·peek) · `check-drift.sh` MAP +4행(`.claude/fable-team/bin/mbox_*.py`).
+  ②`427ebdddbc`([test]) 시험 3개: 복사 = `mbox*.py` 전부 · 바꿔치기 대상 = `mbox_ops._reply_exempt`·`mbox_guard.time` · 변이 = 대상 글자가 든 모듈 하나만.
+- 사전검증: 면제(arch#21 서명 — 처방을 사본에 그대로 적용해 전부 실측한 뒤 도구로 고정).
+- ★설계 결정(arch · 실측 근거)★: ①정본 루트·CANON 은 «진입 파일 위치»로만 계산하고 모듈엔 import 직후 묶어 준다 — 파이썬은 링크된 스크립트의 import 경로를 실제 폴더(`.claude/fable-team/bin`)로 잡으므로(실측), 루트 계산을 모듈로 옮기면 `.fable-team` 조상이 없어 `NO_MAILBOX_ROOT` → 전 좌석 쪽지 정지. ②시험이 내부를 바꿔치기하는 곳은 «그 이름이 사는 모듈»로 대상만 옮긴다(단언·기대값 0 변경).
+- ★arch 독립 재현(#21 · 이 재현이 닫는 증거)★: `427ebdddbc` 아카이브 → `mktemp -d` 새 폴더:
+  · 결정성: origin/main `mbox.py` 에 처방 도구를 다시 돌린 5파일 == 커밋 5파일(cmp **5/5**) · `py_compile` 5개 OK · 줄 수 125·41·186·146·167(r1 뒤 진입 126).
+  · 시험: notify_reply_rate **ALL PASS** · inbox **fail=0** · exempt_cap **ALL PASS**(변이 행 포함 — 변이가 여전히 결함을 잡는다) · `test_mbox_sent_log.py --noconftest` **6 passed**(분리 전도 6 · conftest `shared` 부재는 환경).
+  · 분리 전후 12시나리오 + 우편함 파일 목록·로그 키·가드 키 diff = 시나리오 제목의 임시 경로 1줄뿐(fan-out 가드 rc=3 포함 rc 전부 동일).
+  · 라이브 꼴 링크 배치: 옛·새 모두 send rc0 · recv 1건 · 우편함 = `root/.fable-team/comm` · bin 에 엉뚱한 우편함 0 · 실제 경로 직접 실행 = `NO_MAILBOX_ROOT` rc2(옛 판도 같음).
+  · 모듈 없는 폴더의 진입 = `ModuleNotFoundError: mbox_conf` rc1(조용한 대체 0).
+  · (사본 단계) `/usr/bin/python3` 3.9 에서도 send·recv 동작.
+- ★최종 DA r1 HOLD Q2★(`design/harness/DA-mbox-py-split-200-20261009.md` · ops `a93a11f926` · Q1·Q3 APPROVE): 라이브 꼴에서 `comm` 폴더를 sys.path 에 넣고 `import mbox` = 새 판만 `ModuleNotFoundError: mbox_conf`(옛 rc0) — 파이썬이 실제 폴더를 잡는 것은 CLI 실행 때뿐. arch 설계 «실측 근거 ①»의 빈틈(import 경로 미검사).
+  → 반송 r1(arch 결정): 진입 맨 앞 `import os, sys; sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))` 1줄(CANON 은 링크 위치 abspath 그대로) + 고정 시험 `tests/harness/test_mbox_py_link_import.sh`. 도구 r2 `80e3173278`(arch 사본에서 줄을 `from mbox_conf import *` 뒤에 넣어 같은 오류를 한 번 재현한 뒤 맨 앞으로 고침).
+  → arch 재현(`a82e30df17`): 결정성 5/5 · fixture 새·옛 ALL PASS · 줄 뺀 변이 2 FAIL · 기존 4종·12시나리오·링크 왕복 그대로 · 모듈 없는 폴더 = ModuleNotFoundError rc1.
+- ★DA r2 Q2 APPROVE★(같은 판정문 r2 절): 실파일 폴더 import 우선 + 링크 위치 CANON 보존으로 r1 종료 · 임시 5 probes(링크 import · CLI · 환경 주입/미주입 · 루트 추론 · 엉뚱한 PYTHONPATH) 독립 PASS. 단서 = 라이브 5모듈 동시 설치는 master 잔여.
+- 알고 둔 것(카드 밖): 라이브 `.claude/fable-team/bin/__pycache__/` 가 생긴다(정상 · 모듈 import 캐시). check-drift MAP 의 옛 `.worktrees/v6-realtime-live/…` 행 정리는 별 카드 후보(§98 과 같음).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: a82e30df172acb795f8b0d5dfc4370c484250e73 · 시험: bash tests/harness/test_mbox_py_link_import.sh rc=0 · 이슈: 0`.
+- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-mbox-py-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치»(★모듈 4개 먼저 `.claude/fable-team/bin/` cp+cmp → 진입 `cp … .new && mv -f` 원자 교체★ · `comm/` 링크 불요 · self 왕복 + 다른 좌석 실발주 1통 · `.mbox-seq` 이어짐 · check-drift SAME 5줄 · 실패 1건이면 즉시 원복).
+- 정본 영향 없음: 통신 도구 구조 분리·시험만 — docs/architect 제품 정본 변경 없음.

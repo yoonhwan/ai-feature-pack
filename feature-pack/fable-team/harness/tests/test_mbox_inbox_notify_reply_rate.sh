@@ -14,7 +14,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
 ROOT="$T/root"; C="$ROOT/.fable-team/comm"; BIN="$ROOT/.fable-team/bin"; mkdir -p "$C" "$BIN"
-cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/mbox.py" "$C/"
+cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/"mbox*.py "$C/"
 cp "$REPO/scripts/fable-team-bin/ft-inbox.sh" "$REPO/scripts/fable-team-bin/ft-inbox.py" "$REPO/scripts/fable-team-bin/ft_inbox_core.py" "$BIN/"
 printf '#!/bin/sh\ncat >/dev/null; exit 1\n' > "$T/haiku-fail.sh"; chmod +x "$T/haiku-fail.sh"   # 미상은 미상으로 남는다
 export FT_ROOT="$ROOT" FT_MBOX_DIR="$C" FT_SEATS_JSON="$T/seats.json" FT_INBOX_HAIKU="$T/haiku-fail.sh"
@@ -112,13 +112,13 @@ python3 - "$C" "$GUARD" <<'PYEOF' > "$T/probe.out" 2>&1
 import json, os, sys, time
 C, GUARD = sys.argv[1], sys.argv[2]
 sys.path.insert(0, C)
-import mbox
+import mbox, mbox_ops
 fx = "fx5#1"
 mbox.send(fx, "mk5#1", "받을 쪽지 fx5")
 S = [r for r in mbox._load(C) if r["to"] == fx][-1]["seq"]
 calls = []
-orig = mbox._reply_exempt
-mbox._reply_exempt = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
+orig = mbox_ops._reply_exempt
+mbox_ops._reply_exempt = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
 mbox.send("peer-f#1", fx, "[fx5#1->peer-f#1] 쪽지 #%d 처리" % S)
 g = [r for r in json.load(open(GUARD)) if r["f"] == fx][-1]
 print("CALLS", len(calls), "R", g["r"] == [S])
@@ -136,12 +136,14 @@ eq "⑥ 옛 기록 r:1(int) 혼재 → 예외 0 · 중복 판정에 안 씀" "$(
 # ── 변이 대조: 조건을 빼면 위 시험이 «잡는다» (mbox.py 사본에 한 줄씩 변이)
 mutant() {  # <이름> <원문> <대체> → 변이 comm 을 만들고 MC 에 경로
   MC="$T/mut-$1/.fable-team/comm"; MR="$T/mut-$1"; mkdir -p "$MC" "$MR/.fable-team/bin"
-  cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$MC/"; cp "$BIN"/ft-inbox.* "$BIN"/ft_inbox_core.py "$MR/.fable-team/bin/"
-  python3 - "$REPO/tools/comm-canonical/mbox.py" "$MC/mbox.py" "$2" "$3" <<'PYEOF'
-import sys
-s = open(sys.argv[1], encoding="utf-8").read()
-assert sys.argv[3] in s, "변이 대상 없음"
-open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4], 1))
+  cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/"mbox*.py "$MC/"; cp "$BIN"/ft-inbox.* "$BIN"/ft_inbox_core.py "$MR/.fable-team/bin/"
+  python3 - "$MC" "$2" "$3" <<'PYEOF'
+import glob, os, sys
+d, t, r = sys.argv[1], sys.argv[2], sys.argv[3]
+hit = [p for p in sorted(glob.glob(os.path.join(d, "mbox*.py"))) if t in open(p, encoding="utf-8").read()]
+assert len(hit) == 1, "변이 대상 없음/중복: %s %s" % (t, hit)
+s = open(hit[0], encoding="utf-8").read()
+open(hit[0], "w", encoding="utf-8").write(s.replace(t, r, 1))
 PYEOF
 }
 mutant noprefix 'r"쪽지 ?#(\d{4,})' 'r"(?:쪽지 ?)?#(\d{4,})'
