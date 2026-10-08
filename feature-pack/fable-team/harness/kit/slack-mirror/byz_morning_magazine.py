@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 import thread_ledger as lg
-from magazine_block import block_for, record
+from magazine_block import block_for, planner_seats, record
 from magazine_emit import Model
 from magazine_git import blob_url, publish_md
 from magazine_pdf import html_to_pdf
@@ -77,7 +77,7 @@ class Made:
 
 
 def make_files(model: Model, args: argparse.Namespace) -> Made:
-    summary = summarize_model(model, args.summary_cmd)
+    summary = summarize_model(model, args.summary_cmd, planner_seats(args))
     eli5, cause = build_eli5(model, args.summary_cmd)  # PDF 렌더 «전»에 확정 — 실패 원인이 PDF 근거 절에 들어간다
     warn = eli5_warning_line(cause) if cause is not None else None
     md, html = render_full(model, summary.lines, datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), warn)
@@ -165,7 +165,7 @@ def run(args: argparse.Namespace) -> int:
     except Exception as e:  # noqa: BLE001 — 어떤 수집·렌더 실패든 «보이게» 알리고 exit 1 (반쪽 매거진 0)
         report_failure(args, e)
         return 1
-    text = root_text(date, made.lines, link, hil, args.mention, made.warn, block)
+    text = root_text(date, made.lines, link, hil, args.mention, made.warn, block, planner_seats(args))
     shown = f"md={made.md_path} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'}"
     if args.dry_run:
         print(f"DRY-RUN {shown}\n--- 슬랙 뿌리 글 ---\n{text}")

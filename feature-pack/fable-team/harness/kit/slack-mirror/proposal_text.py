@@ -1,0 +1,26 @@
+"""proposal_text — 제안서 슬랙 글의 첫 줄·본문 (byz_proposal_publish 에서 분리 · 200줄 한도).
+
+첫 줄 = 머리표 `[작업상황]` + `*제안서 <팀>/<slug>[ rN]*` (찾을 때는 양쪽 머리표를 떼고 비교 — mirror_share.first_line_is).
+슬랙은 읽기 전용이다 — 결론·결정할 것 값에 답장 요구 문구가 있으면 결정적 문구로 바꾸고 `(요약 문구 교정)` 을 붙인다.
+결정할 것 줄 바로 아래에 결정 자리(현역 planner 세션 이름) 1줄을 싣는다.
+"""
+from mirror_lib import esc
+from mirror_share import CORRECTED, decision_line, fix_line, tag
+from magazine_slack import eli5_warning_line
+
+FALLBACK = "제안서 본문 참고"
+
+
+def first_line(key: str, rev: str) -> str:
+    return tag("작업상황", f"*제안서 {key}*" if rev == "r0" else f"*제안서 {key} {rev}*")
+
+
+def _value(p: dict[str, str], k: str) -> str:
+    v, fixed = fix_line(p[k], FALLBACK)
+    return esc(v) + (f" {CORRECTED}" if fixed else "")
+
+
+def text_of(p: dict[str, str], rev: str, warn: str | None = None, block: str | None = None, seats: str | None = None) -> str:
+    lines = [first_line(p["key"], rev), f"결론: {_value(p, '결론')}", f"결정할 것: {_value(p, '오빠가 결정할 것')}", decision_line(seats=seats),
+             f"되돌림: {esc(p['되돌림'])}"]
+    return "\n".join(lines + ([esc(eli5_warning_line(warn))] if warn else []) + ([block] if block else []))

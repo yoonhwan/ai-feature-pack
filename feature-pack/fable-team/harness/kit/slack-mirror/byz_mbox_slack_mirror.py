@@ -26,7 +26,7 @@ API = "https://slack.com/api"
 
 def format_gap(first: int, last: int) -> str:
     n = last - first + 1
-    return (f"슬랙에 못 올라간 보고가 {n}건 있어요 — 보낸 기록이 비어 있어요\n"
+    return (f"[상태] 슬랙에 못 올라간 보고가 {n}건 있어요 — 보낸 기록이 비어 있어요\n"
             f"할 일 없음 — 하네스 담당이 확인해요\n(mirror · #GAP-{first}-{last})")
 
 
@@ -54,6 +54,7 @@ class Mirror:
         self.log = Path(a.mailbox)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
         self.seat = re.compile(a.seat)
+        self.planner_seats = a.planner_seats or str(self.log.resolve().parent.parent / "seats-planner.json")  # 명부 «경로» 만 유도 — 현역 이름은 매번 live_planner
         self.resume_script = Path(a.resume_script) if a.resume_script else self.log.resolve().parent.parent / "bin" / "ft-resume-cmd.sh"
         if not self.resume_script.is_file():
             raise lib.MirrorError(f"재개 명령 스크립트 없음: {self.resume_script} (--resume-script)")
@@ -68,19 +69,19 @@ class Mirror:
         if isinstance(q, dict):  # 루트 확보 → 질문 등록 → 카드 게시: 카드 직후 답해도 열린 질문이 이미 있다
             ts = self.deliv.thread_ts(item, resume)
             mq.add(self.qpath, int(str(item["seq"])), {**q, "thread_ts": ts})
-            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel)
+            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
         self.deliv.send(item, resume)
 
     def _close_answered(self, r: dict[str, object], key: str) -> None:
         """답이 전달된 질문은 «그 좌석이 같은 키로 다음 보고를 올릴 때» 닫힌다 — 좌석이 값으로 움직였다는 증거."""
         if self.a.dry_run or not self.qpath.exists():
             return
-        mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel)  # 이전 패스에서 close 만 되고 끊긴 보드도 맞춘다(글이 같으면 호출 0)
+        mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)  # 이전 패스에서 close 만 되고 끊긴 보드도 맞춘다(글이 같으면 호출 0)
         seqs = mq.delivered_for(mq.load(self.qpath), key, str(r.get("from", "")), int(str(r["seq"])))
         for q in seqs:
             mq.close(self.qpath, q)
         if seqs:
-            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel)
+            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
 
     def deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
         if self.a.dry_run:
@@ -143,7 +144,7 @@ class Mirror:
         self._close_answered(r, key)
         self.deliver(st, {"id": f"#{s}", "seq": s, "key": key, "url": url, "what": what, "question": question,
                           "text": lib.format_row(r, label, self.a.mention, summary, text, block=rb.mirror_block(r, label, self.resume_script),
-                                                 full=full, urls=urls, options_text=mq.format_options(opts, s) if label == "HIL" else None)})
+                                                 full=full, urls=urls, options_text=mq.format_options(opts) if label == "HIL" else None, seats=self.planner_seats)})
 
 
 def parse() -> argparse.Namespace:
@@ -159,6 +160,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--summarizer-cmd", default=summ.DEFAULT_CMD, help="프롬프트를 stdin 으로 받아 JSON 을 stdout 으로 내는 명령")
     p.add_argument("--summary-timeout", type=float, default=90.0)
     p.add_argument("--api-base", default=API)
+    p.add_argument("--planner-seats", default="", help="planner 명부(seats-planner.json) 경로 (기본 <mailbox 폴더 상위>/seats-planner.json)")
     p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <mailbox 폴더 상위>/bin/ft-resume-cmd.sh)")
     p.add_argument("--interval", type=float, default=5.0)
     p.add_argument("--once", action="store_true")

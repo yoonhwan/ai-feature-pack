@@ -23,7 +23,7 @@ TOKEN="$HOME/.hermes/secrets/yoonhwan_bot.env"
 [ -f "$MAILBOX" ] || { echo "ERROR: 사본 로그 없음(D1 미적용?): $MAILBOX" >&2; exit 1; }
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_mbox_slack_mirror.py mirror_lib.py mirror_summary.py mirror_deliver.py mirror_questions.py resume_block.py; do
+for f in byz_mbox_slack_mirror.py mirror_lib.py mirror_share.py mirror_summary.py mirror_deliver.py mirror_questions.py resume_block.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done

@@ -12,6 +12,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+import mirror_share as ms
+
 
 class MirrorError(RuntimeError):
     pass
@@ -141,11 +143,11 @@ def read_full(row: dict[str, object]) -> str | None:
 
 
 def format_full(full: str) -> str:
-    """스레드에 남길 전문 — 인용 블록. 길면 앞부분 + 잘림 표시(전문 경로는 꼬리에 있다)."""
+    """스레드에 남길 전문 — 인용 블록(원문 보존: 답장 요구 검사 예외). 길면 앞부분 + 잘림 표시(전문 경로는 꼬리에 있다)."""
     body = full.strip()
     cut = len(body) > FULL_CAP
     lines = esc(body[:FULL_CAP]).split("\n")
-    return "\n".join(["", "전문"] + ["> " + ln for ln in lines] + (["> … (이하 생략)"] if cut else []))
+    return "\n".join(["", "전문(원문 그대로 · 이 스레드는 답을 받지 않습니다)"] + ["> " + ln for ln in lines] + (["> … (이하 생략)"] if cut else []))
 
 
 _GH_URL = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/\d+(?:#issue(?:comment)?-?\w+)?")
@@ -171,7 +173,7 @@ def first_sentence(text: str, cap: int = 120) -> str:
 
 
 def root_text(key: str, what: str, url: str | None = None) -> str:
-    return f"{esc(key)} 시작 — {esc(what)}" + (f"\n{esc(url)}" if url else "")
+    return ms.tag("작업상황", f"{esc(key)} 시작 — {esc(ms.share_guard(what) or ms.OMITTED)}") + (f"\n{esc(url)}" if url else "")
 
 
 def root_marker(key: str) -> str:
@@ -179,14 +181,15 @@ def root_marker(key: str) -> str:
 
 
 def format_row(row: dict[str, object], label: str, mention: str, summary: dict[str, str | None] | None, text: str, *, block: str,
-               full: str | None = None, urls: list[str] | None = None, options_text: str | None = None) -> str:
-    """사람 말 — 1줄 무슨 일 · 2줄 오빠 할 일 · (요약 실패 시 「원문 그대로」 1줄) · 이어가기 블록 2줄(꼬리 · resume_block)."""
-    what = summary["what"] if summary else first_sentence(text)
-    todo = summary["todo"] if summary else None
-    if label == "HIL" and not todo:
-        todo = "판정이 필요해요 — 전문을 확인해 주세요"
+               full: str | None = None, urls: list[str] | None = None, options_text: str | None = None,
+               kind: str | None = None, seats: str | None = None, plain: bool = False) -> str:
+    """사람 말 — 1줄 [머리표] 무슨 일 · 2줄 정할 것 · (HIL) 결정 자리 줄(멘션은 여기만) · (요약 실패 시 「원문 그대로」 1줄) · 이어가기 블록 2줄(꼬리 · resume_block)."""
+    what, todo, fixed = ms.share_lines(summary["what"] if summary else first_sentence(text), summary["todo"] if summary else None, text, label)
+    what, fixed = (first_sentence(text), False) if plain and summary is None else (what, fixed)  # plain = 원문이 사실인 글(GitHub 제목) — 요약 실패 경로는 검사 제외
     who = f"<@{mention}> " if label == "HIL" and mention else ""
-    head = f"{esc(what)}\n{who}{esc(todo) if todo else '할 일 없음'}" + ("\n(원문 그대로)" if summary is None else "") + f"\n{block}"
+    place = f"\n{who}{ms.decision_line(str(row.get('from') or ''), seats)}" if label == "HIL" else ""
+    first = ms.tag(kind or ("이슈보고" if label in ("HIL", "BLOCK") else "작업상황"), esc(what) + (f" {ms.CORRECTED}" if fixed else ""))
+    head = f"{first}\n{esc(todo) if todo else '할 일 없음'}{place}" + ("\n(원문 그대로)" if summary is None else "") + f"\n{block}"
     head = head + (f"\n{options_text}" if options_text else "")
     head = head + ("\n링크: " + " ".join(esc(u) for u in urls) if urls else "")
     return head + format_full(full) if full else head

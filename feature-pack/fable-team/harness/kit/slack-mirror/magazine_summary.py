@@ -12,6 +12,7 @@ import tempfile
 from typing import NamedTuple
 
 from magazine_emit import Model
+from mirror_share import CORRECTED, place_text, share_guard
 from mirror_summary import DEFAULT_CMD, SUMMARY_ENV, SummaryError, _first_line
 
 LOG = logging.getLogger("byz_morning_magazine")
@@ -22,7 +23,7 @@ PROMPT = """너는 개발팀의 하루 작업을 사람 말로 요약하는 편�
 읽는 사람은 «오빠»(PM)다. JSON 한 개만 출력한다: {{"lines": ["문장1", "문장2", "문장3"]}}
 - 정확히 3문장. 해요체, 각 90자 이내. 기호·번호(#123)·sha·파일 경로·좌석명·영어 약어를 쓰지 않는다.
 - 1문장 = 가장 중요한 결과 1개를 <자료> 에 나온 «기능·문제 이름 그대로» 말한다.
-- 2문장 = 오빠가 결정할 것 1개. <자료> 의 「답이 안 간 요청」 중 첫 건의 요지를 말한다. 없으면 「오빠가 결정할 건 없어요」.
+- 2문장 = 결정이 필요한 것 1개. <자료> 의 「답이 안 간 요청」 중 첫 건에서 무엇을 정해야 하는지만 말한다(답하라는 요청 문장 금지). 없으면 「결정할 건 없어요」.
 - 3문장 = 주의할 것 1개. 막힘·실패·건너뛴 날·깨진 줄이 있으면 그것을, 없으면 그 밖의 큰 변화 1개를 말한다.
 - 「주요 기능들」「여러 작업」「다양한 변경」 같이 이름을 뭉뚱그리는 말은 쓰지 않는다. 이름을 모르면 그 줄에서 제목을 그대로 옮긴다.
 <자료>
@@ -60,12 +61,12 @@ def facts(model: Model) -> str:
     return "\n".join(head + asked + notes + titles)[:FACT_CAP]
 
 
-def deterministic_lines(model: Model) -> list[str]:
+def deterministic_lines(model: Model, seats: str | None = None) -> list[str]:
     mb = model["mbox"]
     return [
         f"어제부터 오늘 아침까지 main 에 {len(model['merges'])}건이 들어갔어요",
         f"이슈는 {len(model['issues_opened'])}건 열리고 {len(model['issues_closed'])}건 닫혔고, 판정은 {len(model['verdicts'])}건 있었어요",
-        f"팀 쪽지는 {mb.get('total', 0)}건이고, 오빠 할 일(답이 안 간 요청)은 {len(mb.get('hil', []))}건이에요",
+        f"팀 쪽지는 {mb.get('total', 0)}건이고, 결정 대기는 {len(mb.get('hil', []))}건이에요 — 결정 자리: {place_text(seats)}",
     ]
 
 
@@ -101,11 +102,14 @@ def run_cmd(cmd: str, prompt: str, timeout: float = 90.0) -> str:
     return r.stdout
 
 
-def summarize_model(model: Model, cmd: str = DEFAULT_CMD) -> Summary:
+def summarize_model(model: Model, cmd: str = DEFAULT_CMD, seats: str | None = None) -> Summary:
     try:
-        return Summary(parse_lines(run_cmd(cmd, PROMPT.format(facts=facts(model)))), None)
+        lines = parse_lines(run_cmd(cmd, PROMPT.format(facts=facts(model))))
+        fixed = [i for i, x in enumerate(lines) if share_guard(x) is None]  # 답장 요구 문구가 든 줄만 결정적 줄로 바꾸고 표시한다
+        base = deterministic_lines(model, seats) if fixed else []
+        return Summary([f"{base[i]} {CORRECTED}" if i in fixed else x for i, x in enumerate(lines)], None)
     except SummaryError as e:
         LOG.error("요약 실패(결정적 3줄로 게시): %s", e)
-        lines = deterministic_lines(model)
+        lines = deterministic_lines(model, seats)
         lines[0] += f" (요약 실패: {e})"
         return Summary(lines, str(e))

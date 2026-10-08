@@ -12,12 +12,13 @@ from magazine_attach import attach, file_title
 from magazine_publish import Day, PublishError, now_iso, read_state, update_record
 from magazine_slack import Target, find_reply_first_line, find_root, post_reply
 from mirror_lib import esc
+from mirror_share import tag
 
 REV = re.compile(r"r[1-9]\d*")
 
 
 def first_line(date: str, rev: str) -> str:
-    return f"*아침 매거진 {date} 재첨부 {rev}*"
+    return tag("상태", f"*아침 매거진 {date} 재첨부 {rev}*")
 
 
 def reply_text(date: str, rev: str, warn: str | None) -> str:

@@ -17,6 +17,7 @@ import resume_block as rb
 import thread_ledger as lg
 from magazine_slack import Target, find_reply_first_line, upload_file
 from mirror_lib import MirrorError, esc, paged, post
+from mirror_share import first_line_is, tag
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
 
@@ -77,7 +78,7 @@ def cmd_start(a: argparse.Namespace) -> int:
     for f in a.file:
         if not Path(f).is_file():
             raise ThreadError(f"첨부 파일 없음: {f}")
-    text = f"{marker(uid)}\n{esc(a.text)}\n{block_of(a)}"  # 블록 칸 누락은 카드·원격에 아무것도 쓰기 «전» 에 raise
+    text = f"{tag('작업상황', marker(uid))}\n{esc(a.text)}\n{block_of(a)}"  # 블록 칸 누락은 카드·원격에 아무것도 쓰기 «전» 에 raise
     write_line(card, f"- 슬랙: {a.channel} · 시도 {datetime.now(KST).isoformat(timespec='seconds')}")
     t = target(a)
     root = post(t.base, t.token, t.channel, text)
@@ -92,7 +93,7 @@ def cmd_progress(a: argparse.Namespace) -> int:
     uid = unit_id(a.card, a.team)
     rec = record(a, uid)
     t = target(a)
-    ts = post(t.base, t.token, rec["channel"], f"{esc(a.text)}\n{block_of(a)}", rec["root_ts"])
+    ts = post(t.base, t.token, rec["channel"], f"{tag('작업상황', esc(a.text))}\n{block_of(a)}", rec["root_ts"])
     lg.update(Path(a.ledger), uid, card_path=a.card, progress=ts)
     attach(Target(t.base, t.token, rec["channel"], ""), rec["root_ts"], a.file)
     print(f"progress {uid} ts={ts}")
@@ -122,7 +123,7 @@ def cmd_result(a: argparse.Namespace) -> int:
     t = Target(t.base, t.token, rec["channel"], "")
     ts = find_reply_first_line(t, rec["root_ts"], head)  # 앞 실행이 보내고 장부만 못 썼으면 재발송 0
     if ts is None:
-        ts = post(t.base, t.token, t.channel, f"{head}\n{line}\n{'랜딩 ' + a.landed if a.landed else '랜딩 없음'}\n{block}", rec["root_ts"])
+        ts = post(t.base, t.token, t.channel, f"{tag('변경내용', head)}\n{line}\n{'랜딩 ' + a.landed if a.landed else '랜딩 없음'}\n{block}", rec["root_ts"])
     lg.update(Path(a.ledger), uid, card_path=a.card, result=ts)
     print(f"result {uid} ts={ts}")
     return 0
@@ -157,7 +158,7 @@ def cmd_repair(a: argparse.Namespace) -> int:
         t = target(a)
         oldest = f"{datetime.now(KST).timestamp() - LOOKBACK_DAYS * 86400:.6f}"
         msgs = paged(t.base, t.token, "conversations.history", {"channel": ch, "oldest": oldest, "limit": 200})
-        hits = sorted(str(m["ts"]) for m in msgs if m.get("bot_id") and str(m.get("text", "")).split("\n", 1)[0] == marker(uid))
+        hits = sorted(str(m["ts"]) for m in msgs if m.get("bot_id") and first_line_is(m.get("text", ""), marker(uid)))
         if len(hits) != 1:
             print(f"HUMAN {uid} 표식 글 {len(hits)}건 — 사람이 채널을 확인한다", file=sys.stderr)
             return 1

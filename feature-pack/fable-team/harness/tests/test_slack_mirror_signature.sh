@@ -50,7 +50,7 @@ need("opened-what", ok["text"], "무슨 일이에요")
 fb = m._item(issue(8, "SUMFAIL 요약 실패 경로"), "closed")
 need("summary-fail", fb["text"], "(원문 그대로)", "(github #8 closed)")
 hil = m._item(issue(9, "판정 필요", pr=True), "hil")
-need("hil", hil["text"], "<@U0AC2JF0M7D>", "다음: 오빠 판정", "(github #9 hil)", "링크: https://github.com/o/r/pull/9")
+need("hil", hil["text"], "<@U0AC2JF0M7D>", "결정 자리:", "다음: 결정 대기", "(github #9 hil)", "링크: https://github.com/o/r/pull/9")
 print("ITEM_OK")
 PYEOF
 )"

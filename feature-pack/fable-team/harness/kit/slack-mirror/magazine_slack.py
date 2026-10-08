@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mirror_lib import MirrorError, api_call, esc, paged, post
+from mirror_share import decision_line, first_line_is, tag
 
 SLACK_BASE = "https://slack.com/api"
 UPLOAD_TIMEOUT = 30
@@ -28,7 +29,7 @@ def marker(date: str) -> str:
 
 
 def root_text_first_line(date: str) -> str:
-    return f"*{marker(date)}*"
+    return tag("상태", f"*{marker(date)}*")
 
 
 def eli5_warning_line(cause: str) -> str:
@@ -37,12 +38,13 @@ def eli5_warning_line(cause: str) -> str:
     return f"쉬운 판(HTML) 못 만들었어요 — {first}"
 
 
-def root_text(date: str, lines: list[str], link: str | None, hil_count: int, mention: str, warn: str | None = None, block: str | None = None) -> str:
+def root_text(date: str, lines: list[str], link: str | None, hil_count: int, mention: str, warn: str | None = None, block: str | None = None,
+              seats: str | None = None) -> str:
     out = [root_text_first_line(date)] + [esc(x) for x in lines]
     where = "PDF(풀 디테일)" if warn else "PDF(풀 디테일)·HTML(쉬운 판)"  # 쉬운 판이 없는 날(warn)은 HTML 을 안내하지 않는다
     out.append(f"<{esc(link)}|매거진 본문>" if link else f"본문은 스레드의 {where}에 있어요")
     if hil_count > 0:
-        out.append(f"<@{mention}> 오빠 할 일이 {hil_count}건 있어요")
+        out.append(f"<@{mention}> 결정 대기 {hil_count}건 — {decision_line(seats=seats)}")
     if warn:
         out.append(esc(warn))
     return "\n".join(out + ([block] if block else []))
@@ -50,13 +52,13 @@ def root_text(date: str, lines: list[str], link: str | None, hil_count: int, men
 
 def failure_text(cause: str) -> str:
     """발행 실패 1줄 — 뿌리 글 표식(`아침 매거진 …`)을 쓰지 않는다(다음 실행이 뿌리 글로 오인하지 않게)."""
-    return f"매거진 발행 실패 — {esc(cause)}"
+    return tag("상태", f"매거진 발행 실패 — {esc(cause)}")
 
 
 def find_first_line(t: Target, first_line: str, oldest_epoch: float) -> str | None:
-    """채널 history 에서 봇이 쓴 글 중 첫 줄이 «정확히» first_line 인 것의 ts (가장 이른 것). 없으면 None."""
+    """채널 history 에서 봇이 쓴 글 중 첫 줄이 «정확히» first_line 인 것의 ts (가장 이른 것). 없으면 None. 머리표는 양쪽에서 떼고 비교한다(도입 전 글도 같은 글)."""
     msgs = paged(t.base, t.token, "conversations.history", {"channel": t.channel, "oldest": f"{oldest_epoch:.6f}", "limit": 200})
-    hits = [m for m in msgs if m.get("bot_id") and str(m.get("text", "")).split("\n", 1)[0] == first_line]
+    hits = [m for m in msgs if m.get("bot_id") and first_line_is(m.get("text", ""), first_line)]
     return min((str(m["ts"]) for m in hits), default=None)
 
 
@@ -93,7 +95,7 @@ def thread_bot_messages(t: Target, root_ts: str) -> list[dict[str, object]]:
 
 def find_reply_first_line(t: Target, root_ts: str, first_line: str) -> str | None:
     """스레드 답글 중 봇이 쓴 글의 첫 줄이 «정확히» first_line 인 것의 ts (가장 이른 것)."""
-    hits = [m for m in thread_bot_messages(t, root_ts) if str(m["ts"]) != root_ts and str(m.get("text", "")).split("\n", 1)[0] == first_line]
+    hits = [m for m in thread_bot_messages(t, root_ts) if str(m["ts"]) != root_ts and first_line_is(m.get("text", ""), first_line)]
     return min((str(m["ts"]) for m in hits), default=None)
 
 

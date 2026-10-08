@@ -12,11 +12,13 @@ from pathlib import Path
 
 import mirror_deliver as dv
 import mirror_lib as lib
+import mirror_share as ms
 
 _CIRCLED = {"①": 1, "②": 2, "③": 3, "④": 4}
 _OPT = re.compile(r"^\s*(?:(\d)\s*[).]|([①②③④]))\s*(\S.*)$")
 MAX_OPTIONS = 4
-BOARD_HEAD = "답을 기다리는 질문"
+BOARD_HEAD = "[상태] 결정 대기"
+OLD_BOARD_HEAD = "답을 기다리는 질문"  # 머리표 도입 전 보드 — 새 글을 또 올리지 않고 이 글을 찾아 제자리 갱신한다
 Q_PREFIX = re.compile(r"^\s*Q(\d+)(?!\d)\s*")
 _ASKS = re.compile(r"[?？]|선택|고르|골라|번호|답해|판정")
 
@@ -48,11 +50,9 @@ def parse_options(text: str) -> list[str]:
     return list(good[-1].values())[:MAX_OPTIONS] if good else []
 
 
-def format_options(options: list[str], seq: int | None = None) -> str:
-    q = f" (질문 Q{seq})" if seq is not None else ""
-    if not options:
-        return f"답하는 법: 이 스레드에 한 줄로 답해 주세요{q}"
-    return "\n".join(f"{i}) {lib.esc(o)}" for i, o in enumerate(options, 1)) + f"\n답하는 법: 이 스레드에 번호나 한 줄로 답해 주세요{q}"
+def format_options(options: list[str]) -> str:
+    """선택지는 참고용 한 줄 — 답하는 법·질문 번호는 싣지 않는다(슬랙은 읽기 전용). 없으면 빈 문자열(줄 생략)."""
+    return "선택지(참고): " + " ".join(f"{i}) {lib.esc(o)}" for i, o in enumerate(options, 1)) if options else ""
 
 
 def load(path: Path) -> dict[str, dict]:
@@ -114,30 +114,30 @@ def delivered_for(data: dict[str, dict], key: str, seat: str, row_seq: int) -> l
             if e.get("state") == "delivered" and e.get("key") == key and e.get("seat") == seat and row_seq > int(e.get("mbox_seq", 0))]
 
 
-def render_board(open_: dict[str, dict], now: float | None = None) -> str:
+def render_board(open_: dict[str, dict], now: float | None = None, place: str = "확인 불가") -> str:
     now = now or time.time()
 
     def line(e: dict) -> str:
         mins = max(0, int((now - int(e.get("asked_at", now))) // 60))
-        return f"{lib.esc(e.get('key', '?'))} {lib.esc(e.get('what', ''))[:40]} ({mins}분)"
+        return f"{lib.esc(e.get('key', '?'))} {lib.esc(ms.share_guard(str(e.get('what', ''))) or ms.OMITTED)[:40]} ({mins}분)"
 
     waiting = [e for e in open_.values() if e.get("state") == "open"]
     given = [e for e in open_.values() if e.get("state") == "delivered"]
-    head = f"{BOARD_HEAD} {len(waiting)}건" + (" — " + " · ".join(line(e) for e in waiting) if waiting else "")
-    return head + (f"\n답 전달됨, 좌석 확인 대기 {len(given)}건 — " + " · ".join(line(e) for e in given) if given else "")
+    head = f"{BOARD_HEAD} {len(waiting)}건 — 결정 자리: {lib.esc(place)}" + (" — " + " · ".join(line(e) for e in waiting) if waiting else "")
+    return head + (f"\nplanner 전달됨 {len(given)}건 — " + " · ".join(line(e) for e in given) if given else "")
 
 
-def update_board(path: Path, api_base: str, token: str, channel: str) -> None:
+def update_board(path: Path, api_base: str, token: str, channel: str, seats: str | None = None) -> None:
     """보드를 올리거나(처음 — 채널에 이미 있으면 재사용) 제자리 갱신한다. 글이 그대로면 API 를 부르지 않는다. 실패는 raise."""
     with dv.locked(path):
         data = load(path)
-        text = render_board(data["open"])
+        text = render_board(data["open"], place=ms.place_text(seats))
         ts = data["meta"].get("board_ts")
         if ts and data["meta"].get("board_text") == text:
             return
         if not ts:
             for m in lib.paged(api_base, token, "conversations.history", {"channel": channel, "limit": 200}):
-                if m.get("bot_id") and not m.get("thread_ts") and str(m.get("text", "")).startswith(BOARD_HEAD):
+                if m.get("bot_id") and not m.get("thread_ts") and str(m.get("text", "")).startswith((BOARD_HEAD, OLD_BOARD_HEAD)):
                     ts = str(m["ts"])
                     break
         if ts:

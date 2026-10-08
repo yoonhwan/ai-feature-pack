@@ -10,6 +10,7 @@ from pathlib import Path
 from mirror_lib import MirrorError, esc
 
 NONE = "없음"
+DECIDE = "결정 대기"  # 「다음」 칸 — 결정을 요구하는 글의 꼬리(결정 자리는 본문 줄에 있다)
 RC_NO_SESSION = 3  # ft-resume-cmd.sh: 확인된 세션 매핑 없음 — stdout 이 칸 값(`없음(…)`)
 
 
@@ -71,7 +72,7 @@ def resume_for(seat: str, script: str | Path) -> str:
 def mirror_block(row: dict[str, object], label: str, script: str | Path) -> str:
     """mbox 미러 꼬리 — 권위 칸은 행의 «정형 필드»(from·seq)만. Issue·카드 = `없음` 고정(본문 인용 0 · DA §4)."""
     seat = str(row.get("from") or "").strip() or NONE
-    return block(NONE, NONE, seat, f"bodies/{row.get('seq')}.txt@mbox", "오빠 판정" if label == "HIL" else NONE, resume_for(seat, script))
+    return block(NONE, NONE, seat, f"bodies/{row.get('seq')}.txt@mbox", DECIDE if label == "HIL" else NONE, resume_for(seat, script))
 
 
 def master_seat(seats_file: str | Path) -> str:

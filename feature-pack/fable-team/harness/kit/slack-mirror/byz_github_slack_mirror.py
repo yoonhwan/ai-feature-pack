@@ -9,6 +9,7 @@ exactly-once: pending 기록 → 게시(재시작 시 스레드에서 마커 조
 import argparse
 import fcntl
 import json
+import os
 import re
 import sys
 import time
@@ -24,7 +25,8 @@ from mirror_deliver import Deliverer  # noqa: E402
 
 API = "https://slack.com/api"
 GITHUB_API = "https://api.github.com"
-FACT = {"opened": "열렸어요", "closed": "닫혔어요", "merged": "머지됐어요", "hil": "오빠 판정이 필요해요(hil:needed 라벨)"}
+FACT = {"opened": "열렸어요", "closed": "닫혔어요", "merged": "머지됐어요", "hil": "결정이 필요해요(hil:needed 라벨)"}
+HEAD = {"opened": "이슈보고", "hil": "이슈보고", "closed": "변경내용", "merged": "변경내용"}
 
 
 class GithubMirror:
@@ -53,10 +55,10 @@ class GithubMirror:
             print(f"ERROR: 요약 실패 #{n} {kind}: {e} — 제목 그대로 게시", file=sys.stderr)
             s = None
         iid = f"github #{n} {kind}"
-        row: dict[str, object] = {"from": "github", "seq": iid}
+        row: dict[str, object] = {"seq": iid}
         url = str(issue.get("html_url") or "") or lib.issue_url(self.a.repo, f"#{n}")
-        block = rb.block(f"#{n}", rb.NONE, "github", url or rb.NONE, "오빠 판정" if kind == "hil" else rb.NONE, rb.NONE) + f"\n({iid})"  # 꼬리 = 마커(id) 그대로
-        text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts, block=block, urls=[url] if url else None)
+        block = rb.block(f"#{n}", rb.NONE, "github", url or rb.NONE, rb.DECIDE if kind == "hil" else rb.NONE, rb.NONE) + f"\n({iid})"  # 꼬리 = 마커(id) 그대로
+        text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts, block=block, urls=[url] if url else None, kind=HEAD[kind], seats=getattr(self.a, "planner_seats", "") or None, plain=True)
         return {"id": iid, "num": n, "kind": kind, "key": f"#{n}", "url": lib.issue_url(self.a.repo, f"#{n}"), "what": s["what"] if s else title, "text": text}
 
     def _deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
@@ -125,6 +127,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--state-dir", default=str(Path.home() / ".hermes" / "state"))
     p.add_argument("--token-file", default="~/.hermes/secrets/yoonhwan_bot.env")
     p.add_argument("--mention", default="", help="[HIL] 에서 멘션할 Slack 사용자 ID 1개(고정)")
+    p.add_argument("--planner-seats", default=os.environ.get("MIRROR_PLANNER_SEATS", ""), help="planner 명부(seats-planner.json) 경로 — 결정 자리 줄의 근거")
     p.add_argument("--summarizer-cmd", default=summ.DEFAULT_CMD)
     p.add_argument("--summary-timeout", type=float, default=90.0)
     p.add_argument("--api-base", default=API)

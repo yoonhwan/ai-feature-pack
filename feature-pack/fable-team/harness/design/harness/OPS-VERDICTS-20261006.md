@@ -787,3 +787,15 @@
 - 사전검증 DA: 소환 아니오(카드 면제 · arch#16 서명) · 구현 DA 소환: 아니오 — 선택 조건 1줄 × 2 · 명부 도구는 백업·rc 3 거부(retarget_seat 규칙) · 실례 재생 일치 — arch 서명 byz-harness-arch-claude#16.
 - 랜딩 뒤 master 집행(카드 밖): 라이브 FT_BIN cp 3파일(ft-tick.sh · ft-seat-retire.sh · ft-role-spawn.sh) + cmp · 틱 데몬 재기동 필요 여부 확인(셸 스크립트는 기동 때 1회 로드 — 새 조건은 재기동 뒤부터) · 승계 절차 문서(전역 CLAUDE.md 「증류 실행 절차」 · fable-team main-team-governance)에 「후계 부팅 보고 수신 뒤 `ft-seat-retire.sh <구> <후계>`」 1줄 — 저장소 밖 · master/planner 판단 · 원장 R43 상태 = 반영 sha.
 - 정본 영향 없음: 하네스 틱 좌석 선택·승계 명부 도구·시험만.
+
+## §75 block-destructive 훅 — 원격 ref 를 덮거나 지우는 push 꼴(`+<ref>` 강제 · `:<ref>` 삭제 · `--delete`/`-d` · `--mirror`)도 강제 push 와 같이 차단 (R44 · v466 재현 반례 · 나노 r44-block-destructive-push-refspec) — 닫힘 (byz-harness-arch-claude#16 · 2026-10-08)
+- 대상 카드: r44-block-destructive-push-refspec
+- 나노 커밋 1개(base origin/main): `e7ce9f965be5887c8e3c5b7b1430d6c436b4a76d` · 2파일 — 키트 훅 `PATTERN` push 항목 1개(`--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+[^[:space:]]|[[:space:]]:[^[:space:]]` 추가 · 주석 1줄 R44 · 다른 항목·v466 판정 로직·메시지 무변경 · 180줄) · `tests/harness/test_block_destructive.sh`(+15 · blk 7 · pas 6).
+- ★arch 독립 재현(#16)★: `git archive e7ce9f965b scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더:
+  ①`test_block_destructive.sh` rc=0 · PASS 91 · 「SUMMARY blocked=64 pass=20 stage=2 sample=5 fail=0」 ②`test_kit_bin_sync.sh` rc=0 PASS 6 ③`bash -n` OK · 180줄.
+  ④arch R44 반례 22건(JSON 입력만 · 실제 push 0) 전부 기대대로: 차단 10 — `+main` · `+HEAD:main` · `:main` · `--delete` · `-d` · `--mirror` · `--force-with-lease`(기존 고정) · `cd /tmp && … +main` · `bash -c '… :main'` · `echo '… +main' | sh` / 통과 12 — `git push origin main` · `-u origin feat/x` · `HEAD:refs/heads/x` · `--dry-run` · `--set-upstream` · `origin v1.0` · echo 본문 `+main` · printf `>> ledger.md` 본문 `:main` · commit 메시지 `--delete` · grep 패턴 `\+` · 정본 mbox send 본문 `+main`/`--mirror` 인용 · cat heredoc 파일 본문 `:main`(master#17 요청 확인 항목: HEAD:refs/heads/x·--dry-run·-u 통과 유지 + `+`/`:` 가 글자·echo 본문이면 v466 규칙대로 통과 — 전부 일치).
+  ⑤v466 회귀 반례 21건(§73 ④) 재실행 → 21/21 일치 — §73 ⑤ 의 유일한 불일치(`git push origin +main` 통과)가 이 변경으로 차단으로 바뀜.
+- 카드 증거 줄(나노 RESULT 맨 끝 · master 가 카드에 옮김): `세트: e7ce9f965be5887c8e3c5b7b1430d6c436b4a76d · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: 소환 아니오(카드 면제 · 차단만 늘어남 · arch#16 서명) · 구현 DA 소환: 아니오 — PATTERN 항목 1개 · 통과 범위 축소 0 · arch 반례 22/22 + v466 회귀 21/21 — arch 서명 byz-harness-arch-claude#16.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) CI → 병합 → 홈 `~/.claude/hooks/block-destructive.sh` 에 키트 사본 cp + cmp(판정 343) → 설치 뒤 첫 Bash 호출 1회로 훅 동작 확인 → 원장 R44 상태 = 반영 sha.
+- 정본 영향 없음: 전역 안전 훅의 push 차단 항목과 시험만.

@@ -21,7 +21,7 @@ TOKEN="$HOME/.hermes/secrets/yoonhwan_bot.env"
 [ -f "$SEATS" ] || { echo "ERROR: seats 파일 없음: $SEATS" >&2; exit 1; }
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_slack_mbox_inbound.py mirror_inbound.py mirror_plan.py mirror_questions.py mirror_deliver.py mirror_lib.py; do
+for f in byz_slack_mbox_inbound.py mirror_inbound.py mirror_plan.py mirror_questions.py mirror_deliver.py mirror_lib.py mirror_share.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done

@@ -9,7 +9,9 @@ import subprocess
 from pathlib import Path
 
 import mirror_lib as lib
+import mirror_share as ms
 
+PLANNER_TEAM = "byz-planner-"  # 옛 원장 이관 기준 접두 — `_master` 계보 일치는 역할명까지 바뀐 승계(arch#3 → master-claude#4)를 놓친다
 FROM = "slack-oppa"  # 오빠 글이 mbox 에 실릴 때의 발신자 이름 — 좌석이 아니다
 RING = 10  # mbox 수신자별 큐 상한 — 가득 차면 오래된 것이 밀리므로 우리는 보내지 않고 미룬다
 MAX_BODY = 600
@@ -47,14 +49,33 @@ def resolve_pick(text: str, options: list[str]) -> str:
     return text
 
 
-def planner_seat(seats_file: Path) -> str:
-    try:
-        seat = json.loads(seats_file.read_text(encoding="utf-8")).get("_hil_route")
-    except (OSError, ValueError) as e:
-        raise lib.MirrorError(f"seats 파일 읽기 실패: {seats_file} ({type(e).__name__})") from e
-    if not seat:
-        raise lib.MirrorError(f"seats 파일에 _hil_route 없음: {seats_file}")
-    return str(seat)
+def resolve(to: str, planner_seats: str | Path | None) -> tuple[str | None, str]:
+    """수신자 표식 → (보낼 이름 | None, 사유). `@planner` 는 매번 명부 `_master` + tmux 생존으로 정한다(`_hil_route` 는 읽지 않는다)."""
+    return ms.live_planner(planner_seats) if to == ms.PLANNER_ROLE else (to, "")
+
+
+def sent_names(e: dict, role: str) -> tuple[int, set[str]]:
+    """(시도 횟수, 보낸 이름들) — `@planner` 의 attempt 는 보낸 이름 목록, 나머지는 횟수 정수(옛 원장 호환)."""
+    a = e["attempt"].get(role, 0)
+    return (len(a), set(a)) if isinstance(a, list) else (int(a), {role} if a else set())
+
+
+def migrate_planner(e: dict) -> None:
+    """B-r3: 옛 원장의 planner 팀 접두(byz-planner-) 수신자를 `@planner` 로 1회 이관한다(done·attempt 도 옮겨 재발송 0).
+    질문 좌석·추정 좌석은 접두가 달라 건드리지 않는다. 이미 이관된 항목은 아무것도 하지 않는다."""
+    old = [to for to in e["recips"] if to.startswith(PLANNER_TEAM)]
+    if not old:
+        return
+    role, tried = ms.PLANNER_ROLE, list(e["attempt"].get(ms.PLANNER_ROLE, []))
+    for to in old:
+        if e["done"].pop(to, None):
+            e["done"].setdefault(role, to)
+        tried += [to] * int(e["attempt"].pop(to, 0))
+    if tried:
+        e["attempt"][role] = tried
+    i = min(e["recips"].index(to) for to in old)
+    e["recips"] = [t for n, t in enumerate(e["recips"]) if t not in old and t != role]
+    e["recips"].insert(i, role)
 
 
 def _rows(comm_dir: Path, names: tuple[str, ...]) -> list[dict[str, object]]:

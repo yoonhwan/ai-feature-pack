@@ -1,6 +1,6 @@
-# 인덱스: 상태판 생성기 — ft-board.py(render --term|--slack · snapshot) · 명부 키 _cards·_cards_wt·_label · 불변 스냅샷 + 변경 단위 diff (판정 421 · 430·431 · 설계 §2-2·§2-3·§3 나노 2)
+# 인덱스: 상태판 생성기 — ft-board.py(render --term|--slack · snapshot) · 명부 키 _cards·_cards_wt·_label · 불변 스냅샷 + 변경 단위 diff + ⓪팀 요약 표·①완성 트리(판정 496) (판정 421 · 430·431 · 496 · 설계 §2-2·§2-3·§3 나노 2)
 <!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 421·430·431(오빠 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유하는 완벽한 일반화」 · planner #62745 · master #62749)
+- Issue: 없음 → 판정 421·430·431(오빠 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유하는 완벽한 일반화」 · planner #62745 · master #62749) + 판정 496(오빠 「뉴스 공유시 메인팀 현재 상황과 메인팀 큐를 같이 정리 공유. 개편.」·「뉴스 트리와 세션과 큐를 정리공유하는 개편 / da도 같이」 · master #64447)
 - 상태: 대기
 - 선행: 나노 1(판정 원장 ft-verdict.sh · nano/v430-verdict-ledger) 랜딩 · 나노 4(인박스 ft-inbox.sh · nano/v425-master-inbox) 랜딩 — 이 카드는 두 도구를 «호출»만 한다(fold·술어 재구현 0). 나노 3(발행)은 이 카드 뒤.
 - 시험 입력: 임시 FT_ROOT(가짜 seats-*.json 3팀 · 카드 폴더 픽스처 · 가짜 verdicts.jsonl) + 스텁 env FT_BOARD_GH(gh issue list JSON 고정 출력) · FT_BOARD_TMUX(살아 있는 세션 목록 고정) · FT_BOARD_INBOX(ft-inbox.sh show 고정 출력) — 실제 gh·tmux·슬랙 호출 0
@@ -16,11 +16,12 @@
 골의 축: A(모니터·오빠 요청 — 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유」). 핵심 한 줄: 손 트리를 버리고 원장 3종(명부·카드 폴더·판정 원장)에서만 팀 트리·작업큐·오늘 판정표를 생성하고, 매 생성의 불변 스냅샷과 변경 단위 diff 를 남긴다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-지금 뉴스 트리는 planner 가 손으로 쓰는 NEWS-TREE.md 와 ft-news-tree.py(명부 seats.json 하나만 읽고 CFO 접두 좌석만 보는) 조합이라 ①오늘 끝난 일(✅)이 요약본에서 통째로 빠지고 ②죽은 옛 좌석 25줄이 세션 상태 절에 남고 ③상태 글자가 손 글자라 콘솔·슬랙·트리가 서로 다르다(판정 410 감사 17건). 새 생성기 ft-board.py 는 입력을 원장 3종으로만 한다: 명부 `seats*.json`(팀 = 파일 1개 · 새 키 `_cards` 카드 폴더 리포 상대 경로 · `_cards_wt` 그 폴더가 있는 워크트리 이름 · `_label` 표시 이름) · 팀별 카드 폴더 indices/{대기,진행,완성} · 판정 원장(`ft-verdict.sh list --json`). 출력 한 장 = 세 칸(팀 트리 · 작업큐 · 오늘 판정표)이고, 같은 중간 dict 에서 `--term`/`--slack` 렌더만 다르다. `snapshot` 은 그 dict 전체를 불변 파일로 먼저 쓰고 직전 스냅샷과의 «변경 단위» 목록을 낸다 — 슬랙 chat.update(나노 3)는 최신만 보이므로 이력은 이 스냅샷이 가진다(DA N3 APPROVE). 팀이 늘어도 명부 파일 1개 추가로 끝나야 한다(코드 수정 0).
+지금 뉴스 트리는 planner 가 손으로 쓰는 NEWS-TREE.md 와 ft-news-tree.py(명부 seats.json 하나만 읽고 CFO 접두 좌석만 보는) 조합이라 ①오늘 끝난 일(✅)이 요약본에서 통째로 빠지고 ②죽은 옛 좌석 25줄이 세션 상태 절에 남고 ③상태 글자가 손 글자라 콘솔·슬랙·트리가 서로 다르다(판정 410 감사 17건). 새 생성기 ft-board.py 는 입력을 원장 3종으로만 한다: 명부 `seats*.json`(팀 = 파일 1개 · 새 키 `_cards` 카드 폴더 리포 상대 경로 · `_cards_wt` 그 폴더가 있는 워크트리 이름 · `_label` 표시 이름) · 팀별 카드 폴더 indices/{대기,진행,완성} · 판정 원장(`ft-verdict.sh list --json`). 출력 한 장 = 세 칸(팀 트리 · 작업큐 · 오늘 판정표)이고, 같은 중간 dict 에서 `--term`/`--slack` 렌더만 다르다. `snapshot` 은 그 dict 전체를 불변 파일로 먼저 쓰고 직전 스냅샷과의 «변경 단위» 목록을 낸다 — 슬랙 chat.update(나노 3)는 최신만 보이므로 이력은 이 스냅샷이 가진다(DA N3 APPROVE). 팀이 늘어도 명부 파일 1개 추가로 끝나야 한다(코드 수정 0). ★판정 496 추가★: 같은 dict 에 두 칸을 더한다 — ⓪ 팀 요약 표(맨 위 · 팀당 1행: 지금·큐·오빠 할 일·결정 자리) · ① 완성 트리(골 축별 · 명부 새 키 `_tree` = 그 팀 NEWS-TREE.md 경로 · 트리는 «배치»만, 분모는 카드 폴더 전체 · 트리에 없는 카드는 `축 미연결` 묶음으로 보존 · 손 상태 글자는 읽지 않음). 렌더 순서 ⓪ 팀 요약 → ① 완성 트리 → ② 팀 트리(세션) → ③ 작업큐 → ④ 오늘 판정표. 정본 = `design/harness/DESIGN-slack-readonly-share-20261008.md` §8 + ★`### 8-2-r2` 가 §8-2·§8-4 를 이긴다★.
 
 ## 사전검증
 - 소환: 아니오
 - 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N3(스냅샷→update→변경 단위 diff) APPROVE · 이 카드는 N3 범위) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
+- 판정 496 범위(⓪·①·렌더 순서·`--full`): 소환: 예 · DA `design/harness/DA-slack-readonly-share-20261008.md` 「판정 496 r1 판정」 HOLD(Q5·Q6) → 「판정 496 r2 판정」 APPROVE(Q5~Q8 · byz-harness-da-codex#0 #64513) — arch 서명 byz-harness-arch-claude#17
 
 ## 조사 근거
 - `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:28` 명부 새 키 3개 · `:33`~`:41` 생성기 세 칸·행 수 상한·옛 좌석 제거·렌더 2종 · `:45` 스냅샷 → update → 변경 단위 diff · 실패 순서 · 날짜 동결 · `:56` 보드 작업큐 칸 수신 대기 n 과 미보고 n 분리 · `:71` 나노 2 시험 목록 · `:139` N3 APPROVE(누락 답글 복구는 입력 해시가 같아도 막히지 않게).
@@ -34,6 +35,9 @@
    - 입력 수집 `collect() -> dict`: ①`<FT_ROOT>/.fable-team/seats*.json` 전부 — `_cards` 없는 명부는 팀 트리에 «카드 폴더 미지정» 1줄로 보이고 빠지지 않음 ②카드 폴더 = `<FT_ROOT>/.worktrees/<_cards_wt>/<_cards>/{대기,진행,완성}`(`_cards_wt` 가 비면 루트) · 파일 수 + 첫 줄 제목 · 완성은 mtime 오늘분만 «오늘 완성» ③`ft-verdict.sh list --json`(env FT_VERDICT_BIN 으로 경로 주입) ④`${FT_BOARD_GH:-<Tank 래퍼> gh issue list --json number,title,labels,updatedAt,state}` — 캐시 `<FT_ROOT>/.fable-team/state/board/gh-cache.json` 10분 ⑤살아 있는 tmux 세션(`${FT_BOARD_TMUX:-tmux ls -F '#S'}`) ⑥인박스 미보고 = `ft-inbox.sh show <팀 _master>` 줄 수 · 수신 대기 = mailbox pending(따로 셈 · 설계 :56).
    - 현역 좌석 = tmux 살아 있음 ∧ 행 `_replaced_by` 없음 · master/arch 는 명부 `_master`/`_arch` 와 같은 이름만 · 진행 카드마다 행 `index` 가 같은 좌석 1줄(좌석 상태 = `scripts/fable-team-bin/ft-news-tree.py:75` seat_state 와 같은 규칙 · 함수 복사 허용 · 그 파일은 수정 0).
    - 세 칸: ①팀 트리(팀 → master·arch → 진행 카드별 나노 1줄 → 「대기 n · 오늘 완성 n(마지막 1개 제목)」) ②작업큐(오빠 손 대기 = 판정 open ∧ oppa_todo 비지 않음 → 열린 Issue(라벨 hil:needed 먼저) → 팀별 대기 카드 상위 5 · 「수신 대기 n」 「미보고 n · 가장 오래된 m분」 따로) ③오늘 판정표(`n · 제목 · open/done · 팀` — done 도 표시).
+   - ★판정 496 ⓪ 팀 요약 표★(설계 §8-2): 명부 1개 = 1행 · 열 = 팀(`_label`) · 지금(진행 수 + 첫 1장 제목 · 그 좌석 상태) · 큐(대기 수 + 상위 1장) · 오빠 할 일(그 팀 판정 open ∧ oppa_todo 수 · ft-verdict fold 출력) · 결정 자리(`seats-planner.json` `_master` + tmux 생존 · 아니면 `확인 불가(<사유>)` · 대체 이름 0).
+   - ★판정 496 ① 완성 트리★(설계 §8-2 + `### 8-2-r2` A·B): 명부 `_tree` 의 NEWS-TREE 구조(들여쓰기·줄 글·`[idx:]`)만 읽음 · 손 상태 글자 제거 + 그 줄 끝 `(카드 미연결)` · 분모 C = 카드 폴더 basename 고유 집합(두 폴더 중복 = 1장 + `⚠폴더 중복(<폴더들>)`) · 배치 = 트리 첫 등장 1곳 · 두 번째 이후 = `(중복 링크 — 첫 위치: <축 줄>)` 표시만·계수 0 · `C − T` = 합성 축 `축 미연결`(완성·진행·대기 전부) · `T − C` = `카드 없음` · `_tree` 없는 팀 = `완성 트리 미지정` + 전부 미연결 축 · 기본 = 축마다 ✅ 를 `완성(누적) n(최근: <제목>)`(최근 = 그 n 장 중 완성 파일 mtime 최대 · 같으면 basename 오름차순) · 팀 트리 칸은 `오늘 완성` 으로 이름을 가른다 · `--full`(= env `FT_NEWS_FULL=1`) = 접기·행 상한 해제.
+   - ★collect 1회★(`### 8-2-r2` C): planner 생존·판정 fold·카드 집합은 `collect()` 에서만 · `render --term`/`--slack` 은 dict 만 읽음(재조회 0) · 슬랙 렌더 첫 줄 `[상태] 메인팀 보드 <HH:MM>` + `결정 자리:` 줄 1개 · 답장 요구 문구 0.
    - 행 수 상한(팀당 5줄 · 큐 10줄)만으로 요약 — 넘치면 「… 외 n」 · ✅/done 을 통째로 빼는 분기 0.
    - `render --term | --slack`: 같은 dict · slack 은 mrkdwn 문자열만 stdout(발행 0).
    - `snapshot`: dict 를 정렬 JSON 으로 `<FT_ROOT>/.fable-team/state/board/<YYYY-MM-DD>/<HHMMSS>-<hash8>.json`(hash8 = 본문 sha256 앞 8) 에 «먼저» 쓰고(fsync) → 같은 날 직전 스냅샷과 비교한 변경 단위 목록 + `snap=<전 hash8>→<후 hash8>` 를 stdout JSON `{snap, prev, changes[], prev_day_last}` 으로. 변경 단위 = 카드 이동 `<팀>/<카드> 진행→완성` · Issue `#N open→closed` · 판정 `N new/done` · 오빠 손 ±. 카드·Issue 만 바뀌어도 changes 가 비지 않는다. 쓰기 실패 = raise(rc≠0 · stderr 사유) — 나노 3 은 rc=0 일 때만 발행. 날짜 첫 스냅샷이면 `prev_day_last` = 전날 마지막 스냅샷 hash8(뿌리 글 동결용).
@@ -49,6 +53,7 @@
    - 날짜 바뀜(env FT_BOARD_NOW 로 시각 주입) → prev_day_last = 전날 마지막 hash8.
    - 같은 입력 2회 snapshot → 둘 다 rc 0 · changes 빈 배열.
    - 미보고 n 과 수신 대기 n 이 다른 칸에 따로 찍힘.
+   - ★판정 496★(설계 §8-4 + `### 8-2-r2` 시험 ①~⑥): ⓪ 팀 수 = 명부 수 · planner 세션 없음 → 확인 불가(대체 0) · ①DA 반례 완성 A·B·트리 idx A → 기본: 축 `완성(누적) 1(최근: A)` + 미연결 `완성(누적) 1(최근: B)` · full: A·B 둘 다 줄 ②같은 idx 두 축 링크 → 첫 축만 계수 ③같은 id 진행·완성 → 1장 `⚠폴더 중복` ④`_tree` 없는 팀 → 전부 미연결 ⑤최근 = 가짜 mtime 최대 · `오늘 완성` 과 다른 픽스처에서 따로 찍힘 ⑥tmux 스텁 호출 수 = collect 1회당 1 · render 2종 뒤 증가 0 · ★불변식 단언★: 팀·상태별 `Σ축 계수 + 미연결 = |C 그 상태|` (기본·full) · 손 상태 글자 줄 → 글자 제거 + `(카드 미연결)` · 렌더 순서 ⓪→④ · 슬랙 첫 줄 `[상태]` · 답장 요구 정규식(`답해\s*주|확인해\s*주|(?<![A-Za-z0-9])Q\d+(?!\d)` 등 설계 §4-r2 A·A-r3) 0.
    - `test_kit_bin_sync.sh` PASS.
 
 커밋은 자기 브랜치, **push 금지**. **금지**: 슬랙 호출·발행(나노 3) · ft-news-tick*.sh 호출부 교체(나노 3) · 명부 실제 파일에 키 추가(master 집행) · 판정 fold·obligation_closed 재구현 · NEWS-TREE.md 상태 글자 읽기 · 라이브 .fable-team/state 쓰기 · ft-news-tree.py 삭제.
@@ -56,10 +61,12 @@
 ## 완료 조건 (닫힘 판정 기준 — ops 수락 판정문)
 - `bash tests/harness/test_board.sh` rc=0 · `test_kit_bin_sync.sh` PASS · 사본 cmp · `ruff check` 0.
 - RESULT 에 ★「카드만 바뀐 두 번째 snapshot 의 changes 1건 + snap 전→후」★ 출력 복붙 — 구현 DA 가 재확인.
+- RESULT 에 ★판정 496 반례 픽스처(완성 A·B·idx A)의 기본·full `render --term` 출력 + 불변식 단언 줄★ 복붙.
 - 카드 증거 줄 형식(필수 · 시험 칸은 명령 1개 · 없으면 반송): `세트: <40hex> · 시험: bash tests/harness/test_board.sh rc=0 · 이슈: 0`.
-- 랜딩 뒤 master 집행(카드 밖): 명부 9개에 `_cards`·`_cards_wt`·`_label` 기입 · 라이브 FT_BIN 반영 · 실제 루트에서 `ft-board.py render --term` 1회 실측(옛 좌석 0 · 팀 수 = 명부 수).
+- 랜딩 뒤 master 집행(카드 밖): 명부 9개에 `_cards`·`_cards_wt`·`_label` 기입 · 라이브 FT_BIN 반영 · 실제 루트에서 `ft-board.py render --term` 1회 실측(옛 좌석 0 · 팀 수 = 명부 수) · ★판정 496 배포 잔여(카드 닫힘과 별개)★: 명부 `_tree` 기입(NEWS-TREE 있는 4팀 cfo·kk·planner·v65) · 없는 5팀(harness·feature·issues·loom·ops) 트리 작성 요청 — 그 전까지는 `완성 트리 미지정` + 미연결 축으로 보임(소실 0).
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- 2026-10-08 — 판정 496 범위 접어 넣음 (byz-harness-arch-claude#17 · 설계 §8 + 8-2-r2 · DA 496 r2 APPROVE #64513 · DA Q8 = 한 단위 수락).
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#14 · 판정 421 설계 r2 §2-2·§2-3·§3 나노 2 · 오빠 컨펌 판정 430·431 · master #62749).
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
