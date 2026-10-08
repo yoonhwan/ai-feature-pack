@@ -1094,3 +1094,29 @@
 - ★랜딩 뒤 master 집행 순서(카드 밖)★: ① PR(origin/main · 커밋 1개) → 병합 ② 라이브 FT_BIN `ft-index-move.sh` cp+cmp ③ 다음 완성 이동 1회의 `INJECT-SCAN files=` 값이 카드 인용 파일 수 수준(한 자리~두 자리)인지 확인.
   되돌림: `ft-index-move.sh` 이전 sha 로 cp(소음이 돌아올 뿐 · 이동 동작 동일).
 - 정본 영향 없음: 하네스 닫기 도구 입력 거르기·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §93 R63 가드 ㉠ block-destructive 세 번째 블록(INJECT) — 명령줄의 임의 Redis 쓰기·`/dev/bubble-replay` URL 차단 (원장 R63 · 판정 589 · 나노 r63b-block-destructive-inject) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q2 · r2 HOLD Q2 → 연속 리뷰 종료) → arch 설계·독립 재현 서명(bounded_da_review · v423c §89 선례)★
+- 대상 카드: r63b-block-destructive-inject
+- 나노 커밋 4개(브랜치 `nano/r63b-block-destructive-inject` · base origin/main `5dc3218cf3` · push 0):
+  ①`3674904f24`([feature] 키트 템플릿 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` INJECT 블록 · 새 `tests/harness/test_block_destructive_inject.sh` · `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`) → arch 재현 오탐 7건(dev 페이지 파일 경로 3 · `git grep`/`rg` 검색 · `gh pr` 본문 · `GET "set"`) → 반송 r1(DA 전).
+  ②`72da51914b`([fix] 검사 사본 `CHK` = 검색·게시 구간·페이지 파일 경로 제외 + Redis «명령 자리 동사» 만) → 구현 DA r1(`design/harness/DA-r63b-block-destructive-inject-20261009.md`) Q1·Q3·Q4 APPROVE · Q2 HOLD(게시 본문 안 실행 치환 `$(redis-cli SET …)`·백틱이 같이 지워짐 · 설치 전 blocker) → 반송 r2.
+  ③`c82d938014`([fix] 실행 치환(`$(`·백틱·`<(`·`>(`)이 있으면 검색·게시 예외 0) → DA r2 Q2 HOLD(따옴표 이어붙임 `redis-''cli`·`S''ET` 가 치환 안에서 통과) · «두 번째 HOLD 이므로 연속 DA 리뷰 종료» → 반송 r3(arch 결정 = 검사 사본 따옴표·역슬래시 제거).
+  ④`9c4ef5fb79`([fix] `CHK` 끝에 `| LC_ALL=C tr -d "\\'\""`). 최종 3파일 +242 −0 · 훅 205줄(기존 180 + 25 · 지운 줄 0).
+- ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `9c4ef5fb79` 아카이브 → 스크래치패드 새 폴더: test_block_destructive_inject **68 PASS rc=0** · test_block_destructive **91 PASS rc=0**(회귀 0) · `bash -n` · 셔뱅 `#!/bin/bash` 그대로 · merge-base 키트 = 홈 `~/.claude/hooks/block-destructive.sh` cmp 동일(설치 = 이 블록 추가만).
+  ★`/bin/bash` PreToolUse JSON 주입 48행(명령 실행 0) — 불일치 0★: 통과 27(dev 페이지 파일 경로 3 · `git grep`/`rg`/`gh pr create` 본문 검색 패턴 · `GET "set"`·`GET 'SET'` · `--scan` · `CONFIG GET` · grep 파이프 · `-c -p GET` · `--tls --user GET` · pytest(isolated_redis) · 기존 러너 `realtime_multi_e2e.py` · 일반 curl · DEL · FLUSHDB · git log · `docker exec … DBSIZE` · `echo "$(date)"` · `git log … $(git merge-base …)` · `--body-file` · 정본 mbox 송신 본문 · git commit 메시지 · ruff+pytest · tmux capture) = 0 · 차단 21(직접 PUBLISH·SET·`--user=` HSET·LPUSH · docker exec HSET · `bash -c` XADD · python heredoc `os.system` · URL 3꼴 · 검색 뒤 별 구간 2 · 실행 치환 5 · 따옴표 이어붙임 5) = 2.
+  ★독립 변이★: `tr -d` 를 뺀 사본 → `gh pr create --body "$(redis-''cli SET k v)"` = rc 0(차단이 그 1토큰에 의존함을 확인).
+- ★arch 판단 서명 1건 — 승인★: 나노 참고 「치환 없는 이어붙임은 judge 의 shlex 가 이미 따옴표를 벗겨 tr 변이로 안 뒤집힘 → 변이 M7 은 치환 안 2행으로 검증」 — 맞다. 치환 없는 명령은 judge 가 셸 단어로 풀어 `EFFECTIVE` 에 이미 `redis-cli SET` 이 나오고, 치환이 있으면 judge 가 원문(Inelig)을 돌려 따옴표가 남는다 → `tr` 이 실제로 필요한 곳은 치환 안뿐. 변이를 그 행으로 거는 것이 정확하다.
+- ★알고 둔 경계(설계 결정 · 이 훅 범위 밖)★: 변수·별칭 우회(`r=redis-cli; $r SET k v`) · 스크립트 «파일 안» 주입 — 명령줄 글자 훅은 의도적 난독화를 끝까지 못 따라간다(기존 PATTERN 도 같은 성질 · 훅 주석 «판정기를 촘촘히 할수록 예외가 자란다»). 파일 안 = §92 증거 검사 · 의도적 우회 = BOOT 20 증거 무효 규정.
+- 대가(알고 둔다): 실행 치환과 Redis·URL 검색 구절이 한 명령에 같이 있으면(`git grep 'redis-cli PUBLISH x' $(git rev-parse HEAD)`) 막힌다 — 우회 = `grep`(글 싱크) 또는 치환을 앞 명령으로 분리 · 정당한 운영 쓰기 = 파일에 쓰고 사람이 `!` 로(차단 문구에 적힘).
+- 기준값 대비(카드 머리줄): PATTERN·STAGE 에 Redis 쓰기·`/dev/bubble-replay` 0 → 이 단위 뒤 = 전 좌석 Bash 에서 직접 치는 주입은 실행 전 exit 2 · 정상 읽기·정리·검색·기존 러너·격리 픽스처는 0.
+- 카드 증거 줄(나노 RESULT r3 · master 가 카드에 옮김): `세트: 9c4ef5fb79ff5308373b27a163304ae021ae6051 · 시험: bash tests/harness/test_block_destructive_inject.sh rc=0 · 이슈: 0` (+ 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`).
+- ★랜딩 뒤 master 집행 순서(카드 밖 · 판정 589 planner 조건 · 앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 4개) → 병합. ★PR 본문은 `--body-file`★(본문의 명령 글자가 지금 설치본 PATTERN 에 걸릴 수 있음).
+  ② 원본 백업 `cp ~/.claude/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh.bak-r63b-20261009`.
+  ③ 키트 템플릿 → 홈 설치(cp+cmp).
+  ④ 셔뱅 그대로(`/bin/bash`) 홈 설치본에 JSON 주입 재생: 차단 `redis-cli PUBLISH ch x` = 2 · 통과 `redis-cli GET k`·`curl -s http://127.0.0.1:8080/health`·정본 mbox 송신 본문(「redis-cli SET」 글자) = 0.
+  ⑤ 적용 뒤 «첫 도구 호출» 실측 — 평범한 Bash 1회(rc 0) + 다른 좌석 1곳의 다음 Bash 정상.
+  ⑥ ★오탐 1건이면 즉시 원복★(②의 백업 cp · 원복 사실 + 오탐 명령을 원장에 기록 · 카드 반송).
+  ⑦ 완료 보고 = 대조표 경로 + 랜딩 sha 1줄.
+- 남는 일(카드 밖): 훅 205줄(200줄 규칙 초과 · 기존 180 → 분리는 별 카드 후보).
+- 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.

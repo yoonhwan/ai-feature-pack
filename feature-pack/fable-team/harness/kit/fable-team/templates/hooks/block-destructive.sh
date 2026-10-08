@@ -151,6 +151,31 @@ if printf '%s' "$EFFECTIVE" | grep -qiE "$PATTERN"; then
   exit 2
 fi
 
+# INJECT-BEGIN
+# ── R63b 측정 조작 차단 (오빠 절대지침 2026-10-09 · BOOT 20 · 전역 하드 룰 11) ───
+# 명령줄에서 직접 치는 임의 Redis 쓰기(redis-cli + 상태 생성 동사)와 말풍선 재생 URL(/dev/bubble-replay)을 실행 전에 막는다.
+# ★EFFECTIVE 를 본다★ — STAGE 처럼 $CMD 를 보면 쪽지 본문·grep 패턴 글자로 막힌다(판정 466 이 고친 오탐 15건/일).
+# 검색(git grep·rg·ag)·게시(gh pr/issue) 구간과 페이지 파일 경로는 검사 사본 CHK 에서 뺀다 — arch 재현 오탐 7건(r1). EFFECTIVE 자체는 불변.
+# Redis 는 «명령 자리의 동사»만: redis-cli 뒤 옵션(값 0~1개)만 오고 첫 토큰이 동사 + 인자 1개 이상 (`GET set`·`CONFIG SET` 은 안 맞는다).
+INJECT_VERBS='SET|SETEX|SETNX|MSET|HSET|HMSET|HSETNX|XADD|PUBLISH|LPUSH|RPUSH|SADD|ZADD|APPEND|INCR|INCRBY'
+INJECT_SKIP='(^|[[:space:];&|(])(git[[:space:]]+grep|rg|ag|gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit|view))([[:space:]][^;&|]*|$)'
+INJECT_REDIS="redis-cli([[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]*)?([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+['\"]?($INJECT_VERBS)['\"]?[[:space:]]+[^[:space:]]"
+INJECT_PATTERN="$INJECT_REDIS|/dev/bubble-replay"
+# 실행 치환($( )·백틱·<( )·>( ))이 하나라도 있으면 검색·게시 예외 0 — 셸이 «실행»하는 구간이라 글자가 아니다(DA r1 Q2).
+case "$EFFECTIVE" in
+  *'$('*|*'`'*|*'<('*|*'>('*) INJECT_SED='s#app/dev/bubble-replay##g' ;;
+  *) INJECT_SED="s#$INJECT_SKIP#\\1#g; s#app/dev/bubble-replay##g" ;;
+esac
+# 따옴표·역슬래시 제거 — 셸 단어 이어붙임(redis-''cli·S""ET)을 한 단어로 본다(DA r2 Q2). 검색·게시 제거(sed)가 먼저라 따옴표 안 검색 패턴은 이미 빠진 뒤.
+CHK=$(printf '%s' "$EFFECTIVE" | LC_ALL=C sed -E "$INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK=$EFFECTIVE
+if printf '%s' "$CHK" | grep -qiE "$INJECT_PATTERN"; then
+  printf '🚫 측정 조작 차단 — 임의 Redis 쓰기·말풍선 DOM 주입(오빠 절대지침 · BOOT 20 · 전역 하드 룰 11)\n' >&2
+  printf '명령: %s\n' "$CMD" >&2
+  printf '측정은 trusted 클릭 + 기존 e2e 러너(tests/e2e/realtime_multi_e2e.py)만. 정당한 운영 쓰기는 파일에 쓰고 사람이 ! 로 실행하세요.\n' >&2
+  exit 2
+fi
+# INJECT-END
+
 # ── 스테이징 오염 차단 (신설 2026-09-16, CFO 트랙 규율 F17) ──────────────────
 # 같은 워크트리를 여러 세션이 동시에 쓰면 `git add .`/`-A` 가 "남이 만든 파일"까지
 # 자기 커밋에 싣는다. 2026-09-15 하루에 세 번 났고, 한 번은 코드 3파일이 다른 세션의
