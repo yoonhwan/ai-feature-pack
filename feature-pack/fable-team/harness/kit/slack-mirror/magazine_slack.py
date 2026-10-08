@@ -39,7 +39,7 @@ def eli5_warning_line(cause: str) -> str:
 
 
 def root_text(date: str, lines: list[str], link: str | None, hil_count: int, mention: str, warn: str | None = None, block: str | None = None,
-              seats: str | None = None) -> str:
+              seats: str | None = None, malformed: str | None = None) -> str:
     out = [root_text_first_line(date)] + [esc(x) for x in lines]
     where = "PDF(풀 디테일)" if warn else "PDF(풀 디테일)·HTML(쉬운 판)"  # 쉬운 판이 없는 날(warn)은 HTML 을 안내하지 않는다
     out.append(f"<{esc(link)}|매거진 본문>" if link else f"본문은 스레드의 {where}에 있어요")
@@ -47,6 +47,8 @@ def root_text(date: str, lines: list[str], link: str | None, hil_count: int, men
         out.append(f"<@{mention}> 결정 대기 {hil_count}건 — {decision_line(seats=seats)}")
     if warn:
         out.append(esc(warn))
+    if malformed:
+        out.append(esc(malformed))  # 쉬운 판 경고(warn)와 별 줄 — 형식 미달 카드 경로 전부(판정 602)
     return "\n".join(out + ([block] if block else []))
 
 

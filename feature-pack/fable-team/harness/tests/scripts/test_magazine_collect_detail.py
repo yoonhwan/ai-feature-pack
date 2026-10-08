@@ -16,6 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _magazine_fakes import DETAIL_FIXTURE, KIT  # noqa: E402,F401
+import magazine_card_shape as shape  # noqa: E402
 import magazine_collect  # noqa: E402
 import magazine_collect_detail as mcd  # noqa: E402
 import magazine_collect_gh as mgh  # noqa: E402
@@ -157,6 +158,62 @@ def test_card_without_required_section_raises(repo):
     put(repo["path"], f"{H}/indices/완성/bad.md", "# 인덱스: 배경 없음\n\n## 골좌표\nx\n\n## 상태\n- y\n")
     commit(repo["path"], "2026-10-07T15:00:00+09:00", "bad card")
     with pytest.raises(MagazineError, match="배경"):
+        detail(repo, ["main"])
+
+
+OLD_FORM = "# 인덱스: 옛 형식\n\n## 배경\n옛 배경\n"  # 상태·골좌표 절이 없는 옛 카드 (제목·배경만)
+
+
+def add_done_cards(repo: dict, *, old: int, good: int) -> None:
+    for i in range(old):
+        put(repo["path"], f"{H}/indices/완성/old-form{i}.md", OLD_FORM)
+    for i in range(good):
+        put(repo["path"], f"{H}/indices/완성/good{i}.md", card(f"정상{i}", CLOSED))
+    commit(repo["path"], "2026-10-07T15:00:00+09:00", "cards")
+
+
+def test_m1_without_opt_in_old_form_card_still_raises(repo, monkeypatch):  # M1
+    monkeypatch.delenv(shape.MODE_ENV, raising=False)
+    add_done_cards(repo, old=1, good=0)
+    with pytest.raises(MagazineError, match="상태"):
+        detail(repo, ["main"])
+
+
+def test_m2_report_mode_moves_old_form_cards_to_malformed_and_logs_error(repo, monkeypatch, capsys):  # M2
+    monkeypatch.setenv(shape.MODE_ENV, "report")
+    add_done_cards(repo, old=1, good=2)
+    d = detail(repo, ["main"])
+    assert len(d["units"]) == 3 and not any("old-form" in u["path"] for u in d["units"])  # card1 + good0 + good1
+    sha = sh(repo["path"], "2026-10-07T16:00:00+09:00", "log", "-1", "--format=%H", "--", f"{H}/indices/완성/old-form0.md")
+    assert d["malformed"] == [{"path": f"{H}/indices/완성/old-form0.md", "team": "harness", "missing": ["상태", "골좌표"], "moved_sha": sha, "ref": "main"}]
+    err = capsys.readouterr().err.splitlines()
+    assert err == [f"ERROR magazine: 형식 미달 카드 {H}/indices/완성/old-form0.md (빠진 절: 상태, 골좌표)"]
+
+
+def test_m3_report_mode_with_only_good_cards_matches_default_output(repo, monkeypatch, capsys):  # M3
+    add_done_cards(repo, old=0, good=2)
+    monkeypatch.delenv(shape.MODE_ENV, raising=False)
+    base = detail(repo, ["main"])
+    monkeypatch.setenv(shape.MODE_ENV, "report")
+    got = detail(repo, ["main"])
+    assert got["malformed"] == [] and base["malformed"] == [] and got == base
+    assert capsys.readouterr().err == ""
+
+
+def test_m4_unknown_mode_value_raises_even_without_old_cards(repo, monkeypatch):  # M4
+    monkeypatch.setenv(shape.MODE_ENV, "reprot")
+    with pytest.raises(MagazineError, match="알 수 없는 값"):
+        detail(repo, ["main"])
+
+
+def test_m5_blob_read_failure_raises_even_in_report_mode(repo, monkeypatch):  # M5
+    monkeypatch.setenv(shape.MODE_ENV, "report")
+
+    def boom(*_a, **_k):
+        raise MagazineError("git show 실패")
+
+    monkeypatch.setattr(mcd, "blob", boom)
+    with pytest.raises(MagazineError, match="git show 실패"):
         detail(repo, ["main"])
 
 

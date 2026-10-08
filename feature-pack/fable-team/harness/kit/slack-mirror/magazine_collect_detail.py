@@ -9,6 +9,7 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, NamedTuple, TypeVar
 
+import magazine_card_shape as shape
 from magazine_collect_git import DOC_PREFIXES, _git
 from magazine_window import MagazineError
 
@@ -70,19 +71,20 @@ def resolve_refs(repo: Path, refs: list[str], start: datetime, end: datetime) ->
     return out
 
 
-def _card(repo: Path, info: dict[str, object], path: str, moved: str) -> dict[str, object]:
+def _card(repo: Path, info: dict[str, object], path: str, moved: str, report: bool = False) -> dict[str, object]:
     text = blob(repo, path, str(info["end_sha"]), moved)
     secs = sections(text)
+    head = next((m.group(1).strip() for ln in text.split("\n")[:3] if (m := TITLE_RE.match(ln))), None)
+    missing = shape.missing_parts(head, [s.head for s in secs])
+    if missing and not report:
+        raise shape.error_for(missing[0], path)
+    if missing:
+        shape.report_line(path, missing)
+        return {"path": path, "team": path.split("/")[1], "missing": missing, "moved_sha": moved, "ref": info["name"]}
 
     def pick(name: str) -> str:
-        for s in secs:
-            if s.head.startswith(name):
-                return s.body.strip()
-        raise MagazineError(f"카드에 `## {name}` 절이 없어요: {path}")
+        return next(s.body.strip() for s in secs if s.head.startswith(name))
 
-    head = next((m.group(1).strip() for ln in text.split("\n")[:3] if (m := TITLE_RE.match(ln))), None)
-    if head is None:
-        raise MagazineError(f"카드 제목(`# …`)이 없어요: {path}")
     state = pick("상태")
     lines = [ln.strip() for ln in state.split("\n")]
     da = DA_RE.search(state)
@@ -93,14 +95,16 @@ def _card(repo: Path, info: dict[str, object], path: str, moved: str) -> dict[st
     }
 
 
-def _units(repo: Path, infos: list[dict[str, object]], span: list[str]) -> list[dict[str, object]]:
+def _units(repo: Path, infos: list[dict[str, object]], span: list[str], report: bool) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """(정상 units, 형식 미달 malformed) — malformed 는 report 모드에서만 생긴다. 같은 경로는 앞 ref 의 판정이 이긴다."""
     seen: dict[str, dict[str, object]] = {}
     for info in infos:
         out = git(repo, "log", str(info["name"]), *span, "-M", "--diff-filter=AR", "--name-status", "--format=%x01%H", "--", CARD_GLOB)
         for sha, path in name_status(out):
             if path.endswith(".md") and path not in seen:
-                seen[path] = _card(repo, info, path, sha)
-    return list(seen.values())
+                seen[path] = _card(repo, info, path, sha, report)
+    rows = list(seen.values())
+    return [r for r in rows if "missing" not in r], [r for r in rows if "missing" in r]
 
 
 def _ranges(diff: str) -> list[tuple[int, int]]:
@@ -164,11 +168,14 @@ def first_wins(rows: list[_Row], key: tuple[str, ...]) -> list[_Row]:
 
 def collect_detail(repo: Path, refs: list[str], start: datetime, end: datetime, merge_shas: list[str]) -> dict[str, Any]:
     repo = Path(repo)
+    report = shape.report_mode()
     infos = resolve_refs(repo, refs, start, end)
     span = [f"--since={start.isoformat()}", f"--until={end.isoformat()}"]
+    units, malformed = _units(repo, infos, span, report)
     return {
         "refs": infos,
-        "units": _units(repo, infos, span),
+        "units": units,
+        "malformed": malformed,
         "verdict_sections": first_wins([s for i in infos for s in _verdict_sections(repo, i)], ("path", "section")),
         "merge_bodies": _merge_bodies(repo, merge_shas),
         "seats_closed": first_wins([s for i in infos for s in _seats_closed(repo, i)], ("path", "line")),

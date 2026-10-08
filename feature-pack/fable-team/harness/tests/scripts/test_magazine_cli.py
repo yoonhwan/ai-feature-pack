@@ -144,7 +144,7 @@ def test_cli_through_real_collect_composition(cli_env, slack, tmp_path, monkeypa
     monkeypatch.setattr(magazine_collect, "collect_git", lambda *a: {k: m[k] for k in ("main", "merges", "docs")})
     monkeypatch.setattr(magazine_collect, "collect_gh", lambda *a: {k: m[k] for k in ("issues_opened", "issues_closed")})
     monkeypatch.setattr(magazine_collect, "collect_mbox", lambda *a: {k: m[k] for k in ("verdicts", "mbox", "seats")})
-    no_detail = {k: [] for k in ("refs", "units", "verdict_sections", "seats_closed", "appendix")} | {"merge_bodies": {}}
+    no_detail = {k: [] for k in ("refs", "units", "malformed", "verdict_sections", "seats_closed", "appendix")} | {"merge_bodies": {}}
     monkeypatch.setattr(magazine_collect, "collect_detail", lambda *a: no_detail)
     monkeypatch.setattr(magazine_collect, "collect_decisions", lambda *a: [])
     monkeypatch.setattr(magazine_collect, "last_comments", lambda *a: {})

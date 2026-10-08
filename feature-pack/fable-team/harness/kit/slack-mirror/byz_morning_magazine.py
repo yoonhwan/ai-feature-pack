@@ -18,6 +18,7 @@ from pathlib import Path
 
 import thread_ledger as lg
 from magazine_block import block_for, planner_seats, record
+from magazine_card_shape import warning_line
 from magazine_emit import Model
 from magazine_git import blob_url, publish_md
 from magazine_pdf import html_to_pdf
@@ -74,6 +75,7 @@ class Made:
     lines: list[str]
     pages: int
     warn: str | None  # 쉬운 판 실패 경고 1줄(뿌리 글·답글·PDF 근거 절에 같은 줄)
+    malformed: str | None = None  # 형식 미달 카드 경고 1줄(뿌리 글 — PDF 첫 화면과 같은 줄)
 
 
 def make_files(model: Model, args: argparse.Namespace) -> Made:
@@ -90,7 +92,7 @@ def make_files(model: Model, args: argparse.Namespace) -> Made:
     if eli5 is not None:
         eli5_path.write_text(eli5, encoding="utf-8")
     pages = html_to_pdf(html_path, pdf_path, f"아침 매거진 {model['date']}")
-    return Made(md_path, html_path, pdf_path, eli5_path if eli5 is not None else None, md, summary.lines, pages, warn)
+    return Made(md_path, html_path, pdf_path, eli5_path if eli5 is not None else None, md, summary.lines, pages, warn, warning_line(model["detail"]["malformed"]))
 
 
 def oldest_epoch(date: str) -> float:
@@ -165,7 +167,7 @@ def run(args: argparse.Namespace) -> int:
     except Exception as e:  # noqa: BLE001 — 어떤 수집·렌더 실패든 «보이게» 알리고 exit 1 (반쪽 매거진 0)
         report_failure(args, e)
         return 1
-    text = root_text(date, made.lines, link, hil, args.mention, made.warn, block, planner_seats(args))
+    text = root_text(date, made.lines, link, hil, args.mention, made.warn, block, planner_seats(args), made.malformed)
     shown = f"md={made.md_path} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'}"
     if args.dry_run:
         print(f"DRY-RUN {shown}\n--- 슬랙 뿌리 글 ---\n{text}")

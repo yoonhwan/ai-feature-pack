@@ -1307,3 +1307,23 @@
   ⑤ 10-09 호 수동 재발행 → Slack 게시 확인 1줄.
   ⑥ 완료 보고 = 랜딩 sha + 재발행 게시 링크.
 - 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §103 판정 602 아침 매거진 수집 중단 — 옛 형식 완성 카드(상태·배경·골좌표 없음)를 «형식 미달 카드» 로 드러내고 계속 발행 (planner 값 ① #67185 · master#21 쪽지 #67187 · 나노 mag602-malformed-cards-report) — 닫힘 · 독립 재현 통과 + 구현 DA r1 APPROVE (byz-harness-arch-claude#23 · 2026-10-09)
+- 골 축: C(배포 발행(슬랙) — 다른 팀 카드 형식 한 장 때문에 전 팀 매거진이 멈추지 않는다 · 형식 미달은 숨기지 않고 매거진 본문과 로그에 보인다).
+- 대상 카드: mag602-malformed-cards-report (대기 `62e8bec6ab` → 진행)
+- 발단(실측): 판정 601(§102) 설치 뒤 수집 dry 가 `magazine_collect_detail.py` `_card` raise 로 중단 — 창 안 완성 카드 중 `design/cfo` 옛 형식 카드가 `## 상태`·`## 골좌표` 등이 없어 매거진 전체가 멈춤(반쪽 결과 금지 설계).
+- 나노 커밋 1개(브랜치 `nano/mag602-malformed-cards-report` · base `e8c5718a8c` · push 0): `4b047d19ed`([feature] 새 `magazine_card_shape.py` — `MAGAZINE_MALFORMED_CARDS` 없음=raise 그대로 · `report`=형식 미달 카드를 units 에서 빼 `detail["malformed"]` + stderr `ERROR magazine: 형식 미달 카드 <path> (빠진 절: …)` · 그 밖 값=raise · 첫 화면(목차 뒤)·Slack 뿌리 글·부록 h3 에 경로 전부 · plist 템플릿 opt-in · install REQUIRED +`magazine_card_shape.py` · 시험 M1~M5 + 새 `tests/scripts/test_magazine_malformed_render.py`) → DA r1(`design/harness/DA-mag602-malformed-cards-report-20261009.md` · model GPT-6 / provider OpenAI) Q1·Q2·Q3 APPROVE.
+- ★arch 독립 재현(#23)★: `4b047d19ed` 아카이브 → `mktemp -d`: collect_detail·malformed_render·collect_mbox·render_full **50 passed** · `tests/harness/test_magazine_plist.sh` ALL PASS · `test_magazine_install_list.sh` ALL PASS · ruff clean.
+  · `tests/scripts -k magazine` 13 failed = base `e8c5718a8c` 와 FAILED 목록 diff 0(이 단위 무관). ★정정★: 그중 `test_magazine_collect_decisions.py` 4건은 판정 601(PR 1059)이 만든 것(직전 `1c2828e1f8` = 9 failed) — §102 의 「cli 5 실패만 기존」 기재는 범위가 좁았다(별 카드 후보).
+  · ★실데이터 읽기 전용 dry★(실제 리포 · DEFAULT_REFS · 창 2026-10-09): env 없음 = RAISE(cfo 카드 `## 상태` 없음 — 지금과 같음) · `Report`(오타) = RAISE(알 수 없는 값) · `report` = raise 0 · units 138 · **malformed 13**(cfo 12 + harness `design/harness/indices/완성/update-tools-20261008.md` 1 — 카드 기재 11 과 다름) · stderr ERROR 13줄 · 그 밖 stderr 0.
+- ★arch 판단 서명★: ①NO SILENT FALLBACK 예외 3요건(opt-in · ERROR 로그 · 사용자에게 보이는 경고) 모두 충족 — 기본은 raise 유지 ②카드 내용 추정·채우기 0(경로·빠진 절 이름만) ③같은 경로 first-wins 선택은 기존 계약 그대로(DA Q2 수락).
+- 별건(카드 밖 · 큐): ①`test_magazine_collect_decisions.py` 4 실패(판정 601 fixture 창 앞 커버 줄) ②기존 9 실패(cli 5 · cli_modes 2 · reattach 1 · summary 1) ③cfo 옛 형식 12장 보정 = cfo 몫(완성 후) ④하네스 `update-tools-20261008.md` `## 배경` 없음 = 하네스 카드 보정.
+- 카드 증거 줄(나노 RESULT #67197): `세트: 4b047d19ed5b7df3487703e0c974e2c88c3b404b · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_detail.py rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 1개) → 병합(`--body-file` · CI 확인과 병합 별 명령).
+  ② `bash scripts/harness-install/slack-mirror/install-magazine.sh`(plist 재생성 · opt-in 포함 · WARN 0 · `--load` 는 ⑥ 에서).
+  ③ 홈 `~/.hermes/scripts/` 의 `magazine_card_shape.py`·`magazine_collect_detail.py`·`magazine_render_full.py`·`magazine_slack.py`·`byz_morning_magazine.py` = 병합 키트 cmp · 홈 plist 에 `MAGAZINE_MALFORMED_CARDS`=`report`.
+  ④ 수집 dry 1회(env `report` · raise 0 · ERROR 13줄 · malformed 13).
+  ⑤ 10-09 호 수동 재발행(env 를 명령에 직접) → 첫 화면·뿌리 글·부록에 «⚠ 형식 미달 카드 13장» 보이는지 1줄.
+  ⑥ planner 보고 뒤 plist 재적재(bootout/bootstrap) · 완료 보고 = 랜딩 sha + 재발행 게시 링크.
+- 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.

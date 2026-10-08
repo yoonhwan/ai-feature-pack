@@ -16,7 +16,7 @@ DETAIL_FIXTURE = {
     "refs": [], "units": [{"team": "harness", "path": "design/harness/indices/완성/창.md",
         "title": "아침 매거진의 요약 창", "why": "읽을 내용을 한눈에 보여줘요. 자세한 내용은 원문에 있어요.",
         "coord": "C", "evidence": ["시험 통과"], "da": "DA.md#§1", "moved_sha": "a" * 40, "ref": "ops/main-base"}],
-    "verdict_sections": [], "decisions": [], "merge_bodies": {}, "issue_evidence": {},
+    "malformed": [], "verdict_sections": [], "decisions": [], "merge_bodies": {}, "issue_evidence": {},
     "open": {"cards": [], "requests": [], "holds": [], "breaches": []}, "seats_closed": [], "appendix": [],
 }
 

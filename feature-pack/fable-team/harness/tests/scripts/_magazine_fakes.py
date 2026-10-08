@@ -48,6 +48,7 @@ def detail_fixture() -> dict:
             "coord": "하네스 GOAL 표 / 닫는 증거: …", "evidence": ["- 세트: " + "d" * 40 + " · 시험: pytest rc=0 · 이슈: 0"],
             "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "ops/main-base",
         }],
+        "malformed": [],
         "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§3", "title": "예시 판정 — 닫힘", "body": "판정 본문 전문"}],
         "decisions": [{
             "n": 354, "ts": "2026-10-08T07:10:00", "to": "byz-harness-master-claude#12", "body": "판정 354 본문 전문",

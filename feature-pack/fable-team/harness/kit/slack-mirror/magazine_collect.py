@@ -31,6 +31,7 @@ def _detail(repo: Path, refs: list[str], byz_root: Path, mailbox: Path, gh_repo:
     return {
         "refs": d["refs"],
         "units": d["units"],
+        "malformed": d["malformed"],
         "verdict_sections": d["verdict_sections"],
         "decisions": collect_decisions(mailbox, start, end),
         "merge_bodies": d["merge_bodies"],

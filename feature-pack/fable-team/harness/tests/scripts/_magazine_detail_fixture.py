@@ -21,6 +21,7 @@ def detail_fixture(extra_lines: int = 0) -> dict:
                    "why": "제안서를 한곳에서 낸다.\n두 번째 줄 — 이슈 #885 참고 (seat claude#13)", "coord": "C축 / 닫는 증거: 세트 줄",
                    "evidence": ["세트: " + "c" * 40 + " · 시험: pytest rc=0 · 이슈: 0"], "da": "design/harness/DA-x.md#§3",
                    "moved_sha": "d" * 40, "ref": "origin/main"}],
+        "malformed": [],
         "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§47", "title": "판정 352", "body": "본문 1\n본문 2\n\n본문 4"}],
         "decisions": [
             {"n": 352, "ts": "2026-10-07T20:00:00+09:00", "to": "byz-harness-master-claude#12", "body": "판정 352 제안서 흐름 확정",
