@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import thread_ledger as lg
+from magazine_block import block_for, record
 from magazine_emit import Model
 from magazine_git import blob_url, publish_md
 from magazine_pdf import html_to_pdf
@@ -148,6 +150,8 @@ def run(args: argparse.Namespace) -> int:
         date, model = resolve(args)
         ts = None if args.force else done_ts(Path(args.state).expanduser(), date)
         if ts is not None:  # §8 순서: 창 → 상태 읽기(done 이면 끝) → 수집… — 이미 발행한 날은 수집·요약·PDF·push 0
+            if not args.dry_run:
+                record(args, date, ts)  # 게시는 됐는데 앞 실행이 장부를 못 쓴 경우를 여기서 메운다(이미 있으면 그대로)
             print(f"skip date={date} ts={ts} (이미 발행됨 — 재첨부는 --reattach rN, 새 뿌리 글은 --force)")
             return 0
         model = model or collect_model(args, date)
@@ -155,10 +159,13 @@ def run(args: argparse.Namespace) -> int:
         hil = len(model["mbox"].get("hil", []))
         push = not (args.no_push or args.dry_run)
         link = blob_url(args.repo, publish_md(Path(args.worktree), made.md, made.md_path.name, date), made.md_path.name) if push else None
+        block = block_for(args, made.md_path.name, hil, push)
+        if not args.dry_run:
+            lg.load(Path(args.ledger).expanduser())  # 장부가 없거나 손상이면 게시 «전» 에 raise(빈 장부 흡수 0)
     except Exception as e:  # noqa: BLE001 — 어떤 수집·렌더 실패든 «보이게» 알리고 exit 1 (반쪽 매거진 0)
         report_failure(args, e)
         return 1
-    text = root_text(date, made.lines, link, hil, args.mention, made.warn)
+    text = root_text(date, made.lines, link, hil, args.mention, made.warn, block)
     shown = f"md={made.md_path} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'}"
     if args.dry_run:
         print(f"DRY-RUN {shown}\n--- 슬랙 뿌리 글 ---\n{text}")
@@ -168,6 +175,11 @@ def run(args: argparse.Namespace) -> int:
         res = publish_day(target(args), day, Path(args.state).expanduser(), force=args.force, force_root=args.force_root, force_file=tuple(args.force_file))
     except (RuntimeError, OSError) as e:
         LOG.error("게시 실패: %s: %s", type(e).__name__, e)
+        return 1
+    try:
+        record(args, date, res["ts"], replace=args.force or args.force_root)
+    except (RuntimeError, OSError) as e:
+        LOG.error("장부 기록 실패: %s: %s", type(e).__name__, e)
         return 1
     print(f"{res['action']} date={date} ts={res['ts']} {shown}")
     return 0

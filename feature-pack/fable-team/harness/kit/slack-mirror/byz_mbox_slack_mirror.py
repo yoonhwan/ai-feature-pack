@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
 import mirror_questions as mq  # noqa: E402
+import resume_block as rb  # noqa: E402
 from mirror_deliver import Deliverer, seed_threads  # noqa: E402
 
 API = "https://slack.com/api"
@@ -53,6 +54,9 @@ class Mirror:
         self.log = Path(a.mailbox)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
         self.seat = re.compile(a.seat)
+        self.resume_script = Path(a.resume_script) if a.resume_script else self.log.resolve().parent.parent / "bin" / "ft-resume-cmd.sh"
+        if not self.resume_script.is_file():
+            raise lib.MirrorError(f"재개 명령 스크립트 없음: {self.resume_script} (--resume-script)")
         self.token = "" if a.dry_run else lib.read_token(Path(a.token_file).expanduser())
         self.threads_path = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json"
         self.qpath = Path(a.state_dir) / f"byz_slack_questions.{a.channel}.json"
@@ -138,8 +142,8 @@ class Mirror:
         question = {"key": key, "seat": str(r.get("from", "")), "what": what, "options": opts} if label == "HIL" else None
         self._close_answered(r, key)
         self.deliver(st, {"id": f"#{s}", "seq": s, "key": key, "url": url, "what": what, "question": question,
-                          "text": lib.format_row(r, label, self.a.mention, summary, text, full, urls,
-                                                 mq.format_options(opts, s) if label == "HIL" else None)})
+                          "text": lib.format_row(r, label, self.a.mention, summary, text, block=rb.mirror_block(r, label, self.resume_script),
+                                                 full=full, urls=urls, options_text=mq.format_options(opts, s) if label == "HIL" else None)})
 
 
 def parse() -> argparse.Namespace:
@@ -155,6 +159,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--summarizer-cmd", default=summ.DEFAULT_CMD, help="프롬프트를 stdin 으로 받아 JSON 을 stdout 으로 내는 명령")
     p.add_argument("--summary-timeout", type=float, default=90.0)
     p.add_argument("--api-base", default=API)
+    p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <mailbox 폴더 상위>/bin/ft-resume-cmd.sh)")
     p.add_argument("--interval", type=float, default=5.0)
     p.add_argument("--once", action="store_true")
     p.add_argument("--dry-run", action="store_true")

@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from _magazine_detail_fixture import EASY_HTML, detail_fixture, fake_eli5, fake_full_model, fake_pdf
 from _magazine_fakes import SUMMARY_OK, FakeMagazineSlack, fake_model, git, make_repo
+from _thread_fakes import ledger, resume_script, seats
 
 import byz_morning_magazine as cli
 import magazine_collect
@@ -39,7 +40,8 @@ def cli_env(slack, tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "html_to_pdf", fake_pdf())
     monkeypatch.setitem(sys.modules, "magazine_eli5", fake_eli5())
     base = ["--model-file", str(tmp_path / "model.json"), "--summary-cmd", f"python3 {tmp_path / 'sum.py'}", "--out-dir", str(tmp_path / "out"),
-            "--state", str(tmp_path / "state.json"), "--token-file", str(tmp_path / "tok"), "--slack-base", slack.base, "--channel", "C1"]
+            "--state", str(tmp_path / "state.json"), "--token-file", str(tmp_path / "tok"), "--slack-base", slack.base, "--channel", "C1",
+            "--ledger", str(ledger(tmp_path)), "--seats-file", str(seats(tmp_path)), "--resume-script", str(resume_script(tmp_path))]
     return base, tmp_path
 
 
@@ -171,3 +173,19 @@ def test_force_ignores_done_and_republishes(cli_env, slack):
     base, tmp = cli_env
     (tmp / "state.json").write_text(json.dumps({DATE: {"phase": "done", "ts": "1.0"}}))
     assert cli.main([*base, "--no-push", "--force"]) == 0 and len(slack.roots) == 1
+
+
+def test_cli_root_carries_block_and_ledger_gets_a_report_key(cli_env, slack, tmp_path):
+    """매거진 뿌리 글 끝에 블록(Issue·카드 없음 · 담당 = 좌석표 _master · 다음 = 오빠 할 일 N건) + 장부 magazine/<날짜> kind=report."""
+    base, tmp = cli_env
+    assert cli.main([*base, "--no-push"]) == 0
+    text = slack.roots[0]["text"]
+    assert "↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 master#1 · 정본 없음" in text and "↳ 다음: 오빠 할 일 " in text and "재개: RESUME-CMD(master#1)" in text
+    rec = json.loads((tmp / "threads.json").read_text())[f"magazine/{DATE}"]
+    assert rec["kind"] == "report" and rec["root_ts"] == slack.roots[0]["ts"] and rec["results"] == []
+
+
+def test_cli_without_ledger_raises_before_any_post(cli_env, slack, tmp_path):
+    base, tmp = cli_env
+    (tmp / "threads.json").unlink()
+    assert cli.main([*base, "--no-push"]) == 1 and slack.msgs[0]["text"].startswith("매거진 발행 실패") and len(slack.roots) == 1

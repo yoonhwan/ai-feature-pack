@@ -178,20 +178,15 @@ def root_marker(key: str) -> str:
     return f"{esc(key)} 시작"
 
 
-def format_row(row: dict[str, object], label: str, mention: str, summary: dict[str, str | None] | None, text: str,
+def format_row(row: dict[str, object], label: str, mention: str, summary: dict[str, str | None] | None, text: str, *, block: str,
                full: str | None = None, urls: list[str] | None = None, options_text: str | None = None) -> str:
-    """사람 말 3줄 — 1줄 무슨 일 · 2줄 오빠 할 일 · 3줄 소문자 꼬리. summary 가 None 이면 원문 첫 문장(꼬리에 표시)."""
+    """사람 말 — 1줄 무슨 일 · 2줄 오빠 할 일 · (요약 실패 시 「원문 그대로」 1줄) · 이어가기 블록 2줄(꼬리 · resume_block)."""
     what = summary["what"] if summary else first_sentence(text)
     todo = summary["todo"] if summary else None
     if label == "HIL" and not todo:
         todo = "판정이 필요해요 — 전문을 확인해 주세요"
     who = f"<@{mention}> " if label == "HIL" and mention else ""
-    tail = [esc(row.get("from", "?")), f"#{row.get('seq')}"]
-    if row.get("body_full"):
-        tail.append(f"전문 {esc(row['body_full'])}")
-    if summary is None:
-        tail.append("원문 그대로")
-    head = f"{esc(what)}\n{who}{esc(todo) if todo else '할 일 없음'}\n({' · '.join(tail)})"
+    head = f"{esc(what)}\n{who}{esc(todo) if todo else '할 일 없음'}" + ("\n(원문 그대로)" if summary is None else "") + f"\n{block}"
     head = head + (f"\n{options_text}" if options_text else "")
     head = head + ("\n링크: " + " ".join(esc(u) for u in urls) if urls else "")
     return head + format_full(full) if full else head

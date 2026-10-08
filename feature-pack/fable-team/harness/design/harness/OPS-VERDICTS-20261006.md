@@ -401,3 +401,16 @@
 - 라이브 반영(master · 카드 순서 고정): ①명부 — 틱 있는 좌석표 _master 유효 확인(cfo·feature·loom·ops 유효 · kk 는 tick 비활성이라 _master 추가만) ②ft-tick-team.sh → .fable-team/bin-{cfo,feature,kk,loom,ops}/ft-tick.sh cp+cmp(이름 유지 · plist 무변경) · 키트 ft-tick.sh → .worktrees/v6-realtime-live/.fable-team/bin/ft-tick.sh cp+cmp ③plist bootout→bootstrap ④닫는 증거 = 팀 틱 로그 master sent to <_master 값> 1줄 + ERROR·WARN 0줄(feature 가 지금 유일한 활성 뉴스 틱).
 - 정본 영향 없음: 하네스 틱·시험만 — docs/architect 제품 정본 변경 없음. 두 틱 판 합치기는 이 카드 밖(완성 후).
 - 카드 증거 줄: 세트: 6dc923936dac0033a16ab5ec9e35ca642418d1cf · 시험: bash tests/harness/test_ft_tick_master_seat.sh rc=0 · 이슈: 0
+
+## §55 슬랙 이어가기 블록 + 단일 발행 입구 byz_thread_post + 스레드 장부 (판정 404 ② 카드 1/2 · 나노 resume-block-thread-post) — 닫힘 (byz-harness-arch-claude#12 · master#14 #62385 · 2026-10-08)
+- 나노 커밋 `8dd7baf719` [feature] 이어가기 블록 + byz_thread_post + 장부 · `15a2081450` [fix] test_resume_cmd.sh SC2155(반송 1차). 브랜치 nano/resume-block-thread-post(base b637db62b5) · 25파일 +1098/−31 · 새 파일 최대 191줄(byz_thread_post.py).
+- 설계 DESIGN-resume-index-20261008.md r1(판정 405 채널 #byz-planner 하나) · DA HOLD-1(I1 장부 부재=미게시 오판 / I2 미러 본문 첫 인용 / I3 jsonl 이름 검색) → 교정 1 APPROVE(design/harness/DA-resume-index-20261008.md §8·§9).
+- master 독립 검증(#62385): pytest 74 · 매거진 187 · test_resume_cmd·kit_bin_sync·제안서 시험 ALL PASS · ruff 0 · shellcheck 경고급 0.
+- arch 재현(#12): ①`pytest test_thread_post.py test_proposal_publish.py test_proposal_publish_faults.py test_byz_mbox_slack_mirror.py` 69 passed ②`pytest tests/scripts -k magazine` 187 passed ③`bash tests/harness/test_resume_cmd.sh` ALL PASS ④`test_kit_bin_sync.sh` ALL PASS ⑤ruff All checks passed ⑥새 파일 7개 전부 200줄 이하.
+- 설계 계약 소스 대조: ①블록 6칸 — None·빈 값 raise(BlockError) · 고정 2줄 · esc 중화(resume_block.block) ②정본 = `<경로>@<sha8>` · 추적 밖·미커밋·이력 없음 raise(canon_ref) ③재개 = ft-resume-cmd.sh — 정확한 tmux 이름 ring · 아니면 좌석표 행 session_uuid·cwd·agent=claude + jsonl sessionId·cwd 일치만 resume(printf %q) · 그 밖 rc 3 「없음(…)」 · jsonl 본문 이름 검색 0(I3) ④미러 블록 Issue·카드 = 없음 고정 · 담당 = 행 from · 정본 = bodies/<seq>.txt@mbox(I2) ⑤장부 없음·손상·쓰기 실패 raise · 빈 장부는 --init 만 · 키 = 불변 단위 ID(thread_ledger · I1) ⑥start = 카드에 「- 슬랙: … 시도」 선기록 → 뿌리 글 1개 → 카드 줄 root_ts 로 갱신 → 장부 → 첨부는 같은 스레드 · 이미 시작·카드 줄 있음 = REJECT ⑦result = `[결과] <단위 ID>` 첫 줄 · 재실행 시 스레드 표식 먼저 찾아 재발송 0 · kind=report 면 거부 ⑧check rc 0(미게시·결과 있음·report) / 1(결과 없음) / 3(장부 오류·키 없음·root_ts 없음·«시도»뿐) ⑨kind=report 는 CLI 인자 없음(매거진 발행기 ensure_report 만) ⑩--bot 은 result 서브명령에만.
+- 관찰(반송 아님): ①`result --bot hermes` 가 `--legacy-root` 없이도 받아들여진다(도움말 「소급 전용」 · 강제 0) — 카드 2 또는 소급 집행 때 master 가 --legacy-root 와 함께만 쓴다 ②check 는 카드 줄 root_ts 와 장부 root_ts 의 일치까지는 보지 않는다(둘 다 있으면 통과) — 불일치는 repair 경로에서만 드러남.
+- 반송 1회(#62408): 카드 증거 줄 누락 → 나노 추가 뒤 ft-nano-evidence-check OK 확인(아래 증거 줄).
+- 최종 DA 소환: 안 함 — 교정 1 APPROVE 범위 안 · 계약 10개 소스·시험으로 확인.
+- 라이브 반영(master · 카드 밖): install.sh·install-magazine.sh 로 slack-mirror 복사(cmp) · 장부 `byz_thread_post.py --init` 1회 · 라이브 1회 = 다음 제안서·매거진 뿌리 글 꼬리 블록 2줄 + 미러 답글 꼬리 블록 2줄. 그 뒤 카드 2(result-reply-close-gate) spawn.
+- 정본 영향 없음: 하네스 슬랙 발행 도구·시험만 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: 세트: 15a2081450f4713d007d39a8f6ce9608fe7915bb · 시험: python -m pytest tests/scripts/test_thread_post.py -q rc=0 · 이슈: 0

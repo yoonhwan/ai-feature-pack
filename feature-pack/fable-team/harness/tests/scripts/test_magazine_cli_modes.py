@@ -9,6 +9,7 @@ import sys
 import pytest
 from _magazine_detail_fixture import EASY_HTML, fake_eli5, fake_full_model, fake_pdf
 from _magazine_fakes import SUMMARY_OK, FakeMagazineSlack
+from _thread_fakes import ledger, resume_script, seats
 
 import byz_morning_magazine as cli
 
@@ -30,6 +31,7 @@ def env(slack, tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "magazine_eli5", fake_eli5())
     base = ["--model-file", str(tmp_path / "model.json"), "--summary-cmd", f"python3 {tmp_path / 'sum.py'}", "--out-dir", str(tmp_path / "out"),
             "--state", str(tmp_path / "state.json"), "--token-file", str(tmp_path / "tok"), "--slack-base", slack.base, "--channel", "C1",
+            "--ledger", str(ledger(tmp_path)), "--seats-file", str(seats(tmp_path)), "--resume-script", str(resume_script(tmp_path)),
             "--date", DATE, "--no-push"]
     return base, tmp_path
 
@@ -100,7 +102,7 @@ def test_eli5_failure_is_visible_in_log_root_and_pdf_section_and_pdf_continues(e
         assert cli.main(base) == 0
     root = slack.roots[0]
     assert "본문은 스레드의 PDF(풀 디테일)에 있어요" in root["text"] and "HTML(쉬운 판)" not in root["text"]  # 쉬운 판이 없으면 안내하지 않는다
-    assert root["text"].splitlines()[-1] == f"{WARN_PREFIX}형식 오류 &lt;@U123&gt;"  # 뿌리 글 마지막 줄 · 원인 첫 줄 · 중화
+    assert root["text"].splitlines()[-3] == f"{WARN_PREFIX}형식 오류 &lt;@U123&gt;"  # 경고 줄 = 블록 2줄 바로 앞 · 원인 첫 줄 · 중화
     md = (tmp / "out" / "MAGAZINE-20261008.md").read_text(encoding="utf-8")
     assert f"{WARN_PREFIX}형식 오류 <@U123>" in md.split("## 근거")[1].split("## ")[0]  # PDF 근거 절에 같은 줄
     assert any("쉬운 판(eli5) 생성 실패" in r.message for r in caplog.records if r.levelno == logging.ERROR)
@@ -122,7 +124,7 @@ def test_missing_eli5_module_is_a_visible_failure_not_a_silent_skip(env, slack, 
     base, _ = env
     monkeypatch.setitem(sys.modules, "magazine_eli5", None)  # import → ImportError
     assert cli.main(base) == 0
-    assert slack.roots[0]["text"].splitlines()[-1].startswith(WARN_PREFIX) and "magazine_eli5" in slack.roots[0]["text"]
+    assert slack.roots[0]["text"].splitlines()[-3].startswith(WARN_PREFIX) and "magazine_eli5" in slack.roots[0]["text"]
 
 
 def test_unexpected_eli5_bug_fails_the_whole_publish_visibly(env, slack, monkeypatch):

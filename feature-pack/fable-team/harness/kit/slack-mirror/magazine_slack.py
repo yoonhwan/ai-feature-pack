@@ -37,7 +37,7 @@ def eli5_warning_line(cause: str) -> str:
     return f"쉬운 판(HTML) 못 만들었어요 — {first}"
 
 
-def root_text(date: str, lines: list[str], link: str | None, hil_count: int, mention: str, warn: str | None = None) -> str:
+def root_text(date: str, lines: list[str], link: str | None, hil_count: int, mention: str, warn: str | None = None, block: str | None = None) -> str:
     out = [root_text_first_line(date)] + [esc(x) for x in lines]
     where = "PDF(풀 디테일)" if warn else "PDF(풀 디테일)·HTML(쉬운 판)"  # 쉬운 판이 없는 날(warn)은 HTML 을 안내하지 않는다
     out.append(f"<{esc(link)}|매거진 본문>" if link else f"본문은 스레드의 {where}에 있어요")
@@ -45,7 +45,7 @@ def root_text(date: str, lines: list[str], link: str | None, hil_count: int, men
         out.append(f"<@{mention}> 오빠 할 일이 {hil_count}건 있어요")
     if warn:
         out.append(esc(warn))
-    return "\n".join(out)
+    return "\n".join(out + ([block] if block else []))
 
 
 def failure_text(cause: str) -> str:

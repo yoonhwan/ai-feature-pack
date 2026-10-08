@@ -35,6 +35,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--worktree", default=os.environ.get("MAGAZINE_WORKTREE", f"{root}/.worktrees/ops-magazine"))
     p.add_argument("--repo-root", default=root, help="자료 수집용 git 리포 루트 (기본 $BYZ_ROOT)")
     p.add_argument("--mailbox", default=os.environ.get("MAGAZINE_MAILBOX", ""), help="mbox 사본 jsonl (기본 <repo-root>/.fable-team/comm/mailbox.log.jsonl)")
+    p.add_argument("--ledger", default=str(HOME / ".hermes/state/byz_threads.json"), help="스레드 장부(없으면 raise — byz_thread_post.py --init)")
+    p.add_argument("--seats-file", default="", help="이어가기 블록 담당(_master) 좌석표 (기본 <repo-root>/.fable-team/seats-harness.json)")
+    p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <repo-root>/.fable-team/bin/ft-resume-cmd.sh)")
     args = p.parse_args(argv)
     if args.reattach and (args.force or args.force_root):
         p.error("--reattach 는 --force·--force-root 와 같이 쓸 수 없어요 (새 뿌리 글을 막기 위해 — 원격 호출 전 거부)")
