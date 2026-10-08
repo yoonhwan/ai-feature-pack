@@ -925,3 +925,19 @@
   - ⓪ harness 행 제목에 `〔문구 생략〕` 1곳(v421 슬랙 최종 출력 scrub 이 카드 제목의 `reply_pending` 글자를 답장 요구로 봄) — 표시 전용 · v421 정책대로 동작 · 거슬리면 별 카드.
   - ④ 「오늘 판정 없음」 — ④ 원천(판정 원장 jsonl)에 ops 판정서(§77~§83)가 안 들어감 · 원장 연결은 별 카드 후보.
 - 정본 영향 없음: 하네스 도구·슬랙 발행 스크립트·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §84 planner 보고 의무 훅 2종 — report-coverage(Stop · 턴 끝 미닫힘 ①~④ 를 턴 키당 1회 block · 최종 답변의 「쪽지 #<seq>」 로 `ft-inbox report`) · drain-before-interview(PreToolUse AskUserQuestion · 함 미비움 턴 키당 1회 deny) (판정 423 ① · 430·431 · 설계 §3 · v423 분할 2/3 · 나노 v423b-report-hooks) — 닫힘 (byz-harness-arch-claude#19 · 2026-10-08) · ★훅 등록 보류★
+- 대상 카드: v423b-report-hooks
+- 나노 커밋 2개(브랜치 `nano/v423b-report-hooks` · base ops/main-base · 좌석 byz-harness-nano-v423b-report-hooks#0 Sonnet 5.5 · push 0 · 새 파일 4 · 기존 파일 변경 0):
+  ①`0c466f66ca`([feature] `scripts/harness-install/fable-team/templates/hooks/report-coverage.sh`(126줄) · `scripts/harness-install/fable-team/templates/hooks/drain-before-interview.sh`(106줄) · `tests/harness/test_report_hooks.sh`(114줄) · `tests/harness/fixtures/stub-ft-inbox.py`(48줄)) → 구현 DA r1(`design/harness/DA-v423b-report-hooks-20261008.md`) Q1 영구 차단 0 · Q2 턴 키 · Q4 drain = APPROVE · **Q3 HOLD**(맨 `#숫자` 를 쪽지 seq 로 봐 「PR #70001 병합」이 쪽지 70001 보고로 섬) → arch#18 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423b-report-hooks-r1.md` · 식별 규칙 = `쪽지 #<seq>` 꼴만 · 오류 로그 `state/hook-errors.log` 한 곳).
+  ②`8567db0923`([fix] `cited()` = 「쪽지」 접두 뒤 `·`/`,` 로 이은 `#<seq>` 묶음만 · PR·Issue·이슈·맨 `#숫자` = 0 · 인용 `>` 줄 제외 · block 문구 「쪽지 #seq」 · 두 훅 LOG = `<FT_ROOT>/.fable-team/state/hook-errors.log`(`ft_inbox_core.HOOK_ERRORS` 와 같은 파일 · 줄 머리 훅 이름 유지) · 시험 ①~⑦ 추가).
+- ★arch 독립 재현(#19)★: origin/main `b4ce4ab0a5` 아카이브 + `git diff 44e45993f6 8567db0923`(나노 커밋 2개만) 적용 → 스크래치패드 새 폴더: `test_report_hooks.sh` rc=0(**24 PASS** · ①PR/Issue/이슈/맨 `#70001` → report 0 ②`쪽지 #70001` → 70001 ③`쪽지 #70001·#70002` → 둘 다 ④묶음 G 일부 인용 → 인용분만 reported · 나머지 block 대상 유지 ⑤`last_assistant_message` 우선 ⑥오류 줄 `state/hook-errors.log` · `state/inbox/hook-errors.log` 생성 0 ⑦변이 대조 = 접두 조건 제거 시 「PR #70001」 보고) · `test_kit_bin_sync.sh` rc=0. 나노 보고: bash -n · 755 · 실제 ft-inbox(origin/main)로도 통과(스텁 실패 주입 3건 제외).
+- 구현 DA: r1 HOLD(Q3) → r2 **APPROVE**(같은 판정문 `## r2` · 실행 헤더 model GPT-6 / provider OpenAI · bounded Q3r2 + 시험 ①~⑤ · `report-coverage.sh:73-78` cited · `:96`·`:100-103` 입력 우선 · 순수 함수 독립 8 cases) — 요청서 `design/harness/DA-REQ-v423b-report-hooks-20261008.md` r2 절(ops 2b24b99b85).
+- 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: 8567db092392521683d3e2bc2de8c8fc0d5eb284 · 시험: bash tests/harness/test_report_hooks.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: 원 카드 v423 — `design/harness/DA-news-board-20261009.md` 2 HOLD 로 리뷰 종료 → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 분할(arch#18 09c5159790)은 범위 부분집합.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main · 나노 커밋 2개만 — base 가 ops/main-base 라 ops 문서 유입 검사) → 병합 → 템플릿 2파일 라이브 반영(cp+cmp).
+  ★**훅 등록 보류**★ — planner 좌석 settings 등록은 planner 인박스 21:38 이전 미닫힘 79건(①~④) 처리 판정이 난 뒤에만. 지금 등록하면 등록 즉시 매 턴 block 대상이 79건(설계상 턴 키당 1회라 영구 차단은 아님 · 그래도 첫 턴부터 오빠께 79건 보고 압박). 판정 = planner(오빠 컨펌) · 등록·첫 2일 관찰(block/deny 횟수 · hook-errors.log 줄 수) = master.
+- 남는 일(카드 밖):
+  - 완성 전: v423c(미러 요약기 할 일 금지 · Haiku 5.5 · mbox ①~④ doorbell · 회신 상한 제외) — 판정 545 순서 다음.
+  - 완성 후: 원장 R57(Haiku 분류 rc=1 연속 → 「미상」 쪽지가 ①~④ 훅 대상에서 빠짐) — 미상 포함 여부 판정 · 분류 실패 원인 규명.
+- 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.

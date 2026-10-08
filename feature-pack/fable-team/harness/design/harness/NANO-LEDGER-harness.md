@@ -79,3 +79,4 @@
 - **[2026-10-08 22:30 KST, `date` 실측] `byz-harness-nano-v511-seat-stall-cell#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v511-seat-stall-cell.md` ②회수 seq 65334 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 22:40 KST, `date` 실측] `byz-harness-nano-r49-question-board#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r49-question-board.md` ②회수 seq 65389 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 3파일 보관)
 - **[2026-10-08 22:50 KST, `date` 실측] `byz-harness-nano-r53-nano-close-jsonl-last-ts#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r53-nano-close-jsonl-last-ts.md` ②회수 seq 65483 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-08 23:11 KST, `date` 실측] `byz-harness-nano-v423a-board-publish#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v423a-board-publish.md` ②회수 seq 65588 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=cleaned(ignored 3파일 보관)
