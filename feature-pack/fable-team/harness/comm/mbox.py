@@ -62,6 +62,7 @@ RATE_WIN = int(os.environ.get("FT_MBOX_RATE_WINDOW") or 60)       # 그 창(초)
 # ★2026-09-02 재발신 쿨다운★ — 큐잉은 «가져가기» 방식이므로 pending 동안 재발신 금지.
 # N초 경과 후 1회 허용(재발신이 기록을 갱신하므로 자연히 «1회씩»). 그 전엔 pane 캡처로 확인.
 RESEND_COOL = int(os.environ.get("FT_MBOX_RESEND_COOLDOWN") or 300)
+EXEMPT_CAP = int(os.environ.get("FT_MBOX_EXEMPT_CAP") or 1000)    # 회신 면제 행 보존 상한(가드 로그 전체) — 넘으면 새 면제를 내주지 않는다(fail-closed)
 RECV_LIMIT = int(os.environ.get("FT_MBOX_RECV_LIMIT") or 5)       # recv 기본 표시 건수
 RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"    # 긴 본문의 정본 자리
 # ★2026-09-06 — 전문 파일은 «시간»으로 자른다★
@@ -341,15 +342,66 @@ def _body_hash(body):
     return hashlib.md5(body.encode("utf-8")).hexdigest()
 
 
-def _guard_record(to, frm, body):
+_HEAD_PREFIX = re.compile(r"^\s*\[[^\]]*->[^\]]*\]\s*")  # 본문 머리 `[from->to]`
+_REPLY_REF = re.compile(r"쪽지 ?#(\d{4,})((?:[·,] ?#\d{4,})*)")  # 회신 인용 = `쪽지 #<seq>`(+ `·#<seq>`) 꼴만 — `PR #N`·맨 `#N` 은 회신 아님
+
+
+def _reply_seqs(body):
+    out = []
+    for m in _REPLY_REF.finditer(_HEAD_PREFIX.sub("", body, 1)[:80]):
+        out += [int(m.group(1))] + [int(x) for x in re.findall(r"#(\d+)", m.group(2))]
+    return list(dict.fromkeys(out))
+
+
+def _received_seqs(frm):
+    """frm 이 받은 쪽지 seq — 큐(아직 안 읽은 것) + 보낸 행 사본(읽혀 큐에서 빠진 것)."""
+    got = {r.get("seq") for r in _load(CANON) if r.get("to") == frm}
+    for p in (os.path.join(CANON, SENT_LOG) + ".1", os.path.join(CANON, SENT_LOG)):
+        try:
+            with open(p, encoding="utf-8") as f:
+                got |= {r.get("seq") for r in map(_json_or_empty, f) if r.get("to") == frm}
+        except OSError:
+            pass
+    return got
+
+
+def _json_or_empty(ln):
+    try:
+        return json.loads(ln)
+    except ValueError:
+        return {}
+
+
+def _is_exempt_row(r):
+    return isinstance(r.get("r"), list) and bool(r["r"])  # 옛 기록 `r: 1`(int) 은 면제 행으로 보지 않는다(호환)
+
+
+def _reply_exempt(frm, body, log):
+    """이번 발신이 발신 상한(RATE)에서 면제받는 seq 목록(판정 423 ④) — send() 가 잠금 안에서 «한 번» 계산해 verdict·record 에 넘긴다.
+    면제 = 본문 앞 80자의 `쪽지 #<seq>` 중 frm 이 받은 seq 이고 같은 frm 의 가드 기록(log)에서 아직 면제에 안 쓴 것 — 받은 seq 1개당 1회."""
+    seqs = _reply_seqs(body)
+    if not seqs:
+        return []
+    if sum(1 for r in log if _is_exempt_row(r)) >= EXEMPT_CAP:  # 이력이 잘렸을 수 있는 상태 — 새 면제를 내주지 않는다(RATE 셈에 들어감)
+        sys.stderr.write("WARN EXEMPT_CAP reached (%d) — 이번 발신은 회신 면제 없음(RATE 셈 포함)\n" % EXEMPT_CAP)
+        return []
+    used = {x for r in log if r.get("f") == frm and isinstance(r.get("r"), list) for x in r["r"]}
+    cand = [x for x in seqs if x not in used]
+    return [x for x in cand if x in _received_seqs(frm)] if cand else []
+
+
+def _guard_record(to, frm, body, exempt=()):
     now = time.time()
     log = [r for r in _guard_log() if now - r.get("t", 0) < max(FANOUT_WIN, RATE_WIN)]
-    log.append({"t": now, "f": frm, "to": to, "h": _body_hash(body)})
+    log.append({"t": now, "f": frm, "to": to, "h": _body_hash(body), "r": list(exempt)})
+    # 면제 사용 이력은 200행 절단과 분리해 보존 — 절단으로 같은 seq 가 재면제되던 경로(DA r2 Q1) 차단
+    ex = [r for r in log if _is_exempt_row(r)]
+    log = sorted([r for r in log if not _is_exempt_row(r)][-200:] + ex[-EXEMPT_CAP:], key=lambda r: r.get("t", 0))
     with open(_GUARD, "w", encoding="utf-8") as f:
-        json.dump(log[-200:], f)
+        json.dump(log, f)
 
 
-def _guard_verdict(to, frm, body):
+def _guard_verdict(to, frm, body, exempt=()):
     """통과면 None, 아니면 (reason, hint). 판정만 하고 기록은 _guard_record 가 한다."""
     if not body.strip():
         return ("EMPTY_BODY", "빈 메시지는 받는 쪽을 깨우기만 하고 아무것도 전하지 않는다.")
@@ -383,8 +435,9 @@ def _guard_verdict(to, frm, body):
         return ("FANOUT from=%s already_sent_to=%s" % (frm, ",".join(others)),
                 "같은 본문을 여러 좌석에 뿌리지 않는다 — 필요한 한 좌석만. "
                 "공지가 필요하면 파일에 쓰고 경로만 알린다.")
-    recent = sum(1 for r in log if r.get("f") == frm and now - r.get("t", 0) < RATE_WIN)
-    if recent >= RATE_N:
+    # 면제(exempt = 받은 쪽지 `쪽지 #seq` 회신)는 상한을 세지도 걸리지도 않는다 — 다른 가드(fan-out·재발송 쿨다운)는 그대로. 옛 기록 `r: 1`(int)도 «면제였음».
+    recent = sum(1 for r in log if r.get("f") == frm and not r.get("r") and now - r.get("t", 0) < RATE_WIN)
+    if recent >= RATE_N and not exempt:
         return ("RATE_LIMIT from=%s %d sends/%ds" % (frm, recent, RATE_WIN),
                 "연속 발신 상한. 받는 쪽이 읽고 답할 시간을 준다.")
     return None
@@ -414,9 +467,11 @@ def send(to, frm, body, force=False):
         # ★F6: 가드 판정을 잠금 «안»에서(load 직후) — 밖이면 동시 send 가 서로의 큐를 못 봐 둘 다 통과.
         # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
         try:
-            verdict = None if force else _guard_verdict(to, frm, body)
+            window = max(FANOUT_WIN, RATE_WIN)
+            exempt = _reply_exempt(frm, body, [r for r in _guard_log() if time.time() - r.get("t", 0) < window])
+            verdict = None if force else _guard_verdict(to, frm, body, exempt)
         except Exception:
-            verdict = None
+            exempt, verdict = [], None
         if verdict:
             return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 락 파일을 쥔 채 죽는다.
         seq = _next_seq(rows)
@@ -447,7 +502,7 @@ def send(to, frm, body, force=False):
         # 잠금을 새로 «거는» 것은 오히려 나쁘다 — flock 은 블로킹이라 물고 죽은 프로세스가
         # send 를 멈춘다. 기록 몇 건 잃는 것보다 큰 실패다. 여기는 획득이 늘지 않는다.
         try:
-            _guard_record(to, frm, body)
+            _guard_record(to, frm, body, exempt)
         except Exception:
             pass
         return seq, sum(1 for r in keep if r["to"] == to), dropped

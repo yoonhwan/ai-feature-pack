@@ -165,7 +165,16 @@ PY
 seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
 # 인박스 적재(판정 425-B) — 큐 적재 직후 1줄 · 규칙표만 즉시(Haiku 는 ft-inbox 가 분리 실행) · 실패는 stderr WARN, 전송 rc 불변.
-inbox_ingest() { [ -z "$1" ] || FT_ROOT="${FT_ROOT:-$DIR/../..}" bash "$DIR/../bin/ft-inbox.sh" ingest "$1" >/dev/null 2>&1 || echo "WARN inbox ingest 실패 seq=$1 (쪽지 전송은 완료)" >&2; return 0; }
+#   적재 줄 `INGEST … cls=<분류>` 의 분류를 INBOX_CLS 에 둔다 — 알림 결정(inbox_must_ring)이 읽는다(판정 423 ③).
+inbox_ingest() {
+  INBOX_CLS=""; [ -n "$1" ] || return 0
+  local o
+  o="$(FT_ROOT="${FT_ROOT:-$DIR/../..}" bash "$DIR/../bin/ft-inbox.sh" ingest "$1" 2>/dev/null)" || { echo "WARN inbox ingest 실패 seq=$1 (쪽지 전송은 완료)" >&2; return 0; }
+  INBOX_CLS="$(printf '%s\n' "$o" | sed -n 's/^INGEST .* cls=\([^ ]*\) .*/\1/p' | head -1)" || INBOX_CLS=""
+  return 0
+}
+# ①~④·미상(보고 의무 분류)이면 받는 좌석의 tick 유무와 무관하게 울린다. ⑤⑥·적재 실패·SKIP 은 notify_policy 그대로.
+inbox_must_ring() { case "$INBOX_CLS" in ①|②|③|④|미상) return 0;; *) return 1;; esac; }
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
@@ -190,6 +199,7 @@ case "$cmd" in
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
     inbox_ingest "$seq"
+    if inbox_must_ring; then notify=1; fi
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
     if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
@@ -210,6 +220,7 @@ case "$cmd" in
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
     inbox_ingest "$seq"
+    if inbox_must_ring; then notify=1; fi
     if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;

@@ -64,7 +64,7 @@ class Mirror:
         self.threads_path = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json"
         self.qpath = Path(a.state_dir) / f"byz_slack_questions.{a.channel}.json"
         self.deliv = Deliverer(a.api_base, self.token, a.channel, self.threads_path)
-        self.posted = 0
+        self.posted, self.rows = 0, []
 
     def _send_item(self, item: dict[str, object], resume: bool) -> None:
         q = item.get("question")
@@ -102,7 +102,7 @@ class Mirror:
         if not self.a.dry_run and self.qpath.exists():  # 닫는 사건 = planner 인박스 — 패스당 1회 · 닫힌 질문은 보드에서도 뺀다(글이 같으면 호출 0)
             mb.sweep(self.a, self.qpath, self.planner_seats, self.log.resolve().parents[2])
             mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
-        rows = read_rows(self.log)
+        rows = self.rows = read_rows(self.log)
         st = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else None
         if st is None:  # 첫 실행 — 과거 행을 쏟아내지 않는다
             base = int(str(rows[-1]["seq"])) if rows else 0
@@ -132,6 +132,7 @@ class Mirror:
         if s > prev + 1:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
                               "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
+        mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
         if not self.seat.search(str(r.get("to", ""))) or str(r.get("from", "")) == "slack-oppa":  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:

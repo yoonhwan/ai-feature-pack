@@ -12,6 +12,7 @@ import sys
 import time
 from pathlib import Path
 
+import mirror_deliver as md
 import mirror_lib as lib
 import mirror_questions as mq
 import mirror_share as ms
@@ -141,6 +142,24 @@ def close_from_inbox(qpath: Path, inbox_bin: str, planner_name: str | None, root
         if s in have and s not in unclosed:
             mq.close(qpath, s)
     return " — ".join(notes) or None
+
+
+SEQ_REF = re.compile(r"(?<![\w-])#(\d+)(?!\d)")  # 좌석명 `master#19` 의 #19 는 제외 — 앞 글자가 단어·`-` 가 아닌 `#N` 만
+
+
+def post_handled(deliver, st: dict[str, object], r: dict[str, object], rows: list[dict[str, object]], seat, threads_path: Path) -> None:
+    """planner 가 보낸 행이 본문 앞 80자에서 받은 쪽지 `#seq` 를 인용하면 그 쪽지가 올라간 스레드에 「planner 처리」 1줄(새 글 0 — 스레드가 없으면 아무것도 안 올린다)."""
+    if not seat.search(str(r.get("from", ""))):
+        return
+    s, text = int(str(r["seq"])), lib.classify(str(r.get("body", "")))[1]
+    for m in SEQ_REF.finditer(text[:80]):
+        o = next((x for x in rows if x["seq"] == int(m.group(1)) and seat.search(str(x.get("to", "")))), None)
+        key = lib.thread_key(o, lib.classify(str(o.get("body", "")))[1]) if o else None
+        if key is None or key not in md.load_threads(threads_path):
+            continue
+        what = lib.esc(ms.share_guard(lib.first_sentence(text)) or ms.OMITTED)
+        line = ms.tag("작업상황", f"planner 처리: {what} ({str(r.get('ts', ''))[11:16]})")
+        return deliver(st, {"id": f"planner 처리 #{s}", "seq": s, "key": key, "what": what, "reply_only": True, "text": f"{line}\n(mirror · planner 처리 #{s})"})
 
 
 def add_args(p) -> None:

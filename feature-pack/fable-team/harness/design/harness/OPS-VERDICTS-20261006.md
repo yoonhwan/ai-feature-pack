@@ -1043,3 +1043,27 @@
   되돌림: `ft-index-move.sh` 이전 sha 로 cp(출력 5줄만 빠짐) · 새 도구는 호출자 하나뿐.
 - 남는 일(카드 밖): ㉠ `r63b-block-destructive-inject`(훅 세 번째 블록 · 구현 DA 1회 · planner 설치 조건 6단계) — 판정 589 순서상 다음.
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §89 v423c 미러 요약기 할 일 금지 + Haiku 5.5 · planner 처리 1줄 · mbox ①~④ 항상 doorbell · 회신 발신 상한 면제 (판정 423 ②③④ · v423 분할 3/3 · 나노 v423c-mirror-mbox-notify) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 2회(r1 HOLD 3 · r2 HOLD 1 → 연속 리뷰 종료) → arch 설계·독립 재현 서명(bounded_da_review · R58 선례)★
+- 대상 카드: v423c-mirror-mbox-notify
+- 나노 커밋 3개(브랜치 `nano/v423c-mirror-mbox-notify` · base origin/main · 좌석 byz-harness-nano-v423c-mirror-mbox-notify#0 · push 0):
+  ①`58aca7b614`([feature] 9파일 +299 −13 · `mirror_summary.py` 모델 claude-haiku-5-5·todo 생성 지시 삭제 · `mirror_board.post_handled` · `mbox.sh` 인박스 cls ①~④·미상 → doorbell · `mbox.py` 회신 RATE 면제) → 구현 DA r1(`design/harness/DA-v423c-mirror-mbox-notify-20261009.md`) Q2 APPROVE · Q1·Q3·Q4 HOLD → 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r1.md`).
+  ②`82dd9e8d16`([fix] Q1 `쪽지 #<seq>` 꼴만·seq 당 1회·send 잠금 안 1회 계산 · Q3 todo = HIL 라벨 + 원문 한 문장 전체 일치·절단 전 ≤110 · Q4 `reply_only` → `existing_thread` 만·`ensure_thread` 0) → DA r2(같은 판정문 ## r2) Q3·Q4 APPROVE · Q1 HOLD(면제 이력이 가드 로그 200행 절단으로 소실 → 같은 seq 재면제) · «두 번째 HOLD 이므로 연속 DA 리뷰 종료·master 통합 이관» → 반송 r2(`.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r2.md` · arch 결정 = 면제 행 별도 보존 + `EXEMPT_CAP` fail-closed).
+  ③`f911f4fb50`([fix] `tools/comm-canonical/mbox.py` +13 −1 · `EXEMPT_CAP`(env `FT_MBOX_EXEMPT_CAP` · 기본 1000) · `_is_exempt_row` · `_reply_exempt` 상한 도달 = `[]` + stderr WARN · `_guard_record` 면제 행을 200행 절단과 분리 보존·시각 순 합침 · 새 `tests/harness/test_mbox_reply_exempt_cap.sh` 109줄).
+- ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★:
+  · r1 수정분(`82dd9e8d16` 아카이브): test_mirror_no_todo 39 · test_mbox_inbox_notify_reply_rate 34 · test_kit_bin_sync · test_question_board · test_slack_readonly_share · test_inbox · test_slack_mirror_signature — 전부 rc=0 · ruff 미러 4파일 0 · `mbox.py` 17건 = merge-base `5efbed6cc4` 와 같은 수(기존). 순수 반례 재생: `PR #1027`·`Issue #1027`·맨 `#1027` = 면제 0 · `쪽지 #1027·#1028` = [1027,1028] · 같은 seq 재인용 = 0 · 라벨 `보고` 상태 문장 todo = None · HIL + 지어낸 꼬리·조각 = None.
+  · r2 수정분(`f911f4fb50` 아카이브): test_mbox_reply_exempt_cap 6 PASS · test_mbox_inbox_notify_reply_rate 34 · test_mirror_no_todo 39 · test_kit_bin_sync 6 · test_inbox 64 — 전부 rc=0 · ruff `mbox.py` 17건(기존과 같음).
+  · ★DA r2 반례 독립 재생★(FT_MBOX_DIR 임시): 같은 frm 이 seq 10000~10200 회신 201건 + 다른 좌석 일반 발신 250건 기록 → 가드 파일 401행(면제 행 201 보존) · `쪽지 #10000` 재인용 = `[]` · 새 `쪽지 #10250` = `[10250]` · `EXEMPT_CAP=3` = `[]` + `WARN EXEMPT_CAP reached`.
+  · ★독립 변이★: `_guard_record` 를 옛 `log[-200:]` 로 되돌리면 test_mbox_reply_exempt_cap ⑦·⑧ FAIL(`REEX [1601] KEPT False`).
+- 알고 둔 경계 2(arch 설계 결정 · DA r2 재심 0): ①HIL 보고 안 «상태» 문장 복사 todo 는 남는다(원천 = HIL 라벨) ②옛 기록 `r: 1`(int)은 seq 재면제를 못 막는다(600초 창 뒤 소멸 · 일회성 호환).
+- 기준값 대비(카드): R34 실측 — 요약기가 처리된 일을 「오빠 할 일」로 지어냄 · tick 있는 좌석에서 읽을 쪽지가 quiet 로 묻힘 · 회신이 발신 상한에 걸려 `--force` 7회 → 이 단위 뒤 = todo 는 HIL 원문 문장 그대로일 때만 · 인박스 ①~④·미상은 tick 유무와 무관하게 doorbell · `쪽지 #seq` 회신은 seq 당 1회 RATE 면제(상한 1000 · 넘으면 닫힘).
+- 부하·메모리: `_is_reply`/`_received_seqs` 는 `쪽지 #` 인용이 있을 때만 큐 + 보낸 행 사본 2파일 읽기(1회 40ms · RSS 14MB · send 1건당 1회로 줄어듦) · 가드 JSON 최대 ≈ 1200행 × ~120B ≈ 150KB.
+- 범위 영향 사실(판정 = master/planner 몫): `DEFAULT_CMD` 를 `byz_github_slack_mirror.py:131`·`byz_proposal_publish.py:29`·`magazine_summary.py:16` 도 써서 그 셋의 요약 모델도 haiku-5-5(실호출 rc=0) · github 미러의 todo 는 HIL 라벨 규칙상 사실상 항상 null(나노 보고) · 미러·proposal pytest 실패 목록은 수정 전 main 과 같음(회귀 0) · `mbox.py` 582→637줄(기존 200줄 초과 · 분리는 별 카드 후보).
+- 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: f911f4fb50147862a2e286216f6e1baadd7a2371 · 시험: bash tests/harness/test_mbox_inbox_notify_reply_rate.sh rc=0 · 이슈: 0` (+ `bash tests/harness/test_mbox_reply_exempt_cap.sh rc=0` · `bash tests/harness/test_mirror_no_todo.sh rc=0`).
+- ★랜딩 뒤 master 집행 순서(카드 밖 · 앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 3개) → 병합. PR 본문은 `--body-file`(본문에 명령 글자가 섞이면 block-destructive 에 걸릴 수 있음).
+  ② 라이브 comm: `tools/comm-canonical/mbox.py`·`mbox.sh` → `.fable-team/comm/` cp+cmp(기존 정본 설치 절차 · `mbox.sh` 는 r0 변경분 포함).
+  ③ 슬랙 미러 키트(`scripts/harness-install/slack-mirror/` 의 `mirror_summary.py`·`mirror_board.py`·`mirror_deliver.py`·`byz_mbox_slack_mirror.py`) → 라이브 설치 자리 cp+cmp → 미러 launchd 재시작(기존 절차).
+  ④ 확인 1회: 임의 좌석 둘 사이 `쪽지 #<받은 seq>` 회신 1건 = QUEUED · 가드 파일 마지막 행 `r` = `[seq]` · 미러 로그에 요약 모델 haiku-5-5 · planner 회신 1건 뒤 슬랙 해당 스레드에 「planner 처리」 1줄(새 글 0).
+  되돌림: 세 묶음을 직전 sha 로 cp + 미러 재시작(가드 파일 형식 호환 — 옛 코드는 `r` list 를 truthy 로 읽어 면제로 본다).
+- 정본 영향 없음: 하네스 통신·미러 도구·시험만 — docs/architect 제품 정본 변경 없음.

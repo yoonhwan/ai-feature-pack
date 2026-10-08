@@ -6,6 +6,7 @@ D5 = 같은 이슈 스레드 합치기(오빠 18:1x): 두 launchd 프로세스�
 import fcntl
 import json
 import os
+import sys
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -56,6 +57,12 @@ def ensure_thread(path: Path, key: str, make_root: Callable[[], str], max_thread
         return threads[key]
 
 
+def existing_thread(path: Path, key: str) -> str | None:
+    """키의 thread_ts — 있을 때만(없으면 None · 루트를 만들지 않는다). 맵 잠금 안에서 읽는다."""
+    with locked(path):
+        return load_threads(path).get(key)
+
+
 def seed_threads(path: Path, seed: dict[str, str]) -> None:
     """맵 파일이 아직 없을 때만 옛 state 의 맵으로 채운다(이전 판 → 공유 맵 이관)."""
     with locked(path):
@@ -88,7 +95,13 @@ class Deliverer:
         return ensure_thread(self.threads_path, key, make_root, self.max_threads)
 
     def send(self, item: dict[str, object], resume: bool = False) -> None:
-        ts = self.thread_ts(item, resume)
+        if item.get("reply_only"):  # 새 글 0 — 기존 스레드에 답글만. 맵에 키가 없으면 0줄(설계상 «안 올림» · resume 도 같은 길)
+            ts = existing_thread(self.threads_path, str(item.get("key", lib.OTHER_KEY)))
+            if ts is None:
+                print(f"WARN reply_only 스레드 없음 key={item.get('key')} id={item.get('id')} — 올리지 않음", file=sys.stderr)
+                return
+        else:
+            ts = self.thread_ts(item, resume)
         if resume:  # 조회가 실패하면 raise — 중복보다 지연
             if lib.has_marker(lib.thread_texts(self.api_base, self.token, self.channel, ts), str(item["id"])):
                 return
