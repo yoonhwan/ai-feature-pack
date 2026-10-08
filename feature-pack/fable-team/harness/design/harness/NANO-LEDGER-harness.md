@@ -48,3 +48,4 @@
 - **[2026-10-08 09:46 KST, `date` 실측] `byz-harness-nano-magazine-detail-collect#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/magazine-detail-collect.md` ②회수 seq 61239 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 10:04 KST, `date` 실측] `byz-harness-nano-magazine-full-render-publish#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/magazine-full-render-publish.md` ②회수 seq 61302 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 10:06 KST, `date` 실측] `byz-harness-nano-set-dispatch-tools#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/set-dispatch-tools.md` ②회수 seq 61331 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-08 10:24 KST, `date` 실측] `byz-harness-nano-magazine-eli5-html#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/magazine-eli5-html.md` ②회수 seq 61366 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned
