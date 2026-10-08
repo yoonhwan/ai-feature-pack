@@ -23,7 +23,7 @@ def scrub(text: object) -> str:
     return REF.sub(lambda m: f"{m.group(1)}번", " ".join(str(text).split()))
 
 
-def _title(raw: object) -> str:
+def clean_title(raw: object) -> str:
     return scrub(_PR_TAIL.sub("", str(raw)))
 
 
@@ -31,11 +31,11 @@ def _hm(iso: str) -> str:
     return str(iso)[:16].replace("T", " ")
 
 
-def _notes(model: Model) -> Notes:
+def notes_of(model: Model) -> Notes:
     notes: Notes = {}
     for m in model["merges"]:
         if m.get("pr"):
-            notes.setdefault(int(m["pr"]), ("PR", _title(m["title"]), "병합됨"))
+            notes.setdefault(int(m["pr"]), ("PR", clean_title(m["title"]), "병합됨"))
     for i in model["issues_opened"] + model["issues_closed"]:
         notes.setdefault(int(i["number"]), ("Issue", scrub(i["title"]), _STATE_KO.get(str(i.get("state")).upper(), str(i.get("state")))))
     return notes
@@ -63,7 +63,7 @@ def _main_blocks(model: Model) -> list[Block]:
     groups: dict[str, list[tuple[str, None]]] = {}
     for m in model["merges"]:
         pr = f" (#{int(m['pr'])})" if m.get("pr") else ""
-        groups.setdefault(scrub(m.get("tag") or "기타"), []).append((f"{_title(m['title'])}{pr}", None))
+        groups.setdefault(scrub(m.get("tag") or "기타"), []).append((f"{clean_title(m['title'])}{pr}", None))
     out: list[Block] = [("h3", "main 에 들어간 것")]
     for tag, items in groups.items():
         out += [("p", f"{tag} {len(items)}건"), ("ul", items)]
@@ -143,23 +143,29 @@ def _evidence_blocks(model: Model, generated_at: str) -> list[Block]:
     return [("h2", "근거"), ("ul", [(s, None) for s in items])]
 
 
-def _footnote_blocks(notes: Notes) -> list[Block]:
+def footnote_blocks(notes: Notes) -> list[Block]:
     rows = [[f"#{n}", k, t, s] for n, (k, t, s) in sorted(notes.items())]
     return [("h2", "각주표"), ("table", ["번호", "종류", "제목", "상태"], rows) if rows else ("p", "없어요")]
 
 
-def render(model: Model, lines: list[str], generated_at: str) -> tuple[str, str]:
+def part1(model: Model, lines: list[str], generated_at: str) -> tuple[list[Block], Notes]:
+    """1부 요약판 블록(각주표 «앞까지») + 각주 재료 — 풀 디테일 문서가 뒤에 2부를 붙이고 각주표를 맨 끝에 하나만 둔다."""
     for key in REQUIRED:
         if key not in model:
             raise RenderError(f"구조 모델에 '{key}' 칸 없음")
     if not lines:
         raise RenderError("요약 줄 없음")
-    notes = _notes(model)
+    notes = notes_of(model)
     heading = f"아침 매거진 — {model['date']} (전날 08:00 ~ 오늘 08:00)"
     body: list[Block] = [("h1", heading), ("h2", "결론"), ("p", scrub(lines[0]))] + _hil_blocks(model) + [("h2", "바뀐 것")]
     for part in (_main_blocks, _issue_blocks, _verdict_blocks, _seat_blocks, _team_blocks, _doc_blocks):
         body += part(model)
     body += _evidence_blocks(model, generated_at)
     check_footnotes(to_md(body), notes)
-    blocks = body + _footnote_blocks(notes)
-    return to_md(blocks), to_html(blocks, heading)
+    return body, notes
+
+
+def render(model: Model, lines: list[str], generated_at: str) -> tuple[str, str]:
+    body, notes = part1(model, lines, generated_at)
+    blocks = body + footnote_blocks(notes)
+    return to_md(blocks), to_html(blocks, str(body[0][1]))

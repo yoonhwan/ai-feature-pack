@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """byz_morning_magazine — 아침 매거진 CLI (설계 DESIGN-morning-magazine-20261008 §7).
 
-순서: 구조 모델 → 요약 → md·html·PDF → (ops/magazine push) → 표식 확인 → posting → 뿌리 글 → posted → PDF 업로드 → done.
---dry-run = md·html·PDF 를 만들고 슬랙 글을 stdout 에만 낸다(게시·push·상태 쓰기 0).
+순서: 구조 모델 → 요약 → 쉬운 판(eli5) → md·html·여러 쪽 PDF → (ops/magazine push) → 표식 확인 → posting → 뿌리 글 → posted
+      → PDF 첨부 → pdf_done → HTML 첨부 → done. (eli5 실패 = ERROR + 뿌리 글·PDF 근거 절에 같은 경고 줄, PDF 는 계속 — 설계 §5)
+--dry-run = 파일을 만들고 슬랙 글을 stdout 에만 낸다(게시·push·상태 쓰기 0).
+--reattach rN = 이미 발행된 날의 스레드에 답글 + 풀 디테일 PDF·쉬운 판 HTML 을 다시 붙인다(새 뿌리 글 0 · --force·--force-root 와 배타).
 push 는 기본 켬 — 수동 시험은 --no-push (판정 348). 구조 모델은 수집 모듈(magazine_collect.collect)이 만든다.
 """
 import argparse
 import hashlib
 import json
 import logging
-import os
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -18,37 +20,15 @@ from magazine_emit import Model
 from magazine_git import blob_url, publish_md
 from magazine_pdf import html_to_pdf
 from magazine_publish import KST, Day, done_ts, last_done, publish_day
-from magazine_render import render
-from magazine_slack import SLACK_BASE, Target, failure_text, post_root, root_text
-from magazine_summary import DEFAULT_CMD, summarize_model
+from magazine_cli_args import parse_args
+from magazine_reattach import reattach, rev_done_ts, reply_text
+from magazine_render_full import build_eli5, render_full
+from magazine_slack import Target, eli5_warning_line, failure_text, post_root, root_text
+from magazine_summary import summarize_model
 from magazine_window import MagazineError
 from mirror_lib import MirrorError, read_token
 
 LOG = logging.getLogger("byz_morning_magazine")
-HOME = Path.home()
-
-
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    root = os.environ.get("BYZ_ROOT", "")
-    p = argparse.ArgumentParser(description="아침 매거진 발행")
-    p.add_argument("--date", help="예정 발행일 YYYY-MM-DD (없으면 예약 모드)")
-    p.add_argument("--dry-run", action="store_true", help="md·html·PDF 만 만들고 슬랙 글을 stdout 에 — 게시·push·상태 0")
-    p.add_argument("--force", action="store_true", help="done 이어도 전체 재게시")
-    p.add_argument("--force-root", action="store_true", help="posting+표식 없음(불명)을 사람이 확인한 뒤 뿌리 글 재게시")
-    p.add_argument("--no-push", action="store_true", help="ops/magazine push 끔(수동 시험)")
-    p.add_argument("--model-file", help="구조 모델 JSON (수집 모듈 대신 — 시험·재발행용)")
-    p.add_argument("--summary-cmd", default=DEFAULT_CMD)
-    p.add_argument("--out-dir", default=str(HOME / ".hermes/magazine"))
-    p.add_argument("--state", default=str(HOME / ".hermes/state/byz_morning_magazine.json"))
-    p.add_argument("--token-file", default=str(HOME / ".hermes/secrets/yoonhwan_bot.env"))
-    p.add_argument("--slack-base", default=SLACK_BASE)
-    p.add_argument("--channel", default=os.environ.get("MAGAZINE_CHANNEL", "C0C6MJGRR89"))
-    p.add_argument("--mention", default=os.environ.get("MAGAZINE_MENTION", "U0AC2JF0M7D"))
-    p.add_argument("--repo", default=os.environ.get("GH_REPO", "SecondWindStudio/byz-agents"))
-    p.add_argument("--worktree", default=os.environ.get("MAGAZINE_WORKTREE", f"{root}/.worktrees/ops-magazine"))
-    p.add_argument("--repo-root", default=root, help="자료 수집용 git 리포 루트 (기본 $BYZ_ROOT)")
-    p.add_argument("--mailbox", default=os.environ.get("MAGAZINE_MAILBOX", ""), help="mbox 사본 jsonl (기본 <repo-root>/.fable-team/comm/mailbox.log.jsonl)")
-    return p.parse_args(argv)
 
 
 def resolve(args: argparse.Namespace, now: datetime | None = None) -> tuple[str, Model | None]:
@@ -82,17 +62,33 @@ def load_model(args: argparse.Namespace, now: datetime | None = None) -> Model:
     return model or collect_model(args, date)
 
 
-def make_files(model: Model, args: argparse.Namespace) -> tuple[Path, Path, Path, str, list[str]]:
+@dataclass(frozen=True)
+class Made:
+    md_path: Path
+    html_path: Path
+    pdf_path: Path
+    eli5_path: Path | None
+    md: str
+    lines: list[str]
+    pages: int
+    warn: str | None  # 쉬운 판 실패 경고 1줄(뿌리 글·답글·PDF 근거 절에 같은 줄)
+
+
+def make_files(model: Model, args: argparse.Namespace) -> Made:
     summary = summarize_model(model, args.summary_cmd)
-    md, html = render(model, summary.lines, datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"))
+    eli5, cause = build_eli5(model, args.summary_cmd)  # PDF 렌더 «전»에 확정 — 실패 원인이 PDF 근거 절에 들어간다
+    warn = eli5_warning_line(cause) if cause is not None else None
+    md, html = render_full(model, summary.lines, datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), warn)
     out = Path(args.out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     stem = "MAGAZINE-" + str(model["date"]).replace("-", "")
-    md_path, html_path, pdf_path = out / f"{stem}.md", out / f"{stem}.html", out / f"{stem}.pdf"
+    md_path, html_path, pdf_path, eli5_path = out / f"{stem}.md", out / f"{stem}.html", out / f"{stem}.pdf", out / f"{stem}-eli5.html"
     md_path.write_text(md, encoding="utf-8")
     html_path.write_text(html, encoding="utf-8")
-    html_to_pdf(html_path, pdf_path)
-    return md_path, html_path, pdf_path, md, summary.lines
+    if eli5 is not None:
+        eli5_path.write_text(eli5, encoding="utf-8")
+    pages = html_to_pdf(html_path, pdf_path, f"아침 매거진 {model['date']}")
+    return Made(md_path, html_path, pdf_path, eli5_path if eli5 is not None else None, md, summary.lines, pages, warn)
 
 
 def oldest_epoch(date: str) -> float:
@@ -113,32 +109,67 @@ def report_failure(args: argparse.Namespace, err: Exception) -> None:
         LOG.error("실패 알림 게시도 실패: %s", e)
 
 
+def sha16(md: str) -> str:
+    return hashlib.sha256(md.encode("utf-8")).hexdigest()[:16]
+
+
+def run_reattach(args: argparse.Namespace) -> int:
+    """run() 의 «첫 분기» — done skip·publish_day·--force 보다 앞(설계 §6 F2). 새 뿌리 글 0."""
+    state, rev = Path(args.state).expanduser(), args.reattach
+    try:
+        date, model = resolve(args)
+        if date != args.date:
+            raise MagazineError(f"--date {args.date} 와 모델 날짜 {date} 가 달라요")
+        ts = rev_done_ts(state, date, rev)
+        if ts is not None:
+            print(f"skip date={date} rev={rev} ts={ts} (이미 재첨부됨)")
+            return 0
+        made = make_files(model or collect_model(args, date), args)
+    except Exception as e:  # noqa: BLE001 — 수집·렌더 실패도 «보이게» 알리고 exit 1
+        report_failure(args, e)
+        return 1
+    day = Day(date, "", made.pdf_path, oldest_epoch(date), sha16(made.md), made.eli5_path)
+    if args.dry_run:
+        print(f"DRY-RUN reattach rev={rev} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'}\n--- 슬랙 답글 ---\n{reply_text(date, rev, made.warn)}")
+        return 0
+    try:
+        res = reattach(target(args), day, state, rev, reply_text(date, rev, made.warn), force_file=tuple(args.force_file))
+    except (RuntimeError, OSError) as e:
+        LOG.error("재첨부 실패: %s: %s", type(e).__name__, e)
+        return 1
+    print(f"{res['action']} date={date} rev={rev} ts={res['ts']} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'}")
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
+    if args.reattach:
+        return run_reattach(args)
     try:
         date, model = resolve(args)
         ts = None if args.force else done_ts(Path(args.state).expanduser(), date)
         if ts is not None:  # §8 순서: 창 → 상태 읽기(done 이면 끝) → 수집… — 이미 발행한 날은 수집·요약·PDF·push 0
-            print(f"skip date={date} ts={ts} (이미 발행됨 — 다시 내려면 --force)")
+            print(f"skip date={date} ts={ts} (이미 발행됨 — 재첨부는 --reattach rN, 새 뿌리 글은 --force)")
             return 0
         model = model or collect_model(args, date)
-        md_path, html_path, pdf_path, md, lines = make_files(model, args)
+        made = make_files(model, args)
         hil = len(model["mbox"].get("hil", []))
         push = not (args.no_push or args.dry_run)
-        link = blob_url(args.repo, publish_md(Path(args.worktree), md, md_path.name, date), md_path.name) if push else None
+        link = blob_url(args.repo, publish_md(Path(args.worktree), made.md, made.md_path.name, date), made.md_path.name) if push else None
     except Exception as e:  # noqa: BLE001 — 어떤 수집·렌더 실패든 «보이게» 알리고 exit 1 (반쪽 매거진 0)
         report_failure(args, e)
         return 1
-    text = root_text(date, lines, link, hil, args.mention)
+    text = root_text(date, made.lines, link, hil, args.mention, made.warn)
+    shown = f"md={made.md_path} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'}"
     if args.dry_run:
-        print(f"DRY-RUN md={md_path} html={html_path} pdf={pdf_path}\n--- 슬랙 뿌리 글 ---\n{text}")
+        print(f"DRY-RUN {shown}\n--- 슬랙 뿌리 글 ---\n{text}")
         return 0
-    day = Day(date, text, pdf_path, oldest_epoch(date), hashlib.sha256(md.encode("utf-8")).hexdigest()[:16])
+    day = Day(date, text, made.pdf_path, oldest_epoch(date), sha16(made.md), made.eli5_path)
     try:
-        res = publish_day(target(args), day, Path(args.state).expanduser(), force=args.force, force_root=args.force_root)
+        res = publish_day(target(args), day, Path(args.state).expanduser(), force=args.force, force_root=args.force_root, force_file=tuple(args.force_file))
     except (RuntimeError, OSError) as e:
         LOG.error("게시 실패: %s: %s", type(e).__name__, e)
         return 1
-    print(f"{res['action']} date={date} ts={res['ts']} md={md_path} pdf={pdf_path}")
+    print(f"{res['action']} date={date} ts={res['ts']} {shown}")
     return 0
 
 

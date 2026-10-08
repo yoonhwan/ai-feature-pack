@@ -1,19 +1,24 @@
 """magazine_emit — 블록 목록 → md · html (같은 목록에서 둘 다 뽑는다 · md 파서 0).
 
-블록: ("h1"|"h2"|"h3"|"p", 글) · ("ul", [(글, 링크|None)]) · ("table", [머리], [[칸]]).
-md 는 데이터를 그대로 싣고, html 은 전부 html.escape 로 중화한다(미검증 mbox 본문 — <@U..>·<script> 무력화).
+블록: ("h1"|"h2"|"h3"|"p", 글[, 앵커]) · ("ul", [(글, 링크|None)]) · ("table", [머리], [[칸]])
+      · ("toc", [(글, 앵커)]) 목차 · ("lines", 여러 줄 글) 줄마다 <p> — 잘림·줄 합치기 0.
+md 는 데이터를 그대로 싣되 외부 본문("lines")은 줄마다 «> » 인용 + 줄머리 # 이스케이프 — 본문의 「## 」가 진짜 제목(GitHub 목차)이 되지 않게 한다.
+html 은 전부 html.escape 로 중화한다(미검증 mbox 본문 — <@U..>·<script> 무력화).
 """
 import html
+import re
 from typing import Any
 
 Block = tuple[Any, ...]
 Model = dict[str, Any]  # 구조 모델(설계 §8) — 칸 검증은 render 가 한다
 _HEAD = {"h1": 1, "h2": 2, "h3": 3}
+_LEAD_HASH = re.compile(r"^(\s*)#")
 CSS = (
-    "body{font-family:'Apple SD Gothic Neo',sans-serif;font-size:11pt;line-height:1.55;margin:0 8mm}"
+    "@page{size:A4}body{font-family:'Apple SD Gothic Neo',sans-serif;font-size:11pt;line-height:1.55;margin:0}"
     "h1{font-size:19pt;border-bottom:2px solid #333;padding-bottom:4px}h2{font-size:14pt;margin-top:20px}"
-    "h3{font-size:12pt;color:#444}table{border-collapse:collapse;width:100%}"
-    "td,th{border:1px solid #bbb;padding:3px 6px;font-size:10pt;text-align:left;vertical-align:top}"
+    "h3{font-size:12pt;color:#444}h1,h2,h3{break-after:avoid}table{border-collapse:collapse;width:100%}"
+    "td,th{border:1px solid #bbb;padding:3px 6px;font-size:10pt;text-align:left;vertical-align:top;overflow-wrap:anywhere}"
+    "tr{break-inside:avoid}pre,li{overflow-wrap:anywhere}p.ln{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}"
 )
 
 
@@ -33,6 +38,10 @@ def _md_block(b: Block) -> str:
         return "\n".join(f"- [{t}]({u})" if u else f"- {t}" for t, u in b[1])
     if kind == "table":
         return _md_table(b[1], b[2])
+    if kind == "toc":
+        return "\n".join(f"- {t}" for t, _ in b[1])
+    if kind == "lines":
+        return "\n".join(("> " + _LEAD_HASH.sub(r"\1\\#", x)).rstrip() for x in str(b[1]).split("\n"))
     raise ValueError(f"알 수 없는 블록: {kind}")
 
 
@@ -59,9 +68,14 @@ def _html_table(head: list[str], rows: list[list[str]]) -> str:
 def _html_block(b: Block) -> str:
     kind = b[0]
     if kind in _HEAD:
-        return f"<h{_HEAD[kind]}>{_h(b[1])}</h{_HEAD[kind]}>"
+        anchor = f' id="{_h(b[2])}"' if len(b) > 2 else ""
+        return f"<h{_HEAD[kind]}{anchor}>{_h(b[1])}</h{_HEAD[kind]}>"
     if kind == "p":
         return f"<p>{_h(b[1])}</p>"
+    if kind == "toc":
+        return "<ul>" + "".join(f'<li><a href="#{_h(a)}">{_h(t)}</a></li>' for t, a in b[1]) + "</ul>"
+    if kind == "lines":
+        return "\n".join(f'<p class="ln">{_h(x) or "&nbsp;"}</p>' for x in str(b[1]).split("\n"))
     if kind == "ul":
         return "<ul>" + "".join(_li(t, u) for t, u in b[1]) + "</ul>"
     if kind == "table":

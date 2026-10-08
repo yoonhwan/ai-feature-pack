@@ -21,7 +21,11 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOAD=0; [ "${1:-}" = "--load" ] && LOAD=1
 
 REQUIRED="byz_morning_magazine.py magazine_emit.py magazine_render.py magazine_summary.py magazine_slack.py magazine_publish.py magazine_pdf.py magazine_git.py
-  magazine_window.py magazine_collect.py magazine_collect_git.py magazine_collect_gh.py magazine_collect_mbox.py"
+  magazine_window.py magazine_collect.py magazine_collect_git.py magazine_collect_gh.py magazine_collect_mbox.py byz_proposal_publish.py
+  magazine_render_full.py magazine_attach.py magazine_reattach.py magazine_cli_args.py"
+# 풀 디테일 세트의 다른 나노 산출(수집 detail · eli5 HTML) — 통합 전 브랜치에는 없을 수 있어 «있으면 복사 · 없으면 WARN»(조용한 건너뛰기 아님).
+# 통합(cherry-pick) 뒤 설치할 때는 WARN 이 0 이어야 한다. 없는 채로 돌면 실행 때 ImportError/「쉬운 판 못 만들었어요」 로 보인다.
+COMPANION="magazine_collect_detail.py magazine_collect_decisions.py magazine_eli5.py magazine_eli5_batches.py magazine_eli5_template.html"
 
 [ -x "$PY" ] || { echo "ERROR: python 없음: $PY" >&2; exit 1; }
 for f in $REQUIRED; do [ -f "$KIT/$f" ] || { echo "ERROR: 키트 파일 없음: $f" >&2; exit 1; }; done
@@ -29,6 +33,11 @@ for f in $REQUIRED; do [ -f "$KIT/$f" ] || { echo "ERROR: 키트 파일 없음: 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/.hermes/magazine" "$HOME/Library/LaunchAgents"
 for f in $REQUIRED; do
   [ -f "$KIT/$f" ] || continue
+  [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
+  cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
+done
+for f in $COMPANION; do
+  if [ ! -f "$KIT/$f" ]; then echo "WARN: 키트에 없음(통합 전?): $f" >&2; continue; fi
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done

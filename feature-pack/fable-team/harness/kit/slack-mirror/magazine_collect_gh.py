@@ -37,6 +37,28 @@ def _list(gh_repo: str, state: str, query: str) -> list[dict[str, object]]:
     return [{k: row.get(k) for k in FIELDS.split(",")} for row in rows]
 
 
+def _last_comment(gh_repo: str, number: int) -> str | None:
+    cmd = ["gh", "issue", "view", str(number), "--repo", gh_repo, "--json", "comments"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GH_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise MagazineError(f"gh 실행 실패(issue view {number}): {type(e).__name__}") from e
+    if r.returncode != 0:
+        raise MagazineError(f"gh issue view rc={r.returncode}({number}): {r.stderr.strip()[:200]}")
+    try:
+        comments = json.loads(r.stdout)["comments"]
+    except (ValueError, KeyError, TypeError) as e:
+        raise MagazineError(f"gh 응답에 comments 가 없어요({number})") from e
+    if not isinstance(comments, list) or any(not isinstance(c, dict) or not isinstance(c.get("body"), str) for c in comments):
+        raise MagazineError(f"gh comments 모양이 달라요({number})")
+    return comments[-1]["body"] if comments else None
+
+
+def last_comments(gh_repo: str, numbers: list[int]) -> dict[str, str | None]:
+    """닫은 이슈마다 마지막 댓글 전문(= 닫는 증거). 댓글이 하나도 없으면 null."""
+    return {str(n): _last_comment(gh_repo, n) for n in numbers}
+
+
 def collect_gh(gh_repo: str, start: datetime, end: datetime) -> dict[str, list[dict[str, object]]]:
     span = f"{_z(start)}..{_z(end)}"
     return {

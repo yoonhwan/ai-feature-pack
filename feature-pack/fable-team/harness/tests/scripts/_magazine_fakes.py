@@ -39,8 +39,40 @@ def fake_model() -> dict:
     }
 
 
+def detail_fixture() -> dict:
+    """설계 DESIGN-magazine-full-detail §3 `detail` 칸 1벌 — ①수집 ↔ ②렌더 접점(칸 이름·모양 고정)."""
+    return {
+        "refs": [{"name": "origin/main", "start_sha": "a" * 40, "end_sha": "b" * 40}, {"name": "ops/main-base", "start_sha": None, "end_sha": "c" * 40}],
+        "units": [{
+            "team": "harness", "path": "design/harness/indices/완성/x.md", "title": "예시 단위", "why": "왜 이 단위를 했는지 전문",
+            "coord": "하네스 GOAL 표 / 닫는 증거: …", "evidence": ["- 세트: " + "d" * 40 + " · 시험: pytest rc=0 · 이슈: 0"],
+            "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "ops/main-base",
+        }],
+        "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§3", "title": "예시 판정 — 닫힘", "body": "판정 본문 전문"}],
+        "decisions": [{
+            "n": 354, "ts": "2026-10-08T07:10:00", "to": "byz-harness-master-claude#12", "body": "판정 354 본문 전문",
+            "relay_path": "/tmp/mbox/x.md", "relay_text": None, "rollback": ["원문에 되돌림 없음"], "more": 1,
+        }],
+        "merge_bodies": {"1" * 40: "[feature] 슬랙 미러 요약 (#883)\n\nWhy: …\nWhat: …\nVerify: …\nImpact: …"},
+        "issue_evidence": {"880": "닫는 증거 댓글 전문", "881": None},
+        "open": {
+            "cards": [{"team": "harness", "state": "진행", "path": "design/harness/indices/진행/y.md", "title": "진행 단위", "tail": ["- 상태 1", "- 상태 2", "- 상태 3"]}],
+            "requests": [{"id": "R24", "text": "증상 → 접수"}],
+            "holds": [{"path": "design/harness/DA-z.md", "verdict": "HOLD"}],
+            "breaches": [{"path": "state/gce-op-model/BREACH.md", "text": "# GCE 감시 …"}],
+        },
+        "seats_closed": [{"path": "design/harness/NANO-LEDGER-harness.md", "line": "- **[2026-10-08 …] `seat#0` 닫힘(ft-nano-close)**"}],
+        "appendix": [{"path": "design/harness/BRIEFING-morning-20261008.md", "text": "브리핑 전문"}],
+    }
+
+
+DETAIL_FIXTURE = detail_fixture()
+
+
 class FakeMagazineSlack:
-    """postMessage · history · 파일 업로드 3단. 장애: drop_after_create(글 만들고 응답 유실) · fail_complete(업로드 마무리 실패)."""
+    """postMessage(스레드 답글 포함) · history · replies · 파일 업로드 3단.
+    장애: drop_after_create(글 만들고 응답 유실) · fail_complete(업로드 마무리 실패) · drop_after_complete(공유 성공 뒤 응답 유실)
+          · fail_complete_at(n번째 complete 만 거절) · hide_shared_files(공유는 됐는데 replies 에 아직 안 보임) · fail_replies(replies 조회 실패). 호출 기록: upload_url_calls(getUploadURLExternal 횟수) · complete_calls."""
 
     def __init__(self) -> None:
         self.msgs: list[dict] = []
@@ -48,6 +80,12 @@ class FakeMagazineSlack:
         self.uploads: list[bytes] = []
         self.drop_after_create = False
         self.fail_complete = False
+        self.drop_after_complete = False
+        self.fail_replies = False
+        self.fail_complete_at: set[int] = set()
+        self.hide_shared_files = False
+        self.upload_url_calls = 0
+        self.complete_calls = 0
         self._seq = 0
         outer = self
 
@@ -69,7 +107,8 @@ class FakeMagazineSlack:
                     outer.uploads.append(data)
                     return self._reply({"ok": True})
                 ts = outer._next_ts()
-                outer.msgs.append({"ts": ts, "text": json.loads(data)["text"], "bot_id": "B1", "thread_ts": ""})
+                body = json.loads(data)
+                outer.msgs.append({"ts": ts, "text": body["text"], "bot_id": "B1", "thread_ts": body.get("thread_ts", "")})
                 if outer.drop_after_create:
                     outer.drop_after_create = False
                     self.connection.shutdown(socket.SHUT_RDWR)
@@ -82,11 +121,25 @@ class FakeMagazineSlack:
                 if u.path.endswith("conversations.history"):
                     roots = [m for m in outer.msgs if not m["thread_ts"] and float(m["ts"]) > float(q["oldest"])]
                     return self._reply({"ok": True, "messages": list(reversed(roots))})
+                if u.path.endswith("conversations.replies"):
+                    if outer.fail_replies:
+                        return self._reply({"ok": False, "error": "internal_error"})
+                    thread = [m for m in outer.msgs if m["ts"] == q["ts"] or m["thread_ts"] == q["ts"]]
+                    return self._reply({"ok": True, "messages": thread})
                 if u.path.endswith("files.getUploadURLExternal"):
-                    return self._reply({"ok": True, "upload_url": f"{outer.base}/upload/F1", "file_id": "F1"})
-                if outer.fail_complete:
+                    outer.upload_url_calls += 1
+                    return self._reply({"ok": True, "upload_url": f"{outer.base}/upload/F{outer.upload_url_calls}", "file_id": f"F{outer.upload_url_calls}"})
+                outer.complete_calls += 1
+                if outer.fail_complete or outer.complete_calls in outer.fail_complete_at:
                     return self._reply({"ok": False, "error": "internal_error"})
-                outer.files.append({"files": json.loads(q["files"]), "channel_id": q["channel_id"], "thread_ts": q["thread_ts"]})
+                files = json.loads(q["files"])
+                outer.files.append({"files": files, "channel_id": q["channel_id"], "thread_ts": q["thread_ts"]})
+                if not outer.hide_shared_files:
+                    outer.msgs.append({"ts": outer._next_ts(), "text": "", "bot_id": "B1", "thread_ts": q["thread_ts"], "files": files})
+                if outer.drop_after_complete:
+                    outer.drop_after_complete = False
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    return
                 self._reply({"ok": True})
 
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
@@ -100,6 +153,13 @@ class FakeMagazineSlack:
     @property
     def roots(self) -> list[dict]:
         return [m for m in self.msgs if not m["thread_ts"]]
+
+    def titles(self, thread_ts: str) -> list[str]:
+        """스레드에 붙은 파일 제목들(공유된 순서)."""
+        return [f["title"] for m in self.msgs if m["thread_ts"] == thread_ts for f in m.get("files", [])]
+
+    def replies_of(self, thread_ts: str) -> list[dict]:
+        return [m for m in self.msgs if m["thread_ts"] == thread_ts and m["text"]]
 
 
 def git(cwd: Path, *a: str) -> str:

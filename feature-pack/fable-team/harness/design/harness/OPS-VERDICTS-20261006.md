@@ -301,3 +301,65 @@
 - 정본 영향: docs/rules 에 하네스 절차 정본 1장 신규 · docs/architect 제품 정본 변경 없음.
 - 범위 밖 메모: 정본의 「찾는 길 = ft-harness-info.sh find 제안서」 는 랜딩 뒤 실제로 잡히는지 tools 나노 닫힘(§47) 때 1회 확인.
 - 카드 증거 줄: `세트: e56fed8f3f491f70d77f2900f0f9115c1263fbed · 시험: 없음(문서) — 정본, 템플릿, governance 초안 3파일 · 이슈: 0` (이유 칸에 «·» 가 있으면 evidence-check 정규식이 REJECT — 카드 완료 조건 문안 자체가 그 형식이라 고쳐 씀)
+
+## §47 제안서 흐름 ② 도구 3개(카드·슬랙 발행·승인 확인+등록) + magazine_slack 인자화 + 시험 (판정 352 · 나노 proposal-tools) — 닫힘 (byz-harness-arch-claude#10 · master#12 #61168 · master#13 #61201 · 2026-10-08)
+- 나노 커밋 `002ae4dbf0`(본 구현) · `bf06faa21a` [structure] 시험 3파일 분리(200줄 · master 반려 1) · `4bf44359e4` [fix] 머리 「- 상태:」 줄 2개 이상 거부(arch 반송 r1). 브랜치 nano/proposal-tools.
+- 신규: scripts/harness-install/proposal/ft-proposal-card.sh · ft-proposal-register.sh · scripts/harness-install/slack-mirror/byz_proposal_publish.py · 시험 tests/harness/test_proposal_{card,register}.sh · tests/scripts/test_proposal_publish{,_faults}.py · _proposal_fakes.py. 수정: magazine_slack.py(`find_first_line` · `upload_file(content_type)` · 기존 `find_root`·`upload_pdf` 1줄 위임) · install-magazine.sh 복사 목록 1개. 키트 bin 추가 0(드리프트 BLOCK 없음).
+- 설계 DESIGN-proposal-flow-20261008.md §3·§7 · DA 사전검증 HOLD 1 → APPROVE(DA-proposal-flow-20261008.md §6).
+- master 독립 검증: r0(#61168) 시험 95 passed · 셸 2종 ALL PASS · ruff clean · 200줄 초과 0 → r1(#61201) 14 passed · 셸 ALL PASS · 184줄 이하.
+- 반송 r1(arch#10 #61183 · 1회): 머리(첫 `## ` 전)에 「- 상태:」 줄이 2개(승인 — 판정 351 + 폐기 — 판정 352)면 register 가 첫 줄만 보고 `REGISTERED #901` rc=0 · Tank 2회 — 머리줄을 «교체» 대신 «추가»로 갱신하면 폐기된 제안서가 Issue 로 등록된다. publish 도 첫 줄만 봤다.
+- arch 재현(#10): ①r1 뒤 매거진+제안서 시험 96 passed(.venv python) · test_proposal_register.sh ALL PASS · test_proposal_card.sh ALL PASS ②register 확인 실패 18건 전부 「Tank 호출 0회」 · 승인 — 판정 351 → create 1 + label 1 · create 실패 → label 0 ③publish 장애 주입 5종 PASS(r0 응답 유실 채택 · r1 응답 유실 정확 첫 줄 채택 · r1 상태 쓰기 실패 채택 · r1 첨부 실패 → 첨부만 · r1 posting+표식 없음 → ERROR exit 1) + r2 답글은 r1 로 채택 안 함 ④독립 주입 7종: 하이픈 · 머리줄 꼬리 글 · 전각 숫자 · 본문 Issue # · 검증 칸 공백 → 각각 rc=1 tank=0 · 머리 상태 줄 2개 → r1 뒤 register 「REJECT 머리의 「- 상태:」 줄이 정확히 1개가 아니다 … 2개」 tank=0 · publish `--dry-run` rc=1 「머리의 「- 상태:」 줄이 2개 — 정확히 1개여야 한다」 ⑤본문(첫 `## ` 뒤)의 「- 상태:」 줄은 머리줄이 아니라 무시 — 설계 «머리줄 한 줄이 정본»대로.
+- 최종 DA 소환: 안 함 — 사전검증 APPROVE 범위 안 · 반송 1회(머리줄 판정 강화 · 계약 3종 변경 0)로 닫힘.
+- 범위 밖 메모(완성 후): raw Tank 경로(ft-gh-as-tank.sh create)의 전역 차단은 DA §10 수락 범위 밖 — 정본 proposal_flow.md 에 «register 진입점으로만» 선언으로 남음. 「ft-harness-info.sh find 제안서」 가 랜딩 뒤 잡히는지 1회 확인(§46 메모 이월).
+- 라이브 반영: 랜딩 뒤 `install-magazine.sh`(복사만 · `--load` 불요)로 `byz_proposal_publish.py` + 바뀐 `magazine_slack.py` 를 ~/.hermes/scripts 에. 셸 도구 2개는 리포 경로 호출(설치 0). 정본 영향 없음: 하네스 도구·슬랙 키트·시험 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 4bf44359e495b6d70f4696dcc1066fdb5e251366 · 시험: python3 -m pytest tests/scripts/test_proposal_publish.py -q rc=0 · 이슈: 0`
+
+## §48 아침 매거진 풀 디테일 ① 수집 — 구조 모델 새 칸 detail (판정 354 · 나노 magazine-detail-collect) — 닫힘 (byz-harness-arch-claude#10 · master#13 #61230·#61240 · 2026-10-08)
+- 나노 커밋 `4c5be801af`(본 구현) · `fe1ff62a56` [fix] merge_bodies 를 merges 칸 sha 로만(arch 반송 r1). 브랜치 nano/magazine-detail-collect(base 6594f5c8ae — proposal-tools 랜딩 전이라 cherry-pick 은 ops/main-base 위로).
+- 신규: magazine_collect_detail.py(176줄 · D1 완성 카드 · D2 판정서 절 · D4 머지 본문 · D7 닫힘 줄 · 부록) · magazine_collect_open.py(D6 열린 카드·요청 원장·HOLD·BREACH) · magazine_collect_decisions.py(D3 판정 원문·relay·되돌림) · 시험 test_magazine_collect_{detail,decisions}.py. 수정: magazine_collect.py(detail 칸 조립 · refs·byz_root 인자 · MAGAZINE_REFS) · magazine_collect_gh.py(닫은 이슈 마지막 댓글) · _magazine_fakes.py DETAIL_FIXTURE. 기존 11칸 불변.
+- 설계 DESIGN-magazine-full-detail-20261008.md §1~§3 · DA 사전검증 HOLD 1 → APPROVE(DA-magazine-fulldetail-20261008.md §r1 · 수집은 DA 범위 밖 — 볼 곳 3은 ②③ 몫).
+- master 독립 검증: r0(#61230) 매거진 시험 96 passed · ruff clean · 최대 196줄 → r1(#61240) 재검증.
+- 반송 r1(arch#10 #61237 · 1회): merge_bodies 가 3 ref 전부의 first-parent 커밋 881건(main 35 + ops/main-base 151 + feat/v6-realtime-live 703) — 설계 D4 는 «main 에 들어간 것»(merges 칸과 짝)이라 846건이 쓰이지 않는 데이터(모델 648KB 대부분). 설계 §2 D4 문구가 «<ref>» 로 모호했던 건 arch 쪽 — 설계도 함께 고침.
+- arch 재현(#10): ①r1 뒤 매거진 시험 96 passed(.venv python) ②실자료 collect("2026-10-08") 31.2초 · 모델 481KB · refs 3(origin/main · ops/main-base · origin/feat/v6-realtime-live) · merges 35 = merge_bodies 35(본문 없는 머지 0) · units 72 · verdict_sections 24 · decisions 35 · open cards 137 · requests 21 · holds 0(창 안 DA 파일 마지막 줄이 전부 APPROVE) · breaches 1(state/gce-op-model/BREACH.md) · seats_closed 54 · appendix 5 · issue_evidence 18 = issues_closed 18 ③r1 시험: merges=[c1] 이면 ops 의 창 안 커밋 o1 본문 제외 · merges 빈 목록이면 {} .
+- 최종 DA 소환: 안 함 — 수집은 사전검증 APPROVE 설계 범위 안 · 반송 1회(데이터 범위 축소 · 스키마 변경 0)로 닫힘.
+- 범위 밖 메모(완성 후): ①ref 창 시작 sha 가 세 ref 모두 106eb6ea 로 같다 — `rev-list -1 --before` 가 그 ref 에서 «도달 가능한» 커밋 중 창 시작 전 최신을 골라서(main 커밋이 세 갈래 모두에 있음). D2·D7 diff 는 트리 비교라 결과 영향 없음 · 갈래 고유 시작점이 필요해지면 `--first-parent` 추가 1곳 ②units 72 는 v65 완성 카드가 대부분 — ③ eli5 단위 수와 직결(§49 참조).
+- 라이브 반영: ②③ 랜딩 뒤 `install-magazine.sh`(복사 목록에 새 수집 모듈 3개 — ② 카드 몫). 정본 영향 없음: 하네스 슬랙 키트 수집 모듈·시험 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: fe1ff62a56… · 시험: python3 -m pytest tests/scripts/test_magazine_collect_detail.py -q rc=0 · 이슈: 0`
+
+## §50 아침 매거진 풀 디테일 ② 렌더·여러 쪽 PDF·슬랙 2파일·--reattach (판정 354 · 나노 magazine-full-render-publish) — 닫힘 (byz-harness-arch-claude#10 · master#13 #61293·#61309 · 2026-10-08)
+- 나노 커밋 `718fa80469`·`1adab4271e` [structure] magazine_render 1부 블록·제목 정리 공개(행동 변경 0) · `2c735286bd` [feature] 본 구현 · `3cabf8cb13` [test] CLI 모드 시험 순서 · `aeea2736ea` [fix] md 외부 본문 인용 처리 + eli5 실패 안내 줄(arch 반송 r1). 브랜치 nano/magazine-full-render-publish(base 55d5812196).
+- 신규: magazine_render_full.py · magazine_attach.py(첨부 멱등 F1) · magazine_cli_args.py(--reattach 배타 F2) · magazine_reattach.py · 시험 test_magazine_render_full.py 외. 수정: magazine_emit·magazine_pdf(여러 쪽 A4 · 한 장 한도 삭제 · pages)·magazine_publish(pdf_done · set_phase 가 files·revs 보존)·magazine_slack·byz_morning_magazine·install-magazine.sh(①③ 모듈은 있으면 복사·없으면 WARN).
+- 설계 DESIGN-magazine-full-detail-20261008.md §1·§4·§5·§6 · DA 사전검증 HOLD 1 → APPROVE(DA-magazine-fulldetail-20261008.md §r1 · F1 첨부 멱등 · F2 모드 배타 · F3 사실 영역).
+- master 독립 검증: r0(#61293) 시험 124 passed · plist ALL PASS · ruff clean · 최대 182줄 → r1(#61309) 125 passed.
+- 나노 장애 주입 14종(보고 원문): PDF 뒤 HTML 실패 → PDF 추가 0 · PDF complete 뒤 응답 유실 → 파일 추가 0 · pdf_done/done 저장 실패 → 추가 0 · 불명 → getUploadURL 0·complete 재호출 0·ERROR · 시도 기록 저장 실패 → 전송 0 · reattach 뒤 날짜 레코드 phase/ts/at 불변 · 답글 응답 유실·상태 쓰기 실패 → 답글 추가 0 · posting+표식 없음 → 답글 0·ERROR · 뿌리 글 없음 → raise · rN 파일 응답 유실 → 1개 · eli5 실패 → PDF 계속·경고 줄(멘션 중화) · --reattach r1 --force/--force-root → exit 2·원격 0.
+- 반송 r1(arch#10 #61298 · 1회): 실자료 dry-run 에서 ①md 에 외부 본문(D5 이슈 댓글 · 부록 BRIEFING)의 줄머리 「## 」가 진짜 2단 제목으로 섞임(실측 md 6162·7488·7491행 · ops/magazine push → GitHub 링크 목차 오염) ②eli5 실패한 날에도 뿌리 글 「…PDF(풀 디테일)·HTML(쉬운 판)에 있어요」.
+- arch 재현(#10): ①r1 뒤 매거진 시험 125 passed(.venv python) ②실자료 모델(collect 2026-10-08 · 단위 72 · 481KB) --model-file --dry-run: PDF 228쪽 · 2.5MB · md 의 «## » 줄 = 14개 전부 우리 절(목차 · 1부 4 · D1~D7 · 부록 · 각주표) · 외부 본문 인용 줄 3763 · HTML h2 14 · 뿌리 글 「본문은 스레드의 PDF(풀 디테일)에 있어요」 + 「쉬운 판(HTML) 못 만들었어요 — No module named 'magazine_eli5'」(③ 미통합 상태라 정상) ③편차 수락: 모듈 3개 추가·render 공개 함수(행동 변경 0) · complete ok=false·바이트 전송 실패 = 공유 안 됨 확실 → failed 재시도 / 결과 불명 = sharing → 불명 ERROR(문구 기반 판별 — 시험이 문구를 고정) · rN 불명 탈출 = 상태 파일 revs.rN 삭제 안내(reattach 는 --force-root 와 배타) · ①③ 모듈 선택 설치(통합 뒤 WARN 0 확인).
+- 최종 DA 소환: 안 함 — 사전검증 APPROVE 범위 안 · 장애 주입 14종이 DA §r1 구현 조건(complete 전 기록 · phase 변경 시 files 보존)을 덮음 · 반송 1회(md 표기·문구)로 닫힘.
+- 범위 밖 메모(완성 후): ①실자료 PDF 228쪽 중 D4(머지 본문 35건) 4259줄·D6(열린 카드 137) 1047줄이 대부분 — «분량 제한 0» 지시대로 둠 · 오빠가 줄이길 원하면 D4 본문 접기 1곳 ②문구 기반 실패 판별은 mirror_lib 오류 문구가 바뀌면 시험이 잡는다.
+- 라이브 반영: ①수집(§48)·③eli5(§49) cherry-pick 뒤 전체 시험 → 수동 1회 `--date 2026-10-08 --reattach r1 --no-push` → `install-magazine.sh`(복사만 · plist 변경 0 · WARN 0 확인). 정본 영향 없음: 하네스 슬랙 키트 모듈·시험 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: aeea2736ea112961811e5be840bd531e09304b06 · 시험: python3 -m pytest tests/scripts/test_magazine_publish.py -q rc=0 · 이슈: 0`
+
+## §51 세트 발주 원장 도구 ft-sets.sh + 정본·빈 틀·홈 초안 (판정 359 · 나노 set-dispatch-tools) — 닫힘 (byz-harness-arch-claude#11 · master#13 #61334 · 2026-10-08)
+- 나노 커밋 `9b984f99cc` [feature] ft-sets.sh + 시험 2종 · `043a9801c8` [docs] 정본 docs/rules/set_dispatch.md · 빈 원장 design/issues/SETS.md · 빈 요청 틀 design/cfo/orders/SET-REQUESTS.md · 홈 초안 2개. 브랜치 nano/set-dispatch-tools(base e660fd8295) · push 0.
+- 설계 DESIGN-set-dispatch-20261008.md §1·§2·§3-b·§5·§8 · DA 사전검증 HOLD 1 → APPROVE(DA-set-dispatch-20261008.md).
+- master 독립 검증(#61334): test_ft_sets.sh · test_set_requests.sh ALL PASS · shellcheck 경고 0 · 최대 137줄.
+- arch 재현(#11): ①`bash tests/harness/test_ft_sets.sh` PASS 25 · ALL PASS(bash 5.3 · /bin/bash 3.2 둘 다) ②`bash tests/harness/test_set_requests.sh` PASS 12 · ALL PASS ③`shellcheck -S warning` 3파일 rc=0 ④홈 초안 diff = 추가뿐 — context-management.md `108a109`(「열린 세트」 1줄) · harness-map.md `19a20`(표 행 1개) ⑤`FT_SETS_FILE=<빈 SETS.md> ft-sets.sh cfo` → 머리줄 「원장 … @ 043a9801c8 · 미커밋 변경 없음」 + 빈 표 + 「세트 진행 0 · 발주 0 · 보류 0 · 닫힘 0」 + 「요청 0건 · 미완료 0」 rc=0 · `--check` → 「CHECK OK — 행 0」 ⑥`FT_SETS_FILE` 미설정 → 「ERROR 원장 없음 … (다른 경로로 넘어가지 않는다)」 rc=3(침묵 대체 0) ⑦카드 증거 검사 `ft-nano-evidence-check.sh --feat e660fd8295` → OK.
+- 시험이 덮는 설계 §8 항목(PASS 줄 원문): 재ACK·적용 id(「적용 - 줄 → PENDING」·「적용 commit 이 원장 HEAD 에 없음 → STALE」) · close 일부 실패 = 보류(「닫힘 close 일부(2/3) → rc=1」) · 같은 경로 이후 개정본 안 읽음(「--body = 발주 commit 본문(v1), 같은 경로 이후 개정본(v2) 아님」) · 없는 sha = 미전달(「없는 sha = 미전달 → rc=1」) · 보호 ref 없음 → rc=1 · 이름·상태·Issue 칸 형식 · 행 중복 · Issue 겹침 경고.
+- 편차 수락 2: ①`--body <세트>`(발주 sha:경로 본문 출력 — 설계 §8 「같은 경로 이후 개정본 안 읽음」 시험을 도구 경로로 확인하려고 · 읽기 전용) ②끝줄 「· 폐기 e」 는 폐기 행이 있을 때만(설계 §1 상태 5종에 폐기 포함 — 표기 추가뿐).
+- 최종 DA 소환: 안 함 — 사전검증 APPROVE 범위 안 · 읽기 전용 도구 + 빈 틀·문서 · 반송 0.
+- 남은 몫(이 판정 밖): ①홈 초안 2개 cp 설치(백업 `.bak-1008-sets` · cmp 확인) = master ②원장 실재화(issues master 트리 design/issues/SETS.md) · 첫 적용 판정 358 CFO 7세트(회수본 design/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md) · 라벨·보호 ref 생성 = issues master·planner.
+- 정본 영향 없음: docs/rules 에 하네스 절차 정본 1장 신규와 하네스 도구·시험이고 docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 043a9801c87a7fd80efb30831622711114b83679 · 시험: bash tests/harness/test_ft_sets.sh rc=0 · 이슈: 0`
+
+## §49 아침 매거진 ③ 쉬운 판 eli5 HTML — 묶음 호출·단위별 보이는 생략 (판정 354 · 나노 magazine-eli5-html) — 닫힘 (byz-harness-arch-claude#11 · master#13 #61329·#61356 · 2026-10-08)
+- 나노 커밋 `7fb720ca5d` [feature] 오프라인 eli5 매거진(사실 영역과 AI 풀이 분리) · `560c1bbf71` [fix] eli5 스킬 본문 추출·감싼 JSON 수락(반송 r1) · `2f97070948` [structure] 프롬프트·JSON 검증 분리 · `08fd39a3e0` [structure] 시험 매개변수 정리 · `2f2b898520` [feature] 12개 묶음·동시 3·단위별 생략(반송 r2) · `d5595d3e32` [fix] 묶음 시간 한도 90→180초(반송 r3). 브랜치 nano/magazine-eli5-html(base 6594f5c8ae).
+- 신규: magazine_eli5.py · magazine_eli5_batches.py(★설치 목록 필수★) · magazine_eli5_template.html · 시험 test_magazine_eli5.py.
+- 설계 DESIGN-magazine-full-detail-20261008.md §5·§5-b · DA 사전검증 APPROVE(DA-magazine-fulldetail-20261008.md §r1) + §5-b 계약 APPROVE(§r2).
+- 반송 3회: r1(arch#10) 픽스처 통과·실자료 72단위 한 번 호출에서 차단 단어 Eli5Error·timeout → r2(arch#10 · §5-b) 12개 묶음·단위별 회색 칩 「AI 풀이 없음 — 사유」·바닥 줄 N/전체·생략 M·0건일 때만 Eli5Error → r2 실자료 AI 35/72 · 호출 실패 36 → r3(arch#11 #61342) 한도 조정.
+- arch 독립 실측(#11 · r2 코드 · 같은 72단위 · 실 LLM · 한도 400초 · 동시 3): 묶음당 63.2~140.3초 · AI 61/72 · 생략 11 · 벽시계 230.6초 · 묶음 프롬프트 1.5만~2만 자로 비슷 → r2 의 호출 실패 36 = 응답 분포가 90초 한도를 넘은 것(규모 아님).
+- r3 결과(나노 보고 · arch 재현): `python3 -m pytest tests/scripts/test_magazine_eli5.py -q` 46 passed · 매거진 시험 128 passed(.venv python) · 실자료 1회 257.61초 · 묶음 52.75~162초(타임아웃 0) · 바닥 줄 원문 「AI 풀이 67/72 · 생략 5(숫자 2건 · 차단 단어 2건 · 호출 실패 1건)」 · HTML 계수(arch grep) unit-card 72 · ai-explanation 67 · omitted 5 — 성공+생략=전체 · 사실 카드 전부 유지(DA §r2 「전체 모델 단위 순회」 조건 충족).
+- 최종 DA 소환: 안 함 — §5-b 계약 APPROVE 범위 안 · r3 는 상수 1개+시험 기대값 1줄 · 가짜 장애 주입(한 묶음 timeout→12개 생략 · 한 단위 차단→1개 · ref 누락→1개 · 전부 실패→Eli5Error)이 DA §r2 구현 조건을 덮음.
+- 범위 밖 메모(완성 후): ①두 실측 최대 140·162초 — 180초 여유 약 10% · 넘으면 그 묶음 12개만 보이는 생략(계약대로) · 자주 넘으면 묶음 크기 축소가 다음 수 ②단위별 문체 생략(숫자·차단 단어·아이콘) 7~15% — 프롬프트 개선 여지 ③매일 실행 벽시계 약 4분 추가.
+- ★설치 전 필수 1건(arch#11 발견)★: ops/main-base `scripts/harness-install/slack-mirror/install-magazine.sh:28` COMPANION 목록에 `magazine_eli5_batches.py` 없음 → 설치본에서 magazine_eli5 import 실패 → 매일 쉬운 판 0(WARN 문구만). 통합 뒤 그 목록에 한 단어 추가 커밋(나노) + 설치 뒤 `~/` 설치 경로에 파일 실재 확인.
+- 라이브 반영: §48·§50 과 cherry-pick 통합 → 매거진 전체 시험 → 수동 `--date 2026-10-08 --reattach r1 --no-push` → `install-magazine.sh` WARN 0(magazine_eli5_batches.py 포함 확인). 정본 영향 없음: 하네스 슬랙 키트 eli5 모듈·템플릿·시험만이고 docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: d5595d3e32d94d880ca81f30fd9f7663c726ed8f · 시험: python3 -m pytest tests/scripts/test_magazine_eli5.py -q rc=0 · 이슈: 0`

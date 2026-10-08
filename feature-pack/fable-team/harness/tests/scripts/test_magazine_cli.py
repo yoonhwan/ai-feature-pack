@@ -4,10 +4,12 @@
 """
 import inspect
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import pytest
+from _magazine_detail_fixture import EASY_HTML, detail_fixture, fake_eli5, fake_full_model, fake_pdf
 from _magazine_fakes import SUMMARY_OK, FakeMagazineSlack, fake_model, git, make_repo
 
 import byz_morning_magazine as cli
@@ -31,10 +33,11 @@ def repo(tmp_path):
 # ── CLI: 가짜 요약·가짜 PDF·가짜 Slack ───────────────────────────────────────────
 @pytest.fixture
 def cli_env(slack, tmp_path, monkeypatch):
-    (tmp_path / "model.json").write_text(json.dumps(fake_model()), encoding="utf-8")
+    (tmp_path / "model.json").write_text(json.dumps(fake_full_model()), encoding="utf-8")
     (tmp_path / "sum.py").write_text(SUMMARY_OK, encoding="utf-8")
     (tmp_path / "tok").write_text("YOONHWAN_BOT_TOKEN=xoxb-fake\n")
-    monkeypatch.setattr(cli, "html_to_pdf", lambda _h, p: p.write_bytes(b"%PDF-fake"))
+    monkeypatch.setattr(cli, "html_to_pdf", fake_pdf())
+    monkeypatch.setitem(sys.modules, "magazine_eli5", fake_eli5())
     base = ["--model-file", str(tmp_path / "model.json"), "--summary-cmd", f"python3 {tmp_path / 'sum.py'}", "--out-dir", str(tmp_path / "out"),
             "--state", str(tmp_path / "state.json"), "--token-file", str(tmp_path / "tok"), "--slack-base", slack.base, "--channel", "C1"]
     return base, tmp_path
@@ -44,7 +47,8 @@ def test_cli_dry_run_posts_nothing(cli_env, slack, capsys):
     base, tmp = cli_env
     assert cli.main([*base, "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "DRY-RUN" in out and "MAGAZINE-20261008.pdf" in out and "*아침 매거진 2026-10-08*" in out and "본문은 스레드의 PDF" in out
+    assert "DRY-RUN" in out and "MAGAZINE-20261008.pdf" in out and "*아침 매거진 2026-10-08*" in out and "본문은 스레드의 PDF(풀 디테일)·HTML(쉬운 판)" in out
+    assert "pages=3" in out and "-eli5.html" in out
     assert not slack.msgs and not (tmp / "state.json").exists() and (tmp / "out" / "MAGAZINE-20261008.md").exists()
 
 
@@ -55,7 +59,8 @@ def test_cli_no_push_makes_zero_git_calls_and_second_run_skips(cli_env, slack, m
     assert "skip date=2026-10-08" in capsys.readouterr().out and len(slack.roots) == 1
     root = slack.roots[0]["text"]
     assert root.startswith("*아침 매거진 2026-10-08*") and "main 에 두 건이 들어갔어요" in root and "<@U0AC2JF0M7D> 오빠 할 일이 1건" in root
-    assert "&lt;script&gt;" not in root and slack.uploads == [b"%PDF-fake"]
+    assert "&lt;script&gt;" not in root and slack.uploads == [b"%PDF-fake", EASY_HTML.encode()]
+    assert slack.titles(slack.roots[0]["ts"]) == [f"아침 매거진 {DATE} PDF r0", f"아침 매거진 {DATE} HTML r0"]
 
 
 def test_cli_push_link_uses_commit_sha(cli_env, slack, repo, monkeypatch):
@@ -77,6 +82,7 @@ def test_cli_broken_model_fails_visibly(cli_env, slack, tmp_path):
     base, _ = cli_env
     bad = fake_model()
     del bad["mbox"]
+    bad["detail"] = detail_fixture()
     (tmp_path / "model.json").write_text(json.dumps(bad), encoding="utf-8")
     assert cli.main([*base, "--no-push"]) == 1 and slack.msgs[0]["text"].startswith("매거진 발행 실패")
 
@@ -85,7 +91,7 @@ def test_cli_broken_model_fails_visibly(cli_env, slack, tmp_path):
 def test_collect_signature_contract():
     params = inspect.signature(magazine_collect.collect).parameters
     assert next(iter(params)) == "date"
-    assert {n for n, p in params.items() if p.kind is inspect.Parameter.KEYWORD_ONLY} == {"repo", "gh_repo", "mailbox"}
+    assert {n for n, p in params.items() if p.kind is inspect.Parameter.KEYWORD_ONLY} == {"repo", "gh_repo", "mailbox", "refs", "byz_root"}
 
 
 def seen_collect(monkeypatch) -> dict:
@@ -131,9 +137,16 @@ def test_cli_through_real_collect_composition(cli_env, slack, tmp_path, monkeypa
     """실 collect() 합성(창→leaf 3종→모델)을 거쳐 render→(가짜 PDF)→게시까지. leaf 만 가짜 — 슬랙 게시는 가짜 서버."""
     base, _ = cli_env
     m = fake_model()
+    real_collect = magazine_collect.collect
+    monkeypatch.setattr(magazine_collect, "collect", lambda *a, **k: {**real_collect(*a, **k), "detail": detail_fixture()})
     monkeypatch.setattr(magazine_collect, "collect_git", lambda *a: {k: m[k] for k in ("main", "merges", "docs")})
     monkeypatch.setattr(magazine_collect, "collect_gh", lambda *a: {k: m[k] for k in ("issues_opened", "issues_closed")})
     monkeypatch.setattr(magazine_collect, "collect_mbox", lambda *a: {k: m[k] for k in ("verdicts", "mbox", "seats")})
+    no_detail = {k: [] for k in ("refs", "units", "verdict_sections", "seats_closed", "appendix")} | {"merge_bodies": {}}
+    monkeypatch.setattr(magazine_collect, "collect_detail", lambda *a: no_detail)
+    monkeypatch.setattr(magazine_collect, "collect_decisions", lambda *a: [])
+    monkeypatch.setattr(magazine_collect, "last_comments", lambda *a: {})
+    monkeypatch.setattr(magazine_collect, "collect_open", lambda *a: {"cards": [], "requests": [], "holds": [], "breaches": []})
     argv = [*base[2:], "--repo-root", str(tmp_path), "--date", "2026-10-08", "--no-push"]
     assert cli.main(argv) == 0 and len(slack.roots) == 1
     assert "슬랙 미러 요약" in (tmp_path / "out" / "MAGAZINE-20261008.md").read_text(encoding="utf-8")
