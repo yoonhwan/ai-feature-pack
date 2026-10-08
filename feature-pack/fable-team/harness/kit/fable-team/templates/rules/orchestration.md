@@ -36,7 +36,7 @@
 
 - **오케스트레이터는 Bash로 코드 파일을 수정하지 않는다.** `sed -i`, `echo >`/`>>`, `tee`, `cat >` 로 코드파일을 고치는 것도 게이트가 deny한다.
 - 코드 수정이 필요하면 반드시 서브에이전트(ft-implementer/ft-tester)에 위임한다.
-- **v3 — 래퍼 외 생명주기 명령 직접 발행 금지(§0-2 L3)**: 오케는 `tmuxc open|kill|clean|distill`을 Bash로 직접 발행하지 않는다. 세션 생성·증류·정리는 `.fable-team/bin/ft-tmux-*.sh` 검증 래퍼 경유만 — orchestration-gate가 **면제 판별보다 먼저** 생명주기 deny를 평가하므로 워커·ft-자칭 세션·`bash -c`·절대경로 우회도 차단된다. `tmuxc clean`(zombie 일괄)은 스크립트화하지 않고 사용자 확인 경로 유지.
+- **v3 — 래퍼 외 생명주기 명령 직접 발행 금지(§0-2 L3)**: 오케는 `tmuxc open|kill|clean|distill`을 Bash로 직접 발행하지 않는다. 세션 생성·증류·정리는 `.fable-team/bin/ft-tmux-*.sh` 검증 래퍼 경유만 — orchestration-gate가 **면제 판별보다 먼저** 생명주기 deny를 평가하므로 워커·ft-자칭 세션·`bash -c`·절대경로 우회도 차단된다. `tmuxc clean`(zombie 일괄)은 스크립트화하지 않고 사용자 확인 경로 유지. — ★보류(오빠 판정 343 · 2026-10-08): 이 deny 는 ft-tmux 래퍼 라이브 설치 뒤 홈·키트 훅에 함께 켠다. 지금 훅에는 없다 — 원문 b75314ace2 의 키트 훅 41–58·105–123행.★
 - 오케스트레이션은 "좋은 말"이 아니라 우회 경로까지 줄이는 운영 규칙이다.
 
 ## 컨텍스트 증류 (하드 게이트 + v3 자율 증류)

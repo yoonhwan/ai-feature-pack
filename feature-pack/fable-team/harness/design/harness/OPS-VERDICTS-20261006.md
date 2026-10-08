@@ -1148,3 +1148,20 @@
   ⑦ 완료 보고 = 랜딩 sha + 재생 행 rc 1줄.
 - 남는 일(카드 밖 · 큐): 훅 209줄(200줄 규칙 초과 · 분리 별 카드 후보) · `mbox.py` 637줄(분리 별 카드 후보).
 - 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §96 키트 orchestration-gate 훅 = 홈 정본 같은 바이트 (오빠 결정 판정 343 집행 · planner 판정 592 순서 ① · 나노 gate-hook-kit-equals-home) — 닫힘 · 독립 재현 통과 + 최종 DA APPROVE(1회 · 카드 계약) (byz-harness-arch-claude#21 · 2026-10-09)
+- 골 축: 원문 5(머신 독립 배분 — 다른 머신이 키트에서 받는 훅 = 이 Mac 에서 도는 훅) + 6-b(오빠 결정 343 반영) + C(업그레이드·반영).
+- 대상 카드: gate-hook-kit-equals-home (대기 → 진행 · arch#21 재검증 커밋 `d6991ae04c` — 카드 보강 불요)
+- 나노 커밋 1개(브랜치 `nano/gate-hook-kit-equals-home` · base origin/main `d23385ef35` = 현 tip · push 0): `4ed459ddfc`([fix] 2파일 +1 −38) — ①키트 `scripts/harness-install/fable-team/templates/hooks/orchestration-gate.sh` ← 홈 `~/.claude/hooks/orchestration-gate.sh` cp(307→270줄 · 실행 비트 유지) ②키트 문서 `templates/rules/orchestration.md:39` 끝에 보류 문구 1개(카드 원문과 글자 일치).
+- 사전검증: 면제(arch#9 서명 — 사람이 정한 기준으로 키트 템플릿 1개를 홈 바이트로 맞추는 복사 · 라이브 홈 훅·settings.json 변경 0 · 빠지는 블록 = 보류 결정된 ⓪ 생명주기 deny·ⓐ 워커 면제뿐 · 원문은 `b75314ace2` 이력).
+- ★arch 독립 재현(#21 · 이 재현이 닫는 증거)★: `4ed459ddfc` 아카이브 → `mktemp -d` 새 폴더:
+  · `cmp 키트 orchestration-gate.sh ~/.claude/hooks/orchestration-gate.sh` **rc=0** · 실행 비트 O · 키트 사본에 `LIFECYCLE_RE`·`in_ft_tmux` 0건.
+  · `bash tests/harness/test_orch_gate_top_models.sh` **rc=0 (pass=10 fail=0)**.
+  · `bash scripts/harness-install/fable-team/install.sh --home "$HOME" | grep 'hook orchestration-gate.sh'` → **`hook orchestration-gate.sh home=same settings=registered`**.
+  · 홈 훅 수정 시각 9-29 13:56 그대로 · 나노 워크트리 미커밋 = `.serena/project.yml` 자동변경뿐(커밋 금지 노이즈).
+- ★arch 판단 서명 — 승인★: 이 단위는 홈을 바꾸지 않는다(키트 ← 홈) → 589 홈 설치 조건(백업·셔뱅 재생·오탐 원복) 해당 없음. 키트를 받는 다른 머신은 이 Mac 과 같은 게이트를 갖고 ⓪ 는 홈·키트에 동시에 켜는 날까지 어디에도 없다.
+- 알고 둔 것(이 카드 범위 밖): 키트 훅 19개 ↔ 홈 전수 cmp(origin/main `d23385ef35`) — 같음 9 · 홈에 없음 8 · 다름 2 중 남는 1 = `boot-read-gate.sh`(머리 주석 2줄만 · 동작 같음). 정합이 필요하면 별 카드 후보.
+- ★최종 DA APPROVE★(`design/harness/DA-gate-hook-kit-equals-home-20261009.md` · byz-harness-da-codex#0 · GPT-6/OpenAI): 4ed459ddfc↔현재 홈 독립 바이트 동일 · 삭제 37줄 = 보류분 범위 수락 · ft-worker-guard 역할 검사 불변 · TOP_MODELS/2파일/agent_id JSON 4모델 독립 PASS + bash -n.
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 4ed459ddfc7178ecb8a04751f32832f2ddd11202 · 시험: bash tests/harness/test_orch_gate_top_models.sh rc=0 · 이슈: 0`.
+- ★다음★: ① 최종 DA 1회(arch#21 소환 · 요청서 `design/harness/DA-REQ-gate-hook-kit-equals-home-20261009.md` · `byz-harness-da-codex#0` · bounded) → ② APPROVE 면 master 가 `ft-index-move.sh <카드> 완성 --da design/harness/DA-gate-hook-kit-equals-home-20261009.md` → ③ PR(origin/main · `--body-file`) 병합. 홈 설치 단계 없음.
+- 정본 영향 없음: 하네스 키트 템플릿·키트 문서 1줄 — docs/architect 제품 정본 변경 없음.
