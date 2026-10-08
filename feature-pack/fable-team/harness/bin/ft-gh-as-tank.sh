@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-gh-as-tank.sh <create|comment|label|close|reopen|edit> … [--apply] — Issue 쓰기를 Tank 봇(byz-tank) 이름으로 실행하는 gh 래퍼
+# ft-gh-as-tank.sh <create|comment|comment-edit|label|close|reopen|edit> … [--apply] — Issue 쓰기를 Tank 봇(byz-tank) 이름으로 실행하는 gh 래퍼
 #
 # 왜 있나: 좌석이 gh 기본 로그인으로 Issue 를 쓰면 등록자·코멘트·라벨·close 가 전부 오빠 계정(yoonhwan)으로 올라간다(10-07 #839 등).
 #   모든 Issue 쓰기는 이 래퍼 → Tank 토큰으로만 나간다. 직접 호출은 gh-issue-author-guard.sh 훅이 막는다. 읽기(view·list)는 래퍼 불필요.
@@ -9,7 +9,8 @@
 # 동작:
 #   create  <제목> <본문파일>                              → ft-issue-create-pair.sh 재사용(마커·매니저 알림 규약 그대로)
 #   comment <번호> <본문파일>
-#   label   <번호> [--add a,b] [--remove c,d]
+#   comment-edit <comment_id> <본문파일>                   → ft-gh-tank-comment-edit.sh 에 위임(byz-tank 이 쓴 코멘트만 · 작성자 다르면 exit 1 · 수정 전 원문 보관)
+#   label  <번호> [--add a,b] [--remove c,d]
 #   close   <번호> [--comment <본문파일>] [--reason completed|not-planned]
 #   reopen  <번호> [--comment <본문파일>]
 #   edit    <번호> [--title <제목>] [--body-file <파일>]   (둘 중 하나 이상)
@@ -31,7 +32,7 @@ REPO="${FT_ISSUE_REPO:-SecondWindStudio/byz-agents}"
 TANK="${FT_TANK_LOGIN:-byz-tank}"
 
 die() { echo "REJECT $1" >&2; exit "${2:-1}"; }
-usage() { die "usage: $0 <create|comment|label|close|reopen|edit|pr-comment|pr-create|pr-edit|pr-close> … [--apply]" 2; }
+usage() { die "usage: $0 <create|comment|comment-edit|label|close|reopen|edit|pr-comment|pr-create|pr-edit|pr-close> … [--apply]" 2; }
 need_num() { [[ "${1:-}" =~ ^[0-9]+$ ]] || die "Issue 번호(정수) 필요: ${1:-없음}" 2; }
 need_file() { [ -f "${1:-}" ] || die "본문 파일이 없다: ${1:-없음}" 2; }
 
@@ -51,6 +52,9 @@ case "$ACTION" in
     [ $# -eq 2 ] || die "usage: $0 comment <번호> <본문파일> [--apply]" 2
     need_num "$1"; need_file "$2"
     CMD=(issue comment "$1" -R "$REPO" --body-file "$2");;
+  comment-edit)
+    [ $# -eq 2 ] || die "usage: $0 comment-edit <comment_id> <본문파일> [--apply]" 2
+    need_num "$1"; need_file "$2";;
   pr-comment)
     [ $# -eq 2 ] || die "usage: $0 pr-comment <번호> <본문파일> [--apply]" 2
     need_num "$1"; need_file "$2"
@@ -126,6 +130,7 @@ if [ $APPLY -eq 0 ]; then
     echo "DRY as=$TANK (토큰 값은 출력하지 않는다)"
     bash "$HERE/ft-issue-create-pair.sh" "$@"; exit $?
   fi
+  [ "$ACTION" = comment-edit ] && { echo "DRY as=$TANK comment-edit $1 $2"; exit 0; }
   SHOW="${CMD[*]}"; [ -n "$COMMENT_FILE" ] && SHOW="$SHOW --comment <$COMMENT_FILE>"
   echo "DRY as=$TANK gh $SHOW"
   exit 0
@@ -140,6 +145,9 @@ WHO="$(GH_TOKEN="$TOK" gh api user --jq .login 2>/dev/null || true)"
 
 if [ "$ACTION" = create ]; then
   FT_ISSUE_BOT_TOKEN="$TOK" bash "$HERE/ft-issue-create-pair.sh" "$@" --apply; exit $?
+fi
+if [ "$ACTION" = comment-edit ]; then
+  FT_TANK_TOK="$TOK" bash "$HERE/ft-gh-tank-comment-edit.sh" "$@"; exit $?
 fi
 if [ "$ACTION" = edit ] || [ "$ACTION" = pr-edit ]; then
   # 수정 «전» 원문 보관 — 보관이 안 되면 수정 시도 0(#0 RULE: 조용히 건너뛰지 않는다)

@@ -958,3 +958,16 @@
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main · 나노 커밋 3개만 — base 가 ops/main-base 라 ops 문서 유입 검사) → 병합 → tester 가 부르는 게이트 사본 확인 후 라이브 cp+cmp(★feat 워크트리 `v6-realtime-live` 사본은 origin/main 과 다른 옛판 — 어느 사본이 도는지 먼저 확인★) → main 기반 나노 1개로 게이트 ① 1회 실측(⊘ 줄 + ✓ 미랜딩 0 · 허가 파일 부작용 주의) → v65 master#150 에 「press 재시도 가능」 1줄.
 - 남는 일(카드 밖 · 완성 후): LIVE_WT 좌석 이름 정규식이 `ft-v65-temp-*`·`ft-v65-(mr|le)-track` 만 본다(새 이름 규칙 `byz-v65-…` 좌석은 ① 대상 밖) — 별 카드 후보 · feat 워크트리 게이트 사본 옛판 문제.
 - 정본 영향 없음: 하네스 press 게이트·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §86 Tank 래퍼 comment-edit — byz-tank 가 쓴 Issue 코멘트만 수정 · 조회 → 작성자 확인 → 원문 보관 → PATCH(JSON stdin) → 응답 본문 대조 · 앞 단계 실패 = 수정 시도 0 (원장 R59 · 판정 564 · issues#6 쪽지 65989 · 나노 r59-tank-comment-edit) — 닫힘 (byz-harness-arch-claude#19 · 2026-10-09) · ★구현 DA 없음 — arch 독립 재현·서명(카드 결정)★
+- 대상 카드: r59-tank-comment-edit
+- 나노 커밋 1개(브랜치 `nano/r59-tank-comment-edit` · base ops/main-base · 좌석 byz-harness-nano-r59-tank-comment-edit#0 Sonnet 5.5 · push 0):
+  `6fa90c8524`([feature] `scripts/fable-team-bin/ft-gh-as-tank.sh` +8줄 → 190줄(머리말·usage · case 인자 검사 · dry-run `DRY as=byz-tank comment-edit <id> <파일>` · 토큰·주인 확인 뒤 `FT_TANK_TOK` env 로 위임 — create 와 같은 꼴) · 새 `scripts/fable-team-bin/ft-gh-tank-comment-edit.sh`(62줄 · ⓐGET `repos/<repo>/issues/comments/<id>` ⓑ`user.login` ≠ byz-tank → exit 1 ⓒ원문 보관 `issue-edit-bak/comment<id>-<UTC>.body.md`(래퍼 edit 와 같은 폴더 규칙) ⓓ`gh api -X PATCH … --input -`(본문 = JSON stdin) ⓔ응답 body ≠ 파일 → exit 1 · 성공 = OK 줄 + 되돌림 줄) · 키트 사본 2 · 새 `tests/harness/test_gh_tank_comment_edit.sh`(121줄 · ⓐ~ⓙ)).
+- ★arch 독립 재현(#19 · 이 재현이 닫는 증거)★: origin/main `5f34c13254` 아카이브 + `git diff 6fa90c8524~1 6fa90c8524` → 스크래치패드 새 폴더: `test_gh_tank_comment_edit.sh` rc=0(**39 PASS** · 따옴표·작은따옴표·줄바꿈·백틱·`$HOME` 본문이 PATCH stdin JSON 에 그대로 · 토큰 값이 출력·gh 인자 어디에도 0) · `test_gh_as_tank.sh` rc=0 · `test_kit_bin_sync.sh` ALL PASS · 사본 cmp 2 · 줄 수 190·62.
+  ★독립 변이 2★: ①작성자 확인 제거 → ⓒ FAIL 2(남의 코멘트 PATCH·보관 발생) ②보관 폴더 생성 실패 무시 → ⓔ FAIL 1(그래도 다음 단계 원문 쓰기 실패로 rc=1·PATCH 0 — 이중으로 막힘 · 시험은 사유 문구로 잡음).
+- 실행 비트(master 확인 요청): 추적본 래퍼 644(origin/main 원래 644 · 변경 0) · 새 본체 755 · 키트 사본 같은 모드. 라이브 FT_BIN = `v6-realtime-live/.fable-team/bin`(issues-env.sh:11) — 래퍼 644 · origin/main(변경 전)과 같은 바이트 · 본체 파일 없음(설치 대상). 래퍼는 `bash …/ft-gh-as-tank.sh` 로 불리고 본체도 래퍼가 `bash` 로 부르므로 실행 비트와 무관 — cp 는 `cp -p` 또는 cp 뒤 본체 755 맞춤 권고(동작 영향 0 · 키트 일치용).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 6fa90c8524e939e62361a698448baf7d64458321 · 시험: bash tests/harness/test_gh_tank_comment_edit.sh rc=0 · 이슈: 0`.
+- 사전검증·구현 DA: 소환 안 함(카드 면제 — 실패 꼴 전부 수정 시도 0 · 기존 edit 보관 규약 · 가드 변경 0) — arch 서명 byz-harness-arch-claude#19.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main · 나노 커밋 1개만 — base 가 ops/main-base 라 ops 문서 유입 검사) → 병합 → 라이브 FT_BIN(`v6-realtime-live/.fable-team/bin`) 두 파일 cp+cmp → issues#6 에 랜딩 sha + 사용법 1줄(`bash $FT_BIN/ft-gh-as-tank.sh comment-edit <comment_id> <본문파일> --apply`) → 첫 실제 수정 1회 결과(OK 줄 · bak 파일) 회수.
+- 남는 일(카드 밖 · 완성 후): PR 리뷰 코멘트(`pulls/comments`) 수정은 범위 밖 — 요청 오면 별 카드.
+- 정본 영향 없음: 하네스 Tank 래퍼·시험만 — docs/architect 제품 정본 변경 없음.
