@@ -75,3 +75,53 @@
 
 ※ 변이: M1 = `$CMD` 기준 · M2 = 블록 제거 · M3 = 검색·게시 구간 제거 빼기 · M4 = 옛 «아무 위치» Redis 규칙 · M5 = 페이지 경로 제거 빼기 · M6 = 실행 치환 검사 case 빼기 · M7 = `tr -d`(따옴표·역슬래시 제거) 빼기 — 각 변이에서 해당 행의 rc 가 뒤집힘.
 ※ 경계: Redis 동사는 `redis-cli` 뒤 옵션만 오고 첫 토큰일 때 + 인자 1개 이상일 때만 차단(`CONFIG SET`·`GET set` 통과). 검색·게시 구간(`git grep`·`rg`·`ag`·`gh pr|issue create|comment|edit|view`)은 `; & |` 까지만 검사에서 제외하되, 실행 치환(`$(`·백틱·`<(`·`>(`)이 하나라도 있으면 이 예외를 끈다(r2). 검사 사본에서 따옴표·역슬래시를 지워 `redis-''cli`·`S''ET` 이어붙임을 한 단어로 본다(r3). 알고 둔 범위 밖: 변수·별칭 우회(`r=redis-cli; $r SET k v`)·스크립트 파일 안 주입·파이프 stdin(`echo "SET k v" | redis-cli`) — 명령줄 글자 훅의 한계, 증거 무효 규정(BOOT 20)이 맡는다.
+
+## 판정 595 추가 행 — 게시 싱크(`--inject` 모드 · 시험 `tests/harness/test_block_destructive_inject_post.sh`) · r1·r2 반송 반영
+
+시험: `bash tests/harness/test_block_destructive_inject_post.sh` rc=0 (통과 F 7 · 차단 X 22 · 변이 9) · 기존 `test_block_destructive_inject.sh` rc=0 (22/32/15) · `test_block_destructive.sh` rc=0 · 훅 `bash -n` OK · 판정기 200줄. 명령 전문은 시험 파일(JSON 문자열일 뿐, 실행 0). 임시 경로는 예시 글자.
+
+| 행 | 명령 | 기대 rc | 실제 rc |
+|---|---|---|---|
+| F1a | `(issues#6 실사례 원문 형태: 대입 3개 + cat > $SP/c887r.md <<'EOF' 본문(/dev/bubble-replay 인용) + bash $SP/ft-gh-as-tank.sh comment 887 $SP/c887r.md --apply \| tail -1 + close-check + mbox send)` | 0 | 0 |
+| F1b | `cat > /tmp/fp-c.md <<'EOF'⏎(/dev/bubble-replay) 무효⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 887 /tmp/fp-c.md --apply` | 0 | 0 |
+| F1c | `cat > /tmp/fp-c.md <<'EOF'⏎redis-cli SET k v 금지⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh edit 887 --body-file /tmp/fp-c.md --apply` | 0 | 0 |
+| F1d | `cat > /tmp/fp-b.md <<'EOF'⏎redis-cli SET k v 금지⏎EOF⏎gh pr create --title x --body-file /tmp/fp-b.md` | 0 | 0 |
+| F1e | `cat > /tmp/fp-m.txt <<'EOF'⏎[docs] /dev/bubble-replay 금지⏎EOF⏎git commit -F /tmp/fp-m.txt -- a.md` | 0 | 0 |
+| F2a | `gh issue comment 1 --body "$(cat <<'EOF'⏎/dev/bubble-replay 무효⏎EOF⏎)"` | 0 | 0 |
+| F2b | `git commit -m "$(cat <<'EOF'⏎[docs] redis-cli SET k v 금지⏎EOF⏎)" -- a.md` | 0 | 0 |
+| X1 | `cat > /tmp/fp-x.sh <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash /tmp/fp-x.sh` | 2 | 2 |
+| X2 | `cat > /tmp/fp-x.txt <<'EOF'⏎SET k v⏎EOF⏎redis-cli < /tmp/fp-x.txt; redis-cli SET k v` | 2 | 2 |
+| X3 | `cat > /tmp/fp-c.md <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/fp-c.md --apply; bash /tmp/fp-c.md` | 2 | 2 |
+| X4 | `cat > /tmp/fp-c.md <<EOF⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/fp-c.md --apply` | 2 | 2 |
+| X5 | `cat > /tmp/fp-k <<'EOF'⏎url = http://h/dev/bubble-replay⏎EOF⏎curl -K /tmp/fp-k; bash x.sh` | 2 | 2 |
+| X6 | `bash -c "$(cat <<'EOF'⏎redis-cli SET k v⏎EOF⏎)"` | 2 | 2 |
+| X8 | `curl "$(cat <<'EOF'⏎http://h/dev/bubble-replay⏎EOF⏎)"` | 2 | 2 |
+| X9 | `cat > /tmp/fp-c.md <<'EOF'⏎x⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/fp-c.md --apply; redis-cli SET k v` | 2 | 2 |
+| X10 | `gh issue comment 1 --body "$(cat <<'EOF'⏎ok⏎EOF⏎)$(redis-cli SET k v)"` | 2 | 2 |
+| X11 | `python3 - <<'EOF'⏎import os; os.system('redis-cli SET k v')⏎EOF` | 2 | 2 |
+| X12 | `cat > /tmp/fp-c.md <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash x.sh /tmp/fp-c.md` | 2 | 2 |
+| X13 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file /tmp/body595.txt; bash "$RUNFILE"` | 2 | 2 |
+| X14 | `cat > <임시폴더>/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file <임시폴더>/body595.txt; bash <임시폴더>/other595.sh` | 2 | 2 |
+| X15 | `R=/tmp/body595.txt; cat > $R <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash $R` | 2 | 2 |
+| X16 | `D=/tmp; cat > $D/c.md <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash $D/../tmp/c.md` | 2 | 2 |
+| X17 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/body595.txt --apply; sudo bash x.sh` | 2 | 2 |
+| X18 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file /tmp/body595.txt; bash "$RUNFILE"; RUNFILE=/tmp/safe.sh` | 2 | 2 |
+| X19 | `R=/tmp/safe.sh; cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file /tmp/body595.txt; R=/tmp/body595.txt; bash $R` | 2 | 2 |
+| X20 | `gh issue comment 1 --body "$(cat <<'EOF'⏎ok⏎EOF⏎redis-cli SET k v⏎EOF⏎)"` | 2 | 2 |
+| X21 | `cat > /tmp/fp-c.md <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash $D/fp-c.md` | 2 | 2 |
+| X22 | `cat > /tmp/fp-c.md <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash /tmp/fp-c.m?` | 2 | 2 |
+| X23 | `echo '<<"A"'; cat > /tmp/fp-c.md <<EOF⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/fp-c.md --apply` | 2 | 2 |
+| M3-X12 | `cat > /tmp/fp-c.md <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash x.sh /tmp/fp-c.md` | 0 | 0 |
+| M4-X14 | `cat > <임시폴더>/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file <임시폴더>/body595.txt; bash <임시폴더>/other595.sh` | 0 | 0 |
+| M12-X13 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file /tmp/body595.txt; bash "$RUNFILE"` | 0 | 0 |
+| M12-X17 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/body595.txt --apply; sudo bash x.sh` | 0 | 0 |
+| M7-X18 | `cat > /tmp/body595.txt <<'EOF'⏎redis-cli SET k v⏎EOF⏎gh pr create --title x --body-file /tmp/body595.txt; bash "$RUNFILE"; RUNFILE=/tmp/safe.sh` | 0 | 0 |
+| M8-X4 | `cat > /tmp/fp-c.md <<EOF⏎redis-cli SET k v⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 1 /tmp/fp-c.md --apply` | 0 | 0 |
+| M9-F1a | `(issues#6 실사례 원문 형태: 대입 3개 + cat > $SP/c887r.md <<'EOF' 본문(/dev/bubble-replay 인용) + bash $SP/ft-gh-as-tank.sh comment 887 $SP/c887r.md --apply \| tail -1 + close-check + mbox send)` | 2 | 2 |
+| M9-F1b | `cat > /tmp/fp-c.md <<'EOF'⏎(/dev/bubble-replay) 무효⏎EOF⏎bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 887 /tmp/fp-c.md --apply` | 2 | 2 |
+| M10-X20 | `gh issue comment 1 --body "$(cat <<'EOF'⏎ok⏎EOF⏎redis-cli SET k v⏎EOF⏎)"` | 0 | 0 |
+
+※ X13~X17 = DA r1 반송(Q1): 같은 명령의 실행 소비 구간이 «대입 해소 + realpath ≠ F» 로 증명돼야 본문을 뺀다. X13 미해소 `$RUNFILE` · X14 다른 이름 심링크(시험이 임시 폴더에 other595.sh → body595.txt 생성) · X15 `R=…` 뒤 `$R` 실행 · X16 `$D/../tmp/c.md` 우회 · X17 `sudo bash`.
+※ X18·X19 = DA r2 반송(Q1): 대입은 «구간 순서대로» — 검사 뒤에 대입된 값(X18 뒤쪽 `RUNFILE=/tmp/safe.sh` · X19 `R=F` 재대입)은 앞 구간 검사에 쓰지 않는다. X20~X23 = 1차 구현이 더한 행: X20 본문 안 구분자 줄 · X21 같은 끝 이름 별칭 · X22 글롭 · X23 따옴표 모양 문자열로 따옴표 없는 구분자를 가림.
+※ 변이: M3 = F 를 가리키는 토큰 검사 빼기(X12 → 0) · M4 = realpath 비교 빼기(두 곳 · X14 → 0) · M12 = 실행 소비 구간 «비-F 증명» 빼기(X13·X17 → 0) · M7 = 대입을 전 구간 최종 값으로(r1 동작 · X18 → 0) · M8 = 따옴표 구분자 요구 빼기(X4 → 0) · M9 = 훅이 `INJ_SRC` 대신 `EFFECTIVE` 를 봄(F1a·F1b → 2) · M10 = 본문 안 구분자 줄 검사 빼기(X20 → 0). ★이중 방어★: X15·X16·X19 는 «끝 이름 검사» 와 «realpath 검사» 가 둘 다 잡는다.
+※ 알고 둔 범위 밖: 카드의 X7(`redis-cli $(cat <<'EOF'`⏎`SET k v` — 동사가 다음 줄) 은 기존 `INJECT_REDIS` 가 못 보는 빈틈이라 이 카드 범위 밖(키트 원본·본 변경 모두 rc=0) — 별 카드 후보. 게시 래퍼 판별은 파일 «끝 이름»(`ft-gh-as-tank.sh`)이라 같은 이름의 다른 스크립트도 래퍼로 본다(닫힌 목록의 알려진 한계). 증명 불가 꼴(`eval`·`source`·`.`·`xargs`·`env`·`sudo`·`-c`·옵션 붙은 셸·`find -exec`·`read`/`declare` 등 변수 변경 명령·`$` 첫 단어)은 전부 Inelig = 명령 전체 검사.

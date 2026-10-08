@@ -1,6 +1,6 @@
 # block-destructive.sh 의 판정기(판정 466) — 훅이 python3 <이 파일> <명령> <JSON 원문> 으로 부른다.
 # 출력 = PATTERN 을 볼 글자. 예외는 Inelig → 명령 전체(fail-closed).
-import json, os, re, shlex, subprocess, sys
+import fnmatch, json, os, re, shlex, subprocess, sys
 
 class Inelig(Exception): pass          # 예외 자격 없음 → 명령 전체에 PATTERN
 
@@ -115,9 +115,86 @@ def judge(cmd, cwd):
     if any(g["kind"] == "assign" for g in segs) and any("$" in l for l in lines): raise Inelig
     return "\n".join(lines)
 
-cmd = sys.argv[1]
+# ── 판정 595: INJECT 전용 «게시 싱크» (--inject 모드만 · 위 judge()/기본 호출 경로는 불변) ──
+# 따옴표 heredoc 본문이 게시 래퍼·gh·git commit 의 «본문 파일/값» 으로만 쓰이고 실행 소비 구간이 전부 «F 가 아님»(구간 순서대로 대입 해소
+# + realpath ≠ F)으로 증명될 때만 본문을 뺀다. 증명 못 하면 Inelig = 명령 전체 검사(fail-closed).
+WRAPPER = re.compile(r"(^|/)ft-gh-as-tank\.sh$")
+VALUE_OPT = {"--body", "-b", "--title", "-t", "-m", "--message"}
+STATE_CMDS = {"read", "declare", "typeset", "local", "mapfile", "readarray", "getopts", "-exec", "-execdir", "-ok", "-okdir"}
+HD_SUB = re.compile(r"\$\(\s*cat\s+<<-?\s*(['\"])([A-Za-z_][A-Za-z0-9_]*)\1[ \t]*\n(.*?)\n[ \t]*\2[ \t]*\n[ \t]*\)", re.S)
+def post_file_arg(w, k):   # w[k] 가 게시 싱크의 «본문 파일» 자리인가
+    b, p = os.path.basename(w[0]), (w[k - 1] if k else "")
+    if b == "bash" and len(w) > 2 and WRAPPER.search(w[1]):
+        return w[2] in ("create", "comment", "comment-edit", "pr-comment", "pr-create") and k == 4 or w[2] in ("edit", "pr-edit") and p == "--body-file"
+    if b == "gh": return w[1:2] in (["pr"], ["issue"]) and w[2:3] in (["create"], ["comment"], ["edit"]) and p in ("--body-file", "-F")
+    return b == "git" and w[1:2] == ["commit"] and p in ("-F", "--file")
+def touches(t, base):   # 토큰 t 가 파일 F(끝 이름 base)를 가리킬 수 있는가 — 같은 끝 이름(./F·$D/F) 또는 글롭
+    return base in t or bool(re.search(r"[*?\[]", t) and fnmatch.fnmatchcase(base, os.path.basename(t)))
+def resolve(t, env):   # $VAR·${VAR} 를 앞 구간의 리터럴 대입 값으로 — 풀리지 않는 $·백틱이 남으면 None(증명 불가)
+    r = re.sub(r"\$(\w+|\{\w+\})", lambda m: env.get(m.group(1).strip("{}"), "\0"), t)
+    return None if re.search(r"[$`\0]", r) else r
+def rp(p, cwd, moved):   # realpath(심링크를 따라감) — 상대경로는 cwd 가 확실할 때만 · 글롭·~·{} 면 None
+    if p is None or re.search(r"[*?\[\]{}~]", p) or (not os.path.isabs(p) and (moved or not cwd)): return None
+    return os.path.realpath(os.path.join(cwd or "/", p))
+def envs_before(segs):   # 구간 i 는 «앞 구간까지의» `VAR=리터럴`·`export VAR=리터럴` 대입만으로 검사 — 값에 $·백틱·글롭이 있거나 += 등 다른 꼴이면 그 변수는 미해소
+    env, out = {}, []
+    for toks, _ in segs:
+        out.append(dict(env))
+        if toks[0] == "unset": [env.pop(t, None) for t in toks[1:]]
+        elif toks[0] == "export" or all(ASSIGN.match(t) for t in toks):
+            for t in (toks[1:] if toks[0] == "export" else toks):
+                m = re.fullmatch(r"(\w+)=(.*)", t, re.S)
+                if m and resolve(m[2], {}) == m[2] and not re.search(r"[*?\[{~]", m[2]): env[m[1]] = m[2]
+                else: env.pop(re.match(r"\w*", t)[0], None)
+    return out + [env]   # 마지막 항목 = 전 구간 최종 env (구간 검사에는 쓰지 않는다)
+def runs_only_other(toks, env, frp, cwd, moved):   # 허용 꼴: bash|sh|INTERP + 옵션 없는 스크립트 경로 · 첫 단어 = 경로 — 그 경로 realpath ≠ F
+    g = classify(toks, "", cwd, moved)
+    if not g["cmd"]: return True
+    ws = g["words"][g["words"].index(g["cmd"]):]
+    c = resolve(ws[0], env)
+    if c is None or (ws[0] == "printf" and "-v" in ws) or any(t in STATE_CMDS for t in ws): return False
+    b = os.path.basename(c)
+    if b in ("bash", "sh") or INTERP.fullmatch(b): s = resolve(ws[1], env) if len(ws) > 1 and not ws[1].startswith("-") else None
+    elif b in CONSUMERS: return False
+    elif "/" in c: s = c
+    else: return True
+    p = rp(s, cwd, moved)
+    return p is not None and p != frp
+def inject_view(cmd, cwd):
+    out = cmd
+    for m in reversed(list(HD_SUB.finditer(cmd))):              # F2: 게시 싱크 본문 옵션 값 "$(cat <<'D' … D)"
+        if any(l.strip(" \t") == m.group(2) for l in m.group(3).split("\n")): continue   # 본문 안 구분자 줄 = 셸은 거기서 끝낸다
+        w = re.split(r"[;&|\n]", cmd[:m.start()])[-1].replace('"', " ").split()
+        b = os.path.basename(w[0]) if w else ""
+        if len(w) >= 3 and w[-1] in VALUE_OPT and (b == "gh" and w[1] in ("pr", "issue") and w[2] in ("create", "comment", "edit")
+                                                   or b == "git" and w[1] == "commit"):
+            out = out[:m.start()] + out[m.end():]
+    if out != cmd: return out
+    text, _, n = strip_heredoc(cmd)                             # F1: cat > F <<'D' 본문 + F 는 게시 싱크 본문 파일 자리에만
+    opens = [m.group(1) for m in re.finditer(r"<<-?\s*([^\s;&|()<>]+)", cmd)]
+    if n != 1 or not opens or any(o[0] not in "'\"" for o in opens) or "`" in text: raise Inelig   # 따옴표 없는 구분자 = 본문 안 $(…) 실행
+    moved, segs, F, hi = bool(MOVE.search(re.sub(r"[\\'\"]", "", cmd))), split(text), None, 0
+    for i, (toks, _) in enumerate(segs):
+        if "<<" in toks or "<<-" in toks:
+            outs = [toks[i + 1] for i, t in enumerate(toks) if t in (">", ">>", ">|") and i + 1 < len(toks)]
+            if toks[0] != "cat" or len(outs) != 1: raise Inelig
+            F, hi = outs[0], i
+    envs = envs_before(segs)
+    fr = resolve(F, envs[hi]) if F else None; frp = rp(fr, cwd, moved); base = os.path.basename((fr or "").rstrip("/"))
+    if frp is None or not base: raise Inelig
+    for i, ((toks, _), env) in enumerate(zip(segs, envs)):
+        if i == hi: continue
+        if not runs_only_other(toks, env, frp, cwd, moved): raise Inelig
+        for k, t in enumerate(toks):
+            r = resolve(t, env)
+            if (touches(t, base) or r is not None and (touches(r, base) or rp(r, cwd, moved) == frp)) and not (r == fr and post_file_arg(toks, k)):
+                raise Inelig
+    return text
+inj = sys.argv[1:2] == ["--inject"] and len(sys.argv) == 4      # 판정 595: 인자 4개일 때만 INJECT 모드 (명령이 글자 그대로 `--inject` 여도 기본 경로)
+cmd = sys.argv[2] if inj else sys.argv[1]
 try:
-    cwd = json.loads(sys.argv[2]).get("cwd")
-    print(judge(cmd, cwd if isinstance(cwd, str) else None))
+    cwd = json.loads(sys.argv[-1]).get("cwd"); cwd = cwd if isinstance(cwd, str) else None
+    try: print(judge(cmd, cwd))
+    except Inelig: print(inject_view(cmd, cwd) if inj else cmd)
 except Exception:
     print(cmd)

@@ -44,12 +44,13 @@ INJECT_SKIP='(^|[[:space:];&|(])(git[[:space:]]+grep|rg|ag|gh[[:space:]]+(pr|iss
 INJECT_REDIS="redis-cli([[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]*)?([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+['\"]?($INJECT_VERBS)['\"]?[[:space:]]+[^[:space:]]"
 INJECT_PATTERN="$INJECT_REDIS|/dev/bubble-replay"
 # 실행 치환($( )·백틱·<( )·>( ))이 하나라도 있으면 검색·게시 예외 0 — 셸이 «실행»하는 구간이라 글자가 아니다(DA r1 Q2).
-case "$EFFECTIVE" in
+INJ_SRC=$(judge --inject "$CMD" "$INPUT" 2>/dev/null) || INJ_SRC=$EFFECTIVE   # 판정 595: 게시 싱크의 따옴표 heredoc 본문은 글자(실행 경로는 EFFECTIVE 와 같이 전체 검사)
+case "$INJ_SRC" in
   *'$('*|*'`'*|*'<('*|*'>('*) INJECT_SED='s#app/dev/bubble-replay##g' ;;
   *) INJECT_SED="s#$INJECT_SKIP#\\1#g; s#app/dev/bubble-replay##g" ;;
 esac
 # 따옴표·역슬래시 제거 — 셸 단어 이어붙임(redis-''cli·S""ET)을 한 단어로 본다(DA r2 Q2). 검색·게시 제거(sed)가 먼저라 따옴표 안 검색 패턴은 이미 빠진 뒤.
-CHK=$(printf '%s' "$EFFECTIVE" | LC_ALL=C sed -E "$INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK=$EFFECTIVE
+CHK=$(printf '%s' "$INJ_SRC" | LC_ALL=C sed -E "$INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK=$INJ_SRC
 if printf '%s' "$CHK" | grep -qiE "$INJECT_PATTERN"; then
   printf '🚫 측정 조작 차단 — 임의 Redis 쓰기·말풍선 DOM 주입(오빠 절대지침 · BOOT 20 · 전역 하드 룰 11)\n' >&2
   printf '명령: %s\n' "$CMD" >&2

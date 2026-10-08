@@ -1231,3 +1231,30 @@
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: a82e30df172acb795f8b0d5dfc4370c484250e73 · 시험: bash tests/harness/test_mbox_py_link_import.sh rc=0 · 이슈: 0`.
 - ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-mbox-py-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치»(★모듈 4개 먼저 `.claude/fable-team/bin/` cp+cmp → 진입 `cp … .new && mv -f` 원자 교체★ · `comm/` 링크 불요 · self 왕복 + 다른 좌석 실발주 1통 · `.mbox-seq` 이어짐 · check-drift SAME 5줄 · 실패 1건이면 즉시 원복).
 - 정본 영향 없음: 통신 도구 구조 분리·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §100 판정 595 가드 ㉠(INJECT) 라이브 오탐 보강 — 게시 본문(heredoc → Tank 래퍼·gh·git commit)은 글자, 실행 경로는 계속 차단 (master#21 쪽지 #67033 · 나노 fp595-inject-post-sink) — 닫힘 (byz-harness-arch-claude#22 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q1 · r2 HOLD Q1 → 연속 리뷰 종료) → arch 처방·독립 재현 서명(bounded_da_review · §95 선례)★
+- 골 축: C(배포·반영 — 원복으로 꺼진 ㉠ 을 다시 켠다) + A(오빠 절대지침 「임의 레디스·말풍선 DOM 주입 금지」 장치).
+- 대상 카드: fp595-inject-post-sink (대기 `c467f641e1` → 경로 정정 `d9a45f52c8` → 진행)
+- 발단(실측): issues master#6 jsonl `1de82fc3…` 2026-10-08T20:11:33Z — `cat > $SP/c887r.md <<'EOF'`(본문 「앞 닫힘(/dev/bubble-replay 측정)은 무효」 인용) → `bash $SP/ft-gh-as-tank.sh comment 887 $SP/c887r.md --apply`. 판정기는 `bash`(실행 소비자) 하나로 예외 자격을 잃고 명령 전체를 돌려줘 heredoc 본문까지 INJECT 검사 → 차단(실제 주입 0). 쪽지의 「gh issue comment 본문」은 실제로는 Tank 래퍼 경유 파일 본문이었다. 홈 훅은 master 가 ㉠ 만 원복(백업 `.bak-fp595-20261009` = origin/main 키트와 cmp 동일 — 쪽지의 「키트와 다름」은 실측과 다름).
+- 나노 커밋 3개(브랜치 `nano/fp595-inject-post-sink` · base origin/main · push 0):
+  ①`e5588bb096`([fix] 판정기 `--inject` 모드 + 훅 INJECT 블록 `EFFECTIVE`→`INJ_SRC` 3곳 · 게시 싱크 닫힌 목록 F1 파일 경유·F2 `"$(cat <<'D')"` 본문 옵션 값) → DA r1(`design/harness/DA-fp595-inject-post-sink-20261009.md`) Q2·Q3·Q4 APPROVE · Q1 HOLD(`bash "$RUNFILE"`·다른 이름 심링크로 F 실행 시 본문 빠짐) → 반송 r1.
+  ②`fdc6b3f36f`([fix] 실행 소비 구간이 전부 «대입 해소 + realpath ≠ F» 로 증명될 때만 본문 제거 · 불가 = Inelig) → DA r2 Q1 HOLD(뒤 구간 대입을 앞 실행 증명에 씀 · 반례 재현) · 연속 리뷰 종료 → 반송 r2(arch#22 처방 = 구간 순서대로 해소).
+  ③`729cd6cdf3`([fix] `envs_before` — 구간 i 는 앞 구간까지의 대입만으로 검사).
+  최종 = 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py`(200줄) · `…/hooks/block-destructive.sh`(88줄 · ①에서 +1줄 뒤 불변) · 시험 `tests/harness/test_block_destructive_inject_post.sh`(새) · 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
+- ★arch 독립 재현(#22 · 이 재현이 닫는 증거)★: `729cd6cdf3` 아카이브 → `mktemp -d` 새 폴더: test_block_destructive_inject **rc=0** · test_block_destructive_inject_post **rc=0** · test_block_destructive **rc=0** · `/bin/bash -n` OK · 판정기 200줄.
+  · arch 프로브 `.fable-team/state/drafts-r22/fp595/probe595.py`(JSON 19행 · 명령 실행 0): 통과 7(실사례 원문 F1a 포함) = 0 · 차단 12 중 11 = 2 · X7 = 0(아래 명시 제한).
+  · arch 순서 프로브 `probe_r2.py`(훅 환경 `RUNFILE=F` · 7행): DA r2 반례(뒤 대입) · `export` 뒤 대입 · 뒤에서 F 로 재대입 · `unset` 뒤 사용 · `&&` 순서 · 접두 대입 `RUNFILE=x bash "$RUNFILE"` = 전부 2 · 앞 구간 안전 대입 뒤 실행 = 0 → 불일치 0.
+  · 변이(나노 · 시험 안): M4(realpath 끔) → X14 FAIL · M7(최종 env 복원) → X18 FAIL.
+- ★arch 판단 서명 — 승인★: ①게시 싱크는 닫힌 목록(Tank 래퍼 `create|comment|comment-edit|pr-comment|pr-create|edit|pr-edit` 본문 파일 자리 · `gh pr|issue create|comment|edit --body-file|-F` · `git commit -F|--file` · F2 는 `--body -b --title -t -m --message` 값) — 늘리는 것도 판정 사항. ②따옴표 heredoc 만 · 같은 명령 안 실행 소비가 F 가 아님을 «증명 못 하면» 명령 전체 검사(fail-closed). ③파괴 PATTERN 경로(인자 2개 기본 호출)는 바이트 불변(DA r1 Q3 APPROVE).
+- ★명시 제한(master 판정 #67070)★: X7 `redis-cli $(cat <<'EOF'`⏎`SET k v`… 및 같은 계열(백틱·heredoc·`<<<`·`<` 파일·파이프 수신·xargs — arch 실측 8꼴) = 원 키트에도 있던 빈틈 · 이 단위가 만든 것 아님 → 설치 직후 별 카드 `design/harness/indices/대기/x7-inject-redis-indirect-input.md`(`3d43b91764` · 프로토 1줄로 8 → 0).
+- ★알고 둔 경계(이 훅 범위 밖)★: 다른 명령에서 만든 파일·스크립트 «안» 의 주입(§92 증거 검사 몫) · `eval` 조립·별칭 — 명령줄 글자 훅은 의도적 난독화를 끝까지 못 따라간다(§93·§95 와 같은 성질 · 의도적 우회 = BOOT 20 증거 무효).
+- 카드 증거 줄(나노 RESULT r2): `세트: 729cd6cdf348549bf3ed48271bf6182c183f7e73 · 시험: bash tests/harness/test_block_destructive_inject_post.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 3개) → 병합. ★PR 본문은 `--body-file`★ · ★CI 확인과 병합은 별 명령★(#1053 사고).
+  ② 홈 현재 확인(㉠ 원복 판 `cdf3dddfa1d8`) → 백업 `~/.claude/hooks/block-destructive.sh.bak-fp595b-20261009` + `block-destructive-judge.py.bak-fp595b-20261009`.
+  ③ 병합된 origin/main 키트 «두 파일»(`block-destructive.sh` + `block-destructive-judge.py`) → 홈 cp+cmp(판정기를 빠뜨리면 `--inject` 가 기본 경로로 떨어져 오탐 재발).
+  ④ 셔뱅 그대로(`/bin/bash`) 홈 설치본 JSON 재생: F1a 실사례 원문 = 0 · X1(heredoc 파일 `bash` 실행) = 2 · B1 `redis-cli PUBLISH ch x` = 2 · P6 정본 mbox 본문 인용 = 0.
+  ⑤ 적용 뒤 «첫 도구 호출» 실측 — 평범한 Bash 1회 + 다른 좌석 1곳의 다음 Bash·mbox 송신 정상(issues master 게시 1회면 가장 좋음).
+  ⑥ ★오탐 1건이면 즉시 원복★(② 백업 cp · 원장 기록 · 카드 반송).
+  ⑦ 완료 보고 = 랜딩 sha + 재생 행 rc 1줄 → arch 가 X7 카드 spawn 요청.
+- 정본 영향 없음: 하네스 훅 템플릿·시험·대조표만 — docs/architect 제품 정본 변경 없음.
