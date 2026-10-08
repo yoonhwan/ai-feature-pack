@@ -1185,3 +1185,25 @@
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7e8b08cb7e3228c1f0cea3aaa781b173c08814ba · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0`.
 - ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-bd-judge-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 홈 설치» ①~⑦(589 조건 · ★판정기 먼저 → 훅★ · 평소 명령 재생 · 오탐 1건이면 즉시 원복 · 끝에 test_install_hook_check rc=0 · ★그 출력에 `block-destructive-judge` 줄이 SKIP 아닌 PASS(홈 cmp) 여야 완료★ · `cmp` 키트↔홈 두 파일 모두 rc=0).
 - 정본 영향 없음: 하네스 키트 훅·키트 설치 보고·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §98 mbox.sh 242줄 → 도어벨 도우미를 옆 파일(mbox_doorbell.sh)로 분리 · 두 파일 200줄 이하 · 동작 변화 0 (planner 판정 592 순서 ③ · 나노 mbox-sh-split-200) — 닫힘 · 독립 재현 통과 + 최종 DA APPROVE(1회) + README 순서 반영 · 라이브 설치 master 잔여 (byz-harness-arch-claude#21 · 2026-10-09)
+- 골 축: C(통신 진입점을 200줄 규칙 안으로 — 통신 도구를 고치는 카드가 한도에 걸려 반송되지 않게).
+- 대상 카드: mbox-sh-split-200 (arch#21 갱신 커밋 `245f17897f` · 처방을 arch 사본에서 먼저 실측)
+- 나노 커밋 3개(③`2e70f54e39` README 순서 — 아래 DA 주의 · 브랜치 `nano/mbox-sh-split-200` · base origin/main `78f8c0c739` = 현 tip · push 0):
+  ①`378111e2e1`([structure]) `tools/comm-canonical/mbox.sh` 242→127줄(10–127행 → 빈 줄 + 주석 + `source "$DIR/mbox_doorbell.sh"`) · 새 `tools/comm-canonical/mbox_doorbell.sh` 120줄(머리 3 + 옛 11–127행 바이트 그대로 · 실행 비트 O) · `check-drift.sh` MAP 분리 쌍 2행(라이브 `.fable-team/comm/`) · 시험 사본 cp 3곳(`test_inbox.sh` 163 · `test_mbox_inbox_notify_reply_rate.sh` 17·139).
+  ②`b5707adfca`([docs]) `tools/comm-canonical/README.md` 복구 줄 +2(도우미 cp · 「한 쌍 — 도우미 먼저」).
+- 사전검증: 면제(arch#14 원 서명 · arch#21 승계 — 구조 이동 · 동작·문구 변경 0).
+- ★arch 판단 서명 — SC2034 = 수락(②)★: 나노가 «새 경고 0» 조건에 걸린다며 판단 요청(master 추천 ① disable 주석). arch 는 ① 로 답했다가 실측 뒤 ② 로 정정(쪽지 #66795 → #66797 · 나노 추가 커밋 0): `shellcheck mbox.sh` 단독 = SC1091×2·SC2034×2 는 source 를 안 따라가서 생기는 것 · `shellcheck -x mbox.sh` = **0** · 도우미 단독 0 · 분리 전 옛 판 0 → «source 를 따라간 기준» 새 경고 0. disable 주석은 2건 중 1건만 가리는 땜빵이라 넣지 않는다.
+- ★arch 독립 재현(#21 · 이 재현이 닫는 증거)★: `b5707adfca` 아카이브 → `mktemp -d` 새 폴더 · 스크래치 스크립트:
+  · 도우미 본문 diff 0(옛 11–127행) · 진입점 머리 1–9행 diff 0 · source 뒤(13행~) = 옛 128행~ diff 0 · 두 파일 `bash -n` OK.
+  · 시험 3종 **rc=0**(test_mbox_inbox_notify_reply_rate · test_inbox · test_mbox_reply_exempt_cap).
+  · ★분리 전(origin/main)·후 9시나리오★(send · send --no-notify · 이름 거부 · relay · peek · recv · ring 이름 거부 · ring 없는 세션 · 모르는 명령) stdout+stderr+rc diff = relay 전문 파일 이름의 시각 1초뿐 · rc 0/0/1/0/0/0/1/0/2 동일.
+  · 도우미 없는 폴더 `mbox.sh peek` = **rc=1** + stderr 에 `mbox_doorbell.sh`(조용한 대체 0 · #0 규칙).
+  · check-drift(라이브 `.fable-team` 연결 사본): `mbox.py` SAME · `mbox.sh` DRIFT(라이브 = 분리 전) · `mbox_doorbell.sh` MISSING_RUNTIME — 설치 전 기대값.
+- ★최종 DA APPROVE★(`design/harness/DA-mbox-sh-split-200-20261009.md` 커밋 `6de485f21e` · byz-harness-da-codex#0 · GPT-6/OpenAI): 도우미·진입점 머리·꼬리 독립 동일 · `bash -n` · 임시 peek rc0 / 도우미 없음 rc1 + mbox.py 호출 0(큐 쓰기 전 멈춤) · 시험·README·drift 쌍 포함 확인.
+- ★DA 주의 1건 → 랜딩 전 반영★: README 복구 명령의 cp 순서(진입점 → 도우미)가 바로 아래 «도우미를 먼저» 설명과 반대. 원인 = arch 카드 문구(«진입점 복구 명령 바로 아래에 도우미 줄»). 처방(arch 결정 · 쪽지 #66814): 설명 줄을 위로 · cp 순서 도우미 → 진입점 · [docs] 커밋 1개 · DA 재소환 없음(지적 그대로 반영 · arch diff 확인).
+  → 반영 `2e70f54e39`([docs] README 1파일 +2 −2 · b5707adfca 위 1커밋): mkdir 다음 «한 쌍 — 도우미 먼저» 설명 → cp `mbox_doorbell.sh` → cp `mbox.sh`. arch diff 확인 — 다른 줄 0.
+- 알고 둔 경계(카드 밖): check-drift MAP 의 나머지 행은 여전히 옛 `.worktrees/v6-realtime-live/…`(그 워크트리 소멸 · 전부 MISSING_RUNTIME) — 정리는 별 카드 후보. README 의 복구 명령 경로도 같은 옛 경로 꼴(카드가 «같은 꼴»로 지정).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 2e70f54e390755465d71321bc0c7bcaca429c148 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0`.
+- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-mbox-sh-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치» ①~⑦(★도우미 먼저 cp+cmp → 진입점 `cp … .new && mv -f` 원자 교체★ · self 왕복 + 다른 좌석 실발주 1통으로 도어벨 확인 · check-drift `mbox.sh`·`mbox_doorbell.sh` SAME 두 줄 · 실패 1건이면 즉시 원복).
+- 정본 영향 없음: 통신 도구 구조 분리·시험·README 만 — docs/architect 제품 정본 변경 없음.

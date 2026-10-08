@@ -41,6 +41,8 @@ cp tools/comm-canonical/mbox.py .claude/fable-team/bin/mbox.py
 # ★진입점 mbox.sh 복구 — 목적지가 bin/ 이 아니라 comm/ 다★
 #   이것부터 살려야 한다. mbox.py 만 살리면 좌석이 부를 명령이 없다.
 mkdir -p .worktrees/v6-realtime-live/.fable-team/comm
+# ★두 파일은 한 쌍 — 도우미를 먼저 복사한다★
+cp tools/comm-canonical/mbox_doorbell.sh .worktrees/v6-realtime-live/.fable-team/comm/mbox_doorbell.sh
 cp tools/comm-canonical/mbox.sh .worktrees/v6-realtime-live/.fable-team/comm/mbox.sh
 
 # 도구 10개 복구 (이쪽은 bin/)
