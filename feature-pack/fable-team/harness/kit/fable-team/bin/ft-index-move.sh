@@ -70,6 +70,11 @@ if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] &&
     fi
   fi
 fi
+# R63 ㉡ — 카드가 인용한 증거·시험 경로의 측정 조작 흔적(임의 Redis 쓰기·말풍선 DOM 주입)을 «보이게» 한다. 출력만 — 이동 종료코드·REJECT 불변.
+if [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; then
+  SCAN_PATHS=(); while IFS= read -r p; do [ -e "$WT/$p" ] && SCAN_PATHS+=("$WT/$p"); done < <(grep -oE '[A-Za-z0-9_./-]+' "$SRC" | grep -E '^design/.*/evidence/|^tests/|\.(py|sh)$' | sort -u)
+  if [ "${#SCAN_PATHS[@]}" -gt 0 ]; then bash "$HERE/ft-evidence-inject-scan.sh" "${SCAN_PATHS[@]}" || echo "ERROR inject-scan rc=$?" >&2; fi
+fi
 mkdir -p "$IDX_ROOT/$DST"
 NEW="$IDX_ROOT/$DST/$(basename "$SRC")"
 TRACKED=0; git -C "$IDX_ROOT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1 && TRACKED=1

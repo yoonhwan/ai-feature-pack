@@ -1026,3 +1026,20 @@
   되돌림: 두 파일을 이전 sha 로 cp(문구 1줄만 빠짐 · 다른 동작 영향 0).
 - 남는 일(카드 밖): 가드 2층 = `r63c-evidence-inject-scan`(㉡ 증거 검사 · 먼저) → `r63b-block-destructive-inject`(㉠ 훅 · 구현 DA 1회) — 판정 589 순서.
 - 정본 영향 없음: 하네스 spawn 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §92 R63 가드 ㉡ 증거 검사(차단 없음) — `ft-evidence-inject-scan.sh` 새 도구 + `ft-index-move.sh` 진행→완성 직전 출력 (원장 R63 · 판정 589 · 나노 r63c-evidence-inject-scan) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 없음 — arch 독립 재현·서명(카드 결정)★
+- 대상 카드: r63c-evidence-inject-scan
+- 나노 커밋 1개(브랜치 `nano/r63c-evidence-inject-scan` · base origin/main · 좌석 byz-harness-nano-r63c-evidence-inject-scan#0 · push 0):
+  `2cbf28f0cf`([feature] 새 `scripts/fable-team-bin/ft-evidence-inject-scan.sh`(62줄) · `scripts/fable-team-bin/ft-index-move.sh` +5줄(114→119 · 이동 rc·REJECT 판정 불변) · 키트 사본 2 · 새 `tests/harness/test_evidence_inject_scan.sh`(95줄) · 5파일 +229).
+- ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `2cbf28f0cf` 아카이브 → 스크래치패드 새 폴더: test_evidence_inject_scan **16 PASS rc=0** · test_index_move_slack 14 · test_index_move_canon_landed 18 · test_kit_bin_sync 6 — 전부 rc=0 · `bash -n` + 추적본↔키트 cmp 2/2.
+  ★실파일 직접 실행★: 기존 러너 `tests/e2e/realtime_multi_e2e.py` → `INJECT-SCAN files=1 suspect=0 note=3`(1114·1559·1560 = NOTE) · 위반 실례 `design/feature/evidence/multilingual-linebreak-impl-20261008/` → `files=3 suspect=5`(run.py:27 ⓒ `/dev/bubble-replay` 등).
+- ★arch 판단 서명 1건 — 승인★: 카드 ⓓ 는 `dispatchEvent(` 전부 SUSPECT 였으나 나노가 `dispatchEvent(new [Keyboard]Event("input|change|keydown|keyup|keypress|focus|blur"…))` 만 NOTE 로 내림. 근거: 기존 러너의 세 줄은 ①설정 시트 닫기 Escape 키(1114) ②닉네임 입력칸 값 반영 input·change(1559-1560) — 입력칸·키 UI 이벤트이지 말풍선 «생성»이 아니다(오빠 지침의 대상 = 말풍선 DOM 주입). NOTE 는 «숨김»이 아니라 출력에 그대로 뜨므로 사람이 볼 수 있다. 나노가 카드의 세 종보다 넓힌 keyup·keypress·focus·blur 도 같은 성질(폼·포커스) → 함께 승인. 그 밖 `dispatchEvent(`(사용자 정의 이벤트·말풍선 이벤트) 는 SUSPECT 유지 — 대조표 4행이 잡는다.
+- 대조표 11행(나노 실측 = 카드 기대 전부 일치): 1·2 ⓐ · 3 ⓒ · 4 ⓓ·ⓑ · 5 SUSPECT 0 · 6 NOTE 1 · 7 러너 SUSPECT 0(NOTE 3) · 8 run.py ⓒ 3 · 9 rc1 MISSING · 10 출력+rc0+완성 이동 · 11 변이 시 #3 사라짐.
+- 기준값 대비(카드 머리줄): 증거 스크립트를 주입 패턴으로 훑는 도구 0 → 이 단위 뒤 = 닫히는 카드가 인용한 측정 스크립트에 주입 흔적이 있으면 닫는 순간 SUSPECT 줄이 뜨고 `state/inject-scan.log` 에 1줄(차단 0).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 2cbf28f0cf82034f5967b0c141cfd3220f0b7ae0 · 시험: bash tests/harness/test_evidence_inject_scan.sh rc=0 · 이슈: 0`.
+- 알고 둘 것(나노 참고 · 결함 아님): 카드가 이 도구·시험 파일 자체를 인용하면 그 안의 패턴 글자가 SUSPECT 로 뜬다(출력만 · 이동 영향 0) — 이 카드를 닫을 때 보일 수 있음.
+- 사전검증·구현 DA: 소환 안 함(카드 면제 — 차단 0 · 이동 종료코드 불변 · 출력 추가만) — arch 서명 byz-harness-arch-claude#20.
+- ★랜딩 뒤 master 집행 순서(카드 밖)★: ① PR(origin/main · 커밋 1개) → 병합 ② 라이브 FT_BIN(`v6-realtime-live/.fable-team/bin`) `ft-evidence-inject-scan.sh`·`ft-index-move.sh` cp+cmp ③ 확인 1회: 라이브 `ft-evidence-inject-scan.sh tests/e2e/realtime_multi_e2e.py` = `suspect=0` 줄.
+  되돌림: `ft-index-move.sh` 이전 sha 로 cp(출력 5줄만 빠짐) · 새 도구는 호출자 하나뿐.
+- 남는 일(카드 밖): ㉠ `r63b-block-destructive-inject`(훅 세 번째 블록 · 구현 DA 1회 · planner 설치 조건 6단계) — 판정 589 순서상 다음.
+- 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
