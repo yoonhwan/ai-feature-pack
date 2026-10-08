@@ -11,7 +11,7 @@ bash -n "$SRC_MOVE" && ok "bash -n" || bad "bash -n"
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRC_MOVE" "$BIN/ft-index-move.sh"
+cp "$SRC_MOVE" "$BIN/ft-index-move.sh"; cp "$(dirname "$SRC_MOVE")/ft-index-move-canon.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"        # lint 는 별도 시험 — 여기선 통과 스텁
 printf '#!/usr/bin/env bash\necho "bash ring $1"\n' > "$BIN/ft-resume-cmd.sh"
 STUB="$T/byz_thread_post_stub.sh"
@@ -30,8 +30,10 @@ export FT_THREAD_POST="$STUB" TP_LOG="$T/tp.log" FT_SEATS_JSON="$T/none.json" FT
 mkdir -p "$T/state"
 
 REPO="$T/repo"; mkdir -p "$REPO/design/harness/indices"/{대기,진행,완성}
-git -C "$REPO" init -q . && git -C "$REPO" config user.email t@t && git -C "$REPO" config user.name t
-printf '# 판정문\n## §1 닫힘: 결과 제목 줄 시험\n본문\n' > "$REPO/design/harness/DA-x.md"
+git -C "$REPO" init -q -b main . && git -C "$REPO" config user.email t@t && git -C "$REPO" config user.name t
+printf '# 판정문\n## §1 닫힘: 결과 제목 줄 시험 b1 b2 b3 b3b b4 b5 b6 b7\n본문\n' > "$REPO/design/harness/DA-x.md"   # R37: 절에 카드 이름이 있어야 닫힌 절
+git -C "$REPO" add -A && git -C "$REPO" commit -qm base   # 6: --landed 는 랜딩 브랜치 조상 commit 이어야 한다(영향 없음 카드도 (가) 검사)
+LSHA="$(git -C "$REPO" rev-parse HEAD)"; export FT_LAND_REF=HEAD
 DA="$REPO/design/harness/DA-x.md#§1"
 
 # card <폴더> <이름> <슬랙줄 있음 0|1> — 카드 경로를 출력
@@ -71,9 +73,9 @@ reset; c="$(card 진행 b2 1)"; out="$(TP_CHECK_RC=0 mv_ "$c" 완성 --da "$DA" 
   && ok "5 check 0 → result 호출 0·이동" || bad "5: $out / $(cat "$TP_LOG")"
 
 # 6. check rc1 → result 자동(--verdict·--landed) · 이동
-reset; c="$(card 진행 b3 1)"; out="$(TP_CHECK_RC=1 mv_ "$c" 완성 --da "$DA" --seat s --landed abc1234)"
+reset; c="$(card 진행 b3 1)"; out="$(TP_CHECK_RC=1 mv_ "$c" 완성 --da "$DA" --seat s --landed $LSHA)"
 [ -f "$IDX/완성/b3.md" ] && [ "$(calls result)" = 1 ] \
-  && grep -q -- "--verdict $DA" "$TP_LOG" && grep -q -- '--landed abc1234' "$TP_LOG" \
+  && grep -q -- "--verdict $DA" "$TP_LOG" && grep -q -- "--landed $LSHA" "$TP_LOG" \
   && ok "6 check 1 → result 자동(verdict·landed)·이동" || bad "6: $out / $(cat "$TP_LOG")"
 
 # 6b. --landed 없음 → result 인자에 --landed 없음
