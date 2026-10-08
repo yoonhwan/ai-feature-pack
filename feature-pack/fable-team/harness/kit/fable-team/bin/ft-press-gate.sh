@@ -131,9 +131,26 @@ _set_member(){ # 워크트리 → 이 나노의 «순 변경»(feat 와 merge-ba
   fi
 }
 [ "${#SETP[@]}" = "0" ] && say "  ⚠" "ft-press-set-check.sh --print-set-paths 실패 — 세트 소속 표시 생략(차단 판정은 그대로)"
+_other_trunk(){ # 워크트리 → 선언 base(.worktree-info.json)가 FEAT 가 아니고 git 으로 확인되면 «다른 줄기»(0) · 아니면 센다(1) — FEAT 랜딩 대상이 아니라 FEAT..HEAD 에 main 쪽 커밋이 섞인다(R58)
+  local w="$1" decl base sha rc
+  decl=$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1])); print(d['base'] + '\t' + d['base_sha'])" "$w/.worktree-info.json" 2>/dev/null) || return 1
+  base=${decl%%$'\t'*}; sha=${decl#*$'\t'}
+  [ -n "$base" ] && [ -n "$sha" ] || return 1
+  case "$base" in "$FEAT"|"origin/$FEAT") return 1;; esac
+  if git -C "$w" rev-parse --verify -q "$base^{commit}" >/dev/null 2>&1 && git -C "$w" merge-base --is-ancestor "$sha" HEAD 2>/dev/null \
+     && git -C "$w" merge-base --is-ancestor "$sha" "$base" 2>/dev/null; then  # ⒟ base_sha ⊂ 선언 base(정상 spawn 은 그때 tip) — 선언과 sha 의 계보 결합(DA r2)
+    git -C "$w" merge-base --is-ancestor "$sha" "$FEAT" 2>/dev/null; rc=$?  # base_sha ⊂ FEAT 면 «다른 줄기» 근거 없음(옛 main 조상 오기 · DA Q1) — rc=1 만 «조상 아님»
+    [ "$rc" = "0" ] && return 1
+    [ "$rc" = "1" ] && { say "  ⊘" "다른 줄기($(basename "$w") · base=$base) — FEAT 랜딩 대상 아님 · ① 셈 제외"; return 0; }
+  fi
+  say "  ⚠" "base 선언 확인 실패($(basename "$w") · base=$base) — FEAT 기준으로 센다"; return 1
+}
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
+  _other_trunk "$W" && continue
   # 제품 경로를 건드린 미랜딩만 센다(문서만이면 press 에 영향 0)
   # ★cherry-pick -x 로 이미 feat 에 올라간 것은 «미랜딩이 아니다»★ — 원본 sha 는 조상이 아니므로
   # 제목으로 대조한다(이 오탐 때문에 9건이 미랜딩으로 잡혔다).

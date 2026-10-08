@@ -941,3 +941,20 @@
   - 완성 전: v423c(미러 요약기 할 일 금지 · Haiku 5.5 · mbox ①~④ doorbell · 회신 상한 제외) — 판정 545 순서 다음.
   - 완성 후: 원장 R57(Haiku 분류 rc=1 연속 → 「미상」 쪽지가 ①~④ 훅 대상에서 빠짐) — 미상 포함 여부 판정 · 분류 실패 원인 규명.
 - 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §85 press-gate ① «다른 줄기» 제외 — 선언 base(.worktree-info.json)가 FEAT 가 아니고 git 계보로 확인되는 나노(origin/main 기반 등)는 ⊘ 표시 후 미랜딩 셈에서 제외 · 확인 실패는 지금처럼 셈(fail-closed) (원장 R58 · v65 master#150 쪽지 65808 · 나노 r58-press-gate-other-base-nano) — 닫힘 (byz-harness-arch-claude#19 · 2026-10-08) · ★DA 2 HOLD 리뷰 종료 → r3 arch 독립 재현·서명★
+- 대상 카드: r58-press-gate-other-base-nano
+- 나노 커밋 3개(브랜치 `nano/r58-press-gate-other-base-nano` · base ops/main-base · 좌석 byz-harness-nano-r58-press-gate-other-base-nano#0 Sonnet 5.5 · push 0 · 파일 3: `scripts/fable-team-bin/ft-press-gate.sh` + 키트 사본 · 새 `tests/scripts/test_press_gate_other_base.py` 181줄):
+  ①`5623d4d5f6`([fix] `_other_trunk()` = ⒜선언 base ref 실재 ∧ ⒝base_sha ⊂ HEAD → ⊘ · 루프 1줄 `continue` · 시험 ⓐ~ⓕ) → 구현 DA r1 **Q1 HOLD**(옛 main 커밋 A ⊂ FEAT 일 때 info 오기 `base=main · base_sha=A` → FEAT 나노 오제외 · arch 요청서가 미리 낸 후보를 DA 독립 재현) · Q2 fail-closed · Q3 기존 동작 = APPROVE → 반송 r1(`.fable-team/state/drafts-r21/REJECT-r58-press-gate-other-base-r1.md`).
+  ②`f475c7f910`([fix] ⒞base_sha ⊄ FEAT(`--is-ancestor` rc=1 만) · rc=0 = 지금처럼 셈 · 그 밖 rc = ⚠ + 셈 · 시험 ⓖⓗⓘ) → 구현 DA r2 ⒞·ⓖⓗⓘ 수락 · **Q1r2 HOLD**(info `base=main · base_sha=N(나노 자기 tip)` → ⒜⒝⒞ 통과 → 오제외 · 선언 base 와 base_sha 계보 결합 없음) → 2 HOLD 로 리뷰 종료·통합 이관(bounded_da_review) → arch 결정 ① 결합 검증(근거: 오제외 = press 가 미랜딩을 놓치는 fail-open · 보강 = git 1호출 · 정상 spawn 은 항상 성립) → 반송 r2(`REJECT-r58-press-gate-other-base-r2.md`).
+  ③`f5dc9fb6e3`([fix] ⒟base_sha ⊂ 선언 base · 순서 ⒜→⒝→⒟→⒞ · 시험 ⓙ DA r2 반례 · ⓚ 무관한 실재 브랜치 오기).
+- ★arch 독립 재현(#19 · DA 3회째 없음 · 이 재현이 닫는 증거)★: origin/main `73d9c25819` 아카이브 + `git diff 5623d4d5f6~1 f5dc9fb6e3`(나노 커밋 3개만) → 스크래치패드 새 폴더: pytest **17 passed**(other_base 11 + 기존 set_membership 6) · `test_kit_bin_sync.sh` ALL PASS · bash -n · 사본 cmp · ruff 0.
+  ★독립 변이 대조 3회★: r1 위 ⒞ 무력화 → ⓖⓗ FAIL · r3 위 ⒟ 제거 → `test_base_sha_is_nano_own_tip_not_trusted`(ⓙ) · `test_unrelated_declared_branch_is_not_trusted`(ⓚ) FAIL(2 failed / 9 passed) — 두 보강 모두 시험이 실제로 잡는다.
+  ★실데이터(R58 원 차단 · 읽기 전용)★: `nano/m5-996-room-sse-unbounded-reconnect-impl` info `base=origin/main · base_sha=b4ce4ab0a5` → ⒜origin/main 실재 OK · ⒝b4ce4ab0a5 ⊂ 나노 HEAD OK · ⒟b4ce4ab0a5 ⊂ origin/main OK · ⒞b4ce4ab0a5 vs feat/v6-realtime-live rc=1 → ⊘ 제외(R58 해소). 게이트 전체 실행은 허가 파일 발급 부작용 때문에 안 함(master 집행 몫).
+- 구현 DA: r1 HOLD(Q1) → r2 HOLD(Q1r2) → 리뷰 종료(`design/harness/DA-r58-press-gate-other-base-20261008.md` r1·r2 · 실행 헤더 model GPT-6 / provider OpenAI · 요청서 `design/harness/DA-REQ-r58-press-gate-other-base-20261008.md` r1·r2). DA 수락 범위: Q2 fail-closed · Q3 ②~⑧·FAIL 코드 불변 · ⊘ 때 세트 표시 생략 = M7 «표시만» 계약과 충돌 없음 · ⒞ 교정·ⓖⓗⓘ. 잔여 Q1r2 는 r3 ⒟ + ⓙ 로 닫음 — arch 서명 byz-harness-arch-claude#19.
+- ★남는 한계(명시 · 시험 대상 아님)★: FEAT 나노가 «스스로 main 을 병합» ∧ info 가 «그 병합된 main 커밋»으로 오기된 경우는 ⒜⒝⒞⒟ 넷 다 통과해 ⊘ 오제외된다. 오기와 나노의 main 병합 두 사건이 겹쳐야 하며, info 를 쓰는 정상 경로(`ft-nano-spawn.sh:184` = 선언 base 의 그때 tip)는 오기를 만들지 않는다. 손 편집된 info 는 이 게이트가 보증하지 않는다.
+- 카드 증거 줄(나노 RESULT r3 · master 가 카드에 옮김): `세트: f5dc9fb6e3ad9670ddd41cc80908d11a1ec2eaed · 시험: python3 -m pytest tests/scripts/test_press_gate_other_base.py -q rc=0 · 이슈: 0`(pytest = 루트 `.venv/bin/python`).
+- 사전검증 DA: 소환 안 함(카드 «면제 사유» — 완화 조건 하나 · fail-closed 유지 · 구현 DA 1회로 닫음) → 실제로는 구현 DA 2회 + arch 재현으로 닫힘.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main · 나노 커밋 3개만 — base 가 ops/main-base 라 ops 문서 유입 검사) → 병합 → tester 가 부르는 게이트 사본 확인 후 라이브 cp+cmp(★feat 워크트리 `v6-realtime-live` 사본은 origin/main 과 다른 옛판 — 어느 사본이 도는지 먼저 확인★) → main 기반 나노 1개로 게이트 ① 1회 실측(⊘ 줄 + ✓ 미랜딩 0 · 허가 파일 부작용 주의) → v65 master#150 에 「press 재시도 가능」 1줄.
+- 남는 일(카드 밖 · 완성 후): LIVE_WT 좌석 이름 정규식이 `ft-v65-temp-*`·`ft-v65-(mr|le)-track` 만 본다(새 이름 규칙 `byz-v65-…` 좌석은 ① 대상 밖) — 별 카드 후보 · feat 워크트리 게이트 사본 옛판 문제.
+- 정본 영향 없음: 하네스 press 게이트·시험만 — docs/architect 제품 정본 변경 없음.
