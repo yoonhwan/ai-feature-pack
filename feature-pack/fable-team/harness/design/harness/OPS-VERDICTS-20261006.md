@@ -1012,3 +1012,17 @@
   되돌림: `launchctl bootout gui/$(id -u)/com.byz.ft-board-publish` + plist 삭제 → 수동 발행으로 복귀(스크립트 기본 동작 = ONLY_CHANGED 0 → 지금과 같음).
 - 남는 일(카드 밖): 뿌리 글에 ①완성 트리·②세션 트리·③큐 요약 3줄(판정 555 ② 검토 항목) = 이 단위 관찰 뒤 별 카드 · ⑤에서 정규화 누락 칸이 나오면 별 카드.
 - 정본 영향 없음: 하네스 발행 스크립트·launchd 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §91 발주 템플릿 «측정 조작 금지» 1줄 고정 — ft-role-spawn BODY(전 역할) + ft-nano-spawn BODY (원장 R63 · 오빠 절대지침 · 나노 r63-spawn-body-no-injection) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 없음 — arch 독립 재현·서명(카드 결정)★
+- 대상 카드: r63-spawn-body-no-injection
+- 나노 커밋 1개(브랜치 `nano/r63-spawn-body-no-injection` · base origin/main · 좌석 byz-harness-nano-r63-spawn-body-no-injection#0 · push 0):
+  `0bc7d3b6a9`([feature] `scripts/fable-team-bin/ft-role-spawn.sh` +1줄(61행 뒤 · 전 역할 · 107→108줄) · `scripts/fable-team-bin/ft-nano-spawn.sh` `^BODY=` 줄 안 삽입(새 줄 0 · 230줄 유지 · `^BODY=` 1개) · 키트 사본 2 · `tests/harness/test_role_spawn_name.sh` +7 · `tests/harness/test_nano_spawn_body_press.sh` +9 · 6파일 +20 −2).
+- ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `0bc7d3b6a9` 아카이브 → 스크래치패드 새 폴더: test_role_spawn_name **ALL PASS rc=0**(전 역할 BODY 에 「측정 조작 금지」 포함 — 마지막 줄 `PASS BODY pm …`) · test_nano_spawn_body_press **ALL PASS rc=0**(음성 대조 2: 문장 제거 시 FAIL 발생) · test_kit_bin_sync **ALL PASS rc=0** · `bash -n` 2파일 OK · 추적본↔키트 cmp 동일 2/2.
+  ★문구 바이트 대조★: 카드 «고정 문구»(백틱 안 글자)가 두 스크립트에 글자 그대로 들어 있음 = True/True(python 부분문자열 검사).
+- 기준값 대비(카드 머리줄): 두 BODY 에 측정 조작 금지 문장 0 → 이 단위 뒤 = 새로 여는 모든 역할·나노 좌석의 첫 발주문에 BOOT 20 요약 1줄(읽지 않아도 보임).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 0bc7d3b6a94b0515a327e41a84b7cb5cdddde9af · 시험: bash tests/harness/test_role_spawn_name.sh rc=0 · 이슈: 0`.
+- 사전검증·구현 DA: 소환 안 함(카드 면제 — 고정 문구 1줄 · 동작 변경 0 · BOOT 16·17 선례 꼴) — arch 서명 byz-harness-arch-claude#20.
+- ★랜딩 뒤 master 집행 순서(카드 밖)★: ① PR(origin/main · 커밋 1개) → 병합 ② 라이브 FT_BIN(`v6-realtime-live/.fable-team/bin`) `ft-role-spawn.sh`·`ft-nano-spawn.sh` cp+cmp ③ 확인 1회: 라이브 `ft-role-spawn.sh <역할> --dry-run` 의 BODY 줄에 「측정 조작 금지」 포함 · 다음 실제 나노 spawn 첫 발주문에 같은 문장(pane 또는 mbox 본문).
+  되돌림: 두 파일을 이전 sha 로 cp(문구 1줄만 빠짐 · 다른 동작 영향 0).
+- 남는 일(카드 밖): 가드 2층 = `r63c-evidence-inject-scan`(㉡ 증거 검사 · 먼저) → `r63b-block-destructive-inject`(㉠ 훅 · 구현 DA 1회) — 판정 589 순서.
+- 정본 영향 없음: 하네스 spawn 템플릿·시험만 — docs/architect 제품 정본 변경 없음.

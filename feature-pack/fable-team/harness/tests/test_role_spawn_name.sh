@@ -80,4 +80,11 @@ done
 b="$(body master)"; pre="${b%%CronCreate 10분*}"; post="${b%%자동완성 제안*}"
 [ "${#pre}" -lt "${#post}" ] && ok "BODY master 크론 문장이 고스트 문장보다 앞" || bad "BODY master 문장 순서: $b"
 
+# R63 — 측정 조작 금지 1줄은 전 역할 BODY 에 (오빠 절대지침 · BOOT 20)
+for r in master arch tester da pm; do
+  b="$(body $r)"
+  echo "$b" | grep -qF "측정 조작 금지" && echo "$b" | grep -qF "/dev/bubble-replay" && echo "$b" | grep -qF "BOOT 20" \
+    && ok "BODY $r 측정 조작 금지 문장 포함" || bad "BODY $r 에 측정 조작 금지 문장 없음: $b"
+done
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

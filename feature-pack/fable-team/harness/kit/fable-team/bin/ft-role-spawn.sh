@@ -59,6 +59,7 @@ BODY="[Seatbelt 역할 교체] 너는 $ROLE 후계 좌석($NAME). 먼저 $README
 case "$ROLE" in master|arch) BODY="$BODY ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★";; esac
 # 고스트 서제스천(R21 · BOOT 17) — 남의 pane 을 읽는 전 역할에 붙인다.
 BODY="$BODY ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★"
+BODY="$BODY ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★"
 
 echo "PLAN seat=$NAME role=$ROLE agent=$AGENT model=$MODEL wt=$WT inbox=$INBOX_REL replaces=[${OLD:-<없음>}] (구 좌석 kill 안 함)"
 if [ "$DRY" = 1 ]; then echo "BODY $BODY"; "${OPEN[@]}" --dry-run; exit $?; fi
