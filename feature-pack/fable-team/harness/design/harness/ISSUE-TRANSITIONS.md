@@ -1,4 +1,4 @@
-# Issue 전이표 5 + Closes 규약 + close 5항 + reopen (C4)
+# Issue 전이표 5 + Closes 규약 + close 6항 + reopen (C4)
 
 > 정본: `issue-improvement/MERGED-20261005.md` §4 C4 · `DESIGN-harness-composition-20261005.md` §3-6 3 · 골 축: 하네스 GOAL 표 A(이상 1건 = Issue 1건 · 검토).
 > **이 문서는 설계 파일이다 — GitHub 라벨 생성·삭제·변경은 하지 않았다**(외부 상태 변경). 아래 매핑은 소유 오케 확인 뒤 별도 승인으로 집행한다.
@@ -11,7 +11,7 @@
 | S2 | `status:ready-for-dev` | 배분됨 — 소유 오케 확정, 착수 전 | ready-for-dev · blocked-no-seat(+`phase:hold`) |
 | S3 | `status:in-progress` | 소유 오케가 카드 분해·나노 작업 중 | in-progress · blocked(+`phase:hold`) |
 | S4 | `status:needs-review` | 랜딩 PR(Closes #N) 올라감 · 검증 대기 | needs-review |
-| S5 | `status:done` **(신규 1개)** | close 뒤 5항 대조 통과 | — |
+| S5 | `status:done` **(신규 1개)** | close 뒤 6항 대조 통과 | — |
 
 전이(누가 · 닫는 사건):
 
@@ -31,7 +31,7 @@
 - 소유 = 그 Issue 를 받은 메인 오케(오빠 Q1) · 나노는 Issue 번호를 몰라도 된다.
 - 연결 여부는 `closedByPullRequestsReferences` 로 읽는다 — 목표: 메인 오케가 받은 Issue 의 Closes 연결률 ≥ 80%.
 
-## 3. close 완료 5항 (Issue 코멘트에 「항목: 값」 줄 · 값이 비거나 `<…>` 자리표시면 미기재)
+## 3. close 완료 6항 (Issue 코멘트에 「항목: 값」 줄 · 값이 비거나 `<…>` 자리표시면 미기재)
 
 | 항 | 값 예 |
 |---|---|
@@ -40,7 +40,8 @@
 | 재현 PASS | repro-e2e 코멘트·sha |
 | 정리 | 워크트리·나노 세션 정리 확인 |
 | 기록 | CLOSEOUT·LOOP-LEDGER 경로 |
-| 기준값 대비 | baseline 코멘트 값 → 같은 세트로 다시 잰 값(없으면 「없음 → 대체 축」) — `BASELINE-TEMPLATE.md` (C20 · `ft-issue-close-check.sh` 5항 검사는 무변경) |
+| 정본 | 「정본: <X>#<절>@<랜딩 sha>」 또는 「정본 영향 없음: <이유≥10자>」 — 부분 PR 은 최종 닫기 때 @S1,S2 (판정 440 r2 · 444) |
+| 기준값 대비 | baseline 코멘트 값 → 같은 세트로 다시 잰 값(없으면 「없음 → 대체 축」) — `BASELINE-TEMPLATE.md` (C20 · `ft-issue-close-check.sh` 6항 검사는 무변경) |
 
 검사: `scripts/fable-team-bin/ft-issue-close-check.sh <Issue#>` (읽기 전용 · exit 0 통과 / 1 미비 / 2 조회 실패). 미비면 issue-manager 가 소유 오케에 1통.
 
