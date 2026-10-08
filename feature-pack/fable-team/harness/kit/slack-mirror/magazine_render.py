@@ -48,12 +48,15 @@ def check_footnotes(body_md: str, notes: Notes) -> None:
 
 
 def _hil_blocks(model: Model) -> list[Block]:
-    hil = model["mbox"].get("hil", [])
+    mb = model["mbox"]
+    hil = mb.get("hil", [])
     if not hil:
         return [("h2", "오빠 할 일"), ("p", "없어요")]
-    items = [(scrub(x), None) for x in hil[:HIL_MAX]]
-    note: list[Block] = [("p", f"최대 {HIL_MAX}건까지만 보여요")] if len(hil) >= HIL_MAX else []  # 수집기가 8건에서 자르므로 «8건» 이면 더 있을 수 있다
-    return [("h2", "오빠 할 일"), ("ul", items)] + note
+    asked = mb.get("hil_asked", len(hil))
+    head: list[Block] = [("p", f"요청 {asked}건 중 답이 안 간 {len(hil)}건 — planner 가 그 좌석에 회신한 것은 뺐어요")]
+    more = len(hil) - HIL_MAX
+    tail: list[Block] = [("p", f"외 {more}건")] if more > 0 else []
+    return [("h2", "오빠 할 일")] + head + [("ul", [(scrub(x), None) for x in hil[:HIL_MAX]])] + tail
 
 
 def _main_blocks(model: Model) -> list[Block]:

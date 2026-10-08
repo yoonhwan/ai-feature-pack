@@ -41,3 +41,5 @@
 - **[2026-10-08 01:52 KST, `date` 실측] `byz-harness-nano-regress-pack-test-row-count#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/regress-pack-test-row-count.md` ②회수 seq 60853 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 01:59 KST, `date` 실측] `byz-harness-nano-r24-tmm-bash32-lowercase#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/완성/r24-tmm-bash32-lowercase.md` ②회수 seq 60862 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 08:45 KST, `date` 실측] `byz-harness-nano-magazine-collect#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/OPS-VERDICTS-20261006.md` ②회수 seq 61016 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 8파일 보관)
+- **[2026-10-08 09:01 KST, `date` 실측] `byz-harness-nano-magazine-publish#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/OPS-VERDICTS-20261006.md` ②회수 seq 61028 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-08 09:14 KST, `date` 실측] `byz-harness-nano-magazine-hil-pending-summary#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/OPS-VERDICTS-20261006.md` ②회수 seq 61085 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개

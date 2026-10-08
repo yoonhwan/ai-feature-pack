@@ -17,7 +17,7 @@ TEAM_RE = re.compile(r"^byz-([a-z0-9]+)-")
 SEAT_RE = re.compile(r"^(.+)#(\d+)$")
 PLANNER = "byz-planner-"
 KEYS = ("ts", "from", "to", "body")
-HIL_MAX, RECENT_MAX, LINE_MAX = 8, 3, 120
+RECENT_MAX, LINE_MAX = 3, 120
 
 
 def first_sentence(body: str) -> str:
@@ -25,6 +25,11 @@ def first_sentence(body: str) -> str:
     line = text.split("\n", 1)[0]
     m = re.search(r"[.。]\s|[.。]$", line)
     return (line[: m.start() + 1] if m else line)[:LINE_MAX]
+
+
+def is_hil_request(body: str) -> bool:
+    """요청 = 접두(`[a->b]`)를 뗀 본문이 `[HIL` 로 «시작» — 규칙 설명처럼 `[HIL` 을 언급만 한 글은 아니다."""
+    return PREFIX_RE.sub("", body.strip()).startswith("[HIL")
 
 
 def _read(path: Path) -> tuple[list[dict[str, str]], int]:
@@ -48,6 +53,12 @@ def _read(path: Path) -> tuple[list[dict[str, str]], int]:
             continue
         rows.append(obj)
     return rows, bad
+
+
+def lineage(seat: str) -> str:
+    """좌석 계보 = `#N` 뗀 이름 — 승계로 #N+1 이 돼도 같은 계보다."""
+    m = SEAT_RE.match(seat)
+    return m.group(1) if m else seat
 
 
 def _team(seat: str) -> str:
@@ -88,24 +99,28 @@ def collect_mbox(path: Path, start: datetime, end: datetime) -> dict[str, object
     inwin = [r for r in rows if s <= r["ts"] < e]
     counts: dict[str, int] = {}
     recent: dict[str, list[str]] = {}
-    hil: list[str] = []
+    asked: list[tuple[int, str, str]] = []  # (inwin 위치, 요청한 좌석 계보, 첫 문장)
+    last_reply: dict[str, int] = {}  # 좌석 계보 → planner 가 그 계보에 마지막으로 쪽지를 보낸 inwin 위치
     verdicts: dict[int, str] = {}
-    for r in inwin:
+    for i, r in enumerate(inwin):
         team = _team(r["from"])
         counts[team] = counts.get(team, 0) + 1
         if r["to"].startswith(PLANNER):
             recent[team] = [*recent.get(team, []), first_sentence(r["body"])][-RECENT_MAX:]
-            if "[HIL" in r["body"] and len(hil) < HIL_MAX:
-                hil.append(first_sentence(r["body"]))
+            if is_hil_request(r["body"]):
+                asked.append((i, lineage(r["from"]), first_sentence(r["body"])))
         if r["from"].startswith(PLANNER):
+            last_reply[lineage(r["to"])] = i
             for ln in r["body"].split("\n"):
                 for n in VERDICT_RE.findall(ln):
                     verdicts.setdefault(int(n), ln.strip()[:LINE_MAX])
+    hil = [line for i, seat, line in asked if last_reply.get(seat, -1) < i]  # 답이 안 간 요청 · 오래된 순 · 상한 없음
     return {
         "mbox": {
             "total": len(inwin),
             "bad_lines": bad,
             "by_team": {t: {"count": c, "recent": recent.get(t, [])} for t, c in counts.items()},
+            "hil_asked": len(asked),
             "hil": hil,
         },
         "verdicts": [{"n": n, "line": verdicts[n]} for n in sorted(verdicts)],

@@ -26,7 +26,7 @@
 | 1 | main 머지 | `git -C $REPO fetch origin main` → `git log origin/main --first-parent --since=<start> --until=<end> --format=%H%x09%cI%x09%s` | `merges[]`: sha·시각·제목·PR번호(제목 끝 `(#N)` · 없으면 null)·꼬리표(`[feature]` 등 첫 대괄호) | fetch·log rc≠0 → raise |
 | 2 | Issue 열림·닫힘 | `gh issue list --repo $GH_REPO --state all --search "created:<startZ>..<endZ>" --json number,title,state,url --limit 300` · 닫힘은 `--state closed --search "closed:…"` | `issues_opened[]`·`issues_closed[]` | gh rc≠0·JSON 아님 → raise · 300건 도달 → raise(조용히 자르지 않음) |
 | 3 | 판정 번호 | mbox 사본(#4) 본문에서 `판정 (\d{2,4})` · 보낸 좌석이 `byz-planner-` 인 것만 | `verdicts`: 번호 목록(중복 제거·오름차순) + 각 번호 첫 언급 줄 | 정규식 0건이면 0건으로 표시(실패 아님 — «없었다»와 «못 읽었다»는 #4 의 성공 여부가 가른다). 깨진 줄이 있으면 문구 = `유효 줄에서 판정 0건 · 깨진 줄 N건`(완전한 부재로 단정 0 · DA §5) |
-| 4 | mbox 쪽지 | `$BYZ_ROOT/.fable-team/comm/mailbox.log.jsonl`(D1 추가 전용 사본 · 10-04 부터 · 2.8 MB) 를 줄 단위로 읽고 `ts`(KST 문자열) 로 창 필터 | `mbox`: 총 건수 · 팀별(좌석명 `byz-<팀>-` 토막) 건수 · `[HIL` 줄(planner 수신분 · 첫 문장 · 최대 8) · 팀별 planner 수신 최근 3건 첫 문장 | 파일 없음 → raise · JSON 깨진 줄 → 건수를 세어 본문 «근거»에 `깨진 줄 N` 으로 표시(건너뛰되 숨기지 않음) · 첫 줄 ts > start → raise(창 앞부분 사본 없음) |
+| 4 | mbox 쪽지 | `$BYZ_ROOT/.fable-team/comm/mailbox.log.jsonl`(D1 추가 전용 사본 · 10-04 부터 · 2.8 MB) 를 줄 단위로 읽고 `ts`(KST 문자열) 로 창 필터 | `mbox`: 총 건수 · 팀별(좌석명 `byz-<팀>-` 토막) 건수 · `hil_asked`(창 안 요청 수: planner 수신 + 접두 뗀 본문이 `[HIL` 로 시작) · `hil`(그중 «답이 안 간» 요청 첫 문장 · 상한 없음 · 오래된 순; 답 = 요청 뒤 창 끝 전까지 planner 가 그 요청 좌석의 «계보»(`#N` 뗀 이름 · 승계 후계 포함)에 보낸 쪽지 1건 이상) · 팀별 planner 수신 최근 3건 첫 문장 | 파일 없음 → raise · JSON 깨진 줄 → 건수를 세어 본문 «근거»에 `깨진 줄 N` 으로 표시(건너뛰되 숨기지 않음) · 첫 줄 ts > start → raise(창 앞부분 사본 없음) |
 | 5 | BRIEFING·CLOSEOUT | `git log origin/main --since --until --diff-filter=A --name-only --format=` 중 basename 이 `BRIEFING-*`·`CLOSEOUT-*` | `docs[]`: 경로 + GitHub blob URL | #1 과 같음 |
 | 6 | 좌석 승계·신규 | #4 의 `from` 이름(`<베이스>#<N>`) — 창 안에서 «처음 나온 이름» = 신규 · 같은 베이스의 더 작은 N 이 창 전에 있었으면 «승계(옛→새)» | `seats`: 승계[(옛,새)] · 신규[] | #4 실패와 같음. ★닫힘은 싣지 않는다★ — 닫힘 신호가 mbox 에 일정한 형식으로 없다(본문 「정지 레디」는 닫힘이 아님). 본문에 「닫힘은 명부 기준 — 이 장에 없음」 한 줄 |
 
@@ -37,7 +37,7 @@
 ```
 # 아침 매거진 — YYYY-MM-DD (전날 08:00 ~ 오늘 08:00)
 ## 결론            ← 요약 LLM 1줄 (실패 시 결정적 문장 + 「요약 실패: <원인>」 표시)
-## 오빠 할 일       ← [HIL] 줄(최대 8 · 남은 수) · 없으면 「없어요」
+## 오빠 할 일       ← 「요청 N건 중 답이 안 간 M건」 + 답이 안 간 요청 줄(8줄 · 남으면 「외 K건」) · 없으면 「없어요」
 ## 바뀐 것
 ### main 에 들어간 것   ← 꼬리표별 묶음, 줄마다 「제목 (#N)」
 ### 이슈              ← 새로 연 N건 · 닫은 M건 (번호·제목)
@@ -101,7 +101,7 @@
 | `…/com.byz.ft-magazine.plist.template` · `install-magazine.sh` | §7 |
 
 구조 모델(나노 2석 사이 계약 · 이 칸 이름을 바꾸지 않는다):
-`{"date","start","end","main":{"from_sha","to_sha"},"merges":[{"sha","at","title","pr","tag"}],"issues_opened":[{"number","title","state","url"}],"issues_closed":[…],"verdicts":[{"n","line"}],"mbox":{"total","bad_lines","by_team":{team:{"count","recent":[str]}},"hil":[str]},"docs":[{"path","url"}],"seats":{"succession":[[old,new]],"new":[str]}}`
+`{"date","start","end","main":{"from_sha","to_sha"},"merges":[{"sha","at","title","pr","tag"}],"issues_opened":[{"number","title","state","url"}],"issues_closed":[…],"verdicts":[{"n","line"}],"mbox":{"total","bad_lines","by_team":{team:{"count","recent":[str]}},"hil_asked":int,"hil":[str]},"docs":[{"path","url"}],"seats":{"succession":[[old,new]],"new":[str]}}`
 
 ## §9 시험 목록 (tests/scripts/ · pytest · 네트워크 0)
 1. `test_magazine_window.py` — `--date 2026-10-08` → 10-07T08:00+09:00 ~ 10-08T08:00+09:00 · 예약 모드 10-08 09:30 → D=10-08 · ★예약 모드 10-09 07:30(날짜 넘김 잠 깸) → D=10-08 · 같은 창★ · 수동 `--date 2026-10-09` 를 10-09 07:59 에 → raise(미래 창) · 빈 날 감지(마지막 발행 10-06 · D=10-08 → 건너뛴 날 [10-07]).

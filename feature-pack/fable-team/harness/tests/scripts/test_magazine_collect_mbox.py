@@ -59,15 +59,61 @@ def test_by_team_counts_sender_team_and_recent_planner_received(tmp_path):
     assert by_team["기타"]["count"] == 1
 
 
-def test_hil_lines_only_planner_received_first_sentence_max_8(tmp_path):
-    lines = [HEAD]
-    for i in range(10):
-        lines.append(row(10 + i, f"2026-10-07T10:{i:02d}:00", "byz-cfo-master-claude#3", "byz-planner-arch#2",
-                         f"[a->b] [HIL] 질문 {i}번입니다. 뒷부분"))
-    lines.append(row(30, "2026-10-07T11:00:00", "byz-cfo-master-claude#3", "byz-cfo-nano-x#0", "[a->b] [HIL] 수신자가 planner 아님"))
-    out = mm.collect_mbox(write(tmp_path, lines), START, END)["mbox"]["hil"]
-    assert len(out) == 8
-    assert out[0] == "[HIL] 질문 0번입니다."
+def ask(seq, ts, frm="byz-cfo-master-claude#3", body="[a->b] [HIL] 질문입니다. 뒷부분"):
+    return row(seq, ts, frm, "byz-planner-arch#2", body)
+
+
+def reply(seq, ts, to="byz-cfo-master-claude#3", frm="byz-planner-arch#2"):
+    return row(seq, ts, frm, to, "[a->b] 값입니다")
+
+
+def hil(tmp_path, lines):
+    return mm.collect_mbox(write(tmp_path, [HEAD, *lines]), START, END)["mbox"]
+
+
+def test_hil_request_is_body_start_not_mention(tmp_path):
+    mb = hil(tmp_path, [
+        ask(10, "2026-10-07T10:00:00", body="[a->b] [HIL] 진짜 요청입니다. 뒷부분"),
+        ask(11, "2026-10-07T10:01:00", body="[a->b] 부팅 보고예요. 규칙: [HIL] 로 올립니다"),
+        ask(12, "2026-10-07T10:02:00", body="[HIL · 오빠 손 1] 접두 없는 요청"),
+        row(13, "2026-10-07T10:03:00", "byz-cfo-master-claude#3", "byz-cfo-nano-x#0", "[a->b] [HIL] 수신자가 planner 아님"),
+    ])
+    assert mb["hil_asked"] == 2 and mb["hil"] == ["[HIL] 진짜 요청입니다.", "[HIL · 오빠 손 1] 접두 없는 요청"]
+
+
+def test_answered_request_is_dropped_other_seat_reply_is_not(tmp_path):
+    mb = hil(tmp_path, [
+        ask(10, "2026-10-07T10:00:00", "byz-cfo-master-claude#3"),
+        ask(11, "2026-10-07T10:01:00", "byz-v65-master-claude#9", "[a->b] [HIL] 두번째 요청"),
+        reply(12, "2026-10-07T10:05:00", to="byz-cfo-master-claude#3"),
+        reply(13, "2026-10-07T10:06:00", to="byz-kk-master-claude#1"),  # 다른 좌석 회신은 무관
+        reply(14, "2026-10-07T10:07:00", to="byz-v65-master-claude#9", frm="byz-cfo-master-claude#3"),  # planner 발신 아님
+    ])
+    assert mb["hil_asked"] == 2 and mb["hil"] == ["[HIL] 두번째 요청"]
+
+
+def test_successor_seat_reply_counts_as_answer(tmp_path):
+    mb = hil(tmp_path, [
+        ask(10, "2026-10-07T10:00:00", "byz-v65-master-claude#145"),
+        ask(11, "2026-10-07T10:01:00", "byz-cfo-master-claude#56", "[a->b] [HIL] 계보 다른 요청"),
+        reply(12, "2026-10-07T10:05:00", to="byz-v65-master-claude#146"),  # 승계 후계 회신
+        reply(13, "2026-10-07T10:06:00", to="byz-v65-master-claude#146"),
+    ])
+    assert mb["hil_asked"] == 2 and mb["hil"] == ["[HIL] 계보 다른 요청"]
+
+
+def test_reply_before_request_or_after_window_end_does_not_count(tmp_path):
+    mb = hil(tmp_path, [
+        reply(10, "2026-10-07T09:00:00"),  # 요청보다 앞
+        ask(11, "2026-10-07T10:00:00"),
+        reply(12, "2026-10-08T08:00:00"),  # 창 끝 뒤
+    ])
+    assert mb["hil_asked"] == 1 and len(mb["hil"]) == 1
+
+
+def test_hil_has_no_cap_and_keeps_old_first(tmp_path):
+    mb = hil(tmp_path, [ask(10 + i, f"2026-10-07T10:{i:02d}:00", body=f"[a->b] [HIL] 질문 {i}번입니다. 뒷부분") for i in range(12)])
+    assert mb["hil_asked"] == 12 and len(mb["hil"]) == 12 and mb["hil"][0] == "[HIL] 질문 0번입니다."
 
 
 def test_verdicts_only_planner_sender_dedupe_ascending_first_mention(tmp_path):

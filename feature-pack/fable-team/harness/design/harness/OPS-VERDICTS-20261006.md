@@ -279,3 +279,25 @@
 - 다음(master 집행): cherry-pick → 수동 1회 실 슬랙 `--date 2026-10-08 --no-push` → planner 1줄(슬랙 ts · PDF 경로) → `install-magazine.sh --load` → launchd 다음 발사 시각 보고.
 - 라이브 반영: 아직 없음(위 순서). 정본 영향 없음: 하네스 슬랙 키트 신규 모듈·시험·plist 템플릿 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: 2a820d879e… · 시험: python3 -m pytest tests/scripts/test_magazine_publish.py -q rc=0 · 이슈: 0`
+
+## §45 아침 매거진 「오빠 할 일」 = 답이 안 간 요청 + 요약 3줄 구체화 (판정 350 후속 · 나노 magazine-hil-pending-summary) — 닫힘 (byz-harness-arch-claude#9 · master#12 #61090 · 2026-10-08)
+- 나노 커밋 `3d5fcaff2a`(magazine_collect_mbox.py · magazine_render.py · magazine_summary.py · 설계 §1/§8 2줄 · 시험 4파일).
+- 원인(arch#9 실측 · master#12 대조 #61054 반영): 첫 호 「오빠 할 일 8건」 = planner 수신 쪽지 중 `[HIL` «포함» 80건을 8에서 자른 값. 접두 `[a->b]` 를 뗀 본문이 `[HIL` 로 «시작»하는 요청 45 · 정확 이름 기준 미답 2 → 계보(`#N` 뗀 이름) 기준 미답 1(seq 60339 은 22:13 후계 #146 에 「#60339 답」 #60363 이 갔다).
+- 바뀐 것: 요청 = 접두 뗀 본문 시작이 `[HIL` · 답 = 요청 뒤~창 끝 planner 발신 쪽지가 요청 좌석 «계보»로 1건 이상 · `mbox.hil_asked` 칸 추가 · `hil` = 미답 목록(상한 없음 · 표시 8줄 + 「외 N건」) · 본문 「요청 N건 중 답이 안 간 M건」 · 요약 facts 4칸(미답 요청 · feature/fix 머지 우선 · 닫힌 이슈 · 건너뛴 날/깨진 줄) + 프롬프트 칸 3개(결과 1 · 결정할 것 1 · 주의 1 · 묶음말 금지).
+- master 독립 검증: 매거진 시험 82 passed · plist ALL PASS · ruff clean · 200줄 초과 0 · 실자료 hil_asked=45 · len(hil)=1(60960).
+- arch 재현(#9): ①시험 82 passed ②회신 판정이 planner «발신»에만 걸림(magazine_collect_mbox.py:112) · 요청보다 «뒤» 회신만 셈 ③실 LLM dry-run(`--date 2026-10-08 --force`): 뿌리 글 3줄 = 「수리 버튼 백엔드가 구현 완료됐고 35건의 머지가 이루어졌어요」 「판정 341 집행이 운영자 토큰 부재로 진행이 막혀 있어요」 「로컬 테스트에 11건의 기존 실패가 남아 있어요」 + 「오빠 할 일이 1건 있어요」 — 첫 호의 일반론(「주요 기능들의 개발이 완료」)에서 기능·막힘 이름이 그대로 나온다.
+- 최종 DA 소환: 안 함 — 사전검증 면제(게시 경로·상태기계 변경 0) · 집계 규칙과 프롬프트 문장만 · 실자료로 확인.
+- 범위 밖 메모(완성 후 · 후속 카드 불요): 요약에 「판정 341」 같은 판정 번호가 남는다(프롬프트의 «번호 금지»는 `#123` 형식을 예로 든다). 오빠가 판정 번호로 결정을 찾으므로 남겨 두는 편이 낫다고 본다 — 오빠가 빼길 원하면 프롬프트 1줄.
+- 라이브 반영: 랜딩 뒤 `install-magazine.sh`(복사만 · `--load` 불요 — 장기 루프 아님)로 ~/.hermes/scripts 갱신 → 다음 08:00 호부터. 정본 영향 없음: 하네스 슬랙 키트 모듈·시험·하네스 설계 2줄 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 3d5fcaff2a… · 시험: python3 -m pytest tests/scripts/test_magazine_collect_mbox.py -q rc=0 · 이슈: 0`
+
+## §46 제안서 흐름 정본·템플릿·governance ④행 초안 (판정 352 · 나노 proposal-docs) — 닫힘 (byz-harness-arch-claude#10 · master#12 #61129 · 2026-10-08)
+- 나노 커밋 `e56fed8f3f`(3파일 신규 · 161줄 추가 · 제거 0): docs/rules/proposal_flow.md 76줄 · docs/rules/proposal_template.md 34줄 · design/harness/drafts/proposal-flow/fable-team/references/main-team-governance.md(홈 사본 + ④행).
+- 설계 DESIGN-proposal-flow-20261008.md(§1·§2·§4) · DA 사전검증 HOLD 1 → APPROVE(DA-proposal-flow-20261008.md §6 · #61101).
+- master 독립 검증(#61129): 신규 3파일만 · 홈 governance 와 diff = ④행 + 정본 인용 줄뿐 · 제거/변경 0.
+- arch 재현(#10): ①`git show --stat e56fed8f3f` = 3 files changed, 161 insertions(+) · 미커밋 = .serena/project.yml(자동변경 노이즈)뿐 ②`diff 홈 governance 초안` = `21a22,23` 추가 2줄(④ 제안서 행 + `> 정본 docs/rules/proposal_flow.md`) — 완료 조건 「추가 2줄뿐」 일치 ③정본 상태 문자열 `grep -c`: 초안=4 · 컨펌 대기=3 · 수정 요청 r=2 · 승인 — 판정=4 · 폐기 — 판정=2(5종 전부 실재 · em dash) ④템플릿 `grep '^## '` = 결론 · 오빠가 결정할 것 · 제안 · 영향 범위 · 되돌림 · 검증 · 근거 · 각주표(설계 §2 순서 그대로) · 머리 `- 상태:` `- 팀·나노:` `- 오빠 원문:` `- 자료:` 실재 ⑤정본 3행에 「자동 로드 파일이 아니다(#3 RULE)」 · `.claude/rules`·CLAUDE.md 참조 0 ⑥도구 3개 이름·인자·위치(정본 56~58행)가 설계 §3 계약과 같음 — tools 나노와의 계약(상태 머리줄 · 템플릿 칸 · 명령 이름) 변경 0.
+- 최종 DA 소환: 안 함 — 문서 3장 · 사전검증 APPROVE 범위 안 · 계약 3종 그대로.
+- 라이브 반영: 랜딩 뒤 master 가 `cp` 초안 → `~/.claude/skills/fable-team/references/main-team-governance.md`(백업 .bak-1008-proposal) + `cmp` rc=0. 키트 bin 반영 0. docs/rules 는 리포만(설치 대상 아님).
+- 정본 영향: docs/rules 에 하네스 절차 정본 1장 신규 · docs/architect 제품 정본 변경 없음.
+- 범위 밖 메모: 정본의 「찾는 길 = ft-harness-info.sh find 제안서」 는 랜딩 뒤 실제로 잡히는지 tools 나노 닫힘(§47) 때 1회 확인.
+- 카드 증거 줄: `세트: e56fed8f3f491f70d77f2900f0f9115c1263fbed · 시험: 없음(문서) — 정본, 템플릿, governance 초안 3파일 · 이슈: 0` (이유 칸에 «·» 가 있으면 evidence-check 정규식이 REJECT — 카드 완료 조건 문안 자체가 그 형식이라 고쳐 씀)

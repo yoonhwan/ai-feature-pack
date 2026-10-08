@@ -33,7 +33,7 @@ def fake_model() -> dict:
         "issues_closed": [{"number": 880, "title": "옛 이슈", "state": "CLOSED", "url": "https://github.com/o/r/issues/880"}],
         "verdicts": [{"n": 347, "line": "판정 347 매거진 승인 #885"}, {"n": 348, "line": "판정 348 push 확정"}],
         "mbox": {"total": 42, "bad_lines": 2, "by_team": {"harness": {"count": 30, "recent": ["a|b", "c", "d"]}, "v65": {"count": 12, "recent": ["e"]}},
-                 "hil": ["[HIL] <script>alert(1)</script> 판정 부탁 #77"]},
+                 "hil_asked": 3, "hil": ["[HIL] <script>alert(1)</script> 판정 부탁 #77"]},
         "docs": [{"path": "design/harness/BRIEFING-morning-20261008.md", "url": "https://github.com/o/r/blob/main/x.md"}],
         "seats": {"succession": [["byz-harness-master-claude#11", "byz-harness-master-claude#12"]], "new": ["byz-harness-nano-x#0"]},
     }

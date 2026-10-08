@@ -77,7 +77,7 @@ def test_hil_cap_and_skipped_days():
     m["mbox"]["hil"] = [f"질문 {i}" for i in range(11)]
     m["skipped_days"] = ["2026-10-07"]
     md, _ = mr.render(m, LINES, "t")
-    assert "질문 7" in md and "질문 8" not in md and "최대 8건까지만 보여요" in md
+    assert "질문 7" in md and "질문 8" not in md and "외 3건" in md
     assert "건너뛴 날: 2026-10-07" in md
 
 
@@ -92,9 +92,10 @@ def test_seats_grouped_by_team_with_cap():
     assert md.count("(승계)") == mr.SEAT_MAX and "나머지 42건 생략" in md
 
 
-def test_hil_note_shows_when_collector_cap_reached():
+def test_hil_header_line_and_more_note():
     m = fake_model()
-    m["mbox"]["hil"] = [f"질문 {i}" for i in range(8)]  # 수집기는 8건에서 자른다
-    assert "최대 8건까지만 보여요" in mr.render(m, LINES, "t")[0]
-    m["mbox"]["hil"] = m["mbox"]["hil"][:7]
-    assert "최대 8건" not in mr.render(m, LINES, "t")[0]
+    md = mr.render(m, LINES, "t")[0]
+    assert "요청 3건 중 답이 안 간 1건 — planner 가 그 좌석에 회신한 것은 뺐어요" in md and "외 " not in md.split("## 바뀐 것")[0]
+    m["mbox"]["hil_asked"], m["mbox"]["hil"] = 45, [f"질문 {i}" for i in range(9)]
+    top = mr.render(m, LINES, "t")[0].split("## 바뀐 것")[0]
+    assert "요청 45건 중 답이 안 간 9건" in top and top.count("- 질문 ") == 8 and "외 1건" in top
