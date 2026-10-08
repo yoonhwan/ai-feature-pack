@@ -837,3 +837,25 @@
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN `ft_board_collect.py` cp+cmp → 실제 루트 `ft-board.py render --term` 1회(`<!--` 제목 0 · `(제목 없음)` = v65 6장) → `ft-index-move.sh <카드> 완성 --da OPS-VERDICTS-20261006.md#§78`.
 - 남는 일(카드 밖 · 완성 후): v65 완성 카드 6장은 첫 5줄에 H1 이 없어 `(제목 없음)` 으로 보인다 — 카드 파일 손질은 v65 master 몫(이 카드는 읽는 쪽만 고침).
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §79 하네스 루트 지침 — 골을 끝내면 멈추고 다음 일은 묻는다 · 좌석 상태 3구분(진행 / 정지·미완 / 완료·휴식) · `[완료·휴식]` 1통 + 증거 줄 · 금지 4 · 누적 상한 · 같은 턴 규칙 · 511 정정 · turbopack 칸 (오빠 판정 514 · 516 · 522 · 532 · 나노 root-guideline-514) — 닫힘 (byz-harness-arch-claude#18 · 2026-10-08)
+- 대상 카드: root-guideline-514
+- 오빠 판정: **514**(원문 「메인팀이 발주한 작업을 끝내고 멈춰서 놀고있는게 최고야 … 안끝내고 어떻게든 질질질 끌고 과거의 옛데이터 마저 끌어와다가 세션을 이어 토큰을 소모하는 형상이다. 이거 절대 반대해야하고 절대 지침으로 플래너와 하네트마스터가 개선해야한다」 · planner#12 #64807) · **516**(511 정본 설치 보류 → 이 단위에 511+514 합침 · planner#12 #64830) · **522**(전 팀 tester·checker·press 산출 turbopack 칸을 이 초안에 묶음 · 별도 설치 0 · planner#13 #64940) · **532**(완료 조건 충족 즉시 같은 턴 증거 줄 기록·완료 발신 · 미이행은 상위가 정지·미완 처리 · DA 3차 없이 정본 반영 · 오빠 AskUserQuestion #65097 → planner#13 #65201).
+- 나노 커밋 4개(브랜치 `nano/root-guideline-514` · base 990b978686 · 좌석 byz-harness-nano-root-guideline-514#0 Fable 5.1 high · push 0):
+  ①`6f24b266ff` 초안 3파일 — `design/harness/ROOT-GUIDELINE-draft-20261008.md`(§1 오빠 원문 5줄 · §2 상태 3구분 · §3 완료·휴식 절차 · §4 금지 4 + 잡는 장치 · §4-A turbopack · §5 511 정정 · §6 정본 문구 · §7 방송 · §8 자기 대조) · `design/harness/DESIGN-511-seat-stall-watch-20261008.md` §4-r3(«완료 선언» 꼬리 · 받는 쪽 ⚠ · 시험 ⑩~㉒ · r2 칸 글자 무변경) · `design/harness/BROADCAST-root-guideline-draft-20261008.md`(RESULT #64968).
+  ②`91b340997d` r2 — DA r1 HOLD 6건 반영(Q1 증거 결합 판별 · Q2 탐지 빈틈 4 · Q3 누적 상한 §4-B · Q4 511 정정 조건 · Q5 turbopack 값 검사 · Q6 §4-r3 더하기만 재구성) · RESULT #65085.
+  ③`0d9df1efe6` r3 — 처리서 한 줄(§4 금지 1 ⓓ′ «증거 줄 전 끌기 = §4-B 상한이 끊는다» · 더하기만) · RESULT #65175.
+  ④`6fdb732e1f` r4 — 판정 532 같은 턴 규칙(§3-2 1단 · ⓓ′ 끝 포인터 · BROADCAST 1줄 · 더하기만 3곳) · RESULT #65215.
+- DA(사전 · byz-harness-da-codex#0 · codex gpt-6.1-sol high · 판정문 `design/harness/DA-root-guideline-514-20261008.md`): r1(master #64996 · 본문 직접 제공 재실행) **HOLD 6**(Q1~Q6) → r2(91b340997d · master #65086) **Q1·Q3·Q4·Q5·Q6 해소 · Q2 HOLD 1**(완료 조건 충족 뒤 증거 줄 기록을 미루며 끄는 공백 + 실제 게이트 구현 «읽지 못함»). 두 번째 HOLD 로 연속 검토 종료(`docs/rules/bounded_da_review.md` 정정 검토 1회 한도) · **DA r3 소환 안 함**.
+- arch 처리(byz-harness-arch-claude#18 · `design/harness/DISPO-root-guideline-514-r2-20261008.md` · ops/main-base fcb66f9bba·b5682fa9cc): Q2 공백은 탐지기가 아니라 이미 있는 §4-B 상한 3개(좌석 가동 창 · 한 턴 10분 · 공회전 20턴)가 끊는다는 «가정» 1줄(ⓓ′)로 닫음 · 게이트 «읽지 못함»은 초안이 「지금 있는 것 / 별 카드」로 갈라 적었고 별 카드 랜딩 전엔 받는 쪽 master 손 검사. r3 서명(더하기만 · 줄 수 154=154 · 처리서 문장과 글자 일치) · r4 서명(삭제 0 · 기존 글자 무변경) — 이후 판정 532 로 오빠가 «한 줄 추가 → DA 3차 없이 정본 반영»을 직접 골라 같은 공백을 규칙(같은 턴)으로도 닫음.
+- 카드 증거 줄(나노 RESULT r4 #65215 · master 가 카드에 옮김): `세트: 6fdb732e1fb4b6d948d978e995b13c9d7d6c989b · 시험: bash tests/harness/test_kit_bin_sync.sh rc=0 · 이슈: 0` — arch 재실행: 그 워크트리 HEAD = 6fdb732e1f · `test_kit_bin_sync.sh` rc=0(22:2x).
+- ★정본 설치(master#18 · cp+cmp · 백업 scratchpad `*.bak-514`)★: 완성본 `design/harness/staged-514/`(ops/main-base b5682fa9cc · 라이브 대비 삭제 0 · §6 코드블록 밖 추가는 판정 532 1줄·1구뿐 — README 4) →
+  - `~/.claude/skills/fable-team/references/main-team-governance.md` sha256 앞16 `d5941acd2db653bb` → **`c5d73fff80291434`**(§8 511 교정본 + §9 514 + 532)
+  - `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` `9573c463baa968a2` → **`01cddacdb2b070d8`**(머리 17→19줄 · 18 = 511 · 19 = 514+532+522 괄호)
+  - arch 확인: 두 라이브 파일 = staged-514 cmp 같음(22:13). `design/harness/staged-511/` 는 설치하지 않음(HOLD-516 유지 · staged-514 로 대체).
+- 방송(master#18 · 확정본 ops/main-base 4282ccd72f `design/harness/BROADCAST-root-guideline-20261008.md` · 511 정정 절 포함): seq **65230~65249** — cfo#62 · feature#5 · issues#5 · loom#3 · ops#3 · v65#149 · planner#13(7팀). 미발신: kk(FB_KK#4)·ccu — 현역 세션 없음(다음 개설 때 부팅이 정본 BOOT 19 를 읽음). 각 팀 master 가 하위 좌석에 재방송 시작 실측(#65237·#65240·#65241 등).
+- 남는 일(카드 밖):
+  - ★완성 전★ 상태판 «완료 선언» 꼬리·받는 쪽 ⚠ = 카드 `대기/v511-seat-stall-cell.md`(arch#18 3구분 갱신 af32d307a1 · 설계 §4-r3 · 시험 ⑩~㉒) — 이 판정의 문서 PR 병합 뒤 spawn(§4-r3 가 base 에 있어야 함).
+  - 별 카드(코드 = 나노 · 초안 §4 「별 카드」): spawn 발주문 「비어 있는 완료 조건 줄」 칸 검사 · 발주 seq 권한 검사 — 랜딩 전까지 받는 쪽 master 틱 손 검사.
+  - 선택(§6-4 closeout-policy · §6-5 SEATBELT 한 줄): 미설치 — master/planner 판단.
+- 정본 영향: 하네스 정본 2파일(governance · BOOT) 변경 — 위 sha. 제품 docs/architect 정본 변경 없음.
