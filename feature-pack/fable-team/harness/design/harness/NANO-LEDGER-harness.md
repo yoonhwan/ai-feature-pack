@@ -75,4 +75,5 @@
 - **[2026-10-08 21:17 KST, `date` 실측] `byz-harness-nano-slack-readonly-share#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/slack-readonly-share.md` ②회수 seq 64573 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 3파일 보관)
 - **[2026-10-08 21:45 KST, `date` 실측] `byz-harness-nano-v421-board#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v421-board.md` ②회수 seq 64924 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 21:55 KST, `date` 실측] `byz-harness-nano-r52-board-card-title#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r52-board-card-title.md` ②회수 seq 65041 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
-- **[2026-10-08 22:17 KST, `date` 실측] `byz-harness-nano-root-guideline-514#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/root-guideline-514.md` ②회수 seq 65175 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
+- **[2026-10-08 22:17 KST, `date` 실측] `byz-harness-nano-root-guideline-514#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/root-guideline-514.md` ②회수 seq 65175 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-08 22:30 KST, `date` 실측] `byz-harness-nano-v511-seat-stall-cell#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v511-seat-stall-cell.md` ②회수 seq 65334 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개

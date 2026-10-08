@@ -7,6 +7,7 @@ KIT="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${BYZ_ROOT:?BYZ_ROOT 필요 — .fable-team 이 있는 리포 루트}"
 SEATS="${MIRROR_SEATS:-$ROOT/.fable-team/seats-harness.json}"
 MBOX="$ROOT/.fable-team/comm/mbox.sh"
+INBOX_BIN="${FT_INBOX_BIN:?FT_INBOX_BIN 필요 — ft-inbox.sh 절대 경로(조용한 기본값 없음)}"
 CHANNEL="${MIRROR_CHANNEL:-C0C6MJGRR89}"
 MENTION="${MIRROR_MENTION:-U0AC2JF0M7D}"
 PY="${MIRROR_PY:-/opt/homebrew/bin/python3}"
@@ -17,21 +18,22 @@ TOKEN="$HOME/.hermes/secrets/yoonhwan_bot.env"
 [ -f "$TOKEN" ] || { echo "ERROR: 토큰 파일 없음: $TOKEN" >&2; exit 1; }
 [ "$(stat -f %Lp "$TOKEN")" = "600" ] || { echo "ERROR: 토큰 파일 권한이 600 이 아니다" >&2; exit 1; }
 [ -x "$PY" ] || { echo "ERROR: python 없음: $PY" >&2; exit 1; }
+[ -f "$INBOX_BIN" ] || { echo "ERROR: ft-inbox.sh 없음: $INBOX_BIN" >&2; exit 1; }
 [ -f "$MBOX" ] || { echo "ERROR: mbox.sh 없음: $MBOX" >&2; exit 1; }
 [ -f "$SEATS" ] || { echo "ERROR: seats 파일 없음: $SEATS" >&2; exit 1; }
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_slack_mbox_inbound.py mirror_inbound.py mirror_plan.py mirror_questions.py mirror_deliver.py mirror_lib.py mirror_share.py; do
+for f in byz_slack_mbox_inbound.py mirror_inbound.py mirror_plan.py mirror_questions.py mirror_board.py mirror_deliver.py mirror_lib.py mirror_share.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done
 chmod +x "$HOME/.hermes/scripts/byz_slack_mbox_inbound.py"
 
-PY="$PY" HOME_DIR="$HOME" CHANNEL="$CHANNEL" MENTION="$MENTION" MBOX="$MBOX" SEATS="$SEATS" \
+PY="$PY" HOME_DIR="$HOME" CHANNEL="$CHANNEL" MENTION="$MENTION" MBOX="$MBOX" INBOX_BIN="$INBOX_BIN" SEATS="$SEATS" \
   python3 - "$KIT/$LABEL.plist.template" "$PLIST" <<'PYEOF'
 import os, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-for k, env in (("__PY__", "PY"), ("__HOME__", "HOME_DIR"), ("__CHANNEL__", "CHANNEL"), ("__MENTION__", "MENTION"), ("__MBOX__", "MBOX"), ("__SEATS__", "SEATS")):
+for k, env in (("__PY__", "PY"), ("__HOME__", "HOME_DIR"), ("__CHANNEL__", "CHANNEL"), ("__MENTION__", "MENTION"), ("__MBOX__", "MBOX"), ("__INBOX_BIN__", "INBOX_BIN"), ("__SEATS__", "SEATS")):
     t = t.replace(k, os.environ[env])
 open(sys.argv[2], "w", encoding="utf-8").write(t)
 PYEOF

@@ -13,6 +13,7 @@ MENTION="${MIRROR_MENTION:-U0AC2JF0M7D}"
 REPO="${MIRROR_REPO:-SecondWindStudio/byz-agents}"  # Issue 링크용 <소유자>/<저장소>
 PY="${MIRROR_PY:-/opt/homebrew/bin/python3}"
 MAILBOX="$ROOT/.fable-team/comm/mailbox.log.jsonl"
+INBOX_BIN="${FT_INBOX_BIN:?FT_INBOX_BIN 필요 — ft-inbox.sh 절대 경로(조용한 기본값 없음)}"
 LABEL="com.hermes.byz-mbox-slack-mirror"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 TOKEN="$HOME/.hermes/secrets/yoonhwan_bot.env"
@@ -20,21 +21,22 @@ TOKEN="$HOME/.hermes/secrets/yoonhwan_bot.env"
 [ -f "$TOKEN" ] || { echo "ERROR: 토큰 파일 없음: $TOKEN" >&2; exit 1; }
 [ "$(stat -f %Lp "$TOKEN")" = "600" ] || { echo "ERROR: 토큰 파일 권한이 600 이 아니다" >&2; exit 1; }
 [ -x "$PY" ] || { echo "ERROR: python 없음: $PY" >&2; exit 1; }
+[ -f "$INBOX_BIN" ] || { echo "ERROR: ft-inbox.sh 없음: $INBOX_BIN" >&2; exit 1; }
 [ -f "$MAILBOX" ] || { echo "ERROR: 사본 로그 없음(D1 미적용?): $MAILBOX" >&2; exit 1; }
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_mbox_slack_mirror.py mirror_lib.py mirror_share.py mirror_summary.py mirror_deliver.py mirror_questions.py resume_block.py; do
+for f in byz_mbox_slack_mirror.py mirror_lib.py mirror_share.py mirror_summary.py mirror_deliver.py mirror_questions.py mirror_board.py resume_block.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done
 chmod +x "$HOME/.hermes/scripts/byz_mbox_slack_mirror.py"
 
-PY="$PY" HOME_DIR="$HOME" PROJECT="$PROJECT" MAILBOX="$MAILBOX" SEAT="$SEAT" CHANNEL="$CHANNEL" MENTION="$MENTION" REPO="$REPO" \
+PY="$PY" HOME_DIR="$HOME" PROJECT="$PROJECT" MAILBOX="$MAILBOX" INBOX_BIN="$INBOX_BIN" SEAT="$SEAT" CHANNEL="$CHANNEL" MENTION="$MENTION" REPO="$REPO" \
   python3 - "$KIT/$LABEL.plist.template" "$PLIST" <<'PYEOF'
 import os, sys
 t = open(sys.argv[1], encoding="utf-8").read()
 for k, env in (("__PY__", "PY"), ("__HOME__", "HOME_DIR"), ("__PROJECT__", "PROJECT"),
-               ("__MAILBOX__", "MAILBOX"), ("__SEAT__", "SEAT"), ("__CHANNEL__", "CHANNEL"), ("__MENTION__", "MENTION"), ("__REPO__", "REPO")):
+               ("__MAILBOX__", "MAILBOX"), ("__INBOX_BIN__", "INBOX_BIN"), ("__SEAT__", "SEAT"), ("__CHANNEL__", "CHANNEL"), ("__MENTION__", "MENTION"), ("__REPO__", "REPO")):
     t = t.replace(k, os.environ[env])
 open(sys.argv[2], "w", encoding="utf-8").write(t)
 PYEOF

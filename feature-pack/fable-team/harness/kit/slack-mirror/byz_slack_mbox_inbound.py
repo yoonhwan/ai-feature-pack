@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import mirror_board as mb  # noqa: E402
 import mirror_inbound as ib  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_questions as mq  # noqa: E402
@@ -32,6 +33,7 @@ def now_ts() -> str:
 
 class Inbound:
     def __init__(self, a: argparse.Namespace):
+        mb.check_args(a)
         self.a = a
         d = Path(a.state_dir)
         self.state_path = d / f"byz_slack_mbox_inbound.{a.channel}.json"
@@ -130,6 +132,7 @@ class Inbound:
             print("baseline", file=sys.stderr)
             return 0
         st.setdefault("seen", {})
+        mb.sweep(self.a, self.qpath, self.planner_seats, Path(self.a.mbox).resolve().parents[2])  # 닫는 사건 = planner 인박스 — 패스당 1회(보드는 이 패스 끝 update_board 가 맞춘다)
         ledger: dict[str, dict] = st["ledger"]
         for ts in sorted(k for k, v in ledger.items() if not v.get("finished")):
             ib.migrate_planner(ledger[ts])  # B-r3: 옛 planner 이름 수신자를 «역할» 로 1회 이관
@@ -159,6 +162,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--state-dir", default=str(Path.home() / ".hermes" / "state"))
     p.add_argument("--token-file", default="~/.hermes/secrets/yoonhwan_bot.env")
     p.add_argument("--api-base", default=API)
+    mb.add_args(p)
     p.add_argument("--interval", type=float, default=10.0)
     p.add_argument("--once", action="store_true")
     return p.parse_args()

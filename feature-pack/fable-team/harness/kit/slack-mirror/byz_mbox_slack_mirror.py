@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import mirror_board as mb  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
 import mirror_questions as mq  # noqa: E402
@@ -50,6 +51,7 @@ def read_rows(log: Path) -> list[dict[str, object]]:
 
 class Mirror:
     def __init__(self, a: argparse.Namespace):
+        mb.check_args(a)
         self.a = a
         self.log = Path(a.mailbox)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
@@ -97,6 +99,9 @@ class Mirror:
 
     def run_pass(self) -> int:
         self.posted = 0
+        if not self.a.dry_run and self.qpath.exists():  # 닫는 사건 = planner 인박스 — 패스당 1회 · 닫힌 질문은 보드에서도 뺀다(글이 같으면 호출 0)
+            mb.sweep(self.a, self.qpath, self.planner_seats, self.log.resolve().parents[2])
+            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
         rows = read_rows(self.log)
         st = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else None
         if st is None:  # 첫 실행 — 과거 행을 쏟아내지 않는다
@@ -162,6 +167,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--api-base", default=API)
     p.add_argument("--planner-seats", default="", help="planner 명부(seats-planner.json) 경로 (기본 <mailbox 폴더 상위>/seats-planner.json)")
     p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <mailbox 폴더 상위>/bin/ft-resume-cmd.sh)")
+    mb.add_args(p)
     p.add_argument("--interval", type=float, default=5.0)
     p.add_argument("--once", action="store_true")
     p.add_argument("--dry-run", action="store_true")

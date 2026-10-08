@@ -879,3 +879,20 @@
   - 명부 위생(feature 팀 master 몫): `seats-feature.json` 의 `byz-feature-master-claude#4` 에 `_replaced_by` 없음(현역 #5) → 상태판·stalled 에 옛 좌석이 `67분` 으로 잡힘 — `ft-seat-retire.sh #4 #5 --seats seats-feature.json` 1회.
   - 증거 줄 형식 불일치 좌석(loom #65256 · v65 #65284)은 상태판이 ⚠ 로 보여 주는 게 정상 — 각 팀 master 가 반송(governance §9 «토큰만 있으면 ②»).
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본·정본 문구 변경 없음(문구는 §79 로 설치 완료).
+
+## §81 슬랙 질문 보드 — 게시 문자열 전체 UTF-8 3500 바이트 상한 · 첫 줄(건수 + 결정 자리 + 경고) + 가장 오래된 5건 + `… 외 n건` · 닫는 사건 = planner 인박스 `미닫힘=` · 적재 실패 seq 프로세스 내 재시도 0 (R49 · master#17 #64702 ①안 · 나노 r49-question-board) — 닫힘 (byz-harness-arch-claude#18 · 2026-10-08)
+- 대상 카드: r49-question-board
+- 나노 커밋 2개(브랜치 `nano/r49-question-board` · base origin/main · 좌석 byz-harness-nano-r49-question-board#0 Sonnet 5.5 high · push 0):
+  ①`e98647910d`([feature] 12파일 +442 −18 · 새 `scripts/harness-install/slack-mirror/mirror_board.py`(fit_board · render_board · parse_show · close_from_inbox · `--inbox-bin` add/check · sweep) · `mirror_questions.py` · 미러 2종 `--inbox-bin` 필수 · install.sh·install-inbound.sh `FT_INBOX_BIN`(없으면 exit 1) · plist 2 · 새 `tests/harness/test_question_board.sh` · 범위 밖 2건 = tests/scripts 미러 pytest 에 `--inbox-bin` 스텁 인자 + `_fake_inbox.sh` · mbox 미러 plist PATH(inbound 와 같은 값)) → arch#18 반송 r1(`.fable-team/state/drafts-r21/REJECT-r49-question-board-r1.md` · 적재 실패 seq 를 5초 패스마다 재시도 → 실데이터 27건 × 미러 2종 · err 로그 하루 ~1.7만 줄/미러 · 카드 「ingest 로 1회 적재」·설계 §4 부하 열 「이관 1회 뒤 0~1」 위반).
+  ②`101e7af897`([fix] `mirror_board.py` +3 −3 · 모듈 집합 `_INGEST_FAILED` — 이 프로세스에서 실패한 seq 는 다시 부르지 않음 · ERROR 는 새 실패 때만 1줄 · `인박스 밖 n건` 경고는 매 패스 유지 · 재기동 뒤 1회 재시도 + 시험 ⑧ 3패스·변이 대조).
+- ★arch 독립 재현(#18)★: `git archive <sha> scripts tests tools/comm-canonical` → 스크래치패드 새 폴더:
+  ①r1 `e98647910d`: `test_question_board.sh` rc=0(51) · 기존 8종(`test_slack_readonly_share` · `test_slack_mirror_signature` · `test_index_move_slack` · `test_magazine_plist` · `test_proposal_register` · `test_proposal_register_r2` · `test_proposal_card` · `test_slack_post_guard`) rc=0 · ruff 0 · 4파일 ≤ 200줄. tests/scripts 미러 pytest = base 와 실패 집합 같음(24 실패 · 30 통과 · 54 에러 · 회귀 0 · 나노 「기존 실패」 보고 확인).
+  ②r2 `101e7af897`: 같은 9종 rc=0 · ruff 0 · `mirror_board.py` 161 · `byz_mbox_slack_mirror.py` 199 · `byz_slack_mbox_inbound.py` 193 · `mirror_questions.py` 150. 시험 ⑧ 「1패스 호출 1 · 2·3패스 0」 · 「`인박스 밖 1건` 3패스 유지」 · 「ERROR 새 실패 때만 [1,0,0]」 · 변이 대조(기억 집합 지우면 2패스 호출 1 → FAIL) 단언 존재.
+  ③★실데이터 사본(라이브 질문 저장소 `~/.hermes/state/byz_slack_questions.C0C6MJGRR89.json` 36건 + `.fable-team/state/inbox/` + `comm/mailbox.jsonl`·`mailbox.log.jsonl` 를 스크래치 FT_ROOT 로 복사 · 실제 `ft-inbox.sh` · 라이브 쓰기 0)★: 보드 **631 바이트**(실측 거부선 3909 아래 · `[상태] 결정 대기 36건 — 결정 자리: byz-planner-master-claude#13 — 인박스 밖 27건` + 오래된 5 + `… 외 31건`) · 3패스 = 1.57 s(ERROR 1줄 · 27건) → 0.13 s → 0.08 s(ERROR 0) · 닫힘 0(인박스 큐에 있는 9건은 `show` 에서 전부 `미닫힘` — planner 가 아직 처리 안 함 · 설계대로).
+- 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: 101e7af897bc1b65ca1488f14e7998130706590e · 시험: bash tests/harness/test_question_board.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: `design/harness/DA-r49-question-board-20261008.md` r1 HOLD(Q1 바이트 예산 · Q2 show 파싱) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64756) — 정본 설계 `design/harness/DESIGN-r49-question-board-20261008.md` §2-r2. 구현 DA: 소환 안 함(카드 완료 조건에 없음 · 반송 1회는 arch 실데이터 재현으로 잡고 r2 로 닫음) — arch 서명 byz-harness-arch-claude#18.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 설치 `FT_INBOX_BIN=<FT_BIN>/ft-inbox.sh` 로 `install.sh`·`install-inbound.sh` → 미러 2종 재기동 → err 로그 `msg_too_long` 증가 0 확인(기준 595·128회 · 22:19) · 보드 1회 캡처(바이트 수) · 첫 패스 ERROR 1줄(27건 적재 실패 예상) 확인 → planner 에 1줄.
+- 남는 일(카드 밖):
+  - ★planner 판단★: 인박스 도입 전 열린 질문 27건(seq 60888~62640 · 원 쪽지가 회전본 `mailbox.log.jsonl.1` 에만 있어 `ft-inbox ingest` 의 `find_mail` 이 못 찾음)은 닫는 사건이 없어 보드에 영구 `인박스 밖 27건` + `결정 대기 36건` 으로 남는다 — 일괄 닫기(명시 명령 1회 · tombstone)할지 결정.
+  - 별 카드 후보(ft-inbox 소유): `find_mail` 이 회전본 `.1` 도 읽기 — 위 27건 같은 이관 실패의 근본.
+- 정본 영향 없음: 하네스 슬랙 미러 스크립트·설치기·시험만 — docs/architect 제품 정본 변경 없음.

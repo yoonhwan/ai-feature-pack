@@ -11,6 +11,7 @@
     <string>--human</string><string>__MENTION__</string>
     <string>--mbox</string><string>__MBOX__</string>
     <string>--seats-file</string><string>__SEATS__</string>
+    <string>--inbox-bin</string><string>__INBOX_BIN__</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

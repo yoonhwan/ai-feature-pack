@@ -114,24 +114,26 @@ def delivered_for(data: dict[str, dict], key: str, seat: str, row_seq: int) -> l
             if e.get("state") == "delivered" and e.get("key") == key and e.get("seat") == seat and row_seq > int(e.get("mbox_seq", 0))]
 
 
-def render_board(open_: dict[str, dict], now: float | None = None, place: str = "확인 불가") -> str:
-    now = now or time.time()
+def set_notes(path: Path, notes: list[str]) -> None:
+    """보드 첫 줄 끝 경고(인박스 밖 k건 · 정리 확인 불가(<사유>)) — 저장소 meta 에 두어 보드 갱신 호출부가 모두 같은 경고를 읽는다."""
+    with dv.locked(path):
+        data = load(path)
+        if data["meta"].get("board_notes", []) != notes:
+            data["meta"]["board_notes"] = notes
+            _save(path, data)
 
-    def line(e: dict) -> str:
-        mins = max(0, int((now - int(e.get("asked_at", now))) // 60))
-        return f"{lib.esc(e.get('key', '?'))} {lib.esc(ms.share_guard(str(e.get('what', ''))) or ms.OMITTED)[:40]} ({mins}분)"
 
-    waiting = [e for e in open_.values() if e.get("state") == "open"]
-    given = [e for e in open_.values() if e.get("state") == "delivered"]
-    head = f"{BOARD_HEAD} {len(waiting)}건 — 결정 자리: {lib.esc(place)}" + (" — " + " · ".join(line(e) for e in waiting) if waiting else "")
-    return head + (f"\nplanner 전달됨 {len(given)}건 — " + " · ".join(line(e) for e in given) if given else "")
+def render_board(*args, **kwargs) -> str:
+    """본체는 mirror_board.render_board(바이트 상한 3500) — 순환 import 를 피해 호출 시점에 import 한다."""
+    import mirror_board as mb
+    return mb.render_board(*args, **kwargs)
 
 
 def update_board(path: Path, api_base: str, token: str, channel: str, seats: str | None = None) -> None:
     """보드를 올리거나(처음 — 채널에 이미 있으면 재사용) 제자리 갱신한다. 글이 그대로면 API 를 부르지 않는다. 실패는 raise."""
     with dv.locked(path):
         data = load(path)
-        text = render_board(data["open"], place=ms.place_text(seats))
+        text = render_board(data["open"], place=ms.place_text(seats), notes=data["meta"].get("board_notes", []))
         ts = data["meta"].get("board_ts")
         if ts and data["meta"].get("board_text") == text:
             return
