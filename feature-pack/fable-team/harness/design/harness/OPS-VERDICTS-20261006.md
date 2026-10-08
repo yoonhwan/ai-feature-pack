@@ -971,3 +971,23 @@
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main · 나노 커밋 1개만 — base 가 ops/main-base 라 ops 문서 유입 검사) → 병합 → 라이브 FT_BIN(`v6-realtime-live/.fable-team/bin`) 두 파일 cp+cmp → issues#6 에 랜딩 sha + 사용법 1줄(`bash $FT_BIN/ft-gh-as-tank.sh comment-edit <comment_id> <본문파일> --apply`) → 첫 실제 수정 1회 결과(OK 줄 · bak 파일) 회수.
 - 남는 일(카드 밖 · 완성 후): PR 리뷰 코멘트(`pulls/comments`) 수정은 범위 밖 — 요청 오면 별 카드.
 - 정본 영향 없음: 하네스 Tank 래퍼·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §87 인박스 «명시 면제(waived)» — 정본 술어 obligation_closed 에 면제 1항 + 새 명령 waive <좌석> --before <ts> "<판정 N 사유>"(mark 있는·열린·경계 전 줄에만 · reported 불변) · planner 21:38 이전 79건을 보고 의무에서 뺄 수단 (판정 558 ④ · master#19 쪽지 #65914 · 나노 v558-inbox-waive-backlog) — 닫힘 (byz-harness-arch-claude#19 · 2026-10-09)
+- 대상 카드: v558-inbox-waive-backlog
+- 설계 결정(arch#19 · 카드 배경): 훅 쪽 시각 필터 기각 — 훅이 술어를 일부 재구현하고(v423b 금지) 보드 미보고 칸·archive 와 답이 갈린다. 정본 술어 한 곳에 «판정 번호가 붙은 명시 면제»만 더해 훅·show·archive·보드가 같은 답을 낸다. reported 는 건드리지 않아 «보고함» 거짓 기록 0.
+- 나노 커밋 1개(브랜치 `nano/v558-inbox-waive-backlog` · base origin/main 076f0cc9cd · 좌석 byz-harness-nano-v558-inbox-waive-backlog#0 Sonnet 5.5 · push 0):
+  `7a6d8f4152`([feature] `scripts/fable-team-bin/ft_inbox_core.py` obligation_closed 에 `or line.get("waived") is not None`(130줄) · `scripts/fable-team-bin/ft-inbox.py` 새 `cmd_waive`(사유에 `판정 [0-9]+` 없으면 rc 2 · 좌석 계보 큐 잠금 안에서 전체 대상 먼저 계산 뒤 한 번 쓰기 · 출력 `WAIVED n seq=…` + `SKIPPED_NO_MARK m`) · main 분기 · usage 2곳 · 예외 목록 TypeError(waive 만 rc 2 · 다른 명령 rc 1 유지)(192줄) · 키트 사본 2 · 새 `tests/harness/test_inbox_waive.sh`(121줄)).
+- ★arch 독립 재현(#19)★: origin/main `076f0cc9cd` 아카이브 + 나노 diff → 스크래치패드 새 폴더: test_inbox_waive **42 PASS** · test_inbox 64 · test_report_hooks 23 · test_kit_bin_sync 6 · test_board 71 — 전부 rc=0 · 사본 cmp 2 · ruff 0. 독립 변이: 술어 waived 항 삭제 → FAIL 4(show 잔류 3 · 재실행 멱등 깨짐).
+  ★실데이터(라이브 planner 큐 «복사본» · 라이브 원본 불변 md5 eaa74e9c…)★: `waive byz-planner-master-claude#13 --before 2026-10-08T21:38 "판정 558 ④ …"` → `WAIVED 79` · `SKIPPED_NO_MARK 133` · show 334 → 255줄 · 면제 79줄 전부 21:38 이전 · reported=true 0.
+- 구현 DA r1 **APPROVE**(`design/harness/DA-v558-inbox-waive-20261009.md` · 실행 헤더 model GPT-6 / provider OpenAI · Q1 면제 오적용 0(무판정·mark 없음·경계 후·기존 닫힘·aware/naive·깨진 ts = 쓰기 0 · 5 시나리오 독립) · Q2 waived 없는 줄 술어 = 옛 식(56조합 독립) · 혼합 묶음 열림 유지 · 다른 명령 rc 1 유지) — 요청서 `design/harness/DA-REQ-v558-inbox-waive-20261009.md`(ops 3f82aa9548).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7a6d8f4152c74aa48bedd624bc3a61e43f1ede7b · 시험: bash tests/harness/test_inbox_waive.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(카드 밖 · 순서 고정 · 앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 나노 커밋 1개 · base 가 origin/main 이라 그대로) → 병합.
+  ② 라이브 FT_BIN(`v6-realtime-live/.fable-team/bin`) `ft-inbox.py`·`ft_inbox_core.py` cp+cmp(루트 `.fable-team/bin` 에도 사본이 있으면 같이 · 보드 `ft_board_env.py` 는 show 를 부르므로 같은 bin 의 ft-inbox 가 새 판이어야 함).
+  ③ 집행 직전 라이브 큐 백업 1부(`state/inbox/byz-planner-master-claude.jsonl` → 날짜 붙은 사본) → `bash $FT_BIN/ft-inbox.sh waive byz-planner-master-claude#13 --before 2026-10-08T21:38 "판정 558 ④ — v423b 설치 전 백로그"`.
+  ④ 출력 확인: `WAIVED 79`(복사본 실측값 · 그사이 planner 가 옛 줄을 처리했으면 더 작을 수 있음 — 79 «초과»면 멈춤) · show 의 ①~④ 열린 줄이 21:38 이후 줄만인지 1회 대조.
+  ⑤ v423b 훅 2종(report-coverage Stop · drain-before-interview PreToolUse AskUserQuestion) planner 좌석 settings 에만 등록(전역 0 · §84 «등록 보류» 해제).
+  ⑥ 첫 2일 관찰(원장 1줄/일): 턴당 block 횟수(턴 키당 1회 넘으면 결함) · drain deny 수 · `state/hook-errors.log` 의 report-coverage·drain 줄 수 · planner 미보고 ①~④ 열린 줄 추이 · 오빠 체감(보고 누락 26% 해소 여부)은 planner 경유.
+  되돌림: ③ 백업으로 큐 복원(면제만 되돌림 = waived 필드 삭제) · ⑤ settings 에서 훅 2줄 제거.
+- 남는 일(카드 밖 · 완성 후): 21:38 이전 ⑤⑥·미상 mark 없음 133줄(훅 대상 아님 · 보드 미보고 칸엔 잡힘) 정리 = planner 판단 · 원장 R57(Haiku 분류 실패로 미상 → 훅 대상 밖).
+- 정본 영향 없음: 하네스 인박스 도구·시험만 — docs/architect 제품 정본 변경 없음.

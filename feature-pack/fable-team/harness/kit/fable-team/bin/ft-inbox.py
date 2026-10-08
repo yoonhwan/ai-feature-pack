@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft-inbox.py — 메인팀 인박스(좌석 없는 스크립트 큐). 판정 425-B·430 · 설계 DESIGN-news-tree-workqueue-viz-20261009 §6-3·§8.
 
-명령: ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" | report <seq|group…> | archive <좌석>
+명령: ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" | report <seq|group…> | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
 경로: FT_ROOT/.fable-team/comm/{mailbox.jsonl,mailbox.log.jsonl,bodies/} (읽기) · FT_ROOT/.fable-team/state/inbox/<계보>.jsonl (큐)
 Haiku: FT_INBOX_HAIKU(기본 `claude -p --model claude-haiku-5-5`) 일회 호출 — 분류 미상·show --compact 때만. 상주·자발 압축·삭제 0.
 실패는 전부 stderr + exit≠0 (조용한 강등 0).
@@ -9,9 +9,11 @@ Haiku: FT_INBOX_HAIKU(기본 `claude -p --model claude-haiku-5-5`) 일회 호출
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import (  # noqa: E402
@@ -129,6 +131,24 @@ def cmd_report(targets):
     mutate(targets, lambda x: x.update(reported=True))
 
 
+def cmd_waive(seat, before, reason):
+    """판정 번호가 있는 사유로, 그 좌석 큐의 경계 전·mark 있는·열린 줄에만 waived 를 붙인다. reported 불변."""
+    if not re.search(r"판정 [0-9]+", reason):
+        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>"', 2)
+    cut = datetime.fromisoformat(before)
+    q = qpath(seat)
+    with locked(q):
+        rows = read_q(q)
+        early = [x for x in rows if datetime.fromisoformat(x["ts"]) < cut]
+        hit = [x for x in early if x["mark"] is not None and not obligation_closed(x)]
+        for x in hit:
+            x["waived"] = {"by": reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+        if hit:
+            write_q(q, rows)
+    print(f"WAIVED {len(hit)} seq={','.join(str(x['seq']) for x in hit)}")
+    print(f"SKIPPED_NO_MARK {sum(1 for x in early if x['mark'] is None)}")
+
+
 def cmd_archive(seat):
     q = qpath(seat)
     with locked(q):
@@ -159,11 +179,13 @@ def main(a):
             return cmd_mark(a[1], a[2], a[3])
         if c == "report" and len(a) >= 2:
             return cmd_report(a[1:])
+        if c == "waive" and len(a) == 5 and a[2] == "--before":
+            return cmd_waive(a[1], a[3], a[4])
         if c == "archive" and len(a) == 2:
             return cmd_archive(a[1])
-    except (ValueError, OSError, json.JSONDecodeError) as e:
-        die(f"{c}: {e}")
-    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 \"<1줄>\" | report <seq|group…> | archive <좌석>", 2)
+    except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
+        die(f"{c}: {e}", 2 if c == "waive" else 1)
+    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 \"<1줄>\" | report <seq|group…> | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
 
 
 if __name__ == "__main__":

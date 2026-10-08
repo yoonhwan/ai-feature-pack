@@ -75,8 +75,9 @@ def write_q(path, rows):
 
 
 def obligation_closed(line):
-    """정본 술어(설계 §8) — show·archive·묶음이 이 함수 하나만 호출한다."""
-    return line["mark"] is not None and (line["cls"] not in MUST_REPORT or line["reported"] is True)
+    """정본 술어(설계 §8) — show·archive·묶음이 이 함수 하나만 호출한다. 판정 558 ④ · 명시 면제(waived)도 닫힘."""
+    return line["mark"] is not None and (line["cls"] not in MUST_REPORT or line["reported"] is True
+                                         or line.get("waived") is not None)
 
 
 def group_closed(rows, gid):
