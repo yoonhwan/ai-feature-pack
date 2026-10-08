@@ -17,7 +17,134 @@ except Exception:
 # kill-server(전체 서버 종료, 모든 세션 동시 파괴)는 그대로 차단 유지.
 PATTERN='tmux kill-server|rm -[rf][rf]|rm -[rf] +-[rf]|gcloud [a-z0-9 _-]*(delete|destroy)|DROP +(TABLE|DATABASE|SCHEMA)|TRUNCATE +TABLE|dropdb|terraform +destroy|kubectl +delete|git +push[^&|;]*(--force|-f\b)|git +worktree +remove|git +branch +-D|supabase [a-z0-9 _-]*delete|kill -9|pkill'
 
-if printf '%s' "$CMD" | grep -qiE "$PATTERN"; then
+# ── 판정 466: «글자로만 들어 있는» 파괴 명령은 통과, «실행되는» 파괴 명령만 차단 ──
+# 명령을 구간(; && || | & 개행)으로 나눠 글 싱크(echo·printf·정본 mbox 송신·git commit·grep·대입·cat/tee heredoc
+# 본문)의 인자 글자만 PATTERN 에서 뺀다. 나머지 구간은 원문 그대로(따옴표 안 포함) PATTERN — bash -c·psql -c 도 그대로 차단.
+# 예외 자격 없음(실행 소비자·치환·파일 쓰기 뒤 소비·파이프 소비·파싱 실패) = 명령 전체에 PATTERN (이전 동작, fail-closed).
+judge() {
+python3 - "$@" <<'PYEOF'
+import json, os, re, shlex, subprocess, sys
+
+class Inelig(Exception): pass          # 예외 자격 없음 → 명령 전체에 PATTERN
+
+REDIR = {"<", ">", ">>", "<<", "<<<", ">|", "&>", "&>>", ">&", "<&", "<>", "<<-"}
+FILE_OUT = {">", ">>", ">|", "&>", "&>>", ">&", "<>"}
+CONSUMERS = {"bash", "sh", "zsh", "dash", "ksh", "fish", "eval", "source", ".", "exec", "xargs", "env", "sudo", "nohup",
+             "time", "timeout", "nice", "watch", "coproc", "command", "builtin", "function", "{", "}", "!", "ssh"}
+INTERP = re.compile(r"(python|perl|ruby)[0-9.]*|node")
+FILTERS = {"head", "tail", "wc", "sort", "uniq", "cut"}
+ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
+HD_OPEN = re.compile(r"<<(-?)\s*([^\s;&|()<>]+)")
+
+def mbox_ok(path, cwd):
+    # 정본 mbox = JSON cwd 의 git 루트 + /.fable-team/comm/mbox.sh (글자 그대로의 절대경로 · realpath 일치만)
+    if not path.startswith("/") or re.search(r"[*?\[\]{}$~`]", path) or ".." in path.split("/"): return False
+    r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                       cwd=cwd or ".", capture_output=True, text=True, timeout=5)
+    if r.returncode: return False
+    g = r.stdout.strip()
+    want = os.path.realpath(os.path.join(os.path.dirname(g) if os.path.basename(g) == ".git" else g, ".fable-team/comm/mbox.sh"))
+    return os.path.isfile(want) and os.path.realpath(path) == want
+def strip_heredoc(cmd):
+    # → (본문 뺀 명령 · 따옴표 밖 개행은 `;`, 본문, 개수). 따옴표 밖 `<<` 만 센다 · 2개 이상·미종결·여는 줄 따옴표 불일치 = Inelig
+    lines, out, body, n, q, esc, li = cmd.split("\n"), [], [], 0, None, False, 0
+    while li < len(lines):
+        line = lines[li]; li += 1
+        i, delim, dash = 0, None, ""
+        while i < len(line):
+            ch = line[i]
+            if esc: esc = False
+            elif ch == "\\" and q != "'": esc = True
+            elif q: q = None if ch == q else q
+            elif ch in "'\"": q = ch
+            elif ch == "#" and (i == 0 or line[i - 1] in " \t;&|"): break
+            elif line.startswith("<<<", i): i += 3; continue
+            elif line.startswith("<<", i):
+                m = HD_OPEN.match(line, i)
+                if not m or n: raise Inelig
+                n, dash, delim = 1, m.group(1), re.sub(r"['\"\\]", "", m.group(2))
+                i = m.end(); continue
+            i += 1
+        out.append(line + ("\n" if q else ";"))
+        if delim is None: continue
+        if q: raise Inelig
+        while True:
+            if li >= len(lines): raise Inelig
+            b = lines[li]; li += 1
+            if (b.lstrip("\t") if dash else b) == delim: break
+            body.append(b)
+    return "".join(out)[:-1], "\n".join(body), n
+def split(text):
+    lex = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lex.whitespace_split = True
+    lex.commenters = ""                                      # 주석 처리 없음 — 보이는 글자는 전부 본다
+    segs, cur = [], []
+    for tok in lex:
+        if re.fullmatch(r"[;&|()]+", tok):
+            if "(" in tok or ")" in tok or (not cur and "|" in tok): raise Inelig
+            if cur: segs.append((cur, tok))
+            cur = []
+        else: cur.append(tok)
+    return segs + ([(cur, "")] if cur else [])
+def text_sink(w, hd):
+    c = w[0]
+    return (c in ("echo", "grep", "egrep", "fgrep") or (c == "printf" and "-v" not in w[1:])
+            or (c == "git" and w[1:2] == ["commit"]) or (c in ("cat", "tee") and hd))
+def classify(toks, sep, cwd):
+    words, redirs, i = [], [], 0
+    while i < len(toks):
+        t = toks[i]
+        if t in REDIR: redirs.append((t, toks[i + 1] if i + 1 < len(toks) else "")); i += 2
+        elif re.fullmatch(r"[<>&|]+", t): raise Inelig
+        else: words.append(t); i += 1
+    g = dict(toks=toks, words=words, redirs=redirs, sep=sep, mbox=False, cmd="", kind="other",
+             hd=any(o in ("<<", "<<-") for o, _ in redirs))
+    ci = next((k for k, w in enumerate(words) if not ASSIGN.match(w)), None)
+    if ci is None:
+        g["kind"] = "assign" if words else "other"; return g
+    g["cmd"] = words[ci]
+    if "$" in g["cmd"]: raise Inelig                          # 명령 단어가 변수
+    if ci == 0:
+        g["mbox"] = g["cmd"] == "bash" and len(words) > 2 and words[2] in ("send", "relay", "ring") and mbox_ok(words[1], cwd)
+        if g["mbox"] or text_sink(words, g["hd"]): g["kind"] = "sink"
+    return g
+def fileout(g):
+    return g["cmd"] == "tee" or any(o in FILE_OUT and t != "/dev/null" and not (o == ">&" and re.fullmatch(r"\d+|-", t))
+                                    for o, t in g["redirs"])
+def judge(cmd, cwd):
+    if re.search(r"\$\(|`|[<>]\(|\$'|\\\n|\$\{!", cmd): raise Inelig
+    text, body, n = strip_heredoc(cmd)
+    segs = [classify(t, s, cwd) for t, s in split(text)]
+    if sum(o in ("<<", "<<-") for g in segs for o, _ in g["redirs"]) != n: raise Inelig
+    for g in segs:
+        skip = g["mbox"]
+        for t in g["toks"]:
+            if skip and t == "bash": skip = False; continue
+            b = os.path.basename(t)
+            if b in CONSUMERS or INTERP.fullmatch(b): raise Inelig
+    others = [g for g in segs if g["kind"] == "other"]
+    if others and any(fileout(g) for g in segs if g["kind"] == "sink"): raise Inelig
+    for i, g in enumerate(segs):
+        j = i
+        while g["kind"] == "sink" and "|" in segs[j]["sep"].replace("||", "") and j + 1 < len(segs):
+            j += 1
+            if segs[j]["cmd"] not in FILTERS or any(a.startswith("--compress-program") for a in segs[j]["words"]): raise Inelig
+    body_in = n and not any(g["hd"] and g["kind"] == "sink" and g["cmd"] in ("cat", "tee") for g in segs)
+    lines = [" ".join(g["toks"]) for g in others] + ([body] if body_in else [])
+    if any(g["kind"] == "assign" for g in segs) and any("$" in l for l in lines): raise Inelig
+    return "\n".join(lines)
+
+cmd = sys.argv[1]
+try:
+    cwd = json.loads(sys.argv[2]).get("cwd")
+    print(judge(cmd, cwd if isinstance(cwd, str) else None))
+except Exception:
+    print(cmd)
+PYEOF
+}
+EFFECTIVE=$(judge "$CMD" "$INPUT" 2>/dev/null) || EFFECTIVE=$CMD
+
+if printf '%s' "$EFFECTIVE" | grep -qiE "$PATTERN"; then
   printf '🚫 파괴적/비가역 명령 차단 — HIL(사람 승인) 필수\n' >&2
   printf '명령: %s\n' "$CMD" >&2
   printf '데이터/인프라/세션을 복구 불가하게 삭제할 수 있습니다. yoonhwan 오빠의 명시 승인을 받은 뒤에만 진행하세요. (정당한 경우 사용자가 직접 ! 로 실행하거나 승인)\n' >&2
@@ -36,6 +163,8 @@ fi
 #   ★정교하게 파싱하지 않는 이유★: 판정기를 촘촘하게 만들수록 예외 목록이 자라고,
 #   예외가 자라면 그 판정기는 결국 아무것도 안 막는다(2026-09-15 CFO 트랙에서 배운 것).
 #   막히면 우회하지 말고 파일에 써서 실행하거나 사람이 직접 실행한다.
+#   ★글 싱크 닫힌 목록으로 바꾼 이유(판정 466)★: 쪽지 본문·echo·heredoc 으로 쓰는 시험 파일·grep 패턴의 «글자»가 하루 15건 넘게
+#   오탐이었고 실제 파괴는 0 이었다. 예외 목록이 아니라 «6종 싱크 + 나머지 전부 이전 규칙»이라 목록 자체를 늘리는 것도 판정 사항이다.
 # ★경계를 요구한다★ — 뒤에 공백이나 줄끝이 와야 「전체 스테이징」이다.
 #   2026-09-16 실측 오탐: 경계가 없으면 숨김 폴더로 시작하는 경로(.claude/… .github/… 등)의
 #   맨 앞 점이 「전체」로 오인돼 정당한 경로 지정까지 막았다. 구현 좌석이 그 자리에서 걸렸다.
