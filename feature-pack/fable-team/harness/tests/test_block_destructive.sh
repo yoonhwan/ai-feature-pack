@@ -14,19 +14,22 @@ mkdir -p "$T/.fable-team/comm"
 MB="$T/.fable-team/comm/mbox.sh"
 fail=0; nb=0; np=0; ns=0; nr=0
 
-run() {  # <명령> → 훅 종료코드 (JSON cwd = 임시 리포 · 셔뱅 그대로 /bin/bash)
-  python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' "$1" "$T" \
+run() {  # <명령> [JSON cwd — 기본 임시 리포 · "-" 면 cwd 키 없음] → 훅 종료코드 (셔뱅 그대로 /bin/bash)
+  python3 -c 'import json,sys
+d={"tool_name":"Bash","tool_input":{"command":sys.argv[1]}}
+if sys.argv[2]!="-": d["cwd"]=sys.argv[2]
+print(json.dumps(d))' "$1" "${2:-$T}" \
     | /bin/bash "$HOOK" >/dev/null 2>&1
   return $?
 }
-expect() {  # <기대 rc> <종류 카운터 이름> <명령>
+expect() {  # <기대 rc> <종류 카운터 이름> <명령> [JSON cwd]
   local want="$1" ctr="$2" cmd="$3" rc
-  run "$cmd"; rc=$?
+  run "$cmd" "${4:-}"; rc=$?
   if [ "$rc" = "$want" ]; then echo "PASS [$ctr] rc=$rc :: ${cmd:0:70}"; eval "$ctr=\$(($ctr+1))"
   else echo "FAIL [$ctr] want=$want got=$rc :: $cmd"; fail=$((fail+1)); fi
 }
-blk() { expect 2 nb "$1"; }
-pas() { expect 0 np "$1"; }
+blk() { expect 2 nb "$1" "${2:-}"; }
+pas() { expect 0 np "$1" "${2:-}"; }
 stg() { expect 2 ns "$1"; }
 smp() { expect 0 nr "$1"; }
 
@@ -120,6 +123,26 @@ pas 'git push origin HEAD:refs/heads/x'
 pas 'git push --dry-run origin x'
 pas 'git commit -m "git push origin +main 금지 기록"'
 pas "bash $MB send a#1 b#1 \"git push --delete 원문 인용\""
+
+# ── R64 상대경로 정본 mbox: JSON cwd 기준 realpath 일치만 글 싱크 (cd/pushd/popd 있으면 인정 0) ──
+T2="$(mktemp -d)"; trap '[ -n "$T" ] && rm -rf "$T" "$T2"' EXIT
+git -C "$T2" init -q; mkdir -p "$T/a/b" "$T2/.fable-team/comm"
+: > "$T2/.fable-team/comm/mbox.sh"; : > "$T2/x.sh"
+ln -s "$MB" "$T/a/link.sh"; ln -s "$T2/x.sh" "$T/a/evil.sh"
+REL2="$(python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1],sys.argv[2]))' "$T2/.fable-team/comm/mbox.sh" "$T/a/b")"
+pas "bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz 인용'" "$T/a/b"
+pas "bash .fable-team/comm/mbox.sh send x y 'git branch -D x 인용'" "$T"
+pas "bash ../link.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "cd /tmp && bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "c''d /tmp && bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "c\\d /tmp && bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "cd; bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "c''d; bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "popd; bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "bash $REL2 send x y 'rm -rf zz'" "$T/a/b"
+blk "bash ../evil.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "bash \$D/../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "$T/a/b"
+blk "bash ../../.fable-team/comm/mbox.sh send x y 'rm -rf zz'" "-"
 
 # ── STAGE 회귀 (이 카드 무변경) ──────────────────────────────────────────
 stg 'git add -A'

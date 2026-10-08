@@ -1120,3 +1120,31 @@
   ⑦ 완료 보고 = 대조표 경로 + 랜딩 sha 1줄.
 - 남는 일(카드 밖): 훅 205줄(200줄 규칙 초과 · 기존 180 → 분리는 별 카드 후보).
 - 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §95 R64 block-destructive `mbox_ok` 상대경로 정본 송신을 글 싱크로 인정 (원장 R64 · §93 홈 설치 오탐 1건 원복의 선행 · 나노 r63e-mbox-ok-relative-path) — 닫힘 (byz-harness-arch-claude#21 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q2 · r2 HOLD Q2 → 연속 리뷰 종료) → arch 처방·독립 재현 서명(bounded_da_review · §89·§93 선례)★
+- 골 축: C(배포·반영 — 측정 조작 차단 훅 재설치의 선행 = 정상 쪽지 오탐 0) + A(오빠 절대지침 장치).
+- 대상 카드: r63e-mbox-ok-relative-path
+- 나노 커밋 3개(브랜치 `nano/r63e-mbox-ok-relative-path` · base origin/main `7826b70515` = 현 tip · push 0):
+  ①`f94a4a5ebe`([fix] `MOVE` 정규식 · `mbox_ok(path, cwd, moved)` — 상대경로는 JSON cwd 기준 realpath 가 그 cwd 의 git 공통 루트 정본과 같을 때만 인정 · 이동 명령(`cd`·`pushd`·`popd`)이 있으면 상대 인정 0) → 구현 DA r1(`design/harness/DA-r63e-mbox-ok-relative-path-20261009.md`) Q1·Q3 APPROVE · Q2 HOLD(따옴표·역슬래시 이어붙임 `c''d`·`c\d` 가 `MOVE` 를 피함) → 반송 r1(arch#20).
+  ②`01b915f91c`([fix] 이동 판별을 따옴표·역슬래시 지운 글자로) → DA r2 Q2 HOLD(인용 교정 수락 · 이동 단어 오른쪽 경계가 공백·끝만이라 `cd;`·`c''d;`·`popd;` rc0 · 인자 없는 `cd` = HOME 이동) · «두 번째 HOLD 이므로 연속 DA 리뷰 종료» → 반송 r2(arch#21 결정 = 오른쪽 경계 lookahead `(?=[\s;&|)]|$)`).
+  ③`4f5a1383c8`([fix] `MOVE` 오른쪽 경계에 구분자 `; & | )` 포함 + 차단 시험 3행). 최종 r1~r3 = 키트 템플릿 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` · `tests/harness/test_block_destructive.sh` · `tests/harness/test_block_destructive_inject.sh` · 훅 209줄.
+- ★arch 독립 재현(#21 · 이 재현이 닫는 증거)★: `4f5a1383c8` 아카이브 → `mktemp -d` 새 폴더: test_block_destructive **blocked=74 pass=23 fail=0 rc=0** · test_block_destructive_inject **rc=0** · `bash -n` OK · 셔뱅 `#!/bin/bash` 그대로 · 훅 39행 = arch 사본 처방과 같은 식(차이는 주석 1줄뿐).
+  ★`/bin/bash` PreToolUse JSON 주입 31행(명령 실행 0) — 불일치 0★:
+  · 통과 7 = R64 원 명령 꼴(JSON cwd=`.worktrees/harness-ops` · `bash ../../.fable-team/comm/mbox.sh send … 'redis-cli SET 금지 /dev/bubble-replay'`) · 같은 상대경로 + 파괴 명령 인용 본문 · 절대경로 + 같은 본문 · 루트 cwd + `.fable-team/comm/mbox.sh` · 평범한 본문 · 본문 안 `cdn`·`abcd;` 글자(이동 아님).
+  · 차단 24 = `cd /tmp &&` · `(cd <tmp>;` · `pushd /tmp;` · 다른 git 리포의 정본 꼴 상대경로 · 다른 곳 `mbox.sh` 상대경로 · `$D/../` · 정본 송신 뒤 별 구간 실제 파괴 명령 · 절대경로 `..` · JSON cwd 없음 · 정본 송신 뒤 `&& redis-cli SET` · `c''d /tmp` · `c\d /tmp` · `"cd" /tmp` · `c$()d` · `c${NOPE}d` · `env -C /tmp` · `cd;` · `c''d;` · `popd;` · `pushd&&` · `cd&&` · `(cd)` · `cd|true;` · `c\d;`.
+  ★독립 변이 2개★: (가) r1 교정(따옴표 제거)을 뺀 사본 → `c''d`·`c\d`·`"cd"` 3행 rc0. (나) r2 교정(lookahead)을 `(\s|$)` 로 되돌린 사본 → test_block_destructive `cd;`·`c''d;`·`popd;` 3행 FAIL(fail=3). 두 줄 모두 실제로 막고 있다.
+  · `c$()d`·`c${NOPE}d`·`env -C` 는 두 변이에서도 rc2 — 이 단위가 아닌 기존 판정(fail-closed)이 막음, DA r2 도 같은 확인.
+- ★arch 판단 서명 2건 — 승인★: ①이동 판별은 원문(따옴표 안 포함)에서 따옴표·역슬래시를 지운 글자로 본다 — 본문 안 `cd ` 글자에도 상대 인정을 잃는 «더 엄격한» 쪽(그때는 절대경로로 보내면 된다 · 오탐 아닌 면제 상실). ②오른쪽 경계 lookahead 는 `cdn`·`abcd` 같은 단어 일부를 이동으로 보지 않는다(재현 통과 2행).
+- ★알고 둔 경계(설계 결정 · 이 훅 범위 밖)★: 변수·별칭·함수로 만든 이동(`x=cd; $x /tmp`) · `eval` 안 조립 — 명령줄 글자 훅은 의도적 난독화를 끝까지 못 따라간다(§93 과 같은 성질). 의도적 우회 = BOOT 20 증거 무효 규정 · 정본 송신은 절대경로가 기본(함정 줄 유지).
+- 기준값 대비(카드 머리줄): r63b 설치본에서 상대경로 정본 쪽지 본문의 파괴·주입 글자 = 차단(R64 오탐) → 이 단위 뒤 = JSON cwd 기준 정본 상대경로 송신은 글 싱크(0) · 이동·다른 루트·다른 스크립트는 그대로 2.
+- 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: 4f5a1383c82d956ed5edc07c44d6af3d0a97fc09 · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(카드 밖 · §93 7단계 + R64 재생 · 앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 커밋 3개) → 병합. ★PR 본문은 `--body-file`★(지금 홈 설치본이 본문 글자에 걸릴 수 있음).
+  ② 홈 현재 = `~/.claude/hooks/block-destructive.sh.bak-r63b-20261009` 와 cmp 동일(§93 원복 상태 · INJECT 없는 옛 판) 확인 → 백업 `cp ~/.claude/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh.bak-r63e-20261009`.
+  ③ 병합된 origin/main 키트 템플릿 → 홈 설치(cp+cmp) — 이 한 번에 §93 INJECT + §95 상대경로 인정이 같이 들어간다.
+  ④ 셔뱅 그대로(`/bin/bash`) 홈 설치본 JSON 주입 재생: ★R64 원 명령 `bash ../../.fable-team/comm/mbox.sh send … 'redis-cli SET …'` 를 JSON cwd=워크트리로 = 0★ · `cd; bash ../../.fable-team/comm/mbox.sh send … '<파괴 명령 인용>'` = 2 · 차단 `redis-cli PUBLISH ch x` = 2 · 통과 `redis-cli GET k`·`curl -s http://127.0.0.1:8080/health` = 0.
+  ⑤ 적용 뒤 «첫 도구 호출» 실측 — 평범한 Bash 1회(rc 0) + 다른 좌석 1곳의 다음 Bash·mbox 송신 정상.
+  ⑥ ★오탐 1건이면 즉시 원복★(②의 백업 cp · 원복 사실 + 오탐 명령을 원장에 기록 · 카드 반송).
+  ⑦ 완료 보고 = 랜딩 sha + 재생 행 rc 1줄.
+- 남는 일(카드 밖 · 큐): 훅 209줄(200줄 규칙 초과 · 분리 별 카드 후보) · `mbox.py` 637줄(분리 별 카드 후보).
+- 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.

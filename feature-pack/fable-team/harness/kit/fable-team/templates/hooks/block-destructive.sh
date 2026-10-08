@@ -36,15 +36,18 @@ FILTERS = {"head", "tail", "wc", "sort", "uniq", "cut"}
 ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
 HD_OPEN = re.compile(r"<<(-?)\s*([^\s;&|()<>]+)")
 
-def mbox_ok(path, cwd):
-    # 정본 mbox = JSON cwd 의 git 루트 + /.fable-team/comm/mbox.sh (글자 그대로의 절대경로 · realpath 일치만)
-    if not path.startswith("/") or re.search(r"[*?\[\]{}$~`]", path) or ".." in path.split("/"): return False
+MOVE = re.compile(r"(^|[\s;&|(])(cd|pushd|popd)(?=[\s;&|)]|$)")   # 이동 단어 뒤 구분자(; & | ))도 경계 — DA r2 Q2
+def mbox_ok(path, cwd, moved):
+    # 정본 mbox = JSON cwd 의 git 루트 + /.fable-team/comm/mbox.sh (realpath 일치만 · 절대경로는 글자 그대로 `..` 0)
+    # 상대경로 정본 = JSON cwd 기준 realpath 일치 · 명령에 cd/pushd/popd 가 있으면 실행 위치가 달라 인정 0(R64)
+    if re.search(r"[*?\[\]{}$~`]", path) or (path.startswith("/") and ".." in path.split("/")): return False
+    if not path.startswith("/") and (moved or not cwd): return False
     r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
                        cwd=cwd or ".", capture_output=True, text=True, timeout=5)
     if r.returncode: return False
     g = r.stdout.strip()
     want = os.path.realpath(os.path.join(os.path.dirname(g) if os.path.basename(g) == ".git" else g, ".fable-team/comm/mbox.sh"))
-    return os.path.isfile(want) and os.path.realpath(path) == want
+    return os.path.isfile(want) and os.path.realpath(os.path.join(cwd or ".", path)) == want
 def strip_heredoc(cmd):
     # → (본문 뺀 명령 · 따옴표 밖 개행은 `;`, 본문, 개수). 따옴표 밖 `<<` 만 센다 · 2개 이상·미종결·여는 줄 따옴표 불일치 = Inelig
     lines, out, body, n, q, esc, li = cmd.split("\n"), [], [], 0, None, False, 0
@@ -90,7 +93,7 @@ def text_sink(w, hd):
     c = w[0]
     return (c in ("echo", "grep", "egrep", "fgrep") or (c == "printf" and "-v" not in w[1:])
             or (c == "git" and w[1:2] == ["commit"]) or (c in ("cat", "tee") and hd))
-def classify(toks, sep, cwd):
+def classify(toks, sep, cwd, moved):
     words, redirs, i = [], [], 0
     while i < len(toks):
         t = toks[i]
@@ -105,7 +108,7 @@ def classify(toks, sep, cwd):
     g["cmd"] = words[ci]
     if "$" in g["cmd"]: raise Inelig                          # 명령 단어가 변수
     if ci == 0:
-        g["mbox"] = g["cmd"] == "bash" and len(words) > 2 and words[2] in ("send", "relay", "ring") and mbox_ok(words[1], cwd)
+        g["mbox"] = g["cmd"] == "bash" and len(words) > 2 and words[2] in ("send", "relay", "ring") and mbox_ok(words[1], cwd, moved)
         if g["mbox"] or text_sink(words, g["hd"]): g["kind"] = "sink"
     return g
 def fileout(g):
@@ -114,7 +117,8 @@ def fileout(g):
 def judge(cmd, cwd):
     if re.search(r"\$\(|`|[<>]\(|\$'|\\\n|\$\{!", cmd): raise Inelig
     text, body, n = strip_heredoc(cmd)
-    segs = [classify(t, s, cwd) for t, s in split(text)]
+    moved = bool(MOVE.search(re.sub(r"[\\'\"]", "", cmd)))   # 이동 판별은 따옴표·역슬래시를 지운 글자로(c''d·c\d) — DA r1 Q2
+    segs = [classify(t, s, cwd, moved) for t, s in split(text)]
     if sum(o in ("<<", "<<-") for g in segs for o, _ in g["redirs"]) != n: raise Inelig
     for g in segs:
         skip = g["mbox"]

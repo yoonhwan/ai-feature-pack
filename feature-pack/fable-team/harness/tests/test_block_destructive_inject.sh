@@ -16,14 +16,14 @@ H="$HOOK"
 fail=0; nb=0; np=0; nm=0
 [ -n "${TABLE_OUT:-}" ] && : > "$TABLE_OUT"
 
-run() {  # <명령> → H 훅 종료코드 (JSON cwd = 임시 리포 · 셔뱅 그대로 /bin/bash)
-  python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' "$1" "$T" \
+run() {  # <명령> [JSON cwd — 기본 임시 리포] → H 훅 종료코드 (셔뱅 그대로 /bin/bash)
+  python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' "$1" "${2:-$T}" \
     | /bin/bash "$H" >/dev/null 2>&1
   return $?
 }
-expect() {  # <id> <기대 rc> <카운터> <명령>
+expect() {  # <id> <기대 rc> <카운터> <명령> [JSON cwd]
   local id="$1" want="$2" ctr="$3" cmd="$4" rc shown
-  run "$cmd"; rc=$?
+  run "$cmd" "${5:-}"; rc=$?
   if [ "$rc" = "$want" ]; then echo "PASS [$id] rc=$rc :: ${cmd:0:70}"; eval "$ctr=\$(($ctr+1))"
   else echo "FAIL [$id] want=$want got=$rc :: $cmd"; fail=$((fail+1)); fi
   if [ -n "${TABLE_OUT:-}" ]; then
@@ -32,7 +32,7 @@ expect() {  # <id> <기대 rc> <카운터> <명령>
   fi
 }
 blk() { expect "$1" 2 nb "$2"; }
-pas() { expect "$1" 0 np "$2"; }
+pas() { expect "$1" 0 np "$2" "${3:-}"; }
 mut() {  # <출력> <바꿀 글자> <새 글자> — 변이 복사본 (적용 안 되면 시험 실패)
   python3 -c 'import sys
 t=open(sys.argv[1]).read()
@@ -100,6 +100,9 @@ blk B11c "redis-''cli SET k v"
 blk B11d 're\dis-cli SET k v'
 blk B11e 'redis-cli "S"ET k v'
 pas P13 "redis-cli GET 'SET'"
+# R64: 워크트리 하위 폴더 cwd 의 상대경로 정본 mbox 쪽지 본문 글자
+mkdir -p "$T/a/b"
+pas P14 "bash ../../.fable-team/comm/mbox.sh send x y 'redis-cli SET 금지 /dev/bubble-replay'" "$T/a/b"
 
 # ── 변이 (M): 변이 복사본에서는 결과가 뒤집혀야 한다 ──────────────────────
 mut "$T/m1.sh" 'printf '"'%s'"' "$CHK" | grep -qiE' 'printf '"'%s'"' "$CMD" | grep -qiE'                  # EFFECTIVE→원문
@@ -136,5 +139,5 @@ expect M7-B11b 0 nm 'gh pr create --body "$(redis-cli S'"''"'ET k v)"'
 H="$HOOK"
 
 echo "SUMMARY block=$nb pass=$np mutant=$nm fail=$fail"
-[ "$nb" -eq 22 ] && [ "$np" -eq 31 ] && [ "$nm" -eq 15 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
+[ "$nb" -eq 22 ] && [ "$np" -eq 32 ] && [ "$nm" -eq 15 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
 echo "OK"
