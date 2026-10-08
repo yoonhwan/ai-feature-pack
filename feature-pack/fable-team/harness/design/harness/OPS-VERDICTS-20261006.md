@@ -388,3 +388,16 @@
 - 남은 증거(완성 후 아님 — 이 단위의 닫는 증거): 실 Slack·GitHub 원격 0 이라 다음 제안서 1건에서 ①슬랙 스레드 md+HTML 두 첨부(제목에 md_hash 8) ②Issue 본문 첫 줄 표식 + 제안서 전문 확인 → 정본 §첫 사례 줄처럼 1회 기록.
 - 라이브 반영(master): 랜딩 → `install-magazine.sh`(복사만 · WARN 0 · proposal_* 4파일 확인). 정본 영향 없음: 하네스 제안서 도구·eli5 판·템플릿·흐름 정본과 시험이고 docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: 1f834a7536… (카드 진행/proposal-flow-r2.md 의 40hex) · 시험: bash tests/harness/test_proposal_register.sh rc=0 · 이슈: 0`
+
+## §54 틱 master 뉴스 대상 = 좌석표 _master 하나 — 팀 틱 추적본 신설 + 뉴스 행 검사 분리 + 자동 후계 N 증가 (R27 · 나노 r27-master-seat-single-source) — 닫힘 (byz-harness-arch-claude#12 · master#14 #62117 · 2026-10-08)
+- 나노 커밋 `a8a74d0c41` [structure] ft-tick-team.sh 추적본 신설(bin-feature 바이트 복사 · md5 cb379b08966214ac4136a6402588fdc5 일치) · `9a6cb3b46f` [feature] master 뉴스 대상 = _master · `6dc923936d` [fix] SC2155 local 분리. 브랜치 nano/r27-master-seat-single-source(base 0b1ca4e938) · 키트 334→355줄 · 팀 판 233→258줄(순증 ≤30 · 카드 7번 범위).
+- 설계 PLAN-r27-master-seat-single-source-20261008.md(§8 r2 정정: 팀 틱 5개 = 갈라진 판 · 키트로 덮지 않음) · DA HOLD-1(R27-A 승계 중간 뉴스 0 ERROR 누락 / R27-B 자동 후계 옛 incarnation 회귀) → 교정 1 APPROVE(design/harness/DA-r27-master-seat-20261008.md §8·§9).
+- master 독립 검증(#62117): test_ft_tick_master_seat · test_kit_bin_sync ALL PASS · bash -n OK · 사본 cmp 동일 · shellcheck 신규 경고 0(SC2155 1차 반송 → C 해소 · 남은 SC2034·팀 판 SC2155 1건은 기존 줄).
+- arch 재현(#12): ①`bash tests/harness/test_ft_tick_master_seat.sh` rc=0 fail=0 ALL PASS(후계 ①~⑤b 포함) ②`bash tests/harness/test_kit_bin_sync.sh` ALL PASS ③ft-tick.sh·ft-tick-team.sh 각 두 사본 cmp 동일 + bash -n OK ④커밋 A 의 ft-tick-team.sh md5 = cb379b08966214ac4136a6402588fdc5.
+- DA 교정 조건 소스 대조: ①master_seat = _master 행 실재·_replaced_by 없음·role master 일 때만(tick 무관) — 「유효 master」 ②master_news_ok = 현역 ft-master-tick 행 목록에 master_seat 가 들어 있어야 통과(JSON 키라 «정확히 1개» 와 같다) · 아니면 ERROR 로그 + DEAD-SEATS.alert 1줄 · 서명(_master|뉴스 행) 같으면 재기록 0 · 정상 복귀 시 서명 파일 삭제(재발 시 다시 1회) · WARN mtwarn stamp 와 별개 ③뉴스 행 0 = 조용히 통과 ④role 첫 행 폴백 0(stall·idle·drift·pm report_to 전부 master_seat) ⑤heir_of = 같은 base · N > dead N 만(숫자 아니면 빈 값) ⑥retarget_seat 후계 행 은퇴(_replaced_by)면 rc 3 · 백업·쓰기 0 → DEAD 알림 경로 ⑦_master 는 == dead 일 때만 같은 dump 안에서 갱신 · 다른 base 추측 0.
+- 관찰(반송 아님): 키트에 FT_TICK_STAMP_PREFIX env 추가(기본값 /tmp/ft-tick- = 원래 동작 · 시험 scratch 용) — 카드 목록 밖 1줄이나 기본 동작 불변. WARN 은 좌석당 평생 1회(mtwarn stamp 미삭제) — 카드 3번 문구 그대로.
+- 반송 1회(#62123): 카드 증거 줄 누락 → 나노 추가 뒤 ft-nano-evidence-check OK 확인(아래 증거 줄).
+- 최종 DA 소환: 안 함 — 교정 1 APPROVE 범위 안 · 교정 조건 7 전부 소스·시험으로 확인.
+- 라이브 반영(master · 카드 순서 고정): ①명부 — 틱 있는 좌석표 _master 유효 확인(cfo·feature·loom·ops 유효 · kk 는 tick 비활성이라 _master 추가만) ②ft-tick-team.sh → .fable-team/bin-{cfo,feature,kk,loom,ops}/ft-tick.sh cp+cmp(이름 유지 · plist 무변경) · 키트 ft-tick.sh → .worktrees/v6-realtime-live/.fable-team/bin/ft-tick.sh cp+cmp ③plist bootout→bootstrap ④닫는 증거 = 팀 틱 로그 master sent to <_master 값> 1줄 + ERROR·WARN 0줄(feature 가 지금 유일한 활성 뉴스 틱).
+- 정본 영향 없음: 하네스 틱·시험만 — docs/architect 제품 정본 변경 없음. 두 틱 판 합치기는 이 카드 밖(완성 후).
+- 카드 증거 줄: 세트: 6dc923936dac0033a16ab5ec9e35ca642418d1cf · 시험: bash tests/harness/test_ft_tick_master_seat.sh rc=0 · 이슈: 0

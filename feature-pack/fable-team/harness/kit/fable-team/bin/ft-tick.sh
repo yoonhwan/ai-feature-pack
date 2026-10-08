@@ -52,7 +52,8 @@ FIXTURE_DIR="${FT_TICK_TURN_FIXTURE_DIR:-}"
 
 log() { echo "$(date '+%F %T') $*"; }
 now() { date +%s; }
-stamp_of() { echo "/tmp/ft-tick-$1${2:+.$2}.last"; }
+STAMP_PREFIX="${FT_TICK_STAMP_PREFIX:-/tmp/ft-tick-}"   # R27: 시험이 scratch 로 돌릴 수 있게(기본값=원본 동작)
+stamp_of() { echo "${STAMP_PREFIX}$1${2:+.$2}.last"; }
 pane_of() { tmux list-panes -a -F '#{session_name} #{pane_id}' 2>/dev/null | awk -v s="$1" '$1==s{print $2; exit}'; }
 
 # seats.json → "seat<TAB>tick<TAB>role" (현역만: _ 키 제외 · tick != null · _replaced_by 없음). 실패면 rc≠0.
@@ -66,7 +67,24 @@ for k, v in d.items():
     print(f"{k}\t{v['tick']}\t{v.get('role','')}")
 PY
 }
-master_seat() { awk -F'\t' '$3=="master"{print $1; exit}' <<< "$1"; }
+# ★master 정본 = 좌석표 _master 하나(R27)★ role 첫 행·tick 행 순서로 고르지 않는다(폴백 0). 행이 있고 _replaced_by 없고 role=master 일 때만 출력.
+master_seat() {
+  python3 - "$SEATS" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); m = d.get("_master"); v = d.get(m) if isinstance(m, str) else None
+if isinstance(v, dict) and not v.get("_replaced_by") and v.get("role") == "master": print(m)
+PY
+}
+# 뉴스 행 검사(R27): 현역 ft-master-tick 행이 있으면 그 중 _master 와 같은 행이 «정확히 1개» — 아니면 ERROR+알림(상태 서명이 바뀔 때 1회)·master news 0 → rc 1. $1=rows $2=master
+master_news_ok() {
+  local news sig sf
+  sf="$(stamp_of _all mtsig)"
+  news="$(awk -F'\t' '$2=="ft-master-tick"{print $1}' <<< "$1" | paste -sd, -)"
+  if [ -z "$news" ] || { [ -n "$2" ] && [[ ",$news," == *",$2,"* ]]; }; then rm -f "$sf"; return 0; fi
+  sig="_master=${2:-none}|$news"; [ "$(cat "$sf" 2>/dev/null)" = "$sig" ] && return 1
+  echo "$sig" > "$sf"; log "ERROR master news row invalid (_master=${2:-none} · news rows=$news) — master news 0"
+  printf '%s master news row invalid (_master=%s · news rows=%s) in %s\n' "$(date '+%F %T')" "${2:-none}" "$news" "$SEATS" >> "${STAMP_PREFIX}DEAD-SEATS.alert"; return 1
+}
 
 # ★master 틱 = «뉴스 발행» (2026-09-14 오빠 지시 원문: 「master는 메세지가 이런게 아니고 진행중과 남은작업을 정리해서 현재 어떤 작업을
 #   하고 있다는 뉴스가 발행되야하낟. 테스트는 어떻게 계획중이고 완성까지 전망을 발행. 멈춘거면 어디 세션을 확인하라고 알리던가
@@ -138,7 +156,7 @@ stall() {
   now > "$stamp"
   [ -f "$SEAT_STATUS" ] || { echo "$(date '+%F %T') stall: seat-status missing $SEAT_STATUS" >&2; return 0; }
   rows="$(active_seats 2>/dev/null)" || { echo "$(date '+%F %T') stall: seats.json unreadable" >&2; return 0; }
-  master="$(awk -F'\t' '$2=="master"{print $1; exit}' <<< "$rows")"
+  master="$(master_seat)"
   thr=$(( STALL_MIN * 60 ))
   while IFS=$'\t' read -r seat role; do
     [ -n "$seat" ] || continue
@@ -196,7 +214,7 @@ idle_watch() {
   [ "$IDLE_ENABLED" = 1 ] || { log "idle_watch disabled (FT_TICK_IDLE_ENABLED=$IDLE_ENABLED)"; return 0; }
   [ -f "$SEAT_STATUS" ] || { echo "$(date '+%F %T') idle_watch: seat-status missing $SEAT_STATUS" >&2; return 0; }
   rows="$(all_seats 2>/dev/null)" || { echo "$(date '+%F %T') idle_watch: seats.json unreadable ($SEATS)" >&2; return 0; }
-  master="$(awk -F'\t' '$2=="master"{print $1; exit}' <<< "$rows")"
+  master="$(master_seat)"
   [ -n "$master" ] || { echo "$(date '+%F %T') idle_watch: no active master in $SEATS" >&2; return 0; }
   mkdir -p "$STATE_DIR"
   lines=""; targets=""; n=0
@@ -255,7 +273,7 @@ sweep_wt() {
   out="$(bash "$WT_SWEEP" 2>&1)"; rc=$?
   log "wt-sweep: rc=$rc $(printf '%s\n' "$out" | grep -v '^$' | tail -1)"
   hil="$(printf '%s\n' "$out" | grep '^\[HIL\]')" || return 0
-  rows="$(read_seats 2>/dev/null)"; master="$(master_seat "$rows")"
+  master="$(master_seat)"
   [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending but no active master" >&2; return 0; }
   bash "$MBOX" send "$master" ft-tick "[HIL] 워크트리 정리 사람 판정 $(printf '%s\n' "$hil" | grep -c .)건 — $(printf '%s\n' "$hil" | head -3 | cut -c1-160 | tr '\n' ' ')" --urgent >/dev/null 2>&1 \
     || echo "$(date '+%F %T') sweep_wt: mbox failed" >&2
@@ -278,7 +296,7 @@ drift_watch() {
       log "drift: ${hdr#DRIFT } $(printf '%s\n' "$items" | head -3 | tr '\n' ' ')"
       sig="$(printf '%s\n' "$items" | shasum | cut -c1-40)"
       [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
-      rows="$(read_seats 2>/dev/null)"; master="$(master_seat "$rows")"
+      master="$(master_seat)"
       [ -n "$master" ] || { echo "$(date '+%F %T') drift_watch: drift pending but no active master" >&2; return 0; }
       if bash "$MBOX" send "$master" ft-tick "[drift] 라이브 bin ↔ main 키트 어긋남 ${hdr#DRIFT } — $(printf '%s\n' "$items" | head -3 | tr '\n' ' ')— master 라이브 cp 필요" >/dev/null 2>&1; then echo "$sig" > "$sigf"
       else echo "$(date '+%F %T') drift_watch: mbox failed" >&2; fi;;
@@ -288,17 +306,20 @@ drift_watch() {
 }
 
 pass() {
-  local rows seat tick role report_to
+  local rows seat tick role report_to master mok
   idle_watch
   stall
   sweep_wt
   drift_watch
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
-  report_to="$(master_seat "$rows")"; report_to="${FT_TICK_PM_REPORT_TO:-${report_to:-ft-v65-master}}"
+  master="$(master_seat)"; report_to="${FT_TICK_PM_REPORT_TO:-${master:-ft-v65-master}}"
+  master_news_ok "$rows" "$master"; mok=$?
   while IFS=$'\t' read -r seat tick role; do
     case "$tick" in
       ft-master-tick)
+        if [ "$mok" != 0 ]; then continue; fi   # ERROR 는 master_news_ok 가 기록(서명당 1회) — master news 0
+        if [ "$seat" != "$master" ]; then [ -f "$(stamp_of "$seat" mtwarn)" ] || { now > "$(stamp_of "$seat" mtwarn)"; log "WARN master-tick row $seat ≠ _master $master — skipped"; }; continue; fi
         # ★2026-09-14 오빠 「중간 뉴스랑 크론 메세지 … 너무 중복」★ — idle-detected 가 방금 master 에 갔으면 뉴스 틱은 그 턴에 겹치지 않는다
         #   (master 는 이미 행동할 이벤트를 받았다). 실측 18:24~19:31: 뉴스 15회 + idle 14회 = 4.4분마다 1건이 pane 에 꽂혔다.
         igap=$(( $(now) - $(cat "$(stamp_of _all idle-sent)" 2>/dev/null || echo 0) ))
