@@ -45,18 +45,32 @@ for st in 대기 진행 완성; do
 done
 CARD="$WT/$IDXDIR/대기/proposal-$SLUG.md"
 
-# 골좌표의 닫는 증거 — 원장에서 20자+ 한 줄의 앞부분을 «복붙»한다(lint ③: 원장에 실재해야 통과). 「」 가 든 줄은 건너뛴다.
-EVIDENCE="$(python3 - "$WT/$LEDGER_REL" <<'PYEOF'
+# 골 원문 = 팀 골 줄 파일 전체(줄 수 그대로 — 팀 정본이 4줄이면 4줄). lint 는 앞 3줄을 본다.
+NGOAL="$(grep -c '' "$GOALS")"
+[ "$NGOAL" -ge 3 ] || die "골 줄이 3줄 미만(${NGOAL}줄): $GOALS"
+
+# 골좌표의 닫는 증거 — 골 줄에서 «복붙»한다. 골 줄을 위에서부터 「 」 로 나눈 조각 중 정규화(lint norm 과 같은 규칙) 뒤
+#   20자+ 첫 조각의 앞 50자. 그 문구가 정규화된 원장에 없으면 REJECT(추측 0). 출력 = 증거 TAB 원장 줄 번호(조사 근거 인용용).
+EVOUT="$(python3 - "$GOALS" "$WT/$LEDGER_REL" 2>&1 <<'PYEOF'
 import re, sys
-for ln in open(sys.argv[1], encoding="utf-8").read().splitlines():
-    t = re.sub(r"\s+", " ", ln.replace("**", "")).strip()
-    if len(t) >= 20 and not t.startswith("#") and "「" not in t and "」" not in t:
-        print(t[:50].strip()); break
+def norm(s): return re.sub(r" +", " ", s.replace("\n", " ").replace("**", ""))
+def fail(msg, code): print(msg); sys.exit(code)
+goals = open(sys.argv[1], encoding="utf-8").read().splitlines()
+ledger = open(sys.argv[2], encoding="utf-8").read()
+ev = next((norm(p).strip()[:50].rstrip() for g in goals for p in re.split(r"[「」]", g) if len(norm(p).strip()) >= 20), "")
+if len(ev) < 20: fail("골 줄에서 20자+ 조각을 못 찾았다", 3)
+if ev not in norm(ledger): fail("골 줄의 닫는 증거가 골 원장에 없다: " + ev, 4)
+ln = next((i for i, l in enumerate(ledger.splitlines(), 1) if ev[:20] in norm(l)), 0)
+if not ln: fail("닫는 증거가 원장 한 줄 안에 시작되지 않는다(줄 번호 인용 불가): " + ev, 5)
+print(ev + "\t" + str(ln))
 PYEOF
-)"
-[ -n "$EVIDENCE" ] || die "골 원장에서 닫는 증거로 쓸 20자+ 줄을 못 찾았다: $LEDGER_REL"
+)" || die "닫는 증거: $EVOUT ($LEDGER_REL)"
+EVIDENCE="${EVOUT%%$'\t'*}"; EVLINE="${EVOUT##*$'\t'}"
 
 DESIGN_REF="${FT_PROPOSAL_DESIGN_REF:-design/harness/DESIGN-proposal-flow-20261008.md}"
+TEMPLATE_REF="docs/rules/proposal_template.md"
+# 이 워크트리에 있으면 경로, 없으면(main 에만 있는 파일) 읽는 방법 문장 — lint ⑥·⑧ 이 호출 워크트리 기준이라 «없는 경로:줄» 을 쓰면 REJECT.
+ref() { if [ -f "$WT/$1" ]; then printf '`%s`' "$1"; else printf '(이 브랜치에 없음 — `git show origin/main:%s` 로 읽기)' "$1"; fi; }
 TODAY="$(date +%F)"
 mkdir -p "$(dirname "$CARD")"
 {
@@ -64,8 +78,8 @@ mkdir -p "$(dirname "$CARD")"
   echo "<!-- ledger: $LEDGER_REL -->"
   echo "- 상태: 대기"
   echo
-  echo "## 골 원문 (항상 이 3줄)"
-  sed -n '1,3p' "$GOALS"
+  echo "## 골 원문 (항상 이 ${NGOAL}줄)"
+  grep '' "$GOALS"
   echo
   echo "## 골좌표"
   echo "제안서 흐름 2단계(기획) / 닫는 증거(정본 복붙): 「${EVIDENCE}」"
@@ -83,11 +97,13 @@ mkdir -p "$(dirname "$CARD")"
   echo "- 면제: 문서 전용 제안서(코드·설정 변경 0) — arch 서명 $SIGNER"
   echo
   echo "## 조사 근거"
-  echo "- $DESIGN_REF:1 — 제안서 흐름 설계(상태 머리줄·템플릿 칸)"
+  echo "- $LEDGER_REL:$EVLINE — 팀 골 원장(골 줄·닫는 증거의 정본)"
+  if [ -f "$WT/$DESIGN_REF" ]; then echo "- $DESIGN_REF:1 — 제안서 흐름 설계(상태 머리줄·템플릿 칸)"
+  else echo "- 제안서 흐름 설계(상태 머리줄·템플릿 칸): $(ref "$DESIGN_REF")"; fi
   echo
   echo "## 구현 범위 (이 목록만 — 닫힌 목록)"
-  echo "1. \`design/$TEAM/PROPOSAL-$SLUG-${TODAY//-/}.md\` 제안서 1개만 쓴다(템플릿 \`docs/rules/proposal_template.md\` 칸 순서 그대로 · 머리줄 \`- 상태: 초안\`)."
-  echo "2. 자료 수집·현황 확인은 읽기 전용. 설계 참고: \`$DESIGN_REF\`"
+  echo "1. \`design/$TEAM/PROPOSAL-$SLUG-${TODAY//-/}.md\` 제안서 1개만 쓴다(템플릿 $(ref "$TEMPLATE_REF") 칸 순서 그대로 · 머리줄 \`- 상태: 초안\`)."
+  echo "2. 자료 수집·현황 확인은 읽기 전용. 읽기: 팀 골 원장 \`$LEDGER_REL\` · 설계 참고: $(ref "$DESIGN_REF")"
   echo "금지: 코드·설정 수정 0 · Issue 쓰기 0 · 외부 게시(슬랙 포함) 0 · push 0 · AskUserQuestion 0. 커밋은 자기 브랜치."
   echo
   echo "## 완료 조건"

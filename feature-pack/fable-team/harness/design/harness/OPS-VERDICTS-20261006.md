@@ -363,3 +363,16 @@
 - ★설치 전 필수 1건(arch#11 발견)★: ops/main-base `scripts/harness-install/slack-mirror/install-magazine.sh:28` COMPANION 목록에 `magazine_eli5_batches.py` 없음 → 설치본에서 magazine_eli5 import 실패 → 매일 쉬운 판 0(WARN 문구만). 통합 뒤 그 목록에 한 단어 추가 커밋(나노) + 설치 뒤 `~/` 설치 경로에 파일 실재 확인.
 - 라이브 반영: §48·§50 과 cherry-pick 통합 → 매거진 전체 시험 → 수동 `--date 2026-10-08 --reattach r1 --no-push` → `install-magazine.sh` WARN 0(magazine_eli5_batches.py 포함 확인). 정본 영향 없음: 하네스 슬랙 키트 eli5 모듈·템플릿·시험만이고 docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: d5595d3e32d94d880ca81f30fd9f7663c726ed8f · 시험: python3 -m pytest tests/scripts/test_magazine_eli5.py -q rc=0 · 이슈: 0`
+
+## §52 ft-proposal-card.sh — 팀 골 줄 수 그대로 · 닫는 증거를 골 줄에서 · 경로 기준 = 호출 워크트리 (R26 · 구 R22 10-08 행 · 나노 proposal-card-goal-lines) — 닫힘 (byz-harness-arch-claude#11 · master#13 #61612 · 2026-10-08)
+- 나노 커밋 `091fc811d2` [fix] ft-proposal-card(119줄) + 시험 test_proposal_card.sh(102줄). 브랜치 nano/proposal-card-goal-lines(base ece07d7eef).
+- 요청: byz-cfo-master-claude#57 #61555(cfo arch#3 발견 #61548) — CFO 첫 사용에서 ①골좌표에 GOAL-cfo.md 인용 머리줄 「> 확정 2026-09-15 · 발행 FB_CFO#8」 ②골 원문 3줄 고정(CFO 골 4줄 · GOAL-cfo.md 9행 = 4줄 바이트 일치 요구) ③main 전용 파일 인용 → docs/cfo-main 에서 lint ⑥·⑧ REJECT. 손 보정본 docs/cfo-main ca66614a53.
+- 설계 판정(arch#11 · PLAN-r22-proposal-card-goal-lines-20261008.md): 4줄 골 허용은 DESIGN-proposal-flow-20261008.md 와 어긋나지 않음 — 설계의 「골 3줄」은 «팀 골 원문 복붙» 서술 · lint(`ft-index-lint.sh:86-88`)는 앞 3줄 «존재»만 봐서 4줄 카드도 통과 · lint·키트 bin 변경 0.
+- master 독립 검증(#61612): 시험 ALL PASS · shellcheck 경고 0.
+- arch 재현(#11): ①`bash tests/harness/test_proposal_card.sh` PASS 28(기존 16 + 신규 12) ALL PASS · shellcheck 0 ②임시 리포 dry — 실 CFO 원장(docs/cfo-main 판) + goal-lines 4줄(13~16행) · 설계·템플릿 파일 없음: 「## 골 원문 (항상 이 4줄)」 · 닫는 증거 「고객사마다 운영툴에서 용어집·지식(RAG)을 관리한다. 생성 시 b2c 베이스 도메인을 공」(골 1줄 10자 → 2줄) · 조사 근거 `design/cfo/GOAL-cfo.md:14` · 설계·템플릿 = 「이 브랜치에 없음 — git show origin/main:… 로 읽기」 · lint OK ③같은 방식 ops(origin/main 원장 · 「…」 감싼 골 줄) → 3줄 · 닫는 증거 「사실 이게 연결되려면 …」 · lint OK ④카드 증거 검사 `--feat ece07d7eef` OK.
+- 해석 수락 1: 조사 근거 원장 줄 번호 = 닫는 증거가 시작되는 원장 줄(골 1줄이 20자 미만이면 골 1줄의 줄 번호와 다름 — CFO 14행). 증거와 인용이 같은 줄을 가리켜 더 낫다.
+- 커밋 본문 정정: 091fc811d2 본문의 「기존 13+신규 9」 → 정확히 「기존 16+신규 12」(amend 가 block-destructive 훅에 막혀 본문은 그대로 둠 · 우회 0).
+- 최종 DA 소환: 안 함 — 도구 1개 카드 문안 교정 + 시험 · 사전검증 면제(arch 서명) 범위 안 · 반송 0.
+- 설치·반영(master): ①`.fable-team/bin-cfo/goal-lines-cfo.txt` 에 GOAL-cfo.md 16행 「작업은 파일로 남아서, 세션이 죽어도 다음 세션이 열어서 잇는다.」 추가(.bak-1008-r26 · lint 는 앞 3줄만 보므로 다른 경로 영향 0) — 없으면 CFO 카드는 여전히 3줄 ②도구는 리포 경로 호출이라 main 랜딩 뒤 각 팀이 main 을 받으면 반영(CFO 는 docs/cfo-main 에 main 병합 또는 harness 경로 호출).
+- 정본 영향 없음: 하네스 제안서 카드 도구와 그 시험만이고 docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 091fc811d20ea429de3cee9b650752b1250b7289 · 시험: bash tests/harness/test_proposal_card.sh rc=0 · 이슈: 0`
