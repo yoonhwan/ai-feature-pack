@@ -256,3 +256,26 @@
 - 남은 것(카드 밖 · 사람 승인 영역): ~/.tmm/versions/ 새 버전 설치·current 전환 · byzs-mac-mini homebrew bash 설치(원격 쓰기) — 아침 브리핑 결정 후보 ③④.
 - 라이브 반영: 미반영(설치는 위 사람 승인 뒤). 정본 영향 없음: tmm 추적 사본·시험만 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: 2f6562f17e98fade1c9333914108f85b880edc8e · 시험: bash tests/harness/test_tmm_group.sh rc=0 · 이슈: 0`
+
+## §43 아침 매거진 ① 창 계산 + 자료 6종 수집 → 구조 모델 (판정 347 · 나노 magazine-collect) — 닫힘 (byz-harness-arch-claude#9 · master#12 #61017 · 2026-10-08)
+- 나노 커밋 `0216631058`(브랜치 nano/magazine-collect · 신규 9파일: scripts/harness-install/slack-mirror/magazine_window.py · magazine_collect.py · magazine_collect_git.py · magazine_collect_gh.py · magazine_collect_mbox.py + tests/scripts/test_magazine_{window,collect_mbox,collect_git,collect_gh}.py · 기존 파일 0 · 최대 113줄).
+- 설계 DESIGN-morning-magazine-20261008.md §1·§8 · DA 사전검증 APPROVE(DA-magazine-20261008.md §7 · HOLD 1 → r1).
+- master 독립 검증: pytest 33 passed · ruff clean · 네트워크/push 호출 grep 0 · 실자료 재실행 일치.
+- arch 재현(#9): ①pytest 33 passed ②구조 모델 키 11개 = 설계 §8 계약 그대로(publish 나노와의 계약 유지) ③실자료 `collect("2026-10-08")`: mbox 2801 · HIL 8 · 깨진 줄 0 · 머지 35 · Issue 열림 18·닫힘 18 · 판정 36 · 문서 2 · 승계 47 · 신규 77 ④DA HOLD-M2 사례: 예약 모드 10-09 07:30 → D=10-08(창 10-07 08:00~10-08 08:00) · 10-08 09:30 → D=10-08 · 수동 `--date 2026-10-09` 를 07:59 에 → raise · 건너뛴 날(10-06→10-08) = [10-07] ⑤음성 대조: PATH 비움 → MagazineError(git fetch 실패) — 반쪽 결과 0.
+- 최종 DA 소환: 안 함 — 사전검증 APPROVE 범위 안의 구현 · 읽기 전용 수집(쓰기·게시 0) · 실자료·음성 대조로 확인.
+- 범위 밖 메모(완성 전 · publish 나노 렌더 몫): ①HIL 은 8개에서 자르며 «남은 수» 칸이 계약에 없다 — 설계 §2 「남은 수」는 렌더가 표시 불가 → 렌더는 「최대 8건」으로 표기(계약 변경 0) ②신규 좌석 77 · 승계 47 은 한 장에 길다 — 렌더가 팀별 묶음·상한을 둔다 ③경계: git `--since/--until` 은 양끝 포함, mbox 는 [start,end) — 정각 08:00:00 커밋이 이틀에 겹칠 수 있다(빈도 낮음 · 표시만).
+- 라이브 반영: 없음(설치·launchd 는 publish 나노 + 수동 1회 뒤). 정본 영향 없음: 하네스 슬랙 키트 신규 모듈·시험 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 0216631058… · 시험: python3 -m pytest tests/scripts/test_magazine_collect_mbox.py -q rc=0 · 이슈: 0`
+
+## §44 아침 매거진 ② 렌더·요약·PDF·슬랙·push·CLI·launchd 템플릿 (판정 347·348 · 나노 magazine-publish) — 닫힘 (byz-harness-arch-claude#9 · master#12 #61029 · 2026-10-08)
+- 나노 커밋 `9b4a843abf`(본 구현) · `33261afc28`(collect 접점 맞춤) · 반송 r1 재작업 `2389619b4f` [structure] 시험 3파일 분리 · `2a820d879e` [fix] 표식 정확 일치 + done 선확인. 브랜치 nano/magazine-publish(collect 위 rebase).
+- 신규: scripts/harness-install/slack-mirror/ magazine_render·magazine_summary·magazine_publish·magazine_slack·magazine_git·magazine_pdf·magazine_emit·byz_morning_magazine.py · com.byz.ft-magazine.plist.template · install-magazine.sh + 시험 tests/scripts/test_magazine_{render,summary,publish,git,cli,pdf}.py · _magazine_fakes.py · tests/harness/test_magazine_plist.sh. 미러 모듈 수정 0.
+- 설계 DESIGN-morning-magazine-20261008.md(§6 = 오빠 판정 348 ops/magazine 전용 push) · DA 사전검증 APPROVE(DA-magazine-20261008.md §7).
+- 반송 r1(arch#9 · HOLD 1회): ①`find_root` 가 첫 줄 «포함» 매칭 — 같은 봇·같은 채널의 슬랙 미러 뿌리 글(「#885 시작 — 아침 매거진 2026-10-08 …」)을 매거진 뿌리 글로 채택(재현 ts=1.0) → 매거진 글 0 + PDF 가 미러 스레드로 ②done 확인이 수집·요약·push 뒤(설계 §8 순서 위반 · 재실행마다 ops/magazine 새 커밋) ③시험 파일 290줄 > 200 한도.
+- master 독립 검증(r1 뒤): 시험 76 passed · plist ALL PASS · ruff clean · 200줄 초과 0 · find_root 첫 줄 정확 일치.
+- arch 재현(#9): ①시험 76 passed · plist ALL PASS ②find_root: 미러식 첫 줄만 → None · 정확한 첫 줄(`*아침 매거진 2026-10-08*`) → 그 ts · bot_id 없는 글 무시 ③CLI done 상태 → 수집·요약·PDF·git 호출 0 시험(test_done_state_skips_before_collect_summary_pdf_git) ④실자료 dry-run(`--date 2026-10-08 --summary-cmd /usr/bin/false`): 요약 실패가 결정적 3줄 + 「(요약 실패: 요약 종료코드 1: 출력 없음)」 + ERROR 로그로 보임(DA §3 수락 계약) · md 245줄(결론→오빠 할 일→바뀐 것→근거→각주표) · PDF 1쪽(폭 A4 · 높이 4381pt) ⑤DA HOLD-M1 장애 주입 4종 시험 존재·통과(응답 유실 · 상태 쓰기 실패 · PDF 실패 · posting+표식 없음).
+- 최종 DA 소환: 안 함 — 사전검증 APPROVE 범위 안 · 반송 1회로 닫힘 · 실 게시 경로는 다음 단계 수동 1회가 확인.
+- 범위 밖 메모(완성 후): ①PDF 는 «한 장»(높이 = 본문) · 한도 18000px(오늘 약 5840px = 3배 여유) — 넘으면 raise(조용한 절단 0)라 그날 매거진이 «실패 1줄»이 된다. 넘는 날이 생기면 여러 쪽 A4 로 전환 ②push 성공 뒤 슬랙 실패 → 다음 실행이 요약을 다시 만들어 ops/magazine 에 커밋 1개 더(링크는 최신 sha) — 무해 ③PDF 업로드 성공 뒤 done 기록 실패 → 다음 실행이 PDF 를 한 번 더 붙임(뿌리 글은 1개 유지).
+- 다음(master 집행): cherry-pick → 수동 1회 실 슬랙 `--date 2026-10-08 --no-push` → planner 1줄(슬랙 ts · PDF 경로) → `install-magazine.sh --load` → launchd 다음 발사 시각 보고.
+- 라이브 반영: 아직 없음(위 순서). 정본 영향 없음: 하네스 슬랙 키트 신규 모듈·시험·plist 템플릿 — docs/architect 제품 정본 변경 없음.
+- 카드 증거 줄: `세트: 2a820d879e… · 시험: python3 -m pytest tests/scripts/test_magazine_publish.py -q rc=0 · 이슈: 0`
