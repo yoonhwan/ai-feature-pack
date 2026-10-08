@@ -137,9 +137,10 @@ goal() {
 active_seats() {
   python3 - "$SEATS" <<'PY'
 import json, sys
-d = json.load(open(sys.argv[1]))
+d = json.load(open(sys.argv[1])); m = d.get("_master")
 for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
+    if isinstance(m, str) and v.get("role") == "master" and k != m: continue  # R43 · R27 정본: 깨울 master 는 _master 하나 — 승계 뒤 남은 옛 role=master 행은 건너뛴다
     # impl/checker 는 나노 계열이라 정지 감시 대상. tester 는 press 슬롯을 master 가 게이트하므로 제외.
     # role=stop-ready 는 «정지가 정상»인 좌석 — 깨우지 않는다(실측 2026-09-14: 정지 레디 좌석을 17분마다 깨웠다).
     #   정지 레디로 갈 때 seats.json 행의 role 을 stop-ready 로 바꾼다(arch-fable#40 선례). 되살리면 role 을 원래로.
@@ -190,9 +191,10 @@ stall() {
 all_seats() {
   python3 - "$SEATS" <<'PY'
 import json, sys
-d = json.load(open(sys.argv[1]))
+d = json.load(open(sys.argv[1])); m = d.get("_master")
 for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
+    if isinstance(m, str) and v.get("role") == "master" and k != m: continue  # R43 · R27 정본(active_seats 와 같은 기준)
     if v.get("_replaced_by") or v.get("role") == "stop-ready": continue
     print(f"{k}\t{v.get('role','')}")
 PY

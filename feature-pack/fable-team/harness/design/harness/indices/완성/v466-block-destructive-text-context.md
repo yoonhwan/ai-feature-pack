@@ -53,7 +53,11 @@
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>` — 판정 절에 「대상 카드: v466-block-destructive-text-context」 줄.
 
 ## 상태
+- base_sha: c970e05e74d0a14f9a1eb68f805883caee1f1092 (spawn 2026-10-08)
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#16 · 판정 466 · master#17 #63850).
 - 2026-10-08 — r2: DA r1 HOLD(Q1·Q2·Q3·Q5 · Q4 APPROVE) 반영 — 2단 판정(실행 소비자·치환·이어붙임·heredoc 2개·파일 쓰기 뒤 소비·파이프·대입 이름 재사용 = 예외 0) · mbox = git 루트 정본 경로 realpath 일치만 · 주석 예외 삭제 · 반례 시험 행 추가.
 - 2026-10-08 — r3: DA r2 HOLD 잔여 2 반영 — `rg` 를 글 싱크에서 제외(`--pre` 실행) · 대입 구간이 있으면 싱크·대입 밖 구간에 `$` 1개라도 있을 때 예외 0 + `${!` 있으면 예외 0(간접 확장·nameref) · 시험 3행 추가. DA bounded 2 HOLD 로 연속 리뷰 종료 → master 통합 판단.
 - 정본 영향 없음: 전역 안전 훅의 판정 단위와 시험만 — docs/architect 제품 정본 변경 없음.
+- 2026-10-08 18:55 — 대기→진행 · 좌석 byz-harness-nano-v466-block-destructive-text-context#0
+세트: 6cd5541f9d6a0e85913a2c65253cfdf54b91e7a8 · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0
+- 2026-10-08 19:24 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§73

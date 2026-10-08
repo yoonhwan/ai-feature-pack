@@ -91,8 +91,10 @@ old = [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role 
 # 승계는 «자리»를 잇는 것이라 그 자리의 틱도 잇는다. 구 좌석이 없으면 역할 기본값.
 tick = next((d[k].get("tick") for k in old if d[k].get("tick")), None) \
        or {"master": "ft-master-tick", "pm": "ft-pm-tick"}.get(role)
-for k in old:
-    d[k]["_replaced_by"] = name
+for k in old:  # R43: _replaced_by 만으론 tick·role·_<역할> 키가 옛 좌석에 남는다 — ft-seat-retire.sh 와 같은 규칙으로 닫는다
+    d[k]["_replaced_by"] = name; d[k]["_retired_role"] = d[k].get("role"); d[k]["tick"] = None; d[k]["role"] = "stop-ready"
+    for tk, tv in d.items():
+        if tk.startswith("_") and tv == k: d[tk] = name
 d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", tick), ("model", model), ("index", inbox + "/"), ("_replaces", old)])
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY

@@ -69,3 +69,4 @@
 - **[2026-10-08 18:31 KST, `date` 실측] `byz-harness-nano-v461-inbox-row-via#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v461-inbox-row-via.md` ②회수 seq 63763 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 18:40 KST, `date` 실측] `byz-harness-nano-r42-nano-close-sha-base#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r42-nano-close-sha-base.md` ②회수 seq 63799 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 18:41 KST, `date` 실측] `byz-harness-nano-r41-index-move-canon-notice-noise#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r41-index-move-canon-notice-noise.md` ②회수 seq 63818 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-08 19:24 KST, `date` 실측] `byz-harness-nano-v466-block-destructive-text-context#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v466-block-destructive-text-context.md` ②회수 seq 63941 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개

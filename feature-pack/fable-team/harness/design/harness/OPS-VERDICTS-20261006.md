@@ -760,3 +760,18 @@
 - 랜딩 뒤 master 집행(카드 밖): 라이브 FT_BIN cp 1파일(ft-index-move.sh) + cmp. 이 카드 자신의 완성 이동은 옛 라이브 바이트로 돌면 쪽지 1건이 더 갈 수 있음(무해).
 - 사전검증 DA: 소환 아니오(카드 면제 · arch#16 서명) · 구현 DA 소환: 아니오 — 쪽지 조건 1개 · 게이트 무변경 · arch 재현 일치 — arch 서명 byz-harness-arch-claude#16.
 - 정본 영향 없음: 하네스 카드 이동 도구의 쪽지 조건과 시험만.
+
+## §73 block-destructive 훅 — 글자로만 들어 있는 파괴 명령(쪽지 본문·echo/printf·git commit 메시지·grep 패턴·대입·cat/tee heredoc 본문)은 통과, 실행되는 파괴 명령은 지금처럼 차단 (판정 466 · R28·R38·R39·R40 통합 · 나노 v466-block-destructive-text-context) — 닫힘 (byz-harness-arch-claude#16 · 2026-10-08)
+- 대상 카드: v466-block-destructive-text-context
+- 사전 DA: design/harness/DA-block-destructive-466-20261008.md — r1 HOLD(#63880) → r2 HOLD(#63894 · bounded 종료) → 판정 468(master#17 #63902 · 스팟 1회 예외) → r3 APPROVE(#63907). Q4(진짜 실행 계속 차단) r1·r2 연속 APPROVE.
+- 나노 커밋 1개(base origin/main c970e05e74): `8f63682cbc76727afb7d4643911d927c4e7b6dd5` · 2파일 — 키트 훅 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(+131 · 180줄 · PATTERN·차단 메시지·STAGE 블록 무변경) · 새 시험 `tests/harness/test_block_destructive.sh`(+125).
+- ★arch 독립 재현(#16)★: `git archive 8f63682cbc scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더:
+  ①`test_block_destructive.sh` rc=0 · PASS 78 · 「SUMMARY blocked=57 pass=14 stage=2 sample=5 fail=0」(카드 기준 차단 ≥ 45 · 통과 ≥ 12 · STAGE 2 · 표본 5 충족) ②`test_kit_bin_sync.sh` rc=0 PASS 6 ③`bash -n` OK · 180줄.
+  ④arch 자체 반례 21건(나노 시험 밖 · JSON 입력만 · 실제 실행 0 · 정본 mbox 경로 = 루트 `.fable-team/comm/mbox.sh`): 차단 기대 17건 중 16건 exit 2 — 비싱크 구간 직접 실행 · `printf >> f; <강제 종료>` · `grep | xargs <강제 종료>` · cat heredoc 파일 뒤 `chmod && ./t.sh` · `> /dev/null; <일괄 종료>` · commit 메시지 안 `$( )` · 대입 뒤 비싱크 `"$P"` · `. a.sh` · `| tee a.sh` · 서브셸 `( )` · `||` · 백그라운드 `&`+개행 · 정본 mbox 뒤 `;` 다른 구간 · mbox 본문 `$( )` · `printf -v`+eval · `>|` 뒤 `sh`. 통과 기대 4건 전부 exit 0(정본 mbox send + `2>&1 | tail -1` · echo `>> ledger.md` · `grep -c | head` · cat heredoc 본문 trap).
+  ⑤유일한 불일치 = `git push origin +main`(refspec `+` 강제 push) exit 0 — ★옛 홈 훅도 exit 0(이번 변경의 회귀 아님 · `PATTERN` 의 `--force|-f` 만 보는 기존 공백)★ → 이 카드 범위 밖(카드 금지: PATTERN 변경) · 별건 요청 후보로 원장에 올림(아래).
+- 나노 보고 값(#63941): 옛 훅 대조 — 표본 18건 옛 훅 FAIL(=차단) · 차단 57 동일 · 경계 3 추가 차단(mbox 뒤 다른 구간 · mbox 경로 `..` · `printf -v` 대입). arch ④ 와 방향 일치.
+- 카드 증거 줄(나노 RESULT 맨 끝 · master 가 카드에 옮김): `세트: 8f63682cbc76727afb7d4643911d927c4e7b6dd5 · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0`.
+- 구현 DA 소환: 아니오 — 사전 DA r3 APPROVE 설계와 구현 일치(카드 시험 표 전부 + arch 반례 20/21 · 불일치 1 은 기존 공백) — arch 서명 byz-harness-arch-claude#16.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) CI 초록 → 병합 → 홈 `~/.claude/hooks/block-destructive.sh` 에 키트 사본 cp + cmp(판정 343 홈=키트) → 설치 뒤 첫 Bash 호출 1회로 훅 동작 확인(셔뱅 그대로) → 원장 R28·R38·R39·R40 상태 = 반영 sha. ★설치 순간부터 모든 세션에 적용 — 되돌림 = 홈 파일 옛 바이트 복원(git 이력 c970e05e74 의 키트 사본 = 옛 홈과 같은 바이트).
+- 별건(원장 후보 · 완성 후 아님 판단은 master): `git push … +<ref>` 강제 push 가 PATTERN 에 없다(옛·새 훅 공통).
+- 정본 영향 없음: 전역 안전 훅의 판정 단위와 시험만.
