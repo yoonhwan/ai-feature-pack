@@ -7,6 +7,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
 HOOK="${BD_HOOK:-$ROOT/scripts/harness-install/fable-team/templates/hooks/block-destructive.sh}"
 T="$(mktemp -d)"
+cp "$(dirname "$HOOK")/block-destructive-judge.py" "$T/"
 trap '[ -n "$T" ] && rm -rf "$T"' EXIT
 git -C "$T" init -q
 mkdir -p "$T/.fable-team/comm"

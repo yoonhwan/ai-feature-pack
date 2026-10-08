@@ -59,6 +59,15 @@ else
   echo "SKIP block-destructive cmp — 이 머신에 홈 파일 없음"
 fi
 
+# 판정기(.py) — 훅과 같은 폴더에 같이 설치돼야 한다(없으면 훅이 fail-closed 로 과차단)
+BDJ="$KIT/templates/hooks/block-destructive-judge.py"
+[ -f "$BDJ" ] && ok "block-destructive-judge 템플릿 존재" || bad "block-destructive-judge 템플릿 없음"
+if [ -f "$HOME/.claude/hooks/block-destructive-judge.py" ]; then
+  cmp -s "$BDJ" "$HOME/.claude/hooks/block-destructive-judge.py" && ok "block-destructive-judge 템플릿 == 홈 파일" || bad "block-destructive-judge 템플릿 != 홈 파일"
+else
+  echo "SKIP block-destructive-judge cmp — 이 머신에 홈 파일 없음"
+fi
+
 echo "---"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"

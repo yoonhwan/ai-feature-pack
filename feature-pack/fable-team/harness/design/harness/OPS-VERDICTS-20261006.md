@@ -1165,3 +1165,23 @@
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 4ed459ddfc7178ecb8a04751f32832f2ddd11202 · 시험: bash tests/harness/test_orch_gate_top_models.sh rc=0 · 이슈: 0`.
 - ★다음★: ① 최종 DA 1회(arch#21 소환 · 요청서 `design/harness/DA-REQ-gate-hook-kit-equals-home-20261009.md` · `byz-harness-da-codex#0` · bounded) → ② APPROVE 면 master 가 `ft-index-move.sh <카드> 완성 --da design/harness/DA-gate-hook-kit-equals-home-20261009.md` → ③ PR(origin/main · `--body-file`) 병합. 홈 설치 단계 없음.
 - 정본 영향 없음: 하네스 키트 템플릿·키트 문서 1줄 — docs/architect 제품 정본 변경 없음.
+
+## §97 block-destructive 훅 209줄 → 판정기(파이썬)를 옆 파일로 분리 · 두 파일 200줄 이하 · 동작 바이트 동일 (planner 판정 592 순서 ② · 나노 bd-judge-split-200) — 닫힘 · 독립 재현 통과 + 최종 DA APPROVE(1회 · 카드 계약) · 홈 설치 master 잔여 (byz-harness-arch-claude#21 · 2026-10-09)
+- 골 축: C(전 좌석 Bash 훅을 200줄 규칙 안으로) + 원문 5(키트를 받는 머신이 두 파일을 같이 받고 홈 정합 검사가 두 파일을 다 본다).
+- 대상 카드: bd-judge-split-200 (arch#21 작성 커밋 `d18fee0389` · 처방을 arch 사본에서 먼저 실측)
+- 나노 커밋 2개(브랜치 `nano/bd-judge-split-200` · base origin/main `4f5009a926` = 현 tip · push 0):
+  ①`6fad9ddf84`([structure]) 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` 209→87줄(`judge()` heredoc → `JUDGE="$(dirname "${BASH_SOURCE[0]}")/block-destructive-judge.py"` + `judge() { python3 "$JUDGE" "$@"; }`) · 새 `block-destructive-judge.py` 123줄(머리 주석 2 + 옛 26–146행 바이트 그대로) · `tests/harness/test_block_destructive_inject.sh` +1(변이 사본 폴더에 판정기 cp).
+  ②`7e8b08cb7e`([test]) `install.sh` 홈 정합 루프 `*.sh` + `*.py`(`.py` settings=n/a) · `tests/harness/test_install_hook_check.sh` +9(판정기 템플릿 존재 + 홈 있으면 cmp).
+- 사전검증: 면제(arch#21 서명 — 구조 이동 · 판정 규칙 변경 0).
+- ★arch 독립 재현(#21 · 이 재현이 닫는 증거)★: `7e8b08cb7e` 아카이브 → `mktemp -d` 새 폴더 · 스크래치 스크립트(파괴 명령 글자는 파일 안에서 조립):
+  · 본문 `diff <(origin/main 훅 26–146행) <(판정기 3행~)` = **0** · 훅 = arch 처방 사본 cmp 동일 · `bash -n` OK · `py_compile` OK.
+  · test_block_destructive **rc=0 blocked=74 pass=23 fail=0** · test_block_destructive_inject **rc=0 block=22 pass=32 mutant=15 fail=0** — 기준값과 같은 수.
+  · test_install_hook_check rc=1 = `block-destructive 템플릿 != 홈 파일` 1줄뿐(홈 = 분리 전 판 · 홈 설치 뒤 rc=0 예정) · 판정기 cmp SKIP(홈 파일 없음).
+  · install.sh: `hook block-destructive.sh home=diff settings=registered` · `hook block-destructive-judge.py home=absent settings=n/a`.
+  · `/bin/bash` JSON 31행(§95 재현 세트) 불일치 0.
+  · ★나노 미확인 1건 대신 확인★: 훅만 다른 폴더로 복사(판정기 없음) + `echo '<파괴 명령 인용>'` = **2** / 판정기 있음 = **0** → 판정기가 없으면 «더 엄격한» 쪽(fail-closed). 나노는 같은 시험 글자가 지금 홈 훅에 걸려 실행하지 않았다(우회 0 · 정상).
+- ★최종 DA APPROVE★(`design/harness/DA-bd-judge-split-200-20261009.md` · byz-harness-da-codex#0 · GPT-6/OpenAI): 파이썬 본문 독립 동일 · 분리 전후 JSON 7종 동치 · 판정기 없음 rc2 + `bash -n` · 경로·두 파일 보고 수락. ★DA 단서 = 홈 판정기 SKIP 만으로는 설치 완료 아님 — 설치 뒤 두 파일 동시 cmp·회귀는 master 잔여★(아래 ④ 의 마지막 줄).
+- 알고 둔 경계(카드 밖): ①훅을 심링크로 설치하면 판정기를 못 찾아 fail-closed(과차단) — 설치는 cp 라 해당 없음. ②키트 폴더에서 판정기를 «import» 하면 `__pycache__` 가 생겨 install.sh `find bin templates -type f` 목록에 실린다(.gitignore 는 막음 · 스크립트 실행만으로는 안 생김 · arch 재현 중 `py_compile` 로 한 번 관측).
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7e8b08cb7e3228c1f0cea3aaa781b173c08814ba · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0`.
+- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-bd-judge-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 홈 설치» ①~⑦(589 조건 · ★판정기 먼저 → 훅★ · 평소 명령 재생 · 오탐 1건이면 즉시 원복 · 끝에 test_install_hook_check rc=0 · ★그 출력에 `block-destructive-judge` 줄이 SKIP 아닌 PASS(홈 cmp) 여야 완료★ · `cmp` 키트↔홈 두 파일 모두 rc=0).
+- 정본 영향 없음: 하네스 키트 훅·키트 설치 보고·시험만 — docs/architect 제품 정본 변경 없음.
