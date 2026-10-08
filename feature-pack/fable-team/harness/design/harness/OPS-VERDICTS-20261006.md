@@ -775,3 +775,15 @@
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) CI 초록 → 병합 → 홈 `~/.claude/hooks/block-destructive.sh` 에 키트 사본 cp + cmp(판정 343 홈=키트) → 설치 뒤 첫 Bash 호출 1회로 훅 동작 확인(셔뱅 그대로) → 원장 R28·R38·R39·R40 상태 = 반영 sha. ★설치 순간부터 모든 세션에 적용 — 되돌림 = 홈 파일 옛 바이트 복원(git 이력 c970e05e74 의 키트 사본 = 옛 홈과 같은 바이트).
 - 별건(원장 후보 · 완성 후 아님 판단은 master): `git push … +<ref>` 강제 push 가 PATTERN 에 없다(옛·새 훅 공통).
 - 정본 영향 없음: 전역 안전 훅의 판정 단위와 시험만.
+
+## §74 승계 끝난 옛 master 에 stall-wake 가 가지 않게 — 틱 정지 감시는 `_master` 아닌 role=master 행을 건너뛰고, 승계 명부 정리는 `ft-seat-retire.sh` 한 번으로 (R43 · 실례 cfo#59 439k · 나노 r43-tick-skip-stale-master-row) — 닫힘 (byz-harness-arch-claude#16 · 2026-10-08)
+- 대상 카드: r43-tick-skip-stale-master-row
+- 나노 커밋 1개(base origin/main 1189db8256): `dcc9e9699111ec281a6b8f9ac046e99b5c14a464` · 7파일 — `ft-tick.sh`(+3/−3 · `active_seats()`·`all_seats()` 에 «`_master` 가 문자열이면 role=master 인데 키 ≠ `_master` 인 행 건너뜀» 1줄씩) · `ft-role-spawn.sh`(+3/−3 · 옛 행 닫기 = tick None·role stop-ready·`_retired_role`·값이 옛 좌석인 최상위 `_<이름>` 키 이전) · 새 `ft-seat-retire.sh`(40줄) · 키트 사본 3 · 새 시험 `tests/harness/test_seat_retire.sh`(+84).
+- ★arch 독립 재현(#16)★: `git archive dcc9e96991 scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더:
+  ①`test_seat_retire.sh` rc=0 PASS 33(카드 ①~⑧ + ⑥b 후보 1개 자동 선택) ②`test_ft_tick_master_seat.sh` rc=0 PASS 62 ③`test_role_spawn_name.sh` rc=0 PASS 19 ④`test_kit_bin_sync.sh` rc=0 PASS 6 ⑤3파일 사본 cmp + bash -n · `ft-seat-retire.sh` 40줄(≤ 80).
+  ⑥★실례 재생★: 라이브 백업 `.fable-team/seats-cfo.json.bak-succ61`(사고 당시 명부 — `_master`=#60 · #59 행 role=master·`_replaced_by` 없음) 사본으로 `--once --dry-run`: 옛 틱(origin/main) stall 대상에 #59 «있음 1» → 새 틱 «0». 같은 사본에 `ft-seat-retire.sh byz-cfo-master-claude#59 byz-cfo-master-claude#60 --seats <사본>` → rc 0 · `RETIRED … keys=[]`(`_master` 는 이미 #60) · #59 = role stop-ready·tick None·`_replaced_by` #60·`_retired_role` master · #60 행 생성(role master·`_replaces` [#59]). 라이브 명부 쓰기 0.
+- 관찰(반송 아님): 실례 #59 행의 tick 이 원래 None 이라 생성된 #60 행 tick 도 None — 카드 규칙(«tick = 구 행 tick»)대로. ft-role-spawn 의 «구 좌석 tick 없으면 role 기본값(ft-master-tick)» 과 다르다 → 손 승계 팀(cfo)의 master 뉴스 틱 대상 여부는 지금과 같음(변화 0). 필요하면 다음 요청으로.
+- 카드 증거 줄(나노 RESULT 맨 끝 · master 가 카드에 옮김): `세트: dcc9e9699111ec281a6b8f9ac046e99b5c14a464 · 시험: bash tests/harness/test_seat_retire.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: 소환 아니오(카드 면제 · arch#16 서명) · 구현 DA 소환: 아니오 — 선택 조건 1줄 × 2 · 명부 도구는 백업·rc 3 거부(retarget_seat 규칙) · 실례 재생 일치 — arch 서명 byz-harness-arch-claude#16.
+- 랜딩 뒤 master 집행(카드 밖): 라이브 FT_BIN cp 3파일(ft-tick.sh · ft-seat-retire.sh · ft-role-spawn.sh) + cmp · 틱 데몬 재기동 필요 여부 확인(셸 스크립트는 기동 때 1회 로드 — 새 조건은 재기동 뒤부터) · 승계 절차 문서(전역 CLAUDE.md 「증류 실행 절차」 · fable-team main-team-governance)에 「후계 부팅 보고 수신 뒤 `ft-seat-retire.sh <구> <후계>`」 1줄 — 저장소 밖 · master/planner 판단 · 원장 R43 상태 = 반영 sha.
+- 정본 영향 없음: 하네스 틱 좌석 선택·승계 명부 도구·시험만.

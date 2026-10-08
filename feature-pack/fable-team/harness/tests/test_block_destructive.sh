@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_block_destructive.sh — 키트 block-destructive 훅(판정 466)에 PreToolUse JSON 만 넣어 종료코드를 본다.
 # 홈 훅·실제 명령 실행 0 (명령은 JSON 문자열일 뿐). mbox 시험은 mktemp 임시 git 리포 + 빈 mbox.sh 만 쓴다.
-# 표: 차단 유지(exit 2) ≥ 45 · 통과(exit 0) ≥ 12 · STAGE 회귀 2 · 실측 표본 재생 5.
+# 표: 차단 유지(exit 2) ≥ 52 · 통과(exit 0) ≥ 18 · STAGE 회귀 2 · 실측 표본 재생 5.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
@@ -37,6 +37,13 @@ blk 'kill -9 1'
 blk 'git branch -D x'
 blk 'git push --force'
 blk 'git push -f origin x'
+blk 'git push origin +main'
+blk 'git push origin +HEAD:main'
+blk 'git push origin :main'
+blk 'git push --delete origin x'
+blk 'git push -d origin x'
+blk 'git push --mirror origin'
+blk 'git push --force-with-lease origin x'
 blk 'rm -rf /tmp/zz'
 blk 'rm -fr /tmp/zz'
 blk 'rm -r -f /tmp/zz'
@@ -107,6 +114,12 @@ pas 'echo a; grep -c "kill -9" f'
 pas 'ls -la'
 pas $'cat <<\'EOF\'\nrm -rf zz\nEOF'
 pas "echo 'dropdb x' >> /dev/null"
+pas 'git push origin main'
+pas 'git push -u origin feat/x'
+pas 'git push origin HEAD:refs/heads/x'
+pas 'git push --dry-run origin x'
+pas 'git commit -m "git push origin +main 금지 기록"'
+pas "bash $MB send a#1 b#1 \"git push --delete 원문 인용\""
 
 # ── STAGE 회귀 (이 카드 무변경) ──────────────────────────────────────────
 stg 'git add -A'
@@ -121,5 +134,5 @@ smp "P='$PAT'; grep -c \"\$P\" f"
 smp "printf '| R39 | %s | rm -rf 오탐 |\n' x >> ledger.md"
 
 echo "SUMMARY blocked=$nb pass=$np stage=$ns sample=$nr fail=$fail"
-[ "$nb" -ge 45 ] && [ "$np" -ge 12 ] && [ "$ns" -eq 2 ] && [ "$nr" -eq 5 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
+[ "$nb" -ge 52 ] && [ "$np" -ge 18 ] && [ "$ns" -eq 2 ] && [ "$nr" -eq 5 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
 echo "OK"
