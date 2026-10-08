@@ -58,7 +58,15 @@
       {
         "hooks": [
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/orchestration-turn-reset.sh" },
-          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/context-distill-gate.sh warn" }
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/context-distill-gate.sh warn" },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/retired-seat-guard.sh" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/no-attach-to-user.sh" }
         ]
       }
     ]

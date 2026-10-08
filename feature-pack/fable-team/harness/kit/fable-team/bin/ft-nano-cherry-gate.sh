@@ -9,20 +9,42 @@
 #   close 에는 이 검사를 걸지 않는다 — squash 랜딩 뒤엔 feat 가 앞서 가 «포함» 이 항상 거짓이다(REVIEW arch141 §2-3).
 #   exit 0 = 통과 · 1 = REJECT(+ 있음 / ref 없음 / git 실패 — 전부 사유 stdout) · 2 = usage. ★침묵 통과 0★ — 어느 경로든 한 줄 이상 출력한다.
 set -uo pipefail
-FEAT="${1:-}"; NANO="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>]" >&2; exit 2; }
-REPO="."; HAVE_OVERRIDE=0; OVERRIDE=""; MODE="close"
+#   squash 랜딩 전용 = `--squashed-pr <N> --reason "<사유>"`(R29 · 둘 다 필요 · --override 와 동시 사용 불가): PR 사실(gh) + 경로 분류(ft-nano-cherry-pr.sh) 뒤
+#   «PR 안에서 고쳐짐» 만 사유로 통과(되돌림·제거·PR 에 없음 = 플래그로도 REJECT) · 원장 kind=squashed-pr 1행. 플래그 없으면 위 동작 그대로.
+#   superseded 검사에서 WARN 으로 낮추는 경로 = design/ 아래 문서 종류(md html png jpg jpeg svg pdf)만 — 그 밖은 코드 경로.
+USAGE="usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>] [--squashed-pr <N> --reason <사유>]"
+FEAT="${1:-}"; NANO="${2:-}"; shift 2 2>/dev/null || { echo "$USAGE" >&2; exit 2; }
+REPO="."; HAVE_OVERRIDE=0; OVERRIDE=""; MODE="close"; SQUASHED_PR=""; HAVE_REASON=0; REASON=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) REPO="${2:-.}"; shift 2 2>/dev/null || shift ;;
     --mode) MODE="${2:-}"; shift 2 2>/dev/null || shift
             case "$MODE" in land|close) ;; *) echo "usage: --mode land|close (받은 값: ${MODE:-<빈 값>})" >&2; exit 2 ;; esac ;;
     --override) HAVE_OVERRIDE=1; OVERRIDE="${2:-}"; shift 2 2>/dev/null || shift ;;
-    *) echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>]" >&2; exit 2 ;;
+    --squashed-pr) SQUASHED_PR="${2:-}"; shift 2 2>/dev/null || shift
+                   [[ "$SQUASHED_PR" =~ ^[0-9]+$ ]] || { echo "usage: --squashed-pr <PR 번호> (받은 값: ${SQUASHED_PR:-<빈 값>})" >&2; exit 2; } ;;
+    --reason) HAVE_REASON=1; REASON="${2:-}"; shift 2 2>/dev/null || shift ;;
+    *) echo "$USAGE" >&2; exit 2 ;;
   esac
 done
+[ "$HAVE_OVERRIDE" -eq 0 ] || [ -z "$SQUASHED_PR" ] || { echo "usage: --squashed-pr 와 --override 는 동시에 못 쓴다(우회 길이 둘이 되면 원장 의미가 갈린다)" >&2; exit 2; }
+[ -n "$SQUASHED_PR" ] || [ "$HAVE_REASON" -eq 0 ] || { echo "usage: --reason 은 --squashed-pr 와 함께만 쓴다" >&2; exit 2; }
+[ -z "$SQUASHED_PR" ] || [ "$HAVE_REASON" -eq 1 ] || { echo "usage: --squashed-pr 에는 --reason \"<사유>\" 가 필요하다" >&2; exit 2; }
 if [ "$HAVE_OVERRIDE" -eq 1 ] && [ -z "${OVERRIDE//[[:space:]]/}" ]; then
   echo "REJECT cherry 게이트 — --override 사유가 비어 있음(사유 없는 우회 거부)"; exit 1
 fi
+if [ -n "$SQUASHED_PR" ] && [ -z "${REASON//[[:space:]]/}" ]; then
+  echo "REJECT cherry 게이트 — --reason 사유가 비어 있음(사유 없는 --squashed-pr 거부)"; exit 1
+fi
+# 플래그를 쓸 때만 분류 도우미를 읽는다 — 플래그 없는 기존 닫기는 이 파일 하나만 있어도 그대로 돈다(런타임 bin 에 pr.sh 가 아직 없어도 닫기 0 영향).
+if [ -n "$SQUASHED_PR" ]; then
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ft-nano-cherry-pr.sh" || { echo "REJECT cherry 게이트 — --squashed-pr: ft-nano-cherry-pr.sh 를 못 읽음(같은 디렉터리에 있어야 함)"; exit 1; }
+fi
+# design/ 아래 문서 종류(md html png jpg jpeg svg pdf)만 0 — 그 밖(sql·sh·py·json·확장자 없음 …)은 코드 경로. superseded 검사에서 WARN 으로 낮추는 경로를 이것만 허용(R29).
+is_doc_path() {
+  case "$1" in design/*.md|design/*.html|design/*.png|design/*.jpg|design/*.jpeg|design/*.svg|design/*.pdf) return 0 ;; esac
+  return 1
+}
 # feat 는 로컬 브랜치 또는 원격 추적 ref(origin/<b>) — 좌석(nano) 브랜치는 로컬이어야 한다(R22).
 git -C "$REPO" rev-parse --verify -q "refs/heads/$FEAT" >/dev/null || git -C "$REPO" rev-parse --verify -q "refs/remotes/$FEAT" >/dev/null \
   || { echo "REJECT cherry 게이트 — 브랜치 없음: $FEAT (refs/heads/ · refs/remotes/)"; exit 1; }
@@ -85,7 +107,7 @@ if [ "$nb" -gt 0 ]; then
   mbase="$(git -C "$REPO" merge-base "$NANO" "$FEAT")"; mbrc=$?
   [[ "$mbrc" -eq 0 && "$mbase" =~ ^[0-9a-f]{40,64}$ ]] || { echo "REJECT cherry 게이트 — git merge-base 실패(rc=$mbrc) — superseded 증거 구간을 못 정함"; exit 1; }
   sort -z -u -o "$plus_file" "$plus_file"
-  nsup=0; nmiss=0; missing=""; sup_commit=""
+  nsup=0; nmiss=0; ndoc=0; missing=""; sup_commit=""   # ndoc = design/ 문서 종류 경로 중 feat 역사에 없는 것(WARN 만 · 코드 종류는 nmiss)
   while IFS= read -r -d '' p; do
     [ -n "$p" ] || continue
     [ "$nmiss" -lt 20 ] || break   # REJECT 확정 + 목록 상한 20 — 나머지는 안 돈다(경로 수천 개 혼합 커밋에서 git log 수천 번 방지)
@@ -94,7 +116,7 @@ if [ "$nb" -gt 0 ]; then
     if [ -z "$entry" ]; then
       fe="$(git --literal-pathspecs -C "$REPO" ls-tree "$FEAT" -- "$p")"; frc=$?
       [ "$frc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree($FEAT) 실패(rc=$frc) 경로 $p"; exit 1; }
-      if [ -z "$fe" ]; then nsup=$((nsup + 1)); else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip 삭제 · $FEAT 에는 존재)"$'\n'; fi
+      if [ -z "$fe" ]; then nsup=$((nsup + 1)); elif is_doc_path "$p"; then ndoc=$((ndoc + 1)); else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip 삭제 · $FEAT 에는 존재)"$'\n'; fi
       continue
     fi
     meta="${entry%%$'\t'*}"; mode="${meta%% *}"; sha1="${meta##* }"
@@ -105,11 +127,18 @@ if [ "$nb" -gt 0 ]; then
       case "$ln" in commit\ *) cur="${ln#commit }" ;; esac
       if [[ "$ln" =~ ^:[0-7]{6}\ $mode\ [0-9a-f]+\ $sha1\ [A-Z] ]]; then hit="$cur"; break; fi
     done <<< "$raw"
-    if [ -n "$hit" ]; then nsup=$((nsup + 1)); sup_commit="$hit"; else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip ${mode} ${sha1:0:9} 가 분기 뒤 $FEAT 구간(${mbase:0:9}..)에 새 blob 으로 없음)"$'\n'; fi
+    if [ -n "$hit" ]; then nsup=$((nsup + 1)); sup_commit="$hit"; elif is_doc_path "$p"; then ndoc=$((ndoc + 1)); else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip ${mode} ${sha1:0:9} 가 분기 뒤 $FEAT 구간(${mbase:0:9}..)에 새 blob 으로 없음)"$'\n'; fi
   done < "$plus_file"
+  docwarn="WARN cherry 게이트 — design/ 문서 종류 경로 ${ndoc}개가 $FEAT 역사에 없음(코드 0 · 브랜치 보존으로 복구 가능)"   # 첫 줄은 INFO·REJECT 로 둔다(WARN 은 뒤에)
   if [ -z "$missing" ] && [ "$nsup" -gt 0 ]; then
     echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 전부 tip 내용이 분기 뒤 $FEAT 구간에 새 blob 으로 있음(예 $sup_commit) — 통과 (사유 content_landed_then_superseded)"
+    [ "$ndoc" -eq 0 ] || echo "$docwarn"
     exit 0
+  fi
+  if [ -n "$SQUASHED_PR" ]; then
+    cherry_squashed_pr_gate "$REPO" "$FEAT" "$NANO" "$SQUASHED_PR" "$REASON" "$plus_file"; prc=$?
+    [ "$prc" -ne 0 ] || [ "$ndoc" -eq 0 ] || echo "$docwarn"
+    exit "$prc"
   fi
   if [ "$conflict" -eq 1 ]; then
     echo "REJECT cherry 게이트 — $NANO 와 $FEAT 의 merge-tree 충돌(rc=1) + tip 내용이 $FEAT 역사에 없는 경로가 있음 — 사람이 판정:"
@@ -122,6 +151,7 @@ if [ "$nb" -gt 0 ]; then
   printf '%s' "$block" | head -20
   [ "$nb" -le 20 ] || echo "  … 외 $((nb - 20))개"
   [ "$nw" -eq 0 ] || { echo "  (별도 WARN: design/ 만 건드린 미랜딩 문서 커밋 ${nw}개)"; printf '%s' "$warn" | head -5; }
+  [ "$ndoc" -eq 0 ] || echo "  (별도 WARN: design/ 문서 종류 경로 ${ndoc}개 — 코드 판정에서 제외)"
   echo "  → cherry-pick -x 로 $FEAT 에 반영하거나 폐기 사유를 값으로 적은 뒤 닫는다 (사람 우회: --override \"<사유>\")"
   if [ "$HAVE_OVERRIDE" -eq 1 ]; then
     # 원장 메타는 행 합성 «전» 에 각각 조회 · rc 와 값 검증 — 하나라도 실패하면 빈 값 행 없이 exit 1 (DA 599 H2)
