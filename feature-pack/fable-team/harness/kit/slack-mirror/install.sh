@@ -7,7 +7,7 @@ set -euo pipefail
 KIT="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${BYZ_ROOT:?BYZ_ROOT 필요 — .fable-team 이 있는 리포 루트}"
 PROJECT="${MIRROR_PROJECT:-byz}"
-SEAT="${MIRROR_SEAT:-^byz-planner-arch#[0-9]+\$}"
+SEAT="${MIRROR_SEAT:-^byz-planner-(arch|master-claude)#[0-9]+\$}"  # 현역 master-claude · 옛 arch 이름 둘 다
 CHANNEL="${MIRROR_CHANNEL:-C0C6MJGRR89}"
 MENTION="${MIRROR_MENTION:-U0AC2JF0M7D}"
 REPO="${MIRROR_REPO:-SecondWindStudio/byz-agents}"  # Issue 링크용 <소유자>/<저장소>

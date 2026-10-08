@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_github as gh  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
+import resume_block as rb  # noqa: E402
 from mirror_deliver import Deliverer  # noqa: E402
 
 API = "https://slack.com/api"
@@ -54,8 +55,8 @@ class GithubMirror:
         iid = f"github #{n} {kind}"
         row: dict[str, object] = {"from": "github", "seq": iid}
         url = str(issue.get("html_url") or "") or lib.issue_url(self.a.repo, f"#{n}")
-        text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts, None, [url] if url else None)
-        text = text.replace(f"(github · #{iid}", f"({iid}")  # 꼬리 = 마커(id) 그대로
+        block = rb.block(f"#{n}", rb.NONE, "github", url or rb.NONE, "오빠 판정" if kind == "hil" else rb.NONE, rb.NONE) + f"\n({iid})"  # 꼬리 = 마커(id) 그대로
+        text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts, block=block, urls=[url] if url else None)
         return {"id": iid, "num": n, "kind": kind, "key": f"#{n}", "url": lib.issue_url(self.a.repo, f"#{n}"), "what": s["what"] if s else title, "text": text}
 
     def _deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:

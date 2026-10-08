@@ -18,7 +18,7 @@ TOKEN="$HOME/.hermes/secrets/yoonhwan_bot.env"
 env -u GH_TOKEN gh auth token >/dev/null 2>&1 || { echo "ERROR: gh auth 토큰 없음 — gh auth login" >&2; exit 1; }
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_github_slack_mirror.py mirror_github.py mirror_lib.py mirror_summary.py mirror_deliver.py; do
+for f in byz_github_slack_mirror.py mirror_github.py mirror_lib.py mirror_summary.py mirror_deliver.py resume_block.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done
