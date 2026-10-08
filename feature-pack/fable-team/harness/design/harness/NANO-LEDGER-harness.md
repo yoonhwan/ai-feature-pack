@@ -83,3 +83,4 @@
 - **[2026-10-08 23:33 KST, `date` 실측] `byz-harness-nano-v423b-report-hooks#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v423b-report-hooks.md` ②회수 seq 65806 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 23:51 KST, `date` 실측] `byz-harness-nano-r58-press-gate-other-base-nano#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r58-press-gate-other-base-nano.md` ②회수 seq 65971 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
 - **[2026-10-08 23:58 KST, `date` 실측] `byz-harness-nano-r59-tank-comment-edit#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/r59-tank-comment-edit.md` ②회수 seq 66020 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-09 00:15 KST, `date` 실측] `byz-harness-nano-v558-inbox-waive-backlog#0` 닫힘(ft-nano-close)**: ①결과 `design/harness/indices/진행/v558-inbox-waive-backlog.md` ②회수 seq 66092 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개

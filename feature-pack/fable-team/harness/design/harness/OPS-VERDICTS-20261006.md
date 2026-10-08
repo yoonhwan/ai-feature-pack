@@ -991,3 +991,24 @@
   되돌림: ③ 백업으로 큐 복원(면제만 되돌림 = waived 필드 삭제) · ⑤ settings 에서 훅 2줄 제거.
 - 남는 일(카드 밖 · 완성 후): 21:38 이전 ⑤⑥·미상 mark 없음 133줄(훅 대상 아님 · 보드 미보고 칸엔 잡힘) 정리 = planner 판단 · 원장 R57(Haiku 분류 실패로 미상 → 훅 대상 밖).
 - 정본 영향 없음: 하네스 인박스 도구·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §88 보드 발행 5분 틱 — FT_BOARD_ONLY_CHANGED=1 이면 뿌리 글(머리 시각·«정지 N분» 정규화)이 직전 발행본과 같고 reply_pending 표식이 없을 때 스냅샷·update 0 · 날짜 첫 발행 때 prune --days 7 · launchd 300초 템플릿 (판정 555 ② · 558 ③ ⓐ · 나노 v555-board-publish-5min-tick) — 닫힘 (byz-harness-arch-claude#19 · 2026-10-09) · ★구현 DA 없음 — arch 독립 재현·서명(카드 결정)★
+- 대상 카드: v555-board-publish-5min-tick
+- 나노 커밋 2개(브랜치 `nano/v555-board-publish-5min-tick` · base origin/main · 좌석 byz-harness-nano-v555-board-publish-5min-tick#0 Sonnet 5.5 · push 0):
+  ①`f558b5bf7f`([feature] `scripts/fable-team-bin/ft-board-publish.sh`(render·root 를 snapshot 앞으로 · 출력 동일 · 바뀜 판정 · reply_pending 표식 생성/삭제 · 날짜 첫 발행 prune 실패 = 기록만) + 키트 사본 · 새 `scripts/harness-install/slack-mirror/com.byz.ft-board-publish.plist.template` · 새 `tests/harness/test_board_publish_tick.sh` ⓐ~ⓖ) → arch#19 반송 r1(`.fable-team/state/drafts-r21/REJECT-v555-board-publish-tick-r1.md` · ★실행 꼴 결함★ 템플릿이 `/bin/bash`(macOS 3.2.57)로 부르고 env 에 POST_ARGS·LEDGER 없음 → `:19` `"${POST_ARGS[@]}"` 가 `set -u` 에서 `unbound variable` → 매 틱 스냅샷 378KB 만 쌓이고 발행 0 · 시험은 homebrew bash + POST_ARGS 채운 env 라 못 잡음 · arch 실측 /bin/bash vs /opt/homebrew/bin/bash).
+  ②`c31bac8052`([fix] `:19` → `${POST_ARGS[@]+"${POST_ARGS[@]}"}`(빈 배열 안전 · `ft-gh-as-tank.sh:42` 와 같은 관용) · 템플릿 ProgramArguments → `/opt/homebrew/bin/bash`(라이브 com.byz.ft-tick*.plist 와 같은 인터프리터) · 시험 ⓗ /bin/bash + POST_ARGS·LEDGER 미설정 · ⓘ 템플릿 값 · 변이).
+- ★arch 독립 재현(#19 · 이 재현이 닫는 증거)★: origin/main `162591a1da` 아카이브 + 나노 diff → 스크래치패드 새 폴더: test_board_publish_tick **14 PASS** · test_board_publish 14 · test_kit_bin_sync 6 · test_board 71 — 전부 rc=0 · 사본 cmp · plutil OK · 템플릿 ProgramArguments.0 = `/opt/homebrew/bin/bash` · 시험 파일 164줄 · 스크립트 69줄.
+  ★/bin/bash 독립 확인★: 고친 `:18-19` 를 /bin/bash 3.2 와 homebrew bash 로 각각 실행 — POST_ARGS·LEDGER 미설정 = 둘 다 `update --key …` 정상 · 설정 = 둘 다 인자 그대로 전달. ★독립 변이★: `:19` 를 옛 꼴로 되돌리면 ⓗ FAIL(`line 19: POST_ARGS[@]: unbound variable`).
+- 기준값 대비(카드 머리줄): 지금 주기 호출자 0 · 스냅샷 1장 378KB · 그대로 5분 틱이면 109MB/일 + chat.update 288회/일 → 이 단위 뒤 = 뿌리 글이 실제로 바뀐 틱만 스냅샷 1 + update 1 · 7일 지난 스냅샷 날짜 폴더 자동 삭제(무한 증가 경로 닫힘).
+- 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: c31bac8052a827a86b222599b0e7fe9286b014d3 · 시험: bash tests/harness/test_board_publish_tick.sh rc=0 · 이슈: 0`.
+- 사전검증·구현 DA: 소환 안 함(카드 면제 — 발행 경로·스냅샷 형식·렌더 변경 0 · 실패 꼴 = 덜 발행 · 새 글 경로 0) — arch 서명 byz-harness-arch-claude#19.
+- ★랜딩 뒤 master 집행 순서(카드 밖 · 순서 고정 · 앞 단계 값이 다르면 멈추고 보고)★:
+  ① PR(origin/main · 나노 커밋 2개 · base origin/main) → 병합.
+  ② 라이브 FT_BIN(`v6-realtime-live/.fable-team/bin`) `ft-board-publish.sh` cp+cmp(같은 폴더 `ft_board_root.py`·`ft-board.py` 는 이미 실재 — 변경 0 · 실재만 재확인).
+  ③ 수동 1회 시험(launchd 전): `FT_ROOT=<BYZ 루트> FT_BOARD_ONLY_CHANGED=1 /opt/homebrew/bin/bash $FT_BIN/ft-board-publish.sh` 2회 연속 — 1회차 = 발행(오늘 published.txt 가 이미 있으면 본문 비교 결과에 따름) · 2회차 = `변화 없음 — 스냅샷·발행 0` + 스냅샷 장수 불변. ★/bin/bash 로도 1회★(빈 POST_ARGS 정상 확인).
+  ④ 템플릿 치환(`__FT_BIN__` = `v6-realtime-live/.fable-team/bin` · `__BYZ_ROOT__` = BYZ 루트) → `~/Library/LaunchAgents/com.byz.ft-board-publish.plist` · `plutil -lint` → `launchctl bootstrap gui/$(id -u) <plist>`(RunAtLoad false — 첫 실행은 300초 뒤).
+  ⑤ 첫 1시간 관찰(12틱 · 원장 1줄): `/tmp/byz-ft-board-publish.log` 의 「변화 없음」 줄 수 vs 발행 수 · `state/board/<오늘>/*.json` 장수 증가 = 발행 수와 같은지 · 슬랙 뿌리 글 1개 유지(새 글 0) · err `msg_too_long`·`unbound`·`snapshot 실패` 0 · 답글 수. 발행이 12틱 중 12회면(매 틱 «다름») 정규화 누락 칸이 있다는 뜻 → 그 줄을 찾아 별 카드.
+  ⑥ 날짜 넘김 1회 관찰: 0시 뒤 첫 발행에서 전날 동결 1회 + prune 실행(7일 넘은 날짜 폴더 0이면 삭제 0).
+  되돌림: `launchctl bootout gui/$(id -u)/com.byz.ft-board-publish` + plist 삭제 → 수동 발행으로 복귀(스크립트 기본 동작 = ONLY_CHANGED 0 → 지금과 같음).
+- 남는 일(카드 밖): 뿌리 글에 ①완성 트리·②세션 트리·③큐 요약 3줄(판정 555 ② 검토 항목) = 이 단위 관찰 뒤 별 카드 · ⑤에서 정규화 누락 칸이 나오면 별 카드.
+- 정본 영향 없음: 하네스 발행 스크립트·launchd 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
