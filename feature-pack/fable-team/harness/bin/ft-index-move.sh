@@ -72,7 +72,10 @@ if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] &&
 fi
 # R63 ㉡ — 카드가 인용한 증거·시험 경로의 측정 조작 흔적(임의 Redis 쓰기·말풍선 DOM 주입)을 «보이게» 한다. 출력만 — 이동 종료코드·REJECT 불변.
 if [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; then
-  SCAN_PATHS=(); while IFS= read -r p; do [ -e "$WT/$p" ] && SCAN_PATHS+=("$WT/$p"); done < <(grep -oE '[A-Za-z0-9_./-]+' "$SRC" | grep -E '^design/.*/evidence/|^tests/|\.(py|sh)$' | sort -u)
+  SCAN_PATHS=(); while IFS= read -r p; do
+    case "$p" in *ft-evidence-inject-scan.sh|tests/harness/test_evidence_inject_scan.sh|tests/harness/test_block_destructive_inject.sh) continue;; esac  # 패턴 글자를 정의·시험하는 파일 — 늘 SUSPECT
+    { [ -f "$WT/$p" ] || { [ -d "$WT/$p" ] && [[ "$p" =~ ^design/.+/evidence/[^/]+/?$ ]]; }; } && SCAN_PATHS+=("$WT/$p")  # 파일은 그대로 · 폴더는 증거 폴더 «하나»만
+  done < <(grep -oE '[A-Za-z0-9_./-]+' "$SRC" | grep -E '^design/.*/evidence/|^tests/|\.(py|sh)$' | sort -u)
   if [ "${#SCAN_PATHS[@]}" -gt 0 ]; then bash "$HERE/ft-evidence-inject-scan.sh" "${SCAN_PATHS[@]}" || echo "ERROR inject-scan rc=$?" >&2; fi
 fi
 mkdir -p "$IDX_ROOT/$DST"

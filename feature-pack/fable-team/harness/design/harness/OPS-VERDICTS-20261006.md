@@ -1081,3 +1081,16 @@
 - ★랜딩 뒤 master 집행 순서(카드 밖)★: ① PR(origin/main · 커밋 1개) → 병합 ② 라이브 FT_BIN `ft-board-publish.sh` cp+cmp ③ 라이브 plist 와 템플릿 치환본 키 대조(`plutil -p` 두 개 · 차이 0 — 재로드 불필요) ④ 첫 1시간 관찰(12틱 · 원장 1줄): `/tmp/byz-ft-board-publish.log` 「변화 없음」 줄 수 > 0 · 스냅샷 장수 증가 = 발행 수 · 발행된 틱 1개를 골라 직전 발행본과 diff → 진짜 바뀜(⚠·정지 수·완료 선언·진행/큐 수)인지 확인.
   되돌림: `ft-board-publish.sh` 이전 sha 로 cp(비교가 다시 엄격해질 뿐 — 발행 동작 동일).
 - 정본 영향 없음: 하네스 발행 비교 키·launchd 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §94 R63 ㉡ 후속 — ft-index-move 완성 이동 증거 검사 거르기 축소(카드 글의 `tests/**` 가 `tests/` 폴더째 훑이던 소음 제거) (원장 R63 · 나노 r63d-index-move-scan-paths) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 없음 — arch 독립 재현·서명(카드 결정)★
+- 대상 카드: r63d-index-move-scan-paths
+- 나노 커밋 1개(브랜치 `nano/r63d-index-move-scan-paths` · base origin/main · 좌석 byz-harness-nano-r63d-index-move-scan-paths#0 · push 0):
+  `14cd2d03f9`([fix] `scripts/fable-team-bin/ft-index-move.sh` 75행 거르기 1줄 → 4줄(119→122줄 · 실파일 그대로 · 폴더는 `^design/.+/evidence/[^/]+/?$` 하나일 때만 · 검사 도구·그 시험 2종 제외) + 키트 사본 · `tests/harness/test_evidence_inject_scan.sh` +19(⑫⑬⑭ + 변이) · 3파일 +27 −2).
+- ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `14cd2d03f9` 아카이브 → 스크래치패드 새 폴더: test_evidence_inject_scan **20 PASS rc=0**(①~⑭ + 변이) · test_index_move_slack 14 · test_index_move_canon_landed 18 · test_kit_bin_sync 6 — 전부 rc=0 · `bash -n` + 추적본↔키트 cmp 동일.
+  ★실카드 대조(/bin/bash)★: 새 거르기를 ops 판 `design/harness/indices/완성/r63c-evidence-inject-scan.md` 에 적용 → SCAN 4(`ft-index-move.sh` · `realtime_multi_e2e.py` · `test_kit_bin_sync.sh` · `_real_redis.py`) · EXCL 2(검사 도구 · 그 시험) · ★DROP `tests/`★. (나노 보고 «파일 7 + 제외 2» 와 수가 다른 것은 카드 판본·작업 트리 차이 — 핵심 성질 «폴더째 훑기 0» 은 같음.)
+- 기준값 대비(카드 머리줄): 라이브 완성 이동 출력 `files=2374 suspect=1216`(소음) → 이 단위 뒤 = 카드가 이름으로 가리킨 파일 + 증거 폴더 하나만 · 패턴 정의 파일 제외 → 진짜 SUSPECT 만 보임.
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 14cd2d03f9522fb4404ae4c79cd683052a2b7ece · 시험: bash tests/harness/test_evidence_inject_scan.sh rc=0 · 이슈: 0`.
+- 사전검증·구현 DA: 소환 안 함(카드 면제 — 출력 전용 경로의 입력 거르기 축소 · 차단·종료코드 불변) — arch 서명 byz-harness-arch-claude#20.
+- ★랜딩 뒤 master 집행 순서(카드 밖)★: ① PR(origin/main · 커밋 1개) → 병합 ② 라이브 FT_BIN `ft-index-move.sh` cp+cmp ③ 다음 완성 이동 1회의 `INJECT-SCAN files=` 값이 카드 인용 파일 수 수준(한 자리~두 자리)인지 확인.
+  되돌림: `ft-index-move.sh` 이전 sha 로 cp(소음이 돌아올 뿐 · 이동 동작 동일).
+- 정본 영향 없음: 하네스 닫기 도구 입력 거르기·시험만 — docs/architect 제품 정본 변경 없음.

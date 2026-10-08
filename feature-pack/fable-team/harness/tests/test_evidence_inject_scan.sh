@@ -87,6 +87,25 @@ out="$(bash "$BIN/ft-index-move.sh" "$IDX/진행/k10b.md" 완성 --da "$REPO/da1
 [ "$rc" = 0 ] && [ -f "$IDX/완성/k10b.md" ] && echo "$out" | grep -q '^ERROR inject-scan rc=' && ok "10b 스캐너 실패 → ERROR 1줄 · 이동 계속" || bad "10b: rc=$rc $out"
 cp "$SCAN" "$BIN/"
 
+# 12~14 r63d — 카드 글의 일반 표기(`tests/**`)가 폴더째 훑이던 소음 거르기: 파일은 그대로 · 폴더는 증거 폴더 «하나» 만 · 패턴 정의 파일은 제외
+mkdir -p "$REPO/tests/harness" "$REPO/design/x/evidence/run1"
+cp "$FX/p3.py" "$REPO/tests/harness/noise.py"; cp "$FX/p3.py" "$REPO/tests/harness/test_evidence_inject_scan.sh"; cp "$FX/p3.py" "$REPO/design/x/evidence/run1/v.py"
+card_move() { # <이름> <본문 한 줄> [이동 bin] — 출력 전부
+  printf '# 인덱스: %s\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n%s\n' "$1" "$2" > "$IDX/진행/$1.md"; printf '대상 카드: %s\n' "$1" >> "$REPO/da10.md"
+  bash "${3:-$BIN}/ft-index-move.sh" "$IDX/진행/$1.md" 완성 --da "$REPO/da10.md#§1" --seat s 2>&1; }
+CARD12='증거 design/x/evidence/e1/run.py · 범위 `tests/**` · `design/**/evidence/**` · tests/harness/'
+out="$(card_move k12 "$CARD12")"; [ "$(cnt "$out" files)" = 1 ] && ok "12 일반 표기(tests/** · design/**/evidence/** · tests/harness/) 훑기 0 — files=1(카드의 실파일뿐)" || bad "12: $out"
+out="$(card_move k13 'design/x/evidence/run1')"; [ "$(cnt "$out" files)" = 1 ] && [ "$(cnt "$out" suspect)" = 1 ] && ok "13 증거 폴더 design/x/evidence/run1 → 훑음 · SUSPECT 1" || bad "13: $out"
+out="$(card_move k14 'tests/harness/test_evidence_inject_scan.sh')"; echo "$out" | grep -q 'INJECT-SCAN' && bad "14 패턴 정의 파일이 훑였다: $out" || ok "14 패턴 정의 파일 인용 → 제외(훑기 0)"
+# 12 변이: 폴더 조건을 옛 «실재하면» 으로 되돌린 복사본 → 12 가 FAIL(음성 대조)
+MBIN="$T/mbin"; mkdir -p "$MBIN"; cp "$BIN"/* "$MBIN/"
+python3 - "$MBIN/ft-index-move.sh" <<'PY'
+import sys; p=sys.argv[1]; s=open(p,encoding='utf-8').read()
+old='{ [ -f "$WT/$p" ] || { [ -d "$WT/$p" ] && [[ "$p" =~ ^design/.+/evidence/[^/]+/?$ ]]; }; }'
+assert old in s; open(p,'w',encoding='utf-8').write(s.replace(old,'[ -e "$WT/$p" ]'))
+PY
+out="$(card_move k12m "$CARD12" "$MBIN")"; [ "$(cnt "$out" files)" = 1 ] && bad "12 변이(옛 실재하면)인데 files=1 — 음성 대조 실패: $out" || ok "12 변이(폴더 조건 되돌림) → files≠1(음성 대조)"
+
 # 11 변이: ⓒ 패턴을 지운 복사본 → #3 이 FAIL(음성 대조)
 SCAN_BIN="$T/mut.sh"; sed "s|^PAT_C=.*|PAT_C='ZZZ_NEVER_MATCHES_ZZZ'|" "$SCAN" > "$SCAN_BIN"
 out="$(sc "$FX/p3.py")"; echo "$out" | grep -q '^SUSPECT .* ⓒ' && bad "11 변이 복사본이 여전히 ⓒ 를 잡는다(음성 대조 실패): $out" || ok "11 변이(ⓒ 제거) → #3 SUSPECT 안 나옴(음성 대조)"
