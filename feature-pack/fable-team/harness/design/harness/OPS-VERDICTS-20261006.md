@@ -859,3 +859,23 @@
   - 별 카드(코드 = 나노 · 초안 §4 「별 카드」): spawn 발주문 「비어 있는 완료 조건 줄」 칸 검사 · 발주 seq 권한 검사 — 랜딩 전까지 받는 쪽 master 틱 손 검사.
   - 선택(§6-4 closeout-policy · §6-5 SEATBELT 한 줄): 미설치 — master/planner 판단.
 - 정본 영향: 하네스 정본 2파일(governance · BOOT) 변경 — 위 sha. 제품 docs/architect 정본 변경 없음.
+
+## §80 상태판 좌석 칸 = jsonl turn 실측 — 「정지 N분(턴 끝)」 기계 채움 · 기다림 추정(우편 기록 범위 안) · `ft-board.py stalled` · ⓪ `정지(3분+)`·`완료 선언` 열 · 판정 514 «완료 선언» 꼬리·받는 쪽 ⚠ (판정 511 · 514 · 나노 v511-seat-stall-cell) — 닫힘 (byz-harness-arch-claude#18 · 2026-10-08)
+- 대상 카드: v511-seat-stall-cell
+- 나노 커밋 1개(브랜치 `nano/v511-seat-stall-cell` · base origin/main a61bb85864 · 좌석 byz-harness-nano-v511-seat-stall-cell#0 Sonnet 5.5 high · push 0): `7c60085dd7`([feature] 14파일 +797 −75 · `ft-board.py` `stalled` 하위 명령 · 새 `ft_board_seat.py`(147줄 · 좌석 칸·stalled·⓪ 열) · 새 `ft_board_mail.py`(113줄 · 우편 기록 3파일 seq 합침·완료 선언 꼬리·sha 실재) · `ft_board_collect.py`·`ft_board_env.py`(옛 `seat_state` 삭제)·`ft_board_render.py` · 키트 사본 같은 바이트 · 새 `tests/harness/test_board_seat_cell.sh` · `tests/harness/test_board.sh` 스텁 1곳). RESULT 전문 = master#18 #65335 경로.
+- ★arch 독립 재현(#18)★: `git archive 7c60085dd7 scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더:
+  ①`test_board_seat_cell.sh` rc=0 PASS 74 · `test_board.sh` rc=0 PASS 71 · `test_kit_bin_sync.sh` rc=0 PASS 6 · 사본 9개(`ft-board.py` + `ft_board_*.py` 8) cmp 같음 · ruff 0 · 최대 147줄(200 이하).
+  ②설계 대조: §4-r2 8행 표(작업중·작업중(pane)·정지 N분/⚠·대기(분 미상 · pane)·확인 불가(첫 턴 전/좌석 없음)·대기열 있음·대기(분 확인 불가: 미래·해석 실패·없음)·확인 불가(조회 실패/해석 실패)) · §4-r3 ⑩~㉒ 전부 렌더 픽스처에 1:1 존재(RESULT 의 CELL 33줄 · ⑮ 유지 응답 3회 뒤 꼬리 HH:MM = 원 쪽지 09:48 · ⑰ `완료 선언 미처리|t-master#1|…|12분` · ㉑ `#999` 원 쪽지 없음 → 꼬리 없음 · ㉒ 기다림 줄 전부 `추정:` 시작 + 결론 문구 0). 스텁 호출 수 = 현역 좌석 수 · render 3회 뒤 증가 0.
+  ③★실제 루트 읽기 전용 1회(arch · 22:2x · `FT_ROOT=<루트> ft-board.py stalled --min 3`)★: harness 팀 0행 · 전 팀 8행 — 정상 동작 확인 3건: `완료 선언 미처리|byz-v65-master-claude#149|ft-v65-temp-m5-floating-debug-timeline-default-off-r#0 #65267|11분`(증거 줄 정규식 일치 + sha fd1d7957df 실재 → 좌석 ⚠ 빠지고 받는 쪽으로 이동) · `#65256`(loom 나노 「세트: 나노 HEAD 44d7db…」)·`#65284`(v65 나노 「rc=1(5건 중 …」) → 증거 줄 형식 불일치로 `증거 없음` → 좌석 쪽 ⚠ 유지(설계 Q1-r3 «형식만 맞춘 토큰은 감시 못 피함» 그대로).
+- 나노 보고 편차 3건 — arch 판단(반송 0):
+  ①`test_board.sh` 스텁 env `FT_BOARD_STATUS_SH` → `FT_BOARD_SEAT_STATUS`·스텁 출력 JSON 1줄: 카드 §구현 범위가 정한 이름 · 단언 무변경 · 옛 이름 사용처 = 리포·라이브 bin·LaunchAgents grep 0 → 수락.
+  ②⓪ 두 열을 팀 행 끝 `| 정지(3분+) n(<첫 좌석>) | 완료 선언 n(<첫 좌석> · N분)` 로 덧붙임: 행이 `|` 구분 열이라 «열 추가» 그대로 · term·slack 둘 다 → 수락.
+  ③`완료 뒤 작업` 행의 시각 = 직전 turn_end(`turn --json` 에 WORKING 시작 키 없음 · `ft-seat-status.sh` 수정 금지): 직전 턴 끝 = 지금 턴의 시작 하한이라 «이 시각 뒤로 작업 중» 의미 유지 · 결론은 master 몫(Q2-r2) → 수락. 정확한 시작 시각이 필요해지면 `ft-seat-status.sh` 쪽 별 카드.
+- 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7c60085dd73b8d89c1ca5d597835d1111eda1714 · 시험: bash tests/harness/test_board_seat_cell.sh rc=0 · 이슈: 0`.
+- 사전검증 DA: `design/harness/DA-511-seat-stall-watch-20261008.md` r2 APPROVE(Q1~Q4 · #64794) + §4-r3 = `design/harness/DA-root-guideline-514-20261008.md` r2(Q1·Q3·Q6 해소 · Q2 가정·상한 처리서 `design/harness/DISPO-root-guideline-514-r2-20261008.md`). 구현 DA: 소환 안 함(카드 완료 조건에 없음 · 출력 = 표시·추정 전용 · 상태를 쓰거나 좌석을 움직이는 경로 0 · 되돌림 = 파일 2개 + 호출 3줄) — arch 서명 byz-harness-arch-claude#18.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN cp+cmp(9파일) → 실제 루트 `ft-board.py stalled --min 3` 1회(planner-idle-scan.sh 출력과 교차 · 보조) → planner 에 «틱 첫 일 = `ft-board.py stalled`» 대체 알림(governance §8 의 「랜딩 전에는 `ft-seat-status.sh turn`」 괄호가 이걸로 풀림).
+- 남는 일(카드 밖):
+  - ★완성 전 · 별 카드 후보(arch)★: 첫 턴이 안 끝난 «일하는» 새 좌석이 `확인 불가(첫 턴 전)` 로 보임(실측: r49 나노·v65 나노 2좌석) — 설계 §4-r2 10행 그대로라 나노 결함 아님, 옛 v421 의 pane 보조 판정(`one` BUSY → 작업중)이 빠진 표시 공백. 처방 후보 = UNKNOWN ∧ `ft-seat-status.sh one` BUSY → `작업중(pane · 첫 턴)`(stalled 제외 그대로). master 판단으로 카드화.
+  - 명부 위생(feature 팀 master 몫): `seats-feature.json` 의 `byz-feature-master-claude#4` 에 `_replaced_by` 없음(현역 #5) → 상태판·stalled 에 옛 좌석이 `67분` 으로 잡힘 — `ft-seat-retire.sh #4 #5 --seats seats-feature.json` 1회.
+  - 증거 줄 형식 불일치 좌석(loom #65256 · v65 #65284)은 상태판이 ⚠ 로 보여 주는 게 정상 — 각 팀 master 가 반송(governance §9 «토큰만 있으면 ②»).
+- 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본·정본 문구 변경 없음(문구는 §79 로 설치 완료).

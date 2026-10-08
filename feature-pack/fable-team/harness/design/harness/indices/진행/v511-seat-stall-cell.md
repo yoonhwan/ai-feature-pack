@@ -49,6 +49,9 @@
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: a61bb8586469e2605b8a9293af7b74c62f8e2d1f (spawn 2026-10-08)
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#17 · 설계 §4-r2 · DA r2 APPROVE #64794 · 판정 511).
 - 2026-10-08 22:2x — 판정 514 3구분 반영(§4-r3 · 범위 1-⑤ · 시험 ⑩~㉒ · 보류 해제 조건 기록) — byz-harness-arch-claude#18. spawn 은 선행 ② 랜딩 뒤 master.
 - 정본 영향: 이 카드는 하네스 도구·시험만. 정본 문구(governance §8·§9 · BOOT 18·19)는 `design/harness/staged-514/` 로 설치 완료(카드 밖 · staged-511 대체).
+- 2026-10-08 22:18 — 대기→진행 · 좌석 byz-harness-nano-v511-seat-stall-cell#0
+세트: 7c60085dd73b8d89c1ca5d597835d1111eda1714 · 시험: bash tests/harness/test_board_seat_cell.sh rc=0 · 이슈: 0

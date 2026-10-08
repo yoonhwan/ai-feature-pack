@@ -5,7 +5,7 @@
   FT_BOARD_NOW       시각 주입(ISO) — 날짜 경계·최근 시험용
   FT_BOARD_TMUX      살아 있는 세션 목록 명령(기본 `tmux ls -F #{session_name}`)
   FT_BOARD_GH        gh issue list JSON 명령 · FT_BOARD_GH_TTL 캐시 초(기본 600)
-  FT_VERDICT_BIN     ft-verdict.sh 경로 · FT_BOARD_INBOX 인박스 show 명령 접두 · FT_BOARD_STATUS_SH ft-seat-status.sh 경로
+  FT_VERDICT_BIN     ft-verdict.sh 경로 · FT_BOARD_INBOX 인박스 show 명령 접두 · FT_BOARD_SEAT_STATUS `ft-seat-status.sh turn <좌석> --json` 스텁/경로(ft_board_seat.py)
 """
 import datetime as dt
 import json
@@ -17,7 +17,6 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-TURN_KO = {"WORKING": "작업중", "IDLE": "대기"}
 
 
 def ft_root() -> Path:
@@ -100,21 +99,3 @@ def pending(root: Path, master: str) -> int:
     if not p.exists():
         return 0
     return sum(1 for x in p.read_text(encoding="utf-8").splitlines() if x.strip() and json.loads(x).get("to") == master)
-
-
-def seat_state(role: str | None, seat: str, alive: set[str]) -> str:
-    # ft-news-tree.py:75 seat_state 와 같은 규칙 — 값 = 작업중/대기/정지레디/정지
-    if seat not in alive or role == "stopped":
-        return "정지"
-    if role == "stop-ready":
-        return "정지레디"
-    sh = os.environ.get("FT_BOARD_STATUS_SH", str(HERE / "ft-seat-status.sh"))
-
-    def out(sub: str) -> list[str]:  # ft-news-tree.py 와 같이 rc 는 보지 않는다 — 읽을 수 없으면 «?» 로 보인다(값을 지어내지 않음)
-        return subprocess.run(["bash", sh, sub, seat], capture_output=True, text=True, timeout=10).stdout.split()
-
-    turn = (out("turn") or ["?"])[0]
-    if turn == "UNKNOWN":  # 첫 턴이 안 끝난 새 좌석 — pane 스피너로 판정
-        one = out("one")
-        turn = {"BUSY": "WORKING", "IDLE": "IDLE"}.get(one[1] if len(one) > 1 else "", turn)
-    return TURN_KO.get(turn, turn)

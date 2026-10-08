@@ -11,6 +11,7 @@ from datetime import datetime
 
 import ft_board_env as env
 from ft_board_render_tree import tree_lines
+from ft_board_seat import summary_cols
 
 CAP = 10
 TEAM_CAP = 5
@@ -37,7 +38,7 @@ def summary_lines(d: dict, slack: bool) -> list[str]:
             now_s = f"진행 {t['counts']['진행']}" + (f"({first[1]['title']} · {_seats_text(first[1])})" if first else "")
             queue_s = f"대기 {t['counts']['대기']}" + (f"({t['queue'][0]['title']})" if t["queue"] else "")
         row = f"- {t['label']} | 지금: {now_s} | 큐: {queue_s} | 오빠 할 일 {len(t['oppa_todo'])}"
-        out.append(row if slack else f"{row} | 결정 자리: {d['decision']}")
+        out.append((row if slack else f"{row} | 결정 자리: {d['decision']}") + summary_cols(t))
     return out
 
 

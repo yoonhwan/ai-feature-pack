@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 
 import ft_board_env as env
+from ft_board_mail import Mail
+from ft_board_seat import SeatCells
 from ft_board_tree import STATES, fold, parse_tree
 
 FOLDERS = ("대기", "진행", "완성")
@@ -57,24 +59,20 @@ def _seats_on(seats: dict, idx: str, alive: set) -> list[str]:
     return out
 
 
-def _state_of(seats: dict, name: str, alive: set) -> str:
-    return env.seat_state((seats.get(name) or {}).get("role"), name, alive)
-
-
-def _leads(seats: dict, alive: set) -> list[dict]:
+def _leads(seats: dict, alive: set, cells: SeatCells) -> list[dict]:
     out = []
     for role, key in (("master", "_master"), ("arch", "_arch")):
         name = seats.get(key)
         if name and name in alive and not (seats.get(name) or {}).get("_replaced_by"):
-            out.append({"role": role, "name": name, "state": _state_of(seats, name, alive)})
+            out.append({"role": role, "name": name, "state": cells.text(name)})
     return out
 
 
-def _progress(seats: dict, cards: dict, alive: set) -> dict:
+def _progress(seats: dict, cards: dict, alive: set, cells: SeatCells) -> dict:
     prog = {}
     for name, c in sorted(cards.items()):
         if c["state"] == "진행":
-            live = [{"name": s, "state": _state_of(seats, s, alive)} for s in _seats_on(seats, name, alive)]
+            live = [{"name": s, "state": cells.text(s)} for s in _seats_on(seats, name, alive)]
             prog[name] = {"title": c["title"], "seats": live}
     return prog
 
@@ -85,14 +83,16 @@ def _done_today(cards: dict, date: str) -> dict:
     return {"n": len(today), "last": max(today)[1] if today else None}
 
 
-def team_block(root: Path, path: Path, alive: set, date: str, vds: list) -> dict:
+def team_block(root: Path, path: Path, alive: set, date: str, vds: list, mail: Mail) -> dict:
     seats = json.loads(path.read_text(encoding="utf-8"))
+    cells = SeatCells(seats, alive, mail, env.now())
     key = "v65" if path.stem == "seats" else path.stem.removeprefix("seats-")
     block = {"key": key, "label": seats.get("_label") or key, "master": seats.get("_master"),
              "cards_dir": seats.get("_cards"), "tree": seats.get("_tree"), "states": {}, "axes": [], "progress": {},
-             "queue": [], "done_today": {"n": 0, "last": None}, "leads": _leads(seats, alive),
+             "queue": [], "done_today": {"n": 0, "last": None}, "leads": _leads(seats, alive, cells),
              "counts": dict.fromkeys(STATES, 0),
              "oppa_todo": [v["n"] for v in vds if v["state"] == "open" and v["oppa_todo"] and key in v["teams"]]}
+    block.update(seats=cells.all(), stalled=cells.rows(), declared=cells.declared())
     if block["master"]:
         block.update(env.inbox(root, block["master"]), pending=env.pending(root, block["master"]))
     if not block["cards_dir"]:
@@ -108,7 +108,7 @@ def team_block(root: Path, path: Path, alive: set, date: str, vds: list) -> dict
         nodes = parse_tree(base / block["tree"])
     for c in cards.values():
         block["counts"][c["state"]] += 1
-    block.update(states={n: c["state"] for n, c in cards.items()}, progress=_progress(seats, cards, alive),
+    block.update(states={n: c["state"] for n, c in cards.items()}, progress=_progress(seats, cards, alive, cells),
                  done_today=_done_today(cards, date), axes=fold(nodes, cards),
                  queue=[{"idx": n, "title": c["title"]} for n, c in sorted(cards.items()) if c["state"] == "대기"][:QUEUE_TOP])
     return block
@@ -124,10 +124,11 @@ def decision(root: Path, alive: set) -> str:
     return name if name in alive else f"확인 불가({name} tmux 세션 없음)"
 
 
-def collect() -> dict:
+def collect(files: list[Path] | None = None) -> dict:
     root, date = env.ft_root(), env.now().strftime("%F")
     alive = env.tmux_alive()
     vds = env.verdicts(root, date)
-    files = sorted((root / ".fable-team").glob("seats*.json"))
+    files = files or sorted((root / ".fable-team").glob("seats*.json"))
+    mail = Mail(root)
     return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root),
-            "teams": [team_block(root, f, alive, date, vds) for f in files]}
+            "teams": [team_block(root, f, alive, date, vds, mail) for f in files]}

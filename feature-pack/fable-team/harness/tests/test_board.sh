@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_board.sh — ft-board.py(collect·render --term|--slack·snapshot·prune) 시험 (판정 421·496).
-# 전부 mktemp 임시 FT_ROOT(가짜 seats-*.json 5팀 · 카드 폴더 · 가짜 verdicts.jsonl) + 스텁 env(FT_BOARD_GH·TMUX·INBOX·STATUS_SH).
+# 전부 mktemp 임시 FT_ROOT(가짜 seats-*.json 5팀 · 카드 폴더 · 가짜 verdicts.jsonl) + 스텁 env(FT_BOARD_GH·TMUX·INBOX·SEAT_STATUS).
 # 실제 gh·tmux·슬랙 호출 0 · 라이브 .fable-team 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -15,7 +15,7 @@ eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
 export FT_ROOT="$T/root" FT_BOARD_NOW="2026-10-09T10:00:00" FT_BOARD_GH_TTL=0
 export FT_VERDICT_BIN="$BIN/ft-verdict.sh"
-export FT_BOARD_TMUX="bash $T/tmux.sh" FT_BOARD_GH="cat $T/gh.json" FT_BOARD_INBOX="bash $T/inbox.sh" FT_BOARD_STATUS_SH="$T/status.sh"
+export FT_BOARD_TMUX="bash $T/tmux.sh" FT_BOARD_GH="cat $T/gh.json" FT_BOARD_INBOX="bash $T/inbox.sh" FT_BOARD_SEAT_STATUS="$T/status.sh"
 FB="$FT_ROOT/.fable-team"; mkdir -p "$FB/comm" "$FB/state"
 board() { python3 "$BIN/ft-board.py" "$@"; }
 
@@ -57,7 +57,10 @@ mail = [{"seq": 9001, "ts": "2026-10-09T09:30:00", "to": "alpha-master#1", "from
 PY
 printf '#!/bin/sh\necho x >> %s/tmux.calls\ncat %s/alive.txt\n' "$T" "$T" > "$T/tmux.sh"
 printf 'alpha-master#1\nalpha-arch#1\nalpha-nano#0\nalpha-old#0\nplan-master#1\n' > "$T/alive.txt"
-printf '#!/bin/sh\necho WORKING\n' > "$T/status.sh"
+cat > "$T/status.sh" <<'EOF'
+#!/bin/sh
+echo '{"state":"WORKING","turn_end":null,"duration_ms":null,"reported":null,"source":"jsonl"}'
+EOF
 printf '#!/bin/sh\n[ "$1" = "alpha-master#1" ] && echo "[③] g1 seq=9001 미닫힘=9001 from=x#1 원문=p | 첫줄" || echo EMPTY\n' > "$T/inbox.sh"
 GH7='[{"number":7,"title":"열린 이슈","labels":[{"name":"hil:needed"}],"updatedAt":"x","state":"%s"},{"number":8,"title":"다른 이슈","labels":[],"updatedAt":"x","state":"OPEN"}]'
 printf "$GH7" OPEN > "$T/gh.json"
