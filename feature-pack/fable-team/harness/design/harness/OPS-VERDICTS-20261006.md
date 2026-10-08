@@ -908,3 +908,20 @@
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN cp+cmp(`ft-jsonl-last-ts.py` 실행 비트 포함 · `ft-nano-close.sh`) → 다음 나노 닫기 1회를 `FT_NANO_IDLE_MIN` 우회 없이 통과 확인 → v65 master#149 에 1줄(우회 환경변수 사용 중지).
 - 남는 일(카드 밖 · 완성 후): «마지막 timestamp 기록 = `system/turn_duration` 일 때만 통과»(ft-seat-status IDLE 정의와 일치 · 더 엄격)는 Escape 로 끊긴 턴의 새 오탐 우려로 채택 안 함 — 필요해지면 별 카드.
 - 정본 영향 없음: 하네스 도구·시험만.
+
+## §83 보드 발행 — byz_thread_post `update`(하루 1 뿌리 글 chat.update + 변화 답글 · reply_pending 복구) · ft-board-publish.sh(스냅샷 먼저 · 날짜 동결) · 뿌리 글 = 머리 + ⓪ 팀 요약 + ④ 오늘 판정표 + 고정 끝줄 · UTF-8 3500 바이트 상한 (판정 421·423 · 430·431 · 설계 §2-3 · v423 분할 1/3 · 나노 v423a-board-publish) — 닫힘 (byz-harness-arch-claude#18 · 2026-10-08)
+- 대상 카드: v423a-board-publish
+- 나노 커밋 2개(브랜치 `nano/v423a-board-publish` · base origin/main · 좌석 byz-harness-nano-v423a-board-publish#0 Sonnet 5.5 high · push 0):
+  ①`3acc64f9bc`([feature] 7파일 +277 −3 · 새 `scripts/harness-install/slack-mirror/thread_post_update.py`(51줄 · 키 없음 → 뿌리 글 생성 · 있음 → chat.update · 답글 실패 = rc 3 + 장부 `reply_pending` · 다음 update 가 「직전 답글 누락」 함께) · `thread_ledger.set_field` · `byz_thread_post.py`(194줄 · 분기 1줄)·`thread_post_args.py` `update` 서브명령 · 새 `scripts/fable-team-bin/ft-board-publish.sh`(+키트) · 새 `tests/harness/test_board_publish.sh`) → arch#18 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423a-board-publish-r1.md` · 실제 루트 `render --slack` = 37,482 바이트(① 완성 트리 25,439) — R49 실측 chat.update 거부선 3,909~4,073 바이트의 약 10배 → 라이브에서 매 발행 `msg_too_long` · 시험은 짧은 스텁 본문이라 못 잡음).
+  ②`b92f834374`([fix] 새 `scripts/fable-team-bin/ft_board_root.py`(78줄 · +키트) `root`(절 머리 `*⓪ `~`*④ ` 순서 실재 확인 · 머리 + ⓪ + ④ + 고정 끝줄 · 넘으면 ⓪ 팀 줄 뒤에서 빼고 `… 외 n팀` · 그래도 넘으면 UTF-8 안전 절단 · 최종 단언) · `cap --tail`(동결 본문) · `ft-board-publish.sh` 가 그 출력으로 `--text-file` · `ft_board_render.py` 무변경 · 시험 5 추가).
+- ★arch 독립 재현(#18)★: `git archive b92f834374 scripts tests tools/comm-canonical` → 스크래치패드 새 폴더: `test_board_publish.sh` rc=0(snapshot rc≠0 → update 0 · 답글 실패 → 다음 발행 누락 snap · 날짜 바뀜 → 동결 1회 · ①25KB·9팀 → 1444B · ②40팀 → `… 외 n팀` 3483B · ③절 머리 없음 → update 0 + rc 1 · ④동결 3499B · ⑤변이 대조 상한 우회 → 57852B FAIL) · `test_kit_bin_sync` · `test_slack_readonly_share` · `test_slack_post_guard` · `test_question_board` · `test_board` · `test_board_seat_cell` rc=0 · ruff 0 · bash -n 0 · 사본 cmp(`ft_board_root.py` 644=644 · `ft-board-publish.sh` 755=755) · `ft_board_render.py`·`ft-board.py` 무변경.
+  ★실데이터(실제 루트 읽기 전용 · 23:07)★: `render --slack` 37,485 바이트 → `ft_board_root.py root` **2,969 바이트**(상한 3500 · 거부선 아래) — 머리 2줄 + ⓪ 9팀 전부 + ④ + 끝줄 · ①②③ 절 머리 0.
+- 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: b92f834374ed419c35c03616d05e13e69212fc21 · 시험: bash tests/harness/test_board_publish.sh rc=0 · 이슈: 0`.
+- 표시 정책(arch#18 결정 · R49 와 같은 하네스 표시 정책): 슬랙 뿌리 글에는 ⓪ 팀 요약·④ 오늘 판정표만 싣고 ①완성 트리·②세션 트리·③큐는 터미널 보드(`ft-board.py render --term`)와 스레드 변화 답글로 — 25KB 트리는 슬랙 한 글에 물리적으로 못 실림. 설계 §2-3 «뿌리 1개/날 + chat.update + 변화 답글 + 스냅샷 먼저 + 날짜 동결» 은 그대로.
+- 사전검증 DA: 원 카드 v423 — `design/harness/DA-news-board-20261009.md` 2 HOLD 로 리뷰 종료 → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 분할(arch#18 09c5159790)은 범위 부분집합. 구현 DA: 소환 안 함(이 분할 카드 완료 조건에 없음 · 훅 아님 · 실패 = 발행 0 + rc) — arch 서명 byz-harness-arch-claude#18.
+- 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN(`ft-board-publish.sh` · `ft_board_root.py`) + `~/.hermes/scripts/`(slack-mirror 4파일) cp+cmp → `ft-news-tick` 호출부를 `ft-board-publish.sh` 로 교체 → 첫 발행 1회 캡처(뿌리 글 1 · 바이트 수 · 답글 수 · err 로그 `msg_too_long` 0) → 다음 = v423b spawn.
+- 남는 일(카드 밖 · 완성 후):
+  - 날짜 첫 발행이 실패하면 그날 `prev_day_last` 가 다시 안 와 전날 동결 1줄이 빠짐(`ft_board_snapshot.py:81`) — 보드 내용 손실 아님 · 필요해지면 별 카드(동결 표식 파일 유무로 재시도).
+  - ⓪ harness 행 제목에 `〔문구 생략〕` 1곳(v421 슬랙 최종 출력 scrub 이 카드 제목의 `reply_pending` 글자를 답장 요구로 봄) — 표시 전용 · v421 정책대로 동작 · 거슬리면 별 카드.
+  - ④ 「오늘 판정 없음」 — ④ 원천(판정 원장 jsonl)에 ops 판정서(§77~§83)가 안 들어감 · 원장 연결은 별 카드 후보.
+- 정본 영향 없음: 하네스 도구·슬랙 발행 스크립트·시험만 — docs/architect 제품 정본 변경 없음.

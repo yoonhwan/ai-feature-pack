@@ -39,7 +39,11 @@ def parse(argv: list[str]) -> argparse.Namespace:
     r.add_argument("--bot", choices=("hermes", "yoonhwan"), default="yoonhwan", help="소급 전용")
     sub.add_parser("check", parents=[common])
     sub.add_parser("repair", parents=[common])
+    u = sub.add_parser("update", parents=[common], help="보드 뿌리 글 갱신(하루 1글)")
+    u.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
+    u.add_argument("--text-file", required=True)
+    u.add_argument("--reply", default="", help="변화 답글 1줄")
     a = p.parse_args(argv)
-    if not (a.card or getattr(a, "unit_id", None)):
+    if a.cmd != "update" and not (a.card or getattr(a, "unit_id", None)):
         p.error("--card 가 필요하다")
     return a

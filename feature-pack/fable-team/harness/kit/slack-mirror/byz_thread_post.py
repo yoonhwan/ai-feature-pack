@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""byz_thread_post — 슬랙 «단위» 글의 단일 입구 (판정 404 · 설계 §3). start | progress | result | check | repair | --init.
+"""byz_thread_post — 슬랙 «단위» 글의 단일 입구 (판정 404 · 설계 §3). start | progress | result | check | repair | update(보드 · thread_post_update) | --init.
 
 한 단위 = 한 스레드: start 가 뿌리 글 1개(첨부는 그 스레드 답글) · progress/result 는 같은 스레드 답글. 모든 글 꼬리에 이어가기 블록 2줄.
 게시 «전» 카드에 `- 슬랙: <ch> · 시도 <ISO>` 를 쓰고 성공하면 `- 슬랙: <ch> <root_ts>` + 장부 기록(카드 줄이 «게시 대상» 표식).
@@ -20,6 +20,7 @@ from mirror_lib import MirrorError, esc, paged, post
 from mirror_share import first_line_is, tag
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
+from thread_post_update import cmd_update
 
 KST = ZoneInfo("Asia/Seoul")
 LOOKBACK_DAYS = 60
@@ -182,7 +183,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{'created' if lg.init(path) else 'exists'} {path}")
             return 0
         a = parse(argv)
-        return {"start": cmd_start, "progress": cmd_progress, "result": cmd_result, "check": cmd_check, "repair": cmd_repair}[a.cmd](a)
+        return {"start": cmd_start, "progress": cmd_progress, "result": cmd_result, "check": cmd_check, "repair": cmd_repair,
+                "update": lambda x: cmd_update(x, target)}[a.cmd](a)
     except (MirrorError, CardError, OSError, ValueError) as e:
         print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
         return 1

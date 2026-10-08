@@ -77,6 +77,18 @@ def ensure_report(path: Path, key: str, *, channel: str, root_ts: str, replace: 
         raise LedgerError(f"장부 root_ts({rec.get('root_ts')}) ≠ 이번 root_ts({root_ts}): {key} — 사람이 확인한다")
 
 
+def set_field(path: Path, key: str, name: str, value: str | None) -> None:
+    """한 칸 기록(value=None 이면 지움) — 보드 `reply_pending` 용."""
+    data = load(path)
+    if key not in data:
+        raise LedgerError(f"장부에 키 없음: {key} — repair 필요")
+    if value is None:
+        data[key].pop(name, None)
+    else:
+        data[key][name] = value
+    _write(path, data)
+
+
 def update(path: Path, key: str, *, card_path: str | None = None, progress: str | None = None, result: str | None = None) -> dict:
     data = load(path)
     if key not in data:
