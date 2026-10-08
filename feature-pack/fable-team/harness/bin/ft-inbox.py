@@ -38,7 +38,8 @@ def cmd_ingest(seq):
         cls = rule_class(mail["body"])  # 규칙표만 — 즉시 적재(Haiku 대기 0)
         rows.append({"seq": mail["seq"], "ts": mail["ts"], "from": mail["from"], "cls": cls,
                      "prio": PRIO[cls], "group": norm_key(mail["from"], mail["body"]),
-                     "body_path": bp, "mark": None, "reported": False})
+                     "body_path": bp, "mark": None, "reported": False,
+                     "via": "unknown" if cls == "미상" else "rule"})  # 분류 출처 — 셈 전용(표시·mark·report 무관)
         write_q(q, rows)
     if cls == "미상":  # 분리 백그라운드(부모 대기 0) — 라벨은 나중에 같은 잠금 안에서 갱신
         subprocess.Popen([sys.executable, os.path.abspath(__file__), "classify", str(seq), mail["to"]],
@@ -62,7 +63,7 @@ def cmd_classify(seq, to):
         rows = read_q(q)
         for x in rows:
             if x["seq"] == int(seq) and x["cls"] == "미상":
-                x.update(cls=cls, prio=PRIO[cls])
+                x.update(cls=cls, prio=PRIO[cls], via="haiku")
         write_q(q, rows)
 
 

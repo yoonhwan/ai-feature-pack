@@ -52,6 +52,9 @@ for _ in $(seq 1 20); do grep -q "seq=108" "$FT_ROOT/.fable-team/state/hook-erro
 eq "미상 + Haiku 실패 → 미상 유지" "$(field "$Q/$M.jsonl" 108 cls)" "미상"
 grep -q "ft-inbox classify seq=108" "$FT_ROOT/.fable-team/state/hook-errors.log" && ok "Haiku 실패는 hook-errors.log 1줄" || bad "hook-errors.log 기록 없음"
 eq "미상 prio ①과 ② 사이" "$(field "$Q/$M.jsonl" 108 prio)" "1.5"
+for s in 101 102 103 104 105 106; do eq "via 분류 출처 $s = rule" "$(field "$Q/$M.jsonl" $s via)" "rule"; done
+eq "via 107 (미상 + Haiku 성공 갱신 뒤) = haiku" "$(field "$Q/$M.jsonl" 107 via)" "haiku"
+eq "via 108 (미상 + Haiku 실패) = unknown" "$(field "$Q/$M.jsonl" 108 via)" "unknown"
 
 # 2) 묶음 2쌍(같은 from·정규화 본문 같음 · 접두·seq·시각만 다름) + 다른 본문은 안 묶임
 ing 201 "[a#1->$ME] [발주 #62296] 보고 14:01 빌드 결과를 확인하라" "$ME" b#1
@@ -116,6 +119,44 @@ FT_INBOX_HAIKU="$T/haiku-fail.sh" bash "$INBOX" show "$ME" --compact >/dev/null 
 # 8) 알 수 없는 대상·usage 는 raise
 bash "$INBOX" mark 999999 처리 "x" >/dev/null 2>&1; [ $? -ne 0 ] && ok "없는 seq mark → rc≠0" || bad "없는 seq mark 통과"
 bash "$INBOX" bogus >/dev/null 2>&1; [ $? -eq 2 ] && ok "usage → rc 2" || bad "usage rc"
+
+# 8b) via 마이그레이션 0: via 키 없는 옛 행 — show·mark·report·archive 동작 그대로 + via 키가 써지지 않음 · show/--compact 출력 바이트 불변
+python3 - "$Q/$M.jsonl" "$FT_ROOT/.fable-team/comm/bodies/501.txt" <<'PY'
+import json, sys
+q, bp = sys.argv[1], sys.argv[2]
+open(bp, "w", encoding="utf-8").write("[old#1->master-x#9] 판정 요청: 옛 행 시험\n")
+row = {"seq": 501, "ts": "2026-10-08T15:00:00", "from": "old#1", "cls": "③", "prio": 3, "group": "old-group-501",
+       "body_path": bp, "mark": None, "reported": False}
+open(q, "a", encoding="utf-8").write(json.dumps(row, ensure_ascii=False) + "\n")
+PY
+has_via() { python3 -c 'import json,sys
+for l in open(sys.argv[1]):
+    x=json.loads(l)
+    if x["seq"]==int(sys.argv[2]): print("via" in x)' "$@"; }
+add_mail 502 "$ME" new#1 "[new#1->$ME] 판정 요청: 새 행 시험"; bash "$INBOX" ingest 502 >/dev/null 2>&1
+eq "새 행 502 via=rule" "$(field "$Q/$M.jsonl" 502 via)" "rule"
+printf '#!/bin/sh\ncat\n' > "$T/haiku-echo.sh"; chmod +x "$T/haiku-echo.sh"
+strip_via_show() {  # <show 인자…> — 큐에서 via 키를 뺀 사본으로 같은 명령 실행 뒤 원복
+  cp "$Q/$M.jsonl" "$T/q.bak"
+  python3 - "$Q/$M.jsonl" <<'PY'
+import json, sys
+p = sys.argv[1]
+rows = [json.loads(l) for l in open(p, encoding="utf-8")]
+open(p, "w", encoding="utf-8").write("".join(json.dumps({k: v for k, v in x.items() if k != "via"}, ensure_ascii=False) + "\n" for x in rows))
+PY
+  FT_INBOX_HAIKU="$T/haiku-echo.sh" bash "$INBOX" show "$ME" "$@"; cp "$T/q.bak" "$Q/$M.jsonl"
+}
+SH_A="$(FT_INBOX_HAIKU="$T/haiku-echo.sh" bash "$INBOX" show "$ME")"
+eq "show 출력 바이트: via 있음 = via 키 제거본" "$SH_A" "$(strip_via_show)"
+SC_A="$(FT_INBOX_HAIKU="$T/haiku-echo.sh" bash "$INBOX" show "$ME" --compact)"
+eq "show --compact 출력 바이트: via 있음 = via 키 제거본" "$SC_A" "$(strip_via_show --compact)"
+echo "$SH_A" | grep -q "seq=501" && ok "옛 행 501 show 에 보임" || bad "옛 행 501 show 에서 누락"
+bash "$INBOX" mark 501 처리 "옛 행 처리" >/dev/null; bash "$INBOX" report 501 >/dev/null
+eq "옛 행 mark·report 뒤에도 via 키 없음(마이그레이션 0)" "$(has_via "$Q/$M.jsonl" 501)" "False"
+bash "$INBOX" show "$ME" | grep -q "seq=501" && bad "옛 행 report 후에도 show 에 남음" || ok "옛 행 report 후 show 에서 닫힘"
+bash "$INBOX" mark 502 처리 "새 행 처리" >/dev/null; bash "$INBOX" report 502 >/dev/null
+bash "$INBOX" archive "$ME" | grep -q "ARCHIVED [1-9]" && ok "옛 행·새 행 archive 이동" || bad "archive 이동 안 됨"
+AR2="$(ls "$Q/archive/$M"-*.jsonl)"; eq "보관된 옛 행 501 에도 via 키 없음" "$(has_via "$AR2" 501)" "False"
 
 # 9) mbox.sh send: ingest 실패가 send rc·출력 불변 + 성공 시 큐 적재 (임시 comm 사본)
 C="$T/sendroot/.fable-team/comm"; mkdir -p "$C" "$T/sendroot/.fable-team/bin"
