@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""ft-board.py — 상태판 생성기 (판정 421 · 496). 원장 3종(명부 seats*.json · 카드 폴더 · 판정 원장)에서만 읽는다 — 손 트리 없음.
+
+  ft-board.py collect                       중간 dict 한 장(JSON) — 시험·디버그용
+  ft-board.py render --term | --slack [--full]   같은 dict 에서 꼴만 다르게(슬랙은 mrkdwn 문자열만 stdout · 발행 0). --full = env FT_NEWS_FULL=1
+  ft-board.py snapshot                      dict 를 불변 스냅샷으로 먼저 쓰고 직전과의 변경 단위 JSON 출력. 쓰기 실패 = rc≠0 · stdout 빈 값
+  ft-board.py prune --days N                N일 지난 스냅샷 날짜 폴더 삭제(명시 명령만)
+명부 새 키: `_cards`(카드 폴더 리포 상대) · `_cards_wt`(그 폴더가 든 워크트리 이름) · `_label`(표시 이름) · `_tree`(NEWS-TREE 경로 · `_cards_wt` 기준).
+env·스텁 목록은 ft_board_env.py 머리말. 출력 순서: ⓪ 팀 요약 → ① 완성 트리 → ② 세션 트리 → ③ 큐 → ④ 오늘 판정표.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ft_board_env as env  # noqa: E402
+from ft_board_collect import collect  # noqa: E402
+from ft_board_render import render  # noqa: E402
+from ft_board_snapshot import prune, snapshot  # noqa: E402
+
+
+def main(argv: list[str]) -> int:
+    full = "--full" in argv or os.environ.get("FT_NEWS_FULL") == "1"
+    args = [a for a in argv if a != "--full"]
+    cmd = args[0] if args else ""
+    if cmd == "collect" and len(args) == 1:
+        out = json.dumps(collect(), ensure_ascii=False, sort_keys=True, indent=1)
+    elif cmd == "render" and len(args) == 2 and args[1] in ("--term", "--slack"):
+        out = render(collect(), args[1][2:], full)
+    elif cmd == "snapshot" and len(args) == 1:
+        out = json.dumps(snapshot(collect(), env.ft_root(), env.now()), ensure_ascii=False)
+    elif cmd == "prune" and len(args) == 3 and args[1] == "--days" and args[2].isdigit():
+        out = json.dumps(prune(env.ft_root(), env.now(), int(args[2])), ensure_ascii=False)
+    else:
+        print(__doc__, file=sys.stderr)
+        return 2
+    print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except Exception as e:  # noqa: BLE001 — 실패는 숨기지 않고 사유와 함께 rc≠0 (#0 RULE)
+        print(f"ft-board: {type(e).__name__}: {e}", file=sys.stderr)
+        sys.exit(1)

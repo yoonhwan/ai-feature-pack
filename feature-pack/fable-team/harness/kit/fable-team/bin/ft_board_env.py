@@ -1,0 +1,120 @@
+"""ft-board 입력 수집의 바깥 호출 모음 — gh·tmux·판정 원장·인박스·좌석 상태. 전부 env 로 스텁할 수 있다(시험은 실제 호출 0).
+
+실패는 전부 raise(#0 RULE) — 호출이 깨졌는데 빈 값으로 보드를 그리지 않는다.
+  FT_ROOT            루트(없으면 이 스크립트가 든 리포의 git common dir 부모)
+  FT_BOARD_NOW       시각 주입(ISO) — 날짜 경계·최근 시험용
+  FT_BOARD_TMUX      살아 있는 세션 목록 명령(기본 `tmux ls -F #{session_name}`)
+  FT_BOARD_GH        gh issue list JSON 명령 · FT_BOARD_GH_TTL 캐시 초(기본 600)
+  FT_VERDICT_BIN     ft-verdict.sh 경로 · FT_BOARD_INBOX 인박스 show 명령 접두 · FT_BOARD_STATUS_SH ft-seat-status.sh 경로
+"""
+import datetime as dt
+import json
+import os
+import re
+import shlex
+import subprocess
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+TURN_KO = {"WORKING": "작업중", "IDLE": "대기"}
+
+
+def ft_root() -> Path:
+    if os.environ.get("FT_ROOT"):
+        return Path(os.environ["FT_ROOT"])
+    out = subprocess.run(["git", "-C", str(HERE), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    return Path(out).parent
+
+
+def now() -> dt.datetime:
+    v = os.environ.get("FT_BOARD_NOW")
+    return dt.datetime.fromisoformat(v) if v else dt.datetime.now()
+
+
+def run(cmd: list[str], what: str, env: dict | None = None) -> str:
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=60)
+    if r.returncode != 0:
+        raise RuntimeError(f"{what} 실패 rc={r.returncode}: {r.stderr.strip()[:200]}")
+    return r.stdout
+
+
+def tmux_alive() -> set[str]:
+    cmd = shlex.split(os.environ.get("FT_BOARD_TMUX", "tmux ls -F #{session_name}"))
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        if "no server running" in r.stderr or "no sessions" in r.stderr:
+            return set()
+        raise RuntimeError(f"tmux 세션 조회 실패 rc={r.returncode}: {r.stderr.strip()[:200]}")
+    return {s.strip() for s in r.stdout.splitlines() if s.strip()}
+
+
+def gh_issues(root: Path) -> list[dict]:
+    cache = root / ".fable-team" / "state" / "board" / "gh-cache.json"
+    ttl = int(os.environ.get("FT_BOARD_GH_TTL", "600"))
+    if cache.exists() and time.time() - cache.stat().st_mtime < ttl:
+        data = json.loads(cache.read_text(encoding="utf-8"))
+    else:
+        cmd = shlex.split(os.environ.get(
+            "FT_BOARD_GH", "gh issue list --state all --limit 100 --json number,title,labels,updatedAt,state"))
+        env = {k: v for k, v in os.environ.items() if k != "GH_TOKEN"}  # 워크트리 gh 실패 함정 4
+        data = json.loads(run(cmd, "gh issue list", env))
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return [{"number": i["number"], "title": i["title"], "state": i["state"].lower(),
+             "labels": sorted(x["name"] for x in i.get("labels", []))} for i in data]
+
+
+def verdicts(root: Path, date: str) -> list[dict]:
+    exe = os.environ.get("FT_VERDICT_BIN", str(HERE / "ft-verdict.sh"))
+    rows = json.loads(run(["bash", exe, "list", "--json"], "ft-verdict.sh list", {**os.environ, "FT_ROOT": str(root)}))
+    return [{"n": r["n"], "title": r["title"], "teams": r["teams"], "state": r["state"],
+             "oppa_todo": r.get("oppa_todo") or "", "today": r["ts"].startswith(date)}
+            for r in rows if r["state"] == "open" or r["ts"].startswith(date)]
+
+
+def mail_ts(root: Path, seq: int) -> str | None:
+    for fn in ("mailbox.jsonl", "mailbox.log.jsonl"):
+        p = root / ".fable-team" / "comm" / fn
+        if not p.exists():
+            continue
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if f'"seq": {seq},' in line or f'"seq":{seq},' in line:
+                return json.loads(line)["ts"]
+    return None
+
+
+def inbox(root: Path, master: str) -> dict:
+    # 미보고 = ft-inbox.sh show 의 줄 수(정본 술어 obligation_closed 가 거짓인 줄만 나온다 — 술어 재작성 0)
+    cmd = shlex.split(os.environ.get("FT_BOARD_INBOX", f"bash {HERE / 'ft-inbox.sh'} show")) + [master]
+    out = run(cmd, "ft-inbox.sh show", {**os.environ, "FT_ROOT": str(root)})
+    lines = [x for x in out.splitlines() if x.strip() and x.strip() != "EMPTY"]
+    seqs = [int(s) for x in lines for grp in re.findall(r"미닫힘=([\d,]+)", x) for s in grp.split(",") if s]
+    return {"unreported": len(lines), "oldest_ts": mail_ts(root, min(seqs)) if seqs else None}
+
+
+def pending(root: Path, master: str) -> int:
+    # 수신 대기 = mailbox 큐에 남은 그 좌석 앞 쪽지 수(인박스 미보고와 따로 센다 — 설계 :56)
+    p = root / ".fable-team" / "comm" / "mailbox.jsonl"
+    if not p.exists():
+        return 0
+    return sum(1 for x in p.read_text(encoding="utf-8").splitlines() if x.strip() and json.loads(x).get("to") == master)
+
+
+def seat_state(role: str | None, seat: str, alive: set[str]) -> str:
+    # ft-news-tree.py:75 seat_state 와 같은 규칙 — 값 = 작업중/대기/정지레디/정지
+    if seat not in alive or role == "stopped":
+        return "정지"
+    if role == "stop-ready":
+        return "정지레디"
+    sh = os.environ.get("FT_BOARD_STATUS_SH", str(HERE / "ft-seat-status.sh"))
+
+    def out(sub: str) -> list[str]:  # ft-news-tree.py 와 같이 rc 는 보지 않는다 — 읽을 수 없으면 «?» 로 보인다(값을 지어내지 않음)
+        return subprocess.run(["bash", sh, sub, seat], capture_output=True, text=True, timeout=10).stdout.split()
+
+    turn = (out("turn") or ["?"])[0]
+    if turn == "UNKNOWN":  # 첫 턴이 안 끝난 새 좌석 — pane 스피너로 판정
+        one = out("one")
+        turn = {"BUSY": "WORKING", "IDLE": "IDLE"}.get(one[1] if len(one) > 1 else "", turn)
+    return TURN_KO.get(turn, turn)

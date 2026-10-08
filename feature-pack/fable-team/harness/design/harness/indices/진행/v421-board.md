@@ -1,6 +1,6 @@
 # 인덱스: 상태판 생성기 — ft-board.py(render --term|--slack · snapshot) · 명부 키 _cards·_cards_wt·_label · 불변 스냅샷 + 변경 단위 diff + ⓪팀 요약 표·①완성 트리(판정 496) (판정 421 · 430·431 · 496 · 설계 §2-2·§2-3·§3 나노 2)
 <!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 421·430·431(오빠 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유하는 완벽한 일반화」 · planner #62745 · master #62749) + 판정 496(오빠 「뉴스 공유시 메인팀 현재 상황과 메인팀 큐를 같이 정리 공유. 개편.」·「뉴스 트리와 세션과 큐를 정리공유하는 개편 / da도 같이」 · master #64447)
+- Issue: 없음 → 판정 421·430·431(오빠 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유하는 완벽한 일반화」 · planner #62745 · master #62749) + 판정 496(오빠 「뉴스 공유시 메인팀 현재 상황과 메인팀 큐를 같이 정리 공유. 개편.」·「뉴스 트리와 세션과 큐를 정리공유하는 개편 / da도 같이」 · master #64447 · ★오빠 컨펌 판정 502 — planner#12 #64606★)
 - 상태: 대기
 - 선행: 나노 1(판정 원장 ft-verdict.sh · nano/v430-verdict-ledger) 랜딩 · 나노 4(인박스 ft-inbox.sh · nano/v425-master-inbox) 랜딩 — 이 카드는 두 도구를 «호출»만 한다(fold·술어 재구현 0). 나노 3(발행)은 이 카드 뒤.
 - 시험 입력: 임시 FT_ROOT(가짜 seats-*.json 3팀 · 카드 폴더 픽스처 · 가짜 verdicts.jsonl) + 스텁 env FT_BOARD_GH(gh issue list JSON 고정 출력) · FT_BOARD_TMUX(살아 있는 세션 목록 고정) · FT_BOARD_INBOX(ft-inbox.sh show 고정 출력) — 실제 gh·tmux·슬랙 호출 0
@@ -67,6 +67,10 @@
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: a752a987d39f25bc95417ca2a8776fb581d94de4 (spawn 2026-10-08)
+- 2026-10-08 — 오빠 컨펌 판정 502(뉴스 틀 ⓪→④ · 슬랙·pane 공통 · 슬랙 공유판 나노 랜딩 뒤 착수 · planner#12 #64606).
 - 2026-10-08 — 판정 496 범위 접어 넣음 (byz-harness-arch-claude#17 · 설계 §8 + 8-2-r2 · DA 496 r2 APPROVE #64513 · DA Q8 = 한 단위 수락).
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#14 · 판정 421 설계 r2 §2-2·§2-3·§3 나노 2 · 오빠 컨펌 판정 430·431 · master #62749).
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
+- 2026-10-08 21:17 — 대기→진행 · 좌석 byz-harness-nano-v421-board#0
+세트: bd4032c4e43968c57ef936b72c1d3df3e73e21c1 · 시험: bash tests/harness/test_board.sh rc=0 · 이슈: 0
