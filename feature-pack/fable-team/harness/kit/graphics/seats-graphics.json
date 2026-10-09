@@ -1,0 +1,12 @@
+{
+  "_name": "Seatbelt-GRAPHICS",
+  "_version": "1.0.0",
+  "_doc": "graphics 팀(공용 서비스 · 그래픽·UI/UX — 요청 때만 여는 상시 0 팀 · 오빠 확정 2026-10-09 판정 649) 좌석 레지스트리. 열기·감시·닫기 = 하네스 master(_master 는 하네스 현역 master — 하네스 master 승계 때 같이 고친다). 팀 master 0 · 상시 틱 0(launchd plist 0). 제안서 design/harness/PROPOSAL-team-graphics-20261009.md r5. ft-role-spawn 은 v65 고정이라 쓰지 않는다(arch·DA = tmuxc open + 손 등록, 나노 = ft-nano-spawn.sh --agent codex --model gpt-6.1-sol). 카드 = .worktrees/harness-ops/design/graphics/indices. env = .fable-team/bin-graphics/graphics-env.sh. 골 = design/graphics/GOAL-graphics.md. ★v65·cfo·ops·loom 명부와 섞지 않는다★",
+  "_master": "byz-harness-master-claude#22",
+  "_hil_route": "byz-planner-master-claude#16",
+  "_arch": "",
+  "_cards": "design/graphics/indices",
+  "_cards_wt": "harness-ops",
+  "_label": "graphics",
+  "_tick": null
+}
