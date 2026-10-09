@@ -1460,3 +1460,17 @@
 - 카드 증거 줄(나노 [완료·휴식]): `세트: 9e251d64053649bd0aeeb8181c2fecb329f43adf · 시험: bash tests/harness/test_mbox_v2_guard.sh rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 두 곳 cp 전 sha256 앞12 `40fa21885d92` 확인 → 다르면 cp 0 · arch 반송 → 같으면 새 사본 cp + cmp ③ 설치 자리 `.worktrees/v6-realtime-live/.fable-team/comm/mbox-v2.sh peek <master 이름>` 1회 정상(가드 통과) ④ 요청 원장 R67 닫힘 ⑤ 나노 r67 닫기 ⑥ planner 보고(판정 698 ①②③ 끝 · ④ Tank label-create 보류 유지).
 - 정본 영향: 하네스 키트 사본 2 + 설치본 2(같은 바이트) · 홈 정본 0.
+- ★집행 결과(master#23 · 2026-10-09)★: PR 1109 squash `bba72c3a4e` · 설치본 두 곳(v6-realtime-live comm·bin mbox-v2.sh) cp 전 sha12 일치(40fa21885d92) → CMP OK(백업 .bak-r67-1009) · 설치 자리 `mbox-v2.sh peek` 정상(가드 통과) · R67 닫힘 표기.
+
+## §114 판정 710 R68 Tank 래퍼 `label-create` 동사 — 저장소 라벨을 byz-tank 이름으로 생성 · 이미 있으면 EXISTS(바꾸지 않음) (요청 원장 R68 · issues master#7 #67842 · 동기 issues#8 security 라벨 손 생성 · 나노 r68-tank-label-create) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(개선요청 접수·협의 — R68 · 오빠 값 = 판정 710) + C(도구 업그레이드·설치).
+- 대상 카드: r68-tank-label-create (대기 `9e9d6639ca`)
+- 원인(arch#25 실측): 래퍼 동사에 저장소 라벨 «생성» 없음 + 가드 `gh-issue-author-guard.sh` 가 `gh label create` · `gh api …/labels` 쓰기를 둘 다 통과(rc=0) → 라벨 생성이 오빠 기본 로그인으로 나감.
+- 나노 커밋 1개(브랜치 `nano/r68-tank-label-create` · base = origin/main `82e2c58b07` · push 0): `c4b3c05daa`(5파일 +306 −4 — 래퍼 두 사본 +13·−4(동작 목록·usage·인자 검증 분기·dry-run 1줄·위임 1줄) · 새 본체 `ft-gh-tank-label-create.sh` 두 사본 70줄 · `tests/harness/test_gh_tank_label_create.sh`).
+- ★arch 독립 재현(#25)★: `c4b3c05daa` 아카이브 → 스크래치 `bash tests/harness/test_gh_tank_label_create.sh` **55 PASS · fail=0 · rc=0** · `bash tests/harness/test_gh_as_tank.sh` **fail=0 · rc=0** · `bash -n` 4파일 OK. 시나리오: ①만들기(404→POST 1 · name·color·description · URL 인코딩 조회 · Tank 토큰) ②이미 있음(POST 0 · EXISTS) + 422 경합 재조회 ③권한 없음 403·401 → REJECT rc=1 · 재시도 0 · 그 밖 오류 REJECT ④인자 검증 rc=2 · gh 0 ⑤dry-run gh 0 ⑥토큰 없음·주인 불일치 ⑦시간 초과·5xx 재시도 1 상한 ⑧두 쌍 cmp 동일 · 래퍼 199줄(≤200) · 본체 70줄 · 출력에 시험 토큰 0.
+  · 눈 대조: 래퍼는 검증·dry-run·위임만(본체가 GitHub 호출) · 토큰은 env `FT_TANK_TOK` 로만 · `timeout 7` · 덮어쓰기·삭제 동사 0 · 설치본 `.worktrees/v6-realtime-live/.fable-team/bin/ft-gh-as-tank.sh` 현재 `193b451e3d3d` = base(cp 가능).
+- ★arch 판단 서명★: 멱등(이미 있으면 exit 0 · 변경 0) · 폴백 0(권한·오류는 REJECT exit 1 · 오빠 계정 폴백 0) · 7초 룰 · 값 노출 0.
+- 카드 증거 줄(나노 [완료·휴식] #69123): `세트: c4b3c05daad8c7d57bb49f5c951ae755ce71a6b8 · 시험: bash tests/harness/test_gh_tank_label_create.sh rc=0 · bash tests/harness/test_gh_as_tank.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 래퍼 cp 전 sha256 앞12 `193b451e3d3d` 확인 → 다르면 cp 0 · arch 반송 → 같으면 래퍼 + 새 본체 cp + cmp 2 ③ 설치 자리 `ft-gh-as-tank.sh label-create probe --color 000000` dry-run 1회(DRY 줄 · 실 호출 0) ④ issues master(현역)·issues#8 에 사용법 1줄 ⑤ 요청 원장 R68 닫힘 ⑥ 나노 r68 닫기 ⑦ planner 보고.
+- 남은 것(별 후보 · 오빠 컨펌 필요 · 착수 0): 가드가 `gh label create|edit|delete` · `gh api …/labels` 쓰기를 막아 래퍼로만 가게 할지(홈 훅 변경 — 이 랜딩 뒤에만 의미).
+- 정본 영향: 하네스 키트 래퍼 2 + 새 본체 2 · 설치본 2 · 홈 정본 0.
