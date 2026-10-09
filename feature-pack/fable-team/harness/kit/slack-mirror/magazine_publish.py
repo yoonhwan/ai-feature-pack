@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from magazine_attach import attach, file_title
+from magazine_attach import attach, file_title, legacy_title
 from magazine_slack import Target, find_root, post_root
 from mirror_lib import save_state
 
@@ -34,7 +34,7 @@ class Day:
     pdf: Path
     oldest_epoch: float
     md_sha: str = ""
-    html: Path | None = None  # 쉬운 판(eli5) — 없는 날(생성 실패)은 pdf_done 에서 바로 done
+    html: Path | None = None  # 쉬운 판(eli5) PDF — kind 키는 `html` 그대로(상태 호환) · 없는 날(생성 실패)은 pdf_done 에서 바로 done
 
 
 def read_state(path: Path) -> dict[str, Any]:
@@ -103,7 +103,7 @@ def _root_ts(t: Target, day: Day, state_path: Path, phase: str, force: bool, for
 
 def _attach(t: Target, day: Day, state_path: Path, ts: str, kind: str, path: Path, rec: dict[str, Any], force_file: tuple[str, ...]) -> None:
     attach(t, ts, kind, path, file_title(day.date, kind, "r0"), attempt=rec.get("files", {}).get(kind),
-           save=lambda a: set_file_attempt(state_path, day.date, kind, a), force=kind in force_file)
+           save=lambda a: set_file_attempt(state_path, day.date, kind, a), force=kind in force_file, legacy=legacy_title(day.date, kind, "r0"))
 
 
 def publish_day(

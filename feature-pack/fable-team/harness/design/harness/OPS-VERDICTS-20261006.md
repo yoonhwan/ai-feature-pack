@@ -1350,3 +1350,17 @@
   ⑤ 10-09 호 수동 재발행(env 를 명령에 직접) → 첫 화면·뿌리 글·부록에 «⚠ 형식 미달 카드 13장»·«⚠ 형식 미달 요청 행 22개» 보이는지 1줄.
   ⑥ planner 보고 · 완료 보고 = 랜딩 sha + 재발행 게시 링크.
 - 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §105 판정 609 아침 매거진 «그냥 텍스트» — 쉬운 판을 PDF 로 붙이고 첫 장에 결정 두 박스·24시간 핵심 · 본문 번호 0 (오빠 직접 지시 10-09 09:2x · planner#15 → master#22 #67313 · 나노 mag609-eli5-readable-decisions) — 닫힘 · 설계 DA r2 APPROVE + arch 독립 재현·실데이터 dry·첫 장 캡처 (byz-harness-arch-claude#23 · 2026-10-09)
+- 골 축: C(배포 발행(슬랙) — 판정 354 「읽기만 해도 이해·결정사항이 보이는 매거진」이 슬랙에서 실제로 읽힌다).
+- 대상 카드: mag609-eli5-readable-decisions (대기 `a3b42f4d37` · 설계 r2 `8b75f414e0` → 진행)
+- 원인(arch 실측): ①쉬운 판 HTML 은 발행됐으나(AI 풀이 124/138) Slack files.info = html·text/plain·preview → 채널에 소스 글자 ②쉬운 판 첫 화면 = 판정 원문 258줄(번호·좌석명) · 핵심 줄 없음 ③카드 제목·칩에 번호·sha. 판정 602·603 report 모드와 무관.
+- 설계 DA(`design/harness/DA-mag609-eli5-readable-20261009.md` · model GPT-6 / provider OpenAI): r1 HOLD Q1(제목=멱등 표식)·Q2(전송 접두가 오빠 표식을 가림)·Q3(`[A-Z]\d` 오삭제) → 설계 r2(옛·새 제목 채택 · 접두 제거 + 분류 기준 표시 + 표식 없는 기록 전부 각주 · 토큰 9종 경계·필드·본문/각주 분리) → r2 APPROVE.
+- 나노 커밋 3개(브랜치 `nano/mag609-eli5-readable-decisions` · base `cec1cd82c1` · push 0): ①`7088c8902d`(구현 · 새 `magazine_eli5_decisions.py`·`magazine_indexless.py`·`magazine_eli5_pdf.py` · 첨부 제목 옛·새 채택 · 확장자 content-type) ②`4b0f6d8dd4`(arch 반송 r1 — 실데이터 dry 에서 쉬운 판 «전체» 실패: 걷어 낸 자리가 붙어 새 토큰 `판정 (#N) 4` → 고정점 반복 strip · AI 풀이 카드별 omitted · check_body 는 사실 문자열만) ③`8dbf61f8a6`(arch 반송 r2 — 1쪽 캡처에서 «내린 결정» 박스가 print `break-inside:avoid` 로 2쪽으로 통째 밀림 → 순서 제목→내려야 할→24시간 핵심→내린 결정→카드 · 내린 결정 박스 쪽 넘김 허용).
+- ★arch 독립 재현(#23)★: `8dbf61f8a6` 아카이브 → `mktemp -d`: `tests/scripts -k magazine` **241 passed** · 13 failed = base `cec1cd82c1` FAILED diff 0 · `tests/harness/test_magazine_plist.sh`·`test_magazine_install_list.sh` ALL PASS · ruff clean.
+  · ★실데이터 dry-run★(키트 사본 `--date 2026-10-09 --dry-run --force` · env report · 실제 리포·mailbox·LLM·PDF · 게시 0): rc=0 · 쉬운 판 PDF 2.59MB(119쪽) · 풀 디테일 537쪽 · 오빠가 내린 결정 44(쉬운 말 풀이 실패 3 = 길이 · 각주 원문) · 기다리는 결정 0 · 표식 없는 판정 기록 214(각주 표) · AI 풀이 생략 4(차단 단어·호출 실패 — 카드별) · 뿌리 글 「본문은 스레드의 쉬운 판 PDF(먼저 보세요)·풀 디테일 PDF」 + 「오빠가 내린 결정 44건 · 기다리는 결정 0건 — 쉬운 판 첫 장」.
+  · ★1쪽 캡처★ `.fable-team/state/drafts-r22/cap609/dry-eli5-p1-8dbf61f8a6.png`: 「오빠가 내려야 할 결정 — 지금 기다리는 결정은 없어요」 → 「24시간 핵심」 3줄 → 「오빠가 내린 결정」 8줄(이어서 다음 장) · 본문 번호 0 · 각주 표식 [n].
+- ★arch 판단 서명★: ①슬랙에서 읽히는 형태 = PDF 미리보기(HTML 은 out 폴더에만) ②결정 박스는 «오빠 표식 기록» 기준을 화면에 적고 나머지 전부 각주 — 조용한 누락 0 ③본문 번호 0 은 사실 문자열 검사로 강제 · LLM 문장은 카드별 생략(쉬운 판 전체를 죽이지 않음) ④남은 문구 1: 핵심 2줄째 「결정할 건 없어요」(요약 슬롯 = 기다리는 결정 0 의 뜻)는 «내린 결정 44» 와 나란히 읽혀 헷갈릴 수 있음 → 별 카드 후보(요약 슬롯 문구 「기다리는 결정은 없어요」).
+- 카드 증거 줄(나노 RESULT r2 #67554): `세트: 8dbf61f8a62201ab2042687afd0d9882a76a1f53 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_eli5_decisions.py rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main · 커밋 3개) → 병합(CI 확인과 병합 별 명령) ② `bash scripts/harness-install/slack-mirror/install-magazine.sh`(새 3파일 설치 · WARN 0) ③ 홈 `~/.hermes/scripts/` 변경 파일 = 병합 키트 cmp ④ 10-09 호 `--force` 재발행 1회(env report 직접) ⑤ 슬랙 ts + 스레드 첫 파일이 «쉬운 판» PDF 미리보기로 보이는지 + 1쪽 캡처 경로 → planner 보고.
+- 정본 영향 없음: 하네스 매거진 키트·시험만.

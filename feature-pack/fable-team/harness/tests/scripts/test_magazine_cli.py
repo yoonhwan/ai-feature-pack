@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-from _magazine_detail_fixture import EASY_HTML, detail_fixture, fake_eli5, fake_full_model, fake_pdf
+from _magazine_detail_fixture import detail_fixture, fake_eli5, fake_full_model, fake_pdf
 from _magazine_fakes import SUMMARY_OK, FakeMagazineSlack, fake_model, git, make_repo
 from _thread_fakes import ledger, resume_script, seats
 
@@ -49,7 +49,7 @@ def test_cli_dry_run_posts_nothing(cli_env, slack, capsys):
     base, tmp = cli_env
     assert cli.main([*base, "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "DRY-RUN" in out and "MAGAZINE-20261008.pdf" in out and "*아침 매거진 2026-10-08*" in out and "본문은 스레드의 PDF(풀 디테일)·HTML(쉬운 판)" in out
+    assert "DRY-RUN" in out and "MAGAZINE-20261008.pdf" in out and "*아침 매거진 2026-10-08*" in out and "본문은 스레드의 쉬운 판 PDF(먼저 보세요)·풀 디테일 PDF" in out and "오빠가 내린 결정 0건 · 기다리는 결정 1건 — 쉬운 판 첫 장" in out
     assert "pages=3" in out and "-eli5.html" in out
     assert not slack.msgs and not (tmp / "state.json").exists() and (tmp / "out" / "MAGAZINE-20261008.md").exists()
 
@@ -61,8 +61,8 @@ def test_cli_no_push_makes_zero_git_calls_and_second_run_skips(cli_env, slack, m
     assert "skip date=2026-10-08" in capsys.readouterr().out and len(slack.roots) == 1
     root = slack.roots[0]["text"]
     assert root.startswith("*아침 매거진 2026-10-08*") and "main 에 두 건이 들어갔어요" in root and "<@U0AC2JF0M7D> 오빠 할 일이 1건" in root
-    assert "&lt;script&gt;" not in root and slack.uploads == [b"%PDF-fake", EASY_HTML.encode()]
-    assert slack.titles(slack.roots[0]["ts"]) == [f"아침 매거진 {DATE} PDF r0", f"아침 매거진 {DATE} HTML r0"]
+    assert "&lt;script&gt;" not in root and slack.uploads == [b"%PDF-fake", b"%PDF-fake"]
+    assert slack.titles(slack.roots[0]["ts"]) == [f"아침 매거진 {DATE} 풀 디테일 r0", f"아침 매거진 {DATE} 쉬운 판 r0"]
 
 
 def test_cli_push_link_uses_commit_sha(cli_env, slack, repo, monkeypatch):

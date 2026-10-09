@@ -5,7 +5,7 @@
 빈 절은 생략하지 않고 「없어요」 한 줄 — 수집이 됐다는 표시.
 """
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import magazine_card_shape as shape
@@ -151,14 +151,14 @@ def render_full(model: Model, lines: list[str], generated_at: str, warn: str | N
     return to_md(blocks), to_html(blocks, title)
 
 
-def build_eli5(model: Model, cmd: str) -> tuple[str | None, str | None]:
+def build_eli5(model: Model, cmd: str, lines: Sequence[str] = ()) -> tuple[str | None, str | None]:
     """(HTML, None) 성공 · (None, 원인 첫 줄) 실패 — 실패는 ERROR 로그 + 호출 쪽이 뿌리 글·PDF 근거 절에 같은 줄을 남긴다(설계 §5).
 
     모듈 없음(ImportError)·Eli5Error(RuntimeError)만 «보이는 실패»로 다룬다. 그 밖의 예외는 발행 전체 실패로 올라간다.
     """
     try:
         import magazine_eli5
-        return magazine_eli5.build(model, notes_of(model), cmd), None
+        return magazine_eli5.build(model, notes_of(model), cmd, lines), None
     except (ImportError, RuntimeError) as e:
         LOG.error("쉬운 판(eli5) 생성 실패: %s: %s", type(e).__name__, e)
         return None, (str(e).splitlines() or [""])[0] or type(e).__name__

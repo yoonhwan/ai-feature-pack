@@ -16,7 +16,7 @@ from magazine_slack import Target, marker
 from mirror_lib import MirrorError
 
 DATE = "2026-10-08"
-PDF_T, HTML_T = f"아침 매거진 {DATE} PDF r0", f"아침 매거진 {DATE} HTML r0"
+PDF_T, HTML_T = f"아침 매거진 {DATE} 풀 디테일 r0", f"아침 매거진 {DATE} 쉬운 판 r0"
 
 
 @pytest.fixture
@@ -25,9 +25,9 @@ def slack() -> FakeMagazineSlack:
 
 
 def make_day(tmp_path: Path, html: bool = True) -> mp.Day:
-    pdf, easy = tmp_path / "m.pdf", tmp_path / "m.html"
+    pdf, easy = tmp_path / "m.pdf", tmp_path / "m-eli5.pdf"
     pdf.write_bytes(b"%PDF-fake")
-    easy.write_text("<html>쉬운 판</html>")
+    easy.write_bytes(b"%PDF-easy")
     return mp.Day(DATE, f"*{marker(DATE)}*\n요약", pdf, time.time() - 3600, "sha", easy if html else None)
 
 

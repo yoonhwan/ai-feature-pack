@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from magazine_attach import attach, file_title
+from magazine_attach import attach, file_title, legacy_title
 from magazine_publish import Day, PublishError, now_iso, read_state, update_record
 from magazine_slack import Target, find_reply_first_line, find_root, post_reply
 from mirror_lib import esc
@@ -22,7 +22,7 @@ def first_line(date: str, rev: str) -> str:
 
 
 def reply_text(date: str, rev: str, warn: str | None) -> str:
-    body = [first_line(date, rev), "풀 디테일 PDF 와 쉬운 판 HTML 을 다시 붙였어요 — 위의 앞 PDF 는 요약판이에요"]
+    body = [first_line(date, rev), "풀 디테일 PDF 와 쉬운 판 PDF 를 다시 붙였어요 — 위의 앞 PDF 는 요약판이에요"]
     return "\n".join(body + ([esc(warn)] if warn else []))
 
 
@@ -88,7 +88,7 @@ def reattach(t: Target, day: Day, state_path: Path, rev: str, text: str, *, forc
         if path is None or (kind == "pdf" and rev_record(state_path, day.date, rev).get("phase") == "pdf_done"):
             continue
         attach(t, root, kind, path, file_title(day.date, kind, rev), attempt=files.get(kind),
-               save=lambda a, k=kind: _set_rev_file(state_path, day.date, rev, k, a), force=kind in force_file)
+               save=lambda a, k=kind: _set_rev_file(state_path, day.date, rev, k, a), force=kind in force_file, legacy=legacy_title(day.date, kind, rev))
         if kind == "pdf":
             _set_rev(state_path, day.date, rev, "pdf_done", ts=ts)
     _set_rev(state_path, day.date, rev, "done", ts=ts)

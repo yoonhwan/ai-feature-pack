@@ -25,9 +25,9 @@ def slack() -> FakeMagazineSlack:
 
 
 def make_day(tmp_path: Path, html: bool = True) -> mp.Day:
-    pdf, easy = tmp_path / "m.pdf", tmp_path / "m.html"
+    pdf, easy = tmp_path / "m.pdf", tmp_path / "m-eli5.pdf"
     pdf.write_bytes(b"%PDF-fake")
-    easy.write_text("<html>쉬운 판</html>")
+    easy.write_bytes(b"%PDF-easy")
     return mp.Day(DATE, f"*{marker(DATE)}*\n요약", pdf, time.time() - 3600, "sha", easy if html else None)
 
 
@@ -57,7 +57,7 @@ def test_reattach_replies_in_thread_with_two_files_and_keeps_date_record(slack, 
     res = go(slack, st, day)
     reply = slack.replies_of(root)[0]
     assert res["action"] == "reattached" and len(slack.roots) == 1 and reply["text"].split("\n")[0] == FIRST
-    assert slack.titles(root)[-2:] == [f"아침 매거진 {DATE} PDF {REV}", f"아침 매거진 {DATE} HTML {REV}"]
+    assert slack.titles(root)[-2:] == [f"아침 매거진 {DATE} 풀 디테일 {REV}", f"아침 매거진 {DATE} 쉬운 판 {REV}"]
     after = date_rec(st)
     print(f"[reattach 뒤 날짜 레코드] phase {before['phase']}→{after['phase']} · ts {before['ts']}→{after['ts']} · at 불변={before['at'] == after['at']}")
     assert (after["phase"], after["ts"], after["at"]) == (before["phase"], before["ts"], before["at"]) and after["revs"][REV]["phase"] == "done"
@@ -128,8 +128,8 @@ def test_rev_file_response_lost_rerun_adopts_by_rev_title(slack, done_day):
         go(slack, st, day)
     go(slack, st, day)
     titles = slack.titles(root)
-    print(f"[rN 파일 응답 유실] PDF rN 개수 = {titles.count(f'아침 매거진 {DATE} PDF {REV}')} · 답글 = {len(slack.replies_of(root))}")
-    assert titles.count(f"아침 매거진 {DATE} PDF {REV}") == 1 and titles.count(f"아침 매거진 {DATE} HTML {REV}") == 1
+    print(f"[rN 파일 응답 유실] PDF rN 개수 = {titles.count(f'아침 매거진 {DATE} 풀 디테일 {REV}')} · 답글 = {len(slack.replies_of(root))}")
+    assert titles.count(f"아침 매거진 {DATE} 풀 디테일 {REV}") == 1 and titles.count(f"아침 매거진 {DATE} 쉬운 판 {REV}") == 1
     assert len(slack.replies_of(root)) == 1 and date_rec(st)["revs"][REV]["files"]["pdf"]["phase"] in ("sharing", "failed")
 
 
@@ -150,4 +150,4 @@ def test_eli5_failed_day_reattaches_pdf_only_and_warning_is_escaped(slack, done_
     go(slack, st, no_html, warn="쉬운 판(HTML) 못 만들었어요 — 형식 오류 <@U9>")
     reply = slack.replies_of(root)[0]["text"]
     assert reply.splitlines()[-1] == "쉬운 판(HTML) 못 만들었어요 — 형식 오류 &lt;@U9&gt;"
-    assert slack.titles(root)[-1] == f"아침 매거진 {DATE} PDF {REV}" and "HTML r1" not in " ".join(slack.titles(root))
+    assert slack.titles(root)[-1] == f"아침 매거진 {DATE} 풀 디테일 {REV}" and "쉬운 판 r1" not in " ".join(slack.titles(root))

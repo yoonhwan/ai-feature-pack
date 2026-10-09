@@ -57,9 +57,9 @@ def render(tmp_path, value=None, m=None, wrapper="{}"):
 @pytest.mark.parametrize("wrapper", ["{}", "```json\n{}\n```", "설명\n{}\n끝"])
 def test_normal_html_decisions_cards_notes_and_offline_template(tmp_path, wrapper):
     page = render(tmp_path, wrapper=wrapper)
-    assert all(x in page for x in ("오늘의 결정사항", "오빠 몫", "이미 결정된 것", "단위별 그림 설명",
-                                  "닫힌 일 1건 · 결정 2건 · 오빠 몫 1건", "🪟", "책상 위 작은 창 같아요"))
-    assert page.index('id="decisions"') < page.index('id="units"') < page.index('id="footnotes"')
+    assert all(x in page for x in ("오늘의 결정사항", "오빠가 내려야 할 결정", "오빠가 내린 결정", "24시간 핵심", "단위별 그림 설명",
+                                  "닫힌 일 1건 · 오빠가 내린 결정 0건 · 기다리는 결정 1건", "🪟", "책상 위 작은 창 같아요"))
+    assert page.index('id="decisions"') < page.index('id="core"') < page.index('id="units"') < page.index('id="footnotes"')
     assert page.index("#883") > page.index('id="footnotes"') and "885번" in page
     assert "<script" not in page and "<link" not in page and "https://" not in page
     assert "AI 풀이는 형식만 검사했어요 · 결정·상태는 PDF·원문이 정본" in page
@@ -97,7 +97,7 @@ def test_ai_cannot_change_facts_even_when_claim_evades_filter(tmp_path):
     after = changed.split('<aside class="ai-explanation">')[0]
     assert before == after and claim not in after
     assert claim in changed.split('<aside class="ai-explanation">')[1].split("</aside>")[0]
-    assert "aaaaaaaaaa" in before and "닫힘" in before and "harness" in before
+    assert "aaaaaaaaaa" not in before and "커밋 aaaaaaaaaa" in changed.split('id="footnotes"')[1] and "닫힘" in before and "harness" in before
     assert escape(DETAIL_FIXTURE["units"][0]["why"].split(".")[0] + ".") in before
 
 
@@ -150,12 +150,14 @@ def test_empty_day_and_long_decision_have_explicit_text(tmp_path):
         render(tmp_path, {"units": []}, m)
     m["detail"]["units"] = copy.deepcopy(DETAIL_FIXTURE["units"])
     m["verdicts"] = [{"n": 354, "line": "가" * 100}]
-    assert "…원문은 PDF D3" in render(tmp_path, m=m)
+    page = render(tmp_path, m=m)
+    assert "오빠 표식이 없는 판정 기록 1건 — 끝 각주 목록" in page and "가" * 100 in page.split('id="unmarked"')[1]
 
 
 @pytest.mark.parametrize("mode,omitted,reason", [("ok", 0, ""), ("timeout", 12, "호출 실패"), ("blocked", 1, "차단 단어"), ("missing", 1, "호출 실패")])
 def test_batches_preserve_facts_and_count_partial_failures(tmp_path, monkeypatch, caplog, mode, omitted, reason):
     m, calls, barrier = model(), [], Barrier(3, timeout=5)
+    m["mbox"]["hil"] = []  # 결정 줄 다시 쓰기 호출이 없게 — 이 시험은 단위 배치 호출 수만 센다
     m["detail"]["units"] = [{**m["detail"]["units"][0], "path": str(i)} for i in range(25)]
     def llm(cmd, prompt, timeout):
         batch = json.loads(prompt.rsplit("<자료>\n", 1)[1].split("\n</자료>")[0])

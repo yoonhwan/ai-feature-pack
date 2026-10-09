@@ -39,10 +39,12 @@ def eli5_warning_line(cause: str) -> str:
 
 
 def root_text(date: str, lines: list[str], link: str | None, hil_count: int, mention: str, warn: str | None = None, block: str | None = None,
-              seats: str | None = None, malformed: str | None = None) -> str:
+              seats: str | None = None, malformed: str | None = None, decided: int | None = None) -> str:
     out = [root_text_first_line(date)] + [esc(x) for x in lines]
-    where = "PDF(풀 디테일)" if warn else "PDF(풀 디테일)·HTML(쉬운 판)"  # 쉬운 판이 없는 날(warn)은 HTML 을 안내하지 않는다
+    where = "PDF(풀 디테일)" if warn else "쉬운 판 PDF(먼저 보세요)·풀 디테일 PDF"  # 쉬운 판이 없는 날(warn)은 쉬운 판을 안내하지 않는다
     out.append(f"<{esc(link)}|매거진 본문>" if link else f"본문은 스레드의 {where}에 있어요")
+    if decided is not None and not warn:
+        out.append(f"오빠가 내린 결정 {decided}건 · 기다리는 결정 {hil_count}건 — 쉬운 판 첫 장")
     if hil_count > 0:
         out.append(f"<@{mention}> 결정 대기 {hil_count}건 — {decision_line(seats=seats)}")
     if warn:

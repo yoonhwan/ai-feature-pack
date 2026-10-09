@@ -15,10 +15,11 @@
     .intro{margin:9px 0 0;color:var(--muted);font-size:14px}.summary{margin:12px 0 0;font-size:14px;font-weight:650}
     h2{margin:0;font-size:20px;letter-spacing:-.03em}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
     .section-label{color:var(--muted);font-size:11px;letter-spacing:.1em}
-    .decision-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+    .decision-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
     .decision{border:1px solid var(--line);border-radius:14px;background:#fffdf8;padding:18px 22px;overflow-wrap:anywhere}
     .decision.pending{background:var(--peach);border-color:#e7ccb0}.decision h3{font-size:16px;margin:0 0 9px}
     .decision ul{padding-left:18px;margin:0}.decision li,.decision p{font-size:14px;margin:5px 0}
+    sup.fn{font-size:10px;color:var(--muted);margin-left:2px}.decision .sub{color:var(--muted);font-size:12px}#core,#decided{margin-top:22px}#unmarked{margin-top:26px}#unmarked h2,#footnotes h3{font-size:14px;margin:18px 0 8px}
     .decision-label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
     #units{margin-top:30px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
     .unit-card{background:#fffdf8;border:1px solid var(--line);border-radius:17px;padding:24px;overflow-wrap:anywhere}
@@ -39,7 +40,7 @@
       .decision-grid{gap:9px}.decision{padding:13px 12px;border-radius:11px}.decision h3{font-size:14px}.decision li,.decision p{font-size:12px}
       .cards{grid-template-columns:minmax(0,1fr);gap:14px}.unit-card{padding:20px}.unit-card h3{font-size:21px}h2{font-size:18px}
       #units{margin-top:24px}.section-label{font-size:9px}.notice{font-size:11px}th,td{padding:8px 5px;font-size:11px}}
-    @media print{body{background:white}main{max-width:none;padding:0}.unit-card,.decision{break-inside:avoid}.cards{grid-template-columns:minmax(0,1fr)}}
+    @media print{body{background:white}main{max-width:none;padding:0}.unit-card,.decision:not(.decided){break-inside:avoid}.decided li{break-inside:avoid}.cards{grid-template-columns:minmax(0,1fr)}}
   </style>
 </head>
 <body>
@@ -53,8 +54,17 @@
     <section id="decisions" aria-labelledby="decisions-title">
       <div class="section-heading"><h2 id="decisions-title">오늘의 결정사항</h2><span class="section-label">먼저 살펴봐요</span></div>
       <div class="decision-grid">
-        <article class="decision pending"><span class="decision-label">답을 기다려요</span><h3>오빠 몫</h3>$hil</article>
-        <article class="decision"><span class="decision-label">원문에 적힌 판정</span><h3>이미 결정된 것</h3>$decided</article>
+        <article class="decision pending"><span class="decision-label">답을 기다려요</span><h3>오빠가 내려야 할 결정</h3>$pending</article>
+      </div>
+    </section>
+    <section id="core" aria-labelledby="core-title">
+      <div class="section-heading"><h2 id="core-title">24시간 핵심</h2><span class="section-label">한눈에</span></div>
+      <div class="decision">$core</div>
+    </section>
+    <section id="decided" aria-labelledby="decided-title">
+      <div class="section-heading"><h2 id="decided-title">이미 내린 결정</h2><span class="section-label">쪽을 넘어 이어져요</span></div>
+      <div class="decision-grid">
+        <article class="decision decided"><span class="decision-label">원문에 적힌 판정</span><h3>오빠가 내린 결정</h3>$decided</article>
       </div>
     </section>
     <section id="units" aria-labelledby="units-title">
@@ -64,6 +74,7 @@
     <p class="stats" id="eli5-stats">$stats</p>
     <p class="notice">AI 풀이는 형식만 검사했어요 · 결정·상태는 PDF·원문이 정본</p>
     <section id="footnotes" aria-labelledby="footnotes-title"><h2 id="footnotes-title">번호 각주표</h2>$footnotes</section>
+    $unmarked
   </main>
 </body>
 </html>

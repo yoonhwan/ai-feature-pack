@@ -80,6 +80,7 @@ class FakeMagazineSlack:
         self.msgs: list[dict] = []
         self.files: list[dict] = []
         self.uploads: list[bytes] = []
+        self.content_types: list[str] = []  # 업로드 바이트 전송 때 보낸 Content-Type(첨부 확장자 시험)
         self.drop_after_create = False
         self.fail_complete = False
         self.drop_after_complete = False
@@ -107,6 +108,7 @@ class FakeMagazineSlack:
                 data = self.rfile.read(int(self.headers["Content-Length"]))
                 if self.path.startswith("/upload/"):
                     outer.uploads.append(data)
+                    outer.content_types.append(self.headers.get("Content-Type", ""))
                     return self._reply({"ok": True})
                 ts = outer._next_ts()
                 body = json.loads(data)

@@ -49,7 +49,7 @@ def fake_eli5(fail: str | None = None, html: str = EASY_HTML) -> types.ModuleTyp
     mod = types.ModuleType("magazine_eli5")
     mod.Eli5Error = Eli5Error  # type: ignore[attr-defined]
 
-    def build(model, notes, cmd):  # noqa: ANN001
+    def build(model, notes, cmd, lines=()):  # noqa: ANN001
         if fail:
             raise Eli5Error(fail)
         return html
