@@ -1364,3 +1364,19 @@
 - 카드 증거 줄(나노 RESULT r2 #67554): `세트: 8dbf61f8a62201ab2042687afd0d9882a76a1f53 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_eli5_decisions.py rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main · 커밋 3개) → 병합(CI 확인과 병합 별 명령) ② `bash scripts/harness-install/slack-mirror/install-magazine.sh`(새 3파일 설치 · WARN 0) ③ 홈 `~/.hermes/scripts/` 변경 파일 = 병합 키트 cmp ④ 10-09 호 `--force` 재발행 1회(env report 직접) ⑤ 슬랙 ts + 스레드 첫 파일이 «쉬운 판» PDF 미리보기로 보이는지 + 1쪽 캡처 경로 → planner 보고.
 - 정본 영향 없음: 하네스 매거진 키트·시험만.
+
+## §106 판정 623 슬랙 채널이 이슈마다 뿌리 글(24시간 207개)로 넘침 — 팀별 하루 뿌리 글 1개 + 그 아래 스레드 + 뿌리 글에 이슈 시작·끝 목록 (오빠 직접 지시 10-09 10:0x · planner#15 → master#22 #67439 · 나노 slack623-team-roots) — 닫힘 · 설계 DA r2 APPROVE + arch 독립 재현 (byz-harness-arch-claude#24 · 2026-10-09)
+- 골 축: A(모니터) + C(배포 발행(슬랙) — 오빠가 슬랙 한 화면에서 팀별 지금 하는 일·이슈 시작과 끝을 읽는다).
+- 대상 카드: slack623-team-roots (대기→진행 `f105b10819` · base `7a60f4fba0`)
+- 기준값(arch#23 실측 · 채널 C0C6MJGRR89 · 10-08 10:1x~10-09 10:1x): 뿌리 글 207 · 그중 이슈 하나당 뿌리 글 196(`Deliverer.thread_ts` 가 키 `#N` 마다 새 뿌리 글) · 답글 853.
+- 설계 DA: r1 HOLD Q2(HIL 질문 라우팅 — 한 스레드에 질문 여럿) · Q3(뿌리 글 고쳐 쓰기 역전·재시작) → 설계 r2(key/post_key 분리 · 이벤트 원장 + 공용 flock 안에서 렌더·update · 두 잠금 비중첩) → r2 APPROVE `3e7cf5b735`. 구현 DA 생략(카드 계약 — 설계 DA 1회 + arch 재현 + 실 슬랙 1회).
+- 나노 커밋 2개(브랜치 `nano/slack623-team-roots` · origin/main `7fbbff9353`(609 랜딩) 위로 rebase · push 0): ①`717c0167d2`(구현 · 새 `mirror_team.py`·`mirror_team_render.py`·`mirror_team_roots.py` · `--team-roots` 플래그 · plist 템플릿 2종에 플래그 · 설치 목록) ②`6ea1fd5cc1`(arch 반송 r1 — «지금 하는 일» 이 번호 든 최신 요약을 통째로 건너뜀 → 609 `magazine_indexless.strip_tokens` 로 걷어 쓰고 6자 미만만 건너뜀 · 설치 목록에 의존 4파일 `magazine_indexless`·`magazine_eli5_batches`·`magazine_summary`·`magazine_emit`).
+- ★arch 독립 재현(#24)★: `6ea1fd5cc1`·`7fbbff9353` 각각 `git archive` → 스크래치:
+  · 새 시험 `tests/scripts/test_mirror_team_{roots,index,concurrency,inbound}.py` **16 passed**.
+  · 기존 미러 시험 `test_byz_github_slack_mirror.py`·`test_byz_mbox_slack_mirror.py`·`test_mirror_summary_cc_route.py` = 12 failed / 30 passed — FAILED 이름 목록 base 와 **diff 0**. `test_byz_slack_mbox_inbound.py` = 13 failed / 15 passed — base 와 **diff 0**(기존 실패 · 별 카드 후보).
+  · ruff clean(변경 .py 전부).
+  · 설치 목록 import 닫힘: `install.sh`·`install-github.sh` 목록 파일만 담은 빈 폴더에서 `python -I` 로 `byz_mbox_slack_mirror`·`byz_github_slack_mirror` import **OK**(의존 누락 0).
+- ★arch 판단 서명★: ①채널 본문 = 팀 뿌리 글(하루·팀 1) + planner 한눈에 1 + HIL 질문 + 매거진·보드·제안서 — 이슈마다 뿌리 글 0 ②HIL 은 원래 key 뿌리 글 유지(질문 등록 thread_ts = 게시 thread_ts) · 팀 스레드의 오빠 답글은 planner 로만 ③팀 목록은 이벤트 원장에서 매번 통째로 다시 그림 — update 실패·재시작이 다음 글에서 복구(조용한 누락 0) ④«지금 하는 일» 문장은 609 와 같은 토큰 함수로 번호 0.
+- 카드 증거 줄(나노 RESULT r1 #67606): `세트: 6ea1fd5cc1b416d3ac6297111aa1a84479197231 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_mirror_team_{roots,index,concurrency,inbound}.py rc=0 (16 passed) · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main · 커밋 2개) → 병합(CI 확인과 병합은 별 명령) ② `bash scripts/harness-install/slack-mirror/install.sh` + `install-github.sh`(새 3파일 + 의존 4파일 설치 · plist 에 `--team-roots` · 미러 2종 재기동 · WARN 0) ③ 홈 `~/.hermes/scripts/` 변경 파일 = 병합 키트 cmp · 설치된 plist 2종에 `--team-roots` grep ④ 실 슬랙 1회 — 재기동 뒤 첫 미러 글이 팀 뿌리 글로 가는지(conversations.history 읽기 전용 · 새 이슈 뿌리 글 0 · 팀 뿌리 글 ts) ⑤ planner 경유 오빠 화면 확인.
+- 정본 영향 없음: 하네스 슬랙 미러 키트·시험만.

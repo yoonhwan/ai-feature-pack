@@ -64,6 +64,20 @@ def fetch_issues(api: str, repo: str, token: str, since: str | None, etag: str |
         page += 1
 
 
+def fetch_labels(api: str, repo: str, token: str, n: int) -> list[str]:
+    """이슈·PR 한 건의 라벨 이름들 — 팀 판정용(읽기 전용 · 실패는 MirrorError)."""
+    _, obj, _ = _get(f"{api}/repos/{repo}/issues/{n}", token)
+    raw = obj.get("labels") if isinstance(obj, dict) else None
+    return [str(lb.get("name", "")) for lb in raw if isinstance(lb, dict)] if isinstance(raw, list) else []
+
+
+def merge_sha(api: str, repo: str, token: str, n: int) -> str | None:
+    """머지된 PR 의 병합 커밋 sha (없으면 None)."""
+    _, obj, _ = _get(f"{api}/repos/{repo}/pulls/{n}", token)
+    sha = obj.get("merge_commit_sha") if isinstance(obj, dict) else None
+    return str(sha) if sha else None
+
+
 def snapshot(issue: dict[str, object]) -> dict[str, object]:
     pr = issue.get("pull_request")
     merged = isinstance(pr, dict) and bool(pr.get("merged_at"))

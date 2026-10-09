@@ -14,6 +14,7 @@
     <string>--mention</string><string>__MENTION__</string>
     <string>--repo</string><string>__REPO__</string>
     <string>--inbox-bin</string><string>__INBOX_BIN__</string>
+    <string>--team-roots</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

@@ -71,9 +71,10 @@ def seed_threads(path: Path, seed: dict[str, str]) -> None:
 
 
 class Deliverer:
-    def __init__(self, api_base: str, token: str, channel: str, threads_path: Path, max_threads: int = MAX_THREADS):
+    def __init__(self, api_base: str, token: str, channel: str, threads_path: Path, max_threads: int = MAX_THREADS, teams=None):
         self.api_base, self.token, self.channel = api_base, token, channel
         self.threads_path, self.max_threads = threads_path, max_threads
+        self.teams = teams  # mirror_team_roots.TeamRoots — 없으면 지금처럼 키(이슈·좌석)마다 뿌리 글
 
     def _post(self, text: str, thread_ts: str | None = None) -> str:
         return lib.post(self.api_base, self.token, self.channel, text, thread_ts)
@@ -94,7 +95,39 @@ class Deliverer:
 
         return ensure_thread(self.threads_path, key, make_root, self.max_threads)
 
+    def has_thread(self, key: str) -> bool:
+        """reply_only 대상 스레드가 있나 — 팀 모드면 원래 키 스레드(결정 요청) 또는 오늘 그 팀 뿌리 글."""
+        if existing_thread(self.threads_path, key) is not None:
+            return True
+        return self.teams is not None and existing_thread(self.threads_path, self.teams.route({"key": key}).post_key) is not None
+
+    def _reply(self, item: dict[str, object], ts: str, resume: bool, text: str) -> None:
+        if resume:  # 조회가 실패하면 raise — 중복보다 지연
+            if lib.has_marker(lib.thread_texts(self.api_base, self.token, self.channel, ts), str(item["id"])):
+                return
+        self._post(text, ts)
+
+    def _team_root(self, post_key: str, resume: bool) -> str:
+        return (self._find_root(post_key) if resume else None) or self._post(self.teams.root_text(post_key))
+
+    def _send_team(self, item: dict[str, object], resume: bool) -> None:
+        """r2-A/B: 게시 스레드는 «팀·날짜 뿌리 글»(결정 요청만 원래 키 스레드) · 맵 잠금 → 답글 → 공용 잠금(원장 + 뿌리 글 다시 그림) 순서, 두 잠금 중첩 0."""
+        key, route = str(item.get("key", lib.OTHER_KEY)), self.teams.route(item)
+        if item.get("reply_only"):
+            ts = existing_thread(self.threads_path, key) or existing_thread(self.threads_path, route.post_key)
+            if ts is None:
+                print(f"WARN reply_only 스레드 없음 key={key} id={item.get('id')} — 올리지 않음", file=sys.stderr)
+                return
+            return self._reply(item, ts, resume, str(item["text"]))
+        question = isinstance(item.get("question"), dict)
+        roots = {k: ensure_thread(self.threads_path, k, lambda k=k: self._team_root(k, resume), self.max_threads) for k in route.root_keys}
+        ts = self.thread_ts(item, resume) if question else roots[route.post_key]
+        self._reply(item, ts, resume, self.teams.reply_text(item, route))
+        self.teams.record(item, route, roots, ts if question else None)  # 재시작에서 resume 마커로 일찍 돌아와도 항상 실행 — 이벤트 id 멱등
+
     def send(self, item: dict[str, object], resume: bool = False) -> None:
+        if self.teams is not None:
+            return self._send_team(item, resume)
         if item.get("reply_only"):  # 새 글 0 — 기존 스레드에 답글만. 맵에 키가 없으면 0줄(설계상 «안 올림» · resume 도 같은 길)
             ts = existing_thread(self.threads_path, str(item.get("key", lib.OTHER_KEY)))
             if ts is None:
@@ -102,7 +135,4 @@ class Deliverer:
                 return
         else:
             ts = self.thread_ts(item, resume)
-        if resume:  # 조회가 실패하면 raise — 중복보다 지연
-            if lib.has_marker(lib.thread_texts(self.api_base, self.token, self.channel, ts), str(item["id"])):
-                return
-        self._post(str(item["text"]), ts)
+        self._reply(item, ts, resume, str(item["text"]))

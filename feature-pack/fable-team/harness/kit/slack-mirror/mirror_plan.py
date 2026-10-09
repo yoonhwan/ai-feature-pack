@@ -4,8 +4,10 @@ planner 수신자는 이름이 아니라 역할 표식 `@planner` — 이름은 
 슬랙에 질문을 되던지지 않는다(되묻기 0) — 번호를 못 찾거나 질문이 여럿이면 원문 그대로 @planner 에 보낸다.
 """
 import argparse
+import sys
 from pathlib import Path
 
+import mirror_deliver as md
 import mirror_inbound as ib
 import mirror_lib as lib
 import mirror_questions as mq
@@ -13,6 +15,20 @@ import mirror_share as ms
 
 CONFIRM = {"확인", "확인했어요", "확인함", "ok", "OK"}
 PLANNER = ms.PLANNER_ROLE
+
+
+def is_team_thread(a: argparse.Namespace, thread: str) -> bool:
+    """스레드 맵에서 이 thread_ts 의 키가 `team:` 로 시작하나 — 팀 뿌리 글 판별."""
+    threads = md.load_threads(Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json")
+    return any(k.startswith("team:") and v == thread for k, v in threads.items())
+
+
+def thread_link(a: argparse.Namespace, token: str, thread: str) -> str:
+    try:
+        return str(lib.api_call(a.api_base, token, "chat.getPermalink", {"channel": a.channel, "message_ts": thread}, get=True)["permalink"])
+    except lib.MirrorError as e:  # 보이게: 링크 대신 ts
+        print(f"ERROR: 스레드 링크 조회 실패: {e} — ts 로 대신 적음", file=sys.stderr)
+        return f"ts={thread}"
 
 
 def plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) -> dict[str, object]:
@@ -38,5 +54,7 @@ def plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) -
         if text in CONFIRM and not opened:
             plan["confirm"] = seq
         return plan
+    if is_team_thread(a, thread):  # 팀 뿌리 글 스레드(판정 623 r2-A): 질문 없는 스레드 — 마지막 봇 글로 좌석을 추정하지 않고 planner 에게만 원문 + 스레드 링크
+        return {**base, "recips": [PLANNER], "text": f"오빠(Slack) 팀 스레드 답글 — 원문:\n{text}\n스레드: {thread_link(a, token, thread)}"}
     seat = ib.inferred_seat(lib.paged(a.api_base, token, "conversations.replies", {"channel": a.channel, "ts": thread, "limit": 200}))
     return {**base, "recips": [seat, PLANNER] if seat else [PLANNER], "text": f"오빠(Slack) 발화 (추정: 열린 질문 없음) — 원문:\n{text}"}

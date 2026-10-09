@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_github as gh  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
+import mirror_team as mt  # noqa: E402
 import resume_block as rb  # noqa: E402
 from mirror_deliver import Deliverer  # noqa: E402
 
@@ -35,9 +36,8 @@ class GithubMirror:
         slug = re.sub(r"[^A-Za-z0-9._-]", "_", a.repo)
         self.state_path = Path(a.state_dir) / f"byz_github_slack_mirror.{slug}.json"
         self.gh_token = gh.read_token()
-        self.deliv = None if a.dry_run else Deliverer(
-            a.api_base, lib.read_token(Path(a.token_file).expanduser()), a.channel,
-            Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json")
+        threads, token = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json", "" if a.dry_run else lib.read_token(Path(a.token_file).expanduser())
+        self.deliv = None if a.dry_run else Deliverer(a.api_base, token, a.channel, threads, teams=mt.build(a, token, threads, self.gh_token))
         self.posted = 0
 
     def _save(self, st: dict[str, object]) -> None:
@@ -59,7 +59,16 @@ class GithubMirror:
         url = str(issue.get("html_url") or "") or lib.issue_url(self.a.repo, f"#{n}")
         block = rb.block(f"#{n}", rb.NONE, "github", url or rb.NONE, rb.DECIDE if kind == "hil" else rb.NONE, rb.NONE) + f"\n({iid})"  # 꼬리 = 마커(id) 그대로
         text = lib.format_row(row, "HIL" if kind == "hil" else "보고", self.a.mention, s, facts, block=block, urls=[url] if url else None, kind=HEAD[kind], seats=getattr(self.a, "planner_seats", "") or None, plain=True)
-        return {"id": iid, "num": n, "kind": kind, "key": f"#{n}", "url": lib.issue_url(self.a.repo, f"#{n}"), "what": s["what"] if s else title, "text": text}
+        labels = [str(lb.get("name", "")) for lb in issue.get("labels") or [] if isinstance(lb, dict)]  # 팀 판정용 — 조회 없이 이 글의 라벨을 쓴다
+        return {"id": iid, "num": n, "kind": kind, "key": f"#{n}", "url": lib.issue_url(self.a.repo, f"#{n}"), "what": s["what"] if s else title, "text": text,
+                "labels": labels, "sha": self._merge_sha(n) if kind == "merged" and self.a.team_roots else None}
+
+    def _merge_sha(self, n: int) -> str | None:
+        try:
+            return gh.merge_sha(self.a.github_api, self.a.repo, self.gh_token, n)
+        except lib.MirrorError as e:  # 보이게: 목록에 「sha 확인 불가」
+            print(f"ERROR: PR #{n} 병합 sha 조회 실패: {e}", file=sys.stderr)
+            return None
 
     def _deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
         if self.deliv is None:
@@ -135,6 +144,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--interval", type=float, default=30.0)
     p.add_argument("--once", action="store_true")
     p.add_argument("--dry-run", action="store_true")
+    mt.add_args(p, github_api=False)
     return p.parse_args()
 
 

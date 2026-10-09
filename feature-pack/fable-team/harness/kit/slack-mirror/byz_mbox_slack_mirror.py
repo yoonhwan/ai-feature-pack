@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_board as mb  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
+import mirror_team as mt  # noqa: E402
 import mirror_questions as mq  # noqa: E402
 import resume_block as rb  # noqa: E402
 from mirror_deliver import Deliverer, seed_threads  # noqa: E402
@@ -53,17 +54,15 @@ class Mirror:
     def __init__(self, a: argparse.Namespace):
         mb.check_args(a)
         self.a = a
-        self.log = Path(a.mailbox)
+        self.log, self.seat = Path(a.mailbox), re.compile(a.seat)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
-        self.seat = re.compile(a.seat)
         self.planner_seats = a.planner_seats or str(self.log.resolve().parent.parent / "seats-planner.json")  # 명부 «경로» 만 유도 — 현역 이름은 매번 live_planner
         self.resume_script = Path(a.resume_script) if a.resume_script else self.log.resolve().parent.parent / "bin" / "ft-resume-cmd.sh"
         if not self.resume_script.is_file():
             raise lib.MirrorError(f"재개 명령 스크립트 없음: {self.resume_script} (--resume-script)")
         self.token = "" if a.dry_run else lib.read_token(Path(a.token_file).expanduser())
-        self.threads_path = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json"
-        self.qpath = Path(a.state_dir) / f"byz_slack_questions.{a.channel}.json"
-        self.deliv = Deliverer(a.api_base, self.token, a.channel, self.threads_path)
+        self.threads_path, self.qpath = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json", Path(a.state_dir) / f"byz_slack_questions.{a.channel}.json"
+        self.deliv = Deliverer(a.api_base, self.token, a.channel, self.threads_path, teams=None if a.dry_run else mt.build(a, self.token, self.threads_path))
         self.posted, self.rows = 0, []
 
     def _send_item(self, item: dict[str, object], resume: bool) -> None:
@@ -132,7 +131,7 @@ class Mirror:
         if s > prev + 1:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
                               "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
-        mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
+        mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path, self.deliv.has_thread if self.deliv.teams else None)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
         if not self.seat.search(str(r.get("to", ""))) or str(r.get("from", "")) == "slack-oppa":  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:
@@ -169,6 +168,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--planner-seats", default="", help="planner 명부(seats-planner.json) 경로 (기본 <mailbox 폴더 상위>/seats-planner.json)")
     p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <mailbox 폴더 상위>/bin/ft-resume-cmd.sh)")
     mb.add_args(p)
+    mt.add_args(p)
     p.add_argument("--interval", type=float, default=5.0)
     p.add_argument("--once", action="store_true")
     p.add_argument("--dry-run", action="store_true")

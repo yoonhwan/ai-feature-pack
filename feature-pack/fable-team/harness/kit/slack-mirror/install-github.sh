@@ -21,7 +21,7 @@ PLANNER_SEATS="${MIRROR_PLANNER_SEATS:-${BYZ_ROOT:+$BYZ_ROOT/.fable-team/seats-p
 env -u GH_TOKEN gh auth token >/dev/null 2>&1 || { echo "ERROR: gh auth 토큰 없음 — gh auth login" >&2; exit 1; }
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_github_slack_mirror.py mirror_github.py mirror_lib.py mirror_share.py mirror_summary.py mirror_deliver.py resume_block.py; do
+for f in byz_github_slack_mirror.py mirror_github.py mirror_lib.py mirror_share.py mirror_summary.py mirror_deliver.py resume_block.py mirror_team.py mirror_team_render.py mirror_team_roots.py magazine_indexless.py magazine_eli5_batches.py magazine_summary.py magazine_emit.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done

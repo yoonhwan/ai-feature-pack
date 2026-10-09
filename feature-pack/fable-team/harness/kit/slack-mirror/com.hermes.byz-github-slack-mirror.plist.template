@@ -11,6 +11,7 @@
     <string>--channel</string><string>__CHANNEL__</string>
     <string>--mention</string><string>__MENTION__</string>
     <string>--planner-seats</string><string>__PLANNER_SEATS__</string>
+    <string>--team-roots</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
