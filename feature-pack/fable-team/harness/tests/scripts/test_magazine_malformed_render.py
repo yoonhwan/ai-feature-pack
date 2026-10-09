@@ -65,6 +65,41 @@ def test_zero_malformed_leaves_all_three_places_unchanged():
     assert "형식 미달" not in root_text("2026-10-09", LINES, None, 0, "U1")
 
 
+REQ_BAD = [{"id": "R38", "cells": 4}, {"id": "R39", "cells": 4}]
+REQ_LINE = "⚠ 형식 미달 요청 행 2개: R38 · R39"
+
+
+def model_with_rows(rows, cards=()):
+    m = model_with(list(cards))
+    m["detail"]["open"]["malformed_requests"] = rows
+    return m
+
+
+def test_603_rows_appear_in_first_screen_root_text_and_appendix_with_all_ids():
+    md, html = mrf.render_full(model_with_rows(REQ_BAD), LINES, "t")
+    after_toc = md.split("## 목차", 1)[1]
+    assert after_toc.index(REQ_LINE) < after_toc.index("\n## ") and md.count(REQ_LINE) == 1 and REQ_LINE in html
+    appendix = md.split("## 부록", 1)[1]
+    assert appendix.index("### 형식 미달 요청 행 2개") < appendix.index("### design/harness/BRIEFING")
+    assert "R38 · 열 수 4(기대 7)" in appendix and "R39 · 열 수 4(기대 7)" in appendix
+    assert REQ_LINE in cli.bad_lines(model_with_rows(REQ_BAD)).split("\n")
+
+
+def test_603_cards_and_rows_are_two_separate_lines_cards_first():
+    m = model_with_rows(REQ_BAD, BAD)
+    assert cli.bad_lines(m).split("\n") == [LINE, REQ_LINE]
+    md, _ = mrf.render_full(m, LINES, "t")
+    after_toc = md.split("## 목차", 1)[1]
+    assert after_toc.index(LINE) < after_toc.index(REQ_LINE) < after_toc.index("\n## ")
+    rows = root_text("2026-10-09", LINES, None, 0, "U1", None, None, None, cli.bad_lines(m)).split("\n")
+    assert rows.index(REQ_LINE) == rows.index(LINE) + 1
+
+
+def test_603_zero_rows_leaves_output_unchanged():
+    assert cli.bad_lines(model_with_rows([])) is None
+    assert mrf.render_full(model_with_rows([]), LINES, "t") == mrf.render_full(model_with([]), LINES, "t")
+
+
 def test_cli_dry_run_root_post_carries_the_line(slack_env, capsys):
     base, tmp = slack_env
     (tmp / "model.json").write_text(json.dumps(model_with(BAD)), encoding="utf-8")

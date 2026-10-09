@@ -14,7 +14,7 @@ from magazine_render import REF, RenderError, check_footnotes, clean_title, foot
 
 LOG = logging.getLogger("byz_morning_magazine")
 DETAIL_KEYS = ("refs", "units", "malformed", "verdict_sections", "decisions", "merge_bodies", "issue_evidence", "open", "seats_closed", "appendix")
-OPEN_KEYS = ("cards", "requests", "holds", "breaches")
+OPEN_KEYS = ("cards", "requests", "malformed_requests", "holds", "breaches")
 NONE: Block = ("p", "없어요")
 
 
@@ -103,8 +103,15 @@ def _malformed(m: Model) -> list[Block]:
     return [("h3", f"형식 미달 카드 {len(bad)}장"), _bullets([f"{c['team']} · {c['path']} · 빠진 절: {', '.join(c['missing'])}" for c in bad])]
 
 
+def _malformed_requests(m: Model) -> list[Block]:
+    bad = m["detail"]["open"]["malformed_requests"]
+    if not bad:
+        return []
+    return [("h3", f"형식 미달 요청 행 {len(bad)}개"), _bullets([f"{r['id']} · 열 수 {r['cells']}(기대 7)" for r in bad])]
+
+
 def _appendix(m: Model) -> list[Block]:
-    return _malformed(m) + [b for a in m["detail"]["appendix"] for b in (("h3", str(a["path"])), _body(a["text"]))]
+    return _malformed(m) + _malformed_requests(m) + [b for a in m["detail"]["appendix"] for b in (("h3", str(a["path"])), _body(a["text"]))]
 
 
 SECTIONS: tuple[tuple[str, str, Callable[[Model], list[Block]]], ...] = (
@@ -134,8 +141,8 @@ def render_full(model: Model, lines: list[str], generated_at: str, warn: str | N
     first = next(i for i, b in enumerate(body) if b[0] == "h2")  # 1부 첫 절(결론) 에 목차 앵커
     body[first] = (*body[first], "part1")
     toc = [("1부 요약판", "part1")] + [(name, anchor) for anchor, name, _ in SECTIONS] + [("각주표", "footnotes")]
-    bad = shape.warning_line(model["detail"]["malformed"])
-    blocks: list[Block] = body[:1] + [("h2", "목차"), ("toc", toc)] + ([("p", bad)] if bad else []) + body[1:] + ([("p", warn)] if warn else [])
+    bad = [shape.warning_line(model["detail"]["malformed"]), shape.requests_warning_line(model["detail"]["open"]["malformed_requests"])]
+    blocks: list[Block] = body[:1] + [("h2", "목차"), ("toc", toc)] + [("p", w) for w in bad if w] + body[1:] + ([("p", warn)] if warn else [])
     blocks.append(("h1", "2부 풀 디테일"))
     for anchor, name, build in SECTIONS:
         blocks += [("h2", name, anchor)] + (build(model) or [NONE])

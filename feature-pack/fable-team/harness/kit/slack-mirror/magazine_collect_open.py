@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+import magazine_card_shape as shape
 from magazine_collect_detail import TITLE_RE, blob, first_wins, git, name_status, sections
 from magazine_window import MagazineError
 
@@ -38,7 +39,8 @@ def _card(repo: Path, info: dict[str, object], team: str, state: str, path: str)
     return {"team": team, "state": state, "path": path, "title": title, "tail": tail, "name": path.rsplit("/", 1)[-1]}
 
 
-def _requests(repo: Path, infos: list[dict[str, object]]) -> list[dict[str, str]]:
+def _requests(repo: Path, infos: list[dict[str, object]], report: bool) -> tuple[list[dict[str, str]], list[dict[str, object]]]:
+    """(정상 열린 행, 형식 미달 행) — 형식 미달은 report 모드에서만 생기고 아니면 raise."""
     last: MagazineError | None = None
     for info in infos:
         try:
@@ -46,16 +48,49 @@ def _requests(repo: Path, infos: list[dict[str, object]]) -> list[dict[str, str]
         except MagazineError as e:
             last = e
             continue
-        return [r for r in (_request(ln) for ln in text.split("\n") if ln.startswith("| R")) if r]
+        return _parse(text, report)
     raise last or MagazineError(f"{LEDGER} 를 읽을 ref 가 없어요")
 
 
-def _request(line: str) -> dict[str, str] | None:
+def _parse(text: str, report: bool) -> tuple[list[dict[str, str]], list[dict[str, object]]]:
+    rows: list[dict[str, str]] = []
+    bad: list[dict[str, object]] = []
+    for no, line in enumerate(text.split("\n"), 1):
+        if not line.startswith("| R"):
+            if report and _is_data_row(line):  # ID 칸이 빈/다른 데이터 행이 '| R' 필터로 조용히 사라지지 않게(DA r1 Q2)
+                _flag(bad, f"(빈 ID) 줄 {no}", len(_cells(line)))
+            continue
+        cells = _cells(line)
+        if len(cells) != LEDGER_CELLS:
+            if not report:
+                raise MagazineError(f"REQUEST-LEDGER 행의 열 수가 {len(cells)} 예요(기대 {LEDGER_CELLS}): {line[:60]}")
+            _flag(bad, line.split("|")[1].strip(), len(cells))  # 첫 칸 그대로(행 내용은 추정·채우지 않는다)
+        elif (row := _request(cells)):
+            rows.append(row)
+    return rows, bad
+
+
+def _is_data_row(line: str) -> bool:
+    """'|' 로 시작하는 줄 중 머리글(첫 칸 '#')·구분선/빈 줄(원문 줄이 전부 `|-: `)이 아닌 줄 — 끝 '|' 없는 줄도 원문 기준이라 놓치지 않는다(DA r2)."""
+    if not line.startswith("|") or set(line.strip()) <= set("|-: "):
+        return False
+    cells = _cells(line)
+    return not (cells and cells[0] == "#")
+
+
+def _flag(bad: list[dict[str, object]], row_id: str, n: int) -> None:
+    shape.request_report_line(row_id, n, LEDGER_CELLS)
+    bad.append({"id": row_id, "cells": n})
+
+
+def _cells(line: str) -> list[str]:
     cells = [c.strip() for c in line.split("|")][1:-1]
     while len(cells) > LEDGER_CELLS and cells[-1] == "":  # 사람이 손으로 쓴 표라 끝에 빈 칸이 더 붙은 행이 있다(실측 R25)
         cells.pop()
-    if len(cells) != LEDGER_CELLS:
-        raise MagazineError(f"REQUEST-LEDGER 행의 열 수가 {len(cells)} 예요(기대 {LEDGER_CELLS}): {line[:60]}")
+    return cells
+
+
+def _request(cells: list[str]) -> dict[str, str] | None:
     if cells[5].startswith("닫힘"):
         return None
     return {"id": cells[0], "text": f"{cells[3]} → {cells[5]}" if cells[5] else cells[3]}
@@ -84,10 +119,13 @@ def _breaches(byz_root: Path) -> list[dict[str, str]]:
 
 def collect_open(repo: Path, infos: list[dict[str, object]], byz_root: Path, start: datetime, end: datetime) -> dict[str, object]:
     span = [f"--since={start.isoformat()}", f"--until={end.isoformat()}"]
+    report = shape.report_mode()
     cards = [{k: v for k, v in c.items() if k != "name"} for c in _cards(Path(repo), infos)]
+    requests, malformed_requests = _requests(Path(repo), infos, report)
     return {
         "cards": cards,
-        "requests": _requests(Path(repo), infos),
+        "requests": requests,
+        "malformed_requests": malformed_requests,
         "holds": _holds(Path(repo), infos, span),
         "breaches": _breaches(Path(byz_root)),
     }

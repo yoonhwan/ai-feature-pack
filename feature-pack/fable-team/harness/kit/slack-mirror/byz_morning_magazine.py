@@ -18,7 +18,7 @@ from pathlib import Path
 
 import thread_ledger as lg
 from magazine_block import block_for, planner_seats, record
-from magazine_card_shape import warning_line
+from magazine_card_shape import bad_lines
 from magazine_emit import Model
 from magazine_git import blob_url, publish_md
 from magazine_pdf import html_to_pdf
@@ -75,7 +75,7 @@ class Made:
     lines: list[str]
     pages: int
     warn: str | None  # 쉬운 판 실패 경고 1줄(뿌리 글·답글·PDF 근거 절에 같은 줄)
-    malformed: str | None = None  # 형식 미달 카드 경고 1줄(뿌리 글 — PDF 첫 화면과 같은 줄)
+    malformed: str | None = None  # 형식 미달 카드·요청 행 경고 1~2줄(뿌리 글 — PDF 첫 화면과 같은 줄)
 
 
 def make_files(model: Model, args: argparse.Namespace) -> Made:
@@ -92,7 +92,7 @@ def make_files(model: Model, args: argparse.Namespace) -> Made:
     if eli5 is not None:
         eli5_path.write_text(eli5, encoding="utf-8")
     pages = html_to_pdf(html_path, pdf_path, f"아침 매거진 {model['date']}")
-    return Made(md_path, html_path, pdf_path, eli5_path if eli5 is not None else None, md, summary.lines, pages, warn, warning_line(model["detail"]["malformed"]))
+    return Made(md_path, html_path, pdf_path, eli5_path if eli5 is not None else None, md, summary.lines, pages, warn, bad_lines(model))  # 카드 줄 · 요청 행 줄(별 줄) — 0 이면 None
 
 
 def oldest_epoch(date: str) -> float:

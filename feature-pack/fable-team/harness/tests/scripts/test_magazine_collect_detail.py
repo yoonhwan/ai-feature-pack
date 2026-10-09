@@ -251,6 +251,6 @@ def test_collect_assembles_detail_with_the_fixture_shape(repo, tmp_path, monkeyp
     assert list(got) == list(fx)
     for key in ("refs", "units", "verdict_sections", "decisions", "seats_closed", "appendix"):
         assert set(got[key][0]) == set(fx[key][0]), key
-    assert set(got["open"]) == set(fx["open"]) and all(set(got["open"][k][0]) == set(fx["open"][k][0]) for k in fx["open"])
+    assert set(got["open"]) == set(fx["open"]) and all(set(got["open"][k][0]) == set(fx["open"][k][0]) for k in fx["open"] if fx["open"][k])  # 빈 칸(malformed_requests)은 키만 대조
     assert list(got["merge_bodies"]) == [repo["c1"]]
     assert got["issue_evidence"] == {"880": "닫는 증거"} and got["decisions"][0]["n"] == 354

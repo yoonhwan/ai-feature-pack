@@ -1327,3 +1327,26 @@
   ⑤ 10-09 호 수동 재발행(env 를 명령에 직접) → 첫 화면·뿌리 글·부록에 «⚠ 형식 미달 카드 13장» 보이는지 1줄.
   ⑥ planner 보고 뒤 plist 재적재(bootout/bootstrap) · 완료 보고 = 랜딩 sha + 재발행 게시 링크.
 - 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.
+
+## §104 판정 603 아침 매거진 수집 중단 — REQUEST-LEDGER 형식 미달 행(열 수 ≠ 7 · ID 빈 데이터 행)을 report 모드에서 «형식 미달 요청 행» 으로 드러내고 계속 발행 (planner 값 ① #67205 · master#21 쪽지 #67206 · 나노 mag603-malformed-ledger-rows-report) — 닫힘 (byz-harness-arch-claude#23 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q2 · r2 HOLD Q2 → 연속 리뷰 종료) → arch 처방·독립 재현 서명(bounded_da_review · §95·§100·§101 선례)★
+- 골 축: C(배포 발행(슬랙) — 원장 행 형식 하나 때문에 전 팀 매거진이 멈추지 않는다 · 형식 미달 행은 숨기지 않고 매거진 본문과 로그에 보인다).
+- 대상 카드: mag603-malformed-ledger-rows-report (대기 `9e75991008` → 진행)
+- 발단(실측): 판정 602(§103 · PR 1060) 설치 뒤 수집 dry 가 `magazine_collect_open.py` `_request` 열 수 raise 로 중단 — 오늘 호 창 끝 스냅샷(origin/main `1c2828e1f8`)의 원장에 4열 행 22개(R38~R59). 정리 PR 1061 은 창 뒤라 오늘 호에 안 잡힘.
+- 나노 커밋 3개(브랜치 `nano/mag603-malformed-ledger-rows-report` · base `60ed7677dd` · push 0):
+  ①`74ab10e7a2`([feature] 602 `report_mode` 그대로 · `_requests(report)` → (정상 행, 형식 미달 행) · stderr `ERROR magazine: 형식 미달 요청 행 <id> (열 수 n · 기대 7)` · `open.malformed_requests` · 첫 화면(목차 뒤 카드 줄 다음)·뿌리 글(`bad_lines` — 카드 줄과 별 줄)·부록 h3 · `OPEN_KEYS` 추가 · 시험 L1~L5) → DA r1(`design/harness/DA-mag603-malformed-ledger-rows-20261009.md` · model GPT-6 / provider OpenAI) Q1·Q3 APPROVE · Q2 HOLD(ID 빈 데이터 행이 `| R` 필터로 report 에서도 침묵) → 반송 r1.
+  ②`dbcb4d6c50`([fix] report 에서만 머리글·구분선·`| R` 외 `|` 줄 = 형식 미달 · id `(빈 ID) 줄 N` · 시험 L6) → DA r2 Q2 HOLD(끝 `|` 없는 줄은 `_cells` 가 마지막 내용을 버려 빈 줄로 판정 → 침묵) → 2번째 HOLD · 리뷰 종료.
+  ③`8202e8fe82`([fix] arch 처방 r2 — 빈 줄·구분선 판정을 «원문 줄» `set(line.strip()) <= set('|-: ')` 로 · 시험 L7).
+- ★arch 독립 재현(#23)★: `8202e8fe82` 아카이브 → `mktemp -d`: collect_open·malformed_render·collect_detail·render_full·collect_mbox **60 passed** · `tests/harness/test_magazine_plist.sh`·`test_magazine_install_list.sh` ALL PASS · ruff clean · `tests/scripts -k magazine` 13 failed = base `60ed7677dd` FAILED diff 0(202 passed).
+  · 프로브(report): DA r1 반례 `|  | a | 요지 | 상태 |` → `(빈 ID) 줄 1`·4열 · DA r2 반례 `|  |  | 요청 요지`(끝 `|` 없음) → `(빈 ID) 줄 1`·2열 · `| R1 | a | b |` → R1·3열 · `|  |  |  |`·`|---|---|`·`| # | x |`·빈 줄 → 0 · 기본 모드 `|  |  | 요청 요지` → 무시(지금 그대로).
+  · ★실데이터 전체 dry-run★(`74ab10e7a2` 키트 사본 `byz_morning_magazine.py --date 2026-10-09 --dry-run` · env `report` · 실제 리포·mailbox·LLM 요약·PDF · 게시·push·상태 0): rc=0 · PDF 537쪽 · ERROR 카드 13 + 요청 행 22 · 목차 뒤·뿌리 글·부록 세 곳 표시. ②③ 은 `_parse`/`_is_data_row` 만 바꿨고 실데이터 재수집(`8202e8fe82`)도 requests 35 · malformed_requests 22 · `(빈 ID)` 0 으로 같다 → 5번째 원인 없음.
+- ★arch 판단 서명★: ①NO SILENT FALLBACK 예외 3요건(opt-in · ERROR 로그 · 보이는 경고) 충족 — 기본 모드는 `| R` 필터·열 수 raise 그대로(DA Q1 APPROVE) ②정상 행·0건 출력 불변(DA Q3 APPROVE) ③DA 두 반례 모두 처방으로 드러남 · ★명시 제한★: 원문 줄이 `|`·`-`·`:`·공백뿐인 줄(빈 줄·구분선)과 첫 칸이 `#` 인 줄(머리글)은 형식 미달로 세지 않는다 — 앞은 담긴 내용이 없고 뒤는 표 머리글 정의다 ④실제 원장(창 끝·main)에 ID 빈 행·끝 `|` 없는 줄 0 — 오늘 호 출력은 r1 과 같다.
+- 별건(카드 밖 · 큐): §103 별건 4건 그대로(기존 13 실패 중 decisions 4 = 판정 601 fixture · 기존 9 · cfo 옛 카드 12 · harness update-tools-20261008.md 배경) + 쉬운 판 «AI 풀이 생략» ERROR 18줄(오늘 dry · 기존 보이는 경고).
+- 카드 증거 줄(나노 RESULT r2 #67228): `세트: 8202e8fe82f46c2b8b8981f67263e3e0ee7f092f · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_open.py rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고 · 5번째 원인이면 오늘 호 생략 — master#21 #67206 상한)★:
+  ① PR(origin/main · 커밋 3개) → 병합(`--body-file` · CI 확인과 병합 별 명령).
+  ② `bash scripts/harness-install/slack-mirror/install-magazine.sh`(WARN 0 · plist 변경 없음).
+  ③ 홈 `~/.hermes/scripts/` 의 `magazine_collect_open.py`·`magazine_card_shape.py`·`magazine_render_full.py`·`byz_morning_magazine.py` = 병합 키트 cmp.
+  ④ 수집 dry 1회(env `report` · raise 0 · ERROR 카드 13 + 요청 행 22).
+  ⑤ 10-09 호 수동 재발행(env 를 명령에 직접) → 첫 화면·뿌리 글·부록에 «⚠ 형식 미달 카드 13장»·«⚠ 형식 미달 요청 행 22개» 보이는지 1줄.
+  ⑥ planner 보고 · 완료 보고 = 랜딩 sha + 재발행 게시 링크.
+- 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.

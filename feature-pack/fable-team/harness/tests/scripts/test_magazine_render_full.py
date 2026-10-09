@@ -38,7 +38,7 @@ def test_empty_sections_say_none_instead_of_vanishing():
     for k in ("units", "verdict_sections", "decisions", "seats_closed", "appendix"):
         d[k] = []
     d["merge_bodies"], d["issue_evidence"] = {}, {}
-    d["open"] = {"cards": [], "requests": [], "holds": [], "breaches": []}
+    d["open"] = {"cards": [], "requests": [], "malformed_requests": [], "holds": [], "breaches": []}
     m["merges"], m["issues_opened"], m["issues_closed"] = [], [], []
     m["seats"] = {"succession": [], "new": []}
     _, html = render(m)

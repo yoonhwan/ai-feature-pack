@@ -59,6 +59,7 @@ def detail_fixture() -> dict:
         "open": {
             "cards": [{"team": "harness", "state": "진행", "path": "design/harness/indices/진행/y.md", "title": "진행 단위", "tail": ["- 상태 1", "- 상태 2", "- 상태 3"]}],
             "requests": [{"id": "R24", "text": "증상 → 접수"}],
+            "malformed_requests": [],
             "holds": [{"path": "design/harness/DA-z.md", "verdict": "HOLD"}],
             "breaches": [{"path": "state/gce-op-model/BREACH.md", "text": "# GCE 감시 …"}],
         },

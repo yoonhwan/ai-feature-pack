@@ -38,6 +38,23 @@ def report_line(path: str, missing: list[str]) -> None:
     print(f"ERROR magazine: 형식 미달 카드 {path} (빠진 절: {', '.join(missing)})", file=sys.stderr)
 
 
+def request_report_line(row_id: str, cells: int, expected: int) -> None:
+    print(f"ERROR magazine: 형식 미달 요청 행 {row_id} (열 수 {cells} · 기대 {expected})", file=sys.stderr)
+
+
+def requests_warning_line(rows: list[dict[str, object]]) -> str | None:
+    """원장 형식 미달 행 경고 1줄 — 0행이면 None. 카드 경고 줄과 별 줄이다."""
+    if not rows:
+        return None
+    return f"⚠ 형식 미달 요청 행 {len(rows)}개: " + " · ".join(str(r["id"]) for r in rows)
+
+
+def bad_lines(model: dict) -> str | None:
+    """뿌리 글용 — 카드 줄 · 요청 행 줄(별 줄). 둘 다 0 이면 None(출력 바이트 불변)."""
+    lines = [warning_line(model["detail"]["malformed"]), requests_warning_line(model["detail"]["open"]["malformed_requests"])]
+    return "\n".join(x for x in lines if x) or None
+
+
 def warning_line(malformed: list[dict[str, object]]) -> str | None:
     """첫 화면·뿌리 글 공용 1줄 — 형식 미달 0장이면 None(출력 바이트 불변)."""
     if not malformed:

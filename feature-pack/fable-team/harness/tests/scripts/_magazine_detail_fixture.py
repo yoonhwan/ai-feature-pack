@@ -33,7 +33,7 @@ def detail_fixture(extra_lines: int = 0) -> dict:
         "merge_bodies": {"1" * 40: "Why: 요약.\nWhat: 미러.\nVerify: 시험.\nImpact: 없음."},
         "issue_evidence": {"880": "닫는 증거 댓글\n둘째 줄"},
         "open": {"cards": [{"team": "harness", "state": "진행", "path": "design/harness/indices/진행/a.md", "title": "열린 카드", "tail": ["a", "b", "c"]}],
-                 "requests": [{"id": "R13", "text": "열린 요청"}], "holds": [{"path": "design/harness/DA-y.md", "verdict": "HOLD"}],
+                 "requests": [{"id": "R13", "text": "열린 요청"}], "malformed_requests": [], "holds": [{"path": "design/harness/DA-y.md", "verdict": "HOLD"}],
                  "breaches": [{"path": "state/gce-op-model/BREACH.md", "text": "# GCE 감시\n- 86h 경과"}]},
         "seats_closed": [{"path": "design/harness/NANO-LEDGER-20261008.md", "line": "| x | 닫힘 |"}],
         "appendix": [{"path": "design/harness/BRIEFING-morning-20261008.md", "text": "브리핑 1\n브리핑 2"}],

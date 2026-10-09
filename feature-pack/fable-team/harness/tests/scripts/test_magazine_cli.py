@@ -148,7 +148,7 @@ def test_cli_through_real_collect_composition(cli_env, slack, tmp_path, monkeypa
     monkeypatch.setattr(magazine_collect, "collect_detail", lambda *a: no_detail)
     monkeypatch.setattr(magazine_collect, "collect_decisions", lambda *a: [])
     monkeypatch.setattr(magazine_collect, "last_comments", lambda *a: {})
-    monkeypatch.setattr(magazine_collect, "collect_open", lambda *a: {"cards": [], "requests": [], "holds": [], "breaches": []})
+    monkeypatch.setattr(magazine_collect, "collect_open", lambda *a: {"cards": [], "requests": [], "malformed_requests": [], "holds": [], "breaches": []})
     argv = [*base[2:], "--repo-root", str(tmp_path), "--date", "2026-10-08", "--no-push"]
     assert cli.main(argv) == 0 and len(slack.roots) == 1
     assert "슬랙 미러 요약" in (tmp_path / "out" / "MAGAZINE-20261008.md").read_text(encoding="utf-8")
