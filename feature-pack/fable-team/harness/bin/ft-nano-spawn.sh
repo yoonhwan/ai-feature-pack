@@ -151,8 +151,9 @@ IDX_REL="${IDX_ABS#"$WT"/}"
 if [ ! -d "$WTDIR" ] && git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then
   WT_BASE="$WTDIR"; R=1
   while git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; do
+    # R71: --base 가 sha 면 게이트는 랜딩 브랜치(INFO_BASE · R42)와 비교 — sha 를 넘기면 게이트가 «브랜치 없음» 으로 막는다
     gate="$( [ "$HAVE_CO" -eq 0 ] || export FT_SEAT="$FROM"   # R70: 원장 seat 칸 = 발주자(서브셸 안만)
-             bash "$HERE/ft-nano-cherry-gate.sh" "$BASE_BRANCH" "$BRANCH" --repo "$ROOT" ${CO_ARGS[@]+"${CO_ARGS[@]}"} )" \
+             bash "$HERE/ft-nano-cherry-gate.sh" "$INFO_BASE" "$BRANCH" --repo "$ROOT" ${CO_ARGS[@]+"${CO_ARGS[@]}"} )" \
       || { echo "REJECT 옛 브랜치 미반입 — $BRANCH (삭제·덮기·재사용 0 · 판정 arch):"; printf '%s\n' "$gate"; exit 1; }
     echo "old_branch=$BRANCH landed=yes gate=${gate%% *}"
     [ -d "$WTDIR" ] && break

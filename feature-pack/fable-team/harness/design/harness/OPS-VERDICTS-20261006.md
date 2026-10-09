@@ -1490,3 +1490,18 @@
 - ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 게이트 `4d3330b20b0b` · spawn `839ccdf23b99` 확인 → 다르면 cp 0 · arch 반송 → 같으면 cp + cmp 2 ③ 설치 자리에서 요청자 재현 명령 1회 = PASS(사유 `content_identical_to_feat_head`) ④ v65 master(현역)에 «게이트 수정 설치 · spawn 재시도 가능 · `--cherry-override "<사유>"`» 1줄 ⑤ 요청 원장 R70 닫힘 ⑥ 나노 r70 닫기.
 - 남은 것(별 후보 · 착수 0): ①merge-tree 충돌 경로가 전부 design/ 이면 결과 트리로 ①(delta 검사)을 살리는 개선 ②`ft-nano-spawn.sh` 233줄 — 200줄 한도 초과 기존 부채 ③루트 `.fable-team/bin/ft-nano-spawn.sh`(`347db2a1a3c7`)는 키트와 다르고 옆에 게이트 없음.
 - 정본 영향: 하네스 키트 게이트 2 + spawn 2 · 설치본 2 · 홈 정본 0.
+- ★집행 결과(master#24 · 2026-10-09)★: PR 1150 squash 02b45e8832 · 설치본 cp 전 sha12 일치(게이트 4d3330b20b0b · spawn 839ccdf23b99) → cmp OK 2(백업 .bak-r70-1009) · 요청자 재현 명령 rc=0 · 동일 28개 · 사유 content_identical_to_feat_head · v65 master#156·arch#192 통지(쪽지 70295·70296).
+
+## §116 R71 spawn ②-0 이 cherry 게이트에 `--base` sha 대신 랜딩 브랜치(`INFO_BASE` · R42)를 넘긴다 (v65 master#156 #70298 · R70 후속 · v65 나노 spawn 차단 해소 · 나노 r71-spawn-gate-landing-branch) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(메인 오케 개선요청 접수 — R71) + C(도구 업그레이드·설치).
+- 대상 카드: r71-spawn-gate-landing-branch (대기 `57fe0cda1f`)
+- 원인(arch#25 실측 · 실 v65 읽기 전용): ②-0 게이트 호출이 `$BASE_BRANCH`(= `--base 4c19fa1ffe` 그대로)를 넘김 → 게이트는 feat 를 `refs/heads/`·`refs/remotes/` 만 받아 «브랜치 없음» REJECT · `--override` 도 그 검사 뒤라 못 넘음(원장 기록 0). spawn 은 R42 분기에서 sha 일 때 랜딩 브랜치(`INFO_BASE`)를 이미 구해 두는데 ②-0 만 그 값을 안 씀.
+- 판단(arch 서명 · DA 면제): 질문이 «옛 브랜치 코드가 랜딩 브랜치에 들어왔나» 라 비교 대상은 랜딩 브랜치(닫기 게이트와 같은 기준) · `--base` 가 브랜치·없음이면 `INFO_BASE == BASE_BRANCH` 라 무변경 · 워크트리 생성·`base_sha` 는 sha 유지(기준점 고정 그대로) · 게이트 코드 0.
+- 나노 커밋 1개(브랜치 `nano/r71-spawn-gate-landing-branch` · base = origin/main `02b45e8832`(R70 랜딩) · push 0): `51b31f5dfd`(3파일 +77 −2 — spawn 두 사본 게이트 첫 인자 `"$BASE_BRANCH"` → `"$INFO_BASE"` + 주석 1줄 · `tests/harness/test_spawn_gate_landing_branch.sh`).
+- ★arch 독립 재현(#25)★: `51b31f5dfd` 아카이브 → 스크래치 `test_spawn_gate_landing_branch.sh` **ALL PASS rc=0** · `test_cherry_gate_identical_head.sh` **ALL PASS rc=0** · `test_cherry_gate_squash.sh` **fail=0 rc=0** · 두 사본 cmp 동일.
+  · ★실 v65 읽기 전용★: 수정본 spawn 의 R42 분기 + ②-0 게이트 호출 줄을 요청자 값(`BASE_REF=4c19fa1ffe` · 호출 워크트리 v6-realtime-live · `FT_NANO_FEAT` 없음)으로 실행 → `BASE_BRANCH=4c19fa1ffe INFO_BASE=feat/v6-realtime-live` · 게이트 **rc=0 · 통과 · 동일 28개 · 사유 `content_identical_to_feat_head`** · «브랜치 없음» 0. 실 spawn 실행·카드 이동 0.
+  · 설치본 `.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh` 현재 `8465896b0868` = base(R70 랜딩본 · cp 가능).
+- 카드 증거 줄(나노 #70320): `세트: 51b31f5dfd6f27f52e3a867973f0ed5245740abd · 시험: bash tests/harness/test_spawn_gate_landing_branch.sh rc=0 · bash tests/harness/test_cherry_gate_identical_head.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 spawn cp 전 sha256 앞12 `8465896b0868` 확인 → 다르면 cp 0 · arch 반송 → 같으면 cp + cmp ③ v65 master(현역)에 «spawn --base <sha> 재시도 가능» 1줄 ④ 요청 원장 R71 닫힘 ⑤ 나노 r71 닫기.
+- 별 후보 R72(착수 0 · R71 닫힌 뒤 카드): v65 arch#192 #70308 제안 — `--recheck` 대조가 판정문의 «정확한 sha» 만 받아 공용 feat 의 docs 커밋에 매번 밀림 → 판정문 sha..CUR_HEAD diff 가 카드 인용 파일을 안 건드리면 통과(같은 `_chg` 필터 재사용). 방향 타당 · 단 판정문에서 hex 를 전부 긁는 현 방식이라 «기준 sha» 칸(`recheck_sha:`)부터 정해야 함 — 재대조 안전검사 의미 변경이라 별 설계. R71 랜딩 뒤엔 `--base <sha>` 고정으로 차단 없음.
+- 정본 영향: 하네스 키트 spawn 2 · 설치본 1 · 홈 정본 0.
