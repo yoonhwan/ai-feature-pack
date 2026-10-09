@@ -107,7 +107,7 @@ if [ "$nb" -gt 0 ]; then
   mbase="$(git -C "$REPO" merge-base "$NANO" "$FEAT")"; mbrc=$?
   [[ "$mbrc" -eq 0 && "$mbase" =~ ^[0-9a-f]{40,64}$ ]] || { echo "REJECT cherry 게이트 — git merge-base 실패(rc=$mbrc) — superseded 증거 구간을 못 정함"; exit 1; }
   sort -z -u -o "$plus_file" "$plus_file"
-  nsup=0; nmiss=0; ndoc=0; missing=""; sup_commit=""   # ndoc = design/ 문서 종류 경로 중 feat 역사에 없는 것(WARN 만 · 코드 종류는 nmiss)
+  nsup=0; nid=0; nmiss=0; ndoc=0; missing=""; sup_commit=""   # nid = tip 내용이 feat HEAD 와 같은 경로(R70) · ndoc = design/ 문서 종류 경로 중 feat 역사에 없는 것(WARN 만 · 코드 종류는 nmiss)
   while IFS= read -r -d '' p; do
     [ -n "$p" ] || continue
     [ "$nmiss" -lt 20 ] || break   # REJECT 확정 + 목록 상한 20 — 나머지는 안 돈다(경로 수천 개 혼합 커밋에서 git log 수천 번 방지)
@@ -120,6 +120,10 @@ if [ "$nb" -gt 0 ]; then
       continue
     fi
     meta="${entry%%$'\t'*}"; mode="${meta%% *}"; sha1="${meta##* }"
+    # R70: tip 의 (mode,blob) 이 feat HEAD 의 같은 경로와 «같으면» 머지해도 그 경로는 안 바뀐다(나노가 바꿨다 되돌림) — 잃을 코드 0 · 로그 조회 전에 통과로 센다(DA 599 H1 은 tip ≠ feat HEAD 라 그대로 아래로 간다).
+    fe2="$(git --literal-pathspecs -C "$REPO" ls-tree "$FEAT" -- "$p")"; f2rc=$?
+    [ "$f2rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree($FEAT) 실패(rc=$f2rc) 경로 $p"; exit 1; }
+    if [ "${fe2%%$'\t'*}" = "$meta" ] && [ -n "$fe2" ]; then nid=$((nid + 1)); continue; fi
     raw="$(git --literal-pathspecs -C "$REPO" -c core.quotepath=false log "$mbase..$FEAT" --no-renames --format='commit %h' --raw --no-abbrev -- "$p")"; lrc2=$?
     [ "$lrc2" -eq 0 ] || { echo "REJECT cherry 게이트 — git log($FEAT) 실패(rc=$lrc2) 경로 $p"; exit 1; }
     hit=""; cur=""
@@ -130,8 +134,9 @@ if [ "$nb" -gt 0 ]; then
     if [ -n "$hit" ]; then nsup=$((nsup + 1)); sup_commit="$hit"; elif is_doc_path "$p"; then ndoc=$((ndoc + 1)); else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip ${mode} ${sha1:0:9} 가 분기 뒤 $FEAT 구간(${mbase:0:9}..)에 새 blob 으로 없음)"$'\n'; fi
   done < "$plus_file"
   docwarn="WARN cherry 게이트 — design/ 문서 종류 경로 ${ndoc}개가 $FEAT 역사에 없음(코드 0 · 브랜치 보존으로 복구 가능)"   # 첫 줄은 INFO·REJECT 로 둔다(WARN 은 뒤에)
-  if [ -z "$missing" ] && [ "$nsup" -gt 0 ]; then
-    echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 전부 tip 내용이 분기 뒤 $FEAT 구간에 새 blob 으로 있음(예 $sup_commit) — 통과 (사유 content_landed_then_superseded)"
+  if [ -z "$missing" ] && [ $((nsup + nid)) -gt 0 ]; then
+    reason="content_landed_then_superseded"; [ "$nsup" -gt 0 ] || reason="content_identical_to_feat_head"; [ "$nsup" -eq 0 ] || [ "$nid" -eq 0 ] || reason="${reason}+content_identical_to_feat_head"
+    echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 tip 내용이 분기 뒤 $FEAT 구간에 새 blob 으로 있음(예 ${sup_commit:-없음}) · feat HEAD 와 동일 ${nid}개 — 통과 (사유 $reason)"
     [ "$ndoc" -eq 0 ] || echo "$docwarn"
     exit 0
   fi

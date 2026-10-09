@@ -1474,3 +1474,19 @@
 - ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 래퍼 cp 전 sha256 앞12 `193b451e3d3d` 확인 → 다르면 cp 0 · arch 반송 → 같으면 래퍼 + 새 본체 cp + cmp 2 ③ 설치 자리 `ft-gh-as-tank.sh label-create probe --color 000000` dry-run 1회(DRY 줄 · 실 호출 0) ④ issues master(현역)·issues#8 에 사용법 1줄 ⑤ 요청 원장 R68 닫힘 ⑥ 나노 r68 닫기 ⑦ planner 보고.
 - 남은 것(별 후보 · 오빠 컨펌 필요 · 착수 0): 가드가 `gh label create|edit|delete` · `gh api …/labels` 쓰기를 막아 래퍼로만 가게 할지(홈 훅 변경 — 이 랜딩 뒤에만 의미).
 - 정본 영향: 하네스 키트 래퍼 2 + 새 본체 2 · 설치본 2 · 홈 정본 0.
+- ★집행 결과(master#23 · 2026-10-09)★: PR 1113 squash 780267aa4d · 설치본 래퍼 cp 전 sha12 일치(193b451e3d3d) → 래퍼 + 새 본체 CMP OK 2(백업 .bak-r68-1009) · 설치 자리 label-create probe --color 000000 DRY 줄 정상 · issues master#8 사용법 통지 · R68 닫힘 표기.
+
+## §115 R70 cherry 게이트 오탐 — tip 내용이 feat HEAD 와 같은 경로는 PASS(`content_identical_to_feat_head`) + `ft-nano-spawn.sh --cherry-override` 패스스루 (v65 arch#192 판정 ⓐ·ⓒ · 쪽지 #70274 · v65 나노 spawn 차단 해소 · 나노 r70-cherry-gate-identical-head) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(메인 오케 개선요청 접수 — R70) + C(도구 업그레이드·설치).
+- 대상 카드: r70-cherry-gate-identical-head (대기 `d20d93c65e`)
+- 원인(arch#25 실측 · 실 v65 저장소 읽기 전용): ①merge-tree 충돌이 design/ 카드 1개뿐인데 `conflict=1` 이면 design/ 밖 delta 검사(①)를 통째로 건너뜀 ②superseded 검사는 «분기 뒤 feat 구간 새 blob» 만 증거로 봐서, 나노가 바꿨다 되돌린 `gateway/main.py`(분기점·tip·feat HEAD 같은 blob `19c25b257`)를 REJECT.
+- 판단(arch 서명 · DA 면제): tip (mode,blob) == feat HEAD (mode,blob) 인 경로는 3-way 머지에서 나노 쪽 = feat 쪽이라 결과 = feat HEAD(변경 0) — 잃을 코드 0 · 새 거짓 PASS 경로 0. DA 599 H1(분기 전 옛 blob 롤백)은 tip ≠ feat HEAD 라 기존 검사로 그대로 REJECT. override 는 기존 게이트 경로(사유 필수 · 원장 1행 · ERROR 로그) 재사용 — 새 우회 0.
+- 나노 커밋 1개(브랜치 `nano/r70-cherry-gate-identical-head` · base = origin/main `11654cd9cc` · push 0): `6a558e64c3`(5파일 +108 −16 — 게이트 두 사본 +11(경로별 feat HEAD 대조 4줄 · 통과 조건·사유 토큰) · spawn 두 사본 +13·−? (`--cherry-override` 파싱 · 빈 사유 exit 2 · 게이트 호출에 `--override` + 서브셸 `FT_SEAT=$FROM`) · `tests/harness/test_cherry_gate_identical_head.sh`).
+- ★arch 독립 재현(#25)★: `6a558e64c3` 아카이브 → 스크래치 `bash tests/harness/test_cherry_gate_identical_head.sh` **ALL PASS rc=0** (①오탐 재현 PASS · ②옛 blob 롤백 REJECT(H1 회귀) · ③superseded PASS · ④새 내용 REJECT · ⑤mode 만 다름 REJECT · ⑥빈·공백 사유 exit 2 · 인자 없음 현행 · ⑦squash 시험 · ⑧두 쌍 cmp · bash -n · 게이트 186줄) · `bash tests/harness/test_cherry_gate_squash.sh` fail=0 rc=0.
+  · ★실 v65 재현(읽기 전용)★: 새 게이트로 요청자 재현 명령 → **rc=0 · INFO 통과 · `feat HEAD 와 동일 28개` · 사유 `content_identical_to_feat_head`** (+ WARN design/ 문서 1개). 수정 전 게이트는 같은 명령에 REJECT(`gateway/main.py`).
+  · ★패스스루 동작 실측★(시험 ⑥은 글자 검사라 arch 가 따로): spawn 의 해당 줄을 인자 기록 스텁 게이트로 실행 — 사유 있음 → `--override 오탐 R70 사유` · `FT_SEAT=v65-master#156` / 인자 없음 → `--override` 0 · `FT_SEAT` 미설정(호출 바이트 현행).
+  · 설치본 `.worktrees/v6-realtime-live/.fable-team/bin/` 게이트 `4d3330b20b0b` · spawn `839ccdf23b99` = base 그대로(cp 가능).
+- 카드 증거 줄(나노 #70285): `세트: 6a558e64c3b001579512b29054163b491dce3541 · 시험: bash tests/harness/test_cherry_gate_identical_head.sh rc=0 · bash tests/harness/test_cherry_gate_squash.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 게이트 `4d3330b20b0b` · spawn `839ccdf23b99` 확인 → 다르면 cp 0 · arch 반송 → 같으면 cp + cmp 2 ③ 설치 자리에서 요청자 재현 명령 1회 = PASS(사유 `content_identical_to_feat_head`) ④ v65 master(현역)에 «게이트 수정 설치 · spawn 재시도 가능 · `--cherry-override "<사유>"`» 1줄 ⑤ 요청 원장 R70 닫힘 ⑥ 나노 r70 닫기.
+- 남은 것(별 후보 · 착수 0): ①merge-tree 충돌 경로가 전부 design/ 이면 결과 트리로 ①(delta 검사)을 살리는 개선 ②`ft-nano-spawn.sh` 233줄 — 200줄 한도 초과 기존 부채 ③루트 `.fable-team/bin/ft-nano-spawn.sh`(`347db2a1a3c7`)는 키트와 다르고 옆에 게이트 없음.
+- 정본 영향: 하네스 키트 게이트 2 + spawn 2 · 설치본 2 · 홈 정본 0.
