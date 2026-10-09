@@ -1,9 +1,9 @@
 {
   "_name": "Seatbelt-GRAPHICS",
-  "_version": "1.0.0",
-  "_doc": "graphics 팀(공용 서비스 · 그래픽·UI/UX — 요청 때만 여는 상시 0 팀 · 오빠 확정 2026-10-09 판정 649) 좌석 레지스트리. 열기·감시·닫기 = 하네스 master(_master 는 하네스 현역 master — 하네스 master 승계 때 같이 고친다). 팀 master 0 · 상시 틱 0(launchd plist 0). 제안서 design/harness/PROPOSAL-team-graphics-20261009.md r5. ft-role-spawn 은 v65 고정이라 쓰지 않는다(arch·DA = tmuxc open + 손 등록, 나노 = ft-nano-spawn.sh --agent codex --model gpt-6.1-sol). 카드 = .worktrees/harness-ops/design/graphics/indices. env = .fable-team/bin-graphics/graphics-env.sh. 골 = design/graphics/GOAL-graphics.md. ★v65·cfo·ops·loom 명부와 섞지 않는다★",
-  "_master": "byz-harness-master-claude#22",
-  "_hil_route": "byz-planner-master-claude#16",
+  "_version": "1.1.0",
+  "_doc": "graphics 팀(공용 서비스 · 그래픽·UI/UX — 요청 때만 여는 상시 0 팀 · 오빠 확정 2026-10-09 판정 649 → 판정 690 팀장 체제) 좌석 레지스트리. 열기 = planner 가 팀장(_master)을 연다(요청 1건) · 팀장이 arch·나노·DA 를 연다 · 감시 = 팀장 자기 10분 크론 · 닫기 = 팀장이 제안서 §3.7 공통 3실측 뒤 좌석을 닫고 planner 에 1줄. 하네스 master 는 도구·설치·원격 보존·랜딩 병합 push 만 맡는다. _master 는 팀장 현역 좌석 — 팀장 승계 때 graphics-env.sh FT_SEND_FROM 과 같이 고친다. _hil_route 값은 템플릿 값이다 — planner 승계 때 고친다. 상시 틱 0(launchd plist 0). 제안서 design/harness/PROPOSAL-team-graphics-20261009.md r5. ft-role-spawn 은 v65 고정이라 쓰지 않는다(arch·DA = tmuxc open + 손 등록, 나노 = ft-nano-spawn.sh --agent codex --model gpt-6.1-sol). 카드 = .worktrees/harness-ops/design/graphics/indices. env = .fable-team/bin-graphics/graphics-env.sh. 골 = design/graphics/GOAL-graphics.md. ★v65·cfo·ops·loom 명부와 섞지 않는다★",
+  "_master": "byz-graphics-master-claude#0",
+  "_hil_route": "byz-planner-master-claude#17",
   "_arch": "",
   "_cards": "design/graphics/indices",
   "_cards_wt": "harness-ops",

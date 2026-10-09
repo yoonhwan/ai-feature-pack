@@ -4,7 +4,7 @@
 # 사용: ft-harness-info.sh <map|rules|seats|requests|find 키워드>
 #   map       하네스 지도(정본 목차 1장) 출력 — 스킬 references/harness-map.md
 #   rules     정본 경로 목록 + 실재 여부(OK/없음)
-#   seats     라이브 tmux 세션 전부 + 이름 규칙(ft-name-lint) 판정
+#   seats     라이브 tmux 세션 전부 + 이름 규칙(ft-name-lint) 판정 + 팀 명부 절(seats-*.json 파일별 master·arch·hil·좌석·열림)
 #   requests  하네스 요청 원장(REQUEST-LEDGER.md) 표 행 — main 기준
 #   find KW   정본 문서 본문에서 키워드 검색(파일:줄)
 #   exit 0 = 출력 · 2 = usage · 1 = 정본 파일을 못 읽음(폴백 없음)
@@ -47,6 +47,22 @@ case "$CMD" in
       r="$(bash "$HERE/ft-name-lint.sh" "$n")"
       case "$r" in PASS*) r="PASS";; *) r="REJECT ${r#*: }";; esac
       printf '%-52s %s\n' "$n" "$r"
+    done
+    echo "== 팀 명부 (루트 .fable-team/seats-*.json) =="
+    for f in "$ROOT"/.fable-team/seats*.json; do
+      [ -f "$f" ] || continue
+      python3 -I - "$f" <<'PY'
+import json, subprocess, sys
+p = sys.argv[1]
+name = p.rsplit("/", 1)[-1]
+try:
+    d = json.load(open(p))
+    rows = [k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)]
+    up = sum(1 for k in rows if subprocess.run(["tmux", "has-session", "-t", "=" + k], capture_output=True).returncode == 0)
+    print("%s master=%s arch=%s hil=%s 좌석=%d 열림=%d" % (name, d.get("_master", "-"), d.get("_arch", "-"), d.get("_hil_route", "-"), len(rows), up))
+except Exception:
+    print("ERR %s 파싱 실패" % name)
+PY
     done ;;
   requests)
     out="$(main_file design/harness/REQUEST-LEDGER.md)" || true

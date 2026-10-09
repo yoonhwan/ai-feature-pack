@@ -1402,7 +1402,7 @@
 - 집행: /tmp/byz-*.log 8개 비움 · docker 빌드캐시·이미지 약 5GB(docker 안) · uv 캐시 미집행(다른 uv 잠금) · /tmp 7일+ 0GB · baton 만료 0건 · ★v6 scratchpad 1일 넘은 비추적 산출 삭제는 훅 차단 → 오빠가 run646.sh 직접 실행★: df 전 48Gi(98%) → 후 116Gi(94%) · +68GB · 남은 tcc8 회차 148(최근 회차 보존).
 - 별건(착수 0): uv 캐시 53GB 재시도 · .baton/archive 110GB 보관 기간 단축은 오빠 승인 별도.
 
-## §109 판정 675·676 운영 계정 토큰 자동 발급 `ft-op-token.sh` — 구현 완료 · 보안 DA APPROVE (오빠 문책 10-09 「토큰 안된다 매번 이렇게 멍청하게 해야되냐」 · 676 = 비밀 출력 0 · 나노 op675-ft-op-token-auto-issue · arch#24 설계·재현)
+## §109 판정 675·676 운영 계정 토큰 자동 발급 `ft-op-token.sh` — 구현 완료 · 보안 DA APPROVE — 닫힘 (오빠 문책 10-09 「토큰 안된다 매번 이렇게 멍청하게 해야되냐」 · 676 = 비밀 출력 0 · 나노 op675-ft-op-token-auto-issue · arch#24 설계·재현)
 - 골 축: C(업그레이드·커밋·push·반영 — 운영 계정 토큰을 사람 손 복사 없이 매번 새로 발급).
 - 대상 카드: op675-ft-op-token-auto-issue (대기 `adb0856d6a` · 676 보정 `c9c8b08f6a` → 진행)
 - 나노 커밋 2개(브랜치 `nano/op675-ft-op-token-auto-issue` · base `d0344ea0ce` · push 0): `6cd7da0306` 구현 · `0e82391b40` 판정 676 문구(BOOT·TESTER 안내). 세트 `0e82391b40d3de67f33b378524fe6edca360be39`.
@@ -1413,3 +1413,14 @@
 - 카드 증거 줄(나노 RESULT #68380): `세트: 0e82391b40d3de67f33b378524fe6edca360be39 · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 (11 passed) · 이슈: 0`.
 - ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main) → 병합(CI 확인과 병합 별 명령) ② 키트 설치(설치본 cmp) ③ 홈 BOOT 끝에 staged 23번 줄만 덧붙임(cp 전 sha256 앞16 `3945b2a6dcdd2c8c` 대조) ④ 루트 secrets 의 `op-auth.conf`·`op-accounts.tsv` 작성은 값 출력 0 · 오빠/planner 1회 — 값이 없으면 멈추고 planner 보고 ⑤ `ft-op-token.sh` 실발급 실측 ⑥ planner `[완료·휴식]`.
 - 정본 영향: 하네스 키트 새 도구 2(`ft-op-token.sh`·`ft_op_token.py`) · 홈 BOOT 22·23조항 · TESTER 템플릿 1줄 · 수동 경로 목록 문서.
+
+## §110 판정 690 그래픽스 팀장 체제 정본화 — 649 «하네스 master 대행» → 팀장 `byz-graphics-master-claude#0` planner 직속 · ft-harness-info seats 팀 명부 절 · graphics install.sh 라이브 명부 보존 (나노 g690-graphics-master-system-info) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(개선요청 접수·협의 — 오빠 값 = 판정 690) + C(정본화·설치).
+- 대상 카드: g690-graphics-master-system-info (카드·스테이징 `661d2519db` → 진행 `4a03363183`)
+- 나노 커밋 1개(브랜치 `nano/g690-graphics-master-system-info` · base = origin/main `56e9507946` · push 0): `6a26524423`(10파일 +258 −21 — `design/graphics/RUNBOOK-open-close.md` · `design/planner/STRUCTURE-main-satellite.md` · `scripts/{fable-team-bin,harness-install/fable-team/bin}/ft-harness-info.sh`(두 사본 동일) · `scripts/harness-install/graphics/{install.sh,graphics-env.sh,seats-graphics.json}` · `design/harness/staged-690/{main-team-governance.md,harness-map.md}` · `tests/harness/test_graphics_690.sh`).
+- ★arch 독립 재현(#25)★: `6a26524423` 아카이브 → 스크래치(`.../scratchpad/r690`) `bash tests/harness/test_graphics_690.sh` **ALL PASS rc=0 (26/26)** — ①bash -n 4 ②팀 명부 절(정상 2 · 깨진 JSON ERR · .bak 제외 · 두 사본 출력·파일 동일) ③루트 명부 있으면 SKIP + 바이트 그대로 + env·goal-lines CMP OK ④루트 비었으면 명부 복사 ⑤스테이징 명부 `_master`=`byz-graphics-master-claude#0` ⑥649 문장 0 ⑦홈 정본 대비 governance hunk 4·새 줄 5 · map 새 1·옛 1.
+  · 대조: 세트의 staged-690 두 파일 == ops `661d2519db` 스테이징(바이트 동일) · 홈 governance sha256 앞16 `d16650b52a809ecf` · harness-map `33065f92565e622f` = 카드 base 값 그대로(지금 cp 가능 상태) · 루트 라이브 명부 `_master`=graphics#0 · `_hil_route`=planner#17 · 좌석 행 g678 1개 → install.sh 가 SKIP 으로 보존.
+- ★arch 판단 서명★: ①팀 열기 = planner→팀장 · 팀장이 arch·나노·DA 열기·감시·닫기 · 하네스 master 는 도구·설치·랜딩 push 만 ②위험 1(install.sh 명부 덮어쓰기) 해소 = `once` 모드(있으면 SKIP) ③`seats` 팀 명부 절은 읽기만(tmux has-session) · 파싱 실패는 ERR 줄(폴백 0).
+- 카드 증거 줄(나노 [완료·휴식] #68727): `세트: 6a265244239d9d8af8fefc94f91adfd2dbcc6e4b · 시험: bash tests/harness/test_graphics_690.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(카드 §완료 조건 그대로 · 앞 단계 값이 다르면 멈추고 arch 반송)★: ① PR(origin/main · 커밋 1) → CI 확인 → 병합(별 명령) ② 하네스 키트 설치 — 루트·라이브 bin `ft-harness-info.sh` cmp ③ 홈 governance: cp 전 앞16 `d16650b52a809ecf` 확인 → staged-690 cp + cmp ④ 홈 harness-map: cp 전 `33065f92565e622f` 확인 → cp + cmp ⑤ 루트에서 graphics `install.sh` → `SKIP seats-graphics.json` + env·goal-lines CMP OK 확인 ⑥ 루트 명부 `_doc` 만 손으로 690 문장(파일 쓰기 1회 · 좌석 행·`_master`·`_hil_route` 보존) ⑦ `ft-harness-info.sh seats` 팀 명부 절에 `seats-graphics.json master=byz-graphics-master-claude#0` 줄 확인 ⑧ planner#17 에 «STRUCTURE graphics 행 · 팀장 체제 정본화 끝» 1줄 ⑨ 나노 g690 닫기.
+- 정본 영향: 홈 governance(hunk 4) · harness-map(1줄 교체) · 루트 env 1파일 · 루트 명부 `_doc` 1필드 · 래퍼 코드 = ft-harness-info `seats` 절 추가만.
