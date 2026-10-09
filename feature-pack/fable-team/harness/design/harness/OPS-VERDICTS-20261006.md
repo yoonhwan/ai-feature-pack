@@ -1394,3 +1394,22 @@
 - 카드 증거 줄(나노 RESULT #67828): `세트: 97ae908ab1e635a32469eae5991300794f6d1916 · 시험: bash tests/harness/test_graphics_install.sh rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main · 커밋 1) → 병합(CI 확인과 병합 별 명령) ② 루트에서 `bash scripts/harness-install/graphics/install.sh` → 루트 `.fable-team/seats-graphics.json` · `.fable-team/bin-graphics/{graphics-env.sh,goal-lines-graphics.txt}` CMP OK 3 ③ ★홈 governance cp 전 base 확인★: `shasum -a 256 ~/.claude/skills/fable-team/references/main-team-governance.md` 앞16 = `8abe67008b24dac1` 이면 `design/harness/staged-649/main-team-governance.md` → 홈 정본 cp + cmp · ★다르면 cp 하지 말고 arch 에 반송★(그사이 다른 판정이 정본을 바꿨으면 덮어서 지운다) ④ issues master 에 `team:graphics` 라벨 생성 요청 ⑤ planner#16 에 「graphics 설치 끝 · 첫 요청 = cfo 크레딧 페이지(INVENTORY `323002d0c1`) 받을 준비」 1줄.
 - 정본 영향: 홈 governance §1·§1-1·§8 추가 4줄 · 루트 `.fable-team/` 새 파일 3 · 래퍼 코드 0.
+
+- ★§107 보충(2026-10-09 · 판정 651 · master#22)★: 오빠 컨펌 — 그래픽스 팀 나노 닫기 = nano-close 경로 표준승인 확장(브랜치 삭제는 여전히 HIL). 반영: 홈 `~/.claude/CLAUDE.md` 하드 룰 2 + HIL 절 «그래픽스 팀 나노 정리 표준승인 확장» 1항 추가(백업 `.bak-651-20261009`) · `~/.hermes/SOUL.md` CLAUDE_MASTER_SYNC 블록 재생성(v=2026-10-09b) · codex 전파본(`AGENTS.md`·`AGENTS.user.md`)은 나노 승인 항목을 원래 싣지 않아 변경 0. 래퍼 코드 변경 0(브랜치 `nano/g<Issue>-<slug>` 가 표준 `nano/*` 라 기존 nano-close 경로 그대로).
+
+## §108 판정 646·647 디스크 정리 — 닫힘 (master#22 · 2026-10-09)
+- 골 축: A(모니터 — 데이터 볼륨 98% 가 전 팀 작업을 막기 직전). 오빠 승인 범위: 워크트리 비추적 테스트 산출·로그(646) + uv·docker·/tmp·baton 4종(647).
+- 집행: /tmp/byz-*.log 8개 비움 · docker 빌드캐시·이미지 약 5GB(docker 안) · uv 캐시 미집행(다른 uv 잠금) · /tmp 7일+ 0GB · baton 만료 0건 · ★v6 scratchpad 1일 넘은 비추적 산출 삭제는 훅 차단 → 오빠가 run646.sh 직접 실행★: df 전 48Gi(98%) → 후 116Gi(94%) · +68GB · 남은 tcc8 회차 148(최근 회차 보존).
+- 별건(착수 0): uv 캐시 53GB 재시도 · .baton/archive 110GB 보관 기간 단축은 오빠 승인 별도.
+
+## §109 판정 675·676 운영 계정 토큰 자동 발급 `ft-op-token.sh` — 구현 완료 · 보안 DA APPROVE (오빠 문책 10-09 「토큰 안된다 매번 이렇게 멍청하게 해야되냐」 · 676 = 비밀 출력 0 · 나노 op675-ft-op-token-auto-issue · arch#24 설계·재현)
+- 골 축: C(업그레이드·커밋·push·반영 — 운영 계정 토큰을 사람 손 복사 없이 매번 새로 발급).
+- 대상 카드: op675-ft-op-token-auto-issue (대기 `adb0856d6a` · 676 보정 `c9c8b08f6a` → 진행)
+- 나노 커밋 2개(브랜치 `nano/op675-ft-op-token-auto-issue` · base `d0344ea0ce` · push 0): `6cd7da0306` 구현 · `0e82391b40` 판정 676 문구(BOOT·TESTER 안내). 세트 `0e82391b40d3de67f33b378524fe6edca360be39`.
+- ★arch 독립 재현(#24 #68387)★: `test_ft_op_token.py` 11 passed(아카이브) · ruff clean · 키트·예시에 실 URL·키·이메일 0 · 설치는 `install.sh` 가 bin/ 전체 복사라 목록 추가 불요 · 설계 1~7·676 줄 대조 OK. staged BOOT = 23번 신규지만 base 가 옛것이라 통째 cp 제외 → 설치 시 홈 BOOT(sha256 앞16 `3945b2a6dcdd2c8c`) 끝에 staged 23번 줄만 덧붙임(diff +1줄).
+- ★구현 DA r1(Claude Opus · `design/harness/DA-675-ft-op-token-r1-verdict.md` `b1fce39930`) APPROVE★: 보안 5축(비밀 출력·ps·임시파일 0 · secrets gitignore+0700/0600 · 7s+재시도 1 5xx/net 만 · --init 에코 0·실패 cred 미기록 · 예시 실값 0) 통과 · 시험 11 passed(스텁 · 실 호출 0).
+- 비차단 권고 4(착수 0 · 요청 원장 R69 접수): ①200 비JSON → ERR 1줄 ②`--init` 클립보드 rc 무관 항상 비움 ③SUPABASE_URL https 강제 ④7s 표현 = 소켓 연산 기준.
+- 판정 676(오빠): byztest910 비번이 arch 세션 jsonl 에 1회 노출 = 기록만(교체 0) · 재발 방지 = 좌석 조사에서 secrets/ 내용 출력 0(키 이름만 · JSON 은 python 키 이름) → 홈 COMM-GUIDE-BOOT 22조항 추가(master) · 카드·BOOT 23번·TESTER 템플릿 같은 문구.
+- 카드 증거 줄(나노 RESULT #68380): `세트: 0e82391b40d3de67f33b378524fe6edca360be39 · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 (11 passed) · 이슈: 0`.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main) → 병합(CI 확인과 병합 별 명령) ② 키트 설치(설치본 cmp) ③ 홈 BOOT 끝에 staged 23번 줄만 덧붙임(cp 전 sha256 앞16 `3945b2a6dcdd2c8c` 대조) ④ 루트 secrets 의 `op-auth.conf`·`op-accounts.tsv` 작성은 값 출력 0 · 오빠/planner 1회 — 값이 없으면 멈추고 planner 보고 ⑤ `ft-op-token.sh` 실발급 실측 ⑥ planner `[완료·휴식]`.
+- 정본 영향: 하네스 키트 새 도구 2(`ft-op-token.sh`·`ft_op_token.py`) · 홈 BOOT 22·23조항 · TESTER 템플릿 1줄 · 수동 경로 목록 문서.

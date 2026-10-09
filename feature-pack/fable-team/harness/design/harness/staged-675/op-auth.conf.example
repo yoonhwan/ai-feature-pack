@@ -1,0 +1,3 @@
+# 예시 — 가짜 값만. 실값은 루트 .fable-team/secrets/op-auth.conf (0600) 에 손으로 1회.
+SUPABASE_URL=https://example-project.example.invalid
+SUPABASE_PUBLISHABLE_KEY=fake-publishable-key-example

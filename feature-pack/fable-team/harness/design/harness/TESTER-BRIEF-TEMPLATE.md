@@ -45,6 +45,7 @@
 - 시험 중 `:9333` 탭 개폐 0.
 - 소리 직접 재생·디버그 주입 결과를 `E2E 통과` 로 쓰지 않는다(`미측정`).
 - 결과 판정 라벨(PASS/FAIL) 을 보고에 쓰지 않는다 — 사실과 증거 등급만.
+- 운영 계정 토큰이 만료되면 사람에게 복사를 청하지 않는다 — `bash <루트>/.fable-team/bin/ft-op-token.sh <email>` 로 새로 받는다(cred 없으면 `--init` 1회만 사람 손 · 판정 675). 토큰 원문은 보고에 쓰지 않는다 — 좌석 조사·시험에서 secrets/·*.cred·토큰 파일 내용 출력 0, 키 이름·존재·크기만(`cut -d= -f1` · `wc -c` · `test -s`). ★JSON cred 는 `=` 가 없어 `cut -d= -f1` 이 줄 전체를 찍는다★ → `python3 -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))))' <파일>` 로 키 이름만.
 
 ## 상태 전이 (오케·architect 가 기록)
 `bash scripts/fable-team-bin/ft-bundle-state.sh <seats-x.json> <카드#> <상태> [--result PASS|FAIL|UNMEASURED] [--event <seq>]`

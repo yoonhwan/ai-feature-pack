@@ -1,0 +1,3 @@
+# email<TAB>cred 파일<TAB>토큰 파일 — 가짜 값만. 계정 추가는 사람이 1줄.
+admin@example.test	admin-example.cred	admin-example.token
+developer@example.test	developer-example.cred	developer-example.token
