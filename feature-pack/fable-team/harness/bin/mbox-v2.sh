@@ -6,6 +6,7 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MBOXPY="$DIR/mbox.py"
+[ -f "$MBOXPY" ] || { echo "REJECT mbox-v2.sh 는 설치용 사본 — 옆에 mbox.py 없음($MBOXPY). 좌석 우편함은 <루트>/.fable-team/comm/mbox.sh 를 쓴다" >&2; exit 2; }
 SELF="${FT_MBOX_SELF:-$DIR/mbox.sh}"   # ★v2 사본★ env 로 doorbell 대상 교체(미지정 시 원본과 동일)
 
 # 세션명 allowlist(py NAME_RE 와 동일).

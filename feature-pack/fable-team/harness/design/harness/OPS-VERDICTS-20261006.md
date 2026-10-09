@@ -1448,3 +1448,15 @@
 - 카드 증거 줄(나노 [완료·휴식]): `세트: 889c340a1f91f3079463f443ee2c2d48a158c11d · 시험: bash tests/harness/test_r66_codex_serena_boot.sh rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 홈 BOOT cp 전 sha256 앞16 `329582414d727dd5` 확인 → 다르면 cp 0 · arch 반송 → 같으면 `.bak-r66-20261009` 백업 뒤 staged-r66 cp + cmp ③ 요청 원장 R66 닫힘 ④ v65 arch(현역)에 «codex 좌석 Serena 경로 BOOT 1 반영» 1줄 ⑤ 나노 r66 닫기 ⑥ R67 spawn.
 - 정본 영향: 홈 BOOT 1번 항목 1문장 · `docs/rules/serena-mcp-usage.md` 2줄 · 설정 변경 0.
+- ★집행 결과(master#23 · 2026-10-09)★: PR 1104 squash `b38dba04b2` · 홈 BOOT cp 전 sha 일치(329582414d727dd5) → staged-r66 cp + cmp OK(백업 .bak-r66-20261009 · diff 한 덩이) · R66 닫힘 표기. 나노 닫기·v65 arch 통지·R67 spawn 은 아래 이어서.
+
+## §113 판정 698 ③ R67 추적 사본 `mbox-v2.sh` 설치용 가드 — 옆에 mbox.py 가 없으면 «설치용 사본 · 루트 mbox.sh 를 쓴다» 1줄 + exit 2 (요청 원장 R67 · harness da-claude#0 #67708 · 나노 r67-mbox-v2-template-guard) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(개선요청 접수·협의 — R67 · 오빠 값 = 판정 698 ③) + C(도구 업그레이드).
+- 대상 카드: r67-mbox-v2-template-guard (대기 `43accee46f`)
+- 원인(arch#25 실측): 추적 사본 두 곳(`scripts/fable-team-bin/` · `scripts/harness-install/fable-team/bin/`)은 큐 브리지용 «설치용 사본» — 옆에 mbox.py 가 git 이력상 한 번도 없었음(원장 기재 «판정 592 분리 뒤 빠짐» 은 실측과 다름). 제자리 실행 = 파이썬 `can't open file …/mbox.py` 한 줄 · 안내 0. 설치된 자리(`.worktrees/v6-realtime-live/.fable-team/comm/` · mbox.py 심링크 있음)는 정상.
+- 나노 커밋 1개(브랜치 `nano/r67-mbox-v2-template-guard` · base = origin/main `1c46f335a4` · push 0): `9e251d6405`(3파일 +38 — 두 사본 8행 뒤 가드 1줄씩 · `tests/harness/test_mbox_v2_guard.sh`).
+- ★arch 독립 재현(#25)★: `9e251d6405` 아카이브 → 스크래치 `bash tests/harness/test_mbox_v2_guard.sh` **ALL OK rc=0 (15/15)** · ★RED 대조★: 같은 시험을 base(`1c46f335a4`) 사본에 돌리면 FAIL 7 · rc=1(안내문 2종 · 트레이스백 줄 — 가드 전 결함 재현). 눈 대조: 두 추적 사본 바이트 동일 · 변경 = `MBOXPY=` 뒤 가드 1줄뿐(전송·doorbell·SELF 0) · base 사본 sha256 앞12 `40fa21885d92` = 설치본 두 곳(`v6-realtime-live/.fable-team/{comm,bin}/mbox-v2.sh`) 현재 값 그대로(지금 cp 가능).
+- ★arch 판단 서명★: 설치된 자리 동작은 가드 통과(mbox.py 실재)라 무변경 · 값 노출 0 · 폴백 0(없으면 REJECT + exit 2).
+- 카드 증거 줄(나노 [완료·휴식]): `세트: 9e251d64053649bd0aeeb8181c2fecb329f43adf · 시험: bash tests/harness/test_mbox_v2_guard.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 두 곳 cp 전 sha256 앞12 `40fa21885d92` 확인 → 다르면 cp 0 · arch 반송 → 같으면 새 사본 cp + cmp ③ 설치 자리 `.worktrees/v6-realtime-live/.fable-team/comm/mbox-v2.sh peek <master 이름>` 1회 정상(가드 통과) ④ 요청 원장 R67 닫힘 ⑤ 나노 r67 닫기 ⑥ planner 보고(판정 698 ①②③ 끝 · ④ Tank label-create 보류 유지).
+- 정본 영향: 하네스 키트 사본 2 + 설치본 2(같은 바이트) · 홈 정본 0.
