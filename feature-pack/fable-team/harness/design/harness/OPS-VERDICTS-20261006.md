@@ -1436,3 +1436,15 @@
 - 카드 증거 줄(나노 [완료·휴식] #68896): `세트: 01225ca732c4c5dcd9a6343681ff9e3056bc136d · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 키트 설치 — 루트·라이브 bin `ft-op-token.sh`·`ft_op_token.py` cmp ③ `ft-op-token.sh --list` 1회(값 출력 0 확인) ④ 나노 op675b 닫기 ⑤ R69 행 닫힘 표기.
 - 정본 영향: 하네스 키트 도구 1(2파일) · 홈 정본 0.
+- ★집행 결과(master#23 · 2026-10-09)★: PR 1103 squash `4b8cfd2756` · 루트·라이브 bin ft-op-token.sh·ft_op_token.py CMP OK(백업 .bak-675b-1009) · `ft-op-token.sh --list` 값 출력 0(계정·토큰 파일명·남은 분만) · 나노 op675b 닫기 완료 · R69 ①②③ 닫힘 표기. ★함정★: spawn 이 ops-guard cwd 라 인덱스 이동 실패 → 수동 git mv 뒤 명부 index 가 절대경로로 남아 닫기 ⑥ 가 카드를 못 찾음 → 명부 index 를 상대경로로 보정.
+
+## §112 판정 698 ② R66 codex 좌석 Serena 부팅 경로 — BOOT 1 에 «codex = session_id 없이 activate_project 만 · CCR 참조면 headroom_retrieve» 1문장 + 프로젝트 Serena 지침 2줄 (요청 원장 R66 · v65 arch#184 관찰 #67273 · 나노 r66-codex-serena-boot-path) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(개선요청 접수·협의 — R66 · 오빠 값 = 판정 698 ②) + C(정본 업그레이드·설치).
+- 대상 카드: r66-codex-serena-boot-path (대기 `43accee46f`)
+- 원인(arch#25 실측 · 카드 기준값): ①BOOT 1 문장은 Claude 판 Serena(session_id 필수) 전용 — codex 의 Serena 는 고정 커밋 `cd04838be9a9…`(1.6.2.dev0)라 session_id 가 없음. 실패 좌석 product#0 은 session_id 를 찾느라 `initial_instructions` 3회 · `activate_project` 0회 ②codex `model_provider = "headroom"`(8790) — 큰 도구 출력(initial_instructions 원문 14.8 KB)이 CCR 참조로 접혀 보임. 정상 좌석 proposal#0 은 `activate_project(project=…)` 만으로 활성화 성공(대조군).
+- 나노 커밋 1개(브랜치 `nano/r66-codex-serena-boot-path` · base = origin/main `1ed171ffba` · push 0): `889c340a1f`(3파일 +110 — `design/harness/staged-r66/COMM-GUIDE-BOOT.md` · `docs/rules/serena-mcp-usage.md` +2 · `tests/harness/test_r66_codex_serena_boot.sh`).
+- ★arch 독립 재현(#25)★: `889c340a1f` 아카이브 → 스크래치 `bash tests/harness/test_r66_codex_serena_boot.sh` **ALL PASS rc=0 (11/11)** — ①홈 BOOT 대비 diff = `7c7` 한 덩이 · 줄 수 불변 · 옛 문장 무변경 + 덧붙임 ②새 문장 3 문자열 ③Claude 경로 문장 유지 ④serena 지침 codex 줄 ⑤홈 쓰기 0. 눈 대조: 홈 BOOT sha256 앞16 `329582414d727dd5` = 카드 base(지금 cp 가능) · `~/.codex/config.toml` 수정 시각 10-07(이 단위 설정 변경 0).
+- ★arch 판단 서명★: 문장만 바꿈(설정·헤드룸·Serena 버전 0) · Claude 좌석 경로 무변경 · 별 후보 2(codex Serena 판 정합 · 헤드룸 MCP 출력 압축 제외)는 설치·인프라 변경이라 오빠 컨펌 뒤.
+- 카드 증거 줄(나노 [완료·휴식]): `세트: 889c340a1f91f3079463f443ee2c2d48a158c11d · 시험: bash tests/harness/test_r66_codex_serena_boot.sh rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 홈 BOOT cp 전 sha256 앞16 `329582414d727dd5` 확인 → 다르면 cp 0 · arch 반송 → 같으면 `.bak-r66-20261009` 백업 뒤 staged-r66 cp + cmp ③ 요청 원장 R66 닫힘 ④ v65 arch(현역)에 «codex 좌석 Serena 경로 BOOT 1 반영» 1줄 ⑤ 나노 r66 닫기 ⑥ R67 spawn.
+- 정본 영향: 홈 BOOT 1번 항목 1문장 · `docs/rules/serena-mcp-usage.md` 2줄 · 설정 변경 0.
