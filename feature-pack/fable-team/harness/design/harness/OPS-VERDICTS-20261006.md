@@ -1424,3 +1424,15 @@
 - 카드 증거 줄(나노 [완료·휴식] #68727): `세트: 6a265244239d9d8af8fefc94f91adfd2dbcc6e4b · 시험: bash tests/harness/test_graphics_690.sh rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행 순서(카드 §완료 조건 그대로 · 앞 단계 값이 다르면 멈추고 arch 반송)★: ① PR(origin/main · 커밋 1) → CI 확인 → 병합(별 명령) ② 하네스 키트 설치 — 루트·라이브 bin `ft-harness-info.sh` cmp ③ 홈 governance: cp 전 앞16 `d16650b52a809ecf` 확인 → staged-690 cp + cmp ④ 홈 harness-map: cp 전 `33065f92565e622f` 확인 → cp + cmp ⑤ 루트에서 graphics `install.sh` → `SKIP seats-graphics.json` + env·goal-lines CMP OK 확인 ⑥ 루트 명부 `_doc` 만 손으로 690 문장(파일 쓰기 1회 · 좌석 행·`_master`·`_hil_route` 보존) ⑦ `ft-harness-info.sh seats` 팀 명부 절에 `seats-graphics.json master=byz-graphics-master-claude#0` 줄 확인 ⑧ planner#17 에 «STRUCTURE graphics 행 · 팀장 체제 정본화 끝» 1줄 ⑨ 나노 g690 닫기.
 - 정본 영향: 홈 governance(hunk 4) · harness-map(1줄 교체) · 루트 env 1파일 · 루트 명부 `_doc` 1필드 · 래퍼 코드 = ft-harness-info `seats` 절 추가만.
+- ★집행 결과(master#23 · 2026-10-09)★: PR 1093 squash `b158acbe83` · 라이브 bin ft-harness-info.sh CMP OK(백업 .bak-690-20261009) · 홈 governance·harness-map cp 전 sha 일치(d16650b52a809ecf·33065f92565e622f) → CMP OK(백업 .bak-690-20261009) · graphics install.sh SKIP seats-graphics.json + env·goal-lines CMP OK · 루트 명부 _doc 만 690 문장으로 교체(좌석 행·_master·_hil_route 보존) · `ft-harness-info.sh seats` 팀 명부 절 «seats-graphics.json master=byz-graphics-master-claude#0 … 좌석=1 열림=1» 확인 · 나노 g690 닫기 완료.
+
+## §111 판정 698 ① op675b `ft-op-token` 후속 다듬기 3 — 비JSON 응답 ERR 1줄 · `--init` 클립보드 항상 비움 · SUPABASE_URL https 강제 (675 보안 DA r1 비차단 권고 1~3 · R69 · 나노 op675b-ft-op-token-hardening) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
+- 골 축: B(개선요청 접수 — R69 · 오빠 판정 698 하네스 큐 ①) + C(업그레이드·설치).
+- 대상 카드: op675b-ft-op-token-hardening (대기 → 진행 14:07 · master#23 수동 이동)
+- 나노 커밋 1개(브랜치 `nano/op675b-ft-op-token-hardening` · base = origin/main `89d51ff559` · push 0): `01225ca732`(3파일 +61 −6 — `scripts/harness-install/fable-team/bin/{ft_op_token.py,ft-op-token.sh}` · `tests/harness/test_ft_op_token.py`). 구현 범위 닫힌 목록 그대로.
+- ★arch 독립 재현(#25)★: `01225ca732` 전체 아카이브 → 스크래치 `.venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py` **14 passed rc=0**(T1~T10 기존 + T11 200 비JSON → ERR 1줄 · T12 `--init` 실패 뒤 클립보드 비움 · T13 http 거부·루프백 우회) · ruff clean · `bash -n ft-op-token.sh` OK. (부분 아카이브로 돌리면 T10 이 `design/harness/staged-675/*.example` 부재로 실패 — 재현 절차 쪽 문제 · 세트 결함 아님.)
+  · 눈 확인: ①`Fail` 은 `Exception` 하위라 재시도 루프의 `OSError` 절에 먹히지 않음 → 비JSON 200 은 재시도 없이 ERR 1줄 ②https 검사는 `read_conf` 에서 첫 호출 전 · 우회는 `FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK=1` ∧ 호스트 127.0.0.1·localhost 둘 다일 때만 ③클립보드 비움이 rc 와 무관 ④7초 표현 = 소켓 연산 기준(권고 4 문구만 · 동작 무변경).
+- ★arch 판단 서명★: 값 노출 경로 0 유지 · 7초 룰 그대로(timeout 7 · 재시도 1) · 폴백 0(실패는 전부 ERR + exit).
+- 카드 증거 줄(나노 [완료·휴식] #68896): `세트: 01225ca732c4c5dcd9a6343681ff9e3056bc136d · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 · 이슈: 0`.
+- ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 키트 설치 — 루트·라이브 bin `ft-op-token.sh`·`ft_op_token.py` cmp ③ `ft-op-token.sh --list` 1회(값 출력 0 확인) ④ 나노 op675b 닫기 ⑤ R69 행 닫힘 표기.
+- 정본 영향: 하네스 키트 도구 1(2파일) · 홈 정본 0.

@@ -42,6 +42,8 @@ class Handler(BaseHTTPRequestHandler):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if srv.mode == "400":
             code, body = 400, json.dumps({"error": "bad", "password": PASSWORD, "hint": fake_jwt(1)})
+        elif srv.mode == "nonjson":
+            code, body = 200, "<html>not json</html>"
         elif srv.mode == "500":
             code, body = 500, "boom"
         elif srv.mode == "slow":
@@ -87,7 +89,7 @@ def env(tmp_path, stub):
     (bin_dir / "pbcopy").write_text(f'#!/bin/sh\ncat > "{clip}"\n')
     for n in ("pbpaste", "pbcopy"):
         (bin_dir / n).chmod(0o755)
-    e = dict(os.environ, FT_OP_SECRETS_DIR=str(sdir), PATH=f"{bin_dir}:{os.environ['PATH']}")
+    e = dict(os.environ, FT_OP_SECRETS_DIR=str(sdir), PATH=f"{bin_dir}:{os.environ['PATH']}", FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK="1")
     return {"env": e, "sdir": sdir, "clip": clip}
 
 
@@ -161,7 +163,7 @@ def test_t6b_init_failure_writes_no_cred(env, stub):
     stub.mode = "400"
     r = run(env, "--init", EMAIL)
     assert r.returncode == 1 and not (env["sdir"] / "acct.cred").exists()
-    assert not (env["sdir"] / "acct.token").exists() and env["clip"].read_text() == PASSWORD + "\n"
+    assert not (env["sdir"] / "acct.token").exists() and env["clip"].read_text() == ""  # 실패여도 클립보드 비움(T12)
 
 
 def test_t6c_init_unknown_email_rejected(env):
@@ -195,3 +197,42 @@ def test_t10_no_real_values_in_tracked_files():
         assert t.exists(), t
         text = t.read_text()
         assert not [n for n in needles if n in text], t
+
+
+def test_t11_200_non_json_is_one_err_line(env, stub):
+    stub.mode = "nonjson"
+    tf = env["sdir"] / "acct.token"
+    tf.write_text("old-token")
+    tf.chmod(0o600)
+    r = run(env, EMAIL)
+    assert r.returncode == 1 and r.stdout == f"ERR {EMAIL} http=200 msg=응답 JSON 아님\n"
+    assert "Traceback" not in r.stderr and "not json" not in r.stdout + r.stderr
+    assert stub.calls == 1 and tf.read_text() == "old-token"
+
+
+def test_t12_init_failure_clears_clipboard(env, stub):
+    (env["sdir"] / "acct.cred").unlink()
+    stub.mode = "400"
+    r = run(env, "--init", EMAIL)
+    assert r.returncode == 1 and r.stdout.startswith(f"ERR {EMAIL} http=400")
+    assert env["clip"].read_text() == "" and PASSWORD not in r.stdout + r.stderr
+
+
+def set_url(env, url):
+    conf = env["sdir"] / "op-auth.conf"
+    conf.write_text(f"SUPABASE_URL={url}\nSUPABASE_PUBLISHABLE_KEY={KEY}\n")
+    conf.chmod(0o600)
+
+
+def test_t13_non_https_url_is_err(env, stub):
+    port = stub.server_address[1]
+    set_url(env, "http://example.invalid")
+    r = run(env, EMAIL)  # 우회 변수 있어도 비루프백 http 는 ERR
+    assert r.returncode == 2 and r.stdout.startswith(f"ERR {EMAIL} op-auth.conf SUPABASE_URL 은 https:// 만")
+    set_url(env, f"http://127.0.0.1:{port}")
+    env["env"].pop("FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK")
+    r = run(env, EMAIL)  # 변수 없으면 루프백 http 도 ERR
+    assert r.returncode == 2 and "https:// 만" in r.stdout and stub.calls == 0
+    env["env"]["FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK"] = "1"
+    r = run(env, EMAIL)  # 변수 + 루프백 = 통과
+    assert r.returncode == 0 and r.stdout.startswith("OK ") and stub.calls == 1

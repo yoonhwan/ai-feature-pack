@@ -10,7 +10,7 @@ if [ "${1:-}" = "--init" ]; then
   [ -n "${2:-}" ] || { echo "usage: ft-op-token.sh --init <email>" >&2; exit 2; }
   pbpaste | "$PY" "$HERE/ft_op_token.py" --init "$2"
   rc=${PIPESTATUS[1]}
-  [ "$rc" -eq 0 ] && printf '' | pbcopy   # 로그인 성공일 때만 클립보드 비움
+  printf '' | pbcopy   # 결과와 무관하게 클립보드 비움 (유니버설 클립보드·기록 앱 전파 차단)
   exit "$rc"
 fi
 exec "$PY" "$HERE/ft_op_token.py" "$@"

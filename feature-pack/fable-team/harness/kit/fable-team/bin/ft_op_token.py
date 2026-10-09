@@ -3,7 +3,7 @@
 
 사용: ft_op_token.py <email> | --init <email> (비밀번호는 stdin 1줄) | --list
 설정(추적 밖): <secrets>/op-auth.conf · op-accounts.tsv · <계정>.cred(JSON {"email","password"})
-외부 호출 1곳(Supabase password grant) — 7초 룰(판정 666): timeout 7 · 재시도 1(네트워크·5xx 만).
+외부 호출 1곳(Supabase password grant) — 7초 룰(판정 666): 1회 7 s(소켓 연산 기준) · 재시도 1(네트워크·5xx 만).
 비밀번호·토큰 원문은 stdout·stderr·argv 어디에도 내지 않는다.
 """
 import base64
@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
@@ -62,7 +63,17 @@ def read_conf(sdir, email):
             kv[k.strip()] = v.strip()
     if not kv.get("SUPABASE_URL") or not kv.get("SUPABASE_PUBLISHABLE_KEY"):
         raise Fail(f"ERR {email} op-auth.conf 에 SUPABASE_URL·SUPABASE_PUBLISHABLE_KEY 필요", 2)
-    return kv["SUPABASE_URL"].rstrip("/"), kv["SUPABASE_PUBLISHABLE_KEY"]
+    url = kv["SUPABASE_URL"].rstrip("/")
+    if not (url.startswith("https://") or loopback_http_allowed(url)):
+        raise Fail(f"ERR {email} op-auth.conf SUPABASE_URL 은 https:// 만", 2)
+    return url, kv["SUPABASE_PUBLISHABLE_KEY"]
+
+
+def loopback_http_allowed(url):
+    """시험 전용 우회: FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK=1 이고 http 호스트가 127.0.0.1·localhost 일 때만."""
+    if os.environ.get("FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK") != "1" or not url.startswith("http://"):
+        return False
+    return urllib.parse.urlsplit(url).hostname in ("127.0.0.1", "localhost")
 
 
 def read_table(sdir):
@@ -96,7 +107,10 @@ def login(url, key, email, password):
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
                 raw = r.read().decode("utf-8", "replace")
-            tok = json.loads(raw).get("access_token")
+            try:
+                tok = json.loads(raw).get("access_token")
+            except (ValueError, AttributeError):
+                raise Fail(f"ERR {email} http=200 msg=응답 JSON 아님")
             if not tok:
                 raise Fail(f"ERR {email} http=200 msg=access_token 없음")
             return tok
