@@ -47,7 +47,8 @@ def test_summary_part_only_renders_with_korean_title_and_footer(tmp_path: Path):
 
 
 def test_long_full_detail_document_spans_many_pages_without_truncation(tmp_path: Path):
-    _, html = mrf.render_full(fake_full_model(extra_lines=400), ["한 줄", "두 줄", "세 줄"], "t")
+    _, html = mrf.render_full(fake_full_model(), ["한 줄", "두 줄", "세 줄"], "t")  # R74 상한 뒤엔 렌더 결과가 짧다 — 변환기만 보려고 각주표 앞에 400줄을 붙인다
+    html = html.replace('<h2 id="footnotes"', "".join(f'<p class="ln">전문 {i} 줄</p>' for i in range(400)) + '<h2 id="footnotes"')
     pdf, r = make_pdf(tmp_path, html)
     assert r.returncode == 0, r.stderr[-800:]
     n = pages_of(pdf)

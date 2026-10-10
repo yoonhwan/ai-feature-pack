@@ -26,7 +26,7 @@ export FT_GOAL_LINES_FILE="$T/goal.txt" FT_GOAL_LEDGER="design/LEDGER.md"
 # mk <이름> <사전검증 본문|-> <조사 근거 본문|-> — "-" 면 그 절을 만들지 않는다. 카드 경로를 출력.
 mk() {
   local f="$T/$1.md"
-  { echo "# 인덱스: $1"; echo "## 골 원문"; printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3"
+  { echo "# 인덱스: $1"; echo '- 제안서: 없음 — 시험 카드'; echo "## 골 원문"; printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3"
     echo "## 골좌표"; echo '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」'
     echo "## 배경"; echo '시험 카드.'
     echo "## 구현 범위"; echo '1. src/target.sh 수정'
@@ -80,5 +80,26 @@ expect_rej "$(mk ev-nopath "$GOODPV" '- src/없음.sh:2')"          "⑧ 없는 
 expect_rej "$(mk ev-long "$GOODPV" '- src/target.sh:4')"         "⑧ 줄 번호 > 파일 길이 REJECT" "벗어남"
 expect_rej "$(mk ev-zero "$GOODPV" '- src/target.sh:0')"         "⑧ 줄 0 REJECT"            "벗어남"
 expect_ok  "$(mk ev-last "$GOODPV" '- `src/target.sh:3` 끝 줄')"  "⑧ 마지막 줄 번호 + 백틱 OK"
+
+# ── ⑨ 머리 `- 제안서:` 줄 (R77 r1 · 판정 826) — 값 #M | 없음 — 사유 · 새 카드 의무 · 옛 카드 WARN ──
+SW=""; mkdir -p design/team; echo '# 제안서 시험용' > design/team/PROPOSAL-x-20261010.md
+mkp() {  # mkp <이름> <머리 2줄 통째로|-> — mk 카드의 `- 제안서:` 줄을 바꾸거나(-면 지운다) 한 파일 경로를 출력
+  local f; f="$(mk "$1" - -)"; if [ "$2" = "-" ]; then sed -i.bak '2d' "$f"; else sed -i.bak "2s|.*|$2|" "$f"; fi; rm -f "$f.bak"; echo "$f"; }
+expect_ok  "$(mkp pl-none '- 제안서: 없음 — 구조 정리라 제안서 불필요')"  "⑨ 「없음 — 사유」 OK"
+expect_ok  "$(mkp pl-issue '- 제안서: #12')"                              "⑨ 「#12」(제안 Issue 번호) OK"
+expect_rej "$(mkp pl-nolines -)"                                          "⑨ 새 카드(미추적) 줄 없음 REJECT" "제안서:"
+expect_rej "$(mkp pl-noreason '- 제안서: 없음')"                          "⑨ 「없음」 사유 없음 REJECT" "#<제안 Issue 번호>"
+expect_rej "$(mkp pl-path '- 제안서: design/team/PROPOSAL-x-20261010.md')" "⑨ 새 카드의 경로 값 REJECT(r1 부터 금지)" "경로 값은 R77 r1"
+expect_rej "$(mkp pl-junk '- 제안서: 나중에 쓴다')"                       "⑨ 아무 값 REJECT" "#<제안 Issue 번호>"
+gc() { GIT_AUTHOR_DATE="$1" GIT_COMMITTER_DATE="$1" git -c user.email=t@t -c user.name=t commit -qm "$2" >/dev/null 2>&1; }
+oldc="$(mkp pl-old -)"; oldp="$(mkp pl-oldpath '- 제안서: design/team/PROPOSAL-x-20261010.md')"; git add "$oldc" "$oldp" >/dev/null 2>&1; gc "2026-10-01T09:00:00" old
+out="$(run "$oldc")"; rc=$?; [ $rc -eq 0 ] && echo "$out" | grep -q '^WARN .*옛 카드' && echo "$out" | grep -q '^OK ' && ok "⑨ 옛 카드(10-01 추가) 줄 없음 → WARN + rc 0" || bad "⑨ 옛 카드 WARN → rc=$rc $out"
+out="$(run "$oldp")"; rc=$?; [ $rc -eq 0 ] && echo "$out" | grep -q '^WARN .*경로·기타 값' && ok "⑨ 옛 카드의 경로 값 → WARN + rc 0" || bad "⑨ 옛 카드 경로 값 → rc=$rc $out"
+newc="$(mkp pl-new -)"; git add "$newc" >/dev/null 2>&1; gc "2026-10-12T09:00:00" new
+expect_rej "$newc" "⑨ 새 카드(10-12 추가 · 커밋됨) 줄 없음 REJECT" "새 카드 의무"
+mkw() { local f; f="$(mkp "$1" "$2")"; sed -i.bak 's|^1\. src/target.sh 수정|1. `design/team/PROPOSAL-x-20261010.md` 제안서 1개만 쓴다|' "$f"; rm -f "$f.bak"; echo "$f"; }
+expect_ok  "$(mkw proposal-x -)"                          "⑨ 제안서 작성 카드(proposal-* · 구현 범위 design/ 문서 1개+)는 줄 없어도 OK"
+expect_rej "$(mkp proposal-impl -)"                        "⑨ proposal- 이름이어도 구현 범위에 코드 경로(src/target.sh)면 줄 의무" "새 카드 의무"
+expect_rej "$(mkw proposal-y '- 제안서: 나중에 쓴다')"     "⑨ 작성 카드라도 줄이 있으면 값 검사" "#<제안 Issue 번호>"
 
 echo "fail=$fail"; [ $fail -eq 0 ]

@@ -15,7 +15,7 @@ for f in ft-nano-close.sh ft-nano-spawn.sh ft-nano-evidence-check.sh; do bash -n
 ok "bash -n 3종"
 
 mkdir -p "$T/bin" "$T/fake"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\necho called > "%s/cherry.called"\necho "REJECT cherry stub"; exit 1\n' "$T" > "$T/bin/ft-nano-cherry-gate.sh"
 cat > "$T/fake/tmux" <<'EOF'

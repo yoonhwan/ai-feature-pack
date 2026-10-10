@@ -7,6 +7,7 @@ import re
 import pytest
 from _magazine_detail_fixture import detail_fixture, fake_full_model
 
+import magazine_render_cap as mrc
 import magazine_render_full as mrf
 from magazine_render import RenderError
 
@@ -16,6 +17,13 @@ ANCHORS = ["part1", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "appendix", "footn
 
 def render(model=None, warn=None):
     return mrf.render_full(model or fake_full_model(), LINES, "t", warn)
+
+
+@pytest.fixture
+def uncapped(monkeypatch):
+    """R74 상한(건당 3줄·절당 40건)을 풀어 «블록 렌더가 줄을 안 깎는다» 는 옛 계약만 따로 본다 — 상한 동작은 test_magazine_size_cap.py."""
+    monkeypatch.setattr(mrc, "ITEM_LINES", 10**6)
+    monkeypatch.setattr(mrc, "SECTION_ITEMS", 10**6)
 
 
 def test_sections_in_fixed_order_and_one_footnote_table_at_the_end():
@@ -63,13 +71,12 @@ def test_missing_detail_or_key_raises_instead_of_part1_only():
         render(m3)
 
 
-def test_long_body_keeps_every_line_including_blank_ones():
+def test_item_shows_title_three_nonblank_body_lines_then_location():
     m = fake_full_model()
-    m["detail"]["decisions"][0]["relay_text"] = "\n".join(f"긴전문 {i}" for i in range(120))
+    m["detail"]["verdict_sections"][0]["body"] = "본문 1\n본문 2\n\n본문 4\n본문 5"
     md, html = render(m)
-    assert html.count('<p class="ln">긴전문 ') == 120 and all(f"긴전문 {i}" in md for i in range(120))
-    body = '<p class="ln">본문 1</p>\n<p class="ln">본문 2</p>\n<p class="ln">&nbsp;</p>\n<p class="ln">본문 4</p>'
-    assert body in html  # 판정서 절: 빈 줄도 한 줄로
+    assert "> 본문 1\n> 본문 2\n> 본문 4\n> … 원문: design/harness/OPS-VERDICTS-20261008.md §47" in md and "본문 5" not in md
+    assert '<p class="ln">본문 1</p>\n<p class="ln">본문 2</p>\n<p class="ln">본문 4</p>\n<p class="ln">… 원문: design/harness/OPS-VERDICTS-20261008.md §47</p>' in html
 
 
 def test_free_text_hash_numbers_become_n_beon_but_structure_numbers_stay():
@@ -88,19 +95,25 @@ def test_html_is_escaped_and_warning_lands_in_evidence_section():
     assert "쉬운 판(HTML) 못 만들었어요 — 형식 오류" in evidence
 
 
-def test_decision_blocks_show_rollback_and_missing_relay_wording():
+def test_decision_item_has_ts_and_body_and_relay_path_with_same_number_note_but_no_relay_text():
     md, _ = render()
-    assert "되돌림: PR revert" in md and "원문에 되돌림 없음" in md and "전문 파일 없음(/tmp 휘발)" in md
-    assert "같은 번호 쪽지 1건 더" in md and "DA 판정문: design/harness/DA-x.md#§3" in md
+    d3 = md.split("## D3 판정(결정 원문)")[1].split("\n## ")[0]
+    assert "### 판정 352\n\n> 2026-10-07T20:00:00+09:00 → byz-harness-master-claude#12\n> 판정 352 제안서 흐름 확정\n> … 원문: /tmp/mbox/x.md · 같은 번호 1건 더" in d3
+    assert "### 판정 353" in d3 and "… 원문: 쪽지 원문" in d3 and "전문 0 줄" not in md and "되돌림" not in d3  # relay 전문·되돌림은 싣지 않는다(원문 위치로 찾아감)
+    assert "DA design/harness/DA-x.md#§3" in section_of(md, "D1 닫힌 단위")
 
 
-def test_detail_fixture_extra_lines_makes_a_longer_document():
+def section_of(md: str, name: str) -> str:
+    return md.split(f"## {name}")[1].split("\n## ")[0]
+
+
+def test_relay_text_length_never_changes_the_document():
     short = render(fake_full_model())[1]
     long = mrf.render_full({**fake_full_model(), "detail": detail_fixture(300)}, LINES, "t")[1]
-    assert long.count('class="ln"') - short.count('class="ln"') == 300
+    assert long.count('class="ln"') == short.count('class="ln"')
 
 
-def test_external_body_headings_never_become_md_headings():
+def test_external_body_headings_never_become_md_headings(uncapped):
     """arch#10 반송 r1-①: 본문 속 「## 결론」·표 줄이 md 에서 진짜 제목이 되면 GitHub 목차가 섞인다."""
     m = fake_full_model()
     nasty = "## 결론\n### 오빠가 할 일\n| a | b |\n  # 들여쓴 제목\n본문"

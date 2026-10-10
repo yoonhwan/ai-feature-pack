@@ -13,7 +13,7 @@ bash -n "$BIN/ft-nano-spawn.sh" && ok "bash -n ft-nano-spawn.sh" || bad "bash -n
 
 # 가짜 bin: spawn 사본 + 항상 통과하는 ft-index-lint (이 시험은 기준값 줄만 본다)
 mkdir -p "$T/bin" "$T/idx/대기"
-cp "$BIN/ft-nano-spawn.sh" "$T/bin/"
+cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-proposal-gate.sh" "$T/bin/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
 echo '{}' > "$T/seats.json"
 

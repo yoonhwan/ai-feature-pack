@@ -29,12 +29,12 @@ from mirror_share import first_line_is
 from mirror_summary import DEFAULT_CMD
 from proposal_files import attach_all, check_pinned, make_html, md_hash
 from proposal_state import PublishError, read_state, set_phase
-from proposal_text import first_line, text_of
+from proposal_text import first_line, issue_url, text_of
 
 LOG = logging.getLogger("byz_proposal_publish")
 HOME = Path.home()
 MAX_LINES = 120
-STATUS_OK = re.compile(r"^(초안|컨펌 대기|수정 요청 r[1-9]\d*)$")
+STATUS_OK = re.compile(r"^(초안|컨펌 대기|수정 요청 r[1-9]\d*|승인 — 판정 ([1-9]\d*))$")  # 대시 = U+2014 하나 · 승인 = «기록» 발행(결정 요청 아님)
 NAME = re.compile(r"^PROPOSAL-([a-z0-9-]+)-\d{8}\.md$")
 
 
@@ -69,9 +69,10 @@ def parse_text(path: Path, text: str) -> dict[str, str]:
     if len(statuses) > 1:
         raise PublishError(f"머리의 「- 상태:」 줄이 {len(statuses)}개 — 정확히 1개여야 한다(첫 줄만 믿지 않는다): {statuses}")
     status = statuses[0] if statuses else ""
-    if not STATUS_OK.match(status):
-        raise PublishError(f"머리줄 상태 「{status or '없음'}」 은 발행 대상이 아니다(초안|컨펌 대기|수정 요청 rN)")
-    return {"key": f"{path.resolve().parent.name}/{m.group(1)}", "status": status,
+    ok = STATUS_OK.match(status)
+    if not ok:
+        raise PublishError(f"머리줄 상태 「{status or '없음'}」 은 발행 대상이 아니다(초안|컨펌 대기|수정 요청 rN|승인 — 판정 N)")
+    return {"key": f"{path.resolve().parent.name}/{m.group(1)}", "status": status, "record": ok.group(2) or "",
             "결론": _section_first(lines, "결론"), "오빠가 결정할 것": _section_first(lines, "오빠가 결정할 것"),
             "되돌림": _section_first(lines, "되돌림")}
 
@@ -95,11 +96,11 @@ def _root_ts(t: Target, key: str, st_path: Path, lookback: float) -> str:
 
 def publish(t: Target, md: Path, rev: str, st_path: Path, *, force_post: bool = False, force_file: str = "", lookback: float = 60.0,
             cmd: str = DEFAULT_CMD, cache_dir: Path = HOME / ".hermes/state/proposal", build=proposal_eli5.build,
-            block: str | None = None, seats: str | None = None) -> dict[str, str]:
+            block: str | None = None, seats: str | None = None, issue: str | None = None) -> dict[str, str]:
     data = md.read_bytes()  # ★한 번 읽기★ — 칸·해시·HTML·첨부가 전부 이 바이트에서 나온다(읽은 뒤 파일이 바뀌어도 어긋나지 않는다)
     text = data.decode("utf-8")
     p, h = parse_text(md, text), md_hash(data)
-    key, line = p["key"], first_line(p["key"], rev)
+    key, line = p["key"], first_line(p["key"], rev, p["record"])  # text_of 가 싣는 첫 줄과 같아야 r0 중복 게시 방지가 맞는다
     rec = read_state(st_path).get(key, {}).get("revs", {}).get(rev, {})
     check_pinned(key, rev, rec, h)  # 캐시·키 판단 «전» — 같은 rN 의 원문 불변 확인
     phase = rec.get("phase", "")
@@ -120,7 +121,7 @@ def publish(t: Target, md: Path, rev: str, st_path: Path, *, force_post: bool = 
         else:
             set_phase(st_path, key, rev, "posting", **base)
             warn = (info.get("reason") or "원인 불명") if info["phase"] == "omitted" else None
-            ts = post(t.base, t.token, t.channel, text_of(p, rev, warn, block, seats), root or None)
+            ts = post(t.base, t.token, t.channel, text_of(p, rev, warn, block, seats, issue), root or None)
         set_phase(st_path, key, rev, "posted", ts=ts, **base)
     with tempfile.TemporaryDirectory() as td:  # 같은 읽기 스냅샷의 md 를 올린다(HTML 도 같은 바이트에서 만들어졌다)
         snap = Path(td) / md.name
@@ -156,8 +157,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def block_of(args: argparse.Namespace, md: Path) -> str:
     p = parse(md)
-    return rb.block(args.issue, args.card, args.seat, rb.canon_ref(md), args.next_ or f"{rb.DECIDE} — {p['오빠가 결정할 것']}",
-                    rb.resume_for(args.seat, args.resume_script))
+    nxt = f"기록 — 판정 {p['record']} 승인 · 결정 대기 아님" if p["record"] else f"{rb.DECIDE} — {p['오빠가 결정할 것']}"
+    return rb.block(args.issue, args.card, args.seat, rb.canon_ref(md), args.next_ or nxt, rb.resume_for(args.seat, args.resume_script))
 
 
 def run(args: argparse.Namespace) -> int:
@@ -167,15 +168,18 @@ def run(args: argparse.Namespace) -> int:
         return 1
     try:
         md, seats = Path(args.proposal), str(Path(args.resume_script).resolve().parent.parent / "seats-planner.json")  # 명부 «경로» 만 유도
+        if parse(md)["record"] and rev != "r0":
+            print("ERROR 기록 제안서는 rN 없음 — 새 제안서로", file=sys.stderr)
+            return 1
         if args.dry_run:
-            print(text_of(parse(md), rev, block=block_of(args, md), seats=seats))
+            print(text_of(parse(md), rev, block=block_of(args, md), seats=seats, issue=issue_url(args.issue)))
             return 0
         block, card, ledger = block_of(args, md), Path(args.card), Path(args.ledger).expanduser()
         lg.load(ledger)  # 장부가 없거나 손상이면 게시 «전» 에 raise
         tu.note_attempt(card, args.channel)  # 게시 의도는 tracked 카드에 먼저 남긴다
         t = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
         res = publish(t, md, rev, Path(args.state).expanduser(), force_post=args.force_post, force_file=args.force_file or "",
-                      lookback=args.lookback_days, cmd=args.summary_cmd, cache_dir=Path(args.cache_dir).expanduser(), block=block, seats=seats)
+                      lookback=args.lookback_days, cmd=args.summary_cmd, cache_dir=Path(args.cache_dir).expanduser(), block=block, seats=seats, issue=issue_url(args.issue))
         tu.ensure_root(card, args.team, ledger, args.channel, read_state(Path(args.state).expanduser())[parse(md)["key"]]["root_ts"])
     except (PublishError, AttachError, MirrorError, OSError, ValueError) as e:
         print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)

@@ -18,11 +18,12 @@ from magazine_summary import run_cmd
 SKILL_ROOT = Path.home() / ".claude/plugins/cache/claude-community/eli5"
 TEMPLATE = Path(__file__).with_name("magazine_eli5_template.html")
 LOG = logging.getLogger("byz_morning_magazine")
+ELI5_CARDS = 12  # 판정 812 A안 — LLM 풀이·카드는 앞 12개 단위만, 나머지는 제목 목록(LLM 0)
 
 
 class Eli5Stats(TypedDict):
     success: int
-    total: int
+    total: int  # 전체 단위 수 — 풀이 대상은 앞 ELI5_CARDS 개(footer 에 «전체 N» 으로 적는다)
     omitted: int
     reasons: dict[str, int]
 
@@ -112,6 +113,20 @@ def _card(unit: dict, ai: dict | str, foot: Foot, texts: list[str]) -> str:
     return fact + explanation + "</article>"
 
 
+def _more_titles(units: list[dict], foot: Foot, texts: list[str]) -> str:
+    """카드 상한을 넘은 단위 — 제목 한 줄씩(LLM 0). 인덱스 표기는 카드와 같이 걷어 각주로."""
+    if not units:
+        return ""
+    items = []
+    for u in units:
+        raw = " ".join(str(u["title"]).split())
+        title, gone = strip_tokens(raw)
+        mark = f' <sup class="fn">[{foot.add("닫힌 단위", "원제목 " + raw)}]</sup>' if gone else ""
+        texts.append(title)
+        items.append(f"<li>{_h(title or '(제목은 각주)')}{mark}</li>")
+    return f'<h3>그 밖의 닫힌 일 {len(units)}건</h3><ul class="more-titles">' + "".join(items) + "</ul>"
+
+
 def _footnotes(notes: Notes) -> str:
     if not notes:
         return "<p>없어요</p>"
@@ -124,17 +139,18 @@ def _footnotes(notes: Notes) -> str:
 
 def build(model: Model, notes: Notes, cmd: str, lines: Sequence[str] = ()) -> Eli5HTML:
     units = _units(model)
-    ai = explain(units, cmd, _skill(), run_cmd)
+    cards_units, rest = units[:ELI5_CARDS], units[ELI5_CARDS:]
+    ai = explain(cards_units, cmd, _skill(), run_cmd)
     _drop_indexed(ai)
     reasons = dict(sorted(Counter(v for v in ai.values() if isinstance(v, str)).items()))
     omitted = sum(reasons.values())
-    stats: Eli5Stats = {"success": len(units) - omitted, "total": len(units), "omitted": omitted, "reasons": reasons}
+    stats: Eli5Stats = {"success": len(cards_units) - omitted, "total": len(units), "omitted": omitted, "reasons": reasons}
     counts = " · ".join(f"{reason} {count}건" for reason, count in reasons.items()) or "없음"
-    footer = f"AI 풀이 {stats['success']}/{stats['total']} · 생략 {omitted}({counts})"
+    footer = f"AI 풀이 {stats['success']}/{len(cards_units)}" + (f" (전체 {len(units)})" if rest else "") + f" · 생략 {omitted}({counts})"
     foot, texts = Foot(), []
     boxes = decision_boxes(model, cmd, run_cmd, foot)
     core = _core(lines, foot, texts)
-    cards = "".join(_card(u, ai[u["path"]], foot, texts) for u in units)
+    cards = "".join(_card(u, ai[u["path"]], foot, texts) for u in cards_units) + _more_titles(rest, foot, texts)
     headline = f"닫힌 일 {len(units)}건 · 오빠가 내린 결정 {boxes.marked}건 · 기다리는 결정 {boxes.waiting}건"
     check_body([headline, *boxes.texts, *texts])  # «사실 문자열»(걷어 낸 제목·원문 줄·핵심 줄·박스 문구) — 남으면 진짜 버그라 쉬운 판 실패 경로 · AI 풀이는 위에서 카드별로 처리
     page = Template(TEMPLATE.read_text(encoding="utf-8")).substitute(

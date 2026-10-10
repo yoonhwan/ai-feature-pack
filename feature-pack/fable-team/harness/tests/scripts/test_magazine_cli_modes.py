@@ -74,7 +74,7 @@ def test_reattach_on_done_day_adds_reply_and_files_not_a_root_then_skips(env, sl
     print(f"[reattach 출력] {out}")
     root = slack.roots[0]["ts"]
     assert len(slack.roots) == 1 and out.startswith(f"reattached date={DATE} rev=r1 ts=") and "pages=3" in out and "-eli5.html" in out
-    assert slack.replies_of(root)[0]["text"].startswith(f"*아침 매거진 {DATE} 재첨부 r1*") and len(slack.titles(root)) == 4
+    assert slack.replies_of(root)[0]["text"].startswith(f"[상태] *아침 매거진 {DATE} 재첨부 r1*") and len(slack.titles(root)) == 4
     assert cli.main([*base, "--reattach", "r1"]) == 0 and f"skip date={DATE} rev=r1" in capsys.readouterr().out and len(slack.titles(root)) == 4
 
 
@@ -132,7 +132,7 @@ def test_unexpected_eli5_bug_fails_the_whole_publish_visibly(env, slack, monkeyp
     mod = fake_eli5()
     mod.build = lambda *a: (_ for _ in ()).throw(TypeError("버그"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "magazine_eli5", mod)
-    assert cli.main(base) == 1 and len(slack.msgs) == 1 and slack.msgs[0]["text"].startswith("매거진 발행 실패") and "TypeError" in slack.msgs[0]["text"]
+    assert cli.main(base) == 1 and len(slack.msgs) == 1 and slack.msgs[0]["text"].startswith("[상태] 매거진 발행 실패") and "TypeError" in slack.msgs[0]["text"]
 
 
 def test_model_without_detail_fails_visibly_no_part1_only(env, slack, tmp_path):

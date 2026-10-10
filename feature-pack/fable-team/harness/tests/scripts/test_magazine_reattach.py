@@ -16,7 +16,7 @@ from magazine_slack import Target, marker
 from mirror_lib import MirrorError
 
 DATE, REV = "2026-10-08", "r1"
-FIRST = f"*아침 매거진 {DATE} 재첨부 {REV}*"
+FIRST = f"[상태] *아침 매거진 {DATE} 재첨부 {REV}*"
 
 
 @pytest.fixture

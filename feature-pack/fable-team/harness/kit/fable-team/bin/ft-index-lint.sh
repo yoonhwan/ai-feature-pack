@@ -77,6 +77,23 @@ check_evidence() {  # $1=file → bad+=  (경로:줄 — 경로 실재 + 줄 번
     { [ "$n" -ge 1 ] && [ "$n" -le "$total" ]; } || bad+=("조사 근거: 줄 번호가 파일 줄 수(${total})를 벗어남 ($ref)")
   done <<< "$refs"
 }
+# ⑨ 머리 `- 제안서:` 줄 (R77 r1 · 판정 826) — 값 = `#<제안 Issue 번호>` 또는 `없음 — <사유>`(승인 증거 검사는 ft-proposal-gate.sh --card).
+#   의무 = 새 카드(git 에 아직 없거나 첫 추가일 ≥ 2026-10-11). 옛 카드는 줄이 없거나 경로 값이면 WARN 만(rc 유지). 새 카드의 경로 값은 REJECT.
+check_proposal_line() {  # $1=file → bad+=
+  local val added new=1
+  val="$(awk '/^##[[:space:]]/{exit} {print}' "$1" | sed -nE 's/^[[:space:]]*[-*][[:space:]]*제안서:[[:space:]]*(.*)$/\1/p' | head -1)"
+  added="$(git -C "$(dirname "$1")" log --diff-filter=A --format=%as -- "$(basename "$1")" 2>/dev/null | tail -1)"
+  { [ -z "$added" ] || [[ ! "$added" < "2026-10-11" ]]; } || new=0
+  if [ -z "$val" ]; then
+    bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-proposal-gate.sh" --writing-card "$1" 2>/dev/null && return   # 제안서 «작성 카드»(proposal-* · 구현 범위 design/ 문서 1개+ 뿐)만 줄 면제 — spawn 게이트와 같은 판별
+    if [ "$new" = 1 ]; then bad+=("머리 「- 제안서: #<제안 Issue 번호> | 없음 — 사유」 줄 없음 (새 카드 의무 · R77)")
+    else echo "WARN $1 — 머리 「- 제안서:」 줄 없음 (옛 카드 · 2026-10-11 이후 새 카드부터 의무)"; fi
+    return
+  fi
+  [[ "$val" =~ ^#[0-9]+([[:space:]]|$) || "$val" == "없음 — "?* ]] && return
+  if [ "$new" = 1 ]; then bad+=("「- 제안서:」 값은 #<제안 Issue 번호> 또는 「없음 — 사유」 (경로 값은 R77 r1 부터 새 카드에서 금지): ${val:0:40}")
+  else echo "WARN $1 — 「- 제안서:」 경로·기타 값(옛 카드 · 새 카드는 #M 또는 없음 — 사유): ${val:0:40}"; fi
+}
 for f in "$@"; do
   bad=()
   [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }
@@ -110,6 +127,7 @@ for f in "$@"; do
     ok=0; while IFS= read -r p; do path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
+  check_proposal_line "$f"
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi
   if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
 done

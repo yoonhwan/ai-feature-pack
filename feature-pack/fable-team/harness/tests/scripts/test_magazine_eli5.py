@@ -156,6 +156,7 @@ def test_empty_day_and_long_decision_have_explicit_text(tmp_path):
 
 @pytest.mark.parametrize("mode,omitted,reason", [("ok", 0, ""), ("timeout", 12, "호출 실패"), ("blocked", 1, "차단 단어"), ("missing", 1, "호출 실패")])
 def test_batches_preserve_facts_and_count_partial_failures(tmp_path, monkeypatch, caplog, mode, omitted, reason):
+    monkeypatch.setattr(me, "ELI5_CARDS", 25)  # R74 카드 12장 상한은 풀어 둔다 — 여기선 배치(12·12·1) 호출·부분 실패 집계만 본다
     m, calls, barrier = model(), [], Barrier(3, timeout=5)
     m["mbox"]["hil"] = []  # 결정 줄 다시 쓰기 호출이 없게 — 이 시험은 단위 배치 호출 수만 센다
     m["detail"]["units"] = [{**m["detail"]["units"][0], "path": str(i)} for i in range(25)]

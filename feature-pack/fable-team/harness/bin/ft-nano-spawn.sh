@@ -74,6 +74,8 @@ case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 �
 
 # ① lint — 누가 읽어도 착수 가능한가
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
+# ①-0 제안서 «오빠가 본 승인» 게이트 (R77 · 판정 816 — 로직은 ft-proposal-gate.sh --card)
+_pg="$(bash "$HERE/ft-proposal-gate.sh" --card "$IDX" 2>&1)" || { echo "REJECT 제안서 승인 증거 부족 — $_pg"; exit 1; }; echo "$_pg"
 # ①a 머리줄 4줄(C6 · SPEC-roles P3-1) — 없으면 REJECT 가 아니라 «spawn 후보 제외» 경고(ft-nano-slots.sh 와 같은 검사 · 현행 동작 보존)
 _hmiss="$(awk '/^##[[:space:]]/{exit} {print}' "$IDX" | python3 -c "
 import re, sys

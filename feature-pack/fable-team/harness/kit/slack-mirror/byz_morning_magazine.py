@@ -27,6 +27,7 @@ from magazine_pdf import html_to_pdf
 from magazine_publish import KST, Day, done_ts, last_done, publish_day
 from magazine_cli_args import parse_args
 from magazine_reattach import reattach, rev_done_ts, reply_text
+from magazine_render_cap import checked_pdf
 from magazine_render_full import build_eli5, render_full
 from magazine_slack import Target, eli5_warning_line, failure_text, post_root, root_text
 from magazine_summary import summarize_model
@@ -93,7 +94,7 @@ def make_files(model: Model, args: argparse.Namespace) -> Made:
     md_path, html_path, pdf_path = out / f"{stem}.md", out / f"{stem}.html", out / f"{stem}.pdf"
     md_path.write_text(md, encoding="utf-8")
     html_path.write_text(html, encoding="utf-8")
-    pages = html_to_pdf(html_path, pdf_path, f"아침 매거진 {model['date']}")
+    pages = checked_pdf(md, html_path, pdf_path, f"아침 매거진 {model['date']}", html_to_pdf)  # md·쪽수 상한(MagazineSizeError) — 넘으면 run() 의 실패 알림 경로
     return Made(md_path, html_path, pdf_path, eli5_path, md, summary.lines, pages, warn, bad_lines(model), eli5_pdf)  # 카드 줄 · 요청 행 줄(별 줄) — 0 이면 None
 
 

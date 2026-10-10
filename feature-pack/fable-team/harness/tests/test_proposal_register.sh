@@ -1,73 +1,21 @@
 #!/usr/bin/env bash
-# test_proposal_register.sh — ft-proposal-register.sh 시험(설계 §7-2 + r2 §r2-4 1): 임시 git 리포 · 가짜 Tank · 가짜 gh 읽기. 원격 0.
-#   확인 실패 → rc≠0 + ★Tank 호출 0회★ · 승인 — 판정 351 → create 1회 + label 1회 · create 실패 → label 0회 · --check → 호출 0.
-#   r2(판정 357): 본문 = 제안서 전문 · 분할 comment · 식별자 채택/충돌/불명 · 확정 거절만 기록 삭제 → test_proposal_register_r2.sh 가 이어서 돈다.
+# test_proposal_register.sh — 옛 진입점 ft-proposal-register.sh 는 R77 r1(판정 826)에서 폐기됐다: 어떤 인자로 불러도 rc 1 + 안내(조용한 통과 0) · Tank 호출 0.
+#   open/approve/inbox 의 시험은 test_proposal_open.sh · test_proposal_approve_inbox.sh.
 set -uo pipefail
-# shellcheck source=_proposal_register_env.sh
-. "$(dirname "${BASH_SOURCE[0]:-$0}")/_proposal_register_env.sh"
-
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+REG="$HERE/../../scripts/harness-install/proposal/ft-proposal-register.sh"
+fail=0
+ok()  { echo "PASS $1"; }
+bad() { echo "FAIL $1"; fail=$((fail+1)); }
 bash -n "$REG" && ok "bash -n" || bad "bash -n"
-bash -n "$HERE/_proposal_register_env.sh" && ok "bash -n env" || bad "bash -n env"
-fails() {  # <이름> <파일> — rc≠0 + Tank 호출 0회
-  reset
-  local out rc; out="$(bash "$REG" "$2" --apply 2>&1)"; rc=$?
-  local n; n="$(calls)"
-  echo "    [$1] rc=$rc · Tank 호출 ${n}회 · $(echo "$out" | head -1)"
-  [ $rc -ne 0 ] && [ "$n" = 0 ] && ok "$1 → rc≠0 · Tank 호출 0회" || bad "$1 rc=$rc 호출 ${n}회"
-}
-fails "머리줄 초안"            "$(mk '초안' "$GOODV")"
-fails "머리줄 컨펌 대기"        "$(mk '컨펌 대기' "$GOODV")"
-fails "머리줄 수정 요청 r1"     "$(mk '수정 요청 r1' "$GOODV")"
-fails "머리줄 폐기 — 판정 9"    "$(mk '폐기 — 판정 9' "$GOODV")"
-fails "「승인 — 판정 」 번호 없음" "$(mk '승인 — 판정 ' "$GOODV")"
-fails "승인인데 Issue #12 이미 있음" "$(mk '승인 — 판정 351' "$GOODV" '- Issue #12 등록됨')"
-fails "승인인데 ## 검증 칸 없음"   "$(mk '승인 — 판정 351' '-')"
-fails "승인인데 ## 검증 빈 칸"     "$(mk '승인 — 판정 351' '\n  \n')"
-P_DUP="$T/dup-status.md"
-{ echo '# 제안서 — 줄바꿈 CSS'; echo '- 상태: 승인 — 판정 351'; echo '- 상태: 폐기 — 판정 352'; echo; echo '## 결론'; echo '한 줄이면 된다.'; echo; echo '## 검증'; echo "$GOODV"; } > "$P_DUP"
-fails "머리 상태 줄 2개(승인 다음 폐기)" "$P_DUP"
-fails "파일 없음"               "$T/없는.md"
 
-reset
-P="$(mk '승인 — 판정 351' "$GOODV")"
-out="$(bash "$REG" "$P" --apply 2>&1)"; rc=$?
-echo "    $out"
-[ $rc -eq 0 ] && [ "$(grep -c '^create$' "$TANK_LOG")" = 1 ] && [ "$(grep -c '^label$' "$TANK_LOG")" = 1 ] && ok "승인 — 판정 351 → create 1회 + label 1회" || bad "승인 경로 rc=$rc 호출=$(tr '\n' ' ' < "$TANK_LOG")"
-echo "$out" | grep -qx 'REGISTERED #901 판정 351' && ok "출력 REGISTERED #901 판정 351" || bad "REGISTERED 줄 없음"
+T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+printf '#!/usr/bin/env bash\necho called >> "%s/tank.log"\n' "$T" > "$T/tank.sh"
+for args in "" "x.md" "x.md --apply" "x.md --check" "--apply --force-create"; do
+  # shellcheck disable=SC2086
+  out="$(FT_TANK_CMD="bash $T/tank.sh" bash "$REG" $args 2>&1)"; rc=$?
+  [ "$rc" = 1 ] && echo "$out" | grep -q 'ft-proposal-open.sh' && echo "$out" | grep -q 'ft-proposal-approve.sh' && ok "인자 「${args:-없음}」 → rc 1 + open/approve 안내" || bad "인자 「$args」 rc=$rc $out"
+done
+[ ! -e "$T/tank.log" ] && ok "Tank 호출 0" || bad "Tank 가 불렸다"
 
-reset
-out="$(TANK_FAIL_CREATE=1 bash "$REG" "$P" --apply 2>&1)"; rc=$?
-[ $rc -ne 0 ] && [ "$(grep -c '^create$' "$TANK_LOG")" = 1 ] && [ "$(grep -c '^label$' "$TANK_LOG")" = 0 ] && ok "create 실패 → rc≠0 · label 0회" || bad "create 실패 rc=$rc 호출=$(tr '\n' ' ' < "$TANK_LOG")"
-
-reset
-out="$(TANK_FAIL_LABEL=1 bash "$REG" "$P" --apply 2>&1)"; rc=$?
-[ $rc -ne 0 ] && echo "$out" | grep -q '#901 등록됨 · 라벨 수동' && ok "label 실패 → rc≠0 + 「#901 등록됨 · 라벨 수동」" || bad "label 실패 rc=$rc"
-
-reset
-out="$(bash "$REG" "$P" --check 2>&1)"; rc=$?
-[ $rc -eq 0 ] && [ "$(calls)" = 0 ] && ok "--check → rc=0 · Tank 호출 0" || bad "--check rc=$rc 호출 $(calls)"
-reset
-bash "$REG" "$(mk '초안' "$GOODV")" --check >/dev/null 2>&1; rc=$?
-[ $rc -ne 0 ] && [ "$(calls)" = 0 ] && ok "--check 틀린 머리줄 → rc≠0 · Tank 호출 0" || bad "--check 틀린 머리줄 rc=$rc"
-
-reset
-out="$(bash "$REG" "$P" 2>&1)"; rc=$?
-[ "$(grep -c '^label$' "$TANK_LOG")" = 0 ] && echo "$out" | grep -q '^DRY ' && ok "--apply 없음 → create(dry-run)만 · label 0" || bad "dry 경로 rc=$rc 호출=$(tr '\n' ' ' < "$TANK_LOG")"
-
-bash "$REG" "$P" --check --apply >/dev/null 2>&1; [ $? -eq 2 ] && ok "--check --apply 동시 → usage rc=2" || bad "--check --apply 동시"
-
-# ★확인 후 파일이 바뀌어도 어긋나지 않는다★ — 1회 읽기: Tank 가 호출되는 «동안» 제안서를 초안으로 바꿔도 이미 읽은 판정으로 등록된다.
-P2="$(mk '승인 — 판정 77' "$GOODV")"
-cat > "$T/mutating-tank.sh" <<EOF
-#!/usr/bin/env bash
-[ "\$1" = create ] && sed -i.bak 's/^- 상태: .*/- 상태: 초안/' "$P2"
-echo "\$1" >> "$TANK_LOG"; [ "\$1" = create ] && echo "OK PAIR issue=#902"
-exit 0
-EOF
-reset
-out="$(FT_TANK_CMD="bash $T/mutating-tank.sh" bash "$REG" "$P2" --apply 2>&1)"
-echo "$out" | grep -qx 'REGISTERED #902 판정 77' && ok "1회 읽기: 읽은 값(판정 77)으로 일관되게 등록" || bad "1회 읽기 $out"
-
-bash "$HERE/test_proposal_register_r2.sh" || fail=$((fail+1))
-
-[ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
+[ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

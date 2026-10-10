@@ -60,7 +60,7 @@ def test_cli_no_push_makes_zero_git_calls_and_second_run_skips(cli_env, slack, m
     assert cli.main([*base, "--no-push"]) == 0 and cli.main([*base, "--no-push"]) == 0
     assert "skip date=2026-10-08" in capsys.readouterr().out and len(slack.roots) == 1
     root = slack.roots[0]["text"]
-    assert root.startswith("*아침 매거진 2026-10-08*") and "main 에 두 건이 들어갔어요" in root and "<@U0AC2JF0M7D> 오빠 할 일이 1건" in root
+    assert root.startswith("[상태] *아침 매거진 2026-10-08*") and "main 에 두 건이 들어갔어요" in root and "<@U0AC2JF0M7D> 결정 대기 1건" in root
     assert "&lt;script&gt;" not in root and slack.uploads == [b"%PDF-fake", b"%PDF-fake"]
     assert slack.titles(slack.roots[0]["ts"]) == [f"아침 매거진 {DATE} 풀 디테일 r0", f"아침 매거진 {DATE} 쉬운 판 r0"]
 
@@ -76,7 +76,7 @@ def test_cli_push_link_uses_commit_sha(cli_env, slack, repo, monkeypatch):
 def test_cli_push_failure_posts_failure_line_not_a_root(cli_env, slack, tmp_path):
     base, _ = cli_env
     assert cli.main([*base, "--worktree", str(tmp_path / "none")]) == 1
-    assert len(slack.msgs) == 1 and slack.msgs[0]["text"].startswith("매거진 발행 실패") and marker(DATE) not in slack.msgs[0]["text"]
+    assert len(slack.msgs) == 1 and slack.msgs[0]["text"].startswith("[상태] 매거진 발행 실패") and marker(DATE) not in slack.msgs[0]["text"]
     assert cli.main([*base, "--no-push"]) == 0 and len(slack.roots) == 2  # 실패 글을 뿌리 글로 오인하지 않는다
 
 
@@ -86,7 +86,7 @@ def test_cli_broken_model_fails_visibly(cli_env, slack, tmp_path):
     del bad["mbox"]
     bad["detail"] = detail_fixture()
     (tmp_path / "model.json").write_text(json.dumps(bad), encoding="utf-8")
-    assert cli.main([*base, "--no-push"]) == 1 and slack.msgs[0]["text"].startswith("매거진 발행 실패")
+    assert cli.main([*base, "--no-push"]) == 1 and slack.msgs[0]["text"].startswith("[상태] 매거진 발행 실패")
 
 
 # ── 접점: 실제 magazine_collect.collect(date, *, repo, gh_repo, mailbox) ───────────
@@ -180,7 +180,7 @@ def test_cli_root_carries_block_and_ledger_gets_a_report_key(cli_env, slack, tmp
     base, tmp = cli_env
     assert cli.main([*base, "--no-push"]) == 0
     text = slack.roots[0]["text"]
-    assert "↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 master#1 · 정본 없음" in text and "↳ 다음: 오빠 할 일 " in text and "재개: RESUME-CMD(master#1)" in text
+    assert "↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 master#1 · 정본 없음" in text and "↳ 다음: 결정 대기 " in text and "재개: RESUME-CMD(master#1)" in text
     rec = json.loads((tmp / "threads.json").read_text())[f"magazine/{DATE}"]
     assert rec["kind"] == "report" and rec["root_ts"] == slack.roots[0]["ts"] and rec["results"] == []
 
@@ -188,4 +188,4 @@ def test_cli_root_carries_block_and_ledger_gets_a_report_key(cli_env, slack, tmp
 def test_cli_without_ledger_raises_before_any_post(cli_env, slack, tmp_path):
     base, tmp = cli_env
     (tmp / "threads.json").unlink()
-    assert cli.main([*base, "--no-push"]) == 1 and slack.msgs[0]["text"].startswith("매거진 발행 실패") and len(slack.roots) == 1
+    assert cli.main([*base, "--no-push"]) == 1 and slack.msgs[0]["text"].startswith("[상태] 매거진 발행 실패") and len(slack.roots) == 1
