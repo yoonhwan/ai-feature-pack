@@ -15,6 +15,8 @@ DIR="${FT_WT_CLEAN_DIR:-${ROOT:-$WT}/.fable-team/state/wt-clean}"
 TMO="${FT_WT_PLAN_TIMEOUT:-120}"
 # 계획 1건을 타임아웃 아래 실행 — perl alarm(macOS 기본엔 timeout(1) 이 없다). 새 프로세스 그룹으로 띄워 초과 시 «그룹 전체»(bash·tar·baton 자식) TERM. rc 는 계획의 것 · 초과 = 124.
 run_plan() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "$TMO" /bin/bash "$1"; }
+HB="$(dirname "$0")/ft-hil.sh"  # R83: 사람 ! 실행 안내 = 짧은 링크(`! bash /tmp/h<N>`) — 옆의 ft-hil.sh 가 없거나 실패면 지금 문구 그대로 + WARN
+hilmsg() { local m=""; command -v "$HB" >/dev/null 2>&1 && m="$("$HB" --add "$1" 2>/dev/null | tail -1)"; [ -n "$m" ] && echo "$m" || { echo "WARN ft-hil 실패 — 경로 안내로 후퇴" >&2; echo "스크립트 $1"; }; }
 n=0; c=0; w=0; h=0
 for plan in "$DIR"/*.sh; do
   [ -f "$plan" ] || continue
@@ -25,8 +27,8 @@ for plan in "$DIR"/*.sh; do
   case "$res" in
     cleaned*|none) c=$((c+1)); mv "$plan" "$plan.done"; echo "OK   $seat wt=$res";;
     skipped:좌석*|skipped:cwd*) w=$((w+1)); echo "WAIT $seat ${res#skipped:}";;
-    skipped:*) h=$((h+1)); mv "$plan" "$plan.hil"; echo "[HIL] ${res#skipped:} · 스크립트 $plan.hil";;
-    *) h=$((h+1)); mv "$plan" "$plan.hil"; echo "[HIL] 실행 실패(rc=$rc: ${res:-출력 없음}) · 스크립트 $plan.hil (로그 $plan.log)";;
+    skipped:*) h=$((h+1)); mv "$plan" "$plan.hil"; echo "[HIL] ${res#skipped:} · $(hilmsg "$plan.hil")";;
+    *) h=$((h+1)); mv "$plan" "$plan.hil"; echo "[HIL] 실행 실패(rc=$rc: ${res:-출력 없음}) · $(hilmsg "$plan.hil") (로그 $plan.log)";;
   esac
 done
 echo "sweep 계획 $n · cleaned/none $c · wait $w · hil $h"

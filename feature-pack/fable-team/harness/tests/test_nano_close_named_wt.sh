@@ -44,7 +44,8 @@ GIT worktree add -q "$NW" -b "$BR"
 git -C "$NW" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "work"
 SHA="$(git -C "$NW" rev-parse HEAD)"
 
-run() { ( cd "$REPO" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+cp "$SRC/ft-hil.sh" "$T/bin/"  # R83: 같은 bin 의 ft-hil.sh 를 부른다 — HIL_DIR 임시 폴더 · HIL_CLIP=0(실 /tmp·실 클립보드 0)
+run() { ( cd "$REPO" && env -i HOME="$HOME" HIL_DIR="${HIL_DIR_T:-$T/hil}" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
 setup() {  # setup — 명부·pane·카드·가짜 tmux 상태를 «정상» 으로 리셋(각 케이스가 한 칸만 비튼다)
   printf '{"%s":{"role":"nano","index":"design/planner/indices/진행/ovr.md"}}\n' "$SEAT" > "$REPO/.fable-team/seats-planner.json"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$NW" > "$T/pane-cwds"; printf '%s' "$NW" > "$T/cwd"
@@ -102,6 +103,8 @@ PLAN="$T/wtclean/$SEAT.sh.hil"
 [ -f "$PLAN" ] && ok "  └ wt-clean 계획 생성(.sh.hil — sweep 순회 밖)" || bad "계획 파일 없음: $(ls "$T/wtclean" 2>&1)"
 [ ! -e "$T/wtclean/$SEAT.sh" ] && ok "  └ .sh 없음 → ft-wt-sweep 이 자동 실행하지 않는다" || bad ".sh 계획이 있음(sweep 이 집행)"
 has "$out" "사람 ! 실행" "  └ 출력에 «자율 정리 범위 밖 — 사람 ! 실행»"
+has "$out" "사람 ! 실행: ! bash $T/hil/h1" "  └ R83: 안내가 짧은 링크 ! bash <HIL_DIR>/h<N> (긴 계획 경로 아님)"
+[ "$(readlink "$T/hil/h1")" = "$PLAN" ] && ok "  └ 링크 대상 = 계획 .sh.hil" || bad "링크 대상 불일치"
 has "$out" "브랜치가 nano/* 가 아니라" "  └ 사유 문구(브랜치 nano/* 아님)"
 [ -d "$NW" ] && [ -f "$NW/.git" ] && ok "  └ wt-clean 실행 0 — 워크트리 그대로" || bad "워크트리가 사라짐"
 git -C "$REPO" rev-parse --verify -q "refs/heads/$BR" >/dev/null && ok "  └ 브랜치 그대로" || bad "브랜치 삭제됨"

@@ -130,7 +130,9 @@ if [ "$MODE" = PLAN ]; then   # 단독 모드 — kill 0 · 계획만. 실행 �
   PLAN="$STATE/spawn-undo/$SEAT.sh.hil"
   printf '#!/usr/bin/env bash\n# R81 단독 모드 계획 — 사람 ! 실행. 실행 시점에 소유권(%s)·쪽지·사용자 턴을 다시 검사한다.\nFT_NANO_PREFIX=%q FT_SEATS_JSON=%q FT_ACTIVE_TAG=%q FT_NANO_LEDGER=%q FT_UNDO_STATE=%q FT_MBOX_DIR=%q bash %q %q --confirm --owned %q --card %q\n' \
     "$PANE_ID:$CREATED" "$PREFIX" "$SEATS" "$TAG" "$LEDGER" "$STATE" "$MBOX_DIR" "$SELF" "$SEAT" "$PANE_ID:$CREATED" "$CARD" > "$PLAN" || rej "계획 파일을 못 썼다: $PLAN"
-  echo "PLANNED $SEAT $PLAN"; exit 0
+  _hb="$(dirname "$0")/ft-hil.sh"; _hm=""; command -v "$_hb" >/dev/null 2>&1 && _hm="$("$_hb" --add "$PLAN" 2>/dev/null | tail -1)"  # R83: 짧은 링크 안내 · ft-hil.sh 없거나 실패면 지금 그대로 + WARN
+  [ -n "$_hm" ] || echo "WARN ft-hil 실패 — 경로 안내로 후퇴" >&2
+  echo "PLANNED $SEAT $PLAN${_hm:+ · 사람 ! 실행: $_hm}"; exit 0
 fi
 # 롤백·집행: 태그 해제 → «kill 직전» 재검사(ⓗⓐⓓⓖ) → kill → (집행이면 명부 행 삭제) → 원장 1행
 tmux set-option -t "$PANE_ID" -u "$TAG" 2>/dev/null || rej "태그 해제 실패 — kill 0"

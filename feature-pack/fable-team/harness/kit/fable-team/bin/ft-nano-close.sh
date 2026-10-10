@@ -521,7 +521,9 @@ else
 fi
 if [ "$NAMED" = 1 ]; then
   case "$NBR" in nano/*) _why="이름이 표준 좌석 경로가 아니라(--wt/--branch 명시 모드)";; *) _why="브랜치가 nano/* 가 아니라";; esac
-  [ -z "$PLAN" ] || echo "워크트리 정리 계획: $PLAN — $_why 자율 정리 범위 밖 — 사람 ! 실행: ! bash $PLAN (자동 wt-clean 0 · 브랜치 삭제 0)"
+  _hb="$(dirname "$0")/ft-hil.sh"; _hm=""  # R83: 사람 ! 실행 안내 = 짧은 링크 · ft-hil.sh 없거나 실패면 지금 문구 + WARN
+  [ -z "$PLAN" ] || { command -v "$_hb" >/dev/null 2>&1 && _hm="$("$_hb" --add "$PLAN" 2>/dev/null | tail -1)"; [ -n "$_hm" ] || echo "WARN ft-hil 실패 — 경로 안내로 후퇴" >&2; }
+  [ -z "$PLAN" ] || echo "워크트리 정리 계획: $PLAN — $_why 자율 정리 범위 밖 — 사람 ! 실행: ${_hm:-! bash $PLAN} (자동 wt-clean 0 · 브랜치 삭제 0)"
 elif [ -n "$PLAN" ]; then echo "워크트리 정리 계획: $PLAN (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)"; fi
 # r6(DA r5 MINOR e): 명부 pop 은 ABSENT 여부와 무관하게 위에서 항상 실행된다 — 「명부 확인」은 사실과 달랐다.
 if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT (명부 삭제 · 원장 표식) — 워크트리 정리 계획만"; exit 0; fi

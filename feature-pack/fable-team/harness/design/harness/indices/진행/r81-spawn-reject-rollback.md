@@ -76,3 +76,4 @@
 - 2026-10-10 11:38 — 대기→진행 · 좌석 byz-harness-nano-r81-spawn-reject-rollback#0
 세트: 9dda97a61f58c67c131627422e630fb6965ef70f · 시험: python3 -m pytest tests/scripts/test_nano_spawn_rollback.py tests/scripts/test_nano_spawn_base_sha.py tests/scripts/test_nano_spawn_branch_collision.py tests/scripts/test_thread_post.py -q rc=0 · 이슈: 0
 - 2026-10-10 — 나노 완료(커밋 50aa016de1[feature repair --root]+9dda97a61f[fix 롤백·undo]) · 마스터 재실행 61 passed · 변경 파일 ruff 0 · 라이브 5파일 main 동일(덮어쓸 차이 0) · 판정 849 랜딩 승인
+- 2026-10-10 — 닫힘: 커밋 50aa016de1[feature]+9dda97a61f[fix] · 61 passed(마스터 재실행)·86 passed(묶음) · 라이브 설치 .bak-r81 + cmp OK(ft-nano-spawn.sh · 새 ft-nano-spawn-undo.sh · ~/.hermes 3파일) · 드리프트 OK · main 랜딩 PR 1183 ddcf90affc (판정 849)
