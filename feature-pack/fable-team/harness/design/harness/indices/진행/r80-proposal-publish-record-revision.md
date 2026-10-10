@@ -57,5 +57,5 @@ R76 은 «승인 — 판정 N» 제안서를 «기록»으로 발행하게 했�
 ## 결과
 (닫을 때 증거 줄)
 - 2026-10-10 11:08 — 대기→진행 · 좌석 byz-harness-nano-r80-proposal-publish-record-revision#0
-세트: 4a55bf0dd5696d0b7ef16cb23f8c0f8395d30da1 · 시험: python3 -m pytest tests/scripts/test_proposal_publish.py tests/scripts/test_proposal_publish_faults.py tests/scripts/test_thread_post.py -q rc=0 (52 passed · 마스터 재실행) · 이슈: 0
-- 2026-10-10 — 나노 완료·master 재실행 52 passed · ruff 0 · 판정 843 랜딩 승인 · 라이브 cp 는 랜딩 뒤(R77 미설치 보정 포함)
+세트: 4a55bf0dd5696d0b7ef16cb23f8c0f8395d30da1 · 시험: python3 -m pytest tests/scripts/test_proposal_publish.py tests/scripts/test_proposal_publish_faults.py tests/scripts/test_thread_post.py -q rc=0 · 이슈: 0
+- 2026-10-10 — 닫힘: 커밋 4a55bf0dd5[fix] · 52 passed(마스터 재실행) · ruff 0 · 라이브 설치 .bak-r80-<ts> + cmp OK(R77 미설치분 동반) · 재현 r3 dry-run 첫 줄 «*제안서 v65/lst-loud-evidence-cap r3 · 기록 판정 837*» · main 랜딩 PR 1182 a3cbe3ba92 (판정 843)

@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import thread_ledger as lg
+from mirror_lib import api_call
 from thread_card import read_line, unit_id, write_line
 
 KST = ZoneInfo("Asia/Seoul")
@@ -29,3 +30,22 @@ def ensure_root(card: Path, team: str | None, ledger: Path, channel: str, root_t
     elif rec.get("root_ts") != root_ts:
         raise lg.LedgerError(f"장부 root_ts({rec.get('root_ts')}) ≠ 이번 root_ts({root_ts}): {uid} — 사람이 확인한다")
     return uid
+
+
+def repair_root(a, tgt) -> int:
+    """`repair --root <ts>` (R81) — 사람이 아는 뿌리 ts 로 카드 줄·장부를 채운다(ensure_root 재사용).
+    카드 줄이 «시도» 이거나 없을 때만 · 그 ts 가 «뿌리 글»(봇 글 · 답글 아님)일 때만 — 아니면 카드·장부 쓰기 «전» 에 raise."""
+    card, line = Path(a.card), read_line(Path(a.card))
+    if line is not None and line[1] is not None:
+        raise lg.LedgerError(f"카드에 이미 뿌리 ts({line[1]})가 있다 — --root 는 「시도」 줄이거나 줄이 없을 때만: {card}")
+    ch, t = (line[0] if line else a.channel), tgt(a)
+    raw = api_call(t.base, t.token, "conversations.replies", {"channel": ch, "ts": a.root, "limit": 1}, get=True).get("messages")
+    first = raw[0] if isinstance(raw, list) and raw and isinstance(raw[0], dict) else {}
+    if str(first.get("ts")) != a.root:
+        raise lg.LedgerError(f"--root {a.root} 글을 채널 {ch} 에서 못 찾았다")
+    if not first.get("bot_id"):
+        raise lg.LedgerError(f"--root {a.root} 는 봇 글이 아니다")
+    if first.get("thread_ts") not in (None, "", a.root):
+        raise lg.LedgerError(f"--root {a.root} 는 답글이다(뿌리 {first.get('thread_ts')}) — 답글 ts 는 뿌리가 아니다")
+    print(f"repaired {ensure_root(card, a.team, Path(a.ledger), ch, a.root)} root_ts={a.root}")
+    return 0

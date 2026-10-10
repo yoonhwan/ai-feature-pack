@@ -21,6 +21,7 @@ from mirror_share import first_line_is, tag
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
 from thread_post_update import cmd_update
+from thread_unit import repair_root
 
 KST = ZoneInfo("Asia/Seoul")
 LOOKBACK_DAYS = 60
@@ -151,6 +152,8 @@ def cmd_check(a: argparse.Namespace) -> int:
 
 def cmd_repair(a: argparse.Namespace) -> int:
     uid, card, ledger = unit_id(a.card, a.team), Path(a.card), Path(a.ledger)
+    if a.root:  # R81 — 사람이 아는 뿌리 ts (thread_unit.repair_root)
+        return repair_root(a, target)
     line = read_line(card)
     if line is None:
         raise ThreadError(f"카드에 「- 슬랙:」 줄이 없다(게시 대상 아님): {card}")

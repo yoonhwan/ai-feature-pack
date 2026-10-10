@@ -169,6 +169,10 @@ OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
 [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
 echo "PLAN seat=$NAME agent=$AGENT model=$MODEL${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"
+# R81 ⓐ 슬랙 장부 사전 확인 — 카드에 「- 슬랙:」 줄이 있으면 부작용 «전»에 check(dry-run 도 같다): rc 0·1 통과 · 3 = 장부 불명 · 그 밖·도구 없음 = REJECT
+if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
+  if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi
+  case "$_src" in 0|1) ;; 3) echo "REJECT 슬랙 장부 불명 — byz_thread_post.py repair --card $IDX (부작용 0)"; exit 1;; *) echo "REJECT 슬랙 장부 확인 실패 rc=$_src(127=도구 없음) — 부작용 0"; exit 1;; esac; fi
 if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit 0; fi
 if [ "$STAMP_BASE" = 1 ]; then
   python3 - "$IDX" "$CUR_HEAD" <<'PY' || { echo "REJECT 카드 base_sha 기록 실패($IDX)"; exit 1; }
@@ -202,20 +206,25 @@ if [ ! -d "$WTDIR" ]; then
 fi
 
 # ③ 열기 — 모델 인자에 대괄호가 있어 zsh 글롭 즉사 함정(글로벌 규칙) → 이 스크립트는 bash 라 그대로 통과
-"${OPEN[@]}" >/dev/null 2>&1 || { echo "REJECT tmuxc open 실패 ($NAME)"; exit 1; }
-tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME"; exit 1; }
+# R81 판정 847 — ③④(세션 열기·태그) 실패 = 이 실행이 연 세션만 undo 가 kill(소유권·착수 0 검사) · ⑤⑥ 실패 = kill 0 + 사람 판정
+fail_rb() { echo "$1"; [ -n "${OWNED:-}" ] || { echo "롤백 불가 — 고아: $NAME (소유권 값 못 읽음)"; exit 1; }
+  _o="$(FT_NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}" FT_SEATS_JSON="$SEATS" FT_ACTIVE_TAG="${FT_ACTIVE_TAG:-@zc_v65_active}" bash "$HERE/ft-nano-spawn-undo.sh" "$NAME" --owned "$OWNED" --card "$IDX")" && { printf '%s\n' "$_o"; exit 1; }; echo "롤백 실패 — 고아: $NAME ($_o)"; exit 1; }
+human() { echo "REJECT $1 실패 — 세션 $NAME 떠 있음·명부 등록됨 — 사람 판정(ft-nano-spawn-undo.sh $NAME 단독 모드로 계획 생성 가능)"; exit 1; }
+"${OPEN[@]}" >/dev/null 2>&1; _orc=$?
+tmux has-session -t "=$NAME" 2>/dev/null || { [ "$_orc" -eq 0 ] && echo "REJECT 세션이 안 떴다: $NAME" || echo "REJECT tmuxc open 실패 ($NAME)"; exit 1; }
+IFS='|' read -r PANE _cr < <(tmux list-panes -a -F '#{session_name}|#{pane_id}|#{session_created}' | awk -F'|' -v s="$NAME" '$1==s{print $2"|"$3; exit}'); OWNED=""; [ -n "$PANE" ] && [ -n "$_cr" ] && OWNED="$PANE:$_cr"
+[ "$_orc" -eq 0 ] || fail_rb "REJECT tmuxc open 실패 ($NAME)"
 
 # ④ 소실 방지 두 줄 — E-190(remain-on-exit 없어 pane 통째 소실) · E-212(태그 없어 zombie-clean 이 kill)
 # ★`-t "=$NAME"` 은 has-session 에만 통한다★ (실측 2026-09-14): `#` 든 이름에 set-option/display-message 는
 #   `no such session`. pane_id 로 해석해 넘긴다(mbox.sh pane_of 와 같은 이유). 세션 옵션은 pane 타겟으로도 세션에 박힌다.
-PANE="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' | awk -F'|' -v s="$NAME" '$1==s{print $2; exit}')"
-[ -n "$PANE" ] || { echo "REJECT pane 못 찾음: $NAME"; exit 1; }
+[ -n "$PANE" ] || fail_rb "REJECT pane 못 찾음: $NAME"   # PANE·OWNED 는 ③ 직후 읽었다(위)
 tmux set-option -t "$PANE" remain-on-exit on
 tmux set-option -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}" 1
-[ "$(tmux show-option -qv -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}")" = 1 ] || { echo "REJECT 태그 확인 실패: $NAME"; exit 1; }
+[ "$(tmux show-option -qv -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}")" = 1 ] || fail_rb "REJECT 태그 확인 실패: $NAME"
 
 # ⑤ seats.json 등록 (tick=null → 알림 울림)
-python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" <<'PY'
+python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" <<'PY' || human "⑤ 명부 등록"
 import json, sys, collections
 p, name, agent, model, idx, role = sys.argv[1:7]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
@@ -224,7 +233,7 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open
 PY
 
 # ⑥ 대기→진행 (호출 워크트리에서 git mv — 인덱스 폴더의 정본은 기준 브랜치)
-bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || { echo "REJECT 인덱스 이동 실패"; exit 1; }
+bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
 NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
