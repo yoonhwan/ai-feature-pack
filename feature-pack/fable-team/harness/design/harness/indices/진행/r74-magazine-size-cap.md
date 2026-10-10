@@ -61,3 +61,5 @@
 ## 결과
 (닫을 때 증거 줄)
 - 2026-10-10 08:50 — 대기→진행 · 좌석 byz-harness-nano-r74-magazine-size-cap#0
+세트: 9b2e0cd8454dbe1e6d53421c3beca61b14e706bc · 시험: .venv/bin/python -m pytest tests/scripts/test_magazine_size_cap.py tests/scripts/test_magazine_render_full.py tests/scripts/test_magazine_pdf.py tests/scripts/test_magazine_eli5.py -q rc=0 · 이슈: 0
+- 2026-10-10 — 닫힘: 커밋 75415b2b9a+361f5b8e19[test]+9b2e0cd845 · 73 passed(마스터 재실행) · 라이브 설치 .bak-r74r1-1010 · 10-10 규모 md 1,316줄 · main 랜딩 PR 1178 61384daf80

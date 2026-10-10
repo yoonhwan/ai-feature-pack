@@ -40,7 +40,11 @@ zombie-clean 의 `tmux_prune()` 은 세션 계보(베이스명 + `#N`)마다 최
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: 991160ae970c5e6c85133a2b0eb48baae1484750 (spawn 2026-10-10)
 대기 — 사전 DA APPROVE · master spawn 대기
 
 ## 결과
 (닫을 때 증거 줄)
+- 2026-10-10 09:04 — 대기→진행 · 좌석 byz-harness-nano-r75-zombie-clean-keep2-order#0
+세트: d0ac03b892a8004c115074d84e775777ebeca1c2 · 시험: bash tests/harness/test_zombie_clean_tmux_prune.sh rc=0 · 이슈: 0
+- 2026-10-10 — 닫힘: 커밋 545f15c175[structure]+6eb8afa1f5[test]+d0ac03b892[fix] · 11/11(마스터 재실행) · 최종 DA APPROVE · 라이브 설치 .pre-r75-order-20261010.bak · main 랜딩 PR 1178 61384daf80

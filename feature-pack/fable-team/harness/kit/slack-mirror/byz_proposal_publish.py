@@ -84,11 +84,12 @@ def find_reply(t: Target, root_ts: str, line: str) -> str | None:
     return min(hits, default=None)
 
 
-def _root_ts(t: Target, key: str, st_path: Path, lookback: float) -> str:
+def _root_ts(t: Target, key: str, st_path: Path, lookback: float, record: str = "") -> str:
     rec = read_state(st_path).get(key, {})
     if rec.get("root_ts"):
         return str(rec["root_ts"])
-    found = find_first_line(t, first_line(key, "r0"), time.time() - lookback * 86400)
+    oldest = time.time() - lookback * 86400  # 일반 r0 줄 먼저 — 없으면 «기록 r0» 으로 시작한 스레드(승인 제안서)를 한 번 더 찾는다
+    found = find_first_line(t, first_line(key, "r0"), oldest) or (find_first_line(t, first_line(key, "r0", record), oldest) if record else None)
     if not found:
         raise PublishError(f"뿌리 글 없음: {key} — 먼저 r0(--revision 없이) 발행")
     return found
@@ -108,7 +109,7 @@ def publish(t: Target, md: Path, rev: str, st_path: Path, *, force_post: bool = 
         return {"action": "skip", "ts": rec.get("ts", "")}
     html, info = make_html(key, rev, h, text, rec, cmd, cache_dir, build)
     base = {"md_hash": h, "html": info}
-    root = _root_ts(t, key, st_path, lookback) if rev != "r0" else ""
+    root = _root_ts(t, key, st_path, lookback, p["record"]) if rev != "r0" else ""
     if phase == "posted" and rec.get("ts"):
         ts = rec["ts"]
     else:
@@ -168,9 +169,6 @@ def run(args: argparse.Namespace) -> int:
         return 1
     try:
         md, seats = Path(args.proposal), str(Path(args.resume_script).resolve().parent.parent / "seats-planner.json")  # 명부 «경로» 만 유도
-        if parse(md)["record"] and rev != "r0":
-            print("ERROR 기록 제안서는 rN 없음 — 새 제안서로", file=sys.stderr)
-            return 1
         if args.dry_run:
             print(text_of(parse(md), rev, block=block_of(args, md), seats=seats, issue=issue_url(args.issue)))
             return 0

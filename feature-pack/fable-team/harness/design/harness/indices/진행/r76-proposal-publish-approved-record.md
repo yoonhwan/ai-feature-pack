@@ -58,3 +58,5 @@
 ## 결과
 (닫을 때 증거 줄)
 - 2026-10-10 08:50 — 대기→진행 · 좌석 byz-harness-nano-r76-proposal-publish-approved-record#0
+세트: 59a1c5622acafdffc32cfb1f42f6b2831f1f26cc · 시험: .venv/bin/python -m pytest tests/scripts/test_proposal_publish.py tests/scripts/test_proposal_publish_faults.py tests/scripts/test_thread_post.py -q rc=0 · 이슈: 0
+- 2026-10-10 — 닫힘: 커밋 57c1e2249e[feature]+59a1c5622a[test] · 47 passed(마스터 재실행) · 라이브 설치 .bak-r76-1010 · main 랜딩 PR 1178 61384daf80

@@ -49,7 +49,11 @@ GCE 가드(`scripts/ops/gce-guard-check.sh` · launchd 1시간마다 · `.worktr
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
+- base_sha: 2387870fb83e22cfad5e495f59d2cd6fdc4d5053 (spawn 2026-10-10)
 대기 — master spawn 대기
 
 ## 결과
 (닫을 때 증거 줄)
+- 2026-10-10 09:49 — 대기→진행 · 좌석 byz-harness-nano-r79-gce-intended-stopped-vms#0
+세트: e5ea3543f5224032458f05e689738b6252cd5f4f · 시험: .venv/bin/python -m pytest tests/scripts/test_gce_guard_coverage.py -q rc=0 · 이슈: 0
+- 2026-10-10 — 닫힘: 커밋 124c2ec2a3+e5ea3543f5[test] · 29 passed(마스터 재실행) · ops-guard 로컬 적용 · 가드 FAIL=0 · BREACH.md 없음 · main 랜딩 PR 1178 61384daf80

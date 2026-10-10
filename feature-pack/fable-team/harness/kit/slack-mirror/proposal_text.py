@@ -15,8 +15,8 @@ FALLBACK = "제안서 본문 참고"
 
 
 def first_line(key: str, rev: str, record: str = "") -> str:
-    if record:  # 승인 끝난 제안서 «기록» — 결정 요청이 아님이 첫 줄에서 보인다
-        return tag("작업상황", f"*제안서 {key} · 기록 판정 {record}*")
+    if record:  # 승인 끝난 제안서 «기록» — 결정 요청이 아님이 첫 줄에서 보인다 (rN 이면 기존 스레드의 «기록 rN» 답글)
+        return tag("작업상황", f"*제안서 {key} · 기록 판정 {record}*" if rev == "r0" else f"*제안서 {key} {rev} · 기록 판정 {record}*")
     return tag("작업상황", f"*제안서 {key}*" if rev == "r0" else f"*제안서 {key} {rev}*")
 
 
