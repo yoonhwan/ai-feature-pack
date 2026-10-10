@@ -173,18 +173,58 @@ S2="$(echo "$OUT2" | sed -n 's/.*seq=\([0-9]*\).*/\1/p' | head -1)"
 eq "ingest 성공 send rc 0" "$RC" "0"
 eq "send 훅 큐 적재(cls ③)" "$(field "$T/sendroot/.fable-team/state/inbox/ghost-seat.jsonl" "$S2" cls)" "③"
 
-# 9b) ★Haiku 비동기★: 규칙표에 안 맞는 쪽지 + Haiku 스텁 sleep 8 → send 1초 미만 · 적재 시점 cls=미상 · 나중에 cls 갱신
-printf '#!/bin/sh\ncat >/dev/null; sleep 8; echo 5\n' > "$T/haiku-slow.sh"; chmod +x "$T/haiku-slow.sh"
+# 9b) ★Haiku 비동기★: 규칙표에 안 맞는 쪽지 + Haiku 스텁 sleep 3(7초 상한 안) → send 1초 미만 · 적재 시점 cls=미상 · 나중에 cls 갱신
+printf '#!/bin/sh\ncat >/dev/null; sleep 3; echo 5\n' > "$T/haiku-slow.sh"; chmod +x "$T/haiku-slow.sh"
 GQ="$T/sendroot/.fable-team/state/inbox/ghost-seat.jsonl"
 t0="$(python3 -c 'import time;print(time.time())')"
 OUT3="$(FT_INBOX_HAIKU="$T/haiku-slow.sh" FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#3 sender#3 "가나다 규칙표에 없는 문장" 2>/dev/null)"; RC=$?
 t1="$(python3 -c 'import time;print(time.time())')"
 S3="$(echo "$OUT3" | sed -n 's/.*seq=\([0-9]*\).*/\1/p' | head -1)"
 eq "느린 Haiku 중에도 send rc 0" "$RC" "0"
-python3 -c 'import sys;sys.exit(0 if float(sys.argv[2])-float(sys.argv[1])<1.0 else 1)' "$t0" "$t1" && ok "send 소요 1초 미만(Haiku sleep 8 대기 0)" || bad "send 가 Haiku 를 기다림($t0→$t1)"
+python3 -c 'import sys;sys.exit(0 if float(sys.argv[2])-float(sys.argv[1])<1.0 else 1)' "$t0" "$t1" && ok "send 소요 1초 미만(Haiku sleep 3 대기 0)" || bad "send 가 Haiku 를 기다림($t0→$t1)"
 eq "적재 시점 cls=미상" "$(field "$GQ" "$S3" cls)" "미상"
 waitcls "$GQ" "$S3" && eq "나중에 cls 갱신(Haiku ⑤)" "$(field "$GQ" "$S3" cls)" "⑤" || bad "cls 가 갱신되지 않음"
 eq "갱신 prio 도 반영" "$(field "$GQ" "$S3" prio)" "5.0"
+
+# 9c) 10-10 RULES 4줄(R57) — 규칙으로 즉시 분류(via=rule) · 새 줄은 본문 첫머리(\A)만
+ing 701 "[a#1->$ME] [완료·휴식] 골 끝남 증거 줄 첨부"
+ing 702 "[a#1->$ME] [첫 보고] 세션 인사"
+ing 703 "[a#1->$ME] [HIL · 판정 881] 질문 하나"
+ing 704 "[a#1->$ME] [Issue 등록] 제안 한 건"
+for pair in 701:⑤ 702:⑥ 703:② 704:⑤; do
+  s="${pair%%:*}"; eq "새 RULES $s 분류" "$(field "$Q/$M.jsonl" "$s" cls)" "${pair##*:}"
+  eq "새 RULES $s via = rule" "$(field "$Q/$M.jsonl" "$s" via)" "rule"
+done
+ing 705 "[a#1->$ME] 가나다 둘째 줄에만
+[완료·휴식] 본문 중간 줄 머리"
+eq "새 줄은 \\A — 본문 중간 줄 머리 [완료·휴식] 는 규칙에 안 걸림(미상 또는 Haiku)" "$([ "$(field "$Q/$M.jsonl" 705 via)" = rule ] && echo rule || echo nonrule)" "nonrule"
+
+# 9d) Haiku 7초 룰 — 1회 실패 뒤 재시도 성공 → 라벨 갱신 · 2회 실패 → 미상 유지 + 오류 로그에 stdout 조각 · 기본 상한 7
+printf '#!/bin/sh\ncat >/dev/null\nn=$(cat "%s" 2>/dev/null || echo 0); echo $((n+1)) > "%s"\n[ "$n" -ge 1 ] && echo 3 || exit 1\n' "$T/hn" "$T/hn" > "$T/haiku-flaky.sh"; chmod +x "$T/haiku-flaky.sh"
+FT_INBOX_HAIKU="$T/haiku-flaky.sh" ing 711 "[a#1->$ME] 규칙표 밖 문장 마바사"
+waitcls "$Q/$M.jsonl" 711 && eq "Haiku 1회 실패 → 재시도 성공 → ③ 갱신" "$(field "$Q/$M.jsonl" 711 cls)" "③" || bad "재시도 성공인데 갱신 안 됨"
+eq "재시도 정확히 1회(호출 2번)" "$(cat "$T/hn")" "2"
+printf '#!/bin/sh\ncat >/dev/null; echo "BOOM-STDOUT-FRAG"; exit 1\n' > "$T/haiku-fail2.sh"; chmod +x "$T/haiku-fail2.sh"
+FT_INBOX_HAIKU="$T/haiku-fail2.sh" ing 712 "[a#1->$ME] 또 규칙표 밖 문장 아자차"
+for _ in $(seq 1 40); do grep -q "seq=712" "$FT_ROOT/.fable-team/state/hook-errors.log" 2>/dev/null && break; sleep 0.25; done
+eq "Haiku 2회 실패 → 미상 유지" "$(field "$Q/$M.jsonl" 712 cls)" "미상"
+grep "seq=712" "$FT_ROOT/.fable-team/state/hook-errors.log" | grep -q "BOOM-STDOUT-FRAG" && ok "오류 로그에 stdout 조각" || bad "오류 로그에 stdout 조각 없음"
+eq "haiku 기본 상한 7초 · 시간 초과도 1회 재시도 뒤 raise" "$(python3 - "$REPO/scripts/fable-team-bin" <<'PY'
+import os, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+os.environ.pop("FT_INBOX_HAIKU_TIMEOUT", None)
+import ft_inbox_core as c
+seen = []
+def fake(cmd, **kw):
+    seen.append(kw["timeout"])
+    raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+c.subprocess.run = fake
+try:
+    c.haiku("x")
+except RuntimeError as e:
+    print(seen, "timeout" in str(e))
+PY
+)" "[7.0, 7.0] True"
 
 # 10) 키트 사본 동기
 bash "$HERE/test_kit_bin_sync.sh" >/dev/null 2>&1 && ok "test_kit_bin_sync.sh PASS" || bad "test_kit_bin_sync.sh FAIL"

@@ -43,6 +43,28 @@ out="$(send no-tick-seat#2 s21#1 "[HIL] 질문")"
 out="$(send tick-seat#1 s22#1 "판정 430 집행 완료 두 번째" --urgent)"
 [ "$(db "$out")" != quiet ] && ok "--urgent 는 ⑤ 도 그대로 울림" || bad "--urgent quiet: $out"
 
+# ── 오빠 대면 좌석(seats-planner.json `_master`) = doorbell 0 (판정 876 · R85) — ①~④·미상·--urgent 모두 quiet · 다른 좌석은 지금 그대로 · 명시 ring 은 울림
+echo '{"_master": "planner-uf#7"}' > "$T/seats-planner.json"
+n=40
+for pair in "①:오빠 원문: 이것 확인" "②:[HIL] 행3 질문" "③:판정 요청: A안 B안" "④:[BLOCK] 포트 충돌" "미상:가나다 라마바 규칙표에 없는 문장" "⑥:참고: 접수했습니다"; do
+  cls="${pair%%:*}"; body="${pair#*:}"; n=$((n+1))
+  out="$(send planner-uf#7 "uf$n#1" "$body")"
+  eq "오빠 대면 좌석 + $cls → doorbell=quiet" "$(db "$out")" quiet
+done
+out="$(send planner-uf#7 uf50#1 "판정 430 집행 완료 urgent" --urgent)"
+eq "오빠 대면 좌석 + --urgent → doorbell=quiet" "$(db "$out")" quiet
+out="$(bash "$C/mbox.sh" relay planner-uf#7 uf51#1 "$HERE/test_mbox_inbox_notify_reply_rate.sh" "[HIL] relay 요약")"
+eq "오빠 대면 좌석 + relay ② → doorbell=quiet" "$(db "$out")" quiet
+out="$(send no-tick-seat#3 uf52#1 "[HIL] 대면 아닌 좌석 질문")"
+[ "$(db "$out")" != quiet ] && ok "대면 아닌 좌석(tick 없음) + ② → 지금 그대로 울림" || bad "대면 아닌 좌석이 quiet: $out"
+out="$(send tick-seat#1 uf53#1 "[HIL] 대면 아닌 tick 좌석 질문")"
+[ "$(db "$out")" != quiet ] && ok "대면 아닌 좌석(tick 있음) + ② → 지금 그대로 울림" || bad "대면 아닌 tick 좌석이 quiet: $out"
+out="$(bash "$C/mbox.sh" ring planner-uf#7 2>&1)"
+[ "$(db "$out")" != quiet ] && ok "명시 ring 은 대면 좌석에도 울림(예외)" || bad "명시 ring 이 quiet: $out"
+rm -f "$T/seats-planner.json"
+out="$(send planner-uf#7 uf54#1 "[HIL] seats-planner.json 없음")"
+[ "$(db "$out")" != quiet ] && ok "seats-planner.json 없음 → 판정 불가는 기존대로 울림" || bad "파일 없는데 quiet: $out"
+
 # 적재 실패(ft-inbox.sh 가 rc≠0) → 분류를 모르므로 기존 규칙(tick 있음 = quiet)·WARN·전송 rc 0
 mv "$BIN/ft-inbox.sh" "$BIN/ft-inbox.sh.off"; printf '#!/bin/sh\nexit 9\n' > "$BIN/ft-inbox.sh"; chmod +x "$BIN/ft-inbox.sh"
 out="$(send tick-seat#1 s23#1 "[HIL] 적재 실패 시험")"; rc=$?

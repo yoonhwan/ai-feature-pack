@@ -21,6 +21,11 @@ RULES = [
     ("④", r"\[BLOCK\]|막힘"),
     ("⑤", r"판정 ?\d+ ?(집행|완료)|PR #?\d+ ?병합|병합 완료|닫힘"),
     ("⑥", r"^\[부팅 보고|진행 보고|참고|접수"),
+    # 10-10 미상→Haiku 상위 머리말(R57) — 새 줄은 \A(본문 첫머리만): re.M 의 ^ 는 본문 중간 줄 머리에도 걸린다.
+    ("⑤", r"\A\[완료·휴식"),
+    ("⑥", r"\A\[?(부팅|첫 보고|승계|발주)"),
+    ("②", r"\A\[HIL"),
+    ("⑤", r"\A\[Issue 등록\]"),
 ]
 
 
@@ -105,11 +110,18 @@ def norm_key(frm, body):
 
 def haiku(prompt):
     cmd = shlex.split(os.environ.get("FT_INBOX_HAIKU") or "claude -p --model claude-haiku-5-5")
-    t = float(os.environ.get("FT_INBOX_HAIKU_TIMEOUT", "20"))
-    p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=t)
-    if p.returncode != 0 or not p.stdout.strip():
-        raise RuntimeError(f"haiku rc={p.returncode} {p.stderr.strip()[:120]}")
-    return p.stdout.strip()
+    t = float(os.environ.get("FT_INBOX_HAIKU_TIMEOUT", "7"))  # 외부 호출 7초 룰(전역 하드 룰 12) + 재시도 1회
+    err = ""
+    for _ in range(2):
+        try:
+            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=t)
+        except subprocess.TimeoutExpired:
+            err = f"timeout {t:g}s"
+            continue
+        if p.returncode == 0 and p.stdout.strip():
+            return p.stdout.strip()
+        err = f"rc={p.returncode} stderr={p.stderr.strip()[:120]} stdout={p.stdout.strip()[:120]}"
+    raise RuntimeError(f"haiku {err}")
 
 
 def rule_class(body):

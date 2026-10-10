@@ -66,3 +66,4 @@
 - 2026-10-10 12:42 — 대기→진행 · 좌석 byz-harness-nano-r83-hil-short-command#0
 세트: 3ab02fe6a461b1ce1bc3d677ea63a766b5bedd76 · 시험: bash tests/harness/test_hil.sh rc=0 · 이슈: 0
 - 2026-10-10 — 나노 완료(3ab02fe6a4[feature]) · 마스터 재실행 test_hil ALL PASS · pytest rollback 25 passed · 홈 새 파일 0 · /tmp/h1·h2 불변 · 판정 856 재승인(오빠 · /tmp 만) · 랜딩은 push 승인 뒤
+- 2026-10-10 — 닫힘: 커밋 3ab02fe6a4[feature] · test_hil ALL PASS · pytest 68 passed(마스터 재실행) · 라이브 설치 .bak-r83 + cmp OK(ft-hil.sh 새 · ft-nano-close · spawn-undo · wt-sweep) · 드리프트 OK · main 랜딩 PR 1185 ce7fa8c8c6 (판정 858)

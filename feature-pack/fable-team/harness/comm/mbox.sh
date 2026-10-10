@@ -44,6 +44,23 @@ print("quiet" if isinstance(e, dict) and e.get("tick") else "ring")
 PY
 }
 
+# ★오빠 대면 좌석(현역 planner = seats-planner.json `_master`)에는 doorbell 을 주입하지 않는다 — 큐만 적재(10-10 오빠 「이렇게 잘라먹는데」 · 판정 876).
+#   doorbell 은 pane 에 `[발주 #N] recv …` 를 send-keys 로 쳐 넣어 오빠가 치는 문장 중간에 끼어 절단된다(오늘 5회+). planner 는 세션 안 감시(ft-inbox-watch.sh + Monitor)로 받는다 · 10분 틱은 안전망.
+#   --urgent·분류 ①~④ 도 이 좌석엔 울리지 않는다. 명시적 `ring` 명령만 예외(사람이 일부러 부를 때). 판정 불가(파일 없음·깨짐)는 기존대로.
+#   되돌림: 이 함수 본문을 `return 1` 로 바꾸거나 mbox.sh.bak-userfacing-1010 복원.
+user_facing() {
+  local sj pj; sj="$(_seats_json)"; pj="$(dirname "$sj")/seats-planner.json"
+  [ -f "$pj" ] || return 1
+  python3 - "$pj" "$1" <<'PY' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
+PY
+}
+
 # py 의 `QUEUED seq=<N> …` 한 줄에서 이번 발주의 번호만 뽑는다. 못 뽑으면 빈 값.
 # ★`set -euo pipefail` 이라 실패를 «반드시» 삼켜야 한다★ — grep 이 0건이면 rc1 이고
 #   pipefail 이 그것을 파이프라인 rc 로 올린다. 호출부에서 `|| seq=""` 로 받는다.
@@ -85,6 +102,7 @@ case "$cmd" in
     seq="$(seq_of "$py_out")" || seq=""
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
+    if user_facing "$to"; then notify=0; fi
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
     if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
@@ -106,6 +124,7 @@ case "$cmd" in
     seq="$(seq_of "$py_out")" || seq=""
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
+    if user_facing "$to"; then notify=0; fi
     if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
