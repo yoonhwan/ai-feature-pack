@@ -35,6 +35,8 @@ expect_rej rej-py-hashnoDigit.py.fx "# 뒤가 숫자가 아님 → REJECT" 'REJE
 expect_ok  ok-py-fallback0.py.fx "「폴백 0 — raise」 설명 주석(패턴 축소) → OK"
 expect_ok  ok-py-tempfile.py.fx "「임시 파일」 명사 수식(임시 단독 제거) → OK"
 expect_rej rej-py-temporarily.py.fx "「임시로 빼 둔다」 → REJECT" 'REJECT src/rej-py-temporarily.py:1'
+expect_ok  ok-py-later-desc.py.fx "「나중에 실측이 다르면」 설명 용법(나중에 단독 제거) → OK"
+expect_ok  ok-ts-unapplied-desc.ts.fx "「+100 미적용」 설명 용법(미적용 단독 제거) → OK"
 expect_ok  ok-py-plain.py.fx "패턴 밖 일반 주석 → OK"
 expect_ok  ok-py-string.py.fx "문자열 안 단어(py) → OK"
 expect_ok  ok-ts-string.ts.fx "문자열·템플릿 안 단어(ts) → OK"
