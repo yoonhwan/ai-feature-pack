@@ -12,6 +12,7 @@
 | S3 | `status:in-progress` | 소유 오케가 카드 분해·나노 작업 중 | in-progress · blocked(+`phase:hold`) |
 | S4 | `status:needs-review` | 랜딩 PR(Closes #N) 올라감 · 검증 대기 | needs-review |
 | S5 | `status:done` **(신규 1개)** | close 뒤 5항 대조 통과 | — |
+| 수식 | `status:observing` **(신규 · R102)** | 관찰 중 — 원인 미확정·같은 증상 보류라 닫기를 거절한 상태 · 서로 다른 판 2회 재현 0 뒤에야 close(§3) · 상태 5개를 늘리지 않는 수식 | — |
 
 전이(누가 · 닫는 사건):
 
@@ -31,7 +32,7 @@
 - 소유 = 그 Issue 를 받은 메인 오케(오빠 Q1) · 나노는 Issue 번호를 몰라도 된다.
 - 연결 여부는 `closedByPullRequestsReferences` 로 읽는다 — 목표: 메인 오케가 받은 Issue 의 Closes 연결률 ≥ 80%.
 
-## 3. close 완료 5항 (Issue 코멘트에 「항목: 값」 줄 · 값이 비거나 `<…>` 자리표시면 미기재)
+## 3. close 완료 8항 (Issue 코멘트에 「항목: 값」 줄 · 값이 비거나 `<…>` 자리표시면 미기재)
 
 | 항 | 값 예 |
 |---|---|
@@ -42,11 +43,18 @@
 | 기록 | CLOSEOUT·LOOP-LEDGER 경로 |
 | 기준값 대비 | baseline 코멘트 값 → 같은 세트로 다시 잰 값(없으면 「없음 → 대체 축」) — `BASELINE-TEMPLATE.md` (C20 · `ft-issue-close-check.sh` 5항 검사는 무변경) |
 
-검사: `scripts/fable-team-bin/ft-issue-close-check.sh <Issue#>` (읽기 전용 · exit 0 통과 / 1 미비 / 2 조회 실패). 미비면 issue-manager 가 소유 오케에 1통.
+| 원인 확정 (7) | `원인 확정: Y — <근거 ≥10자>` (R102 · 판정 1059) |
+| 같은 증상 보류 (8) | `같은 증상 보류: 0` (보류가 있으면 `같은 증상 보류: <경로>[, <경로>]`) |
+
+7·8항은 키로 «가장 마지막 줄»을 먼저 고른 뒤 그 줄만 검증한다(수리 뒤 새 닫는 코멘트의 Y·0 이 옛 N·보류를 덮는다 · 마지막 줄이 비었거나 `<…>` 면 앞 줄로 내려가지 않고 빈 칸). 빈 칸·`원인 확정: N`·보류 0 아님이면 Tank 래퍼 `close`(completed)가 닫지 않고 «관찰 중»(코멘트 마커 `관찰 시작:` + 라벨 `status:observing`)으로 둔다 — `scripts/fable-team-bin/ft-issue-close-gate.sh`(`--reason not-planned` 는 게이트 생략).
+관찰 중 이슈의 close 조건 = 현재 구간에서 «서로 다른 판(sha) 2회 재현 0»: 이슈 코멘트에 `관찰: 판=<40hex> · 결과=재현 0 · 판정=<번호>` 2줄(판이 서로 달라야 함 · `재현 있음` 1줄이라도 있으면 거절 · 수리 랜딩 뒤 `관찰 시작: <UTC> · 수리 랜딩=<40hex>` 로 새 구간). 해제는 planner 값 뒤 `관찰 해제: 판정=<번호>`. 관찰 조건으로 닫을 땐 7·8항을 사실대로(N·보류 허용).
+
+검사: `scripts/fable-team-bin/ft-issue-close-check.sh <Issue#>` (읽기 전용 · exit 0 통과 / 1 미비 / 2 조회 실패). 미비면 issue-manager 가 소유 오케에 1통. close 전 게이트 = `--gate`(7·8항+관찰 조건만 · exit 0 / 3).
 
 ## 4. reopen
 
 `scripts/fable-team-bin/ft-issue-reopen.sh <Issue#> <랜딩sha>` — 기본 dry-run(명령만 출력), `--apply` 일 때만 실행. 동작: 원 Issue 재오픈 + `status:needs-review` 부여(`status:done` 제거) + 깬 랜딩 sha 역링크 코멘트. 소유 = 소유 오케.
+PR 병합 자동 close 라도 7·8항이 FAIL 이면 그 틱에 재오픈 + «관찰 중»(마커 → 라벨)으로 둔다 — 판정 1060 · 판정 795(자동 close 재오픈 0)는 1~6항·Closes 만의 FAIL 에 그대로(사후 코멘트).
 
 ## 5. 현행 라벨 72 → 매핑 (누락 0 · 소유 오케 확인칸 ☐ = 확인 전)
 

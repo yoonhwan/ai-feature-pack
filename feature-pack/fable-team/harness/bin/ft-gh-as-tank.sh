@@ -131,6 +131,7 @@ case "$ACTION" in
     [ -n "$REASON" ] && CMD+=(--reason "$REASON");;
   *) usage;;
 esac
+[ "$ACTION" = close ] && [ "$REASON" != "not planned" ] && { bash "$HERE/ft-issue-close-gate.sh" "$NUM" "${COMMENT_FILE:-}" "$APPLY" || exit $?; }
 
 if [ $APPLY -eq 0 ]; then
   if [ "$ACTION" = create ]; then

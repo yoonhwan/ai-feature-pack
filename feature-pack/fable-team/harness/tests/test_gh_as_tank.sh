@@ -37,6 +37,8 @@ echo '{"_master":"mgr#1"}' > "$T/seats-issues.json"
 echo "본문" > "$T/body.md"
 export STUB_LOG="$LOG" PATH="$T/bin:$PATH" FT_ME="seat#0" FT_ISSUES_SEATS="$T/seats-issues.json" FT_MBOX_CMD="$T/mbox.sh"
 TOKEN="tok_SECRET_VALUE_123"
+# R102: close(completed) 는 게이트를 먼저 탄다 — 7·8항이 채워진 상태 파일을 주입해 기존 기대값을 그대로 둔다(게이트 자체는 test_issue_close_gate.sh)
+echo '{"number":5,"state":"OPEN","title":"x","labels":[],"closedByPullRequestsReferences":[],"comments":[{"body":"원인 확정: Y — 시험 입력 근거 열 글자 이상\n같은 증상 보류: 0"}]}' > "$T/gate-pass.json"; export FT_CLOSE_CHECK_FROM_JSON="$T/gate-pass.json"
 
 bash -n "$WRAP" && ok "bash -n 래퍼" || bad "bash -n 래퍼"
 bash -n "$GUARD" && ok "bash -n 가드" || bad "bash -n 가드"
