@@ -1,6 +1,6 @@
 """ft-board render — collect() dict 한 장에서 --term / --slack 두 꼴을 낸다 (판정 421·496). 재조회 0 · 슬랙 발행 0(문자열만 stdout).
 
-순서(두 꼴 공통): ⓪ 팀 요약 → ① 완성 트리 → ② 세션 트리 → ③ 큐 → ④ 오늘 판정표.
+순서(두 꼴 공통): ⓪ 팀 요약 → ① 완성 트리 → ② 세션 트리 → ③ 큐 → ④ 오늘 판정표 → ⑤ 오빠가 정할 것.
 슬랙 꼴: 첫 줄 `[상태] 메인팀 보드 <HH:MM>` + `결정 자리:` 한 줄 · 답장 요구 문구 0.
 DA I1·arch r2: 필터 경계는 «최종 슬랙 출력 문자열» 하나 — 고정 줄(머리 줄 · `결정 자리:` 접두 · 칸 제목)을 뺀 모든 줄에서
 걸린 «부분 문자열»만 `〔문구 생략〕` 로 바꾼다(id·계수·상태 기호 소실 0) · 끝 줄 `문구 생략 n곳`(치환 횟수) · 필드별 필터 없음.
@@ -10,6 +10,7 @@ import re
 from datetime import datetime
 
 import ft_board_env as env
+from ft_board_decide import decide_lines
 from ft_board_render_tree import tree_lines
 from ft_board_seat import summary_cols
 
@@ -87,7 +88,7 @@ def verdict_lines(d: dict, full: bool) -> list[str]:
 def sections(d: dict, full: bool, slack: bool, now: datetime) -> list[tuple[str, list[str]]]:
     return [("⓪ 팀 요약", summary_lines(d, slack)), ("① 완성 트리", tree_lines(d, full)),
             ("② 세션 트리", session_lines(d, full)), ("③ 큐", queue_lines(d, full, now)),
-            ("④ 오늘 판정표", verdict_lines(d, full))]
+            ("④ 오늘 판정표", verdict_lines(d, full)), ("⑤ 오빠가 정할 것", decide_lines(d, now))]
 
 
 def _escape(s: str) -> str:

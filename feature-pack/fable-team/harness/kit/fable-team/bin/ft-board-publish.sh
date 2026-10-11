@@ -18,7 +18,7 @@ SD="$ROOT/.fable-team/state/board"
 POST_ARGS=(${FT_BOARD_POST_ARGS:-}); [ -n "${FT_BOARD_LEDGER:-}" ] && POST_ARGS+=(--ledger "$FT_BOARD_LEDGER")
 tp() { python3 "$TP" update ${POST_ARGS[@]+"${POST_ARGS[@]}"} "$@"; }
 
-BODY="$("$BOARD" render --slack)"; rc=$?
+BODY="$("$BOARD" render --slack --refresh-gh)"; rc=$?
 [ "$rc" -eq 0 ] && [ -n "$BODY" ] || { echo "ft-board-publish: render 실패 rc=$rc — 발행 0" >&2; exit "$((rc == 0 ? 1 : rc))"; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -43,7 +43,7 @@ if [ "${FT_BOARD_ONLY_CHANGED:-0}" = 1 ]; then
   fi
 fi
 
-SNAP="$("$BOARD" snapshot)"; rc=$?
+SNAP="$("$BOARD" snapshot --refresh-gh)"; rc=$?
 [ "$rc" -eq 0 ] && [ -n "$SNAP" ] || { echo "ft-board-publish: snapshot 실패 rc=$rc — 발행 0" >&2; exit "$((rc == 0 ? 1 : rc))"; }
 # 변화 답글 1줄 = changes(최대 8건) + snap=전→후 · 변화 없으면 답글 0(reply_pending 은 도구가 따로 챙긴다)
 REPLY="$(printf '%s' "$SNAP" | python3 -c 'import json,sys

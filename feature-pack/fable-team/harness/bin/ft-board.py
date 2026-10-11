@@ -6,8 +6,9 @@
   ft-board.py stalled [--min N] [--team <명부 파일>]   ⚠정지·완료 뒤 작업·완료 선언 미처리 좌석만 `|` 구분 행(없으면 출력 0) — 팀 master·planner 틱용
   ft-board.py snapshot                      dict 를 불변 스냅샷으로 먼저 쓰고 직전과의 변경 단위 JSON 출력. 쓰기 실패 = rc≠0 · stdout 빈 값
   ft-board.py prune --days N                N일 지난 스냅샷 날짜 폴더 삭제(명시 명령만)
+  전역 플래그 --refresh-gh                   gh 이슈 캐시 갱신 허용(7초+1) — 없으면 외부 호출 0 · 캐시가 없거나 오래되면 ⑤ 절이 «(캐시 … · 미확인)». launchd ft-board-publish.sh 만 붙인다
 명부 새 키: `_cards`(카드 폴더 리포 상대) · `_cards_wt`(그 폴더가 든 워크트리 이름) · `_label`(표시 이름) · `_tree`(NEWS-TREE 경로 · `_cards_wt` 기준).
-env·스텁 목록은 ft_board_env.py 머리말. 출력 순서: ⓪ 팀 요약 → ① 완성 트리 → ② 세션 트리 → ③ 큐 → ④ 오늘 판정표.
+env·스텁 목록은 ft_board_env.py 머리말. 출력 순서: ⓪ 팀 요약 → ① 완성 트리 → ② 세션 트리 → ③ 큐 → ④ 오늘 판정표 → ⑤ 오빠가 정할 것(ft_board_decide.py).
 """
 import json
 import os
@@ -33,7 +34,9 @@ def _stalled(args: list[str]) -> str:
 
 def main(argv: list[str]) -> int:
     full = "--full" in argv or os.environ.get("FT_NEWS_FULL") == "1"
-    args = [a for a in argv if a != "--full"]
+    if "--refresh-gh" in argv:
+        os.environ["FT_BOARD_GH_REFRESH"] = "1"
+    args = [a for a in argv if a not in ("--full", "--refresh-gh")]
     cmd = args[0] if args else ""
     if cmd == "collect" and len(args) == 1:
         out = json.dumps(collect(), ensure_ascii=False, sort_keys=True, indent=1)

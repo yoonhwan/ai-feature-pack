@@ -23,8 +23,12 @@
 #        ft-seat-status.sh one <seat> [--json]
 #        ft-seat-status.sh idle [regex]                            (IDLE 좌석만 — 깨울 대상, pane 층만)
 #        ft-seat-status.sh turn <seat> [--json]                    (Seatbelt 1.1 · 턴 경계 판정 — 아래 turn_of_file 주석)
-#        ft-seat-status.sh turn --file <jsonl> [--json]            (픽스처 · 좌석 해석 생략)
+#        ft-seat-status.sh turn --file <jsonl> [--json] [--bytes] [--no-reported]  (픽스처·경로 캐시 · 좌석 해석 생략)
+#        ft-seat-status.sh jsonl <seat>                            (좌석 → 최신 jsonl 경로 1줄 · 없으면 rc 1 — ft-tick-line 의 경로 캐시용)
 # 출력 4열: 좌석  PANE(BUSY|IDLE|NOSEAT)  JSONL_AGE(초|-)  AGENT   /  turn 은 1줄 5열: STATE TURN_END_ISO DURATION_MS REPORTED SOURCE
+#   turn 읽은 바이트(F5): --json 은 read_bytes 키 · 텍스트는 --bytes 일 때만 6열째(기본 5열 — ft-tick.sh `read -r st end dur rep src` 보호)
+#   끝 읽기는 64KB 부터 시작해 «턴 끝 레코드 2개»(REPORTED 의 직전 턴 경계)를 찾을 때까지 2배씩(최대 1MB). --no-reported 는 REPORTED 를 건너뛰어(`-`)
+#   «1개»만 찾으면 멈춘다 — 긴 턴(수백 KB)이 흔한 실 좌석에서 상태만 필요한 틱이 1MB 를 읽지 않게 한다.
 # 스피너 토큰은 버전마다 늘어난다. 목록을 여기 한 곳에서만 고친다.
 
 set -uo pipefail
@@ -136,23 +140,33 @@ for k, v in d.items():
 PY
 }
 
-turn_of_file() {  # $1=jsonl → "STATE\tTURN_END_ISO\tDURATION_MS\tREPORTED"
-  FILE="$1" TAIL_BYTES="${FT_SEAT_TAIL_BYTES:-1048576}" MASTER="$(master_seat_of_json)" python3 - <<'PY'
+turn_of_file() {  # $1=jsonl → "STATE\tTURN_END_ISO\tDURATION_MS\tREPORTED\tREAD_BYTES"
+  FILE="$1" TAIL_BYTES="${FT_SEAT_TAIL_BYTES:-1048576}" TAIL_START="${FT_SEAT_TAIL_START:-65536}" MASTER="$([ "$NOREP" = 1 ] || master_seat_of_json)" NEED_ENDS="$([ "$NOREP" = 1 ] && echo 1 || echo 2)" python3 - <<'PY'
 import json, os
 path = os.environ["FILE"]; cap = int(os.environ["TAIL_BYTES"]); master = os.environ.get("MASTER", "")
+win, raw, got = min(int(os.environ["TAIL_START"]), cap), b"", 0
 size = os.path.getsize(path)
-with open(path, "rb") as fh:
-    if size > cap:
-        fh.seek(size - cap); fh.readline()          # 잘린 첫 줄 버림
-    data = fh.read()
-recs = []
-for line in data.split(b"\n"):
-    if not line.strip(): continue
-    try: recs.append(json.loads(line))
-    except ValueError: continue                   # 손상 행은 건너뛴다 (마지막 미완 행 포함)
-ends = [i for i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
+need_ends = int(os.environ["NEED_ENDS"]); status_only = os.environ["NEED_ENDS"] == "1"
+while True:  # 끝 64KB 부터 — 턴 끝 레코드 «need_ends»개를 찾을 때까지 앞쪽으로 2배씩(최대 cap). 앞서 읽은 꼬리는 다시 읽지 않는다.
+    want = min(win, size)
+    with open(path, "rb") as fh:
+        fh.seek(size - want); raw = fh.read(want - got) + raw
+    got = want
+    data = raw.split(b"\n", 1)[1] if size > want and b"\n" in raw else (b"" if size > want else raw)   # 잘린 첫 줄 버림
+    recs = []
+    for line in data.split(b"\n"):
+        if not line.strip(): continue
+        try: recs.append(json.loads(line))
+        except ValueError: continue                   # 손상 행은 건너뛴다 (마지막 미완 행 포함)
+    ends = [i for i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
+    if len(ends) >= need_ends or want >= size or want >= cap: break
+    # 상태 전용: 끝 레코드가 창 밖이어도 창 안에 user/assistant 가 있으면 «그 끝 뒤» 기록이므로 열린 턴 = WORKING (턴 끝 시각은 불요)
+    if status_only and not ends and any(r.get("type") in ("user", "assistant") for r in recs):
+        print("WORKING\t-\t-\t-\t%d" % got); raise SystemExit
+    win = min(win * 2, cap)
+read_total = got
 if not ends:
-    print("UNKNOWN\t-\t-\t-"); raise SystemExit
+    print("UNKNOWN\t-\t-\t-\t%d" % read_total); raise SystemExit
 last = ends[-1]; prev = ends[-2] if len(ends) > 1 else -1
 end = recs[last]
 state, pending = "IDLE", False
@@ -174,26 +188,32 @@ if master:
             if isinstance(b, dict) and b.get("type") == "tool_use" and needle in json.dumps(b.get("input", {}), ensure_ascii=False):
                 reported = "yes"; break
         if reported == "yes": break
-print("%s\t%s\t%s\t%s" % (state, end.get("timestamp", "-"), end.get("durationMs", "-"), reported))
+print("%s\t%s\t%s\t%s\t%d" % (state, end.get("timestamp", "-"), end.get("durationMs", "-"), reported, read_total))
 PY
 }
 
-turn_of_seat() {  # $1=seat → 5열 탭 행. jsonl 없으면 pane 스피너(BUSY→WORKING · IDLE→IDLE · NOSEAT→UNKNOWN), source=pane
+turn_row_of_file() {  # $1=jsonl → "STATE\tTURN_END\tMS\tREPORTED\tjsonl\tREAD_BYTES" (6열 · SOURCE 는 5열째)
+  turn_of_file "$1" | awk -F'\t' '{ print $1 "\t" $2 "\t" $3 "\t" $4 "\tjsonl\t" $5 }'
+}
+
+turn_of_seat() {  # $1=seat → 6열 탭 행. jsonl 없으면 pane 스피너(BUSY→WORKING · IDLE→IDLE · NOSEAT→UNKNOWN), source=pane
   local f; f="$(newest_jsonl_of "$1")"
-  if [ -n "$f" ]; then printf '%s\tjsonl\n' "$(turn_of_file "$f")"; return; fi
+  if [ -n "$f" ]; then turn_row_of_file "$f"; return; fi
   case "$(status_of "$1")" in BUSY) printf 'WORKING';; IDLE) printf 'IDLE';; *) printf 'UNKNOWN';; esac
-  printf '\t-\t-\t-\tpane\n'
+  printf '\t-\t-\t-\tpane\t-\n'
 }
 
 emit_turn() {  # stdin = 5열 탭 1행
   if [ "$JSON" = 1 ]; then
     python3 -c '
 import json, sys
-s, e, d, r, src = sys.stdin.readline().rstrip("\n").split("\t")
+s, e, d, r, src, b = sys.stdin.readline().rstrip("\n").split("\t")
 print(json.dumps({"state": s, "turn_end": None if e == "-" else e, "duration_ms": None if d == "-" else int(d),
-                  "reported": None if r == "-" else r, "source": src}, ensure_ascii=False))'
-  else
+                  "reported": None if r == "-" else r, "source": src, "read_bytes": None if b == "-" else int(b)}, ensure_ascii=False))'
+  elif [ "$BYTES" = 1 ]; then
     tr '\t' ' '
+  else
+    cut -f1-5 | tr '\t' ' '
   fi
 }
 
@@ -224,10 +244,12 @@ print(json.dumps(rows, ensure_ascii=False))'
 
 # ─ 인자 파싱: 서브커맨드 · --json · --min N · 나머지 1개 = regex/seat ─
 CMD="${1:-list}"; shift || true
-JSON=0; MIN=20; ARG=""; FILE=""
+JSON=0; MIN=20; ARG=""; FILE=""; BYTES=0; NOREP=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1 ;;
+    --bytes) BYTES=1 ;;
+    --no-reported) NOREP=1 ;;
     --min)  MIN="${2:?--min N}"; shift ;;
     --min=*) MIN="${1#--min=}" ;;
     --file) FILE="${2:?--file <jsonl>}"; shift ;;
@@ -253,9 +275,11 @@ case "$CMD" in
   turn)   # 턴 경계 판정 — `--file <jsonl>` 이면 좌석 해석 생략(픽스처용)
     if [ -n "$FILE" ]; then
       [ -f "$FILE" ] || { echo "turn: no such file $FILE" >&2; exit 2; }
-      printf '%s\tjsonl\n' "$(turn_of_file "$FILE")" | emit_turn
+      turn_row_of_file "$FILE" | emit_turn
     else
       turn_of_seat "${ARG:?seat}" | emit_turn
     fi ;;
-  *) echo "usage: $0 {list [regex]|stalled [--min N] [regex]|one <seat>|idle [regex]|turn <seat>|turn --file <jsonl>} [--json]" >&2; exit 2 ;;
+  jsonl)  # 좌석 → 최신 jsonl 경로 (경로 캐시용) — 없으면 rc 1
+    f="$(newest_jsonl_of "${ARG:?seat}")"; [ -n "$f" ] || exit 1; printf '%s\n' "$f" ;;
+  *) echo "usage: $0 {list [regex]|stalled [--min N] [regex]|one <seat>|idle [regex]|turn <seat>|turn --file <jsonl>|jsonl <seat>} [--json] [--bytes]" >&2; exit 2 ;;
 esac

@@ -13,7 +13,7 @@ has() { printf '%s' "$2" | grep -qF -- "$3" && ok "$1" || bad "$1 (없음: $3)";
 lacks() { printf '%s' "$2" | grep -qF -- "$3" && bad "$1 (있으면 안 됨: $3)" || ok "$1"; }
 eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
-export FT_ROOT="$T/root" FT_BOARD_NOW="2026-10-09T10:00:00" FT_BOARD_GH_TTL=0
+export FT_ROOT="$T/root" FT_BOARD_NOW="2026-10-09T10:00:00" FT_BOARD_GH_TTL=0 FT_BOARD_GH_REFRESH=1
 export FT_VERDICT_BIN="$BIN/ft-verdict.sh"
 export FT_BOARD_TMUX="bash $T/tmux.sh" FT_BOARD_GH="cat $T/gh.json" FT_BOARD_INBOX="bash $T/inbox.sh" FT_BOARD_SEAT_STATUS="$T/status.sh"
 FB="$FT_ROOT/.fable-team"; mkdir -p "$FB/comm" "$FB/state"
