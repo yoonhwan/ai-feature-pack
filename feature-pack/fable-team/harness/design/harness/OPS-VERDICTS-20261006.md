@@ -1505,3 +1505,16 @@
 - ★랜딩 뒤 master 집행(카드 §완료 조건)★: ① PR → CI 확인 → 병합(별 명령) ② 설치본 spawn cp 전 sha256 앞12 `8465896b0868` 확인 → 다르면 cp 0 · arch 반송 → 같으면 cp + cmp ③ v65 master(현역)에 «spawn --base <sha> 재시도 가능» 1줄 ④ 요청 원장 R71 닫힘 ⑤ 나노 r71 닫기.
 - 별 후보 R72(착수 0 · R71 닫힌 뒤 카드): v65 arch#192 #70308 제안 — `--recheck` 대조가 판정문의 «정확한 sha» 만 받아 공용 feat 의 docs 커밋에 매번 밀림 → 판정문 sha..CUR_HEAD diff 가 카드 인용 파일을 안 건드리면 통과(같은 `_chg` 필터 재사용). 방향 타당 · 단 판정문에서 hex 를 전부 긁는 현 방식이라 «기준 sha» 칸(`recheck_sha:`)부터 정해야 함 — 재대조 안전검사 의미 변경이라 별 설계. R71 랜딩 뒤엔 `--base <sha>` 고정으로 차단 없음.
 - 정본 영향: 하네스 키트 spawn 2 · 설치본 1 · 홈 정본 0.
+- ★집행 결과(master#24 · 2026-10-09)★: PR 1151 squash c1e5ef8912 · 설치본 cp 전 sha12 일치(spawn 8465896b0868) → cmp OK(백업 .bak-r71-1009) · v65 master#156 통지(쪽지 70327) · v65 arch#192 는 fan-out 가드로 생략(master 경유) · R72 별 후보 접수.
+
+## §117 R102 이슈 닫기 게이트 — 닫는 항목 6→8(원인 확정 · 같은 증상 보류) + Tank 래퍼 close 직전 게이트 거절 → «관찰 중»(서로 다른 판 2회 재현 0 뒤 close) (판정 1059·1060 · planner#26 #75789 · #922 재오픈 경위 · 나노 r102-issue-close-gate) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#28 · 2026-10-11)
+- 골 축: B(메인 오케 개선요청 접수·협의 — R102) + C(도구 업그레이드·설치).
+- 대상 카드: r102-issue-close-gate (대기 `b998cfbc05` · 제안서 줄 `a1daaa5e85` · 진행 `93fcb6e36c`)
+- 원인(arch#28 실측): #922 ClosedEvent actor=byz-tank · closer=없음 → Tank 래퍼 `close --apply` 가 검사 없이 닫음 · close-check(6항)는 닫은 «뒤» 사후 검사뿐 · 6항에 «원인 확정»·«같은 증상 보류» 칸 없음(마감 문서에 원인 미확정·바닥 빈 띠 보류가 적힌 채 통과). 분석 design/harness/REPORT-g922-reopen-why-20261011.md.
+- 설계: design/harness/PLAN-r102-close-gate-20261011.md 최종본 `5147ca9c79` — DA da-codex#1 r1 HOLD #75853 · r2 HOLD #75868(bounded 중단) · 판정 1060 값①(3차 1회 허가) → r3 APPROVE #75885 · 값②(PR 병합 자동 close 라도 7·8항 FAIL 이면 재오픈 + 관찰 중 · 795 는 1~6항·Closes 만의 FAIL 에 그대로) §5-2 반영.
+- 나노 커밋 6개(브랜치 `nano/r102-issue-close-gate` · base origin/main `9d09c54fe5` · push 0): 세트 `1ffbd8a2bd`(14파일 +517 −26 — close-check 7·8항·`--gate`·`--extra-comment`·pending·epoch 4조건·gh view 7초+1 · 신규 `ft-issue-close-gate.sh`(보존→마커→라벨 · fail-closed · 단계별 token · 쓰기 7초+1) · 래퍼 1줄(199→200) · ISSUE-TRANSITIONS · PR 템플릿 8항 · 미러 3쌍 · 시험+스텁+픽스처) → DA⑥ HOLD #75963(구현 결함 아님 · close-check 66행 랜딩 ref 조상·67행 앞 수리 후손 가드의 회귀 시험 누락) → 반송 `d2ff250ebd`([test] +7 · ⑤(f6)(f7) · 소스 0) → DA⑥ APPROVE #75989(mutation 9종+2종 전부 해당 시험 빨강 · 목록 밖 2건 — test_gh_as_tank +2줄 · 픽스처 3 JSON 7·8 줄 — 기대값 무변경의 필요한 적응으로 승인).
+- ★arch 독립 재현(#28)★: 나노 워크트리 HEAD `d2ff250ebd` 에서 `test_issue_close_gate.sh` **rc=0 FAIL 0** · `test_issue_close_canon.sh` **rc=0 FAIL 0** · `test_gh_as_tank.sh` **rc=0 FAIL 0** · 미러 3쌍 cmp 0 · 래퍼 200줄 · #922 수리 파일(웹·물결·캔버스) 접촉 0.
+- 카드 증거 줄(나노 #75969): `세트: d2ff250ebd702758116b76a2b850d41e8b3cd90f · 시험: bash tests/harness/test_issue_close_gate.sh rc=0 · bash tests/harness/test_issue_close_canon.sh rc=0 · bash tests/harness/test_gh_as_tank.sh rc=0 · 이슈: 0`.
+- ★집행 결과(master#29 · 2026-10-11 · #76071)★: PR 1259 병합 `15b8920236` · 라이브 설치(루트 + v6-realtime-live · 백업 `.bak-r102-20261011T134602Z`) · 라벨 `status:observing` 생성 · 라이브 dry-run ③ rc 0 · ② rc 3 · issues master 공지 #76063 · 요청 원장 R102 닫힘 `88517c022a`.
+- 남은 것(완성 후 · 별 카드 후보): `ft-gh-as-tank.sh` 200줄 = BYZ 180줄 트리거 초과 → [structure] 분할 + 래퍼 내부 gh 호출 7초 룰(PLAN §5-5). 나노 mutation 임시 사본 `$TMPDIR/mut-r102-*` 잔존(저장소 밖 · 삭제 훅 차단 · master 판단).
+- 정본 영향: 하네스 키트 close-check·gate·래퍼 3쌍 · ISSUE-TRANSITIONS · PR 템플릿 · 설치본 close-check 1(+gate 신규 1) · 홈 정본 0.

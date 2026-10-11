@@ -67,3 +67,4 @@ v423c(판정 423 ③)가 «①~④·미상 쪽지는 받는 좌석의 tick 과 �
 - 2026-10-10 14:12 — 대기→진행 · 좌석 byz-harness-nano-r86-inbox-instant-no-inject#0
 세트: dc73dcd119df3c9e6d1dbbea50e4e0598962f70b · 시험: bash tests/harness/test_inbox_watch.sh rc=0 · 이슈: #1191
 - 2026-10-10 — 나노 완료(dc73dcd119[feature]) · 마스터 재실행 test_inbox_watch·notify_reply_rate ALL PASS · test_inbox fail=0 · ruff 0 · 킷 cmp 동일 · 라이브 diff = 주석 1줄 · 랜딩은 push 승인 뒤
+- 2026-10-10 — 닫힘: 커밋 dc73dcd119[feature] · test_inbox_watch·notify_reply_rate ALL PASS · test_inbox fail=0(마스터 재실행) · 라이브 설치 .bak-r86 + cmp OK(ft_inbox_core.py · 새 ft-inbox-watch.sh · 정본 mbox.sh) · 드리프트 OK · 감시기 스모크 OK(자기 큐 쪽지 → 1줄 알림) · main 랜딩 PR 1196 aa724ad806 (판정 887) · 남은 것 = planner 감시 무장 · 오빠 참여 라이브 1회 · 원장 R34·R57·R85 닫기
