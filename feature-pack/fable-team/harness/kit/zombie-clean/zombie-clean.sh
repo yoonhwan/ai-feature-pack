@@ -451,6 +451,9 @@ tmux_prune() {
             # ★최신 keep 세대는 어떤 티어에서도 보존한다(R75 B1). 옛 «RED 에서 6시간 방치면 keep 안도 회수»는 하한 2 를 깼다.
             #   자리를 비운 좌석(밥·회의)과 버려진 좌석을 가르는 선은 keep 밖 세대의 idle 임계가 맡는다.
             [[ "$idx" -le "$keep" ]] && continue
+            # ★keep 밖 세대는 «입력» 유휴만 본다 — 승계로 밀려난 옛 좌석의 10분 체크 크론이 화면에 계속 출력해 출력 유휴가 0~28분에 묶이면 영원히 못 지운다(2026-10-13 세션 122개·claude 16 GB).
+            #   출력 포함 idle 은 위 preserve(active V65 task · ABANDON) 판정에만 쓴다 — 10-01 codex DA 오살 방지 그대로.
+            idle=$(( (now - activity) / 60 ))
             [[ "$idle" -lt "$idlemin" ]] && continue       # 활성(호스트 포함) 보호
             pp=$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)
             srvhit=""

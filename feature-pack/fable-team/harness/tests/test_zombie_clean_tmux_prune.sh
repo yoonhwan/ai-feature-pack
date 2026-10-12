@@ -14,7 +14,7 @@ bash -n "$ZC" || { echo "FAIL bash -n $ZC"; exit 1; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 FAKE="$TMP/fakebin"; FIX="$TMP/fixture"; mkdir -p "$FAKE" "$TMP/home"
 
-# 스텁 tmux — fixture 한 줄 = `이름 idle분 attached(0|1) [preserve] [server]`
+# 스텁 tmux — fixture 한 줄 = `이름 idle분(입력) attached(0|1) [preserve] [server] [out=출력유휴분]` (out= 없으면 window_activity 출력 0)
 cat > "$FAKE/tmux" <<'EOF'
 #!/usr/bin/env bash
 now=$(date +%s)
@@ -24,7 +24,9 @@ case "$1" in
   show-options)
     n="${@: -2:1}"; n="${n#=}"; n="${n%:}"
     grep -E "^$n " "$FIXTURE" | grep -qw preserve && echo 1 ;;
-  list-windows) : ;;
+  list-windows)
+    n="${3#=}"; o=$(grep -E "^$n " "$FIXTURE" | grep -oE 'out=[0-9]+' | head -1); o="${o#out=}"
+    [ -n "$o" ] && echo "$((now - o*60))" ;;
   list-panes)
     n="${@: -3:1}"
     grep -E "^$n " "$FIXTURE" | grep -qw server && echo 9001 ;;
@@ -94,6 +96,30 @@ case "$shown" in *없음*) bad "T9 KEEP=1 → 하한 2$shown · kill [$got]" ;; 
 # T10 — RED 에서 유일 세대(멤버 2) 보호
 expect "T10 RED 유일 세대 보호" "" "$(run RED 'K#2 500 0
 K#1 500 0')"
+
+# T11 — ⓐ keep 밖 세대: 입력 idle ≥ 임계 ∧ 출력 idle 작음(옛 좌석 크론 출력) → kill 후보
+expect "T11 keep 밖 출력 무시(입력만)" "L#1" "$(run YELLOW 'L#3 10 0
+L#2 20 0
+L#1 500 0 out=10')"
+# T12 — ⓑ active V65 task(preserve): 출력 포함 idle < ABANDON(360) → 지금처럼 보존
+expect "T12 preserve 는 출력 포함 idle 유지" "" "$(run YELLOW 'M#3 10 0
+M#2 20 0
+M#1 500 0 preserve out=10')"
+# T12b — preserve 라도 출력까지 ABANDON 넘게 조용하면 해제 → keep 밖이라 입력 idle 로 회수
+expect "T12b preserve ABANDON 넘으면 회수" "N#1" "$(run YELLOW 'N#3 10 0
+N#2 20 0
+N#1 500 0 preserve out=400')"
+# T13 — ⓒ keep 안 세대(출력만 조용해도 idle 안 봄)·attached·라이브 서버 보호 불변
+expect "T13 keep 안 보호 불변" "" "$(run YELLOW 'O#3 500 0 out=5
+O#2 600 0 out=5
+O#1 700 0 server out=10')"
+expect "T13b attached 보호 불변" "" "$(run YELLOW 'P#3 10 0
+P#2 20 0
+P#1 500 1 out=10')"
+# T14 — 입력 idle 이 임계 미만이면 출력이 오래돼도 활성 보호(출력이 더 최근일 때만 덮던 기존 방향성 보존)
+expect "T14 입력 최근이면 보호" "" "$(run YELLOW 'S#3 10 0
+S#2 20 0
+S#1 10 0 out=500')"
 
 total=$((pass+fail))
 echo "$pass/$total PASS"
