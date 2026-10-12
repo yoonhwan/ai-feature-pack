@@ -18,6 +18,7 @@ check_body() {
   case "$line" in *"press(라이브 오디오 시험) 금지"*) ok "$label press 금지 문장";; *) bad "$label BODY 에 'press(라이브 오디오 시험) 금지' 없음";; esac
   case "$line" in *"ft-press-gate ⑦"*) ok "$label ft-press-gate ⑦ 근거";; *) bad "$label BODY 에 'ft-press-gate ⑦' 없음";; esac
   case "$line" in *"측정 조작 금지"*"/dev/bubble-replay"*"BOOT 20"*) ok "$label 측정 조작 금지 문장";; *) bad "$label BODY 에 '측정 조작 금지' 문장 없음";; esac
+  case "$line" in *"증거 줄"*"완료 턴에 네가 인덱스 «상태» 절에 직접"*"master 는 커밋만"*) ok "$label 증거 줄 직접 기록 문장";; *) bad "$label BODY 에 '증거 줄 직접 기록' 문장 없음";; esac
 }
 
 bash -n "$TRACKED" && ok "bash -n 추적본" || bad "bash -n 추적본"
@@ -42,6 +43,14 @@ before="$fail"
 neg2="$(check_body "음성복사본2" "$TMP/stripped2.sh")"
 fail="$before"
 echo "$neg2" | grep -q '^FAIL 음성복사본2 BODY 에 .측정 조작 금지' && ok "음성 대조 2: 문장 제거 시 FAIL 발생" || bad "음성 대조 2: 문장을 지웠는데 FAIL 이 안 남"
+
+# 음성 대조 3 — 증거 줄 직접 기록 문장만 지운 복사본도 FAIL 을 내야 한다
+LC_ALL=en_US.UTF-8 sed 's/ ★증거 줄[^★]*★//' "$TRACKED" > "$TMP/stripped3.sh"
+cmp -s "$TRACKED" "$TMP/stripped3.sh" && bad "음성 대조 3: sed 가 문장을 지우지 못함(복사본 == 원본)"
+before="$fail"
+neg3="$(check_body "음성복사본3" "$TMP/stripped3.sh")"
+fail="$before"
+echo "$neg3" | grep -q '^FAIL 음성복사본3 BODY 에 .증거 줄' && ok "음성 대조 3: 문장 제거 시 FAIL 발생" || bad "음성 대조 3: 문장을 지웠는데 FAIL 이 안 남"
 
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"
