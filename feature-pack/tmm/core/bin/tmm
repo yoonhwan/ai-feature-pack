@@ -231,16 +231,25 @@ cat_of() {
   if [[ "$n" != *[!a-z0-9-]* ]]; then
     IFS=- read -r t1 t2 t3 _ <<<"$n"
     if [ -n "$t1" ] && [ -n "$t2" ] && [[ "$roles" == *" $t3 "* ]]; then
-      local legacy=0 s b p1 p2 p3
+      local legacy=0 s b p1 p2 p3 list x
       for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do pl="${pfx,,}"; { [ "$pl" = "$t1-" ] || [ "$pl" = "${t1}_" ]; } && legacy=1; done
       if [ "$legacy" = 0 ]; then
-        while IFS= read -r s; do
-          b="${s%%#*}"; [[ "$b" != *[!a-z0-9-]* ]] || continue
-          IFS=- read -r p1 p2 p3 _ <<<"$b"
-          [ "$p2" = "$t2" ] && [ "$p1" != "$t1" ] && [[ "$roles" == *" $p3 "* ]] || continue
-          for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do pl="${pfx,,}"; { [ "$pl" = "$p1-" ] || [ "$pl" = "${p1}_" ]; } && continue 2; done
-          t2="${t1:0:1}-$t2"; break
-        done <<<"${TMM_CAT_SESSIONS-$(tmux list-sessions -F '#{session_name}' 2>/dev/null)}"
+        # ★세션 목록은 «프로세스당 한 번» 받아 `팀:프로젝트` 표(CAT_TEAMS)로 만든다★ — 세션마다 list-sessions 를 다시 받고 목록을 다시 돌던 것(113 fork · O(N²) · 2.5초)을 없앤다.
+        #   cmd_rows/cmd_dead_rows 는 시작할 때 cat_prep 으로 CAT_LIST 를 정해 부모 셸에서 표를 만들어 둔다($(cat_of …) 서브셸이 표를 물려받는다). 목록 글자가 바뀌면 다시 만든다.
+        list="${TMM_CAT_SESSIONS-${CAT_LIST-$(tmux list-sessions -F '#{session_name}' 2>/dev/null)}}"
+        if [ "${CAT_SRC+set}" != set ] || [ "$CAT_SRC" != "$list" ]; then
+          CAT_SRC="$list"; CAT_TEAMS=" "
+          while IFS= read -r s; do
+            b="${s%%#*}"; [[ "$b" != *[!a-z0-9-]* ]] || continue
+            IFS=- read -r p1 p2 p3 _ <<<"$b"
+            [ -n "$p2" ] && [[ "$roles" == *" $p3 "* ]] || continue
+            for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do pl="${pfx,,}"; { [ "$pl" = "$p1-" ] || [ "$pl" = "${p1}_" ]; } && continue 2; done
+            [[ "$CAT_TEAMS" == *" $p2:$p1 "* ]] || CAT_TEAMS+="$p2:$p1 "
+          done <<<"$list"
+        fi
+        # 같은 팀 글자를 «다른 프로젝트(p1≠t1)»가 쓰는 세션이 하나라도 있으면 접두를 붙인다
+        x="${CAT_TEAMS// $t2:$t1 / }"
+        [[ "$x" == *" $t2:"* ]] && t2="${t1:0:1}-$t2"
       fi
       printf '%s' "${t2:0:8}"; return
     fi
@@ -255,6 +264,9 @@ cat_of() {
   #   목록의 카테고리 «열»만 5자로 자른다(cmd_rows / cmd_dead_rows).
   n="${n%%[-_]*}"; n="${n,,}"; printf '%s' "${n:0:8}"
 }
+
+# 목록을 그리는 함수(cmd_rows·cmd_dead_rows)가 시작할 때 부른다 — 세션 목록을 1회 받아 CAT_LIST 에 두고 cat_of 의 표를 «부모 셸»에서 만든다.
+cat_prep() { CAT_LIST="${TMM_CAT_SESSIONS-$(tmux list-sessions -F '#{session_name}' 2>/dev/null)}"; cat_of zz-zz-master > /dev/null; }
 
 # ---------- 상태 스캔 (캐시) ----------
 # seat-scan 은 좌석당 capture 2회라 65좌석에 ~2초. 폰에서 필터/^R 을 연타해도 TTL 안에서는 재사용.
@@ -362,6 +374,7 @@ clip_name() {  # <이름> <폭>
 cmd_rows() {
   local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat pcmd live act ep src now mid nw cw
   read -r nw cw <<<"$(col_widths)"
+  cat_prep
   declare -A ST
   if [ "$fresh" = fresh ]; then
     while read -r name state _; do ST["$name"]="$state"; done < <(scan_fresh)
@@ -707,6 +720,7 @@ dead_tsv() {  # [fresh]
 cmd_dead_rows() {  # [time|wait|cat] [fresh]
   local mode="${1:-time}" now line src name cwd lm la cat md nw cw
   read -r nw cw <<<"$(col_widths)"
+  cat_prep
   now=$(date +%s)
   while IFS= read -r line; do
     src="$(printf '%s' "$line" | cut -f1)"; name="$(printf '%s' "$line" | cut -f3)"; cwd="$(printf '%s' "$line" | cut -f4)"
