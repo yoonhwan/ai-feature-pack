@@ -138,5 +138,33 @@ gate_in "$HC" "cd $HB || true; ls; git push origin feat"; [ $RC -eq 2 ] && ok "c
 gate_in "$HC" "cd $HB && git commit -m x && cd $HC && git push origin feat"; [ $RC -eq 0 ] && ok "cd(r): 다시 clean 으로 cd 한 뒤 push → 허용" || bad "cd(r) → rc=$RC $OUT"
 cd "$T"
 
+# ── 병합 유입: feat(upstream=origin/feat)가 origin/main 을 병합해도 main 줄은 «새 줄»이 아니다 (planner 79540) ──
+mkmerge() {  # mkmerge <이름> <main|trunk> — main 쪽 기본 브랜치 이름. 끝나면 feat 에서 base 커밋 위, upstream=origin/feat
+  local r="$T/$1"; mkdir -p "$r" && ( cd "$r" && git init -q -b "$2" . && git config user.email t@t && git config user.name t \
+    && mkdir -p design/t/indices src && echo 카드 > design/t/indices/c.md && git add -A && git commit -qm base \
+    && git init -q --bare "$T/$1-origin.git" && git remote add origin "$T/$1-origin.git" && git push -q origin "$2" 2>/dev/null \
+    && git checkout -q -b feat && git push -q -u origin feat 2>/dev/null ); }
+main_adds_inflow() {  # main 에 카드 없는 유예 주석 1줄 커밋 → origin/main push → feat 로 복귀해 병합
+  ( cd "$T/$1" && git checkout -q main && cp "$FX/rej-py-nocard.py.fx" src/inflow.py && git add -A && git commit -qm inflow \
+    && git push -q origin main 2>/dev/null && git checkout -q feat && git merge -q --no-edit origin/main ); }
+feat_adds() {  # feat_adds <이름> <경로> — feat 에 카드 없는 유예 주석 새 줄 커밋
+  ( cd "$T/$1" && cp "$FX/rej-py-nocard.py.fx" "$2" && git add -A && git commit -qm "feat $2" ); }
+mkmerge m1 main; main_adds_inflow m1
+gate_in "$T/m1" "git push origin feat"; [ $RC -eq 0 ] && ok "병합(a): 병합만 하고 push → 허용" || bad "병합(a) → rc=$RC $OUT"
+mkmerge m2 main; main_adds_inflow m2; feat_adds m2 src/newbad.py
+gate_in "$T/m2" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q 'REJECT src/newbad.py:2' && ! echo "$OUT" | grep -q 'REJECT src/inflow.py' && ok "병합(b): 병합 + feat 새 유예 줄 → 차단 · 새 줄만 REJECT" || bad "병합(b) → rc=$RC $OUT"
+mkmerge m3 main; feat_adds m3 src/newbad.py
+gate_in "$T/m3" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q 'REJECT src/newbad.py:2' && ok "병합(c): 병합 없이 새 유예 줄 → 차단 유지" || bad "병합(c) → rc=$RC $OUT"
+mkmerge m4 trunk; feat_adds m4 src/newbad.py
+gate_in "$T/m4" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q 'REJECT src/newbad.py:2' && ok "병합(d): origin/main 없음 + upstream 만 → 지금 동작 그대로" || bad "병합(d) → rc=$RC $OUT"
+mkmerge m5 main; main_adds_inflow m5; feat_adds m5 src/other.py
+gate_in "$T/m5" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q 'REJECT src/other.py:2' && ! echo "$OUT" | grep -q 'REJECT src/inflow.py' && ok "병합(e): main 에 같은 글자 줄(다른 파일) → feat 새 줄은 차단 유지" || bad "병합(e) → rc=$RC $OUT"
+mkmerge m6 main; ( cd "$T/m6" && git update-ref refs/remotes/origin/main "$(git commit-tree "$(git hash-object -t tree /dev/null)" -m unrelated)" ); feat_adds m6 src/newbad.py
+gate_in "$T/m6" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q '검사 불가 대상' && ok "병합(f): origin/main 이 unrelated history → 차단 + 「검사 불가 대상」" || bad "병합(f) → rc=$RC $OUT"
+mkmerge m7 main; main_adds_inflow m7
+( cd "$T/m7" && printf '# 적용 후 별건으로 되살린다\n# → 카드 design/t/indices/c.md\nz = 3\n' >> src/inflow.py && git add src/inflow.py && git commit -qm "feat same text with card" )
+gate_in "$T/m7" "git push origin feat"; [ $RC -eq 0 ] && ok "병합(g): main 유입 옛 줄과 같은 글자 새 줄(카드 참조 있음) → 허용 · 옛 줄 REJECT 0" || bad "병합(g) → rc=$RC $OUT"
+cd "$T"
+
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail
