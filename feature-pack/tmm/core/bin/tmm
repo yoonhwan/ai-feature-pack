@@ -29,7 +29,8 @@
 # TUI 키:  Enter/^E attach · ^S 메시지 · ^K 좌석닫기 · ^F fork · ^Y 대화기록 경로 · ^H 대기좌석만 · ^A 전체
 #          ^T 최근순 · ^W 대기우선 · ^G 카테고리순 · ^R 새로고침 · ^U 미리보기 자동갱신 1/5/10/15초
 #          ^P 미리보기 토글 · ^O 크게/작게 · ^X 종료 · ^/ 도움말(? 는 필터 문자)
-#          ^V 목록↔탭 뷰(검색창 위 카테고리 탭 줄, 전체는 맨 뒤) · Tab·→ / S-Tab·← 다음/이전 탭(탭 뷰에서만 — 아니면 원래 동작). 키워드는 뷰(^A/^D)별로 기억
+#          분할 화면(0.8.0, tmux 안 기본): 왼쪽 분류 칸 ↑↓ 로 고르면 목록이 바뀜 · ⏎=목록으로 · Esc/⌫(빈 질의)=분류 칸으로(←/→ 별칭) · ^V 분류 칸 숨김/보임
+#          숨기면(또는 TMM_SPLIT=0 · tmux 밖) 0.7.x 탭 줄: Tab·→ / S-Tab·← 다음/이전 탭. 키워드는 뷰(^A/^D)별로 기억
 # 뷰 전환: ^D = 종료된 세션 뷰(«종료>») ↔ ^A = 살아있는 좌석 뷰(«좌석>»). 완전 전환 — 목록·미리보기·Enter 의미가 바뀐다.
 #          종료 뷰: 진입 12h 창, ^] +12h / ^\ -12h, ^L 계보 전체↔최신만. Enter = resume 복구 후 attach.
 #          ^B = «지금 화면에 보이는 행 전부» 일괄 복구(필터·카테고리 적용분만, 확인 y 후, attach 없음).
@@ -480,6 +481,100 @@ cmd_boot_reload() {  # fzf start — ①기억한 커서 복원 ②스냅샷 부
   printf '%s' "$acts"; return 0
 }
 
+# ---------- 분할 화면 (0.8.0) ----------
+# 왼쪽 = 카테고리 칸(별도 fzf · tmux pane) · 오른쪽 = 세션 목록(+pane 미리보기). 사용자 원문 「상하만 사용 · 반을 나눠서 좌측에 카테고리」(2026-10-12).
+#   fzf 는 목록이 하나뿐이라 한 fzf 에 두 커서를 못 둔다 → 피커 세션(tui_wrap) 안에서 pane 을 하나 더 가른다.
+#   키: ↑↓ 는 지금 칸 안에서 · ⏎(분류 칸)=목록으로 · Esc·⌫(빈 질의)(목록)=분류 칸으로 · ←/→ 는 같은 동작의 별칭 · Tab/S-Tab 탭 회전은 없다.
+#   상태: $RUN/mainpane(목록 pane id) · catpane(분류 pane id — 있으면 분할 켜짐) · catw(칸 폭) · cat.sock(분류 fzf --listen) · catseen(핑거가 분류 칸을 마지막으로 갱신한 표식)
+#   분류 칸 → 목록: 분류 fzf 의 focus 가 목록 fzf 소켓에 `transform($SELF tabgo <분류> {2})` 를 쏜다({2} 는 목록 fzf 가 «자기» 커서 세션으로 푼다).
+#   목록 → 분류 칸: 핑거(auto_loop)가 $RUN/tabs 가 새로 쓰일 때마다 cat.sock 에 reload 를 쏜다(첫 목록이 늦게 와도 자연히 채워진다).
+#   분류 칸에서 누른 다른 키(^X ^D ^A …)는 목록 칸으로 넘긴다(catfwd — 우리 피커 pane 에만 send-keys · 좌석 아님).
+#   tmux 없이(TMM_NO_WRAP=1) 돌면 분할 불가 → 0.7.x 탭 줄(Tab/S-Tab) 그대로. TMM_SPLIT=0 도 같다. verify (sp).
+split_catw()   { [ "${1:-60}" -ge 120 ] && printf 16 || printf 11; }   # 폰(<120)은 이름 7자+⚠N, 데스크탑은 이름 8자+수 (포인터 2칸 포함)
+split_active() { [ -s "$RUN/catpane" ]; }
+to_cat_action() { printf 'execute-silent(tmux select-pane -t %s)' "$(cat "$RUN/catpane")"; }
+split_open() {  # [목록 pane id] — 왼쪽에 분류 칸 pane 을 열고 그 안에서 `$SELF catpane` 을 돌린다
+  local main w catw cp; main="${1:-$(cat "$RUN/mainpane" 2>/dev/null)}"
+  [ -n "$main" ] || return 0
+  split_active && return 0
+  w="$(tmux display -p -t "$main" '#{window_width}' 2>/dev/null)"; catw="$(split_catw "${w:-60}")"
+  printf '%s' "$main" > "$RUN/mainpane"; printf '%s' "$catw" > "$RUN/catw"; rm -f "$RUN/catseen"
+  cp="$(tmux split-window -h -b -d -l "$catw" -P -F '#{pane_id}' -t "$main" "TMM_RUN='$RUN' TMM_NO_WRAP=1 '$SELF' catpane" 2>/dev/null)" || return 0
+  [ -n "$cp" ] || return 0
+  printf '%s' "$cp" > "$RUN/catpane"
+  tmux set -w -t "$main" pane-active-border-style 'fg=cyan' 2>/dev/null; tmux set -w -t "$main" pane-border-style 'fg=brightblack' 2>/dev/null
+  return 0
+}
+split_close() {  # 분류 칸 pane(우리 피커 세션의 것)을 닫는다 — 좌석이 아니다
+  local cp; cp="$(cat "$RUN/catpane" 2>/dev/null)"
+  rm -f "$RUN/catpane" "$RUN/cat.sock" "$RUN/catseen"
+  [ -n "$cp" ] && tmux kill-pane -t "$cp" 2>/dev/null
+  return 0
+}
+cmd_catrows() {  # $RUN/tabs(카테고리\t수\t대기수) → «키\t라벨» — 분류 fzf 의 행. 폭은 $RUN/catw(포인터 2칸 제외)
+  local catw cat cnt wt lab; catw="$(cat "$RUN/catw" 2>/dev/null || echo 11)"
+  [ -s "$RUN/tabs" ] || return 0
+  while IFS=$'\t' read -r cat cnt wt; do
+    if [ "$cat" = '*' ]; then lab='전체'; [ "$catw" -ge 16 ] && lab="$(printf '%-6s %2s' "$lab" "$cnt")"
+    elif [ "$catw" -ge 16 ]; then lab="$(printf '%-8.8s %2s' "$cat" "$cnt")"
+    else lab="$(printf '%-7.7s' "$cat")"; fi
+    [ "${wt:-0}" -gt 0 ] && lab+=$'\033[31m⚠'"$wt"$'\033[0m'
+    printf '%s\t%s\n' "$cat" "$lab"
+  done < "$RUN/tabs"
+}
+cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목록이 바뀌고(focus), ⏎/→/Tab 은 목록 칸으로. 나머지 키는 목록 칸에 넘긴다.
+  local sock="$RUN/cat.sock" rc n k
+  local -a fwd=()
+  for k in ctrl-x ctrl-v ctrl-d ctrl-a ctrl-r ctrl-t ctrl-w ctrl-g ctrl-h ctrl-p ctrl-o ctrl-u ctrl-y ctrl-s ctrl-k ctrl-f ctrl-e ctrl-b; do
+    fwd+=(--bind "$k:execute-silent($SELF catfwd C-${k#ctrl-})")
+  done
+  while [ -d "$RUN" ]; do
+    rm -f "$sock"
+    n="$(awk -F'\t' -v s="$(tab_cur_id)" '$1==s{print NR; exit}' "$RUN/tabs" 2>/dev/null)"
+    fzf --ansi --delimiter=$'\t' --with-nth=2 --track --id-nth=1 --layout=reverse --cycle --no-mouse --info=hidden --sync --no-input \
+      --listen="$sock" --pointer='▶' --border=top --border-label=' 분류 ' --border-label-pos=2:top --no-scrollbar \
+      --bind "start:pos(${n:-1})" \
+      --bind "focus:execute-silent($SELF catfocus {1})" \
+      --bind "enter,right,tab:execute-silent($SELF catgo)" \
+      --bind "left,esc,btab,space,double-click:ignore" \
+      "${fwd[@]}" \
+      < <(cmd_catrows) >/dev/null 2>>"$STATE/fzf-stderr.log"; rc=$?
+    [ "$rc" = 130 ] && return 0
+    sleep 0.3
+  done
+}
+cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 fzf 에 tabgo 를 쏜다(같은 탭이면 0)
+  local c="${1:-}"; [ -n "$c" ] || return 0
+  [ "$c" = "$(tab_cur_id)" ] && return 0
+  [ -S "$RUN/fzf.sock" ] && cmd_post "$RUN/fzf.sock" "transform($SELF tabgo '$c' {2})"
+  return 0
+}
+cmd_catgo()  { local main; main="$(cat "$RUN/mainpane" 2>/dev/null)"; [ -n "$main" ] && tmux select-pane -t "$main" 2>/dev/null; return 0; }
+cmd_catfwd() {  # <tmux 키> — 분류 칸에서 누른 키를 목록 칸(우리 피커 pane)으로 넘긴다(^X 끝·^D 종료뷰 … 가 분류 칸에서도 먹게)
+  local main; main="$(cat "$RUN/mainpane" 2>/dev/null)"; [ -n "$main" ] || return 0
+  tmux select-pane -t "$main" 2>/dev/null; tmux send-keys -t "$main" "$1" 2>/dev/null; return 0
+}
+cmd_esckey() { if split_active && tab_on; then to_cat_action; else printf 'abort'; fi; }                 # Esc: 분할이면 분류 칸으로, 아니면 원래대로 끝
+cmd_bskey()  { if [ -z "${1:-}" ] && split_active && tab_on; then to_cat_action; else printf 'backward-delete-char'; fi; }   # ⌫: 질의가 비었을 때만 분류 칸으로
+tab_switch_to() {  # <탭> [커서 세션명] — 탭을 바꾸고 커서 복원 액션(reload(cat …)+헤더)을 낸다. tabkey(회전)·tabgo(직접 지정)가 같이 쓴다
+  local nxt="$1" here="${2:-}" cur p
+  cur="$(tab_cur_id)"; tabcur_set "$cur" "$here"      # 떠나는 탭의 커서 저장
+  printf '%s\n' "$nxt" > "$RUN/tabsel"
+  # 새 탭 목록을 «여기서» 만들어 위치를 계산한 뒤 reload 로 바꿔 끼운다(캐시 적중 ~0.5초). 후보 순서: 이 탭에서 기억한 세션 → 지금 세션(전체 탭 등에 있으면) → 맨 위.
+  cmd_rows_cur > "$RUN/tabrows"
+  p="$(row_pos "$RUN/tabrows" "$(tabcur_get "$(tab_cur_id)")" "$here")"
+  # ★`reload-sync(...)+pos/first` 는 안 먹는다★ — --track 이 reload 가 끝난 뒤 커서를 «이전 줄 번호»로 되돌려 pos/first 를 덮는다(최소 예제 실측 2026-10-02).
+  #   그래서 원하는 줄 번호를 $RUN/wantpos 에 적고 reload 를 걸면, fzf `load` 이벤트(cmd_onload)가 reload 직후 pos 를 준다.
+  printf '%s\n' "${p:-1}" > "$RUN/wantpos"
+  printf 'reload(cat %s)+transform-header(%s header)' "$RUN/tabrows" "$SELF"
+}
+cmd_tabgo() {  # <탭> [커서 세션명] — 분류 칸이 고른 카테고리로 목록을 바로 바꾼다(회전 없음)
+  local to="${1:-}"
+  tab_on && [ -n "$to" ] || { printf 'ignore'; return; }
+  [ "$to" = "$(tab_cur_id)" ] && { printf 'ignore'; return; }
+  tab_switch_to "$to" "${2:-}"
+}
+
 # ---------- 탭 뷰 (좌석뷰의 «추가 모드», 0.7.0) ----------
 # 목록 = 정렬된 평면 행. 탭 = 상단에 «카테고리 탭 줄»(전체 · ft · v65 …)을 두고 Tab/S-Tab 으로 회전, 목록은 그 카테고리만 보인다.
 #   카테고리 = cat_of(^G 와 같은 규칙). 탭 순서 = 정렬 모드가 정한 «맨 위 좌석이 나오는 순서»(^T 최근순이면 최근 활동 카테고리가 앞).
@@ -543,32 +638,32 @@ tab_bar() {
 # ^V — 목록 ↔ 탭. 종료 뷰에는 탭이 없다.
 cmd_vtab() {
   if [ "$(view_now)" = dead ]; then printf 'change-prompt(탭은 좌석뷰 전용 — ^A 로 먼저> )'; return; fi
+  # 분할(0.8.0)이 가능한 세션(mainpane 있음)에서는 ^V = 분류 칸 숨김/보임. 숨기면 0.7.x 탭 줄(Tab/S-Tab 회전)로 돌아간다.
+  if split_active; then split_close; printf 'transform-header(%s header)+change-prompt(탭> )' "$SELF"; return; fi
+  if [ -f "$RUN/tab" ] && [ -s "$RUN/mainpane" ] && [ "${TMM_SPLIT:-1}" = 1 ]; then
+    split_open; printf 'transform-header(%s header)+change-prompt(탭> )' "$SELF"; return
+  fi
   if [ -f "$RUN/tab" ]; then rm -f "$RUN/tab"; else : > "$RUN/tab"; fi
   printf 'reload(%s rows-cur)+transform-header(%s header)+change-prompt(%s)' "$SELF" "$SELF" "$([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> ')"
 }
 # Tab / S-Tab — 탭 뷰: 다음/이전 탭(전체 → 카테고리들 → 전체 …). 목록·종료 뷰는 원래 동작(선택 토글 + 아래/위).
 cmd_tabkey() {  # next|prev [커서 세션명]
-  local dir="${1:-next}" here="${2:-}" cur nxt p
+  local dir="${1:-next}" here="${2:-}" cur nxt
   tab_on || { [ "$dir" = next ] && printf 'toggle+down' || printf 'toggle+up'; return; }
+  split_active && { printf 'ignore'; return; }        # 분할(0.8.0)이면 탭 회전은 없다 — 분류 칸에서 ↑↓
   [ -s "$RUN/tabs" ] || { printf 'ignore'; return; }
-  cur="$(tab_cur_id)"; tabcur_set "$cur" "$here"      # 떠나는 탭의 커서 저장
+  cur="$(tab_cur_id)"
   nxt="$(awk -F'\t' -v cur="$cur" -v dir="$dir" '{ t[NR] = $1 }
     END { idx = 1; for (i = 1; i <= NR; i++) if (t[i] == cur) idx = i
           if (dir == "next") idx = idx % NR + 1; else idx = (idx - 2 + NR) % NR + 1
           print t[idx] }' "$RUN/tabs")"
-  printf '%s\n' "$nxt" > "$RUN/tabsel"
-  # 새 탭 목록을 «여기서» 만들어 위치를 계산한 뒤 reload-sync 로 바꿔 끼운다(캐시 적중 ~0.5초). 후보 순서: 이 탭에서 기억한 세션 → 지금 세션(전체 탭 등에 있으면) → 맨 위.
-  cmd_rows_cur > "$RUN/tabrows"
-  p="$(row_pos "$RUN/tabrows" "$(tabcur_get "$(tab_cur_id)")" "$here")"
-  # ★`reload-sync(...)+pos/first` 는 안 먹는다★ — --track 이 reload 가 끝난 뒤 커서를 «이전 줄 번호»로 되돌려 pos/first 를 덮는다(최소 예제 실측 2026-10-02).
-  #   그래서 원하는 줄 번호를 $RUN/wantpos 에 적고 reload 를 걸면, fzf `load` 이벤트(cmd_onload)가 reload 직후 pos 를 준다.
-  printf '%s\n' "${p:-1}" > "$RUN/wantpos"
-  printf 'reload(cat %s)+transform-header(%s header)' "$RUN/tabrows" "$SELF"
+  tab_switch_to "$nxt" "$here"
 }
 # → / ← — 탭 뷰: Tab / S-Tab 과 같다(다음/이전 탭). 목록·종료 뷰는 원래 동작(입력창 커서 이동).
 #   탭 뷰에서는 입력창 안 커서 이동에 방향키를 못 쓴다(Backspace·^W 로 고친다) — 사용자 지정 2026-10-01.
 cmd_arrowkey() {  # next|prev [커서 세션명]
-  if tab_on; then cmd_tabkey "${1:-next}" "${2:-}"
+  if split_active && tab_on; then { [ "${1:-next}" = prev ] && to_cat_action || printf 'ignore'; }   # 분할(0.8.0): ← = Esc 와 같은 별칭, → 는 없음
+  elif tab_on; then cmd_tabkey "${1:-next}" "${2:-}"
   elif [ "${1:-next}" = next ]; then printf 'forward-char'; else printf 'backward-char'; fi
 }
 # load 이벤트 — 상단 라벨(매치수) 갱신. 탭 뷰면 방금 다시 센 탭 줄(수·⚠)도 같이.
@@ -1040,25 +1135,33 @@ term_cols() {
   local c="${FZF_COLUMNS:-}" p="${FZF_PREVIEW_COLUMNS:-0}" pw
   if [ -n "$c" ]; then
     pw="$(cat "$RUN/pw" 2>/dev/null)"; case "$pw" in right*) c=$((c + p + 1));; esac
+    split_active && c=$((c + $(cat "$RUN/catw" 2>/dev/null || echo 11) + 1))   # 분할(0.8.0): 분류 칸 + 경계선도 전체 폭
     printf '%s\n' "$c" > "$RUN/cols"; printf '%s' "$c"; return
   fi
   cat "$RUN/cols" 2>/dev/null || tput cols 2>/dev/null || echo "${COLUMNS:-60}"
 }
 TMM_VERSION="$(cat "$HERE/../VERSION" 2>/dev/null || echo dev)"
 cmd_header() {
-  local a w; a="$(auto_now)"; w="$(term_cols)"
+  local a w lw narrow=""; a="$(auto_now)"; w="$(term_cols)"
+  # 목록 칸 폭(lw) — 분할(0.8.0)이면 전체에서 분류 칸을 뺀 폭. 60 미만(60~70열 폰 + 분할)이면 섹션 라벨·두 칸 띄움을 줄인 «좁은» 헤더.
+  if split_active; then lw="${FZF_COLUMNS:-$(( w - $(cat "$RUN/catw" 2>/dev/null || echo 11) - 1 ))}"; else lw="${FZF_COLUMNS:-$w}"; fi
+  [ "$lw" -lt 60 ] && narrow=1          # fzf 가 헤더를 2칸 들여쓰므로 쓸 수 있는 폭 = lw-2. 보통 헤더(≤58)는 lw≥60 에서만 다 보인다(70열 폰 실측 2026-10-12)
   if [ "$(view_now)" = dead ]; then
     hdr_dead
     printf '\033[33m상태\033[0m 창 %sh · %s건 · 계보 %s · SNAP/CC/CDX/CMD/OC\n' "$(since_now)" "$(dead_tsv | wc -l | tr -d ' ')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
     return
   fi
-  hdr_live
-  printf '\033[33m상태\033[0m '
+  hdr_live "$narrow"
+  [ -n "$narrow" ] || printf '\033[33m상태\033[0m '
   [ "$a" -gt 0 ] && printf 'pane %ss' "$a" || printf 'pane off'
   [ "$AUTO" -gt 0 ] && printf ' 전체 %ss' "$AUTO" || printf ' 전체 off'
-  printf ' · 12:34 완료 12~34 출력 · 1m=1M창\n'
+  if [ -n "$narrow" ]; then printf ' · 1m=1M창\n'; else printf ' · 12:34 완료 12~34 출력 · 1m=1M창\n'; fi
   # ★탭 줄은 헤더의 «마지막» 줄 — 검색 프롬프트 바로 위(0.7.1, 사용자 지정). `&&` 로 끝내면 탭 꺼짐일 때 종료코드 1 이 된다(pipefail 에서 헤더 호출이 실패로 잡힘)
-  if tab_on; then tab_bar; fi
+  #   분할(0.8.0)이면 탭 줄 대신 «칸 이동 안내»(↑↓ ⏎ Esc) — 카테고리는 왼쪽 칸에 있다.
+  if split_active && tab_on; then
+    if [ -n "$narrow" ]; then hdr_line "" " " "$(K ↑↓ 고르기)" "$(K ⏎ 목록)" "$(K Esc/⌫ 분류)" "$(K ^V 숨김)"
+    else hdr_line 칸 "  " "$(K ↑↓ 고르기)" "$(K ⏎ 목록으로)" "$(K Esc/⌫ 분류칸으로)" "$(K ^V 칸숨김)"; fi
+  elif tab_on; then tab_bar; fi
 }
 cmd_post() { curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d "$2"; }
 # 백그라운드 핑거: 1초 틱마다 상태 파일을 다시 읽어 ^U 변경이 즉시 반영. fzf 가 끝나면 cmd_tui 가 죽인다 —
@@ -1076,6 +1179,10 @@ auto_loop() {
     [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && [ ! -f "$RUN/selmode" ] \
       && cmd_post "$sock" "reload($SELF rows-cur fresh)"
     [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
+    # 분할(0.8.0): 목록이 탭 수를 새로 셀 때마다($RUN/tabs 갱신) 분류 칸을 다시 그린다 — 첫 목록이 늦게 와도, 20초 갱신으로 ⚠ 가 바뀌어도
+    if [ -S "$RUN/cat.sock" ] && { [ ! -f "$RUN/catseen" ] || [ "$RUN/tabs" -nt "$RUN/catseen" ]; }; then
+      cmd_post "$RUN/cat.sock" "reload($SELF catrows)"; : > "$RUN/catseen"
+    fi
   done
 }
 
@@ -1229,6 +1336,8 @@ cmd_doctor() {
 # 미리보기 창 배치: 전체 폭 <120 (폰) 아래 50% / ≥120 (PC) 오른쪽 55%. big = 같은 방향에서 크게↔기본 토글(상태 파일).
 cmd_pw() {
   local w big=""; w="$(term_cols)"
+  # 분할(0.8.0)이면 방향은 «목록 칸»(전체 − 분류 칸 − 경계) 폭으로 정한다 — 120열에 분류 칸 16 을 떼고도 오른쪽으로 두면 목록이 46칸이 됐다(실측 2026-10-12).
+  split_active && w=$(( w - $(cat "$RUN/catw" 2>/dev/null || echo 11) - 1 ))
   if [ "${1:-}" = big ]; then [ -f "$RUN/pwbig" ] && rm -f "$RUN/pwbig" || : > "$RUN/pwbig"; fi
   [ -f "$RUN/pwbig" ] && big=1
   # 종료 뷰 미리보기의 첫 줄은 «[CC] 세션명 · cwd · 모델» 메타라 스크롤해도 붙잡아 둔다(~1).
@@ -1242,11 +1351,19 @@ cmd_pw() {
 # 헤더 — 섹션별로 «키(청록 굵게) 설명(회색)» 쌍. 폰 60열 기준 한 줄 ≤60 표시폭(ANSI 제외, verify 가 잰다). 3~4줄.
 K() { printf '\033[1;36m%s\033[0m\033[2m %s\033[0m' "$1" "$2"; }   # key + label
 S() { printf '\033[33m%s\033[0m' "$1"; }                               # 섹션 표시
-hdr_live() {
-  printf '%s %s  %s  %s  %s  %s  %s\n' "$(S 이동)" "$(K ⏎ attach)" "$(K ^S 메시지)" "$(K ^K 닫기)" "$(K ^F fork)" "$(K ^D 종료)" "$(K ^X 끝)"
-  printf '%s %s  %s  %s  %s  %s\n' "$(S 정렬)" "$(K ^T 최근)" "$(K ^W 대기)" "$(K ^G 분류)" "$(K ^H 대기만)" "$(K ^A 전체)"
-  printf '%s %s  %s  %s  %s  %s\n' "$(S 화면)" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^Y 경로)" "$(K ^/ 도움)"
-  printf '%s %s  %s  %s\n' "$(S 탭)" "$(K ^V 목록↔탭)" "$(K Tab/→ 다음)" "$(K S-Tab/← 이전)"
+hdr_line() {  # <섹션|빈칸> <구분> <항목...> — 한 줄. 섹션이 비면 라벨 없이
+  local sec="$1" sep="$2" out="" x first=1; shift 2
+  [ -n "$sec" ] && out="$(S "$sec") "
+  for x in "$@"; do if [ "$first" = 1 ]; then first=0; else out+="$sep"; fi; out+="$x"; done
+  printf '%s\n' "$out"
+}
+hdr_live() {  # [narrow] — 좁은 헤더(분할 + 60열 폰 = 목록 48열)는 섹션 라벨 없이 한 칸 띄움, 긴 말은 짧게(attach→붙기, 메시지→쪽지)
+  local n="${1:-}" sep="  " i=이동 s=정렬 h=화면 a=attach m=메시지
+  [ -n "$n" ] && { sep=" "; i=""; s=""; h=""; a=붙기; m=쪽지; }
+  hdr_line "$i" "$sep" "$(K ⏎ "$a")" "$(K ^S "$m")" "$(K ^K 닫기)" "$(K ^F fork)" "$(K ^D 종료)" "$(K ^X 끝)"
+  hdr_line "$s" "$sep" "$(K ^T 최근)" "$(K ^W 대기)" "$(K ^G 분류)" "$(K ^H 대기만)" "$(K ^A 전체)"
+  hdr_line "$h" "$sep" "$(K ^P/^O 미리보기)" "$(K ^U 자동)" "$(K ^R 갱신)" "$(K ^Y 경로)" "$(K ^/ 도움)"
+  if ! split_active || ! tab_on; then hdr_line 탭 "  " "$(K ^V 목록↔탭)" "$(K Tab/→ 다음)" "$(K S-Tab/← 이전)"; fi
 }
 hdr_dead() {
   printf '%s %s  %s  %s  %s  %s\n' "$(S 복구)" "$(K ⏎ 1건)" "$(K ^B 선택복구)" "$(K ^F fork)" "$(K ^A 좌석뷰)" "$(K ^X 끝)"
@@ -1260,7 +1377,12 @@ cmd_tui() {
   export TMM_RUN="$STATE/run-$$"; RUN="$TMM_RUN"; mkdir -p "$RUN"; sock="$RUN/fzf.sock"
   printf '%s\n' "$AUTO_PREVIEW" > "$RUN/auto"; cmd_mode time; cmd_view live   # waitset 없음 = 첫 스캔은 기록만(진입 즉시 벨 방지)
   [ "${TMM_TAB:-1}" = 1 ] && : > "$RUN/tab"                                    # 탭이 기본 뷰 (0.7.1). 목록으로 시작하려면 TMM_TAB=0 — ^V 로 언제든 전환
-  trap 'kill "${pinger:-}" 2>/dev/null; rm -rf "$RUN"' EXIT
+  # 분할 화면(0.8.0) — tmux 안(피커 세션)이면 왼쪽에 분류 칸 pane. TMM_SPLIT=0 이면 0.7.x 탭 줄.
+  if [ -n "${TMUX:-}" ] && [ -n "${TMUX_PANE:-}" ]; then
+    printf '%s' "$TMUX_PANE" > "$RUN/mainpane"
+    [ "${TMM_SPLIT:-1}" = 1 ] && [ -f "$RUN/tab" ] && split_open "$TMUX_PANE"
+  fi
+  trap 'kill "${pinger:-}" 2>/dev/null; split_close; rm -rf "$RUN"' EXIT
   _sig() { printf '%s SIG%s pid=%s cols=%s\n' "$(date +%FT%T)" "$1" "$$" "$(term_cols 2>/dev/null)" >> "$STATE/fzf-stderr.log"; exit 129; }
   for _s in HUP TERM QUIT; do trap "_sig $_s" "$_s"; done
   # ★attach/메시지는 fzf 밖에서 실행★ — execute() 안에서는 /dev/tty 를 못 잡아
@@ -1277,8 +1399,8 @@ cmd_tui() {
       --header="$(cmd_header)" --header-first \
       --preview="$SELF preview {2} $PREVIEW_LINES" --preview-window="$(cmd_pw)" \
       --preview-wrap-sign='' \
-      --bind "resize:transform($SELF pw-action)" \
-      --bind "start:transform($SELF pw-action)+unbind(space)+transform($SELF boot-reload)" \
+      --bind "resize:transform($SELF pw-action)+transform-header($SELF header)" \
+      --bind "start:transform($SELF pw-action)+transform-header($SELF header)+unbind(space)+transform($SELF boot-reload)" \
       --preview-label=' pane ' \
       --bind "focus:transform-preview-label($SELF plabel {2})" \
       --bind "result:transform-border-label($SELF blabel)" \
@@ -1290,6 +1412,8 @@ cmd_tui() {
       --bind "right:transform($SELF arrowkey next {2})" \
       --bind "left:transform($SELF arrowkey prev {2})" \
       --bind "ctrl-v:transform($SELF vtab)" \
+      --bind "esc:transform($SELF esckey)" \
+      --bind "bspace:transform($SELF bskey {q})" \
       --print-query --query="$(cat "$RUN/query.$(view_now)" 2>/dev/null)" \
       --bind "ctrl-h:execute-silent($M wait h)+reload($SELF rows-cur)+change-prompt(대기> )" \
       --bind "ctrl-a:transform($SELF vswitch live {q})" \
@@ -1404,7 +1528,17 @@ case "${1:-}" in
   bkey)      cmd_bkey;;                          # ^B 선택복구 모드 토글 (fzf transform 용 액션)
   vswitch)   cmd_vswitch "${2:-live}" "${3:-}";;     # ^A/^D 뷰 전환 (뷰별 키워드)
   vtab)      cmd_vtab;;                          # ^V 목록↔탭
-  tabkey)    cmd_tabkey "${2:-next}" "${3:-}";;           # Tab/S-Tab: 다음/이전 탭
+  tabkey)    cmd_tabkey "${2:-next}" "${3:-}";;           # Tab/S-Tab: 다음/이전 탭 (분할이면 ignore)
+  tabgo)     cmd_tabgo "${2:-}" "${3:-}";;                # 분류 칸 → 이 카테고리로 (0.8.0)
+  esckey)    cmd_esckey;;                                 # Esc: 분할이면 분류 칸으로, 아니면 abort
+  bskey)     cmd_bskey "${2:-}";;                         # ⌫: 빈 질의 + 분할이면 분류 칸으로
+  catrows)   cmd_catrows;;                                # 분류 칸 fzf 의 행
+  catpane)   cmd_catpane;;                                # 분류 칸 pane 본체(split_open 이 띄운다)
+  catfocus)  cmd_catfocus "${2:-}";;                      # 분류 칸 focus → 목록 fzf 에 tabgo
+  catgo)     cmd_catgo;;                                  # 분류 칸 ⏎ → 목록 칸으로
+  catfwd)    cmd_catfwd "${2:-}";;                        # 분류 칸의 다른 키 → 목록 칸으로 넘김
+  split-open)  split_open "${2:-}";;                      # [목록 pane id]
+  split-close) split_close;;
   arrowkey)  cmd_arrowkey "${2:-next}" "${3:-}";;         # →/←: 탭 뷰면 Tab/S-Tab, 아니면 입력창 커서 이동
   onload)    cmd_onload;;                        # fzf load 이벤트 (라벨 + 탭 줄)
   dkey)      cmd_dkey "${2:-}" "${3:-}";;        # tmux C-a d 바인딩이 부른다 (피커 복귀/detach)

@@ -538,6 +538,81 @@ tm detach-client -t "$PTTY" 2>/dev/null || true; sleep 0.4
 [ "$(pk)" = PKTMM ] || { echo "FAIL: (pk) 클라이언트가 떨어진 피커(SSH 끊김)는 이어받아야 함(낡은 @tmm_home 은 무시): $(pk)"; exit 1; }
 tm set -gu "@tmm_home_$PKEY"; tm kill-session -t =PKTMM-2
 
+# (sp) 분할 화면(0.8.0) — 왼쪽 = 카테고리 칸(별도 fzf, tmux pane), 오른쪽 = 세션 목록. 키는 ↑↓ + Enter(분류→목록) + Esc·⌫(목록→분류). ←/→ 는 별칭. Tab/S-Tab 탭 회전 폐지.
+lib() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" bash -c 'source "'"$TMM"'" __lib; RUN="'"$STATE"'"; '"$1"; }
+[ "$(lib 'split_catw 60')" = 11 ] && [ "$(lib 'split_catw 119')" = 11 ] && [ "$(lib 'split_catw 120')" = 16 ] || { echo "FAIL: (sp) 카테고리 칸 폭 규칙(<120→11, ≥120→16): $(lib 'split_catw 60') $(lib 'split_catw 120')"; exit 1; }
+# 카테고리 행: «키\t라벨». 좁은 칸(11)은 이름 7자 + ⚠N, 넓은 칸(16)은 이름 8자 + 수. 전체(*)는 「전체」.
+printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"
+printf '11' > "$STATE/catw"; cr="$(tmm catrows)"
+[ "$(printf '%s\n' "$cr" | wc -l | tr -d ' ')" = 3 ] || { echo "FAIL: (sp) catrows 행 수≠3"; printf '%s\n' "$cr"; exit 1; }
+printf '%s\n' "$cr" | sed -n 1p | grep -q $'^harness\t' || { echo "FAIL: (sp) catrows 1열이 키가 아님"; printf '%s\n' "$cr"; exit 1; }
+printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness⚠2$' || { echo "FAIL: (sp) 좁은 칸 라벨이 «이름7자⚠N» 이 아님: $(printf '%s\n' "$cr" | sed -n 1p)"; exit 1; }
+printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tgraphic$' || { echo "FAIL: (sp) 좁은 칸은 8자 이름을 7자로 잘라야 함"; exit 1; }
+printf '%s\n' "$cr" | sed -n 3p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^\*\t전체⚠2$' || { echo "FAIL: (sp) 전체(*) 라벨: $(printf '%s\n' "$cr" | sed -n 3p)"; exit 1; }
+printf '16' > "$STATE/catw"; tmm catrows | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness  12⚠2$' || { echo "FAIL: (sp) 넓은 칸 라벨이 «이름8자 수⚠N» 이 아님: $(tmm catrows | sed -n 1p)"; exit 1; }
+# 분할이 켜져 있으면(catpane 파일) 전체 폭(term_cols) = 목록 폭 + 칸 폭 + 1. 미리보기 방향은 «목록 칸» 폭(전체 − 칸 − 1)이 120 이상일 때만 오른쪽.
+printf '11' > "$STATE/catw"; rm -f "$STATE/catpane" "$STATE/pw"
+[ "$(FZF_COLUMNS=119 tmm pw | cut -d, -f1)" = down ] && [ "$(FZF_COLUMNS=120 tmm pw | cut -d, -f1)" = right ] || { echo 'FAIL: (sp) 분할 아닐 때 119→down · 120→right 여야 함'; exit 1; }
+printf '%%9' > "$STATE/catpane"; rm -f "$STATE/pw"
+[ "$(FZF_COLUMNS=108 tmm header >/dev/null; FZF_COLUMNS=108 bash -c 'source "'"$TMM"'" __lib; RUN="'"$STATE"'"; term_cols')" = 120 ] || { echo "FAIL: (sp) 분할(칸 11)이면 term_cols = 108+12 = 120 이어야 함"; exit 1; }
+rm -f "$STATE/pw"; [ "$(FZF_COLUMNS=108 tmm pw | cut -d, -f1)" = down ] || { echo "FAIL: (sp) 분할에서 목록 칸 108 은 down 이어야 함(전체 120 이어도): $(FZF_COLUMNS=108 tmm pw)"; exit 1; }
+rm -f "$STATE/pw"; [ "$(FZF_COLUMNS=120 tmm pw | cut -d, -f1)" = right ] || { echo "FAIL: (sp) 분할에서 목록 칸 120 은 right 여야 함: $(FZF_COLUMNS=120 tmm pw)"; exit 1; }
+rm -f "$STATE/pw"
+# 분할 헤더: 탭 줄 없음 · 안내는 ↑↓ ⏎ Esc 만(Tab/S-Tab 없음) · 60열 폰(목록 48열)에서 각 줄 ≤46
+: > "$STATE/tab"; tmm view live >/dev/null; printf 'harness\n' > "$STATE/tabsel"
+hs="$(FZF_COLUMNS=48 tmm header | sed 's/\x1b\[[0-9;]*m//g')"
+printf '%s\n' "$hs" | grep -q 'Tab' && { echo "FAIL: (sp) 분할 헤더에 Tab/S-Tab 이 남아 있음"; printf '%s\n' "$hs"; exit 1; }
+printf '%s\n' "$hs" | grep -q '전체 23' && { echo "FAIL: (sp) 분할인데 탭 줄이 나옴"; printf '%s\n' "$hs"; exit 1; }
+printf '%s\n' "$hs" | sed -n '$p' | grep -q '↑↓' && printf '%s\n' "$hs" | sed -n '$p' | grep -q 'Esc' || { echo "FAIL: (sp) 분할 안내줄(↑↓·⏎·Esc)이 마지막 줄에 없음"; printf '%s\n' "$hs"; exit 1; }
+printf '%s\n' "$hs" | python3 -c '
+import sys, re, unicodedata
+for l in sys.stdin.read().splitlines():
+    w = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in l)
+    if w > 46: print(f"FAIL: (sp) 48열 목록 헤더 줄 {w}열 > 46: {l}"); sys.exit(1)' || exit 1
+hw="$(FZF_COLUMNS=60 tmm header | sed 's/\x1b\[[0-9;]*m//g')"
+printf '%s\n' "$hw" | grep -q '^이동 ' || { echo "FAIL: (sp) 60열 목록이면 섹션 라벨이 있는 보통 헤더여야 함"; printf '%s\n' "$hw"; exit 1; }
+FZF_COLUMNS=58 tmm header | sed 's/\x1b\[[0-9;]*m//g' | grep -q '^이동 ' && { echo "FAIL: (sp) 58열 목록(70열 폰+분할)은 들여쓰기 2 때문에 보통 헤더가 잘린다 → 좁은 헤더여야 함"; exit 1; }
+# 키: 분할이면 Tab/S-Tab=ignore · ←/Esc/빈 질의 ⌫ = 분류 칸으로 · → = ignore · 질의 있는 ⌫ = 글자 지움. 분할 아니면 Esc=abort, ⌫=글자 지움
+[ "$(tmm tabkey next X)" = ignore ] && [ "$(tmm tabkey prev X)" = ignore ] || { echo "FAIL: (sp) 분할에서 Tab/S-Tab 이 ignore 가 아님: $(tmm tabkey next X)"; exit 1; }
+[ "$(tmm arrowkey prev X)" = 'execute-silent(tmux select-pane -t %9)' ] || { echo "FAIL: (sp) ← 가 분류 칸 이동이 아님: $(tmm arrowkey prev X)"; exit 1; }
+[ "$(tmm arrowkey next X)" = ignore ] || { echo "FAIL: (sp) → 가 ignore 가 아님: $(tmm arrowkey next X)"; exit 1; }
+[ "$(tmm esckey)" = 'execute-silent(tmux select-pane -t %9)' ] || { echo "FAIL: (sp) Esc 가 분류 칸 이동이 아님: $(tmm esckey)"; exit 1; }
+[ "$(tmm bskey '')" = 'execute-silent(tmux select-pane -t %9)' ] || { echo "FAIL: (sp) 빈 질의 ⌫ 가 분류 칸 이동이 아님: $(tmm bskey '')"; exit 1; }
+[ "$(tmm bskey 'ab')" = 'backward-delete-char' ] || { echo "FAIL: (sp) 질의 있는 ⌫ 가 글자 지움이 아님: $(tmm bskey ab)"; exit 1; }
+rm -f "$STATE/catpane"
+[ "$(tmm esckey)" = abort ] && [ "$(tmm bskey '')" = 'backward-delete-char' ] || { echo "FAIL: (sp) 분할 아닐 때 Esc=abort · ⌫=글자 지움이어야 함"; exit 1; }
+# tabgo: 분류 칸이 고른 카테고리로 목록을 직접 바꾼다(회전 없음) — 떠나는 탭 커서 저장 · wantpos · 같은 탭이면 ignore
+for n in SPX_A SPX_B SPY_A; do tm has-session -t "=$n" 2>/dev/null || tm new-session -d -s "$n"; done
+sleep 0.3; tmm mode time; rm -f "$STATE/tabcur" "$STATE/tabrows"; printf 'spx\n' > "$STATE/tabsel"; tmm rows-cur >/dev/null
+[ "$(tmm tabgo spx SPX_B)" = ignore ] || { echo "FAIL: (sp) 같은 탭 tabgo 가 ignore 가 아님: $(tmm tabgo spx SPX_B)"; exit 1; }
+go="$(tmm tabgo spy SPX_B)"; printf '%s\n' "$go" | grep -q '^reload(cat ' || { echo "FAIL: (sp) tabgo 가 reload(cat …) 가 아님: $go"; exit 1; }
+[ "$(cat "$STATE/tabsel")" = spy ] || { echo "FAIL: (sp) tabgo 뒤 tabsel≠spy: $(cat "$STATE/tabsel")"; exit 1; }
+[ "$(awk -F'\t' '$1=="spx"{print $2}' "$STATE/tabcur")" = SPX_B ] || { echo 'FAIL: (sp) tabgo 가 떠나는 탭 커서를 저장 안 함'; exit 1; }
+[ -n "$(cat "$STATE/wantpos" 2>/dev/null)" ] || { echo 'FAIL: (sp) tabgo 가 wantpos 를 안 적음'; exit 1; }
+tmm rows-cur | cut -f2 | grep -q SPY_A && ! tmm rows-cur | cut -f2 | grep -q SPX_A || { echo 'FAIL: (sp) tabgo 뒤 목록이 spy 만이 아님'; exit 1; }
+rm -f "$STATE/wantpos" "$STATE/tabsel" "$STATE/tabcur" "$STATE/tabrows"
+# 격리 tmux 에서 실제 pane 열기/닫기 — 왼쪽에 칸 폭짜리 pane 이 생기고 그 안에 fzf(분류 칸)가 돈다. ^V(vtab) 는 칸 숨김/보임.
+tm new-session -d -s SPLITW -x 70 -y 24 'sleep 60'; sleep 0.2
+MP="$(tm display -p -t '=SPLITW:' '#{pane_id}')"
+tmm split-open "$MP"
+[ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 2 ] || { echo 'FAIL: (sp) split-open 뒤 pane 이 2개가 아님'; exit 1; }
+CP="$(cat "$STATE/catpane")"; [ -n "$CP" ] && [ "$CP" != "$MP" ] || { echo "FAIL: (sp) catpane 파일이 새 pane id 가 아님: '$CP'"; exit 1; }
+[ "$(tm display -p -t "$CP" '#{pane_width}')" = 11 ] || { echo "FAIL: (sp) 70열에서 분류 칸 폭≠11: $(tm display -p -t "$CP" '#{pane_width}')"; exit 1; }
+[ "$(tm display -p -t "$CP" '#{pane_left}')" = 0 ] || { echo 'FAIL: (sp) 분류 칸이 왼쪽이 아님'; exit 1; }
+[ "$(cat "$STATE/mainpane")" = "$MP" ] && [ "$(cat "$STATE/catw")" = 11 ] || { echo 'FAIL: (sp) mainpane/catw 상태 파일'; exit 1; }
+# fzf 는 catpane bash 와 같은 프로세스 그룹이라 pane_current_command 는 bash 다 — 화면(분류 제목·▶ 포인터·전체 행)으로 판정
+for _ in $(seq 1 40); do tm capture-pane -p -t "$CP" | grep -q '▶' && break; sleep 0.2; done
+cpv="$(tm capture-pane -p -t "$CP")"
+printf '%s\n' "$cpv" | grep -q '분류' && printf '%s\n' "$cpv" | grep -q '▶ spx' && printf '%s\n' "$cpv" | grep -q '전체' || { echo "FAIL: (sp) 분류 칸 fzf 화면(분류·▶ spx·전체)이 안 보임"; printf '%s\n' "$cpv"; exit 1; }
+for _ in $(seq 1 20); do [ -S "$STATE/cat.sock" ] && break; sleep 0.2; done
+[ -S "$STATE/cat.sock" ] || { echo 'FAIL: (sp) 분류 칸 fzf 소켓(cat.sock) 없음'; exit 1; }
+tmm vtab | grep -q 'transform-header' || { echo 'FAIL: (sp) 분할 중 ^V 가 헤더 갱신 액션을 안 냄'; exit 1; }
+sleep 0.3; [ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 1 ] && [ ! -f "$STATE/catpane" ] || { echo 'FAIL: (sp) ^V 가 분류 칸을 안 닫음'; exit 1; }
+tmm vtab >/dev/null; sleep 0.3; [ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 2 ] && [ -s "$STATE/catpane" ] || { echo 'FAIL: (sp) ^V 재입력이 분류 칸을 다시 안 엶'; exit 1; }
+tmm split-close; sleep 0.3
+[ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 1 ] && [ ! -f "$STATE/catpane" ] || { echo 'FAIL: (sp) split-close 뒤 pane 이 1개가 아니거나 catpane 파일이 남음'; exit 1; }
+tm kill-session -t =SPLITW; rm -f "$STATE/mainpane" "$STATE/catw" "$STATE/tab" "$STATE/tabs"
+
 # (zz) 부팅 속도 — 좌석별 캐시 · 직전 화면 즉시 부팅 · 종료 스캔의 lsof 범위 축소
 tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/ep.cache" "$STATE/rows.snap" "$STATE/bootstale"
 r1="$(tmm rows-cur | cut -f2 | sort)"
