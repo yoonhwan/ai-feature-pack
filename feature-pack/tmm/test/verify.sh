@@ -590,8 +590,11 @@ go="$(tmm tabgo spy SPX_B)"; printf '%s\n' "$go" | grep -q '^reload(cat ' || { e
 [ "$(awk -F'\t' '$1=="spx"{print $2}' "$STATE/tabcur")" = SPX_B ] || { echo 'FAIL: (sp) tabgo 가 떠나는 탭 커서를 저장 안 함'; exit 1; }
 [ -n "$(cat "$STATE/wantpos" 2>/dev/null)" ] || { echo 'FAIL: (sp) tabgo 가 wantpos 를 안 적음'; exit 1; }
 tmm rows-cur | cut -f2 | grep -q SPY_A && ! tmm rows-cur | cut -f2 | grep -q SPX_A || { echo 'FAIL: (sp) tabgo 뒤 목록이 spy 만이 아님'; exit 1; }
-rm -f "$STATE/wantpos" "$STATE/tabsel" "$STATE/tabcur" "$STATE/tabrows"
+rm -f "$STATE/wantpos" "$STATE/tabcur" "$STATE/tabrows"
 # 격리 tmux 에서 실제 pane 열기/닫기 — 왼쪽에 칸 폭짜리 pane 이 생기고 그 안에 fzf(분류 칸)가 돈다. ^V(vtab) 는 칸 숨김/보임.
+#   시작 커서 = tabsel 의 카테고리. tabsel 을 비워 두면 «첫 카테고리»인데 SPX/SPY 는 활동 시각 동률이라 첫 순서가 회차마다 바뀐다(master 재현 4회 중 1회 「▶ spy」)
+#   → tabsel 을 spx 로 못 박고, 분류 칸이 그 행에 커서를 그릴 때까지(최대 8초) 기다린다.
+printf 'spx\n' > "$STATE/tabsel"; tmm rows-cur >/dev/null
 tm new-session -d -s SPLITW -x 70 -y 24 'sleep 60'; sleep 0.2
 MP="$(tm display -p -t '=SPLITW:' '#{pane_id}')"
 tmm split-open "$MP"
@@ -601,7 +604,7 @@ CP="$(cat "$STATE/catpane")"; [ -n "$CP" ] && [ "$CP" != "$MP" ] || { echo "FAIL
 [ "$(tm display -p -t "$CP" '#{pane_left}')" = 0 ] || { echo 'FAIL: (sp) 분류 칸이 왼쪽이 아님'; exit 1; }
 [ "$(cat "$STATE/mainpane")" = "$MP" ] && [ "$(cat "$STATE/catw")" = 11 ] || { echo 'FAIL: (sp) mainpane/catw 상태 파일'; exit 1; }
 # fzf 는 catpane bash 와 같은 프로세스 그룹이라 pane_current_command 는 bash 다 — 화면(분류 제목·▶ 포인터·전체 행)으로 판정
-for _ in $(seq 1 40); do tm capture-pane -p -t "$CP" | grep -q '▶' && break; sleep 0.2; done
+for _ in $(seq 1 40); do tm capture-pane -p -t "$CP" | grep -q '▶ spx' && break; sleep 0.2; done
 cpv="$(tm capture-pane -p -t "$CP")"
 printf '%s\n' "$cpv" | grep -q '분류' && printf '%s\n' "$cpv" | grep -q '▶ spx' && printf '%s\n' "$cpv" | grep -q '전체' || { echo "FAIL: (sp) 분류 칸 fzf 화면(분류·▶ spx·전체)이 안 보임"; printf '%s\n' "$cpv"; exit 1; }
 for _ in $(seq 1 20); do [ -S "$STATE/cat.sock" ] && break; sleep 0.2; done
@@ -611,7 +614,7 @@ sleep 0.3; [ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 1 ] && [ ! -
 tmm vtab >/dev/null; sleep 0.3; [ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 2 ] && [ -s "$STATE/catpane" ] || { echo 'FAIL: (sp) ^V 재입력이 분류 칸을 다시 안 엶'; exit 1; }
 tmm split-close; sleep 0.3
 [ "$(tm list-panes -t '=SPLITW:' | wc -l | tr -d ' ')" = 1 ] && [ ! -f "$STATE/catpane" ] || { echo 'FAIL: (sp) split-close 뒤 pane 이 1개가 아니거나 catpane 파일이 남음'; exit 1; }
-tm kill-session -t =SPLITW; rm -f "$STATE/mainpane" "$STATE/catw" "$STATE/tab" "$STATE/tabs"
+tm kill-session -t =SPLITW; rm -f "$STATE/mainpane" "$STATE/catw" "$STATE/tab" "$STATE/tabs" "$STATE/tabsel"
 
 # (zz) 부팅 속도 — 좌석별 캐시 · 직전 화면 즉시 부팅 · 종료 스캔의 lsof 범위 축소
 tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/ep.cache" "$STATE/rows.snap" "$STATE/bootstale"
