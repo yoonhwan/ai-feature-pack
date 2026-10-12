@@ -27,6 +27,8 @@ MAP=(
   "mbox_store.py|.claude/fable-team/bin/mbox_store.py"
   "mbox_guard.py|.claude/fable-team/bin/mbox_guard.py"
   "mbox_ops.py|.claude/fable-team/bin/mbox_ops.py"
+  # ★mbox_lineage.py = mbox_ops.py 가 import 함 — 한쪽만 깔리면 recv ImportError 로 전 좌석 수신 정지 · 감시 밖이면 무증상 (P1 r-recv-lineage · 2026-10-12)★
+  "mbox_lineage.py|.claude/fable-team/bin/mbox_lineage.py"
   # v6-realtime-live 워크트리 소멸 뒤 라이브 = 루트 .fable-team/comm — 분리 쌍만 고침, 나머지 행은 별 카드
   "mbox.sh|.fable-team/comm/mbox.sh"
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"

@@ -2,6 +2,7 @@
 from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
+from mbox_lineage import claim, eligible
 CANON = None   # mbox.py 가 묶는다
 
 
@@ -106,41 +107,25 @@ def relay(to, frm, path, summary):
          % (summary.strip(), dest, os.path.getsize(dest)))
 
 
-def _rows_for(d, me, frm):
-    return [r for r in _load(d)
-            if r.get("to") == me and (frm is None or r.get("from") == frm)]
-
-
-def _consume(d, seqs):
-    def op():
-        rows = _load(d)
-        keep = [r for r in rows if r.get("seq") not in seqs]
-        if len(keep) != len(rows):
-            _save(d, keep)
-    _locked(d, op)
+def _lineage(me):
+    """me 와 승계된 옛 이름들(계보). 중단 지점마다 stderr WARN 1줄 — 그 이름 큐는 건드리지 않는다."""
+    names, warns = eligible(me)
+    for w in warns:
+        sys.stderr.write("WARN lineage %s\n" % w)
+    return names, ",".join(names[1:]) or "0"
 
 
 def recv(me, frm=None, limit=None):
     _check_name(me)
     if frm is not None: _check_name(frm)
     dirs = [CANON] + _legacy_dirs()
-    got = []
-    for d in dirs:
-        got.extend((d, r) for r in _locked(d, lambda d=d: _rows_for(d, me, frm)))
-    got.sort(key=lambda x: x[1]["seq"], reverse=True)  # LIFO
-    # ★표시한 것만 소비한다★ — 표시 상한을 두면서 전량 소비하면 나머지가 조용히 사라진다.
-    held = []
-    if limit is not None and len(got) > limit:
-        got, held = got[:limit], got[limit:]
-    # ★어느 파일들을 봤는지 찍는다★ — 안 찍으면 union 이 실제로 도는지 아무도 모른다.
-    print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs))
+    names, joined = _lineage(me)
+    # ★선택과 소비는 «같은 잠금 1회»★ — 표시한 것만 소비하고 상한 밖은 큐에 남긴다(전량 소비하면 나머지가 조용히 사라진다).
+    got, held = claim(dirs, names, frm, limit)
+    # ★어느 파일들을 봤는지, 계보가 실제로 합류했는지 찍는다★ — 안 찍으면 union·합류가 도는지 아무도 모른다.
+    print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs) + f" lineage={joined}")
     if not got:
         print("READ none"); return
-    byd = {}
-    for d, r in got:
-        byd.setdefault(os.path.abspath(d), (d, set()))[1].add(r["seq"])
-    for d, seqs in byd.values():
-        _consume(d, seqs)
     for d, r in got:
         tag = "" if os.path.abspath(d) == os.path.abspath(CANON) else " (legacy)"
         shown, note = _clip(r)
@@ -156,12 +141,13 @@ def recv(me, frm=None, limit=None):
 def peek(me):
     _check_name(me)
     dirs = [CANON] + _legacy_dirs()
+    names, joined = _lineage(me)
     mine = []
     for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if r.get("to") == me)
+        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if r.get("to") in names)
     mine.sort(key=lambda r: r["seq"], reverse=True)
     head = f"pending={len(mine)}"
     if mine:
         head += f" latest_seq={mine[0]['seq']} from={mine[0]['from']}"
-    print(f"{head} scanned={len(dirs)}")
+    print(f"{head} scanned={len(dirs)} lineage={joined}")
 
