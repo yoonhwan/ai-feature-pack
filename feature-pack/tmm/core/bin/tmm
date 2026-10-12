@@ -92,7 +92,8 @@ CACHE_TTL="${TMM_CACHE_TTL:-20}"
 # ★캐시는 tmux 서버별로 가른다★ — 격리 소켓(TMUX_TMPDIR)에서 돌린 tmm 이 실사용 캐시를 덮어써
 #   전 좌석 상태가 «?» 로 죽는 사고가 났다(2026-09-14 실측: 캐시에 격리 세션 1줄만 남음).
 #   소켓 경로를 섞어 파일명을 만든다 — 같은 서버를 보는 인스턴스끼리만 공유.
-CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u)-$(tmux display -p '#{socket_path}' 2>/dev/null | cksum | cut -d' ' -f1 || echo 0).cache"
+CACHE=""   # ★지연 계산(cache_init)★ — 시작할 때 tmux 를 부르면 tmux 가 필요 없는 경로(탭 전환 tabgo 등)도 매번 1회 fork 한다
+cache_init() { [ -n "$CACHE" ] || CACHE="${TMPDIR:-/tmp}/tmm-scan-$(id -u)-$(tmux display -p '#{socket_path}' 2>/dev/null | cksum | cut -d' ' -f1 || echo 0).cache"; }
 PREVIEW_LINES="${TMM_PREVIEW_LINES:-40}"
 AUTO="${TMM_AUTO:-20}"; AUTO_PREVIEW="${TMM_AUTO_PREVIEW:-1}"; BELL="${TMM_BELL:-1}"
 AUTO_PRESETS="1 5 10 15"
@@ -272,16 +273,30 @@ cat_prep() { CAT_LIST="${TMM_CAT_SESSIONS-$(tmux list-sessions -F '#{session_nam
 # seat-scan 은 좌석당 capture 2회라 65좌석에 ~2초. 폰에서 필터/^R 을 연타해도 TTL 안에서는 재사용.
 scan_cached() {
   [ -n "$SCAN" ] || { return 0; }
+  cache_init
   if [ "$CACHE_TTL" -gt 0 ] && [ -f "$CACHE" ]; then
     local age=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || stat -c %Y "$CACHE") ))
     [ "$age" -lt "$CACHE_TTL" ] && { cat "$CACHE"; return; }
   fi
+  # ★낡았을 때 다시 스캔하는 인스턴스는 «하나»★ — 피커가 여럿(폰·데스크탑·tmm-2…)이면 20초마다 전원이 같은 seat-scan(7초)을 동시에 돌렸다.
+  #   mkdir 락을 잡은 쪽만 스캔하고, 진 쪽은 기존(낡은) 캐시를 바로 읽는다(다음 틱에 새 것). 캐시가 아예 없으면 락이 풀릴 때까지 기다렸다 읽는다.
+  #   스캔 중 죽어 남은 락은 1분이 지나면 치운다. TTL 0(시험·항상 재스캔)은 락을 쓰지 않는다.
+  local lock="$CACHE.lock" w=0
+  if [ "$CACHE_TTL" -gt 0 ] && ! mkdir "$lock" 2>/dev/null; then
+    if [ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$lock" 2>/dev/null; mkdir "$lock" 2>/dev/null || { cat "$CACHE" 2>/dev/null; return; }
+    else
+      [ -f "$CACHE" ] || while [ -d "$lock" ] && [ "$w" -lt 120 ]; do sleep 0.25; w=$((w+1)); done
+      cat "$CACHE" 2>/dev/null; return
+    fi
+  fi
   # 캐시는 인스턴스 간 공유 — 폰·PC 가 동시에 갱신하면 같은 .tmp 를 놓고 경합해 «mv: No such file» 이 튄다(실측).
   # 프로세스별 임시 파일로 쓰고 mv 는 조용히 — 진 쪽은 이긴 쪽의 결과를 읽으면 되니 실패해도 무해.
   local tmp="$CACHE.$$.tmp"
-  bash "$SCAN" 2>/dev/null > "$tmp"; mv -f "$tmp" "$CACHE" 2>/dev/null || rm -f "$tmp"; cat "$CACHE" 2>/dev/null
+  bash "$SCAN" 2>/dev/null > "$tmp"; mv -f "$tmp" "$CACHE" 2>/dev/null || rm -f "$tmp"
+  rmdir "$lock" 2>/dev/null; cat "$CACHE" 2>/dev/null
 }
-scan_fresh() { rm -f "$CACHE"; scan_cached; }
+scan_fresh() { cache_init; rm -f "$CACHE"; scan_cached; }
 
 # 대기(사람이 봐야 할) 상태 = 항상 최상단 고정
 wait_rank() { case "$1" in HUMAN) echo 0;; BLOCK) echo 1;; STUCK) echo 2;; *) echo 5;; esac; }
@@ -1190,8 +1205,10 @@ auto_loop() {
     # ★선택복구 모드(^B)에서는 전좌석 갱신을 멈춘다★ — fzf 의 reload 는 «선택을 전부 지운다».
     #   20초마다 체크가 통째로 풀려서 «시간이 지나면 선택이 해제된다» 로 보였다(2026-09-16 사용자 지적).
     #   미리보기 갱신(refresh-preview)은 선택을 건드리지 않으므로 그대로 둔다.
+    # ★자동 갱신은 `fresh` 를 쓰지 않는다★ — fresh 는 «인스턴스 공용» 캐시를 지우고 seat-scan(7초)을 다시 돌려, 피커가 여럿이면 서로의 캐시를 계속 지워
+    #   TTL 이 무력해졌다. 캐시가 20초 안이면 재사용하고, 지났으면 한 인스턴스만 다시 스캔한다(scan_cached 의 락). 수동 ^R 만 fresh.
     [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && [ ! -f "$RUN/selmode" ] \
-      && cmd_post "$sock" "reload($SELF rows-cur fresh)"
+      && cmd_post "$sock" "reload($SELF rows-cur)"
     [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
     # 분할(0.8.0): 목록이 탭 수를 새로 셀 때마다($RUN/tabs 갱신) 분류 칸을 다시 그린다 — 첫 목록이 늦게 와도, 20초 갱신으로 ⚠ 가 바뀌어도
     if [ -S "$RUN/cat.sock" ] && { [ ! -f "$RUN/catseen" ] || [ "$RUN/tabs" -nt "$RUN/catseen" ]; }; then
@@ -1342,7 +1359,7 @@ cmd_doctor() {
   [ -f "$HOME/.tmuxc/snapshots/latest.json" ] && echo "  [✓] tmuxc 스냅샷: $(readlink "$HOME/.tmuxc/snapshots/latest.json" | sed 's/.*snapshot-//;s/.json//')" || echo "  [!] tmuxc 스냅샷 없음 — SNAP 배지 없이 트랜스크립트만으로 복구"
   [ -x "$HOME/.headroom/claude-hr.sh" ] && echo "  [✓] headroom 래퍼 (복구 커맨드 경유)" || echo "  [!] headroom 래퍼 없음 — 복구는 bare claude"
 
-  echo "  cache: $CACHE (ttl ${CACHE_TTL}s) · state: $STATE/run-<pid> · pane:${AUTO_PREVIEW}s all:${AUTO}s bell:$BELL"
+  cache_init; echo "  cache: $CACHE (ttl ${CACHE_TTL}s) · state: $STATE/run-<pid> · pane:${AUTO_PREVIEW}s all:${AUTO}s bell:$BELL"
   return $ok
 }
 
