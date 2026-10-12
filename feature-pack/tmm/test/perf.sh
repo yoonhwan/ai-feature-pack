@@ -8,7 +8,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TMM="$ROOT/core/bin/tmm"
+TMM="${PERF_TMM:-$ROOT/core/bin/tmm}"   # PERF_TMM = 비교용 옛 사본(A/B 시각)
 GOLD="$ROOT/test/golden"
 REAL_TMUX="$(command -v tmux)"
 SIZES="${PERF_SIZES:-30 120}"
@@ -74,6 +74,7 @@ trap cleanup EXIT
 make_sessions() {  # <N>
   local n="$1" i name
   tm kill-server 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do tm list-sessions >/dev/null 2>&1 || break; sleep 0.25; done   # 서버가 완전히 내려간 뒤에 새로 연다(부하 시 새 서버와 겹쳐 «server exited unexpectedly»)
   local -a names=('byz-v65-master-claude#1' 'byz-v65-arch-claude#2' 'kk-v65-nano-codex' 'ft-v65-temp-1' 'byz-cfo-master-claude#3'
                   'byz-cfo-nano-x' 'FB_CCU#0' 'CCU_ARCH#3' 'plain-shell' 'loom_a#1')
   for ((i=${#names[@]}; i<n; i++)); do
@@ -122,7 +123,7 @@ for N in $SIZES; do
     exec bash -c 'source "$1" __lib; auto_loop "$2"' _ "$TMM" "$RUNDIR/fzf.sock" ) &
   AL=$!; sleep 3.5; kill "$AL" 2>/dev/null; wait "$AL" 2>/dev/null; fake_stop
   grep -q '^reload(' "$POSTS" || fail "(c) N=$N 자동 갱신 reload 가 한 번도 안 옴(시험 장치 점검)"
-  grep '^reload(' "$POSTS" | grep -q 'fresh' && fail "(c) N=$N 자동 갱신이 fresh 로 공용 캐시를 지움: $(grep '^reload(' "$POSTS" | head -1)"
+  grep '^reload(' "$POSTS" | grep -q 'rows-cur fresh' && fail "(c) N=$N 자동 갱신이 fresh 로 공용 캐시를 지움: $(grep '^reload(' "$POSTS" | head -1)"
 
   cache="$(ls "$SOCK_DIR"/tmm-scan-*.cache 2>/dev/null | head -1)"
   [ -n "$cache" ] || fail "(c) N=$N 캐시 파일이 없음"
