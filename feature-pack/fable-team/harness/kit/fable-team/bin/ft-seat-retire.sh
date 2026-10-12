@@ -10,7 +10,7 @@ shift 2; ARG=""
 while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" <<'PY'
-import json, sys, glob, shutil, datetime, collections
+import json, os, sys, glob, shutil, datetime, collections
 arg, root, old, new = sys.argv[1:5]
 def load(f):
     try: return json.load(open(f, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
@@ -35,6 +35,8 @@ else:
 n["_replaces"] = sorted(set(n.get("_replaces", []) + [old]))
 keys = [k for k, v in d.items() if k.startswith("_") and v == old]
 for k in keys: d[k] = new
-with open(p, "w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=2); f.write("\n")
+tmp = p + ".tmp-" + str(os.getpid())   # 쓰기 중 죽어도 원본 무손상 — tmp 에 다 쓴 뒤 한 번에 교체(N3 · D3 승계 원자성)
+with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=2); f.write("\n"); f.flush(); os.fsync(f.fileno())
+shutil.copymode(p, tmp); os.replace(tmp, p)
 print(f"RETIRED {old} -> {new} file={p} keys={keys}")
 PY

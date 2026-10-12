@@ -10,6 +10,8 @@ SELF="$DIR/mbox.sh"
 
 # 도어벨 도우미(_check_name·pane_of·doorbell·doorbell_status) = 같은 폴더 mbox_doorbell.sh — 200줄 규칙 분리
 source "$DIR/mbox_doorbell.sh"
+# 수신자 판정(은퇴·닫힌 좌석 REJECT)·planner 앞 허용 머리 = 같은 폴더 mbox_guard.sh (N3 · 판정 1070·1079) — 200줄 규칙 분리
+source "$DIR/mbox_guard.sh"
 # ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · 하네스 업그레이드 §2-2 · 오빠 결정 Q1)
 #   실측: --no-notify 를 틱 없는 좌석(arch-fable#40)에 써서 4틱 무응답(CLAUDE.md STRUCTURAL FIX).
 #   HARNESS-TREE 는 「좌석→master 는 무음」, CLAUDE.md 는 「틱 없는 좌석엔 금지」 — 둘 다 맞고
@@ -92,6 +94,8 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
+    guard_check "$to" "${args[*]}" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
+    to="$GUARD_TO"; args=("$GUARD_BODY")
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
     # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
@@ -118,6 +122,8 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
+    guard_check "$to" "${args[*]}" || exit $?
+    to="$GUARD_TO"; args=("$GUARD_BODY")
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?

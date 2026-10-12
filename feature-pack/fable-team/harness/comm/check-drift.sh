@@ -30,6 +30,8 @@ MAP=(
   # v6-realtime-live 워크트리 소멸 뒤 라이브 = 루트 .fable-team/comm — 분리 쌍만 고침, 나머지 행은 별 카드
   "mbox.sh|.fable-team/comm/mbox.sh"
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"
+  # ★mbox_guard.sh = mbox.sh 가 source 함 — 한쪽만 깔리면 전 좌석 send 정지(set -e) · 감시 밖이면 무증상 (N3 · 2026-10-12)★
+  "mbox_guard.sh|.fable-team/comm/mbox_guard.sh"
   "ft-broadcast.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-broadcast.sh"
   "ft-claude-context.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-claude-context.sh"
   "ft-context-monitor.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh"

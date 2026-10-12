@@ -14,7 +14,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
 ROOT="$T/root"; C="$ROOT/.fable-team/comm"; BIN="$ROOT/.fable-team/bin"; mkdir -p "$C" "$BIN"
-cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/"mbox*.py "$C/"
+cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/mbox_guard.sh" "$REPO/tools/comm-canonical/"mbox*.py "$C/"
 cp "$REPO/scripts/fable-team-bin/ft-inbox.sh" "$REPO/scripts/fable-team-bin/ft-inbox.py" "$REPO/scripts/fable-team-bin/ft_inbox_core.py" "$BIN/"
 printf '#!/bin/sh\ncat >/dev/null; exit 1\n' > "$T/haiku-fail.sh"; chmod +x "$T/haiku-fail.sh"   # 미상은 미상으로 남는다
 export FT_ROOT="$ROOT" FT_MBOX_DIR="$C" FT_SEATS_JSON="$T/seats.json" FT_INBOX_HAIKU="$T/haiku-fail.sh"
@@ -158,7 +158,7 @@ eq "⑥ 옛 기록 r:1(int) 혼재 → 예외 0 · 중복 판정에 안 씀" "$(
 # ── 변이 대조: 조건을 빼면 위 시험이 «잡는다» (mbox.py 사본에 한 줄씩 변이)
 mutant() {  # <이름> <원문> <대체> → 변이 comm 을 만들고 MC 에 경로
   MC="$T/mut-$1/.fable-team/comm"; MR="$T/mut-$1"; mkdir -p "$MC" "$MR/.fable-team/bin"
-  cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/"mbox*.py "$MC/"; cp "$BIN"/ft-inbox.* "$BIN"/ft_inbox_core.py "$MR/.fable-team/bin/"
+  cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/mbox_guard.sh" "$REPO/tools/comm-canonical/"mbox*.py "$MC/"; cp "$BIN"/ft-inbox.* "$BIN"/ft_inbox_core.py "$MR/.fable-team/bin/"
   python3 - "$MC" "$2" "$3" <<'PYEOF'
 import glob, os, sys
 d, t, r = sys.argv[1], sys.argv[2], sys.argv[3]
