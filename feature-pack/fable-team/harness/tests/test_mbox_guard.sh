@@ -24,7 +24,7 @@ esac; }
 # new_env <variant> — 격리 루트 하나를 만들고 ENVROOT 에 둔다(정본 사본 + 명부 픽스처).
 new_env() {
   ENVROOT="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENVROOT/.fable-team/comm" "$ENVROOT/.fable-team/state"
-  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$ENVROOT/.fable-team/comm/"; git -C "$ENVROOT" init -q
+  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENVROOT/.fable-team/comm/"; git -C "$ENVROOT" init -q
   mkdir -p "$ENVROOT/seats"; cp "$FX/$1"/seats*.json "$ENVROOT/seats/"
   return 0
 }
@@ -141,6 +141,16 @@ printf '#\n' >> "$D/.fable-team/comm/mbox_guard.sh"
 case "$(drift_line)" in DRIFT*) ok "drift: 라이브 1바이트 변경 = DRIFT";; *) bad "drift: DRIFT 아님 :: $(drift_line)";; esac
 cp "$SRC/mbox_guard.sh" "$D/.fable-team/comm/mbox_guard.sh"
 case "$(drift_line)" in SAME*) ok "drift: 원복 = SAME";; *) bad "drift: 원복 후 SAME 아님 :: $(drift_line)";; esac
+
+# ── 9. R106 오빠 `!` 명령 줄 가드 — 모든 수신자 · [HIL] 도 REJECT(보낸 좌석이 rc≠0 + 안내를 본다)
+BANG_BAD='! bash /private/tmp/claude-501/x/scratchpad/d6-apply.sh'
+new_env ok; send_as 'byz-planner-master-claude#9' "$(printf '[HIL] 막힌 명령\n①막힌 명령: rm x\n②막은 훅: y\n④선택지: 허용·거부\n%s' "$BANG_BAD")"
+[ "$RC" = 3 ] && case "$OUT" in *'ft-hil.sh --add'*'/tmp/h<N>'*'! bash /private/tmp'*) true;; *) false;; esac && [ "$(queued_to 'byz-planner-master-claude#9')" = 0 ] \
+  && ok "R106: planner 앞 [HIL] 위반 = REJECT rc=3 + 안내 + 위반 줄 앞부분 + 큐 0" || bad "R106 planner [HIL] rc=$RC :: $OUT"
+new_env unreg; send_as 'ft-airag-x#1' "$(printf '일반 보고\n%s' "$BANG_BAD")"
+[ "$RC" = 3 ] && case "$OUT" in *'ft-hil.sh --add'*) true;; *) false;; esac && ok "R106: 다른 좌석 앞 위반도 REJECT" || bad "R106 타 좌석 rc=$RC :: $OUT"
+new_env ok; send_as 'byz-planner-master-claude#9' "$(printf '[HIL] 막힌 명령\n①막힌 명령: cd /Users/x && rm y\n②막은 훅: y\n④선택지: 허용·거부\n! bash /tmp/h7')"
+[ "$RC" = 0 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 1 ] && ok "R106: ①막힌 명령 원문 + ! bash /tmp/h7 = 전송" || bad "R106 정상 꼴 rc=$RC :: $OUT"
 
 # ── 7. 문법
 for f in "$SRC/mbox.sh" "$SRC/mbox_guard.sh" "$RETIRE"; do bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")"; done

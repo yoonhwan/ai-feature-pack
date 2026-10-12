@@ -108,6 +108,18 @@ _guard_boot_lint() {
   esac
 }
 
+# 오빠 `!` 명령 줄 검사(R106) — 모든 수신자 · [HIL]·[긴급] 도 REJECT(보낸 좌석이 rc≠0 + 안내를 본다). 판정기 부재·실행 실패 = WARN + 전송.
+_guard_bang_lint() {
+  local chk="$DIR/bang_command_check.py" res rc
+  [ -f "$chk" ] || { echo "WARN 오빠 명령 줄 판정기 없음 — 검사 없이 전송 (설치 순서)" >&2; return 0; }
+  res="$(printf '%s' "$1" | python3 "$chk")"; rc=$?
+  case "$rc" in
+    0) return 0;;
+    1) echo "REJECT $res" >&2; return 3;;
+    *) echo "WARN 오빠 명령 줄 판정기 실행 실패 rc=$rc — 검사 없이 전송" >&2; return 0;;
+  esac
+}
+
 # guard_check <to> <body> — GUARD_TO·GUARD_BODY 를 정한다. rc 3 = REJECT(큐 적재 0).
 guard_check() {
   GUARD_TO="$1"; GUARD_BODY="$2"
@@ -135,6 +147,7 @@ guard_check() {
     esac
   done <<< "$out"
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
+  _guard_bang_lint "$2" || return $?
   _guard_boot_lint "$2" || return $?
   return 0
 }
