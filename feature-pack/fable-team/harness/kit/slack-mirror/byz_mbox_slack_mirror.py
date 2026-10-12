@@ -131,7 +131,7 @@ class Mirror:
         if s > prev + 1:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
                               "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
-        mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path, self.deliv.has_thread if self.deliv.teams else None)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
+        mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path, self._summarize, self.deliv.has_thread if self.deliv.teams else None)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
         if not self.seat.search(str(r.get("to", ""))) or str(r.get("from", "")) == "slack-oppa":  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:
@@ -162,8 +162,8 @@ def parse() -> argparse.Namespace:
     p.add_argument("--state-dir", default=str(Path.home() / ".hermes" / "state"))
     p.add_argument("--token-file", default="~/.hermes/secrets/yoonhwan_bot.env")
     p.add_argument("--mention", default="", help="[HIL] 에서 멘션할 Slack 사용자 ID 1개(고정)")
-    p.add_argument("--summarizer-cmd", default=summ.DEFAULT_CMD, help="프롬프트를 stdin 으로 받아 JSON 을 stdout 으로 내는 명령")
-    p.add_argument("--summary-timeout", type=float, default=90.0)
+    p.add_argument("--summarizer-cmd", default=summ.DEFAULT_URL, help="cliproxy http 주소(기본) 또는 프롬프트를 stdin 으로 받아 JSON 을 stdout 으로 내는 명령")
+    p.add_argument("--summary-timeout", type=float, default=7.0)
     p.add_argument("--api-base", default=API)
     p.add_argument("--planner-seats", default="", help="planner 명부(seats-planner.json) 경로 (기본 <mailbox 폴더 상위>/seats-planner.json)")
     p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <mailbox 폴더 상위>/bin/ft-resume-cmd.sh)")

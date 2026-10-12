@@ -147,8 +147,9 @@ def close_from_inbox(qpath: Path, inbox_bin: str, planner_name: str | None, root
 SEQ_REF = re.compile(r"(?<![\w-])#(\d+)(?!\d)")  # 좌석명 `master#19` 의 #19 는 제외 — 앞 글자가 단어·`-` 가 아닌 `#N` 만
 
 
-def post_handled(deliver, st: dict[str, object], r: dict[str, object], rows: list[dict[str, object]], seat, threads_path: Path, known=None) -> None:
-    """planner 가 보낸 행이 본문 앞 80자에서 받은 쪽지 `#seq` 를 인용하면 그 쪽지가 올라간 스레드에 「planner 처리」 1줄(새 글 0 — 스레드가 없으면 아무것도 안 올린다)."""
+def post_handled(deliver, st: dict[str, object], r: dict[str, object], rows: list[dict[str, object]], seat, threads_path: Path, summarize, known=None) -> None:
+    """planner 가 보낸 행이 본문 앞 80자에서 받은 쪽지 `#seq` 를 인용하면 그 쪽지가 올라간 스레드에 「planner 처리」 1줄(새 글 0 — 스레드가 없으면 아무것도 안 올린다).
+    <무엇> = summarize(seq, "보고", 답장 본문)["what"] 사람 말 한 문장 — 요약을 못 만들면(None) 그 줄은 올리지 않고 stderr ERROR 1줄."""
     if not seat.search(str(r.get("from", ""))):
         return
     s, text = int(str(r["seq"])), lib.classify(str(r.get("body", "")))[1]
@@ -157,7 +158,11 @@ def post_handled(deliver, st: dict[str, object], r: dict[str, object], rows: lis
         key = lib.thread_key(o, lib.classify(str(o.get("body", "")))[1]) if o else None
         if key is None or not (known(key) if known else key in md.load_threads(threads_path)):  # known = 팀 모드의 스레드 유무(원래 키 또는 팀 뿌리 글)
             continue
-        what = lib.esc(ms.share_guard(lib.first_sentence(text)) or ms.OMITTED)
+        summary = summarize(s, "보고", text)
+        if summary is None:
+            print(f"ERROR: planner 처리 줄 생략 seq={s}: 요약 실패", file=sys.stderr)
+            return
+        what = lib.esc(ms.share_guard(summary["what"]) or ms.OMITTED)
         line = ms.tag("작업상황", f"planner 처리: {what} ({str(r.get('ts', ''))[11:16]})")
         return deliver(st, {"id": f"planner 처리 #{s}", "seq": s, "key": key, "what": what, "reply_only": True, "text": f"{line}\n(mirror · planner 처리 #{s})"})
 

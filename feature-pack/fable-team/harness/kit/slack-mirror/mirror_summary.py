@@ -4,13 +4,20 @@
 출력은 JSON 두 칸으로만 받아 한 줄·길이 제한을 걸고, 게시 쪽에서 다시 mrkdwn 중화한다.
 실패는 SummaryError — 호출부가 «보이게» 원문 첫 문장으로 내려간다(유실 0 · 로그 ERROR · 꼬리 표시).
 """
+import http.client
 import json
 import os
 import re
 import shlex
 import subprocess
 import tempfile
+import time
+import urllib.parse
 
+# 미러 두 CLI 의 기본 요약 경로 = cliproxy(:8317 · claude-hr.sh 가 쓰는 같은 계정 회전 프록시) HTTP 직호출 — CLI 기동 비용(실측 5~9초)을 없앤다. 모델은 하나(폴백 0).
+DEFAULT_URL = "http://127.0.0.1:8317"
+MODEL = "claude-haiku-5-5"
+# 아래 DEFAULT_CMD 는 magazine·proposal 이 쓰는 명령 경로(미러 두 CLI 는 더 이상 기본값으로 안 씀).
 # 요약은 cc 경로(claude-hr.sh → cliproxy :8317 계정 회전)로만 낸다 — 오빠 메인 구독을 직접 치지 않는다(R25 · 오빠 10-08).
 # 라우팅은 SUMMARY_ENV 로 «이 호출에만» 고정한다(routing.json 기본값이 바뀌어도 직결로 새지 않게 · 글로벌 export 0).
 # 프록시가 죽으면 래퍼가 exit 69(직결 거부) → SummaryError → 호출부의 «보이는» 첫 문장 게시. 모델은 하나(폴백 0).
@@ -72,16 +79,82 @@ def parse_summary(raw: str, source: str | None = None, label: str | None = None)
     return {"what": what, "todo": None if todo.lower() in _NONE else todo}
 
 
-def summarize(cmd: str, label: str, text: str, timeout: float = 90.0) -> dict[str, str | None]:
+def _run(argv: list[str], prompt: str, timeout: float, retry: bool) -> "subprocess.CompletedProcess[str]":
+    try:
+        return subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=timeout,
+                              cwd=tempfile.gettempdir(), env={**os.environ, **SUMMARY_ENV})
+    except (OSError, subprocess.TimeoutExpired) as e:
+        if retry:
+            return _run(argv, prompt, timeout, retry=False)
+        raise SummaryError(f"요약 실행 실패: {type(e).__name__}") from e
+
+
+def _fetch(url: str, body: bytes, timeout: float) -> bytes:
+    """Messages POST 1회 «전체»(연결·요청·헤더·본문) 마감 timeout 초 — 스레드 0, http.client 직접.
+    단계·조각마다 남은 시간으로 소켓 timeout 을 다시 걸고, 마감을 넘기면 TimeoutError(호출부 재시도 규칙).
+    성공·실패 모두 finally close — 요청이 끝나면 소켓·스레드 잔존 0."""
+    u = urllib.parse.urlsplit(url)
+    deadline = time.monotonic() + timeout
+
+    def left() -> float:
+        remain = deadline - time.monotonic()
+        if remain <= 0:
+            raise TimeoutError(f"요청 마감 {timeout}초 초과")
+        return remain
+
+    conn = (http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection)(u.hostname, u.port, timeout=left())
+    resp = None
+    try:
+        conn.connect()
+        sock = conn.sock  # 응답이 close 방식이면 getresponse 가 conn.sock 을 비우므로 참조를 따로 쥔다
+        sock.settimeout(left())
+        conn.request("POST", u.path.rstrip("/") + "/v1/messages", body, {"content-type": "application/json", "anthropic-version": "2023-06-01"})
+        sock.settimeout(left())
+        resp = conn.getresponse()
+        if not 200 <= resp.status < 300:
+            raise SummaryError(f"요약 HTTP {resp.status}")
+        parts: list[bytes] = []
+        while not resp.isclosed():  # Content-Length 를 다 읽으면 응답이 소켓을 닫는다 — 닫힌 뒤에는 settimeout 불가
+            sock.settimeout(left())
+            part = resp.read1(4096)
+            if not part:
+                break
+            parts.append(part)
+        return b"".join(parts)
+    finally:
+        if resp is not None:
+            resp.close()
+        conn.close()
+
+
+def _post(url: str, prompt: str, timeout: float, retry: bool) -> str:
+    """cliproxy Messages HTTP POST 1회 → text 블록 이어붙인 문자열. 시간 초과·연결 실패만 1회 재시도, HTTP 오류·응답 꼴 오류는 즉시 SummaryError."""
+    body = json.dumps({"model": MODEL, "max_tokens": 400, "thinking": {"type": "disabled"},  # thinking 이 max_tokens 를 먹어 text 가 비는 것 방지(실측)
+                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    try:
+        raw = _fetch(url, body, timeout)
+    except (OSError, http.client.HTTPException) as e:
+        if retry:
+            return _post(url, prompt, timeout, retry=False)
+        raise SummaryError(f"요약 호출 실패: {type(e).__name__}") from e
+    try:
+        data = json.loads(raw)
+    except ValueError as e:
+        raise SummaryError("요약 응답 해석 실패") from e
+    blocks = data.get("content") if isinstance(data, dict) else None
+    if not isinstance(blocks, list) or not all(isinstance(b, dict) for b in blocks):  # 꼴이 다르면 TypeError 가 새지 않게 여기서 SummaryError
+        raise SummaryError("요약 응답 해석 실패")
+    return "".join(b["text"] for b in blocks if b.get("type") == "text" and isinstance(b.get("text"), str))
+
+
+def summarize(cmd: str, label: str, text: str, timeout: float = 7.0) -> dict[str, str | None]:
+    """외부 호출 7초 룰(하드 룰 12): 1회 7초 + 시간 초과·실행 실패 때만 1회 재시도(총 2회) — 그 뒤 SummaryError.
+    cmd 가 http(s):// 주소면 cliproxy Messages POST(CLI 기동 비용 0), 아니면 stdin→stdout 명령(magazine·proposal 과 시험 스텁이 쓴다)."""
+    if cmd.startswith(("http://", "https://")):
+        return parse_summary(_post(cmd, PROMPT.format(label=label, text=text[:1500]), timeout, retry=True), text, label)
     argv = shlex.split(cmd)
     argv[0] = os.path.expanduser(argv[0])
-    try:
-        r = subprocess.run(
-            argv, input=PROMPT.format(label=label, text=text[:1500]), capture_output=True, text=True,
-            timeout=timeout, cwd=tempfile.gettempdir(), env={**os.environ, **SUMMARY_ENV},
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        raise SummaryError(f"요약 실행 실패: {type(e).__name__}") from e
+    r = _run(argv, PROMPT.format(label=label, text=text[:1500]), timeout, retry=True)
     if r.returncode != 0:
         # 원인 한 줄을 남긴다 — 한도 문구는 stdout 으로, 래퍼 거부(exit 69)는 stderr 로 나온다(10-08 실측).
         raise SummaryError(f"요약 종료코드 {r.returncode}: {_first_line(r.stderr) or _first_line(r.stdout) or '출력 없음'}")

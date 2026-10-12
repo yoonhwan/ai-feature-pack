@@ -2,15 +2,15 @@
 # test_mirror_no_todo.sh — 슬랙 미러 요약기가 «할 일»을 지어내지 못한다 + planner 처리 1줄 (판정 423 ②)
 #  ① DEFAULT_CMD 모델 = claude-haiku-5-5 (구 4-5 0) · 프롬프트에 todo «생성» 지시·HIL 강제 todo 줄 0
 #  ② 요약 스텁이 todo 를 지어내도 원문에 그 문장이 없으면 null · 원문에 있는 문장은 그대로 남는다
-#  ③ planner 회신 행(받은 쪽지 #seq 인용) → 그 쪽지의 스레드에 「planner 처리」 1줄 · 새 글(루트) 0
-#  음성 대조: 스레드 없음 · #seq 없음 · 좌석명 #N · 앞 80자 밖 인용 · planner 가 보낸 행 아님 · 인용한 쪽지가 planner 앞이 아님
+#  ③ planner 회신 행(받은 쪽지 #seq 인용) → 그 쪽지의 스레드에 요약 한 문장 「planner 처리」 1줄 · 새 글(루트) 0 · 음성 대조 다수
+#  (요약기 시간 초과·HTTP 전송 시험은 test_mirror_summary_http.sh)
 # 실제 슬랙·claude 호출 0 — 스텁 명령 · 스텁 deliver · 임시 스레드 맵.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="${SLACK_MIRROR_KIT:-$HERE/../../scripts/harness-install/slack-mirror}"
 [ -d "$KIT" ] || { echo "FAIL kit dir missing: $KIT"; exit 1; }
 out="$(python3 -I - "$KIT" <<'PYEOF' 2>&1
-import json, re, stat, sys, tempfile
+import contextlib, io, json, re, stat, sys, tempfile
 from pathlib import Path
 
 KIT = sys.argv[1]
@@ -94,32 +94,47 @@ rows = [
 ]
 got = []
 deliver = lambda st, item: got.append(item)
-
-def reply(seq, body, frm="byz-planner-master-claude#12", ts="2026-10-09T01:30:00"):
+calls = []  # 가짜 요약기 호출 기록 (seq, label, text)
+def summ_ok(what="판정이 반영됐어요"):
+    def f(seq, label, text):
+        calls.append((seq, label, text))
+        return {"what": what, "todo": None}
+    return f
+def reply(seq, body, frm="byz-planner-master-claude#12", ts="2026-10-09T01:30:00", summarize=None):
     got.clear()
     r = {"seq": seq, "ts": ts, "from": frm, "to": "n#0", "body": body}
-    mb.post_handled(deliver, {}, r, rows + [r], PL, threads)
+    mb.post_handled(deliver, {}, r, rows + [r], PL, threads, summarize or summ_ok())
     return list(got)
-
 g = reply(5100, "[byz-planner-master-claude#12->n#0] #5000 판정 반영 완료. 다음은 시험.")
 check("회신 → 항목 1개", len(g) == 1, str(g))
 if g:
     t = g[0]["text"]
     check("항목 key = 인용한 쪽지의 스레드 키(#77)", g[0]["key"] == "#77", str(g[0]))
-    check("본문: 「planner 처리: 첫 문장 (시각)」", "planner 처리:" in t and "판정 반영 완료." in t and "(01:30)" in t, t)
+    check("본문: 「planner 처리: 요약 한 문장 (시각)」", "planner 처리: 판정이 반영됐어요 (01:30)" in t and "판정 반영 완료." not in t, t)
     check("머리표 [작업상황]", t.startswith("[작업상황] "), t)
     check("resume 마커 id 가 본문에 실재", g[0]["id"] in t and g[0]["id"] == "planner 처리 #5100", t)
     check("새 글 0 — 스레드 맵 그대로", json.loads(threads.read_text())["threads"] == {"#77": "111.1", "byz-harness-nano-x": "222.2"})
-
-check("음성: #seq 없음 → 0", reply(5101, "[byz-planner-master-claude#12->n#0] 처리했어요") == [])
-check("음성: 좌석명 #N 만(master#19) → 0", reply(5102, "[byz-planner-master-claude#12->n#0] master#19 에게 전달") == [])
-check("음성: 앞 80자 밖 인용 → 0", reply(5103, "[byz-planner-master-claude#12->n#0] " + "가" * 85 + " #5000") == [])
+calls.clear()  # ⓒ 아래 음성 대조(대상 아닌 행) 전부에서 요약기 호출 0
+for sq, b, nm in ((5101, "처리했어요", "#seq 없음"), (5102, "master#19 에게 전달", "좌석명 #N 만(master#19)"), (5103, "가" * 85 + " #5000", "앞 80자 밖 인용")):
+    check(f"음성: {nm} → 0", reply(sq, "[byz-planner-master-claude#12->n#0] " + b) == [])
 check("음성: 스레드 없는 쪽지(5002) 인용 → 0 (루트를 새로 만들지 않는다)", reply(5104, "[byz-planner-master-claude#12->n#0] #5002 처리") == [])
 check("음성: planner 앞이 아닌 쪽지(5001) 인용 → 0", reply(5105, "[byz-planner-master-claude#12->n#0] #5001 처리") == [])
 check("음성: 없는 seq 인용 → 0", reply(5106, "[byz-planner-master-claude#12->n#0] #9999 처리") == [])
 check("음성: planner 가 보낸 행이 아님 → 0", reply(5107, "[n#0->byz-planner-master-claude#12] #5000 처리", frm="n#0") == [])
-g = reply(5108, "[byz-planner-master-claude#12->n#0] #5000 이 답장을 확인해 주세요. 끝.")
+check("ⓒ 음성 대조 전부(발신 아님 · 인용 없음 · 스레드 없음 · 없는 seq) → 요약기 호출 0", calls == [], str(calls))
+g = reply(5108, "[byz-planner-master-claude#12->n#0] #5000 이 답장을 확인해 주세요. 끝.", summarize=summ_ok("이 답장을 확인해 주세요"))
 check("답장 요구 문구는 게시 전에 중화(share_guard → 생략 문구)", len(g) == 1 and "확인해 주" not in g[0]["text"], str(g))
+# ⓐ 대괄호 머리 답장 → 요약기를 거친 «사람 말 한 문장» · 머리 조각(「[판정」) 0
+calls.clear()
+g = reply(5110, "[byz-planner-master-claude#12->n#0] #5000 [판정 1237 · 오빠 승인 #79707] 훅 오탐 수정 반영", summarize=summ_ok("훅 오탐 수정이 반영됐어요"))
+check("ⓐ 요약 성공 → 항목 1개 · 「planner 처리: 훅 오탐 수정이 반영됐어요」 ∧ 「[판정」 0", len(g) == 1 and "planner 처리: 훅 오탐 수정이 반영됐어요" in g[0]["text"] and "[판정" not in g[0]["text"], str(g))
+check("ⓐ 요약기에는 답장 전문(머리 포함) · 라벨 보고", len(calls) == 1 and calls[0][1] == "보고" and "훅 오탐 수정 반영" in calls[0][2], str(calls))
+# ⓑ 요약 실패(None) → 줄 0 + stderr 1줄(조용한 폴백 0)
+calls.clear()
+with contextlib.redirect_stderr(io.StringIO()) as err:
+    g = reply(5111, "[byz-planner-master-claude#12->n#0] #5000 [판정 1237 · 오빠 승인 #79707] 훅 오탐 수정 반영", summarize=lambda s, l, t: calls.append(s))
+check("ⓑ 요약 실패 → item 0", g == [], str(g))
+check("ⓑ stderr 「planner 처리 줄 생략」 정확히 1줄", err.getvalue().count("planner 처리 줄 생략") == 1 and err.getvalue().count("\n") == 1, err.getvalue())
 
 # 반송 r1 Q4 — 새 글 0 을 deliver 쪽이 보장(reply_only)
 import types
@@ -133,7 +148,7 @@ real_md = mb.md
 mb.md = types.SimpleNamespace(load_threads=lambda p: {"#77": "111.1"})  # post_handled 의 사전 검사는 «있다» 로 본다
 items = []
 mb.post_handled(lambda st, item: items.append(item), {}, {"seq": 5200, "ts": "2026-10-09T02:00:00", "from": "byz-planner-master-claude#12", "to": "n#0",
-                "body": "[byz-planner-master-claude#12->n#0] 쪽지 #5000 처리 끝."}, rows, PL, threads)
+                "body": "[byz-planner-master-claude#12->n#0] 쪽지 #5000 처리 끝."}, rows, PL, threads, summ_ok())
 mb.md = real_md
 check("⑫ 사전 검사 통과 → item 에 reply_only 플래그", len(items) == 1 and items[0].get("reply_only") is True, str(items))
 empty_map = tmp / "empty-threads.json"
@@ -148,9 +163,10 @@ d2 = md.Deliverer("http://x", "tok", "C1", threads)
 posts.clear(); d2.send(items[0])
 check("⑭ 맵 있음 → 답글 1 · 루트 0(thread_ts=111.1)", len(posts) == 1 and posts[0][1] == "111.1", str(posts))
 ns_src = (Path(KIT) / "mirror_deliver.py").read_text(encoding="utf-8")
-assert 'if item.get("reply_only"):' in ns_src
+ANCHOR = 'if item.get("reply_only"):  # 새 글 0'  # 팀 모드 분기(앞쪽 같은 조건문)가 아니라 이 시험이 쓰는 비팀 분기를 지정
+assert ANCHOR in ns_src
 ns = {"__name__": "mutant_deliver"}
-exec(compile(ns_src.replace('if item.get("reply_only"):', "if False:", 1), "mutant", "exec"), ns)
+exec(compile(ns_src.replace(ANCHOR, "if False:  # 새 글 0", 1), "mutant", "exec"), ns)
 posts.clear(); ns["Deliverer"]("http://x", "tok", "C1", empty_map).send(items[0])
 check("변이: reply_only 분기를 빼면 ⑫ 가 FAIL(새 루트가 올라감)", len(posts) >= 1 and posts[0][1] is None, str(posts))
 
@@ -176,7 +192,7 @@ echo '{"threads": {"#77": "111.1"}}' > "$T/state/byz_slack_threads.C1.json"
 run="$(python3 "$KIT/byz_mbox_slack_mirror.py" --project p --mailbox "$T/root/.fable-team/comm/mailbox.log.jsonl" --seat '^byz-planner-master-claude#\d+$' \
   --channel C1 --state-dir "$T/state" --inbox-bin "$T/ib.sh" --summarizer-cmd "$T/sum.sh" --once --dry-run 2>&1)"
 wiring=0
-echo "$run" | grep -q '^\[작업상황\] planner 처리: #5000 판정 반영 완료\. (01:30)$' && echo "PASS 본체: 회신 행 → 「planner 처리」 1줄" || { echo "FAIL 본체: planner 처리 줄 없음: $run"; wiring=1; }
+echo "$run" | grep -q '^\[작업상황\] planner 처리: 요약 (01:30)$' && echo "PASS 본체: 회신 행 → 「planner 처리」 1줄" || { echo "FAIL 본체: planner 처리 줄 없음: $run"; wiring=1; }
 [ "$(echo "$run" | grep -c '^\[thread ')" = 2 ] && echo "PASS 본체: 게시 2건(원 카드 + 처리 1줄) · 같은 스레드 #77" || { echo "FAIL 본체: 게시 수: $run"; wiring=1; }
 echo "$run" | grep -q '할 일 없음' && ! echo "$run" | grep -q '지어낸 일' && echo "PASS 본체: 스텁이 지어낸 todo 는 카드에 안 실림(「할 일 없음」)" || { echo "FAIL 본체: 지어낸 todo 가 카드에 실림: $run"; wiring=1; }
 
