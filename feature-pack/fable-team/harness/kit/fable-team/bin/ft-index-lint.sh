@@ -34,13 +34,24 @@ path_exists() { [ -e "$ROOT/$1" ] || [ -e "$1" ]; }  # $1=경로 → 리포 루�
 #   형식만 본다 — 판정문 «내용»이나 인용 «내용»은 대조하지 않는다.
 NAME_LINT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-name-lint.sh"
 last_verdict() { grep -owE 'APPROVE|HOLD|REJECT' "$1" | tail -1; }  # DA 판정 형식은 이 셋뿐(단어 경계 — SUPABASE_PASSWORD·시험 요약 «PASS» 에 안 걸린다)
-check_da_verdict() {  # $1=사전검증 본문 → bad+=
+hold_conditional() {  # $1=사전검증 본문 $2=카드 → 0=예외 성립(INFO 출력) · 1=불성립(HOLD_WHY=사유, 예외 줄 자체가 없으면 빈 값)
+  local n rc; HOLD_WHY=""
+  n="$(printf '%s\n' "$1" | sed -nE 's/^[-* ]*lint 예외 1건: *판정 ([0-9]+) ① 조건부 승인.*/\1/p' | head -1)"
+  [ -n "$n" ] || return 1
+  git -C "$ROOT" rev-parse -q --verify refs/remotes/origin/main >/dev/null 2>&1 || { HOLD_WHY="원장 확인 불가 (origin/main ref 없음)"; return 1; }
+  git -C "$ROOT" grep -qE -e "^- \*\*$n\*\*.*조건부 승인" origin/main -- 'design/planner/VERDICTS-planner-*.md' >/dev/null 2>&1; rc=$?
+  [ $rc -le 1 ] || { HOLD_WHY="원장 확인 불가 (git grep rc=$rc)"; return 1; }
+  [ $rc -eq 0 ] || { HOLD_WHY="planner 원장에 「- **$n**」 조건부 승인 줄 없음"; return 1; }
+  section_body "$2" '완료 조건' | grep -q '잔여 HOLD' || { HOLD_WHY="완료 조건에 「잔여 HOLD」 표식 없음"; return 1; }
+  echo "INFO 사전검증: DA 마지막 판정 HOLD — planner 판정 $n 조건부 승인으로 통과"
+}
+check_da_verdict() {  # $1=사전검증 본문 $2=카드 → bad+=
   local dpath v
   dpath="$(printf '%s\n' "$1" | grep -E '^[-* ]*DA: *[^ ]' | head -1 | tr -d '`' | sed -E 's/^[-* ]*DA: *//; s/[[:space:]].*$//; s/#.*$//')"
   [ -n "$dpath" ] || { bad+=("사전검증: 소환 예인데 「DA: <판정문 경로>」 줄 없음"); return; }
   path_exists "$dpath" || { bad+=("사전검증: DA 판정문 경로 없음 ($dpath)"); return; }
   v="$(last_verdict "$ROOT/$dpath" 2>/dev/null || true)"; [ -n "$v" ] || v="$(last_verdict "$dpath" 2>/dev/null || true)"
-  case "$v" in APPROVE) ;; *) bad+=("사전검증: DA 판정문의 마지막 판정이 APPROVE 가 아니다 (${v:-판정 단어 없음})");; esac
+  case "$v" in APPROVE) ;; HOLD) hold_conditional "$1" "$2" || bad+=("사전검증: DA 판정문의 마지막 판정이 APPROVE 가 아니다 (HOLD)${HOLD_WHY:+ — lint 예외 불성립: $HOLD_WHY}");; *) bad+=("사전검증: DA 판정문의 마지막 판정이 APPROVE 가 아니다 (${v:-판정 단어 없음})");; esac
 }
 check_exemption() {  # $1=사전검증 본문 → bad+=
   local line reason seat role
@@ -59,7 +70,7 @@ check_preverify() {  # $1=file → bad+=
   body="$(section_body "$1" '사전검증')"
   mode="$(printf '%s\n' "$body" | grep -E '^[-* ]*소환: *(예|아니오) *$' | head -1 | sed -E 's/^[-* ]*소환: *//; s/ *$//')"
   case "$mode" in
-    예) check_da_verdict "$body";;
+    예) check_da_verdict "$body" "$1";;
     아니오) check_exemption "$body";;
     *) bad+=("사전검증: 「소환: 예」 또는 「소환: 아니오」 줄 없음");;
   esac
