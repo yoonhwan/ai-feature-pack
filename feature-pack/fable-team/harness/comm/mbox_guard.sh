@@ -94,6 +94,20 @@ elif viol: emit("WARN", "planner 머리 규칙 위반(warn 모드 · 전송) —
 PY
 }
 
+# [부팅 보고] 본문 검사(P4) — 승계 좌석 retire=<구>-><후계> rc=0 · master/arch cron=<id>. 발신자 = mbox.sh 의 $from. lint 부재·명부 불명 = WARN + 전송.
+_guard_boot_lint() {
+  local first lint="" f res rc; first="${1%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
+  case "$first" in '[부팅 보고]'*) ;; *) return 0;; esac
+  for f in "$DIR/ft-boot-report-lint.py" "$DIR/../../.claude/fable-team/bin/ft-boot-report-lint.py"; do [ -f "$f" ] && { lint="$f"; break; }; done
+  [ -n "$lint" ] || { echo "WARN 부팅 보고 lint 파일 없음 — 검사 없이 전송 (설치 순서)" >&2; return 0; }
+  res="$(printf '%s' "$1" | python3 "$lint" --from "${from:-}" --seats-dir "$(dirname "$(_seats_json)")")"; rc=$?
+  case "$rc" in
+    0) return 0;;
+    1) echo "REJECT ${res#REJECT }" >&2; return 3;;
+    *) echo "WARN 부팅 보고 lint 실행 실패 rc=$rc — 검사 없이 전송" >&2; return 0;;
+  esac
+}
+
 # guard_check <to> <body> — GUARD_TO·GUARD_BODY 를 정한다. rc 3 = REJECT(큐 적재 0).
 guard_check() {
   GUARD_TO="$1"; GUARD_BODY="$2"
@@ -121,5 +135,6 @@ guard_check() {
     esac
   done <<< "$out"
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
+  _guard_boot_lint "$2" || return $?
   return 0
 }

@@ -34,6 +34,8 @@ MAP=(
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"
   # ★mbox_guard.sh = mbox.sh 가 source 함 — 한쪽만 깔리면 전 좌석 send 정지(set -e) · 감시 밖이면 무증상 (N3 · 2026-10-12)★
   "mbox_guard.sh|.fable-team/comm/mbox_guard.sh"
+  # ★ft-boot-report-lint.py = mbox_guard.sh 가 부팅 보고 때 부르는 lint (P4 · 2026-10-12) — 감시 밖이면 한쪽만 깔려도 무증상★
+  "ft-boot-report-lint.py|.claude/fable-team/bin/ft-boot-report-lint.py"
   "ft-broadcast.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-broadcast.sh"
   "ft-claude-context.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-claude-context.sh"
   "ft-context-monitor.sh|.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh"
