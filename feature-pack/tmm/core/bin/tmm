@@ -54,6 +54,19 @@
 #   TMM_MODELS       fork 모델 별칭 파일 (기본 ~/.tmm/models) — "agent<TAB>alias<TAB>id<TAB>extra"
 #   TMM_FORKS        fork 발췌 파일 디렉터리 (기본 ~/.tmm/forks) — 피커 종료 후에도 새 에이전트가 읽음
 #   TMM_FORK_EXCERPT_N  fork 발췌에 담을 최근 메시지 수 (기본 40)
+#   TMM_BASH4_CANDIDATES  bash 4+ 후보 경로(공백 구분, 기본 homebrew) — 아래 가드가 bash 3.2 에서 재실행할 때 쓴다
+
+# ★bash 4+ 전용★ — 연관 배열(declare -A)·`${x,,}` 를 쓴다. macOS 기본 /bin/bash 3.2 에선 본 경로가 못 돈다.
+#   3.2 로 불리면 bash 4+ 후보로 다시 실행하고, 없으면 «조용히 진행하지 않고» 멈춘다. (source tmm __lib 는 재실행하지 않는다)
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  if [ "${1:-}" != __lib ]; then
+    for b in ${TMM_BASH4_CANDIDATES:-/opt/homebrew/bin/bash /usr/local/bin/bash}; do
+      [ -x "$b" ] && "$b" -c '[ "${BASH_VERSINFO[0]}" -ge 4 ]' 2>/dev/null && exec "$b" "$0" "$@"
+    done
+  fi
+  echo "tmm: bash 4 이상 필요 (지금 $BASH_VERSION) — brew install bash" >&2
+  return 1 2>/dev/null || exit 1
+fi
 set -uo pipefail
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
@@ -189,10 +202,32 @@ cat_of() {
       case "$n" in $glob) printf '%s' "${label,,}"; return;; esac
     done < "$CAT_FILE"
   fi
+  # ★P6 일반 규칙★ — `<프로젝트>-<팀>-<역할>…`(소문자·숫자·`-` 뿐이고 3번째 토큰이 역할 예약어)면 라벨 = 팀(둘째 토큰).
+  #   byz-v65-master-claude → v65 · byz-cfo-master-claude → cfo · ft-v65-master-claude → v65(구 이름도 같은 규칙) · 프로젝트별 규칙 0.
+  #   역할 예약어 = scripts/fable-team-bin/ft-name-lint.sh 의 ROLES 와 같은 값(시험이 일치를 잰다).
+  #   같은 팀 글자를 «다른 프로젝트»가 쓰는 라이브 세션이 있을 때만 `<프로젝트 첫 글자>-<팀>`(SPEC Q6). 구 접두(ft- FB_)는 프로젝트가 아니다.
+  #   TMM_CAT_SESSIONS = 시험용 세션명 목록(줄바꿈 구분) — 미설정이면 tmux list-sessions.
+  local roles=" master arch da tester checker analyst pm nano repro tool " t1 t2 t3 pfx lower="${n,,}" pl
+  if [[ "$n" != *[!a-z0-9-]* ]]; then
+    IFS=- read -r t1 t2 t3 _ <<<"$n"
+    if [ -n "$t1" ] && [ -n "$t2" ] && [[ "$roles" == *" $t3 "* ]]; then
+      local legacy=0 s b p1 p2 p3
+      for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do pl="${pfx,,}"; { [ "$pl" = "$t1-" ] || [ "$pl" = "${t1}_" ]; } && legacy=1; done
+      if [ "$legacy" = 0 ]; then
+        while IFS= read -r s; do
+          b="${s%%#*}"; [[ "$b" != *[!a-z0-9-]* ]] || continue
+          IFS=- read -r p1 p2 p3 _ <<<"$b"
+          [ "$p2" = "$t2" ] && [ "$p1" != "$t1" ] && [[ "$roles" == *" $p3 "* ]] || continue
+          for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do pl="${pfx,,}"; { [ "$pl" = "$p1-" ] || [ "$pl" = "${p1}_" ]; } && continue 2; done
+          t2="${t1:0:1}-$t2"; break
+        done <<<"${TMM_CAT_SESSIONS-$(tmux list-sessions -F '#{session_name}' 2>/dev/null)}"
+      fi
+      printf '%s' "${t2:0:8}"; return
+    fi
+  fi
   # ★일반화 폴백★ — 규칙에 안 걸리면 «역할 접두»(기본 `FB_ ft-`, TMM_CAT_STRIP 로 변경)를 떼고 첫 토큰(-/_ 앞 8자)을 라벨로(전부 소문자).
   #   FB_CCU#0 → CCU(=CCU_ARCH 와 한 탭) · FB_CFO#33 → CFO · ft-v65-master → v65 · ft-airag-arch → airag.
   #   접두가 «프로젝트»를 가리던 것(FB_*→FB, ft-*→ft)이 프로젝트별 규칙을 하나씩 늘려야 했던 원인이다.
-  local pfx lower="${n,,}" pl
   for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do
     pl="${pfx,,}"; [ "${lower#"$pl"}" != "$lower" ] && [ "${#n}" -gt "${#pfx}" ] && { n="${n:${#pfx}}"; break; }
   done
