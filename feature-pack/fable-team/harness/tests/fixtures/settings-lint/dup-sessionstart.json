@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "bash .claude/hooks/a.sh"}]}
+    ],
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "bash .claude/hooks/b.sh"}]}
+    ]
+  }
+}
