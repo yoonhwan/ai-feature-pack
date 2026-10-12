@@ -116,12 +116,10 @@ tui_wrap() {
   #   전부 한 화면을 공유했다(한쪽에서 커서를 옮기면 다른 쪽도 같이 움직임 — 2026-09-16 사용자 지적).
   #   붙어 있는 클라이언트가 «없는» 세션만 재사용하고(= 떼고 돌아온 경우 이어받기), 이미 누가 보고 있으면
   #   tmm-2, tmm-3 … 으로 새로 만든다.
-  local base sess i=2                                  # ★한 local 문 안에서 앞 변수를 참조하면 set -u 에 걸린다★
-  base="${TMM_SESSION:-tmm}"; sess="$base"
-  while tmux has-session -t "=$sess" 2>/dev/null \
-     && [ -n "$(tmux list-clients -t "=$sess" -F x 2>/dev/null)" ]; do
-    sess="$base-$i"; i=$((i+1)); [ "$i" -gt 32 ] && break
-  done
+  #   ★0.8.0: «붙은 클라이언트 0» 만으로는 부족했다★ — 폰이 Enter 로 좌석에 가 있는 동안 피커의 클라이언트는 0 이 되고, 그때 데스크탑에서
+  #   tmm 을 치면 같은 피커에 붙어 한 fzf 를 둘이 봤다(커서가 저절로 움직이던 원인 · 2026-10-12 사용자 지적). 그래서 «살아 있는 클라이언트가
+  #   출발 피커(@tmm_home_<tty>)·직전 세션으로 가리키는 피커» 도 사용 중으로 본다(picker_free). SSH 가 끊겨 클라이언트가 사라진 피커는 그대로 이어받는다.
+  local sess; sess="$(pick_picker_name)"
   # ★좌석에서 C-a d 를 누르면 피커로 돌아온다★ — 기본 detach 는 tmux 밖(셸)으로 떨어져 «tmm 이 끝난» 것처럼 보인다.
   #   피커가 여럿이라 세션명을 바인딩에 박을 수 없다(서버 전역 바인딩이라 마지막 tmm 이 덮어쓴다).
   #   대신 «그 클라이언트가 직전에 있던 세션»으로 돌아간다 — 각 창이 자기 피커로 복귀한다. TMM_NO_DBIND=1 로 끈다.
@@ -134,6 +132,27 @@ tui_wrap() {
   #   「^a ^d 로 뒤로갈때 tmm 으로 안 돌아가고 종료로 넘어간다」). 좌석 세션의 C-a d 는 그대로다. 피커 종료는 ^X.
   exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 TMM_SESSION='$sess' '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" \
        ';' set -t "=$sess:" @tmm_picker 1 ';' set -t "=$sess:" prefix None "${dbind[@]}"
+}
+
+# 피커를 «이어받아도 되는가» — 붙은 클라이언트가 없고, 살아 있는 어떤 클라이언트도 이 피커를 출발 피커(@tmm_home_<tty>)·직전 세션으로 가리키지 않을 때만.
+#   낡은 @tmm_home(클라이언트가 이미 떨어진 것)은 «살아 있는 클라이언트» 만 돌므로 자연히 무시된다. verify (pk).
+picker_free() {  # <세션명> → 0 = 이어받기 가능
+  [ -z "$(tmux list-clients -t "=$1" -F x 2>/dev/null)" ] || return 1
+  local tty last
+  while IFS=$'\t' read -r tty last; do
+    [ -n "$tty" ] || continue
+    [ "$last" = "$1" ] && return 1
+    [ "$(tmux show -gqv "@tmm_home_$(tty_key "$tty")" 2>/dev/null)" = "$1" ] && return 1
+  done < <(tmux list-clients -F $'#{client_tty}\t#{client_last_session}' 2>/dev/null)
+  return 0
+}
+pick_picker_name() {  # → tmm | tmm-2 | … (TMM_SESSION 이 베이스) — 없거나 이어받을 수 있는 첫 이름
+  local base sess i=2                                  # ★한 local 문 안에서 앞 변수를 참조하면 set -u 에 걸린다★
+  base="${TMM_SESSION:-tmm}"; sess="$base"
+  while tmux has-session -t "=$sess" 2>/dev/null && ! picker_free "$sess"; do
+    sess="$base-$i"; i=$((i+1)); [ "$i" -gt 32 ] && break
+  done
+  printf '%s' "$sess"
 }
 
 # 미리보기 라벨 — 커서가 놓인 좌석의 «온전한» 이름을 보여준다. 목록의 이름 열은 폭에 맞춰 잘리므로

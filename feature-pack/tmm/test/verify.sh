@@ -521,6 +521,23 @@ for _ in $(seq 1 30); do [ "$(cur_sess)" = SEATY ] && break; sleep 0.2; done
 [ "$(tm show -gqv "@tmm_home_$YKEY")" = PICKA ] || { echo "FAIL: (y) cmd_attach 가 출발 피커를 기록 안 함: '$(tm show -gqv "@tmm_home_$YKEY")'"; exit 1; }
 tm detach-client -t "$YTTY" 2>/dev/null || true
 
+# (pk) 피커 재사용 — 붙은 클라이언트가 0 이어도 «좌석에 가 있는 클라이언트의 출발 피커(@tmm_home)·직전 세션»이면 이어받지 않는다(0.8.0).
+#   폰이 좌석에 붙어 있는 동안 피커 클라이언트가 0 이 되고, 그때 데스크탑 tmm 이 같은 피커에 붙어 한 fzf 를 둘이 보던 원인. SSH 가 끊겨 클라이언트가 사라진 피커는 그대로 이어받는다.
+pk() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SESSION=PKTMM bash -c 'source "'"$TMM"'" __lib; pick_picker_name'; }
+tm new-session -d -s PKTMM; tm set -t =PKTMM: @tmm_picker 1; tm new-session -d -s PKSEAT
+[ "$(pk)" = PKTMM ] || { echo "FAIL: (pk) 클라이언트 0·참조 0 인 피커를 이어받지 않음: $(pk)"; exit 1; }
+pty_attach PKSEAT; wait_client; PTTY="$(first_client)"; PKEY="$(printf '%s' "$PTTY" | tr -c 'A-Za-z0-9' '_')"
+tm set -g "@tmm_home_$PKEY" PKTMM
+[ "$(pk)" = PKTMM-2 ] || { echo "FAIL: (pk) 출발 피커로 적힌 클라이언트가 좌석에 살아 있는데 재사용: $(pk)"; exit 1; }
+tm set -gu "@tmm_home_$PKEY"
+tm switch-client -c "$PTTY" -t =PKTMM; tm switch-client -c "$PTTY" -t =PKSEAT     # 직전(last)=PKTMM
+[ "$(pk)" = PKTMM-2 ] || { echo "FAIL: (pk) 직전 세션이 피커인 클라이언트가 살아 있는데 재사용: $(pk)"; exit 1; }
+tm new-session -d -s PKTMM-2; tm set -t =PKTMM-2: @tmm_picker 1; tm set -g "@tmm_home_$PKEY" PKTMM-2
+[ "$(pk)" = PKTMM-3 ] || { echo "FAIL: (pk) -2 도 참조 중이면 -3 이어야 함: $(pk)"; exit 1; }
+tm detach-client -t "$PTTY" 2>/dev/null || true; sleep 0.4
+[ "$(pk)" = PKTMM ] || { echo "FAIL: (pk) 클라이언트가 떨어진 피커(SSH 끊김)는 이어받아야 함(낡은 @tmm_home 은 무시): $(pk)"; exit 1; }
+tm set -gu "@tmm_home_$PKEY"; tm kill-session -t =PKTMM-2
+
 # (zz) 부팅 속도 — 좌석별 캐시 · 직전 화면 즉시 부팅 · 종료 스캔의 lsof 범위 축소
 tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/ep.cache" "$STATE/rows.snap" "$STATE/bootstale"
 r1="$(tmm rows-cur | cut -f2 | sort)"
