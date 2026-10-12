@@ -574,12 +574,13 @@ cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목
     sleep 0.3
   done
 }
-cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 fzf 에 tabgo 를 쏜다(같은 탭이면 쏘지 않되 앞선 요청은 무효로 한다)
+cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 fzf 에 tabgo 를 쏜다(같은 탭이어도 쏜다 — 아래)
   local c="${1:-}" req; [ -n "$c" ] || return 0
   # ★마지막 요청만 반영★ — 요청 번호를 $RUN/tabreq 에 «먼저» 쓴다. 목록 fzf 는 쏜 순서대로 하나씩 처리하므로, 연타하면 앞선 요청이 늦게 끝나 뒤 요청을 덮을 수 있다.
-  #   tabgo 는 자기 번호가 tabreq 와 다르면 버린다. 원래 탭으로 돌아온 경우(쏘지 않음)에도 번호를 바꿔 앞선 요청을 무효로 한다.
+  #   tabgo 는 자기 번호가 tabreq 와 다르면 버린다.
+  #   ★«지금 탭과 같아도» 쏜다★ — 같은 탭이라 안 쏘면, 이미 검사를 통과해 적용 중인 낡은 요청(b)이 tabsel 을 쓴 뒤에 최신 focus(a)를 바로잡을 요청이 없어
+  #   커서 a·목록 b 로 어긋났다(DA⑥ H1). 목록 fzf 가 요청을 순서대로 처리하므로 뒤 요청이 앞 요청의 결과를 바로잡는다. 같은 탭이면 tabgo 가 ignore 라 비용은 작다.
   req="$$.$RANDOM$RANDOM"; printf '%s' "$req" > "$RUN/tabreq"
-  [ "$c" = "$(tab_cur_id)" ] && return 0
   [ -S "$RUN/fzf.sock" ] && cmd_post "$RUN/fzf.sock" "transform($SELF tabgo '$c' {2} '$req')"
   return 0
 }
