@@ -461,6 +461,8 @@ cmd_rows_cur() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여
   else
     local tmp="$STATE/rows.snap.$$"
     cmd_rows "${m:-time}" "${o:-}" "${1:-}" > "$tmp"
+    # ★탭 전환용 «전체 목록» 스냅샷★ — tab_switch_to 가 tmux·scan 없이 이 파일을 카테고리로 거른다. 원자적 교체.
+    cp -f "$tmp" "$RUN/rowsfull.$$" 2>/dev/null && mv -f "$RUN/rowsfull.$$" "$RUN/rowsfull" 2>/dev/null
     if [ -f "$RUN/tab" ]; then tab_rows < "$tmp"; else cat "$tmp"; fi | tee "$RUN/shown.$$" 
     mv -f "$RUN/shown.$$" "$RUN/shown" 2>/dev/null
     # 부팅 즉시 그릴 «직전 화면» — 시간순·전체 필터일 때만(부팅 모드와 같아야 그대로 쓴다). 원자적 교체.
@@ -476,6 +478,7 @@ cmd_rows_boot() {
   if [ "$(view_now)" = live ] && [ "${m:-time}" = time ] && [ -z "${o:-}" ] && [ -s "$snap" ] \
      && [ $(( $(date +%s) - $(stat -f %m "$snap" 2>/dev/null || stat -c %Y "$snap") )) -lt 1800 ]; then
     : > "$RUN/bootstale"
+    cp -f "$snap" "$RUN/rowsfull.$$" 2>/dev/null && mv -f "$RUN/rowsfull.$$" "$RUN/rowsfull" 2>/dev/null
     if [ -f "$RUN/tab" ]; then tab_rows < "$snap"; else cat "$snap"; fi | tee "$RUN/shown.$$"
     mv -f "$RUN/shown.$$" "$RUN/shown" 2>/dev/null
   else
@@ -571,10 +574,13 @@ cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목
     sleep 0.3
   done
 }
-cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 fzf 에 tabgo 를 쏜다(같은 탭이면 0)
-  local c="${1:-}"; [ -n "$c" ] || return 0
+cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 fzf 에 tabgo 를 쏜다(같은 탭이면 쏘지 않되 앞선 요청은 무효로 한다)
+  local c="${1:-}" req; [ -n "$c" ] || return 0
+  # ★마지막 요청만 반영★ — 요청 번호를 $RUN/tabreq 에 «먼저» 쓴다. 목록 fzf 는 쏜 순서대로 하나씩 처리하므로, 연타하면 앞선 요청이 늦게 끝나 뒤 요청을 덮을 수 있다.
+  #   tabgo 는 자기 번호가 tabreq 와 다르면 버린다. 원래 탭으로 돌아온 경우(쏘지 않음)에도 번호를 바꿔 앞선 요청을 무효로 한다.
+  req="$$.$RANDOM$RANDOM"; printf '%s' "$req" > "$RUN/tabreq"
   [ "$c" = "$(tab_cur_id)" ] && return 0
-  [ -S "$RUN/fzf.sock" ] && cmd_post "$RUN/fzf.sock" "transform($SELF tabgo '$c' {2})"
+  [ -S "$RUN/fzf.sock" ] && cmd_post "$RUN/fzf.sock" "transform($SELF tabgo '$c' {2} '$req')"
   return 0
 }
 cmd_catgo()  { local main; main="$(cat "$RUN/mainpane" 2>/dev/null)"; [ -n "$main" ] && tmux select-pane -t "$main" 2>/dev/null; return 0; }
@@ -588,17 +594,20 @@ tab_switch_to() {  # <탭> [커서 세션명] — 탭을 바꾸고 커서 복원
   local nxt="$1" here="${2:-}" cur p
   cur="$(tab_cur_id)"; tabcur_set "$cur" "$here"      # 떠나는 탭의 커서 저장
   printf '%s\n' "$nxt" > "$RUN/tabsel"
-  # 새 탭 목록을 «여기서» 만들어 위치를 계산한 뒤 reload 로 바꿔 끼운다(캐시 적중 ~0.5초). 후보 순서: 이 탭에서 기억한 세션 → 지금 세션(전체 탭 등에 있으면) → 맨 위.
-  cmd_rows_cur > "$RUN/tabrows"
+  # 새 탭 목록을 «여기서» 만들어 위치를 계산한 뒤 reload 로 바꿔 끼운다. 후보 순서: 이 탭에서 기억한 세션 → 지금 세션(전체 탭 등에 있으면) → 맨 위.
+  #   ★tmux·scan 0★ — 직전 갱신이 남긴 전체 목록($RUN/rowsfull)을 카테고리로 거를 뿐이다(예전엔 여기서 cmd_rows_cur 를 동기로 돌려 3초+ 걸렸고, 연타하면
+  #   줄 선 요청이 왼쪽 분류 칸 커서와 오른쪽 목록을 어긋나게 했다). 새로 그리는 건 20초 자동 갱신·^R 뿐. 스냅샷이 없으면(부팅 직후 등) 옛 경로.
+  if [ -s "$RUN/rowsfull" ]; then tab_rows < "$RUN/rowsfull" > "$RUN/tabrows"; else cmd_rows_cur > "$RUN/tabrows"; fi
   p="$(row_pos "$RUN/tabrows" "$(tabcur_get "$(tab_cur_id)")" "$here")"
   # ★`reload-sync(...)+pos/first` 는 안 먹는다★ — --track 이 reload 가 끝난 뒤 커서를 «이전 줄 번호»로 되돌려 pos/first 를 덮는다(최소 예제 실측 2026-10-02).
   #   그래서 원하는 줄 번호를 $RUN/wantpos 에 적고 reload 를 걸면, fzf `load` 이벤트(cmd_onload)가 reload 직후 pos 를 준다.
   printf '%s\n' "${p:-1}" > "$RUN/wantpos"
   printf 'reload(cat %s)+transform-header(%s header)' "$RUN/tabrows" "$SELF"
 }
-cmd_tabgo() {  # <탭> [커서 세션명] — 분류 칸이 고른 카테고리로 목록을 바로 바꾼다(회전 없음)
-  local to="${1:-}"
+cmd_tabgo() {  # <탭> [커서 세션명] [요청 번호] — 분류 칸이 고른 카테고리로 목록을 바로 바꾼다(회전 없음). 요청 번호가 최신(tabreq)이 아니면 버린다
+  local to="${1:-}" req="${3:-}"
   tab_on && [ -n "$to" ] || { printf 'ignore'; return; }
+  [ -z "$req" ] || [ "$req" = "$(cat "$RUN/tabreq" 2>/dev/null)" ] || { printf 'ignore'; return; }
   [ "$to" = "$(tab_cur_id)" ] && { printf 'ignore'; return; }
   tab_switch_to "$to" "${2:-}"
 }
@@ -1560,7 +1569,7 @@ case "${1:-}" in
   vswitch)   cmd_vswitch "${2:-live}" "${3:-}";;     # ^A/^D 뷰 전환 (뷰별 키워드)
   vtab)      cmd_vtab;;                          # ^V 목록↔탭
   tabkey)    cmd_tabkey "${2:-next}" "${3:-}";;           # Tab/S-Tab: 다음/이전 탭 (분할이면 ignore)
-  tabgo)     cmd_tabgo "${2:-}" "${3:-}";;                # 분류 칸 → 이 카테고리로 (0.8.0)
+  tabgo)     cmd_tabgo "${2:-}" "${3:-}" "${4:-}";;       # 분류 칸 → 이 카테고리로 (0.8.0) · 4번째 = 요청 번호(마지막 요청만 반영)
   esckey)    cmd_esckey;;                                 # Esc: 분할이면 분류 칸으로, 아니면 abort
   bskey)     cmd_bskey "${2:-}";;                         # ⌫: 빈 질의 + 분할이면 분류 칸으로
   catrows)   cmd_catrows;;                                # 분류 칸 fzf 의 행
