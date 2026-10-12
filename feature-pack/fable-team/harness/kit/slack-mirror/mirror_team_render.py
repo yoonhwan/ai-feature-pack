@@ -9,6 +9,7 @@ from magazine_indexless import strip_tokens
 from mirror_team import MAIN_TEAMS_LABEL, PLANNER, TEAMS, hhmm
 
 LIST_CAP = 40
+ROOT_MAX = 3500  # 뿌리 글 전체 글자 상한 (R49 와 같은 숫자 · 슬랙 한도 4000자 아래 여유)
 NOW_MAX = 2
 MIN_NOW = 6  # 번호를 걷고 남은 글이 이보다 짧으면 «지금 하는 일» 로 쓰지 않는다
 
@@ -81,17 +82,38 @@ def counts(bucket: dict) -> tuple[int, int]:
     return len(recs) - shut, shut
 
 
-def _list_block(bucket: dict) -> list[str]:
+def _fold(n: int) -> str:
+    return f"… 외 {n}건 — 스레드 참고"
+
+
+def _list_block(bucket: dict, others: list[str]) -> list[str]:
+    """목록 블록 자리 = ROOT_MAX − 목록 밖 본문. 머리+줄+접힘 → 머리+접힘 → 접힘만 → 0줄 순으로 맞춘다.
+
+    목록 밖 본문이 이미 ROOT_MAX 를 넘으면 예외 — 머리+접힘 1줄(기존 동작).
+    """
     recs = list(issues(bucket).items())
+    if not recs:
+        return []
+    room = ROOT_MAX - len("\n".join(others))
+    head = len("이슈 목록") + 1
     lines = [issue_line(n, r) for n, r in recs[:LIST_CAP]]
-    return ["이슈 목록"] + lines + ([f"… 외 {len(recs) - LIST_CAP}건 — 스레드 참고"] if len(recs) > LIST_CAP else []) if recs else []
+    for k in range(len(lines), -1, -1):
+        fold = [_fold(len(recs) - k)] if k < len(recs) else []
+        cost = head + sum(len(x) + 1 for x in lines[:k]) + sum(len(x) + 1 for x in fold)
+        if cost <= room:
+            return ["이슈 목록", *lines[:k], *fold]
+    fold = _fold(len(recs))
+    if len(fold) + 1 <= room:
+        return [fold]
+    return ["이슈 목록", fold] if room < 0 else []
 
 
 def render_team(team: str, day: str, bucket: dict, post_key: str) -> str:
     head = ms.tag("작업상황", f"{lib.esc(team)} · {day} — 지금 하는 일")
     now = [lib.esc(w) for w in now_lines(bucket)] or ["아직 올라온 글이 없어요"]
     wait = [f"결정 기다림: {lib.esc(w['title'])}" + (f" {lib.esc(w['link'])}" if w.get("link") else "") for w in waiting(bucket)]
-    return "\n".join([head, *now, *wait, *_list_block(bucket), f"(mirror · {post_key} 시작)"])
+    others = [head, *now, *wait, f"(mirror · {post_key} 시작)"]
+    return "\n".join([*others[:-1], *_list_block(bucket, others), others[-1]])
 
 
 def render_planner(day: str, buckets: dict[str, dict], post_key: str) -> str:
@@ -102,4 +124,5 @@ def render_planner(day: str, buckets: dict[str, dict], post_key: str) -> str:
         opened, shut = counts(b)
         rows.append(f"• {t} — {lib.esc(first)} (열린 {opened} · 닫힌 {shut})")
     own = buckets.get(PLANNER, {})
-    return "\n".join([ms.tag("작업상황", f"{MAIN_TEAMS_LABEL} · {day}"), *rows, *_list_block(own), f"(mirror · {post_key} 시작)"])
+    others = [ms.tag("작업상황", f"{MAIN_TEAMS_LABEL} · {day}"), *rows, f"(mirror · {post_key} 시작)"]
+    return "\n".join([*others[:-1], *_list_block(own, others), others[-1]])
