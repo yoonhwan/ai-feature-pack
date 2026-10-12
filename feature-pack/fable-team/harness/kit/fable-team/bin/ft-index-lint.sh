@@ -116,19 +116,20 @@ for f in "$@"; do
   # ④ 배경 인용 수 — «정본 문서» 수만 센다(.md 경로). 백틱 코드 식별자는 읽을 문서가 아니다.
   n="$(section_body "$f" '배경' | grep -oE '[A-Za-z0-9_./\-]+\.md' | sort -u | wc -l | tr -d ' ')"
   [ "$n" -le "$MAX_CITES" ] || bad+=("배경 인용 문서 ${n}개 > ${MAX_CITES} — 이 좌석이 못 읽는다")
-  # ⑤ 비어 있지 않은가
-  for s in '구현 범위' '완료 조건'; do
+  # ⑤ 비어 있지 않은가 — env FT_INDEX_ALLOW_EMPTY_BODY=1 «그리고» 카드 머리에 「- 템플릿: 빈 카드(나노가 채움)」 줄이 있을 때만 ⑤⑥ 건너뜀(상속 env 단독으로는 우회 불가 · DA⑥ H1)
+  allow_empty=""; [ "${FT_INDEX_ALLOW_EMPTY_BODY:-}" = 1 ] && awk '/^##[[:space:]]/{exit} {print}' "$f" | grep -q '^- 템플릿: 빈 카드(나노가 채움)' && allow_empty=1
+  [ "$allow_empty" = 1 ] || for s in '구현 범위' '완료 조건'; do
     [ -n "$(section_body "$f" "$s" | grep -v '^\s*$')" ] || bad+=("절 비어 있음: $s")
   done
   # ⑥ 구현 범위의 파일 경로 중 «하나 이상 실재» (pm#3 #13080 — 경로가 틀리면 나노가 그 자리에서 막힌다).
   #   후보 = 백틱 안 경로(확장자 있는 것) + 맨 경로. 인덱스가 있는 워크트리 루트 기준으로 존재 확인.
   paths="$(section_body "$f" '구현 범위' | grep -oE '[A-Za-z0-9_./-]+/[A-Za-z0-9_.-]+\.[a-z]{1,5}' | sort -u)"
-  if [ -n "$paths" ]; then
+  if [ -n "$paths" ] && [ "$allow_empty" != 1 ]; then
     ok=0; while IFS= read -r p; do path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
   check_proposal_line "$f"
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi
-  if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
+  if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})${allow_empty:+ (empty-body allowed)}"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
 done
 exit $rc
