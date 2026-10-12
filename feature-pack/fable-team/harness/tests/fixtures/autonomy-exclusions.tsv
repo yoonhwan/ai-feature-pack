@@ -1,0 +1,17 @@
+삭제	오래된 워크트리를 삭제하고 진행할까요
+브랜치삭제	git branch -D nano/x 로 정리
+kill	tmux 세션을 kill 하고 재시작
+drop	테이블을 drop 하고 다시 만들기
+force-push	git push --force 로 덮어쓰기
+DDL	ALTER TABLE users ADD COLUMN x
+DB쓰기	DB 쓰기로 값을 바로 고치자
+인프라	인프라 설정을 바꾸자
+GPU	GPU VM 을 하나 더 띄우자
+비용	비용 지출 증가 감수하고 진행
+이메일	고객에게 이메일 발송
+외부슬랙	슬랙 외부 채널에 공지
+법무	법무 검토 없이 약관 문구 수정
+가격	가격표를 바꾸자
+전역지침	~/.claude/CLAUDE.md 에 한 줄 추가
+COMM-GUIDE	COMM-GUIDE-BOOT.md 규칙 수정
+원문다른	오빠 원문과 다른 설계로 가자
