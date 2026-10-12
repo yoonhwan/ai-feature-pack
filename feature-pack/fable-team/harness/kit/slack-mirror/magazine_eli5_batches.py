@@ -5,12 +5,13 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 from magazine_summary import SummaryError
+from mirror_lib import EXTERNAL_CALL_TIMEOUT_S
 
 ICONS = ("🪟", "🧭", "🧩", "📬", "📚", "🪴", "🔎", "🛠️", "🪁", "🧵",
          "🌱", "🗺️", "💡", "🎨", "🧺", "🪄", "📦", "📝", "🔖", "☕")
 BLOCKED_WORDS = ("완료", "해결", "승인", "배포", "결정", "전부", "모두", "필요없", "안전")
 LOG = logging.getLogger("byz_morning_magazine")
-BATCH_SIZE, MAX_WORKERS, TIMEOUT = 12, 3, 180.0
+BATCH_SIZE, MAX_WORKERS, TIMEOUT = 2, 3, EXTERNAL_CALL_TIMEOUT_S  # 하드 룰 12 — 배치 2장 · 호출당 7초(+재시도 1 은 run_cmd)
 
 
 class Eli5Error(RuntimeError):

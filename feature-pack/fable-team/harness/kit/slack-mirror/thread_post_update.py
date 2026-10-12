@@ -7,16 +7,40 @@
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
 """
 import argparse
+import mimetypes
 import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import thread_ledger as lg
-from magazine_slack import Target
+from magazine_slack import Target, upload_file
 from mirror_lib import MirrorError, api_call, esc, post
 
 KEY = re.compile(r"board:\d{4}-\d{2}-\d{2}")
+
+
+def cmd_attach(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
+    """`attach --key board:<날짜> --file F… --title T` — 그 날 뿌리 글 스레드에 파일 첨부(첫 파일 제목 T · 나머지 `T (파일명)`).
+    출력 `link=<첫 파일 permalink> ts=<공유 ts|->` — 장부 불명·업로드·링크 조회 실패는 raise → rc 1(#0 RULE)."""
+    if not KEY.fullmatch(a.key):
+        raise MirrorError(f"--key 는 board:YYYY-MM-DD 꼴: {a.key}")
+    rec = lg.get(Path(a.ledger), a.key)
+    if rec is None or not rec.get("root_ts"):
+        raise MirrorError(f"장부 불명: {a.key} — 뿌리 글이 먼저 있어야 한다(update)")
+    t = target(a)
+    t = Target(t.base, t.token, rec["channel"], "")
+    first = ""
+    for i, f in enumerate(a.file):
+        p = Path(f)
+        fid = upload_file(t, rec["root_ts"], p, a.title if i == 0 else f"{a.title} ({p.name})", mimetypes.guess_type(p.name)[0] or "application/octet-stream")
+        first = first or fid
+    info = api_call(t.base, t.token, "files.info", {"file": first}, get=True).get("file")
+    link = info.get("permalink") if isinstance(info, dict) else None
+    if not link:
+        raise MirrorError(f"files.info 에 permalink 없음: {first}")
+    print(f"link={link} ts={first}")
+    return 0
 
 
 def cmd_update(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:

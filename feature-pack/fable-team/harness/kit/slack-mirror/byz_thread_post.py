@@ -20,7 +20,7 @@ from mirror_lib import MirrorError, esc, paged, post
 from mirror_share import first_line_is, tag
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
-from thread_post_update import cmd_update
+from thread_post_update import cmd_attach, cmd_update
 from thread_unit import repair_root
 
 KST = ZoneInfo("Asia/Seoul")
@@ -187,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         a = parse(argv)
         return {"start": cmd_start, "progress": cmd_progress, "result": cmd_result, "check": cmd_check, "repair": cmd_repair,
-                "update": lambda x: cmd_update(x, target)}[a.cmd](a)
+                "update": lambda x: cmd_update(x, target), "attach": lambda x: cmd_attach(x, target)}[a.cmd](a)
     except (MirrorError, CardError, OSError, ValueError) as e:
         print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
         return 1

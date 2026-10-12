@@ -8,7 +8,6 @@
 push 는 기본 켬 — 수동 시험은 --no-push (판정 348). 구조 모델은 수집 모듈(magazine_collect.collect)이 만든다.
 """
 import argparse
-import hashlib
 import json
 import logging
 import sys
@@ -17,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 import thread_ledger as lg
-from magazine_block import block_for, planner_seats, record
+from magazine_block import block_for, planner_seats, record, sha16
 from magazine_card_shape import bad_lines
 from magazine_eli5_decisions import split_verdicts
 from magazine_eli5_pdf import write_eli5
@@ -116,10 +115,6 @@ def report_failure(args: argparse.Namespace, err: Exception) -> None:
         LOG.error("실패 알림 게시도 실패: %s", e)
 
 
-def sha16(md: str) -> str:
-    return hashlib.sha256(md.encode("utf-8")).hexdigest()[:16]
-
-
 def run_reattach(args: argparse.Namespace) -> int:
     """run() 의 «첫 분기» — done skip·publish_day·--force 보다 앞(설계 §6 F2). 새 뿌리 글 0."""
     state, rev = Path(args.state).expanduser(), args.reattach
@@ -193,7 +188,11 @@ def run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(levelname)s %(message)s")
-    return run(parse_args(sys.argv[1:] if argv is None else argv))
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    if args.emit_model:  # 시트 아침판 입력 — 게시 0 (magazine_run_emit)
+        from magazine_run_emit import run_emit
+        return run_emit(args)
+    return run(args)
 
 
 if __name__ == "__main__":

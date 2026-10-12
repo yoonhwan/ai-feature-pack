@@ -1,13 +1,13 @@
 """magazine_pdf — html → 여러 쪽 A4 PDF (playwright chromium · 설계 §4). 별도 브라우저 프로세스라 공유 Chrome :9333 과 무관.
 
-쪽 수 상한 없음(한 장 높이 한도 경로는 없앴다) · 바닥글 「<라벨> · 쪽/전체」 · 120초 안에 못 끝나면 PdfError · 쪽 수는 결과 바이트에서 센다.
+쪽 수 상한 없음(한 장 높이 한도 경로는 없앴다) · 바닥글 「<라벨> · 쪽/전체」 · 30초 안에 못 끝나면 PdfError · 쪽 수는 결과 바이트에서 센다.
 """
 import html
 import re
 from pathlib import Path
 
 INSTALL_HINT = "pip install playwright && playwright install chromium (/opt/homebrew/bin/python3)"
-TIMEOUT_MS = 120000
+TIMEOUT_MS = 30000
 PAGE_OBJ = re.compile(rb"/Type\s*/Page(?![s\w])")
 
 

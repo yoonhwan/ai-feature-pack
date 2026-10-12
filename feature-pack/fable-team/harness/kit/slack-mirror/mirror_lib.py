@@ -15,6 +15,10 @@ from pathlib import Path
 import mirror_share as ms
 
 
+EXTERNAL_CALL_TIMEOUT_S, MAX_RETRIES = 7.0, 1  # 하드 룰 12 — 외부 호출 1회 7초 + 재시도 1(상한 뒤 raise)
+NO_RETRY = frozenset({"files.completeUploadExternal"})  # GET 꼴이지만 공유를 만드는 쓰기
+
+
 class MirrorError(RuntimeError):
     pass
 
@@ -50,11 +54,15 @@ def api_call(base: str, token: str, method: str, params: dict[str, object], *, g
     else:
         headers["Content-Type"] = "application/json; charset=utf-8"
         req = urllib.request.Request(f"{base}/{method}", data=json.dumps(params).encode("utf-8"), headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, ValueError) as e:
-        raise MirrorError(f"{method} 호출 실패: {type(e).__name__}") from e
+    retries = MAX_RETRIES if get and method not in NO_RETRY else 0  # 쓰기(postMessage·update·complete)는 응답 유실 뒤 재전송하면 글·첨부가 두 번 — 유실 복구는 호출자의 표식 채택 재실행이 맡는다
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=EXTERNAL_CALL_TIMEOUT_S) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            break
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            if attempt == retries:
+                raise MirrorError(f"{method} 호출 실패: {type(e).__name__}") from e
     if not body.get("ok"):
         raise MirrorError(f"{method} ok=false: {body.get('error')}")
     return body

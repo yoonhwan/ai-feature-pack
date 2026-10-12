@@ -7,6 +7,7 @@
   <array>
     <string>/opt/homebrew/bin/bash</string>
     <string>__FT_BIN__/ft-board-publish.sh</string>
+    <string>--sheet</string>
   </array>
   <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
   <key>StartInterval</key><integer>300</integer>

@@ -9,11 +9,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from mirror_lib import MirrorError, api_call, esc, paged, post
+from mirror_lib import EXTERNAL_CALL_TIMEOUT_S, MAX_RETRIES, MirrorError, api_call, esc, paged, post
 from mirror_share import decision_line, first_line_is, tag
 
 SLACK_BASE = "https://slack.com/api"
-UPLOAD_TIMEOUT = 30
+UPLOAD_TIMEOUT = EXTERNAL_CALL_TIMEOUT_S
 
 
 @dataclass(frozen=True)
@@ -78,11 +78,14 @@ def post_root(t: Target, text: str) -> str:
 def _send_bytes(url: str, data: bytes, content_type: str = "application/pdf") -> None:
     req = urllib.request.Request(url, data=data, method="POST", headers={"Content-Type": content_type})
     kind = "PDF" if content_type == "application/pdf" else "파일"
-    try:
-        with urllib.request.urlopen(req, timeout=UPLOAD_TIMEOUT) as resp:
-            code = resp.status
-    except (urllib.error.URLError, OSError) as e:
-        raise MirrorError(f"{kind} 바이트 업로드 실패: {type(e).__name__}") from e
+    for attempt in range(MAX_RETRIES + 1):  # 업로드 URL 은 같은 바이트를 다시 받아도 한 파일이다(멱등)
+        try:
+            with urllib.request.urlopen(req, timeout=UPLOAD_TIMEOUT) as resp:
+                code = resp.status
+            break
+        except (urllib.error.URLError, OSError) as e:
+            if attempt == MAX_RETRIES:
+                raise MirrorError(f"{kind} 바이트 업로드 실패: {type(e).__name__}") from e
     if code != 200:
         raise MirrorError(f"{kind} 바이트 업로드 HTTP {code}")
 
@@ -115,8 +118,8 @@ def has_file_title(t: Target, root_ts: str, title: str) -> bool:
 def upload_file(
     t: Target, thread_ts: str, path: Path, title: str, content_type: str,
     on_file_id: Callable[[str], None] | None = None, on_not_shared: Callable[[], None] | None = None,
-) -> None:
-    """on_file_id: file_id 를 받은 «직후·바이트 전송 전» 호출 — 시도 기록용. 이 콜백이 raise 하면 원격 전송 0.
+) -> str:
+    """파일 id 를 돌려준다(링크 조회용). on_file_id: file_id 를 받은 «직후·바이트 전송 전» 호출 — 시도 기록용. 이 콜백이 raise 하면 원격 전송 0.
     on_not_shared: «공유가 확실히 안 된» 실패(바이트 전송 실패 · complete 가 ok=false 로 거절)에서만 호출 — 응답 유실 같은
     결과 불명 실패(전송 오류·시간 초과)에는 부르지 않는다(그 경우 시도 기록이 «불명» 으로 남는다)."""
     data = path.read_bytes()
@@ -132,4 +135,5 @@ def upload_file(
         if on_not_shared and (" ok=false" in str(e) or "바이트 업로드" in str(e)):  # mirror_lib.api_call / _send_bytes 의 확정 실패 문구
             on_not_shared()
         raise
+    return str(got["file_id"])
 

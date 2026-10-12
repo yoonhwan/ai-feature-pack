@@ -12,6 +12,7 @@ import tempfile
 from typing import NamedTuple
 
 from magazine_emit import Model
+from mirror_lib import EXTERNAL_CALL_TIMEOUT_S, MAX_RETRIES
 from mirror_share import CORRECTED, place_text, share_guard
 from mirror_summary import DEFAULT_CMD, SUMMARY_ENV, SummaryError, _first_line
 
@@ -85,18 +86,23 @@ def parse_lines(raw: str) -> list[str]:
     return lines
 
 
-def run_cmd(cmd: str, prompt: str, timeout: float = 90.0) -> str:
+def run_cmd(cmd: str, prompt: str, timeout: float = EXTERNAL_CALL_TIMEOUT_S) -> str:
     argv = shlex.split(cmd)
     if not argv:
         raise SummaryError("요약 명령 비어 있음")
     argv[0] = os.path.expanduser(argv[0])
-    try:
-        r = subprocess.run(
-            argv, input=prompt, capture_output=True, text=True, timeout=timeout,
-            cwd=tempfile.gettempdir(), env={**os.environ, **SUMMARY_ENV},
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        raise SummaryError(f"요약 실행 실패: {type(e).__name__}") from e
+    for attempt in range(MAX_RETRIES + 1):  # 하드 룰 12 — 시간 초과만 1회 더(종료코드 실패는 재시도해도 같다)
+        try:
+            r = subprocess.run(
+                argv, input=prompt, capture_output=True, text=True, timeout=timeout,
+                cwd=tempfile.gettempdir(), env={**os.environ, **SUMMARY_ENV},
+            )
+            break
+        except subprocess.TimeoutExpired as e:
+            if attempt == MAX_RETRIES:
+                raise SummaryError(f"요약 실행 실패: {type(e).__name__}") from e
+        except OSError as e:
+            raise SummaryError(f"요약 실행 실패: {type(e).__name__}") from e
     if r.returncode != 0:
         raise SummaryError(f"요약 종료코드 {r.returncode}: {_first_line(r.stderr) or _first_line(r.stdout) or '출력 없음'}")
     return r.stdout

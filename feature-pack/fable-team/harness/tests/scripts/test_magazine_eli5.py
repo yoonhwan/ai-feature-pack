@@ -3,7 +3,6 @@ import copy
 import json
 import sys
 from html import escape
-from threading import Barrier
 
 import pytest
 from _magazine_fakes import fake_model
@@ -154,16 +153,15 @@ def test_empty_day_and_long_decision_have_explicit_text(tmp_path):
     assert "오빠 표식이 없는 판정 기록 1건 — 끝 각주 목록" in page and "가" * 100 in page.split('id="unmarked"')[1]
 
 
-@pytest.mark.parametrize("mode,omitted,reason", [("ok", 0, ""), ("timeout", 12, "호출 실패"), ("blocked", 1, "차단 단어"), ("missing", 1, "호출 실패")])
+@pytest.mark.parametrize("mode,omitted,reason", [("ok", 0, ""), ("timeout", 2, "호출 실패"), ("blocked", 1, "차단 단어"), ("missing", 1, "호출 실패")])
 def test_batches_preserve_facts_and_count_partial_failures(tmp_path, monkeypatch, caplog, mode, omitted, reason):
-    monkeypatch.setattr(me, "ELI5_CARDS", 25)  # R74 카드 12장 상한은 풀어 둔다 — 여기선 배치(12·12·1) 호출·부분 실패 집계만 본다
-    m, calls, barrier = model(), [], Barrier(3, timeout=5)
+    monkeypatch.setattr(me, "ELI5_CARDS", 25)  # R74 카드 12장 상한은 풀어 둔다 — 여기선 배치(2장씩) 호출·부분 실패 집계만 본다
+    m, calls = model(), []
     m["mbox"]["hil"] = []  # 결정 줄 다시 쓰기 호출이 없게 — 이 시험은 단위 배치 호출 수만 센다
     m["detail"]["units"] = [{**m["detail"]["units"][0], "path": str(i)} for i in range(25)]
     def llm(cmd, prompt, timeout):
         batch = json.loads(prompt.rsplit("<자료>\n", 1)[1].split("\n</자료>")[0])
         calls.append((len(batch), timeout))
-        barrier.wait()
         if mode == "timeout" and batch[0]["path"] == "0":
             raise SummaryError("실행 실패: TimeoutExpired")
         items = [{**answer()["units"][0], "ref": u["path"]} for u in batch]
@@ -174,8 +172,47 @@ def test_batches_preserve_facts_and_count_partial_failures(tmp_path, monkeypatch
         return json.dumps({"units": items})
     monkeypatch.setattr(me, "run_cmd", llm)
     page = me.build(m, NOTES, "fake")
-    assert isinstance(page, str) and sorted(calls) == [(1, 180.0), (12, 180.0), (12, 180.0)]
+    assert isinstance(page, str) and sorted(calls) == [(1, 7.0)] + [(2, 7.0)] * 12  # 하드 룰 12 — 배치 2장 · 호출당 7초(재시도 1 은 run_cmd 안)
     assert page.stats == {"success": 25 - omitted, "total": 25, "omitted": omitted, "reasons": {reason: omitted} if omitted else {}}
     assert f"AI 풀이 {25 - omitted}/25 · 생략 {omitted}" in page
     assert page.count('class="omitted"') == omitted and page.count('class="source"') == 25
     assert len([r for r in caplog.records if r.levelname == "ERROR"]) == omitted
+
+
+def test_run_cmd_is_7_seconds_with_one_retry_then_visible_failure(tmp_path):
+    """하드 룰 12 — 기본 7초 + 재시도 1: 시간 초과는 정확히 2번 시도한 뒤 SummaryError(폴백 0)."""
+    import inspect
+    import magazine_summary as ms
+    assert inspect.signature(ms.run_cmd).parameters["timeout"].default == 7.0
+    log, script = tmp_path / "calls.log", tmp_path / "slow.py"
+    script.write_text(f"import time\nopen({str(log)!r}, 'a').write('x')\ntime.sleep(5)\n", encoding="utf-8")
+    with pytest.raises(SummaryError, match="TimeoutExpired"):
+        ms.run_cmd(f'{sys.executable} "{script}"', "p", timeout=0.3)
+    assert log.read_text() == "xx"
+
+
+def test_seven_second_rule_constants():
+    import magazine_eli5_batches as eb
+    import magazine_pdf
+    import magazine_slack
+    import mirror_lib
+    assert (eb.BATCH_SIZE, eb.TIMEOUT) == (2, 7.0) and magazine_pdf.TIMEOUT_MS == 30000
+    assert (mirror_lib.EXTERNAL_CALL_TIMEOUT_S, mirror_lib.MAX_RETRIES) == (7.0, 1) and magazine_slack.UPLOAD_TIMEOUT == 7.0
+
+
+def test_emit_model_writes_file_and_posts_nothing(tmp_path, monkeypatch):
+    """--emit-model <json> = 구조 모델·요약·쉬운 판 여부를 파일로 — 슬랙·상태 파일·PDF 0."""
+    import byz_morning_magazine as cli
+    from _magazine_detail_fixture import fake_eli5, fake_full_model
+    from _magazine_fakes import SUMMARY_OK
+    (tmp_path / "model.json").write_text(json.dumps(fake_full_model()), encoding="utf-8")
+    (tmp_path / "sum.py").write_text(SUMMARY_OK, encoding="utf-8")
+    monkeypatch.setattr(cli, "html_to_pdf", lambda *a, **k: pytest.fail("--emit-model 이 PDF 를 만듦"))
+    monkeypatch.setattr(cli, "post_root", lambda *a, **k: pytest.fail("--emit-model 이 슬랙에 게시"))
+    monkeypatch.setitem(sys.modules, "magazine_eli5", fake_eli5())
+    out = tmp_path / "emit.json"
+    rc = cli.main(["--model-file", str(tmp_path / "model.json"), "--summary-cmd", f"python3 {tmp_path / 'sum.py'}", "--out-dir", str(tmp_path / "out"),
+                   "--state", str(tmp_path / "state.json"), "--emit-model", str(out), "--no-push"])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert rc == 0 and {"date", "lines", "summary", "eli5_ok", "failure"} <= set(data) and len(data["lines"]) == 3
+    assert not (tmp_path / "state.json").exists() and not list((tmp_path / "out").glob("*.pdf"))

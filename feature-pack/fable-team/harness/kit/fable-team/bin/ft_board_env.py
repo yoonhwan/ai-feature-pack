@@ -35,7 +35,8 @@ def now() -> dt.datetime:
     return dt.datetime.fromisoformat(v) if v else dt.datetime.now()
 
 
-GH_TIMEOUT_S, GH_RETRIES = 7, 1  # 하드 룰 12 — 외부 호출 1회 7초 + 재시도 1
+GH_TIMEOUT_S, GH_RETRIES = 7, 1
+GH_CACHE_TTL_S = 600  # gh 캐시 «수명»(초) — 호출 timeout 이 아니다(호출은 위 7+1)  # 하드 룰 12 — 외부 호출 1회 7초 + 재시도 1
 
 
 def run(cmd: list[str], what: str, env: dict | None = None, timeout: int = 60) -> str:
@@ -57,7 +58,7 @@ def tmux_alive() -> set[str]:
 
 def gh_issues(root: Path) -> list[dict]:
     cache = root / ".fable-team" / "state" / "board" / "gh-cache.json"
-    ttl = int(os.environ.get("FT_BOARD_GH_TTL", "600"))
+    ttl = int(os.environ.get("FT_BOARD_GH_TTL", str(GH_CACHE_TTL_S)))
     if cache.exists() and time.time() - cache.stat().st_mtime < ttl:
         data = json.loads(cache.read_text(encoding="utf-8"))
     elif os.environ.get("FT_BOARD_GH_REFRESH") != "1":  # 기본 = 캐시 전용 — 외부 0

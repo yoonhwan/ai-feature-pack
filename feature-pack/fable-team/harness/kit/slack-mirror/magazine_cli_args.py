@@ -22,6 +22,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--force-root", action="store_true", help="posting+표식 없음(불명)을 사람이 확인한 뒤 뿌리 글 재게시")
     p.add_argument("--reattach", metavar="rN", help="발행된 날의 스레드에 답글 + 풀 디테일 PDF·쉬운 판 HTML 을 다시 붙임 (새 뿌리 글 0 · --date 필수)")
     p.add_argument("--force-file", action="append", choices=("pdf", "html"), default=[], help="첨부 불명(공유 시도 기록만 있음)을 사람이 채널에서 확인한 뒤 그 파일만 새로 첨부")
+    p.add_argument("--emit-model", metavar="JSON", help="구조 모델·요약·쉬운 판 여부를 파일로 — 슬랙·PDF·상태 쓰기 0 (시트 아침판 입력 · md 는 push)")
     p.add_argument("--no-push", action="store_true", help="ops/magazine push 끔(수동 시험)")
     p.add_argument("--model-file", help="구조 모델 JSON (수집 모듈 대신 — 시험·재발행용)")
     p.add_argument("--summary-cmd", default=DEFAULT_CMD)
@@ -41,6 +42,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     args = p.parse_args(argv)
     if args.reattach and (args.force or args.force_root):
         p.error("--reattach 는 --force·--force-root 와 같이 쓸 수 없어요 (새 뿌리 글을 막기 위해 — 원격 호출 전 거부)")
+    if args.emit_model and (args.reattach or args.force or args.force_root):
+        p.error("--emit-model 은 --reattach·--force·--force-root 와 같이 쓸 수 없어요")
     if args.force_file and args.force:
         p.error("--force-file 은 --force 와 같이 쓸 수 없어요")
     if args.reattach and not (REV.fullmatch(args.reattach) and args.date):

@@ -4,11 +4,16 @@ Issue 없음 · 카드 없음 · 담당 = 좌석표 `_master` · 정본 = 매거
 장부 키 `magazine/<날짜>` kind=report — 보고서라 결과 답글 강제 대상이 아니다(설계 §3 · DA 반박 대상으로 명시).
 """
 import argparse
+import hashlib
 from pathlib import Path
 
 import resume_block as rb
 import thread_ledger as lg
 from magazine_git import REL_DIR
+
+
+def sha16(md: str) -> str:
+    return hashlib.sha256(md.encode("utf-8")).hexdigest()[:16]
 
 
 def planner_seats(args: argparse.Namespace) -> str:

@@ -7,6 +7,7 @@
   <array>
     <string>__PY__</string>
     <string>__HOME__/.hermes/scripts/byz_morning_magazine.py</string>
+    <string>--emit-model</string><string>__HOME__/.hermes/magazine/model-latest.json</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>

@@ -133,6 +133,8 @@ class FakeMagazineSlack:
                 if u.path.endswith("files.getUploadURLExternal"):
                     outer.upload_url_calls += 1
                     return self._reply({"ok": True, "upload_url": f"{outer.base}/upload/F{outer.upload_url_calls}", "file_id": f"F{outer.upload_url_calls}"})
+                if u.path.endswith("files.info"):
+                    return self._reply({"ok": True, "file": {"id": q["file"], "permalink": f"https://slack.test/files/{q['file']}"}})
                 outer.complete_calls += 1
                 if outer.fail_complete or outer.complete_calls in outer.fail_complete_at:
                     return self._reply({"ok": False, "error": "internal_error"})
