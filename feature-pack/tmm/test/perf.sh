@@ -58,10 +58,11 @@ EOF
 tm()  { env -u TMUX TMUX_TMPDIR="$SOCK_DIR" "$REAL_TMUX" "$@"; }
 RUNDIR=""
 SCANBIN="$SOCK_DIR/scan-stub.sh"; [ "${PERF_REAL_SCAN:-0}" = 1 ] && SCANBIN="$ROOT/core/libexec/seat-scan.sh"
-tmm() {
+tmmenv() {  # 격리 환경으로 임의 명령을 돌린다(tmm 본체·bash -c 에서 tmm 을 source 하는 시험 공용)
   env -u TMUX -u TMM_RUN HOME="$H" TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="$SCANBIN" TMM_CACHE_TTL="${TTL:-20}" \
-      TMM_CATEGORIES=/dev/null TMM_BELL=0 ${RUNDIR:+TMM_RUN=$RUNDIR} "$TMM" "$@"
+      TMM_CATEGORIES=/dev/null TMM_BELL=0 ${RUNDIR:+TMM_RUN=$RUNDIR} "$@"
 }
+tmm() { tmmenv "$TMM" "$@"; }
 FAKE_PID=""
 cleanup() {
   [ -n "$FAKE_PID" ] && kill "$FAKE_PID" 2>/dev/null
@@ -115,7 +116,12 @@ for N in $SIZES; do
   [ "$want" = "$have" ] || fail "(b) N=$N tabrows 의 세션 집합이 카테고리 ${cats[1]} 와 다름"
 
   # (c) 자동 갱신 — fresh 를 안 쓴다 · 캐시를 안 지운다 · 동시 2 인스턴스 스캔 1회
-  fake_start() { python3 "$SOCK_DIR/fakefzf.py" "$1" "$2" & FAKE_PID=$!; for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S "$1" ] && break; sleep 0.2; done; }
+  # 소켓 파일이 생긴 것만으로는 부족하다(부하 시 listen 전에 연결이 거절돼 요청이 사라짐 — /bin/bash 하네스에서 'ignore reload' 로 한 번 실패) → 실제로 POST 가 닿을 때까지 탐침한다
+  fake_start() {
+    python3 "$SOCK_DIR/fakefzf.py" "$1" "$2" & FAKE_PID=$!
+    for _ in $(seq 1 50); do curl -s -o /dev/null --unix-socket "$1" -X POST http://localhost/ -d probe 2>/dev/null && break; sleep 0.1; done
+    : > "$2"
+  }
   fake_stop()  { kill "$FAKE_PID" 2>/dev/null; wait "$FAKE_PID" 2>/dev/null; FAKE_PID=""; }
   POSTS="$SOCK_DIR/posts-$N"; : > "$POSTS"
   fake_start "$RUNDIR/fzf.sock" "$POSTS"
@@ -166,6 +172,20 @@ for N in $SIZES; do
   fake_stop
   replay > /dev/null
   [ "$(cat "$RUNDIR/tabsel")" = "${cats[0]}" ] || fail "(d) N=$N 떠났다 돌아온 연타 뒤 탭이 ${cats[0]} 이어야 함(실제 $(cat "$RUNDIR/tabsel"))"
+
+  # d3: 검사를 «통과한» 낡은 요청이 탭을 적용하려는 사이(tabsel 쓰기 전)에 «원래 탭으로 돌아온» focus 가 끼어드는 결정적 스케줄 — DA⑥ H1.
+  #   b 요청이 tabreq 검사를 통과한 직후 tab_switch_to 안(tabcur_set 호출 시점)에서 catfocus(a) 를 실행한다. 이때 현재 탭은 아직 a 라 «같은 탭이라 안 쏘는» 구현이면
+  #   낡은 b 가 tabsel=b 를 남긴다. 최신 focus(a) 의 요청까지 순서대로 처리하고 나면 탭은 a 여야 한다.
+  printf '%s\n' "${cats[0]}" > "$RUNDIR/tabsel"; tmm rows-cur > /dev/null; rm -f "$RUNDIR/tabreq" "$RUNDIR/tabcur"; : > "$POSTS"
+  fake_start "$RUNDIR/fzf.sock" "$POSTS"
+  tmmenv env CAT_A="${cats[0]}" CAT_B="${cats[1]}" bash -c 'source "$1" __lib
+    eval "orig_$(declare -f tabcur_set)"
+    tabcur_set() { cmd_catfocus "$CAT_A"; orig_tabcur_set "$@"; }
+    cmd_catfocus "$CAT_B"
+    cmd_tabgo "$CAT_B" "" "$(cat "$RUN/tabreq")" > /dev/null' _ "$TMM" 2>/dev/null || true
+  fake_stop
+  replay > /dev/null
+  [ "$(cat "$RUNDIR/tabsel")" = "${cats[0]}" ] || fail "(d) N=$N 검사 통과 뒤 원래 탭으로 돌아온 focus 가 끼면 탭이 ${cats[0]} 이어야 함(실제 $(cat "$RUNDIR/tabsel"))"
 done
 
 if [ "$FAILS" -gt 0 ]; then echo "❌ tmm perf: 실패 ${FAILS}건"; exit 1; fi
