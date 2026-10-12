@@ -136,7 +136,7 @@ for name, hits in sorted(rowed.items()):
 for p in scoped:
     d, _ = rosters[p]
     for name, row in seat_rows(d).items():
-        if is_active(row) and name not in alive:
+        if is_active(row) and row.get("_headless") is not True and name not in alive:  # _headless = 세션 없이 도는 일회 실행 행(S3)
             rows.append(("ⓒ", p, f"ⓒ {name} 활성 행(role={row.get('role')})인데 세션 없음"))
     if d.get("_closed"):
         continue

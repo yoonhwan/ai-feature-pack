@@ -4,6 +4,7 @@
 # env: FT_ROOT(루트) · FT_BOARD_BIN(기본 같은 폴더 ft-board.py · 시험은 스텁) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py)
 #      FT_BOARD_LEDGER(장부 · 기본은 도구 기본값) · FT_BOARD_POST_ARGS(도구에 덧붙일 인자 · 예 `--slack-base http://127.0.0.1:PORT --token-file F`)
 #      FT_BOARD_NOW(날짜 주입 · 시험) · FT_BOARD_ONLY_CHANGED=1(주기 틱용 — 뿌리 글이 안 바뀌었으면 스냅샷·발행 0 · 기본 0 = 항상 발행)
+#      FT_SHEET_VERIFY=1 = --sheet 발행 성공 뒤 ft-sheet-verify.sh 1회(S3 · 기본 0)
 #      --sheet = 현황판 시트 발행(ft-sheet-publish.sh · 트리 뿌리 글 + 발행 rev 변화 때만 PDF 첨부 · PLAN-status-sheet §4) — 기본 경로는 그대로
 # 발행 본문은 날짜 폴더 published.txt 에 남겨 다음 날 동결 때 쓴다. 실제 슬랙 호출은 도구가 한다 — 이 스크립트는 직접 부르지 않는다.
 set -uo pipefail
@@ -17,7 +18,12 @@ SD="$ROOT/.fable-team/state/board"
 
 # shellcheck disable=SC2206
 POST_ARGS=(${FT_BOARD_POST_ARGS:-}); [ -n "${FT_BOARD_LEDGER:-}" ] && POST_ARGS+=(--ledger "$FT_BOARD_LEDGER")
-[ "${1:-}" = "--sheet" ] && exec bash "$HERE/ft-sheet-publish.sh"
+if [ "${1:-}" = "--sheet" ]; then
+  bash "$HERE/ft-sheet-publish.sh"; rc=$?
+  # S3: 발행 성공 뒤 검증 1회(FT_SHEET_VERIFY=1 인 plist 에서만) — 검증 실패는 발행 rc 를 바꾸지 않는다
+  if [ "$rc" -eq 0 ] && [ "${FT_SHEET_VERIFY:-0}" = 1 ]; then bash "$HERE/ft-sheet-verify.sh" || echo "ft-board-publish: 시트 검증 rc=$? — 발행 rc 불변" >&2; fi
+  exit "$rc"
+fi
 tp() { python3 "$TP" update ${POST_ARGS[@]+"${POST_ARGS[@]}"} "$@"; }
 
 BODY="$("$BOARD" render --slack --refresh-gh)"; rc=$?

@@ -17,6 +17,7 @@
     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
     <key>FT_BOARD_ONLY_CHANGED</key><string>1</string>
+    <key>FT_SHEET_VERIFY</key><string>1</string>
   </dict>
   <key>StandardOutPath</key><string>/tmp/byz-ft-board-publish.log</string>
   <key>StandardErrorPath</key><string>/tmp/byz-ft-board-publish.log</string>
