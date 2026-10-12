@@ -22,12 +22,14 @@ export FT_SHEET_MIRROR_DIR="${FT_SHEET_MIRROR_DIR:-$(dirname "$TP")}"  # magazin
 POST_ARGS=(${FT_BOARD_POST_ARGS:-}); [ -n "${FT_BOARD_LEDGER:-}" ] && POST_ARGS+=(--ledger "$FT_BOARD_LEDGER")
 tp() { python3 "$TP" "$1" ${POST_ARGS[@]+"${POST_ARGS[@]}"} "${@:2}"; }
 
-REVS="$("$BOARD" render --sheet --rev)" || die "render --sheet --rev 실패 — 발행 0" 1
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+"$BOARD" collect --out "$TMP/collect.json" --refresh-gh || die "collect 실패 — 발행 0" 1  # 수집은 한 틱에 1회 — 아래 render·snapshot 은 전부 이 파일을 읽는다(--from)
+FROM=(--from "$TMP/collect.json")
+REVS="$("$BOARD" render --sheet --rev "${FROM[@]}")" || die "render --sheet --rev 실패 — 발행 0" 1
 read -r STRUCT PUBREV < <(printf '%s' "$REVS" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["structure"], d["publish"])') || die "rev 해석 실패" 1
-TREE="$("$BOARD" render --sheet --text)" && [ -n "$TREE" ] || die "render --sheet --text 실패 — 발행 0" 1
+TREE="$("$BOARD" render --sheet --text "${FROM[@]}")" && [ -n "$TREE" ] || die "render --sheet --text 실패 — 발행 0" 1
 PLAN="$($SP plan --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV")" || die "발행 원장 admission 실패 — 슬랙 호출 0" 1  # 원장 쓰기 불가면 맨 앞에서 중단
 eval "$PLAN"
-TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$SD"
 mkroot() { printf '%s' "$TREE" | $SP root --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV" > "$TMP/root.txt" || die "뿌리 글 본문 만들기 실패 — 발행 0" 1; }
 mkroot
@@ -43,14 +45,14 @@ NEED_PDF=1; [ "$TODAY_OK" -ge 24 ] && NEED_PDF=0
 # 변화 답글 = 구조 rev 가 직전 발행과 다를 때만(이야기·상세만 바뀌면 0)
 REPLY=""
 if [ -f "$SD/sheet-struct-rev" ] && [ "$(cat "$SD/sheet-struct-rev")" != "$STRUCT" ]; then
-  SNAP="$("$BOARD" snapshot --refresh-gh)" || die "snapshot 실패 — 발행 0" 1
+  SNAP="$("$BOARD" snapshot "${FROM[@]}")" || die "snapshot 실패 — 발행 0" 1
   REPLY="$(printf '%s' "$SNAP" | python3 -c 'import json,sys
 d=json.load(sys.stdin); c=d["changes"]; print(" · ".join(c[:8]) + (" 외 %d건" % (len(c)-8) if len(c)>8 else "") + " · snap=" + d["snap"] if c else "")')" || die "snapshot 출력 해석 실패" 1
 fi
 
 # 로컬 준비 «전부» 를 슬랙 호출 전에 끝낸다 — render html/md · PDF 변환(6쪽 초과면 «자세히» 를 접어 재변환 + 전체 md 를 같은 첨부에)
 prep() {
-  "$BOARD" render --sheet --html > "$TMP/sheet.html" && "$BOARD" render --sheet > "$TMP/sheet-$PUBREV.md" || die "render --sheet html/md 실패 — 슬랙 호출 0" 1
+  "$BOARD" render --sheet --html "${FROM[@]}" > "$TMP/sheet.html" && "$BOARD" render --sheet "${FROM[@]}" > "$TMP/sheet-$PUBREV.md" || die "render --sheet html/md 실패 — 슬랙 호출 0" 1
   PAGES="$($PDF "$TMP/sheet.html" "$TMP/sheet-$PUBREV.pdf")" || die "PDF 변환 실패 — 슬랙 호출 0" 1
   FILES=(--file "$TMP/sheet-$PUBREV.pdf")
   if [ "$PAGES" -gt 6 ]; then

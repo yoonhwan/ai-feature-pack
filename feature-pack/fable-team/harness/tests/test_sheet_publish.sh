@@ -14,7 +14,12 @@ mkdir -p "$T/ft" "$T/stub"; S="$T/stub"; : > "$S/tp.log"; : > "$S/pdf.log"
 
 cat > "$S/fake-board" <<'EOF'
 #!/usr/bin/env bash
-D="$(dirname "$0")"
+# 가짜 ft-board — collect 실행 횟수를 $D/collects 에 센다: 명시 `collect --out F` 1회 · render/snapshot 이 --from 없이 불리면(내부 collect) 1회
+D="$(dirname "$0")"; args=(); from=""; out=""
+while [ $# -gt 0 ]; do case "$1" in --from) from="$2"; shift 2;; --out) out="$2"; shift 2;; --refresh-gh) shift;; *) args+=("$1"); shift;; esac; done
+set -- "${args[@]}"
+if [ "$1" = collect ]; then echo x >> "$D/collects"; echo '{"stub":"collect"}' > "$out"; exit 0; fi
+if [ -n "$from" ]; then [ -s "$from" ] || exit 1; else echo x >> "$D/collects"; fi
 [ "$1" = snapshot ] && { cat "$D/snap.json"; exit 0; }
 [ "$1" = render ] && [ "$2" = --sheet ] || exit 2
 case "${3:-}" in --rev) cat "$D/rev.json" ;; --text) cat "$D/tree.txt" ;; --html) [ -f "$D/html_fail" ] && exit 1; cat "$D/sheet.html" ;; "") cat "$D/sheet.md" ;; *) exit 2 ;; esac
@@ -142,6 +147,24 @@ u2="$(n_of '^update|')"; rc="$(pub)"
 printf '확인 중 0 · 소유자 미확인 0\n❓ 오빠가 정할 것 (0건) — 오늘 질문 없음\n🔄 지금 진행 중 (끝나면 멈춤)\n  · 일F — 멈춤 5분\n⏳ 완성 후 (1건)\n' > "$S/tree.txt"; pub >/dev/null; u3="$(n_of '^update|')"
 printf '확인 중 0 · 소유자 미확인 0\n❓ 오빠가 정할 것 (0건) — 오늘 질문 없음\n🔄 지금 진행 중 (끝나면 멈춤)\n  · 일F — 멈춤 9분\n⏳ 완성 후 (1건)\n' > "$S/tree.txt"; pub >/dev/null
 [ "$(n_of '^update|')" = "$u3" ] && ok "F4 같은 rev · 멈춤 N분 숫자만 다름 → 발행 0" || bad "F4 분 숫자로 update 발생"
+# fix F5(수집 1회) — 한 틱 = collect 1회(rev 바뀜·같은 rev·상한 틱 모두) · 렌더/snapshot 은 --from 파일을 읽는다
+export FT_BOARD_NOW="2026-10-17T09:00:00"; tree 일G; setrev $S1 $P1; : > "$S/collects"; pub >/dev/null
+[ "$(wc -l < "$S/collects" | tr -d ' ')" = 1 ] && ok "F5 rev 바뀜 틱(PDF 발행) → collect 1회" || bad "F5 PDF 틱 collect $(wc -l < "$S/collects" | tr -d ' ')회"
+: > "$S/collects"; pub >/dev/null
+[ "$(wc -l < "$S/collects" | tr -d ' ')" = 1 ] && ok "F5 같은 rev 틱(발행 0) → collect 1회" || bad "F5 같은 rev 틱 collect $(wc -l < "$S/collects" | tr -d ' ')회"
+: > "$S/collects"; printf '{"snap":"x→y","prev":"x","changes":["변화"],"prev_day_last":null}' > "$S/snap.json"; setrev "c$S1" $P2; pub >/dev/null
+[ "$(wc -l < "$S/collects" | tr -d ' ')" = 1 ] && ok "F5 구조 rev 바뀜(snapshot 까지 호출) → collect 1회" || bad "F5 snapshot 틱 collect $(wc -l < "$S/collects" | tr -d ' ')회"
+# 본문 바이트 동일 — 실 ft-board.py + 시험 루트: collect 파일 경유(--from) 출력 == 직접 collect 출력(text·md·html·rev·snapshot)
+(
+  . "$ROOT/tests/fixtures/sheet/sheet_env.sh"; new_root
+  same=1; board collect --out "$T/c.json" || same=0
+  for f in "" --text --html --rev; do
+    a="$(board render --sheet $f)"; b="$(board render --sheet $f --from "$T/c.json")"
+    [ "$a" = "$b" ] && [ -n "$a" ] || { same=0; echo "DIFF render --sheet $f"; }
+  done
+  [ "$same" = 1 ] && echo SAME || echo DIFFER
+) > "$T/bytes.txt" 2>&1
+grep -q '^SAME$' "$T/bytes.txt" && ok "F5 render --sheet(md·text·html·rev) --from 출력 == 직접 collect 출력(바이트 동일)" || bad "F5 바이트 동일 실패: $(tr '\n' ' ' < "$T/bytes.txt" | cut -c1-200)"
 # launchd 템플릿 2종 — 설치가 시트 경로를 재현한다(--sheet · --emit-model)
 TPL="$ROOT/scripts/harness-install/slack-mirror"
 grep -q '<string>--sheet</string>' "$TPL/com.byz.ft-board-publish.plist.template" && ok "템플릿 ft-board-publish 에 --sheet" || bad "템플릿 ft-board-publish --sheet 없음"
