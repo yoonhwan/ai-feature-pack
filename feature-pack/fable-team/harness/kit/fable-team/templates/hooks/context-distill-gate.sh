@@ -44,19 +44,20 @@
 #     C3 BLOCK 안내문에 «증류 커밋은 --only -F 파일 경유» 한 줄.
 set +e
 MODE="${1:-warn}"; shift
-WARN_AT_ARG=""; BLOCK_AT_ARG=""
+WARN_AT_ARG=""; BLOCK_AT_ARG=""; RECV_AT_ARG=""
 while [ $# -gt 0 ]; do case "$1" in
-  --warn-at) WARN_AT_ARG="$2"; shift 2;; --block-at) BLOCK_AT_ARG="$2"; shift 2;; *) shift;; esac; done
+  --warn-at) WARN_AT_ARG="$2"; shift 2;; --block-at) BLOCK_AT_ARG="$2"; shift 2;; --recv-gate-at) RECV_AT_ARG="$2"; shift 2;; *) shift;; esac; done
 INPUT=$(cat 2>/dev/null)
 [ -z "$INPUT" ] && exit 0
 LOG="$HOME/.claude/logs/context-distill-gate.log"; mkdir -p "$(dirname "$LOG")" 2>/dev/null
 EXEMPT_MODELS="${OMC_GATE_EXEMPT_MODELS:-}"     # 예: 'haiku' — 비워두면 면제 없음
 
-RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MODE" <<'PYEOF' 2>>"$LOG"
+RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MODE" "$RECV_AT_ARG" <<'PYEOF' 2>>"$LOG"
 import json, sys, os, re, shlex
 TAIL_CAP = 16 * 1024 * 1024
 TAIL_CHUNK = 262144
 WARN_DEFAULT, BLOCK_DEFAULT = 400_000, 450_000     # 450k 절대값(오빠 2026-09-23) · 경고는 50k 앞
+RECV_DEFAULT = 400_000                              # R107: 후계 도달 전 recv 차단선(--recv-gate-at)
 
 def norm_model(m):
     if isinstance(m, dict):
@@ -99,6 +100,7 @@ try:
     block_at = int(sys.argv[3]) if sys.argv[3].strip() else BLOCK_DEFAULT
     exempt_re = sys.argv[4].strip()
     mode = sys.argv[5]
+    recv_at = int(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6].strip() else RECV_DEFAULT
 except Exception as e:
     print("ERROR|input parse: %s" % e); sys.exit(0)
 
@@ -219,6 +221,9 @@ SCRIPT_ARGS = {
     "ft-role-spawn.sh": None,
     "ft-nano-spawn.sh": None,
     "ft-version.sh": None,
+    "ft-successor-open.sh": None,      # R107: 후계 개설 · 아래 둘은 도달 «확인 수단» (읽기·송신 확인 — 파괴 0)
+    "ft-reach-check.sh": None,
+    "ft-send-verified.sh": None,
 }
 SCRIPT_CALL_RE = re.compile(r"^(?:bash\s+)?(\S+)(?:\s+(.*))?$", re.DOTALL)
 SCRIPT_DIR_RE = re.compile(r"^(?:\.worktrees/[^/]+/)?\.fable-team/(?:bin|comm)/[^/]+$")
@@ -261,6 +266,7 @@ _CMD_ALT = (
     r"|tmuxc\s+(?:open|save|list|distill)\b"
     r"|tmux\s+(?:capture-pane|list-\S*)\b"
     r"|sleep\b"                                    # F8
+    r"|pgrep\b"                                    # R107: 후계 기동 확인(읽기)
 )
 CMD_RE = re.compile(r"^\s*(?:" + _CMD_ALT + r")")
 GIT_SUB_RE = re.compile(r"^git\s+" + _GITC + r"(add|commit|status|diff|log|push)\b")
@@ -533,6 +539,24 @@ def spawn_text(d):
             parts.append(v)
     return " ".join(parts)
 
+# R107: 후계 도달 전 새 일 수락 0 — ≥ recv_at 이고 mbox recv 이면 이 좌석의 도달 파일(ft-successor-open.sh 가 쓴다)이 있어야 한다. peek 은 읽기만이라 허용.
+# 좌석 = TMUX_PANE 의 세션명. 없음·tmux 실패 = 허용 + 로그 1줄(FAIL-OPEN 관례). 쪽지는 큐에 남아 후계가 계보로 받는다.
+def recv_blocked():
+    import subprocess, time
+    pane, seat = os.environ.get("TMUX_PANE", ""), ""
+    if pane and REPO_ROOT:
+        try:
+            seat = subprocess.run(["tmux", "display", "-p", "-t", pane, "#S"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=3).stdout.decode().strip()
+        except Exception:
+            seat = ""
+    if not seat or "/" in seat:
+        sys.stderr.write("%s recv-gate skip (no TMUX_PANE / tmux failed / no repo root) — allow\n" % time.strftime("%FT%T"))
+        return False
+    return not os.path.isfile(os.path.join(REPO_ROOT, ".fable-team", "state", "successor", seat + ".json"))
+
+if mode == "hard" and ctx >= recv_at and tool == "Bash" and re.search(r"mbox\.sh\s+recv\b", str(ti.get("command") or "")) and recv_blocked():
+    print("RECV|%d|%s|%d|%d|%s" % (k, tool, warn_at // 1000, block_at // 1000, agent_id)); sys.exit(0)
+
 if ctx >= block_at:
     if mode == "hard":
         if hard_allowed():
@@ -563,6 +587,11 @@ fi
 
 case "$MODE" in
   hard|block)
+    if [ "$STATE" = "RECV" ]; then       # R107: 후계 도달 파일 없음 → 새 일 수락(recv) 0
+      printf '%s deny mode=%s ctx=%sk tool=%s agent_id=%s recv-gate\n' "$(date +%FT%T)" "$MODE" "$K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
+      printf '🛑 [context-distill-gate] 컨텍스트 %sk — 후계 도달 전 새 일 수락 0 (R107). .fable-team/bin/ft-successor-open.sh 로 후계를 열고 도달 확인부터. 쪽지는 큐에 남아 후계가 계보로 받는다. peek 은 허용.\n' "$K" >&2
+      exit 2
+    fi
     if [ "$STATE" = "BLOCK" ]; then
       printf '%s deny mode=%s ctx=%sk block_at=%sk tool=%s agent_id=%s\n' "$(date +%FT%T)" "$MODE" "$K" "$BLOCK_K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
       printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 증류 강제선(%sk 절대값) 돌파. 도구 «%s» 차단.\n' "$K" "$BLOCK_K" "$WHAT" >&2
