@@ -170,8 +170,10 @@ if [ "${FT_NANO_WIP:-0}" = 1 ]; then
   [ "$usum" -le "$cap" ] || fail "dirty 대용량(${usum}B > ${cap}B)"
 else
   # 기존(r6 이전) 동작 — 실작업물(.serena/project.yml 제외) 있으면 REJECT, .serena 만 있으면 그 아래 WIP 커밋으로.
+  # r-wt-clean-deletion-only: 작업 트리에서만 지워진 줄(' D' = 인덱스 칸 공백 · 작업 트리 칸 D)은 «지우다 만 흔적» — 내용은 브랜치에 그대로 있다. 실작업물로 세지 않고 [wip] 에도 담지 않는다(삭제 커밋은 브랜치를 망가뜨린다).
   dirty="$(git -C "$WT" status --porcelain)"
-  real="$(printf '%s\n' "$dirty" | grep -v '\.serena/project\.yml$' | grep -c .)"
+  ndel="$(printf '%s\n' "$dirty" | grep -v '\.serena/project\.yml$' | grep -c '^ D ')"
+  real="$(printf '%s\n' "$dirty" | grep -v '\.serena/project\.yml$' | grep -v '^ D ' | grep -c .)"
   [ "$real" -eq 0 ] || fail "실작업물 미커밋 ${real}파일"
 fi
 # ⑥ ignored — 재생성 허용 목록(이름 · «임의 깊이»의 경로 요소에 적용 · DA r2 A)을 뺀 나머지를 <PLAN>.ignored.tar.gz 로 보관한 뒤 진행 (DA r1 R1③')
@@ -195,10 +197,22 @@ if git -C "$WT" ls-files --error-unmatch .serena/project.yml >/dev/null 2>&1; th
   git -C "$WT" checkout HEAD -- .serena/project.yml || fail ".serena/project.yml checkout 실패"
   dirty="$(git -C "$WT" status --porcelain)"
 fi
-if [ -n "$dirty" ]; then git -C "$WT" add -A && git -C "$WT" commit -q -m "[wip] nano close $SEAT" || fail "wip commit 실패"; fi
+[ "${FT_NANO_WIP:-0}" = 1 ] || dirty="$(printf '%s\n' "$dirty" | grep -v '^ D ')"   # 기본 경로: 여기까지 왔으면 실작업물 0 — 남은 ' D' 는 [wip] 대상이 아니다
+if [ -n "$dirty" ]; then
+  # 기본 경로: add -A 가 ' D' 삭제도 올리므로 «add 전에» 삭제 목록을 떠 두고 add 뒤 index 에서 되돌린다(브랜치 보존 · 추적 안 된 .serena 가 남아 dirty 가 비지 않는 경우 포함).
+  delf="$(mktemp)"; [ "${FT_NANO_WIP:-0}" = 1 ] || git -C "$WT" diff --name-only --diff-filter=D -z > "$delf"
+  git -C "$WT" add -A || { rm -f "$delf"; fail "wip add 실패"; }
+  if [ -s "$delf" ]; then xargs -0 git -C "$WT" reset -q -- < "$delf" || { rm -f "$delf"; fail "wip 삭제 제외(reset) 실패"; }; fi
+  rm -f "$delf"
+  git -C "$WT" commit -q -m "[wip] nano close $SEAT" || fail "wip commit 실패"
+fi
 BATON_TMUX_DISABLE=true "$BATON" wt-clean "$WT" || fail "baton wt-clean 실패"
 [ -d "$WT" ] && fail "baton 뒤에도 워크트리 남음"
 res=cleaned; [ -f "$PLAN.ignored.tar.gz" ] && res="cleaned(ignored ${nkeep}파일 보관)"
+if [ "${ndel:-0}" -gt 0 ]; then
+  res="cleaned(삭제만 ${ndel}파일 · 복원 = git worktree add $WT $br)"
+  [ ! -f "$PLAN.ignored.tar.gz" ] || res="cleaned(삭제만 ${ndel}파일 · ignored ${nkeep}파일 보관 · 복원 = git worktree add $WT $br)"
+fi
 mark "$res"; echo "$res"
 SH
   } > "$PLAN"
