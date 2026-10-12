@@ -68,8 +68,8 @@ for k, v in d.items():
 PY
 }
 # ★master 정본 = 좌석표 _master 하나(R27)★ role 첫 행·tick 행 순서로 고르지 않는다(폴백 0). 행이 있고 _replaced_by 없고 role=master 일 때만 출력.
-master_seat() {
-  python3 - "$SEATS" <<'PY'
+master_seat() {   # $1=좌석표 파일(기본 $SEATS) — sweep_wt 가 팀 좌석표(seats-<팀>.json)의 master 를 찾을 때도 쓴다
+  python3 - "${1:-$SEATS}" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1])); m = d.get("_master"); v = d.get(m) if isinstance(m, str) else None
 if isinstance(v, dict) and not v.get("_replaced_by") and v.get("role") == "master": print(m)
@@ -268,17 +268,33 @@ idle_watch() {
 }
 
 sweep_wt() {
-  local out hil master rows
+  local out hil master rows tagged team lines hdr tf
   [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
   [ -x "$WT_SWEEP" ] || { echo "$(date '+%F %T') sweep_wt: missing $WT_SWEEP" >&2; return 0; }
   if [ "$DRY" = 1 ]; then echo "DRY kind=wt-sweep bin=$WT_SWEEP plans=$(bash "$WT_SWEEP" --dry-run 2>/dev/null | grep -c '^DRY ')"; return 0; fi
   out="$(bash "$WT_SWEEP" 2>&1)"; rc=$?
   log "wt-sweep: rc=$rc $(printf '%s\n' "$out" | grep -v '^$' | tail -1)"
   hil="$(printf '%s\n' "$out" | grep '^\[HIL\]')" || return 0
-  master="$(master_seat)"
-  [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending but no active master" >&2; return 0; }
-  bash "$MBOX" send "$master" ft-tick "[HIL] 워크트리 정리 사람 판정 $(printf '%s\n' "$hil" | grep -c .)건 — $(printf '%s\n' "$hil" | head -3 | cut -c1-160 | tr '\n' ' ')" --urgent >/dev/null 2>&1 \
-    || echo "$(date '+%F %T') sweep_wt: mbox failed" >&2
+  # ★[HIL] 은 계획 좌석(seat=byz-<팀>-…)의 «팀 master» 로★ — 접두 <팀> ↔ <좌석표 디렉터리>/seats-<팀>.json. v65(byz-v65-·ft-v65-)·좌석 표기 없음 = 자기 master.
+  #   팀 좌석표가 없거나 현역 master 가 없으면 자기 master 로 보내되 «[라우팅 실패 <팀>]» 머리 + stderr 1줄(조용한 후퇴 0).
+  tagged="$(printf '%s\n' "$hil" | awk '{ s=""; for (i=1;i<=NF;i++) if ($i ~ /^seat=/) { s=substr($i,6); break }
+    t="-"; if (s ~ /^byz-v65-/ || s ~ /^ft-v65-/) t="v65"; else if (s ~ /^byz-[A-Za-z0-9]+-/) { split(s,a,"-"); t=a[2] } else if (s != "") t="?"
+    print t "\t" $0 }')"
+  for team in $(cut -f1 <<< "$tagged" | sort -u); do
+    lines="$(awk -F'\t' -v t="$team" '$1==t { print substr($0, index($0,"\t")+1) }' <<< "$tagged")"
+    hdr=""; master=""
+    case "$team" in
+      -|v65) master="$(master_seat)";;
+      *) tf="$(dirname "$SEATS")/seats-$team.json"; [ -f "$tf" ] && master="$(master_seat "$tf" 2>/dev/null)"
+         if [ -z "$master" ]; then
+           hdr="[라우팅 실패 $team] "; master="$(master_seat)"   # 표식은 «[HIL] 뒤» — planner 머리 검사(reject)는 본문이 [HIL] 로 시작해야 통과(DA⑥)
+           echo "$(date '+%F %T') sweep_wt: team '$team' master not found ($tf) — routed to own master" >&2
+         fi;;
+    esac
+    [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending (team $team) but no active master" >&2; continue; }
+    bash "$MBOX" send "$master" ft-tick "[HIL] ${hdr}워크트리 정리 사람 판정 $(printf '%s\n' "$lines" | grep -c .)건 — $(printf '%s\n' "$lines" | head -3 | cut -c1-160 | tr '\n' ' ')" --urgent >/dev/null 2>&1 \
+      || echo "$(date '+%F %T') sweep_wt: mbox failed (team $team)" >&2
+  done
 }
 
 drift_watch() {
