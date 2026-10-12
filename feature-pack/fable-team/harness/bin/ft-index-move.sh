@@ -44,6 +44,23 @@ if [ "$DST" = 완성 ]; then
     REJECT) echo "REJECT 정본 게이트 — $CANON_NOTE (이동 0 · 카드에 줄을 쓰고 다시 이동)"; exit 1;;
     *) echo "REJECT 정본 게이트 검사 실행 실패 — 이동 0"; exit 1;;
   esac
+  # r106b — 규칙 줄 검사: 규칙은 «읽히는 곳(상시 로드 지침)» + «막는 곳(훅·게이트)» 이 실재해야 닫는다(R83→R106 재발 차단).
+  RUSE="쓰는 법: 「- 규칙: 지침=<상시 로드 파일>[:줄] · 강제=<훅·게이트 파일>」 또는 「- 규칙: 없음 — <사유 10자 이상>」 (구분자 = 공백 em dash 공백)"
+  RLINE="$(grep -m1 '^- 규칙:' "$SRC")"
+  [ -n "$RLINE" ] || { echo "REJECT 카드에 「- 규칙:」 줄 없음 — $RUSE (이동 0)"; exit 1; }
+  RNONE='^- 규칙: 없음 — (.+)$'; RPATH='^- 규칙: 지침=([^[:space:]]+) · 강제=([^[:space:]]+)$'   # 정확한 두 형식만 — 접두 «없음» 면제 없음
+  if [[ "$RLINE" =~ $RNONE ]]; then
+    [ "$(python3 -c 'import sys; print(len(sys.argv[1]))' "${BASH_REMATCH[1]}")" -ge 10 ] || { echo "REJECT 「- 규칙:」 줄 형식 틀림 — 「없음 — 사유」 사유가 10자 미만 — $RUSE (이동 0)"; exit 1; }
+  elif [[ "$RLINE" =~ $RPATH ]]; then
+    RG="${BASH_REMATCH[1]%%:[0-9]*}"; RF="${BASH_REMATCH[2]}"; RG="${RG/#\~/$HOME}"; RF="${RF/#\~/$HOME}"
+    case "$RG" in /*) ;; *) RG="$WT/$RG";; esac; case "$RF" in /*) ;; *) RF="$WT/$RF";; esac
+    [ -f "$RG" ] || { echo "REJECT 「- 규칙:」 지침 경로 실재 0 — $RUSE (이동 0)"; exit 1; }
+    [ -f "$RF" ] || { echo "REJECT 「- 규칙:」 강제(훅·게이트) 경로 실재 0 — $RUSE (이동 0)"; exit 1; }
+    case "$RG" in *..*) RG="";; "$HOME/.claude/CLAUDE.md"|"$WT/CLAUDE.md"|"$WT/.claude/rules/"*.md|"$HOME/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md"|"$HOME/.claude/skills/fable-team/references/main-team-governance.md") ;; *) RG="";; esac
+    [ -n "$RG" ] || { echo "REJECT 「- 규칙:」 지침이 상시 로드 파일 5종 밖 — 전역·프로젝트 CLAUDE.md · .claude/rules/*.md · COMM-GUIDE-BOOT · main-team-governance 중 하나 (이동 0)"; exit 1; }
+  else
+    echo "REJECT 「- 규칙:」 줄 형식 틀림 — $RUSE (이동 0)"; exit 1
+  fi
 fi
 # 슬랙 단위 스레드(판정 405 §4) — «게시 대상» = 카드의 `- 슬랙:` 줄 유무(장부 아님). 이동 «전»에 끝낸다: 실패면 이동 0.
 if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; }; then

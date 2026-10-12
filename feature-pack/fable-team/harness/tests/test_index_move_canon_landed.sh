@@ -32,7 +32,8 @@ edit_code() { echo "$1" >> "$REPO/code.txt"; G commit -qam "code $1"; }
 card() {
   local f="$IDX/진행/$1.md"
   { echo "# 인덱스: $1"; echo "## 상태"
-    if [ "$2" = 갱신 ]; then echo "- 정본 갱신: $X §절A"; else echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"; fi; } > "$f"
+    if [ "$2" = 갱신 ]; then echo "- 정본 갱신: $X §절A"; else echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"; fi
+    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; } > "$f"
   echo "$f"
 }
 # da <파일명> <절본문...> — 판정문 생성, 경로 출력
