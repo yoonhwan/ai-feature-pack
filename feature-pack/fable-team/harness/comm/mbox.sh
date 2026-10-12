@@ -102,8 +102,20 @@ case "$cmd" in
     #   `$( )` 로 잡으면 py 의 stdout 이 여기서 멈추므로 ★아래에서 반드시 그대로 다시 찍는다★.
     #   안 그러면 `QUEUED seq=…` 를 읽던 사람·스크립트가 조용히 아무것도 못 보게 된다.
     #   stderr(BLOCKED·DROPPED)는 안 잡으므로 지금처럼 그대로 흐른다.
-    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
+    # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥ · fix2 F6): 머리 [정지 레디]·[완료]·[완료·휴식] 만 — 본문 sha16 키 · prepared 를 «먼저»(못 쓰면 큐 적재 0) · 적재 성공 뒤 committed.
+    #   헬퍼 = $FT_BIN 또는 $DIR/../bin (inbox_ingest 와 같은 규칙). 없으면 훅 0 + stderr 1줄(send 는 그대로).
+    SE="${FT_BIN:-$DIR/../bin}/ft-sheet-events.sh"; SK=""
+    case "${args[*]}" in "[정지 레디]"*|"[완료]"*|"[완료·휴식]"*)
+      if [ -f "$SE" ]; then SK="$(bash "$SE" key mbox "$from" "${args[*]}" 2>/dev/null)" || SK=""
+      else echo "WARN 사건 원장 훅 건너뜀 — ft-sheet-events.sh 없음($SE)" >&2; fi;;
+    esac
+    if [ -n "$SK" ]; then
+      bash "$SE" prepare "$SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' "${SK%%:*}" "" "" "$from" "" mbox)" >/dev/null \
+        || { echo "REJECT 사건 원장 prepared 실패 — 큐 적재 0" >&2; exit 1; }
+    fi
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $seq" >/dev/null || true
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
     if user_facing "$to"; then notify=0; fi

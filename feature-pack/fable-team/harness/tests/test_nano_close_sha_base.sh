@@ -19,6 +19,9 @@ done
 
 mkdir -p "$T/bin" "$T/fake"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
+cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
+export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
+
 cp "$SRC/ft-nano-cherry-gate.sh" "$T/bin/ft-nano-cherry-gate.real.sh"
 # 래퍼 — 받은 feat/branch 를 기록하고 진짜 게이트에 넘긴다
 printf '#!/usr/bin/env bash\necho "$1 $2" > "%s/cherry.args"\nexec bash "%s/bin/ft-nano-cherry-gate.real.sh" "$@"\n' "$T" "$T" > "$T/bin/ft-nano-cherry-gate.sh"
@@ -59,7 +62,7 @@ git -C "$T/landwt" merge --squash -q "$BR" >/dev/null 2>&1; git -C "$T/landwt" -
 # 「조상 아님」 용 sha — 어느 랜딩 브랜치에도 없는 가지의 커밋
 GIT checkout -q -b side "$FORK" 2>/dev/null; echo s > "$REPO/side.txt"; GIT add side.txt; GIT commit -q -m side; SIDE="$(GIT rev-parse HEAD)"; GIT checkout -q main
 
-run() { ( cd "$REPO" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
 setinfo() {  # setinfo <base 값> — 좌석 워크트리 .worktree-info.json 의 base
   printf '{"branch":"%s","base":"%s","base_sha":"%s","purpose":"t"}\n' "$BR" "$1" "${FORK:0:10}" > "$NW/.worktree-info.json"
 }

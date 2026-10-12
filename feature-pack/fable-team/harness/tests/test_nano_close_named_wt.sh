@@ -15,6 +15,9 @@ bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n
 
 mkdir -p "$T/bin" "$T/fake"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
+cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
+export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
+
 # 가짜 cherry 게이트 — 받은 인자를 기록하고 통과(실제 게이트는 test_nano_cherry_gate* 가 따로 시험한다)
 printf '#!/usr/bin/env bash\necho "$1 $2" > "%s/cherry.args"\necho "OK cherry stub"; exit 0\n' "$T" > "$T/bin/ft-nano-cherry-gate.sh"
 cat > "$T/fake/tmux" <<'EOF'
@@ -45,7 +48,7 @@ git -C "$NW" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "work"
 SHA="$(git -C "$NW" rev-parse HEAD)"
 
 cp "$SRC/ft-hil.sh" "$T/bin/"  # R83: 같은 bin 의 ft-hil.sh 를 부른다 — HIL_DIR 임시 폴더 · HIL_CLIP=0(실 /tmp·실 클립보드 0)
-run() { ( cd "$REPO" && env -i HOME="$HOME" HIL_DIR="${HIL_DIR_T:-$T/hil}" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="${HIL_DIR_T:-$T/hil}" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
 setup() {  # setup — 명부·pane·카드·가짜 tmux 상태를 «정상» 으로 리셋(각 케이스가 한 칸만 비튼다)
   printf '{"%s":{"role":"nano","index":"design/planner/indices/진행/ovr.md"}}\n' "$SEAT" > "$REPO/.fable-team/seats-planner.json"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$NW" > "$T/pane-cwds"; printf '%s' "$NW" > "$T/cwd"
@@ -115,7 +118,7 @@ hasnt "$SWEEP" "$SEAT" "  └ ft-wt-sweep --dry-run 순회에 안 잡힌다"
 
 echo "== 사람이 계획을 실행 — nano/* 가 아닌 브랜치도 가드 ③ 을 통과하고 브랜치는 남는다"
 printf '#!/usr/bin/env bash\ngit -C "%s" worktree remove --force "$2"\n' "$REPO" > "$T/fake/baton"; chmod +x "$T/fake/baton"
-planout="$(cd "$REPO" && env -i HOME="$HOME" PATH="$T/fake:$PATH" BATON_BIN="$T/fake/baton" /bin/bash "$PLAN" 2>&1)"; prc=$?
+planout="$(cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" BATON_BIN="$T/fake/baton" /bin/bash "$PLAN" 2>&1)"; prc=$?
 [ "$prc" -eq 0 ] && has "$(printf '%s' "$planout" | tail -1)" "cleaned" "계획 실행 → cleaned" || bad "계획 실행 rc=$prc ← ${planout:0:400}"
 [ ! -d "$NW" ] && ok "  └ 워크트리 정리됨" || bad "워크트리 남음"
 git -C "$REPO" rev-parse --verify -q "refs/heads/$BR" >/dev/null && ok "  └ 계획 실행 뒤에도 브랜치 그대로" || bad "브랜치 삭제됨"

@@ -2,6 +2,8 @@
 """ft-board.py — 상태판 생성기 (판정 421 · 496). 원장 3종(명부 seats*.json · 카드 폴더 · 판정 원장)에서만 읽는다 — 손 트리 없음.
 
   ft-board.py collect                       중간 dict 한 장(JSON) — 시험·디버그용
+  ft-board.py render --sheet [--text|--html|--slack|--rev]   현황판 트리(PLAN-status-sheet) — 기본 md · --rev = 구조 rev·발행 rev JSON
+  ft-board.py sheet-notes <파일>             보정 메모 lint(행 id·필드 실재 · 거절이 있으면 rc 1)
   ft-board.py render --term | --slack [--full]   같은 dict 에서 꼴만 다르게(슬랙은 mrkdwn 문자열만 stdout · 발행 0). --full = env FT_NEWS_FULL=1
   ft-board.py stalled [--min N] [--team <명부 파일>]   ⚠정지·완료 뒤 작업·완료 선언 미처리 좌석만 `|` 구분 행(없으면 출력 0) — 팀 master·planner 틱용
   ft-board.py snapshot                      dict 를 불변 스냅샷으로 먼저 쓰고 직전과의 변경 단위 JSON 출력. 쓰기 실패 = rc≠0 · stdout 빈 값
@@ -20,6 +22,8 @@ import ft_board_env as env  # noqa: E402
 from ft_board_collect import collect  # noqa: E402
 from ft_board_render import render  # noqa: E402
 from ft_board_seat import stalled_lines  # noqa: E402
+from ft_board_sheet import render_cli  # noqa: E402
+from ft_board_sheet_notes import lint_notes  # noqa: E402
 from ft_board_snapshot import prune, snapshot  # noqa: E402
 
 
@@ -42,6 +46,12 @@ def main(argv: list[str]) -> int:
         out = json.dumps(collect(), ensure_ascii=False, sort_keys=True, indent=1)
     elif cmd == "render" and len(args) == 2 and args[1] in ("--term", "--slack"):
         out = render(collect(), args[1][2:], full)
+    elif cmd == "render" and len(args) >= 2 and args[1] == "--sheet" and set(args[2:]) <= {"--text", "--html", "--slack", "--rev"}:
+        out = render_cli(args[2:], collect)
+    elif cmd == "sheet-notes" and len(args) == 2:
+        res = lint_notes(env.ft_root(), Path(args[1]))
+        print("\n".join(f"{'OK' if ok else 'REJECT'} {ln.split('|')[0].strip()}" + (f" — {why}" if why else "") for ok, ln, why in res))
+        return 0 if all(r[0] for r in res) else 1
     elif cmd == "stalled":
         out = _stalled(args[1:])
     elif cmd == "snapshot" and len(args) == 1:

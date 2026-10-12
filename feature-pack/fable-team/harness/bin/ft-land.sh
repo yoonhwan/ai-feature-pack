@@ -19,11 +19,15 @@ while [ $# -gt 0 ]; do case "$1" in
   *) echo "unknown $1" >&2; usage;; esac; done
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel)" || { echo "ABORT repo 를 찾을 수 없음"; exit 1; }
 G() { git -C "$REPO" "$@"; }
-abort() { echo "ABORT $*"; exit 1; }
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; SK=""
+abort() { [ -z "$SK" ] || bash "$HERE/ft-sheet-events.sh" abort "$SK" 2>/dev/null; echo "ABORT $*"; exit 1; }
 
 G fetch --quiet "$REMOTE" "$TARGET" || abort "fetch $REMOTE $TARGET 실패"
 T="$(G rev-parse --verify "refs/remotes/$REMOTE/$TARGET^{commit}")" || abort "T(refs/remotes/$REMOTE/$TARGET) 확인 실패"
 F="$(G rev-parse --verify "$FEAT^{commit}")" || abort "feat($FEAT) 확인 실패"
+# 사건 원장 훅(PLAN-status-sheet §3-1): 이 스크립트에는 push 경로가 없다 — 사건은 «후보 확정»(land-candidate)이지 랜딩이 아니다.
+SK="$(bash "$HERE/ft-sheet-events.sh" key land-candidate "$FEAT" "$F")"
+bash "$HERE/ft-sheet-events.sh" prepare "$SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' land-candidate "" "$FEAT" "" "T=${T:0:10}" ft-land)" >/dev/null || abort "사건 원장 prepared 실패 — 후보 작업 거절"
 
 if G merge-base --is-ancestor "$T" "$F"; then
   MODE=ff; OID="$(G rev-parse "$F^{tree}")"; CAND="$F"
@@ -42,5 +46,6 @@ MB="$(G merge-base "$T" "$F")" || abort "merge-base 없음(무관 이력)"
 BAD="$(comm -23 <(G diff --diff-filter=D --name-only "$T" "$CAND" | sort) <(G diff --diff-filter=D --name-only "$MB" "$F" | sort))"
 [ -z "$BAD" ] || abort "feat 가 지우지 않은 파일이 후보에서 사라짐: $(echo "$BAD" | tr '\n' ' ')"
 
+bash "$HERE/ft-sheet-events.sh" commit "$SK" --ref "T=${T:0:10} cand=${CAND:0:10}" >/dev/null || true
 echo "LAND-CANDIDATE mode=$MODE T=$T OID=$OID CANDIDATE=$CAND feat=$F target=$REMOTE/$TARGET"
 echo "DRY-RUN push 안 함 — 이 후보 sha 만 ⑤ 게이트로 넘긴다(수락·push 는 C7·C10 뒤)"

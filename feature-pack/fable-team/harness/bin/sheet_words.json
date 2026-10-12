@@ -1,0 +1,23 @@
+{
+  "ask": {
+    "HIL-LEDGER open": "사람 판단 대기", "HIL-LEDGER": "사람 판단 대기",
+    "큐 [HIL]·[긴급] 미처리": "급한 쪽지", "큐 [HIL]·[긴급]": "급한 쪽지",
+    "MERGE-QUEUE 대기": "합치기 줄 대기", "MERGE-QUEUE": "합치기 줄 대기",
+    "제안 미결정": "제안서 결정 대기", "제안": "제안서", "관찰 중": "지켜보는 중"
+  },
+  "events": {
+    "spawn": "일 시작", "nano-close": "일 끝(작업 좌석 닫힘)", "issue-close": "이슈 닫힘", "label": "라벨 바뀜",
+    "land-candidate": "합칠 후보 확정", "merge-queue": "합치기 줄 변동", "stop-ready": "멈춤 알림", "done": "끝났다는 알림"
+  },
+  "sources": [
+    ["⓪ 오빠가 정할 것", "planner · 팀 master · Tank", "ft-verdict todo · ft-hil-ask · ft-merge-queue add · 라벨"],
+    ["① 한 것", "팀 master · master · issues/Tank", "ft-index-move · ft-land · ft-gh-as-tank close"],
+    ["② 하고 있는 것", "팀 master · 도구", "ft-nano-spawn · ft-index-move · ft-seat-status turn"],
+    ["③ 팀 상황", "도구(실측) · 팀 master", "ft-board stalled · [정지 레디]/[완료] 머리 쪽지"],
+    ["④ 이후 할 것", "planner · 팀 master · harness", "카드 선행 줄 · 합치기 줄 · 요청 장부"],
+    ["⑤ 제안서", "issues master · Tank · planner", "ft-gh-as-tank label · 승인 판정"],
+    ["⑥ 발주서", "팀 master · planner", "ft-nano-spawn · ft-team-open"]
+  ],
+  "flow": ["접수", "카드", "일하기", "검토", "합치기", "끝"],
+  "blocked": ["완료", "해결", "승인", "배포", "결정", "전부", "끝났"]
+}

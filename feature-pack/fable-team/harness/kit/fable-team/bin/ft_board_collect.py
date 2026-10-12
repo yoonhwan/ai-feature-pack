@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 import ft_board_env as env
+import ft_sheet_events
 from ft_board_mail import Mail
 from ft_board_seat import SeatCells
 from ft_board_tree import STATES, fold, parse_tree
@@ -126,6 +127,7 @@ def decision(root: Path, alive: set) -> str:
 
 def collect(files: list[Path] | None = None) -> dict:
     root, date = env.ft_root(), env.now().strftime("%F")
+    ft_sheet_events.reconcile(root)  # 사건 원장 — .committed 만 append(dedup). .prepared 는 건드리지 않는다(시트 «확인 중 N» · 판단 0). dict 는 그대로
     alive = env.tmux_alive()
     vds = env.verdicts(root, date)
     files = files or sorted((root / ".fable-team").glob("seats*.json"))

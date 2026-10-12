@@ -184,7 +184,17 @@ if [ "$ACTION" = pr-create ]; then
   GH_TOKEN="$TOK" gh api "repos/$REPO/branches/$PR_HEAD" >/dev/null 2>&1 \
     || die "원격에 head 브랜치가 없다: $PR_HEAD — push 먼저(PR 생성 시도 0)" 1
 fi
-OUT="$(GH_TOKEN="$TOK" gh "${CMD[@]}" 2>&1)" || die "gh ${CMD[0]} ${CMD[1]} 실패: $OUT" 1
+# 사건 원장 훅(PLAN-status-sheet §3-1): close/label 만 — prepared 를 «먼저»(못 쓰면 작업 거절) · gh 성공 직후 committed · 실패 abort
+SE="$HERE/ft-sheet-events.sh"; SK=""; SPREP=""
+case "$ACTION" in close) SEV=issue-close; SK="$(bash "$SE" key issue-close "$NUM")"; SREF="${REASON:-completed}";; label) SEV=label; SK="$(bash "$SE" key label "$NUM" "${ADD:-$REM}")"; SREF="+${ADD:-} -${REM:-}";; esac
+if [ -n "$SK" ]; then
+  SPREP="$(bash "$SE" prepare "$SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' "$SEV" issues "#$NUM" "" "$SREF" tank)")" || die "사건 원장 prepared 실패 — 작업 거절(PLAN §3-1)" 1
+  if [ "$ACTION" = close ] && [[ "$SPREP" == *"dup "* ]] && [ "$(GH_TOKEN="$TOK" bash "$SE" gh-state "$NUM" 2>/dev/null)" = CLOSED ]; then
+    echo "OK as=$TANK close $NUM — 이미 닫힘(상태 확인 · close 재수행 0)"; exit 0
+  fi
+fi
+OUT="$(GH_TOKEN="$TOK" gh "${CMD[@]}" 2>&1)" || { [ -z "$SK" ] || bash "$SE" abort "$SK"; die "gh ${CMD[0]} ${CMD[1]} 실패: $OUT" 1; }
+[ -z "$SK" ] || bash "$SE" commit "$SK" >/dev/null || true
 if [ "$ACTION" = pr-create ]; then
   PR_URL="$(grep -Eo 'https://[^ ]+/pull/[0-9]+' <<<"$OUT" | tail -1)"; NUM="${PR_URL##*/}"
   [[ "$NUM" =~ ^[0-9]+$ ]] || die "PR URL 해석 실패 — 출력: $OUT" 1
