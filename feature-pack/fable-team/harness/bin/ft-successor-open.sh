@@ -20,6 +20,10 @@ printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJ
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SEND="${FT_SEND_VERIFIED:-$HERE/ft-send-verified.sh}"; MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"; REACH="${FT_REACH_CHECK:-$HERE/ft-reach-check.sh}"
 WAIT_MAX="${FT_SO_WAIT_MAX:-60}"; POLL="${FT_SO_POLL:-1}"
+# 형제 도구 3개(env 로 바뀐 «최종 경로» 기준)는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 좌석을 연 «뒤» 송신에서 죽는다. 열기 «전»에 거절한다(R134).
+for _sib in "$SEND" "$MBOX" "$REACH"; do
+  [ -f "$_sib" ] || { echo "REJECT $(basename -- "$_sib") 없음: $(dirname -- "$_sib") (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+done
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "REJECT 워크트리가 git 이 아니다: $WT"; exit 1; }
 STATE="$ROOT/.fable-team/state/successor"

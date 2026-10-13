@@ -69,6 +69,10 @@ SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
+# 형제 도구는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 lint 의 «파일 없음» 이 «lint 실패» 로, 첫 발주는 좌석을 연 «뒤» 에 죽는다. 열기 «전»에 거절한다(R134). --dry-run 은 송신 전(179행)에 끝나므로 send-verified 는 실전만.
+for _sib in ft-index-lint.sh $([ "$DRY" = 1 ] || echo ft-send-verified.sh); do
+  [ -f "$HERE/$_sib" ] || { echo "REJECT $_sib 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+done
 
 # ① lint — 누가 읽어도 착수 가능한가 (P2: planner 카드 머리 「- 템플릿: 빈 카드(나노가 채움)」 = lint ⑤⑥ 만 건너뜀 · 그 밖 팀·검사는 그대로)
 _EBN=""; if [[ "$IDX" == *design/planner/indices/* ]] && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi

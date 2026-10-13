@@ -22,6 +22,7 @@ IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
 [ "$FROM" != "$DST" ] || { echo "REJECT 이미 $DST 에 있다"; exit 1; }
 if [ "$DST" = 진행 ]; then
+  [ -f "$HERE/ft-index-lint.sh" ] || { echo "REJECT ft-index-lint.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
   bash "$HERE/ft-index-lint.sh" "$SRC" || { echo "REJECT lint 실패 — 위 사유"; exit 1; }
   [ -n "$SEAT" ] || { echo "REJECT 대기→진행 은 --seat <좌석명> 필수"; exit 1; }
 fi
