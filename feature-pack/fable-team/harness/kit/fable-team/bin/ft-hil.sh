@@ -5,6 +5,7 @@
 #   ft-hil.sh                     → 목록 `h<N>  <대상>  <대상 실재 여부>`
 # 진입점 폴더 = ${HIL_DIR:-/tmp}(시험만 바꾼다) · 홈($HOME) 아래 쓰기 0 · 실행 기능 0(실행은 사람이 `bash /tmp/h<N>`)
 # 기존 h<N>(링크·파일) 덮기·지우기 0 · 계획 파일 수정·삭제 0 · eval 0.
+# 등록 전 검사(R135a): 같은 폴더 ft_secret_judge.py --plan — 비밀을 화면으로 흘리는 줄이 있으면 `REJECT 계획 파일 비밀 출력 경로 — <줄> <이유>` rc 1(등록 0).
 set -uo pipefail
 D="${HIL_DIR:-/tmp}"
 die() { echo "REJECT $*" >&2; exit 1; }
@@ -29,9 +30,22 @@ max_n() {  # $D/h<숫자> (링크·파일·깨진 링크 모두) 중 최대 번�
   echo "$m"
 }
 
+lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 등록 0(rc 1). 판정기 없음·내부 오류는 경고만(fail-open)
+  local j="${FT_SECRET_JUDGE:-$(dirname "${BASH_SOURCE[0]}")/ft_secret_judge.py}" out rc l first=1
+  [ -f "$j" ] || { echo "WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)" >&2; return 0; }
+  out="$(python3 "$j" --plan "$1" 2>/dev/null)"; rc=$?
+  [ "$rc" != 0 ] || return 0
+  [ "$rc" = 1 ] || { echo "WARN 비밀 출력 경로 검사 실패(rc=$rc) — 검사 없이 등록한다" >&2; return 0; }
+  while IFS= read -r l; do
+    if [ "$first" = 1 ]; then echo "REJECT 계획 파일 비밀 출력 경로 — ${l#reject }" >&2; first=0; else echo "  — ${l#reject }" >&2; fi
+  done <<< "$out"
+  return 1
+}
+
 add() {
   local f="${1:-}" t l n="" i=0
   [ -f "$f" ] || die "계획 파일이 없다: $f"
+  lint "$f" || exit 1
   t="$(rp "$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")")"
   mkdir -p "$D" || die "진입점 폴더를 못 만들었다: $D"
   until mkdir "$D/.hil.lock" 2>/dev/null; do
