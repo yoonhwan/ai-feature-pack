@@ -168,7 +168,10 @@ grep -q '^SAME$' "$T/bytes.txt" && ok "F5 render --sheet(md·text·html·rev) --
 # launchd 템플릿 2종 — 설치가 시트 경로를 재현한다(--sheet · --emit-model)
 TPL="$ROOT/scripts/harness-install/slack-mirror"
 grep -q '<string>--sheet</string>' "$TPL/com.byz.ft-board-publish.plist.template" && ok "템플릿 ft-board-publish 에 --sheet" || bad "템플릿 ft-board-publish --sheet 없음"
-grep -q '<string>--emit-model</string><string>__HOME__/.hermes/magazine/model-latest.json</string>' "$TPL/com.byz.ft-magazine.plist.template" && ok "템플릿 ft-magazine 에 --emit-model <json>" || bad "템플릿 ft-magazine --emit-model 없음"
+# R109 ⓒ — 매거진이 쓰는 경로 == 시트가 읽는 경로(기본 <루트>/.fable-team/state/sheet-story.json): 시트 plist 에 FT_SHEET_STORY 덮어쓰기 0 · 두 plist 같은 __BYZ_ROOT__
+grep -q '<string>--emit-model</string><string>__BYZ_ROOT__/.fable-team/state/sheet-story.json</string>' "$TPL/com.byz.ft-magazine.plist.template" && ok "템플릿 ft-magazine --emit-model = 시트 이야기 경로" || bad "템플릿 ft-magazine --emit-model 경로 불일치"
+! grep -q 'FT_SHEET_STORY' "$TPL/com.byz.ft-board-publish.plist.template" && grep -q '<key>FT_ROOT</key><string>__BYZ_ROOT__</string>' "$TPL/com.byz.ft-board-publish.plist.template" && ok "템플릿 ft-board-publish 는 기본 이야기 경로(덮어쓰기 0 · FT_ROOT=__BYZ_ROOT__)" || bad "템플릿 ft-board-publish 이야기 경로 덮어쓰기"
+! grep -q 'model-latest.json' "$TPL/com.byz.ft-magazine.plist.template" && ok "옛 model-latest.json 경로 잔존 0" || bad "옛 model-latest.json 잔존"
 # 600/300 잔존 0
 ! grep -rnE '\b(600|300)\b' "$ROOT/scripts/fable-team-bin/ft-sheet-publish.sh" "$ROOT/scripts/fable-team-bin/ft_sheet_publish.py" 2>/dev/null | grep -v '^#' | grep -q . && ok "새 스크립트에 600/300 초 값 0" || bad "600/300 잔존"
 

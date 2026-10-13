@@ -43,6 +43,17 @@ OUT="$(FT_SHEET_STORY="$STORY" board render --sheet)"
 has "이야기 있어도 구조 상태는 진행" "$OUT" "검토 중 · 고칠 것 2"
 STORYSEC="$(printf '%s\n' "$OUT" | awk '/^## 오늘 이야기/{f=1;next} /^## /{f=0} f')"
 for w in 완료 해결 승인 배포 결정 전부; do lacks "이야기 절에 상태어 0: $w" "$STORYSEC" "$w"; done
+# R109 ⓓ — 매거진이 낸 failure 칸: 있으면 «생성 실패: 사유 첫 줄» · 없고 summary 정상이면 그 문단 · 파일 없으면 «아직 없음»
+printf '%s' '{"summary":"","failure":"요약 HTTP 503\n둘째 줄","eli5_ok":false}' > "$T/story-fail.json"
+FOUT="$(FT_SHEET_STORY="$T/story-fail.json" board render --sheet)"
+has "failure 칸 → 생성 실패: 사유 첫 줄" "$FOUT" "오늘 이야기 생성 실패: 요약 HTTP 503"
+lacks "failure 는 첫 줄만" "$FOUT" "둘째 줄"; lacks "failure 인데 엉뚱한 사유(상태어·숫자) 0" "$FOUT" "상태어·숫자 포함"
+printf '%s' '{"summary":"오늘은 조용한 하루예요","failure":null,"eli5_ok":true}' > "$T/story-ok.json"
+has "failure 없고 summary 정상 → 그 문단" "$(FT_SHEET_STORY="$T/story-ok.json" board render --sheet)" "오늘은 조용한 하루예요"
+printf '%s' '{"summary":"오늘은 조용한 하루예요","failure":"풀이 호출 실패","eli5_ok":false}' > "$T/story-eli5.json"
+SOUT="$(FT_SHEET_STORY="$T/story-eli5.json" board render --sheet)"
+has "summary 정상 + failure(풀이만 실패) → 이야기 문단 우선" "$SOUT" "오늘은 조용한 하루예요"; lacks "풀이만 실패한 날 이야기 칸에 실패 문구 0" "$SOUT" "오늘 이야기 생성 실패"
+has "파일 없음 → 아직 없음(그대로)" "$(FT_SHEET_STORY="$T/none.json" board render --sheet)" "오늘 이야기: 아직 없음(아침판 입력 전)"
 
 # 보정 메모 lint — id 실재 + 그 행에 그 필드 실재 · 자동 소비 0 · 미적용 절로만
 NOTES="$T/notes.md"

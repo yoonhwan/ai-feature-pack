@@ -8,7 +8,7 @@ from pathlib import Path
 
 from magazine_reattach import REV
 from magazine_slack import SLACK_BASE
-from magazine_summary import DEFAULT_CMD
+from magazine_summary import PROXY_URL
 
 HOME = Path.home()
 
@@ -25,7 +25,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--emit-model", metavar="JSON", help="구조 모델·요약·쉬운 판 여부를 파일로 — 슬랙·PDF·상태 쓰기 0 (시트 아침판 입력 · md 는 push)")
     p.add_argument("--no-push", action="store_true", help="ops/magazine push 끔(수동 시험)")
     p.add_argument("--model-file", help="구조 모델 JSON (수집 모듈 대신 — 시험·재발행용)")
-    p.add_argument("--summary-cmd", default=DEFAULT_CMD)
+    p.add_argument("--summary-cmd", default=PROXY_URL, help="요약·풀이 호출 — http(s):// 주소면 프록시 Messages 직접, 아니면 stdin→stdout 명령")
     p.add_argument("--out-dir", default=str(HOME / ".hermes/magazine"))
     p.add_argument("--state", default=str(HOME / ".hermes/state/byz_morning_magazine.json"))
     p.add_argument("--token-file", default=str(HOME / ".hermes/secrets/yoonhwan_bot.env"))

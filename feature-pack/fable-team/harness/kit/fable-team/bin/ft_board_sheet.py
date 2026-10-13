@@ -40,7 +40,11 @@ def _story(root: Path) -> str:
     p = Path(os.environ.get("FT_SHEET_STORY") or root / ".fable-team" / "state" / "sheet-story.json")
     if not p.is_file():
         return STORY_NONE
-    text = str(json.loads(p.read_text(encoding="utf-8")).get("summary", "")).strip()
+    data = json.loads(p.read_text(encoding="utf-8"))
+    failure = str(data.get("failure") or "").strip()  # 매거진이 낸 실패 사유 — summary 가 비었을 때만 «보이게» (R109 ⓓ · 풀이만 실패한 날은 이야기 정상)
+    text = str(data.get("summary", "")).strip()
+    if not text and failure:
+        return f"오늘 이야기 생성 실패: {failure.splitlines()[0]}"
     bad = any(w in text for w in cards.table("sheet_words.json")["blocked"]) or re.search(r"\d|#", text)
     return "오늘 이야기 생성 실패: 상태어·숫자 포함(상태는 위 트리만 말한다)" if bad or not text else text
 
