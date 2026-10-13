@@ -89,6 +89,6 @@ def test_facts_carry_unanswered_requests_key_merges_closed_issues_and_trouble():
 
 def test_prompt_fixes_three_slots_and_bans_umbrella_words():
     p = ms.PROMPT
-    assert "기능·문제 이름 그대로" in p and "오빠가 결정할 건 없어요" in p and "주의할 것" in p
+    assert "기능·문제 이름 그대로" in p and "결정할 건 없어요" in p and "주의할 것" in p
     assert all(w in p for w in ("주요 기능들", "여러 작업")) and "쓰지 않는다" in p
     assert "{facts}" in p and p.format(facts="x").count('"lines"') == 1

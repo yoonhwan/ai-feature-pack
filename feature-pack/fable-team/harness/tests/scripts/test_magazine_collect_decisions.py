@@ -17,8 +17,12 @@ PLANNER = "byz-planner-master-claude#7"
 MASTER = "byz-harness-master-claude#12"
 
 
+COVER = ("2026-10-07T07:00:00", "byz-other#1", MASTER, "창 시작 앞 기록")  # e8c5718a8c: 첫 기록이 창 시작을 덮어야 읽는다
+
+
 def mbox(tmp_path: Path, *rows: tuple[str, str, str, str]) -> Path:
     p = tmp_path / "mailbox.log.jsonl"
+    rows = (COVER, *rows)
     p.write_text("\n".join(json.dumps(dict(zip(("ts", "from", "to", "body"), r)), ensure_ascii=False) for r in rows), encoding="utf-8")
     return p
 
