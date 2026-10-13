@@ -1,0 +1,174 @@
+"""ft_news_publish — 다듬은 뉴스(POLISHED)를 «바뀐 것만» Slack 채널에 새 글로 발행 + 처리 기록 + 30분 무초안 감시 (R118b · 오빠 판정 1428·1430). 쓰는 쪽은 ft-news-publish.sh · ft-tick.sh.
+
+publish = 직전 발행본과 «머리 시각만 지운 꼴» 이 같으면 발행 0 · 다르면 채널 «최상위 새 글» 1개(오빠 판정 1438 — 스레드·답글·update·첨부 0). 올리기 전 그날 봇 글 중 본문이 같은 글이 있으면 채택(첫 줄만 보면 머리 시각이 같은 새 판이 사라져 통째 비교)(응답 유실 뒤 재실행이 두 번 올리지 않는다). 본문 UTF-8 3500B 초과 = raise.
+처리 기록(state/news-publish/processed.tsv) = «초안 이름 → POLISHED 이름 | 같은 내용 · 발행 0» 1줄. 대체는 «명시 기록» 으로만 — X 를 기록할 때 X 보다 이른 «기록 없는» 초안 W 마다 «W<TAB>대체<TAB>X» 1줄을 같이 남긴다.
+근거: 초안은 R118a 생성기가 매번 전 팀을 새로 모은 «전체 상태 스냅샷» 이라 더 새로 다듬은 판이 이전 판을 내용상 대체한다. 시각만으로 대체를 추정하지 않는다(기록이 없으면 대체 아님).
+watch = 처리 기록 줄이 없는 DRAFT 중 가장 오래된 것이 30분을 넘으면 «planner<TAB>초안<TAB>분» 1줄을 낸다(보내는 쪽은 ft-tick.sh · 서명당 1회).
+env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험)
+"""
+import argparse
+import html
+import json
+import logging
+import os
+import re
+import shlex
+import sys
+from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "harness-install" / "slack-mirror"))  # 리포 안 키트(설치본 ~/.hermes/scripts 가 없는 시험·개발 판)
+import ft_board_env as env  # noqa: E402
+from magazine_slack import post_root  # noqa: E402
+from mirror_lib import MirrorError, paged  # noqa: E402
+
+LOG = logging.getLogger("ft_news_publish")
+STAMP = re.compile(r"-(\d{8}-\d{4})\.md$")
+CLOCK = re.compile(r"\d{2}:\d{2}")
+NUMBER = re.compile(r"#\d+|판정\s*\d+")
+STALE_MIN = 30
+SAME = "같은 내용 · 발행 0"
+MAX_BYTES = 3500  # Slack 글 길이 한도는 «바이트» — 보드 뿌리 글과 같은 UTF-8 3500B(msg_too_long 실측 10-12) · 넘으면 raise
+
+
+def norm(text: str) -> str:
+    """비교 키 — 첫 줄의 HH:MM 만 지우고 줄 끝 공백을 정리한다."""
+    lines = text.splitlines()
+    if lines:
+        lines[0] = CLOCK.sub("", lines[0])
+    return "\n".join(ln.rstrip() for ln in lines).strip()
+
+
+def _now() -> datetime:
+    v = os.environ.get("FT_NEWS_NOW")
+    return datetime.strptime(v, "%Y-%m-%d %H:%M") if v else datetime.now()
+
+
+def _paths() -> tuple[Path, Path]:
+    """(뉴스 폴더, 상태 폴더)."""
+    root = env.ft_root()
+    return Path(os.environ.get("FT_NEWS_DIR") or root / "design" / "planner" / "news"), root / ".fable-team" / "state" / "news-publish"
+
+
+def _stamp(name: str) -> str:
+    m = STAMP.search(name)
+    return m[1] if m else ""
+
+
+def _processed(state: Path) -> list[str]:
+    f = state / "processed.tsv"
+    return [ln.split("\t")[0] for ln in f.read_text(encoding="utf-8").splitlines() if ln] if f.exists() else []
+
+
+def _record(state: Path, news: Path, draft: str | None, result: str) -> None:
+    """draft 한 줄 + draft 보다 이른 «기록 없는» 초안마다 대체 줄(대체 줄이 먼저 · 마지막 줄이 draft 자신)."""
+    if not draft:
+        LOG.warning("처리 기록 건너뜀 — %s 이전 시각의 DRAFT 가 없음", result)
+        return
+    done = set(_processed(state))
+    if draft in done:
+        return
+    older = sorted(p.name for p in news.glob("DRAFT-*.md") if _stamp(p.name) < _stamp(draft) and p.name not in done)
+    state.mkdir(parents=True, exist_ok=True)
+    with (state / "processed.tsv").open("a", encoding="utf-8") as f:
+        f.writelines(f"{w}\t대체\t{draft}\n" for w in older)
+        f.write(f"{draft}\t{result}\n")
+
+
+def _pick_draft(news: Path, polished_name: str) -> str | None:
+    """이 POLISHED 시각 이하 DRAFT 중 가장 새 것."""
+    cands = sorted(p.name for p in news.glob("DRAFT-*.md") if _stamp(p.name) <= _stamp(polished_name))
+    return cands[-1] if cands else None
+
+
+def _warn_numbers_outside_footnote(body: str) -> None:
+    lines = body.rstrip().splitlines()
+    while lines and lines[-1].lstrip().startswith("|"):
+        lines.pop()
+    if found := NUMBER.findall("\n".join(lines)):
+        LOG.warning("각주 표 밖 번호 %d건(%s) — 번호는 맨 끝 각주 표에만 둔다(발행은 막지 않음)", len(found), ", ".join(found[:3]))
+
+
+def _target(day: str, polished: Path):
+    """토큰·채널·주소 = byz_thread_post.target() 읽기 재사용(FT_NEWS_POST_ARGS 로 --slack-base/--token-file/--channel 덮어쓰기)."""
+    tool = Path(os.environ.get("FT_THREAD_POST") or Path.home() / ".hermes" / "scripts" / "byz_thread_post.py")
+    if not tool.is_file():
+        raise MirrorError(f"게시 도구 없음 {tool} (#0 RULE · 폴백 0)")
+    sys.path.insert(0, str(tool.parent))
+    import byz_thread_post as tp  # noqa: E402
+    from thread_post_args import parse  # noqa: E402
+    return tp.target(parse(["update", "--key", f"board:{day}", "--text-file", str(polished), *shlex.split(os.environ.get("FT_NEWS_POST_ARGS", ""))]))
+
+
+def _find_posted(t, body: str, oldest: float) -> str | None:
+    """그날 채널 최상위 봇 글(답글 달린 글은 thread_ts==ts) 중 본문이 «통째로» 같은 글의 ts(가장 이른 것). 첫 줄만 보면 머리 시각이 같고 내용만 바뀐 새 판이 «이미 올라감» 으로 오인돼 사라진다."""
+    msgs = paged(t.base, t.token, "conversations.history", {"channel": t.channel, "oldest": f"{oldest:.6f}", "limit": 200})
+    hits = [m for m in msgs if m.get("bot_id") and (not m.get("thread_ts") or m.get("thread_ts") == m.get("ts")) and html.unescape(str(m.get("text", ""))).strip() == body.strip()]
+    return min((str(m["ts"]) for m in hits), default=None)
+
+
+def _post_new(day: str, polished: Path, body: str) -> str:
+    """채널 최상위 새 글 1개(스레드·답글·update·첨부 0). 올리기 «전» 그날 봇 글 중 본문이 같은 글이 있으면 올리지 않고 그 ts 를 채택."""
+    if len(body.encode("utf-8")) > MAX_BYTES:
+        raise MirrorError(f"뉴스 본문 {len(body.encode('utf-8'))}B > {MAX_BYTES}B — Slack 길이 한도(바이트) 초과, 자르지 않고 발행 0")
+    t = _target(day, polished)
+    oldest = datetime.strptime(day, "%Y-%m-%d").timestamp()
+    if found := _find_posted(t, body, oldest):
+        LOG.info("이미 올라간 글 채택 ts=%s — 다시 올리지 않음", found)
+        return found
+    return post_root(t, body)
+
+
+def publish(polished: Path, draft: str | None = None) -> int:
+    news, state = _paths()
+    day, body = _now().strftime("%Y-%m-%d"), polished.read_text(encoding="utf-8")
+    if not body.strip():
+        LOG.error("POLISHED 가 비었다: %s — 발행 0", polished)
+        return 2
+    _warn_numbers_outside_footnote(body)
+    draft = draft or _pick_draft(news, polished.name)
+    pub = state / day / "published.txt"
+    if pub.exists() and norm(body) == norm(pub.read_text(encoding="utf-8")):
+        _record(state, news, draft, SAME)
+        print("ft-news-publish: 같은 내용 — 발행 0")
+        return 0
+    try:
+        ts = _post_new(day, polished, body)
+    except MirrorError as e:  # 실패 = 기록 0 → 다시 실행하면 같은 걸 다시 시도(올라갔는데 응답만 유실이면 첫 줄 조회가 채택)
+        LOG.error("뉴스 발행 실패: %s", e)
+        return 1
+    pub.parent.mkdir(parents=True, exist_ok=True)
+    pub.write_text(body, encoding="utf-8")
+    _record(state, news, draft, polished.name)
+    print(f"ft-news-publish: 발행 완료 ts={ts}")
+    return 0
+
+
+def watch() -> int:
+    news, state = _paths()
+    done = set(_processed(state))
+    waiting = sorted(p.name for p in news.glob("DRAFT-*.md") if p.name not in done)
+    if not waiting:
+        return 0
+    age = int((_now() - datetime.strptime(_stamp(waiting[0]), "%Y%m%d-%H%M")).total_seconds() // 60)
+    if age > STALE_MIN:
+        planner = json.loads((env.ft_root() / ".fable-team" / "seats-planner.json").read_text(encoding="utf-8"))["_master"]
+        print(f"{planner}\t{waiting[0]}\t{age}")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    pp = sub.add_parser("publish")
+    pp.add_argument("polished")
+    pp.add_argument("--draft", help="DRAFT 파일 이름 — 없으면 POLISHED 시각 이하 가장 새 DRAFT")
+    sub.add_parser("watch")
+    a = p.parse_args(argv)
+    return publish(Path(a.polished), a.draft) if a.cmd == "publish" else watch()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    raise SystemExit(main(sys.argv[1:]))

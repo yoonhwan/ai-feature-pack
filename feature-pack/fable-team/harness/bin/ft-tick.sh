@@ -323,12 +323,28 @@ drift_watch() {
   return 0
 }
 
+# R118b(판정 1430): 처리 기록 없는 가장 오래된 초안이 30분 넘으면 planner 에 1통 — 서명 = 초안 이름(1회) · 처리되면 서명 해제. FT_TICK_NEWS_WATCH=0 으로 끔.
+news_watch() {
+  local out to draft min sigf="$STATE_DIR/news-watch.sig"
+  [ "${FT_TICK_NEWS_WATCH:-1}" = 1 ] || return 0
+  out="$(env ${ROOT:+FT_ROOT="$ROOT"} python3 "$HERE/ft_news_publish.py" watch 2>&1)" || { echo "$(date '+%F %T') news_watch: $(printf '%s\n' "$out" | tail -1)" >&2; return 0; }
+  [ -n "$out" ] || { rm -f "$sigf"; return 0; }
+  IFS=$'\t' read -r to draft min <<< "$out"
+  [ "$(cat "$sigf" 2>/dev/null)" = "$draft" ] && return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=news-watch draft=$draft ${min}m to=$to"; return 0; fi
+  if bash "$MBOX" send "$to" ft-tick "[뉴스 다듬기 정지] 초안 $draft 가 ${min}분째 처리 기록 없음 — POLISHED 저장 후 ft-news-publish.sh <POLISHED> 를 실행하거나 멈춘 이유를 확인해 주세요." >/dev/null 2>&1; then
+    mkdir -p "$STATE_DIR"; echo "$draft" > "$sigf"; log "news_watch: $draft ${min}분 처리 기록 없음 → $to"
+  else echo "$(date '+%F %T') news_watch: mbox failed" >&2; fi
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to master mok
   idle_watch
   stall
   sweep_wt
   drift_watch
+  news_watch
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
   master="$(master_seat)"; report_to="${FT_TICK_PM_REPORT_TO:-${master:-ft-v65-master}}"
