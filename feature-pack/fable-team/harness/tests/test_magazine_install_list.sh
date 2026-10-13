@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test_magazine_install_list.sh — 판정 601: 아침 매거진 키트의 «같은 폴더 모듈 import 닫힘 집합» ⊆ install-magazine.sh REQUIRED ∪ COMPANION
 # (미러 설치 선행 가정 0 — 매거진 설치기 하나로 닫힘). 빠진 이름은 새 머신에서 ImportError 가 된다 — 이름을 출력하고 rc=1.
-# 변이: REQUIRED 에서 magazine_collect_open.py · mirror_lib.py 를 각각 뺀 복사본은 rc=1 이어야 한다. 실 ~/.hermes·launchd 는 건드리지 않는다(읽기 전용).
+# R123: 진입점에 magazine_doc.py(R117) 추가 + 스위스 템플릿 html 목록 검사.
+# 변이: REQUIRED 에서 magazine_collect_open.py · mirror_lib.py · magazine_doc_md.py 를 각각 뺀 복사본은 rc=1 이어야 한다. 실 ~/.hermes·launchd 는 건드리지 않는다(읽기 전용).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../scripts/harness-install/slack-mirror"
@@ -37,7 +38,7 @@ def imported(py: Path) -> set[str]:
 
 
 seen: set[str] = set()
-stack = ["byz_morning_magazine", "byz_proposal_publish", "byz_thread_post"]
+stack = ["byz_morning_magazine", "byz_proposal_publish", "byz_thread_post", "magazine_doc"]
 while stack:
     m = stack.pop()
     if m not in seen:
@@ -47,6 +48,9 @@ while stack:
 text = magazine_sh.read_text(encoding="utf-8")
 installed = listed(text, "REQUIRED") | listed(text, "COMPANION")
 missing = sorted(f"{m}.py" for m in seen if f"{m}.py" not in installed)
+# R117 스위스 HTML 템플릿 — .py import 로는 안 잡히는 데이터 파일이라 이름으로 직접 대조
+if "magazine_swiss_template.html" not in installed:
+    missing.append("magazine_swiss_template.html")
 print("\n".join(missing))
 sys.exit(1 if missing else 0)
 PYEOF
@@ -56,7 +60,7 @@ OUT="$(check "$KIT/install-magazine.sh")"; rc=$?
 [ $rc -eq 0 ] && ok "닫힘 집합 ⊆ 설치 목록" || bad "설치 목록에 빠진 모듈(rc=$rc): $(echo "$OUT" | tr '\n' ' ')"
 
 # 변이 — 목록에서 한 모듈씩 뺀 복사본은 걸러져야 한다
-for mod in magazine_collect_open mirror_lib; do
+for mod in magazine_collect_open mirror_lib magazine_doc_md; do
   sed "s/$mod\\.py //" "$KIT/install-magazine.sh" > "$T/mutant.sh"
   grep -q "$mod" "$T/mutant.sh" && bad "변이 복사본 제작 실패: $mod" || ok "변이 복사본: $mod 제거됨"
   MOUT="$(check "$T/mutant.sh")"; mrc=$?
