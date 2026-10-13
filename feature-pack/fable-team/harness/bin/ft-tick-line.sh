@@ -30,6 +30,6 @@ fi
 export FT_ROOT SEAT TEAM HERE
 export FT_SEATS_GLOB="${FT_SEATS_GLOB:-$FT_ROOT/.fable-team/seats*.json}"
 export FT_TICK_OUT_DIR="${FT_TICK_OUT_DIR:-$FT_ROOT/.fable-team/state/tick}"
-export LINT_OUT; LINT_OUT="$(bash "$HERE/ft-seats-lint.sh" ${TEAM:+--team "$TEAM"} 2>&1)"
+export LINT_OUT; LINT_OUT="$(bash "$HERE/ft-seats-lint.sh" ${TEAM:+--team "$TEAM"} 2>/dev/null)"  # stdout 만 파싱 — 2>&1 은 bash setlocale 경고를 첫 줄로 섞는다(출력이 비면 아래 «해석 실패» UNKNOWN 으로 드러난다)
 
 exec python3 "$HERE/ft_tick_line.py"

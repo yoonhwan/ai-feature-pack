@@ -33,7 +33,7 @@ card() {  # card <파일> <머리줄 수 4|2> [상태값] [Issue값]
     [ "$2" = 4 ] && { echo "상태: ${3:-대기}"; echo "선행: 없음"; echo "시험 입력: 없음"; }
     echo "## 구현 범위"; echo "x"; } > "$T/idx/대기/$1.md"
 }
-run() { (cd "$HERE/../.." && PATH="$T/bin:$PATH" FT_SEATS_JSON="$T/seats.json" FT_INDEX_DIR="$T/idx" bash "$T/bin/ft-nano-slots.sh" "$@" 2>&1); }
+run() { (cd "$HERE/../.." && PATH="$T/bin:$PATH" FT_SEATS_JSON="$T/seats.json" FT_INDEX_DIR="$T/idx" bash "$T/bin/ft-nano-slots.sh" "$@" 2>/dev/null); }  # stdout 만 비교 — 2>&1 은 C.UTF-8 미설치 머신의 bash setlocale 경고를 첫 줄에 섞는다
 
 # 케이스 1 — 노는 석이 빈 석으로 안 세어진다: 상한 5, 일하는 석 2 + 노는 석 3 = 점유 5 → 빈 석 0 · spawn 지시 없음
 cat > "$T/seats.json" <<'EOF'

@@ -9,6 +9,8 @@ MIRROR="$HERE/../../scripts/harness-install/fable-team/bin"
 TICK="$BIN/ft-tick-line.sh"; LINT="$BIN/ft-seats-lint.sh"; MEAS="$BIN/ft-measure-net.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
+chars() { python3 -c 'import sys; print(len(sys.stdin.read()))'; }  # 문자 수 — wc -m 은 locale 이 없으면(C.UTF-8 미설치) 바이트를 센다
+NOLOC='/^bash: warning: setlocale: LC_ALL: cannot change locale/d'  # C.UTF-8 가 없는 머신의 bash 경고 한 줄만 뺀다(2>&1 캡처 헬퍼용 · 비교식은 그대로)
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 has() { printf '%s' "$2" | grep -qF -- "$3" && ok "$1" || bad "$1 (없음: $3)"; }
@@ -53,7 +55,7 @@ tick() {  # <루트> [now] [좌석] → stdout (좌석→jsonl 경로 캐시는 
 }
 lint() {  # <루트> [옵션…] → stdout (rc 는 $LRC)
   local R="$1"; shift
-  FT_ROOT="$R" FT_TMUX_LS_CMD="cat $R/alive.txt" FT_SEATS_GLOB="$R/.fable-team/seats*.json" bash "$LINT" "$@" 2>&1; echo $? > "$T/lrc"
+  FT_ROOT="$R" FT_TMUX_LS_CMD="cat $R/alive.txt" FT_SEATS_GLOB="$R/.fable-team/seats*.json" bash "$LINT" "$@" 2>&1 | sed "$NOLOC"; echo "${PIPESTATUS[0]}" > "$T/lrc"
 }
 
 for f in "$TICK" "$LINT" "$MEAS" "$BIN/ft-seat-status.sh"; do
@@ -124,7 +126,7 @@ PY
 for s in "$ARCH" "$NANO" byz-tt-nano-s0-claude#0 byz-tt-nano-s1-claude#0 byz-tt-nano-s2-claude#0 byz-tt-nano-s3-claude#0 byz-tt-nano-s4-claude#0 byz-tt-nano-s5-claude#0; do printf '1' > "$T/map/$s.rc"; done
 out="$(tick "$R8")"
 eq "F2 출력 ≤5줄" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" 5
-[ "$(printf '%s' "$out" | wc -m | tr -d ' ')" -le 500 ] && ok "F2 ≤500자($(printf '%s' "$out" | wc -m | tr -d ' ') 문자 · $(printf '%s' "$out" | wc -c | tr -d ' ') 바이트)" || bad "F2 500자 초과"
+[ "$(printf '%s' "$out" | chars)" -le 500 ] && ok "F2 ≤500자($(printf '%s' "$out" | chars) 문자 · $(printf '%s' "$out" | wc -c | tr -d ' ') 바이트)" || bad "F2 500자 초과"
 has "F2 첫 줄 UNKNOWN 8석" "$(printf '%s\n' "$out" | head -1)" "UNKNOWN 8석"
 lacks "F2 첫 줄에 이유 없음" "$(printf '%s\n' "$out" | head -1)" "turn 조회 실패"
 lacks "F2 할 일 없음 금지" "$out" "할 일 없음"
@@ -179,7 +181,7 @@ cat > "$T/seat-dir.sh" <<EOF
 if [ "\$1" = jsonl ]; then ls -t "$FD"/*.jsonl | head -1; exit 0; fi
 exec bash "$T/bin/ft-seat-status.sh" "\$@"
 EOF
-RF="$(mkroot t10)"; printf '{"_master": "%s", "%s": {"role": "master"}, "%s": {"role": "arch"}}' "$ME" "$ME" "$ARCH" > "$RF/.fable-team/seats-tt.json"; printf '%s\n' "$ME" "$ARCH" > "$RF/alive.txt"; snap "$RF" fresh-0stall.json 095945-aaaa1111.json
+RF="$(mkroot t10)"; printf '{"_master": "%s", "_arch": "%s", "%s": {"role": "master"}, "%s": {"role": "arch"}}' "$ME" "$ARCH" "$ME" "$ARCH" >"$RF/.fable-team/seats-tt.json"; printf '%s\n' "$ME" "$ARCH" > "$RF/alive.txt"; snap "$RF" fresh-0stall.json 095945-aaaa1111.json
 tickf() { FT_BOARD_SEAT_STATUS="$T/seat-dir.sh" FT_ROOT="$RF" FT_BOARD_NOW=2026-10-12T10:00:00 FT_TMUX_LS_CMD="cat $RF/alive.txt" FT_SEATS_GLOB="$RF/.fable-team/seats*.json" \
     FT_TICK_OUT_DIR="$RF/.fable-team/state/tick" bash "$TICK" "$ME" 2>"$T/io.err"; }
 touch -t 202601010000 "$FD/old.jsonl"; sleep 1; out="$(tickf)"
@@ -215,7 +217,7 @@ cat > "$T/seat-r.sh" <<EOF
 if [ "\$1" = jsonl ]; then for f in \$(ls -t "$RD"/*.jsonl); do grep -qF "\"agentName\":\"\$2\"" "\$f" && { echo "\$f"; exit 0; }; done; exit 1; fi
 exec bash "$T/bin/ft-seat-status.sh" "\$@"
 EOF
-RR="$(mkroot t11)"; printf '{"_master": "%s", "%s": {"role": "master"}, "%s": {"role": "arch"}}' "$ME" "$ME" "$ARCH" > "$RR/.fable-team/seats-tt.json"; printf '%s\n' "$ME" "$ARCH" > "$RR/alive.txt"; snap "$RR" fresh-0stall.json 095945-aaaa1111.json
+RR="$(mkroot t11)"; printf '{"_master": "%s", "_arch": "%s", "%s": {"role": "master"}, "%s": {"role": "arch"}}' "$ME" "$ARCH" "$ME" "$ARCH" >"$RR/.fable-team/seats-tt.json"; printf '%s\n' "$ME" "$ARCH" > "$RR/alive.txt"; snap "$RR" fresh-0stall.json 095945-aaaa1111.json
 tickr() { FT_BOARD_SEAT_STATUS="$T/seat-r.sh" FT_ROOT="$RR" FT_BOARD_NOW=2026-10-12T10:00:00 FT_TMUX_LS_CMD="cat $RR/alive.txt" FT_SEATS_GLOB="$RR/.fable-team/seats*.json" \
     FT_TICK_OUT_DIR="$RR/.fable-team/state/tick" bash "$TICK" "$ME" 2>"$T/io.err"; }
 touch -t 202601010000 "$RD"/me-old.jsonl "$RD"/arch-old.jsonl; sleep 1
@@ -324,7 +326,7 @@ for i in 0 1 2 3 4 5; do turnmap x "byz-tt-nano-s$i-claude#0" turn-idle-old.json
 turnmap x "$ARCH" turn-idle-old.jsonl; turnmap x "$NANO" turn-idle-old.jsonl; turnmap x "byz-tt-da-codex#0" turn-working.jsonl
 out="$(tick "$R6" 2026-10-12T10:00:30)"
 eq "C1 출력 ≤5줄" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" 5
-[ "$(printf '%s' "$out" | wc -m | tr -d ' ')" -le 500 ] && ok "C1 ≤500자" || bad "C1 500자 초과"
+[ "$(printf '%s' "$out" | chars)" -le 500 ] && ok "C1 ≤500자" || bad "C1 500자 초과"
 has "C1 마지막 줄 잘림 표시" "$(printf '%s\n' "$out" | tail -1)" "… 전체 8행 →"
 fullpath="$(printf '%s\n' "$out" | tail -1 | sed 's/.*→ //')"
 [ -f "$fullpath" ] && eq "C1 전체 행 파일 8행" "$(wc -l < "$fullpath" | tr -d ' ')" 8 || bad "C1 전체 행 파일 없음($fullpath)"
@@ -488,7 +490,7 @@ lacks "G7 tick-line 에 CACHE_ONLY export 없음" "$(cat "$TICK")" "FT_BOARD_GH_
 
 # ── ft-measure-net.sh (PLAN §9 정규식·분류 규칙을 코드로 고정) ──────────────
 RM="$(mkroot rm)"; cp "$FX"/measure/mailbox.log.jsonl "$FX"/measure/mailbox.log.jsonl.1 "$RM/.fable-team/comm/"; cp "$FX/measure/seats-planner.json" "$RM/.fable-team/"
-meas() { FT_ROOT="$RM" FT_MEASURE_PROJECTS_DIRS="$FX/measure/projects" bash "$MEAS" "$@" 2>&1; echo $? > "$T/mrc"; }
+meas() { FT_ROOT="$RM" FT_MEASURE_PROJECTS_DIRS="$FX/measure/projects" bash "$MEAS" "$@" 2>&1 | sed "$NOLOC"; echo "${PIPESTATUS[0]}" > "$T/mrc"; }
 W1="2026-10-08T00:00:00"; W2="2026-10-11T23:59:59"
 out="$(meas succession "$W1" "$W2")"
 eq "M1 1줄 JSON" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" 1
@@ -513,7 +515,7 @@ rows = [(1, "x#1", P26, "x", "2026-10-11T12:00:00"), (2, P27, "byz-ops-master-cl
 with open(sys.argv[1], "w", encoding="utf-8") as f:
     for s, a, b, body, ts in rows: f.write(json.dumps({"seq": s, "ts": ts, "from": a, "to": b, "body": f"[{a}->{b}] {body}"}, ensure_ascii=False) + "\n")
 PY
-pm() { FT_ROOT="$RP" bash "$MEAS" planner-mail "$1" "$2" 2>&1; }
+pm() { FT_ROOT="$RP" bash "$MEAS" planner-mail "$1" "$2" 2>&1 | sed "$NOLOC"; }
 out="$(pm 2026-10-11T00:00:00 2026-10-11T23:59:59)"
 jeq "P1 DA fixture: 현역 #27 → total == 1" "$out" "d['total']" 1
 jeq "P1 by_seat == {#27: 1}" "$out" "d['by_seat']" '{"byz-planner-master-claude#27": 1}'
@@ -533,7 +535,7 @@ jeq "P2 by_seat 정확" "$out" "d['by_seat']" '{"byz-planner-master-claude#26": 
 jeq "P2 #26 부팅이 앞서므로 unclassified == 0" "$out" "d['unclassified']" 0
 jeq "P2 일자별은 센 것만" "$out" "d['by_day']" '{"2026-10-11": 3}'
 # baseline 서브커맨드 — 창 고정(10-08 21:04 ~ 10-11 23:45) · fixture 로그에 창 밖 행이 섞여 있어 창 필터를 equality 로 확인
-out="$(FT_ROOT="$RM" FT_MEASURE_PROJECTS_DIRS="$FX/measure/projects" bash "$MEAS" baseline 2>&1)"
+out="$(FT_ROOT="$RM" FT_MEASURE_PROJECTS_DIRS="$FX/measure/projects" bash "$MEAS" baseline 2>&1 | sed "$NOLOC")"
 jeq "M6 baseline raw == 2 (창 밖 부팅 보고 제외)" "$out" "d['raw']" 2
 jeq "M6 baseline succession == 1" "$out" "d['succession']" 1
 jeq "M6 baseline first_boot == 1" "$out" "d['first_boot']" 1

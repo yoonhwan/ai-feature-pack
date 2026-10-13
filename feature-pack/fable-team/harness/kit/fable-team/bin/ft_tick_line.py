@@ -24,14 +24,18 @@ seat_unknown, other_unknown, details = [], [], []
 
 
 def note_unknown(reason: str) -> None:
-    other_unknown.append(reason); details.append(f"UNKNOWN {reason}")
+    other_unknown.append(reason)
+    details.append(f"UNKNOWN {reason}")
 
 
 def write_full() -> Path:
-    out = Path(os.environ["FT_TICK_OUT_DIR"]); out.mkdir(parents=True, exist_ok=True)
+    out = Path(os.environ["FT_TICK_OUT_DIR"])
+    out.mkdir(parents=True, exist_ok=True)
     key_ = re.sub(r"[^A-Za-z0-9#_.-]", "_", seat)
     path = out / f"{key_}-{now.strftime('%Y%m%dT%H%M%S')}.txt"
-    tmp = path.with_suffix(".tmp"); tmp.write_text("\n".join(details) + "\n", encoding="utf-8"); os.replace(tmp, path)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text("\n".join(details) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
     for old in sorted(out.glob(f"{key_}-*.txt"))[:-KEEP_FILES]:
         old.unlink()
     return path
@@ -86,19 +90,25 @@ if len(live) > MAX_SEATS:
     live = live[:MAX_SEATS]
 io_stats = tio.Stats()
 tio.install(Path(os.environ["FT_TICK_OUT_DIR"]), io_stats)
-cells = SeatCells({n: seats[n] for n in live}, alive, Mail(root), now)
+cells = SeatCells({**{k: v for k, v in seats.items() if k.startswith("_")}, **{n: seats[n] for n in live}}, alive, Mail(root), now)  # `_<role>` 포인터는 현역 근거(R132a) — 빠지면 non-nano 좌석 전부 확인 불가
 for n, c in cells.all().items():
     if c["text"].startswith(("확인 불가", "대기(분")):
-        seat_unknown.append(n); details.append(f"UNKNOWN {n} {c['text']}")
+        seat_unknown.append(n)
+        details.append(f"UNKNOWN {n} {c['text']}")
 stall = done_work = done_unproc = 0
 io_stats.save()
 for r_ in cells.rows():
+    if r_[0] == "확인 불가":  # R132a 가 낸 행 — 위 UNKNOWN 줄이 이미 같은 좌석을 센다(여기서 또 세면 «완료 선언 미처리» 로 중복)
+        continue
     if re.fullmatch(r"\d+분", r_[0]):
-        stall += 1; details.append(f"정지 {r_[0]} {r_[1]} (턴 끝 {r_[2]})")
+        stall += 1
+        details.append(f"정지 {r_[0]} {r_[1]} (턴 끝 {r_[2]})")
     elif r_[0] == "완료 뒤 작업":
-        done_work += 1; details.append(f"완료 뒤 작업 {r_[1]} {r_[2]}")
+        done_work += 1
+        details.append(f"완료 뒤 작업 {r_[1]} {r_[2]}")
     else:
-        done_unproc += 1; details.append(f"완료 선언 미처리 {r_[1]} ← {r_[2]} {r_[3]}")
+        done_unproc += 1
+        details.append(f"완료 선언 미처리 {r_[1]} ← {r_[2]} {r_[3]}")
 
 # ② 큐 — 내 앞 쪽지 머리별 건수 + 주의 seq
 queue, heads, attn = 0, {}, []
@@ -145,7 +155,8 @@ days = sorted(glob.glob(str(root / ".fable-team" / "state" / "board" / "????-??-
 for d in days:
     fs = sorted(Path(d).glob("*.json"), key=lambda p: (p.name[:6], p.stat().st_mtime_ns))
     if fs:
-        snap = fs[-1]; break
+        snap = fs[-1]
+        break
 snap_iso = age = None
 if snap is None:
     note_unknown("스냅샷 없음")
@@ -153,7 +164,8 @@ else:
     try:
         data = json.loads(snap.read_text(encoding="utf-8"))
         st = dt.datetime.strptime(f"{snap.parent.name} {snap.name[:6]}", "%Y-%m-%d %H%M%S")
-        age = int((now - st).total_seconds()); snap_iso = st.isoformat(timespec="seconds")
+        age = int((now - st).total_seconds())
+        snap_iso = st.isoformat(timespec="seconds")
         observing = sum(1 for i in data["issues"] if i.get("state") == "open" and "status:observing" in i.get("labels", []))
         other = sum(len(t["stalled"]) for t in data["teams"] if t.get("key") != key)
         if age < 0:
