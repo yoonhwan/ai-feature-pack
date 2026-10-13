@@ -304,6 +304,56 @@ cmd_restore_from() {
     done
 }
 
+# ── 직전 세대 재개 기록 (판정 1344, 2026-10-13) ───────────────────────────────
+# ft-seat-retire.sh 가 은퇴 때 쓰는 기록(대화 uuid·작업 폴더·모델) — 이게 «검증»되는 직전 세대(순번 2)만 tmux_prune 이 닫고,
+# `resume` 이 같은 대화를 다시 연다. 기록이 없거나 어긋나면 지금처럼 보존한다(조용한 대체 0). 명부는 읽지 않는다.
+resume_record_file() { echo "${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}/$1.json"; }
+# $1=세션명 → rc 0 검증됨 · rc 2 기록 없음 · rc 1 불일치(사유 1단어 stdout: name|engine|uuid|jsonl|cwd|model|파일읽기)
+resume_record_check() {
+    local f; f=$(resume_record_file "$1"); [[ -f "$f" ]] || return 2
+    python3 - "$f" "$1" <<'PY'
+import json, os, sys
+f, name = sys.argv[1:3]
+try: d = json.load(open(f, encoding="utf-8"))
+except (OSError, ValueError): print("파일읽기"); sys.exit(1)
+if not isinstance(d, dict): print("파일읽기"); sys.exit(1)
+uuid, jl, cwd, model = (d.get(k) for k in ("uuid", "jsonl", "cwd", "model"))
+for why, ok in (("name", d.get("name") == name), ("engine", d.get("engine") == "claude"), ("uuid", isinstance(uuid, str) and bool(uuid)),
+                ("jsonl", isinstance(jl, str) and os.path.isfile(jl) and os.path.basename(jl) == f"{uuid}.jsonl"),
+                ("cwd", isinstance(cwd, str) and os.path.isdir(cwd)), ("model", isinstance(model, str) and bool(model))):
+    if not ok: print(why); sys.exit(1)
+PY
+}
+
+# $1=세션명 — 기록의 pid 가 «지금 그 tmux 세션 pane 의 자식»인가(닫기 전용 · DA⑥ 잔여 H1). 은퇴 때 그 프로세스에서 만든 기록만 닫기 근거다 —
+#   은퇴 쪽 무효화(.stale 이동)가 I/O 실패로 못 되어도 옛 기록은 pid 가 달라 닫기 근거가 못 된다. 못 읽으면 닫지 않는다(fail-closed). resume 경로는 세션이 죽은 뒤라 쓰지 않는다.
+resume_record_pid_live() {
+    local pid pp; pid=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("pid",""))' "$(resume_record_file "$1")" 2>/dev/null)
+    pp=$(tmux list-panes -t "$1" -F '#{pane_pid}' 2>/dev/null | head -1)
+    [[ -n "$pid" && -n "$pp" ]] && pgrep -P "$pp" 2>/dev/null | grep -qx "$pid"
+}
+
+# resume '<세션명>' [--dry-run] — 검증된 재개 기록으로 같은 대화를 같은 폴더·모델로 다시 연다. 검증 실패·이미 살아 있음 = ❌ rc 1.
+cmd_resume() {
+    local name="" dry=false a why rc f cwd uuid model
+    for a in "$@"; do case "$a" in --dry-run) dry=true ;; *) [[ -z "$name" ]] && name="$a" ;; esac; done
+    [[ -z "$name" ]] && { echo "사용법: zombie-clean.sh resume '<세션명>' [--dry-run]"; return 1; }
+    why=$(resume_record_check "$name"); rc=$?
+    [[ $rc -eq 2 ]] && { echo "❌ 재개 기록 없음: $name ($(resume_record_file "$name"))"; return 1; }
+    [[ $rc -ne 0 ]] && { echo "❌ 재개 기록 불일치(${why:-검사 실패}): $name"; return 1; }
+    if tmux has-session -t "=$name" 2>/dev/null; then echo "⚠️ 이미 살아있는 세션: $name — 재개 생략"; return 1; fi
+    f=$(resume_record_file "$name")
+    IFS=$'\t' read -r uuid cwd model < <(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print("\t".join(d[k] for k in ("uuid","cwd","model")))' "$f")
+    [[ -n "$uuid" && -n "$cwd" && -n "$model" ]] || { echo "❌ 재개 기록 읽기 실패: $name"; return 1; }
+    if $dry; then echo "[dry] session=$name"; echo "[dry] cwd=$cwd"; echo "[dry] claude --resume $uuid --model '$model'"; return 0; fi
+    tmux new-session -d -s "$name" -c "$cwd" || { echo "❌ 세션 생성 실패: $name"; return 1; }
+    # 전송 실패를 성공으로 보고하지 않는다(DA⑥ H2) — 열린 세션은 자동으로 닫지 않고 사람이 확인한다.
+    tmux send-keys -t "=$name:" -l "claude --resume $uuid --model '$model'" || { echo "❌ 명령 전송 실패(-l): 세션 $name 열린 채 — 확인 뒤 닫기"; return 1; }
+    sleep 0.3
+    tmux send-keys -t "=$name:" Enter || { echo "❌ Enter 전송 실패: 세션 $name 열린 채 — 확인 뒤 닫기"; return 1; }
+    echo "✅ 재개: $name  (uuid=$uuid · cwd=$cwd · 모델=$model)"
+}
+
 # ── 메모리 압력 티어 (v3, 2026-09-11) ─────────────────────────────────────────
 # 근거: 커널 패닉 2회(09-09 09:34 / 09-11 03:44) 실측. 두 번 다 동일 서명 —
 #   "Compressor Info: 4x% of compressed pages limit (OK) and 100% of segments limit (BAD)
@@ -391,8 +441,11 @@ reclaim_record() {
         [[ -z "$cpid" ]] && cpid="$4"
         argv=$(ps -o args= -p "$cpid" 2>/dev/null | tr '\t' ' ' | cut -c1-300 || true)
     fi
-    printf '%s\t%s\t%s\t%s\t%s\t%s\tzombie-clean.sh restore '%s'\t%s\n' \
-        "$(date '+%F %T')" "$1" "$2" "$3" "${ZC_TIER:-?}" "${cwd:-?}" "$1" "${argv:-?}" >> "$ZC_RECLAIM"
+    # restore 열: 검증된 재개 기록(판정 1344)이 있는 행은 같은 대화를 여는 resume, 없으면 기존 argv 재실행 restore.
+    local rcmd="zombie-clean.sh restore $1"
+    resume_record_check "$1" >/dev/null && rcmd="zombie-clean.sh resume '$1'"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$(date '+%F %T')" "$1" "$2" "$3" "${ZC_TIER:-?}" "${cwd:-?}" "$rcmd" "${argv:-?}" >> "$ZC_RECLAIM"
 }
 
 # tmuxc 정책 정리: lineage(베이스명 #N 계열)당 최근 KEEP개 보존, 초과 유령만 kill-session.
@@ -415,7 +468,7 @@ tmux_prune() {
     [[ -z "$sess" ]] && return 0
     local SRVRE='server\.sh|uvicorn|next-server|next dev|caddy|redis-server|postgres|cli-proxy|headroom|hermes|[Oo]llama|node .*(dev|start|watch)'
     local bases; bases=$(printf '%s\n' "$sess" | sed -E 's/#[0-9]+\|/|/' | cut -d'|' -f1 | sort -u)
-    local killed=0 total idx gen activity name idle pp srvhit
+    local killed=0 total idx gen activity name idle pp srvhit why rcr
     while IFS= read -r base; do
         [[ -z "$base" ]] && continue
         # 이 lineage 멤버를 세대 번호(#N) 내림차순 정렬(최신 세대가 위) — 같은 번호(번호 없음=0)끼리는 입력 시각 내림차순.
@@ -428,7 +481,8 @@ tmux_prune() {
         #   (jetsam 103건 → RED → idle 10분 → arch-fable#42·da-claude#2·tester-check#3·tmm 4개 몰살).
         #   ★메모리를 되찾겠다고 살아있는 유일한 세대를 죽이면 복구 비용이 절약분보다 크다.★
         #   R75(판정 807): 그래서 RED 에서도 유일 세대·최신 keep 세대는 지킨다. RED 의 회수력은 «keep 밖 세대 + RED idle 임계» 경로로만 남는다.
-        [[ "$total" -le "$keep" ]] && continue
+        #   판정 1344: 멤버 1개 계보만 무조건 건너뛴다. 2개 이상은 멤버 판정으로 들어가 — 순번 2(직전 세대)는 «검증된 재개 기록»이 있을 때만 풀린다(아래).
+        [[ "$total" -le 1 ]] && continue
         idx=0
         while IFS='|' read -r gen activity name att; do
             [[ -z "$name" ]] && continue
@@ -450,7 +504,15 @@ tmux_prune() {
             [[ "${att:-0}" -gt 0 ]] && continue
             # ★최신 keep 세대는 어떤 티어에서도 보존한다(R75 B1). 옛 «RED 에서 6시간 방치면 keep 안도 회수»는 하한 2 를 깼다.
             #   자리를 비운 좌석(밥·회의)과 버려진 좌석을 가르는 선은 keep 밖 세대의 idle 임계가 맡는다.
-            [[ "$idx" -le "$keep" ]] && continue
+            #   단 순번 2(직전 세대, 판정 1344)는 «검증된 재개 기록»(ft-seat-retire.sh 가 은퇴 때 씀)이 있으면 보존하지 않고 아래 가드(idle 임계·라이브 서버)로 계속한다.
+            #   기록이 없거나 어긋나면 지금처럼 보존하고 그 사실을 출력한다(#0 RULE). 순번 1·3~keep 보존과 위 attached·active V65 가드는 불변.
+            if [[ "$idx" -le "$keep" ]]; then
+                [[ "$idx" -ne 2 ]] && continue
+                why=$(resume_record_check "$name"); rcr=$?
+                if [[ $rcr -eq 2 ]]; then echo "  tmux keep $name (재개 기록 없음 — 직전 세대 보존)"; continue
+                elif [[ $rcr -ne 0 ]]; then echo "  tmux keep $name (재개 기록 불일치: ${why:-검사 실패})"; continue; fi
+                resume_record_pid_live "$name" || { echo "  tmux keep $name (재개 기록 불일치: pid)"; continue; }
+            fi
             # ★keep 밖 세대는 «입력» 유휴만 본다 — 승계로 밀려난 옛 좌석의 10분 체크 크론이 화면에 계속 출력해 출력 유휴가 0~28분에 묶이면 영원히 못 지운다(2026-10-13 세션 122개·claude 16 GB).
             #   출력 포함 idle 은 위 preserve(active V65 task · ABANDON) 판정에만 쓴다 — 10-01 codex DA 오살 방지 그대로.
             idle=$(( (now - activity) / 60 ))
@@ -467,7 +529,7 @@ tmux_prune() {
             tmux kill-session -t "$name" 2>/dev/null && { echo "  tmux kill $name (lineage=$base idle=${idle}분)"; killed=$((killed+1)); }
         done <<< "$members"
     done <<< "$bases"
-    echo "tmux 정책 정리: ${killed}개 (압력=${ZC_TIER:-?}, keep-last-${keep}, idle≥${idlemin}분, 라이브서버·attached·유일세대·최신 keep 세대 보호 / active V65 task 보호 해제 ${ZC_TMUX_ABANDON_MIN:-360}분)"
+    echo "tmux 정책 정리: ${killed}개 (압력=${ZC_TIER:-?}, keep-last-${keep}, idle≥${idlemin}분, 라이브서버·attached·유일세대·최신 keep 세대 보호 · 순번 2(직전 세대)는 검증된 재개 기록이 있을 때만 해제 / active V65 task 보호 해제 ${ZC_TMUX_ABANDON_MIN:-360}분)"
     [[ -n "$ZC_RECLAIM" ]] && echo "  복원: zombie-clean.sh restore '<NAME>' (전량=restore-from) · 대장 $ZC_RECLAIM"
     [[ "$killed" -gt 0 && "$DRY" == false ]] && echo "$(date '+%F %T') tmux-prune killed=$killed keep=$keep idlemin=$idlemin tier=${ZC_TIER:-?} reclaim=${ZC_RECLAIM:-none}" >> "$LOG"
     return 0
@@ -514,6 +576,7 @@ case "$CMD" in
     tmux-prune) tmux_prune ;;
     restore)      shift; cmd_restore "$@" ;;
     restore-from) shift; cmd_restore_from "$@" ;;
+    resume)       shift; cmd_resume "$@" ;;
     status)
         analyze
         cat "$TB"
@@ -521,5 +584,5 @@ case "$CMD" in
         pressure_tier; echo "메모리 압력: $ZC_TIER ($ZC_TIER_WHY) → tmux idle 임계 $(tier_idlemin)분"
         top -l 1 | grep PhysMem
         ;;
-    *) echo "사용법: zombie-clean.sh [scan|clean|tmux-prune|auto|status|restore '<세션명>'|restore-from [대장.tsv]] [--dry-run]"; exit 1 ;;
+    *) echo "사용법: zombie-clean.sh [scan|clean|tmux-prune|auto|status|restore '<세션명>'|restore-from [대장.tsv]|resume '<세션명>'] [--dry-run]"; exit 1 ;;
 esac

@@ -35,7 +35,7 @@ chk "②_master 문자열 아님 → 무변경" "$(stall_seats "{\"_master\": 7,
 S="$TMP/seats-a.json"; printf '%s' "{\"_master\": \"M#1\", \"_hil_route\": \"M#1\", \"_version\": \"x\", \"M#1\": {\"role\": \"master\", \"agent\": \"claude\", \"model\": \"m1\", \"tick\": \"ft-master-tick\"}}" > "$S"
 out="$(bash "$RETIRE" 'M#1' 'M#2' --seats "$S")"; rc=$?
 chk "③rc" "$rc" 0
-chk "③출력 1줄" "$out" "RETIRED M#1 -> M#2 file=$S keys=['_master', '_hil_route']"
+chk "③RETIRED 줄(첫 줄 · 부팅 보고 retire= 계약 불변)" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=['_master', '_hil_route']"
 chk "③구 행 _replaced_by·role·_retired_role·tick" "$(J "$S" '[.["M#1"]._replaced_by, .["M#1"].role, .["M#1"]._retired_role, (.["M#1"].tick|tostring)]|join(",")')" "M#2,stop-ready,master,null"
 chk "③후계 행 생성(role·agent·model·tick·_replaces)" "$(J "$S" '.["M#2"]|[.role,.agent,.model,.tick,(._replaces|join("+"))]|join(",")')" "master,claude,m1,ft-master-tick,M#1"
 chk "③_master·_hil_route → M#2" "$(J "$S" '[._master,._hil_route,._version]|join(",")')" "M#2,M#2,x"
@@ -75,6 +75,63 @@ chk "⑦옛 행 B#1 닫힘" "$(J "$S" '.["B#1"]|[._replaced_by,.role,._retired_r
 chk "⑦_master·_hil_route → B#2" "$(J "$S" '[._master,._hil_route]|join(",")')" "B#2,B#2"
 chk "⑦새 행 tick 상속·_replaces" "$(J "$S" '.["B#2"]|[.tick,(._replaces|join("+"))]|join(",")')" "ft-master-tick,B#1"
 chk "⑦이미 닫힌 B#0 불변" "$(J "$S" '.["B#0"]|[._replaced_by,.role]|join(",")')" "B#1,master"
+
+# ⑨ 재개 기록 (판정 1344) — 가짜 tmux/pgrep(PATH 앞 스텁) · 임시 HOME 의 세션 파일·jsonl 픽스처 · 실 tmux 0
+FK="$TMP/fake"; mkdir -p "$FK"
+cat > "$FK/tmux" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = display ] && [ -n "${FAKE_PANE_PID:-}" ] && { echo "$FAKE_PANE_PID"; exit 0; }
+exit 1
+EOF
+cat > "$FK/pgrep" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = "-P" ] && { for p in ${FAKE_CHILDREN:-}; do echo "$p"; done; exit 0; }
+exit 1
+EOF
+chmod +x "$FK/tmux" "$FK/pgrep"
+UU1=11111111-2222-3333-4444-555555555555; UU2=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee; WORK="$TMP/work"; mkdir -p "$WORK"
+ENC="$(printf '%s' "$WORK" | sed 's/[^A-Za-z0-9]/-/g')"
+rs_home() { # <case> → 정상 픽스처 HOME (자식 pid 7001 의 세션 파일 · UU2 = 같은 좌석의 다른 대화, mtime 더 최신)
+  local h="$TMP/h-$1"; mkdir -p "$h/.claude/sessions" "$h/.claude/projects/$ENC"
+  printf '{"pid":7001,"sessionId":"%s","cwd":"%s","name":"M#1"}' "$UU1" "$WORK" > "$h/.claude/sessions/7001.json"
+  : > "$h/.claude/projects/$ENC/$UU1.jsonl"; : > "$h/.claude/projects/$ENC/$UU2.jsonl"; touch -t 203001010000 "$h/.claude/projects/$ENC/$UU2.jsonl"
+  echo "$h"
+}
+rs_seats() { printf '{"M#1": {"role": "master", "agent": "claude", %s "tick": "t"}}' "${2-\"model\": \"m1\",}" > "$1"; } # <파일> [model 조각]
+rs_run() { HOME="$1" PATH="$FK:$PATH" FAKE_PANE_PID="${FAKE_PANE_PID-100}" FAKE_CHILDREN="${FAKE_CHILDREN-7000 7001}" bash "$RETIRE" 'M#1' 'M#2' --seats "$2"; }
+H="$(rs_home ok)"; S="$TMP/seats-r.json"; rs_seats "$S"; out="$(rs_run "$H" "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
+chk "⑨정상 rc" "$rc" 0
+chk "⑨RETIRED 첫 줄 불변" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=[]"
+chk "⑨둘째 줄 = RESUME ok <기록 경로>" "$(sed -n 2p <<< "$out")" "RESUME ok $REC"
+chk "⑨기록 파일 9칸" "$(jq 'keys|length' "$REC" 2>/dev/null)" 9
+chk "⑨uuid = 세션 파일 sessionId (더 최신 다른 jsonl 무시)" "$(jq -r '[.uuid,.jsonl]|join(",")' "$REC" 2>/dev/null)" "$UU1,$H/.claude/projects/$ENC/$UU1.jsonl"
+chk "⑨name·engine·pid·cwd·model·retired_by" "$(jq -r '[.name,.engine,(.pid|tostring),.cwd,.model,.retired_by]|join(",")' "$REC" 2>/dev/null)" "M#1,claude,7001,$WORK,m1,M#2"
+chk "⑨명부 구 행 _resume_uuid" "$(J "$S" '.["M#1"]._resume_uuid')" "$UU1"
+rs_norecord() { # <라벨> <home> <seats 인자 2 (선택)> — 은퇴는 되고 기록 0 · NORECORD 줄 (DA② H3)
+  local s="$TMP/seats-$1.json"; rs_seats "$s" ${3+"$3"}; local o; o="$(rs_run "$2" "$s")"; local r=$?
+  chk "⑨$1 rc 0(은퇴 결과와 분리)" "$r" 0
+  chk "⑨$1 RETIRED 첫 줄" "${o%%' '*}" RETIRED
+  chk "⑨$1 NORECORD 둘째 줄" "$(sed -n 2p <<< "$o" | cut -d' ' -f1-2)" "NORECORD M#1"
+  chk "⑨$1 기록 파일 0" "$([ -e "$2/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" no
+  chk "⑨$1 명부 은퇴됨" "$(J "$s" '.["M#1"]._replaced_by')" "M#2"
+}
+H="$(rs_home nosess)"; rm "$H/.claude/sessions/7001.json"; rs_norecord 세션파일없음 "$H"
+H="$(rs_home two)"; printf '{"pid":7002,"sessionId":"%s","cwd":"%s","name":"M#1"}' "$UU2" "$WORK" > "$H/.claude/sessions/7002.json"; FAKE_CHILDREN="7001 7002" rs_norecord 세션파일2개 "$H"
+H="$(rs_home name)"; printf '{"pid":7001,"sessionId":"%s","cwd":"%s","name":"X#9"}' "$UU1" "$WORK" > "$H/.claude/sessions/7001.json"; rs_norecord 이름불일치 "$H"
+H="$(rs_home pid)"; printf '{"pid":9999,"sessionId":"%s","cwd":"%s","name":"M#1"}' "$UU1" "$WORK" > "$H/.claude/sessions/7001.json"; rs_norecord pid불일치 "$H"
+H="$(rs_home nojsonl)"; rm "$H/.claude/projects/$ENC/$UU1.jsonl"; rs_norecord jsonl없음 "$H"
+H="$(rs_home nomodel)"; rs_norecord model없음 "$H" ''
+H="$(rs_home notmux)"; FAKE_PANE_PID="" rs_norecord tmux세션없음 "$H"
+# ⑨-H1 (DA⑥) — 옛 재개 기록이 있는 좌석이 이번엔 NORECORD → 옛 기록을 지우지 않고 stale 로 이름 바꿔 닫기 근거에서 뺀다
+H="$(rs_home stale)"; rm "$H/.claude/sessions/7001.json"; RD="$H/.claude/state/seat-resume"; mkdir -p "$RD"
+printf '{"name":"M#1","engine":"claude","uuid":"%s"}' "$UU2" > "$RD/M#1.json"
+S="$TMP/seats-stale.json"; printf '{"M#1": {"role": "master", "agent": "claude", "model": "m1", "tick": "t", "_resume_uuid": "%s"}}' "$UU2" > "$S"
+out="$(rs_run "$H" "$S")"; rc=$?
+chk "⑨H1 rc 0" "$rc" 0
+chk "⑨H1 둘째 줄 = NORECORD … · 이전 기록 무효화 <새 경로>" "$(sed -n 2p <<< "$out" | sed -E 's/^(NORECORD M#1 .* · 이전 기록 무효화 ).*(M#1\.json\.stale-[0-9]{14})$/\1\2/' | sed "s|$RD/||")" "$(sed -n 2p <<< "$out" | sed -E 's/ · 이전 기록 무효화 .*//') · 이전 기록 무효화 M#1.json.stale-$(ls "$RD" | sed -n 's/^M#1\.json\.stale-//p')"
+chk "⑨H1 <구>.json 0 · stale 1" "$([ -e "$RD/M#1.json" ] && echo yes || echo no) $(ls "$RD" | grep -c '^M#1\.json\.stale-[0-9]\{14\}$')" "no 1"
+chk "⑨H1 stale 내용 보존(uuid)" "$(jq -r .uuid "$RD"/M#1.json.stale-* 2>/dev/null)" "$UU2"
+chk "⑨H1 명부 구 행 _resume_uuid 제거" "$(J "$S" '.["M#1"]|has("_resume_uuid")')" false
 
 # ⑧ 기존 시험
 for t in test_ft_tick_master_seat.sh test_role_spawn_name.sh test_kit_bin_sync.sh; do
