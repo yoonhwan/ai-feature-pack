@@ -197,7 +197,13 @@ turn_row_of_file() {  # $1=jsonl → "STATE\tTURN_END\tMS\tREPORTED\tjsonl\tREAD
 }
 
 turn_of_seat() {  # $1=seat → 6열 탭 행. jsonl 없으면 pane 스피너(BUSY→WORKING · IDLE→IDLE · NOSEAT→UNKNOWN), source=pane
-  local f; f="$(newest_jsonl_of "$1")"
+  local f row rc
+  if [ -n "$SEATS_JSON" ]; then  # 명부 agent=codex 좌석만 rollout 턴 기록으로(R132a · 8열 · source=codex) — rc 3 = codex 아님 → 아래 기존 경로
+    row="$(python3 "$(dirname "$0")/ft_seat_codex.py" --if-codex "$(dirname "$SEATS_JSON")" "$1")"; rc=$?
+    [ "$rc" = 0 ] && { printf '%s\n' "$row"; return; }
+    [ "$rc" = 3 ] || return "$rc"
+  fi
+  f="$(newest_jsonl_of "$1")"
   if [ -n "$f" ]; then turn_row_of_file "$f"; return; fi
   case "$(status_of "$1")" in BUSY) printf 'WORKING';; IDLE) printf 'IDLE';; *) printf 'UNKNOWN';; esac
   printf '\t-\t-\t-\tpane\t-\n'
@@ -207,9 +213,12 @@ emit_turn() {  # stdin = 5열 탭 1행
   if [ "$JSON" = 1 ]; then
     python3 -c '
 import json, sys
-s, e, d, r, src, b = sys.stdin.readline().rstrip("\n").split("\t")
-print(json.dumps({"state": s, "turn_end": None if e == "-" else e, "duration_ms": None if d == "-" else int(d),
-                  "reported": None if r == "-" else r, "source": src, "read_bytes": None if b == "-" else int(b)}, ensure_ascii=False))'
+s, e, d, r, src, b, *codex = sys.stdin.readline().rstrip("\n").split("\t")
+row = {"state": s, "turn_end": None if e == "-" else e, "duration_ms": None if d == "-" else int(d),
+       "reported": None if r == "-" else r, "source": src, "read_bytes": None if b == "-" else int(b)}
+if codex and codex[0] == "aborted": row["aborted"] = True  # codex 행(8열)만 — jsonl·pane 행(6열)은 키가 늘지 않는다
+if codex and codex[1] != "-": row["reason"] = codex[1]
+print(json.dumps(row, ensure_ascii=False))'
   elif [ "$BYTES" = 1 ]; then
     tr '\t' ' '
   else

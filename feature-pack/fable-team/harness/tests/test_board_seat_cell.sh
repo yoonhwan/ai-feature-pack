@@ -72,7 +72,8 @@ facts["d-keep"] = rec(S("d-keep"), M, f"[완료·휴식] 끝 {EV}", ago(12))
 for m in (9, 6, 3): rec(S("d-keep"), M, f"[완료·휴식 유지 #{facts['d-keep']}]", ago(m))
 for f, rows in files.items(): (FB / "comm" / f).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
 # 명부
-roster = {"_label": "시험팀", "_master": M, "_cards": "t", M: {"role": "master"}, "s-dead#0": {"role": "nano"},
+roster = {"_label": "시험팀", "_master": M, "_cards": "t", "_stop-ready": S("ready"), "_stopped": S("closed"),  # 멈춘 현재 좌석 = 포인터 대상(R132a §7-7)
+           M: {"role": "master"}, "s-dead#0": {"role": "nano"},
           S("ready"): {"role": "stop-ready"}, S("closed"): {"role": "stopped"}, S("old"): {"role": "nano", "_replaced_by": S("i5")}}
 alive = [M, S("ready"), S("closed"), S("old")]
 for i in list(IDLE) + ["i-utc", "i-null", "i-bad", "i-future", "d-null", "i-pane", "w-jsonl", "w-noreply", "w-reply", "w-succ", "w-rot", "w-nosend", "w-hil",
@@ -182,7 +183,7 @@ has "렌더 ⑪ 정지 5분 ⚠ 가 카드 줄에" "$TERM" "s-i5#0 ⚠정지 5�
 has "렌더 ⑭ ⚠완료 뒤 작업" "$TERM" "s-d-work#0 작업중 · 완료 선언 #"
 has "슬랙에도 좌석 칸 그대로(금지어 치환 0)" "$SLACK" "s-i5#0 ⚠정지 5분(턴 끝 09:55)"
 echo "--- stalled (--min 3) ---"; ST="$(board stalled)"; printf '%s\n' "$ST"
-eq "stalled 행 수 = ⚠ 8 + 완료 뒤 작업 1 + 미처리 2 + 유팀 1" "$(printf '%s\n' "$ST" | wc -l | tr -d ' ')" 12
+eq "stalled 행 수 = ⚠ 8 + 완료 뒤 작업 1 + 미처리 2 + 유팀 1 + 확인 불가 4(unk-first·unk-none·fail·garbage · R132a)" "$(printf '%s\n' "$ST" | wc -l | tr -d ' ')" 16
 has "stalled ⑪ 행 형식 N분|좌석|턴 끝|기다림" "$ST" "5분|s-i5#0|09:55|추정: 기록(05:00 이후)상 발신 없음"
 has "stalled ⑰ 완료 선언 미처리|받는 좌석|보낸 좌석 #seq|N분" "$ST" "완료 선언 미처리|t-master#1|s-d-ok12#0 #"
 has "stalled ⑭ 완료 뒤 작업|좌석|#seq|HH:MM" "$ST" "완료 뒤 작업|s-d-work#0|#"

@@ -6,7 +6,8 @@
   ft-board.py sheet-notes <파일>             보정 메모 lint(행 id·필드 실재 · 거절이 있으면 rc 1)
   ft-board.py render --term | --slack [--full]   같은 dict 에서 꼴만 다르게(슬랙은 mrkdwn 문자열만 stdout · 발행 0). --full = env FT_NEWS_FULL=1
   ft-board.py stalled [--min N] [--team <명부 파일>]   ⚠정지·완료 뒤 작업·완료 선언 미처리 좌석만 `|` 구분 행(없으면 출력 0) — 팀 master·planner 틱용
-  ft-board.py snapshot                      dict 를 불변 스냅샷으로 먼저 쓰고 직전과의 변경 단위 JSON 출력. 쓰기 실패 = rc≠0 · stdout 빈 값
+  ft-board.py teams [--team <명부 파일>]       팀마다 한 줄 «일함 <좌석들>» 또는 «정지 N분 · 기다리는 것 = …» + 진행 카드 수 (R132a · 확인 불가 좌석은 줄 끝에 드러남)
+  ft-board.py snapshot                    dict 를 불변 스냅샷으로 먼저 쓰고 직전과의 변경 단위 JSON 출력. 쓰기 실패 = rc≠0 · stdout 빈 값
   ft-board.py prune --days N                N일 지난 스냅샷 날짜 폴더 삭제(명시 명령만)
   --from <파일>   (render --sheet · snapshot 전용) collect 를 다시 돌리지 않고 `collect --out` 파일의 dict 를 읽는다 — 출력 동일 · 한 틱 수집 1회(ft-sheet-publish)
   전역 플래그 --refresh-gh                  gh 이슈 캐시 갱신 허용(7초+1) — 없으면 외부 호출 0 · 캐시가 없거나 오래되면 ⑤ 절이 «(캐시 … · 미확인)». launchd ft-board-publish.sh 만 붙인다
@@ -25,6 +26,7 @@ from ft_board_render import render  # noqa: E402
 from ft_board_seat import stalled_lines  # noqa: E402
 from ft_board_sheet import render_cli  # noqa: E402
 from ft_board_sheet_notes import lint_notes  # noqa: E402
+from ft_board_teams import team_lines  # noqa: E402
 from ft_board_snapshot import prune, snapshot  # noqa: E402
 
 
@@ -35,6 +37,13 @@ def _stalled(args: list[str]) -> str:
         raise SystemExit(2)
     files = [Path(opts["--team"])] if "--team" in opts else None
     return "\n".join(stalled_lines(collect(files), int(opts.get("--min", "3"))))
+
+
+def _teams(args: list[str]) -> str:
+    if len(args) not in (0, 2) or (args and args[0] != "--team"):
+        print(__doc__, file=sys.stderr)
+        raise SystemExit(2)
+    return "\n".join(team_lines(collect([Path(args[1])] if args else None)))
 
 
 def _opt(args: list[str], name: str) -> tuple[str | None, list[str]]:
@@ -75,6 +84,8 @@ def main(argv: list[str]) -> int:
         return 0 if all(r[0] for r in res) else 1
     elif cmd == "stalled":
         out = _stalled(args[1:])
+    elif cmd == "teams":
+        out = _teams(args[1:])
     elif cmd == "snapshot" and len(args) == 1:
         out = json.dumps(snapshot(load(), env.ft_root(), env.now()), ensure_ascii=False)
     elif cmd == "prune" and len(args) == 3 and args[1] == "--days" and args[2].isdigit():

@@ -12,6 +12,7 @@ from datetime import datetime
 
 import ft_board_env as env
 from ft_board_mail import Mail
+from ft_board_roster import select
 
 STALL_MIN = 3
 
@@ -26,7 +27,8 @@ def turn_row(seat: str) -> dict:
         return {"error": f"turn 조회 실패 rc={r.returncode}"}
     try:
         row = json.loads(r.stdout)
-        return {"state": str(row["state"]), "turn_end": row.get("turn_end"), "source": str(row.get("source"))}
+        return {"state": str(row["state"]), "turn_end": row.get("turn_end"), "source": str(row.get("source")),
+                **{k: row[k] for k in ("aborted", "reason") if k in row}}  # codex 행만 가진다(R132a)
     except (ValueError, KeyError, TypeError, AttributeError):
         return {"error": "출력 해석 실패"}
 
@@ -52,17 +54,17 @@ def cell(row: dict, now: datetime) -> tuple[str, int | None, str | None]:
     if st == "WORKING":
         return ("작업중(pane)" if src == "pane" else "작업중"), None, at
     if st == "UNKNOWN":
-        return f"확인 불가({'첫 턴 전' if src == 'jsonl' else '좌석 없음'})", None, None
+        return f"확인 불가({row.get('reason') or ('첫 턴 전' if src == 'jsonl' else '좌석 없음')})", None, None
     if st == "PENDING":
         return f"대기열 있음(턴 끝 {at or '확인 불가'})", None, at
     if st != "IDLE":
         return f"확인 불가(알 수 없는 상태 {st})", None, None
-    if src != "jsonl":
+    if src not in ("jsonl", "codex"):
         return "대기(분 미상 · pane)", None, None
     if te is None:
         return f"대기(분 확인 불가: {why})", None, None
     n = int((now - te).total_seconds() // 60)
-    return ("⚠" if n >= STALL_MIN else "") + f"정지 {n}분(턴 끝 {at})", (n if n >= STALL_MIN else None), at
+    return ("⚠" if n >= STALL_MIN else "") + f"정지 {n}분({'중단 · ' if row.get('aborted') else ''}턴 끝 {at})", (n if n >= STALL_MIN else None), at
 
 
 def _tail(decl: dict) -> str:
@@ -74,10 +76,10 @@ class SeatCells:
 
     def __init__(self, seats: dict, alive: set, mail: Mail, now: datetime):
         self.seats, self.alive, self.mail, self.now, self._memo = seats, alive, mail, now, {}
+        self.active, self.unknown = select(seats, alive)  # 현역 선정 = ft_board_roster.py (§7-7 — 근거 없는 생존은 «확인 불가» 로 드러낸다)
 
     def roster(self) -> list[str]:
-        return sorted(n for n, v in self.seats.items()
-                      if not n.startswith("_") and isinstance(v, dict) and not v.get("_replaced_by"))
+        return sorted(self.active + list(self.unknown))
 
     def text(self, name: str) -> str:
         return self.get(name)["text"]
@@ -88,28 +90,36 @@ class SeatCells:
         return self._memo[name]
 
     def _compute(self, name: str) -> dict:
+        if name in self.unknown:
+            return {"text": self.unknown[name], "stalled": None, "turn_end": None, "decl": None, "wait": "", "unknown": True}
         role = (self.seats.get(name) or {}).get("role")
         fixed = {"stopped": "닫힘", "stop-ready": "정지레디"}.get(role) or ("" if name in self.alive else "정지(세션 없음)")
         if fixed:
             return {"text": fixed, "stalled": None, "turn_end": None, "decl": None, "wait": self.mail.wait(name, None)}
         row = turn_row(name)
         text, n, at = cell(row, self.now)
+        why = text[len("확인 불가("):text.index(")")] if text.startswith("확인 불가(") else None  # 턴 조회 불가 사유 — rows() 가 감시 행으로 낸다(DA⑥ I1)
         decl = self.mail.declaration(name)
         if decl:
             if n and decl["evidence"]:
                 text, n = text.removeprefix("⚠"), None
             text += _tail(decl) + (" · ⚠완료 뒤 작업" if row.get("state") == "WORKING" else "")
+        te, _ = _turn_end(row.get("turn_end"), self.now)
+        idle = int((self.now - te).total_seconds() // 60) if te and row.get("state") == "IDLE" and row.get("source") in ("jsonl", "codex") else None
         return {"text": text, "stalled": n, "turn_end": at, "decl": decl, "wait": self.mail.wait(name, decl),
-                "working": row.get("state") == "WORKING"}
+                "working": row.get("state") == "WORKING", "idle_min": idle, "unknown_why": why}  # idle_min = teams 한 줄의 N(⚠ 임계와 무관한 원값)
 
     def all(self) -> dict:
         return {n: self.get(n) for n in self.roster() if n in self.alive}
 
     def rows(self) -> list[list[str]]:
-        """stalled 행 — `N분|좌석|턴 끝|기다림` · `완료 뒤 작업|좌석|#seq|HH:MM` · `완료 선언 미처리|받는 좌석|보낸 좌석 #seq|N분`"""
+        """stalled 행 — `확인 불가|좌석|-|사유` · `N분|좌석|턴 끝|기다림` · `완료 뒤 작업|좌석|#seq|HH:MM` · `완료 선언 미처리|받는 좌석|보낸 좌석 #seq|N분`"""
         done_min = int(os.environ.get("FT_BOARD_DONE_MIN", "10"))
         out = []
         for name, c in self.all().items():
+            why = "현역 근거 없음(포인터·은퇴 표시 0)" if c.get("unknown") else c.get("unknown_why")
+            if why:  # §7-7 «숨김 0» — 현역 근거 없는 좌석·턴 조회 불가 좌석도 master 감시에 나온다(분 열이 숫자가 아니라 --min 과 무관)
+                out.append(["확인 불가", name, "-", why])
             d = c["decl"]
             if c["stalled"]:
                 out.append([f"{c['stalled']}분", name, c["turn_end"] or "-", c["wait"]])
