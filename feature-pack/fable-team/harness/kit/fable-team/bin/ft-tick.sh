@@ -299,13 +299,16 @@ sweep_wt() {
 }
 
 drift_watch() {
-  local out rc hdr items sig sigf stamp rows master
+  local out err errf cause rc shrc hdr items sig sigf stamp rows master
   [ "$DRIFT_ENABLED" = 1 ] || return 0
   case "$HERE" in */.fable-team/bin|*/.fable-team/*/bin) ;; *) return 0;; esac
   stamp="$(stamp_of _all drift)"
   if [ "$DRY" != 1 ] && [ $(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) )) -lt "$DRIFT_INTERVAL" ]; then return 0; fi
   [ -f "$DRIFT_CHECK" ] || { echo "$(date '+%F %T') drift_watch: missing $DRIFT_CHECK" >&2; return 0; }
-  out="$(bash "$DRIFT_CHECK" --bin "$HERE" ${ROOT:+--repo "$ROOT"} 2>&1)"; rc=$?
+  # stdout 만 머리글·항목·서명 — stderr(locale 경고 등)가 머리글이 되면 로그·알림·서명이 오염된다. stderr 는 rc≥2 원인 줄로만 쓴다.
+  errf="$(mktemp)" && [ -n "$errf" ] || { echo "$(date '+%F %T') drift_watch: ERROR mktemp failed — check not run" >&2; return 0; }
+  out="$(bash "$DRIFT_CHECK" --bin "$HERE" ${ROOT:+--repo "$ROOT"} 2>"$errf")"; rc=$?
+  err="$(cat "$errf" 2>/dev/null)"; rm -f "$errf"
   if [ "$DRY" = 1 ]; then echo "DRY kind=drift bin=$HERE rc=$rc"; return 0; fi
   now > "$stamp"; sigf="$STATE_DIR/drift.sig"; mkdir -p "$STATE_DIR"
   case "$rc" in
@@ -313,13 +316,17 @@ drift_watch() {
     1)
       hdr="$(printf '%s\n' "$out" | head -1)"; items="$(printf '%s\n' "$out" | grep -E '^(MISSING|DIFF|MODE|EXTRA) ')"
       log "drift: ${hdr#DRIFT } $(printf '%s\n' "$items" | head -3 | tr '\n' ' ')"
-      sig="$(printf '%s\n' "$items" | shasum | cut -c1-40)"
+      sig="$(printf '%s\n' "$items" | LC_ALL=C shasum)"; shrc=$?; sig="${sig:0:40}"   # 해시만 LC_ALL=C — C.UTF-8 에서 perl shasum 이 panic(rc=9)
+      if [ "$shrc" != 0 ] || [ -z "$sig" ]; then echo "$(date '+%F %T') drift_watch: ERROR signature hash failed rc=$shrc — no alert sent" >&2; return 0; fi
       [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
       master="$(master_seat)"
       [ -n "$master" ] || { echo "$(date '+%F %T') drift_watch: drift pending but no active master" >&2; return 0; }
       if bash "$MBOX" send "$master" ft-tick "[drift] 라이브 bin ↔ main 키트 어긋남 ${hdr#DRIFT } — $(printf '%s\n' "$items" | head -3 | tr '\n' ' ')— master 라이브 cp 필요" >/dev/null 2>&1; then echo "$sig" > "$sigf"
       else echo "$(date '+%F %T') drift_watch: mbox failed" >&2; fi;;
-    *) echo "$(date '+%F %T') drift_watch: check rc=$rc: $(printf '%s\n' "$out" | head -1)" >&2;;
+    *) # 원인 = stderr 의 첫 «실제» 줄(알려진 locale 경고는 건너뜀) · 경고뿐이면 경고 1줄
+      cause="$(printf '%s\n' "$err" | grep -v -E 'setlocale|Setting locale failed|Please check that your locale|locale settings|LANG(UAGE)? =|LC_[A-Z]+ =|are supported and installed|Falling back' | grep -m1 .)"
+      [ -n "$cause" ] || cause="$(printf '%s\n' "$err" | head -1)"
+      echo "$(date '+%F %T') drift_watch: check rc=$rc: $(printf '%s\n' "$out" | head -1)${cause:+ [stderr] $cause}" >&2;;
   esac
   return 0
 }

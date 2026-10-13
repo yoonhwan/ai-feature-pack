@@ -87,7 +87,7 @@ has "$out" "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님
 
 # ── tick ──
 fresh_live
-printf '{"m#1":{"role":"master","agent":"claude","tick":"ft-master-tick"}}\n' > "$T/seats.json"
+printf '{"_master":"m#1","m#1":{"role":"master","agent":"claude","tick":"ft-master-tick"}}\n' > "$T/seats.json"
 printf '#!/bin/bash\necho "$*" >> "%s/mbox.log"\n' "$T" > "$T/fakembox.sh"; chmod +x "$T/fakembox.sh"
 TICK() { (cd "$CLONE" && FT_TICK_SEATS="$T/seats.json" FT_TICK_STATE_DIR="$T/state" FT_TICK_MBOX="$T/fakembox.sh" FT_TICK_PIDFILE="$T/tick.pid" \
   FT_TICK_DRIFT_INTERVAL=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_STALL_INTERVAL=99999999 FT_TICK_GOAL_INTERVAL=99999999 bash "$LIVE/ft-tick.sh" --once 2>&1); }
@@ -110,6 +110,38 @@ hasnt "$off" "drift:" "FT_TICK_DRIFT=0 → 검사 안 함"
 fresh_live
 t4="$(TICK)"; has "$t4" "drift: OK" "복구 → drift: OK 로그"; [ -f "$T/state/drift.sig" ] && bad "복구 뒤 서명 파일 남음" || ok "복구 → 서명 파일 삭제"
 t5="$(TICK)"; hasnt "$t5" "drift:" "복구 뒤 로그 0"
+# _master 포인터 없는 좌석표(R27): 어긋남 로그는 남고 송신 0 · 조용한 생략 아님(stderr 경고 1줄)
+echo "# a" >> "$LIVE/a.sh"; before="$(sends)"
+printf '{"m#1":{"role":"master","agent":"claude","tick":"ft-master-tick"}}\n' > "$T/seats-nomaster.json"
+nm="$(cd "$CLONE" && FT_TICK_SEATS="$T/seats-nomaster.json" FT_TICK_STATE_DIR="$T/state-nm" FT_TICK_MBOX="$T/fakembox.sh" FT_TICK_PIDFILE="$T/tick-nm.pid" \
+  FT_TICK_DRIFT_INTERVAL=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_STALL_INTERVAL=99999999 FT_TICK_GOAL_INTERVAL=99999999 bash "$LIVE/ft-tick.sh" --once 2>&1)"
+has "$nm" "drift: n=1" "_master 없음 → 어긋남 로그는 남음"
+has "$nm" "drift pending but no active master" "_master 없음 → no active master 경고"
+[ "$(sends)" = "$before" ] && ok "_master 없음 → 송신 0" || bad "_master 없음인데 송신 $(sends) (전 $before)"
+fresh_live
+# drift_watch 실패 경로(R147 DA⑥ HOLD 1): 조용히 틀린 알림/무알림 0 — ERROR 1줄 · 송신 0
+TICKX() { local st="$1"; shift; (cd "$CLONE" && env "$@" FT_TICK_SEATS="$T/seats.json" FT_TICK_STATE_DIR="$st" FT_TICK_MBOX="$T/fakembox.sh" FT_TICK_PIDFILE="$T/tick-x.pid" \
+  FT_TICK_DRIFT_INTERVAL=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_STALL_INTERVAL=99999999 FT_TICK_GOAL_INTERVAL=99999999 bash "$LIVE/ft-tick.sh" --once 2>&1); }
+# C1: rc≥2 원인 줄 — locale 경고가 앞서도 첫 «실제 원인» 이 로그에 남는다
+printf '#!/bin/bash\necho "bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8)" >&2\necho FAKE_REAL_CAUSE >&2\nexit 3\n' > "$LIVE/ft-live-bin-drift-check.sh"
+c1="$(TICKX "$T/state-c1" LC_ALL=C.UTF-8 LANG=C.UTF-8)"
+has "$c1" "check rc=3" "stderr 원인: rc≥2 → ERROR 줄"; has "$c1" "FAKE_REAL_CAUSE" "stderr 원인: locale 경고를 건너뛴 첫 실제 원인이 로그에 남음"
+printf '#!/bin/bash\necho "bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8)" >&2\nexit 3\n' > "$LIVE/ft-live-bin-drift-check.sh"
+c1w="$(TICKX "$T/state-c1w")"; has "$c1w" "setlocale" "경고만 있으면 경고 1줄 그대로"
+# C2: mktemp 실패 → ERROR 1줄 · 송신 0 · 서명 불변(가짜 DRIFT 아님)
+fresh_live; echo "# a" >> "$LIVE/a.sh"; before="$(sends)"
+mkdir -p "$T/fk-mktemp"; printf '#!/bin/sh\nexit 1\n' > "$T/fk-mktemp/mktemp"; chmod +x "$T/fk-mktemp/mktemp"
+c2="$(TICKX "$T/state-c2" PATH="$T/fk-mktemp:$PATH")"
+hasnt "$c2" "drift: " "mktemp 실패 → 가짜 drift 로그 0"; has "$c2" "drift_watch: ERROR mktemp" "mktemp 실패 → ERROR 1줄"
+[ "$(sends)" = "$before" ] && ok "mktemp 실패 → 송신 0" || bad "mktemp 실패인데 송신 $(sends) (전 $before)"
+[ -f "$T/state-c2/drift.sig" ] && bad "mktemp 실패인데 서명 파일 생김" || ok "mktemp 실패 → 서명 불변"
+# 서명 해시: shasum 실패(예: LC_ALL=C.UTF-8 perl panic rc=9) → 빈 서명이 «무알림» 이 되지 않고 ERROR 1줄 · 송신 0
+mkdir -p "$T/fk-sha"; printf '#!/bin/sh\nexit 9\n' > "$T/fk-sha/shasum"; chmod +x "$T/fk-sha/shasum"
+c3="$(TICKX "$T/state-c3" PATH="$T/fk-sha:$PATH")"
+has "$c3" "drift_watch: ERROR signature" "shasum rc9 → ERROR 1줄"
+[ "$(sends)" = "$before" ] && ok "shasum 실패 → 송신 0" || bad "shasum 실패인데 송신 $(sends) (전 $before)"
+[ -f "$T/state-c3/drift.sig" ] && bad "shasum 실패인데 서명 파일 생김" || ok "shasum 실패 → 서명 파일 없음"
+fresh_live
 rm -f "$LIVE/ft-live-bin-drift-check.sh"
 t6="$(TICK)"; hasnt "$t6" "drift:" "검사 스크립트 없음 → drift 로그 없이 stderr 경고만"; has "$t6" "drift_watch: missing" "검사 스크립트 없음 → 경고 1줄"
 
