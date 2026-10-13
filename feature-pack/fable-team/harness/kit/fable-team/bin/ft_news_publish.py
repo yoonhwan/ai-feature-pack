@@ -3,7 +3,7 @@
 publish = 직전 발행본과 «머리 시각만 지운 꼴» 이 같으면 발행 0 · 다르면 채널 «최상위 새 글» 1개(오빠 판정 1438 — 스레드·답글·update·첨부 0). 올리기 전 그날 봇 글 중 본문이 같은 글이 있으면 채택(첫 줄만 보면 머리 시각이 같은 새 판이 사라져 통째 비교)(응답 유실 뒤 재실행이 두 번 올리지 않는다). 본문 UTF-8 3500B 초과 = raise.
 처리 기록(state/news-publish/processed.tsv) = «초안 이름 → POLISHED 이름 | 같은 내용 · 발행 0» 1줄. 대체는 «명시 기록» 으로만 — X 를 기록할 때 X 보다 이른 «기록 없는» 초안 W 마다 «W<TAB>대체<TAB>X» 1줄을 같이 남긴다.
 근거: 초안은 R118a 생성기가 매번 전 팀을 새로 모은 «전체 상태 스냅샷» 이라 더 새로 다듬은 판이 이전 판을 내용상 대체한다. 시각만으로 대체를 추정하지 않는다(기록이 없으면 대체 아님).
-env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험)
+env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_HERMES_SCRIPTS(magazine_slack·mirror_lib 설치 폴더 · 기본 ~/.hermes/scripts) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험)
 """
 import argparse
 import html
@@ -15,11 +15,17 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "harness-install" / "slack-mirror"))  # 리포 안 키트(설치본 ~/.hermes/scripts 가 없는 시험·개발 판)
+_HERE = Path(__file__).resolve().parent
+_HERMES = Path(os.environ.get("FT_HERMES_SCRIPTS") or "~/.hermes/scripts").expanduser()  # 설치본 — 라이브 bin 은 옆 키트 폴더가 없어 여기서 찾는다
+_KIT = _HERE.parent / "harness-install" / "slack-mirror"  # 리포 안 키트(설치본이 없는 시험·개발 판)
+sys.path[:0] = [str(p) for p in (_HERE, _HERMES, _KIT) if p.is_dir()]  # 실재하는 것만 · 우선순위 = bin 옆 → 설치본 → 키트
 import ft_board_env as env  # noqa: E402
-from magazine_slack import post_root  # noqa: E402
-from mirror_lib import MirrorError, paged  # noqa: E402
+
+try:
+    from magazine_slack import post_root  # noqa: E402
+    from mirror_lib import MirrorError, paged  # noqa: E402
+except ImportError as e:
+    raise ImportError(f"magazine_slack·mirror_lib 를 못 찾음 — 찾은 곳: {_HERMES} (FT_HERMES_SCRIPTS) · {_KIT} ({e})") from e
 
 LOG = logging.getLogger("ft_news_publish")
 STAMP = re.compile(r"-(\d{8}-\d{4})\.md$")
