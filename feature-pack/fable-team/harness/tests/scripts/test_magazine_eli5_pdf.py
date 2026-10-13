@@ -13,7 +13,7 @@ from magazine_attach import file_title
 from magazine_pdf import PdfError
 
 DATE = "2026-10-08"
-PDF_NEW, HTML_NEW = file_title(DATE, "pdf", "r0"), file_title(DATE, "html", "r0")
+PDF_NEW, HTML_NEW, APPENDIX_NEW = (file_title(DATE, k, "r0") for k in ("pdf", "html", "md"))
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def test_cli_writes_easy_pdf_next_to_html_and_uploads_only_pdfs(env, slack):
     out = tmp / "out"
     assert (out / "MAGAZINE-20261008-eli5.html").exists() and (out / "MAGAZINE-20261008-eli5.pdf").read_bytes() == b"%PDF-fake"
     root = slack.roots[0]
-    assert slack.titles(root["ts"]) == [PDF_NEW, HTML_NEW] and slack.content_types == ["application/pdf"] * 2
+    assert slack.titles(root["ts"]) == [PDF_NEW, HTML_NEW, APPENDIX_NEW] and slack.content_types == ["application/pdf"] * 2 + ["text/markdown"]
     assert "쉬운 판 PDF(먼저 보세요)·풀 디테일 PDF" in root["text"] and "오빠가 내린 결정 0건 · 기다리는 결정 1건 — 쉬운 판 첫 장" in root["text"]
 
 
@@ -66,6 +66,6 @@ def test_easy_pdf_failure_is_a_visible_easy_edition_failure_and_full_pdf_still_g
     with caplog.at_level(logging.ERROR, logger="byz_morning_magazine"):
         assert cli.main(base) == 0
     root = slack.roots[0]
-    assert slack.titles(root["ts"]) == [PDF_NEW] and "쉬운 판(HTML) 못 만들었어요 — PDF 생성 실패: 변환기 죽음" in root["text"]
+    assert slack.titles(root["ts"]) == [PDF_NEW, APPENDIX_NEW] and "쉬운 판(HTML) 못 만들었어요 — PDF 생성 실패: 변환기 죽음" in root["text"]
     assert "오빠가 내린 결정" not in root["text"] and any("쉬운 판 PDF 변환 실패" in r.message for r in caplog.records)
     assert (tmp / "out" / "MAGAZINE-20261008-eli5.html").exists()

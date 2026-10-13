@@ -16,7 +16,7 @@ from magazine_slack import Target, has_file_title, upload_file
 
 LOG = logging.getLogger("byz_morning_magazine")
 CONTENT_TYPES = {".pdf": "application/pdf", ".html": "text/html", ".md": "text/markdown"}  # 확장자로 — 쉬운 판(kind html)도 이제 PDF 파일
-TITLE_KIND = {"pdf": "풀 디테일", "html": "쉬운 판"}
+TITLE_KIND = {"pdf": "풀 디테일", "html": "쉬운 판", "md": "상세 부록"}
 
 
 class AttachError(RuntimeError):

@@ -74,8 +74,8 @@ def test_reattach_on_done_day_adds_reply_and_files_not_a_root_then_skips(env, sl
     print(f"[reattach 출력] {out}")
     root = slack.roots[0]["ts"]
     assert len(slack.roots) == 1 and out.startswith(f"reattached date={DATE} rev=r1 ts=") and "pages=3" in out and "-eli5.html" in out
-    assert slack.replies_of(root)[0]["text"].startswith(f"[상태] *아침 매거진 {DATE} 재첨부 r1*") and len(slack.titles(root)) == 4
-    assert cli.main([*base, "--reattach", "r1"]) == 0 and f"skip date={DATE} rev=r1" in capsys.readouterr().out and len(slack.titles(root)) == 4
+    assert slack.replies_of(root)[0]["text"].startswith(f"[상태] *아침 매거진 {DATE} 재첨부 r1*") and len(slack.titles(root)) == 6  # r0 3개(풀 디테일·쉬운 판·상세 부록) + r1 3개
+    assert cli.main([*base, "--reattach", "r1"]) == 0 and f"skip date={DATE} rev=r1" in capsys.readouterr().out and len(slack.titles(root)) == 6
 
 
 def test_reattach_skip_happens_before_collect_summary_pdf(env, monkeypatch):
@@ -106,7 +106,7 @@ def test_eli5_failure_is_visible_in_log_root_and_pdf_section_and_pdf_continues(e
     md = (tmp / "out" / "MAGAZINE-20261008.md").read_text(encoding="utf-8")
     assert f"{WARN_PREFIX}형식 오류 <@U123>" in md.split("## 근거")[1].split("## ")[0]  # PDF 근거 절에 같은 줄
     assert any("쉬운 판(eli5) 생성 실패" in r.message for r in caplog.records if r.levelno == logging.ERROR)
-    assert slack.titles(root["ts"]) == [f"아침 매거진 {DATE} 풀 디테일 r0"] and json.loads((tmp / "state.json").read_text())[DATE]["phase"] == "done"
+    assert slack.titles(root["ts"]) == [f"아침 매거진 {DATE} 풀 디테일 r0", f"아침 매거진 {DATE} 상세 부록 r0"] and json.loads((tmp / "state.json").read_text())[DATE]["phase"] == "done"
     print(f"[eli5 실패] PDF 발행 계속={len(slack.uploads) == 1} · 뿌리 글 마지막 줄 = {root['text'].splitlines()[-1]}")
 
 
@@ -117,7 +117,7 @@ def test_eli5_failure_on_reattach_warns_in_reply_and_attaches_only_pdf(env, slac
     assert cli.main([*base, "--reattach", "r1"]) == 0
     root = slack.roots[0]["ts"]
     assert slack.replies_of(root)[0]["text"].splitlines()[-1] == f"{WARN_PREFIX}LLM 응답 없음"
-    assert slack.titles(root)[-1] == f"아침 매거진 {DATE} 풀 디테일 r1" and len(slack.titles(root)) == 3
+    assert slack.titles(root)[-2:] == [f"아침 매거진 {DATE} 풀 디테일 r1", f"아침 매거진 {DATE} 상세 부록 r1"] and len(slack.titles(root)) == 5
 
 
 def test_missing_eli5_module_is_a_visible_failure_not_a_silent_skip(env, slack, monkeypatch):

@@ -16,6 +16,8 @@ LOG = logging.getLogger("byz_morning_magazine")
 DETAIL_KEYS = ("refs", "units", "malformed", "verdict_sections", "decisions", "merge_bodies", "issue_evidence", "open", "seats_closed", "appendix")
 OPEN_KEYS = ("cards", "requests", "malformed_requests", "holds", "breaches")
 NONE: Block = ("p", "없어요")
+DETAIL_ANCHORS = ("d1", "d2", "d3", "d6", "d7")  # PDF 에서 빠지고 부록 md 로 가는 상세 절(R111 · 오빠 판정 1396)
+APPENDIX_POINTER = "상세는 부록 파일 — D1 닫힌 단위 · D2 판정서 절 · D3 판정 · D6 열린 행 · D7 좌석은 같은 스레드의 부록 md 에 있어요"
 
 
 def _keep(text: object) -> str:
@@ -118,22 +120,38 @@ def check_detail(model: Model) -> None:
             raise RenderError(f"detail.open 에 '{key}' 칸 없음")
 
 
-def render_full(model: Model, lines: list[str], generated_at: str, warn: str | None = None) -> tuple[str, str]:
-    """(md, html). warn = 쉬운 판(eli5) 실패 1줄 — 있으면 «근거» 절 끝에 같은 줄로 남긴다(설계 §5)."""
+def _blocks(model: Model, lines: list[str], generated_at: str, warn: str | None, skip: frozenset[str]) -> list[Block]:
+    """skip 에 든 앵커의 절은 빼고 목차에 «상세는 부록 파일» 1줄을 둔다."""
     check_detail(model)
     body, notes = part1(model, lines, generated_at)
-    title = str(body[0][1])
     first = next(i for i, b in enumerate(body) if b[0] == "h2")  # 1부 첫 절(결론) 에 목차 앵커
     body[first] = (*body[first], "part1")
-    toc = [("1부 요약판", "part1")] + [(name, anchor) for anchor, name, _ in SECTIONS] + [("각주표", "footnotes")]
+    toc = [("1부 요약판", "part1")] + [(name, anchor) for anchor, name, _ in SECTIONS if anchor not in skip] + [("각주표", "footnotes")]
     bad = [shape.warning_line(model["detail"]["malformed"]), shape.requests_warning_line(model["detail"]["open"]["malformed_requests"])]
-    blocks: list[Block] = body[:1] + [("h2", "목차"), ("toc", toc)] + [("p", w) for w in bad if w] + body[1:] + ([("p", warn)] if warn else [])
+    pointer: list[Block] = [("p", APPENDIX_POINTER)] if skip else []
+    blocks: list[Block] = body[:1] + [("h2", "목차"), ("toc", toc)] + pointer + [("p", w) for w in bad if w] + body[1:] + ([("p", warn)] if warn else [])
     blocks.append(("h1", "2부 풀 디테일"))
     for anchor, name, build in SECTIONS:
-        blocks += [("h2", name, anchor)] + (build(model) or [NONE])
+        if anchor not in skip:
+            blocks += [("h2", name, anchor)] + (build(model) or [NONE])
     check_footnotes(to_md(blocks), notes)
-    blocks += [("h2", "각주표", "footnotes")] + footnote_blocks(notes)[1:]
-    return to_md(blocks), to_html(blocks, title)
+    return blocks + [("h2", "각주표", "footnotes")] + footnote_blocks(notes)[1:]
+
+
+def render_full(model: Model, lines: list[str], generated_at: str, warn: str | None = None) -> tuple[str, str]:
+    """(md, html). warn = 쉬운 판(eli5) 실패 1줄 — 있으면 «근거» 절 끝에 같은 줄로 남긴다(설계 §5)."""
+    blocks = _blocks(model, lines, generated_at, warn, frozenset())
+    return to_md(blocks), to_html(blocks, str(blocks[0][1]))
+
+
+def render_summary(model: Model, lines: list[str], generated_at: str, warn: str | None = None) -> tuple[str, str, str]:
+    """(PDF 원본 md, PDF 원본 html, 부록 md) — PDF 는 요약 절만, 상세 절(DETAIL_ANCHORS)은 부록 md 로 절 순서 그대로(R111)."""
+    blocks = _blocks(model, lines, generated_at, warn, frozenset(DETAIL_ANCHORS))
+    appendix: list[Block] = [("h1", f"{blocks[0][1]} — 상세 부록")]
+    for anchor, name, build in SECTIONS:
+        if anchor in DETAIL_ANCHORS:
+            appendix += [("h2", name, anchor)] + (build(model) or [NONE])
+    return to_md(blocks), to_html(blocks, str(blocks[0][1])), to_md(appendix)
 
 
 def build_eli5(model: Model, cmd: str, lines: Sequence[str] = ()) -> tuple[str | None, str | None]:

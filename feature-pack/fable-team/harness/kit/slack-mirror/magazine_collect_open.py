@@ -99,7 +99,7 @@ def _request(cells: list[str]) -> dict[str, str] | None:
 def _holds(repo: Path, infos: list[dict[str, object]], span: list[str]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for info in infos:
-        log = git(repo, "log", str(info["name"]), *span, "--diff-filter=A", "--name-status", "--format=%x01%H", "--", DA_GLOB)
+        log = git(repo, "log", str(info["end_sha"]), *span, "--diff-filter=A", "--name-status", "--format=%x01%H", "--", DA_GLOB)
         for _, path in name_status(log):
             lines = [ln.strip(" *#`") for ln in blob(repo, path, str(info["end_sha"])).split("\n") if ln.strip()]
             if lines and lines[-1].startswith(("HOLD", "REJECT")):

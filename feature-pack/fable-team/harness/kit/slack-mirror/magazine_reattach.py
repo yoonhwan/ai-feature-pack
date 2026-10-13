@@ -22,7 +22,7 @@ def first_line(date: str, rev: str) -> str:
 
 
 def reply_text(date: str, rev: str, warn: str | None) -> str:
-    body = [first_line(date, rev), "풀 디테일 PDF 와 쉬운 판 PDF 를 다시 붙였어요 — 위의 앞 PDF 는 요약판이에요"]
+    body = [first_line(date, rev), "풀 디테일 PDF · 쉬운 판 PDF · 상세 부록 md 를 다시 붙였어요 — 위의 앞 PDF 는 요약판이에요"]
     return "\n".join(body + ([esc(warn)] if warn else []))
 
 
@@ -84,7 +84,7 @@ def reattach(t: Target, day: Day, state_path: Path, rev: str, text: str, *, forc
     root = _root_ts(t, day, state_path)
     ts = _reply_ts(t, day, state_path, root, rev, text)
     files = rev_record(state_path, day.date, rev).get("files", {})
-    for kind, path in (("pdf", day.pdf), ("html", day.html)):
+    for kind, path in (("pdf", day.pdf), ("html", day.html), ("md", day.appendix)):
         if path is None or (kind == "pdf" and rev_record(state_path, day.date, rev).get("phase") == "pdf_done"):
             continue
         attach(t, root, kind, path, file_title(day.date, kind, rev), attempt=files.get(kind),

@@ -3,9 +3,8 @@
 
 순서: 구조 모델 → 요약 → 쉬운 판(eli5) → md·html·여러 쪽 PDF → (ops/magazine push) → 표식 확인 → posting → 뿌리 글 → posted
       → 풀 디테일 PDF 첨부 → pdf_done → 쉬운 판 PDF 첨부 → done. (eli5 실패 = ERROR + 뿌리 글·PDF 근거 절에 같은 경고 줄, PDF 는 계속 — 설계 §5)
---dry-run = 파일을 만들고 슬랙 글을 stdout 에만 낸다(게시·push·상태 쓰기 0).
---reattach rN = 이미 발행된 날의 스레드에 답글 + 풀 디테일 PDF·쉬운 판 PDF 를 다시 붙인다(새 뿌리 글 0 · --force·--force-root 와 배타).
-push 는 기본 켬 — 수동 시험은 --no-push (판정 348). 구조 모델은 수집 모듈(magazine_collect.collect)이 만든다.
+PDF = 요약 절만, 상세 절(D1·D2·D3·D6·D7)은 «상세 부록 md» 로 같은 스레드에 붙는다(전체 md 는 out·push 에 그대로 · R111). --reattach rN = 답글 + 풀 디테일 PDF·쉬운 판 PDF·부록 md 재첨부(새 뿌리 글 0 · --force·--force-root 와 배타).
+--dry-run = 파일을 만들고 슬랙 글을 stdout 에만 낸다(게시·push·상태 쓰기 0). push 는 기본 켬 — 수동 시험은 --no-push (판정 348). 구조 모델은 수집 모듈이 만든다.
 """
 import argparse
 import json
@@ -27,7 +26,7 @@ from magazine_publish import KST, Day, done_ts, last_done, publish_day
 from magazine_cli_args import parse_args
 from magazine_reattach import reattach, rev_done_ts, reply_text
 from magazine_render_cap import checked_pdf
-from magazine_render_full import build_eli5, render_full
+from magazine_render_full import build_eli5, render_full, render_summary
 from magazine_slack import Target, eli5_warning_line, failure_text, post_root, root_text
 from magazine_summary import summarize_model
 from magazine_window import MagazineError
@@ -79,6 +78,7 @@ class Made:
     warn: str | None  # 쉬운 판 실패 경고 1줄(뿌리 글·답글·PDF 근거 절에 같은 줄)
     malformed: str | None = None  # 형식 미달 카드·요청 행 경고 1~2줄(뿌리 글 — PDF 첫 화면과 같은 줄)
     eli5_pdf: Path | None = None  # 슬랙에 붙는 쉬운 판(eli5_path 의 HTML 은 out 폴더에만 남는다)
+    appendix_path: Path | None = None  # 슬랙에 붙는 상세 부록 md(PDF 에서 빠진 상세 절)
 
 
 def make_files(model: Model, args: argparse.Namespace) -> Made:
@@ -89,12 +89,13 @@ def make_files(model: Model, args: argparse.Namespace) -> Made:
     stem = "MAGAZINE-" + str(model["date"]).replace("-", "")
     eli5_path, eli5_pdf, cause = write_eli5(eli5, cause, out, stem, str(model["date"]), html_to_pdf)  # 쉬운 판은 PDF 로 붙인다(슬랙은 HTML 을 소스 글자로 보임)
     warn = eli5_warning_line(cause) if cause is not None else None
-    md, html = render_full(model, summary.lines, datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), warn)
-    md_path, html_path, pdf_path = out / f"{stem}.md", out / f"{stem}.html", out / f"{stem}.pdf"
-    md_path.write_text(md, encoding="utf-8")
-    html_path.write_text(html, encoding="utf-8")
-    pages = checked_pdf(md, html_path, pdf_path, f"아침 매거진 {model['date']}", html_to_pdf)  # md·쪽수 상한(MagazineSizeError) — 넘으면 run() 의 실패 알림 경로
-    return Made(md_path, html_path, pdf_path, eli5_path, md, summary.lines, pages, warn, bad_lines(model), eli5_pdf)  # 카드 줄 · 요청 행 줄(별 줄) — 0 이면 None
+    md, html = render_full(model, summary.lines, now := datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), warn)
+    pdf_md, pdf_html, appendix_md = render_summary(model, summary.lines, now, warn)  # PDF = 요약 절만 · 상세 절은 부록 md (R111)
+    md_path, html_path, pdf_path, pdf_html_path, appendix_path = (out / f"{stem}{s}" for s in (".md", ".html", ".pdf", ".pdf.html", ".detail.md"))
+    for path, text in ((md_path, md), (html_path, html), (pdf_html_path, pdf_html), (appendix_path, appendix_md)):
+        path.write_text(text, encoding="utf-8")
+    pages = checked_pdf(pdf_md, pdf_html_path, pdf_path, f"아침 매거진 {model['date']}", html_to_pdf)  # PDF 원본 md·쪽수 상한(MagazineSizeError) — 넘으면 run() 의 실패 알림 경로
+    return Made(md_path, html_path, pdf_path, eli5_path, md, summary.lines, pages, warn, bad_lines(model), eli5_pdf, appendix_path)  # 카드 줄 · 요청 행 줄(별 줄) — 0 이면 None
 
 
 def oldest_epoch(date: str) -> float:
@@ -130,7 +131,7 @@ def run_reattach(args: argparse.Namespace) -> int:
     except Exception as e:  # noqa: BLE001 — 수집·렌더 실패도 «보이게» 알리고 exit 1
         report_failure(args, e)
         return 1
-    day = Day(date, "", made.pdf_path, oldest_epoch(date), sha16(made.md), made.eli5_pdf)
+    day = Day(date, "", made.pdf_path, oldest_epoch(date), sha16(made.md), made.eli5_pdf, made.appendix_path)
     if args.dry_run:
         print(f"DRY-RUN reattach rev={rev} pdf={made.pdf_path} pages={made.pages} html={made.eli5_path or '-'} eli5pdf={made.eli5_pdf or '-'}\n--- 슬랙 답글 ---\n{reply_text(date, rev, made.warn)}")
         return 0
@@ -171,7 +172,7 @@ def run(args: argparse.Namespace) -> int:
     if args.dry_run:
         print(f"DRY-RUN {shown}\n--- 슬랙 뿌리 글 ---\n{text}")
         return 0
-    day = Day(date, text, made.pdf_path, oldest_epoch(date), sha16(made.md), made.eli5_pdf)
+    day = Day(date, text, made.pdf_path, oldest_epoch(date), sha16(made.md), made.eli5_pdf, made.appendix_path)
     try:
         res = publish_day(target(args), day, Path(args.state).expanduser(), force=args.force, force_root=args.force_root, force_file=tuple(args.force_file))
     except (RuntimeError, OSError) as e:

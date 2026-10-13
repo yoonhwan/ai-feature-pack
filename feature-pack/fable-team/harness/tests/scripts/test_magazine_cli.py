@@ -61,8 +61,8 @@ def test_cli_no_push_makes_zero_git_calls_and_second_run_skips(cli_env, slack, m
     assert "skip date=2026-10-08" in capsys.readouterr().out and len(slack.roots) == 1
     root = slack.roots[0]["text"]
     assert root.startswith("[상태] *아침 매거진 2026-10-08*") and "main 에 두 건이 들어갔어요" in root and "<@U0AC2JF0M7D> 결정 대기 1건" in root
-    assert "&lt;script&gt;" not in root and slack.uploads == [b"%PDF-fake", b"%PDF-fake"]
-    assert slack.titles(slack.roots[0]["ts"]) == [f"아침 매거진 {DATE} 풀 디테일 r0", f"아침 매거진 {DATE} 쉬운 판 r0"]
+    assert "&lt;script&gt;" not in root and slack.uploads[:2] == [b"%PDF-fake", b"%PDF-fake"] and len(slack.uploads) == 3
+    assert slack.titles(slack.roots[0]["ts"]) == [f"아침 매거진 {DATE} 풀 디테일 r0", f"아침 매거진 {DATE} 쉬운 판 r0", f"아침 매거진 {DATE} 상세 부록 r0"]
 
 
 def test_cli_push_link_uses_commit_sha(cli_env, slack, repo, monkeypatch):

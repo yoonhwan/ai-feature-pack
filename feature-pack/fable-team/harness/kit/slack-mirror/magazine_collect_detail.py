@@ -63,10 +63,10 @@ def name_status(out: str) -> list[tuple[str, str]]:
 def resolve_refs(repo: Path, refs: list[str], start: datetime, end: datetime) -> list[dict[str, object]]:
     out: list[dict[str, object]] = []
     for name in refs:
-        end_sha = git(repo, "rev-list", "-1", f"--before={end.isoformat()}", name).strip()
+        end_sha = git(repo, "rev-list", "-1", "--first-parent", f"--before={end.isoformat()}", name).strip()
         if not end_sha:
             raise MagazineError(f"ref {name}: 창 끝 이전 커밋이 없어요")
-        start_sha = git(repo, "rev-list", "-1", f"--before={start.isoformat()}", name).strip() or None
+        start_sha = git(repo, "rev-list", "-1", "--first-parent", f"--before={start.isoformat()}", name).strip() or None
         out.append({"name": name, "start_sha": start_sha, "end_sha": end_sha})
     return out
 
@@ -99,7 +99,7 @@ def _units(repo: Path, infos: list[dict[str, object]], span: list[str], report: 
     """(정상 units, 형식 미달 malformed) — malformed 는 report 모드에서만 생긴다. 같은 경로는 앞 ref 의 판정이 이긴다."""
     seen: dict[str, dict[str, object]] = {}
     for info in infos:
-        out = git(repo, "log", str(info["name"]), *span, "-M", "--diff-filter=AR", "--name-status", "--format=%x01%H", "--", CARD_GLOB)
+        out = git(repo, "log", str(info["end_sha"]), *span, "-M", "--diff-filter=AR", "--name-status", "--format=%x01%H", "--", CARD_GLOB)
         for sha, path in name_status(out):
             if path.endswith(".md") and path not in seen:
                 seen[path] = _card(repo, info, path, sha, report)
@@ -154,7 +154,7 @@ def _seats_closed(repo: Path, info: dict[str, object]) -> list[dict[str, str]]:
 
 
 def _appendix(repo: Path, info: dict[str, object], span: list[str]) -> list[dict[str, str]]:
-    out = git(repo, "log", str(info["name"]), *span, "--diff-filter=A", "--name-status", "--format=%x01%H", "--")
+    out = git(repo, "log", str(info["end_sha"]), *span, "--diff-filter=A", "--name-status", "--format=%x01%H", "--")
     docs = [(sha, p) for sha, p in name_status(out) if p.rsplit("/", 1)[-1].startswith(DOC_PREFIXES)]
     return [{"path": p, "text": blob(repo, p, str(info["end_sha"]), sha)} for sha, p in docs]
 

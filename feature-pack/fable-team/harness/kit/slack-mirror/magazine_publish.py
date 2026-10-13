@@ -35,6 +35,7 @@ class Day:
     oldest_epoch: float
     md_sha: str = ""
     html: Path | None = None  # 쉬운 판(eli5) PDF — kind 키는 `html` 그대로(상태 호환) · 없는 날(생성 실패)은 pdf_done 에서 바로 done
+    appendix: Path | None = None  # 상세 부록 md(R111) — kind `md` · 없으면 붙이지 않는다
 
 
 def read_state(path: Path) -> dict[str, Any]:
@@ -120,5 +121,7 @@ def publish_day(
         set_phase(state_path, day.date, "pdf_done", ts=ts, pdf=str(day.pdf), sha=day.md_sha)
     if day.html:
         _attach(t, day, state_path, ts, "html", day.html, rec, force_file)
+    if day.appendix:
+        _attach(t, day, state_path, ts, "md", day.appendix, rec, force_file)
     set_phase(state_path, day.date, "done", ts=ts, pdf=str(day.pdf), sha=day.md_sha)
     return {"action": "published", "ts": ts}
