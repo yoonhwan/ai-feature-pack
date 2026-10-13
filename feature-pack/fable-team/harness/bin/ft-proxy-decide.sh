@@ -4,6 +4,7 @@
 #       [--sha <40hex> --da <판정문> --pr <N>]        push-merge 근거: PR head == --sha == DA⑥ 판정문 sha · checks 전부 pass
 #       [--card <카드.md> --verdict <판정 번호>]       card-start 근거: 판정 줄에 카드 이름 + 착수 낱말 · 카드 본문 제외 어휘 검사
 # rc 0 = 대리(PROXY): 판정 원장에 «대리» 1줄 · rc 2 = 대리 불가(QUEUE): 오빠 큐 1행 · rc 3 = 모드 OFF/위변조(인터뷰로) · rc 4 = 인자 오류
+#   push-merge PROXY 는 원장 줄 뒤에 $STATE/autonomy-merge-ok/<sha> 1줄(`<판정> pr=<N> da=<판정문> ev=<A번호>`)을 쓴다 — 자율 ON 중 pr merge·main push 가드(훅③)의 통과 근거 (판정 1355)
 # 환경: FT_ROOT · FT_AUTONOMY_STATE_DIR · FT_PLANNER_DIR(원장 VERDICTS-*.md · 큐 AUTONOMY-QUEUE.md) · FT_PROXY_LEDGER(쓸 원장, 기본 최신 planner 번호)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -128,5 +129,9 @@ num="$(( $(cat "$PLANNER"/VERDICTS-*.md "$LEDGER" 2>/dev/null | sed -n 's/^- \*\
 line="$(printf -- '- **%s** [대리 · 자율 ON %s] %s → %s · 근거 %s · 되돌림 %s' "$num" "$EV" "$(san "$q")" "$(san "$choice")" "$(san "$why")" "$(san "$undo")")"
 printf '%s\n' "$line" >> "$LEDGER" || fail "판정 원장 쓰기 실패: $LEDGER"
 [ "$(tail -n 1 "$LEDGER")" = "$line" ] || fail "판정 원장 쓰기 확인 실패: $LEDGER"
+if [ "$kind" = push-merge ]; then  # 병합 가드 훅(autonomy-merge-guard)이 읽는 ok 파일 — 원장 줄을 쓴 «뒤»에만 · 실패 = rc 5 (PROXY 출력 0)
+  OKDIR="$STATE/autonomy-merge-ok"
+  { mkdir -p "$OKDIR" && printf '%s pr=%s da=%s ev=%s\n' "$num" "$pr" "$(san "$da")" "$EV" > "$OKDIR/$sha.tmp" && mv "$OKDIR/$sha.tmp" "$OKDIR/$sha"; } || fail "병합 ok 파일 쓰기 실패: $OKDIR/$sha"
+fi
 unlock
 echo "PROXY 판정 $num · $("$AUT" status) → $choice"
