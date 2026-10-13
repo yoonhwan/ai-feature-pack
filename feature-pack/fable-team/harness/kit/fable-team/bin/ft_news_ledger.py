@@ -2,10 +2,9 @@
 
 줄 키 = 칸(`## N.`) · 소제목(`### `) · 표 첫 칸(순번 칸 제외)/목록·문단 줄 전체. 뉴스는 «커밋된» 판 둘(기준선 ↔ 지금)의 차이만 — 미커밋 수정·안 바뀐 줄은 싣지 않는다.
 기준선(state/news-ledger/last.sha)은 «전 판» 발행 성공(rc 0) 뒤에만 옮긴다(3500B 넘으면 칸 경계로 n/N 판 · ft_news_ledger_text.py) · 첫 실행 = 기준선만. 원장 문장 그대로라 Haiku 0.
-알림 = 원장 지금 커밋 뒤에 생긴 판정 줄이 있으면 planner 에 판정마다 1통(뉴스 본문 0).
+알림 = «(오빠)» 판정인데 원장 본문에 번호가 없으면 planner 에 한 틱 1통 묶음(뉴스 본문 0 · ft_news_ledger_notify.py).
 env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.worktrees/v6-realtime-live) · FT_LEDGER_PATH · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
 """
-import json
 import logging
 import os
 import re
@@ -17,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ft_board_env as env  # noqa: E402
+from ft_news_ledger_notify import notify  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
 
 LOG = logging.getLogger("ft_news_ledger")
@@ -92,32 +92,6 @@ def _now() -> datetime:
     return datetime.strptime(v, "%Y-%m-%d %H:%M") if v else datetime.now()
 
 
-def notify(root: Path, repo: Path, rel: str, sha: str, state: Path) -> None:
-    """원장 지금 커밋 뒤에 생긴 판정 줄(시각 `HH:Mx` 는 윗값으로 비교) → planner 에 판정마다 1통(서명 = 판정 번호 · 1회). 실패는 ERROR 만 — 뉴스를 막지 않는다."""
-    seats = json.loads((root / ".fable-team" / "seats-planner.json").read_text(encoding="utf-8"))
-    wt = seats.get("_cards_wt")
-    if not wt:
-        return
-    at = datetime.fromisoformat(_git(repo, "log", "-1", "--format=%cI", sha).strip()).replace(tzinfo=None)
-    sent_f = state / "notified.txt"
-    sent = set(sent_f.read_text(encoding="utf-8").split()) if sent_f.exists() else set()
-    mbox = os.environ.get("FT_MBOX") or str(root / ".fable-team" / "comm" / "mbox.sh")
-    for f in sorted((root / ".worktrees" / wt / "design" / "planner").glob("VERDICTS-planner-*-*.md")):
-        day = datetime.strptime(f.stem[-8:], "%Y%m%d")
-        for ln in f.read_text(encoding="utf-8").splitlines():
-            m = VERDICT_ROW.match(ln)
-            when = m and day.replace(hour=int(m[2]), minute=min(59, int(m[3].replace("x", "9"))))
-            if not m or when <= at or m[1] in sent:
-                continue
-            msg = f"[원장 갱신 확인] 판정 {m[1]} 뒤 원장 갱신 0 — 반영됐나요? ({m[4][:60]})"
-            if subprocess.run(["bash", mbox, "send", seats["_master"], "ft-news-ledger", msg], capture_output=True, check=False).returncode != 0:
-                LOG.error("알림 쪽지 실패 판정 %s — 다음 틱에 다시", m[1])
-                continue
-            sent.add(m[1])
-            state.mkdir(parents=True, exist_ok=True)
-            sent_f.write_text("\n".join(sorted(sent)) + "\n", encoding="utf-8")
-
-
 def run() -> int:
     root = env.ft_root()
     repo = Path(os.environ.get("FT_LEDGER_REPO") or root / ".worktrees" / "v6-realtime-live")
@@ -131,7 +105,7 @@ def run() -> int:
         base_f = state / "last.sha"
         base = base_f.read_text(encoding="utf-8").strip() if base_f.exists() else ""
         try:
-            notify(root, repo, rel, cur, state)
+            notify(root, _git(repo, "show", f"{cur}:{rel}"), state)
         except Exception as e:  # 알림 실패가 뉴스를 막지 않는다
             LOG.error("알림 건너뜀: %s", e)
         if base == cur:
