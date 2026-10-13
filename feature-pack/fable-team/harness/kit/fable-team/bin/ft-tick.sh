@@ -45,6 +45,8 @@ WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT
 # ★라이브 bin 드리프트 경고 (카드 live-bin-drift-check · Issue 816 ③)★ — 설치 꼴(*/.fable-team/bin)에서 돌 때만, 라이브 도구 ↔ origin/main 키트를 FT_TICK_DRIFT_INTERVAL(600s)마다 대조.
 #   어긋남 목록이 «바뀐 때만» master 우편함 1회(서명 $STATE_DIR/drift.sig). FT_TICK_DRIFT=0 으로 끔(경고만 끄는 스위치 — spawn·close 입구 BLOCK 은 끌 수 없다).
 DRIFT_CHECK="${FT_TICK_DRIFT_BIN:-$HERE/ft-live-bin-drift-check.sh}"; DRIFT_ENABLED="${FT_TICK_DRIFT:-1}"; DRIFT_INTERVAL="${FT_TICK_DRIFT_INTERVAL:-600}"
+# ★상향 좌석 «내릴 것» 경보 (R149 · 판정 1641)★ — 명부 raised.card 가 완성/ 으로 갔거나 없어졌는데 행이 남은 좌석을 목록이 «바뀔 때만» master 우편함 1회(서명 $STATE_DIR/raised.sig). FT_TICK_RAISED=0 으로 끔. 판별은 형제 모듈 ft_raised.py.
+RAISED="${FT_TICK_RAISED_BIN:-$HERE/ft_raised.py}"
 ONCE=0; DRY=0
 for a in "$@"; do case "$a" in --once) ONCE=1;; --dry-run) DRY=1;; *) echo "usage: $0 [--once] [--dry-run]" >&2; exit 2;; esac; done
 IDLE_ENABLED="${FT_TICK_IDLE_ENABLED:-1}"
@@ -354,6 +356,22 @@ drift_watch() {
   return 0
 }
 
+raised_watch() {
+  local out rc sig sigf master shrc   # check 는 rc 0 일 때만 stdout 목록을 내고, rc 2 면 stderr 원인 줄만 낸다 → 2>&1 로 한 변수에 받아도 섞이지 않는다
+  [ "${FT_TICK_RAISED:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=raised bin=$RAISED"; return 0; fi
+  sigf="$STATE_DIR/raised.sig"; mkdir -p "$STATE_DIR"
+  out="$(python3 "$RAISED" check "$SEATS" "$(dirname "$SEATS")/seats-*.json" ${ROOT:+--root "$ROOT"} 2>&1)"; rc=$?
+  [ "$rc" = 0 ] || { echo "$(date '+%F %T') raised_watch: ERROR check rc=$rc: $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2; return 0; }
+  [ -n "$out" ] || { rm -f "$sigf"; return 0; }
+  sig="$(printf '%s\n' "$out" | LC_ALL=C shasum)"; shrc=$?; sig="${sig:0:40}"   # 해시만 LC_ALL=C — drift_watch 와 같은 이유
+  { [ "$shrc" = 0 ] && [ -n "$sig" ]; } || { echo "$(date '+%F %T') raised_watch: ERROR signature hash failed rc=$shrc — no alert sent" >&2; return 0; }
+  [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
+  master="$(master_seat)"; [ -n "$master" ] || { echo "$(date '+%F %T') raised_watch: ▶내릴 것 pending but no active master" >&2; return 0; }
+  bash "$MBOX" send "$master" ft-tick "[▶내릴 것] 상향 좌석 $(printf '%s\n' "$out" | grep -c .)건 — $(printf '%s\n' "$out" | head -3 | tr '\n' ' ')— 닫거나 원래 모델로(판정 1641)" >/dev/null 2>&1 \
+    && echo "$sig" > "$sigf" || echo "$(date '+%F %T') raised_watch: mbox failed" >&2
+}
+
 # R125(판정 1437): 뉴스 입력 = 오빠 원장 한 파일 — 지금 커밋 ≠ 기준선이면 바뀐 줄만 발행(R118b 30분 무초안 감시는 초안이 없어져 삭제).
 # 원장 갱신 0 인 새 판정 알림도 같은 스크립트가 보므로 매 루프 부른다(기준선이 같으면 git log 1번). FT_TICK_NEWS_LEDGER=0 으로 끔.
 news_ledger() {
@@ -371,6 +389,7 @@ pass() {
   stall
   sweep_wt
   drift_watch
+  raised_watch
   news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }

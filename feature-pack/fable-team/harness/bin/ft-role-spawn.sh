@@ -2,6 +2,7 @@
 # ft-role-spawn.sh <master|da|pm|arch|tester> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
+#   상향 모델(claude-fable-*·*astra* · 판정 1641)은 --raise "<사유>" --raise-card <indices/…/X.md> 필수 — 명부 행에 raised{reason,card,by,at,close_on} (R149)
 # ft-nano-spawn.sh 를 본떴다. 차이 셋:
 #   ① 워크트리를 새로 만들지 않는다 — 역할 좌석은 «이 워크트리»(호출한 곳)에 뜬다.
 #   ② seats.json 은 «등록»이 아니라 «교체» — 같은 role 의 기존 행에 `_replaced_by:<새 좌석>` 을 남기고,
@@ -14,14 +15,22 @@ set -uo pipefail
 ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch|tester> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
 case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac
 # 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
-AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; RAISE=""; RAISE_CARD=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;
+  --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;; --raise-card) RAISE_CARD="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 # 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# R149(판정 1641): 상향 모델은 사유 + 닫는 단위 카드 필수 — 해석이 끝난 실제 MODEL 로 판정, 부작용(tmux·명부) «전». rc 0=상향 1=기본 그 밖=도구 고장(조용히 기본 취급 0)
+python3 "$HERE/ft_raised.py" is-raised "$MODEL"; _rrc=$?
+case "$_rrc" in
+  0) { [ -n "${RAISE//[[:space:]]/}" ] && [ -n "${RAISE_CARD//[[:space:]]/}" ]; } || { echo "REJECT 상향 모델($MODEL)은 --raise \"<사유>\" 와 --raise-card <닫는 단위 카드 경로> 필수 — 닫히면 원래 모델로(판정 1641)"; exit 1; };;
+  1) ;;
+  *) echo "REJECT ft_raised.py 판정 실패 rc=$_rrc ($HERE/ft_raised.py) — 부작용 0"; exit 1;;
+esac
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
 SEATS="$ROOT/.fable-team/seats.json"
@@ -84,9 +93,9 @@ tmux set-option -t "$PANE" @zc_v65_active 1
 # ft-tick.sh 가 «no active seat with tick» 만 찍고 뉴스 발행이 통째로 멈춘다(15:03~15:08 · 5틱 연속).
 # 위 11행 주석의 「틱 데몬이 seats.json 을 따라오는 것은 0.4 — 그 전엔 null 이 안전」은 stale 이다 —
 # 지금 도는 ft-tick.sh 가 이미 그 0.4 이고, 매 루프 seats.json 을 다시 읽는다.
-python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$NEW_BASE" "$OLD_BASE" <<'PY'
-import json, sys, collections
-p, name, role, agent, model, inbox, new_base, old_base = sys.argv[1:9]
+python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$NEW_BASE" "$OLD_BASE" "$RAISE" "$RAISE_CARD" "$FROM" <<'PY'
+import json, sys, collections, datetime
+p, name, role, agent, model, inbox, new_base, old_base, raise_reason, raise_card, by = sys.argv[1:12]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 # 같은 계열(베이스명 = #N 앞)만 잇는다 — 역할만 같으면 다른 트랙(CFO_F_ARCH 등) 좌석까지 닫는다(2026-09-29 CFO#30 제보).
 base = name.split("#")[0]
@@ -99,6 +108,8 @@ for k in old:  # R43: _replaced_by 만으론 tick·role·_<역할> 키가 옛 �
     for tk, tv in d.items():
         if tk.startswith("_") and tv == k: d[tk] = name
 d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", tick), ("model", model), ("index", inbox + "/"), ("_replaces", old)])
+if raise_reason.strip() and raise_card.strip():   # R149: index(=inbox) 의미는 그대로 두고 «닫는 단위 카드» 는 raised.card 에만 — ft-tick raised_watch 가 ▶내릴 것
+    d[name]["raised"] = collections.OrderedDict([("reason", raise_reason.strip()), ("card", raise_card.strip()), ("by", by), ("at", datetime.datetime.now().isoformat(timespec="seconds")), ("close_on", "card 가 완성/ 으로 가거나 없어짐 · 또는 좌석 닫기")])
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 echo "SEATS role=$ROLE now=$NAME replaced=[${OLD:-<없음>}] — 구 좌석은 정지 레디(kill 은 사람 승인)"
