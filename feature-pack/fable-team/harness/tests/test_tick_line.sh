@@ -287,7 +287,8 @@ jv="$(bash "$SS" turn --file "$T/open.jsonl" --json --no-reported)"
 jeq "I5c 열린 턴 상태 전용 → WORKING" "$jv" "d['state']" '"WORKING"'
 jeq "I5c 열린 턴 read_bytes == 64KB (1MB 확장 0)" "$jv" "d['read_bytes']" 65536
 jv="$(bash "$SS" turn --file "$T/open.jsonl" --json)"
-jeq "I5c 기본 모드는 끝 레코드를 끝까지 찾다가 UNKNOWN(옛 동작 유지)" "$jv" "d['state']" '"UNKNOWN"'
+jeq "I5c 기본 모드도 끝 레코드를 끝까지 찾은 뒤 창 안 user/assistant 로 WORKING (R144 — 옛 UNKNOWN 교정)" "$jv" "d['state']" '"WORKING"'
+jeq "I5c 기본 모드 WORKING 의 reported 는 null" "$jv" "d['reported']" null
 eq "I5 텍스트 기본은 5열(ft-tick.sh read 보호)" "$(bash "$SS" turn --file "$FX/jsonl/turn-idle.jsonl" | awk '{print NF}')" 5
 eq "I5 --bytes 는 6열째에 바이트" "$(bash "$SS" turn --file "$FX/jsonl/turn-idle.jsonl" --bytes | awk '{print $6}')" "$sz"
 bash "$SS" jsonl no-such-seat-xyz >/dev/null 2>&1; eq "I6 jsonl 서브커맨드: 없는 좌석 rc 1" "$?" 1

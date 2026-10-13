@@ -122,7 +122,8 @@ jsonl_age_of() {
 #   Claude Code jsonl 은 턴이 끝날 때 항상 system/stop_hook_summary → system/turn_duration 을 찍고 다음 턴은 user 로 연다.
 #   STATE = 마지막 turn_duration 뒤에 user/assistant 있으면 WORKING · 없으면 IDLE
 #           · turn_duration 뒤 queue-operation enqueue 만 있으면(dequeue/remove 로 닫히지 않음) PENDING
-#           · tail 창(FT_SEAT_TAIL_BYTES, 기본 1MB)에 turn_duration 이 없으면 UNKNOWN
+#           · tail 창(FT_SEAT_TAIL_BYTES, 기본 1MB)에 turn_duration 이 없어도 user/assistant 가 있으면 WORKING(긴 턴·첫 턴 · REPORTED `-`),
+#             user/assistant 도 없을 때만 UNKNOWN
 #   REPORTED = «그 턴»(직전 turn_duration ~ 마지막 turn_duration) 의 assistant tool_use 입력에
 #              `mbox.sh send <master>` 문자열 실재(yes/no) — «보고가 옳았다»가 아니라 «문자열이 있다»다. master 미상이면 '-'.
 #   mtime·pane 을 쓰지 않는다 — idle 중 away_summary 가 mtime 을 갱신하고 완료요약행이 pane 을 BUSY 로 보이게 한다.
@@ -165,8 +166,9 @@ while True:  # 끝 64KB 부터 — 턴 끝 레코드 «need_ends»개를 찾을 
         print("WORKING\t-\t-\t-\t%d" % got); raise SystemExit
     win = min(win * 2, cap)
 read_total = got
-if not ends:
-    print("UNKNOWN\t-\t-\t-\t%d" % read_total); raise SystemExit
+if not ends:  # 끝 레코드 0개 — 창 안에 user/assistant 가 있으면 «마지막 끝 뒤의 기록» = 열린 턴(긴 턴·첫 턴 · 두 모드 공통)
+    state = "WORKING" if any(r.get("type") in ("user", "assistant") for r in recs) else "UNKNOWN"
+    print("%s\t-\t-\t-\t%d" % (state, read_total)); raise SystemExit
 last = ends[-1]; prev = ends[-2] if len(ends) > 1 else -1
 end = recs[last]
 state, pending = "IDLE", False
