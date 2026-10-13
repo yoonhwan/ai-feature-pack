@@ -21,7 +21,7 @@ suite() {  # <셸 경로>
   # --- ft-autonomy: 상태 ---
   out="$($A status)"; has "$out" '^\[자율 OFF\]$'; ck "status 상태 없음 = OFF" $?
   $D --kind press-order --q "순서?" --choice "A 다음 B" --why "w" --undo "u" >/dev/null 2>&1; rc=$?; [ $rc = 3 ]; ck "OFF 면 대리 도구 rc 3 (got $rc)" $?
-  out="$($A on)"; has "$out" '^\[자율 ON A1 · [0-9]{2}:[0-9]{2}~ · 대리 0 · 큐 0\]$'; ck "on → A1 status 꼴 ($out)" $?
+  out="$($A on)"; has "$out" '^\[자율 ON A1 · [0-9]{2}:[0-9]{2}~ · 끝 없음 · 대리 0 · 큐 0\]$'; ck "on → A1 status 꼴 ($out)" $?
   [ -f "$T/state/autonomy.json" ] && [ "$(wc -l < "$T/state/autonomy.log" | tr -d ' ')" = 1 ]; ck "json + log 1줄" $?
   # --- 판정기 ---
   for k in push-merge card-start press-order; do $C --kind $k --text "머지 승인 진행할까요" >/dev/null; ck "classify $k PROXY rc 0" $?; done
