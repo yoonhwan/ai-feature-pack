@@ -1,14 +1,12 @@
-"""ft_news_publish — 다듬은 뉴스(POLISHED)를 «바뀐 것만» Slack 채널에 새 글로 발행 + 처리 기록 + 30분 무초안 감시 (R118b · 오빠 판정 1428·1430). 쓰는 쪽은 ft-news-publish.sh · ft-tick.sh.
+"""ft_news_publish — 다듬은 뉴스(POLISHED)를 «바뀐 것만» Slack 채널에 새 글로 발행 + 처리 기록 (R118b · 오빠 판정 1428·1430). 쓰는 쪽은 ft-news-publish.sh(ft_news_ledger.py 가 부른다).
 
 publish = 직전 발행본과 «머리 시각만 지운 꼴» 이 같으면 발행 0 · 다르면 채널 «최상위 새 글» 1개(오빠 판정 1438 — 스레드·답글·update·첨부 0). 올리기 전 그날 봇 글 중 본문이 같은 글이 있으면 채택(첫 줄만 보면 머리 시각이 같은 새 판이 사라져 통째 비교)(응답 유실 뒤 재실행이 두 번 올리지 않는다). 본문 UTF-8 3500B 초과 = raise.
 처리 기록(state/news-publish/processed.tsv) = «초안 이름 → POLISHED 이름 | 같은 내용 · 발행 0» 1줄. 대체는 «명시 기록» 으로만 — X 를 기록할 때 X 보다 이른 «기록 없는» 초안 W 마다 «W<TAB>대체<TAB>X» 1줄을 같이 남긴다.
 근거: 초안은 R118a 생성기가 매번 전 팀을 새로 모은 «전체 상태 스냅샷» 이라 더 새로 다듬은 판이 이전 판을 내용상 대체한다. 시각만으로 대체를 추정하지 않는다(기록이 없으면 대체 아님).
-watch = 처리 기록 줄이 없는 DRAFT 중 가장 오래된 것이 30분을 넘으면 «planner<TAB>초안<TAB>분» 1줄을 낸다(보내는 쪽은 ft-tick.sh · 서명당 1회).
 env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험)
 """
 import argparse
 import html
-import json
 import logging
 import os
 import re
@@ -120,9 +118,10 @@ def _post_new(day: str, polished: Path, body: str) -> str:
     return post_root(t, body)
 
 
-def publish(polished: Path, draft: str | None = None) -> int:
+def publish(polished: Path, draft: str | None = None, at: datetime | None = None) -> int:
+    """at = 첫 시도 시각 — 판 묶음을 자정 넘어 다시 낼 때 날짜 기준(상태 폴더·published·조회 창·스레드 키)을 첫 시도에 고정한다."""
     news, state = _paths()
-    day, body = _now().strftime("%Y-%m-%d"), polished.read_text(encoding="utf-8")
+    day, body = (at or _now()).strftime("%Y-%m-%d"), polished.read_text(encoding="utf-8")
     if not body.strip():
         LOG.error("POLISHED 가 비었다: %s — 발행 0", polished)
         return 2
@@ -145,28 +144,15 @@ def publish(polished: Path, draft: str | None = None) -> int:
     return 0
 
 
-def watch() -> int:
-    news, state = _paths()
-    done = set(_processed(state))
-    waiting = sorted(p.name for p in news.glob("DRAFT-*.md") if p.name not in done)
-    if not waiting:
-        return 0
-    age = int((_now() - datetime.strptime(_stamp(waiting[0]), "%Y%m%d-%H%M")).total_seconds() // 60)
-    if age > STALE_MIN:
-        planner = json.loads((env.ft_root() / ".fable-team" / "seats-planner.json").read_text(encoding="utf-8"))["_master"]
-        print(f"{planner}\t{waiting[0]}\t{age}")
-    return 0
-
-
 def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
     pp = sub.add_parser("publish")
     pp.add_argument("polished")
     pp.add_argument("--draft", help="DRAFT 파일 이름 — 없으면 POLISHED 시각 이하 가장 새 DRAFT")
-    sub.add_parser("watch")
+    pp.add_argument("--at", type=lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M"), help="첫 시도 시각 \"YYYY-MM-DD HH:MM\" — 날짜 기준을 고정(자정 넘은 재시도)")
     a = p.parse_args(argv)
-    return publish(Path(a.polished), a.draft) if a.cmd == "publish" else watch()
+    return publish(Path(a.polished), a.draft, a.at)
 
 
 if __name__ == "__main__":

@@ -57,8 +57,8 @@ def parse_doc(md: str) -> Doc:
             teams.append(cur)
         elif cur is not None:
             cur[1].append(ln)
-    if not zone or not teams:
-        raise DocError("팀 구역(`## 5. 팀별…`) 또는 팀(`### `) 이 없어요")
+    if zone and not teams:  # 팀 구역이 아예 없는 문서(오빠 원장 — 팀 작업이 칸 하나)는 teams = [] · 구역만 있고 팀이 없으면 깨진 문서
+        raise DocError("팀 구역(`## 5. 팀별…`)에 팀(`### `) 이 없어요")
     return Doc(title, intro, _cells("c", cells), _cells("t", teams))
 
 

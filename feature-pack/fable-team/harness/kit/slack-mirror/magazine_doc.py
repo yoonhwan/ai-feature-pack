@@ -62,7 +62,7 @@ def _team(n: int, cell: Cell, e: Easy) -> str:
 
 def render_html(doc: Doc, easy: dict[str, Easy], date: str, src: str) -> str:
     n = len(doc.cells)
-    jump = "".join(f'<a href="#{c.key}">{html.escape(c.title.strip("★"))}</a>' for c in doc.cells) + '<a href="#teams">팀별 전체</a>'
+    jump = "".join(f'<a href="#{c.key}">{html.escape(c.title.strip("★"))}</a>' for c in doc.cells) + ('<a href="#teams">팀별 전체</a>' if doc.teams else "")
     month, day = int(date[5:7]), int(date[8:10])
     values = {
         "TITLE": html.escape(f"매거진 {date} · 오빠 확인판"), "DATE": date, "HERO": f"{month}월 {day}일", "SRC": html.escape(src),
@@ -72,6 +72,8 @@ def render_html(doc: Doc, easy: dict[str, Easy], date: str, src: str) -> str:
         "TEAMS_INDEX": f"{n + 1:02d}", "TEAM_COUNT": str(len(doc.teams)),
     }
     page = TEMPLATE.read_text(encoding="utf-8")
+    if not doc.teams:  # 팀 0 이면 팀 구역 제목·버튼째 그리지 않는다
+        page = re.sub(r'  <section id="teams".*?</section>\n', "", page, flags=re.S)
     return re.sub(r"\{\{(\w+)\}\}", lambda m: values[m.group(1)], page)
 
 
@@ -104,7 +106,7 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> s
 def run(args: argparse.Namespace) -> int:
     full, text = read_source(args.src_repo, args.src_sha, args.src_path)
     doc = parse_doc(text)
-    date = doc_date(doc)
+    date = args.date or doc_date(doc)  # --date 가 판 날짜(제목에 날짜 없는 오빠 원장) · 둘 다 없으면 doc_date 가 DocError
     out = Path(args.out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
@@ -121,11 +123,18 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _iso_date(text: str) -> str:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        raise argparse.ArgumentTypeError(f"YYYY-MM-DD 가 아니에요: {text}")
+    return text
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--src-repo", required=True)
     p.add_argument("--src-sha", required=True)
     p.add_argument("--src-path", required=True)
+    p.add_argument("--date", type=_iso_date, help="판 날짜 YYYY-MM-DD — 없으면 문서 제목에서 찾는다(둘 다 없으면 오류)")
     p.add_argument("--out-dir", default=str(HOME / ".hermes/magazine"))
     mode = p.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="HTML 만 — 게시·상태 쓰기 0")

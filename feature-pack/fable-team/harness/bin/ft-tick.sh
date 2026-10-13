@@ -150,7 +150,7 @@ PY
 }
 
 stall() {
-  local stamp gap rows seat role line pane age agent thr p wstamp wgap cnt msg master
+  local stamp gap rows seat role line pane age thr p wstamp wgap cnt msg master
   stamp="$(stamp_of _all stall)"; gap=$(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) ))
   if [ "$DRY" = 1 ]; then echo "DRY kind=stall interval=${STALL_INTERVAL}s min=${STALL_MIN}m seats=$(active_seats 2>/dev/null | cut -f1 | tr '\n' ' ')"; return 0; fi
   [ "$gap" -ge "$STALL_INTERVAL" ] || return 0
@@ -163,7 +163,7 @@ stall() {
     [ -n "$seat" ] || continue
     p="$(pane_of "$seat")"; [ -n "$p" ] || continue          # 세션 없음은 정지가 아니라 부재 — master 틱이 본다
     line="$(bash "$SEAT_STATUS" one "$seat" 2>/dev/null)"
-    read -r _ pane age agent _ <<< "$line"
+    read -r _ pane age _ _ <<< "$line"
     case "$age" in ''|*[!0-9]*) continue;; esac              # 비-claude 는 jsonl 없음 — 여기선 판정 안 함
     # 정지 = jsonl ≥ thr AND (pane IDLE  OR  jsonl ≥ 2×thr) — 후자는 «완료 요약행 BUSY 오판» 대비
     if [ "$age" -ge "$thr" ] && { [ "$pane" = IDLE ] || [ "$age" -ge $(( thr * 2 )) ]; }; then
@@ -280,6 +280,7 @@ sweep_wt() {
   tagged="$(printf '%s\n' "$hil" | awk '{ s=""; for (i=1;i<=NF;i++) if ($i ~ /^seat=/) { s=substr($i,6); break }
     t="-"; if (s ~ /^byz-v65-/ || s ~ /^ft-v65-/) t="v65"; else if (s ~ /^byz-[A-Za-z0-9]+-/) { split(s,a,"-"); t=a[2] } else if (s != "") t="?"
     print t "\t" $0 }')"
+  # shellcheck disable=SC2013  # 팀 키는 공백 없는 토큰(seats 파일 이름 조각) — 단어 단위 순회가 의도
   for team in $(cut -f1 <<< "$tagged" | sort -u); do
     lines="$(awk -F'\t' -v t="$team" '$1==t { print substr($0, index($0,"\t")+1) }' <<< "$tagged")"
     hdr=""; master=""
@@ -323,18 +324,13 @@ drift_watch() {
   return 0
 }
 
-# R118b(판정 1430): 처리 기록 없는 가장 오래된 초안이 30분 넘으면 planner 에 1통 — 서명 = 초안 이름(1회) · 처리되면 서명 해제. FT_TICK_NEWS_WATCH=0 으로 끔.
-news_watch() {
-  local out to draft min sigf="$STATE_DIR/news-watch.sig"
-  [ "${FT_TICK_NEWS_WATCH:-1}" = 1 ] || return 0
-  out="$(env ${ROOT:+FT_ROOT="$ROOT"} python3 "$HERE/ft_news_publish.py" watch 2>&1)" || { echo "$(date '+%F %T') news_watch: $(printf '%s\n' "$out" | tail -1)" >&2; return 0; }
-  [ -n "$out" ] || { rm -f "$sigf"; return 0; }
-  IFS=$'\t' read -r to draft min <<< "$out"
-  [ "$(cat "$sigf" 2>/dev/null)" = "$draft" ] && return 0
-  if [ "$DRY" = 1 ]; then echo "DRY kind=news-watch draft=$draft ${min}m to=$to"; return 0; fi
-  if bash "$MBOX" send "$to" ft-tick "[뉴스 다듬기 정지] 초안 $draft 가 ${min}분째 처리 기록 없음 — POLISHED 저장 후 ft-news-publish.sh <POLISHED> 를 실행하거나 멈춘 이유를 확인해 주세요." >/dev/null 2>&1; then
-    mkdir -p "$STATE_DIR"; echo "$draft" > "$sigf"; log "news_watch: $draft ${min}분 처리 기록 없음 → $to"
-  else echo "$(date '+%F %T') news_watch: mbox failed" >&2; fi
+# R125(판정 1437): 뉴스 입력 = 오빠 원장 한 파일 — 지금 커밋 ≠ 기준선이면 바뀐 줄만 발행(R118b 30분 무초안 감시는 초안이 없어져 삭제).
+# 원장 갱신 0 인 새 판정 알림도 같은 스크립트가 보므로 매 루프 부른다(기준선이 같으면 git log 1번). FT_TICK_NEWS_LEDGER=0 으로 끔.
+news_ledger() {
+  local out
+  [ "${FT_TICK_NEWS_LEDGER:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=news-ledger"; return 0; fi
+  out="$(env ${ROOT:+FT_ROOT="$ROOT"} bash "$HERE/ft-news-ledger.sh" 2>&1)" || echo "$(date '+%F %T') news_ledger: $(printf '%s\n' "$out" | tail -1)" >&2
   return 0
 }
 
@@ -344,7 +340,7 @@ pass() {
   stall
   sweep_wt
   drift_watch
-  news_watch
+  news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
   master="$(master_seat)"; report_to="${FT_TICK_PM_REPORT_TO:-${master:-ft-v65-master}}"

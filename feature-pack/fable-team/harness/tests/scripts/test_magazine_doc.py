@@ -121,9 +121,10 @@ def test_bold_and_plain_lines_preserved():
     assert "①지금 팀 상태: 전원 정지" in html and "[진행]" in html
 
 
-def test_missing_teams_zone_raises():
+def test_missing_teams_zone_means_zero_teams_but_empty_zone_raises():
+    assert dm.parse_doc("# 제목\n\n## 1. 시킨 일\n- a\n").teams == []  # R125 — 오빠 원장은 팀 구역이 없다
     with pytest.raises(dm.DocError):
-        dm.parse_doc("# 제목\n\n## 1. 시킨 일\n- a\n")
+        dm.parse_doc("# 제목\n\n## 1. 시킨 일\n- a\n\n## 5. 팀별 상태\n- 팀 제목 없음\n")
 
 
 def test_real_source_counts():
