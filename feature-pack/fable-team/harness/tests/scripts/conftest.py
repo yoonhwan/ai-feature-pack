@@ -1,0 +1,47 @@
+"""tests/scripts 자동 가드 (R121 · 판정 1432) — 시험이 공용 .git/config 를 바꾸지 못하게 한다.
+
+사고(2026-10-13): 시험 실행 환경에 GIT_DIR=<공용 .git> 이 걸려 있어 픽스처의 `git init`·`git config user.*` 가
+임시 폴더가 아니라 공용 저장소를 고쳤다(core.bare=true · 작성자 t).
+①시험 시작 전 GIT_* 저장소 지정 변수를 지운다(하위 프로세스는 os.environ 을 물려받는다).
+②시험 전후로 공용 git config 의 core.bare·user.name·user.email 을 비교해 바뀌었으면 실패시킨다(복원은 사람).
+"""
+
+import os
+import shutil
+import subprocess
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+
+GIT_ENV_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY")
+REAL_GIT: str = shutil.which("git") or "git"  # 시험이 PATH 를 비워도 가드의 git 은 살아 있어야 한다
+GUARDED_KEYS = r"^(core\.bare|user\.name|user\.email)$"
+
+
+def _clean_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in GIT_ENV_VARS}
+
+
+def _common_config(here: Path) -> Path:
+    out = subprocess.run([REAL_GIT, "-C", str(here), "rev-parse", "--git-common-dir"],
+                         check=True, capture_output=True, text=True, env=_clean_env()).stdout.strip()
+    return (here / out).resolve() / "config"
+
+
+def _snapshot(config: Path) -> dict[str, str]:
+    res = subprocess.run([REAL_GIT, "config", "--file", str(config), "--get-regexp", GUARDED_KEYS],
+                         capture_output=True, text=True, env=_clean_env())
+    return dict(line.split(" ", 1) for line in res.stdout.splitlines() if " " in line)
+
+
+@pytest.fixture(autouse=True)
+def _git_env_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    for var in GIT_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+    config = _common_config(Path(__file__).parent)
+    before = _snapshot(config)
+    yield
+    after = _snapshot(config)
+    if after != before:
+        pytest.fail(f"공용 git config 가 시험 중 바뀜({config}) — 복원은 사람: 전 {before} → 후 {after}", pytrace=False)
