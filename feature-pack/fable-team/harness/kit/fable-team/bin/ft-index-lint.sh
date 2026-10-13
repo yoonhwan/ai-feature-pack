@@ -30,6 +30,16 @@ section_body() {  # $1=file $2=heading-prefix → 그 절 본문(다음 ## 전�
 #   정본이 `**20초 초과**`). 줄바꿈→공백, `**` 제거, 연속 공백 1개. 그 뒤 F 매칭.
 norm() { tr '\n' ' ' | sed -e 's/\*\*//g' -e 's/  */ /g'; }
 path_exists() { [ -e "$ROOT/$1" ] || [ -e "$1" ]; }  # $1=경로 → 리포 루트 기준 또는 그대로 실재하면 0
+# ⑥ 전용(R154): 기존 path_exists 가 거짓이면 origin/main «트리»에 있는 저장소 상대 경로도 실재로 인정한다(나노 base = origin/main).
+#   fallback 은 상대 경로만 — 앞의 `./` 는 반복 제거, 그 뒤가 비었거나 선행 `/`·`.`/`..` 성분·빈 성분(`//`)이면 거절(Git 의 경로 정규화에 기대지 않는다).
+#   tracked 디렉터리(tree)도 실재(기존 `[ -e ]` 와 같은 정책). fetch 0 · origin/main ref 없으면 cat-file 이 실패해 기존 동작.
+scope_path_exists() {
+  local p="$1"
+  path_exists "$p" && return 0
+  while [[ "$p" == ./* ]]; do p="${p#./}"; done
+  case "/$p/" in //*|*//*|*/./*|*/../*) return 1;; esac
+  git -C "$ROOT" cat-file -e "refs/remotes/origin/main:$p" 2>/dev/null
+}
 # ⑦ 사전검증 · ⑧ 조사 근거 — 팀 env 스위치 FT_CARD_REQUIRE_PREVERIFY=1 일 때만 불린다(원장 R16: DA·조사 없이 열린 구현 나노 차단).
 #   형식만 본다 — 판정문 «내용»이나 인용 «내용»은 대조하지 않는다.
 NAME_LINT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-name-lint.sh"
@@ -136,7 +146,7 @@ for f in "$@"; do
   #   후보 = 백틱 안 경로(확장자 있는 것) + 맨 경로. 인덱스가 있는 워크트리 루트 기준으로 존재 확인.
   paths="$(section_body "$f" '구현 범위' | grep -oE '[A-Za-z0-9_./-]+/[A-Za-z0-9_.-]+\.[a-z]{1,5}' | sort -u)"
   if [ -n "$paths" ] && [ "$allow_empty" != 1 ]; then
-    ok=0; while IFS= read -r p; do path_exists "$p" && { ok=1; break; }; done <<< "$paths"
+    ok=0; while IFS= read -r p; do scope_path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
   check_proposal_line "$f"

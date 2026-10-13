@@ -102,4 +102,51 @@ expect_ok  "$(mkw proposal-x -)"                          "⑨ 제안서 작성 
 expect_rej "$(mkp proposal-impl -)"                        "⑨ proposal- 이름이어도 구현 범위에 코드 경로(src/target.sh)면 줄 의무" "새 카드 의무"
 expect_rej "$(mkw proposal-y '- 제안서: 나중에 쓴다')"     "⑨ 작성 카드라도 줄이 있으면 값 검사" "#<제안 Issue 번호>"
 
+# ── ⑥ 구현 범위 경로 실재: origin/main 트리도 인정 (R154) — 52행 사전검증 판정문 경로(path_exists)는 불변 ──
+# R6=origin/main 에만 scripts/x.sh · scripts/kit.d/a.sh · design/da-only.md 가 있고 워크트리는 그 앞 커밋 · R6N=origin/main ref 자체가 없는 리포
+gt() { git -c user.email=t@t -c user.name=t commit -qm "$1" >/dev/null 2>&1; }
+R6="$T/r154"; R6N="$T/r154n"
+for r in "$R6" "$R6N"; do mkdir -p "$r/design" "$r/src"; ( cd "$r" && git init -q . && cp "$T/design/LEDGER.md" design/ && printf 'l1\nl2\nl3\n' > src/target.sh && git add -A && gt base ); done
+( cd "$R6" && mkdir -p scripts/kit.d && echo x > scripts/x.sh && echo a > scripts/kit.d/a.sh && echo '판정: APPROVE' > design/da-only.md && git add -A && gt main-only \
+  && git update-ref refs/remotes/origin/main HEAD && git reset -q --hard HEAD~1 )
+mk6() {  # mk6 <리포> <이름> <구현 범위 한 줄> [사전검증 본문 조사 근거 본문] → 카드 경로
+  local f="$1/$2.md"
+  { echo "# 인덱스: $2"; echo '- 제안서: 없음 — 시험 카드'; echo "## 골 원문"; printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3"
+    echo "## 골좌표"; echo '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」'
+    echo "## 배경"; echo '시험 카드.'
+    echo "## 구현 범위"; echo "$3"
+    echo "## 완료 조건"; echo '시험 통과.'
+    [ $# -ge 5 ] && { echo "## 사전검증"; printf '%b\n' "$4"; echo "## 조사 근거"; printf '%b\n' "$5"; }
+    echo "## 상태"; echo '- 시험'; } > "$f"
+  echo "$f"
+}
+run6() { local r="$1"; shift; ( cd "$r" && FT_CARD_REQUIRE_PREVERIFY="${SW6:-}" bash "$LINT" "$1" 2>&1 ); }
+ok6()  { local out rc; out="$(run6 "$R6" "$(mk6 "$R6" "$1" "1. $2")")"; rc=$?; [ $rc -eq 0 ] && echo "$out" | grep -q '^OK ' && ok "⑥ $3" || bad "⑥ $3 → rc=$rc $out"; }
+rej6() { local out rc; out="$(run6 "$R6" "$(mk6 "$R6" "$1" "1. $2")")"; rc=$?; [ $rc -eq 1 ] && echo "$out" | grep -q '구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다' && ok "⑥ $3" || bad "⑥ $3 → rc=$rc $out"; }
+SW6=""
+ok6  s6a  'scripts/x.sh 수정'                     "ⓐ origin/main 에만 있는 경로 OK"
+rej6 s6b  'scripts/none.sh 수정'                  "ⓑ origin/main·워크트리 둘 다 없음 REJECT(기존 문구)"
+out="$(run6 "$R6N" "$(mk6 "$R6N" s6c '1. scripts/x.sh 수정')" 2>"$T/s6c.err")"; rc=$?
+[ $rc -eq 1 ] && echo "$out" | grep -q '구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다' && ok "⑥ ⓒ origin/main ref 없음 + 워크트리에 없음 REJECT" || bad "⑥ ⓒ → rc=$rc $out"
+out="$( cd "$R6N" && bash "$LINT" "$R6N/s6c.md" 2>&1 >/dev/null | grep -v 'setlocale' )"; [ -z "$out" ] && ok "⑥ ⓒ stderr 0" || bad "⑥ ⓒ stderr: $out"
+SW6=1
+out="$(run6 "$R6" "$(mk6 "$R6" s6d '1. src/target.sh 수정' 'DA 소환\n소환: 예\nDA: design/da-only.md#§1' '- src/target.sh:2 확인')")"; rc=$?
+[ $rc -eq 1 ] && echo "$out" | grep -q 'DA 판정문 경로 없음 (design/da-only.md)' && ok "⑥ ⓓ 판정문 경로가 origin/main 에만 있음 → 52행 기존 REJECT(불변)" || bad "⑥ ⓓ → rc=$rc $out"
+SW6=""
+ok6  s6e  './scripts/x.sh 수정'                   "ⓔ ./ 접두 OK"
+rej6 s6f1 '../scripts/x.sh 수정'                  "ⓕ ../ 선행 REJECT"
+rej6 s6f2 'scripts/nodir/../x.sh 수정'            "ⓕ 중간 ../ REJECT"
+rej6 s6f3 'scripts/./x.sh 수정'                   "ⓕ 중간 ./ REJECT"
+rej6 s6g  '/scripts/x.sh 수정'                    "ⓖ 선행 / (파일시스템에 없음) REJECT"
+rej6 s6h  'scripts//x.sh 수정'                    "ⓗ 빈 성분 // REJECT"
+ok6  s6i  'scripts/kit.d 수정'                    "ⓘ origin/main 의 tracked 디렉터리 OK"
+# 지금의 git 은 ⓕ~ⓗ 꼴을 스스로 거절하므로(실측) 거절이 «우리 가드» 몫인지는 git 이 뭐든 받아주는 가짜로 가려낸다 — Git 의 경로 정규화에 기대지 않는다는 계약.
+FG="$T/fakegit"; mkdir -p "$FG"; REALGIT="$(command -v git)"
+printf '#!/bin/bash\ncase " $* " in *" cat-file "*) exit 0;; esac\nexec "%s" "$@"\n' "$REALGIT" > "$FG/git"; chmod +x "$FG/git"
+fk() { local out rc; out="$( PATH="$FG:$PATH" run6 "$R6" "$(mk6 "$R6" "$1" "1. $2")" )"; rc=$?; echo "$rc|$out"; }
+r="$(fk s6k0 'scripts/none.sh 수정')"; [ "${r%%|*}" = 0 ] && ok "⑥ 가짜 git(전부 실재) 대조군: 상대 경로는 OK" || bad "⑥ 가짜 git 대조군 → $r"
+for c in '../scripts/x.sh' 'scripts/nodir/../x.sh' 'scripts/./x.sh' '/scripts/x.sh' 'scripts//x.sh'; do
+  r="$(fk s6k1 "$c 수정")"; [ "${r%%|*}" = 1 ] && echo "${r#*|}" | grep -q '구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다' && ok "⑥ 가짜 git 이 받아줘도 가드가 거절: $c" || bad "⑥ 가드 $c → $r"
+done
+
 echo "fail=$fail"; [ $fail -eq 0 ]
