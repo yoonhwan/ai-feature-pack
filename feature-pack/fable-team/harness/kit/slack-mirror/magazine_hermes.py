@@ -2,6 +2,7 @@
 
 에르메스 CLI·세션 DB 경로 0 — mirror_summary._fetch 직접 호출(MODEL 재사용). 시도 상한 = EXTERNAL_CALL_TIMEOUT_S 7초(가산 0) · 재시도 1회(시간 초과·연결 실패만) · 동시 3 · 단계 마감 120초(늦은 결과는 버림).
 요청 body(최종 직렬화 UTF-8) ≤ 1,800B(토큰 ≥ 1바이트 + 프록시 고정 ~134토큰 → 입력 ≤ 1,934 토큰 «호출 전» 보장) · max_tokens ≤ 400(이 호출용) · 응답 usage 의 input + cache_creation + cache_read «합계» > 2,000 또는 stop_reason == max_tokens 면 그 칸 실패.
+길이 재시도 0 — 하드 룰 12(재시도는 첫 출력 전 실패만 · 답을 받은 뒤 검증 탈락은 재호출하지 않는다).
 실패·검증 탈락은 칸 단위 Easy(error=사유) + ERROR 로그 — 본문(원문)은 호출자가 그대로 싣는다(무음 폴백 0).
 """
 import http.client
@@ -23,8 +24,8 @@ ANSWER_CAP = 200
 STAGE_DEADLINE_S = 120.0
 WORKERS = 3
 INSTRUCTION = (
-    "아래는 «{title}» 칸의 원문이에요. 초등학생도 알아듣는 쉬운 말로 두세 문장, 120자 안쪽의 한 문단으로 설명해 주세요(길면 안 돼요). "
-    "원문에 없는 내용은 쓰지 말고, 주어를 지어내지 마세요. 번호(#숫자)·해시·파일 경로·영어 약어는 쓰지 마세요. "
+    "아래는 «{title}» 칸의 원문이에요. 항목을 하나하나 나열하지 말고 전체 흐름만, 초등학생도 알아듣는 쉬운 말로 100자 안쪽 한두 문장으로 설명해 주세요(길면 안 돼요). "
+    "원문에 없는 내용은 쓰지 말고, 주어를 지어내지 마세요. 개수를 세지 말고 숫자를 지어내지 마세요. 번호(#숫자)·해시·파일 경로·영어 약어는 쓰지 마세요. "
     "설명 한 문단만 출력하세요.\n\n"
 )
 _NOISE = re.compile(r"[|\-: ]+")
@@ -66,13 +67,14 @@ def _serialize(prompt: str) -> bytes:
 
 
 def build_body(cell: Cell) -> bytes:
-    """최종 직렬화 body ≤ BODY_CAP_B — 초과분(JSON 뼈대·이스케이프)만큼 입력 줄을 더 덜어 낸다. 머리 지시문조차 안 들어가면 실패."""
+    """최종 직렬화 body ≤ BODY_CAP_B — 줄 경계에 닿을 때까지 cap 을 (초과분, 최소 1B)씩 내린다. 머리 지시문 아래로 내려가면 실패."""
+    floor = len(INSTRUCTION.format(title=cell.title).encode("utf-8"))
     cap = BODY_CAP_B
-    for _ in range(8):
+    while cap > floor:
         body = _serialize(build_prompt(cell, cap))
         if len(body) <= BODY_CAP_B:
             return body
-        cap -= len(body) - BODY_CAP_B
+        cap -= max(1, len(body) - BODY_CAP_B)
     raise EasyError(f"요청 body 를 {BODY_CAP_B}B 안으로 못 줄임")
 
 

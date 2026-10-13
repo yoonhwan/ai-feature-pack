@@ -94,6 +94,29 @@ def test_escape_heavy_input_still_within_1800(fetch):
     json.loads(fake.calls[0]["body"])
 
 
+def _just_over_cap_cell() -> Cell:
+    """줄마다 약 200B 인 입력 — 첫 직렬화가 1,801~1,830B 가 되게 마지막 줄 길이를 맞춘다."""
+    for k in range(1, 10):
+        for n in range(1, 67):
+            c = cell(body="\n".join(["가" * 66] * k + ["나" * n]))
+            if 1800 < len(mh._serialize(mh.build_prompt(c))) <= 1830:
+                return c
+    raise AssertionError("1,801~1,830B 칸을 못 만듦")
+
+
+def test_body_shrinks_past_line_boundary(fetch):
+    fake = fetch()
+    mh.easy_one(_just_over_cap_cell())
+    assert len(fake.calls[0]["body"]) <= 1800
+
+
+def test_instruction_wording_is_pinned():
+    for word in ("나열", "개수", "100자"):
+        assert word in mh.INSTRUCTION
+    for word in ("두세 문장", "120자"):
+        assert word not in mh.INSTRUCTION
+
+
 def test_usage_sum_at_limit_passes(fetch):
     fetch("cachesum_ok")
     assert mh.easy_one(cell())
