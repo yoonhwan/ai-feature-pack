@@ -40,6 +40,7 @@ SEAT_STATUS="${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
 MBOX="${FT_TICK_MBOX:-$HERE/../comm/mbox.sh}"
 # ★워크트리 정리 sweep (하네스 0.5 행 2 r3 · DA r2 조건 2)★ — 닫힌 나노의 계획(.fable-team/state/wt-clean/*.sh)을 매 루프 실행. 가드·원장 표식은 계획이 맡는다.
 #   [HIL] 줄이 나오면 현역 master 우편함으로 올린다(계획이 mbox 를 직접 쏘지 않는다 — 오빠 규칙 2026-09-25). FT_TICK_WT_SWEEP=0 으로 끔.
+API_OUTAGE="${FT_TICK_API_OUTAGE_BIN:-$HERE/ft_api_outage.py}"
 WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT_TICK_WT_SWEEP:-1}"
 # ★라이브 bin 드리프트 경고 (카드 live-bin-drift-check · Issue 816 ③)★ — 설치 꼴(*/.fable-team/bin)에서 돌 때만, 라이브 도구 ↔ origin/main 키트를 FT_TICK_DRIFT_INTERVAL(600s)마다 대조.
 #   어긋남 목록이 «바뀐 때만» master 우편함 1회(서명 $STATE_DIR/drift.sig). FT_TICK_DRIFT=0 으로 끔(경고만 끄는 스위치 — spawn·close 입구 BLOCK 은 끌 수 없다).
@@ -267,6 +268,28 @@ idle_watch() {
   return 0
 }
 
+# ── R146 API 장애 시작·끝 알림 + 끊긴 좌석 복구 뒤 1회 재개 (판정 1633) ─────────────────────────────
+# ft_api_outage.py 가 현역 좌석 jsonl 의 «오류 레코드로 끝난 턴»을 읽는다 — 장애 중엔 Claude 좌석이 못 움직이므로 감시는 이 bash 틱에서.
+# 알림 대상 = FT_API_OUTAGE_NOTIFY > 좌석표 _hil_route > _master. 상태 = <루트>/.fable-team/state/api-outage/<좌석표 이름>.json.
+# 도구 실패는 ERROR 1줄만 남기고 틱은 계속(조용한 생략 0). FT_TICK_API_OUTAGE=0 으로 끔.
+outage_watch() {
+  local rows seat p f notify lines state out rc
+  [ "${FT_TICK_API_OUTAGE:-1}" = 1 ] || return 0
+  notify="${FT_API_OUTAGE_NOTIFY:-$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d.get("_hil_route") or d.get("_master") or "")' "$SEATS" 2>/dev/null)}"
+  state="${FT_TICK_API_OUTAGE_STATE:-${ROOT:-$WT}/.fable-team/state/api-outage/$(basename "$SEATS")}"
+  if [ "$DRY" = 1 ]; then echo "DRY kind=api-outage bin=$API_OUTAGE notify=${notify:--} state=$state"; return 0; fi
+  [ -n "$notify" ] || { echo "$(date '+%F %T') outage_watch: ERROR api_outage: no notify target (_hil_route/_master) in $SEATS" >&2; return 0; }
+  rows="$(all_seats 2>/dev/null)" || { echo "$(date '+%F %T') outage_watch: ERROR api_outage: seats.json unreadable ($SEATS)" >&2; return 0; }
+  lines=""
+  while IFS=$'\t' read -r seat _; do
+    [ -n "$seat" ] && [ -n "$(pane_of "$seat")" ] || continue
+    f="$(bash "$SEAT_STATUS" jsonl "$seat" 2>/dev/null)" && [ -n "$f" ] && lines+="$seat"$'\t'"$f"$'\n'
+  done <<< "$rows"
+  out="$(printf '%s' "$lines" | python3 "$API_OUTAGE" --state "$state" --mbox "$MBOX" --notify "$notify" 2>&1)"; rc=$?
+  [ "$rc" = 0 ] || echo "$(date '+%F %T') outage_watch: ERROR api_outage rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+  return 0
+}
+
 sweep_wt() {
   local out hil master rows tagged team lines hdr tf
   [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
@@ -344,6 +367,7 @@ news_ledger() {
 pass() {
   local rows seat tick role report_to master mok
   idle_watch
+  outage_watch
   stall
   sweep_wt
   drift_watch
