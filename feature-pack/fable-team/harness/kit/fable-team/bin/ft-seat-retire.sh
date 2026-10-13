@@ -5,21 +5,24 @@
 #   명부 = --seats · FT_SEATS_JSON · <루트>/.fable-team/seats*.json 중 키 <구> 를 가진 파일 정확히 1개.
 #   rc 0 = RETIRED/NOOP · 1 = 명부 못 정함·구 행 없음 · 2 = usage · 3 = 후계 행이 이미 은퇴(쓰기 0). 쓰기 전 <파일>.bak-retire-<ts>.
 #   RETIRED 줄 다음에 재개 기록 결과 1줄 — `RESUME ok <~/.claude/state/seat-resume/<구>.json>` 또는 `NORECORD <구> <이유>` (rc 에 섞지 않음 · 판정 1344). 부팅 보고 retire 칸 옆에 복붙.
+#   `<구> --record-only [--seats <파일>]` (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다. 명부 쓰기·.bak 0 · 구 행에 _replaced_by 없으면 REJECT rc 1(현역 좌석에 닫기 근거를 만들지 않는다) · retired_by = 그 _replaced_by. <후계> 와 같이 주면 usage rc 2.
 set -uo pipefail
-OLD="${1:-}"; NEW="${2:-}"; [ -n "$OLD" ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ] || { echo "usage: $0 <구> <후계> [--seats <파일>]" >&2; exit 2; }
-shift 2; ARG=""
-while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+OLD="${1:-}"; [ -n "$OLD" ] || { echo "usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--seats <파일>]" >&2; exit 2; }
+shift; NEW=""; RECONLY=0; ARG=""
+case "${1:-}" in ""|--*) ;; *) NEW="$1"; shift;; esac
+while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-only) RECONLY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
+{ [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ]; } || { echo "usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--seats <파일>]" >&2; exit 2; }
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
-python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" <<'PY'
+python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" <<'PY'
 import json, os, re, sys, glob, shutil, datetime, subprocess, collections
-arg, root, old, new = sys.argv[1:5]
+arg, root, old, new, reconly = sys.argv[1:6]
 def load(f):
     try: return json.load(open(f, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
     except (OSError, ValueError): return None
 def sh(*a):
     try: return subprocess.run(a, capture_output=True, text=True, timeout=7).stdout.split()
     except (OSError, subprocess.SubprocessError): return []
-def find_resume(model):   # (기록|None, 이유) — 실행 중 프로세스 결속(DA② H2): pane 자식 중 세션 파일이 있는 «정확히 1개» 의 sessionId. 이름·mtime 추측 0
+def find_resume(model, retired_by):   # (기록|None, 이유) — 실행 중 프로세스 결속(DA② H2): pane 자식 중 세션 파일이 있는 «정확히 1개» 의 sessionId. 이름·mtime 추측 0
     home = os.path.expanduser("~"); pp = sh("tmux", "display", "-p", "-t", "=" + old + ":", "#{pane_pid}")
     if not pp: return None, "tmux 세션 없음"
     kids = [k for k in sh("pgrep", "-P", pp[0]) if os.path.isfile(f"{home}/.claude/sessions/{k}.json")]
@@ -30,17 +33,34 @@ def find_resume(model):   # (기록|None, 이유) — 실행 중 프로세스 �
     jsonl = f"{home}/.claude/projects/{re.sub('[^A-Za-z0-9]', '-', cwd)}/{uuid}.jsonl"
     if not (uuid and cwd and os.path.isfile(jsonl)): return None, "uuid·cwd·jsonl 없음"
     if not (isinstance(model, str) and model): return None, "명부 model 없음"
-    return collections.OrderedDict(name=old, engine="claude", pid=int(kids[0]), uuid=uuid, jsonl=jsonl, cwd=cwd, model=model, retired_by=new, at=datetime.datetime.now().isoformat(timespec="seconds")), ""
+    return collections.OrderedDict(name=old, engine="claude", pid=int(kids[0]), uuid=uuid, jsonl=jsonl, cwd=cwd, model=model, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds")), ""
+def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
+    rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume"); rp = f"{rd}/{old}.json"
+    try:
+        if not rec: raise ValueError(why)
+        os.makedirs(rd, exist_ok=True); json.dump(rec, open(rp + ".tmp", "w", encoding="utf-8"), ensure_ascii=False, indent=2); os.replace(rp + ".tmp", rp)
+        print(f"RESUME ok {rp}")
+    except (OSError, ValueError) as e:
+        msg = f"NORECORD {old} {e}"
+        if os.path.exists(rp):   # 옛 기록이 닫기 근거로 남지 않게 지우지 않고 이름만 바꾼다(zombie-clean 은 <이름>.json 만 읽는다 · DA⑥ H1)
+            sp = rp + ".stale-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            try: os.replace(rp, sp); msg += f" · 이전 기록 무효화 {sp}"
+            except OSError as e2: msg += f" · 이전 기록 무효화 실패 {e2}"
+        print(msg)
 if arg: cand = [arg]
 else: cand = [f for f in sorted(glob.glob(root + "/.fable-team/seats*.json")) if isinstance(load(f), dict) and old in load(f)]
 if len(cand) != 1: print(f"REJECT 명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정"); sys.exit(1)
 p = cand[0]; d = load(p); o = d.get(old) if isinstance(d, dict) else None
 if not isinstance(o, dict): print(f"REJECT {p} 에 구 행 {old} 없음"); sys.exit(1)
+if reconly == "1":   # 기록 모드 — 명부 쓰기 0(.bak 도 0) · 은퇴한 행(_replaced_by 있음)만
+    rb = o.get("_replaced_by")
+    if not (isinstance(rb, str) and rb): print(f"REJECT {old} 은 현역 행(_replaced_by 없음) — 기록 모드는 은퇴한 좌석만 file={p}"); sys.exit(1)
+    rec, why = find_resume(o.get("model"), rb); write_record(rec, why); sys.exit(0)
 if o.get("_replaced_by") == new: print(f"NOOP {old} 은 이미 {new} 로 은퇴 file={p}"); sys.exit(0)
 n = d.get(new)
 if isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT 후계 {new} 가 이미 은퇴(_replaced_by={n['_replaced_by']}) — 쓰기 0"); sys.exit(3)
 shutil.copy(p, p + ".bak-retire-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-rec, why = find_resume(o.get("model"))   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
+rec, why = find_resume(o.get("model"), new)   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
 if rec: o["_resume_uuid"] = rec["uuid"]
 else: o.pop("_resume_uuid", None)   # 옛 은퇴가 남긴 값이 닫기 근거로 남지 않게(DA⑥ H1)
 role, tick = o.get("role"), o.get("tick")
@@ -58,16 +78,5 @@ tmp = p + ".tmp-" + str(os.getpid())   # 쓰기 중 죽어도 원본 무손상 �
 with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=2); f.write("\n"); f.flush(); os.fsync(f.fileno())
 shutil.copymode(p, tmp); os.replace(tmp, p)
 print(f"RETIRED {old} -> {new} file={p} keys={keys}")
-rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume"); rp = f"{rd}/{old}.json"
-try:   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
-    if not rec: raise ValueError(why)
-    os.makedirs(rd, exist_ok=True); json.dump(rec, open(rp + ".tmp", "w", encoding="utf-8"), ensure_ascii=False, indent=2); os.replace(rp + ".tmp", rp)
-    print(f"RESUME ok {rp}")
-except (OSError, ValueError) as e:
-    msg = f"NORECORD {old} {e}"
-    if os.path.exists(rp):   # 옛 기록이 닫기 근거로 남지 않게 지우지 않고 이름만 바꾼다(zombie-clean 은 <이름>.json 만 읽는다 · DA⑥ H1)
-        sp = rp + ".stale-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        try: os.replace(rp, sp); msg += f" · 이전 기록 무효화 {sp}"
-        except OSError as e2: msg += f" · 이전 기록 무효화 실패 {e2}"
-    print(msg)
+write_record(rec, why)
 PY

@@ -13,7 +13,7 @@ chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi
 J() { jq -r "$2" "$1"; }
 
 for f in "$TICK" "$RETIRE" "$SPAWN"; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
-chk "ft-seat-retire.sh ≤ 80줄" "$([ "$(wc -l < "$RETIRE")" -le 80 ] && echo yes || echo no)" yes
+chk "ft-seat-retire.sh ≤ 200줄" "$([ "$(wc -l < "$RETIRE")" -le 200 ] && echo yes || echo no)" yes
 
 # ①② 틱 stall 대상 (dry-run) · all_seats 는 함수 추출
 stall_seats() { # <좌석표 json>
@@ -132,6 +132,54 @@ chk "⑨H1 둘째 줄 = NORECORD … · 이전 기록 무효화 <새 경로>" "$
 chk "⑨H1 <구>.json 0 · stale 1" "$([ -e "$RD/M#1.json" ] && echo yes || echo no) $(ls "$RD" | grep -c '^M#1\.json\.stale-[0-9]\{14\}$')" "no 1"
 chk "⑨H1 stale 내용 보존(uuid)" "$(jq -r .uuid "$RD"/M#1.json.stale-* 2>/dev/null)" "$UU2"
 chk "⑨H1 명부 구 행 _resume_uuid 제거" "$(J "$S" '.["M#1"]|has("_resume_uuid")')" false
+
+# ⑩ --record-only (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다 · 명부 쓰기 0
+rr_seats() { # <파일> [model 조각] [agent] [retired_by]  → 은퇴된 행(_replaced_by 있음)
+  printf '{"M#1": {"role": "stop-ready", "agent": "%s", %s "tick": null, "_replaced_by": "%s", "_retired_role": "master"}}' "${3:-claude}" "${2-\"model\": \"m1\",}" "${4:-M#7}" > "$1"; }
+rr_run() { HOME="$1" PATH="$FK:$PATH" FAKE_PANE_PID="${FAKE_PANE_PID-100}" FAKE_CHILDREN="${FAKE_CHILDREN-7000 7001}" bash "$RETIRE" 'M#1' --record-only --seats "$2"; }
+H="$(rs_home rr)"; S="$TMP/seats-rr.json"; rr_seats "$S"; cp "$S" "$S.orig"; out="$(rr_run "$H" "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
+chk "⑩ⓐ rc 0" "$rc" 0
+chk "⑩ⓐ 출력 = RESUME ok <기록 경로> 한 줄(RETIRED 줄 없음)" "$out" "RESUME ok $REC"
+chk "⑩ⓐ 기록 키 9개" "$(jq 'keys|sort|join(",")' "$REC" 2>/dev/null)" '"at,cwd,engine,jsonl,model,name,pid,retired_by,uuid"'
+chk "⑩ⓐ uuid·name·engine·pid·model" "$(jq -r '[.uuid,.name,.engine,(.pid|tostring),.model]|join(",")' "$REC" 2>/dev/null)" "$UU1,M#1,claude,7001,m1"
+chk "⑩ⓐ retired_by = 명부 _replaced_by(M#7)" "$(jq -r .retired_by "$REC" 2>/dev/null)" "M#7"
+chk "⑩ⓑ 명부 바이트 불변" "$(cmp -s "$S" "$S.orig" && echo same || echo changed)" same
+chk "⑩ⓑ .bak-retire-* 0" "$(ls "$S".bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" 0
+# ⓒ 현역 행(_replaced_by 없음) → REJECT rc 1 · 기록 0 · 명부 불변
+H="$(rs_home rrlive)"; S="$TMP/seats-rrlive.json"; rs_seats "$S"; cp "$S" "$S.orig"; out="$(rr_run "$H" "$S")"; rc=$?
+chk "⑩ⓒ rc 1" "$rc" 1
+chk "⑩ⓒ 출력 REJECT" "${out%% *}" REJECT
+chk "⑩ⓒ 기록 파일 0" "$([ -e "$H/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" no
+chk "⑩ⓒ 명부 바이트 불변" "$(cmp -s "$S" "$S.orig" && echo same || echo changed)" same
+# ⓓ 검증 실패 → NORECORD rc 0 · 기록 0 · 명부 불변
+rr_norecord() { # <라벨> <home> [model 조각] [agent]
+  local s="$TMP/seats-rr-$1.json" o r; if [ $# -ge 3 ]; then rr_seats "$s" "$3" "${4:-claude}"; else rr_seats "$s"; fi; cp "$s" "$s.orig"; o="$(rr_run "$2" "$s")"; r=$?
+  chk "⑩ⓓ$1 rc 0" "$r" 0
+  chk "⑩ⓓ$1 첫 줄 NORECORD M#1" "$(sed -n 1p <<< "$o" | cut -d' ' -f1-2)" "NORECORD M#1"
+  chk "⑩ⓓ$1 기록 파일 0" "$([ -e "$2/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" no
+  chk "⑩ⓓ$1 명부 바이트 불변·bak 0" "$(cmp -s "$s" "$s.orig" && echo same || echo changed) $(ls "$s".bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "same 0"
+}
+H="$(rs_home rrn1)"; rm "$H/.claude/sessions/7001.json"; rr_norecord 세션파일없음 "$H"
+H="$(rs_home rrn2)"; printf '{"pid":7002,"sessionId":"%s","cwd":"%s","name":"M#1"}' "$UU2" "$WORK" > "$H/.claude/sessions/7002.json"; FAKE_CHILDREN="7001 7002" rr_norecord 세션파일2개 "$H"
+H="$(rs_home rrn3)"; printf '{"pid":7001,"sessionId":"%s","cwd":"%s","name":"X#9"}' "$UU1" "$WORK" > "$H/.claude/sessions/7001.json"; rr_norecord 이름불일치 "$H"
+H="$(rs_home rrn4)"; printf '{"pid":9999,"sessionId":"%s","cwd":"%s","name":"M#1"}' "$UU1" "$WORK" > "$H/.claude/sessions/7001.json"; rr_norecord pid불일치 "$H"
+H="$(rs_home rrn5)"; rm "$H/.claude/projects/$ENC/$UU1.jsonl"; rr_norecord jsonl없음 "$H"
+H="$(rs_home rrn6)"; rr_norecord model없음 "$H" ''
+H="$(rs_home rrn7)"; FAKE_PANE_PID="" rr_norecord tmux세션없음 "$H"
+H="$(rs_home rrn8)"; rm "$H/.claude/sessions/7001.json"; rr_norecord codex좌석 "$H" '"model": "gpt-6.1-sol",' codex
+# ⓓ 이미 있던 <구>.json → .stale-<ts> 이름 바꿈(명부는 그대로)
+H="$(rs_home rrstale)"; rm "$H/.claude/sessions/7001.json"; RD="$H/.claude/state/seat-resume"; mkdir -p "$RD"; printf '{"name":"M#1","uuid":"%s"}' "$UU2" > "$RD/M#1.json"
+S="$TMP/seats-rrstale.json"; rr_seats "$S"; cp "$S" "$S.orig"; out="$(rr_run "$H" "$S")"; rc=$?
+chk "⑩ⓓstale rc 0·NORECORD" "$rc $(cut -d' ' -f1-2 <<< "$out")" "0 NORECORD M#1"
+chk "⑩ⓓstale <구>.json 0 · stale 1" "$([ -e "$RD/M#1.json" ] && echo yes || echo no) $(ls "$RD" | grep -c '^M#1\.json\.stale-[0-9]\{14\}$')" "no 1"
+chk "⑩ⓓstale 명부 불변" "$(cmp -s "$S" "$S.orig" && echo same || echo changed)" same
+# ⓕ --record-only + <후계> → usage rc 2 · 쓰기 0
+H="$(rs_home rrf)"; S="$TMP/seats-rrf.json"; rr_seats "$S"; cp "$S" "$S.orig"
+for a in "M#1 M#2 --record-only" "M#1 --record-only M#2"; do
+  out="$(HOME="$H" PATH="$FK:$PATH" FAKE_PANE_PID=100 FAKE_CHILDREN="7000 7001" bash "$RETIRE" $a --seats "$S" 2>&1)"; rc=$?
+  chk "⑩ⓕ [$a] rc 2" "$rc" 2
+done
+chk "⑩ⓕ 기록 0 · 명부 불변" "$([ -e "$H/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no) $(cmp -s "$S" "$S.orig" && echo same || echo changed)" "no same"
 
 # ⑧ 기존 시험
 for t in test_ft_tick_master_seat.sh test_role_spawn_name.sh test_kit_bin_sync.sh; do
