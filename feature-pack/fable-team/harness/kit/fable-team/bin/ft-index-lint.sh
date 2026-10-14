@@ -33,13 +33,9 @@ path_exists() { [ -e "$ROOT/$1" ] || [ -e "$1" ]; }  # $1=경로 → 리포 루�
 # ⑥ 전용(R154): 기존 path_exists 가 거짓이면 origin/main «트리»에 있는 저장소 상대 경로도 실재로 인정한다(나노 base = origin/main).
 #   fallback 은 상대 경로만 — 앞의 `./` 는 반복 제거, 그 뒤가 비었거나 선행 `/`·`.`/`..` 성분·빈 성분(`//`)이면 거절(Git 의 경로 정규화에 기대지 않는다).
 #   tracked 디렉터리(tree)도 실재(기존 `[ -e ]` 와 같은 정책). fetch 0 · origin/main ref 없으면 cat-file 이 실패해 기존 동작.
-scope_path_exists() {
-  local p="$1"
-  path_exists "$p" && return 0
-  while [[ "$p" == ./* ]]; do p="${p#./}"; done
-  case "/$p/" in //*|*//*|*/./*|*/../*) return 1;; esac
-  git -C "$ROOT" cat-file -e "refs/remotes/origin/main:$p" 2>/dev/null
-}
+#   R174: 정규화는 norm_rel 로 뽑아 ⑥(scope_path_exists)과 ⑧(check_evidence)이 같은 거절 규칙을 쓴다. 성공 시 NORM_P 에 결과.
+norm_rel() { NORM_P="$1"; while [[ "$NORM_P" == ./* ]]; do NORM_P="${NORM_P#./}"; done; case "/$NORM_P/" in //*|*//*|*/./*|*/../*) return 1;; esac; }
+scope_path_exists() { path_exists "$1" && return 0; norm_rel "$1" || return 1; git -C "$ROOT" cat-file -e "refs/remotes/origin/main:$NORM_P" 2>/dev/null; }
 # ⑦ 사전검증 · ⑧ 조사 근거 — 팀 env 스위치 FT_CARD_REQUIRE_PREVERIFY=1 일 때만 불린다(원장 R16: DA·조사 없이 열린 구현 나노 차단).
 #   형식만 본다 — 판정문 «내용»이나 인용 «내용»은 대조하지 않는다.
 NAME_LINT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-name-lint.sh"
@@ -86,16 +82,23 @@ check_preverify() {  # $1=file → bad+=
   esac
 }
 check_evidence() {  # $1=file → bad+=  (경로:줄 — 경로 실재 + 줄 번호 ≤ 파일 줄 수)
-  local refs ref p n total
+  # R174: 작업 트리 줄 수 안이면 그대로 통과(origin/main 조회 0). 아니면 origin/main «blob» 줄 수도 본다 — 둘 중 하나 안이면 OK, 둘 다 밖이면 큰 쪽 N 으로 REJECT.
+  local refs ref p n q wt om total
   grep -qE '^## 조사 근거' "$1" || { bad+=("절 없음: 조사 근거 (⑧)"); return; }
   refs="$(section_body "$1" '조사 근거' | tr -d '`' | grep -oE '[^[:space:]:()]+\.[A-Za-z0-9]+:[0-9]+' | sort -u)"
   [ -n "$refs" ] || { bad+=("조사 근거: 「경로:줄」 인용이 하나도 없다"); return; }
   while IFS= read -r ref; do
-    p="${ref%:*}"; n="${ref##*:}"
-    [ -f "$ROOT/$p" ] && p="$ROOT/$p"
-    [ -f "$p" ] || { bad+=("조사 근거: 경로 없음 ($ref)"); continue; }
-    total="$(awk 'END{print NR}' "$p")"
-    { [ "$n" -ge 1 ] && [ "$n" -le "$total" ]; } || bad+=("조사 근거: 줄 번호가 파일 줄 수(${total})를 벗어남 ($ref)")
+    p="${ref%:*}"; n="${ref##*:}"; wt=-1; om=-1
+    q="$p"; [ -f "$ROOT/$p" ] && q="$ROOT/$p"
+    [ -f "$q" ] && wt="$(awk 'END{print NR}' "$q")"
+    { [ "$wt" -ge 1 ] && [ "$n" -ge 1 ] && [ "$n" -le "$wt" ]; } && continue
+    if norm_rel "$p" && [ "$(git -C "$ROOT" cat-file -t "refs/remotes/origin/main:$NORM_P" 2>/dev/null)" = blob ]; then
+      om="$(git -C "$ROOT" show "refs/remotes/origin/main:$NORM_P" 2>/dev/null | awk 'END{print NR}')" || om=-1
+    fi
+    { [ "$wt" -lt 0 ] && [ "$om" -lt 0 ]; } && { bad+=("조사 근거: 경로 없음 ($ref)"); continue; }
+    { [ "$om" -ge 1 ] && [ "$n" -ge 1 ] && [ "$n" -le "$om" ]; } && continue
+    total=$(( wt > om ? wt : om ))
+    bad+=("조사 근거: 줄 번호가 파일 줄 수(${total})를 벗어남 ($ref)")
   done <<< "$refs"
 }
 # ⑨ 머리 `- 제안서:` 줄 (R77 r1 · 판정 826) — 값 = `#<제안 Issue 번호>` 또는 `없음 — <사유>`(승인 증거 검사는 ft-proposal-gate.sh --card).

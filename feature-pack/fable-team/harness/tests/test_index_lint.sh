@@ -106,8 +106,8 @@ expect_rej "$(mkw proposal-y '- 제안서: 나중에 쓴다')"     "⑨ 작성 �
 # R6=origin/main 에만 scripts/x.sh · scripts/kit.d/a.sh · design/da-only.md 가 있고 워크트리는 그 앞 커밋 · R6N=origin/main ref 자체가 없는 리포
 gt() { git -c user.email=t@t -c user.name=t commit -qm "$1" >/dev/null 2>&1; }
 R6="$T/r154"; R6N="$T/r154n"
-for r in "$R6" "$R6N"; do mkdir -p "$r/design" "$r/src"; ( cd "$r" && git init -q . && cp "$T/design/LEDGER.md" design/ && printf 'l1\nl2\nl3\n' > src/target.sh && git add -A && gt base ); done
-( cd "$R6" && mkdir -p scripts/kit.d && echo x > scripts/x.sh && echo a > scripts/kit.d/a.sh && echo '판정: APPROVE' > design/da-only.md && git add -A && gt main-only \
+for r in "$R6" "$R6N"; do mkdir -p "$r/design" "$r/src"; ( cd "$r" && git init -q . && cp "$T/design/LEDGER.md" design/ && printf 'l1\nl2\nl3\n' > src/target.sh && printf 'g1\ng2\ng3\n' > src/grow.sh && git add -A && gt base ); done
+( cd "$R6" && mkdir -p scripts/kit.d && echo x > scripts/x.sh && echo a > scripts/kit.d/a.sh && echo '판정: APPROVE' > design/da-only.md && printf 'g4\ng5\n' >> src/grow.sh && git add -A && gt main-only \
   && git update-ref refs/remotes/origin/main HEAD && git reset -q --hard HEAD~1 )
 mk6() {  # mk6 <리포> <이름> <구현 범위 한 줄> [사전검증 본문 조사 근거 본문] → 카드 경로
   local f="$1/$2.md"
@@ -148,5 +148,34 @@ r="$(fk s6k0 'scripts/none.sh 수정')"; [ "${r%%|*}" = 0 ] && ok "⑥ 가짜 gi
 for c in '../scripts/x.sh' 'scripts/nodir/../x.sh' 'scripts/./x.sh' '/scripts/x.sh' 'scripts//x.sh'; do
   r="$(fk s6k1 "$c 수정")"; [ "${r%%|*}" = 1 ] && echo "${r#*|}" | grep -q '구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다' && ok "⑥ 가짜 git 이 받아줘도 가드가 거절: $c" || bad "⑥ 가드 $c → $r"
 done
+
+# ── ⑧ 조사 근거 «경로:줄»: origin/main blob 도 인정 (R174) — R6 임시 리포 재사용: src/target.sh 3줄(워크트리) · scripts/x.sh 1줄(origin/main 에만) · src/grow.sh 워크트리 3줄·origin/main 5줄 ──
+SW6=1; EX8='소환: 아니오\n면제: 시험용 카드라 설계 불필요 — arch 서명 byz-harness-arch-claude#6'
+ev8() { local r="$1"; shift; ( cd "$r" && FT_CARD_REQUIRE_PREVERIFY=1 bash "$LINT" "$(mk6 "$r" "$1" '1. src/target.sh 수정' "$EX8" "- $2")" 2>&1 ); }
+ok8()  { local out rc; out="$(ev8 "$R6" "$1" "$2")"; rc=$?; [ $rc -eq 0 ] && echo "$out" | grep -q '^OK ' && ok "⑧ $3" || bad "⑧ $3 → rc=$rc $out"; }
+rej8() { local out rc; out="$(ev8 "${4:-$R6}" "$1" "$2")"; rc=$?; [ $rc -eq 1 ] && echo "$out" | grep -q -F "$5" && ok "⑧ $3" || bad "⑧ $3 → rc=$rc $out"; }
+ok8  e8a1 'src/target.sh:2'                       "ⓐ 워크트리 파일 줄 수 안 OK(불변)"
+rej8 e8a2 'src/target.sh:9' "ⓐ 워크트리 파일 줄 수 밖 REJECT(N=3)" "$R6" '줄 번호가 파일 줄 수(3)를 벗어남 (src/target.sh:9)'
+ok8  e8b1 'scripts/x.sh:1'                        "ⓑ origin/main 에만 있는 파일 OK"
+rej8 e8b2 'scripts/x.sh:2' "ⓑ origin/main 에만 있는 파일 줄 수 밖 REJECT(N=1)" "$R6" '줄 번호가 파일 줄 수(1)를 벗어남 (scripts/x.sh:2)'
+ok8  e8c1 'src/grow.sh:5'                         "ⓑ' 워크트리 3줄·origin/main 5줄: :5 OK(origin/main 줄 수 안)"
+ok8  e8c2 'src/grow.sh:3'                         "ⓑ' 워크트리 줄 수 안 :3 OK"
+rej8 e8c3 'src/grow.sh:6' "ⓑ' 두 줄 수 모두 밖 :6 REJECT(N=큰 값 5)" "$R6" '줄 번호가 파일 줄 수(5)를 벗어남 (src/grow.sh:6)'
+rej8 e8d1 'scripts/kit.d:1' "ⓒ origin/main 의 디렉터리(tree)는 파일이 아님 → 경로 없음" "$R6" '경로 없음 (scripts/kit.d:1)'
+rej8 e8d2 'scripts/none.sh:1' "ⓒ 둘 다 없음 → 경로 없음" "$R6" '경로 없음 (scripts/none.sh:1)'
+rej8 e8d3 'scripts/x.sh:1' "ⓒ origin/main ref 없는 리포 → 경로 없음" "$R6N" '경로 없음 (scripts/x.sh:1)'
+rej8 e8e1 '../scripts/x.sh:1' "ⓓ ../ 선행 REJECT" "$R6" '경로 없음 (../scripts/x.sh:1)'
+rej8 e8e2 'scripts/nodir/../x.sh:1' "ⓓ 중간 ../ REJECT" "$R6" '경로 없음 (scripts/nodir/../x.sh:1)'
+rej8 e8e3 'scripts/./x.sh:1' "ⓓ 중간 ./ REJECT" "$R6" '경로 없음 (scripts/./x.sh:1)'
+ok8  e8e4 './scripts/x.sh:1'                      "ⓓ ./ 접두 OK"
+# 가짜 git: cat-file -t 는 blob · show 는 한 줄 — Git 이 뭐든 받아줘도 정규화 가드가 거절(ⓓ) · git 이 실패하면 통과 간주 없이 REJECT(ⓕ)
+FG8="$T/fakegit8"; mkdir -p "$FG8"
+printf '#!/bin/bash\ncase " $* " in *" cat-file "*) echo blob; exit 0;; *" show "*) echo x; exit 0;; esac\nexec "%s" "$@"\n' "$REALGIT" > "$FG8/git"; chmod +x "$FG8/git"
+out="$( PATH="$FG8:$PATH" ev8 "$R6" e8f1 'scripts/none.sh:1' )"; echo "$out" | grep -q '^OK ' && ok "⑧ 가짜 git(전부 blob) 대조군: 상대 경로는 OK" || bad "⑧ 가짜 git 대조군 → $out"
+out="$( PATH="$FG8:$PATH" ev8 "$R6" e8f2 '../scripts/x.sh:1' )"; echo "$out" | grep -q -F '경로 없음 (../scripts/x.sh:1)' && ok "⑧ ⓓ 가짜 git 이 받아줘도 가드가 거절" || bad "⑧ ⓓ 가드 → $out"
+FG9="$T/fakegit9"; mkdir -p "$FG9"
+printf '#!/bin/bash\ncase " $* " in *" cat-file "*|*" show "*) exit 1;; esac\nexec "%s" "$@"\n' "$REALGIT" > "$FG9/git"; chmod +x "$FG9/git"
+out="$( PATH="$FG9:$PATH" ev8 "$R6" e8f3 'scripts/x.sh:1' )"; echo "$out" | grep -q -F '경로 없음 (scripts/x.sh:1)' && ok "⑧ ⓕ git 실패 = 보이는 REJECT(통과 간주 0)" || bad "⑧ ⓕ → $out"
+SW6=""
 
 echo "fail=$fail"; [ $fail -eq 0 ]
