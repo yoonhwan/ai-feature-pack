@@ -79,11 +79,14 @@ _wt_clean_plan() {
   # --wt/--branch: 자율 정리 범위 밖(브랜치 nano/* 아님) — sweep(*.sh 순회) 밖인 .sh.hil 로만 생성한다. 실행은 사람(! bash <계획>).
   [ "$NAMED" != 1 ] || PLAN="$WT_CLEAN_DIR/$SEAT.sh.hil"
   [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || WT_MARK="planned(autoclean=0)"
+  # r166 계획 버전 표식 — 이 생성기 파일의 blob sha. ft-wt-sweep.sh 가 «옆의 라이브 생성기» 와 대조해 다르면 실행을 거부한다(옛 생성기 계획 = 옛 가드).
+  local planver; planver="$(git hash-object -- "$HERE/ft-nano-close.sh" 2>/dev/null)"
   {
-    printf '#!/bin/bash\n# wt-clean 계획 — ft-nano-close.sh 가 %s 에 생성. 가드 6 → ignored 보관 → WIP 커밋 → baton wt-clean → 원장 표식. 브랜치는 지우지 않는다.\n' "$(date '+%Y-%m-%d %H:%M')"
+    printf '#!/bin/bash\n# wt-clean 계획 — ft-nano-close.sh 가 %s 에 생성. 가드 6 → ignored 보관 → WIP 커밋 → 이름 바꾸기(worktree move) → 분리 정리(baton wt-clean). 브랜치는 지우지 않는다.\n' "$(date '+%Y-%m-%d %H:%M')"
+    printf '# plan-ver: %s\n' "$planver"
     printf '# baton 부작용(승인 범위에 명시): 아카이브 30일 초과분 prune · 분기 원장(.baton/branches.json) 의 같은 child_branch 행 status=abandoned.\n'
     # FT_NANO_WIP 는 close 실행 시점 값을 계획에 «굽는다» — sweep 은 나중 다른 프로세스/환경에서 돌아 close 의 env 를 못 물려받는다.
-    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")"
+    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")" "$HERE/ft-wt-sweep.sh"
     cat <<'SH'
 set -uo pipefail
 BATON="${BATON_BIN:-$HOME/.baton/current/bin/baton}"
@@ -141,9 +144,16 @@ lsout="$("$LSOF" -Fn -d cwd 2>/dev/null)"; rc=$?
 holders="$(printf '%s\n' "$lsout" | grep -cE "^n${WT}(/|$)")"
 [ "$holders" -eq 0 ] || fail "cwd 보유 프로세스 ${holders}개"
 # ③ .worktree-info.json 의 branch 가 nano/*  (--wt/--branch 계획: 브랜치는 close 가 확인해 구워 둔 값 — 사람이 실행하는 계획이라 nano/* 를 요구하지 않는다)
+#   r166 껍데기 인식: 상한 TERM 으로 «지우다 만» 워크트리는 .worktree-info.json 도 이미 사라졌을 수 있다. tracked 가 전부 ' D'(작업 트리에서만 지워짐)뿐이면 info 대신 HEAD 브랜치로 판정(그 외 미커밋이 한 줄이라도 있으면 기존 그대로).
 if [ -n "$NAMED_BR" ]; then br="$NAMED_BR"
 else
 br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
+if [ -z "$br" ]; then
+  _st="$(git -C "$WT" status --porcelain 2>/dev/null)"
+  if [ "$(printf '%s\n' "$_st" | grep -v '\.serena/project\.yml$' | grep -v '^ D ' | grep -c .)" -eq 0 ] && [ "$(printf '%s\n' "$_st" | grep -c '^ D ')" -gt 0 ]; then
+    br="$(git -C "$WT" symbolic-ref --short -q HEAD)"
+  fi
+fi
 case "$br" in nano/*) ;; *) fail "branch=${br:-?} (nano/* 아님)";; esac
 fi
 # ④ 도달성 — HEAD 브랜치 = info branch(detached 금지) 이고 HEAD 가 refs/heads/<br> 에 포함 (DA r1 R1②)
@@ -206,13 +216,23 @@ if [ -n "$dirty" ]; then
   rm -f "$delf"
   git -C "$WT" commit -q -m "[wip] nano close $SEAT" || fail "wip commit 실패"
 fi
-BATON_TMUX_DISABLE=true "$BATON" wt-clean "$WT" || fail "baton wt-clean 실패"
-[ -d "$WT" ] && fail "baton 뒤에도 워크트리 남음"
+# ★r166 2단 정리★ ①이름 바꾸기(worktree move · 즉시) → ②분리 프로세스에서 baton 정리 + prune(상한 밖).
+#   120초 상한 TERM 이 삭제 도중 걸려도 원래 경로엔 껍데기가 남지 않는다(이름 바뀐 .deleting-<ts> 만 · sweep 이 이어서 정리).
+#   보관(baton archive)은 ②의 첫 단계 — 실패하면 삭제를 하지 않고 .deleting-<ts> 가 남아 sweep 이 재시도한다.
+ROOTD="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+[ -n "$ROOTD" ] || fail "리포 루트 판별 실패"
+[ -f "$SWEEPER" ] || fail "ft-wt-sweep.sh 없음($SWEEPER) — 분리 정리를 걸 수 없다"
+DEL="$WT.deleting-$(date +%s)"
+git -C "$ROOTD" worktree move "$WT" "$DEL" || fail "worktree move 실패"
+[ ! -e "$WT" ] || fail "move 뒤에도 원래 경로 남음"
+printf '%s\n%s\n' "$DEL" "$ROOTD" > "$PLAN.deleting"
+( cd "$ROOTD" && perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' /bin/bash "$SWEEPER" --finish "$PLAN.deleting" >> "$PLAN.finish.log" 2>&1 < /dev/null & )
 res=cleaned; [ -f "$PLAN.ignored.tar.gz" ] && res="cleaned(ignored ${nkeep}파일 보관)"
 if [ "${ndel:-0}" -gt 0 ]; then
   res="cleaned(삭제만 ${ndel}파일 · 복원 = git worktree add $WT $br)"
   [ ! -f "$PLAN.ignored.tar.gz" ] || res="cleaned(삭제만 ${ndel}파일 · ignored ${nkeep}파일 보관 · 복원 = git worktree add $WT $br)"
 fi
+res="$res · 이름 바꿈 → ${DEL##*/} (파일 정리는 분리 진행)"
 mark "$res"; echo "$res"
 SH
   } > "$PLAN"
