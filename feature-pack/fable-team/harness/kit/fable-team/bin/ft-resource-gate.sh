@@ -58,7 +58,7 @@ is_int "$SWAP_MIB" || measure_fail "swap value=$SWAP_MIB"
 MEMFREE="$(memory_pressure 2>/dev/null | awk -F': ' '/free percentage/{v=$2; gsub(/[^0-9]/,"",v); print v; exit}')"
 is_int "$MEMFREE" || measure_fail "memfree memory_pressure=$MEMFREE"
 
-# 에이전트 프로세스 수 — claude(-x) + codex CLI(-f) 의 PID 합집합. 이 세션 자신도 셈.
+# 에이전트 프로세스 수 — claude(-x) + codex 벤더 바이너리(-x) 의 PID 합집합. 이 세션 자신도 셈. (codex -f 는 npm·node·셸 헬퍼까지 셈 — R169) -a = 조상 포함 · macOS pgrep 기본은 호출 조상 제외.
 #   pgrep 은 센서별로 rc·출력을 따로 본다: rc0=출력 전부 숫자 PID · rc1=정상 no-match(빈 출력) · rc≥2·비정상 출력=측정 실패(통과 금지).
 PIDS=""
 agent_scan() {
@@ -72,8 +72,8 @@ agent_scan() {
   PIDS="$PIDS
 $out"
 }
-agent_scan claude -x claude
-agent_scan codex -f 'codex( |$)'
+agent_scan claude -a -x claude
+agent_scan codex -a -x codex
 AGENTS="$(printf '%s\n' "$PIDS" | grep '^[0-9][0-9]*$' | sort -u | grep -c .)"
 is_int "$AGENTS" || measure_fail "agents pgrep=$AGENTS"
 

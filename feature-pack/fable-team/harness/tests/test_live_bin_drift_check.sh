@@ -5,6 +5,8 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../scripts/harness-install/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+# 이 시험의 대상은 드리프트 입구라 자원 문지기는 통과로 고정한다(머신 부하에 따라 RED/GREEN 이 바뀌지 않게 — R169).
+export FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

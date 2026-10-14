@@ -15,11 +15,19 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 R="$T/R"; mkdir -p "$R/.fable-team/state" "$T/home" "$T/cwd" "$T/stub"
 LOG="$T/stub.log"; : > "$LOG"
 for s in git tmux tmuxc; do printf '#!/bin/sh\necho "%s $*" >> "%s"\nexit 1\n' "$s" "$LOG" > "$T/stub/$s"; chmod 755 "$T/stub/$s"; done
-# pgrep 스텁 — -x(claude)와 -f(codex)를 구분해 env 로 rc·출력을 정한다.
+# pgrep 스텁 — macOS 처럼 `-a` 가 없으면 호출 조상(PG_*_ANC)을 결과에서 뺀다. `-a -x claude` / `-a -x codex` 만 허용, 그 외(옛 `-f` 등 모르는 인자)는 rc 99.
 mkdir -p "$T/pg"; cat > "$T/pg/pgrep" <<'PG'
 #!/bin/sh
-if [ "$1" = "-x" ]; then printf '%s' "${PG_CLAUDE_OUT:-}"; [ -z "${PG_CLAUDE_OUT:-}" ] || echo; exit "${PG_CLAUDE_RC:-1}"
-else printf '%s' "${PG_CODEX_OUT:-}"; [ -z "${PG_CODEX_OUT:-}" ] || echo; exit "${PG_CODEX_RC:-1}"; fi
+emit() { # <OUT> <ANC> <RC> <with_ancestors 0|1>
+  o="$1"; [ "$4" = 1 ] || { [ -z "$2" ] || o="$(printf '%s\n' "$o" | grep -vx "$2")"; }
+  printf '%s' "$o"; [ -z "$o" ] || echo; exit "$3"
+}
+a=0; [ "$1" = "-a" ] && { a=1; shift; }
+case "$*" in
+  "-x claude") emit "${PG_CLAUDE_OUT:-}" "${PG_CLAUDE_ANC:-}" "${PG_CLAUDE_RC:-1}" $a;;
+  "-x codex")  emit "${PG_CODEX_OUT:-}" "${PG_CODEX_ANC:-}" "${PG_CODEX_RC:-1}" $a;;
+  *) echo "pgrep unexpected args: $*" >&2; exit 99;;
+esac
 PG
 chmod 755 "$T/pg/pgrep"
 CARD="$T/card.md"; echo 카드 > "$CARD"; BODY="$T/body.txt"; echo 본문 > "$BODY"
@@ -51,7 +59,7 @@ gate_checks() {
 
 # pg <bin 폴더> <env...> — 스텁 pgrep 으로 check. OUT·RC.
 pg() { local d="$1"; shift; OUT="$(env FT_RES_ROOT="$R" $LOW PATH="$T/pg:$PATH" "$@" bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?; }
-# pgrep_checks <bin 폴더> — ⓗ~ⓛ. 전부 맞으면 rc 0.
+# pgrep_checks <bin 폴더> — ⓗ~ⓛ·ⓝ. 전부 맞으면 rc 0.
 pgrep_checks() {
   local d="$1" e=0
   rm_freeze
@@ -67,6 +75,9 @@ pgrep_checks() {
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK .* agents=0$'; } || { echo "ⓚ rc=$RC $OUT"; e=1; }
   pg "$d" PG_CLAUDE_RC=0 PG_CLAUDE_OUT=111 PG_CODEX_RC=0 PG_CODEX_OUT=111
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK .* agents=1$'; } || { echo "ⓛ rc=$RC $OUT"; e=1; }
+  # ⓝ 조상 포함(`-a`) + 벤더 바이너리(`-x`)만 — claude 2(조상 11) + codex 3(조상 21) = 5. `-a` 가 없으면 3, 옛 `-f` 호출은 스텁이 99 로 실패시킨다.
+  OUT="$(env FT_RES_ROOT="$R" $LOW PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(printf '11\n12')" PG_CLAUDE_ANC=11 PG_CODEX_RC=0 PG_CODEX_OUT="$(printf '21\n22\n23')" PG_CODEX_ANC=21 bash "$d/ft-resource-gate.sh" status 2>&1)"; RC=$?
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q ' agents=5 '; } || { echo "ⓝ rc=$RC $OUT"; e=1; }
   return $e
 }
 
@@ -114,7 +125,7 @@ run_suite() {
   for d in "$K1" "$K2"; do
     gate_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓐ~ⓔ $(basename "$(dirname "$d")")" || bad "$tag ⓐ~ⓔ $d: $(cat "$T/o")"
     spawn_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓕ spawn 3종 $(basename "$(dirname "$d")")" || bad "$tag ⓕ $d: $(cat "$T/o")"
-    pgrep_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓗ~ⓛ pgrep 센서 $(basename "$(dirname "$d")")" || bad "$tag ⓗ~ⓛ $d: $(cat "$T/o")"
+    pgrep_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓗ~ⓛ·ⓝ pgrep 센서 $(basename "$(dirname "$d")")" || bad "$tag ⓗ~ⓛ $d: $(cat "$T/o")"
     spawn_pgrep_err "$d" >"$T/o" 2>&1 && ok "$tag ⓜ spawn 3종 pgrep 오류 $(basename "$(dirname "$d")")" || bad "$tag ⓜ $d: $(cat "$T/o")"
   done
 }
@@ -145,6 +156,18 @@ M="$T/mut-rc"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
 sed 's/out="$(pgrep "$@" 2>\/dev\/null)"; rc=$?/out="$(pgrep "$@" 2>\/dev\/null)"; rc=0/' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
 cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이3 준비 실패(치환 0)" || {
   pgrep_checks "$M" >/dev/null 2>&1 && bad "변이3: rc 검사 제거가 검출되지 않음" || ok "변이3 검출"; }
+
+# 변이 5 — gate 의 두 센서에서 `-a`(조상 포함) 제거 → ⓝ 이 «실패»해야 한다
+M="$T/mut-noa"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
+sed 's/^agent_scan \([a-z]*\) -a -x /agent_scan \1 -x /' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이5 준비 실패(치환 0)" || {
+  pgrep_checks "$M" >/dev/null 2>&1 && bad "변이5: -a 제거가 검출되지 않음" || ok "변이5 검출"; }
+
+# 변이 4 — gate 의 codex 센서를 옛 `-f 'codex( |$)'` 로 되돌림 → ⓝ 이 «실패»해야 한다
+M="$T/mut-codexf"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
+sed "s/^agent_scan codex -a -x codex\$/agent_scan codex -f 'codex( |\$)'/" "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이4 준비 실패(치환 0)" || {
+  pgrep_checks "$M" >/dev/null 2>&1 && bad "변이4: codex -f 복귀가 검출되지 않음" || ok "변이4 검출"; }
 
 [ "$(git -C "$REPO" config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare"
 echo "fail=$fail"; [ $fail -eq 0 ]
