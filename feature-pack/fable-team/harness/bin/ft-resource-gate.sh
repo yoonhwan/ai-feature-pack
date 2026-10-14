@@ -7,7 +7,7 @@
 #   status : `disk=.. swap=.. memfree=.. agents=.. freeze=0|1` 1줄 + exit 0.
 #   측정 실패(명령 없음·파싱 실패)는 통과시키지 않고 `ERROR resource measure <무엇>` + exit 4 (BYZ #0 NO SILENT FALLBACK).
 #   동결 파일(.fable-team/state/RESOURCE_FREEZE)이 있으면 check 는 무조건 REJECT.
-#   문턱(env 덮어쓰기): FT_DISK_MIN_GIB=30 · FT_SWAP_MAX_MIB=8192 · FT_MEM_FREE_MIN_PCT=15 · FT_AGENT_MAX=30
+#   문턱(env 덮어쓰기): FT_DISK_MIN_GIB=30 · FT_SWAP_MAX_MIB=8192 · FT_MEM_FREE_MIN_PCT=15 · FT_AGENT_MAX=40 (판정 1699)
 #   시험용 env: FT_RES_ROOT(동결 파일이 놓이는 리포 루트 — 기본은 스크립트 위치에서 역산)
 set -uo pipefail
 
@@ -17,7 +17,7 @@ case "$CMD" in check|status) ;; *) echo "usage: $0 <check|status>" >&2; exit 2;;
 DISK_MIN="${FT_DISK_MIN_GIB:-30}"
 SWAP_MAX="${FT_SWAP_MAX_MIB:-8192}"
 MEM_MIN="${FT_MEM_FREE_MIN_PCT:-15}"
-AGENT_MAX="${FT_AGENT_MAX:-30}"
+AGENT_MAX="${FT_AGENT_MAX:-40}"
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # 리포 루트 = git common-dir — 워크트리 bin 에서 불러도 메인 리포 루트로 통일(동결·tsv 한 곳). git 미가용 대비 FT_RES_ROOT 우선 · 최종 fallback $HERE/../..
