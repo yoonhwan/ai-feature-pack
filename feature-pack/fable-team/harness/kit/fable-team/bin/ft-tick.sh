@@ -98,9 +98,10 @@ master_news_ok() {
 #      뉴스는 «사람 말»로: 무엇이 안 되던 것을 무엇으로 고치는 중인가. 좌석·세션은 뉴스 밖 «세션 상태» 절에 따로.
 # ★2026-09-14 오빠: 「중간 뉴스랑 크론 메세지 길이 확인 너무 중복 매번 발행량이 많은듯」 — 1923B 규칙서를 매 틱 pane 에 꽂던 것을 «한 줄 + 정본 포인터»로.
 #   규칙 본문은 SEATBELT-README §6-1(master 항)에 있다 — 프롬프트는 형식을 «가리키고», 뉴스 4칸 + 세션 상태 절 자체는 짧게(변화 없으면 1줄).
-MASTER_MSG="[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tick ⑥ 출력 그대로 맨 위★ · 뉴스 4칸 ≤6불릿 · 빈 줄 · 세션 상태 트리 · 같은 턴에 1건 착수). 변화 없으면 \"변화 없음 — <증상 한 줄>\" 만. 총 ≤900자."
+# R150: 팀 틱이 라이브 bin 을 같이 돌린다 — 팀 문구는 plist 환경변수(FT_TICK_MASTER_MSG · FT_TICK_PM_MSG)로 주입. 미설정이면 아래 문구 그대로(메인 틱 바이트 불변). override 값은 확장·치환 없이 그대로 출력.
+MASTER_MSG="${FT_TICK_MASTER_MSG:-[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tick ⑥ 출력 그대로 맨 위★ · 뉴스 4칸 ≤6불릿 · 빈 줄 · 세션 상태 트리 · 같은 턴에 1건 착수). 변화 없으면 \"변화 없음 — <증상 한 줄>\" 만. 총 ≤900자.}"
 pm_msg() { # $1 = report_to — 규칙은 README §6-1 · 정본 3종은 pm 인박스 README 에. 여기선 4항 이름만.
-  echo "[cron-tick] pm 틱 — ①골 대조 1줄(M?/G?) ②원장 미등재 ③활성 나노 @zc_v65_active 전수(0 이면 즉시 set-option) ④사람 확인 필요분 → $1. 변화 없으면 \"변화 없음\" 1줄. 정본·형식: SEATBELT-README §6-1."
+  echo "${FT_TICK_PM_MSG:-[cron-tick] pm 틱 — ①골 대조 1줄(M?/G?) ②원장 미등재 ③활성 나노 @zc_v65_active 전수(0 이면 즉시 set-option) ④사람 확인 필요분 → $1. 변화 없으면 \"변화 없음\" 1줄. 정본·형식: SEATBELT-README §6-1.}"
 }
 
 # 한 좌석·한 종류 발사: ② 간격 → ③ busy → 전송 → ④ 제출 검증. $1 seat $2 kind $3 interval $4 min_gap $5 msg
