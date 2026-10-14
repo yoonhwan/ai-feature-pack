@@ -18,7 +18,7 @@ STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-old-claude#1"; NEW="byz-t-
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
 mkstub tmux   'case "$1" in has-session) exit 0;; list-panes) echo 4242;; display-message) echo "$PANE_CWD";; esac; exit 0'
 mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; exit "${TMUXC_RC:-0}"'
-mkstub pgrep  'echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
+mkstub pgrep  'case "$*" in "-x claude"|"-f codex( |\$)") exec /usr/bin/pgrep "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
 mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'

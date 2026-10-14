@@ -24,6 +24,9 @@ while [ $# -gt 0 ]; do case "$1" in
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
+_rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?
+[ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
 # R149(판정 1641): 상향 모델은 사유 + 닫는 단위 카드 필수 — 해석이 끝난 실제 MODEL 로 판정, 부작용(tmux·명부) «전». rc 0=상향 1=기본 그 밖=도구 고장(조용히 기본 취급 0)
 python3 "$HERE/ft_raised.py" is-raised "$MODEL"; _rrc=$?
 case "$_rrc" in

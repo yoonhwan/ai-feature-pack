@@ -27,7 +27,7 @@ R="$T/repo"; B="$T/bin"; SEATS="$R/.fable-team/seats.json"; CARD_REL="design/v65
 mkdir -p "$R/.fable-team" "$R/design/v65/indices/대기" "$R/design/v65/indices/inbox/master" "$R/design/v65/indices/inbox/da" "$B" "$T/sess" "$T/fake"
 git -C "$R" init -q -b main && : > "$R/.gitkeep" && git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m init
 printf '# 인덱스: r149x\n## 상태\n' > "$R/$CARD_REL"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"
-for f in ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft_raised.py; do cp -p "$BIN/$f" "$B/"; done
+for f in ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft_raised.py ft-resource-gate.sh; do cp -p "$BIN/$f" "$B/"; done
 for f in ft-index-lint.sh ft-proposal-gate.sh ft-index-move.sh ft-send-verified.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done
 printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\necho "$*" >> "%s/events.log"\n' "$T" > "$B/ft-sheet-events.sh"
 printf '#!/bin/bash\necho "tmuxc $*" >> "%s/calls.log"\nif [ "$1" = open ]; then n=""; dry=0; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; [ "$1" = --dry-run ] && dry=1; shift; done; if [ $dry = 1 ]; then echo "TMUXC-DRY $n"; else : > "%s/sess/$n"; fi; fi\n' "$T" "$T" > "$T/fake/tmuxc"

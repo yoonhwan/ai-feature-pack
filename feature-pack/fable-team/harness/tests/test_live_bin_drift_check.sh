@@ -23,7 +23,7 @@ git init -q --bare -b main "$ORIGIN"
 git init -q -b main "$SEED"; mkdir -p "$SEED/$KP"
 printf '#!/bin/sh\necho a\n' > "$SEED/$KP/a.sh"; chmod 755 "$SEED/$KP/a.sh"
 printf 'data b\n' > "$SEED/$KP/b.sh"; chmod 644 "$SEED/$KP/b.sh"
-for f in ft-live-bin-drift-check.sh ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh; do cp -p "$SRC/$f" "$SEED/$KP/$f"; done
+for f in ft-live-bin-drift-check.sh ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh ft-resource-gate.sh; do cp -p "$SRC/$f" "$SEED/$KP/$f"; done
 git -C "$SEED" add -A && git -C "$SEED" -c user.email=t@t -c user.name=t commit -q -m kit
 git -C "$SEED" remote add origin "$ORIGIN" && git -C "$SEED" push -q origin main
 git clone -q "$ORIGIN" "$CLONE" 2>/dev/null
@@ -73,7 +73,7 @@ has "$out" "OK ref=origin/main@" "spawn 어긋남 0 → 검사 통과 줄"; hasn
 rm "$LIVE/ft-live-bin-drift-check.sh"   # 설치 누락(검사 스크립트 없음) = 같은 REJECT
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$LIVE/ft-nano-spawn.sh" design/x/indices/대기/none.md --dry-run 2>&1)"; rc=$?
 rc_is "$rc" 1 "검사 스크립트 없음 → BLOCK"; has "$out" "REJECT 라이브 도구가" "설치 누락도 같은 REJECT"
-mkdir -p "$T/bin"; cp "$SRC/ft-nano-spawn.sh" "$T/bin/"
+mkdir -p "$T/bin"; cp "$SRC/ft-nano-spawn.sh" "$SRC/ft-resource-gate.sh" "$T/bin/"
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$T/bin/ft-nano-spawn.sh" design/x/indices/대기/none.md --dry-run 2>&1)"
 has "$out" "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $T/bin" "spawn 설치 꼴 아님 → 건너뜀"; hasnt "$out" "REJECT 라이브 도구가" "spawn 설치 꼴 아님 → REJECT 없음"
 
