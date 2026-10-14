@@ -5,13 +5,16 @@
   autonomy_classify.py da-check <DA⑥ 판정문> <40hex sha>     push-merge 근거: «마지막 판정 머리» 가 APPROVE ∧ 그 절의 «고정 세트» 줄이 sha
 
 출력 한 줄: `PROXY` (rc 0) | `QUEUE <사유>` (rc 2). 판정기 실패·인자 오류도 QUEUE (대리 쪽으로 새지 않는다 · #0 RULE).
-대리 가능 종류는 세 가지뿐 — `reversible-choice` 는 오빠 값(판정 1322)으로 넣지 않는다(모르는 종류 = QUEUE).
+대리 가능 종류는 네 가지뿐 — `reversible-choice` 는 오빠 값(판정 1322)으로 넣지 않는다(모르는 종류 = QUEUE).
+`push-merge` 는 오빠 값(판정 1675)이라 항상 QUEUE — 병합 승인은 `ft-autonomy.sh approve-merge`(오빠 `!`)뿐이다.
+`nano-reopen`·`docs-push` 의 근거 검증은 ft-proxy-decide.sh 가 하고 판정기는 종류·제외 어휘만 본다.
 제외 어휘는 종류 선언과 무관하게 글에 있으면 QUEUE — 오탐은 QUEUE(안전한 쪽)로만 난다.
 """
 import re
 import sys
 
-PROXY_KINDS = ("push-merge", "card-start", "press-order")
+PROXY_KINDS = ("card-start", "press-order", "nano-reopen", "docs-push")
+QUEUE_ONLY = {"push-merge": "main 병합·main push = 오빠 값(판정 1675)"}
 
 # (이름, 정규식) — 하드 룰 2 파괴·비가역 + 설계 §3 절대 제외. 표본 시험: tests/harness/fixtures/autonomy-exclusions.tsv
 EXCLUDE = [
@@ -34,6 +37,8 @@ _COMPILED = [(name, re.compile(rx, re.IGNORECASE)) for name, rx in EXCLUDE]
 
 def classify(kind: str, texts: list[str]) -> tuple[str, str]:
     """→ ("PROXY", "") | ("QUEUE", 사유)"""
+    if kind in QUEUE_ONLY:
+        return "QUEUE", QUEUE_ONLY[kind]
     if kind not in PROXY_KINDS:
         return "QUEUE", "대리 가능 종류 아님: %s" % kind
     for text in texts:

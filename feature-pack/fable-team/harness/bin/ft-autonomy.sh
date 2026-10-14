@@ -5,8 +5,11 @@
 #                켜기 직전 인증 사전 점검(ft-autonomy-start.sh preflight)이 status 위에 붙는다 — 실패해도 켜기는 진행
 #   status       `[자율 ON A7 · 23:41~ · ~08:00까지 · 대리 3 · 큐 1]`(끝 없으면 `끝 없음`) / `[자율 OFF]` / `[자율 ?? 위변조 → OFF]`
 #   mode | event 기계용: on|off|tamper · 현재(또는 마지막) 사건 번호 A<N>
-# 상태 = $STATE/autonomy.json {mode,since,event,until} + 추가 전용 autonomy.log (한 줄 = epoch<TAB>on|off<TAB>A<N>)
-# 이 스크립트만 log 를 쓴다 → json 이 log 마지막 줄과 어긋나면 위변조 = OFF 취급. 시간 창·자동 해제 0.
+#   approve-merge <40hex>…  main 병합 승인(판정 1675) — 오빠 `!` 한 줄로만. ON 일 때만: 각 sha 에 대해
+#                승인 줄 `approve-merge <sha> A<N> <epoch>` 을 autonomy.log 에 먼저 추가한 뒤 $STATE/autonomy-merge-approved/<sha> 에 같은 줄을 쓴다
+#                (병합 가드는 파일 + log 의 글자 그대로 일치만 본다) · 형식 틀림·OFF·위변조 = REJECT rc 2(상태 쓰기 0)
+# 상태 = $STATE/autonomy.json {mode,since,event,until} + 추가 전용 autonomy.log (모드 줄 = epoch<TAB>on|off<TAB>A<N> · 승인 줄은 탭 없음)
+# 이 스크립트만 log 를 쓴다 → json 이 log 의 마지막 «모드 줄»과 어긋나거나 그 뒤에 불완전·모르는 형식의 줄이 있으면 위변조 = OFF 취급. 시간 창·자동 해제 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
@@ -22,21 +25,33 @@ fmt() { date -r "$1" "+$2" 2>/dev/null || date -d "@$1" "+$2" 2>/dev/null; }  # 
 hhmm() { fmt "$1" %H:%M || echo "--:--"; }
 now_epoch() { echo "${FT_NOW:-$(date +%s)}"; }  # FT_NOW = 시험용 고정 시계
 
+MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} A[0-9]+ [0-9]+$'
+# log 를 ⓐ정상 모드 줄 ⓑ정당한 부가 줄(승인 줄·형식 고정) ⓒ그 밖 으로 가른다. stdout = 마지막 정상 모드 줄 · rc 1 = 그 뒤에 ⓒ(불완전·모르는 줄) 가 있음 = 위변조
+log_last_mode() {
+  local line last="" bad=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ $MODE_RE ]]; then last="$line"; bad=0
+    elif [[ "$line" =~ $APPROVE_RE ]]; then :
+    else bad=1; fi
+  done 2>/dev/null < "$LOG"
+  printf '%s' "$last"; return $bad
+}
+
 # 유효 상태 → "on|off|tamper" (파일 없음 = off)
 mode() {
-  local m s e last
+  local m s e last bad
   [ -f "$JSON" ] || { echo off; return; }
   m="$(jfield mode)"; s="$(jfield since)"; e="$(jfield event)"
-  last="$(tail -n 1 "$LOG" 2>/dev/null)"
-  if [ -n "$m" ] && [ "$last" = "$(printf '%s\t%s\t%s' "$s" "$m" "$e")" ] && { [ "$m" = on ] || [ "$m" = off ]; }; then
+  last="$(log_last_mode)"; bad=$?
+  if [ -n "$m" ] && [ "$bad" = 0 ] && [ "$last" = "$(printf '%s\t%s\t%s' "$s" "$m" "$e")" ] && { [ "$m" = on ] || [ "$m" = off ]; }; then
     echo "$m"
   else
     echo tamper
   fi
 }
 
-# 마지막 사건 번호(마지막 log 줄) — 없으면 빈 값
-event() { tail -n 1 "$LOG" 2>/dev/null | cut -f3; }
+# 마지막 사건 번호(마지막 모드 줄) — 없으면 빈 값
+event() { log_last_mode | cut -f3; }
 
 count_proxy() {  # <A<N>> — 판정 원장의 대리 줄 수
   local n; n="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -cF "[대리 · 자율 ON $1]")"; echo "${n:-0}"
@@ -109,11 +124,27 @@ cmd_off() {
   echo "[자율 OFF] $ev 구간 요약: 대리 $(count_proxy "$ev") · 큐 $(count_queue "$ev") · 큐 파일 $QUEUE"
 }
 
+cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다. 쓰기 순서 = log 먼저, 승인 파일 나중(파일만 있고 log 줄 없음 = 병합 가드 deny)
+  local sha ev now dir="$STATE/autonomy-merge-approved" line
+  [ $# -ge 1 ] || { echo "REJECT sha 없음 (usage: approve-merge <40hex>…)" >&2; exit 2; }
+  [ "$(mode)" = on ] || { echo "REJECT 자율 모드가 ON 이 아님($(mode)) — 승인 기록 없음" >&2; exit 2; }
+  for sha in "$@"; do [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "REJECT sha 형식 틀림(40hex 소문자): $sha" >&2; exit 2; }; done
+  ev="$(event)"; now="$(now_epoch)"
+  mkdir -p "$dir" || { echo "REJECT 승인 폴더를 못 만들었다: $dir" >&2; exit 1; }
+  for sha in "$@"; do
+    line="approve-merge $sha $ev $now"
+    printf '%s\n' "$line" >> "$LOG" || { echo "REJECT log 쓰기 실패" >&2; exit 1; }
+    { printf '%s\n' "$line" > "$dir/$sha.tmp" && mv "$dir/$sha.tmp" "$dir/$sha"; } || { echo "REJECT 승인 파일 쓰기 실패: $dir/$sha" >&2; exit 1; }
+    echo "APPROVED $sha $ev"
+  done
+}
+
 case "${1:-}" in
   on) shift; cmd_on "$@" ;;
+  approve-merge) shift; cmd_approve_merge "$@" ;;
   off) cmd_off ;;
   status) status ;;
   mode) mode ;;
   event) event ;;
-  *) echo "usage: ft-autonomy.sh on|off|status|mode|event" >&2; exit 2 ;;
+  *) echo "usage: ft-autonomy.sh on|off|status|mode|event|approve-merge <40hex>…" >&2; exit 2 ;;
 esac

@@ -1,7 +1,8 @@
 #!/bin/bash
 # fable-team autonomy-merge-guard — PreToolUse:Bash (r-autonomy-hooks 훅③ · 판정 1355 · EVAL-night-autonomy-20261013 결함 2)
-# 왜: 10-13 밤 planner 가 main 병합·배포를 판별기(ft-proxy-decide.sh --kind push-merge) 없이 손판단(1333·1337).
-# 동작(ON·BYZ 리포 안만): ok 파일 `<상태>/autonomy-merge-ok/<40hex>`(push-merge PROXY 가 씀)가 있는 sha 만 통과.
+# 왜: 10-13 밤 planner 가 main 병합·배포를 판별기 없이 손판단(1333·1337) → 판정 1675: 자율 중에도 main 병합 = 오빠 값(push-merge 대리 폐지).
+# 동작(ON·BYZ 리포 안만): 오빠 승인 `<상태>/autonomy-merge-approved/<40hex>`(ft-autonomy.sh approve-merge 가 씀)가 있고 그 내용 1줄이 `<상태>/autonomy.log` 에 글자 그대로 있는 sha 만 통과.
+#   옛 `autonomy-merge-ok/`(push-merge PROXY 시절 파일)는 읽지 않는다 — 파일은 보존, 승인 근거 아님(DA② H1).
 #   · `gh pr merge`/`ft-gh-as-tank.sh pr merge` → `--match-head-commit <sha>` 필수(헤드 결속은 gh 가 강제). `gh api …/pulls/N/merge` 는 `sha=<sha>`.
 #   · main 대상 `git push`(main·HEAD:main·x:main·refs/heads/main · `--repo` 포함 · 맨 push+현재 브랜치 main) → 보내는 쪽 ref(없으면 HEAD)의 rev-parse sha. 삭제(:main·--delete/-d)·--all·--mirror·와일드카드는 항상 deny. --dry-run allow.
 #   `env -S '<명령>'` 는 `bash -c` 처럼 안쪽을 재검사. OFF·위변조·따옴표/heredoc/mbox 본문 글자만 = allow.
@@ -17,8 +18,8 @@ WRAP = {"sudo", "env", "command", "exec", "nohup", "time", "timeout", "nice"}
 SHELLS = {"bash", "sh", "zsh", "dash"}
 VALOPTS = {"-u", "-C", "-S", "-P", "-k", "-s", "-n"}  # 값을 하나 더 먹는 래퍼 옵션(env -u NAME · timeout -k N · nice -n N)
 SHA = re.compile(r"^[0-9a-f]{40}$")
-REASON = ("자율 ON 중 병합·main push 는 ft-proxy-decide push-merge PROXY 를 받은 sha 만 — pr merge 는 --match-head-commit <sha> 로, "
-          "main push 는 PROXY 를 받은 sha 를 보낼 때만(판정 1355). 대리 불가(QUEUE)면 오빠 큐.")
+REASON = ("자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, "
+          "main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐.")
 
 def note(msg):
     try:
@@ -117,11 +118,21 @@ def head_arg(args, flag):
     return ""
 
 class Guard:
-    def __init__(self, okdir, cwd):
-        self.okdir, self.cwd = okdir, cwd
+    def __init__(self, state, cwd):
+        self.approved, self.logpath, self.cwd = os.path.join(state, "autonomy-merge-approved"), os.path.join(state, "autonomy.log"), cwd
 
     def ok(self, sha):
-        return bool(SHA.match(sha)) and os.path.isfile(os.path.join(self.okdir, sha))
+        """승인 파일 1줄(`approve-merge <sha> …`)이 autonomy.log 의 한 줄과 글자 그대로 같을 때만 — 파일만 있으면(직접 쓰기) 아니다."""
+        if not SHA.match(sha):
+            return False
+        try:
+            with open(os.path.join(self.approved, sha), encoding="utf-8") as f:
+                lines = f.read().splitlines()
+            with open(self.logpath, encoding="utf-8") as f:
+                logged = set(f.read().splitlines())
+        except OSError:
+            return False
+        return len(lines) == 1 and lines[0].startswith("approve-merge %s " % sha) and lines[0] in logged
 
     def git(self, *a):
         p = subprocess.run(["git", "-C", self.cwd, *a], capture_output=True, text=True, timeout=5)
@@ -189,7 +200,7 @@ try:
     if not root or mode_of(root) != "on":
         sys.exit(0)
     state = os.environ.get("FT_AUTONOMY_STATE_DIR") or os.path.join(root, ".fable-team/state")
-    hit = Guard(os.path.join(state, "autonomy-merge-ok"), cwd).denied(cmd)
+    hit = Guard(state, cwd).denied(cmd)
 except (ValueError, OSError, AttributeError, subprocess.SubprocessError) as e:
     note(f"{type(e).__name__} {e} — 허용(fail-open)")
     sys.exit(0)

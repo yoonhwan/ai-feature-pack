@@ -11,11 +11,8 @@ has() { grep -qE -- "$2" <<<"$1"; }   # has "<출력>" "<정규식>"
 suite() {  # <셸 경로>
   local SH="$1" T; T="$(mktemp -d)"; echo "== suite $SH"
   export FT_ROOT="$T" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/planner" HIL_DIR="$T"
-  mkdir -p "$T/state" "$T/planner" "$T/stubs" "$T/cards"
+  mkdir -p "$T/state" "$T/planner" "$T/cards"
   printf '%s\n' '- **100** (오빠) foo-card 착수 승인' '- **101** (오빠) bar-card 설계만 승인' '- **102** (오빠) foo-card 설계만 승인' '- **103** (오빠) foo-card 구현 진행' > "$T/planner/VERDICTS-planner-1.md"
-  printf '%s\n' '#!/bin/bash' '[ "${GH_FAIL:-0}" = 1 ] && exit 1' '[ "${GH_IGNORE_TERM:-0}" = 1 ] && trap "" TERM' '[ -n "${GH_DELAY:-}" ] && sleep "$GH_DELAY"' \
-    'case "$*" in *"pr view"*) echo "${GH_HEAD:-}";; *"pr checks"*) printf "%s\n" ${GH_CHECKS:-pass};; esac' > "$T/stubs/gh"
-  chmod +x "$T/stubs/gh"; export PATH="$T/stubs:$PATH"
   local A="$SH $BIN/ft-autonomy.sh" C="python3 $BIN/autonomy_classify.py" D="$SH $BIN/ft-proxy-decide.sh" out rc s e
   local SHA="1111111111111111111111111111111111111111"
   # --- ft-autonomy: 상태 ---
@@ -24,9 +21,10 @@ suite() {  # <셸 경로>
   out="$($A on)"; has "$out" '^\[자율 ON A1 · [0-9]{2}:[0-9]{2}~ · 끝 없음 · 대리 0 · 큐 0\]$'; ck "on → A1 status 꼴 ($out)" $?
   [ -f "$T/state/autonomy.json" ] && [ "$(wc -l < "$T/state/autonomy.log" | tr -d ' ')" = 1 ]; ck "json + log 1줄" $?
   # --- 판정기 ---
-  for k in push-merge card-start press-order; do $C --kind $k --text "머지 승인 진행할까요" >/dev/null; ck "classify $k PROXY rc 0" $?; done
+  for k in card-start press-order nano-reopen docs-push; do $C --kind $k --text "진행할까요" >/dev/null; ck "classify $k PROXY rc 0" $?; done
+  out="$($C --kind push-merge --text "진행할까요")"; rc=$?; has "$out" '^QUEUE .*판정 1675' && [ $rc = 2 ]; ck "classify push-merge = QUEUE 고정 (판정 1675)" $?
   while IFS="$(printf '\t')" read -r name text; do
-    out="$($C --kind push-merge --text "$text")"; rc=$?; has "$out" '^QUEUE' && [ $rc = 2 ]; ck "제외 어휘 [$name] → QUEUE" $?
+    out="$($C --kind press-order --text "$text")"; rc=$?; has "$out" '^QUEUE 제외 어휘' && [ $rc = 2 ]; ck "제외 어휘 [$name] → QUEUE" $?
   done < "$HERE/fixtures/autonomy-exclusions.tsv"
   out="$($C --kind reversible-choice --text "되돌릴 수 있는 선택")"; has "$out" '^QUEUE'; ck "reversible-choice = QUEUE" $?
   out="$($C --kind 아무거나 --text "x")"; has "$out" '^QUEUE'; ck "모르는 종류 = QUEUE" $?
@@ -39,51 +37,43 @@ suite() {  # <셸 경로>
   grep -qF '| A1 |' "$T/planner/AUTONOMY-QUEUE.md"; ck "큐 행 1" $?
   $D --kind reversible-choice --q "q2" --choice c --why w --undo u >/dev/null; rc=$?
   [ $rc = 2 ] && [ "$(grep -cF '| A1 |' "$T/planner/AUTONOMY-QUEUE.md")" = 1 ]; ck "같은 질문 재시도 rc 2 · 큐 행 안 늘어남" $?
-  $D --kind push-merge --q "브랜치 삭제 후 머지?" --choice y --why w --undo u >/dev/null; rc=$?; [ $rc = 2 ]; ck "종류 선언 무관 제외 어휘 = QUEUE" $?
-  # --- push-merge 결속 ---
+  $D --kind press-order --q "브랜치 삭제 후 진행?" --choice y --why w --undo u >/dev/null; rc=$?; [ $rc = 2 ]; ck "종류 선언 무관 제외 어휘 = QUEUE" $?
+  # --- push-merge = QUEUE 고정 (판정 1675) — 근거(sha·DA 판정문)가 완벽해도 대리 0 · ok 파일 쓰기 0 ---
   printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 `%s`\n' "$SHA" > "$T/da.md"; printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 `2222222222222222222222222222222222222222`\n' > "$T/da-other.md"
-  pm() { $D --kind push-merge --q "머지 $1" --choice 머지 --why "DA6" --undo "git revert $SHA" --sha "${2:-$SHA}" --da "${3:-$T/da.md}" --pr 7 >/dev/null 2>&1; }
-  GH_HEAD=$SHA GH_CHECKS="pass pass" pm ok; ck "push-merge 근거 일치 → PROXY" $?
-  GH_HEAD=3333333333333333333333333333333333333333 pm headdiff; [ $? = 2 ]; ck "PR head ≠ --sha → QUEUE" $?
-  GH_HEAD=$SHA GH_CHECKS="pass fail" pm checkfail; [ $? = 2 ]; ck "checks 하나 실패 → QUEUE" $?
-  GH_HEAD=$SHA GH_CHECKS="pass" pm daother "$SHA" "$T/da-other.md"; [ $? = 2 ]; ck "DA 판정문에 그 sha 없음 → QUEUE" $?
-  GH_HEAD=$SHA GH_FAIL=1 pm ghfail; [ $? = 2 ]; ck "gh 실패 → QUEUE" $?
-  s=$(date +%s); GH_HEAD=$SHA GH_DELAY=8 pm slow; rc=$?; e=$(( $(date +%s) - s ))
-  [ $rc = 2 ] && [ $e -lt 30 ]; ck "gh 지연 8초 = QUEUE (${e}s)" $?
+  out="$($D --kind push-merge --q "머지 ok" --choice 머지 --why DA6 --undo "git revert $SHA" --sha "$SHA" --da "$T/da.md" --pr 7 2>&1)"; rc=$?
+  [ $rc = 2 ] && has "$out" '^QUEUE main 병합·main push = 오빠 값\(판정 1675\)' && [ ! -e "$T/state/autonomy-merge-ok" ]; ck "push-merge 근거 일치여도 QUEUE rc 2 · ok 폴더 0 (rc $rc: $out)" $?
+  # da-check(판정문 «마지막 판정 머리» 결속)는 판정기 하위 명령으로 남아 있다 — pm = 그 결과(0 PROXY · 2 QUEUE)
+  pm() { python3 "$BIN/autonomy_classify.py" da-check "${3:-$T/da.md}" "${2:-$SHA}" >/dev/null 2>&1; }
+  pm ok; ck "da-check 판정문 sha 일치 → PROXY" $?
+  pm daother "$SHA" "$T/da-other.md"; [ $? = 2 ]; ck "DA 판정문에 그 sha 없음 → QUEUE" $?
   # --- H1: 판정문 «마지막 판정 머리» 결속 (실물 2장 + 합성) ---
   SA=555d30e73a6f7747f75de4e5d9625bd1decd4fad; SH=47c8e1c6bf6d1392aad4b1cdc94a72203cd6df3c
-  GH_HEAD=$SA GH_CHECKS=pass pm realok "$SA" "$HERE/fixtures/da6-approve-real.md"; ck "H1 실물 APPROVE(머리·sha 별도 줄) → PROXY" $?
-  GH_HEAD=$SH GH_CHECKS=pass pm realhold "$SH" "$HERE/fixtures/da6-hold-real.md"; [ $? = 2 ]; ck "H1 실물 HOLD → QUEUE" $?
+  pm realok "$SA" "$HERE/fixtures/da6-approve-real.md"; ck "H1 실물 APPROVE(머리·sha 별도 줄) → PROXY" $?
+  pm realhold "$SH" "$HERE/fixtures/da6-hold-real.md"; [ $? = 2 ]; ck "H1 실물 HOLD → QUEUE" $?
   printf '# DA HOLD — 1건\n고정 세트 %s\n이전 결과: APPROVE %s\n현재 판정 HOLD\n' "$SHA" "$SHA" > "$T/da-cur-hold.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm curhold "$SHA" "$T/da-cur-hold.md"; [ $? = 2 ]; ck "H1 머리 HOLD + 과거 APPROVE → QUEUE" $?
+  pm curhold "$SHA" "$T/da-cur-hold.md"; [ $? = 2 ]; ck "H1 머리 HOLD + 과거 APPROVE → QUEUE" $?
   printf '# [DA⑥ t] HOLD — 1건\n고정 세트 `%s`\n\n## r2 [DA⑥ t] APPROVE — 0건\n고정 세트 `%s`\n' "$SHA" "$SHA" > "$T/da-r2-ok.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r2ok "$SHA" "$T/da-r2-ok.md"; ck "H1 r2 절 APPROVE + sha → PROXY" $?
+  pm r2ok "$SHA" "$T/da-r2-ok.md"; ck "H1 r2 절 APPROVE + sha → PROXY" $?
   printf '# [DA⑥ t] APPROVE — 0건\n고정 세트 `%s`\n\n## r2 [DA⑥ t] HOLD — 1건\n' "$SHA" > "$T/da-r2-hold.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r2hold "$SHA" "$T/da-r2-hold.md"; [ $? = 2 ]; ck "H1 r2 절 HOLD → QUEUE" $?
+  pm r2hold "$SHA" "$T/da-r2-hold.md"; [ $? = 2 ]; ck "H1 r2 절 HOLD → QUEUE" $?
   printf '# [DA⑥ t] APPROVE — 0건\n고정 세트 `%s`\n\n## r2 [DA⑥ t] APPROVE — 0건\n본문에 sha 없음\n' "$SHA" > "$T/da-r2-nosha.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r2nosha "$SHA" "$T/da-r2-nosha.md"; [ $? = 2 ]; ck "H1 r2 절이 sha 를 말하지 않음 → QUEUE" $?
+  pm r2nosha "$SHA" "$T/da-r2-nosha.md"; [ $? = 2 ]; ck "H1 r2 절이 sha 를 말하지 않음 → QUEUE" $?
   printf '# [DA⑥ t] APPROVE HOLD — 모순\n고정 세트 `%s`\n' "$SHA" > "$T/da-mixed.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm mixed "$SHA" "$T/da-mixed.md"; [ $? = 2 ]; ck "H1 머리에 판정어 둘(모순) → QUEUE" $?
+  pm mixed "$SHA" "$T/da-mixed.md"; [ $? = 2 ]; ck "H1 머리에 판정어 둘(모순) → QUEUE" $?
   printf '본문만 있고 판정 머리 없음 %s\n' "$SHA" > "$T/da-nohead.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm nohead "$SHA" "$T/da-nohead.md"; [ $? = 2 ]; ck "H1 판정 머리 없음 → QUEUE" $?
+  pm nohead "$SHA" "$T/da-nohead.md"; [ $? = 2 ]; ck "H1 판정 머리 없음 → QUEUE" $?
   # --- r3: 최신 절의 «고정 세트» 줄 하나에서 대상 sha 를 뽑아 --sha 와 같을 때만 ---
   SB=4444444444444444444444444444444444444444
   printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 `%s`. 이전 세트 `%s` 는 HOLD 였다.\n' "$SB" "$SHA" > "$T/da-r3-two.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r3two "$SHA" "$T/da-r3-two.md"; [ $? = 2 ]; ck "r3 고정 세트 줄에 40hex 2개 → QUEUE" $?
+  pm r3two "$SHA" "$T/da-r3-two.md"; [ $? = 2 ]; ck "r3 고정 세트 줄에 40hex 2개 → QUEUE" $?
   printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 `%s`\n\n본문: 과거 세트 %s 는 HOLD 였다.\n' "$SB" "$SHA" > "$T/da-r3-past.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r3past "$SHA" "$T/da-r3-past.md"; [ $? = 2 ]; ck "r3 B 승인 + A 는 과거 HOLD 설명 → A QUEUE" $?
+  pm r3past "$SHA" "$T/da-r3-past.md"; [ $? = 2 ]; ck "r3 B 승인 + A 는 과거 HOLD 설명 → A QUEUE" $?
   printf '# [DA⑥ t] APPROVE — 0건\n\n본문에 세트 %s 가 있으나 고정 세트 줄 없음\n' "$SHA" > "$T/da-r3-noline.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r3noline "$SHA" "$T/da-r3-noline.md"; [ $? = 2 ]; ck "r3 고정 세트 줄 없음 → QUEUE" $?
+  pm r3noline "$SHA" "$T/da-r3-noline.md"; [ $? = 2 ]; ck "r3 고정 세트 줄 없음 → QUEUE" $?
   printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 (해시 없음)\n본문 %s\n' "$SHA" > "$T/da-r3-zero.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r3zero "$SHA" "$T/da-r3-zero.md"; [ $? = 2 ]; ck "r3 고정 세트 줄에 40hex 0개 → QUEUE" $?
+  pm r3zero "$SHA" "$T/da-r3-zero.md"; [ $? = 2 ]; ck "r3 고정 세트 줄에 40hex 0개 → QUEUE" $?
   printf '# [DA⑥ t] APPROVE — 0건\n\n**고정 세트** `%s`, base `bc061f9c2b`\n' "$SHA" > "$T/da-r3-ok.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm r3ok "$SHA" "$T/da-r3-ok.md"; ck "r3 정상 A 승인(굵게·백틱 섞임) → PROXY" $?
-  # --- H4: 시도마다 7초 deadline — TERM 무시 호출이 9초에 일치 응답해도 채택 0 ---
-  printf '# [DA⑥ t] APPROVE\n고정 세트 `%s`\n' "$SHA" > "$T/da-h4.md"
-  GH_HEAD=$SHA GH_CHECKS=pass pm h4ctl "$SHA" "$T/da-h4.md"; ck "H4 대조군(빠른 응답) → PROXY" $?
-  s=$(date +%s); GH_HEAD=$SHA GH_CHECKS=pass GH_DELAY=9 GH_IGNORE_TERM=1 pm lateok "$SHA" "$T/da-h4.md"; rc=$?; e=$(( $(date +%s) - s ))
-  [ $rc = 2 ]; ck "H4 늦은 rc0(9초·TERM 무시) 채택 0 → QUEUE (rc $rc, ${e}s)" $?
-  [ $e -lt 26 ]; ck "H4 총 시간 상한(7초×2 + 유예) (${e}s)" $?
+  pm r3ok "$SHA" "$T/da-r3-ok.md"; ck "r3 정상 A 승인(굵게·백틱 섞임) → PROXY" $?
   # --- card-start 결속 ---
   printf '# 인덱스: foo-card\n## 배경\n평범한 도구 추가.\n## 구현 범위\n1. 도구 하나.\n## 완료 조건\n통과.\n' > "$T/cards/foo-card.md"
   printf '# 인덱스: bad-card\n## 구현 범위\n1. git push --force 로 덮어쓴다.\n' > "$T/cards/bad-card.md"
@@ -109,8 +99,8 @@ suite() {  # <셸 경로>
   chmod 444 "$T/state/autonomy.queued"; $D --kind reversible-choice --q "seen 실패" --choice c --why w --undo u >"$T/o" 2>"$T/e"; rc=$?; chmod 644 "$T/state/autonomy.queued"
   [ $rc != 0 ] && [ $rc != 2 ] && [ -s "$T/e" ]; ck "H3 재시도 기록(SEEN) 쓰기 실패 → rc≠0·stderr (rc $rc)" $?
   # --- 상태: 요약·위변조 ---
-  out="$($A status)"; has "$out" '^\[자율 ON A1 · .*대리 7 · 큐 [0-9]+\]$'; ck "status 대리·큐 카운트 ($out)" $?
-  out="$($A off)"; has "$out" '대리 7 · 큐 [0-9]+'; ck "off 요약 «대리 N · 큐 M» ($out)" $?
+  out="$($A status)"; has "$out" '^\[자율 ON A1 · .*대리 2 · 큐 [0-9]+\]$'; ck "status 대리·큐 카운트 ($out)" $?
+  out="$($A off)"; has "$out" '대리 2 · 큐 [0-9]+'; ck "off 요약 «대리 N · 큐 M» ($out)" $?
   has "$out" 'AUTONOMY-QUEUE.md'; ck "off 요약에 큐 파일 경로" $?
   out="$($A on)"; has "$out" 'ON A2'; ck "다시 on → A2" $?
   sed -i.bak 's/"mode": *"on"/"mode":"off"/' "$T/state/autonomy.json"

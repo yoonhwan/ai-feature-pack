@@ -81,16 +81,16 @@ R1="$T/r1"; R2="$T/r2"; R3="$T/r3"
 mkrepo "$R1" one; mkrepo "$R2" two; mkrepo "$R3" three; git -C "$R3" checkout -q -b topic
 H="$(git -C "$R1" rev-parse HEAD)"; F="$(git -C "$R2" rev-parse HEAD)"
 git -C "$R1" branch topic; git -C "$R2" branch topic2; git -C "$R1" branch main-fix
-mkdir -p "$OK"; echo "101 pr=7 da=x ev=A1" > "$OK/$H"
-mode_on
+mkdir -p "$OK"; echo "101 pr=7 da=x ev=A1" > "$OK/$F"   # 옛 push-merge PROXY 가 남긴 ok 파일 — 병합 가드는 더 읽지 않는다(판정 1675 · DA② H1)
+mode_on; a approve-merge "$H" >/dev/null                 # 오빠 승인(H 만) = autonomy-merge-approved/<H> + autonomy.log 줄
 GH="gh pr merge 7 --squash"
 for c in "$GH --match-head-commit $H" "$GH --match-head-commit=$H" "ft-gh-as-tank.sh pr merge 7 --squash --match-head-commit $H" "bash /x/ft-gh-as-tank.sh pr merge 7 --match-head-commit $H" \
          "env -u GH_TOKEN gh pr merge 7 --match-head-commit $H" "gh api -X PUT repos/o/r/pulls/7/merge -f sha=$H"; do
-  bal "$MG" "$c" "ⓔ1 ON + ok 파일 있는 sha → allow: ${c:0:70}" "$R1"
+  bal "$MG" "$c" "ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: ${c:0:70}" "$R1"
 done
 for c in "$GH" "$GH --match-head-commit $F" "$GH --match-head-commit abc123" "ft-gh-as-tank.sh pr merge 7 --squash" "bash -c 'gh pr merge 7'" "gh api -X PUT repos/o/r/pulls/7/merge" \
          "ft-gh-as-tank.sh pr merge 7 --match-head-commit $F" "gh pr merge 7 --auto --squash"; do
-  bdn "$MG" "$c" "ⓔ2 ON + 플래그 없음/다른 sha/ok 없음 → deny: ${c:0:70}" "$R1"
+  bdn "$MG" "$c" "ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: ${c:0:70}" "$R1"
 done
 for c in "git push origin HEAD:main" "git push origin main" "git push origin refs/heads/main" "git push origin topic:main" "git push" "git push -u origin HEAD:refs/heads/main" "cd $R1 && git push origin HEAD:main" "git -C $R1 push origin main"; do
   bal "$MG" "$c" "ⓔ3 main push + ok sha → allow: ${c:0:70}" "$R1"
@@ -122,21 +122,19 @@ mode_tamper; bal "$MG" "$GH" "ⓔ6b 위변조 → allow" "$R1"
 mode_on; outside bal "$MG" "$GH" "ⓔ6c BYZ 밖 → allow" "$T/outside"
 run "$MG" '{깨진'; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓔ7 깨진 JSON → allow" $?
 
-# ===== ⓕ ft-proxy-decide push-merge → ok 파일 =====
+# ===== ⓕ ft-proxy-decide push-merge → QUEUE 고정 (판정 1675 · ok 파일 쓰기 0) =====
 printf '%s\n' '- **100** (오빠) x 착수 승인' > "$T/planner/VERDICTS-planner-1.md"
 SHA=1111111111111111111111111111111111111111; SHB=2222222222222222222222222222222222222222
 printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 `%s`\n' "$SHA" > "$T/da.md"
 printf '%s\n' '#!/bin/bash' 'case "$*" in *"pr view"*) echo "${GH_HEAD:-}";; *"pr checks"*) echo pass;; esac' > "$T/stubs/gh"; chmod +x "$T/stubs/gh"; export PATH="$T/stubs:$PATH"
 pd() { out="$(GH_HEAD="$1" "$BASH" "$BIN/ft-proxy-decide.sh" --kind push-merge --q "머지 승인 진행할까요 $4" --choice 머지 --why DA6 --undo "git revert $1" --sha "$1" --da "$2" --pr 7 2>"$T/err")"; rc=$?; }
-rm -rf "$OK"; mode_on
-pd "$SHA" "$T/da.md" x a; [ "$rc" = 0 ] && grep -q '^PROXY' <<<"$out"; ck "ⓕ1 push-merge PROXY rc 0" $?
-[ -f "$OK/$SHA" ] && [ "$(wc -l < "$OK/$SHA" | tr -d ' ')" = 1 ] && grep -qE '^101 pr=7 da=.*da\.md ev=A1$' "$OK/$SHA"; ck "ⓕ2 ok 파일 = <40hex> 1개 · 1줄 «번호 pr da ev»" $?
-pd "$SHB" "$T/da.md" x b; [ "$rc" = 2 ] && [ ! -e "$OK/$SHB" ] && [ "$(ls "$OK" | wc -l | tr -d ' ')" = 1 ]; ck "ⓕ3 QUEUE(rc 2) → ok 파일 0" $?
+rm -rf "$OK" "$S/autonomy-merge-approved"; mode_on
+pd "$SHA" "$T/da.md" x a; [ "$rc" = 2 ] && grep -q '^QUEUE main 병합·main push = 오빠 값(판정 1675)' <<<"$out"; ck "ⓕ1 PR head·DA⑥·checks 전부 맞아도 push-merge = QUEUE rc 2" $?
+[ ! -e "$OK" ] && [ ! -e "$S/autonomy-merge-approved" ]; ck "ⓕ2 QUEUE → ok·approved 폴더 쓰기 0" $?
+pd "$SHB" "$T/da.md" x b; [ "$rc" = 2 ] && [ ! -e "$OK" ]; ck "ⓕ3 다른 sha 도 QUEUE · ok 파일 0" $?
 out="$("$BASH" "$BIN/ft-proxy-decide.sh" --kind press-order --q "순서?" --choice "A 다음 B" --why w --undo u 2>&1)"; rc=$?
-[ "$rc" = 0 ] && [ "$(ls "$OK" | wc -l | tr -d ' ')" = 1 ]; ck "ⓕ4 push-merge 아닌 PROXY → ok 파일 안 늘어남" $?
-rm -rf "$OK"; : > "$OK"; pd "$SHA" "$T/da.md" x c
-[ "$rc" = 5 ] && ! grep -q '^PROXY' <<<"$out" && grep -q 'ERROR' "$T/err"; ck "ⓕ5 ok 파일 쓰기 실패 → rc 5 · PROXY 출력 0" $?
-rm -f "$OK"; mode_off; pd "$SHA" "$T/da.md" x d; [ "$rc" = 3 ] && [ ! -e "$OK" ]; ck "ⓕ6 OFF → rc 3 · ok 파일 0" $?
+[ "$rc" = 0 ] && [ ! -e "$OK" ]; ck "ⓕ4 push-merge 아닌 PROXY → ok 폴더 안 생김" $?
+mode_off; pd "$SHA" "$T/da.md" x d; [ "$rc" = 3 ] && [ ! -e "$OK" ]; ck "ⓕ6 OFF → rc 3 · ok 파일 0" $?
 cmp -s "$BIN/ft-proxy-decide.sh" "$MIR/ft-proxy-decide.sh"; ck "ⓕ7 ft-proxy-decide 미러 cmp 0" $?
 
 # ===== ⓓ 기존 인터뷰 훅 시험 회귀 =====

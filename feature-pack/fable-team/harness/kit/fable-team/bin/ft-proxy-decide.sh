@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # ft-proxy-decide.sh — 자율 대리 결정 도구 (DESIGN-autonomy-proxy-decision r3 §4(b) · 판정 1322)
-#   ft-proxy-decide.sh --kind <push-merge|card-start|press-order> --q "<질문>" --choice "<추천안>" --why "<근거>" --undo "<되돌림 1줄>"
-#       [--sha <40hex> --da <판정문> --pr <N>]        push-merge 근거: PR head == --sha == DA⑥ 판정문 sha · checks 전부 pass
+#   ft-proxy-decide.sh --kind <card-start|press-order|nano-reopen|docs-push> --q "<질문>" --choice "<추천안>" --why "<근거>" --undo "<되돌림 1줄>"
 #       [--card <카드.md> --verdict <판정 번호>]       card-start 근거: 판정 줄에 카드 이름 + 착수 낱말 · 카드 본문 제외 어휘 검사
+#       [--card <진행/카드.md> --seat <좌석>]          nano-reopen 근거(설계 r1-1 ①~④ + r1-9 H2 ⑤): 진행 폴더 카드 · nano/* 브랜치 · 재개 기록 · 자원 문지기 rc 0 · spawn 기준선과 같음
+#       [--branch <가지> --sha <40hex>]               docs-push 근거: diff 전부 *.md|design/** · 가지 ∉ {main}∪FT_DEPLOY_BRANCHES(미설정=QUEUE) · fast-forward
+#   push-merge(main 병합·main push)는 오빠 값(판정 1675) — 항상 QUEUE, ok 파일 쓰기 0. 병합 승인 = ft-autonomy.sh approve-merge(오빠 `!`)뿐.
 # rc 0 = 대리(PROXY): 판정 원장에 «대리» 1줄 · rc 2 = 대리 불가(QUEUE): 오빠 큐 1행 · rc 3 = 모드 OFF/위변조(인터뷰로) · rc 4 = 인자 오류
-#   push-merge PROXY 는 원장 줄 뒤에 $STATE/autonomy-merge-ok/<sha> 1줄(`<판정> pr=<N> da=<판정문> ev=<A번호>`)을 쓴다 — 자율 ON 중 pr merge·main push 가드(훅③)의 통과 근거 (판정 1355)
 # 환경: FT_ROOT · FT_AUTONOMY_STATE_DIR · FT_PLANNER_DIR(원장 VERDICTS-*.md · 큐 AUTONOMY-QUEUE.md) · FT_PROXY_LEDGER(쓸 원장, 기본 최신 planner 번호)
+#       FT_SEAT_RESUME_DIR(재개 기록, 기본 ~/.claude/state/seat-resume) · FT_RESOURCE_GATE(자원 문지기, 기본 같은 폴더 ft-resource-gate.sh) · FT_DEPLOY_BRANCHES(공백·쉼표 구분, glob 허용) · FT_PUSH_REMOTE(기본 origin)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
@@ -16,15 +18,16 @@ AUT="$HERE/ft-autonomy.sh"; CLS="$HERE/autonomy_classify.py"
 CALL_TIMEOUT_S=7   # 외부 호출 한 시도 상한 + 재시도 1회 = shared/config/external_call.py 값 (판정 666)
 CALL_RETRIES=1
 
-usage() { echo "REJECT $*" >&2; echo "usage: ft-proxy-decide.sh --kind K --q Q --choice C --why W --undo U [--sha S --da F --pr N | --card F --verdict N]" >&2; exit 4; }
+usage() { echo "REJECT $*" >&2; echo "usage: ft-proxy-decide.sh --kind K --q Q --choice C --why W --undo U [--card F --verdict N | --card F --seat S | --branch B --sha S]" >&2; exit 4; }
 san() { printf '%s' "$1" | tr '\n|' ' /'; }
 
-kind=""; q=""; choice=""; why=""; undo=""; sha=""; da=""; pr=""; card=""; verdict=""
+kind=""; q=""; choice=""; why=""; undo=""; sha=""; card=""; verdict=""; seat=""; branch=""
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || usage "값 없는 인자: $1"
   case "$1" in
     --kind) kind="$2" ;; --q) q="$2" ;; --choice) choice="$2" ;; --why) why="$2" ;; --undo) undo="$2" ;;
-    --sha) sha="$2" ;; --da) da="$2" ;; --pr) pr="$2" ;; --card) card="$2" ;; --verdict) verdict="$2" ;;
+    --sha) sha="$2" ;; --card) card="$2" ;; --verdict) verdict="$2" ;; --seat) seat="$2" ;; --branch) branch="$2" ;;
+    --da|--pr) ;;   # push-merge 옛 인자 — 이제 QUEUE 고정이라 읽지 않는다(호출 습관이 rc 4 로 깨지지 않게 받기만)
     *) usage "알 수 없는 인자: $1" ;;
   esac
   shift 2
@@ -99,16 +102,37 @@ card_check() {  # card-start — 판정 줄 결속 + 카드 본문(배경·구�
   CARD_TEXT="$(awk '/^## /{p=($0 ~ /^## (배경|구현 범위|쓰기 허용|금지)/)} p' "$card")"
 }
 
-push_merge_check() {  # PR head == --sha == DA⑥ 판정문 sha · checks 전부 pass — 외부 호출 실패 = QUEUE
-  local head checks dv
-  grep -qE '^[0-9a-f]{40}$' <<<"$sha" || queue_exit "--sha 가 40hex 아님"
-  case "$pr" in ''|*[!0-9]*) queue_exit "--pr 가 숫자 아님" ;; esac
-  [ -r "$da" ] || queue_exit "DA 판정문을 못 읽음"
-  dv="$(python3 "$CLS" da-check "$da" "$sha")" || queue_exit "${dv#QUEUE }"
-  head="$(bounded env -u GH_TOKEN gh pr view "$pr" --json headRefOid -q .headRefOid)" || queue_exit "gh pr view 실패·${CALL_TIMEOUT_S}초 초과"
-  [ "$head" = "$sha" ] || queue_exit "PR head($head) ≠ --sha"
-  checks="$(bounded env -u GH_TOKEN gh pr checks "$pr" --json bucket -q '.[].bucket')" || queue_exit "gh pr checks 실패·${CALL_TIMEOUT_S}초 초과"
-  [ -n "$checks" ] && ! grep -qvx pass <<<"$checks" || queue_exit "checks 가 전부 pass 아님"
+jget() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$1" "$2" 2>/dev/null; }  # <json 파일> <키> — 못 읽으면 빈 값
+
+nano_reopen_check() {  # 설계 r1-1 ①~④ + r1-9 H2 ⑤ — 하나라도 못 읽으면 QUEUE (기준선 파일 쓰기는 ft-nano-spawn 몫, 없으면 QUEUE)
+  local base="$STATE/nano-card-base/$seat.json" rec="${FT_SEAT_RESUME_DIR:-$HOME/.claude/state/seat-resume}/$seat.json"
+  local gate="${FT_RESOURCE_GATE:-$HERE/ft-resource-gate.sh}" bb bw cb
+  [ -n "$card" ] && [ -n "$seat" ] || queue_exit "nano-reopen 에는 --card·--seat 필요"
+  case "$seat" in */*|*..*) queue_exit "--seat 형식 틀림" ;; esac
+  case "$card" in */indices/진행/*.md) [ -r "$card" ] || queue_exit "① 카드를 못 읽음" ;; *) queue_exit "① 카드가 indices/진행/ 폴더에 없음" ;; esac
+  [ -r "$base" ] || queue_exit "⑤ spawn 기준선($base) 없음"
+  bb="$(jget "$base" branch)"; bw="$(jget "$base" worktree)"; cb="$(jget "$base" card_blob)"
+  [ -n "$bb" ] && [ -n "$bw" ] && [ -n "$cb" ] || queue_exit "⑤ 기준선 필드(branch·worktree·card_blob)를 못 읽음"
+  case "$bb" in nano/*) ;; *) queue_exit "② 기준선 가지가 nano/* 아님: $bb" ;; esac
+  git -C "$bw" rev-parse --verify -q "refs/heads/$bb" >/dev/null 2>&1 || queue_exit "② 가지 $bb 없음"
+  [ "$(git -C "$bw" symbolic-ref --short -q HEAD 2>/dev/null)" = "$bb" ] || queue_exit "③⑤ 워크트리 HEAD 가 기준선 가지($bb)가 아님"
+  [ -r "$rec" ] || queue_exit "③ 재개 기록($rec) 없음"
+  [ "$(jget "$rec" name)" = "$seat" ] && [ "$(jget "$rec" cwd)" = "$bw" ] || queue_exit "③⑤ 재개 기록의 name·cwd 가 기준선과 다름"
+  [ "$(git hash-object "$card" 2>/dev/null)" = "$cb" ] || queue_exit "⑤ 카드 내용이 spawn 기준선과 다름(새 범위)"
+  bash "$gate" check >/dev/null 2>&1 || queue_exit "④ 자원 문지기 check rc≠0"
+}
+
+docs_push_check() {  # 설계 r1-1 — 원격 비교는 ls-remote 1회(7초 + 재시도 1회 · 실패 = QUEUE)
+  local remote="${FT_PUSH_REMOTE:-origin}" pat rsha files f
+  [ -n "$branch" ] && grep -qE '^[0-9a-f]{40}$' <<<"$sha" || queue_exit "docs-push 에는 --branch·--sha(40hex) 필요"
+  case "$branch" in -*|*..*|main) queue_exit "② 대상 가지가 main 이거나 형식 틀림: $branch" ;; esac
+  [ -n "${FT_DEPLOY_BRANCHES:-}" ] || queue_exit "② FT_DEPLOY_BRANCHES 미설정 — 배포 가지 목록을 못 읽음"
+  set -f; for pat in ${FT_DEPLOY_BRANCHES//,/ }; do case "$branch" in $pat) set +f; queue_exit "② 대상 가지($branch)가 배포 가지($pat)" ;; esac; done; set +f
+  rsha="$(bounded git ls-remote --heads "$remote" "refs/heads/$branch")" || queue_exit "git ls-remote 실패·${CALL_TIMEOUT_S}초 초과"
+  rsha="${rsha%%[[:space:]]*}"; grep -qE '^[0-9a-f]{40}$' <<<"$rsha" || queue_exit "원격에 가지($branch) 없음"
+  git merge-base --is-ancestor "$rsha" "$sha" 2>/dev/null || queue_exit "③ fast-forward 아님(원격 $rsha ⊄ --sha)"
+  files="$(git diff --name-only "$rsha" "$sha" 2>/dev/null)" && [ -n "$files" ] || queue_exit "① diff 를 못 읽음·비어 있음"
+  while IFS= read -r f; do case "$f" in *.md|design/*) ;; *) queue_exit "① 문서 아닌 파일: $f" ;; esac; done <<<"$files"
 }
 
 if [ -f "$SEEN" ] && grep -qxF "$EV $qhash" "$SEEN"; then
@@ -118,7 +142,7 @@ fi
 CARD_TEXT=""
 [ "$kind" != card-start ] || card_check
 out="$(python3 "$CLS" --kind "$kind" --text "$q" --text "$choice" --text "$why" --text "$undo" --text "$CARD_TEXT")" || queue_exit "${out#QUEUE }"
-[ "$kind" != push-merge ] || push_merge_check
+case "$kind" in nano-reopen) nano_reopen_check ;; docs-push) docs_push_check ;; esac
 
 # PROXY — 판정 원장 1줄 (번호 = 원장 폴더 최대 번호 + 1)
 LEDGER="${FT_PROXY_LEDGER:-$(ls "$PLANNER"/VERDICTS-*.md 2>/dev/null | sed 's/.*planner-\([0-9]*\)-.*/\1 &/' | sort -n | tail -1 | cut -d' ' -f2-)}"
@@ -129,9 +153,5 @@ num="$(( $(cat "$PLANNER"/VERDICTS-*.md "$LEDGER" 2>/dev/null | sed -n 's/^- \*\
 line="$(printf -- '- **%s** [대리 · 자율 ON %s] %s → %s · 근거 %s · 되돌림 %s' "$num" "$EV" "$(san "$q")" "$(san "$choice")" "$(san "$why")" "$(san "$undo")")"
 printf '%s\n' "$line" >> "$LEDGER" || fail "판정 원장 쓰기 실패: $LEDGER"
 [ "$(tail -n 1 "$LEDGER")" = "$line" ] || fail "판정 원장 쓰기 확인 실패: $LEDGER"
-if [ "$kind" = push-merge ]; then  # 병합 가드 훅(autonomy-merge-guard)이 읽는 ok 파일 — 원장 줄을 쓴 «뒤»에만 · 실패 = rc 5 (PROXY 출력 0)
-  OKDIR="$STATE/autonomy-merge-ok"
-  { mkdir -p "$OKDIR" && printf '%s pr=%s da=%s ev=%s\n' "$num" "$pr" "$(san "$da")" "$EV" > "$OKDIR/$sha.tmp" && mv "$OKDIR/$sha.tmp" "$OKDIR/$sha"; } || fail "병합 ok 파일 쓰기 실패: $OKDIR/$sha"
-fi
 unlock
 echo "PROXY 판정 $num · $("$AUT" status) → $choice"
