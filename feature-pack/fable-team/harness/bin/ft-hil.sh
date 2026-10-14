@@ -30,12 +30,12 @@ max_n() {  # $D/h<숫자> (링크·파일·깨진 링크 모두) 중 최대 번�
   echo "$m"
 }
 
-lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 등록 0(rc 1). 판정기 없음·내부 오류는 경고만(fail-open)
+lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 등록 0(rc 1). 판정기 없음은 경고만 · 판정기 실행 실패는 ERROR 등록 0(R170)
   local j="${FT_SECRET_JUDGE:-$(dirname "${BASH_SOURCE[0]}")/ft_secret_judge.py}" out rc l first=1
   [ -f "$j" ] || { echo "WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)" >&2; return 0; }
   out="$(python3 "$j" --plan "$1" 2>/dev/null)"; rc=$?
   [ "$rc" != 0 ] || return 0
-  [ "$rc" = 1 ] || { echo "WARN 비밀 출력 경로 검사 실패(rc=$rc) — 검사 없이 등록한다" >&2; return 0; }
+  case "$out" in reject*) ;; *) echo "ERROR ft-hil 판정기 실행 실패(rc=$rc): $j — 등록 0" >&2; return 1;; esac  # reject 글 없는 rc≠0 = 판정기가 죽은 것(빈 사유 REJECT 금지 · #0 RULE)
   while IFS= read -r l; do
     if [ "$first" = 1 ]; then echo "REJECT 계획 파일 비밀 출력 경로 — ${l#reject }" >&2; first=0; else echo "  — ${l#reject }" >&2; fi
   done <<< "$out"

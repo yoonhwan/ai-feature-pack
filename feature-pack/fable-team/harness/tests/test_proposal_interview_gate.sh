@@ -31,6 +31,8 @@ run "$(ask '배포 방식을 고를까요?' 배포 '롤링' '순차 교체' '')"
 run '{깨진 json'
 allowed && grep -q 'JSON 파싱 불가' "$FT_PROPOSAL_INTERVIEW_LOG" && ok "6 깨진 JSON → allow + 로그 1줄" || bad "6 log=$(cat "$FT_PROPOSAL_INTERVIEW_LOG" 2>&1)"
 run '{"tool_name":"AskUserQuestion","tool_input":{}}';                          allowed && ok "7 questions 없음 → allow" || bad "7"
-out="$(printf '' | bash "$HOOK" 2>&1)"; rc=$?; allowed && ok "8 빈 stdin → allow" || bad "8"
+out="$(printf '' | bash "$HOOK" 2>"$T/err8")"; rc=$?   # stdout 과 stderr 를 나눠 본다 — 없는 LC_ALL 이면 bash 가 setlocale 경고를 stderr 에 낸다
+err8="$(grep -v '^bash: warning: setlocale' "$T/err8")"   # 그 경고 줄만 뺀다 — 훅 자신의 stderr 출력은 그대로 단언 대상
+allowed && [ -z "$err8" ] && ok "8 빈 stdin → allow (stdout·stderr 0)" || bad "8 err=$err8"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -109,6 +109,7 @@ PYTHONPATH="$T/sc" bash "$RETIRE" 'byz-planner-master-claude#9' 'byz-planner-mas
 cmp -s "$S" "$T/seats-r.orig" && python3 -c 'import json,sys;json.load(open(sys.argv[1]))' "$S" && ok "쓰기 중 죽어도 원본 무손상(cmp 동일·JSON 유효)" || bad "원본이 깨졌다/바뀌었다"
 rm -f "$T"/seats-r.json.tmp-*   # 죽은 실행이 남긴 tmp 는 원본이 아니다 — 아래는 «정상 실행이 잔류 0» 을 본다
 out="$(bash "$RETIRE" 'byz-planner-master-claude#9' 'byz-planner-master-claude#10' --seats "$S" 2>&1)"; rc=$?
+out="$(printf '%s\n' "$out" | grep -v '^bash: warning: setlocale')"   # 없는 LC_ALL 이면 bash 가 첫 줄에 내는 경고만 뺀다(다른 출력은 그대로 단언)
 [ "$rc" = 0 ] && case "$out" in 'RETIRED byz-planner-master-claude#9 -> byz-planner-master-claude#10 file='*'keys=['*) true;; *) false;; esac && ok "정상 은퇴 출력 무변경" || bad "정상 은퇴 rc=$rc out=$out"
 python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));assert d["byz-planner-master-claude#9"]["_replaced_by"]=="byz-planner-master-claude#10" and d["_master"]=="byz-planner-master-claude#10"' "$S" && ok "은퇴 결과(_replaced_by·_master 전환)" || bad "은퇴 결과 틀림"
 ls "$T" | grep -q 'seats-r.json.tmp' && bad "tmp 파일 잔류" || ok "tmp 파일 잔류 0"

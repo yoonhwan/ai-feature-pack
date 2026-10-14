@@ -18,7 +18,7 @@ mkdir -p "$T/fake" "$T/home" "$T/d"
 printf '#!/usr/bin/env bash\ncat > "%s/clip.txt"\necho x >> "%s/clip.calls"\n' "$T" "$T" > "$T/fake/pbcopy"; chmod +x "$T/fake/pbcopy"
 D="$T/d"
 # hilx [env VAR=값 ...] <ft-hil.sh 인자...> — 임시 HOME·HIL_DIR·pbcopy 스텁 PATH
-hilx() { local e=(); while [ "${1:-}" = env ]; do e+=("$2"); shift 2; done; env -i HOME="$T/home" PATH="$T/fake:/usr/bin:/bin" HIL_DIR="$D" ${e[@]+"${e[@]}"} bash "$SRC/ft-hil.sh" "$@"; }
+hilx() { local e=(); while [ "${1:-}" = env ]; do e+=("$2"); shift 2; done; env -i HOME="$T/home" PYTHONDONTWRITEBYTECODE=1 PATH="$T/fake:/usr/bin:/bin" HIL_DIR="$D" ${e[@]+"${e[@]}"} bash "$SRC/ft-hil.sh" "$@"; }
 
 printf '#!/usr/bin/env bash\necho ran-A\nexit 0\n' > "$T/a.sh.hil"
 printf '#!/usr/bin/env bash\necho ran-B\n' > "$T/b.sh.hil"
@@ -49,6 +49,13 @@ before="$(ls "$D" | grep -c '^h[0-9]')"
 out="$(hilx --add "$T/nope.sh.hil" 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "REJECT" "없는 파일 → REJECT(rc=1)" || bad "없는 파일 rc=$rc"
 [ "$(ls "$D" | grep -c '^h[0-9]')" = "$before" ] && ok "  └ 링크 늘지 않음" || bad "REJECT 인데 링크 생김"
+
+echo "== ④b 판정기가 죽음(rc1 · reject 글 없음) = ERROR 판정기 실행 실패 · 등록 0 (R170)"
+printf 'raise TypeError("broken judge")\n' > "$T/broken_judge.py"
+out="$(hilx env FT_SECRET_JUDGE="$T/broken_judge.py" --add "$T/a.sh.hil" 2>&1 >/dev/null)"; rc=$?
+[ "$rc" -ne 0 ] && has "$out" "ERROR ft-hil 판정기 실행 실패(rc=1)" "판정기 죽음 → 보이는 ERROR · rc≠0" || bad "판정기 죽음 rc=$rc out=$out"
+case "$out" in *"REJECT 계획 파일 비밀 출력 경로 — "*) bad "빈 사유 REJECT 로 보임: $out";; *) ok "  └ 빈 사유 REJECT 아님";; esac
+[ "$(ls "$D" | grep -c '^h[0-9]')" = "$before" ] && ok "  └ 링크 늘지 않음" || bad "판정기 죽음인데 링크 생김"
 
 echo "== ⑤ --cmd 'echo hi' → 링크 대상 실행 시 hi"
 out="$(hilx --cmd 'echo hi')"; n="${out##*/h}"
@@ -82,9 +89,9 @@ echo "== 출력처 ft-wt-sweep: skipped 계획 → .sh.hil + 안내 ! bash <링�
 W="$T/wtclean"; mkdir -p "$W" "$T/sw"
 cp "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$T/sw/"
 printf '#!/usr/bin/env bash\necho "skipped:실작업물 있음"\n' > "$W/seatX.sh"
-sw() { ( cd "$T" && env -i HOME="$T/home" PATH="/usr/bin:/bin" FT_WT_CLEAN_DIR="$W" HIL_CLIP=0 "$@" bash "$T/sw/ft-wt-sweep.sh" 2>&1 ); }
+sw() { ( cd "$T" && env -i HOME="$T/home" PYTHONDONTWRITEBYTECODE=1 PATH="/usr/bin:/bin" FT_WT_CLEAN_DIR="$W" HIL_CLIP=0 "$@" bash "$T/sw/ft-wt-sweep.sh" 2>&1 ); }
 out="$(sw HIL_DIR="$T/sd")"
-has "$out" "[HIL] 실작업물 있음 · ! bash $T/sd/h1" "ft-hil.sh 있음 → [HIL] … · ! bash <링크>"
+has "$out" "[HIL] seat=seatX 실작업물 있음 · ! bash $T/sd/h1" "ft-hil.sh 있음 → [HIL] … · ! bash <링크>"
 [ "$(readlink "$T/sd/h1")" = "$W/seatX.sh.hil" ] && ok "  └ 링크 대상 = 옮겨진 .sh.hil" || bad "링크 대상 불일치"
 mv "$W/seatX.sh.hil" "$W/seatX.sh"; : > "$T/notdir"
 out="$(sw HIL_DIR="$T/notdir")"

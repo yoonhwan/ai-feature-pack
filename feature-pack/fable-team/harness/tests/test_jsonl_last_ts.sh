@@ -50,7 +50,8 @@ eq "$(grep -c 'FT_JSONL_LAST_TS:-' "$NC")" 1 "⑤ 헬퍼 호출 1건"
 sed -n '/_lt="\$(/,/마지막 기록(/p' "$NC" > "$T/block.sh"
 [ "$(wc -l < "$T/block.sh")" -ge 4 ] && ok "⑥ ③ 블록 발췌" || bad "⑥ ③ 블록 발췌 실패"
 run_block() { # $1 = 스텁 본문
-  printf '#!/usr/bin/env bash\n%s\n' "$1" > "$T/stub.sh"; chmod +x "$T/stub.sh"
+  # 스텁은 /bin/sh — 없는 LC_ALL 이면 bash 가 시작할 때 setlocale 경고를 stderr 에 내고, 제품 블록(2>&1)이 그 줄을 헬퍼 출력으로 읽는다(sh 는 안 낸다)
+  printf '#!/bin/sh\n%s\n' "$1" > "$T/stub.sh"; chmod +x "$T/stub.sh"
   ( HERE="$T"; f="$T/seat.jsonl"; IDLE_MIN=3; bad=(); age=; FT_JSONL_LAST_TS="$T/stub.sh"
     . "$T/block.sh"; printf '%s|' "${bad[@]:-}" ; echo "age=${age:-}" )
 }

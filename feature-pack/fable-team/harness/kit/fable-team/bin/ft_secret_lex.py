@@ -1,5 +1,7 @@
 """ft_secret_lex — ft_secret_judge 의 셸 글 쪼개기(R135a): heredoc 본문 제거 · 따옴표 벗기기 · 구간(; 개행 && || | & ( ))·$(…)·백틱 치환 분리.
 문자열만 본다(실행 0). 알려진 모양용 얕은 렉서다 — 셸 전체 문법이 아니다."""
+from __future__ import annotations
+
 import re
 
 HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(?:(['\"])(?P<q>\w+)\1|(?P<b>\\)(?P<bn>\w+)|(?P<n>[A-Za-z_]\w*))")

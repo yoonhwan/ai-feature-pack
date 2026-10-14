@@ -4,6 +4,8 @@ judge(명령) → ("ok","") | ("reject","<이유>")   CLI: ft_secret_judge.py '<
 plan(계획 파일 글) → [(줄, 이유)]               CLI: ft_secret_judge.py --plan <파일>      → `ok` | `reject <줄> <이유>`(줄마다 · rc1)
 훅 모드: ft_secret_judge.py --hook (stdin = PreToolUse JSON) → reject 면 deny JSON 한 줄, ok 면 출력 없음 · rc 0 ok / 1 reject / 2 내부 오류(호출자 fail-open)
 알려진 모양의 가드레일이다(전부 못 잡는다 — 출력 가림·사후 스캔이 뒤에 있다). 이유는 고정 글자뿐 — 명령 속 값·이름을 다시 쓰지 않는다. 문자열만 본다(실행 0)."""
+from __future__ import annotations
+
 import json
 import os
 import re
