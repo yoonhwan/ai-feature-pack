@@ -2,6 +2,7 @@
 # graphics 팀 설치 시험 (판정 649 · 카드 g649-graphics-team-install) — 실 좌석·워크트리·tmux 0, 임시 ROOT 만 쓴다.
 # 실행: bash tests/harness/test_graphics_install.sh   (리포 어느 워크트리에서든)
 set -uo pipefail
+export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기는 실측 머신 부하로 REJECT 한다 — 이 시험은 문지기 결과를 보지 않는다(R163 · 수정 전부터 RED)
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 SRC="$REPO/scripts/harness-install/graphics"
 KIT="$REPO/scripts/harness-install/fable-team/bin"     # spawn·lint 키트(scripts/fable-team-bin 에는 ft-index-lint.sh 가 없다 — 같은 ft-nano-spawn.sh)

@@ -18,7 +18,7 @@
 #        FT_TICK_TURN_FIXTURE_DIR(<dir>/<seat>.jsonl 이 있으면 그 파일로 판정 — 완료조건 dry-run 3회 시험용)
 #   --dry-run 도 상태파일은 쓴다(전송만 생략) — 전이 판정을 3회 연속 실행으로 검증하기 위해.
 set -uo pipefail
-PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH
+PATH="${FT_TICK_PATH_FIRST:+$FT_TICK_PATH_FIRST:}/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH   # FT_TICK_PATH_FIRST = 시험 전용 가짜 tmux·pgrep 폴더(R163) — 비면 바이트 불변
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
@@ -47,6 +47,12 @@ WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT
 DRIFT_CHECK="${FT_TICK_DRIFT_BIN:-$HERE/ft-live-bin-drift-check.sh}"; DRIFT_ENABLED="${FT_TICK_DRIFT:-1}"; DRIFT_INTERVAL="${FT_TICK_DRIFT_INTERVAL:-600}"
 # ★상향 좌석 «내릴 것» 경보 (R149 · 판정 1641)★ — 명부 raised.card 가 완성/ 으로 갔거나 없어졌는데 행이 남은 좌석을 목록이 «바뀔 때만» master 우편함 1회(서명 $STATE_DIR/raised.sig). FT_TICK_RAISED=0 으로 끔. 판별은 형제 모듈 ft_raised.py.
 RAISED="${FT_TICK_RAISED_BIN:-$HERE/ft_raised.py}"
+# ★R163 (판정 1675 ②) 죽은 좌석 자동 재개★ — 살아 있는 claude 좌석 스냅샷(live_snapshot) · 죽음 판정+재개(dead_seat_watch) · 누적 정지(idle_long_watch). 끄는 스위치 FT_TICK_LIVE_SNAPSHOT / FT_TICK_RESUME / FT_TICK_IDLE_LONG = 0.
+RESUME_ATTEMPT="${FT_TICK_RESUME_ATTEMPT:-$HERE/ft-resume-attempt.sh}"
+AUTONOMY_BIN="${FT_TICK_AUTONOMY_BIN:-$HERE/ft-autonomy.sh}"
+RESOURCE_GATE="${FT_TICK_RESOURCE_GATE:-$HERE/ft-resource-gate.sh}"
+ZC_BIN="${FT_TICK_ZOMBIE_CLEAN:-$HOME/.claude/skills/zombie-clean/scripts/zombie-clean.sh}"
+IDLE_STALL_MIN="${FT_TICK_IDLE_STALL_MIN:-10}"   # 누적 정지 알림 문턱(분) — stall()(STALL_MIN 15 · 깨움)과 별개의 «알림만» 문턱
 ONCE=0; DRY=0
 for a in "$@"; do case "$a" in --once) ONCE=1;; --dry-run) DRY=1;; *) echo "usage: $0 [--once] [--dry-run]" >&2; exit 2;; esac; done
 IDLE_ENABLED="${FT_TICK_IDLE_ENABLED:-1}"
@@ -383,9 +389,126 @@ news_ledger() {
   return 0
 }
 
+# ── R163 죽은 좌석 자동 재개 (판정 1675 ②) ──────────────────────────────────────────────────────
+# 현역 좌석 → "seat<TAB>role<TAB>agent<TAB>model" (all_seats 와 같은 제외 기준 · 빈 칸은 '-')
+resume_rows() {
+  python3 - "$SEATS" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); m = d.get("_master")
+for k, v in d.items():
+    if k.startswith("_") or not isinstance(v, dict): continue
+    if isinstance(m, str) and v.get("role") == "master" and k != m: continue
+    if v.get("_replaced_by") or v.get("role") == "stop-ready": continue
+    print("\t".join([k, v.get("role") or "-", v.get("agent") or "claude", v.get("model") or "-"]))
+PY
+}
+route_seat() { python3 -c 'import json,sys;v=json.load(open(sys.argv[1])).get("_hil_route");print(v if isinstance(v,str) else "")' "$SEATS" 2>/dev/null; }
+# $1 = 본문 · $2 = both(그 팀 master + planner) | planner(planner, 없으면 master). 하나라도 실패면 rc 1(호출자가 서명을 남기지 않는다).
+notify_team() {
+  local master route t rc=0; master="$(master_seat)"; route="$(route_seat)"
+  [ -n "$route" ] || route="$master"
+  [ "$DRY" = 1 ] && { echo "DRY kind=notify to=${route:--}${master:+,$master} body=${1:0:80}"; return 0; }
+  for t in $route $([ "$2" = both ] && [ "$master" != "$route" ] && echo "$master"); do
+    [ -n "$t" ] || continue
+    bash "$MBOX" send "$t" ft-tick "$1" >/dev/null 2>&1 || { echo "$(date '+%F %T') notify_team: mbox failed to=$t" >&2; rc=1; }
+  done
+  return $rc
+}
+
+live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐 좌석만 쓴다(ft-resume-attempt.sh snapshot · codex·cmd 는 쓰지 않음)
+  local rows seat role agent model out
+  [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
+  [ -f "$RESUME_ATTEMPT" ] || { echo "$(date '+%F %T') live_snapshot: missing $RESUME_ATTEMPT" >&2; return 0; }
+  rows="$(resume_rows 2>/dev/null)" || { echo "$(date '+%F %T') live_snapshot: seats.json unreadable ($SEATS)" >&2; return 0; }
+  while IFS=$'\t' read -r seat role agent model; do
+    [ -n "$seat" ] && [ "$agent" = claude ] && [ -n "$(pane_of "$seat")" ] || continue
+    [ "$model" != - ] || { log "live_snapshot: $seat — 명부에 model 없음, 건너뜀"; continue; }
+    if [ "$DRY" = 1 ]; then echo "DRY kind=live-snapshot seat=$seat"; continue; fi
+    out="$(bash "$RESUME_ATTEMPT" snapshot "$seat" --agent "$agent" --model "$model" 2>&1)" || echo "$(date '+%F %T') live_snapshot: ERROR $seat: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+  done <<< "$rows"
+}
+
+# ② 죽음 = 명부 현역 ∧ tmux 세션 없음 ∧ «완료·휴식» 아님. ON 일 때만 한 루프 1석(master→planner→arch→그 밖) 자원 문지기 통과 시 같은 대화로 재개.
+#    시도 = 원장 선점(mkdir lock) → pending → zombie-clean resume --from-live. pending·failed 는 영구 제외 — 풀 수 있는 것은 오빠 allow 토큰 1개뿐. OFF = 재개 0 · 죽음 목록 1통(바뀐 때만).
+dead_seat_watch() {
+  local rows mode seat role agent model uuid jl st dead="" n=0 line key sigf sig shrc tried=0 lines="" can why out rc
+  [ "${FT_TICK_RESUME:-1}" = 1 ] || return 0
+  [ -f "$RESUME_ATTEMPT" ] || { echo "$(date '+%F %T') dead_seat_watch: missing $RESUME_ATTEMPT" >&2; return 0; }
+  rows="$(resume_rows 2>/dev/null)" || { echo "$(date '+%F %T') dead_seat_watch: seats.json unreadable ($SEATS)" >&2; return 0; }
+  [ "$DRY" = 1 ] || bash "$RESUME_ATTEMPT" sweep >/dev/null 2>&1 || echo "$(date '+%F %T') dead_seat_watch: ERROR ledger sweep failed" >&2
+  mode="$(bash "$AUTONOMY_BIN" mode 2>/dev/null)"
+  case "$mode" in on) ;; off) ;; *) echo "$(date '+%F %T') dead_seat_watch: ERROR autonomy mode unreadable (${mode:-none}) — OFF 로 취급(재개 0)" >&2; mode=off;; esac
+  while IFS=$'\t' read -r seat role agent model; do
+    [ -n "$seat" ] && [ -z "$(pane_of "$seat")" ] || continue
+    jl="$(bash "$RESUME_ATTEMPT" record "$seat" jsonl 2>/dev/null)" && bash "$RESUME_ATTEMPT" rested "$jl" && continue   # 완료·휴식 = 죽은 게 아니라 쉬는 중
+    case "$role" in master) key=0;; *) case "$seat" in *-planner-*) key=1;; *-arch-*) key=2;; *) key=3;; esac;; esac
+    dead+="$key"$'\t'"$seat"$'\t'"$agent"$'\n'
+  done <<< "$rows"
+  dead="$(printf '%s' "$dead" | sort -s -t$'\t' -k1,1n)"
+  while IFS=$'\t' read -r key seat agent; do
+    [ -n "$seat" ] || continue; n=$(( n + 1 ))
+    uuid=""; [ "$agent" = claude ] && uuid="$(bash "$RESUME_ATTEMPT" record "$seat" uuid 2>/dev/null)"
+    if [ -z "$uuid" ]; then lines+="$seat(재개 기록 없음 — 사람 판정) "; continue; fi
+    can="$(bash "$RESUME_ATTEMPT" can-try "$seat" "$uuid" 2>/dev/null)"
+    if [ "$mode" != on ]; then lines+="$seat(재개 기록 있음 · 자율 OFF) "; continue; fi
+    case "$can" in
+      fresh|allowed) [ "$tried" = 0 ] || continue;;                    # 한 루프 1석 — 나머지는 다음 루프
+      *) lines+="$seat(자동 재개 소진: $can · 오빠 재허용 = ft-resume-attempt.sh allow '$seat' $uuid) "; continue;;
+    esac
+    if [ "$DRY" = 1 ]; then echo "DRY kind=dead-seat seat=$seat can=$can mode=on"; tried=1; continue; fi
+    why="$(bash "$RESOURCE_GATE" check 2>&1)"; rc=$?; why="$(printf '%s\n' "$why" | tail -1)"
+    [ "$rc" = 0 ] || { lines+="$seat(자원 문지기 REJECT — 재개 0: ${why:0:100}) "; tried=1; continue; }
+    [ "$can" = allowed ] && { bash "$RESUME_ATTEMPT" consume-allow "$seat" "$uuid" >/dev/null 2>&1 || { lines+="$seat(오빠 토큰 소비 실패 — 재개 0) "; tried=1; continue; }; }
+    bash "$RESUME_ATTEMPT" claim "$seat" "$uuid" >/dev/null 2>&1 || { log "dead_seat_watch: $seat — 원장 선점 실패(이미 시도됨), 건너뜀"; continue; }
+    tried=1
+    out="$(bash "$ZC_BIN" resume "$seat" --from-live 2>&1)"; rc=$?
+    if [ "$rc" = 0 ]; then notify_team "[재개] $seat — 죽은 좌석을 같은 대화(uuid=$uuid)로 다시 열었다(자율 ON · 자원 통과). 결과는 3루프 안에 ok/failed 로 원장에 남는다" both
+    else bash "$RESUME_ATTEMPT" settle "$seat" "$uuid" failed >/dev/null 2>&1
+         notify_team "[재개 실패] $seat uuid=$uuid — $(printf '%s\n' "$out" | tail -1 | cut -c1-160) · 자동 재시도 0 · 오빠 재허용 = ft-resume-attempt.sh allow '$seat' $uuid" both; fi
+    log "dead_seat_watch: resume $seat rc=$rc"
+  done <<< "$dead"
+  [ "$DRY" = 1 ] && echo "DRY kind=dead-seat mode=$mode dead=$n"
+  sigf="$STATE_DIR/dead.sig"; mkdir -p "$STATE_DIR"
+  [ -n "$lines" ] || { rm -f "$sigf"; return 0; }
+  sig="$(printf '%s' "$lines" | LC_ALL=C shasum)"; shrc=$?; sig="${sig:0:40}"
+  { [ "$shrc" = 0 ] && [ -n "$sig" ]; } || { echo "$(date '+%F %T') dead_seat_watch: ERROR signature hash failed rc=$shrc — no alert sent" >&2; return 0; }
+  [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
+  notify_team "[죽은 좌석 $n] 자율 $(printf %s "$mode" | tr a-z A-Z) — ${lines% }" planner && [ "$DRY" != 1 ] && echo "$sig" > "$sigf"
+  return 0
+}
+
+# ③ 누적 정지 — IDLE 지속 ≥ IDLE_STALL_MIN 분 ∧ 받은 발주 0 ∧ 완료·휴식 아님. master 도 대상(master 정지 → planner · 그 밖 → master). 같은 정지(turn_end 같음)는 1회만.
+idle_long_watch() {
+  local rows master route seat role p st end dur rep src ep mins pend jl to sdir
+  [ "${FT_TICK_IDLE_LONG:-1}" = 1 ] || return 0
+  [ -f "$SEAT_STATUS" ] || return 0
+  rows="$(all_seats 2>/dev/null)" || return 0
+  master="$(master_seat)"; route="$(route_seat)"; [ -n "$route" ] || route="$master"
+  sdir="$STATE_DIR/idlelong"; mkdir -p "$sdir"
+  while IFS=$'\t' read -r seat role; do
+    [ -n "$seat" ] || continue
+    p="$(pane_of "$seat")"; [ -n "$p" ] || { rm -f "$sdir/$seat"; continue; }
+    read -r st end dur rep src <<< "$(turn_line "$seat")"
+    [ "$st" = IDLE ] && [ "$src" != pane ] || { rm -f "$sdir/$seat"; continue; }
+    ep="$(iso_epoch "$end")"; [ -n "$ep" ] || continue
+    mins=$(( ($(now) - ep) / 60 )); [ "$mins" -ge "$IDLE_STALL_MIN" ] || continue
+    [ "$(cat "$sdir/$seat" 2>/dev/null)" = "$end" ] && continue
+    pend="$(bash "$MBOX" peek "$seat" 2>/dev/null | sed -n 's/.*pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$pend" = 0 ] || continue
+    jl="$(bash "$SEAT_STATUS" jsonl "$seat" 2>/dev/null)"; [ -n "$jl" ] && [ -f "$RESUME_ATTEMPT" ] && bash "$RESUME_ATTEMPT" rested "$jl" && continue
+    to="$master"; [ "$seat" = "$master" ] && to="$route"
+    [ -n "$to" ] && [ "$to" != "$seat" ] || { echo "$(date '+%F %T') idle_long_watch: $seat 정지 ${mins}분 — 알릴 상위 좌석 없음" >&2; continue; }
+    if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long seat=$seat mins=$mins to=$to"; continue; fi
+    bash "$MBOX" send "$to" ft-tick "[정지 ${mins}분] $seat role=$role — IDLE 지속 · 받은 발주 0 · 기다리는 것 = 없음(할 일을 못 받았다). 다음 발주·닫기·깨우기 중 하나" >/dev/null 2>&1 \
+      && echo "$end" > "$sdir/$seat" || echo "$(date '+%F %T') idle_long_watch: mbox failed seat=$seat" >&2
+  done <<< "$rows"
+}
+
 pass() {
   local rows seat tick role report_to master mok
+  live_snapshot
+  dead_seat_watch
   idle_watch
+  idle_long_watch
   outage_watch
   stall
   sweep_wt

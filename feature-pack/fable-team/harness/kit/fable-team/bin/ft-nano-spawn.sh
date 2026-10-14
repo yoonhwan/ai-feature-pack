@@ -255,6 +255,18 @@ PY
 # ⑥ 대기→진행 (호출 워크트리에서 git mv — 인덱스 폴더의 정본은 기준 브랜치)
 bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
 NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
+# ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
+#   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
+_CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
+{ mkdir -p "$_CB_DIR" && _cb_blob="$(git -C "$WT" hash-object "$WT/$NEW_IDX")" && python3 - "$_CB_DIR/$NAME.json" "$NAME" "$NEW_IDX" "$_cb_blob" "$BRANCH" "$WTDIR" <<'PY'
+import json, os, sys, datetime
+p, name, card, blob, branch, wt = sys.argv[1:7]
+tmp = f"{p}.tmp-{os.getpid()}"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump({"name": name, "card_path": card, "card_blob": blob, "branch": branch, "worktree": wt, "at": datetime.datetime.now().isoformat(timespec="seconds")}, f, ensure_ascii=False, indent=2); f.write("\n")
+os.replace(tmp, p)
+PY
+} || echo "WARN spawn 카드 기준선 쓰기 실패($_CB_DIR/$NAME.json) — spawn 은 그대로 진행" >&2
 bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열림+명부+카드 이동까지 끝 = 착수 사건 성공 (append 실패는 stderr SHEET-EVENT-PENDING · rc 그대로)
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)

@@ -307,7 +307,12 @@ cmd_restore_from() {
 # ── 직전 세대 재개 기록 (판정 1344, 2026-10-13) ───────────────────────────────
 # ft-seat-retire.sh 가 은퇴 때 쓰는 기록(대화 uuid·작업 폴더·모델) — 이게 «검증»되는 직전 세대(순번 2)만 tmux_prune 이 닫고,
 # `resume` 이 같은 대화를 다시 연다. 기록이 없거나 어긋나면 지금처럼 보존한다(조용한 대체 0). 명부는 읽지 않는다.
-resume_record_file() { echo "${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}/$1.json"; }
+#   `resume --from-live`(R163): 같은 검사·같은 명령인데 기록 경로만 «살아 있는 좌석 스냅샷»(ft-tick 이 계속 남김 · source=live) 폴더로.
+ZC_FROM_LIVE=0
+resume_record_file() {
+    if [[ "$ZC_FROM_LIVE" == 1 ]]; then echo "${ZC_LIVE_DIR:-$HOME/.claude/state/seat-live}/$1.json"
+    else echo "${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}/$1.json"; fi
+}
 # $1=세션명 → rc 0 검증됨 · rc 2 기록 없음 · rc 1 불일치(사유 1단어 stdout: name|engine|uuid|jsonl|cwd|model|파일읽기)
 resume_record_check() {
     local f; f=$(resume_record_file "$1"); [[ -f "$f" ]] || return 2
@@ -336,8 +341,8 @@ resume_record_pid_live() {
 # resume '<세션명>' [--dry-run] — 검증된 재개 기록으로 같은 대화를 같은 폴더·모델로 다시 연다. 검증 실패·이미 살아 있음 = ❌ rc 1.
 cmd_resume() {
     local name="" dry=false a why rc f cwd uuid model
-    for a in "$@"; do case "$a" in --dry-run) dry=true ;; *) [[ -z "$name" ]] && name="$a" ;; esac; done
-    [[ -z "$name" ]] && { echo "사용법: zombie-clean.sh resume '<세션명>' [--dry-run]"; return 1; }
+    for a in "$@"; do case "$a" in --dry-run) dry=true ;; --from-live) ZC_FROM_LIVE=1 ;; *) [[ -z "$name" ]] && name="$a" ;; esac; done
+    [[ -z "$name" ]] && { echo "사용법: zombie-clean.sh resume '<세션명>' [--dry-run] [--from-live]"; return 1; }
     why=$(resume_record_check "$name"); rc=$?
     [[ $rc -eq 2 ]] && { echo "❌ 재개 기록 없음: $name ($(resume_record_file "$name"))"; return 1; }
     [[ $rc -ne 0 ]] && { echo "❌ 재개 기록 불일치(${why:-검사 실패}): $name"; return 1; }

@@ -2,13 +2,14 @@
 # test_proposal_gate_wiring.sh — 승인 게이트(ft-proposal-gate.sh --card)가 나노 spawn 입구에 걸린 배선 시험(R77 r1 · 판정 826). 가짜 gh·가짜 Tank 만 — 실 gh·실 슬랙·실 tmux 0.
 #   (lint 의 `- 제안서:` 줄 시험은 test_index_lint.sh ⑨ — 카드 새/옛 판별에 git 커밋 날짜가 필요해 그 시험의 임시 리포를 쓴다.)
 set -uo pipefail
+export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기는 실측 머신 부하로 REJECT 한다 — 이 시험은 문지기 결과를 보지 않는다(R163 · 수정 전부터 RED)
 # shellcheck source=_proposal_issue_env.sh
 . "$(dirname "${BASH_SOURCE[0]:-$0}")/_proposal_issue_env.sh"
 KIT="$HERE/../../scripts/harness-install/fable-team/bin"
 for f in "$KIT"/ft-{nano-spawn,proposal-gate,gh-as-tank}.sh; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
 
 # ── spawn --dry-run: lint 는 항상 통과하는 가짜 · 게이트는 진짜 · gh 는 가짜 ──
-mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$T/bin/"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"; echo '{}' > "$T/seats.json"
+mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$T/bin/"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"; echo '{}' > "$T/seats.json"
 card() {  # card <파일이름> <머리 제안서 줄|-> [머리 Issue 줄|-] [구현 범위 줄 · 기본 x] [본문 추가 줄]
   { echo "# 인덱스: $1"; [ "${3:--}" = "-" ] && echo "- Issue: 없음" || echo "$3"; echo "- 상태: 대기"; echo "- 선행: 없음"; echo "- 시험 입력: 없음"; echo "- 기준값: 없음 → 대체 축 x"
     [ "$2" = "-" ] || echo "$2"; echo "## 구현 범위"; echo "${4:-x}"; [ -n "${5:-}" ] && echo "$5"; } > "$T/idx/대기/$1.md"; }
