@@ -12,6 +12,7 @@ from mirror_share import CORRECTED, decision_line, fix_line, tag
 from magazine_slack import eli5_warning_line
 
 FALLBACK = "제안서 본문 참고"
+TALK_LINE = "질문은 #byz-desk 에"  # 발행물 끝 1줄 — 사람이 글을 쓰는 채널 안내(R205 ⑥ · 설계 §8 · 판정 정정 #94138)
 
 
 def first_line(key: str, rev: str, record: str = "") -> str:
@@ -35,4 +36,4 @@ def text_of(p: dict[str, str], rev: str, warn: str | None = None, block: str | N
     rec = p["record"]
     decide = [f"결정할 것: 없음 — 판정 {rec} 으로 승인됨"] if rec else [f"결정할 것: {_value(p, '오빠가 결정할 것')}", decision_line(seats=seats)]
     lines = [first_line(p["key"], rev, rec), *([f"Issue: {issue}"] if issue else []), f"결론: {_value(p, '결론')}", *decide, f"되돌림: {esc(p['되돌림'])}"]
-    return "\n".join(lines + ([esc(eli5_warning_line(warn))] if warn else []) + ([block] if block else []))
+    return "\n".join(lines + ([esc(eli5_warning_line(warn))] if warn else []) + ([block] if block else []) + [TALK_LINE])
