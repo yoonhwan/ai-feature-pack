@@ -52,6 +52,7 @@ class Sandbox:
         self.token_file.write_text(TOKEN + "\n", encoding="utf-8")
         self.oppids = tmp_path / "op-pids.txt"
         self.opcalls = tmp_path / "op-calls.txt"
+        self.envnames = tmp_path / "op-env-names.txt"
         self.marker = tmp_path / "descendant-done"
         self.seq = tmp_path / "tcc-seq.txt"
         self.launchctl = self.bin / "launchctl"
@@ -74,6 +75,7 @@ class Sandbox:
         body = (
             f'echo $$ >> "{self.oppids}"\n'
             f'echo "$1 TOK=${{OP_SERVICE_ACCOUNT_TOKEN:+yes}} HOME=$HOME CFG=${{OP_CONFIG_DIR:-none}}" >> "{self.opcalls}"\n'
+            f'env | sed -e "s/=.*//" >> "{self.envnames}"\n'
             'case "$1" in\n'
             f'  --version)\n    {version_pre}\n    echo "{version}"; exit {version_rc};;\n'
             f'  user)\n    {acct_pre}\n    {stderr}\n    echo \'{acct}\'; exit {acct_rc};;\n'
@@ -82,20 +84,43 @@ class Sandbox:
         return self.script("op", body)
 
     def make_log(self) -> Path:
-        body = (
-            f'count_file="{self.root}/log-count"\n'
-            'n=$(cat "$count_file" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$count_file"\n'
-            f'mode=$(sed -n "${{n}}p" "{self.seq}"); [ -n "$mode" ] || mode=$(tail -n 1 "{self.seq}")\n'
-            'echo "Timestamp               Ty Process[PID:TID]"\n'
-            'case "$mode" in\n'
-            '  empty) ;;\n'
-            '  other) echo "2026-10-15 17:00:01.000000+0900 Df tccd[311:2a] [com.apple.TCC:access] unrelated request kTCCServiceCamera";;\n'
-            f'  attributed) echo "2026-10-15 17:00:01.000000+0900 Df tccd[311:2a] [com.apple.TCC:access] kTCCServiceSystemPolicyAppData 1password.group pid=$(tail -n 1 "{self.oppids}")";;\n'
-            '  unattributed) echo "2026-10-15 17:00:01.000000+0900 Df tccd[311:2a] [com.apple.TCC:access] kTCCServiceSystemPolicyAppData 1password.group pid=1";;\n'
-            '  fail) exit 1;;\n'
-            'esac\n'
-        )
-        return self.script("log", body)
+        """A fake `log`: refuses calls without --info --debug --predicate --style, records every call, and prints
+        secret-free lines shaped like tccd's AUTHREQ_CTX / AUTHREQ_ATTRIBUTION compact output (msgID links them)."""
+        code = f"""
+import json, pathlib, sys, time
+root = pathlib.Path({str(self.root)!r})
+args = sys.argv[1:]
+calls = root / "log-calls.jsonl"
+n = len(calls.read_text().splitlines()) + 1 if calls.exists() else 1
+end = None
+if "--end" in args:
+    end = time.mktime(time.strptime(args[args.index("--end") + 1], "%Y-%m-%d %H:%M:%S"))
+with calls.open("a") as handle:
+    handle.write(json.dumps({{"args": args, "now": time.time(), "end": end}}) + "\\n")
+if not (args[:1] == ["show"] and all(flag in args for flag in ("--info", "--debug", "--predicate", "--style"))):
+    sys.exit(2)
+modes = pathlib.Path({str(self.seq)!r}).read_text().split()
+mode = modes[n - 1] if n <= len(modes) else modes[-1]
+if mode == "fail":
+    sys.exit(1)
+pids = pathlib.Path({str(self.oppids)!r})
+mine = pids.read_text().split()[-1] if pids.exists() and pids.read_text().split() else "0"
+def group(msg, service, pid):
+    ts = "2026-10-15 17:00:01.000000+0900 0x1f3      Info        0x0                  412    0    tccd: [com.apple.TCC:access] "
+    print(ts + f"AUTHREQ_CTX: msgID={{msg}}, function=TCCAccessRequest, service={{service}}, preflight=no, query=0,")
+    print(ts + f"AUTHREQ_ATTRIBUTION: msgID={{msg}}, attribution={{{{responsible={{{{TCCDProcess: identifier=org.python.python, pid={{pid}}, auid=501, euid=501, responsible_path=/synthetic/python, binary_path=/synthetic/python}}}}, accessing={{{{TCCDProcess: identifier=com.1password.op, pid={{pid}}, auid=501, euid=501, responsible_path=, binary_path=/synthetic/op}}}}, requesting={{{{TCCDProcess: identifier=com.1password.op, pid={{pid}}, auid=501, euid=501, responsible_path=, binary_path=/synthetic/op}}}},}}}},")
+print("Timestamp               Ty Process[PID:TID]")
+if mode == "other":          # another service, even attributed to our child: not an AppData request
+    group("100.1", "kTCCServiceCamera", mine)
+elif mode == "attributed":
+    group("412.1", "kTCCServiceSystemPolicyAppData", mine)
+elif mode == "unattributed":
+    group("412.1", "kTCCServiceSystemPolicyAppData", "1")
+elif mode == "split_unlinked":  # AppData ctx under one msgID, our pid only under another: no link
+    group("412.1", "kTCCServiceSystemPolicyAppData", "1")
+    group("413.1", "kTCCServiceCamera", mine)
+"""
+        return self.script("log", "exec \"" + sys.executable + "\" -c " + repr(code) + " \"$@\"\n")
 
     def set_tcc(self, *modes: str) -> None:
         self.seq.write_text("\n".join(modes) + "\n", encoding="utf-8")
@@ -107,7 +132,8 @@ class Sandbox:
             "PROBE_LAUNCHCTL": str(self.launchctl), "PROBE_LOG_BIN": str(self.logbin), "PROBE_PYTHON": sys.executable,
             "PROBE_P4_STUB": "success",
             "PROBE_T_ATTEMPT": "1.5", "PROBE_T_REAP": "0.5", "PROBE_T_PIPE": "0.3", "PROBE_T_LOCAL": "8",
-            "PROBE_T_START": "4", "PROBE_T_RESULT": "14", "PROBE_T_CLEAN": "6",
+            "PROBE_T_TAIL": "0.3", "PROBE_T_CALL": "3",
+            "PROBE_T_START": "4", "PROBE_T_RESULT": "20", "PROBE_T_CLEAN": "10",
             "FAKE_LC_STATE": str(self.state),
         }
         env.update(self.extra)
@@ -208,6 +234,8 @@ def test_a_normal_run_succeeds_everywhere_and_cleans_up(sb):
         assert "TOK=yes" in line and "CFG=none" in line and "op-home" not in line
     plist = (sb.probe_dir() / "job.plist").read_text(encoding="utf-8")
     assert "com.airag.probe-opa-" in plist and "RunAtLoad" in plist and "/dev/null" in plist
+    assert "<string>-I</string>" in plist and "<string>--mode</string>" in plist and "<string>selftest</string>" in plist
+    assert result["mode"] == "selftest"
     assert "KeepAlive" not in plist and "StartInterval" not in plist and TOKEN not in plist
     assert TOKEN not in sb.tree_text(proc)
 
@@ -350,7 +378,7 @@ def test_k_a_descendant_holding_the_pipe_never_extends_the_wait(sb):
     assert 1.0 <= p0["elapsed_ms"] / 1000 <= 1.0 + 0.5 + 0.3 + 1.0  # attempt + reap wait + pipe drain + slack
     assert p0["child_exited"] is True and p0["reaped"] is True and p0["child_exit_unconfirmed"] is False
     assert p0["descendants_may_hold_pipe"] is True
-    assert elapsed < 4 + 14 + 6  # the scaled stand-in for the 75 second hard cap
+    assert elapsed < 20 + 10  # the scaled stand-in for the 75 second hard cap (60 + 15)
     assert steps_of(result)["P2"]["status"] == "skipped_prior_unresolved"
     assert wait_until(sb.marker.exists, 8), "the descendant must be left alone and finish by itself"
     text = sb.tree_text(proc)
@@ -401,7 +429,7 @@ def test_m_the_validator_accepts_exactly_the_nine_statuses(sb):
     doc = {"schema_version": 1, "steps": [], "s0": {"consumer_disabled": "true", "consumer_loaded": "false",
                                                     "op_process_count": 0, "op_socket_mtime_utc_ms": None},
            "complete": True, "tcc_unknown": False, "conclusion": "no_repro_twice", "timed_out_wait": False,
-           "aborted_class": None}
+           "aborted_class": None, "mode": "selftest"}
     for status in NINE:
         assert probe.validate_result({**doc, "steps": [{**base, "status": status}]}), status
     assert not probe.validate_result({**doc, "steps": [{**base, "status": "skipped"}]})
@@ -410,6 +438,7 @@ def test_m_the_validator_accepts_exactly_the_nine_statuses(sb):
     assert not probe.validate_result({**doc, "steps": [{**base, "stdout": "body"}]})  # no free-text fields
     assert not probe.validate_result({**doc, "conclusion": "all_good"})
     assert not probe.validate_result({**doc, "extra": 1})
+    assert not probe.validate_result({**doc, "mode": "normal"})
     assert not probe.validate_result({k: v for k, v in doc.items() if k != "complete"})
 
 
@@ -496,3 +525,281 @@ def test_probe_directory_and_label_are_unique_per_run_and_never_in_launchagents(
     assert len(dirs) == 2 and dirs[0] != dirs[1]
     assert (sb.base / dirs[0]).stat().st_mode & 0o777 == 0o700
     assert not (sb.home / "Library").exists()
+
+
+# ---------------------------------------------------------------------------------------------------------
+# DA r1 (REJECT 1/4/2): each counterexample as a regression test
+def log_calls(sb: Sandbox) -> list[dict]:
+    path = sb.root / "log-calls.jsonl"
+    return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+
+def process_line(pid: int) -> str:
+    return subprocess.run(["ps", "-o", "lstart=,comm=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+
+
+# B1 — one 7 second deadline per attempt, fixed before the process starts
+def test_b1_pid_record_time_is_taken_out_of_the_attempt(tmp_path, monkeypatch):
+    probe = load_probe()
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.5)
+    real_ps = probe.ps_line
+    monkeypatch.setattr(probe, "ps_line", lambda pid: (time.sleep(0.3), real_ps(pid))[1])
+    seen: list = []
+    real_communicate = subprocess.Popen.communicate
+
+    def spy(self, input=None, timeout=None):
+        seen.append(timeout)
+        return real_communicate(self, input, timeout)
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", spy)
+    info = probe.run_child("P0", ["/bin/sleep", "5"], {"PATH": "/bin"}, book, budget)
+    assert info["status"] == "timeout" and info["reaped"] is True
+    assert seen[0] is not None and seen[0] <= 0.5 - 0.3 + 0.02  # only what is left of the attempt
+
+
+def test_b1_when_recording_outlasts_the_attempt_the_child_is_ended_without_a_fresh_wait(tmp_path, monkeypatch):
+    probe = load_probe()
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    monkeypatch.setattr(probe, "ATTEMPT_S", 1.2)
+    monkeypatch.setattr(probe, "PIPE_DRAIN_S", 0.3)
+    real_ps = probe.ps_line
+    monkeypatch.setattr(probe, "ps_line", lambda pid: (time.sleep(1.4), real_ps(pid))[1])
+    seen: list = []
+    real_communicate = subprocess.Popen.communicate
+
+    def spy(self, input=None, timeout=None):
+        seen.append(timeout)
+        return real_communicate(self, input, timeout)
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", spy)
+    info = probe.run_child("P0", ["/bin/sleep", "5"], {"PATH": "/bin"}, book, budget)
+    assert info["status"] == "timeout" and info["child_exited"] is True
+    assert seen and all(t is not None and t <= 0.31 for t in seen), seen  # only the short pipe drain, no new attempt
+
+
+def test_b1_p4_dns_delay_is_inside_one_cancellable_deadline(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "SELFTEST", True)
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.6)
+    monkeypatch.setenv("PROBE_P4_FAKE_DNS_SLEEP", "6")
+    monkeypatch.setenv("PROBE_P4_HOST", "127.0.0.1")
+    monkeypatch.setenv("PROBE_P4_PORT", "9")
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    started = time.monotonic()
+    step = probe.stage_p4(book, budget)
+    assert step["status"] == "timeout" and step["child_exited"] is True and step["reaped"] is True
+    assert time.monotonic() - started < 2.5  # not the 6 s the name lookup would have taken
+    assert [c["step"] for c in book.document["children"]] == ["P4"]
+
+
+def test_b1_no_network_step_starts_once_the_deadline_is_spent():
+    probe = load_probe()
+    now = [0.0]
+    started: list[str] = []
+
+    def resolve(host, port, **kwargs):
+        now[0] += 0.2
+        return [(2, 1, 6, "", ("127.0.0.1", port))]
+
+    def connect(address, timeout):
+        started.append("connect")
+        raise AssertionError
+
+    def handshake(sock, host, timeout):
+        started.append("tls")
+        raise AssertionError
+
+    got = probe.p4_attempt("h", 443, 0.1, now=lambda: now[0], resolve=resolve, connect=connect, handshake=handshake)
+    assert got == "timeout" and started == []
+
+
+def test_b1_p4_maps_each_failure_class_and_success():
+    probe = load_probe()
+    import socket
+
+    class Sock:
+        def close(self):
+            pass
+
+    ok = dict(resolve=lambda h, p, **k: [(2, 1, 6, "", ("127.0.0.1", p))], connect=lambda a, t: Sock(),
+              handshake=lambda s, h, t: None)
+    assert probe.p4_attempt("h", 443, 10.0, now=lambda: 0.0, **ok) == "success"
+    assert probe.p4_attempt("h", 443, 10.0, now=lambda: 0.0,
+                            **{**ok, "connect": lambda a, t: (_ for _ in ()).throw(socket.timeout())}) == "timeout"
+    assert probe.p4_attempt("h", 443, 10.0, now=lambda: 0.0,
+                            **{**ok, "resolve": lambda h, p, **k: (_ for _ in ()).throw(socket.gaierror())}) == "network_error"
+    assert probe.p4_attempt("h", 443, 10.0, now=lambda: 0.0,
+                            **{**ok, "handshake": lambda s, h, t: (_ for _ in ()).throw(ConnectionResetError())}) == "network_error"
+
+
+# M1 — one overall deadline: every launchctl call is capped, the clean-up has its own limit
+def test_m1_a_hanging_bootstrap_is_cut_off_at_the_call_cap(sb):
+    started = time.monotonic()
+    proc = sb.run(FAKE_LC_BOOTSTRAP_SLEEP="14", PROBE_T_CALL="2")
+    elapsed = time.monotonic() - started
+    assert proc.returncode == 3 and "시간 초과" in proc.stdout
+    assert elapsed < 9, elapsed
+    assert sb.loaded() == [] and not sb.opcalls.exists()
+
+
+def test_m1_a_hanging_cleanup_lookup_is_reported_not_waited_for(sb):
+    started = time.monotonic()
+    proc = sb.run(FAKE_LC_PRINT_SLEEP_WHEN_LOADED="14", PROBE_T_CALL="2")
+    elapsed = time.monotonic() - started
+    assert proc.returncode != 0 and "잔존 확인 필요: com.airag.probe-opa-" in proc.stdout
+    assert elapsed < 20 + 10
+    assert [c for c in sb.lc_calls() if c.startswith("bootout")] == []  # ownership could not be shown
+
+
+def test_m1_a_hanging_bootout_is_tried_once_and_reported(sb):
+    started = time.monotonic()
+    proc = sb.run(FAKE_LC_BOOTOUT_SLEEP="14", PROBE_T_CALL="2")
+    elapsed = time.monotonic() - started
+    assert proc.returncode != 0 and "잔존 확인 필요: com.airag.probe-opa-" in proc.stdout
+    assert len([c for c in sb.lc_calls() if c.startswith("bootout")]) == 1
+    assert elapsed < 20 + 10
+
+
+def test_m1_clean_up_budget_running_out_with_several_pids_is_reported(sb):
+    stubborn = [subprocess.Popen(["/bin/sh", "-c", 'trap "" TERM; while :; do sleep 1; done']) for _ in range(3)]
+    try:
+        time.sleep(0.5)
+        extra = "\n".join(f"{p.pid}|{process_line(p.pid)}" for p in stubborn)
+        started = time.monotonic()
+        proc = sb.run(PROBE_EXTRA_PIDS=extra, PROBE_T_CLEAN="5")  # 5 s clean-up window, 4 s of it reserved
+        elapsed = time.monotonic() - started
+        assert "잔존 확인 필요: pid" in proc.stdout
+        assert elapsed < 20 + 5
+        assert proc.returncode == 4
+    finally:
+        for p in stubborn:
+            p.kill()
+            p.wait()
+
+
+# M2 — only a job this run started (its own PROBE_DIR in the loaded job) may be booted out
+def test_m2_a_foreign_job_under_the_same_label_is_never_booted_out(sb):
+    proc = sb.run(FAKE_LC_FOREIGN="1")
+    assert proc.returncode == 2
+    assert not any(c.startswith(("bootstrap", "bootout")) for c in sb.lc_calls())
+    assert not sb.opcalls.exists()
+
+
+def test_m2_an_unknown_preflight_never_boots_anything_out(sb):
+    proc = sb.run(FAKE_LC_PRINT_ERROR_ALWAYS="1")
+    assert proc.returncode == 2
+    assert not any(c.startswith(("bootstrap", "bootout")) for c in sb.lc_calls())
+
+
+def test_m2_a_different_job_under_the_label_after_our_bootstrap_is_left_alone(sb):
+    proc = sb.run(FAKE_LC_FOREIGN_AFTER_BOOTSTRAP="1")
+    assert any(c.startswith("bootstrap") for c in sb.lc_calls())
+    assert not any(c.startswith("bootout") for c in sb.lc_calls())
+    assert proc.returncode == 4 and "잔존 확인 필요: com.airag.probe-opa-" in proc.stdout
+
+
+# M3 — AppData requests, linked to their attribution, observed after the window really closed
+def test_m3_other_services_are_not_appdata_requests_even_when_attributed_to_us(sb):
+    sb.set_tcc("other")
+    sb.run()
+    result = sb.result()
+    assert steps_of(result)["P0"]["tcc_observation"] == "none_logged_ok"
+    assert result["conclusion"] == "no_repro_twice"
+
+
+def test_m3_an_appdata_request_not_ours_is_unattributed_even_if_another_service_names_our_pid(sb):
+    sb.set_tcc("split_unlinked")
+    sb.run()
+    assert steps_of(sb.result())["P0"]["tcc_observation"] == "seen_unattributed"
+
+
+def test_m3_the_log_is_asked_with_info_and_debug_once_the_window_has_closed(sb):
+    sb.run()
+    calls = log_calls(sb)
+    assert len(calls) == 4
+    for call in calls:
+        args = call["args"]
+        assert args[0] == "show" and "--info" in args and "--debug" in args
+        assert "com.apple.TCC" in args[args.index("--predicate") + 1]
+        assert call["now"] + 1.0 >= call["end"]  # asked only after end + tail (the end is rounded up to a whole second)
+
+
+def test_m3_waiting_on_ops_does_not_use_up_the_observation_budget(sb):
+    sb.op = sb.make_op(version_pre="sleep 1", acct_pre="sleep 1")
+    sb.extra.update(PROBE_OP_BIN=str(sb.op), PROBE_T_ATTEMPT="4", PROBE_T_LOCAL="3")
+    sb.run()
+    result = sb.result()
+    assert {s["tcc_observation"] for n, s in steps_of(result).items() if n != "P4"} == {"none_logged_ok"}
+    assert result["tcc_unknown"] is False
+
+
+def test_m3_a_window_that_cannot_be_secured_is_unknown_and_the_log_is_not_asked(sb):
+    sb.extra.update(PROBE_T_TAIL="5", PROBE_T_LOCAL="1")
+    sb.run()
+    result = sb.result()
+    assert {s["tcc_observation"] for n, s in steps_of(result).items() if n in ("P0", "P2", "P1")} == {
+        "unknown_log_unavailable"}
+    assert statuses(result)["P1b"] == "skipped_not_applicable" and result["tcc_unknown"] is True
+    assert log_calls(sb) == []
+
+
+# M4 — the worker's mode comes from an explicit argument, never from the surrounding environment
+def production_env(sb: Sandbox, ambient: dict[str, str]) -> dict[str, str]:
+    fakebin = sb.root / "prod-bin"
+    fakebin.mkdir(exist_ok=True)
+    shim = fakebin / "launchctl"
+    shim.write_text(
+        f'#!/bin/sh\nFAKE_LC_STATE="{sb.state}" FAKE_LC_AMBIENT_JSON=\'{json.dumps(ambient)}\' '
+        f'exec "{sys.executable}" "{FAKE_LAUNCHCTL}" "$@"\n', encoding="utf-8")
+    shim.chmod(0o755)
+    return {"PATH": f"{fakebin}:/usr/bin:/bin", "HOME": str(sb.home), "TMPDIR": str(sb.root)}
+
+
+def test_m4_a_normal_worker_refuses_ambient_selftest_variables(sb):
+    ambient = {"PROBE_SELFTEST": "1", "PROBE_OP_BIN": str(sb.op), "PROBE_TOKEN_FILE": str(sb.token_file),
+               "PROBE_LOG_BIN": str(sb.logbin), "PROBE_P4_STUB": "success", "PROBE_PYTHON": sys.executable}
+    env = production_env(sb, ambient)
+    proc = subprocess.run(["/bin/bash", str(PROBE_SH), "--python", sys.executable], env=env, capture_output=True,
+                          text=True, timeout=60)
+    base = sb.home / ".local" / "share" / "airag-probe"
+    directory = next(p for p in base.iterdir() if p.is_dir())
+    result = json.loads((directory / "result.json").read_text())
+    assert load_probe().validate_result(result)
+    assert result["mode"] == "production" and result["aborted_class"] == "AmbientOverrideRefused"
+    assert result["steps"] == [] and result["conclusion"] == "observation_unknown"
+    assert not sb.opcalls.exists() and log_calls(sb) == []  # nothing ran: no op, no log
+    assert proc.returncode != 0
+    plist = (directory / "job.plist").read_text()
+    assert "<string>-I</string>" in plist and "<string>production</string>" in plist and "PROBE_" not in plist
+    assert sb.loaded() == []
+
+
+def test_m1_production_needs_a_checked_consumer_python(sb):
+    env = production_env(sb, {})
+    for args in ([], ["--python", "python3"], ["--python", str(sb.root / "missing-python")]):
+        proc = subprocess.run(["/bin/bash", str(PROBE_SH), *args], env=env, capture_output=True, text=True, timeout=30)
+        assert proc.returncode == 2, (args, proc.stdout)
+    assert sb.lc_calls() == [] and not (sb.home / ".local" / "share" / "airag-probe").exists()
+
+
+# m2 — an op child sees only the allow-listed names (names only, never values)
+ALLOWED_OP_NAMES = {"PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR",
+                    "OP_SERVICE_ACCOUNT_TOKEN", "OP_CONFIG_DIR"}
+SHELL_ADDED = {"PWD", "SHLVL", "_", "OLDPWD"}
+
+
+def test_m2_op_children_receive_only_allowlisted_environment_names(sb):
+    sb.run(FAKE_AMBIENT_SECRET_NAME="x")
+    names = set(sb.envnames.read_text().split())
+    assert names and names <= ALLOWED_OP_NAMES | SHELL_ADDED, names - ALLOWED_OP_NAMES - SHELL_ADDED
+    assert not [n for n in names if n.startswith(("PROBE_", "FAKE_"))]
+
+
+def test_m2_op_environment_copies_only_the_allowlist(monkeypatch):
+    probe = load_probe()
+    for name in ("SOME_API_TOKEN", "OP_EXTRA_SECRET", "PROBE_OP_BIN", "FAKE_X"):
+        monkeypatch.setenv(name, "value")
+    names = set(probe.op_environment("t")) | set(probe.op_environment("t", "/dedicated"))
+    assert names <= ALLOWED_OP_NAMES
+    assert "OP_SERVICE_ACCOUNT_TOKEN" not in probe.op_environment(None)
