@@ -26,6 +26,7 @@ from mirror_plan import plan  # noqa: E402
 
 API = "https://slack.com/api"
 WINDOW = 7 * 86400
+PRUNE_MARGIN = 86400  # 지우는 창은 읽는 창보다 하루 넓다 — 읽히는 글은 항상 원장이 기억한다(R242)
 
 
 def now_ts() -> str:
@@ -57,7 +58,9 @@ class Inbound:
         assert isinstance(ledger, dict) and isinstance(seen, dict)
         found: dict[str, dict[str, object]] = {}
         threads: dict[str, str | None] = {}
-        for m in lib.paged(base, tok, "conversations.history", {"channel": ch, "oldest": f"{time.time() - WINDOW:.6f}", "limit": 200}):
+        window_start = f"{time.time() - WINDOW:.6f}"
+        floor = max(baseline, window_start)
+        for m in lib.paged(base, tok, "conversations.history", {"channel": ch, "oldest": window_start, "limit": 200}):
             if str(m["ts"]) > baseline and mh.allowed(m, self.humans, ch, log=not self.a.human):
                 found[str(m["ts"])] = {**m, "thread_ts": ""}
             if m.get("latest_reply"):  # 기동 «전» 에 만들어진 스레드의 새 답도 여기서 발견된다
@@ -68,8 +71,8 @@ class Inbound:
         for t, latest in threads.items():
             if latest is not None and seen.get(t) == latest:
                 continue
-            for m in lib.paged(base, tok, "conversations.replies", {"channel": ch, "ts": t, "oldest": baseline, "limit": 200}):
-                if str(m["ts"]) != t and str(m["ts"]) > baseline and mh.allowed(m, self.humans, ch, log=not self.a.human):
+            for m in lib.paged(base, tok, "conversations.replies", {"channel": ch, "ts": t, "oldest": floor, "limit": 200}):  # 읽는 창 = 원장 기억 창 안(R242)
+                if str(m["ts"]) != t and str(m["ts"]) > floor and mh.allowed(m, self.humans, ch, log=not self.a.human):
                     found[str(m["ts"])] = {**m, "thread_ts": t}
             if latest is not None:
                 self.seen_updates[t] = latest
@@ -147,7 +150,7 @@ class Inbound:
             self._save(st)
             self._deliver(st, ts, ledger[ts])
         st["seen"].update(self.seen_updates)  # 후보를 전부 원장에 올린 뒤에만 «읽었다» 로 표시한다
-        cut = time.time() - WINDOW  # 끝난 항목만 정리 — 미완료는 지우지 않는다
+        cut = time.time() - WINDOW - PRUNE_MARGIN  # 끝난 항목만 정리 — 미완료는 지우지 않는다
         st["ledger"] = {k: v for k, v in ledger.items() if not v.get("finished") or float(k) > cut}
         self._save(st)
         if self.qpath.exists():
