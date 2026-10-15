@@ -394,6 +394,12 @@ def new_result() -> dict:
             "aborted_class": None, "comparison": "incomplete", "conditions": []}
 
 
+def has_unconfirmed_exit(result: dict) -> bool:
+    """Any attempt of any round whose child exit could not be confirmed: the comparison is not trustworthy."""
+    return any(a["child_exit_unconfirmed"] for condition in result["conditions"] for r in condition["rounds"]
+               for call in r["calls"] for a in call["attempts"])
+
+
 def read_result(directory: Path) -> dict:
     """A missing, unreadable, invalid or not-complete result reads as incomplete."""
     unknown = new_result()
@@ -403,7 +409,7 @@ def read_result(directory: Path) -> dict:
         return unknown
     if not validate_result(document):
         return unknown
-    if document["complete"] is not True:
+    if document["complete"] is not True or has_unconfirmed_exit(document):
         document["comparison"] = "incomplete"
     return document
 
@@ -445,7 +451,8 @@ def execute(directory: Path, credentials: str) -> None:
             for condition in result["conditions"]:
                 condition["criteria"] = evaluate(condition)
             result["comparison"] = compare(result["conditions"], len(result["conditions"]) == 2
-                                           and all(len(c["rounds"]) == ROUNDS for c in result["conditions"]))
+                                           and all(len(c["rounds"]) == ROUNDS for c in result["conditions"])
+                                           and not has_unconfirmed_exit(result))
         result["complete"] = complete
         probe.write_json_atomic(result_path, result)
 
@@ -496,13 +503,18 @@ def report(directory: Path) -> int:
     out = ["== S2 키 읽기 측정 결과 (측정일 뿐 — 채택·규칙 예외는 오빠 결정, 진단 성공은 운영 재개 승인이 아님) =="]
     out.append(f"mode={result['mode']}" + (f" 중단={result['aborted_class']}" if result["aborted_class"] else ""))
     cold_over = False
-    unconfirmed = any(a["child_exit_unconfirmed"] for condition in result["conditions"] for r in condition["rounds"]
-                      for call in r["calls"] for a in call["attempts"])
+    unconfirmed = has_unconfirmed_exit(result)
+    cold_timeout = cold_slow = False
     for condition in result["conditions"]:
         crit = condition["criteria"]
         out.append(f"조건 {condition['name']}: 라운드 {len(condition['rounds'])}/{ROUNDS}")
         if crit:
             cold_over = cold_over or crit["cold_over_limit"]
+            firsts = [call["attempts"][0] for call in (condition["rounds"][0]["calls"] if condition["rounds"] else [])
+                      if call["attempts"]]
+            cold_timeout = cold_timeout or any(a["status"] == "timeout" for a in firsts)
+            cold_slow = cold_slow or any(a["status"] == "success" and a["elapsed_ms"] > ATTEMPT_S * 1000
+                                         for a in firsts)
             out.append("  첫 시도 성공 {first_try_success_count}/18 · 재시도 {retries_used} · 최대 시도 {max_attempt_ms}ms "
                        "· 최대 호출 {max_call_total_ms}ms".format(**crit))
             out.append("  op 프로세스 비증가={op_count_not_increased} 디스크 비증가={disk_not_increased} "
@@ -511,9 +523,11 @@ def report(directory: Path) -> int:
     if result["timed_out_wait"]:
         out.append("결과 대기 시간 초과: timed_out_wait")
     out.append(f"비교: {result['comparison']} — {COMPARISON_TEXT[result['comparison']]}")
-    if cold_over:
-        out.append("콜드 시작 첫 시도가 7초 기한 안에 끝나지 않음(끝나는 시점은 알 수 없음) → 규칙 예외를 둘지는 오빠 결정 "
-                   "(설계자는 상수를 키우지 않음 · 그동안 전용 경로 채택·운영 재개 판정은 보류)")
+    decision = "규칙 예외를 둘지는 오빠 결정 (설계자는 상수를 키우지 않음 · 그동안 전용 경로 채택·운영 재개 판정은 보류)"
+    if cold_over and cold_timeout:
+        out.append("콜드 시작 첫 시도가 7초 기한 안에 끝나지 않음(기한 내 미완료 — 이후 정상 종료 시점은 미확인) → " + decision)
+    if cold_over and cold_slow:
+        out.append("콜드 시작 첫 읽기가 관측 시도 시간 7초를 넘음(종료는 확인됨) → " + decision)
     if unconfirmed:
         out.append("자식 종료 미확인 — 측정을 거기서 멈춤(재시도·다음 라운드 없음) · 남은 프로세스 확인 필요")
     out.append("일 호출량: 논리 읽기 864회/일(288 틱 × 키 3) · 재시도 포함 CLI 시도 최대 1,728회/일 · "
