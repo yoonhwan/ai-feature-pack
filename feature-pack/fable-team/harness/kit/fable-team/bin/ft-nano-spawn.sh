@@ -239,6 +239,18 @@ if [ ! -d "$WTDIR" ]; then
       && echo "SERENA project_name=$_wtname ($WTDIR/.serena/project.yml)" \
       || echo "WARN serena project_name 치환 실패 — 좌석에 «편집 직전 find_file 1회» 규율을 알려라"
   fi
+else
+  # R196: 재사용인데 .worktree-info.json 이 없으면(정리·복원으로 소실) 새로 만들 때와 같은 꼴로 다시 쓴다 — 없는 채로 두면 ft-nano-close 가 branch=? 로 멈춘다. 있으면 손대지 않는다(created_at 보존).
+  if [ ! -f "$WTDIR/.worktree-info.json" ]; then
+    _reuse_head="$(git -C "$WTDIR" symbolic-ref --short HEAD 2>/dev/null)"
+    [ "$_reuse_head" = "$BRANCH" ] || { echo "REJECT 재사용 워크트리 브랜치 불일치 — HEAD=${_reuse_head:-detached} 기대=$BRANCH"; exit 1; }
+    _reuse_mb="$(git -C "$WTDIR" merge-base "$BRANCH" "$BASE_BRANCH" 2>/dev/null)" || { echo "REJECT 재사용 워크트리 merge-base 실패 — $BRANCH ↔ $BASE_BRANCH"; exit 1; }
+    # 같은 폴더 임시 파일에 쓰고 mv — 완성본만 게시한다. 쓰기·mv 실패는 REJECT(info 없이 열기 0).
+    _reuse_tmp="$WTDIR/.worktree-info.json.tmp.$$"
+    { printf '{"branch":"%s","base":"%s","base_sha":"%s","created_at":"%s","purpose":"nano · reuse · %s"}\n' "$BRANCH" "$INFO_BASE" "$(git -C "$WTDIR" rev-parse --short "$_reuse_mb")" "$(date '+%F %T')" "$IDX_REL" > "$_reuse_tmp" && mv -f "$_reuse_tmp" "$WTDIR/.worktree-info.json"; } 2>/dev/null \
+      || { rm -f "$_reuse_tmp" 2>/dev/null; echo "REJECT 재사용 워크트리 info 쓰기 실패 — $WTDIR/.worktree-info.json"; exit 1; }
+    echo "INFO 재작성 $WTDIR"
+  fi
 fi
 
 # ③ 열기 — 모델 인자에 대괄호가 있어 zsh 글롭 즉사 함정(글로벌 규칙) → 이 스크립트는 bash 라 그대로 통과
