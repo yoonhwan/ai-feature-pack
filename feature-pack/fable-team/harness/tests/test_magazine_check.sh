@@ -121,4 +121,36 @@ for t in test_dead_seat_resume test_live_bin_drift_check test_raised_seat test_f
   grep -q 'FT_TICK_LAUNCHD=0' "$HERE/$t.sh" && grep -q 'FT_TICK_MAGAZINE=0' "$HERE/$t.sh" && ok "ⓕ $t 가 끄기 스위치를 명시 설정" || bad "ⓕ $t 에 끄기 스위치 없음"
 done
 
+# ⓖ (R194) 경보용 명부 경로 FT_TICK_MAG_SEATS — 메인 틱 명부에 _hil_route 가 없어도 따로 받은 명부로 매거진 점검을 부른다
+printf '{"_master":"m#1"}\n' > "$T/tk/seats-main.json"            # _hil_route 없음(메인 틱 명부 꼴)
+printf '{"_master":"pm#1","_hil_route":"planner#9"}\n' > "$T/tk/seats-planner.json"
+printf '#!/bin/bash\necho "$FT_MAG_SEATS" >> "%s/tk/mag.seats"\n' "$T" > "$T/tk/bin/ft-magazine-check.sh"
+tickg() {  # $1 = FT_TICK_SEATS 명부 · 나머지 = env → 매거진 점검이 받은 FT_MAG_SEATS(호출 없으면 빈 줄)
+  : > "$T/tk/mag.seats"; local seats="$1"; shift
+  ( cd "$T/tk/repo" && env "$@" FT_TICK_SEATS="$seats" FT_TICK_STATE_DIR="$T/tk/state" FT_TICK_PIDFILE="$T/tk/pid" FT_TICK_STAMP_PREFIX="$T/tk/p-" \
+      FT_TICK_MBOX="$T/mbox.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 \
+      FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 \
+      timeout 60 bash "$T/tk/bin/ft-tick.sh" --once >/dev/null 2>&1 ); tr -d '\n' < "$T/tk/mag.seats"
+}
+# ⓖa 미설정 + 명부에 _hil_route 없음 → 호출 0(지금 동작 그대로)
+[ -z "$(tickg "$T/tk/seats-main.json" FT_TICK_X=1)" ] && ok "ⓖa FT_TICK_MAG_SEATS 미설정 · 명부에 _hil_route 없음 → 호출 0" || bad "ⓖa: $(tickg "$T/tk/seats-main.json" FT_TICK_X=1)"
+# ⓖa2 미설정 + 명부에 _hil_route 있음 → 호출 1 · 명부 = 틱 명부 자신
+[ "$(tickg "$T/tk/seats-planner.json" FT_TICK_X=1)" = "$T/tk/seats-planner.json" ] && ok "ⓖa 미설정 · _hil_route 있는 틱 명부 → 호출 1(틱 명부 전달)" || bad "ⓖa2: $(tickg "$T/tk/seats-planner.json" FT_TICK_X=1)"
+# ⓖb _hil_route 없는 틱 명부 + FT_TICK_MAG_SEATS=planner 명부 → 호출 1 · 전달 명부 = planner 명부
+[ "$(tickg "$T/tk/seats-main.json" FT_TICK_MAG_SEATS="$T/tk/seats-planner.json")" = "$T/tk/seats-planner.json" ] && ok "ⓖb FT_TICK_MAG_SEATS 지정 → 호출 1 · 수신 명부 = 지정 명부" || bad "ⓖb: $(tickg "$T/tk/seats-main.json" FT_TICK_MAG_SEATS="$T/tk/seats-planner.json")"
+# ⓖc FT_TICK_MAGAZINE=0 이면 지정해도 호출 0 · 지정 명부에 _hil_route 가 없으면 호출 0
+[ -z "$(tickg "$T/tk/seats-main.json" FT_TICK_MAG_SEATS="$T/tk/seats-planner.json" FT_TICK_MAGAZINE=0)" ] && ok "ⓖc FT_TICK_MAGAZINE=0 → 지정해도 0" || bad "ⓖc 끄기 무시됨"
+[ -z "$(tickg "$T/tk/seats-planner.json" FT_TICK_MAG_SEATS="$T/tk/seats-main.json")" ] && ok "ⓖc 지정 명부에 _hil_route 없음 → 0(틱 명부 것은 안 봄)" || bad "ⓖc 지정 명부 무시됨"
+# ⓖd 꺼짐 탐지(ft-launchd-check)는 FT_TICK_MAG_SEATS 와 무관 — 항상 틱 명부(FT_LDC_SEATS)를 받는다
+printf '#!/bin/bash\necho "$FT_LDC_SEATS" >> "%s/tk/ldc.seats"\n' "$T" > "$T/tk/bin/ft-launchd-check.sh"
+: > "$T/tk/ldc.seats"; tickg "$T/tk/seats-main.json" FT_TICK_MAG_SEATS="$T/tk/seats-planner.json" >/dev/null
+[ "$(tr -d '\n' < "$T/tk/ldc.seats")" = "$T/tk/seats-main.json" ] && ok "ⓖd 꺼짐 탐지는 틱 명부 그대로(MAG_SEATS 영향 0)" || bad "ⓖd: $(cat "$T/tk/ldc.seats")"
+# ⓖe 변이 — \$mseats 를 \$SEATS 로 되돌린 복사본 → ⓖb 가 FAIL(호출 0) 이어야 한다
+sed 's|grep -q .*_hil_route.*"\$mseats"|grep -q "\\"_hil_route\\": *\\"" "$SEATS"|' "$T/tk/bin/ft-tick.sh" > "$T/tk/bin/ft-tick-mut.sh"
+cp "$T/tk/bin/ft-tick.sh" "$T/tk/bin/ft-tick-orig.sh"; cp "$T/tk/bin/ft-tick-mut.sh" "$T/tk/bin/ft-tick.sh"
+MUT="$(tickg "$T/tk/seats-main.json" FT_TICK_MAG_SEATS="$T/tk/seats-planner.json")"; cp "$T/tk/bin/ft-tick-orig.sh" "$T/tk/bin/ft-tick.sh"
+cmp -s "$T/tk/bin/ft-tick-mut.sh" "$T/tk/bin/ft-tick-orig.sh" && bad "ⓖe 변이 sed 가 아무것도 안 바꿈" || { [ -z "$MUT" ] && ok "ⓖe 변이(\$mseats→\$SEATS) → ⓖb «호출 1» FAIL 을 시험이 잡음" || bad "ⓖe 변이가 안 잡힘: $MUT"; }
+# ⓖf 원본·설치 키트 ft-tick.sh 동일
+cmp -s "$BIN/ft-tick.sh" "$HERE/../../scripts/harness-install/fable-team/bin/ft-tick.sh" && ok "ⓖf 원본·설치 키트 ft-tick.sh cmp 0" || bad "ⓖf 원본·키트 불일치"
+
 [ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
