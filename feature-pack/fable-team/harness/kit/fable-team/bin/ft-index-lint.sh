@@ -135,7 +135,7 @@ for f in "$@"; do
     q="$(printf '%s' "$q" | sed 's/^ *//;s/ *$//')"
     [ "${#q}" -ge 20 ] || continue
     case "$LEDGER_N" in *"$q"*) hit=1; break;; esac
-  done < <(printf '%s\n' "$coords" | grep -oE '「[^」]+」' | sed 's/^「//;s/」$//')
+  done < <(printf '%s\n' "$coords" | python3 -c "import re,sys; [print(m) for m in re.findall('「([^」]+)」', sys.stdin.read())]")   # BSD grep 은 없는 locale(C)에서 [^」] 를 멀티바이트로 못 읽어 0건 — python 은 locale 무관(R175)
   [ "$hit" = 1 ] || bad+=("골좌표: 20자+ 닫는 증거 「…」 가 GOAL-LEDGER 에 없다(복붙이 아니다)")
   # ④ 배경 인용 수 — «정본 문서» 수만 센다(.md 경로). 백틱 코드 식별자는 읽을 문서가 아니다.
   n="$(section_body "$f" '배경' | grep -oE '[A-Za-z0-9_./\-]+\.md' | sort -u | wc -l | tr -d ' ')"

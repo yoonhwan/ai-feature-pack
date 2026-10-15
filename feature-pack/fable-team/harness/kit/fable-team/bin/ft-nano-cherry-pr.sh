@@ -33,8 +33,10 @@ _pr_hit() {
 cherry_squashed_pr_gate() {
   local repo="$1" feat="$2" nano="$3" pr="$4" reason="$5" pf="$6"
   local tag="REJECT cherry 게이트 --squashed-pr #$pr" js st S H mbase mb2 p t f b s mods
-  js="$(cd "$repo" && "${FT_CHERRY_GH:-gh}" pr view "$pr" --json state,mergeCommit,headRefOid 2>&1)" \
-    || { echo "$tag — gh pr view 실패: ${js:0:120}"; return 1; }
+  local ge; ge="$(mktemp)" || { echo "$tag — mktemp 실패"; return 1; }   # stderr 는 JSON 에 섞지 않는다(경고 한 줄이 jq 를 깬다) — 실패 때만 사유에 붙인다
+  js="$(cd "$repo" && "${FT_CHERRY_GH:-gh}" pr view "$pr" --json state,mergeCommit,headRefOid 2>"$ge")" \
+    || { js="$js$(cat "$ge")"; rm -f "$ge"; echo "$tag — gh pr view 실패: ${js:0:120}"; return 1; }
+  rm -f "$ge"
   st="$(jq -r '.state // empty' <<< "$js" 2>/dev/null)"; S="$(jq -r '.mergeCommit.oid // empty' <<< "$js" 2>/dev/null)"
   H="$(jq -r '.headRefOid // empty' <<< "$js" 2>/dev/null)"
   [ "$st" = MERGED ] || { echo "$tag — PR state=${st:-<없음>} (MERGED 아님)"; return 1; }

@@ -27,10 +27,19 @@ if out="$(bash "$SRC/install.sh" "$ROOT" 2>&1)"; then
    && cmp -s "$SRC/goal-lines-graphics.txt" "$ROOT/.fable-team/bin-graphics/goal-lines-graphics.txt" \
    && ok "② install.sh 3파일 cmp 0" || bad "② 설치 뒤 cmp 불일치"
 else bad "② install.sh rc!=0: $out"; fi
-# ②b 재설치 = .bak 보존 + 다시 cmp 0 (이미 있을 때 덮기)
-echo x >> "$ROOT/.fable-team/seats-graphics.json"
-bash "$SRC/install.sh" "$ROOT" >/dev/null 2>&1 && ls "$ROOT"/.fable-team/seats-graphics.json.bak-* >/dev/null 2>&1 \
-  && cmp -s "$SRC/seats-graphics.json" "$ROOT/.fable-team/seats-graphics.json" && ok "②b 재설치 .bak 보존 + cmp 0" || bad "②b 재설치"
+cp "$ROOT/.fable-team/seats-graphics.json" "$T/seats-first.json"   # ④ 는 ②b 와 독립인 첫 설치 사본을 파싱한다
+# ②b 재설치 (판정 690): 명부는 «있으면 SKIP·보존»(덮지 않음) · env·goal-lines 는 .bak-<ts> 뒤 덮기 → cmp 0
+echo x >> "$ROOT/.fable-team/seats-graphics.json"; cp "$ROOT/.fable-team/seats-graphics.json" "$T/seats-edited.json"
+echo x >> "$ROOT/.fable-team/bin-graphics/graphics-env.sh"; echo x >> "$ROOT/.fable-team/bin-graphics/goal-lines-graphics.txt"
+out2b="$(bash "$SRC/install.sh" "$ROOT" 2>&1)"; rc2b=$?
+{ [ "$rc2b" = 0 ] && grep -q '^SKIP seats-graphics.json' <<<"$out2b" \
+  && cmp -s "$T/seats-edited.json" "$ROOT/.fable-team/seats-graphics.json" \
+  && ! ls "$ROOT"/.fable-team/seats-graphics.json.bak-* >/dev/null 2>&1 \
+  && ls "$ROOT"/.fable-team/bin-graphics/graphics-env.sh.bak-* >/dev/null 2>&1 \
+  && ls "$ROOT"/.fable-team/bin-graphics/goal-lines-graphics.txt.bak-* >/dev/null 2>&1 \
+  && cmp -s "$SRC/graphics-env.sh" "$ROOT/.fable-team/bin-graphics/graphics-env.sh" \
+  && cmp -s "$SRC/goal-lines-graphics.txt" "$ROOT/.fable-team/bin-graphics/goal-lines-graphics.txt"; } \
+  && ok "②b 재설치: 명부 SKIP·내용 보존 · env/goal-lines .bak 뒤 덮기 cmp 0" || bad "②b 재설치 rc=$rc2b: $out2b"
 
 # ③ env source 뒤 변수 전부 비어 있지 않음 (FT_IMPL_MODEL 제외 — 비어 있어야 한다)
 envchk="$(env -u FT_NANO_PREFIX -u FT_IMPL_MODEL bash -c '
@@ -43,7 +52,7 @@ envchk="$(env -u FT_NANO_PREFIX -u FT_IMPL_MODEL bash -c '
 [ "$envchk" = "MISS:" ] && ok "③ env 변수 13개 비어 있지 않음 · FT_IMPL_MODEL 없음 · ROOT 경로 일치" || bad "③ $envchk"
 
 # ④ seats-graphics.json 파싱 + 필수 키
-python3 - "$ROOT/.fable-team/seats-graphics.json" <<'PY' && ok "④ seats-graphics.json 파싱 · _master/_hil_route/_cards 존재 · 좌석 0" || bad "④ seats-graphics.json"
+python3 - "$T/seats-first.json" <<'PY' && ok "④ seats-graphics.json 파싱 · _master/_hil_route/_cards 존재 · 좌석 0" || bad "④ seats-graphics.json"
 import json, sys
 d = json.load(open(sys.argv[1], encoding="utf-8"))
 for k in ("_master", "_hil_route", "_cards"):
@@ -82,19 +91,18 @@ if [ "$prc" = 0 ] && grep -q "^ENV team=graphics prefix=byz-graphics-nano-" <<<"
   ok "⑥ spawn --dry-run: $(grep '^PLAN ' <<<"$plan" | cut -c1-160)"
 else bad "⑥ spawn --dry-run rc=$prc: $plan"; fi
 
-# ⑦ staged governance — 설계 5 의 4곳만(추가 줄만 · 정본과 diff 가 그 4곳). 설치 뒤에는 정본이 같아져 diff 0 도 통과.
-for pat in '판정 649' 'graphics = master 0' '^| graphics | `byz-graphics-`' 'graphics 좌석이 열려 있는 동안'; do
+# ⑦ staged governance 의 graphics 4곳 — staged 에 있고(기존 줄 유지) 라이브 정본에도 실제로 들어갔다.
+#   (staged 는 설치 «당시» 사본이라 라이브와의 전체 diff 는 이후 판정으로 시간이 지나면 반드시 깨진다 — 4곳 포함 여부만 본다.)
+#   판정 690 이 4곳 중 2곳(「graphics = master 0」·「graphics 좌석이 열려 있는 동안」)을 팀장 신설 문구로 대체했다 — 라이브는 그 «대체 문구» 로 단언한다.
+STAGED_PATS=('판정 649' 'graphics = master 0' '^| graphics | `byz-graphics-`' 'graphics 좌석이 열려 있는 동안')
+LIVE_PATS=('판정 649' 'graphics 팀장 = `byz-graphics-master-claude#N`' '^| graphics | `byz-graphics-`' 'graphics 는 팀장(`seats-graphics.json` `_master`)이')
+for i in 0 1 2 3; do
+  pat="${STAGED_PATS[$i]}"; lpat="${LIVE_PATS[$i]}"
   grep -q -- "$pat" "$STAGED_GOV" && ok "⑦ staged 에 «${pat}»" || bad "⑦ staged 에 «${pat}» 없음"
+  if [ -f "$LIVE_GOV" ]; then
+    grep -q -- "$lpat" "$LIVE_GOV" && ok "⑦ 라이브 정본에 «${lpat}»" || bad "⑦ 라이브 정본에 «${lpat}» 없음"
+  else bad "⑦ 정본 없음: $LIVE_GOV"; fi
 done
-if [ -f "$LIVE_GOV" ]; then
-  d="$(diff "$LIVE_GOV" "$STAGED_GOV")"; drc=$?
-  if [ "$drc" = 0 ]; then ok "⑦ 정본과 staged 동일(이미 설치됨)"
-  else
-    removed="$(grep -c '^<' <<<"$d")"; hunks="$(grep -cE '^[0-9]+(,[0-9]+)?a[0-9]+' <<<"$d")"
-    { [ "$removed" = 0 ] && [ "$hunks" = 4 ] && [ "$(grep -c '^[0-9]' <<<"$d")" = 4 ]; } \
-      && ok "⑦ 정본 대비 추가 hunk 4개 · 삭제 0" || bad "⑦ diff 가 4곳 추가가 아니다 (삭제 $removed · hunk $hunks)"
-  fi
-else bad "⑦ 정본 없음: $LIVE_GOV"; fi
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED"
 exit $fail
