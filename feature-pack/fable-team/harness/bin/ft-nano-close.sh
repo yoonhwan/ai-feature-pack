@@ -93,8 +93,11 @@ _wt_clean_plan() {
     printf '# plan-ver: %s\n' "$planver"
     printf '# baton 부작용(승인 범위에 명시): 아카이브 30일 초과분 prune · 분기 원장(.baton/branches.json) 의 같은 child_branch 행 status=abandoned.\n'
     # FT_NANO_WIP 는 close 실행 시점 값을 계획에 «굽는다» — sweep 은 나중 다른 프로세스/환경에서 돌아 close 의 env 를 못 물려받는다.
-    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")" "$HERE/ft-wt-sweep.sh"
+    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver"
     cat <<'SH'
+# r173 자기검사 — 어떤 동작보다 먼저: 생성기의 «지금» blob sha 가 굽힌 plan-ver 와 같을 때만 계속한다(사람이 bash 로 직접 실행하는 .sh.hil 도 sweep 을 거치지 않고 여기서 멈춘다). 비교 불능(생성기 없음·hash 실패·빈 plan-ver)도 STALE.
+_lv="$(git hash-object -- "$GEN" 2>/dev/null)" || _lv=""
+[ -n "$_lv" ] && [ "$_lv" = "$PLANVER" ] || { echo "STALE $SEAT — 옛 생성기 계획 실행 거부(plan-ver=${PLANVER:-없음} ≠ 라이브 생성기=${_lv:-없음}) · 재생성: ft-nano-close.sh $SEAT 를 다시 돌려 새 계획을 만든다"; exit 3; }
 set -uo pipefail
 BATON="${BATON_BIN:-$HOME/.baton/current/bin/baton}"
 # ★변수명 TMUX 금지★ — tmux 가 $TMUX 를 소켓 경로로 읽는다(r3 시험에서 «error connecting to /opt/homebrew/bin/tmux» 실측). 바이너리는 TMUX_BIN.
