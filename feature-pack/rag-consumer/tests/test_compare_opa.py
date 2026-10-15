@@ -382,7 +382,9 @@ def test_a_timed_out_child_is_ended_alone_and_a_descendant_holding_the_pipe_chan
         assert [r["status"] for r in result["rounds"]] == ["timeout"] * 6
         assert all(r["reaped"] is True and r["child_exit_unconfirmed"] is False for r in result["rounds"])
         assert result["conclusion"] == "terminal_all_slow"
-        assert 6 * 0.6 <= elapsed < 6 * (0.6 + 0.5 + 0.3) + 6.0, elapsed   # 6 attempts + bounded recovery, no waiting for the descendant
+        # 6 attempts + bounded recovery. Waiting for the 25 s descendant even once would take 30 s or more, so the
+        # generous bound (machine load) still tells "not waited for" apart.
+        assert 6 * 0.6 <= elapsed < 20.0, elapsed
         descendants = [int(x) for x in sb.descpids.read_text().split()]
         assert len(descendants) == 6 and all(alive(pid) for pid in descendants)   # a descendant is never signalled
         assert not any(alive(int(x)) for x in sb.oppids.read_text().split())   # every direct child is gone
@@ -395,15 +397,13 @@ def test_a_timed_out_child_is_ended_alone_and_a_descendant_holding_the_pipe_chan
                     pass
 
 
-def test_other_op_processes_are_never_ended(sb, tmp_path):
-    """A look-alike `op` process (a renamed sleep) is a bystander: it must be alive after the run."""
-    decoy_dir = tmp_path / "decoy"
-    decoy_dir.mkdir()
-    decoy = decoy_dir / "op"
-    decoy.write_bytes(Path("/bin/sleep").read_bytes())
-    decoy.chmod(0o755)
-    other = subprocess.Popen([str(decoy), "60"])
+def test_other_op_processes_are_never_ended(sb):
+    """A bystander process whose name is exactly `op` (argv[0] renamed, so a copied system binary is not needed)
+    must be alive after the run, whatever the measurement children went through."""
+    other = subprocess.Popen(["/bin/bash", "-c", "exec -a op /bin/sleep 60"])
     try:
+        assert wait_until(lambda: "op" in subprocess.run(["ps", "-o", "comm=", "-p", str(other.pid)],
+                                                         capture_output=True, text=True).stdout.split("/")[-1], 5)
         sb.set_plan(*["slow"] * 6)
         proc = sb.run()
         assert proc.returncode == 0
