@@ -173,7 +173,7 @@ tick() {
   swap=$(printf '%s' "$gout" | sed -n 's/.*swap=\([0-9]*\).*/\1/p')
   memfree=$(printf '%s' "$gout" | sed -n 's/.*memfree=\([0-9]*\).*/\1/p')
   case "$disk$swap$memfree" in ''|*[!0-9]*) logline "ERROR parse gate=$gout"; exit 4;; esac
-  now=$(now_epoch)
+  now=$(now_epoch); FT_RES_ROOT="$RES_ROOT" bash "$HERE/ft-disk-alarm.sh" >/dev/null 2>&1 || logline "ERROR ft-disk-alarm rc=$? (tick 은 계속)"   # R246 쪽지 경보 · 동결 분기보다 먼저
 
   trig=0
   [ "$disk" -lt "$DISK_MIN" ] && trig=1
