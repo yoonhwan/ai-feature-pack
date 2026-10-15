@@ -13,12 +13,15 @@ import sys
 from typing import NamedTuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_secret_lex import W, scan, strip_heredocs  # noqa: E402
+try:  # 동봉 모듈이 빠진 설치 — reject(rc1)와 섞이지 않게 내부 오류 rc2 (호출자 fail-open)
+    from ft_secret_lex import W, scan, strip_heredocs
+    from ft_secret_sinks import nested, sinks
+    from ft_secret_targets import secret_path, target
+except ImportError as e:
+    print("ft_secret_judge 내부 오류: %s" % type(e).__name__, file=sys.stderr)
+    sys.exit(2)
 
 HINT = ' · 값은 변수에만: X="$(… 2>"$ERR")" · 확인은 ${#X}/[ -n "$X" ] · BOOT 22'
-NAME = re.compile(r"PASSWORD|PASS|TOKEN|SECRET|DSN|KEY", re.I)
-SECRET_VAR = re.compile(r"\$\{?[A-Za-z_]*(?:" + NAME.pattern + ")", re.I)
-READERS = {"cat", "head", "tail", "less", "more", "bat", "nl", "tac", "strings", "od", "xxd", "grep", "egrep", "fgrep"}
 SKIP = {"if", "then", "elif", "else", "while", "until", "do", "fi", "done", "!", "{", "}", "time", "sudo", "command", "builtin", "exec", "nohup"}
 DECL = {"export", "local", "declare", "readonly", "typeset"}
 EXEMPT = {"unset", "[", "[[", "test", "export", "read", "exit", "return", "set", "true", "false", ":"}
@@ -74,54 +77,24 @@ def out_state(redirs: list[tuple[str, str, str]]) -> tuple[bool, bool]:  # → (
     return to_file, early
 
 
-def secret_path(p: str) -> bool:
-    b = p.rsplit("/", 1)[-1]
-    if re.search(r"(^|/)secrets/", p) or p.endswith(".cred"):
-        return True
-    if re.fullmatch(r"\.env(\..+)?", b):
-        return not b.endswith((".example", ".sample", ".template"))
-    return "token" in b and not b.endswith((".md", ".py", ".sh", ".ts", ".js", ".html"))
-
-
-def target(a: list[W]) -> str | None:  # 비밀을 stdout 으로 내는 모양이면 고정 이름, 아니면 None
-    if not a:
-        return None
-    h, r = a[0], a[1:]
-    pos = [x for x in r if not x.startswith("-")]
-    if h in ("secret", "ft-secret"):
-        return "래퍼 secret 의 맨 호출"
-    if h == "gcloud" and any(r[i:i + 3] == ["secrets", "versions", "access"] for i in range(len(r))):
-        return "gcloud secrets versions access"
-    if h == "op" and (r[:1] == ["read"] or ("item" in r and "get" in r and any(x.startswith("--reveal") for x in r))):
-        return "op 비밀 조회"
-    if h == "security" and r[:1] in (["find-generic-password"], ["find-internet-password"]) and any(re.fullmatch(r"-[a-zA-Z]*[wg][a-zA-Z]*", x) for x in r):
-        return "security 비밀번호 조회"
-    if h == "gh" and r[:2] == ["auth", "token"]:
-        return "gh auth token"
-    if h == "printenv" and (not pos or any(NAME.search(x) for x in pos)):
-        return "printenv 의 비밀 출력"
-    if h == "env" and not pos:
-        return "env 전체 출력"
-    if h in ("echo", "printf") and any(SECRET_VAR.search(x) for x in r):
-        return h + " 로 비밀 변수 출력"
-    if h in READERS:
-        grep = h.endswith("grep")
-        if grep and any(re.fullmatch(r"-[a-zA-Z]*[qclL][a-zA-Z]*", x) or x in ("--quiet", "--count", "--files-with-matches") for x in r):
-            return None  # 내용 없이 개수·이름만 나온다
-        if any(secret_path(x) for x in (pos[1:] if grep else pos)):
-            return h + " 로 비밀 파일 내용 출력"
-    return None
+def leak(s: Seg) -> str | None:  # 비밀을 stdout 으로 내는 모양이면 고정 이름 — `< 비밀경로` 는 파일 인자와 같이 본다
+    stdin = [x for fd, op, x in s.redirs if op == "<" and fd in ("", "0") and secret_path(x)]
+    return target(s.args + [W(x) for x in stdin]) or sinks(s.args, stdin)
 
 
 def has_target(t: str) -> bool:
-    return any(target(s.args) or any(has_target(x) for x in s.arg_subs) for s in parse(t))
+    return any(leak(s) or any(has_target(x) for x in s.arg_subs) for s in parse(t))
 
 
-def check(t: str) -> list[tuple[int, str]]:  # → [(시작 위치, 이유)]
+def check(t: str, depth: int = 0) -> list[tuple[int, str]]:  # → [(시작 위치, 이유)] · depth = bash -c·eval 본문 재판정 단계(상한 2)
     found = []
     for s in parse(t):
-        why, (to_file, early) = target(s.args), out_state(s.redirs)
-        if why and early:
+        why, (to_file, early) = leak(s), out_state(s.redirs)
+        inner = nested(s.args) if depth < 2 and not why and not to_file else ""
+        sub = check(inner, depth + 1) if inner else []
+        if sub:
+            found.append((s.start, s.args[0] + " 본문 안에서 " + sub[0][1]))
+        elif why and early:
             found.append((s.start, why + " — 2>&1 이 > 보다 앞섬"))
         elif why and not to_file:
             found.append((s.start, why + " 출력이 화면·파이프로 감"))
