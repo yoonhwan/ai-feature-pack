@@ -89,8 +89,8 @@ def main(argv: list[str]) -> int:
         )
         (STATE / f"{plist['Label']}.json").write_text(
             json.dumps({"pid": job.pid, "args": plist["ProgramArguments"], "plist": argv[2]}), encoding="utf-8")
-        if os.environ.get("FAKE_LC_BOOTSTRAP_SIGNAL") == "INT":
-            os.kill(os.getppid(), signal.SIGINT)
+        if os.environ.get("FAKE_LC_BOOTSTRAP_SIGNAL") == "INT":  # like Ctrl-C: the whole foreground group
+            os.killpg(os.getpgid(0), signal.SIGINT)
         return 0
     if command == "bootout":
         nap("FAKE_LC_BOOTOUT_SLEEP")

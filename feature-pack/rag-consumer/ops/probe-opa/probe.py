@@ -14,6 +14,7 @@ Modes:  --run DIR | --close-timeout DIR | --report DIR | --list-pids DIR | --val
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import os
@@ -28,11 +29,21 @@ import sys
 import time
 
 SCHEMA_VERSION = 1
-SELFTEST = os.environ.get("PROBE_SELFTEST") == "1"
+
+
+def _argv_mode(argv: list[str]) -> str:
+    """The worker's mode comes only from the explicit ``--mode`` argument the wrapper put in the job's arguments."""
+    if "--mode" in argv and argv.index("--mode") + 1 < len(argv):
+        return "selftest" if argv[argv.index("--mode") + 1] == "selftest" else "production"
+    return "production"
+
+
+MODE = _argv_mode(sys.argv)
+SELFTEST = MODE == "selftest"
 
 
 def override(name: str, default):
-    """Test hooks: honoured only under --selftest; a real run always uses the default."""
+    """Test hooks: honoured only when the worker was started with ``--mode selftest``."""
     return os.environ.get(name, default) if SELFTEST else default
 
 
@@ -41,8 +52,10 @@ ATTEMPT_S = float(override("PROBE_T_ATTEMPT", 7.0))
 REAP_WAIT_S = float(override("PROBE_T_REAP", 2.0))
 PIPE_DRAIN_S = float(override("PROBE_T_PIPE", 1.0))
 LOCAL_BUDGET_S = float(override("PROBE_T_LOCAL", 15.0))
+TCC_TAIL_S = float(override("PROBE_T_TAIL", 2.0))  # the observation window ends this long after the stage
 LOG_CALL_S = 3.0
 LOCAL_CALL_S = 3.0
+PS_CALL_S = 1.0
 P4_HOST, P4_PORT = "my.1password.com", 443
 
 STATUSES = (
@@ -70,7 +83,8 @@ CONCLUSION_TEXT = {
     "observation_unknown": "결과 없음/불완전 — 관측 미확정",
 }
 # The only exception class names a result may carry; anything else is recorded as plain ``Exception``.
-ERROR_CLASSES = ("OSError", "ValueError", "KeyError", "TypeError", "RuntimeError", "Exception")
+ERROR_CLASSES = ("OSError", "ValueError", "KeyError", "TypeError", "RuntimeError", "Exception",
+                 "AmbientOverrideRefused")
 OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
 VERSION = re.compile(r"^\d+\.\d+\.\d+")
 AUTH_MARKERS = ("unauthorized", "not signed in", "invalid token", "invalid service account", "authenticat",
@@ -78,9 +92,10 @@ AUTH_MARKERS = ("unauthorized", "not signed in", "invalid token", "invalid servi
 NETWORK_MARKERS = ("dial tcp", "no such host", "network is unreachable", "connection refused", "connection reset",
                    "i/o timeout", "tls", "could not resolve", "temporary failure in name resolution",
                    "no route to host", "timed out")
-TCC_RELEVANT = ("1password", "2bua8c4s2c", "kTCCServiceSystemPolicyAppData".lower())
+APPDATA_SERVICE = "kTCCServiceSystemPolicyAppData"
 TCC_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d")
-PID_FIELD = re.compile(r"pid[=: ]+(\d+)")
+MSG_ID = re.compile(r"msgID=([0-9.]+)")
+PID_FIELD = re.compile(r"pid=(\d+)")
 
 
 # --------------------------------------------------------------------------------------------------- files
@@ -101,8 +116,11 @@ def now_ms() -> int:
 def ps_line(pid: int) -> str:
     """``lstart comm`` exactly as the shell cleanup will compare it ('' when unavailable)."""
     try:
+        # LC_ALL=C on both sides (here and in probe.sh): lstart is printed in the caller's locale, and the shell
+        # compares this text with its own ps output.
         done = subprocess.run(["ps", "-o", "lstart=,comm=", "-p", str(pid)], capture_output=True, text=True,
-                              timeout=LOCAL_CALL_S, stdin=subprocess.DEVNULL)
+                              timeout=PS_CALL_S, stdin=subprocess.DEVNULL,
+                              env={"LC_ALL": "C", "PATH": os.environ.get("PATH", "/usr/bin:/bin")})
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return done.stdout.strip() if done.returncode == 0 else ""
@@ -135,22 +153,36 @@ class PidBook:
 
 
 class Budget:
+    """The local observation budget: only time spent observing is charged (TCC window waits, log, local commands,
+    pipe drains). Waiting for P4 or an op never uses it up."""
+
     def __init__(self, seconds: float):
-        self.end = time.monotonic() + seconds
+        self.total = seconds
+        self.spent = 0.0
 
     def remaining(self) -> float:
-        return max(0.0, self.end - time.monotonic())
+        return max(0.0, self.total - self.spent)
+
+    @contextlib.contextmanager
+    def charge(self):
+        started = time.monotonic()
+        try:
+            yield
+        finally:
+            self.spent += time.monotonic() - started
 
 
 # ------------------------------------------------------------------------------------------- the children
 def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, budget: Budget) -> dict:
-    """One attempt, no retry: ``communicate(timeout=ATTEMPT_S)``; recovery after a timeout is always finite.
+    """One attempt, no retry, one deadline fixed *before* the process starts (start-up and the PID record are
+    part of the 7 seconds; only what is left is handed to ``communicate``).
 
     kill() touches the direct child only. Exit confirmation (wait) and pipe draining are separate and each
     bounded; a descendant that keeps the pipe open is never waited for (the read ends are just closed).
     """
     info = {"status": "observation_unknown", "rc": None, "child_pid": None, "child_exited": None, "reaped": False,
             "child_exit_unconfirmed": False, "descendants_may_hold_pipe": False, "stdout": b"", "stderr": b""}
+    deadline = time.monotonic() + ATTEMPT_S
     book.before(step)
     try:
         proc = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -161,12 +193,16 @@ def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, bu
         return info
     book.after(step, proc.pid)
     info["child_pid"] = proc.pid
-    try:
-        info["stdout"], info["stderr"] = proc.communicate(timeout=ATTEMPT_S)
-        info.update(rc=proc.returncode, child_exited=True, reaped=True, status="success")
-        return info
-    except subprocess.TimeoutExpired:
-        info["status"] = "timeout"
+    remaining = deadline - time.monotonic()
+    timed_out = remaining <= 0
+    if not timed_out:
+        try:
+            info["stdout"], info["stderr"] = proc.communicate(timeout=remaining)
+            info.update(rc=proc.returncode, child_exited=True, reaped=True, status="success")
+            return info
+        except subprocess.TimeoutExpired:
+            timed_out = True
+    info["status"] = "timeout"
     proc.kill()  # the direct child only: never a group, never a shared daemon, never a descendant
     try:
         proc.wait(timeout=REAP_WAIT_S)
@@ -175,7 +211,8 @@ def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, bu
         info.update(child_exited=False, child_exit_unconfirmed=True)
     if info["child_exited"]:
         try:
-            proc.communicate(timeout=min(budget.remaining(), PIPE_DRAIN_S))
+            with budget.charge():
+                proc.communicate(timeout=min(budget.remaining(), PIPE_DRAIN_S))
         except subprocess.TimeoutExpired:
             info["descendants_may_hold_pipe"] = True
     else:
@@ -256,38 +293,62 @@ def local_run(argv: list[str], budget: Budget):
     if timeout <= 0:
         return None
     try:
-        return subprocess.run(argv, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
+        with budget.charge():
+            return subprocess.run(argv, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired):
         return None
 
 
+def classify_tcc(text: str, pids: set[int]) -> str:
+    """AppData requests only, each tied by msgID to its own attribution line; other services never count.
+    Any other TCC line in the window is the positive control that makes "none" meaningful."""
+    groups: dict[str, list[str]] = {}
+    total = 0
+    for line in text.splitlines():
+        if not TCC_LINE.match(line):
+            continue
+        total += 1
+        found = MSG_ID.search(line)
+        if found:
+            groups.setdefault(found.group(1), []).append(line)
+    if total == 0:
+        return "unknown_log_unavailable"
+    appdata = [lines for lines in groups.values() if any(APPDATA_SERVICE in line for line in lines)]
+    if not appdata:
+        return "none_logged_ok"
+    for lines in appdata:
+        for line in lines:
+            if "attribution=" in line and any(int(found) in pids for found in PID_FIELD.findall(line)):
+                return "seen_attributed"
+    return "seen_unattributed"
+
+
 def observe_tcc(start_wall: float, end_wall: float, pids: set[int], budget: Budget) -> str:
-    """Window [start-0.5 s, end+2 s]. ``none_logged_ok`` needs another TCC line as a positive control."""
+    """Window [start-0.5 s, end+tail]. The window must really have closed before the log is asked (wait for it,
+    charged to the observation budget); if it cannot be secured inside the budget the answer is unknown."""
+    wait = max(0.0, end_wall + TCC_TAIL_S - time.time())
+    if wait + 0.3 > budget.remaining():
+        return "unknown_log_unavailable"
+    if wait > 0:
+        with budget.charge():
+            time.sleep(wait)
+    timeout = min(LOG_CALL_S, budget.remaining())
+    if timeout <= 0.2:
+        return "unknown_log_unavailable"
     stamp = "%Y-%m-%d %H:%M:%S"
     first = time.strftime(stamp, time.localtime(math.floor(start_wall - 0.5)))
-    last = time.strftime(stamp, time.localtime(math.ceil(end_wall + 2.0)))
-    timeout = min(LOG_CALL_S, budget.remaining())
-    if timeout <= 0:
-        return "unknown_log_unavailable"
+    last = time.strftime(stamp, time.localtime(math.ceil(end_wall + TCC_TAIL_S)))
     try:
-        done = subprocess.run(
-            [override("PROBE_LOG_BIN", "/usr/bin/log"), "show", "--start", first, "--end", last, "--predicate",
-             'subsystem == "com.apple.TCC"', "--style", "compact"],
-            capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
+        with budget.charge():
+            done = subprocess.run(
+                [override("PROBE_LOG_BIN", "/usr/bin/log"), "show", "--info", "--debug", "--start", first, "--end",
+                 last, "--predicate", 'subsystem == "com.apple.TCC"', "--style", "compact"],
+                capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired):
         return "unknown_log_unavailable"
     if done.returncode != 0:
         return "unknown_log_unavailable"
-    lines = [line for line in done.stdout.decode("utf-8", "replace").splitlines() if TCC_LINE.match(line)]
-    if not lines:
-        return "unknown_log_unavailable"
-    relevant = [line for line in lines if any(word in line.lower() for word in TCC_RELEVANT)]
-    if not relevant:
-        return "none_logged_ok"
-    for line in relevant:
-        if any(int(found) in pids for found in PID_FIELD.findall(line)):
-            return "seen_attributed"
-    return "seen_unattributed"
+    return classify_tcc(done.stdout.decode("utf-8", "replace"), pids)
 
 
 def snapshot(budget: Budget) -> dict:
@@ -326,30 +387,73 @@ def blank_step(step: str, status: str) -> dict:
             "descendants_may_hold_pipe": False, "account_type_confirmed": None, "tcc_observation": None}
 
 
-def stage_p4() -> dict:
-    step = blank_step("P4", "observation_unknown")
-    started_wall, started = time.time(), time.monotonic()
+def _connect(address, timeout: float):
+    return socket.create_connection(address, timeout=timeout)
+
+
+def _handshake(sock, host: str, timeout: float) -> None:
+    sock.settimeout(timeout)
+    ssl.create_default_context().wrap_socket(sock, server_hostname=host).close()
+
+
+def p4_attempt(host: str, port: int, deadline: float, *, now=time.monotonic, resolve=socket.getaddrinfo,
+               connect=_connect, handshake=_handshake) -> str:
+    """Name lookup, TCP connect and TLS handshake inside one deadline; a step is never started once it is spent."""
+    try:
+        if deadline - now() <= 0:
+            return "timeout"
+        infos = resolve(host, port, type=socket.SOCK_STREAM)
+        if deadline - now() <= 0:
+            return "timeout"
+        sock = connect(infos[0][4][:2], deadline - now())
+        try:
+            if deadline - now() <= 0:
+                return "timeout"
+            handshake(sock, host, deadline - now())
+        finally:
+            sock.close()
+        return "success"
+    except (socket.timeout, TimeoutError):
+        return "timeout"
+    except (socket.gaierror, ConnectionError, ssl.SSLError, OSError):
+        return "network_error"
+
+
+P4_EXIT = {0: "success", 3: "network_error", 4: "timeout"}
+
+
+def p4_worker(host: str, port: int, seconds: float) -> int:
+    deadline = time.monotonic() + seconds
+    if SELFTEST and os.environ.get("PROBE_P4_FAKE_DNS_SLEEP"):  # test hook: a name lookup that hangs
+        time.sleep(float(os.environ["PROBE_P4_FAKE_DNS_SLEEP"]))
+    status = p4_attempt(host, port, deadline)
+    return {value: key for key, value in P4_EXIT.items()}.get(status, 3)
+
+
+def classify_p4(info: dict) -> tuple[str, bool | None]:
+    if info["status"] != "success":
+        return info["status"], None
+    return P4_EXIT.get(info["rc"], "observation_unknown"), None
+
+
+def stage_p4(book: PidBook, budget: Budget) -> dict:
     stub = override("PROBE_P4_STUB", None)
     if stub:
-        status = stub if stub in STATUSES else "observation_unknown"
-    else:
-        deadline = started + ATTEMPT_S
-        try:
-            raw = socket.create_connection((P4_HOST, P4_PORT), timeout=max(0.01, deadline - time.monotonic()))
-            raw.settimeout(max(0.01, deadline - time.monotonic()))
-            with ssl.create_default_context().wrap_socket(raw, server_hostname=P4_HOST):
-                status = "success"
-        except (socket.timeout, TimeoutError):
-            status = "timeout"
-        except (socket.gaierror, ConnectionError, ssl.SSLError, OSError):
-            status = "network_error"
-    step.update(status=status, elapsed_ms=int((time.monotonic() - started) * 1000),
-                started_utc_ms=int(started_wall * 1000), ended_utc_ms=now_ms())
-    return step
+        step = blank_step("P4", stub if stub in STATUSES else "observation_unknown")
+        return step
+    host = override("PROBE_P4_HOST", P4_HOST)
+    port = int(override("PROBE_P4_PORT", P4_PORT))
+    argv = [sys.executable, "-I", os.path.abspath(__file__), "--p4-worker", host, str(port), str(ATTEMPT_S)]
+    if SELFTEST:
+        argv += ["--mode", "selftest"]
+    env = {name: os.environ[name] for name in ("PATH", "HOME", "TMPDIR") if name in os.environ}
+    if SELFTEST and os.environ.get("PROBE_P4_FAKE_DNS_SLEEP"):
+        env["PROBE_P4_FAKE_DNS_SLEEP"] = os.environ["PROBE_P4_FAKE_DNS_SLEEP"]
+    return stage_cli("P4", argv, env, classify_p4, book, budget, observe=False)
 
 
 def stage_cli(name: str, argv: list[str] | None, env: dict[str, str], classify, book: PidBook,
-              budget: Budget, *, blocked: str | None = None) -> dict:
+              budget: Budget, *, blocked: str | None = None, observe: bool = True) -> dict:
     step = blank_step(name, "observation_unknown")
     started_wall, started = time.time(), time.monotonic()
     if blocked is not None:  # a precondition failed before anything was started
@@ -364,7 +468,7 @@ def stage_cli(name: str, argv: list[str] | None, env: dict[str, str], classify, 
         child_exited=info["child_exited"], reaped=info["reaped"], child_exit_unconfirmed=info["child_exit_unconfirmed"],
         descendants_may_hold_pipe=info["descendants_may_hold_pipe"], account_type_confirmed=confirmed,
     )
-    if info["child_pid"] is not None:
+    if info["child_pid"] is not None and observe:
         step["tcc_observation"] = observe_tcc(started_wall, ended_wall, book.pids(), budget)
     return step
 
@@ -410,7 +514,7 @@ def conclude(steps: dict[str, dict]) -> str:
 
 def new_result() -> dict:
     return {"schema_version": SCHEMA_VERSION, "steps": [], "s0": {}, "complete": False, "tcc_unknown": False,
-            "conclusion": "observation_unknown", "timed_out_wait": False, "aborted_class": None}
+            "conclusion": "observation_unknown", "timed_out_wait": False, "aborted_class": None, "mode": MODE}
 
 
 def execute(directory: Path) -> None:
@@ -419,6 +523,11 @@ def execute(directory: Path) -> None:
     budget = Budget(LOCAL_BUDGET_S)
     result = new_result()
     done: dict[str, dict] = {}
+    if MODE == "production" and any(name.startswith(("PROBE_", "FAKE_")) for name in os.environ):
+        # Test switches in a production worker's environment: nothing is run, the refusal is the result.
+        result.update(complete=True, aborted_class="AmbientOverrideRefused")
+        write_json_atomic(result_path, result)
+        return
 
     def save(complete: bool = False) -> None:
         result["steps"] = [done[n] for n in STEPS if n in done]
@@ -432,7 +541,7 @@ def execute(directory: Path) -> None:
     try:
         result["s0"] = snapshot(budget)
         save()
-        done["P4"] = stage_p4()
+        done["P4"] = stage_p4(book, budget)
         save()
         token = read_token()
         op = override("PROBE_OP_BIN", None) or shutil.which("op", path=os.environ.get("PATH"))
@@ -504,6 +613,7 @@ TOP_FIELDS = {
     "schema_version": lambda v: v == SCHEMA_VERSION, "complete": lambda v: type(v) is bool,
     "tcc_unknown": lambda v: type(v) is bool, "conclusion": lambda v: v in CONCLUSIONS,
     "timed_out_wait": lambda v: type(v) is bool, "aborted_class": lambda v: v is None or v in ERROR_CLASSES,
+    "mode": lambda v: v in ("production", "selftest"),
 }
 
 
@@ -548,6 +658,7 @@ def close_on_timeout(directory: Path) -> None:
 def report(directory: Path) -> int:
     result = read_result(directory)
     out = ["== 1Password 연결 점검 프로브 결과 (후보 축소일 뿐 — 변경 보류가 기본, 진단 성공은 운영 재개 승인이 아님) =="]
+    out.append(f"mode={result['mode']}" + (f" 중단={result['aborted_class']}" if result["aborted_class"] else ""))
     if not result["steps"] and not result["s0"]:
         out.append("결과 없음/불완전: observation_unknown")
     else:
@@ -579,9 +690,31 @@ def list_pids(directory: Path) -> int:
     return 0
 
 
+def bounded(cap: float, argv: list[str]) -> int:
+    """Run ``argv`` for at most ``cap`` seconds (the direct child only is ended); print its output; 124 on timeout."""
+    try:
+        done = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              timeout=cap)
+    except subprocess.TimeoutExpired:
+        return 124
+    except OSError:
+        return 127
+    sys.stdout.write(done.stdout.decode("utf-8", "replace"))
+    return done.returncode
+
+
 def main(argv: list[str]) -> int:
+    usage = ("usage: probe.py --run DIR --mode production|selftest | --close-timeout DIR | --report DIR | "
+             "--list-pids DIR | --validate FILE | --bounded SECONDS -- CMD... | --p4-worker HOST PORT SECONDS\n")
+    if len(argv) >= 4 and argv[0] == "--bounded" and argv[2] == "--":
+        return bounded(float(argv[1]), argv[3:])
+    if "--mode" in argv:  # the explicit mode argument was already read at import; drop it here
+        index = argv.index("--mode")
+        argv = argv[:index] + argv[index + 2:]
+    if len(argv) == 4 and argv[0] == "--p4-worker":
+        return p4_worker(argv[1], int(argv[2]), float(argv[3]))
     if len(argv) != 2:
-        sys.stderr.write("usage: probe.py --run|--close-timeout|--report|--list-pids DIR | --validate FILE\n")
+        sys.stderr.write(usage)
         return 2
     mode, target = argv
     if mode == "--run":

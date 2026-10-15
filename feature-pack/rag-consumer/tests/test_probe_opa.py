@@ -103,8 +103,9 @@ modes = pathlib.Path({str(self.seq)!r}).read_text().split()
 mode = modes[n - 1] if n <= len(modes) else modes[-1]
 if mode == "fail":
     sys.exit(1)
-pids = pathlib.Path({str(self.oppids)!r})
-mine = pids.read_text().split()[-1] if pids.exists() and pids.read_text().split() else "0"
+recorded = sorted(pathlib.Path({str(self.base)!r}).glob("*/pids.json"), key=lambda path: path.stat().st_mtime)
+children = json.loads(recorded[-1].read_text()).get("children") if recorded else None
+mine = str(children[-1]["pid"]) if children else "0"  # the probe's own record: independent of the stub's start-up
 def group(msg, service, pid):
     ts = "2026-10-15 17:00:01.000000+0900 0x1f3      Info        0x0                  412    0    tccd: [com.apple.TCC:access] "
     print(ts + f"AUTHREQ_CTX: msgID={{msg}}, function=TCCAccessRequest, service={{service}}, preflight=no, query=0,")
@@ -120,7 +121,8 @@ elif mode == "split_unlinked":  # AppData ctx under one msgID, our pid only unde
     group("412.1", "kTCCServiceSystemPolicyAppData", "1")
     group("413.1", "kTCCServiceCamera", mine)
 """
-        return self.script("log", "exec \"" + sys.executable + "\" -c " + repr(code) + " \"$@\"\n")
+        (self.bin / "log_stub.py").write_text(code, encoding="utf-8")
+        return self.script("log", f'exec "{sys.executable}" "{self.bin / "log_stub.py"}" "$@"\n')
 
     def set_tcc(self, *modes: str) -> None:
         self.seq.write_text("\n".join(modes) + "\n", encoding="utf-8")
@@ -131,7 +133,7 @@ elif mode == "split_unlinked":  # AppData ctx under one msgID, our pid only unde
             "PROBE_BASE": str(self.base), "PROBE_OP_BIN": str(self.op), "PROBE_TOKEN_FILE": str(self.token_file),
             "PROBE_LAUNCHCTL": str(self.launchctl), "PROBE_LOG_BIN": str(self.logbin), "PROBE_PYTHON": sys.executable,
             "PROBE_P4_STUB": "success",
-            "PROBE_T_ATTEMPT": "1.5", "PROBE_T_REAP": "0.5", "PROBE_T_PIPE": "0.3", "PROBE_T_LOCAL": "8",
+            "PROBE_T_ATTEMPT": "3", "PROBE_T_REAP": "0.5", "PROBE_T_PIPE": "0.3", "PROBE_T_LOCAL": "8",
             "PROBE_T_TAIL": "0.3", "PROBE_T_CALL": "3",
             "PROBE_T_START": "4", "PROBE_T_RESULT": "20", "PROBE_T_CLEAN": "10",
             "FAKE_LC_STATE": str(self.state),
@@ -535,7 +537,8 @@ def log_calls(sb: Sandbox) -> list[dict]:
 
 
 def process_line(pid: int) -> str:
-    return subprocess.run(["ps", "-o", "lstart=,comm=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    return subprocess.run(["ps", "-o", "lstart=,comm=", "-p", str(pid)], capture_output=True, text=True,
+                          env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"}).stdout.strip()
 
 
 # B1 — one 7 second deadline per attempt, fixed before the process starts
@@ -549,7 +552,8 @@ def test_b1_pid_record_time_is_taken_out_of_the_attempt(tmp_path, monkeypatch):
     real_communicate = subprocess.Popen.communicate
 
     def spy(self, input=None, timeout=None):
-        seen.append(timeout)
+        if self.args and self.args[0] == "/bin/sleep":
+            seen.append(timeout)
         return real_communicate(self, input, timeout)
 
     monkeypatch.setattr(subprocess.Popen, "communicate", spy)
@@ -569,7 +573,8 @@ def test_b1_when_recording_outlasts_the_attempt_the_child_is_ended_without_a_fre
     real_communicate = subprocess.Popen.communicate
 
     def spy(self, input=None, timeout=None):
-        seen.append(timeout)
+        if self.args and self.args[0] == "/bin/sleep":
+            seen.append(timeout)
         return real_communicate(self, input, timeout)
 
     monkeypatch.setattr(subprocess.Popen, "communicate", spy)
@@ -684,6 +689,8 @@ def test_m2_a_foreign_job_under_the_same_label_is_never_booted_out(sb):
     assert proc.returncode == 2
     assert not any(c.startswith(("bootstrap", "bootout")) for c in sb.lc_calls())
     assert not sb.opcalls.exists()
+    # a refused start looks at the label once (the preflight) and never again: clean-up has no label to own
+    assert [c for c in sb.lc_calls() if c.startswith("print gui/") and "probe-opa" in c].__len__() == 1
 
 
 def test_m2_an_unknown_preflight_never_boots_anything_out(sb):
@@ -803,3 +810,13 @@ def test_m2_op_environment_copies_only_the_allowlist(monkeypatch):
     names = set(probe.op_environment("t")) | set(probe.op_environment("t", "/dedicated"))
     assert names <= ALLOWED_OP_NAMES
     assert "OP_SERVICE_ACCOUNT_TOKEN" not in probe.op_environment(None)
+
+
+def test_recorded_pids_are_found_again_whatever_the_callers_locale(sb):
+    # probe.py records `ps` text in the job's (C) locale; the shell clean-up runs in the user's locale.
+    sb.op = sb.make_op(version_pre="sleep 30")
+    sb.extra.update(PROBE_OP_BIN=str(sb.op), PROBE_T_ATTEMPT="25", PROBE_T_RESULT="4")
+    proc = sb.run(FAKE_LC_BOOTOUT_FAIL="1", LANG="ko_KR.UTF-8")
+    pids = json.loads((sb.probe_dir() / "pids.json").read_text())
+    assert pids["children"] and not alive(pids["children"][0]["pid"]) and not alive(pids["self"]["pid"])
+    assert "잔존 확인 필요: pid" not in proc.stdout
