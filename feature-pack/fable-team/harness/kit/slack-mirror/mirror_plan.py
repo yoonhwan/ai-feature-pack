@@ -33,6 +33,8 @@ def thread_link(a: argparse.Namespace, token: str, thread: str) -> str:
 
 def plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) -> dict[str, object]:
     p = _plan(a, token, qpath, m)
+    if line := ib.files_line(m):  # 질문 번호·선택 해석이 끝난 뒤 한 곳에서 붙여 전 분기에 실린다
+        p = {**p, "text": f"{p['text']}\n{line}"}
     if not getattr(a, "to_key", ""):
         return p
     # --to-key 고정 모드(R205 H1 · R238): 질문 좌석·추정 좌석 포함 모든 수신이 명부 키가 가리키는 좌석 1곳뿐이다. 질문 상태(delivered·confirm 종료)는

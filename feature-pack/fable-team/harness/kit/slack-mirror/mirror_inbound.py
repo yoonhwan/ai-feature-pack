@@ -27,7 +27,26 @@ def unescape(text: str) -> str:
 
 
 def is_user_post(m: dict[str, object]) -> bool:
-    return bool(m.get("user")) and not m.get("bot_id") and m.get("subtype") in (None, "thread_broadcast")
+    return bool(m.get("user")) and not m.get("bot_id") and m.get("subtype") in (None, "thread_broadcast", "file_share")
+
+
+def _size(n: object) -> str:
+    b = float(n) if isinstance(n, (int, float)) else 0.0
+    for unit in ("B", "KB", "MB"):
+        if b < 1024 or unit == "MB":
+            return f"{int(b)} B" if unit == "B" else f"{b:.1f} {unit}"
+        b /= 1024
+    return ""
+
+
+def files_line(m: dict[str, object]) -> str:
+    """사람 글에 붙은 파일의 메타 줄 — «이름 · 종류 · 크기 · id» 만(내용·url_private* 는 절대 싣지 않는다). 빈 문자열 = 파일 없음."""
+    raw = m.get("files")
+    files: list[dict[str, object]] = [f for f in raw if isinstance(f, dict)] if isinstance(raw, list) else []
+    if not files:
+        return ""
+    rows = [f"{' '.join(str(f.get('name', '?')).split())} · {f.get('filetype', '?')} · {_size(f.get('size'))} · id={f.get('id', '?')}" for f in files]  # 이름의 줄바꿈·제어문자는 공백 1칸으로
+    return "\n".join([f"[파일 {len(files)}개]", *rows])
 
 
 def is_human(m: dict[str, object], allowed: str | frozenset[str]) -> bool:

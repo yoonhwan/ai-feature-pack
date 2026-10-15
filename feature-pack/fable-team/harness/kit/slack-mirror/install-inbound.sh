@@ -48,11 +48,11 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 [ "$TALK" = 1 ] || [ -f "$SEATS" ] || { echo "ERROR: seats 파일 없음: $SEATS" >&2; exit 1; }  # 2번째 인스턴스의 명부는 가동 때 읽는다(설치는 파일만)
 
 mkdir -p "$HOME/.hermes/scripts" "$HOME/.hermes/logs" "$HOME/.hermes/state" "$HOME/Library/LaunchAgents"
-for f in byz_slack_mbox_inbound.py mirror_inbound.py mirror_humans.py mirror_plan.py mirror_questions.py mirror_board.py mirror_deliver.py mirror_lib.py mirror_share.py mirror_ack.py mirror_ack_alarm.py; do
+for f in byz_slack_mbox_inbound.py mirror_inbound.py mirror_humans.py mirror_plan.py mirror_questions.py mirror_board.py mirror_deliver.py mirror_lib.py mirror_share.py mirror_ack.py mirror_ack_alarm.py byz_slack_file_fetch.py; do
   [ -f "$HOME/.hermes/scripts/$f" ] && cp -p "$HOME/.hermes/scripts/$f" "$HOME/.hermes/scripts/$f.bak-$(date +%Y%m%d-%H%M%S)"
   cp "$KIT/$f" "$HOME/.hermes/scripts/$f"
 done
-chmod +x "$HOME/.hermes/scripts/byz_slack_mbox_inbound.py"
+chmod +x "$HOME/.hermes/scripts/byz_slack_mbox_inbound.py" "$HOME/.hermes/scripts/byz_slack_file_fetch.py"
 
 TEMPLATE="$KIT/$DEFAULT_LABEL.plist.template"; [ "$TALK" = 1 ] && TEMPLATE="$KIT/com.hermes.byz-slack-talk-inbound.plist.template"
 PY="$PY" HOME_DIR="$HOME" CHANNEL="$CHANNEL" MENTION="$MENTION" MBOX="$MBOX" INBOX_BIN="$INBOX_BIN" SEATS="$SEATS" LABEL="$LABEL" TO_KEY="$TO_KEY" ACK="$ACK" \
