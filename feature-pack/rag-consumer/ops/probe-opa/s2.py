@@ -185,7 +185,8 @@ def read_call(index: int, reference: str, op: str, env: dict[str, str], book: pr
             "descendants_may_hold_pipe": bool(info["descendants_may_hold_pipe"]),
         })
         left = deadline - time.monotonic()
-        if number == 1 and status == "timeout" and not info["partial_output"] and left > 0:
+        if (number == 1 and status == "timeout" and not info["partial_output"] and left > 0
+                and not info["child_exit_unconfirmed"]):
             number += 1
             timeout = min(ATTEMPT_S, left)
             continue
@@ -243,7 +244,8 @@ def run_round(number: int, op: str, references: list[str], make_env, book: probe
         results = [future.result() for future in futures]
     ended = now_ms()
     values = [value for _, value in results]
-    distinct = len(set(values)) == 3 if all(v is not None for v in values) else None
+    # as tick.load_keys: the bytes after fromhex, so one key written in lower and upper case is a duplicate
+    distinct = len({bytes.fromhex(v) for v in values}) == 3 if all(v is not None for v in values) else None
     return {
         "round": number, "kind": KINDS[0] if number == 0 else KINDS[1], "started_utc_ms": started,
         "ended_utc_ms": ended, "keys_distinct": distinct, "op_count_after": count_op(),
@@ -284,7 +286,8 @@ def evaluate(condition: dict) -> dict:
         "op_count_not_increased": baseline is not None and bool(rounds) and all(
             r["op_count_after"] is not None and r["op_count_after"] <= baseline for r in rounds),
         "disk_not_increased": disk,
-        "cold_over_limit": any(a["status"] != "success" or a["elapsed_ms"] > ATTEMPT_S * 1000 for a in cold),
+        "cold_over_limit": any(a["status"] == "timeout" or (a["status"] == "success"
+                                                            and a["elapsed_ms"] > ATTEMPT_S * 1000) for a in cold),
         "cold_ms": _dist([a["elapsed_ms"] for a in cold]),
         "warm_ms": _dist([call["attempts"][0]["elapsed_ms"] for r in rounds[1:] for call in r["calls"]
                           if call["attempts"]]),
@@ -292,7 +295,8 @@ def evaluate(condition: dict) -> dict:
     criteria["no_retries"] = criteria["retries_used"] == 0
     criteria["meets_all"] = bool(
         criteria["all_first_try_success"] and criteria["attempts_within_limit"] and criteria["no_retries"]
-        and criteria["calls_within_deadline"] and criteria["op_count_not_increased"] and disk is not False)
+        and criteria["calls_within_deadline"] and criteria["op_count_not_increased"] and disk is not False
+        and bool(rounds) and all(r["keys_distinct"] is True for r in rounds))
     return criteria
 
 
@@ -451,6 +455,7 @@ def execute(directory: Path, credentials: str) -> None:
         return
     try:
         op, token, references = load_settings(credentials)
+        unconfirmed = False
         for name in CONDITIONS:
             home = None
             if name == "dedicated":
@@ -462,12 +467,18 @@ def execute(directory: Path, credentials: str) -> None:
             save()
             last_end = None
             for number in range(ROUNDS):
+                if unconfirmed:
+                    break
                 if last_end is not None:  # warm rounds start at least the gap after the previous round ended
                     time.sleep(max(0.0, WARM_GAP_S - (time.monotonic() - last_end)))
                 condition["rounds"].append(run_round(
                     number, op, references, lambda: probe.op_environment(token, home), book, home))
                 last_end = time.monotonic()
+                unconfirmed = any(a["child_exit_unconfirmed"] for call in condition["rounds"][-1]["calls"]
+                                  for a in call["attempts"])
                 save()
+            if unconfirmed:  # a child that may still run: no further round, no further condition
+                break
         token = ""
         save(complete=True)
     except Exception as error:  # class name only, from a fixed list
@@ -485,6 +496,8 @@ def report(directory: Path) -> int:
     out = ["== S2 키 읽기 측정 결과 (측정일 뿐 — 채택·규칙 예외는 오빠 결정, 진단 성공은 운영 재개 승인이 아님) =="]
     out.append(f"mode={result['mode']}" + (f" 중단={result['aborted_class']}" if result["aborted_class"] else ""))
     cold_over = False
+    unconfirmed = any(a["child_exit_unconfirmed"] for condition in result["conditions"] for r in condition["rounds"]
+                      for call in r["calls"] for a in call["attempts"])
     for condition in result["conditions"]:
         crit = condition["criteria"]
         out.append(f"조건 {condition['name']}: 라운드 {len(condition['rounds'])}/{ROUNDS}")
@@ -499,8 +512,10 @@ def report(directory: Path) -> int:
         out.append("결과 대기 시간 초과: timed_out_wait")
     out.append(f"비교: {result['comparison']} — {COMPARISON_TEXT[result['comparison']]}")
     if cold_over:
-        out.append("콜드 시작이 7초 한도를 넘음 → 규칙 예외를 둘지는 오빠 결정 (설계자는 상수를 키우지 않음 · "
-                   "그동안 전용 경로 채택·운영 재개 판정은 보류)")
+        out.append("콜드 시작 첫 시도가 7초 기한 안에 끝나지 않음(끝나는 시점은 알 수 없음) → 규칙 예외를 둘지는 오빠 결정 "
+                   "(설계자는 상수를 키우지 않음 · 그동안 전용 경로 채택·운영 재개 판정은 보류)")
+    if unconfirmed:
+        out.append("자식 종료 미확인 — 측정을 거기서 멈춤(재시도·다음 라운드 없음) · 남은 프로세스 확인 필요")
     out.append("일 호출량: 논리 읽기 864회/일(288 틱 × 키 3) · 재시도 포함 CLI 시도 최대 1,728회/일 · "
                "실제 서비스 API 요청 수: 미확인(문서 확인 선행)")
     out.append("공통: consumer 는 disabled 유지")
