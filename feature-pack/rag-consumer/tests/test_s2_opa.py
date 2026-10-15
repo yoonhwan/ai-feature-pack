@@ -696,3 +696,96 @@ def test_m2b_calls_over_the_call_deadline_fail_the_deadline_criterion_on_their_o
     assert crit["calls_within_deadline"] is False and crit["max_call_total_ms"] == 15000
     assert crit["meets_all"] is False
     assert _evaluate(_good_rounds())["calls_within_deadline"] is True
+
+
+# ---------------------------------------------------------------------------------------------------------
+# DA r2 minors (da-20261016-sol-s2-code-r2): an unconfirmed child exit in ANY round (the very last one too) ends
+# as comparison=incomplete with a failing report; a slow success and a timeout are worded differently.
+def _unconfirmed_on_nth_round(calls, nth):
+    """Like _unconfirmed_attempt_runner, but the unconfirmed child is key 0 of the nth round (1-based) of the run."""
+    def run_attempt(step, argv, env, book, budget, attempt_s):
+        calls.append(step)
+        if step == "K0" and calls.count("K0") == nth:
+            return {"status": "timeout", "rc": None, "child_pid": 4242, "child_exited": False, "reaped": False,
+                    "child_exit_unconfirmed": True, "descendants_may_hold_pipe": True, "partial_output": False,
+                    "stdout": b"", "stderr": b""}
+        return {"status": "success", "rc": 0, "child_pid": 4243, "child_exited": True, "reaped": True,
+                "child_exit_unconfirmed": False, "descendants_may_hold_pipe": False, "partial_output": False,
+                "stdout": KEYS[REFS.index(argv[2])].encode(), "stderr": b""}
+    return run_attempt
+
+
+@pytest.mark.parametrize("nth,rounds_done", [(6, [6]), (7, [6, 1]), (12, [6, 6])])
+def test_minor1_an_unconfirmed_child_exit_in_any_round_ends_incomplete(tmp_path, monkeypatch, nth, rounds_done):
+    monkeypatch.setattr(sys, "argv", ["s2.py", "--mode", "selftest"])
+    s2 = load_s2()
+    sandbox = S2Sandbox(tmp_path)
+    monkeypatch.setattr(s2, "run_attempt", _unconfirmed_on_nth_round([], nth))
+    monkeypatch.setattr(s2, "count_op", lambda: 2)
+    monkeypatch.setattr(s2, "WARM_GAP_S", 0.0)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    s2.execute(run_dir, str(sandbox.credentials))
+    result = json.loads((run_dir / "result.json").read_text())
+    assert s2.validate_result(result) and result["complete"] is True and result["aborted_class"] is None
+    assert [len(c["rounds"]) for c in result["conditions"]] == rounds_done
+    assert result["comparison"] == "incomplete", result["comparison"]
+    report = subprocess.run([sys.executable, str(S2_PY), "--report", str(run_dir)], capture_output=True, text=True)
+    assert report.returncode != 0 and "종료 미확인" in report.stdout and "incomplete" in report.stdout
+
+
+def test_minor1_a_stored_result_with_an_unconfirmed_exit_is_never_read_as_a_comparison(tmp_path):
+    s2 = load_s2()
+    rounds = _good_rounds()
+    rounds[5]["calls"][0]["attempts"][0]["child_exit_unconfirmed"] = True
+    result = s2.new_result()
+    result.update(mode="selftest", complete=True, comparison="default_only_meets")
+    result["conditions"] = [{"name": n, "baseline_op_count": 2, "rounds": rounds, "criteria": {}}
+                            for n in ("default", "dedicated")]
+    for condition in result["conditions"]:
+        condition["criteria"] = s2.evaluate(condition)
+    (tmp_path / "result.json").write_text(json.dumps(result))
+    assert s2.validate_result(result) and s2.read_result(tmp_path)["comparison"] == "incomplete"
+    report = subprocess.run([sys.executable, str(S2_PY), "--report", str(tmp_path)], capture_output=True, text=True)
+    assert report.returncode != 0
+
+
+def _stored_cold(tmp_path, status, ms):
+    s2 = load_s2()
+    result = s2.new_result()
+    result.update(mode="selftest", complete=True)
+    result["conditions"] = [{"name": n, "baseline_op_count": 2, "rounds": [_round(0, status=status, ms=ms)]
+                             + _good_rounds()[1:], "criteria": {}} for n in ("default", "dedicated")]
+    for condition in result["conditions"]:
+        condition["criteria"] = s2.evaluate(condition)
+    result["comparison"] = s2.compare(result["conditions"], True)
+    (tmp_path / "result.json").write_text(json.dumps(result))
+    assert s2.validate_result(result)
+    done = subprocess.run([sys.executable, str(S2_PY), "--report", str(tmp_path)], capture_output=True, text=True)
+    return done.stdout
+
+
+def _exception_line(out):
+    return next(line for line in out.splitlines() if "규칙 예외를 둘지" in line)
+
+
+def test_minor2_a_slow_success_says_finished_and_a_timeout_says_unfinished(tmp_path):
+    slow = tmp_path / "slow"
+    slow.mkdir()
+    timeout = tmp_path / "timeout"
+    timeout.mkdir()
+    slow_line = _exception_line(_stored_cold(slow, "success", 9000))
+    timeout_line = _exception_line(_stored_cold(timeout, "timeout", 7000))
+    assert "종료는 확인됨" in slow_line and "7초" in slow_line
+    for mixed in ("미완료", "미확인", "끝나지 않음", "알 수 없음"):
+        assert mixed not in slow_line, mixed
+    assert "미완료" in timeout_line and "정상 종료 시점은 미확인" in timeout_line and "7초" in timeout_line
+    for mixed in ("종료는 확인됨", "넘음"):
+        assert mixed not in timeout_line, mixed
+
+
+def test_minor2_the_boolean_is_kept_for_both_kinds(tmp_path):
+    for status, ms in (("success", 9000), ("timeout", 7000)):
+        rounds = [_round(0, status=status, ms=ms)] + _good_rounds()[1:]
+        crit = _evaluate(rounds)
+        assert crit["cold_over_limit"] is True and crit["meets_all"] is False
