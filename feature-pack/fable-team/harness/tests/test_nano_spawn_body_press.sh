@@ -52,5 +52,62 @@ neg3="$(check_body "음성복사본3" "$TMP/stripped3.sh")"
 fail="$before"
 echo "$neg3" | grep -q '^FAIL 음성복사본3 BODY 에 .증거 줄' && ok "음성 대조 3: 문장 제거 시 FAIL 발생" || bad "음성 대조 3: 문장을 지웠는데 FAIL 이 안 남"
 
+# ── R181 · link_web_node_modules (임시 git 저장소 + 워크트리 · 라이브 bin·실 node_modules 0) ──
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+REPO_GI="$HERE/../../.gitignore"
+# mk_repo <디렉터리> <.gitignore 원본> <루트 node_modules 0|1> <워크트리 lock 내용> — 루트 + .worktrees/wt 생성
+mk_repo() {
+  local d="$1" gi="$2" nm="$3" wtlock="$4"
+  mkdir -p "$d/clients/web" && git -C "$d" init -q && cp "$gi" "$d/.gitignore"
+  echo '{"lock":"root"}' > "$d/clients/web/package-lock.json"
+  git -C "$d" add -A && git -C "$d" -c user.name=t -c user.email=t@t commit -qm base
+  echo "$wtlock" > "$d/clients/web/package-lock.json"   # 워크트리는 이 내용으로 갈라진다(같게/다르게)
+  git -C "$d" -c user.name=t -c user.email=t@t commit -qam wtbase >/dev/null 2>&1 || true   # lock 같음이면 커밋할 것 없음
+  echo '{"lock":"root"}' > "$d/clients/web/package-lock.json"
+  git -C "$d" worktree add -q "$d/.worktrees/wt" -b nano/x HEAD
+  [ "$nm" = 1 ] && mkdir -p "$d/clients/web/node_modules/jsdom"
+  return 0
+}
+# 추적본에서 함수 본문만 뽑아 eval — 스크립트 전체(tmux·mbox)는 실행하지 않는다
+FN="$(awk '/^link_web_node_modules\(\) \{/,/^\}/' "$TRACKED")"
+[ -n "$FN" ] && ok "link_web_node_modules 함수 추출" || bad "link_web_node_modules 함수 없음"
+eval "$FN"
+
+# ⓐ 루트 있음 → 상대 심링크 · 대상이 루트 폴더 / ⓓ lock 같음
+mk_repo "$TMP/a" "$REPO_GI" 1 '{"lock":"root"}'
+out="$(link_web_node_modules "$TMP/a" "$TMP/a/.worktrees/wt")"
+[ "$(readlink "$TMP/a/.worktrees/wt/clients/web/node_modules")" = "../../../../clients/web/node_modules" ] && ok "ⓐ 상대 심링크" || bad "ⓐ 상대 심링크 아님"
+[ -d "$TMP/a/.worktrees/wt/clients/web/node_modules/jsdom" ] && ok "ⓐ 링크가 루트 폴더로 해석" || bad "ⓐ 링크 대상이 루트 폴더가 아님"
+echo "$out" | grep -qx 'node_modules=link lock=same' && ok "ⓓ lock=same 출력" || bad "ⓓ lock=same 출력 아님: $out"
+# ⓒ git status · 전체 스테이징 뒤 인덱스에 node_modules 0 (임시 저장소 안)
+[ -z "$(git -C "$TMP/a/.worktrees/wt" status --porcelain | grep node_modules)" ] && ok "ⓒ status 에 node_modules 0" || bad "ⓒ status 에 node_modules 보임"
+git -C "$TMP/a/.worktrees/wt" add -A && [ -z "$(git -C "$TMP/a/.worktrees/wt" diff --cached --name-only | grep node_modules)" ] && ok "ⓒ 전체 스테이징 뒤 인덱스에 node_modules 0" || bad "ⓒ 전체 스테이징이 node_modules 를 담음"
+# 이미 있으면 손대지 않음(멱등)
+link_web_node_modules "$TMP/a" "$TMP/a/.worktrees/wt" >/dev/null && ok "멱등 재호출 rc 0" || bad "멱등 재호출 실패"
+
+# ⓓ lock 다름
+mk_repo "$TMP/d" "$REPO_GI" 1 '{"lock":"other"}'
+out="$(link_web_node_modules "$TMP/d" "$TMP/d/.worktrees/wt")"
+echo "$out" | grep -q '^node_modules=link lock=differ' && ok "ⓓ lock=differ 출력" || bad "ⓓ lock=differ 출력 아님: $out"
+
+# ⓑ 루트 없음 → 링크 0 + node_modules=none
+mk_repo "$TMP/b" "$REPO_GI" 0 '{"lock":"root"}'
+out="$(link_web_node_modules "$TMP/b" "$TMP/b/.worktrees/wt")"
+[ ! -e "$TMP/b/.worktrees/wt/clients/web/node_modules" ] && [ ! -L "$TMP/b/.worktrees/wt/clients/web/node_modules" ] && ok "ⓑ 링크 0" || bad "ⓑ 루트 없는데 링크가 생김"
+echo "$out" | grep -q '^node_modules=none (루트 clients/web/node_modules 없음' && ok "ⓑ node_modules=none 출력" || bad "ⓑ node_modules=none 출력 아님: $out"
+
+# ⓔ 기존 .venv·.env 심링크 줄 불변 + spawn 이 새 단계를 호출
+grep -q 'for l in .venv .env; do \[ -e "\$ROOT/\$l" \] && ln -sfn "../../\$l" "\$WTDIR/\$l"; done' "$TRACKED" && ok "ⓔ .venv .env 심링크 줄 그대로" || bad "ⓔ .venv .env 심링크 줄 변경됨"
+grep -q '^  link_web_node_modules "\$ROOT" "\$WTDIR"$' "$TRACKED" && ok "spawn 이 심링크 단계를 호출" || bad "spawn 에 link_web_node_modules 호출 없음"
+
+# ⓕ 변이 — .gitignore 의 clients/web/node_modules 줄을 지우면 ⓒ 가 FAIL(심링크가 status 에 잡힘)
+grep -v '^clients/web/node_modules$' "$REPO_GI" > "$TMP/gi_mut"
+cmp -s "$REPO_GI" "$TMP/gi_mut" && bad "ⓕ 변이: 줄이 .gitignore 에 없음"
+mk_repo "$TMP/f" "$TMP/gi_mut" 1 '{"lock":"root"}'
+link_web_node_modules "$TMP/f" "$TMP/f/.worktrees/wt" >/dev/null
+git -C "$TMP/f/.worktrees/wt" status --porcelain | grep -q node_modules && ok "ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임)" || bad "ⓕ 변이인데도 status 에 안 보임"
+
+[ "$(git config --get core.bare)" = "false" ] && ok "core.bare=false" || bad "core.bare 가 false 아님"
+
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"

@@ -3,7 +3,7 @@
 #   --raise "<사유>" = 상향 모델(claude-fable-*·*astra* · 판정 1641)을 열 때 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
-# 한 번에: ①lint ②워크트리+.venv/.env 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/opus-5.5)
+# 한 번에: ①lint ②워크트리+.venv/.env·clients/web/node_modules 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/opus-5.5)
 #          ④remain-on-exit on + @zc_v65_active=1 ⑤seats.json 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로 한 줄, mbox) ⑧도달 확인(jsonl)
 # ★팩 ft-tmux-spawn.sh 미사용★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06 「install.json 부재 = exit 4」) · 오빠 §0-A 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 직접 호출.
 set -uo pipefail
@@ -204,10 +204,27 @@ open(p, "w", encoding="utf-8").write(txt)
 PY
 fi
 
+# ★R181★ 웹 시험(jest)은 clients/web/node_modules 가 있어야 돈다 — 루트 것을 상대 심링크로 건다(없으면 건너뛰고 한 줄 출력).
+#   lock 이 달라도 걸되 «판이 다르다» 를 출력해 환경 RED 를 결함으로 오판하지 않게 한다. 무시 규칙은 .gitignore `clients/web/node_modules`(슬래시 없음).
+link_web_node_modules() {
+  local root="$1" wt="$2" rel="../../../../clients/web/node_modules"
+  if [ ! -d "$root/clients/web/node_modules" ]; then
+    echo "node_modules=none (루트 clients/web/node_modules 없음 — 웹 시험 불가)"; return 0
+  fi
+  [ -d "$wt/clients/web" ] || { echo "node_modules=none (워크트리에 clients/web 없음 — 웹 시험 불가)"; return 0; }
+  [ -e "$wt/clients/web/node_modules" ] || [ -L "$wt/clients/web/node_modules" ] || ln -s "$rel" "$wt/clients/web/node_modules"
+  if cmp -s "$root/clients/web/package-lock.json" "$wt/clients/web/package-lock.json"; then
+    echo "node_modules=link lock=same"
+  else
+    echo "node_modules=link lock=differ (루트 node_modules 판이 이 base 와 다름 — 웹 시험 RED 는 환경 원인 후보)"
+  fi
+}
+
 # ② 워크트리 — 이미 있으면 재사용(재발주), 없으면 기준 브랜치에서 분기
 if [ ! -d "$WTDIR" ]; then
   git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
   for l in .venv .env; do [ -e "$ROOT/$l" ] && ln -sfn "../../$l" "$WTDIR/$l"; done
+  link_web_node_modules "$ROOT" "$WTDIR"
   # base_sha(오빠 ORDERS 103 · single_set_testing §3 ①): 갈라진 시점을 남겨 ft-nano-freshness 가 «루트부터» 판정한다.
   printf '{"branch":"%s","base":"%s","base_sha":"%s","created_at":"%s","purpose":"nano · %s"}\n' "$BRANCH" "$INFO_BASE" "$(git -C "$ROOT" rev-parse --short "$BASE_BRANCH")" "$(date '+%F %T')" "$IDX_REL" > "$WTDIR/.worktree-info.json"
   # ★Serena project_name 충돌 차단 (2026-09-16 사고 1 · arch#49 #17015)★
