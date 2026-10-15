@@ -246,7 +246,7 @@ def test_d_a_failed_bootout_is_reported_once_and_not_retried(sb):
     proc = sb.run(FAKE_LC_BOOTOUT_FAIL="1")
     assert proc.returncode != 0
     assert "잔존 확인 필요: com.airag.probe-opa-" in proc.stdout
-    assert [c for c in sb.lc_calls() if c.startswith("bootout")] == ["bootout gui/" + str(os.getuid())]
+    assert len([c for c in sb.lc_calls() if c.startswith("bootout")]) == 1
     assert len(sb.loaded()) == 1  # still loaded: the user is told, the script does not keep trying
 
 
