@@ -75,6 +75,11 @@ def post_root(t: Target, text: str) -> str:
     return post(t.base, t.token, t.channel, text)
 
 
+def permalink(t: Target, ts: str) -> str:
+    """글 주소 — chat.getPermalink 1회(읽기 · 기존 7초 상한 + 재시도 1회). 실패·주소 없음은 MirrorError/KeyError 그대로."""
+    return str(api_call(t.base, t.token, "chat.getPermalink", {"channel": t.channel, "message_ts": ts}, get=True)["permalink"])
+
+
 def _send_bytes(url: str, data: bytes, content_type: str = "application/pdf") -> None:
     req = urllib.request.Request(url, data=data, method="POST", headers={"Content-Type": content_type})
     kind = "PDF" if content_type == "application/pdf" else "파일"

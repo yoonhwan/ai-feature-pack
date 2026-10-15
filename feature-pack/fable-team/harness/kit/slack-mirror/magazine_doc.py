@@ -16,8 +16,9 @@ from pathlib import Path
 from typing import cast
 
 from magazine_doc_md import Cell, Doc, DocError, parse_doc, to_html
+from magazine_doc_three import with_three
 from magazine_hermes import Easy, easy_all
-from magazine_slack import SLACK_BASE, Target, post_root, upload_file
+from magazine_slack import SLACK_BASE, Target, permalink, post_root, upload_file
 from mirror_lib import MirrorError, read_token, save_state
 from mirror_summary import DEFAULT_URL
 
@@ -85,13 +86,23 @@ def load_state(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
-def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> str:
-    """상태 키 = 원본 sha:경로. root_ts 를 올린 직후 기록해 업로드만 실패한 재실행이 뿌리 글을 또 만들지 않는다."""
+def link_line(args: argparse.Namespace, root_ts: str) -> str:
+    """발행 결과의 슬랙 주소 1줄 — 실패는 사유를 줄에 적는다(발행 성공은 그대로 · 조용한 생략 0)."""
+    try:
+        target = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
+        return f"SLACK {permalink(target, root_ts)}"
+    except (MirrorError, KeyError) as e:
+        LOG.warning("슬랙 링크 못 만듦: %s: %s", type(e).__name__, e)
+        return f"SLACK 링크 못 만듦 — {type(e).__name__}: {e}"
+
+
+def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> tuple[str, str]:
+    """(출력 줄, 뿌리 글 ts). 상태 키 = 원본 sha:경로. root_ts 를 올린 직후 기록해 업로드만 실패한 재실행이 뿌리 글을 또 만들지 않는다."""
     state_path = Path(args.state).expanduser()
     state = load_state(state_path)
     rec = cast(dict[str, object], state.get(key) or {})
     if rec.get("uploaded"):
-        return f"skip {key} root_ts={rec['root_ts']} (이미 발행됨)"
+        return f"skip {key} root_ts={rec['root_ts']} (이미 발행됨)", str(rec["root_ts"])
     target = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
     root_ts = str(rec.get("root_ts") or post_root(target, root_text(date)))
     state[key] = {"root_ts": root_ts, "uploaded": False}
@@ -100,13 +111,14 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> s
     upload_file(target, root_ts, html_path, f"매거진 {date} · 오빠 확인판", "text/html")
     state[key] = {"root_ts": root_ts, "uploaded": True}
     save_state(state_path, state)
-    return f"published date={date} {key} root_ts={root_ts} html={html_path.name}"  # 08:15 점검(ft-magazine-check.sh)이 «published date=<오늘>» 줄을 찾는다
+    return f"published date={date} {key} root_ts={root_ts} html={html_path.name}", root_ts  # 08:15 점검(ft-magazine-check.sh)이 «published date=<오늘>» 줄을 찾는다
 
 
 def run(args: argparse.Namespace) -> int:
     full, text = read_source(args.src_repo, args.src_sha, args.src_path)
     doc = parse_doc(text)
     date = args.date or doc_date(doc)  # --date 가 판 날짜(제목에 날짜 없는 오빠 원장) · 둘 다 없으면 doc_date 가 DocError
+    doc = with_three(doc, date)  # 원장이면 맨 위 3칸(요청한 일 / 완료한 일 / 해야 할 일) · 옛 문서는 그대로(R190)
     out = Path(args.out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
@@ -117,9 +129,11 @@ def run(args: argparse.Namespace) -> int:
     failed = sum(1 for e in easy.values() if e.error)
     print(f"{'DRY-RUN' if args.dry_run else 'PUBLISH'} calls={len(easy)} elapsed={time.monotonic() - start:.1f}s failed={failed} html={html_path}")
     if args.dry_run:
-        print(f"--- 슬랙 뿌리 글 ---\n{root_text(date)}")
+        print(f"--- 슬랙 뿌리 글 ---\n{root_text(date)}\nSLACK 링크 없음(드라이런)")
         return 0
-    print(publish(args, f"{full}:{args.src_path}", date, html_path))
+    line, root_ts = publish(args, f"{full}:{args.src_path}", date, html_path)
+    print(line)
+    print(link_line(args, root_ts))
     return 0
 
 
