@@ -75,8 +75,9 @@ export GH_TOKEN_ORG=SENTINEL_GH # 주석
 # export BINANCE_API_KEY=SENTINEL_COMMENTED
 export ELEVENLABS_API_KEY=
 RC
-printf "HUGGING_FACE_TOKEN='SENTINEL_DOTENV'\n" > "$T/home/dotenv"
-printf 'import os\nX = os.environ["OPENAI_API_KEY"]  # SENTINEL_CODE\nCARTESIA = "byz-agents-cartesia-api-key-dev"\n' > "$T/repo/gateway/a.py"
+printf "HUGGING_FACE_TOKEN='SENTINEL_DOTENV'\nGOOGLE_TTS_API_KEY=SENTINEL_A2_GOOGLE\nDASHSCOPE_API_KEY=SENTINEL_A2_DASH\nXAI_API_KEY=SENTINEL_A2_XAI\n" > "$T/home/dotenv"
+printf 'import os\nX = os.environ["OPENAI_API_KEY"]  # SENTINEL_CODE\nCARTESIA = "byz-agents-cartesia-api-key-dev"\nA2 = (os.environ.get("GOOGLE_TTS_API_KEY"), os.environ.get("DASHSCOPE_API_KEY"), os.environ.get("XAI_API_KEY"))\n' > "$T/repo/gateway/a.py"
+printf 'import os\nA2 = (os.environ.get("GOOGLE_TTS_API_KEY"), os.environ.get("DASHSCOPE_API_KEY"), os.environ.get("XAI_API_KEY"))\n' > "$T/repo/gateway/b.py"
 git -C "$T/repo" init -q && git -C "$T/repo" add -A
 
 export PATH="$T/bin:$PATH" BYZ_KEYS_REPO="$T/repo" BYZ_KEYS_ZSHRC="$T/home/zshrc" BYZ_KEYS_DOTENV="$T/home/dotenv"
@@ -111,7 +112,12 @@ has "BINANCE 주석 줄 = 없음" "$(grep -F '| BINANCE_API_KEY |' "$L")" "| 없
 has "GH_TOKEN_ORG 개명 표시" "$(grep -F '| GITHUB_ORG_TOKEN |' "$L")" "| GH_TOKEN_ORG |"
 has "HUGGING_FACE .env" "$(grep -F '| HUGGINGFACE_TOKEN |' "$L")" "| .env |"
 has "1Password 제목 목록" "$led" "- github-token"
-eq "장부 줄 수 = 머리 2 + SM 4 + 로컬 전용 16" "$(grep -c "^| " "$L")" 22
+for k in GOOGLE_TTS_API_KEY DASHSCOPE_API_KEY XAI_API_KEY; do
+  r=$(grep -F "| $k |" "$L")
+  has "$k 로컬 .env" "$r" "| .env |"
+  has "$k SM 없음 · 코드 읽는 곳 2" "$r" "ENV 2 · SM 0"
+done
+eq "장부 줄 수 = 머리 2 + SM 4 + 로컬 전용 19" "$(grep -c "^| " "$L")" 25
 
 echo "== sentinel 0 (출력·stderr·장부·임시 파일) =="
 leak=$(grep -rl 'SENTINEL' "$L" "$T/err" "$T/tmp" "$S/__pycache__" 2>/dev/null || true)
