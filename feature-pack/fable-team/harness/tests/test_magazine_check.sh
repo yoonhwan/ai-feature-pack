@@ -109,7 +109,7 @@ printf '{"_master":"m#1","_hil_route":"p#1"}\n' > "$T/tk/seats.json"
 tick() {  # KEY=VAL ... → 불린 횟수
   : > "$T/tk/called"
   ( cd "$T/tk/repo" && env "$@" FT_TICK_SEATS="$T/tk/seats.json" FT_TICK_STATE_DIR="$T/tk/state" FT_TICK_PIDFILE="$T/tk/pid" FT_TICK_STAMP_PREFIX="$T/tk/p-" \
-      FT_TICK_MBOX="$T/mbox.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 \
+      FT_TICK_MBOX="$T/mbox.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 \
       FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 \
       timeout 60 bash "$T/tk/bin/ft-tick.sh" --once >/dev/null 2>&1 ); sort "$T/tk/called" | tr -d '\n'
 }
@@ -128,7 +128,7 @@ printf '#!/bin/bash\necho "$FT_MAG_SEATS" >> "%s/tk/mag.seats"\n' "$T" > "$T/tk/
 tickg() {  # $1 = FT_TICK_SEATS 명부 · 나머지 = env → 매거진 점검이 받은 FT_MAG_SEATS(호출 없으면 빈 줄)
   : > "$T/tk/mag.seats"; local seats="$1"; shift
   ( cd "$T/tk/repo" && env "$@" FT_TICK_SEATS="$seats" FT_TICK_STATE_DIR="$T/tk/state" FT_TICK_PIDFILE="$T/tk/pid" FT_TICK_STAMP_PREFIX="$T/tk/p-" \
-      FT_TICK_MBOX="$T/mbox.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 \
+      FT_TICK_MBOX="$T/mbox.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 \
       FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 \
       timeout 60 bash "$T/tk/bin/ft-tick.sh" --once >/dev/null 2>&1 ); tr -d '\n' < "$T/tk/mag.seats"
 }

@@ -18,7 +18,7 @@ chk "ft-seat-retire.sh ≤ 200줄" "$([ "$(wc -l < "$RETIRE")" -le 200 ] && echo
 # ①② 틱 stall 대상 (dry-run) · all_seats 는 함수 추출
 stall_seats() { # <좌석표 json>
   printf '%s' "$1" > "$TMP/s.json"
-  FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_SEATS="$TMP/s.json" FT_TICK_STAMP_PREFIX="$TMP/p-" FT_TICK_STATE_DIR="$TMP/st" \
+  FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_DRIFT=0 FT_TICK_SEATS="$TMP/s.json" FT_TICK_STAMP_PREFIX="$TMP/p-" FT_TICK_STATE_DIR="$TMP/st" \
     bash "$TICK" --once --dry-run 2>&1 | sed -n 's/^DRY kind=stall .* seats=//p' | xargs
 }
 all_seats() { printf '%s' "$1" > "$TMP/s.json"; bash -c "SEATS=$TMP/s.json; $(sed -n '/^all_seats() {/,/^}/p' "$TICK")"$'\n''all_seats' | cut -f1 | xargs; }

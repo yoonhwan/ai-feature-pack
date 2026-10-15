@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_tick_team_msg.sh — R150: 팀 틱 4개가 라이브 ft-tick.sh 를 같이 돌려도 안전한가.
 #   ⓐ두 변수 미설정 → master/pm 문구가 지금 판과 바이트 동일  ⓑFT_TICK_MASTER_MSG → 그대로 발사
-#   ⓒFT_TICK_PM_MSG → 확장·치환 0 그대로  ⓓFT_TICK_WT_SWEEP=0 → sweep 실행 0 (=1 은 양성 대조)
+#   ⓒFT_TICK_PM_MSG → 확장·치환 0 그대로  ⓓFT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 → sweep 실행 0 (=1 은 양성 대조)
 #   ⓔ메인 1 + 팀 4 동시 --once → drift 알림 정확히 1통 · drift.sig 는 메인 STATE_DIR 에만 · .turn 은 자기 좌석만 · api-outage 상태 경로 = 좌석표 이름별
 #   ⓕ키트 두 사본 동일.  변이: R150_TICK=<변이 사본> · R150_MUTANT=team-drift(팀 틱이 drift 를 켠 설치 꼴) · team-raised(팀 틱이 raised 경보를 켠 설치 꼴)
 #   ⓔ 에는 raised 경보(R149)도 포함: 가짜 ft_raised(양성 1행) → 정확히 1통 · 수신 = 메인 틱 master · raised.sig 는 메인 STATE_DIR 에만
@@ -31,7 +31,7 @@ printf '#!/bin/bash\ntouch "$SWEEP_MARK"; echo ran\n' > "$TMP/sweep-stub.sh"; ch
 printf '#!/bin/bash\nprintf "DRIFT 1 file\\nDIFF scripts/x\\n"; exit 1\n' > "$TMP/drift-stub.sh"
 printf 'import sys\nif sys.argv[1] == "check": print("ft-raised-stub-seat model=x card=gone")\n' > "$TMP/raised-stub.py"
 printf '#!/bin/bash\ncase "$1" in turn) echo "WORKING 2026-10-14T00:00:00 0 no jsonl";; esac\n' > "$TMP/seatstatus-stub.sh"
-BASE_ENV=(FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_WT_SWEEP=0 FT_TICK_RAISED=0 "FT_TICK_RAISED_BIN=$TMP/raised-stub.py"
+BASE_ENV=(FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_RAISED=0 "FT_TICK_RAISED_BIN=$TMP/raised-stub.py"
   "FT_TICK_GOAL_TICK=$TMP/none" "FT_TICK_SEAT_STATUS=$TMP/none" "FT_TICK_MBOX=$TMP/mbox-stub.sh" "MBOX_LOG=$TMP/mbox.log")
 
 # run <이름> <좌석표> <틱 인자> [KEY=VAL ...] → $TMP/<이름>/out · sent/p<pane> (뒤쪽 KEY=VAL 이 BASE_ENV 를 덮는다)
@@ -64,7 +64,7 @@ chk "ⓒ FT_TICK_PM_MSG 확장·치환 0" "$(sent c 2)" "$PV"
 chk "ⓒ master 문구는 불변" "$(sent c 1)" "$EXP_MASTER"
 
 run d0 "$TMP/seats-pm.json" --once "FT_TICK_WT_SWEEP=0" "FT_TICK_WT_SWEEP_BIN=$TMP/sweep-stub.sh" "SWEEP_MARK=$TMP/d0/mark"
-chk "ⓓ FT_TICK_WT_SWEEP=0 → sweep 실행 0" "$([ -e "$TMP/d0/mark" ] && echo ran || echo none)" none
+chk "ⓓ FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 → sweep 실행 0" "$([ -e "$TMP/d0/mark" ] && echo ran || echo none)" none
 run d1 "$TMP/seats-pm.json" --once "FT_TICK_WT_SWEEP=1" "FT_TICK_WT_SWEEP_BIN=$TMP/sweep-stub.sh" "SWEEP_MARK=$TMP/d1/mark"
 chk "ⓓ 양성 대조: =1 → sweep 실행" "$([ -e "$TMP/d1/mark" ] && echo ran || echo none)" ran
 
@@ -74,12 +74,17 @@ for t in main ops cfo feature loom; do
   s="$TMP/repo/.fable-team/seats-$t.json"; [ "$t" = main ] && s="$TMP/repo/.fable-team/seats.json"
   printf '{"_master":"%s-M#1","%s-M#1":{"role":"master","tick":"ft-master-tick"},"%s-N#1":{"role":"nano","tick":null}}' "$t" "$t" "$t" > "$s"
 done
-EOPT=(FT_TICK_IDLE_ENABLED=1 "FT_TICK_SEAT_STATUS=$TMP/seatstatus-stub.sh" "FT_TICK_DRIFT_BIN=$TMP/drift-stub.sh")
-run e-main "$TMP/repo/.fable-team/seats.json" --once "${EOPT[@]}" FT_TICK_DRIFT=1 FT_TICK_RAISED=1 &
+# R186 hil_watch: 메인 틱만 돈다 — h 폴더는 팀 공통. 45분 묵은 미실행 h 1개 + 가짜 ft-hil 기록 대신 실물 ft-hil.sh(HIL_DIR=scratch)
+mkdir -p "$TMP/hil"; cp "$REPO/scripts/fable-team-bin/ft-hil.sh" "$TMP/repo/.fable-team/bin/ft-hil.sh"
+printf '#!/usr/bin/env bash\ntrue\n' > "$TMP/hil-plan.sh.hil"
+HIL_DIR="$TMP/hil" HIL_CLIP=0 FT_SECRET_JUDGE="$TMP/none.py" bash "$TMP/repo/.fable-team/bin/ft-hil.sh" --add "$TMP/hil-plan.sh.hil" >/dev/null 2>&1
+touch -t "$(date -v-45M +%Y%m%d%H%M 2>/dev/null || date -d '45 minutes ago' +%Y%m%d%H%M)" "$TMP/hil/h1"
+EOPT=(FT_TICK_IDLE_ENABLED=1 "HIL_DIR=$TMP/hil" "FT_TICK_SEAT_STATUS=$TMP/seatstatus-stub.sh" "FT_TICK_DRIFT_BIN=$TMP/drift-stub.sh")
+run e-main "$TMP/repo/.fable-team/seats.json" --once "${EOPT[@]}" FT_TICK_DRIFT=1 FT_TICK_RAISED=1 FT_TICK_HIL=1 &
 for t in ops cfo feature loom; do
   dr=0; [ "${R150_MUTANT:-}" = team-drift ] && dr=1
   rr=0; [ "${R150_MUTANT:-}" = team-raised ] && rr=1
-  run "e-$t" "$TMP/repo/.fable-team/seats-$t.json" --once "${EOPT[@]}" "FT_TICK_DRIFT=$dr" "FT_TICK_RAISED=$rr" FT_TICK_WT_SWEEP=0 &
+  run "e-$t" "$TMP/repo/.fable-team/seats-$t.json" --once "${EOPT[@]}" "FT_TICK_DRIFT=$dr" "FT_TICK_RAISED=$rr" FT_TICK_WT_SWEEP=0 FT_TICK_HIL=1 &
 done
 wait
 chk "ⓔ drift 알림 정확히 1통" "$(grep -c '\[drift\]' "$TMP/mbox.log" 2>/dev/null || true)" 1
@@ -87,6 +92,8 @@ chk "ⓔ drift.sig = 메인 STATE_DIR 에만" "$(ls "$TMP"/e-*/state/drift.sig 2
 chk "ⓔ raised 경보 정확히 1통" "$(grep -c '내릴 것' "$TMP/mbox.log" 2>/dev/null || true)" 1
 chk "ⓔ raised 수신 = 메인 틱 master" "$(grep '내릴 것' "$TMP/mbox.log" | awk '{print $2}' | tr '\n' ' ')" "main-M#1 "
 chk "ⓔ raised.sig = 메인 STATE_DIR 에만" "$(ls "$TMP"/e-*/state/raised.sig 2>/dev/null | sed "s|$TMP/||" | tr '\n' ' ')" "e-main/state/raised.sig "
+chk "ⓔ HIL 미실행 쪽지 정확히 1통(메인 틱만 · 팀 틱 FT_TICK_HIL=1 이어도 건너뜀)" "$(grep -c 'HIL 미실행' "$TMP/mbox.log" 2>/dev/null || true)" 1
+chk "ⓔ hil.sig = 메인 STATE_DIR 에만" "$(ls "$TMP"/e-*/state/hil.sig 2>/dev/null | sed "s|$TMP/||" | tr '\n' ' ')" "e-main/state/hil.sig "
 for t in main ops cfo feature loom; do
   chk "ⓔ $t STATE_DIR 의 .turn = 자기 좌석만" "$(ls "$TMP/e-$t/state" | grep '\.turn$' | tr '\n' ' ')" "$t-N#1.turn "
   chk "ⓔ $t master 문구 발사" "$(sent e-$t "$(echo "$FAKE_PANES" | grep -F "$t-M#1 " | sed 's/.*%//')")" "$EXP_MASTER"

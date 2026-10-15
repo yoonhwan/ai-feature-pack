@@ -11,7 +11,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:300}";; esac; }
 
 bash -n "$SRC/ft-hil.sh" && ok "bash -n ft-hil.sh" || bad "bash -n ft-hil.sh"
-[ "$(wc -l < "$SRC/ft-hil.sh")" -le 100 ] && ok "ft-hil.sh 100줄 이하" || bad "ft-hil.sh 100줄 초과"
+[ "$(wc -l < "$SRC/ft-hil.sh")" -le 200 ] && ok "ft-hil.sh 200줄 이하(R186: 표식·대체·미실행 3기능으로 100 → 200)" || bad "ft-hil.sh 200줄 초과"
 cmp -s "$SRC/ft-hil.sh" "$HERE/../../scripts/fable-team-bin/ft-hil.sh" && ok "킷 두 벌 cmp 동일" || bad "킷 두 벌이 다르다"
 
 mkdir -p "$T/fake" "$T/home" "$T/d"
@@ -26,8 +26,8 @@ printf '#!/usr/bin/env bash\necho ran-B\n' > "$T/b.sh.hil"
 echo "== ① --add → ! bash <HIL_DIR>/h1 · 링크 1 · 클립보드"
 out="$(hilx --add "$T/a.sh.hil")"; rc=$?
 [ "$rc" -eq 0 ] && [ "$out" = "! bash $D/h1" ] && ok "--add 출력 = ! bash <HIL_DIR>/h1" || bad "--add rc=$rc out=$out"
-[ -L "$D/h1" ] && [ "$(readlink "$D/h1")" = "$T/a.sh.hil" ] && ok "  └ h1 링크 → 계획 절대경로" || bad "h1 링크 없음/불일치"
-[ "$(ls "$D" | grep -c '^h[0-9]')" = 1 ] && ok "  └ 링크 1개" || bad "링크 개수"
+[ -f "$D/h1" ] && [ ! -L "$D/h1" ] && [ "$(sed -n 's/^# ft-hil-entry plan=//p' "$D/h1")" = "$T/a.sh.hil" ] && ok "  └ h1 진입 파일 → 계획 절대경로(R186: 링크 아님)" || bad "h1 진입 파일 없음/불일치"
+[ "$(ls "$D" | grep -c '^h[0-9]')" = 1 ] && ok "  └ h 파일 1개" || bad "h 파일 개수"
 [ "$(cat "$T/clip.txt" 2>/dev/null)" = "bash $D/h1" ] && ok "  └ 클립보드 스텁 입력 = bash <HIL_DIR>/h1" || bad "클립보드: $(cat "$T/clip.txt" 2>/dev/null)"
 
 echo "== ② 같은 계획 재등록 = h1 재사용"
@@ -92,7 +92,7 @@ printf '#!/usr/bin/env bash\necho "skipped:실작업물 있음"\n' > "$W/seatX.s
 sw() { ( cd "$T" && env -i HOME="$T/home" PYTHONDONTWRITEBYTECODE=1 PATH="/usr/bin:/bin" FT_WT_CLEAN_DIR="$W" HIL_CLIP=0 "$@" bash "$T/sw/ft-wt-sweep.sh" 2>&1 ); }
 out="$(sw HIL_DIR="$T/sd")"
 has "$out" "[HIL] seat=seatX 실작업물 있음 · ! bash $T/sd/h1" "ft-hil.sh 있음 → [HIL] … · ! bash <링크>"
-[ "$(readlink "$T/sd/h1")" = "$W/seatX.sh.hil" ] && ok "  └ 링크 대상 = 옮겨진 .sh.hil" || bad "링크 대상 불일치"
+[ "$(sed -n 's/^# ft-hil-entry plan=//p' "$T/sd/h1")" = "$W/seatX.sh.hil" ] && ok "  └ 진입 파일 대상 = 옮겨진 .sh.hil" || bad "진입 파일 대상 불일치"
 mv "$W/seatX.sh.hil" "$W/seatX.sh"; : > "$T/notdir"
 out="$(sw HIL_DIR="$T/notdir")"
 has "$out" "스크립트 $W/seatX.sh.hil" "ft-hil.sh 실패 → 지금 문구 그대로"; has "$out" "WARN ft-hil 실패" "  └ WARN ft-hil 실패"

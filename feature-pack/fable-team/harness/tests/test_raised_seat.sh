@@ -123,7 +123,7 @@ PY
 printf '#!/bin/bash\necho "$*" >> "%s/mbox.log"\n' "$T" > "$T/fakembox.sh"; printf '#!/bin/bash\nexit 1\n' > "$T/failmbox.sh"; chmod +x "$T/fakembox.sh" "$T/failmbox.sh"
 mkdir -p "$T/fk-sha"; printf '#!/bin/sh\nexit 9\n' > "$T/fk-sha/shasum"; chmod +x "$T/fk-sha/shasum"
 TICK() { local st="$1"; shift; (cd "$CK" && git init -q 2>/dev/null; env "$@" FT_TICK_SEATS="$TK/seats.json" FT_TICK_STATE_DIR="$st" FT_TICK_MBOX="${MBOXBIN:-$T/fakembox.sh}" FT_TICK_PIDFILE="$T/tick.pid" FT_TICK_STAMP_PREFIX="$T/stamp-" \
-  FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 bash "$B/ft-tick.sh" --once 2>&1); }
+  FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 bash "$B/ft-tick.sh" --once 2>&1); }
 sends() { grep -c '\[▶내릴 것\]' "$T/mbox.log" 2>/dev/null || echo 0; }
 ST="$T/state"
 t1="$(TICK "$ST")"; eq "$(sends)" 1 "1틱: 송신 1"; [ -f "$ST/raised.sig" ] && ok "서명 파일 저장" || bad "서명 파일 없음"
@@ -152,7 +152,7 @@ has "$d" "DRY kind=raised bin=" "--dry-run → DRY kind=raised"; eq "$(sends)" "
 
 # C2 tick: FT_TICK_SEATS=seats-t.json 하나 + 같은 폴더 seats-*.json glob 이 같은 명부를 가리켜도 송신 1건
 TD="$T/td"; mkdir -p "$TD/design/x/indices/완성"; : > "$TD/design/x/indices/완성/z.md"; cp "$DUP/seats-t.json" "$TD/seats-t.json"
-b="$(sends)"; (cd "$TD" && git init -q 2>/dev/null; FT_TICK_SEATS="$TD/seats-t.json" FT_TICK_STATE_DIR="$T/state-dup" FT_TICK_MBOX="$T/fakembox.sh" FT_TICK_PIDFILE="$T/tick.pid" FT_TICK_STAMP_PREFIX="$T/stamp-dup-" FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 bash "$B/ft-tick.sh" --once >/dev/null 2>&1)
+b="$(sends)"; (cd "$TD" && git init -q 2>/dev/null; FT_TICK_SEATS="$TD/seats-t.json" FT_TICK_STATE_DIR="$T/state-dup" FT_TICK_MBOX="$T/fakembox.sh" FT_TICK_PIDFILE="$T/tick.pid" FT_TICK_STAMP_PREFIX="$T/stamp-dup-" FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 bash "$B/ft-tick.sh" --once >/dev/null 2>&1)
 eq "$(( $(sends) - b ))" 1 "C2 tick: 명부 하나 + 같은 폴더 glob → 송신 1건"; has "$(tail -1 "$T/mbox.log")" "상향 좌석 1건" "C2 tick: 본문 1건(중복 0)"
 echo "--- 증거: 시험 로케일 ${LC_ALL:-기본}"
 if [ -z "${R149_SECOND:-}" ] && [ "$fail" -eq 0 ]; then LC_ALL=C.UTF-8 R149_SECOND=1 bash "${BASH_SOURCE[0]:-$0}" | tail -2; [ "${PIPESTATUS[0]}" -eq 0 ] || fail=$((fail+1)); fi

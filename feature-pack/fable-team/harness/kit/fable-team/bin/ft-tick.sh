@@ -430,6 +430,34 @@ autonomy_expire() {
   return 0
 }
 
+# ★R186 (판정 1720) 미실행 h 감시★ — 오빠 실행 파일(/tmp/h<N>)이 발급만 되고 안 쳐진 채 팀이 멈추는 일(10-15 h4 9.5시간)을 사람보다 먼저 드러낸다.
+#   ft-hil.sh --pending(미실행·미대체 진입 파일)이 1개 이상이고 «개수가 바뀐 때만» 로그 1줄(서명 $STATE_DIR/hil.sig) · 30분 넘은 h 는 하루 h 당 planner(_hil_route) 앞 쪽지 1통(표식 $STATE_DIR/hil-notified/).
+#   FT_TICK_HIL=0 으로 끔(틱을 실제로 도는 시험은 «명시 설정» — 실 /tmp 의 h 파일에 기대지 않는다).
+#   ★메인 틱만 돈다(drift·raised 와 같은 R150 꼴 · DA⑥ H3)★ — 좌석표 이름이 seats.json 이 아니면(팀 틱 seats-<팀>.json) 건너뛴다: h 폴더는 팀 공통이라 팀마다 보면 중복·누락.
+#   하루 h 당 1통 = mkdir 선점(성공한 틱만 송신 · 송신 실패면 rmdir 해 다음 틱 재시도) · 상태는 이 틱의 STATE_DIR 아래.
+HIL_BIN="${FT_TICK_HIL_BIN:-$HERE/ft-hil.sh}"; HIL_NOTIFY_MIN="${FT_TICK_HIL_NOTIFY_MIN:-30}"
+hil_watch() {
+  local out sigf cnt each h m sdir day
+  [ "${FT_TICK_HIL:-1}" = 1 ] || return 0
+  [ "$(basename "$SEATS")" = seats.json ] || return 0
+  [ -f "$HIL_BIN" ] || { echo "$(date '+%F %T') hil_watch: missing $HIL_BIN" >&2; return 0; }
+  out="$(bash "$HIL_BIN" --pending 2>&1)" || { echo "$(date '+%F %T') hil_watch: ERROR --pending: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=hil pending=${out:--}"; return 0; fi
+  sigf="$STATE_DIR/hil.sig"; mkdir -p "$STATE_DIR"
+  [ -n "$out" ] || { rm -f "$sigf"; return 0; }
+  cnt="$(printf '%s' "$out" | sed -n 's/^미실행 h \([0-9][0-9]*\)개.*/\1/p')"
+  [ -n "$cnt" ] || { echo "$(date '+%F %T') hil_watch: ERROR 요약 줄을 못 읽었다: ${out:0:120}" >&2; return 0; }
+  [ "$(cat "$sigf" 2>/dev/null)" = "$cnt" ] || { echo "$cnt" > "$sigf"; log "hil_watch: $out"; }
+  each="$(bash "$HIL_BIN" --pending --each 2>/dev/null)"; sdir="$STATE_DIR/hil-notified"; day="$(date +%Y%m%d)"
+  while read -r h m; do
+    [ -n "$h" ] && [ "${m:-0}" -ge "$HIL_NOTIFY_MIN" ] || continue
+    mkdir -p "$sdir" && mkdir "$sdir/$h.$day" 2>/dev/null || continue   # 원자적 선점 — 진 쪽은 송신하지 않는다
+    notify_team "[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! bash ${HIL_DIR:-/tmp}/$h (이미 대체된 장이면 무시)" planner \
+      || rmdir "$sdir/$h.$day" 2>/dev/null
+  done <<< "$each"
+  return 0
+}
+
 live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐 좌석만 쓴다(ft-resume-attempt.sh snapshot · codex·cmd 는 쓰지 않음)
   local rows seat role agent model out
   [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
@@ -538,6 +566,7 @@ launchd_watch() {
 pass() {
   local rows seat tick role report_to master mok
   autonomy_expire
+  hil_watch
   live_snapshot
   dead_seat_watch
   idle_watch

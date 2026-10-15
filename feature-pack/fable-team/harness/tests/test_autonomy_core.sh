@@ -170,7 +170,7 @@ expire_suite() {  # <셸 경로>
   printf '#!/bin/bash\necho "$*" >> "%s/mb.log"\n' "$T" > "$T/mbox-stub.sh"
   printf '%s\n' '{"_master":"m1","_hil_route":"pl1","m1":{"role":"master","tick":null},"pl1":{"role":"pm","tick":null}}' > "$T/seats.json"
   tick() { (cd "$T" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY FT_NOW="$1" $TICK_X FT_TICK_SEATS="$T/seats.json" FT_TICK_STATE_DIR="$T/tick-state" FT_TICK_STAMP_PREFIX="$T/stamp-" FT_TICK_PIDFILE="$T/tick.pid" \
-    FT_TICK_MBOX="$T/mbox-stub.sh" FT_TICK_AUTONOMY_BIN="$BIN/ft-autonomy.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_NEWS_LEDGER=0 \
+    FT_TICK_MBOX="$T/mbox-stub.sh" FT_TICK_AUTONOMY_BIN="$BIN/ft-autonomy.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_NEWS_LEDGER=0 \
     FT_TICK_API_OUTAGE=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_STALL_INTERVAL=9999999999 $SH "$BIN/ft-tick.sh" --once 2>&1); }
   FT_NOW=$T0 $A on --for 1h >/dev/null 2>&1
   TICK_X="FT_TICK_AUTONOMY=0" tick $((T0+H+5)) >/dev/null; [ "$(offs)" = 0 ] && [ ! -e "$T/mb.log" ]; ck "틱 FT_TICK_AUTONOMY=0 = expire 0 · 쪽지 0" $?
