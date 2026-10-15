@@ -12,7 +12,7 @@ for f in ft-index-move.sh "../harness-install/fable-team/bin/ft-index-move.sh"; 
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-evidence-inject-scan.sh" "$BIN/"
+cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft-evidence-inject-scan.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export HOME="$T/home" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true FT_LAND_REF=HEAD
 mkdir -p "$HOME/.claude" "$T/state"
@@ -30,7 +30,7 @@ DA="$REPO/design/harness/DA-x.md#§1"
 card() {
   local f="$IDX/$1/$2.md"
   { echo "# 인덱스: $2"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"
-    [ $# -ge 3 ] && echo "- 규칙: $3"; } > "$f"
+    [ $# -ge 3 ] && echo "- 규칙: $3"; echo "- 설치: 없음"; } > "$f"
   echo "$f"
 }
 mv_() { bash "$BIN/ft-index-move.sh" "$@" 2>&1; }

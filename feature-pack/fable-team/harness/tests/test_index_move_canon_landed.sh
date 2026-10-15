@@ -12,7 +12,7 @@ for f in ft-index-move.sh ft-index-move-canon.sh; do bash -n "$SRCDIR/$f" && ok 
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$BIN/"
+cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\necho "$*" >> "$MBOX_LOG"\nexit 0\n' > "$T/fake-mbox.sh"; chmod 755 "$T/fake-mbox.sh"
 export FT_MBOX="$T/fake-mbox.sh" MBOX_LOG="$T/mbox.log" FT_INDEX_STATE_DIR="$T/state" FT_LAND_REF=main FT_SEATS_JSON="$T/none.json"
@@ -33,7 +33,7 @@ card() {
   local f="$IDX/진행/$1.md"
   { echo "# 인덱스: $1"; echo "## 상태"
     if [ "$2" = 갱신 ]; then echo "- 정본 갱신: $X §절A"; else echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"; fi
-    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; } > "$f"
+    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$f"
   echo "$f"
 }
 # da <파일명> <절본문...> — 판정문 생성, 경로 출력

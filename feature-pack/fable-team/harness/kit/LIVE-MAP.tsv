@@ -1,0 +1,24 @@
+# LIVE-MAP.tsv — 키트 폴더 → 라이브 설치 위치 지도 (R245 · ft-live-install-check.sh 가 읽는다)
+# 열(탭): 패턴(scripts/harness-install/ 기준 · fnmatch · 위에서부터 첫 일치) · 종류 · 라이브 폴더 · 설치 HINT
+# 종류: bin = 같은 이름 파일 blob 대조 + 실행 비트 · cmp = 같음(blob 대조 + 실행 비트) · plist = 템플릿의 Label 적재·재시작 확인(렌더본은 대조 안 함)
+#       skip = 라이브 설치 대상 아님(설명이 마지막 열) · 어떤 행에도 안 맞는 파일 = UNMAPPED(조용한 통과 0 — 새 폴더는 행을 추가한다)
+# 치환: $FT_BIN(env, 라이브 도구 폴더) · $HOME   — plist·skip 의 라이브 열은 `-`
+LIVE-MAP.tsv	skip	-	지도 자신
+*/*.plist.template	plist	-	해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · fable-team/install.sh (후 launchctl bootstrap·kickstart)
+*/install.sh	skip	-	설치 스크립트 자체
+*/install-*.sh	skip	-	설치 스크립트 자체
+launchd/*	skip	-	plist 템플릿 외 파일(문서·메모) — 설치 대상 아님
+loom-tunnel/*	skip	-	plist 템플릿·install.sh 외 파일(문서·메모) — 설치 대상 아님
+stt-tunnel/*	skip	-	plist 템플릿·install.sh 외 파일(문서·메모) — 설치 대상 아님
+fable-team/bin/*	bin	$FT_BIN	master: tar 백업 → cp → drift-check OK (ft-live-install.sh · design/harness/PLAN-release-0.4-and-816-20261007.md)
+hooks/*	cmp	$HOME/.claude/hooks	master: cp -p <키트>/hooks/<파일> ~/.claude/hooks/ (settings.json 훅 등록은 별도)
+slack-mirror/*	cmp	$HOME/.hermes/scripts	master: slack-mirror/install-*.sh 재실행(또는 cp -p) 후 데몬 kickstart
+fable-team/bin-planner/*	skip	-	팀 env 스테이징 — fable-team/install.sh 가 팀 폴더로 복사
+fable-team/templates/*	skip	-	새 프로젝트 설치 템플릿 — 라이브 대조 대상 아님
+fable-team/*	skip	-	팀 설치 산출(템플릿 plist 등) — fable-team/install.sh 소관
+graphics/*	skip	-	graphics 팀 스테이징 — graphics/install.sh 가 <ROOT>/.fable-team/ 으로 복사
+proposal/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음) — 슬랙 발행 모듈만 slack-mirror 로 설치
+sets/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음)
+tmm/*	skip	-	~/.tmm 설치는 오빠 승인 영역(별도 절차)
+zombie-clean/*.sh	cmp	$HOME/.claude/skills/zombie-clean/scripts	master: cp -p <키트>/zombie-clean/*.sh ~/.claude/skills/zombie-clean/scripts/ (R128 설치 위치)
+zombie-clean/*	skip	-	zombie-clean 스킬 설치 절차 별도

@@ -11,7 +11,7 @@ bash -n "$SRC_MOVE" && ok "bash -n" || bad "bash -n"
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRC_MOVE" "$BIN/ft-index-move.sh"; cp "$(dirname "$SRC_MOVE")/ft-index-move-canon.sh" "$BIN/"
+cp "$SRC_MOVE" "$BIN/ft-index-move.sh"; cp "$(dirname "$SRC_MOVE")/ft-index-move-canon.sh" "$(dirname "$SRC_MOVE")/ft-index-move-install.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"        # lint 는 별도 시험 — 여기선 통과 스텁
 printf '#!/usr/bin/env bash\necho "bash ring $1"\n' > "$BIN/ft-resume-cmd.sh"
 STUB="$T/byz_thread_post_stub.sh"
@@ -39,7 +39,7 @@ DA="$REPO/design/harness/DA-x.md#§1"
 # card <폴더> <이름> <슬랙줄 있음 0|1> — 카드 경로를 출력
 card() {
   local f="$REPO/design/harness/indices/$1/$2.md"
-  { echo "# 인덱스: $2"; echo "- Issue: 없음 → 시험"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"; echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"
+  { echo "# 인덱스: $2"; echo "- Issue: 없음 → 시험"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"; echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"
     [ "$3" = 1 ] && echo "- 슬랙: C0C6MJGRR89 1700000000.000100"; } > "$f"
   echo "$f"
 }

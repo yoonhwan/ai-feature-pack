@@ -6,6 +6,7 @@
 #   대기→진행 : lint 통과 + --seat 필수(누가 들고 가는지). §상태 에 한 줄 append.
 #   진행→완성 : --da 필수. 판정문 파일이 실재하고 그 §N 절(§N 정확 일치)에 「닫힘」 또는 「CLOSE」 + 카드 이름이 있어야 한다.
 #               정본 갱신 카드는 --landed <S|T..S> 필수(랜딩 commit 사실 검사 — ft-index-move-canon.sh).
+#               하네스 카드는 `- 설치: 있음|없음` 필수 · 있음 = 라이브 설치 대조 OK + `- 실사건:` 증거(ft-index-move-install.sh · R245).
 #               (DA 가 안 쓴 「닫힘」은 없다 — pm·master 가 대신 쓸 길을 두지 않는다.)
 #   기타 방향 : 되돌리기(진행→대기 등)는 --seat 로 사유만 남기고 허용.
 #   슬랙(판정 405) : 카드에 `- 슬랙:` 줄이 있으면 이동 «전»에 대기→진행=착수 답글 · 진행→완성=결과 답글 확인/발송.
@@ -62,6 +63,8 @@ if [ "$DST" = 완성 ]; then
   else
     echo "REJECT 「- 규칙:」 줄 형식 틀림 — $RUSE (이동 0)"; exit 1
   fi
+  # R245 병합 ≠ 끝 — 하네스 카드 설치 게이트(ft-index-move-install.sh · 설치: 있음 = 라이브 cmp0 + 실사건 증거). 다른 팀 indices 는 게이트 안에서 통과.
+  bash "$HERE/ft-index-move-install.sh" "$SRC" ${LANDED:+--landed "$LANDED"} || exit 1
 fi
 # 슬랙 단위 스레드(판정 405 §4) — «게시 대상» = 카드의 `- 슬랙:` 줄 유무(장부 아님). 이동 «전»에 끝낸다: 실패면 이동 0.
 if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; }; then

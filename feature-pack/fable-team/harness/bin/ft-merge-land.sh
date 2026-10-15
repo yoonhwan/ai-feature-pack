@@ -63,5 +63,10 @@ if [ -z "$OLD" ] || G merge-base --is-ancestor "$OLD" "$Q" 2>/dev/null; then
   { mkdir -p "$(dirname "$BH")" && printf '%s\n' "$Q" > "$BH.$$" && mv -f "$BH.$$" "$BH"; } || echo "WARN 기준 헤드 갱신 실패($BH) — 손으로 기록"
 fi
 FT_ROOT="$ROOT" bash "$HERE/ft-head-lag.sh" --event --repo "$REPO" --base "$REMOTE/$TARGET" || echo "WARN ft-head-lag --event 실패(rc=$?) — 착지는 성공"
+# R245 병합 ≠ 끝: 착지 «뒤»에 키트→라이브 설치 대조 — 출력·기록만(판정 0). 어긋남·오류·시간 초과여도 착지 rc·LANDED 줄 불변. 대기 기록 = state/install-pending/<Q>.txt
+ITO="${FT_INSTALL_CHECK_TIMEOUT:-7}"; IOUT="$("$TB" "$ITO" bash "${FT_INSTALL_CHECK:-$HERE/ft-live-install-check.sh}" --range "$M..$Q" --repo "$REPO" 2>&1)"; irc=$?
+if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 검사 ${ITO}초 초과 — 손으로: ft-live-install-check.sh --range $M..$Q"; IOUT="INSTALL-PENDING 검사 시간 초과"
+else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
+[ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
 fm_t7 "$GH_W" pr comment "$PR" --body "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)" && fm_t7 "$GH_W" pr close "$PR" \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; exit 3; }

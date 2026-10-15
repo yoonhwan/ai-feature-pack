@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""ft_live_install_check.py — 키트(scripts/harness-install/)가 라이브 위치와 같은지 «읽기만» 검사 (R245).
+종료: 0 OK · 1 PENDING · 2 usage · 3 ERROR(지도·ref 못 품 — #0 RULE). 쓰기 0 · fetch 0 · launchctl·ps 각 7초 상한."""
+import fnmatch
+import os
+import re
+import subprocess
+import sys
+import time
+
+KD = "scripts/harness-install/"
+MAPPATH = KD + "LIVE-MAP.tsv"
+
+
+def die(msg):
+    print("ERROR " + msg)
+    sys.exit(3)
+
+
+def run(cmd, inp=None):
+    try:  # C 로케일 — ps lstart 가 한글 요일로 나오면 해석 불가
+        return subprocess.run(cmd, input=inp, capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
+    except (subprocess.TimeoutExpired, OSError) as e:
+        die("실행 실패/7초 초과: %s (%s)" % (cmd[0], e))
+
+
+def git(repo, *args, inp=None):
+    r = run(["git", "-C", repo, *args], inp)
+    if r.returncode:
+        die("git %s 실패: %s" % (" ".join(args[:2]), r.stderr.strip()[:120]))
+    return r.stdout
+
+
+def parse_args(argv):
+    o = {"range": None, "all": False, "ref": "origin/main", "repo": None, "map": None}
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--all":
+            o["all"], i = True, i + 1
+        elif argv[i] in ("--range", "--ref", "--repo", "--map") and i + 1 < len(argv):
+            o[argv[i][2:]], i = argv[i + 1], i + 2
+        else:
+            sys.exit(2)
+    if bool(o["range"]) == o["all"]:
+        sys.exit(2)
+    return o
+
+
+def load_map(text):
+    rows = [ln.split("\t") for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+    for c in rows:
+        if len(c) < 4 or c[1] not in ("bin", "cmp", "plist", "skip"):
+            die("지도 행 형식 오류: " + "\t".join(c)[:80])
+    return [c[:4] for c in rows]
+
+
+def subst(p):
+    ft = os.environ.get("FT_BIN")
+    if "$FT_BIN" in p and not ft:
+        die("FT_BIN 환경변수 없음 — 라이브 도구 폴더를 모른다")
+    return p.replace("$FT_BIN", ft or "").replace("$HOME", os.environ["HOME"])
+
+
+def plist_items(repo, path, blob):
+    """템플릿 Label 적재 여부 + 프로세스 시작 시각 < 라이브 스크립트 mtime → RESTART."""
+    body = git(repo, "cat-file", "blob", blob)
+    m = re.search(r"<key>Label</key>\s*<string>([^<]+)</string>", body)
+    label = m.group(1) if m and "__" not in m.group(1) else os.path.basename(path)[: -len(".plist.template")]  # 치환 자리표시 라벨 = 파일 이름이 라벨
+    r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
+    if r.returncode:
+        return ["NOTLOADED " + label]
+    pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout)
+    scripts = [os.environ["HOME"] + s for s in re.findall(r"<string>__HOME__(/[^<]+\.(?:py|sh))</string>", body)]
+    miss = ["MISSING %s -> %s" % (path, s) for s in scripts if not os.path.isfile(s)]
+    if not pm or miss:
+        return miss  # PID 없음(주기 실행 job) = 시작 시각 비교 불가 — 적재만 확인
+    ls = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pm.group(1)]).stdout.split()
+    try:
+        started = time.mktime(time.strptime(" ".join(ls), "%a %b %d %H:%M:%S %Y"))
+    except ValueError:
+        die("ps lstart 해석 실패: %s" % ls)
+    return ["RESTART " + label] if started < max((os.path.getmtime(s) for s in scripts), default=0) else []
+
+
+def main():
+    o = parse_args(sys.argv[1:])
+    repo = o["repo"] or git(".", "rev-parse", "--show-toplevel").strip()
+    if o["range"]:
+        a, _, ref = o["range"].partition("..")
+        if not a or not ref:
+            sys.exit(2)
+        for x in (a, ref):
+            git(repo, "rev-parse", "--verify", "-q", x + "^{commit}")
+        files = set(git(repo, "diff", "--name-only", "--diff-filter=ACMR", a, ref, "--", KD).split("\n"))
+    else:
+        ref, files = o["ref"], None
+        git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
+    tree = {}
+    for ln in git(repo, "ls-tree", "-r", ref, "--", KD).splitlines():
+        meta, _, path = ln.partition("\t")
+        tree[path] = (meta.split()[0], meta.split()[2])
+    files = sorted(f for f in (files if files is not None else tree) if f in tree and ".bak" not in f)
+    try:
+        rows = load_map(open(o["map"], encoding="utf-8").read() if o["map"] else git(repo, "show", ref + ":" + MAPPATH))
+    except OSError as e:
+        die("지도를 못 읽음: %s" % e)
+    bad, hints, skip, checked, pairs = [], {}, 0, 0, []
+    for f in files:
+        rel = f[len(KD):]
+        row = next((r for r in rows if fnmatch.fnmatch(rel, r[0])), None)
+        if row is None:
+            bad.append("UNMAPPED " + f)
+        elif row[1] == "skip":
+            skip += 1
+        elif row[1] == "plist":
+            checked += 1
+            items = plist_items(repo, f, tree[f][1])
+            bad += items
+            hints.update({rel.split("/")[0]: row[3]} if items else {})
+        else:
+            checked += 1
+            pairs.append((f, os.path.join(subst(row[2]), os.path.basename(f)), row))
+    live = [p for p in pairs if os.path.isfile(p[1])]
+    hashes = git(repo, "hash-object", "--no-filters", "--stdin-paths", inp="".join(p[1] + "\n" for p in live)).split() if live else []
+    hmap = {p[1]: h for p, h in zip(live, hashes)}
+    for f, lp, row in pairs:
+        why = "MISSING" if lp not in hmap else ("DIFF" if hmap[lp] != tree[f][1] else "")
+        if not why and tree[f][0] == "100755" and not os.access(lp, os.X_OK):
+            why = "MODE"
+        if why:
+            bad.append("%s %s -> %s" % (why, f, lp))
+            hints[f[len(KD):].split("/")[0]] = row[3]
+    if not bad:
+        print("OK n=%d skip=%d" % (checked, skip))
+        return 0
+    print("PENDING n=%d" % len(bad))
+    print("\n".join(sorted(bad)))
+    print("\n".join("HINT %s %s" % (k, hints[k]) for k in sorted(hints)))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

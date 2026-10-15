@@ -66,7 +66,7 @@ n1="$(wc -l < "$FT_INDEX_STATE_DIR/inject-scan.log" 2>/dev/null | tr -d ' ')"; s
 [ -n "$n1" ] && [ "$n1" -ge 1 ] && [ "$n1" = "$n2" ] && grep -q 'INJECT-SCAN files=' "$FT_INDEX_STATE_DIR/inject-scan.log" && ok "9c SUSPECT 시 log append · 0건이면 무기록" || bad "9c: n1=$n1 n2=$n2"
 
 # 10 진행→완성 이동: SUSPECT 줄 출력 · rc=0 · 카드 완성/ 이동
-BIN="$T/bin"; mkdir -p "$BIN"; cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SCAN" "$BIN/"
+BIN="$T/bin"; mkdir -p "$BIN"; cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SCAN" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true
 REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/design/x/evidence/e1"
@@ -74,13 +74,13 @@ git -C "$REPO" init -q -b main . && git -C "$REPO" config user.email t@t && git 
 cp "$FX/p3.py" "$REPO/design/x/evidence/e1/run.py"
 git -C "$REPO" add -A && git -C "$REPO" commit -qm evidence
 # 카드는 미추적으로 둔다(ft-index-move 는 추적 카드에 cwd 기준 git mv — 임시 리포 밖 cwd 에서 실패)
-printf '# 인덱스: k10\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n증거: design/x/evidence/e1/run.py\n' > "$IDX/진행/k10.md"
+printf '# 인덱스: k10\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 없음\n증거: design/x/evidence/e1/run.py\n' > "$IDX/진행/k10.md"
 printf '# 판정문\n## §1 닫힘: k10\n대상 카드: k10\n' > "$REPO/da10.md"
 out="$(bash "$BIN/ft-index-move.sh" "$IDX/진행/k10.md" 완성 --da "$REPO/da10.md#§1" --seat s 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [ -f "$IDX/완성/k10.md" ] && echo "$out" | grep -q '^SUSPECT .*run.py:1 ⓒ' && echo "$out" | grep -q '^MOVED' && ok "10 완성 이동: SUSPECT 출력 · rc=0 · 이동" || bad "10: rc=$rc $out"
 
 # 10b 스캐너 실행 불가여도 이동은 계속 + stderr ERROR 1줄 (보이게 · 차단 0)
-printf '# 인덱스: k10b\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n증거: design/x/evidence/e1/run.py\n' > "$IDX/진행/k10b.md"; rm "$BIN/ft-evidence-inject-scan.sh"
+printf '# 인덱스: k10b\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 없음\n증거: design/x/evidence/e1/run.py\n' > "$IDX/진행/k10b.md"; rm "$BIN/ft-evidence-inject-scan.sh"
 # 판정문에 k10b 이름을 추가(절-카드 결속 R37)
 printf '대상 카드: k10b\n' >> "$REPO/da10.md"
 out="$(bash "$BIN/ft-index-move.sh" "$IDX/진행/k10b.md" 완성 --da "$REPO/da10.md#§1" --seat s 2>&1)"; rc=$?
@@ -91,7 +91,7 @@ cp "$SCAN" "$BIN/"
 mkdir -p "$REPO/tests/harness" "$REPO/design/x/evidence/run1"
 cp "$FX/p3.py" "$REPO/tests/harness/noise.py"; cp "$FX/p3.py" "$REPO/tests/harness/test_evidence_inject_scan.sh"; cp "$FX/p3.py" "$REPO/design/x/evidence/run1/v.py"
 card_move() { # <이름> <본문 한 줄> [이동 bin] — 출력 전부
-  printf '# 인덱스: %s\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n%s\n' "$1" "$2" > "$IDX/진행/$1.md"; printf '대상 카드: %s\n' "$1" >> "$REPO/da10.md"
+  printf '# 인덱스: %s\n## 상태\n- 정본 영향 없음: 하네스 도구와 시험만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 없음\n%s\n' "$1" "$2" > "$IDX/진행/$1.md"; printf '대상 카드: %s\n' "$1" >> "$REPO/da10.md"
   bash "${3:-$BIN}/ft-index-move.sh" "$IDX/진행/$1.md" 완성 --da "$REPO/da10.md#§1" --seat s 2>&1; }
 CARD12='증거 design/x/evidence/e1/run.py · 범위 `tests/**` · `design/**/evidence/**` · tests/harness/'
 out="$(card_move k12 "$CARD12")"; [ "$(cnt "$out" files)" = 1 ] && ok "12 일반 표기(tests/** · design/**/evidence/** · tests/harness/) 훑기 0 — files=1(카드의 실파일뿐)" || bad "12: $out"
