@@ -26,6 +26,7 @@ import ssl
 import stat
 import subprocess
 import sys
+import threading
 import time
 
 SCHEMA_VERSION = 1
@@ -47,12 +48,25 @@ def override(name: str, default):
     return os.environ.get(name, default) if SELFTEST else default
 
 
+def override_seconds(name: str, default: float) -> float:
+    """A numeric test hook; a bad value ends the process with a fixed message, never the value itself."""
+    try:
+        value = float(override(name, default))
+    except ValueError:
+        sys.stderr.write("invalid test time value\n")
+        raise SystemExit(2) from None
+    if not value >= 0:
+        sys.stderr.write("invalid test time value\n")
+        raise SystemExit(2)
+    return value
+
+
 # External-call 7-second rule: one attempt, no retry. Recovery after a timeout is local clean-up with its own cap.
-ATTEMPT_S = float(override("PROBE_T_ATTEMPT", 7.0))
-REAP_WAIT_S = float(override("PROBE_T_REAP", 2.0))
-PIPE_DRAIN_S = float(override("PROBE_T_PIPE", 1.0))
-LOCAL_BUDGET_S = float(override("PROBE_T_LOCAL", 15.0))
-TCC_TAIL_S = float(override("PROBE_T_TAIL", 2.0))  # the observation window ends this long after the stage
+ATTEMPT_S = override_seconds("PROBE_T_ATTEMPT", 7.0)
+REAP_WAIT_S = override_seconds("PROBE_T_REAP", 2.0)
+PIPE_DRAIN_S = override_seconds("PROBE_T_PIPE", 1.0)
+LOCAL_BUDGET_S = override_seconds("PROBE_T_LOCAL", 15.0)
+TCC_TAIL_S = override_seconds("PROBE_T_TAIL", 2.0)  # the observation window ends this long after the stage
 LOG_CALL_S = 3.0
 LOCAL_CALL_S = 3.0
 PS_CALL_S = 1.0
@@ -94,7 +108,7 @@ NETWORK_MARKERS = ("dial tcp", "no such host", "network is unreachable", "connec
                    "no route to host", "timed out")
 APPDATA_SERVICE = "kTCCServiceSystemPolicyAppData"
 TCC_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d")
-MSG_ID = re.compile(r"msgID=([0-9.]+)")
+MSG_ID = re.compile(r"msgID=([^,\s]+)")
 PID_FIELD = re.compile(r"pid=(\d+)")
 
 
@@ -184,6 +198,9 @@ def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, bu
             "child_exit_unconfirmed": False, "descendants_may_hold_pipe": False, "stdout": b"", "stderr": b""}
     deadline = time.monotonic() + ATTEMPT_S
     book.before(step)
+    if deadline - time.monotonic() <= 0:  # the preparation used the attempt up: nothing is started
+        info["status"] = "timeout"
+        return info
     try:
         proc = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, close_fds=True)
@@ -191,18 +208,39 @@ def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, bu
         book.after(step, None)
         info["status"] = "spawn_error"
         return info
-    book.after(step, proc.pid)
-    info["child_pid"] = proc.pid
-    remaining = deadline - time.monotonic()
-    timed_out = remaining <= 0
-    if not timed_out:
-        try:
-            info["stdout"], info["stderr"] = proc.communicate(timeout=remaining)
-            info.update(rc=proc.returncode, child_exited=True, reaped=True, status="success")
-            return info
-        except subprocess.TimeoutExpired:
-            timed_out = True
+    # The deadline is enforced by its own timer from the moment the child exists, so a slow PID record (ps, file
+    # write) can never delay the first kill; the timer touches the direct child only.
+    fired = threading.Event()
+
+    def expire() -> None:
+        if proc.poll() is None:
+            fired.set()
+            try:
+                proc.kill()
+            except OSError:
+                pass
+
+    timer = threading.Timer(max(0.0, deadline - time.monotonic()), expire)
+    timer.daemon = True
+    timer.start()
+    try:
+        book.after(step, proc.pid)
+        info["child_pid"] = proc.pid
+        remaining = deadline - time.monotonic()
+        timed_out = remaining <= 0 or fired.is_set()
+        if not timed_out:
+            try:
+                info["stdout"], info["stderr"] = proc.communicate(timeout=remaining)
+                timed_out = fired.is_set()
+                if not timed_out:
+                    info.update(rc=proc.returncode, child_exited=True, reaped=True, status="success")
+                    return info
+            except subprocess.TimeoutExpired:
+                timed_out = True
+    finally:
+        timer.cancel()
     info["status"] = "timeout"
+    info["stdout"] = info["stderr"] = b""  # nothing of a timed-out attempt is kept
     proc.kill()  # the direct child only: never a group, never a shared daemon, never a descendant
     try:
         proc.wait(timeout=REAP_WAIT_S)
@@ -301,8 +339,12 @@ def local_run(argv: list[str], budget: Budget):
 
 def classify_tcc(text: str, pids: set[int]) -> str:
     """AppData requests only, each tied by msgID to its own attribution line; other services never count.
-    Any other TCC line in the window is the positive control that makes "none" meaningful."""
+
+    Nothing that names AppData is ever turned into "none": a request that cannot be linked (no or unknown
+    msgID) is at least seen_unattributed, and an attribution of ours whose request line was not collected is
+    unknown. Any other TCC line in the window is the positive control that makes "none" meaningful."""
     groups: dict[str, list[str]] = {}
+    loose: list[str] = []
     total = 0
     for line in text.splitlines():
         if not TCC_LINE.match(line):
@@ -311,16 +353,25 @@ def classify_tcc(text: str, pids: set[int]) -> str:
         found = MSG_ID.search(line)
         if found:
             groups.setdefault(found.group(1), []).append(line)
+        else:
+            loose.append(line)
     if total == 0:
         return "unknown_log_unavailable"
-    appdata = [lines for lines in groups.values() if any(APPDATA_SERVICE in line for line in lines)]
-    if not appdata:
-        return "none_logged_ok"
-    for lines in appdata:
-        for line in lines:
-            if "attribution=" in line and any(int(found) in pids for found in PID_FIELD.findall(line)):
-                return "seen_attributed"
-    return "seen_unattributed"
+    unattributed = any(APPDATA_SERVICE in line for line in loose)
+    partial_ours = False
+    for lines in groups.values():
+        named = any(APPDATA_SERVICE in line for line in lines)
+        ours = any("attribution=" in line and any(int(found) in pids for found in PID_FIELD.findall(line))
+                   for line in lines)
+        if named and ours:
+            return "seen_attributed"
+        unattributed = unattributed or named
+        partial_ours = partial_ours or (ours and not any("service=" in line for line in lines))
+    if unattributed:
+        return "seen_unattributed"
+    if partial_ours:
+        return "unknown_log_unavailable"
+    return "none_logged_ok"
 
 
 def observe_tcc(start_wall: float, end_wall: float, pids: set[int], budget: Budget) -> str:

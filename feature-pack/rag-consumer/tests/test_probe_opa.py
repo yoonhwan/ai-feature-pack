@@ -147,7 +147,7 @@ elif mode == "split_unlinked":  # AppData ctx under one msgID, our pid only unde
             "PROBE_P4_STUB": "success",
             "PROBE_T_ATTEMPT": "3", "PROBE_T_REAP": "0.5", "PROBE_T_PIPE": "0.3", "PROBE_T_LOCAL": "8",
             "PROBE_T_TAIL": "0.3", "PROBE_T_CALL": "3",
-            "PROBE_T_START": "4", "PROBE_T_RESULT": "20", "PROBE_T_CLEAN": "10",
+            "PROBE_T_START": "10", "PROBE_T_RESULT": "20", "PROBE_T_CLEAN": "10",
             "FAKE_LC_STATE": str(self.state),
         }
         env.update(self.extra)
