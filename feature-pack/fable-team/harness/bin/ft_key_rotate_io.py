@@ -2,10 +2,11 @@
 
 import glob
 import os
-import re
 import subprocess
 import tempfile
 import time
+
+from ft_key_rotate_lines import swap_line
 
 ZSH, ENV = "zshrc", "env"
 STAMP = "%Y%m%d-%H%M%S"
@@ -34,45 +35,6 @@ def file_paths(kinds):
         env = os.path.join(os.path.dirname(top), ".env")
     where = {ZSH: home, ENV: env}
     return [os.path.realpath(where[f]) for f in kinds]
-
-
-def parse_line(line, key):
-    m = re.match(r"^(\s*(?:export\s+)?%s=)(.*?)(\r?\n?)$" % re.escape(key), line)
-    if not m or line.lstrip().startswith("#"):
-        return None
-    rest = m.group(2)
-    q = rest[0] if rest[:1] in ("'", '"') else ""
-    if q and not (len(rest) >= 2 and rest.endswith(q)):
-        raise ValueError("따옴표 짝이 안 맞는 줄")
-    return m.group(1), q, (rest[1:-1] if q else rest), m.group(3)
-
-
-def active(path, key):
-    """(줄 번호들, 주석 줄 수) — 읽기 실패는 OSError."""
-    idx, notes = [], 0
-    with open(path, encoding="utf-8") as f:
-        for i, line in enumerate(f.read().splitlines(keepends=True)):
-            if re.match(r"^\s*#.*\b%s=" % re.escape(key), line):
-                notes += 1
-            elif parse_line(line, key):
-                idx.append(i)
-    return idx, notes
-
-
-def read_value(path, key):
-    with open(path, encoding="utf-8") as f:
-        for line in f.read().splitlines(keepends=True):
-            p = parse_line(line, key)
-            if p:
-                return p[2]
-    return None
-
-
-def render(prefix, q, new, nl):
-    bad = {'"': '"\\$`', "'": "'", "": " \t;&|<>()$`\\\"'#"}[q]
-    if any(c in new for c in bad):
-        raise ValueError("새 값에 이 줄 따옴표에서 쓸 수 없는 글자 포함")
-    return prefix + q + new + q + nl
 
 
 def snapshot(path):
@@ -106,18 +68,6 @@ def write_backup(path, data):
         f.write(data)
         f.flush()
         os.fsync(f.fileno())
-
-
-def swap_line(path, key, new):
-    """활성 줄 1개만 새 값으로 바꾼 파일 전문."""
-    idx, _ = active(path, key)
-    if len(idx) != 1:
-        raise ValueError("%s 활성 줄 %d개(정확히 1개여야 함)" % (os.path.basename(path), len(idx)))
-    with open(path, encoding="utf-8") as f:
-        lines = f.read().splitlines(keepends=True)
-    prefix, q, _old, nl = parse_line(lines[idx[0]], key)
-    lines[idx[0]] = render(prefix, q, new, nl)
-    return "".join(lines)
 
 
 def restore_all(snaps, bks):

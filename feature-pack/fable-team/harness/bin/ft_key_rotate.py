@@ -14,7 +14,8 @@ import re
 import sys
 
 import ft_key_rotate_io as fio
-from ft_key_rotate_io import active, apply_all, apply_edits, latest_backup, read_value, swap_line
+from ft_key_rotate_io import apply_all, apply_edits, latest_backup
+from ft_key_rotate_lines import active, read_value, restore_line
 from ft_key_rotate_table import KEYS, check
 
 
@@ -79,7 +80,7 @@ def cmd_restore(key):
         b = latest_backup(p, key)
         if not b:
             raise ValueError("%s 백업 없음" % os.path.basename(p))
-        edits.append((p, swap_line(p, key, read_value(b, key))))
+        edits.append((p, restore_line(p, key, b)))
     apply_edits(key, edits, False)
     say("RESTORED %s files=%d" % (key, len(files)))
     return 0

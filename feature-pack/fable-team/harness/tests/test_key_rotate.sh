@@ -222,6 +222,44 @@ chk "Slack: 빈 본문 data + 400=ALIVE" 'grep -q "^data = \"\"" "$T/curl.stdin"
 mkfix; runk "$NEW" OPENAI_API_KEY >/dev/null; runk "" --status
 chk "--status 17행 · 값 0" '[ "$(echo "$OUT" | grep -c " group=")" = 17 ] && ! echo "$OUT" | grep -q -e "OLDVAL_" -e "$NEW" && echo "$OUT" | grep -q "^OPENAI_API_KEY .*rotated=2"'
 
+# 7b R204: 닫는 따옴표 «뒤» 공백·줄끝 주석 — 읽고 교체하되 꼬리는 바이트 그대로
+setz() {  # setz <키> <줄 전문> — zshrc 의 그 키 활성 줄만 바꾸고 스냅샷 갱신
+  grep -v "^export $1=" "$T/home/.zshrc" > "$T/z.tmp"; printf '%s\n' "$2" >> "$T/z.tmp"
+  cat "$T/z.tmp" > "$T/home/.zshrc"; cp "$T/home/.zshrc" "$T/snap.zshrc"
+}
+mkfix; setz OPENAI_API_KEY "export OPENAI_API_KEY=\"$(old OPENAI_API_KEY)\"  "; runk "$NEW" OPENAI_API_KEY
+chk "R204 뒤 공백 줄: 교체 rc=0 · 꼬리(공백 2) 보존" '[ $RC -eq 0 ] && [ "$(zline OPENAI_API_KEY)" = "export OPENAI_API_KEY=\"$NEW\"  " ]'
+mkfix; setz ELEVENLABS_API_KEY "export ELEVENLABS_API_KEY=\"$(old ELEVENLABS_API_KEY)\"  # 메모 # source ~/.zshrc"; runk "$NEW" ELEVENLABS_API_KEY
+chk "R204 줄끝 주석 줄: 교체 rc=0 · 주석 바이트 보존 · 값 노출 0" '[ $RC -eq 0 ] && [ "$(zline ELEVENLABS_API_KEY)" = "export ELEVENLABS_API_KEY=\"$NEW\"  # 메모 # source ~/.zshrc" ] && ! echo "$OUT" | grep -q -e "$NEW" -e "$(old ELEVENLABS_API_KEY)"'
+mkfix; setz ELEVENLABS_API_KEY "export ELEVENLABS_API_KEY=\"$(old ELEVENLABS_API_KEY)\" # c"; echo 401 > "$T/curl.code"; runk "$NEW" ELEVENLABS_API_KEY
+runk "" --restore ELEVENLABS_API_KEY
+chk "R204 --restore: 꼬리 포함 원래 줄로(두 파일 snap 과 동일)" '[ $RC -eq 0 ] && unchanged'
+mkfix; setz OPENAI_API_KEY "export OPENAI_API_KEY=\"$(old OPENAI_API_KEY)\"x"; runk "$NEW" OPENAI_API_KEY
+chk "R204 닫힌 뒤 비주석 글자(\"v\"x) → REJECT · 파일 불변" '[ $RC -eq 1 ] && echo "$OUT" | grep -q "^REJECT" && unchanged'
+mkfix; setz OPENAI_API_KEY "export OPENAI_API_KEY=\"$(old OPENAI_API_KEY)\"#c"; runk "$NEW" OPENAI_API_KEY
+chk "R204 공백 없이 붙은 #(\"v\"#c) → REJECT · 파일 불변" '[ $RC -eq 1 ] && unchanged'
+mkfix; setz OPENAI_API_KEY "export OPENAI_API_KEY=\"$(old OPENAI_API_KEY)"; runk "$NEW" OPENAI_API_KEY
+chk "R204 닫는 따옴표 없음 → REJECT · 파일 불변" '[ $RC -eq 1 ] && unchanged'
+
+# 7c R204(DA⑥ 전 arch 추가): 따옴표 «안» # 은 값 · 홑따옴표 + 줄끝 주석
+rv() { python3 -I -c 'import sys;sys.path.insert(0,sys.argv[1]);import ft_key_rotate_lines as f;print(f.read_value(sys.argv[2],sys.argv[3]),end="")' "$SRC" "$T/home/.zshrc" "$1"; }
+HV="OLDVAL_mid#x_0123456789"
+mkfix; setz ELEVENLABS_API_KEY "export ELEVENLABS_API_KEY=\"$HV\"  # c #d"
+chk "R204 따옴표 안 # : read 값 = 전체(잘림 0 · 주석 혼입 0)" '[ "$(rv ELEVENLABS_API_KEY)" = "$HV" ]'
+runk "$NEW" ELEVENLABS_API_KEY
+chk "R204 따옴표 안 # : 교체 rc=0 · 꼬리 보존 · 옛 값 출력 0" '[ $RC -eq 0 ] && [ "$(zline ELEVENLABS_API_KEY)" = "export ELEVENLABS_API_KEY=\"$NEW\"  # c #d" ] && ! echo "$OUT" | grep -q -e "$HV" -e "$NEW"'
+mkfix; setz OP_SERVICE_ACCOUNT_TOKEN "export OP_SERVICE_ACCOUNT_TOKEN='$(old OP_SERVICE_ACCOUNT_TOKEN)'  # c"; runk "$NEW" OP_SERVICE_ACCOUNT_TOKEN
+chk "R204 홑따옴표 + 줄끝 주석: 교체 rc=0 · 따옴표·꼬리 보존" '[ $RC -eq 0 ] && [ "$(zline OP_SERVICE_ACCOUNT_TOKEN)" = "export OP_SERVICE_ACCOUNT_TOKEN='"'"'$NEW'"'"'  # c" ]'
+
+# 7d R204 r2(DA⑥ H1): \" 이스케이프 + 따옴표 안 # + 꼬리 줄 — 두 파일 교체 → 실제 --restore → 바이트·mode 교체 전과 동일
+mkfix; setz OPENAI_API_KEY "export OPENAI_API_KEY=\"OLDVAL_a\\\"b#x_0123456789\"  # c #d"
+sed -i.b 's|^OPENAI_API_KEY=.*|OPENAI_API_KEY="OLDVAL_a\\"b#x_9876543210" # e #f|' "$T/root/.env"; rm -f "$T/root/.env.b"
+chmod 600 "$T/root/.env"; chmod 640 "$T/home/.zshrc"; cp "$T/home/.zshrc" "$T/snap.zshrc"; cp "$T/root/.env" "$T/snap.env"
+runk "$NEW" OPENAI_API_KEY
+chk "R204 H1 교체 rc=0 · 두 파일 꼬리 보존(양성 대조)" '[ $RC -eq 0 ] && [ "$(zline OPENAI_API_KEY)" = "export OPENAI_API_KEY=\"$NEW\"  # c #d" ] && grep -qxF "OPENAI_API_KEY=\"$NEW\" # e #f" "$T/root/.env"'
+runk "" --restore OPENAI_API_KEY
+chk "R204 H1 --restore rc=0 · 두 파일 바이트 동일 · mode 600/640 유지 · 값 출력 0" '[ $RC -eq 0 ] && unchanged && [ "$(stat -f %Lp "$T/root/.env")" = 600 ] && [ "$(stat -f %Lp "$T/home/.zshrc")" = 640 ] && ! echo "$OUT" | grep -q -e OLDVAL_ -e "$NEW"'
+
 # 8 변이: trap 제거 → 클립보드 단언이 FAIL 해야 / 되돌림 제거 → ⓑ 단언이 FAIL 해야
 M="$T/mut"; mkdir -p "$M"; cp "$SRC/ft-key-rotate.sh" "$SRC"/ft_key_rotate*.py "$M/"
 grep -v '^trap ' "$M/ft-key-rotate.sh" > "$M/x" && mv "$M/x" "$M/ft-key-rotate.sh"
@@ -234,6 +272,13 @@ if [ "$(id -u)" != 0 ]; then
   mkfix; chmod 555 "$T/root"; TOOL="$M/ft-key-rotate.sh" runk "$NEW" OPENAI_API_KEY; chmod 755 "$T/root"
   chk "변이2(되돌림 제거) → 반쯤 바뀐 상태를 단언이 잡는다" '! unchanged'
 fi
+
+mkfix; setz OPENAI_API_KEY "export OPENAI_API_KEY=\"$(old OPENAI_API_KEY)\"x"
+M2="$T/mut2"; mkdir -p "$M2"; cp "$SRC/ft-key-rotate.sh" "$SRC"/ft_key_rotate*.py "$M2/"
+sed 's/^_TAIL = .*/_TAIL = re.compile(r"(.*)$")/' "$M2/ft_key_rotate_lines.py" > "$M2/x" && mv "$M2/x" "$M2/ft_key_rotate_lines.py"
+cmp -s "$M2/ft_key_rotate_lines.py" "$SRC/ft_key_rotate_lines.py" && bad "변이3 적용 실패(원본과 동일)"
+TOOL="$M2/ft-key-rotate.sh" runk "$NEW" OPENAI_API_KEY
+chk "변이3(꼬리 허용을 .* 로 넓힘) → 비주석 REJECT 단언이 FAIL 해야(여기선 통과 = 변이를 잡음)" '! { [ $RC -eq 1 ] && unchanged; }'
 
 echo "---"; [ $fail -eq 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit $fail
