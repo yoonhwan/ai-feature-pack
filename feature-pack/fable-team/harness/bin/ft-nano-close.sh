@@ -470,7 +470,7 @@ if [ "$SUPER" = 1 ]; then
   if [ -z "$CARD" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 대체됨 줄을 대조할 카드가 없다")
   elif [ ! -x "$HERE/ft-nano-superseded-check.sh" ]; then bad+=("⑥대체됨 검사 스크립트 없음: $HERE/ft-nano-superseded-check.sh (런타임 bin 에 같이 복사)")
   else
-    _sp_out="$("$HERE/ft-nano-superseded-check.sh" "$CARD" --superseded-by "$SUPERSEDED" --base "$WT" --base "$ROOT" --base "$LEDGER_WT" 2>&1)"; _sp_rc=$?
+    _sp_out="$("$HERE/ft-nano-superseded-check.sh" "$CARD" --superseded-by "$SUPERSEDED" --base "$WT" --base "$ROOT" --base "$LEDGER_WT" --team-root "$ROOT" 2>&1)"; _sp_rc=$?
     if [ "$_sp_rc" -eq 0 ]; then echo "$_sp_out"; else bad+=("⑥$(printf '%s' "$_sp_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
   fi
 elif [ "$_role" = nano ] && [ -z "$CARD" ]; then

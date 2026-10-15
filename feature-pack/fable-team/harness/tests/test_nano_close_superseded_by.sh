@@ -197,5 +197,46 @@ cp "$SRC/ft-nano-superseded-check.sh" "$T/bin/ft-nano-superseded-check.sh"
 setup; rm -f "$SUP"; out="$(close --superseded-by "$SUP_REL")"; rc=$?
 [ "$rc" -eq 1 ] && ok "원본 복구 뒤 같은 입력은 다시 REJECT" || bad "원본 복구 뒤 rc=$rc"
 
+echo "== R177 다른 팀 대체 카드 — 대체 카드 팀의 원장 워크트리를 검사 base 에만 더한다(임시 루트만 · 실 루트 .fable-team 읽기 0)"
+LW="$REPO/.worktrees/loom-main"; LENV="$REPO/.fable-team/bin-loom/loom-env.sh"; XSUP_REL='design/loom/indices/진행/loom-other.md'
+loomsetup() {  # 닫는 좌석 = planner 팀, 대체 카드 = loom 원장 WT 안 카드 — 루트·planner 어디에도 없다
+  setup; rm -rf "$LW" "$REPO/.fable-team/bin-loom"; mkdir -p "$LW/design/loom/indices/진행" "$REPO/.fable-team/bin-loom"
+  printf '# 인덱스: loom-other\n## 상태\n- 진행\n' > "$LW/$XSUP_REL"
+  printf '#!/usr/bin/env bash\nexport FT_NANO_LEDGER_WT=%s\n' "$LW" > "$LENV"
+  printf '## 상태\n대체됨: %s · 사유: loom 카드로 넘어감\n' "$XSUP_REL" > "$CARD"
+}
+loomsetup
+out="$(run bash "$T/bin/ft-nano-superseded-check.sh" "$CARD" --superseded-by "$XSUP_REL" --base "$NW" --base "$REPO")"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "대체 카드 파일이 없다" "ⓕ --team-root 없는 검사 단독 → REJECT rc=1(기존과 같음)" || bad "ⓕ 단독 rc=$rc ← ${out:0:300}"
+out="$(run bash "$T/bin/ft-nano-superseded-check.sh" "$CARD" --superseded-by "$XSUP_REL" --base "$NW" --base "$REPO" --team-root "$REPO")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "OK 대체됨" "ⓐ --team-root 를 주면 loom 원장 WT 에서 찾아 OK rc=0" || bad "ⓐ 검사 rc=$rc ← ${out:0:300}"
+loomsetup; out="$(close --superseded-by "$XSUP_REL")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT superseded-by=$XSUP_REL" "ⓐ 다른 팀 카드 → close --superseded-by 통과 + CLOSED" || bad "ⓐ close rc=$rc ← ${out:0:600}"
+[ "$(wc -l < "$LEDGER" | tr -d ' ')" = "1" ] && has "$(cat "$LEDGER")" "$SEAT" "ⓓ 닫힘 원장 행 = 닫는 좌석 팀 원장(FT_NANO_LEDGER)에만 1행" || bad "ⓓ 원장 행수: $(wc -l < "$LEDGER" 2>&1)"
+[ "$(find "$LW" -type f | wc -l | tr -d ' ')" = "1" ] && ok "  └ 대체 카드 팀 원장 WT 쓰기 0(카드 1개 그대로)" || bad "ⓓ loom 원장 WT 에 파일이 생김: $(find "$LW" -type f | tr '\n' ' ')"
+loomsetup; rm -f "$LENV"
+reject "대체 카드 파일이 없다" "ⓑ 없는 팀(env 없음) → 추가 0 → 기존 REJECT" --superseded-by "$XSUP_REL"
+loomsetup; printf 'export FT_NANO_LEDGER_WT=$OTHER_ROOT/.worktrees/loom-main\n' > "$LENV"
+reject "대체 카드 파일이 없다" "ⓒ env 값에 다른 \$VAR → 추가 0 → REJECT" --superseded-by "$XSUP_REL"
+loomsetup; printf 'export FT_NANO_LEDGER_WT=$(touch %s/pwned)%s\n' "$T" "$LW" > "$LENV"
+reject "대체 카드 파일이 없다" "ⓐ env 값의 명령 치환 → 추가 0 → REJECT" --superseded-by "$XSUP_REL"
+[ ! -e "$T/pwned" ] && ok "  └ env 를 source·eval 하지 않음(명령 치환 실행 0)" || bad "ⓐ env 값이 실행됨"
+loomsetup; printf 'export FT_NANO_LEDGER_WT=%s\n' "$LW/없는디렉터리" > "$LENV"
+reject "대체 카드 파일이 없다" "ⓒ env 값이 디렉터리가 아님 → 추가 0 → REJECT" --superseded-by "$XSUP_REL"
+loomsetup; rm -f "$LW/$XSUP_REL"; ln -s "$T/outside.md" "$LW/$XSUP_REL"
+reject "실제 위치가 허용 범위 밖" "ⓔ 대체 카드 팀 WT 안 심링크 → base 밖 파일 → REJECT" --superseded-by "$XSUP_REL"
+loomsetup; printf 'export FT_NANO_LEDGER_WT="$_GR_ROOT/.worktrees/loom-main"\n' > "$LENV"
+out="$(close --superseded-by "$XSUP_REL")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT superseded-by=$XSUP_REL" "  └ graphics 꼴(\"\$_GR_ROOT/…\")는 루트로 치환해 통과" || bad "_GR_ROOT 꼴 rc=$rc ← ${out:0:400}"
+loomsetup; mkdir -p "${REPO}_BAD/.worktrees/loom-main/design/loom/indices/진행"; cp "$LW/$XSUP_REL" "${REPO}_BAD/.worktrees/loom-main/$XSUP_REL"
+printf 'export FT_NANO_LEDGER_WT="$_GR_ROOT_BAD/.worktrees/loom-main"\n' > "$LENV"
+reject "대체 카드 파일이 없다" "ⓒ DA⑥ H1① \$_GR_ROOT_BAD 접두 치환 → 추가 0 → REJECT" --superseded-by "$XSUP_REL"
+loomsetup; printf 'export FT_NANO_LEDGER_WT="%s\n' "$LW" > "$LENV"
+reject "대체 카드 파일이 없다" "ⓒ DA⑥ H1② 닫히지 않은 따옴표 → 추가 0 → REJECT" --superseded-by "$XSUP_REL"
+loomsetup; printf "export FT_NANO_LEDGER_WT='%s'\n" "$LW" > "$LENV"
+out="$(close --superseded-by "$XSUP_REL")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT superseded-by=$XSUP_REL" "  └ 홑따옴표 쌍은 벗겨 통과" || bad "홑따옴표 쌍 rc=$rc ← ${out:0:400}"
+rm -rf "$LW" "$REPO/.fable-team/bin-loom" "${REPO}_BAD"
+
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
