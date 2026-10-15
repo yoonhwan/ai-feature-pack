@@ -23,34 +23,35 @@ def build_blocks(new: Lines, diff: list[tuple[str, str]], extra: tuple[Block, ..
     return [(t, ls) for t, ls in blocks if ls]
 
 
-def _text(head: str, part: list[Block]) -> str:
-    return "\n\n".join([head, *(f"{t}\n" + "\n".join(ls) for t, ls in part)]) + "\n"
+def _text(head: str, part: list[Block], lead: str = "") -> str:
+    return "\n\n".join([head + (f"\n{lead}" if lead else ""), *(f"{t}\n" + "\n".join(ls) for t, ls in part)]) + "\n"
 
 
-def _size(now: datetime, rel: str, part: list[Block]) -> int:
-    return len(_text(_head(now, 99, 99, rel), part).encode("utf-8"))  # 머리의 (n/N) 자리는 가장 넓게 잡는다
+def _size(now: datetime, rel: str, part: list[Block], lead: str = "") -> int:
+    return len(_text(_head(now, 99, 99, rel), part, lead).encode("utf-8"))  # 머리의 (n/N) 자리는 가장 넓게 잡는다
 
 
-def _put_line(now: datetime, rel: str, parts: list[list[Block]], title: str, line: str) -> None:
+def _put_line(now: datetime, rel: str, parts: list[list[Block]], title: str, line: str, lead: str = "") -> None:
     part = parts[-1]
     grown = [*part[:-1], (title, [*part[-1][1], line])] if part and part[-1][0] == title else [*part, (title, [line])]
-    if _size(now, rel, grown) <= MAX_BYTES:
+    if _size(now, rel, grown, lead) <= MAX_BYTES:
         parts[-1] = grown
         return
     alone = [(title, [line])]
-    if _size(now, rel, alone) > MAX_BYTES:
+    if _size(now, rel, alone, lead) > MAX_BYTES:
         raise ValueError(f"뉴스 한 줄이 혼자 {MAX_BYTES}B 를 넘는다(자르지 않고 발행 0): {line[:40]}…")
     parts.append(alone)
 
 
-def render_parts(now: datetime, new: Lines, diff: list[tuple[str, str]], rel: str, extra: tuple[Block, ...] = ()) -> list[str]:
+def render_parts(now: datetime, new: Lines, diff: list[tuple[str, str]], rel: str, extra: tuple[Block, ...] = (), lead: str = "") -> list[str]:
+    """lead = 머리 바로 아래 1줄(R214: planner 결정 대기열 `결정 인터뷰 N건 · 스크립트 N건 …`) — 판마다 붙고 3500B 계산에 들어간다."""
     parts: list[list[Block]] = [[]]
     for block in build_blocks(new, diff, extra):
-        if _size(now, rel, [*parts[-1], block]) <= MAX_BYTES:
+        if _size(now, rel, [*parts[-1], block], lead) <= MAX_BYTES:
             parts[-1].append(block)
-        elif parts[-1] and _size(now, rel, [block]) <= MAX_BYTES:
+        elif parts[-1] and _size(now, rel, [block], lead) <= MAX_BYTES:
             parts.append([block])
         else:
             for line in block[1]:
-                _put_line(now, rel, parts, block[0], line)
-    return [_text(_head(now, i, len(parts), rel), p) for i, p in enumerate(parts, 1)]
+                _put_line(now, rel, parts, block[0], line, lead)
+    return [_text(_head(now, i, len(parts), rel), p, lead) for i, p in enumerate(parts, 1)]

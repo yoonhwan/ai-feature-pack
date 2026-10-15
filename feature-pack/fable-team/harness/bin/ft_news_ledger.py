@@ -112,6 +112,21 @@ def stale_only() -> int:
     return 0
 
 
+def decision_line(root: Path) -> str:
+    """뉴스 첫 줄(R214 · 판정 1804) = ft-decision-count.sh 한 줄. planner 좌석표가 없는 루트(팀 밖·시험)는 줄 없음 · 도구 실패는 ERROR 로그 + 줄 없음(뉴스는 막지 않는다)."""
+    if not (root / ".fable-team" / "seats-planner.json").is_file():
+        return ""
+    try:
+        done = subprocess.run(["bash", str(HERE / "ft-decision-count.sh")], capture_output=True, text=True, timeout=7, env={**os.environ, "FT_ROOT": str(root)})
+    except (OSError, subprocess.TimeoutExpired) as e:
+        LOG.error("결정 대기열 줄 건너뜀: %s", e)
+        return ""
+    if done.returncode != 0:
+        LOG.error("결정 대기열 줄 건너뜀: rc=%s %s", done.returncode, done.stderr.strip()[:120])
+        return ""
+    return done.stdout.strip()
+
+
 def _run(root: Path, state: Path) -> tuple[int, str]:
     repo = Path(os.environ.get("FT_LEDGER_REPO") or root / ".worktrees" / "v6-realtime-live")
     rel = os.environ.get("FT_LEDGER_PATH") or "design/planner/PLAN-oppa-ledger.md"
@@ -135,7 +150,7 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         if diff and interval_s() > 0 and status is None:  # 필수 절을 못 만들면 게시·기준선 전진 0 — 재시도 가능(H2)
             return 1, why
         extra, new = (status[0],) if status else (), parse_ledger(new_text) if diff else {}
-        parts = render_parts(now, new, diff, rel, extra) if diff else []
+        parts = render_parts(now, new, diff, rel, extra, decision_line(root)) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
         LOG.error("원장 뉴스 실패: %s", e)
         return 1, "원장 읽기 실패"
