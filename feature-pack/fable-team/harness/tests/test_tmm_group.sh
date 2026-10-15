@@ -26,14 +26,15 @@ check() { # <기대> <세션 목록> <세션명> [카테고리 파일]
   [ "$got" = "$1" ] && ok "$3 → $got" || bad "$3 → '$got' (기대 '$1')"
 }
 
-NEW_ALL=$'byz-v65-master-claude#143\nbyz-cfo-master-claude#53\nbyz-planner-arch#3\nbyz-issues-da-codex#2\nbyz-v65-nano-card-slug#0\nbyz-harness-tester-claude#1'
-# 신 이름 6 — 프로젝트(byz)가 아니라 팀으로 갈라진다
+NEW_ALL=$'byz-v65-master-claude#143\nbyz-cfo-master-claude#53\nbyz-planner-arch#3\nbyz-issues-da-codex#2\nbyz-v65-nano-card-slug#0\nbyz-harness-tester-claude#1\nbyz-planner-desk-claude#0'
+# 신 이름 7 — 프로젝트(byz)가 아니라 팀으로 갈라진다
 check v65     "$NEW_ALL" "byz-v65-master-claude#143"
 check cfo     "$NEW_ALL" "byz-cfo-master-claude#53"
 check planner "$NEW_ALL" "byz-planner-arch#3"
 check issues  "$NEW_ALL" "byz-issues-da-codex#2"
 check v65     "$NEW_ALL" "byz-v65-nano-card-slug#0"
 check harness "$NEW_ALL" "byz-harness-tester-claude#1"
+check planner "$NEW_ALL" "byz-planner-desk-claude#0"
 
 # 구 이름 6 — 기존 경로 그대로(회귀 0)
 OLD_ALL=$'ft-v65-master-claude#140\nft-harness-ops#6\nft-airag-helm-claude#5\nFB_CFO#52\nKakaoBot#14\nft-v65-temp-m5-autovad-longpara#0'
