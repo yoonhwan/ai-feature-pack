@@ -22,7 +22,8 @@ G() { git -C "$REPO" "$@"; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; SK=""
 abort() { [ -z "$SK" ] || bash "$HERE/ft-sheet-events.sh" abort "$SK" 2>/dev/null; echo "ABORT $*"; exit 1; }
 
-G fetch --quiet "$REMOTE" "$TARGET" || abort "fetch $REMOTE $TARGET 실패"
+. "$HERE/ft-merge-lib.sh"   # R230: 무상한 fetch → 7초 + 재시도 1 (ft-merge-gate 와 같은 함수)
+fm_fetch "$REPO" "$REMOTE" "$TARGET" || abort "fetch $REMOTE $TARGET 실패(7 s + 재시도 1)"
 T="$(G rev-parse --verify "refs/remotes/$REMOTE/$TARGET^{commit}")" || abort "T(refs/remotes/$REMOTE/$TARGET) 확인 실패"
 F="$(G rev-parse --verify "$FEAT^{commit}")" || abort "feat($FEAT) 확인 실패"
 # 사건 원장 훅(PLAN-status-sheet §3-1): 이 스크립트에는 push 경로가 없다 — 사건은 «후보 확정»(land-candidate)이지 랜딩이 아니다.

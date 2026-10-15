@@ -6,7 +6,7 @@
 #        3 = 미랜딩 0(이미 다 들어감 → 닫기만) · 4 = usage/입력 오류
 set -uo pipefail
 
-ROOT_BRANCH="feat/v6-realtime-live"
+ROOT_BRANCH="${FT_FRESH_ROOT:-origin/main}"   # R230: #1656 뒤 v65 루트는 사라졌다 — 기본 루트 = origin/main (옛 루트는 --root 또는 env 로)
 TARGET=""
 while [ $# -gt 0 ]; do
   case "$1" in
