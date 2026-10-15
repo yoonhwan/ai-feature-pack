@@ -15,11 +15,11 @@ def _head(now: datetime, n: int | str, total: int | str, rel: str) -> str:
     return f"*뉴스 {stamp}* — 기준: 오빠 원장({rel}) · 지난 발행 뒤 바뀐 것만"
 
 
-def build_blocks(new: Lines, diff: list[tuple[str, str]]) -> list[Block]:
+def build_blocks(new: Lines, diff: list[tuple[str, str]], extra: tuple[Block, ...] = ()) -> list[Block]:
     teams = [f"• {k[2]} — {' → '.join(v)}" if v else f"• {k[2]}" for k, v in new.items() if k[0] == "3" and v]
     todo = [f"• {k[2]}" for k in new if k[0] == "2"]
     blocks = [("*지금*", [" · ".join(new.get(("now", "", "지금 전체 상태"), ()))]), ("*바뀐 것*", [f"• [{kind}] {text}" for kind, text in diff]),
-              ("*오빠 할 일*", todo), ("*팀 작업* — 쉬는 팀도 전부, 어디까지 하고 멈췄는지", teams)]
+              ("*오빠 할 일*", todo), ("*팀 작업* — 쉬는 팀도 전부, 어디까지 하고 멈췄는지", teams), *extra]
     return [(t, ls) for t, ls in blocks if ls]
 
 
@@ -43,9 +43,9 @@ def _put_line(now: datetime, rel: str, parts: list[list[Block]], title: str, lin
     parts.append(alone)
 
 
-def render_parts(now: datetime, new: Lines, diff: list[tuple[str, str]], rel: str) -> list[str]:
+def render_parts(now: datetime, new: Lines, diff: list[tuple[str, str]], rel: str, extra: tuple[Block, ...] = ()) -> list[str]:
     parts: list[list[Block]] = [[]]
-    for block in build_blocks(new, diff):
+    for block in build_blocks(new, diff, extra):
         if _size(now, rel, [*parts[-1], block]) <= MAX_BYTES:
             parts[-1].append(block)
         elif parts[-1] and _size(now, rel, [block]) <= MAX_BYTES:

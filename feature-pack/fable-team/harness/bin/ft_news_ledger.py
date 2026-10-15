@@ -8,16 +8,17 @@ env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.worktrees/v6-realtime-live) · F
 import logging
 import os
 import re
-import shlex
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ft_board_env as env  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
+from ft_news_post import is_draft, news_now, pending_now, publish  # noqa: E402
+from ft_news_status import interval_s, last_status, mark_status, status_or_none  # noqa: E402
+from ft_news_watch import check_stale, locked  # noqa: E402
 
 LOG = logging.getLogger("ft_news_ledger")
 HERE = Path(__file__).resolve().parent
@@ -87,17 +88,33 @@ def _git(repo: Path, *a: str) -> str:
     return done.stdout
 
 
-def _now() -> datetime:
-    v = os.environ.get("FT_NEWS_NOW")
-    return datetime.strptime(v, "%Y-%m-%d %H:%M") if v else datetime.now()
-
-
 def run() -> int:
     root = env.ft_root()
+    state = root / ".fable-team" / "state" / "news-ledger"
+    with locked(state) as got:
+        if not got:
+            LOG.info("다른 뉴스 실행이 일하는 중 — 건너뜀")
+            return 0
+        rc, why = _run(root, state)
+        if interval_s() > 0:
+            check_stale(root, state, news_now(), why)
+        return rc
+
+
+def stale_only() -> int:
+    """게시 방아쇠와 독립된 정지 감시(H1) — v65 틱이 FT_TICK_NEWS_LEDGER=0 이어도 매 루프 부른다 · 게시 0."""
+    root = env.ft_root()
+    state = root / ".fable-team" / "state" / "news-ledger"
+    with locked(state) as got:
+        if got and interval_s() > 0:
+            check_stale(root, state, news_now(), "원장 커밋 0 또는 뉴스 방아쇠 정지")
+    return 0
+
+
+def _run(root: Path, state: Path) -> tuple[int, str]:
     repo = Path(os.environ.get("FT_LEDGER_REPO") or root / ".worktrees" / "v6-realtime-live")
     rel = os.environ.get("FT_LEDGER_PATH") or "design/planner/PLAN-oppa-ledger.md"
     news = Path(os.environ.get("FT_NEWS_DIR") or root / "design" / "planner" / "news")
-    state = root / ".fable-team" / "state" / "news-ledger"
     try:
         cur = _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
         if not cur:
@@ -108,48 +125,41 @@ def run() -> int:
             notify(root, _git(repo, "show", f"{cur}:{rel}"), state)
         except Exception as e:  # 알림 실패가 뉴스를 막지 않는다
             LOG.error("알림 건너뜀: %s", e)
+        status = status_or_none(root, news_now())
+        why = "스냅샷 오래됨" if interval_s() > 0 and (status is None or status[0][1][0].startswith("(세션 상태 스냅샷")) else "원장 커밋 0"
         if base == cur:
-            return 0
+            return _status_only(news, state, rel, cur, status, why) if interval_s() > 0 else (0, why)
         diff = diff_ledger(parse_ledger(_git(repo, "show", f"{base}:{rel}")), parse_ledger(new_text := _git(repo, "show", f"{cur}:{rel}"))) if base else []
-        now = _pending_now(state, base, cur) if diff else _now()
-        parts = render_parts(now, parse_ledger(new_text), diff, rel) if diff else []
+        now = pending_now(state, base, cur) if diff else news_now()
+        if diff and interval_s() > 0 and status is None:  # 필수 절을 못 만들면 게시·기준선 전진 0 — 재시도 가능(H2)
+            return 1, why
+        parts = render_parts(now, parse_ledger(new_text), diff, rel, (status[0],) if status else ()) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
         LOG.error("원장 뉴스 실패: %s", e)
-        return 1
-    return _publish(news, state, parts, now, cur)
+        return 1, "원장 읽기 실패"
+    rc = publish(news, state, parts, now, cur)
+    if rc == 0 and parts and status and not is_draft():
+        mark_status(state, status[1], now)
+    return rc or (1 if interval_s() > 0 and status is None else 0), (f"게시 실패 rc={rc}" if rc else why)
 
 
-def _pending_now(state: Path, base: str, cur: str) -> datetime:
-    """같은 차이(기준선→지금 커밋)를 다시 낼 때는 첫 시도의 머리 시각을 쓴다 — 재실행 분이 달라도 먼저 올라간 판이 «같은 글» 로 채택된다."""
-    f = state / "pending.stamp"
-    got = f.read_text(encoding="utf-8").split(maxsplit=2) if f.exists() else []
-    if got[:2] == [base, cur]:
-        return datetime.strptime(got[2].strip(), "%Y-%m-%d %H:%M")
-    now = _now()
-    state.mkdir(parents=True, exist_ok=True)
-    f.write_text(f"{base} {cur} {now:%Y-%m-%d %H:%M}\n", encoding="utf-8")
-    return now
-
-
-def _publish(news: Path, state: Path, parts: list[str], now: datetime, cur: str) -> int:
-    """판을 순서대로 발행 — «전 판 rc 0» 일 때만 기준선을 옮긴다(실패 판 뒤는 다음 틱이 같은 차이로 이어 발행)."""
-    news.mkdir(parents=True, exist_ok=True)
-    cmd = shlex.split(os.environ.get("FT_NEWS_PUBLISH") or f"bash {HERE / 'ft-news-publish.sh'}")
-    for i, body in enumerate(parts, 1):
-        path = news / (f"NEWS-{now:%Y%m%d-%H%M}" + (f"-p{i}" if len(parts) > 1 else "") + ".md")
-        path.write_text(body, encoding="utf-8")
-        if (rc := subprocess.run([*cmd, str(path), "--at", f"{now:%Y-%m-%d %H:%M}"], check=False).returncode) != 0:
-            LOG.error("발행 도구 rc=%s (%d/%d판) — 기준선 그대로(다음 틱이 같은 차이를 다시 낸다)", rc, i, len(parts))
-            path.unlink(missing_ok=True)
-            return rc
-    state.mkdir(parents=True, exist_ok=True)
-    (state / "last.sha").write_text(cur + "\n", encoding="utf-8")
-    (state / "pending.stamp").unlink(missing_ok=True)
-    return 0
+def _status_only(news: Path, state: Path, rel: str, cur: str, status, why: str) -> tuple[int, str]:
+    """원장 새 커밋이 없을 때 — 주기가 지났고 절 digest 가 마지막 발행과 다를 때만 그 절 1판(판정 1430 «바뀐 것만»)."""
+    if status is None:
+        return 1, why
+    block, digest = status
+    last = last_status(state)
+    if last and (last[0] == digest or (news_now() - last[1]).total_seconds() < interval_s()):
+        return 0, why
+    now = pending_now(state, "status", digest)
+    rc = publish(news, state, render_parts(now, {}, [], rel, (block,)), now, cur)
+    if rc == 0 and not is_draft():
+        mark_status(state, digest, now)
+    return rc, (f"게시 실패 rc={rc}" if rc else why)
 
 
 def main(argv: list[str]) -> int:
-    return run() if argv[:1] in ([], ["run"]) else 2
+    return {(): run, ("run",): run, ("stale",): stale_only}.get(tuple(argv[:1]), lambda: 2)()
 
 
 if __name__ == "__main__":

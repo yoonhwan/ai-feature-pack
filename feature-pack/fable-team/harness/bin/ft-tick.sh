@@ -383,7 +383,7 @@ raised_watch() {
 # 원장 갱신 0 인 새 판정 알림도 같은 스크립트가 보므로 매 루프 부른다(기준선이 같으면 git log 1번). FT_TICK_NEWS_LEDGER=0 으로 끔.
 news_ledger() {
   local out
-  [ "${FT_TICK_NEWS_LEDGER:-1}" = 1 ] || return 0
+  [ "${FT_TICK_NEWS_LEDGER:-1}" = 1 ] || { [ "$DRY" = 1 ] || [ "${FT_TICK_NEWS_WATCH:-1}" != 1 ] || env ${ROOT:+FT_ROOT="$ROOT"} python3 "$HERE/ft_news_ledger.py" stale 2>&1 | tail -1 >&2; return 0; }  # R209 H1: 게시를 끄면 정지 감시만 매 루프(FT_TICK_NEWS_WATCH=0 으로 끔)
   if [ "$DRY" = 1 ]; then echo "DRY kind=news-ledger"; return 0; fi
   out="$(env ${ROOT:+FT_ROOT="$ROOT"} bash "$HERE/ft-news-ledger.sh" 2>&1)" || echo "$(date '+%F %T') news_ledger: $(printf '%s\n' "$out" | tail -1)" >&2
   return 0
