@@ -228,7 +228,7 @@ cat_of() {
   #   역할 예약어 = scripts/fable-team-bin/ft-name-lint.sh 의 ROLES 와 같은 값(시험이 일치를 잰다).
   #   같은 팀 글자를 «다른 프로젝트»가 쓰는 라이브 세션이 있을 때만 `<프로젝트 첫 글자>-<팀>`(SPEC Q6). 구 접두(ft- FB_)는 프로젝트가 아니다.
   #   TMM_CAT_SESSIONS = 시험용 세션명 목록(줄바꿈 구분) — 미설정이면 tmux list-sessions.
-  local roles=" master arch da tester checker analyst pm nano repro tool " t1 t2 t3 pfx lower="${n,,}" pl
+  local roles=" master arch da tester checker analyst pm nano repro tool desk " t1 t2 t3 pfx lower="${n,,}" pl
   if [[ "$n" != *[!a-z0-9-]* ]]; then
     IFS=- read -r t1 t2 t3 _ <<<"$n"
     if [ -n "$t1" ] && [ -n "$t2" ] && [[ "$roles" == *" $t3 "* ]]; then
