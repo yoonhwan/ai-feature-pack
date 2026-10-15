@@ -16,7 +16,7 @@ python3 - <<'PYEOF'
 import json, os, re, subprocess, sys, time
 
 LOG = os.environ.get("FT_AUTONOMY_HOOK_LOG") or os.path.expanduser("~/.claude/logs/autonomy-hooks.log")
-MARKERS = ("[자율 OFF]", "[자율 ?? 위변조 → OFF]")  # ft-autonomy.sh status 가 OFF·위변조에서 내는 머리 그대로
+MARKERS = ("[자율 OFF", "[자율 ?? 위변조 → OFF]")  # ft-autonomy.sh status 가 OFF·끝 도달(`[자율 OFF · A<N> 끝 도달 HH:MM]` · R185)·위변조에서 내는 머리 — OFF 는 접두 일치
 
 
 def note(msg):

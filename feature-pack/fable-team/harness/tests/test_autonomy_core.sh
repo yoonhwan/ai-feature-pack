@@ -111,7 +111,77 @@ suite() {  # <셸 경로>
 }
 suite /bin/bash
 B5="$(command -v bash)"; [ "$("$B5" -c 'echo ${BASH_VERSINFO[0]}')" -ge 5 ] 2>/dev/null && suite "$B5" || echo "SKIP bash5 없음"
+# --- R185 (판정 1720 ①): 끝 시각(until)이 지나면 OFF 로 읽기 + expire 기록 — 가짜 시계 FT_NOW · 임시 상태 폴더만 ---
+expire_suite() {  # <셸 경로>
+  local SH="$1" T T0=1800000000 H=3600 A out rc nl; T="$(mktemp -d)"; echo "== expire suite $SH"
+  export FT_ROOT="$T" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/planner" HIL_DIR="$T"; mkdir -p "$T/state" "$T/planner"
+  A="$SH $BIN/ft-autonomy.sh"; offs() { grep -c "$(printf '\toff\t')" "$T/state/autonomy.log" 2>/dev/null; }
+  FT_NOW=$T0 $A on --for 1h >/dev/null 2>&1; [ "$(FT_NOW=$T0 $A mode)" = on ]; ck "expire: 켠 직후 mode=on" $?
+  # ⓑ 아직 전 = 기존 동작 그대로
+  [ "$(FT_NOW=$((T0+H-1)) $A mode)" = on ]; ck "ⓑ until 1초 전 mode=on" $?
+  out="$(FT_NOW=$((T0+H-1)) $A status)"; has "$out" '^\[자율 ON A1 · .* · ~[0-9]{2}:[0-9]{2}까지 · 대리 0 · 큐 0\]$'; ck "ⓑ until 1초 전 status = ON 꼴 ($out)" $?
+  out="$(FT_NOW=$((T0+H-1)) $A expire)"; [ "$out" = NOOP ] && [ "$(offs)" = 0 ]; ck "ⓑ until 전 expire = NOOP · off 줄 0 ($out)" $?
+  # ⓐ until 지남 → 쓰기 없이 off 로 읽는다(위변조 아님)
+  [ "$(FT_NOW=$((T0+H)) $A mode)" = off ]; ck "ⓐ now ≥ until → mode=off" $?
+  out="$(FT_NOW=$((T0+H)) $A status)"; has "$out" '^\[자율 OFF · A1 끝 도달 [0-9]{2}:[0-9]{2}\]$'; ck "ⓐ status = [자율 OFF · A1 끝 도달 HH:MM] ($out)" $?
+  grep -q '"mode":"on"' "$T/state/autonomy.json" && [ "$(offs)" = 0 ]; ck "ⓐ 읽기만으로는 json·log 안 건드림" $?
+  FT_NOW=$((T0+H)) $SH "$BIN/ft-proxy-decide.sh" --kind press-order --q q --choice c --why w --undo u >/dev/null 2>&1; rc=$?; [ $rc = 3 ]; ck "ⓐ 지난 ON 은 대리 도구 rc 3 (got $rc)" $?
+  FT_NOW=$((T0+H)) $A approve-merge 1111111111111111111111111111111111111111 >/dev/null 2>&1; rc=$?; [ $rc = 2 ]; ck "ⓐ 지난 ON 은 병합 승인 REJECT rc 2 (got $rc)" $?
+  # ⓒ expire 멱등 · ⓓ 뒤 정합
+  out="$(FT_NOW=$((T0+H+5)) $A expire)"; [ "$out" = "EXPIRED A1" ] && [ "$(offs)" = 1 ]; ck "ⓒ expire 첫 호출 = EXPIRED A1 · off 줄 1 ($out)" $?
+  out="$(FT_NOW=$((T0+H+9)) $A expire)"; [ "$out" = NOOP ] && [ "$(offs)" = 1 ]; ck "ⓒ expire 두 번째 = NOOP · off 줄 그대로 1 ($out)" $?
+  [ "$(FT_NOW=$((T0+H+9)) $A mode)" = off ]; ck "ⓓ expire 뒤 mode=off (tamper 아님)" $?
+  out="$(FT_NOW=$((T0+H+9)) $A status)"; [ "$out" = "[자율 OFF]" ]; ck "ⓓ expire 뒤 status = [자율 OFF] ($out)" $?
+  # ⓔ 다시 on = 새 사건 번호
+  out="$(FT_NOW=$((T0+H+20)) $A on --for 1h 2>&1)"; has "$out" 'ON A2'; ck "ⓔ 다시 on → A2 ($out)" $?
+  [ "$(FT_NOW=$((T0+H+21)) $A mode)" = on ]; ck "ⓔ 새 구간 mode=on" $?
+  # ⓒ ON 이 아니면 아무것도 안 쓴다 — 오빠가 끈 OFF 에 expire 는 NOOP
+  $A off >/dev/null 2>&1; nl="$(wc -l < "$T/state/autonomy.log" | tr -d ' ')"
+  out="$(FT_NOW=$((T0+9*H)) $A expire)"; [ "$out" = NOOP ] && [ "$(wc -l < "$T/state/autonomy.log" | tr -d ' ')" = "$nl" ]; ck "ⓒ OFF 에 expire = NOOP · log 그대로 ($out)" $?
+  # ⓑ until 없음(null) = 끝 없음 그대로
+  rm -rf "$T/state"; mkdir -p "$T/state"; FT_NOW=$T0 $A on >/dev/null 2>&1
+  [ "$(FT_NOW=$((T0+999*H)) $A mode)" = on ] && [ "$(FT_NOW=$((T0+999*H)) $A expire)" = NOOP ]; ck "ⓑ until 없음 = 한참 뒤에도 on · expire NOOP" $?
+  # 위변조 + until 지남 = 여전히 tamper(위변조가 먼저)
+  rm -rf "$T/state"; mkdir -p "$T/state"; FT_NOW=$T0 $A on --for 1h >/dev/null 2>&1; sed -i.bak 's/"event":"A1"/"event":"A9"/' "$T/state/autonomy.json"
+  [ "$(FT_NOW=$((T0+2*H)) $A mode)" = tamper ] && [ "$(FT_NOW=$((T0+2*H)) $A expire)" = NOOP ]; ck "위변조가 먼저 — until 지나도 tamper · expire NOOP" $?
+  # 변이 1: 시각 비교를 지우면 ⓐ 가 FAIL(= 이 시험이 그 회귀를 잡는다)
+  rm -rf "$T/state" "$T/mut"; mkdir -p "$T/state" "$T/mut"; sed 's/-ge "\$u" \]/-ge 99999999999 ]/' "$BIN/ft-autonomy.sh" > "$T/mut/ft-autonomy.sh"; ln -s "$BIN/ft-autonomy-start.sh" "$T/mut/ft-autonomy-start.sh"
+  ! cmp -s "$BIN/ft-autonomy.sh" "$T/mut/ft-autonomy.sh"; ck "변이 1 사본이 원본과 다르다" $?
+  FT_NOW=$T0 $SH "$T/mut/ft-autonomy.sh" on --for 1h >/dev/null 2>&1; [ "$(FT_NOW=$((T0+H)) $SH "$T/mut/ft-autonomy.sh" mode)" = on ]; ck "변이 1: 시각 비교 제거 → ⓐ 의 mode=off 가 깨진다(on 으로 남음)" $?
+  # --- r3 (DA⑥ H1): 동시 expire 멱등 — 잠금 안에서 재확인·기록·교체. 동시 16호출 ×3 → OFF 줄 1 · EXPIRED 1 · NOOP 15 ---
+  conc() {  # <ft-autonomy.sh 경로> → "<off 줄 수> <EXPIRED 수> <NOOP 수>"
+    local S="$1" i; rm -rf "$T/state" "$T/cout"; mkdir -p "$T/state" "$T/cout"
+    FT_NOW=$T0 $SH "$S" on --for 1h >/dev/null 2>&1
+    for i in $(seq 16); do FT_NOW=$((T0+H+5)) $SH "$S" expire > "$T/cout/$i" 2>&1 & done; wait
+    echo "$(offs) $(cat "$T/cout"/* | grep -c '^EXPIRED A1$') $(cat "$T/cout"/* | grep -c '^NOOP$')"
+  }
+  for i in 1 2 3; do
+    out="$(conc "$BIN/ft-autonomy.sh")"
+    [ "$out" = "1 1 15" ]; ck "동시 expire 16 #$i = OFF 줄 1 · EXPIRED 1 · NOOP 15 (got: $out)" $?
+  done
+  [ "$(FT_NOW=$((T0+H+9)) $A mode)" = off ] && [ "$(FT_NOW=$((T0+H+9)) $A status)" = "[자율 OFF]" ]; ck "동시 expire 뒤 mode=off(tamper 아님) · json/log 정합" $?
+  [ ! -d "$T/state/.autonomy.lock" ] && ! ls "$T/state" | grep -q 'autonomy.json.tmp'; ck "동시 expire 뒤 잠금·임시 파일 잔류 0" $?
+  sed 's/until mkdir "\$LOCKD" 2>\/dev\/null; do/until true; do/' "$BIN/ft-autonomy.sh" > "$T/mut/ft-autonomy-nolock.sh"; ! cmp -s "$BIN/ft-autonomy.sh" "$T/mut/ft-autonomy-nolock.sh"; ck "변이 2 사본이 원본과 다르다" $?
+  bad=0; for i in 1 2 3 4 5; do [ "$(conc "$T/mut/ft-autonomy-nolock.sh")" = "1 1 15" ] || { bad=1; break; }; done; [ "$bad" = 1 ]; ck "변이 2: 잠금 제거 → 동시 expire 멱등이 깨진다(FAIL 검출)" $?
+  rm -rf "$T/state"; mkdir -p "$T/state/.autonomy.lock"; out="$(FT_NOW=$T0 $A expire 2>&1)"; rc=$?; [ $rc = 1 ] && has "$out" '^REJECT 상태 잠금 선점 중'; ck "잠금 선점 중 = 상한 뒤 rc 1 REJECT(조용한 통과 0) (rc $rc: $out)" $?
+  rmdir "$T/state/.autonomy.lock"
+  # --- 틱: 매 루프 expire · EXPIRED 일 때만 planner 앞 쪽지 1통 · FT_TICK_AUTONOMY=0 으로 끔 ---
+  rm -rf "$T/state" "$T/mb.log"; mkdir -p "$T/state"
+  printf '#!/bin/bash\necho "$*" >> "%s/mb.log"\n' "$T" > "$T/mbox-stub.sh"
+  printf '%s\n' '{"_master":"m1","_hil_route":"pl1","m1":{"role":"master","tick":null},"pl1":{"role":"pm","tick":null}}' > "$T/seats.json"
+  tick() { (cd "$T" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY FT_NOW="$1" $TICK_X FT_TICK_SEATS="$T/seats.json" FT_TICK_STATE_DIR="$T/tick-state" FT_TICK_STAMP_PREFIX="$T/stamp-" FT_TICK_PIDFILE="$T/tick.pid" \
+    FT_TICK_MBOX="$T/mbox-stub.sh" FT_TICK_AUTONOMY_BIN="$BIN/ft-autonomy.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_NEWS_LEDGER=0 \
+    FT_TICK_API_OUTAGE=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_STALL_INTERVAL=9999999999 $SH "$BIN/ft-tick.sh" --once 2>&1); }
+  FT_NOW=$T0 $A on --for 1h >/dev/null 2>&1
+  TICK_X="FT_TICK_AUTONOMY=0" tick $((T0+H+5)) >/dev/null; [ "$(offs)" = 0 ] && [ ! -e "$T/mb.log" ]; ck "틱 FT_TICK_AUTONOMY=0 = expire 0 · 쪽지 0" $?
+  TICK_X="" out="$(tick $((T0+H+5)))"; [ "$(offs)" = 1 ] && [ "$(wc -l < "$T/mb.log" | tr -d ' ')" = 1 ] && has "$(cat "$T/mb.log")" '^send pl1 ft-tick \[자율 A1 끝 도달 → OFF\]'; ck "틱 1회 = off 줄 1 · planner(_hil_route) 앞 쪽지 1통" $?
+  has "$out" 'autonomy_expire: EXPIRED A1'; ck "틱 로그 1줄 EXPIRED A1" $?
+  TICK_X="" tick $((T0+H+70)) >/dev/null; [ "$(offs)" = 1 ] && [ "$(wc -l < "$T/mb.log" | tr -d ' ')" = 1 ]; ck "틱 2회 = 멱등(off 줄 1 · 쪽지 1 그대로)" $?
+  rm -rf "$T"; unset FT_NOW
+}
+expire_suite /bin/bash
 # --- 정적 점검 ---
+cmp -s "$BIN/ft-tick.sh" "$MIR/ft-tick.sh"; ck "키트 미러 cmp ft-tick.sh" $?
 for f in ft-autonomy.sh autonomy_classify.py ft-proxy-decide.sh; do
   cmp -s "$BIN/$f" "$MIR/$f"; ck "키트 미러 cmp $f" $?
   [ "$(wc -l < "$BIN/$f")" -le 200 ]; ck "200줄 이하 $f" $?

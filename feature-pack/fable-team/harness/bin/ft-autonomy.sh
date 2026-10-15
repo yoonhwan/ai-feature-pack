@@ -9,7 +9,9 @@
 #                승인 줄 `approve-merge <sha> A<N> <epoch>` 을 autonomy.log 에 먼저 추가한 뒤 $STATE/autonomy-merge-approved/<sha> 에 같은 줄을 쓴다
 #                (병합 가드는 파일 + log 의 글자 그대로 일치만 본다) · 형식 틀림·OFF·위변조 = REJECT rc 2(상태 쓰기 0)
 # 상태 = $STATE/autonomy.json {mode,since,event,until} + 추가 전용 autonomy.log (모드 줄 = epoch<TAB>on|off<TAB>A<N> · 승인 줄은 탭 없음)
-# 이 스크립트만 log 를 쓴다 → json 이 log 의 마지막 «모드 줄»과 어긋나거나 그 뒤에 불완전·모르는 형식의 줄이 있으면 위변조 = OFF 취급. 시간 창·자동 해제 0.
+#   expire       끝 시각(until)이 지난 ON 이면 off 줄 1회 + `EXPIRED A<N>` · 아니면 아무것도 안 쓰고 `NOOP`(멱등) — 틱이 매 루프 부른다(R185)
+#                `mode`·`status` 는 쓰지 않고도 until 지난 ON 을 OFF 로 읽는다(status = `[자율 OFF · A<N> 끝 도달 HH:MM]`)
+# 이 스크립트만 log 를 쓴다 → json 이 log 의 마지막 «모드 줄»과 어긋나거나 그 뒤에 불완전·모르는 형식의 줄이 있으면 위변조 = OFF 취급. 시간 창·자동 해제 0(끝 시각은 오빠가 켤 때 정한 값뿐).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
@@ -37,8 +39,8 @@ log_last_mode() {
   printf '%s' "$last"; return $bad
 }
 
-# 유효 상태 → "on|off|tamper" (파일 없음 = off)
-mode() {
+# json·log 정합 상태 → "on|off|tamper" (파일 없음 = off) — 끝 시각은 보지 않는다
+valid_mode() {
   local m s e last bad
   [ -f "$JSON" ] || { echo off; return; }
   m="$(jfield mode)"; s="$(jfield since)"; e="$(jfield event)"
@@ -48,6 +50,19 @@ mode() {
   else
     echo tamper
   fi
+}
+
+# 정합 ON 이고 끝 시각(until)이 숫자이며 지금 ≥ until 이면 그 until 을 출력(rc 0) — 아니면 rc 1 (끝 없음 null · 아직 전 · OFF · 위변조)
+expired_until() {
+  local u; [ "$(valid_mode)" = on ] || return 1
+  u="$(jfield until)"; [[ "$u" =~ ^[0-9]+$ ]] || return 1
+  [ "$(now_epoch)" -ge "$u" ] && printf '%s' "$u"
+}
+
+# 유효 상태 → "on|off|tamper" — 끝 시각이 지난 ON 은 off 로 읽는다(R185 · 판정 1720 ①: 훅·대리 도구·틱 전부 이 한 곳을 통해 읽는다)
+mode() {
+  local m; m="$(valid_mode)"
+  if [ "$m" = on ] && expired_until >/dev/null; then echo off; else echo "$m"; fi
 }
 
 # 마지막 사건 번호(마지막 모드 줄) — 없으면 빈 값
@@ -60,10 +75,12 @@ count_queue() { local n; n="$(grep -cF "| $1 |" "$QUEUE" 2>/dev/null)"; echo "${
 
 status() {
   local m e s u
-  m="$(mode)"
+  m="$(valid_mode)"
+  u="$(expired_until)" && m=expired
   case "$m" in
     tamper) echo "[자율 ?? 위변조 → OFF]" ;;
     off) echo "[자율 OFF]" ;;
+    expired) echo "[자율 OFF · $(jfield event) 끝 도달 $(hhmm "$u")]" ;;
     on) e="$(jfield event)"; s="$(jfield since)"; u="$(jfield until)"
         case "$u" in ''|null) u="끝 없음" ;; *) u="~$(hhmm "$u")까지" ;; esac
         echo "[자율 ON $e · $(hhmm "$s")~ · $u · 대리 $(count_proxy "$e") · 큐 $(count_queue "$e")]" ;;
@@ -74,7 +91,16 @@ write_state() {  # <모드> <사건> [until epoch|null] — log 먼저, json 은
   local now; now="$(now_epoch)"
   mkdir -p "$STATE" || { echo "REJECT 상태 폴더를 못 만들었다: $STATE" >&2; exit 1; }
   printf '%s\t%s\t%s\n' "$now" "$1" "$2" >> "$LOG" || { echo "REJECT log 쓰기 실패" >&2; exit 1; }
-  printf '{"mode":"%s","since":%s,"event":"%s","until":%s}\n' "$1" "$now" "$2" "${3:-null}" > "$JSON.tmp" && mv "$JSON.tmp" "$JSON"
+  printf '{"mode":"%s","since":%s,"event":"%s","until":%s}\n' "$1" "$now" "$2" "${3:-null}" > "$JSON.tmp.$$" && mv "$JSON.tmp.$$" "$JSON" || { echo "REJECT json 쓰기 실패" >&2; exit 1; }
+}
+
+# 상태 쓰기 전부(on·off·expire·approve-merge)는 같은 mkdir 잠금 안에서 «재확인 → 기록 → 교체» (R185 r3 · DA⑥ H1 · ft-proxy-decide.sh 의 잠금 꼴) — 상한 5초 뒤 rc 1(조용한 통과 0)
+LOCKD="$STATE/.autonomy.lock"; HELD=0
+unlock() { [ "$HELD" = 1 ] && rmdir "$LOCKD" 2>/dev/null; HELD=0; }
+lock() {
+  local i=0; mkdir -p "$STATE" || { echo "REJECT 상태 폴더를 못 만들었다: $STATE" >&2; exit 1; }
+  until mkdir "$LOCKD" 2>/dev/null; do i=$((i+1)); [ "$i" -le 50 ] || { echo "REJECT 상태 잠금 선점 중: $LOCKD" >&2; exit 1; }; sleep 0.1; done
+  HELD=1; trap unlock EXIT
 }
 
 reject() { echo "REJECT $1 (usage: on [--until HH:MM | --for <N>h|<N>m])" >&2; exit 2; }
@@ -106,29 +132,38 @@ cmd_on() {
   local n ev rc=0
   if [ "$(mode)" = on ]; then status; return 0; fi   # 이미 ON 이면 인자 무시 — 끝 시각은 켤 때만 정한다
   parse_end "$@"
-  n="$(grep -c "$(printf '\ton\t')" "$LOG" 2>/dev/null)"
   bash "$HERE/ft-autonomy-start.sh" preflight   # 인증 사전 점검 — 결과를 status 위에 찍을 뿐 켜기를 막지 않는다
+  lock
+  if [ "$(mode)" = on ]; then unlock; status; return 0; fi   # 잠금을 기다리는 사이 다른 호출이 켰다
+  n="$(grep -c "$(printf '\ton\t')" "$LOG" 2>/dev/null)"
   ev="A$(( ${n:-0} + 1 ))"
-  write_state on "$ev" "$UNTIL"
+  write_state on "$ev" "$UNTIL"; unlock
   bash "$HERE/ft-autonomy-start.sh" ledger "$ev" || { echo "ERROR 시작 장부 쓰기 실패 — 자율 상태는 이미 ON ($ev)" >&2; rc=1; }
   status
   return $rc
 }
 
 cmd_off() {
-  local ev; ev="$(event)"
-  if [ "$(mode)" = off ] && [ -f "$JSON" ]; then echo "[자율 OFF] (이미 OFF)"; return 0; fi
-  if [ ! -f "$JSON" ] && [ -z "$ev" ]; then echo "[자율 OFF] (이미 OFF)"; return 0; fi
+  local ev; lock; ev="$(event)"
+  if { [ "$(mode)" = off ] && [ -f "$JSON" ]; } || { [ ! -f "$JSON" ] && [ -z "$ev" ]; }; then unlock; echo "[자율 OFF] (이미 OFF)"; return 0; fi
   [ -n "$ev" ] || ev="A0"
-  write_state off "$ev"
+  write_state off "$ev"; unlock
   echo "[자율 OFF] $ev 구간 요약: 대리 $(count_proxy "$ev") · 큐 $(count_queue "$ev") · 큐 파일 $QUEUE"
+}
+
+cmd_expire() {  # 끝 도달 기록 — 정합 ON ∧ until 지남일 때만 off 줄 1회(log 먼저·json 나중). 단일 기록자 = 틱 · 끄기만(on 은 오빠 `!` 전용 · R164)
+  local ev; lock
+  expired_until >/dev/null || { unlock; echo NOOP; return 0; }   # 잠금 안에서 재확인 — 먼저 끝낸 호출이 있으면 NOOP
+  ev="$(jfield event)"
+  write_state off "$ev"; unlock
+  echo "EXPIRED $ev"
 }
 
 cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다. 쓰기 순서 = log 먼저, 승인 파일 나중(파일만 있고 log 줄 없음 = 병합 가드 deny)
   local sha ev now dir="$STATE/autonomy-merge-approved" line
   [ $# -ge 1 ] || { echo "REJECT sha 없음 (usage: approve-merge <40hex>…)" >&2; exit 2; }
-  [ "$(mode)" = on ] || { echo "REJECT 자율 모드가 ON 이 아님($(mode)) — 승인 기록 없음" >&2; exit 2; }
   for sha in "$@"; do [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "REJECT sha 형식 틀림(40hex 소문자): $sha" >&2; exit 2; }; done
+  lock; [ "$(mode)" = on ] || { echo "REJECT 자율 모드가 ON 이 아님($(mode)) — 승인 기록 없음" >&2; exit 2; }
   ev="$(event)"; now="$(now_epoch)"
   mkdir -p "$dir" || { echo "REJECT 승인 폴더를 못 만들었다: $dir" >&2; exit 1; }
   for sha in "$@"; do
@@ -143,8 +178,9 @@ case "${1:-}" in
   on) shift; cmd_on "$@" ;;
   approve-merge) shift; cmd_approve_merge "$@" ;;
   off) cmd_off ;;
+  expire) cmd_expire ;;
   status) status ;;
   mode) mode ;;
   event) event ;;
-  *) echo "usage: ft-autonomy.sh on|off|status|mode|event|approve-merge <40hex>…" >&2; exit 2 ;;
+  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|approve-merge <40hex>…" >&2; exit 2 ;;
 esac

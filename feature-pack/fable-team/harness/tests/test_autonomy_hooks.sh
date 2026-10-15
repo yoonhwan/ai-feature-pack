@@ -39,6 +39,12 @@ dn "$IG" "$(mkask "배포" "배포 방식을 [자율 OFF] 고를까요?")" "ⓐ3
 rm -f "$S/autonomy.json"; dn "$IG" "$(mkask "배포" "고를까요?")" "ⓐ4 상태 파일만 지움(log 남음 → OFF 취급) + 머리 없음 → deny"
 mode_tamper; dn "$IG" "$(mkask "배포" "고를까요?")" "ⓐ5 위변조 + 머리 없음 → deny"
 al "$IG" "$(mkask "[자율 OFF]" "고를까요?")" "ⓐ5b 위변조 + 머리 있음 → allow"
+mode_off; FT_NOW=1800000000 a on --for 1h >/dev/null 2>&1; EX="$(FT_NOW=1800003600 a status)"   # R185: 끝 도달(until 지남 · expire 전) — status 가 [자율 OFF · A1 끝 도달 HH:MM]
+grep -qE '^\[자율 OFF · A1 끝 도달 [0-9]{2}:[0-9]{2}\]$' <<<"$EX"; rc=$?; out="$EX"; ck "ⓐ5c 끝 도달 status 꼴 ($EX)" $?
+ENVPFX="env FT_NOW=1800003600"; al "$IG" "$(mkask "$EX" "배포 방식을 고를까요?")" "ⓐ5d 끝 도달 머리(status 그대로) → allow"
+dn "$IG" "$(mkask "배포" "고를까요?")" "ⓐ5e 끝 도달 상태 + 머리 없음 → deny 그대로"
+dn "$IG" "$(mkask "[자율 ON A1 · 17:00~ · ~18:00까지 · 대리 0 · 큐 0]" "고를까요?")" "ⓐ5f 끝 도달 상태 + [자율 ON 머리 → deny 그대로"
+ENVPFX=""
 mode_on; outside al "$IG" "$(mkask "" "고를까요?" "$T/outside")" "ⓐ6 BYZ 밖(FT_ROOT 없음·git 아님) → allow"
 run "$IG" '{깨진 json'; [ "$rc" = 0 ] && [ -z "$out" ] && grep -q 'fail-open' "$T/hook.log"; ck "ⓐ7 깨진 JSON → allow + 로그" $?
 run "$IG" ''; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓐ7b 빈 stdin → allow" $?

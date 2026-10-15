@@ -415,6 +415,21 @@ notify_team() {
   return $rc
 }
 
+# ★R185 (판정 1720 ①) 자율 끝 시각 도달 기록★ — 매 루프 `ft-autonomy.sh expire`(단일 기록자 = 틱). EXPIRED 일 때만 로그 1줄 + planner(_hil_route) 앞 쪽지 1통.
+#   `mode`·`status` 는 expire 없이도 끝 도달을 OFF 로 읽는다 — 이 함수는 상태 파일·로그를 «어긋나지 않게» 맞출 뿐. FT_TICK_AUTONOMY=0 으로 끔.
+autonomy_expire() {
+  local out rc
+  [ "${FT_TICK_AUTONOMY:-1}" = 1 ] || return 0
+  [ -f "$AUTONOMY_BIN" ] || { echo "$(date '+%F %T') autonomy_expire: missing $AUTONOMY_BIN" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=autonomy-expire bin=$AUTONOMY_BIN"; return 0; fi
+  out="$(bash "$AUTONOMY_BIN" expire 2>&1)"; rc=$?
+  [ "$rc" = 0 ] || { echo "$(date '+%F %T') autonomy_expire: ERROR rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2; return 0; }
+  case "$out" in
+    EXPIRED\ A*) log "autonomy_expire: $out"; notify_team "[자율 ${out#EXPIRED } 끝 도달 → OFF] 끝 시각이 지나 ft-autonomy.sh expire 가 OFF 로 기록했다. 다시 켜려면 오빠 ! 한 줄(on)." planner;;
+  esac
+  return 0
+}
+
 live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐 좌석만 쓴다(ft-resume-attempt.sh snapshot · codex·cmd 는 쓰지 않음)
   local rows seat role agent model out
   [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
@@ -522,6 +537,7 @@ launchd_watch() {
 
 pass() {
   local rows seat tick role report_to master mok
+  autonomy_expire
   live_snapshot
   dead_seat_watch
   idle_watch
