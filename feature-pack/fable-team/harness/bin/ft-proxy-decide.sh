@@ -7,7 +7,7 @@
 #   push-merge(main 병합·main push)는 오빠 값(판정 1675) — 항상 QUEUE, ok 파일 쓰기 0. 병합 승인 = ft-autonomy.sh approve-merge(오빠 `!`)뿐.
 # rc 0 = 대리(PROXY): 판정 원장에 «대리» 1줄 · rc 2 = 대리 불가(QUEUE): 오빠 큐 1행 · rc 3 = 모드 OFF/위변조(인터뷰로) · rc 4 = 인자 오류
 # 환경: FT_ROOT · FT_AUTONOMY_STATE_DIR · FT_PLANNER_DIR(원장 VERDICTS-*.md · 큐 AUTONOMY-QUEUE.md) · FT_PROXY_LEDGER(쓸 원장, 기본 최신 planner 번호)
-#       FT_SEAT_RESUME_DIR(재개 기록, 기본 ~/.claude/state/seat-resume) · FT_RESOURCE_GATE(자원 문지기, 기본 같은 폴더 ft-resource-gate.sh) · FT_DEPLOY_BRANCHES(공백·쉼표 구분, glob 허용) · FT_PUSH_REMOTE(기본 origin)
+#       FT_SEAT_RESUME_DIR(재개 기록, 기본 ~/.claude/state/seat-resume) · FT_RESOURCE_GATE(자원 문지기, 기본 같은 폴더 ft-resource-gate.sh) · FT_DEPLOY_BRANCHES(공백·쉼표 구분, glob 허용 · 없으면 <상태>/deploy-branches.txt 한 줄 한 패턴) · FT_PUSH_REMOTE(기본 origin)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
@@ -88,11 +88,11 @@ bounded() {
 
 card_check() {  # card-start — 판정 줄 결속 + 카드 본문(배경·구현 범위·쓰기 허용·금지 절)을 CARD_TEXT 로
   local slug line
-  [ -n "$card" ] && [ -n "$verdict" ] || queue_exit "card-start 에는 --card·--verdict 필요"
+  [ -n "$card" ] && [ -n "$verdict" ] || queue_exit "card-start 에는 --card·--verdict 필요 — 예) ft-proxy-decide.sh --kind card-start --card design/<팀>/indices/대기/<카드>.md --verdict <판정 번호> --q <질문> --choice <추천안> --why <근거> --undo <되돌림>"
   case "$verdict" in *[!0-9]*) queue_exit "판정 번호가 숫자 아님" ;; esac
   [ -r "$card" ] || queue_exit "카드를 못 읽음: $card"
   slug="$(basename "$card" .md)"
-  line="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -E "^- \*\*$verdict\*\*" | head -1)"
+  line="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -E "^(- \*\*$verdict\*\*|\|[[:space:]]*$verdict[[:space:]]*\|)" | head -1)"   # 글머리 `- **N**` 꼴 · 표 행 `| N |` 꼴 둘 다(번호 경계 엄격)
   [ -n "$line" ] || queue_exit "원장에 판정 $verdict 줄 없음"
   # 이름 경계: 앞뒤가 [A-Za-z0-9_-] 가 아니어야 한다 (r-wait-events ⊄ r-wait-events-rotate)
   grep -qE "(^|[^A-Za-z0-9_-])$(printf '%s' "$slug" | sed 's/[][\.*^$()+?{|]/\\&/g')([^A-Za-z0-9_-]|$)" <<<"$line" || queue_exit "판정 $verdict 줄이 카드 이름($slug)을 말하지 않음"
@@ -107,7 +107,7 @@ jget() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[sys.argv
 nano_reopen_check() {  # 설계 r1-1 ①~④ + r1-9 H2 ⑤ — 하나라도 못 읽으면 QUEUE (기준선 파일 쓰기는 ft-nano-spawn 몫, 없으면 QUEUE)
   local base="$STATE/nano-card-base/$seat.json" rec="${FT_SEAT_RESUME_DIR:-$HOME/.claude/state/seat-resume}/$seat.json"
   local gate="${FT_RESOURCE_GATE:-$HERE/ft-resource-gate.sh}" bb bw cb
-  [ -n "$card" ] && [ -n "$seat" ] || queue_exit "nano-reopen 에는 --card·--seat 필요"
+  [ -n "$card" ] && [ -n "$seat" ] || queue_exit "nano-reopen 에는 --card·--seat 필요 — 예) ft-proxy-decide.sh --kind nano-reopen --card design/<팀>/indices/진행/<카드>.md --seat <좌석> --q <질문> --choice <추천안> --why <근거> --undo <되돌림>"
   case "$seat" in */*|*..*) queue_exit "--seat 형식 틀림" ;; esac
   case "$card" in */indices/진행/*.md) [ -r "$card" ] || queue_exit "① 카드를 못 읽음" ;; *) queue_exit "① 카드가 indices/진행/ 폴더에 없음" ;; esac
   [ -r "$base" ] || queue_exit "⑤ spawn 기준선($base) 없음"
@@ -123,11 +123,13 @@ nano_reopen_check() {  # 설계 r1-1 ①~④ + r1-9 H2 ⑤ — 하나라도 못 
 }
 
 docs_push_check() {  # 설계 r1-1 — 원격 비교는 ls-remote 1회(7초 + 재시도 1회 · 실패 = QUEUE)
-  local remote="${FT_PUSH_REMOTE:-origin}" pat rsha files f
+  local remote="${FT_PUSH_REMOTE:-origin}" pat rsha files f list deploy_file="$STATE/deploy-branches.txt"
   [ -n "$branch" ] && grep -qE '^[0-9a-f]{40}$' <<<"$sha" || queue_exit "docs-push 에는 --branch·--sha(40hex) 필요"
   case "$branch" in -*|*..*|main) queue_exit "② 대상 가지가 main 이거나 형식 틀림: $branch" ;; esac
-  [ -n "${FT_DEPLOY_BRANCHES:-}" ] || queue_exit "② FT_DEPLOY_BRANCHES 미설정 — 배포 가지 목록을 못 읽음"
-  set -f; for pat in ${FT_DEPLOY_BRANCHES//,/ }; do case "$branch" in $pat) set +f; queue_exit "② 대상 가지($branch)가 배포 가지($pat)" ;; esac; done; set +f
+  list="${FT_DEPLOY_BRANCHES:-}"   # env 우선 · 없으면 목록 파일(한 줄 한 패턴 · # 주석)
+  [ -n "$list" ] || { [ -r "$deploy_file" ] && list="$(sed 's/#.*//' "$deploy_file" | tr -s ' \t\r\n,' ' ')"; }
+  [ -n "${list//[[:space:]]/}" ] || queue_exit "② 배포 가지 목록 없음 — FT_DEPLOY_BRANCHES 또는 $deploy_file"
+  set -f; for pat in ${list//,/ }; do case "$branch" in $pat) set +f; queue_exit "② 대상 가지($branch)가 배포 가지($pat)" ;; esac; done; set +f
   rsha="$(bounded git ls-remote --heads "$remote" "refs/heads/$branch")" || queue_exit "git ls-remote 실패·${CALL_TIMEOUT_S}초 초과"
   rsha="${rsha%%[[:space:]]*}"; grep -qE '^[0-9a-f]{40}$' <<<"$rsha" || queue_exit "원격에 가지($branch) 없음"
   git merge-base --is-ancestor "$rsha" "$sha" 2>/dev/null || queue_exit "③ fast-forward 아님(원격 $rsha ⊄ --sha)"
