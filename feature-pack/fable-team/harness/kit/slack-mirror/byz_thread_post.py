@@ -7,7 +7,6 @@
 """
 import argparse
 import logging
-import mimetypes
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +17,7 @@ import thread_ledger as lg
 from magazine_slack import Target, find_reply_first_line, upload_file
 from mirror_lib import MirrorError, esc, paged
 from mirror_share import first_line_is, tag
+from file_guard import Checked, check_files
 from post_guard import check, guarded_post as post
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
@@ -58,10 +58,9 @@ def marker(uid: str) -> str:
     return f"[{esc(uid)}]"
 
 
-def attach(t: Target, root_ts: str, files: list[str]) -> None:
-    for f in files:
-        p = Path(f)
-        upload_file(t, root_ts, p, p.name, mimetypes.guess_type(p.name)[0] or "application/octet-stream")
+def attach(t: Target, root_ts: str, files: list[Checked]) -> None:
+    for c in files:  # 검사한 바이트만 올린다 — 원래 경로를 다시 열지 않는다
+        upload_file(t, root_ts, Path(c.name), c.name, c.content_type, data=c.data)
 
 
 def record(a: argparse.Namespace, uid: str) -> dict:
@@ -78,9 +77,7 @@ def cmd_start(a: argparse.Namespace) -> int:
         return 1
     if read_line(card) is not None:
         raise ThreadError(f"카드에 이미 「- 슬랙:」 줄이 있다 — 새로 시작하지 말고 repair: {card}")
-    for f in a.file:
-        if not Path(f).is_file():
-            raise ThreadError(f"첨부 파일 없음: {f}")
+    files = check_files(a.file, a.channel)  # 글 `check` «전» — 걸리면 카드·원격 모두 불변
     text = f"{tag('작업상황', marker(uid))}\n{esc(a.text)}\n{block_of(a)}"  # 블록 칸 누락은 카드·원격에 아무것도 쓰기 «전» 에 raise
     check(text, a.channel)  # 카드에 「시도」 줄을 쓰기 «전» — 걸리면 카드·원격 모두 불변
     write_line(card, f"- 슬랙: {a.channel} · 시도 {datetime.now(KST).isoformat(timespec='seconds')}")
@@ -88,7 +85,7 @@ def cmd_start(a: argparse.Namespace) -> int:
     root = post(t.base, t.token, t.channel, text)
     write_line(card, f"- 슬랙: {a.channel} {root}")
     lg.create(ledger, uid, channel=a.channel, root_ts=root, kind="unit", card_path=a.card)
-    attach(t, root, a.file)
+    attach(t, root, files)
     print(f"started {uid} root_ts={root}")
     return 0
 
@@ -96,10 +93,11 @@ def cmd_start(a: argparse.Namespace) -> int:
 def cmd_progress(a: argparse.Namespace) -> int:
     uid = unit_id(a.card, a.team)
     rec = record(a, uid)
+    files = check_files(a.file, rec["channel"])  # 글 게시 «전» — 반쪽 게시(글만 나가고 파일 거부) 0
     t = target(a)
     ts = post(t.base, t.token, rec["channel"], f"{tag('작업상황', esc(a.text))}\n{block_of(a)}", rec["root_ts"])
     lg.update(Path(a.ledger), uid, card_path=a.card, progress=ts)
-    attach(Target(t.base, t.token, rec["channel"], ""), rec["root_ts"], a.file)
+    attach(Target(t.base, t.token, rec["channel"], ""), rec["root_ts"], files)
     print(f"progress {uid} ts={ts}")
     return 0
 

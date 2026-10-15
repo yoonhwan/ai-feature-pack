@@ -49,6 +49,14 @@ def _git_env_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         pytest.fail(f"공용 git config 가 시험 중 바뀜({config}) — 복원은 사람: 전 {before} → 후 {after}", pytrace=False)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_ft_root(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory) -> None:
+    """post_guard 의 사람 채널 명부 출처(FT_ROOT)를 빈 `.fable-team/` 로 격리 — 라이브 명부·CI 유무와 무관(R231a 교정 2). 필요한 시험이 덮는다."""
+    root = tmp_path_factory.mktemp("ft_root")
+    (root / ".fable-team").mkdir()
+    monkeypatch.setenv("FT_ROOT", str(root))
+
+
 @pytest.fixture
 def fake_resource_env(tmp_path: Path) -> Callable[[str], dict[str, str]]:
     """R218 — 자원 문지기 가짜 센서가 걸린 env dict 를 돌려주는 함수(mode = ok|reject). 실 머신 부하·압력과 무관하게 같은 결과."""

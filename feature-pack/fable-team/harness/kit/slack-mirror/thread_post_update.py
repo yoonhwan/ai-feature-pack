@@ -7,13 +7,13 @@
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
 """
 import argparse
-import mimetypes
 import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import thread_ledger as lg
+from file_guard import check_files
 from magazine_slack import Target, upload_file
 from mirror_lib import MirrorError, api_call, esc
 from post_guard import check, guarded_post as post
@@ -43,12 +43,12 @@ def cmd_attach(a: argparse.Namespace, target: Callable[[argparse.Namespace], Tar
     rec = lg.get(Path(a.ledger), a.key)
     if rec is None or not rec.get("root_ts"):
         raise MirrorError(f"장부 불명: {a.key} — 뿌리 글이 먼저 있어야 한다(update)")
+    files = check_files(a.file, rec["channel"])  # 업로드 루프 «전» — 비사람 채널의 보드 PDF 는 실재만 본다
     t = target(a)
     t = Target(t.base, t.token, rec["channel"], "")
     first = ""
-    for i, f in enumerate(a.file):
-        p = Path(f)
-        fid = upload_file(t, rec["root_ts"], p, a.title if i == 0 else f"{a.title} ({p.name})", mimetypes.guess_type(p.name)[0] or "application/octet-stream")
+    for i, c in enumerate(files):  # 검사한 바이트만 올린다
+        fid = upload_file(t, rec["root_ts"], Path(c.name), a.title if i == 0 else f"{a.title} ({c.name})", c.content_type, data=c.data)
         first = first or fid
     info = api_call(t.base, t.token, "files.info", {"file": first}, get=True).get("file")
     link = info.get("permalink") if isinstance(info, dict) else None

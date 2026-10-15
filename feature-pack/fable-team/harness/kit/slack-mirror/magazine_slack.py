@@ -122,12 +122,14 @@ def has_file_title(t: Target, root_ts: str, title: str) -> bool:
 
 def upload_file(
     t: Target, thread_ts: str, path: Path, title: str, content_type: str,
-    on_file_id: Callable[[str], None] | None = None, on_not_shared: Callable[[], None] | None = None,
+    on_file_id: Callable[[str], None] | None = None, on_not_shared: Callable[[], None] | None = None, data: bytes | None = None,
 ) -> str:
     """파일 id 를 돌려준다(링크 조회용). on_file_id: file_id 를 받은 «직후·바이트 전송 전» 호출 — 시도 기록용. 이 콜백이 raise 하면 원격 전송 0.
     on_not_shared: «공유가 확실히 안 된» 실패(바이트 전송 실패 · complete 가 ok=false 로 거절)에서만 호출 — 응답 유실 같은
-    결과 불명 실패(전송 오류·시간 초과)에는 부르지 않는다(그 경우 시도 기록이 «불명» 으로 남는다)."""
-    data = path.read_bytes()
+    결과 불명 실패(전송 오류·시간 초과)에는 부르지 않는다(그 경우 시도 기록이 «불명» 으로 남는다).
+    data: 미리 검사한 바이트(R231a file_guard) — 주면 path 를 다시 열지 않고 그 바이트만 올린다(이름은 path.name)."""
+    if data is None:
+        data = path.read_bytes()
     got = api_call(t.base, t.token, "files.getUploadURLExternal", {"filename": path.name, "length": len(data)}, get=True)
     if on_file_id:
         on_file_id(str(got["file_id"]))
