@@ -32,6 +32,15 @@ def thread_link(a: argparse.Namespace, token: str, thread: str) -> str:
 
 
 def plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) -> dict[str, object]:
+    p = _plan(a, token, qpath, m)
+    if not getattr(a, "to", ""):
+        return p
+    # --to 고정 모드(R205 H1): 질문 좌석·추정 좌석 포함 모든 수신이 고정 좌석 1곳뿐이다. 질문 상태(delivered·confirm 종료)는
+    # «그 좌석에 전달됨» 이 아니라 desk 도달이므로 전진시키지 않는다 — 질문 보드는 원래 좌석 경로의 몫이다.
+    return {**{k: v for k, v in p.items() if k != "confirm"}, "recips": [PLANNER], "q": None}
+
+
+def _plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) -> dict[str, object]:
     text, thread = ib.unescape(str(m.get("text", ""))).strip(), str(m["thread_ts"])
     base: dict[str, object] = {"thread": thread, "done": {}, "attempt": {}, "q": None}
     if not thread:

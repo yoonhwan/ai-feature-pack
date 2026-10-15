@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_board as mb  # noqa: E402
+import mirror_humans as mh  # noqa: E402
 import mirror_inbound as ib  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_questions as mq  # noqa: E402
@@ -44,6 +45,7 @@ class Inbound:
         self.token = lib.read_token(Path(a.token_file).expanduser())
         self.sent = 0
         self.seen_updates: dict[str, str] = {}
+        self.humans = mh.humans(a)  # 명부 읽기 실패·0명 = 시작 때 raise · 패스마다 다시 읽는다
 
     def _save(self, st: dict[str, object]) -> None:
         lib.save_state(self.state_path, st)
@@ -56,7 +58,7 @@ class Inbound:
         found: dict[str, dict[str, object]] = {}
         threads: dict[str, str | None] = {}
         for m in lib.paged(base, tok, "conversations.history", {"channel": ch, "oldest": f"{time.time() - WINDOW:.6f}", "limit": 200}):
-            if ib.is_human(m, self.a.human) and str(m["ts"]) > baseline:
+            if str(m["ts"]) > baseline and mh.allowed(m, self.humans, ch, log=not self.a.human):
                 found[str(m["ts"])] = {**m, "thread_ts": ""}
             if m.get("latest_reply"):  # 기동 «전» 에 만들어진 스레드의 새 답도 여기서 발견된다
                 threads[str(m["ts"])] = str(m["latest_reply"])
@@ -67,7 +69,7 @@ class Inbound:
             if latest is not None and seen.get(t) == latest:
                 continue
             for m in lib.paged(base, tok, "conversations.replies", {"channel": ch, "ts": t, "oldest": baseline, "limit": 200}):
-                if str(m["ts"]) != t and ib.is_human(m, self.a.human) and str(m["ts"]) > baseline:
+                if str(m["ts"]) != t and str(m["ts"]) > baseline and mh.allowed(m, self.humans, ch, log=not self.a.human):
                     found[str(m["ts"])] = {**m, "thread_ts": t}
             if latest is not None:
                 self.seen_updates[t] = latest
@@ -87,7 +89,7 @@ class Inbound:
         for role in e["recips"]:
             if e["done"].get(role):
                 continue
-            to, why = ib.resolve(role, self.planner_seats)
+            to, why = ib.resolve(role, self.planner_seats, self.a.to)
             if to is None:  # 현역 planner 를 모르면 보내지 않고 보관 — done 이 아니라 다음 패스에 다시 정한다
                 self._notice(e, f"planner_missing_notified:{why}", f"오빠 글 전달 대기 — planner 현역 세션 확인 불가({why}) · 원문 보관됨")
                 continue
@@ -126,6 +128,7 @@ class Inbound:
 
     def run_pass(self) -> int:
         self.sent = 0
+        self.humans = mh.humans(self.a)
         st = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else None
         if st is None:  # 첫 실행 — 과거 글을 쏟아내지 않는다
             self._save({"baseline": now_ts(), "ledger": {}, "seen": {}})
@@ -155,7 +158,7 @@ class Inbound:
 def parse() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--channel", required=True)
-    p.add_argument("--human", required=True, help="답을 받을 Slack 사용자 ID 1개(고정) 예: U0AC2JF0M7D")
+    mh.add_args(p)  # --human | --humans | --humans-from-seats (정확히 하나) · --to
     p.add_argument("--mbox", required=True, help="mbox.sh 경로")
     p.add_argument("--seats-file", required=True, help="같은 폴더의 seats-planner.json 으로 현역 planner 를 찾는다(_hil_route 는 읽지 않는다)")
     p.add_argument("--planner-seats", default="", help="planner 명부 경로(기본 = --seats-file 폴더의 seats-planner.json)")

@@ -15,9 +15,24 @@ from pathlib import Path
 
 import thread_ledger as lg
 from magazine_slack import Target, upload_file
-from mirror_lib import MirrorError, api_call, esc, post
+from mirror_lib import MirrorError, api_call, esc
+from post_guard import check, guarded_post as post
 
 KEY = re.compile(r"board:\d{4}-\d{2}-\d{2}")
+TS = re.compile(r"\d+\.\d+")
+
+
+def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
+    """`reply --channel <ID> --ts <뿌리 ts> --text-file <파일>` — 아무 스레드에 답글 1개(카드·장부 불요 · 첨부 0). 사람 채널 입구라 1·2묶음 검사를 «항상» 건다."""
+    if not TS.fullmatch(a.ts):
+        raise MirrorError(f"--ts 는 슬랙 ts 꼴(예 1700000000.000100): {a.ts}")
+    body = Path(a.text_file).read_text(encoding="utf-8").strip()
+    if not body:
+        raise MirrorError(f"본문 파일이 비었다: {a.text_file}")
+    t = target(a)
+    ts = post(t.base, t.token, a.channel, esc(body), a.ts, human=True)
+    print(f"reply ts={ts}")
+    return 0
 
 
 def cmd_attach(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
@@ -57,6 +72,7 @@ def cmd_update(a: argparse.Namespace, target: Callable[[argparse.Namespace], Tar
         print(f"created {a.key} root_ts={root}")
         pending = None
     else:
+        check(body, rec["channel"])
         api_call(t.base, t.token, "chat.update", {"channel": rec["channel"], "ts": rec["root_ts"], "text": body})
         print(f"updated {a.key} root_ts={rec['root_ts']}")
         pending = rec.get("reply_pending")

@@ -16,11 +16,12 @@ from zoneinfo import ZoneInfo
 import resume_block as rb
 import thread_ledger as lg
 from magazine_slack import Target, find_reply_first_line, upload_file
-from mirror_lib import MirrorError, esc, paged, post
+from mirror_lib import MirrorError, esc, paged
 from mirror_share import first_line_is, tag
+from post_guard import check, guarded_post as post
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
-from thread_post_update import cmd_attach, cmd_update
+from thread_post_update import cmd_attach, cmd_reply, cmd_update
 from thread_unit import repair_root
 
 KST = ZoneInfo("Asia/Seoul")
@@ -81,6 +82,7 @@ def cmd_start(a: argparse.Namespace) -> int:
         if not Path(f).is_file():
             raise ThreadError(f"첨부 파일 없음: {f}")
     text = f"{tag('작업상황', marker(uid))}\n{esc(a.text)}\n{block_of(a)}"  # 블록 칸 누락은 카드·원격에 아무것도 쓰기 «전» 에 raise
+    check(text, a.channel)  # 카드에 「시도」 줄을 쓰기 «전» — 걸리면 카드·원격 모두 불변
     write_line(card, f"- 슬랙: {a.channel} · 시도 {datetime.now(KST).isoformat(timespec='seconds')}")
     t = target(a)
     root = post(t.base, t.token, t.channel, text)
@@ -187,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         a = parse(argv)
         return {"start": cmd_start, "progress": cmd_progress, "result": cmd_result, "check": cmd_check, "repair": cmd_repair,
-                "update": lambda x: cmd_update(x, target), "attach": lambda x: cmd_attach(x, target)}[a.cmd](a)
+                "update": lambda x: cmd_update(x, target), "attach": lambda x: cmd_attach(x, target), "reply": lambda x: cmd_reply(x, target)}[a.cmd](a)
     except (MirrorError, CardError, OSError, ValueError) as e:
         print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
         return 1

@@ -7,13 +7,13 @@
 #
 # 문법 (SPEC-session-naming-20261005 §2-A):
 #   <프로젝트>-<팀>-<역할>[-<꼬리>]#<N>
-#   프로젝트·팀 = [a-z0-9]+ · 역할 = 예약어 10 · 구분자는 '-' 만 · 대문자·'_'·공백 0 · 길이 ≤ 60
+#   프로젝트·팀 = [a-z0-9]+ · 역할 = 예약어 11 · 구분자는 '-' 만 · 대문자·'_'·공백 0 · 길이 ≤ 60
 #   꼬리 = nano 는 카드 slug(필수, [a-z0-9-]+) · 그 밖의 역할 좌석은 에이전트(claude|codex|opencode|cmd) 필수
 #   #N = 계보 번호(0 이상 정수, 필수)
 # 이행 기간의 구 이름(ft-·FB_·KakaoBot …)은 허용 목록 없이 그대로 REJECT 한다 — 신규 이름 검사용이다.
 set -uo pipefail
 
-ROLES="master arch da tester checker analyst pm nano repro tool"
+ROLES="master arch da tester checker analyst pm nano repro tool desk"
 AGENTS="claude codex opencode cmd"
 MAXLEN=60
 

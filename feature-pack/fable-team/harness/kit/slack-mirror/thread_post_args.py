@@ -44,11 +44,14 @@ def parse(argv: list[str]) -> argparse.Namespace:
     u.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     u.add_argument("--text-file", required=True)
     u.add_argument("--reply", default="", help="변화 답글 1줄")
+    rpl = sub.add_parser("reply", parents=[common], help="아무 스레드에 답글 1개(desk 입구 · 카드·장부 불요)")
+    rpl.add_argument("--ts", required=True, help="뿌리 글 ts")
+    rpl.add_argument("--text-file", required=True)
     t = sub.add_parser("attach", parents=[common], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)
     t.add_argument("--title", required=True)
     a = p.parse_args(argv)
-    if a.cmd not in ("update", "attach") and not (a.card or getattr(a, "unit_id", None)):
+    if a.cmd not in ("update", "attach", "reply") and not (a.card or getattr(a, "unit_id", None)):
         p.error("--card 가 필요하다")
     return a

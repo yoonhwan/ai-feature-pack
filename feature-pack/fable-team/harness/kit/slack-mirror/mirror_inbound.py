@@ -23,8 +23,13 @@ def unescape(text: str) -> str:
     return text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
 
-def is_human(m: dict[str, object], allowed: str) -> bool:
-    return m.get("user") == allowed and not m.get("bot_id") and m.get("subtype") in (None, "thread_broadcast")
+def is_user_post(m: dict[str, object]) -> bool:
+    return bool(m.get("user")) and not m.get("bot_id") and m.get("subtype") in (None, "thread_broadcast")
+
+
+def is_human(m: dict[str, object], allowed: str | frozenset[str]) -> bool:
+    ids = frozenset({allowed}) if isinstance(allowed, str) else allowed
+    return m.get("user") in ids and is_user_post(m)
 
 
 def inferred_seat(thread_msgs: list[dict[str, object]]) -> str | None:
@@ -49,8 +54,11 @@ def resolve_pick(text: str, options: list[str]) -> str:
     return text
 
 
-def resolve(to: str, planner_seats: str | Path | None) -> tuple[str | None, str]:
-    """수신자 표식 → (보낼 이름 | None, 사유). `@planner` 는 매번 명부 `_master` + tmux 생존으로 정한다(`_hil_route` 는 읽지 않는다)."""
+def resolve(to: str, planner_seats: str | Path | None, fixed: str = "") -> tuple[str | None, str]:
+    """수신자 표식 → (보낼 이름 | None, 사유). `@planner` 는 매번 명부 `_master` + tmux 생존으로 정한다(`_hil_route` 는 읽지 않는다).
+    `fixed`(--to)가 있으면 모든 수신자를 그 이름으로 고정한다 — 현역 planner 조회 0."""
+    if fixed:  # 고정 모드: 어떤 수신자 표식도 고정 좌석으로 — 다른 좌석 도달 0 · 현역 planner 조회 0
+        return fixed, "고정"
     return ms.live_planner(planner_seats) if to == ms.PLANNER_ROLE else (to, "")
 
 
