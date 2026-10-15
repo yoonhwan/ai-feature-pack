@@ -117,6 +117,18 @@ elif mode == "attributed":
     group("412.1", "kTCCServiceSystemPolicyAppData", mine)
 elif mode == "unattributed":
     group("412.1", "kTCCServiceSystemPolicyAppData", "1")
+elif mode == "no_msgid":       # an explicit AppData request that carries no msgID at all
+    ts = "2026-10-15 17:00:01.000000+0900 0x1f3      Info        0x0                  412    0    tccd: [com.apple.TCC:access] "
+    print(ts + "AUTHREQ_CTX: function=TCCAccessRequest, service=kTCCServiceSystemPolicyAppData, preflight=no,")
+elif mode == "odd_msgid":      # an id format the parser does not know
+    ts = "2026-10-15 17:00:01.000000+0900 0x1f3      Info        0x0                  412    0    tccd: [com.apple.TCC:access] "
+    print(ts + "AUTHREQ_CTX: msgID=abc/def, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAppData,")
+elif mode == "partial_ours":   # only the attribution of our child was collected, the request line is missing
+    ts = "2026-10-15 17:00:01.000000+0900 0x1f3      Info        0x0                  412    0    tccd: [com.apple.TCC:access] "
+    print(ts + f"AUTHREQ_ATTRIBUTION: msgID=777.1, attribution={{{{accessing={{{{TCCDProcess: identifier=com.1password.op, pid={{mine}}, auid=501}}}},}}}},")
+elif mode == "partial_other":  # a partial group about somebody else's pid
+    ts = "2026-10-15 17:00:01.000000+0900 0x1f3      Info        0x0                  412    0    tccd: [com.apple.TCC:access] "
+    print(ts + "AUTHREQ_ATTRIBUTION: msgID=778.1, attribution={{accessing={{TCCDProcess: identifier=x, pid=1, auid=501}},}},")
 elif mode == "split_unlinked":  # AppData ctx under one msgID, our pid only under another: no link
     group("412.1", "kTCCServiceSystemPolicyAppData", "1")
     group("413.1", "kTCCServiceCamera", mine)
@@ -820,3 +832,157 @@ def test_recorded_pids_are_found_again_whatever_the_callers_locale(sb):
     pids = json.loads((sb.probe_dir() / "pids.json").read_text())
     assert pids["children"] and not alive(pids["children"][0]["pid"]) and not alive(pids["self"]["pid"])
     assert "잔존 확인 필요: pid" not in proc.stdout
+
+
+# ---------------------------------------------------------------------------------------------------------
+# DA r2 (REJECT 1/3/1)
+# B1 — the attempt's deadline is enforced even while the PID is being recorded
+def _first_kill_after_spawn(probe, tmp_path, monkeypatch, *, attempt: float, record_delay: float) -> float:
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    monkeypatch.setattr(probe, "ATTEMPT_S", attempt)
+    real_ps = probe.ps_line
+    monkeypatch.setattr(probe, "ps_line", lambda pid: (time.sleep(record_delay), real_ps(pid))[1])
+    kills: list[float] = []
+    real_kill = subprocess.Popen.kill
+
+    def kill(self):
+        if self.args and self.args[0] == "/bin/sleep":
+            kills.append(time.monotonic())
+        return real_kill(self)
+
+    monkeypatch.setattr(subprocess.Popen, "kill", kill)
+    started = time.monotonic()
+    info = probe.run_child("P0", ["/bin/sleep", "30"], {"PATH": "/bin"}, book, budget)
+    assert info["status"] == "timeout" and info["reaped"] is True
+    assert kills, "the direct child must be ended"
+    return min(kills) - started
+
+
+def test_b1_first_kill_comes_at_the_attempt_deadline_while_the_record_is_slow(tmp_path, monkeypatch):
+    waited = _first_kill_after_spawn(load_probe(), tmp_path, monkeypatch, attempt=0.5, record_delay=1.2)
+    assert waited <= 0.5 + 0.25, waited
+
+
+def test_b1_first_kill_at_the_default_seven_seconds_with_a_7_4_second_record(tmp_path, monkeypatch):
+    waited = _first_kill_after_spawn(load_probe(), tmp_path, monkeypatch, attempt=7.0, record_delay=7.4)
+    assert 6.9 <= waited <= 7.0 + 0.3, waited  # the pinned counterexample: it used to be 7.405
+
+
+def test_b1_no_child_is_started_when_the_preparation_used_the_attempt_up(tmp_path, monkeypatch):
+    probe = load_probe()
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.3)
+    real_before = book.before
+    monkeypatch.setattr(book, "before", lambda step: (time.sleep(0.6), real_before(step))[1])
+    spawned: list = []
+    real_init = subprocess.Popen.__init__
+    monkeypatch.setattr(subprocess.Popen, "__init__",
+                        lambda self, *a, **k: (spawned.append(a), real_init(self, *a, **k))[1])
+    info = probe.run_child("P0", ["/bin/sleep", "30"], {"PATH": "/bin"}, book, budget)
+    assert info["status"] == "timeout" and info["child_pid"] is None
+    assert [a for a in spawned if a and a[0] and a[0][0] == "/bin/sleep"] == []
+
+
+# M1 — the shell's own ps calls are bounded by the clean-up time that is left
+def slow_ps_dir(sb: Sandbox) -> tuple[Path, Path]:
+    directory = sb.root / "slow-ps-bin"
+    directory.mkdir(exist_ok=True)
+    flag = sb.root / "ps-slow-flag"
+    shim = directory / "ps"
+    shim.write_text(f'#!/bin/sh\n[ -f "{flag}" ] && sleep 3\nexec /bin/ps "$@"\n', encoding="utf-8")
+    shim.chmod(0o755)
+    return directory, flag
+
+
+def test_m1_a_slow_ps_cannot_stretch_the_clean_up_past_its_budget(sb):
+    directory, flag = slow_ps_dir(sb)
+    started = time.monotonic()
+    proc = sb.run(PATH=f"{directory}:/usr/bin:/bin:/usr/sbin:/sbin", FAKE_LC_SLOW_PS_FLAG=str(flag),
+                  PROBE_T_CLEAN="8", PROBE_T_RESULT="20")
+    elapsed = time.monotonic() - started
+    assert elapsed < 4 + 8 + 4, elapsed  # run phase + clean-up window + a little (it was 19 s for 11 s of budget)
+    assert proc.returncode == 4 and "잔존 확인 필요: pid" in proc.stdout  # unchecked pids are reported, not awaited
+    assert sb.loaded() == []
+
+
+def test_m1_no_ps_is_started_once_the_clean_up_time_is_gone(sb):
+    directory, flag = slow_ps_dir(sb)
+    log = sb.root / "ps-starts.txt"
+    shim = directory / "ps"
+    shim.write_text(f'#!/bin/sh\necho "$(date +%s)" >> "{log}"\n[ -f "{flag}" ] && sleep 3\nexec /bin/ps "$@"\n',
+                    encoding="utf-8")
+    sb.run(PATH=f"{directory}:/usr/bin:/bin:/usr/sbin:/sbin", FAKE_LC_SLOW_PS_FLAG=str(flag),
+           PROBE_T_CLEAN="8", PROBE_T_RESULT="20")
+    starts = [int(x) for x in log.read_text().split()]
+    assert starts and max(starts) - min(starts) <= 4 + 8, (min(starts), max(starts))
+
+
+# M2 — an exact match of the loaded job's arguments and plist path, nothing looser
+@pytest.mark.parametrize("style", ["suffix", "extra_arg", "env_only", "path_suffix", "prefix_dir"])
+def test_m2_a_look_alike_job_is_never_booted_out(sb, style):
+    proc = sb.run(FAKE_LC_FOREIGN_AFTER_BOOTSTRAP="0", FAKE_LC_STYLE=style)
+    assert any(c.startswith("bootstrap") for c in sb.lc_calls())
+    assert not any(c.startswith("bootout") for c in sb.lc_calls()), style
+    assert proc.returncode == 4 and "잔존 확인 필요: com.airag.probe-opa-" in proc.stdout
+
+
+def test_m2_our_own_job_is_still_booted_out_when_the_run_is_interrupted_right_after_bootstrap(sb):
+    proc = sb.run(FAKE_LC_BOOTSTRAP_SIGNAL="INT")
+    assert proc.returncode == 130
+    assert sb.loaded() == [] and any(c.startswith("bootout") for c in sb.lc_calls())
+
+
+# M3 — an AppData request that cannot be linked is never turned into "none"
+@pytest.mark.parametrize("mode,expected", [
+    ("no_msgid", "seen_unattributed"),
+    ("odd_msgid", "seen_unattributed"),
+    ("partial_ours", "unknown_log_unavailable"),
+    ("partial_other", "none_logged_ok"),
+])
+def test_m3_unlinked_or_partial_tcc_lines_are_kept_conservatively(sb, mode, expected):
+    sb.set_tcc(mode)
+    sb.run()
+    assert steps_of(sb.result())["P0"]["tcc_observation"] == expected
+
+
+def test_m3_classifier_cases():
+    probe = load_probe()
+    head = "2026-10-15 17:00:01.000000+0900 0x1 Info 0x0 412 0 tccd: [com.apple.TCC:access] "
+    ctx = head + "AUTHREQ_CTX: msgID=9.1, service=kTCCServiceSystemPolicyAppData,\n"
+    attr = head + "AUTHREQ_ATTRIBUTION: msgID=9.1, attribution={accessing={TCCDProcess: pid=321, auid=501}},\n"
+    camera = head + "AUTHREQ_CTX: msgID=5.1, service=kTCCServiceCamera,\n"
+    assert probe.classify_tcc(ctx + attr, {321}) == "seen_attributed"
+    assert probe.classify_tcc(ctx + attr, {999}) == "seen_unattributed"
+    assert probe.classify_tcc(camera, {321}) == "none_logged_ok"
+    assert probe.classify_tcc(head + "AUTHREQ_CTX: service=kTCCServiceSystemPolicyAppData, pid=321\n", {321}) \
+        == "seen_unattributed"
+    assert probe.classify_tcc("", {321}) == "unknown_log_unavailable"
+
+
+# m1 — a refused input is never echoed back
+CANARY = "CANARY_VALUE_8842_do_not_print"
+
+
+def test_m1_production_refuses_test_switches_without_reading_their_values(sb):
+    env = production_env(sb, {})
+    env.update(PROBE_T_CLEAN=CANARY, PROBE_T_RESULT=CANARY)
+    proc = subprocess.run(["/bin/bash", str(PROBE_SH), "--python", sys.executable], env=env, capture_output=True,
+                          text=True, timeout=30)
+    assert proc.returncode == 2
+    assert CANARY not in proc.stdout + proc.stderr and "Bad" not in proc.stderr and "expression" not in proc.stderr
+    assert sb.lc_calls() == [] and not (sb.home / ".local" / "share" / "airag-probe").exists()
+
+
+@pytest.mark.parametrize("name", ["PROBE_T_CLEAN", "PROBE_T_CALL", "PROBE_T_RESULT", "PROBE_T_START"])
+def test_m1_selftest_with_a_bad_number_gives_a_fixed_error(sb, name):
+    proc = sb.run(**{name: CANARY})
+    assert proc.returncode == 2 and CANARY not in proc.stdout + proc.stderr
+    assert not sb.opcalls.exists()
+
+
+def test_m1_selftest_python_side_bad_number_gives_a_fixed_error(sb):
+    env = {**sb.env(), "PROBE_T_ATTEMPT": CANARY}
+    proc = subprocess.run([sys.executable, str(PROBE_PY), "--report", str(sb.root), "--mode", "selftest"], env=env,
+                          capture_output=True, text=True, timeout=30)
+    assert CANARY not in proc.stdout + proc.stderr and "Traceback" not in proc.stderr
+    assert proc.returncode == 2

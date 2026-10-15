@@ -12,6 +12,9 @@ wrapper never saw. bootout stops only that job process (not its descendants). Sw
   FAKE_LC_PRINT_ERROR_WHEN_LOADED=1  `print` of the probe label fails with an unrelated error while it is loaded
   FAKE_LC_FOREIGN=1                  every probe label already exists, started by somebody else (foreign arguments)
   FAKE_LC_FOREIGN_AFTER_BOOTSTRAP=1  after our bootstrap the label shows foreign arguments (same name, not our job)
+  FAKE_LC_STYLE=<style>              how our own loaded job is shown (a different job under the same label):
+                                     suffix | extra_arg | env_only | path_suffix | prefix_dir
+  FAKE_LC_SLOW_PS_FLAG=<file>        bootout creates this file (tests make `ps` slow once it exists)
   FAKE_LC_CONSUMER_LOADED=1          `print` of com.airag.consumer reports it as loaded
 """
 
@@ -74,8 +77,22 @@ def main(argv: list[str]) -> int:
                 sys.stdout.write(FOREIGN)
                 return 0
             info = json.loads(path.read_text(encoding="utf-8"))
-            sys.stdout.write("state = running\narguments = {\n\t" + "\n\t".join(info["args"])
-                             + "\n}\npath = " + info["plist"] + "\n")
+            args, plist, extra = list(info["args"]), info["plist"], ""
+            style = os.environ.get("FAKE_LC_STYLE", "")
+            directory = args[args.index("--run") + 1]
+            if style == "suffix":  # an argument that only starts like ours
+                args[args.index("--run") + 1] = directory + "-foreign"
+            elif style == "extra_arg":
+                args.append("--extra")
+            elif style == "env_only":  # other job, our directory appears only in an environment block
+                args = ["/other/python", "--run", "/other/place/not-ours"]
+                extra = "environment = {\n\tPROBE_NOTE => " + directory + "\n}\n"
+            elif style == "path_suffix":
+                plist = plist + ".bak"
+            elif style == "prefix_dir":  # our directory is only a prefix of the foreign path
+                plist = directory + "-foreign/job.plist"
+            sys.stdout.write("state = running\n" + extra + "arguments = {\n\t" + "\n\t".join(args)
+                             + "\n}\npath = " + plist + "\n")
             return 0
         return fail(NOT_FOUND.format(label), 113)
     if command == "bootstrap":
@@ -98,6 +115,8 @@ def main(argv: list[str]) -> int:
         if os.environ.get("FAKE_LC_BOOTOUT_FAIL") == "1":
             return fail("Boot-out failed: 5: Input/output error", 5)
         path = STATE / f"{label}.json"
+        if os.environ.get("FAKE_LC_SLOW_PS_FLAG"):
+            Path(os.environ["FAKE_LC_SLOW_PS_FLAG"]).write_text("slow", encoding="utf-8")
         if not path.exists():
             return fail(NOT_FOUND.format(label), 113)
         try:
