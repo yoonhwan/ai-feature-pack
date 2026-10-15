@@ -597,7 +597,7 @@ def test_m1_a_fast_auth_error_run_reports_no_seven_second_exception(sb):
     crit = cond(sb.result(), "default")["criteria"]
     assert {a["status"] for a in attempts_of(sb.result(), "default")} == {"auth_error"}
     assert crit["cold_over_limit"] is False and crit["meets_all"] is False
-    assert "규칙 예외" not in proc.stdout and "7초 기한" not in proc.stdout
+    assert "규칙 예외를 둘지" not in proc.stdout and "7초 기한" not in proc.stdout and "한도를 넘음" not in proc.stdout
     assert "neither_meets" in proc.stdout
 
 
