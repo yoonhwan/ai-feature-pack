@@ -11,7 +11,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I 은 스크립트 폴더를 path 에 넣지 않는다
-from ft_head_lag_seats import master_of, seats_by_wt, team_of, warn
+from ft_head_lag_seats import master_of, seats_by_wt, skip_regex, team_of, warn
 
 
 def git(repo, *a):
@@ -85,7 +85,11 @@ def main():
     if rc:
         print(f"ERROR 기준 {a.base} 확인 실패", file=sys.stderr)
         return 4
-    skip = re.compile(os.environ.get("FT_HEAD_SYNC_SKIP", r"^(main|master|release/.*|deploy/.*)$"))
+    try:
+        skip = skip_regex()
+    except (ValueError, re.error) as e:
+        print(f"ERROR {e}", file=sys.stderr)
+        return 4
     wts = worktrees(a.repo)
     stale = []
     for w in wts:

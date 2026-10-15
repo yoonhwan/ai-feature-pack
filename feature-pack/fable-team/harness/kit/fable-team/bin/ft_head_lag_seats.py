@@ -12,6 +12,22 @@ def warn(msg):
     print(f"WARN {msg}", file=sys.stderr)
 
 
+def skip_regex():
+    """제외 브랜치 정규식 — FT_HEAD_SYNC_SKIP 이 우선, 없으면 같은 폴더 ft-head-skip.txt(한 줄 = 정규식 1개 · # 주석). 못 읽거나 0줄이면 ValueError(기본값으로 넘기지 않는다)."""
+    env = os.environ.get("FT_HEAD_SYNC_SKIP")
+    if env:
+        return re.compile(env)
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ft-head-skip.txt")
+    try:
+        lines = [ln.strip() for ln in open(path, encoding="utf-8")]
+    except OSError as e:
+        raise ValueError(f"제외 목록 읽기 실패 {path}: {e}")
+    pats = [ln for ln in lines if ln and not ln.startswith("#")]
+    if not pats:
+        raise ValueError(f"제외 목록 {path} 에 정규식 줄이 없다")
+    return re.compile("^(" + "|".join(pats) + ")$")
+
+
 def panes():
     cmd = ["tmux", *shlex.split(os.environ.get("FT_HEAD_LAG_TMUX_ARGS", "")), "list-panes", "-a", "-F", "#{session_name}\t#{pane_current_path}"]
     try:

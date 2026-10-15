@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-head-sync.sh [--apply] [--base <ref=origin/main>] [--repo <dir>]   (R230 · 판정 1860·1862)
 #   열린 브랜치(워크트리가 있는 것)를 새 main 위로 최신화하는 도구. 기본 = 표만(읽기 전용). --apply 일 때만 merge.
-#   · 대상 = `git worktree list` 의 브랜치 워크트리 중 main·배포 브랜치(FT_HEAD_SYNC_SKIP 정규식 · 기본 main|master|release/*|deploy/*) 제외
+#   · 대상 = `git worktree list` 의 브랜치 워크트리 중 main·배포·문서 줄기(제외 목록 ft-head-skip.txt · FT_HEAD_SYNC_SKIP 환경변수가 있으면 그 값) 제외
 #   · 줄마다: contains_main(is-ancestor base HEAD) · 미랜딩 패치(git cherry) · ft-nano-freshness 분류 · 미커밋 수 · 진행 중 연산
 #   · --apply: contains_main 거짓 전부 → 미커밋 0 ∧ 진행 중 연산 0 이면 그 워크트리에서 `git merge --no-edit <base 40hex>` (충돌이면 이 실행이 시작한 merge 만 abort + «충돌·사람»)
 #     미커밋>0 = «보류(미커밋 N)» · 진행 중 연산 = «보류(진행 중 연산)» · ★rebase·reset·force push·원격 push 0★ (원격 push 는 각 팀 몫)
@@ -18,7 +18,12 @@ while [ $# -gt 0 ]; do case "$1" in
   --repo) [ $# -ge 2 ] || usage; REPO="$2"; shift 2;;
   *) usage;; esac; done
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ERROR repo 를 찾을 수 없음"; exit 1; }
-SKIP_RE="${FT_HEAD_SYNC_SKIP:-^(main|master|release/.*|deploy/.*)$}"
+SKIP_RE="${FT_HEAD_SYNC_SKIP:-}"   # 환경변수가 우선 · 없으면 같은 폴더 ft-head-skip.txt(R249 · 한 줄 = 정규식 1개) — 못 읽거나 0줄이면 ERROR
+if [ -z "$SKIP_RE" ]; then
+  SKIP_PATS="$(grep -vE '^[[:space:]]*(#|$)' "$HERE/ft-head-skip.txt" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | paste -sd'|' -)"
+  [ -n "$SKIP_PATS" ] || { echo "ERROR 제외 목록 $HERE/ft-head-skip.txt 를 읽을 수 없거나 정규식 줄이 없음"; exit 1; }
+  SKIP_RE="^($SKIP_PATS)\$"
+fi
 case "$BASE" in origin/*) fm_fetch "$REPO" origin "${BASE#origin/}" || { echo "ERROR fetch $BASE 실패(7 s + 재시도 1)"; exit 1; };; esac
 BSHA="$(git -C "$REPO" rev-parse --verify -q "$BASE^{commit}")" || { echo "ERROR base $BASE 확인 실패"; exit 1; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
