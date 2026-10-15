@@ -156,7 +156,7 @@ wrap close 9000 --comment "$CF" --reason not-planned
 [ $RC -eq 0 ] && grep -q "DRY as=byz-tank gh issue close 9000" <<<"$OUT" && ok "⑥ not-planned → 게이트 생략 · DRY close" || bad "⑥ rc=$RC $OUT"
 
 # 래퍼 1줄 · 줄 수 · 미러
-[ "$(wc -l < "$BIN/ft-gh-as-tank.sh" | tr -d ' ')" = 200 ] && ok "ft-gh-as-tank.sh 200줄" || bad "ft-gh-as-tank.sh 줄 수 $(wc -l < "$BIN/ft-gh-as-tank.sh")"
+[ "$(wc -l < "$BIN/ft-gh-as-tank.sh" | tr -d ' ')" -le 200 ] && ok "ft-gh-as-tank.sh ≤ 200줄" || bad "ft-gh-as-tank.sh 줄 수 $(wc -l < "$BIN/ft-gh-as-tank.sh")"
 for f in ft-issue-close-check.sh ft-issue-close-gate.sh ft-gh-as-tank.sh; do
   cmp -s "$BIN/$f" "$MIR/$f" && ok "미러 cmp 0: $f" || bad "미러 불일치: $f"
 done

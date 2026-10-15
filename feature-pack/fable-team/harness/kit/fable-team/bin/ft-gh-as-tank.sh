@@ -160,24 +160,9 @@ if [ "$ACTION" = comment-edit ]; then
 fi
 if [ "$ACTION" = label-create ]; then FT_TANK_TOK="$TOK" bash "$HERE/ft-gh-tank-label-create.sh" "$LN" "$LC" ${LD:+"$LD"}; exit $?; fi
 if [ "$ACTION" = edit ] || [ "$ACTION" = pr-edit ]; then
-  # 수정 «전» 원문 보관 — 보관이 안 되면 수정 시도 0(#0 RULE: 조용히 건너뛰지 않는다)
-  BAKDIR="${FT_ISSUE_EDIT_BAK_DIR:-}"
-  if [ -z "$BAKDIR" ]; then
-    COMMON="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
-    [ -n "$COMMON" ] || die "보관 폴더를 정할 수 없다(git common dir 없음 · FT_ISSUE_EDIT_BAK_DIR 미지정) — 수정 시도 0" 1
-    BAKDIR="$COMMON/.fable-team/state/issue-edit-bak"
-  fi
-  mkdir -p "$BAKDIR" || die "보관 폴더 생성 실패: $BAKDIR — 수정 시도 0" 1
-  VIEW="$(GH_TOKEN="$TOK" gh "$EKIND" view "$NUM" -R "$REPO" --json title,body 2>&1)" || die "수정 전 원문 조회 실패 — 수정 시도 0: $VIEW" 1
-  [ -n "$VIEW" ] || die "수정 전 원문 조회 응답이 비었다 — 수정 시도 0" 1
-  BAK_BODY="$BAKDIR/$BAKPFX$NUM-$(date -u +%Y%m%dT%H%M%SZ).body.md"; BAK_TITLE="${BAK_BODY%.body.md}.title.txt"
-  printf '%s' "$VIEW" | python3 -c 'import json,sys
-d=json.load(sys.stdin); t=d["title"]; b=d["body"]
-assert isinstance(t,str) and t and isinstance(b,str)
-open(sys.argv[1],"w",encoding="utf-8",newline="").write(b)
-open(sys.argv[2],"w",encoding="utf-8",newline="").write(t)' "$BAK_BODY" "$BAK_TITLE" 2>&1 \
-    || die "수정 전 원문 보관 실패(응답 해석·쓰기) — 수정 시도 0: $VIEW" 1
-  [ -s "$BAK_TITLE" ] && [ -f "$BAK_BODY" ] || die "보관 파일 확인 실패: $BAK_BODY — 수정 시도 0" 1
+  # 수정 «전» 원문 보관 — 보관이 안 되면 수정 시도 0(#0 RULE) · 본체 = ft-gh-tank-edit-bak.sh(실패 사유는 stderr 그대로)
+  BAK_OUT="$(FT_TANK_TOK="$TOK" REPO="$REPO" bash "$HERE/ft-gh-tank-edit-bak.sh" "$EKIND" "$NUM" "$BAKPFX")" || exit $?
+  BAK_BODY="${BAK_OUT#BAK_BODY=}"; BAK_TITLE="${BAK_BODY%.body.md}.title.txt"
 fi
 if [ -n "$COMMENT_FILE" ]; then CMD+=(--comment "$(cat "$COMMENT_FILE")"); fi
 if [ "$ACTION" = pr-create ]; then
