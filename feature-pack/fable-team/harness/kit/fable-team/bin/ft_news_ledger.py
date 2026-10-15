@@ -15,7 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ft_board_env as env  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
-from ft_news_ledger_text import MAX_BYTES, Lines, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
+from ft_news_digest import maybe_send  # noqa: E402
+from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
 from ft_news_post import is_draft, news_now, pending_now, publish  # noqa: E402
 from ft_news_status import interval_s, last_status, mark_status, status_or_none  # noqa: E402
 from ft_news_watch import check_stale, locked  # noqa: E402
@@ -133,13 +134,16 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         now = pending_now(state, base, cur) if diff else news_now()
         if diff and interval_s() > 0 and status is None:  # 필수 절을 못 만들면 게시·기준선 전진 0 — 재시도 가능(H2)
             return 1, why
-        parts = render_parts(now, parse_ledger(new_text), diff, rel, (status[0],) if status else ()) if diff else []
+        extra, new = (status[0],) if status else (), parse_ledger(new_text) if diff else {}
+        parts = render_parts(now, new, diff, rel, extra) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
         LOG.error("원장 뉴스 실패: %s", e)
         return 1, "원장 읽기 실패"
-    rc = publish(news, state, parts, now, cur)
+    rc, posts = publish(news, state, parts, now, cur)
     if rc == 0 and parts and status and not is_draft():
         mark_status(state, status[1], now)
+    if rc == 0 and parts and not is_draft():
+        maybe_send(root, state, now, diff, build_blocks(new, diff, extra), status, len(parts), posts)
     return rc or (1 if interval_s() > 0 and status is None else 0), (f"게시 실패 rc={rc}" if rc else why)
 
 
@@ -152,9 +156,10 @@ def _status_only(news: Path, state: Path, rel: str, cur: str, status, why: str) 
     if last and (last[0] == digest or (news_now() - last[1]).total_seconds() < interval_s()):
         return 0, why
     now = pending_now(state, "status", digest)
-    rc = publish(news, state, render_parts(now, {}, [], rel, (block,)), now, cur)
+    rc, posts = publish(news, state, render_parts(now, {}, [], rel, (block,)), now, cur)
     if rc == 0 and not is_draft():
         mark_status(state, digest, now)
+        maybe_send(env.ft_root(), state, now, [], build_blocks({}, [], (block,)), status, 1, posts)
     return rc, (f"게시 실패 rc={rc}" if rc else why)
 
 

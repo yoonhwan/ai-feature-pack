@@ -1,9 +1,10 @@
 """ft_news_publish — 다듬은 뉴스(POLISHED)를 «바뀐 것만» Slack 채널에 새 글로 발행 + 처리 기록 (R118b · 오빠 판정 1428·1430). 쓰는 쪽은 ft-news-publish.sh(ft_news_ledger.py 가 부른다).
 
 publish = 직전 발행본과 «머리 시각만 지운 꼴» 이 같으면 발행 0 · 다르면 채널 «최상위 새 글» 1개(오빠 판정 1438 — 스레드·답글·update·첨부 0). 올리기 전 그날 봇 글 중 본문이 같은 글이 있으면 채택(첫 줄만 보면 머리 시각이 같은 새 판이 사라져 통째 비교)(응답 유실 뒤 재실행이 두 번 올리지 않는다). 본문 UTF-8 3500B 초과 = raise.
+성공 줄 = «ft-news-publish: 발행 완료 ts=<ts> channel=<C…> permalink=<링크|->» (R217 · 호출한 쪽이 stdout 으로 받는다 — 파일 인계 0) · 같은 내용 = «같은 내용 — 발행 0» 줄.
 처리 기록(state/news-publish/processed.tsv) = «초안 이름 → POLISHED 이름 | 같은 내용 · 발행 0» 1줄. 대체는 «명시 기록» 으로만 — X 를 기록할 때 X 보다 이른 «기록 없는» 초안 W 마다 «W<TAB>대체<TAB>X» 1줄을 같이 남긴다.
 근거: 초안은 R118a 생성기가 매번 전 팀을 새로 모은 «전체 상태 스냅샷» 이라 더 새로 다듬은 판이 이전 판을 내용상 대체한다. 시각만으로 대체를 추정하지 않는다(기록이 없으면 대체 아님).
-env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_HERMES_SCRIPTS(magazine_slack·mirror_lib 설치 폴더 · 기본 ~/.hermes/scripts) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험)
+env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_HERMES_SCRIPTS(magazine_slack·mirror_lib 설치 폴더 · 기본 ~/.hermes/scripts) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험) · FT_NEWS_WORKSPACE_URL(글 주소 조립용 · 없으면 chat.getPermalink)
 """
 import argparse
 import html
@@ -22,7 +23,7 @@ sys.path[:0] = [str(p) for p in (_HERE, _HERMES, _KIT) if p.is_dir()]  # 실재�
 import ft_board_env as env  # noqa: E402
 
 try:
-    from magazine_slack import post_root  # noqa: E402
+    from magazine_slack import permalink, post_root  # noqa: E402
     from mirror_lib import MirrorError, paged  # noqa: E402
 except ImportError as e:
     raise ImportError(f"magazine_slack·mirror_lib 를 못 찾음 — 찾은 곳: {_HERMES} (FT_HERMES_SCRIPTS) · {_KIT} ({e})") from e
@@ -112,16 +113,27 @@ def _find_posted(t, body: str, oldest: float) -> str | None:
     return min((str(m["ts"]) for m in hits), default=None)
 
 
-def _post_new(day: str, polished: Path, body: str) -> str:
-    """채널 최상위 새 글 1개(스레드·답글·update·첨부 0). 올리기 «전» 그날 봇 글 중 본문이 같은 글이 있으면 올리지 않고 그 ts 를 채택."""
+def _post_new(day: str, polished: Path, body: str):
+    """(ts, 대상) — 채널 최상위 새 글 1개(스레드·답글·update·첨부 0). 올리기 «전» 그날 봇 글 중 본문이 같은 글이 있으면 올리지 않고 그 ts 를 채택."""
     if len(body.encode("utf-8")) > MAX_BYTES:
         raise MirrorError(f"뉴스 본문 {len(body.encode('utf-8'))}B > {MAX_BYTES}B — Slack 길이 한도(바이트) 초과, 자르지 않고 발행 0")
     t = _target(day, polished)
     oldest = datetime.strptime(day, "%Y-%m-%d").timestamp()
     if found := _find_posted(t, body, oldest):
         LOG.info("이미 올라간 글 채택 ts=%s — 다시 올리지 않음", found)
-        return found
-    return post_root(t, body)
+        return found, t
+    return post_root(t, body), t
+
+
+def _link(t, ts: str) -> str | None:
+    """글 주소 — FT_NEWS_WORKSPACE_URL(예 https://x.slack.com)이 있으면 ts·채널로 조립(외부 호출 0) · 없으면 chat.getPermalink 1회(7초+재시도 1). 실패 = None(발행은 이미 끝난 일 · R217)."""
+    if base := os.environ.get("FT_NEWS_WORKSPACE_URL", "").rstrip("/"):
+        return f"{base}/archives/{t.channel}/p{ts.replace('.', '')}"
+    try:
+        return permalink(t, ts)
+    except (MirrorError, KeyError) as e:
+        LOG.warning("글 주소 조회 실패 ts=%s: %s — 요약 쪽지는 ts·채널로 대신한다", ts, e)
+        return None
 
 
 def publish(polished: Path, draft: str | None = None, at: datetime | None = None) -> int:
@@ -139,14 +151,14 @@ def publish(polished: Path, draft: str | None = None, at: datetime | None = None
         print("ft-news-publish: 같은 내용 — 발행 0")
         return 0
     try:
-        ts = _post_new(day, polished, body)
+        ts, t = _post_new(day, polished, body)
     except MirrorError as e:  # 실패 = 기록 0 → 다시 실행하면 같은 걸 다시 시도(올라갔는데 응답만 유실이면 첫 줄 조회가 채택)
         LOG.error("뉴스 발행 실패: %s", e)
         return 1
     pub.parent.mkdir(parents=True, exist_ok=True)
     pub.write_text(body, encoding="utf-8")
     _record(state, news, draft, polished.name)
-    print(f"ft-news-publish: 발행 완료 ts={ts}")
+    print(f"ft-news-publish: 발행 완료 ts={ts} channel={t.channel} permalink={_link(t, ts) or '-'}")
     return 0
 
 
