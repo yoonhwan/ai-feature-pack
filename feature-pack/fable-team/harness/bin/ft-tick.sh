@@ -473,7 +473,7 @@ dead_seat_watch() {
   sig="$(printf '%s' "$lines" | LC_ALL=C shasum)"; shrc=$?; sig="${sig:0:40}"
   { [ "$shrc" = 0 ] && [ -n "$sig" ]; } || { echo "$(date '+%F %T') dead_seat_watch: ERROR signature hash failed rc=$shrc — no alert sent" >&2; return 0; }
   [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
-  notify_team "[죽은 좌석 $n] 자율 $(printf %s "$mode" | tr a-z A-Z) — ${lines% }" planner && [ "$DRY" != 1 ] && echo "$sig" > "$sigf"
+  notify_team "[죽은 좌석 $n] 자율 $(printf %s "$mode" | tr '[:lower:]' '[:upper:]') — ${lines% }" planner && [ "$DRY" != 1 ] && echo "$sig" > "$sigf"
   return 0
 }
 

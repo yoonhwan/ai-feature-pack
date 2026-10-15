@@ -19,6 +19,7 @@ case "$AGENT" in claude|codex|cmd|opencode) ;; *) usage;; esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
+[ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?
 [ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
 SEND="${FT_SEND_VERIFIED:-$HERE/ft-send-verified.sh}"; MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"; REACH="${FT_REACH_CHECK:-$HERE/ft-reach-check.sh}"
