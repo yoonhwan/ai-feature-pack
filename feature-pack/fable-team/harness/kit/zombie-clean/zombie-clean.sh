@@ -573,6 +573,19 @@ tmux_prune() {
     return 0
 }
 
+# 디스크 임계 점검(R128) — 후보 목록만, 삭제 0. 크기 조회가 느려(uv 캐시 du 110초) ZC_DISK_REPORT_MIN(기본 60분)에 1회만 돈다.
+#   목록은 로그에 남기고, ZC_DISK_NOTIFY_CMD 가 있으면 그 명령의 stdin 으로 넘긴다(슬랙/쪽지 연결은 설치 쪽 env).
+disk_report() {
+    local st="${ZC_DISK_STAMP:-/tmp/zombie-clean-disk-$(id -u).last}" out rc
+    if [[ -f "$st" ]] && (( $(date +%s) - $(stat -f %m "$st" 2>/dev/null || echo 0) < ${ZC_DISK_REPORT_MIN:-60} * 60 )); then return 0; fi
+    touch "$st"
+    out=$(bash "$(dirname "${BASH_SOURCE[0]}")/zombie-clean-disk.sh" 2>&1); rc=$?
+    [[ -z "$out" ]] && return 0
+    echo "$out"
+    if [[ -n "${ZC_DISK_NOTIFY_CMD:-}" ]] && printf '%s\n' "$out" | bash -c "$ZC_DISK_NOTIFY_CMD"; then return 0; fi
+    echo "  ⚠️ 디스크 알림 못 보냄(ZC_DISK_NOTIFY_CMD 미설정/실패, rc=$rc) — 로그에만 기록"
+}
+
 auto_mode() {
     # 5분 스로틀 (ZC_FORCE=1이면 무시 — 테스트용)
     if [[ "${ZC_FORCE:-0}" != "1" && -f "$STAMP" ]]; then
@@ -594,6 +607,7 @@ auto_mode() {
         echo "$(date '+%F %T') auto sweep 시작 [압력=$ZC_TIER $ZC_TIER_WHY]"
         do_clean
         [[ "${ZC_TMUX:-1}" == "1" ]] && tmux_prune   # tmuxc 정책 정리 동반 (ZC_TMUX=0으로 끔)
+        [[ "${ZC_DISK:-1}" == "1" ]] && disk_report  # 디스크 임계 점검 동반 (ZC_DISK=0으로 끔 · 후보 목록만)
     } >> "$LOG" 2>&1 || true
     rotate_log   # 블록 종료 후 로테이션 (블록 안에서 하면 fd 끊김)
 }
@@ -612,6 +626,7 @@ case "$CMD" in
     clean)  do_clean ;;
     auto)   auto_mode ;;
     tmux-prune) tmux_prune ;;
+    disk)         shift; exec bash "$(dirname "${BASH_SOURCE[0]}")/zombie-clean-disk.sh" "$@" ;;
     restore)      shift; cmd_restore "$@" ;;
     restore-from) shift; cmd_restore_from "$@" ;;
     resume)       shift; cmd_resume "$@" ;;
@@ -622,5 +637,5 @@ case "$CMD" in
         pressure_tier; echo "메모리 압력: $ZC_TIER ($ZC_TIER_WHY) → tmux idle 임계 $(tier_idlemin)분"
         top -l 1 | grep PhysMem
         ;;
-    *) echo "사용법: zombie-clean.sh [scan|clean|tmux-prune|auto|status|restore '<세션명>'|restore-from [대장.tsv]|resume '<세션명>'] [--dry-run]"; exit 1 ;;
+    *) echo "사용법: zombie-clean.sh [scan|clean|tmux-prune|auto|status|disk [--apply-approved]|restore '<세션명>'|restore-from [대장.tsv]|resume '<세션명>'] [--dry-run]"; exit 1 ;;
 esac
