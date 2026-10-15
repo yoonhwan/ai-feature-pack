@@ -122,6 +122,16 @@ def test_g1_passes_the_observation_this_experiment_is_about(monkeypatch):
     assert chain.gate_probe(blocked) is None
 
 
+def test_g1_never_inspects_a_skipped_step_for_exit_state(monkeypatch):
+    """Design §4.3: only steps that were actually run (status not skipped_*) are checked — a skipped step passes even
+    with reaped=false and a recorded pid, so a step the probe did not start can never stop the chain."""
+    chain = load_chain(monkeypatch)
+    doc = p0_blocked_doc()
+    doc["steps"][2].update(child_pid=123, reaped=False, child_exited=False, descendants_may_hold_pipe=True,
+                           child_exit_unconfirmed=True)
+    assert chain.probe.validate_result(doc) and chain.gate_probe(doc) is None
+
+
 def _mut_probe(path):
     doc = probe_doc()
     path(doc)
@@ -412,6 +422,13 @@ def test_a_kept_temp_home_folder_is_not_mistaken_for_the_e1_result(sb):
     assert proc.returncode == 0 and sb.calls() == ["N1", "N2", "N3"]
 
 
+def test_a_folder_named_like_an_e1_result_is_not_a_result_file(sb):
+    sb.spec("N2", write=[{"name": E1_NAME, "text": as_text(e1_doc())},
+                         {"name": "compare-20261015-211000-999-999.result.json", "dir": True}])
+    proc = sb.run()
+    assert proc.returncode == 0 and sb.calls() == ["N1", "N2", "N3"]
+
+
 def test_unrelated_new_entries_do_not_count(sb):
     sb.spec("N1", write=[{"name": f"{P_NAME}/result.json", "text": as_text(probe_doc())},
                          {"name": "s2-20261015-212000-1-2/note.txt", "text": "x"}, {"name": "stray.txt", "text": "x"}])
@@ -687,6 +704,57 @@ def test_a_symlinked_base_is_refused(sb, tmp_path):
     sb.base.symlink_to(real)
     proc = sb.run()
     assert proc.returncode == 2 and sb.calls() == []
+
+
+# ------------------------------------------------- the real reviewed tools on synthetic stubs (schema fidelity)
+def test_chain_over_the_real_probe_and_compare_scripts_with_synthetic_stubs(tmp_path):
+    """probe.sh / compare.sh run unchanged on a fake launchctl / log / op (selftest mode): the result file names,
+    the closed schemas and both gates must fit what the real tools write. N3 is the same E1 without taskpolicy."""
+    from test_probe_opa import Sandbox
+    stub = Sandbox(tmp_path)
+    py = sys.executable
+    tools = {"N1": ["/bin/bash", str(OPS / "probe.sh"), "--selftest", "--python", py],
+             "N2": ["/bin/bash", str(OPS / "compare.sh"), "--selftest", "--python", py],
+             "N3": ["/bin/bash", str(OPS / "compare.sh"), "--selftest", "--python", py]}
+    env = stub.env(PATH=f"{stub.bin}:/usr/bin:/bin:/usr/sbin:/sbin", PROBE_CH_TOOLS=json.dumps(tools),
+                   PROBE_CH_T_STEP="60", PROBE_CH_T_OVERRUN="60", PROBE_CH_T_SLOT="70", PROBE_CH_T_GRACE="3",
+                   PROBE_CH_T_CANCEL="20", PROBE_CH_T_TRANSITION="3")
+    done = subprocess.run(["/bin/bash", str(CHAIN_SH), "--selftest", "--python", py], env=env, capture_output=True,
+                          text=True, timeout=180)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "no_repro_twice" in done.stdout and "terminal_all_fast" in done.stdout
+    assert done.stdout.count("통과") == 3
+    assert stub.token_file.read_text().strip() not in done.stdout + done.stderr
+
+
+@pytest.mark.parametrize("also_to_tool", [False, True])
+def test_ctrl_c_during_the_real_probe_leaves_no_job_and_no_op_even_when_the_tool_gets_it_twice(tmp_path, also_to_tool):
+    """A terminal Ctrl-C reaches the whole foreground group (chain + tool) and the chain forwards it once more:
+    the real probe.sh (fake launchctl, a fake op that hangs) must still clean up and the code must stay 130."""
+    from test_probe_opa import Sandbox
+    stub = Sandbox(tmp_path)
+    stub.op = stub.make_op(version_pre="sleep 20")
+    py = sys.executable
+    tools = {"N1": ["/bin/bash", str(OPS / "probe.sh"), "--selftest", "--python", py],
+             "N2": ["/usr/bin/true"], "N3": ["/usr/bin/true"]}
+    env = stub.env(PATH=f"{stub.bin}:/usr/bin:/bin:/usr/sbin:/sbin", PROBE_CH_TOOLS=json.dumps(tools),
+                   PROBE_CH_T_STEP="60", PROBE_CH_T_OVERRUN="60", PROBE_CH_T_SLOT="70", PROBE_CH_T_CANCEL="25",
+                   PROBE_T_ATTEMPT="15", PROBE_T_RESULT="40")
+    proc = subprocess.Popen(["/bin/bash", str(CHAIN_SH), "--selftest", "--python", py], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
+                            preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
+    assert wait_until(lambda: stub.oppids.exists() and stub.oppids.read_text().strip() != "", 25)
+    tool_pids = subprocess.run(["pgrep", "-P", str(proc.pid)], capture_output=True, text=True).stdout.split()
+    assert tool_pids
+    os.kill(proc.pid, signal.SIGINT)
+    if also_to_tool:
+        for pid in tool_pids:
+            os.kill(int(pid), signal.SIGINT)
+    out, err = proc.communicate(timeout=60)
+    assert proc.returncode == 130, out + err
+    assert stub.loaded() == []                                             # the temporary job was taken down
+    assert not any(alive(int(x)) for x in stub.oppids.read_text().split())  # and no measurement child is left
+    assert "남은 것 확인 필요" not in out
 
 
 # --------------------------------------------------------------------------------------------- static scope
