@@ -455,7 +455,23 @@ wait_delta() {
 
 # 정렬 모드는 파일에 남긴다 — ^R·자동 갱신이 «현재 모드»로 다시 그리게 (전엔 ^R 이 늘 time 으로 되돌렸다)
 cmd_mode()     { printf '%s %s\n' "$1" "${2:-}" > "$RUN/mode"; }
-cmd_rows_cur() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여기만 부르므로, dead 뷰인데 live 목록으로 되돌아가면 안 된다
+# ★커서 고정은 tmm 이 한다(0.8.2)★ — fzf `--id-nth` 는 reload 가 끝날 때까지 «키 입력을 버리고» reload 뒤에 이은 액션(프롬프트·헤더)도 버린다
+#   (fzf 0.74.3 최소 예제 실측 2026-10-15: ^D 뒤 헤더·프롬프트 안 바뀜 · 종료 스캔 중 누른 ^] 증발 · 20초 갱신 reload 마다 입력 막힘 = «느리다»).
+#   그래서 --track 만 두고, reload 가 커서 세션(TMM_CUR={2})·질의(TMM_Q={q})를 넘기면 새 목록에서 그 세션이 «화면에 보일 순서»를 $RUN/wantpos 에 적는다
+#   → reload 직후 load 이벤트(cmd_onload)가 pos(N). 질의가 있으면 목록 fzf 와 같은 옵션의 `fzf --filter` 로 매치 순서를 그대로 재현한다.
+cmd_rows_cur() {
+  [ -n "${TMM_CUR:-}" ] || { rows_cur_emit "$@"; return; }
+  local f="$RUN/rowscur.$$" p
+  rows_cur_emit "$@" > "$f"
+  p="$(screen_pos "$f" "$TMM_CUR" "${TMM_Q:-}")"
+  [ -n "$p" ] && [ ! -s "$RUN/wantpos" ] && printf '%s\n' "$p" > "$RUN/wantpos"
+  cat "$f"; rm -f "$f"
+}
+screen_pos() {  # <목록 파일> <세션명> <질의> — 그 세션이 화면에 보일 순서(1부터). 없으면 빈 출력
+  if [ -n "${3:-}" ]; then fzf --filter "$3" --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --scheme=path < "$1" 2>/dev/null; else cat "$1"; fi \
+    | awk -F'\t' -v n="$2" '$2==n{print NR; exit}'
+}
+rows_cur_emit() {  # ★뷰를 따라간다★ — ^R·20초 자동 갱신이 여기만 부르므로, dead 뷰인데 live 목록으로 되돌아가면 안 된다
   local m o; { read -r m o < "$RUN/mode"; } 2>/dev/null
   if [ "$(view_now)" = dead ]; then cmd_dead_rows "${m:-time}" "${1:-}"
   else
@@ -508,7 +524,7 @@ row_pos() {  # <목록파일> <세션명...> — 먼저 찾아지는 세션의 �
 cmd_boot_reload() {  # fzf start — ①기억한 커서 복원 ②스냅샷 부팅이면 진짜 목록으로 갱신(--track 이 커서를 지켜 준다)
   local acts="" p
   p="$(row_pos "$RUN/shown" "$(tabcur_get "$(cur_tab_key)")")"; [ -n "$p" ] && acts="pos($p)"
-  if [ -f "$RUN/bootstale" ]; then rm -f "$RUN/bootstale"; acts+="${acts:++}reload($SELF rows-cur)"; fi
+  if [ -f "$RUN/bootstale" ]; then rm -f "$RUN/bootstale"; acts+="${acts:++}reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)"; fi
   printf '%s' "$acts"; return 0
 }
 
@@ -559,6 +575,8 @@ cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목
   for k in ctrl-x ctrl-v ctrl-d ctrl-a ctrl-r ctrl-t ctrl-w ctrl-g ctrl-h ctrl-p ctrl-o ctrl-u ctrl-y ctrl-s ctrl-k ctrl-f ctrl-e ctrl-b; do
     fwd+=(--bind "$k:execute-silent($SELF catfwd C-${k#ctrl-})")
   done
+  # 종료 뷰 창 넓히기·좁히기·계보(^] ^\ ^L)도 넘긴다 — 빠져 있어서 커서가 분류 칸에 있으면 «안 먹었다»(2026-10-15). ] \ 는 tmux 키 이름 대신 바이트로 보낸다.
+  fwd+=(--bind "ctrl-]:execute-silent($SELF catfwd hex:1d)" --bind "ctrl-\\:execute-silent($SELF catfwd hex:1c)" --bind "ctrl-l:execute-silent($SELF catfwd C-l)")
   while [ -d "$RUN" ]; do
     rm -f "$sock"
     n="$(awk -F'\t' -v s="$(tab_cur_id)" '$1==s{print NR; exit}' "$RUN/tabs" 2>/dev/null)"
@@ -587,7 +605,9 @@ cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 
 cmd_catgo()  { local main; main="$(cat "$RUN/mainpane" 2>/dev/null)"; [ -n "$main" ] && tmux select-pane -t "$main" 2>/dev/null; return 0; }
 cmd_catfwd() {  # <tmux 키> — 분류 칸에서 누른 키를 목록 칸(우리 피커 pane)으로 넘긴다(^X 끝·^D 종료뷰 … 가 분류 칸에서도 먹게)
   local main; main="$(cat "$RUN/mainpane" 2>/dev/null)"; [ -n "$main" ] || return 0
-  tmux select-pane -t "$main" 2>/dev/null; tmux send-keys -t "$main" "$1" 2>/dev/null; return 0
+  tmux select-pane -t "$main" 2>/dev/null
+  case "$1" in hex:*) tmux send-keys -t "$main" -H "${1#hex:}" 2>/dev/null;; *) tmux send-keys -t "$main" "$1" 2>/dev/null;; esac
+  return 0
 }
 cmd_esckey() { if split_active && tab_on; then to_cat_action; else printf 'abort'; fi; }                 # Esc: 분할이면 분류 칸으로, 아니면 원래대로 끝
 cmd_bskey()  { if [ -z "${1:-}" ] && split_active && tab_on; then to_cat_action; else printf 'backward-delete-char'; fi; }   # ⌫: 질의가 비었을 때만 분류 칸으로
@@ -682,7 +702,7 @@ cmd_vtab() {
     split_open; printf 'transform-header(%s header)+change-prompt(탭> )' "$SELF"; return
   fi
   if [ -f "$RUN/tab" ]; then rm -f "$RUN/tab"; else : > "$RUN/tab"; fi
-  printf 'reload(%s rows-cur)+transform-header(%s header)+change-prompt(%s)' "$SELF" "$SELF" "$([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> ')"
+  printf 'reload(TMM_CUR={2} TMM_Q={q} %s rows-cur)+transform-header(%s header)+change-prompt(%s)' "$SELF" "$SELF" "$([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> ')"
 }
 # Tab / S-Tab — 탭 뷰: 다음/이전 탭(전체 → 카테고리들 → 전체 …). 목록·종료 뷰는 원래 동작(선택 토글 + 아래/위).
 cmd_tabkey() {  # next|prev [커서 세션명]
@@ -708,7 +728,7 @@ cmd_arrowkey() {  # next|prev [커서 세션명]
 cmd_onload() {
   local w
   printf 'transform-border-label(%s blabel)' "$SELF"
-  tab_on && printf '+transform-header(%s header)' "$SELF"
+  { tab_on || [ "$(view_now)" = dead ]; } && printf '+transform-header(%s header)' "$SELF"   # 종료 뷰: 창을 넓힌 뒤 새 개수
   if [ -f "$RUN/wantpos" ]; then w="$(cat "$RUN/wantpos")"; rm -f "$RUN/wantpos"; [ -n "$w" ] && printf '+pos(%s)' "$w"; fi
   return 0
 }
@@ -719,8 +739,8 @@ cmd_vswitch() {  # <live|dead> <현재 질의>
   printf '%s' "$q" > "$RUN/query.$from"
   rm -f "$RUN/selmode"; cmd_view "$to"; cmd_mode time
   saved="$(cat "$RUN/query.$to" 2>/dev/null)"
-  if [ "$to" = dead ]; then acts="unbind(space)+deselect-all+reload($SELF rows-cur fresh)+change-prompt(종료> )"
-  else acts="unbind(space)+deselect-all+reload($SELF rows-cur)+change-prompt($([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> '))"; fi
+  if [ "$to" = dead ]; then acts="unbind(space)+deselect-all+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur fresh)+change-prompt(종료> )"
+  else acts="unbind(space)+deselect-all+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)+change-prompt($([ -f "$RUN/tab" ] && echo '탭> ' || echo '좌석> '))"; fi
   acts+="+transform-header($SELF header)"
   if [ -n "$saved" ]; then printf '%s+change-query:%s' "$acts" "$saved"; else printf '%s+change-query()' "$acts"; fi
 }
@@ -728,8 +748,9 @@ view_now()  { cat "$RUN/view" 2>/dev/null || echo live; }
 since_now() { cat "$RUN/since" 2>/dev/null || echo "$DEAD_SINCE0"; }
 gen_now()   { cat "$RUN/gen" 2>/dev/null || echo latest; }
 cmd_view()  { printf '%s\n' "$1" > "$RUN/view"; }
-cmd_since() { local c; c="$(since_now)"; case "$1" in +) c=$((c+12));; -) c=$((c-12)); [ $c -lt 12 ] && c=12;; *) c="$1";; esac; printf '%s\n' "$c" | tee "$RUN/since"; }
-cmd_gen()   { [ "$(gen_now)" = latest ] && echo all > "$RUN/gen" || echo latest > "$RUN/gen"; cat "$RUN/gen"; }
+# 창·계보를 바꾸면 직전 목록 캐시(dead.tsv)를 지운다 — 헤더가 «창 36h · (24h 의) 78건» 처럼 새 창에 옛 개수를 붙이지 않고 «…건» 을 보이다가 load 때 새 개수로.
+cmd_since() { local c; c="$(since_now)"; case "$1" in +) c=$((c+12));; -) c=$((c-12)); [ $c -lt 12 ] && c=12;; *) c="$1";; esac; rm -f "$RUN/dead.tsv"; printf '%s\n' "$c" | tee "$RUN/since"; }
+cmd_gen()   { [ "$(gen_now)" = latest ] && echo all > "$RUN/gen" || echo latest > "$RUN/gen"; rm -f "$RUN/dead.tsv"; cat "$RUN/gen"; }
 
 # ---------- 종료된 세션 (dead 뷰) ----------
 # 스캐너(python, 읽기 전용)가 tsv 를 만들고 $RUN/dead.tsv 에 캐시 — 미리보기·복구가 같은 파일을 읽는다(재스캔 없음).
@@ -743,20 +764,25 @@ dead_tsv() {  # [fresh]
 }
 # 표시줄: 카테고리 ◌ 이름(22) 배지(5) 시각 나이 cwd(14)  — live 와 같은 폭. 키 필드(2)=세션명, 3=카테고리
 cmd_dead_rows() {  # [time|wait|cat] [fresh]
-  local mode="${1:-time}" now line src name cwd lm la cat md nw cw
+  local mode="${1:-time}" now src agent name cwd sid md lm la _rest cat pri hm b nw cw
+  local -A CATC MSC
   read -r nw cw <<<"$(col_widths)"
   cat_prep
   now=$(date +%s)
-  while IFS= read -r line; do
-    src="$(printf '%s' "$line" | cut -f1)"; name="$(printf '%s' "$line" | cut -f3)"; cwd="$(printf '%s' "$line" | cut -f4)"
-    lm="$(printf '%s' "$line" | cut -f7)"; la="$(printf '%s' "$line" | cut -f8)"; md="$(printf '%s' "$line" | cut -f6)"
+  # ★행마다 외부 프로세스를 띄우지 않는다(0.8.2)★ — 예전엔 행마다 cut 6번·date·basename… ~14 fork 라 부하 시 132행에 5.7초였다(창을 넓힐수록 느려진 주원인, 2026-10-15 실측).
+  #   필드는 탭→US(\037)로 바꿔 read 한 번에 자른다(탭은 IFS 공백이라 빈 칸이 접힌다 — 모델이 빈 CDX·OC 행). 카테고리·모델 표기는 값별로 한 번만, 시각은 printf %()T.
+  while IFS=$'\037' read -r src agent name cwd sid md lm la _rest; do
     [ -n "$name" ] || continue
-    cat="$(cat_of "$name")"
+    [ -n "${CATC[$name]+x}" ] || CATC[$name]="$(cat_of "$name")"; cat="${CATC[$name]}"
+    [ -n "${MSC[x$md]+x}" ] || MSC[x$md]="$(model_short "$(with_1m_if_claude "$md")")"
+    [ "$src" = SNAP ] && pri=0 || pri=5
+    printf -v hm '%(%H:%M)T' "${lm:-0}"
+    b="${cwd##*/}"
     printf '%s\t%s\t%s\t%-5s ◌ %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
-      "$([ "$src" = SNAP ] && echo 0 || echo 5)" "$la" "$cat" \
-      "${cat:0:5}" "$nw" "$(clip_name "$name" "$nw")" "$src" "$(model_short "$(with_1m_if_claude "$md")")" "$(fmt_hm "${lm:-0}" :)" "$(age_of "${la:-0}" "$now")" "$(basename "$cwd" | cut -c1-"$cw")" \
+      "$pri" "$la" "$cat" \
+      "${cat:0:5}" "$nw" "$(clip_name "$name" "$nw")" "$src" "${MSC[x$md]}" "$hm" "$(age_of "${la:-0}" "$now")" "${b:0:$cw}" \
       "$name" "$cat"
-  done < <(dead_tsv "${2:-}") \
+  done < <(dead_tsv "${2:-}" | tr '\t' '\037') \
   | { case "$mode" in
         cat)  sort -t$'\t' -k3,3 -k2,2nr;;
         wait) sort -t$'\t' -k1,1n -k2,2nr;;   # SNAP(정확 복구) 우선 → 최근순
@@ -1187,7 +1213,9 @@ cmd_header() {
   [ "$lw" -lt 60 ] && narrow=1          # fzf 가 헤더를 2칸 들여쓰므로 쓸 수 있는 폭 = lw-2. 보통 헤더(≤58)는 lw≥60 에서만 다 보인다(70열 폰 실측 2026-10-12)
   if [ "$(view_now)" = dead ]; then
     hdr_dead
-    printf '\033[33m상태\033[0m 창 %sh · %s건 · 계보 %s · SNAP/CC/CDX/CMD/OC\n' "$(since_now)" "$(dead_tsv | wc -l | tr -d ' ')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
+    # ★헤더는 스캔하지 않는다★ — 예전엔 dead_tsv 를 불러, 캐시가 없으면 transform-header(동기) 안에서 종료 스캔(부하 시 3~9초)을 «한 번 더» 돌려 화면이 멈췄다.
+    #   개수는 직전 목록 캐시로만 세고, 목록이 다 오면(load) cmd_onload 가 헤더를 다시 그린다.
+    printf '\033[33m상태\033[0m 창 %sh · %s건 · 계보 %s · SNAP/CC/CDX/CMD/OC\n' "$(since_now)" "$( [ -f "$RUN/dead.tsv" ] && wc -l < "$RUN/dead.tsv" | tr -d ' ' || echo '…')" "$( [ "$(gen_now)" = all ] && echo 전체 || echo 최신)"
     return
   fi
   hdr_live "$narrow"
@@ -1218,7 +1246,7 @@ auto_loop() {
     # ★자동 갱신은 `fresh` 를 쓰지 않는다★ — fresh 는 «인스턴스 공용» 캐시를 지우고 seat-scan(7초)을 다시 돌려, 피커가 여럿이면 서로의 캐시를 계속 지워
     #   TTL 이 무력해졌다. 캐시가 20초 안이면 재사용하고, 지났으면 한 인스턴스만 다시 스캔한다(scan_cached 의 락). 수동 ^R 만 fresh.
     [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && [ ! -f "$RUN/selmode" ] \
-      && cmd_post "$sock" "reload($SELF rows-cur)"
+      && cmd_post "$sock" "reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)"
     [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
     # 분할(0.8.0): 목록이 탭 수를 새로 셀 때마다($RUN/tabs 갱신) 분류 칸을 다시 그린다 — 첫 목록이 늦게 와도, 20초 갱신으로 ⚠ 가 바뀌어도
     if [ -S "$RUN/cat.sock" ] && { [ ! -f "$RUN/catseen" ] || [ "$RUN/tabs" -nt "$RUN/catseen" ]; }; then
@@ -1434,7 +1462,7 @@ cmd_tui() {
     rm -f "$sock"; auto_loop "$sock" & pinger=$!
     # --scheme=path: 구분자(-·#·/) 뒤 첫 글자에 보너스. 실측(16좌석·질의 5개)에서 4건 동일·1건 개선
     # (`v65m` → ft-v65-master 가 1위로). 좌석명이 ft-v65-master-sonnet#7 처럼 구분자로 쪼개져 있어 맞는다.
-    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track --id-nth=2 --scheme=path \
+    out="$(fzf --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --track --scheme=path \
       --layout=reverse --cycle --no-mouse --info=hidden --sync --listen="$sock" \
       --prompt="$( [ "$(view_now)" = dead ] && echo '종료> ' || { tab_on && echo '탭> ' || echo '좌석> '; })" --pointer='▶' \
       --header="$(cmd_header)" --header-first \
@@ -1456,16 +1484,16 @@ cmd_tui() {
       --bind "esc:transform($SELF esckey)" \
       --bind "bspace:transform($SELF bskey {q})" \
       --print-query --query="$(cat "$RUN/query.$(view_now)" 2>/dev/null)" \
-      --bind "ctrl-h:execute-silent($M wait h)+reload($SELF rows-cur)+change-prompt(대기> )" \
+      --bind "ctrl-h:execute-silent($M wait h)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)+change-prompt(대기> )" \
       --bind "ctrl-a:transform($SELF vswitch live {q})" \
       --bind "ctrl-d:transform($SELF vswitch dead {q})" \
-      --bind "ctrl-]:execute-silent($SELF since +)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
-      --bind "ctrl-\\:execute-silent($SELF since -)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
-      --bind "ctrl-l:execute-silent($SELF gen)+reload($SELF rows-cur fresh)+transform-header($SELF header)" \
-      --bind "ctrl-t:execute-silent($M time)+reload($SELF rows-cur)+change-prompt(최근순> )" \
-      --bind "ctrl-w:execute-silent($M wait)+reload($SELF rows-cur)+change-prompt(대기우선> )" \
-      --bind "ctrl-g:execute-silent($M cat)+reload($SELF rows-cur)+change-prompt(카테고리> )" \
-      --bind "ctrl-r:reload($SELF rows-cur fresh)+refresh-preview" \
+      --bind "ctrl-]:execute-silent($SELF since +)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur fresh)+transform-header($SELF header)" \
+      --bind "ctrl-\\:execute-silent($SELF since -)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur fresh)+transform-header($SELF header)" \
+      --bind "ctrl-l:execute-silent($SELF gen)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur fresh)+transform-header($SELF header)" \
+      --bind "ctrl-t:execute-silent($M time)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)+change-prompt(최근순> )" \
+      --bind "ctrl-w:execute-silent($M wait)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)+change-prompt(대기우선> )" \
+      --bind "ctrl-g:execute-silent($M cat)+reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)+change-prompt(카테고리> )" \
+      --bind "ctrl-r:reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur fresh)+refresh-preview" \
       --bind "ctrl-u:execute-silent($SELF auto-cycle)+transform-header($SELF header)" \
       --bind "ctrl-p:toggle-preview" \
       --bind "ctrl-o:transform($SELF pw-action big)" \

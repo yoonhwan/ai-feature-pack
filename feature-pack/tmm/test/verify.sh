@@ -649,7 +649,9 @@ tmm mode time; rm -f "$STATE/rows.snap" "$STATE/bootstale" "$STATE/ep.cache" "$S
 grep -q '"lsof", "-Fn", "-c", "claude"' "$ROOT/core/libexec/tmm-dead-scan.py" || { echo 'FAIL: (zz) dead-scan lsof 가 전체 스캔으로 되돌아감(5초)'; exit 1; }
 
 # (zc) 탭별 커서 기억 · 세션명 추적 — 탭을 옮겼다 돌아오면 그 탭에서 마지막으로 있던 세션에 커서가 간다(전엔 늘 맨 위 · 줄 전체로 추적해 갱신마다 튐)
-grep -q -- '--track --id-nth=2' "$TMM" || { echo 'FAIL: (zc) fzf --track 에 --id-nth=2(세션명 추적)가 없음'; exit 1; }
+# 0.8.2: 목록 fzf 는 --track 만 — --id-nth 는 reload 동안 키를 버리고 reload 뒤 액션을 버린다(커서 고정은 TMM_CUR→wantpos→load 로). 분류 칸 fzf(--id-nth=1)는 reload 가 파일 읽기라 예외
+grep -q -- '--tiebreak=index --track --scheme=path' "$TMM" || { echo 'FAIL: (zc) 목록 fzf 에 --track 이 없음'; exit 1; }
+grep -q -- '--track --id-nth=2' "$TMM" && { echo 'FAIL: (zc) 목록 fzf 에 --id-nth=2 가 돌아옴(reload 중 키 입력 증발 · ^D 헤더 안 바뀜 회귀)'; exit 1; }
 for n in TABX_A TABX_B TABY_A; do tm has-session -t "=$n" 2>/dev/null || tm new-session -d -s "$n"; done
 sleep 0.3; tmm view live >/dev/null; tmm mode time; : > "$STATE/tab"; rm -f "$STATE/tabcur" "$STATE/tabrows"; tmm rows-cur >/dev/null
 printf 'tabx\n' > "$STATE/tabsel"; tmm rows-cur >/dev/null
@@ -688,5 +690,70 @@ for pair in 'FB_CCU#0:ccu' 'CCU_ARCH#3:ccu' 'FB_CFO#33:cfo' 'CFO_F_NANO#17:cfo' 
 done
 [ "$(TMM_CAT_STRIP='X_' _cat 'X_ABC#1')" = abc ] || { echo 'FAIL: (z) TMM_CAT_STRIP 로 접두 변경 안 됨'; exit 1; }
 [ "$(_cat 'ft-')" = 'ft' ] || { echo "FAIL: (z) 접두만 있는 이름(ft-)이 빈 라벨: '$(_cat 'ft-')'"; exit 1; }
+
+# ---------- 0.8.2 — 종료 뷰 창 확장·입력 막힘·종료 스캔 속도 ----------
+# (rl) reload 지점은 전부 커서 세션·질의를 넘긴다 — 빠진 곳은 갱신 뒤 커서가 튄다
+bare="$(grep -c 'reload($SELF rows-cur\|reload(%s rows-cur' "$TMM" || true)"
+[ "$bare" = 0 ] || { echo "FAIL: (rl) TMM_CUR 없이 rows-cur 를 reload 하는 곳 $bare 개"; grep -n 'reload($SELF rows-cur\|reload(%s rows-cur' "$TMM"; exit 1; }
+[ "$(grep -c 'reload(TMM_CUR={2} TMM_Q={q} ' "$TMM")" -ge 10 ] || { echo 'FAIL: (rl) TMM_CUR={2} reload 지점이 10 개 미만'; exit 1; }
+# (wp) rows-cur 가 커서 세션의 «화면 순서»를 wantpos 에 — 질의가 있으면 목록 fzf 와 같은 매치 순서
+for n in WPX_A WPX_B WPY_A; do tm has-session -t "=$n" 2>/dev/null || tm new-session -d -s "$n"; done
+sleep 0.3; tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/wantpos"
+tmm rows-cur > "$SOCK_DIR/wp.rows"
+[ -f "$STATE/wantpos" ] && { echo 'FAIL: (wp) TMM_CUR 없이도 wantpos 를 씀'; exit 1; }
+want="$(awk -F'\t' '$2=="WPX_B"{print NR; exit}' "$SOCK_DIR/wp.rows")"
+env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="$SCAN" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null TMM_CUR=WPX_B TMM_Q= "$TMM" rows-cur >/dev/null
+[ "$(cat "$STATE/wantpos" 2>/dev/null)" = "$want" ] || { echo "FAIL: (wp) 질의 없음 wantpos≠$want: $(cat "$STATE/wantpos" 2>/dev/null)"; exit 1; }
+rm -f "$STATE/wantpos"
+qwant="$(fzf --filter 'wpx' --ansi --delimiter=$'\t' --with-nth=1 --nth=1,3 --tiebreak=index --scheme=path < "$SOCK_DIR/wp.rows" | awk -F'\t' '$2=="WPX_B"{print NR; exit}')"
+env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="$SCAN" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null TMM_CUR=WPX_B TMM_Q=wpx "$TMM" rows-cur >/dev/null
+[ -n "$qwant" ] && [ "$(cat "$STATE/wantpos" 2>/dev/null)" = "$qwant" ] || { echo "FAIL: (wp) 질의 wpx 의 매치 순서≠$qwant: $(cat "$STATE/wantpos" 2>/dev/null)"; exit 1; }
+printf '7\n' > "$STATE/wantpos"
+env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="$SCAN" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null TMM_CUR=WPX_B "$TMM" rows-cur >/dev/null
+[ "$(cat "$STATE/wantpos")" = 7 ] || { echo 'FAIL: (wp) 탭 전환이 남긴 wantpos 를 자동 갱신이 덮음'; exit 1; }
+tmm onload | grep -q '+pos(7)$' || { echo 'FAIL: (wp) load 가 wantpos 를 pos 로 안 줌'; exit 1; }
+# (dh) 종료 뷰 헤더는 스캔하지 않는다(캐시 없으면 «…건») + load 때 다시 그린다
+tmm view dead >/dev/null; rm -f "$STATE/dead.tsv"
+tmm header | sed 's/\x1b\[[0-9;]*m//g' | grep -q '창 [0-9]*h · …건' || { echo "FAIL: (dh) 캐시 없는 종료 헤더가 «…건» 이 아님: $(tmm header | tail -1)"; exit 1; }
+[ -f "$STATE/dead.tsv" ] && { echo 'FAIL: (dh) 헤더가 종료 스캔을 돌림(화면 멈춤 회귀)'; exit 1; }
+tmm onload | grep -q 'transform-header' || { echo 'FAIL: (dh) 종료 뷰 load 가 헤더(새 개수)를 안 다시 그림'; exit 1; }
+printf 'x\n' > "$STATE/dead.tsv"; tmm since + >/dev/null
+[ -f "$STATE/dead.tsv" ] && { echo 'FAIL: (dh) 창을 바꿨는데 옛 개수 캐시가 남음(새 창에 옛 개수 표시)'; exit 1; }
+printf 'x\n' > "$STATE/dead.tsv"; tmm gen >/dev/null; tmm gen >/dev/null
+[ -f "$STATE/dead.tsv" ] && { echo 'FAIL: (dh) 계보를 바꿨는데 옛 개수 캐시가 남음'; exit 1; }
+rm -f "$STATE/since"
+tmm view live >/dev/null
+# (cf) 분류 칸에서 누른 ^] ^\ ^L 도 목록 칸으로 넘어간다 — ] \ 는 바이트로
+sed -n '/^cmd_catpane()/,/^}/p' "$TMM" | grep -q 'ctrl-\]:execute-silent(\$SELF catfwd hex:1d)' || { echo 'FAIL: (cf) 분류 칸이 ^] 를 안 넘김'; exit 1; }
+sed -n '/^cmd_catpane()/,/^}/p' "$TMM" | grep -q 'catfwd hex:1c' || { echo 'FAIL: (cf) 분류 칸이 ^\ 를 안 넘김'; exit 1; }
+sed -n '/^cmd_catpane()/,/^}/p' "$TMM" | grep -q 'ctrl-l:execute-silent(\$SELF catfwd C-l)' || { echo 'FAIL: (cf) 분류 칸이 ^L 를 안 넘김'; exit 1; }
+tm new-session -d -s CFWD -x 60 -y 6 "stty -isig; cat -v"; sleep 0.4   # ^\ 는 tty 에서 SIGQUIT — 시험용 cat 이 죽지 않게(fzf 는 raw 라 그대로 받는다)
+printf '%s' "$(tm display -p -t '=CFWD:' '#{pane_id}')" > "$STATE/mainpane"
+tmm catfwd hex:1d; tmm catfwd hex:1c; tm send-keys -t '=CFWD:' Enter; sleep 0.4
+tm capture-pane -t '=CFWD:' -p | grep -qF '^]^\' || { echo "FAIL: (cf) catfwd hex 가 ^]^\\ 바이트를 안 보냄: $(tm capture-pane -t '=CFWD:' -p | head -2)"; exit 1; }
+tm kill-session -t '=CFWD' 2>/dev/null; rm -f "$STATE/mainpane"
+# (dc) 종료 스캔 파일별 캐시 — 같으면 재사용(독 넣은 캐시 값이 그대로 나옴), 파일이 바뀌면 다시 읽음, 결과는 캐시 없을 때와 같음
+DC="$SOCK_DIR/dc.cache.json"; rm -f "$DC"
+dscan() { env TMPDIR="$SOCK_DIR" TMM_DEAD_CACHE="${DCX:-$DC}" TMM_CLAUDE_GLOB="$FIX/.claude/projects/*/*.jsonl" TMM_CODEX_GLOB="$FIX/.codex/sessions/*/*/*/rollout-*.jsonl" \
+  TMM_CMD_GLOB="$FIX/.commandcode/projects/*/*.jsonl" TMM_OPENCODE_DB=/nonexistent TMM_SNAPSHOT="$FIX/nosnap.json" python3 "$ROOT/core/libexec/tmm-dead-scan.py" scan --since 99999 --all-gen; }
+d1="$(dscan | sort)"; [ -s "$DC" ] || { echo 'FAIL: (dc) 캐시 파일이 안 생김'; exit 1; }
+d2="$(dscan | sort)"; [ "$d1" = "$d2" ] || { echo 'FAIL: (dc) 캐시 적중 결과가 첫 실행과 다름'; diff <(echo "$d1") <(echo "$d2") | head; exit 1; }
+d0="$(DCX=/nonexistent/dir/x.json dscan | sort)"; [ "$d0" = "$d1" ] || { echo 'FAIL: (dc) 캐시를 쓸 수 없을 때 결과가 다름'; exit 1; }
+d1="$(dscan | sort)"
+CCF="$(ls "$FIX"/.claude/projects/*/"$SID_CC".jsonl | head -1)"
+[ -f "$CCF" ] || { echo 'FAIL: (dc) 픽스처 트랜스크립트 없음'; exit 1; }
+python3 - "$DC" "$CCF" <<'PYC'
+import json,sys; p,f=sys.argv[1:3]; d=json.load(open(p)); d["files"][f]["m"]["name"]="POISON-CACHE#9"; json.dump(d,open(p,"w"))
+PYC
+dscan | grep -q 'POISON-CACHE' || { echo 'FAIL: (dc) 같은 파일인데 캐시를 안 쓰고 다시 읽음(매번 재파싱)'; exit 1; }
+mt="$(stat -f %m "$CCF")"; printf '\n' >> "$CCF"; touch -t "$(date -r "$mt" +%Y%m%d%H%M.%S)" "$CCF"
+dscan | grep -q 'POISON-CACHE' && { echo 'FAIL: (dc) 파일 크기가 바뀌었는데 낡은 캐시를 씀'; exit 1; }
+dscan | grep -q "$SID_CC" || { echo 'FAIL: (dc) 다시 읽은 뒤 그 세션이 사라짐'; exit 1; }
+# 창을 줄여도(그 파일이 창 밖) 이미 읽은 결과는 캐시에 남는다 — 다시 넓힐 때 재파싱 0
+env TMPDIR="$SOCK_DIR" TMM_DEAD_CACHE="$DC" TMM_CLAUDE_GLOB="$FIX/.claude/projects/*/*.jsonl" TMM_CODEX_GLOB=/nonexistent TMM_CMD_GLOB=/nonexistent \
+  TMM_OPENCODE_DB=/nonexistent TMM_SNAPSHOT="$FIX/nosnap.json" python3 "$ROOT/core/libexec/tmm-dead-scan.py" scan --since 0 >/dev/null
+python3 - "$DC" "$CCF" <<'PYC' || { echo 'FAIL: (dc) 창을 줄였더니 창 밖 파일의 캐시가 지워짐'; exit 1; }
+import json,sys; p,f=sys.argv[1:3]; sys.exit(0 if f in json.load(open(p))["files"] else 1)
+PYC
 
 echo "✅ tmm verify OK"

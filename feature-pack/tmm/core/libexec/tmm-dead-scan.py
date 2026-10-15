@@ -161,55 +161,101 @@ def load_snapshot(path):
 
 
 # ---------- claude ----------
+# ★파일별 파싱 캐시(0.8.2)★ — 창 안 후보(12h ≈400개, 24h ≈800개)의 앞 120줄·끝 400KB 를 매번 다시 읽던 것이 스캔 시간의 절반이었다(부하 시 12h 4.4초 · 24h 8.8초).
+#   (경로, 수정 시각, 크기)가 같으면 직전에 읽은 결과를 그대로 쓴다. 트랜스크립트는 읽기만 한다 — 캐시는 TMPDIR 아래 따로 둔다(verify 의 격리 TMPDIR 이 실사용본을 안 건드림).
+#   «시간에 따라 바뀌는» 판정(창·라이브 여유·열린 sid·cwd 존재·라이브 이름)은 캐시하지 않고 매번 한다.
+CLAUDE_CACHE = os.environ.get("TMM_DEAD_CACHE", os.path.join(os.environ.get("TMPDIR", "/tmp"), "tmm-%d" % os.getuid(), "dead-claude.cache.json"))
+
+
+def _load_cache(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) and d.get("v") == 1 else {"v": 1, "files": {}}
+    except Exception:
+        return {"v": 1, "files": {}}
+
+
+def _save_cache(path, d):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = "%s.%d.tmp" % (path, os.getpid())
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
+def _parse_claude(path):
+    """트랜스크립트 하나의 «안 변하는» 메타(이름·cwd·모델·마지막 메시지 시각). 옛 본문과 같은 규칙 — 사이드체인이면 사용자 발화만 비운다."""
+    name = cwd = branch = ""
+    users = []
+    for line in head_lines(path, 120):
+        o = jl(line)
+        if not o:
+            continue
+        if not name and o.get("agentName"):
+            name = o["agentName"]
+        if not cwd and o.get("cwd"):
+            cwd = o["cwd"]
+        if not branch and o.get("gitBranch"):
+            branch = o["gitBranch"]
+        if o.get("type") == "user" and not o.get("isMeta") and not o.get("isSidechain"):
+            t = text_of((o.get("message") or {}).get("content"))
+            if not is_noise_user(t):
+                users.append(t)
+        if o.get("isSidechain"):
+            users = []
+            break
+    tail = tail_bytes(path, 400 * 1024)
+    last_ts = 0
+    for m in TS_RE.finditer(tail):
+        last_ts = max(last_ts, parse_ts(m.group(1)))
+    models = {}
+    for m in MODEL_RE.finditer(tail):
+        models[m.group(1)] = models.get(m.group(1), 0) + 1
+    model = max(models.items(), key=lambda kv: kv[1])[0] if models else ""
+    if not name and cwd:
+        name = infer_name(users) or (os.path.basename(cwd) + "#0")
+    return {"name": name, "cwd": cwd, "model": model, "last_msg": last_ts}
+
+
 def scan_claude(since_epoch, live_names, opened):
     rows = []
+    cache = _load_cache(CLAUDE_CACHE)
+    old, new = cache.get("files", {}), {}
+    now = time.time()
     for path in glob.glob(CLAUDE_GLOB):
         if "/subagents/" in path:
             continue
         try:
-            mtime = os.path.getmtime(path)
+            st = os.stat(path)
         except OSError:
             continue
-        if mtime < since_epoch or time.time() - mtime < LIVE_GRACE:
-            continue   # 창 밖이거나, 지금 쓰이고 있는(라이브) 파일
+        mtime = st.st_mtime
         sid = os.path.basename(path)[:-6]
-        if sid in opened:
+        if mtime < since_epoch or now - mtime < LIVE_GRACE or sid in opened:
+            # 창 밖·라이브 파일도 «이미 읽은 결과»는 남긴다 — 창을 줄였다 다시 넓힐 때 또 읽지 않게. 사라진 파일만 빠진다.
+            if path in old:
+                new[path] = old[path]
             continue
-        name = cwd = branch = ""
-        users = []
-        for line in head_lines(path, 120):
-            o = jl(line)
-            if not o:
-                continue
-            if not name and o.get("agentName"):
-                name = o["agentName"]
-            if not cwd and o.get("cwd"):
-                cwd = o["cwd"]
-            if not branch and o.get("gitBranch"):
-                branch = o["gitBranch"]
-            if o.get("type") == "user" and not o.get("isMeta") and not o.get("isSidechain"):
-                t = text_of((o.get("message") or {}).get("content"))
-                if not is_noise_user(t):
-                    users.append(t)
-            if o.get("isSidechain"):
-                users = []
-                break
+        key = "%d:%d:%d" % (st.st_mtime_ns, st.st_size, st.st_ino)
+        hit = old.get(path)
+        if hit and hit.get("k") == key:
+            meta = hit.get("m")
+        else:
+            meta = _parse_claude(path)
+        new[path] = {"k": key, "m": meta}
+        name, cwd, model, last_ts = meta["name"], meta["cwd"], meta["model"], meta["last_msg"]
         if not cwd or not os.path.isdir(cwd) or "/scratchpad/" in cwd or cwd.startswith("/private/tmp/") or cwd.startswith("/tmp/"):
             continue   # 사라진 cwd·스크래치패드·임시 디렉터리 세션은 복구 가치 없음 (프로브·일회성)
-        tail = tail_bytes(path, 400 * 1024)
-        last_ts = 0
-        for m in TS_RE.finditer(tail):
-            last_ts = max(last_ts, parse_ts(m.group(1)))
-        models = {}
-        for m in MODEL_RE.finditer(tail):
-            models[m.group(1)] = models.get(m.group(1), 0) + 1
-        model = max(models.items(), key=lambda kv: kv[1])[0] if models else ""
-        if not name:
-            name = infer_name(users) or (os.path.basename(cwd) + "#0")
         if name in live_names:
             continue
         rows.append(dict(src="CC", agent="claude", name=safe_name(name), cwd=cwd, sid=sid, model=model,
                          last_msg=last_ts, last_alive=int(mtime), resume=""))
+    if new != old:
+        _save_cache(CLAUDE_CACHE, {"v": 1, "files": new})
     return rows
 
 
