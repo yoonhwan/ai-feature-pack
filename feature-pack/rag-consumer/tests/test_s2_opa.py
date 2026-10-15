@@ -551,3 +551,148 @@ def test_s2_locked_pid_book_survives_concurrent_records(tmp_path):
     document = json.loads((tmp_path / "pids.json").read_text())
     assert len(document["children"]) == 60 and {c["pid"] for c in document["children"]} == {
         4000 + i * 10 + j for i in range(3) for j in range(20)}
+
+
+# ---------------------------------------------------------------------------------------------------------
+# DA r1 fixes (da-20261016-sol-s2-code-r1): M1 cold over limit = a real timeout only, M2 distinct keys as the
+# consumer judges them (bytes after fromhex), m1 no retry / next round after an unconfirmed child exit,
+# m2 an independent negative case for the 14 s call deadline.
+def _attempt(status="success", ms=100, **extra):
+    return {"attempt": 1, "status": status, "elapsed_ms": ms, "retried": False,
+            "value_format_ok": True if status == "success" else None, "child_exited": True, "reaped": True,
+            "child_exit_unconfirmed": False, "descendants_may_hold_pipe": False, **extra}
+
+
+def _round(i, *, status="success", ms=100, total=None, distinct=True, count=2, bytes_=50):
+    calls = [{"key": k, "attempts": [_attempt(status, ms)], "call_total_ms": ms if total is None else total,
+              "outcome": status} for k in range(3)]
+    return {"round": i, "kind": "cold" if i == 0 else "warm", "started_utc_ms": i, "ended_utc_ms": i,
+            "keys_distinct": distinct, "op_count_after": count, "dedicated_bytes": bytes_, "calls": calls}
+
+
+def _good_rounds():
+    return [_round(i) for i in range(6)]
+
+
+def _evaluate(rounds, name="default"):
+    return load_s2().evaluate({"name": name, "baseline_op_count": 2, "rounds": rounds})
+
+
+@pytest.mark.parametrize("status", ["auth_error", "network_error", "unsupported", "spawn_error",
+                                    "observation_unknown"])
+def test_m1_a_fast_failure_in_the_cold_round_is_not_a_cold_over_limit(status):
+    rounds = [_round(0, status=status, ms=216)] + _good_rounds()[1:]
+    assert _evaluate(rounds)["cold_over_limit"] is False
+
+
+def test_m1_only_a_timeout_or_a_slow_success_in_the_cold_round_is_over_the_limit():
+    assert _evaluate([_round(0, status="timeout", ms=7000)] + _good_rounds()[1:])["cold_over_limit"] is True
+    assert _evaluate([_round(0, status="success", ms=9000)] + _good_rounds()[1:])["cold_over_limit"] is True
+    assert _evaluate(_good_rounds())["cold_over_limit"] is False
+
+
+def test_m1_a_fast_auth_error_run_reports_no_seven_second_exception(sb):
+    sb.make_op(rc=1, stderr="[ERROR] Unauthorized: invalid service account token", values=["", "", ""])
+    proc = sb.run()
+    crit = cond(sb.result(), "default")["criteria"]
+    assert {a["status"] for a in attempts_of(sb.result(), "default")} == {"auth_error"}
+    assert crit["cold_over_limit"] is False and crit["meets_all"] is False
+    assert "규칙 예외" not in proc.stdout and "7초 기한" not in proc.stdout
+    assert "neither_meets" in proc.stdout
+
+
+def test_m1_the_report_says_unfinished_within_the_limit_not_that_a_cold_start_ends_later(sb):
+    sb.make_op(pre={0: 'if [ "$n" -eq 1 ]; then exec sleep 30; fi'})
+    sb.extra.update(PROBE_S2_T_ATTEMPT="3.0", PROBE_S2_T_DEADLINE="7.0")
+    out = sb.run().stdout
+    assert "규칙 예외" in out and "끝나지 않음" in out and "한도를 넘음" not in out
+
+
+def test_m2_identical_key_bytes_never_meet_the_criteria(sb):
+    sb.make_op(values=[KEYS[0]] * 3)
+    proc = sb.run()
+    result = sb.result()
+    for name in ("default", "dedicated"):
+        assert [r["keys_distinct"] for r in cond(result, name)["rounds"]] == [False] * ROUNDS
+        assert cond(result, name)["criteria"]["meets_all"] is False
+    assert result["comparison"] == "neither_meets" and "both_meet" not in proc.stdout
+
+
+def test_m2_the_same_key_in_lower_and_upper_case_is_a_duplicate(sb):
+    sb.make_op(values=[KEYS[0], KEYS[0].upper(), KEYS[2]])
+    result = (sb.run(), sb.result())[1]
+    for name in ("default", "dedicated"):
+        assert [r["keys_distinct"] for r in cond(result, name)["rounds"]] == [False] * ROUNDS
+        assert cond(result, name)["criteria"]["meets_all"] is False
+    assert result["comparison"] == "neither_meets"
+
+
+def test_m2_a_round_whose_keys_are_not_all_distinct_voids_the_criteria():
+    for bad in (False, None):
+        rounds = _good_rounds()
+        rounds[3] = _round(3, distinct=bad)
+        assert _evaluate(rounds)["meets_all"] is False
+    assert _evaluate(_good_rounds())["meets_all"] is True
+
+
+def test_m2_the_results_still_carry_no_key_value_or_reference(sb):
+    sb.make_op(values=[KEYS[0], KEYS[0].upper(), KEYS[2]])
+    proc = sb.run()
+    text = "\n".join([proc.stdout, proc.stderr] + [
+        p.read_text(encoding="utf-8", errors="replace") for p in sb.base.rglob("*") if p.is_file()])
+    for secret in (*KEYS, KEYS[0].upper(), "op://"):
+        assert secret not in text, secret
+
+
+def _unconfirmed_attempt_runner(calls):
+    def run_attempt(step, argv, env, book, budget, attempt_s):
+        calls.append(step)
+        first_of_key0 = step == "K0" and calls.count("K0") == 1
+        if first_of_key0:
+            return {"status": "timeout", "rc": None, "child_pid": 4242, "child_exited": False, "reaped": False,
+                    "child_exit_unconfirmed": True, "descendants_may_hold_pipe": True, "partial_output": False,
+                    "stdout": b"", "stderr": b""}
+        return {"status": "success", "rc": 0, "child_pid": 4243, "child_exited": True, "reaped": True,
+                "child_exit_unconfirmed": False, "descendants_may_hold_pipe": False, "partial_output": False,
+                "stdout": KEYS[REFS.index(argv[2])].encode(), "stderr": b""}
+    return run_attempt
+
+
+def test_m1b_an_unconfirmed_child_exit_is_not_retried(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["s2.py", "--mode", "selftest"])
+    s2 = load_s2()
+    calls = []
+    monkeypatch.setattr(s2, "run_attempt", _unconfirmed_attempt_runner(calls))
+    record, value = s2.read_call(0, REFS[0], "/synthetic/op", {}, None)
+    assert calls == ["K0"] and len(record["attempts"]) == 1 and value is None
+    assert record["outcome"] == "timeout" and record["attempts"][0]["child_exit_unconfirmed"] is True
+
+
+def test_m1b_an_unconfirmed_child_exit_stops_the_measurement_as_incomplete(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["s2.py", "--mode", "selftest"])
+    s2 = load_s2()
+    sandbox = S2Sandbox(tmp_path)
+    calls = []
+    monkeypatch.setattr(s2, "run_attempt", _unconfirmed_attempt_runner(calls))
+    monkeypatch.setattr(s2, "count_op", lambda: 2)
+    monkeypatch.setattr(s2, "WARM_GAP_S", 0.0)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    s2.execute(run_dir, str(sandbox.credentials))
+    result = json.loads((run_dir / "result.json").read_text())
+    assert s2.validate_result(result) and result["complete"] is True and result["comparison"] == "incomplete"
+    assert [c["name"] for c in result["conditions"]] == ["default"]          # the dedicated one never starts
+    assert len(result["conditions"][0]["rounds"]) == 1                       # no second round
+    assert sorted(calls) == ["K0", "K1", "K2"]                               # no retry, nothing after the round
+    assert result["conditions"][0]["criteria"]["meets_all"] is False
+    report = subprocess.run([sys.executable, str(S2_PY), "--report", str(run_dir)], capture_output=True, text=True)
+    assert report.returncode != 0 and "종료 미확인" in report.stdout
+
+
+def test_m2b_calls_over_the_call_deadline_fail_the_deadline_criterion_on_their_own():
+    rounds = [_round(i, ms=100, total=15000) for i in range(6)]       # every first try is fast, every call took 15 s
+    crit = _evaluate(rounds)
+    assert crit["attempts_within_limit"] is True and crit["all_first_try_success"] is True
+    assert crit["calls_within_deadline"] is False and crit["max_call_total_ms"] == 15000
+    assert crit["meets_all"] is False
+    assert _evaluate(_good_rounds())["calls_within_deadline"] is True
