@@ -2,10 +2,12 @@
 
 정본 설계: design/harness/DESIGN-slack-inbound-820.md §5 · §6.
 """
+import argparse
 import hashlib
 import json
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import mirror_lib as lib
@@ -15,6 +17,7 @@ PLANNER_TEAM = "byz-planner-"  # 옛 원장 이관 기준 접두 — `_master` �
 FROM = "slack-oppa"  # 오빠 글이 mbox 에 실릴 때의 발신자 이름 — 좌석이 아니다
 RING = 10  # mbox 수신자별 큐 상한 — 가득 차면 오래된 것이 밀리므로 우리는 보내지 않고 미룬다
 MAX_BODY = 600
+REJECT_RC = 3  # mbox 가드 REJECT(은퇴·닫힌 좌석) — 큐 적재 0
 _TAIL = re.compile(r"^\(([A-Za-z0-9._-]+#\d+) · #\d+[^)]*\)$")
 _PICK = re.compile(r"^\s*(\d)\s*(?:번|\))?\s*$")
 
@@ -54,11 +57,11 @@ def resolve_pick(text: str, options: list[str]) -> str:
     return text
 
 
-def resolve(to: str, planner_seats: str | Path | None, fixed: str = "") -> tuple[str | None, str]:
+def resolve(to: str, planner_seats: str | Path | None, to_key: str | None = None) -> tuple[str | None, str]:
     """수신자 표식 → (보낼 이름 | None, 사유). `@planner` 는 매번 명부 `_master` + tmux 생존으로 정한다(`_hil_route` 는 읽지 않는다).
-    `fixed`(--to)가 있으면 모든 수신자를 그 이름으로 고정한다 — 현역 planner 조회 0."""
-    if fixed:  # 고정 모드: 어떤 수신자 표식도 고정 좌석으로 — 다른 좌석 도달 0 · 현역 planner 조회 0
-        return fixed, "고정"
+    `to_key`(--to-key)가 있으면 모든 수신자를 명부 그 키(예 `_desk`)의 현역 좌석으로 — 전달마다 다시 읽는다(승계 뒤 손 대응 0)."""
+    if to_key:  # 키 모드: 어떤 수신자 표식도 그 키의 현역 좌석으로 — 다른 좌석 도달 0 · 좌석 이름 고정 0
+        return ms.live_planner(planner_seats, to_key)
     return ms.live_planner(planner_seats) if to == ms.PLANNER_ROLE else (to, "")
 
 
@@ -115,6 +118,14 @@ def queue_len(comm_dir: Path, to: str) -> int:
     return sum(1 for r in _rows(comm_dir, ("mailbox.jsonl",)) if r.get("to") == to)
 
 
+class MboxError(lib.MirrorError):
+    """mbox 호출 실패 — rc 는 종료 코드(시간초과·실행 실패는 None). 문자열 매칭 대신 rc 로 가른다."""
+
+    def __init__(self, msg: str, rc: int | None = None):
+        super().__init__(msg)
+        self.rc = rc
+
+
 def send(mbox: str, to: str, body: str, spool: Path) -> int:
     """argv 로만 호출한다(셸 문자열 금지). 반환 = 큐에 들어간 행의 seq. 실패는 raise."""
     if len(body) > MAX_BODY:  # 긴 글은 relay 파일 + 머리 요약(토큰 포함)
@@ -128,8 +139,32 @@ def send(mbox: str, to: str, body: str, spool: Path) -> int:
     try:
         r = subprocess.run(argv, capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired) as e:
-        raise lib.MirrorError(f"mbox 호출 실패: {type(e).__name__}") from e
+        raise MboxError(f"mbox 호출 실패: {type(e).__name__}") from e
     m = re.search(r"QUEUED seq=(\d+)", r.stdout)
     if r.returncode != 0 or not m:
-        raise lib.MirrorError(f"mbox 전달 실패 rc={r.returncode}: {(r.stdout + r.stderr)[:120]}")
+        raise MboxError(f"mbox 전달 실패 rc={r.returncode}: {(r.stdout + r.stderr)[:120]}", r.returncode)
     return int(m.group(1))
+
+
+def attempt_send(e: dict, role: str, to: str, n: int, tok: str, a: argparse.Namespace, spool: Path, seats: str, save: Callable[[], None]) -> tuple[str, int] | None:
+    """시도 «전» 기록 → send → (보낸 이름, seq). 동적 수신자(@planner · 명부 키)가 가드에 거절되면(rc 3 = 큐 적재 0 이 확실) 그 시도를 빼고
+    명부를 1회 다시 읽어 이름이 바뀌었으면 그 이름으로 다시 보낸다. 같거나 못 정하면 None(보관). rc≠3 실패는 시도로 남기고 raise."""
+    prev = e["attempt"].get(role)
+    for _ in range(2):
+        e["attempt"][role] = [*(prev or []), to] if role == ms.PLANNER_ROLE else n + 1
+        save()
+        try:
+            return to, send(a.mbox, to, f"[{FROM}->{to}] {e['text']}\n({tok})", spool)
+        except MboxError as err:
+            if err.rc != REJECT_RC or not (a.to_key or role == ms.PLANNER_ROLE):
+                raise
+            if prev is None:
+                e["attempt"].pop(role)
+            else:
+                e["attempt"][role] = prev
+            save()  # 확정 미적재는 «먼저» 영속 — 이어지는 명부·tmux 재조회 도중 재시작돼도 시도 0 (DA⑥ H1)
+        again, _ = resolve(role, seats, a.to_key)
+        if again is None or again == to:
+            break
+        to = again
+    return None

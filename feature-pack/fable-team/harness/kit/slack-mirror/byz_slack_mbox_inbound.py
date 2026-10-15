@@ -92,7 +92,7 @@ class Inbound:
         for role in e["recips"]:
             if e["done"].get(role):
                 continue
-            to, why = ib.resolve(role, self.planner_seats, self.a.to)
+            to, why = ib.resolve(role, self.planner_seats, self.a.to_key)
             if to is None:  # 현역 planner 를 모르면 보내지 않고 보관 — done 이 아니라 다음 패스에 다시 정한다
                 self._notice(e, f"planner_missing_notified:{why}", f"오빠 글 전달 대기 — planner 현역 세션 확인 불가({why}) · 원문 보관됨")
                 continue
@@ -110,12 +110,13 @@ class Inbound:
                 self._notice(e, "full_notified", f"{to} 의 mbox 큐가 가득 차 오빠 글 전달을 미뤘어요 — 좌석이 읽어야 전달돼요")
                 continue
             else:
-                e["attempt"][role] = [*e["attempt"].get(role, []), to] if role == ms.PLANNER_ROLE else n + 1
-                self._save(st)  # 시도 «전» 기록
-                seq = ib.send(self.a.mbox, to, f"[{ib.FROM}->{to}] {e['text']}\n({tok})", self.spool)
-                e["done"][role] = to
+                sent = ib.attempt_send(e, role, to, n, tok, self.a, self.spool, self.planner_seats, lambda: self._save(st))  # 시도 «전» 기록 · 가드 거절은 시도에서 뺀다
+                if sent is None:  # 거절 뒤에도 현역 이름이 같다 — 큐 적재 0 · 시도 0 으로 보관하고 다음 패스에 다시 정한다
+                    self._notice(e, f"reject_notified:{to}", f"오빠 글 전달 대기 — 가드가 거절했는데 명부 현역 이름이 그대로예요({to}) · 원문 보관됨")
+                    continue
+                e["done"][role] = sent[0]
                 if role == e["recips"][0]:
-                    e["mbox_seq"] = seq
+                    e["mbox_seq"] = sent[1]
             self._save(st)
         if not all(e["done"].get(role) for role in e["recips"]):
             return
@@ -161,7 +162,7 @@ class Inbound:
 def parse() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--channel", required=True)
-    mh.add_args(p)  # --human | --humans | --humans-from-seats (정확히 하나) · --to
+    mh.add_args(p)  # --human | --humans | --humans-from-seats (정확히 하나) · --to-key
     p.add_argument("--mbox", required=True, help="mbox.sh 경로")
     p.add_argument("--seats-file", required=True, help="같은 폴더의 seats-planner.json 으로 현역 planner 를 찾는다(_hil_route 는 읽지 않는다)")
     p.add_argument("--planner-seats", default="", help="planner 명부 경로(기본 = --seats-file 폴더의 seats-planner.json)")

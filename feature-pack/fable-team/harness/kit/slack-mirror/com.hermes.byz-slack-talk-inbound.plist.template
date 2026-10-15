@@ -9,7 +9,7 @@
     <string>__HOME__/.hermes/scripts/byz_slack_mbox_inbound.py</string>
     <string>--channel</string><string>__CHANNEL__</string>
     <string>--humans-from-seats</string>
-    <string>--to</string><string>__TO__</string>
+    <string>--to-key</string><string>__TO_KEY__</string>
     <string>--mbox</string><string>__MBOX__</string>
     <string>--seats-file</string><string>__SEATS__</string>
     <string>--inbox-bin</string><string>__INBOX_BIN__</string>

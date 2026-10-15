@@ -64,9 +64,9 @@ def share_lines(what: str | None, todo: str | None, text: str, label: str) -> tu
     return w, t, fixed
 
 
-def live_planner(seats: str | Path | None = None) -> tuple[str | None, str]:
-    """(현역 planner 세션 이름 | None, 사유). 명부 `_master` 를 읽고 tmux 로 살아 있는지 확인한다 — `_hil_route` 는 읽지 않는다.
-    사유 5종: 명부 없음 · JSON 오류 · _master 없음 · tmux 실행 실패 · 세션 없음. 명부 경로 = 인자 → env MIRROR_PLANNER_SEATS · tmux = env MIRROR_TMUX."""
+def live_planner(seats: str | Path | None = None, key: str = "_master") -> tuple[str | None, str]:
+    """(현역 세션 이름 | None, 사유). 명부 `key`(기본 `_master` · desk 수신은 `_desk`)를 읽고 tmux 로 살아 있는지 확인한다 — `_hil_route` 는 읽지 않는다.
+    사유 5종: 명부 없음 · JSON 오류 · <key> 없음 · tmux 실행 실패 · 세션 없음. 명부 경로 = 인자 → env MIRROR_PLANNER_SEATS · tmux = env MIRROR_TMUX."""
     path = seats or os.environ.get("MIRROR_PLANNER_SEATS")
     if not path:
         return None, "명부 없음"
@@ -78,9 +78,9 @@ def live_planner(seats: str | Path | None = None) -> tuple[str | None, str]:
         data = json.loads(raw)
     except ValueError:
         return None, "JSON 오류"
-    name = data.get("_master") if isinstance(data, dict) else None
+    name = data.get(key) if isinstance(data, dict) else None
     if not isinstance(name, str) or not name:
-        return None, "_master 없음"
+        return None, f"{key} 없음"
     try:
         r = subprocess.run([*shlex.split(os.environ.get("MIRROR_TMUX", "tmux")), "has-session", "-t", f"={name}"],
                            capture_output=True, timeout=10)
