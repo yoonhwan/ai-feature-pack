@@ -774,8 +774,12 @@ def test_minor2_a_slow_success_says_finished_and_a_timeout_says_unfinished(tmp_p
     slow.mkdir()
     timeout = tmp_path / "timeout"
     timeout.mkdir()
-    slow_line = _exception_line(_stored_cold(slow, "success", 9000))
-    timeout_line = _exception_line(_stored_cold(timeout, "timeout", 7000))
+    slow_out = _stored_cold(slow, "success", 9000)
+    timeout_out = _stored_cold(timeout, "timeout", 7000)
+    slow_line, timeout_line = _exception_line(slow_out), _exception_line(timeout_out)
+    # one kind of cold read -> exactly one exception line, never both texts in the same report
+    assert slow_out.count("규칙 예외를 둘지") == 1 and timeout_out.count("규칙 예외를 둘지") == 1
+    assert "미완료" not in slow_out and "종료는 확인됨" not in timeout_out
     assert "종료는 확인됨" in slow_line and "7초" in slow_line
     for mixed in ("미완료", "미확인", "끝나지 않음", "알 수 없음"):
         assert mixed not in slow_line, mixed
