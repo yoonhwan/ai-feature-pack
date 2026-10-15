@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """byz_slack_mbox_inbound — #byz-planner 의 오빠(사람) 글 → 좌석 mbox (Slack→mbox 역방향 · Issue #820).
-
-정본 설계: design/harness/DESIGN-slack-inbound-820.md §5·§6. 계약 = «유실 0 · 중복은 최악 1회».
-메시지별 영속 원장(ledger): 계획(수신자·본문 고정) → 수신자별 attempt 횟수 → send → done. 미완료 항목은 Slack 을 다시
-읽지 않아도 독립적으로 재개한다(7일이 지나도 지우지 않는다). 재시작 때 attempt 인데 done 이 아니면 큐·사본 로그에서
-«그 수신자의 꼬리 줄 토큰» 을 찾고, 흔적이 없으면 1회만 다시 보낸다(attempt 2 에서도 흔적이 없으면 멈추고 알린다).
-수신자 큐가 가득(>=10)이면 밀려나게 두지 않고 보내지 않은 채 Slack 에 알린다. 실패는 전부 raise(exit 1) · launchd 재기동.
+정본 설계: design/harness/DESIGN-slack-inbound-820.md §5·§6. 계약 = «유실 0 · 중복은 최악 1회». 메시지별 영속 원장(ledger): 계획(수신자·본문 고정) → 수신자별 attempt → send → done.
+미완료 항목은 Slack 을 다시 읽지 않고 독립 재개한다(7일이 지나도 지우지 않는다). 재시작 때 attempt 인데 done 이 아니면 큐·사본 로그에서 «그 수신자의 꼬리 줄 토큰» 을 찾고, 흔적이 없으면 1회만 다시 보낸다(attempt 2 에서도 없으면 멈추고 알린다). 수신자 큐가 가득(>=10)이면 밀려나게 두지 않고 보내지 않은 채 Slack 에 알린다. 실패는 전부 raise(exit 1) · launchd 재기동.
 """
 import argparse
 import fcntl
@@ -16,6 +12,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import mirror_ack as mack  # noqa: E402
 import mirror_board as mb  # noqa: E402
 import mirror_humans as mh  # noqa: E402
 import mirror_inbound as ib  # noqa: E402
@@ -128,6 +125,7 @@ class Inbound:
             mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
         e["finished"] = True
         self._save(st)
+        mack.on_delivered(self, st, ts, e)  # --ack 인스턴스만: 오빠 글 스레드에 «받았어요» 1회(R241)
         self.sent += 1
 
     def run_pass(self) -> int:
@@ -139,6 +137,7 @@ class Inbound:
             print("baseline", file=sys.stderr)
             return 0
         st.setdefault("seen", {})
+        mack.start(self, st)  # --ack 를 처음 켠 데몬: 경계를 전달 «전» 에 저장(R241)
         mb.sweep(self.a, self.qpath, self.planner_seats, Path(self.a.mbox).resolve().parents[2])  # 닫는 사건 = planner 인박스 — 패스당 1회(보드는 이 패스 끝 update_board 가 맞춘다)
         ledger: dict[str, dict] = st["ledger"]
         for ts in sorted(k for k, v in ledger.items() if not v.get("finished")):
@@ -151,6 +150,7 @@ class Inbound:
             self._save(st)
             self._deliver(st, ts, ledger[ts])
         st["seen"].update(self.seen_updates)  # 후보를 전부 원장에 올린 뒤에만 «읽었다» 로 표시한다
+        mack.watch(self, st)  # --ack 인스턴스만: desk 미읽음 감시(R241)
         cut = time.time() - WINDOW - PRUNE_MARGIN  # 끝난 항목만 정리 — 미완료는 지우지 않는다
         st["ledger"] = {k: v for k, v in ledger.items() if not v.get("finished") or float(k) > cut}
         self._save(st)
@@ -169,7 +169,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--state-dir", default=str(Path.home() / ".hermes" / "state"))
     p.add_argument("--token-file", default="~/.hermes/secrets/yoonhwan_bot.env")
     p.add_argument("--api-base", default=API)
-    mb.add_args(p)
+    [add(p) for add in (mb.add_args, mack.add_args)]  # planner 인박스 · --ack(R241)
     p.add_argument("--interval", type=float, default=10.0)
     p.add_argument("--once", action="store_true")
     return p.parse_args()

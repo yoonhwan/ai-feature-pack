@@ -114,6 +114,13 @@ def marker_seen(comm_dir: Path, token: str, to: str) -> bool:
     return False
 
 
+def queue_has(comm_dir: Path, token: str, to: str) -> bool:
+    """marker_seen 과 같은 줄 일치 — 단 «대기 큐(mailbox.jsonl)» 만 본다. 수신자가 recv 로 읽으면 큐에서 빠진다(사본 로그는 남는다)."""
+    want = f"({token})"
+    return any(r.get("from") == FROM and r.get("to") == to and any(ln.strip().endswith(want) for ln in str(r.get("body", "")).split("\n"))
+               for r in _rows(comm_dir, ("mailbox.jsonl",)))
+
+
 def queue_len(comm_dir: Path, to: str) -> int:
     return sum(1 for r in _rows(comm_dir, ("mailbox.jsonl",)) if r.get("to") == to)
 
