@@ -6,7 +6,9 @@
 #   · `gh pr merge`/`ft-gh-as-tank.sh pr merge` → `--match-head-commit <sha>` 필수(헤드 결속은 gh 가 강제). `gh api …/pulls/N/merge` 는 `sha=<sha>`.
 #   · main 대상 `git push`(main·HEAD:main·x:main·refs/heads/main · `--repo` 포함 · 맨 push+현재 브랜치 main) → 보내는 쪽 ref(없으면 HEAD)의 rev-parse sha. 삭제(:main·--delete/-d)·--all·--mirror·와일드카드는 항상 deny. --dry-run allow.
 #   `env -S '<명령>'` 는 `bash -c` 처럼 안쪽을 재검사. OFF·위변조·따옴표/heredoc/mbox 본문 글자만 = allow.
-# ★FAIL-OPEN★: 파싱 불가·ft-autonomy.sh 실패 = 허용 + 로그(FT_AUTONOMY_HOOK_LOG). 외부 호출 0. ★설치는 이 파일 범위 밖 — 설치 카드★
+# ★못 읽음(R176 · 판정 1675 ①)★: ft-autonomy.sh 못 찾음·rc≠0 = 병합·main push 는 deny + 이유 + 로그(FT_AUTONOMY_HOOK_LOG). 파싱 불가(JSON·예외)는 그대로 허용+로그. 외부 호출 0.
+# 도구·상태 해석 = 오빠 `!` 와 같은 곳: FT_AUTONOMY_SH → harness-env.sh 의 FT_BIN → 루트 2경로 · 상태는 FT_ROOT 가 env 에 있을 때만 그것, 아니면 도구 자기 루트.
+# ★설치는 이 파일 범위 밖 — 설치 카드★
 set +e
 INPUT=$(cat 2>/dev/null); [ -n "$INPUT" ] || exit 0
 export INPUT
@@ -20,6 +22,8 @@ VALOPTS = {"-u", "-C", "-S", "-P", "-k", "-s", "-n"}  # 값을 하나 더 먹는
 SHA = re.compile(r"^[0-9a-f]{40}$")
 REASON = ("자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, "
           "main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐.")
+
+UNREADABLE = "자율 상태(ft-autonomy.sh mode)를 못 읽어 병합을 막았다 — 도구 경로·상태 폴더를 고친 뒤 다시 친다(R176). "
 
 def note(msg):
     try:
@@ -37,13 +41,39 @@ def byz_root(cwd):
         root = os.path.dirname(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else ""
     return root if root and os.path.isdir(os.path.join(root, ".fable-team")) else ""
 
+# --- R176 resolve begin (두 훅 같은 문장 — tests/harness/test_autonomy_hooks_layout.sh 가 바이트 대조) ---
+def autonomy_sh(root):
+    """ft-autonomy.sh 해석(R176): FT_AUTONOMY_SH → <루트>/.fable-team/bin-harness/harness-env.sh 의 `export FT_BIN=<경로>` 한 줄(source 0) → 루트 두 경로. 없으면 None."""
+    cands = [os.environ.get("FT_AUTONOMY_SH") or ""]
+    try:
+        with open(os.path.join(root, ".fable-team/bin-harness/harness-env.sh"), encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"""^\s*export\s+FT_BIN=(["']?)([^\s"'$`]+)\1\s*(#.*)?$""", line)
+                if m:
+                    cands.append(os.path.join(m.group(2), "ft-autonomy.sh"))
+                    break
+    except OSError:
+        pass
+    cands += [os.path.join(root, ".fable-team/bin/ft-autonomy.sh"), os.path.join(root, "scripts/fable-team-bin/ft-autonomy.sh")]
+    return next((c for c in cands if c and os.path.isfile(c)), None)
+
+def autonomy_state(sh):
+    """도구가 읽는 상태 폴더 — ft-autonomy.sh:15-16 과 같은 규칙: FT_AUTONOMY_STATE_DIR → FT_ROOT/.fable-team/state → 도구 자기 루트(`<도구 폴더>/../..`)."""
+    if os.environ.get("FT_AUTONOMY_STATE_DIR"):
+        return os.environ["FT_AUTONOMY_STATE_DIR"]
+    base = os.environ.get("FT_ROOT") or os.path.abspath(os.path.join(os.path.dirname(sh), "../.."))
+    return os.path.join(base, ".fable-team/state")
+# --- R176 resolve end ---
+
 def mode_of(root):
-    cands = [os.environ.get("FT_AUTONOMY_SH") or "", os.path.join(root, ".fable-team/bin/ft-autonomy.sh"), os.path.join(root, "scripts/fable-team-bin/ft-autonomy.sh")]
-    sh = next((c for c in cands if c and os.path.isfile(c)), None)
-    p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=5, env=dict(os.environ, FT_ROOT=root)) if sh else None
-    if p is None or p.returncode != 0:
-        note("ft-autonomy.sh mode 를 못 읽음 — 허용(fail-open)")
-    return p.stdout.strip() if p is not None and p.returncode == 0 else ""
+    """(도구 경로, on|off|tamper) — 못 읽으면 모드 ""(R176 · 판정 1675 ①: 못 읽음 = 병합 deny)."""
+    sh = autonomy_sh(root)
+    try:
+        p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=5) if sh else None
+    except (OSError, subprocess.SubprocessError):
+        p = None
+    mode = p.stdout.strip() if p is not None and p.returncode == 0 else ""
+    return sh, mode if mode in ("on", "off", "tamper") else ""
 
 def strip_heredocs(cmd):
     out, delim = [], None
@@ -118,12 +148,12 @@ def head_arg(args, flag):
     return ""
 
 class Guard:
-    def __init__(self, state, cwd):
-        self.approved, self.logpath, self.cwd = os.path.join(state, "autonomy-merge-approved"), os.path.join(state, "autonomy.log"), cwd
+    def __init__(self, state, cwd):  # state 없음(못 읽음) = 승인 근거 0 → 병합·main push 전부 deny
+        self.approved, self.logpath, self.cwd = (os.path.join(state, "autonomy-merge-approved"), os.path.join(state, "autonomy.log"), cwd) if state else (None, None, cwd)
 
     def ok(self, sha):
         """승인 파일 1줄(`approve-merge <sha> …`)이 autonomy.log 의 한 줄과 글자 그대로 같을 때만 — 파일만 있으면(직접 쓰기) 아니다."""
-        if not SHA.match(sha):
+        if not SHA.match(sha) or not self.approved:
             return False
         try:
             with open(os.path.join(self.approved, sha), encoding="utf-8") as f:
@@ -197,14 +227,19 @@ try:
         sys.exit(0)
     cwd = d.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     root = byz_root(cwd)
-    if not root or mode_of(root) != "on":
+    if not root:
         sys.exit(0)
-    state = os.environ.get("FT_AUTONOMY_STATE_DIR") or os.path.join(root, ".fable-team/state")
-    hit = Guard(state, cwd).denied(cmd)
+    sh, mode = mode_of(root)
+    if not mode:
+        note(f"ft-autonomy.sh mode 를 못 읽음(도구={sh}) — 병합·main push 는 deny(R176 · 판정 1675 ①)")
+    elif mode != "on":
+        sys.exit(0)
+    hit = Guard(autonomy_state(sh) if mode else "", cwd).denied(cmd)
 except (ValueError, OSError, AttributeError, subprocess.SubprocessError) as e:
     note(f"{type(e).__name__} {e} — 허용(fail-open)")
     sys.exit(0)
 if hit:
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": REASON}}, ensure_ascii=False))
+    reason = REASON if mode else UNREADABLE + REASON
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}, ensure_ascii=False))
 PYEOF
 exit 0

@@ -43,7 +43,7 @@ mode_on; outside al "$IG" "$(mkask "" "고를까요?" "$T/outside")" "ⓐ6 BYZ �
 run "$IG" '{깨진 json'; [ "$rc" = 0 ] && [ -z "$out" ] && grep -q 'fail-open' "$T/hook.log"; ck "ⓐ7 깨진 JSON → allow + 로그" $?
 run "$IG" ''; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓐ7b 빈 stdin → allow" $?
 al "$IG" "$(mkbash "ls" "$T")" "ⓐ7c AskUserQuestion 아닌 도구 → allow"
-FT_AUTONOMY_SH=/nonexistent run "$IG" "$(mkask "" "고를까요?")"; [ "$rc" = 0 ] && [ -z "$out" ] && grep -q 'ft-autonomy.sh' "$T/hook.log"; ck "ⓐ8 ft-autonomy.sh 못 찾음 → allow(fail-open) + 로그" $?
+FT_AUTONOMY_SH=/nonexistent run "$IG" "$(mkask "" "고를까요?")"; [ "$rc" = 0 ] && ! grep -q permissionDecision <<<"$out" && grep -q 'systemMessage' <<<"$out" && grep -q '못 읽어' "$T/err" && grep -q 'ft-autonomy.sh' "$T/hook.log"; ck "ⓐ8 ft-autonomy.sh 못 찾음 → allow + 화면 경고(stderr·systemMessage) + 로그 (R176 · 판정 1675 ①)" $?
 
 # ===== ② autonomy-state-guard =====
 mode_on
@@ -121,6 +121,10 @@ mode_off; bal "$MG" "$GH" "ⓔ6 OFF → allow" "$R1"
 mode_tamper; bal "$MG" "$GH" "ⓔ6b 위변조 → allow" "$R1"
 mode_on; outside bal "$MG" "$GH" "ⓔ6c BYZ 밖 → allow" "$T/outside"
 run "$MG" '{깨진'; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓔ7 깨진 JSON → allow" $?
+mode_on; FT_AUTONOMY_SH=/nonexistent dn "$MG" "$(mkbash "$GH --match-head-commit $H" "$R1")" "ⓔ8 도구 못 찾음 → 병합 deny (승인 sha 여도 · R176 · 판정 1675 ①)"
+grep -q '못 읽어' <<<"$out" && grep -q '못 읽음' "$T/hook.log"; ck "ⓔ8b deny 사유 + 로그에 못 읽음" $?
+FT_AUTONOMY_SH=/nonexistent bal "$MG" "git push origin topic" "ⓔ8c 도구 못 찾음 + main 아닌 push → allow" "$R2"
+FT_AUTONOMY_SH=/nonexistent bal "$MG" "gh pr view 7" "ⓔ8d 도구 못 찾음 + 병합 아닌 명령 → allow" "$R1"
 
 # ===== ⓕ ft-proxy-decide push-merge → QUEUE 고정 (판정 1675 · ok 파일 쓰기 0) =====
 printf '%s\n' '- **100** (오빠) x 착수 승인' > "$T/planner/VERDICTS-planner-1.md"
