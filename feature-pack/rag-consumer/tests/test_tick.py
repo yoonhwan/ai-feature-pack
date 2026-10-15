@@ -411,6 +411,16 @@ def test_op_timeout_after_partial_output_is_not_retried(tmp_path, capsys, monkey
     assert (line["code"], line["type"]) == ("OP_READ_UNAVAILABLE", "TimeoutExpired")
 
 
+def test_op_timeout_after_stderr_only_output_is_not_retried(tmp_path, capsys, monkeypatch):
+    item, hooks = synthetic_service(tmp_path)
+    op, attempts = _timed_op(tmp_path, "printf x >&2\nexec sleep 30")  # stdout stays empty, stderr is not
+    _fast_op_limits(monkeypatch, 0.3, 0.9)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    line, _ = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS and _attempt_count(attempts) == 1
+    assert (line["code"], line["type"]) == ("OP_READ_UNAVAILABLE", "TimeoutExpired")
+
+
 def test_op_nonzero_exit_is_not_retried(tmp_path, capsys):
     item, hooks = synthetic_service(tmp_path)
     op, attempts = _timed_op(tmp_path, "exit 5")
