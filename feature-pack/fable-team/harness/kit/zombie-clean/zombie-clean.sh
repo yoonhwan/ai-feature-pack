@@ -82,6 +82,33 @@ cdp_alive_chromes() {
 launchd_pids() { launchctl list 2>/dev/null | awk 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' | tr '\n' ' '; }
 tmux_server_pid() { tmux display -p '#{pid}' 2>/dev/null | tr -d ' ' || true; }
 
+# ③ agent-browser 데몬 pid (R178, 2026-10-14). 데몬은 ppid=1 로 떨어지고 크롬을 포트 0(무작위)으로 띄워
+#    조상 체인 검사(alive)도 포트 검사(cdp_alive_chromes)도 못 잡는다 — 쓰는 중인 시험 크롬이 auto 회차마다 죽었다.
+#    세션 파일(<세션>.pid/.sock/.target)에 «물어본다»: pid 숫자 · kill -0 살아 있음 · .sock 실재 ·
+#    같은 세션 파일 중 가장 최근 mtime 이 ZC_AB_IDLE_MIN(기본 30분) 안 — 넷 다일 때만 그 데몬 pid 를 보호 pid 에 넣는다.
+#    ★닫는 사건★: 세션 파일 없음 · 데몬 죽음 · 마지막 사용이 문턱 밖 중 하나면 넣지 않는다 = 기존대로 정리된다.
+agent_browser_live_pids() {
+    local dir="${ZC_AB_DIR:-$HOME/.agent-browser}" idle="${ZC_AB_IDLE_MIN:-30}" now pf base pid f m newest out=""
+    [[ "$idle" =~ ^[0-9]+$ ]] || idle=30
+    now=$(date +%s)
+    for pf in "$dir"/*.pid; do
+        [[ -f "$pf" ]] || continue
+        base="${pf%.pid}"
+        pid=$(tr -d ' \n' < "$pf" 2>/dev/null)
+        [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || continue
+        kill -0 "$pid" 2>/dev/null || continue
+        [[ -e "$base.sock" ]] || continue
+        newest=0
+        for f in "$base".*; do
+            m=$(stat -f %m "$f" 2>/dev/null || echo 0)
+            (( m > newest )) && newest=$m
+        done
+        (( now - newest <= idle * 60 )) || continue
+        out="$out $pid"
+    done
+    echo "$out"
+}
+
 write_awk() {
 cat > "$AWKF" << 'AWKEOF'
 BEGIN {
@@ -117,6 +144,12 @@ function alive(pid,    p, hop) {
     }
     MEMO[pid] = 0; return 0
 }
+# 바로 위 부모가 스냅샷에 살아 있고 launchd(1)가 아니면 1 — 관찰 루프(nohup·disown)의 sleep/tail 보호 (R178).
+#   부모가 1 이거나 스냅샷에 없으면 0 = 기존대로 정리 (부모 루프가 죽으면 그 sleep 이 ppid=1 로 떨어져 닫힌다).
+function parent_live(pid,    p) {
+    p = PP[pid]
+    return (p != "" && p != 0 && p != 1 && (p in CM)) ? 1 : 0
+}
 END {
     for (pid in CM) if (CM[pid] ~ HOSTRE) print pid > lhfile   # 세션 호스트 → 파이프 검사 소스
     for (pid in CM) {
@@ -125,7 +158,7 @@ END {
         cat = ""
         for (i = 1; i <= NC; i++) if (cmd ~ CR[i]) { cat = CN[i]; break }
         if (cat == "") continue
-        if (alive(pid)) {
+        if (alive(pid) || ((cat == "고아 sleep" || cat == "고아 tail") && parent_live(pid))) {
             LC[cat]++; LR[cat] += RS_[pid]
             print pid > lhfile                                  # 사용중 후보도 파이프 소스에 포함
         } else {
@@ -193,7 +226,7 @@ pipe_rescue() {
 analyze() {
     : > "$ZF"; : > "$TB"; : > "$LH"
     snapshot; write_awk
-    awk -v hostpids="$(self_chain) $(cdp_alive_chromes) $(launchd_pids) $(tmux_server_pid)" \
+    awk -v hostpids="$(self_chain) $(cdp_alive_chromes) $(launchd_pids) $(tmux_server_pid) $(agent_browser_live_pids)" \
         -v zfile="$ZF" -v tbl="$TB" -v lhfile="$LH" -f "$AWKF" "$PS"
     pipe_rescue
     awk -F'|' '{ n++; s += $3 } END { printf "확정 좀비 %d개 · ~%.0fMB\n", n+0, s/1024 }' "$ZF" >> "$TB"
