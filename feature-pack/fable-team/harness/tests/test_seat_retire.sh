@@ -70,7 +70,10 @@ chk "⑥b 구 행 은퇴" "$(J "$R/.fable-team/seats.json" '.["M#1"]._replaced_b
 sed -n '/^python3 - "\$SEATS" "\$NAME"/,/^PY$/p' "$SPAWN" | sed '1d;$d' > "$TMP/spawn_block.py"
 chk "⑦블록 추출(비어 있지 않음)" "$([ -s "$TMP/spawn_block.py" ] && echo yes || echo no)" yes
 S="$TMP/seats-c.json"; printf '%s' '{"_master": "B#1", "_hil_route": "B#1", "B#1": {"role": "master", "agent": "claude", "tick": "ft-master-tick"}, "B#0": {"role": "master", "_replaced_by": "B#1", "tick": null}}' > "$S"
-python3 "$TMP/spawn_block.py" "$S" 'B#2' master claude m2 design/inbox/master B B
+N_BLOCK="$(sed -n "s/^python3 - \(.*\) <<'PY'\$/\1/p" "$SPAWN" | grep -o '"\$[A-Z_]*"' | wc -l | tr -d ' ')"
+BLOCK_ARGS=("$S" 'B#2' master claude m2 design/inbox/master B B "" "" "")  # SEATS NAME ROLE AGENT MODEL INBOX NEW_BASE OLD_BASE RAISE RAISE_CARD FROM
+chk "⑦블록 인자 수 = 시험 인자 수 (스크립트 호출 줄 기준)" "$N_BLOCK" "${#BLOCK_ARGS[@]}"
+python3 "$TMP/spawn_block.py" "${BLOCK_ARGS[@]}"
 chk "⑦옛 행 B#1 닫힘" "$(J "$S" '.["B#1"]|[._replaced_by,.role,._retired_role,(.tick|tostring)]|join(",")')" "B#2,stop-ready,master,null"
 chk "⑦_master·_hil_route → B#2" "$(J "$S" '[._master,._hil_route]|join(",")')" "B#2,B#2"
 chk "⑦새 행 tick 상속·_replaces" "$(J "$S" '.["B#2"]|[.tick,(._replaces|join("+"))]|join(",")')" "ft-master-tick,B#1"
