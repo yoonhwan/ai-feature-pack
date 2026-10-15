@@ -74,7 +74,7 @@ TICK() {
   (cd "$T" && env HOME="$H" PATH="$F:$PATH" FT_TICK_PATH_FIRST="$F" $TICK_X FT_ROOT="$T" FT_TICK_SEATS="$SEATS" FT_TICK_STATE_DIR="$T/state" FT_TICK_STAMP_PREFIX="$T/stamp-" FT_TICK_PIDFILE="$T/tick.pid" \
     FT_TICK_MBOX="$F/mbox.sh" FT_TICK_SEAT_STATUS="$F/seat-status.sh" FT_TICK_AUTONOMY_BIN="$F/autonomy.sh" FT_TICK_RESOURCE_GATE="$F/gate.sh" FT_TICK_ZOMBIE_CLEAN="$F/zc.sh" \
     FT_TICK_RESUME_ATTEMPT="$BIN/ft-resume-attempt.sh" FT_RESUME_STATE="$ATT" ZC_LIVE_DIR="$LIVE" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 \
-    FT_TICK_NEWS_LEDGER=0 FT_TICK_API_OUTAGE=0 FT_TICK_STALL_INTERVAL=9999999999 bash "$BIN/ft-tick.sh" --once 2>&1)
+    FT_TICK_NEWS_LEDGER=0 FT_TICK_API_OUTAGE=0 FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_STALL_INTERVAL=9999999999 bash "$BIN/ft-tick.sh" --once 2>&1)
 }
 RA() { env HOME="$H" PATH="$F:$PATH" FT_ROOT="$T" FT_RESUME_STATE="$ATT" ZC_LIVE_DIR="$LIVE" bash "$BIN/ft-resume-attempt.sh" "$@" 2>&1 | grep -v "setlocale"; }   # C.UTF-8 에서 bash 가 stderr 에 내는 로케일 경고는 값 비교에서 뺀다
 

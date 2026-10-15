@@ -35,7 +35,13 @@ plutil -extract KeepAlive raw "$P" >/dev/null 2>&1 && bad "KeepAlive 가 있다"
 [ "$(plutil -extract EnvironmentVariables.GH_REPO raw "$P")" = "o/r" ] && [ "$(plutil -extract EnvironmentVariables.MAGAZINE_CHANNEL raw "$P")" = "C9" ] && ok "환경값 치환" || bad "환경값"
 [ "$(plutil -extract EnvironmentVariables.MAGAZINE_MALFORMED_CARDS raw "$P")" = "report" ] && ok "형식 미달 카드 opt-in(report)" || bad "MAGAZINE_MALFORMED_CARDS=report 없음"
 grep -q '__[A-Z_]*__' "$P" && bad "미치환 토큰 남음" || ok "미치환 토큰 0"
-grep -q "$T/home/.hermes/scripts/byz_morning_magazine.py" "$P" && ok "스크립트 경로" || bad "스크립트 경로"
+# R184 ⓐ 08:00 예약 명령 = 발행 길(magazine_from_news.sh --publish) · --emit-model 단독 아님 · FT_ROOT 주입
+grep -q "$T/home/.hermes/scripts/magazine_from_news.sh" "$P" && grep -q '<string>--publish</string>' "$P" && ok "ⓐ 예약 명령 = magazine_from_news.sh --publish" || bad "ⓐ 예약 명령이 발행 길이 아님"
+grep -q -- '--emit-model' "$P" && bad "ⓐ 발행 예약에 --emit-model 이 남음(게시 0 모드)" || ok "ⓐ 발행 예약에 --emit-model 0"
+[ "$(plutil -extract EnvironmentVariables.FT_ROOT raw "$P")" = "$T/root" ] && ok "ⓐ FT_ROOT 주입" || bad "ⓐ FT_ROOT"
+PM="$T/home/Library/LaunchAgents/com.byz.ft-magazine-model.plist"
+plutil -lint "$PM" >/dev/null 2>&1 && grep -q -- '--emit-model' "$PM" && grep -q "$T/root/.fable-team/state/sheet-story.json" "$PM" && ok "ⓐ 시트 모델 예약은 별 Label(--emit-model)" || bad "ⓐ 별 Label 예약"
+[ -x "$T/home/.hermes/scripts/magazine_from_news.sh" ] && ok "magazine_from_news.sh 설치(+x)" || bad "magazine_from_news.sh 미설치"
 [ -f "$T/home/.hermes/scripts/magazine_publish.py" ] && ok "모듈 복사" || bad "모듈 복사"
 [ -f "$T/launchctl.calls" ] && bad "--load 없이 launchctl 호출됨" || ok "launchctl 호출 0"
 [ -e "$T/root/.worktrees/ops-magazine/.git" ] && [ "$(git -C "$T/root/.worktrees/ops-magazine" rev-parse --abbrev-ref HEAD)" = "ops/magazine" ] && ok "ops/magazine 워크트리 생성" || bad "워크트리 생성"
@@ -48,5 +54,12 @@ ls "$T/home/.hermes/scripts"/magazine_publish.py.bak-* >/dev/null 2>&1 && ok ".b
 # --load 일 때만 launchctl
 run --load >/dev/null
 grep -q "bootstrap" "$T/launchctl.calls" 2>/dev/null && ok "--load 는 bootstrap 호출" || bad "--load 인데 bootstrap 없음"
+
+# R184 ⓑ disabled 인데 --load → rc 1 + ERROR · enable/bootstrap 호출 0 (몰래 켜지 않는다)
+: > "$T/launchctl.calls"
+printf '#!/usr/bin/env bash\necho "$@" >> "%s/launchctl.calls"\n[ "$1" = print-disabled ] && printf "disabled services = {\\n\\t\\"com.byz.ft-magazine\\" => disabled\\n}\\n"\nexit 0\n' "$T" > "$T/bin/launchctl"
+OUTD="$(run --load)"; rcd=$?
+[ $rcd -eq 1 ] && echo "$OUTD" | grep -q 'ERROR 예약이 꺼져 있음(disabled): com.byz.ft-magazine' && ok "ⓑ disabled + --load → rc 1 + ERROR" || bad "ⓑ rc=$rcd: $OUTD"
+grep -qE '^(enable|bootstrap|bootout)' "$T/launchctl.calls" && bad "ⓑ disabled 인데 enable/bootstrap/bootout 호출됨" || ok "ⓑ enable·bootstrap 호출 0"
 
 [ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

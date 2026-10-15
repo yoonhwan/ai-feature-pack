@@ -100,7 +100,7 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> s
     upload_file(target, root_ts, html_path, f"매거진 {date} · 오빠 확인판", "text/html")
     state[key] = {"root_ts": root_ts, "uploaded": True}
     save_state(state_path, state)
-    return f"published {key} root_ts={root_ts} html={html_path.name}"
+    return f"published date={date} {key} root_ts={root_ts} html={html_path.name}"  # 08:15 점검(ft-magazine-check.sh)이 «published date=<오늘>» 줄을 찾는다
 
 
 def run(args: argparse.Namespace) -> int:

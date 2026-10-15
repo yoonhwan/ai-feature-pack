@@ -503,6 +503,23 @@ idle_long_watch() {
   done <<< "$rows"
 }
 
+# ★예약 감시 (R184)★ — 08:15 아침 매거진 미발행 경보(ft-magazine-check.sh · _hil_route 가 있는 팀 틱만 · 같은 날 1회는 도구의 표식) + 기대 예약표의 꺼진 예약 점검(ft-launchd-check.sh · 출력이 «바뀔 때만» 로그 1줄).
+#   FT_TICK_LAUNCHD=0 은 두 점검 전부 · FT_TICK_MAGAZINE=0 은 08:15 매거진 경보만 끈다(ft-tick 을 실제로 도는 시험은 두 스위치를 «명시 설정» — 임시 HOME 의 로그 부재에 기대지 않는다). 두 도구 모두 로컬 파일·launchctl 만 읽는다.
+launchd_watch() {
+  local out sig
+  [ "${FT_TICK_LAUNCHD:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=launchd-watch magazine=$HERE/ft-magazine-check.sh launchd=$HERE/ft-launchd-check.sh"; return 0; fi
+  if [ "${FT_TICK_MAGAZINE:-1}" = 1 ] && grep -q '"_hil_route": *"' "$SEATS" 2>/dev/null && [ -f "$HERE/ft-magazine-check.sh" ]; then
+    out="$(FT_MAG_SEATS="$SEATS" bash "$HERE/ft-magazine-check.sh" 2>&1)"; case "$out" in ALERT*|ERROR*) log "launchd_watch: $out";; esac
+  fi
+  [ -f "$HERE/ft-launchd-check.sh" ] || return 0
+  out="$(FT_LDC_SEATS="$SEATS" bash "$HERE/ft-launchd-check.sh" 2>&1)"; mkdir -p "$STATE_DIR"
+  sig="$(printf '%s' "$out" | cksum | cut -d' ' -f1)"
+  [ "$sig" = "$(cat "$STATE_DIR/launchd.sig" 2>/dev/null)" ] && return 0
+  printf '%s' "$sig" > "$STATE_DIR/launchd.sig"; [ -n "$out" ] && log "launchd_watch: ${out//$'\n'/ | }"
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to master mok
   live_snapshot
@@ -514,6 +531,7 @@ pass() {
   sweep_wt
   drift_watch
   raised_watch
+  launchd_watch
   news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }

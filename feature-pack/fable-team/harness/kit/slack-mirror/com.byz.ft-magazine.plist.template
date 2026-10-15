@@ -5,9 +5,9 @@
   <key>Label</key><string>com.byz.ft-magazine</string>
   <key>ProgramArguments</key>
   <array>
-    <string>__PY__</string>
-    <string>__HOME__/.hermes/scripts/byz_morning_magazine.py</string>
-    <string>--emit-model</string><string>__BYZ_ROOT__/.fable-team/state/sheet-story.json</string>
+    <string>/bin/bash</string>
+    <string>__HOME__/.hermes/scripts/magazine_from_news.sh</string>
+    <string>--publish</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
@@ -19,6 +19,7 @@
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>BYZ_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
     <key>GH_REPO</key><string>__REPO__</string>
     <key>MAGAZINE_CHANNEL</key><string>__CHANNEL__</string>
     <key>MAGAZINE_MALFORMED_CARDS</key><string>report</string>
