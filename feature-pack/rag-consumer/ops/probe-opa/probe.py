@@ -187,13 +187,89 @@ class Budget:
 
 
 # ------------------------------------------------------------------------------------------- the children
+GUARD_JOIN_S = 1.0  # the most that is waited for the deadline timer's callback to be shown finished
+
+
+class _Deadline:
+    """The attempt deadline during the PID record only, as one ownership protocol with the main thread.
+
+    The timer's callback is the only code that touches the child while the record is written, and it decides
+    and kills under ``lock``. ``stop`` marks the guard cancelled under the same lock and then waits (bounded) for
+    the timer thread, so when it returns True no callback runs or can still run: the main thread owns the child
+    alone from there on (communicate / kill / wait never overlap with the callback)."""
+
+    def __init__(self, proc: subprocess.Popen, seconds: float):
+        self.proc = proc
+        self.lock = threading.Lock()
+        self.cancelled = False
+        self.fired = False
+        self.timer = threading.Timer(max(0.0, seconds), self._expire)
+        self.timer.daemon = True
+
+    def start(self) -> None:
+        self.timer.start()
+
+    def _expire(self) -> None:
+        with self.lock:
+            if self.cancelled:
+                return
+            if self.proc.poll() is None:  # the direct child, still ours (not yet reaped by anybody)
+                self.fired = True
+                try:
+                    self.proc.kill()
+                except OSError:
+                    pass
+
+    def stop(self) -> bool:
+        """True once no callback is running or can run; False when that could not be shown in time."""
+        if not self.lock.acquire(timeout=GUARD_JOIN_S):
+            return False  # a callback is still deciding/killing
+        try:
+            self.cancelled = True
+        finally:
+            self.lock.release()
+        self.timer.cancel()
+        if self.timer.is_alive():
+            self.timer.join(GUARD_JOIN_S)
+        return not self.timer.is_alive()
+
+
+def _end_child(proc: subprocess.Popen, info: dict, budget: Budget) -> None:
+    """End our direct child and take it back in finite time: kill (direct child only — never a group, a shared
+    daemon or a descendant), a separate bounded wait, a bounded pipe drain, then close the read ends."""
+    try:
+        proc.kill()
+    except OSError:
+        pass
+    try:
+        proc.wait(timeout=REAP_WAIT_S)
+        info.update(rc=proc.returncode, child_exited=True, reaped=True)
+    except subprocess.TimeoutExpired:
+        info.update(child_exited=False, child_exit_unconfirmed=True)
+    if info["child_exited"]:
+        try:
+            with budget.charge():
+                proc.communicate(timeout=min(budget.remaining(), PIPE_DRAIN_S))
+        except (subprocess.TimeoutExpired, ValueError, OSError):
+            info["descendants_may_hold_pipe"] = True
+    else:
+        info["descendants_may_hold_pipe"] = True
+    for stream in (proc.stdout, proc.stderr):
+        if stream:
+            try:
+                stream.close()
+            except OSError:
+                pass
+    info["stdout"] = info["stderr"] = b""  # nothing of an unfinished attempt is kept
+
+
 def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, budget: Budget) -> dict:
     """One attempt, no retry, one deadline fixed *before* the process starts (start-up and the PID record are
     part of the 7 seconds; only what is left is handed to ``communicate``).
 
-    kill() touches the direct child only. Exit confirmation (wait) and pipe draining are separate and each
-    bounded; a descendant that keeps the pipe open is never waited for (the read ends are just closed).
-    """
+    From the moment Popen succeeds every path ends the child (our direct child only): a timer that cannot start,
+    a failing record, an interrupt. A deadline timer enforces the attempt while the PID is recorded and is then
+    handed back (see ``_Deadline``) before this thread communicates, waits or kills."""
     info = {"status": "observation_unknown", "rc": None, "child_pid": None, "child_exited": None, "reaped": False,
             "child_exit_unconfirmed": False, "descendants_may_hold_pipe": False, "stdout": b"", "stderr": b""}
     deadline = time.monotonic() + ATTEMPT_S
@@ -208,59 +284,37 @@ def run_child(step: str, argv: list[str], env: dict[str, str], book: PidBook, bu
         book.after(step, None)
         info["status"] = "spawn_error"
         return info
-    # The deadline is enforced by its own timer from the moment the child exists, so a slow PID record (ps, file
-    # write) can never delay the first kill; the timer touches the direct child only.
-    fired = threading.Event()
-
-    def expire() -> None:
-        if proc.poll() is None:
-            fired.set()
-            try:
-                proc.kill()
-            except OSError:
-                pass
-
-    timer = threading.Timer(max(0.0, deadline - time.monotonic()), expire)
-    timer.daemon = True
-    timer.start()
+    info["child_pid"] = proc.pid
+    guard = _Deadline(proc, deadline - time.monotonic())
+    recorded = False
     try:
+        guard.start()
         book.after(step, proc.pid)
-        info["child_pid"] = proc.pid
-        remaining = deadline - time.monotonic()
-        timed_out = remaining <= 0 or fired.is_set()
-        if not timed_out:
-            try:
-                info["stdout"], info["stderr"] = proc.communicate(timeout=remaining)
-                timed_out = fired.is_set()
-                if not timed_out:
-                    info.update(rc=proc.returncode, child_exited=True, reaped=True, status="success")
-                    return info
-            except subprocess.TimeoutExpired:
-                timed_out = True
-    finally:
-        timer.cancel()
-    info["status"] = "timeout"
-    info["stdout"] = info["stderr"] = b""  # nothing of a timed-out attempt is kept
-    proc.kill()  # the direct child only: never a group, never a shared daemon, never a descendant
-    try:
-        proc.wait(timeout=REAP_WAIT_S)
-        info.update(rc=proc.returncode, child_exited=True, reaped=True)
-    except subprocess.TimeoutExpired:
-        info.update(child_exited=False, child_exit_unconfirmed=True)
-    if info["child_exited"]:
+        recorded = True
+    except Exception:  # a timer that cannot start or a record that failed: no enforcement left, so end the child
+        recorded = False
+    except BaseException:
+        guard.stop()
+        _end_child(proc, info, budget)
+        raise
+    if not guard.stop():  # a callback could not be shown finished: nothing is taken back here, say so
+        info.update(status="observation_unknown", child_exit_unconfirmed=True)
+        return info
+    if not recorded:
+        _end_child(proc, info, budget)
+        info["status"] = "observation_unknown"
+        return info
+    remaining = deadline - time.monotonic()
+    timed_out = remaining <= 0 or guard.fired
+    if not timed_out:
         try:
-            with budget.charge():
-                proc.communicate(timeout=min(budget.remaining(), PIPE_DRAIN_S))
+            info["stdout"], info["stderr"] = proc.communicate(timeout=remaining)
+            info.update(rc=proc.returncode, child_exited=True, reaped=True, status="success")
+            return info
         except subprocess.TimeoutExpired:
-            info["descendants_may_hold_pipe"] = True
-    else:
-        info["descendants_may_hold_pipe"] = True
-    for stream in (proc.stdout, proc.stderr):
-        if stream:
-            try:
-                stream.close()
-            except OSError:
-                pass
+            pass
+    info["status"] = "timeout"
+    _end_child(proc, info, budget)
     return info  # partial output is not kept: stdout/stderr stay empty
 
 

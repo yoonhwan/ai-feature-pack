@@ -1114,3 +1114,35 @@ def test_m1_the_expiry_boundary_always_ends_in_one_consistent_state(tmp_path, mo
         outcomes.add(info["status"])
         assert wait_until(lambda: not alive(info["child_pid"]), 0.3)
     assert live_timers() == []
+
+
+def test_m1_a_callback_that_cannot_be_shown_finished_is_reported_unconfirmed_not_reaped(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.2)
+    monkeypatch.setattr(probe, "GUARD_JOIN_S", 0.2)
+    book, budget, run = run_sleep_child(probe, tmp_path)
+    real_ps = probe.ps_line
+    monkeypatch.setattr(probe, "ps_line", lambda pid: (time.sleep(0.3), real_ps(pid))[1])
+    real_kill = subprocess.Popen.kill
+    release = threading.Event()
+
+    def stuck_kill(self):
+        if self.args and self.args[0] == "/bin/sleep" and threading.current_thread() is not threading.main_thread():
+            release.wait(2.0)  # the callback is stuck inside the signal step
+        return real_kill(self)
+
+    monkeypatch.setattr(subprocess.Popen, "kill", stuck_kill)
+    started = time.monotonic()
+    info = run()
+    try:
+        assert time.monotonic() - started < 1.5  # bounded: it did not wait for the stuck callback
+        assert info["status"] == "observation_unknown" and info["child_exit_unconfirmed"] is True
+        assert info["reaped"] is False and info["child_pid"] is not None
+        assert info["child_pid"] in {c["pid"] for c in book.document["children"]}  # the shell clean-up can find it
+    finally:
+        release.set()
+        time.sleep(0.2)
+        try:
+            os.kill(info["child_pid"], signal.SIGKILL)
+        except OSError:
+            pass
