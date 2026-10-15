@@ -21,6 +21,7 @@ GL="$(bash "$HERE/ft-issue-close-check.sh" "${CARGS[@]}")"; RC=$?   # 거절 문
 [ $RC -eq 3 ] || exit $RC
 KIND="$(sed -n 's/^GATE .*kind=\([^ ]*\).*/\1/p' <<<"$GL")"; MARKER="$(sed -n 's/^GATE .*marker=\([01]\).*/\1/p' <<<"$GL")"
 LABEL="$(sed -n 's/^GATE .*label=\([01]\).*/\1/p' <<<"$GL")"; REASON="$(sed -n 's/^GATE .* reason=//p' <<<"$GL")"
+case "$KIND" in proposal_unapproved|proposal_incomplete) exit 3;; esac   # R234 · 승인 전·링크 없는 제안 Issue — 관찰 상태가 아니라 «아직 닫을 수 없음» · 쓰기 0
 
 if [ "$APPLY" != 1 ]; then
   echo "DRY 거절 시 쓰기(apply 면): ${CFILE:+①거절 코멘트 보존(comment) }$([ "$MARKER" = 0 ] && echo '②관찰 시작 마커(comment) ')$([ "$LABEL" = 0 ] && echo '③라벨 status:observing(label)')"

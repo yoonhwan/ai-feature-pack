@@ -155,6 +155,64 @@ mkstate "$S" '[]' "소유 오케=x"; w "$SIX"
 wrap close 9000 --comment "$CF" --reason not-planned
 [ $RC -eq 0 ] && grep -q "DRY as=byz-tank gh issue close 9000" <<<"$OUT" && ok "⑥ not-planned → 게이트 생략 · DRY close" || bad "⑥ rc=$RC $OUT"
 
+# ⑦ 제안 Issue(proposal 라벨) 는 approved 라벨 없이 닫지 않는다 (R234 · 판정 1874) — 쓰기 0 · 관찰 마커·라벨 0
+mkstate "$S" '[{"name":"proposal"}]' "$Y0"; w "$Y0"; : > "$LOG"
+gate "$S" 1 "$CF"
+[ $RC -eq 3 ] && grep -q "approved" <<<"$OUT" && [ ! -s "$LOG" ] && ! has_label "$S" && ok "⑦ proposal·approved 없음 → rc=3 · 쓰기 0" || bad "⑦ rc=$RC log=$(cat "$LOG") $OUT"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]' "$Y0"; w "$Y0"
+gate "$S" 0 "$CF"; [ $RC -eq 0 ] && ok "⑦b proposal+approved → 통과" || bad "⑦b rc=$RC $OUT"
+mkstate "$S" '[]' "$Y0"; w "$Y0"
+gate "$S" 0 "$CF"; [ $RC -eq 0 ] && ok "⑦c proposal 라벨 없는 이슈는 영향 0" || bad "⑦c rc=$RC $OUT"
+
+# ⑧ 제안 마무리 경로 (R234 교정 1) — proposal+approved+링크+「처리: 마무리」 = 버그 8항·7·8항 평가 0
+setbody() { jq --arg b "$1" '.body=$b' "$S" > "$S.t" && mv "$S.t" "$S"; }
+LNK='제안서: design/harness/PROPOSAL-x.md'
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처리: 마무리'; w ""; : > "$LOG"
+gate "$S" 1 ""; K="$(bash "$BIN/ft-issue-close-check.sh" 9000 --gate --from-json "$S" 2>&1)"
+[ $RC -eq 0 ] && grep -q "kind=proposal_close" <<<"$K" && [ ! -s "$LOG" ] && ok "⑧ 링크+처리: 마무리 → rc0 proposal_close(7·8항 없이)" || bad "⑧ rc=$RC $OUT $K"
+bash "$BIN/ft-issue-close-check.sh" 9000 --from-json "$S" >/dev/null 2>&1 && ok "⑧ 전체 검사도 PASS(PR·재현 8항 평가 0)" || bad "⑧ 전체 검사 실패"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody $'처리: 마무리'; : > "$LOG"
+gate "$S" 1 ""; K="$(bash "$BIN/ft-issue-close-check.sh" 9000 --gate --from-json "$S" 2>&1)"
+[ $RC -eq 3 ] && grep -q "kind=proposal_incomplete" <<<"$K" && grep -q "링크" <<<"$OUT" && [ ! -s "$LOG" ] && ! has_label "$S" && ok "⑧b 링크 없음 → rc3 proposal_incomplete · 쓰기 0" || bad "⑧b rc=$RC log=$(cat "$LOG") $OUT $K"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처리: 발주(harness)'; gate "$S" 0 ""
+[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && ok "⑧c 처리: 발주 → 일반 경로(7·8항 요구)" || bad "⑧c rc=$RC $OUT"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처리: 마무리|발주(<팀>)'; gate "$S" 0 ""
+[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && ok "⑧d 미기입 견본(마무리|발주) → 일반 경로" || bad "⑧d rc=$RC $OUT"
+mkstate "$S" '[{"name":"proposal"}]'; setbody "$LNK"$'\n처리: 마무리'; gate "$S" 0 ""
+[ $RC -eq 3 ] && grep -q "approved" <<<"$OUT" && ok "⑧e approved 없음은 ⑦ 그대로 rc3" || bad "⑧e rc=$RC $OUT"
+
+# ⑨ 처리:·링크 출처 = 본문 + byz-tank 코멘트만 (R234 교정 2) — 남의 코멘트 «처리: 마무리» 는 무시
+addc() { jq --arg l "$1" --arg b "$2" '.comments += [{author:{login:$l},body:$b}]' "$S" > "$S.t" && mv "$S.t" "$S"; }
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"; addc someone $'처리: 마무리'; gate "$S" 0 ""
+[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && ok "⑨ 남의 코멘트 처리: 마무리 → 무시(일반 경로)" || bad "⑨ rc=$RC $OUT"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"; addc byz-tank $'처리: 마무리'; gate "$S" 0 ""
+[ $RC -eq 0 ] && ok "⑨b byz-tank 코멘트 처리: 마무리 → proposal_close" || bad "⑨b rc=$RC $OUT"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody $'처리: 마무리'; addc someone "$LNK"; gate "$S" 0 ""
+[ $RC -eq 3 ] && grep -q "링크" <<<"$OUT" && ok "⑨c 남의 코멘트 링크는 인정 0 → incomplete" || bad "⑨c rc=$RC $OUT"
+mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처리: 마무리'; addc someone $'처리: 발주(harness)'; gate "$S" 0 ""
+[ $RC -eq 0 ] && ok "⑨d 본문 마무리 + 남의 코멘트 발주 → 남의 줄 무시 → 통과" || bad "⑨d rc=$RC $OUT"
+
+# ⑩ 링크·마무리 값 엄격화 (R234 교정 3 · DA⑥ HOLD2 H1·H2)
+pcase() { # pcase <기대 rc> <이름> <본문> — proposal+approved 본문 출처 · 7·8항 증거 없음
+  mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$3"; gate "$S" 0 ""
+  [ $RC -eq "$1" ] && ok "⑩ $2 → rc=$1" || bad "⑩ $2 기대 rc=$1 실제 rc=$RC $OUT"; }
+BLOB='https://github.com/SecondWindStudio/byz-agents/blob'
+pcase 3 "H1 blob/ 만(ref·경로 없음)"      $'제안서: https://github.com/o/r/blob/\n처리: 마무리'
+pcase 3 "H1 design/x.md.bak"              $'제안서: design/harness/P.md.bak\n처리: 마무리'
+pcase 3 "H1 design/x.mdx"                 $'제안서: design/harness/P.mdx\n처리: 마무리'
+pcase 3 "H1 다른 저장소 blob"              $'제안서: https://github.com/o/r/blob/main/design/P.md\n처리: 마무리'
+pcase 3 "H1 blob ref 만(경로 없음)"        $"제안서: $BLOB/main"$'\n처리: 마무리'
+pcase 0 "H1 우리 저장소 blob .md"          $"제안서: $BLOB/main/design/harness/P.md"$'\n처리: 마무리'
+pcase 0 "H1 design/…md 줄끝"               $'제안서: design/harness/P.md\n처리: 마무리'
+pcase 0 "H1 design/…md) 괄호 끝"           $'제안서 (design/harness/P.md)\n처리: 마무리'
+pcase 0 "H1 design/…md#절 앵커 끝"          $'제안서: design/harness/P.md#결론\n처리: 마무리'
+pcase 3 "H2 마무리-발주(harness)"          $'제안서: design/harness/P.md\n처리: 마무리-발주(harness)'
+pcase 3 "H2 마무리발주"                    $'제안서: design/harness/P.md\n처리: 마무리발주'
+pcase 3 "H2 마무리 · 발주 연계(발주 포함)"  $'제안서: design/harness/P.md\n처리: 마무리 · 발주 연계'
+pcase 3 "H2 마무리·설명(공백 없음)"         $'제안서: design/harness/P.md\n처리: 마무리·조사 끝'
+pcase 0 "H2 마무리 · 설명"                 $'제안서: design/harness/P.md\n처리: 마무리 · 조사 끝'
+pcase 0 "H2 마무리 — 설명"                 $'제안서: design/harness/P.md\n처리: 마무리 — 조사 끝'
+
 # 래퍼 1줄 · 줄 수 · 미러
 [ "$(wc -l < "$BIN/ft-gh-as-tank.sh" | tr -d ' ')" -le 200 ] && ok "ft-gh-as-tank.sh ≤ 200줄" || bad "ft-gh-as-tank.sh 줄 수 $(wc -l < "$BIN/ft-gh-as-tank.sh")"
 for f in ft-issue-close-check.sh ft-issue-close-gate.sh ft-gh-as-tank.sh; do

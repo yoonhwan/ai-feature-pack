@@ -32,13 +32,13 @@ if [ -n "$FROM_JSON" ]; then
 else
   TO="$(command -v timeout || command -v gtimeout)" || { echo "timeout(coreutils) 필요 — 7초 룰" >&2; exit 2; }
   for TRY in 1 2; do   # 7초 + 재시도 1
-    JSON="$("$TO" "${FT_GATE_TIMEOUT_S:-7}" gh issue view "$N" --json number,state,title,labels,comments,closedByPullRequestsReferences 2>&1)" && break
+    JSON="$("$TO" "${FT_GATE_TIMEOUT_S:-7}" gh issue view "$N" --json number,state,title,body,labels,comments,closedByPullRequestsReferences 2>&1)" && break
     [ "$TRY" = 2 ] && { echo "gh issue view $N 실패: $JSON" >&2; exit 2; }
   done
 fi
 if [ -n "$EXTRA" ]; then
   [ -f "$EXTRA" ] || { echo "extra 코멘트 파일 없음: $EXTRA" >&2; exit 2; }
-  JSON="$(jq --rawfile b "$EXTRA" '.comments += [{body:$b}]' <<<"$JSON")"
+  JSON="$(jq --rawfile b "$EXTRA" --arg tank "${FT_TANK_LOGIN:-byz-tank}" '.comments += [{author:{login:$tank},body:$b}]' <<<"$JSON")"   # 곧 올릴 코멘트 = Tank 래퍼가 올린다
 fi
 if [ -n "$HAS_TOKEN" ]; then jq -e --arg t "token=$HAS_TOKEN" '[.comments[].body | select(contains($t))] | length > 0' <<<"$JSON" >/dev/null; exit $?; fi
 
@@ -105,7 +105,26 @@ gate_eval() { # → G_RC(0|3) G_KIND G_MSG G_MARKER G_LABEL G_REASON
     G_KIND=n_or_hold; G_MSG="REJECT close #$N — 원인 확정=$K7 · 같은 증상 보류=$V8 → 닫지 않고 «관찰 중»(status:observing). 닫는 조건 = 오빠 폰에서 서로 다른 판(sha) 2회 재현 0 — 코멘트에 「관찰: 판=<40hex> · 결과=재현 0 · 판정=<번호>」 2줄(판이 서로 달라야 함)."
   else G_RC=0; G_KIND=pass; fi
 }
+proposal_close_eval() { # R234 교정 1 · 제안 마무리 경로 → P_RC: 0 통과 · 3 미비 · 9 해당 없음(일반 경로)
+  local ALLTXT P
+  P_RC=9; P_KIND=""; P_MSG=""
+  jq -e '[.labels[]?.name] as $l | ($l | index("proposal")) and ($l | index("approved"))' <<<"$JSON" >/dev/null 2>&1 || return 0
+  ALLTXT="$(jq -r --arg tank "${FT_TANK_LOGIN:-byz-tank}" '[.body // "", (.comments[] | select(.author.login == $tank) | .body)] | join("\n")' <<<"$JSON")"   # 출처 = 본문 + Tank 코멘트만
+  P="$(jq -rn --arg t "$ALLTXT" --arg p "$KEYP" '[$t | split("\n")[] | select(test($p + "처리\\s*[:：]"))] | last // empty | sub($p + "처리\\s*[:：]\\s*"; "") | sub("\\s+$"; "")')"
+  case "$P" in *발주*) return 0;; esac   # 값에 «발주» 가 들어 있으면 언제나 일반 경로(교정 3 H2)
+  jq -en --arg v "$P" '$v | test("^마무리(\\s+[·—]\\s+.+)?$")' >/dev/null 2>&1 || return 0   # 정확히 «마무리» 또는 «마무리 · 설명»/«마무리 — 설명» 만 · 견본·발주·없음 = 일반 경로
+  local END='([[:space:])#]|$)' REPO_SLUG="${GH_REPO:-SecondWindStudio/byz-agents}"   # 링크 끝 규칙(교정 3 H1): .md 뒤가 공백·줄끝·)·# 일 때만
+  if grep -Eq "(^|[^[:alnum:]_./-])design/[^[:space:])#]*\.md$END|https://github\.com/$REPO_SLUG/blob/[^[:space:])#]+/[^[:space:])#]+\.md$END" <<<"$ALLTXT"; then P_RC=0; P_KIND=proposal_close
+  else P_RC=3; P_KIND=proposal_incomplete; P_MSG="REJECT close #$N — 「처리: 마무리」 인데 제안서 링크(design/….md 경로 또는 우리 저장소 github blob/<ref>/<경로>.md URL)가 본문·Tank 코멘트에 없음."; fi
+}
 if [ "$GATE" = 1 ]; then
+  if jq -e '[.labels[]?.name] as $l | ($l | index("proposal")) and (($l | index("approved")) | not)' <<<"$JSON" >/dev/null 2>&1; then   # R234 · 제안 Issue = approved 라벨 없이 닫지 않는다
+    echo "REJECT close #$N — 제안 Issue(proposal)에 approved 라벨 없음 — 오빠 승인(R77 게이트) 뒤에만 닫는다." >&2
+    echo "GATE rc=3 kind=proposal_unapproved marker=1 label=1 reason=approved 라벨 없음"; exit 3
+  fi
+  proposal_close_eval
+  [ "$P_RC" -eq 0 ] && { echo "GATE rc=0 kind=$P_KIND"; exit 0; }   # 버그 8항·7·8항 평가 0
+  [ "$P_RC" -eq 3 ] && { echo "$P_MSG" >&2; echo "GATE rc=3 kind=$P_KIND marker=1 label=1 reason=제안서 링크 없음"; exit 3; }
   gate_eval
   [ "$G_RC" -eq 0 ] && { echo "GATE rc=0 kind=$G_KIND"; exit 0; }
   echo "$G_MSG" >&2; echo "GATE rc=3 kind=$G_KIND marker=$G_MARKER label=$G_LABEL reason=$G_REASON"; exit 3
@@ -113,6 +132,9 @@ fi
 
 STATE="$(jq -r '.state' <<<"$JSON")"
 echo "Issue #$N state=$STATE title=$(jq -r '.title' <<<"$JSON")"
+proposal_close_eval   # R234 교정 1 · 제안 마무리 경로는 버그용 8항 대신 링크+처리 줄만 본다
+[ "$P_RC" -eq 0 ] && { echo "PASS #$N 제안 마무리(approved + 제안서 링크 + 처리: 마무리)"; exit 0; }
+[ "$P_RC" -eq 3 ] && { echo "FAIL #$N ${P_MSG#REJECT close #$N — }"; exit 1; }
 
 MISS=0
 for ITEM in "닫는 사건" "PR" "재현 PASS" "정리" "기록"; do
