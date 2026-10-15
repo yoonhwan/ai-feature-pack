@@ -38,6 +38,7 @@ for W in "$ROOT"/.worktrees/v65-*; do
   N=$(git -C "$W" log --oneline feat/v6-realtime-live..HEAD 2>/dev/null | wc -l | tr -d ' ')
   [ "${N:-0}" != "0" ] && printf "%-46s 미랜딩=%s\n" "$(basename "$W")" "$N"
 done
+HL=$(bash "$WT/.fable-team/bin/ft-head-lag.sh" --summary --repo "$WT" 2>/dev/null); [ -z "$HL" ] || { echo; echo "$HL"; }   # R243: 베이스 뒤처짐 1줄(0곳이면 줄 0)
 echo; echo "════ ⑤ 라이브 값 ════"
 R=v6-realtime-live-redis-1
 echo "PEL=$(docker exec $R redis-cli --no-auth-warning XINFO GROUPS lst_stt_requests 2>/dev/null | sed -n '6p') lease=$(docker exec $R redis-cli --no-auth-warning EVAL "local c=0 local cur='0' repeat local r=redis.call('SCAN',cur,'MATCH','lst_stt_requests:lease:*','COUNT',5000) cur=r[1] c=c+#r[2] until cur=='0' return c" 0 2>/dev/null) $(docker exec $R redis-cli --no-auth-warning INFO memory 2>/dev/null | grep used_memory_human | tr -d '\r')"
