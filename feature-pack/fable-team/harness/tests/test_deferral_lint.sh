@@ -164,6 +164,15 @@ gate_in "$T/m6" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q '
 mkmerge m7 main; main_adds_inflow m7
 ( cd "$T/m7" && printf '# 적용 후 별건으로 되살린다\n# → 카드 design/t/indices/c.md\nz = 3\n' >> src/inflow.py && git add src/inflow.py && git commit -qm "feat same text with card" )
 gate_in "$T/m7" "git push origin feat"; [ $RC -eq 0 ] && ok "병합(g): main 유입 옛 줄과 같은 글자 새 줄(카드 참조 있음) → 허용 · 옛 줄 REJECT 0" || bad "병합(g) → rc=$RC $OUT"
+
+# ── 병합 유입에 비UTF8 바이트(0xce) — 표준입력도 파일 쪽과 같은 errors="replace" 로 읽어야 «필터 실패» 가 아니다 (R240) ──
+main_adds_inflow8() {  # main 에 비UTF8 바이트가 든 파일 1개 커밋 → origin/main push → feat 로 복귀해 병합
+  ( cd "$T/$1" && git checkout -q main && printf 'x = 1  # \xce\n' > src/inflow8.py && git add -A && git commit -qm inflow8 \
+    && git push -q origin main 2>/dev/null && git checkout -q feat && git merge -q --no-edit origin/main ); }
+mkmerge m8 main; main_adds_inflow8 m8
+gate_in "$T/m8" "git push origin feat"; [ $RC -eq 0 ] && ! echo "$OUT" | grep -q '필터 실패' && ok "병합(h): main 유입에 비UTF8 바이트 → 필터 실패 0 · 허용" || bad "병합(h) → rc=$RC $OUT"
+mkmerge m9 main; main_adds_inflow8 m9; feat_adds m9 src/newbad.py
+gate_in "$T/m9" "git push origin feat"; [ $RC -eq 2 ] && echo "$OUT" | grep -q 'REJECT src/newbad.py:2' && ! echo "$OUT" | grep -q '필터 실패' && ok "병합(i): 비UTF8 유입 + feat 새 유예 줄 → 차단 유지 · 그 줄 지목" || bad "병합(i) → rc=$RC $OUT"
 cd "$T"
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "FAILED $fail"
