@@ -986,3 +986,131 @@ def test_m1_selftest_python_side_bad_number_gives_a_fixed_error(sb):
                           capture_output=True, text=True, timeout=30)
     assert CANARY not in proc.stdout + proc.stderr and "Traceback" not in proc.stderr
     assert proc.returncode == 2
+
+
+# ---------------------------------------------------------------------------------------------------------
+# DA r3 (REJECT 1/1): the deadline timer and the main thread share one ownership protocol
+import threading  # noqa: E402
+
+
+def live_timers() -> list:
+    return [t for t in threading.enumerate() if isinstance(t, threading.Timer) and t.is_alive()]
+
+
+def run_sleep_child(probe, tmp_path, *, attempt: float = 0.1, seconds: str = "10"):
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    return book, budget, lambda: probe.run_child("P0", ["/bin/sleep", seconds], {"PATH": "/bin"}, book, budget)
+
+
+def assert_child_gone(info: dict) -> None:
+    assert info["child_pid"] is not None
+    assert wait_until(lambda: not alive(info["child_pid"]), 0.3), "the child must not outlive the attempt"
+    assert info["stdout"] == b"" and info["stderr"] == b""  # nothing of an unfinished attempt is kept
+
+
+# B1 — once Popen succeeded, every later path ends the child
+def test_b1_a_timer_that_cannot_start_ends_the_child_at_once(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.1)
+    monkeypatch.setattr(threading.Timer, "start", lambda self: (_ for _ in ()).throw(RuntimeError("no threads")))
+    _, _, run = run_sleep_child(probe, tmp_path)
+    info = run()
+    assert info["status"] == "observation_unknown" and info["reaped"] is True and info["child_exited"] is True
+    assert_child_gone(info)
+    assert live_timers() == []
+
+
+def test_b1_a_failing_pid_record_ends_the_child_and_keeps_the_deadline(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.1)
+    book, budget, run = run_sleep_child(probe, tmp_path)
+    monkeypatch.setattr(book, "after", lambda step, pid: (_ for _ in ()).throw(OSError("disk")))
+    info = run()
+    assert info["status"] == "observation_unknown" and info["reaped"] is True
+    assert_child_gone(info)
+    assert live_timers() == []
+
+
+def test_b1_an_interrupt_during_the_record_ends_the_child_and_propagates(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 5.0)
+    book, budget, run = run_sleep_child(probe, tmp_path)
+    seen: list = []
+    real_after = book.after
+
+    def after(step, pid):
+        seen.append(pid)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(book, "after", after)
+    with pytest.raises(KeyboardInterrupt):
+        run()
+    assert seen and wait_until(lambda: not alive(seen[0]), 1.0)
+    assert live_timers() == []
+
+
+def test_b1_the_p4_stage_has_the_same_contract(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "SELFTEST", True)
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.1)
+    monkeypatch.setenv("PROBE_P4_FAKE_DNS_SLEEP", "8")
+    monkeypatch.setenv("PROBE_P4_HOST", "127.0.0.1")
+    monkeypatch.setenv("PROBE_P4_PORT", "9")
+    monkeypatch.setattr(threading.Timer, "start", lambda self: (_ for _ in ()).throw(RuntimeError("no threads")))
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    step = probe.stage_p4(book, budget)
+    assert step["status"] == "observation_unknown" and step["reaped"] is True
+    assert wait_until(lambda: not alive(step["child_pid"]), 0.3)
+
+
+# M1 — the callback is finished before the function hands the process back
+def test_m1_a_running_callback_is_waited_for_before_return(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.2)
+    book, budget, run = run_sleep_child(probe, tmp_path)
+    real_ps = probe.ps_line
+    monkeypatch.setattr(probe, "ps_line", lambda pid: (time.sleep(0.3), real_ps(pid))[1])  # record ends after the timer
+    log: list[str] = []
+    real_kill = subprocess.Popen.kill
+
+    def slow_kill(self):
+        if self.args and self.args[0] == "/bin/sleep" and threading.current_thread() is not threading.main_thread():
+            log.append("callback-start")
+            time.sleep(0.4)
+            real_kill(self)
+            log.append("callback-done")
+            return
+        return real_kill(self)
+
+    monkeypatch.setattr(subprocess.Popen, "kill", slow_kill)
+    info = run()
+    assert log == ["callback-start", "callback-done"], log  # the callback had finished when the function returned
+    assert live_timers() == [] and info["status"] == "timeout" and info["reaped"] is True
+
+
+def test_m1_a_normal_exit_sends_no_signal_and_leaves_no_thread(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 2.0)
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    kills: list = []
+    real_kill = subprocess.Popen.kill
+    monkeypatch.setattr(subprocess.Popen, "kill", lambda self: (kills.append(1), real_kill(self))[1])
+    for _ in range(3):
+        info = probe.run_child("P0", ["/bin/sleep", "0.05"], {"PATH": "/bin"}, book, budget)
+        assert info["status"] == "success" and info["rc"] == 0 and info["reaped"] is True
+    assert kills == [] and live_timers() == []
+
+
+def test_m1_the_expiry_boundary_always_ends_in_one_consistent_state(tmp_path, monkeypatch):
+    probe = load_probe()
+    monkeypatch.setattr(probe, "ATTEMPT_S", 0.3)
+    book, budget = probe.PidBook(tmp_path), probe.Budget(5)
+    outcomes = set()
+    for _ in range(12):
+        info = probe.run_child("P0", ["/bin/sleep", "0.3"], {"PATH": "/bin"}, book, budget)
+        assert info["reaped"] is True and info["child_exited"] is True and not info["child_exit_unconfirmed"]
+        assert info["status"] in ("success", "timeout"), info["status"]
+        assert (info["status"] == "success") == (info["rc"] == 0)
+        outcomes.add(info["status"])
+        assert wait_until(lambda: not alive(info["child_pid"]), 0.3)
+    assert live_timers() == []
