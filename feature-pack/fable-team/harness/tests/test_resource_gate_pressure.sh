@@ -71,11 +71,11 @@ g check FAKE_SWAP=12289;              expect "ⓔ swap12289 새 좌석 REJECT" 3
 g "check --succession" FAKE_SWAP=12289; expect "ⓔ swap12289 승계 REJECT" 3 '^REJECT resource swap=12289MiB '
 mk_tsv 9500 -100
 g check FAKE_SWAP=9000;              expect "ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)" 0 '^OK .*swap=9000MiB .*rate=-'
-# ⓕ agents 55 → 새 좌석 OK · 56 → 새 좌석 REJECT · 승계 OK
+# ⓕ agents 65 → 새 좌석 OK · 66 → 새 좌석 REJECT · 승계 OK
 mk_tsv 6133 0
-g check FAKE_AGENTS=55;              expect "ⓕ agents55 새 좌석 OK" 0 '^OK .*agents=55$'
-g check FAKE_AGENTS=56;              expect "ⓕ agents56 새 좌석 REJECT" 3 '^REJECT resource agents=56 limit=55$'
-g "check --succession" FAKE_AGENTS=56; expect "ⓕ agents56 승계 OK" 0 '^OK .*agents=56$'
+g check FAKE_AGENTS=65;              expect "ⓕ agents65 새 좌석 OK" 0 '^OK .*agents=65$'
+g check FAKE_AGENTS=66;              expect "ⓕ agents66 새 좌석 REJECT" 3 '^REJECT resource agents=66 limit=65$'
+g "check --succession" FAKE_AGENTS=66; expect "ⓕ agents66 승계 OK" 0 '^OK .*agents=66$'
 # ⓖ memfree 12 → 새 좌석 REJECT · 승계 OK · memfree 9 → 둘 다 REJECT
 g check FAKE_MEMFREE=12;              expect "ⓖ memfree12 새 좌석 REJECT" 3 '^REJECT resource memfree=12% limit=15%$'
 g "check --succession" FAKE_MEMFREE=12; expect "ⓖ memfree12 승계 OK" 0 '^OK '
@@ -142,12 +142,12 @@ g check; expect "H1(r2) 1줄 숫자 칸 oops → rc4 corrupt" 4 'pressure.tsv co
 printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' "$n" $((n-60)) > "$TSV"
 g check; expect "H2 시각 역행 → rc4 corrupt" 4 'pressure.tsv corrupt'
 rm -f "$TSV"
-mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "probe 일반 agents99 gate rc3" 3 '^REJECT resource agents=99 limit=55$'
+mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "probe 일반 agents99 gate rc3" 3 '^REJECT resource agents=99 limit=65$'
 # H3(r2) — 승계 면제 = NAME==OLD 계보 베이스#(N+1) ∧ OLD 가 명부 역할 키(_master 등) 값 ∧ OLD tmux 생존 (agents 99 로 일반 REJECT 되는 상황)
 mk_tsv 6133 0
 SUC="$REPO/scripts/fable-team-bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
 so() { OUT="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HOME="$T/home" FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=99 FT_RECLAIM=0 "$@" bash "${SUCX:-$SUC}" "$OLDN" "$T/cwd" --name "$NEWN" --agent claude --model m --body-file "$T/body.txt" 2>&1)"; RC=$?; }
-agents_rej() { { [ "$RC" -eq 3 ] && echo "$OUT" | grep -q 'REJECT resource agents=99 limit=55'; }; }
+agents_rej() { { [ "$RC" -eq 3 ] && echo "$OUT" | grep -q 'REJECT resource agents=99 limit=65'; }; }
 printf '{"_master":"alive-old#1","other#2":{"role":"nano"}}\n' > "$R/.fable-team/seats-t.json"
 OLDN='alive-old#1'; NEWN='alive-old#2'; so FAKE_HAS=0
 echo "$OUT" | grep -q 'REJECT resource' && bad "H3 계보·역할 키·생존 → 면제돼야 함: $OUT" || ok "H3 계보 O·역할 키 O·세션 O → agents 면제"

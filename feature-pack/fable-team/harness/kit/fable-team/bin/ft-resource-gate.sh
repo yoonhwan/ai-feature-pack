@@ -12,7 +12,7 @@
 #   측정 실패(명령 없음·파싱 실패)는 통과시키지 않고 `ERROR resource measure <무엇>` + exit 4 (BYZ #0 NO SILENT FALLBACK).
 #   동결 파일(.fable-team/state/RESOURCE_FREEZE)이 있으면 check 는 무조건 REJECT.
 #   문턱(env 덮어쓰기): FT_DISK_MIN_GIB=30 · FT_SWAP_HARD_MIB=12288 · FT_SWAP_RATE_MAX=512(승계 FT_SWAP_RATE_MAX_SUCC=1024) · FT_PRESSURE_MAX=2(= level 4 만 거절 · 승계 FT_PRESSURE_MAX_SUCC=3)
-#            · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=55 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md)
+#            · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=65 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md → 오빠 판정 1883 ②·1885 로 65)
 #   FT_SWAP_MAX_MIB(옛 스왑 절대량 8192)는 폐기 · R213 — 읽지 않는다.
 #   시험용 env: FT_RES_ROOT(동결 파일이 놓이는 리포 루트 — 기본은 스크립트 위치에서 역산)
 set -uo pipefail
@@ -24,7 +24,7 @@ case "${2:-}" in "") ;; --succession) [ "$CMD" = check ] && SUCC=1 || SUCC=x;; *
 
 DISK_MIN="${FT_DISK_MIN_GIB:-30}"
 SWAP_HARD="${FT_SWAP_HARD_MIB:-12288}"
-AGENT_MAX="${FT_AGENT_MAX:-55}"
+AGENT_MAX="${FT_AGENT_MAX:-65}"
 if [ "$SUCC" = 1 ]; then
   MEM_MIN="${FT_MEM_FREE_MIN_SUCC:-10}"; RATE_MAX="${FT_SWAP_RATE_MAX_SUCC:-1024}"; LEVEL_MAX="${FT_PRESSURE_MAX_SUCC:-3}"
 else
