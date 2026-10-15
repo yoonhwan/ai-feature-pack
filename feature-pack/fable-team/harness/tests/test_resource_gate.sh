@@ -6,7 +6,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
 K1="$REPO/scripts/fable-team-bin"
 K2="$REPO/scripts/harness-install/fable-team/bin"
-FILES="ft-resource-gate.sh ft-resource-watch.sh ft-nano-spawn.sh ft-role-spawn.sh ft-successor-open.sh"
+FILES="ft-resource-gate.sh ft-resource-watch.sh ft-resource-sample.sh ft-nano-spawn.sh ft-role-spawn.sh ft-successor-open.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -32,7 +32,7 @@ PG
 chmod 755 "$T/pg/pgrep"
 CARD="$T/card.md"; echo 카드 > "$CARD"; BODY="$T/body.txt"; echo 본문 > "$BODY"
 
-LOW='FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999'
+LOW='FT_DISK_MIN_GIB=0 FT_SWAP_HARD_MIB=999999999 FT_PRESSURE_MAX=99 FT_SWAP_RATE_MAX=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999'
 # gate <bin 폴더> <env...> -- <인자> : 출력 OUT · rc RC
 gate() { local d="$1"; shift; OUT="$(env FT_RES_ROOT="$R" "$@" bash "$d/ft-resource-gate.sh" 2>&1)"; RC=$?; }
 mk_freeze() { echo "시험 동결" > "$R/.fable-team/state/RESOURCE_FREEZE"; }
@@ -81,14 +81,14 @@ pgrep_checks() {
   return $e
 }
 
-# max_checks <bin 폴더> — ⓟ FT_AGENT_MAX 미설정 기본 상한 40 (agents 40 = OK · 41 = REJECT limit=40) · ⓠ env 덮어쓰기 불변 (R172 · 판정 1699)
+# max_checks <bin 폴더> — ⓟ FT_AGENT_MAX 미설정 기본 상한 55 (agents 55 = OK · 56 = REJECT limit=55) · ⓠ env 덮어쓰기 불변 (R172 · 판정 1699)
 max_checks() {
   local d="$1" e=0 L="${LOW% FT_AGENT_MAX=999999}"   # 다른 문턱만 LOW — FT_AGENT_MAX 는 미설정
   rm_freeze
-  OUT="$(env -u FT_AGENT_MAX FT_RES_ROOT="$R" $L PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 140)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK .* agents=40$'; } || { echo "ⓟ(40) rc=$RC $OUT"; e=1; }
-  OUT="$(env -u FT_AGENT_MAX FT_RES_ROOT="$R" $L PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 141)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource agents=41 limit=40' ; } || { echo "ⓟ(41) rc=$RC $OUT"; e=1; }
+  OUT="$(env -u FT_AGENT_MAX FT_RES_ROOT="$R" $L PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 155)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK .* agents=55$'; } || { echo "ⓟ(55) rc=$RC $OUT"; e=1; }
+  OUT="$(env -u FT_AGENT_MAX FT_RES_ROOT="$R" $L PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 156)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource agents=56 limit=55' ; } || { echo "ⓟ(56) rc=$RC $OUT"; e=1; }
   OUT="$(env FT_RES_ROOT="$R" $LOW FT_AGENT_MAX=5 PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 106)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
   { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource agents=6 limit=5' ; } || { echo "ⓠ rc=$RC $OUT"; e=1; }
   return $e
@@ -140,7 +140,7 @@ run_suite() {
     spawn_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓕ spawn 3종 $(basename "$(dirname "$d")")" || bad "$tag ⓕ $d: $(cat "$T/o")"
     pgrep_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓗ~ⓛ·ⓝ pgrep 센서 $(basename "$(dirname "$d")")" || bad "$tag ⓗ~ⓛ $d: $(cat "$T/o")"
     spawn_pgrep_err "$d" >"$T/o" 2>&1 && ok "$tag ⓜ spawn 3종 pgrep 오류 $(basename "$(dirname "$d")")" || bad "$tag ⓜ $d: $(cat "$T/o")"
-    max_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓟⓠ 기본 상한 40·env 덮어쓰기 $(basename "$(dirname "$d")")" || bad "$tag ⓟⓠ $d: $(cat "$T/o")"
+    max_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓟⓠ 기본 상한 55·env 덮어쓰기 $(basename "$(dirname "$d")")" || bad "$tag ⓟⓠ $d: $(cat "$T/o")"
   done
 }
 
@@ -183,9 +183,9 @@ sed "s/^agent_scan codex -a -x codex\$/agent_scan codex -f 'codex( |\$)'/" "$K1/
 cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이4 준비 실패(치환 0)" || {
   pgrep_checks "$M" >/dev/null 2>&1 && bad "변이4: codex -f 복귀가 검출되지 않음" || ok "변이4 검출"; }
 
-# 변이 6 — gate 의 기본 상한을 40 → 30 으로 되돌림 → ⓟ 가 «실패»해야 한다
+# 변이 6 — gate 의 기본 상한을 55 → 30 으로 되돌림 → ⓟ 가 «실패»해야 한다
 M="$T/mut-max30"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
-sed 's/^AGENT_MAX="${FT_AGENT_MAX:-40}"/AGENT_MAX="${FT_AGENT_MAX:-30}"/' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+sed 's/^AGENT_MAX="${FT_AGENT_MAX:-55}"/AGENT_MAX="${FT_AGENT_MAX:-30}"/' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
 cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이6 준비 실패(치환 0)" || {
   max_checks "$M" >/dev/null 2>&1 && bad "변이6: 기본값 30 복귀가 검출되지 않음" || ok "변이6 검출"; }
 

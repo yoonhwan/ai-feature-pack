@@ -20,6 +20,10 @@ while [ $# -gt 0 ]; do case "$1" in
   --dry-run) DRY=1; shift;; --caller) CALLER="${2:-}"; shift 2 2>/dev/null || shift;; --need) NEED="${2:-}"; shift 2 2>/dev/null || shift;;
   --on-reject) HAVE_ONREJ=1; ONREJ="${2:-}"; shift 2 2>/dev/null || shift;; --gate) GATE="${2:-}"; shift 2 2>/dev/null || shift;;
   *) echo "usage: $0 [--dry-run] (--caller <세션명> --need <n> | --on-reject \"<문지기 출력>\" [--caller <세션명>] [--gate <path>])" >&2; exit 2;; esac; done
+# R213: 에이전트 수 REJECT 가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다(측정 실패 ERROR 는 rc 4 유지).
+if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -q '^REJECT resource agents='; then
+  printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 3
+fi
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"

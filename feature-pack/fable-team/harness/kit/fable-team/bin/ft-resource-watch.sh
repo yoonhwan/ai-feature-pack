@@ -3,7 +3,7 @@
 #   Res-1014 · launchd 가 60초마다 부르는 1회 실행형 감시자 + 원인 귀속 스냅샷.
 #   계기: 2026-10-14 03:31 watchdog 패닉. ★파일 삭제·prune 기능 없음 — 오빠 승인 별건★. 하는 일은 «감시·귀속·동결»뿐. deferral-lint: ok 기능 부재 설명이며 연기 아님
 #   tick (기본, launchd 호출):
-#     - gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
+#     - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
 #     - 동결 트리거(disk<25GiB | swap>12288MiB | memfree<10%) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
 #     - 회복(disk>=35 & swap<4096 & memfree>=20) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).
@@ -33,7 +33,6 @@ MEM_MIN="${FT_RES_MEM_MIN:-10}"
 SNAP_SEC="${FT_RES_SNAP_SEC:-590}"
 
 mkdir -p "$STATE" 2>/dev/null || true
-
 TIMEOUT=""
 if command -v gtimeout >/dev/null 2>&1; then TIMEOUT="gtimeout 20s"
 elif command -v timeout >/dev/null 2>&1; then TIMEOUT="timeout 20s"; fi
@@ -167,6 +166,7 @@ scan() {
 # ---- tick (launchd) ----
 tick() {
   local gout rc disk swap memfree now trig recov
+  bash "$HERE/ft-resource-sample.sh" >/dev/null 2>>"$LOG" || logline "ERROR sample rc=$? (표본 끊김 — 문지기 stale 로 이어짐)"
   gout="$(bash "$GATE" status 2>&1)"; rc=$?
   if [ "$rc" != 0 ]; then logline "ERROR gate status rc=$rc out=$gout"; exit 4; fi
   disk=$(printf '%s' "$gout" | sed -n 's/.*disk=\([0-9]*\).*/\1/p')

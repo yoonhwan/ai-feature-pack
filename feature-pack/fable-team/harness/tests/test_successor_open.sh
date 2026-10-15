@@ -22,13 +22,19 @@ mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec /usr/bin/pgrep "$
 mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
+# 자원 문지기 격리(R213) — 실 머신 압력·실 pressure.tsv 를 재지 않는다: 가짜 센서 + 임시 FT_RES_ROOT. FAKE_LEVEL(기본 1)로 압력 1/2/4 어느 때든 같은 결과.
+mkstub sysctl 'case "$2" in vm.swapusage) echo "total = 14336.00M  used = 6133.00M  free = 1000.00M  (encrypted)";; kern.memorystatus_vm_pressure_level) echo "${FAKE_LEVEL:-1}";; *) exit 1;; esac'
+mkstub memory_pressure 'echo "System-wide memory free percentage: 51%"'
+mkstub vm_stat 'echo "Swapouts:                          2303978."'
+mkstub df 'echo "Filesystem 1024-blocks Used Available Capacity Mounted"; echo "/dev/x 999999999 1 104857600 1% /System/Volumes/Data"'
+RES="$TMP/resroot"; mkdir -p "$RES/.fable-team/state"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"
 
 JDIR="$TMP/home/.claude/projects/$(printf '%s' "$TMP/pane" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파일 초기화. 출력은 $TMP/out, rc 는 $RC
   rm -f "$LOG" "$CNT"; rm -rf "$STATE"; : > "$LOG"
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
-      FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999 \
+      FT_RES_ROOT="$RES" FT_DISK_MIN_GIB=0 FT_SWAP_HARD_MIB=999999999 FT_PRESSURE_MAX=99 FT_SWAP_RATE_MAX=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999 \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
   RC=$?
