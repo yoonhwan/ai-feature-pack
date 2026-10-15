@@ -109,7 +109,7 @@ class CSandbox:
             "  badrc) echo 2.32.1; exit 1;;\n"
             '  badout) echo "garbage"; exit 0;;\n'
             "  slow) exec sleep 30;;\n"
-            f'  desc) sleep 25 & echo $! >> "{self.descpids}"; exec sleep 30;;\n'
+            f'  desc) sleep 60 & echo $! >> "{self.descpids}"; exec sleep 30;;\n'
             "esac\nexit 3\n"
         )
         path = self.bin / "op"
@@ -120,8 +120,11 @@ class CSandbox:
     def env(self, **extra: str) -> dict[str, str]:
         env = {
             "PATH": f"{self.shim}:{self.bin}:/usr/bin:/bin", "HOME": str(self.home), "TMPDIR": str(self.root),
-            "PROBE_BASE": str(self.base), "PROBE_T_ATTEMPT": "0.6", "PROBE_T_REAP": "0.5", "PROBE_T_PIPE": "0.3",
-            "PROBE_C_T_TOTAL": "40", "PROBE_C_T_RESERVE": "2", "PROBE_C_T_OBS": "1.0",
+            "PROBE_BASE": str(self.base),
+            # Generous defaults: a run that must SUCCEED may not depend on how busy the machine is (a fake op is a few
+            # forks; at load 50+ one of them can take seconds). Tests that need a timeout or a signal set their own.
+            "PROBE_T_ATTEMPT": "8.0", "PROBE_T_REAP": "3.0", "PROBE_T_PIPE": "1.0",
+            "PROBE_C_T_TOTAL": "300", "PROBE_C_T_RESERVE": "2", "PROBE_C_T_OBS": "5.0",
         }
         env.update(extra)
         return env
@@ -136,7 +139,7 @@ class CSandbox:
             start_new_session=True, preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL),
         )
 
-    def run(self, *args: str, timeout: float = 120, **extra: str) -> subprocess.CompletedProcess:
+    def run(self, *args: str, timeout: float = 240, **extra: str) -> subprocess.CompletedProcess:
         process = self.start(*args, **extra)
         out, err = process.communicate(timeout=timeout)
         return subprocess.CompletedProcess(process.args, process.returncode, out, err)
@@ -375,16 +378,16 @@ def test_a_timed_out_child_is_ended_alone_and_a_descendant_holding_the_pipe_chan
     sb.set_plan(*["desc"] * 6)
     started = time.monotonic()
     try:
-        proc = sb.run()
+        proc = sb.run(PROBE_T_ATTEMPT="0.6")
         elapsed = time.monotonic() - started
         result = sb.result()
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert [r["status"] for r in result["rounds"]] == ["timeout"] * 6
         assert all(r["reaped"] is True and r["child_exit_unconfirmed"] is False for r in result["rounds"])
         assert result["conclusion"] == "terminal_all_slow"
-        # 6 attempts + bounded recovery. Waiting for the 25 s descendant even once would take 30 s or more, so the
-        # generous bound (machine load) still tells "not waited for" apart.
-        assert 6 * 0.6 <= elapsed < 20.0, elapsed
+        # 6 attempts + bounded recovery. The descendant sleeps 60 s: waiting for it even once would take 60 s or more,
+        # so this generous bound (machine load) still tells "not waited for" apart.
+        assert 6 * 0.6 <= elapsed < 50.0, elapsed
         descendants = [int(x) for x in sb.descpids.read_text().split()]
         assert len(descendants) == 6 and all(alive(pid) for pid in descendants)   # a descendant is never signalled
         assert not any(alive(int(x)) for x in sb.oppids.read_text().split())   # every direct child is gone
@@ -405,7 +408,7 @@ def test_other_op_processes_are_never_ended(sb):
         assert wait_until(lambda: "op" in subprocess.run(["ps", "-o", "comm=", "-p", str(other.pid)],
                                                          capture_output=True, text=True).stdout.split("/")[-1], 5)
         sb.set_plan(*["slow"] * 6)
-        proc = sb.run()
+        proc = sb.run(PROBE_T_ATTEMPT="0.6")
         assert proc.returncode == 0
         assert other.poll() is None and alive(other.pid)
     finally:
@@ -418,27 +421,29 @@ def test_other_op_processes_are_never_ended(sb):
 @pytest.mark.parametrize("sig,code", [(signal.SIGINT, 130), (signal.SIGTERM, 143), (signal.SIGHUP, 129)])
 def test_a_signal_in_condition_a_ends_the_child_and_removes_the_unused_folder(sb, sig, code):
     sb.set_plan("slow")
-    process = sb.start()
-    assert wait_until(lambda: sb.op_calls() >= 1 and sb.oppids.exists(), 15)
+    # the attempt limit (30 s) is far beyond the signal: the signal ends the first attempt, never the clock
+    process = sb.start(PROBE_T_ATTEMPT="30")
+    assert wait_until(lambda: sb.op_calls() >= 1 and sb.oppids.exists(), 90)
     time.sleep(0.15)
     os.kill(process.pid, sig)
-    out, err = process.communicate(timeout=30)
+    out, err = process.communicate(timeout=90)
     assert process.returncode == code, out + err
     result = sb.result()
     assert result["conclusion"] == "cancelled_incomplete" and result["exit_class"] == "cancelled"
     assert result["complete"] is False
     assert result["rounds"][-1]["status"] == "cancelled" and result["rounds"][-1]["reaped"] is True
     assert not any(alive(int(x)) for x in sb.oppids.read_text().split())
-    assert sb.temp_dirs() == [] and result["leftover_check_required"] is False   # condition C never started
+    assert sb.temp_dirs() == [] and result["leftover_check_required"] is False, \
+        [(r["variant"], r["round"], r["status"]) for r in result["rounds"]]   # condition C never started
 
 
 def test_a_signal_in_condition_c_keeps_the_folder_and_asks_for_a_check(sb):
     sb.set_plan("fast", "fast", "slow")
-    process = sb.start()
-    assert wait_until(lambda: sb.op_calls() >= 3, 15)
+    process = sb.start(PROBE_T_ATTEMPT="30")
+    assert wait_until(lambda: sb.op_calls() >= 3, 90)
     time.sleep(0.15)
     os.kill(process.pid, signal.SIGTERM)
-    out, err = process.communicate(timeout=30)
+    out, err = process.communicate(timeout=90)
     assert process.returncode == 143, out + err
     result = sb.result()
     assert result["conclusion"] == "cancelled_incomplete" and result["leftover_check_required"] is True

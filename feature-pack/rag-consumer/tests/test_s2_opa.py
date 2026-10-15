@@ -93,8 +93,13 @@ class S2Sandbox(Sandbox):
     def env(self, **extra: str) -> dict[str, str]:
         env = super().env(**extra)
         env["PATH"] = f"{self.shim}:{env['PATH']}"
-        env.update({"PROBE_S2_T_ATTEMPT": "2.0", "PROBE_S2_T_DEADLINE": "4.0", "PROBE_S2_T_GAP": "0.2",
-                    "PROBE_T_RESULT": "120", "PROBE_T_CLEAN": "10", "PROBE_T_REAP": "0.5", "PROBE_T_PIPE": "0.3"})
+        # Generous defaults: a run that must SUCCEED may not depend on how busy the machine is. A fake op is a few
+        # forks and the clean-up asks `ps` once per recorded pid (37 of them) through a python start each; at machine
+        # load 100 the old 2 s attempt / 6 s clean-up budget / 10 s start wait were used up by the machine, not by the
+        # tool. The tests whose point IS a short limit (d e f p q) set their own scaled values below.
+        env.update({"PROBE_S2_T_ATTEMPT": "8.0", "PROBE_S2_T_DEADLINE": "16.0", "PROBE_S2_T_GAP": "0.2",
+                    "PROBE_T_RESULT": "600", "PROBE_T_CLEAN": "60", "PROBE_T_START": "10", "PROBE_T_REAP": "3",
+                    "PROBE_T_PIPE": "1", "PROBE_T_CALL": "30"})
         env.update(self.extra)
         env.update(extra)
         return env
@@ -111,6 +116,20 @@ class S2Sandbox(Sandbox):
         dirs = [p for p in self.base.iterdir() if p.is_dir()]
         assert len(dirs) == 1, dirs
         return dirs[0]
+
+    def run(self, *args: str, timeout: float = 240, **extra: str) -> subprocess.CompletedProcess:
+        self.last = super().run(*args, timeout=timeout, **extra)
+        return self.last
+
+    def result(self) -> dict:
+        """The result file; when it is missing say what the wrapper printed (a load-dependent refusal to start or a
+        time-capped step must show its own message in the failure, not only a FileNotFoundError)."""
+        path = self.probe_dir() / "result.json"
+        if not path.exists():
+            last = getattr(self, "last", None)
+            pytest.fail(f"no result.json in {path.parent.name}: exit={getattr(last, 'returncode', '?')} "
+                        f"stdout={getattr(last, 'stdout', '')!r} stderr={getattr(last, 'stderr', '')!r}")
+        return json.loads(path.read_text(encoding="utf-8"))
 
 
 NAMES = ("AIRAG_CONSUMER_KEY_HEX", "AIRAG_PROJECTION_KEY_HEX", "AIRAG_ARCHIVE_KEY_HEX")
@@ -185,24 +204,24 @@ def test_b_default_uses_the_real_home_and_dedicated_a_fresh_private_home(sb):
 
 # (c) the three keys of a round are read in parallel
 def test_c_the_three_reads_of_a_round_run_in_parallel(sb):
-    sb.make_op(pre={0: "sleep 0.6", 1: "sleep 0.6", 2: "sleep 0.6"})
+    sb.make_op(pre={0: "sleep 3", 1: "sleep 3", 2: "sleep 3"})
     sb.run()
     result = sb.result()
     for rnd in cond(result, "default")["rounds"]:
-        assert all(a["elapsed_ms"] >= 550 for c in rnd["calls"] for a in c["attempts"])
-        assert rnd["ended_utc_ms"] - rnd["started_utc_ms"] < 1500  # sequential reads would take 1800+
+        assert all(a["elapsed_ms"] >= 2900 for c in rnd["calls"] for a in c["attempts"])
+        assert rnd["ended_utc_ms"] - rnd["started_utc_ms"] < 8500  # sequential reads would take 9000+
 
 
 # (d) a silent timeout is retried once and recorded as such
 def test_d_a_silent_timeout_is_retried_once(sb):
     sb.make_op(pre={1: 'if [ "$n" -eq 1 ]; then exec sleep 30; fi'})
-    sb.extra.update(PROBE_S2_T_ATTEMPT="0.5", PROBE_S2_T_DEADLINE="1.5")
+    sb.extra.update(PROBE_S2_T_ATTEMPT="3.0", PROBE_S2_T_DEADLINE="7.0")
     sb.run()
     result = sb.result()
     first = calls_of(result, "default")[1]
     assert [(a["attempt"], a["status"], a["retried"]) for a in first["attempts"]] == [
         (1, "timeout", False), (2, "success", True)]
-    assert first["outcome"] == "success" and first["call_total_ms"] <= 1500 + 400
+    assert first["outcome"] == "success" and first["call_total_ms"] <= 7000 + 2000
     crit = cond(result, "default")["criteria"]
     assert crit["retries_used"] == 1 and crit["no_retries"] is False
     assert crit["first_try_success_count"] == 17 and crit["all_first_try_success"] is False
@@ -213,7 +232,7 @@ def test_d_a_silent_timeout_is_retried_once(sb):
 # (e) a timeout after partial output is not retried
 def test_e_a_timeout_after_partial_output_is_not_retried(sb):
     sb.make_op(pre={2: 'if [ "$n" -eq 1 ]; then printf x; exec sleep 30; fi'})
-    sb.extra.update(PROBE_S2_T_ATTEMPT="1.2", PROBE_S2_T_DEADLINE="4.0")
+    sb.extra.update(PROBE_S2_T_ATTEMPT="4.0", PROBE_S2_T_DEADLINE="10.0")
     sb.run()
     call = calls_of(sb.result(), "default")[2]
     assert [(a["attempt"], a["status"]) for a in call["attempts"]] == [(1, "timeout")] and call["outcome"] == "timeout"
@@ -222,14 +241,14 @@ def test_e_a_timeout_after_partial_output_is_not_retried(sb):
 # (f) two timeouts: the second attempt is capped by what is left of the call deadline
 def test_f_the_second_attempt_is_capped_by_the_remaining_call_deadline(sb):
     sb.make_op(pre={0: 'if [ "$n" -le 2 ]; then exec sleep 30; fi'})
-    sb.extra.update(PROBE_S2_T_ATTEMPT="0.8", PROBE_S2_T_DEADLINE="1.0")
+    sb.extra.update(PROBE_S2_T_ATTEMPT="4.0", PROBE_S2_T_DEADLINE="5.0")
     sb.run()
     call = calls_of(sb.result(), "default")[0]
     assert [(a["attempt"], a["status"]) for a in call["attempts"]] == [(1, "timeout"), (2, "timeout")]
     assert call["outcome"] == "timeout"
-    # about 0.2 s of the call deadline is left for the second attempt (an uncapped one would run the full 0.8 s)
-    assert call["attempts"][1]["elapsed_ms"] <= 200 + 300, call["attempts"][1]
-    assert call["call_total_ms"] <= 1000 + 450
+    # about 1 s of the call deadline is left for the second attempt (an uncapped one would run the full 4 s)
+    assert call["attempts"][1]["elapsed_ms"] <= 1000 + 1500, call["attempts"][1]
+    assert call["call_total_ms"] <= 5000 + 1800   # uncapped: 4 s + 4 s = 8 s
 
 
 # (g) error classes
@@ -300,13 +319,13 @@ def test_k_sigint_during_the_run_cleans_up_and_exits_130(sb):
     sb.make_op(pre={0: "sleep 2", 1: "sleep 2", 2: "sleep 2"})
     sb.extra.update(PROBE_S2_T_ATTEMPT="6.0", PROBE_S2_T_DEADLINE="12.0")
     process = sb.start()
-    assert wait_until(lambda: sb.oppids.exists() and recorded_pids(sb), 15)
+    assert wait_until(lambda: sb.oppids.exists() and recorded_pids(sb), 90)
     time.sleep(0.3)
     os.kill(process.pid, signal.SIGINT)
-    out, err = process.communicate(timeout=60)
+    out, err = process.communicate(timeout=120)
     assert process.returncode == 130, out + err
     assert sb.loaded() == []
-    assert wait_until(lambda: not any(alive(pid) for pid in recorded_pids(sb)), 5)
+    assert wait_until(lambda: not any(alive(pid) for pid in recorded_pids(sb)), 30)
 
 
 # (l) nothing of the values, the token or the references is written anywhere
@@ -406,7 +425,7 @@ def test_o_a_bad_credentials_file_aborts_with_a_fixed_class_and_runs_nothing(sb)
 # (p) the report: the three levels of daily calls, and the rule-exception line when a cold read is over the limit
 def test_p_the_report_names_the_three_call_levels_and_the_exception_decision(sb):
     sb.make_op(pre={0: 'if [ "$n" -eq 1 ]; then exec sleep 30; fi'})
-    sb.extra.update(PROBE_S2_T_ATTEMPT="0.5", PROBE_S2_T_DEADLINE="1.5")
+    sb.extra.update(PROBE_S2_T_ATTEMPT="3.0", PROBE_S2_T_DEADLINE="7.0")
     proc = sb.run()
     out = proc.stdout
     assert "864" in out and "1,728" in out and "미확인" in out
@@ -421,17 +440,17 @@ def test_q_a_run_that_runs_out_of_time_is_closed_as_incomplete(sb):
     sb.extra.update(PROBE_S2_T_ATTEMPT="20", PROBE_S2_T_DEADLINE="40", PROBE_T_RESULT="5", PROBE_T_CLEAN="8")
     started = time.monotonic()
     proc = sb.run()
-    assert time.monotonic() - started < 5 + 8 + 4
+    assert time.monotonic() - started < 5 + 8 + 12   # a hang on the 30 s fake op would be >= 30
     result = sb.result()
     assert result["complete"] is True and result["timed_out_wait"] is True and result["comparison"] == "incomplete"
     assert proc.returncode != 0 and sb.loaded() == []
-    assert wait_until(lambda: not any(alive(pid) for pid in recorded_pids(sb)), 5)
+    assert wait_until(lambda: not any(alive(pid) for pid in recorded_pids(sb)), 30)
 
 
 def test_q_a_hanging_bootstrap_is_cut_off(sb):
     started = time.monotonic()
     proc = sb.run(FAKE_LC_BOOTSTRAP_SLEEP="14", PROBE_T_CALL="2")
-    assert proc.returncode == 3 and time.monotonic() - started < 9
+    assert proc.returncode == 3 and time.monotonic() - started < 9 + 8   # the fake bootstrap sleeps 14 s
     assert not sb.opcalls.exists()
 
 
@@ -485,7 +504,7 @@ def test_s2_run_attempt_takes_a_per_call_limit_and_ends_its_child(tmp_path):
     book, budget = s2.LockedPidBook(tmp_path), s2.probe.Budget(5)
     started = time.monotonic()
     info = s2.run_attempt("K0", ["/bin/sleep", "30"], {"PATH": "/bin"}, book, budget, 0.3)
-    assert info["status"] == "timeout" and time.monotonic() - started < 1.5
+    assert info["status"] == "timeout" and time.monotonic() - started < 10
     assert info["reaped"] is True and wait_until(lambda: not alive(info["child_pid"]), 0.5)
 
 

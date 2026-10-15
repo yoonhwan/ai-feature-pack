@@ -276,8 +276,10 @@ class ChainSandbox:
         env = {
             "PATH": "/usr/bin:/bin", "HOME": str(self.root), "TMPDIR": str(self.root), "PROBE_BASE": str(self.base),
             "CH_SPEC_DIR": str(self.specs), "PROBE_CH_TOOLS": json.dumps(self.tools),
-            "PROBE_CH_T_STEP": "2.0", "PROBE_CH_T_TRANSITION": "0.5", "PROBE_CH_T_SLOT": "3.0",
-            "PROBE_CH_T_OVERRUN": "2.6", "PROBE_CH_T_GRACE": "0.6", "PROBE_CH_T_CANCEL": "2.0",
+            # Generous defaults (a fake tool is a python start; at load 50+ that takes seconds). The overrun and
+            # no-answer-to-signal tests set their own small values.
+            "PROBE_CH_T_STEP": "60", "PROBE_CH_T_TRANSITION": "1.0", "PROBE_CH_T_SLOT": "70",
+            "PROBE_CH_T_OVERRUN": "40", "PROBE_CH_T_GRACE": "8.0", "PROBE_CH_T_CANCEL": "12.0",
         }
         env.update(extra)
         return env
@@ -291,7 +293,7 @@ class ChainSandbox:
             argv, env=self.env(**extra), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             start_new_session=True, preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
 
-    def run(self, *args: str, timeout: float = 60, **extra: str) -> subprocess.CompletedProcess:
+    def run(self, *args: str, timeout: float = 150, **extra: str) -> subprocess.CompletedProcess:
         process = self.start(*args, **extra)
         out, err = process.communicate(timeout=timeout)
         return subprocess.CompletedProcess(process.args, process.returncode, out, err)
@@ -495,10 +497,10 @@ def test_a_tool_ended_by_a_signal_gives_the_shell_style_code(sb):
 def test_a_signal_during_a_tool_is_forwarded_to_that_tool_only_and_the_code_is_kept(sb, sig, code):
     sb.spec("N1", sleep=20, cleanup_s=0.2)
     process = sb.start()
-    assert wait_until(lambda: sb.pids("N1") != [], 15)
+    assert wait_until(lambda: sb.pids("N1") != [], 90)
     time.sleep(0.2)
     os.kill(process.pid, sig)
-    out, err = process.communicate(timeout=30)
+    out, err = process.communicate(timeout=90)
     assert process.returncode == code, out + err
     assert sb.signals("N1") == [int(sig)]                      # the tool did its own clean-up on the signal
     assert sb.calls() == ["N1"]                                # the remaining stages are skipped
@@ -506,12 +508,12 @@ def test_a_signal_during_a_tool_is_forwarded_to_that_tool_only_and_the_code_is_k
 
 
 def test_a_tool_that_ignores_the_forwarded_signal_is_not_signalled_again(sb):
-    sb.spec("N1", sleep=12, ignore=True)
-    process = sb.start()
-    assert wait_until(lambda: sb.pids("N1") != [], 15)
+    sb.spec("N1", sleep=30, ignore=True)
+    process = sb.start(PROBE_CH_T_CANCEL="1.5")
+    assert wait_until(lambda: sb.pids("N1") != [], 90)
     time.sleep(0.2)
     os.kill(process.pid, signal.SIGTERM)
-    out, err = process.communicate(timeout=30)
+    out, err = process.communicate(timeout=90)
     try:
         assert process.returncode == 143
         assert sb.signals("N1") == [int(signal.SIGTERM)]       # exactly once: no repeat, no kill
@@ -619,19 +621,19 @@ def test_the_probe_only_fallback_runs_one_stage(tmp_path):
 
 # -------------------------------------------------------------------- the overrun with real processes
 def test_a_tool_over_the_limit_gets_term_once_and_the_rest_is_skipped(sb):
-    sb.spec("N1", sleep=30, cleanup_s=0.1)
+    sb.spec("N1", sleep=60, cleanup_s=0.1)
     started = time.monotonic()
-    proc = sb.run()
+    proc = sb.run(PROBE_CH_T_OVERRUN="2.6")
     assert proc.returncode == 6, proc.stdout
-    assert time.monotonic() - started < 10.0
+    assert time.monotonic() - started < 40.0
     assert sb.signals("N1") == [int(signal.SIGTERM)] and sb.calls() == ["N1"]
     assert not any(alive(pid) for pid in sb.pids("N1"))
 
 
 def test_an_overrunning_tool_that_ignores_term_is_reported_and_left_alone(sb):
-    sb.spec("N1", sleep=15, ignore=True)
+    sb.spec("N1", sleep=40, ignore=True)
     try:
-        proc = sb.run()
+        proc = sb.run(PROBE_CH_T_OVERRUN="2.6", PROBE_CH_T_GRACE="1.5")
         assert proc.returncode == 6
         assert sb.signals("N1") == [int(signal.SIGTERM)]                  # one TERM, never a second signal, never KILL
         assert alive(sb.pids("N1")[0])
@@ -649,8 +651,8 @@ def test_other_op_processes_are_never_signalled(sb):
     try:
         assert wait_until(lambda: "op" in subprocess.run(["ps", "-o", "comm=", "-p", str(other.pid)],
                                                          capture_output=True, text=True).stdout.split("/")[-1], 5)
-        sb.spec("N1", sleep=30, cleanup_s=0.1)
-        sb.run()
+        sb.spec("N1", sleep=60, cleanup_s=0.1)
+        sb.run(PROBE_CH_T_OVERRUN="2.6")
         assert other.poll() is None and alive(other.pid)
     finally:
         other.kill()
@@ -743,7 +745,7 @@ def test_ctrl_c_during_the_real_probe_leaves_no_job_and_no_op_even_when_the_tool
     proc = subprocess.Popen(["/bin/bash", str(CHAIN_SH), "--selftest", "--python", py], env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
                             preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
-    assert wait_until(lambda: stub.oppids.exists() and stub.oppids.read_text().strip() != "", 25)
+    assert wait_until(lambda: stub.oppids.exists() and stub.oppids.read_text().strip() != "", 90)
     tool_pids = subprocess.run(["pgrep", "-P", str(proc.pid)], capture_output=True, text=True).stdout.split()
     assert tool_pids
     os.kill(proc.pid, signal.SIGINT)
