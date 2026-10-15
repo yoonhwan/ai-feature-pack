@@ -11,6 +11,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 bash -n "$SPAWN" && ok "bash -n" || bad "bash -n"
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; mkdir -p "$REPO" "$FAKE"
 printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; *) exit 0;; esac\n' > "$FAKE/tmux"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"

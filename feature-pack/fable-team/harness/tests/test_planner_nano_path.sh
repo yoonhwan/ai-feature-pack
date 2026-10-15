@@ -4,10 +4,10 @@
 #   ⓑspawn --dry-run: 접두·명부·카드 경로·골 3줄 lint OK  ⓒ빈 카드 템플릿(planner 한정) + 변이 2종  ⓓ발주 BODY 팀 구조 1문장(전 팀)  ⓔ기존 시험 rc=0
 # 임시 git 리포 + 가짜 tmux/tmuxc/sleep(PATH 앞) + 스크립트 사본만 쓴다 — 실 리포·seats·tmux·Redis 0.
 set -uo pipefail
-export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기는 실측 머신 부하로 REJECT 한다 — 이 시험은 문지기 결과를 보지 않는다(R163 · 수정 전부터 RED)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../scripts/harness-install/fable-team"; SRC="$KIT/bin"; TXT="$KIT/bin-planner/goal-lines-planner.txt"; ENVSRC="$KIT/bin-planner/planner-env.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -63,7 +63,7 @@ mkdir -p "$REPO/design/harness/indices/대기"; cp "$REPO/design/planner/indices
 GIT add -A >/dev/null; GIT commit -q -m cards
 GIT update-ref refs/remotes/origin/main HEAD
 
-run()  { ( cd "$REPO" && env -i FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0 HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
+run()  { ( cd "$REPO" && env -i FT_RES_ROOT="$FT_RES_ROOT" HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
 lint() { ( cd "$REPO" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$PATH" "$@" 2>&1 ); }
 LINT="$BIN/ft-index-lint.sh"
 spawn() { local bindir="$1"; shift; rm -f "$T/opened" "$T/body.txt"; run bash "$bindir/ft-nano-spawn.sh" "$@"; }

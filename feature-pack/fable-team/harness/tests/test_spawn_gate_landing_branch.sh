@@ -7,6 +7,7 @@ KIT="${FT_TEST_KIT:-$HERE/../../scripts/fable-team-bin}"   # RED 확인용: 옛 
 SP="$KIT/ft-nano-spawn.sh"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0; OUT=""; RC=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

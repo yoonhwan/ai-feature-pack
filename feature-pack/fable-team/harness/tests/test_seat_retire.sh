@@ -6,6 +6,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../scripts/fable-team-bin"
 TICK="$BIN/ft-tick.sh"; RETIRE="$BIN/ft-seat-retire.sh"; SPAWN="$BIN/ft-role-spawn.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

@@ -2,12 +2,11 @@
 # test_live_bin_drift_check.sh — 카드 live-bin-drift-check (Issue 816 ②③): 라이브 bin ↔ origin/main 키트 드리프트 검사 + spawn·close 입구 BLOCK + tick 경고.
 # mktemp 만 쓴다(bare 원격 + 클론 + 설치 꼴 <x>/.fable-team/bin) — 실제 리포·라이브 폴더·네트워크 0.
 set -uo pipefail
-export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기는 실측 머신 부하로 REJECT 한다 — 이 시험은 문지기 결과를 보지 않는다(R163 · 수정 전부터 RED)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../scripts/harness-install/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 # 이 시험의 대상은 드리프트 입구라 자원 문지기는 통과로 고정한다(머신 부하에 따라 RED/GREEN 이 바뀌지 않게 — R169).
-export FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

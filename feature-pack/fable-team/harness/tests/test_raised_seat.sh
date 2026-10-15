@@ -2,11 +2,11 @@
 # test_raised_seat.sh — R149(판정 1641): 상향 좌석(Fable 나노·astra DA) 사유 기록 + «▶내릴 것» 경보.
 # mktemp 만 쓴다(임시 git 리포 + 가짜 tmux·tmuxc·mbox·형제 도구) — 실제 리포·명부·tmux·mbox 0. 변이 시험은 R149_BIN=<변이 복사본 폴더> 로 같은 시험을 돌린다.
 set -uo pipefail
-export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기는 실측 머신 부하로 REJECT 한다 — 이 시험은 문지기 결과를 보지 않는다(R163 · 수정 전부터 RED)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="${R149_BIN:-$REPO/scripts/fable-team-bin}"; KIT="$REPO/scripts/harness-install/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()   { echo "PASS $1"; }
 bad()  { echo "FAIL $1"; fail=$((fail+1)); }

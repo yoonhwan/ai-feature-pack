@@ -9,10 +9,12 @@
 import os
 import shutil
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
+
+from fake_resource_env import fake_resource_env as _fake_resource_env
 
 GIT_ENV_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY")
 REAL_GIT: str = shutil.which("git") or "git"  # 시험이 PATH 를 비워도 가드의 git 은 살아 있어야 한다
@@ -45,3 +47,9 @@ def _git_env_guard(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     after = _snapshot(config)
     if after != before:
         pytest.fail(f"공용 git config 가 시험 중 바뀜({config}) — 복원은 사람: 전 {before} → 후 {after}", pytrace=False)
+
+
+@pytest.fixture
+def fake_resource_env(tmp_path: Path) -> Callable[[str], dict[str, str]]:
+    """R218 — 자원 문지기 가짜 센서가 걸린 env dict 를 돌려주는 함수(mode = ok|reject). 실 머신 부하·압력과 무관하게 같은 결과."""
+    return lambda mode="ok": _fake_resource_env(tmp_path, mode)

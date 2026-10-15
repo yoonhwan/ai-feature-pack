@@ -2,9 +2,9 @@
 # test_proposal_gate_wiring.sh — 승인 게이트(ft-proposal-gate.sh --card)가 나노 spawn 입구에 걸린 배선 시험(R77 r1 · 판정 826). 가짜 gh·가짜 Tank 만 — 실 gh·실 슬랙·실 tmux 0.
 #   (lint 의 `- 제안서:` 줄 시험은 test_index_lint.sh ⑨ — 카드 새/옛 판별에 git 커밋 날짜가 필요해 그 시험의 임시 리포를 쓴다.)
 set -uo pipefail
-export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기는 실측 머신 부하로 REJECT 한다 — 이 시험은 문지기 결과를 보지 않는다(R163 · 수정 전부터 RED)
 # shellcheck source=_proposal_issue_env.sh
 . "$(dirname "${BASH_SOURCE[0]:-$0}")/_proposal_issue_env.sh"
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 KIT="$HERE/../../scripts/harness-install/fable-team/bin"
 for f in "$KIT"/ft-{nano-spawn,proposal-gate,gh-as-tank}.sh; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
 

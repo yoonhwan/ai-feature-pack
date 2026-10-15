@@ -7,8 +7,8 @@ KIT="$HERE/../../scripts/fable-team-bin"
 G="${FT_TEST_GATE:-$KIT/ft-nano-cherry-gate.sh}"          # RED 확인용: 옛 사본 경로를 FT_TEST_GATE 로 준다
 SP="$KIT/ft-nano-spawn.sh"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
-export FT_AGENT_MAX=100000 FT_DISK_MIN_GIB=0 FT_SWAP_MAX_MIB=100000000 FT_MEM_FREE_MIN_PCT=0   # spawn 입구 자원 문지기(실측 머신 값)가 이 시험 결과를 바꾸지 않게 — 시험은 cherry 게이트만 본다
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0; R=""; OUT=""; RC=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
