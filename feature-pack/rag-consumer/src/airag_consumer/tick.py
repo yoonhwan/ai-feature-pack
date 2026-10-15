@@ -41,6 +41,9 @@ LOG_KEEP_DAYS = 14
 _KEY = re.compile(r"[0-9a-fA-F]{64}")
 # The only environment an `op` child gets besides the service-account token.
 OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
+# External-call 7-second rule: per attempt, one retry, whole call (one key) capped.
+OP_ATTEMPT_TIMEOUT_S = 7.0
+OP_CALL_DEADLINE_S = 14.0
 
 
 class TickError(Exception):
@@ -98,12 +101,23 @@ def load_keys(environment: dict[str, str], credentials: Path | None) -> None:
         child["OP_SERVICE_ACCOUNT_TOKEN"] = token
 
         def read(name: str) -> tuple[str, str]:
-            try:
-                result = subprocess.run(
-                    [op, "read", references[name]], env=child, capture_output=True, text=True, timeout=30,
-                )
-            except (OSError, subprocess.TimeoutExpired) as error:  # class name only: timeout vs exec failure
-                raise TickError(EXIT_KEYS, "OP_READ_UNAVAILABLE", _clean_type(type(error).__name__)) from None
+            deadline = time.monotonic() + OP_CALL_DEADLINE_S
+            timeout = OP_ATTEMPT_TIMEOUT_S
+            attempt = 1
+            while True:
+                try:
+                    result = subprocess.run(
+                        [op, "read", references[name]], env=child, capture_output=True, text=True, timeout=timeout,
+                    )
+                    break
+                except (OSError, subprocess.TimeoutExpired) as error:  # class name only: timeout vs exec failure
+                    kind = _clean_type(type(error).__name__)
+                    # Retry once, only for a timeout before any output (emptiness test only; the output is dropped).
+                    silent = isinstance(error, subprocess.TimeoutExpired) and not (error.stdout or error.stderr)
+                    timeout = min(OP_ATTEMPT_TIMEOUT_S, deadline - time.monotonic())
+                    if attempt == 2 or not silent or timeout <= 0:
+                        raise TickError(EXIT_KEYS, "OP_READ_UNAVAILABLE", kind) from None
+                    attempt += 1
             value = result.stdout.strip()
             if result.returncode or not _KEY.fullmatch(value):
                 raise TickError(EXIT_KEYS, "OP_KEY_READ_OR_FORMAT_FAILED")
