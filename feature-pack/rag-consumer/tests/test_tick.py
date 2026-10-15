@@ -10,6 +10,7 @@ import re
 import stat
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -361,6 +362,122 @@ def test_op_child_environment_is_an_allowlist(tmp_path):
     assert {"PATH", "HOME", "OP_SERVICE_ACCOUNT_TOKEN"} <= names
     assert not names & {"OTHER_RUNTIME_KEY_HEX", "OP_EXTRA_SECRET", "SOME_API_TOKEN", "OP_SESSION_demo",
                         "AIRAG_MEMORY_API_KEY", "AIRAG_PROFILE_SOURCE_KEY_HEX"}
+
+
+def _one_key_missing_env() -> dict[str, str]:
+    return {**base_environment(), "AIRAG_CONSUMER_KEY_HEX": KEYS["AIRAG_CONSUMER_KEY_HEX"],
+            "AIRAG_PROJECTION_KEY_HEX": KEYS["AIRAG_PROJECTION_KEY_HEX"]}
+
+
+def _timed_op(tmp_path: Path, body: str) -> tuple[Path, Path]:
+    """A fake `op` that logs one line per attempt, then runs ``body`` (exec so no orphan holds the pipe)."""
+    attempts = tmp_path / "op-attempts.txt"
+    script = tmp_path / "op"
+    script.write_text(f'#!/bin/sh\necho x >> "{attempts}"\n{body}\n', encoding="utf-8")
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    return script, attempts
+
+
+def _attempt_count(attempts: Path) -> int:
+    return len(attempts.read_text().split()) if attempts.exists() else 0
+
+
+def _fast_op_limits(monkeypatch, attempt: float, deadline: float) -> None:
+    monkeypatch.setattr(tick, "OP_ATTEMPT_TIMEOUT_S", attempt)
+    monkeypatch.setattr(tick, "OP_CALL_DEADLINE_S", deadline)
+
+
+def test_op_timeout_constants_follow_the_seven_second_rule():
+    assert (tick.OP_ATTEMPT_TIMEOUT_S, tick.OP_CALL_DEADLINE_S) == (7.0, 14.0)
+
+
+def test_op_silent_timeout_is_retried_once_then_reported_as_unavailable(tmp_path, capsys, monkeypatch):
+    item, hooks = synthetic_service(tmp_path)
+    op, attempts = _timed_op(tmp_path, "exec sleep 30")
+    _fast_op_limits(monkeypatch, 0.3, 0.9)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    line, _ = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS and _attempt_count(attempts) == 2
+    assert (line["code"], line["type"]) == ("OP_READ_UNAVAILABLE", "TimeoutExpired")
+
+
+def test_op_timeout_after_partial_output_is_not_retried(tmp_path, capsys, monkeypatch):
+    item, hooks = synthetic_service(tmp_path)
+    op, attempts = _timed_op(tmp_path, "printf x\nexec sleep 30")
+    _fast_op_limits(monkeypatch, 0.3, 0.9)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    line, _ = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS and _attempt_count(attempts) == 1
+    assert (line["code"], line["type"]) == ("OP_READ_UNAVAILABLE", "TimeoutExpired")
+
+
+def test_op_nonzero_exit_is_not_retried(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, attempts = _timed_op(tmp_path, "exit 5")
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    line, _ = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS and _attempt_count(attempts) == 1
+    assert line["code"] == "OP_KEY_READ_OR_FORMAT_FAILED"
+
+
+def test_op_spawn_failure_is_not_retried(tmp_path, capsys, monkeypatch):
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    calls = []
+    real = subprocess.run
+
+    def run(argv, **kwargs):
+        if len(argv) > 1 and argv[1] == "read":
+            calls.append(kwargs.get("timeout"))
+            raise PermissionError(13, "MARKER_MESSAGE_SECRET")
+        return real(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    line, _ = tick_line(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS and len(calls) == 1
+    assert (line["code"], line["type"]) == ("OP_READ_UNAVAILABLE", "PermissionError")
+
+
+def _timeouts_with_overshoot(tmp_path, monkeypatch, first_attempt_takes: float) -> list[float]:
+    """Fake `op read` whose first attempt takes ``first_attempt_takes`` s and times out silently."""
+    item, hooks = synthetic_service(tmp_path)
+    op, _ = stub_op(tmp_path)
+    _fast_op_limits(monkeypatch, 0.2, 0.4)
+    timeouts: list[float] = []
+    real = subprocess.run
+
+    def run(argv, **kwargs):
+        if len(argv) > 1 and argv[1] == "read":
+            timeouts.append(kwargs["timeout"])
+            time.sleep(first_attempt_takes if len(timeouts) == 1 else 0)
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        return real(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    return timeouts
+
+
+def test_second_attempt_timeout_is_capped_by_the_remaining_deadline(tmp_path, monkeypatch):
+    timeouts = _timeouts_with_overshoot(tmp_path, monkeypatch, 0.25)
+    assert len(timeouts) == 2 and timeouts[0] == pytest.approx(0.2)
+    assert 0 < timeouts[1] <= 0.4 - 0.25 + 0.02
+
+
+def test_no_retry_when_the_deadline_is_already_spent(tmp_path, monkeypatch):
+    assert len(_timeouts_with_overshoot(tmp_path, monkeypatch, 0.45)) == 1
+
+
+def test_run_returns_at_the_attempt_deadline_even_if_a_descendant_holds_the_pipe(tmp_path, capsys, monkeypatch):
+    item, hooks = synthetic_service(tmp_path)
+    op, attempts = _timed_op(tmp_path, "sleep 4 &\nexec sleep 30")  # descendant inherits stdout/stderr
+    _fast_op_limits(monkeypatch, 0.3, 0.9)
+    started = time.monotonic()
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    elapsed = time.monotonic() - started
+    assert code == tick.EXIT_KEYS and _attempt_count(attempts) == 2
+    assert elapsed < 3.0
 
 
 def test_short_error_value_is_not_trusted_as_a_reason_code(tmp_path, capsys):
