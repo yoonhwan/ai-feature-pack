@@ -175,6 +175,54 @@ PYEOF
 # doorbell 은 그때 무번호 문자열로 간다(조용히 틀린 번호를 싣지 않는다).
 seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
+# 인박스 적재(판정 425-B · R180) — comm/mbox.sh 의 inbox_ingest·inbox_must_ring 과 같은 계약: 전송 직후 1줄 · 실패는 stderr WARN, 전송 rc 불변.
+#   적재 줄 `INGEST … cls=<분류>` 의 분류를 INBOX_CLS 에 둔다. 적재 본체(규칙표·중복 seq SKIP)는 ft-inbox 한 곳 — 여기는 부르기만 한다.
+#   ★적재 루트 = «py 가 실제 고른 우편함»에서만 유도한다★ (DA⑥ H1) — ft-mbox.py CANON 과 같은 순서: FT_MBOX_DIR > 스크립트 위 `.fable-team` 조상(`.worktrees` 조상이 있으면 그 부모)의 .fable-team/comm.
+#   env FT_ROOT 는 보지 않는다(py 가 안 보므로 — 보면 전송한 우편함과 다른 곳에서 쪽지를 찾아 큐 0). ft-inbox 에는 FT_ROOT=<우편함 두 단계 위> 로 덮어 넘긴다.
+_mbox_dir() {
+  [ -n "${FT_MBOX_DIR:-}" ] && { printf '%s' "$FT_MBOX_DIR"; return; }
+  local d="$BINDIR" root=""
+  while [ "$d" != "/" ]; do
+    if [ "$(basename "$d")" = ".fable-team" ]; then
+      root="$(dirname "$d")"; local a="$root"
+      while [ "$a" != "/" ]; do [ "$(basename "$a")" = ".worktrees" ] && { root="$(dirname "$a")"; break; }; a="$(dirname "$a")"; done
+      break
+    fi
+    d="$(dirname "$d")"
+  done
+  [ -n "$root" ] && printf '%s/.fable-team/comm' "$root"
+}
+inbox_ingest() {
+  INBOX_CLS=""; [ -n "$1" ] || return 0
+  local o md root
+  md="$(_mbox_dir)"; md="$(cd "$md" 2>/dev/null && pwd -P)"
+  case "$md" in
+    */.fable-team/comm) root="${md%/.fable-team/comm}" ;;
+    *) echo "WARN inbox ingest 건너뜀 — 우편함 경로가 <루트>/.fable-team/comm 꼴 아님: ${md:-$(_mbox_dir)} (쪽지 전송은 완료)" >&2; return 0 ;;
+  esac
+  o="$(FT_ROOT="$root" bash "$BINDIR/ft-inbox.sh" ingest "$1" 2>/dev/null)" || { echo "WARN inbox ingest 실패 seq=$1 (쪽지 전송은 완료)" >&2; return 0; }
+  INBOX_CLS="$(printf '%s\n' "$o" | sed -n 's/^INGEST .* cls=\([^ ]*\) .*/\1/p' | head -1)" || INBOX_CLS=""
+  return 0
+}
+# ①~④·미상(보고 의무 분류)이면 받는 좌석의 tick 유무와 무관하게 울린다. ⑤⑥·적재 실패·SKIP 은 notify_policy 그대로.
+inbox_must_ring() { case "$INBOX_CLS" in ①|②|③|④|미상) return 0;; *) return 1;; esac; }
+
+# ★오빠 대면 좌석(현역 planner = seats-planner.json `_master`)에는 doorbell 을 주입하지 않는다 — 큐만 적재(판정 876 · comm/mbox.sh user_facing 과 같은 계약).
+#   doorbell 이 오빠가 치는 문장 중간에 끼어 절단된다. --urgent·분류 ①~④ 도 이 좌석엔 울리지 않는다. 명시적 `ring` 명령만 예외. 판정 불가(레지스트리 경로·파일 없음·깨짐)는 기존대로(울림).
+user_facing() {
+  local sj pj; sj="$(_seats_json)"; [ -n "$sj" ] || return 1
+  pj="$(dirname "$sj")/seats-planner.json"
+  [ -f "$pj" ] || return 1
+  python3 - "$pj" "$1" <<'PYEOF' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
+PYEOF
+}
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
@@ -201,6 +249,9 @@ case "$cmd" in
     fi
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} ${dispatch[@]+"${dispatch[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; exit $_rc; }
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $(seq_of "$py_out")" >/dev/null || true
+    inbox_ingest "$(seq_of "$py_out")"
+    if inbox_must_ring; then notify=1; fi
+    if user_facing "$to"; then notify=0; fi
     if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf" "$(seq_of "$py_out")")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
@@ -219,6 +270,9 @@ case "$cmd" in
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
+    inbox_ingest "$(seq_of "$py_out")"
+    if inbox_must_ring; then notify=1; fi
+    if user_facing "$to"; then notify=0; fi
     if [ "$notify" = 1 ]; then db="$(doorbell "$to" 0 "$(seq_of "$py_out")")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
