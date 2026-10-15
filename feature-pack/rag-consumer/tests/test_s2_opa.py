@@ -222,13 +222,14 @@ def test_e_a_timeout_after_partial_output_is_not_retried(sb):
 # (f) two timeouts: the second attempt is capped by what is left of the call deadline
 def test_f_the_second_attempt_is_capped_by_the_remaining_call_deadline(sb):
     sb.make_op(pre={0: 'if [ "$n" -le 2 ]; then exec sleep 30; fi'})
-    sb.extra.update(PROBE_S2_T_ATTEMPT="0.5", PROBE_S2_T_DEADLINE="0.8")
+    sb.extra.update(PROBE_S2_T_ATTEMPT="0.8", PROBE_S2_T_DEADLINE="1.0")
     sb.run()
     call = calls_of(sb.result(), "default")[0]
     assert [(a["attempt"], a["status"]) for a in call["attempts"]] == [(1, "timeout"), (2, "timeout")]
     assert call["outcome"] == "timeout"
-    assert call["attempts"][1]["elapsed_ms"] <= 800 - 500 + 450  # 0.3 s left, plus start/kill/reap slack
-    assert call["call_total_ms"] <= 800 + 500
+    # about 0.2 s of the call deadline is left for the second attempt (an uncapped one would run the full 0.8 s)
+    assert call["attempts"][1]["elapsed_ms"] <= 200 + 300, call["attempts"][1]
+    assert call["call_total_ms"] <= 1000 + 450
 
 
 # (g) error classes

@@ -1,0 +1,272 @@
+#!/bin/bash
+# S2: key-read timing measurement, run once by a human (design arch-20261015-opa-popup-design-r4 §6.1).
+#
+#   bash s2.sh --python <absolute consumer python> --credentials <absolute credentials settings file>
+#   bash s2.sh --selftest --credentials FILE ...        test mode: PROBE_*/FAKE_* overrides are honoured
+#
+# It measures the key read (`op read`, three keys in parallel, the tick's 7 s / one retry / 14 s rule) on two
+# conditions — the real HOME and a fresh private HOME — one cold round and five warm rounds each (warm rounds >= 60 s
+# apart). It registers one temporary launchd job (label com.airag.s2-opa-<id>, RunAtLoad once, no KeepAlive/
+# StartInterval, streams to /dev/null) that runs `python -I s2.py --run <dir> --mode <mode> --credentials <file>`.
+# The values read, the token and the vault references are never written anywhere. The operating consumer is not
+# touched and stays disabled. The only things ever stopped: the job's own launchd label (and only while the loaded
+# job shows exactly this run's arguments and plist path) and processes the worker recorded itself (pid AND start
+# time must still match). Shared 1Password daemons are never signalled. Every launchctl call is time-capped; nothing
+# is retried.
+#
+# Time: run phase <= 900 s (2 x (6 rounds + 5 x 60 s gaps) + slack), clean-up + close + report <= 15 s.
+# Exit codes: 0 done, 1 result incomplete, 2 refused to start, 3 bootstrap failed, 4 leftover to check,
+# 129/130/143 interrupted (clean-up runs first).
+
+HERE="$(cd "$(dirname "$0")" && pwd -P)"
+START=$SECONDS
+SELFTEST=0
+PYTHON_BIN=""
+CREDENTIALS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --selftest) SELFTEST=1 ;;
+    --python) PYTHON_BIN="${2:-}"; shift ;;
+    --credentials) CREDENTIALS="${2:-}"; shift ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    *) echo "알 수 없는 인자입니다 (--help)."; exit 2 ;;
+  esac
+  shift
+done
+
+LABEL=""
+PROBE_DIR=""
+CLEANED=0
+RESIDUAL=0
+BOOTSTRAP_ATTEMPTED=0
+LABEL_STATE=unknown
+LABEL_OUT=""
+PHASE_DEADLINE=0
+LAUNCHCTL="launchctl"
+UID_N="$(id -u)"
+
+bounded() {  # $1 = cap in seconds, rest = command: prints its output; 124 = cut off (or no time left in the phase)
+  local cap="$1" left
+  shift
+  left=$((PHASE_DEADLINE - SECONDS))
+  [ "$left" -lt "$cap" ] && cap="$left"
+  [ "$cap" -lt 1 ] && return 124
+  "$PYTHON_BIN" -I "$HERE/probe.py" --bounded "$cap" -- "$@"
+}
+
+label_probe() {  # sets LABEL_STATE (loaded | absent | unknown) and LABEL_OUT; a failed lookup is never "absent"
+  local rc
+  LABEL_OUT="$(bounded "$T_CALL" "$LAUNCHCTL" print "gui/$UID_N/$LABEL")"; rc=$?
+  if [ $rc -eq 0 ]; then LABEL_STATE=loaded
+  elif [ $rc -ne 124 ] && [ $rc -ne 127 ] && printf '%s' "$LABEL_OUT" | grep -q 'Could not find service'; then LABEL_STATE=absent
+  else LABEL_STATE=unknown
+  fi
+}
+
+pid_state() {  # $1 pid, $2 recorded "lstart comm" -> match | gone | unknown (no time left or ps cut off)
+  local current rc
+  [ "$SECONDS" -ge "$PHASE_DEADLINE" ] && { echo unknown; return; }
+  current="$(bounded 1 env LC_ALL=C ps -o lstart=,comm= -p "$1")"; rc=$?   # C locale, as probe.py records it
+  if [ $rc -eq 124 ] || [ $rc -eq 127 ]; then echo unknown; return; fi
+  current="$(printf '%s' "$current" | sed -e 's/^ *//' -e 's/ *$//')"
+  if [ -n "$current" ] && [ "$current" = "$2" ]; then echo match; else echo gone; fi
+}
+
+stop_recorded_pids() {  # only processes this probe recorded, only while pid AND start time still match
+  [ -n "$PROBE_DIR" ] && [ -f "$PROBE_DIR/pids.json" ] || return 0
+  local lines pid want i state
+  lines="$(bounded 3 "$PYTHON_BIN" -I "$HERE/probe.py" --list-pids "$PROBE_DIR")"
+  if [ "$SELFTEST" = 1 ] && [ -n "${PROBE_EXTRA_PIDS:-}" ]; then lines="$lines"$'\n'"$PROBE_EXTRA_PIDS"; fi
+  while IFS='|' read -r pid want; do
+    [ -n "$pid" ] || continue
+    state="$(pid_state "$pid" "$want")"
+    if [ "$state" = unknown ]; then   # no time or no answer: report, never wait
+      echo "잔존 확인 필요: pid $pid (확인하지 못함 — 정리 시간 소진 또는 조회 지연)"
+      RESIDUAL=1
+      continue
+    fi
+    [ "$state" = match ] || continue
+    kill -TERM "$pid" 2>/dev/null
+    i=0
+    while [ $i -lt 20 ] && [ "$(pid_state "$pid" "$want")" = match ]; do sleep 0.1; i=$((i + 1)); done
+    state="$(pid_state "$pid" "$want")"
+    if [ "$state" = match ]; then
+      kill -KILL "$pid" 2>/dev/null
+      i=0
+      while [ $i -lt 10 ] && [ "$(pid_state "$pid" "$want")" = match ]; do sleep 0.1; i=$((i + 1)); done
+      state="$(pid_state "$pid" "$want")"
+    fi
+    if [ "$state" != gone ]; then
+      echo "잔존 확인 필요: pid $pid (공유 데몬은 종료하지 않음)"
+      RESIDUAL=1
+    fi
+  done <<< "$lines"
+}
+
+owns_loaded_job() {  # the loaded job's arguments and plist path must equal exactly what this run registered
+  local want_args got_args got_path
+  want_args="$(printf '%s\n' "$PYTHON_BIN" -I "$HERE/s2.py" --run "$PROBE_DIR" --mode "$MODE" --credentials "$CREDENTIALS")"
+  got_args="$(printf '%s\n' "$LABEL_OUT" | awk '/^[ \t]*arguments = \{/{f=1;next} f&&/^[ \t]*\}/{exit} f{sub(/^[ \t]+/,"");print}')"
+  got_path="$(printf '%s\n' "$LABEL_OUT" | awk '/^[ \t]*path = /{sub(/^[ \t]*path = /,"");print;exit}')"
+  [ -n "$got_args" ] && [ "$got_args" = "$want_args" ] && [ "$got_path" = "$PROBE_DIR/job.plist" ]
+}
+
+cleanup() {  # idempotent; the caller must exit explicitly afterwards
+  [ "$CLEANED" = 1 ] && return 0
+  CLEANED=1
+  RESIDUAL=0
+  PHASE_DEADLINE=$((SECONDS + CLEAN_BUDGET))
+  if [ "$BOOTSTRAP_ATTEMPTED" = 1 ]; then   # a label this run never tried to start is never touched
+    label_probe
+    if [ "$LABEL_STATE" = loaded ]; then
+      if owns_loaded_job; then   # exact arguments and plist path of the job this run registered
+        bounded "$T_CALL" "$LAUNCHCTL" bootout "gui/$UID_N/$LABEL" >/dev/null   # once; never retried
+        label_probe
+        if [ "$LABEL_STATE" = unknown ]; then echo "unknown_check_required: $LABEL"; fi
+        if [ "$LABEL_STATE" != absent ]; then echo "잔존 확인 필요: $LABEL"; RESIDUAL=1; fi
+      else
+        echo "잔존 확인 필요: $LABEL (이 실행이 등록한 job 인지 확인되지 않아 내리지 않음)"
+        RESIDUAL=1
+      fi
+    elif [ "$LABEL_STATE" = unknown ]; then
+      echo "unknown_check_required: $LABEL"
+      echo "잔존 확인 필요: $LABEL"
+      RESIDUAL=1
+    fi
+  fi
+  stop_recorded_pids
+  return $RESIDUAL
+}
+
+# Traps first, before any label or directory exists. Time values are defaults until the mode is known: a
+# production run must not read (let alone print) any test switch, a selftest run validates them without echoing.
+T_START=10; T_RESULT=900; T_CLEAN=15; T_CALL=10; CLEAN_BUDGET=11
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 129' HUP
+trap 'cleanup' EXIT
+
+if [ "$SELFTEST" = 1 ]; then
+  [ -n "${PROBE_LAUNCHCTL:-}" ] && LAUNCHCTL="$PROBE_LAUNCHCTL"
+  BASE="${PROBE_BASE:-$HOME/.local/share/airag-probe}"
+  [ -z "$PYTHON_BIN" ] && PYTHON_BIN="${PROBE_PYTHON:-}"
+  JOB_PATH="$PATH"
+  MODE=selftest
+else
+  if env | grep -Eq '^(PROBE_|FAKE_)'; then
+    echo "PROBE_*/FAKE_* 재정의는 --selftest 에서만 허용됩니다. 실행하지 않습니다."
+    exit 2
+  fi
+  BASE="$HOME/.local/share/airag-probe"
+  JOB_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+  MODE=production
+  [ -z "$PYTHON_BIN" ] && PYTHON_BIN="$HOME/.local/share/airag/runtime/bin/python"
+fi
+if [ "$SELFTEST" = 1 ]; then
+  for pair in "T_START=${PROBE_T_START:-10}" "T_RESULT=${PROBE_T_RESULT:-900}" "T_CLEAN=${PROBE_T_CLEAN:-15}" \
+              "T_CALL=${PROBE_T_CALL:-10}"; do
+    case "${pair#*=}" in
+      ''|*[!0-9]*) echo "시험용 시간 값이 올바르지 않습니다 (정수 초). 시작하지 않습니다."; exit 2 ;;
+    esac
+    eval "${pair%%=*}=${pair#*=}"
+  done
+  if [ "$T_CLEAN" -gt 5 ]; then CLEAN_BUDGET=$((T_CLEAN - 4)); else CLEAN_BUDGET=1; fi   # 4 s kept for close + report
+fi
+case "$PYTHON_BIN" in
+  /*) ;;
+  *) echo "consumer 런타임 python 의 절대경로가 필요합니다 (--python <절대경로>). 시작하지 않습니다."; exit 2 ;;
+esac
+case "$CREDENTIALS" in
+  /*) ;;
+  *) echo "credentials 설정 파일의 절대경로가 필요합니다 (--credentials <절대경로>). 시작하지 않습니다."; exit 2 ;;
+esac
+if [ ! -f "$CREDENTIALS" ]; then
+  echo "credentials 설정 파일을 찾을 수 없습니다. 시작하지 않습니다."
+  exit 2
+fi
+if [ ! -f "$PYTHON_BIN" ] || [ ! -x "$PYTHON_BIN" ]; then
+  echo "python 을 실행할 수 없습니다: 경로를 확인하세요 (--python <절대경로>). 시작하지 않습니다."
+  exit 2
+fi
+if ! command -v "$LAUNCHCTL" >/dev/null 2>&1; then
+  echo "unknown_check_required: launchctl 을 찾을 수 없습니다. 시작하지 않습니다."
+  exit 2
+fi
+if [ -L "$BASE" ] || [ -L "$(dirname "$BASE")" ]; then
+  echo "점검 폴더의 위치가 심링크입니다. 시작하지 않습니다."
+  exit 2
+fi
+mkdir -p -m 700 "$BASE" || exit 2
+ID="$(date +%Y%m%d-%H%M%S)-$$-$RANDOM"
+PROBE_DIR="$BASE/s2-$ID"
+mkdir -m 700 "$PROBE_DIR" || { PROBE_DIR=""; echo "점검 폴더가 이미 있습니다. 시작하지 않습니다."; exit 2; }
+LABEL="com.airag.s2-opa-$ID"
+
+PHASE_DEADLINE=$((START + T_RESULT))
+label_probe
+if [ "$LABEL_STATE" != absent ]; then
+  [ "$LABEL_STATE" = unknown ] && echo "unknown_check_required: $LABEL"
+  echo "라벨 상태를 '없음'으로 확인하지 못했습니다 ($LABEL_STATE). 어떤 job 도 건드리지 않고 시작하지 않습니다."
+  exit 2
+fi
+
+xml_esc() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+
+write_plist() {
+  {
+    printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+      '<plist version="1.0">' '<dict>'
+    printf '  <key>Label</key>\n  <string>%s</string>\n  <key>ProgramArguments</key>\n  <array>\n' "$(xml_esc "$LABEL")"
+    for arg in "$PYTHON_BIN" -I "$HERE/s2.py" --run "$PROBE_DIR" --mode "$MODE" --credentials "$CREDENTIALS"; do
+      printf '    <string>%s</string>\n' "$(xml_esc "$arg")"
+    done
+    printf '  </array>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>ProcessType</key>\n  <string>Background</string>\n'
+    printf '  <key>StandardOutPath</key>\n  <string>/dev/null</string>\n'
+    printf '  <key>StandardErrorPath</key>\n  <string>/dev/null</string>\n'
+    printf '  <key>EnvironmentVariables</key>\n  <dict>\n    <key>PATH</key>\n    <string>%s</string>\n' "$(xml_esc "$JOB_PATH")"
+    if [ "$SELFTEST" = 1 ]; then
+      env | grep -E '^(PROBE_|FAKE_|HOME=)' | grep -v '^PROBE_EXTRA_PIDS=' | while IFS= read -r line; do
+        printf '    <key>%s</key>\n    <string>%s</string>\n' "$(xml_esc "${line%%=*}")" "$(xml_esc "${line#*=}")"
+      done
+    fi
+    printf '  </dict>\n</dict>\n</plist>\n'
+  } > "$PROBE_DIR/job.plist"
+}
+write_plist
+
+BOOTSTRAP_ATTEMPTED=1
+bounded "$T_CALL" "$LAUNCHCTL" bootstrap "gui/$UID_N" "$PROBE_DIR/job.plist" >/dev/null
+rc=$?
+if [ $rc -eq 124 ]; then
+  echo "bootstrap 이 시간 초과로 중단되었습니다 (자동 재시도 없음)."
+  exit 3
+elif [ $rc -ne 0 ]; then
+  echo "bootstrap 에 실패했습니다."
+  exit 3
+fi
+
+# Wait: <= T_START for the job to start (pids.json), and the whole run phase ends at START + T_RESULT.
+T0=$SECONDS
+RUN_DEADLINE=$((START + T_RESULT))
+TIMED_OUT=0
+while :; do
+  if [ -f "$PROBE_DIR/result.json" ] && grep -q '"complete":true' "$PROBE_DIR/result.json"; then break; fi
+  if [ ! -s "$PROBE_DIR/pids.json" ] && [ $((SECONDS - T0)) -ge "$T_START" ]; then TIMED_OUT=1; break; fi
+  if [ "$SECONDS" -ge "$RUN_DEADLINE" ]; then TIMED_OUT=1; break; fi
+  sleep 0.2
+done
+if [ "$TIMED_OUT" = 1 ]; then
+  PHASE_DEADLINE=$((SECONDS + 2))
+  bounded 2 "$PYTHON_BIN" -I "$HERE/s2.py" --close-timeout "$PROBE_DIR"
+fi
+
+cleanup
+CLEAN_RC=$?
+PHASE_DEADLINE=$((SECONDS + 2))
+bounded 2 "$PYTHON_BIN" -I "$HERE/s2.py" --report "$PROBE_DIR"
+REPORT_RC=$?
+echo "결과 파일: $PROBE_DIR/result.json"
+[ $CLEAN_RC -ne 0 ] && exit 4
+[ $REPORT_RC -ne 0 ] && exit 1
+exit 0
