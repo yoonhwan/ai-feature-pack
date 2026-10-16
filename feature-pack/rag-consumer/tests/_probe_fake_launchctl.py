@@ -14,6 +14,9 @@ wrapper never saw. bootout stops only that job process (not its descendants). Sw
   FAKE_LC_FOREIGN_AFTER_BOOTSTRAP=1  after our bootstrap the label shows foreign arguments (same name, not our job)
   FAKE_LC_STYLE=<style>              how our own loaded job is shown (a different job under the same label):
                                      suffix | extra_arg | env_only | path_suffix | prefix_dir
+                                     and for the N4 worker arguments: drop_p0 (the p0-only arguments are missing) |
+                                     flip_pt (the process-type value is the other one) | add_p0 (p0-only arguments
+                                     that this run never registered)
   FAKE_LC_SLOW_PS_FLAG=<file>        bootout creates this file (tests make `ps` slow once it exists)
   FAKE_LC_CONSUMER_LOADED=1          `print` of com.airag.consumer reports it as loaded
 """
@@ -84,6 +87,13 @@ def main(argv: list[str]) -> int:
                 args[args.index("--run") + 1] = directory + "-foreign"
             elif style == "extra_arg":
                 args.append("--extra")
+            elif style == "drop_p0" and "--p0-only" in args:
+                args = args[:args.index("--p0-only")]
+            elif style == "flip_pt" and "--process-type-set" in args:
+                index = args.index("--process-type-set") + 1
+                args[index] = "false" if args[index] == "true" else "true"
+            elif style == "add_p0":
+                args += ["--p0-only", "--process-type-set", "true"]
             elif style == "env_only":  # other job, our directory appears only in an environment block
                 args = ["/other/python", "--run", "/other/place/not-ours"]
                 extra = "environment = {\n\tPROBE_NOTE => " + directory + "\n}\n"
