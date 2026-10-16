@@ -93,6 +93,10 @@ def hooks_for(mode: str):
     class Bridge(SyntheticBridge):
         @staticmethod
         def publish_pending_windows(lifecycle, scope, core, **kwargs):
+            if mode == "kill-in-pass":  # the pass is started (gate done) and then dies like a forced kill
+                import signal
+
+                os.kill(os.getpid(), signal.SIGKILL)
             if mode == "keylike":
                 raise RuntimeError(KEYLIKE)
             if mode == "short":
@@ -155,6 +159,12 @@ def raw_mode(mode: str) -> int | None:
             "published_attempted": 3, "published_succeeded": 0, "published_failed": 3, "published_failed_other": 0,
             "published_failed_code_1": "PROVIDER_TIMEOUT", "published_failed_count_1": 2,
             "published_failed_code_2": "PROVIDER_TIMEOUT", "published_failed_count_2": 1}, "code": "", "type": ""}
+        os.write(1, json.dumps(frame).encode())
+        return 0
+    if mode in ("forged-integrity-good", "forged-integrity-bad"):
+        ms = 1.5 if mode.endswith("good") else 1  # an int is outside the closed integrity schema
+        frame = {"exit": 0, "summary": {}, "code": "", "type": "",
+                 "integrity": {"v": 1, "dbs": [{"db": "consumer", "out": "ok", "ms": ms}]}}
         os.write(1, json.dumps(frame).encode())
         return 0
     if mode in ("forged-frame", "forged-extra-key"):

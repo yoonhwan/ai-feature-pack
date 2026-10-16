@@ -98,7 +98,13 @@ def _run_scenario(tmp_path, monkeypatch, capsys, name, steps, *, limits=LIMITS, 
 def _without_probe(text):
     data = json.loads(text)
     data.pop("probe", None)
+    data.pop("integrity", None)  # the first tick of each run carries the DB check's own (timing) record
     return data
+
+
+def _masked(text):
+    """The line with the DB check's measured milliseconds blanked (they differ between two real runs)."""
+    return re.sub(r'"ms":[0-9.]+', '"ms":0', text)
 
 
 def _assert_behavior_unchanged(tmp_path, monkeypatch, capsys, name, steps, **kw):
@@ -416,7 +422,8 @@ def test_when_even_the_minimal_record_fails_the_line_is_the_pre_probe_line_byte_
 
     with_probe = _run_scenario(tmp_path, monkeypatch, capsys, "last-p", SUCCESS_STEPS, mutate=mutate)
     baseline = _run_scenario(tmp_path, monkeypatch, capsys, "last-b", SUCCESS_STEPS, baseline=True)
-    assert with_probe.file == baseline.file and with_probe.stdout == baseline.stdout
+    assert _masked(with_probe.file) == _masked(baseline.file)
+    assert _masked(with_probe.stdout) == _masked(baseline.stdout)
     assert "probe" not in with_probe.file and with_probe.code == baseline.code == 0
 
 
@@ -601,5 +608,6 @@ def test_when_the_minimal_probe_cannot_be_serialized_either_the_pre_probe_line_i
     with_probe = _run_scenario(tmp_path, monkeypatch, capsys, "compose2-p", SUCCESS_STEPS, mutate=both)
     baseline_run = _run_scenario(tmp_path, monkeypatch, capsys, "compose2-b", SUCCESS_STEPS, baseline=True)
     assert order == ["normal", "minimal"]
-    assert with_probe.file == baseline_run.file and with_probe.stdout == baseline_run.stdout
+    assert _masked(with_probe.file) == _masked(baseline_run.file)
+    assert _masked(with_probe.stdout) == _masked(baseline_run.stdout)
     assert with_probe.code == baseline_run.code == 0

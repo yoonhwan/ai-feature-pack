@@ -523,8 +523,9 @@ def test_the_tick_passes_the_trace_file_to_the_pass_child(tmp_path, monkeypatch)
     environment = {name: "0" * 64 for name in tick.NAMES}
     with pytest.raises(tick.TickError):
         tick._run_component(tmp_path / "config.json", environment, tmp_path, ["child"])
-    assert seen[0][:2] == ["child", "--config"]
-    assert seen[0][-2:] == ["--trace-file", str(tmp_path / "pass-trace.jsonl")]
+    argv = seen[0]
+    assert argv[:2] == ["child", "--config"]
+    assert argv[argv.index("--trace-file") + 1] == str(tmp_path / "pass-trace.jsonl")
 
 
 def test_a_real_tick_leaves_a_private_trace_and_rotates_it_the_next_time(tmp_path, capsys):
