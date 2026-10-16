@@ -737,6 +737,16 @@ def test_a_profile_mismatch_in_stage_b_stops_before_the_last_a(n4):
     assert "profile_mismatch" in proc.stdout and "연관" not in proc.stdout
 
 
+def test_a_stop_at_the_last_stage_never_reads_the_table(n4):
+    """The first two stages look like the association row, but the last one fails its gate: nothing is interpreted."""
+    n4.observe("timeout", "success", "timeout")
+    n4.stage("N4-A2", p0only_doc("success", "timeout"),
+             plist=plistlib.dumps({"Label": "x", "ProcessType": "Interactive"}).decode())
+    proc = n4.run("--plan", "n4")
+    assert proc.returncode == 5 and n4.calls() == list(STAGES) and "profile_mismatch" in proc.stdout
+    assert "연관" not in proc.stdout and "제거만 해서는" not in proc.stdout and "재현되지 않음" not in proc.stdout
+
+
 def test_the_profile_says_the_opposite_in_stage_b(n4):
     n4.stage("N4-B", profile=json.dumps(valid_profile_doc(True)))
     proc = n4.run("--plan", "n4")
