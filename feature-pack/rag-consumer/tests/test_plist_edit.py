@@ -995,7 +995,7 @@ def test_symlinks_into_the_protected_spaces_are_refused_in_either_role(lab):
     agents, store, old = protected_space(lab)
     link_dir = lab.root / "backup-link"
     link_dir.symlink_to(agents)
-    link_file = lab.work / "plist-link"
+    link_file = lab.root / "plist-link"
     link_file.symlink_to(old)
     for plist, backup_dir in ((lab.plist, link_dir), (link_file, lab.backup), (lab.plist, link_dir / "sub"), (link_file, link_dir)):
         done = selftest_with(lab, plist, backup_dir)
