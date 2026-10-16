@@ -235,6 +235,10 @@ def gate_n4(directory: Path, doc, expect_set: bool) -> str | None:
     reason = gate_probe(doc)
     if reason is not None:
         return reason
+    # The shared validator checks every entry but not the array: N4 needs exactly P4, P0, P2, P1, P1b, once each (a
+    # repeated or missing entry would hide a step that ran, because the lookup below keeps only the last of a name).
+    if sorted(s["step"] for s in doc["steps"]) != sorted(probe.STEPS):
+        return "result_schema"
     by = {s["step"]: s for s in doc["steps"]}
     p0 = by.get("P0")
     if p0 is None or p0["status"] not in ("success", "timeout") or (p0["status"] == "timeout" and not p0["reaped"]):
