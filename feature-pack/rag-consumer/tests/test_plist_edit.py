@@ -862,3 +862,210 @@ def test_the_python_child_is_isolated_from_the_environment(lab):
 def test_temporary_files_are_removed_even_when_the_run_ends_by_refusal_after_the_candidate_exists(lab):
     done = lab.run(plutil=lab.fake_plutil("exit 1"))
     assert done.returncode == 6 and lab.leftovers() == []
+
+
+# ===================================================================================== DA round 1 (M1 · M2 · m1 · m2 · m3)
+def inproc(lab, mod, monkeypatch, **env):
+    """Run ``main`` in this process (real signal handlers installed by it) with the fixture environment."""
+    for key, value in lab.env(**env).items():
+        monkeypatch.setenv(key, value)
+    handlers = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        return mod.main(lab.argv())
+    finally:
+        for number, handler in handlers.items():
+            signal.signal(number, handler)
+
+
+def signal_on_say(mod, monkeypatch, marker, sig):
+    """The process signals itself at the very moment the line holding ``marker`` is being printed."""
+    real = mod.say
+
+    def say(text):
+        if marker in text:
+            os.kill(os.getpid(), sig)
+        real(text)
+
+    monkeypatch.setattr(mod, "say", say)
+
+
+def signal_on_call(owner, name, nth, sig, monkeypatch):
+    """The process signals itself as the ``nth`` call of ``owner.name`` starts."""
+    real, count = getattr(owner, name), {"n": 0}
+
+    def wrapper(*args, **kwargs):
+        count["n"] += 1
+        if count["n"] == nth:
+            os.kill(os.getpid(), sig)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(owner, name, wrapper)
+
+
+SIGS = [pytest.param(signal.SIGINT, 130, id="int"), pytest.param(signal.SIGTERM, 143, id="term")]
+# (where the signal lands after the publish, extra injections)
+LIFECYCLE = {
+    "rename": (lambda mod, mp, sig: signal_on_call(mod.os, "replace", 1, sig, mp), ""),
+    "before-post-check": (lambda mod, mp, sig: signal_on_call(mod, "fsync_directory", 1, sig, mp), ""),
+    "post-check-line": (lambda mod, mp, sig: signal_on_say(mod, mp, "사후 재검증: PASS", sig), ""),
+    "done-line": (lambda mod, mp, sig: signal_on_say(mod, mp, "완료:", sig), ""),
+    "restore-rename": (lambda mod, mp, sig: signal_on_call(mod.os, "replace", 2, sig, mp), "post_corrupt"),
+    "restore-fsync": (lambda mod, mp, sig: signal_on_call(mod, "fsync_directory", 2, sig, mp), "post_corrupt"),
+    "restore-line": (lambda mod, mp, sig: signal_on_say(mod, mp, "복원: PASS", sig), "post_corrupt"),
+}
+
+
+@pytest.mark.parametrize("sig,code", SIGS)
+@pytest.mark.parametrize("where", sorted(LIFECYCLE))
+def test_a_signal_anywhere_after_the_publish_restores_the_original_and_ends_with_the_signal_code(lab, mod, monkeypatch, capsys, where, sig, code):
+    arm, inject = LIFECYCLE[where]
+    arm(mod, monkeypatch, sig)
+    assert inproc(lab, mod, monkeypatch, PLIST_EDIT_INJECT=inject) == code
+    out = capsys.readouterr().out
+    assert lab.untouched(), where
+    assert "복원: PASS" in out and "운영 파일 불변" not in out
+    no_sentinel(out)
+
+
+@pytest.mark.parametrize("sig,code", SIGS)
+def test_a_signal_while_the_final_success_line_is_printed_with_a_failing_restore_is_exit_nine(lab, mod, monkeypatch, capsys, sig, code):
+    signal_on_say(mod, monkeypatch, "완료:", sig)
+    assert inproc(lab, mod, monkeypatch, PLIST_EDIT_INJECT="restore_fail") == 9
+    out = capsys.readouterr().out
+    assert "복원: FAIL" in out and len(lab.backups()) == 1
+
+
+def test_a_failure_to_print_the_final_line_after_the_publish_is_rolled_back(lab, mod, monkeypatch, capsys):
+    real = mod.say
+
+    def say(text):
+        if "완료:" in text:
+            raise BrokenPipeError
+        real(text)
+
+    monkeypatch.setattr(mod, "say", say)
+    assert inproc(lab, mod, monkeypatch) == 8
+    assert lab.untouched() and "복원: PASS" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("sig,code", SIGS)
+def test_a_signal_before_the_publish_still_says_the_operating_file_is_unchanged(lab, mod, monkeypatch, capsys, sig, code):
+    signal_on_say(mod, monkeypatch, "후보 검증: PASS", sig)
+    assert inproc(lab, mod, monkeypatch) == code
+    assert lab.untouched() and "운영 파일 불변" in capsys.readouterr().out
+
+
+# ---- M2: both path arguments are checked against both protected spaces (LaunchAgents and the operating backup space)
+def protected_space(lab) -> tuple[Path, Path, Path]:
+    agents = lab.home / "Library" / "LaunchAgents"
+    agents.mkdir(parents=True)
+    agents.chmod(0o755)
+    store = lab.home / ".local" / "share" / "airag-plist-backup"
+    store.mkdir(parents=True)
+    old = store / "old-copy.bak"
+    old.write_bytes(lab.original)
+    return agents, store, old
+
+
+def selftest_with(lab, plist: Path, backup_dir: Path) -> subprocess.CompletedProcess:
+    args = ["--selftest", "--plist", str(plist), "--backup-dir", str(backup_dir), "--launchctl", str(lab.launchctl)]
+    return subprocess.run([PY, "-I", str(SCRIPT_PY), *args], env=lab.env(), stdin=subprocess.DEVNULL, capture_output=True, text=True)
+
+
+def space_untouched(lab, agents: Path, store: Path, old: Path) -> bool:
+    return (stat.S_IMODE(agents.stat().st_mode) == 0o755 and sorted(p.name for p in agents.iterdir()) == []
+            and old.read_bytes() == lab.original and sorted(p.name for p in store.iterdir()) == ["old-copy.bak"])
+
+
+def test_the_launch_agents_directory_given_as_the_backup_directory_is_refused_before_anything_is_written(lab):
+    agents, store, old = protected_space(lab)
+    done = selftest_with(lab, lab.plist, agents)
+    assert done.returncode == 2, combined(done)
+    assert space_untouched(lab, agents, store, old) and lab.untouched() and lab.calls() == []
+
+
+def test_a_file_in_the_operating_backup_space_given_as_the_plist_is_refused_before_anything_is_written(lab):
+    agents, store, old = protected_space(lab)
+    done = selftest_with(lab, old, lab.backup)
+    assert done.returncode == 2, combined(done)
+    assert space_untouched(lab, agents, store, old) and not lab.backup.exists() and lab.calls() == []
+
+
+def test_symlinks_into_the_protected_spaces_are_refused_in_either_role(lab):
+    agents, store, old = protected_space(lab)
+    link_dir = lab.root / "backup-link"
+    link_dir.symlink_to(agents)
+    link_file = lab.work / "plist-link"
+    link_file.symlink_to(old)
+    for plist, backup_dir in ((lab.plist, link_dir), (link_file, lab.backup), (lab.plist, link_dir / "sub"), (link_file, link_dir)):
+        done = selftest_with(lab, plist, backup_dir)
+        assert done.returncode == 2, (plist, backup_dir, combined(done))
+        assert space_untouched(lab, agents, store, old) and lab.untouched() and not lab.backup.exists() and lab.calls() == []
+
+
+def test_the_operating_backup_space_and_launch_agents_are_refused_in_both_roles_for_the_account_database_home(mod, lab, monkeypatch):
+    for key, value in lab.env().items():
+        monkeypatch.setenv(key, value)
+    agents = mod.operating_plist().parent
+    store = mod.operating_backup_dir()
+    base = ["--selftest", "--launchctl", str(lab.launchctl)]
+    crossed = [(store / "never-created.bak", lab.backup), (lab.plist, agents), (lab.plist, agents / "sub"),
+               (agents / "never-created.plist", store), (store, agents)]
+    for plist, backup_dir in crossed:
+        with pytest.raises(mod.Refuse) as caught:
+            mod.build_context([*base, "--plist", str(plist), "--backup-dir", str(backup_dir)])
+        assert caught.value.code == 2, (plist, backup_dir)
+
+
+# ---- m1: a comment between the key and the value is not silently dropped
+def test_a_comment_between_the_key_and_its_value_is_refused_not_deleted(tmp_path):
+    between = "  <key>ProcessType</key><!-- KEEP_BETWEEN_KEY_AND_VALUE --><string>Background</string>\n"
+    lab = Lab(tmp_path, plist_text(pt=between))
+    done = lab.run()
+    assert done.returncode == 3, combined(done)
+    assert lab.untouched() and not lab.backup.exists() and lab.calls() == []
+    no_sentinel(combined(done))
+
+
+def test_comments_around_the_two_elements_survive_the_edit(tmp_path):
+    around = "  <!-- before -->\n  <key>ProcessType</key>\n  <string>Background</string> <!-- trailing -->\n  <!-- after -->\n"
+    lab = Lab(tmp_path, plist_text(pt=around))
+    assert lab.run().returncode == 0
+    data = lab.plist.read_bytes()
+    for comment in (b"<!-- before -->", b"<!-- trailing -->", b"<!-- after -->", b"<!-- sentinel comment: keep me -->"):
+        assert comment in data
+    assert b"ProcessType" not in data and top_keys(lab.plist) == TOP_KEYS
+
+
+def test_whitespace_alone_between_the_key_and_its_value_is_accepted(tmp_path):
+    spaced = "  <key>ProcessType</key>\n\n\t  <string>Background</string>\n"
+    lab = Lab(tmp_path, plist_text(pt=spaced))
+    assert lab.run().returncode == 0
+    assert lab.plist.read_bytes() == plist_text(pt="").encode("utf-8")
+
+
+# ---- m2: a normal run prints no backup path
+def test_a_normal_run_never_prints_the_backup_location(tmp_path):
+    lab = Lab(tmp_path)
+    lab.backup = tmp_path / "SENTINEL_BACKUP_DIR_e4f1"
+    done = lab.run()
+    assert done.returncode == 0, combined(done)
+    assert "SENTINEL_BACKUP_DIR_e4f1" not in combined(done) and str(tmp_path) not in combined(done)
+    assert "백업: PASS" in done.stdout and len(lab.backups()) == 1
+
+
+def test_a_failed_restore_still_names_the_backup_location(tmp_path):
+    lab = Lab(tmp_path)
+    lab.backup = tmp_path / "SENTINEL_BACKUP_DIR_e4f1"
+    done = lab.run(PLIST_EDIT_INJECT="post_corrupt,restore_fail")
+    assert done.returncode == 9 and str(lab.backups()[0]) in done.stdout
+
+
+# ---- m3: valid property lists whose root is not a dictionary are refused with exit 3
+@pytest.mark.parametrize("name,document", [("empty-array", []), ("array-of-strings", ["Label", "ProcessType"]),
+                                           ("string", "Background"), ("integer", 1), ("true", True), ("data", b"x")])
+def test_a_valid_non_dictionary_root_is_refused_with_exit_three(tmp_path, name, document):
+    lab = Lab(tmp_path, plistlib.dumps(document, fmt=plistlib.FMT_XML))
+    done = lab.run()
+    assert done.returncode == 3, combined(done)
+    assert lab.untouched() and not lab.backup.exists() and lab.calls() == []
