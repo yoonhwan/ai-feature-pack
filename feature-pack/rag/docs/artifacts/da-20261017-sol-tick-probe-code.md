@@ -9,4 +9,4 @@ provider: headroom
 reasoning effort: high
 session id: 01a1454a-44eb-77e3-8bc0-e401e1b7b1d9
 
-**최종 REJECT. Major 3건 해소 후 구현 재심이 필요하며, 설치·재개 승인은 포함하지 않는다.**
+**최종 REJECT — blocker 0 / major 3 / minor 0 / note 2**
