@@ -48,9 +48,10 @@ GOUT="$(bash "$HERE/ft-merge-gate.sh" "$S" --repo "$REPO" --remote "$REMOTE" --t
 EQ=""   # R247: 게이트가 main 을 fetch 한 «뒤»(equiv 는 로컬 git 만) — 통과면 나머지 게이트·착지는 S 기준 그대로. 못 판단(rc3)도 REJECT.
 if [ "$HEADSHA" != "$AP" ]; then
   EQ="$("$(fm_timeout_bin)" 30 bash "$HERE/ft-approval-equiv.sh" "$AP" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" 2>&1)" \
-    || rej "PR head($HEADSHA) != 승인 sha($AP) — 승인 뒤 head 가 움직였고 동일승인 대조도 실패: ${EQ:-timeout 도구 없음 또는 30 s 초과}"; deadline
+    || rej "PR head($HEADSHA) != 승인 sha($AP) — 승인 뒤 head 가 움직였고 동일승인 대조(병합·rebase 두 경로)도 실패:${EQ:-timeout 도구 없음 또는 30 s 초과}"; deadline
   echo "$EQ"
 fi
+EQM="$(printf '%s' "$EQ" | sed -n 's/.* mode=\([a-z]*\) overlap=\([0-9]*\).*/equiv=\1 overlap=\2/p')"   # R281: merge-gate.log·PR 코멘트에 «어느 경로로 같은 승인이 됐나»
 M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"
 MSG="$(printf '%s\n\n%s\n\nPR #%s (head %s)' "$(pf title)" "$(pf body)" "$PR" "$S")"
 Q="$(G commit-tree "$S^{tree}" -p "$M" -m "$MSG")" || rej "commit-tree 실패"
@@ -64,7 +65,7 @@ for i in 1 2; do
   printf '%s' "$POUT" | grep -qE 'rejected|non-fast-forward|fetch first|stale info' && rej "서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): $(printf '%s' "$POUT" | tail -n1)"
   [ "$i" -eq 2 ] && rej "push 실패(rc=$rc): $(printf '%s' "$POUT" | tail -n1)"
 done
-mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" >> "$STATE/merge-gate.log"
+mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" >>"$STATE/merge-gate.log"
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")"
 fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
@@ -79,6 +80,6 @@ if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 �
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
 CB="$(mktemp)"; trap 'rm -f "$CB"' EXIT   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
-printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917)}" > "$CB"
+printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}" > "$CB"
 fm_t7 "$GH_W" pr-close "$PR" --comment "$CB" --apply \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; exit 3; }

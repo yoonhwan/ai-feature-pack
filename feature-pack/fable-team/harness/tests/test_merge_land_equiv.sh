@@ -28,7 +28,7 @@ refused() { [ "$rc" = 1 ] && [[ "$out" == *"NOT-EQUIV"* ]] && [[ "$out" == *"착
 
 bash -n "$EQV"; ck "bash -n equiv" $?
 [ "$(wc -l < "$EQV" | tr -d ' ')" -le 80 ]; ck "ft-approval-equiv.sh ≤ 80줄" $?
-[ "$(wc -l < "$EQP" | tr -d ' ')" -le 120 ]; ck "ft_approval_equiv.py ≤ 120줄" $?
+[ "$(wc -l < "$EQP" | tr -d ' ')" -le 200 ]; ck "ft_approval_equiv.py ≤ 200줄(R281 rebase 경로 추가로 120 → 200)" $?
 [ -f "$EQV" ] && [ -f "$EQP" ] && ! cat "$EQV" "$EQP" | grep -vE '^\s*#' | grep -qE 'git[^|]* (push|update-ref|checkout|switch|reset|restore|commit|commit-tree|fetch|branch|rebase|merge|gc|prune)( |$)|"(push|update-ref|checkout|switch|reset|restore|commit|commit-tree|fetch|branch|rebase|merge|gc|prune)"'; ck "정적: equiv 쓰기·네트워크 동사 0(읽기 전용 · merge-tree·merge-base 만)" $?
 bash "$EQV" >/dev/null 2>&1; [ "$?" = 2 ]; ck "usage → rc2" $?
 rc=0; out="$(bash "$EQV" "$M0" "$M0" --repo "$T/none" 2>&1)" || rc=$?; [ "$rc" = 3 ] && [[ "$out" == ERROR* ]]; ck "저장소 못 읽음 → ERROR rc3(통과 0)" $?
@@ -58,8 +58,8 @@ refused && [[ "$out" == *"깨끗한 병합"* ]]; ck "ⓓ 같은 줄을 위치만
 own 7; adv b.txt m6; mrg 7; G checkout -q -B oth7 origin/main; echo o > "$W/oth7.txt"; cm "$W" oth; G checkout -q pr7; G merge -q --no-edit oth7 >/dev/null 2>&1; setpr 7; M="$(omain)"; land 7 --approve-sha "$A"
 refused; ck "ⓔ main 아닌 브랜치 병합 → NOT-EQUIV" $?
 # ⓕ A 가 S 의 조상 아님(rebase·force)
-own 8; adv b.txt m7; G checkout -q -B pr8 origin/main; echo own8 > "$W/own8.txt"; cm "$W" own8again; setpr 8; M="$(omain)"; land 8 --approve-sha "$A"
-refused && [[ "$out" == *"조상"* ]]; ck "ⓕ A 가 조상 아님(rebase) → NOT-EQUIV" $?
+own 8; adv b.txt m7; G checkout -q -B pr8 origin/main; echo own8-edited > "$W/own8.txt"; cm "$W" own8again; setpr 8; M="$(omain)"; land 8 --approve-sha "$A"
+refused && [[ "$out" == *"승인 때와 다름"* ]]; ck "ⓕ A 가 조상 아님 + 내용이 다름(force-push) → NOT-EQUIV  (R281: 내용 같은 rebase 는 ⓜ 에서 EQUIV)" $?
 # ⓖ main 이 같은 파일 다른 곳만 바꿈(문맥만 달라짐)
 setf g.txt 'g1\ng2\ng3\n'; G checkout -q -B pr9 origin/main; { echo OWN9; cat "$W/g.txt"; } > "$W/g.tmp"; mv "$W/g.tmp" "$W/g.txt"; cm "$W" own9; A="$(sha "$W" HEAD)"
 adv g.txt g4; mrg 9; setpr 9; : > "$STUB_LOG"; land 9 --approve-sha "$A"
@@ -94,6 +94,32 @@ own 21; setpr 21; M="$(omain)"; : > "$STUB_LOG"
 out="$(PATH="$T/shim2:$PATH" SLOW_ARG=commit-tree SLOW_S=6 FT_LAND_TOTAL_S=12 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == *"push 를 끝낼 수 없음"* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; ck "ⓛ 남은 시간 < 7 s → push 시작 0 · REJECT" $?
 out="$(FT_LAND_TOTAL_S=999 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?; [ "$rc" = 0 ] && [ "$(omain)" != "$M" ]; ck "ⓛ 총 마감 주입은 줄이기만(999 → 70 s 로 간주) · 정상 착지" $?
+# ⓜ R281 rebase 동일: A 를 지금 main 위로 «손 편집 0» rebase(cherry-pick) 한 S — A 는 S 의 조상이 아님
+rb() { G checkout -q -B "pr$1r" "${2:-origin/main}"; G cherry-pick "$A" >/dev/null 2>&1; }                                                  # rb <번호> [기준] A 를 기준(기본 지금 main) 위로 옮긴 S 작업 브랜치
+eqv() { out="$(bash "$EQV" "$A" "$S" --repo "$W" 2>&1)"; rc=$?; }
+own 30; adv b.txt r1; rb 30; setpr 30; M="$(omain)"; : > "$STUB_LOG"; land 30 --approve-sha "$A"
+okland && [[ "$out" == *"mode=rebase"* ]] && [[ "$out" == *"overlap=0"* ]]; ck "ⓜ rebase 동일(손 편집 0) → EQUIV mode=rebase 착지" $?
+grep -q "head=$S method=ft-merge-land .*pr=30 approve=$A equiv=rebase overlap=0" "$T/state/merge-gate.log"; ck "ⓜ 결속 기록에 equiv=rebase overlap=0" $?
+grep -q "pr-close 30 .*:: .*동일승인 대조 EQUIV .*equiv=rebase" "$STUB_LOG"; ck "ⓜ PR 코멘트에 equiv=rebase" $?
+setf o.txt 'o1\no2\no3\n'; G checkout -q -B pr31 origin/main; { echo OWN31; cat "$W/o.txt"; } > "$W/o.tmp"; mv "$W/o.tmp" "$W/o.txt"; cm "$W" own31; A="$(sha "$W" HEAD)"
+adv o.txt o4; rb 31; setpr 31; : > "$STUB_LOG"; land 31 --approve-sha "$A"
+okland && [[ "$out" == *"mode=rebase"* ]] && [[ "$out" == *"overlap=1"* ]]; ck "ⓜ main 이 같은 파일 다른 곳을 바꾼 rebase → EQUIV overlap=1(막지 않음)" $?
+own 32; adv b.txt r2; rb 32; echo extra > "$W/extra32.txt"; cm "$W" extra32; setpr 32; M="$(omain)"; : > "$STUB_LOG"; land 32 --approve-sha "$A"
+refused; ck "ⓜ rebase 하며 한 줄(파일) 추가 → NOT-EQUIV · 착지 0" $?
+G checkout -q -B pr33 origin/main; printf '  a\n' > "$W/ws33.txt"; cm "$W" own33; A="$(sha "$W" HEAD)"; adv b.txt r3
+rb 33; printf '    a\n' > "$W/ws33.txt"; cm "$W" ws33; setpr 33; M="$(omain)"; land 33 --approve-sha "$A"
+refused; ck "ⓜ 들여쓰기(공백)만 바꾼 rebase → NOT-EQUIV · 착지 0" $?
+G checkout -q -B pr34 origin/main; echo a > "$W/own34a.txt"; echo b > "$W/own34b.txt"; cm "$W" own34; A="$(sha "$W" HEAD)"; adv b.txt r4
+rb 34; G rm -qf own34b.txt; cm "$W" drop34b; setpr 34; M="$(omain)"; land 34 --approve-sha "$A"
+refused; ck "ⓜ 파일 하나 빠진 rebase → NOT-EQUIV · 착지 0" $?
+own 35; adv b.txt r5; OLD="$(omain)"; adv b.txt r6; rb 35 "$OLD"; S="$(sha "$W" HEAD)"; eqv
+[ "$rc" = 1 ] && [[ "$out" == "NOT-EQUIV"* ]] && [[ "$out" == *"지금 main 위가 아님"* ]]; ck "ⓜ rebase 대상이 지금 main 이 아님(옛 main) → NOT-EQUIV rc1" $?
+setf c36.txt 'base\n'; G checkout -q -B pr36 origin/main; echo OWN36 > "$W/c36.txt"; cm "$W" own36; A="$(sha "$W" HEAD)"; setf c36.txt 'MAIN\n'
+G checkout -q -B pr36r origin/main; G cherry-pick "$A" >/dev/null 2>&1; echo EVIL > "$W/c36.txt"; G add -A; GIT_EDITOR=true G cherry-pick --continue >/dev/null 2>&1; S="$(sha "$W" HEAD)"; eqv
+[ "$rc" = 1 ] && [[ "$out" == "NOT-EQUIV"* ]]; ck "ⓜ 충돌을 손으로 푼 rebase → NOT-EQUIV rc1" $?
+G checkout -q -B pr37 origin/main; echo own37 > "$W/own37.txt"; cm "$W" own37; A="$(sha "$W" HEAD)"; G checkout -q -B pr37x origin/main; echo extra > "$W/extra37.txt"; cm "$W" extra37; S="$(sha "$W" HEAD)"; eqv
+[ "$rc" = 1 ] && [[ "$out" == "NOT-EQUIV"* ]]; ck "ⓜ A 와 전혀 다른 변경을 가진 S(main 위) → NOT-EQUIV rc1" $?
+A=0123456789abcdef0123456789abcdef01234567; eqv; [ "$rc" = 3 ] && [[ "$out" == ERROR* ]]; ck "ⓜ A 객체가 로컬에 없음 → ERROR rc3(통과 0)" $?
 # ⓘ 자율 ON: 승인 파일은 A 로 찾는다
 bash "$BIN/ft-autonomy.sh" on >/dev/null 2>&1; own 12; adv b.txt m9; mrg 12; setpr 12; M="$(omain)"; : > "$STUB_LOG"
 land 12 --approve-sha "$A"; [ "$rc" = 2 ] && [[ "$out" == *approve-merge* ]] && [ "$(omain)" = "$M" ]; ck "ⓘ 자율 ON · A 승인 파일 없음 → rc2" $?

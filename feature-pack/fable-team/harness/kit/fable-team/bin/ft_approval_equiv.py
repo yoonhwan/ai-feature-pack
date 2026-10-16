@@ -4,7 +4,9 @@ A = 오빠가 승인한 PR head, S = 지금 PR head. 아래 넷이 «전부 참�
  1 A 가 S 의 조상  2 A..S 는 main 병합 커밋뿐(main 밖 일반 커밋 0 · 병합마다 첫 부모 = 승인 줄기, 나머지 부모 = main 의 조상)
  3 자기 변경 동일: diff(merge-base(A,main), A) 와 diff(merge-base(S,main), S) 의 «파일별 순서 있는 +/- 줄» 이 같음(문맥·hunk 줄 번호 무시)
  4 S 트리 == merge-tree(A, main) 의 깨끗한 병합 트리 — 3 이 못 잡는 «같은 줄을 다른 위치로 옮긴» 병합 커밋을 막는다(객체만 쓰고 ref·작업트리 0)
-exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가 = 통과 0)"""
+ ★R281(rebase)★ A 가 S 의 조상이 아니면 위 1·2 대신: (a) 지금 main ⊂ S (b) merge-base(A,main) 존재 (c) 3 과 같되 A 쪽 base = merge-base(A,main) · S 쪽 base = main (d) 4 와 같음 → `mode=rebase`
+출력 끝 칸: mode=merge|rebase · overlap=<n>(main 이 바꾼 파일 ∩ 자기 변경 파일 — 막지 않는 표지)
+exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가·승인 객체 로컬에 없음 = 통과 0)"""
 import subprocess
 import sys
 
@@ -72,11 +74,11 @@ def check(repo, a, s, remote, target):
         raise Fail("main(%s/%s) 또는 PR head 를 확인할 수 없음" % (remote, target))
     ac = resolve(repo, a)
     if not ac:
-        raise No("승인 sha %s 가 이 저장소에 없음(force-push 로 사라짐)" % a[:10])
+        raise Fail("승인 sha %s 객체가 이 저장소에 없음(네트워크 0 — 대조 불가·재승인)" % a[:10])
     if ac == sc:
-        return "EQUIV approve=%s head=%s merges=0 files=0" % (ac, sc)
+        return "EQUIV approve=%s head=%s merges=0 files=0 mode=merge overlap=0" % (ac, sc)
     if not anc(repo, ac, sc, shallow):
-        raise No("승인 sha %s 가 PR head %s 의 조상이 아님(rebase·force-push)" % (ac[:10], sc[:10]))
+        return rebased(repo, ac, sc, m, shallow)
     extra = out(repo, "rev-list", "--no-merges", sc, "^" + ac, "^" + m).split()
     if extra:
         raise No("승인 뒤 main 이 아닌 일반 커밋 %d 개(%s…)" % (len(extra), extra[0][:10]))
@@ -87,7 +89,8 @@ def check(repo, a, s, remote, target):
     for c, first, *rest in merges:
         if first not in trunk or not rest or not all(anc(repo, p, m, shallow) for p in rest):
             raise No("병합 %s 가 «승인 줄기 + main» 병합이 아님(다른 브랜치·거꾸로 병합)" % c[:10])
-    da = norm(repo, out(repo, "merge-base", ac, m).strip(), ac)
+    mb = out(repo, "merge-base", ac, m).strip()
+    da = norm(repo, mb, ac)
     ds = norm(repo, out(repo, "merge-base", sc, m).strip(), sc)
     if da != ds:
         diff = sorted(k.split(" b/")[-1] for k in set(da) | set(ds) if da.get(k) != ds.get(k))
@@ -97,7 +100,33 @@ def check(repo, a, s, remote, target):
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
     if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}").strip():
         raise No("S 트리가 «승인 세트 + main 의 깨끗한 병합»과 다름(병합 커밋이 그 밖의 변경을 담음)")
-    return "EQUIV approve=%s head=%s merges=%d files=%d" % (ac, sc, len(merges), len(da))
+    return "EQUIV approve=%s head=%s merges=%d files=%d mode=merge overlap=%d" % (ac, sc, len(merges), len(da), overlap(repo, da, mb, m))
+
+
+def overlap(repo, da, mb, m):
+    """main 이 base(mb)→main 사이에 바꾼 파일 ∩ PR 이 바꾼 파일 수 — 막지 않는 표지(같은 파일이면 의미가 base 에 따라 달라질 수 있음)."""
+    mine = {k.split(" b/")[-1] for k in da}
+    return len(mine & set(out(repo, "diff", "--name-only", "--no-renames", mb, m).split("\n")))
+
+
+def rebased(repo, ac, sc, m, shallow):
+    """R281 rebase 동일: A ⊄ S 이면 (a) M ⊂ S (b) merge-base(A,M) 존재 (c) 자기 변경 동일 (d) merge-tree(A,M) 깨끗 ∧ == S 트리."""
+    if not anc(repo, m, sc, shallow):
+        raise No("승인 sha %s 가 PR head %s 의 조상이 아니고 PR head 도 지금 main 위가 아님(옛 main 으로 rebase·force-push)" % (ac[:10], sc[:10]))
+    p = run(repo, "merge-base", ac, m, ok=(0, 1))
+    if p.returncode == 1:
+        raise No("승인 세트와 main 의 공통 조상이 없음")
+    mb = p.stdout.decode().strip()
+    da, ds = norm(repo, mb, ac), norm(repo, m, sc)
+    if da != ds:
+        diff = sorted(k.split(" b/")[-1] for k in set(da) | set(ds) if da.get(k) != ds.get(k))
+        raise No("rebase 한 자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(diff[:3]))
+    p = run(repo, "merge-tree", "--write-tree", "--no-messages", ac, m, ok=(0, 1))
+    if p.returncode == 1:
+        raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
+    if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}").strip():
+        raise No("S 트리가 «승인 세트 + 지금 main 의 깨끗한 병합»과 다름(rebase 중 손 편집)")
+    return "EQUIV approve=%s head=%s merges=0 files=%d mode=rebase overlap=%d" % (ac, sc, len(da), overlap(repo, da, mb, m))
 
 
 if __name__ == "__main__":
