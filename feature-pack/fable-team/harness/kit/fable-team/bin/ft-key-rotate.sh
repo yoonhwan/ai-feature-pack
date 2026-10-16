@@ -11,6 +11,12 @@ case "${1:-}" in
   --status)    exec "$PY" "$TOOL" status ;;
   --check-old) shift; exec "$PY" "$TOOL" check-old "$@" ;;
   --restore)   shift; exec "$PY" "$TOOL" restore "$@" ;;
+  --abandon)   shift; exec "$PY" "$TOOL" abandon "$@" ;;
+  --resume)    shift
+    case " $* " in
+      *" --from-clipboard "*) trap 'printf "" | pbcopy' EXIT; pbpaste | "$PY" "$TOOL" resume "$@"; exit "${PIPESTATUS[1]}" ;;
+      *) exec "$PY" "$TOOL" resume "$@" < /dev/null ;;
+    esac ;;
   ""|-h|--help) exec "$PY" "$TOOL" ;;
 esac
 

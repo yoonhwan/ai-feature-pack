@@ -9,25 +9,25 @@ import time
 
 from ft_key_rotate_io import ENV, ZSH
 
-# KEY: (파일들, 최소 길이, 묶음) — 고정 표(규칙 1). 표 밖 키 = REJECT.
+# KEY: (파일들, 최소 길이, 그룹, 묶음) — 고정 표(규칙 1). 표 밖 키 = REJECT. 묶음 = 교체 단위(binance = KEY+SECRET · op-main/op-develop · 나머지 = ENV 1개).
 KEYS = {
-    "OP_SERVICE_ACCOUNT_TOKEN": ([ZSH], 16, 1),
-    "OP_SERVICE_ACCOUNT_TOKEN_DEVELOP": ([ZSH], 16, 1),
-    "GH_TOKEN_ORG": ([ZSH], 16, 1),
-    "BINANCE_API_KEY": ([ZSH], 16, 1),
-    "BINANCE_SECRET": ([ZSH], 16, 1),
-    "SLACK_WEBHOOK_URL": ([ZSH], 16, 1),
-    "OPENAI_API_KEY": ([ZSH, ENV], 16, 2),
-    "ELEVENLABS_API_KEY": ([ZSH, ENV], 16, 2),
-    "LANGSMITH_API_KEY": ([ZSH, ENV], 16, 2),
-    "CEREBRAS_API_KEY": ([ZSH], 16, 3),
-    "HUGGING_FACE_TOKEN": ([ZSH], 16, 3),
-    "OPENROUTER_API_KEY": ([ZSH], 16, 3),
-    "PERPLEXITY_API_KEY": ([ZSH, ENV], 16, 3),
-    "RUNPOD_API_KEY": ([ZSH, ENV], 16, 3),
-    "SEARCHAPI_KEY": ([ZSH], 16, 3),
-    "BYZ_E2E_LOGIN_PASSWORD": ([ENV], 8, 4),
-    "BYZ_E2E_JWT_SECRET": ([ENV], 16, 4),
+    "OP_SERVICE_ACCOUNT_TOKEN": ([ZSH], 16, 1, "op-main"),
+    "OP_SERVICE_ACCOUNT_TOKEN_DEVELOP": ([ZSH], 16, 1, "op-develop"),
+    "GH_TOKEN_ORG": ([ZSH], 16, 1, "gh-token-org"),
+    "BINANCE_API_KEY": ([ZSH], 16, 1, "binance"),
+    "BINANCE_SECRET": ([ZSH], 16, 1, "binance"),
+    "SLACK_WEBHOOK_URL": ([ZSH], 16, 1, "slack-webhook-url"),
+    "OPENAI_API_KEY": ([ZSH, ENV], 16, 2, "openai-api-key"),
+    "ELEVENLABS_API_KEY": ([ZSH, ENV], 16, 2, "elevenlabs-api-key"),
+    "LANGSMITH_API_KEY": ([ZSH, ENV], 16, 2, "langsmith-api-key"),
+    "CEREBRAS_API_KEY": ([ZSH], 16, 3, "cerebras-api-key"),
+    "HUGGING_FACE_TOKEN": ([ZSH], 16, 3, "hugging-face-token"),
+    "OPENROUTER_API_KEY": ([ZSH], 16, 3, "openrouter-api-key"),
+    "PERPLEXITY_API_KEY": ([ZSH, ENV], 16, 3, "perplexity-api-key"),
+    "RUNPOD_API_KEY": ([ZSH, ENV], 16, 3, "runpod-api-key"),
+    "SEARCHAPI_KEY": ([ZSH], 16, 3, "searchapi-key"),
+    "BYZ_E2E_LOGIN_PASSWORD": ([ENV], 8, 4, "byz-e2e-login-password"),
+    "BYZ_E2E_JWT_SECRET": ([ENV], 16, 4, "byz-e2e-jwt-secret"),
 }
 BEARER = {  # KEY: (URL, 헤더 이름, 헤더 접두) — GET 200 = 살아 있음
     "GH_TOKEN_ORG": ("https://api.github.com/user", "Authorization", "Bearer "),

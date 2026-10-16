@@ -55,6 +55,7 @@ runk() {
   OUT="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
     HOME="$T/home" FT_KEY_ROTATE_ENV="$T/wt/.env" PATH="$T/bin:$PATH" bash "${TOOL:-$SRC/ft-key-rotate.sh}" "$@" 2>&1)"; RC=$?
 }
+mkfix_state() { rm -rf "$T/home/.local"; }  # 같은 HOME 을 다시 쓰는 케이스 — 앞 시도의 journal(열린 시도)을 비운다
 zline() { grep -E "^(export )?$1=" "$T/home/.zshrc"; }
 unchanged() { cmp -s "$T/home/.zshrc" "$T/snap.zshrc" && cmp -s "$T/root/.env" "$T/snap.env"; }
 
@@ -202,7 +203,7 @@ env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJEC
 cp "$T/snap.env" "$R/.env"; cp "$T/snap.env" "$T/cwd/.env"
 for D in "$R/scripts/fable-team-bin" "$R/.worktrees/w/scripts/fable-team-bin"; do mkdir -p "$D"; cp "$SRC"/ft-key-rotate.sh "$SRC"/ft_key_rotate*.py "$D/"; done
 for D in "$R/scripts/fable-team-bin" "$R/.worktrees/w/scripts/fable-team-bin"; do
-  cp "$T/snap.zshrc" "$T/home/.zshrc"; cp "$T/snap.env" "$R/.env"; printf '%s' "$NEW" > "$T/clip"
+  mkfix_state; cp "$T/snap.zshrc" "$T/home/.zshrc"; cp "$T/snap.env" "$R/.env"; printf '%s' "$NEW" > "$T/clip"
   OUT="$(cd "$T/cwd/x/y" && env -u FT_KEY_ROTATE_ENV -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
     HOME="$T/home" PATH="$T/bin:$PATH" bash "$D/ft-key-rotate.sh" OPENAI_API_KEY 2>&1)"; RC=$?
   chk "H3 기본 루트 .env = git 루트 ($(basename "$(dirname "$(dirname "$(dirname "$D")")")")) · 외부 cwd 의 .env 는 그대로" \
