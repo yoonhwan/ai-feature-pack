@@ -100,7 +100,7 @@ stop_recorded_pids() {  # only processes this probe recorded, only while pid AND
 
 owns_loaded_job() {  # the loaded job's arguments and plist path must equal exactly what this run registered
   local want_args got_args got_path
-  want_args="$(printf '%s\n' "$PYTHON_BIN" -I "$HERE/probe.py" --run "$PROBE_DIR" --mode "$MODE")"
+  want_args="$(printf '%s\n' "${WORKER_ARGS[@]}")"
   got_args="$(printf '%s\n' "$LABEL_OUT" | awk '/^[ \t]*arguments = \{/{f=1;next} f&&/^[ \t]*\}/{exit} f{sub(/^[ \t]+/,"");print}')"
   got_path="$(printf '%s\n' "$LABEL_OUT" | awk '/^[ \t]*path = /{sub(/^[ \t]*path = /,"");print;exit}')"
   [ -n "$got_args" ] && [ "$got_args" = "$want_args" ] && [ "$got_path" = "$PROBE_DIR/job.plist" ]
@@ -188,6 +188,8 @@ ID="$(date +%Y%m%d-%H%M%S)-$$-$RANDOM"
 PROBE_DIR="$BASE/$ID"
 mkdir -m 700 "$PROBE_DIR" || { PROBE_DIR=""; echo "점검 폴더가 이미 있습니다. 시작하지 않습니다."; exit 2; }
 LABEL="com.airag.probe-opa-$ID"
+# The worker's arguments, written once: the plist's ProgramArguments and the owner check of the loaded job both read it.
+WORKER_ARGS=("$PYTHON_BIN" -I "$HERE/probe.py" --run "$PROBE_DIR" --mode "$MODE")
 
 PHASE_DEADLINE=$((START + T_RESULT))
 label_probe
@@ -205,7 +207,7 @@ write_plist() {
       '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
       '<plist version="1.0">' '<dict>'
     printf '  <key>Label</key>\n  <string>%s</string>\n  <key>ProgramArguments</key>\n  <array>\n' "$(xml_esc "$LABEL")"
-    for arg in "$PYTHON_BIN" -I "$HERE/probe.py" --run "$PROBE_DIR" --mode "$MODE"; do
+    for arg in "${WORKER_ARGS[@]}"; do
       printf '    <string>%s</string>\n' "$(xml_esc "$arg")"
     done
     printf '  </array>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>ProcessType</key>\n  <string>Background</string>\n'
