@@ -49,6 +49,9 @@ run PGREP_UP_AT=3 SEND_RC=0
 order="$(grep -E '^(pgrep|send)$' "$LOG" | tr '\n' ' ')"
 { [ "$RC" -eq 0 ] && [ "$order" = "pgrep pgrep pgrep send " ] && [ -f "$STATE/$OLD.json" ] && grep -q "$NEW" "$STATE/$OLD.json"; } \
   && ok "ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일" || bad "ⓑ rc=$RC order=$order file=$(ls "$STATE" 2>&1)"
+# ⓑ-2 (R282 ③) 도달 파일 model 칸 = --model 값 · 기존 칸 불변
+{ [ "$(jq -r '[.successor,.rc,.model]|join(",")' "$STATE/$OLD.json" 2>/dev/null)" = "$NEW,0,claude-opus-5-5[1m]" ] && [ "$(jq -r '.seq' "$STATE/$OLD.json")" = 777 ]; } \
+  && ok "ⓑ-2 도달 파일 model = --model 값 · successor·seq·rc 불변" || bad "ⓑ-2 $(cat "$STATE/$OLD.json" 2>&1)"
 
 # ⓒ pgrep 상한 초과 → 송신 0 · 도달 파일 0 · exit≠0 · [HIL] 줄
 run PGREP_UP_AT=99
