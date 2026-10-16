@@ -665,7 +665,8 @@ def run_child(mode, config, stdin_text, tmp_path):
     out = tmp_path / "child-result.bin"
     with out.open("wb") as result:
         proc = subprocess.run(
-            [sys.executable, str(COMPONENT), mode, "--config", str(config)], input=stdin_text,
+            [sys.executable, str(COMPONENT), mode, "--config", str(config), "--state-file", str(tmp_path / "child-state.json")],
+            input=stdin_text,
             text=True, stdout=result, stderr=subprocess.DEVNULL, env=child_env(), check=False,
         )
     return proc.returncode, out.read_bytes()
@@ -936,7 +937,8 @@ def test_cli_is_imported_only_after_fds_1_and_2_are_devnull(tmp_path):
     marker = tmp_path / "marker.json"
     with (tmp_path / "out.bin").open("wb") as result:
         subprocess.run(
-            [sys.executable, str(COMPONENT), "import-probe", "--config", str(item["config"])],
+            [sys.executable, str(COMPONENT), "import-probe", "--config", str(item["config"]),
+             "--state-file", str(tmp_path / "child-state.json")],
             input=json.dumps(KEYS), text=True, stdout=result, stderr=subprocess.DEVNULL,
             env={**child_env(), "TICK_MARKER": str(marker)}, check=False,
         )

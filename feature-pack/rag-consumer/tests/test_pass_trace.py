@@ -543,8 +543,9 @@ def test_the_pass_child_installs_the_trace_in_a_fresh_process(tmp_path):
     code = (
         "import sys; sys.path.insert(0, %r)\n"
         "from airag_consumer import _pass_child\n"
-        "raise SystemExit(_pass_child.child_main(['--config', %r, '--trace-file', %r]))\n"
-    ) % (str(Path(__file__).resolve().parents[1] / "src"), str(tmp_path / "absent.json"), str(tmp_path / "t.jsonl"))
+        "raise SystemExit(_pass_child.child_main(['--config', %r, '--trace-file', %r, '--state-file', %r]))\n"
+    ) % (str(Path(__file__).resolve().parents[1] / "src"), str(tmp_path / "absent.json"), str(tmp_path / "t.jsonl"),
+         str(tmp_path / "s.json"))
     with (tmp_path / "frame.json").open("wb") as frame:
         run = subprocess.run(
             [sys.executable, "-c", code], input=json.dumps(KEYS), text=True, stdout=frame,

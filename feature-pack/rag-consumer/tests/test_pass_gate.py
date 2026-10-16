@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
 import threading
 import types
 
@@ -26,7 +27,7 @@ from airag_consumer import _result, tick
 from airag_consumer.reason_codes import REASON_CODES
 from airag_consumer.runtime import RuntimeConfig
 from test_runtime import CONSUMER_KEY, PROJECTION_KEY
-from test_tick import KEYS, base_environment, run_tick, synthetic_service
+from test_tick import COMPONENT, KEYS, base_environment, child_env, run_tick, synthetic_service
 
 CODES = ("DATABASE_INTEGRITY_FAILED", "DATABASE_INTEGRITY_UNAVAILABLE", "PASS_STATE_UNAVAILABLE")
 
@@ -668,3 +669,20 @@ def test_a_config_read_that_fails_only_in_the_gate_never_starts_the_pass_even_af
     assert (line["code"], line["type"]) == ("PASS_STATE_UNAVAILABLE", "config")
     assert not marker.exists()  # the pass body never ran
     assert state_text(state)["state"] == "clean"  # and no running mark was needed because nothing started
+
+
+def test_a_child_started_without_a_state_file_refuses_before_any_work(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    marker = tmp_path / "marker.json"
+    for flag in ([], ["--trace-file", str(tmp_path / "t.jsonl")]):
+        with (tmp_path / "frame.bin").open("wb") as result:
+            run = subprocess.run(
+                [sys.executable, str(COMPONENT), "env-probe", "--config", str(item["config"]), *flag],
+                input=json.dumps(KEYS), text=True, stdout=result, stderr=subprocess.DEVNULL,
+                env={**child_env(), "TICK_MARKER": str(marker)}, check=False,
+            )
+        frame = _result.validate_frame(json.loads((tmp_path / "frame.bin").read_bytes()))
+        assert run.returncode == 0 and frame is not None  # the refusal is delivered as a frame
+        assert (frame["exit"], frame["code"], frame["type"]) == (1, "PASS_STATE_UNAVAILABLE", "pass_state")
+        assert not marker.exists()  # the pass body never ran
+        assert not (tmp_path / "logs").exists() and not list(tmp_path.glob("**/pass-state.json"))
