@@ -199,6 +199,20 @@ if __name__ == "__main__":
     early = raw_mode(mode)
     if early is not None:
         raise SystemExit(early)
+    if mode == "flaky-config":  # only the first config read (the gate's) fails; the pass itself would read it fine
+        from airag_consumer import runtime
+
+        real_load = runtime.RuntimeConfig.__dict__["load"].__func__
+        reads = []
+
+        def flaky_load(cls, path_value):
+            reads.append(1)
+            if len(reads) == 1:
+                raise OSError("transient")
+            return real_load(cls, path_value)
+
+        runtime.RuntimeConfig.load = classmethod(flaky_load)
+        raise SystemExit(child_main(sys.argv[2:], hooks=hooks_for("env-probe")))
     if mode == "import-probe":
         raise SystemExit(import_probe_main(sys.argv[2:]))
     if mode == "oversize-frame":

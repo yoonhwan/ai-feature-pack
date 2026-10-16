@@ -552,3 +552,31 @@ def test_the_pass_child_installs_the_trace_in_a_fresh_process(tmp_path):
         )
     assert run.returncode == 0  # the option parsed and the (failing) pass still delivered its frame
     assert (tmp_path / "t.jsonl").is_file() and stat.S_IMODE((tmp_path / "t.jsonl").stat().st_mode) == 0o600
+
+
+def _stable_line(text):
+    """The log line without the fields that measure time (probe, integrity, pass_elapsed_s)."""
+    data = json.loads(text.strip().splitlines()[-1])
+    for key in ("probe", "integrity"):
+        data.pop(key, None)
+    data.get("summary", {}).pop("pass_elapsed_s", None)
+    return data
+
+
+def test_the_final_log_and_stdout_are_the_same_with_the_trace_on_and_off(tmp_path, capsys):
+    outputs = {}
+    for label in ("on", "off"):
+        run_dir = tmp_path / label
+        run_dir.mkdir()
+        item, hooks = synthetic_service(run_dir)
+        if label == "off":
+            (run_dir / "logs").mkdir()
+            (run_dir / "logs" / tick.TRACE_FILE_NAME).mkdir()  # a directory there: the trace stays off for this pass
+        assert run_tick(run_dir, item, hooks, env={**base_environment(), **KEYS}) == tick.EXIT_OK
+        written = (run_dir / "logs" / "tick-20260927.log").read_text(encoding="utf-8")
+        stdout = capsys.readouterr().out
+        assert _stable_line(stdout) == _stable_line(written)
+        outputs[label] = _stable_line(written)
+    assert (tmp_path / "on" / "logs" / tick.TRACE_FILE_NAME).is_file()
+    assert (tmp_path / "off" / "logs" / tick.TRACE_FILE_NAME).is_dir()
+    assert outputs["on"] == outputs["off"]

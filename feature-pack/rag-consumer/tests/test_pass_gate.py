@@ -281,6 +281,10 @@ class FakeConnection:
         lowered = sql.lower()
         if self.owner.fail_at and self.owner.fail_at in lowered:
             raise RuntimeError("MARKER_ERROR_TEXT")
+        if self.owner.stall_on and self.owner.stall_on in lowered and self.owner.connections.index(self) == self.owner.stall_conn:
+            self.owner.clock.advance(self.owner.stall_s)  # the statement runs past the planned time ...
+            if any(handler() for handler, _ in self.owner.handlers):  # ... and SQLite asks the handler, which aborts it
+                raise RuntimeError("MARKER_INTERRUPTED")
         if "cipher_version" in lowered:
             return FakeCursor([] if self.owner.no_cipher else [("4.5.0",)])
         if "quick_check" in lowered:
@@ -299,7 +303,9 @@ class FakeConnection:
 
 
 class FakeSqlcipher:
-    def __init__(self, *, quick_rows=None, fail_at=None, no_cipher=False, block=False):
+    def __init__(self, *, quick_rows=None, fail_at=None, no_cipher=False, block=False,
+                 stall_on=None, stall_conn=0, stall_s=10.0, clock=None):
+        self.stall_on, self.stall_conn, self.stall_s, self.clock = stall_on, stall_conn, stall_s, clock
         self.quick_rows = [("ok",)] if quick_rows is None else quick_rows
         self.fail_at, self.no_cipher, self.block = fail_at, no_cipher, block
         self.statements, self.handlers, self.uris, self.connections = [], [], [], []
@@ -379,6 +385,45 @@ def test_a_hung_database_is_decided_as_deadline_without_waiting_for_the_thread(m
         fake.release.set()  # let the daemon thread end
 
 
+class FakeClock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
+def meta_identity(con):
+    return con.execute("SELECT engine FROM meta").fetchall() == [(1,)]
+
+
+@pytest.mark.parametrize("stage, stall_on", [("open", "sqlite_master"), ("identity", "from meta"), ("scan", "quick_check")])
+def test_a_statement_aborted_by_the_planned_time_is_deadline_not_the_error_of_its_stage(stage, stall_on):
+    clock = FakeClock()
+    fake = FakeSqlcipher(stall_on=stall_on, stall_conn=0, stall_s=10.0, clock=clock)  # the planned time is 7 s
+    rows = gate.check_databases(
+        [fake_target("consumer", identity=meta_identity), fake_target("projection", identity=meta_identity)],
+        sqlcipher3=fake, clock=clock,
+    )
+    assert outcomes(rows) == {"consumer": "deadline", "projection": "ok"}, stage
+    refusal = gate.refusal_for(rows)
+    assert refusal == {"code": "DATABASE_INTEGRITY_UNAVAILABLE", "type": "consumer"}
+    assert "MARKER" not in json.dumps(rows)
+
+
+def test_an_abort_inside_the_time_is_still_the_error_of_its_stage():
+    clock = FakeClock()
+    fake = FakeSqlcipher(stall_on="quick_check", stall_s=1.0, clock=clock)  # 1 s of 7 s: the handler lets it go on
+    rows = gate.check_databases([fake_target("consumer")], sqlcipher3=fake, clock=clock)
+    assert outcomes(rows) == {"consumer": "ok"}
+    failing = FakeSqlcipher(stall_on="quick_check", stall_s=1.0, fail_at="quick_check", clock=clock)
+    assert outcomes(gate.check_databases([fake_target("consumer")], sqlcipher3=failing, clock=clock)) == {
+        "consumer": "not_ok"}
+
+
 def test_a_finished_check_is_not_overwritten_by_the_deadline():
     rows = gate.check_databases([fake_target("consumer"), fake_target("projection")], sqlcipher3=FakeSqlcipher())
     assert outcomes(rows) == {"consumer": "ok", "projection": "ok"}
@@ -442,13 +487,24 @@ def forbid_check(monkeypatch):
     monkeypatch.setattr(gate, "check_databases", called)
 
 
-def test_an_unusable_config_leaves_everything_to_the_pass_itself(tmp_path, monkeypatch):
+def test_an_unreadable_config_refuses_the_pass_and_neither_checks_nor_writes(tmp_path, monkeypatch):
     forbid_check(monkeypatch)
     state = tmp_path / "pass-state.json"
     result = gate.before_pass(str(tmp_path / "absent.json"), str(state), CONSUMER_KEY, PROJECTION_KEY)
-    assert result == gate.Gate() and not state.exists()
+    assert result.refusal == {"code": "PASS_STATE_UNAVAILABLE", "type": "config"} and result.project is None
+    assert result.integrity is None and not state.exists()
     gate.after_pass(result, str(state))
     assert not state.exists()
+
+
+def test_an_unreadable_config_never_lets_an_old_clean_file_stand_in_for_the_running_mark(service, tmp_path, monkeypatch):
+    forbid_check(monkeypatch)
+    state = tmp_path / "pass-state.json"
+    assert gate.write_state(str(state), project_of(service), "clean")
+    result = gate.before_pass(str(tmp_path / "absent.json"), str(state), CONSUMER_KEY, PROJECTION_KEY)
+    assert result.refusal is not None
+    gate.after_pass(result, str(state))
+    assert state_text(state)["state"] == "clean"  # untouched; the point is that the pass did not start
 
 
 def test_the_first_pass_is_checked_then_recorded_as_running(service, tmp_path):
@@ -598,3 +654,17 @@ def test_a_valid_integrity_field_from_the_child_is_logged_and_an_invalid_one_is_
     assert run_tick(tmp_path, item, "forged-integrity-bad", env=keyed()) == tick.EXIT_OK
     line = last_line(tmp_path)
     assert "integrity" not in line and line["status"] == "ok"
+
+
+def test_a_config_read_that_fails_only_in_the_gate_never_starts_the_pass_even_after_a_clean_tick(tmp_path):
+    item, _ = synthetic_service(tmp_path)
+    assert run_tick(tmp_path, item, "normal", env=keyed()) == tick.EXIT_OK  # leaves a valid `clean` behind
+    state = tmp_path / "logs" / "pass-state.json"
+    assert state_text(state)["state"] == "clean"
+    marker = tmp_path / "marker.json"
+    # the first RuntimeConfig.load of the child (the gate's) fails, every later one (the CLI's) would succeed
+    assert run_tick(tmp_path, item, "flaky-config", env=keyed(TICK_MARKER=str(marker))) == tick.EXIT_RUNTIME
+    line = last_line(tmp_path)
+    assert (line["code"], line["type"]) == ("PASS_STATE_UNAVAILABLE", "config")
+    assert not marker.exists()  # the pass body never ran
+    assert state_text(state)["state"] == "clean"  # and no running mark was needed because nothing started
