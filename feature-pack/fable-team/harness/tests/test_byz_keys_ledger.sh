@@ -184,6 +184,26 @@ bash "$S/keys-list.sh" --ledger "$L" >/dev/null 2>&1
 has "수동 상태 유지" "$(grep -F '| OPENAI_API_KEY |' "$L")" "| 중단(단계 2) |"
 has "미참조는 계산값" "$(grep -F 'cartesia-api-key-dev:v1' "$L")" "| 미참조 |"
 
+echo "== 사용처 칸(손 칸 · 다시 그리기가 보존) =="
+has "기본값 미조사(코드 읽는 곳 바로 뒤)" "$(grep -F '| OPENAI_API_KEY |' "$L")" "| ENV 1 · SM 0 | 미조사 |"
+eq "표 머리 12칸" "$(grep -F '| ENV(표준) |' "$L" | awk -F'|' '{print NF-2}')" 12
+UV='용도=stt-x · API=api.x.com;y.googleapis.com · 표=usage/OPENAI_API_KEY.md@2026-10-16#0123456789ab'
+swap() { python3 -I - "$L" "$1" "$2" <<'PY2'
+import sys
+p, old, new = sys.argv[1:4]
+t = open(p, encoding="utf-8").read()
+assert old in t
+open(p, "w", encoding="utf-8").write(t.replace(old, new, 1))
+PY2
+}
+swap "| ENV 1 · SM 0 | 미조사 |" "| ENV 1 · SM 0 | $UV |"
+eq "손으로 채운 사용처 lint rc=0" "$(bash "$S/keys-lint.sh" "$L" >/dev/null 2>&1; echo $?)" 0
+bash "$S/keys-list.sh" --ledger "$L" >/dev/null 2>&1
+has "다시 그려도 사용처 보존" "$(grep -F '| OPENAI_API_KEY |' "$L")" "| $UV |"
+swap "| $UV |" "| 용도=BAD · API=x · 표=usage/X.md |"
+bash "$S/keys-lint.sh" "$L" >/dev/null 2>&1; eq "사용처 칸 형식 위반 rc=1" "$?" 1
+swap "| 용도=BAD · API=x · 표=usage/X.md |" "| 미조사 |"
+
 echo "== 변이: 값 칸 추가·잘못된 상태·중복 = FAIL =="
 # 장부 사본을 만들어 OPENAI 행을 변형한다: extra=칸 추가 · state=상태를 허용 밖 값으로 · dup=행 복제
 mutate() {
