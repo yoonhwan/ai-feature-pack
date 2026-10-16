@@ -255,6 +255,48 @@ def test_the_profile_is_complete_before_the_result_says_complete(tmp_path):
     assert json.loads((directory / "result.json").read_text())["complete"] is True
 
 
+def _worker_with_wrapped_writes(monkeypatch, tmp_path, *, op_kind="success"):
+    """Run the p0only worker in this process with every write_json_atomic call wrapped: at each publication of
+    result.json with complete=true, note whether profile.json already exists and is the closed, valid document."""
+    sb = Sandbox(tmp_path)
+    if op_kind == "timeout":
+        sb.op = sb.make_op(version_pre="sleep 10")
+        sb.extra["PROBE_OP_BIN"] = str(sb.op)
+    for key, value in sb.env().items():
+        monkeypatch.setenv(key, value)
+    directory = tmp_path / "run"
+    directory.mkdir()
+    monkeypatch.setattr(sys, "argv", ["probe.py", "--run", str(directory), "--mode", "selftest", "--p0-only",
+                                      "--process-type-set", "true"])
+    probe = load_probe()
+    original = probe.write_json_atomic
+    seen = {"complete": [], "writes": []}
+
+    def wrapped(path, document):
+        name = Path(path).name
+        seen["writes"].append(name)
+        if name == "result.json" and document.get("complete") is True:
+            try:
+                profile = json.loads((directory / "profile.json").read_text())
+                seen["complete"].append(set(profile) == PROFILE_KEYS and profile["profile"] == "p0only")
+            except (OSError, ValueError):
+                seen["complete"].append(False)
+        return original(path, document)
+    monkeypatch.setattr(probe, "write_json_atomic", wrapped)
+    probe.execute(directory)
+    return seen, directory
+
+
+@pytest.mark.parametrize("op_kind", ["success", "timeout"])
+def test_every_complete_publication_finds_a_finished_profile_already_there(monkeypatch, tmp_path, op_kind):
+    """DA r1 minor 2: no sleep, no polling — the moment of the complete=true write is looked at directly."""
+    seen, directory = _worker_with_wrapped_writes(monkeypatch, tmp_path, op_kind=op_kind)
+    assert seen["complete"] == [True]                  # exactly one complete publication, and the profile was there
+    assert seen["writes"].index("profile.json") < len(seen["writes"]) - 1
+    assert seen["writes"][-1] == "result.json"         # the last write of the run is the completion itself
+    assert json.loads((directory / "result.json").read_text())["complete"] is True
+
+
 def test_the_wrapper_does_not_take_the_job_down_before_the_profile_exists(tmp_path):
     sb = Sandbox(tmp_path)
     proc = sb.run(*P0_ARGS, PROBE_P0_PROFILE_DELAY="2")
@@ -498,7 +540,7 @@ def test_g4_passes_an_ordinary_a_and_b_stage(chain, tmp_path):
     (lambda d: d["steps"][1].update(status="observation_unknown"), "probe_step_error"),
     (lambda d: d["steps"][1].update(status="auth_error", rc=1), "p0_not_tabulable"),
     (lambda d: d["steps"][1].update(status="network_error", rc=1), "p0_not_tabulable"),
-    (lambda d: d.update(steps=[d["steps"][0]] + d["steps"][2:]), "p0_not_tabulable"),
+    (lambda d: d.update(steps=[d["steps"][0]] + d["steps"][2:]), "result_schema"),
     (lambda d: d.pop("mode"), "result_schema"),
     (lambda d: d.update(extra=1), "result_schema"),
 ])
@@ -687,6 +729,52 @@ class N4Sandbox(ChainSandbox):
 @pytest.fixture
 def n4(tmp_path):
     return N4Sandbox(tmp_path)
+
+
+# ------------------------------------------------------------------ DA r1 minor 1: the step array is exact
+def _extra(doc, index, **kw):
+    doc["steps"].insert(index, step(doc["steps"][index]["step"], "success", account_type_confirmed=True, **kw))
+    return doc
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda d: d.update(steps=d["steps"][1:]),                                         # P4 missing
+    lambda d: d.update(steps=d["steps"][:1] + d["steps"][2:]),                        # P0 missing
+    lambda d: d.update(steps=d["steps"][:-1]),                                        # P1b missing
+    lambda d: d.update(steps=[]),                                                     # nothing at all
+    lambda d: _extra(d, 2),                                                           # a success P2 before the skipped P2
+    lambda d: d["steps"].append(step("P2", "success", account_type_confirmed=True)),  # ... or after it
+    lambda d: d["steps"].append(dict(d["steps"][0])),                                 # P4 twice
+    lambda d: d["steps"].append(dict(d["steps"][1])),                                 # P0 twice
+    lambda d: d.update(steps=[dict(d["steps"][2])] + d["steps"][1:]),                 # five entries, P4 replaced by P2
+    lambda d: d.update(steps=d["steps"][:1] + [dict(d["steps"][1])] * 2 + d["steps"][3:]),   # P0 twice, P2 missing
+])
+def test_g4_demands_exactly_one_of_each_of_the_five_steps(chain, tmp_path, mutation):
+    doc = p0only_doc()
+    mutation(doc)
+    assert chain.probe.validate_result(doc)            # the shared closed schema alone does not notice
+    assert gate(chain, tmp_path, doc) == "result_schema"
+
+
+def test_the_extra_account_step_is_not_hidden_behind_the_later_skipped_one(chain, tmp_path):
+    doc = _extra(p0only_doc(), 2)
+    assert chain.probe.validate_result(doc) and chain.gate_probe(doc) is None   # the old checks let it through
+    assert gate(chain, tmp_path, doc) == "result_schema"
+
+
+def test_a_step_array_that_is_not_exact_stops_the_chain_end_to_end(n4):
+    doc = p0only_doc()
+    doc["steps"] = doc["steps"][1:]
+    n4.stage("N4-A1", doc)
+    proc = n4.run("--plan", "n4")
+    assert proc.returncode == 5 and n4.calls() == ["N4-A1"] and "result_schema" in proc.stdout
+
+
+def test_the_shared_validator_and_the_other_gates_keep_their_contract(chain):
+    """N4 only: the shared v1 validator and gate_probe (N1..N3) still accept an array without P4 or with a repeat."""
+    doc = p0only_doc()
+    doc["steps"] = doc["steps"][1:]
+    assert chain.probe.validate_result(doc) and chain.gate_probe(doc) is None
 
 
 def test_the_n4_plan_exists_with_the_same_numbers_as_the_other_plans(chain):
