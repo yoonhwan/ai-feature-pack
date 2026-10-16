@@ -21,6 +21,7 @@ import types
 
 import pytest
 
+import _tick_baseline_e529d96 as baseline  # frozen pre-probe tick.py (e529d96), for behavior comparison only
 from airag_consumer import tick
 from test_tick import (
     KEYS, REFERENCES, _one_key_missing_env, base_environment, credentials, run_tick, stub_op, synthetic_service,
@@ -55,7 +56,6 @@ def _run_scenario(tmp_path, monkeypatch, capsys, name, steps, *, limits=LIMITS, 
             m.setattr(tick, "OP_ATTEMPT_TIMEOUT_S", limits[0])
             m.setattr(tick, "OP_CALL_DEADLINE_S", limits[1])
         m.setattr(os, "getloadavg", lambda: (1.5, 1.0, 0.5))
-        m.setattr(tick, "_count_resident_op", lambda: 3)
         if baseline:  # probe stage forced down to the last recovery step: the pre-probe line
             m.setattr(tick, "_make_probe", _boom)
             m.setattr(tick, "_minimal_probe", _boom)
@@ -147,7 +147,7 @@ def test_probe_records_each_attempt_with_offsets_and_a_closed_outcome(tmp_path, 
     name, steps, _, _, _, _, attempts = scenario
     run = _run_scenario(tmp_path, monkeypatch, capsys, name, steps)
     probe = json.loads(run.file)["probe"]
-    assert probe["v"] == 1 and probe["load1"] == 1.5 and probe["op_resident"] == 3 and "probe_error" not in probe
+    assert probe["v"] == 1 and probe["load1"] == 1.5 and "op_resident" not in probe and "probe_error" not in probe
     assert [key["name"] for key in probe["keys"]] == [MISSING]
     got = [(a["start_ms"], a["end_ms"], a["outcome"]) for a in probe["keys"][0]["attempts"]]
     assert [g[2] for g in got] == [a[2] for a in attempts]
@@ -181,7 +181,7 @@ def test_a_pre_call_failure_still_carries_a_full_normal_record(tmp_path, capsys)
     line = json.loads((tmp_path / "logs" / "tick-20260927.log").read_text())
     assert line["code"] == "CREDENTIAL_SETTINGS_UNAVAILABLE"
     probe = line["probe"]
-    assert probe["keys"] == [] and probe["v"] == 1 and set(probe) >= {"tick_total_s", "load1", "op_resident"}
+    assert probe["keys"] == [] and probe["v"] == 1 and set(probe) == {"v", "keys", "tick_total_s", "load1"}
     assert tick._probe_valid(probe) is True
     assert capsys.readouterr().out.strip() == json.dumps(line, sort_keys=True, separators=(",", ":"))
 
@@ -211,7 +211,7 @@ def test_a_skipped_overlapping_tick_still_carries_a_record(tmp_path, capsys):
 
 NAME_A, NAME_B, NAME_C = tick.NAMES
 GOOD = {
-    "v": 1, "tick_total_s": 0.05, "load1": 1.5, "op_resident": 3,
+    "v": 1, "tick_total_s": 0.05, "load1": 1.5,
     "keys": [{"name": NAME_A, "attempts": [{"start_ms": 0.0, "end_ms": 50.0, "outcome": "ok"}]}],
 }
 
@@ -255,12 +255,10 @@ INVALID = {
     "total int": _with(tick_total_s=1),
     "load1 over": _with(load1=10000.01),
     "load1 int": _with(load1=2),
-    "resident bool": _with(op_resident=True),
-    "resident float": _with(op_resident=3.0),
-    "resident negative": _with(op_resident=-1),
-    "resident over": _with(op_resident=100001),
+    "process count field": _with(op_resident=3),
+    "process count null": _with(op_resident=None),
     "load1 null without reason": _with(load1=None),
-    "resident null without reason": _with(op_resident=None),
+    "process count reason": _with(probe_error=["op_resident_unavailable"]),
     "reason without null": _with(probe_error=["load_unavailable"]),
     "reason outside list": _with(load1=None, probe_error=["load_unavailable", "disk_full"]),
     "duplicate reason": _with(load1=None, probe_error=["load_unavailable", "load_unavailable"]),
@@ -273,7 +271,6 @@ def test_the_closed_schema_accepts_a_good_record_and_the_documented_variants():
     assert tick._probe_valid(copy.deepcopy(GOOD)) is True
     assert tick._probe_valid(_with(keys=[])) is True
     assert tick._probe_valid(_with(load1=None, probe_error=["load_unavailable"])) is True
-    assert tick._probe_valid(_with(op_resident=None, probe_error=["op_resident_unavailable"])) is True
     assert tick._probe_valid(_with(probe_error=["collect_failed"])) is True
     assert tick._probe_valid(_with_attempts(_attempt(outcome="timeout"), _attempt(start_ms=50.0, end_ms=120000.0))) is True
     for reason in ("collect_failed", "probe_invalid", "probe_too_large"):
@@ -312,19 +309,14 @@ def test_raw_values_are_checked_before_rounding():
         assert probe_for(state, total) == bad, total
     for load in (-0.004, 10000.004, math.nan, math.inf, 2, True, "1.0"):
         state = tick._ProbeState(0.0)
-        state.load1, state.op_resident = load, 3
+        state.load1 = load
         record = probe_for(state, 1.0)
         assert record["load1"] is None and record["probe_error"] == ["load_unavailable"], load
-    for resident in (-1, 100001, 2.0, True, "3"):
-        state = tick._ProbeState(0.0)
-        state.load1, state.op_resident = 1.0, resident
-        record = probe_for(state, 1.0)
-        assert record["op_resident"] is None and record["probe_error"] == ["op_resident_unavailable"], resident
 
 
 def test_values_are_rounded_once_when_the_record_is_made():
     state = tick._ProbeState(0.0)
-    state.load1, state.op_resident = 1.23456, 4
+    state.load1 = 1.23456
     state.attempts = {NAME_B: [(12.3456, 20.00049, "timeout")]}
     probe = tick._probe_for_line(state, 0.123456)
     assert probe["load1"] == 1.23 and probe["tick_total_s"] == 0.123
@@ -335,8 +327,8 @@ def test_collection_failures_become_null_fields_with_a_reason_and_keep_the_recor
     state = tick._ProbeState(0.0)
     state.failed = True  # an attempt record could not be taken
     record = tick._probe_for_line(state, 1.0)
-    assert record["load1"] is None and record["op_resident"] is None
-    assert record["probe_error"] == ["load_unavailable", "op_resident_unavailable", "collect_failed"]
+    assert record["load1"] is None and "op_resident" not in record
+    assert record["probe_error"] == ["load_unavailable", "collect_failed"]
     assert tick._probe_valid(record) is True
 
 
@@ -345,7 +337,7 @@ def test_collection_failures_become_null_fields_with_a_reason_and_keep_the_recor
 def _worst_state(*, with_errors):
     state = tick._ProbeState(0.0)
     state.attempts = {name: [(119999.0004, 119999.9996, "nonzero_rc")] * 2 for name in tick.NAMES}
-    state.load1, state.op_resident, state.failed = (None, None, True) if with_errors else (9999.9949, 99999, False)
+    state.load1, state.failed = (None, True) if with_errors else (9999.9949, False)
     return state
 
 
@@ -358,10 +350,10 @@ def test_the_worst_probe_stays_inside_one_kilobyte(with_errors):
 
 
 def test_an_accepted_record_with_every_reason_still_fits():
-    record = _with(load1=None, op_resident=None, keys=[
+    record = _with(load1=None, keys=[
         {"name": n, "attempts": [_attempt(start_ms=119999.999, end_ms=120000.0, outcome="nonzero_rc")] * 2}
         for n in tick.NAMES
-    ], probe_error=["load_unavailable", "op_resident_unavailable", "collect_failed", "probe_invalid", "probe_too_large"])
+    ], probe_error=["load_unavailable", "collect_failed", "probe_invalid", "probe_too_large"])
     assert tick._probe_valid(record) is True and len(tick._probe_text(record).encode()) <= 1024
 
 
@@ -434,19 +426,25 @@ def test_the_recovery_chain_ends_in_none_not_in_an_exception(monkeypatch):
     assert tick._probe_for_line(tick._ProbeState(0.0), 1.0) is None
 
 
-def test_a_failing_host_collection_changes_nothing_but_the_probe_fields(tmp_path, monkeypatch, capsys):
-    def no_load(m):
-        m.setattr(os, "getloadavg", _boom)
-
-    def no_ps(m):
-        m.setattr(tick, "_count_resident_op", _boom)
-
-    load_run, _ = _assert_behavior_unchanged(tmp_path, monkeypatch, capsys, "load", SUCCESS_STEPS, mutate=no_load)
+def test_a_failing_load_collection_changes_nothing_but_the_probe_fields(tmp_path, monkeypatch, capsys):
+    load_run, _ = _assert_behavior_unchanged(tmp_path, monkeypatch, capsys, "load", SUCCESS_STEPS,
+                                             mutate=lambda m: m.setattr(os, "getloadavg", _boom))
     probe = json.loads(load_run.file)["probe"]
-    assert probe["load1"] is None and probe["probe_error"] == ["load_unavailable"] and probe["op_resident"] == 3
-    ps_run, _ = _assert_behavior_unchanged(tmp_path, monkeypatch, capsys, "ps", SUCCESS_STEPS, mutate=no_ps)
-    probe = json.loads(ps_run.file)["probe"]
-    assert probe["op_resident"] is None and probe["probe_error"] == ["op_resident_unavailable"] and probe["load1"] == 1.5
+    assert probe["load1"] is None and probe["probe_error"] == ["load_unavailable"] and "op_resident" not in probe
+
+
+def test_a_tick_starts_no_process_listing(tmp_path, monkeypatch, capsys):
+    # the process-count field was dropped: its whole collection (spawn, reap, parse) could not be bounded to 1.0 s
+    made = []
+    real = subprocess.Popen
+
+    class Spy(real):
+        def __init__(self, argv, *args, **kwargs):
+            made.append(os.path.basename(str(argv[0])))
+            super().__init__(argv, *args, **kwargs)
+
+    _run_scenario(tmp_path, monkeypatch, capsys, "nops", SUCCESS_STEPS, mutate=lambda m: m.setattr(subprocess, "Popen", Spy))
+    assert "ps" not in made and not hasattr(tick, "_count_resident_op") and not hasattr(tick, "PROBE_COLLECT_TIMEOUT_S")
 
 
 def test_a_failing_attempt_recorder_changes_nothing_but_the_probe_fields(tmp_path, monkeypatch, capsys):
@@ -457,56 +455,6 @@ def test_a_failing_attempt_recorder_changes_nothing_but_the_probe_fields(tmp_pat
                                                mutate=mutate)
     probe = json.loads(with_probe.file)["probe"]
     assert probe["keys"] == [] and probe["probe_error"] == ["collect_failed"]
-
-
-# --- process-count collection ------------------------------------------------------------------------------------
-
-class _FakePs:
-    made: list = []
-
-    def __init__(self, argv, **kwargs):
-        self.argv, self.kwargs, self.killed, self.timeouts = argv, kwargs, False, []
-        self.returncode, self.stdout = 0, "/usr/local/bin/op\n/bin/zsh\nop\n-op\n/x/op2\n  /opt/bin/op  \n"
-        self.slow = False
-        _FakePs.made.append(self)
-
-    def communicate(self, timeout=None):
-        self.timeouts.append(timeout)
-        if self.slow and not self.killed:
-            raise subprocess.TimeoutExpired(self.argv, timeout)
-        return self.stdout, ""
-
-    def kill(self):
-        self.killed = True
-
-
-def test_resident_op_count_reads_command_names_only(monkeypatch):
-    _FakePs.made.clear()
-    monkeypatch.setattr(subprocess, "Popen", _FakePs)
-    assert tick._count_resident_op() == 3  # basename == "op" only: not "-op", not "op2"
-    ps = _FakePs.made[0]
-    assert ps.argv[-2:] == ["-axo", "comm="] and len(ps.argv) == 3
-    assert ps.timeouts == [1.0]
-
-
-def test_resident_op_count_is_bounded_to_one_second_and_cleans_up(monkeypatch):
-    _FakePs.made.clear()
-
-    class Slow(_FakePs):
-        def __init__(self, argv, **kwargs):
-            super().__init__(argv, **kwargs)
-            self.slow = True
-
-    monkeypatch.setattr(subprocess, "Popen", Slow)
-    with pytest.raises(subprocess.TimeoutExpired):
-        tick._count_resident_op()
-    ps = _FakePs.made[0]
-    assert ps.timeouts[0] == 1.0 and ps.killed is True
-
-
-def test_resident_op_count_is_an_int_on_a_real_host():
-    count = tick._count_resident_op()
-    assert type(count) is int and count >= 0
 
 
 # --- rule 12 limits --------------------------------------------------------------------------------------------
@@ -551,3 +499,107 @@ def test_no_retry_after_output_and_never_a_third_attempt(tmp_path, monkeypatch, 
     never = _real_limit_run(tmp_path, monkeypatch, capsys, "never", [_step(0.1, "timeout")] * 5)
     assert len(never.timeouts) == 2
     assert [len(k["attempts"]) for k in json.loads(never.file)["probe"]["keys"]] == [2]
+
+
+# --- retry budget is computed from the current time, as before the probe -----------------------------------------
+
+def _direct_read(module, tmp_path, monkeypatch, *, limits, first_takes, classify_delay=0.0, record_delay=0.0):
+    """`load_keys` of ``module`` with one key missing: a scripted first silent timeout, then a good answer."""
+    now = [1000.0]
+    timeouts: list[float] = []
+    work = tmp_path / module.__name__.replace(".", "-")
+    work.mkdir()
+    op, _ = stub_op(work)
+    creds = credentials(work, op)
+    with monkeypatch.context() as m:
+        m.setattr(module, "time", types.SimpleNamespace(monotonic=lambda: now[0]))
+        m.setattr(module, "OP_ATTEMPT_TIMEOUT_S", limits[0])
+        m.setattr(module, "OP_CALL_DEADLINE_S", limits[1])
+        real_clean = module._clean_type
+
+        def clean(value):  # error classification takes time
+            now[0] += classify_delay
+            return real_clean(value)
+
+        m.setattr(module, "_clean_type", clean)
+        if record_delay and hasattr(module, "_note_attempt"):
+            real_note = module._note_attempt
+
+            def note(*args, **kwargs):  # recording an attempt takes time
+                now[0] += record_delay
+                return real_note(*args, **kwargs)
+
+            m.setattr(module, "_note_attempt", note)
+
+        def run(argv, **kwargs):
+            timeouts.append(kwargs["timeout"])
+            if len(timeouts) == 1:
+                now[0] += first_takes
+                raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+            now[0] += 0.01
+            return types.SimpleNamespace(returncode=0, stdout=GOOD_KEY + "\n", stderr="")
+
+        m.setattr(subprocess, "run", run)
+        try:
+            module.load_keys(_one_key_missing_env(), creds)
+            outcome = "ok"
+        except module.TickError as error:
+            outcome = (error.exit_code, error.code, error.kind)
+    return timeouts, outcome
+
+
+@pytest.mark.parametrize("limits,first_takes", [((7.0, 14.0), 13.9), ((10.5, 21.0), 20.9)])
+def test_a_retry_is_refused_when_classification_time_spends_the_deadline(tmp_path, monkeypatch, limits, first_takes):
+    base = _direct_read(baseline, tmp_path, monkeypatch, limits=limits, first_takes=first_takes, classify_delay=0.2)
+    now = _direct_read(tick, tmp_path, monkeypatch, limits=limits, first_takes=first_takes, classify_delay=0.2)
+    assert base == ([limits[0]], (30, "OP_READ_UNAVAILABLE", "TimeoutExpired"))  # the pre-probe behavior
+    assert now == base
+
+
+@pytest.mark.parametrize("limits,first_takes", [((7.0, 14.0), 5.0), ((10.5, 21.0), 12.0)])
+def test_the_retry_timeout_matches_the_pre_probe_value_when_there_is_room(tmp_path, monkeypatch, limits, first_takes):
+    base = _direct_read(baseline, tmp_path, monkeypatch, limits=limits, first_takes=first_takes, classify_delay=0.2)
+    now = _direct_read(tick, tmp_path, monkeypatch, limits=limits, first_takes=first_takes, classify_delay=0.2)
+    assert len(base[0]) == 2 and base[1] == "ok"
+    assert now == base
+
+
+@pytest.mark.parametrize("limits,first_takes", [((7.0, 14.0), 13.9), ((10.5, 21.0), 20.9)])
+def test_a_retry_is_refused_when_recording_time_spends_the_deadline(tmp_path, monkeypatch, limits, first_takes):
+    timeouts, outcome = _direct_read(tick, tmp_path, monkeypatch, limits=limits, first_takes=first_takes, record_delay=0.2)
+    assert timeouts == [limits[0]] and outcome == (30, "OP_READ_UNAVAILABLE", "TimeoutExpired")
+
+
+# --- the last serialization is part of the recovery chain ---------------------------------------------------------
+
+def _compose_spy(order, fail_kinds):
+    real = tick._compose
+
+    def compose(payload, record):
+        kind = "normal" if "tick_total_s" in record else "minimal"
+        order.append(kind)
+        if kind in fail_kinds:
+            raise ValueError("injected final serialization failure")
+        return real(payload, record)
+
+    return compose
+
+
+def test_a_failed_final_serialization_of_the_normal_probe_steps_down_to_the_minimal_probe(tmp_path, monkeypatch, capsys):
+    order: list[str] = []
+    with_probe, _ = _assert_behavior_unchanged(
+        tmp_path, monkeypatch, capsys, "compose", SUCCESS_STEPS,
+        mutate=lambda m: m.setattr(tick, "_compose", _compose_spy(order, {"normal"})),
+    )
+    assert order == ["normal", "minimal"]
+    assert json.loads(with_probe.file)["probe"] == {"v": 1, "keys": [], "probe_error": ["collect_failed"]}
+
+
+def test_when_the_minimal_probe_cannot_be_serialized_either_the_pre_probe_line_is_written(tmp_path, monkeypatch, capsys):
+    order: list[str] = []
+    both = lambda m: m.setattr(tick, "_compose", _compose_spy(order, {"normal", "minimal"}))  # noqa: E731
+    with_probe = _run_scenario(tmp_path, monkeypatch, capsys, "compose2-p", SUCCESS_STEPS, mutate=both)
+    baseline_run = _run_scenario(tmp_path, monkeypatch, capsys, "compose2-b", SUCCESS_STEPS, baseline=True)
+    assert order == ["normal", "minimal"]
+    assert with_probe.file == baseline_run.file and with_probe.stdout == baseline_run.stdout
+    assert with_probe.code == baseline_run.code == 0
