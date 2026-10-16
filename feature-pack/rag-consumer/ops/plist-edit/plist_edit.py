@@ -80,6 +80,12 @@ def say(text: str) -> None:
     print(text, flush=True)
 
 
+def note(text: str) -> None:
+    """A line after the edit is live: a closed or broken output must not stop the restore report."""
+    with contextlib.suppress(OSError):
+        say(text)
+
+
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -107,17 +113,20 @@ class Context:
     def pause(self, name: str) -> None:
         if self.hook(name):
             Path(os.environ["PLIST_EDIT_PAUSE_FILE"]).write_text(f"{os.getpid()} {name}\n", encoding="utf-8")
-            time.sleep(30)
+            end = time.monotonic() + 30
+            while self.pending is None and time.monotonic() < end:  # a held signal (after the publish) ends the pause too
+                time.sleep(0.05)
 
     @contextlib.contextmanager
     def deferred(self):
-        """Signals that arrive inside are held until the block ends (rename + state flag are one step)."""
+        """Signals that arrive inside are held until the block ends (rename + state flag are one step). Once the edit is
+        published they stay held for the rest of the run: ``finish`` alone decides how the run ends."""
         self.defer = True
         try:
             yield
         finally:
-            self.defer = False
-        if self.pending is not None:
+            self.defer = self.published
+        if self.pending is not None and not self.published:
             raise Interrupted(self.pending)
 
 
@@ -375,7 +384,7 @@ def fsync_directory(path: Path) -> None:
 
 def restore(ctx: Context, backup: Path, original_sha: str, original_meta: tuple[int, int, int]) -> bool:
     """Put the backup back atomically and compare hashes. True only if the operating file is the original again."""
-    ctx.defer = True
+    held, ctx.defer = ctx.defer, True
     try:
         data = backup.read_bytes()
         if sha(data) != original_sha:
@@ -391,7 +400,7 @@ def restore(ctx: Context, backup: Path, original_sha: str, original_meta: tuple[
     except OSError:
         return False
     finally:
-        ctx.defer = False
+        ctx.defer = held
 
 
 # ------------------------------------------------------------------------------------------------ the run
@@ -437,48 +446,53 @@ def execute(ctx: Context) -> int:
     ctx.pause("pause_publish")
     if sha(ctx.plist.read_bytes()) != original_sha:
         raise Refuse(PUBLISH, "실행 중 plist 가 바뀌어 게시하지 않습니다(운영 파일 불변).")
-    stopped: int | None = None
+    with ctx.deferred():
+        try:
+            if ctx.hook("publish_fail"):
+                raise OSError
+            os.replace(candidate, ctx.plist)
+        except OSError:
+            raise Refuse(PUBLISH, "게시(rename)에 실패했습니다(운영 파일 불변).") from None
+        ctx.published = True
+    return finish(ctx, backup, original_sha, original_meta, names, hashes, candidate_sha)
+
+
+def finish(ctx: Context, backup: Path, original_sha: str, original_meta: tuple[int, int, int], names: list[str],
+           hashes: dict[str, str], candidate_sha: str) -> int:
+    """Everything after the rename, and the only place that decides how the run ends. From the rename on, signals are
+    only recorded (never raised); the run is complete only if the re-check passed and no signal was recorded by the
+    time the last line was printed - otherwise the backup is put back, verified, and the exit code is the signal's
+    (130/143) or 8, or 9 if the restore itself failed. A signal that arrives after that last check is for a run that
+    is already over."""
     failure = None
     try:
-        with ctx.deferred():
-            try:
-                if ctx.hook("publish_fail"):
-                    raise OSError
-                os.replace(candidate, ctx.plist)
-            except OSError:
-                raise Refuse(PUBLISH, "게시(rename)에 실패했습니다(운영 파일 불변).") from None
-            ctx.published = True
-    except Interrupted as stop:
-        stopped = stop.signum
-    if stopped is None:
-        try:
-            ctx.pause("pause_after_publish")
-            if ctx.hook("post_corrupt"):
-                ctx.plist.write_bytes(ctx.plist.read_bytes().replace(b"<true/>", b"<false/>", 1))
-            if ctx.hook("post_chmod"):
-                os.chmod(ctx.plist, 0o666)
-            if ctx.hook("post_error"):
-                raise OSError
-            if ctx.hook("post_comment"):
-                ctx.plist.write_bytes(ctx.plist.read_bytes() + b"<!-- same shape, other bytes -->\n")
-            fsync_directory(ctx.plist.parent)
-            after = ctx.plist.read_bytes()
-            if sha(after) != candidate_sha or not shape_ok(after, names, hashes) or meta(os.stat(ctx.plist)) != original_meta:
-                failure = "사후 재검증 실패"
-        except Interrupted as stop:
-            stopped = stop.signum
-        except Exception:
-            failure = "사후 재검증 오류"
-    if stopped is None and failure is None:
-        say("사후 재검증: PASS — 게시된 파일이 후보와 같고 키·값 해시·권한·소유자가 맞습니다.")
-        say(f"완료: 최상위 {KEY} 항목 하나를 지웠습니다. 키 이름: {', '.join(names)}")
-        return OK
-    if not ctx.published:
-        raise Interrupted(stopped if stopped is not None else signal.SIGTERM)
+        ctx.pause("pause_after_publish")
+        if ctx.hook("post_corrupt"):
+            ctx.plist.write_bytes(ctx.plist.read_bytes().replace(b"<true/>", b"<false/>", 1))
+        if ctx.hook("post_chmod"):
+            os.chmod(ctx.plist, 0o666)
+        if ctx.hook("post_error"):
+            raise OSError
+        if ctx.hook("post_comment"):
+            ctx.plist.write_bytes(ctx.plist.read_bytes() + b"<!-- same shape, other bytes -->\n")
+        fsync_directory(ctx.plist.parent)
+        after = ctx.plist.read_bytes()
+        if sha(after) != candidate_sha or not shape_ok(after, names, hashes) or meta(os.stat(ctx.plist)) != original_meta:
+            failure = "사후 재검증 실패"
+        else:
+            for line in ("사후 재검증: PASS — 게시된 파일이 후보와 같고 키·값 해시·권한·소유자가 맞습니다.",
+                         f"완료: 최상위 {KEY} 항목 하나를 지웠습니다. 키 이름: {', '.join(names)}"):
+                if ctx.pending is None:
+                    say(line)
+            if ctx.pending is None:
+                return OK
+    except Exception:
+        failure = "사후 재검증 오류"
+    reason = " 및 ".join(part for part in (failure, "신호 수신" if ctx.pending is not None else None) if part)
     if restore(ctx, backup, original_sha, original_meta):
-        say(f"복원: PASS — {failure or '신호 수신'}으로 백업을 되돌렸고 해시가 일치합니다.")
-        return 128 + stopped if stopped is not None else RESTORED
-    say(f"복원: FAIL — 운영 plist 가 원본인지 확인하지 못했습니다. 백업 위치: {backup}")
+        note(f"복원: PASS — {reason}으로 백업을 되돌렸고 해시가 일치합니다.")
+        return 128 + ctx.pending if ctx.pending is not None else RESTORED
+    note(f"복원: FAIL — 운영 plist 가 원본인지 확인하지 못했습니다. 백업 위치: {backup}")
     return RESTORE_FAILED
 
 
