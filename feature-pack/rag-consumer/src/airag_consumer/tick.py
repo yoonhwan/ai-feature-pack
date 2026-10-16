@@ -50,14 +50,10 @@ OP_CALL_DEADLINE_S = 21.0
 # Probe (value-free `probe` field of the log line): per-key `op read` attempt record, closed schema.
 PROBE_VERSION = 1
 PROBE_MAX_BYTES = 1024  # the probe's own compact JSON; the rest of the line is never capped or cut
-PROBE_COLLECT_TIMEOUT_S = 1.0  # host collection (process names), made before the read budget starts
 PROBE_OUTCOMES = ("ok", "bad_format", "nonzero_rc", "timeout", "exec_error")
-PROBE_ERRORS = (
-    "load_unavailable", "op_resident_unavailable", "collect_failed", "probe_invalid", "probe_too_large",
-)
+PROBE_ERRORS = ("load_unavailable", "collect_failed", "probe_invalid", "probe_too_large")
 _PROBE_MIN_ERRORS = ("collect_failed", "probe_invalid", "probe_too_large")
-_PROBE_MS_MAX, _PROBE_TOTAL_MAX, _PROBE_LOAD_MAX, _PROBE_RESIDENT_MAX = 120_000.0, 86_400.0, 10_000.0, 100_000
-_PS = "/bin/ps"
+_PROBE_MS_MAX, _PROBE_TOTAL_MAX, _PROBE_LOAD_MAX = 120_000.0, 86_400.0, 10_000.0
 
 
 class TickError(Exception):
@@ -90,27 +86,6 @@ def _is_float(value: object, high: float) -> bool:
     return type(value) is float and math.isfinite(value) and 0.0 <= value <= high
 
 
-def _is_int(value: object, high: int) -> bool:
-    return type(value) is int and 0 <= value <= high
-
-
-def _count_resident_op() -> int:
-    """Processes whose command name is `op` (names only: no arguments, environment or references; no `op` run)."""
-    ps = subprocess.Popen(
-        [_PS, "-axo", "comm="], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-        text=True, close_fds=True, env={},
-    )
-    try:
-        text, _ = ps.communicate(timeout=PROBE_COLLECT_TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        ps.kill()
-        ps.communicate()
-        raise
-    if ps.returncode != 0:
-        raise OSError("ps failed")
-    return sum(1 for line in text.splitlines() if os.path.basename(line.strip()) == "op")
-
-
 class _ProbeState:
     """What this tick observed for its probe. Every write is best effort and never changes what the tick does."""
 
@@ -118,7 +93,6 @@ class _ProbeState:
         self.origin = origin
         self.attempts: dict[str, list[tuple[object, object, str]]] = {}
         self.load1: object = None
-        self.op_resident: object = None
         self.failed = False  # an attempt record could not be taken
 
     @staticmethod
@@ -138,10 +112,6 @@ class _ProbeState:
             self.load1 = os.getloadavg()[0]
         except Exception:
             self.load1 = None
-        try:
-            self.op_resident = _count_resident_op()
-        except Exception:
-            self.op_resident = None
 
 
 def _note_attempt(probe: _ProbeState, name: str, began: float | None, outcome: str, ended: float | None) -> None:
@@ -179,14 +149,10 @@ def _make_probe(probe: _ProbeState, total_s: object) -> dict[str, object]:
     else:
         load1 = None
         errors.append("load_unavailable")
-    resident = probe.op_resident
-    if not _is_int(resident, _PROBE_RESIDENT_MAX):
-        resident = None
-        errors.append("op_resident_unavailable")
     if probe.failed:
         errors.append("collect_failed")
     record: dict[str, object] = {
-        "v": PROBE_VERSION, "keys": keys, "tick_total_s": round(total_s, 3), "load1": load1, "op_resident": resident,
+        "v": PROBE_VERSION, "keys": keys, "tick_total_s": round(total_s, 3), "load1": load1,
     }
     if errors:
         record["probe_error"] = errors
@@ -205,7 +171,7 @@ def _probe_valid(record: object) -> bool:
         if set(record) == {"v", "keys", "probe_error"}:  # minimal (recovery) record
             reasons = record["probe_error"]
             return record["keys"] == [] and type(reasons) is list and len(reasons) == 1 and reasons[0] in _PROBE_MIN_ERRORS
-        required = {"v", "keys", "tick_total_s", "load1", "op_resident"}
+        required = {"v", "keys", "tick_total_s", "load1"}
         if set(record) not in (required, required | {"probe_error"}):
             return False
         keys = record["keys"]
@@ -227,18 +193,15 @@ def _probe_valid(record: object) -> bool:
                     return False
         if not _is_float(record["tick_total_s"], _PROBE_TOTAL_MAX):
             return False
-        load1, resident = record["load1"], record["op_resident"]
-        if (load1 is not None and not _is_float(load1, _PROBE_LOAD_MAX)) or (
-            resident is not None and not _is_int(resident, _PROBE_RESIDENT_MAX)
-        ):
+        load1 = record["load1"]
+        if load1 is not None and not _is_float(load1, _PROBE_LOAD_MAX):
             return False
         reasons = record.get("probe_error", [])
         if type(reasons) is not list or (("probe_error" in record) and not reasons):
             return False
         if len(set(reasons)) != len(reasons) or any(r not in PROBE_ERRORS for r in reasons):
             return False
-        return (load1 is None) == ("load_unavailable" in reasons) and (
-            resident is None) == ("op_resident_unavailable" in reasons)
+        return (load1 is None) == ("load_unavailable" in reasons)
     except Exception:
         return False
 
@@ -275,14 +238,28 @@ def _probe_for_line(probe: _ProbeState, total_s: object) -> dict[str, object] | 
         return None
 
 
+def _compose(payload: dict[str, object], record: dict[str, object]) -> str:
+    return json.dumps({**payload, "probe": record}, sort_keys=True, separators=(",", ":"))
+
+
 def _line_with_probe(payload: dict[str, object], line: str, probe: _ProbeState, total_s: object) -> str:
-    """``line`` plus the probe; any failure leaves ``line`` (the pre-probe bytes) untouched."""
+    """``line`` plus the probe; the last serialization is part of the recovery chain, so a failure steps down to the
+    minimal record and then to ``line`` (the pre-probe bytes), never raising."""
     try:
         record = _probe_for_line(probe, total_s)
-        if record is not None:
-            return json.dumps({**payload, "probe": record}, sort_keys=True, separators=(",", ":"))
+    except Exception:
+        return line
+    if record is None:
+        return line
+    try:
+        return _compose(payload, record)
     except Exception:
         pass
+    if "tick_total_s" in record:  # the normal record could not be written: try the minimal one
+        try:
+            return _compose(payload, _minimal_probe("collect_failed"))
+        except Exception:
+            pass
     return line
 
 
@@ -336,15 +313,14 @@ def load_keys(environment: dict[str, str], credentials: Path | None, probe: _Pro
                     finished = probe.stamp()
                     break
                 except (OSError, subprocess.TimeoutExpired) as error:  # class name only: timeout vs exec failure
-                    ended = time.monotonic()
                     _note_attempt(
                         probe, name, began,
-                        "timeout" if isinstance(error, subprocess.TimeoutExpired) else "exec_error", ended,
+                        "timeout" if isinstance(error, subprocess.TimeoutExpired) else "exec_error", time.monotonic(),
                     )
                     kind = _clean_type(type(error).__name__)
                     # Retry once, only for a timeout before any output (emptiness test only; the output is dropped).
                     silent = isinstance(error, subprocess.TimeoutExpired) and not (error.stdout or error.stderr)
-                    timeout = min(OP_ATTEMPT_TIMEOUT_S, deadline - ended)
+                    timeout = min(OP_ATTEMPT_TIMEOUT_S, deadline - time.monotonic())  # now, after recording
                     if attempt == 2 or not silent or timeout <= 0:
                         raise TickError(EXIT_KEYS, "OP_READ_UNAVAILABLE", kind) from None
                     attempt += 1
@@ -454,7 +430,7 @@ def main(
     out = sys.stdout if stdout is None else stdout
     probe = _ProbeState(_ProbeState.stamp())
     now = clock()
-    probe.collect_host()  # before the read budget starts; bounded to PROBE_COLLECT_TIMEOUT_S
+    probe.collect_host()
     log_dir: Path | None = None
     summary: dict[str, object] = {}
     code = kind = ""
