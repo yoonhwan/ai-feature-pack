@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import fcntl
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -45,6 +46,18 @@ OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTY
 OP_ATTEMPT_TIMEOUT_S = 7.0
 OP_CALL_DEADLINE_S = 14.0
 
+# Probe (value-free `probe` field of the log line): per-key `op read` attempt record, closed schema.
+PROBE_VERSION = 1
+PROBE_MAX_BYTES = 1024  # the probe's own compact JSON; the rest of the line is never capped or cut
+PROBE_COLLECT_TIMEOUT_S = 1.0  # host collection (process names), made before the read budget starts
+PROBE_OUTCOMES = ("ok", "bad_format", "nonzero_rc", "timeout", "exec_error")
+PROBE_ERRORS = (
+    "load_unavailable", "op_resident_unavailable", "collect_failed", "probe_invalid", "probe_too_large",
+)
+_PROBE_MIN_ERRORS = ("collect_failed", "probe_invalid", "probe_too_large")
+_PROBE_MS_MAX, _PROBE_TOTAL_MAX, _PROBE_LOAD_MAX, _PROBE_RESIDENT_MAX = 120_000.0, 86_400.0, 10_000.0, 100_000
+_PS = "/bin/ps"
+
 
 class TickError(Exception):
     """Carries an exit code and a value-free reason code."""
@@ -67,8 +80,217 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def load_keys(environment: dict[str, str], credentials: Path | None) -> None:
-    """Put the three store keys into ``environment``; keys already there are kept."""
+class _ProbeInvalid(Exception):
+    """A raw measurement outside the closed probe schema; carries no value."""
+
+
+def _is_float(value: object, high: float) -> bool:
+    # Exactly `float` (no int/bool/Decimal), finite, in range: checked on the raw value, before any rounding.
+    return type(value) is float and math.isfinite(value) and 0.0 <= value <= high
+
+
+def _is_int(value: object, high: int) -> bool:
+    return type(value) is int and 0 <= value <= high
+
+
+def _count_resident_op() -> int:
+    """Processes whose command name is `op` (names only: no arguments, environment or references; no `op` run)."""
+    ps = subprocess.Popen(
+        [_PS, "-axo", "comm="], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        text=True, close_fds=True, env={},
+    )
+    try:
+        text, _ = ps.communicate(timeout=PROBE_COLLECT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        ps.kill()
+        ps.communicate()
+        raise
+    if ps.returncode != 0:
+        raise OSError("ps failed")
+    return sum(1 for line in text.splitlines() if os.path.basename(line.strip()) == "op")
+
+
+class _ProbeState:
+    """What this tick observed for its probe. Every write is best effort and never changes what the tick does."""
+
+    def __init__(self, origin: float | None):
+        self.origin = origin
+        self.attempts: dict[str, list[tuple[object, object, str]]] = {}
+        self.load1: object = None
+        self.op_resident: object = None
+        self.failed = False  # an attempt record could not be taken
+
+    @staticmethod
+    def stamp() -> float | None:
+        try:
+            return time.monotonic()
+        except Exception:
+            return None
+
+    def record(self, name: str, began: float, outcome: str, ended: float) -> None:
+        """One `op read` attempt as millisecond offsets from the tick start (raw: checked and rounded at build)."""
+        assert self.origin is not None
+        self.attempts[name].append(((began - self.origin) * 1000.0, (ended - self.origin) * 1000.0, outcome))
+
+    def collect_host(self) -> None:
+        try:
+            self.load1 = os.getloadavg()[0]
+        except Exception:
+            self.load1 = None
+        try:
+            self.op_resident = _count_resident_op()
+        except Exception:
+            self.op_resident = None
+
+
+def _note_attempt(probe: _ProbeState, name: str, began: float | None, outcome: str, ended: float | None) -> None:
+    try:
+        probe.record(name, began, outcome, ended)  # type: ignore[arg-type]
+    except Exception:
+        probe.failed = True
+
+
+def _make_probe(probe: _ProbeState, total_s: object) -> dict[str, object]:
+    """Build the normal record from raw observations; raw values are validated first, rounded once after."""
+    if not _is_float(total_s, _PROBE_TOTAL_MAX) or set(probe.attempts) - set(NAMES):
+        raise _ProbeInvalid
+    keys: list[dict[str, object]] = []
+    for name in NAMES:
+        recorded = probe.attempts.get(name)
+        if not recorded:
+            continue
+        attempts = []
+        for item in recorded:
+            if not (isinstance(item, tuple) and len(item) == 3):
+                raise _ProbeInvalid
+            start, end, outcome = item
+            if not (_is_float(start, _PROBE_MS_MAX) and _is_float(end, _PROBE_MS_MAX) and end >= start
+                    and outcome in PROBE_OUTCOMES):
+                raise _ProbeInvalid
+            attempts.append({"start_ms": round(start, 3), "end_ms": round(end, 3), "outcome": outcome})
+        if len(attempts) > 2:
+            raise _ProbeInvalid
+        keys.append({"name": name, "attempts": attempts})
+    errors: list[str] = []
+    load1 = probe.load1
+    if _is_float(load1, _PROBE_LOAD_MAX):
+        load1 = round(load1, 2)
+    else:
+        load1 = None
+        errors.append("load_unavailable")
+    resident = probe.op_resident
+    if not _is_int(resident, _PROBE_RESIDENT_MAX):
+        resident = None
+        errors.append("op_resident_unavailable")
+    if probe.failed:
+        errors.append("collect_failed")
+    record: dict[str, object] = {
+        "v": PROBE_VERSION, "keys": keys, "tick_total_s": round(total_s, 3), "load1": load1, "op_resident": resident,
+    }
+    if errors:
+        record["probe_error"] = errors
+    return record
+
+
+def _exact(value: object, names: Sequence[str]) -> bool:
+    return type(value) is dict and set(value) == set(names)
+
+
+def _probe_valid(record: object) -> bool:
+    """The closed schema (normal and minimal records): exact key sets, exact types, ranges, consistent reasons."""
+    try:
+        if type(record) is not dict or type(record.get("v")) is not int or record["v"] != PROBE_VERSION:
+            return False
+        if set(record) == {"v", "keys", "probe_error"}:  # minimal (recovery) record
+            reasons = record["probe_error"]
+            return record["keys"] == [] and type(reasons) is list and len(reasons) == 1 and reasons[0] in _PROBE_MIN_ERRORS
+        required = {"v", "keys", "tick_total_s", "load1", "op_resident"}
+        if set(record) not in (required, required | {"probe_error"}):
+            return False
+        keys = record["keys"]
+        if type(keys) is not list or len(keys) > len(NAMES):
+            return False
+        seen: set[str] = set()
+        for key in keys:
+            if not _exact(key, ("name", "attempts")) or key["name"] not in NAMES or key["name"] in seen:
+                return False
+            seen.add(key["name"])
+            attempts = key["attempts"]
+            if type(attempts) is not list or not 1 <= len(attempts) <= 2:
+                return False
+            for attempt in attempts:
+                if not _exact(attempt, ("start_ms", "end_ms", "outcome")):
+                    return False
+                if not (_is_float(attempt["start_ms"], _PROBE_MS_MAX) and _is_float(attempt["end_ms"], _PROBE_MS_MAX)
+                        and attempt["end_ms"] >= attempt["start_ms"] and attempt["outcome"] in PROBE_OUTCOMES):
+                    return False
+        if not _is_float(record["tick_total_s"], _PROBE_TOTAL_MAX):
+            return False
+        load1, resident = record["load1"], record["op_resident"]
+        if (load1 is not None and not _is_float(load1, _PROBE_LOAD_MAX)) or (
+            resident is not None and not _is_int(resident, _PROBE_RESIDENT_MAX)
+        ):
+            return False
+        reasons = record.get("probe_error", [])
+        if type(reasons) is not list or (("probe_error" in record) and not reasons):
+            return False
+        if len(set(reasons)) != len(reasons) or any(r not in PROBE_ERRORS for r in reasons):
+            return False
+        return (load1 is None) == ("load_unavailable" in reasons) and (
+            resident is None) == ("op_resident_unavailable" in reasons)
+    except Exception:
+        return False
+
+
+def _probe_text(record: dict[str, object]) -> str:
+    return json.dumps(record, sort_keys=True, separators=(",", ":"))
+
+
+def _minimal_probe(reason: str) -> dict[str, object]:
+    record: dict[str, object] = {"v": PROBE_VERSION, "keys": [], "probe_error": [reason]}
+    if not _probe_valid(record):
+        raise ValueError("minimal probe invalid")
+    return record
+
+
+def _probe_for_line(probe: _ProbeState, total_s: object) -> dict[str, object] | None:
+    """Recovery chain: normal record -> minimal record -> None (the line is then the pre-probe line)."""
+    reason = "collect_failed"
+    try:
+        record = _make_probe(probe, total_s)
+        reason = "probe_invalid"
+        if _probe_valid(record):
+            reason = "collect_failed"  # a serialization failure is not a size problem
+            if len(_probe_text(record).encode("utf-8")) <= PROBE_MAX_BYTES:
+                return record
+            reason = "probe_too_large"
+    except _ProbeInvalid:
+        reason = "probe_invalid"
+    except Exception:
+        pass  # reason names the stage that failed; no message or value is kept
+    try:
+        return _minimal_probe(reason)
+    except Exception:
+        return None
+
+
+def _line_with_probe(payload: dict[str, object], line: str, probe: _ProbeState, total_s: object) -> str:
+    """``line`` plus the probe; any failure leaves ``line`` (the pre-probe bytes) untouched."""
+    try:
+        record = _probe_for_line(probe, total_s)
+        if record is not None:
+            return json.dumps({**payload, "probe": record}, sort_keys=True, separators=(",", ":"))
+    except Exception:
+        pass
+    return line
+
+
+def load_keys(environment: dict[str, str], credentials: Path | None, probe: _ProbeState | None = None) -> None:
+    """Put the three store keys into ``environment``; keys already there are kept.
+
+    ``probe`` collects the per-key attempt record only; it never changes what is read or retried.
+    """
+    probe = _ProbeState(_ProbeState.stamp()) if probe is None else probe
     present = {name: environment.get(name, "") for name in NAMES}
     if any(value and not _KEY.fullmatch(value) for value in present.values()):
         raise TickError(EXIT_KEYS, "EXISTING_KEY_FORMAT_INVALID")
@@ -105,24 +327,36 @@ def load_keys(environment: dict[str, str], credentials: Path | None) -> None:
             timeout = OP_ATTEMPT_TIMEOUT_S
             attempt = 1
             while True:
+                began = probe.stamp()
                 try:
                     result = subprocess.run(
                         [op, "read", references[name]], env=child, capture_output=True, text=True, timeout=timeout,
                     )
+                    finished = probe.stamp()
                     break
                 except (OSError, subprocess.TimeoutExpired) as error:  # class name only: timeout vs exec failure
+                    ended = time.monotonic()
+                    _note_attempt(
+                        probe, name, began,
+                        "timeout" if isinstance(error, subprocess.TimeoutExpired) else "exec_error", ended,
+                    )
                     kind = _clean_type(type(error).__name__)
                     # Retry once, only for a timeout before any output (emptiness test only; the output is dropped).
                     silent = isinstance(error, subprocess.TimeoutExpired) and not (error.stdout or error.stderr)
-                    timeout = min(OP_ATTEMPT_TIMEOUT_S, deadline - time.monotonic())
+                    timeout = min(OP_ATTEMPT_TIMEOUT_S, deadline - ended)
                     if attempt == 2 or not silent or timeout <= 0:
                         raise TickError(EXIT_KEYS, "OP_READ_UNAVAILABLE", kind) from None
                     attempt += 1
             value = result.stdout.strip()
+            _note_attempt(
+                probe, name, began,
+                "nonzero_rc" if result.returncode else ("ok" if _KEY.fullmatch(value) else "bad_format"), finished,
+            )
             if result.returncode or not _KEY.fullmatch(value):
                 raise TickError(EXIT_KEYS, "OP_KEY_READ_OR_FORMAT_FAILED")
             return name, value
 
+        probe.attempts = {name: [] for name in missing}  # one list per key, each written by its own worker only
         with ThreadPoolExecutor(max_workers=3) as pool:
             fetched = dict(pool.map(read, missing))
     combined = {**{k: v for k, v in present.items() if v}, **fetched}
@@ -217,7 +451,9 @@ def main(
 ) -> int:
     """Run one tick and return its exit code (see EXIT_*); prints one value-free JSON line."""
     out = sys.stdout if stdout is None else stdout
+    probe = _ProbeState(_ProbeState.stamp())
     now = clock()
+    probe.collect_host()  # before the read budget starts; bounded to PROBE_COLLECT_TIMEOUT_S
     log_dir: Path | None = None
     summary: dict[str, object] = {}
     code = kind = ""
@@ -242,7 +478,7 @@ def main(
             except BlockingIOError:
                 raise TickError(EXIT_SKIPPED, "PREVIOUS_TICK_RUNNING") from None
             environment = dict(os.environ if environ is None else environ)
-            load_keys(environment, Path(args.credentials).expanduser() if args.credentials else None)
+            load_keys(environment, Path(args.credentials).expanduser() if args.credentials else None, probe)
             started = time.monotonic()
             frame = _run_component(
                 config, environment, log_dir,
@@ -261,13 +497,17 @@ def main(
         exit_code, code, kind = error.exit_code, error.code, error.kind
     except Exception as error:  # type only: messages may carry values
         exit_code, code = EXIT_INTERNAL, type(error).__name__
-    line = json.dumps({
+    ended = probe.stamp()
+    total_s = None if ended is None or probe.origin is None else float(ended - probe.origin)
+    payload = {
         "ts": now.astimezone(timezone.utc).isoformat(), "status": (
             STATUS_DEGRADED if exit_code == EXIT_OK and summary.get("published_failed", 0) > 0 else STATUS[exit_code]
         ), "exit": exit_code,
         **({"code": code} if code else {}), **({"type": kind} if kind else {}),
         **({"summary": summary} if summary else {}),
-    }, sort_keys=True, separators=(",", ":"))
+    }
+    line = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    line = _line_with_probe(payload, line, probe, total_s)
     out.write(line + "\n")
     if log_dir is None:
         sys.stderr.write("tick log_unavailable\n")
