@@ -315,7 +315,7 @@ def make_backup(ctx: Context, original_sha: str) -> Path:
         ctx.backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.chmod(ctx.backup_dir, 0o700)
         info = os.stat(ctx.backup_dir)
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
             raise OSError
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         path = ctx.backup_dir / f"{LABEL}.plist.{stamp}-{os.getpid()}.bak"
@@ -328,6 +328,9 @@ def make_backup(ctx: Context, original_sha: str) -> Path:
         if ctx.hook("backup_corrupt"):
             with open(path, "ab") as handle:
                 handle.write(b"x")
+        if ctx.hook("plist_changes"):
+            with open(ctx.plist, "ab") as handle:
+                handle.write(b"<!-- changed meanwhile -->\n")
         if sha(path.read_bytes()) != original_sha or sha(ctx.plist.read_bytes()) != original_sha:
             raise OSError
         if stat.S_IMODE(os.stat(path).st_mode) != 0o600:
@@ -378,6 +381,8 @@ def restore(ctx: Context, backup: Path, original_sha: str, original_meta: tuple[
         if ctx.hook("restore_fail"):
             raise OSError
         os.replace(path, ctx.plist)
+        if ctx.hook("restore_corrupt"):
+            ctx.plist.write_bytes(ctx.plist.read_bytes() + b"x")
         fsync_directory(ctx.plist.parent)
         return sha(ctx.plist.read_bytes()) == original_sha and meta(os.stat(ctx.plist)) == original_meta
     except OSError:
@@ -449,6 +454,10 @@ def execute(ctx: Context) -> int:
                 ctx.plist.write_bytes(ctx.plist.read_bytes().replace(b"<true/>", b"<false/>", 1))
             if ctx.hook("post_chmod"):
                 os.chmod(ctx.plist, 0o666)
+            if ctx.hook("post_error"):
+                raise OSError
+            if ctx.hook("post_comment"):
+                ctx.plist.write_bytes(ctx.plist.read_bytes() + b"<!-- same shape, other bytes -->\n")
             fsync_directory(ctx.plist.parent)
             after = ctx.plist.read_bytes()
             if sha(after) != candidate_sha or not shape_ok(after, names, hashes) or meta(os.stat(ctx.plist)) != original_meta:

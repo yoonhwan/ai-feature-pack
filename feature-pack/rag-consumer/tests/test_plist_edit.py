@@ -735,3 +735,130 @@ def test_the_printed_key_list_is_names_only(lab):
     assert "완료" in done.stdout
     line = next(l for l in done.stdout.splitlines() if l.startswith("완료"))
     assert all(name in line for name in TOP_KEYS) and "ProcessType" in line
+
+
+# ===================================================================================== second round (mutation gaps)
+def test_a_plist_changed_while_the_backup_is_made_is_not_edited(lab):
+    done = lab.run(PLIST_EDIT_INJECT="plist_changes")
+    assert done.returncode == 5, combined(done)
+    assert lab.backups() == [] and lab.leftovers() == []
+
+
+def test_a_published_file_that_differs_from_the_candidate_is_rolled_back_even_if_it_still_parses(lab):
+    done = lab.run(PLIST_EDIT_INJECT="post_comment")
+    assert done.returncode == 8, combined(done)
+    assert lab.untouched()
+
+
+def test_a_restore_whose_result_does_not_match_the_backup_is_reported_as_failed(lab):
+    done = lab.run(PLIST_EDIT_INJECT="post_corrupt,restore_corrupt")
+    assert done.returncode == 9, combined(done)
+    assert "복원: FAIL" in done.stdout and str(lab.backups()[0]) in done.stdout
+
+
+def test_metadata_compares_mode_owner_and_group():
+    import types
+    from importlib import util
+    spec = util.spec_from_file_location("plist_edit_meta", SCRIPT_PY)
+    module = util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    base = types.SimpleNamespace(st_mode=0o100640, st_uid=501, st_gid=20)
+    assert module.meta(base) == (0o640, 501, 20)
+    assert module.meta(types.SimpleNamespace(st_mode=0o100640, st_uid=0, st_gid=20)) != module.meta(base)
+    assert module.meta(types.SimpleNamespace(st_mode=0o100640, st_uid=501, st_gid=0)) != module.meta(base)
+    assert module.meta(types.SimpleNamespace(st_mode=0o100644, st_uid=501, st_gid=20)) != module.meta(base)
+
+
+def test_signals_inside_the_publish_step_are_held_until_it_ends(mod, tmp_path):
+    context = mod.Context(tmp_path / "p", tmp_path / "b", "/x", "/y", True)
+    with pytest.raises(mod.Interrupted) as caught:
+        with context.deferred():
+            assert context.defer is True
+            context.pending = signal.SIGTERM
+    assert caught.value.signum == signal.SIGTERM and context.defer is False
+    context.pending = None
+    with context.deferred():
+        pass
+    assert context.defer is False
+
+
+def test_a_signal_during_the_rename_lets_the_rename_finish_and_then_rolls_back(lab, mod, monkeypatch):
+    real_replace, seen = os.replace, []
+
+    def replace(src, dst, *args, **kwargs):
+        seen.append(Path(dst))
+        if len(seen) == 1:
+            os.kill(os.getpid(), signal.SIGTERM)  # arrives while the publish step is running
+        return real_replace(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(mod.os, "replace", replace)
+    for key, value in lab.env().items():
+        monkeypatch.setenv(key, value)
+    handlers = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        code = mod.main(lab.argv())
+    finally:
+        for number, handler in handlers.items():
+            signal.signal(number, handler)
+    assert code == 143 and len(seen) == 2  # the publish rename completed, then the restore rename
+    assert lab.untouched()
+
+
+def test_the_wrapper_returns_the_childs_own_exit_code_after_a_signal(lab):
+    proc = start_paused(lab, "pause_after_publish,restore_fail", via="sh")
+    proc.send_signal(signal.SIGTERM)
+    out, err = proc.communicate(timeout=30)
+    assert proc.returncode == 9, out + err
+    assert "복원: FAIL" in out
+
+
+def test_the_wrapper_waits_for_the_childs_cleanup_before_it_exits(lab):
+    proc = start_paused(lab, "pause_after_publish", via="sh")
+    proc.send_signal(signal.SIGTERM)
+    out, err = proc.communicate(timeout=30)
+    assert proc.returncode == 143 and lab.untouched()
+
+
+def test_a_launchctl_answer_is_never_echoed(lab):
+    done = lab.run(FAKE_LC_LOADED="1")
+    assert done.returncode == 4
+    assert "sentinel" not in combined(done).lower() and "com.example.other" not in combined(done)
+
+
+# ===================================================================================== third round (mutation gaps)
+def test_a_hanging_launchctl_is_asked_once_and_not_retried(lab):
+    done = lab.run(FAKE_LC_SLEEP="3", PLIST_EDIT_CALL_S="0.4")
+    assert done.returncode == 4 and lab.calls() == ["list"]
+
+
+def test_an_error_while_re_checking_the_published_file_is_a_failure_and_rolls_back(lab):
+    done = lab.run(PLIST_EDIT_INJECT="post_error")
+    assert done.returncode == 8, combined(done)
+    assert lab.untouched() and "복원: PASS" in done.stdout
+
+
+def test_a_restore_that_leaves_other_owner_or_permissions_is_reported_as_failed(lab, mod, monkeypatch):
+    assert run_with_wrapped_meta(lab, mod, monkeypatch, {3, 4}) == 9
+
+
+def test_the_account_database_home_is_always_among_the_protected_homes(mod, lab, monkeypatch):
+    import pwd
+    monkeypatch.setenv("HOME", str(lab.home))
+    homes = mod.home_directories()
+    assert Path(pwd.getpwuid(os.getuid()).pw_dir) in homes and lab.home in homes
+
+
+def test_the_python_child_is_isolated_from_the_environment(lab):
+    poison = lab.root / "poison"
+    poison.mkdir()
+    marker = lab.root / "poisoned.txt"
+    (poison / "plistlib.py").write_text(f"open({str(marker)!r}, 'w').write('x')\nraise ImportError\n", encoding="utf-8")
+    lab.run(via="sh", PYTHONPATH=str(poison))
+    assert not marker.exists() and lab.plist.read_bytes() == plist_text(pt="").encode("utf-8")
+    lab.run(via="py", PYTHONPATH=str(poison))
+    assert not marker.exists()
+
+
+def test_temporary_files_are_removed_even_when_the_run_ends_by_refusal_after_the_candidate_exists(lab):
+    done = lab.run(plutil=lab.fake_plutil("exit 1"))
+    assert done.returncode == 6 and lab.leftovers() == []

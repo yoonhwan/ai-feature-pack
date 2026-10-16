@@ -33,14 +33,14 @@ def main(argv: list[str]) -> int:
         if os.environ.get("FAKE_LC_LIST_GARBAGE") == "1":
             sys.stdout.write("something unexpected\n")
             return 0
-        sys.stdout.write("PID\tStatus\tLabel\n-\t0\tcom.apple.example.agent\n123\t0\tcom.example.other\n")
+        sys.stdout.write("PID\tStatus\tLabel\n-\t0\tcom.apple.example.agent\n123\t0\tcom.example.other\n-\t0\tcom.sentinel.SENTINEL_ENV_a91c\n")
         if os.environ.get("FAKE_LC_LOADED") == "1":
             sys.stdout.write("-\t0\tcom.airag.consumer\n")
         return 0
     if command == "print-disabled":
         if os.environ.get("FAKE_LC_DISABLED_FAIL") == "1":
             return 1
-        sys.stdout.write("disabled services = {\n\t\"com.example.other\" => enabled\n")
+        sys.stdout.write("disabled services = {\n\t\"com.example.other\" => enabled\n\t\"com.sentinel.SENTINEL_ENV_a91c\" => disabled\n")
         if os.environ.get("FAKE_LC_NO_ENTRY") != "1":
             value = "enabled" if os.environ.get("FAKE_LC_ENABLED") == "1" else "disabled"
             sys.stdout.write(f'\t"com.airag.consumer" => {value}\n')
