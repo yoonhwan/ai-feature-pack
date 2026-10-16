@@ -834,7 +834,7 @@ def test_a_hanging_launchctl_is_asked_once_and_not_retried(lab):
 def test_an_error_while_re_checking_the_published_file_is_a_failure_and_rolls_back(lab):
     done = lab.run(PLIST_EDIT_INJECT="post_error")
     assert done.returncode == 8, combined(done)
-    assert lab.untouched() and "복원: PASS" in done.stdout
+    assert lab.untouched() and "복원: PASS" in done.stdout and "사후 재검증 오류" in done.stdout
 
 
 def test_a_restore_that_leaves_other_owner_or_permissions_is_reported_as_failed(lab, mod, monkeypatch):
@@ -928,6 +928,31 @@ def test_a_signal_anywhere_after_the_publish_restores_the_original_and_ends_with
 
 
 @pytest.mark.parametrize("sig,code", SIGS)
+def test_no_completion_line_follows_a_signal_that_was_recorded_before_it(lab, mod, monkeypatch, capsys, sig, code):
+    signal_on_say(mod, monkeypatch, "사후 재검증: PASS", sig)
+    assert inproc(lab, mod, monkeypatch) == code
+    assert "완료:" not in capsys.readouterr().out and lab.untouched()
+
+
+def test_a_broken_output_while_reporting_the_restore_does_not_change_the_outcome(lab, mod, monkeypatch):
+    real = mod.say
+
+    def say(text):
+        if text.startswith("복원"):
+            raise BrokenPipeError
+        real(text)
+
+    monkeypatch.setattr(mod, "say", say)
+    assert inproc(lab, mod, monkeypatch, PLIST_EDIT_INJECT="post_corrupt") == 8
+    assert lab.untouched()
+    monkeypatch.undo()
+    (lab.root / "second").mkdir()
+    again = Lab(lab.root / "second")
+    monkeypatch.setattr(mod, "say", say)
+    assert inproc(again, mod, monkeypatch, PLIST_EDIT_INJECT="post_corrupt,restore_fail") == 9
+
+
+@pytest.mark.parametrize("sig,code", SIGS)
 def test_a_signal_while_the_final_success_line_is_printed_with_a_failing_restore_is_exit_nine(lab, mod, monkeypatch, capsys, sig, code):
     signal_on_say(mod, monkeypatch, "완료:", sig)
     assert inproc(lab, mod, monkeypatch, PLIST_EDIT_INJECT="restore_fail") == 9
@@ -1006,8 +1031,10 @@ def test_symlinks_into_the_protected_spaces_are_refused_in_either_role(lab):
 def test_the_operating_backup_space_and_launch_agents_are_refused_in_both_roles_for_the_account_database_home(mod, lab, monkeypatch):
     for key, value in lab.env().items():
         monkeypatch.setenv(key, value)
-    agents = mod.operating_plist().parent
-    store = mod.operating_backup_dir()
+    import pwd
+    account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)  # not via mod.operating_*: those are the very thing being checked
+    agents = account_home / "Library" / "LaunchAgents"
+    store = account_home / ".local" / "share" / "airag-plist-backup"
     base = ["--selftest", "--launchctl", str(lab.launchctl)]
     crossed = [(store / "never-created.bak", lab.backup), (lab.plist, agents), (lab.plist, agents / "sub"),
                (agents / "never-created.plist", store), (store, agents)]
