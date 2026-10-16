@@ -61,5 +61,29 @@ SCR_STUB="$T/sweep.sh" run 60 100000
 SCR_STUB="$T/sweep.sh" run 60 101000
 [ "$(grep -c . "$T/sweep.calls")" = 1 ] && ok "사본 정리 하루 안 재호출 0" || bad "sweep 재호출 $(grep -c . "$T/sweep.calls")"
 
+# R262: 명부 env 를 «안 넣은» 기본 경로 — 임시 루트의 .fable-team/ 에 명부를 직접 둔다(env 주입이 기본값 결함을 가렸다)
+# newroot <이름> <seats.json 내용> <seats-planner.json 내용> [seats-harness.json 내용] — 임시 루트 R_<이름> 만들기
+newroot() { RR="$T/R_$1"; mkdir -p "$RR/.fable-team/state"; printf '%s\n' "$2" > "$RR/.fable-team/seats.json"; printf '%s\n' "$3" > "$RR/.fable-team/seats-planner.json"
+  [ -z "${4:-}" ] || printf '%s\n' "$4" > "$RR/.fable-team/seats-harness.json"; }
+# rund <루트> <여유GiB> <시계 오프셋> — FT_SEATS_JSON·FT_HARNESS_SEATS_JSON 을 unset 하고 1회 실행
+rund() { : > "$MLOG"; env -u FT_SEATS_JSON -u FT_HARNESS_SEATS_JSON FT_RES_ROOT="$1" FT_DISK_FREE_GIB="$2" FT_DISK_NOW=$((NOW+$3)) FT_MBOX_SH="$T/mbox.sh" \
+  FT_RES_WATCH_SH="$T/watch.sh" FT_SCRATCH_REPO_SH="$T/noscratch.sh" bash "$SUT" >"$T/out" 2>&1; RC=$?; }
+
+newroot i '{}' '{"_hil_route":"byz-planner-master-claude#77"}'; rund "$RR" 25 0
+{ [ $RC = 0 ] && [ "$(sent)" = 1 ] && has 'byz-planner-master-claude#77|' && has '\[디스크 긴급\]' && [ -f "$RR/.fable-team/state/disk-alarm.state" ]; } \
+  && ok "ⓘ 기본 명부 = seats-planner.json — 긴급 1통 · state 생김" || bad "ⓘ rc=$RC $(cat "$MLOG")"
+newroot j '{}' '{}' '{"_master":"byz-harness-master-claude#88"}'; RJ="$RR"; rund "$RJ" 25 0
+{ [ $RC = 3 ] && grep -q 'ERROR' "$T/out" && [ "$(sent)" = 1 ] && has 'byz-harness-master-claude#88|' && has '\[디스크 경보 수신자 없음\]' && has '여유 25Gi'; } \
+  && ok "ⓙ 수신자 없음 → rc3 · 하네스 master 에 고장 쪽지 1통(여유 25Gi) · planner 발신 0" || bad "ⓙ rc=$RC $(cat "$MLOG")"
+has 'byz-planner' && bad "ⓙ 경보 본문을 planner 로 대신 보냄" || ok "ⓙ planner 발신 0"
+rund "$RJ" 25 600;  { [ $RC = 3 ] && [ "$(sent)" = 0 ]; } && ok "ⓚ +600초 고장 쪽지 0(1시간 1통)" || bad "ⓚ +600 rc=$RC sent=$(sent)"
+rund "$RJ" 25 3700; { [ $RC = 3 ] && [ "$(sent)" = 1 ] && has '\[디스크 경보 수신자 없음\]'; } && ok "ⓚ +3700초 고장 쪽지 다시 1통" || bad "ⓚ +3700 rc=$RC sent=$(sent)"
+printf '{"_hil_route":"byz-planner-master-claude#77"}\n' > "$RJ/.fable-team/seats-planner.json"; rund "$RJ" 25 3760
+{ [ $RC = 0 ] && [ "$(sent)" = 1 ] && has 'byz-planner-master-claude#77|' && has '\[디스크 긴급\]'; } \
+  && ok "ⓛ 명부 고친 뒤 +60초 → 정상 경로 즉시(15분 주기가 고장 기간에 안 먹힘)" || bad "ⓛ rc=$RC $(cat "$MLOG")"
+newroot m '{}' '{}'; rund "$RR" 25 0
+{ [ $RC = 3 ] && [ "$(sent)" = 0 ] && [ "$(grep -c 'ERROR' "$RR/.fable-team/state/disk-alarm.log")" = 2 ]; } \
+  && ok "ⓜ 두 명부 모두 키 없음 → rc3 · 쪽지 0 · ERROR 2줄" || bad "ⓜ rc=$RC sent=$(sent) $(cat "$RR/.fable-team/state/disk-alarm.log")"
+
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
 exit $fail
