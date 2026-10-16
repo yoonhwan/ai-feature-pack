@@ -151,10 +151,17 @@ def database_budget(path: str) -> float:
     return min(BUDGET_CEILING_S, BUDGET_UNIT_S * max(1, math.ceil(size / BUDGET_UNIT_BYTES)))
 
 
-def _limit(con: object, deadline_at: float, clock: Callable[[], float]) -> None:
-    """Best effort: have SQLite abort a running statement once the planned time is over."""
+def _limit(con: object, deadline_at: float, clock: Callable[[], float], expired: list[bool]) -> None:
+    """Best effort: have SQLite abort a running statement once the planned time is over, and remember that it did."""
+
+    def over() -> int:
+        if clock() > deadline_at:
+            expired.append(True)
+            return 1
+        return 0
+
     try:
-        con.set_progress_handler(lambda: 1 if clock() > deadline_at else 0, _PROGRESS_STEPS)  # type: ignore[attr-defined]
+        con.set_progress_handler(over, _PROGRESS_STEPS)  # type: ignore[attr-defined]
     except Exception:
         pass
 
@@ -167,12 +174,13 @@ def _check_one(
     The result names the stage that failed; no exception class or message is looked at or kept.
     """
     result = "open_error"
+    expired: list[bool] = []  # set by the progress handler when it aborted a statement because the time was over
     con = None
     try:
         uri = Path(target.path).absolute().as_uri() + "?mode=ro"
         con = sqlcipher3.connect(uri, uri=True, isolation_level=None)  # type: ignore[attr-defined]
         handle["con"] = con
-        _limit(con, deadline_at, clock)
+        _limit(con, deadline_at, clock, expired)
         con.execute(f"PRAGMA key = \"x'{target.key.hex()}'\"")
         con.execute("PRAGMA temp_store=MEMORY")
         con.execute("PRAGMA query_only=ON")
@@ -180,14 +188,15 @@ def _check_one(
         con.execute("SELECT count(*) FROM sqlite_master").fetchone()
         version = con.execute("PRAGMA cipher_version").fetchone()
         if not version or not version[0]:
-            return "open_error"
+            return "deadline" if expired else "open_error"
         result = "identity_error"
         if not target.identity(con):
-            return "identity_error"
+            return "deadline" if expired else "identity_error"
         result = "not_ok"
-        return "ok" if con.execute("PRAGMA quick_check").fetchall() == [("ok",)] else "not_ok"
+        scan = con.execute("PRAGMA quick_check").fetchall() == [("ok",)]
+        return "deadline" if expired else ("ok" if scan else "not_ok")
     except Exception:
-        return result
+        return "deadline" if expired else result  # an abort for time outranks the error of the stage it hit
     finally:
         handle["con"] = None
         if con is not None:
@@ -279,7 +288,8 @@ def before_pass(config_path: str, state_file: str, consumer_key: bytes, projecti
 
         config = RuntimeConfig.load(config_path)
     except Exception:
-        return Gate()  # an unusable config: the pass reports it itself, and nothing is checked or written here
+        # No config, no project, no running mark: the pass must not start (the CLI's own later read proves nothing).
+        return Gate(None, None, {"code": "PASS_STATE_UNAVAILABLE", "type": "config"})
     project = project_id(os.fspath(config.consumer_db), os.fspath(config.projection_db))
     integrity = None
     if not state_is_clean(state_file, project):
