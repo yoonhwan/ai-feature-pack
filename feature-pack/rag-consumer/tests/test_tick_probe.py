@@ -66,8 +66,15 @@ def _run_scenario(tmp_path, monkeypatch, capsys, name, steps, *, limits=LIMITS, 
         def run(argv, **kwargs):
             if len(argv) > 1 and argv[1] == "read":
                 timeouts.append(kwargs["timeout"])
-                if gate is not None:  # healthy keys wait until the failing reference has been asked
-                    gate[1].set() if argv[2] == gate[0] else gate[1].wait(5)
+                if gate is not None:  # the failing key raises only once the others are under way, then they answer
+                    failing, raised, started = gate
+                    if argv[2] == failing:
+                        for _ in range(len(REFERENCES) - 1):
+                            started.acquire(timeout=5)
+                        raised.set()
+                    else:
+                        started.release()
+                        raised.wait(5)
                 script = steps if scripted_by_reference is None else scripted_by_reference[argv[2]]
                 index = len(timeouts) - 1 if scripted_by_reference is None else 0
                 step = script[min(index, len(script) - 1)]
@@ -158,7 +165,7 @@ def test_a_failed_key_does_not_hide_what_the_other_keys_did(tmp_path, monkeypatc
         REFERENCES["AIRAG_ARCHIVE_KEY_HEX"]: [_step(0.0)],
     }
     run = _run_scenario(tmp_path, monkeypatch, capsys, "gate", [], scripted_by_reference=script,
-                        env=base_environment(), gate=(failing, threading.Event()))
+                        env=base_environment(), gate=(failing, threading.Event(), threading.Semaphore(0)))
     line = json.loads(run.file)
     assert (line["exit"], line["code"], line["type"]) == (30, "OP_READ_UNAVAILABLE", "PermissionError")
     outcomes = {key["name"]: [a["outcome"] for a in key["attempts"]] for key in line["probe"]["keys"]}
@@ -419,6 +426,12 @@ def test_when_even_the_minimal_record_fails_the_line_is_the_pre_probe_line_byte_
     baseline = _run_scenario(tmp_path, monkeypatch, capsys, "last-b", SUCCESS_STEPS, baseline=True)
     assert with_probe.file == baseline.file and with_probe.stdout == baseline.stdout
     assert "probe" not in with_probe.file and with_probe.code == baseline.code == 0
+
+
+def test_the_recovery_chain_ends_in_none_not_in_an_exception(monkeypatch):
+    monkeypatch.setattr(tick, "_make_probe", _boom)
+    monkeypatch.setattr(tick, "_minimal_probe", _boom)
+    assert tick._probe_for_line(tick._ProbeState(0.0), 1.0) is None
 
 
 def test_a_failing_host_collection_changes_nothing_but_the_probe_fields(tmp_path, monkeypatch, capsys):

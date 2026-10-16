@@ -401,10 +401,6 @@ def _fast_op_limits(monkeypatch, attempt: float, deadline: float) -> None:
     monkeypatch.setattr(tick, "OP_CALL_DEADLINE_S", deadline)
 
 
-def test_op_timeout_constants_follow_the_seven_second_rule():
-    assert (tick.OP_ATTEMPT_TIMEOUT_S, tick.OP_CALL_DEADLINE_S) == (7.0, 14.0)
-
-
 def test_op_silent_timeout_is_retried_once_then_reported_as_unavailable(tmp_path, capsys, monkeypatch):
     item, hooks = synthetic_service(tmp_path)
     op = _timed_op(tmp_path, "exec sleep 30")

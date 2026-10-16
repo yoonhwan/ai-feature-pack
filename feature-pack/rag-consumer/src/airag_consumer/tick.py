@@ -43,8 +43,9 @@ _KEY = re.compile(r"[0-9a-fA-F]{64}")
 # The only environment an `op` child gets besides the service-account token.
 OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
 # External-call 7-second rule: per attempt, one retry, whole call (one key) capped.
-OP_ATTEMPT_TIMEOUT_S = 7.0
-OP_CALL_DEADLINE_S = 14.0
+# 규칙 12 CLI: 기동 고정비 3.5(잠정) + 7.0 / 재시도 포함 총 21.0 ≤ 70
+OP_ATTEMPT_TIMEOUT_S = 10.5
+OP_CALL_DEADLINE_S = 21.0
 
 # Probe (value-free `probe` field of the log line): per-key `op read` attempt record, closed schema.
 PROBE_VERSION = 1
