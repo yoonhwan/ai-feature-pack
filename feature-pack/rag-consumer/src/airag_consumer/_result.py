@@ -174,7 +174,7 @@ def build_frame(exit_code: int, stdout_text: str, stderr_text: str) -> dict[str,
 
 def validate_frame(frame: object) -> dict[str, object] | None:
     """Strict re-check of a frame; anything outside the closed schema is rejected (None)."""
-    if not isinstance(frame, dict) or set(frame) != FRAME_KEYS:
+    if not isinstance(frame, dict) or set(frame) not in (FRAME_KEYS, FRAME_KEYS | OPTIONAL_FRAME_KEYS):
         return None
     if type(frame["exit"]) is not int or not isinstance(frame["summary"], dict):
         return None
@@ -191,4 +191,40 @@ def validate_frame(frame: object) -> dict[str, object] | None:
         return None
     if frame["type"] != "" and _clean_type(frame["type"]) != frame["type"]:
         return None
+    if "integrity" in frame and not integrity_valid(frame["integrity"]):
+        return {key: value for key, value in frame.items() if key != "integrity"}  # only the field goes
     return frame
+
+
+# The DB check's record (optional frame field `integrity`, optional top-level field of the tick's log line).
+OPTIONAL_FRAME_KEYS = frozenset({"integrity"})
+INTEGRITY_VERSION = 1
+INTEGRITY_DBS = ("consumer", "projection")
+INTEGRITY_OUTCOMES = ("ok", "not_ok", "deadline", "open_error", "identity_error")
+INTEGRITY_MAX_BYTES = 512
+_INTEGRITY_MS_MAX = 120_000.0
+
+
+def integrity_valid(record: object) -> bool:
+    """The closed schema: ``{"v":1,"dbs":[{"db","out","ms"}, ...]}`` with one entry per database, nothing else."""
+    try:
+        if type(record) is not dict or set(record) != {"v", "dbs"}:
+            return False
+        if type(record["v"]) is not int or record["v"] != INTEGRITY_VERSION:
+            return False
+        entries = record["dbs"]
+        if type(entries) is not list or not 1 <= len(entries) <= len(INTEGRITY_DBS):
+            return False
+        seen: set[str] = set()
+        for entry in entries:
+            if type(entry) is not dict or set(entry) != {"db", "out", "ms"}:
+                return False
+            if entry["db"] not in INTEGRITY_DBS or entry["db"] in seen or entry["out"] not in INTEGRITY_OUTCOMES:
+                return False
+            ms = entry["ms"]
+            if not (type(ms) is float and 0.0 <= ms <= _INTEGRITY_MS_MAX):  # NaN fails every comparison
+                return False
+            seen.add(entry["db"])
+        return len(json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")) <= INTEGRITY_MAX_BYTES
+    except Exception:
+        return False

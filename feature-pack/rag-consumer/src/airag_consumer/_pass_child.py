@@ -17,7 +17,7 @@ import re
 import sys
 from typing import Sequence
 
-from . import _pass_trace, _result
+from . import _pass_gate, _pass_trace, _result
 from .tick import NAMES
 
 _STDIN_LIMIT = 64 * 1024
@@ -58,6 +58,7 @@ def child_main(argv: Sequence[str] | None = None, *, hooks: object | None = None
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", required=True)
     parser.add_argument("--trace-file")
+    parser.add_argument("--state-file")
     try:
         args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     except SystemExit:
@@ -80,21 +81,38 @@ def child_main(argv: Sequence[str] | None = None, *, hooks: object | None = None
         except Exception:
             pass
     stdout_buffer, stderr_buffer = io.StringIO(), io.StringIO()
+    gate = _pass_gate.Gate()
+    started = False
     try:
-        from .cli import main as cli_main
+        if args.state_file:  # the read-only DB check and the running/clean mark come before the pass
+            gate = _pass_gate.before_pass(
+                args.config, args.state_file, bytes.fromhex(keys[NAMES[0]]), bytes.fromhex(keys[NAMES[1]]),
+            )
+        if gate.refusal is not None:
+            code = 1  # no pass: the frame below carries the refusal
+        else:
+            from .cli import main as cli_main
 
-        environ = {**os.environ, **keys}
-        code = cli_main(
-            ["--config", args.config, "run", "--once"], environ=environ, hooks=hooks,
-            stdout=stdout_buffer, stderr=stderr_buffer,
-        )
+            environ = {**os.environ, **keys}
+            started = True
+            code = cli_main(
+                ["--config", args.config, "run", "--once"], environ=environ, hooks=hooks,
+                stdout=stdout_buffer, stderr=stderr_buffer,
+            )
     except BaseException as error:
         code = 2
         stdout_buffer = io.StringIO()
         stderr_buffer = io.StringIO(json.dumps(
             {"ok": False, "error": {"code": "RUNTIME_FAILED", "type": type(error).__name__}},
         ))
-    frame = _result.build_frame(code, stdout_buffer.getvalue(), stderr_buffer.getvalue())
+    if started:  # the pass ended on its own (normally or by an exception); a forced kill never gets here
+        _pass_gate.after_pass(gate, args.state_file)
+    if gate.refusal is not None:
+        frame = {"exit": 1, "summary": {}, "code": gate.refusal["code"], "type": gate.refusal["type"]}
+    else:
+        frame = _result.build_frame(code, stdout_buffer.getvalue(), stderr_buffer.getvalue())
+    if gate.integrity is not None:
+        frame["integrity"] = gate.integrity
     payload = json.dumps(frame, sort_keys=True, separators=(",", ":")).encode("utf-8")
     if len(payload) > _result.RESULT_MAX_BYTES:
         os.close(result_fd)

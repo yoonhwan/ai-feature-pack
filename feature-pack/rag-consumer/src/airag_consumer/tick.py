@@ -55,6 +55,7 @@ PROBE_ERRORS = ("load_unavailable", "collect_failed", "probe_invalid", "probe_to
 _PROBE_MIN_ERRORS = ("collect_failed", "probe_invalid", "probe_too_large")
 _PROBE_MS_MAX, _PROBE_TOTAL_MAX, _PROBE_LOAD_MAX = 120_000.0, 86_400.0, 10_000.0
 TRACE_FILE_NAME = "pass-trace.jsonl"  # the pass child's per-call trace, next to the tick logs (see _pass_trace)
+STATE_FILE_NAME = "pass-state.json"  # running/clean mark of the pass (see _pass_gate), next to the tick logs
 
 
 class TickError(Exception):
@@ -395,7 +396,10 @@ def _run_component(
     """
     child_env = {k: v for k, v in environment.items() if k not in NAMES}
     keys = json.dumps({name: environment[name] for name in NAMES})
-    argv = [*command, "--config", str(config), "--trace-file", str(log_dir / TRACE_FILE_NAME)]
+    argv = [
+        *command, "--config", str(config), "--trace-file", str(log_dir / TRACE_FILE_NAME),
+        "--state-file", str(log_dir / STATE_FILE_NAME),
+    ]
     try:
         with tempfile.TemporaryFile(dir=log_dir) as result:
             returncode = subprocess.run(
@@ -434,6 +438,7 @@ def main(
     probe.collect_host()
     log_dir: Path | None = None
     summary: dict[str, object] = {}
+    integrity: object = None  # the pass child's DB check record, when it ran (already validated by validate_frame)
     code = kind = ""
     exit_code = EXIT_INTERNAL
     try:
@@ -462,6 +467,7 @@ def main(
                 config, environment, log_dir,
                 component if component is not None else [sys.executable, "-m", "airag_consumer._pass_child"],
             )
+            integrity = frame.get("integrity")
             if frame["exit"] != 0:
                 raise TickError(EXIT_RUNTIME, frame["code"] or "RUNTIME_FAILED", frame["type"])
             if frame["code"] == "RUNTIME_OUTPUT_INVALID":
@@ -483,6 +489,7 @@ def main(
         ), "exit": exit_code,
         **({"code": code} if code else {}), **({"type": kind} if kind else {}),
         **({"summary": summary} if summary else {}),
+        **({"integrity": integrity} if integrity else {}),
     }
     line = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     line = _line_with_probe(payload, line, probe, total_s)
