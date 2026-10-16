@@ -37,10 +37,26 @@ def checked(key, which="now", paid=False):
     return check(key, lambda k: get_value(k, which), paid)
 
 
+GUIDE = "토큰만 복사(앞뒤 공백·줄바꿈 없이) 후 같은 줄 다시"
+
+
+def reject_reason(v):
+    """거절 이유 — 개수·위치만(값 글자 0)."""
+    if not v:
+        return "클립보드 값이 비었음\n" + GUIDE
+    nl, tab = len(re.findall(r"[\r\n]", v)), v.count("\t")
+    total = len(re.findall(r"\s", v))
+    lead = len(v) if not v.strip() else len(v) - len(v.lstrip())
+    trail = 0 if not v.strip() else len(v) - len(v.rstrip())
+    return "클립보드 값에 공백·줄바꿈 포함: 공백 %d · 탭 %d · 줄바꿈 %d · 길이 %d · 위치 앞 %d · 가운데 %d · 뒤 %d\n%s" % (
+        total - nl - tab, tab, nl, len(v), lead, total - lead - trail, trail, GUIDE
+    )
+
+
 def clean(raw):
     v = raw[:-2] if raw.endswith("\r\n") else raw[:-1] if raw.endswith("\n") else raw
     if not v or re.search(r"\s", v):
-        raise ValueError("클립보드 값이 비었거나 공백·줄바꿈 포함")
+        raise ValueError(reject_reason(v))
     return v
 
 

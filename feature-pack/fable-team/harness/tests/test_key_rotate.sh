@@ -94,6 +94,17 @@ mkfix; runk "AAAA BBBB0123456789012345" OPENAI_API_KEY; rej "공백 포함 → R
 mkfix; runk $'AAAA0123456789\nBBBB012345' OPENAI_API_KEY; rej "줄바꿈 포함 → REJECT"
 mkfix; runk "short" OPENAI_API_KEY;                  rej "길이 16 미만 → REJECT"
 mkfix; runk "$NEW" NOT_A_KEY;                        rej "표 밖 키 → REJECT"
+# 3b R206a: 공백·줄바꿈 거절 줄 = 개수·위치·안내(값 글자 0) · 파일 불변 · 클립보드 비움
+TOK="ZQTOKENq0123456789abcdef"; GUIDE="토큰만 복사(앞뒤 공백·줄바꿈 없이) 후 같은 줄 다시"
+rej_why() {  # rej_why <이름> <클립보드> <기대 REJECT 숫자 줄>
+  WHY="$3"; mkfix; runk "$2" OPENAI_API_KEY
+  chk "$1" '[ $RC -eq 1 ] && echo "$OUT" | grep -q "^REJECT" && echo "$OUT" | grep -qF "$WHY" && echo "$OUT" | grep -qF "$GUIDE" && ! echo "$OUT" | grep -q "ZQTOKEN" && unchanged && [ ! -s "$T/clip" ]'
+}
+rej_why "R206a 앞 공백 2 → 공백 2 · 앞 2" "  $TOK" "공백 2 · 탭 0 · 줄바꿈 0 · 길이 $((${#TOK}+2)) · 위치 앞 2 · 가운데 0 · 뒤 0"
+rej_why "R206a 끝 줄바꿈 2개 → 줄바꿈 1(1개는 자동 제거) · 뒤 1" "$TOK"$'\n\n' "공백 0 · 탭 0 · 줄바꿈 1 · 길이 $((${#TOK}+1)) · 위치 앞 0 · 가운데 0 · 뒤 1"
+rej_why "R206a 가운데 공백 → 가운데 1" "ZQTOKENq0123 456789abcdef" "공백 1 · 탭 0 · 줄바꿈 0 · 길이 25 · 위치 앞 0 · 가운데 1 · 뒤 0"
+rej_why "R206a 앞 탭 + 가운데 줄바꿈 → 탭 1 · 줄바꿈 1" $'\t'"ZQTOKENq01"$'\n'"23456789abcdef" "공백 0 · 탭 1 · 줄바꿈 1 · 길이 26 · 위치 앞 1 · 가운데 1 · 뒤 0"
+rej_why "R206a 빈 값 → 비었음" "" "클립보드 값이 비었음"
 mkfix; echo "export CEREBRAS_API_KEY=\"dup_value_0123456789\"" >> "$T/home/.zshrc"; cp "$T/home/.zshrc" "$T/snap.zshrc"
 runk "$NEW" CEREBRAS_API_KEY; rej "활성 줄 2개 → REJECT(쓰기 0)"
 mkfix; runk "$NEW" OPENAI_API_KEY >/dev/null; mkfix; runk 'pw"x0123456789abcdef' OPENAI_API_KEY
