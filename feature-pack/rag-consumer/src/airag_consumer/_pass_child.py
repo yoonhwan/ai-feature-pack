@@ -17,7 +17,7 @@ import re
 import sys
 from typing import Sequence
 
-from . import _result
+from . import _pass_trace, _result
 from .tick import NAMES
 
 _STDIN_LIMIT = 64 * 1024
@@ -57,6 +57,7 @@ def _write_all(fd: int, data: bytes) -> None:
 def child_main(argv: Sequence[str] | None = None, *, hooks: object | None = None) -> int:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--trace-file")
     try:
         args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     except SystemExit:
@@ -73,6 +74,11 @@ def child_main(argv: Sequence[str] | None = None, *, hooks: object | None = None
     except OSError:
         return 2
     # From here on fds 1 and 2 are /dev/null for good; component imports and output go there.
+    if args.trace_file:
+        try:
+            _pass_trace.install(args.trace_file)  # records provider calls; never changes the pass
+        except Exception:
+            pass
     stdout_buffer, stderr_buffer = io.StringIO(), io.StringIO()
     try:
         from .cli import main as cli_main

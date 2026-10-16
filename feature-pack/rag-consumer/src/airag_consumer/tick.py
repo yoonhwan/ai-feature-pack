@@ -54,6 +54,7 @@ PROBE_OUTCOMES = ("ok", "bad_format", "nonzero_rc", "timeout", "exec_error")
 PROBE_ERRORS = ("load_unavailable", "collect_failed", "probe_invalid", "probe_too_large")
 _PROBE_MIN_ERRORS = ("collect_failed", "probe_invalid", "probe_too_large")
 _PROBE_MS_MAX, _PROBE_TOTAL_MAX, _PROBE_LOAD_MAX = 120_000.0, 86_400.0, 10_000.0
+TRACE_FILE_NAME = "pass-trace.jsonl"  # the pass child's per-call trace, next to the tick logs (see _pass_trace)
 
 
 class TickError(Exception):
@@ -394,7 +395,7 @@ def _run_component(
     """
     child_env = {k: v for k, v in environment.items() if k not in NAMES}
     keys = json.dumps({name: environment[name] for name in NAMES})
-    argv = [*command, "--config", str(config)]
+    argv = [*command, "--config", str(config), "--trace-file", str(log_dir / TRACE_FILE_NAME)]
     try:
         with tempfile.TemporaryFile(dir=log_dir) as result:
             returncode = subprocess.run(
