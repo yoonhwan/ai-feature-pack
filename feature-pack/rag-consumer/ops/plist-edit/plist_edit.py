@@ -15,7 +15,8 @@ What it does, in this order, and nothing else:
   6. re-read the operating file and repeat the checks; on any failure (or a signal) restore the backup atomically
      and compare hashes (exit 8; a failed restore is exit 9 with the backup location printed).
 The edit removes the key element and its value element from the original bytes; every other byte (comments,
-order, spacing) stays as it was.
+order, spacing) stays as it was; anything but whitespace between the key and its value element (a comment) is refused
+(exit 3) because it could not be kept.
 
 Never done here: any launchd change, loading or unloading of the job, ``op``, the token file, the template, the
 runtime, reading any value out. Output is key names, fixed sentences and PASS/FAIL only. No interactive input.
@@ -27,7 +28,9 @@ as required (nothing edited), 5 backup failed (nothing edited), 6 candidate chec
 already published it was restored first, otherwise the operating file never changed).
 
 Test mode: ``--selftest --plist F --backup-dir D --launchctl CMD [--plutil CMD]`` (all three of the first are
-required, none is accepted without ``--selftest``). A path that is the operating plist / backup directory is refused.
+required, none is accepted without ``--selftest``). A ``--plist`` or ``--backup-dir`` inside the operating LaunchAgents
+directory or the operating backup space (account database home and ``$HOME``, symlinks resolved) is refused, whichever
+role it is given in.
 """
 
 from __future__ import annotations
@@ -159,12 +162,10 @@ def build_context(argv: list[str]) -> Context:
     if not {"--plist", "--backup-dir", "--launchctl"} <= set(given):
         raise Refuse(USAGE, "시험 모드는 --plist --backup-dir --launchctl 을 모두 지정해야 합니다.")
     plist, backup_dir = Path(given["--plist"]), Path(given["--backup-dir"])
-    for home in home_directories():
-        agents = home / "Library" / "LaunchAgents"
-        if _inside(plist, agents) or plist.resolve() == (agents / f"{LABEL}.plist").resolve():
-            raise Refuse(USAGE, "시험 모드에 운영 plist 경로가 지정되어 거부합니다.")
-        if _inside(backup_dir, home / ".local" / "share" / "airag-plist-backup"):
-            raise Refuse(USAGE, "시험 모드에 운영 백업 경로가 지정되어 거부합니다.")
+    for home in home_directories():  # both paths against both protected spaces: the roles may not be crossed
+        for protected in (home / "Library" / "LaunchAgents", home / ".local" / "share" / "airag-plist-backup"):
+            if _inside(plist, protected) or _inside(backup_dir, protected):
+                raise Refuse(USAGE, "시험 모드에 운영 공간(LaunchAgents·운영 백업)이 지정되어 거부합니다.")
     launchctl = given["--launchctl"]
     if not os.path.isabs(launchctl) or Path(launchctl).resolve() == Path(LAUNCHCTL).resolve():
         raise Refuse(USAGE, "시험 모드의 launchctl 은 가짜 도구의 절대 경로여야 합니다.")
@@ -234,6 +235,8 @@ def classify(data: bytes) -> tuple[str, tuple[int, int] | None, list[str], dict[
     if not hits:
         return "absent", None, names, remaining
     hit = hits[0]
+    if data[hit["key_span"][1]:hit["value_span"][0]].strip(b" \t\r\n"):
+        raise Refuse(REFUSED, f"{KEY} 키와 값 사이에 공백 아닌 내용(주석 등)이 있어 거부합니다.")
     if hit["tag"] != "string" or type(document[KEY]) is not str:
         raise Refuse(REFUSED, f"{KEY} 값의 형이 문자열이 아닙니다.")
     if document[KEY] != EXPECTED:
@@ -409,7 +412,7 @@ def execute(ctx: Context) -> int:
     require_stopped(ctx)
     say("전제: PASS — launchd 에 적재되어 있지 않고 정지(disabled) 상태입니다(읽기 조회만).")
     backup = make_backup(ctx, original_sha)
-    say(f"백업: PASS — 복사본 sha256 일치(권한 600). 위치: {backup}")
+    say("백업: PASS — 복사본 sha256 일치(권한 600).")
     assert span is not None
     candidate_bytes = cut(original, span)
     if ctx.hook("candidate_other"):
