@@ -211,7 +211,7 @@ def test_already_without_the_key_changes_nothing_and_writes_no_backup(tmp_path):
                                    ("\n", "  <key>ProcessType</key><string>Background</string>\n")],
                          ids=["lf", "crlf", "tabs", "one-line"])
 def test_other_bytes_are_untouched_for_any_spacing_style(tmp_path, nl, pt):
-    text = plist_text(pt=pt.replace("\r\n", "\n") if nl == "\n" else pt, nl=nl)
+    text = plist_text(pt=pt.replace("\r\n", "\n"), nl=nl)
     lab = Lab(tmp_path, text)
     assert lab.run().returncode == 0
     assert lab.plist.read_bytes() == plist_text(pt="", nl=nl).encode("utf-8")
@@ -424,7 +424,9 @@ def test_the_operating_backup_directory_is_refused(lab):
 
 
 def test_the_real_launchctl_is_refused_in_test_mode(lab):
-    for tool in ("/bin/launchctl", "launchctl", str(lab.bin / ".." / ".." / ".." / "bin" / "launchctl")):
+    link = lab.bin / "lc-link"
+    link.symlink_to("/bin/launchctl")
+    for tool in ("/bin/launchctl", "launchctl", str(link)):
         args = ["--selftest", "--plist", str(lab.plist), "--backup-dir", str(lab.backup), "--launchctl", tool]
         done = subprocess.run([PY, "-I", str(SCRIPT_PY), *args], env=lab.env(), stdin=subprocess.DEVNULL, capture_output=True)
         assert done.returncode == 2 and lab.untouched() and not lab.backup.exists()
@@ -523,7 +525,7 @@ def test_candidate_checks_cover_keys_values_and_metadata(lab, mod):
     assert not mod.shape_ok(plistlib.dumps({"a": 1, "b": [1, 3]}), names, hashes)
     assert not mod.shape_ok(plistlib.dumps({"a": 1}), names, hashes)
     assert not mod.shape_ok(plistlib.dumps({"a": 1, "b": [1, 2], "ProcessType": "Background"}), names, hashes)
-    assert not mod.shape_ok(plistlib.dumps({"b": [1, 2], "a": 1}), names, hashes)
+    assert not mod.shape_ok(plistlib.dumps({"b": [1, 2], "a": 1}, sort_keys=False), names, hashes)
     assert not mod.shape_ok(b"garbage", names, hashes)
     assert not mod.shape_ok(plistlib.dumps([1]), names, hashes)
 
