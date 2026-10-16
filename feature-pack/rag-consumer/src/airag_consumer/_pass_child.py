@@ -88,6 +88,8 @@ def child_main(argv: Sequence[str] | None = None, *, hooks: object | None = None
             gate = _pass_gate.before_pass(
                 args.config, args.state_file, bytes.fromhex(keys[NAMES[0]]), bytes.fromhex(keys[NAMES[1]]),
             )
+        else:  # no state path, no gate, so no pass: there is never work without the check and the running mark
+            gate = _pass_gate.Gate(None, None, {"code": "PASS_STATE_UNAVAILABLE", "type": "pass_state"})
         if gate.refusal is not None:
             code = 1  # no pass: the frame below carries the refusal
         else:
