@@ -63,5 +63,5 @@ REVIEW: dict[tuple[str, int, str], tuple[str, str]] = {
     ("airag_consumer/tick.py", 44, "PATH"): ("data", "environment variable name"),
     ("airag_consumer/tick.py", 44, "TMPDIR"): ("data", "environment variable name"),
     ("airag_consumer/tick.py", 44, "USER"): ("data", "environment variable name"),
-    ("airag_consumer/tick.py", 466, "RUNTIME_FAILED"): ("reference", "fallback code passed on to TickError; declared by the pass child"),
+    ("airag_consumer/tick.py", 472, "RUNTIME_FAILED"): ("reference", "fallback code passed on to TickError; declared by the pass child"),
 }
