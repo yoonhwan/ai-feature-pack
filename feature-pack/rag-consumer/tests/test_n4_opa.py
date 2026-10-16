@@ -22,7 +22,7 @@ import time
 
 import pytest
 
-from test_chain_opa import CHAIN_SH, FAKE_TOOL, ChainSandbox, _clock_chain, as_text, load_chain, probe_doc, step
+from test_chain_opa import CHAIN_SH, FAKE_TOOL, ChainSandbox, as_text, load_chain, probe_doc, step
 from test_probe_opa import OPS, PROBE_PY, PROBE_SH, TOKEN, Sandbox, alive, load_probe, recorded_pids, wait_until
 
 P0_ARGS = ("--p0-only",)
@@ -649,7 +649,7 @@ def test_the_reading_texts_keep_to_what_the_design_allows(chain):
         texts[key] = " ".join(lines)
     assert "연관" in texts["association"] and "원인 확정 아님" in texts["association"]
     assert "Standard" in texts["association"] and "자원 제한이 없는" in texts["association"]
-    assert "제거만으로" in texts["not_removed_by_the_key"] and "L1" in texts["not_removed_by_the_key"]
+    assert "제거만 해서는" in texts["not_removed_by_the_key"] and "L1" in texts["not_removed_by_the_key"]
     assert "재현되지 않음" in texts["not_reproduced"] and "해결이 아님" in texts["not_reproduced"]
     assert "해석 보류" in texts["hold"]
     for text in texts.values():
@@ -713,7 +713,7 @@ def test_a_normal_a_b_a_runs_three_stages_in_order_and_reads_the_table(n4):
     assert "N4-A1: P4=success P0=timeout" in proc.stdout and "N4-B: P4=success P0=success" in proc.stdout
 
 
-@pytest.mark.parametrize("observed,word", [(("timeout", "timeout", "timeout"), "제거만으로"),
+@pytest.mark.parametrize("observed,word", [(("timeout", "timeout", "timeout"), "제거만 해서는"),
                                            (("success", "success", "success"), "재현되지 않음"),
                                            (("success", "timeout", "success"), "해석 보류")])
 def test_the_other_rows_are_read_the_same_way_end_to_end(n4, observed, word):
@@ -814,6 +814,32 @@ def test_a_n4_tool_over_the_limit_gets_term_once_and_the_rest_is_skipped(n4):
     n4.spec("N4-A1", sleep=60, cleanup_s=0.1)
     proc = n4.run("--plan", "n4", PROBE_CH_T_OVERRUN="2", PROBE_CH_T_GRACE="4")
     assert proc.returncode == 6 and n4.calls() == ["N4-A1"] and n4.signals("N4-A1") == [signal.SIGTERM]
+
+
+def _clock_chain(monkeypatch, tmp_path, *, plan: str, durations):
+    """The chain's own clock and tools replaced by fakes (as in test_chain_opa), with the N4 stage tools."""
+    sb = N4Sandbox(tmp_path)
+    chain = load_chain(monkeypatch, {"PROBE_BASE": str(sb.base), "PROBE_CH_TOOLS": json.dumps(sb.tools),
+                                     "CH_SPEC_DIR": str(sb.specs)})
+    clock = {"t": 5000.0}
+    monkeypatch.setattr(chain, "clock", lambda: clock["t"])
+    begin = clock["t"]
+    started = []
+    it = iter(durations)
+
+    def fake_run(argv, env):
+        started.append((chain.plan_total(len(chain.PLANS[plan])) - (clock["t"] - begin), argv[-1]))
+        duration, overran = next(it)
+        clock["t"] += duration
+        return {"rc": None if overran else 0, "overran": overran, "left": False}
+
+    def fake_check(name, base, before):
+        clock["t"] += chain.TRANSITION_S
+        return None, ["ok"], "label"
+    monkeypatch.setattr(chain, "run_tool", fake_run)
+    monkeypatch.setattr(chain, "check_stage", fake_check)
+    code = chain.main(["--mode", "selftest", "--python", sys.executable, "--plan", plan])
+    return chain, code, started, clock["t"] - begin
 
 
 def test_the_n4_plan_keeps_the_clock_rules(monkeypatch, tmp_path):

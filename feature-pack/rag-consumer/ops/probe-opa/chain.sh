@@ -2,7 +2,7 @@
 # Three-stage chain, run once by a human (design arch-20261015-opa-popup-design-r8 §4):
 # N1 launchd probe -> N2 E1 terminal table -> N3 the same E1 under `taskpolicy -b`.
 #
-#   bash chain.sh [--python <absolute consumer python>] [--plan full|e1|probe]
+#   bash chain.sh [--python <absolute consumer python>] [--plan full|e1|probe|n4]
 #   bash chain.sh --selftest --python <absolute python> ...     test mode: PROBE_* overrides are honoured
 #
 # The reviewed tools run unchanged; a stage starts only when the previous tool's exit code AND its closed-schema
@@ -27,8 +27,8 @@ while [ $# -gt 0 ]; do
   shift
 done
 case "$PLAN" in
-  full|e1|probe) ;;
-  *) echo "계획은 full, e1, probe 중 하나여야 합니다. 시작하지 않습니다."; exit 2 ;;
+  full|e1|probe|n4) ;;
+  *) echo "계획은 full, e1, probe, n4 중 하나여야 합니다. 시작하지 않습니다."; exit 2 ;;
 esac
 
 if [ "$SELFTEST" = 1 ]; then

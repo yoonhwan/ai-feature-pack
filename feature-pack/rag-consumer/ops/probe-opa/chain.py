@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
+import plistlib
 import re
 import signal
 import stat
@@ -47,8 +49,14 @@ CANCEL_WAIT_S = probe.override_seconds("PROBE_CH_T_CANCEL", 16.0)  # the probe's
 START_NEED_S = SLOT_S + TRANSITION_S
 FINAL_S = 1.0  # the closing display
 
-STAGE_TITLE = {"N1": "N1 launchd 프로브", "N2": "N2 터미널 op --version 6회", "N3": "N3 낮은 우선순위(taskpolicy -b) op --version 6회"}
-PLANS = {"full": ("N1", "N2", "N3"), "e1": ("N2", "N3"), "probe": ("N1",)}
+STAGE_TITLE = {"N1": "N1 launchd 프로브", "N2": "N2 터미널 op --version 6회", "N3": "N3 낮은 우선순위(taskpolicy -b) op --version 6회",
+               "N4-A1": "N4-A1 launchd op --version (ProcessType=Background)",
+               "N4-B": "N4-B launchd op --version (ProcessType 지정 안 함)",
+               "N4-A2": "N4-A2 launchd op --version (ProcessType=Background)"}
+# N4 (design r10 §4): three launchd probe runs with only `op --version`, Background -> unset -> Background. The value is
+# "does the job's plist carry ProcessType=Background" for that stage.
+N4_EXPECT = {"N4-A1": True, "N4-B": False, "N4-A2": True}
+PLANS = {"full": ("N1", "N2", "N3"), "e1": ("N2", "N3"), "probe": ("N1",), "n4": tuple(N4_EXPECT)}
 SIGNAL_CODE = {signal.SIGINT: 130, signal.SIGTERM: 143, signal.SIGHUP: 129}
 PROBE_NAME = re.compile(r"^\d{8}-\d{6}-\d+-\d+$")
 E1_NAME = re.compile(r"^compare-\d{8}-\d{6}-\d+-\d+\.result\.json$")
@@ -83,9 +91,11 @@ class Cancelled(BaseException):
 
 def build_tools(here: Path, python: str) -> dict[str, list[str]]:
     probe_sh, compare_sh = str(here / "probe.sh"), str(here / "compare.sh")
+    p0 = ["/bin/bash", probe_sh, "--python", python, "--p0-only", "--process-type"]
     return {"N1": ["/bin/bash", probe_sh, "--python", python],
             "N2": ["/bin/bash", compare_sh, "--python", python],
-            "N3": ["/usr/sbin/taskpolicy", "-b", "/bin/bash", compare_sh, "--python", python]}
+            "N3": ["/usr/sbin/taskpolicy", "-b", "/bin/bash", compare_sh, "--python", python],
+            "N4-A1": [*p0, "background"], "N4-B": [*p0, "unset"], "N4-A2": [*p0, "background"]}
 
 
 # ----------------------------------------------------------------------------------------------- the gates
@@ -173,6 +183,102 @@ def gate_e1(doc) -> str | None:
     return None
 
 
+PROFILE_KEYS = {"profile_version", "profile", "process_type_set", "load_before", "load_after"}
+N4_SKIPPED = ("P2", "P1", "P1b")
+
+
+def _load_ok(value) -> bool:
+    return value is None or (isinstance(value, list) and len(value) == 3 and all(
+        type(x) in (int, float) and math.isfinite(x) and 0 <= x < 10000 for x in value))
+
+
+def read_profile(directory: Path) -> tuple[str | None, dict | None]:
+    """(reason, document): profile.json of this run, closed schema (design r10 §4.3). Never followed through a symlink."""
+    path = directory / "profile.json"
+    if not _regular_file(path):
+        return "profile_missing", None
+    try:
+        if os.lstat(path).st_size > MAX_RESULT_BYTES:
+            return "profile_schema", None
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "profile_schema", None
+    if (not isinstance(document, dict) or set(document) != PROFILE_KEYS or type(document["profile_version"]) is not int
+            or document["profile_version"] != 1 or document["profile"] != "p0only"
+            or type(document["process_type_set"]) is not bool or not _load_ok(document["load_before"])
+            or not _load_ok(document["load_after"])):
+        return "profile_schema", None
+    return None, document
+
+
+def plist_process_type(directory: Path) -> tuple[bool, object]:
+    """(readable, value): what the job plist says about the top-level ProcessType key, read as a structure — the value
+    as it is (None when the key is absent). An unreadable file or a plist that is not a dictionary is (False, None).
+    Nothing else of the file is kept."""
+    path = directory / "job.plist"
+    if not _regular_file(path):
+        return False, None
+    try:
+        if os.lstat(path).st_size > MAX_RESULT_BYTES:
+            return False, None
+        document = plistlib.loads(path.read_bytes())
+    except Exception:  # a broken plist can end in several parser errors; every one of them means "cannot compare"
+        return False, None
+    if not isinstance(document, dict):
+        return False, None
+    return True, document.get("ProcessType")
+
+
+def gate_n4(directory: Path, doc, expect_set: bool) -> str | None:
+    """G4 (design r10 §4.4): None = the next stage may start. Exit code was checked by the caller; here the closed
+    result, the executed steps, the no-token profile and profile.json against the job plist."""
+    reason = gate_probe(doc)
+    if reason is not None:
+        return reason
+    by = {s["step"]: s for s in doc["steps"]}
+    p0 = by.get("P0")
+    if p0 is None or p0["status"] not in ("success", "timeout") or (p0["status"] == "timeout" and not p0["reaped"]):
+        return "p0_not_tabulable"
+    for name in N4_SKIPPED:
+        s = by.get(name)
+        if (s is None or s["status"] != "skipped_not_applicable" or s["account_type_confirmed"] is not None
+                or s["child_pid"] is not None):
+            return "profile_violation"
+    reason, profile = read_profile(directory)
+    if reason is not None:
+        return reason
+    readable, found = plist_process_type(directory)
+    # A: the top-level value is exactly "Background"; B: the key is not there at all (a plist cannot hold None, so
+    # None means absent; a key with any value is a mismatch)
+    on_plist = readable and (found == "Background" if expect_set else found is None)
+    if profile["process_type_set"] is not expect_set or not on_plist:
+        return "profile_mismatch"
+    return None
+
+
+N4_READING = {
+    "association": ("ProcessType 지정 여부와 연관된 관측입니다(연관 라벨). 지정 안 함은 시스템 기본(Standard, 가벼운 제한 있음)이며 "
+                    "자원 제한이 없는 상태가 아닙니다. 원인 확정 아님 · 순서·시간 간격 효과는 통제하지 못했습니다."),
+    "not_removed_by_the_key": ("키를 제거만 해서는 이번 재현이 사라지지 않았습니다. 이 결과로 L1(우선순위·자원 정책 가설)의 단독 작용을 "
+                               "판정하지 않으며 L2·L5·L7 도 확정이 아닙니다."),
+    "not_reproduced": "이번 3회에서는 재현되지 않았습니다 — 시간·부하·상태 후보가 열려 있습니다. 재현되지 않음은 해결이 아님.",
+    "hold": "해석 보류 — 이 조합은 표의 행이 아닙니다(같은 3단계를 한 번 더 할지는 별도 판단).",
+}
+N4_NOTE = ("A-B-A 한계: B 가 한 번이라 순간 부하·캐시·다른 사용자 상태가 고정되지 않았고 전후 부하 값은 통제 증거가 아니라 참고 "
+           "기록입니다. 운영 plist 의 ProcessType 변경은 어떤 결과든 별도 설계·DA·오빠 판정 뒤에만 합니다.")
+
+
+def n4_reading(observations: list[tuple[str, str]]) -> tuple[str, list[str]]:
+    """(row key, lines) of the design r10 §4.6 table for the (P4, P0) status of the three stages A1, B, A2. The table is
+    only read when P4 was success in every stage; every other combination is "hold"."""
+    if any(p4 != "success" for p4, _ in observations):
+        return "hold", ["해석 보류(네트워크 도달 조건 P4 가 단계마다 success 가 아니라 표를 읽지 않습니다) · " + N4_NOTE]
+    p0s = tuple(p0 for _, p0 in observations)
+    key = {("timeout", "success", "timeout"): "association", ("timeout", "timeout", "timeout"): "not_removed_by_the_key",
+           ("success", "success", "success"): "not_reproduced"}.get(p0s, "hold")
+    return key, [N4_READING[key], N4_NOTE]
+
+
 # --------------------------------------------------------------------------------------- the result lookup
 def listing(base: Path) -> set[str]:
     try:
@@ -194,7 +300,7 @@ def _candidates(base: Path, new: set[str], name: str) -> list[Path]:
     found = []
     for entry in sorted(new):
         path = base / entry
-        if name == "N1":
+        if name == "N1" or name in N4_EXPECT:
             try:
                 is_dir = PROBE_NAME.match(entry) and stat.S_ISDIR(os.lstat(path).st_mode)
             except OSError:
@@ -204,6 +310,9 @@ def _candidates(base: Path, new: set[str], name: str) -> list[Path]:
         elif E1_NAME.match(entry) and _regular_file(path):
             found.append(path)
     return found
+
+
+n4_seen: dict[str, tuple[str, str]] = {}   # (P4, P0) status of the N4 stages that passed their gate in this run
 
 
 def check_stage(name: str, base: Path, before: set[str]) -> tuple[str | None, list[str], str]:
@@ -222,6 +331,16 @@ def check_stage(name: str, base: Path, before: set[str]) -> tuple[str | None, li
         document = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return "result_unreadable", [], "-"
+    if name in N4_EXPECT:
+        reason, lines, label = gate_n4(path.parent, document, N4_EXPECT[name]), [], "-"
+        if probe.validate_result(document):
+            by = {s["step"]: s for s in document["steps"]}
+            p4, p0 = (by.get(n, {}).get("status", "not_run") for n in ("P4", "P0"))
+            n4_seen[name] = (p4, p0)
+            label = f"P4={p4} P0={p0}"
+            lines = ["P4 {a} · P0 {b} {ms}ms · 결론 {c}".format(a=p4, b=p0, ms=by.get("P0", {}).get("elapsed_ms", 0),
+                                                            c=document["conclusion"])]
+        return reason, lines, label
     if name == "N1":
         reason, lines, label = gate_probe(document), [], "-"
         if probe.validate_result(document):
@@ -327,6 +446,7 @@ def main(argv: list[str]) -> int:
     previous = {sig: signal.signal(sig, on_signal) for sig in SIGNAL_CODE}
     labels: list[str] = []
     code = 0
+    n4_seen.clear()
     say(f"3단계 연속 점검 시작 — 계획 {plan}, 전체 상한 {int(total)}초. 앞 단계에서 이상이 확인되면 뒤 단계는 실행하지 않습니다.")
     try:
         try:
@@ -367,7 +487,12 @@ def main(argv: list[str]) -> int:
         state["finalizing"] = True
         for sig, handler in previous.items():
             signal.signal(sig, handler)
-    if labels:
+    if labels and plan == "n4":
+        say("관측 라벨(해석은 설계 r10 §4.6 표로만 · 원인 확정 아님): " + " | ".join(labels))
+        if code == 0 and all(name in n4_seen for name in stages):
+            for line in n4_reading([n4_seen[name] for name in stages])[1]:
+                say(f"  {line}")
+    elif labels:
         say("관측 라벨(해석은 설계 r8 §4.6 표로만 · 원인 확정 아님): " + " | ".join(labels))
     say("consumer 는 계속 disabled 입니다.")
     return code
