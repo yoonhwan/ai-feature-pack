@@ -120,7 +120,7 @@ git -C "$LW" fetch -q origin; mkpr 23 pr23; land 23 --approve-sha "$PRSHA"; Q23=
 fakechk 'echo "OK n=2 skip=0"; exit 0'
 git -C "$LW" fetch -q origin; mkpr 24 pr24; land 24 --approve-sha "$PRSHA"; Q24="$(sha "$LORIGIN" refs/heads/main)"
 [ "$rc" = 0 ] && has "INSTALL OK n=2" && [ ! -e "$PD/$Q24.txt" ]; ck "ⓖ OK → INSTALL OK 줄 · 상태 파일 0" $?
-grep -q 'ft-live-install-check' "$LAND" && [ "$(wc -l < "$LAND" | tr -d ' ')" -le 80 ]; ck "착지 도구에 검사 호출 · ≤ 80줄" $?
+grep -q 'ft-live-install-check' "$LAND" && [ "$(wc -l < "$LAND" | tr -d ' ')" -le 120 ]; ck "착지 도구에 검사 호출 · ≤ 120줄(test_merge_land 와 같은 상한)" $?
 
 # ── 뉴스 줄 (ft-install-pending.sh) ────────────────────────────────────────────
 out="$(FT_ROOT="$L" bash "$PEND" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "설치 대기 3 병합" && has "${Q21:0:10}"; ck "⑦ 대기 파일 3개 → 「설치 대기 3 병합 — 짧은 sha」 1줄" $?

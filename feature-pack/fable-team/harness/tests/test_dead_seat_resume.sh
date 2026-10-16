@@ -191,7 +191,7 @@ R="$T/repo"; B="$T/sbin"; SS="$R/.fable-team/seats.json"; CARD="design/v65/indic
 git -C "$R" init -q -b main && : > "$R/.gitkeep" && git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m init
 printf '# 인덱스: r163x\n## 상태\n' > "$R/$CARD"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"
 cp -p "$BIN/ft-nano-spawn.sh" "$KIT/ft_raised.py" "$B/"
-for f in ft-index-lint.sh ft-proposal-gate.sh ft-send-verified.sh ft-resource-gate.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done
+for f in ft-index-lint.sh ft-proposal-gate.sh ft-send-verified.sh ft-resource-gate.sh ft-agent-ready.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done
 printf '#!/bin/bash\nsrc="$1"; dst="${src/\\/대기\\//\\/진행\\/}"; mkdir -p "$(dirname "$dst")"; mv "$src" "$dst"\n' > "$B/ft-index-move.sh"
 printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\nexit 0\n' > "$B/ft-sheet-events.sh"
 printf '#!/bin/bash\nif [ "$1" = open ]; then n=""; dry=0; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; [ "$1" = --dry-run ] && dry=1; shift; done; [ $dry = 1 ] && echo "TMUXC-DRY $n" || : > "%s/sess/$n"; fi\n' "$T" > "$SF/tmuxc"

@@ -13,7 +13,9 @@ export FT_ROOT="$T" FT_AUTONOMY_STATE_DIR="$T/state" FT_GH="$T/gh-stub" FT_GH_WR
 cat > "$T/gh-stub" <<'EOF'
 #!/bin/bash
 [ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }
-echo "$*" >> "$STUB_LOG"
+case "$1" in pr-comment|pr-close) ;; *) echo "BADVERB $*" >> "$STUB_LOG"; echo "REJECT usage" >&2; exit 2;; esac   # ft-gh-as-tank.sh 는 하이픈 동사만 받는다(R261)
+body=""; for a in "$@"; do [ -f "$a" ] && body="$(cat "$a")"; done
+echo "$* :: $body" >> "$STUB_LOG"
 EOF
 cat > "$T/shim/git" <<EOF
 #!/bin/bash
@@ -58,8 +60,14 @@ L="$(omain)"; [[ "$out" == *"sha=$L"* ]]; ck "출력 착지 sha == origin main" 
 [ "$(sha "$ORIGIN" "$L^{tree}")" = "$(sha "$W" "$P11^{tree}")" ]; ck "착지 트리 == 검사한 PR head 트리" $?
 [ "$(sha "$ORIGIN" "$L^")" = "$M2" ] && [ "$(git -C "$ORIGIN" rev-list --parents -n1 "$L" | wc -w | tr -d ' ')" = 2 ]; ck "squash 1커밋(부모 = 검사 때 main 1개)" $?
 git -C "$ORIGIN" log -1 --format=%B "$L" | grep -q 'PR #11' && git -C "$ORIGIN" log -1 --format=%B "$L" | grep -q 'feat: PR 11'; ck "메시지 = PR 제목·본문 + PR #11" $?
-grep -q "pr comment 11 .*$L" "$STUB_LOG" && grep -q 'pr close 11' "$STUB_LOG"; ck "PR 11 에 착지 sha 코멘트 + 닫기" $?
+grep -q "^pr-close 11 --comment .*--apply :: 착지 sha $L" "$STUB_LOG" && ! grep -q BADVERB "$STUB_LOG"; ck "PR 11 에 착지 sha 코멘트 + 닫기(ft-gh-as-tank 하이픈 동사 pr-close --comment <파일> --apply · R261)" $?
 grep -q "head=$P11 method=ft-merge-land .*landed=$L pr=11" "$T/state/merge-gate.log"; ck "결속 기록 1줄(main·head·방법·트리·착지)" $?
+
+# R271: PR head fetch 가 auto gc 실패로 rc≠0 이어도 «fetch 실패» 로 오판하지 않는다 — 프로세스 한정 -c gc.auto=0 이 없으면 rc1 을 내는 shim
+mkdir -p "$T/shim3"; printf '#!/bin/bash\nsaw=0; gc=0; for a in "$@"; do case "$a" in pull/*/head) saw=1;; gc.auto=0) gc=1;; esac; done\n"%s" "$@"; r=$?\n[ "$saw" = 1 ] && [ "$gc" = 0 ] && exit 1\nexit $r\n' "$REAL_GIT" > "$T/shim3/git"; chmod +x "$T/shim3/git"
+git -C "$W" fetch -q origin; mkpr 12 pr12 origin/main; P12="$PRSHA"
+out="$(PATH="$T/shim3:$PATH" bash "$LAND" 12 --approve-sha "$P12" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]]; ck "fetch 에 -c gc.auto=0 — gc 실패 rc≠0 이어도 착지(R271)" $?
 
 # 자율 ON — 승인 파일 없으면 실행 0 · approve-merge 뒤 착지
 bash "$BIN/ft-autonomy.sh" on >/dev/null 2>&1; git -C "$W" fetch -q origin; mkpr 10 pr10 origin/main; P10="$PRSHA"; M3="$(omain)"; : > "$STUB_LOG"

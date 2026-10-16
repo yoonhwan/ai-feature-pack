@@ -2,19 +2,18 @@
 
 실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY python3 -m pytest tests/scripts/test_magazine_doc_three.py -q
 """
-import json
 import logging
 import re
 from pathlib import Path
 
 import pytest
-from _magazine_fakes import FakeMagazineSlack, git
+from _magazine_fakes import FakeMagazineSlack
+from _magazine_ledger import argv, make_env
 from test_magazine_doc import SRC
 
 import magazine_doc as md
 import magazine_doc_md as dm
 import magazine_doc_three as three
-import magazine_hermes as mh
 
 DATE = "2026-10-15"
 LEDGER = """# 오빠 원장 — 시킨 일 · 하기로 한 일 · 지금 상태 (정본 · planner 관리)
@@ -197,45 +196,10 @@ def test_real_ledger_rows_sum_and_nothing_lost(caplog):
     assert [c.title for c in rest] == [c.title for c in doc.cells if c.title.startswith(("팀 작업", "드러난 문제"))]
 
 
-# ---- 렌더 · 발행 출력 -------------------------------------------------------
-def fake_fetch(url: str, body: bytes, timeout: float) -> bytes:
-    return json.dumps({"content": [{"type": "text", "text": "지금은 쉬는 중이고 곧 이어서 해요."}], "stop_reason": "end_turn", "usage": {"input_tokens": 700}}).encode()
-
-
+# ---- 발행 출력(슬랙 링크) — 판 칸 구성은 test_magazine_guide.py (R259) ----------------
 @pytest.fixture
-def env(tmp_path, monkeypatch):
-    monkeypatch.setattr(mh, "_fetch", fake_fetch)
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    git(repo, "init", "-q", "-b", "main")
-    for k, v in (("user.email", "t@t"), ("user.name", "t")):
-        git(repo, "config", k, v)
-    (repo / "doc.md").write_text(LEDGER, encoding="utf-8")
-    git(repo, "add", "-A")
-    git(repo, "commit", "-qm", "doc")
-    (tmp_path / "tok").write_text("YOONHWAN_BOT_TOKEN=xoxb-test\n", encoding="utf-8")
-    return tmp_path, repo
-
-
-def argv(env, mode: str, slack: FakeMagazineSlack | None = None) -> list[str]:
-    tmp, repo = env
-    base = ["--src-repo", str(repo), "--src-sha", "HEAD", "--src-path", "doc.md", "--date", DATE, "--out-dir", str(tmp / "out"), "--proxy-url", "http://proxy.test", mode]
-    if slack:
-        base += ["--state", str(tmp / "state.json"), "--token-file", str(tmp / "tok"), "--slack-base", slack.base, "--channel", "C1"]
-    return base
-
-
-def test_render_puts_three_cells_on_top_with_jump_buttons(env, capsys):
-    assert md.main(argv(env, "--dry-run")) == 0
-    out = capsys.readouterr().out
-    page = next((env[0] / "out").glob("MAGAZINE-DOC-2026-10-15-*.html")).read_text(encoding="utf-8")
-    assert "DRY-RUN calls=5" in out  # 3칸 + 팀 작업 + 드러난 문제 — 호출 수 = 칸 수
-    assert page.count('<section id="c') == 5 and page.count("지금은 쉬는 중이고 곧 이어서 해요.") == 5
-    titles = re.findall(r'<h2 class="section-title">([^<]+)</h2>', page)
-    assert titles[:3] == ["요청한 일", "완료한 일", "해야 할 일"]
-    assert re.findall(r'<span class="section-index">(\d\d)</span>', page)[:3] == ["01", "02", "03"]
-    jump = re.search(r'<nav class="jump"[^>]*>(.*?)</nav>', page, re.S).group(1)
-    assert re.findall(r"<a [^>]*>([^<]*)</a>", jump)[:3] == ["요청한 일", "완료한 일", "해야 할 일"]
+def env(tmp_path):
+    return make_env(tmp_path)
 
 
 def test_dry_run_says_no_link(env, capsys):
@@ -260,5 +224,5 @@ def test_link_failure_is_printed_not_silent_and_publish_still_succeeds(env, caps
     with caplog.at_level(logging.WARNING, logger="magazine_doc"):
         assert md.main(argv(env, "--publish", slack)) == 0
     out = capsys.readouterr().out
-    assert "published date=2026-10-15" in out and "SLACK 링크 못 만듦 — " in out and "message_not_found" in out
+    assert "published date=2026-10-16" in out and "SLACK 링크 못 만듦 — " in out and "message_not_found" in out
     assert len(slack.roots) == 1 and slack.titles(slack.roots[0]["ts"])

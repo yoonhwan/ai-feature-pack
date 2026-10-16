@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""magazine_doc — 오빠 확인 문서(planner 정리 md) 한 장을 스위스 HTML 1종으로 묶어 Slack 매거진 채널에 1회 발행 (R117 · 판정 1424).
+"""magazine_doc — 오빠 원장(planner 정리 md) 한 장을 «아침 매거진 한 쪽» HTML 로 바꿔 Slack 매거진 채널에 1회 발행 (R117 · 판정 1424 · R259 판정 1988).
 
-본문은 원문 그대로(표·목록 → HTML), Haiku 프록시가 각 칸·팀 머리의 «쉬운 한 문단»만 쓴다(magazine_hermes — 실패 칸은 «쉬운 요약 실패(사유)» + ERROR).
---dry-run = HTML 만 만들고 게시·상태 쓰기 0 · --publish = 뿌리 글 1개 + 스레드에 HTML 1개(같은 원본 sha 면 skip).
+칸 구성 = design/harness/GUIDE-magazine-20261016.md §1(magazine_brief · magazine_brief_html) · 외부 호출 0(쉬운 말 문단 없음) · 발행 전 지침 검사(magazine_guide_check) + 상대 날짜 가드(R202).
+--dry-run = HTML 만 만들고 게시·상태 쓰기 0(위반은 WARN) · --publish = 위반 1건이라도 있으면 발행 0·rc 1 · 아니면 뿌리 글 1개 + 스레드에 HTML 1개(같은 원본 sha 면 skip).
 """
 import argparse
-import html
 import json
 import logging
 import re
@@ -15,15 +14,16 @@ import time
 from pathlib import Path
 from typing import cast
 
-from magazine_doc_md import Cell, Doc, DocError, parse_doc, to_html
-from magazine_doc_three import with_three
-from magazine_hermes import Easy, easy_all
+from magazine_brief import build_brief
+from magazine_brief_diff import load_previous
+from magazine_brief_html import render
+from magazine_date_guard import check as date_guard
+from magazine_doc_md import Doc, DocError, parse_doc
+from magazine_guide_check import check as guide_check
 from magazine_slack import SLACK_BASE, Target, permalink, post_root, upload_file
 from mirror_lib import MirrorError, read_token, save_state
-from mirror_summary import DEFAULT_URL
 
 HOME = Path.home()
-TEMPLATE = Path(__file__).with_name("magazine_swiss_template.html")
 LOG = logging.getLogger("magazine_doc")
 
 
@@ -45,41 +45,8 @@ def read_source(repo: str, sha: str, path: str) -> tuple[str, str]:
     return full, git("show", f"{full}:{path}")
 
 
-def easy_block(e: Easy) -> str:
-    if e.text is not None:
-        return f'<p class="easy">{html.escape(e.text)}</p>'
-    return f'<p class="easy fail">쉬운 요약 실패({html.escape(e.error or "사유 없음")})</p>'
-
-
-def _section(n: int, cell: Cell, e: Easy) -> str:
-    return (f'  <section id="{cell.key}" class="section"><div class="grid section-head"><span class="section-index">{n:02d}</span>'
-            f'<h2 class="section-title">{html.escape(cell.title)}</h2></div>\n    {easy_block(e)}\n    <div class="body">{to_html(cell.body)}</div></section>')
-
-
-def _team(n: int, cell: Cell, e: Easy) -> str:
-    return (f'    <details class="row" id="{cell.key}"><summary><span class="no">{n:02d}</span><span class="hd">{html.escape(cell.title)}</span>'
-            f'<span class="chev" aria-hidden="true">›</span></summary><div class="det">{easy_block(e)}\n      <div class="body">{to_html(cell.body)}</div></div></details>')
-
-
-def render_html(doc: Doc, easy: dict[str, Easy], date: str, src: str) -> str:
-    n = len(doc.cells)
-    jump = "".join(f'<a href="#{c.key}">{html.escape(c.title.strip("★"))}</a>' for c in doc.cells) + ('<a href="#teams">팀별 전체</a>' if doc.teams else "")
-    month, day = int(date[5:7]), int(date[8:10])
-    values = {
-        "TITLE": html.escape(f"매거진 {date} · 오빠 확인판"), "DATE": date, "HERO": f"{month}월 {day}일", "SRC": html.escape(src),
-        "INTRO": html.escape(doc.intro.replace("\n", " ")), "JUMP": jump,
-        "CELLS": "\n".join(_section(i, c, easy[c.key]) for i, c in enumerate(doc.cells, 1)),
-        "TEAMS": "\n".join(_team(n + i, t, easy[t.key]) for i, t in enumerate(doc.teams, 1)),
-        "TEAMS_INDEX": f"{n + 1:02d}", "TEAM_COUNT": str(len(doc.teams)),
-    }
-    page = TEMPLATE.read_text(encoding="utf-8")
-    if not doc.teams:  # 팀 0 이면 팀 구역 제목·버튼째 그리지 않는다
-        page = re.sub(r'  <section id="teams".*?</section>\n', "", page, flags=re.S)
-    return re.sub(r"\{\{(\w+)\}\}", lambda m: values[m.group(1)], page)
-
-
 def root_text(date: str) -> str:
-    return f"매거진 {date} · 오빠 확인판\n쉬운 말 요약과 원문 전체가 담긴 HTML 이 스레드에 붙어 있어요."
+    return f"매거진 {date} · 오빠 확인판\n오빠 할 일과 지난 판 뒤로 바뀐 것을 한 쪽에 모은 HTML 이 스레드에 붙어 있어요."
 
 
 def load_state(path: Path) -> dict[str, object]:
@@ -105,11 +72,11 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> t
         return f"skip {key} root_ts={rec['root_ts']} (이미 발행됨)", str(rec["root_ts"])
     target = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
     root_ts = str(rec.get("root_ts") or post_root(target, root_text(date)))
-    state[key] = {"root_ts": root_ts, "uploaded": False}
+    state[key] = {"root_ts": root_ts, "uploaded": False, "date": date}
     state_path.parent.mkdir(parents=True, exist_ok=True)
     save_state(state_path, state)
     upload_file(target, root_ts, html_path, f"매거진 {date} · 오빠 확인판", "text/html")
-    state[key] = {"root_ts": root_ts, "uploaded": True}
+    state[key] = {"root_ts": root_ts, "uploaded": True, "date": date}
     save_state(state_path, state)
     return f"published date={date} {key} root_ts={root_ts} html={html_path.name}", root_ts  # 08:15 점검(ft-magazine-check.sh)이 «published date=<오늘>» 줄을 찾는다
 
@@ -118,16 +85,18 @@ def run(args: argparse.Namespace) -> int:
     full, text = read_source(args.src_repo, args.src_sha, args.src_path)
     doc = parse_doc(text)
     date = args.date or doc_date(doc)  # --date 가 판 날짜(제목에 날짜 없는 오빠 원장) · 둘 다 없으면 doc_date 가 DocError
-    doc = with_three(doc, date)  # 원장이면 맨 위 3칸(요청한 일 / 완료한 일 / 해야 할 일) · 옛 문서는 그대로(R190)
+    prev, note = load_previous(load_state(Path(args.state).expanduser()), args.src_repo, args.src_path, full, read_source)
+    brief = build_brief(doc, date, full[:10], prev, note)
+    blocked = date_guard(brief.as_doc(), args.publish)  # 상대 날짜(오늘·내일…)가 판에 실리면 발행 0 — 게시 전에 거절(R202)
+    flagged = guide_check(brief, args.publish)  # 지침 §3·§4-1 위반 — 같은 규칙(R259)
+    if blocked or (flagged and args.publish):
+        return 1
     out = Path(args.out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
-    easy = easy_all(doc.cells + doc.teams, args.proxy_url)
-    page = render_html(doc, easy, date, full[:10])
     html_path = out / f"MAGAZINE-DOC-{date}-{full[:10]}.html"
-    html_path.write_text(page, encoding="utf-8")
-    failed = sum(1 for e in easy.values() if e.error)
-    print(f"{'DRY-RUN' if args.dry_run else 'PUBLISH'} calls={len(easy)} elapsed={time.monotonic() - start:.1f}s failed={failed} html={html_path}")
+    html_path.write_text(render(brief), encoding="utf-8")
+    print(f"{'DRY-RUN' if args.dry_run else 'PUBLISH'} warn={flagged} elapsed={time.monotonic() - start:.1f}s html={html_path}")
     if args.dry_run:
         print(f"--- 슬랙 뿌리 글 ---\n{root_text(date)}\nSLACK 링크 없음(드라이런)")
         return 0
@@ -153,7 +122,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     mode = p.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="HTML 만 — 게시·상태 쓰기 0")
     mode.add_argument("--publish", action="store_true", help="뿌리 글 1개 + 스레드에 HTML 1개")
-    p.add_argument("--proxy-url", default=DEFAULT_URL, help="쉬운 문단 호출 — cliproxy Messages 주소(Haiku)")
     p.add_argument("--state", default=str(HOME / ".hermes/state/magazine-doc.json"))
     p.add_argument("--token-file", default=str(HOME / ".hermes/secrets/yoonhwan_bot.env"))
     p.add_argument("--slack-base", default=SLACK_BASE)

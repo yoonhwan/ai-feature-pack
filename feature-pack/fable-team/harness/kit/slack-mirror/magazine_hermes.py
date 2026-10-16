@@ -21,7 +21,7 @@ BODY_CAP_B = 1800
 MAX_TOKENS = 400
 INPUT_TOKENS_CAP = 2000
 ANSWER_CAP = 200
-STAGE_DEADLINE_S = 120.0
+STAGE_DEADLINE_S = 70.0  # 판정 666·1375 — 총 마감 천장 70초(매거진 판은 이 호출을 안 쓰고 뉴스 쪽이 쓴다)
 WORKERS = 3
 INSTRUCTION = (
     "아래는 «{title}» 칸의 원문이에요. 항목을 하나하나 나열하지 말고 전체 흐름만, 초등학생도 알아듣는 쉬운 말로 100자 안쪽 한두 문장으로 설명해 주세요(길면 안 돼요). "

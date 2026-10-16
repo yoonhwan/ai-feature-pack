@@ -17,6 +17,45 @@ pane_of() {
     | awk -F'|' -v s="$1" '$1==s{print $2; exit}'
 }
 
+# 본체 판별 규칙: root 와 그 자손 중 claude = args 에 --dangerously-skip-permissions ∧ claude-hr(래퍼) 아님 · codex = args 공백 토큰 중 basename 이 정확히 codex(경로 끝 /codex · @openai/codex) · 그 밖(cmd·opencode) = root 아래 아무 자식(이름 미실측 — 조용히 NOAGENT 로 바꾸지 않는다). ps 실패 rc1
+agent_body_pids() {
+  local tab; tab="$(${FT_PS_CMD:-ps} -axo pid=,ppid=,args=)" || return 1
+  printf '%s\n' "$tab" | awk -v root="$1" -v ag="$2" '
+    { pp[$1]=$2; ar[$1]=$0; sub(/^ *[0-9]+ +[0-9]+ */, "", ar[$1]); o[++n]=$1 }
+    END { for (i=1; i<=n; i++) { p=o[i]; q=p; in_=0
+      for (d=0; q!="" && q!=0 && d<12; d++) { if (q==root) { in_=1; break }; q=pp[q] }
+      if (!in_) continue
+      if (ag=="claude") { if (ar[p] ~ /--dangerously-skip-permissions/ && ar[p] !~ /claude-hr/) print p }
+      else if (ag=="codex") { nt=split(ar[p], tk, " "); for (k=1; k<=nt; k++) if (tk[k] ~ /(^|\/)codex$/) { print p; break } }
+      else if (p!=root) print p } }'
+}
+# 좌석의 에이전트 종류(agent 칸) — _seats_json 파일을 먼저, 그다음 같은 폴더 seats.json·seats-*.json 전부에서 첫 일치(팀 명부 좌석 — loom·ops·harness). 못 찾으면 빈 값 · ★못 찾았고 깨진(JSON 파싱 실패) 명부가 있으면 `ERR <파일>`★ (조용히 옛 규칙으로 후퇴 0 · #0 RULE). rc 0 고정.
+_seat_agent() {
+  local sj; sj="$(_seats_json 2>/dev/null)"; [ -n "$sj" ] || return 0
+  python3 - "$sj" "$1" 2>/dev/null <<'PY'
+import glob, json, os, sys
+sj, name = sys.argv[1:3]
+d = os.path.dirname(sj) or "."
+bad = []
+for p in dict.fromkeys([sj] + sorted(glob.glob(os.path.join(d, "seats.json")) + glob.glob(os.path.join(d, "seats-*.json")))):
+    try: row = json.load(open(p, encoding="utf-8")).get(name)
+    except OSError: continue
+    except (ValueError, AttributeError): bad.append(p); continue
+    if isinstance(row, dict) and row.get("agent"): print(row["agent"]); sys.exit(0)
+if bad: print("ERR " + bad[0])
+PY
+  return 0
+}
+# $1=pane_pid $2=좌석 → rc 0 본체 있음 · 1 없음 · 2 ps 실패. claude·codex 좌석 = 본체 규칙 · 그 밖(cmd·opencode·명부에 없음) = 기존 «아무 자식» 규칙 그대로(-a 필수 · 아래 pgrep 주석)
+_agent_alive() {
+  local ag out; ag="$(_seat_agent "$2")"
+  case "$ag" in
+    ERR\ *) echo "doorbell: 명부 JSON 깨짐 — ${ag#ERR } (좌석 $2 의 agent 판독 불가 · 주입 0)" >&2; return 2;;
+    claude|codex) out="$(agent_body_pids "$1" "$ag")" || return 2; [ -n "$out" ];;
+    *) pgrep -a -P "$1" >/dev/null 2>&1;;
+  esac
+}
+
 # doorbell: 대상 pane 에 recv 트리거만 주입(본문 아님). send·relay·ring 이 공유한다.
 #
 # ★상태를 «돌려준다»★ (2026-09-06, 가) — echoes: sent | skipped | absent | noagent
@@ -56,7 +95,9 @@ doorbell() {
   #   좌석이 자기 자신·자기 조상 좌석에게 send 하면 claude 프로세스가 pane_pid 의 자식으로
   #   버젓이 있는데도 rc=1 → `noagent` → doorbell 미주입. 자기 앞 self-test 4건 전부 재현,
   #   `pgrep -a -P` 는 4/4 잡았다. 남의 좌석엔 안 나타나 오래 숨어 있었다.
-  if [ -n "$_ppid" ] && ! pgrep -a -P "$_ppid" >/dev/null 2>&1; then echo noagent; return 0; fi
+  #   ★R251★ «아무 자식» 은 셸 플러그인 데몬·아직 안 끝난 claude-hr 래퍼도 에이전트로 센다 — 본체 판별(agent_body_pids)로 바꾼다.
+  if [ -n "$_ppid" ]; then _arc=0; _agent_alive "$_ppid" "$to" || _arc=$?   # set -e 안전
+    case "$_arc" in 0) ;; 1) echo noagent; return 0;; *) echo error; return 0;; esac; fi
   seat="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   stamp="${TMPDIR:-/tmp}/mbox-doorbell-$seat"
   recvstamp="${TMPDIR:-/tmp}/mbox-recv-$seat"

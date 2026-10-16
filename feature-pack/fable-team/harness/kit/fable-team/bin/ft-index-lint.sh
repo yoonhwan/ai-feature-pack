@@ -43,11 +43,11 @@ last_verdict() { grep -owE 'APPROVE|HOLD|REJECT' "$1" | tail -1; }  # DA 판정 
 hold_conditional() {  # $1=사전검증 본문 $2=카드 → 0=예외 성립(INFO 출력) · 1=불성립(HOLD_WHY=사유, 예외 줄 자체가 없으면 빈 값)
   local n rc; HOLD_WHY=""
   n="$(printf '%s\n' "$1" | sed -nE 's/^[-* ]*lint 예외 1건: *판정 ([0-9]+) ① 조건부 승인.*/\1/p' | head -1)"
-  [ -n "$n" ] || return 1
+  [ -n "$n" ] || return 1; . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-verdict-row.sh" 2>/dev/null || { HOLD_WHY="판정 줄 공용 함수(ft-verdict-row.sh) 없음"; return 1; }   # R255·R257 원장 두 꼴
   git -C "$ROOT" rev-parse -q --verify refs/remotes/origin/main >/dev/null 2>&1 || { HOLD_WHY="원장 확인 불가 (origin/main ref 없음)"; return 1; }
-  git -C "$ROOT" grep -qE -e "^- \*\*$n\*\*.*조건부 승인" origin/main -- 'design/planner/VERDICTS-planner-*.md' >/dev/null 2>&1; rc=$?
+  git -C "$ROOT" grep -qE -e "$(fv_row_re "$n").*조건부 승인" origin/main -- 'design/planner/VERDICTS-planner-*.md' >/dev/null 2>&1; rc=$?
   [ $rc -le 1 ] || { HOLD_WHY="원장 확인 불가 (git grep rc=$rc)"; return 1; }
-  [ $rc -eq 0 ] || { HOLD_WHY="planner 원장에 「- **$n**」 조건부 승인 줄 없음"; return 1; }
+  [ $rc -eq 0 ] || { HOLD_WHY="planner 원장에 판정 $n 조건부 승인 줄 없음(글머리 「- **$n**」·표 행 「| $n |」 둘 다)"; return 1; }
   section_body "$2" '완료 조건' | grep -q '잔여 HOLD' || { HOLD_WHY="완료 조건에 「잔여 HOLD」 표식 없음"; return 1; }
   echo "INFO 사전검증: DA 마지막 판정 HOLD — planner 판정 $n 조건부 승인으로 통과"
 }

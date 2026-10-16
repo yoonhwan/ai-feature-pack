@@ -451,7 +451,8 @@ hil_watch() {
   each="$(bash "$HIL_BIN" --pending --each 2>/dev/null)"; sdir="$STATE_DIR/hil-notified"; day="$(date +%Y%m%d)"
   while read -r h m; do
     [ -n "$h" ] && [ "${m:-0}" -ge "$HIL_NOTIFY_MIN" ] || continue
-    mkdir -p "$sdir" && mkdir "$sdir/$h.$day" 2>/dev/null || continue   # 원자적 선점 — 진 쪽은 송신하지 않는다
+    # 원자적 선점 — 진 쪽은 송신하지 않는다
+    if ! { mkdir -p "$sdir" && mkdir "$sdir/$h.$day" 2>/dev/null; }; then continue; fi
     notify_team "[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! bash ${HIL_DIR:-/tmp}/$h (이미 대체된 장이면 무시)" planner \
       || rmdir "$sdir/$h.$day" 2>/dev/null
   done <<< "$each"

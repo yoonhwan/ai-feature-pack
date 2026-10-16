@@ -15,17 +15,14 @@ import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
+from ft_flag_off import open_flags, scan  # noqa: E402
 from ft_inbox_core import MUST_REPORT, R, lineage, obligation_closed, qpath, read_q  # noqa: E402
 
 T0 = time.monotonic()
 BUDGET_S = 2.0  # 도구 1회 전체 예산(R214 완료 조건) — tmux 조회는 남은 예산만큼만 기다린다
 HERE = os.path.dirname(os.path.abspath(__file__))
-WAIT_MIN = int(os.environ.get("FT_DECISION_WAIT_MIN", "30"))
 NO_MARK = "(자율 큐 처리 표식 없음)"
-
-
-class ReadError(Exception):
-    pass
 
 
 def planner():
@@ -126,52 +123,30 @@ def scripts():
     return sum(1 for ln in p.stdout.splitlines() if re.fullmatch(r"h\d+ \d+", ln))
 
 
+def flag_off(wt):
+    """(꺼진 플래그 미결정 수, 메모) — 기본 꺼짐 FE 플래그인데 배포 값이 없는 것 중 결정 기록(켬/끔 + 판정)이 없는 것 (R239)."""
+    t = table("FT_DECISION_FLAG_DECISIONS", "FLAG-DECISIONS.md", wt)
+    decided = set()
+    if t:
+        i, j, k = (column("FLAG-DECISIONS", t, c) for c in ("플래그", "결정(켬/끔)", "판정"))
+        decided = {r[i] for r in t[0] if r[j] in ("켬", "끔") and r[k]}
+    rows = open_flags(scan(os.environ.get("FT_FLAG_OFF_REPO", R), os.environ.get("FT_FLAG_OFF_REF", "origin/main"), min(7.0, left())), decided)
+    return len(rows), (f"(꺼진 플래그 {len(rows)})" + ("" if t else " (플래그 결정 파일 없음)") if rows else "")
+
+
 def summary(now):
     me, wt = planner()
     decide, team, old = inbox(me, now)
     mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt)
     a, note = autonomy_open(aq) if aq else (0, "(AUTONOMY-QUEUE 파일 없음)")
-    notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {old})" if old else "", note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)
-    return {"me": me, "n": decide + (merge_waiting(mq) if mq else 0) + a, "m": scripts(), "team": team, "notes": notes}
+    f, fnote = flag_off(wt)
+    notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {old})" if old else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)
+    return {"me": me, "n": decide + (merge_waiting(mq) if mq else 0) + a + f, "m": scripts(), "team": team, "notes": notes}
 
 
 def line(s):
     wait = f"팀 대기 {len(s['team'])}건" + (f"(가장 오래 {s['team'][0][1]} {s['team'][0][2]}분)" if s["team"] else "")
     return f"결정 인터뷰 {s['n']}건 · 스크립트 {s['m']}건 · {wait}" + (" " + s["notes"] if s["notes"] else "")
-
-
-def first_line(path):
-    try:
-        return re.sub(r"^\[[^\]]*->[^\]]*\]\s*", "", open(path, encoding="utf-8").readline().strip())[:40]
-    except OSError:
-        return ""
-
-
-def alarm(s):
-    sf = f"{R}/.fable-team/state/decision-alarm.json"
-    try:
-        sent = json.load(open(sf, encoding="utf-8")) if os.path.exists(sf) else {}
-    except (OSError, ValueError) as e:
-        raise ReadError(f"경보 상태 파일 {sf}: {e}")
-    live = {str(t[0]) for t in s["team"]}
-    sent = {k: v for k, v in sent.items() if k in live}  # 닫히면 지운다(재무장)
-    mbox, who = os.environ.get("FT_DECISION_MBOX", f"{R}/.fable-team/comm/mbox.sh"), os.environ.get("FT_DECISION_FROM", "ft-decision-count")
-    new = [t for t in s["team"] if t[2] >= WAIT_MIN and str(t[0]) not in sent]
-    err = ""
-    if new:  # 실행 1회 = 쪽지 최대 1통(≤5줄)
-        shown = [f"{frm} #{seq} {mins}분" for seq, frm, mins, _ in new[:3]]
-        body = "\n".join([f"[결정 대기 경보] 새로 {WAIT_MIN}분 넘은 팀 대기 {len(new)}건 — 그 턴에 정하거나 오빠 인터뷰", *shown, *([f"외 {len(new) - 3}건"] if len(new) > 3 else [])])
-        p = subprocess.run(["bash", mbox, "send", s["me"], who, body], capture_output=True, text=True, timeout=7)
-        if p.returncode == 0:
-            sent.update({str(t[0]): datetime.now().isoformat(timespec="seconds") for t in new})
-            print(f"ALARM {len(new)}건 1통")
-        else:
-            err = f"mbox send rc={p.returncode} {p.stderr.strip()[:120]}"
-    os.makedirs(os.path.dirname(sf), exist_ok=True)
-    with open(sf, "w", encoding="utf-8") as f:
-        json.dump(sent, f)  # 닫힌 seq 를 지운 상태도 여기서 저장(재무장)
-    if err:
-        raise ReadError(err)
 
 
 def main(argv):

@@ -5,6 +5,7 @@
 #                켜기 직전 인증 사전 점검(ft-autonomy-start.sh preflight)이 status 위에 붙는다 — 실패해도 켜기는 진행
 #   status       `[자율 ON A7 · 23:41~ · ~08:00까지 · 대리 3 · 큐 1]`(끝 없으면 `끝 없음`) / `[자율 OFF]` / `[자율 ?? 위변조 → OFF]`
 #   mode | event 기계용: on|off|tamper · 현재(또는 마지막) 사건 번호 A<N>
+#   state-dir    상태 폴더 해석의 유일한 출처(R253) — $STATE 를 1줄 출력(쓰기 0) · ft-merge-land.sh 가 승인 파일 폴더를 여기서 받는다
 #   approve-merge <40hex>…  main 병합 승인(판정 1675) — 오빠 `!` 한 줄로만. ON 일 때만: 각 sha 에 대해
 #                승인 줄 `approve-merge <sha> A<N> <epoch>` 을 autonomy.log 에 먼저 추가한 뒤 $STATE/autonomy-merge-approved/<sha> 에 같은 줄을 쓴다
 #                (병합 가드는 파일 + log 의 글자 그대로 일치만 본다) · 형식 틀림·OFF·위변조 = REJECT rc 2(상태 쓰기 0)
@@ -182,5 +183,6 @@ case "${1:-}" in
   status) status ;;
   mode) mode ;;
   event) event ;;
-  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|approve-merge <40hex>…" >&2; exit 2 ;;
+  state-dir) printf '%s\n' "$STATE" ;;
+  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…" >&2; exit 2 ;;
 esac

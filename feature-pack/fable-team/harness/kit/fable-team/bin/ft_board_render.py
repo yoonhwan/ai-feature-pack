@@ -38,7 +38,8 @@ def summary_lines(d: dict, slack: bool) -> list[str]:
             first = next(iter(t["progress"].items()), None)
             now_s = f"진행 {t['counts']['진행']}" + (f"({first[1]['title']} · {_seats_text(first[1])})" if first else "")
             queue_s = f"대기 {t['counts']['대기']}" + (f"({t['queue'][0]['title']})" if t["queue"] else "")
-        row = f"- {t['label']} | 지금: {now_s} | 큐: {queue_s} | 오빠 할 일 {len(t['oppa_todo'])}"
+        under = f" · {t['parent']} 아래" if t.get("parent") else ""   # 위성팀 보고선(R252) — 명부 _parent 없으면 표기 0
+        row = f"- {t['label']}{under} | 지금: {now_s} | 큐: {queue_s} | 오빠 할 일 {len(t['oppa_todo'])}"
         out.append((row if slack else f"{row} | 결정 자리: {d['decision']}") + summary_cols(t))
     return out
 

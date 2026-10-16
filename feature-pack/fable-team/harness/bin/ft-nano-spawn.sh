@@ -37,6 +37,11 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
   fi
   echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-ft-v65-temp-} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
+# ★좌석 상한 (R252 · 판정 1949)★: 팀 env 에 FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP 가 있는 팀(위성)만 — 부작용 0 지점(워크트리·세션·명부 «전»)에서 센다. env 가 없는 팀은 검사 0.
+if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
+  [ -f "$HERE/ft_seat_cap.py" ] || { echo "REJECT ft_seat_cap.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  _cap="$(python3 "$HERE/ft_seat_cap.py" --root "$ROOT")" || { printf '%s\n' "$_cap"; exit 1; }
+fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
 #   검사 스크립트가 없는 것도 드리프트(설치 누락) · 우회 스위치 없음 — 해결은 master 라이브 cp.
 case "$HERE" in
@@ -80,7 +85,7 @@ SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
 # 형제 도구는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 lint 의 «파일 없음» 이 «lint 실패» 로, 첫 발주는 좌석을 연 «뒤» 에 죽는다. 열기 «전»에 거절한다(R134). --dry-run 은 송신 전(179행)에 끝나므로 send-verified 는 실전만.
-for _sib in ft-index-lint.sh $([ "$DRY" = 1 ] || echo ft-send-verified.sh); do
+for _sib in ft-index-lint.sh $([ "$DRY" = 1 ] || echo ft-send-verified.sh ft-agent-ready.sh); do
   [ -f "$HERE/$_sib" ] || { echo "REJECT $_sib 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 done
 # R149(판정 1641): 상향 모델은 사유 필수 — 해석이 끝난 실제 MODEL 로 판정하고 부작용(카드·원장·워크트리·tmux·명부) «전»에 거절한다. rc 0=상향 1=기본 그 밖=도구 고장(조용히 기본 취급 0)
@@ -194,6 +199,8 @@ if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/script
   if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi
   case "$_src" in 0|1) ;; 3) echo "REJECT 슬랙 장부 불명 — byz_thread_post.py repair --card $IDX (부작용 0)"; exit 1;; *) echo "REJECT 슬랙 장부 확인 실패 rc=$_src(127=도구 없음) — 부작용 0"; exit 1;; esac; fi
 if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit 0; fi
+# R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않고 거절한다
+bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" || exit 1
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
 _SK="$(bash "$HERE/ft-sheet-events.sh" key spawn "$SLUG" "$NAME")"; _ST="$(printf '%s' "$IDX_REL" | sed -n 's#^design/\([a-z0-9]*\)/indices/.*#\1#p')"
 bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' spawn "${_ST:-v65}" "$SLUG" "$NAME" "$IDX_REL" "$FROM")" >/dev/null || { echo "REJECT 사건 원장 prepared 실패 — 착수 거절(부작용 0)"; exit 1; }
@@ -267,6 +274,8 @@ human() { echo "REJECT $1 실패 — 세션 $NAME 떠 있음·명부 등록됨 �
 tmux has-session -t "=$NAME" 2>/dev/null || { [ "$_orc" -eq 0 ] && echo "REJECT 세션이 안 떴다: $NAME" || echo "REJECT tmuxc open 실패 ($NAME)"; exit 1; }
 IFS='|' read -r PANE _cr < <(tmux list-panes -a -F '#{session_name}|#{pane_id}|#{session_created}' | awk -F'|' -v s="$NAME" '$1==s{print $2"|"$3; exit}'); OWNED=""; [ -n "$PANE" ] && [ -n "$_cr" ] && OWNED="$PANE:$_cr"
 [ "$_orc" -eq 0 ] || fail_rb "REJECT tmuxc open 실패 ($NAME)"
+# R251 ⓑ 에이전트 본체 확인 — 명부·카드 이동 «전». 없으면 이 실행이 연 pane 에 기동 명령 1회 재입력, 그래도 없으면 롤백(카드는 대기 그대로)
+bash "$HERE/ft-agent-ready.sh" --pane "$PANE" --agent "$AGENT" --restart "$("${OPEN[@]}" --dry-run 2>/dev/null | sed -n 's/^command=//p')" || fail_rb "REJECT 에이전트 미기동 ($NAME) — 재기동 1회 실패"
 
 # ④ 소실 방지 두 줄 — E-190(remain-on-exit 없어 pane 통째 소실) · E-212(태그 없어 zombie-clean 이 kill)
 # ★`-t "=$NAME"` 은 has-session 에만 통한다★ (실측 2026-09-14): `#` 든 이름에 set-option/display-message 는
@@ -306,8 +315,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $WT/${FT_SEATBELT_README:-design/v65/SEATBELT-README.md} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_EBN}"
-sleep 8   # 에이전트 부팅. 짧으면 doorbell 이 셸에 떨어진다(noagent)
-if FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; then
-  echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0
-fi
-rc=$?; echo "SPAWNED-UNVERIFIED $NAME rc=$rc — 좌석은 떴다. 도달을 사람이 확인"; exit 5
+# (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
+FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
+[ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0; }
+echo "SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; exit 5

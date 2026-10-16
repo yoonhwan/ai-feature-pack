@@ -1,112 +1,37 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex">
-  <meta name="color-scheme" content="light dark">
-  <title>{{TITLE}}</title>
-  <style>
-    :root { --red:#e30613; --ink:#111; --paper:#fff; --soft:#f2f2f2; --muted:#686868; --line:#c8c8c8; --font:"Helvetica Neue","Akzidenz-Grotesk",Inter,Arial,"Apple SD Gothic Neo",sans-serif; }
-    @media (prefers-color-scheme: dark) { :root { --ink:#fff; --paper:#080808; --soft:#171717; --muted:#aaa; --line:#3b3b3b; } }
-    :root[data-theme="light"] { --ink:#111; --paper:#fff; --soft:#f2f2f2; --muted:#686868; --line:#c8c8c8; }
-    :root[data-theme="dark"] { --ink:#fff; --paper:#080808; --soft:#171717; --muted:#aaa; --line:#3b3b3b; }
-    * { box-sizing:border-box; }
-    html { scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
-    body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--font); font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased; }
-    h1,h2,h3,h4,p,ol,ul,blockquote { margin:0; }
-    ol,ul { padding-left:1.3em; }
-    .page { width:min(100% - 40px,1100px); margin:0 auto; padding:28px 0 64px; }
-    .grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); column-gap:24px; }
-    .mast { border-top:8px solid var(--red); padding-top:18px; }
-    .brand { grid-column:1 / span 6; font-size:clamp(1.1rem,2vw,1.65rem); font-weight:900; letter-spacing:-.04em; line-height:1; }
-    .issue { grid-column:9 / -1; text-align:right; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-    .hero { margin-top:56px; align-items:end; }
-    .hero-date { grid-column:1 / span 8; font-size:clamp(3rem,8vw,7rem); font-weight:900; letter-spacing:-.07em; line-height:.85; word-break:keep-all; }
-    .hero-note { grid-column:9 / -1; padding-top:12px; border-top:1px solid var(--ink); font-size:.82rem; font-weight:700; }
-    .hero-note span { display:block; margin-top:8px; color:var(--muted); font-weight:500; }
-    .intro { margin-top:28px; max-width:70ch; color:var(--muted); font-size:.9rem; }
-    .jump { margin-top:22px; display:flex; flex-wrap:wrap; gap:6px 20px; }
-    .jump a { color:inherit; text-decoration:none; font-size:.72rem; font-weight:800; letter-spacing:.06em; }
-    .jump a::before { content:"↘ "; color:var(--red); }
-    .theme-switch { margin-top:16px; display:flex; gap:6px; }
-    .theme-switch button { font:inherit; border:1px solid var(--line); background:transparent; color:var(--muted); padding:5px 11px; font-size:.68rem; font-weight:800; cursor:pointer; }
-    .theme-switch button.on { border-color:var(--red); color:var(--red); }
-    .section { margin-top:96px; }
-    .section-head { align-items:end; padding-bottom:14px; border-bottom:3px solid var(--ink); }
-    .section-index { grid-column:1; color:var(--red); font-size:.85rem; font-weight:900; }
-    .section-title { grid-column:2 / span 8; font-size:clamp(1.6rem,3.2vw,3rem); font-weight:900; letter-spacing:-.05em; line-height:1; }
-    .xall { grid-column:10 / -1; justify-self:end; border:0; border-bottom:1px solid var(--ink); padding:2px 0; background:transparent; color:var(--ink); cursor:pointer; font:inherit; font-size:.72rem; font-weight:800; }
-    .easy { margin:22px 0 4px; padding:14px 16px; border-left:6px solid var(--red); background:var(--soft); font-size:1.05rem; font-weight:600; line-height:1.6; }
-    .easy.fail { color:var(--muted); font-size:.85rem; font-weight:500; }
-    .body { margin-top:18px; font-size:.92rem; }
-    .body > * + * { margin-top:10px; }
-    .body h4 { margin-top:22px; font-size:.95rem; font-weight:900; }
-    .body li + li { margin-top:4px; }
-    .body table { width:100%; border-collapse:collapse; font-size:.88rem; }
-    .body th,.body td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
-    .body th { border-bottom:2px solid var(--ink); font-size:.72rem; letter-spacing:.06em; }
-    .body code { padding:1px 5px; background:var(--soft); font-size:.85em; }
-    details.row { border-bottom:1px solid var(--line); }
-    details.row > summary { min-height:78px; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); column-gap:24px; align-items:center; padding:12px 0; cursor:pointer; list-style:none; }
-    details.row > summary::-webkit-details-marker { display:none; }
-    details.row > summary:focus-visible { outline:2px solid var(--red); outline-offset:4px; }
-    details.row .no { grid-column:1; color:var(--red); font-size:1.1rem; font-weight:900; font-variant-numeric:tabular-nums; }
-    details.row .hd { grid-column:2 / span 9; font-size:clamp(1.05rem,1.8vw,1.4rem); font-weight:800; letter-spacing:-.02em; }
-    details.row .chev { grid-column:12; justify-self:end; color:var(--red); font-size:1.6rem; line-height:1; transition:transform .18s ease; }
-    details.row[open] .chev { transform:rotate(90deg); }
-    details.row .det { padding:0 0 30px; }
-    .foot { margin-top:70px; padding-top:12px; border-top:1px solid var(--ink); display:flex; justify-content:space-between; gap:20px; color:var(--muted); font-size:.68rem; font-weight:700; }
-    @media (max-width:760px) {
-      .page { width:min(100% - 28px,680px); }
-      .grid { column-gap:10px; }
-      .brand { grid-column:1 / span 7; }
-      .issue { grid-column:8 / -1; }
-      .hero-date,.hero-note { grid-column:1 / -1; }
-      .hero-note { margin-top:26px; }
-      .section { margin-top:64px; }
-      .section-index { grid-column:1 / span 2; }
-      .section-title,.xall { grid-column:3 / -1; }
-      .xall { margin-top:12px; justify-self:start; }
-      details.row > summary { grid-template-columns:34px 1fr 20px; gap:8px; }
-      details.row .no,details.row .hd,details.row .chev { grid-column:auto; }
-      .body table { display:block; overflow-x:auto; }
-      .foot { flex-direction:column; }
-    }
-    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } details.row .chev { transition:none; } }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--mute:#6b6a65;--line:#e4e1d9;--accent:#b4441f;--chip:#f1ede4;--ok:#2f7d4f;--warn:#a86412}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17171a;--fg:#ecebe6;--mute:#a19f98;--line:#2e2e33;--accent:#ff8a5c;--chip:#232328;--ok:#6fcf97;--warn:#f2b45a}}
+:root[data-theme="dark"]{--bg:#17171a;--fg:#ecebe6;--mute:#a19f98;--line:#2e2e33;--accent:#ff8a5c;--chip:#232328;--ok:#6fcf97;--warn:#f2b45a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,"Apple SD Gothic Neo","Pretendard",sans-serif}
+main{max-width:720px;margin:0 auto;padding:28px 16px 64px}
+.date{color:var(--mute);font-size:14px;letter-spacing:.02em}
+h1{font-size:24px;line-height:1.4;margin:6px 0 22px}
+h2{font-size:15px;color:var(--accent);margin:34px 0 10px;letter-spacing:.03em}
+ol,ul{padding-left:22px;margin:0}
+li{margin:6px 0}
+.grp{margin:16px 0 4px;font-weight:600}
+.todo li::marker{color:var(--accent);font-weight:700}
+.cmd{font-family:ui-monospace,Menlo,monospace;background:var(--chip);padding:1px 6px;border-radius:4px;font-size:14px}
+.risk{border-left:3px solid var(--warn);padding:8px 12px;background:var(--chip);border-radius:0 6px 6px 0;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:13px}
+.ok{color:var(--ok)} .wait{color:var(--warn)} .mute{color:var(--mute)}
+.more{color:var(--mute);font-size:14px;margin-top:8px}
+footer{margin-top:44px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--mute)}
+footer table{font-size:13px} footer td,footer th{padding:5px 4px}
+</style>
 </head>
 <body>
-<div class="page">
-  <header class="mast">
-    <div class="grid"><div class="brand">BYZ 하네스<br>오빠 확인판</div><div class="issue">Confirmed Brief<br>{{DATE}}</div></div>
-    <div class="grid hero"><h1 class="hero-date">{{HERO}}</h1><p class="hero-note">원본 문서 {{SRC}}<span>쉬운 말 한 문단은 에르메스가, 아래 원문은 그대로예요</span></p></div>
-  </header>
-  <p class="intro">{{INTRO}}</p>
-  <nav class="jump" aria-label="바로가기">{{JUMP}}</nav>
-  <div class="theme-switch" role="group" aria-label="테마 선택">
-    <button type="button" data-theme-choice="system">시스템</button>
-    <button type="button" data-theme-choice="light">라이트</button>
-    <button type="button" data-theme-choice="dark">다크</button>
-  </div>
-{{CELLS}}
-  <section id="teams" class="section">
-    <div class="grid section-head"><span class="section-index">{{TEAMS_INDEX}}</span><h2 class="section-title">팀별 상태와 할 일 전체</h2><button type="button" class="xall" onclick="var o=this.dataset.o!=='1';document.querySelectorAll('#teams details').forEach(function(d){d.open=o});this.dataset.o=o?'1':'';this.textContent=o?'모두 접기':'모두 펼치기'">모두 펼치기 · {{TEAM_COUNT}}</button></div>
-{{TEAMS}}
-  </section>
-  <footer class="foot"><span>{{DATE}}</span><span>Generated from {{SRC}}</span></footer>
-</div>
-<script>
-(function () {
-  var KEY = 'byz-magazine-theme', root = document.documentElement, buttons = document.querySelectorAll('.theme-switch button');
-  function apply(mode) {
-    if (mode === 'light' || mode === 'dark') { root.setAttribute('data-theme', mode); }
-    else { root.removeAttribute('data-theme'); mode = 'system'; }
-    buttons.forEach(function (b) { b.classList.toggle('on', b.dataset.themeChoice === mode); });
-  }
-  apply(localStorage.getItem(KEY) || 'system');
-  buttons.forEach(function (b) { b.addEventListener('click', function () { localStorage.setItem(KEY, b.dataset.themeChoice); apply(b.dataset.themeChoice); }); });
-})();
-</script>
+<main>
+{{BODY}}
+</main>
 </body>
 </html>

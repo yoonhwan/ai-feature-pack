@@ -5,6 +5,7 @@ dict 에는 시각이 없다(같은 입력 → 같은 해시). 시각이 필요�
 """
 import json
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -84,11 +85,23 @@ def _done_today(cards: dict, date: str) -> dict:
     return {"n": len(today), "last": max(today)[1] if today else None}
 
 
+def _parent(root: Path, path: Path, seats: dict) -> str | None:
+    """위성팀 보고선 — 명부 `_parent`(없으면 None · 표시 0). 명부 목록에 없는 팀이면 "?" + stderr 1줄(조용한 빈칸 0 · R252)."""
+    parent = seats.get("_parent")
+    if not parent:
+        return None
+    known = {"v65" if f.stem == "seats" else f.stem.removeprefix("seats-") for f in (root / ".fable-team").glob("seats*.json")}
+    if parent in known:
+        return parent
+    print(f"WARN {path.name}: _parent={parent!r} 가 명부 목록에 없다 — 보고선 ?", file=sys.stderr)
+    return "?"
+
+
 def team_block(root: Path, path: Path, alive: set, date: str, vds: list, mail: Mail) -> dict:
     seats = json.loads(path.read_text(encoding="utf-8"))
     cells = SeatCells(seats, alive, mail, env.now())
     key = "v65" if path.stem == "seats" else path.stem.removeprefix("seats-")
-    block = {"key": key, "label": seats.get("_label") or key, "master": seats.get("_master"),
+    block = {"key": key, "label": seats.get("_label") or key, "parent": _parent(root, path, seats), "master": seats.get("_master"),
              "cards_dir": seats.get("_cards"), "tree": seats.get("_tree"), "states": {}, "axes": [], "progress": {},
              "queue": [], "done_today": {"n": 0, "last": None}, "leads": _leads(seats, alive, cells),
              "counts": dict.fromkeys(STATES, 0),

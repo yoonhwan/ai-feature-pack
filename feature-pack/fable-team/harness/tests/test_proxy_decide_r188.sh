@@ -85,14 +85,14 @@ setup_docs; dp main; okq "main"; ck "ⓔ main → 목록과 무관하게 QUEUE" 
 
 # ===== 변이 1: 표 행 패턴을 지우면 ⓐ 가 실패해야 한다 =====
 rm -rf "$T/mutbin"; cp -R "$BIN" "$T/mutbin"
-python3 - "$BIN/ft-proxy-decide.sh" "$T/mutbin/ft-proxy-decide.sh" <<'PY'
+python3 - "$BIN/ft-verdict-row.sh" "$T/mutbin/ft-verdict-row.sh" <<'PY'
 import sys
 t = open(sys.argv[1], encoding="utf-8").read()
-old = '|\\|[[:space:]]*$verdict[[:space:]]*\\|)'
+old = '|\\\\|[[:space:]]*${1}[[:space:]]*\\\\|)'   # 표 행 패턴은 공용 함수 파일(R255)로 옮겨 갔다
 assert old in t, "mutation anchor missing"
 open(sys.argv[2], "w", encoding="utf-8").write(t.replace(old, ')', 1))
 PY
-! cmp -s "$BIN/ft-proxy-decide.sh" "$T/mutbin/ft-proxy-decide.sh"; ck "변이 1 적용됨(표 행 패턴 제거)" $?
+! cmp -s "$BIN/ft-verdict-row.sh" "$T/mutbin/ft-verdict-row.sh"; ck "변이 1 적용됨(표 행 패턴 제거)" $?
 SB="$BIN"; cs 201; okp; ck "변이 기준: 원본은 ⓐ 표 행 PROXY" $?
 SB="$T/mutbin"; cs 201; ! okp; ck "변이 1 → ⓐ 실패(검출)" $?
 

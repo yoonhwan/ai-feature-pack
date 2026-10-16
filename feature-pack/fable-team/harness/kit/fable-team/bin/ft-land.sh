@@ -50,3 +50,4 @@ BAD="$(comm -23 <(G diff --diff-filter=D --name-only "$T" "$CAND" | sort) <(G di
 bash "$HERE/ft-sheet-events.sh" commit "$SK" --ref "T=${T:0:10} cand=${CAND:0:10}" >/dev/null || true
 echo "LAND-CANDIDATE mode=$MODE T=$T OID=$OID CANDIDATE=$CAND feat=$F target=$REMOTE/$TARGET"
 echo "DRY-RUN push 안 함 — 이 후보 sha 만 ⑤ 게이트로 넘긴다(수락·push 는 C7·C10 뒤)"
+fm_flag_off_new "$REPO" "$T" "$CAND"   # R239: 이 랜딩이 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(rc·후보 불변)

@@ -15,6 +15,7 @@ STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
 PLANNER="${FT_PLANNER_DIR:-$ROOT/design/planner}"
 QUEUE="$PLANNER/AUTONOMY-QUEUE.md"
 AUT="$HERE/ft-autonomy.sh"; CLS="$HERE/autonomy_classify.py"
+. "$HERE/ft-verdict-row.sh" || { echo "REJECT 판정 줄 공용 함수(ft-verdict-row.sh)를 못 읽음 — 같은 폴더에 있어야 한다" >&2; exit 4; }   # 원장 두 꼴(글머리·표 행) 읽기 정본
 CALL_TIMEOUT_S=7   # 외부 호출 한 시도 상한 + 재시도 1회 = shared/config/external_call.py 값 (판정 666)
 CALL_RETRIES=1
 
@@ -92,7 +93,7 @@ card_check() {  # card-start — 판정 줄 결속 + 카드 본문(배경·구�
   case "$verdict" in *[!0-9]*) queue_exit "판정 번호가 숫자 아님" ;; esac
   [ -r "$card" ] || queue_exit "카드를 못 읽음: $card"
   slug="$(basename "$card" .md)"
-  line="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -E "^(- \*\*$verdict\*\*|\|[[:space:]]*$verdict[[:space:]]*\|)" | head -1)"   # 글머리 `- **N**` 꼴 · 표 행 `| N |` 꼴 둘 다(번호 경계 엄격)
+  line="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -E "$(fv_row_re "$verdict")" | head -1)"   # 글머리 `- **N**` 꼴 · 표 행 `| N |` 꼴 둘 다(번호 경계 엄격 — ft-verdict-row.sh)
   [ -n "$line" ] || queue_exit "원장에 판정 $verdict 줄 없음"
   # 이름 경계: 앞뒤가 [A-Za-z0-9_-] 가 아니어야 한다 (r-wait-events ⊄ r-wait-events-rotate)
   grep -qE "(^|[^A-Za-z0-9_-])$(printf '%s' "$slug" | sed 's/[][\.*^$()+?{|]/\\&/g')([^A-Za-z0-9_-]|$)" <<<"$line" || queue_exit "판정 $verdict 줄이 카드 이름($slug)을 말하지 않음"
@@ -150,7 +151,8 @@ case "$kind" in nano-reopen) nano_reopen_check ;; docs-push) docs_push_check ;; 
 LEDGER="${FT_PROXY_LEDGER:-$(ls "$PLANNER"/VERDICTS-*.md 2>/dev/null | sed 's/.*planner-\([0-9]*\)-.*/\1 &/' | sort -n | tail -1 | cut -d' ' -f2-)}"
 [ -n "$LEDGER" ] || usage "판정 원장 파일 없음: $PLANNER/VERDICTS-*.md"
 lock
-num="$(( $(cat "$PLANNER"/VERDICTS-*.md "$LEDGER" 2>/dev/null | sed -n 's/^- \*\*\([0-9][0-9]*\)\*\*.*/\1/p' | sort -n | tail -1) + 1 ))"
+max="$(cat "$PLANNER"/VERDICTS-*.md "$LEDGER" 2>/dev/null | fv_max)" || fail "판정 원장에서 번호를 하나도 못 읽음(글머리·표 행 둘 다) — 번호 발급 0"
+num=$((max + 1))
 [ -f "$LEDGER" ] && [ -w "$LEDGER" ] || fail "판정 원장이 쓰기 가능한 파일이 아님: $LEDGER"
 line="$(printf -- '- **%s** [대리 · 자율 ON %s] %s → %s · 근거 %s · 되돌림 %s' "$num" "$EV" "$(san "$q")" "$(san "$choice")" "$(san "$why")" "$(san "$undo")")"
 printf '%s\n' "$line" >> "$LEDGER" || fail "판정 원장 쓰기 실패: $LEDGER"
