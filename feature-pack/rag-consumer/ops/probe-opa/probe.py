@@ -39,8 +39,20 @@ def _argv_mode(argv: list[str]) -> str:
     return "production"
 
 
+def _argv_p0(argv: list[str]) -> tuple[bool, bool | None]:
+    """N4 (design r10 §4.2): ``--p0-only`` runs only P4 and P0; ``--process-type-set true|false`` says whether the wrapper
+    put a ProcessType key into this job's plist. Read here like the mode (the imports of s2/compare have neither);
+    ``main`` checks the pair before anything runs."""
+    value = None
+    if "--process-type-set" in argv and argv.index("--process-type-set") + 1 < len(argv):
+        value = {"true": True, "false": False}.get(argv[argv.index("--process-type-set") + 1])
+    return "--p0-only" in argv, value
+
+
 MODE = _argv_mode(sys.argv)
 SELFTEST = MODE == "selftest"
+P0_ONLY, PROCESS_TYPE_SET = _argv_p0(sys.argv)
+PROFILE_VERSION = 1
 
 
 def override(name: str, default):
@@ -648,6 +660,9 @@ def execute(directory: Path) -> None:
         save()
         done["P4"] = stage_p4(book, budget)
         save()
+        if P0_ONLY:
+            run_p0only(directory, done, book, budget, save)
+            return
         token = read_token()
         op = override("PROBE_OP_BIN", None) or shutil.which("op", path=os.environ.get("PATH"))
         stopped: str | None = None
@@ -669,6 +684,38 @@ def execute(directory: Path) -> None:
         result.update(complete=True, conclusion="observation_unknown",
                       aborted_class=type(error).__name__ if type(error).__name__ in ERROR_CLASSES else "Exception")
         write_json_atomic(result_path, result)
+
+
+def load_triplet() -> list[float] | None:
+    """The three load averages (no subprocess), rounded to 2 decimals; anything unreadable or not a sane number is
+    None (the reading is then simply absent)."""
+    try:
+        values = [round(float(x), 2) for x in os.getloadavg()]
+    except (OSError, ValueError):
+        return None
+    return values if len(values) == 3 and all(math.isfinite(x) and 0 <= x < 10000 for x in values) else None
+
+
+def run_p0only(directory: Path, done: dict[str, dict], book: PidBook, budget: Budget, save) -> None:
+    """Design r10 §4.2-5 (P4 is already in ``done``): only ``op --version`` is run, once; the three later steps are
+    ``skipped_not_applicable``. profile.json is finished (atomic rename) BEFORE the result says complete: the wrapper
+    takes its job down as soon as it sees complete=true."""
+    if PROCESS_TYPE_SET is None:
+        raise ValueError
+    op = override("PROBE_OP_BIN", None) or shutil.which("op", path=os.environ.get("PATH"))
+    before = load_triplet()
+    done["P0"] = run_cli("P0", op, None, book, budget)
+    after = load_triplet()
+    for name in ("P2", "P1", "P1b"):
+        done[name] = blank_step(name, "skipped_not_applicable")
+    save()
+    delay = override_seconds("PROBE_P0_PROFILE_DELAY", 0.0)  # test hook: a slow final profile write
+    if delay:
+        time.sleep(delay)
+    write_json_atomic(directory / "profile.json", {
+        "profile_version": PROFILE_VERSION, "profile": "p0only", "process_type_set": PROCESS_TYPE_SET,
+        "load_before": before, "load_after": after})
+    save(complete=True)
 
 
 def run_cli(name: str, op: str | None, token: str | None, book: PidBook, budget: Budget) -> dict:
@@ -810,12 +857,26 @@ def bounded(cap: float, argv: list[str]) -> int:
 
 def main(argv: list[str]) -> int:
     usage = ("usage: probe.py --run DIR --mode production|selftest | --close-timeout DIR | --report DIR | "
-             "--list-pids DIR | --validate FILE | --bounded SECONDS -- CMD... | --p4-worker HOST PORT SECONDS\n")
+             "--list-pids DIR | --validate FILE | --bounded SECONDS -- CMD... | --p4-worker HOST PORT SECONDS | "
+             "--run DIR --mode M --p0-only --process-type-set true|false\n")
     if len(argv) >= 4 and argv[0] == "--bounded" and argv[2] == "--":
         return bounded(float(argv[1]), argv[3:])
     if "--mode" in argv:  # the explicit mode argument was already read at import; drop it here
         index = argv.index("--mode")
         argv = argv[:index] + argv[index + 2:]
+    if "--p0-only" in argv or "--process-type-set" in argv:  # only for --run, only as a pair, only true|false
+        rest, flag, value = list(argv), False, None
+        if "--p0-only" in rest:
+            rest.remove("--p0-only")
+            flag = True
+        if "--process-type-set" in rest:
+            index = rest.index("--process-type-set")
+            value = rest[index + 1] if index + 1 < len(rest) else None
+            del rest[index:index + 2]
+        if not (flag and value in ("true", "false") and len(rest) == 2 and rest[0] == "--run"):
+            sys.stderr.write(usage)
+            return 2
+        argv = rest
     if len(argv) == 4 and argv[0] == "--p4-worker":
         return p4_worker(argv[1], int(argv[2]), float(argv[3]))
     if len(argv) != 2:

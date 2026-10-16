@@ -19,15 +19,24 @@ HERE="$(cd "$(dirname "$0")" && pwd -P)"
 START=$SECONDS
 SELFTEST=0
 PYTHON_BIN=""
+P0ONLY=0           # N4 (design r10 §4.2): --p0-only runs only P4 + `op --version`; --process-type background|unset
+PROCESS_TYPE=""    # (only with --p0-only; default background) says whether the temporary job gets a ProcessType key
 while [ $# -gt 0 ]; do
   case "$1" in
     --selftest) SELFTEST=1 ;;
     --python) PYTHON_BIN="${2:-}"; shift ;;
+    --p0-only) P0ONLY=1 ;;
+    --process-type) PROCESS_TYPE="${2:-}"; PROCESS_TYPE_GIVEN=1; shift ;;
     -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) echo "알 수 없는 인자입니다 (--help)."; exit 2 ;;
   esac
   shift
 done
+if [ -n "${PROCESS_TYPE_GIVEN:-}" ] && { [ "$P0ONLY" = 0 ] || { [ "$PROCESS_TYPE" != background ] && [ "$PROCESS_TYPE" != unset ]; }; }; then
+  echo "--process-type 은 --p0-only 와 함께 background 또는 unset 으로만 쓸 수 있습니다. 시작하지 않습니다."
+  exit 2
+fi
+[ -z "$PROCESS_TYPE" ] && PROCESS_TYPE=background
 
 LABEL=""
 PROBE_DIR=""
@@ -190,6 +199,10 @@ mkdir -m 700 "$PROBE_DIR" || { PROBE_DIR=""; echo "점검 폴더가 이미 있�
 LABEL="com.airag.probe-opa-$ID"
 # The worker's arguments, written once: the plist's ProgramArguments and the owner check of the loaded job both read it.
 WORKER_ARGS=("$PYTHON_BIN" -I "$HERE/probe.py" --run "$PROBE_DIR" --mode "$MODE")
+if [ "$P0ONLY" = 1 ]; then
+  if [ "$PROCESS_TYPE" = unset ]; then WORKER_ARGS+=(--p0-only --process-type-set false)
+  else WORKER_ARGS+=(--p0-only --process-type-set true); fi
+fi
 
 PHASE_DEADLINE=$((START + T_RESULT))
 label_probe
@@ -210,7 +223,8 @@ write_plist() {
     for arg in "${WORKER_ARGS[@]}"; do
       printf '    <string>%s</string>\n' "$(xml_esc "$arg")"
     done
-    printf '  </array>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>ProcessType</key>\n  <string>Background</string>\n'
+    printf '  </array>\n  <key>RunAtLoad</key>\n  <true/>\n'
+    [ "$PROCESS_TYPE" = unset ] || printf '  <key>ProcessType</key>\n  <string>Background</string>\n'
     printf '  <key>StandardOutPath</key>\n  <string>/dev/null</string>\n'
     printf '  <key>StandardErrorPath</key>\n  <string>/dev/null</string>\n'
     printf '  <key>EnvironmentVariables</key>\n  <dict>\n    <key>PATH</key>\n    <string>%s</string>\n' "$(xml_esc "$JOB_PATH")"
@@ -255,6 +269,13 @@ CLEAN_RC=$?
 PHASE_DEADLINE=$((SECONDS + 2))
 bounded 2 "$PYTHON_BIN" -I "$HERE/probe.py" --report "$PROBE_DIR"
 REPORT_RC=$?
+if [ "$P0ONLY" = 1 ]; then
+  if [ "$PROCESS_TYPE" = unset ]; then
+    echo "프로필: p0only · launchd 작업 종류(ProcessType) 지정 안 함 = 시스템 기본(Standard, 가벼운 제한 있음) · op --version 만 실행하고 토큰 파일은 읽지 않음"
+  else
+    echo "프로필: p0only · launchd 작업 종류(ProcessType)를 Background 로 지정 · op --version 만 실행하고 토큰 파일은 읽지 않음"
+  fi
+fi
 echo "결과 파일: $PROBE_DIR/result.json"
 [ $CLEAN_RC -ne 0 ] && exit 4
 [ $REPORT_RC -ne 0 ] && exit 1
