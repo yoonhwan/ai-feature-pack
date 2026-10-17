@@ -16,37 +16,37 @@
 #   ★고아가 아니면 건드리지 않는다★ — 부모가 살아 있으면 아직 정리될 수 있는 정상 부하다.
 #   실행파일 이름이 보호 목록(cli-proxy-api/headroom/tmux/hermes/…)이면 제외한다.
 #
-# Usage: ft-leak-reap.sh [--kill] [--dry-run] [--min-cpu=N] [--aggressive] [--quiet] [--json]
+# Usage: ft-leak-reap.sh [--kill] [--dry-run] [--min-cpu=N] [--quiet] [--json]
 #   기본 = dry-run(찾기만). --kill 이 있어야 실제 종료(TERM → 1s → KILL).
 #   --quiet 는 «유출 0» 줄을 숨긴다(틱 배선용 — 유출 있을 때만 시끄럽다).
-#   --aggressive = 시그니처 없이도 고아 셸이 min-cpu 이상 태우면 포함(실험적 · 기본 off).
+# ★«고아 + 누적 CPU» 휴리스틱은 채택하지 않았다(2026-10-17 실측)★ — launchd 가 띄운 시스템 데몬
+#   (logd·fseventsd·mds·Finder·headroom…)이 전부 PPID=1 이라 45건이 오탐으로 걸렸다.
+#   오탐 «사살»은 시스템을 죽인다 → 판정은 «부하 시그니처» 로만 좁게 유지한다(실시스템 오탐 0 실측).
 # exit: 0 = 유출 0 또는 정리 완료 · 10 = dry-run 에서 유출 발견 · 2 = usage
 #
 # ★런타임 사본은 git 추적 밖이다 — 실전은 <워크트리>/.fable-team/bin/ft-leak-reap.sh★
 #   호출원: ft-tick.sh pass() (매 루프 · --kill). 수동 진단: ft-leak-reap.sh (dry-run 기본).
 set -u
 
-MODE=dry; MIN_CPU=30; QUIET=0; JSON=0; AGGR=0
+MODE=dry; MIN_CPU=30; QUIET=0; JSON=0
 for a in "$@"; do case "$a" in
   --kill)        MODE=kill ;;
   --dry-run)     MODE=dry ;;
   --quiet)       QUIET=1 ;;
   --json)        JSON=1 ;;
-  --aggressive)  AGGR=1 ;;
   --min-cpu=*)   MIN_CPU="${a#*=}" ;;
-  -h|--help)     sed -n '2,26p' "$0"; exit 0 ;;
-  *) echo "usage: $0 [--kill|--dry-run] [--min-cpu=N] [--aggressive] [--quiet] [--json]" >&2; exit 2 ;;
+  -h|--help)     sed -n '2,27p' "$0"; exit 0 ;;
+  *) echo "usage: $0 [--kill|--dry-run] [--min-cpu=N] [--quiet] [--json]" >&2; exit 2 ;;
 esac; done
 
 PY="$(command -v python3 2>/dev/null || true)"
 [ -n "$PY" ] || { echo "ft-leak-reap: python3 없음" >&2; exit 0; }
 
 # → TSV: pid \t cpu초 \t 명령(앞 160자). 유출 0 이면 빈 출력.
-found="$("$PY" - "$MIN_CPU" "$AGGR" <<'PY'
+found="$("$PY" - "$MIN_CPU" <<'PY'
 import os, subprocess, sys
 
 mincpu = float(sys.argv[1])
-aggressive = (sys.argv[2] == "1")
 
 # 부하 시그니처 — 실사고 명령 그대로 + 통상 변형.
 SIGS = (
@@ -108,10 +108,9 @@ for ln in out.splitlines():
     exe = os.path.basename(cmd.split()[0]) if cmd.split() else ""
     if exe in PROTECT_EXE:
         continue
-    # ① 시그니처 (--aggressive 면 고아 셸이면 시그니처 없이도 후보)
+    # ① 부하 시그니처 필수 — 휴리스틱(고아+누적 CPU)은 오탐 사살 위험으로 채택하지 않는다.
     if not any(s in cmd for s in SIGS):
-        if not aggressive:
-            continue
+        continue
     cpu = secs(time_s)
     # ③ 누적 CPU 하한
     if cpu < mincpu:
