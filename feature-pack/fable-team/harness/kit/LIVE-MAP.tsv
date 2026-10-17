@@ -18,6 +18,7 @@ fable-team/bin-planner/*	skip	-	팀 env 스테이징 — fable-team/install.sh �
 fable-team/templates/*	skip	-	새 프로젝트 설치 템플릿 — 라이브 대조 대상 아님
 fable-team/*	skip	-	팀 설치 산출(템플릿 plist 등) — fable-team/install.sh 소관
 graphics/*	skip	-	graphics 팀 스테이징 — graphics/install.sh 가 <ROOT>/.fable-team/ 으로 복사
+satellite/*	skip	-	위성 팀 스테이징 — satellite/install.sh 가 <ROOT>/.fable-team/ 으로 복사
 proposal/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음) — 슬랙 발행 모듈만 slack-mirror 로 설치
 sets/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음)
 tmm/*	skip	-	~/.tmm 설치는 오빠 승인 영역(별도 절차)
