@@ -37,7 +37,13 @@ def fork_descendant(chatty: bool) -> None:
         if chatty:
             os.write(1, b"MARKER_DESC\n")
             os.write(2, b"MARKER_DESC\n")
-        time.sleep(5)  # outlives the rest of the pass even on a loaded machine
+        # Held until the test creates "<TICK_MARKER>.release" (after the tick is over), so the grandchild outlives
+        # the tick however loaded the machine is; the cap only stops an orphan if the test never releases it.
+        path = os.environ.get("TICK_MARKER")
+        release = Path(path + ".release") if path else None
+        deadline = time.monotonic() + 60
+        while release is not None and not release.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
         from airag_consumer import _result
 
         alive = value_free = False

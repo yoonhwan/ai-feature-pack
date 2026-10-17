@@ -910,11 +910,13 @@ def test_a_forked_descendant_neither_delays_the_tick_nor_holds_the_lock(tmp_path
     item, _ = synthetic_service(tmp_path)
     marker = tmp_path / "marker.json"
     env = keyed_env(TICK_MARKER=str(marker))
+    release = tmp_path / "marker.json.release"
     assert run_tick(tmp_path, item, "fork-descendant", env=env) == tick.EXIT_OK
-    assert not marker.exists()  # the grandchild is still sleeping: the tick did not wait for it
+    assert not marker.exists()  # the grandchild is held until the release file exists: the tick did not wait for it
     # The tick lock is the parent's alone, so the next tick is never "skipped". (A descendant forked mid-pass
     # still shares the runtime's own project lock, so that tick may report PROJECT_BUSY until it exits.)
     assert run_tick(tmp_path, item, "normal", env=env) != tick.EXIT_SKIPPED
+    release.touch()
     assert wait_for(marker, 20)
 
 
@@ -922,6 +924,7 @@ def test_a_descendant_holding_the_result_file_sees_only_a_value_free_frame(tmp_p
     item, _ = synthetic_service(tmp_path)
     marker = tmp_path / "marker.json"
     assert run_tick(tmp_path, item, "fork-descendant", env=keyed_env(TICK_MARKER=str(marker))) == tick.EXIT_OK
+    (tmp_path / "marker.json.release").touch()  # the tick is over (result file unlinked): let the grandchild look
     assert wait_for(marker, 20)
     import time
 
@@ -934,6 +937,7 @@ def test_descendant_stream_output_does_not_reach_the_tick(tmp_path):
     proc = run_isolated_tick(tmp_path, item, component_for("fork-descendant-chatty"),
                              env=keyed_env(TICK_MARKER=str(tmp_path / "marker.json")))
     assert proc.returncode == 0 and "MARKER_DESC" not in proc.stdout + proc.stderr
+    (tmp_path / "marker.json.release").touch()
     assert wait_for(tmp_path / "marker.json", 20)  # let the grandchild finish so nothing outlives the test
 
 
