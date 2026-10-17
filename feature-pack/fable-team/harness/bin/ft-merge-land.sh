@@ -67,6 +67,13 @@ for i in 1 2; do
 done
 mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" >>"$STATE/merge-gate.log"
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")"
+SN="$(awk -v ap="$AP" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$STATE/autonomy.log" 2>/dev/null)"   # R298(DA⑥ H3): 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장만 — 줄 없으면 0
+for LF in "$STATE/autonomy-scope/${SN:-none}.ledger.tsv"; do   # R298: 그 원장의 «착지 sha 칸이 빈 행»(승인 sha == AP)에 Q·되돌림 명령 기록 — 실패해도 착지 rc 불변
+  [ -f "$LF" ] || continue
+  awk -F'\t' -v OFS='\t' -v ap="$AP" -v q="$Q" '$2==ap && $6=="" {$6=q; $7="git revert --no-edit " q; n++} {print} END{exit n?0:3}' "$LF" 2>/dev/null > "$LF.$$"; arc=$?
+  if [ "$arc" -eq 0 ]; then mv -f "$LF.$$" "$LF" 2>/dev/null || { rm -f "$LF.$$"; echo "WARN 대리 승인 원장 기록 실패($LF) — 착지는 성공 · 손으로: git revert --no-edit $Q"; }
+  else rm -f "$LF.$$"; [ "$arc" -eq 3 ] || echo "WARN 대리 승인 원장 기록 실패($LF) — 착지는 성공 · 손으로: git revert --no-edit $Q"; fi
+done
 fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
 BH="$ROOT/.fable-team/state/base-head"; OLD="$(head -n1 "$BH" 2>/dev/null | tr -d '[:space:]')"
