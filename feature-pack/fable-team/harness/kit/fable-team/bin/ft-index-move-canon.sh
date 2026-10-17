@@ -16,9 +16,40 @@ wt = sys.argv[2]
 pre = r'^[\s>*\-]*'
 upd = [m for m in (re.match(pre + r'정본 갱신(?: 줄)?\s*:\s*(\S+?)\s*§\s*(.+?)\s*$', l) for l in card) if m]
 non = [m for m in (re.match(pre + r'정본 영향 없음\s*:\s*(.*?)\s*$', l) for l in card) if m]
+can = [m for m in (re.match(pre + r'정본화\s*:\s*(.+?)\s*$', l) for l in card) if m]
 def reject(why):
     print("REJECT\t" + why); sys.exit(0)
 notes = []
+# 정본화 줄(R318a) — 허용 뿌리: docs/architect/ · docs/rules/ · design/<TEAMS.md 팀>/GUIDE-*.md · design/<팀>/README.md · 실재 .md 파일만(.. · 심볼릭 탈출 REJECT)
+teams = set()
+try:
+    for l in open(os.path.join(wt, "design/TEAMS.md"), encoding="utf-8"):
+        t = re.search(r'\|\s*`?design/([A-Za-z0-9_-]+)/`?\s*\|', l)
+        if t: teams.add(t.group(1))
+except OSError:
+    pass
+def canon_root(p):
+    parts = p.split("/")
+    if len(parts) > 2 and parts[0] == "docs" and parts[1] in ("architect", "rules"):
+        return os.path.join(wt, "docs", parts[1])
+    if len(parts) == 3 and parts[0] == "design" and parts[1] in teams and (parts[2] == "README.md" or re.fullmatch(r'GUIDE-.+\.md', parts[2])):
+        return os.path.join(wt, "design", parts[1])
+    return None
+for m in can:
+    for p in [x.strip() for x in m.group(1).split(",")]:
+        if p.startswith("/") or ".." in p.split("/"):
+            reject("정본화 줄의 경로가 허용 뿌리 밖이다(절대경로 또는 ..): " + p)
+        root = canon_root(p)
+        if root is None or not p.endswith(".md"):
+            reject("정본화 줄의 경로가 허용 뿌리 밖이다 — docs/architect/ · docs/rules/ · design/<팀>/GUIDE-*.md · design/<팀>/README.md(팀 = design/TEAMS.md): " + p)
+        real = os.path.realpath(os.path.join(wt, p)); rroot = os.path.realpath(root); rwt = os.path.realpath(wt)
+        if os.path.commonpath([rwt, rroot]) != rwt:
+            reject("정본화 줄의 허용 뿌리 자체가 워크트리 밖 심볼릭 링크다: " + p)
+        if os.path.commonpath([rroot, real]) != rroot:
+            reject("정본화 줄의 경로가 허용 뿌리 밖으로 나간다(심볼릭 링크): " + p)
+        if not os.path.isfile(os.path.join(wt, p)):
+            reject("정본화 줄의 파일이 없다: " + p)
+        notes.append("정본화 " + p)
 for m in upd:
     path, sec = m.group(1), m.group(2)
     if not path.startswith("docs/architect/") or not path.endswith(".md"):
@@ -36,14 +67,14 @@ for m in upd:
         reject("정본 문서에 그 절 제목이 없다: " + path + " §" + sec)
     print("UPD\t" + path + "\t" + sec)
     notes.append("정본 " + path + " §" + sec)
-if upd:
+if upd or can:
     print("OK\t" + " · ".join(notes)); sys.exit(0)
 for m in non:
     why = re.sub(r'^이유\s*=\s*', '', m.group(1)).strip()
     if len(why) >= 10:
         print("OK\t정본 영향 없음: " + why); sys.exit(0)
     reject("「정본 영향 없음」 이유가 10자 미만이다")
-reject("카드에 「정본 갱신: docs/architect/….md §<절>」 또는 「정본 영향 없음: <이유 ≥10자>」 줄이 없다")
+reject("카드에 「정본 갱신: docs/architect/….md §<절>」 · 「정본화: <경로>[, <경로>…]」 · 「정본 영향 없음: <이유 ≥10자>」 중 한 줄이 없다")
 PY
 )" || { printf 'REJECT\t정본 게이트 검사 실행 실패(python3)\n'; exit 0; }
 LAST="$(printf '%s\n' "$RES" | tail -1)"
