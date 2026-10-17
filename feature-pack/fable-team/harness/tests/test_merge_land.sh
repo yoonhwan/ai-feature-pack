@@ -29,7 +29,7 @@ mkpr() {  # mkpr <번호> <브랜치> <시작점> <state> — PR head 를 origin
   git -C "$W" push -q origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$W" HEAD)"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: PR "+sys.argv[2],"body":"본문 "+sys.argv[2],"state":sys.argv[3],"baseRefName":"main"}))' "$PRSHA" "$1" "${4:-OPEN}" > "$STUB_JSON"
 }
-land() { out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
+land() { apv "$@"; out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
 ZERO=0000000000000000000000000000000000000000
 
 bash -n "$LAND"; ck "bash -n land" $?
@@ -46,7 +46,7 @@ mkpr 8 pr8 "$M0"; land 8 --approve-sha "$PRSHA"; [ "$rc" = 1 ] && [[ "$out" == *
 # 검사 뒤 main 전진 → 서버 non-FF 거절(착지 0)
 git -C "$T" clone -q "$ORIGIN" "$T/race"; git -C "$T/race" config user.name t; git -C "$T/race" config user.email t@t
 mkpr 9 pr9 origin/main; P9="$PRSHA"
-out="$(PATH="$T/shim:$PATH" RACE_WT="$T/race" RACE_MARK="$T/race.mark" bash "$LAND" 9 --approve-sha "$P9" --repo "$W" 2>&1)"; rc=$?
+apv --approve-sha "$P9"; out="$(PATH="$T/shim:$PATH" RACE_WT="$T/race" RACE_MARK="$T/race.mark" bash "$LAND" 9 --approve-sha "$P9" --repo "$W" 2>&1)"; rc=$?
 RACE="$(omain)"
 [ "$rc" = 1 ] && [[ "$out" == *"non-FF"* ]]; ck "검사 뒤 main 이 움직임 → 서버 non-FF 거절 → REJECT" $?
 [ "$RACE" != "$M1" ] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = race ]; ck "착지 0 — origin main 은 경주 커밋 그대로(트리 어긋남 없음)" $?
@@ -66,12 +66,12 @@ grep -q "head=$P11 method=ft-merge-land .*landed=$L pr=11" "$T/state/merge-gate.
 # R271: PR head fetch 가 auto gc 실패로 rc≠0 이어도 «fetch 실패» 로 오판하지 않는다 — 프로세스 한정 -c gc.auto=0 이 없으면 rc1 을 내는 shim
 mkdir -p "$T/shim3"; printf '#!/bin/bash\nsaw=0; gc=0; for a in "$@"; do case "$a" in pull/*/head) saw=1;; gc.auto=0) gc=1;; esac; done\n"%s" "$@"; r=$?\n[ "$saw" = 1 ] && [ "$gc" = 0 ] && exit 1\nexit $r\n' "$REAL_GIT" > "$T/shim3/git"; chmod +x "$T/shim3/git"
 git -C "$W" fetch -q origin; mkpr 12 pr12 origin/main; P12="$PRSHA"
-out="$(PATH="$T/shim3:$PATH" bash "$LAND" 12 --approve-sha "$P12" --repo "$W" 2>&1)"; rc=$?
+apv --approve-sha "$P12"; out="$(PATH="$T/shim3:$PATH" bash "$LAND" 12 --approve-sha "$P12" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]]; ck "fetch 에 -c gc.auto=0 — gc 실패 rc≠0 이어도 착지(R271)" $?
 
 # 자율 ON — 승인 파일 없으면 실행 0 · approve-merge 뒤 착지
 bash "$BIN/ft-autonomy.sh" on >/dev/null 2>&1; git -C "$W" fetch -q origin; mkpr 10 pr10 origin/main; P10="$PRSHA"; M3="$(omain)"; : > "$STUB_LOG"
-land 10 --approve-sha "$P10"; [ "$rc" = 2 ] && [[ "$out" == *"approve-merge"* ]] && [ "$(omain)" = "$M3" ] && [ ! -s "$STUB_LOG" ]; ck "자율 ON · 승인 파일 없음 → rc2 · 실행 0" $?
+NOAP=1 land 10 --approve-sha "$P10"; [ "$rc" = 2 ] && [[ "$out" == *"approve-merge"* ]] && [ "$(omain)" = "$M3" ] && [ ! -s "$STUB_LOG" ]; ck "자율 ON · 승인 파일 없음 → rc2 · 실행 0" $?
 bash "$BIN/ft-autonomy.sh" approve-merge "$P10" >/dev/null 2>&1
 land 10 --approve-sha "$P10"; [ "$rc" = 0 ] && [ "$(omain)" != "$M3" ]; ck "자율 ON · approve-merge 승인 뒤 착지" $?
 

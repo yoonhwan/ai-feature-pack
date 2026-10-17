@@ -37,7 +37,7 @@ mkpr() {  # mkpr <번호> <브랜치> <시작점>
   git -C "$W" push -q origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$W" HEAD)"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: PR "+sys.argv[2],"body":"b","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$1" > "$STUB_JSON"
 }
-land() { out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
+land() { apv "$@"; out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
 lag() { out="$(bash "$LAG" "$@" --repo "$W" 2>&1)"; rc=$?; }
 mainc() {  # mainc <파일> <몇 초 전> — origin main 에 커밋 1개(committer 시각 지정)
   git -C "$W" checkout -q main; echo "$1" >> "$W/m.txt"; git -C "$W" add -A
@@ -52,7 +52,7 @@ bash -n "$LAND"; ck "bash -n land" $?
 [ "$(wc -l < "$LAND" | tr -d ' ')" -le 120 ]; ck "ft-merge-land.sh ≤ 120줄" $?
 git -C "$W" fetch -q origin; M1="$(omain)"; printf '%s\n' "$M1" > "$BH"
 mkpr 9 pr9 origin/main; P9="$PRSHA"; git -C "$T" clone -q "$ORIGIN" "$T/race"; git -C "$T/race" config user.name t; git -C "$T/race" config user.email t@t
-out="$(PATH="$T/shim:$PATH" RACE_WT="$T/race" RACE_MARK="$T/race.mark" bash "$LAND" 9 --approve-sha "$P9" --repo "$W" 2>&1)"; rc=$?
+apv --approve-sha "$P9"; out="$(PATH="$T/shim:$PATH" RACE_WT="$T/race" RACE_MARK="$T/race.mark" bash "$LAND" 9 --approve-sha "$P9" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [ "$(cat "$BH")" = "$M1" ]; ck "ⓐ 착지 실패(non-FF 거절) → 기준 헤드 옛 값 그대로" $?
 git -C "$W" fetch -q origin; mkpr 11 pr11 origin/main; land 11 --approve-sha "$PRSHA"; L="$(omain)"
 [ "$rc" = 0 ] && [ "$(cat "$BH")" = "$L" ] && [ "$(wc -l < "$BH" | tr -d ' ')" = 1 ]; ck "ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄)" $?

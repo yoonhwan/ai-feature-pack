@@ -22,7 +22,7 @@ mrg() { G checkout -q "pr$1"; G merge -q --no-edit origin/main >/dev/null 2>&1; 
 setpr() {  # setpr <번호> — 현재 HEAD(= S) 를 PR head 로 올리고 스텁 JSON 작성
   S="$(sha "$W" HEAD)"; G push -q -f origin "HEAD:refs/pull/$1/head"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: PR "+sys.argv[2],"body":"본문","state":"OPEN","baseRefName":"main"}))' "$S" "$1" > "$STUB_JSON"; }
-land() { out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
+land() { apv "$@"; out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
 okland() { [ "$rc" = 0 ] && [[ "$out" == *"EQUIV approve=$A head=$S"* ]] && [[ "$out" == *"LANDED"* ]] && [ "$(sha "$ORIGIN" "$(omain)^{tree}")" = "$(sha "$W" "$S^{tree}")" ]; }
 refused() { [ "$rc" = 1 ] && [[ "$out" == *"NOT-EQUIV"* ]] && [[ "$out" == *"착지 0"* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; }   # NOT-EQUIV 거절 · main 불변 · PR 쓰기 0
 
@@ -70,7 +70,7 @@ own 10; setpr 10; : > "$STUB_LOG"; land 10 --approve-sha "$A"
 # ⓙ git 실패 주입 → ERROR → 착지 0
 own 11; adv b.txt m8; mrg 11; setpr 11; M="$(omain)"; : > "$STUB_LOG"
 for f in --merges merge-tree; do
-  out="$(PATH="$T/shim:$PATH" FAIL_GIT="$f" bash "$LAND" 11 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
+  apv --approve-sha "$A"; out="$(PATH="$T/shim:$PATH" FAIL_GIT="$f" bash "$LAND" 11 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
   [ "$rc" = 1 ] && [[ "$out" == *ERROR* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; ck "ⓙ git($f) 실패 주입 → ERROR · 착지 0" $?
 done
 land 11 --approve-sha "$A"; okland; ck "ⓙ 주입 뒤 정상 환경 → 같은 PR EQUIV 착지(주입이 원인)" $?
@@ -85,15 +85,15 @@ exec "$REAL_GIT" "\$@"
 EOF
 chmod +x "$T/shim2/git"
 own 20; setpr 20; M="$(omain)"; : > "$STUB_LOG"
-out="$(PATH="$T/shim2:$PATH" RACE_AT=2 bash "$LAND" 20 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
+apv --approve-sha "$A"; out="$(PATH="$T/shim2:$PATH" RACE_AT=2 bash "$LAND" 20 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == *"main 이 움직였다"* ]] && [ "$(omain)" != "$M" ] && [ "$(git -C "$ORIGIN" show main:m1.txt 2>/dev/null)" = m1 ] && [ ! -s "$STUB_LOG" ]; ck "ⓚ 게이트 뒤 main 전진(M1) → REJECT · 착지 0 · M1 새 파일 main 에 보존" $?
 G fetch -q origin; G checkout -q -B pr20 origin/main; echo own20b > "$W/own20b.txt"; cm "$W" own20b; A="$(sha "$W" HEAD)"; setpr 20; : > "$STUB_LOG"; land 20 --approve-sha "$A"
 [ "$rc" = 0 ] && [ "$(git -C "$ORIGIN" show main:m1.txt)" = m1 ]; ck "ⓚ 최신화한 세트는 착지 · M1 보존" $?
 # ⓛ DA⑥ HOLD2-②: push «시작» 시점에 남은 시간 < 7 s 면 REJECT(총 마감 70 s 안에 못 끝남) — 시험은 총 마감을 12 s 로 줄이고 commit-tree 를 6 s 지연
 own 21; setpr 21; M="$(omain)"; : > "$STUB_LOG"
-out="$(PATH="$T/shim2:$PATH" SLOW_ARG=commit-tree SLOW_S=6 FT_LAND_TOTAL_S=12 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
+apv --approve-sha "$A"; out="$(PATH="$T/shim2:$PATH" SLOW_ARG=commit-tree SLOW_S=6 FT_LAND_TOTAL_S=12 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == *"push 를 끝낼 수 없음"* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; ck "ⓛ 남은 시간 < 7 s → push 시작 0 · REJECT" $?
-out="$(FT_LAND_TOTAL_S=999 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?; [ "$rc" = 0 ] && [ "$(omain)" != "$M" ]; ck "ⓛ 총 마감 주입은 줄이기만(999 → 70 s 로 간주) · 정상 착지" $?
+apv --approve-sha "$A"; out="$(FT_LAND_TOTAL_S=999 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?; [ "$rc" = 0 ] && [ "$(omain)" != "$M" ]; ck "ⓛ 총 마감 주입은 줄이기만(999 → 70 s 로 간주) · 정상 착지" $?
 # ⓜ R281 rebase 동일: A 를 지금 main 위로 «손 편집 0» rebase(cherry-pick) 한 S — A 는 S 의 조상이 아님
 rb() { G checkout -q -B "pr$1r" "${2:-origin/main}"; G cherry-pick "$A" >/dev/null 2>&1; }                                                  # rb <번호> [기준] A 를 기준(기본 지금 main) 위로 옮긴 S 작업 브랜치
 eqv() { out="$(bash "$EQV" "$A" "$S" --repo "$W" 2>&1)"; rc=$?; }
@@ -122,8 +122,8 @@ G checkout -q -B pr37 origin/main; echo own37 > "$W/own37.txt"; cm "$W" own37; A
 A=0123456789abcdef0123456789abcdef01234567; eqv; [ "$rc" = 3 ] && [[ "$out" == ERROR* ]]; ck "ⓜ A 객체가 로컬에 없음 → ERROR rc3(통과 0)" $?
 # ⓘ 자율 ON: 승인 파일은 A 로 찾는다
 bash "$BIN/ft-autonomy.sh" on >/dev/null 2>&1; own 12; adv b.txt m9; mrg 12; setpr 12; M="$(omain)"; : > "$STUB_LOG"
-land 12 --approve-sha "$A"; [ "$rc" = 2 ] && [[ "$out" == *approve-merge* ]] && [ "$(omain)" = "$M" ]; ck "ⓘ 자율 ON · A 승인 파일 없음 → rc2" $?
-bash "$BIN/ft-autonomy.sh" approve-merge "$S" >/dev/null 2>&1; land 12 --approve-sha "$A"; [ "$rc" = 2 ] && [ "$(omain)" = "$M" ]; ck "ⓘ S 만 승인(A 아님) → 여전히 rc2" $?
+NOAP=1 land 12 --approve-sha "$A"; [ "$rc" = 2 ] && [[ "$out" == *approve-merge* ]] && [ "$(omain)" = "$M" ]; ck "ⓘ 자율 ON · A 승인 파일 없음 → rc2" $?
+bash "$BIN/ft-autonomy.sh" approve-merge "$S" >/dev/null 2>&1; NOAP=1 land 12 --approve-sha "$A"; [ "$rc" = 2 ] && [ "$(omain)" = "$M" ]; ck "ⓘ S 만 승인(A 아님) → 여전히 rc2" $?
 bash "$BIN/ft-autonomy.sh" approve-merge "$A" >/dev/null 2>&1; land 12 --approve-sha "$A"; okland; ck "ⓘ A 승인 파일 → EQUIV 착지" $?
 [ "$(G config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

@@ -88,7 +88,7 @@ mkpr() {  # mkpr <번호> — origin/main 위 PR head → origin refs/pull/N/hea
   git -C "$W" checkout -q -B "pr$1" origin/main; echo "pr$1" > "$W/pr$1.txt"; cm "$W" "pr $1"; git -C "$W" push -q origin "pr$1:refs/pull/$1/head"; PRSHA="$(sha "$W" HEAD)"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"t "+sys.argv[2],"body":"b","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$1" > "$STUB_JSON"
 }
-land() { out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
+land() { apv "$@"; out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
 row() { printf 'T0\t%s\t%s\tdocs\tda\t%s\t%s\n' "$1" "$2" "$3" "$4"; }
 git -C "$W" fetch -q origin; mkpr 31; P31="$PRSHA"; P32=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; git -C "$W" fetch -q origin   # P32 = 이 PR 이 아닌 «다른 승인 sha» 행
 { row "$P31" 31 "" ""; row "$P32" 32 "" ""; row "$L" 5 "$L" "keep"; } > "$LEDGER"

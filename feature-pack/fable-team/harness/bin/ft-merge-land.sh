@@ -4,7 +4,7 @@
 #   ① 오빠 승인 값(--approve-sha = 승인한 PR head sha · 없으면 실행 0 · 지금 head 가 다르면 «A 뒤 main 병합만 + 자기 변경 동일» 일 때만 ft-approval-equiv 로 통과 — R247 판정 1917) ② PR OPEN·base main·head sha 결속 ③ PR head fetch(pull/N/head) ④ ft-merge-gate(main 포함·줄 계약)
 #   ⑤ Q = commit-tree <S^{tree}> -p <M>(squash 1커밋 · 메시지 = PR 제목·본문 + PR #N) ⑥ git push origin Q:refs/heads/main (force 0 · non-FF = 착지 0)
 #   ⑦ PR 에 착지 sha 코멘트 + 닫기. 7초 룰: gh·fetch·push 각 7 s + 재시도 1(push 는 «서버 거절 아님» 일 때만) · 총 마감 70 s.
-#   자율 ON/tamper/상태 못 읽음 = 승인 파일(autonomy-merge-approved/<sha> + autonomy.log 한 줄)도 필요(autonomy-merge-guard 와 같은 결속). 승인 파일 폴더 = ft-autonomy.sh state-dir(R253).
+#   ★모든 모드(ON·OFF·tamper·상태 못 읽음)에서 승인 파일(autonomy-merge-approved/<sha> + autonomy.log 한 줄)이 필요★(R336 · autonomy-merge-guard 와 같은 결속). 승인 파일 폴더 = ft-autonomy.sh state-dir(R253). 성공 줄에 approve-file=<승인 epoch>.
 #   exit 0 = 착지+정리 · 1 = REJECT(착지 0) · 2 = usage·승인 없음 · 3 = 착지 성공 · PR 코멘트/닫기 실패(수동). FT_GH/FT_GH_WRITE = 시험 주입.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -27,14 +27,12 @@ ROOT="${FT_ROOT:-$(dirname "$(G rev-parse --path-format=absolute --git-common-di
 LIM="${FT_LAND_TOTAL_S:-70}"; { [ "$LIM" -le 70 ] && [ "$LIM" -ge 1 ]; } 2>/dev/null || LIM=70   # 총 마감 — 시험 주입은 줄이기만 가능(70 s 초과 불가)
 deadline() { [ $((SECONDS - T0)) -lt "$LIM" ] || rej "총 마감 $LIM s 초과"; }
 
-AUT="$HERE/ft-autonomy.sh"; MODE="off"
-if [ -f "$AUT" ]; then MODE="$(bash "$AUT" mode 2>/dev/null)"; [ "$MODE" = off ] || MODE="on"; fi   # off 가 아니면(on·tamper·못 읽음) 승인 파일 필요
-if [ "$MODE" != off ]; then
-  AST="$(bash "$AUT" state-dir 2>/dev/null)" && [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
-  AF="$AST/autonomy-merge-approved/$AP"
-  [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
-    || { echo "REJECT 자율 상태 on/tamper/불명 — approve-merge $AP 승인 파일·로그 한 줄 없음 — 실행 0"; exit 2; }
-fi
+AUT="$HERE/ft-autonomy.sh"   # R336: 모든 모드(on·off·tamper·불명)에서 오빠 승인 파일 + log 한 줄 필요 — OFF 에서 master 가 sha 만 적어 착지하던 틈을 닫는다
+AST="$(bash "$AUT" state-dir 2>/dev/null)" && [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
+AF="$AST/autonomy-merge-approved/$AP"
+[ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
+  || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0"; exit 2; }
+AFE="$(awk '{print $4}' "$AF")"   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
 
 JSON="$(fm_t7 "$GH_R" pr view "$PR" --json headRefOid,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
 pf() { printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin).get(sys.argv[1]) or "")' "$1"; }
@@ -65,7 +63,7 @@ for i in 1 2; do
   printf '%s' "$POUT" | grep -qE 'rejected|non-fast-forward|fetch first|stale info' && rej "서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): $(printf '%s' "$POUT" | tail -n1)"
   [ "$i" -eq 2 ] && rej "push 실패(rc=$rc): $(printf '%s' "$POUT" | tail -n1)"
 done
-mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" >>"$STATE/merge-gate.log"
+mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s%s approve-file=%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "$AFE" >>"$STATE/merge-gate.log"
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")"
 SN="$(awk -v ap="$AP" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$STATE/autonomy.log" 2>/dev/null)"   # R298(DA⑥ H3): 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장만 — 줄 없으면 0
 for LF in "$STATE/autonomy-scope/${SN:-none}.ledger.tsv"; do   # R298: 그 원장의 «착지 sha 칸이 빈 행»(승인 sha == AP)에 Q·되돌림 명령 기록 — 실패해도 착지 rc 불변

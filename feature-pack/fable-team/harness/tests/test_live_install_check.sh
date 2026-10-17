@@ -102,7 +102,7 @@ export FT_ROOT="$L" FT_AUTONOMY_STATE_DIR="$L/state" FT_GH="$L/gh-stub" FT_GH_WR
 printf '#!/bin/bash\n[ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }\necho "$*" >> "$STUB_LOG"\n' > "$L/gh-stub"; chmod +x "$L/gh-stub"
 mkpr() { git -C "$LW" checkout -q -B "$2" origin/main; echo "pr$1" > "$LW/pr$1.txt"; cm "$LW" "pr $1"; git -C "$LW" push -q origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$LW" HEAD)"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"t "+sys.argv[2],"body":"b","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$1" > "$STUB_JSON"; }
-land() { out="$(bash "$LAND" "$@" --repo "$LW" 2>&1)"; rc=$?; }
+land() { apv "$@"; out="$(bash "$LAND" "$@" --repo "$LW" 2>&1)"; rc=$?; }
 fakechk() { printf '#!/bin/bash\n%s\n' "$1" > "$L/fakechk"; chmod +x "$L/fakechk"; }
 export FT_INSTALL_CHECK="$L/fakechk" FT_INSTALL_CHECK_TIMEOUT=2
 PD="$L/.fable-team/state/install-pending"

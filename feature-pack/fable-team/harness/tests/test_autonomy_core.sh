@@ -126,7 +126,7 @@ expire_suite() {  # <셸 경로>
   out="$(FT_NOW=$((T0+H)) $A status)"; has "$out" '^\[자율 OFF · A1 끝 도달 [0-9]{2}:[0-9]{2}\]$'; ck "ⓐ status = [자율 OFF · A1 끝 도달 HH:MM] ($out)" $?
   grep -q '"mode":"on"' "$T/state/autonomy.json" && [ "$(offs)" = 0 ]; ck "ⓐ 읽기만으로는 json·log 안 건드림" $?
   FT_NOW=$((T0+H)) $SH "$BIN/ft-proxy-decide.sh" --kind press-order --q q --choice c --why w --undo u >/dev/null 2>&1; rc=$?; [ $rc = 3 ]; ck "ⓐ 지난 ON 은 대리 도구 rc 3 (got $rc)" $?
-  FT_NOW=$((T0+H)) $A approve-merge 1111111111111111111111111111111111111111 >/dev/null 2>&1; rc=$?; [ $rc = 2 ]; ck "ⓐ 지난 ON 은 병합 승인 REJECT rc 2 (got $rc)" $?
+  FT_NOW=$((T0+H)) $A approve-merge 1111111111111111111111111111111111111111 >/dev/null 2>&1; rc=$?; [ $rc = 0 ] && grep -qE '^approve-merge 1{40} OFF [0-9]+$' "$T/state/autonomy.log"; ck "ⓐ 지난 ON(=OFF 로 읽힘) 병합 승인 = 기록 rc 0 · 이벤트 OFF (R336 · got $rc)" $?
   # ⓒ expire 멱등 · ⓓ 뒤 정합
   out="$(FT_NOW=$((T0+H+5)) $A expire)"; [ "$out" = "EXPIRED A1" ] && [ "$(offs)" = 1 ]; ck "ⓒ expire 첫 호출 = EXPIRED A1 · off 줄 1 ($out)" $?
   out="$(FT_NOW=$((T0+H+9)) $A expire)"; [ "$out" = NOOP ] && [ "$(offs)" = 1 ]; ck "ⓒ expire 두 번째 = NOOP · off 줄 그대로 1 ($out)" $?

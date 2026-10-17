@@ -15,3 +15,5 @@ mkrepo() {  # mkrepo <임시 폴더> → ORIGIN(bare) · W(작업 clone · main)
 }
 cm() { git -C "$1" add -A && git -C "$1" commit -q -m "$2"; }   # cm <repo> <msg> — 전부 add 후 커밋
 sha() { git -C "$1" rev-parse "$2"; }
+# R336: 착지는 모든 모드에서 오빠 승인 파일이 필요 — 시험용 승인 기록(실전은 오빠 `!` 한 줄). NOAP=1 이면 승인 안 함(승인 없음 시험용)
+apv() { local s=""; while [ $# -gt 0 ]; do [ "$1" = --approve-sha ] && [ $# -ge 2 ] && s="$2"; shift; done; [ -n "$s" ] && [ -z "${NOAP:-}" ] && bash "$BIN/ft-autonomy.sh" approve-merge "$s" >/dev/null 2>&1; return 0; }

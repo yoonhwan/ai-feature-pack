@@ -6,9 +6,9 @@
 #   status       `[자율 ON A7 · 23:41~ · ~08:00까지 · 대리 3 · 큐 1]`(끝 없으면 `끝 없음`) / `[자율 OFF]` / `[자율 ?? 위변조 → OFF]`
 #   mode | event 기계용: on|off|tamper · 현재(또는 마지막) 사건 번호 A<N>
 #   state-dir    상태 폴더 해석의 유일한 출처(R253) — $STATE 를 1줄 출력(쓰기 0) · ft-merge-land.sh 가 승인 파일 폴더를 여기서 받는다
-#   approve-merge <40hex>…  main 병합 승인(판정 1675) — 오빠 `!` 한 줄로만. ON 일 때만: 각 sha 에 대해
-#                승인 줄 `approve-merge <sha> A<N> <epoch>` 을 autonomy.log 에 먼저 추가한 뒤 $STATE/autonomy-merge-approved/<sha> 에 같은 줄을 쓴다
-#                (병합 가드는 파일 + log 의 글자 그대로 일치만 본다) · 형식 틀림·OFF·위변조 = REJECT rc 2(상태 쓰기 0)
+#   approve-merge <40hex>…  main 병합 승인(판정 1675 · R336 모드 무관) — 오빠 `!` 한 줄로만. ON·OFF 모두: 각 sha 에 대해
+#                승인 줄 `approve-merge <sha> A<N>|OFF <epoch>`(OFF 면 이벤트 칸 OFF) 을 autonomy.log 에 먼저 추가한 뒤 $STATE/autonomy-merge-approved/<sha> 에 같은 줄을 쓴다
+#                (병합 가드·merge-land 는 파일 + log 의 글자 그대로 일치만 본다) · 형식 틀림·위변조 = REJECT rc 2(상태 쓰기 0)
 # 상태 = $STATE/autonomy.json {mode,since,event,until} + 추가 전용 autonomy.log (모드 줄 = epoch<TAB>on|off<TAB>A<N> · 승인 줄은 탭 없음)
 #   expire       끝 시각(until)이 지난 ON 이면 off 줄 1회 + `EXPIRED A<N>` · 아니면 아무것도 안 쓰고 `NOOP`(멱등) — 틱이 매 루프 부른다(R185)
 #                `mode`·`status` 는 쓰지 않고도 until 지난 ON 을 OFF 로 읽는다(status = `[자율 OFF · A<N> 끝 도달 HH:MM]`)
@@ -28,7 +28,7 @@ fmt() { date -r "$1" "+$2" 2>/dev/null || date -d "@$1" "+$2" 2>/dev/null; }  # 
 hhmm() { fmt "$1" %H:%M || echo "--:--"; }
 now_epoch() { echo "${FT_NOW:-$(date +%s)}"; }  # FT_NOW = 시험용 고정 시계
 
-MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} A[0-9]+ [0-9]+$'
+MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} (A[0-9]+|OFF) [0-9]+$'
 # 범위 사전 승인 줄 3꼴(R298 · ft-autonomy-scope.sh 가 쓴다) — 이 꼴 밖의 줄은 지금처럼 위변조
 SCOPE_GRANT_RE='^approve-scope S[0-9]+ A[0-9]+ [0-9]+ until=[0-9]+ max=[0-9]+ daily=[0-9]+ classes=(docs|ff|revert)(,(docs|ff|revert))*$'
 SCOPE_USE_RE='^scope-use S[0-9]+ [0-9a-f]{40} (docs|ff|revert) [0-9]+$'; SCOPE_STOP_RE=$'^scope-stop S[0-9]+ [0-9]+ [^\t]+$'
@@ -171,8 +171,8 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
   local sha ev now dir="$STATE/autonomy-merge-approved" line
   [ $# -ge 1 ] || { echo "REJECT sha 없음 (usage: approve-merge <40hex>…)" >&2; exit 2; }
   for sha in "$@"; do [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "REJECT sha 형식 틀림(40hex 소문자): $sha" >&2; exit 2; }; done
-  lock; [ "$(mode)" = on ] || { echo "REJECT 자율 모드가 ON 이 아님($(mode)) — 승인 기록 없음" >&2; exit 2; }
-  ev="$(event)"; now="$(now_epoch)"
+  lock; [ "$(mode)" = tamper ] && { echo "REJECT 자율 상태 위변조(tamper) — 승인 기록 없음" >&2; exit 2; }   # R336: on·off 둘 다 기록(OFF 면 이벤트 칸 OFF)
+  ev="$(event)"; [ "$(mode)" = off ] && ev=OFF; now="$(now_epoch)"
   mkdir -p "$dir" || { echo "REJECT 승인 폴더를 못 만들었다: $dir" >&2; exit 1; }
   for sha in "$@"; do
     line="approve-merge $sha $ev $now"
