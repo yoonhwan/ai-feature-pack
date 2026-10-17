@@ -4,11 +4,12 @@
 #       skip = 라이브 설치 대상 아님(설명이 마지막 열) · 어떤 행에도 안 맞는 파일 = UNMAPPED(조용한 통과 0 — 새 폴더는 행을 추가한다)
 # 치환: $FT_BIN(env, 라이브 도구 폴더) · $HOME   — plist·skip 의 라이브 열은 `-`
 LIVE-MAP.tsv	skip	-	지도 자신
-*/*.plist.template	plist	-	해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · fable-team/install.sh (후 launchctl bootstrap·kickstart)
+*/*.plist.template	plist	-	해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · iap-tunnels/install.sh · zombie-clean/install.sh(serena-ensure) · fable-team/install.sh (후 launchctl bootstrap·kickstart)
 */install.sh	skip	-	설치 스크립트 자체
 */install-*.sh	skip	-	설치 스크립트 자체
 launchd/*	skip	-	plist 템플릿 외 파일(문서·메모) — 설치 대상 아님
 loom-tunnel/*	skip	-	plist 템플릿·install.sh 외 파일(문서·메모) — 설치 대상 아님
+iap-tunnels/*	skip	-	R327b install.sh(embed 18712 · llm 18703 — llm 은 오빠 확인 후 --oppa-confirmed) · plist 템플릿은 위 plist 행 — 리포 경로로 호출(라이브 복사 없음)
 stt-tunnel/*	skip	-	plist 템플릿·install.sh 외 파일(문서·메모) — 설치 대상 아님
 fable-team/bin/*	bin	$FT_BIN	master: tar 백업 → cp → drift-check OK (ft-live-install.sh · design/harness/PLAN-release-0.4-and-816-20261007.md)
 hooks/*	cmp	$HOME/.claude/hooks	master: cp -p <키트>/hooks/<파일> ~/.claude/hooks/ (settings.json 훅 등록은 별도)
@@ -20,5 +21,7 @@ graphics/*	skip	-	graphics 팀 스테이징 — graphics/install.sh 가 <ROOT>/.
 proposal/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음) — 슬랙 발행 모듈만 slack-mirror 로 설치
 sets/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음)
 tmm/*	skip	-	~/.tmm 설치는 오빠 승인 영역(별도 절차)
+zombie-clean/serena-mcp.sh	cmp	$HOME/.claude/scripts	master: bash <키트>/zombie-clean/install.sh --apply (R327 · serena-mcp.sh → ~/.claude/scripts · 부팅 ensure launchd 포함)
+zombie-clean/install.sh	skip	-	R327 설치 스크립트 자체 — 리포 경로로 호출(라이브 복사 없음)
 zombie-clean/*.sh	cmp	$HOME/.claude/skills/zombie-clean/scripts	master: cp -p <키트>/zombie-clean/*.sh ~/.claude/skills/zombie-clean/scripts/ (R128 설치 위치)
 zombie-clean/*	skip	-	zombie-clean 스킬 설치 절차 별도
