@@ -100,8 +100,13 @@ def run_tick(tmp_path, item, mode, *, credentials_path=None, env=None, extra=())
 
 def everything_written(tmp_path, capsys) -> str:
     captured = capsys.readouterr()
-    logs = "".join(p.read_text(encoding="utf-8") for p in (tmp_path / "logs").glob("*") if p.is_file()) \
-        if (tmp_path / "logs").exists() else ""
+    # Every file is scanned (secret-leak checks), but the tick log goes last and each file ends in a newline,
+    # so the final line is always a tick line whatever other files (pass-state, pass-trace) share the directory.
+    files = sorted((p for p in (tmp_path / "logs").glob("*") if p.is_file()),
+                   key=lambda p: (p.name.startswith("tick-") and p.suffix == ".log", p.name)) \
+        if (tmp_path / "logs").exists() else []
+    logs = "".join(text if text.endswith("\n") or not text else text + "\n"
+                   for text in (p.read_text(encoding="utf-8") for p in files))
     return captured.out + captured.err + logs
 
 
@@ -842,7 +847,9 @@ def test_raw_component_output_is_never_persisted_in_the_result_file(tmp_path, mo
     text = data.decode("utf-8", "replace").lower()
     assert 0 < len(data) <= _result.RESULT_MAX_BYTES
     frame = _result.validate_frame(json.loads(data))
-    assert frame is not None and set(frame) == {"exit", "summary", "code", "type"}
+    assert frame is not None and set(frame) - {"integrity"} == {"exit", "summary", "code", "type"}
+    # when present, integrity is the closed record, checked by the production validator (not re-declared here)
+    assert "integrity" not in frame or _result.integrity_valid(frame["integrity"])
     assert not any(value.lower() in text for value in KEYS.values())
     assert not any(bad.lower() in text for bad in (KEYLIKE, "MARKER_", "/synthetic/path"))
 
