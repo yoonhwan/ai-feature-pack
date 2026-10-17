@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft-inbox.py — 메인팀 인박스(좌석 없는 스크립트 큐). 판정 425-B·430 · 설계 DESIGN-news-tree-workqueue-viz-20261009 §6-3·§8.
 
-명령: ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" | report <seq|group…> | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+명령: ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
 경로: FT_ROOT/.fable-team/comm/{mailbox.jsonl,mailbox.log.jsonl,bodies/} (읽기) · FT_ROOT/.fable-team/state/inbox/<계보>.jsonl (큐)
 Haiku: FT_INBOX_HAIKU(기본 `claude -p --model claude-haiku-5-5`) 일회 호출 — 분류 미상·show --compact 때만. 상주·자발 압축·삭제 0.
 실패는 전부 stderr + exit≠0 (조용한 강등 0).
@@ -17,8 +17,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import (  # noqa: E402
-    COMM, HOOK_ERRORS, INBOX, PRIO, die, find_mail, group_closed, haiku, haiku_class,
-    lineage, locked, norm_key, obligation_closed, qpath, read_q, rule_class, write_q,
+    COMM, HOOK_ERRORS, INBOX, PRIO, die, find_mail, group_closed, haiku, haiku_class, hits,
+    lineage, locked, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q,
 )
 
 
@@ -96,39 +96,36 @@ def cmd_show(seat, compact):
         die(f"show --compact haiku 실패: {e}")
 
 
-def locate(targets):
-    """seq 또는 group id → (큐 경로, 대상 seq 집합). 전 큐를 찾는다."""
-    hits = {}
-    for qp in glob.glob(f"{INBOX}/*.jsonl"):
-        for x in read_q(qp):
-            for t in targets:
-                if t == x["group"] or t == str(x["seq"]):
-                    hits.setdefault(qp, set()).add(x["seq"])
-    found = {t for t in targets if any(t == x["group"] or t == str(x["seq"]) for qp in hits for x in read_q(qp))}
-    if found != set(targets):
-        die(f"대상 못 찾음: {sorted(set(targets) - found)}")
-    return hits
+def locate(seat, targets):
+    """seq 또는 group id → 그 «좌석 큐»의 대상 seq 집합. 다른 큐에만 있으면 REJECT(그 큐 이름을 알린다)."""
+    mine = hits(qpath(seat), targets)
+    missing = [t for t in targets if not mine[t]]
+    if missing:
+        others = sorted({os.path.basename(qp)[:-6] for qp in glob.glob(f"{INBOX}/*.jsonl") if qp != qpath(seat)
+                         for s in hits(qp, missing).values() if s})
+        die(f"대상 못 찾음(좌석 {seat}): {missing}" + (f" — 그 줄은 {', '.join(others)} 큐 것(남의 큐는 고치지 않는다)" if others else ""))
+    return set().union(*mine.values())
 
 
-def mutate(targets, fn):
-    for qp, seqs in locate(targets).items():
-        with locked(qp):
-            rows = read_q(qp)
-            for x in rows:
-                if x["seq"] in seqs:
-                    fn(x)
-            write_q(qp, rows)
-        print(f"OK {os.path.basename(qp)} seq={','.join(map(str, sorted(seqs)))}")
+def mutate(seat, targets, fn):
+    seqs, qp = locate(seat, targets), qpath(seat)
+    with locked(qp):
+        rows = read_q(qp)
+        for x in rows:
+            if x["seq"] in seqs:
+                fn(x)
+        write_q(qp, rows)
+    print(f"OK {os.path.basename(qp)} seq={','.join(map(str, sorted(seqs)))}")
 
 
-def cmd_mark(target, kind, note):
+def cmd_mark(seat, target, kind, note):
     if kind not in ("처리", "위임", "보류") or not note.strip():
-        die('usage: mark <seq|group> 처리|위임|보류 "<1줄>"', 2)
-    mutate([target], lambda x: x.update(mark={"kind": kind, "note": note.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}))
+        die('usage: mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>]', 2)
+    mutate(seat, [target], lambda x: x.update(mark={"kind": kind, "note": note.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}))
 
 
-def cmd_report(targets):
-    mutate(targets, lambda x: x.update(reported=True))
+def cmd_report(seat, targets):
+    mutate(seat, targets, lambda x: x.update(reported=True))
 
 
 def cmd_waive(seat, before, reason):
@@ -175,17 +172,19 @@ def main(a):
             return cmd_classify(a[1], a[2])
         if c == "show" and len(a) in (2, 3):
             return cmd_show(a[1], a[2:] == ["--compact"])
-        if c == "mark" and len(a) == 4:
-            return cmd_mark(a[1], a[2], a[3])
-        if c == "report" and len(a) >= 2:
-            return cmd_report(a[1:])
+        if c in ("mark", "report"):
+            seat, r = take_seat(a[1:])
+            if c == "mark" and len(r) == 3:
+                return cmd_mark(seat, *r)
+            if c == "report" and r:
+                return cmd_report(seat, r)
         if c == "waive" and len(a) == 5 and a[2] == "--before":
             return cmd_waive(a[1], a[3], a[4])
         if c == "archive" and len(a) == 2:
             return cmd_archive(a[1])
     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
         die(f"{c}: {e}", 2 if c == "waive" else 1)
-    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 \"<1줄>\" | report <seq|group…> | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
+    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
 
 
 if __name__ == "__main__":

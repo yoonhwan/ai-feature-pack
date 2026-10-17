@@ -57,6 +57,35 @@ def qpath(seat):
     return f"{INBOX}/{lineage(seat)}.jsonl"
 
 
+def tmux_session():
+    """tmux 안이면 현재 세션 이름(= 좌석 이름). 밖이거나 못 읽으면 빈 문자열."""
+    pane = os.environ.get("TMUX_PANE")
+    if not pane:
+        return ""
+    try:
+        return subprocess.run(["tmux", "display-message", "-p", "-t", pane, "#{session_name}"],
+                              capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def take_seat(a):
+    """인자에서 --seat <이름> 을 떼어 (좌석, 나머지). 없으면 FT_SEAT → tmux 세션 이름 · 전부 없으면 usage rc 2 (추측 0)."""
+    a, seat = list(a), os.environ.get("FT_SEAT", "")
+    if "--seat" in a:
+        i = a.index("--seat")
+        seat = "".join(a[i + 1:i + 2])
+        del a[i:i + 2]
+    elif not seat:
+        seat = tmux_session()
+    return seat or die("mark·report 는 호출 좌석이 필요하다 — --seat <좌석> 또는 FT_SEAT (추측 0)", 2), a
+
+
+def hits(qp, targets):
+    """큐 한 개에서 대상(seq 또는 group)별 seq 집합."""
+    return {t: {x["seq"] for x in read_q(qp) if t in (x["group"], str(x["seq"]))} for t in targets}
+
+
 @contextmanager
 def locked(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)

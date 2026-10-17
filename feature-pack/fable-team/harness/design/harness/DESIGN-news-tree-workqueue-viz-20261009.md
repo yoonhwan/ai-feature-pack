@@ -115,7 +115,7 @@
 - **깨우기**: ①~④ = 즉시 doorbell(tick 유무 무관 · 423 ③) · ⑤⑥ = 적재만(마스터가 단위 끝·틱에 읽음).
 - **중복 묶기(보강 8)**: 같은 from · 같은 정규화 본문 해시(접두·seq·시각 제거) 또는 ring 재발송 · 승계 전후 같은 내용 → 한 줄 `group` 으로 묶고 묶인 seq 전부 + 원문 경로 유지(사례 62296/62305 · 62298/62335).
 - **읽기**: `ft-inbox.sh show <me>` = 우선순위 순 · 묶음 1줄 · 미상 표시 · 원문 경로. raw `recv` 는 그대로 둔다(호환).
-- **닫는 사건**(★§8 정본 술어 `closed = mark ∧ reported` — cls ①~④ 는 둘 다여야 닫힘 · ⑤⑥ 은 mark 만★): `ft-inbox.sh mark <seq|group> 처리|위임|보류 "<1줄>"` + 보고 확인(Stop 훅이 최종 답변의 `#seq` 로 reported:true) — 닫히지 않은 줄은 다음 show 에도 그대로(planner 의견 4 · once_set_state_needs_closing_event).
+- **닫는 사건**(★§8 정본 술어 `closed = mark ∧ reported` — cls ①~④ 는 둘 다여야 닫힘 · ⑤⑥ 은 mark 만★): `ft-inbox.sh mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <내 좌석>]`(R326 — 호출 좌석 큐 하나만 고친다 · 좌석 생략 시 `FT_SEAT`, 없으면 tmux 세션 이름, 전부 없으면 rc 2) + 보고 확인(Stop 훅이 최종 답변의 `#seq` 로 reported:true) — 닫히지 않은 줄은 다음 show 에도 그대로(planner 의견 4 · once_set_state_needs_closing_event).
 - **압축(보강 10)**: 마스터 요청 때만 `show --compact` = Haiku 일회 호출로 한 장 요약 · 보기 전용 · 줄마다 seq + 원문 경로 · 원문 대체 0 · 큐 파일 무변경.
 - **클린업(보강 11)**: 마스터 요청 때만 `ft-inbox.sh archive` = ★§8 술어로 닫힌 줄만★(①~④ 의 reported:false 는 mark 가 있어도 이동 거부) 보관함(`inbox/archive/<계보>-<날짜>.jsonl`)으로 이동 · 삭제 0 · 표시 없는 줄 이동 0. 인박스 자발 압축·정리 0.
 - **423 과 묶임**: ①보고 의무 Stop 훅 = «이번 턴 끝에 ①~④ 줄 중 §8 술어로 안 닫힌 것(mark 없음 또는 reported:false)» 대조(READ 파싱 대신 큐 파일) · ⑤인터뷰 전 함 비우기 = 같은 큐의 ①~④ 미표시 >0 이면 1회 deny · ⑥보드 칸 = 큐의 미표시 수·가장 오래된 분.

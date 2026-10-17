@@ -100,7 +100,7 @@ try:
     listed = set().union(*[s for s, _ in open_seqs(out)], set())
     hit = sorted(cited(final) & listed, key=int)
     if hit:
-        inbox("report", *hit)
+        inbox("report", *hit, "--seat", ME)
         out = inbox("show", ME)
     left = sorted({s for _, o in open_seqs(out) for s in o}, key=int)
 except Exception as e:
@@ -121,6 +121,6 @@ except Exception as e:
 shown = " · ".join("#" + s for s in left[:CAP]) + (f" 외 {len(left) - CAP}건" if len(left) > CAP else "")
 print(json.dumps({"decision": "block", "reason": (
     f"[report-coverage] 인박스 ①~④ 미닫힘 {len(left)}건: {shown}. "
-    "각 줄을 ft-inbox.sh mark <seq> 처리|위임|보류 \"1줄\" 로 처리하고, 오빠께 올리는 최종 답변에 `쪽지 #seq` 로 적어라(인용 > 줄 제외). 이 안내는 이번 턴 1회뿐이다.")}, ensure_ascii=False))
+    "각 줄을 ft-inbox.sh mark <seq> 처리|위임|보류 \"1줄\" --seat <내 좌석> 으로 처리하고, 오빠께 올리는 최종 답변에 `쪽지 #seq` 로 적어라(인용 > 줄 제외). 이 안내는 이번 턴 1회뿐이다.")}, ensure_ascii=False))
 PYEOF
 exit 0

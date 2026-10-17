@@ -101,6 +101,6 @@ except Exception as e:
 shown = " · ".join("#" + s for s in left[:CAP]) + (f" 외 {len(left) - CAP}건" if len(left) > CAP else "") if left else "없음"
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": (
     f"[drain-before-interview] 인터뷰 전에 함을 먼저 비워라 — mailbox pending={pending} · 인박스 ①~④ 미닫힘 {len(left)}건({shown}). "
-    "mbox recv 로 읽고 ft-inbox.sh mark/report 로 처리한 뒤 AskUserQuestion 을 다시 호출하라(이번 턴 1회뿐 — 재호출은 통과).")}}, ensure_ascii=False))
+    "mbox recv 로 읽고 ft-inbox.sh mark/report(--seat <내 좌석> 또는 FT_SEAT)로 처리한 뒤 AskUserQuestion 을 다시 호출하라(이번 턴 1회뿐 — 재호출은 통과).")}}, ensure_ascii=False))
 PYEOF
 exit 0

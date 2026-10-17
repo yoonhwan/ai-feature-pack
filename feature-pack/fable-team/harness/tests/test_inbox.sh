@@ -32,7 +32,7 @@ for l in open(sys.argv[1]):
     x=json.loads(l)
     if x["seq"]==int(sys.argv[2]): print(x[sys.argv[3]])' "$@"
 }
-M=master-x; ME="$M#9"
+M=master-x; ME="$M#9"; export FT_SEAT="$ME"  # R326: mark·report 는 호출 좌석 큐만
 ing() { add_mail "$1" "${3:-$ME}" "${4:-a#1}" "$2"; bash "$INBOX" ingest "$1" >/dev/null 2>&1; }
 
 # 1) 분류표 6 + 미상(Haiku 성공/실패)
