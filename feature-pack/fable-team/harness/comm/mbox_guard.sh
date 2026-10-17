@@ -120,6 +120,24 @@ _guard_bang_lint() {
   esac
 }
 
+# spawn 정지 선언 검사(R320 · 판정 2166) — 정지는 머리 `[spawn 정지]` 쪽지 하나뿐이다. 그 머리는 같은 본문의 hold=<판정 번호> 가
+#   ft-spawn-hold.sh status --check(spawn 도구와 «같은 판정기» · 부작용 0)에서 유효할 때만 통과 — 번호 없음·불일치·기한 지남·해제 조건 참·파일 없음 = REJECT.
+#   머리 없는 문장(«spawn 0 유지»·«spawn 은 GO 뒤» 등)은 막지 않는다 — 대신 정지 효력이 없다(spawn 도구는 정지 파일만 본다). R320c fail-closed: 판정기 부재·rc 0/3 밖 = REJECT rc 3(정지는 사람을 멈추는 말 — 확인 못 하면 통과가 아니다).
+_guard_hold_lint() {
+  local first hn sh res rc; first="${1%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
+  case "$first" in '[spawn 정지]'*) ;; *) return 0;; esac
+  hn="$(printf '%s' "$1" | grep -oE 'hold=[0-9]+' | head -1 | cut -d= -f2)" || hn=""
+  [ -n "$hn" ] || { echo "REJECT [spawn 정지] 쪽지에 hold=<판정 번호> 가 없다 — 정지는 ft-spawn-hold.sh set … 로 건 뒤 그 번호를 적어라(문장만으로는 정지가 아니다)" >&2; return 3; }
+  sh="${FT_BIN:-$DIR/../bin}/ft-spawn-hold.sh"
+  [ -f "$sh" ] || { echo "REJECT [spawn 정지] 판정기 없음($sh) — 정지 선언은 확인 없이 보내지 않는다(R320c fail-closed) · 판정기(ft-spawn-hold.sh)를 먼저 설치하라" >&2; return 3; }
+  res="$(bash "$sh" status --check "$hn" 2>&1)"; rc=$?
+  case "$rc" in
+    0) return 0;;
+    3) echo "REJECT [spawn 정지] hold=$hn 는 지금 유효한 정지가 아니다 — ${res#REJECT hold } · 정지는 ft-spawn-hold.sh set --verdict $hn --until … --release … --reason … 로 건 뒤 hold=$hn 을 적어라" >&2; return 3;;
+    *) echo "REJECT [spawn 정지] 판정기 실행 실패 rc=$rc — 정지 선언은 확인 없이 보내지 않는다(R320c fail-closed)" >&2; return 3;;
+  esac
+}
+
 # guard_check <to> <body> — GUARD_TO·GUARD_BODY 를 정한다. rc 3 = REJECT(큐 적재 0).
 guard_check() {
   GUARD_TO="$1"; GUARD_BODY="$2"
@@ -149,5 +167,6 @@ guard_check() {
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
   _guard_bang_lint "$2" || return $?
   _guard_boot_lint "$2" || return $?
+  _guard_hold_lint "$2" || return $?
   return 0
 }

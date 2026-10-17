@@ -153,6 +153,60 @@ new_env unreg; send_as 'ft-airag-x#1' "$(printf '일반 보고\n%s' "$BANG_BAD")
 new_env ok; send_as 'byz-planner-master-claude#9' "$(printf '[HIL] 막힌 명령\n①막힌 명령: cd /Users/x && rm y\n②막은 훅: y\n④선택지: 허용·거부\n! bash /tmp/h7')"
 [ "$RC" = 0 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 1 ] && ok "R106: ①막힌 명령 원문 + ! bash /tmp/h7 = 전송" || bad "R106 정상 꼴 rc=$RC :: $OUT"
 
+# ── 10. R320 spawn 정지 쪽지 — 정지 선언은 머리 `[spawn 정지]` 하나뿐 · 같은 본문의 hold=<판정 번호> 를 ft-spawn-hold.sh status --check 와 «같은 판정기» 로 검사
+HOLD_SH="$REPO/scripts/fable-team-bin/ft-spawn-hold.sh"
+printf '#!/bin/bash\ncat "%s/hold-gate.status"\n' "$T" > "$T/stub/hold-gate.sh"; chmod +x "$T/stub/hold-gate.sh"
+hgate() { echo "disk=105 swap=$1 memfree=39 level=2 rate=96 agents=49 freeze=0" > "$T/hold-gate.status"; }
+hold_env() { new_env ok; mkdir -p "$ENVROOT/.fable-team/bin"; cp "$HOLD_SH" "$ENVROOT/.fable-team/bin/"; }
+hold_set() { ( cd "$ENVROOT" && env FT_HOLD_GATE="$T/stub/hold-gate.sh" FT_MBOX_SH=/bin/true bash "$ENVROOT/.fable-team/bin/ft-spawn-hold.sh" set --verdict "$1" \
+  --until "$(python3 -c 'import datetime;print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ"))')" --release "swap<8192" --reason "쪽지 가드 시험용 정지" >/dev/null 2>&1 ); }
+send_h() {   # send_h <본문> — 정지 판정기를 같은 임시 루트의 ft-spawn-hold.sh 로. 추가 env 는 앞에 `FT_HOLD_NOW=… send_h`
+  OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_PLANNER_HEAD_MODE=warn \
+    FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_HOLD_GATE="$T/stub/hold-gate.sh" FT_MBOX_SH=/bin/true \
+    bash "$ENVROOT/.fable-team/comm/mbox.sh" send 'byz-planner-master-claude#9' "me#1" "$1"$'\n'"ref=$RANDOM$RANDOM" 2>&1)"; RC=$?; }   # 고유 ref 줄 — 같은 본문 중복 차단이 판정을 가리지 않게
+HOLD_BODY='[spawn 정지] 신규 spawn 중단 — 메모리 부족
+hold=2104'
+hold_env; hgate 12000; hold_set 2104; send_h "$HOLD_BODY"
+[ "$RC" = 0 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 1 ] && ok "R320: [spawn 정지] + 유효 정지 파일(번호 일치) = 전송" || bad "R320 유효 정지 rc=$RC :: $OUT"
+send_h '[spawn 정지] 중단
+hold=9999'
+[ "$RC" = 3 ] && case "$OUT" in *'ft-spawn-hold.sh set'*) true;; *) false;; esac && ok "R320: hold 번호 불일치 = REJECT + 안내(ft-spawn-hold.sh set)" || bad "R320 번호 불일치 rc=$RC :: $OUT"
+send_h '[spawn 정지] 번호 없이 중단 선언'
+[ "$RC" = 3 ] && case "$OUT" in *'hold='*) true;; *) false;; esac && ok "R320: [spawn 정지] + hold= 없음 = REJECT" || bad "R320 hold 없음 rc=$RC :: $OUT"
+FT_HOLD_NOW=$(( $(date +%s) + 14000 )) send_h "$HOLD_BODY"
+[ "$RC" = 3 ] && ok "R320: 기한 지난 정지 = REJECT" || bad "R320 기한 지남 rc=$RC :: $OUT"
+[ -f "$ENVROOT/.fable-team/state/SPAWN_HOLD" ] && ok "R320: 가드는 정지 파일을 지우지 않음(부작용 0)" || bad "R320 가드가 정지 파일을 지움"
+hgate 6000; send_h "$HOLD_BODY"
+[ "$RC" = 3 ] && ok "R320: 해제 조건 참인 정지 = REJECT" || bad "R320 해제 조건 참 rc=$RC :: $OUT"
+hold_env; hgate 12000; send_h "$HOLD_BODY"
+[ "$RC" = 3 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 0 ] && ok "R320: 정지 파일 없음 = REJECT · 큐 0" || bad "R320 파일 없음 rc=$RC :: $OUT"
+for s in 'spawn 정지 해제 완료 · 현재 정상 운영' 'spawn 0 유지 중 아님' 'spawn 0 · 커밋 abc' 'spawn 은 planner GO 뒤' '신규 좌석 생성 중단' $'일반 보고\n[spawn 정지] 는 머리가 아니라 본문 중간'; do
+  hold_env; send_h "$s"
+  [ "$RC" = 0 ] && ok "R320: 머리 없는 문장 = 가드 대상 아님(전송) «${s%%$'\n'*}»" || bad "R320 머리 없는 문장 막힘 «$s» rc=$RC :: $OUT"
+done
+
+# ── 10b. R320c fail-closed — 정지 선언은 «사람을 멈추는 말» 이라 판정기를 못 돌리면 통과가 아니라 REJECT(rc 3)
+fake_judge() { # fake_judge <rc> — 판정기 자리를 그 rc 로 끝나는 스크립트로 바꾼다(출력은 이상한 한 줄)
+  printf '#!/bin/bash\necho "garbage-output ???"\nexit %s\n' "$1" > "$ENVROOT/.fable-team/bin/ft-spawn-hold.sh"; }
+hold_env; hgate 12000; rm -f "$ENVROOT/.fable-team/bin/ft-spawn-hold.sh"; send_h "$HOLD_BODY"
+{ [ "$RC" = 3 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 0 ]; } && ok "R320c ⓓ 판정기 파일 없음 = REJECT rc3 · 큐 0" || bad "R320c ⓓ 판정기 없음 rc=$RC :: $OUT"
+case "$OUT" in *REJECT*) ok "R320c ⓓ 판정기 없음 — REJECT 이유 출력";; *) bad "R320c ⓓ 판정기 없음 — REJECT 문구 없음 :: $OUT";; esac
+for r in 4 1 2 127; do
+  hold_env; hgate 12000; fake_judge "$r"; send_h "$HOLD_BODY"
+  { [ "$RC" = 3 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 0 ]; } && ok "R320c ⓓ 판정기 rc=$r = REJECT rc3 · 큐 0" || bad "R320c ⓓ 판정기 rc=$r 통과 rc=$RC :: $OUT"
+done
+hold_env; fake_judge 0; send_h "$HOLD_BODY"
+[ "$RC" = 0 ] && ok "R320c ⓓ 판정기 rc0 = 통과" || bad "R320c ⓓ 판정기 rc0 막힘 rc=$RC :: $OUT"
+hold_env; fake_judge 3; send_h "$HOLD_BODY"
+[ "$RC" = 3 ] && ok "R320c ⓓ 판정기 rc3 = REJECT" || bad "R320c ⓓ 판정기 rc3 통과 rc=$RC :: $OUT"
+# ⓔ [spawn 정지] 머리가 아닌 쪽지는 판정기가 없거나 고장나도 영향 0
+for s in '일반 보고 — 진행 중' '[완료] 끝'; do
+  hold_env; rm -f "$ENVROOT/.fable-team/bin/ft-spawn-hold.sh"; send_h "$s"
+  [ "$RC" = 0 ] && ok "R320c ⓔ 판정기 없어도 머리 없는 쪽지 전송 «${s%%$'\n'*}»" || bad "R320c ⓔ 머리 없는 쪽지 막힘 «$s» rc=$RC :: $OUT"
+  hold_env; fake_judge 4; send_h "$s"
+  [ "$RC" = 0 ] && ok "R320c ⓔ 판정기 rc4 여도 머리 없는 쪽지 전송 «${s%%$'\n'*}»" || bad "R320c ⓔ rc4 에 머리 없는 쪽지 막힘 «$s» rc=$RC :: $OUT"
+done
+
 # ── 7. 문법
 for f in "$SRC/mbox.sh" "$SRC/mbox_guard.sh" "$RETIRE"; do bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")"; done
 

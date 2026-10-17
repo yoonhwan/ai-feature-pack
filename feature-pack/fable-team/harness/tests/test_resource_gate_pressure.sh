@@ -242,7 +242,7 @@ env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51
 for f in ft-resource-gate.sh ft-resource-watch.sh ft-resource-sample.sh ft-resource-reclaim.sh ft-successor-open.sh; do
   bash -n "$REPO/scripts/fable-team-bin/$f" && cmp -s "$REPO/scripts/fable-team-bin/$f" "$REPO/scripts/harness-install/fable-team/bin/$f" && ok "bash -n + 키트 cmp $f" || bad "$f"
 done
-[ "$(wc -l < "$REPO/scripts/fable-team-bin/ft-resource-watch.sh" | tr -d ' ')" -le 209 ] && ok "감시자 줄 수 ≤209" || bad "감시자 줄 수"
+[ "$(wc -l < "$REPO/scripts/fable-team-bin/ft-resource-watch.sh" | tr -d ' ')" -le 245 ] && ok "감시자 줄 수 ≤245" || bad "감시자 줄 수"
 grep -q '_rgsucc="--succession"' "$REPO/scripts/fable-team-bin/ft-successor-open.sh" && ok "successor-open 이 조건부 --succession" || bad "successor-open --succession"
 [ "$(git -C "$REPO" config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare"
 echo "fail=$fail"; [ $fail -eq 0 ]

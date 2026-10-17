@@ -7,11 +7,13 @@
 #     직전 세대 좌석 : 같은 계보에 더 새 #N 현역 · 검증된 재개 기록(zombie-clean resume_record_check 와 같은 규칙 + pid) · idle·attached·라이브서버·V65 active 가드 → tmux kill-session
 #   그 밖(현역 역할 좌석·기록 없는 직전 세대·codex DA 등)은 닫지 않고 표의 «승인 범위 밖» 으로만 올린다.
 #   제외(후보 아님): 부르는 쪽 세션과 그 조상 pane · 명부 `_*` 상위 오케 · attached · jsonl WORKING/PENDING/UNKNOWN · mbox pending>0 · press 허가 보유.
-#   --on-reject: 출력이 `REJECT resource agents=A limit=L` 일 때만 need=A−L+1 로 1번 → 문지기 재검 OK 면 rc0 · 아니면 원래 REJECT + 표 + [HIL] 1통 후 rc3.
-#     다른 사유(디스크·스왑·메모리·동결)·형식 불일치는 손대지 않고 그대로 rc3 (좌석을 닫아도 안 풀리는 사유).
+#   --on-reject: 출력이 `REJECT resource agents=A limit=L` 이면 need=A−L+1 로 1번 → 문지기 재검 OK 면 rc0 · 아니면 원래 REJECT + 표 + [HIL] 1통 후 rc3.
+#     R320: `REJECT resource swap|memfree|level|rate=…` 도 받는다 — 필요 개수가 없으므로 승인 두 행의 후보를 «전부» 닫고 재검 · 그래도 REJECT 면 [HIL] 1통에 재부팅 계획(`ft-hil.sh --add` 가 돌려주는 `! bash /tmp/h<N>` 1줄 · 안내만 · 재부팅은 사람 손).
+#     병합 끝 나노(카드가 indices/완성/ 에 있음)는 idle 문턱 FT_RECLAIM_DONE_IDLE_MIN(기본 5분) · 그 밖 후보는 FT_RECLAIM_IDLE_MIN(기본 30분).
+#     다른 사유(디스크·동결·측정 실패 ERROR)·형식 불일치는 손대지 않고 그대로 rc3·rc4 (좌석을 닫아도 안 풀리는 사유).
 #   FT_RECLAIM=0 이면 호출처가 이 도구를 부르지 않는다(시험·비상용 · 기본 1).
 #   잠금 mkdir 로 동시 호출이 같은 좌석을 두 번 닫지 않는다 · 표는 .fable-team/state/reclaim.log 에 그대로 append · 비밀 0.
-#   env(시험): FT_RES_ROOT FT_SEATS_JSON FT_SEAT_STATUS FT_NANO_CLOSE FT_MBOX_SH ZC_RESUME_DIR FT_RECLAIM_IDLE_MIN FT_RECLAIM_LOCK_TRIES FT_PRESS_PERMIT_DIR
+#   env(시험): FT_RES_ROOT FT_SEATS_JSON FT_SEAT_STATUS FT_NANO_CLOSE FT_MBOX_SH ZC_RESUME_DIR FT_RECLAIM_IDLE_MIN FT_RECLAIM_DONE_IDLE_MIN FT_RECLAIM_LOCK_TRIES FT_PRESS_PERMIT_DIR FT_HIL_SH
 #   bash 3.2 호환(declare -A·mapfile 금지) · 외부 호출 0(로컬 tmux·프로세스·파일·mbox 만).
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
@@ -21,8 +23,8 @@ while [ $# -gt 0 ]; do case "$1" in
   --dry-run) DRY=1; shift;; --caller) CALLER="${2:-}"; shift 2 2>/dev/null || shift;; --need) NEED="${2:-}"; shift 2 2>/dev/null || shift;;
   --on-reject) HAVE_ONREJ=1; ONREJ="${2:-}"; shift 2 2>/dev/null || shift;; --gate) GATE="${2:-}"; shift 2 2>/dev/null || shift;;
   *) echo "usage: $0 [--dry-run] (--caller <세션명> --need <n> | --on-reject \"<문지기 출력>\" [--caller <세션명>] [--gate <path>])" >&2; exit 2;; esac; done
-# R213: 에이전트 수 REJECT 가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다(측정 실패 ERROR 는 rc 4 유지).
-if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -q '^REJECT resource agents='; then
+# R213·R320: 좌석을 닫아 풀리는 사유(에이전트 수·스왑·메모리·압력·속도)가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다(측정 실패 ERROR 는 rc 4 유지).
+if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -Eq '^REJECT resource (agents|swap|memfree|level|rate)='; then
   printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 3
 fi
 
@@ -37,7 +39,8 @@ MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"
 MAILBOX="$(dirname -- "$MBOX")/mailbox.jsonl"
 RESUME_DIR="${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}"
 PERMITS="${FT_PRESS_PERMIT_DIR:-$ROOT/.fable-team/state/press-permits}"
-IDLE_MIN="${FT_RECLAIM_IDLE_MIN:-30}"
+IDLE_MIN="${FT_RECLAIM_IDLE_MIN:-30}"; DONE_IDLE_MIN="${FT_RECLAIM_DONE_IDLE_MIN:-5}"
+HILBIN="${FT_HIL_SH:-$HERE/ft-hil.sh}"
 LOCK="$STATE/reclaim.lock.d"; LOG="$STATE/reclaim.log"; HILSIG="$STATE/reclaim-hil.sig"
 SRVRE='server\.sh|uvicorn|next-server|next dev|caddy|redis-server|postgres|cli-proxy|headroom|hermes|[Oo]llama|node .*(dev|start|watch)'
 [ "$DRY" = 1 ] || mkdir -p "$STATE" 2>/dev/null || { echo "ERROR reclaim 상태 폴더 생성 실패: $STATE" >&2; exit 4; }   # dry-run 은 파일시스템·mbox·kill 0 (DA⑥ H3)
@@ -85,6 +88,18 @@ in_roster() {   # $1=세션명 → rc0 = BYZ 명부(seats*.json)에 행이 있�
     python3 -c 'import json,sys;sys.exit(0 if isinstance(json.load(open(sys.argv[1])).get(sys.argv[2]),dict) else 1)' "$r" "$1" 2>/dev/null && return 0
   done < <(printf '%s\n' "$ROSTERS")
   return 1
+}
+# R320: 명부 index 카드 경로 → 지금 실재하는 카드(DA 뒤 indices/완성/ 으로 옮겨졌으면 그 경로) · 없으면 빈 값
+card_for() {
+  local i="$1" d
+  [ -n "$i" ] || return 0
+  if [ -e "$i" ]; then printf '%s' "$i"; return 0; fi
+  case "$i" in */indices/*/*) d="${i%/indices/*}/indices/완성/${i##*/}"; [ -e "$d" ] && printf '%s' "$d";; esac
+  return 0
+}
+idle_min_for() {   # $1=세션명 $2=종류 → 이 후보의 idle 문턱(분) — 병합 끝 나노 + 카드가 완성/ 이면 DONE_IDLE_MIN
+  [ "$2" = "병합 끝 나노" ] || { echo "$IDLE_MIN"; return; }
+  case "$(card_for "$(roster_field "$1" index)")" in */indices/완성/*) echo "$DONE_IDLE_MIN";; *) echo "$IDLE_MIN";; esac
 }
 fresh_att() { tmux list-sessions -F '#{session_name}|#{session_attached}' 2>/dev/null | awk -F'|' -v n="$1" '$1==n{print $2; exit}'; }
 
@@ -181,13 +196,14 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
     cand="$cand$idle|$kind|$name|$att
 "
   done < <(printf '%s\n' "$sess")
-  local why seq idx out rc
+  local why seq idx out rc imin
   while IFS='|' read -r idle kind name att; do
-    [ "$idle" -ge "$IDLE_MIN" ] || { row "$name" "$kind" "-" "SKIP idle ${idle}분 < ${IDLE_MIN}분"; continue; }
+    imin="$(idle_min_for "$name" "$kind")"
+    [ "$idle" -ge "$imin" ] || { row "$name" "$kind" "-" "SKIP idle ${idle}분 < ${imin}분"; continue; }
     why="$(fresh_ok "$name" "$kind")" || { row "$name" "$kind" "-" "SKIP $why"; continue; }
     if [ "$kind" = "병합 끝 나노" ]; then
-      idx="$(roster_field "$name" index)"
-      [ -n "$idx" ] && [ -e "$idx" ] || { row "$name" "$kind" "나노 세션 정리 2026-10-02" "SKIP 명부 index 카드 없음"; continue; }
+      idx="$(card_for "$(roster_field "$name" index)")"
+      [ -n "$idx" ] || { row "$name" "$kind" "나노 세션 정리 2026-10-02" "SKIP 명부 index 카드 없음"; continue; }
       seq="$(latest_seq_from "$name")"
       [ -n "$seq" ] || { row "$name" "$kind" "나노 세션 정리 2026-10-02" "SKIP 회수할 보고 seq 없음"; continue; }
       [ "$CLOSED_N" -lt "$need" ] || { row "$name" "$kind" "-" "SKIP need 충족(필요 수만 닫음)"; continue; }
@@ -229,14 +245,34 @@ emit_table() {
   printf '후보 | 종류 | 승인 근거 | 결과\n%s' "$TABLE"
   echo "RECLAIMED $CLOSED_N"
 }
-log_table() { [ "$DRY" = 1 ] && return 0; { echo "# $(date '+%F %T') caller=${CALLER:-?} need=${1:-?} dry=$DRY"; emit_table; } >> "$LOG" 2>/dev/null; }
+log_table() { [ "$DRY" = 1 ] && return 0; { echo "# $(date '+%F %T') caller=${CALLER:-?} need=${1:-?} why=${WHY:--} dry=$DRY"; emit_table; } >> "$LOG" 2>/dev/null; }
+
+reboot_plan() {   # R320: 재부팅 전 좌석 저장 순서 안내 파일(출력만 · 재부팅·kill 0)을 쓰고 사람이 칠 `! bash /tmp/h<N>` 1줄을 돌려준다(실패면 빈 값)
+  local p="$STATE/reboot-plan-$(date +%F).sh.hil"
+  cat > "$p" <<'EOS' || return 0
+#!/usr/bin/env bash
+# R320 자원 정리 뒤에도 메모리가 모자랄 때의 안내 — 이 파일은 글자만 출력한다(재부팅·좌석 닫기 0). 재부팅은 사람 손.
+cat <<'TXT'
+재부팅 전 순서
+1. 각 팀 master 가 진행 중 나노의 미커밋·미랜딩을 정리한다(미커밋 0 · baton save · 승계 스냅샷 tracked 경로).
+2. ls ~/.claude/state/seat-resume/ — 열린 claude 좌석마다 재개 기록이 있어야 한다(없으면 그 좌석의 대화 uuid 를 따로 적어 둔다).
+3. 사람이 맥을 재부팅한다.
+4. 재부팅 뒤: zombie-clean.sh resume '<세션명>' 로 같은 대화를 다시 열고, 나노는 카드로 새로 spawn 한다.
+TXT
+EOS
+  [ -f "$HILBIN" ] || return 0
+  bash "$HILBIN" --add "$p" 2>/dev/null | tail -1
+}
 
 if [ "$HAVE_ONREJ" = 1 ]; then
   GATE="${GATE:-$HERE/ft-resource-gate.sh}"
+  WHY="$(printf '%s\n' "$ONREJ" | sed -nE 's/^REJECT resource ((agents|swap|memfree|level|rate)=[^ ]*).*/\1/p' | head -1)"; _kind="${WHY%%=*}"
   _a="$(printf '%s' "$ONREJ" | sed -n 's/^REJECT resource agents=\([0-9][0-9]*\) limit=\([0-9][0-9]*\).*/\1/p' | head -1)"
   _l="$(printf '%s' "$ONREJ" | sed -n 's/^REJECT resource agents=\([0-9][0-9]*\) limit=\([0-9][0-9]*\).*/\2/p' | head -1)"
-  if [ -z "$_a" ] || [ -z "$_l" ] || [ "$_a" -le "$_l" ]; then printf '%s\n' "$ONREJ"; exit 3; fi
-  NEED=$((_a - _l + 1))
+  if [ "$_kind" = agents ]; then
+    if [ -z "$_a" ] || [ -z "$_l" ] || [ "$_a" -le "$_l" ]; then printf '%s\n' "$ONREJ"; exit 3; fi
+    NEED=$((_a - _l + 1))
+  else NEED=9999; fi   # 스왑·메모리·압력·속도 = 필요 개수 없음 → 승인 두 행의 후보 전부
   acquire_lock || { printf '%s\n' "$ONREJ"; exit 3; }
   reclaim_core "$NEED" || { printf '%s\n' "$ONREJ"; exit 3; }
   log_table "$NEED"
@@ -246,11 +282,14 @@ if [ "$HAVE_ONREJ" = 1 ]; then
   # 여전히 REJECT — 원래 문구 + 표 + HIL 1통(같은 날 같은 후보 묶음이면 재발신 0)
   printf '%s\n' "$ONREJ"; emit_table
   _n="$(printf '%s' "$OOS" | grep -c .)"
-  _sig="$(date +%F) $(printf '%s' "$OOS" | sort | shasum | cut -c1-16)"
+  _sig="$(date +%F) ${_kind} $(printf '%s' "$OOS" | sort | shasum | cut -c1-16)"
   if [ "$(cat "$HILSIG" 2>/dev/null)" = "$_sig" ]; then echo "HIL 재발신 0(같은 날 같은 후보 묶음)"
   elif [ -z "$HIL_ROUTE" ]; then echo "HIL 수신자 없음(_hil_route 비어 있음) — 표를 사람이 본다"
   else
-    bash "$MBOX" send "$HIL_ROUTE" "${CALLER:-ft-resource-reclaim}" "[HIL] 자원 — 승인 범위 밖 후보 $_n · 문지기 agents=$_a limit=$_l · 자동 정리 $CLOSED_N 개 뒤에도 REJECT. 표: .fable-team/state/reclaim.log 마지막 블록" >/dev/null 2>&1 \
+    _hm=""; [ "$_kind" = agents ] || _hm="$(reboot_plan)"
+    bash "$MBOX" send "$HIL_ROUTE" "${CALLER:-ft-resource-reclaim}" "[HIL] 자원 — 승인 범위 밖 후보 $_n · 문지기 ${WHY} · 자동 정리 $CLOSED_N 개 뒤에도 REJECT. 표: .fable-team/state/reclaim.log 마지막 블록${_hm:+
+재부팅 계획(안내만 · 재부팅은 사람 손):
+$_hm}" >/dev/null 2>&1 \
       && printf '%s' "$_sig" > "$HILSIG" || echo "WARN [HIL] 발신 실패"
   fi
   exit 3

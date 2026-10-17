@@ -5,10 +5,11 @@
 #   tick (기본, launchd 호출):
 #     - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
 #     - 동결 트리거(disk<25GiB | swap>12288MiB | memfree<10%) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
-#     - 회복(disk>=35 & swap<4096 & memfree>=20) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
+#     - 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).
 #   scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
-#   env(시험용): FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590)
+#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) · 워크트리 합계는 FT_RES_DU_TTL_SEC(1800초) 캐시(du-cache.tsv) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).
+#   env(시험용): FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_DU_TTL_SEC
 set -uo pipefail
 
 CMD="${1:-tick}"
@@ -23,6 +24,7 @@ FREEZE="$STATE/RESOURCE_FREEZE"
 LOG="$STATE/resource-watch.log"
 DISK_TSV="$STATE/disk-attrib.tsv"
 MEM_TSV="$STATE/mem-attrib.tsv"
+PTSV="$STATE/pressure.tsv"
 LAST_SNAP="$STATE/.disk-attrib-last"
 WORKTREES="${FT_WORKTREES:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees}"
 GATE="$HERE/ft-resource-gate.sh"
@@ -33,19 +35,41 @@ MEM_MIN="${FT_RES_MEM_MIN:-10}"
 SNAP_SEC="${FT_RES_SNAP_SEC:-590}"
 
 mkdir -p "$STATE" 2>/dev/null || true
-TIMEOUT=""
-if command -v gtimeout >/dev/null 2>&1; then TIMEOUT="gtimeout 20s"
-elif command -v timeout >/dev/null 2>&1; then TIMEOUT="timeout 20s"; fi
+DU_CAP="${FT_RES_DU_CAP_SEC:-7}"; DU_TTL="${FT_RES_DU_TTL_SEC:-1800}"
+DU_CACHE="$STATE/du-cache.tsv"; DU_LOCK="$STATE/du-scan.lock.d"
 
 now_epoch() { date +%s; }
+# R320: pressure.tsv 마지막 3줄(5칸 숫자)이 전부 memfree>=20 · level=1 · swap 이 앞 표본보다 늘지 않음 → rc0
+calm3() { tail -n 3 "$PTSV" 2>/dev/null | awk -F'\t' 'NF==5 && $1~/^[0-9]+$/ {n++; if($3+0<20||$4+0!=1) bad=1; if(n>1&&$2+0>p) bad=1; p=$2+0} NF!=5{bad=1} END{exit !(n==3&&!bad)}'; }
 now_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 logline() { printf '%s\t%s\n' "$(now_utc)" "$1" >> "$LOG"; }
 
+# R323: 명령을 nice 19 로 돌리고 DU_CAP 초 안에 안 끝나면 죽인다(rc 124) — timeout 바이너리 없는 맥에서도 상한이 선다. stdout = 명령 출력.
+run_capped() {
+  local out="$STATE/.capped.$$.$RANDOM" pid i=0 max=$((DU_CAP*10)) rc
+  nice -n 19 "$@" > "$out" 2>/dev/null & pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$i" -ge "$max" ]; then kill -TERM "$pid" 2>/dev/null; sleep 0.2; kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; rm -f "$out"; return 124; fi
+    sleep 0.1; i=$((i+1))
+  done
+  wait "$pid"; rc=$?; cat "$out"; rm -f "$out"; return $rc
+}
+# 워크트리 합계 KB — TTL 안이면 캐시, 아니면 1회 스캔(상한 DU_CAP). 상한 초과 = TIMEOUT(옛 캐시를 새 값처럼 쓰지 않는다).
+du_cached() { # key path
+  local key="$1" p="$2" now line ts kb raw rc
+  now=$(now_epoch); line="$(awk -F'\t' -v k="$key" '$2==k{l=$1" "$3} END{print l}' "$DU_CACHE" 2>/dev/null)"; ts="${line% *}"; kb="${line#* }"
+  case "$ts" in ''|*[!0-9]*) ;; *) [ $((now-ts)) -lt "$DU_TTL" ] && { echo "$kb"; return; };; esac
+  raw="$(run_capped du -sk "$p")"; rc=$?
+  [ "$rc" != 124 ] || { echo TIMEOUT; return; }
+  kb="$(printf '%s' "$raw" | awk 'END{print $1+0}')"
+  { grep -v "^[0-9]*	$key	" "$DU_CACHE" 2>/dev/null; printf '%s\t%s\t%s\n' "$now" "$key" "$kb"; } > "$DU_CACHE.tmp.$$" && mv "$DU_CACHE.tmp.$$" "$DU_CACHE"
+  echo "$kb"
+}
 du_line() { # now name path
   local now="$1" name="$2" p="$3" raw rc
   if [ ! -e "$p" ]; then printf '%s\t%s\t0\n' "$now" "$name" >> "$DISK_TSV"; return; fi
-  raw=$($TIMEOUT du -sk "$p" 2>/dev/null); rc=$?
+  raw=$(run_capped du -sk "$p"); rc=$?
   if [ "$rc" = 124 ]; then printf '%s\t%s\tTIMEOUT\n' "$now" "$name" >> "$DISK_TSV"; return; fi
   printf '%s\t%s\t%s\n' "$now" "$name" "$(printf '%s' "$raw" | awk 'END{print $1+0}')" >> "$DISK_TSV"
 }
@@ -55,15 +79,13 @@ snapshot_disk() { # now
   freek=$(df -Pk /System/Volumes/Data 2>/dev/null | awk 'NR==2{print $4+0}')
   printf '%s\tdisk.free\t%s\n' "$now" "${freek:-0}" >> "$DISK_TSV"
   # /private/tmp 1단계 하위 상위 15
-  raw=$($TIMEOUT du -sk -d1 /private/tmp 2>/dev/null); rc=$?
+  raw=$(run_capped du -sk -d1 /private/tmp); rc=$?
   if [ "$rc" = 124 ]; then printf '%s\t/private/tmp\tTIMEOUT\n' "$now" >> "$DISK_TSV"
   else printf '%s\n' "$raw" | awk '$2!="/private/tmp" && $1 ~ /^[0-9]+$/ {print $1"\t"$2}' \
       | sort -rn | head -15 | awk -v now="$now" -F'\t' '{print now"\t"$2"\t"$1}' >> "$DISK_TSV"; fi
   # worktrees 총량·개수·최근2시간
   if [ -d "$WORKTREES" ]; then
-    raw=$($TIMEOUT du -sk "$WORKTREES" 2>/dev/null); rc=$?
-    if [ "$rc" = 124 ]; then printf '%s\tworktrees.total\tTIMEOUT\n' "$now" >> "$DISK_TSV"
-    else printf '%s\tworktrees.total\t%s\n' "$now" "$(printf '%s' "$raw" | awk 'END{print $1+0}')" >> "$DISK_TSV"; fi
+    printf '%s\tworktrees.total\t%s\n' "$now" "$(du_cached worktrees.total "$WORKTREES")" >> "$DISK_TSV"
     cnt=$(find "$WORKTREES" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
     rec=$(find "$WORKTREES" -mindepth 1 -maxdepth 1 -type d -mmin -120 2>/dev/null | wc -l | tr -d ' ')
     printf '%s\tworktrees.count\t%s\n' "$now" "${cnt:-0}" >> "$DISK_TSV"
@@ -73,7 +95,7 @@ snapshot_disk() { # now
   du_line "$now" claude.projects "$HOME/.claude/projects"
   du_line "$now" caches "$HOME/Library/Caches"
   du_line "$now" pytest "${TMPDIR:-/tmp}/pytest-of-$USER"
-  logk=$($TIMEOUT du -sk /tmp/byz-*.log 2>/dev/null | awk '{s+=$1} END{print s+0}')
+  logk=$(run_capped du -sk /tmp/byz-*.log | awk '{s+=$1} END{print s+0}')
   printf '%s\tbyz.logs\t%s\n' "$now" "${logk:-0}" >> "$DISK_TSV"
 }
 
@@ -94,9 +116,18 @@ rotate_tsv() { # file cutoff
   if awk -F'\t' -v c="$cutoff" '($1+0)>=c' "$F" > "$tmp" 2>/dev/null; then mv "$tmp" "$F"; else rm -f "$tmp"; fi
 }
 
+du_lock() { # 스냅샷 전체에 잠금 1개 — rc0 = 잡음 · rc1 = 다른 살아 있는 스캔이 있음. 죽은 pid 의 잠금은 회수.
+  local hp
+  mkdir "$DU_LOCK" 2>/dev/null || {
+    hp="$(cat "$DU_LOCK/pid" 2>/dev/null)"
+    if [ -n "$hp" ] && ! kill -0 "$hp" 2>/dev/null; then rm -r -f "$DU_LOCK"; mkdir "$DU_LOCK" 2>/dev/null || return 1; else return 1; fi
+  }
+  echo $$ > "$DU_LOCK/pid"
+}
 do_snapshot() { # now — 디스크·메모리 스냅샷 + 회전 + 마커
   local now="$1" cutoff
-  snapshot_disk "$now"; snapshot_mem "$now"
+  if du_lock; then snapshot_disk "$now"; rm -r -f "$DU_LOCK"; else logline "du 스캔 진행 중 — 이번 디스크 스냅샷 건너뜀(잠금 $DU_LOCK)"; fi
+  snapshot_mem "$now"
   cutoff=$((now-259200))   # 3일
   rotate_tsv "$DISK_TSV" "$cutoff"; rotate_tsv "$MEM_TSV" "$cutoff"
   printf '%s\n' "$now" > "$LAST_SNAP"
@@ -165,13 +196,15 @@ scan() {
 
 # ---- tick (launchd) ----
 tick() {
-  local gout rc disk swap memfree now trig recov
+  local gout rc disk swap memfree level rate now trig recov
   bash "$HERE/ft-resource-sample.sh" >/dev/null 2>>"$LOG" || logline "ERROR sample rc=$? (표본 끊김 — 문지기 stale 로 이어짐)"
   gout="$(bash "$GATE" status 2>&1)"; rc=$?
   if [ "$rc" != 0 ]; then logline "ERROR gate status rc=$rc out=$gout"; exit 4; fi
   disk=$(printf '%s' "$gout" | sed -n 's/.*disk=\([0-9]*\).*/\1/p')
   swap=$(printf '%s' "$gout" | sed -n 's/.*swap=\([0-9]*\).*/\1/p')
+  level=$(printf '%s' "$gout" | sed -n 's/.*level=\([0-9]*\).*/\1/p')
   memfree=$(printf '%s' "$gout" | sed -n 's/.*memfree=\([0-9]*\).*/\1/p')
+  rate=$(printf '%s' "$gout" | sed -n 's/.* rate=\(-\{0,1\}[0-9a-z]*\).*/\1/p')   # R320c: 해제 swap 축 = 문지기와 같은 rate(마지막 6표본 MiB/분) ≤ 허용치 512 · na·못 읽음 = 유지
   case "$disk$swap$memfree" in ''|*[!0-9]*) logline "ERROR parse gate=$gout"; exit 4;; esac
   now=$(now_epoch); FT_RES_ROOT="$RES_ROOT" bash "$HERE/ft-disk-alarm.sh" >/dev/null 2>&1 || logline "ERROR ft-disk-alarm rc=$? (tick 은 계속)"   # R246 쪽지 경보 · 동결 분기보다 먼저
 
@@ -182,19 +215,22 @@ tick() {
 
   if [ "$trig" = 1 ] && [ ! -f "$FREEZE" ]; then
     do_snapshot "$now"
-    local cause; cause="$(top1_disk)"
-    printf 'FREEZE %s disk=%sG swap=%sM memfree=%s%% 1위 %s\n' "$(now_utc)" "$disk" "$swap" "$memfree" "$cause" > "$FREEZE"
+    local cause cseat ckind=disk; cause="$(top1_disk)"
+    { [ "$swap" -gt "$SWAP_MAX" ] || [ "$memfree" -lt "$MEM_MIN" ]; } && ckind=mem
+    cseat="$(bash "$HERE/ft-resource-cause.sh" "$ckind" 2>/dev/null | head -1)"   # R320: 원인 좌석 한 줄(자료 없으면 «자료 부족»)
+    printf 'FREEZE %s disk=%sG swap=%sM memfree=%s%% 1위 %s · 원인 좌석(%s) %s\n' "$(now_utc)" "$disk" "$swap" "$memfree" "$cause" "$ckind" "${cseat:-자료 부족}" > "$FREEZE"
     osascript -e "display notification \"디스크 ${disk}G · 1위 $cause\" with title \"FT 자원 동결(spawn 차단)\"" >/dev/null 2>&1 || true
     logline "FREEZE created disk=${disk}G swap=${swap}M memfree=${memfree}% cause=$cause"
     return 0
   fi
 
   recov=0
-  if [ "$disk" -ge 35 ] && [ "$swap" -lt 4096 ] && [ "$memfree" -ge 20 ]; then recov=1; fi
+  if [ "$disk" -ge 35 ] && [ "$memfree" -ge 20 ] && [ "${level:-0}" = 1 ] && calm3; then recov=1; fi
+  [ "$recov" = 0 ] || { case "$rate" in ''|na|*[!0-9-]*) false;; *) [ "$rate" -le "${FT_SWAP_RATE_MAX:-512}" ];; esac; } || { recov=0; [ ! -f "$FREEZE" ] || logline "THAW held rate=${rate:-?} (허용 ${FT_SWAP_RATE_MAX:-512} 초과·판정 불가)"; }
   if [ "$recov" = 1 ] && [ -f "$FREEZE" ]; then
     rm -f "$FREEZE"
     osascript -e "display notification \"디스크 ${disk}G 회복 · spawn 재개\" with title \"FT 자원 동결 해제\"" >/dev/null 2>&1 || true
-    logline "THAW removed disk=${disk}G swap=${swap}M memfree=${memfree}%"
+    logline "THAW removed disk=${disk}G swap=${swap}M memfree=${memfree}% rate=${rate}"
   fi
 
   # 10분마다 원인 스냅샷

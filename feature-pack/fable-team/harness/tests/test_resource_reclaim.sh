@@ -255,6 +255,53 @@ eq "$(wc -l < "$T/reclaim.calls" | tr -d ' ')" 1 "기본 → 문지기 REJECT �
 has "$(cat "$T/reclaim.calls")" "--on-reject REJECT resource agents=41 limit=40" "문지기 출력 그대로 전달"
 eq "$r1" 3 "정리 실패 → 기존 REJECT rc 유지"
 
+# ── R320: swap·메모리·압력·속도 사유도 정리한다 (병합 끝 나노 idle 문턱 5분 · 모자라면 [HIL] + 재부팅 계획 1줄) ──
+printf '#!/bin/bash\n[ -f "%s/rej.hard" ] && { cat "%s/rej.text"; exit 3; }\n[ -f "%s/rej.once" ] && [ ! -s "%s/kill.log" ] && [ ! -s "%s/nc.log" ] && { cat "%s/rej.text"; exit 3; }\necho "OK disk=99GiB"\n' "$ST" "$ST" "$ST" "$ST" "$ST" "$ST" > "$F/gate-res.sh"
+printf '#!/bin/bash\necho "! bash /tmp/h777"\n' > "$F/hil.sh"; chmod +x "$F/gate-res.sh" "$F/hil.sh"
+addnano() {   # 이름 idle분 카드경로 — 명부 행·보고 seq·카드 파일·세션을 한 번에 (setup 직후에 부른다)
+  mkdir -p "$(dirname "$3")"; echo "card" > "$3"; mkseat "$1" "$2" 0 "9${RANDOM}"
+  python3 -c 'import json,sys;p=sys.argv[1];d=json.load(open(p));d[sys.argv[2]]={"role":"nano","agent":"claude","index":sys.argv[3]};json.dump(d,open(p,"w"),ensure_ascii=False)' "$ST/seats.json" "$1" "$3"
+  echo "{\"seq\": $((20000+RANDOM)), \"from\": \"$1\", \"to\": \"x\", \"body\": \"완료\"}" >> "$F/mailbox.jsonl"
+}
+swapworld() { setup
+  addnano "byz-t-nano-f#0" 6 "$T/cards2/indices/완성/f.md"; addnano "byz-t-nano-g#0" 3 "$T/cards2/indices/완성/g.md"; addnano "byz-t-nano-h#0" 6 "$T/cards2/indices/진행/h.md"
+  : > "$ST/rej.text"; }
+SWAP_REJ="REJECT resource swap=13000MiB limit=12288MiB"
+swapworld; echo "$SWAP_REJ" > "$ST/rej.text"; touch "$ST/rej.once"
+out="$(run "$BIN/$SCRIPT_NAME" --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh")"; rc=$?
+eq "$rc" 0 "R320 swap REJECT → 정리 뒤 문지기 OK rc0"
+has "$out" "RECLAIM ok" "R320 swap 사유 회수 표"
+eq "$(awk '{print $1}' "$ST/nc.log" | sort | tr '\n' ' ')" "byz-t-nano-a#0 byz-t-nano-e#0 byz-t-nano-f#0 " "R320 닫는 나노 = 후보 전부(a·e 30분↑ · f 완성 카드 5분↑) · b attached·c WORKING·d pending·g 3분·h 미완성 6분 0"
+eq "$(cat "$ST/kill.log")" "byz-t-role-claude#1" "R320 kill-session = 재개 기록 있는 직전 세대뿐(역할 현역·codex DA·기록 없음·명부 밖 0)"
+# idle 분은 시험이 도는 동안 1~2분 흐를 수 있어 «문턱 문구»만 단언한다
+has "$(printf '%s\n' "$out" | grep 'byz-t-nano-g#0 |')" "분 < 5분" "R320 완성 카드 나노 5분 문턱"
+has "$(printf '%s\n' "$out" | grep 'byz-t-nano-h#0 |')" "분 < 30분" "R320 완성 카드 아닌 나노 30분 문턱"
+has "$(cat "$T/root/.fable-team/state/reclaim.log")" "why=swap=13000MiB" "R320 reclaim.log 헤더에 swap 사유"
+for rej in "REJECT resource memfree=9% limit=15%" "REJECT resource level=4 limit=2" "REJECT resource rate=900MiB/min limit=512MiB/min"; do
+  swapworld; echo "$rej" > "$ST/rej.text"; touch "$ST/rej.once"
+  out="$(run "$BIN/$SCRIPT_NAME" --on-reject "$rej" --gate "$F/gate-res.sh")"; rc=$?
+  eq "$rc" 0 "R320 ${rej#REJECT resource } → 정리 뒤 rc0"; eq "$(wc -l < "$ST/nc.log" | tr -d ' ')" 3 "R320 ${rej#REJECT resource } → 나노 3석 닫기"
+done
+swapworld; echo "$SWAP_REJ" > "$ST/rej.text"; touch "$ST/rej.hard"
+out="$(FT_HIL_SH="$F/hil.sh" run "$BIN/$SCRIPT_NAME" --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh")"; rc=$?
+eq "$rc" 3 "R320 정리 뒤에도 REJECT → rc3"; has "$out" "$SWAP_REJ" "R320 원래 REJECT 문구"
+eq "$(grep -c '^send byz-t-planner-claude#1 ' "$ST/mbox.log")" 1 "R320 [HIL] 1통 → _hil_route"
+has "$(cat "$ST/mbox.log")" "! bash /tmp/h777" "R320 [HIL] 에 재부팅 계획 1줄(ft-hil 이 돌려준 ! bash /tmp/h<N>)"
+ls "$T/root/.fable-team/state"/reboot-plan-*.sh.hil >/dev/null 2>&1 && ok "R320 재부팅 계획 파일 작성" || bad "R320 재부팅 계획 파일 없음"
+hasnt "$(cat "$T/root/.fable-team/state"/reboot-plan-*.sh.hil)" "reboot" "R320 계획 내용 = 안내만(실행 명령 0)"
+: > "$ST/mbox.log"; run "$BIN/$SCRIPT_NAME" --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh" >/dev/null
+eq "$(grep -c '^send ' "$ST/mbox.log")" 0 "R320 같은 날 같은 묶음 [HIL] 재발신 0"
+swapworld; touch "$ST/rej.hard"; echo "$SWAP_REJ" > "$ST/rej.text"
+out="$(run "$BIN/$SCRIPT_NAME" --dry-run --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh")"
+has "$out" "WOULD-CLOSE(nano-close)" "R320 dry-run 표시"; eq "$(cat "$ST/kill.log" "$ST/nc.log" "$ST/mbox.log" | wc -l | tr -d ' ')" 0 "R320 dry-run kill·close·mbox 0"
+swapworld; out="$(run "$BIN/$SCRIPT_NAME" --on-reject "ERROR resource measure swap rc≠0" --gate "$F/gate-res.sh")"; rc=$?
+eq "$rc" 4 "R320 측정 실패 ERROR rc4 유지"; eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "R320 측정 실패엔 정리 0"
+swapworld; out="$(run "$BIN/$SCRIPT_NAME" --on-reject "REJECT resource freeze=FREEZE x limit=0" --gate "$F/gate-res.sh")"; rc=$?
+eq "$rc" 3 "R320 동결 REJECT rc3 유지"; eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "R320 동결엔 정리 0"
+swapworld; echo "$SWAP_REJ" > "$ST/rej.text"; touch "$ST/rej.once"
+out="$(FT_RECLAIM_DONE_IDLE_MIN=2 run "$BIN/$SCRIPT_NAME" --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh")"
+has "$(awk '{print $1}' "$ST/nc.log")" "byz-t-nano-g#0" "R320 FT_RECLAIM_DONE_IDLE_MIN=2 → 3분 쉰 완성 나노도 닫음"
+
 # ── 변이 ──
 MUT="$T/mut"; mkdir -p "$MUT"
 sed 's/^resume_ok() {/resume_ok() { return 0;/' "$BIN/$SCRIPT_NAME" > "$MUT/$SCRIPT_NAME"   # 승인 표 판정(재개 기록 검증) 제거

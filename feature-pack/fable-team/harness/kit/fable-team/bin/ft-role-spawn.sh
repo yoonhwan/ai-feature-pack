@@ -25,6 +25,12 @@ while [ $# -gt 0 ]; do case "$1" in
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
+if [ -f "$HERE/ft-spawn-hold.sh" ]; then
+  _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
+  [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; exit "$_hrc"; }
+  printf '%s\n' "$_hold"
+fi
 # ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?

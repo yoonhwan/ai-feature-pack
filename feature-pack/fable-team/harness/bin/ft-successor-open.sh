@@ -19,6 +19,10 @@ while [ $# -gt 0 ]; do case "$1" in
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) usage;; esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★spawn 정지 파일 (R320)★: 승계는 1석 교대(순증 0)라 정지 중이어도 막지 않고 WARN 1줄만(문지기 --succession 과 같은 원칙).
+if [ -f "$HERE/ft-spawn-hold.sh" ]; then
+  _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)" || echo "WARN spawn 정지 중이나 승계는 막지 않는다 — $_hold" >&2
+fi
 # ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 # R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
