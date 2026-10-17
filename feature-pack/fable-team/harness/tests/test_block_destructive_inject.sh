@@ -104,6 +104,54 @@ pas P13 "redis-cli GET 'SET'"
 # R64: 워크트리 하위 폴더 cwd 의 상대경로 정본 mbox 쪽지 본문 글자
 mkdir -p "$T/a/b"
 pas P14 "bash ../../.fable-team/comm/mbox.sh send x y 'redis-cli SET 금지 /dev/bubble-replay'" "$T/a/b"
+# R108: xargs 꼴 — redis-cli 옵션 뒤 첫 토큰이 읽기 동사면 통과 · 그 밖은 X7 그대로 차단
+SCAN_IN="redis-cli --scan --pattern 'x:*' | "
+for v in HKEYS HGET HGETALL HMGET HLEN HSTRLEN HEXISTS GET MGET STRLEN TYPE TTL PTTL EXISTS SCAN HSCAN SSCAN ZSCAN KEYS XLEN XRANGE XREVRANGE XINFO LLEN LRANGE SMEMBERS SCARD SISMEMBER ZRANGE ZCARD ZSCORE DBSIZE INFO; do
+  pas "XA-$v" "${SCAN_IN}xargs -n1 redis-cli -h 10.0.0.1 -p 6379 $v"   # ⓐ 읽기 동사 33종
+done
+pas XA-mem "${SCAN_IN}xargs -n1 redis-cli MEMORY USAGE"                    # ⓐ 두 낱말 동사
+pas XA-obj "${SCAN_IN}xargs -n1 redis-cli -n 2 OBJECT ENCODING"
+pas XA-lower "${SCAN_IN}xargs -n1 redis-cli -h x hkeys"                    # ⓐ 대소문자
+pas XA-docker "${SCAN_IN}xargs -I{} docker exec byz-redis redis-cli HKEYS {}"
+pas XA-flag 'xargs redis-cli --raw -c -p 7000 HGET k'                      # ⓐ 값 없는 옵션
+for v in SET SETEX SETNX MSET HSET HMSET HSETNX XADD PUBLISH LPUSH RPUSH SADD ZADD APPEND INCR INCRBY DEL EXPIRE UNLINK FLUSHDB FLUSHALL EVAL; do
+  blk "XB-$v" "printf 'a\n' | xargs -n1 redis-cli -h x $v"                # ⓑ 쓰기 동사 16종 + 6종
+done
+blk XB-cfg "printf 'a\n' | xargs -n1 redis-cli CONFIG SET maxmemory 1"
+blk XC-ph 'xargs -I{} redis-cli {} k'                                      # ⓒ 동사 자리 표시·치환·없음
+blk XC-var 'xargs redis-cli $v k'
+blk XC-bq 'xargs redis-cli `echo SET` k v'
+blk XC-none 'xargs redis-cli'
+blk XC-optonly 'xargs redis-cli -h x'
+blk XC-hval 'xargs redis-cli -h HKEYS SET k v'                             # -h 의 값이 읽기 동사 글자
+blk XC-unk 'xargs redis-cli --foo HKEYS k'
+blk XC-optsub 'xargs redis-cli -h $H HKEYS k'
+blk XD-pipe "echo 'SET k v' | redis-cli"                                   # ⓓ 파이프 수신·stdin·치환 회귀
+blk XD-stdin 'redis-cli -n 2 < cmds.txt'
+blk XD-sub 'redis-cli $(echo SET) k v'
+blk XF-two 'xargs redis-cli HGET k; xargs redis-cli SET k v'               # ⓕ 읽기 하나 + 쓰기 하나
+blk XF-same 'xargs redis-cli GET a redis-cli SET k v'
+blk XF-sub 'xargs redis-cli GET $(redis-cli SET k v)'
+# ⓖ xargs 치환 옵션(-I·-J·-i·--replace)이 동사 글자를 stdin 값으로 바꾸는 우회 (arch 재현 r1) — 치환 자리가 동사 뒤면 통과
+blk XG-I 'echo SET | xargs -I GET redis-cli GET k v'
+blk XG-IJ 'echo SET | xargs -IGET redis-cli GET k v'
+blk XG-rep 'echo SET | xargs --replace=GET redis-cli GET k v'
+blk XG-i 'echo SET | xargs -i GET redis-cli GET k v'
+blk XG-J 'echo SET | xargs -J GET redis-cli GET k v'
+blk XG-hget 'echo HSET | xargs -I HGET redis-cli -h x HGET k f v'
+blk XG-pct 'echo SET | xargs -I % redis-cli % k v'
+blk XG-opt 'echo n | xargs -I n redis-cli -n 0 GET k'
+blk XG-tI 'echo SET | xargs -tIGET redis-cli GET k v'                    # DA⑥ r1 — 결합 단축 옵션
+blk XG-tI2 'echo SET | xargs -tI GET redis-cli GET k v'
+blk XG-tJ 'echo SET | xargs -tJGET redis-cli GET k v'
+blk XG-ti 'echo SET | xargs -tiGET redis-cli GET k v'
+blk XG-ti0 'echo SET | xargs -ti GET redis-cli GET k v'
+blk XG-tn 'echo SET | xargs -tn1 -IGET redis-cli GET k v'
+pas XG-tI-ok 'redis-cli --scan | xargs -tI % redis-cli HGET % f'
+pas XG-n1-ok 'redis-cli --scan | xargs -n1 -P4 redis-cli HKEYS'
+pas XG-ok 'redis-cli --scan | xargs -I % redis-cli HGET % f'
+pas XG-i-ok 'redis-cli --scan | xargs -i redis-cli HGET {} f'
+pas XG-i-ok2 'redis-cli --scan | xargs -i docker exec c redis-cli HKEYS {}'
 
 # ── 변이 (M): 변이 복사본에서는 결과가 뒤집혀야 한다 ──────────────────────
 mut "$T/m1.sh" 'printf '"'%s'"' "$CHK" | grep -qiE' 'printf '"'%s'"' "$CMD" | grep -qiE'                  # EFFECTIVE→원문
@@ -137,8 +185,22 @@ expect M6-B10b 0 nm 'gh pr comment 1 --body "`redis-cli HSET k f v`"'
 H="$T/m7.sh"
 expect M7-B11a 0 nm 'gh pr create --body "$(redis-'"''"'cli SET k v)"'
 expect M7-B11b 0 nm 'gh pr create --body "$(redis-cli S'"''"'ET k v)"'
+# R108 변이: 읽기 허용 제거 → ⓐ 가 다시 차단 · 쓰기 동사를 읽기 목록에 → ⓑ 가 통과 · 옵션 값 규칙 제거 → -h 우회가 통과
+mut "$T/m8.sh" '    if e: o+=' '    if 0: o+='
+mut "$T/m9.sh" 'HKEYS|HGET|' 'HKEYS|HSET|HGET|'
+mut "$T/m10.sh" '"-c -e -x' '"-h -c -e -x'
+mut "$T/m11.sh" 'if e and swapped(' 'if 0 and swapped('
+H="$T/m11.sh"
+expect M11-XG-I 0 nm 'echo SET | xargs -I GET redis-cli GET k v'
+H="$T/m8.sh"
+expect M8-XA-HKEYS 2 nm "${SCAN_IN}xargs -n1 redis-cli -h 10.0.0.1 -p 6379 HKEYS"
+H="$T/m9.sh"
+expect M9-XB-HSET 0 nm "printf 'a\n' | xargs -n1 redis-cli -h x HSET"
+H="$T/m10.sh"
+expect M10-XC-hval 0 nm 'xargs redis-cli -h HKEYS SET k v'
+H="$HOOK"
 H="$HOOK"
 
 echo "SUMMARY block=$nb pass=$np mutant=$nm fail=$fail"
-[ "$nb" -eq 22 ] && [ "$np" -eq 32 ] && [ "$nm" -eq 15 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
+[ "$nb" -eq 73 ] && [ "$np" -eq 75 ] && [ "$nm" -eq 19 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
 echo "OK"

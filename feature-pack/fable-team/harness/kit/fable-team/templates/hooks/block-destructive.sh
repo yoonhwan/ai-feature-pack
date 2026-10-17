@@ -57,6 +57,48 @@ esac
 # 줄 잇기 — 끝이 \ 또는 | 인 줄은 다음 줄과 한 줄로(셸은 그렇게 실행한다 · grep 은 줄 단위 · DA x7 r1 Q1).
 INJ_J=$(printf '%s\n' "$INJ_SRC" | awk '{ if (sub(/\\$/, " ") || sub(/[|][[:space:]]*$/, "| ")) printf "%s", $0; else print }') || INJ_J=$INJ_SRC
 CHK=$(printf '%s' "$INJ_J" | LC_ALL=C sed -E "$INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK=$INJ_J
+# R108: xargs 꼴(X7)에서 redis-cli 옵션 뒤 «첫 토큰»이 읽기 동사면 그 일치만 XARGSREAD 로 바꾼다(옵션 값 규칙은 고정 목록 · 모르는 옵션·$·백틱·{}·동사 없음·쓰기 동사는 그대로 차단 · 파이썬 실패면 CHK 불변).
+INJECT_READ_VERBS='HKEYS|HGET|HGETALL|HMGET|HLEN|HSTRLEN|HEXISTS|GET|MGET|STRLEN|TYPE|TTL|PTTL|EXISTS|SCAN|HSCAN|SSCAN|ZSCAN|KEYS|XLEN|XRANGE|XREVRANGE|XINFO|LLEN|LRANGE|SMEMBERS|SCARD|SISMEMBER|ZRANGE|ZCARD|ZSCORE|DBSIZE|INFO|MEMORY USAGE|OBJECT ENCODING'
+CHK_X=$(python3 -c '
+import re,sys
+s,rv=sys.argv[1],set(sys.argv[2].split("|"))
+VAL=set("-h -p -s -a -u -n -r -i -d --user --pass --pattern --count --type".split())
+FLAG=set("-c -e -x -3 --raw --no-raw --scan --no-auth-warning --tls --insecure --csv".split())
+OK=re.compile(r"^[A-Za-z0-9_.:@/%+=,-]+$")
+def verb_end(t):
+    i=0
+    while i<len(t) and t[i][0].startswith("-"):
+        o=t[i][0]
+        if not OK.match(o): return 0
+        if o.split("=")[0] in VAL and "=" in o or o in FLAG: i+=1; continue
+        if o not in VAL or i+1>=len(t) or not OK.match(t[i+1][0]): return 0
+        i+=2
+    if i>=len(t): return 0
+    v=t[i][0].upper()
+    if v in rv: return t[i][1]
+    return t[i+1][1] if i+1<len(t) and v+" "+t[i+1][0].upper() in rv else 0
+def swapped(x,cons):
+    # xargs 치환 옵션(-I/-J R · -IR · -iR · --replace=R · 인자 없는 -i/--replace={}) 의 R 이 첫 토큰~동사 끝에 있으면 stdin 값이 동사를 바꾼다
+    R,i=[],0
+    while i<len(x):
+        t=x[i]; n=x[i+1] if i+1<len(x) else ""
+        if t.startswith("--replace="): R.append(t[10:])
+        elif t=="--replace": R+=["{}"]+([n] if n.lower()!="redis-cli" else [])
+        elif t[:1]=="-" and t[:2]!="--":
+            for k,ch in enumerate(t[1:],1):   # 결합 단축 옵션(-tIGET·-tI GET·-ti)을 풀어 읽는다 — 값을 받는 옵션은 나머지 글자가 값
+                a=t[k+1:]
+                if ch in "IJ": R.append(a or n); i+=0 if a else 1; break
+                if ch=="i": R+=[a or "{}"]+([] if a or n.lower()=="redis-cli" else [n]); break
+                if ch in "nPLsEdalCe": break
+        i+=1
+    return any(not q or q in cons or q in "redis-cli" for q in R)
+o,p=[],0
+for m in re.finditer(r"xargs(?:(?!redis-cli)[^;&|\n])*redis-cli",s,re.I):
+    r=s[m.end():]; c=re.search(r"[;&|\n]",r); r=r[:c.start()] if c else r
+    e=verb_end([(x.group(),x.end()) for x in re.finditer(r"\S+",r)])
+    if e and swapped(m.group().split(),r[:e]): e=0
+    if e: o+=[s[p:m.start()],"XARGSREAD"]; p=m.end()+e
+sys.stdout.write("".join(o)+s[p:])' "$CHK" "$INJECT_READ_VERBS") && CHK=$CHK_X
 # 비우는 것은 «redis-cli 가 안 든» 따옴표 구간뿐 — bash -c "redis-cli < f"·os.system('redis-cli < f') 는 실행 코드라 남긴다(DA x7 r2 Q1 · 표지 \001).
 INJ_MARK=$(printf '\001')
 CHK_R=$(printf '%s' "$INJ_J" | LC_ALL=C sed -E "s/[Rr][Ee][Dd][Ii][Ss]-[Cc][Ll][Ii]/$INJ_MARK/g; s/'[^'$INJ_MARK]*<[^'$INJ_MARK]*'/Q/g; s/\"[^\"$INJ_MARK]*<[^\"$INJ_MARK]*\"/Q/g; s/$INJ_MARK/redis-cli/g; $INJECT_SED" | LC_ALL=C tr -d "\\\\'\"") || CHK_R=$CHK
