@@ -19,10 +19,13 @@ def mbox_ok(path, cwd, moved):
     # 상대경로 정본 = JSON cwd 기준 realpath 일치 · 명령에 cd/pushd/popd 가 있으면 실행 위치가 달라 인정 0(R64)
     if re.search(r"[*?\[\]{}$~`]", path) or (path.startswith("/") and ".." in path.split("/")): return False
     if not path.startswith("/") and (moved or not cwd): return False
-    r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                       cwd=cwd or ".", capture_output=True, text=True, timeout=5)
-    if r.returncode: return False
-    g = r.stdout.strip()
+    def common(d):   # d 의 git 공용 폴더 — git 밖·없는 폴더면 None
+        try: r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=d, capture_output=True, text=True, timeout=5)
+        except OSError: return None
+        return None if r.returncode else r.stdout.strip()
+    # 절대경로 정본은 cwd 와 무관하게 «그 파일이 속한 리포» 의 루트 정본과 realpath 가 같을 때만 인정(R105 · cwd 가 git 밖이어도)
+    g = common(cwd or ".") or (common(os.path.dirname(path)) if path.startswith("/") else None)
+    if not g: return False
     want = os.path.realpath(os.path.join(os.path.dirname(g) if os.path.basename(g) == ".git" else g, ".fable-team/comm/mbox.sh"))
     return os.path.isfile(want) and os.path.realpath(os.path.join(cwd or ".", path)) == want
 def strip_heredoc(cmd):
