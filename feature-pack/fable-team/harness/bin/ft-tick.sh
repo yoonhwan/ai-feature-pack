@@ -111,20 +111,23 @@ pm_msg() { # $1 = report_to — 규칙은 README §6-1 · 정본 3종은 pm 인�
 }
 
 # 한 좌석·한 종류 발사: ② 간격 → ③ busy → 전송 → ④ 제출 검증. $1 seat $2 kind $3 interval $4 min_gap $5 msg
+#   R199 FT_TICK_FIRE_V2=1 (기본 0 = 메인 틱 바이트 불변) — 팀 사본(bin-<팀>/ft-tick.sh)이 09-16 에 고친 busy·미제출 감지: 창 14줄·스피너(↓ N tokens·소문자 thinking)·입력줄 «무엇이든» 을 미제출로. 팀 틱 plist 가 켠다.
+FIRE_V2="${FT_TICK_FIRE_V2:-0}"
 fire() {
-  local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail
+  local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail tailn=3 busy='esc to interrupt|Working|Thinking' sub='^[›❯] +\[cron-tick\]' subn=2
+  [ "$FIRE_V2" = 1 ] && { tailn=14; busy="$busy|↓ [0-9,]+ tokens|\| *thinking"; sub='^[›❯] +[^ ]'; subn=6; }
   stamp="$(stamp_of "$seat" "$kind")"; gap=$(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) ))
   if [ "$DRY" = 1 ]; then echo "DRY seat=$seat kind=$kind interval=${interval}s gap=${gap}s msg=${msg:0:80}"; return 0; fi
   [ "$gap" -ge "$interval" ] || return 0                                   # 아직 차례 아님(조용)
   [ "$gap" -ge "$min_gap" ] || { log "skip $seat/$kind — debounce (${gap}s < ${min_gap}s)"; return 0; }
   pane="$(pane_of "$seat")"; [ -n "$pane" ] || { log "skip $seat/$kind — session absent"; return 0; }
-  tail="$(tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -3)"
-  if printf '%s' "$tail" | LC_ALL=C grep -qaE 'esc to interrupt|Working|Thinking'; then log "skip $seat/$kind — pane busy (working)"; return 0; fi
+  tail="$(tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$tailn")"
+  if printf '%s' "$tail" | LC_ALL=C grep -qaE "$busy"; then log "skip $seat/$kind — pane busy (working)"; return 0; fi
   if printf '%s' "$tail" | LC_ALL=C grep -qaE '^[›❯] +[^ ]'; then log "skip $seat/$kind — pane has unsubmitted input"; return 0; fi
   tmux send-keys -t "$pane" -l "$msg"; sleep 0.3; tmux send-keys -t "$pane" Enter
   now > "$stamp"
   sleep 1.5
-  if tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -2 | LC_ALL=C grep -qaE '^[›❯] +\[cron-tick\]'; then
+  if tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$subn" | LC_ALL=C grep -qaE "$sub"; then
     log "$seat/$kind not submitted — sending Enter once more"; tmux send-keys -t "$pane" Enter
   fi
   log "$kind sent to $seat ($pane)"
