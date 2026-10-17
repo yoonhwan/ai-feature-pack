@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_decision_alarm import ReadError  # noqa: E402
@@ -30,9 +31,19 @@ def git(repo, timeout, *args):
         raise ReadError(f"git 실행 불가: {e}")
 
 
-def first_uses(repo, ref, timeout):
+def per_call(timeout, deadline):
+    """조회 1회의 상한 — 마감 시각(monotonic)이 있으면 min(자기 상한, 남은 시간) · 남은 시간 0 이하 = 조회 0 + 예산 초과(R303 DA⑥ H1)."""
+    if deadline is None:
+        return timeout
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise ReadError("git 조회 전체 예산 초과")
+    return min(timeout, left)
+
+
+def first_uses(repo, ref, timeout, deadline=None):
     """{플래그: '파일:줄'} — 시험 파일 제외 · 플래그당 첫 위치."""
-    p = git(repo, timeout, "grep", "-n", "-E", GREP_ERE, ref, "--", *CODE_PATHS)
+    p = git(repo, per_call(timeout, deadline), "grep", "-n", "-E", GREP_ERE, ref, "--", *CODE_PATHS)
     if p.returncode == 1 and not p.stderr.strip():
         return {}  # 일치 0
     if p.returncode != 0:
@@ -46,19 +57,19 @@ def first_uses(repo, ref, timeout):
     return found
 
 
-def show(repo, ref, path, timeout):
-    p = git(repo, timeout, "show", f"{ref}:{path}")
+def show(repo, ref, path, timeout, deadline=None):
+    p = git(repo, per_call(timeout, deadline), "show", f"{ref}:{path}")
     if p.returncode != 0:
         raise ReadError(f"git show {ref}:{path} rc={p.returncode} — 배포 설정을 못 읽어 판정 불가")
     return p.stdout
 
 
-def scan(repo, ref, timeout=7.0):
+def scan(repo, ref, timeout=7.0, deadline=None):
     """[{flag, loc, arg(bool), deploy(str)}] — 켜져 있지 않은(결정 필요) 플래그만."""
-    uses = first_uses(repo, ref, timeout)
+    uses = first_uses(repo, ref, timeout, deadline)
     if not uses:
         return []
-    docker, cd = show(repo, ref, DOCKERFILE, timeout), show(repo, ref, CD_DEV, timeout)
+    docker, cd = show(repo, ref, DOCKERFILE, timeout, deadline), show(repo, ref, CD_DEV, timeout, deadline)
     rows = []
     for flag, loc in sorted(uses.items()):
         arg = re.search(rf"^\s*ARG\s+{flag}\b", docker, re.M) is not None

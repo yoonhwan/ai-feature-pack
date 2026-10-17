@@ -20,9 +20,26 @@ from ft_flag_off import open_flags, scan  # noqa: E402
 from ft_inbox_core import MUST_REPORT, R, lineage, obligation_closed, qpath, read_q  # noqa: E402
 
 T0 = time.monotonic()
-BUDGET_S = 2.0  # 도구 1회 전체 예산(R214 완료 조건) — tmux 조회는 남은 예산만큼만 기다린다
+# 도구 1회 전체 예산 — 외부 조회(tmux·ft-hil.sh)는 남은 예산만큼만 기다린다. 2.0 → 5.0 (R303 · 판정 1395): 실측 중앙 1.47 s · 최대 1.59 s(CPU 28개 부하) · 실사용 rc4 62건 전부 ft-hil.sh 시간 초과(swap) · 호출자 ft_news_ledger 가 timeout=7 이라 그 밑(7초 룰)
+# FT_DECISION_BUDGET_S = 시험 전용(예산 기전 시험이 짧은 값을 준다) — 라이브 plist·훅에는 넣지 않는다
+BUDGET_S = 5.0
+BUDGET_MAX_S = 6.0  # 호출자 timeout=7 밑 — 이 위 값은 7초 룰(판정 666) 밖이라 받지 않는다
 HERE = os.path.dirname(os.path.abspath(__file__))
 NO_MARK = "(자율 큐 처리 표식 없음)"
+
+
+def budget_from_env():
+    """FT_DECISION_BUDGET_S → 초. 빈 값 = 5.0 · 숫자 아님·`0 < v ≤ 6` 밖 = ValueError(조용한 대체 0 · R303 DA⑥ H2)."""
+    raw = os.environ.get("FT_DECISION_BUDGET_S") or ""
+    if not raw:
+        return 5.0
+    try:
+        v = float(raw)
+    except ValueError:
+        v = 0.0
+    if not 0 < v <= BUDGET_MAX_S:  # nan·inf 도 여기서 걸린다
+        raise ValueError(raw)
+    return v
 
 
 def planner():
@@ -130,7 +147,7 @@ def flag_off(wt):
     if t:
         i, j, k = (column("FLAG-DECISIONS", t, c) for c in ("플래그", "결정(켬/끔)", "판정"))
         decided = {r[i] for r in t[0] if r[j] in ("켬", "끔") and r[k]}
-    rows = open_flags(scan(os.environ.get("FT_FLAG_OFF_REPO", R), os.environ.get("FT_FLAG_OFF_REF", "origin/main"), min(7.0, left())), decided)
+    rows = open_flags(scan(os.environ.get("FT_FLAG_OFF_REPO", R), os.environ.get("FT_FLAG_OFF_REF", "origin/main"), deadline=T0 + BUDGET_S), decided)
     return len(rows), (f"(꺼진 플래그 {len(rows)})" + ("" if t else " (플래그 결정 파일 없음)") if rows else "")
 
 
@@ -150,8 +167,14 @@ def line(s):
 
 
 def main(argv):
+    global BUDGET_S
     if argv not in ([], ["--detail"], ["--alarm"]):
         print("usage: ft-decision-count.sh [--detail | --alarm]", file=sys.stderr)
+        return 2
+    try:
+        BUDGET_S = budget_from_env()
+    except ValueError as e:
+        print(f"ERROR ft-decision-count: FT_DECISION_BUDGET_S={e} — 0 초과 6 이하 숫자", file=sys.stderr)
         return 2
     now = datetime.fromisoformat(os.environ["FT_DECISION_NOW"]) if os.environ.get("FT_DECISION_NOW") else datetime.now()
     try:
