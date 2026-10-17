@@ -26,7 +26,11 @@ JUDGE="$(dirname "${BASH_SOURCE[0]}")/block-destructive-judge.py"
 judge() { python3 "$JUDGE" "$@"; }
 EFFECTIVE=$(judge "$CMD" "$INPUT" 2>/dev/null) || EFFECTIVE=$CMD
 
-if printf '%s' "$EFFECTIVE" | grep -qiE "$PATTERN"; then
+# R115: git 전역 옵션(-C·-c·--git-dir·--work-tree·--no-pager 등 `-` 로 시작하는 낱말과 그 값)을 걷은 사본 NORM 에도 PATTERN.
+# 판정기가 따옴표를 풀어 `-C '/a b'` 의 값이 쪼개지므로 값 모양을 따지지 않고 «옵션 시작 ~ 파괴 하위명령» 사이를 접는다.
+# 검사 대상이 EFFECTIVE «또는» NORM 이라 차단만 늘고 통과는 늘지 않는다.
+NORM=$(printf '%s' "$EFFECTIVE" | LC_ALL=C sed -E 's/git[[:space:]]+-[^;&|]*[[:space:]](worktree[[:space:]]+remove|branch[[:space:]]+-[Dd]|push)/git \1/g') || NORM=$EFFECTIVE
+if printf '%s\n%s' "$EFFECTIVE" "$NORM" | grep -qiE "$PATTERN"; then
   printf '🚫 파괴적/비가역 명령 차단 — HIL(사람 승인) 필수\n' >&2
   printf '명령: %s\n' "$CMD" >&2
   printf '데이터/인프라/세션을 복구 불가하게 삭제할 수 있습니다. yoonhwan 오빠의 명시 승인을 받은 뒤에만 진행하세요. (정당한 경우 사용자가 직접 ! 로 실행하거나 승인)\n' >&2

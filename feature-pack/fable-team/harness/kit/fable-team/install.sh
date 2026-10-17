@@ -72,5 +72,19 @@ for tpl in "$KIT"/templates/hooks/*.sh "$KIT"/templates/hooks/*.py; do
 done
 echo "hooks same=$H_SAME diff=$H_DIFF absent=$H_ABSENT registered=$H_REG"
 
+# R115 hil 싱크 허용 목록 — block-destructive 판정기가 «ft-hil.sh 등록» 구간을 글 싱크로 인정할 때 쓰는 realpath 줄(줄마다 1개).
+# 이 키트가 설치한 ft-hil.sh + KIT_HIL_EXTRA(콜론 구분 · 리포 런타임 사본 등)만. 실재하지 않는 경로는 적지 않는다. 훅 폴더가 이미 있을 때만 쓴다.
+HIL_LIST="$HOME_DIR/.claude/hooks/hil-paths.txt"
+HIL_LINES=""
+for p in "$DEST/bin/ft-hil.sh" $(printf '%s' "${KIT_HIL_EXTRA:-}" | tr ':' ' '); do
+  [ -f "$p" ] && HIL_LINES+="$(cd "$(dirname "$p")" && pwd -P)/$(basename "$p")"$'\n'
+done
+if [ "$APPLY" = 1 ] && [ -d "$HOME_DIR/.claude/hooks" ] && [ -n "$HIL_LINES" ]; then
+  printf '%s' "$HIL_LINES" > "$HIL_LIST"
+  echo "hil-paths $HIL_LIST lines=$(printf '%s' "$HIL_LINES" | wc -l | tr -d ' ')"
+else
+  echo "hil-paths (쓰지 않음: apply=$APPLY 훅폴더=$([ -d "$HOME_DIR/.claude/hooks" ] && echo 있음 || echo 없음) 대상=$(printf '%s' "$HIL_LINES" | wc -l | tr -d ' ')줄)"
+fi
+
 [ "$MODE" = "dry-run" ] && echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"
 echo "== 끝 =="

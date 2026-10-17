@@ -1,9 +1,10 @@
 # block-destructive.sh 의 판정기(판정 466) — 훅이 python3 <이 파일> <명령> <JSON 원문> 으로 부른다.
 # 출력 = PATTERN 을 볼 글자. 예외는 Inelig → 명령 전체(fail-closed).
 import fnmatch, json, os, re, shlex, subprocess, sys
-
+try: import block_destructive_hil as bdh   # R115 hil 싱크(같은 폴더)
+except ImportError: bdh = None             # 없으면 hil 싱크만 꺼진다(fail-closed) — 나머지 판정은 그대로
+ungit = bdh.ungit if bdh else list         # git 전역 옵션 정규화(없으면 훅의 sed 사본이 보강)
 class Inelig(Exception): pass          # 예외 자격 없음 → 명령 전체에 PATTERN
-
 REDIR = {"<", ">", ">>", "<<", "<<<", ">|", "&>", "&>>", ">&", "<&", "<>", "<<-"}
 FILE_OUT = {">", ">>", ">|", "&>", "&>>", ">&", "<>"}
 CONSUMERS = {"bash", "sh", "zsh", "dash", "ksh", "fish", "eval", "source", ".", "exec", "xargs", "env", "sudo", "nohup",
@@ -12,7 +13,6 @@ INTERP = re.compile(r"(python|perl|ruby)[0-9.]*|node")
 FILTERS = {"head", "tail", "wc", "sort", "uniq", "cut"}
 ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
 HD_OPEN = re.compile(r"<<(-?)\s*([^\s;&|()<>]+)")
-
 MOVE = re.compile(r"(^|[\s;&|(])(cd|pushd|popd)(?=[\s;&|)]|$)")   # 이동 단어 뒤 구분자(; & | ))도 경계 — DA r2 Q2
 def mbox_ok(path, cwd, moved):
     # 정본 mbox = JSON cwd 의 git 루트 + /.fable-team/comm/mbox.sh (realpath 일치만 · 절대경로는 글자 그대로 `..` 0)
@@ -80,7 +80,7 @@ def classify(toks, sep, cwd, moved):
         if t in REDIR: redirs.append((t, toks[i + 1] if i + 1 < len(toks) else "")); i += 2
         elif re.fullmatch(r"[<>&|]+", t): raise Inelig
         else: words.append(t); i += 1
-    g = dict(toks=toks, words=words, redirs=redirs, sep=sep, mbox=False, cmd="", kind="other",
+    g = dict(toks=toks, words=words, redirs=redirs, sep=sep, mbox=False, cmd="", kind="other", hil=bool(bdh and bdh.sink(words, redirs)),
              hd=any(o in ("<<", "<<-") for o, _ in redirs))
     ci = next((k for k, w in enumerate(words) if not ASSIGN.match(w)), None)
     if ci is None:
@@ -89,7 +89,7 @@ def classify(toks, sep, cwd, moved):
     if "$" in g["cmd"]: raise Inelig                          # 명령 단어가 변수
     if ci == 0:
         g["mbox"] = g["cmd"] == "bash" and len(words) > 2 and words[2] in ("send", "relay", "ring") and mbox_ok(words[1], cwd, moved)
-        if g["mbox"] or text_sink(words, g["hd"]): g["kind"] = "sink"
+        if g["mbox"] or g["hil"] or text_sink(words, g["hd"]): g["kind"] = "sink"
     return g
 def fileout(g):
     return g["cmd"] == "tee" or any(o in FILE_OUT and t != "/dev/null" and not (o == ">&" and re.fullmatch(r"\d+|-", t))
@@ -102,19 +102,19 @@ def judge(cmd, cwd, q=False):   # q = --inject: 단어를 셸 인용으로 되�
     if sum(o in ("<<", "<<-") for g in segs for o, _ in g["redirs"]) != n: raise Inelig
     for g in segs:
         skip = g["mbox"]
-        for t in g["toks"]:
+        for t in ([] if g["hil"] else g["toks"]):   # hil 구간은 sink() 가 모양 전체를 이미 증명했다
             if skip and t == "bash": skip = False; continue
             b = os.path.basename(t)
             if b in CONSUMERS or INTERP.fullmatch(b): raise Inelig
     others = [g for g in segs if g["kind"] == "other"]
-    if others and any(fileout(g) for g in segs if g["kind"] == "sink"): raise Inelig
+    if (bdh and bdh.bad(segs, cwd)) or others and any(fileout(g) for g in segs if g["kind"] == "sink"): raise Inelig
     for i, g in enumerate(segs):
         j = i
         while g["kind"] == "sink" and "|" in segs[j]["sep"].replace("||", "") and j + 1 < len(segs):
             j += 1
             if segs[j]["cmd"] not in FILTERS or any(a.startswith("--compress-program") for a in segs[j]["words"]): raise Inelig
     body_in = n and not any(g["hd"] and g["kind"] == "sink" and g["cmd"] in ("cat", "tee") for g in segs)
-    lines = [" ".join(shlex.quote(t) if q and t not in REDIR and not re.fullmatch(r"[<>&|;()]+", t) else t for t in g["toks"]) for g in others] + ([body] if body_in else [])
+    lines = [" ".join(shlex.quote(t) if q and t not in REDIR and not re.fullmatch(r"[<>&|;()]+", t) else t for t in f(g["toks"])) for f in (list, ungit) for g in others] + ([body] if body_in else [])   # 원래 줄 먼저 · 정규화 줄은 «추가»(대체 0)
     if any(g["kind"] == "assign" for g in segs) and any("$" in l for l in lines): raise Inelig
     return "\n".join(lines)
 
@@ -198,6 +198,6 @@ cmd = sys.argv[2] if inj else sys.argv[1]
 try:
     cwd = json.loads(sys.argv[-1]).get("cwd"); cwd = cwd if isinstance(cwd, str) else None
     try: print(judge(cmd, cwd, inj))
-    except Inelig: print(inject_view(cmd, cwd) if inj else cmd)
+    except Inelig: print(inject_view(cmd, cwd) if inj else bdh.norm_all(cmd) if bdh else cmd)
 except Exception:
-    print(cmd)
+    print(cmd if inj or not bdh else bdh.norm_all(cmd))   # 파싱 실패(주석·짝 안 맞는 따옴표)도 보수 경로 — hil 자격은 판정 전체 실패로 0
