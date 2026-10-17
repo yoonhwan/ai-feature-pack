@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ft-resource-reclaim.sh [--dry-run] --caller <세션명> --need <n>
+# ft-resource-reclaim.sh [--dry-run] --caller <세션명> --need <n> [--team <팀>]
+#   --team = 그 팀 나노만 후보(이름 접두 `byz-<팀>-nano-`(v65 = `ft-v65-temp-`) ∧ 그 팀 명부 `seats-<팀>.json`(v65 = 기본 명부)에 행) — 팀셋 나노 상한(ft-nano-spawn.sh)이 부른다 · 닫기 직전 fresh_ok 가 소속을 다시 확인(DA r1 ⑤)
 # ft-resource-reclaim.sh [--dry-run] --on-reject "<문지기 출력>" [--caller <세션명>] [--gate <ft-resource-gate.sh>]
 #   R198(판정 1767) · 자원 문지기가 «에이전트 수» 로 막았을 때만 불려, 기존 표준승인 범위 안의 유휴·완료 좌석을 need 개 닫는다.
 #   새 파괴 권한 0 — 닫는 경로는 승인 표의 두 행뿐(표 밖 kill 0 · 브랜치 삭제 0):
@@ -18,10 +19,11 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 
-DRY=0; CALLER=""; NEED=""; ONREJ=""; HAVE_ONREJ=0; GATE=""
+DRY=0; CALLER=""; NEED=""; ONREJ=""; HAVE_ONREJ=0; GATE=""; TEAM=""
 while [ $# -gt 0 ]; do case "$1" in
   --dry-run) DRY=1; shift;; --caller) CALLER="${2:-}"; shift 2 2>/dev/null || shift;; --need) NEED="${2:-}"; shift 2 2>/dev/null || shift;;
   --on-reject) HAVE_ONREJ=1; ONREJ="${2:-}"; shift 2 2>/dev/null || shift;; --gate) GATE="${2:-}"; shift 2 2>/dev/null || shift;;
+  --team) TEAM="${2:-}"; shift 2 2>/dev/null || shift;;
   *) echo "usage: $0 [--dry-run] (--caller <세션명> --need <n> | --on-reject \"<문지기 출력>\" [--caller <세션명>] [--gate <path>])" >&2; exit 2;; esac; done
 # R213·R320: 좌석을 닫아 풀리는 사유(에이전트 수·스왑·메모리·압력·속도)가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다(측정 실패 ERROR 는 rc 4 유지).
 if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -Eq '^REJECT resource (agents|swap|memfree|level|rate)='; then
@@ -89,6 +91,13 @@ in_roster() {   # $1=세션명 → rc0 = BYZ 명부(seats*.json)에 행이 있�
   done < <(printf '%s\n' "$ROSTERS")
   return 1
 }
+team_ok() {   # $1=세션명 → rc0 = --team 팀의 나노(이름 접두 ∧ 그 팀 명부 행). TEAM 이 비면 항상 rc0
+  [ -n "$TEAM" ] || return 0
+  local pfx="byz-$TEAM-nano-" ros="$(dirname -- "$SEATS")/seats-$TEAM.json"
+  [ "$TEAM" != v65 ] || { pfx="ft-v65-temp-"; ros="$SEATS"; }
+  case "$1" in "$pfx"*) ;; *) return 1;; esac
+  [ -f "$ros" ] && python3 -c 'import json,sys;sys.exit(0 if isinstance(json.load(open(sys.argv[1])).get(sys.argv[2]),dict) else 1)' "$ros" "$1" 2>/dev/null
+}
 # R320: 명부 index 카드 경로 → 지금 실재하는 카드(DA 뒤 indices/완성/ 으로 옮겨졌으면 그 경로) · 없으면 빈 값
 card_for() {
   local i="$1" d
@@ -142,6 +151,7 @@ fresh_ok() {
     [ "$(tmux show-options -qv -t "=$n:" @zc_v65_active 2>/dev/null)" = 1 ] && { echo "V65 active"; return 1; }
     in_roster "$n" || { echo "BYZ 명부에 행 없음"; return 1; }
   fi
+  team_ok "$n" || { echo "팀 소속 아님($TEAM)"; return 1; }
   build_protect
   protected "$n" && { echo "부르는 쪽·상위 오케"; return 1; }
   return 0
@@ -169,6 +179,7 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
   sess="$(tmux list-sessions -F '#{session_name}|#{session_activity}|#{session_attached}' 2>/dev/null)"
   while IFS='|' read -r name act att; do
     [ -n "$name" ] || continue
+    [ -z "$TEAM" ] || team_ok "$name" || continue   # r-teamset-standard: 그 팀 나노 밖은 후보도 «승인 범위 밖» 표도 아니다
     idle=$(( (now - act) / 60 ))
     kind=""
     case "$name" in

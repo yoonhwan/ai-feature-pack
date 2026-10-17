@@ -235,6 +235,23 @@ suite() {   # $1=시험할 스크립트 경로 — 한 묶음 단언 (실물이�
   ( run "$S" --caller byz-t-master-claude#1 --need 1 >/dev/null & run "$S" --caller byz-t-master-claude#1 --need 1 >/dev/null & wait )
   # 각 호출 need=1 → 총 2개 닫힘 가능하나, 같은 좌석을 두 번 닫으면 안 된다
   eq "$(sort "$ST/kill.log" "$ST/nc.log" | awk '{print $1}' | sort | uniq -d | wc -l | tr -d ' ')" 0 "ⓔ 동시 2호출 = 같은 좌석 중복 kill/close 0"
+
+  # ── ⓕ --team (r-teamset-standard · DA r1 ⑤): 그 팀 나노만 후보(이름 접두 ∧ 팀 명부 행) — 직전 세대·역할 좌석·다른 팀 표 행 0 · 닫기 직전 소속 재확인 ──
+  setup; cp "$ST/seats.json" "$ST/seats-t.json"
+  out="$(run "$S" --caller byz-t-master-claude#1 --need 1 --team t)"; rc=$?
+  eq "$rc" 0 "ⓕ --team rc0"
+  eq "$(awk '{print $1}' "$ST/nc.log")" "byz-t-nano-a#0" "ⓕ 그 팀 가장 오래 쉰 나노 1개만 닫음"
+  eq "$(wc -l < "$ST/kill.log" | tr -d ' ')" 0 "ⓕ 접두 밖 직전 세대 kill 0 (재개 기록 있는 role#1 도 후보 아님)"
+  hasnt "$out" "byz-t-role-claude" "ⓕ 접두 밖 좌석은 표 행도 0"
+  hasnt "$out" "byz-t-da-codex" "ⓕ 접두 밖 codex DA 는 «승인 범위 밖» 행도 0"
+  setup; cp "$ST/seats.json" "$ST/seats-zz.json"
+  out="$(run "$S" --caller byz-t-master-claude#1 --need 1 --team zz)"
+  eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "ⓕ 다른 팀(zz) 지정 = byz-t-* 닫기 0"
+  has "$out" "RECLAIMED 0" "ⓕ 접두 불일치 = RECLAIMED 0"
+  # 소속 재확인: 후보로 뽑힌 뒤 그 팀 명부에서 행이 빠지면(승계·정리) 닫기 직전 fresh_ok 가 거절 — 팀 명부에 a 행이 없는 세계
+  setup; python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));[d.pop(k) for k in list(d) if k.startswith("byz-t-nano-a")];json.dump(d,open(sys.argv[2],"w"))' "$ST/seats.json" "$ST/seats-t.json"
+  out="$(run "$S" --caller byz-t-master-claude#1 --need 1 --team t)"
+  hasnt "$(cat "$ST/nc.log")" "byz-t-nano-a#0" "ⓕ 팀 명부에 행 없는 나노는 닫지 않음(소속 확인)"
 }
 
 # ── 실물 ──

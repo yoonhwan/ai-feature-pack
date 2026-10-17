@@ -2,7 +2,7 @@
 # ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--dry-run]
 #   --raise "<사유>" = 상향 모델(claude-fable-*·*astra* · 판정 1641)을 열 때 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
-#   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
+#   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인) · 7 = 팀셋 나노 상한 — 좌석 0 · 순번 큐(QUEUED · r-teamset-standard)
 # 한 번에: ①lint ②워크트리+.venv/.env·clients/web/node_modules 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/opus-5.5)
 #          ④remain-on-exit on + @zc_v65_active=1 ⑤seats.json 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로 한 줄, mbox) ⑧도달 확인(jsonl)
 # ★팩 ft-tmux-spawn.sh 미사용★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06 「install.json 부재 = exit 4」) · 오빠 §0-A 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 직접 호출.
@@ -55,6 +55,26 @@ fi
 if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
   [ -f "$HERE/ft_seat_cap.py" ] || { echo "REJECT ft_seat_cap.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
   _cap="$(python3 "$HERE/ft_seat_cap.py" --root "$ROOT")" || { printf '%s\n' "$_cap"; exit 1; }
+fi
+# ★팀셋 나노 상한 (r-teamset-standard · 판정 2170)★: design/TEAMSET.md 표의 팀 상한 — 부작용 0 지점. 넘으면 «전 팀 정지» 대신 그 팀 끝난 나노 회수 1회(--team 필수) → 그래도 넘으면 순번 큐(QUEUED · rc 7). FT_TEAMSET=0 으로 끔.
+if [ "${FT_TEAMSET:-1}" != 0 ]; then
+  [ -f "$HERE/ft_teamset.py" ] && [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  _tsp="${FT_NANO_PREFIX:-ft-v65-temp-}"; _tsmd="${FT_TEAMSET_MD:-$WT/design/TEAMSET.md}"
+  if [ ! -f "$_tsmd" ]; then echo "WARN TEAMSET.md 없음($_tsmd) — 팀셋 나노 상한 검사 0 (표 착지 전 호환)"
+  else
+    _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
+    _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
+    if [ "$_tsrc" = 4 ] && [ "$DRY" != 1 ]; then
+      bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst" >&2
+      _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
+    fi
+    printf '%s\n' "$_tso"
+    case "$_tsrc" in
+      0) ;;
+      4) [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM"; exit 7;;
+      *) echo "REJECT 팀셋 표 판정 실패(rc=$_tsrc) — 부작용 0"; exit 1;;
+    esac
+  fi
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
 #   검사 스크립트가 없는 것도 드리프트(설치 누락) · 우회 스위치 없음 — 해결은 master 라이브 cp.

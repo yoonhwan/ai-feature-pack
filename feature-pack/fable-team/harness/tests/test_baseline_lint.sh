@@ -13,7 +13,7 @@ bash -n "$BIN/ft-nano-spawn.sh" && ok "bash -n ft-nano-spawn.sh" || bad "bash -n
 
 # 가짜 bin: spawn 사본 + 항상 통과하는 ft-index-lint (이 시험은 기준값 줄만 본다)
 mkdir -p "$T/bin" "$T/idx/대기"
-cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-proposal-gate.sh" "$BIN/ft_raised.py" "$T/bin/"   # ft_raised.py = 상향 모델 판정(R149) — spawn 이 부르는 형제
+cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-proposal-gate.sh" "$BIN/ft_raised.py" "$BIN/ft_teamset.py" "$BIN/ft_spawn_queue.py" "$T/bin/"   # ft_raised.py = 상향 모델 판정(R149) — spawn 이 부르는 형제
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-resource-gate.sh"   # spawn 입구 자원 문지기(Res-1014) — 사본 폴더에 없으면 spawn 이 경고 줄 전에 죽어 3a·3b 가 FAIL 한다. 이 시험은 기준값 줄만 본다
 echo '{}' > "$T/seats.json"
@@ -25,7 +25,7 @@ card() {  # card <파일> [기준값 줄(통째로, 생략하면 줄 없음)]
     echo "## 구현 범위"; echo "x"
     echo "기준값: 본문에 있는 줄은 머리줄이 아니다"; } > "$T/idx/대기/$1.md"
 }
-run() { (cd "$HERE/../.." && FT_SEATS_JSON="$T/seats.json" bash "$T/bin/ft-nano-spawn.sh" "$T/idx/대기/$1.md" --dry-run 2>&1); }
+run() { (cd "$HERE/../.." && FT_TEAMSET=0 FT_SEATS_JSON="$T/seats.json" bash "$T/bin/ft-nano-spawn.sh" "$T/idx/대기/$1.md" --dry-run 2>&1); }
 warned() { echo "$1" | grep -q 'WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸'; }
 
 # 케이스 1 — 기준값 있음: 경고 없음
