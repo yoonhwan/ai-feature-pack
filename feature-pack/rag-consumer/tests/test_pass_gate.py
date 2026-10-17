@@ -312,8 +312,8 @@ class FakeSqlcipher:
         self.statements, self.handlers, self.uris, self.connections = [], [], [], []
         self.interrupted, self.release = threading.Event(), threading.Event()
 
-    def connect(self, uri, **kwargs):
-        self.uris.append((uri, kwargs))
+    def connect(self, target, /, **kwargs):  # the code passes uri=True as a keyword, so the first parameter must not be named "uri"
+        self.uris.append((target, kwargs))
         if self.block:
             self.release.wait(10)
         connection = FakeConnection(self)
@@ -353,13 +353,16 @@ def test_a_failing_quick_check_statement_counts_as_not_ok():
 
 @pytest.mark.parametrize("fail_at", ["pragma key", "temp_store", "query_only", "busy_timeout", "sqlite_master"])
 def test_a_failure_while_opening_is_an_open_error(fail_at):
-    rows = gate.check_databases([fake_target()], sqlcipher3=FakeSqlcipher(fail_at=fail_at))
+    fake = FakeSqlcipher(fail_at=fail_at)
+    rows = gate.check_databases([fake_target()], sqlcipher3=fake)
     assert outcomes(rows) == {"consumer": "open_error"}
+    assert fake.uris  # the open was actually reached (not an accidental open_error before it)
 
 
 def test_an_empty_cipher_version_is_an_open_error():
-    assert outcomes(gate.check_databases([fake_target()], sqlcipher3=FakeSqlcipher(no_cipher=True))) == {
-        "consumer": "open_error"}
+    fake = FakeSqlcipher(no_cipher=True)
+    assert outcomes(gate.check_databases([fake_target()], sqlcipher3=fake)) == {"consumer": "open_error"}
+    assert fake.uris  # the open was actually reached
 
 
 def test_a_failing_or_false_identity_is_an_identity_error():
