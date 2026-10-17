@@ -148,8 +148,25 @@ stall() {
   done <<< "$rows"
 }
 
+# ── 유출 부하 리퍼 (2026-10-17 실사고 안전망 · ft-leak-reap.sh) ──
+#   좌석이 부하 테스트를 돌리다 하네스에 SIGKILL 로 끊기면 EXIT trap 이 안 돌아 busy-loop 이
+#   PPID=1 로 영구 유출된다(실사고: 42개 유출 → load 151 → cliproxy/headroom 기아 → 전 프로젝트 정지).
+#   매 루프 «고아 + 부하 시그니처 + 누적 CPU» 를 좁게 판정해 정리한다. 유출 0 이면 조용하다.
+reap() {
+  local out rc=0
+  [ -x "$HERE/ft-leak-reap.sh" ] || return 0
+  if [ "$DRY" = 1 ]; then
+    out="$(bash "$HERE/ft-leak-reap.sh" --dry-run --quiet 2>&1)" || rc=$?
+  else
+    out="$(bash "$HERE/ft-leak-reap.sh" --kill --quiet 2>&1)" || rc=$?
+  fi
+  [ -n "${out:-}" ] && log "leak-reap: ${out//$'\n'/ | }"
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to
+  reap
   stall
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
