@@ -394,8 +394,8 @@ news_ledger() {
 
 # ── R163 죽은 좌석 자동 재개 (판정 1675 ②) ──────────────────────────────────────────────────────
 # 현역 좌석 → "seat<TAB>role<TAB>agent<TAB>model" (all_seats 와 같은 제외 기준 · 빈 칸은 '-')
-resume_rows() {
-  python3 - "$SEATS" <<'PY'
+resume_rows() {   # $1 = 명부 경로(기본 $SEATS)
+  python3 - "${1:-$SEATS}" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1])); m = d.get("_master")
 for k, v in d.items():
@@ -463,16 +463,26 @@ hil_watch() {
 }
 
 live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐 좌석만 쓴다(ft-resume-attempt.sh snapshot · codex·cmd 는 쓰지 않음)
-  local rows seat role agent model out
+  #   R324: 틱 데몬이 없는 팀(harness·planner·graphics·issues·concierge·room·lecture…)은 재개 기록이 0 이었다 — 이 틱은 자기 명부 «뒤에» 같은 폴더의 다른 명부(seats.json·seats-*.json)도 훑는다.
+  #   다른 명부 훑기는 상태 폴더의 live-sweep stamp 로 FT_TICK_LIVE_SWEEP_SEC(300)마다 1번만(틱 여러 개가 같은 상태 폴더를 쓰면 하나만 돈다 · 스냅샷은 UNCHANGED 면 쓰기 0 이라 겹쳐도 무해) · dry-run 은 stamp 를 쓰지 않는다.
+  local rows seat role agent model out roster seen=" " sweep sstamp last
   [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
   [ -f "$RESUME_ATTEMPT" ] || { echo "$(date '+%F %T') live_snapshot: missing $RESUME_ATTEMPT" >&2; return 0; }
-  rows="$(resume_rows 2>/dev/null)" || { echo "$(date '+%F %T') live_snapshot: seats.json unreadable ($SEATS)" >&2; return 0; }
-  while IFS=$'\t' read -r seat role agent model; do
-    [ -n "$seat" ] && [ "$agent" = claude ] && [ -n "$(pane_of "$seat")" ] || continue
-    [ "$model" != - ] || { log "live_snapshot: $seat — 명부에 model 없음, 건너뜀"; continue; }
-    if [ "$DRY" = 1 ]; then echo "DRY kind=live-snapshot seat=$seat"; continue; fi
-    out="$(bash "$RESUME_ATTEMPT" snapshot "$seat" --agent "$agent" --model "$model" 2>&1)" || echo "$(date '+%F %T') live_snapshot: ERROR $seat: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
-  done <<< "$rows"
+  sweep=0; sstamp="$STATE_DIR/live-sweep"; last="$(cat "$sstamp" 2>/dev/null || echo 0)"; case "$last" in ''|*[!0-9]*) last=0;; esac
+  [ $(( $(now) - last )) -ge "${FT_TICK_LIVE_SWEEP_SEC:-300}" ] && sweep=1
+  for roster in "$SEATS" $([ "$sweep" = 1 ] && ls "$(dirname "$SEATS")"/seats.json "$(dirname "$SEATS")"/seats-*.json 2>/dev/null); do
+    [ -f "$roster" ] || continue
+    rows="$(resume_rows "$roster" 2>/dev/null)" || { echo "$(date '+%F %T') live_snapshot: seats.json unreadable ($roster)" >&2; continue; }
+    while IFS=$'\t' read -r seat role agent model; do
+      [ -n "$seat" ] && [ "$agent" = claude ] && [ -n "$(pane_of "$seat")" ] || continue
+      case "$seen" in *" $seat "*) continue;; esac; seen="$seen$seat "
+      [ "$model" != - ] || { log "live_snapshot: $seat — 명부에 model 없음, 건너뜀"; continue; }
+      if [ "$DRY" = 1 ]; then echo "DRY kind=live-snapshot seat=$seat"; continue; fi
+      out="$(bash "$RESUME_ATTEMPT" snapshot "$seat" --agent "$agent" --model "$model" 2>&1)" || echo "$(date '+%F %T') live_snapshot: ERROR $seat: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+    done <<< "$rows"
+  done
+  if [ "$sweep" = 1 ] && [ "$DRY" != 1 ]; then mkdir -p "$STATE_DIR" && now > "$sstamp"; fi
+  return 0
 }
 
 # ② 죽음 = 명부 현역 ∧ tmux 세션 없음 ∧ «완료·휴식» 아님. ON 일 때만 한 루프 1석(master→planner→arch→그 밖) 자원 문지기 통과 시 같은 대화로 재개.
