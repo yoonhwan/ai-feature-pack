@@ -19,6 +19,7 @@ RULES = (  # (종류, 정규식 — 가릴 값은 그룹 val, 앞은 그룹 pre)
     ("url-cred", re.compile(r"(?P<pre>(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*://[^\s:/@*<>$]+:)" + PH + r"(?P<val>[^\s@/]{3,})(?=@)")),
     ("pgpassword", re.compile(r"(?P<pre>\bPGPASSWORD=)" + PH + r"(?P<val>[^\s'\"]+)")),
     ("token-prefix", re.compile(r"(?P<pre>)\b" + PH + r"(?P<val>" + TOKEN_PREFIX + r"[A-Za-z0-9_.\-]{16,})")),
+    ("slack-webhook", re.compile(r"(?P<pre>(?i:https://hooks\.slack\.com/services/))" + PH + r"(?P<val>[A-Za-z0-9_%-]+/[A-Za-z0-9_%-]+/[A-Za-z0-9_%-]+)")),  # 앞이 고정 글자 — 선형 · R307 범위 2
     ("jwt", re.compile(r"(?P<pre>)" + NOT_IN_CHUNK + r"(?P<val>eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,})")),
 )
 # named-secret: «이름+구분자»만 소비하고 값은 앞보기로 본다 — 앞 이름이 비밀 이름이 아니면 아무것도 안 먹고 다음 후보로 넘어가 뒤의 진짜 이름을 놓치지 않는다(DA⑥ r3 H4)

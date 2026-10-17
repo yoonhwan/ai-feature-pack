@@ -6,7 +6,7 @@ import re
 
 from ft_secret_lex import W
 
-NAME = re.compile(r"PASSWORD|PASS|TOKEN|SECRET|DSN|KEY", re.I)
+NAME = re.compile(r"PASSWORD|PASS|TOKEN|SECRET|DSN|KEY|WEBHOOK", re.I)
 SECRET_VAR = re.compile(r"\$\{?[A-Za-z_]*(?:" + NAME.pattern + ")", re.I)
 READERS = {"cat", "head", "tail", "less", "more", "bat", "nl", "tac", "strings", "od", "xxd", "grep", "egrep", "fgrep"}
 
