@@ -35,6 +35,9 @@ for f in glob.glob(sys.argv[1]+"/.fable-team/seats*.json"):
     except Exception: continue
     if any(k.startswith("_") and v==sys.argv[2] for k,v in d.items() if isinstance(v,str)): sys.exit(0)
 sys.exit(1)' "$_rgroot" "$OLD" 2>/dev/null; then _rgsucc="--succession"; fi
+# ★R342 arch 상시 게이트★: 교대 대상이 «arch 상시» 팀의 `_master`·`_desk` 인데 그 팀 `_arch` 가 라이브가 아니면 열지 않는다(부작용 전). `_arch` 자신의 교대·표 «없음» 팀·명부에 없는 좌석은 통과 — 판정기 하나 = ft_teamset.py arch-live.
+_agout="$(python3 "$HERE/ft_teamset.py" arch-live --root "$_rgroot" --md "${FT_TEAMSET_MD:-$_rgroot/design/TEAMSET.md}" --seat "$OLD" 2>&1)"; _agrc=$?
+[ "$_agrc" = 0 ] || { [ "$_agrc" = 3 ] && echo "REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(ft-role-spawn arch) · $_agout" || echo "REJECT arch 판정 실패(rc=$_agrc) · $_agout"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check $_rgsucc 2>&1)"; _rgrc=$?
 # R198(판정 1767): 에이전트 수로 막혔을 때만 — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔)
 if [ "$_rgrc" != 0 ] && [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
