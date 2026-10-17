@@ -81,6 +81,11 @@ def h4_drift(live_bin: Path) -> str:
     return f"drift-check rc={rc} · " + " / ".join(ln[:80] for ln in out.splitlines()[:3])
 
 
+def h8_secret_scan() -> str:  # R135b ③ — 스캐너 --report 1줄(스캔 0 · 쪽지 0)
+    rc, out = run(os.environ.get("FT_SECRET_SCAN_CMD") or f"bash {HERE}/ft-secret-scan.sh --report")
+    return out.splitlines()[0] if rc == 0 and out else f"확인 못 함: ft-secret-scan.sh --report rc={rc}"
+
+
 def h6_growth(repo: Path, live_bin: Path, prev: dict) -> tuple[str, int]:
     baks = 0
     for root in (repo, live_bin):
@@ -128,7 +133,8 @@ def main() -> int:
     planner = Path(os.environ.get("FT_PLANNER_REPO") or ROOT / ".worktrees/v6-realtime-live")
     harness = Path(os.environ.get("FT_HARNESS_REPO") or ROOT / ".worktrees/harness-ops")
     live_bin = Path(os.environ.get("FT_LIVE_BIN") or ROOT / ".fable-team/bin")
-    rc, seats_out = run(os.environ.get("FT_HARNESS_INFO") or f"bash {HERE}/ft-harness-info.sh", "seats")
+    p = subprocess.run(shlex.split(os.environ.get("FT_HARNESS_INFO") or f"bash {HERE}/ft-harness-info.sh") + ["seats"], capture_output=True, text=True, timeout=60)
+    rc, seats_out = p.returncode, p.stdout  # 좌석 줄은 stdout 만 — stderr 경고(로케일 등)는 좌석이 아니다
     seats = [ln for ln in seats_out.splitlines() if ln.strip()]
     to_planner, to_harness = newest(seats, "planner"), newest(seats, "harness")
     if rc != 0 or not (to_planner and to_harness):
@@ -152,7 +158,8 @@ def main() -> int:
               + [("H3 점검 도구", "손 점검 — 도구 없음 (R120 ft-harness-check.sh 랜딩 전)")] + safe("H4 설치 정합", lambda: h4_drift(live_bin))
               + [("H4 머신·자동로드", "손 점검 — 머신별 반영 행 · 자동 로드 예산(#3 RULE)"), ("H5 진화", "손 점검 — 이번 주 손으로 2회 이상 반복된 일"),
                  ("H6 노후·누적", grown[0]),
-                 ("H7 드랍 후 재구성 이관", "빈 표 틀 — ①옛 것 아카이브(경로·sha) ②옮김/버림 목록 ③옛 경로 grep 0")])
+                 ("H7 드랍 후 재구성 이관", "빈 표 틀 — ①옛 것 아카이브(경로·sha) ②옮김/버림 목록 ③옛 경로 grep 0")]
+              + safe("H8 비밀 기록 스캔", h8_secret_scan))
     targets = [(pw / f"REVIEW-planner-{monday}.md", "planner", p_rows, {"dumb_keys": keys}, p_text, to_planner),
                (hw / f"REVIEW-harness-{monday}.md", "하네스", h_rows, {"req_ledger": grown[1]} if grown[1] is not None else {}, h_text, to_harness)]
     failed = 0

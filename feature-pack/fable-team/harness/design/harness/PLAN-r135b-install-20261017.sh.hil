@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# PLAN r135b 설치 — 비밀 출력 가림 PostToolUse 훅을 전역 settings 에 건다 (판정 1585 · 사람 실행 `! bash /tmp/h<N>` · ft-hil.sh --add 로 등록).
+# ★랜딩 «뒤»에 친다★ — 설치본은 «랜딩 커밋(R135B_LANDED=<40hex> 필수)» 에서 git show 로 꺼낸다(루트 체크아웃의 현재 파일이 아니다). 전역 ~/.claude 변경이라 좌석이 직접 치지 않는다.
+# 하는 일: ①랜딩 sha 실재 확인 ②settings.json 백업(.bak-r135b) ③훅 4파일을 그 커밋에서 꺼내 ~/.claude/hooks 로 복사(꺼낸 것과 cmp) ④PostToolUse "*" 항목 1개 추가(이미 있으면 건너뜀) ⑤jq 검증
+#         ⑥(선택 · R135B_SCAN_LAUNCHD=1) 스캐너 하루 1회 launchd — plist 를 그 커밋에서 꺼내 ~/Library/LaunchAgents 에 두고 load. 기본은 건너뜀.
+# 되돌림(1줄): cp ~/.claude/settings.json.bak-r135b ~/.claude/settings.json && rm ~/.claude/hooks/secret-output-mask.sh ~/.claude/hooks/ft_secret_shapes.py   (⑥ 했으면 launchctl bootout gui/$UID/com.byz.ft-secret-scan 도)
+# 값 0: 비밀을 다루지 않는다(문자열 가림 훅만 설치). ft_secret_targets.py·ft_secret_lex.py 는 R135a 와 같은 바이트(cmp 로 덮어씀).
+set -euo pipefail
+REPO="${R135B_REPO:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
+SHA="${R135B_LANDED:-}"
+TPL="scripts/harness-install/fable-team/templates/hooks"
+DST="$HOME/.claude/hooks"
+S="$HOME/.claude/settings.json"
+# shellcheck disable=SC2016  # $HOME 은 settings.json 안에서 훅 실행 때 펼쳐진다 — 글자 그대로 넣는다
+CMD='$HOME/.claude/hooks/secret-output-mask.sh'
+FILES="secret-output-mask.sh ft_secret_shapes.py ft_secret_targets.py ft_secret_lex.py"
+
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "STOP R135B_LANDED=<랜딩 커밋 40자> 가 필요하다(없거나 40자 hex 가 아니다)" >&2; exit 1; }
+git -C "$REPO" cat-file -e "$SHA^{commit}" 2>/dev/null || { echo "STOP 랜딩 커밋이 저장소에 없다: $SHA ($REPO)" >&2; exit 1; }
+[ -f "$S" ] || { echo "STOP settings.json 이 없다: $S" >&2; exit 1; }
+jq -e . "$S" >/dev/null || { echo "STOP settings.json 이 JSON 이 아니다" >&2; exit 1; }
+
+STAGE="$(mktemp -d)"; T="$(mktemp)"
+trap 'rm -rf "$STAGE" "$T"' EXIT
+for f in $FILES; do
+  git -C "$REPO" show "$SHA:$TPL/$f" > "$STAGE/$f" || { echo "STOP 그 커밋에 훅 파일이 없다: $f" >&2; exit 1; }
+done
+
+[ -e "$S.bak-r135b" ] || cp -p "$S" "$S.bak-r135b"
+mkdir -p "$DST"
+for f in $FILES; do
+  cp "$STAGE/$f" "$DST/$f"
+  cmp "$STAGE/$f" "$DST/$f"
+done
+chmod +x "$DST/secret-output-mask.sh"
+
+if jq -e --arg c "$CMD" '[.hooks.PostToolUse[]?.hooks[]?.command] | any(. == $c)' "$S" >/dev/null; then
+  echo "이미 걸려 있다 — settings.json 은 그대로"
+else
+  jq --arg c "$CMD" '.hooks.PostToolUse += [{"matcher": "*", "hooks": [{"type": "command", "command": $c}]}]' "$S" > "$T"
+  jq -e --arg c "$CMD" '[.hooks.PostToolUse[]?.hooks[]?.command] | any(. == $c)' "$T" >/dev/null || { echo "STOP 항목 추가 검증 실패 — settings.json 은 그대로" >&2; exit 1; }
+  cat "$T" > "$S"
+  echo "걸었다: PostToolUse * → $CMD"
+fi
+jq -e . "$S" >/dev/null && echo "OK settings.json 유효 · 설치 sha ${SHA:0:12} · 백업 $S.bak-r135b"
+
+if [ "${R135B_SCAN_LAUNCHD:-0}" = 1 ]; then
+  P="$HOME/Library/LaunchAgents/com.byz.ft-secret-scan.plist"
+  git -C "$REPO" show "${SHA}:scripts/harness-install/fable-team/com.byz.ft-secret-scan.plist.template" | sed "s|__BYZ_ROOT__|$REPO|g" > "$P"
+  plutil -lint "$P" >/dev/null
+  launchctl bootout "gui/$UID/com.byz.ft-secret-scan" 2>/dev/null || true
+  launchctl bootstrap "gui/$UID" "$P"
+  echo "OK launchd com.byz.ft-secret-scan (매일 03:17)"
+fi
