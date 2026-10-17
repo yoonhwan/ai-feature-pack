@@ -8,6 +8,8 @@
 #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
 #     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/<팀>/indices/{대기,진행,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
 #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
+#   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
+#     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
@@ -22,8 +24,8 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
-RESULT=""; RECV=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""
-while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; --shared-wt) SHARED=1; shift;;
+RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""
+while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; --plan-only) [ $# -ge 2 ] || { echo "usage: --plan-only <워크트리 경로> (경로 인자 누락)" >&2; exit 2; }; PLAN_ONLY=1; PO_WT="$2"; shift 2;; --shared-wt) SHARED=1; shift;;
   --wt) [ $# -ge 2 ] || { echo "usage: --wt <경로> (경로 인자 누락)" >&2; exit 2; }; HAVE_NWT=1; NWT="$2"; shift 2;;
   --branch) [ $# -ge 2 ] || { echo "usage: --branch <이름> (이름 인자 누락)" >&2; exit 2; }; HAVE_NBR=1; NBR="$2"; shift 2;;
   --cherry-override) [ $# -ge 2 ] || { echo "usage: --cherry-override <사유> (사유 인자 누락)" >&2; exit 2; }; HAVE_CHERRY_OVERRIDE=1; CHERRY_OVERRIDE="$2"; shift 2;;
@@ -94,7 +96,7 @@ _wt_clean_plan() {
     printf '# plan-ver: %s\n' "$planver"
     printf '# baton 부작용(승인 범위에 명시): 아카이브 30일 초과분 prune · 분기 원장(.baton/branches.json) 의 같은 child_branch 행 status=abandoned.\n'
     # FT_NANO_WIP 는 close 실행 시점 값을 계획에 «굽는다» — sweep 은 나중 다른 프로세스/환경에서 돌아 close 의 env 를 못 물려받는다.
-    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver"
+    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q; PLAN_ONLY=%q; LANDCHK=%q; MAINREF=%q; ROOTR=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver" "$PLAN_ONLY" "$HERE/ft-landed-check.sh" "${PO_MAINREF:-}" "$ROOT"
     cat <<'SH'
 # r173 자기검사 — 어떤 동작보다 먼저: 생성기의 «지금» blob sha 가 굽힌 plan-ver 와 같을 때만 계속한다(사람이 bash 로 직접 실행하는 .sh.hil 도 sweep 을 거치지 않고 여기서 멈춘다). 비교 불능(생성기 없음·hash 실패·빈 plan-ver)도 STALE.
 _lv="$(git hash-object -- "$GEN" 2>/dev/null)" || _lv=""
@@ -120,6 +122,7 @@ with open(tmp, "w", encoding="utf-8") as f: f.write("\n".join(lines)); f.flush()
 os.replace(tmp, p)
 PY
   rc=$?; rmdir "$lock"
+  { [ "$rc" -eq 3 ] && [ "${PLAN_ONLY:-0}" = 1 ]; } && return 0   # --plan-only 계획: close 를 거친 적 없는 좌석 = 원장에 닫힘 행이 없다(표식할 곳 없음 · 실패 아님)
   [ "$rc" -eq 0 ] || { echo "skipped:원장 표식 실패(rc=$rc · $SEAT 행 없음=3)"; exit 1; }
 }
 fail() { mark "skipped:$1"; echo "skipped:$1"; exit 1; }
@@ -171,6 +174,10 @@ fi
 hb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
 [ "$hb" = "$br" ] || fail "HEAD=${hb:-detached} ≠ info $br"
 git -C "$WT" merge-base --is-ancestor HEAD "refs/heads/$br" || fail "HEAD 가 $br 에 미포함"
+# ④b 착지 재검증(--plan-only 계획 한정 · r-disk-drop-worktree-scratch-census DA⑥ HOLD 2) — 계획 «실행 시점» 에도 가지가 main 에 착지했는가(생성 뒤 커밋이 붙었으면 거부). 일반 close 계획은 ⑤ cherry 게이트가 이미 닫았다(동작 불변).
+if [ "${PLAN_ONLY:-0}" = 1 ]; then
+  _lw="$(bash "$LANDCHK" "$ROOTR" "$MAINREF" "$br" "$(printf '%s' "$br" | sed 's|^nano/||; s|-r[0-9][0-9]*$||')" 2>/dev/null)" || fail "착지 재검증 실패(${_lw:-no}) — $br 가 $MAINREF 에 착지하지 않았다"
+fi
 # ⑤ 미커밋 상태 확인.
 #   r8(DA r7 잔여 질문1): #30467 「dirty 는 [wip] 커밋」은 20건 백필 맥락이었다 — 답 전까지 «백필 한정 플래그»로 분리해
 #   어느 판정이든(영구 적용/백필 한정) 수용한다. FT_NANO_WIP=1 일 때만 아래 새 경로, 미설정(기본)은 r6 이전 기존 REJECT.
@@ -331,6 +338,21 @@ _resolve_seat_wt() {
   elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1; fi
 }
 _resolve_seat_wt
+# ★--plan-only (r-disk-drop-worktree-scratch-census)★ 좌석 세션 0 · 등록 워크트리 · 가지=nano/<키> 를 확인하고 «계획 생성만». 아래 종료조건·원장·명부·kill 경로는 타지 않는다.
+if [ "$PLAN_ONLY" = 1 ]; then
+  [ "$tmux_ok" = 1 ] || { printf 'REJECT --plan-only: tmux 조회 실패 — 좌석 생존 불명(fail-closed)\n'; printf '%s\n' "${bad[@]}"; exit 1; }
+  [ -z "$PANE" ] || { echo "REJECT --plan-only: 좌석 세션이 살아 있다($SEAT)"; exit 1; }
+  _po="$(cd "$PO_WT" 2>/dev/null && pwd -P)"
+  [ -n "$_po" ] && [[ "$_po" == "$ROOT/.worktrees/"?* ]] && git -C "$ROOT" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $_po" || { echo "REJECT --plan-only: 이 리포 .worktrees/ 아래 등록 워크트리가 아니다: $PO_WT"; exit 1; }
+  _pb="$(git -C "$_po" symbolic-ref --short -q HEAD)"
+  _is_seat_branch "$_pb" || { echo "REJECT --plan-only: 가지(${_pb:-detached})가 좌석 키(nano/${_KEY}[-rN])와 맞지 않는다"; exit 1; }
+  SEAT_WT="$_po"; SEAT_BR="$_pb"
+  # 착지 판정(생성 시점) — 공용 ft-landed-check.sh · 기준 ref = FT_CENSUS_MAIN > origin/main > main. 같은 판정을 계획 본문이 실행 시점에 한 번 더 건다(④b).
+  PO_MAINREF="${FT_CENSUS_MAIN:-}"; [ -n "$PO_MAINREF" ] || { git -C "$ROOT" rev-parse -q --verify origin/main >/dev/null 2>&1 && PO_MAINREF=origin/main || PO_MAINREF=main; }
+  _lw="$(bash "$HERE/ft-landed-check.sh" "$ROOT" "$PO_MAINREF" "$_pb" "$(printf '%s' "$_pb" | sed 's|^nano/||; s|-r[0-9][0-9]*$||')" 2>&1)" || { echo "REJECT --plan-only: 착지하지 않은 가지($_pb · 판정 ${_lw##*$'\n'}) — 계획을 만들지 않는다"; exit 1; }
+  _wt_clean_plan; [ -n "$PLAN" ] || { echo "REJECT --plan-only: 계획 생성 실패"; exit 1; }
+  echo "PLANNED $PLAN"; exit 0
+fi
 # ★--shared-wt (오빠 10-07 · 원장 R8)★ ⓐ전용 워크트리가 «없다» ⓑpane cwd toplevel 이 등록된 워크트리이고 브랜치가 nano/* 가 «아니다». 하나라도 아니면 REJECT.
 #   ⓐ 의 0-후보 «추측 금지» 에러는 이 모드의 정상 상태라 걸러내고, 후보가 있거나 2개 이상이면 «전용 경로로 닫아라» 로 바꾼다.
 SH_TOP=""
