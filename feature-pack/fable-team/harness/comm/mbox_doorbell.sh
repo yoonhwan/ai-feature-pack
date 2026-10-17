@@ -17,7 +17,7 @@ pane_of() {
     | awk -F'|' -v s="$1" '$1==s{print $2; exit}'
 }
 
-# 본체 판별 규칙: root 와 그 자손 중 claude = args 에 --dangerously-skip-permissions ∧ claude-hr(래퍼) 아님 · codex = args 공백 토큰 중 basename 이 정확히 codex(경로 끝 /codex · @openai/codex) · 그 밖(cmd·opencode) = root 아래 아무 자식(이름 미실측 — 조용히 NOAGENT 로 바꾸지 않는다). ps 실패 rc1
+# 본체 판별 규칙: root 와 그 자손 중 claude = args 에 --dangerously-skip-permissions 또는 «basename 이 정확히 claude 인 토큰 뒤의 토큰 --resume»(R335 복구 좌석 형 · zombie-clean resume·ft-resume-cmd · 다른 프로그램의 --resume 은 아님) ∧ claude-hr(래퍼) 아님 · codex = args 공백 토큰 중 basename 이 정확히 codex(경로 끝 /codex · @openai/codex) · 그 밖(cmd·opencode) = root 아래 아무 자식(이름 미실측 — 조용히 NOAGENT 로 바꾸지 않는다). ps 실패 rc1
 agent_body_pids() {
   local tab; tab="$(${FT_PS_CMD:-ps} -axo pid=,ppid=,args=)" || return 1
   printf '%s\n' "$tab" | awk -v root="$1" -v ag="$2" '
@@ -25,7 +25,8 @@ agent_body_pids() {
     END { for (i=1; i<=n; i++) { p=o[i]; q=p; in_=0
       for (d=0; q!="" && q!=0 && d<12; d++) { if (q==root) { in_=1; break }; q=pp[q] }
       if (!in_) continue
-      if (ag=="claude") { if (ar[p] ~ /--dangerously-skip-permissions/ && ar[p] !~ /claude-hr/) print p }
+      if (ag=="claude") { if (ar[p] !~ /claude-hr/) { if (ar[p] ~ /--dangerously-skip-permissions/) print p
+        else { nt=split(ar[p], tk, " "); sc=0; for (k=1; k<=nt; k++) { if (tk[k] ~ /(^|\/)claude$/) sc=1; else if (sc && (tk[k]=="--resume" || tk[k] ~ /^--resume=/)) { print p; break } } } } }
       else if (ag=="codex") { nt=split(ar[p], tk, " "); for (k=1; k<=nt; k++) if (tk[k] ~ /(^|\/)codex$/) { print p; break } }
       else if (p!=root) print p } }'
 }

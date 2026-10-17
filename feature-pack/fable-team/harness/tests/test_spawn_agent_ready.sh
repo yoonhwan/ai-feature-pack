@@ -56,6 +56,14 @@ mkpane "$T/bin/myapp --use-codex"; bash "$RDY" --pid "$PANE_PID" --agent codex -
 mkpane "$T/bin/npm exec @openai/codex --dangerously-bypass-approvals-and-sandbox"; bash "$RDY" --pid "$PANE_PID" --agent codex --wait 1 >/dev/null; [ $? -eq 0 ] && ok "ⓖ 'npm exec @openai/codex' → READY" || bad "ⓖ npm exec"
 mkpane "$T/bin/codex"; bash "$RDY" --pid "$PANE_PID" --agent codex --wait 1 >/dev/null; [ $? -eq 0 ] && ok "ⓖ 경로 끝 /codex 단독 토큰 → READY" || bad "ⓖ 단독 codex"
 mkpane "sleep 30"; bash "$RDY" --pid "$PANE_PID" --agent cmd --wait 1 >/dev/null; [ $? -eq 0 ] && ok "ⓖ 모르는 에이전트(cmd) = 기존 «아무 자식» 규칙" || bad "ⓖ cmd"
+R="$T/bin/claude --resume 0d4c8f2e-1111-2222-3333-444455556666 --model claude-sonnet-5-5"
+mkpane "$R"; bash "$RDY" --pid "$PANE_PID" --agent claude --wait 1 >/dev/null; [ $? -eq 0 ] && ok "ⓘ R335 복구형 claude --resume <uuid> --model → READY" || bad "ⓘ resume 형 본체 불인정"
+mkpane "$T/bin/claude-hr.sh --resume 0d4c8f2e-1111-2222-3333-444455556666"; bash "$RDY" --pid "$PANE_PID" --agent claude --wait 1 >/dev/null; [ $? -eq 3 ] && ok "ⓘ R335 래퍼(claude-hr.sh) + --resume → NOAGENT" || bad "ⓘ 래퍼 resume 오판"
+mkpane "$T/bin/myapp --daemon --resumable"; bash "$RDY" --pid "$PANE_PID" --agent claude --wait 1 >/dev/null; [ $? -eq 3 ] && ok "ⓘ R335 데몬(--resumable 비슷한 글자) → NOAGENT" || bad "ⓘ 데몬 오판"
+printf '#!/bin/bash\nsleep 30\n' > "$T/bin/tmux"; printf '#!/bin/bash\nsleep 30\n' > "$T/bin/git"; chmod +x "$T/bin/tmux" "$T/bin/git"
+for neg in "$T/bin/myapp --resume job-1" "$T/bin/tmux --resume=x" "$T/bin/git log --resume" "$T/bin/myapp claude-notes --resume job-1"; do
+  mkpane "$neg"; bash "$RDY" --pid "$PANE_PID" --agent claude --wait 1 >/dev/null; [ $? -eq 3 ] && ok "ⓘ R335 DA⑥ 음성(claude 토큰 없음/뒤 아님) «${neg#$T/bin/}» → NOAGENT" || bad "ⓘ R335 DA⑥ 음성 오인정 «${neg#$T/bin/}»"
+done
 out="$(FT_PS_CMD=false bash "$RDY" --pid "$PANE_PID" --agent claude --wait 1 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "ERROR" "ⓗ ps 실패 → ERROR rc1 (조용한 READY 0)" || bad "ⓗ rc=$rc ← $out"
 out="$(FT_PS_CMD=false bash "$RDY" --pid "$PANE_PID" --agent cmd --wait 1 2>&1)"; rc=$?
@@ -107,6 +115,15 @@ mkpane "sleep 30"; r="$(bell seatX "$PANE_PID")"
 [ "$r" = noagent ] && [ ! -s "$T/tlog" ] && ok "ⓚ 자식이 sleep 뿐 → noagent · 주입 0" || bad "ⓚ r=$r log=$(cat "$T/tlog")"
 mkpane "$C"; r="$(bell seatX "$PANE_PID")"
 [ "$r" = sent ] && [ -s "$T/tlog" ] && ok "ⓚ claude 본체 자식 → 기존대로 주입(sent)" || bad "ⓚ r=$r"
+mkpane "$R"; r="$(bell seatX "$PANE_PID")"
+[ "$r" = sent ] && ok "ⓚ R335 복구형 claude --resume <uuid> → sent (초인종 울림)" || bad "ⓚ R335 resume 형 r=$r"
+mkpane "$T/bin/claude-hr.sh --resume 0d4c8f2e-1111-2222-3333-444455556666"; r="$(bell seatX "$PANE_PID")"
+[ "$r" = noagent ] && ok "ⓚ R335 래퍼 + --resume → noagent" || bad "ⓚ R335 래퍼 r=$r"
+mkpane "$T/bin/myapp --daemon --resumable"; r="$(bell seatX "$PANE_PID")"
+[ "$r" = noagent ] && ok "ⓚ R335 데몬(--resumable) → noagent" || bad "ⓚ R335 데몬 r=$r"
+for neg in "$T/bin/myapp --resume job-1" "$T/bin/tmux --resume=x" "$T/bin/git log --resume" "$T/bin/myapp claude-notes --resume job-1"; do
+  mkpane "$neg"; r="$(bell seatX "$PANE_PID")"; [ "$r" = noagent ] && ok "ⓚ R335 DA⑥ 음성 «${neg#$T/bin/}» → noagent" || bad "ⓚ R335 DA⑥ 음성 r=$r «${neg#$T/bin/}»"
+done
 mkpane "$T/bin/codex --dangerously-bypass-approvals-and-sandbox"; r="$(bell seatD "$PANE_PID")"
 [ "$r" = sent ] && ok "ⓚ codex 좌석 + codex 본체 → sent" || bad "ⓚ codex r=$r"
 mkpane "sleep 30"; r="$(bell seatC "$PANE_PID")"
