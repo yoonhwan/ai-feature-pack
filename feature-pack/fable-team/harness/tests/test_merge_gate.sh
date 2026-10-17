@@ -52,4 +52,11 @@ gate deadbeef; [ "$rc" = 1 ] && [[ "$out" == DENY* ]]; ck "sha 아님 → deny" 
 gate; [ "$rc" = 2 ]; ck "sha 없음 → usage rc=2" $?
 git -C "$W" worktree list >/dev/null; [ "$(git -C "$W" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
 ! grep -vE '^\s*#' "$GATE" "$BIN/ft_merge_lines.py" "$BIN/ft-merge-lib.sh" | grep -qE 'git[^|]*(reset|rebase|--force|push)'; ck "정적: gate·lines·lib 에 reset·rebase·force·push 호출 0" $?
+# R295: fm_fetch 는 fetch 끝의 자동 정리(gc --auto)를 끈다 — 느슨한 객체를 gc 임계 위로 세워 두고 받기만 성공·pack 0 · 대조군(일반 fetch)은 pack 생성
+git -C "$W" checkout -q main; git -C "$W" config gc.auto 1; git -C "$W" config gc.autoDetach false
+i=0; while [ "$(ls "$W/.git/objects/17" 2>/dev/null | wc -l)" -lt 3 ]; do i=$((i+1)); echo "gc$i" | git -C "$W" hash-object -w --stdin >/dev/null; done
+npk() { ls "$W/.git/objects/pack" 2>/dev/null | grep -c '\.pack$'; }
+P0="$(npk)"; (. "$BIN/ft-merge-lib.sh"; fm_fetch "$W" origin main); rc=$?; out="pack ${P0}->$(npk)"
+[ "$rc" = 0 ] && [ "$(npk)" = "$P0" ]; ck "fm_fetch: 받기 성공 + gc --auto 흔적(pack) 0" $?
+git -C "$W" fetch --quiet origin main 2>/dev/null; out="대조군 pack ${P0}->$(npk)"; [ "$(npk)" -gt "$P0" ]; ck "대조: 일반 fetch 는 같은 조건에서 gc 를 돌린다(시험이 gc 조건을 실제로 세웠다)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

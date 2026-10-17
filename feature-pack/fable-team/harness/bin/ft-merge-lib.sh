@@ -8,7 +8,7 @@ fm_t7() {
   for i in 1 2; do "$tb" 7 "$@" && return 0; rc=$?; done
   return "$rc"
 }
-fm_fetch() { fm_t7 git -C "$1" fetch --quiet "$2" "$3"; }
+fm_fetch() { fm_t7 git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3"; }
 #   fm_flag_off_new <repo> <옛> <새> : R239 랜딩 직후 «새로 생긴 기본 꺼짐 플래그» 줄 출력 — 출력만(rc 항상 0 · 실패는 WARN 1줄 · 로컬 git 만 읽는다)
 FM_HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 fm_flag_off_new() {
