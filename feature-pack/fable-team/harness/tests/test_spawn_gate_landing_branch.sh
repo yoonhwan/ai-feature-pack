@@ -2,6 +2,7 @@
 # test_spawn_gate_landing_branch.sh — R71: spawn ②-0 cherry 게이트 첫 인자 = 랜딩 브랜치(INFO_BASE) — --base 가 sha 여도 «브랜치 없음» 0.
 # ft-nano-spawn.sh 의 BASE_BRANCH~②-0 블록만 잘라(마커 기반) mktemp 리포 위에서 실행한다 — spawn 전체·실 브랜치·루트 .fable-team/·카드 쓰기 0.
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="${FT_TEST_KIT:-$HERE/../../scripts/fable-team-bin}"   # RED 확인용: 옛 사본 디렉터리를 FT_TEST_KIT 로 준다
 SP="$KIT/ft-nano-spawn.sh"

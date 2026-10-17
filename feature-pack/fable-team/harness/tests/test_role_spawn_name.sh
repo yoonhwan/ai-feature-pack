@@ -2,6 +2,7 @@
 # test_role_spawn_name.sh — ft-role-spawn.sh 기본 접두 byz-v65- · 두 계보(byz-v65-·ft-v65-) 번호 합산·교체 시험.
 # 임시 git 리포 + 가짜 tmux/tmuxc 만 쓴다 — 실 seats.json·tmux 는 건드리지 않는다(--dry-run 의 PLAN 줄만 본다).
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SPAWN="$HERE/../../scripts/harness-install/fable-team/bin/ft-role-spawn.sh"
 fail=0

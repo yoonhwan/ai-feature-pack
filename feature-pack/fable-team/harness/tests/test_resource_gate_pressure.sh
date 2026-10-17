@@ -2,6 +2,7 @@
 # test_resource_gate_pressure.sh — R213 자원 문지기 황금값(커널 압력 단계 · 메모리 여유 % · 스왑 증가 속도 · 스왑 상한 · 승계 별 한도) + 샘플러 시험.
 # 측정 명령은 PATH 앞 가짜 sysctl·vm_stat·memory_pressure·df·pgrep 만 쓴다 — 실 측정·실 동결 파일·실 launchd 0 · 임시 FT_RES_ROOT.
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
 fail=0

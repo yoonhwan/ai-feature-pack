@@ -2,6 +2,7 @@
 # test_resource_gate.sh — 자원 문지기(ft-resource-gate.sh) + spawn 3종의 문지기 호출 + 키트 두 곳 일치 시험 (R161).
 # 임시 루트·임시 HOME·git/tmux/tmuxc 스텁만 쓴다 — 실 동결 파일·라이브 bin·실 tmux 세션 0.
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
 K1="$REPO/scripts/fable-team-bin"

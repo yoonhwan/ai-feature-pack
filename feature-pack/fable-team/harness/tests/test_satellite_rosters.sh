@@ -2,6 +2,7 @@
 # 위성팀(room·lecture) 명부·env 키트 + 도구 인식 시험 (R252 · 판정 1942·1943·1949) — 임시 ROOT·가짜 tmux 만, 실 명부·실 tmux 0.
 # 실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY bash tests/harness/test_satellite_rosters.sh
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 SRC="$REPO/scripts/harness-install/satellite"
 BIN="$REPO/scripts/fable-team-bin"

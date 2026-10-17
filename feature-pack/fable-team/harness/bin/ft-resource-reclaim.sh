@@ -14,6 +14,7 @@
 #   env(시험): FT_RES_ROOT FT_SEATS_JSON FT_SEAT_STATUS FT_NANO_CLOSE FT_MBOX_SH ZC_RESUME_DIR FT_RECLAIM_IDLE_MIN FT_RECLAIM_LOCK_TRIES FT_PRESS_PERMIT_DIR
 #   bash 3.2 호환(declare -A·mapfile 금지) · 외부 호출 0(로컬 tmux·프로세스·파일·mbox 만).
 set -uo pipefail
+[ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 
 DRY=0; CALLER=""; NEED=""; ONREJ=""; HAVE_ONREJ=0; GATE=""
 while [ $# -gt 0 ]; do case "$1" in

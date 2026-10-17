@@ -57,6 +57,12 @@ def _isolated_ft_root(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.
     monkeypatch.setenv("FT_ROOT", str(root))
 
 
+@pytest.fixture(autouse=True)
+def _allow_tracked_bin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """R201: 시험은 추적 사본 원본을 직접 부른다 — ft-live-entry 가 LIVE_BIN(옛 라이브)으로 넘기지 않게 한다."""
+    monkeypatch.setenv("FT_ALLOW_TRACKED_BIN", "1")
+
+
 @pytest.fixture
 def fake_resource_env(tmp_path: Path) -> Callable[[str], dict[str, str]]:
     """R218 — 자원 문지기 가짜 센서가 걸린 env dict 를 돌려주는 함수(mode = ok|reject). 실 머신 부하·압력과 무관하게 같은 결과."""

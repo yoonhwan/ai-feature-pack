@@ -2,6 +2,7 @@
 # test_successor_open.sh — ft-successor-open.sh (R107): 승계 후계 개설 = 기동 확인(pgrep) → 검증 송신 → 도달 파일.
 # 가짜 tmux·tmuxc·pgrep·ft-send-verified·mbox·ft-reach-check(PATH 앞 스텁 + env) + 임시 git 리포만 쓴다 — 실 세션·홈·명부 쓰기 0.
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SO="$HERE/../../scripts/harness-install/fable-team/bin/ft-successor-open.sh"
 fail=0

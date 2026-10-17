@@ -16,6 +16,7 @@
 #   FT_SWAP_MAX_MIB(옛 스왑 절대량 8192)는 폐기 · R213 — 읽지 않는다.
 #   시험용 env: FT_RES_ROOT(동결 파일이 놓이는 리포 루트 — 기본은 스크립트 위치에서 역산)
 set -uo pipefail
+[ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 
 CMD="${1:-}"; SUCC=0
 case "$CMD" in check|status) ;; *) echo "usage: $0 <check [--succession]|status>" >&2; exit 2;; esac

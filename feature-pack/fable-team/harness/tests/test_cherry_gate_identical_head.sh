@@ -2,6 +2,7 @@
 # test_cherry_gate_identical_head.sh — R70: tip 내용이 feat HEAD 와 바이트 동일한 경로는 PASS + spawn --cherry-override 패스스루.
 # mktemp 리포(가짜 feat·nano 브랜치)만 쓴다 — 실 브랜치·루트 .fable-team/·원장 쓰기 0.
 set -uo pipefail
+export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../scripts/fable-team-bin"
 G="${FT_TEST_GATE:-$KIT/ft-nano-cherry-gate.sh}"          # RED 확인용: 옛 사본 경로를 FT_TEST_GATE 로 준다
