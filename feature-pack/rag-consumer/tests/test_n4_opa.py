@@ -343,7 +343,7 @@ def test_p0only_end_to_end_has_no_sentinel_anywhere_and_no_account_call(tmp_path
         sb.op = sb.make_op(version_pre="sleep 10")
         sb.extra["PROBE_OP_BIN"] = str(sb.op)
     proc = sb.run(*P0_ARGS)
-    assert proc.returncode == 0
+    assert proc.returncode == 0, proc.stdout + proc.stderr  # rc 4 = the clean-up left a residual: the output names the stage
     calls = sb.opcalls.read_text().splitlines()
     assert len(calls) == 1 and calls[0].startswith("--version TOK= ") and "CFG=none" in calls[0]
     names = set(sb.envnames.read_text().split())
@@ -417,7 +417,7 @@ def test_the_default_probe_still_accepts_no_p0only_argument_set_by_the_imports(t
 def test_the_default_probe_is_byte_identical_to_before(tmp_path):
     sb = Sandbox(tmp_path)
     proc = sb.run()
-    assert proc.returncode == 0
+    assert proc.returncode == 0, proc.stdout + proc.stderr
     assert neutral((sb.probe_dir() / "job.plist").read_text(), sb).startswith(GOLDEN_PLIST_HEAD)
     assert neutral(proc.stdout, sb) == GOLDEN_REPORT and proc.stderr == ""
     assert not (sb.probe_dir() / "profile.json").exists()
