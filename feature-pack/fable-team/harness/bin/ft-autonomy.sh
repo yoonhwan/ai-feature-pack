@@ -29,12 +29,15 @@ hhmm() { fmt "$1" %H:%M || echo "--:--"; }
 now_epoch() { echo "${FT_NOW:-$(date +%s)}"; }  # FT_NOW = 시험용 고정 시계
 
 MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} A[0-9]+ [0-9]+$'
-# log 를 ⓐ정상 모드 줄 ⓑ정당한 부가 줄(승인 줄·형식 고정) ⓒ그 밖 으로 가른다. stdout = 마지막 정상 모드 줄 · rc 1 = 그 뒤에 ⓒ(불완전·모르는 줄) 가 있음 = 위변조
+# 범위 사전 승인 줄 3꼴(R298 · ft-autonomy-scope.sh 가 쓴다) — 이 꼴 밖의 줄은 지금처럼 위변조
+SCOPE_GRANT_RE='^approve-scope S[0-9]+ A[0-9]+ [0-9]+ until=[0-9]+ max=[0-9]+ daily=[0-9]+ classes=(docs|ff|revert)(,(docs|ff|revert))*$'
+SCOPE_USE_RE='^scope-use S[0-9]+ [0-9a-f]{40} (docs|ff|revert) [0-9]+$'; SCOPE_STOP_RE=$'^scope-stop S[0-9]+ [0-9]+ [^\t]+$'
+# log 를 ⓐ정상 모드 줄 ⓑ정당한 부가 줄(승인 줄·범위 승인 줄·형식 고정) ⓒ그 밖 으로 가른다. stdout = 마지막 정상 모드 줄 · rc 1 = 그 뒤에 ⓒ(불완전·모르는 줄) 가 있음 = 위변조
 log_last_mode() {
   local line last="" bad=0
   while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ $MODE_RE ]]; then last="$line"; bad=0
-    elif [[ "$line" =~ $APPROVE_RE ]]; then :
+    elif [[ "$line" =~ $APPROVE_RE || "$line" =~ $SCOPE_GRANT_RE || "$line" =~ $SCOPE_USE_RE || "$line" =~ $SCOPE_STOP_RE ]]; then :
     else bad=1; fi
   done 2>/dev/null < "$LOG"
   printf '%s' "$last"; return $bad
@@ -178,11 +181,12 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
 case "${1:-}" in
   on) shift; cmd_on "$@" ;;
   approve-merge) shift; cmd_approve_merge "$@" ;;
+  approve-scope|scope-approve|scope-stop|scope-status) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-scope.sh"; "cmd_$c" "$@" ;;  # 범위 사전 승인(R298) — approve-scope = 오빠 `!` 전용
   off) cmd_off ;;
   expire) cmd_expire ;;
   status) status ;;
   mode) mode ;;
   event) event ;;
   state-dir) printf '%s\n' "$STATE" ;;
-  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…" >&2; exit 2 ;;
+  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…|approve-scope|scope-approve|scope-stop|scope-status" >&2; exit 2 ;;
 esac
