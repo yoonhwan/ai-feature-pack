@@ -83,4 +83,47 @@ rm -f "$JDIR/s.jsonl"; run SEND_RC=0
 { [ "$RC" -eq 0 ] && grep -q 'SessionStart 미관측' "$TMP/out" && [ "$(count send)" = 1 ]; } \
   && ok "ⓖ SessionStart 없음 → 미관측 표시 · 송신 1회" || bad "ⓖ' rc=$RC out=$(cat "$TMP/out")"
 
+# R343 — mbox 는 «호출한 설치 폴더» 가 아니라 «대상 워크트리의 리포» 것이다(FT_MBOX_SH 없을 때). 설치 사본 A(호출자) · 대상 리포 B(REPO).
+CALLER="$TMP/callerA"; mkdir -p "$CALLER/comm"; cp -R "$(dirname -- "$SO")" "$CALLER/bin"
+printf '#!/usr/bin/env bash\necho "mbox-caller $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"\n' > "$CALLER/comm/mbox.sh"
+mkdir -p "$REPO/.fable-team/comm"
+printf '#!/usr/bin/env bash\necho "mbox-target $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"\n' > "$REPO/.fable-team/comm/mbox.sh"
+mkstub send   'echo send >> "$LOG"; echo "mboxenv ${FT_MBOX_SH:-}" >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
+runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT_MBOX_SH 를 걸지 않는다
+  local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT"; rm -rf "$STATE"; : > "$LOG"
+  env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_REACH_CHECK="$FAKE/reach" "$@" \
+      bash "$sox" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
+  RC=$?
+}
+TMBOX="$REPO/.fable-team/comm/mbox.sh"
+
+# ⓗ 다른 리포 WT → ring·송신 환경·꼬리 모두 대상 리포 mbox · 호출자 mbox 0
+runx "$CALLER/bin/ft-successor-open.sh" "$REPO" SEND_RC=2 REACH_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count 'mbox-target ring')" = 1 ] && [ "$(count 'mbox-caller')" = 0 ] && grep -q "^mboxenv $TMBOX\$" "$LOG" \
+  && grep -q "mbox=$TMBOX" "$TMP/out"; } \
+  && ok "ⓗ 다른 리포 → 대상 리포 mbox(ring·송신·꼬리 mbox=) · 호출자 0" || bad "ⓗ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
+# ⓘ 같은 리포(설치 사본이 대상 리포 안) → 같은 mbox · 도달 파일 불변
+mkdir -p "$REPO/.fable-team"; cp -R "$CALLER/bin" "$REPO/.fable-team/bin"
+runx "$REPO/.fable-team/bin/ft-successor-open.sh" "$REPO" SEND_RC=2 REACH_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count 'mbox-target ring')" = 1 ] && [ -f "$STATE/$OLD.json" ] && grep -q "$NEW" "$STATE/$OLD.json"; } \
+  && ok "ⓘ 같은 리포 → 같은 mbox · 도달 파일" || bad "ⓘ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+rm -rf "$REPO/.fable-team/bin"
+
+# ⓙ 대상 리포에 mbox 없음 → REJECT rc2 · 두 경로 표시 · open·송신·호출자 mbox 0
+NOM="$TMP/nombox"; mkdir -p "$NOM"; git -C "$NOM" init -q
+runx "$CALLER/bin/ft-successor-open.sh" "$NOM" SEND_RC=0
+{ [ "$RC" -eq 2 ] && grep -q '대상 리포 mbox 없음' "$TMP/out" && grep -q "$NOM/.fable-team/comm/mbox.sh" "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ "$(count 'mbox-caller')" = 0 ]; } \
+  && ok "ⓙ mbox 없는 리포 → REJECT rc2 · open·송신 0 · 호출자 mbox 0" || bad "ⓙ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
+# ⓚ 워크트리 자체 mbox 가 루트 mbox 보다 먼저
+git -C "$REPO" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+git -C "$REPO" worktree add -q "$TMP/wt" -b wtb 2>/dev/null
+mkdir -p "$TMP/wt/.fable-team/comm"; printf '#!/usr/bin/env bash\necho "mbox-wt $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"\n' > "$TMP/wt/.fable-team/comm/mbox.sh"
+runx "$CALLER/bin/ft-successor-open.sh" "$TMP/wt" SEND_RC=2 REACH_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count 'mbox-wt ring')" = 1 ] && [ "$(count 'mbox-target')" = 0 ]; } \
+  && ok "ⓚ 워크트리 mbox 가 루트 mbox 보다 먼저" || bad "ⓚ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

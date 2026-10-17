@@ -5,6 +5,7 @@
 #   팀 무관 · 명부(seats*.json) 수정 0 — 명부는 ft-seat-retire.sh 가 후계 부팅 때 한다.
 #   도달 파일 = <리포 루트>/.fable-team/state/successor/<구 좌석>.json — context-distill-gate.sh 가 400k 넘은 좌석의 recv 를 이 파일로 푼다. `model` 칸(R282) = --model 값 — ft-seat-retire.sh 가 후계 행 model 로 쓴다.
 #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
+#   mbox(R343) = 대상 워크트리의 리포 것($WT → $ROOT 의.fable-team/comm/mbox.sh) — 없으면 REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
 #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
@@ -41,14 +42,21 @@ if [ "$_rgrc" != 0 ] && [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-r
   [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" >&2
 fi
 [ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
-SEND="${FT_SEND_VERIFIED:-$HERE/ft-send-verified.sh}"; MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"; REACH="${FT_REACH_CHECK:-$HERE/ft-reach-check.sh}"
+SEND="${FT_SEND_VERIFIED:-$HERE/ft-send-verified.sh}"; REACH="${FT_REACH_CHECK:-$HERE/ft-reach-check.sh}"
 WAIT_MAX="${FT_SO_WAIT_MAX:-60}"; POLL="${FT_SO_POLL:-1}"
-# 형제 도구 3개(env 로 바뀐 «최종 경로» 기준)는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 좌석을 연 «뒤» 송신에서 죽는다. 열기 «전»에 거절한다(R134).
-for _sib in "$SEND" "$MBOX" "$REACH"; do
+# 형제 도구 2개(env 로 바뀐 «최종 경로» 기준)는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 좌석을 연 «뒤» 송신에서 죽는다. 열기 «전»에 거절한다(R134).
+for _sib in "$SEND" "$REACH"; do
   [ -f "$_sib" ] || { echo "REJECT $(basename -- "$_sib") 없음: $(dirname -- "$_sib") (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 done
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "REJECT 워크트리가 git 이 아니다: $WT"; exit 1; }
+# ★mbox = «대상 워크트리의 리포» 것 (R343)★: 승계 발주 본문·ring·recv 지시문은 후계가 읽는 리포 mbox 로 가야 한다 — 설치 폴더(BYZ) 기준이면 별도 리포 좌석이 0건으로 부팅한다.
+# 순서: FT_MBOX_SH(시험·명시) → $WT/.fable-team/comm → $ROOT/.fable-team/comm. 못 찾으면 호출자 mbox 로 후퇴하지 않고 열기 «전» REJECT(#0 RULE).
+if [ -n "${FT_MBOX_SH:-}" ]; then MBOX="$FT_MBOX_SH"
+elif [ -f "$WT/.fable-team/comm/mbox.sh" ]; then MBOX="$WT/.fable-team/comm/mbox.sh"
+elif [ -f "$ROOT/.fable-team/comm/mbox.sh" ]; then MBOX="$ROOT/.fable-team/comm/mbox.sh"
+else echo "REJECT 대상 리포 mbox 없음 — $WT/.fable-team/comm/mbox.sh · $ROOT/.fable-team/comm/mbox.sh (호출자 mbox 로 보내지 않는다)"; exit 2; fi
+[ -f "$MBOX" ] || { echo "REJECT $(basename -- "$MBOX") 없음: $(dirname -- "$MBOX") (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 STATE="$ROOT/.fable-team/state/successor"
 hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; }
 
@@ -79,7 +87,7 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
 
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
-OUT="$(FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$(cat "$BODY")" 2>&1)"; RC=$?
+OUT="$(FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$(cat "$BODY")" 2>&1)"; RC=$?
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
 # ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
@@ -91,4 +99,4 @@ fi
 # ⓔ 도달 파일 — 훅(context-distill-gate.sh)이 이 파일이 있어야 400k 넘은 좌석의 recv 를 푼다
 mkdir -p "$STATE" && printf '{"successor":"%s","seq":%s,"reached_at":"%s","rc":0,"model":"%s"}\n' "$NAME" "${SEQ:-null}" "$(date +%FT%T%z)" "$MODEL" > "$STATE/$OLD.json" \
   || { hil "도달 파일 쓰기 실패 $STATE"; exit 5; }
-echo "OK successor=$NAME seq=${SEQ:-null} file=$STATE/$OLD.json"
+echo "OK successor=$NAME seq=${SEQ:-null} file=$STATE/$OLD.json mbox=$MBOX"
