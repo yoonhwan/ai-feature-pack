@@ -550,6 +550,15 @@ printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharnes
 printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tgraphic$' || { echo "FAIL: (sp) 좁은 칸은 8자 이름을 7자로 잘라야 함"; exit 1; }
 printf '%s\n' "$cr" | sed -n 3p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^\*\t전체⚠2$' || { echo "FAIL: (sp) 전체(*) 라벨: $(printf '%s\n' "$cr" | sed -n 3p)"; exit 1; }
 printf '16' > "$STATE/catw"; tmm catrows | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness  12⚠2$' || { echo "FAIL: (sp) 넓은 칸 라벨이 «이름8자 수⚠N» 이 아님: $(tmm catrows | sed -n 1p)"; exit 1; }
+# (sp) cat_sync — 분류 행이 «바뀐 때만» catrows 를 갱신(바뀜=0, 안 바뀜=1). 핑거가 reload 를 쏠지 여기서 가른다(내용 같으면 reload 0 → 분류 fzf 가 키 입력을 안 버린다)
+printf '11' > "$STATE/catw"; printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"; rm -f "$STATE/catrows" "$STATE/catrows.new"
+[ "$(lib 'cat_sync; echo $?')" = 0 ] || { echo 'FAIL: (sp) cat_sync 첫 호출(파일 없음)이 0(바뀜)이 아님'; exit 1; }
+[ -s "$STATE/catrows" ] || { echo 'FAIL: (sp) cat_sync 가 catrows 를 안 만듦'; exit 1; }
+[ "$(lib 'cat_sync; echo $?')" = 1 ] || { echo 'FAIL: (sp) cat_sync 재호출(내용 동일)이 1(안 바뀜)이 아님'; exit 1; }
+printf 'harness\t12\t3\ngraphics\t11\t0\n*\t23\t3\n' > "$STATE/tabs"   # 대기수(⚠ — 좁은 칸 라벨에 보이는 값)가 바뀌면
+[ "$(lib 'cat_sync; echo $?')" = 0 ] || { echo 'FAIL: (sp) cat_sync 가 내용 변경을 0 으로 안 알림'; exit 1; }
+[ ! -f "$STATE/catrows.new" ] || { echo 'FAIL: (sp) cat_sync 가 임시 .new 를 안 치움'; exit 1; }
+printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"   # 원복
 # 분할이 켜져 있으면(catpane 파일) 전체 폭(term_cols) = 목록 폭 + 칸 폭 + 1. 미리보기 방향은 «목록 칸» 폭(전체 − 칸 − 1)이 120 이상일 때만 오른쪽.
 printf '11' > "$STATE/catw"; rm -f "$STATE/catpane" "$STATE/pw"
 [ "$(FZF_COLUMNS=119 tmm pw | cut -d, -f1)" = down ] && [ "$(FZF_COLUMNS=120 tmm pw | cut -d, -f1)" = right ] || { echo 'FAIL: (sp) 분할 아닐 때 119→down · 120→right 여야 함'; exit 1; }

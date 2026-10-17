@@ -569,6 +569,11 @@ cmd_catrows() {  # $RUN/tabs(카테고리\t수\t대기수) → «키\t라벨» �
     printf '%s\t%s\n' "$cat" "$lab"
   done < "$RUN/tabs"
 }
+cat_sync() {  # 분류 칸 행을 다시 만들어 «바뀐 때만» $RUN/catrows 로 바꾼다 — 바뀜=0, 안 바뀜=1. 핑거가 reload 를 쏠지 여기서 가른다(스폰 0: cmd_catrows 는 같은 프로세스 함수 호출)
+  cmd_catrows > "$RUN/catrows.new" 2>/dev/null
+  if [ -f "$RUN/catrows" ] && cmp -s "$RUN/catrows.new" "$RUN/catrows"; then rm -f "$RUN/catrows.new"; return 1; fi
+  mv -f "$RUN/catrows.new" "$RUN/catrows"; return 0
+}
 cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목록이 바뀌고(focus), ⏎/→/Tab 은 목록 칸으로. 나머지 키는 목록 칸에 넘긴다.
   local sock="$RUN/cat.sock" rc n k
   local -a fwd=()
@@ -577,13 +582,15 @@ cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목
   done
   # 종료 뷰 창 넓히기·좁히기·계보(^] ^\ ^L)도 넘긴다 — 빠져 있어서 커서가 분류 칸에 있으면 «안 먹었다»(2026-10-15). ] \ 는 tmux 키 이름 대신 바이트로 보낸다.
   fwd+=(--bind "ctrl-]:execute-silent($SELF catfwd hex:1d)" --bind "ctrl-\\:execute-silent($SELF catfwd hex:1c)" --bind "ctrl-l:execute-silent($SELF catfwd C-l)")
+  # ★키 에코 차단★ — fzf 기동 전·재시작 틈(아래 sleep 0.3)에 누른 ↑↓ 가 cooked tty 에 `^[[A` 로 찍히는 걸 막는다(2026-10-17). fzf 는 자기 raw 모드로 바꾸고 종료 때 «들어올 때 상태(-echo)» 로 되돌리므로 루프 재진입에도 유지된다. pane 은 fzf 130 종료 때 함께 닫혀 원복 불필요.
+  stty -echo -icanon min 1 time 0 </dev/tty 2>/dev/null || true
   while [ -d "$RUN" ]; do
     rm -f "$sock"
     n="$(awk -F'\t' -v s="$(tab_cur_id)" '$1==s{print NR; exit}' "$RUN/tabs" 2>/dev/null)"
     fzf --ansi --delimiter=$'\t' --with-nth=2 --track --id-nth=1 --layout=reverse --cycle --no-mouse --info=hidden --sync --no-input \
       --listen="$sock" --pointer='▶' --border=top --border-label=' 분류 ' --border-label-pos=2:top --no-scrollbar \
       --bind "start:pos(${n:-1})" \
-      --bind "focus:execute-silent($SELF catfocus {1})" \
+      --bind "focus:execute-silent(req=\$\$.\$(date +%s); printf '%s' \"\$req\" > $RUN/tabreq; ( sleep 0.12; [ \"\$(cat $RUN/tabreq 2>/dev/null)\" = \"\$req\" ] && [ -S $RUN/fzf.sock ] && curl -s -o /dev/null --unix-socket $RUN/fzf.sock -X POST http://localhost/ -d \"transform($SELF tabgo {1} \\{2} '\$req')\" ) >/dev/null 2>&1 </dev/null &)" \
       --bind "enter,right,tab:execute-silent($SELF catgo)" \
       --bind "left,esc,btab,space,double-click:ignore" \
       "${fwd[@]}" \
@@ -593,6 +600,8 @@ cmd_catpane() {  # 분류 칸 pane 안에서 돈다 — ↑↓ 로 고르면 목
   done
 }
 cmd_catfocus() {  # <카테고리> — 분류 칸 커서가 옮겨지면 목록 fzf 에 tabgo 를 쏜다(같은 탭이어도 쏜다 — 아래)
+  # ★라이브 focus 는 cmd_catpane 의 바인드에 «인라인»(tmm 스폰 0·디바운스 0.12s·배경)으로 옮겼다(2026-10-17) — 부하 20 에서 포커스마다 tmm 전체를 새로 띄우면 40~120ms 가 직렬로 밀렸다.
+  #   이 함수는 perf.sh((d)·(d3))가 직접 부르는 경로로 남긴다(동기·디바운스 없음 — req 필터로 마지막 요청만 반영하는 계약을 시험이 그대로 검증).
   local c="${1:-}" req; [ -n "$c" ] || return 0
   # ★마지막 요청만 반영★ — 요청 번호를 $RUN/tabreq 에 «먼저» 쓴다. 목록 fzf 는 쏜 순서대로 하나씩 처리하므로, 연타하면 앞선 요청이 늦게 끝나 뒤 요청을 덮을 수 있다.
   #   tabgo 는 자기 번호가 tabreq 와 다르면 버린다.
@@ -623,7 +632,9 @@ tab_switch_to() {  # <탭> [커서 세션명] — 탭을 바꾸고 커서 복원
   # ★`reload-sync(...)+pos/first` 는 안 먹는다★ — --track 이 reload 가 끝난 뒤 커서를 «이전 줄 번호»로 되돌려 pos/first 를 덮는다(최소 예제 실측 2026-10-02).
   #   그래서 원하는 줄 번호를 $RUN/wantpos 에 적고 reload 를 걸면, fzf `load` 이벤트(cmd_onload)가 reload 직후 pos 를 준다.
   printf '%s\n' "${p:-1}" > "$RUN/wantpos"
-  printf 'reload(cat %s)+transform-header(%s header)' "$RUN/tabrows" "$SELF"
+  # ★header 는 reload 의 load 이벤트가 그린다★ — 여기 `+transform-header` 를 붙이면 header(160ms)가 2중으로 돈다(2026-10-17).
+  #   호출 경로(tabgo 630·tabkey 710)가 모두 tab_on 가드 뒤라 reload 후에도 tab_on 이 참 → cmd_onload 가 `transform-header($SELF header)` 로 탭 줄을 다시 그린다.
+  printf 'reload(cat %s)' "$RUN/tabrows"
 }
 cmd_tabgo() {  # <탭> [커서 세션명] [요청 번호] — 분류 칸이 고른 카테고리로 목록을 바로 바꾼다(회전 없음). 요청 번호가 최신(tabreq)이 아니면 버린다
   local to="${1:-}" req="${3:-}"
@@ -1248,9 +1259,11 @@ auto_loop() {
     [ "$AUTO" -gt 0 ] && [ $((i % AUTO)) -eq 0 ] && [ ! -f "$RUN/selmode" ] \
       && cmd_post "$sock" "reload(TMM_CUR={2} TMM_Q={q} $SELF rows-cur)"
     [ "$BELL" != 0 ] && [ -f "$RUN/bell" ] && { rm -f "$RUN/bell"; cmd_post "$sock" 'bell'; }
-    # 분할(0.8.0): 목록이 탭 수를 새로 셀 때마다($RUN/tabs 갱신) 분류 칸을 다시 그린다 — 첫 목록이 늦게 와도, 20초 갱신으로 ⚠ 가 바뀌어도
+    # 분할(0.8.0): 목록이 탭 수를 새로 셀 때마다($RUN/tabs 갱신) 분류 칸 행을 다시 만들되, «내용이 바뀐 때만» reload 를 쏜다(2026-10-17)
+    #   — tabs 는 rows-cur 가 돌 때마다 같은 내용으로 다시 쓰여 catseen 보다 새로워진다. 그때마다 reload 하면 분류 fzf 가 키 입력을 버려 «밀림» 이 됐다.
+    #   cat_sync 가 cmd_catrows(스폰 0 함수 호출)로 $RUN/catrows 를 갱신하고 바뀐 때만 0 → 그때만 reload(cat 파일). 안 바뀌면 catseen 만 찍어 다음 tabs 변화까지 쉰다.
     if [ -S "$RUN/cat.sock" ] && { [ ! -f "$RUN/catseen" ] || [ "$RUN/tabs" -nt "$RUN/catseen" ]; }; then
-      cmd_post "$RUN/cat.sock" "reload($SELF catrows)"; : > "$RUN/catseen"
+      cat_sync && cmd_post "$RUN/cat.sock" "reload(cat $RUN/catrows)"; : > "$RUN/catseen"
     fi
   done
 }
