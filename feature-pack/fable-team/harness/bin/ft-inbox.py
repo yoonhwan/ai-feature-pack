@@ -18,14 +18,14 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import (  # noqa: E402
     COMM, HOOK_ERRORS, INBOX, PRIO, die, find_mail, group_closed, haiku, haiku_class, hits,
-    lineage, locked, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q,
+    lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q,
 )
 
 
 def cmd_ingest(seq):
     mail = find_mail(int(seq))
     if mail is None:
-        die(f"seq={seq} 를 mailbox 에서 못 찾음")
+        die(f"seq={seq} 를 mailbox 에서 못 찾음 — 읽은 파일: {', '.join(mail_files()) or '없음'}")
     os.makedirs(f"{COMM}/bodies", exist_ok=True)
     bp = f"{COMM}/bodies/{seq}.txt"
     if not os.path.exists(bp):

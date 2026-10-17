@@ -1,5 +1,6 @@
 """ft_inbox_core.py — ft-inbox.py 의 공용부: 경로·큐 입출력·정본 술어 obligation_closed·묶기·분류·Haiku 일회 호출."""
 import fcntl
+import glob
 import hashlib
 import json
 import os
@@ -37,9 +38,11 @@ def die(msg, rc=1) -> NoReturn:
 def root():
     r = os.environ.get("FT_ROOT")
     if not r:
-        out = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                             capture_output=True, text=True).stdout.strip()
-        r = re.sub(r"/\.git$", "", out)
+        p = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                           capture_output=True, text=True)
+        r = re.sub(r"/\.git$", "", p.stdout.strip()) if p.returncode == 0 else ""
+    if not r:  # 빈 루트로 «/.fable-team/comm» 을 읽으면 «쪽지 없음» 으로 둔갑한다 — 루트를 못 정했다고 말한다
+        die(f"루트를 못 정함 — FT_ROOT 가 없고 cwd({os.getcwd()})가 git 저장소 밖 · FT_ROOT=<리포 루트> 를 주거나 저장소 안에서 부를 것")
     return r
 
 
@@ -118,11 +121,15 @@ def group_closed(rows, gid):
     return all(obligation_closed(x) for x in rows if x["group"] == gid)
 
 
+def mail_files():
+    """쪽지를 찾는 파일 — 현행 → 로그 → 회전본(.1 .2 …, 숫자 순). 실재하는 것만."""
+    rot = sorted((p for p in glob.glob(f"{COMM}/mailbox.log.jsonl.*") if p.rsplit(".", 1)[1].isdigit()),
+                 key=lambda p: int(p.rsplit(".", 1)[1]))
+    return [p for p in (f"{COMM}/mailbox.jsonl", f"{COMM}/mailbox.log.jsonl", *rot) if os.path.exists(p)]
+
+
 def find_mail(seq):
-    for fn in ("mailbox.jsonl", "mailbox.log.jsonl"):
-        p = f"{COMM}/{fn}"
-        if not os.path.exists(p):
-            continue
+    for p in mail_files():
         with open(p, encoding="utf-8") as f:
             for ln in f:
                 row = json.loads(ln) if ln.strip() else {}
