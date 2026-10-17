@@ -22,7 +22,7 @@ except ImportError as e:
     sys.exit(2)
 
 HINT = ' · 값은 변수에만: X="$(… 2>"$ERR")" · 확인은 ${#X}/[ -n "$X" ] · BOOT 22'
-SKIP = {"if", "then", "elif", "else", "while", "until", "do", "fi", "done", "!", "{", "}", "time", "sudo", "command", "builtin", "exec", "nohup"}
+SKIP = {"if", "then", "elif", "else", "while", "until", "do", "fi", "done", "!", "{", "}", "time", "sudo", "command", "builtin", "nohup"}
 DECL = {"export", "local", "declare", "readonly", "typeset"}
 EXEMPT = {"unset", "[", "[[", "test", "export", "read", "exit", "return", "set", "true", "false", ":"}
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=")
@@ -36,6 +36,79 @@ class Seg(NamedTuple):
     redirs: list[tuple[str, str, str]]
     decl: bool
     arg_subs: list[str]  # 인자 단어 속 치환(대입·export 값 속 치환은 변수에 갇히므로 뺀다)
+    env_why: str = ""  # env 접두 뒤 실행할 명령이 없거나 변수 펼침뿐일 때의 고정 이유(R307)
+
+
+ENV_ARG_OPTS = {"-u", "-C", "-P", "--unset", "--chdir"}  # 값을 따로 받는 env 옵션 (-S 는 env_strip 에서 따로 — 값이 명령 본문)
+WRAPPERS = {  # 명령을 앞에서 감싸는 래퍼 → (값을 받는 옵션, 옵션 뒤 위치 인자 수) — 떼고 남은 낱말을 다시 판정(R307 r2 · 표에 없는 래퍼는 명령으로 본다)
+    "nice": ({"-n", "--adjustment"}, 0), "timeout": ({"-s", "-k", "--signal", "--kill-after"}, 1), "stdbuf": ({"-i", "-o", "-e"}, 0),
+    "xargs": ({"-n", "-I", "-P", "-L", "-s", "-E", "-d", "-a"}, 0), "caffeinate": ({"-t", "-w"}, 0), "script": ({"-t"}, 1),
+    "unbuffer": (set(), 0), "chronic": (set(), 0), "ionice": ({"-c", "-n", "-p"}, 0), "taskset": ({"-c"}, 1), "exec": ({"-a"}, 0),
+}
+UNKNOWN_CMD = "env 뒤 명령을 글자로 확정할 수 없음(변수·치환 펼침이 비면 env 전체 출력) — 실행할 명령을 글자로 쓸 것"
+
+
+def unresolved(w: str) -> bool:  # 펼침(`$…`·`$(…)`·백틱 = \x00)으로 시작하면 실행 시점에야 정해지는 명령이다
+    return w[:1] in ("$", "\x00")
+
+
+def wrap_strip(a: list[W]) -> list[W]:  # a[0] 가 WRAPPERS 의 래퍼 → 래퍼·옵션·위치 인자를 뗀 낱말
+    opts, npos = WRAPPERS[a[0]]
+    i, took = 1, False
+    while i < len(a) and a[i].startswith("-"):
+        if a[i] == "--":
+            i += 1
+            break
+        took = took or a[i] in opts
+        i += 2 if a[i] in opts else 1
+    return a[i + (0 if a[0] == "taskset" and took else npos):]
+
+
+def env_strip(a: list[W]) -> tuple[list[W], list[W], str]:  # a[0]=="env" → (남은 낱말, env 대입, 이유) · 옵션·대입을 같이 소비해 «실행할 명령»만 남긴다
+    i, assigns, body = 1, [], None
+    while i < len(a):
+        x = a[i]
+        if ASSIGN.match(x):
+            assigns.append(x)
+            i += 1
+        elif x == "--":  # 이 뒤는 옵션이 아니라 명령
+            i += 1
+            break
+        elif x in ("-S", "--split-string"):
+            body, i = (a[i + 1] if i + 1 < len(a) else W("")), i + 2
+        elif x.startswith("--split-string="):
+            body, i = W(x.split("=", 1)[1]), i + 1
+        elif x.startswith("-S"):
+            body, i = W(x[2:]), i + 1
+        elif x.startswith("-"):
+            i += 2 if x in ENV_ARG_OPTS else 1
+        else:
+            break
+    rest = a[i:]
+    if body is not None:  # -S 값은 명령 본문 — bash -c 와 같게 다시 판정한다
+        if not body.strip() or unresolved(body):
+            return [W("env")], assigns, UNKNOWN_CMD
+        return [W("bash"), W("-c"), body], assigns, ""
+    if not rest:
+        return [W("env")], assigns, "env 전체 출력(실행할 명령 없음)"
+    return rest, assigns, UNKNOWN_CMD if unresolved(rest[0]) else ""
+
+
+def strip_prefix(args: list[W]) -> tuple[list[W], list[W], str]:  # 명령 앞 대입·SKIP·env·래퍼 접두를 뗀다 → (남은 낱말, 대입, env_why)
+    assigns: list[W] = []
+    while args and (ASSIGN.match(args[0]) or args[0] in SKIP or args[0] in WRAPPERS or args[0] == "env"):
+        if args[0] in WRAPPERS:
+            args = wrap_strip(args)
+        elif args[0] == "env":
+            args, more, why = env_strip(args)
+            assigns += more
+            if why:
+                return args, assigns, why
+        else:
+            w = args.pop(0)
+            if ASSIGN.match(w):
+                assigns.append(w)
+    return args, assigns, ""
 
 
 def parse(t: str) -> list[Seg]:
@@ -52,13 +125,9 @@ def parse(t: str) -> list[Seg]:
                 continue
             fd, op, tgt = m.groups()
             redirs.append((fd, op, tgt if tgt or op == ">&" or not ws else ws.pop(0)))
-        assigns: list[W] = []
-        while args and (ASSIGN.match(args[0]) or args[0] in SKIP or (args[0] == "env" and any(not x.startswith("-") for x in args[1:]))):
-            w = args.pop(0)
-            if ASSIGN.match(w):
-                assigns.append(w)
+        args, assigns, env_why = strip_prefix(args)
         decl = bool(args) and args[0] in DECL
-        out.append(Seg(start, args, assigns, redirs, decl, [x for w in args for x in w.subs]))
+        out.append(Seg(start, args, assigns, redirs, decl, [x for w in args for x in w.subs], env_why))
     return out
 
 
@@ -79,7 +148,7 @@ def out_state(redirs: list[tuple[str, str, str]]) -> tuple[bool, bool]:  # → (
 
 def leak(s: Seg) -> str | None:  # 비밀을 stdout 으로 내는 모양이면 고정 이름 — `< 비밀경로` 는 파일 인자와 같이 본다
     stdin = [x for fd, op, x in s.redirs if op == "<" and fd in ("", "0") and secret_path(x)]
-    return target(s.args + [W(x) for x in stdin]) or sinks(s.args, stdin)
+    return s.env_why or target(s.args + [W(x) for x in stdin]) or sinks(s.args, stdin)
 
 
 def has_target(t: str) -> bool:
