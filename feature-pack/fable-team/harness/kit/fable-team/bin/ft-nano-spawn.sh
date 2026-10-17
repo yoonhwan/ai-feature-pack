@@ -33,6 +33,13 @@ fi
 [ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+# ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 우회 플래그 없음 — 풀기는 ft-penalty.sh resume <팀>. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
+if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
+  [ -f "$HERE/ft-penalty.sh" ] || { echo "REJECT 전 세션 정지 중인데 ft-penalty.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  _ptm=""; [[ "$IDX" =~ design/([a-z0-9]+)/indices/ ]] && _ptm="${BASH_REMATCH[1]}"
+  _pout="$(FT_ROOT="$ROOT" bash "$HERE/ft-penalty.sh" check "$_ptm" 2>&1)"; _prc=$?
+  [ "$_prc" != 0 ] && { printf '%s\n' "$_pout"; exit "$_prc"; }
+fi
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 는 default)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. 파일이 없으면 추측 없이 REJECT.
 if [ -z "${FT_NANO_PREFIX:-}" ]; then

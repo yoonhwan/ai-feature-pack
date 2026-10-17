@@ -112,19 +112,29 @@ def stale_only() -> int:
     return 0
 
 
+def stall_cell(root: Path) -> str:
+    """뉴스 첫 줄의 `stall=N` 칸(R320b) = ft-stall-scan 이 남긴 stall-scan.log «마지막 줄»(요약)의 `stall=N a=.. b=.. c=.. d=..`. 로그 없음·읽기 실패 = 칸 없음(뉴스는 막지 않는다)."""
+    try:
+        last = (root / ".fable-team" / "state" / "stall-scan.log").read_text(encoding="utf-8").splitlines()[-1]
+    except (OSError, IndexError):
+        return ""
+    return " ".join(last.split()[:5]) if last.startswith("stall=") else ""
+
+
 def decision_line(root: Path) -> str:
-    """뉴스 첫 줄(R214 · 판정 1804) = ft-decision-count.sh 한 줄. planner 좌석표가 없는 루트(팀 밖·시험)는 줄 없음 · 도구 실패는 ERROR 로그 + 줄 없음(뉴스는 막지 않는다)."""
+    """뉴스 첫 줄(R214 · 판정 1804) = ft-decision-count.sh 한 줄 + stall 칸(R320b). planner 좌석표가 없는 루트(팀 밖·시험)는 줄 없음 · 도구 실패는 ERROR 로그(뉴스는 막지 않는다)."""
     if not (root / ".fable-team" / "seats-planner.json").is_file():
         return ""
+    text = ""
     try:
         done = subprocess.run(["bash", str(HERE / "ft-decision-count.sh")], capture_output=True, text=True, timeout=7, env={**os.environ, "FT_ROOT": str(root)})
+        if done.returncode != 0:
+            LOG.error("결정 대기열 줄 건너뜀: rc=%s %s", done.returncode, done.stderr.strip()[:120])
+        else:
+            text = done.stdout.strip()
     except (OSError, subprocess.TimeoutExpired) as e:
         LOG.error("결정 대기열 줄 건너뜀: %s", e)
-        return ""
-    if done.returncode != 0:
-        LOG.error("결정 대기열 줄 건너뜀: rc=%s %s", done.returncode, done.stderr.strip()[:120])
-        return ""
-    return done.stdout.strip()
+    return " · ".join(x for x in (text, stall_cell(root)) if x)
 
 
 def _run(root: Path, state: Path) -> tuple[int, str]:
