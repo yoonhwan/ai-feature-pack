@@ -152,7 +152,8 @@ mk_tsv 6133 0
 SUC="$REPO/scripts/fable-team-bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
 # R358: ft-successor-open.sh :39 의 arch-live 판정(R342)이 $FT_RES_ROOT/design/TEAMSET.md 를 읽는다 — 리포 정본을 복사해 심는다(가짜 표 손글씨 0).
 mkdir -p "$R/design" && cp "$REPO/design/TEAMSET.md" "$R/design/TEAMSET.md"
-so() { OUT="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HOME="$T/home" FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=99 FT_RECLAIM=0 "$@" bash "${SUCX:-$SUC}" "$OLDN" "$T/cwd" --name "$NEWN" --agent claude --model m --body-file "$T/body.txt" 2>&1)"; RC=$?; }
+# R361: R351 이후 --md 기본값은 gitref:origin/main:… 이라 git 저장소가 아닌 임시 루트 $R 에선 못 읽는다 — 복사해 둔 정본 파일을 FT_TEAMSET_MD 로 직접 가리킨다.
+so() { OUT="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HOME="$T/home" FT_RES_ROOT="$R" FT_TEAMSET_MD="$R/design/TEAMSET.md" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=99 FT_RECLAIM=0 "$@" bash "${SUCX:-$SUC}" "$OLDN" "$T/cwd" --name "$NEWN" --agent claude --model m --body-file "$T/body.txt" 2>&1)"; RC=$?; }
 agents_rej() { { [ "$RC" -eq 3 ] && echo "$OUT" | grep -q 'REJECT resource agents=99 limit=65'; }; }
 printf '{"_master":"alive-old#1","other#2":{"role":"nano"}}\n' > "$R/.fable-team/seats-t.json"
 OLDN='alive-old#1'; NEWN='alive-old#2'; so FAKE_HAS=0
@@ -175,6 +176,9 @@ mv "$R/design/TEAMSET.md" "$R/design/TEAMSET.md.off"
 OLDN='alive-old#1'; NEWN='unrelated-new#9'; so FAKE_HAS=0
 mv "$R/design/TEAMSET.md.off" "$R/design/TEAMSET.md"
 { [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'ERROR TEAMSET 읽기 실패'; } && ok "H3 변이(TEAMSET 없음) → ERROR TEAMSET 읽기 실패 rc1" || bad "H3 변이 TEAMSET 없음 rc=$RC $OUT"
+# 변이(R361) — FT_TEAMSET_MD 를 비우면(env 줄이 빠진 것과 같음) 기본 gitref 가 임시 루트에서 깨진다(픽스처 전제가 빠지면 보이게)
+OLDN='alive-old#1'; NEWN='unrelated-new#9'; so FT_TEAMSET_MD= FAKE_HAS=0
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'ERROR TEAMSET 읽기 실패 git rev-parse'; } && ok "H3 변이(FT_TEAMSET_MD 없음) → gitref 읽기 실패 rc1" || bad "H3 변이 FT_TEAMSET_MD 없음 rc=$RC $OUT"
 # 변이 — 계보 검사를 지운 successor-open 은 위 불일치 단언에서 «걸려야» 한다
 MUT="$T/mut"; mkdir -p "$MUT"; cp "$REPO"/scripts/fable-team-bin/ft-*.sh "$MUT"/
 sed 's/\[ "\$NAME" = "\${BASH_REMATCH\[1\]}#\$((BASH_REMATCH\[2\]+1))" \]/true/' "$SUC" > "$MUT/ft-successor-open.sh"
