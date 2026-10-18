@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """autonomy_classify.py — 자율 대리 결정 판정기 (DESIGN-autonomy-proxy-decision r3 §3 · 판정 1322).
 
-  autonomy_classify.py --kind <종류> [--text <질문·선택지·카드 본문>]...
+  autonomy_classify.py --kind <종류> [--text <질문·선택지·카드 본문>]... [--plan-text <wt-clean 계획 본문>]
   autonomy_classify.py da-check <DA⑥ 판정문> <40hex sha>     push-merge 근거: «마지막 판정 머리» 가 APPROVE ∧ 그 절의 «고정 세트» 줄이 sha
 
 출력 한 줄: `PROXY` (rc 0) | `QUEUE <사유>` (rc 2). 판정기 실패·인자 오류도 QUEUE (대리 쪽으로 새지 않는다 · #0 RULE).
-대리 가능 종류는 네 가지뿐 — `reversible-choice` 는 오빠 값(판정 1322)으로 넣지 않는다(모르는 종류 = QUEUE).
+대리 가능 종류는 다섯 가지뿐 — `reversible-choice` 는 오빠 값(판정 1322)으로 넣지 않는다(모르는 종류 = QUEUE).
 `push-merge` 는 오빠 값(판정 1675)이라 항상 QUEUE — 병합 승인은 `ft-autonomy.sh approve-merge`(오빠 `!`)뿐이다.
-`nano-reopen`·`docs-push` 의 근거 검증은 ft-proxy-decide.sh 가 하고 판정기는 종류·제외 어휘만 본다.
+`nano-reopen`·`docs-push`·`wt-clean` 의 근거 검증은 ft-proxy-decide.sh 가 하고 판정기는 종류·제외 어휘만 본다.
 제외 어휘는 종류 선언과 무관하게 글에 있으면 QUEUE — 오탐은 QUEUE(안전한 쪽)로만 난다.
+`--plan-text`(R410 · 판정 2326) = ft-nano-close 가 만든 wt-clean 계획 본문: 주석 줄(# …)은 빼고 실행 줄만 같은 표로 본다.
+  단 [삭제] 는 계획 자신의 일(임시 파일 rm · 브랜치 보존 워크트리 정리 = 2026-09-25 표준승인)이라 실행 줄에선 세지 않는다 — 브랜치 삭제·force·kill 등 나머지는 그대로 QUEUE.
 """
 import re
 import sys
 
-PROXY_KINDS = ("card-start", "press-order", "nano-reopen", "docs-push")
+PROXY_KINDS = ("card-start", "press-order", "nano-reopen", "docs-push", "wt-clean")
 QUEUE_ONLY = {"push-merge": "main 병합·main push = 오빠 값(판정 1675)"}
 
 # (이름, 정규식) — 하드 룰 2 파괴·비가역 + 설계 §3 절대 제외. 표본 시험: tests/harness/fixtures/autonomy-exclusions.tsv
@@ -33,9 +35,10 @@ EXCLUDE = [
     ("오빠 원문과 다른 설계", r"원문과\s*다른|원문.{0,6}(변경|바꾸)|오빠\s*원문.{0,10}다른"),
 ]
 _COMPILED = [(name, re.compile(rx, re.IGNORECASE)) for name, rx in EXCLUDE]
+PLAN_OWN = ("삭제",)  # wt-clean 계획 실행 줄에서만 세지 않는 이름 — 위 --plan-text 설명
 
 
-def classify(kind: str, texts: list[str]) -> tuple[str, str]:
+def classify(kind: str, texts: list[str], plans: tuple[str, ...] = ()) -> tuple[str, str]:
     """→ ("PROXY", "") | ("QUEUE", 사유)"""
     if kind in QUEUE_ONLY:
         return "QUEUE", QUEUE_ONLY[kind]
@@ -45,6 +48,11 @@ def classify(kind: str, texts: list[str]) -> tuple[str, str]:
         for name, rx in _COMPILED:
             if rx.search(text):
                 return "QUEUE", "제외 어휘 [%s]" % name
+    for plan in plans:
+        body = "\n".join(ln for ln in plan.splitlines() if not ln.lstrip().startswith("#"))
+        for name, rx in _COMPILED:
+            if name not in PLAN_OWN and rx.search(body):
+                return "QUEUE", "계획 본문 제외 어휘 [%s]" % name
     return "PROXY", ""
 
 
@@ -81,21 +89,24 @@ def da_check(path: str, sha: str) -> tuple[str, str]:
     return "PROXY", ""
 
 
-def parse(argv: list[str]) -> tuple[str, list[str]]:
+def parse(argv: list[str]) -> tuple[str, list[str], tuple[str, ...]]:
     kind: str | None = None
     texts: list[str] = []
+    plans: list[str] = []
     i = 0
     while i < len(argv):
         if argv[i] == "--kind" and i + 1 < len(argv):
             kind = argv[i + 1]
         elif argv[i] == "--text" and i + 1 < len(argv):
             texts.append(argv[i + 1])
+        elif argv[i] == "--plan-text" and i + 1 < len(argv):
+            plans.append(argv[i + 1])
         else:
             raise ValueError("알 수 없는 인자: %s" % argv[i])
         i += 2
     if kind is None:
         raise ValueError("--kind 필수")
-    return kind, texts
+    return kind, texts, tuple(plans)
 
 
 def main(argv: list[str]) -> int:
