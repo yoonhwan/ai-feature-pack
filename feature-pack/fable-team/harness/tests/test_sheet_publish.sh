@@ -156,7 +156,7 @@ export FT_BOARD_NOW="2026-10-17T09:00:00"; tree 일G; setrev $S1 $P1; : > "$S/co
 [ "$(wc -l < "$S/collects" | tr -d ' ')" = 1 ] && ok "F5 구조 rev 바뀜(snapshot 까지 호출) → collect 1회" || bad "F5 snapshot 틱 collect $(wc -l < "$S/collects" | tr -d ' ')회"
 # 본문 바이트 동일 — 실 ft-board.py + 시험 루트: collect 파일 경유(--from) 출력 == 직접 collect 출력(text·md·html·rev·snapshot)
 (
-  . "$ROOT/tests/fixtures/sheet/sheet_env.sh"; new_root
+  . "$ROOT/harness/fixtures/sheet/sheet_env.sh"; new_root
   same=1; board collect --out "$T/c.json" || same=0
   for f in "" --text --html --rev; do
     a="$(board render --sheet $f)"; b="$(board render --sheet $f --from "$T/c.json")"
