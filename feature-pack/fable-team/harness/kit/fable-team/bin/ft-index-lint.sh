@@ -7,7 +7,7 @@
 set -uo pipefail
 [ $# -ge 1 ] || { echo "usage: $0 <index.md> [more…]" >&2; exit 2; }
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-default_ledger() { [ -z "${FT_GOAL_LEDGER:-}" ] || { printf '%s' "$ROOT/$FT_GOAL_LEDGER"; return; }; . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && printf '%s' "$(ft_team_in "$ROOT" v65)/GOAL-LEDGER-v65.md"; }   # R383: 기본 골 원장 = v65 팀 폴더(ROOT 의 TEAMS.md · 팀 이름 글자 0) — 선언 원장 카드는 안 읽는다 · 못 풀면 stderr ERROR + 빈 경로(③ 검사가 «선언된 정본 없음» REJECT)
+default_ledger() { [ -z "${FT_GOAL_LEDGER:-}" ] || { printf '%s' "$ROOT/$FT_GOAL_LEDGER"; return; }; . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_team_file_ref "$ROOT" v65 GOAL-LEDGER-v65.md | tr -d '\n'; }   # R406: 기본 골 원장 = 명단 ref(FT_TEAMS_REF · 기본 origin/main) 의 v65 폴더 꼴·쌍둥이 중 ROOT 에 실재하는 1개 — 선언 원장 카드는 안 읽는다 · 못 풀면(명단 못 읽음·후보 0·2+) stderr ERROR + 빈 경로(③ 검사가 «선언된 정본 없음» REJECT)
 # 하네스 자체 작업(Seatbelt 단위)은 제품 골 원장에 행이 없다. 파일 머리에 `<!-- ledger: <경로> -->` 를 «선언»하면
 # 그 문서를 닫는 증거의 정본으로 쓴다 — 예외 목록이 아니라 파일이 스스로 밝히고, 결과 줄에 어느 정본을 봤는지 찍는다.
 ledger_for() { local d; d="$(grep -oE '<!-- *ledger: *[^ >]+ *-->' "$1" | head -1 | sed -E 's/<!-- *ledger: *([^ >]+) *-->/\1/')"; [ -n "$d" ] && printf '%s' "$ROOT/$d" || default_ledger; }
@@ -44,7 +44,7 @@ hold_conditional() {  # $1=사전검증 본문 $2=카드 → 0=예외 성립(INF
   n="$(printf '%s\n' "$1" | sed -nE 's/^[-* ]*lint 예외 1건: *판정 ([0-9]+) ① 조건부 승인.*/\1/p' | head -1)"
   [ -n "$n" ] || return 1; . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-verdict-row.sh" 2>/dev/null || { HOLD_WHY="판정 줄 공용 함수(ft-verdict-row.sh) 없음"; return 1; }   # R255·R257 원장 두 꼴
   git -C "$ROOT" rev-parse -q --verify refs/remotes/origin/main >/dev/null 2>&1 || { HOLD_WHY="원장 확인 불가 (origin/main ref 없음)"; return 1; }
-  local _a _b; read -r _a _b < <( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && p="$(ft_team_rel planner)" && echo "${p}VERDICTS-planner-*.md $(ft_index_twin "$p")VERDICTS-planner-*.md" ); [ -n "${_b:-}" ] || { HOLD_WHY="원장 확인 불가 (planner 팀 폴더를 못 풀었다 · design/TEAMS.md)"; return 1; }; git -C "$ROOT" grep -qE -e "$(fv_row_re "$n").*조건부 승인" origin/main -- "$_a" "$_b" >/dev/null 2>&1; rc=$?   # R383: 판정 원장 pathspec = planner 팀 폴더(명단 꼴 + 쌍둥이 · 팀 이름 글자 0)
+  local _ps=() _c; while IFS= read -r _c; do [ -n "$_c" ] && _ps+=("${_c#"$ROOT"/}/VERDICTS-planner-*.md"); done < <( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_team_cands_ref "$ROOT" planner "${FT_TEAMS_REF:-origin/main}" 2>/dev/null ); [ "${#_ps[@]}" -ge 1 ] || { HOLD_WHY="원장 확인 불가 (planner 팀 폴더를 못 풀었다 · 명단 ${FT_TEAMS_REF:-origin/main}:design/TEAMS.md)"; return 1; }; git -C "$ROOT" grep -qE -e "$(fv_row_re "$n").*조건부 승인" origin/main -- "${_ps[@]}" >/dev/null 2>&1; rc=$?   # R406: 판정 원장 pathspec = 명단 ref 의 planner 팀 폴더(꼴 + 쌍둥이 · 루트 상대 · 팀 이름 글자 0)
   [ $rc -le 1 ] || { HOLD_WHY="원장 확인 불가 (git grep rc=$rc)"; return 1; }
   [ $rc -eq 0 ] || { HOLD_WHY="planner 원장에 판정 $n 조건부 승인 줄 없음(글머리 「- **$n**」·표 행 「| $n |」 둘 다)"; return 1; }
   section_body "$2" '완료 조건' | grep -q '잔여 HOLD' || { HOLD_WHY="완료 조건에 「잔여 HOLD」 표식 없음"; return 1; }

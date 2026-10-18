@@ -29,7 +29,7 @@ def _exe(path, body):
 @pytest.fixture
 def env(tmp_path):
     repo = init_repo(tmp_path / "repo", "feat/root")
-    commit(repo, {"worker/w.py": "w", "docs/d.md": "d", "design/x.md": "x", "design/TEAMS.md": TEAMS_V65}, "tree")  # R383: v65 폴더는 design/TEAMS.md 로 푼다
+    commit(repo, {"worker/w.py": "w", "docs/d.md": "d", "design/x.md": "x", "design/TEAMS.md": TEAMS_V65, "design/v65/SEATBELT-README.md": "# sb\n"}, "tree")  # R383: v65 폴더는 design/TEAMS.md 로 푼다
     (repo / ".fable-team").mkdir()
     (repo / ".fable-team/seats.json").write_text("{}\n")
     (repo / "design/v65/indices/대기").mkdir(parents=True)
@@ -61,7 +61,7 @@ def _card(env, text=CARD, base=None):
 
 
 def _spawn(env, card, *extra):
-    e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "FT_SEATS_JSON": str(env["repo"] / ".fable-team/seats.json")}
+    e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "FT_SEATS_JSON": str(env["repo"] / ".fable-team/seats.json"), "FT_TEAMS_REF": "HEAD"}  # R406: 픽스처 명단은 커밋된 HEAD 에만 있다(origin/main ref 0) — 실 리포는 origin/main
     return subprocess.run(["bash", str(env["hb"] / "ft-nano-spawn.sh"), str(card), *extra], capture_output=True, text=True, cwd=env["repo"], env=e)
 
 

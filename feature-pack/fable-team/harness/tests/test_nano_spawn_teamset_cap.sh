@@ -27,7 +27,7 @@ cat > "$MD" <<'EOF'
 | alpha | 2 | 0 | 상시 |
 EOF
 git init -q "$T/repo" && git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-mkdir -p "$T/repo/.fable-team" && echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
+mkdir -p "$T/repo/.fable-team/comm" && echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
 mkdir -p "$T/repo/design/alpha/indices/대기" && echo "# 카드" > "$T/repo/design/alpha/indices/대기/x.md"
 Q="$T/repo/.fable-team/state/spawn-queue-alpha.tsv"
 # 가짜 회수: 인자를 기록하고 FREE 파일이 있으면 alpha 나노 1개를 목록에서 뺀다(= 끝난 나노를 닫았다)
@@ -38,7 +38,7 @@ echo "\$*" >> "$T/reclaim.calls"
 echo "RECLAIMED 1"
 EOF
 sess() { : > "$SESS"; for n in "$@"; do echo "$n" >> "$SESS"; done; }
-sp() { ( cd "$T/repo" && export FT_NANO_PREFIX="byz-${PFX_TEAM:-alpha}-nano-" FT_SEATS_JSON="$T/repo/.fable-team/seats-alpha.json" FT_TEAMSET_MD="${MDX:-$MD}" FT_RECLAIM_SH="$T/reclaim.sh" \
+sp() { ( cd "$T/repo" && export FT_ROOT="$T/repo" FT_NANO_PREFIX="byz-${PFX_TEAM:-alpha}-nano-" FT_SEATS_JSON="$T/repo/.fable-team/seats-alpha.json" FT_TEAMSET_MD="${MDX:-$MD}" FT_RECLAIM_SH="$T/reclaim.sh" \
   && PATH="$FAKE:$PATH" bash "$KIT/ft-nano-spawn.sh" design/alpha/indices/대기/x.md --from byz-alpha-master-claude#1 "$@" 2>&1 ); }
 wts() { git -C "$T/repo" worktree list | wc -l | tr -d ' '; }
 
@@ -77,7 +77,7 @@ o="$(FT_TEAMSET=0 sp --dry-run)"; [[ "$o" != *"alpha live="* ]] && ok "ⓖ FT_TE
 
 # ⓗ reclaim --only-prefix: 접두 밖 좌석은 후보에서 뺀다(사용법 문구 + 코드 실재)
 grep -q -- '--team' "$BIN/ft-resource-reclaim.sh" && ok "ⓗ reclaim 에 --team 실재" || bad "ⓗ --team 없음"
-o="$(PATH="$FAKE:$PATH" FT_RES_ROOT="$T/rr" bash "$BIN/ft-resource-reclaim.sh" --dry-run --caller x --need 1 --team alpha 2>&1)"; rc=$?
+o="$(PATH="$FAKE:$PATH" FT_ROOT="$T/repo" FT_RES_ROOT="$T/rr" bash "$BIN/ft-resource-reclaim.sh" --dry-run --caller x --need 1 --team alpha 2>&1)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"RECLAIMED 0"* ]]; } && ok "ⓗ --team dry-run rc0 · 후보 0(가짜 tmux 에 활동 시각 없음)" || bad "ⓗ rc=$rc $o"
 
 [ "$(git config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare != false"

@@ -61,6 +61,7 @@ card "$REPO/design/planner/indices/대기/tpl.md" '<!-- ledger: design/planner/G
 card "$REPO/design/planner/indices/대기/empty.md" '<!-- ledger: design/planner/GOAL-planner.md -->' '' ''
 card "$REPO/design/planner/indices/대기/bodyp.md" '<!-- ledger: design/planner/GOAL-planner.md -->' "$FULL_IMPL" "$FULL_DONE"   # ⓓ 전용(ⓒ 가 쓴 카드는 진행/ 으로 이동했다)
 card "$REPO/design/v65/indices/대기/v65card.md" '' "$FULL_IMPL" "$FULL_DONE"
+echo x > "$REPO/design/v65/SEATBELT-README.md"   # R406: 발주 본문 README = 명단 ref 의 v65 폴더에 실재 1개
 mkdir -p "$REPO/design/harness/indices/대기"; cp "$REPO/design/planner/indices/대기/tpl.md" "$REPO/design/harness/indices/대기/tpl.md"
 GIT add -A >/dev/null; GIT commit -q -m cards
 GIT update-ref refs/remotes/origin/main HEAD

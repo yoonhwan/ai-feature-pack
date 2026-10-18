@@ -19,7 +19,7 @@ SLACK = "- 슬랙: C1 · 시도 2026-10-10T11:08:00+09:00\n"
 @pytest.fixture
 def env(tmp_path):
     repo = init_repo(tmp_path / "repo", "feat/root")
-    commit(repo, {"worker/w.py": "w", "design/TEAMS.md": TEAMS_V65}, "tree")  # R383: v65 폴더는 design/TEAMS.md 로 푼다
+    commit(repo, {"worker/w.py": "w", "design/TEAMS.md": TEAMS_V65, "design/v65/SEATBELT-README.md": "# sb\n"}, "tree")  # R383: v65 폴더는 design/TEAMS.md 로 푼다
     (repo / ".fable-team").mkdir()
     (repo / ".fable-team/seats.json").write_text("{}\n")
     (repo / "design/v65/indices/대기").mkdir(parents=True)
@@ -44,7 +44,7 @@ def spawn(env, card_text=CARD, **extra):
     card.write_text(card_text)
     tp = env["tmp"] / "tp.sh"
     e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "FT_SEATS_JSON": str(env["repo"] / ".fable-team/seats.json"),
-         "FT_THREAD_POST": str(tp), **extra}
+         "FT_THREAD_POST": str(tp), "FT_TEAMS_REF": "HEAD", **extra}  # R406: 픽스처 명단은 커밋된 HEAD 에만 있다(origin/main ref 0) — 실 리포는 origin/main
     return subprocess.run(["bash", str(env["hb"] / "ft-nano-spawn.sh"), str(card)], capture_output=True, text=True, cwd=env["repo"], env=e), card
 
 

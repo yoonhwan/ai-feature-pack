@@ -51,6 +51,16 @@ ft_team_cands() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1"; ft_team_root "$
 ft_team_cands_ref() { ( r="$1"; t="$2"; ref="${3:-origin/main}"; md="$(mktemp)" || exit 1; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 1; }
   export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r"; ft_team_root "$t" || exit 1; ft_team_root "$t" --alt 2>/dev/null; exit 0 ); }
+#   ft_team_file_ref <루트> <팀> <파일> [<ref>] : ft_team_cands_ref 후보 폴더 중 <파일> 이 «실재하는 정확히 1개» 의 절대경로(R406 · 기본 ref = FT_TEAMS_REF 또는 origin/main) — 명단 못 읽음·팀 없음·실재 0·2+ = stderr ERROR(ref·후보 경로) rc1 · 추측·옛 경로 후퇴 0
+ft_team_file_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c hits=()
+  cands="$(ft_team_cands_ref "$r" "$t" "$ref")" || return 1
+  while IFS= read -r c; do [ -n "$c" ] && [ -f "$c/$f" ] && hits+=("$c/$f"); done <<< "$cands"
+  [ "${#hits[@]}" = 1 ] || { echo "ERROR $t $f 실재 후보 ${#hits[@]}개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 $(printf '%s ' $cands))" >&2; return 1; }
+  printf '%s\n' "${hits[0]}"; }
+#   ft_team_has_ref <루트> <팀> <경로> [<하위>] [<ref>] : ft_team_has 를 «ref 명단» 으로(R406) — rc 는 ft_team_has 와 같다(ref 못 읽음 = rc2)
+ft_team_has_ref() { ( r="$1"; ref="${5:-${FT_TEAMS_REF:-origin/main}}"; md="$(mktemp)" || exit 2; trap 'rm -f "$md"' EXIT
+  git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 2; }
+  export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r"; ft_team_has "$2" "$3" "${4:-}" ); }
 #   ft_team_has <팀> <경로> [<하위>] : 경로가 그 팀 폴더(<하위> 가 있으면 그 아래) 안인가 — 명단 꼴·쌍둥이 둘 다 본다(상대·절대경로 모두 · 꼴3 은 FT_HARNESS_ROOT 절대경로). rc0 안 · rc1 밖(명단에 없는 팀도 «밖») · rc2 명단을 못 읽음/꼴3 env 없음(ERROR)
 ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
   md="$(ft_team_teams_md)" || return 2

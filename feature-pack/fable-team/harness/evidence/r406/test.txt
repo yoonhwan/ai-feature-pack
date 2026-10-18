@@ -1,0 +1,88 @@
+# r406 시험 원문 · 2026-10-19 03:49:46 · pack 56abafed+작업트리 · base 56abafed(1.1.8)
+## bash -n · cmp(bin=kit) · tmp-trap-lint · 600/300
+bash -n ft-team-lib.sh rc=0
+bash -n ft-index-lint.sh rc=0
+bash -n ft-nano-spawn.sh rc=0
+cmp bin/kit ft-team-lib.sh rc=0
+cmp bin/kit ft-nano-spawn.sh rc=0
+REJECT tests/test_team_roster_ref.sh:10: 변수 없이 mktemp -d — 지울 방법이 없다(변수에 담고 trap 으로 지운다)
+tmp-trap-lint rc=1
+600/300 새 줄: 2
+## 새 시험
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-index-lint.sh
+PASS bash -n ft-team-lib.sh
+PASS 픽스처: 공유 루트 = 옛 명단(v65 행 0 · 옛 규칙이면 arch#94 ERROR) · origin/main ref 있음
+== ⓐ 공유 루트 cwd — 명단 = origin/main · 폴더 = 꼴1 실재 1개
+PASS ⓐ spawn --dry-run rc0
+PASS ⓐ lint OK · 기본 골 원장 = 공유 루트 꼴1
+PASS ⓐ PLAN 출력까지
+PASS ⓐ REJECT 줄 0
+PASS ⓐ SEATBELT-README = 공유 루트 꼴1(ref 명단)
+PASS ⓐ planner 카드 판정(ft_team_has_ref) = 꼴1 카드도 planner(ref 꼴2 의 쌍둥이)
+PASS ⓐ v65 카드는 planner 아님 rc1
+== ⓑ ref 못 읽음 → REJECT
+PASS ⓑ spawn REJECT · «명단(없는ref:…)을 못 읽음»
+PASS ⓑ SEATBELT 풀이 rc1 · 못 읽음
+PASS ⓑ planner 판정 rc2(못 읽음 = 비허용)
+== ⓒ 후보 0 → REJECT
+PASS ⓒ 후보 0 → REJECT(후보 경로 문구)
+== ⓓ 후보 2 → REJECT
+PASS ⓓ 후보 2 → REJECT(고르지 않음)
+PASS ⓓ SEATBELT 후보 2 rc1
+== ⓔ 명단 있는 보통 워크트리(꼴2) · 명시 env 우선
+PASS ⓔ 보통 워크트리 OK · ledger=꼴2(동작 불변)
+PASS ⓔ FT_GOAL_LEDGER 명시가 ref 보다 이긴다
+PASS ⓔ FT_SEATBELT_README 명시 분기가 먼저(코드)
+PASS core.bare != true
+ALL PASS
+test_team_roster_ref.sh rc=0
+## 기존 시험 (카드 지정 3 + 픽스처 갱신 6 + 회귀 대조)
+test_index_lint.sh rc=0 · fail=0
+test_nano_team_env.sh rc=0 · ALL PASS
+test_nano_spawn_teamset_cap.sh rc=0 · ALL PASS
+test_index_lint_conditional.sh rc=0 · fail=0
+test_dead_seat_resume.sh rc=0 · ALL PASS
+test_raised_seat.sh rc=0 · ALL PASS
+test_sheet_events.sh rc=0 · PASS ft-nano-close.sh abort 경로
+test_live_bin_drift_check.sh rc=0 · ALL PASS
+77 passed in 30.10s
+pytest spawn 5 파일 rc=0
+## 기준선(1.1.8 r403 워크트리)과 실패 «같은 집합» 대조 — 이번 변경과 무관한 기존 실패
+test_planner_nano_path.sh rc=1 · FAIL 3건 · 기준선 3건 · 집합 같음
+test_team_literal_paths2.sh rc=1 · FAIL 13건 · 기준선 13건 · 집합 같음
+test_cherry_gate_identical_head.sh rc=1 · FAIL 3건 · 기준선 3건 · 집합 같음
+test_da_hold_gate.sh rc=1 · FAIL 1건 · 기준선 1건 · 집합 같음
+test_graphics_install.sh rc=1 · FAIL 6건 · 기준선 6건 · 집합 같음
+test_penalty_spawn_gate.sh rc=6 · FAIL 6건 · 기준선 6건 · 집합 같음
+test_proposal_gate_wiring.sh rc=1 · FAIL 2건 · 기준선 2건 · 집합 같음
+test_teamset_gitref.sh rc=3 · FAIL 4건 · 기준선 4건 · 집합 같음
+test_tracked_bin_call_gate.sh rc=1 · FAIL 25건 · 기준선 25건 · 집합 같음
+git config core.bare=false
+## 보정(같은 단위) — tmp-trap-lint REJECT → T0 변수+trap 로 고친 뒤 재실행
+PASS tests/test_team_roster_ref.sh
+tmp-trap-lint rc=0
+ALL PASS
+test_team_roster_ref.sh rc=0
+600/300 새 줄 2건 = 시험 출력 자르기 ${o:0:300}(시간 상한 아님) · 시간 상한 새 값 0
+## 실제 공유 루트 cwd(/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live) 사전 확인 — 쓰기 0(--dry-run)
+### 라이브 bin /Users/yoonhwan/.claude/fable-team/live/1.1.7/bin (옛 규칙)
+OK ref=origin/main@252ce4842a13 bin=/Users/yoonhwan/.claude/fable-team/live/1.1.7/bin files=255
+ERROR v65 은 팀 명단(TEAMS.md)에 없다
+REJECT design/v65/indices/대기/M7-overlap-e2-late-commit-window.md — 선언된 정본 없음: /GOAL-LEDGER-v65.md
+REJECT lint 실패
+rc=1
+### 새 키트(r406) design/v65/indices/대기/M7-overlap-e2-late-commit-window.md
+CAP v65 live=1 cap=5
+OK design/v65/indices/대기/M7-overlap-e2-late-commit-window.md (ledger=design/v65/GOAL-LEDGER-v65.md)
+OK 제안서 없음 선언(제안 Issue 인용·연결 0)
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): design/v65/indices/대기/M7-overlap-e2-late-commit-window.md
+PLAN seat=ft-v65-temp-m7-overlap-e2-late-commit-window#0 agent=claude model=claude-opus-5-5[1m] wt=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-overlap-e2-late-commit-window branch=nano/m7-overlap-e2-late-commit-window base=origin/main index=design/v65/indices/대기/M7-overlap-e2-late-commit-window.md
+rc=0
+### 새 키트(r406) design/lecture/indices/대기/L1-room-init-stale-init-retry.md
+CAP lecture live=0 cap=3
+OK design/lecture/indices/대기/L1-room-init-stale-init-retry.md (ledger=design/v65/GOAL-LEDGER-v65.md)
+OK 제안서 없음 선언(제안 Issue 인용·연결 0)
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): design/lecture/indices/대기/L1-room-init-stale-init-retry.md
+PLAN seat=byz-lecture-nano-l1-room-init-stale-init-retry#0 agent=claude model=claude-opus-5-5[1m] wt=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l1-room-init-stale-init-retry branch=nano/l1-room-init-stale-init-retry base=origin/main index=design/lecture/indices/대기/L1-room-init-stale-init-retry.md
+rc=0
