@@ -1,5 +1,5 @@
 # LIVE-MAP.tsv — 키트 폴더 → 라이브 설치 위치 지도 (R245 · ft-live-install-check.sh 가 읽는다)
-# 열(탭): 패턴(scripts/harness-install/ 기준 · fnmatch · 위에서부터 첫 일치) · 종류 · 라이브 폴더 · 설치 HINT
+# 열(탭): 패턴(키트 harness/kit/ 기준 · fnmatch · 위에서부터 첫 일치) · 종류 · 라이브 폴더 · 설치 HINT
 # 종류: bin = 같은 이름 파일 blob 대조 + 실행 비트 · cmp = 같음(blob 대조 + 실행 비트) · plist = 템플릿의 Label 적재·재시작 확인(렌더본은 대조 안 함)
 #       skip = 라이브 설치 대상 아님(설명이 마지막 열) · 어떤 행에도 안 맞는 파일 = UNMAPPED(조용한 통과 0 — 새 폴더는 행을 추가한다)
 # 치환: $FT_BIN(env, 라이브 도구 폴더) · $HOME   — plist·skip 의 라이브 열은 `-`

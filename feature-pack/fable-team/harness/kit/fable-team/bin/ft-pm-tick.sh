@@ -1,5 +1,5 @@
 #!/bin/bash
-# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: harness/comm/ · 드리프트 확인: harness/comm/check-drift.sh
 # ft-v65-pm-codex#0 크론 틱 — 보드 리뷰·프로그레스 공유 트리거
 #
 # 2026-08-16 개정 (master#3): 틱 루프가 3개 동시에 돌면서 같은 pane 에

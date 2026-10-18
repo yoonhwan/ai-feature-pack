@@ -1,6 +1,6 @@
 #!/bin/bash
 # ft-seats-lint.sh — tmux 세션 ↔ 명부(seats*.json) 대조 (PLAN-harness-networking D9 · N1 r-net-tick-line). 읽기만 · 쓰기 0 · 외부 호출 0.
-# 추적 사본: scripts/fable-team-bin/ft-seats-lint.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
+# 추적 사본: harness/bin/ft-seats-lint.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
 #
 # usage: ft-seats-lint.sh [--team <명부 파일>]
 # 출력: 첫 줄 `불일치 N (UNKNOWN M)` + 행(ⓐ~ⓔ 불일치 · UNKNOWN 행 · OPENING 안내). rc 0 = N 도 M 도 0 · rc 1 = 아니면 · rc 2 = usage.

@@ -33,7 +33,8 @@ if [ "$CHECK" = 1 ]; then
 fi
 
 TPL="${FT_TEAM_TEMPLATE_DIR:-}"
-[ -n "$TPL" ] || for c in "$HERE/../templates/team" "$ROOT/scripts/harness-install/fable-team/templates/team"; do [ -d "$c" ] && { TPL="$c"; break; }; done
+HR="$([ -f "$HERE/ft-harness-root.sh" ] && . "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE")"   # 하네스 코드 루트(팩 harness/) — 리포 루트 전제 0 (r385)
+[ -n "$TPL" ] || for c in "$HERE/../templates/team" "${HR:+$HR/kit/fable-team/templates/team}"; do [ -d "$c" ] && { TPL="$c"; break; }; done
 WANT="$(tr -d '[:space:]' < "$TPL/VERSION" 2>/dev/null)"
 [ -n "$WANT" ] || { echo "REJECT 틀 버전 파일 없음: ${TPL:-<없음>}/VERSION"; exit 1; }
 RDIR="${FT_ROSTER_DIR:-}"

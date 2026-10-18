@@ -274,7 +274,7 @@ try:
         if v:
             sys.stderr.write(
                 "🚫 [gh-issue-author-guard] %s 직접 호출 금지 — 오빠 계정(yoonhwan) 이름으로 올라간다. "
-                "Tank 래퍼를 써라: bash scripts/fable-team-bin/ft-gh-as-tank.sh <create|comment|label|close|reopen|pr-comment|pr-edit|pr-close> … --apply "
+                "Tank 래퍼를 써라: bash .fable-team/bin/ft-gh-as-tank.sh <create|comment|label|close|reopen|pr-comment|pr-edit|pr-close> … --apply "
                 "(Issue 생성 쌍 = ft-issue-create-pair.sh). 조회(view·list)는 gh 그대로. "
                 "PR 리뷰 판정(approve·request-changes)은 사람만 — 래퍼 대체 없음, 코멘트는 pr-comment.\n" % v[1])
             sys.exit(2)

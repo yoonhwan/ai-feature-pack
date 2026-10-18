@@ -6,7 +6,7 @@
 #                                    pane_pid 자손에서 «에이전트 본체» 를 1 s 간격으로 최대 wait 초 찾는다.
 #                                    READY <pid> rc0 · NOAGENT rc3 · ERROR <사유> rc1(ps 실패 — 조용한 READY 0)
 #                                    --restart = 본체가 없을 때 «같은 pane 에 1회» 그 명령을 입력하고 다시 wait (이 실행이 연 pane 만 넘길 것)
-# 본체 판별 = agent_body_pids (tools/comm-canonical/mbox_doorbell.sh 와 같은 글자 — test_spawn_agent_ready.sh 가 비교한다).
+# 본체 판별 = agent_body_pids (harness/comm/mbox_doorbell.sh 와 같은 글자 — test_spawn_agent_ready.sh 가 비교한다).
 set -uo pipefail
 
 # 본체 판별 규칙: root 와 그 자손 중 claude = args 에 --dangerously-skip-permissions 또는 «basename 이 정확히 claude 인 토큰 뒤의 토큰 --resume»(R335 복구 좌석 형 · zombie-clean resume·ft-resume-cmd · 다른 프로그램의 --resume 은 아님) ∧ claude-hr(래퍼) 아님 · codex = args 공백 토큰 중 basename 이 정확히 codex(경로 끝 /codex · @openai/codex) · 그 밖(cmd·opencode) = root 아래 아무 자식(이름 미실측 — 조용히 NOAGENT 로 바꾸지 않는다). ps 실패 rc1

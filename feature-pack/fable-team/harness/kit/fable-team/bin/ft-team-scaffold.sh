@@ -18,10 +18,12 @@ TEAMS="$ROOT/design/TEAMS.md"
 . "$HERE/ft-team-lib.sh"; export FT_REPO_ROOT="$ROOT" FT_TEAMS_MD="$TEAMS"
 ft_team_names "$TEAMS" | grep -qx "$TEAM" || { echo "REJECT $TEAM 은 design/TEAMS.md 명단에 없는 팀이다 — 명단에 행을 먼저 추가"; exit 1; }
 TPL="${FT_TEAM_TEMPLATE_DIR:-}"
-[ -n "$TPL" ] || for c in "$HERE/../templates/team" "$ROOT/scripts/harness-install/fable-team/templates/team"; do [ -d "$c" ] && { TPL="$c"; break; }; done
+HR="$([ -f "$HERE/ft-harness-root.sh" ] && . "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE")"   # 하네스 코드 루트(팩 harness/) — 리포 루트 전제 0 (r385)
+KTPL="${HR:+$HR/kit/fable-team/templates/team}"
+[ -n "$TPL" ] || for c in "$HERE/../templates/team" "$KTPL"; do [ -d "$c" ] && { TPL="$c"; break; }; done
 [ -d "$TPL" ] || { echo "REJECT 빈 틀 폴더 없음: ${TPL:-<없음>}"; exit 1; }
 # 틀 파일(VERSION 제외) 0 인 폴더는 조용히 «0건 완료» 하지 않는다 — R368 설치가 라이브엔 VERSION 1파일만 복사한 사건(R377 · #0 RULE)
-[ -n "$(find "$TPL" -type f ! -name VERSION -print -quit)" ] || { echo "REJECT 틀 파일 0: $TPL (후보: $HERE/../templates/team · $ROOT/scripts/harness-install/fable-team/templates/team)"; exit 1; }
+[ -n "$(find "$TPL" -type f ! -name VERSION -print -quit)" ] || { echo "REJECT 틀 파일 0: $TPL (후보: $HERE/../templates/team · ${KTPL:-<하네스 루트 못 풂>})"; exit 1; }
 DEST="$(ft_team_root "$TEAM")" || exit 1; REL="$(ft_team_rel "$TEAM")"   # REL = 명단 칸 원문(끝 /) · DEST = 절대경로
 SUB="${REL#*design/}"; SUB="${SUB%/}"; DDIR="${DEST%/"$SUB"}"   # DDIR = design/ 폴더(꼴3 은 $FT_HARNESS_ROOT/design) · SUB = 그 안의 팀 폴더 상대경로(a · teams/a)
 N=0; VERB=CREATE; [ "$DRY" = 1 ] && VERB=WOULD-CREATE

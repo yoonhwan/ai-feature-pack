@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # harness-monitor — 축 A 모니터 체크 1벌 (읽기 전용 · 좌석이 10분마다 직접 실행 · 틱 데몬 0)
-# 사용: bash scripts/fable-team-bin/harness-monitor.sh   (종료코드 = WARN 개수, 0 = 전부 OK)
+# 사용: bash harness/bin/harness-monitor.sh   (종료코드 = WARN 개수, 0 = 전부 OK)
 set -u
 ROOT="${FT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 COMMON="$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null | sed 's#/\.git$##')"

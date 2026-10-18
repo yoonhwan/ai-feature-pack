@@ -39,7 +39,7 @@ def byz_root(cwd):
 
 # --- R176 resolve begin (두 훅 같은 문장 — tests/harness/test_autonomy_hooks_layout.sh 가 바이트 대조) ---
 def autonomy_sh(root):
-    """ft-autonomy.sh 해석(R176): FT_AUTONOMY_SH → <루트>/.fable-team/bin-harness/harness-env.sh 의 `export FT_BIN=<경로>` 한 줄(source 0) → 루트 두 경로. 없으면 None."""
+    """ft-autonomy.sh 해석(R176): FT_AUTONOMY_SH → <루트>/.fable-team/bin-harness/harness-env.sh 의 `export FT_BIN=<경로>` 한 줄(source 0) → 루트 shim → $FT_HARNESS_ROOT/bin(r385). 없으면 None."""
     cands = [os.environ.get("FT_AUTONOMY_SH") or ""]
     try:
         with open(os.path.join(root, ".fable-team/bin-harness/harness-env.sh"), encoding="utf-8") as f:
@@ -50,7 +50,8 @@ def autonomy_sh(root):
                     break
     except OSError:
         pass
-    cands += [os.path.join(root, ".fable-team/bin/ft-autonomy.sh"), os.path.join(root, "scripts/fable-team-bin/ft-autonomy.sh")]
+    hr = os.environ.get("FT_HARNESS_ROOT") or ""
+    cands += [os.path.join(root, ".fable-team/bin/ft-autonomy.sh"), hr and os.path.join(hr, "bin/ft-autonomy.sh")]
     return next((c for c in cands if c and os.path.isfile(c)), None)
 
 def autonomy_state(sh):

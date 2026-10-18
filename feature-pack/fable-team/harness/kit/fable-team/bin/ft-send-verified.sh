@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: harness/comm/ · 드리프트 확인: harness/comm/check-drift.sh
 # tmux 발주 + 제출 확인을 한 번에 묶는다.
 #
 # 왜 필요한가: `tmux send-keys`는 항상 exit 0이다. 도구 성공이 전달 성공이 아니다.

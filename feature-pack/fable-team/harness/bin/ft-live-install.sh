@@ -68,7 +68,7 @@ settle() {   # analyze 결과만으로 끝낼 수 있으면(일치·EXTRA 만·d
     printf '%s\n' "$want" | sed 's/^/WOULD /'; echo "DRY-RUN n=$nwant ref=$short 쓰기 0"; exit 0
   fi
 }
-REPO=""; REF=""; TPATH="scripts/harness-install/fable-team/bin"; DRY=0; RESTORE=""
+REPO=""; REF=""; TPATH=""; DRY=0; RESTORE=""
 while [ $# -gt 0 ]; do
   if [ "$1" = --dry-run ]; then DRY=1; shift; continue; fi
   [ $# -ge 2 ] || usage
@@ -86,9 +86,11 @@ fi
 [ -f "$CHK" ] || err "drift-check 없음: $CHK"
 BIN="$(cd -- "$BIN" && pwd)"; SD="$BIN/../state/live-install"
 pending_check
-if [ -z "$REPO" ]; then
-  gc="$(git -C "$BIN" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || err "bin 이 git 안이 아니라 리포를 못 풂 — --repo 를 준다: $BIN"
-  REPO="${gc%/.git}"
+if [ -z "$REPO" ] || [ -z "$TPATH" ]; then  # 기본 = 하네스 코드 루트(팩)의 키트 bin 트리 (r385 · 리포 루트 전제 0)
+  [ -f "$HERE/ft-harness-root.sh" ] || err "해석기 없음: $HERE/ft-harness-root.sh — --repo·--path 를 준다"; . "$HERE/ft-harness-root.sh"
+  hr="$(ft_harness_root "$HERE")" || err "하네스 루트를 못 풂(FT_HARNESS_ROOT · ../HARNESS_ROOT 없음) — --repo·--path 를 준다"
+  rk="$(ft_harness_kit "$hr")" || err "하네스 루트가 git 안이 아님: $hr — --repo·--path 를 준다"
+  [ -n "$REPO" ] || REPO="${rk%%$'\t'*}"; [ -n "$TPATH" ] || TPATH="${rk#*$'\t'}"
 fi
 sha="$(git -C "$REPO" rev-parse --verify -q "$REF^{commit}")" || err "ref 를 풀 수 없음: $REF (repo=$REPO)"
 main="$(git -C "$REPO" rev-parse --verify -q 'origin/main^{commit}')" || err "origin/main 을 풀 수 없음 (repo=$REPO)"

@@ -13,6 +13,6 @@ case "$val" in
   없음*) ;;
   *) echo "「- 설치: 있음|없음」 줄 없음 또는 값 오류 (R245 병합 ≠ 끝 — 하네스 키트·도구·훅·데몬을 바꾸면 있음)"; exit 1;;
 esac
-if awk 'index($0,"## 구현 범위")==1{f=1;next} /^## /{f=0} f' "$F" | grep -qE 'scripts/harness-install/|fable-team-bin/'; then
-  echo "설치: 없음인데 구현 범위가 scripts/harness-install/ 또는 fable-team-bin/ 를 건드린다 — 「설치: 있음」으로"; exit 1
+if awk 'index($0,"## 구현 범위")==1{f=1;next} /^## /{f=0} f' "$F" | grep -qE 'harness/kit/|harness/bin/'; then
+  echo "설치: 없음인데 구현 범위가 harness/kit/ 또는 harness/bin/ 를 건드린다 — 「설치: 있음」으로"; exit 1
 fi

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""ft_live_install_check.py — 키트(scripts/harness-install/)가 라이브 위치와 같은지 «읽기만» 검사 (R245).
+"""ft_live_install_check.py — 키트(하네스 코드 루트의 kit/)가 라이브 위치와 같은지 «읽기만» 검사 (R245).
 종료: 0 OK · 1 PENDING · 2 usage · 3 ERROR(지도·ref 못 품 · B 가 ref 조상 아님 — #0 RULE). 쓰기 0 · fetch 0 · launchctl·ps 각 7초 상한.
---range A..B 는 대상 파일 집합만 정하고, 대조 blob 은 --ref(기본 origin/main) tip 에서 읽는다 (R367)."""
+--range A..B 는 대상 파일 집합만 정하고, 대조 blob 은 --ref(기본 origin/main) tip 에서 읽는다 (R367).
+r385: --repo 기본 = 하네스 코드 루트(FT_HARNESS_ROOT · <이 폴더>/../HARNESS_ROOT · 팩 harness/)의 리포 · --kit 기본 = 그 리포 기준 kit/ 경로 ·
+--project = shim 대조할 프로젝트 루트(기본 = --repo 의 공용 루트)."""
 import fnmatch
 import os
 import re
@@ -9,9 +11,7 @@ import subprocess
 import sys
 import time
 
-KD = "scripts/harness-install/"
-MAPPATH = KD + "LIVE-MAP.tsv"
-KBIN = KD + "fable-team/bin/"
+KD = MAPPATH = KBIN = ""  # main 이 --kit 으로 채운다(리포 기준 키트 경로 · 끝 / )
 SHIMMARK = "# ft-root-bin-shim:"  # ft-root-bin-shim.sh 가 연결 파일 2행에 쓰는 표식
 
 
@@ -40,18 +40,51 @@ def git(repo, *args, inp=None):
 
 
 def parse_args(argv):
-    o = {"range": None, "all": False, "ref": "origin/main", "repo": None, "map": None}
+    o = {"range": None, "all": False, "ref": "origin/main", "repo": None, "map": None, "kit": None, "project": None}
     i = 0
     while i < len(argv):
         if argv[i] == "--all":
             o["all"], i = True, i + 1
-        elif argv[i] in ("--range", "--ref", "--repo", "--map") and i + 1 < len(argv):
+        elif argv[i] in ("--range", "--ref", "--repo", "--map", "--kit", "--project") and i + 1 < len(argv):
             o[argv[i][2:]], i = argv[i + 1], i + 2
         else:
             sys.exit(2)
     if bool(o["range"]) == o["all"]:
         sys.exit(2)
     return o
+
+
+def harness_root():
+    """ft-harness-root.sh 와 같은 순서: env FT_HARNESS_ROOT → <이 폴더>/../HARNESS_ROOT → 팩 harness/bin · harness/kit/fable-team/bin 위치. 못 풀면 None."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    c = os.environ.get("FT_HARNESS_ROOT") or ""
+    if not c and os.path.isfile(os.path.join(here, "..", "HARNESS_ROOT")):
+        with open(os.path.join(here, "..", "HARNESS_ROOT"), encoding="utf-8") as fh:
+            c = fh.readline().strip()
+    for cand in ([c] if c else [os.path.join(here, ".."), os.path.join(here, "..", "..", "..")]):
+        if os.path.isdir(os.path.join(cand, "kit", "fable-team")):
+            return os.path.realpath(cand)
+    return None
+
+
+def resolve_kit(o):
+    """--repo·--kit 기본값을 하네스 코드 루트에서 푼다 (r385 · 리포 루트 전제 0) · 못 풀면 ERROR."""
+    global KD, MAPPATH, KBIN
+    hr = None if (o["repo"] and o["kit"]) else harness_root()
+    if not o["repo"] or not o["kit"]:
+        if not hr:
+            die("하네스 루트를 못 풂(FT_HARNESS_ROOT · ../HARNESS_ROOT 없음) — --repo·--kit 를 준다")
+    repo = o["repo"] or git(hr, "rev-parse", "--show-toplevel").strip()
+    if o["kit"]:
+        kd = o["kit"]
+    else:
+        rel = os.path.relpath(os.path.join(hr, "kit"), os.path.realpath(repo))
+        if rel.startswith(".."):
+            die("하네스 루트(%s)가 --repo(%s) 밖 — --kit 를 준다" % (hr, repo))
+        kd = rel
+    KD = kd.rstrip("/") + "/"
+    MAPPATH, KBIN = KD + "LIVE-MAP.tsv", KD + "fable-team/bin/"
+    return repo
 
 
 def load_map(text):
@@ -82,6 +115,9 @@ def plist_items(repo, path, blob):
     body = git(repo, "cat-file", "blob", blob)
     m = re.search(r"<key>Label</key>\s*<string>([^<]+)</string>", body)
     label = m.group(1) if m and "__" not in m.group(1) else os.path.basename(path)[: -len(".plist.template")]  # 치환 자리표시 라벨 = 파일 이름이 라벨
+    # r385: 하네스 bin 을 부르는 데몬은 데이터 루트를 cwd·env 로만 푼다(설치본이 git 밖) — 둘 다 없으면 PENDING
+    if re.search(r"__FT_BIN__|/\.fable-team/bin/", body) and not re.search(r"<key>WorkingDirectory</key>|<key>FT_(RES_)?ROOT</key>", body):
+        return ["NOROOT %s (하네스 bin 데몬에 WorkingDirectory·FT_ROOT 없음 — 설치본 위치로 루트를 못 푼다)" % label]
     r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
     if r.returncode:
         return ["NOTLOADED " + label]
@@ -98,10 +134,14 @@ def plist_items(repo, path, blob):
     return ["RESTART " + label] if started < max((os.path.getmtime(s) for s in scripts), default=0) else []
 
 
-def shim_items(repo, tree):
-    """라이브 bin 에 실재하는 키트 도구마다 루트 .fable-team/bin/<이름> 연결 파일(앞 3줄에 SHIMMARK)이 있는지 (R374). LIVE_BIN 파일 없음 = 검사 대상 아님."""
-    gc = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
-    root = gc[: -len("/.git")] if gc.endswith("/.git") else os.path.dirname(gc)
+def shim_items(repo, tree, project=None):
+    """라이브 bin 에 실재하는 키트 도구마다 루트 .fable-team/bin/<이름> 연결 파일(앞 3줄에 SHIMMARK)이 있는지 (R374). LIVE_BIN 파일 없음 = 검사 대상 아님.
+    루트 = --project(r385 · 키트 리포와 프로젝트가 갈린 뒤) 또는 키트 리포의 공용 루트."""
+    if project:
+        root = os.path.realpath(project)
+    else:
+        gc = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+        root = gc[: -len("/.git")] if gc.endswith("/.git") else os.path.dirname(gc)
     lf = os.path.join(root, ".fable-team", "LIVE_BIN")
     if not os.path.isfile(lf):
         return [], ""
@@ -125,7 +165,7 @@ def is_shim(path):
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
     o = parse_args(sys.argv[1:])
-    repo = o["repo"] or git(".", "rev-parse", "--show-toplevel").strip()
+    repo = resolve_kit(o)
     ref, landed, removed = o["ref"], None, []
     if o["range"]:  # A..B 는 «대상 파일 집합»만 정한다 — 대조 blob 은 ref tip (R367)
         a, _, landed = o["range"].partition("..")
@@ -151,7 +191,7 @@ def main():
     except OSError as e:
         die("지도를 못 읽음: %s" % e)
     bad, hints, skip, checked, pairs = [], {}, 0, 0, []
-    miss, shint = shim_items(repo, tree)
+    miss, shint = shim_items(repo, tree, o["project"])
     bad += ["PENDING shim " + n for n in miss]
     hints.update({"shim": shint} if miss else {})
     for f in files:

@@ -32,8 +32,19 @@ def byz_root(cwd):
         root = os.path.dirname(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else ""
     return root if root and os.path.isdir(os.path.join(root, ".fable-team")) else ""
 
+def live_bin(root):
+    """<루트>/.fable-team/LIVE_BIN 1줄(절대경로) — 없으면 "" (r385 · 리포 루트 추적 사본 전제 대신 라이브 bin)."""
+    try:
+        with open(os.path.join(root, ".fable-team/LIVE_BIN"), encoding="utf-8") as f:
+            v = f.readline().strip()
+        return v if v.startswith("/") else ""
+    except OSError:
+        return ""
+
 def gate_sh(root):
-    c = [os.environ.get("FT_MERGE_GATE_SH") or "", os.path.join(root, ".fable-team/bin/ft-merge-gate.sh"), os.path.join(root, "scripts/fable-team-bin/ft-merge-gate.sh")]
+    hr = os.environ.get("FT_HARNESS_ROOT") or ""
+    c = [os.environ.get("FT_MERGE_GATE_SH") or "", os.path.join(root, ".fable-team/bin/ft-merge-gate.sh"),
+         live_bin(root) and os.path.join(live_bin(root), "ft-merge-gate.sh"), hr and os.path.join(hr, "bin/ft-merge-gate.sh")]
     return next((x for x in c if x and os.path.isfile(x)), None)
 
 class Hook:
