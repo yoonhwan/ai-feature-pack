@@ -12,7 +12,7 @@ from magazine_collect_detail import TITLE_RE, blob, first_wins, git, name_status
 from magazine_window import MagazineError
 
 LEDGER = "design/harness/REQUEST-LEDGER.md"
-CARD_RE = re.compile(r"^design/([^/]+)/indices/(진행|대기|완성)/([^/]+\.md)$")
+CARD_RE = re.compile(r"^design/(?:teams/)?([^/]+)/indices/(진행|대기|완성)/([^/]+\.md)$")   # R382: design/teams/<팀>/ 꼴도 팀 이름으로 읽는다
 DA_GLOB = "design/*/DA-*.md"
 TAIL = 3
 LEDGER_CELLS = 7  # | R1 | 접수 | 요청자 | 증상 | Issue | 오빠 값 | 반영 sha |

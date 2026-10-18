@@ -16,7 +16,7 @@ fi
 sessions="$(printf '%s\n' "$err" | tr '[:upper:]' '[:lower:]')"
 
 dirs=""
-for d in "$ROOT"/design/*/indices/진행; do [ -d "$d" ] && dirs="$dirs $(basename "$(dirname "$(dirname "$d")")")=$d"; done
+for d in "$ROOT"/design/*/indices/진행 "$ROOT"/design/teams/*/indices/진행; do [ -d "$d" ] && dirs="$dirs $(basename "$(dirname "$(dirname "$d")")")=$d"; done   # R382: design/teams/<팀>/ 꼴도 센다
 dirs="$dirs $EXTRA"
 
 summary=""

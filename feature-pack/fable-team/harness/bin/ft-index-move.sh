@@ -110,7 +110,7 @@ if [ "$DST" = 완성 ]; then
   ROOT="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
   STATE_DIR="${FT_INDEX_STATE_DIR:-$ROOT/.fable-team/state}"
   TRACK="${FT_TRACK:-}"
-  [ -n "$TRACK" ] || case "$IDX_ROOT" in */design/v65/indices) TRACK=v65;; *) TRACK=default;; esac
+  [ -n "$TRACK" ] || case "$IDX_ROOT" in */design/v65/indices|*/design/teams/v65/indices) TRACK=v65;; *) TRACK=default;; esac
   LEDGER="$STATE_DIR/index-ledger.$TRACK.jsonl"
   ID="$(basename "$SRC" .md)"
   row="{\"ts\":\"$(date '+%Y-%m-%dT%H:%M:%S%z')\",\"ev\":\"close\",\"id\":\"$ID\",\"da\":\"$DA\",\"seat\":\"${SEAT:--}\",\"via\":\"index-move\"}"

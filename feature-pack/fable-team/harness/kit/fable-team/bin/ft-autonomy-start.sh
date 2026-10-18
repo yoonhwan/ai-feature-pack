@@ -77,7 +77,7 @@ cmd_preflight() {
 cards() {  # <진행|대기> → «- [팀] 카드 머리 1줄» (팀 = design/ 아래 폴더 이름)
   local f team
   shopt -s nullglob
-  for f in "$ROOT"/design/*/indices/"$1"/*.md; do
+  for f in "$ROOT"/design/*/indices/"$1"/*.md "$ROOT"/design/teams/*/indices/"$1"/*.md; do   # R382: design/teams/<팀>/ 꼴도 센다
     team="$(basename "$(dirname "$(dirname "$(dirname "$f")")")")"
     printf -- '- [%s] %s\n' "$team" "$(head -n 1 "$f" | sed 's/^# *//')"
   done

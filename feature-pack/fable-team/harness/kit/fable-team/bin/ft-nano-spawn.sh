@@ -36,14 +36,14 @@ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 우회 플래그 없음 — 풀기는 ft-penalty.sh resume <팀>. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
 if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   [ -f "$HERE/ft-penalty.sh" ] || { echo "REJECT 전 세션 정지 중인데 ft-penalty.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _ptm=""; [[ "$IDX" =~ design/([a-z0-9]+)/indices/ ]] && _ptm="${BASH_REMATCH[1]}"
+  _ptm=""; [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && _ptm="${BASH_REMATCH[2]}"   # R382: design/teams/<팀>/ 꼴도 팀 이름으로 읽는다
   _pout="$(FT_ROOT="$ROOT" bash "$HERE/ft-penalty.sh" check "$_ptm" 2>&1)"; _prc=$?
   [ "$_prc" != 0 ] && { printf '%s\n' "$_pout"; exit "$_prc"; }
 fi
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 는 default)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. 파일이 없으면 추측 없이 REJECT.
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$IDX" =~ design/([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[1]}" != v65 ] && _team="${BASH_REMATCH[1]}"
+  _team=""; [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[2]}" != v65 ] && _team="${BASH_REMATCH[2]}"
   if [ -n "$_team" ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
     [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
@@ -112,6 +112,7 @@ if [ -z "$MODEL" ]; then case "$AGENT" in
   *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
 fi
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
@@ -233,7 +234,7 @@ if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않고 거절한다
 bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" || exit 1
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
-_SK="$(bash "$HERE/ft-sheet-events.sh" key spawn "$SLUG" "$NAME")"; _ST="$(printf '%s' "$IDX_REL" | sed -n 's#^design/\([a-z0-9]*\)/indices/.*#\1#p')"
+_SK="$(bash "$HERE/ft-sheet-events.sh" key spawn "$SLUG" "$NAME")"; _ST="$(printf '%s' "$IDX_REL" | sed -n 's#^design/\(teams/\)\{0,1\}\([a-z0-9]*\)/indices/.*#\2#p')"
 bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' spawn "${_ST:-v65}" "$SLUG" "$NAME" "$IDX_REL" "$FROM")" >/dev/null || { echo "REJECT 사건 원장 prepared 실패 — 착수 거절(부작용 0)"; exit 1; }
 trap 'bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null' EXIT
 if [ "$STAMP_BASE" = 1 ]; then

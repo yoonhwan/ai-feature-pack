@@ -22,7 +22,7 @@ git -C "$REPO" init -q -b main . && git -C "$REPO" config user.email t@t && git 
 
 # 가짜 라이브 폴더: <live>/bin/ft-team-scaffold.sh 의 «$HERE/../templates/team» = <live>/templates/team (VERSION 1파일 — R368 설치 상태)
 LIVE="$T/live"; mkdir -p "$LIVE/bin" "$LIVE/templates/team"
-cp "$SRCDIR/ft-team-scaffold.sh" "$LIVE/bin/"; cp "$KIT/templates/team/VERSION" "$LIVE/templates/team/VERSION"
+cp "$SRCDIR/ft-team-scaffold.sh" "$SRCDIR/ft-team-lib.sh" "$LIVE/bin/"; cp "$KIT/templates/team/VERSION" "$LIVE/templates/team/VERSION"
 LSC() { (cd "$REPO" && FT_REPO_ROOT="$REPO" bash "$LIVE/bin/ft-team-scaffold.sh" "$@" 2>&1); }
 
 # ⓐ 라이브 틀 폴더가 VERSION 만 → dry-run REJECT + 후보 2 경로 + rc1

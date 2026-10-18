@@ -19,7 +19,9 @@ ROOT="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$ROOT" ] && [ -d "$ROOT/design" ] || { echo "REJECT 리포 루트(design/)를 못 찾았다" >&2; exit 1; }
 TEAMS="$ROOT/design/TEAMS.md"
 [ -f "$TEAMS" ] || { echo "REJECT design/TEAMS.md 없음 — 팀 명단이 먼저다"; exit 1; }
-teams_md() { grep -oE '\|[[:space:]]*`?design/[a-z0-9][a-z0-9_-]*/`?[[:space:]]*\|' "$TEAMS" | sed -E 's|.*design/([^/]+)/.*|\1|'; }
+[ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (팀 경로 단일 출처 · R382)"; exit 1; }
+. "$HERE/ft-team-lib.sh"; export FT_REPO_ROOT="$ROOT" FT_TEAMS_MD="$TEAMS"   # 팀 이름·폴더는 ft_team_names/ft_team_rel 한 곳(3꼴)
+teams_md() { ft_team_names "$TEAMS"; }
 
 if [ "$CHECK" = 1 ]; then
   SET="$ROOT/design/TEAMSET.md"; [ -f "$SET" ] || { echo "ERROR design/TEAMSET.md 없음"; exit 1; }
@@ -94,7 +96,7 @@ py() { python3 -I -c "$PY" "$@"; }
 stamp() {  # <팀> <have> — 명부 있으면 버전 기록, 없으면 WARN
   local t="$1" have="$2" r; r="$(roster_of "$t")"
   [ -f "$r" ] || { echo "WARN $t 명부 없음 — _tree_version 기록 0 — 명부를 만든 뒤 ft-team-upgrade.sh $t"; return 0; }
-  py patch "$r" "$WANT" "tree $WANT $(date +%F) ${have:-없음}→$WANT" "design/$t/STATE.md" || return 1
+  py patch "$r" "$WANT" "tree $WANT $(date +%F) ${have:-없음}→$WANT" "$(ft_team_rel "$t")STATE.md" || return 1
   echo "STAMP $t ${have:-없음}→$WANT"
 }
 have_of() { local r; r="$(roster_of "$1")"; [ -f "$r" ] && py get "$r" || true; }

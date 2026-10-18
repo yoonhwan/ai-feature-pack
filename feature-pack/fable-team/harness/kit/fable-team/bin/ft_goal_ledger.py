@@ -1,6 +1,6 @@
 r"""ft_goal_ledger — 골 표 «지금 상태» 6칸의 출처 = planner 원장 `## 메인 골 6줄` 표 (R371 · ft_goal_table.render 가 부른다).
 
-루트 = env FT_ROOT(그 안에 .fable-team/LIVE_BIN 필수) · 없으면 이 파일 위치에서 조상으로 올라가 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 · LIVE_ROOT = LIVE_BIN 1행(절대경로 · 실재 폴더)/../.. (정본·원장 둘이 이 함수 하나).
+루트 = env FT_ROOT(그 안에 .fable-team/LIVE_BIN 필수) · 없으면 이 파일 위치에서 조상으로 올라가 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 · LIVE_ROOT = `<루트>/.fable-team/LIVE_ROOT` 1행(절대경로 · 실재 폴더 · R382: 코드 위치 LIVE_BIN/../.. 유도 폐지 — 하네스 코드가 팩으로 가도 데이터 루트가 안 틀어진다) (정본·원장·뉴스 셋이 이 함수 하나).
 원장 = env FT_GOAL_A6_LEDGER(파일 경로 | `gitref:<ref>:<경로>`) 우선 · 없으면 <LIVE_ROOT>/design/planner/PLAN-oppa-ledger.md. LIVE_BIN 없음/무효 = ERROR rc1(옛 v6 고정 경로 후퇴 0). 절 `## 메인 골 6줄…` 의 첫 표 «데이터 행 6개» 를 행 순번(1~6)으로 정본 골에 묶는다(원장 골 글자는 정본과 달라 글자 대조 0) · 2열 = 지금 상태.
 셀 = `\|` 를 글자 `|` 로 복원해 분리 · 열 수가 머리 줄과 다르면 ERROR(조용한 절단 0) · 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN 1줄 ·
 머리 `원장:<MM-DD HH:mm>` · 마지막 갱신 24h 초과 또는 갱신 시각 없음 = «· 상태 낡음»(파일 mtime 으로 되돌아가지 않는다).
@@ -21,7 +21,7 @@ STALE_AFTER = timedelta(hours=24)
 
 
 def _no_live_bin(file: Path, value: str = "") -> str:
-    return (f"ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 {file} = {value!r} (절대경로 · 실재 폴더 필요 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)")
+    return (f"ERROR 골 표 기본 출처: {file.name} 이 없거나 무효 {file} = {value!r} (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)")
 
 
 def find_root(error: type[Exception]) -> Path:
@@ -38,16 +38,16 @@ def find_root(error: type[Exception]) -> Path:
     raise error(_no_live_bin(start / "…위로 탐색 실패 · .fable-team" / "LIVE_BIN"))
 
 
-def live_root(error: type[Exception]) -> Path:
-    """LIVE_ROOT = 루트의 LIVE_BIN 1행(절대경로·실재 폴더) /../.. — 못 풀면 error(고정 경로·옛 원장으로 되돌아가지 않는다)."""
-    file = find_root(error) / ".fable-team" / "LIVE_BIN"
+def live_root(error: type[Exception], root: Path | None = None) -> Path:
+    """LIVE_ROOT = 루트의 `.fable-team/LIVE_ROOT` 1행(절대경로·실재 폴더) — 못 풀면 error(LIVE_BIN 유도·고정 경로·옛 원장으로 되돌아가지 않는다)."""
+    file = (root or find_root(error)) / ".fable-team" / "LIVE_ROOT"
     try:
         value = file.read_text(encoding="utf-8").splitlines()[0].strip()
     except (OSError, IndexError):
         value = ""
     if not value.startswith("/") or not Path(value).is_dir():
         raise error(_no_live_bin(file, value))
-    return Path(os.path.normpath(Path(value) / ".." / ".."))
+    return Path(value)
 
 
 def _spec(error: type[Exception]) -> str:

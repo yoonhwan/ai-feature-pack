@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # ft-root-bin-shim.sh --root <리포 루트> --live <라이브 bin> [--ref <ref>] [--path <키트 트리 경로>] [--dry-run]   (R201 · master 가 설치)
 #   루트 `<루트>/.fable-team/bin` 의 옛 부분 사본을 «라이브 bin 으로 넘기는 연결 파일» 로 바꾼다.
-#   ① `<루트>/.fable-team/LIVE_BIN` 에 라이브 경로 1줄  ② 키트(--ref 의 --path 트리)의 *.sh·*.py 이름 중 라이브 bin 에 실재하는 것마다 연결 파일
+#   ① `<루트>/.fable-team/LIVE_BIN` 에 라이브 경로 1줄 (+ R382: `<루트>/.fable-team/LIVE_ROOT` 데이터 루트 절대경로 1줄 — 없을 때만 만든다 · `--live-root <경로>` 없으면 라이브 bin/../.. 를 «설치 때 한 번» 풀어 적고 읽는 쪽은 유도 0 · 있으면 보존·다르면 NOTE)  ② 키트(--ref 의 --path 트리)의 *.sh·*.py 이름 중 라이브 bin 에 실재하는 것마다 연결 파일
 #   ③ 연결 파일이 아닌 기존 항목(옛 사본·.bak-*·__pycache__·키트 밖 이름)은 `<루트>/.fable-team/bin.stale-<시각>/` 로 «옮긴다»(삭제 0 · 되돌리기 = 그 폴더를 bin 으로)
 #   키트 밖 이름은 연결하지 않고 `UNKNOWN <이름>` 목록으로 보고. 멱등: 두 번째 실행 = 쓰기 0 · MOVED 0.
 #   출력 끝줄 `SHIM n · MOVED m · UNKNOWN k` (--dry-run 은 쓰기 0 · 같은 숫자 · `PLAN …` 줄).  종료: 0 · 2 usage · 3 ERROR(조용한 통과 0)
 set -uo pipefail
-usage() { echo "usage: $0 --root <리포 루트> --live <라이브 bin> [--ref <ref>] [--path <키트 경로>] [--dry-run]" >&2; exit 2; }
+usage() { echo "usage: $0 --root <리포 루트> --live <라이브 bin> [--live-root <데이터 루트>] [--ref <ref>] [--path <키트 경로>] [--dry-run]" >&2; exit 2; }
 err()   { echo "ERROR $*"; exit 3; }
 
-ROOT=""; LIVE=""; REF="${FT_DRIFT_REF:-origin/main}"; TPATH="scripts/harness-install/fable-team/bin"; DRY=0
+ROOT=""; LIVE=""; LROOT=""; REF="${FT_DRIFT_REF:-origin/main}"; TPATH="scripts/harness-install/fable-team/bin"; DRY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift;;
-    --root|--live|--ref|--path) [ $# -ge 2 ] || usage
-      case "$1" in --root) ROOT="$2";; --live) LIVE="$2";; --ref) REF="$2";; --path) TPATH="$2";; esac; shift 2;;
+    --root|--live|--live-root|--ref|--path) [ $# -ge 2 ] || usage
+      case "$1" in --root) ROOT="$2";; --live) LIVE="$2";; --live-root) LROOT="$2";; --ref) REF="$2";; --path) TPATH="$2";; esac; shift 2;;
     *) usage;;
   esac
 done
@@ -23,6 +23,8 @@ case "$LIVE" in /*) ;; *) err "--live 는 절대경로(/ 로 시작)여야 한�
 [ -d "$ROOT/.fable-team/bin" ] || err "루트 bin 없음: $ROOT/.fable-team/bin"
 [ -d "$LIVE" ] || err "라이브 bin 없음: $LIVE"
 ROOT="$(cd -- "$ROOT" && pwd)"; LIVE="$(cd -- "$LIVE" && pwd)"
+if [ -n "$LROOT" ]; then case "$LROOT" in /*) ;; *) err "--live-root 는 절대경로(/ 로 시작)여야 한다: $LROOT";; esac; [ -d "$LROOT" ] || err "--live-root 폴더 없음: $LROOT"; LROOT="$(cd -- "$LROOT" && pwd)"
+else LROOT="$(cd -- "$LIVE/../.." 2>/dev/null && pwd)" || err "LIVE_ROOT 를 라이브 bin/../.. 로 풀지 못했다: $LIVE (--live-root 로 지정)"; fi
 RBIN="$ROOT/.fable-team/bin"
 sha="$(git -C "$ROOT" rev-parse --verify -q "$REF^{commit}")" || err "ref 를 풀 수 없음: $REF (repo=$ROOT)"
 kit="$(git -C "$ROOT" ls-tree --name-only "$sha" "${TPATH%/}/")" || err "ls-tree 실패: $REF:$TPATH"
@@ -79,10 +81,13 @@ if [ "$nmoved" -gt 0 ]; then
 fi
 [ -z "$unknown" ] || while IFS= read -r n; do [ -n "$n" ] && echo "UNKNOWN $n (키트 밖 — 연결 0 · stale 로 옮김)"; done <<< "$unknown"
 
-if [ "$DRY" = 1 ]; then echo "PLAN LIVE_BIN=$LIVE → $ROOT/.fable-team/LIVE_BIN"
+lr_cur=""; [ -f "$ROOT/.fable-team/LIVE_ROOT" ] && lr_cur="$(sed -n '1p' "$ROOT/.fable-team/LIVE_ROOT")"
+if [ "$DRY" = 1 ]; then echo "PLAN LIVE_BIN=$LIVE → $ROOT/.fable-team/LIVE_BIN"; [ -n "$lr_cur" ] && echo "PLAN LIVE_ROOT 보존 $lr_cur" || echo "PLAN LIVE_ROOT=$LROOT → $ROOT/.fable-team/LIVE_ROOT"
 else
   cur=""; [ -f "$ROOT/.fable-team/LIVE_BIN" ] && cur="$(sed -n '1p' "$ROOT/.fable-team/LIVE_BIN")"
   [ "$cur" = "$LIVE" ] || printf '%s\n' "$LIVE" > "$ROOT/.fable-team/LIVE_BIN" || err "LIVE_BIN 쓰기 실패"
+  if [ -z "$lr_cur" ]; then printf '%s\n' "$LROOT" > "$ROOT/.fable-team/LIVE_ROOT" || err "LIVE_ROOT 쓰기 실패"; echo "LIVE_ROOT $LROOT (새로 씀)"
+  elif [ "$lr_cur" != "$LROOT" ]; then echo "NOTE LIVE_ROOT 보존 $lr_cur (이번 값 $LROOT 와 다름 — 바꾸려면 파일 1줄을 손으로 고친다)"; fi
 fi
 while IFS= read -r n; do [ -n "$n" ] || continue
   nshim=$((nshim + 1))

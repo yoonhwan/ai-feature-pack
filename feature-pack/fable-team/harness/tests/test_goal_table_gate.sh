@@ -101,23 +101,25 @@ mkledger "$NOWSTAMP"; sed -i.bak 's/^| 원장 글자 5 | 상태5 진행 | 남은
 OUT="$(render 2>&1)"; RC=$?
 [ "$RC" = 0 ] && [ "$(printf '%s' "$OUT" | grep -o '상태 없음' | wc -l | tr -d ' ')" = 1 ] && printf '%s' "$OUT" | grep -q '상태6 진행' && ok "ⓜ3 진짜 빈 셀 = 그 행만 «상태 없음»(나머지 행 보존)" || bad "ⓜ3 빈 셀 rc=$RC :: $OUT"
 
-# ── ⓝ DA⑥ r1 H2 — 기본 출처 = LIVE_BIN 1행 → LIVE_ROOT 원장 · 옛 v6 원장·고정 접미사 후퇴 0 (표본 2)
+# ── ⓝ DA⑥ r1 H2 + R382 — 기본 출처 = `.fable-team/LIVE_ROOT` 파일 1행(코드 위치 LIVE_BIN/../.. 유도 폐지) → 그 폴더의 원장 · 옛 v6 원장·고정 접미사 후퇴 0 (표본 2)
 mkledger "$NOWSTAMP"; BASE="$LEDGER"
 LR="$(mktemp -d "$T/lr.XXXXXX")"; mkdir -p "$LR/live/.fable-team/bin" "$LR/live/design/planner" "$LR/root/.fable-team" "$LR/root/.worktrees/v6-realtime-live/design/planner"
 sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$BASE" > "$LR/live/design/planner/PLAN-oppa-ledger.md"
 sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$BASE" > "$LR/root/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
 default_render() { env -u FT_GOAL_A6_LEDGER FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1; }
-printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"
+printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"; printf '%s\n' "$LR/live" > "$LR/root/.fable-team/LIVE_ROOT"
 OUT="$(default_render)"; RC=$?
-[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ1 LIVE_BIN → 새 LIVE 원장만(옛 v6 원장 OLD 0)" || bad "ⓝ1 두 루트 rc=$RC :: $OUT"
-rm -f "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
-[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효'*) true;; *) false;; esac && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ2 LIVE_BIN 없음 = ERROR rc1(옛 원장 선택 0)" || bad "ⓝ2 LIVE_BIN 없음 rc=$RC :: $OUT"
-printf '%s\n' "$LR/없는폴더" > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
-[ "$RC" = 1 ] && case "$OUT" in *'LIVE_BIN 이 없거나 무효'*) true;; *) false;; esac && ok "ⓝ2 LIVE_BIN 값 무효(없는 폴더) = ERROR rc1" || bad "ⓝ2 무효 rc=$RC :: $OUT"
-printf 'live/.fable-team/bin\n' > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
-[ "$RC" = 1 ] && ok "ⓝ2 LIVE_BIN 상대경로 = ERROR rc1" || bad "ⓝ2 상대 rc=$RC :: $OUT"
-printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(FT_GOAL_A6_LEDGER="$BASE" FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1)"
-printf '%s' "$OUT" | grep -q '상태3 진행' && ok "ⓝ FT_GOAL_A6_LEDGER 가 LIVE_BIN 보다 우선" || bad "ⓝ env 우선 :: $OUT"
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ1 LIVE_ROOT 파일 → 새 LIVE 원장만(옛 v6 원장 OLD 0)" || bad "ⓝ1 두 루트 rc=$RC :: $OUT"
+mkdir -p "$LR/elsewhere/bin"; printf '%s\n' "$LR/elsewhere/bin" > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓓ LIVE_BIN 위치를 바꿔도 같은 원장(코드 위치 유도 0)" || bad "ⓓ LIVE_BIN 이동 rc=$RC :: $OUT"
+rm -f "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 기본 출처: LIVE_ROOT 이 없거나 무효'*) true;; *) false;; esac && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ2 LIVE_ROOT 없음 = ERROR rc1(LIVE_BIN 에서 유도 0 · 옛 원장 선택 0)" || bad "ⓝ2 LIVE_ROOT 없음 rc=$RC :: $OUT"
+printf '%s\n' "$LR/없는폴더" > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'LIVE_ROOT 이 없거나 무효'*) true;; *) false;; esac && ok "ⓝ2 LIVE_ROOT 값 무효(없는 폴더) = ERROR rc1" || bad "ⓝ2 무효 rc=$RC :: $OUT"
+printf 'live\n' > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 1 ] && ok "ⓝ2 LIVE_ROOT 상대경로 = ERROR rc1" || bad "ⓝ2 상대 rc=$RC :: $OUT"
+printf '%s\n' "$LR/live" > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(FT_GOAL_A6_LEDGER="$BASE" FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1)"
+printf '%s' "$OUT" | grep -q '상태3 진행' && ok "ⓝ FT_GOAL_A6_LEDGER 가 LIVE_ROOT 보다 우선" || bad "ⓝ env 우선 :: $OUT"
 mkledger "$NOWSTAMP"
 
 # ── ⓣ arch 재현 r3 — 설치본 위치 FT_ROOT 없음(조상 탐색) · FT_ROOT=LIVE_BIN 없는 폴더 · LIVE_BIN 삭제 = 정본·원장 둘 다 ERROR(고정 v6 경로 0) (표본 3)
@@ -126,13 +128,13 @@ TR="$(mktemp -d "$T/tr.XXXXXX")"; LV="$TR/.worktrees/live"; mkdir -p "$LV/.fable
 cp "$REPO/scripts/fable-team-bin/ft_goal_table.py" "$REPO/scripts/fable-team-bin/ft_goal_ledger.py" "$LV/.fable-team/bin/"
 cp "$CANON" "$LV/design/planner/AUTONOMY-GOAL-A6-20261018.md"; cp "$CANON" "$TR/.worktrees/v6-realtime-live/design/planner/AUTONOMY-GOAL-A6-20261018.md"
 sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$LEDGER" > "$LV/design/planner/PLAN-oppa-ledger.md"; sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$LEDGER" > "$TR/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
-printf '%s\n' "$LV/.fable-team/bin" > "$TR/.fable-team/LIVE_BIN"
+printf '%s\n' "$LV/.fable-team/bin" > "$TR/.fable-team/LIVE_BIN"; printf '%s\n' "$LV" > "$TR/.fable-team/LIVE_ROOT"
 inst_render() { env -u FT_ROOT -u FT_GOAL_A6_MD -u FT_GOAL_A6_LEDGER "$@" python3 "$LV/.fable-team/bin/ft_goal_table.py" 2>&1; }
 OUT="$(inst_render)"; RC=$?
 [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && [ "$(printf '%s' "$OUT" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓣ1 설치본 위치 + FT_ROOT 없음 → 조상 탐색으로 정본·원장 기본 경로 해석 · 6칸 채움(OLD 0)" || bad "ⓣ1 설치본 rc=$RC :: $OUT"
 OUT="$(inst_render FT_ROOT="$LV")"; RC=$?
 [ "$RC" = 1 ] && case "$OUT" in *"$LV/.fable-team/LIVE_BIN"*) true;; *) false;; esac && ok "ⓣ2 FT_ROOT=LIVE_BIN 없는 폴더 → ERROR 사유에 그 경로" || bad "ⓣ2 FT_ROOT rc=$RC :: $OUT"
-rm -f "$TR/.fable-team/LIVE_BIN"; OUT="$(inst_render)"; RC=$?
+rm -f "$TR/.fable-team/LIVE_BIN" "$TR/.fable-team/LIVE_ROOT"; OUT="$(inst_render)"; RC=$?
 [ "$RC" = 1 ] && case "$OUT" in *'LIVE_BIN 이 없거나 무효'*) true;; *) false;; esac && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓣ3 LIVE_BIN 삭제 → ERROR(정본·원장 둘 다 고정 v6 경로 0)" || bad "ⓣ3 LIVE_BIN 삭제 rc=$RC :: $OUT"
 OUT="$(env -u FT_ROOT -u FT_GOAL_A6_LEDGER FT_GOAL_A6_MD="$CANON" python3 "$LV/.fable-team/bin/ft_goal_table.py" 2>&1)"; RC=$?
 [ "$RC" = 1 ] && ok "ⓣ3 정본만 env 로 줘도 원장 기본 경로는 LIVE_BIN 없으면 ERROR" || bad "ⓣ3 원장 :: rc=$RC $OUT"

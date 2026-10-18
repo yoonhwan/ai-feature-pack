@@ -45,6 +45,7 @@ if [ "$HAVE_NWT" -eq 1 ]; then
   NAMED=1
 fi
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+if [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; else echo "WARN ft-team-lib.sh 없음($HERE) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)" >&2; fi
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
@@ -472,7 +473,8 @@ IDX="$(jq -r --arg s "$SEAT" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; CARD
 _ic="$SEAT"; _iseen="|$SEAT|"; _in=0
 while [ -z "$IDX" ] && [ "$_in" -lt 10 ]; do _ic="$(jq -r --arg s "$_ic" '.[$s]._replaces[0]? // empty' "$SEATS" 2>/dev/null)"; { [ -n "$_ic" ] && [[ "$_iseen" != *"|$_ic|"* ]]; } || break
   _iseen+="$_ic|"; _in=$((_in+1)); IDX="$(jq -r --arg s "$_ic" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; [ -z "$IDX" ] || echo "INFO index 상속 ← $_ic"; done
-for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX"; do [ -n "$IDX" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
+_tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_index_twin "$IDX")"; }   # R382: design/teams/<팀>/ ↔ design/<팀>/ 쌍둥이 후보(미전환·전환 워크트리가 섞인 기간)
+for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX" ${_tw:+"$WT/$_tw" "$ROOT/$_tw" "$LEDGER_WT/$_tw"}; do [ -n "$IDX" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
 # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
 _cp_pressed=1
 if [ "$(jq -r --arg s "$SEAT" '.[$s].role // empty' "$SEATS" 2>/dev/null)" = nano ] && [ -n "$SEAT_WT" ]; then

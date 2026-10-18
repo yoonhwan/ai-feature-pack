@@ -16,6 +16,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 REPO="$T/repo"; mkdir -p "$REPO/design"; git -C "$REPO" init -q -b main .
 LINT() { (cd "$REPO" && bash "$SRCDIR/ft-team-map-lint.sh" "$@" 2>&1); }
 mkteam() { rm -rf "$REPO/design/$1"; mkdir -p "$REPO/design/$1"; }
+# R382: 팀 폴더는 TEAMS.md 칸에서 푼다 — 시험 팀을 명단에 올린다
+{ echo '| 팀 | 폴더 | 좌석 | 상태 |'; echo '|---|---|---|---|'; for t in h r s demo nothere; do echo "| $t | \`design/$t/\` | $t-master | 현역 |"; done; } > "$REPO/design/TEAMS.md"
 
 # 1 harness 꼴 — 현역 원장 3종이 지도에 등록 → WARN 0 · rc0 (DA r1 ③ 표본)
 mkteam h; D="$REPO/design/h"; mkdir -p "$D/indices/대기" "$D/indices/진행"

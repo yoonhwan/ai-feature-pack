@@ -21,10 +21,10 @@ def reject(why):
     print("REJECT\t" + why); sys.exit(0)
 notes = []
 # 정본화 줄(R318a) — 허용 뿌리: docs/architect/ · docs/rules/ · design/<TEAMS.md 팀>/GUIDE-*.md · design/<팀>/README.md · 실재 .md 파일만(.. · 심볼릭 탈출 REJECT)
-teams = set()
+teams = set()   # 팀 폴더 접두(design/<팀> · design/teams/<팀> — TEAMS.md 폴더 칸 꼴1·꼴2 · R382)
 try:
     for l in open(os.path.join(wt, "design/TEAMS.md"), encoding="utf-8"):
-        t = re.search(r'\|\s*`?design/([A-Za-z0-9_-]+)/`?\s*\|', l)
+        t = re.search(r'\|\s*`?(design/(?:teams/)?[A-Za-z0-9_-]+)/`?\s*\|', l)
         if t: teams.add(t.group(1))
 except OSError:
     pass
@@ -32,8 +32,8 @@ def canon_root(p):
     parts = p.split("/")
     if len(parts) > 2 and parts[0] == "docs" and parts[1] in ("architect", "rules"):
         return os.path.join(wt, "docs", parts[1])
-    if len(parts) == 3 and parts[0] == "design" and parts[1] in teams and (parts[2] == "README.md" or re.fullmatch(r'GUIDE-.+\.md', parts[2])):
-        return os.path.join(wt, "design", parts[1])
+    if len(parts) >= 3 and "/".join(parts[:-1]) in teams and (parts[-1] == "README.md" or re.fullmatch(r'GUIDE-.+\.md', parts[-1])):
+        return os.path.join(wt, *parts[:-1])
     return None
 for m in can:
     for p in [x.strip() for x in m.group(1).split(",")]:

@@ -21,7 +21,7 @@ set -uo pipefail
 PATH="${FT_TICK_PATH_FIRST:+$FT_TICK_PATH_FIRST:}/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH   # FT_TICK_PATH_FIRST = 시험 전용 가짜 tmux·pgrep 폴더(R163) — 비면 바이트 불변
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+ROOT="${FT_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"   # R382: env FT_ROOT 우선(코드가 다른 리포로 가도 프로젝트 루트 고정) — 데이터 루트는 그 안의 .fable-team/LIVE_ROOT 파일
 SEATS="${FT_TICK_SEATS:-${ROOT:-$WT}/.fable-team/seats.json}"
 GOAL_TICK="${FT_TICK_GOAL_TICK:-$HERE/ft-goal-tick.sh}"
 LOOP_SEC="${FT_TICK_LOOP_SEC:-60}"

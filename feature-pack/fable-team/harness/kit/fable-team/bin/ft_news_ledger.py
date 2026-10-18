@@ -3,7 +3,7 @@
 줄 키 = 칸(`## N.`) · 소제목(`### `) · 표 첫 칸(순번 칸 제외)/목록·문단 줄 전체. 뉴스는 «커밋된» 판 둘(기준선 ↔ 지금)의 차이만 — 미커밋 수정·안 바뀐 줄은 싣지 않는다.
 기준선(state/news-ledger/last.sha)은 «전 판» 발행 성공(rc 0) 뒤에만 옮긴다(3500B 넘으면 칸 경계로 n/N 판 · ft_news_ledger_text.py) · 첫 실행 = 기준선만. 원장 문장 그대로라 Haiku 0.
 알림 = «(오빠)» 판정인데 원장 본문에 번호가 없으면 planner 에 한 틱 1통 묶음(뉴스 본문 0 · ft_news_ledger_notify.py).
-env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.worktrees/v6-realtime-live) · FT_LEDGER_PATH · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
+env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.fable-team/LIVE_ROOT 1행 — 없으면 ERROR · R382) · FT_LEDGER_PATH · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
 """
 import logging
 import os
@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ft_board_env as env  # noqa: E402
+from ft_goal_ledger import live_root  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
 from ft_news_digest import maybe_send  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
@@ -154,7 +155,7 @@ def decision_line(root: Path) -> str:
 
 
 def _run(root: Path, state: Path) -> tuple[int, str]:
-    repo = Path(os.environ.get("FT_LEDGER_REPO") or root / ".worktrees" / "v6-realtime-live")
+    repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
     rel = os.environ.get("FT_LEDGER_PATH") or "design/planner/PLAN-oppa-ledger.md"
     news = Path(os.environ.get("FT_NEWS_DIR") or root / "design" / "planner" / "news")
     try:

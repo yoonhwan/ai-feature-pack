@@ -20,7 +20,7 @@ WT0="$(git rev-parse --show-toplevel 2>/dev/null)" || rej "git 저장소 밖에�
 ROOT="$(git -C "$WT0" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 # ① 팀 env — spawn 과 같은 규약(FT_NANO_PREFIX 가 이미 있으면 명시가 이긴다)
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$CARD" =~ design/([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[1]}" != v65 ] && _team="${BASH_REMATCH[1]}"
+  _team=""; [[ "$CARD" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[2]}" != v65 ] && _team="${BASH_REMATCH[2]}"
   if [ -n "$_team" ]; then _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"; [ -f "$_tenv" ] || rej "팀 env 없음: $_tenv"; . "$_tenv"; fi
 fi
 PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"; SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; TAG="${FT_ACTIVE_TAG:-@zc_v65_active}"

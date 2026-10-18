@@ -14,6 +14,7 @@ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 MAX="${FT_NANO_SLOTS:-5}"
 IDX_DIR="${FT_INDEX_DIR:-$WT/design/v65/indices}"
+[ -n "${FT_INDEX_DIR:-}" ] || [ -d "$IDX_DIR" ] || [ ! -d "$WT/design/teams/v65/indices" ] || IDX_DIR="$WT/design/teams/v65/indices"   # R382: 이동 뒤 폴더
 if [ "${1:-}" = "--inventory" ]; then
   FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"; LANDING="${FT_NANO_LANDING_LEDGER:-$ROOT/.fable-team/state/nano-landing.jsonl}"
   refs="$(git -C "$WT" for-each-ref --no-merged="$FEAT" --format='%(refname:short)|%(committerdate:short)|%(objectname)|%(ahead-behind:'"$FEAT"')' refs/heads/nano/)" \

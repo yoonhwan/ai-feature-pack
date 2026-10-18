@@ -14,33 +14,38 @@ ROOT="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [[ "$TEAM" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "REJECT 팀 이름 형식 틀림(소문자·숫자·-·_): $TEAM"; exit 1; }
 TEAMS="$ROOT/design/TEAMS.md"
 [ -f "$TEAMS" ] || { echo "REJECT design/TEAMS.md 없음 — 팀 명단이 먼저다"; exit 1; }
-grep -qE "\|[[:space:]]*\`?design/${TEAM}/\`?[[:space:]]*\|" "$TEAMS" || { echo "REJECT $TEAM 은 design/TEAMS.md 명단에 없는 팀이다 — 명단에 행을 먼저 추가"; exit 1; }
+[ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (팀 경로 단일 출처 · R382)"; exit 1; }
+. "$HERE/ft-team-lib.sh"; export FT_REPO_ROOT="$ROOT" FT_TEAMS_MD="$TEAMS"
+ft_team_names "$TEAMS" | grep -qx "$TEAM" || { echo "REJECT $TEAM 은 design/TEAMS.md 명단에 없는 팀이다 — 명단에 행을 먼저 추가"; exit 1; }
 TPL="${FT_TEAM_TEMPLATE_DIR:-}"
 [ -n "$TPL" ] || for c in "$HERE/../templates/team" "$ROOT/scripts/harness-install/fable-team/templates/team"; do [ -d "$c" ] && { TPL="$c"; break; }; done
 [ -d "$TPL" ] || { echo "REJECT 빈 틀 폴더 없음: ${TPL:-<없음>}"; exit 1; }
 # 틀 파일(VERSION 제외) 0 인 폴더는 조용히 «0건 완료» 하지 않는다 — R368 설치가 라이브엔 VERSION 1파일만 복사한 사건(R377 · #0 RULE)
 [ -n "$(find "$TPL" -type f ! -name VERSION -print -quit)" ] || { echo "REJECT 틀 파일 0: $TPL (후보: $HERE/../templates/team · $ROOT/scripts/harness-install/fable-team/templates/team)"; exit 1; }
-DEST="$ROOT/design/$TEAM"; N=0; VERB=CREATE; [ "$DRY" = 1 ] && VERB=WOULD-CREATE
-[ -L "$DEST" ] && { echo "REJECT 팀 폴더가 심볼릭 링크: design/$TEAM"; exit 1; }
-RDESIGN="$(cd -P "$ROOT/design" && pwd -P)"
+DEST="$(ft_team_root "$TEAM")" || exit 1; REL="$(ft_team_rel "$TEAM")"   # REL = 명단 칸 원문(끝 /) · DEST = 절대경로
+SUB="${REL#*design/}"; SUB="${SUB%/}"; DDIR="${DEST%/"$SUB"}"   # DDIR = design/ 폴더(꼴3 은 $FT_HARNESS_ROOT/design) · SUB = 그 안의 팀 폴더 상대경로(a · teams/a)
+N=0; VERB=CREATE; [ "$DRY" = 1 ] && VERB=WOULD-CREATE
+[ -L "$DEST" ] && { echo "REJECT 팀 폴더가 심볼릭 링크: ${REL%/}"; exit 1; }
+[ -d "$DDIR" ] || { echo "REJECT design/ 폴더 없음: $DDIR"; exit 1; }
+RDESIGN="$(cd -P "$DDIR" && pwd -P)"
 # 만들 경로의 «실제» 위치가 design/<팀>/ 안인가 — 가장 가까운 기존 조상을 realpath 로 푼다(링크 탈출·dangling 링크 차단 · DA⑥ r1 H2)
 inside() { local p="$1" r; while [ ! -e "$p" ] && [ ! -L "$p" ]; do p="$(dirname "$p")"; done
   r="$(cd -P "$p" 2>/dev/null && pwd -P)" || return 1
-  # design/ 자체는 팀 폴더가 아직 없을 때(조상이 design/ 로 올라간 정상 경우)만 허용 — 팀 폴더가 있는데 design/ 로 풀리면 하위 링크 탈출(r318a DA⑥ r3 H2)
-  [ "$r" = "$RDESIGN" ] && [ ! -e "$DEST" ] && return 0
-  [ "$r" = "$RDESIGN/$TEAM" ] || case "$r" in "$RDESIGN/$TEAM/"*) return 0;; *) return 1;; esac; }
+  # 팀 폴더가 아직 없을 때만 «design/ 또는 그 아래 팀 폴더의 조상»(예: design/teams/)을 허용 — 팀 폴더가 있는데 조상으로 풀리면 하위 링크 탈출(r318a DA⑥ r3 H2)
+  if [ ! -e "$DEST" ]; then case "$RDESIGN/$SUB/" in "$r/"*) case "$r/" in "$RDESIGN/"*) return 0;; esac;; esac; fi
+  [ "$r" = "$RDESIGN/$SUB" ] || case "$r" in "$RDESIGN/$SUB/"*) return 0;; *) return 1;; esac; }
 while IFS= read -r rel; do
   out="$rel"; case "$out" in GOAL-TEAM.md) out="GOAL-$TEAM.md";; GUIDE-TEAM.md) out="GUIDE-$TEAM.md";; esac
   tgt="$DEST/$out"
-  if [ -L "$tgt" ]; then echo "SKIP design/$TEAM/$out — 심볼릭 링크라 손대지 않는다"; continue; fi
+  if [ -L "$tgt" ]; then echo "SKIP ${REL}$out — 심볼릭 링크라 손대지 않는다"; continue; fi
   [ -e "$tgt" ] && continue
-  inside "$(dirname "$tgt")" || { echo "SKIP design/$TEAM/$out — 실제 위치가 design/$TEAM/ 밖(링크)이라 만들지 않는다"; continue; }
+  inside "$(dirname "$tgt")" || { echo "SKIP ${REL}$out — 실제 위치가 ${REL} 밖(링크)이라 만들지 않는다"; continue; }
   case "$out" in */.gitkeep|.gitkeep) [ -d "$(dirname "$tgt")" ] && [ -n "$(ls -A "$(dirname "$tgt")" 2>/dev/null)" ] && continue;; esac   # 이미 파일이 든 폴더엔 .gitkeep 불필요
   if [ "$DRY" = 0 ]; then
     mkdir -p "$(dirname "$tgt")"
     sed "s/<팀>/$TEAM/g" "$TPL/$rel" > "$tgt"
   fi
-  echo "$VERB design/$TEAM/$out"; N=$((N+1))
+  echo "$VERB ${REL}$out"; N=$((N+1))
 done < <(cd "$TPL" && find . -type f ! -path ./VERSION | sed 's|^\./||' | LC_ALL=C sort)
 [ "$DRY" = 1 ] && echo "OK dry-run would-create=$N" || echo "OK created=$N"
 # 틀 버전(templates/team/VERSION)을 명부 _tree_version 에 기록 — ft-team-upgrade.sh 가 부를 땐 스스로 기록하므로 건너뛴다(R368)
