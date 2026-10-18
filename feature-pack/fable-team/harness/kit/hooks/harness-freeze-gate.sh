@@ -79,10 +79,45 @@ while IFS=$'\t' read -r DIR WT; do
 $(git -C "$DIR" diff --name-only 2>/dev/null)"
   HIT=$(printf '%s\n' "$FILES" | grep -E "$FROZEN" | LC_ALL=C sort -u)
   [ -z "$HIT" ] && continue
+  # r407: 병합 중(MERGE_HEAD 있음)이면 staged 상태가 MERGE_HEAD 와 같은 경로(같은 블롭 · 둘 다 없음 = main 의 삭제 그대로)는 «병합이 가져온 그대로 = 손 0» 이라 제외.
+  #   작업 트리 diff(WT=1)에 든 경로 · 미해소(stage≠0) · git 을 못 읽음 = 제외 0(그대로 HIT).
+  NOTE=""
+  if git -C "$DIR" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    UNS=""; [ "$WT" = 1 ] && UNS=$(git -C "$DIR" diff --name-only 2>/dev/null)
+    SAME=$(python3 -c 'import subprocess,sys
+top,hit,uns=sys.argv[1],sys.argv[2].split("\n"),set(sys.argv[3].split("\n"))
+dirs=["scripts/fable-team-bin","scripts/harness-install","tools/comm-canonical","tests/harness"]
+def unq(p):
+    if len(p)>1 and p[0]==p[-1]=="\"": return p[1:-1].encode("latin1").decode("unicode_escape").encode("latin1").decode("utf-8")
+    return p
+def git(args):
+    r=subprocess.run(["git","-C",top]+args+["--"]+dirs,capture_output=True)
+    if r.returncode: sys.exit(0)
+    return [e for e in r.stdout.split(b"\0") if e]
+idx,unmerged,mh={},set(),{}
+for e in git(["ls-files","-s","-z"]):
+    meta,p=e.split(b"\t",1); _,oid,st=meta.split(); p=p.decode("utf-8","surrogateescape")
+    if st==b"0": idx[p]=oid
+    else: unmerged.add(p)
+for e in git(["ls-tree","-r","-z","MERGE_HEAD"]):
+    meta,p=e.split(b"\t",1); mh[p.decode("utf-8","surrogateescape")]=meta.split()[2]
+for h in hit:
+    try: p=unq(h)
+    except Exception: continue
+    if h and h not in uns and p not in unmerged and idx.get(p)==mh.get(p): print(h)
+' "$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)" "$HIT" "$UNS" 2>/dev/null)
+    M=0
+    if [ -n "$SAME" ]; then
+      M=$(printf '%s\n' "$SAME" | grep -c .)
+      HIT=$(printf '%s\n' "$HIT" | grep -vxF -f <(printf '%s\n' "$SAME"))
+    fi
+    NOTE=" (병합 중 MERGE_HEAD 와 같은 상태(블롭·삭제) ${M}개 제외)"
+    [ -z "$HIT" ] && continue
+  fi
   BLOCK="$BLOCK
 🚫 [harness-freeze-gate] 하네스 freeze 중 — BYZ 하네스 4폴더 커밋 REJECT (표식 $MARK · $(head -1 "$MARK" 2>/dev/null))
    건드린 파일 $(printf '%s\n' "$HIT" | grep -c .)개: $(printf '%s\n' "$HIT" | head -5 | tr '\n' ' ')
-   하네스 코드는 팩 feature-pack/fable-team/harness 에서 고친다(경로 표 = 설계 §9-2 역매핑 5행). freeze 해제는 복귀 절차 뒤 master 가 표식을 지운다."
+   하네스 코드는 팩 feature-pack/fable-team/harness 에서 고친다(경로 표 = 설계 §9-2 역매핑 5행). freeze 해제는 복귀 절차 뒤 master 가 표식을 지운다.$NOTE"
 done <<< "$TARGETS"
 
 [ -z "$BLOCK" ] && exit 0

@@ -1,0 +1,112 @@
+PASS bash -n autonomy-state-guard.sh
+PASS bash -n autonomy-merge-guard.sh
+PASS bash -n ft-autonomy.sh
+PASS bash -n ft-proxy-decide.sh
+PASS py_compile autonomy_classify.py
+PASS 키트 미러 cmp 0 ft-autonomy.sh
+PASS 200줄 이하 ft-autonomy.sh
+PASS 키트 미러 cmp 0 autonomy_classify.py
+PASS 200줄 이하 autonomy_classify.py
+PASS 키트 미러 cmp 0 ft-proxy-decide.sh
+PASS 200줄 이하 ft-proxy-decide.sh
+PASS ⓐ 옛 ok 파일만 있는 sha → deny (--match-head-commit)
+PASS ⓐ 옛 ok 파일만 있는 sha → deny (main push)
+PASS ⓑ approve-merge → APPROVED · 승인 파일 1줄 == log 줄
+PASS ⓑ 승인 줄이 log 에 있어도 mode·event·status 정상(위변조 아님)
+PASS ⓑ 승인 + log 줄 일치 → allow (pr merge)
+PASS ⓑ 승인 + log 줄 일치 → allow (main push)
+PASS ⓒ 승인 파일만(log 줄 없음) → deny
+PASS ⓒ 승인 파일 ≠ log 줄(epoch 다름) → deny
+PASS ⓒ 다른 sha 의 승인 줄을 복사한 파일 → deny
+PASS ⓑ 승인 안 한 다른 sha → 계속 deny
+PASS ⓑ OFF → allow(불변)
+PASS ⓑ OFF 에서 approve-merge → 기록(이벤트 칸 OFF · 파일+log 한 줄 · R336)
+PASS ⓑ 형식 틀림 [] → REJECT rc 2 · 쓰기 0
+PASS ⓑ 형식 틀림 [abc] → REJECT rc 2 · 쓰기 0
+PASS ⓑ 형식 틀림 [844b21b35818e12c8ddc0535301f952fb1a6177a0] → REJECT rc 2 · 쓰기 0
+PASS ⓑ 형식 틀림 [844B21B35818E12C8DDC0535301F952FB1A6177A] → REJECT rc 2 · 쓰기 0
+PASS ⓑ 형식 틀림 [--help] → REJECT rc 2 · 쓰기 0
+PASS ⓑ sha 둘 → 승인 파일 2 · log 줄 2
+PASS ⓑ 승인 뒤 off → off · event 유지
+PASS ⓑ 승인 줄이 섞인 log 에서 다시 on → A2
+PASS ⓓ 좌석 경로 deny: bash /x/ft-autonomy.sh approve-merge 844b21b35818e12c8ddc0535301
+PASS ⓓ 좌석 경로 deny: ft-autonomy.sh approve-merge 844b21b35818e12c8ddc0535301f952fb1a
+PASS ⓓ 좌석 경로 deny: FT_ROOT=/x bash -c 'ft-autonomy.sh approve-merge 844b21b35818e12
+PASS ⓓ 좌석 경로 deny: env -S 'bash /x/ft-autonomy.sh approve-merge 844b21b35818e12c8dd
+PASS ⓓ 좌석 경로 deny: echo x > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4
+PASS ⓓ 좌석 경로 deny: printf a | tee /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/
+PASS ⓓ 좌석 경로 deny: cp /tmp/x /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i
+PASS ⓓ 좌석 경로 deny: mv /tmp/x /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i
+PASS ⓓ 좌석 경로 deny: touch /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4GvT
+PASS ⓓ 좌석 경로 deny: rm /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4GvTpiZ
+PASS ⓓ 좌석 경로 deny: bash /x/ft-queue-digest.sh issue
+PASS ⓓ 좌석 경로 deny: ft-resume-attempt.sh allow seat uuid
+PASS ⓓ 좌석 경로 deny: echo x > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4
+PASS ⓓ 좌석 경로 deny: touch /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4GvT
+PASS ⓓ 좌석 경로 deny: echo x > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4
+PASS ⓓ Write 승인 파일 → deny
+PASS ⓓ Edit 재개 원장 → deny
+PASS ⓓ 읽기·글자만 allow: ft-autonomy.sh status
+PASS ⓓ 읽기·글자만 allow: bash ft-autonomy.sh mode
+PASS ⓓ 읽기·글자만 allow: cat /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4GvTpi
+PASS ⓓ 읽기·글자만 allow: ls /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4GvTpiZ
+PASS ⓓ 읽기·글자만 allow: ls /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i4GvTpiZ
+PASS ⓓ 읽기·글자만 allow: ft-queue-digest.sh show
+PASS ⓓ 읽기·글자만 allow: ft-resume-attempt.sh status
+PASS ⓓ 읽기·글자만 allow: echo "ft-autonomy.sh approve-merge 844b21b35818e12c8ddc0535301f9
+PASS ⓓ 읽기·글자만 allow: mbox.sh send x y "approve-merge 는 막힌다"
+PASS ⓔ push-merge → QUEUE rc 2 · ok 폴더 0 · 원장 대리 줄 0
+QUEUE main 병합·main push = 오빠 값(판정 1675)
+PASS ⓔ 판정기 push-merge = QUEUE
+PASS ⓔ 판정기 nano-reopen = PROXY
+PASS ⓔ 판정기 docs-push = PROXY
+PASS ⓔ 판정기 card-start = PROXY
+PASS ⓔ 판정기 press-order = PROXY
+PASS ⓔ nano-reopen 도 제외 어휘 = QUEUE
+PASS ⓕ 근거 ①~⑤ 전부 충족 → PROXY rc 0 · 원장 대리 줄 +1
+PASS ⓕ ① 카드가 진행/ 폴더 아님 → QUEUE rc 2 · 대리 줄 0 (QUEUE ① 카드가 indices/진행/ 폴더에 없음 · 큐 파일 /var/folders/vm/j7_jw8)
+PASS ⓕ ⑤ spawn 기준선 파일 없음 → QUEUE rc 2 · 대리 줄 0 (QUEUE ⑤ spawn 기준선(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh00)
+PASS ⓕ ⑤ 카드가 기준선 뒤 확장됨 → QUEUE rc 2 · 대리 줄 0 (QUEUE ⑤ 카드 내용이 spawn 기준선과 다름(새 범위) · 큐 파일 /var/folders/vm/j7)
+PASS ⓕ ③ 재개 기록 없음 → QUEUE rc 2 · 대리 줄 0 (QUEUE ③ 재개 기록(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn)
+PASS ⓕ ③⑤ 다른 좌석의 재개 기록(name 다름) → QUEUE rc 2 · 대리 줄 0 (QUEUE ③⑤ 재개 기록의 name·cwd 가 기준선과 다름 · 큐 파일 /var/folders/vm/j7)
+PASS ⓕ ③⑤ 재개 기록 cwd ≠ 기준선 워크트리 → QUEUE rc 2 · 대리 줄 0 (QUEUE ③⑤ 재개 기록의 name·cwd 가 기준선과 다름 · 큐 파일 /var/folders/vm/j7)
+PASS ⓕ ③⑤ 워크트리 HEAD 가 기준선 가지가 아님 → QUEUE rc 2 · 대리 줄 0 (QUEUE ③⑤ 워크트리 HEAD 가 기준선 가지(nano/t)가 아님 · 큐 파일 /var/folders/)
+PASS ⓕ ② 기준선 가지가 nano/* 아님 → QUEUE rc 2 · 대리 줄 0 (QUEUE ② 기준선 가지가 nano/* 아님: feat/x · 큐 파일 /var/folders/vm/j7_)
+PASS ⓕ ② nano/* 가지가 실재하지 않음 → QUEUE rc 2 · 대리 줄 0 (QUEUE ② 가지 nano/gone 없음 · 큐 파일 /var/folders/vm/j7_jw8050t553)
+PASS ⓕ ④ 자원 문지기 REJECT → QUEUE rc 2 · 대리 줄 0 (QUEUE ④ 자원 문지기 check rc≠0 · 큐 파일 /var/folders/vm/j7_jw8050t5)
+PASS ⓕ --seat 형식 틀림 → QUEUE rc 2 · 대리 줄 0 (QUEUE --seat 형식 틀림 · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wq)
+PASS ⓕ ⑤ 기준선 필드(card_blob) 누락 → QUEUE rc 2 · 대리 줄 0 (QUEUE ⑤ 기준선 필드(branch·worktree·card_blob)를 못 읽음 · 큐 파일 /var/)
+PASS ⓕ OFF → rc 3
+PASS ⓖ md + design/** 만 · docs/x · ff → PROXY rc 0
+PASS ⓖ 코드 파일 1개 섞임 → QUEUE rc 2 · 대리 줄 0 (QUEUE ① 문서 아닌 파일: app/main.py · 큐 파일 /var/folders/vm/j7_jw80)
+PASS ⓖ 대상 가지 main → QUEUE rc 2 · 대리 줄 0 (QUEUE ② 대상 가지가 main 이거나 형식 틀림: main · 큐 파일 /var/folders/vm/j)
+PASS ⓖ 배포 가지 v65 → QUEUE rc 2 · 대리 줄 0 (QUEUE ② 대상 가지(v65)가 배포 가지(v65) · 큐 파일 /var/folders/vm/j7_jw8)
+PASS ⓖ 배포 가지 release/* (glob) → QUEUE rc 2 · 대리 줄 0 (QUEUE ② 대상 가지(release/1.0)가 배포 가지(release/*) · 큐 파일 /var/fol)
+PASS ⓖ FT_DEPLOY_BRANCHES 미설정(빈 값) → QUEUE rc 2 · 대리 줄 0 (QUEUE ② 배포 가지 목록 없음 — FT_DEPLOY_BRANCHES 또는 /var/folders/vm/)
+PASS ⓖ 원격에 가지 없음 → QUEUE rc 2 · 대리 줄 0 (QUEUE 원격에 가지(docs/nope) 없음 · 큐 파일 /var/folders/vm/j7_jw8050t)
+PASS ⓖ fast-forward 아님(원격이 앞섬) → QUEUE rc 2 · 대리 줄 0 (QUEUE ③ fast-forward 아님(원격 5366707d7c86f0c4c77f4ed96df970576)
+PASS ⓖ diff 비어 있음 → QUEUE rc 2 · 대리 줄 0 (QUEUE ① diff 를 못 읽음·비어 있음 · 큐 파일 /var/folders/vm/j7_jw8050t5)
+PASS ⓖ --sha 형식 틀림 → QUEUE rc 2 · 대리 줄 0 (QUEUE docs-push 에는 --branch·--sha(40hex) 필요 · 큐 파일 /var/fold)
+PASS ⓖ 원격 비교(ls-remote) 7초 초과 ×2 (15s) → QUEUE rc 2 · 대리 줄 0 (QUEUE git ls-remote 실패·7초 초과 · 큐 파일 /var/folders/vm/j7_jw805)
+PASS ⓖ 원격 비교 총 시간 상한(7초×2 + 유예) (15s)
+PASS ⓗ① 정상 승인 부가 줄 → mode on · event A1 유지
+PASS ⓗ② 불완전 OFF 줄(2<TAB>off) → tamper (ON 유지 0)
+PASS ⓗ② 칸이 많은 모드 줄 → tamper
+PASS ⓗ③ 모르는 형식 줄 → tamper
+PASS ⓗ③ 형식 틀린 승인 줄(sha 아님) → tamper
+PASS ⓗ④ 정상 OFF 줄 + JSON(on) 어긋남 → tamper
+PASS ⓗ⑤ 정상 on→off→on 전환 → off 뒤 on(A2)
+PASS 변이 기준: 원본은 ⓗ② 를 통과(tamper)
+PASS 변이 4 적용됨(ⓒ 판정 제거 = 불완전 줄 버림)
+PASS 변이 4 → ⓗ② 실패(검출)
+PASS 변이 기준: 원본 가드는 ⓐ 를 통과(deny)
+PASS 변이 기준: 원본 가드는 ⓒ 를 통과(deny)
+PASS 변이 기준: 원본 상태 가드는 ⓓ 를 통과(deny)
+PASS 변이 1 적용됨(가드가 merge-ok 를 다시 읽음)
+PASS 변이 1 → ⓐ 실패(검출)
+PASS 변이 2 적용됨(log 대조 삭제)
+PASS 변이 2 → ⓒ 실패(검출)
+PASS 변이 3 적용됨(PROT 의 approved 삭제)
+PASS 변이 3 → ⓓ 실패(검출)
+ALL PASS
+rc=0

@@ -2,6 +2,7 @@
 # test_proxy_decide_r188.sh — ft-proxy-decide.sh 결함 2종 + 문구(R188): docs-push 배포 가지 목록 파일 · card-start 판정 줄 표 행.
 #   ⓐ 표 행(`| N |`)에서도 카드 이름·부정 낱말 검사가 글머리 꼴과 같다 · ⓑ 번호 경계 · ⓒ 목록 없음 → QUEUE + 파일 경로
 #   ⓓ env 우선 · ⓔ 배포 가지 이름이면 QUEUE · ⓕ 인자 부족 문구 예시 · 변이 1(표 행 패턴 제거 → ⓐ 실패)
+#   R410(판정 2326): wt-clean 종류 ⓐ PROXY · ⓑ STALE·세션 실재·경로·글자 → QUEUE · ⓒ 실행 줄 제외 어휘 · ⓓ 쪽지 가드 [아침 묶음 «결정 N:» 대리= 칸
 # 격리: 임시 FT_ROOT·상태·원장 + 임시 git 저장소 — 실 상태·실 mbox·실 /tmp/h* 쓰기 0.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
@@ -82,6 +83,57 @@ setup_docs; printf 'docs/x\n' > "$DF"; FT_DEPLOY_BRANCHES="v65" dp docs/x; okp; 
 setup_docs; printf 'v6\n' > "$DF"; FT_DEPLOY_BRANCHES="docs/*" dp docs/x; okq "배포 가지(docs/\*)"; ck "ⓓ env 가 docs/* 면 파일 v6 과 무관하게 QUEUE" $?
 setup_docs; FT_DEPLOY_BRANCHES="v6 release/*" dp release/1.0; okq "배포 가지"; ck "ⓔ env 의 배포 가지 → QUEUE 그대로" $?
 setup_docs; dp main; okq "main"; ck "ⓔ main → 목록과 무관하게 QUEUE" $?
+
+# ===== R410 ⓐ~ⓒ wt-clean 종류(판정 2326) — 근거 = ft-nano-close 계획 파일 · 실 계획 꼴은 fixtures/r410 (plan-ver 만 바꿔 굽는다) =====
+cmp -s "$BIN/autonomy_classify.py" "$MIR/autonomy_classify.py"; ck "R410 판정기 키트 미러 cmp 0" $?
+python3 -m py_compile "$BIN/autonomy_classify.py"; ck "R410 py_compile autonomy_classify.py" $?
+WD="$S/wt-clean"; mkdir -p "$WD"; GENB="$(git hash-object "$BIN/ft-nano-close.sh")"; FIX="$HERE/../fixtures/r410/wt-clean-plan.sh.hil"
+printf '#!/bin/sh\nexit 1\n' > "$T/tmux-none"; printf '#!/bin/sh\nexit 0\n' > "$T/tmux-live"; chmod +x "$T/tmux-none" "$T/tmux-live"
+mkplan() { sed "s/^# plan-ver: .*/# plan-ver: $2/" "$FIX" > "$1"; [ -z "${3:-}" ] || printf '%s\n' "$3" >> "$1"; }   # <파일> <plan-ver> [덧붙일 실행 줄]
+wcd() { FT_TMUX_BIN="${TM:-$T/tmux-none}" D --kind wt-clean --plan "$1"; }
+qrows() { local n; n="$(grep -c '| wt-clean |' "$P/AUTONOMY-QUEUE.md" 2>/dev/null)"; echo "${n:-0}"; }
+n0="$(led)"; mkplan "$WD/a.sh.hil" "$GENB"; wcd "$WD/a.sh.hil"; okp; ck "R410 ⓐ 실 계획 꼴 · plan-ver = 생성기 blob · 브랜치 보존 글자 · 세션 0 → PROXY rc0" $?
+echo "  ⓐ 원문: $out"
+[ "$(led)" = "$((n0+1))" ] && grep -q '\[대리 · 자율 ON' <<<"$(tail -1 "$LEDGER")"; ck "R410 ⓐ 판정 원장 «대리» 1줄" $?
+n0="$(led)"; q0="$(qrows)"
+mkplan "$WD/b1.sh.hil" 0000000000000000000000000000000000000000; wcd "$WD/b1.sh.hil"; okq "② STALE 계획"; ck "R410 ⓑ plan-ver 불일치 → QUEUE STALE rc2" $?
+echo "  ⓑ 원문: $out"
+mkplan "$WD/b2.sh.hil" "$GENB"; TM="$T/tmux-live" wcd "$WD/b2.sh.hil"; okq "④ 좌석 세션 실재"; ck "R410 ⓑ 좌석 tmux 세션 실재 → QUEUE rc2" $?
+TM="$T/no-such-tmux" wcd "$WD/b2.sh.hil"; okq "④ tmux 실행 불가"; ck "R410 ⓑ tmux 실행 불가 → QUEUE(세션 0 을 확인 못 함)" $?
+mkdir -p "$T/elsewhere"; mkplan "$T/elsewhere/c.sh.hil" "$GENB"; wcd "$T/elsewhere/c.sh.hil"; okq "① 계획이"; ck "R410 ⓑ 상태/wt-clean 밖 계획 → QUEUE" $?
+mkplan "$WD/../wt-clean/../x.sh.hil" "$GENB"; wcd "$WD/../wt-clean/../x.sh.hil"; okq "① 계획이"; ck "R410 ⓑ .. 로 빠져나간 경로 → QUEUE" $?
+sed 's/브랜치는 지우지 않는다/브랜치는 그대로/' "$WD/b2.sh.hil" > "$WD/b3.sh.hil"; wcd "$WD/b3.sh.hil"; okq "③ 계획에"; ck "R410 ⓑ «브랜치는 지우지 않는다» 없음 → QUEUE" $?
+D --kind wt-clean; okq "예) ft-proxy-decide.sh --kind wt-clean --plan"; ck "R410 ⓑ --plan 없음 → QUEUE + 예시 1줄" $?
+mkplan "$WD/c1.sh.hil" "$GENB" 'git -C "$ROOTD" branch -D "$br"'; wcd "$WD/c1.sh.hil"; okq "계획 본문 제외 어휘 \[브랜치 삭제\]"; ck "R410 ⓒ 실행 줄 branch -D → QUEUE" $?
+mkplan "$WD/c2.sh.hil" "$GENB" 'git -C "$ROOTD" worktree remove --force "$WT"'; wcd "$WD/c2.sh.hil"; okq "계획 본문 제외 어휘 \[force-push\]"; ck "R410 ⓒ 실행 줄 --force → QUEUE" $?
+[ "$(led)" = "$n0" ] && [ "$(qrows)" = "$((q0+9))" ]; ck "R410 ⓑⓒ QUEUE 9건 → 대리 줄 0 · 큐 행 +9" $?
+[ ! -e "$WD/b2.sh.hil.ignored.list" ] && [ ! -e "$WD/a.sh.hil.deleting" ]; ck "R410 ⓐⓑ 계획 실행 0(도구는 판정만)" $?
+python3 "$BIN/autonomy_classify.py" --kind wt-clean --text '끝난 나노 워크트리 정리' --plan-text '# 브랜치는 지우지 않는다' >/dev/null; ck "R410 주석 줄은 실행 줄 검사 밖 → PROXY" $?
+
+# ===== R410 ⓓ 쪽지 가드 — [아침 묶음 «결정 N:» 줄마다 대리= 칸 (mbox.sh send/relay · 격리 큐) =====
+SRC="$HERE/../comm"; ENV="$T/menv"; mkdir -p "$ENV/.fable-team/comm" "$ENV/.fable-team/state" "$ENV/seats"
+cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENV/.fable-team/comm/"; echo '{}' > "$ENV/seats/seats.json"; : > "$ENV/.fable-team/comm/mailbox.log.jsonl"
+bash -n "$SRC/mbox_guard.sh" && bash -n "$SRC/mbox_guard_morning.sh"; ck "R410 bash -n 가드 2 파일" $?
+[ "$(wc -l < "$SRC/mbox_guard.sh")" -le 200 ]; ck "R410 mbox_guard.sh ≤ 200줄" $?
+TO='byz-x-desk-claude#1'
+ms() { out="$(cd "$ENV" && PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENV/seats/seats.json" FT_MBOX_DIR="$ENV/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 bash "$ENV/.fable-team/comm/mbox.sh" "$@" 2>&1)"; rc=$?; }
+mq() { local n; n="$(grep -c "\"to\": *\"$TO\"" "$ENV/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"; echo "${n:-0}"; }
+mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
+q0="$(mq)"; ms send "$TO" 'me#1' "$(printf '[아침 묶음·급] 결정 2건\n- 결정 1: h97 워크트리 정리 — 추천 «실행»\n- 결정 2: 시험 2회차 진행 — 대리=PROXY 2331')"
+{ [ "$rc" = 3 ] && grep -q 'REJECT 아침 묶음 결정 줄에 대리 시도 칸' <<<"$out" && [ "$(mq)" = "$q0" ]; }; ck "R410 ⓓ 결정 1 에 대리= 없음 → REJECT rc3 · 큐 0" $?
+echo "  ⓓ 원문: $(grep '^REJECT' <<<"$out" | head -1 | cut -c1-200)"
+ms send "$TO" 'me#1' "$(printf '[아침 묶음] 결정 2건\n- 결정 1: h97 정리 — 대리=QUEUE 대리 가능 종류 아님: x\n결정 2: 시험 — 대리=PROXY 2331')"; [ "$rc" = 0 ] && [ "$(mq)" = "$((q0+1))" ]; ck "R410 ⓓ 대리=QUEUE <사유> · 대리=PROXY <번호> → 통과" $?
+ms send "$TO" 'me#1' "$(printf '[아침 묶음] 결정 1건\n- 결정 1: x — 대리=PROXY')"; [ "$rc" = 3 ]; ck "R410 ⓓ 대리=PROXY 번호 없음 → REJECT" $?
+ms send "$TO" 'me#1' "$(printf '[아침 묶음] 승인 1줄만\n- h102 승인')"; [ "$rc" = 0 ] && [ "$(mq)" = "$((q0+2))" ]; ck "R410 ⓓ 결정 줄 없는 아침 묶음 → 영향 0" $?
+ms send "$TO" 'me#1' "$(printf '[완료·휴식] x\n- 결정 1: 머리가 아침 묶음이 아님')"; [ "$rc" = 0 ]; ck "R410 ⓓ 다른 머리의 «결정» 줄 → 검사 0" $?
+printf '# 상세\n- 결정 1: h97~h99 워크트리 3개 정리 — 추천 «실행»\n' > "$T/bundle.txt"
+ms relay "$TO" 'me#1' "$T/bundle.txt" '[아침 묶음·급] 결정 1건'; [ "$rc" = 3 ] && grep -q '대리 시도 칸' <<<"$out"; ck "R410 ⓓ relay 첨부의 결정 줄도 검사(실사건 #110310 꼴) → REJECT" $?
+printf '# 상세\n- 결정 1: h97~h99 정리 — 대리=PROXY 2331\n' > "$T/bundle.txt"
+ms relay "$TO" 'me#1' "$T/bundle.txt" '[아침 묶음·급] 결정 1건'; [ "$rc" = 0 ]; ck "R410 ⓓ relay 첨부 대리= 있음 → 통과" $?
+mv "$ENV/.fable-team/comm/mbox_guard_morning.sh" "$T/mg.bak"
+ms send "$TO" 'me#1' "$(printf '[아침 묶음] 승인 1줄만')"; [ "$rc" = 3 ] && grep -q '아침 묶음 가드 본체 없음' <<<"$out"; ck "R410 ⓓ 본체 파일 없음 → 아침 묶음 머리 fail-closed REJECT" $?
+ms send "$TO" 'me#1' '[완료·휴식] 본체 없어도 다른 머리는 통과'; [ "$rc" = 0 ]; ck "R410 ⓓ 본체 없음 · 다른 머리 → 통과" $?
+mv "$T/mg.bak" "$ENV/.fable-team/comm/mbox_guard_morning.sh"
 
 # ===== 변이 1: 표 행 패턴을 지우면 ⓐ 가 실패해야 한다 =====
 rm -rf "$T/mutbin"; cp -R "$BIN" "$T/mutbin"

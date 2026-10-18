@@ -1,0 +1,4 @@
+test_mbox_guard.sh base_fail=25 nano_fail=25 같은 FAIL 줄
+test_da_hold_gate.sh base_fail=1 nano_fail=1 같은 FAIL 줄
+test_goal_table_gate.sh base_fail=1 nano_fail=1 같은 FAIL 줄
+test_boot_report_gate.sh base_fail=7 nano_fail=7 같은 FAIL 줄

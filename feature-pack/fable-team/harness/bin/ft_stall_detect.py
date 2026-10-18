@@ -110,22 +110,44 @@ def last_turn(path: str, window: int = 524288) -> dict[str, Any]:
     return {"rest": rest, "future": future}
 
 
-def card_ready(card: Path, cards_dir: Path, lint: str) -> bool:
+def _open_stems(cards_dir: Path) -> dict[str, set[str]]:
+    """대기/·진행/ 에 실재하는 카드 stem — 목록으로 대조한다(대소문자 무시 파일시스템에서 exists() 는 «정확 일치» 가 아니다)."""
+    return {k: {p.stem for p in (cards_dir / k).glob("*.md") if p.name != "README.md"} for k in ("대기", "진행")}
+
+
+def _prereq(text: str, stems: dict[str, set[str]], me: str) -> str:
+    """선행 줄 본문 1개 → ready | blocked:<이름> | unknown:<조건 40자>. 자동 판정 못 하는 글자(PR #N · 판정 N · 자유 문장)가 남으면 unknown — ready 로 되돌리지 않는다."""
+    if not text or text.startswith("없음"):
+        return "ready"
+    for kind, name in REF.findall(text):
+        if kind in stems and name in stems[kind]:
+            return f"blocked:{name}"
+    rest = REF.sub(" ", text)
+    open_names = (stems["대기"] | stems["진행"]) - {me}
+    for tok in re.findall(r"[\w.\-]+", rest):
+        if tok.strip(".-") in open_names:
+            return f"blocked:{tok.strip('.-')}"
+    rest = rest.strip(" \t·,.;:—-()[]")
+    return f"unknown:{rest[:40]}" if rest else "ready"
+
+
+def card_ready(card: Path, cards_dir: Path, lint: str) -> str:
+    """대기 카드 1장 → ready | blocked:<이름>(선행 카드가 대기/·진행/ 에 실재 · lint 실패 = blocked:(lint)) | unknown:<조건>(선행 자동 판정 불가 · 정상 대기로 보고 세지 않는다)."""
     if run(["bash", lint, str(card)])[0] != 0:
-        return False
-    for line in card.read_text(encoding="utf-8").splitlines():
-        if line.startswith("- 선행:"):
-            for kind, name in REF.findall(line):
-                if kind in ("대기", "진행") and (cards_dir / kind / f"{name}.md").exists():
-                    return False
-    return True
+        return "blocked:(lint)"
+    stems = _open_stems(cards_dir)
+    verdicts = [_prereq(line.removeprefix("- 선행:").strip(), stems, card.stem)
+                for line in card.read_text(encoding="utf-8").splitlines() if line.startswith("- 선행:")]
+    return next((v for v in verdicts if v.startswith("blocked:")), None) or next((v for v in verdicts if v.startswith("unknown:")), "ready")
 
 
-def waiting_cards(cards: Path | None, lint: str) -> int:
+def waiting_cards(cards: Path | None, lint: str) -> tuple[list[str], int]:
+    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수)."""
     d = cards / "대기" if cards else None
     if not d or not d.is_dir():
-        return 0
-    return sum(1 for c in sorted(d.glob("*.md")) if c.name != "README.md" and card_ready(c, d.parent, lint))
+        return [], 0
+    verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
+    return [n for n, v in verdicts.items() if v == "ready"], sum(1 for v in verdicts.values() if v.startswith("unknown:"))
 
 
 def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:

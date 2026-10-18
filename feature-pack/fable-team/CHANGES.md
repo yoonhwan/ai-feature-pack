@@ -1,12 +1,20 @@
 # Changes
 
-## 2026-10-19 — 범위 사전 승인에 종류 code 를 연다: 시험 통과 세트만 · code-max 안 (1.1.10)
+## 2026-10-19 — 범위 사전 승인에 종류 code 를 연다: 시험 통과 세트만 · code-max 안 (1.1.11)
 
 카드 r411 · 판정 2326(오빠 «자율 개선두건 진행») · planner 110362 · master 110379 ②. 자율 ON 중 코드 세트 병합이 «앞 착지가 main 을 옮김 → 다음 PR head 바뀜 → 승인 sha 어긋남 → 오빠 재승인 h» 로 줄줄이 멈췄습니다(#1933→#1934 · h104). `approve-scope` 종류가 docs·ff·revert 뿐이라 코드 세트는 매 sha 오빠 손 1줄이었습니다.
 
 - **approve-scope**(오빠 `!` 전용 그대로): `--classes …,code --code-max <1~max>` — code 가 있으면 `--code-max` 필수(없음·0·max 초과 = REJECT) · code 없이 `--code-max` = REJECT · grant 줄·grants.audit·슬랙 1줄·출력에 `codemax=` 칸. 옛 grant 줄(codemax 없음)은 그대로 읽힘(code 0 = 닫힘). 기본값 불변(h119 code_merge=off) — 오빠가 code 를 적을 때만 열린다.
 - **scope-approve `--card <카드.md>`**: 분류기가 `CLASS code` 면 ①카드 마지막 `세트: <A> · 시험: … rc=0 · 이슈: 0` ②`ft-nano-evidence-check.sh <카드> --repo ROOT --ancestor-of <sha>` rc0 ③A≠sha 면 `ft-approval-equiv.sh A <sha>` EQUIV — 셋 다일 때만 승인 줄(`approve-merge <sha> <A> <epoch>` 불변)을 쓴다. 그 밖 = `SCOPE-REJECT`(쓰기 0). code 건수(docs 와 별개) 도달 = 기존 «건수 도달» 과 같은 정지. 원장 5번째 칸 `evidence=<카드>@<A>` · 출력 `code=n/max`(+ `equiv=<A>`). 새 `ft-autonomy-scope-code.sh`(source 전용). 분류기 FORBID(DDL·배포·키·과금·의존·전역 규칙)는 code 에도 그대로.
 - **시험**: `test_autonomy_scope.sh` 새 절 ⓐ~ⓔ(임시 origin+clone 실 git · 실 evidence-check·approval-equiv · 분류기만 스텁) + 기존 절 갱신(code REJECT → code-max 검사 · tamper 꼴) — 134 PASS.
+
+## 2026-10-19 — freeze 훅이 «병합이 가져온 그대로» 인 하네스 파일은 세지 않는다: harness-freeze-gate MERGE_HEAD 대조 (1.1.10)
+
+판정 2323 · 카드 r407 · v65 master#209 [HIL] 110183. 옛 가지에 origin/main 을 병합할 때 충돌을 손으로 풀고 `git commit` 하면, main 이 r386 에서 지운 하네스 877 파일이 staged «이름»으로 잡혀 REJECT 됐습니다(우리 손 0). 충돌 없는 병합은 git 이 커밋까지 끝내 훅을 안 타므로 같은 병합이 충돌 유무로 갈렸습니다.
+
+- **`harness/kit/hooks/harness-freeze-gate.sh`**: MERGE_HEAD 가 있으면 HIT 경로마다 staged 상태(stage 0 블롭)와 MERGE_HEAD 상태를 대조해 같으면 제외 — 같은 블롭 · ★둘 다 없음(main 의 삭제 그대로)★ 포함. 작업 트리 diff(`-a` 등)에 든 경로 · 미해소(stage≠0) · git 을 못 읽음 = 제외 0(그대로 REJECT). 남은 HIT 만 «건드린 파일 N개» · 메시지 끝 `(병합 중 MERGE_HEAD 와 같은 상태(블롭·삭제) M개 제외)`. MERGE_HEAD 없으면 출력 바이트 불변. freeze 표식·4폴더 목록 불변.
+- **카드 편차 1**: 카드는 «둘 다 못 읽으면 제외 0» 이었으나 실제 사건(110183)의 877 파일이 전부 main 쪽 삭제(D)라 그 규칙으로는 그대로 REJECT — 삭제는 «둘 다 없음 = 같은 상태» 로 제외한다. 손 삭제(MERGE_HEAD 에는 있는 파일)는 REJECT(시험 ⓓ).
+- **시험** `test_harness_freeze_gate.sh` 새 절: ⓐ 충돌 손 해소 뒤 commit(추가·삭제 그대로) 통과 ⓑ 손댄 하네스 파일 1개만 REJECT + 제외 표기 ⓑ' 작업 트리만 손댐 + `-am` REJECT ⓓ 손 삭제 REJECT ⓒ MERGE_HEAD 없음 = 고치기 전 훅과 stderr 바이트 동일. 증거 `harness/evidence/r407/test.txt`(실사건 재현: 현행 훅 877개 REJECT → 새 훅 rc0).
 
 ## 2026-10-19 — 공유 루트 cwd 에서 v65·lecture 카드 spawn 이 «팀 명단 없음» 으로 끊기던 것을 고친다: 명단 = ref · 폴더 = 호출 워크트리 실재 1개 (1.1.9)
 

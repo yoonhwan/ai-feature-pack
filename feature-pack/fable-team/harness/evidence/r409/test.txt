@@ -1,0 +1,147 @@
+# r409 시험 원문 · 2026-10-19 05:27:21 · pack 81afaacf+작업트리 · base 81afaacf(1.1.9)
+## py_compile · cmp(bin=kit) · 600/300
+py_compile ft_stall_detect.py rc=0
+cmp bin=kit ft_stall_detect.py rc=0
+py_compile ft_stall_scan.py rc=0
+cmp bin=kit ft_stall_scan.py rc=0
+600/300 in added lines: 0
+## pytest test_ft_stall_scan.py test_ft_stall_news_cell.py test_ft_penalty.py
+test_ft_stall_scan.py::test_a_waiting_cards_idle_master_gets_urgent PASSED [  2%]
+test_ft_stall_scan.py::test_a_working_master_is_zero PASSED              [  4%]
+test_ft_stall_scan.py::test_a_unmet_prerequisite_or_lint_fail_does_not_count PASSED [  6%]
+test_ft_stall_scan.py::test_a_r409_bare_name_prereq_open_card_excluded_exact_stem PASSED [  8%]
+test_ft_stall_scan.py::test_a_r409_pr_condition_is_unknown_and_excluded PASSED [ 10%]
+test_ft_stall_scan.py::test_a_r409_none_prereq_counts_and_names_capped_at_five PASSED [ 12%]
+test_ft_stall_scan.py::test_a_r409_path_form_prereq_still_excluded PASSED [ 14%]
+test_ft_stall_scan.py::test_a_r409_card_input_set PASSED                 [ 16%]
+test_ft_stall_scan.py::test_b_declaration_then_idle_rings_once PASSED    [ 18%]
+test_ft_stall_scan.py::test_b_rest_token_excluded PASSED                 [ 20%]
+test_ft_stall_scan.py::test_b_working_seat_never_rung PASSED             [ 22%]
+test_ft_stall_scan.py::test_b_text_with_tool_call_is_not_stall PASSED    [ 25%]
+test_ft_stall_scan.py::test_c_resource_freeze_alerts_planner PASSED      [ 27%]
+test_ft_stall_scan.py::test_d_pending_mail_idle_receiver_rings_first_seq PASSED [ 29%]
+test_ft_stall_scan.py::test_d_young_mail_is_not_stall PASSED             [ 31%]
+test_ft_stall_scan.py::test_dry_run_acts_and_logs_nothing PASSED         [ 33%]
+test_ft_stall_scan.py::test_same_key_not_reprocessed_within_ten_minutes PASSED [ 35%]
+test_ft_stall_scan.py::test_attached_seat_listed_but_no_action PASSED    [ 37%]
+test_ft_stall_scan.py::test_closed_seat_excluded PASSED                  [ 39%]
+test_ft_stall_scan.py::test_summary_line_is_last_log_line_and_first_stdout_line PASSED [ 41%]
+test_ft_stall_scan.py::test_unknown_is_counted_separately_with_no_action PASSED [ 43%]
+test_ft_stall_scan.py::test_a_zero_when_team_cap_full_or_policy_stop PASSED [ 45%]
+test_ft_stall_scan.py::test_a_zero_when_group_cap_full_and_no_penalty_next_tick PASSED [ 47%]
+test_ft_stall_scan.py::test_cap_checker_error_is_not_a_silent_pass PASSED [ 50%]
+test_ft_stall_scan.py::test_a_recovers_for_resumed_team_during_partial_penalty PASSED [ 52%]
+test_ft_stall_scan.py::test_b_plus_d_rings_once_with_oldest_seq_and_no_send PASSED [ 54%]
+test_ft_stall_scan.py::test_one_action_per_seat_across_kinds PASSED      [ 56%]
+test_ft_stall_scan.py::test_log_guard_blocks_repeat_even_without_state_file PASSED [ 58%]
+test_ft_stall_scan.py::test_unchanged_jsonl_is_not_reread_next_tick PASSED [ 60%]
+test_ft_stall_scan.py::test_candidate_is_reconfirmed_with_fresh_path PASSED [ 62%]
+test_ft_stall_scan.py::test_overlapping_run_is_skipped PASSED            [ 64%]
+test_ft_stall_scan.py::test_c_valid_spawn_hold_counts_via_r320_status PASSED [ 66%]
+test_ft_stall_scan.py::test_c_expired_hold_is_not_a_stop PASSED          [ 68%]
+test_ft_stall_scan.py::test_c_hold_checker_failure_is_loud PASSED        [ 70%]
+test_ft_stall_news_cell.py::test_cell_reads_last_summary_line PASSED     [ 72%]
+test_ft_stall_news_cell.py::test_cell_empty_without_log_or_summary PASSED [ 75%]
+test_ft_penalty.py::test_two_consecutive_detections_create_penalty PASSED [ 77%]
+test_ft_penalty.py::test_one_shot_resolution_makes_no_penalty PASSED     [ 79%]
+test_ft_penalty.py::test_auto_off_switch PASSED                          [ 81%]
+test_ft_penalty.py::test_check_rejects_unresumed_team_and_passes_resumed PASSED [ 83%]
+test_ft_penalty.py::test_resume_requires_fresh_scan_without_hang_for_that_team PASSED [ 85%]
+test_ft_penalty.py::test_resume_blocked_while_team_has_hang PASSED       [ 87%]
+test_ft_penalty.py::test_all_teams_resumed_removes_file PASSED           [ 89%]
+test_ft_penalty.py::test_penalty_scan_takes_no_action_on_unresumed_team PASSED [ 91%]
+test_ft_penalty.py::test_off_removes PASSED                              [ 93%]
+test_ft_penalty.py::test_nano_and_role_spawn_call_check_but_successor_does_not PASSED [ 95%]
+test_ft_penalty.py::test_recovery_team_is_exempt_from_penalty PASSED     [ 97%]
+test_ft_penalty.py::test_a_not_counted_for_unresumed_team_during_penalty PASSED [100%]
+============================= 48 passed in 15.68s ==============================
+pytest rc=0
+## 실제 카드 폴더 재현(읽기 전용 · lint 는 rc0 스텁 — 선행 파서만 · 쓰기 0)
+.worktrees/v6-realtime-live/design/v65/indices 대기 110 {'ready': 100, 'unknown': 7, 'blocked': 3}
+   F-guest-jwt-fe-flag-dev → unknown:단계 2(#927 · main `4be7cab355`) 반영 · 서버 O
+   M5-1927-mic-pass-slot-level-bar → unknown:M5-1927-mic-pass-ux-r2-overlap-text-clea
+   M5-autovad-floor-dead-path-cleanup → unknown:표 1 `design/v65/autovad-loop/TABLE-m5-au
+   M5-late-preview-closed-after-start-midway-exposure → blocked:M5-late-preview-skip-closed-window-impl
+   M5-owner-receipt-exhausted-closing → blocked:M5-owner-stale-exhausted-closing-event
+   M5-owner-stale-exhausted-closing-event → unknown:M5-owner-stale-cas-retry-unbounded 착지
+   M5-owner-unclosed-press-display-contract → blocked:M5-owner-stale-exhausted-retry-impl
+   M7-1709-dental-kk-uk-first-token-p90-baseline → unknown:대기/M7-feat-merge-origin-main-shared-prom
+   M7-room-guest-audio-event-middleware-307 → unknown:dev 실측 1회(tester · 읽기만 · 서버 도달 0 · 쓰기 0
+   M7-shared-runtime-snapshot-language-layer-coord-missing → unknown:feat ← origin/main 병합 뒤 재실행(main 에서도 RED
+.worktrees/harness-ops/design/harness/indices 대기 176 {'ready': 100, 'blocked': 16, 'unknown': 60}
+   r-autonomy-brain-seat → blocked:r-autonomy-night-preflight
+   r-autonomy-end → blocked:r-autonomy-night-preflight
+   r-autonomy-hooks → blocked:r-autonomy-core
+   r-autonomy-night-preflight → blocked:r-autonomy-hooks
+   r-autonomy-tick-backlog → blocked:r-autonomy-core
+   r-live-tree-summary → blocked:r-sheet-publish
+   r-net-interview-hook → unknown:N4(`선례:` 줄 문자열) · N3(`[결정]` 3줄 꼴 공유) · 설
+   r-net-precedent-queue → unknown:N3(`[결정]` lint 가 `선례:` 줄을 요구한다 — 이 카드의 출
+   r-net-team-open-close → unknown:N1(seats-lint 가 `_kept`·OPENING 을 읽는다) ·
+   r-oppa-requests-ledger → blocked:r-wait-events
+   r-planner-nano-path → unknown:P4 r-succession-gate spawn 뒤(순서 1155 · 한
+   r-press-exempt-parallel-nano → blocked:r-planner-nano-path
+   r-prev-gen-close-with-resume-record → unknown:★r-zc-old-gen-output-idle 랜딩(PR 1400 · 같
+   r-sheet-publish → unknown:S1(`r-sheet-render-events`) 랜딩 — `render
+   r-sheet-verify-head → unknown:★S3 랜딩 main a08041f02f★(래퍼가 `sheet-verif
+   r-sheet-verify-session → blocked:r-sheet-publish
+   r-teamset-standard → unknown:r318a 착지(`design/TEAMS.md` 팀 명단을 읽는다 · r
+   r-wait-events-rotate → blocked:r-wait-events
+   r-wait-events → unknown:★S1 r-sheet-render-events 랜딩 + P1 r-recv
+   r-wt-clean-deletion-only → blocked:r-wt-sweep-route-timeout
+   r-wt-sweep-timeout → blocked:r-wait-events
+   r105-fp-allow-path → unknown:오빠 값(1~3 진행) · 파일 겹침 0(P3 = mbox_ops.py·
+   r105-human-command-form → blocked:r-wait-events
+   r107-install → unknown:main 217e9e317f6760183c81caf194749ffbf42
+   r107-successor-open-reach → blocked:r106-bang-command-guard
+   r113-magazine-card-digest → unknown:r111-magazine-size-split-window-log 랜딩(D
+   r114-full-clean-resume → blocked:r113-magazine-card-digest
+   r143-bounded-deadline-under-load → unknown:night-preflight 랜딩(PR 1493 · `tests/harn
+   r150-team-tick-run-live-bin → unknown:메인 틱 데몬 재기동(/tmp/h40 · 00:07:56 pid 9546
+   r153-successor-reach-record-after → unknown:R154(lint ⑥ origin/main 트리 인정 · 이 카드가 ha
+   r157-mbox-send-canon-dir-and-sender-pane → unknown:R153 (master 순번 지시 — R153 뒤) · R154(이 카드
+   r158-da-review-clone-lifecycle → unknown:R153 (master 순번 지시 — R153 뒤
+   r160-index-move-canon-note-team-arch → unknown:R159 (master 순번 · 급하지 않음
+   r163-dead-seat-resume → unknown:r162(상태 가드 PROT·명령 deny 목록이 이 카드의 `ft-re
+   r165-queue-digest → unknown:r162(상태 가드가 좌석의 issue 실행을 막는다) · r164(인터
+   r170-harness-tests-preexisting-red → unknown:R169 랜딩(범위 5 의 test_successor_open 이 R16
+   r171-nano-close-superseded-by → unknown:R169 랜딩(첫 묶음 후보 · 급 낮음
+   r173-wt-clean-plan-self-version-check → unknown:R171 랜딩 — 충족(7f71991c96 · PR #1567
+   r200-all-done-signal-and-issue-decision-line → unknown:R199(팀 틱 통일) 랜딩 — 신호가 공용 틱 한 곳에서 나와야 한다
+   r203-secret-env-inherit-narrow → unknown:R195(키 교체 도구) 랜딩 — 이 카드가 그 도구의 «쓸 파일» 표를
+   r205b-desk-seat-open → unknown:★`r205-desk-seat-install` 랜딩·설치(§8 ①~④) 
+   r206a-key-rotate-clipboard-reject-reason → unknown:R204 랜딩(PR #1617 · 같은 파일 `ft_key_rotate.
+   r206c-key-rotate-journal-bundle → unknown:R204 랜딩(PR #1617 · 같은 도구) · R206a(클립보드 거
+   r210-nano-spawn-agent-not-started-retry → unknown:planner 결정 1줄(845 확장 a/b · 사전검증 절) (순번 h
+   r214-planner-decision-count-line → unknown:R186(h 실행 표식 — «스크립트 N건» 은 실행 안 된 h 만 센다
+   r218-tests-isolate-resource-gate → unknown:R213 병합(자원 문지기 황금값 — 센서가 sysctl 압력 단계·me
+   r221-blocked-wait-sessions → unknown:R214 병합(같은 `ft_decision_count.py` 를 고침 ·
+   r226-desk-question-board → unknown:R224 구현(desk 질문 Q<id> 를 슬랙에 올리는 경로가 생겨야 
+   r229-tmm-project-seat-two-level → unknown:R223 병합(tmm 0.8.3 · ai-feature-pack 68f5
+   r23-tank-rest-path → unknown:재발 1회 실측 — Tank 래퍼 쓰기가 GraphQL 오류로 실패하는 
+   r231b-desk-inbound-file-meta-and-fetch → unknown:R238(같은 파일 `mirror_inbound.py`·`byz_slac
+   r234-governance-proposal-flow-close-or-dispatch → unknown:R230 다음(master 순서 · 급하지 않음
+   r241-desk-never-stall → unknown:R242 → R238 병합 뒤(같은 데몬 파일 · 겹치는 줄 0 이나 순
+   r243-base-sync-after-main-landing → unknown:R230 병합(PR 요청 #95010 · DA⑥ APPROVE) — 이 
+   r245-live-install-after-merge → unknown:R243 병합(같은 파일 `ft-merge-land.sh`·`ft-new
+   r247-merge-land-approval-equivalence → unknown:R245 병합(같은 파일 `ft-merge-land.sh` 에 hunk 
+   r249-head-lag-skip-doc-trunks → unknown:R245 병합(같은 도구 묶음 · ft-merge-land 인접 · 키트
+   r259-magazine-guide-readable → blocked:r202-magazine-relative-date-guard
+   r286-roster-opencode-nano-close → unknown:★HIL 1건(master → planner)★ — 닫기 도구가 «그 나
+   r291-autonomy-queue-only-merge-bundle → unknown:R287(쪽지·슬랙 질문 가드 — 이 카드의 (1) «장치» 는 R287
+   r298b-away-scope-classifier-landing → unknown:r298a 와 같은 DA⑥ 1회 묶음(나노는 따로 · r298a 의 `s
+   r298c-da-verdict-record-wrapper → unknown:r298a 착지(같은 훅 파일 `autonomy-state-guard.s
+   r307-env-no-command-full-dump-guard → unknown:R135b r4 착지(가림 모양 2번은 `ft_secret_shapes.
+   r318b-harness-folder-tidy-move → unknown:r318a 착지(이동 검증에 `ft-team-map-lint.sh har
+   r320b-stall-scan-penalty-loaded-rule → unknown:R320(`design/harness/ `) 의 `ft-spawn-hol
+   r330-spawn-verdict-single-judge → unknown:팀셋 착지(31bb9f7821 · ft_teamset.py cap·큐) 
+   r331-wait-closing-event-recovery → unknown:R330 착지(WAIT 다섯 칸을 verdict 가 만든다) · R320
+   r338-hold-state-broadcast → unknown:R320(hold 판정기 · main 31b61add7c 착지됨) · R
+   r340-oppa-question-single-ledger → unknown:R337(결정 수 분류)과 독립 — R340 착지 뒤 R337 의 출처를
+   r342-planner-arch-required-gate → unknown:팀셋 640ac4b8d7(착지됨 · TEAMSET.md «arch 상시»
+   r349-load-test-hygiene-rule-and-bash-gate → unknown:r347(리퍼) 과 독립 — 같은 사고의 «못 치게»(이 카드) 와 «뿌
+   r350-reclaim-card-resolver-and-no-nano-autoresume → unknown:R332(같은 ft-resource-reclaim.sh · 나노 r332
+   r356-agent-ready-body-judge-dedupe → unknown:★R346 착지★(d9117e6516 · 공유 판정기 파일이 main 에
+   r369-team-canon-manifest-in-succession-boot → unknown:★R362 착지(골 표 check 판정기 · 가드 인터페이스 from·첨
+   r401-noagent-in-pane-resume-pack-port → unknown:r400 r3(1.1.6) 착지 뒤(같은 `ft-tick.sh`·zomb
+   r404-pack-mbox-lineage-fixture-port → unknown:r403 착지 뒤(같은 `harness/tests/` 폴더 · 파일 겹침
