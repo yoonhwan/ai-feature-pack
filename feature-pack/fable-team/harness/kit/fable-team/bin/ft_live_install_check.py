@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ft_live_install_check.py — 키트(scripts/harness-install/)가 라이브 위치와 같은지 «읽기만» 검사 (R245).
-종료: 0 OK · 1 PENDING · 2 usage · 3 ERROR(지도·ref 못 품 — #0 RULE). 쓰기 0 · fetch 0 · launchctl·ps 각 7초 상한."""
+종료: 0 OK · 1 PENDING · 2 usage · 3 ERROR(지도·ref 못 품 · B 가 ref 조상 아님 — #0 RULE). 쓰기 0 · fetch 0 · launchctl·ps 각 7초 상한.
+--range A..B 는 대상 파일 집합만 정하고, 대조 blob 은 --ref(기본 origin/main) tip 에서 읽는다 (R367)."""
 import fnmatch
 import os
 import re
@@ -85,20 +86,25 @@ def plist_items(repo, path, blob):
 def main():
     o = parse_args(sys.argv[1:])
     repo = o["repo"] or git(".", "rev-parse", "--show-toplevel").strip()
-    if o["range"]:
-        a, _, ref = o["range"].partition("..")
-        if not a or not ref:
+    ref, landed, removed = o["ref"], None, []
+    if o["range"]:  # A..B 는 «대상 파일 집합»만 정한다 — 대조 blob 은 ref tip (R367)
+        a, _, landed = o["range"].partition("..")
+        if not a or not landed:
             sys.exit(2)
-        for x in (a, ref):
+        for x in (a, landed, ref):
             git(repo, "rev-parse", "--verify", "-q", x + "^{commit}")
-        files = set(git(repo, "diff", "--name-only", "--diff-filter=ACMR", a, ref, "--", KD).split("\n"))
+        if run(["git", "-C", repo, "merge-base", "--is-ancestor", landed, ref]).returncode:
+            die("%s 가 ref(%s) 조상 아님 — 다른 가지 착지를 tip 로 재지 않는다" % (landed[:10], ref))
+        files = set(git(repo, "diff", "--name-only", "--diff-filter=ACMR", a, landed, "--", KD).split("\n"))
     else:
-        ref, files = o["ref"], None
+        files = None
         git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
     tree = {}
     for ln in git(repo, "ls-tree", "-r", ref, "--", KD).splitlines():
         meta, _, path = ln.partition("\t")
         tree[path] = (meta.split()[0], meta.split()[2])
+    if files is not None:
+        removed = sorted(f for f in files if f and f not in tree and ".bak" not in f)
     files = sorted(f for f in (files if files is not None else tree) if f in tree and ".bak" not in f)
     try:
         rows = load_map(open(o["map"], encoding="utf-8").read() if o["map"] else git(repo, "show", ref + ":" + MAPPATH))
@@ -128,8 +134,19 @@ def main():
         if not why and tree[f][0] == "100755" and not os.access(lp, os.X_OK):
             why = "MODE"
         if why:
-            bad.append("%s %s -> %s" % (why, f, lp))
+            tail = " live=%s tip=%s landed=%s" % (hmap[lp][:10], tree[f][1][:10], landed[:10]) if why == "DIFF" and landed else ""
+            bad.append("%s %s -> %s%s" % (why, f, lp, tail))
             hints[f[len(KD):].split("/")[0]] = row[3]
+    drows = rows if (o["map"] or not removed) else load_map(git(repo, "show", landed + ":" + MAPPATH))
+    for f in removed:  # tip 에서 삭제된 파일 — landed(B) 시점 지도로 라이브 경로를 풀어 잔재가 있으면 PENDING (읽기만 · 삭제 0)
+        row = next((r for r in drows if fnmatch.fnmatch(f[len(KD):], r[0])), None)
+        if row is None or row[1] == "plist":
+            bad.append("UNKNOWN %s (삭제 파일 — landed 지도로 라이브 경로를 못 풂)" % f)
+        elif row[1] != "skip" and os.path.isfile(os.path.join(subst(row[2]), os.path.basename(f))):
+            bad.append("STALE %s -> %s" % (f, os.path.join(subst(row[2]), os.path.basename(f))))
+            hints[f[len(KD):].split("/")[0]] = row[3]
+        else:
+            print("REMOVED %s (ref tip 에서 삭제 · 라이브 잔재 0)" % f)
     if not bad:
         print("OK n=%d skip=%d" % (checked, skip))
         return 0

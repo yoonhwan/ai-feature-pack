@@ -24,7 +24,7 @@ printf 'print(1)\n' > "$R/$KD/slack-mirror/x.py"; echo tmm1 > "$R/$KD/tmm/tmm"
 cat > "$R/$KD/slack-mirror/com.hermes.test-x.plist.template" <<'EOF'
 <plist><dict><key>Label</key><string>com.hermes.test-x</string><key>ProgramArguments</key><array><string>__PY__</string><string>__HOME__/.hermes/scripts/x.py</string></array></dict></plist>
 EOF
-G add -A && G commit -qm c0; C0="$(G rev-parse HEAD)"
+G add -A && G commit -qm c0; C0="$(G rev-parse HEAD)"; G update-ref refs/remotes/origin/main HEAD
 live_sync() { git -C "$R" show "$1:$KD/$2" > "$3"; [ -z "${4:-}" ] || chmod "$4" "$3"; }   # live_sync <ref> <키트상대> <라이브경로> [모드]
 live_sync "$C0" fable-team/bin/ft-a.sh "$FT_BIN/ft-a.sh" 755; live_sync "$C0" hooks/h.sh "$HOME/.claude/hooks/h.sh" 755; live_sync "$C0" slack-mirror/x.py "$HOME/.hermes/scripts/x.py"
 # 가짜 launchctl · ps
@@ -37,7 +37,7 @@ EOF
 printf '#!/bin/bash\necho "${STUB_LSTART:-Thu Oct 15 10:00:00 2026}"\n' > "$T/fake-ps"; chmod +x "$T/fake-launchctl" "$T/fake-ps"
 export FT_LAUNCHCTL="$T/fake-launchctl" FT_PS="$T/fake-ps" STUB_LOADED=""
 chk() { out="$(bash "$CHK" "$@" --repo "$R" 2>&1)"; rc=$?; }
-commit_kit() { G add -A && G commit -qm "$1"; G rev-parse HEAD; }   # 새 HEAD sha 출력
+commit_kit() { G add -A && G commit -qm "$1"; G update-ref refs/remotes/origin/main HEAD; G rev-parse HEAD; }   # 새 HEAD sha 출력 · origin/main = HEAD (R367: --range 대조는 ref tip)
 
 [ -f "$CHK" ] && bash -n "$CHK"; ck "bash -n ft-live-install-check.sh (파일 실재)" $?
 [ -f "$KITMAP" ]; ck "LIVE-MAP.tsv 실재" $?
@@ -120,6 +120,9 @@ git -C "$LW" fetch -q origin; mkpr 23 pr23; land 23 --approve-sha "$PRSHA"; Q23=
 fakechk 'echo "OK n=2 skip=0"; exit 0'
 git -C "$LW" fetch -q origin; mkpr 24 pr24; land 24 --approve-sha "$PRSHA"; Q24="$(sha "$LORIGIN" refs/heads/main)"
 [ "$rc" = 0 ] && has "INSTALL OK n=2" && [ ! -e "$PD/$Q24.txt" ]; ck "ⓖ OK → INSTALL OK 줄 · 상태 파일 0" $?
+fakechk 'echo "$@" > "$STUB_LOG.chkargs"; echo "OK n=1 skip=0"; exit 0'
+git -C "$LW" fetch -q origin; mkpr 25 pr25; land 25 --approve-sha "$PRSHA"; Q25="$(sha "$LORIGIN" refs/heads/main)"
+[ "$rc" = 0 ] && grep -q -- "--ref $Q25" "$STUB_LOG.chkargs"; ck "R367 착지 직후 검사에 --ref <착지 sha> 전달(로컬 origin/main 미갱신 경로 ERROR 0)" $?
 grep -q 'ft-live-install-check' "$LAND" && [ "$(wc -l < "$LAND" | tr -d ' ')" -le 120 ]; ck "착지 도구에 검사 호출 · ≤ 120줄(test_merge_land 와 같은 상한)" $?
 
 # ── 뉴스 줄 (ft-install-pending.sh) ────────────────────────────────────────────

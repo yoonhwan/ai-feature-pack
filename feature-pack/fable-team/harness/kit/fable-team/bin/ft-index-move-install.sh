@@ -3,6 +3,7 @@
 #   병합 ≠ 끝: 하네스 키트 단위는 «라이브 설치 cmp0 + 실사건 1회 실측» 까지가 완료다.
 #   design/harness/indices/ 카드: `- 설치: 있음|없음` 줄 필수. 없음 = 통과. 있음 = --landed 필수 → ft-live-install-check.sh --range 가 OK 이고
 #   `- 실사건: <무엇> · <증거: mbox #N | 경로:줄 | ledger 키>` 줄에 증거 토큰이 있어야 통과. 통과하면 그 범위 sha 의 install-pending 파일을 지운다.
+#   대조는 origin/main tip — --landed 는 «대상 파일»만 정한다(뒤 커밋이 같은 파일을 또 고쳐도 라이브=tip 이면 OK · R367).
 #   다른 팀 indices(design/<팀>/indices) 는 범위 밖 = 통과.   exit 0 = 통과 · 1 = REJECT(이동 0) · 2 = usage   env: FT_INSTALL_CHECK = 검사 도구(시험 주입)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
