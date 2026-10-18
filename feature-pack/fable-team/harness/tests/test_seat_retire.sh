@@ -283,6 +283,39 @@ for a in "M#1 M#2 --verdict 2304" "M#1 --record-only --verdict" "M#1 --record-on
   bash "$RETIRE" $a --seats "$S" > /dev/null 2>&1; chk "⑮usage [$a] rc 2" "$?" 2
 done
 
+# ⑯ R400 codex 좌석 — claude 세션 파일 0 · pane 100 → npm 200 → node 300 → codex 400 이 rollout 을 열고 있음(가짜 pgrep·ps·lsof)
+FC="$TMP/fakecodex"; mkdir -p "$FC"; cp "$FK/tmux" "$FC/tmux"
+cat > "$FC/pgrep" <<'EOF'
+#!/usr/bin/env bash
+case "$2" in 100) echo 200;; 200) echo 300;; 300) for p in ${FAKE_CODEX:-400}; do echo "$p"; done;; *) exit 1;; esac
+EOF
+cat > "$FC/ps" <<'EOF'
+#!/usr/bin/env bash
+case "$2" in lstart=) echo "Mon Jan  1 00:00:00 2001";; comm=) case "$4" in 400|401) echo /v/bin/codex;; *) echo node;; esac;;
+  args=) echo "/v/bin/codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=low -c model=gpt-x";; *) exit 1;; esac
+EOF
+cat > "$FC/lsof" <<'EOF'
+#!/usr/bin/env bash
+echo "p$4"; for f in ${FAKE_ROLLOUT:-}; do echo "n$f"; done
+EOF
+chmod +x "$FC"/*
+CX=01a149d1-1722-78f3-b6e8-bf86135458b7
+cx_home() { local h="$TMP/cx-$1"; mkdir -p "$h/.claude/sessions" "$h/.codex/sessions/2026/10/17"; local r="$h/.codex/sessions/2026/10/17/rollout-2026-10-17T21-23-22-$CX.jsonl"
+  printf '%s\n' "{\"type\":\"session_meta\",\"payload\":{\"id\":\"$CX\",\"cwd\":\"$WORK\"}}" '{"type":"turn_context","payload":{"model":"gpt-old"}}' > "$r"; echo "$h"; }
+cx_run() { HOME="$1" PATH="$FC:$PATH" FAKE_PANE_PID=100 FAKE_ROLLOUT="$2" bash "$RETIRE" 'M#1' --record-only --verdict 2304 --seats "$3"; }
+H="$(cx_home ok)"; RO="$H/.codex/sessions/2026/10/17/rollout-2026-10-17T21-23-22-$CX.jsonl"; S="$TMP/seats-cx.json"; rs_seats "$S" ''; cp "$S" "$S.orig"
+out="$(cx_run "$H" "$RO" "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
+chk "⑯codex rc 0 · RESUME ok" "$rc $out" "0 RESUME ok $REC"
+chk "⑯기록 engine·uuid·cwd·jsonl·model(argv -c)·retired_by" "$(jq -r '[.engine,.uuid,.cwd,.jsonl,.model,.retired_by]|join(",")' "$REC")" "codex,$CX,$WORK,$RO,gpt-x,verdict 2304"
+chk "⑯resume_cmd = codex <원래 인자> resume <id>" "$(jq -r .resume_cmd "$REC")" "codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=low -c model=gpt-x resume $CX"
+chk "⑯binding pid 400 · source codex-open-fd · session_name 칸 0 · 명부 불변" "$(jq -r '[(.binding.pid|tostring),.binding.source,(has("session_name")|tostring)]|join(",")' "$REC") $(cmp -s "$S" "$S.orig" && echo same || echo changed)" "400,codex-open-fd,false same"
+H="$(cx_home two)"; RO2="$H/.codex/sessions/2026/10/17/rollout-2026-10-17T21-23-22-$CX.jsonl"; out="$(FAKE_CODEX="400 401" cx_run "$H" "$RO2" "$S")"; rc=$?
+chk "⑯codex 프로세스 2개가 rollout 을 엶 → NORECORD(rollout 2개) · 기록 0" "$rc $(cut -d' ' -f1-2 <<< "$out") $(grep -c 'codex rollout 2개' <<< "$out") $([ -e "$H/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" "0 NORECORD M#1 1 no"
+H="$(cx_home none)"; out="$(cx_run "$H" "" "$S")"; rc=$?
+chk "⑯rollout 0개 → NORECORD(rollout 0개)" "$rc $(grep -c 'codex rollout 0개' <<< "$out")" "0 1"
+H="$(cx_home badid)"; RO3="$H/.codex/sessions/2026/10/17/rollout-x-other.jsonl"; cp "$H/.codex/sessions/2026/10/17/"rollout-*"$CX".jsonl "$RO3"; out="$(cx_run "$H" "$RO3" "$S")"
+chk "⑯session_meta id ≠ 파일명 끝 → NORECORD(id·cwd 없음)" "$(grep -c 'rollout id·cwd 없음' <<< "$out")" 1
+
 # ⑧ 기존 시험
 for t in test_ft_tick_master_seat.sh test_role_spawn_name.sh test_kit_bin_sync.sh; do
   bash "$HERE/$t" > "$TMP/$t.out" 2>&1; chk "⑧$t rc=0" "$?" 0

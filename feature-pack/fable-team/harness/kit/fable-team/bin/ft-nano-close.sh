@@ -477,6 +477,16 @@ while [ -z "$IDX" ] && [ "$_in" -lt 10 ]; do _ic="$(jq -r --arg s "$_ic" '.[$s].
   _iseen+="$_ic|"; _in=$((_in+1)); IDX="$(jq -r --arg s "$_ic" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; [ -z "$IDX" ] || echo "INFO index 상속 ← $_ic"; done
 _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_index_twin "$IDX")"; }   # R382: design/teams/<팀>/ ↔ design/<팀>/ 쌍둥이 후보(미전환·전환 워크트리가 섞인 기간)
 for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX" ${_tw:+"$WT/$_tw" "$ROOT/$_tw" "$LEDGER_WT/$_tw"}; do [ -n "$IDX" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
+# R400 r2: 카드 생애 이동(대기→진행→완성) 뒤 명부 index 는 옛 폴더 그대로 — 같은 indices 뿌리의 형제 폴더에서 같은 파일명이 «정확히 1개» 일 때만 그 카드(쌍둥이도 같은 규칙 · 0·2+ = 아래 REJECT 그대로 · 명부 쓰기 0)
+_sibn=""
+if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
+  _sibn=0; _sib1=""
+  for _d in 대기 진행 완성; do _hit=""
+    for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
+      for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$_hit" ] && [ -f "$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _hit="$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
+    [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
+  [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
+fi
 # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
 _cp_pressed=1
 if [ "$(jq -r --arg s "$SEAT" '.[$s].role // empty' "$SEATS" 2>/dev/null)" = nano ] && [ -n "$SEAT_WT" ]; then
@@ -498,7 +508,7 @@ fi
 _role="$(jq -r --arg s "$SEAT" '.[$s].role // empty' "$SEATS" 2>/dev/null)"
 if [ "$SUPER" = 1 ]; then
   # R171 대체됨: rc=0 세트 증거 줄 대신 «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드 실재(대기/진행/완료) + 자기 자신 아님. 역할 무관(카드를 못 찾으면 REJECT).
-  if [ -z "$CARD" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 대체됨 줄을 대조할 카드가 없다")
+  if [ -z "$CARD" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 대체됨 줄을 대조할 카드가 없다${_sibn:+ · 형제 ${_sibn}개}")
   elif [ ! -x "$HERE/ft-nano-superseded-check.sh" ]; then bad+=("⑥대체됨 검사 스크립트 없음: $HERE/ft-nano-superseded-check.sh (런타임 bin 에 같이 복사)")
   else
     _sp_out="$("$HERE/ft-nano-superseded-check.sh" "$CARD" --superseded-by "$SUPERSEDED" --base "$WT" --base "$ROOT" --base "$LEDGER_WT" --team-root "$ROOT" 2>&1)"; _sp_rc=$?
@@ -506,7 +516,7 @@ if [ "$SUPER" = 1 ]; then
   fi
 elif [ "$_role" = nano ] && [ -z "$CARD" ]; then
   # 카드를 못 찾으면 증거를 대조할 수 없다 — 건너뛰고 CLOSED 하면 무음 통과(#0 RULE · DA⑥ 관측 A3). grandfather 와 무관하게 REJECT.
-  bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} (후보 $WT/·$ROOT/·$LEDGER_WT/ 아래 어디에도 없음) — 증거 줄을 대조할 카드가 없다")
+  bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} (후보 $WT/·$ROOT/·$LEDGER_WT/ 아래 어디에도 없음) — 증거 줄을 대조할 카드가 없다${_sibn:+ · 형제 ${_sibn}개}")
 elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
   if [ ! -x "$HERE/ft-nano-evidence-check.sh" ]; then bad+=("⑥증거 검사 스크립트 없음: $HERE/ft-nano-evidence-check.sh (런타임 bin 에 같이 복사)")
   elif [ "$SHARED" = 1 ]; then

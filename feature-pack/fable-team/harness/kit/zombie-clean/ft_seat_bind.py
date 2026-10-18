@@ -65,8 +65,8 @@ def candidates(pane_pid):
     return list(dict.fromkeys([pane_pid] + toks))
 
 
-def proc_of(pid):
-    """(lstart, '') | res(실패) — 실재 ∧ 실행 주체 claude. ps 두 조회 중 하나라도 rc≠0 이면 부분 출력이 있어도 조회 오류(rc 2)."""
+def proc_of(pid, engine="claude"):
+    """(lstart, '') | res(실패) — 실재 ∧ 실행 주체 engine. ps 두 조회 중 하나라도 rc≠0 이면 부분 출력이 있어도 조회 오류(rc 2)."""
     ls, cm = sh("ps", "-o", "lstart=", "-p", pid), sh("ps", "-o", "comm=", "-p", pid)
     if ls is None or cm is None:
         return res(2, "ps 조회 불가(시간 초과)")
@@ -75,9 +75,34 @@ def proc_of(pid):
     lstart, comm = ls[1].strip(), cm[1].strip()
     if not lstart or not comm:
         return res(1, "프로세스 없음")
-    if os.path.basename(comm) != "claude":
-        return res(1, "실행 주체 claude 아님")
+    if os.path.basename(comm) != engine:
+        return res(1, f"실행 주체 {engine} 아님")
     return lstart, ""
+
+
+def bind_codex(pane_pid, ident, home):
+    """R400 codex 좌석: pane 자손(깊이 ≤4 · npm→node→codex) 중 실행 주체 codex 가 연 ~/.codex/sessions/**/rollout-*.jsonl «정확히 1개» ∧ 첫 줄 session_meta id == 파일명 끝 ∧ 시작시각 ≤ mtime · codex 프로세스 없음 = None."""
+    level, pairs, found = [pane_pid], [], False
+    for _ in range(4):
+        nxt = []
+        for p in level:
+            if isinstance(c := candidates(p), dict): return c
+            nxt += c[1:]
+        for d in (level := list(dict.fromkeys(nxt))):
+            lf = sh("lsof", "-Fn", "-p", d) if (cm := sh("ps", "-o", "comm=", "-p", d)) and os.path.basename(cm[1].strip()) == "codex" else ()
+            if cm is None or lf is None: return res(2, "ps·lsof 조회 불가(시간 초과)")
+            found |= bool(lf); pairs += [(d, ln[1:]) for ln in (lf[1].splitlines() if lf else []) if ln.startswith(f"n{home}/.codex/sessions/") and re.search(r"/rollout-[^/]*\.jsonl$", ln)]
+    if not found or len(pairs) != 1: return res(1, f"codex rollout {len(pairs)}개") if found else None
+    (pid, path), pr = pairs[0], proc_of(pairs[0][0], "codex")
+    if isinstance(pr, dict): return pr
+    try: m = json.loads(open(path, encoding="utf-8").readline())
+    except (OSError, ValueError): m = None
+    p = m.get("payload") if isinstance(m, dict) and m.get("type") == "session_meta" else None
+    uuid, cwd = (p.get("id") or "", p.get("cwd") or "") if isinstance(p, dict) else ("", "")
+    if not (uuid and cwd and path.endswith(f"-{uuid}.jsonl")): return res(1, "rollout id·cwd 없음")
+    if (started := lstart_epoch(pr[0])) is None or started > os.path.getmtime(path) + 1: return res(1, "시간 모순: 프로세스 시작시각 > rollout mtime")
+    sess, win, pane = re.fullmatch(r"(.+):(@\d+)\.(%\d+)", ident).groups()
+    return res(0, "", pid=int(pid), uuid=uuid, cwd=cwd, jsonl=path, name=None, name_source=None, engine="codex", binding=dict(session=sess, window=win, pane=pane, pid=int(pid), lstart=pr[0], source="codex-open-fd"))
 
 
 def lstart_epoch(lstart):
@@ -107,6 +132,7 @@ def bind(seat):
     if isinstance(cands, dict):
         return cands
     files = [c for c in cands if os.path.isfile(f"{home}/.claude/sessions/{c}.json")]
+    if not files and (cx := bind_codex(pane_pid, ident, home)) is not None: return cx   # claude 세션 파일 0개 → codex 좌석인가(R400)
     if len(files) != 1:
         return res(1, f"세션 파일 {len(files)}개")
     pid = files[0]

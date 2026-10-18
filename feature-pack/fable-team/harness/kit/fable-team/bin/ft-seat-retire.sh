@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-on
 { [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ] && [ -z "$VERDICT" ]; } || { echo "$USAGE" >&2; exit 2; }
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" <<'PY'
-import json, os, re, sys, glob, shutil, datetime, subprocess, collections
+import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict = sys.argv[1:8]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
 try: import ft_seat_bind
@@ -38,7 +38,7 @@ def jsonl_model(jsonl):   # 대화 기록 끝(8MB·2000줄)에서 거꾸로 마�
     for ln in reversed(tail[-2000:]):
         try: r = json.loads(ln)
         except ValueError: continue
-        m = r.get("message") if isinstance(r, dict) and r.get("type") == "assistant" else None
+        m = r.get("message") if isinstance(r, dict) and r.get("type") == "assistant" else r.get("payload") if isinstance(r, dict) and r.get("type") == "turn_context" else None   # codex rollout = turn_context.payload.model (R400)
         m = m.get("model") if isinstance(m, dict) else None
         if isinstance(m, str) and m and not m.startswith("<"): return m   # <synthetic> 같은 자리표시 제외
     return None
@@ -48,6 +48,7 @@ def argv_model(pid):   # 실행 중 프로세스의 `--model X`(접미사 포함
     for i, t in enumerate(a):
         if t == "--model" and i + 1 < len(a): return a[i + 1]
         if t.startswith("--model="): return t[8:] or None
+        if t in ("-c", "--config") and i + 1 < len(a) and a[i + 1].startswith("model="): return a[i + 1][6:].strip("\"'") or None   # codex `-c model=X` (R400)
     return None
 def find_resume(model, retired_by):   # (기록|None, 이유) — 소유 결속은 ft_seat_bind.py 하나(R364): pane pid 자신 ∪ 직계 자식 중 세션 파일 «정확히 1개» + tmux 칸(세션·window·pane)·pid·시작시각. 이름·mtime 추측 0
     b = ft_seat_bind.bind(old)
@@ -56,8 +57,10 @@ def find_resume(model, retired_by):   # (기록|None, 이유) — 소유 결속�
     am, jm, rm = argv_model(pid), jsonl_model(jsonl), (model if isinstance(model, str) and model else None)
     use = am or (rm if rm and (not jm or base_model(rm) == base_model(jm)) else jm or rm)   # zombie-clean resume 이 --model 로 그대로 쓴다 — jsonl 값엔 [1m] 이 없어 200k 창 회귀(r2): argv → 명부(바탕 같으면 접미사 유지) → jsonl → 명부
     if not use: return None, "model 못 읽음(jsonl·명부)"
-    rec = collections.OrderedDict(name=old, engine="claude", pid=b["pid"], uuid=uuid, jsonl=jsonl, cwd=cwd, model=use, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds"), binding=b["binding"])
-    if b.get("name") != old: rec["session_name"] = b.get("name")   # 세션 파일 name(참고 칸) — 소유 증거는 binding
+    eng = b.get("engine", "claude")   # codex 좌석(R400) = rollout 결속 · 재개 = resume_cmd(zombie-clean resume 은 claude 기록만 받는다)
+    rec = collections.OrderedDict(name=old, engine=eng, pid=b["pid"], uuid=uuid, jsonl=jsonl, cwd=cwd, model=use, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds"), binding=b["binding"])
+    if eng == "codex": rec["resume_cmd"] = shlex.join(["codex"] + sh("ps", "-o", "args=", "-p", pid)[1:] + ["resume", uuid])
+    if eng == "claude" and b.get("name") != old: rec["session_name"] = b.get("name")   # 세션 파일 name(참고 칸) — 소유 증거는 binding
     if rm and base_model(rm) != base_model(use): rec["roster_model"] = rm   # 바탕이 다를 때만 — 조용히 덮지 않는다
     return rec, ""
 def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
