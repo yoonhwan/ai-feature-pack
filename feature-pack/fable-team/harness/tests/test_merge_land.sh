@@ -75,6 +75,72 @@ NOAP=1 land 10 --approve-sha "$P10"; [ "$rc" = 2 ] && [[ "$out" == *"approve-mer
 bash "$BIN/ft-autonomy.sh" approve-merge "$P10" >/dev/null 2>&1
 land 10 --approve-sha "$P10"; [ "$rc" = 0 ] && [ "$(omain)" != "$M3" ]; ck "자율 ON · approve-merge 승인 뒤 착지" $?
 
+# R354: push 시도당 상한 = min(F + 7 × ceil(객체수/U0), 70) — 대역 timeout(push 인자 기록 · 시도별 결과 주입) + 대역 git(rev-list --objects 개수 주입)
+SP="$T/shimP"; mkdir -p "$SP"; PLOG="$T/push.log"; PSEQ="$T/push.seq"; REAL_TO="$(command -v timeout)"
+cat > "$SP/git" <<EOF
+#!/bin/bash
+r=0; o=0; for a in "\$@"; do [ "\$a" = rev-list ] && r=1; [ "\$a" = --objects ] && o=1; done
+if [ "\$r\$o" = 11 ]; then
+  [ -n "\${STUB_REVLIST_FAIL:-}" ] && { echo "fatal: stub rev-list fail" >&2; exit 128; }
+  [ -n "\${STUB_OBJECTS:-}" ] && { seq 1 "\$STUB_OBJECTS"; exit 0; }
+fi
+exec "$REAL_GIT" "\$@"
+EOF
+cat > "$SP/timeout" <<EOF
+#!/bin/bash
+p=0; l=0; for a in "\$@"; do [ "\$a" = push ] && p=1; [ "\$a" = ls-remote ] && l=1; done
+[ "\$l" = 1 ] && [ -n "\${STUB_LSREMOTE_FAIL:-}" ] && { echo "fatal: unable to access (stub)" >&2; exit 128; }
+[ "\$p" = 1 ] || exec "$REAL_TO" "\$@"
+echo "\$1" >> "$PLOG"; n="\$(wc -l < "$PLOG" | tr -d ' ')"; mode="\$(printf '%s' "\${PUSH_MODES:-ok}" | cut -d' ' -f"\$n")"; [ -n "\$mode" ] || mode=ok
+[ -n "\${PUSH_SLEEP:-}" ] && [ "\$n" = 1 ] && sleep "\$PUSH_SLEEP"
+case "\$mode" in
+  rc124) exit 124;;
+  conn) echo "ssh: connect to host github.com port 22: Operation timed out" >&2; echo "fatal: Could not read from remote repository." >&2; exit 128;;
+  reject) echo " ! [rejected]        Q -> main (fetch first)" >&2; echo "error: failed to push some refs" >&2; exit 1;;
+  nff) echo " ! [remote rejected] Q -> main (pre-receive hook declined)" >&2; exit 1;;
+  other) echo "fatal: protocol error" >&2; exit 128;;
+  afterland) shift; "\$@" >/dev/null 2>&1; echo "remote: Resolving deltas: 100% (3/3), done." >&2; echo "To stub-origin" >&2; exit 124;;   # 서버가 받아 ref 갱신 뒤 timeout
+  reset) echo "remote: Counting objects" >&2; echo "fatal: the remote end hung up unexpectedly" >&2; echo "Connection reset by peer" >&2; exit 128;;   # 응답 후 단절(착지 0)
+  *) shift; exec "\$@";;
+esac
+EOF
+chmod +x "$SP/git" "$SP/timeout"
+pland() {  # pland <PR> <env…> — 대역 PATH 로 착지 · 시도 기록 초기화(env 는 KEY=VAL 로 앞에 둔다)
+  local pr="$1"; shift; : > "$PLOG"; git -C "$W" fetch -q origin; mkpr "$pr" "pr$pr" origin/main; local P="$PRSHA"; apv --approve-sha "$P"
+  out="$(env PATH="$SP:$PATH" "$@" bash "$LAND" "$pr" --approve-sha "$P" --repo "$W" 2>&1)"; rc=$?
+}
+pb() { sed -n '1p' "$PLOG"; }   # 첫 push 시도의 timeout 인자
+pland 21 STUB_OBJECTS=1; [ "$rc" = 0 ] && [ "$(pb)" = 11 ] && [[ "$out" == *"push ok objects=1 bound=11 attempt=11 took="* ]]; ck "ⓐ 객체 1 → bound 11 (4.5+7) · push ok 줄(bound=PB attempt=AB)" $?
+pland 22 STUB_OBJECTS=390; [ "$rc" = 0 ] && [ "$(pb)" = 32 ] && [[ "$out" == *"push ok objects=390 bound=32 attempt=32 took="* ]]; ck "ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 32" $?
+[ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 5000 2>/dev/null)" = 70 ] && [ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 900 2>/dev/null)" = 67 ]; ck "ⓒ 객체 5,000 → 4.5+350 → 70 클램프 · 900 → 67(fm_push_calc)" $?
+pland 23 STUB_REVLIST_FAIL=1; [ "$rc" = 0 ] && [ "$(pb)" = 11 ] && [[ "$out" == *"objects=?"* ]] && [[ "$out" == *"WARN"* ]]; ck "ⓓ 객체 수 조회 실패 → F+7=11 호환값 + stderr WARN 1줄(조용한 통과 0)" $?
+np() { wc -l < "$PLOG" | tr -d ' '; }   # push 시도 수
+# DA⑥ H1 ⓗ — 재시도 = «서버 응답 전 연결 실패» 뿐 · timeout·reset·remote 출력은 불명 → 재시도 0 + ls-remote 1회로 착지됨/착지 0/불명 판정
+MH="$(omain)"; pland 24 STUB_OBJECTS=1 PUSH_MODES="afterland ok"
+[ "$rc" = 0 ] && [ "$(np)" = 1 ] && [ "$(omain)" != "$MH" ] && [[ "$out" == *"confirmed=ls-remote"* ]] && tail -n1 "$T/state/merge-gate.log" | grep -q 'push-confirmed=ls-remote'; ck "ⓗ1 응답 후 timeout(remote: 줄 뒤 rc124 · 원격 ref=Q) → 재시도 0 · ls-remote==Q → 착지됨 정상 종료" $?
+MH="$(omain)"; pland 25 STUB_OBJECTS=1 PUSH_MODES="reset ok"
+[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]] && [[ "$out" == *"응답 불명"* ]]; ck "ⓗ2 응답 후 reset(remote: 줄 뒤) → 불명 · ls-remote==M → rej «착지 0 · 불명» · 재시도 0" $?
+MH="$(omain)"; pland 32 STUB_OBJECTS=1 PUSH_MODES="rc124 ok"
+[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]]; ck "ⓗ2b remote 출력 0 인 rc124 도 불명 → 재시도 0(옛 ⓔ1 대체) · ls-remote==M → rej" $?
+pland 26 STUB_OBJECTS=1 PUSH_MODES="conn ok"; [ "$rc" = 0 ] && [ "$(np)" = 2 ] && [ "$(sed -n 2p "$PLOG")" = 11 ]; ck "ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 11" $?
+MH="$(omain)"; pland 34 STUB_OBJECTS=1 PUSH_MODES="rc124 ok" STUB_LSREMOTE_FAIL=1
+[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"원격 상태 불명"* ]] && [[ "$out" != *"착지 0 확정"* ]]; ck "ⓗ4 불명 + ls-remote 실패 → rej «원격 상태 불명» · «착지 0 확정» 문구 0(조용한 통과 0)" $?
+# ⓔ3: 1차가 시간을 먹어 남은 총 마감 < PB → 재시도 0 — main 기준값은 호출 «전» 캡처 · PB·AB·시도 수 명시 단언
+ME="$(omain)"; pland 35 STUB_OBJECTS=1 FT_PUSH_FIXED_S=1 FT_LAND_TOTAL_S=14 PUSH_SLEEP=7 PUSH_MODES="conn ok"
+[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(pb)" = 8 ] && [ "$(omain)" = "$ME" ] && [[ "$out" == *"총 마감 14 s"* ]] && [[ "$out" != *"push ok"* ]]; ck "ⓔ3 PB=AB=8 · 1차 conn 실패 뒤 남은 < 8 → 시도 1 · 재시도 0 · main 불변(호출 전 캡처)" $?
+# DA⑥ H2 ⓘ — PB(70) > 남은 시간 REM ≥ PV(11): 1차 timeout 인자 == REM(=AB) 로 절단
+pland 33 STUB_OBJECTS=5000 FT_LAND_TOTAL_S=30; a="$(pb)"
+[ "$rc" = 0 ] && [ "$(np)" = 1 ] && [ "$a" -ge 11 ] && [ "$a" -le 30 ] && [[ "$out" == *"push ok objects=5000 bound=70 attempt=$a took="* ]]; ck "ⓘ1 PB 70 > REM → 1차 timeout 인자 == REM(=AB $a) · 절단 성공 → 착지 · bound=70 attempt=AB" $?
+MI="$(omain)"; pland 36 STUB_OBJECTS=5000 FT_LAND_TOTAL_S=30 PUSH_MODES="rc124 ok"; a="$(pb)"
+[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$a" -ge 11 ] && [ "$a" -lt 70 ] && [ "$(omain)" = "$MI" ] && [[ "$out" == *"총 마감 안에 끝내지 못함"* ]]; ck "ⓘ2 절단된 1차(AB $a) timeout → 재시도 조건 REM ≥ PB 거짓 → 시도 1 · rej «다음 틱» · main 불변" $?
+pland 27 STUB_OBJECTS=1 PUSH_MODES="reject ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"non-FF"* ]]; ck "ⓕ1 서버 거절(fetch first) → 재시도 0" $?
+pland 28 STUB_OBJECTS=1 PUSH_MODES="nff ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ]; ck "ⓕ2 pre-receive 거절 → 재시도 0" $?
+pland 29 STUB_OBJECTS=1 PUSH_MODES="other ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"push 실패"* ]]; ck "ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT" $?
+pland 30 STUB_OBJECTS=1 FT_PUSH_FIXED_S=9; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"WARN"*"FT_PUSH_FIXED_S"* ]]; ck "ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN" $?
+pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 25 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 25) + WARN" $?
+! grep -vE '^\s*#' "$BIN/ft-merge-land.sh" "$BIN/ft-merge-lib.sh" | grep -qE '\b(600|300)\b'; ck "600·300 글자 0" $?
+cmp -s "$BIN/ft-merge-land.sh" "$BIN/../harness-install/fable-team/bin/ft-merge-land.sh" && cmp -s "$BIN/ft-merge-lib.sh" "$BIN/../harness-install/fable-team/bin/ft-merge-lib.sh"; ck "키트 사본 2 cmp0" $?
+
 [ "$(git -C "$W" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
 ! grep -vE '^\s*#' "$LAND" | grep -qE 'git[^|]*(reset|rebase|--force|\+refs)|push[^|]*-f '; ck "정적: land 에 force·reset·rebase·+refspec 0" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

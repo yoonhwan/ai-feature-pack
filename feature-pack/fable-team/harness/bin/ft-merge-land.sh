@@ -3,7 +3,7 @@
 #   main 병합 = 이 도구뿐(gh pr merge·ft-gh-as-tank.sh pr merge 는 훅이 막는다). 검사한 트리 == 실제로 main 에 놓이는 트리 — 틈은 git 서버의 non-FF 거절이 닫는다.
 #   ① 오빠 승인 값(--approve-sha = 승인한 PR head sha · 없으면 실행 0 · 지금 head 가 다르면 «A 뒤 main 병합만 + 자기 변경 동일» 일 때만 ft-approval-equiv 로 통과 — R247 판정 1917) ② PR OPEN·base main·head sha 결속 ③ PR head fetch(pull/N/head) ④ ft-merge-gate(main 포함·줄 계약)
 #   ⑤ Q = commit-tree <S^{tree}> -p <M>(squash 1커밋 · 메시지 = PR 제목·본문 + PR #N) ⑥ git push origin Q:refs/heads/main (force 0 · non-FF = 착지 0)
-#   ⑦ PR 에 착지 sha 코멘트 + 닫기. 7초 룰: gh·fetch·push 각 7 s + 재시도 1(push 는 «서버 거절 아님» 일 때만) · 총 마감 70 s.
+#   ⑦ PR 에 착지 sha 코멘트 + 닫기. 7초 룰: gh·fetch 각 7 s + 재시도 1 · push 는 크기 비례 PB=min(F + 7 s × ceil(객체수/U0), 70 s)(fm_push_bound · R354) · 실제 상한 AB=min(PB, 남은 시간)(남은 11 s·PB 70 이면 11 s 한 번 · timeout 이면 재시도 0) · 재시도 1 은 «서버 응답 전 연결 실패» 뿐(timeout·reset·remote 출력 = 불명 → ls-remote 1회로 착지됨/착지 0/불명 판정) · 총 마감 70 s.
 #   ★모든 모드(ON·OFF·tamper·상태 못 읽음)에서 승인 파일(autonomy-merge-approved/<sha> + autonomy.log 한 줄)이 필요★(R336 · autonomy-merge-guard 와 같은 결속). 승인 파일 폴더 = ft-autonomy.sh state-dir(R253). 성공 줄에 approve-file=<승인 epoch>.
 #   exit 0 = 착지+정리 · 1 = REJECT(착지 0) · 2 = usage·승인 없음 · 3 = 착지 성공 · PR 코멘트/닫기 실패(수동). FT_GH/FT_GH_WRITE = 시험 주입.
 set -uo pipefail
@@ -56,15 +56,28 @@ Q="$(G commit-tree "$S^{tree}" -p "$M" -m "$MSG")" || rej "commit-tree 실패"
 [ "$(G rev-parse "$Q^{tree}")" = "$(G rev-parse "$S^{tree}")" ] && G merge-base --is-ancestor "$M" "$S" || rej "착지 후보 tree != 검사 tree 이거나 검사한 head 가 착지 부모 main($M)을 품지 않음 — 검사 뒤 main 이 움직였다(다시 최신화)"   # R247 DA⑥ HOLD2-①: 부모 M 이 S 의 조상이어야 «검사한 트리 == main 위에 놓이는 트리»(M ⊂ Q 는 항상 참이라 무의미했음)
 
 TB="$(fm_timeout_bin)" || rej "timeout 도구 없음"
+PBO="$(fm_push_bound "$REPO" "$M" "$Q")"; PN="${PBO% *}"; PB="${PBO#* }"; PV="$(fm_push_calc '?' 2>/dev/null)"   # R354: PB = 크기 비례로 «계산한 최대 시도 시간» · AB = 그 시도에 실제로 건 상한 min(PB, 남은 시간) · PV = 최소 1단위(F+7)
+LANDVIA=""
 for i in 1 2; do
-  deadline; [ $((SECONDS - T0)) -le $((LIM - 7)) ] || rej "총 마감 $LIM s 안에 push 를 끝낼 수 없음(남은 시간 < push 상한 7 s)"   # R247 DA⑥ HOLD2-②: push 는 시작 전 «남은 시간 ≥ 7 s» 일 때만
-  POUT="$("$TB" 7 git -C "$REPO" push "$REMOTE" "$Q:refs/heads/$TARGET" 2>&1)"; rc=$?
-  [ "$rc" -eq 0 ] && break
+  deadline; REM=$((LIM - (SECONDS - T0))); NEED="$PV"; [ "$i" -eq 1 ] || NEED="$PB"   # R247 DA⑥ HOLD2-② 를 AB 기준으로 재정의: 1차는 남은 시간 ≥ 1단위(F+7)면 AB=min(PB,남은 시간) 으로 시작 · 재시도는 남은 시간 ≥ PB — 총 마감 70 s 불변. 한계: 남은 11 s · PB 70 이면 11 s 한 번만 시도 · timeout 이면 재시도 0(다음 틱)
+  [ "$REM" -ge "$NEED" ] || rej "총 마감 $LIM s 안에 push 를 끝낼 수 없음(남은 ${REM}s < push 상한 ${NEED}s — 재시도 0 · 다음 틱)"
+  AB=$((PB < REM ? PB : REM)); PS=$SECONDS
+  POUT="$("$TB" "$AB" git -C "$REPO" push "$REMOTE" "$Q:refs/heads/$TARGET" 2>&1)"; PRC=$?
+  [ "$PRC" -eq 0 ] && break
   printf '%s' "$POUT" | grep -qE 'rejected|non-fast-forward|fetch first|stale info' && rej "서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): $(printf '%s' "$POUT" | tail -n1)"
-  [ "$i" -eq 2 ] && rej "push 실패(rc=$rc): $(printf '%s' "$POUT" | tail -n1)"
+  # R354 DA⑥ H1: 재시도 = «서버 응답 전» 이 보이는 실패뿐(remote 출력 0 + 연결 실패 문자열 + timeout 아님). timeout·reset·remote 출력이 있는 실패는 «불명» — 자동 재시도 0, 원격 ref 를 1회 읽어 가른다
+  RESP=0; printf '%s' "$POUT" | grep -qE '^remote:|^To ' && RESP=1
+  if [ "$i" -eq 1 ] && [ "$PRC" -ne 124 ] && [ "$PRC" -ne 143 ] && [ "$RESP" = 0 ] && printf '%s' "$POUT" | grep -qiE 'could not resolve host|connection (timed out|refused)|ssh: connect to host|network is unreachable'; then continue; fi
+  { [ "$PRC" -eq 124 ] || [ "$PRC" -eq 143 ] || [ "$RESP" = 1 ] || printf '%s' "$POUT" | grep -qiE 'connection (reset|closed)|hung up unexpectedly|early eof'; } \
+    || rej "push 실패(rc=$PRC · 재시도 조건 = 서버 응답 전 연결 실패 1회뿐): $(printf '%s' "$POUT" | tail -n1)"
+  LSO="$("$TB" 7 git -C "$REPO" ls-remote "$REMOTE" "refs/heads/$TARGET" 2>&1)"; lrc=$?; LSV="${LSO%%[[:space:]]*}"   # 실패 경로 진단 1회(읽기 전용 · 7 s)
+  if [ "$lrc" -eq 0 ] && [ "$LSV" = "$Q" ]; then LANDVIA="ls-remote"; break
+  elif [ "$lrc" -eq 0 ] && [ "$LSV" = "$M" ]; then rej "착지 0 확정(원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 재시도 0 — 총 마감 안에 끝내지 못함 · 다음 틱에 다시"
+  else rej "원격 상태 불명 · 손 확인 필요(push rc=$PRC · ls-remote rc=$lrc 값=${LSO:0:80})"; fi
 done
-mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s%s approve-file=%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "$AFE" >>"$STATE/merge-gate.log"
+mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "$ROOT")" "$M" "$S" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "$AFE" "${LANDVIA:+ push-confirmed=ls-remote}" >>"$STATE/merge-gate.log"
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")"
+echo "push ok objects=$PN bound=$PB attempt=$AB took=$((SECONDS - PS))s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
 SN="$(awk -v ap="$AP" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$STATE/autonomy.log" 2>/dev/null)"   # R298(DA⑥ H3): 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장만 — 줄 없으면 0
 for LF in "$STATE/autonomy-scope/${SN:-none}.ledger.tsv"; do   # R298: 그 원장의 «착지 sha 칸이 빈 행»(승인 sha == AP)에 Q·되돌림 명령 기록 — 실패해도 착지 rc 불변
   [ -f "$LF" ] || continue
