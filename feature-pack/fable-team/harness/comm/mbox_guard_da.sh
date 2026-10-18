@@ -3,6 +3,7 @@
 # 대상 = 수신자 `*-da-*` ∧ 머리 `[DA②|DA⑥ [rN] 발주 …]`(꼬리 `· 마지막` 허용). 판정기 하나 = ft_da_hold_gate.py(사건 키·해제·소진 계산은 거기).
 # fail-closed — 발주서(본문 + relay 첨부)에 `- 카드: <indices/(대기|진행)/…md>` 가 정확히 1개 · 파일 실재 · 카드 «상태» 에 같은 (단계, rN) 의 `발주` 줄 — 하나라도 어긋나면 REJECT rc 3(큐 적재 0) · 판정기 부재·실행 실패도 REJECT.
 # 입장을 허용하는 순간 판정기가 카드 «상태» 끝에 `- DA 입장: <단계>r<N> · 발주서 <경로> · 해제 #<seq|없음> · <시각>` 1줄을 쓴다(유일한 쓰기 · 실패 = REJECT) — 같은 (단계, rN) 재입장 = DUP-ENTRY.
+# 판정기는 «실행 파일»로 직접 실행한다(R389) — 루트 `.fable-team/bin` 의 bash shim(exec python3 <실파일>)이어도 실파일이어도 같은 경로 하나.
 # 안전 보고([HIL]·[긴급]) 는 머리가 [DA… 발주 가 아니라 대상 밖이다. 외부 호출 0.
 
 _da_refuse() { guard_log mbox-guard-da.log "REJECT to=$1 ${2:0:120}"; echo "REJECT $2" >&2; return 3; }
@@ -23,7 +24,7 @@ _guard_da_lint() {
   case "$card" in /*) ;; *) card="$root/$card";; esac
   [ -f "$card" ] || { _da_refuse "$to" "없는 카드 파일($card)"; return $?; }
   tool="$(_ft_live_bin ft_da_hold_gate.py 2>&1)" || { _da_refuse "$to" "판정기 없음($tool) — DA 발주는 확인 없이 보내지 않는다(fail-closed) · ft_da_hold_gate.py 를 먼저 설치하라"; return $?; }
-  res="$(python3 "$tool" "$card" --entry "$stage" "r$rnd" --record --order-file "${attach:-본문}" --root "$root" --comm "$DIR" --seats-dir "$(dirname "$(_seats_json)")" 2>&1)"; rc=$?
+  res="$("$tool" "$card" --entry "$stage" "r$rnd" --record --order-file "${attach:-본문}" --root "$root" --comm "$DIR" --seats-dir "$(dirname "$(_seats_json)")" 2>&1)"; rc=$?
   fl="${res%%$'\n'*}"
   case "$rc:$fl" in
     0:*) return 0;;

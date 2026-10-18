@@ -124,7 +124,7 @@ new_env() { ENV="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENV/.fable-team/comm"
   mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"; }
 gcard() { GC="$ENV/design/alpha/indices/진행/$1.md"; shift; { echo "# c"; echo "## 상태"; printf '%s\n' "$@"; } > "$GC"; }
 send_da() { # <수신자> <본문>
-  OUT="$(cd "$ENV" && env PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENV/seats/seats.json" FT_PLANNER_HEAD_MODE=reject FT_MBOX_DIR="$ENV/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
+  OUT="$(cd "$ENV" && env -u FT_BIN PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENV/seats/seats.json" FT_PLANNER_HEAD_MODE=reject FT_MBOX_DIR="$ENV/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
     bash "$ENV/.fable-team/comm/mbox.sh" send "$1" "me#1" "$2" 2>&1)"; RC=$?; }
 queued() { local n; n="$(grep -c '"to": *"byz-alpha-da-codex#1"' "$ENV/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"; echo "${n:-0}"; }
 DA='byz-alpha-da-codex#1'
@@ -147,6 +147,11 @@ gcard unp '- DA 확인 HOLD 몇 건' '- DA⑥ r1 발주'
 send_da "$DA" "$(printf '[DA⑥ r1 발주] x\n- 카드: %s' "$GC")"; { [ "$RC" = 3 ] && [[ "$OUT" == *"판정 불가"* ]]; } && ok "가드: UNPARSED 줄 → REJECT(fail-closed)" || bad "가드 UNPARSED rc=$RC $OUT"
 send_da "byz-alpha-arch-claude#3" "$(printf '[DA⑥ r3 발주] DA 가 아닌 수신자\n- 카드: %s' "$ENV/nowhere.md")"; [ "$RC" = 0 ] && ok "가드: DA 수신자가 아니면 검사 0" || bad "가드 비DA rc=$RC $OUT"
 send_da "$DA" '[HIL] 안전 보고는 DA 발주 머리가 아니다'; [ "$RC" = 0 ] && ok "가드: [HIL] 은 대상 밖" || bad "가드 HIL rc=$RC $OUT"
+# R389 ⓒ: 판정기 자리가 bash shim(루트 .fable-team/bin 꼴 · exec python3 <실파일>)이어도 판정기가 돈다
+gcard shim '- DA⑥ r1 HOLD 4' '- DA⑥ r2 발주'; mkdir -p "$ENV/real"; mv "$ENV/.fable-team/bin/ft_da_hold_gate.py" "$ENV/real/"
+printf '#!/usr/bin/env bash\nexec python3 "%s/real/ft_da_hold_gate.py" "$@"\n' "$ENV" > "$ENV/.fable-team/bin/ft_da_hold_gate.py"; chmod +x "$ENV/.fable-team/bin/ft_da_hold_gate.py"
+Q0="$(queued)"; send_da "$DA" "$(printf '[DA⑥ r2 발주] shim 판정기\n- 카드: %s' "$GC")"
+{ [ "$RC" = 0 ] && [ "$(queued)" = $((Q0+1)) ] && grep -q '^- DA 입장: ⑥r2' "$GC"; } && ok "가드: 판정기 bash shim → 큐 적재 1 · «- DA 입장:» 줄(R389 ⓒ)" || bad "가드 shim rc=$RC $OUT"
 rm -f "$ENV/.fable-team/bin/ft_da_hold_gate.py"
 send_da "$DA" "$(printf '[DA⑥ r2 발주] 판정기 없음\n- 카드: %s' "$GC")"; { [ "$RC" = 3 ] && [[ "$OUT" == *"판정기 없음"* ]]; } && ok "가드: 판정기 부재 → REJECT(fail-closed)" || bad "가드 판정기없음 rc=$RC $OUT"
 rm -f "$ENV/.fable-team/comm/mbox_guard_da.sh"
@@ -214,9 +219,9 @@ done
 FAKE="$T/fake"; mkdir -p "$FAKE"; printf '#!/bin/sh\ncase "$1" in has-session) exit 1;; list-sessions) exit 0;; *) exit 1;; esac\n' > "$FAKE/tmux"; chmod 755 "$FAKE/tmux"
 SB="$T/bin"; cp -R "$KIT" "$SB"; printf '#!/bin/sh\necho OK\nexit 0\n' > "$SB/ft-index-lint.sh"; printf '#!/bin/sh\necho gate-ok\nexit 0\n' > "$SB/ft-proposal-gate.sh"; rm -f "$SB/ft-opencode-reap.sh"
 mkdir -p "$T/repo"; git init -q "$T/repo"; git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-mkdir -p "$T/repo/design/alpha/indices/진행" "$T/repo/design/alpha/indices/대기" "$T/repo/.fable-team"; echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
+mkdir -p "$T/repo/design/alpha/indices/진행" "$T/repo/design/alpha/indices/대기" "$T/repo/.fable-team/comm"; echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
 echo '# 카드' > "$T/repo/design/alpha/indices/진행/x.md"; echo '# 카드' > "$T/repo/design/alpha/indices/대기/y.md"
-spr() { ( cd "$T/repo" && export FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$T/repo/.fable-team/seats-alpha.json" FT_TEAMSET=0 && PATH="$FAKE:$PATH" bash "$SB/ft-nano-spawn.sh" "$@" --from byz-alpha-master-claude#1 2>&1 ); }
+spr() { ( cd "$T/repo" && export FT_ROOT="$T/repo" FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$T/repo/.fable-team/seats-alpha.json" FT_TEAMSET=0 && PATH="$FAKE:$PATH" bash "$SB/ft-nano-spawn.sh" "$@" --from byz-alpha-master-claude#1 2>&1 ); }
 o="$(spr design/alpha/indices/진행/x.md --agent claude --model 'claude-fable-5-1[1m]' --raise "리서치" --research --dry-run)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"PLAN seat=byz-alpha-nano-x-research#0"* ]] && [[ "$o" == *"RESEARCH seat=byz-alpha-nano-x-research#0 allow=design/alpha/RESEARCH-*.md"* ]] && [[ "$o" == *"리서치 워커(판정 2282"*"산출 1개"*"코드 수정 0"*"[완료·휴식]"* ]]; } && ok "spawn --research --dry-run(Fable): 이름 꼬리 -research · 고정 문단 · 허용 경로" || bad "spawn dry-run rc=$rc $o"
 o="$(spr design/alpha/indices/진행/x.md --agent opencode --model deepseek/deepseek-v4-flash --research --dry-run)"; rc=$?
