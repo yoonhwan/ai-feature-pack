@@ -17,14 +17,23 @@ import os
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 
-from ft_team_move import Ctx, MoveError, hits, occupancy, old_form, pat, received, refs, run, sha256
+from ft_team_move import Ctx, MoveError, hits, occupancy, occupancy_snapshot, old_form, pat, received, refs, run, sha256
 
 
 # 7초 룰(전역 하드 룰 12) — --sync-worktrees 는 «크기를 아는 배치»: 시도 상한 = min(고정비 + 7초 × ceil(워크트리 수/기준량), 70초), 배치 전체 공통 마감 70초(팀 루프가 잔여를 차감).
 # 고정비 3.5 s(CLI 기동 잠정값) · 기준량 = 워크트리 10개당 7 s(잠정 — 실측 뒤 조정).
 SYNC_FIXED_S, SYNC_UNIT_S, SYNC_UNIT_WT, SYNC_DEADLINE_S = 3.5, 7.0, 10, 70.0
+
+
+class Unjudged(MoveError):
+    """점유 입력(tmux·lsof)을 못 얻었다 — 점유 판정 불가. 팀마다 반복하지 않고 배치를 한 번 알리고 멈춘다(rc 1)."""
+
+
+class Exhausted(MoveError):
+    """배치 공유 마감(70초)이 소진돼 이 팀의 점유 판정을 할 시간이 없다 — 이동 전 PARTIAL(rc 3)이지 판정 불가(BLOCK)가 아니다."""
 
 
 class Partial(Exception):
@@ -186,7 +195,7 @@ def text_stores_step(ctx: Ctx, team: str, snap: Snap, step: dict) -> str:
     return f"worktree-info 재작성 {wi}(미전환 {pend} 은 옛 경로 유지) · baton·추가 파일 {ot}"
 
 
-def preflight(ctx: Ctx, team: str) -> None:
+def preflight(ctx: Ctx, team: str, occ_snap: dict) -> None:
     src, dst = ctx.root / "design" / team, ctx.root / "design" / "teams" / team
     if not old_form(ctx.rows[team]):
         raise MoveError(f"REJECT {team} 이미 옮겼거나 이 도구 대상이 아니다: {ctx.rows[team]}")
@@ -197,7 +206,11 @@ def preflight(ctx: Ctx, team: str) -> None:
     scope = [f"design/{team}", "design/TEAMS.md", ".gitignore"]
     if git(ctx, "status", "--porcelain", "--", *scope).strip():
         raise MoveError(f"REJECT 이동 대상({' '.join(scope)})에 미커밋 변경 또는 추적 안 된 파일이 있다")
-    occ = occupancy(ctx, team)
+    if occ_snap.get("deadline_exhausted"):
+        raise Exhausted(team)
+    if occ_snap["blocks"]:
+        raise Unjudged("\n".join(occ_snap["blocks"]))
+    occ = occupancy(ctx, team, occ_snap)
     if occ:
         raise MoveError("REJECT 점유 중 — 비운 뒤 다시:\n" + "\n".join(occ))
 
@@ -241,7 +254,7 @@ def sync_worktrees(ctx: Ctx, deadline: float) -> bool:
     return done.returncode == 0
 
 
-def apply_team(ctx: Ctx, team: str, snap: Snap, deadline: float | None) -> None:
+def apply_team(ctx: Ctx, team: str, snap: Snap, deadline: float | None, take_occ: Callable[[], dict]) -> None:
     if not ctx.rows[team].startswith("design/"):
         print(f"SKIP {team} 폴더 칸이 design/ 밖 꼴: {ctx.rows[team]}")
         return
@@ -249,7 +262,7 @@ def apply_team(ctx: Ctx, team: str, snap: Snap, deadline: float | None) -> None:
         if not received(ctx.root, team):
             raise MoveError(f"REJECT {team} 폴더 칸이 새 꼴인데 이 워크트리에 design/teams/{team}/ 가 없다: {ctx.rows[team]}")
         return resync_team(ctx, team, snap)
-    preflight(ctx, team)
+    preflight(ctx, team, take_occ())   # 이동 «직전» 점유 입력(앞 팀 이동 사이에 새로 연 프로세스를 잡는다)
     step = new_step(team, [f"{k} {v}" for k, v in refs(ctx, team)])
     snap.data["steps"].append(step)
     (ctx.root / "design" / "teams").mkdir(exist_ok=True)
@@ -332,9 +345,28 @@ def main(argv: list[str], ctx: Ctx) -> int:
     if argv[1] != "--all" and argv[1] not in ctx.rows:
         raise MoveError(f"ERROR {argv[1]} 은 팀 명단(TEAMS.md)에 없다")
     snap, rc = Snap(ctx, "all" if argv[1] == "--all" else argv[1]), 0
+    batch_end = deadline if deadline is not None else time.monotonic() + SYNC_DEADLINE_S   # 배치 총 마감(70초) — 점유 스냅샷·동기화가 같은 마감을 쓴다
+    first = [occupancy_snapshot(batch_end)]   # 팀 루프 «전» 입력 검사 겸 첫 이동 팀의 스냅샷
+    if first[0]["blocks"]:
+        print("\n".join(first[0]["blocks"]))
+        print("REJECT 점유 판정 불가 — 이동 0 · 팀별 판정 생략")
+        return 1
+    take_occ = lambda: first.pop() if first else occupancy_snapshot(batch_end)  # noqa: E731
     for team in teams:
         try:
-            apply_team(ctx, team, snap, deadline)
+            if old_form(ctx.rows[team]) and time.monotonic() >= batch_end:
+                raise Exhausted(team)
+            apply_team(ctx, team, snap, deadline, take_occ)
+        except Exhausted:   # 공유 마감 소진(팀 시작 전이든 점유 재스냅샷 도중이든) = 그 팀부터 이동 전 중단 · 남은 팀은 pending_teams 에 기록
+            rest = teams[teams.index(team):]
+            snap.data["pending_teams"].extend(rest)
+            print(f"PARTIAL {team} 배치 총 마감 {SYNC_DEADLINE_S:g}초 소진 — 이 팀부터 이동 전(처리 안 한 팀 {len(rest)}: {' '.join(rest)}) — 다음 --apply 가 이어간다(옮긴 팀은 RESYNC)")
+            rc = 3
+            break
+        except Unjudged as e:
+            print(f"{e}\nREJECT {team} 점유 판정 불가 — 남은 팀 판정 중단(처리 안 한 팀: {' '.join(teams[teams.index(team):])})")
+            rc = 1
+            break
         except Partial:
             rest = teams[teams.index(team) + 1:]
             print(f"PARTIAL {team} 이동 커밋은 끝 · 저장 참조는 쓰기 전에 멈춤(처리 안 한 팀 {len(rest)}: {' '.join(rest) or '-'}) — 다음 --apply {team} = RESYNC")

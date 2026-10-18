@@ -27,7 +27,13 @@ case "$1" in
   list-panes) if [ -s "${FAKE_PANES:-/nonexistent}" ]; then cat "$FAKE_PANES"; else echo "no server running on /tmp/fake"; exit 1; fi;;
 esac
 EOF
-printf '#!/usr/bin/env bash\necho "COMMAND PID USER"\n[ -s "${FAKE_LSOF:-/nonexistent}" ] && cat "$FAKE_LSOF"\nexit 0\n' > "$T/fake/lsof"
+cat > "$T/fake/lsof" <<'EOF'
+#!/usr/bin/env bash
+# lsof -nP -Fpcn 모사 — FAKE_LSOF 각 줄 "<명령> <pid> <열린 경로>" 를 p/c/n 레코드로
+printf 'p1\ncfake\nn/dev/null\n'
+[ -s "${FAKE_LSOF:-/nonexistent}" ] && while read -r c p n; do printf 'p%s\nc%s\nn%s\n' "$p" "$c" "$n"; done < "$FAKE_LSOF"
+exit 0
+EOF
 chmod +x "$T/fake/tmux" "$T/fake/lsof"
 GITC() { git -C "$1" -c user.email=t@t -c user.name=t "${@:2}"; }
 
@@ -88,7 +94,7 @@ out="$(TM --plan --all)"; rc=$?
 has "$out" "REF1 팀 폴더" "ⓐ 7종 REF1"; has "$out" "REF2 TEAMS.md" "  └ REF2"; has "$out" "REF3 명부" "  └ REF3"; has "$out" "REF4 nano-card-base" "  └ REF4"; has "$out" "REF5 worktree-info" "  └ REF5"; has "$out" "REF6 baton" "  └ REF6"; has "$out" "REF7 텍스트" "  └ REF7"
 has "$out" "WT wt1 미전환" "ⓐ 워크트리 wt1 = 미전환 후보로 표시"
 [ "$(manifest "$REPO")" = "$BEFORE" ] && ok "ⓐ plan 은 쓰기 0(manifest 동일)" || bad "ⓐ plan 이 파일을 바꿨다"
-printf 'byz-harness-master-claude#1\t%s/design/harness\n' "$REPO" > "$T/panes"; printf 'vim 4242 u\n' > "$T/lsof"
+printf 'byz-harness-master-claude#1\t%s/design/harness\n' "$REPO" > "$T/panes"; printf 'vim 4242 %s/design/harness/README.md\n' "$REPO" > "$T/lsof"
 out="$(FAKE_PANES="$T/panes" FAKE_LSOF="$T/lsof" TM --plan harness)"
 has "$out" "CWD byz-harness-master-claude#1" "ⓐ 점유: tmux pane cwd 가 표에 나온다"; has "$out" "LSOF vim pid=4242" "  └ lsof 점유도 표에"; hasnt "$out" "blockers=0" "  └ blockers>0"
 out="$(FAKE_PANES="$T/panes" TM --apply harness)"; rc=$?
@@ -217,7 +223,9 @@ has "$(cat "$R4/.fable-team/seats-ops.json")" "design/teams/ops/README.md" "  �
 R5="$T/repo5"; sync_repo "$R5"
 out="$(sync_case "$R5" 70)"; res="$(printf '%s\n' "$out" | sed -n 's/^RESULT //p')"
 python3 -I -c 'import json,sys;r=json.loads(sys.argv[1]);assert r["rc"]==3,r;assert r["calls"]==[70.0],r;assert r["pending"]==["ops"],r' "$res" \
-  && ok "ⓖ 첫 팀이 70초를 다 쓰면 둘째 팀은 helper 를 부르지 않고 즉시 중단(남은 0) · rc3 · pending=[ops]" || bad "ⓖ 잔여 0: ${out: -500}"
+  && ok "ⓖ 첫 팀이 70초를 다 쓰면 둘째 팀은 점유 스냅샷·helper 를 부르지 않고 이동 «전» 에 중단(남은 0) · rc3 · pending=[ops] (R382d: 마감 소진 = 이동 0)" || bad "ⓖ 잔여 0: ${out: -500}"
+has "$out" "PARTIAL ops 배치 총 마감" "ⓖ 잔여 0: 이동 전 PARTIAL 줄"
+[ -d "$R5/design/ops" ] && [ ! -d "$R5/design/teams/ops" ] && ok "ⓖ 잔여 0: ops 는 옮기지 않음(옛 폴더 그대로)" || bad "ⓖ 잔여 0: ops 가 옮겨졌다"
 has "$(grep -c 'timeout: float = 7' "$SRC/ft_team_move.py")" "1" "ⓖ 기본 helper timeout = 7(기준 단위)"
 hasnt "$(grep -nE "\b($((6*100))|$((3*100)))\b" "$SRC/ft_team_move.py" "$SRC/ft_team_move_apply.py" "$SRC/ft-team-move.sh" || true)" ":" "ⓖ 이동 도구에 600/300 숫자 0"
 

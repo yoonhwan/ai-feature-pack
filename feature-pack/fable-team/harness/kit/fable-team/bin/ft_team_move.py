@@ -13,6 +13,8 @@ import os
 import re
 import subprocess
 import sys
+import time
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -117,32 +119,85 @@ def refs(ctx: Ctx, team: str) -> list[tuple[str, str]]:
     ]
 
 
-def occupancy(ctx: Ctx, team: str) -> list[str]:
+def open_files(lsof_out: str) -> list[tuple[str, str, str]]:
+    """`lsof -Fpcn` 출력 → (명령, pid, 열린 경로) — p/c 는 프로세스 줄, n 은 그 프로세스의 열린 파일마다 한 줄."""
+    pid = cmd = ""
+    files = []
+    for ln in lsof_out.splitlines():
+        key, val = ln[:1], ln[1:]
+        if key == "p":
+            pid = val
+        elif key == "c":
+            cmd = (val.split() or [val])[0]
+        elif key == "n" and val.startswith("/"):
+            files.append((cmd, pid, val))
+    return files
+
+
+def occupancy_snapshot(deadline: float | None = None) -> dict:
+    """점유 판정 입력 — tmux pane cwd 1회 + lsof 열린 파일 전체 1회(팀·워크트리 수와 무관 · 호출당 7초 · deadline = 배치 총 마감(monotonic)이 있으면 잔여만큼만)."""
+    snap: dict = {"panes": [], "files": [], "names": [], "blocks": [], "deadline_exhausted": False}
+    cap = lambda: 7.0 if deadline is None else min(7.0, deadline - time.monotonic())  # noqa: E731
+    # 시간 초과 구분 — 호출당 7초가 한도였으면 BLOCK(점유 판정 불가) · 배치 마감 잔여(< 7초)가 한도였으면 마감 소진(호출자가 이동 전 PARTIAL)
+    t = cap()
+    try:
+        if t <= 0:
+            snap["deadline_exhausted"] = True
+            return snap
+        tm = run("tmux", "list-panes", "-a", "-F", "#{session_name}\t#{pane_current_path}", timeout=t)
+        if tm.returncode == 0:
+            snap["panes"] = [tuple(line.partition("\t")[::2]) for line in tm.stdout.splitlines()]
+        elif "no server running" not in (tm.stderr + tm.stdout):
+            snap["blocks"].append(f"BLOCK tmux 목록을 못 읽었다(rc={tm.returncode}) — 점유 판정 불가")
+    except subprocess.TimeoutExpired:
+        if t < 7.0:
+            snap["deadline_exhausted"] = True
+            return snap
+        snap["blocks"].append("BLOCK tmux 목록 7초 초과 — 점유 판정 불가")
+    t = cap()
+    try:
+        if t <= 0:
+            snap["deadline_exhausted"] = True
+            return snap
+        ls = run(os.environ.get("FT_TEAM_MOVE_LSOF", "lsof"), "-nP", "-Fpcn", timeout=t)
+    except subprocess.TimeoutExpired:
+        if t < 7.0:
+            snap["deadline_exhausted"] = True
+            return snap
+        snap["blocks"].append("BLOCK lsof 7초 초과 — 점유 판정 불가")
+    except OSError as e:
+        snap["blocks"].append(f"BLOCK lsof 를 실행하지 못했다({e}) — 점유 판정 불가")
+    else:
+        snap["files"] = sorted(open_files(ls.stdout), key=lambda f: f[2])
+        snap["names"] = [f[2] for f in snap["files"]]
+        if not snap["files"]:   # 종료 코드와 무관 — 실행 중인 프로세스는 항상 열린 파일이 있다 · 레코드 0 = 관찰 실패
+            snap["blocks"].append(f"BLOCK lsof 열린 파일 레코드 0(rc={ls.returncode}) — 점유 판정 불가")
+    return snap
+
+
+def occupancy(ctx: Ctx, team: str, snap: dict | None = None) -> list[str]:
+    snap = snap or occupancy_snapshot()
     dirs = [ctx.root / "design" / team] + [w / "design" / team for w in ctx.worktrees()]
-    out: list[str] = []
-    tm = run("tmux", "list-panes", "-a", "-F", "#{session_name}\t#{pane_current_path}")
-    if tm.returncode == 0:
-        for line in tm.stdout.splitlines():
-            sess, _, cwd = line.partition("\t")
-            if any(cwd == str(d) or cwd.startswith(f"{d}/") for d in dirs):
-                out.append(f"CWD {sess} {cwd}")
-    elif "no server running" not in (tm.stderr + tm.stdout):
-        out.append(f"BLOCK tmux 목록을 못 읽었다(rc={tm.returncode}) — 점유 판정 불가")
-    lsof = os.environ.get("FT_TEAM_MOVE_LSOF", "lsof")
-    for d in dirs:
-        if not d.is_dir():
-            continue
-        try:
-            ls = run(lsof, "+D", str(d), timeout=7)
-        except subprocess.TimeoutExpired:
-            out.append(f"BLOCK lsof +D {d} 7초 초과 — 점유 판정 불가")
-            continue
-        out += [f"LSOF {ln.split()[0]} pid={ln.split()[1]} {d}" for ln in ls.stdout.splitlines()[1:] if len(ln.split()) > 1]
+    out = [f"CWD {sess} {cwd}" for sess, cwd in snap["panes"] if any(cwd == str(d) or cwd.startswith(f"{d}/") for d in dirs)]
+    out += snap["blocks"]
+    labels: dict[str, Path] = {}
+    for d in filter(Path.is_dir, dirs):
+        labels[str(d)] = d
+        labels.setdefault(os.path.realpath(d), d)
+    names, files = snap["names"], snap["files"]
+    for path, d in labels.items():   # 정렬된 경로에서 «그 폴더 자신 + 그 폴더 아래» 구간만 이분탐색 — 경로 문자열 사전 필터 0
+        hit = files[bisect_left(names, path):bisect_right(names, path)] + files[bisect_left(names, path + "/"):bisect_left(names, path + "0")]
+        out += [f"LSOF {cmd} pid={pid} {d}" for cmd, pid, _ in hit]
     return out
 
 
 def cmd_plan(ctx: Ctx, arg: str) -> int:
     blockers = 0
+    snap = occupancy_snapshot()
+    if snap["blocks"]:   # 점유 입력을 못 얻으면 팀 루프 «전» 한 번만 알리고 끝낸다(13팀 반복 0 · «통과» 로 안 보임)
+        print("\n".join(snap["blocks"]))
+        print("PLAN-END 점유 판정 불가 — 팀별 판정 생략")
+        return 1
     for team in pick(ctx, arg):
         rel = ctx.rows[team]
         if not old_form(rel):
@@ -154,7 +209,7 @@ def cmd_plan(ctx: Ctx, arg: str) -> int:
             print(f"  REF{k} {v}")
         bad = [] if src.is_dir() else [f"BLOCK 원본 폴더 없음: {src}"]
         bad += [f"BLOCK 목적지 이미 있음: {dst}"] if dst.exists() else []
-        occ = occupancy(ctx, team)
+        occ = occupancy(ctx, team, snap)
         for ln in bad + occ:
             print(f"  {ln}")
         blockers += len(bad) + len(occ)
