@@ -41,8 +41,12 @@ git -C "$R" reset -q; git -C "$R" checkout -q -- .
 expect 0 "$R" 'echo "git commit" && git log --oneline -1' "따옴표 안 git commit = 커밋 아님"
 
 # 워크트리(공용 루트 표식) → REJECT
+echo c >> "$W/scripts/fable-team-bin/ft-x.sh"; git -C "$W" add -A
+expect 2 "$W" 'git commit -m y' "워크트리도 공용 루트 표식으로 REJECT(scripts/fable-team-bin)"
+git -C "$W" reset -q; git -C "$W" checkout -q -- .
 echo c >> "$W/design/harness/card.md"; git -C "$W" add -A
-expect 2 "$W" 'git commit -m y' "워크트리도 공용 루트 표식으로 REJECT(design/harness)"
+expect 0 "$W" 'git commit -m y' "표식 있어도 design/harness(카드)만 = 통과(r386 전까지 BYZ 카드 커밋)"
+git -C "$W" reset -q; git -C "$W" checkout -q -- .; echo c >> "$W/scripts/fable-team-bin/ft-x.sh"; git -C "$W" add -A
 expect 2 "$W" 'cd - && git commit -m y' "cd - 뒤 커밋 = 검사 불가 REJECT"
 expect 0 "$W" 'git diff --cached --stat' "읽기 = 통과"
 

@@ -1,4 +1,4 @@
-# patch -p1 --dry-run (홈 훅 5 사본 · 2026-10-19 · rc=0) — 적용은 master: cd ~ && patch -p1 < <팩>/harness/evidence/r385/home-hooks.patch (+ settings.json 에 harness-freeze-gate.sh PreToolUse:Bash 등록)
+# patch -p1 --dry-run (홈 훅 5 사본 · 2026-10-19 r2 · rc=0) — 적용은 master: cd ~ && patch -p1 < <팩>/harness/evidence/r385/home-hooks.patch (+ settings.json 에 harness-freeze-gate.sh PreToolUse:Bash 등록)
 patching file '.claude/hooks/autonomy-interview-gate.sh'
 patching file '.claude/hooks/autonomy-merge-guard.sh'
 patching file '.claude/hooks/gh-issue-author-guard.sh'
