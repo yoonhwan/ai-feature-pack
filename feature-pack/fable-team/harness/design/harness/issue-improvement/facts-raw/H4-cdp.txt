@@ -1,0 +1,8 @@
+tests/e2e/realtime_multi_e2e.py:8:CDP 9333 + BlackHole 인프라는 04 와 공유.
+tests/e2e/realtime_multi_e2e.py:67:    CDP_PORT,
+tests/e2e/realtime_multi_e2e.py:232:        "guest_profiles": [
+tests/e2e/realtime_multi_e2e.py:245:        "guest_profiles": [
+tests/e2e/realtime_multi_e2e.py:257:        "guest_profiles": [
+tests/e2e/realtime_multi_e2e.py:270:        "guest_profiles": [
+tests/e2e/realtime_multi_e2e.py:563:        data = urllib.request.urlopen(f"http://localhost:{CDP_PORT}/json", timeout=5).read()
+tests/e2e/realtime_multi_e2e.py:669:        data = urllib.request.urlopen(f"http://localhost:{CDP_PORT}/json", timeout=5).read()

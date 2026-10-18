@@ -1,0 +1,14 @@
+3:#   규칙: 메인(master)이 정한 나노 슬롯(FT_NANO_SLOTS · 기본 6)은 «항상 채운다» — 닫는 같은 턴에 대기/ 카드로 spawn.
+4:#   arch 지정을 기다리지 않는다. 예외(시험 겹침 · 최우선 작업이 슬롯을 요구)는 그 사유를 보고에 한 줄로 쓴다.
+7:#     squash 는 조상 관계를 안 만들어 원장 없이는 랜딩된 브랜치가 영원히 «미랜딩» 으로 남는다. 행: 브랜치\t마지막 커밋 날짜\t미랜딩 커밋 수\t카드 상태(대기|진행|완성|없음).
+12:MAX="${FT_NANO_SLOTS:-6}"
+45:LIVE="$(tmux ls -F '#S' 2>/dev/null)"
+46:IDLE_MIN="${FT_NANO_IDLE_MIN:-10}"
+47:# 좌석별 턴 상태(WORKING/IDLE …) + 마지막 활동 초 — 「press·DA 대기로 노는 석」도 슬롯을 먹는다(오빠 10-02 실측: 9석 중 3석 대기)
+54:python3 - "$MAX" "$IDX_DIR" "$IDLE_MIN" "$TURNS" <<'PY'
+64:working = [s for s, st in rows if not (st.startswith("IDLE") and idle_s(st) >= idle_min * 60)]
+65:idle = [(s, st) for s, st in rows if s not in working]
+66:empty = max(mx - len(working), 0)
+67:print(f"SLOTS nano 일하는 석={len(working)}/{mx} · 명부 {len(rows)} · 노는 석 {len(idle)} · 빈 석 {empty}")
+68:for s in working: print(f"  · {s}")
+70:    print(f"  ✗ 노는 석 {s} ({st.split()[0]} {idle_s(st)//60}분) → ★master 가 막힌 것을 푼다★(무엇을 기다리나 = 랜딩·DA 소환 요청·press 순번·판정 → 그 턴에 집행·요청) → 완성 → 테스트 끝나면 ft-nano-close(워크트리 정리·브랜치 보존)")

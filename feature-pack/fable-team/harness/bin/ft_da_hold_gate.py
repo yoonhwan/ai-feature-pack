@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""ft_da_hold_gate.py <카드> [--entry <②|⑥> <rN> [--record --order-file F]] [--closing] [--lint] [--root R] [--seats F|--seats-dir D] [--comm D|--mailbox F] [--resume-dir D]
+같은 카드 DA 보류(HOLD) 사건 셈 — 판정 2282 · 설계 DESIGN-da-hold2-redesign-research-loop §7·§8·§9 (판정기 하나 · 외부 호출 0).
+  사건 = «## 상태» 줄 전체에서 `DA②|DA⑥ … HOLD`(사이 40자 · 다른 단계 기호·발주·CLOSE·APPROVE 없음) → 키 (단계, 라운드 · `rN` 이 사이에 없으면 r1). 같은 키는 몇 줄이든 1 사건.
+    `DA`+`HOLD` 가 있는데 단계 기호가 없는 줄(`DA r1 HOLD`)은 UNPARSED rc3.
+  해제 = 카드 줄 `- 재설계 해제: #<seq>` 의 mbox 쪽지: 머리 `[재설계 해제 <카드>.md]` ∧ `해제=1` ∧ `새 범위` ∧ `DESIGN r<N>` ∧ from ∈ 명부 `_master`·`_hil_route` 현역 «정확 일치» 또는 같은 계보 직전 세대
+         (베이스 이름 같음 · 번호 작음 · seat-resume/<이름>.json 실재) ∧ to 도 `_arch` 계보 같은 규칙 · 같은 seq 2번째부터 DUP.
+  입장 기록 = 가드가 입장을 허용하는 순간(--entry --record) 카드 상태 끝에 `- DA 입장: <단계>r<N> · 발주서 <경로> · 해제 #<seq|없음> · <시각>` 1줄(유일한 쓰기 · 실패 = 입장 REJECT) · 같은 (단계, rN) 입장 줄이 이미 있으면 DUP-ENTRY.
+  소진 = 해제 줄 «뒤» 의 `DA 입장` 줄(해제 하나당 1 · 입장 줄 없는 라운드의 CLOSE·HOLD 판정 줄도 소진) · arch 의 `발주` 줄은 입장 전제일 뿐 소진 아님.
+  입장(§10) = 사건 < 2 또는 미소진 유효 해제 ≥ 1 — 사건은 «이력», 해제는 «입장권»(사건 2 이상이면 미소진 해제 1건 = 입장 1회 · 사건 수를 더 깎지 않는다).
+    budget_left = 사건<2 ? 2−사건 : 미소진 유효 해제 수 · rc3 ⇔ budget_left ≤ 0.
+출력 첫 줄 `HOLD events=<n> reviews=<m> releases=<유효>/<소진> budget_left=<b>` | `UNPARSED <줄>` | `NO-ORDER-LINE <단계> r<N>` | `DUP-ENTRY <단계>r<N>` | `ENTRY-WRITE-FAIL …` (+ 해제 줄들 RELEASE-OK·INVALID·DUP).
+rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ 2 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
+"""
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+
+EVENT = re.compile(r"DA([②⑥])((?:(?![②⑥]|DA|발주|CLOSE|APPROVE).){0,40}?)HOLD")
+BARE = re.compile(r"(?<![A-Za-z])DA(?![②⑥A-Za-z\-]).{0,40}?HOLD")
+ORDER = re.compile(r"DA([②⑥])\s*r(\d+)\s*발주")
+CLOSEV = re.compile(r"DA([②⑥])\s*r(\d+)\s*CLOSE")
+ENTRY = re.compile(r"^- DA 입장:\s*([②⑥])r(\d+)")
+SEAT = re.compile(r"^(.*)#(\d+)$")
+
+
+def root_of(card: str) -> str:
+    if os.environ.get("FT_ROOT"):
+        return os.environ["FT_ROOT"]
+    cmd = ["git", "-C", os.path.dirname(card), "rev-parse", "--path-format=absolute", "--git-common-dir"]
+    out = subprocess.run(cmd, capture_output=True, text=True)
+    return re.sub(r"/\.git$", "", out.stdout.strip()) if out.returncode == 0 else ""
+
+
+def state_span(txt: str) -> tuple[int, int]:
+    m = re.search(r"^##\s*상태[^\n]*\n(.*?)(?=^##\s|\Z)", txt, re.S | re.M)
+    return (m.start(1), m.end(1)) if m else (len(txt), len(txt))
+
+
+def find_record(seq: str, paths: list[str]) -> dict | None:
+    for p in paths:
+        if not os.path.isfile(p):
+            continue
+        for ln in open(p, encoding="utf-8", errors="replace"):
+            if f'"seq": {seq},' in ln[:40]:
+                try:
+                    return json.loads(ln)
+                except ValueError:
+                    return None
+    return None
+
+
+def lineage(name: str, current: str | None, resume_dir: str) -> str:
+    """현역 이름과 같거나 같은 계보 직전 세대(은퇴 기록 실재)면 라벨, 아니면 ""."""
+    if not name or not current:
+        return ""
+    if name == current:
+        return "현역"
+    a, b = SEAT.match(name), SEAT.match(current)
+    if a and b and a.group(1) == b.group(1) and int(a.group(2)) < int(b.group(2)) and os.path.isfile(os.path.join(resume_dir, name + ".json")):
+        return f"계보 #{a.group(2)}→#{b.group(2)}"
+    return ""
+
+
+def release_check(seq: str, card: str, seats: dict | None, mbox: list[str], resume_dir: str) -> tuple[str, str]:
+    """(어긋난 조건 | "", 발신 라벨)"""
+    if not seats:
+        return "명부 읽기 실패", ""
+    rec = find_record(seq, mbox)
+    if not rec:
+        return "쪽지 없음", ""
+    body = rec.get("body", "")
+    if not body.split("\n", 1)[0].strip().startswith(f"[재설계 해제 {os.path.basename(card)}]"):
+        return "머리 불일치", ""
+    if "해제=1" not in body or not re.search(r"새 범위\s*[:：]?\s*\S", body) or not re.search(r"DESIGN r\d+", body):
+        return "해제=1·새 범위·DESIGN r<N> 중 빠짐", ""
+    frm = rec.get("from", "")
+    lab = lineage(frm, seats.get("_master"), resume_dir) or lineage(frm, seats.get("_hil_route"), resume_dir)
+    if not lab:
+        return "from 이 명부 _master·_hil_route 현역·계보 직전 세대 아님", ""
+    if not lineage(rec.get("to", ""), seats.get("_arch"), resume_dir):
+        return "to 가 명부 _arch 현역·계보 아님", ""
+    return "", f"from={frm}({lab})"
+
+
+def scan(lines: list[str]) -> dict:
+    s: dict = {"events": set(), "reviews": 0, "rels": [], "cons": [], "orders": set(), "entries": set(), "bad": []}
+    for i, ln in enumerate(lines):
+        t = ln.strip()
+        m = re.match(r"^- 재설계 해제:\s*#(\d+)", t)
+        if m:
+            s["rels"].append((i, m.group(1)))
+        e = ENTRY.match(t)
+        if e:
+            s["entries"].add((e.group(1), e.group(2)))
+            s["cons"].append((i, (e.group(1), e.group(2)), "entry"))
+            continue
+        if re.search(r"DA[②⑥]\s*(?:r\d+)?\s*(?:발주|CLOSE|HOLD|APPROVE)", t):
+            s["reviews"] += 1
+        s["orders"].update((o.group(1), o.group(2)) for o in ORDER.finditer(t))
+        hits = []
+        for h in EVENT.finditer(t):
+            r = re.search(r"r(\d+)", h.group(2))
+            hits.append((h.group(1), r.group(1) if r else "1"))
+        s["events"].update(hits)
+        s["cons"] += [(i, k, "verdict") for k in hits] + [(i, (c.group(1), c.group(2)), "verdict") for c in CLOSEV.finditer(t)]
+        if not hits and BARE.search(t):
+            s["bad"].append(t)
+    return s
+
+
+def record_entry(card: str, key: tuple[str, str], order: str, seq: str) -> str:
+    """입장 줄을 «## 상태» 끝에 쓴다. 실패 사유 또는 ""."""
+    try:
+        txt = open(card, encoding="utf-8").read()
+        _, end = state_span(txt)
+        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        line = f"- DA 입장: {key[0]}r{key[1]} · 발주서 {order} · 해제 #{seq} · {stamp}\n"
+        rest = txt[end:]
+        open(card, "w", encoding="utf-8").write(txt[:end].rstrip("\n") + "\n" + line + ("\n" + rest.lstrip("\n") if rest.strip() else ""))
+        return ""
+    except OSError as e:
+        return str(e)
+
+
+def lint(txt: str, events: int) -> None:
+    lines = txt.splitlines()
+    if events >= 2 and not any(re.match(r"^- (재설계|리서치):", ln) for ln in lines):
+        print("INFO DA 보류 2회 이상인데 «- 재설계:»·«- 리서치:» 줄 없음 (3번째 DA 발주는 쪽지 가드가 막는다 · BOOT 40)")
+    viol = False
+    for ln in lines:
+        viol = True if ln.startswith("- 리서치 위반:") else False if ln.startswith("- 리서치:") else viol
+        if viol and ln.startswith("- 리서치 채택:"):
+            print("BAD 「- 리서치 채택:」 앞에 「- 리서치 위반:」 이 있다 — 위반 산출은 채택 불가(재질문 또는 새 워커 「- 리서치:」 줄 뒤에 채택)")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("card")
+    ap.add_argument("--entry", nargs=2, metavar=("STAGE", "ROUND"))
+    for k in ("--closing", "--lint", "--record"):
+        ap.add_argument(k, action="store_true")
+    for k in ("--root", "--seats", "--seats-dir", "--comm", "--mailbox", "--order-file", "--resume-dir"):
+        ap.add_argument(k, default="")
+    a = ap.parse_args()
+    if not os.path.isfile(a.card):
+        print("ERROR 카드 없음 " + a.card)
+        return 2
+    card = os.path.abspath(a.card)
+    root = a.root or root_of(card)
+    t = re.search(r"design/(?:teams/)?([a-z0-9]+)/indices/", card)
+    team_file = "seats.json" if (not t or t.group(1) == "v65") else f"seats-{t.group(1)}.json"
+    try:
+        seats = json.load(open(a.seats or os.path.join(a.seats_dir or os.path.join(root, ".fable-team"), team_file), encoding="utf-8"))
+    except (OSError, ValueError):
+        seats = None
+    comm = a.comm or os.path.join(root, ".fable-team", "comm")
+    mbox = [a.mailbox] if a.mailbox else [os.path.join(comm, "mailbox.log.jsonl"), os.path.join(comm, "mailbox.jsonl")]
+    resume = a.resume_dir or os.environ.get("FT_SEAT_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume")
+    txt = open(card, encoding="utf-8").read()
+    lo, hi = state_span(txt)
+    s = scan(txt[lo:hi].splitlines())
+    ekey = (a.entry[0], re.sub(r"\D", "", a.entry[1]) or "1") if a.entry else None
+    notes, valid, seen = [], [], set()
+    for i, seq in s["rels"]:
+        why, lab = ("DUP", "") if seq in seen else release_check(seq, card, seats, mbox, resume)
+        seen.add(seq)
+        if not why:
+            valid.append((i, seq))
+            notes.append(f"RELEASE-OK #{seq} {lab}")
+        else:
+            notes.append(f"RELEASE-DUP #{seq}" if why == "DUP" else f"RELEASE-INVALID #{seq} {why}")
+    cons = sorted(c for c in s["cons"] if c[2] == "entry" or c[1] not in s["entries"])
+    used: dict[str, int] = {}
+    for i, seq in valid:
+        j = next((j for j, c in enumerate(cons) if c[0] > i and j not in used.values()), None)
+        if j is not None:
+            used[seq] = j
+    free = [seq for _, seq in valid if seq not in used]
+    budget = 2 - len(s["events"]) if len(s["events"]) < 2 else len(free)  # §10: 사건은 이력 · 해제는 입장권
+    summary = f"HOLD events={len(s['events'])} reviews={s['reviews']} releases={len(valid)}/{len(used)} budget_left={budget}"
+    if a.lint:
+        lint(txt, len(s["events"]))
+        return 0
+    head = ""
+    if s["bad"]:
+        head = "UNPARSED " + s["bad"][0][:120]
+    elif ekey and ekey in s["entries"]:
+        head = f"DUP-ENTRY {ekey[0]}r{ekey[1]}"
+    elif ekey and ekey not in s["orders"]:
+        head = f"NO-ORDER-LINE DA{ekey[0]} r{ekey[1]}"
+    if head:
+        print(head)
+        print(summary)
+        return 3
+    blocked = (len(s["events"]) >= 2 and not valid) if a.closing else budget <= 0
+    if ekey and not blocked and a.record:
+        err = record_entry(card, ekey, a.order_file or "본문", free[0] if len(s["events"]) >= 2 and free else "없음")
+        if err:
+            print("ENTRY-WRITE-FAIL " + err[:100])
+            print(summary)
+            return 3
+    print(summary)
+    for n in notes:
+        print(n)
+    return 3 if blocked else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

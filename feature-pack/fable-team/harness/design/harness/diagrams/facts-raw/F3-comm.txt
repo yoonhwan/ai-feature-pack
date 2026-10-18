@@ -1,0 +1,9 @@
+bodies
+mailbox.jsonl
+mailbox.jsonl.archive-20260902
+mailbox.lock
+mailbox.log.jsonl
+mbox.py
+mbox.sh
+queues.conf
+relay

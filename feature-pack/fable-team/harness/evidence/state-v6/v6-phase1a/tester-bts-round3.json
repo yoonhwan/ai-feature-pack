@@ -1,0 +1,16 @@
+{
+  "verdict": "PARTIAL",
+  "scenarios": {
+    "T1": "FAIL: [data-testid=lst-toggle] absent from settings sheet DISPLAY section (show-polish-diff-toggle renders, lst-toggle does not). Root cause = NEXT_PUBLIC_V6_LST is NOT set in the currently running Next dev process (grep of clients/web/.env*, root .env, scripts/client/web/run.command all show no NEXT_PUBLIC_V6_LST export) -> appConfig.v6LstEnabled=false -> KILL=true in use-lst-setting.ts -> lstAvailable=false -> panel hides the switch by design. This is the documented kill-switch behavior working correctly, not a code defect -- but it means Scenario B/D/T4 cannot be exercised in this env without a Next dev restart with the env var set.",
+    "T2": "BLOCKED: same root cause as T1 (lstAvailable=false, no switch to click). Cannot toggle OFF via UI since kill switch already forces OFF.",
+    "T3": "BLOCKED: confirmed URL param ?lst=0 is silently ignored when KILL=true -- reload with ?lst=0&mockHostId=tester2 produced zero '[conversation:settings]' console lines (only HMR/devtools noise, see console_t3_url_lst0.txt) and localStorage has no baseagent_lst_enabled key after reload (localstorage_keys_after_url_lst0.json). This matches use-lst-setting.ts hydrateStore() KILL branch (returns before any console.info/lsSet call) -- consistent with design doc's kill-switch spec, so URL-session-only scenario D cannot be positively exercised (env ON path) in this dev process.",
+    "T4": "SKIP: deferred -- moot without lstAvailable=true; no PTT press attempted (avoided fabricating evidence per BTS Hard Rule #0-1)."
+  },
+  "deferred": [
+    "A: GPU offline (per task scope)",
+    "E: needs env-unset rebuild (per task scope)",
+    "B/D/T4 (full positive-path): needs Next dev restart with NEXT_PUBLIC_V6_LST=1/true exported before `npm run dev` -- NOT performed by tester (infra restart requires ORCH coordination per byz memory 'judge-session infra changes via ORCH', and task explicitly said do not restart services)"
+  ],
+  "evidence_dir": ".omo/evidence/v6-n1-lst-toggle-bts/",
+  "notes": "3-way triangulation: design doc (v3 kill-switch spec: KILL forces lstEnabled=false, ignores URL/localStorage, panel hides switch) <-> code (use-lst-setting.ts hydrateStore KILL branch, realtime-settings-panel.tsx conditional render on lstAvailable) <-> observed browser state (DOM testid list missing lst-toggle, zero console.info for [conversation:settings], no baseagent_lst_enabled localStorage key) all agree: appConfig.v6LstEnabled is false in this running dev server, so kill-switch is correctly active. Implementation matches design for the KILL=true path (already covered by the 1496-PASS jest suite). The env-ON positive paths (T1 toggle render, T2 toggle-off log+persistence, T3 URL session-only, T4 PTT no lst_loop_start) require a Next.js dev restart with NEXT_PUBLIC_V6_LST=1 exported, which this tester did not perform (out of scope / requires ORCH infra approval). Recommend ORCH either (a) approve a scoped Next dev restart with the env var for a follow-up BTS round, or (b) accept jest coverage of the env-ON paths as sufficient and close N1 on kill-switch verification alone."
+}

@@ -1,0 +1,62 @@
+c1c-ta-red-40389f09 redis:7.4-alpine 127.0.0.1:60593->6379/tcp
+ops-accounts-pg postgres:16 0.0.0.0:38391->5432/tcp, [::]:38391->5432/tcp
+terminal-dup-red-199c951b redis:7.4-alpine 127.0.0.1:64028->6379/tcp
+c1c-ta-red-00c3444f redis:7.4-alpine 127.0.0.1:63764->6379/tcp
+byz-act-tier-b-cluster-a9a35665 redis:7.4-alpine 127.0.0.1:63578->6379/tcp
+byz-act-tier-b-standalone-f5577c98 redis:7.4-alpine 127.0.0.1:63577->6379/tcp
+terminal-dup-red-60a27b63 redis:7.4-alpine 127.0.0.1:51740->6379/tcp
+c1c-ta-red-87584026 redis:7.4-alpine 127.0.0.1:51487->6379/tcp
+byz-act-tier-b-cluster-027fac33 redis:7.4-alpine 127.0.0.1:51304->6379/tcp
+byz-act-tier-b-standalone-a5ba06b9 redis:7.4-alpine 127.0.0.1:51303->6379/tcp
+c1c-ta-red-9126a8aa redis:7.4-alpine 127.0.0.1:62289->6379/tcp
+terminal-dup-red-27cbc321 redis:7.4-alpine 127.0.0.1:59446->6379/tcp
+c1c-ta-red-ace201c7 redis:7.4-alpine 127.0.0.1:59156->6379/tcp
+byz-act-tier-b-cluster-e21da8b2 redis:7.4-alpine 127.0.0.1:59002->6379/tcp
+byz-act-tier-b-standalone-623adc22 redis:7.4-alpine 127.0.0.1:59001->6379/tcp
+terminal-dup-red-0e2657c1 redis:7.4-alpine 127.0.0.1:53060->6379/tcp
+c1c-ta-red-c2972630 redis:7.4-alpine 127.0.0.1:52732->6379/tcp
+byz-act-tier-b-cluster-7f134812 redis:7.4-alpine 127.0.0.1:52546->6379/tcp
+byz-act-tier-b-standalone-4faba817 redis:7.4-alpine 127.0.0.1:52502->6379/tcp
+terminal-dup-red-90dae9b9 redis:7.4-alpine 127.0.0.1:63843->6379/tcp
+c1c-ta-red-3fabe518 redis:7.4-alpine 127.0.0.1:63491->6379/tcp
+terminal-dup-red-ef286314 redis:7.4-alpine 127.0.0.1:63282->6379/tcp
+byz-act-tier-b-cluster-274c5e44 redis:7.4-alpine 127.0.0.1:63139->6379/tcp
+byz-act-tier-b-standalone-8778fc34 redis:7.4-alpine 127.0.0.1:63130->6379/tcp
+c1c-ta-red-3c5456bb redis:7.4-alpine 127.0.0.1:62852->6379/tcp
+byz-act-tier-b-cluster-cf3c27d4 redis:7.4-alpine 127.0.0.1:62616->6379/tcp
+byz-act-tier-b-standalone-8b3cdf56 redis:7.4-alpine 127.0.0.1:62600->6379/tcp
+terminal-dup-red-a0c9592b redis:7.4-alpine 127.0.0.1:63929->6379/tcp
+c1c-ta-red-49efe548 redis:7.4-alpine 127.0.0.1:63513->6379/tcp
+terminal-dup-red-65809f91 redis:7.4-alpine 127.0.0.1:63250->6379/tcp
+byz-act-tier-b-cluster-b83de455 redis:7.4-alpine 127.0.0.1:63227->6379/tcp
+byz-act-tier-b-standalone-295b6970 redis:7.4-alpine 127.0.0.1:63192->6379/tcp
+c1c-ta-red-49acbd86 redis:7.4-alpine 127.0.0.1:62810->6379/tcp
+byz-act-tier-b-cluster-dda1287c redis:7.4-alpine 127.0.0.1:62517->6379/tcp
+byz-act-tier-b-standalone-2a7aea11 redis:7.4-alpine 127.0.0.1:62514->6379/tcp
+terminal-dup-red-dc2d6cf7 redis:7.4-alpine 127.0.0.1:53481->6379/tcp
+c1c-ta-red-b57506ee redis:7.4-alpine 127.0.0.1:53155->6379/tcp
+terminal-dup-red-de935749 redis:7.4-alpine 127.0.0.1:52958->6379/tcp
+byz-act-tier-b-cluster-85996e4d redis:7.4-alpine 127.0.0.1:52911->6379/tcp
+byz-act-tier-b-standalone-b5282529 redis:7.4-alpine 127.0.0.1:52898->6379/tcp
+byz-c2a-r0-red-redis redis:7.4-alpine 127.0.0.1:52754->6379/tcp
+c1c-ta-red-486fbca4 redis:7.4-alpine 127.0.0.1:52709->6379/tcp
+byz-act-tier-b-cluster-a7dd4812 redis:7.4-alpine 127.0.0.1:52537->6379/tcp
+byz-act-tier-b-standalone-a406b8ee redis:7.4-alpine 127.0.0.1:52495->6379/tcp
+c1c-ta-red-d34e0c9a redis:7.4-alpine 127.0.0.1:50809->6379/tcp
+v6-realtime-live-redis-1 redis:7-alpine 0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+supabase_db_cfo-p0-pg public.ecr.aws/supabase/postgres:17.6.1.140 0.0.0.0:54322->5432/tcp, [::]:54322->5432/tcp
+supabase_studio_cfo-p0-pg public.ecr.aws/supabase/studio:2026.06.29-sha-20290c7 0.0.0.0:54323->3000/tcp, [::]:54323->3000/tcp
+supabase_pg_meta_cfo-p0-pg public.ecr.aws/supabase/postgres-meta:v0.96.6 8080/tcp
+supabase_storage_cfo-p0-pg public.ecr.aws/supabase/storage-api:v1.61.7 5000/tcp
+supabase_rest_cfo-p0-pg public.ecr.aws/supabase/postgrest:v14.14 3000/tcp
+supabase_realtime_cfo-p0-pg public.ecr.aws/supabase/realtime:v2.112.1 4000/tcp
+supabase_inbucket_cfo-p0-pg public.ecr.aws/supabase/mailpit:v1.30.2 1025/tcp, 1110/tcp, 0.0.0.0:54324->8025/tcp, [::]:54324->8025/tcp
+supabase_auth_cfo-p0-pg public.ecr.aws/supabase/gotrue:v2.192.0 9999/tcp
+supabase_kong_cfo-p0-pg public.ecr.aws/supabase/kong:2.8.1 8001/tcp, 8088/tcp, 8443-8444/tcp, 0.0.0.0:54321->8000/tcp, [::]:54321->8000/tcp
+buildx_buildkit_supertonic-builder0 moby/buildkit:buildx-stable-1 
+onecli ghcr.io/onecli/onecli:latest 0.0.0.0:10254-10255->10254-10255/tcp
+onecli-postgres-1 postgres:18-alpine 0.0.0.0:5434->5432/tcp
+vectoragent-qdrant qdrant/qdrant:latest 0.0.0.0:6333-6334->6333-6334/tcp, [::]:6333-6334->6333-6334/tcp
+vectoragent-postgres postgres:15-alpine 0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+langfuse-postgres postgres:15-alpine 0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp
+langfuse-server langfuse/langfuse:2 0.0.0.0:3100->3000/tcp, [::]:3100->3000/tcp

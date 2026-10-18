@@ -1,0 +1,17 @@
+tester rows: 12
+ft-v65-tester-claude#1	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#2	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#3	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#4	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#5	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#6	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#8	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#9	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#10	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#11	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#12	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+ft-v65-tester-claude#13	role=tester	agent=claude	model=claude-sonnet-5-5[1m]	created=None	closed=None	memo=
+
+-- keys containing 'checker' --
+ft-v65-tester-checker-ds#19 {"role": "stop-ready", "agent": "claude", "model": "deepseek-v4.1-flash", "_replaced_by": "ft-v65-tester-checker-ds#20", "_session": "killed"}
+ft-v65-tester-checker-ds#20 {"role": "stop-ready", "agent": "opencode", "model": "openrouter/deepseek/deepseek-v4.1-flash"}

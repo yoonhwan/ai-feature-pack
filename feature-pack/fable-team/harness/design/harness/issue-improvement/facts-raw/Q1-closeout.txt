@@ -1,0 +1,30 @@
+1:# v65 main 랜딩 단위 마감 정본 — 2026-10-03 (arch-claude#152 초안 · 집행 master-claude#133)
+3:> 오빠 지시(2026-10-03): «병합 → v65 main 랜딩» + 사전 GO(e46fb46908) · 「지금 main push」(master#133 AskUserQuestion).
+4:> 방침 정본: `~/.claude/rules/closeout-policy.md` — 이 파일 하나가 «main 랜딩 단위»의 재개 지점이다.
+12:골좌표: M7 / 「독립 checker 4축, DA, 관련 local gates와 feature 브랜치 master push; main 통합은 전체 v65 완성 후」 — 오빠 10-03 판정으로 main 통합을 «랜딩 먼저» 로 당김(e46fb46908).
+18:| main | **origin/main @ `2ccd036b8e`** (== origin/feat) — 랜딩 merge `419dc33962`(부모 main `23e37d5621` · feat `8b939f1ae7`) → S9 `f8c815511b`(cd-dev.yml 한 줄) → S10 `339cee88dc`(gateway 시험 3) → 복구 `2ccd036b8e`(아래 사고) |
+19:| feat | **origin/feat/v6-realtime-live @ `2ccd036b8e`** (main 과 같은 커밋 · S6 7d82dcda88 · S9 5dafac482f · S10 병합 0dcbfdd0a3) |
+23:| 배포 | CD (Dev) 37113094879 success · verify-gate OK · 리비전 commit-sha 3/3 == 419dc33962(gateway 00387 · web 00272 · worker 00266) → S9 CD 37114097708 success · worker-dev-00267-7fr == f8c815511b |
+24:| CI | 첫 랜딩 CI 37113094979 Python/Web Test failure = 랜딩 전 main 23e37d5621 CI 같은 잡 failure(기준선 빨강) — nodeid 대조는 master 회신 대기(§3) |
+33:| S1 | 게이트 차분 | 닫힘 — READ ce59429a52(새 실패 23·error 5 PASS) |
+34:| S2 | 증분 DA⑥ | 닫힘(기계 증거) — c20015eaa6 · REPORT 39e4ebe84f |
+35:| S3 | 전체 단위 세트 | 닫힘 — READ ce59429a52 차집합 0 |
+36:| S4 | 깨끗한 병합 + 재생 | 닫힘 — 313903d113 · 비문서 diff 0 |
+37:| S5 | 로컬 3버블 | 닫힘 — READ e8bdff3c74(이중 0 · 누락 0 · checkpoint exit 0 · Issues 0) |
+38:| S6 | feat push | 닫힘 — origin/feat 7d82dcda88 |
+39:| S7 | main push | 닫힘 — origin/main 419dc33962 |
+40:| S8 | CD + dev 라이브 | 닫힘 — 리비전 3/3 · READ 59928dafd3(이중 0 · 누락 0 · 과금 12행 잔액 일치 · 실험 키 꺼짐) |
+41:| S9 | 청크 원문 로그 0 | 닫힘 — [chore] 5dafac482f · main f8c815511b · CD 37114097708 success · worker-dev-00267-7fr(commit-sha f8c815511b · 100%) env V6_STT_CHUNK_TEXT_LOG=0 |
+42:| S10 | 첫 랜딩 CI 새 실패 처분 | 수용 — S10 커밋 3(시험만 · 제품 0): a687fbe11a usage_history(main #666 4-tuple) · 055a6701cc g16_10(인증 actor · feat 결제자 결속이 정답) · b3ac11333b loom_dynamic e2e(feat PoolHandle) — tests/gateway 직렬 HEAD−main FAILED 0 · ERROR 0(credit_opening docker 일시 실패 8 = 단독 11 passed) · push 뒤 sha 는 §5 |
+44:### 사고 1건 (복구 끝 · master#133 #55846)
+45:- S10 main merge `339cee88dc` 의 트리를 feat 그대로 썼는데, 그 사이 main 에 다른 트랙 문서 `5410b5bfaa`(RD_DECISION_ARCH#0 · PTT 없는 결정 모델 R&D 16 파일)가 올라와 있어 16 파일이 빠졌다. force 없이 복구 커밋 `2ccd036b8e`(트리 = merge-tree(5410b5bfaa, 0dcbfdd0a3)) push. arch 재검: 16 파일 diff 0 · 트리 일치 · feat 밖 main 단독 커밋은 이것 하나뿐.
+46:- ★교훈★: main push 직전 `git log <feat>..origin/main` 가 비었는지 확인하고, 비어 있지 않으면 merge 트리는 feat 트리가 아니라 `git merge-tree --write-tree origin/main <feat>` 결과여야 한다(첫 랜딩 419dc33962 은 main 이 기점 23e37d5621 그대로라 안전했다).
+50:**완성 전 (v65 골 축 측정 · 랜딩된 같은 sha 한 세트에서 · 회차마다 4자 표)** — CHECKLIST §3
+54:**다른 트랙 랜딩 때**
+56:- 트랙별 FT 분담 적용(오빠 판정 9cfba4b2ff: 나노 상한 트랙별 5 · tracks/ 이동 보류 · CCU tick launchd) — 적용 조건 «S6 뒤» 충족 · 초안 §7·§8 보정부터.
+59:- ★CI 는 v65 worker 시험 대부분을 못 돌린다(master#133 #55837 실측 · 첫 랜딩 CI 37113094979)★: ERROR ~1000(130여 파일) = FileNotFoundError redis-server 1160 + disposable Redis fixture RuntimeError 17 · FrozenInstanceError 6 = 외부 공급자(google warmup refused) 부재로 raise 된 ActivationPolishWarmupUnavailable 이 frozen dataclass 라 contextlib 가 __traceback__ 대입에 실패 · jsdom 모듈 없음 7. ⇒ 랜딩 근거는 CI 가 아니라 #1 RULE 로컬 S3(ce59429a52 · 같은 시험 포함 · 차집합 0). 처분 = 완성 후 별 단위 «CI 에 v65 시험 편입»(ci.yml redis-server 설치 · 외부 공급자 의존 시험은 표식으로 분리 · skip/xfail 금지) — 그 전까지 main push 는 로컬 전체 세트 필수(CI 초록 ≠ v65 검증).
+64:- ★교훈★: 병합 게이트 전체 세트(S3) 경로 집합은 CI 와 같아야 한다 — 이번 S3 는 tests/gateway 를 빼서 시험 계약 충돌 9건을 CI 가 처음 잡았다.
+66:- test_v65_open_wait_* 14 = feat 기준선 기존 실패(S1 READ).
+67:- tcc8 poller 가 prod 빌드 말풍선 DOM 을 못 잡음(S8 checkpoint exit 3 = 측정 불가 · DA-331 같은 모양).
+68:- deterministic_silence REJECTED_GUARD 1(S5 · all-zero PCM 0.79 s · press3 시작) — 가드 병합 diff 0 · 설계된 차단 · 입력 출처 관찰.
+79:- 기입 2026-10-03 20:1x master-claude#133 (ctx 431k — CI 완료 전 마감 · 랜딩 근거 = 로컬 S3 ce59429a52)

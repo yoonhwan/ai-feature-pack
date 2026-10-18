@@ -1,0 +1,14 @@
+FB_CFO#52 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning
+KakaoBot#14 /Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap
+KakaoBot#17 /Users/yoonhwan/Project/KakaoBot/.worktrees/bootstrap
+byz-planner-arch#3 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live
+ft-airag-helm-claude#5 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant
+ft-airag-master-claude#2 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant
+ft-harness-arch#2 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-harness-arch#3 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-harness-da#1 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-harness-nano#1 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-harness-ops#1 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-harness-ops#2 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-harness-ops#3 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+ft-v65-master-claude#135 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live

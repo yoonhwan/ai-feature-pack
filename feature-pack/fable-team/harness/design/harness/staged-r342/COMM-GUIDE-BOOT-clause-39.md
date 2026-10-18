@@ -1,0 +1,3 @@
+# 스테이징 — COMM-GUIDE-BOOT 새 조항 39 (R342 · 승격은 master 가 아카이브 선복사 뒤 · 정본 = ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md · 형식 = staged-r106)
+
+39. **«arch 상시» 팀은 arch 좌석 없이 master·desk 교대·자율 ON 0**(2026-10-17 오빠 «플랜팀도 기획이랑 아키텍트가 중요해 … 밀리고 잃어버리고 진행안되고 막혀버리고 자율때 선택도 못하고» «예 둘 다 해» · 원장 R342): `design/TEAMSET.md` 표 2 «arch 상시» 팀(planner 포함)은 명부 `_arch` 가 tmux 라이브가 아니면 ①`ft-teamset-check` 가 `ERR arch 없음` ②`ft-successor-open` 이 그 팀 `_master`·`_desk` 교대를 `REJECT 그 팀 arch 좌석 없음`(arch 자신의 교대는 통과 — 교착 0) ③planner 는 `ft-autonomy on` 이 `REJECT planner arch 없음`(상태 불변). 재개 기록만 있고 tmux 에 없는 arch 는 «죽음» — 재부팅 뒤 순서는 arch 먼저 → master 교대. 판정기는 하나(`ft_teamset.py arch-live`). 표 «없음» 팀(issues·kk)은 영향 0.

@@ -1,0 +1,20 @@
+ISSUES total 121
+state {'OPEN': 93, 'CLOSED': 28}
+labels: {'status:needs-triage': 90, 'scope:main': 87, 'phase:pre-completion': 61, 'team:cfo': 47, 'status:blocked-no-seat': 46, 'type:feature': 38, 'phase:post-completion': 37, 'team:v65': 34, 'type:agent-ops': 30, 'type:bug': 17, 'type:research': 16, 'type:test-request': 16, 'scope:direct': 11, 'area:realtime': 8, 'team:shared-harness': 7, 'team:planner': 7, 'source:user-report': 7, 'team:harness-ops': 6, 'release:v1.0': 6, 'size:small': 5, 'status:in-progress': 5, 'area:frontend': 5, 'area:gateway': 5, 'hil:needed': 4, 'status:needs-review': 4, 'priority:p1': 4, 'source:hermes-e2e': 4, 'type:task': 3, 'scope:satellite': 3, 'phase:hold': 3, 'status:blocked': 3, 'status:ready-for-dev': 3, 'status:evidence-needed': 3, 'area:lecture': 3, 'hil:approved': 3, 'decision:ready-for-hil': 3, 'team:ccu': 2, 'status:hil-needed': 2, 'priority:p0': 2, 'epic:auth': 2, 'area:infra': 2, 'bug': 2, 'type:perf': 1, 'epic:deploy': 1, 'epic:e2e': 1, 'epic:guest': 1, 'priority:p2': 1, 'epic:credit': 1, 'status:needs-repro': 1, 'area:worker': 1, 'status:research-needed': 1, 'decision:hold': 1, 'enhancement': 1}
+milestone set: ['K2', 'K4', 'M5', 'M7', 'goal-outside', 'p90-five']
+assignees nonempty: 0
+merged PRs analyzed=150 · Closes/Fixes refs=4 · of which target a CLOSED issue=4
+example closes: [(804, 801), (802, 799), (808, 805), (817, 810)]
+issues created last14d: 93
+   827 OPEN 2026-10-04 worker D job 직렬 줄서기 — 확정 지연이 동시 사용자 수에 비례 (N=1 6.9s · N=6 14
+   826 OPEN 2026-10-04 worker 단위 시험 비-RED 실패 10건 — custody_probe 5·vad_carryover 3·
+   825 OPEN 2026-10-04 pytest 마커 red 분리 — _red.py 의도 RED 97건(15파일)을 게이트에서 빼고 observ
+   821 OPEN 2026-10-04 세로 분할 타임라인에서 partial 번역 미표시 — VerticalSplitLayout 이 translat
+   820 OPEN 2026-10-04 Slack→mbox 역방향 — #byz-planner 스레드 reply 가 소유 좌석 mbox 로 전달
+   819 OPEN 2026-10-04 main CI 빨강 — Python Test·Web Test 2잡 연속 failure (db18f53a9a·
+   816 OPEN 2026-10-04 [harness] 라이브 하네스 bin = main 추적본 1:1 — 채택·설치·드리프트 검사·FT_BIN 
+   813 OPEN 2026-10-04 [harness] mbox.sh 추적본≠라이브 (diff 81줄) — 라이브를 정본으로 동기화
+   810 CLOSED 2026-10-04 [ccu] worker 구간 관측 로그 3줄 — LST 큐 대기·확정 STT ms·owner 번역 commi
+   809 OPEN 2026-10-04 main 4e13c158d4 전체 세트 136 failed/22 errors 분류
+label families: {'status': 158, 'team': 103}
+needs-triage count: 90

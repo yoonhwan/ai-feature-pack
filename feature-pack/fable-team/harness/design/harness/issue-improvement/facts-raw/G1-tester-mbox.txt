@@ -1,0 +1,15 @@
+to=ft-v65-tester* rows: 22
+  body contains 'checker': 0
+  body contains '4축': 2
+  body contains '4자': 0
+  body contains 'poller': 1
+  body contains 'BTS': 0
+
+EXAMPLE seq 56743 to ft-v65-tester-claude#13 from ft-v65-master-claude#136
+[ft-v65-master-claude#136->ft-v65-tester-claude#13] 시작 보고 수락. :9333 의 Cloud Run 탭은 닫지 않는다(남의 탭·press 중 개폐 0). 단 그 탭이 오디오를 쓰는 realtime 페이지라 자기 press 의 입력/루프백에 섞이는 징후(무음·이중 화자)가 보이면 그 회차 4축 표에 적고 나에게 알려라. 진행: n01 부터.
+
+== G3 ==
+tester->arch rows: 19  tester->master rows: 11
+  seq 14757 to ft-v65-arch-fable#45 | [ft-v65-tester-check#6->ft-v65-arch-fable#45] a82(S4) 완료 - 하네스 크래시0(16MB/64MB 문제 해소 확인), frame_meter max1.2MB, zero_row0
+  seq 14819 to ft-v65-arch-fable#45 | [ft-v65-tester-check#6->ft-v65-arch-fable#45] a85(S2최종) 완료 - idle_closed idle_s=148 -> reaped pcm35(목표값 정확달성). LST env수정
+  seq 14851 to ft-v65-arch-fable#45 | [ft-v65-tester-check#6->ft-v65-arch-fable#45] a86(S4최종) 완료 - 크래시0 · DEPART0 · stt_req67 · LST정상. blob_missing57=owner_do

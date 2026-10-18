@@ -1,0 +1,20 @@
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:1:# SPEC — planner·issue-manager 역할 · 병렬 발주 · 나노 병렬 처리 · 미션 클리어 (r4 · ft-harness-arch#1 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:3:> **건드리는 정본**: planner GUIDE 8항 4·5(운영 대조) · issue-manager PROPOSAL §2(배분·완료 5항) · `ft
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:4:> **전제 조각**: P2 `SPEC-main-orch-tree-20261005.md`(37e19724b5 · 오빠 ↔ planner ↔ {v65·cfo
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:18:## 1. planner · issue-manager 세부 수행 역할
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:21:| | planner (`byz-planner-arch#3` · fable-5-1) | issue-manager (`ft-issue-manager#0` 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:24:| 하는 일 | 접수→분류(⓪→①~④)→**분류 값 1통 = 1 Issue → issue-manager**→운영(좌석·카드·보고 3자 대조)→베이스↔위성
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:27:| 실측 통신 | 발신 55건(10-04 16:40~10-05 12:29): →issue-manager 15 · →harness-ops 21 · →v65
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:29:경계 한 줄: **planner = 「어느 팀·어느 골 축·완성 전/후」를 정하는 거시 1통 / issue-manager = 그 값으로 Issue 1건을
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:38:| issue-manager 의 일 | 등록 검사·라벨 전이·배분 1건·close 뒤 5항 «대조»·색인 — 해결·close = 메인 오케 | 「정의된 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:39:| Issue # 소유 | 메인 오케 1 | 매니저가 직접 랜딩하면 소유 둘 | 소유 표시 = `team:<x>` 라벨 1개 + 「소유 오케=<세션명>」
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:44:- 발주 단위 = **Issue 1건**(issue-manager 경유) · planner 직접 1통은 판정 값만. 팀당 동시 = PROPOSAL §2 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:96:| issue-manager | Issue 보드 + LOOP-LEDGER 12행 | 0 | 0 | 3 | Issue close + 완료 5항 대조 |
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:102:Issue(issue-manager 배분 쌍) ──▶ 오케 접수 ──▶ 활성 1 (나머지 = 큐 · 우선순위 ①라이브 ②완성 전 골 축 ③완성 전 골 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:109:            ──▶ 오케 3줄(경로·sha·남은 일) → issue-manager close 대조(5항) → planner BOARD 행 닫힘
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:114:- P4-4 **기록 간 ack·복구** — 오케 3줄 → issue-manager 「close 대조 결과 + LEDGER 행」 회신 → planner
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md:125:| Q5 | §1-C ⓑ 경로 — `size:small` Issue 를 issue-manager 가 자기 나노로 집행 | **유지**(GOAL-issu
+.worktrees/harness-ops/design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md:24:   ├─ 메인 팀  v65(ft-v65-master-claude#134·#135) · cfo(FB_CFO#52) · planner · issue-
+.worktrees/harness-ops/design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md:31:[일]   GitHub Issues 121 · 마일스톤 6종 · Projects 「BYZ Board」 · issue-manager LOOP-LEDG
+.worktrees/harness-ops/design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md:48:| 1-12 | issue-manager | README 에 루프(모니터→등록 라벨 6+마일스톤→우선→배분 1건→감시→5항→종료) **정의 있음**
+.worktrees/harness-ops/design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md:91:| **GitHub Issue** | 일 1건 = Issue 1건 · 상태 라벨 5 · **소유 표시 = `team:<x>` 라벨 + 코멘트 1줄 

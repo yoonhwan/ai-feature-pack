@@ -1,0 +1,15 @@
+design//harness/indices/완성/00-first-unit.md
+design//harness/ORDER-harness-composition-20261005.md
+design//harness/DA-composition-r1.md
+design//harness/facts-raw/F4-analysis.txt
+design//harness/facts-raw/F4-issues.json
+design//harness/facts-raw/F4-labels.txt
+design//harness/HANDOFF-slack-holes-20261004.md
+design//harness/DESIGN-harness-composition-20261005.md
+design//harness/REQ-facts-composition-20261005.md
+docs//architect/AGENT_ISSUE_ORCHESTRATION_ARCHITECTURE.md
+docs//architect/BYZ_CORE_PHASES_AND_EXPANSION_MODEL.md
+docs//architect/BYZ_ISSUES_CHANNEL_COMPLETION_GUIDE.md
+.github//ISSUE_TEMPLATE/planner_task.yml
+.github//ISSUE_TEMPLATE/live_bug.yml
+.github//ISSUE_TEMPLATE/harness_request.yml

@@ -1,0 +1,11 @@
+{
+  "_name": "Seatbelt-LECTURE",
+  "_version": "0.1.0",
+  "_doc": "lecture 팀(강의전사 · 오빠께 보이는 표시명 m.lecture) 좌석 레지스트리 틀 — v65 팀 아래 위성팀(오빠 확정 2026-10-15 판정 1942·1943). v65 가 완성한 것을 강의전사 제품에 랜딩·마이그레이션만 한다. 진행 보고는 v65 master 를 거치고 사람 판정([HIL])은 _hil_route(현역 planner)로 바로 간다. 좌석 상한 = 팀장 상시 · 세션 팀당 3 · 위성 합 6(판정 1949 · bin-lecture/lecture-env.sh FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP) · 시험만 교차(오디오 press 는 ft-press-gate 가 전역 1개 · 로컬 서버 포트는 FT_PORT_BASE 달리). 이 파일은 틀이다: _master·_arch·_cards·_cards_wt 는 v65 제안서(판정 1935) 확정 뒤 v65 master 가 팀장을 열 때 채운다 — _cards 는 카드 폴더가 생기기 «전» 에 넣지 않는다(뉴스 수집기가 폴더 없음 예외로 멈춘다). _hil_route 는 install.sh 가 설치 때 seats-planner.json _master 로 채운 값이다 — planner 승계 때 고친다. ft-role-spawn 은 v65 고정이라 쓰지 않는다. 슬러그는 lecture(세션 이름 byz-lecture-…) · m.lecture 는 _label 에만.",
+  "_master": null,
+  "_arch": null,
+  "_hil_route": "<설치 때 seats-planner.json _master 로 채움>",
+  "_parent": "v65",
+  "_label": "m.lecture",
+  "_tick": null
+}

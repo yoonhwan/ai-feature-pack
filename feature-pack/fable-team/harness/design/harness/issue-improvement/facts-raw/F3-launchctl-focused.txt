@@ -1,0 +1,8 @@
+-	0	ai.hermes.gateway-watchdog
+11187	1	ai.hermes.gateway
+702	0	ai.hermes.gateway-zion
+-	0	com.airag.ft-goal-tick
+-	0	com.airag.ft-news-tick
+710	0	com.hermes.vertex-openai-proxy
+-	2	com.byz.gce-guard-check
+-	0	com.airag.notify-master-20260928-2200

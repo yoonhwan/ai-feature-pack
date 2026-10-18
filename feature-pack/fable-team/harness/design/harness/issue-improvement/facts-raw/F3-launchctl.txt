@@ -1,0 +1,13 @@
+-	0	com.apple.stickersd
+-	0	ai.hermes.gateway-watchdog
+11187	1	ai.hermes.gateway
+702	0	ai.hermes.gateway-zion
+-	0	com.airag.ft-goal-tick
+-	0	com.airag.ft-news-tick
+710	0	com.hermes.vertex-openai-proxy
+770	0	application.com.divisiblebyzero.Spectacle.8239943.8240178
+-	0	dev.byz.v6-rate-limit-resume-once-20260628-1803
+-	2	com.byz.gce-guard-check
+-	0	dev.byz.v6-rate-limit-resume
+-	0	dev.byz.limit-resume-once-20260928-1201
+-	0	com.apple.transparencyStaticKey

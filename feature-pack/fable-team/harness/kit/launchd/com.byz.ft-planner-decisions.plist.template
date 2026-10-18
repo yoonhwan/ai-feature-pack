@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-planner-decisions</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__FT_BIN__/ft-decision-count.sh</string>
+    <string>--alarm</string>
+  </array>
+  <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
+  <key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_DECISION_WAIT_MIN</key><string>30</string>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/byz-ft-planner-decisions.log</string>
+  <key>StandardErrorPath</key><string>/tmp/byz-ft-planner-decisions.log</string>
+</dict>
+</plist>

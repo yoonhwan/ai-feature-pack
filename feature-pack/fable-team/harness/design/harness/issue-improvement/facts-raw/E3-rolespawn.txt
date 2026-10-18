@@ -1,0 +1,2 @@
+3:#   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
+15:case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac

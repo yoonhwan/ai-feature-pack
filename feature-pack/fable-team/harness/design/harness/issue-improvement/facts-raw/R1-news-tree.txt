@@ -1,0 +1,19 @@
+# planner 뉴스 트리 — 상태는 카드 폴더(indices/대기·진행·완성)에서 · [idx:] 없는 줄은 적힌 값 · 렌더 python3 .fable-team/bin/ft-news-tree.py design/planner/NEWS-TREE.md
+planner 메인 PM — 골 GOAL-planner.md 원문 1~3 · 운영 원장 BOARD.md
+  [✅] 1 구조 협의 STRUCTURE r4 (d68285da51 · DA B2 CLOSED · B1 #134 계약)
+  [✅] 2 할 일 정렬 BOARD (r8 · DA B2 CLOSED · C11 연결 · cfo #52 회신 2)
+  [✅] 3 최신화 전략 STRATEGY r3 (DA APPROVE · 정리 1차 160→122)
+  [✅] 4 도구 매핑 (STRUCTURE §5 · BOARD §4)
+  운영 (10-04~)
+    [✅] V10 라이브 vLLM INCIDENT — CLOSEOUT 1장 · D2 main 180d75e105 · #135 마감 중
+    [✅] P4 CCU 라이브 공유 창 허가 — 오빠 값 「창마다 개별 [HIL]」(U = #56354 GO 유지 · J 이후 창마다 planner→오빠)
+    [🔄] planner 좌석 #0→#1 승계(#56364) · HIL 경로 = 오빠 직접(planner pane)
+    [idx:P1-kk-new-seats-unregistered] kk 새 좌석 2 — kk main 랜딩 895a5ece9c · V18 해소
+    [idx:P2-unclassified-teams-archdoc-airag-kakaobot] 미분류 3묶음 제안서 → 오빠 협의
+    [idx:P3-tick-daemons-all-unloaded] 뉴스 틱 0 재가동 조건 — #134 «아니오 · 오빠 확인 때 켠다»
+    [idx:P6-gh-issues-projects-stage1-2] GH Issues ①② — Issue 76(#721~#796)+재라벨 3 ✅ · 템플릿 main 411160a575 ✅ · 보드 ⏳ 토큰 scope(P7)
+    [✅] V28 #797 라이브 STT VM metadata → v8(gpu-serving 전용 키 · 재기동 0 · #56445)
+    [✅] P7 BYZ Board projects/7 (80 항목) · [✅] P7b 뷰 4 + 필드 80/80 (planner API · group-by UI 1클릭 남음)
+    [✅] P9 ft-harness-ops#0 열림(planner 직접 · PR #802 머지 대기) · [✅] P10 ft-issue-manager#0 + repro-e2e#0 열림 · [🔄] P11 템플릿 3 → issue-manager 첫 단위
+    [✅] V12 #731 · V27 #745 — issue-manager 루프 1·2 로 닫힘
+    [⏳] v65 완성 전 V1~V11·V13·V22~V26 — 오빠 GO 대기(착수 금지) · v65 master#135 종료 레디(재개 = GO 때 새 세션)

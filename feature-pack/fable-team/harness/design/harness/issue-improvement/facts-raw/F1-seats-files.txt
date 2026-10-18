@@ -1,0 +1,6 @@
+.fable-team/seats-cfo.json
+.fable-team/seats-harness.json
+.fable-team/seats-issues.json
+.fable-team/seats-kk.json
+.fable-team/seats-planner.json
+.fable-team/seats.json

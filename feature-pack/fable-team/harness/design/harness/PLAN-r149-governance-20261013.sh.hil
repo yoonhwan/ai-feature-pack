@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# PLAN r149 정본 governance §12 설치 — 상향 좌석 지침(판정 1641)을 전역 정본에 한 절 추가 (사람 실행 `! bash /tmp/h<N>` · ft-hil.sh --add 로 등록).
+# 전역 ~/.claude 변경이라 좌석이 직접 치지 않는다. 설치본은 «랜딩 커밋(R149_LANDED=<40hex> 필수)» 에서 git show 로 꺼낸다(루트 체크아웃의 현재 파일이 아니다).
+# 하는 일: ①랜딩 sha 실재 ②라이브 정본이 스테이징본의 «앞부분과 바이트 동일» 한지 확인(다르면 다른 사람이 그새 고친 것 → 덮지 않고 STOP) ③백업(.bak-r149) ④cp ⑤cmp.
+# 되돌림(1줄): cp ~/.claude/skills/fable-team/references/main-team-governance.md.bak-r149 ~/.claude/skills/fable-team/references/main-team-governance.md
+# 값 0: 비밀을 다루지 않는다(문서 한 파일 교체).
+set -euo pipefail
+REPO="${R149_REPO:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
+SHA="${R149_LANDED:-}"
+SRC="design/teams/harness/staged-r149/main-team-governance.md"
+LIVE="$HOME/.claude/skills/fable-team/references/main-team-governance.md"
+
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "STOP R149_LANDED=<랜딩 커밋 40자> 가 필요하다(없거나 40자 hex 가 아니다)" >&2; exit 1; }
+git -C "$REPO" cat-file -e "$SHA^{commit}" 2>/dev/null || { echo "STOP 랜딩 커밋이 저장소에 없다: $SHA ($REPO)" >&2; exit 1; }
+[ -f "$LIVE" ] || { echo "STOP 라이브 정본이 없다: $LIVE" >&2; exit 1; }
+STAGE="$(mktemp)"
+git -C "$REPO" show "$SHA:$SRC" > "$STAGE" || { echo "STOP 그 커밋에 스테이징본이 없다: $SRC" >&2; exit 1; }
+head -c "$(wc -c < "$LIVE")" "$STAGE" | cmp -s - "$LIVE" || { echo "STOP 라이브 정본이 스테이징본의 앞부분과 다르다 — 그새 바뀌었다. 덮지 않는다(스테이징본을 새 라이브 위에 다시 만들 것)" >&2; exit 1; }
+grep -q '^## 12\. 상향 좌석' "$STAGE" || { echo "STOP 스테이징본에 §12 가 없다" >&2; exit 1; }
+
+[ -e "$LIVE.bak-r149" ] || cp -p "$LIVE" "$LIVE.bak-r149"
+cp "$STAGE" "$LIVE"
+cmp "$STAGE" "$LIVE" && echo "OK §12 설치 — 백업 $LIVE.bak-r149"

@@ -1,0 +1,20 @@
+--- .worktrees/harness-ops/design/issues ---
+GOAL-issues.md
+LOOP-LEDGER.md
+README.md
+indices
+.worktrees/harness-ops/design/issues/indices
+.worktrees/harness-ops/design/issues/indices/inbox
+.worktrees/harness-ops/design/issues/indices/inbox/arch
+--- .worktrees/issue-manager/design/issues ---
+GOAL-issues.md
+LOOP-LEDGER.md
+NANO-LEDGER-issues.md
+README.md
+indices
+.worktrees/issue-manager/design/issues/indices
+.worktrees/issue-manager/design/issues/indices/inbox
+.worktrees/issue-manager/design/issues/indices/inbox/arch
+.worktrees/issue-manager/design/issues/indices/완성
+.worktrees/issue-manager/design/issues/indices/진행
+.worktrees/issue-manager/design/issues/indices/대기

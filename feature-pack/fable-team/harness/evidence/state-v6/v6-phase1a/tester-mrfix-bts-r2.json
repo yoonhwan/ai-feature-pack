@@ -1,0 +1,15 @@
+{
+  "verdict": "FAIL",
+  "pre_clean": "closed 2 stale localhost:3001 tabs (ids 99EA75F7EE4629B07D59C6A6EAB9C4BE, 35AA11D456FD4105A77DE54E1C53FE78) at CDP :9333 (not :9222 — CDP_PORT default is 9333 per tests/e2e/cdp_helper.py); verified 0 localhost:3001 tabs remained before run; gateway cwd verified == this worktree",
+  "turn1": "PASS host ko: cer=0.0000, guard=none, hyp='오늘 회의를 시작합니다.', gateway user_id=tester2 source_lang=ko (correct), worker STT lang=ko provider=groq (correct)",
+  "turn2": {
+    "gateway_user_id": "tester2 (BUG: expected guest-334ea57e — guest DID join room as guest-334ea57e/lang=en per SSE user_joined+language_updated events, but the actual spoken utterance was released under user_id=tester2, source_lang=ko)",
+    "source_lang": "ko (BUG: expected en)",
+    "worker_stt_lang": "ko (BUG: expected en) — worker.graph.speech.pulse.nodes.stt request_id=d27a5ab3 lang=ko provider=groq",
+    "cer": "1.0000 (threshold 0.35) — hyp='안녕하세요. 만나서 반가워요.' vs expected text='Hello nice to meet you.'",
+    "hallucination": "not classic Korean-hallucination-on-EN-panel; STT decoded the guest's English audio using a ko-forced chain, producing a Korean paraphrase — root cause is upstream: guest speech was captured/routed through the HOST's (tester2) ko session/pipeline, not through a guest en session"
+  },
+  "guest_console": "absent — grep -c 'label=guest' on stderr log = 0. No guest-tab VAD/energy/chunk_post console lines at all during the entire run, despite guest_enter_token succeeding (station_ok, lang=en confirmed) and gateway confirming guest-334ea57e joined room-req-8767 with language_updated lang=en. This means the guest tab's mic/PTT pipeline never activated for turn 2 — the turn2 speech was captured by/attributed to the host (tester2) tab/session instead.",
+  "evidence_dir": ".omo/evidence/v6-mrfix-short-bts-r2",
+  "notes": "Confound theory REFUTED, not confirmed. Pre-run browser state was verified clean (0 stale :3001 tabs, correct CDP port 9333, gateway cwd matches worktree, only NEW log lines judged). The failure reproduced identically to the 12:10 run: turn2 (guest en) utterance.released event still carries user_id=tester2/source_lang=ko, and worker STT ran lang=ko for the guest's request_id (d27a5ab3), yielding cer=1.0. Zero label=guest browser console lines is the smoking gun — the guest tab never ran its own VAD/chunk pipeline; audio/PTT for turn2 stayed bound to the host tab/session. This points to a real product/runner defect in guest-tab identity binding (PTT targeting or SSE session attribution), not a stale-CDP-tab artifact. Recommend orchestrator route back to a debugging pass on guest-tab PTT target attach / session_id binding rather than closing as harness-confound."
+}

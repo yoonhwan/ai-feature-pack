@@ -1,0 +1,14 @@
+# ft-head-skip.txt — «뒤처짐» 점검에서 제외할 브랜치(main 으로 병합되지 않는 줄기) · R243 ft_head_lag.py + R230 ft-head-sync.sh 가 같은 파일을 읽는다
+# 한 줄 = 정규식 1개(브랜치 이름 전체에 일치 — 두 도구가 ^(줄1|줄2|…)$ 로 합친다) · # 주석·빈 줄 허용
+# 환경변수 FT_HEAD_SYNC_SKIP 이 있으면 이 파일 대신 그 값을 쓴다 · 파일이 없거나 정규식 줄이 0개면 두 도구 모두 ERROR(기본값으로 조용히 넘어가지 않는다)
+main
+master
+release/.*
+deploy/.*
+# 문서·운영 줄기 — main 으로 병합되지 않는다(R249 · 판정 1929 · ops·issues master 확인)
+feat/feature-main
+docs/cfo-main
+docs/ops-main-r2
+ops/main-base
+feat/ops-main
+feat/issue-manager

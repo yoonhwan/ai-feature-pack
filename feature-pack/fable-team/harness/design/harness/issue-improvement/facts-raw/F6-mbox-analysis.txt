@@ -1,0 +1,19 @@
+rows: 301
+first: 2026-10-04T16:38:03 last: 2026-10-05T12:25:32
+last7d: {'2026-09-29': 0, '2026-09-30': 0, '2026-10-01': 0, '2026-10-02': 0, '2026-10-03': 0, '2026-10-04': 279, '2026-10-05': 22}
+top10 from->to:
+  CCU_ARCH#17 -> FB_CCU#12: 22
+  CCU_NANO#25 -> CCU_ARCH#17: 20
+  FB_CCU#12 -> CCU_ARCH#17: 17
+  CCU_ARCH#17 -> CCU_NANO#25: 17
+  ft-issue-manager#0 -> byz-planner-arch#3: 16
+  ft-harness-ops#1 -> byz-planner-arch#3: 14
+  byz-planner-arch#3 -> ft-issue-manager#0: 13
+  byz-planner-arch#3 -> ft-harness-ops#1: 13
+  FB_CCU#12 -> byz-planner-arch#3: 12
+  ft-v65-master-claude#136 -> byz-planner-arch#3: 9
+[HIL] rows: 8
+relay/bodies rows: 20
+to byz-planner-arch#: 69
+mailbox.jsonl queue rows: 440 first: 2026-08-10T13:34:39 last: 2026-10-05T12:25:11
+queue to byz-planner-arch#: 0

@@ -1,0 +1,165 @@
+"""R320b — 멈춘 좌석 감지 4종의 «판정» (읽기 전용 · 처리는 ft_stall_scan.py).
+
+a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(하네스 1건) · d 답 기다리며 3분+ (멈춘 쪽 = 받는이).
+좌석 상태는 ft-seat-status.sh turn(jsonl IDLE/WORKING) 출력을 그대로 쓴다 — pane·mtime 을 쓰지 않는다.
+"""
+import json
+import re
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+IDLE_MIN = 3.0
+FUTURE = re.compile(r"하겠습니다|할게요|진행하겠|착수하겠|진행할게")
+REST = "[완료·휴식]"
+REF = re.compile(r"indices/(대기|진행|완성)/([\w.\-]+)\.md")
+OFF_ROLES = ("stop-ready", "closed")
+
+
+def run(cmd: list[str], env: dict[str, str] | None = None) -> tuple[int, str]:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15, env=env)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return 99, str(e)
+    return r.returncode, r.stdout
+
+
+def load_teams(root: Path) -> list[dict[str, Any]]:
+    teams: list[dict[str, Any]] = []
+    for f in sorted((root / ".fable-team").glob("seats*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        label = d.get("_label") or ("v65" if f.name == "seats.json" else f.stem.removeprefix("seats-"))
+        seats = {k: v for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)
+                 and v.get("role") not in OFF_ROLES and not v.get("_replaced_by") and not v.get("_closed")}
+        cards = root / ".worktrees" / d["_cards_wt"] / d["_cards"] if d.get("_cards_wt") and d.get("_cards") else (root / d["_cards"] if d.get("_cards") else None)
+        teams.append({"team": label, "master": d.get("_master"), "cards": cards, "seats": set(seats)})
+    return teams
+
+
+def turn_info(status_cmd: str, seat: str, path: str = "") -> tuple[str, float | None]:
+    """ft-seat-status.sh turn 출력(STATE TURN_END ISO …) → (STATE, TURN_END epoch|None). DURATION_MS 는 나이가 아니다. 읽기 실패·UNKNOWN = ("UNKNOWN", None)."""
+    rc, out = run(["bash", status_cmd, "turn", "--file", path] if path else ["bash", status_cmd, "turn", seat])
+    p = out.split()
+    if rc or not p:
+        return "UNKNOWN", None
+    end = None
+    if len(p) > 1 and p[1] != "-":
+        try:
+            end = datetime.strptime(p[1][:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            pass
+    return p[0], end
+
+
+def idle_minutes(status_cmd: str, seat: str, now: float) -> float | None:
+    """IDLE 이면 지금 − TURN_END 분 · 그 밖(WORKING·PENDING·UNKNOWN·측정 불가)은 None."""
+    state, end = turn_info(status_cmd, seat)
+    return (now - end) / 60 if state == "IDLE" and end is not None else None
+
+
+def spawn_capacity(root: Path, label: str, cap_cmd: str) -> str:
+    """그 팀이 «지금 nano 를 열 수 있나» = 실제 spawn 과 같은 판정(ft_seat_cap.py: 팀 상한 + 위성 그룹 합 상한)을 팀 env 로 그대로 호출.
+    "ok"(여유 또는 상한 env 없음) · "full"(REJECT 상한) · "unknown"(ERROR·판정기 없음 — 조용히 통과시키지 않는다)."""
+    env = root / ".fable-team" / f"bin-{label}" / f"{label}-env.sh"
+    if not env.exists():
+        return "ok"  # 팀 env 가 없는 팀(v65 등)은 spawn 도 상한 검사 0
+    if not Path(cap_cmd).exists():
+        return "unknown"
+    rc, out = run(["bash", "-c", '. "$1" && exec python3 "$2" --root "$3"', "_", str(env), cap_cmd, str(root)])
+    if rc == 0:
+        return "ok"
+    return "full" if out.startswith("REJECT") else "unknown"
+
+
+def _texts(rec: dict[str, Any]) -> tuple[list[str], bool]:
+    content = (rec.get("message") or {}).get("content")
+    if not isinstance(content, list):
+        return [], False
+    texts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+    tool = any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content)
+    return texts + [json.dumps(b.get("input", {}), ensure_ascii=False) for b in content if isinstance(b, dict) and b.get("type") == "tool_use"], tool
+
+
+def last_turn(path: str, window: int = 524288) -> dict[str, Any]:
+    """마지막 턴의 assistant 기록만 본다 → {rest: [완료·휴식] 실재, future: 끝 글이 미래형 선언 · 그 뒤 도구 0}."""
+    try:
+        size = Path(path).stat().st_size
+        with open(path, "rb") as fh:
+            fh.seek(max(0, size - window))
+            raw = fh.read()
+    except OSError:
+        return {"rest": False, "future": False}
+    recs: list[dict[str, Any]] = []
+    for line in raw.split(b"\n"):
+        try:
+            recs.append(json.loads(line))
+        except ValueError:
+            continue
+    ends = [i for i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
+    start = ends[-2] + 1 if len(ends) > 1 else 0
+    turn = [r for r in recs[start:(ends[-1] + 1 if ends else len(recs))] if r.get("type") == "assistant"]
+    rest = any(REST in t for r in turn for t in _texts(r)[0])
+    future = False
+    if turn:
+        texts, tool = _texts(turn[-1])
+        future = bool(texts) and not tool and bool(FUTURE.search(texts[-1].strip()[-100:]))
+    return {"rest": rest, "future": future}
+
+
+def card_ready(card: Path, cards_dir: Path, lint: str) -> bool:
+    if run(["bash", lint, str(card)])[0] != 0:
+        return False
+    for line in card.read_text(encoding="utf-8").splitlines():
+        if line.startswith("- 선행:"):
+            for kind, name in REF.findall(line):
+                if kind in ("대기", "진행") and (cards_dir / kind / f"{name}.md").exists():
+                    return False
+    return True
+
+
+def waiting_cards(cards: Path | None, lint: str) -> int:
+    d = cards / "대기" if cards else None
+    if not d or not d.is_dir():
+        return 0
+    return sum(1 for c in sorted(d.glob("*.md")) if c.name != "README.md" and card_ready(c, d.parent, lint))
+
+
+def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:
+    """c 정책 정지 — RESOURCE_FREEZE 실재 또는 SPAWN_HOLD 가 «지금 유효»(R320 ft-spawn-hold.sh status --check <판정> rc0 · 기한·해제 조건 판정은 그쪽이 정본).
+    판정기가 없거나 못 돌면 «정지 판정 불가» 로 센다(조용히 0 으로 두지 않는다 · #0 RULE)."""
+    st = root / ".fable-team/state"
+    if (st / "RESOURCE_FREEZE").exists():
+        return "RESOURCE_FREEZE 실재"
+    hold = st / "SPAWN_HOLD"
+    if not hold.exists():
+        return None
+    try:
+        verdict = str(json.loads(hold.read_text(encoding="utf-8"))["verdict"])
+    except (OSError, ValueError, KeyError):
+        return "SPAWN_HOLD 실재(판정 번호 읽기 실패)"
+    if not hold_cmd or not Path(hold_cmd).exists():
+        return f"SPAWN_HOLD 실재 hold={verdict} (ft-spawn-hold.sh 판정기 없음 — 유효 여부 판정 불가)"
+    rc, out = run(["bash", hold_cmd, "status", "--check", verdict])
+    return f"SPAWN_HOLD 유효 hold={verdict}" if rc == 0 else (None if rc == 3 else f"SPAWN_HOLD 판정 실패 rc={rc} {out.strip()[:60]}")
+
+
+def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
+    """받는이 → (가장 오래된 미읽음 seq, 그 나이 분). 큐(mailbox.jsonl)에 남은 줄 = 아직 안 읽은 쪽지."""
+    out: dict[str, tuple[int, float]] = {}
+    try:
+        lines = (comm / "mailbox.jsonl").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        try:
+            r = json.loads(line)
+            age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
+        except (ValueError, KeyError):
+            continue
+        if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
+            out[r["to"]] = (int(r["seq"]), age)
+    return out

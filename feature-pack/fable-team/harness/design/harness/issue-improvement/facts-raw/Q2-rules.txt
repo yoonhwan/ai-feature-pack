@@ -1,0 +1,41 @@
+1:# 단일 세트 시험 규율 — 멀티 워크트리·브랜치의 최대 함정 (2026-10-02 · 오빠 지시 · ★정본★)
+5:> 뿌리 = 나노 브랜치가 갈라진 순간에 멈추고(최신 미수령) · 끝난 뒤 랜딩·정리되지 않고 쌓인다(미랜딩 277/590).
+18:| 랜딩 | 17:54~21:51 제품 커밋 13개를 쌓아 랜딩 · 18:00 이후 press 19회가 돌았는데 오빠 육안 «18시 전후 동작이 완전히 다르다»와 아무도 대조 안 함 |
+20:★결과★: 회귀(번역 0 · 봉인 실패)가 «K2 회귀인지, 러너/세트 불일치인지, 18시 랜딩인지»를 한 번에 가를 수 없는 상태가 됐다.
+24:1. ★**시험은 한 세트에서만**★ — 서비스(worker·gateway·FE)와 러너는 **같은 워크트리의 같은 HEAD**(dirty 0)에서만 뜬다.
+25:   나노의 press 는 §3 ②(최신 루트 병합 완료) «뒤»에만, 그 나노 워크트리 세트로 쏜다. 최신 병합 전 브랜치로 press 금지.
+1:# Git Worktree Pitfalls (BYZ)
+7:## 1. `git add X && git commit` exit 1 — "커밋하도록 정하지 않은 변경 사항"
+12:## 2. 워크트리 자동변경 노이즈 3종 — 커밋 절대 금지
+20:## 3. PR diff 위생 체크 (push 전 필수)
+27:## 4. 워크트리에서 gh CLI 실패
+31:## 5. squash 머지 후 같은 브랜치 재사용 (재-PR)
+58:## 6. 워크트리 삭제 전 — 그쪽을 가리키는 외부 심링크 점검
+63:# 삭제 전 점검: 삭제 대상으로 향하는 링크 수색
+65:# 발견 시: 루트 정본으로 재연결  ln -sfn {root}/clients/web/node_modules ...
+68:## 7. `reset --soft origin/main` + `restore --staged --worktree` 콤보 = 미push 로컬 커밋 증발
+72:## 8. rebase 전 — "이미 원격에 올라간 브랜치인가" 확인 (2026-08-10 실증)
+85:## 9. PR diff 위생 — 패턴 검사로 안 잡히는 오염
+90:# ★신규 유입만 = main 에 없는 루트 파일. grep -v / 만 쓰면 "수정된 루트 파일"까지 잡는다
+101:### ★5b. 「머지하면 뭐가 지워지나」 판정 — `merge-tree` 만이 정본
+110:### ★★5c. `merge-tree` 를 첫 줄만 읽지 마라
+119:### ★5d. `merge-tree` 는 「머지」를 검증한다 — 「rebase」를 검증하지 않는다 (2026-09-01 실증)
+142:## ★워크트리 규율 자체가 stale 일 수 있다 (2026-08-14 실증)
+1:# 작업 마감 방침 — 랜딩·정본·전부 닫기 (오빠 2026-10-03 · ★정본★)
+7:1. **세션·나노는 «이어가기용»으로 열어 두지 않는다.** 단위가 끝나면 ①랜딩 → ②배포 브랜치 push → ③정본 1장 → ④전부 닫기. 남은 열린 행은 세션을 열어 둘 사유가 아니다. 정본에 적고 닫는다.
+18:5. **닫기 체크**: 미커밋 0 · 배포 브랜치 원격 sha 확인 · 정본 push · 좌석 kill(nano-close 경로) · 승계 0(닫는 세션에 후계를 만들지 않는다). 브랜치 삭제는 여전히 HIL이다.
+---
+name: feedback_main_merge_commit_tree_must_include_moved_main
+description: Hand-built main merge commit (commit-tree with tree=feat) silently reverts any main commit not in feat — abort unless origin/main is an ancestor of feat
+metadata:
+  node_type: memory
+  type: feedback
+  originSessionId: 61faf310-b434-4bac-a260-0631d82d1842
+  modified: 2026-10-03T11:07:30.761Z
+---
+
+Never build a main merge commit as `git commit-tree <feat>^{tree} -p origin/main -p feat` unless `git merge-base --is-ancestor origin/main feat` succeeded **in the same command right after fetch**. If main moved (another track pushed), tree=feat drops that commit's files.
+
+**Why:** 2026-10-03 S10 (master-claude#133): RD_DECISION_ARCH#0 pushed 5410b5bfaa (16 docs files, 8197 lines) to main between my fetches; my check printed nothing (not-ancestor) and I pushed anyway → 339cee88dc deleted them. Restored forward-only with tree = `git merge-tree --write-tree origin/main feat` (2ccd036b8e), no force push.
+
+**How to apply:** for every main push: fetch → `is-ancestor origin/main feat || abort` (exit, not an echo) → if main moved, build tree with `git merge-tree --write-tree origin/main feat` (check rc=0, no conflicts) → verify `git diff <moved main commit> <new> -- <its paths>` empty before push. Related: [[feedback_local_verify_before_push]].

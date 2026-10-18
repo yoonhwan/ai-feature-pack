@@ -1,0 +1,7 @@
+categories
+categories.bak-20260930
+current
+forks
+models
+models.generated
+versions

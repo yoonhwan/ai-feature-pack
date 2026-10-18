@@ -1,0 +1,25 @@
+3:#   ft-nano-close.sh 의 «산출물이 들어왔는가» 게이트 (G4 · 골좌표 M7 — 나노 브랜치에만 남은 커밋은 feat push 가 따라오지 않는다).
+4:#   `git cherry <feat> <nano>` 의 «+»(feat 에 같은 patch 가 없는 커밋): design/ 밖 경로를 건드린 것이 있으면 목록 출력 + exit 1 ·
+5:#   design/ 만 건드린 «+» 는 WARN 목록 + exit 0(브랜치 보존으로 복구 가능 — G4 실측 docs-only 134 를 전부 막으면 닫기 정지) · «+» 0 이면 `OK` + exit 0.
+7:#   면제 목록·무조건 우회 없음. 유일한 사람 우회 = `--override "<사유>"`(코드 «+» 의 내용 REJECT 만 · 사유 빈 문자열 거부 · ERROR 로그 + 원장 1행 — #0 RULE 예외 3조건).
+8:#   --mode land|close (기본 close = 위 동작 그대로): land = 랜딩 «요청» 시점 — nano 가 feat HEAD 를 조상으로 포함(최신 루트 병합 완료)하지 않으면 REJECT(M7 · single_set_testing §2 규칙 2).
+9:#   close 에는 이 검사를 걸지 않는다 — squash 랜딩 뒤엔 feat 가 앞서 가 «포함» 이 항상 거짓이다(REVIEW arch141 §2-3).
+10:#   exit 0 = 통과 · 1 = REJECT(+ 있음 / ref 없음 / git 실패 — 전부 사유 stdout) · 2 = usage. ★침묵 통과 0★ — 어느 경로든 한 줄 이상 출력한다.
+12:FEAT="${1:-}"; NANO="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>]" >&2; exit 2; }
+13:REPO="."; HAVE_OVERRIDE=0; OVERRIDE=""; MODE="close"
+17:    --mode) MODE="${2:-}"; shift 2 2>/dev/null || shift
+18:            case "$MODE" in land|close) ;; *) echo "usage: --mode land|close (받은 값: ${MODE:-<빈 값>})" >&2; exit 2 ;; esac ;;
+19:    --override) HAVE_OVERRIDE=1; OVERRIDE="${2:-}"; shift 2 2>/dev/null || shift ;;
+20:    *) echo "usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>]" >&2; exit 2 ;;
+24:  echo "REJECT cherry 게이트 — --override 사유가 비어 있음(사유 없는 우회 거부)"; exit 1
+27:  git -C "$REPO" rev-parse --verify -q "refs/heads/$r" >/dev/null || { echo "REJECT cherry 게이트 — 브랜치 없음: $r (refs/heads/)"; exit 1; }
+32:  exit 1
+35:[ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }
+40:delta_file="$(mktemp)"; plus_file="$(mktemp)"; trap 'rm -f "$delta_file" "$plus_file"' EXIT
+44:  [ "$lrc" -eq 0 ] && [ -n "$line" ] || { echo "REJECT cherry 게이트 — git log 실패(rc=$lrc) 커밋 ${sha:0:9}"; exit 1; }
+47:  [ "$prc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree 실패(rc=$prc) 커밋 ${sha:0:9} — 경로를 못 읽어 분류 불가"; exit 1; }
+49:  [ "$zrc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree -z 실패(rc=$zrc) 커밋 ${sha:0:9}"; exit 1; }
+66:    echo "REJECT cherry 게이트 — git merge-tree 실패(rc=$mrc): ${mt:0:120}"; exit 1
+72:    [ "$drc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree(merge-tree 결과 대조) 실패(rc=$drc)"; exit 1; }
+77:      echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개는 git cherry 로는 미랜딩이나 merge-tree 실제 delta 가 design/ 밖 0개(design/ ${ndesign}개) — 통과 (사유 content_landed_via_merge_tree)"
+78:      exit 0

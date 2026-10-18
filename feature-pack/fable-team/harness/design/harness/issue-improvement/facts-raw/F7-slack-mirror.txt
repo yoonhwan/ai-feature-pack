@@ -1,0 +1,17 @@
+__pycache__
+byz_github_slack_mirror.py
+byz_mbox_slack_mirror.py
+byz_slack_mbox_inbound.py
+com.hermes.byz-github-slack-mirror.plist.template
+com.hermes.byz-mbox-slack-mirror.plist.template
+com.hermes.byz-slack-mbox-inbound.plist.template
+install-github.sh
+install-inbound.sh
+install.sh
+mirror_deliver.py
+mirror_github.py
+mirror_inbound.py
+mirror_lib.py
+mirror_plan.py
+mirror_questions.py
+mirror_summary.py

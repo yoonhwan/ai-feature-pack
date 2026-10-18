@@ -1,0 +1,10 @@
+clients/web/src/domains/realtime/v5-segment-reducer.ts
+clients/web/src/domains/audio/energy-vad-max-chunk.ts
+clients/web/src/domains/audio/pcm-capture.ts
+clients/web/src/domains/audio/energy-chunker-start.ts
+clients/web/src/domains/audio/use-energy-chunker.ts
+clients/web/src/domains/audio/energy-chunker-aux.ts
+tests/e2e/chrome_profile_pool.py
+tests/e2e/v5_prod_demo_scenarios.py
+tests/e2e/test_v6_ptt_short_toggle_bts.py
+tests/e2e/solo_realtime_corpus/cdp_bubbles.py

@@ -1,0 +1,16 @@
+SAME  ft-checkpoint.sh
+DIFF  ft-index-lint.sh
+DIFF  ft-index-move.sh
+SAME  ft-nano-cherry-gate.sh
+DIFF  ft-nano-close.sh
+SAME  ft-nano-evidence-check.sh
+DIFF  ft-nano-freshness.sh
+SAME  ft-nano-slots.sh
+SAME  ft-nano-spawn.sh
+SAME  ft-press-gate.sh
+SAME  ft-press-set-check.sh
+DIFF  ft-role-spawn.sh
+DIFF  ft-seat-status.sh
+DIFF  ft-tick-install.sh
+DIFF  ft-tick.plist
+DIFF  ft-tick.sh

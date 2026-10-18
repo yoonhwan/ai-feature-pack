@@ -1,0 +1,250 @@
+LEFT tests/scripts/_magazine_detail_fixture.py:20: "units": [{"team": "harness", "path": "design/harness/indices/완성/proposal-tools.md", "title": "제안서 도구 3개 <b>",
+LEFT tests/scripts/_magazine_detail_fixture.py:22: "evidence": ["세트: " + "c" * 40 + " · 시험: pytest rc=0 · 이슈: 0"], "da": "design/harness/DA-x.md#§3",
+LEFT tests/scripts/_magazine_detail_fixture.py:25: "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§47", "title": "판정 352", "body": "본문 1\n본문 2\n\n본문 4"}],
+LEFT tests/scripts/_magazine_detail_fixture.py:35: "open": {"cards": [{"team": "harness", "state": "진행", "path": "design/harness/indices/진행/a.md", "title": "열린 카드", "tail": ["a", "b", "c"]}],
+LEFT tests/scripts/_magazine_detail_fixture.py:36: "requests": [{"id": "R13", "text": "열린 요청"}], "malformed_requests": [], "holds": [{"path": "design/harness/DA-y.md", "verdict": "HOLD"}],
+LEFT tests/scripts/_magazine_detail_fixture.py:38: "seats_closed": [{"path": "design/harness/NANO-LEDGER-20261008.md", "line": "| x | 닫힘 |"}],
+LEFT tests/scripts/_magazine_detail_fixture.py:39: "appendix": [{"path": "design/harness/BRIEFING-morning-20261008.md", "text": "브리핑 1\n브리핑 2"}],
+LEFT tests/scripts/_magazine_eli5_kit.py:11: UNIT = {"team": "harness", "path": "design/harness/indices/완성/창.md", "title": "아침 매거진의 요약 창",
+LEFT tests/scripts/_magazine_fakes.py:37: "docs": [{"path": "design/harness/BRIEFING-morning-20261008.md", "url": "https://github.com/o/r/blob/main/x.md"}],
+LEFT tests/scripts/_magazine_fakes.py:47: "team": "harness", "path": "design/harness/indices/완성/x.md", "title": "예시 단위", "why": "왜 이 단위를 했는지 전문",
+LEFT tests/scripts/_magazine_fakes.py:49: "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "ops/main-base",
+LEFT tests/scripts/_magazine_fakes.py:52: "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§3", "title": "예시 판정 — 닫힘", "body": "판정 본문 전문"}],
+LEFT tests/scripts/_magazine_fakes.py:60: "cards": [{"team": "harness", "state": "진행", "path": "design/harness/indices/진행/y.md", "title": "진행 단위", "tail": ["- 상태 1", "- 상태 2", "- 상태 3"]}],
+LEFT tests/scripts/_magazine_fakes.py:63: "holds": [{"path": "design/harness/DA-z.md", "verdict": "HOLD"}],
+LEFT tests/scripts/_magazine_fakes.py:66: "seats_closed": [{"path": "design/harness/NANO-LEDGER-harness.md", "line": "- **[2026-10-08 …] `seat#0` 닫힘(ft-nano-close)**"}],
+LEFT tests/scripts/_magazine_fakes.py:67: "appendix": [{"path": "design/harness/BRIEFING-morning-20261008.md", "text": "브리핑 전문"}],
+LEFT tests/scripts/conftest.py:68: """R351: 팀셋 표는 origin/main 에서 읽는다 — 임시 리포엔 그 표가 없어 nano-spawn 이 REJECT 한다. 표 판정은 tests/harness/test_teamset_gitref.sh 가 본다."""
+LEFT tests/scripts/fake_resource_env.py:1: """R218 — 자원 문지기(ft-resource-gate.sh)를 부르는 시험용 «가짜 센서» 공통 헬퍼 (셸 판 = tests/harness/lib/fake_resource_env.sh).
+LEFT tests/scripts/test_magazine_cli.py:73: assert f"<https://github.com/o/r/blob/{sha}/design/harness/magazine/MAGAZINE-20261008.md|매거진 본문>" in slack.roots[0]["text"]
+LEFT tests/scripts/test_magazine_collect_detail.py:29: H = "design/harness"
+LEFT tests/scripts/test_magazine_collect_open.py:29: (r / "design/harness").mkdir(parents=True)
+LEFT tests/scripts/test_magazine_collect_open.py:30: (r / "design/harness/REQUEST-LEDGER.md").write_text(ledger, encoding="utf-8")
+LEFT tests/scripts/test_magazine_collect_open.py:95: (r / "design/harness/REQUEST-LEDGER.md").unlink()
+LEFT tests/scripts/test_magazine_eli5.py:15: "refs": [], "units": [{"team": "harness", "path": "design/harness/indices/완성/창.md",
+LEFT tests/scripts/test_magazine_git.py:26: assert git(origin, "show", f"{sha}:design/harness/magazine/MAGAZINE-20261008.md") == "# 본문"
+LEFT tests/scripts/test_magazine_git.py:29: assert mg.blob_url("o/r", sha, "X.md") == f"https://github.com/o/r/blob/{sha}/design/harness/magazine/X.md"
+LEFT tests/scripts/test_magazine_guide.py:172: ("쪽지 97655 로 보냈어요", "쪽지번호"), ("R253 카드가 열렸어요", "약어좌표"), ("design/harness/x.md 를 봐요", "파일경로"),
+LEFT tests/scripts/test_magazine_malformed_render.py:51: assert appendix.index("### 형식 미달 카드 2장") < appendix.index("### design/harness/BRIEFING")
+LEFT tests/scripts/test_magazine_malformed_render.py:83: assert appendix.index("### 형식 미달 요청 행 2개") < appendix.index("### design/harness/BRIEFING")
+LEFT tests/scripts/test_magazine_render_full.py:78: assert "> 본문 1\n> 본문 2\n> 본문 4\n> … 원문: design/harness/OPS-VERDICTS-20261008.md §47" in md and "본문 5" not in md
+LEFT tests/scripts/test_magazine_render_full.py:79: assert '<p class="ln">본문 1</p>\n<p class="ln">본문 2</p>\n<p class="ln">본문 4</p>\n<p class="ln">… 원문: design/harness/OPS-VERDICTS-20261008.md §47</p>' in html
+LEFT tests/scripts/test_magazine_render_full.py:103: assert "DA design/harness/DA-x.md#§3" in section_of(md, "D1 닫힌 단위")
+LEFT tests/scripts/test_magazine_size_cap.py:43: m["detail"]["open"]["cards"] = [{"team": "harness", "state": "진행", "path": f"design/harness/indices/진행/c{i}.md", "title": f"카드 {i}", "tail": BODY.split("\n")} f
+LEFT tests/scripts/test_magazine_size_cap.py:51: d["units"] = [{**d["units"][0], "path": f"design/harness/indices/완성/u{i}.md", "title": f"단위 {i}", "why": text_lines(12, "왜"), "da": f"design/harness/DA-{i}.md#§
+LEFT tests/scripts/test_magazine_size_cap.py:52: d["verdict_sections"] = [{"path": "design/harness/OPS-VERDICTS-20261010.md", "section": f"§{i}", "title": f"판정서 절 {i}", "body": text_lines(30, "절")} for i in ra
+LEFT tests/scripts/test_magazine_size_cap.py:60: d["open"]["cards"] = [{"team": "harness", "state": "진행", "path": f"design/harness/indices/진행/c{i}.md", "title": f"카드 {i}", "tail": ["a", "b", "c"]} for i in ran
+LEFT tests/scripts/test_magazine_size_cap.py:61: d["appendix"] = [{"path": f"design/harness/BRIEFING-{i}.md", "text": text_lines(40, "브리핑")} for i in range(5)]
+LEFT tests/scripts/test_magazine_size_cap.py:63: m["docs"] = [{"path": f"design/harness/DOC-{i}.md", "url": f"https://github.com/o/r/blob/main/{i}.md"} for i in range(46)]  # 1부 구간이 실제 10-10 호(277줄)에 가깝게
+LEFT tests/scripts/test_magazine_size_cap.py:86: assert "design/harness/indices/진행/c249.md" in d6.split("외 230건")[1]
+LEFT tests/scripts/test_magazine_size_split.py:25: m["detail"]["units"] = [{**m["detail"]["units"][0], "path": f"design/harness/indices/완성/u{i}.md", "title": f"단위 {i}", "why": "\n".join(f"왜 {j}" for j in range(1
+LEFT tests/test_agent_alive_fg_judge.sh:149: chk "ⓔ 본체 판별 함수 정의 파일 목록(판정기 + 기동확인 복제 2사본)" "$dups" "scripts/fable-team-bin/ft-agent-ready.sh scripts/harness-install/fable-team/bin/ft-agent-ready.sh tools/co
+LEFT tests/test_autonomy_kinds_1675.sh:94: SEAT="byz-harness-nano-t#0"; WT="$T/wt"; CARD="$WT/design/harness/indices/진행/c.md"; BR="nano/t"
+LEFT tests/test_autonomy_kinds_1675.sh:97: rm -rf "$WT" "$S/nano-card-base" "$T/resume"; mkdir -p "$WT/design/harness/indices/진행" "$S/nano-card-base" "$T/resume"
+LEFT tests/test_autonomy_kinds_1675.sh:109: setup_nano; mkdir -p "$WT/design/harness/indices/대기"; cp "$CARD" "$WT/design/harness/indices/대기/c.md"; nr c1 "$WT/design/harness/indices/대기/c.md"; nq "① 카드가 진행/
+LEFT tests/test_autonomy_kinds_1675.sh:134: setup_docs; SD="$(commit_files NOTES.md design/harness/a.json)"; dp d1 "$SD"
+LEFT tests/test_autonomy_scope_classify.sh:51: mk f9 "$BASE" 'mkdir -p scripts/harness-install; echo r > scripts/harness-install/x.md'; cls "$SHA"; want "scripts/harness-install/ → FORBID" 3 "FORBID 전역 규칙"
+LEFT tests/test_autonomy_scope_classify.sh:117: cmp -s "$BIN/ft-merge-land.sh" "$HERE/../../harness/kit/fable-team/bin/ft-merge-land.sh" && cmp -s "$CLS" "$HERE/../../harness/kit/fable-team/bin/autonomy_scope
+LEFT tests/test_block_destructive_inject_post.sh:45: W='bash scripts/fable-team-bin/ft-gh-as-tank.sh'
+LEFT tests/test_da_hold_gate.sh:107: mkdir -p "$T/h/design/harness/indices/진행" "$T/h/.fable-team/comm"; git -C "$T/h" init -q; cp "$FXD/r387-card.md" "$T/h/design/harness/indices/진행/r387-da-hold2-r
+LEFT tests/test_da_hold_gate.sh:110: HC="$T/h/design/harness/indices/진행/r387-da-hold2-redesign-research-loop.md"; hg() { python3 "$GATE" "$HC" --root "$T/h" --resume-dir "$T/resume" 2>&1; }
+LEFT tests/test_da_hold_gate.sh:208: hf="${pair%%:*}"; sf="$REPO/harness/design/harness/staged-r387/${pair##*:}"
+LEFT tests/test_dead_seat_resume.sh:192: mkdir -p "$R/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 |
+LEFT tests/test_evidence_inject_scan.sh:72: REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/design/x/evidence/e1"
+LEFT tests/test_evidence_inject_scan.sh:73: mkdir -p "$REPO/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v6
+LEFT tests/test_evidence_inject_scan.sh:92: mkdir -p "$REPO/tests/harness" "$REPO/design/x/evidence/run1"
+LEFT tests/test_evidence_inject_scan.sh:93: cp "$FX/p3.py" "$REPO/tests/harness/noise.py"; cp "$FX/p3.py" "$REPO/tests/harness/test_evidence_inject_scan.sh"; cp "$FX/p3.py" "$REPO/design/x/evidence/run1/v
+LEFT tests/test_evidence_inject_scan.sh:97: CARD12='증거 design/x/evidence/e1/run.py · 범위 `tests/**` · `design/**/evidence/**` · tests/harness/'
+LEFT tests/test_evidence_inject_scan.sh:98: out="$(card_move k12 "$CARD12")"; [ "$(cnt "$out" files)" = 1 ] && ok "12 일반 표기(tests/** · design/**/evidence/** · tests/harness/) 훑기 0 — files=1(카드의 실파일뿐)" || 
+LEFT tests/test_evidence_inject_scan.sh:100: out="$(card_move k14 'tests/harness/test_evidence_inject_scan.sh')"; echo "$out" | grep -q 'INJECT-SCAN' && bad "14 패턴 정의 파일이 훑였다: $out" || ok "14 패턴 정의 파일 인용 →
+LEFT tests/test_ft_op_token.py:17: STAGED = ROOT / "harness/design/harness/staged-675"
+LEFT tests/test_gh_as_tank.sh:206: block 'bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 5 f --apply; gh issue close 5'
+LEFT tests/test_gh_as_tank.sh:212: pass 'bash scripts/fable-team-bin/ft-gh-as-tank.sh comment 5 body.md --apply'
+LEFT tests/test_gh_as_tank.sh:213: pass 'bash scripts/fable-team-bin/ft-gh-as-tank.sh create "gh 제목" body.md --apply'
+LEFT tests/test_gh_as_tank.sh:214: pass 'bash scripts/fable-team-bin/ft-issue-create-pair.sh "제목" body.md --apply'
+LEFT tests/test_gh_as_tank.sh:215: pass 'bash scripts/fable-team-bin/ft-gh-as-tank.sh pr-comment 7 body.md'
+LEFT tests/test_gh_tank_edit_bak.sh:92: if git -C "$ROOT" show "$BASE_SHA:scripts/fable-team-bin/ft-gh-as-tank.sh" > "$OLD/ft-gh-as-tank.sh" 2>/dev/null; then
+LEFT tests/test_graphics_690.sh:10: STG="$W/harness/design/harness/staged-690"
+LEFT tests/test_graphics_install.sh:3: # 실행: bash tests/harness/test_graphics_install.sh   (리포 어느 워크트리에서든)
+LEFT tests/test_graphics_install.sh:9: KIT="$REPO/feature-pack/fable-team/harness/kit/fable-team/bin"     # spawn·lint 키트(scripts/fable-team-bin 에는 ft-index-lint.sh 가 없다 — 같은 ft-nano-spawn.sh)
+LEFT tests/test_graphics_install.sh:11: STAGED_GOV="$REPO/feature-pack/fable-team/harness/design/harness/staged-649/main-team-governance.md"
+LEFT tests/test_graphics_install.sh:24: mkdir -p "$ROOT/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v6
+LEFT tests/test_index_lint.sh:15: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n' > "$T"/design/TEAMS.md   # 
+LEFT tests/test_index_lint_conditional.sh:16: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n' > "$T"/design/TEAMS.md   # 
+LEFT tests/test_index_move_canon_landed.sh:22: REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/docs/architect"
+LEFT tests/test_index_move_canon_landed.sh:27: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383:
+LEFT tests/test_index_move_canon_landed.sh:42: da() { local f="$REPO/design/harness/$1.md"; shift; printf '# 판정문\n' > "$f"; printf '%s\n' "$@" >> "$f"; echo "$f"; }
+LEFT tests/test_index_move_canonize.sh:25: REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/docs/architect" "$REPO/docs/rules" "$REPO/design/other"
+LEFT tests/test_index_move_canonize.sh:30: | harness | `design/harness/` | h-master 계열 | 현역 |
+LEFT tests/test_index_move_canonize.sh:32: echo "# 규칙" > "$REPO/docs/rules/foo.md"; echo "# 지침" > "$REPO/design/harness/GUIDE-harness.md"
+LEFT tests/test_index_move_canonize.sh:33: echo "# 지도" > "$REPO/design/harness/README.md"; echo "# 비지침" > "$REPO/design/harness/notes.md"
+LEFT tests/test_index_move_canonize.sh:43: da() { local f="$REPO/design/harness/DA-$1.md"; printf '# 판정문\n## §1 닫힘: %s\n' "$1" > "$f"; echo "$f"; }
+LEFT tests/test_index_move_canonize.sh:57: pass "2 정본화 GUIDE-harness.md OK" k2 "- 정본화: design/harness/GUIDE-harness.md"
+LEFT tests/test_index_move_canonize.sh:58: pass "3 정본화 팀 README OK" k3 "- 정본화: design/harness/README.md"
+LEFT tests/test_index_move_canonize.sh:60: pass "5 정본화 두 경로(쉼표) OK" k5 "- 정본화: docs/rules/foo.md, design/harness/GUIDE-harness.md"
+LEFT tests/test_index_move_canonize.sh:66: rej  "11 팀 폴더 GUIDE·README 외 파일 REJECT" k11 "정본화" "- 정본화: design/harness/notes.md"
+LEFT tests/test_index_move_canonize.sh:83: rej  "19 두 경로 중 뿌리 링크 하나면 REJECT" k19 "정본화" "- 정본화: design/harness/README.md, docs/rules/foo.md"
+LEFT tests/test_index_move_canonize.sh:84: pass "20 링크 아닌 뿌리는 여전히 OK" k20 "- 정본화: design/harness/GUIDE-harness.md"
+LEFT tests/test_index_move_rule_line.sh:22: REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/.claude/rules" "$REPO/hooks"
+LEFT tests/test_index_move_rule_line.sh:23: printf '# 판정문\n## §1 닫힘: 카드 이름 r1 r2 r3 r4 r5 r6 r7 r8 h1 h2 h3 h4 h5 h6\n' > "$REPO/design/harness/DA-x.md"
+LEFT tests/test_index_move_rule_line.sh:27: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383:
+LEFT tests/test_index_move_rule_line.sh:29: DA="$REPO/design/harness/DA-x.md#§1"
+LEFT tests/test_index_move_slack.sh:33: REPO="$T/repo"; mkdir -p "$REPO/design/harness/indices"/{대기,진행,완성}
+LEFT tests/test_index_move_slack.sh:35: printf '# 판정문\n## §1 닫힘: 결과 제목 줄 시험 b1 b2 b3 b3b b4 b5 b6 b7\n본문\n' > "$REPO/design/harness/DA-x.md"   # R37: 절에 카드 이름이 있어야 닫힌 절
+LEFT tests/test_index_move_slack.sh:36: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383:
+LEFT tests/test_index_move_slack.sh:39: DA="$REPO/design/harness/DA-x.md#§1"
+LEFT tests/test_index_move_slack.sh:43: local f="$REPO/design/harness/indices/$1/$2.md"
+LEFT tests/test_index_move_slack.sh:51: IDX="$REPO/design/harness/indices"
+LEFT tests/test_install_team_tick_live.sh:8: INSTALL="$REPO/harness/design/harness/staged-r150/install-team-tick-live.sh"
+LEFT tests/test_issue_close_canon.sh:16: R="$T/repo"; mkdir -p "$R/design/harness"; cd "$R" || exit 2
+LEFT tests/test_issue_close_canon.sh:18: X=design/harness/ISSUE-TRANSITIONS.md
+LEFT tests/test_issue_close_gate.sh:40: SIX=$'[close-6항]\n- 닫는 사건: 재현 스텝 3회 PASS\n- PR: #9100 squash 랜딩\n- 재현 PASS: repro-e2e 코멘트\n- 정리: 워크트리·나노 세션 정리 확인\n- 기록: design/harness/CLOSEOUT-x.md\n- 정본 영향 없
+LEFT tests/test_issue_close_gate.sh:169: LNK='제안서: design/harness/PROPOSAL-x.md'
+LEFT tests/test_issue_close_gate.sh:201: pcase 3 "H1 design/x.md.bak"              $'제안서: design/harness/P.md.bak\n처리: 마무리'
+LEFT tests/test_issue_close_gate.sh:202: pcase 3 "H1 design/x.mdx"                 $'제안서: design/harness/P.mdx\n처리: 마무리'
+LEFT tests/test_issue_close_gate.sh:205: pcase 0 "H1 우리 저장소 blob .md"          $"제안서: $BLOB/main/design/harness/P.md"$'\n처리: 마무리'
+LEFT tests/test_issue_close_gate.sh:206: pcase 0 "H1 design/…md 줄끝"               $'제안서: design/harness/P.md\n처리: 마무리'
+LEFT tests/test_issue_close_gate.sh:207: pcase 0 "H1 design/…md) 괄호 끝"           $'제안서 (design/harness/P.md)\n처리: 마무리'
+LEFT tests/test_issue_close_gate.sh:208: pcase 0 "H1 design/…md#절 앵커 끝"          $'제안서: design/harness/P.md#결론\n처리: 마무리'
+LEFT tests/test_issue_close_gate.sh:209: pcase 3 "H2 마무리-발주(harness)"          $'제안서: design/harness/P.md\n처리: 마무리-발주(harness)'
+LEFT tests/test_issue_close_gate.sh:210: pcase 3 "H2 마무리발주"                    $'제안서: design/harness/P.md\n처리: 마무리발주'
+LEFT tests/test_issue_close_gate.sh:211: pcase 3 "H2 마무리 · 발주 연계(발주 포함)"  $'제안서: design/harness/P.md\n처리: 마무리 · 발주 연계'
+LEFT tests/test_issue_close_gate.sh:212: pcase 3 "H2 마무리·설명(공백 없음)"         $'제안서: design/harness/P.md\n처리: 마무리·조사 끝'
+LEFT tests/test_issue_close_gate.sh:213: pcase 0 "H2 마무리 · 설명"                 $'제안서: design/harness/P.md\n처리: 마무리 · 조사 끝'
+LEFT tests/test_issue_close_gate.sh:214: pcase 0 "H2 마무리 — 설명"                 $'제안서: design/harness/P.md\n처리: 마무리 — 조사 끝'
+LEFT tests/test_key_rotate.sh:199: mkfix; R="$T/repo"; mkdir -p "$R/scripts/fable-team-bin" "$T/cwd/x/y"
+LEFT tests/test_key_rotate.sh:204: for D in "$R/scripts/fable-team-bin" "$R/.worktrees/w/scripts/fable-team-bin"; do mkdir -p "$D"; cp "$SRC"/ft-key-rotate.sh "$SRC"/ft_key_rotate*.py "$D/"; done
+LEFT tests/test_key_rotate.sh:205: for D in "$R/scripts/fable-team-bin" "$R/.worktrees/w/scripts/fable-team-bin"; do
+LEFT tests/test_key_rotate.sh:212: mkdir -p "$T/nogit/scripts/fable-team-bin"; cp "$SRC"/ft-key-rotate.sh "$SRC"/ft_key_rotate*.py "$T/nogit/scripts/fable-team-bin/"
+LEFT tests/test_key_rotate.sh:214: OUT="$(cd "$T/cwd" && env -u FT_KEY_ROTATE_ENV HOME="$T/home" PATH="$T/bin:$PATH" bash "$T/nogit/scripts/fable-team-bin/ft-key-rotate.sh" OPENAI_API_KEY 2>&1)";
+LEFT tests/test_kit_exec_modes.sh:7: SRC=scripts/fable-team-bin; KIT=scripts/harness-install/fable-team/bin; PL=scripts/harness-install/launchd
+LEFT tests/test_live_bin_drift_check.sh:23: KP="scripts/harness-install/fable-team/bin"
+LEFT tests/test_live_install.sh:22: KP="scripts/harness-install/fable-team/bin"
+LEFT tests/test_live_install_check.sh:16: R="$T/repo"; KD=scripts/harness-install
+LEFT tests/test_live_install_check.sh:134: CR="$R"; mkdir -p "$CR/design/harness/indices/진행" "$CR/design/cfo/indices/진행"; export FT_INSTALL_PENDING_DIR="$PD"
+LEFT tests/test_live_install_check.sh:135: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| cfo | `design/cfo/` | c | 현역 |\n' > "$CR/design/TEAMS.md"   # R383: 하
+LEFT tests/test_live_install_check.sh:162: LR="$T/lintrepo"; mkdir -p "$LR/design/harness/indices/대기" "$LR/design/other/indices/대기" "$LR/src"; git -C "$LR" init -q -b main .
+LEFT tests/test_live_install_check.sh:163: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| other | `design/other/` | o | 현역 |\n' > "$LR/design/TEAMS.md"   # R38
+LEFT tests/test_live_install_check.sh:173: lint "$(lcard design/harness l1 - '1. src/t.sh')"; [ "$rc" = 1 ] && has "설치"; ck "⑥ 하네스 카드 「- 설치:」 줄 없음 → REJECT" $?
+LEFT tests/test_live_install_check.sh:174: lint "$(lcard design/harness l2 있음 '1. src/t.sh')"; [ "$rc" = 0 ]; ck "⑥ 설치: 있음 → 통과" $?
+LEFT tests/test_live_install_check.sh:175: lint "$(lcard design/harness l3 없음 '1. src/t.sh')"; [ "$rc" = 0 ]; ck "⑥ 설치: 없음 + 키트 언급 없음 → 통과" $?
+LEFT tests/test_live_install_check.sh:176: lint "$(lcard design/harness l4 없음 '1. src/t.sh 와 scripts/harness-install/hooks/x.sh')"; [ "$rc" = 1 ] && has "설치"; ck "⑥ 구현 범위가 scripts/harness-install/ 언급 + 없
+LEFT tests/test_live_install_check_shim.sh:15: R="$T/repo"; KD=scripts/harness-install; KBIN="$KD/fable-team/bin"
+LEFT tests/test_live_install_check_tip.sh:14: R="$T/repo"; KD=scripts/harness-install; KA="$KD/fable-team/bin/ft-a.sh"; KB="$KD/fable-team/bin/ft-b.sh"
+LEFT tests/test_live_install_check_tip.sh:57: mkdir -p "$R/design/harness/indices/진행"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| cfo | `design/cfo/` | c | 현역
+LEFT tests/test_live_install_check_tip.sh:59: CARD="$R/design/harness/indices/진행/t.md"; printf '# 인덱스: t\n- 설치: 있음\n- 실사건: 뒤 커밋 덮은 카드 · 증거 mbox #107707\n## 상태\n- x\n' > "$CARD"
+LEFT tests/test_loom_tunnel_install.sh:3: # 실 터널·실 launchd·실 DB 0. 실행: bash tests/harness/test_loom_tunnel_install.sh (리포 어느 워크트리에서든)
+LEFT tests/test_mbox_guard.sh:137: D="$T/drift"; mkdir -p "$D/tools/comm-canonical" "$D/.fable-team/comm"
+LEFT tests/test_mbox_guard.sh:138: cp "$SRC/check-drift.sh" "$SRC/mbox_guard.sh" "$D/tools/comm-canonical/"; cp "$SRC/mbox_guard.sh" "$D/.fable-team/comm/"
+LEFT tests/test_mbox_guard.sh:139: drift_line() { bash "$D/tools/comm-canonical/check-drift.sh" 2>&1 | grep -E ' mbox_guard\.sh( |$)'; }
+LEFT tests/test_mbox_lineage.sh:98: D="$T/drift"; mkdir -p "$D/tools/comm-canonical" "$D/.claude/fable-team/bin"
+LEFT tests/test_mbox_lineage.sh:99: cp "$SRC/check-drift.sh" "$SRC/mbox_lineage.py" "$D/tools/comm-canonical/"; cp "$SRC/mbox_lineage.py" "$D/.claude/fable-team/bin/"
+LEFT tests/test_mbox_lineage.sh:100: drift_line() { bash "$D/tools/comm-canonical/check-drift.sh" 2>&1 | grep -E ' mbox_lineage\.py( |$)'; }
+LEFT tests/test_mbox_lineage.sh:104: sed -i '' '/"mbox_lineage.py|/d' "$D/tools/comm-canonical/check-drift.sh"
+LEFT tests/test_mbox_v2_guard.sh:6: A="$ROOT/scripts/fable-team-bin/mbox-v2.sh"
+LEFT tests/test_mbox_v2_guard.sh:7: B="$ROOT/scripts/harness-install/fable-team/bin/mbox-v2.sh"
+LEFT tests/test_nano_evidence_red.sh:18: L="$T/ledger"; D=design/harness/indices/진행
+LEFT tests/test_nano_succession_index.sh:24: S="$T/seats-a.json"; IDXA='design/harness/indices/진행/card-a.md'
+LEFT tests/test_nano_team_env.sh:40: mkdir -p "$REPO/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v6
+LEFT tests/test_orch_gate_master.sh:43: check "$S 판정 문서 md Edit"        0 "$(run "$NEW" "$S" "$(mk Edit file_path '/r/design/harness/OPS-VERDICTS-20261006.md')")"
+LEFT tests/test_plan_handoff.sh:7: TPL="$HERE/../../harness/design/harness/PLAN-HANDOFF-TEMPLATE.md"
+LEFT tests/test_planner_nano_path.sh:42: mkdir -p "$REPO/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v6
+LEFT tests/test_planner_nano_path.sh:64: mkdir -p "$REPO/design/harness/indices/대기"; cp "$REPO/design/planner/indices/대기/tpl.md" "$REPO/design/harness/indices/대기/tpl.md"
+LEFT tests/test_planner_nano_path.sh:99: out="$(spawn "$BIN" design/harness/indices/대기/tpl.md --dry-run)"; has "$out" "절 비어 있음" "같은 카드를 하네스 팀 경로로 → REJECT(⑤ 그대로)"; hasnt "$out" "(empty-body allowed)" "
+LEFT tests/test_planner_nano_path.sh:102: out="$(run FT_INDEX_ALLOW_EMPTY_BODY=1 bash "$BIN/ft-nano-spawn.sh" design/harness/indices/대기/tpl.md --dry-run)"; has "$out" "절 비어 있음" "상속 env=1 + 하네스 팀 빈 카드 → 
+LEFT tests/test_planner_nano_path.sh:113: out="$(run FT_INDEX_ALLOW_EMPTY_BODY=1 bash "$M3/ft-nano-spawn.sh" design/harness/indices/대기/tpl.md --dry-run)"; case "$out" in *"절 비어 있음"*) bad "변이3(unset 제거) 
+LEFT tests/test_proposal_gate.sh:68: mkdir -p "$T/cards" "$T/repo/design/harness" "$T/outside" "$T/repo2/design/team" "$T/repo2/idx"; ln -s "$T/outside" "$T/repo2/design/x"; ( cd "$T/repo2" && git 
+LEFT tests/test_proposal_gate.sh:73: wexpect "20 design/ 아래 .md 만 → 면제(rc0)" 0 '`design/harness/PROPOSAL-foo-20261010.md` 를 쓴다'
+LEFT tests/test_proposal_gate.sh:74: wexpect "21 ★B3★ design/harness/../../AGENTS.md → rc1(.. 로 design/ 탈출)" 1 '`design/harness/PROPOSAL-foo-20261010.md` 와 `design/harness/../../AGENTS.md`'
+LEFT tests/test_proposal_gate.sh:75: wexpect "21b ★B3★ ../AGENTS.md → rc1" 1 '`design/harness/PROPOSAL-foo-20261010.md` 와 `../AGENTS.md`'
+LEFT tests/test_proposal_gate.sh:76: wexpect "21c design/harness/../harness/PROPOSAL-foo-20261010.md(.. 해소 뒤에도 design/ 안) → rc0" 0 '`design/harness/../harness/PROPOSAL-foo-20261010.md`'
+LEFT tests/test_proposal_gate.sh:78: wexpect "22 읽기 예외: evidence 폴더·proposal_template.md 와 함께 → rc0" 0 '`design/harness/PROPOSAL-foo-20261010.md` · 읽기 `design/harness/evidence/proposal-foo/` · `doc
+LEFT tests/test_proposal_gate.sh:79: wexpect "22b ★B3★ evidence 폴더 뒤 .. 로 탈출(evidence/proposal-x/../../../AGENTS.md) → rc1" 1 '`design/harness/PROPOSAL-foo-20261010.md` · `design/harness/evidence/p
+LEFT tests/test_proposal_gate.sh:80: wexpect "22c ★B3★ docs/rules/../ops.md → rc1(템플릿 예외 아님)" 1 '`design/harness/PROPOSAL-foo-20261010.md` · `docs/rules/../ops.md`'
+LEFT tests/test_r66_codex_serena_boot.sh:6: STAGED="$ROOT/harness/design/harness/staged-r66/COMM-GUIDE-BOOT.md"
+LEFT tests/test_root_bin_shim.sh:18: KP="scripts/harness-install/fable-team/bin"
+LEFT tests/test_satellite_rosters.sh:3: # 실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY bash tests/harness/test_satellite_rosters.sh
+LEFT tests/test_settings_lint.sh:3: # 픽스처 = tests/harness/fixtures/settings-lint/*.json — 일회용 루트(.claude/settings.json + hooks 스텁)에 복사해 돈다.
+LEFT tests/test_sheet_events.sh:21: CASES=("spawn|spawn job-a h-nano-a#0|spawn|job-a|design/harness/indices/진행/job-a.md"
+LEFT tests/test_sheet_events.sh:126: # ── fix2 F6 — 라이브 진입점 = 정본 tools/comm-canonical/mbox.sh : 머리 3종만 훅 · 헬퍼 부재 시 send rc 0 + stderr 1줄
+LEFT tests/test_sheet_render.sh:33: has "펼침 안에는 카드 경로" "$MD" "design/harness/indices/진행/job-a.md"
+LEFT tests/test_sheet_render.sh:84: p = sys.argv[1] + "/design/harness/indices/진행/job-b.md"
+LEFT tests/test_sheet_render.sh:112: p = root + "/design/harness/indices/진행/job-b.md"
+LEFT tests/test_stt_tunnel_install.sh:3: # 실 터널·실 launchd·실 VM 0. 실행: bash tests/harness/test_stt_tunnel_install.sh (리포 어느 워크트리에서든)
+LEFT tests/test_team_literal_paths.sh:59: case "$F" in 1) HT="$R/design/harness"; PT="$R/design/planner"; VT="$R/design/v65"; IT="$R/design/issues";; 2) HT="$R/design/teams/harness"; PT="$R/design/teams
+LEFT tests/test_team_literal_paths.sh:72: [ ! -e "$R/design/harness/HIL-LEDGER.md" ] || [ "$F" = 1 ] && ok "ⓐ$F 옛 글자 경로에 원장을 새로 만들지 않았다" || bad "ⓐ$F 옛 경로에 원장 생김"
+LEFT tests/test_team_literal_paths.sh:156: printf 'L="$ROOT/design/teams/harness/X.md"\n' > "$LB/a.sh"; o="$(run_lint)"; rc=$?; [ "$rc" = 1 ] && ok "ⓑ 변이: 꼴2(design/teams/<팀>/) 리터럴도 ERR" || bad "ⓑ 꼴2 변이 
+LEFT tests/test_team_literal_paths.sh:195: mkdir -p "$HR3/design"; mv "$R3/design/teams/harness" "$HR3/design/harness"
+LEFT tests/test_team_literal_paths.sh:196: sed -i.bak 's#`design/teams/harness/`#`$FT_HARNESS_ROOT/design/harness/`#' "$R3/design/TEAMS.md"; rm -f "$R3/design/TEAMS.md.bak"
+LEFT tests/test_team_literal_paths.sh:202: has "$o" "OK    $HR3/design/harness/REQUEST-LEDGER.md" "ⓔ 꼴3 ft-harness-info rules: 외부 실파일 경로로 OK 표기"
+LEFT tests/test_team_literal_paths.sh:203: mv "$HR3/design/harness/REQUEST-LEDGER.md" "$T/ledger.bak"
+LEFT tests/test_team_literal_paths.sh:206: mv "$T/ledger.bak" "$HR3/design/harness/REQUEST-LEDGER.md"
+LEFT tests/test_team_literal_paths2.sh:66: [ "$(has_t harness "$T/hr/design/harness/indices/a.md" indices/)" = 0 ] && ok "ⓑ has 꼴3: FT_HARNESS_ROOT 절대경로 아래만 안" || bad "ⓑ has 꼴3"
+LEFT tests/test_team_literal_paths2.sh:137: mkdir -p "$T/nolist/design/harness/indices/진행"; git -C "$T/nolist" init -q -b main; printf '# 인덱스: c\n- 설치: 있음\n' > "$T/nolist/design/harness/indices/진행/h.md"
+LEFT tests/test_team_literal_paths2.sh:138: o="$(bash "$SRC/ft-index-move-install.sh" "$T/nolist/design/harness/indices/진행/h.md" 2>&1)"; rc=$?; [ "$rc" = 1 ] && has "$o" "하네스 팀 폴더를 못 풀었다" "ⓒ 변이: TEAMS.md 
+LEFT tests/test_team_literal_paths2.sh:324: local F="$1" R="$T/xt$F" b o rc; b="$(bf "$F")"; efix "$R" "$F"; mkdir -p "$R/scripts/harness-install/fable-team/bin" "$T/xtb$F" "$T/xtg$F"
+LEFT tests/test_team_literal_paths2.sh:325: echo '#!/usr/bin/env bash' > "$R/scripts/harness-install/fable-team/bin/x.sh"; GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m kit
+LEFT tests/test_team_literal_paths2.sh:328: hasnt "$o" "design/harness/" "ⓔ$F ft-live-bin-drift-check: HINT 에 글자 경로(design/harness/) 없음"; has "$o" "하네스 팀 폴더의 PLAN-release" "  └ HINT = 팀 폴더 서술형"; erec ft-l
+LEFT tests/test_team_literal_paths2.sh:333: hasnt "$o" "design/harness/" "ⓔ$F ft-issue-reopen: 본문에 글자 경로(design/harness/) 없음"; has "$o" "하네스 팀 폴더의 ISSUE-TRANSITIONS.md" "  └ 본문 = 팀 폴더 서술형"; erec ft-issue-
+LEFT tests/test_team_literal_paths2.sh:399: o="$(timeout 20 bash "$SRC/ft-index-move-install.sh" "$R/design/harness/indices/진행/h.md" 2>&1)"; fcrec ft-index-move-install $? "$o" "하네스 팀 폴더를 못 풀었다"
+LEFT tests/test_team_literal_paths2.sh:400: o="$(cd "$R" && timeout 20 bash "$KIT/ft-index-lint-install.sh" "$R/design/harness/indices/진행/h.md" 2>&1)"; fcrec ft-index-lint-install $? "$o" "하네스 팀 폴더를 못 풀었다
+LEFT tests/test_team_move_occupancy.sh:65: vim 4242 $REPO/design/harness/README.md
+LEFT tests/test_team_move_occupancy.sh:67: zsh 6001 $W7/design/harness
+LEFT tests/test_team_move_occupancy.sh:68: vim 4243 $W7/design/harness/README.md
+LEFT tests/test_team_move_occupancy.sh:72: vim 8003 $REPO/design/teams/harness/new.md
+LEFT tests/test_team_move_occupancy.sh:84: has "$out" "LSOF vim pid=4242 $REPO/design/harness" "ⓐ 루트 팀 폴더 안 열린 파일"
+LEFT tests/test_team_move_occupancy.sh:86: has "$out" "LSOF zsh pid=6001 $W7/design/harness" "ⓐ 팀 폴더 자체를 연 프로세스"
+LEFT tests/test_team_move_occupancy.sh:133: [ "$(git -C "$REPO" rev-parse HEAD)" = "$HEAD0" ] && [ -d "$REPO/design/harness" ] && [ ! -d "$REPO/design/teams/harness" ] && ok "ⓑ REJECT 는 쓰기 0(HEAD·폴더 그대로)"
+LEFT tests/test_team_move_occupancy.sh:139: [ "$rc" = 1 ] && [ "$(git -C "$REPO" rev-parse HEAD)" = "$HEAD0" ] && [ -d "$REPO/design/harness" ] && [ ! -d "$REPO/design/teams/harness" ] && ok "ⓑ' rc0+빈 std
+LEFT tests/test_team_move_roundtrip.sh:64: printf '{"branch":"nano/wt1","purpose":"design/harness/indices/진행/harness-c1.md"}' > "$REPO/.worktrees/wt1/.worktree-info.json"
+LEFT tests/test_team_move_roundtrip.sh:65: printf '{\n  "_name": "SB",\n  "_cards": "design/harness/indices",\n  "_tree": "design/harness/STATE.md",\n  "byz-harness-nano-a#0": {"role": "nano", "index": "
+LEFT tests/test_team_move_roundtrip.sh:67: printf '{\n  "name": "byz-harness-nano-a#0",\n  "card_path": "design/harness/indices/진행/harness-c1.md",\n  "worktree": "%s",\n  "branch": "nano/a"\n}\n' "$REPO"
+LEFT tests/test_team_move_roundtrip.sh:68: printf '[{"child_branch":"nano/wt1","child_worktree":".worktrees/wt1","purpose":"design/harness/ 정리"}]\n' > "$REPO/.baton/branches.json"
+LEFT tests/test_team_move_roundtrip.sh:77: [ "$r1" = "$T/c1/design/harness $T/c1/design/teams/harness " ] && ok "ⓒ 꼴1 root=design/<t> · --alt=design/teams/<t>" || bad "ⓒ 꼴1 root/alt: $r1"
+LEFT tests/test_team_move_roundtrip.sh:79: [ "$r2" = "$T/c2/design/teams/harness $T/c2/design/harness " ] && ok "ⓒ 꼴2 root=design/teams/<t> · --alt=design/<t>" || bad "ⓒ 꼴2 root/alt: $r2"
+LEFT tests/test_team_move_roundtrip.sh:81: [ "$r3" = "$T/hroot/design/harness" ] && ok "ⓒ 꼴3 root=\$FT_HARNESS_ROOT/design/<t>" || bad "ⓒ 꼴3 root: $r3"
+LEFT tests/test_team_move_roundtrip.sh:87: mkdir -p "$T/home"; printf "# BOOT\nharness 지도 design/harness/README.md · planner design/planner/README.md\n" > "$T/home/BOOT.md"; printf "# GUIDE\ndesign/cfo/R
+LEFT tests/test_team_move_roundtrip.sh:97: printf 'byz-harness-master-claude#1\t%s/design/harness\n' "$REPO" > "$T/panes"; printf 'vim 4242 %s/design/harness/README.md\n' "$REPO" > "$T/lsof"
+LEFT tests/test_team_move_roundtrip.sh:107: [ -d "$REPO/design/teams/harness" ] && [ ! -d "$REPO/design/harness" ] && ok "ⓐ git mv: design/teams/harness 있고 design/harness 없음" || bad "ⓐ 폴더 이동 안 됨"
+LEFT tests/test_team_move_roundtrip.sh:110: has "$(cat "$REPO/design/teams/harness/README.md")" "design/teams/harness/README.md" "ⓐ README 본문 경로 재작성"
+LEFT tests/test_team_move_roundtrip.sh:111: has "$(cat "$REPO/design/teams/harness/indices/진행/harness-c1.md")" "design/teams/harness/README.md" "ⓐ 카드 본문 경로 재작성"
+LEFT tests/test_team_move_roundtrip.sh:112: has "$(cat "$REPO/.gitignore")" "design/teams/harness/scratch/" "ⓐ .gitignore 재작성"
+LEFT tests/test_team_move_roundtrip.sh:115: has "$ros" '"index": "design/teams/harness/indices/진행/harness-c1.md"' "ⓐ 명부: 받은 좌석(ROOT) index 재작성"
+LEFT tests/test_team_move_roundtrip.sh:117: has "$ros" '"_tree": "design/teams/harness/STATE.md"' "ⓐ 명부 _tree 재작성"
+LEFT tests/test_team_move_roundtrip.sh:119: has "$(cat "$REPO/.fable-team/state/nano-card-base/byz-harness-nano-a#0.json")" "design/teams/harness/indices/진행/harness-c1.md" "ⓐ nano-card-base card_path 재작성"
+LEFT tests/test_team_move_roundtrip.sh:120: has "$(cat "$REPO/.worktrees/wt1/.worktree-info.json")" "design/harness/indices" "ⓐ 미전환 워크트리 worktree-info 는 옛 경로 유지"
+LEFT tests/test_team_move_roundtrip.sh:121: has "$(cat "$REPO/.baton/branches.json")" "design/teams/harness/ 정리" "ⓐ baton branches.json 재작성"
+LEFT tests/test_team_move_roundtrip.sh:127: [ -d "$REPO/design/harness" ] && [ ! -d "$REPO/design/teams/harness" ] && ok "ⓐ revert 뒤 design/harness 복귀" || bad "ⓐ revert 폴더"
+LEFT tests/test_team_move_roundtrip.sh:185: printf '{\n  "_name": "H",\n  "byz-harness-master-claude#1": {"role": "master", "index": "design/harness/indices/진행/harness-c1.md"}\n}\n' > "$R6/.fable-team/sea
+LEFT tests/test_team_move_roundtrip.sh:217: has "$(cat "$R6/.fable-team/seats-harness.json")" '"index": "design/harness/indices/진행/harness-c1.md"' "  └ 옛 index 원문 유지"
+LEFT tests/test_team_scaffold_empty_template.sh:30: [ "$rc" = 1 ] && has "REJECT 틀 파일 0: $LIVE/bin/../templates/team" && has "scripts/harness-install/fable-team/templates/team"; ck "ⓐ VERSION 만 → dry-run REJECT +
+LEFT tests/test_team_scaffold_empty_template.sh:64: KR="$T/kit"; mkdir -p "$KR/scripts/harness-install/fable-team/templates"
+LEFT tests/test_team_scaffold_empty_template.sh:65: cp "$KITMAP" "$KR/scripts/harness-install/LIVE-MAP.tsv"; cp -R "$KIT/templates/team" "$KR/scripts/harness-install/fable-team/templates/team"
+LEFT tests/test_team_scaffold_empty_template.sh:71: n="$(printf '%s\n' "$out" | grep -c '^MISSING scripts/harness-install/fable-team/templates/team/')"
+LEFT tests/test_team_scaffold_empty_template.sh:78: [ "$rc" = 1 ] && has "DIFF scripts/harness-install/fable-team/templates/team/indices/inbox/.gitkeep -> $T/ftbin/../templates/team/indices/inbox/.gitkeep"; ck "ⓕ
+LEFT tests/test_team_scaffold_empty_template.sh:82: TD="$KR/scripts/harness-install/fable-team/templates/team"
+LEFT tests/test_team_scaffold_empty_template.sh:85: git -C "$KR" update-index --add --cacheinfo "100644,$bblob,scripts/harness-install/fable-team/templates/team/bad-"$'\xff'".txt"
+LEFT tests/test_team_scaffold_empty_template.sh:89: [ "$rc" = 1 ] && ! has "Traceback" && ! has "ERROR" && has "MISSING scripts/harness-install/fable-team/templates/team/indices/대기/한글.md -> $T/ftbin/../templates/
+LEFT tests/test_team_scaffold_empty_template.sh:90: has 'MISSING scripts/harness-install/fable-team/templates/team/bad-\udcff.txt'; ck "ⓖ'[$LC] 0xff 파일은 조용히 지나가지 않고 MISSING 줄로 (\udcff 이스케이프)" $?
+LEFT tests/test_team_tick_unify.sh:96: for bad_dir in "$TMP/wt/.worktrees/x/.fable-team/bin" "$TMP/wt/scripts/fable-team-bin"; do
+LEFT tests/test_team_tick_unify.sh:103: mkdir -p "$TMP/x/.worktrees/harness-foo/scripts/fable-team-bin"; cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$TMP/x/.worktrees/harness-foo/scripts/fable-team
+LEFT tests/test_team_tick_unify.sh:104: DOTS="$LIVEWT/../../../harness-foo/scripts/fable-team-bin/ft-tick.sh"
+LEFT tests/test_tracked_bin_call_gate.sh:20: # ── 임시 루트: 리포 + 추적 사본(scripts/fable-team-bin) + 라이브 bin(.fable-team/live-bin 아님 — 임의 폴더) ──
+LEFT tests/test_tracked_bin_call_gate.sh:21: R="$T/root"; LIVE="$T/live"; mkdir -p "$R/scripts/fable-team-bin" "$R/.fable-team" "$LIVE"
+LEFT tests/test_tracked_bin_call_gate.sh:23: for t in $TOOLS ft-live-entry; do cp -p "$SRC/$t.sh" "$R/scripts/fable-team-bin/$t.sh"; done
+LEFT tests/test_tracked_bin_call_gate.sh:40: hook 'bash /x/.worktrees/loom-main/scripts/fable-team-bin/ft-nano-spawn.sh --help'
+LEFT tests/test_tracked_bin_call_gate.sh:43: hook "bash /w/scripts/fable-team-bin/$t.sh a b"; chk denied "ⓕ $t → deny"
+LEFT tests/test_tracked_bin_call_gate.sh:45: hook 'cd /y && bash scripts/harness-install/fable-team/bin/ft-role-spawn.sh da'; chk denied "ⓕ 키트 사본 경로(상대) + && → deny"
+LEFT tests/test_tracked_bin_call_gate.sh:46: hook 'FOO=1 timeout 60 bash /w/scripts/fable-team-bin/ft-nano-close.sh s'; chk denied "ⓕ 환경 대입·timeout 래퍼 뒤 → deny"
+LEFT tests/test_tracked_bin_call_gate.sh:47: hook 'echo hi | bash /w/scripts/fable-team-bin/ft-resource-gate.sh check'; chk denied "ⓕ 파이프 뒤 → deny"
+LEFT tests/test_tracked_bin_call_gate.sh:48: hook '/w/scripts/fable-team-bin/ft-nano-spawn.sh x'; chk denied "ⓕ 경로 직접 실행 → deny"
+LEFT tests/test_tracked_bin_call_gate.sh:50: for c in 'cat /w/scripts/fable-team-bin/ft-nano-spawn.sh' 'grep -n HERE /w/scripts/fable-team-bin/ft-nano-close.sh' 'sed -n 1,5p /w/scripts/fable-team-bin/ft-na
+LEFT tests/test_tracked_bin_call_gate.sh:51: 'git show HEAD:scripts/fable-team-bin/ft-nano-spawn.sh' 'bash -n /w/scripts/fable-team-bin/ft-nano-spawn.sh' 'bash $FT_BIN/ft-nano-spawn.sh --help' \
+LEFT tests/test_tracked_bin_call_gate.sh:52: 'bash /r/.fable-team/bin/ft-nano-spawn.sh --help' 'bash /w/scripts/fable-team-bin/ft-tick.sh --once' 'bash /w/scripts/fable-team-bin/ft-index-move.sh a b' \
+LEFT tests/test_tracked_bin_call_gate.sh:53: 'FT_ALLOW_TRACKED_BIN=1 bash /w/scripts/fable-team-bin/ft-nano-spawn.sh x' 'ls scripts/fable-team-bin/'; do
+LEFT tests/test_tracked_bin_call_gate.sh:65: out="$(mk 'bash /w/scripts/fable-team-bin/ft-nano-spawn.sh x' | env PATH="$NP" FT_ROOT="$R" /bin/bash "$HK" 2>"$T/err")"; rc=$?
+LEFT tests/test_tracked_bin_call_gate.sh:69: hook 'bash /w/scripts/fable-team-bin/ft-nano-spawn.sh x' "$T/hook-mut.sh"
+LEFT tests/test_tracked_bin_call_gate.sh:74: out="$(printf 'IN\n' | env -u FT_ALLOW_TRACKED_BIN bash "$R/scripts/fable-team-bin/$t.sh" one "two w" 2>&1)"; rc=$?
+LEFT tests/test_tracked_bin_call_gate.sh:79: S="$R/scripts/fable-team-bin/ft-nano-spawn.sh"
+LEFT tests/test_tracked_bin_call_gate.sh:94: C="$R/scripts/fable-team-bin/ft-nano-close.sh"
+LEFT tests/test_verdict_row.sh:59: printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n' > "$R"/design/TEAMS.md   # 

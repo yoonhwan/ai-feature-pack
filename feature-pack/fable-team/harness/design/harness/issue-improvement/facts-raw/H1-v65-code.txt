@@ -1,0 +1,40 @@
+tests/e2e/realtime_multi_e2e.py:8:CDP 9333 + BlackHole 인프라는 04 와 공유.
+tests/e2e/realtime_multi_e2e.py:15:      testid 없음 → 텍스트로 trusted mouse click). startSharedRoom('realtime') 가
+tests/e2e/realtime_multi_e2e.py:180:        "xfail": "BlackHole 단일 오디오 디바이스 — 동시 TTS 출력 충돌로 STT 인식 불가 (인프라 한계)",
+tests/e2e/realtime_multi_e2e.py:697:# 경로라 멀티게스트에서 못 쓴다. ws 명시 기반(_eval_ws/_real_click_ws) 으로 미러링.
+tests/e2e/realtime_multi_e2e.py:887:def _real_click_ws(ws: str | None, selector: str) -> str:
+tests/e2e/realtime_multi_e2e.py:888:    """ws 탭에서 selector 중앙에 trusted mouse press+release (toggle/CTA 용).
+tests/e2e/realtime_multi_e2e.py:890:    getUserMedia user-activation 충족 — el.click()(isTrusted=false) 으로는 mic 권한 미해소.
+tests/e2e/realtime_multi_e2e.py:904:        print(f"[realtime_multi_e2e] _real_click_ws MISS sel={selector}", file=sys.stderr, flush=True)
+tests/e2e/realtime_multi_e2e.py:916:    _real_click_ws 의 querySelector 가 즉시 null → MISS 로 flaky. 클릭 전에
+tests/e2e/realtime_multi_e2e.py:938:    _real_click_ws 로는 안 열린다. el.focus()+CDP Space 로 연다(★Enter 는 안 됨, Space 만
+tests/e2e/realtime_multi_e2e.py:939:    Radix Popover trigger toggle). 하단 stt/tts shadcn Select 는 _real_click_ws 로 충분.
+tests/e2e/realtime_multi_e2e.py:977:def _real_click(selector: str, want_guest: bool = False) -> str:
+tests/e2e/realtime_multi_e2e.py:978:    """host/guest realtime 탭에서 selector 에 trusted mouse press+release.
+tests/e2e/realtime_multi_e2e.py:983:    return _real_click_ws(_realtime_ws(want_guest), selector)
+tests/e2e/realtime_multi_e2e.py:986:def _real_click_text_ws(ws: str | None, selector: str, text: str) -> str:
+tests/e2e/realtime_multi_e2e.py:987:    """ws 탭에서 selector 중 innerText 가 text 포함하는 첫 요소에 trusted mouse click.
+tests/e2e/realtime_multi_e2e.py:1004:        print(f"[realtime_multi_e2e] _real_click_text MISS sel={selector} text={text!r}",
+tests/e2e/realtime_multi_e2e.py:1321:# TTS input (BlackHole) — lecture_multi 와 동일 (입력 시뮬레이션)
+tests/e2e/realtime_multi_e2e.py:1324:#   (architect#4 mbox #1439 — 두 경로가 하나의 게이트를 공유, None=raise, sox stderr).
+tests/e2e/realtime_multi_e2e.py:1325:#   상세 주석·sox stderr 실측·afconvert 폴백은 tts_rms_gate.py 참조.
+tests/e2e/realtime_multi_e2e.py:1368:                #   파일에만 쓴다 → _verify_tts_output 이 afplay 로 재생해 BlackHole 입력 유지.
+tests/e2e/realtime_multi_e2e.py:1427:    """Slice1 BTS immediacy metric: ms from trusted press (record ON) to the first
+tests/e2e/realtime_multi_e2e.py:1430:    press_ts: first trusted press timestamp for the turn.
+tests/e2e/realtime_multi_e2e.py:1518:    _real_click_ws(guest_ws, LANG_SEL)
+tests/e2e/realtime_multi_e2e.py:1526:    _real_click_ws(guest_ws, SUBMIT_SEL)
+tests/e2e/realtime_multi_e2e.py:1776:            lambda: _real_click_ws(ws, RECORD),
+tests/e2e/realtime_multi_e2e.py:1791:        lambda: _real_click_ws(ws, RECORD),
+tests/e2e/realtime_multi_e2e.py:1810:            lambda: _real_click_ws(ws, RECORD),
+tests/e2e/realtime_multi_e2e.py:1951:# host A 진입 — 홈카드 trusted mouse click → /room/{id}/realtime nav 대기.
+tests/e2e/realtime_multi_e2e.py:1966:    res = _real_click_ws(home_ws, HOME_REALTIME_CARD)
+tests/e2e/realtime_multi_e2e.py:1981:            res = _real_click_ws(fresh_home_ws, HOME_REALTIME_CARD)
+tests/e2e/realtime_multi_e2e.py:1997:            retry_res = _real_click_ws(click_ws, HOME_REALTIME_CARD)
+tests/e2e/realtime_multi_e2e.py:2036:            _real_click_ws(host_ws, CONNECT)
+tests/e2e/realtime_multi_e2e.py:2062:        _real_click_ws(host_ws, SETTINGS_TRIGGER)
+tests/e2e/realtime_multi_e2e.py:2070:    res = _real_click_text_ws(host_ws, "button", QR_ISSUE_BTN_TEXT)
+tests/e2e/realtime_multi_e2e.py:2096:    다이얼로그를 폴링(최대 ~10s, turbopack cold compile 대비)한 뒤 trusted click 으로 입장.
+tests/e2e/realtime_multi_e2e.py:2105:    # guest-entry-dialog submit 버튼 폴링(turbopack cold compile 포함) → trusted click.
+tests/e2e/realtime_multi_e2e.py:2126:    _real_click_ws(guest_ws, SUBMIT_SEL)
+tests/e2e/realtime_multi_e2e.py:2157:def _real_click_tok(token: str, selector: str) -> str:
+tests/e2e/realtime_multi_e2e.py:2158:    return _real_click_ws(_realtime_ws_by_token(token), selector)

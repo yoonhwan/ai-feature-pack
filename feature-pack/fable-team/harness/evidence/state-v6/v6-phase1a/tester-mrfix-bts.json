@@ -1,0 +1,13 @@
+{
+  "verdict": "FAIL",
+  "turn1": "PASS - host ko: cer=0.0000, gateway user_id=tester2, source_lang=ko (unchanged/expected, no regression)",
+  "turn2": {
+    "gateway_user_id": "tester2",
+    "source_lang": "ko",
+    "worker_stt_lang": "ko",
+    "cer": "1.0000",
+    "hallucination": "yes - guest spoke English 'Hello nice to meet you.' but transcript is fully Korean '안녕하세요. 만나서 반가워요.' (STT ran with lang=ko instead of en)"
+  },
+  "evidence_dir": ".omo/evidence/v6-mrfix-short-bts/",
+  "notes": "req_id=540630e1-fc71-43b8-9f97-fc8858797600 for guest turn2 carries HOST identity (user_id=tester2) and HOST source_lang=ko, not guest-d10c75cd/en. Corroborating: browser console label= capture shows 14 lines all label=host, 0 label=guest during the run. This is the exact pre-fix regression pattern (guest STT connect using host-fallback config) — the mr-guest-connect-fix does not appear to have resolved it at runtime. No error/blocked bubble was shown; instead a silently wrong-language transcript was produced (worse than a blocked guard, since it's not visibly caught by FE). Gateway log baseline=30639900 lines, worker log baseline=681 lines (pre-run); NEW lines only were inspected. Services confirmed running from this worktree cwd. Next.js dev uptime ~6h38m at test time (under the 11h+ hang threshold noted in troubleshoot.md), not flagged as stale."
+}

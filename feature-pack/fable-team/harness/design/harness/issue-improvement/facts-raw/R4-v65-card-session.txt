@@ -1,0 +1,31 @@
+진행 cards: 28 live sessions: 32
+A1-lst-interval-test-premise-fix	N	
+A2-pytest-test-premise-fix-3	N	
+A3-empty-press-closing-event	N	
+A5-polish-exhaustion-raw-fallback	N	
+A7-beta2-refined-axis-slice-and-live-pin	N	
+A7-records-missing-fatal-max-attempt-content-lost	N	
+A7b-opcrew-poller-fullcase	N	
+A8-press-audio-silent-deterministic-silence	N	
+A9b-restart-window-screen-stuck	N	
+G1-rt-v65-core-fix-canonization	N	
+G2-v4-static-pages-regression	N	
+G3-durable-queue-lifecycle-canon	N	
+M0-release-terminal-provider-empty-classification	N	
+M0-v65-language-authority-ptt-side-only	N	
+M2-seq1-hole-no-coalesce-first-readable	N	
+M2-short-chunk-cross-language-hallucination	N	
+M4-seal-translation-inherit-partial-not-all-or-nothing	N	
+M5-cover-repeat-judge-demotion	N	
+M5-first-bubble-completion-event-missing	N	
+M5-kv-prefix-hash-stability-investigation	N	
+M5-s0-seed-profile-alignment-polish-window	N	
+M5-seal-cover-not-regenerate	N	
+M5-warmup-provider-branch-vllm-prefix-seed	N	
+M7-press-runner-lang-and-background-tab	N	
+M7-unit-red-accumulation-normalize	N	
+SB-arch-canon-standing-seat	N	
+SB-k4r-runner-extension-reload-corpus-cdp-target	N	
+SB-m5-runner-extension-live-loom-lang-change	N	
+
+대응 Y=0 / 28

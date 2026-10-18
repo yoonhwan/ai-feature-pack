@@ -1,0 +1,6 @@
+v65: Y rows=44
+cfo: GOAL-cfo.md rows=6
+ccu: GOAL 없음 · GOALMAP-CCU_ARCH-4..7.md
+kk: GOAL-kk.md rows=7
+harness: GOAL-harness.md rows=5
+issues: GOAL-issues.md rows=6

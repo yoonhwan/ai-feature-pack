@@ -1,0 +1,20 @@
+4:| # | Issue | 우선 | 배분(좌석·seq) | 닫는 사건 | PR | 재현 PASS | 정리 | 카드 | 종료 | 출범 발주 seq |
+6:| 1 | #731 V12 idle_closed | ①라이브 아님·완성 전 | v65 master#135 · seq 56483(종료 절차만) | 73c255fe72 (origin/main 조상 · 10-01 fix) | PR 없음(병합 경로) | repro-e2e#0 코멘트 5976576884 (main 7c7e9362dd · 15 passed) | 브랜치·나노 0 | 대기/ 잔존(v65 몫 · planner 경유) | 10-04 close | 56483 |
+7:| 2 | #745 V27 static_v4_guard 핀 | ③골 밖(시험 위생) | 배분 없음(이미 랜딩 · 종료 검사만) | 10f9245eff (main 조상) | main 직접(PR 없음) | 로컬 g1 exit 0 + CI Static V4 pass (PR #803 run 37177634709) | 없음 | BOARD V27 planner 몫 | 10-04 close | —(배분 없음) |
+8:| 3 | #764 C14 deselect 3종 | ③골 밖(시험 위생) | 하위 나노 ft-issues-temp-i764…#0 · seq 56521 | main 기반 deselect 0 전체 세트 25분21초 완주(3종 PASSED·멈춤 0) | 코드 변경 0(PR 없음) | 나노 소켓 스파이 connect 0건 + 대상 시험 3 passed rc=0 | 나노 닫힘·브랜치 보존·워크트리 skipped:cwd(sweep 재시도) | 완성/I764…md | 10-04 close(not planned=재현 불가) | 56521 |
+9:| 4 | #805 vLLM cached_tokens 2건 | ③골 밖(시험·CI 위생) | 하위 나노 ft-issues-temp-i805…#0 · seq 56554 | 48dd4fe5d8 (PR #808 squash · main) | #808 | 수정 전 2 failed→후 6 passed + CI LLM Provider Contract pass (run 37182612755) | 나노 닫힘·브랜치 보존·워크트리 skipped:cwd(sweep) | 완성/I805…md | 10-04 close | 56553 |
+10:| 5 | #734 V15 dev 워커 배포 게이트 | ③골 밖(배포 위생) | 배분 없음(이미 랜딩 · 종료 검사만) | 2b9d2ddcee·7613f69fa8 (main 조상) | main 직접 | repro-e2e 코멘트 5977189361 + CD(Dev) run 37169229282 worker 게이트 2 step success | 없음 | BOARD V15 planner 몫 | 10-04 close | —(배분 없음) |
+11:| 6 | #396 flaky discover_routes 3 | ③골 밖(CI 위생) | repro-e2e#0 발주 3 · seq 56579 | 수정 커밋 특정 못 함(현재 비재현) | — | CI 최신 실패 1197건에 0건 + CI 정확 스코프 로컬 1484s 3 PASS | 없음 | — | 10-04 close(not planned · 재발 시 reopen) | 56579(repro 발주 3) |
+12:| 7 | #732 V13 Redis 음성 요청 기록 최종 판정·라이브 | ②완성 전 골 축(M7 ↑) | ft-v65-master-claude#136 · 착수 확인 56646 · 재판정 56663(구현 이미 main: 567825696b·DA⑥ 기존·신규 20 passed — 남은 것 = 긴 press 측정 1회, 오디오 순번 필요) | 측정 대기(#721 V1 p90 «첫 정상 완주 회차»에 얹음 · 별도 press 0) | (진행) | (진행) | — | (진행) | 측정 대기 — 닫힘 = Issue 코멘트에 MEASURE 6값 + audio_ref_expired 0 + 회차 sha 1줄 → PR Closes #732 |
+13:| 8 | #819 main CI 빨강(Python Test·Web Test) | ③골 밖(시험·CI 위생 · size:small) | 하위 나노 ft-issues-temp-i819…#0 · seq 56683 | 부분: PR #823 → main bd6d0022dc (Web 초록 · Python errors 1177→0 · 숨은 107 → #825·#826) | #823 | Web Test pass · observe pass(CI run 37188721777) · Python 게이트는 #825·#826 뒤 | 나노 닫힘·브랜치 보존·워크트리 skipped:cwd(sweep) | 완성/I819…md | **열림**(닫힘=게이트 2잡 GREEN 1회) | 56683 |
+19:| 10-04 13:2x | 81(보드) | — | 2 | 첫 랜딩 직후 기준선 |
+20:| 10-04 13:5x | 90 (91→#731 close) | 11→10 | 2 | 라벨 미비 12건 반려 코멘트(#767 758 396 298 189 173 172 170 169 168 167 151) · type:bug 11건 전부 재현 스텝 없음 → repro-e2e#0 점검 중 |
+21:| 10-04 14:3x | 88 | 10 | 라벨 미비 0 | 보드 미등록 0 · 잔존 PR 6→5(#682 close) |
+26:| PR #682 CLAUDE.md 22KB | **close** | 3파일 origin/main 과 파일별 diff 동일(9e2fcddc1c·d79fa0f160 로 이미 반영) | 10-04 |
+27:| PR #398 v5 SSE seam | **close** (오빠 P13) | v65 main 랜딩 2ccd036b8e 로 seam 설계 대체 · 브랜치 feat/fix/v5-sse-seam-gap 보존(삭제 0) | 10-04 |
+28:| PR #716·#717 ops-sa-repair | 유지 | draft·2일·랜딩 순서 3b→배포→3c 명시(오케 몫) | 10-04 |
+30:| Issue #764 C14 | **close**(재현 불가) | 하위 나노 루프 1회 완주 → 행 3 | 10-04 |
+32:| 옛 Issue 12건 라벨·마일스톤 보강 | 완료 | #767 758 396 298 189 167 168 169 170 172 173 151 → open 88 중 5라벨+마일스톤 미비 0. Epic 6건(167~173)은 미완 제품 Epic(체크박스 미완 다수)이라 close 아님 — team 재배정 완료(P14: 168·172 cfo · 169·170 harness-ops · 173 v65 · 167 cfo)·phase:post-completion·milestone goal-outside·status:needs-triage 로 배정 | 10-04 |
+35:| #736 (v65) | 부분 재현 → v65 오케 | orphan 1(test_s2_orphan_obligation_close)·po_* 5(tests/shared/services/test_runtime_branch_snapshot) 재현 · open_wait 86 vs 이슈 14 불일치(환경 vs main 미판별) · 코멘트 736#5977610833 | 10-04 |
+37:| #819 후속 | PR #823 머지(main bd6d0022dc) · 분리 Issue 등록 | 마커 red 분리 #825(97건·15파일) · 비-RED 10건 #826 · 둘 다 team:v65, 출범 = v65 press 끝난 뒤 · #819 닫힘 = 게이트 2잡 GREEN 1회 | 10-04 |
+38:| 신규 #827 | 등록 | worker D job 직렬 줄서기(CCU 증거) · team:v65 type:perf phase:post-completion · 출범 = press 끝난 뒤 ③ 경로 | 10-04 |

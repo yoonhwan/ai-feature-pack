@@ -1,0 +1,5 @@
+{
+  "_master": "T#2",
+  "T#1": {"role": "master", "agent": "claude", "tick": "ft-master-tick"},
+  "T#2": {"role": "master", "agent": "claude", "tick": "ft-master-tick"}
+}

@@ -1,0 +1,28 @@
+  getUserMediaWithFallback = (globalThis as { getUserMediaWithFallback?: (audio: boolean) => Promise<MediaStream> }).getUserMediaWithFallback,
+}: CreatePcmCaptureOpts): Promise<PcmCapture> {
+  const targetSampleRate = sampleRate;
+  let mediaStream: MediaStream;
+  if (typeof getUserMediaWithFallback === "function") {
+    mediaStream = await getUserMediaWithFallback(true);
+  } else {
+    const audioConstraints: MediaTrackConstraints = {
+      channelCount: 1,
+      echoCancellation: false,
+      noiseSuppression: false,
+    };
+    if (deviceId) audioConstraints.deviceId = { exact: deviceId };
+    mediaStream = await navigatorObj.mediaDevices.getUserMedia({ audio: audioConstraints });
+  }
+  // Do not force the capture AudioContext to 16 kHz. Chrome's fake-audio
+  // capture path (and some real devices) can expose a live analyser while the
+  // worklet receives all-zero samples when the input device is forced into a
+  // non-native context rate. Capture at the browser/device native rate and
+  // downsample the PCM frames explicitly before chunking/posting.
+  const audioContext = new AudioContextClass();
+  await audioContext.audioWorklet.addModule(WORKLET_URL);
+  const source = audioContext.createMediaStreamSource(mediaStream);
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 256;
+  const workletNode = new AudioWorkletNodeClass(audioContext, "pcm-capture");
+  let frameBucket = Math.floor(performance.now() / 1000);
+  let frameCount = 0;

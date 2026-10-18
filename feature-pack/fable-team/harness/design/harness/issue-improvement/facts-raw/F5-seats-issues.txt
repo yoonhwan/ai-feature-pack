@@ -1,0 +1,9 @@
+keys: ['_name', '_version', '_doc', '_master', '_hil_route', 'ft-issue-manager#0', 'repro-e2e#0', '_persona_pool_nano']
+_name : Seatbelt-ISSUES
+_version : 1.0.0
+_doc : issue-manager(메인 팀 ② 이슈 모니터·생성·종료·배분) 좌석 레지스트리 (planner P10 · 오빠 GO 2026-10-04 13:0x · 원문 8). 틱 없음 — 좌석 자체 10분 모니터. 카드 = .worktrees/issue-manager/design/issues/indices. env = .fable-team/bin-issues/is
+_master : ft-issue-manager#0
+_hil_route : byz-planner-arch#3
+ft-issue-manager#0 : {'role': 'master', 'agent': 'claude', 'model': 'claude-sonnet-5-5[1m]'}
+repro-e2e#0 : {'role': 'tester', 'agent': 'claude', 'model': 'claude-sonnet-5-5[1m]'}
+_persona_pool_nano : ['Trinity', 'Mouse', 'Dozer']

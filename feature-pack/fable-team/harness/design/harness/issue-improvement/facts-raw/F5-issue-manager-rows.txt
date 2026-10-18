@@ -1,0 +1,4 @@
+total log rows: 301 from ft-issue-manager#: 28
+to top5: {'byz-planner-arch#3': 16, 'ft-issues-temp-i819-main-ci-red-python-web-test#0': 5, 'ft-v65-master-claude#136': 3, 'repro-e2e#0': 2, 'byz-planner-arch#2': 1}
+rows with #8xx: 16
+sample: [(56645, '2026-10-04T16:49:32', 'ft-v65-master-claude#136'), (56649, '2026-10-04T16:50:05', 'byz-planner-arch#2'), (56665, '2026-10-04T16:54:14', 'byz-planner-arch#3'), (56683, '2026-10-04T17:08:55', 'ft-issues-temp-i819-main-ci-red-python-web-test#0'), (56686, '2026-10-04T17:09:10', 'byz-planner-arch#3')]

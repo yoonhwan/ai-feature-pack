@@ -1,0 +1,19 @@
+{
+  "verdict": "FAIL",
+  "turns": [
+    {
+      "speaker": "의사",
+      "seat": "host",
+      "user_id": "tester2",
+      "source_lang": "ko",
+      "provider": "groq",
+      "cer": "1.0000",
+      "status": "FAIL",
+      "reason": "transcript_quality/duplication (raw ASR text + re-polished text concatenated in final release, NOT identity/lang cross-contamination)"
+    }
+  ],
+  "cross_contamination": "0 (turn1 identity mapping verified correct: user_id=tester2/source_lang=ko matches host seat; en/zh-CN translations correctly derived from ko source). Guest turns (환자/zh, 감사원/en) were never reached because --mr-stop-on-error halted the scenario after turn1 failure, so guest cross-contamination could not be exercised in the turn loop.",
+  "registry_health": "OK for guest-entry phase: both guest tokens (환자=hMfEeyP5R721..., 감사원=HvCyLqFCY8-m...) entered successfully and distinctly (enter_summary entered=2/2, failed=0). host_ws_registered clean single registration. 2x NO_MATCH occurred only at pre-navigation bootstrap (token=absent, before /realtime tab existed) -- not the RUNNER_WRONG_TAB symptom. No wrong-tab symptom during actual turn execution. Guest registry entries (path=registry want_guest=True) were not exercised because turn loop halted before reaching guest turns.",
+  "evidence_dir": ".omo/evidence/v6-t16-derma-short",
+  "notes": "Run halted at turn1/6 (--mr-stop-on-error, no retries per instruction). Root cause is NOT the seat-lang contamination bug this scenario was designed to catch -- identity/lang mapping is correct (host=tester2/ko/groq). Instead a distinct pipeline bug: chunk1 (243936B, is_final=false) STT succeeded via groq producing the full raw sentence; chunk2 (38976B, is_final=true) failed all providers (gpu_qwen3 offline, groq RMS-skip empty, fireworks empty, returnzero empty) yet the final is_polished=true SSE release still contains BOTH the raw chunk1 text AND a duplicate polished version concatenated together -> CER=1.0 vs single-sentence reference. This looks like a text-accumulation/buffer-not-cleared bug in the utterance release/polish path, separate from the runner registry work already fixed. Multi-guest cross-contamination check itself remains UNVERIFIED this run since guest turns were never reached -- needs a re-run with this new bug worked around (or fixed) to actually exercise 환자/감사원 turns."
+}

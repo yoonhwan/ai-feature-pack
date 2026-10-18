@@ -1,0 +1,11 @@
+# NANO 원장 — ft-v65-temp-* 임시세션 관리 (pm#1 위임, 발주 #11873/#11874)
+
+목표는 빠른 유용 원문, 실시간 교정, N언어의 병렬·독립 발행, 소실·비의도 중복 없는 최종 말풍선이다.
+LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다.
+단순히 실패 사례를 많이 모았다는 이유로 실험을 닫지 않는다.
+
+골좌표: 하네스(원장 정합) / 닫는 증거: 이 파일은 판정이 아니라 `ft-v65-temp-*` 임시세션의
+상태·회수·종료 증거를 값으로만 보존 — 정리(kill) 실행 여부는 아래 종료조건 3가지 전부 충족
+- **[2026-10-03 07:40 KST, `date` 실측] `ft-v65-temp-m7-runner-release-after-and-poller-windo#0` 닫힘(ft-nano-close)**: ①결과 `design/v65/indices/완성/M7-runner-release-after-and-poller-window.md` ②회수 seq 54576 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 2파일 보관)
+- **[2026-10-03 07:41 KST, `date` 실측] `ft-v65-temp-m7-runner-poller-sse-axis-zero-seal-labe#0` 닫힘(ft-nano-close)**: ①결과 `design/v65/indices/완성/M7-runner-poller-sse-axis-zero-seal-label.md` ②회수 seq 54576 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=cleaned(ignored 3파일 보관)
+- **[2026-10-03 07:41 KST, `date` 실측] `ft-v65-temp-m7-press-seq-display-order#1` 닫힘(ft-nano-close)**: ①결과 `design/v65/indices/완성/M7-press-seq-display-order.md` ②회수 seq 54576 ③유휴 jsonl/mtime ≥3분. kill=1 · wt=skipped:실작업물 미커밋 2파일

@@ -1,0 +1,32 @@
+SESSION	CREATED_KST	AGENT	WORKTREE	ROLE_GUESS
+FB_CCU#12	10-04 16:26	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / ccu-stress	CCU(master)
+FB_CFO#52	10-03 22:18	claude(2.1.288)	Agent/BYZ-Work/BYZ-Agents / c-level-planning	CFO
+KakaoBot#14	10-02 15:39	claude(2.1.287)	KakaoBot / bootstrap	kakao(master)
+KakaoBot#17	10-04 13:20	claude(2.1.289)	KakaoBot / bootstrap	kakao(master)
+byz-planner-arch#1	10-04 12:19	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v6-realtime-live	planner-arch(master)
+byz-planner-arch#3	10-04 16:48	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v6-realtime-live	planner-arch(master)
+ft-airag-helm-claude#4	10-03 13:44	claude(2.1.288)	ai-feature-pack / rag-transplant	helm
+ft-airag-helm-claude#5	10-04 12:21	claude(2.1.289)	ai-feature-pack / rag-transplant	helm
+ft-airag-master-claude#2	10-04 12:23	claude(2.1.289)	ai-feature-pack / rag-transplant	master
+ft-harness-arch#0	10-04 20:45	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / harness-ops	arch
+ft-harness-da#1	10-05 12:10	codex(node)	Agent/BYZ-Work/BYZ-Agents / harness-ops	da
+ft-harness-nano#1	10-05 12:10	opencode	Agent/BYZ-Work/BYZ-Agents / harness-ops	nano
+ft-harness-ops#0	10-04 13:23	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / harness-ops	ops(master 축)
+ft-harness-ops#1	10-04 17:09	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / harness-ops	ops(master 축)
+ft-harness-ops#2	10-05 12:28	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / harness-ops	ops(master 축)
+ft-issue-manager#0	10-04 13:26	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / issue-manager	issue-manager(master)
+ft-kakao-architect#27	10-04 14:02	claude(2.1.289)	KakaoBot / bootstrap	arch
+ft-kakao-architect#28	10-04 19:56	claude(2.1.289)	KakaoBot / bootstrap	arch
+ft-kakao-da#21	10-05 12:05	codex(node)	KakaoBot / bootstrap	da
+ft-kakao-nano-canary-inject#0	10-05 12:14	claude(2.1.289)	KakaoBot / v65-canary-inject	nano
+ft-kakao-nano-ops-005-notice-wire#0	10-04 14:30	claude(2.1.289)	KakaoBot / v65-ops-005-notice-wire	nano
+ft-kakao-nano-send-preview#0	10-04 17:28	claude(2.1.289)	KakaoBot / v65-send-preview	nano
+ft-kakao-nano-send-preview#1	10-04 19:15	claude(2.1.289)	KakaoBot / bootstrap	nano
+ft-v65-arch-claude#155	10-04 16:50	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v65-732-redis-audio-ref	arch
+ft-v65-master-claude#135	10-04 09:17	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v6-realtime-live	master
+ft-v65-master-claude#136	10-04 16:47	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v6-realtime-live	master
+ft-v65-temp-m7-p90-lang-update-gap-decomposition#0	10-04 18:06	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v65-m7-p90-lang-update-gap-decomposition	nano(temp)
+ft-v65-temp-m7-p90f-n06-n10-durable-four-of-five-rea#0	10-04 18:06	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v65-m7-p90f-n06-n10-durable-four-of-five-rea	nano(temp)
+ft-v65-tester-claude#13	10-04 17:19	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / v6-realtime-live	tester
+repro-e2e#0	10-04 13:26	claude(2.1.289)	Agent/BYZ-Work/BYZ-Agents / repro-main	tester(repro)
+tmm	10-04 13:01	shell/none	/Users/yoonhwan	tmm(터미널)

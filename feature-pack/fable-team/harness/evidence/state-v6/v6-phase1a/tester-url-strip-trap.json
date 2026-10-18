@@ -1,0 +1,10 @@
+{
+  "strip_mechanism": "none",
+  "culprit_stack_top": "tests/e2e/cdp_helper.py:404 `current_ws = get_tab_ws(url_match=\"realtime\") or ws_url` discards caller's explicit ws_url | cdp_helper.py:24-38 get_tab_ws() returns FIRST /json tab whose url contains substring \"realtime\" (ambiguous w/ 2+ open realtime tabs, host+guest both match) | realtime_multi_e2e.py:859-864 _eval_ws(ws,...) passes the correct guest ws into _eval_async but it gets silently overridden downstream",
+  "strip_url_before_after": [
+    "http://localhost:3001/room/room-req-c3ae/realtime?source=ko&target=en&token=lwEzds1hXAIEoRsqylZVTm57SjWXOsqvJu5Ran8lkfM&nickname=%EA%B2%8C%EC%8A%A4%ED%8A%B8",
+    "http://localhost:3001/room/room-req-c3ae/realtime"
+  ],
+  "repro": "yes",
+  "notes": "Discriminating experiment: dual-track href read on guest tab — DIRECT connection to guest's exact ws (bypasses get_tab_ws) NEVER lost query the whole 97s run (final check still full URL); the actual harness helper rte._eval_ws(guest_ws,'location.href') flipped to bare host URL at +80.27s exactly when Chrome's /json tab-list order swapped (host moved to position0). Injected history.pushState/replaceState/popstate/hashchange trap on the real guest page recorded ZERO events (__stripTrapLog=[] at end) and Page.frameNavigated/navigatedWithinDocument listener on guest ws logged ZERO events — the guest page itself never navigates/strips anything. Verdict: prior 'guest tab href drops query' evidence was a TEST-HARNESS measurement artifact (get_tab_ws substring ambiguity across 2 open realtime tabs), not a real product bug/stripper. The separate STT cross-wire (guest EN speech -> ko hallucination 'user_id=tester2') still reproduced in this run and remains real/unexplained by this experiment — its root cause is NOT url/token loss (token was never actually lost) and needs separate investigation (pulse_session/connect() binding order under interleave, not URL/isGuest state)."
+}

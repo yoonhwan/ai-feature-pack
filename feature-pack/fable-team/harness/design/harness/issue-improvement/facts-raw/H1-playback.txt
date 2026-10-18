@@ -1,0 +1,11 @@
+78:from tts_rms_gate import verify_tts_audio  # noqa: E402  (공용 RMS 게이트 — c7a 드라이버와 공유)
+1323:# ★RMS 게이트는 공용 모듈(tts_rms_gate.py) — c7a_reject_press 드라이버와 ★같은 함수★ 를 쓴다
+1324:#   (architect#4 mbox #1439 — 두 경로가 하나의 게이트를 공유, None=raise, sox stderr).
+1325:#   상세 주석·sox stderr 실측·afconvert 폴백은 tts_rms_gate.py 참조.
+1331:            audio_path = audio_tmp.name  # say -o 는 확장자로 포맷 결정 → .aiff (afconvert 가 정규화)
+1368:                #   파일에만 쓴다 → _verify_tts_output 이 afplay 로 재생해 BlackHole 입력 유지.
+      B 발화(en) → B 탭 자기버블(우/en) + A 탭에서 ko 번역 수신.
+      guest 도 dock mic 노출(dock.tsx:42 showMic=isConnected) — 청취전용 아님(메신저).
+  - speaker lock: P1 에서 realtime=완화 → 동시 발화 가능(turn-queue 없음).
+  - 확정버블: 04 와 동일 공유 conversation-message-item.tsx —
+      `timeline-item-finalized-{left|right}` 안의 `timeline-original`/`timeline-translation`

@@ -1,0 +1,40 @@
+1:#!/usr/bin/env bash
+2:# ft-role-spawn.sh <master|da|pm|arch|tester> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
+3:#   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
+4:#   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
+5:# ft-nano-spawn.sh 를 본떴다. 차이 셋:
+6:#   ① 워크트리를 새로 만들지 않는다 — 역할 좌석은 «이 워크트리»(호출한 곳)에 뜬다.
+7:#   ② seats.json 은 «등록»이 아니라 «교체» — 같은 role 의 기존 행에 `_replaced_by:<새 좌석>` 을 남기고,
+8:#      새 행에 `_replaces:[구 좌석…]` 을 적는다. 구 행은 지우지 않는다(계보). ★구 좌석은 kill 하지 않는다★(정지 레디 — HIL).
+9:#      ⇒ seats.json 을 읽는 쪽(틱·모니터)은 `_replaced_by` 가 있는 행을 «현역이 아님»으로 건너뛴다.
+10:#   ③ 첫 발주 = 「README §2 부팅 5단계 → indices/inbox/<role>/ 정렬해 맨 위부터」 한 줄. 본문은 파일(인박스)에 있다.
+11:# 새 좌석의 tick 은 null(=doorbell 울림). 틱 데몬이 seats.json 을 따라오는 것은 0.4(ft-tick.sh) — 그 전엔 알림이 울리는 쪽이 안전하다.
+12:# ★런타임 자리는 <워크트리>/.fable-team/bin/ (gitignore) — 추적 사본은 scripts/fable-team-bin/ (ft-goal-check 관례).★
+16:# 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
+18:while [ $# -gt 0 ]; do case "$1" in
+21:# 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
+25:WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
+26:ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+34:# 이름: ft-v65-<role>-<agent>#<N+1> — N = tmux 세션 + seats.json 키 중 같은 베이스의 최댓값 (없으면 -1 → #0)
+35:BASE_NAME="ft-v65-$ROLE-$AGENT"
+36:maxn="$( { tmux ls -F '#{session_name}' 2>/dev/null; python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1],encoding="utf-8")).keys()))' "$SEATS"; } \
+37:  | awk -v b="$BASE_NAME#" 'index($0,b)==1{n=substr($0,length(b)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1} END{print (f?m:-1)}')"
+38:N=$((maxn+1)); while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
+39:NAME="$BASE_NAME#$N"
+41:# 교체 대상 = 같은 role 이고 아직 _replaced_by 가 없는 행 (읽기만 — 실제 교체는 좌석이 뜬 뒤)
+45:print(" ".join(k for k, v in d.items() if isinstance(v, dict) and v.get("role") == sys.argv[2] and not v.get("_replaced_by")))
+1:#!/usr/bin/env bash
+2:# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--recheck <판정문>] [--dry-run]
+3:#   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
+4:#   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
+5:# 한 번에: ①lint ②워크트리+.venv/.env 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/opus-5.5)
+6:#          ④remain-on-exit on + @zc_v65_active=1 ⑤seats.json 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로 한 줄, mbox) ⑧도달 확인(jsonl)
+7:# ★팩 ft-tmux-spawn.sh 를 안 쓰는 이유★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06
+8:#   「install.json 부재 = exit 4」). 오빠 §0-A: 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 를 직접 부른다.
+12:while [ $# -gt 0 ]; do case "$1" in
+15:# ★--tier checker|tester[:N] = 싼 모델 순위 (오빠 2026-09-14 확정 「zcode > cmd > luna > sonnet」 · README §5-1)★
+16:#   N 생략 = 1순위. 한도·거부(usage_limit_reached·429·exit 10 크레딧)면 발주자가 :2 :3 :4 로 다음 순위. sonnet(4) 은 마지막.
+17:#   zcode 슬러그는 설치마다 다르다 — FT_ZCODE_MODEL 로 준다(없으면 REJECT — 없는 모델을 지어내지 않는다).
+18:# 2026-09-14 오빠 실측 정정 2회: 「zcode 구독 없네 제외」 → 「cmd 월제한이 18일날 풀린다.. cmd도 넘기자」
+19:#   ⇒ 지금 순위 = luna > sonnet. cmd 는 FT_CMD_ENABLED=1 일 때만 1순위로 복귀(월제한 해제 후 오빠가 켠다).
+29:  # impl = 구현 나노. 1순위 opus-5.5(기본값 — 오빠 2026-09-28 「나노워커 이후부터 opus5.5로 구현 · fable은 진짜 해결 안 되는 문제에만」 · fable 은 --model 명시로만), :2 luna (cmd 는 FT_CMD_ENABLED=1 일 때 :2 로 끼어듦)

@@ -1,0 +1,9 @@
+# P11 — Correction Review
+
+판정: **HOLD 1**. Target: SPEC-github-issue-driven-20261006.md r2, dispatch #57159. Fixed scope: r1 three findings and direct correction guards only. Completed within ten active minutes. No counts, form syntax or implementation review; no runtime changes, timers, polling or commit. Second HOLD ends serial review and hands the remaining decision/edit to ops.
+
+1. **§6-5 / C17 — role-agent suffix still violates fixed P6:** `byz-plan-master-<topic>#N` has project/team/role but replaces the required master agent suffix with a topic; P6 §2-A line 62 and Q4 require role-seat agent identity (`claude|codex|opencode|cmd`). Correct the example to an explicitly supported canonical role-agent lineage, putting the topic in card/plan metadata, or present any agent-plus-topic tail as a pending P6 extension rather than claiming unchanged grammar. This is the remaining part of r1 finding 3, not a new naming policy review.
+
+Accepted corrections: r1 finding 1's provisional Issue → planner classification/received row → label completion → registered acknowledgment → dispatch order now preserves the P8 boundary. Finding 2's manual gh creation now requires an explicit Issue-ID mailbox handoff; missing handoff is correctly included in delayed-discovery/Q1 scope rather than claimed observable automatically. P10's event-only and loop-responsibility values stay the active baseline; alternate scheduling/direct-execution choices remain pending, and P8 branch deletion HIL is not re-asked.
+
+Consolidated handoff: architect owns the one canonical naming-example correction; top orchestrator owns any requested naming exception and integration acceptance. No third serial paper review from this seat. Preserve the accepted admission and handoff contracts; no code or persistent configuration change is required by this report. Only the requested report was written, without commit.

@@ -1,0 +1,3 @@
+# BOOT 새 조항 초안 (R243) — 홈 설치는 master (`~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` 끝 · 매핑표 위)
+
+35. **main 랜딩 뒤 베이스 맞추기 = 메인 지침**(2026-10-15 오빠 「베이스 안 맞추고 밀리면 나중에 통으로 회귀 사건 발생」 · R243): main 에 무언가 랜딩되면 모든 팀·세션의 워크트리는 그 main 위로 올라와야 한다 — 옛 베이스로 병합하면 옛 줄을 되살려 main 을 통째로 되돌린다. ★`[베이스 뒤처짐]` 쪽지(착지 도구가 랜딩 직후 + 30분 안전망이 보낸다)를 받은 턴에 `bash <FT_BIN>/ft-head-sync.sh --apply`(미커밋 0 인 뒤처진 워크트리만 merge · rebase·reset·force 0) — 충돌이면 그 팀 arch 에★. 강제 장치 = R230 병합 게이트(`ft-merge-gate.sh`: 최신 main 을 품지 않은 세트·기준 헤드의 후손이 아닌 세트는 병합 거절) + `ft-merge-land.sh` 가 착지 성공 직후 기준 헤드(`.fable-team/state/base-head`)를 새 main 으로 원자 교체 + `ft-head-lag.sh`(팀당 1통 · 같은 main sha 1회 · 6시간 뒤 재알림 1회 · 뉴스 «베이스 뒤처짐 N곳» 1줄). 쪽지는 좌석이 앉은 워크트리만 알린다(좌석 없는 곳은 뉴스 줄에만).
