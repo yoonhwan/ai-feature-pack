@@ -19,8 +19,9 @@ printf '#!/bin/sh\nprintf "== 디스크 증가 상위 (직전 스냅샷 대비) 
 NOW=1000000
 # run <여유GiB|fail> <시계 오프셋 초> — 쪽지 로그를 비우고 1회 실행
 run() { : > "$MLOG"; env FT_RES_ROOT="$R" FT_DISK_FREE_GIB="$1" FT_DISK_NOW=$((NOW+$2)) FT_MBOX_SH="$T/mbox.sh" \
-  FT_SEATS_JSON="$T/seats.json" FT_RES_WATCH_SH="$T/watch.sh" FT_SCRATCH_REPO_SH="${SCR_STUB:-$T/noscratch.sh}" bash "$SUT" >"$T/out" 2>&1; RC=$?; }
+  FT_SEATS_JSON="$T/seats.json" FT_RES_WATCH_SH="$T/watch.sh" FT_SCRATCH_REPO_SH="${SCR_STUB:-$T/noscratch.sh}" FT_MBOX_SH="${MBOX_STUB:-$T/mbox.sh}" bash "$SUT" >"$T/out" 2>&1; RC=$?; }
 printf '#!/bin/sh\nexit 0\n' > "$T/noscratch.sh"; chmod 755 "$T/noscratch.sh"   # 실 TMPDIR 을 건드리지 않게 항상 가짜 주입
+export FT_DOCKER_REAP_SH="$T/noscratch.sh"   # 실 docker 를 건드리지 않게 시험 컨테이너 리퍼도 항상 가짜(기본 = 출력 0 → 쪽지 0)
 sent() { grep -c . "$MLOG"; }
 has()  { grep -q -- "$1" "$MLOG"; }
 
@@ -60,6 +61,31 @@ SCR_STUB="$T/sweep.sh" run 60 100000
 { [ "$(grep -c . "$T/sweep.calls" 2>/dev/null)" = 1 ] && has '임시 사본 목록 보고 · 실삭제 0' && has 'byz-planner-master-claude#99|'; } && ok "사본 정리 24h 경과 → --sweep 1회 · 결과 1줄 planner 로" || bad "sweep $(cat "$MLOG")"
 SCR_STUB="$T/sweep.sh" run 60 101000
 [ "$(grep -c . "$T/sweep.calls")" = 1 ] && ok "사본 정리 하루 안 재호출 0" || bad "sweep 재호출 $(grep -c . "$T/sweep.calls")"
+
+# 하루 1회 시험 컨테이너 정리(R352): 가짜 리퍼가 호출 횟수·인자를 센다 — 지운 결과·실패는 planner 로, «후보 0» 은 로그만
+printf '#!/bin/sh\necho "$*" >> "%s/reap.calls"\n[ -e "%s/reap.fail" ] && { echo "ERROR docker-test-reap: docker ps 실패" >&2; exit 20; }\necho "주인 죽은 시험 컨테이너 2 제거 · 익명 볼륨 2 제거"\n' "$T" "$T" > "$T/reap.sh"; chmod 755 "$T/reap.sh"
+FT_DOCKER_REAP_SH="$T/reap.sh" run 60 200000
+{ [ "$(grep -c . "$T/reap.calls" 2>/dev/null)" = 1 ] && grep -qx -- '--kill' "$T/reap.calls" && has '\[시험 컨테이너 정리\] rc=0 주인 죽은 시험 컨테이너 2 제거' && has 'byz-planner-master-claude#99|'; } \
+  && ok "시험 컨테이너 정리 24h 경과 → --kill 1회 · 지운 결과 1줄 planner 로" || bad "reap $(cat "$MLOG")"
+FT_DOCKER_REAP_SH="$T/reap.sh" run 60 201000
+[ "$(grep -c . "$T/reap.calls")" = 1 ] && [ "$(sent)" = 0 ] && ok "시험 컨테이너 정리 하루 안 재호출 0" || bad "reap 재호출 $(grep -c . "$T/reap.calls")"
+touch "$T/reap.fail"; FT_DOCKER_REAP_SH="$T/reap.sh" run 60 300000
+{ [ "$(grep -c . "$T/reap.calls")" = 2 ] && has '\[시험 컨테이너 정리 실패\] rc=20' && grep -q 'docker-test-reap rc=20' "$R/.fable-team/state/disk-alarm.log"; } \
+  && ok "시험 컨테이너 정리 실패(rc20) → 로그 + planner 쪽지(조용한 0 없음)" || bad "reap 실패 $(cat "$MLOG")"
+# ⓟ1: rc20 + 송신 실패 → pending 보관, 다음 틱엔 «경보만» 재시도(리퍼 재호출 0)
+printf '#!/bin/sh\nexit 1\n' > "$T/mboxfail.sh"; chmod 755 "$T/mboxfail.sh"
+MBOX_STUB="$T/mboxfail.sh" FT_DOCKER_REAP_SH="$T/reap.sh" run 60 400000
+{ [ "$(grep -c . "$T/reap.calls")" = 3 ] && [ -s "$R/.fable-team/state/docker-reap.pending" ]; } && ok "ⓟ1 rc20 + 송신 실패 → pending 보관" || bad "ⓟ1 pending $(ls "$R/.fable-team/state")"
+FT_DOCKER_REAP_SH="$T/reap.sh" run 60 401000
+{ [ "$(grep -c . "$T/reap.calls")" = 3 ] && has '\[시험 컨테이너 정리 실패\] rc=20' && [ "$(sent)" = 1 ] && [ ! -e "$R/.fable-team/state/docker-reap.pending" ]; } \
+  && ok "ⓟ1 다음 틱 경보만 재시도 1 · 리퍼 재호출 0 · pending 해소" || bad "ⓟ1 재시도 calls=$(grep -c . "$T/reap.calls") $(cat "$MLOG")"
+FT_DOCKER_REAP_SH="$T/reap.sh" run 60 402000
+[ "$(sent)" = 0 ] && ok "ⓟ1 해소 뒤 재전송 0" || bad "ⓟ1 재전송 $(sent)"
+# ⓟ2: rc20 인데 본문이 OK 로 시작 → 본문 모양과 무관하게 경보 1
+printf '#!/bin/sh\necho x >> "%s/reap.calls"\necho "OK 후보 0 — 겉보기 정상"\nexit 20\n' "$T" > "$T/reap_ok20.sh"; chmod 755 "$T/reap_ok20.sh"
+FT_DOCKER_REAP_SH="$T/reap_ok20.sh" run 60 600000
+{ [ "$(sent)" = 1 ] && has '\[시험 컨테이너 정리 실패\] rc=20 OK 후보 0'; } && ok "ⓟ2 rc20 + 본문 OK → 경보 1" || bad "ⓟ2 $(cat "$MLOG")"
+rm -f "$T/reap.fail"
 
 # R262: 명부 env 를 «안 넣은» 기본 경로 — 임시 루트의 .fable-team/ 에 명부를 직접 둔다(env 주입이 기본값 결함을 가렸다)
 # newroot <이름> <seats.json 내용> <seats-planner.json 내용> [seats-harness.json 내용] — 임시 루트 R_<이름> 만들기
