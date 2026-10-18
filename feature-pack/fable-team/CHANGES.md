@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — 팀 폴더 이동 뒤 옛 경로에 새 파일을 만들지 못하게 막는다: old-team-path-new-file-gate (1.1.7)
+
+판정 2294 ⓑ(planner 쪽지 109888 «옛 경로 새 파일 DENY») · 카드 r402. 12팀 폴더가 `design/teams/<팀>/`(꼴2)로 옮겨진 뒤에도 쌍둥이 역호환이 «읽기» 뿐 아니라 «쓰기» 까지 열려 있어, 옛 `design/<팀>/` 에 만든 카드·발주서가 두 폴더로 흩어졌습니다.
+
+- **새 훅 `harness/kit/hooks/old-team-path-new-file-gate.sh`**(PreToolUse:Write|Edit|Bash): 대상 경로 = Write·Edit `file_path` · Bash 의 `>`·`>>` 대상과 `cp|mv|install|tee|touch` 마지막 인자(따옴표 밖). 대상이 «없는 파일» 이고, 그 경로가 속한 git 루트의 `design/TEAMS.md` 에서 그 팀 칸이 꼴2 이면 deny + `바른 경로: design/teams/<팀>/…` 1줄. 기존 파일 편집·읽기·리포 밖·꼴1 팀·꼴3 팀·명단 밖 폴더는 통과. 입력 파싱 실패·명단 없음·`ft-team-lib.sh` 못 찾음 = 허용 + stderr WARN 1줄(fail-open). 팀 이름 글자 0(`ft_team_rel` · `$FT_BIN` → `~/.claude/fable-team/live/*/bin` 최신).
+- **설치**(`harness/install.sh`): 홈 훅 목록 `HOME_HOOKS`(harness-freeze-gate · old-team-path-new-file-gate)를 `<home>/.claude/hooks/` 로 cp -p → cmp(같으면 건너뜀) · dry-run 에 `HOOK` 줄 · apply 에 `HOOKS copied= same=` 줄. settings.json 등록은 별도(master).
+- **시험**: 새 `test_old_team_path_deny.sh`(카드 ⓐ 6절 + 리포 밖·꼴3·절대경로·명단 밖 · Bash `>`/`>>`/tee/touch/mv deny · 읽기·따옴표 글자·옛→새 cp·기존 덮어쓰기·`>&2` 통과 · fail-open 3 · live 최신 lib).
+
 ## 2026-10-19 — 좌석 닫기 도구가 «못 닫고 CLOSED» 를 찍지 않는다: 원장 명단은 origin/main · 명부·원장 fail-closed · 다른 리포 좌석 안내 (1.1.6)
 
 판정 2307 ①② · planner 109823(v65·lecture 나노 닫기가 원장 워크트리의 옛 TEAMS.md 때문에 REJECT) · 109839(airag 옛 판 nano-close 가 명부·원장 없이 «CLOSED» 출력 · 세션 잔존 — 1.1.4 도 같은 네 자리) · master 109876(다른 리포 좌석 닫기가 «NOROW ↔ 원장 루트 못 풂» 순환).
