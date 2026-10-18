@@ -5,7 +5,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TRK="$HERE/../../scripts/fable-team-bin"
 KIT="$HERE/../../scripts/harness-install/fable-team/bin"
-DB="$HERE/../../tools/comm-canonical/mbox_doorbell.sh"
+DB="$HERE/../../tools/comm-canonical/mbox_doorbell.sh"; AL="$HERE/../../tools/comm-canonical/ft-agent-alive.sh"   # R346: 본체 판별 함수는 판정기 파일로 이사
 T="$(cd "$(mktemp -d)" && pwd -P)"; PIDS=()
 kill_tree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done; kill "$1" 2>/dev/null; }
 trap 'for p in ${PIDS[@]+"${PIDS[@]}"}; do kill_tree "$p"; done; rm -rf "$T"' EXIT
@@ -98,14 +98,21 @@ mkdir -p "$T/shim"; cat > "$T/shim/tmux" <<'SH'
 case "$1" in
   list-panes) case "$*" in *" -a "*) echo "seatX|%9";; *) echo "$FAKE_PANE_PID";; esac;;
   send-keys) echo "$*" >> "$TLOG";;
+  display-message) echo "${FAKE_FG:-2.1.302}";;   # R346: doorbell 이 전경 명령을 읽는다 — 기본 = claude 본체 이름(버전 숫자)
 esac
 SH
 chmod +x "$T/shim/tmux"
 cat > "$T/seats.json" <<J
 {"seatX":{"agent":"claude"},"seatC":{"agent":"cmd"},"seatD":{"agent":"codex"}}
 J
+# R346: 진짜 claude·codex 는 argv0 가 그 이름인 «실행 주체» 인데 시험 대역은 shebang 스크립트라 ps 에 /bin/bash 가 앞선다 — doorbell 판정기에 줄 ps 만 그 접두를 떼어 네이티브 실행처럼 보이게 한다(기동 확인 ft-agent-ready.sh 는 진짜 ps 그대로).
+cat > "$T/psfix" <<'S'
+#!/bin/bash
+ps "$@" | sed -E 's# (/bin/)?bash (/[^ ]*/(claude|codex)) # \2 #'
+S
+chmod +x "$T/psfix"
 bell() { # <좌석> <pane pid> [FT_PS_CMD] → doorbell 상태
-  ( export PATH="$T/shim:$PATH" TMPDIR="$T" TLOG="$T/tlog" FAKE_PANE_PID="$2" FT_PS_CMD="${3:-ps}"; SELF=/x/mbox.sh
+  ( export PATH="$T/shim:$PATH" TMPDIR="$T" TLOG="$T/tlog" FAKE_PANE_PID="$2" FT_PS_CMD="${3:-$T/psfix}"; SELF=/x/mbox.sh
     _seats_json() { echo "$T/seats.json"; }; . "$DB"
     tmux() { "$T/shim/tmux" "$@"; }
     pane_of() { echo "%9"; }
@@ -139,7 +146,7 @@ r="$(bell seatX "$PANE_PID")"; [ "$r" = noagent ] && ok "ⓚ 깨진 명부가 �
 ( export PATH="$T/shim:$PATH" TMPDIR="$T" TLOG="$T/tlog" FAKE_PANE_PID="$PANE_PID"; SELF=/x/mbox.sh; _seats_json() { echo "$T/seats.json"; }; . "$DB"; pane_of() { echo "%9"; }; doorbell seatZ 1 5 2>&1 >/dev/null ) | grep -q "seats-x.json" && ok "ⓚ 깨진 파일 이름을 stderr 에 1줄" || bad "ⓚ stderr 파일명"
 rm -f "$T/seats-x.json"
 r="$(bell seatX "$PANE_PID" false)"; [ "$r" = error ] && ok "ⓚ ps 실패 → error (조용한 sent·noagent 0)" || bad "ⓚ ps 실패 r=$r"
-f1="$(awk '/^agent_body_pids\(\)/{p=1} p{print} p&&/^}/{exit}' "$RDY")"; f2="$(awk '/^agent_body_pids\(\)/{p=1} p{print} p&&/^}/{exit}' "$DB")"
-[ -n "$f1" ] && [ "$f1" = "$f2" ] && ok "ⓚ 본체 판별 함수 = ft-agent-ready.sh 와 doorbell 이 글자 일치" || bad "ⓚ 판별 함수 불일치(또는 없음)"
+# R346 DA⑥ H1: 판정기(ft-agent-alive.sh)의 본체 판별은 «실제 실행 주체» 기준으로 바뀌었다 — 이 기동 확인(ft-agent-ready.sh)의 복제는 옛 args 판별 그대로(합치기 = 후속 R 후보 · 복제 목록은 test_agent_alive_fg_judge.sh ⓔ 가 지킨다).
+grep -q '^agent_body_pids()' "$RDY" && grep -q '^agent_body_pids()' "$AL" && ok "ⓚ 본체 판별 함수: 판정기(실행 주체 기준) + 기동 확인 복제(옛 판별) — 합치기는 후속 R" || bad "ⓚ 판별 함수 정의 위치 이상"
 
 echo; [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAIL $fail"; exit "$fail"

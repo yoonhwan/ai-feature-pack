@@ -46,6 +46,9 @@ case "$CMD" in
     tmux ls -F '#{session_name}' 2>/dev/null | sort | while IFS= read -r n; do
       r="$(bash "$HERE/ft-name-lint.sh" "$n")"
       case "$r" in PASS*) r="PASS";; *) r="REJECT ${r#*: }";; esac
+      # R346: 세션은 살아 있는데 전경이 맨 셸·본체 정지면 표시 — 판정기는 ft-agent-alive.sh 하나(없거나 판정 불가면 표시 0)
+      st="$(bash "${FT_AGENT_ALIVE_BIN:-$HERE/../comm/ft-agent-alive.sh}" "$n" 2>/dev/null)"
+      case "$st" in NOAGENT*) fg="${st#* fg=}"; r="$r · ⚠ NOAGENT(fg=${fg%% *})";; esac
       printf '%-52s %s\n' "$n" "$r"
     done
     echo "== 팀 명부 (루트 .fable-team/seats-*.json) =="

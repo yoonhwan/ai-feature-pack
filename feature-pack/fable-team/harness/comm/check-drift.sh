@@ -32,6 +32,8 @@ MAP=(
   # v6-realtime-live 워크트리 소멸 뒤 라이브 = 루트 .fable-team/comm — 분리 쌍만 고침, 나머지 행은 별 카드
   "mbox.sh|.fable-team/comm/mbox.sh"
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"
+  # ★ft-agent-alive.sh = mbox_doorbell.sh 가 source 하는 판정기(전경 셸·정지 본체 = NOAGENT) + 틱·seat-live CLI (R346) — 한쪽만 깔리면 doorbell 이 «판정 불가»(주입 0) · 틱은 발사 0 — 설치 전엔 MISSING_RUNTIME(master 라이브 설치 cp 뒤 SAME)★
+  "ft-agent-alive.sh|.fable-team/comm/ft-agent-alive.sh"
   # ★mbox_guard.sh = mbox.sh 가 source 함 — 한쪽만 깔리면 전 좌석 send 정지(set -e) · 감시 밖이면 무증상 (N3 · 2026-10-12)★
   "mbox_guard.sh|.fable-team/comm/mbox_guard.sh"
   # ★ft-boot-report-lint.py = mbox_guard.sh 가 부팅 보고 때 부르는 lint (P4 · 2026-10-12) — 감시 밖이면 한쪽만 깔려도 무증상★

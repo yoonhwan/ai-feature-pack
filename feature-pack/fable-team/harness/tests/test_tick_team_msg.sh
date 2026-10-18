@@ -27,12 +27,13 @@ tmux() { case "$1" in list-panes) printf '%s\n' "$FAKE_PANES";; send-keys) [ "${
 export -f tmux
 export FAKE_PANES=$'M#1 %1\nP#1 %2\nmain-M#1 %3\nmain-N#1 %4\nops-M#1 %5\nops-N#1 %6\ncfo-M#1 %7\ncfo-N#1 %8\nfeature-M#1 %9\nfeature-N#1 %10\nloom-M#1 %11\nloom-N#1 %12'
 printf '#!/bin/bash\necho "$*" >> "$MBOX_LOG"\n' > "$TMP/mbox-stub.sh"
+printf '#!/bin/bash\necho "ALIVE seat=$1 fg=2.1.302 body=1"\n' > "$TMP/alive-stub.sh"   # R346: 이 시험은 문구·발사를 본다 — 에이전트 판정은 ALIVE 고정 대역(판정기 시험 = test_agent_alive_fg_judge.sh)
 printf '#!/bin/bash\ntouch "$SWEEP_MARK"; echo ran\n' > "$TMP/sweep-stub.sh"; chmod +x "$TMP/sweep-stub.sh"
 printf '#!/bin/bash\nprintf "DRIFT 1 file\\nDIFF scripts/x\\n"; exit 1\n' > "$TMP/drift-stub.sh"
 printf 'import sys\nif sys.argv[1] == "check": print("ft-raised-stub-seat model=x card=gone")\n' > "$TMP/raised-stub.py"
 printf '#!/bin/bash\ncase "$1" in turn) echo "WORKING 2026-10-14T00:00:00 0 no jsonl";; esac\n' > "$TMP/seatstatus-stub.sh"
 BASE_ENV=(FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_DRIFT=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_RAISED=0 "FT_TICK_RAISED_BIN=$TMP/raised-stub.py"
-  "FT_TICK_GOAL_TICK=$TMP/none" "FT_TICK_SEAT_STATUS=$TMP/none" "FT_TICK_MBOX=$TMP/mbox-stub.sh" "MBOX_LOG=$TMP/mbox.log")
+  "FT_TICK_GOAL_TICK=$TMP/none" "FT_TICK_SEAT_STATUS=$TMP/none" "FT_TICK_MBOX=$TMP/mbox-stub.sh" "FT_TICK_AGENT_ALIVE=$TMP/alive-stub.sh" "MBOX_LOG=$TMP/mbox.log")
 
 # run <이름> <좌석표> <틱 인자> [KEY=VAL ...] → $TMP/<이름>/out · sent/p<pane> (뒤쪽 KEY=VAL 이 BASE_ENV 를 덮는다)
 run() {

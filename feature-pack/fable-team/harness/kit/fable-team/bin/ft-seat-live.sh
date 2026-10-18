@@ -19,6 +19,7 @@ SEATS_DIR="${FT_SEATS_DIR:-$COMMON/.fable-team}"
 STATE_DIR="${FT_STATE_DIR:-$SEATS_DIR/state}"
 TMUX_BIN="${FT_TMUX:-tmux}"
 OUT="$STATE_DIR/seats.live.json"
+ALIVE_BIN="${FT_AGENT_ALIVE_BIN:-$HERE/../comm/ft-agent-alive.sh}"   # R346 판정기 하나(전경 셸·정지 본체 = NOAGENT) — doorbell·틱과 같은 것
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -40,13 +41,14 @@ snap sessions list-sessions -F '#{session_name}	#{session_created}	#{session_att
 snap panes list-panes -a -F '#{session_name}	#{pane_pid}'
 
 mkdir -p "$(dirname "$OUT")" || exit 1
-export FT_NAME_LINT="$HERE/ft-name-lint.sh" FT_SEATS_DIR_X="$SEATS_DIR" FT_TMUX_X="$TMUX_BIN" FT_SNAP="$T" FT_OUT="$OUT"
+export FT_NAME_LINT="$HERE/ft-name-lint.sh" FT_SEATS_DIR_X="$SEATS_DIR" FT_TMUX_X="$TMUX_BIN" FT_SNAP="$T" FT_OUT="$OUT" FT_ALIVE_BIN_X="$ALIVE_BIN"
 
 python3 - <<'PY'
 import glob, json, os, re, subprocess, sys, tempfile, time
 
 seats_dir, snap, out = os.environ["FT_SEATS_DIR_X"], os.environ["FT_SNAP"], os.environ["FT_OUT"]
 lint, tmux_bin = os.environ["FT_NAME_LINT"], os.environ["FT_TMUX_X"]
+alive_bin, alive_warned = os.environ["FT_ALIVE_BIN_X"], []
 
 def die(msg):
     print(f"REJECT {msg}", file=sys.stderr)
@@ -104,6 +106,19 @@ def read_snap():
 def is_member(name):
     return base_of(name) in bases or name.startswith(tuple(prefixes)) or p6(name) is not None
 
+def agent_state(session):
+    """(agent_alive, fg) — 판정기 ft-agent-alive.sh 1회(7초 룰: 좌석당 timeout 7). 판정 불가·판정기 없음·시간 초과 = (None, None) — 거짓 true/false 0."""
+    if not os.path.isfile(alive_bin):
+        if not alive_warned:
+            alive_warned.append(1); print(f"WARN 판정기 없음 {alive_bin} — agent_alive 칸 null", file=sys.stderr)
+        return None, None
+    try:
+        r = subprocess.run(["bash", alive_bin, session], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.TimeoutExpired):
+        return None, None
+    m = re.match(r"(ALIVE|NOAGENT) seat=\S+ fg=(\S*) ", r.stdout)
+    return ((m.group(1) == "ALIVE"), m.group(2)) if m else (None, None)
+
 sessions, pids = read_snap()
 rows, excluded = [], []
 for name in sorted(sessions):
@@ -113,6 +128,7 @@ for name in sorted(sessions):
     cfg_file, cfg = rows_cfg.get(name, (None, {}))
     parsed = p6(name)
     created, attached = sessions[name]
+    alive, fg = agent_state(name) if name in pids else (None, None)
     rows.append({
         "session": name,
         "base": base_of(name),
@@ -128,6 +144,8 @@ for name in sorted(sessions):
         "pane_pid": int(pids[name]) if name in pids else None,
         "created": int(created) if created.isdigit() else None,
         "attached": int(attached) if attached.isdigit() else None,
+        "agent_alive": alive,
+        "fg": fg,
     })
 
 doc = {

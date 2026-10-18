@@ -111,6 +111,35 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PY
 }
 
+# ★R346 전경·정지 판정★ — pane 은 있어도 전경이 «맨 셸»(claude 꺼짐·정지(T)·재기동 실패 래퍼만)이면 발사하지 않는다(셸이 틱 문구를 glob 으로 해석해 `bad pattern` 유실).
+#   판정기 = ft-agent-alive.sh 하나(doorbell 과 같은 것 · MBOX 옆). NOAGENT = 발사 0 + DEAD-SEATS.alert 1회(좌석당 · 회복하면 표식을 지워 다시 죽을 때 재경보) · 판정 불가(rc2) = 발사 0 + 로그(alive 로 안 돌린다).
+AGENT_ALIVE="${FT_TICK_AGENT_ALIVE:-$(dirname "$MBOX")/ft-agent-alive.sh}"
+#   ★표식 전이는 좌석별 잠금(mkdir <표식>.lock) 안에서 «판정 → 표식 재확인 → alert append → 성공해야 표식 저장 / ALIVE 복귀 rm» 한 번에★(DA⑥ H3 — 같은 prefix 의 동시 틱 둘이 경보를 두 번 쓰거나 rm 과 기록이 엇갈리는 것 차단).
+#   append 실패 = 표식 저장 0 → 다음 틱 재시도 · 잠금 못 잡으면 이 틱은 조용히 건너뜀(발사 0 · 다음 틱) · 30초 넘은 잠금은 죽은 주인 것으로 보고 회수.
+_gate_lock() { local l="$1.lock"; mkdir "$l" 2>/dev/null && return 0
+  [ "$(( $(now) - $(stat -f %m "$l" 2>/dev/null || echo 0) ))" -gt 30 ] || return 1
+  rmdir "$l" 2>/dev/null; mkdir "$l" 2>/dev/null; }
+_gate_step() {   # $1 seat $2 kind $3 mark — 잠금 안에서만 부른다
+  local seat="$1" kind="$2" mark="$3" line rc=0 fg
+  line="$(bash "$AGENT_ALIVE" "$seat" 2>/dev/null)" || rc=$?
+  case "$rc" in
+    0) rm -f "$mark"; return 0;;
+    1) fg="$(sed -n 's/.* fg=\([^ ]*\).*/\1/p' <<< "$line")"
+       if [ ! -f "$mark" ]; then
+         if printf '%s agent absent %s fg=%s (session alive) — kind=%s · claude 꺼짐/정지 — 재기동·재개 필요\n' "$(date '+%F %T')" "$seat" "$fg" "$kind" 2>/dev/null >> "${STAMP_PREFIX}DEAD-SEATS.alert"; then
+           now > "$mark"; log "NOAGENT $seat/$kind — fg=$fg (session alive) · alert written once (further skips silent)"
+         else log "ERROR NOAGENT $seat/$kind — alert 쓰기 실패 (${STAMP_PREFIX}DEAD-SEATS.alert) · 표식 저장 0 → 다음 틱 재시도"; fi
+       fi
+       return 1;;
+    *) log "skip $seat/$kind — 에이전트 판정 불가 (${line:-$AGENT_ALIVE 실행 실패}) · 발사 0"; return 1;;
+  esac
+}
+agent_gate() {   # $1 seat $2 kind → rc 0 발사 가능 · 1 발사 0
+  local mark rc; mark="$(stamp_of "$1" noagent)"
+  _gate_lock "$mark" || return 1
+  _gate_step "$1" "$2" "$mark"; rc=$?
+  rmdir "$mark.lock" 2>/dev/null; return "$rc"
+}
 # 한 좌석·한 종류 발사: ② 간격 → ③ busy → 전송 → ④ 제출 검증. $1 seat $2 kind $3 interval $4 min_gap $5 msg
 fire() {
   local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail
@@ -138,6 +167,7 @@ fire() {
     fi
     return 0
   fi
+  agent_gate "$seat" "$kind" || return 0
   # ★tail -3 은 «상태줄 3줄»만 잡아 busy 를 «한 번도» 못 걸렀다(2026-09-16 실측: skip busy 0건 / master sent 10건 중 절반 유실).
   #   상태줄(branch·Model·session·bypass)이 최대 5줄이라 작업표시가 그 위로 밀린다 — 창을 넓혀서 본다.
   tail="$(tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -14)"

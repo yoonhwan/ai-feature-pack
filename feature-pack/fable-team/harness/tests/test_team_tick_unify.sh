@@ -145,13 +145,14 @@ printf 'import os\nopen(os.environ["MARK"],"a").write("raised\\n")\n' > "$TMP/ra
 printf '#!/bin/bash\ncase "$1" in expire) echo autonomy-expire >> "$MARK";; mode) echo off;; esac\n' > "$TMP/autonomy-stub.sh"
 printf '#!/bin/bash\ncase "$1" in turn) echo "IDLE 2026-10-14T00:00:00 0 no jsonl";; esac\n' > "$TMP/seatstatus-stub.sh"
 printf '#!/bin/bash\n[ "$1" = peek ] && echo "pending=0"; exit 0\n' > "$TMP/mbox-stub.sh"
+printf '#!/bin/bash\necho "ALIVE seat=$1 fg=2.1.302 body=1"\n' > "$TMP/alive-stub.sh"   # R346: 이 시험은 문구·발사를 본다 — 에이전트 판정은 ALIVE 고정 대역(판정기 시험 = test_agent_alive_fg_judge.sh)
 printf '#!/bin/bash\ncase "$1" in record) exit 1;; esac\nexit 0\n' > "$TMP/resume-stub.sh"
 tmux() { case "$1" in list-panes) printf '%s\n' "$FAKE_PANES";; capture-pane) printf '%b' "${FAKE_SCREEN:-}";; send-keys) [ "${4:-}" = -l ] && printf '%s' "$5" > "$FAKE_SENT_DIR/p${3#%}";; esac; return 0; }
 export -f tmux
 export FAKE_PANES=$'T-M#1 %1\nT-N#1 %2\nOTHER-N#1 %3'
 rost() { printf '{"_master":"T-M#1","_hil_route":"PLAN#1","T-M#1":{"role":"master","agent":"claude","model":"m","tick":"ft-master-tick"},"T-N#1":{"role":"nano","agent":"claude","model":"m","tick":null},"T-DEAD#0":{"role":"nano","agent":"claude","model":"m","tick":null}}' > "$1"; }
 rost "$TMP/seats-t.json"
-BASE=("FT_TICK_SEATS=$TMP/seats-t.json" "FT_TICK_MBOX=$TMP/mbox-stub.sh" "FT_TICK_SEAT_STATUS=$TMP/seatstatus-stub.sh" "FT_TICK_GOAL_TICK=$TMP/none"
+BASE=("FT_TICK_SEATS=$TMP/seats-t.json" "FT_TICK_MBOX=$TMP/mbox-stub.sh" "FT_TICK_AGENT_ALIVE=$TMP/alive-stub.sh" "FT_TICK_SEAT_STATUS=$TMP/seatstatus-stub.sh" "FT_TICK_GOAL_TICK=$TMP/none"
   "FT_TICK_DRIFT_BIN=$TMP/drift-stub.sh" "FT_TICK_WT_SWEEP_BIN=$TMP/sweep-stub.sh" "FT_TICK_RAISED_BIN=$TMP/raised-stub.py" "FT_TICK_AUTONOMY_BIN=$TMP/autonomy-stub.sh"
   "FT_TICK_RESUME_ATTEMPT=$TMP/resume-stub.sh" "FT_TICK_API_OUTAGE=0" "FT_TICK_HIL=0" "FT_TICK_IDLE_STALL_MIN=10")
 runtick() {  # runtick <이름> <KEY=VAL...> — 마지막 인자들이 BASE 를 덮는다. 인자 --once [--dry-run] 는 RT_FLAGS
