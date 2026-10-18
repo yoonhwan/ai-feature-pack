@@ -66,10 +66,13 @@ g "check --succession"; expect "ⓓ rate600 승계 OK" 0 '^OK .*rate=600 '
 mk_tsv 6000 1100
 g check;              expect "ⓓ rate1100 새 좌석 REJECT" 3 '^REJECT resource rate=1100MiB/min '
 g "check --succession"; expect "ⓓ rate1100 승계 REJECT" 3 '^REJECT resource rate=1100MiB/min limit=1024MiB/min$'
-# ⓔ swap 12289 → 둘 다 REJECT · swap 9000(옛 8192 초과) level1 rate≤0 → OK(후행 구간)
+# ⓔ swap 12289 → (R357: level 결합) · swap 9000(옛 8192 초과) level1 rate≤0 → OK(후행 구간)
 mk_tsv 12289 0
-g check FAKE_SWAP=12289;              expect "ⓔ swap12289 새 좌석 REJECT" 3 '^REJECT resource swap=12289MiB limit=12288MiB$'
-g "check --succession" FAKE_SWAP=12289; expect "ⓔ swap12289 승계 REJECT" 3 '^REJECT resource swap=12289MiB '
+# R357: swap 절대량 단독 거절 폐기(카드 r357 — 교체 근거) — swap>12288 은 level>=2 와 결합할 때만 새 좌석 REJECT · 승계는 swap 축 면제
+g check FAKE_SWAP=12289;              expect "ⓔ R357 swap12289·level1 새 좌석 OK(swap 단독 거절 폐기)" 0 '^OK .*swap=12289MiB '
+g "check --succession" FAKE_SWAP=12289; expect "ⓔ R357 swap12289·level1 승계 OK" 0 '^OK .*swap=12289MiB '
+g check FAKE_SWAP=12289 FAKE_LEVEL=2;              expect "ⓔ R357 swap12289·level2 새 좌석 REJECT" 3 '^REJECT resource swap=12289MiB level=2 limit=12288MiB@level>=2$'
+g "check --succession" FAKE_SWAP=12289 FAKE_LEVEL=2; expect "ⓔ R357 swap12289·level2 승계 OK(swap 축 면제)" 0 '^OK .*swap=12289MiB '
 mk_tsv 9500 -100
 g check FAKE_SWAP=9000;              expect "ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)" 0 '^OK .*swap=9000MiB .*rate=-'
 # ⓕ agents 65 → 새 좌석 OK · 66 → 새 좌석 REJECT · 승계 OK

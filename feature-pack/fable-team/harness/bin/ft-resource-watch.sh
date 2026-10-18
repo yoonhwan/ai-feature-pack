@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# ft-resource-watch.sh [tick|scan]
-#   Res-1014 · launchd 가 60초마다 부르는 1회 실행형 감시자 + 원인 귀속 스냅샷.
+# ft-resource-watch.sh [tick|scan] — Res-1014 · launchd 가 60초마다 부르는 1회 실행형 감시자 + 원인 귀속 스냅샷.
 #   계기: 2026-10-14 03:31 watchdog 패닉. ★파일 삭제·prune 기능 없음 — 오빠 승인 별건★. 하는 일은 «감시·귀속·동결»뿐. deferral-lint: ok 기능 부재 설명이며 연기 아님
-#   tick (기본, launchd 호출):
-#     - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
-#     - 동결 트리거(disk<25GiB | swap>12288MiB | memfree<10%) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
+#   tick (기본, launchd 호출): - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
+#     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2) — R357: swap 절대량 단독 동결 폐기) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
 #     - 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
-#     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).
-#   scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
-#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) · 워크트리 합계는 FT_RES_DU_TTL_SEC(1800초) 캐시(du-cache.tsv) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).
-#   env(시험용): FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_DU_TTL_SEC
+#     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
+#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) · 워크트리 합계는 FT_RES_DU_TTL_SEC(1800초) 캐시(du-cache.tsv) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_DU_TTL_SEC
 set -uo pipefail
 
 CMD="${1:-tick}"
@@ -32,6 +28,8 @@ GATE="$HERE/ft-resource-gate.sh"
 DISK_MIN="${FT_RES_DISK_MIN:-25}"
 SWAP_MAX="${FT_RES_SWAP_MAX:-12288}"
 MEM_MIN="${FT_RES_MEM_MIN:-10}"
+SWAP_LEVEL_MIN="${FT_SWAP_LEVEL_MIN:-2}"; SLM_WARN=""   # R357: swap 트리거는 level>=이 값과 결합(문지기와 같은 env) · 무효값 = 기본 2 + 로그 WARN(tick 첫 줄) — 빈 값·미설정은 WARN 0
+case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) SLM_WARN=1;; *) [ "$((10#$SWAP_LEVEL_MIN))" -ge 1 ] || SLM_WARN=1;; esac; [ -z "$SLM_WARN" ] || { SLM_WARN="WARN FT_SWAP_LEVEL_MIN=${FT_SWAP_LEVEL_MIN} 무효(양의 정수 아님) — 기본 2 사용"; SWAP_LEVEL_MIN=2; }
 SNAP_SEC="${FT_RES_SNAP_SEC:-590}"
 
 mkdir -p "$STATE" 2>/dev/null || true
@@ -196,9 +194,11 @@ scan() {
 
 # ---- tick (launchd) ----
 tick() {
-  local gout rc disk swap memfree level rate now trig recov
+  local gout rc disk swap memfree level rate now trax recov
   bash "$HERE/ft-resource-sample.sh" >/dev/null 2>>"$LOG" || logline "ERROR sample rc=$? (표본 끊김 — 문지기 stale 로 이어짐)"
+  [ -z "$SLM_WARN" ] || { logline "$SLM_WARN"; echo "$SLM_WARN" >&2; }   # R357: 설정이 바뀐 사실을 숨기지 않는다(조용한 후퇴 금지)
   gout="$(bash "$GATE" status 2>&1)"; rc=$?
+  printf '%s\n' "$gout" | grep '^WARN ' | grep -v FT_SWAP_LEVEL_MIN | while IFS= read -r _w; do logline "gate $_w"; done   # R357: 문지기 WARN 은 rc0 이어도 버리지 않고 로그로(SWAP_LEVEL_MIN WARN 은 위 줄과 중복이라 제외)
   if [ "$rc" != 0 ]; then logline "ERROR gate status rc=$rc out=$gout"; exit 4; fi
   disk=$(printf '%s' "$gout" | sed -n 's/.*disk=\([0-9]*\).*/\1/p')
   swap=$(printf '%s' "$gout" | sed -n 's/.*swap=\([0-9]*\).*/\1/p')
@@ -208,26 +208,26 @@ tick() {
   case "$disk$swap$memfree" in ''|*[!0-9]*) logline "ERROR parse gate=$gout"; exit 4;; esac
   now=$(now_epoch); FT_RES_ROOT="$RES_ROOT" bash "$HERE/ft-disk-alarm.sh" >/dev/null 2>&1 || logline "ERROR ft-disk-alarm rc=$? (tick 은 계속)"   # R246 쪽지 경보 · 동결 분기보다 먼저
 
-  trig=0
-  [ "$disk" -lt "$DISK_MIN" ] && trig=1
-  [ "$swap" -gt "$SWAP_MAX" ] && trig=1
-  [ "$memfree" -lt "$MEM_MIN" ] && trig=1
+  trax=""; [ "$disk" -lt "$DISK_MIN" ] && trax="disk"   # R357: 트리거 축 이름 — swap 은 level>=SWAP_LEVEL_MIN 과 결합할 때만(절대량 단독 동결 폐기 — 해제가 swap 절대량을 안 봐 플래핑)
+  [ "$swap" -gt "$SWAP_MAX" ] && [ "${level:-0}" -ge "$SWAP_LEVEL_MIN" ] && trax="${trax:+$trax+}swap"
+  [ "$memfree" -lt "$MEM_MIN" ] && trax="${trax:+$trax+}memfree"
 
-  if [ "$trig" = 1 ] && [ ! -f "$FREEZE" ]; then
+  if [ -n "$trax" ] && [ ! -f "$FREEZE" ]; then
     do_snapshot "$now"
     local cause cseat ckind=disk; cause="$(top1_disk)"
-    { [ "$swap" -gt "$SWAP_MAX" ] || [ "$memfree" -lt "$MEM_MIN" ]; } && ckind=mem
+    case "$trax" in *swap*|*memfree*) ckind=mem;; esac
     cseat="$(bash "$HERE/ft-resource-cause.sh" "$ckind" 2>/dev/null | head -1)"   # R320: 원인 좌석 한 줄(자료 없으면 «자료 부족»)
-    printf 'FREEZE %s disk=%sG swap=%sM memfree=%s%% 1위 %s · 원인 좌석(%s) %s\n' "$(now_utc)" "$disk" "$swap" "$memfree" "$cause" "$ckind" "${cseat:-자료 부족}" > "$FREEZE"
+    printf 'FREEZE %s disk=%sG swap=%sM level=%s memfree=%s%% 1위 %s · 원인 좌석(%s) %s\n' "$(now_utc)" "$disk" "$swap" "${level:-?}" "$memfree" "$cause" "$ckind" "${cseat:-자료 부족}" > "$FREEZE"
     osascript -e "display notification \"디스크 ${disk}G · 1위 $cause\" with title \"FT 자원 동결(spawn 차단)\"" >/dev/null 2>&1 || true
-    logline "FREEZE created disk=${disk}G swap=${swap}M memfree=${memfree}% cause=$cause"
+    logline "FREEZE created disk=${disk}G swap=${swap}M level=${level:-?} memfree=${memfree}% trig=$trax cause=$cause"
     return 0
   fi
 
   recov=0
   if [ "$disk" -ge 35 ] && [ "$memfree" -ge 20 ] && [ "${level:-0}" = 1 ] && calm3; then recov=1; fi
   [ "$recov" = 0 ] || { case "$rate" in ''|na|*[!0-9-]*) false;; *) [ "$rate" -le "${FT_SWAP_RATE_MAX:-512}" ];; esac; } || { recov=0; [ ! -f "$FREEZE" ] || logline "THAW held rate=${rate:-?} (허용 ${FT_SWAP_RATE_MAX:-512} 초과·판정 불가)"; }
-  if [ "$recov" = 1 ] && [ -f "$FREEZE" ]; then
+  if [ "$recov" = 1 ] && [ -f "$FREEZE" ] && [ -n "$trax" ]; then logline "THAW held trig=$trax"   # R357 불변식: 닫는 사건(THAW)이 여는 사건(트리거)을 바로 되살리지 않는다
+  elif [ "$recov" = 1 ] && [ -f "$FREEZE" ]; then
     rm -f "$FREEZE"
     osascript -e "display notification \"디스크 ${disk}G 회복 · spawn 재개\" with title \"FT 자원 동결 해제\"" >/dev/null 2>&1 || true
     logline "THAW removed disk=${disk}G swap=${swap}M memfree=${memfree}% rate=${rate}"

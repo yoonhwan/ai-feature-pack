@@ -134,9 +134,59 @@ spawn_pgrep_err() {
   return $e
 }
 
+# R357 — swap 절대량 단독 거절 폐기: swap 축 = «swap>12288 AND level>=FT_SWAP_LEVEL_MIN(2)» 결합 · 승계는 swap 축 면제.
+# 가짜 센서(PATH)로 swap·level·memfree 값만 대역 — 문지기 코드는 진짜로 돈다. 표본 2줄(rate −100 = 줄어드는 중).
+SW="$T/sw"; mkdir -p "$SW"
+printf '#!/bin/sh\ncase "$2" in\n  vm.swapusage) echo "total = 14336.00M  used = ${FAKE_SWAP}.00M  free = 1000.00M  (encrypted)";;\n  kern.memorystatus_vm_pressure_level) echo "$FAKE_LEVEL";;\n  *) exit 1;;\nesac\n' > "$SW/sysctl"
+printf '#!/bin/sh\necho "System-wide memory free percentage: ${FAKE_MEMFREE}%%"\n' > "$SW/memory_pressure"
+printf '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\necho "/dev/x 999999999 1 ${FAKE_DISK_KIB:-104857600} 1%% /System/Volumes/Data"\n' > "$SW/df"
+printf '#!/bin/sh\ncase "$*" in\n  "-a -x claude") seq 101 110; exit 0;;\n  "-a -x codex") exit 1;;\nesac\nexec /usr/bin/pgrep "$@"\n' > "$SW/pgrep"
+chmod 755 "$SW"/*
+# sw <bin 폴더> <swap> <level> <memfree> <check 인자> [env…] — OUT·RC
+sw() {
+  local d="$1" swap="$2" lvl="$3" mem="$4" args="$5" now; shift 5; now="$(date +%s)"
+  printf '%s\t%s\t%s\t%s\t2303978\n%s\t%s\t%s\t%s\t2303978\n' "$((now-60))" "$((swap+100))" "$mem" "$lvl" "$now" "$swap" "$mem" "$lvl" > "$R/.fable-team/state/pressure.tsv"
+  # shellcheck disable=SC2086
+  OUT="$(env FT_RES_ROOT="$R" PATH="$SW:$PATH" FAKE_SWAP="$swap" FAKE_LEVEL="$lvl" FAKE_MEMFREE="$mem" ${1+"$@"} bash "$d/ft-resource-gate.sh" $args 2>&1)"; RC=$?
+}
+# swap_checks <bin 폴더> — ⓐ~ⓕ (R357 카드 «시험 입력»). 전부 맞으면 rc 0.
+swap_checks() {
+  local d="$1" e=0
+  rm_freeze
+  sw "$d" 13500 1 55 check
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓐ swap13500·level1 → OK 이어야 함 rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 2 55 check
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource swap=13500MiB level=2 limit=12288MiB@level>=2'; } || { echo "R357ⓑ rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 2 55 "check --succession"
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓒ 승계 swap 면제 rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 4 55 check
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource level=4 limit=2'; } || { echo "R357ⓓ level4 → REJECT level rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 4 55 "check --succession"
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource level=4 limit=3'; } || { echo "R357ⓓ' 승계도 level4 는 REJECT rc=$RC $OUT"; e=1; }
+  sw "$d" 9000 2 55 check
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓔ swap9000·level2 → OK(level2 단독은 거절 아님) rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 1 55 check FT_SWAP_LEVEL_MIN=1
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource swap=13500MiB level=1 limit=12288MiB@level>=1'; } || { echo "R357ⓕ FT_SWAP_LEVEL_MIN=1 주입 rc=$RC $OUT"; e=1; }
+  for v in 0 -1 abc; do
+    sw "$d" 13500 1 55 check FT_SWAP_LEVEL_MIN="$v"
+    { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' && echo "$OUT" | grep -q '^WARN resource FT_SWAP_LEVEL_MIN'; } || { echo "R357ⓕ' 무효값 «${v}» →기본 2 + WARN rc=$RC $OUT"; e=1; }
+  done
+  # R357 ⓛ — 10-14 03:31 원 사고 입력 보존: disk 748MiB(=0GiB)·level 4·swap 13500 — swap 파일 23개는 센서 아님(환산 0)
+  sw "$d" 13500 4 30 check FAKE_DISK_KIB=$((748*1024))
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource disk=0GiB limit=30GiB'; } || { echo "R357ⓛ1 rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 4 30 "check --succession" FAKE_DISK_KIB=$((748*1024))
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource disk=0GiB limit=30GiB'; } || { echo "R357ⓛ2 rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 4 30 check
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource level=4 limit=2'; } || { echo "R357ⓛ3 일반 rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 4 30 "check --succession"
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource level=4 limit=3'; } || { echo "R357ⓛ3 승계 rc=$RC $OUT"; e=1; }
+  return $e
+}
+
 run_suite() {
   local tag="$1" d
   for d in "$K1" "$K2"; do
+    swap_checks "$d" >"$T/o" 2>&1 && ok "$tag R357 swap 결합 거절·승계 면제 $(basename "$(dirname "$d")")" || bad "$tag R357 swap $d: $(cat "$T/o")"
     gate_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓐ~ⓔ $(basename "$(dirname "$d")")" || bad "$tag ⓐ~ⓔ $d: $(cat "$T/o")"
     spawn_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓕ spawn 3종 $(basename "$(dirname "$d")")" || bad "$tag ⓕ $d: $(cat "$T/o")"
     pgrep_checks "$d" >"$T/o" 2>&1 && ok "$tag ⓗ~ⓛ·ⓝ pgrep 센서 $(basename "$(dirname "$d")")" || bad "$tag ⓗ~ⓛ $d: $(cat "$T/o")"

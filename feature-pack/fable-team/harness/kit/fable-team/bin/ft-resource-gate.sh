@@ -11,9 +11,10 @@
 #   rate=na(+stderr WARN 1줄 · 속도 칸만 건너뜀) = 검증 통과한 «1줄뿐»(180초 안)일 때만 — 지나면 다시 재서 2줄이 되므로 영구 예외 아님.
 #   측정 실패(명령 없음·파싱 실패)는 통과시키지 않고 `ERROR resource measure <무엇>` + exit 4 (BYZ #0 NO SILENT FALLBACK).
 #   동결 파일(.fable-team/state/RESOURCE_FREEZE)이 있으면 check 는 무조건 REJECT.
+#   R357: swap 은 «swap>FT_SWAP_HARD_MIB AND level>=FT_SWAP_LEVEL_MIN(2)» 일 때만 거절(`REJECT resource swap=<N>MiB level=<L> limit=<M>MiB@level>=<K>`) · 승계(--succession)는 swap 축 면제 — level 4·memfree·rate 는 그대로. FT_SWAP_LEVEL_MIN 은 양의 정수(아니면 기본 2 + WARN).
 #   문턱(env 덮어쓰기): FT_DISK_MIN_GIB=30 · FT_SWAP_HARD_MIB=12288 · FT_SWAP_RATE_MAX=512(승계 FT_SWAP_RATE_MAX_SUCC=1024) · FT_PRESSURE_MAX=2(= level 4 만 거절 · 승계 FT_PRESSURE_MAX_SUCC=3)
 #            · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=65 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md → 오빠 판정 1883 ②·1885 로 65)
-#   FT_SWAP_MAX_MIB(옛 스왑 절대량 8192)는 폐기 · R213 — 읽지 않는다.
+#   FT_SWAP_MAX_MIB(옛 스왑 절대량 8192)는 폐기 · R213 — 읽지 않는다. 절대량 단독 거절 폐기(R357).
 #   시험용 env: FT_RES_ROOT(동결 파일이 놓이는 리포 루트 — 기본은 스크립트 위치에서 역산)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
@@ -26,6 +27,9 @@ case "${2:-}" in "") ;; --succession) [ "$CMD" = check ] && SUCC=1 || SUCC=x;; *
 DISK_MIN="${FT_DISK_MIN_GIB:-30}"
 SWAP_HARD="${FT_SWAP_HARD_MIB:-12288}"
 AGENT_MAX="${FT_AGENT_MAX:-65}"
+SWAP_LEVEL_MIN="${FT_SWAP_LEVEL_MIN:-2}"
+case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) _slm_bad=1;; *) [ "$((10#$SWAP_LEVEL_MIN))" -ge 1 ] && _slm_bad=0 || _slm_bad=1;; esac
+[ "$_slm_bad" = 0 ] || { [ -z "${FT_SWAP_LEVEL_MIN:-}" ] || echo "WARN resource FT_SWAP_LEVEL_MIN=${FT_SWAP_LEVEL_MIN} 무효(양의 정수 아님) — 기본 2 사용" >&2; SWAP_LEVEL_MIN=2; }
 if [ "$SUCC" = 1 ]; then
   MEM_MIN="${FT_MEM_FREE_MIN_SUCC:-10}"; RATE_MAX="${FT_SWAP_RATE_MAX_SUCC:-1024}"; LEVEL_MAX="${FT_PRESSURE_MAX_SUCC:-3}"
 else
@@ -139,8 +143,9 @@ if [ "$FREEZE_FLAG" = 1 ]; then
   exit 3
 fi
 if [ "$DISK_GIB" -lt "$DISK_MIN" ]; then echo "REJECT resource disk=${DISK_GIB}GiB limit=${DISK_MIN}GiB"; exit 3; fi
-if [ "$SWAP_MIB" -gt "$SWAP_HARD" ]; then echo "REJECT resource swap=${SWAP_MIB}MiB limit=${SWAP_HARD}MiB"; exit 3; fi
 if [ "$LEVEL" -gt "$LEVEL_MAX" ]; then echo "REJECT resource level=$LEVEL limit=$LEVEL_MAX"; exit 3; fi
+# R357: swap 절대량은 커널이 경고(level>=SWAP_LEVEL_MIN)라 말할 때만 거절 · 승계(순증 0)는 swap 축 면제 — level·memfree·rate 는 그대로
+if [ "$SUCC" != 1 ] && [ "$SWAP_MIB" -gt "$SWAP_HARD" ] && [ "$LEVEL" -ge "$SWAP_LEVEL_MIN" ]; then echo "REJECT resource swap=${SWAP_MIB}MiB level=${LEVEL} limit=${SWAP_HARD}MiB@level>=${SWAP_LEVEL_MIN}"; exit 3; fi
 if [ "$MEMFREE" -lt "$MEM_MIN" ]; then echo "REJECT resource memfree=${MEMFREE}% limit=${MEM_MIN}%"; exit 3; fi
 if [ "$RATE" != na ] && [ "$RATE" -gt "$RATE_MAX" ]; then echo "REJECT resource rate=${RATE}MiB/min limit=${RATE_MAX}MiB/min"; exit 3; fi
 if [ "$SUCC" != 1 ] && [ "$AGENTS" -gt "$AGENT_MAX" ]; then echo "REJECT resource agents=$AGENTS limit=$AGENT_MAX"; exit 3; fi

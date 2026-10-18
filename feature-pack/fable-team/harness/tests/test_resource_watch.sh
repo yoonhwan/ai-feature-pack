@@ -22,8 +22,8 @@ printf '#!/bin/sh\ncase "$*" in\n  "-a -x claude") seq 101 135; exit 0;;\n  "-a 
 printf '#!/bin/sh\nexit 0\n' > "$S/osascript"
 chmod 755 "$S"/*
 NOW="$(date +%s)"
-seed() { # 표본줄 N개(이전 시각순) — 인자: swap memfree level 개수
-  local i; : > "$PTSV"; for i in $(seq "$4" -1 1); do printf '%s\t%s\t%s\t%s\t2303978\n' "$((NOW-60*i))" "$1" "$2" "$3" >> "$PTSV"; done; }
+seed() { # 표본줄 N개(이전 시각순) — 인자: swap memfree level 개수 · NOW 는 호출마다 갱신(R357: 동결 틱이 길어져도 표본이 낡지 않게)
+  local i; NOW="$(date +%s)"; : > "$PTSV"; for i in $(seq "$4" -1 1); do printf '%s\t%s\t%s\t%s\t2303978\n' "$((NOW-60*i))" "$1" "$2" "$3" >> "$PTSV"; done; }
 tick() { # tick <env…> — 임시 루트에서 감시자 tick 1회
   env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
 bash -n "$BIN/ft-resource-watch.sh" && ok "bash -n watch" || bad "bash -n watch"
@@ -47,12 +47,54 @@ frz; seed 8000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40
 [ -f "$FREEZE" ] && ok "R320 swap 증가(8000→9000) → 유지" || bad "R320 swap 증가인데 해제됨"
 frz; seed 9000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40 FAKE_DISK_KIB=$((34*1048576))
 [ -f "$FREEZE" ] && ok "R320 disk 34G(<35) → 유지" || bad "R320 disk 34G 인데 해제됨"
-rm -f "$FREEZE"; seed 13000 40 1 2; tick FAKE_SWAP=13000 FAKE_LEVEL=1 FAKE_MEMFREE=40
-[ -f "$FREEZE" ] && ok "R320 동결 트리거 swap>12288 그대로" || bad "R320 swap 13000 동결 안 걸림"
+# R357: 옛 단언 «swap>12288 단독 동결(level 1)» 은 플래핑의 원인이라 교체 — swap 트리거는 level≥2 와 결합(카드 r357 §시험 입력 ⓗ)
+rm -f "$FREEZE"; seed 13000 40 2 2; tick FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40
+[ -f "$FREEZE" ] && ok "R357 동결 트리거 swap>12288 & level 2 → 동결" || bad "R357 swap 13000·level 2 동결 안 걸림"
+
+# ── R357. swap 절대량 단독 동결·해제 플래핑 폐기 ──
+cnt() { grep -c "$1" "$WLOG" 2>/dev/null || true; }
+# ⓖ 플래핑 재현: 동결 없음 · swap 13500 memfree 55 level 1 ×3 틱 → 동결·해제 모두 0 (옛 코드 = FREEZE·THAW·FREEZE)
+rm -f "$FREEZE" "$WLOG"; seed 13500 55 1 3
+for _i in 1 2 3; do tick FAKE_SWAP=13500 FAKE_LEVEL=1 FAKE_MEMFREE=55; done
+eq "$(cnt 'FREEZE created')" 0 "R357 ⓖ swap13500·level1 ×3틱 → FREEZE created 0"
+eq "$(cnt 'THAW removed')" 0 "R357 ⓖ THAW 0"
+[ ! -f "$FREEZE" ] && ok "R357 ⓖ 동결 파일 없음" || bad "R357 ⓖ 동결 파일이 생김"
+# ⓗ swap 13500 level 2 → 동결 1(사유 줄에 swap·level) → level 1 로 내려가고 rate≤512 → 해제 1 → 이어 2틱 동결 0
+rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55
+eq "$(cnt 'FREEZE created')" 1 "R357 ⓗ swap13500·level2 → FREEZE created 1"
+has "$(cat "$FREEZE" 2>/dev/null)" "swap=13500M level=2" "R357 ⓗ 동결 사유 줄에 swap·level"
+seed 13500 55 1 3; tick FAKE_SWAP=13500 FAKE_LEVEL=1 FAKE_MEMFREE=55
+eq "$(cnt 'THAW removed')" 1 "R357 ⓗ level 1 · rate≤512 → THAW 1"
+tick FAKE_SWAP=13500 FAKE_LEVEL=1 FAKE_MEMFREE=55; tick FAKE_SWAP=13500 FAKE_LEVEL=1 FAKE_MEMFREE=55
+eq "$(cnt 'FREEZE created')" 1 "R357 ⓗ 해제 뒤 2틱 → 새 FREEZE 0(총 1 그대로)"
+# ⓘ 불변식: 해제 직전 트리거 재평가 — 동결 있음 · memfree 22(해제 ≥20 참) · FT_RES_MEM_MIN=25(트리거 <25 참) → 해제하지 않고 THAW held trig=memfree
+rm -f "$WLOG"; frz; seed 9000 22 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=22 FT_RES_MEM_MIN=25
+[ -f "$FREEZE" ] && ok "R357 ⓘ 해제·트리거 동시 참 → 동결 유지" || bad "R357 ⓘ 트리거가 참인데 해제됨"
+eq "$(cnt 'THAW removed')" 0 "R357 ⓘ THAW removed 0"
+has "$(cat "$WLOG")" "THAW held trig=memfree" "R357 ⓘ 로그 THAW held trig=memfree"
+# ⓙ 다른 트리거 불변: memfree<10 · disk<25 는 level 과 무관하게 동결
+rm -f "$FREEZE"; seed 9000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=9
+[ -f "$FREEZE" ] && ok "R357 ⓙ memfree 9 → 동결(level 1)" || bad "R357 ⓙ memfree 9 동결 안 걸림"
+rm -f "$FREEZE"; seed 9000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40 FAKE_DISK_KIB=$((24*1048576))
+[ -f "$FREEZE" ] && ok "R357 ⓙ disk 24G → 동결(level 1)" || bad "R357 ⓙ disk 24G 동결 안 걸림"
+# ⓚ 무효 FT_SWAP_LEVEL_MIN(abc·0·-1) → 로그 WARN 1줄(중복 0) + 기본 2 로 동작(swap13500·level2 동결) · 미설정 → WARN 0
+for v in abc 0 -1; do
+  rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55 FT_SWAP_LEVEL_MIN="$v"
+  eq "$(cnt "WARN FT_SWAP_LEVEL_MIN=${v} ")" 1 "R357 ⓚ FT_SWAP_LEVEL_MIN=${v} → 로그 WARN 1줄(중복 0)"
+  [ -f "$FREEZE" ] && ok "R357 ⓚ ${v} → 기본 2 적용(swap13500·level2 동결)" || bad "R357 ⓚ ${v} 인데 기본 2 로 동작 안 함"
+done
+rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55
+eq "$(cnt 'WARN')" 0 "R357 ⓚ 미설정 → WARN 0"
+# ⓛ 10-14 03:31 원 사고 입력 보존 — disk 748MiB(=0GiB) · level 4 · swap 13500 · memfree 30 → 동결 trig=disk(swap 파일 23개는 센서 아님 — 환산 0)
+rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FAKE_MEMFREE=30 FAKE_DISK_KIB=$((748*1024))
+has "$(cat "$WLOG" 2>/dev/null)" "trig=disk" "R357 ⓛ4 원 사고 입력 → FREEZE created trig=disk"
+rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FAKE_MEMFREE=30
+has "$(cat "$WLOG" 2>/dev/null)" "trig=swap" "R357 ⓛ5 disk 86G·level4·swap13500 → trig=swap(결합)"
+rm -f "$FREEZE" "$WLOG"
 
 # ── R320c. 해제의 swap 축 = 문지기(ft-resource-gate.sh)와 «같은 rate 정의» — 마지막 6표본 (s1−s0)×60/(t1−t0) ≤ 허용치(512) ──
 seedseq() { # seedseq <swap…> — 인자 개수만큼 표본(1분 간격 · 마지막이 NOW-60) · memfree 40 · level 1
-  local n=$# i=$#; : > "$PTSV"; for s in "$@"; do printf '%s\t%s\t40\t1\t2303978\n' "$((NOW-60*i))" "$s" >> "$PTSV"; i=$((i-1)); done; }
+  local n=$# i=$#; NOW="$(date +%s)"; : > "$PTSV"; for s in "$@"; do printf '%s\t%s\t40\t1\t2303978\n' "$((NOW-60*i))" "$s" >> "$PTSV"; i=$((i-1)); done; }
 gate_rate() { env FT_RES_ROOT="$R" PATH="$S:$PATH" "$@" bash "$BIN/ft-resource-gate.sh" status 2>&1 | awk '{for(i=1;i<=NF;i++) if($i ~ /^rate=/){sub(/^rate=/,"",$i); print $i}}'; }
 # ⓐ 마지막 3표본은 평평(11000)인데 6표본 rate ≈600 > 512 → 문지기는 막는다 → 감시는 풀면 안 된다(옛 calm3 은 풀었다)
 frz; seedseq 8000 9000 10000 11000 11000; tick FAKE_SWAP=11000 FAKE_LEVEL=1 FAKE_MEMFREE=40
