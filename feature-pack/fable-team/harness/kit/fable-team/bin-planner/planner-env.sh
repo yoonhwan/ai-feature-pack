@@ -14,4 +14,4 @@ export FT_NEWS_TREE=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees
 export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin
 export FT_NANO_FEAT=feat/v6-realtime-live
 # planner 는 나노를 열지 않는다(문서만) — 위 나노 변수는 공용 스크립트 호출 호환용 기본값.
-export FT_MBOX_SH=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh   # 추적 사본(scripts/harness-install)에서 spawn 을 돌려도 mbox 를 찾게 한다 (R20)
+export FT_MBOX_SH=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh   # 추적 사본(harness/kit)에서 spawn 을 돌려도 mbox 를 찾게 한다 (R20)

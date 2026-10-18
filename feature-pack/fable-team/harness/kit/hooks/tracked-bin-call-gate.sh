@@ -1,8 +1,8 @@
 #!/bin/bash
 # tracked-bin-call-gate — PreToolUse:Bash (R201 범위 추가 · 카드 r201-root-bin-stale-copy-shim)
-# 왜: 뒤처진 워크트리의 `scripts/fable-team-bin/<도구>`(git 추적 사본)를 직접 부르면 «그 워크트리 시점의 옛 코드» 가 돈다(옛 자원 한도 30 · 드리프트 검사 건너뜀).
+# 왜: 뒤처진 워크트리의 `harness/bin/<도구>`(git 추적 사본 · r385 전엔 BYZ 리포 안 옛 위치)를 직접 부르면 «그 워크트리 시점의 옛 코드» 가 돈다(옛 자원 한도 30 · 드리프트 검사 건너뜀).
 #     loom#27 spawn 이 loom-main 의 52커밋 뒤진 사본으로 REJECT(planner#49 #92812). 사본은 추적 파일이라 연결 파일로 바꿀 수 없다 → 호출 순간에 막고 라이브 경로를 안내한다.
-# 동작: 명령을 구분자(; && || | 개행 $( `)로 나눠 «실행되는 첫 낱말» 이 `*/scripts/fable-team-bin/<입구 도구>` 또는 `*/scripts/harness-install/fable-team/bin/<입구 도구>` 이면 deny.
+# 동작: 명령을 구분자(; && || | 개행 $( `)로 나눠 «실행되는 첫 낱말» 이 `*/harness/bin/<입구 도구>` 또는 `*/harness/kit/fable-team/bin/<입구 도구>`(+ BYZ freeze 옛 위치 두 곳) 이면 deny.
 #       입구 도구 = spawn · close · role-spawn · successor-open · resource-gate · resource-reclaim.
 #       읽기(cat·grep·sed -n·git show·bash -n)와 `$FT_BIN/…`·`.fable-team/bin/…` 호출·입구 도구 밖 이름·`FT_ALLOW_TRACKED_BIN=1`(시험 하네스) 은 통과.
 # ★못 읽음★: 입력 JSON 을 못 읽거나 파싱 실패 = 통과 + stderr 경고(fail-open · 다른 홈 훅과 같은 꼴 · 파괴 아님). 외부 호출 0(git rev-parse 1회만).
@@ -80,7 +80,8 @@ def first_exec(tokens):
 
 def tracked_hit(word):
     w = word.strip("'\"")
-    m = re.search(r"(?:^|/)scripts/(?:fable-team-bin|harness-install/fable-team/bin)/([^/\s]+?)(?:\.sh)?$", w)
+    # 팩 추적 사본(harness/bin · harness/kit/fable-team/bin · r385) + BYZ freeze 사본(r386 삭제 전까지 남는 옛 위치)
+    m = re.search(r"(?:^|/)(?:harness/(?:bin|kit/fable-team/bin)|scripts/(?:fable-team-bin|harness-install/fable-team/bin))/([^/\s]+?)(?:\.sh)?$", w)
     if m and m.group(1) in ENTRY:
         return m.group(1) + ".sh"
     return None
@@ -140,7 +141,7 @@ def main():
     where = live if live else "<LIVE_BIN 미설치 — master 에 ft-root-bin-shim.sh 설치 요청>"
     reason = (
         f"REJECT 추적 사본 직접 호출 — $FT_BIN/{hit} 으로 다시 부르세요 (FT_BIN={where}). "
-        f"scripts/fable-team-bin·scripts/harness-install/fable-team/bin 의 사본은 그 워크트리 시점의 옛 코드라 옛 한도·옛 검사로 돕니다(R201). "
+        f"harness/bin·harness/kit/fable-team/bin(및 BYZ freeze 옛 위치)의 사본은 그 워크트리 시점의 옛 코드라 옛 한도·옛 검사로 돕니다(R201). "
         f"읽기(cat·grep·git show·bash -n)는 막지 않습니다. 시험 하네스만 FT_ALLOW_TRACKED_BIN=1."
     )
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}, ensure_ascii=False))

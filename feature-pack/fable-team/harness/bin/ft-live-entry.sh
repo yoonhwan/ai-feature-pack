@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ft-live-entry.sh — source 전용 (R201 범위 추가 · 입구 도구 6개가 HERE 정의 직후 `. "$HERE/ft-live-entry.sh" "$@"`)
-#   입구 도구(spawn·close·role-spawn·successor-open·resource-gate·resource-reclaim)가 추적 사본 위치(*/scripts/fable-team-bin · */scripts/harness-install/fable-team/bin)
+#   입구 도구(spawn·close·role-spawn·successor-open·resource-gate·resource-reclaim)가 추적 사본 위치(*/harness/bin · */harness/kit/fable-team/bin)
 #   (뒤처진 워크트리의 사본 = R201 사고 꼴)에서 불리면, 옛 코드로 돌지 않고 <리포 루트>/.fable-team/LIVE_BIN 의 같은 이름 도구로 exec 한다.
 #   인자·stdin·rc 는 exec 라 그대로. 대상 없음·LIVE_BIN 없음/빔 → `ERROR` + rc 3 (옛 사본 실행 0 · #0 RULE).
 #   단 그 워크트리 HEAD 가 origin/main 을 «품으면»(merge-base --is-ancestor rc0 = 최신 이상 = 시험 중인 브랜치) 제자리 실행 · git 판단 실패 = ERROR rc3 (r2 · arch#71).
@@ -11,8 +11,8 @@
 _le_self="${BASH_SOURCE[1]:-$0}"
 _le_dir="$(cd -- "$(dirname -- "$_le_self")" && pwd)"
 case "$_le_dir" in
-  */.fable-team/bin|*/.fable-team/*/bin) : ;;                                     # 설치 꼴 — 아무것도 안 한다
-  */scripts/fable-team-bin|*/scripts/harness-install/fable-team/bin)           # 추적 사본(R201 사고 꼴)만 — 임시 복사본 등 그 밖의 위치는 각 도구의 옛 INFO 건너뜀 경로 그대로
+  */.fable-team/bin|*/.fable-team/*/bin|*/fable-team/live/*/bin) : ;;            # 설치 꼴(r385 버전 폴더 포함) — 아무것도 안 한다
+  */harness/bin|*/harness/kit/fable-team/bin)                                   # 추적 사본(R201 사고 꼴 · r385 팩 harness/)만 — 임시 복사본 등 그 밖의 위치는 각 도구의 옛 INFO 건너뜀 경로 그대로
     if [ "${FT_ALLOW_TRACKED_BIN:-0}" != 1 ] && [ "${FT_LIVE_ENTRY_DONE:-0}" != 1 ]; then
       _le_name="${_le_self##*/}"
       _le_gc="$(git -C "$_le_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \

@@ -41,7 +41,7 @@ PY
   [ -n "$SCRIPT" ] && SCRIPT="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$SCRIPT" 2>/dev/null)" && [ -n "$SCRIPT" ] || { echo "REJECT --script 경로 정규화 실패(빈 값·실패)"; exit 1; }
   case "$SCRIPT" in   # 팀 plist 가 닫히는 워크트리·키트 원본을 가리키지 않게 — 라이브 bin 만 허용
     */.worktrees/v6-realtime-live/.fable-team/bin/*) ;;
-    */scripts/fable-team-bin/*|*/.worktrees/*) echo "REJECT --script 가 워크트리·키트 원본 아래다: $SCRIPT — 라이브 .fable-team/bin 의 ft-tick.sh 를 준다"; exit 1;;
+    */harness/bin/*|*/harness/kit/fable-team/bin/*|*/.worktrees/*) echo "REJECT --script 가 워크트리·키트 원본 아래다: $SCRIPT — 라이브 .fable-team/bin 의 ft-tick.sh 를 준다"; exit 1;;
   esac
   [ -f "$SCRIPT" ] || { echo "REJECT ft-tick.sh 없음: $SCRIPT"; exit 1; }
   NEW="$(mktemp /tmp/ft-tick-team-plist.XXXXXX)"; trap 'rm -f "$NEW"' EXIT
@@ -101,9 +101,10 @@ if [ "$UNINSTALL" = 1 ]; then
   rm -f "$PLIST_DST"; echo "removed $PLIST_DST"; exit 0
 fi
 
-# 런타임 자리(.fable-team/bin, gitignore)가 있으면 그것, 없으면 추적 사본(scripts/fable-team-bin).
+# 런타임 자리(.fable-team/bin, gitignore)가 있으면 그것, 없으면 하네스 코드 루트의 추적 사본(harness/bin · r385).
 if [ -z "$SCRIPT" ]; then
-  if [ -f "$WT/.fable-team/bin/ft-tick.sh" ]; then SCRIPT="$WT/.fable-team/bin/ft-tick.sh"; else SCRIPT="$WT/scripts/fable-team-bin/ft-tick.sh"; fi
+  if [ -f "$WT/.fable-team/bin/ft-tick.sh" ]; then SCRIPT="$WT/.fable-team/bin/ft-tick.sh"
+  else HR="$([ -f "$HERE/ft-harness-root.sh" ] && . "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE")"; SCRIPT="${HR:+$HR/bin/ft-tick.sh}"; fi
 fi
 [ -f "$TEMPLATE" ] || { echo "REJECT 템플릿 없음: $TEMPLATE"; exit 1; }
 [ -f "$SCRIPT" ]   || { echo "REJECT ft-tick.sh 없음: $SCRIPT"; exit 1; }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: harness/comm/ · 드리프트 확인: harness/comm/check-drift.sh
 # 좌석에 보낸 텍스트가 ★실제로 제출됐는지★를 세션 jsonl 층에서 판정한다.
 #
 # ─ 왜 화면(capture-pane)으로는 안 되는가 ────────────────────────────────────

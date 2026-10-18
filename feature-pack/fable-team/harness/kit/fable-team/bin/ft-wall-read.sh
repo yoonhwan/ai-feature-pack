@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: harness/comm/ · 드리프트 확인: harness/comm/check-drift.sh
 # 벽 읽음 기록 — 좌석이 벽 읽고 원칙 1개 인용해야 기록(집행 증거)
 set -euo pipefail
 SEAT="${1:?seat}"; CITED="${2:?cite one wall principle phrase}"

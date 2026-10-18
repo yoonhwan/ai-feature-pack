@@ -6,7 +6,7 @@ export FT_NANO_PREFIX=byz-lecture-nano-
 export FT_NANO_WT_PREFIX=lecture-nano-
 export FT_ACTIVE_TAG=@zc_lecture_active
 export FT_NANO_FEAT=origin/main
-export FT_MBOX_SH="$_LC_ROOT/.fable-team/comm/mbox.sh"   # 추적 사본(scripts/harness-install)에서 spawn 을 돌려도 mbox 를 찾게 한다
+export FT_MBOX_SH="$_LC_ROOT/.fable-team/comm/mbox.sh"   # 추적 사본(harness/kit)에서 spawn 을 돌려도 mbox 를 찾게 한다
 # 좌석 상한(판정 1949 · 팀장 상시 · 세션 팀당 3 · 위성 합 6) — ft-nano-spawn.sh 가 세션 열기 «전» ft_seat_cap.py 로 센다
 export FT_TEAM_SEAT_CAP=3     # byz-lecture-* tmux 세션 수(팀장 포함)
 export FT_GROUP_SEAT_CAP=6    # 명부 _parent 가 같은 위성팀들의 세션 합

@@ -13,6 +13,6 @@ export FT_SEND_FROM='byz-graphics-master-claude#0'   # 그래픽스 팀장 — �
 export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin   # harness-env.sh 와 같은 값
 export FT_NANO_FEAT=origin/main
 export FT_GOAL_LINES_FILE="$_GR_ROOT/.fable-team/bin-graphics/goal-lines-graphics.txt"
-export FT_MBOX_SH="$_GR_ROOT/.fable-team/comm/mbox.sh"   # 추적 사본(scripts/harness-install)에서 spawn 을 돌려도 mbox 를 찾게 한다
+export FT_MBOX_SH="$_GR_ROOT/.fable-team/comm/mbox.sh"   # 추적 사본(harness/kit)에서 spawn 을 돌려도 mbox 를 찾게 한다
 export FT_CARD_REQUIRE_PREVERIFY=1   # R16: 카드에 「사전검증」「조사 근거」 절 없으면 spawn lint REJECT
 unset _GR_ROOT

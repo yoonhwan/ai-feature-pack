@@ -1,6 +1,6 @@
 #!/bin/bash
 # 좌석 busy/IDLE/정지 판정 — 눈대중 금지, 이 스크립트가 정본.
-# 추적 사본: scripts/fable-team-bin/ft-seat-status.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
+# 추적 사본: harness/bin/ft-seat-status.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
 #
 # 2026-09-01 신설 (오빠: "또 안멈춰있게 체크루프 모니터링 확실히")
 # 배경: master 가 pane 캡처에서 'esc to interrupt' 같은 문자열을 잡아

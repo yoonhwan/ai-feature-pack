@@ -1,6 +1,6 @@
 #!/bin/bash
 # ft-tick-line.sh — 오케 좌석 체크 틱 = «밖에서 재고 안에는 한 줄» (PLAN-harness-networking D2 · N1 r-net-tick-line). 읽기만 · 외부 호출 0.
-# 추적 사본: scripts/fable-team-bin/ft-tick-line.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
+# 추적 사본: harness/bin/ft-tick-line.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
 #
 # usage: ft-tick-line.sh <내 좌석> [--team <명부 파일>]
 # 출력 ≤5줄·≤500자. 첫 줄: `TICK <좌석> @<ISO> age=<스냅샷 초>s src=turn-live(<n>)+snapshot@<ISO> …`

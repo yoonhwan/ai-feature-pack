@@ -1,6 +1,6 @@
 #!/bin/bash
 # ft-measure-net.sh — 팀 운영 구조 효과 측정 3지표 (PLAN-harness-networking §9 · 판정 1073·1075 · N1 r-net-tick-line). 읽기만 · 쓰기 0 · 외부 호출 0.
-# 추적 사본: scripts/fable-team-bin/ft-measure-net.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
+# 추적 사본: harness/bin/ft-measure-net.sh · 런타임 자리: <워크트리>/.fable-team/bin/ (gitignore)
 #
 # usage: ft-measure-net.sh succession|interview|planner-mail <from> <to>      (from/to = 로컬 시각 ISO · 양끝 포함 · interview 만 UTC)
 #        ft-measure-net.sh baseline          (PLAN §9 baseline 창 고정 · 라이브 로그 읽기만 · 1줄 JSON {raw,succession,first_boot,interview,window})
