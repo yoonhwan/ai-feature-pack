@@ -94,8 +94,9 @@ xh "$G/wt1" set --verdict 7 --until "$(ISO 60)" --release "swap<8192" --reason "
 gate 12000; has "$(xh "$G/main" status)" "REJECT hold 7" "교차: 루트 사본이 워크트리의 정지를 봄"
 
 # ── spawn 3종 연결: 임시 bin 에 도구와 가짜 문지기(check=REJECT 로 부작용 전 중단)를 두고 부른다 ──
-CB="$T/cb"; mkdir -p "$CB"; cp "$BIN/ft-spawn-hold.sh" "$BIN/ft-nano-spawn.sh" "$BIN/ft-role-spawn.sh" "$BIN/ft-successor-open.sh" "$CB/"
-printf '#!/bin/bash\n[ "$1" = status ] && { cat "%s/gate.status"; exit 0; }\necho "REJECT resource agents=99 limit=65"; exit 3\n' "$T" > "$CB/ft-resource-gate.sh"; chmod +x "$CB/ft-resource-gate.sh"
+# r388: ft_teamset.py 도 같이 — R342 뒤 successor-open 은 문지기 전에 arch-live 를 부른다(없으면 «REJECT arch 판정 실패 rc=2» 로 문지기 전 종료 = 정지 탓으로 오독됐다)
+CB="$T/cb"; mkdir -p "$CB"; cp "$BIN/ft-spawn-hold.sh" "$BIN/ft-nano-spawn.sh" "$BIN/ft-role-spawn.sh" "$BIN/ft-successor-open.sh" "$BIN/ft_teamset.py" "$CB/"
+printf '#!/bin/bash\n[ "$1" = status ] && { cat "%s/gate.status"; exit 0; }\n[ -f "%s/gate.pass" ] && { echo "OK resource"; exit 0; }\necho "REJECT resource agents=99 limit=65"; exit 3\n' "$T" "$T" > "$CB/ft-resource-gate.sh"; chmod +x "$CB/ft-resource-gate.sh"
 cb() { local s="$1"; shift; env FT_RES_ROOT="$R" FT_HOLD_GATE="$CB/ft-resource-gate.sh" FT_MBOX_SH="$T/fake/mbox.sh" FT_HOLD_PLANNER_SEATS="$T/seats-planner.json" FT_RECLAIM=0 bash "$CB/$s" "$@" 2>&1; }
 echo "x" > "$T/card.md"; echo "b" > "$T/body.txt"; rm -f "$HF"; gate 12000
 out="$(cb ft-nano-spawn.sh "$T/card.md" --dry-run)"; rc=$?
@@ -109,6 +110,19 @@ done
 out="$(cb ft-successor-open.sh old-claude#1 "$T" --name old-claude#2 --agent claude --model m --body-file "$T/body.txt")"; rc=$?
 has "$out" "WARN spawn 정지 중이나 승계는 막지 않는다" "ft-successor-open: 정지 중에도 WARN 1줄만"
 case "$out" in *"REJECT hold"*"REJECT resource"*|*"REJECT resource"*) ok "ft-successor-open: 정지에 막히지 않고 문지기 단계까지 진행";; *) bad "ft-successor-open 이 정지에 막힘 rc=$rc $out";; esac
-rm -f "$HF"
+# r388 ⓑ: WARN 1줄 «뒤» REJECT resource · rc = 문지기 rc(3)
+case "$out" in *"WARN spawn 정지 중"*"REJECT resource"*) ok "ft-successor-open: WARN 뒤 REJECT resource 순서";; *) bad "ft-successor-open: WARN→REJECT resource 순서 아님 $out";; esac
+eq "$rc" 3 "ft-successor-open: 정지 + 문지기 REJECT → rc = 문지기 rc 3"
+# r388 ⓒ: 정지 유효 + 문지기 통과 → open 단계까지 진행(가짜 tmuxc 가 실패 = 실 좌석 0)
+printf 'g1\ng2\ng3\n' > "$T/body3.txt"; mkdir -p "$T/fakepath"; printf '#!/bin/bash\nexit 1\n' > "$T/fakepath/tmuxc"; chmod +x "$T/fakepath/tmuxc"
+touch "$CB/ft-send-verified.sh" "$CB/ft-reach-check.sh" "$T/gate.pass"
+out="$(PATH="$T/fakepath:$PATH" cb ft-successor-open.sh old-claude#1 "$G/main" --name old-claude#2 --agent claude --model m --body-file "$T/body3.txt")"; rc=$?
+{ [ "$rc" = 1 ] && has "$out" "WARN spawn 정지 중" "ⓒ 정지 유효 + 문지기 통과 → WARN"; } || bad "ⓒ rc=$rc $out"
+has "$out" "REJECT tmuxc open 실패 (old-claude#2)" "ⓒ 정지 유효 + 문지기 통과 → open 단계 도달"
+rm -f "$T/gate.pass" "$HF"
+# r388 ⓓ: 정지 없음 → WARN 0 · 문지기 REJECT 그대로(rc3)
+out="$(cb ft-successor-open.sh old-claude#1 "$T" --name old-claude#2 --agent claude --model m --body-file "$T/body.txt")"; rc=$?
+case "$out" in *WARN*) bad "ⓓ 정지 없음인데 WARN $out";; *) ok "ⓓ 정지 없음 → WARN 0";; esac
+{ [ "$rc" = 3 ] && has "$out" "REJECT resource" "ⓓ 정지 없음 → 문지기 REJECT rc3 (동작 불변)"; } || bad "ⓓ rc=$rc $out"
 
 echo "---- fail=$fail"; [ "$fail" -eq 0 ]
