@@ -307,6 +307,11 @@ def _guard_record(to, frm, body):
         json.dump(log[-200:], f)
 
 
+def _is_tool_sender(frm):
+    """도구 발신자 = `ft-` 접두 + `#N` 없음(예 `ft-head-lag`) — 팀당 1통 fan-out 이 일이라 FANOUT·RATE 면제(R380). `--dispatch` 면제(doorbell 강제)와 별개."""
+    return frm.startswith("ft-") and "#" not in frm
+
+
 def _guard_verdict(to, frm, body, dispatch=False):
     """통과면 None, 아니면 (reason, hint). 판정만 하고 기록은 _guard_record 가 한다."""
     if not body.strip():
@@ -342,6 +347,7 @@ def _guard_verdict(to, frm, body, dispatch=False):
             "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
             % (dup.get("seq"), RESEND_COOL),
         )
+    tool, skipped = _is_tool_sender(frm), []
     others = sorted(
         {
             r["to"]
@@ -352,6 +358,8 @@ def _guard_verdict(to, frm, body, dispatch=False):
             and now - r.get("t", 0) < FANOUT_WIN
         }
     )
+    if others and tool:
+        others, skipped = [], skipped + ["fanout"]
     if others:
         return (
             "FANOUT from=%s already_sent_to=%s" % (frm, ",".join(others)),
@@ -359,11 +367,15 @@ def _guard_verdict(to, frm, body, dispatch=False):
             "공지가 필요하면 파일에 쓰고 경로만 알린다.",
         )
     recent = sum(1 for r in log if r.get("f") == frm and now - r.get("t", 0) < RATE_WIN)
-    if recent >= RATE_N:
+    if recent >= RATE_N and tool:
+        skipped.append("rate")
+    elif recent >= RATE_N:
         return (
             "RATE_LIMIT from=%s %d sends/%ds" % (frm, recent, RATE_WIN),
             "연속 발신 상한. 받는 쪽이 읽고 답할 시간을 준다.",
         )
+    if skipped:
+        sys.stderr.write("TOOL_SENDER from=%s exempt=%s\n" % (frm, ",".join(skipped)))
     return None
 
 

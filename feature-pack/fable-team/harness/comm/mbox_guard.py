@@ -86,6 +86,12 @@ def _guard_record(to, frm, body, exempt=()):
         json.dump(log, f)
 
 
+def _is_tool_sender(frm):
+    """도구 발신자 = `ft-` 접두 + `#N` 없음(예 `ft-head-lag`). 좌석 이름은 늘 `#N` 을 달므로(`ft-v65-arch-fable#40` 포함) 구분된다.
+    도구는 팀당 1통 fan-out 이 일이라 FANOUT·RATE 면제(R380) — EMPTY_BODY·RESEND_COOLDOWN 은 그대로, 좌석 규율(COMM-GUIDE 4)은 불변."""
+    return frm.startswith("ft-") and "#" not in frm
+
+
 def _guard_verdict(to, frm, body, exempt=()):
     """통과면 None, 아니면 (reason, hint). 판정만 하고 기록은 _guard_record 가 한다."""
     if not body.strip():
@@ -113,18 +119,25 @@ def _guard_verdict(to, frm, body, exempt=()):
                 "pending 동안 재발신 금지. 수신 여부가 궁금하면 pane 캡처로 확인하고, "
                 "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
                 % (dup.get("seq"), RESEND_COOL))
+    tool, skipped = _is_tool_sender(frm), []
     others = sorted({r["to"] for r in log
                      if r.get("f") == frm and r.get("h") == h and r.get("to") != to
                      and now - r.get("t", 0) < FANOUT_WIN})
+    if others and tool:
+        others, skipped = [], skipped + ["fanout"]
     if others:
         return ("FANOUT from=%s already_sent_to=%s" % (frm, ",".join(others)),
                 "같은 본문을 여러 좌석에 뿌리지 않는다 — 필요한 한 좌석만. "
                 "공지가 필요하면 파일에 쓰고 경로만 알린다.")
     # 면제(exempt = 받은 쪽지 `쪽지 #seq` 회신)는 상한을 세지도 걸리지도 않는다 — 다른 가드(fan-out·재발송 쿨다운)는 그대로. 옛 기록 `r: 1`(int)도 «면제였음».
     recent = sum(1 for r in log if r.get("f") == frm and not r.get("r") and now - r.get("t", 0) < RATE_WIN)
-    if recent >= RATE_N and not exempt:
+    if recent >= RATE_N and tool:
+        skipped.append("rate")
+    elif recent >= RATE_N and not exempt:
         return ("RATE_LIMIT from=%s %d sends/%ds" % (frm, recent, RATE_WIN),
                 "연속 발신 상한. 받는 쪽이 읽고 답할 시간을 준다.")
+    if skipped:
+        sys.stderr.write("TOOL_SENDER from=%s exempt=%s\n" % (frm, ",".join(skipped)))
     return None
 
 
