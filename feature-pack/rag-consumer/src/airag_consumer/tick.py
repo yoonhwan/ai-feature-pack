@@ -49,6 +49,10 @@ OP_ATTEMPT_TIMEOUT_S = 10.5
 OP_CALL_DEADLINE_S = 21.0
 # Key-file source: no `op` call, hence no "other apps' data" permission window. A problem with the file is one
 # value-free failure with a fixed kind; there is deliberately no fallback to `op`.
+# `op` opens another app's data (1Password's group container) under its HOME, which makes macOS ask a person. Its
+# child therefore gets this directory as HOME instead (own, mode 0700, not a symlink, under the real HOME); a bad
+# directory is one value-free failure, never a fallback to the real HOME.
+OP_HOME_RELATIVE = Path(".config") / "airag" / "op-home"
 STORE_KEYS_SETTING = "store_keys_file"
 STORE_KEYS_MAX_BYTES = 4096
 STORE_KEYS_HINT = "tick store_keys_invalid: rewrite the store-keys file from a terminal"
@@ -320,6 +324,38 @@ def _read_store_keys(setting: object) -> dict[str, str]:
     return parsed
 
 
+def _prepare_op_home(environment: Mapping[str, str]) -> Path:
+    """The HOME for the `op` child: created (0700) when missing, otherwise only checked. Never changes this process."""
+    def invalid(kind: str) -> TickError:
+        return TickError(EXIT_KEYS, "OP_HOME_INVALID", kind)
+
+    try:
+        base = Path(environment.get("HOME") or Path.home())
+    except RuntimeError:
+        raise invalid("setting") from None
+    if not base.is_absolute():
+        raise invalid("setting") from None
+    target = base / OP_HOME_RELATIVE
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.mkdir(target, 0o700)
+        except FileExistsError:
+            pass
+        info = os.lstat(target)
+    except OSError:
+        raise invalid("unreadable") from None
+    if stat.S_ISLNK(info.st_mode):
+        raise invalid("symlink") from None
+    if not stat.S_ISDIR(info.st_mode):
+        raise invalid("not_dir") from None
+    if info.st_uid != os.getuid():
+        raise invalid("owner") from None
+    if stat.S_IMODE(info.st_mode) != 0o700:
+        raise invalid("mode") from None
+    return target
+
+
 def load_keys(environment: dict[str, str], credentials: Path | None, probe: _ProbeState | None = None) -> None:
     """Put the three store keys into ``environment``; keys already there are kept.
 
@@ -360,6 +396,7 @@ def load_keys(environment: dict[str, str], credentials: Path | None, probe: _Pro
             raise TickError(EXIT_KEYS, "OP_SERVICE_ACCOUNT_TOKEN_EMPTY")
         child = {name: environment[name] for name in OP_ENV_ALLOWLIST if name in environment}
         child["OP_SERVICE_ACCOUNT_TOKEN"] = token
+        child["HOME"] = str(_prepare_op_home(environment))  # the `op` child only; this process keeps its HOME
 
         def read(name: str) -> tuple[str, str]:
             deadline = time.monotonic() + OP_CALL_DEADLINE_S

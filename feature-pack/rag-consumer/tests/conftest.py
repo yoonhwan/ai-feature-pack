@@ -3,6 +3,12 @@ import pytest
 from airag_consumer.events import AccessScope
 
 
+@pytest.fixture(autouse=True)
+def isolated_home(monkeypatch, tmp_path_factory):
+    """The tick prepares ``~/.config/airag/op-home`` for its `op` child; tests must never do that in the real home."""
+    monkeypatch.setenv("HOME", str(tmp_path_factory.mktemp("home")))
+
+
 @pytest.fixture
 def scope():
     return AccessScope("synthetic", "airag-contract", "synthetic-airag-01")
