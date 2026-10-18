@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — 공유 루트 cwd 에서 v65·lecture 카드 spawn 이 «팀 명단 없음» 으로 끊기던 것을 고친다: 명단 = ref · 폴더 = 호출 워크트리 실재 1개 (1.1.9)
+
+카드 r406 · planner 판정 2318 · master 110115 · arch#94 재현(`ERROR v65 은 팀 명단(TEAMS.md)에 없다 / REJECT … 선언된 정본 없음: /GOAL-LEDGER-v65.md`). 팀 폴더 전환은 main 에만 착지했는데 lint·spawn 이 «호출 워크트리의 design/TEAMS.md» 를 읽어, 명단이 옛 것인 공유 루트(feat/v6-realtime-live)에서 spawn 이 3회 REJECT 됐습니다.
+
+- **lib**: `ft_team_file_ref <루트> <팀> <파일> [<ref>]` — `ft_team_cands_ref`(R400 r3) 후보 폴더 중 <파일> 이 «실재하는 정확히 1개» · 명단 못 읽음·후보 0·2+ = stderr ERROR(ref·후보 경로) rc1. `ft_team_has_ref` — `ft_team_has` 를 ref 명단으로(못 읽음 rc2). ref 기본 = `FT_TEAMS_REF` 또는 `origin/main`. `ft_team_in` 의미는 그대로(다른 도구 영향 0).
+- **ft-index-lint.sh**: 기본 골 원장(`default_ledger`) = `ft_team_file_ref <ROOT> v65 GOAL-LEDGER-v65.md` (`FT_GOAL_LEDGER` 명시가 먼저) · 판정 원장 pathspec = ref 명단의 planner 꼴 + 쌍둥이(루트 상대).
+- **ft-nano-spawn.sh**: 발주 본문 SEATBELT-README = `ft_team_file_ref <WT> v65 SEATBELT-README.md` (`FT_SEATBELT_README` 명시가 먼저 · 실재 0·2+ = REJECT) · planner 빈 카드 판정 = `ft_team_has_ref`.
+- **시험**: 새 `test_team_roster_ref.sh`(ⓐ공유 루트 꼴 dry-run PLAN·lint OK ledger=꼴1 ⓑref 못 읽음 ⓒ후보 0 ⓓ후보 2 → REJECT ⓔ보통 워크트리 불변·명시 env 우선 · 옛 코드에서 13 FAIL). 픽스처 갱신: origin/main ref 없는 임시 리포는 `FT_TEAMS_REF=HEAD`, 발주 README 실재(dead_seat_resume·raised_seat·planner_nano_path·team_literal_paths2·nano_spawn_base_sha·branch_collision·rollback) · `test_nano_spawn_teamset_cap.sh` 픽스처에 `FT_ROOT`·comm 폴더(main 에서도 9 FAIL 이던 기준선).
+
 ## 2026-10-19 — 라이브 bin 의 ft-mbox 가 우편함을 못 찾던 것을 고친다: cwd 리포 루트 comm · doorbell 이 우편함을 명시 (1.1.8)
 
 카드 r403 · master 109989(급) · planner 109978 · desk 109974. r385 라이브 bin 전환 뒤 `~/.claude/fable-team/live/<v>/bin/ft-mbox.sh` 는 스크립트 조상에 `.fable-team` 이 없어 어느 cwd 에서 불러도 `NO_MAILBOX_ROOT` rc2 였고, doorbell 이 그 경로로 `recv` 줄을 주입해 받는 좌석도 같은 실패가 났습니다.
