@@ -25,7 +25,7 @@ X
 printf '#!/bin/sh\necho "System-wide memory free percentage: ${FAKE_MEMFREE}%%"\nexit "${FAKE_RC_MEM:-0}"\n' > "$S/memory_pressure"
 printf '#!/bin/sh\necho "Mach Virtual Memory Statistics: (page size of 16384 bytes)"\necho "Swapouts:                          2303978."\nexit "${FAKE_RC_VM:-0}"\n' > "$S/vm_stat"
 printf '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\necho "/dev/x 999999999 1 104857600 1%% /System/Volumes/Data"\nexit "${FAKE_RC_DF:-0}"\n' > "$S/df"
-printf '#!/bin/sh\n[ "$1" = has-session ] && exit "${FAKE_HAS:-1}"\nexit 1\n' > "$S/tmux"
+printf '#!/bin/sh\n[ "$1" = has-session ] && exit "${FAKE_HAS:-1}"\n[ "$1" = list-sessions ] && exit 0\nexit 1\n' > "$S/tmux"   # R358: list-sessions = ft_teamset.py arch-live(R342)의 라이브 목록 — 빈 목록(rc0)
 cat > "$S/pgrep" <<'X'
 #!/bin/sh
 [ "$1" = "-a" ] && shift
@@ -150,6 +150,8 @@ mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "probe 일반 agents99 gate rc3" 3
 # H3(r2) — 승계 면제 = NAME==OLD 계보 베이스#(N+1) ∧ OLD 가 명부 역할 키(_master 등) 값 ∧ OLD tmux 생존 (agents 99 로 일반 REJECT 되는 상황)
 mk_tsv 6133 0
 SUC="$REPO/scripts/fable-team-bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
+# R358: ft-successor-open.sh :39 의 arch-live 판정(R342)이 $FT_RES_ROOT/design/TEAMSET.md 를 읽는다 — 리포 정본을 복사해 심는다(가짜 표 손글씨 0).
+mkdir -p "$R/design" && cp "$REPO/design/TEAMSET.md" "$R/design/TEAMSET.md"
 so() { OUT="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HOME="$T/home" FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=99 FT_RECLAIM=0 "$@" bash "${SUCX:-$SUC}" "$OLDN" "$T/cwd" --name "$NEWN" --agent claude --model m --body-file "$T/body.txt" 2>&1)"; RC=$?; }
 agents_rej() { { [ "$RC" -eq 3 ] && echo "$OUT" | grep -q 'REJECT resource agents=99 limit=65'; }; }
 printf '{"_master":"alive-old#1","other#2":{"role":"nano"}}\n' > "$R/.fable-team/seats-t.json"
@@ -168,6 +170,11 @@ agents_rej && ok "H3 명부에 없는 OLD → 일반 기준" || bad "H3 명부 �
 printf '{"_master":"missing-old#1"}\n' > "$R/.fable-team/seats-other.json"
 OLDN='missing-old#1'; NEWN='unrelated-new#9'; so FAKE_HAS=0
 agents_rej && ok "H3 다른 팀 명부의 OLD + 무관한 새 이름 → 일반 기준(DA 반례)" || bad "H3 다른 팀 rc=$RC $OUT"
+# 변이(R358) — 심은 TEAMSET 을 치우면 H3 가 «ERROR TEAMSET 읽기 실패» 로 깨진다(픽스처 전제가 빠지면 보이게)
+mv "$R/design/TEAMSET.md" "$R/design/TEAMSET.md.off"
+OLDN='alive-old#1'; NEWN='unrelated-new#9'; so FAKE_HAS=0
+mv "$R/design/TEAMSET.md.off" "$R/design/TEAMSET.md"
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'ERROR TEAMSET 읽기 실패'; } && ok "H3 변이(TEAMSET 없음) → ERROR TEAMSET 읽기 실패 rc1" || bad "H3 변이 TEAMSET 없음 rc=$RC $OUT"
 # 변이 — 계보 검사를 지운 successor-open 은 위 불일치 단언에서 «걸려야» 한다
 MUT="$T/mut"; mkdir -p "$MUT"; cp "$REPO"/scripts/fable-team-bin/ft-*.sh "$MUT"/
 sed 's/\[ "\$NAME" = "\${BASH_REMATCH\[1\]}#\$((BASH_REMATCH\[2\]+1))" \]/true/' "$SUC" > "$MUT/ft-successor-open.sh"
