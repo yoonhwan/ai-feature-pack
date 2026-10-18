@@ -1,7 +1,7 @@
 """ft-board 입력 수집의 바깥 호출 모음 — gh·tmux·판정 원장·인박스·좌석 상태. 전부 env 로 스텁할 수 있다(시험은 실제 호출 0).
 
 실패는 전부 raise(#0 RULE) — 호출이 깨졌는데 빈 값으로 보드를 그리지 않는다.
-  FT_ROOT            루트(없으면 이 스크립트가 든 리포의 git common dir 부모)
+  FT_ROOT            루트(없으면 cwd git 공용 루트(.fable-team/LIVE_BIN 실재) → 옛 설치 꼴 리포 → raise · ft_root())
   FT_BOARD_NOW       시각 주입(ISO) — 날짜 경계·최근 시험용
   FT_BOARD_TMUX      살아 있는 세션 목록 명령(기본 `tmux ls -F #{session_name}`)
   FT_BOARD_GH        gh issue list JSON 명령 · FT_BOARD_GH_TTL 캐시 초(기본 600)
@@ -22,12 +22,27 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 
+def _git_common_parent(cwd: Path | None) -> Path | None:
+    try:
+        r = subprocess.run(["git", *(["-C", str(cwd)] if cwd else []), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                           capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return Path(r.stdout.strip()).parent if r.returncode == 0 and r.stdout.strip() else None
+
+
 def ft_root() -> Path:
+    """루트 = ①FT_ROOT(그 값 그대로) ②cwd 의 git 공용 루트에 `.fable-team/LIVE_BIN` 실재 ③옛 설치 꼴(HERE = `*/.fable-team/bin`)일 때만
+    `git -C HERE` 공용 루트 ④RuntimeError — r385 r4: 설치본(`~/.claude/fable-team/live/<버전>/bin`)은 git 밖이라 `git -C HERE` 가 깨진다."""
     if os.environ.get("FT_ROOT"):
         return Path(os.environ["FT_ROOT"])
-    out = subprocess.run(["git", "-C", str(HERE), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                         capture_output=True, text=True, check=True).stdout.strip()
-    return Path(out).parent
+    cwd_root = _git_common_parent(None)
+    if cwd_root and (cwd_root / ".fable-team" / "LIVE_BIN").is_file():
+        return cwd_root
+    if HERE.name == "bin" and HERE.parent.name == ".fable-team" and (old := _git_common_parent(HERE)):
+        return old
+    raise RuntimeError(f"루트를 못 풂 — FT_ROOT 없음 · cwd({Path.cwd()}) git 공용 루트에 .fable-team/LIVE_BIN 없음 · "
+                       f"이 파일({HERE})은 옛 설치 꼴(<리포>/.fable-team/bin) 아님")
 
 
 def now() -> dt.datetime:

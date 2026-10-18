@@ -4,6 +4,7 @@
 #   ⓑ ft_comm_dir(= ft_data_root/.fable-team/comm) — ft-tick.sh·ft-hil-ask.sh 가 그 mbox.sh 로 푼다(인자 검사 전 대입만 · bash -x 추적 · 부작용 0)
 #   ⓒ cwd=git 밖 → ERROR rc≠0 + 임시 HOME 쓰기 0 · FT_ROOT 명시 → 그 값 · 옛 설치 꼴(<리포>/.fable-team/bin) → 옛 «$HERE/../comm» 과 같은 곳
 #   ⓓ 실제 BYZ(읽기만 · FT_TEST_BYZ_ROOT · 없으면 SKIP 표기) cwd 에서 설치본 ft-goal-table.sh rc0 + 골 표
+#   ⓔ r385 r4: ft_board_env.ft_root 같은 순서(①FT_ROOT 그 값 그대로) · 설치본 ft-sheet-events.sh(spawn·nano-close 의 prepare 경로) 루트 풀이
 # mktemp 만 쓴다 — 실 HOME·실 리포 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -67,6 +68,27 @@ if [ -f "$BYZ/.fable-team/LIVE_BIN" ] && [ -f "$BYZ/.fable-team/LIVE_ROOT" ]; th
 else
   echo "SKIP ⓓ BYZ 루트 없음: $BYZ (FT_TEST_BYZ_ROOT)"; skip=$((skip+1))
 fi
+
+# ── ⓔ ft_board_env.ft_root (r385 r4 · 사건 #109675 A: nano-close·nano-spawn «사건 원장 prepared 실패») ──
+board_of() {  # <cwd> <bin> [env…] → ft_root() 결과 또는 ERROR 줄
+  local cwd="$1" bin="$2"; shift 2
+  (cd "$cwd" && env HOME="$H" "$@" python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import ft_board_env as e
+try: print(e.ft_root())
+except RuntimeError as x: print("ERROR", x)' "$bin" 2>&1)
+}
+BEFORE_E="$(snap)"
+eq "$(board_of "$FX" "$LB")" "$FX" "ⓔ ft_root 설치본 · cwd=리포 → git 공용 루트(.fable-team/LIVE_BIN)"
+eq "$(board_of "$FX/sub/dir" "$LB")" "$FX" "ⓔ ft_root 설치본 · cwd=리포 하위 폴더 → 공용 루트"
+r="$(board_of "$NOGIT" "$LB")"; case "$r" in ERROR*) ok "ⓔ ft_root 설치본 · cwd=git 밖 → raise";; *) bad "ⓔ ft_root git 밖 raise 아님 «${r}»";; esac
+eq "$(board_of "$NOGIT" "$LB" FT_ROOT=/x/root)" "/x/root" "ⓔ ft_root FT_ROOT 명시 → 그 값 그대로(LIVE_BIN 검사 0)"
+eq "$(board_of "$NOGIT" "$FX/.fable-team/bin")" "$FX" "ⓔ ft_root 옛 설치 꼴 · cwd=git 밖 → git -C HERE 공용 루트(회귀 0)"
+(cd "$NOGIT" && HOME="$H" bash "$LB/ft-sheet-events.sh" pending >/dev/null 2>"$T/e4"); rc=$?
+[ "$rc" != 0 ] && grep -q '루트를 못 풂' "$T/e4" && ok "ⓔ ft-sheet-events.sh 설치본 · cwd=git 밖 → rc=$rc + 사유" || bad "ⓔ sheet-events git 밖 rc=$rc «$(head -c 200 "$T/e4")»"
+SK="$(cd "$FX" && HOME="$H" bash "$LB/ft-sheet-events.sh" key spawn r4-fx 'byz-x-nano-r4-fx#0' 2>"$T/e5")"
+(cd "$FX" && HOME="$H" bash "$LB/ft-sheet-events.sh" prepare "$SK" '{"ev":"spawn","team":"harness","id":"r4-fx","seat":"byz-x-nano-r4-fx#0","ref":"x.md","by":"t"}' >/dev/null 2>>"$T/e5"); rc=$?
+[ -n "$SK" ] && [ "$rc" = 0 ] && ok "ⓔ spawn 경로(ft-nano-spawn.sh:251 꼴) 설치본 · cwd=리포 → key+prepare rc0" || bad "ⓔ spawn 경로 key=«${SK}» prepare rc=$rc «$(head -c 200 "$T/e5")»"
+(cd "$FX" && HOME="$H" bash "$LB/ft-sheet-events.sh" abort "$SK" >/dev/null 2>&1)
+[ "$(snap)" = "$BEFORE_E" ] && ok "ⓔ 임시 HOME 밑 새 파일 0" || bad "ⓔ 임시 HOME 에 새 파일: $(comm -13 <(printf '%s\n' "$BEFORE_E") <(snap) | head -3 | tr '\n' ' ')"
 
 echo "== $( [ $fail = 0 ] && echo ALL PASS || echo "FAIL $fail" ) · skip=$skip =="
 [ $fail = 0 ]
