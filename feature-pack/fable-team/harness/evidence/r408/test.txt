@@ -1,0 +1,20 @@
+test_inbox_watch.sh run1 rc=0 46 PASS 0 FAIL
+test_inbox_watch.sh run2 rc=0 46 PASS 0 FAIL
+test_inbox_watch.sh run3 rc=0 46 PASS 0 FAIL
+test_mbox_root_resolve.sh rc=0 PASS=7 FAIL=0
+test_ft_mbox_inbox_ingest.sh rc=0 ALL PASS
+test_mbox_inbox_notify_reply_rate.sh rc=0 ALL PASS
+test_mbox_guard_live_bin.sh rc=0 PASS=8 FAIL=0
+test_mbox_reply_exempt_cap.sh rc=0 ALL PASS
+test_arch_required_gate.sh rc=0 ALL PASS
+test_teamset_check.sh rc=5 FAILED 5
+test_teamset_gitref.sh rc=3 FAILED 3
+test_mbox_guard.sh rc=1 FAILED 24
+test_mbox_lineage.sh rc=1 FAILED 9
+test_mbox_v2_guard.sh rc=1 FAILED
+기준선(origin/main 81afaacf) 비교 test_teamset_check.sh base_FAIL=6 r408_FAIL=6 — 같은 항목(경로 글자만 다름 · 팩 트리 환경: design/TEAMSET.md·LIVE_ROOT·mbox-v2.sh 경로 없음)
+기준선(origin/main 81afaacf) 비교 test_teamset_gitref.sh base_FAIL=4 r408_FAIL=4 — 같은 항목(경로 글자만 다름 · 팩 트리 환경: design/TEAMSET.md·LIVE_ROOT·mbox-v2.sh 경로 없음)
+기준선(origin/main 81afaacf) 비교 test_mbox_guard.sh base_FAIL=25 r408_FAIL=25 — 같은 항목(경로 글자만 다름 · 팩 트리 환경: design/TEAMSET.md·LIVE_ROOT·mbox-v2.sh 경로 없음)
+기준선(origin/main 81afaacf) 비교 test_mbox_lineage.sh base_FAIL=10 r408_FAIL=10 — 같은 항목(경로 글자만 다름 · 팩 트리 환경: design/TEAMSET.md·LIVE_ROOT·mbox-v2.sh 경로 없음)
+기준선(origin/main 81afaacf) 비교 test_mbox_v2_guard.sh base_FAIL=12 r408_FAIL=12 — 같은 항목(경로 글자만 다름 · 팩 트리 환경: design/TEAMSET.md·LIVE_ROOT·mbox-v2.sh 경로 없음)
+옛 코드(origin/main 81afaacf)에서 새 test_inbox_watch.sh rc=1 27 PASS 20 FAIL (변이 확인)

@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — planner 앞 쪽지가 «조용히 아무도 안 받는» 상태를 소리 나게 한다: quiet 는 세션 안 감시와 한 쌍 (1.1.21)
+
+카드 r408 · desk 110229 실측 · planner 110234 · master 110237 · arch#94. 판정 876 으로 planner `_master` 는 doorbell 을 받지 않고 세션 안 감시(`ft-inbox-watch.sh` + Monitor)로 받는데, 승계(#71→#72) 뒤 감시가 안 걸려도 send 는 `doorbell=quiet` 만 찍어 큐가 3~5분씩 쌓였습니다(수동 깨움 5회).
+
+- **판정기 하나 `ft-mbox.sh watch-alive <좌석>`**(rc0 `OK watch` / rc3 `NO watch`): 감시 실체 = `ft-inbox-watch.sh` 가 exec 한 `python3 -u - <bin> <좌석>`(셸 이름은 프로세스에 안 남는다) · 끝 인자 정확 일치 ∧ `<bin>/ft-inbox-watch.sh` 실재 · 목록 `FT_PGREP`(시험) 또는 `pgrep -lf`.
+- **send/relay**(키트 `ft-mbox.sh` · 좌석들이 쓰는 `comm/mbox.sh`): user_facing 좌석에 감시가 없으면 `doorbell=quiet(WATCH 없음)` + 하네스 master(`seats-harness.json` `_master`) 앞 `[긴급 · planner watch 없음] <좌석> · 감지 HH:MM · 계기 쪽지 #N · 시작: Monitor → bash <루트>/.fable-team/bin/ft-inbox-watch.sh <좌석>` 1통 · 같은 좌석 10분 1회(표식 `state/planner-watch-missing.<좌석>`) · 판정 불가 `quiet(WATCH 판정 불가)` · 오빠 pane 주입 0(876 불변) · 명시 `ring` 불변.
+- **ft-teamset-check**: planner 팀 `_master` 감시 없음 → `ERR planner watch 없음(ft-inbox-watch.sh <좌석>)` rc1(`FT_TEAMSET_WATCH` 시험 대체).
+- **시험**: `test_inbox_watch.sh` r408 절(ⓐ~ⓔ · comm·키트 두 경로 · 미끼 3 = 접두 좌석·시작 명령 실은 send·다른 bin) · 옛 코드에서 20 FAIL. 픽스처 2: `test_ft_mbox_inbox_ingest.sh` 변이 줄 글자 · `test_arch_required_gate.sh` 감시 판정 가짜.
+
 ## 2026-10-19 — design/ 아래 증거 로그(.log·.out·.nohup·guard/poller 로그)는 커밋도 착지도 안 된다 · 이미 들어간 614개는 index 에서만 뺀다 (1.1.20)
 
 카드 r449 · master 111666 · 오빠 «아니 이 무의미한 파일을 왜 커밋하는데? 관리도 안되고 무식하게 아래로만 커지는 로그성파일인데». `.gitignore` 의 `*.log` 를 `git add -f` 가 뚫어 BYZ origin/main `design/` 아래에 로그성 파일이 쌓였습니다(실측 643bf03512: 판정식 614개 303.2 MB). add 단계는 `-f` 로 무력이라 index 단계·착지 단계 두 곳에 섭니다.
