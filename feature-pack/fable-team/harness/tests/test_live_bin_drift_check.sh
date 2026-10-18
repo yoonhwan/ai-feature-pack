@@ -20,16 +20,17 @@ for f in ft-live-bin-drift-check.sh ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh
 done
 
 # ── 키트 꼴 원격: 가짜 2파일(a.sh 755 · b.sh 644) + 실제 검사·spawn·close·tick 4파일 ──
-KP="scripts/harness-install/fable-team/bin"
+KP="harness/kit/fable-team/bin"   # r385: 키트 = 하네스 코드 루트(harness/)의 kit — 기본 리포·경로는 FT_HARNESS_ROOT 에서 푼다
 ORIGIN="$T/origin.git"; SEED="$T/seed"; CLONE="$T/clone"
 git init -q --bare -b main "$ORIGIN"
 git init -q -b main "$SEED"; mkdir -p "$SEED/$KP"
 printf '#!/bin/sh\necho a\n' > "$SEED/$KP/a.sh"; chmod 755 "$SEED/$KP/a.sh"
 printf 'data b\n' > "$SEED/$KP/b.sh"; chmod 644 "$SEED/$KP/b.sh"
-for f in ft-live-bin-drift-check.sh ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py; do cp -p "$SRC/$f" "$SEED/$KP/$f"; done
+for f in ft-live-bin-drift-check.sh ft-harness-root.sh ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py; do cp -p "$SRC/$f" "$SEED/$KP/$f"; done
 git -C "$SEED" add -A && git -C "$SEED" -c user.email=t@t -c user.name=t commit -q -m kit
 git -C "$SEED" remote add origin "$ORIGIN" && git -C "$SEED" push -q origin main
 git clone -q "$ORIGIN" "$CLONE" 2>/dev/null
+export FT_HARNESS_ROOT="$CLONE/harness"
 LIVE="$T/.fable-team/bin"
 fresh_live() { rm -rf "$LIVE"; mkdir -p "$LIVE"; for f in "$CLONE/$KP"/*; do cp -p "$f" "$LIVE/"; done; }
 CHK() { bash "$LIVE/ft-live-bin-drift-check.sh" "$@"; }
@@ -63,7 +64,8 @@ out="$(CHK --bin "$LIVE" --repo "$CLONE")"; rc=$?; rc_is "$rc" 0 ".bak*·폴더 
 out="$(CHK --bin "$LIVE" --repo "$CLONE" --ref nope/main)"; rc=$?; rc_is "$rc" 3 "풀 수 없는 ref → ERROR"; has "$out" "ERROR" "ERROR 줄(조용한 통과 아님)"
 out="$(CHK --repo "$CLONE" 2>&1)"; rc=$?; rc_is "$rc" 2 "--bin 없음 → usage"
 out="$(CHK --bin "$T/없는폴더" --repo "$CLONE")"; rc=$?; rc_is "$rc" 3 "bin 폴더 없음 → ERROR"
-out="$(CHK --bin "$LIVE")"; rc=$?; rc_is "$rc" 3 "git 밖 bin + --repo 없음 → ERROR(추측 0)"
+out="$(FT_HARNESS_ROOT= CHK --bin "$LIVE")"; rc=$?; rc_is "$rc" 3 "하네스 루트 못 풂 + --repo 없음 → ERROR(추측 0)"
+out="$(CHK --bin "$LIVE")"; rc=$?; rc_is "$rc" 0 "r385: --repo 없음 → FT_HARNESS_ROOT 의 리포·kit 경로로 OK"
 
 # ── spawn 입구 ──
 fresh_live; echo "# a" >> "$LIVE/a.sh"

@@ -9,7 +9,8 @@ set -uo pipefail
 SEAT="${1:-}"
 [ -n "$SEAT" ] || { echo "usage: ft-resume-cmd.sh <seat>" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
+ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR (새 설치본 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 3
 NONE='없음(좌석 종료 · 확인된 세션 매핑 없음 — 카드 정본으로 새로 연다)'
 
 if tmux has-session -t "=$SEAT" 2>/dev/null; then

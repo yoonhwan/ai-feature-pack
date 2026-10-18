@@ -9,7 +9,8 @@
 #   exit 0 = 성공 · 1 = REJECT(사유 stdout) · 2 = usage
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-DIR="${FT_PERMIT_DIR:-$HERE/../../.fable-team/state/permits}"
+DIR="${FT_PERMIT_DIR:-}"   # r385: <라이브 루트>/.fable-team/state/permits — ft_data_root · 못 풀면 REJECT rc1
+[ -n "$DIR" ] || { . "$HERE/ft-harness-root.sh" && DIR="$(ft_data_root "$HERE")/.fable-team/state/permits"; } || exit 1
 MAX="${FT_PERMIT_MAX_MEMBERS:-1}"
 usage() { echo "usage: $0 set-acquire <세트> <owner> | set-release <세트> | join <세트> <멤버> | leave <세트> <멤버> | device-acquire <멤버> | device-release <멤버> | status" >&2; exit 2; }
 reject() { echo "REJECT $*"; exit 1; }

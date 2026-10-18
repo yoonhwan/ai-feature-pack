@@ -10,7 +10,8 @@
 #       FT_SEAT_RESUME_DIR(재개 기록, 기본 ~/.claude/state/seat-resume) · FT_RESOURCE_GATE(자원 문지기, 기본 같은 폴더 ft-resource-gate.sh) · FT_DEPLOY_BRANCHES(공백·쉼표 구분, glob 허용 · 없으면 <상태>/deploy-branches.txt 한 줄 한 패턴) · FT_PUSH_REMOTE(기본 origin)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
+ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR rc3(=모드 못 읽음 → 인터뷰로)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 3
 STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
 # R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
 if [ -n "${FT_PLANNER_DIR:-}" ]; then PLANNER="$FT_PLANNER_DIR"

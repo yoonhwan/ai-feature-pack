@@ -12,8 +12,8 @@
 #   env(시험): FT_RES_ROOT FT_HOLD_GATE FT_HOLD_NOW FT_HOLD_PLANNER_SEATS FT_MBOX_SH
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_RES_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"
-[ -n "$ROOT" ] || ROOT="$(cd -- "$HERE/../.." && pwd)"
+ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 FILE="$ROOT/.fable-team/state/SPAWN_HOLD"
 GATE="${FT_HOLD_GATE:-$HERE/ft-resource-gate.sh}"
 MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"

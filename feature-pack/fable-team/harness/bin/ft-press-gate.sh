@@ -50,7 +50,8 @@ _role_gate(){
   esac
 }
 # ⑧ 직전 회차 BTS 표(R15 카드 H · PLAN-r15 ③) — 이 좌석의 직전 허가가 가리키는 증거 폴더의 BTS.md 4자 표가 채워져 있어야 다음 회차를 쏜다.
-PERMIT_DIR="${FT_PRESS_PERMIT_DIR:-$HERE/../../.fable-team/state/press-permits}"
+PERMIT_DIR="${FT_PRESS_PERMIT_DIR:-}"   # r385: <라이브 루트>/.fable-team/state/press-permits — ft_data_root · 못 풀면 막는다(rc3)
+[ -n "$PERMIT_DIR" ] || { . "$HERE/ft-harness-root.sh" && PERMIT_DIR="$(ft_data_root "$HERE")/.fable-team/state/press-permits"; } || exit 3
 _bts_missing(){ # BTS.md → 모자란 칸 이름(" / " 구분 · 빈 출력 = 통과)
   awk -F'|' '
     function t(s){ gsub(/^[ \t]+|[ \t]+$/, "", s); return s }

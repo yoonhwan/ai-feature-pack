@@ -15,6 +15,7 @@
     <key>Minute</key><integer>7</integer>
   </dict>
   <key>RunAtLoad</key><false/>
+  <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>

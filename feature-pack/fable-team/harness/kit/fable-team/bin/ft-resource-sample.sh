@@ -9,8 +9,8 @@
 #   env(시험용): FT_RES_ROOT
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-RES_ROOT="${FT_RES_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"
-[ -n "$RES_ROOT" ] || RES_ROOT="$(cd -- "$HERE/../.." && pwd)"
+RES_ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
+[ -n "$RES_ROOT" ] || { . "$HERE/ft-harness-root.sh" && RES_ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 TSV="$RES_ROOT/.fable-team/state/pressure.tsv"; LOCK="$RES_ROOT/.fable-team/state/pressure.lock.d"
 is_int() { case "$1" in ''|*[!0-9]*) return 1;; *) return 0;; esac; }
 fail() { echo "ERROR resource sample $1" >&2; exit 4; }

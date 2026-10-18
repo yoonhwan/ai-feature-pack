@@ -14,7 +14,8 @@
 #   allow.log 는 원장 폴더 안에 둔다(autonomy.log 에 줄을 덧붙이면 ft-autonomy.sh mode 의 «마지막 줄» 위변조 검사가 걸린다 · 좌석 쓰기 deny 는 폴더 단위로 같이 덮임).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
+ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR (새 설치본 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 3
 python3 -I - "$ROOT" "$@" <<'PY'
 import json, os, re, subprocess, sys, time, collections
 root, args = sys.argv[1], sys.argv[2:]
