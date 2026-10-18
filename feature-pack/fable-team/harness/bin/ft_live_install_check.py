@@ -80,11 +80,30 @@ def resolve_kit(o):
     else:
         rel = os.path.relpath(os.path.join(hr, "kit"), os.path.realpath(repo))
         if rel.startswith(".."):
-            die("하네스 루트(%s)가 --repo(%s) 밖 — --kit 를 준다" % (hr, repo))
+            outside_repo(o, hr, repo)
         kd = rel
     KD = kd.rstrip("/") + "/"
     MAPPATH, KBIN = KD + "LIVE-MAP.tsv", KD + "fable-team/bin/"
     return repo
+
+
+OLD_HARNESS = ("scripts/fable-team-bin/", "scripts/harness-install/", "tools/comm-canonical/", "tests/harness/", "kit/",
+               ":(glob)**/harness/kit/**")  # 마지막 = --repo 가 팩 리포의 다른 체크아웃일 때 팩 키트 변경(조용한 통과 0)
+
+
+def outside_repo(o, hr, repo):
+    """하네스 루트가 --repo 밖 (r385 r4): --range 면 범위가 건드린 옛 하네스 경로 파일이 0 일 때만 OK n=0 · 있거나 --all 이면 ERROR (fail-closed)."""
+    msg = "하네스 루트(%s)가 --repo(%s) 밖 — --kit 를 준다" % (hr, repo)
+    a, _, b = (o["range"] or "").partition("..")
+    if not a or not b:
+        die(msg)
+    for x in (a, b):
+        git(repo, "rev-parse", "--verify", "-q", x + "^{commit}")
+    hit = [f for f in git(repo, "diff", "--name-only", "--diff-filter=ACMR", a, b, "--", *OLD_HARNESS).split("\n") if f]
+    if hit:
+        die(msg + " · 범위에 하네스 파일 %d: %s" % (len(hit), " ".join(sorted(hit))))
+    print("OK n=0 skip=0 (하네스 루트가 --repo 밖 · 범위에 하네스 파일 0)")
+    sys.exit(0)
 
 
 def load_map(text):
