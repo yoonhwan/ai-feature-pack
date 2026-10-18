@@ -11,6 +11,8 @@ import time
 
 KD = "scripts/harness-install/"
 MAPPATH = KD + "LIVE-MAP.tsv"
+KBIN = KD + "fable-team/bin/"
+SHIMMARK = "# ft-root-bin-shim:"  # ft-root-bin-shim.sh 가 연결 파일 2행에 쓰는 표식
 
 
 def die(msg):
@@ -83,6 +85,30 @@ def plist_items(repo, path, blob):
     return ["RESTART " + label] if started < max((os.path.getmtime(s) for s in scripts), default=0) else []
 
 
+def shim_items(repo, tree):
+    """라이브 bin 에 실재하는 키트 도구마다 루트 .fable-team/bin/<이름> 연결 파일(앞 3줄에 SHIMMARK)이 있는지 (R374). LIVE_BIN 파일 없음 = 검사 대상 아님."""
+    gc = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    root = gc[: -len("/.git")] if gc.endswith("/.git") else os.path.dirname(gc)
+    lf = os.path.join(root, ".fable-team", "LIVE_BIN")
+    if not os.path.isfile(lf):
+        return [], ""
+    with open(lf, encoding="utf-8") as fh:
+        live = fh.readline().strip()
+    if not os.path.isabs(live) or not os.path.isdir(live):
+        die("LIVE_BIN 이 절대경로 폴더가 아님: %r (%s)" % (live, lf))
+    rbin = os.path.join(root, ".fable-team", "bin")
+    names = sorted({os.path.basename(p) for p in tree if p.startswith(KBIN) and p.endswith((".sh", ".py")) and os.path.isfile(os.path.join(live, os.path.basename(p)))})
+    miss = [n for n in names if not is_shim(os.path.join(rbin, n))]
+    return miss, "bash %s/ft-root-bin-shim.sh --root %s --live %s" % (live, root, live)
+
+
+def is_shim(path):
+    if os.path.islink(path) or not os.path.isfile(path):
+        return False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return any(SHIMMARK in fh.readline() for _ in range(3))
+
+
 def main():
     o = parse_args(sys.argv[1:])
     repo = o["repo"] or git(".", "rev-parse", "--show-toplevel").strip()
@@ -111,6 +137,9 @@ def main():
     except OSError as e:
         die("지도를 못 읽음: %s" % e)
     bad, hints, skip, checked, pairs = [], {}, 0, 0, []
+    miss, shint = shim_items(repo, tree)
+    bad += ["PENDING shim " + n for n in miss]
+    hints.update({"shim": shint} if miss else {})
     for f in files:
         rel = f[len(KD):]
         row = next((r for r in rows if fnmatch.fnmatch(rel, r[0])), None)
