@@ -46,6 +46,73 @@ def test_a_unmet_prerequisite_or_lint_fail_does_not_count(w: World) -> None:
     assert counts(w.scan().stdout)["a"] == "0"
 
 
+def _doing(w: World, label: str, names: list[str]) -> None:
+    d = w.root / f".worktrees/wt-{label}/design/{label}/indices/진행"
+    d.mkdir(parents=True, exist_ok=True)
+    for n in names:
+        _ = (d / f"{n}.md").write_text(f"# {n}\n")
+
+
+def _alert(w: World) -> str:
+    s = sends(w, "t1-master#1")
+    assert len(s) == 1, w.mbox_log()
+    return s[0]
+
+
+def test_a_r409_bare_name_prereq_open_card_excluded_exact_stem(w: World) -> None:  # ⓐ
+    w.cards("t1", ["A"])
+    w.cards("t1", ["B"], "- 선행: C 착지\n")
+    w.cards("t1", ["X"], "- 선행: C-extra 착지\n")  # 부분 일치(C) 로 남의 카드에 걸리지 않는다 → 미판정
+    w.cards("t1", ["Y"], "- 선행: c 착지\n")  # 대소문자 그대로 — c ≠ C → 미판정
+    _doing(w, "t1", ["C"])
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert counts(r.stdout)["a"] == "1", r.stdout
+    assert "[stall a] 대기 카드 1장(A) · 선행 미판정 2장 제외 · master IDLE 5분" in _alert(w)
+
+
+def test_a_r409_pr_condition_is_unknown_and_excluded(w: World) -> None:  # ⓑ
+    w.cards("t1", ["D"], "- 선행: PR #1932 승인\n")
+    w.state("t1-master#1", "IDLE", 5)
+    assert counts(w.scan("--dry-run").stdout)["a"] == "0"  # 미판정만 있으면 울리지 않는다
+    w.cards("t1", ["A"])
+    _ = w.scan()
+    assert "대기 카드 1장(A) · 선행 미판정 1장 제외" in _alert(w)
+
+
+def test_a_r409_none_prereq_counts_and_names_capped_at_five(w: World) -> None:  # ⓒ
+    w.cards("t1", [f"n{i}" for i in range(1, 8)])
+    w.cards("t1", ["plain"], "본문만 · 선행 줄 없음\n")
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert counts(r.stdout)["a"] == "1"
+    a = _alert(w)
+    assert "대기 카드 8장(n1, n2, n3, n4, n5 +3) · 선행 미판정 0장 제외" in a and len(a) < 700
+
+
+def test_a_r409_path_form_prereq_still_excluded(w: World) -> None:  # ⓓ
+    w.cards("t1", ["A"])
+    w.cards("t1", ["E"], "- 선행: indices/진행/F.md 랜딩\n")
+    w.cards("t1", ["G"], "- 선행: indices/완성/H.md\n")  # 끝난 카드 경로만 = 충족
+    _doing(w, "t1", ["F"])
+    w.state("t1-master#1", "IDLE", 5)
+    _ = w.scan()
+    assert "대기 카드 2장(A, G) · 선행 미판정 0장 제외" in _alert(w)
+
+
+def test_a_r409_card_input_set(w: World) -> None:  # 카드 «시험 입력» 그대로
+    w.cards("t1", ["A"])
+    w.cards("t1", ["B"], "- 선행: C 착지\n")
+    w.cards("t1", ["C"], "- 선행: B 착지\n")  # C 도 대기/ 에 실재 — 서로 막는다
+    w.cards("t1", ["D"], "- 선행: PR #1932 승인\n")
+    w.cards("t1", ["E"], "- 선행: indices/진행/F.md 랜딩\n")
+    _doing(w, "t1", ["F"])
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert "a t1-master#1 5 대기 카드 1장(A) · 선행 미판정 1장 제외 · master IDLE" in r.stdout
+    assert _alert(w).split("|")[4].startswith("[stall a] 대기 카드 1장(A) · 선행 미판정 1장 제외 · master IDLE 5분 — 빈 석 확인하고 지금 spawn")
+
+
 def test_b_declaration_then_idle_rings_once(w: World) -> None:
     w.state("t1-nano#0", "IDLE", 4)
     w.jsonl("t1-nano#0", "확인했습니다. 지금 착수하겠습니다")
