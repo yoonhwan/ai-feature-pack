@@ -62,6 +62,22 @@ def team_rel(team: str, root: Path | None = None) -> str:
     return rows[team]
 
 
+def _harness_root_from_map() -> str:
+    """셸 ft-harness-root.sh ft_harness_root ②~④ 와 같은 규칙(env 는 부르는 쪽): 지도 1줄 → 팩 체크아웃 꼴. 못 풀면 ""."""
+    d = Path(__file__).resolve().parent
+    m = d / "../HARNESS_ROOT"
+    if m.is_file():
+        lines = m.read_text(encoding="utf-8").splitlines()
+        c = lines[0].strip() if lines else ""
+    elif (d / "../kit/fable-team").is_dir():
+        c = str(d / "..")
+    elif (d / "../../../kit/fable-team").is_dir():
+        c = str(d / "../../..")
+    else:
+        c = ""
+    return str(Path(c).resolve()) if c and (Path(c) / "kit/fable-team").is_dir() else ""
+
+
 def team_root(team: str, root: Path | None = None, alt: bool = False) -> Path:
     """팀 폴더 절대경로. alt=True = 쌍둥이 경로(꼴1↔꼴2 · 꼴3 은 쌍둥이 없음 = TeamPathError)."""
     rel = team_rel(team, root)
@@ -69,9 +85,11 @@ def team_root(team: str, root: Path | None = None, alt: bool = False) -> Path:
     if rel.startswith(("$FT_HARNESS_ROOT/", "${FT_HARNESS_ROOT}/")):
         if alt:
             raise TeamPathError(f"ERROR {team} 은 꼴3 이라 쌍둥이 경로가 없다")
-        hr = os.environ.get("FT_HARNESS_ROOT", "")
+        # 꼴3 순서(r386 r3): ①env FT_HARNESS_ROOT ②설치본 지도(셸 ft_harness_root 와 같은 규칙) ③TeamPathError
+        hr = os.environ.get("FT_HARNESS_ROOT", "") or _harness_root_from_map()
         if not hr or not Path(hr).is_dir():
-            raise TeamPathError(f"ERROR {team} 폴더가 $FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: {hr or '<없음>'}")
+            env = os.environ.get("FT_HARNESS_ROOT") or "<없음>"
+            raise TeamPathError(f"ERROR {team} 폴더가 $FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: {env}")
         return Path(hr.rstrip("/") + "/" + rel.split("/", 1)[1].rstrip("/"))
     if rel.startswith("design/teams/"):
         out = f"{base}/{rel.replace('design/teams/', 'design/', 1)}" if alt else f"{base}/{rel}"
