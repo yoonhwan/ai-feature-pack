@@ -5,7 +5,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MBOX="${FT_CTX_MBOX:-$SCRIPT_DIR/../comm/mbox.sh}"
+HERE="$SCRIPT_DIR"; MBOX="${FT_CTX_MBOX:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 CLAUDE_CONTEXT="${FT_CTX_CLAUDE_CONTEXT:-$SCRIPT_DIR/ft-claude-context.sh}"
 REPORT_TO="${1:-ft-v65-master#10}"
 FROM_SESSION="${2:-ft-v65-pm-codex#0}"

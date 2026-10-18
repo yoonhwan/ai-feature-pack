@@ -8,7 +8,7 @@
 # env: FT_ROOT · FT_HANDOVER_LEDGER(장부 jsonl) · FT_SEATS_JSON(명부 1개 고정; 없으면 .fable-team/seats*.json 전부) · FT_MBOX · FT_HIL_ROUTE
 # 금지: 구 세션 kill · T0 클라이언트 2개 이상 자동 전환 · 이름 문자열로 후계 추측 · 오빠께 질문 발신
 set -uo pipefail
-ROOT="${FT_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")/../.." && pwd)}"
+ROOT="${FT_ROOT:-}"; [ -n "$ROOT" ] || { HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; . "$HERE/ft-harness-root.sh"; ROOT="$(ft_data_root "$HERE")"; } || exit 1   # r385 r3: 설치본(git 밖)의 ../.. 는 데이터 루트가 아니다
 LEDGER="${FT_HANDOVER_LEDGER:-$ROOT/.fable-team/state/handover.jsonl}"
 MBOX="${FT_MBOX:-$ROOT/.fable-team/comm/mbox.sh}"
 die() { echo "ft-seat-handover: $2" >&2; exit "$1"; }

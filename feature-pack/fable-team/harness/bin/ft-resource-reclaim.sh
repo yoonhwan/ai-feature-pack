@@ -43,7 +43,7 @@ STATE="$ROOT/.fable-team/state"
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 SEATST="${FT_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
 NANOCLOSE="${FT_NANO_CLOSE:-$HERE/ft-nano-close.sh}"
-MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"
+MBOX="${FT_MBOX_SH:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 3; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 MAILBOX="$(dirname -- "$MBOX")/mailbox.jsonl"
 RESUME_DIR="${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}"
 PERMITS="${FT_PRESS_PERMIT_DIR:-$ROOT/.fable-team/state/press-permits}"

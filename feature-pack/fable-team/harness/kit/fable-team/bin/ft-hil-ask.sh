@@ -19,7 +19,7 @@ if [ -n "${HIL_LEDGER:-}" ]; then LEDGER="$HIL_LEDGER"
 else . "$HERE/ft-team-lib.sh"; _HT="$(ft_team_in "$ROOT" harness)" || exit 1; LEDGER="$_HT/HIL-LEDGER.md"; fi   # R382b: 팀 폴더는 TEAMS.md 칸으로
 SEATS="${FT_SEATS:-$COMMON/.fable-team/seats-harness.json}"
 MBOX="${FT_MBOX_CMD:-}"
-[ -n "$MBOX" ] || { [ -f "$HERE/../comm/mbox.sh" ] && MBOX="$HERE/../comm/mbox.sh" || MBOX="$COMMON/.fable-team/comm/mbox.sh"; }
+[ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
 
 die() { echo "REJECT $*" >&2; exit "${2:-1}"; }
 clean() { printf '%s' "$1" | tr '\n\r' '  ' | sed 's/|/¦/g; s/^ *//; s/ *$//'; }

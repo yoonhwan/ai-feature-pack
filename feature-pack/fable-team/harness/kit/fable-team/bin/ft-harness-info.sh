@@ -56,11 +56,13 @@ case "$CMD" in
     for f in "${CANON[@]}"; do [ -f "$f" ] && echo "OK    $f" || echo "없음  $f"; done
     for c in "${MAIN_CANON[@]}"; do f="$(main_team_path "$c")" || f="$c"; main_file "$f" >/dev/null && echo "OK    $(main_label "$f")" || echo "없음  $(main_label "$f")"; done ;;
   seats)
+    ALIVE="${FT_AGENT_ALIVE_BIN:-}"   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
+    [ -n "$ALIVE" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; ALIVE="$_CM/ft-agent-alive.sh"; }
     tmux ls -F '#{session_name}' 2>/dev/null | sort | while IFS= read -r n; do
       r="$(bash "$HERE/ft-name-lint.sh" "$n")"
       case "$r" in PASS*) r="PASS";; *) r="REJECT ${r#*: }";; esac
       # R346: 세션은 살아 있는데 전경이 맨 셸·본체 정지면 표시 — 판정기는 ft-agent-alive.sh 하나(없거나 판정 불가면 표시 0)
-      st="$(bash "${FT_AGENT_ALIVE_BIN:-$HERE/../comm/ft-agent-alive.sh}" "$n" 2>/dev/null)"
+      st="$(bash "$ALIVE" "$n" 2>/dev/null)"
       case "$st" in NOAGENT*) fg="${st#* fg=}"; r="$r · ⚠ NOAGENT(fg=${fg%% *})";; esac
       printf '%-52s %s\n' "$n" "$r"
     done

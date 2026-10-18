@@ -19,7 +19,7 @@ SEATS_DIR="${FT_SEATS_DIR:-$COMMON/.fable-team}"
 STATE_DIR="${FT_STATE_DIR:-$SEATS_DIR/state}"
 TMUX_BIN="${FT_TMUX:-tmux}"
 OUT="$STATE_DIR/seats.live.json"
-ALIVE_BIN="${FT_AGENT_ALIVE_BIN:-$HERE/../comm/ft-agent-alive.sh}"   # R346 판정기 하나(전경 셸·정지 본체 = NOAGENT) — doorbell·틱과 같은 것
+ALIVE_BIN="${FT_AGENT_ALIVE_BIN:-}"; [ -n "$ALIVE_BIN" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; ALIVE_BIN="$_CM/ft-agent-alive.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm   # R346 판정기 하나(전경 셸·정지 본체 = NOAGENT) — doorbell·틱과 같은 것
 
 while [ $# -gt 0 ]; do
   case "$1" in

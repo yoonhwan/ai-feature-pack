@@ -13,7 +13,7 @@ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/nu
 EXPECTED="${FT_LDC_EXPECTED:-$ROOT/.fable-team/state/launchd-expected.txt}"
 RECORDS="${FT_LDC_RECORDS:-$ROOT/.fable-team/state/launchd-disabled}"
 STATE="${FT_LDC_STATE:-$ROOT/.fable-team/state/launchd-check}"
-MBOX="${FT_LDC_MBOX:-$HERE/../comm/mbox.sh}"
+MBOX="${FT_LDC_MBOX:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 SEATS="${FT_LDC_SEATS:-$ROOT/.fable-team/seats.json}"
 LCTL="${FT_LDC_LAUNCHCTL:-launchctl}"
 TODAY="${FT_LDC_NOW:-$(date +%F)}"

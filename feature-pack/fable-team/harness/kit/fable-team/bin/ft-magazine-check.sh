@@ -12,7 +12,7 @@ WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 LOG="${FT_MAG_LOG:-$HOME/.hermes/logs/byz_morning_magazine.out}"
 NOW="${FT_MAG_NOW:-$(date '+%Y-%m-%d %H:%M')}"
-MBOX="${FT_MAG_MBOX:-$HERE/../comm/mbox.sh}"
+MBOX="${FT_MAG_MBOX:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 STATE="${FT_MAG_STATE:-${ROOT:-$WT}/.fable-team/state/magazine-check}"
 SEATS="${FT_MAG_SEATS:-${ROOT:-$WT}/.fable-team/seats.json}"
 LCTL="${FT_MAG_LAUNCHCTL:-launchctl}"

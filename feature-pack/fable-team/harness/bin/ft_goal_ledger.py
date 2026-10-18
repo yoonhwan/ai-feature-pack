@@ -1,6 +1,6 @@
 r"""ft_goal_ledger — 골 표 «지금 상태» 6칸의 출처 = planner 원장 `## 메인 골 6줄` 표 (R371 · ft_goal_table.render 가 부른다).
 
-루트 = env FT_ROOT(그 안에 .fable-team/LIVE_BIN 필수) · 없으면 이 파일 위치에서 조상으로 올라가 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 · LIVE_ROOT = `<루트>/.fable-team/LIVE_ROOT` 1행(절대경로 · 실재 폴더 · R382: 코드 위치 LIVE_BIN/../.. 유도 폐지 — 하네스 코드가 팩으로 가도 데이터 루트가 안 틀어진다) (정본·원장·뉴스 셋이 이 함수 하나).
+루트 = env FT_ROOT(그 안에 .fable-team/LIVE_BIN 필수) · 없으면 cwd 의 git 공용 루트(.fable-team/LIVE_BIN 실재) · 옛 설치 꼴이면 이 파일 위치 조상 중 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 · LIVE_ROOT = `<루트>/.fable-team/LIVE_ROOT` 1행(절대경로 · 실재 폴더 · R382: 코드 위치 LIVE_BIN/../.. 유도 폐지 — 하네스 코드가 팩으로 가도 데이터 루트가 안 틀어진다) (정본·원장·뉴스 셋이 이 함수 하나).
 원장 = env FT_GOAL_A6_LEDGER(파일 경로 | `gitref:<ref>:<경로>`) 우선 · 없으면 <LIVE_ROOT 의 planner 팀 폴더(TEAMS.md 폴더 칸)>/PLAN-oppa-ledger.md. LIVE_BIN 없음/무효 = ERROR rc1(옛 v6 고정 경로 후퇴 0). 절 `## 메인 골 6줄…` 의 첫 표 «데이터 행 6개» 를 행 순번(1~6)으로 정본 골에 묶는다(원장 골 글자는 정본과 달라 글자 대조 0) · 2열 = 지금 상태.
 셀 = `\|` 를 글자 `|` 로 복원해 분리 · 열 수가 머리 줄과 다르면 ERROR(조용한 절단 0) · 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN 1줄 ·
 머리 `원장:<MM-DD HH:mm>` · 마지막 갱신 24h 초과 또는 갱신 시각 없음 = «· 상태 낡음»(파일 mtime 으로 되돌아가지 않는다).
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -27,17 +28,27 @@ def _no_live_bin(file: Path, value: str = "") -> str:
 
 
 def find_root(error: type[Exception]) -> Path:
-    """루트 = FT_ROOT(LIVE_BIN 필수) 또는 파일 위치 조상 중 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 — 없으면 error(사유에 경로)."""
+    """루트 = ①FT_ROOT(LIVE_BIN 필수) ②cwd 의 git 공용 루트(`git rev-parse --git-common-dir` 의 부모)에 `.fable-team/LIVE_BIN` 실재
+    ③옛 설치 꼴(이 파일이 `*/.fable-team/bin`)일 때만 파일 위치 조상 중 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 ④error(사유에 경로) — r385 r3:
+    설치본(`~/.claude/fable-team/live/<버전>/bin` · git 밖)의 조상에는 LIVE_BIN 이 없다."""
     if env := os.environ.get("FT_ROOT"):
         file = Path(env) / ".fable-team" / "LIVE_BIN"
         if not file.is_file():
             raise error(_no_live_bin(file))
         return Path(env)
+    try:
+        common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                                capture_output=True, text=True, timeout=7).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        common = ""
+    if common and (Path(common).parent / ".fable-team" / "LIVE_BIN").is_file():
+        return Path(common).parent
     start = Path(__file__).resolve()
-    for d in start.parents:
-        if (d / ".fable-team" / "LIVE_BIN").is_file():
-            return d
-    raise error(_no_live_bin(start / "…위로 탐색 실패 · .fable-team" / "LIVE_BIN"))
+    if start.parent.name == "bin" and start.parent.parent.name == ".fable-team":
+        for d in start.parents:
+            if (d / ".fable-team" / "LIVE_BIN").is_file():
+                return d
+    raise error(_no_live_bin(Path.cwd() / "(cwd git 공용 루트 · 옛 설치 꼴 조상 탐색 실패) .fable-team" / "LIVE_BIN"))
 
 
 def live_root(error: type[Exception], root: Path | None = None) -> Path:

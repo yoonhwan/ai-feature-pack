@@ -37,6 +37,13 @@ ft_repo_root() {
   if r="$(_ft_common_root)" && [ -d "$r/.fable-team" ]; then printf '%s\n' "$r"; return 0; fi
   echo "ERROR 리포 공용 루트를 못 풂 — env 없음 · cwd($(pwd)) 가 .fable-team/ 있는 git 리포 아님 · 옛 설치 꼴 아님($h)" >&2; return 1
 }
+# ft_comm_dir <도구 폴더> → <데이터 루트>/.fable-team/comm (r385 r3 · 설치본 = <버전>/{bin,templates,HARNESS_ROOT} 라 형제 ../comm 이 없다)
+#   데이터 루트 = ft_data_root(옛 설치 꼴이면 <폴더>/../.. → 옛 <폴더>/../comm 과 같은 곳) · comm 폴더 없음 = ERROR(stderr) rc1 · 도구별 env 는 부르는 쪽
+ft_comm_dir() {
+  local r; r="$(ft_data_root "$1")" || return 1
+  [ -d "$r/.fable-team/comm" ] || { echo "ERROR comm 폴더 없음: $r/.fable-team/comm (데이터 루트 $r)" >&2; return 1; }
+  printf '%s\n' "$r/.fable-team/comm"
+}
 ft_harness_kit() {
   local top
   top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null)" || return 1

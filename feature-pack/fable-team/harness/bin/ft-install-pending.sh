@@ -4,7 +4,7 @@
 set -uo pipefail
 ROOT="${FT_ROOT:-}"
 [ "${1:-}" = --root ] && [ -n "${2:-}" ] && ROOT="$2"
-[ -n "$ROOT" ] || ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")/../.." 2>/dev/null && pwd)"
+[ -n "$ROOT" ] || { HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; . "$HERE/ft-harness-root.sh"; ROOT="$(ft_data_root "$HERE")"; } || exit 1   # r385 r3: 설치본(git 밖)의 ../.. 는 데이터 루트가 아니다
 D="$ROOT/.fable-team/state/install-pending"
 shas=""; n=0
 for f in "$D"/*.txt; do

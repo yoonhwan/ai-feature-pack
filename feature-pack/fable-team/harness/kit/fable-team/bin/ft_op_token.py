@@ -12,6 +12,7 @@ import os
 import re
 import socket
 import stat
+import subprocess
 import sys
 import tempfile
 import time
@@ -34,8 +35,22 @@ class Fail(Exception):
 
 
 def secrets_dir():
-    d = os.environ.get("FT_OP_SECRETS_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets")
-    return os.path.abspath(d)
+    """FT_OP_SECRETS_DIR → 옛 설치 꼴(이 파일이 */.fable-team/bin)이면 <bin>/../secrets → cwd git 공용 루트의 .fable-team/secrets(실재)
+    → ERROR rc1 (r385 r3 · 설치본(git 밖)의 ../secrets 는 없다 · 조용한 후퇴 0)."""
+    d = os.environ.get("FT_OP_SECRETS_DIR")
+    if d:
+        return os.path.abspath(d)
+    here = os.path.dirname(os.path.abspath(__file__))
+    if os.path.basename(here) == "bin" and os.path.basename(os.path.dirname(here)) == ".fable-team":
+        return os.path.abspath(os.path.join(here, "..", "secrets"))
+    try:
+        out = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, timeout=7)
+        common = os.path.dirname(out.stdout.strip()) if out.returncode == 0 and out.stdout.strip() else ""
+    except (OSError, subprocess.SubprocessError):
+        common = ""
+    if common and os.path.isdir(os.path.join(common, ".fable-team", "secrets")):
+        return os.path.join(common, ".fable-team", "secrets")
+    sys.exit(f"ERROR 비밀 폴더를 못 풂 — FT_OP_SECRETS_DIR 없음 · 옛 설치 꼴 아님({here}) · cwd({os.getcwd()}) git 공용 루트에 .fable-team/secrets 없음")
 
 
 def mode_of(path):

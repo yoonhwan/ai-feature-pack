@@ -30,7 +30,9 @@
 set -uo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-MBOX="${FT_MBOX_CMD:-$HERE/../comm/mbox.sh}"
+. "$HERE/ft-harness-root.sh"
+_comm() { ft_comm_dir "$HERE" || exit 2; }   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
+MBOX="${FT_MBOX_CMD:-}"; [ -n "$MBOX" ] || MBOX="$(_comm)/mbox.sh" || exit 2
 [ -x "$MBOX" ] || [ -f "$MBOX" ] || { echo "REJECT mbox 없음: $MBOX" >&2; exit 2; }
 
 _repo_root() {
@@ -143,7 +145,7 @@ case "$CMD" in
     while IFS=$'\t' read -r name d; do [ "$name" = "$Q" ] && dir="$d"; done < <(_queues)
     [ -n "$dir" ] || { echo "REJECT 큐 없음: $Q — 사용 가능: $(_queues | cut -f1 | tr '\n' ' ')" >&2; exit 1; }
 
-    V2SH="${FT_MBOX_V2_CMD:-$HERE/../comm/mbox-v2.sh}"
+    V2SH="${FT_MBOX_V2_CMD:-}"; [ -n "$V2SH" ] || V2SH="$(_comm)/mbox-v2.sh" || exit 1
     [ -f "$V2SH" ] || { echo "REJECT mbox-v2.sh 없음: $V2SH" >&2; exit 1; }
     # ★doorbell 이 브리지를 가리키게 한다★ — 수신 좌석이 두 큐를 다 열게 된다
     BRIDGE_ABS="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/$(basename -- "${BASH_SOURCE[0]:-$0}")"
