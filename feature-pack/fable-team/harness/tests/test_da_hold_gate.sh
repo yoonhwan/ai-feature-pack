@@ -98,7 +98,7 @@ card cl '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7102' '- D
 card cl '- DA② r1 HOLD 1'; o="$(g --closing)"; chk "closing: 사건 1 → rc0" 0 "events=1" "$o" $?
 
 # ── 4b. 실제 카드 3꼴 사본 회귀 + 이 카드(§9-3 · §9-1) ──
-FXD="$REPO/tests/fixtures/da_hold"
+FXD="$REPO/harness/fixtures/da_hold"
 fx() { python3 "$GATE" "$FXD/$1.md" --seats-dir "$T/nonexistent" --comm "$T/c" 2>&1; }
 o="$(fx v65-M7)"; chk "실제 v65 M7 카드 사본(작성자 prefix · r 없는 DA② HOLD + DA② r2 HOLD) → events=2" 3 "events=2" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"
 o="$(fx cfo-pg-pool)"; chk "실제 cfo pg-pool 사본(②r1 · ⑥r1 두 단계) → events=2" 3 "events=2" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"

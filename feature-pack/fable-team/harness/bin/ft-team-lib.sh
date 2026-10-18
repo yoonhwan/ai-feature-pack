@@ -25,8 +25,12 @@ ft_team_root() { local t="$1" alt=0 rel root out; [ "${2:-}" = --alt ] && alt=1
   case "$rel" in
     '$FT_HARNESS_ROOT/'*|'${FT_HARNESS_ROOT}/'*)
       [ "$alt" = 1 ] && return 1
-      [ -n "${FT_HARNESS_ROOT:-}" ] && [ -d "$FT_HARNESS_ROOT" ] || { echo "ERROR $t 폴더가 \$FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: ${FT_HARNESS_ROOT:-<없음>}" >&2; return 1; }
-      out="${FT_HARNESS_ROOT%/}/${rel#*/}";;
+      # 꼴3 순서(r386 r3): ①env FT_HARNESS_ROOT ②ft_harness_root(설치본 bin/../HARNESS_ROOT 지도 · 팩 체크아웃 꼴) ③ERROR
+      local hr="${FT_HARNESS_ROOT:-}" d
+      if [ -z "$hr" ]; then d="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d")"; fi
+      [ -n "$hr" ] && [ -d "$hr" ] || { echo "ERROR $t 폴더가 \$FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: ${FT_HARNESS_ROOT:-<없음>}" >&2; return 1; }
+      out="${hr%/}/${rel#*/}";;
     design/teams/*) if [ "$alt" = 1 ]; then out="$root/${rel/design\/teams\//design/}"; else out="$root/$rel"; fi;;
     design/*)       if [ "$alt" = 1 ]; then out="$root/design/teams/$t/"; else out="$root/$rel"; fi;;
     *) echo "ERROR $t 폴더 칸을 풀지 못했다: $rel" >&2; return 1;;
