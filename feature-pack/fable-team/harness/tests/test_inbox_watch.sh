@@ -79,4 +79,87 @@ printf 'not-json\n' >> "$Q"; row 7 ④ f#1 "[f#1->planner-x#3] 깨진 줄 뒤"
 waitfor 2 && ok "⑤ 깨진 줄 무시하고 계속" || bad "⑤ 깨진 줄 뒤 출력 없음"
 stop
 
+# ── r408 — planner `_master` 앞 send 의 quiet 는 감시 실재와 한 쌍(판정 876·881) · 감시 없음 = 출력 + 하네스 master 긴급 1통(10분 1회) + teamset ERR
+#   격리 루트 + 가짜 pgrep(FT_PGREP) + 가짜 tmux · 실 tmux·홈·BYZ 쓰기 0. 송신 경로 둘(comm/mbox.sh = 좌석들이 쓰는 경로 · 키트 ft-mbox.sh) 모두 같은 판정.
+KIT="$REPO/harness/kit/fable-team/bin"
+R="$T/r408"; C="$R/.fable-team/comm"; mkdir -p "$C" "$R/.fable-team/bin" "$R/.fable-team/state"
+cp "$REPO/harness/comm/"mbox*.sh "$REPO/harness/comm/"mbox*.py "$C/"
+cp "$REPO/harness/bin/ft-inbox.sh" "$REPO/harness/bin/ft-inbox.py" "$REPO/harness/bin/ft_inbox_core.py" "$R/.fable-team/bin/"
+P='byz-planner-master-claude#72'; H='byz-harness-master-claude#9'
+echo '{}' > "$R/.fable-team/seats.json"
+printf '{"_master":"%s"}\n' "$P" > "$R/.fable-team/seats-planner.json"
+printf '{"_master":"%s"}\n' "$H" > "$R/.fable-team/seats-harness.json"
+PROCS="$T/procs.txt"; printf '#!/bin/sh\ncat %s\n' "$PROCS" > "$T/fake-pgrep"; chmod +x "$T/fake-pgrep"
+printf '#!/bin/sh\nexit 1\n' > "$T/fake-haiku"; chmod +x "$T/fake-haiku"
+mkdir -p "$T/fakebin"; printf '#!/bin/sh\nexit 1\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"   # doorbell·teamset 이 실 tmux 를 못 건드리게
+procs_live() {  # 감시 실체 1 + 미끼 3(접두 #7 · 본문에 시작 명령을 실은 send · 다른 bin 의 같은 좌석은 실체 꼴이지만 ft-inbox-watch.sh 없음)
+  { echo "60861 /opt/x/Python -u - $KIT $P"
+    echo "60862 /opt/x/Python -u - $KIT ${P%2}"
+    echo "60863 bash $C/mbox.sh send $P x [결정] 시작: bash $KIT/ft-inbox-watch.sh $P"
+    echo "60864 /opt/x/Python -u - $T/nobin $P"; } > "$PROCS"; }
+procs_none() { procs_live; sed -i '' '1d' "$PROCS"; }   # 실체 줄만 빼고 미끼 3 은 남긴다
+MK="$R/.fable-team/state/planner-watch-missing.$P"
+env408() { env PATH="$T/fakebin:$PATH" FT_ROOT="$R" FT_MBOX_DIR="$C" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_INBOX_HAIKU="$T/fake-haiku" FT_PGREP="$T/fake-pgrep" FT_BIN="$KIT" "$@"; }
+abodies() { python3 - "$C/mailbox.jsonl" "$H" <<'PY'
+import json, sys
+for l in open(sys.argv[1], encoding="utf-8"):
+    r = json.loads(l) if l.strip() else {}
+    if r.get("to") == sys.argv[2] and r.get("from") == "ft-watch-alarm":
+        print(r.get("body", "").replace("\n", " "))
+PY
+}
+alarms() { abodies | grep -c 'planner watch 없음' || true; }
+dbv() { sed -n 's/.*doorbell=\(.*\)$/\1/p' <<<"$1" | tail -1; }
+
+for S in comm kit; do
+  rm -f "$MK"; env408 bash "$C/mbox.sh" recv "$H" --all >/dev/null 2>&1
+  if [ "$S" = comm ]; then snd() { env408 bash "$C/mbox.sh" send "$P" "t$1#1" "[결정] r408 시험 $S $1" 2>"$T/err408"; }
+  else snd() { env408 bash "$KIT/ft-mbox.sh" send "$P" "t$1#1" "[결정] r408 시험 $S $1" 2>"$T/err408"; }; fi
+  # ⓐ 감시 있음 → quiet 그대로 · 긴급 0
+  procs_live; o="$(snd 1)"
+  eq "ⓐ[$S] 감시 있음 → doorbell=quiet" "$(dbv "$o")" "quiet"
+  eq "ⓐ[$S] 감시 있음 → 긴급 0통" "$(alarms)" "0"
+  # ⓑ 감시 없음(미끼만) → quiet(WATCH 없음) + 긴급 1통(좌석·시작 명령) + 표식
+  procs_none; o="$(snd 2)"
+  eq "ⓑ[$S] 감시 없음 → doorbell=quiet(WATCH 없음)" "$(dbv "$o")" "quiet(WATCH 없음)"
+  eq "ⓑ[$S] 감시 없음 → 긴급 1통" "$(alarms)" "1"
+  abodies | grep -F "[긴급 · planner watch 없음] $P" | grep -qF "ft-inbox-watch.sh $P" && ok "ⓑ[$S] 긴급 본문 = 좌석 + 시작 명령: $(abodies | tail -1)" || bad "ⓑ[$S] 긴급 본문: $(abodies | tail -1)"
+  [ -f "$MK" ] && ok "ⓑ[$S] 표식 파일 생성" || bad "ⓑ[$S] 표식 없음"
+  # ⓒ 10분 안 재send → 긴급 0통 추가 · 10분 지난 표식 → 다시 1통
+  o="$(snd 3)"; eq "ⓒ[$S] 10분 안 재send → 여전히 quiet(WATCH 없음)" "$(dbv "$o")" "quiet(WATCH 없음)"
+  eq "ⓒ[$S] 10분 안 재send → 긴급 추가 0" "$(alarms)" "1"
+  touch -t "$(date -v-11M +%Y%m%d%H%M)" "$MK"; snd 4 >/dev/null
+  eq "ⓒ[$S] 표식 11분 경과 → 긴급 다시 1통" "$(alarms)" "2"
+  # ⓓ 명시 ring → 울림 경로 그대로(WATCH 꼬리 0 · 긴급 추가 0)
+  o="$(env408 bash "$C/mbox.sh" ring "$P" 2>&1)"
+  [[ "$o" == "RING $P doorbell="* && "$o" != *WATCH* ]] && ok "ⓓ[$S] ring 명시 명령 불변: $o" || bad "ⓓ[$S] ring: $o"
+  eq "ⓓ[$S] ring → 긴급 추가 0" "$(alarms)" "2"
+done
+# 하네스 master 없음 → stderr 1줄 · 표식 0(다음 send 재시도)
+rm -f "$MK"; mv "$R/.fable-team/seats-harness.json" "$T/sh.bak"; procs_none
+o="$(env408 bash "$C/mbox.sh" send "$P" t9#1 "[결정] r408 master 없음" 2>"$T/err408")"
+{ [ "$(dbv "$o")" = "quiet(WATCH 없음)" ] && grep -q '하네스 master 를 못 찾음' "$T/err408" && [ ! -f "$MK" ]; } && ok "master 없음 → stderr 1줄 · 표식 0" || bad "master 없음: $o / $(cat "$T/err408")"
+mv "$T/sh.bak" "$R/.fable-team/seats-harness.json"
+# 판정기 없음(FT_BIN 틀림) → quiet(WATCH 판정 불가) · 조용한 통과 0
+o="$(env408 env FT_BIN="$T/nobin" bash "$C/mbox.sh" send "$P" t10#1 "[결정] r408 판정기 없음" 2>"$T/err408")"
+eq "판정기 없음 → quiet(WATCH 판정 불가)" "$(dbv "$o")" "quiet(WATCH 판정 불가)"
+# planner 아닌 좌석 앞 send 는 감시 판정 0(quiet/ring 기존 규칙)
+o="$(env408 bash "$C/mbox.sh" send other-seat#1 t11#1 "[결정] r408 남의 좌석" 2>"$T/err408")"
+[[ "$(dbv "$o")" != *WATCH* ]] && ok "planner 아닌 좌석 → WATCH 판정 0" || bad "남의 좌석: $o"
+
+# ⓔ ft-teamset-check planner 행 — 감시 0 → ERR rc1 · 감시 1 → OK (판정기 = ft-mbox.sh watch-alive 하나)
+TS="$T/TEAMSET408.md"
+printf '# t\n## 표 1 — 역할\n| 역할 | 수 | 모델 | effort | 명부 키 | 승계 | 닫기 |\n|---|---|---|---|---|---|---|\n| master | 1 | `sonnet-5-5` | high | `_master` | a | b |\n- 나노 상한 기본: 3\n- 명부 공용 키: `_name`\n## 표 2 — 팀\n| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| planner | 3 | 0 | 없음 |\n' > "$TS"
+printf '#!/bin/sh\ncase "$1" in list-sessions) echo "%s";; *) exit 1;; esac\n' "$P" > "$T/fakebin/tmux"
+printf '#!/bin/sh\necho "IDLE - - - jsonl"\n' > "$T/fake-st"; printf '#!/bin/sh\nexit 0\n' > "$T/fake-mb"
+tsc() { env408 env FT_TEAMSET_MBOX="$T/fake-mb" FT_SEAT_STATUS="$T/fake-st" FT_TEAMSET_ROOT="$R" FT_TEAMSET_MD="$TS" ZC_RESUME_DIR="$T" bash "$KIT/ft-teamset-check.sh" planner 2>&1; }
+procs_none; o="$(tsc)"; rc=$?
+{ [ "$rc" = 1 ] && [[ "$o" == "planner ERR "*"planner watch 없음(ft-inbox-watch.sh $P)"* ]]; } && ok "ⓔ 감시 0 → ERR planner watch 없음 rc1: $o" || bad "ⓔ-1 rc=$rc $o"
+procs_live; o="$(tsc)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == "planner OK "* ]]; } && ok "ⓔ 감시 1 → OK rc0: $o" || bad "ⓔ-2 rc=$rc $o"
+# 짝 사본 cmp 0 · 600/300 0
+cmp -s "$KIT/ft-mbox.sh" "$REPO/skill/scripts/ft-mbox.sh" && ok "짝 cmp 0 ft-mbox.sh(키트 ↔ skill/scripts)" || bad "짝 불일치 ft-mbox.sh"
+for f in ft_teamset.py ft-teamset-check.sh; do cmp -s "$KIT/$f" "$REPO/harness/bin/$f" && ok "짝 cmp 0 $f" || bad "짝 불일치 $f"; done
+! grep -nE '\b(600|300)\b' "$KIT/ft-mbox.sh" "$REPO/harness/comm/mbox.sh" "$KIT/ft_teamset.py" | grep -i 'timeout\|sleep' >/dev/null && ok "600/300 0" || bad "600/300 발견"
+
 echo "---"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

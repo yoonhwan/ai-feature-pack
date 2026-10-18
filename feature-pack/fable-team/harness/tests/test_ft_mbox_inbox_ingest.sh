@@ -104,8 +104,8 @@ out="$(send "$BIN" planner-uf#7 uf5#1 "[HIL] seats-planner.json 없음")"
 # ⓖ 변이: 억제(user_facing 줄)를 빼면 ⓕ 가 FAIL — 대면 좌석 ① 이 울린다
 echo '{"_master": "planner-uf#7"}' > "$T/seats-planner.json"
 GR="$(mkroot mut2)"; GBIN="$GR/.fable-team/bin"
-grep -v 'if user_facing "\$to"; then notify=0; fi' "$BIN/ft-mbox.sh" > "$GBIN/ft-mbox.sh.m" && mv "$GBIN/ft-mbox.sh.m" "$GBIN/ft-mbox.sh"
-[ "$(grep -c 'if user_facing "\$to"; then notify=0; fi' "$GBIN/ft-mbox.sh")" = 0 ] && ok "ⓖ 변이 사본: 억제 줄 0" || bad "ⓖ 변이 사본에 억제 줄이 남음"
+sed 's/if user_facing "\$to"; then notify=0; uf=1; fi/if user_facing "$to"; then uf=1; fi/' "$BIN/ft-mbox.sh" > "$GBIN/ft-mbox.sh.m" && mv "$GBIN/ft-mbox.sh.m" "$GBIN/ft-mbox.sh"   # r408: 억제(notify=0)만 빼고 감시 판정(uf)은 남긴다
+[ "$(grep -c 'if user_facing "\$to"; then notify=0' "$GBIN/ft-mbox.sh")" = 0 ] && ok "ⓖ 변이 사본: 억제 줄 0" || bad "ⓖ 변이 사본에 억제 줄이 남음"
 out="$(send "$GBIN" planner-uf#7 uf6#1 "오빠 원문: 이것 확인")"
 [ "$(db "$out")" != quiet ] && ok "ⓖ 변이(억제 제거) → 대면 좌석 ① 이 울려 ⓕ 단언이 잡는다($(db "$out"))" || bad "ⓖ 변이인데 quiet: $out"
 

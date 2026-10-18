@@ -44,7 +44,8 @@ roster() {
 }
 FS="$T/fake-status.sh"; printf '#!/bin/sh\necho "IDLE - - - jsonl"\n' > "$FS"
 FM="$T/fake-mbox.sh"; printf '#!/bin/sh\nexit 0\n' > "$FM"
-chk() { FT_TEAMSET_MBOX="$FM" FT_SEAT_STATUS="$FS" PATH="$FAKE:$PATH" FT_TEAMSET_ROOT="$ROOT" FT_TEAMSET_MD="$MD" ZC_RESUME_DIR="$RES" bash "$BIN/ft-teamset-check.sh" "$@" 2>&1; }
+FW="$T/fake-watch.sh"; printf '#!/bin/sh\necho "OK watch $2"\n' > "$FW"   # r408 planner 감시 판정은 이 시험 범위 밖 — 항상 «있음»
+chk() { FT_TEAMSET_WATCH="$FW" FT_TEAMSET_MBOX="$FM" FT_SEAT_STATUS="$FS" PATH="$FAKE:$PATH" FT_TEAMSET_ROOT="$ROOT" FT_TEAMSET_MD="$MD" ZC_RESUME_DIR="$RES" bash "$BIN/ft-teamset-check.sh" "$@" 2>&1; }
 
 M="byz-planner-master-claude#1"; A="byz-planner-arch-claude#1"; D="byz-planner-desk-claude#1"
 

@@ -152,6 +152,23 @@ def arch_gap(spec, d, team, live):
     return "" if a in live else f"arch 없음 — 명부 _arch {a} 라이브 아님"
 
 
+def watch_gap(team, m):
+    """r408 — planner `_master` 는 doorbell 을 안 받는다(판정 876) → 세션 안 감시(ft-inbox-watch.sh)가 실재해야 쪽지를 받는다.
+    판정기는 ft-mbox.sh watch-alive 하나(FT_TEAMSET_WATCH 로 시험 대체). 없으면 사유 문자열, 있으면·대상 아님 ''."""
+    if team != "planner":
+        return ""
+    mb = os.environ.get("FT_TEAMSET_WATCH") or str(Path(__file__).with_name("ft-mbox.sh"))
+    try:
+        r = subprocess.run(["bash", mb, "watch-alive", m], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"planner watch 판정 실패({e})"
+    if r.returncode == 0:
+        return ""
+    if r.returncode == 3 and r.stdout.startswith("NO watch"):  # shim 오류도 rc3 이라 출력 머리까지 본다
+        return f"planner watch 없음(ft-inbox-watch.sh {m})"
+    return f"planner watch 판정 실패 rc={r.returncode} {r.stdout.strip()[:60]}"
+
+
 def read_roster(root, team):
     p = roster_path(root, team)
     try:
@@ -208,6 +225,9 @@ def check_team(spec, root, team, live):
         err.append(f"명부 _master {m} 라이브 아님")
     else:
         master_ok = True
+        wg = watch_gap(team, m)
+        if wg:
+            err.append(wg)
     if len(nano) > cap:
         warn.append("나노 상한 초과")
     for b, g in gens_of(mine).items():

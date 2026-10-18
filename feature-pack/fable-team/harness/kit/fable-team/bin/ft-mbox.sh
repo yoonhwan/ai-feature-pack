@@ -229,6 +229,35 @@ sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
 PYEOF
 }
 
+# ★user_facing 좌석의 quiet 는 세션 안 감시(`ft-inbox-watch.sh <좌석>` · Monitor)와 한 쌍이다(판정 876·881)★ — 감시가 없으면 quiet = «아무도 안 받음»(r408 · 승계 #71→#72 뒤 미기동 · 큐 3~5분 적체).
+#   감시의 실체 = ft-inbox-watch.sh 가 exec 한 `python3 -u - <bin> <좌석>`(셸 이름은 프로세스에 안 남는다 · 10-19 실측 planner#72 pid 60861).
+#   판정 = 그 꼴의 끝 인자가 좌석 이름과 정확 일치(접두 일치 0 — #7 ≠ #72) ∧ <bin>/ft-inbox-watch.sh 실재 · 본문에 시작 명령을 실은 send 프로세스는 꼴이 달라 제외.
+#   목록 = FT_PGREP(시험 대체) 또는 pgrep -lf (`<pid> <명령줄>`).
+watch_alive() {
+  local d
+  while IFS= read -r d; do [ -f "$d/ft-inbox-watch.sh" ] && return 0; done < <(
+    "${FT_PGREP:-pgrep}" -lf 'ython[^ ]* -u - /' 2>/dev/null | awk -v to="$1" '
+      $NF == to && $(NF-2) == "-" && $(NF-3) == "-u" && $(NF-4) ~ /(^|\/)[Pp]ython[0-9.]*$/ { print $(NF-1) }')
+  return 1
+}
+# 감시 없음 → 하네스 master(seats-harness.json `_master`)에 긴급 1통 · 같은 좌석 10분 1회(표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> mtime).
+#   큐 직접 적재(py send · 이 래퍼 send 재귀 0 · 발신자 = 도구 이름이라 FANOUT·RATE 면제 · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드(RESEND_COOLDOWN)에 10분 뒤 재알림이 막히지 않게) · 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도). 오빠 pane 주입 0(876 불변).
+watch_alarm() {  # <to> <우편함 comm 절대경로(빈 값 → _mbox_dir)> <계기 쪽지 seq>
+  local to="$1" ft hs hm mk q
+  ft="$(dirname "${2:-$(_mbox_dir)}")"
+  mk="$ft/state/planner-watch-missing.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
+  hs="${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}"
+  hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$hs" 2>/dev/null)"
+  [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음($hs) · 긴급 0통" >&2; return 0; }
+  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${3:-?} · 시작: Monitor → bash $ft/bin/ft-inbox-watch.sh $to")" \
+    || { echo "WARN planner watch 없음 $to — 긴급 적재 실패(다음 send 재시도)" >&2; return 0; }
+  mkdir -p "$ft/state" && : > "$mk"
+  echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 seq=$(seq_of "$q")" >&2
+}
+# user_facing send/relay 공통: 감시 없으면 db 에 꼬리 «(WATCH 없음)» 을 붙이고(quiet → quiet(WATCH 없음)) 알린다. 감시 있으면 db 그대로.
+uf_watch() { watch_alive "$1" && return 0; db="${db}(WATCH 없음)"; watch_alarm "$1" "$2" "$3"; }
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
@@ -257,8 +286,9 @@ case "$cmd" in
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $(seq_of "$py_out")" >/dev/null || true
     inbox_ingest "$(seq_of "$py_out")"
     if inbox_must_ring; then notify=1; fi
-    if user_facing "$to"; then notify=0; fi
+    uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf" "$(seq_of "$py_out")" "$(comm_of "$py_out")")"; else db=quiet; fi
+    [ "$uf" = 0 ] || uf_watch "$to" "$(comm_of "$py_out")" "$(seq_of "$py_out")"
     echo "$py_out doorbell=$db"
     ;;
   relay)
@@ -278,8 +308,9 @@ case "$cmd" in
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     inbox_ingest "$(seq_of "$py_out")"
     if inbox_must_ring; then notify=1; fi
-    if user_facing "$to"; then notify=0; fi
+    uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     if [ "$notify" = 1 ]; then db="$(doorbell "$to" 0 "$(seq_of "$py_out")" "$(comm_of "$py_out")")"; else db=quiet; fi
+    [ "$uf" = 0 ] || uf_watch "$to" "$(comm_of "$py_out")" "$(seq_of "$py_out")"
     echo "$py_out doorbell=$db"
     ;;
   recv)  me="${1:?me}"; shift
@@ -296,5 +327,7 @@ case "$cmd" in
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
          _rc_md="$(_mbox_dir)"; _rc_md="$( [ -n "$_rc_md" ] && cd "$_rc_md" 2>/dev/null && pwd )"
          db="$(doorbell "$sess" 1 "${2:-}" "$_rc_md")"; echo "RING $sess doorbell=$db" ;;
-  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
+  # watch-alive — 세션 안 감시 실재 판정(판정기 하나 · ft_teamset.py 도 이것을 부른다 · r408). rc0 `OK` / rc3 `NO` · 큐·pane 무변경.
+  watch-alive) sess="${1:?sess}"; if watch_alive "$sess"; then echo "OK watch $sess"; else echo "NO watch $sess"; exit 3; fi ;;
+  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]|watch-alive <sess>}" >&2; exit 2;;
 esac
