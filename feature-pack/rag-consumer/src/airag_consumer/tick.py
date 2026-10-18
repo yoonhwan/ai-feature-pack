@@ -2,6 +2,7 @@
 
 Personal settings (vault references, token file, op path) live in a local credentials file given by
 ``--credentials``; nothing about them is stored in the repository. Existing environment keys win.
+A credentials file that names ``store_keys_file`` switches the key source from `op` to that owner-only file.
 The consumer pass runs in a child process (``_pass_child``): keys go to it on stdin only, and its
 streams never reach this process.
 Each call is one pass: no loop, no sleep. launchd's next interval is the retry.
@@ -46,6 +47,12 @@ OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTY
 # 규칙 12 CLI: 기동 고정비 3.5(잠정) + 7.0 / 재시도 포함 총 21.0 ≤ 70
 OP_ATTEMPT_TIMEOUT_S = 10.5
 OP_CALL_DEADLINE_S = 21.0
+# Key-file source: no `op` call, hence no "other apps' data" permission window. A problem with the file is one
+# value-free failure with a fixed kind; there is deliberately no fallback to `op`.
+STORE_KEYS_SETTING = "store_keys_file"
+STORE_KEYS_MAX_BYTES = 4096
+STORE_KEYS_HINT = "tick store_keys_invalid: rewrite the store-keys file from a terminal"
+_NO_SETTING = object()
 
 # Probe (value-free `probe` field of the log line): per-key `op read` attempt record, closed schema.
 PROBE_VERSION = 1
@@ -265,6 +272,54 @@ def _line_with_probe(payload: dict[str, object], line: str, probe: _ProbeState, 
     return line
 
 
+def _store_keys_setting(credentials: Path | None) -> object:
+    """The ``store_keys_file`` value if the credentials file names one, else ``_NO_SETTING`` (the `op` path then
+    reports any unreadable or invalid credentials file itself)."""
+    try:
+        settings = json.loads(credentials.read_text(encoding="utf-8")) if credentials is not None else None
+    except (OSError, ValueError):
+        return _NO_SETTING
+    return settings[STORE_KEYS_SETTING] if type(settings) is dict and STORE_KEYS_SETTING in settings else _NO_SETTING
+
+
+def _read_store_keys(setting: object) -> dict[str, str]:
+    """Read the key file: own regular file (no symlink), mode exactly 0600, small JSON object holding exactly the
+    three keys as 64 hex digits. Every problem is ``OP_STORE_KEYS_INVALID`` with a fixed kind; no value is kept."""
+    def invalid(kind: str) -> TickError:
+        return TickError(EXIT_KEYS, "OP_STORE_KEYS_INVALID", kind)
+
+    if not isinstance(setting, str) or not setting or not Path(setting).expanduser().is_absolute():
+        raise invalid("setting") from None
+    try:
+        fd = os.open(Path(setting).expanduser(), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        raise invalid("unreadable") from None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise invalid("not_regular") from None
+        if info.st_uid != os.getuid():
+            raise invalid("owner") from None
+        if stat.S_IMODE(info.st_mode) != 0o600:
+            raise invalid("mode") from None
+        data = os.read(fd, STORE_KEYS_MAX_BYTES + 1)
+    except OSError:
+        raise invalid("unreadable") from None
+    finally:
+        os.close(fd)
+    if len(data) > STORE_KEYS_MAX_BYTES:
+        raise invalid("content") from None
+    try:
+        parsed = json.loads(data.decode("utf-8"))
+    except ValueError:
+        raise invalid("content") from None
+    if type(parsed) is not dict or set(parsed) != set(NAMES) or any(
+        type(value) is not str or not _KEY.fullmatch(value) for value in parsed.values()
+    ):
+        raise invalid("content") from None
+    return parsed
+
+
 def load_keys(environment: dict[str, str], credentials: Path | None, probe: _ProbeState | None = None) -> None:
     """Put the three store keys into ``environment``; keys already there are kept.
 
@@ -276,7 +331,11 @@ def load_keys(environment: dict[str, str], credentials: Path | None, probe: _Pro
         raise TickError(EXIT_KEYS, "EXISTING_KEY_FORMAT_INVALID")
     missing = [name for name, value in present.items() if not value]
     fetched: dict[str, str] = {}
-    if missing:
+    store_file = _store_keys_setting(credentials) if missing else _NO_SETTING
+    if missing and store_file is not _NO_SETTING:
+        stored = _read_store_keys(store_file)
+        fetched = {name: stored[name] for name in missing}
+    elif missing:
         if credentials is None or not credentials.is_file():
             raise TickError(EXIT_CONFIG, "CREDENTIAL_SETTINGS_UNAVAILABLE")
         try:
@@ -501,6 +560,8 @@ def main(
             append_log(log_dir, now, line)
         except OSError:
             sys.stderr.write("tick log_write_failed\n")
+    if code == "OP_STORE_KEYS_INVALID":
+        sys.stderr.write(STORE_KEYS_HINT + "\n")
     return exit_code
 
 
