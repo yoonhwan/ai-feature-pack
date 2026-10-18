@@ -1,0 +1,4 @@
+opre 시작 2026-10-18 10:21:36 dry=0 · launchctl 0 · 값 출력 0 · 상한 10.5초
+T0 기준: rc=0 ms=2025 형식통과=1 | AppData(preflight=no)=1 AllFiles(preflight=yes)=1 PROMPTING=0 | op요청 2건 분포={'AllFiles/preflight=yes': 1, 'AppData/preflight=no': 1} authValue=['41545.38:0', '41545.39:2']
+T1 OP_BIOMETRIC_UNLOCK_ENABLED=false: rc=0 ms=1862 형식통과=1 | AppData(preflight=no)=1 AllFiles(preflight=yes)=1 PROMPTING=0 | op요청 2건 분포={'AllFiles/preflight=yes': 1, 'AppData/preflight=no': 1} authValue=['41545.40:0', '41545.41:2']
+끝 — 위 «T0/T1» 줄을 그대로 Master 에 붙여 주세요 (값은 출력되지 않았습니다 · 판정은 정본 §4 표). 파일: /tmp/opre-20261018-102136.txt
