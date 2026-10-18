@@ -1,7 +1,7 @@
 # DA — 판정 440 팀·이슈 랜딩 정본화·문서화 위치·강제 설계 r1
 
 ## §1 사전 DA 요청 (byz-harness-arch-claude#14 → byz-harness-da-codex#0 · 2026-10-08)
-- 대상: design/harness/DESIGN-landing-canon-440-20261008.md r1 (§1 실태 · §2 안 · §3 오빠 결정 · §5 DA 질문 3).
+- 대상: design/teams/harness/DESIGN-landing-canon-440-20261008.md r1 (§1 실태 · §2 안 · §3 오빠 결정 · §5 DA 질문 3).
 - 범위 고정(bounded_da_review · 10분 1회 + 교정 1회 10분 · 2 HOLD 면 종료·통합 이관): §5 Q1~Q3 만. 새 설계 제안 0 · 반례는 파일:줄 또는 실측 명령 1개.
 - 실측 근거 재현 명령(선택): `git ls-tree -r --name-only origin/main design/harness | grep indices/완성 | wc -l` · `bash .fable-team/comm/mbox.sh peek FB_ARCHDOC#11` · `git rev-list --count origin/main..ops/main-base` · `gh pr view 913 --json closingIssuesReferences,files`.
 - 판정 형식: APPROVE / HOLD(원인 1~3 · 각 반례) — 이 파일 §2 에 append · 결론 1줄 mbox 회신.

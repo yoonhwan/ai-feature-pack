@@ -4,7 +4,7 @@
 > 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
 > 하네스 스킬 관리 오케는 메인오케들과 위성오케들에게 개선요청을 직접받아 등록관리하고 사용자와 협의해 개선하는 축도 필요함.
 > 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
-이 단위의 골 축: 표 A·B·C + 원문 5(머신 배분) + 원문 6-b(오케 요청을 사용자와 협의해 개선) + 원문 7(쪼개 동시에). 닫는 증거 = design/harness/OPS-VERDICTS-20261006.md 단위별 「닫힘」 줄 + 머신별 「반영됨」 행(RELEASE).
+이 단위의 골 축: 표 A·B·C + 원문 5(머신 배분) + 원문 6-b(오케 요청을 사용자와 협의해 개선) + 원문 7(쪼개 동시에). 닫는 증거 = design/teams/harness/OPS-VERDICTS-20261006.md 단위별 「닫힘」 줄 + 머신별 「반영됨」 행(RELEASE).
 ★승계 첫 일 = 골 대조 3줄을 byz-planner-master-claude#4 에 mbox 보고 + 부팅 3항(세션명/모델·창/Serena) 후 착수. 오빠께 올리는 글 = 결론→할 일→바뀐 것→근거 + ★PR·Issue 는 번호로만 쓰고 맨 아래 «번호·종류·제목·상태» 각주 표★(오빠 10-07 지침).★
 
 ## 이번 세션(#6)에서 끝난 것
@@ -15,7 +15,7 @@
 
 ## ★열린 일 (순서대로)
 1. **PR #838 병합 확인**(tmm 0.7.4) — 병합 안 됐으면 Python Test 결과 보고 병합.
-2. **나노 `ft-harness-temp-gh-as-tank-wrapper-guard#0`**(카드 `design/harness/indices/진행/gh-as-tank-wrapper-guard.md`, 브랜치 nano/gh-as-tank-wrapper-guard, base feat/gh-as-tank): 산출 = `ft-gh-as-tank.sh`(래퍼 · pr-comment 포함) + 가드 훅 `gh-issue-author-guard.sh` + 시험 + RESULT. 보고 오면 ops 독립 검증 → OPS-VERDICTS §21 → 카드 완성 이동 → PR 랜딩. 닫기는 `FT_NANO_FEAT=<통합 브랜치> ft-nano-close.sh … --cherry-override "<사유>"`(함정 아래).
+2. **나노 `ft-harness-temp-gh-as-tank-wrapper-guard#0`**(카드 `design/teams/harness/indices/진행/gh-as-tank-wrapper-guard.md`, 브랜치 nano/gh-as-tank-wrapper-guard, base feat/gh-as-tank): 산출 = `ft-gh-as-tank.sh`(래퍼 · pr-comment 포함) + 가드 훅 `gh-issue-author-guard.sh` + 시험 + RESULT. 보고 오면 ops 독립 검증 → OPS-VERDICTS §21 → 카드 완성 이동 → PR 랜딩. 닫기는 `FT_NANO_FEAT=<통합 브랜치> ft-nano-close.sh … --cherry-override "<사유>"`(함정 아래).
 3. **전 세션 전파 문서(①②)** — 오빠 10-07 「Issue·PR 쓰기는 byz-tank 래퍼만 · 전세션 전파 · 하네스+패블팀 지침 업데이트」: ①COMM-GUIDE-BOOT 15번째 줄(gh issue/PR 코멘트·생성은 래퍼만) + 글로벌 `~/.claude/CLAUDE.md` 📌 중요 지시사항 1줄 + 전 세션(planner·v65·cfo·issues·ccu·kk) 쪽지(팀별 본문 다르게) ②스킬 `references/main-team-governance.md` §5 + 좌석 부팅 템플릿 `templates/session-prompts/*.md`·키트 사본. 래퍼가 완성·검증된 뒤 사용법과 함께 배포한다.
 4. **HIL 대기(planner → 오빠 → 값으로 회신)**: 쪽지 58351 — 판정 A(#839 처리: 재등록+원본 close 권장) · 판정 B(가드 훅 `~/.claude/settings.json` PreToolUse 전역 설치 권장). 값이 오면 issues 총괄에도 내려간다. 설치는 가드 시험 통과 뒤 ops 가.
 5. **v65 승계 회신 대기** — `ft-v65-master-claude#142`(승계 시점 = 돌고 있는 일 끝난 뒤 · 현역 #142 · #141 정지레디). 오면 명부(seats.json) `_replaced_by`·계보 확인. 구 세션 닫기는 오빠/팀 판단.

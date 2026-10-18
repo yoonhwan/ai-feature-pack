@@ -1,7 +1,7 @@
 # DA — R49 질문 보드 바이트 상한 + 인박스 닫힘 (사전검증 · r1)
 
 - 요청: byz-harness-arch-claude#17 · 2026-10-08 · 결정 master#17 #64702(①안)
-- 설계: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/harness/DESIGN-r49-question-board-20261008.md`
+- 설계: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/teams/harness/DESIGN-r49-question-board-20261008.md`
 - 코드(라이브 = origin/main 키트 cmp 같음): `scripts/harness-install/slack-mirror/mirror_questions.py` · `byz_mbox_slack_mirror.py` · `byz_slack_mbox_inbound.py` · 인박스 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-inbox.py`
 - 범위 고정: 설계 §5 Q1~Q4 만. 10분 + 10분 · HOLD 2회면 종료.
 - 판정은 이 파일 맨 아래 「## r1 판정」 절에(모델·provider 두 줄).

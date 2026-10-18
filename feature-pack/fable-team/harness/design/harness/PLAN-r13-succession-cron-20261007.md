@@ -22,7 +22,7 @@
 5. ai-feature-pack main 에 미커밋 변경(main-team-governance.md M + .bak 3개 + harness-map.md ??) — master 집행 대기분으로 보임. B 설치 때 같은 리포를 건드리므로 먼저 정리 필요.
 
 ## B (본체) — BOOT 16조항 (arch 초안 = 완성본 · master 는 cp+cmp)
-- 초안: design/harness/drafts/r13/COMM-GUIDE-BOOT.md (라이브 바이트 + 머리 14→16줄 + 16조항 1줄). 다른 줄 변경 0.
+- 초안: design/teams/harness/drafts/r13/COMM-GUIDE-BOOT.md (라이브 바이트 + 머리 14→16줄 + 16조항 1줄). 다른 줄 변경 0.
 - 16조항 요지: master·planner·arch 는 부팅 보고 그 턴에 CronCreate 10분(recv + 하위 pane 실측 + 오빠 3줄) · 없으면 착수 0 · ft-tick 과 별개 · 부팅 보고에 cron=<job id> · 받는 오케는 빈칸이면 되묻기 · 닫을 때 CronDelete.
 - 대상 좌석 범위: master·planner·arch. 나노·tester·checker·DA 는 발주 이벤트로만 움직여 제외(크론을 걸면 오히려 빈 틱 소음).
 - 줄 수 영향: BOOT 45→46줄 · 매핑표 무변화(COMM-GUIDE.md 전문 sha16 d64777274c4b371a 그대로 — 전문은 안 바꿈).

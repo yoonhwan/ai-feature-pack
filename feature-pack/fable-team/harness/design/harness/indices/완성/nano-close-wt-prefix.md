@@ -1,5 +1,5 @@
 # 인덱스: 나노 닫기 — 좌석 워크트리 후보 접두를 팀 env(FT_NANO_WT_PREFIX)로 (v65- 고정 제거)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -30,4 +30,4 @@
 - 정본 영향 없음: 하네스 나노 도구·시험만 — docs/architect 제품 정본 변경 없음
 - 2026-10-07 20:13 — 대기→진행 · 좌석 byz-harness-nano-nano-close-wt-prefix#0
 - 세트: 5310ddb0e5e59a4362b1471ee42dbda50528a179 · 시험: bash tests/harness/test_nano_team_env.sh rc=0 · 이슈: 0
-- 2026-10-07 20:18 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§33
+- 2026-10-07 20:18 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§33

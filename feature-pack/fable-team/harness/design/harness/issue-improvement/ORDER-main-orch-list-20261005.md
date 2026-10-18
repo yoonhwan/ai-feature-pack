@@ -14,7 +14,7 @@
 > 「v65 cfo ccu 기반으로 설명하면 된다」 → 리스트·트리·mbox 예시는 v65 · cfo · ccu 세 팀 기준으로만. kk·planner·issue-manager·harness 는 한 줄 «그 외»로 접는다.
 
 ## 범위 (이것만 — 넘으면 멈춘다)
-- **이 단위 = 문서 1개** `design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md`. 기존 DESIGN-harness-composition 은 참조하지 않는다(새 컨텍스트).
+- **이 단위 = 문서 1개** `design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md`. 기존 DESIGN-harness-composition 은 참조하지 않는다(새 컨텍스트).
 - 포함 3가지만:
   1. **메인 하네스 오케 리스트** — 오케 1행 = {세션명 · 팀(메인/위성) · 모델 · 소속 명부 파일 · 살아 있는지(tmux 실측 · 시각 명시)}. 출처 = `.fable-team/seats-*.json` 의 `_master` + `tmux ls` + 에이전트 실재(pgrep -P).
   2. **mbox 전송 방식** — 보내기(send)·받기(recv/peek)·재발주(ring)·긴 글(relay)·도어벨·도달 판정을 «한 그림 + 명령 표»로. 출처 = `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` + `.fable-team/comm/mbox.sh` 실측.

@@ -1,5 +1,5 @@
 # 인덱스: ft-index-move 진행→완성 — 정본 갱신 카드는 실제 랜딩 commit 에 정본 diff 가 있어야 이동 + 쪽지 수신자 팀 _arch + DA 절-카드 대조(R37 합침) (판정 444 · 440 설계 r2 §4 순서 1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 444(오빠 컨펌 · planner#11 #63243 · master#16 #63247) · 판정 440 설계 r2 DA APPROVE · R37(master#15 #63005 · 이 카드에 합침)
 - 상태: 대기
 - 선행: 없음 — ★origin/main 최신에서 브랜치★(ft-index-move 슬랙 단계 #929 가 main 에만 있다 · ops/main-base 사본은 123줄 옛판 · 판정 444 ② 하네스 문서·코드는 랜딩 단위마다 main)
@@ -25,7 +25,7 @@ ft-index-move.sh 진행→완성 문은 지금 세 가지가 비어 있다. ①�
 ## 조사 근거
 - origin/main 기준 줄: `scripts/fable-team-bin/ft-index-move.sh:2` 사용법(이미 `--landed <sha>` 인자 있음 · 슬랙 결과 답글에 넘김) · `scripts/fable-team-bin/ft-index-move.sh:32` 절 찾기 awk `index($0,s)>0` 포함 비교(R37 접두 충돌) · `scripts/fable-team-bin/ft-index-move.sh:39` 정본 게이트 python(첫 「정본 갱신」 줄 하나만 보고 exit — 여러 줄이면 나머지 미검사) · `scripts/fable-team-bin/ft-index-move.sh:90` 슬랙 단계가 CANON_NOTE 를 읽음(형식 바꾸면 같이).
 - origin/main 133~148행: 완성 뒤 정본 쪽지 블록(role=arch-canon 좌석 찾기 · 없으면 WARN).
-- `design/harness/DESIGN-landing-canon-440-20261008.md:93` §6-1 범위·검사 ①~③ · `design/harness/DESIGN-landing-canon-440-20261008.md:103` §6-5 fixture 표.
+- `design/teams/harness/DESIGN-landing-canon-440-20261008.md:93` §6-1 범위·검사 ①~③ · `design/teams/harness/DESIGN-landing-canon-440-20261008.md:103` §6-5 fixture 표.
 - 명부 키: `.fable-team/seats-harness.json` 최상위 `_arch`(= 현역 arch 좌석명).
 
 ## 구현 범위 (닫힌 목록 · 추적본 + 키트 사본 같은 바이트)
@@ -56,4 +56,4 @@ ft-index-move.sh 진행→완성 문은 지금 세 가지가 비어 있다. ①�
 - 2026-10-08 16:50 — 대기→진행 · 좌석 byz-harness-nano-v444-index-move-canon-landed#0
 - 세트: 57c765fffedab1ddba5059cdb9cb196935749d55 · 시험: bash tests/harness/test_index_move_canon_landed.sh rc=0 · 이슈: 0
 세트: baa297a9c516db4090ebf0bf6b283b0a2dc657de · 시험: bash tests/harness/test_index_move_canon_landed.sh rc=0 · 이슈: 0
-- 2026-10-08 17:19 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§64
+- 2026-10-08 17:19 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§64

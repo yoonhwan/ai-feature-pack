@@ -9,7 +9,7 @@
 ## 고정 대상 (bounded_da_review 계약)
 - 커밋 `0c466f66caa824e1544c4af22a05db72e61a6cc6`(브랜치 `nano/v423b-report-hooks` · 새 파일 4 · 기존 파일 변경 0):
   `scripts/harness-install/fable-team/templates/hooks/report-coverage.sh`(Stop) · `scripts/harness-install/fable-team/templates/hooks/drain-before-interview.sh`(PreToolUse:AskUserQuestion) · `tests/harness/test_report_hooks.sh` · `tests/harness/fixtures/stub-ft-inbox.py`.
-- 카드: `design/harness/indices/대기/v423b-report-hooks.md`(구현 범위 1 + 「전역/planner 훅 영향 점검 표」 5행) · 설계 `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:50-57`·`:143-146` · 사전 DA `design/harness/DA-news-board-20261009.md`(N2 잔여 = 이 구현 DA 에서 재확인).
+- 카드: `design/teams/harness/indices/대기/v423b-report-hooks.md`(구현 범위 1 + 「전역/planner 훅 영향 점검 표」 5행) · 설계 `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:50-57`·`:143-146` · 사전 DA `design/teams/harness/DA-news-board-20261009.md`(N2 잔여 = 이 구현 DA 에서 재확인).
 - 지원 범위: planner 좌석 1개의 settings 에만 등록(전역 0) · Claude Code jsonl transcript · 인박스 = origin/main `scripts/fable-team-bin/ft-inbox.sh`(show·report) · `tools/comm-canonical/mbox.sh peek`(`pending=N …` 한 줄).
 - 증거(arch 재현 · origin/main + 이 커밋): `test_report_hooks.sh` rc=0(16 PASS) · 실제 ft-inbox 로 돌리면 실패 주입 3건만 FAIL(스텁 전용 · 나머지 13 PASS) · `test_kit_bin_sync.sh` rc=0 · bash -n 0 · 755. 실데이터: planner 인박스 ①~④ 미닫힘 **119** seq(①5 · ②73 · ③30 · ④11 · 23:2x) · planner transcript 2.0MB 전체 파싱 0.06 s.
 - 후속 소유: 수정 = 같은 나노 반송 · 설치·등록·첫 2일 관찰 = master.
@@ -22,7 +22,7 @@
 - 범위 밖(새 요구 금지): 119건 백로그 처리 방식 · 로그 파일 위치 통합 · 미상 분류.
 
 ## 판정문
-`design/harness/DA-v423b-report-hooks-20261008.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-v423b-report-hooks-20261008.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 (arch#19 · 2026-10-08 · bounded — Q3 + 시험 ①~⑤만 · 새 요구 0 · 10분 + 정정 10분)
 - 고정 대상: 커밋 `8567db092392521683d3e2bc2de8c8fc0d5eb284`(r1 `0c466f66ca` 위 [fix] 1개 · 같은 브랜치 · 파일 4개 그대로) · 반송서 `.fable-team/state/drafts-r21/REJECT-v423b-report-hooks-r1.md`.
@@ -30,4 +30,4 @@
 - 증거(arch#19 재현 · origin/main b4ce4ab0a5 아카이브 + `git diff 44e45993f6 8567db0923` 적용): `test_report_hooks.sh` rc=0(24 PASS · 반송 시험 ①~⑦ 포함 · ⑦ 변이 대조 = 접두 조건 제거 시 「PR #70001」 보고) · `test_kit_bin_sync.sh` rc=0.
 - **Q3r2**: 새 `cited()` 가 ①PR·Issue·이슈·맨 `#숫자` 를 보고하는 경로 ②`쪽지 #a·#b` 묶음에서 이어지지 않은 뒤쪽 `#숫자`(예: 「쪽지 #70001 · PR #70002」)를 묶음으로 삼키는 경로 ③묶음 G 일부만 인용 시 나머지가 reported 로 서는 경로 ④`last_assistant_message` 와 transcript 가 다를 때 transcript 쪽을 쓰는 경로 — 하나라도 있으면 코드 줄 + 재현 입력.
 - 범위 밖(r1 그대로): Q1·Q2·Q4(r1 APPROVE) · 로그 위치(반송서 §2 는 시험 ⑥으로 확인) · 백로그 119건.
-- 판정문: `design/harness/DA-v423b-report-hooks-20261008.md` 에 r2 절 · 끝 줄 APPROVE 또는 HOLD.
+- 판정문: `design/teams/harness/DA-v423b-report-hooks-20261008.md` 에 r2 절 · 끝 줄 APPROVE 또는 HOLD.

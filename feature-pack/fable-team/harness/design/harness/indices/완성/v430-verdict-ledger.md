@@ -1,8 +1,8 @@
 # 인덱스: 판정 번호 원장 — ft-verdict.sh(seed·new·done·todo·list) · 루트 단일 물리 파일 · 단일 호스트 발급 (판정 421 설계 §2-1 · N1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 421·430(planner #62745) · 원장 R34 합침
 - 상태: 대기
-- 선행: 없음(안 = design/harness/DESIGN-news-tree-workqueue-viz-20261009.md §2-1 · §3 나노 1) · 나노 4(인박스)와 병렬
+- 선행: 없음(안 = design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md §2-1 · §3 나노 1) · 나노 4(인박스)와 병렬
 - 시험 입력: 임시 디렉터리 FT_ROOT(가짜 명부 seats-planner.json · 가짜 hostname 은 env FT_VERDICT_HOSTNAME 주입) — 실제 루트 원장 쓰기 0
 - 기준값: 지금 판정 번호 원장 파일 0 개(design/planner/orders 1장뿐) · 408·410 번호 충돌 2회(구 planner 와 후계가 각자 발급)
 
@@ -20,11 +20,11 @@ planner 가 매기는 «판정 N» 번호는 지금 어디에도 원장이 없�
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N1·N3 APPROVE · N2 잔여는 설계 §8 정본 술어로 고정) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#13
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N1·N3 APPROVE · N2 잔여는 설계 §8 정본 술어로 고정) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#13
 
 ## 조사 근거
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:30` 판정 원장 계약(물리 파일·lock·사건 2종·권위 키·seed).
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:68` 나노 배분 순서(나노 1 = 시험 목록).
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:30` 판정 원장 계약(물리 파일·lock·사건 2종·권위 키·seed).
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:68` 나노 배분 순서(나노 1 = 시험 목록).
 - `tools/comm-canonical/mbox.py:61` 같은 런타임 디렉터리에서 창·상한을 env 로 받는 꼴(경로·env 이름 관례).
 
 ## 구현 범위 (닫힌 목록 · 추적본 + 키트 사본 같은 바이트)
@@ -53,4 +53,4 @@ planner 가 매기는 «판정 N» 번호는 지금 어디에도 원장이 없�
 - 2026-10-08 14:43 — 대기→진행 · 좌석 byz-harness-nano-v430-verdict-ledger#0
 
 - 2026-10-08 — 증거: 세트: b382723e315be685535d4b9048c45f0fd019582c · 시험: bash tests/harness/test_verdict_ledger.sh rc=0 · 이슈: 0
-- 2026-10-08 14:58 — 진행→완성 · 좌석 byz-harness-nano-v430-verdict-ledger#0 · DA design/harness/OPS-VERDICTS-20261006.md#§58
+- 2026-10-08 14:58 — 진행→완성 · 좌석 byz-harness-nano-v430-verdict-ledger#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§58

@@ -1,5 +1,5 @@
 # 인덱스: v423b planner 보고 의무 훅 2종 — report-coverage(Stop · 턴 키당 block 1회 · 최종 답변 #seq → ft-inbox report) · drain-before-interview(PreToolUse AskUserQuestion · 턴 키당 deny 1회) (판정 423 ①⑤ · 430·431 · 설계 §2-4 · v423 분할 2/3)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 423(오빠 승인 6개: ①종류별 보고 의무 ②미러 할 일 금지+planner 처리 1줄 ③판정·승인·HIL 항상 doorbell ④회신 상한 완화 ⑤인터뷰 전 함 비우기 ⑥보드 planner 미처리 칸) · 421 발행 · 430·431 컨펌(planner #62745 · master #62749)
 - 상태: 대기
 - 선행: v425 인박스 랜딩(완료 · #929 b8275bf997 · `ft-inbox.py` show·mark·report·obligation_closed 실재) · v423a 랜딩 뒤 착수(순서만 · 파일 겹침 0)
@@ -19,11 +19,11 @@ R34 실측: planner 는 쪽지를 빨리 읽지만(중앙값 22초) 읽은 뒤 �
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
 - 분할(arch#18): 원 카드 사전검증·DA·컨펌이 세 카드를 그대로 덮는다(범위는 원 카드 구현 범위의 부분집합).
 
 ## 조사 근거 (origin/main dbbf096099 재확인 · arch#18)
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:50`~`:57` R34 훅 2종 · `:143`~`:146` 정본 술어·필수 가짜 시험·턴당 1회 상한.
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:50`~`:57` R34 훅 2종 · `:143`~`:146` 정본 술어·필수 가짜 시험·턴당 1회 상한.
 - `scripts/fable-team-bin/ft-inbox.py:4` 명령(ingest·show·mark·report·archive) · `:128` cmd_report · `scripts/fable-team-bin/ft_inbox_core.py` obligation_closed(술어 재구현 0 — `show` 출력·`report` 호출만).
 - `scripts/harness-install/fable-team/templates/hooks/gh-issue-author-guard.sh:1` PreToolUse 훅 꼴(입력 JSON · deny 출력) · `scripts/harness-install/fable-team/templates/hooks/context-distill-gate.sh` 턴 단위 상태 파일 관례.
 - 판정 514(루트 지침 · governance §9 B): planner 는 큐가 비면 오빠께 AskUserQuestion 으로 «다음 일»을 묻는다 — drain-before-interview 는 그 인터뷰 직전에 함을 비우게 하는 쪽이라 충돌 0(팀 master 의 `[완료·휴식]` 쪽지도 인박스 줄 — 분류는 `rule_class` 그대로).

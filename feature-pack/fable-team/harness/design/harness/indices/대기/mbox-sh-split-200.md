@@ -1,5 +1,5 @@
 # 인덱스: mbox.sh 200줄 이하 분리 — 동작 변화 0 [structure] (CLAUDE.md Code Metrics · 판정 #62814 arch 회신 #62821)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → master #62814 질의 · arch 판정 #62821(나노 4 카드 범위 밖 · 위생 대기 1장)
 - 상태: 대기
 - 선행: 나노 4(인박스 · nano/v425-master-inbox) 랜딩 · 나노 3(대기/v423-publish-report-hooks.md) 랜딩 — 둘 다 mbox.sh 를 만지므로 그 뒤에 한 번에 쪼갠다(충돌 0)

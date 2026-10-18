@@ -1,5 +1,5 @@
 # 인덱스: 가드 ㉠(INJECT) 라이브 오탐 보강 — 게시 본문(heredoc → Tank 래퍼·gh·git commit)은 글자, 실행 경로는 계속 차단 (판정 595 · master#21 쪽지 #67033)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 595(master#21 · 홈 훅 ㉠ 원복 중 = 오빠 절대지침 가드가 지금 꺼져 있음 · 우선 높음)
 - 상태: 대기
 - 선행: 없음
@@ -39,7 +39,7 @@
 1. 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py` 에 `--inject` 모드(위 설계) · 인자 없는 기본 경로 출력 바이트 불변.
 2. 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` INJECT 블록의 `EFFECTIVE` 세 곳 → `INJ_SRC`(+1줄). PATTERN·STAGE·judge 기본 호출 변경 0.
 3. 시험 `tests/harness/test_block_destructive_inject.sh` 에 아래 F·X 행 추가(200줄 넘으면 새 파일 `test_block_destructive_inject_post.sh`) + 변이 M3(`--inject` 가 F1 조건 «F 의 다른 자리» 검사를 건너뛰는 복사본 → X3·X12 FAIL).
-4. 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md` 에 F·X 행 추가(실제 rc 칸 = 시험 산출).
+4. 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md` 에 F·X 행 추가(실제 rc 칸 = 시험 산출).
 커밋은 자기 브랜치, **push 금지**. **금지**: 홈 `~/.claude/hooks/` 쓰기·settings.json 수정(설치 = master).
 
 ## 대조표 추가 행 (1행 = 1검사 · 명령 전문은 probe595.py · 표 안 임시 경로는 예시 글자)
@@ -79,4 +79,4 @@
 ## 결과 (나노 RESULT #67053 + r1·r2 반송 · arch#22 서명 · master#21 옮김 2026-10-09)
 세트: 729cd6cdf348549bf3ed48271bf6182c183f7e73 · 시험: bash tests/harness/test_block_destructive_inject.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 훅 템플릿·시험·대조표만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 05:46 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§100
+- 2026-10-09 05:46 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§100

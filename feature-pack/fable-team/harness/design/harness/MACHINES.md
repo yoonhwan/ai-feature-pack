@@ -1,6 +1,6 @@
 # MACHINES — 머신 배분표 (하네스 키트가 어느 머신에 어느 버전으로 깔렸나)
 
-골 축: 표 C(업그레이드·배포·머신별 반영) · 원문 5(메인 하네스를 머신들에 독립 배분). 정본 설계: `design/harness/issue-improvement/DESIGN-harness-composition-20261005.md` §3-4.
+골 축: 표 C(업그레이드·배포·머신별 반영) · 원문 5(메인 하네스를 머신들에 독립 배분). 정본 설계: `design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md` §3-4.
 키트: `scripts/harness-install/fable-team/` · 설치: `install.sh --machine <이름> [--apply]` · 반영 기록은 `RELEASE-<ver>.md` 의 머신별 「반영됨 <machine> <sha>」 행.
 값을 모르는 칸은 «미확인» 으로 둔다 — 추측해 채우지 않는다.
 

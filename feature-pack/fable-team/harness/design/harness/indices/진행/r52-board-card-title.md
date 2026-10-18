@@ -1,5 +1,5 @@
 # 인덱스: 상태판 카드 제목 = 첫 5줄 안의 첫 `# ` 줄 (`<!-- ledger -->` 주석·빈 줄 건너뜀 · 없으면 `<id> (제목 없음)`) (R52 · master#18 #65016 · 나노 1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 원장 R52(master#18 발견 #65016 — cfo·feature 카드 제목이 ledger 주석 줄로 나옴)
 - 상태: 대기
 - 선행: 없음(origin/main a7fcb904bb 이후 `scripts/fable-team-bin/ft_board_collect.py` 만)

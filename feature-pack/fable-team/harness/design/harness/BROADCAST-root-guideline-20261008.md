@@ -1,5 +1,5 @@
 
-[byz-harness-master-claude#18 -> 팀 master] **하네스 루트 지침 (판정 514 · 정본 governance §9 · BOOT 19 · 전문 `design/harness/ROOT-GUIDELINE-draft-20261008.md (정본 설치 완료: governance §9 · BOOT 19)`)**
+[byz-harness-master-claude#18 -> 팀 master] **하네스 루트 지침 (판정 514 · 정본 governance §9 · BOOT 19 · 전문 `design/teams/harness/ROOT-GUIDELINE-draft-20261008.md (정본 설치 완료: governance §9 · BOOT 19)`)**
 
 ## 오빠 원문 (2026-10-08 21:3x · 그대로)
 > 메인팀이 발주한 작업을 끝내고 멈춰서 놀고있는게 최고야. 지금 보면 하네스해보니 안끝내고 어떻게든 질질질 끌고 과거의 옛데이터 마저 끌어와다가 세션을 이어 토큰을 소모하는 형상이다. 이거 절대 반대해야하고 절대 지침으로 플래너와 하네트마스터가 개선해야한다.
@@ -26,7 +26,7 @@ press READ·checker 산출·BTS 4축 표에 **turbopack 칸**(`POST :3001/_next/
 | 팀 master | 팀 큐가 비면 planner 에 `[완료·휴식]`(닫은 카드 목록 + sha + 다음 일 요청) | 그 틱에 증거 줄 검사 → 닫기(nano-close) 또는 큐의 다음 카드 발주 / 미비면 반송. 처리 없이 틱을 넘기면 ⚠ 는 master 에 붙는다 |
 | planner | — | 팀 `[완료·휴식]` 또는 상태판 `완료·휴식` 열이 0 이 아니면 그 틱에 오빠께 AskUserQuestion 으로 «다음 일»을 묻는다. 카드를 지어 채우지 않는다 |
 
-## 판정 511 정정 (10-08 21:1x master#17 방송 = `design/harness/RULE-status-from-measurement-20261008.md` 규칙 4줄 · 원문 그대로 다시 싣고 2·4 에만 단서를 단다)
+## 판정 511 정정 (10-08 21:1x master#17 방송 = `design/teams/harness/RULE-status-from-measurement-20261008.md` 규칙 4줄 · 원문 그대로 다시 싣고 2·4 에만 단서를 단다)
 > 1. **상태 칸 = 실측만.** 값의 출처는 pane 의 마지막 `✻ … done` 줄 · jsonl(`ft-reach-check.sh`) · 프로세스 실재 중 하나다. 마지막으로 받은/보낸 쪽지 문장을 상태로 옮겨 적지 않는다.
 > 2. **「진행」은 그 좌석이 지금 도는 경우만.** `✻ … 중` 이거나 자식 프로세스가 실재할 때. done 이면 「진행」이라고 쓰지 않는다.
 > 3. **멈춰 있으면 이렇게 쓴다**: 「정지 N분 · 기다리는 것 = <좌석> 의 <값>」. 누구의 무엇을 몇 분째 기다리는지가 빠지면 아무도 막힌 곳을 풀지 못한다.

@@ -15,7 +15,7 @@
 - 승인된 표준 경로: 나노 닫기(`ft-nano-close` — 세션 kill·워크트리 정리·브랜치 보존) · tmux kill-session. 브랜치 삭제·`git worktree remove` 직접 = 훅 차단 → 오빠 느낌표.
 
 ## 오늘 끝낸 것 (사실)
-- PR 845(키트 bin 단일 원본화+홈 훅 확인 줄 · main bc87df1302) · PR 846(나노 spawn·close 팀 env 자동 로드+role-spawn 접두 · main 5663d3f9ce) · PR 850(embeddinggemma2 조사 · main f3e86db043) 병합. Issue 842·848 닫음. 판정서 `design/harness/OPS-VERDICTS-20261006.md` §1~§27.
+- PR 845(키트 bin 단일 원본화+홈 훅 확인 줄 · main bc87df1302) · PR 846(나노 spawn·close 팀 env 자동 로드+role-spawn 접두 · main 5663d3f9ce) · PR 850(embeddinggemma2 조사 · main f3e86db043) 병합. Issue 842·848 닫음. 판정서 `design/teams/harness/OPS-VERDICTS-20261006.md` §1~§27.
 - R13 B: COMM-GUIDE-BOOT 16조항(ai-feature-pack main 71e95b5 · 라이브=키트=초안 cmp 0 · 백업 .bak-1007-r13) + 승계 6단계 ⑤ 문구 3곳(7c15014) + BYZ 키트 templates/rules/orchestration.md(0a45036e82 계열).
 - 라이브 `.worktrees/v6-realtime-live/.fable-team/bin/ft-role-spawn.sh` 만 키트 바이트로 교체(백업 .bak-1007-role-spawn). 나머지 라이브 bin 은 옛 바이트 — ★FT_BIN 전환(설치) 때 일괄. nano-close 를 바꿀 땐 nano-spawn·nano-evidence-check 를 한 세트로★.
 
@@ -38,4 +38,4 @@
 
 ## 환경
 - 워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops` · 좌석: byz-harness-arch-claude#6(상시) · byz-planner-master-claude#5(planner·HIL) · byz-issues-master-claude#1 · byz-cfo-master-claude#54 · byz-v65-master-claude#145 · 나노 4석(위 1번).
-- 판정서 `design/harness/OPS-VERDICTS-20261006.md` §1~§27 · 요청 원장 `REQUEST-LEDGER.md` R1~R15 · RELEASE 0.1~0.3(0.4 작성 전) · 인계 이전분 `HANDOFF-harness-master-7-to-8-20261007.md` · arch 인계 `HANDOFF-harness-arch-5-20261007.md`.
+- 판정서 `design/teams/harness/OPS-VERDICTS-20261006.md` §1~§27 · 요청 원장 `REQUEST-LEDGER.md` R1~R15 · RELEASE 0.1~0.3(0.4 작성 전) · 인계 이전분 `HANDOFF-harness-master-7-to-8-20261007.md` · arch 인계 `HANDOFF-harness-arch-5-20261007.md`.

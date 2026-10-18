@@ -9,7 +9,7 @@
 ## 고정 대상
 - 커밋 `7a6d8f4152c74aa48bedd624bc3a61e43f1ede7b`(브랜치 `nano/v558-inbox-waive-backlog` · base origin/main 076f0cc9cd · 5파일 +179 −12):
   `scripts/fable-team-bin/ft_inbox_core.py`(obligation_closed 에 `or line.get("waived") is not None` · 130줄) · `scripts/fable-team-bin/ft-inbox.py`(새 `cmd_waive` · main 분기 · usage · 예외 목록에 TypeError · waive 예외 rc=2 · 192줄) · 키트 사본 2 · 새 `tests/harness/test_inbox_waive.sh`(121줄).
-- 카드 `design/harness/indices/진행/v558-inbox-waive-backlog.md`(구현 범위 1~4 · 사전검증 «구현 DA 1회 · Q1~Q2 고정»).
+- 카드 `design/teams/harness/indices/진행/v558-inbox-waive-backlog.md`(구현 범위 1~4 · 사전검증 «구현 DA 1회 · Q1~Q2 고정»).
 - 증거(arch#19 재현 · origin/main 076f0cc9cd 아카이브 + 나노 diff): test_inbox_waive 42 PASS · test_inbox 64 · test_report_hooks 23 · test_kit_bin_sync 6 · test_board 71 — 전부 rc=0 · 사본 cmp · ruff 0.
   ★독립 변이★: 술어의 waived 항 삭제 → test_inbox_waive FAIL 4(show 잔류 3 · 재실행 멱등 깨짐).
   ★실데이터(라이브 planner 큐 «복사본» · 라이브 원본 md5 불변)★: `waive byz-planner-master-claude#13 --before 2026-10-08T21:38 "판정 558 ④ …"` → `WAIVED 79` · `SKIPPED_NO_MARK 133` · show 334 → 255줄 · 면제 79줄 전부 21:38 이전 · 그중 reported=true 0.
@@ -20,4 +20,4 @@
 - 범위 밖(새 요구 금지): 21:38 이전 ⑤⑥·미상 133줄 정리 · v423b 훅 등록 시점 · 미상 분류(R57).
 
 ## 판정문
-`design/harness/DA-v558-inbox-waive-20261009.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-v558-inbox-waive-20261009.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.

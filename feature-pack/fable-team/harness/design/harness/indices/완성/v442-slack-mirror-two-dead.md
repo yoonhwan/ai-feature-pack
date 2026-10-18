@@ -1,5 +1,5 @@
 # 인덱스: 슬랙 미러 둘 정지 복구 — github 미러 크래시 루프 + mbox 미러 planner 좌석명 불일치 (판정 442)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 442(오빠 「슬랙 알림 전혀 안 옴」 · planner#11 #63101 · 우선 처리)
 - 상태: 대기
 - 선행: 없음
@@ -25,7 +25,7 @@ PR 911(10-08 14:28 설치)이 `mirror_lib.format_row` 시그니처를 `(row, lab
 ## 조사 근거
 - 키트 `scripts/harness-install/slack-mirror/` : `byz_github_slack_mirror.py:57` · `byz_mbox_slack_mirror.py:145` · `mirror_lib.py:181` · `com.hermes.byz-mbox-slack-mirror.plist.template`(`--seat __SEAT__`) · `install.sh` · `install-github.sh` · `install-inbound.sh`.
 - 홈 실물: `~/Library/LaunchAgents/com.hermes.byz-mbox-slack-mirror.plist` `:12` · `~/.hermes/logs/byz_github_slack_mirror.err`.
-- 정본 설계 `design/harness/DESIGN-slack-mirror.md`.
+- 정본 설계 `design/teams/harness/DESIGN-slack-mirror.md`.
 
 ## 구현 범위 (닫힌 목록)
 1. `byz_github_slack_mirror.py` 의 `format_row` 호출을 현행 시그니처에 맞춘다(github 행에 맞는 `block=` 값은 `mirror_lib` 의 기존 헬퍼를 읽고 결정 · 새 fallback 금지 — 값을 못 만들면 raise).
@@ -47,4 +47,4 @@ PR 911(10-08 14:28 설치)이 `mirror_lib.format_row` 시그니처를 `(row, lab
 - 정본 영향 없음: 하네스 미러 도구·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 16:07 — 대기→진행 · 좌석 byz-harness-nano-v442-slack-mirror-two-dead#0
 세트: 37350a4a0463ada6b8ca7318ed96ba712a8123c0 · 시험: bash tests/harness/test_slack_mirror_signature.sh rc=0 · 이슈: 0
-- 2026-10-08 17:57 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§68
+- 2026-10-08 17:57 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§68

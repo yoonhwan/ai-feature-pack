@@ -6,7 +6,7 @@
 > 2026-10-09 판정 649(오빠 확정 「그래픽 UI/UX 팀 이 구성으로 확정 — arch=codex astra · 나노=codex sol ≤2 · 상시 0 · 요청 때 하네스가 개설·닫기 · DA=Claude Opus」): graphics 신설 → §1 이름 목록 · §1-1 팀 값 표 · §8.
 > 출처 원문: 오빠 10-07 「planner, harness, issue, v65, cfo 기동 이름 규칙부터 맞춰 …」 · 「이슈 자율 루프는 돌되 자동 승인 진행 하지는 말고 …」 · 「정본하는게 fable-team이잖아? 우리 개선하는게」
 
-## 1. 좌석 이름 규칙 (P6 · 프로젝트 `design/harness/issue-improvement/SPEC-session-naming-20261005.md` §2 사본)
+## 1. 좌석 이름 규칙 (P6 · 프로젝트 `design/teams/harness/issue-improvement/SPEC-session-naming-20261005.md` §2 사본)
 - 문법 `<프로젝트>-<팀>-<역할>[-<꼬리>]#<N>` · 역할 예약어 10 = master arch da tester checker analyst pm nano repro tool · 역할 좌석 꼬리 = 에이전트(claude|codex|opencode|cmd) 필수 · nano 꼬리 = 카드 slug · 소문자·숫자·`-` 만 · 길이 ≤ 60. 검사 = `ft-name-lint.sh <이름>`.
 - **메인 팀 총괄(오케) 역할명은 전 팀 `master` 로 통일**(오빠 10-07 «master 가 메인오케다»): `byz-v65-master-claude` · `byz-cfo-master-claude` · `byz-planner-master-claude` · `byz-harness-master-claude` · `byz-issues-master-claude` · `byz-feature-master-claude` · `byz-ops-master-claude` · `byz-loom-master-claude`(팀 글자 = 명부 파일명 `seats-<팀>.json` 과 같게).
 - graphics = master 0 · 하네스 master 가 대행(열기·감시·닫기) — 오케 이름 목록에 `byz-graphics-master-claude` 를 넣지 않는다. graphics 좌석 이름 = `byz-graphics-arch-codex#N` · `byz-graphics-da-claude#N` · `byz-graphics-nano-<카드 slug>#N`.
@@ -22,7 +22,7 @@
 | ops | `byz-ops-` · `team:ops` | `seats-ops.json` · `bin-ops/` | `design/ops/GOAL-ops.md` | 운영툴(/admin) 화면·관리 API 전부(Loom·RAG 관리 화면 포함) — 과금 계산(cfo)·Loom 데이터 이관·검색 런타임(loom)·통역 화면 0 |
 | loom | `byz-loom-` · `team:loom` | `seats-loom.json` · `bin-loom/` | `design/loom/GOAL-loom.md` | Loom 데이터 모델·Redis→PG 이관·도메인 계층·임베딩·검색 런타임 — 운영툴 화면(ops)·과금(cfo) 0 · 발행 경로 변경은 PR 까지 |
 | graphics | `byz-graphics-` · `team:graphics` | `seats-graphics.json` · `bin-graphics/` | `design/graphics/GOAL-graphics.md` | 요청 때만 여는 공용 서비스 — 페이지 요청 = 홈피 기준 업그레이드 + FE 코드 연동 · 디자인 시스템 · 모션 — 기능 기획·과금·발행 경로·랜딩 0 (제안서 판정 635) |
-| harness · issues | `byz-harness-` · `team:harness-ops` / `byz-issues-` | `seats-harness.json` · `seats-issues.json` | `design/harness/GOAL-harness.md` · `design/issues/GOAL-issues.md` | 공유 하네스 · 이슈 원장 — 제품 코드 0 |
+| harness · issues | `byz-harness-` · `team:harness-ops` / `byz-issues-` | `seats-harness.json` · `seats-issues.json` | `design/teams/harness/GOAL-harness.md` · `design/issues/GOAL-issues.md` | 공유 하네스 · 이슈 원장 — 제품 코드 0 |
 - ops ↔ loom 계약: loom 이 관리 API 입력·출력 1장을 먼저 쓰고 ops 가 그 위에 화면을 올린다(판정 370 제안서 §1).
 - 나노 워크트리 접두는 `<팀>-nano-`(ops·loom — 기존 `ops-*`·`loom-*` 워크트리와 겹침 방지) · 그 외 팀은 각 env 의 `FT_NANO_WT_PREFIX`.
 
@@ -50,7 +50,7 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 - arch 검토 대상(안 없이 집행 0): ①설계·새 스크립트/훅 기능 ②가드·차단 훅(설치·등록 포함) ③설치·배포(홈 디렉터리·settings.json·~/.tmm·원격 머신) ④정본 변경(governance·COMM-GUIDE·BOOT·스킬 SKILL.md·전역/프로젝트 CLAUDE.md) ⑤좌석·모델·이름 규칙 변경 ⑥PR 랜딩 순서·되돌림.
 - master 직접(검토 불요): 조회(seats·map·gh view) · 문서 오타 · 원장 행 추가(결정 없는 기록) · 나노 생존 확인 · «집행».
 - ★«집행» 정의(arch#5 판정 10-07)★: 랜딩·커밋·push·검증된 파일의 설치 복사(cp+cmp)·.bak 복원·머지 충돌의 문서 줄 순서 정리·좌석 개설/닫기·명부·원장 기록. ★파일 «내용을 쓰는 것»은 집행이 아니다★ — 코드·스크립트·훅·시험 = 나노, 시안·설계 = arch. 나노 증거 줄 REJECT = 그 나노에 반송(닫힌 나노면 재spawn). arch 안이 있어도 master 가 «손으로» 쓰지 않고, 안 없이 집행하지도 않는다(오빠 「독단 금지」 둘 다). 전역 「한 턴 코드 2파일」 은 팀 좌석 없는 단독 세션용이고 팀 master 는 0.
-- 흐름: master 발주(mbox · 골 원문 3줄 + 골 축 1줄) → arch 안(결론 1줄 · 승인/수정/반려 · 이유 3줄 · 근거 경로 · 긴 것은 design/harness/ 초안 파일) → master 집행 → master 가 결과(sha·설치 위치·되돌림 명령)를 arch 에 통지 → arch 닫힘 확인 1줄.
+- 흐름: master 발주(mbox · 골 원문 3줄 + 골 축 1줄) → arch 안(결론 1줄 · 승인/수정/반려 · 이유 3줄 · 근거 경로 · 긴 것은 design/teams/harness/ 초안 파일) → master 집행 → master 가 결과(sha·설치 위치·되돌림 명령)를 arch 에 통지 → arch 닫힘 확인 1줄.
 - 사후 검토: 긴급(라이브 장애·권한 사고)으로 master 가 먼저 집행했으면 같은 턴에 arch 에 사후 검토 발주 + 되돌림 명령을 함께 적는다.
 - 오빠 값을 arch/master 판단으로 뒤집지 않는다 — 다르게 가자는 안은 §7 경로(planner [HIL])로 값을 다시 받는다.
 - 나노 접두 = 팀 env 파일의 `FT_NANO_PREFIX`(`byz-<팀>-nano-`) — spawn·close·카드 키가 같은 값을 쓴다. 옛 이름(`ft-<팀>-temp-`) 나노가 살아 있으면 그 한 건만 명령 앞에 접두를 주입한다.
@@ -71,9 +71,9 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 - 보고(상위·오빠)의 좌석 상태 칸 = `작업중` 또는 `정지 N분 · 기다리는 것 = <좌석> 의 <값>` — 기다리는 것은 상태판 «추정» 줄을 master 가 확인해 적는다(모르면 「확인 중」 + 그 턴 확인).
 - planner 는 팀 master 위에서 같은 감시를 한다(팀 master 좌석도 대상).
 - graphics 좌석이 열려 있는 동안 하네스 master 는 `seats-graphics.json` 현역 좌석 전체를 자기 10분 틱 감시 대상에 넣는다(graphics = master 0 · 상시 틱 0).
-- 위반 = 멍청한짓 1건(`~/.claude/rules/dumb-time-ledger.md`). 규칙 4줄 원문 = 프로젝트 `design/harness/RULE-status-from-measurement-20261008.md`.
+- 위반 = 멍청한짓 1건(`~/.claude/rules/dumb-time-ledger.md`). 규칙 4줄 원문 = 프로젝트 `design/teams/harness/RULE-status-from-measurement-20261008.md`.
 
-## 9. 골을 끝내면 멈추고 다음 일은 묻는다 (오빠 2026-10-08 판정 514 「골을 줬으면 끝내고 놀아 … 플래너와 나한테 다음작업을 물어보는게 가장 건강한거고 중요한거다」 · 루트 지침 design/harness/ROOT-GUIDELINE-draft-20261008.md)
+## 9. 골을 끝내면 멈추고 다음 일은 묻는다 (오빠 2026-10-08 판정 514 「골을 줬으면 끝내고 놀아 … 플래너와 나한테 다음작업을 물어보는게 가장 건강한거고 중요한거다」 · 루트 지침 design/teams/harness/ROOT-GUIDELINE-draft-20261008.md)
 - 좌석 상태는 셋뿐: ①진행 ②정지·미완(안 끝났는데 멈춤 → §8 깨움 대상) ③완료·휴식(받은 골을 끝내고 멈춤 → 정답 · 깨우지 않는다). 판별 = jsonl IDLE ∧ 마지막 발신 머리 `[완료·휴식]`(또는 `[완료·휴식 유지 #seq]`) ∧ 본문의 증거 줄 `세트: <40hex> · 시험: … rc=<n> · 이슈: …` 형태 + 그 sha 실재 — 셋 중 하나라도 빠지면 ②이고 §8 그대로 깨움 대상. ③ 확정은 받는 쪽의 `ft-nano-evidence-check` 통과.
 - 끝낸 좌석은 상위 1단에 `[완료·휴식]` 1통(끝났음 + 증거 줄 + 다음 일 요청)을 보내고 쉰다 — 그 뒤 파일·커밋·press 0, 틱·ring 에는 `[완료·휴식 유지 #seq]` 1줄만(시계는 원 쪽지 발신 시각). 발주 seq(기록 실재 · from = 현역 팀 master/planner 계보 · to = 그 좌석)가 와야 다시 진행이다.
 - 같은 턴 규칙(오빠 판정 532): 완료 조건을 충족한 좌석은 그 턴에 증거 줄을 기록하고 `[완료·휴식]` 를 발신한다 — 턴을 넘기거나 「정리 뒤에」로 미루지 않는다. 미이행(완료 조건은 다 붙었는데 증거 줄·발신이 없는 턴 종료)은 받는 쪽 master 가 ②정지·미완으로 처리한다(깨움·반송).

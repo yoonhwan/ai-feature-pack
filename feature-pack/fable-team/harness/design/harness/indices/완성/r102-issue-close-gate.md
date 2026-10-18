@@ -1,9 +1,9 @@
 # 인덱스: 이슈 닫기 게이트 — 원인 확정·같은 증상 보류 2칸 + 래퍼 close 거절 → «관찰 중» (R102 · 판정 1059·1060 · arch#28)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 R102(planner#26 쪽지 #75789 · 오빠 「하네스마스터 분석 개선요청」) · 분석 보고 design/harness/REPORT-g922-reopen-why-20261011.md
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 R102(planner#26 쪽지 #75789 · 오빠 「하네스마스터 분석 개선요청」) · 분석 보고 design/teams/harness/REPORT-g922-reopen-why-20261011.md
 - 제안서: 없음 — 오빠 판정 1059 로 착수 승인된 하네스 내부 요청 R102(분석 보고 REPORT-g922-reopen-why-20261011.md · 판정 1060)
 - 상태: 대기
-- 선행: 없음 · 설계 = `git show 5147ca9c79:design/harness/PLAN-r102-close-gate-20261011.md`(DA APPROVE #75885 · 최종본 — ★나노 워크트리(origin/main)에는 이 파일이 없다 · 위 명령으로 읽는다★)
+- 선행: 없음 · 설계 = `git show 5147ca9c79:design/teams/harness/PLAN-r102-close-gate-20261011.md`(DA APPROVE #75885 · 최종본 — ★나노 워크트리(origin/main)에는 이 파일이 없다 · 위 명령으로 읽는다★)
 - 시험 입력: 임시 git 저장소 + `--from-json` 상태 파일 + 가짜 쓰기 스텁(상태 파일에 코멘트·라벨 추가) — 실 gh 호출·실 Issue 쓰기·루트 `.fable-team/` 쓰기 0
 - 기준값(arch#28 실측 · 2026-10-11): #922 ClosedEvent actor=byz-tank · closer=없음(PR 아님) → Tank 래퍼 `close --apply` 가 아무 검사 없이 닫음. origin/main `ft-gh-as-tank.sh` 199줄 · `ft-issue-close-check.sh` 83줄(6항 · close «뒤» 사후 검사). 라이브 `<루트>/.fable-team/bin/ft-issue-close-check.sh` = main 과 diff 0 · sha256 앞12 `1a97393e87cc`. 라벨 `status:observing` 없음.
 
@@ -22,14 +22,14 @@
 
 ## 사전검증
 - 소환: 예 — DA byz-harness-da-codex#1 r1 HOLD #75853 · r2 HOLD #75868 · r3 APPROVE #75885(판정 1060 허가 3차) — arch 서명 byz-harness-arch-claude#28
-- 조사 근거: origin/main `scripts/fable-team-bin/ft-gh-as-tank.sh`(close 분기 · case 끝 `esac`) · `scripts/fable-team-bin/ft-issue-close-check.sh`(6항 · `canon_lines`) · `design/harness/ISSUE-TRANSITIONS.md` §3·§4 · `.github/PULL_REQUEST_TEMPLATE.md` 「완료 6항」 · `tests/harness/test_issue_close_canon.sh`(시험 꼴)
+- 조사 근거: origin/main `scripts/fable-team-bin/ft-gh-as-tank.sh`(close 분기 · case 끝 `esac`) · `scripts/fable-team-bin/ft-issue-close-check.sh`(6항 · `canon_lines`) · `design/teams/harness/ISSUE-TRANSITIONS.md` §3·§4 · `.github/PULL_REQUEST_TEMPLATE.md` 「완료 6항」 · `tests/harness/test_issue_close_canon.sh`(시험 꼴)
 - 7초 룰 점검(판정 666): 외부 호출 = gh issue view(`timeout 7` + 재시도 1) + 거절 apply 때 래퍼 쓰기 최대 3회(각 `timeout 7 bash ft-gh-as-tank.sh … --apply` + 재시도 1 · 재시도 전 token 확인). 래퍼 내부 기존 gh 호출 7초화는 범위 밖(별도 [structure] 카드).
 
 ## 구현 범위 (닫힌 목록 · 나노 · PLAN §7 순서 · 한 번에 하나)
 1. ①시험 빨강 먼저 — 새 `tests/harness/test_issue_close_gate.sh` + `tests/fixtures/issue_close/gate-*.json` + 스텁 `tests/harness/stubs/fake-tank.sh`. PLAN §4 표 ①·①b·②·③·④·⑤(a)~(j)·⑥·⑦ 전부. 이 단계 커밋에서 새 시험 rc≠0 확인(빨강).
 2. ②`scripts/fable-team-bin/ft-issue-close-check.sh` — PLAN §2-1 표 1행(①~⑥) + §3. 기존 1~6항·Closes 검사 무변경. 기존 PASS 픽스처 3개(`closed-with-6items-canon.json`·`closed-with-6items-no-impact.json`·`closed-partial-two-sha.json`)에 7·8 줄 추가(기대값 무변경).
 3. ③새 `scripts/fable-team-bin/ft-issue-close-gate.sh`(PLAN §2-1 표 2행 · §2-2 문장 그대로 · §2-3 · env `FT_TANK_WRAPPER`·`FT_CLOSE_CHECK_FROM_JSON` 시험 훅) + `ft-gh-as-tank.sh` ★1줄★(PLAN §2-1 표 3행 그대로 · case 끝 `esac` 바로 뒤 · 199→200줄 · 그 밖 변경 0).
-4. ④문서 2: `design/harness/ISSUE-TRANSITIONS.md` §1 라벨 표에 `status:observing` 1행 · §3 제목·표 «완료 8항»(7·8 2행 + 관찰 줄 모양) · §4 reopen 에 1줄(PR 병합 자동 close 라도 7·8항 FAIL 이면 재오픈 + 관찰 중 — 판정 1060 · 795 는 1~6항·Closes 만의 FAIL 에 그대로). `.github/PULL_REQUEST_TEMPLATE.md` 「완료 6항」→「완료 8항」 2줄 + 1줄(«원인 미확정·같은 증상 보류가 있으면 `Closes #N` 대신 `Refs #N`»).
+4. ④문서 2: `design/teams/harness/ISSUE-TRANSITIONS.md` §1 라벨 표에 `status:observing` 1행 · §3 제목·표 «완료 8항»(7·8 2행 + 관찰 줄 모양) · §4 reopen 에 1줄(PR 병합 자동 close 라도 7·8항 FAIL 이면 재오픈 + 관찰 중 — 판정 1060 · 795 는 1~6항·Closes 만의 FAIL 에 그대로). `.github/PULL_REQUEST_TEMPLATE.md` 「완료 6항」→「완료 8항」 2줄 + 1줄(«원인 미확정·같은 증상 보류가 있으면 `Closes #N` 대신 `Refs #N`»).
 5. ⑤미러: `scripts/harness-install/fable-team/bin/` 의 `ft-issue-close-check.sh`·`ft-issue-close-gate.sh`·`ft-gh-as-tank.sh` = fable-team-bin 과 `cmp` 0.
 
 커밋은 자기 브랜치(단계별 · [test]→[feature]→[docs] · 구조·행위 분리), **push 금지**. **금지**: 실 gh 쓰기·`--apply` 실행 · 라벨 생성 · 루트 `.fable-team/` 쓰기 · #922 에 어떤 쓰기도 · graphics#4 의 #922 수리 파일(웹·물결·캔버스·스타일) 접촉 0 · 위 목록 밖 파일 수정 0.
@@ -50,4 +50,4 @@
 - 세트: d2ff250ebd702758116b76a2b850d41e8b3cd90f · 시험: bash tests/harness/test_issue_close_gate.sh rc=0 · bash tests/harness/test_issue_close_canon.sh rc=0 · bash tests/harness/test_gh_as_tank.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본(docs/architect) 변경 없음 — 하네스 키트 3쌍·ISSUE-TRANSITIONS·PR 템플릿만(15b8920236)
 - 2026-10-11 21:46 — 대기→진행 · 좌석 byz-harness-nano-r102-issue-close-gate#0
-- 2026-10-11 22:50 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§117
+- 2026-10-11 22:50 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§117

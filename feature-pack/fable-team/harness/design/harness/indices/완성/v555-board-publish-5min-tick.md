@@ -1,5 +1,5 @@
 # 인덱스: v555 보드 발행 5분 틱 — launchd 5분 · 변화 있을 때만 같은 뿌리 글 chat.update · 새 글 0 · 변화 없으면 스냅샷·호출 0 (판정 555 ② · master#19 쪽지 #65802)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 555 ②(master#19 쪽지 #65802 · 「보드 발행을 5분 틱에 신설 · 같은 뿌리 chat.update 만 · 새 글 0 · 변화 없으면 호출 0」)
 - 상태: 대기
 - 선행: v423b 랜딩 뒤(순서만 · 파일 겹침 0) · v423a(§83 · #1014) 랜딩 완료 — `ft-board-publish.sh`·`ft_board_root.py` 위에 얹는다
@@ -63,4 +63,4 @@ v423a(§83)로 `scripts/fable-team-bin/ft-board-publish.sh` 가 «스냅샷 먼�
 - 2026-10-09 00:15 — 대기→진행 · 좌석 byz-harness-nano-v555-board-publish-5min-tick#0
 - 2026-10-09 — 완료 증거(arch r2 재현·서명 · DA 없음): 세트: c31bac8052a827a86b222599b0e7fe9286b014d3 · 시험: bash tests/harness/test_board_publish_tick.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 보드 발행 스크립트·launchd 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 00:25 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§88
+- 2026-10-09 00:25 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§88

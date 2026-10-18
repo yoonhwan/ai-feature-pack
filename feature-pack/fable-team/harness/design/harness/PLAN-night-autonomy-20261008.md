@@ -29,7 +29,7 @@
 - 원격 머신 쓰기(byzs-mac-mini 등 ssh 쓰기) · 라이브 서비스 재기동(launchctl kickstart·bootstrap·bootout 포함 · 미러·틱·gateway·worker).
 - main 병합 중 cd-dev·gateway 경로 변경 · 공유 Redis(6379) 쓰기 · Issue·PR·슬랙 외부 쓰기(문안만 만든다).
 - 라이브 FT_BIN cp — 키트 랜딩은 해도 되지만 라이브 반영은 아침 사람(드리프트 검사가 그 사이 spawn·close 를 막는다 → **키트 bin 을 바꾸는 랜딩은 하지 않는다**. 단위 2 의 tmm 은 fable-team bin 밖이라 해당 없음).
-- [HIL] 이 필요하면 `scripts/fable-team-bin/ft-hil-ask.sh "<질문>" --options "a|b" --recommend a` 로 원장(design/harness/HIL-LEDGER.md)에 적고 그 단위만 멈춘다 — AskUserQuestion·인터뷰 0.
+- [HIL] 이 필요하면 `scripts/fable-team-bin/ft-hil-ask.sh "<질문>" --options "a|b" --recommend a` 로 원장(design/teams/harness/HIL-LEDGER.md)에 적고 그 단위만 멈춘다 — AskUserQuestion·인터뷰 0.
 
 ## 3. 정지 조건 (하나라도 걸리면 루프 전체 정지 → 정지 레디 + 브리핑 작성)
 - 같은 단위 HOLD 2회(DA·검증 반려 포함).
@@ -37,7 +37,7 @@
 - 오케 좌석 ctx 300k(BYZ 증류 경고선).
 - 금지선에 닿는 다음 수만 남음(= 할 수 있는 단위 0).
 
-## 4. 아침 브리핑 템플릿 — design/harness/BRIEFING-morning-20261008.md (사람 읽는 틀 · 결론→할 일→바뀐 것→근거)
+## 4. 아침 브리핑 템플릿 — design/teams/harness/BRIEFING-morning-20261008.md (사람 읽는 틀 · 결론→할 일→바뀐 것→근거)
 ```
 # 아침 브리핑 — 하네스 야간 자율 (byz-harness-master-claude#<N> · 2026-10-08)
 

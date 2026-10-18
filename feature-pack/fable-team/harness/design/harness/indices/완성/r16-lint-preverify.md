@@ -1,5 +1,5 @@
 # 인덱스: 카드 lint ⑦사전검증 ⑧조사 근거 — 팀 env 스위치(FT_CARD_REQUIRE_PREVERIFY=1)일 때만
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -8,7 +8,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R16 — feature master#0 #59567 · 오빠 「arch da 기획 안하고 바로 나노」「조사나 기획 안하고 구현」 — DA 사전검증·조사 근거 없는 카드로 구현 나노가 열렸다. 설계 = design/harness/PLAN-r16-preverify-lint-and-i855-da-20261007.md (A).
+골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R16 — feature master#0 #59567 · 오빠 「arch da 기획 안하고 바로 나노」「조사나 기획 안하고 구현」 — DA 사전검증·조사 근거 없는 카드로 구현 나노가 열렸다. 설계 = design/teams/harness/PLAN-r16-preverify-lint-and-i855-da-20261007.md (A).
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 대상은 키트 `scripts/harness-install/fable-team/bin/ft-index-lint.sh`(67행 · 추적본 scripts/fable-team-bin 에는 사본이 없다 · 라이브 RT 와 지금 cmp 동일 — 라이브 설치는 master). 현 검사: ①골 3줄 바이트 ②필수 6절(22행 SECTIONS) ③골좌표 「…」 20자+ 가 원장에 실재 ④배경 .md 인용 ≤ FT_INDEX_MAX_CITES ⑤구현 범위·완료 조건 비지 않음 ⑥구현 범위 경로 1개 이상 실재. 절 본문은 25행 `section_body <파일> <절 이름>` 로 읽는다. ft-nano-spawn.sh 65행이 spawn 때 이 lint 를 부르고 실패면 REJECT 하며, 팀 env(bin-<팀>/<팀>-env.sh)는 그 «전»에 source 된다 → env 스위치가 lint 에 닿는다. 전용 시험 파일은 아직 없다.
@@ -38,4 +38,4 @@
   - 스위치 켠 dry OK: `OK ok.md (ledger=design/L.md)`
   - 커밋: 01c5e8a7df [structure] · 6eec09b8f0 [feature] · 695e3bff8c [docs] · ebf5e9089f [fix] last_verdict 단어 경계·PASS 삭제 · 기존 tests/harness/test_*.sh 25종 rc=0(최초 실행 시점) · test_index_lint PASS 28 · fail=0
   - 설계 선택: ⑧ 인용은 «전부» 유효해야 통과(스펙 「1개 이상」보다 엄격)
-- 2026-10-07 19:26 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§32
+- 2026-10-07 19:26 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§32

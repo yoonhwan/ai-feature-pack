@@ -62,7 +62,7 @@
 | 옛 백로그 면제 | 판정이 정한 옛 쪽지를 보고 의무에서 뺌 | — |
 | 보드 발행 | 하루 1글 보드 갱신 | — |
 
-- 처음 지연 실측: 감사 문서 `design/harness/AUDIT-r34-planner-relay-latency-20261008.md`(읽음 중앙값 22초 · 안 올림 10/39).
+- 처음 지연 실측: 감사 문서 `design/teams/harness/AUDIT-r34-planner-relay-latency-20261008.md`(읽음 중앙값 22초 · 안 올림 10/39).
 
 | 번호 | 종류 | 한 줄 | 상태 |
 |---|---|---|---|

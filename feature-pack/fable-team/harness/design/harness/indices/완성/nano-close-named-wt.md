@@ -1,5 +1,5 @@
 # 인덱스: 나노 닫기 — 표준이 아닌 이름의 전용 워크트리·브랜치 좌석(--wt · --branch 명시)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -48,4 +48,4 @@
 | ⓕ 종료조건 3·증거 줄 | 평가 안 됨 | 명부 행 0(index 못 찾음 → ⑥ REJECT 병기) |
 | ⓖ cherry(--branch 기준) | 평가 안 됨 | — |
 → 결론: 이미 정리된 좌석이라 이 모드로 닫을 대상이 없다(REJECT 가 정답). 닫기 필요 상태가 되려면 워크트리·명부가 살아 있어야 한다. 이 모드의 통과 경로는 시험(전부 맞음 → CLOSED · 원장 mode=named-wt · 계획 .sh.hil)에서 검증됨.
-- 2026-10-07 18:52 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§29
+- 2026-10-07 18:52 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§29

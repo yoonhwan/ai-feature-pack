@@ -7,10 +7,10 @@
 > (원문 7 핵심 한 줄) 정말 많은 양의 이슈와 테스트, 그리고 큰 병렬적인 메인 플랜을 얼마나 잘 수행해내느냐에 핵심이 달려 있고, 큰일을 얼마나 별개로 쪼개서 동시에 아주 잘 해결하느냐에 달려 있다. 이게 기획에 반영되어야 한다.
 ★승계 첫 일 = 골 대조 보고★: 위 원문과 아래 열린 단위 각각이 «골의 어느 줄·표 A/B/C 의 어느 닫는 증거»인지 3줄로 planner(`_hil_route` = byz-planner-arch#3)에 mbox 보고 후 착수. 이 단위는 오빠가 harness-ops pane 에서 직접 지휘 — AskUserQuestion 허용(끝나면 원복).
 
-## 방식 (오빠 확정 · 정본 = design/harness/issue-improvement/PIECES.md)
+## 방식 (오빠 확정 · 정본 = design/teams/harness/issue-improvement/PIECES.md)
 - 오빠 요청 1개 = 조각 1개 = 문서 1개. nano 사실(읽기 전용) → arch 작성 → da#1 1회 10분 → ops 수락 → /eli5 설명 페이지 → 오빠 인터뷰(AskUserQuestion) → 값 확정. DA HOLD 2회면 직렬 DA 종료·ops 가 결정 후 arch 에 정정 발주. 구현 0 — 합치기(오빠 「합치자」) 뒤에 구현 조각.
 - 오빠에게 가는 글 = `GUIDE-human-report-20261005.md` 틀(결론 → 오빠가 할 일 → 바뀐 것 3줄 → 근거 1줄). 글로벌 CLAUDE.md 응답 스타일에 설치됨. 내부어는 첫 등장에 괄호 풀이.
-- 문서 폴더 = `design/harness/issue-improvement/`(분류 폴더). 값 원장 = `VALUES-pieces-P3-P5-20261005.md`.
+- 문서 폴더 = `design/teams/harness/issue-improvement/`(분류 폴더). 값 원장 = `VALUES-pieces-P3-P5-20261005.md`.
 
 ## 조각 현황 (PIECES.md)
 P1 구성 설계 · P2 오케 지도/mbox · P3 역할·병렬·미션 · P4 보고 지침 · P5 planner 이슈 큐·병렬 분할·랜딩 · P6 세션명 · P7 팀 필수 구성 — 전부 수락. 오빠 값: P3·P5 10건 + P6 6건 확정(VALUES). **열린 것 = P7**.
@@ -27,7 +27,7 @@ ft-harness-arch#2(active · fable-5-1) · ft-harness-da#1(codex sol low · 대�
 P1 https://claude.ai/artifact/46x8TkJBPysXubVqssha7J · P2 …/VhMxEh5fEkThaw1k2HLcwH · P3 …/Frimwcou8UMCUGSYXNzw8k · P5 …/RRa7aguy4ucpWE57V2yj6W · P6 …/LHZ53BtfdLwBZqxzp4yXVZ · P7 …/AJVaj7Ltqa8QaXdP2GNrFr (경로 앞 https://claude.ai/artifact/).
 
 ## 함정 (실측)
-- `mbox.sh relay` 파일 경로는 **워크트리 루트 기준 상대 경로**에서 실행(design/harness/issue-improvement/… 에서 실행하면 NO_SUCH_FILE).
+- `mbox.sh relay` 파일 경로는 **워크트리 루트 기준 상대 경로**에서 실행(design/teams/harness/issue-improvement/… 에서 실행하면 NO_SUCH_FILE).
 - nano 가 「커밋 요청」하면: 비밀 문자열 스캔 → 경로 지정 add(`git add -A` 금지) → 회신. «이미 커밋됐다»고 단정 전 `git ls-files` 로 확인(10-05 오류 1회 — facts-raw E 미커밋).
 - arch/da 컨텍스트: arch 는 ~400k 에서 새 세션으로. DA 결과 파일은 `DA-*-r1/r2.md` 로 커밋됨.
 - 글로벌 규칙 변경(응답 스타일)은 이미 오빠 승인으로 반영됨. GOAL 원문 7 도 오빠 승인으로 GOAL-harness.md 에 추가됨.

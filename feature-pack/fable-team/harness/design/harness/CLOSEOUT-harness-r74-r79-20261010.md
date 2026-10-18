@@ -22,4 +22,4 @@
 - 라이브 확인: 다음 08:00 매거진 발행(경보선 걸리면 슬랙 실패 알림) · 새 AskUserQuestion 훅은 새 세션부터 적용될 수 있음.
 
 ## 다시 여는 법
-버그·요청이 오면 이 문서와 `design/harness/REQUEST-LEDGER.md` 를 읽고 새 세션을 연다. 되돌림: 각 라이브 파일 `.bak-*` 복원 · R77 은 훅 등록 해제 → 래퍼 .bak 복구 → 게이트 마지막 제거 · R79 는 ops-guard `.bak-r79-1010` 복원.
+버그·요청이 오면 이 문서와 `design/teams/harness/REQUEST-LEDGER.md` 를 읽고 새 세션을 연다. 되돌림: 각 라이브 파일 `.bak-*` 복원 · R77 은 훅 등록 해제 → 래퍼 .bak 복구 → 게이트 마지막 제거 · R79 는 ops-guard `.bak-r79-1010` 복원.

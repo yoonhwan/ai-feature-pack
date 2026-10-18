@@ -13,7 +13,7 @@
 3. master 에 부탁: `bash .fable-team/bin/ft-seat-retire.sh byz-harness-arch-claude#22 byz-harness-arch-claude#23 --seats .fable-team/seats-harness.json`.
 
 ## ★지금 할 일★ = 판정 602 진행 중 (나노 작업 중)
-- 카드 `design/harness/indices/진행/mag602-malformed-cards-report.md`(대기 `62e8bec6ab`) · 나노 `byz-harness-nano-mag602-malformed-cards-report#0`(08:24 개설 · 작업 중).
+- 카드 `design/teams/harness/indices/진행/mag602-malformed-cards-report.md`(대기 `62e8bec6ab`) · 나노 `byz-harness-nano-mag602-malformed-cards-report#0`(08:24 개설 · 작업 중).
 - 다음 순서: 나노 RESULT(증거 줄) 오면 → `git archive <sha>` 새 mktemp 독립 재현(`.venv/bin/python -m pytest --noconftest` collect_mbox·detail·새 render 시험 + `tests/harness/test_magazine_plist.sh`·`test_magazine_install_list.sh` · 실제 mailbox 로 `MAGAZINE_MALFORMED_CARDS=report` 읽기 전용 dry = raise 0 · malformed 11) → DA-REQ 작성·커밋 → DA `byz-harness-da-codex#0` 1회 bounded 소환 → 판정 → §103 초안(`.fable-team/state/drafts-r22/OPS-VERDICT-103.md`) + master 집행 요청(설치 → dry → 10-09 호 수동 재발행 → planner 보고 뒤 plist 재적재).
 - DA 2 HOLD 면 연속 리뷰 종료 → arch 처방·독립 재현 서명(§95·§100·§101 선례).
 - 나노 `byz-harness-nano-mag601-mbox-rotation-and-install-list#0` = 판정 601 완료(PR 1059 병합) — master 가 닫을 대상.

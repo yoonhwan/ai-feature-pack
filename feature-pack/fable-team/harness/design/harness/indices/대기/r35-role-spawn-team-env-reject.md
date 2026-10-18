@@ -1,5 +1,5 @@
 # 인덱스: ft-role-spawn.sh 팀 env 감지 시 REJECT — v65 명부 좌석 오은퇴 차단 (R35 · master GO #62877)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R35(cfo master#59 #62826 접수 · arch 안 #62876 · master GO #62877 — 하네스 내부 가드라 master 결정)
 - 상태: 대기
 - 선행: 없음

@@ -1,5 +1,5 @@
 # 인덱스: v558 인박스 «면제(waived)» — 판정이 정한 옛 백로그를 보고 의무에서 뺀다 · reported 거짓 표시 0 · 정본 술어 한 곳 (판정 558 ④ · master#19 쪽지 #65914)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 558 ④(planner 인박스 21:38 이전 79건 = 훅 술어에서 제외 · reported 거짓 표시 0)
 - 상태: 대기
 - 선행: v423b 랜딩(완료 · PR 1023 · 73d9c25819) · ★v423b 훅 planner 등록은 이 카드 랜딩 + master 의 79건 면제 집행 «뒤»★
@@ -58,4 +58,4 @@
 - 2026-10-09 00:01 — 대기→진행 · 좌석 byz-harness-nano-v558-inbox-waive-backlog#0
 - 2026-10-09 00:xx — 완료 증거(DA r1 APPROVE): 세트: 7a6d8f4152c74aa48bedd624bc3a61e43f1ede7b · 시험: bash tests/harness/test_inbox_waive.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 인박스 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 00:15 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§87
+- 2026-10-09 00:15 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§87

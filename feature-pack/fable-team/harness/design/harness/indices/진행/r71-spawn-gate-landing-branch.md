@@ -1,5 +1,5 @@
 # 인덱스: spawn ②-0 이 cherry 게이트에 --base sha 대신 «랜딩 브랜치»를 넘긴다 (R71 · v65 master#156 #70298 · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R71(v65 master#156 쪽지 #70298 · 하네스 master#24 #70302) · ★R70 설치 뒤에도 v65 나노 spawn 차단 중(급함)★
 - 상태: 대기
 - 선행: R70 랜딩·설치(완료 — 설치본 게이트 sha256 앞12 `d0b27c9ca663`)

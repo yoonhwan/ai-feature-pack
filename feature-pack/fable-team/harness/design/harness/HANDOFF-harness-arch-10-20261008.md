@@ -35,7 +35,7 @@ arch = 설계·카드(대기/ · lint 통과 · 미커밋)·DA 소환 판단·�
 1. **§50 초안 완료·master 집행 대기**: `.fable-team/state/drafts-r21/OPS-VERDICT-50.md` · 카드 진행/magazine-full-render-publish.md 증거 줄(미커밋 · nano aeea2736ea).
 2. **판정 49 eli5(나노 magazine-eli5-html · 반송 r2 진행 중)**: r1(560c1bbf71)은 픽스처 통과·실자료 72단위 한 번 호출에서 차단 단어 Eli5Error(30초)·timeout(90초). r2 = 설계 §5-b(12개 묶음·동시 3 · 단위별 회색 칩 「AI 풀이 없음 — 사유」 · 바닥 줄 N/전체·생략 M · 0건일 때만 Eli5Error · 200줄 한도로 magazine_eli5_batches.py 1개 추가 master 승인). 재현 = 실자료 모델 사본 `/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-ops/1b48fbdd-7716-47fb-9d73-4d6a71438c94/scratchpad/model-detail.json`(휘발 — 없으면 detail-collect 로 collect("2026-10-08") 재생성 약 30초)로 실 LLM 1회 → N+M=72 · 시간 · DA §r2 조건(전체 순회 · 누락 ref 사유 칩) 확인 → §49.
 3. **통합 뒤 확인**: §48·§49·§50 cherry-pick → 전체 매거진 시험 → 수동 `--date 2026-10-08 --reattach r1 --no-push` 결과 1줄(PDF 경로·쪽수·HTML 경로·답글 ts) → install-magazine.sh WARN 0 → 내일 08:00 호.
-4. **판정 359 나노 set-dispatch-tools(진행)**: 완료 오면 시험 2개 + 홈 초안 diff(추가뿐) + 빈 원장 출력 재현 → §51. 그 뒤 첫 적용(CFO 7세트)은 planner·issues master 몫 — 회수본 `design/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md`.
+4. **판정 359 나노 set-dispatch-tools(진행)**: 완료 오면 시험 2개 + 홈 초안 diff(추가뿐) + 빈 원장 출력 재현 → §51. 그 뒤 첫 적용(CFO 7세트)은 planner·issues master 몫 — 회수본 `design/teams/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md`.
 5. **R20(낮은 우선 · master#13 #61321 · 미착수)**: CFO 나노 개설 때 ft-index-lint 가 v65 골 3줄로 검사해 REJECT → `bin-cfo/cfo-env.sh` 에 `FT_GOAL_LINES_FILE`(design/cfo/GOAL-cfo.md 13~15행) export 추가 안(feature·harness env 와 같은 패턴). 원장 REQUEST-LEDGER R20.
 6. gate-hook-kit-equals-home 카드(대기/ · planner 지시 대기) · r23-tank-rest-path(보류).
 

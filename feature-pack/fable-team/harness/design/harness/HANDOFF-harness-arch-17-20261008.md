@@ -15,7 +15,7 @@
 
 ## ★지금 할 일 (master#18 #65042)★ — R52 나노 독립 재현 + 닫힘 초안
 - 세트: 브랜치 `nano/r52-board-card-title` 커밋 `6a3165ca75c5c740c96f5741c063a1b2e7459d49` · RESULT 전문 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/bodies/65041.txt`.
-- 카드: `design/harness/indices/진행/r52-board-card-title.md`(사전 DA 면제 · 표시 전용). 재현: `git -C <나노 워크트리> archive 6a3165ca75 scripts tests/harness tools/comm-canonical | tar -x -C <스크래치 새 폴더>` → `test_board.sh` · `test_kit_bin_sync.sh` · 사본 cmp(`scripts/fable-team-bin/ft_board_*.py` ↔ `scripts/harness-install/fable-team/bin/`) · ruff · 범위 밖 파일 0(`git diff --stat origin/main...6a3165ca75`). 실데이터 확인: 9팀 정본 카드(`.fable-team/state/drafts-r21/BOARD-ROSTER-KEYS-20261008.md` 표)에서 주석 첫 줄 62장이 제목으로 바뀌는지 `_title` 직접 호출로.
+- 카드: `design/teams/harness/indices/진행/r52-board-card-title.md`(사전 DA 면제 · 표시 전용). 재현: `git -C <나노 워크트리> archive 6a3165ca75 scripts tests/harness tools/comm-canonical | tar -x -C <스크래치 새 폴더>` → `test_board.sh` · `test_kit_bin_sync.sh` · 사본 cmp(`scripts/fable-team-bin/ft_board_*.py` ↔ `scripts/harness-install/fable-team/bin/`) · ruff · 범위 밖 파일 0(`git diff --stat origin/main...6a3165ca75`). 실데이터 확인: 9팀 정본 카드(`.fable-team/state/drafts-r21/BOARD-ROSTER-KEYS-20261008.md` 표)에서 주석 첫 줄 62장이 제목으로 바뀌는지 `_title` 직접 호출로.
 - 닫힘 초안 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r21/OPS-VERDICT-78.md`(§78 · 「대상 카드: r52-board-card-title」 · 형식은 OPS-VERDICT-77.md 참조) → master#18 에 경로.
 
 ## 이 세션에서 닫힌 것
@@ -25,8 +25,8 @@
 | 상태판 ft-board(v421 + 판정 496 ⓪팀 요약·①완성 트리 · 오빠 컨펌 502) | §77 | PR 989 a7fcb904bb · 라이브 FT_BIN · 명부 9개 `_cards`·`_cards_wt`·`_label`·`_tree` 4팀 기입(#65016) |
 
 ## 대기 카드 (순서 = master 한 번에 하나)
-- `대기/r49-question-board.md` — 슬랙 질문 보드 UTF-8 3500 바이트 상한 + 닫는 사건 = planner 인박스 `미닫힘=`(DA r2 APPROVE · 설계 `design/harness/DESIGN-r49-question-board-20261008.md` §2-r2 가 이김). 라이브는 지금도 `chat.update msg_too_long` 반복(실측 거부선 3909~4073 바이트).
-- `대기/v511-seat-stall-cell.md` — ★보류(판정 516)★: 정본 문구는 판정 514 와 합쳐 Fable 루트 지침 좌석(byz-harness-nano-root-guideline-514#0 · RESULT 커밋 6f24b266ff · seq 64968)이 다시 씀(상태 3구분: 진행 / 정지·미완=깨움 / 완료·휴식=다음 일 질문). 그 지침이 정본으로 확정되면 카드의 좌석 칸 8행 표(설계 `design/harness/DESIGN-511-seat-stall-watch-20261008.md` §4-r2)를 3구분에 맞춰 고친 뒤 master 에 spawn 요청. `design/harness/staged-511/` 는 설치 보류(HOLD-516.md).
+- `대기/r49-question-board.md` — 슬랙 질문 보드 UTF-8 3500 바이트 상한 + 닫는 사건 = planner 인박스 `미닫힘=`(DA r2 APPROVE · 설계 `design/teams/harness/DESIGN-r49-question-board-20261008.md` §2-r2 가 이김). 라이브는 지금도 `chat.update msg_too_long` 반복(실측 거부선 3909~4073 바이트).
+- `대기/v511-seat-stall-cell.md` — ★보류(판정 516)★: 정본 문구는 판정 514 와 합쳐 Fable 루트 지침 좌석(byz-harness-nano-root-guideline-514#0 · RESULT 커밋 6f24b266ff · seq 64968)이 다시 씀(상태 3구분: 진행 / 정지·미완=깨움 / 완료·휴식=다음 일 질문). 그 지침이 정본으로 확정되면 카드의 좌석 칸 8행 표(설계 `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md` §4-r2)를 3구분에 맞춰 고친 뒤 master 에 spawn 요청. `design/teams/harness/staged-511/` 는 설치 보류(HOLD-516.md).
 - `대기/v423-publish-report-hooks.md`(판정 421 나노 3 · 발행·ft-news-tick 호출부 교체) — 선행 v421 랜딩 끝 → 착수 가능 여부는 master/planner 순서.
 
 ## 함정 (실측 · 이 세션)

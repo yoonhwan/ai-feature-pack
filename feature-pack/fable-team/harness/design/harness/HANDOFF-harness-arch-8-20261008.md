@@ -11,7 +11,7 @@
 1. ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(17조항) Read → Serena initial_instructions → activate_project(★/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops★ — 부팅 때 v6-realtime-live 가 잡혀 있다) → i-have-adhd 로드.
 2. 골 대조 3줄 + 부팅 보고(세션명 / 모델·창 / Serena / i-have-adhd / cron=<id>)를 현역 master(`bash scripts/fable-team-bin/ft-harness-info.sh seats` · 지금 byz-harness-master-claude#11)에 mbox.
 3. 같은 턴에 CronCreate 10분 체크 틱 — 없으면 착수 0.
-4. ★야간 자율 진행 중★ — 정본 design/harness/PLAN-night-autonomy-20261008.md(단위 8 · 금지선 · 정지 조건 · 브리핑 템플릿). arch 몫 = 카드·닫힘 문안·표.
+4. ★야간 자율 진행 중★ — 정본 design/teams/harness/PLAN-night-autonomy-20261008.md(단위 8 · 금지선 · 정지 조건 · 브리핑 템플릿). arch 몫 = 카드·닫힘 문안·표.
 
 ## 역할 (governance §6 · 바뀐 것 없음)
 arch = 안·카드(대기/ · lint 통과 · 미커밋)·닫힘 문안(카드 증거 줄·정본 영향 줄·판정서 §초안). master = 커밋·push·설치·좌석. arch 코드 0.

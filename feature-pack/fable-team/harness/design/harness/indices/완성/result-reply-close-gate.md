@@ -1,5 +1,5 @@
 # 인덱스: 카드 이동 때 슬랙 과정·결과 답글 자동 + 결과 없으면 CLOSE 금지 + 손 hermes send 슬랙 차단 (판정 404 ② · 카드 2/2)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 오빠 판정 404·405(planner#9 #62157 · master#14 #62159·#62177)
 - 상태: 대기
 - 선행: 카드 1 resume-block-thread-post 랜딩(byz_thread_post.py check·progress·result 가 main 에 있어야 함)
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-resume-index-20261008.md
+- DA: design/teams/harness/DA-resume-index-20261008.md
 
 ## 조사 근거
 - `scripts/fable-team-bin/ft-index-move.sh:21` 대기→진행 분기(lint + --seat) — 착수 답글 자리.
@@ -52,4 +52,4 @@
 - 정본 영향 없음: 하네스 카드 이동 도구·가드 훅·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 14:34 — 대기→진행 · 좌석 byz-harness-nano-result-reply-close-gate#0
 - 2026-10-08 — 세트: 111360204dea1cb7ef607db07e4d45c2bbad69be · 시험: bash tests/harness/test_index_move_slack.sh rc=0 · 이슈: 0
-- 2026-10-08 15:08 — 진행→완성 · 좌석 byz-harness-nano-result-reply-close-gate#0 · DA design/harness/OPS-VERDICTS-20261006.md#§60
+- 2026-10-08 15:08 — 진행→완성 · 좌석 byz-harness-nano-result-reply-close-gate#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§60

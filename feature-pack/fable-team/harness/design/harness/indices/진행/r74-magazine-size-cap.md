@@ -1,9 +1,9 @@
 # 인덱스: 아침 매거진 2부 색인형 + 크기 상한 (R74 · 판정 806 · 채택 판정 812 A안)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R74(planner#20 쪽지 #71258 · 판정 806 · master#25 발주 #71274 · 오빠 채택 판정 812 = A안 · planner #71300)
 - 상태: 대기
 - 선행: 없음
-- 제안서: design/harness/PROPOSAL-magazine-size-cap-20261010.md (§3 A안 상한표가 정본)
+- 제안서: design/teams/harness/PROPOSAL-magazine-size-cap-20261010.md (§3 A안 상한표가 정본)
 - 시험 입력: 기존 fixture `tests/scripts/_magazine_detail_fixture.py`·`_magazine_fakes.py`·`_magazine_eli5_kit.py` 로 만든 가짜 모델 — 실 슬랙·실 LLM·실 매거진 파일 0
 - 기준값: 10-10 호 md 12,401줄(2부 12,124줄 · D4 6,141줄) · PDF 339쪽 · 쉬운 판 47쪽(카드 41장) — 상한 없음
 
@@ -26,7 +26,7 @@
 - `scripts/harness-install/slack-mirror/magazine_render_full.py:25` `_body`(전문 그대로) · `:33` `_d1_units` · `:41` `_d2_verdict_sections` · `:48` `_decision`(본문 + relay 전문) · `:62` `_d4_main`(머지마다 커밋 본문 전문) · `:70` `_d5_issues` · `:79` `_d6_open` · `:113` `_appendix` · `:117`~`:121` `SECTIONS` · `:136` `render_full`.
 - `scripts/harness-install/slack-mirror/magazine_eli5.py:53` `_units` · `:125`~`:137` `build`(모든 단위에 LLM 풀이 + 카드).
 - `scripts/harness-install/slack-mirror/byz_morning_magazine.py:84`~`:97` `make_files`(md 쓰기 · PDF 쪽수 `pages`) · `:108` `report_failure`.
-- 설계 원문 `design/harness/DESIGN-magazine-full-detail-20261008.md` §1 「잘라내기·요약 0」 · §4 「쪽 수 상한 없음」 — 이 카드가 판정 812 로 뒤집는다.
+- 설계 원문 `design/teams/harness/DESIGN-magazine-full-detail-20261008.md` §1 「잘라내기·요약 0」 · §4 「쪽 수 상한 없음」 — 이 카드가 판정 812 로 뒤집는다.
 
 ## 구현 범위 (닫힌 목록 · 추적본에서 수정 · 나노 브랜치는 origin/main 기준)
 1. `scripts/harness-install/slack-mirror/magazine_render_full.py` — 2부 상한.

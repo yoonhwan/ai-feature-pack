@@ -1,8 +1,8 @@
 # 인덱스: 메인팀 인박스 — ft-inbox.sh(ingest·show·mark·report·archive·--compact) · 분류 기준표 · 중복 묶기 · 정본 술어 obligation_closed (판정 425-B · 430 · 설계 §6 · §8)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 425-B·430(오빠 「인박스=스크립트 큐+Haiku 5.5 일회 호출 · 상시 0」 · planner #62745)
 - 상태: 대기
-- 선행: 없음(안 = design/harness/DESIGN-news-tree-workqueue-viz-20261009.md §6-3 · §8) · 나노 1(판정 원장)과 병렬 · 나노 3 은 이 카드 뒤
+- 선행: 없음(안 = design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md §6-3 · §8) · 나노 1(판정 원장)과 병렬 · 나노 3 은 이 카드 뒤
 - 시험 입력: 임시 FT_ROOT(가짜 mailbox.jsonl · bodies/ · 가짜 명부) + 가짜 Haiku(env FT_INBOX_HAIKU 스텁) — 실제 mbox·claude 호출 0
 - 기준값: planner 앞 쪽지 55건 중 읽고 콘솔 미보고 10/39(AUDIT-r34) · 같은 내용 재발송 짝 62296/62305 · 62298/62335 · 읽힌 행은 mailbox.jsonl 에서 회전돼 사라짐(#62598)
 
@@ -20,12 +20,12 @@ master 들은 쪽지가 밀려 메인 작업이 끊기고, 읽은 쪽지가 회�
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N1·N3 APPROVE · N2 잔여는 설계 §8 정본 술어로 고정) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#13
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N1·N3 APPROVE · N2 잔여는 설계 §8 정본 술어로 고정) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#13
 
 ## 조사 근거
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:113` 적재(계보 키 · 줄 형식 · bodies 보존) · `:114` 분류 기준표 ①~⑥·미상 · `:116` 중복 묶기.
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:118` 닫는 사건 · `:119` 압축(요청 때만·보기 전용) · `:120` 클린업(술어로 닫힌 줄만).
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:143` 정본 술어 obligation_closed + 필수 가짜 시험.
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:113` 적재(계보 키 · 줄 형식 · bodies 보존) · `:114` 분류 기준표 ①~⑥·미상 · `:116` 중복 묶기.
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:118` 닫는 사건 · `:119` 압축(요청 때만·보기 전용) · `:120` 클린업(술어로 닫힌 줄만).
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:143` 정본 술어 obligation_closed + 필수 가짜 시험.
 - `tools/comm-canonical/mbox.sh:147` notify_policy 자리(이 카드는 ingest 호출 1줄만) · ★라이브 .fable-team/comm/mbox.sh 가 tools/comm-canonical/mbox.sh 보다 앞서 있음(diff 60줄 실측) — 수정 전 사본을 라이브와 같게 맞추는 [structure] 커밋 먼저★.
 
 ## 구현 범위 (닫힌 목록 · 추적본 + 키트 사본 같은 바이트)
@@ -56,4 +56,4 @@ master 들은 쪽지가 밀려 메인 작업이 끊기고, 읽은 쪽지가 회�
 - 2026-10-08 — 나노 산출(브랜치 nano/v425-master-inbox · push 금지): ff9172d328 [structure] mbox.sh 라이브 맞춤 → 6daa9f3fd7 [feature] ft-inbox + 훅 + 시험.
 - 2026-10-08 — 반송 반영(62810·62817·62822): 97090f6d43 [fix] Haiku 비동기 + 2파일 분리 + mbox 훅 축소.
 - 세트: d2ce4b6ff312dda92c9bdcc5aa7259beca5d0789 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0
-- 2026-10-08 15:08 — 진행→완성 · 좌석 byz-harness-nano-v425-master-inbox#0 · DA design/harness/OPS-VERDICTS-20261006.md#§59
+- 2026-10-08 15:08 — 진행→완성 · 좌석 byz-harness-nano-v425-master-inbox#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§59

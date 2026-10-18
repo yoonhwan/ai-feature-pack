@@ -1,6 +1,6 @@
 # 인덱스: 키트 orchestration-gate 훅을 홈 정본과 같은 바이트로 (오빠 결정 판정 343 집행 · ⓪ 생명주기 deny 는 보류 상태로 키트에서도 빠짐)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 오빠 결정 판정 343(design/harness/TABLE-gate-hook-copies-20261008.md 「오빠 결정」 문단 · 커밋 48f29c330e)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 오빠 결정 판정 343(design/teams/harness/TABLE-gate-hook-copies-20261008.md 「오빠 결정」 문단 · 커밋 48f29c330e)
 - 상태: 대기
 - 선행: 없음
 - 시험 입력: 기존 tests/harness/test_orch_gate_top_models.sh(키트·프로젝트 사본 TOP_MODELS 정합 · 홈 파일 안 건드림)

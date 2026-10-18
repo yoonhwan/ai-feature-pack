@@ -1,5 +1,5 @@
 # 인덱스: R58 press-gate ① — 선언 base 가 FEAT 가 아닌 나노(origin/main 기반 등)는 미랜딩 셈에서 제외 (원장 R58 · v65 master#150 쪽지 65808 · press 차단 중)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R58(ops 9135eb1859 · 우선 높음 · 011 implant3 press 대기)
 - 상태: 대기
 - 선행: 없음(v423b DA r2 와 파일 겹침 0 · master 판단으로 먼저 가도 됨 — 쪽지 #65812)

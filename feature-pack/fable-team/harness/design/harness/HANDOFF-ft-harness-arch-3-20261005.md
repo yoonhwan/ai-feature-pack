@@ -8,13 +8,13 @@
 ## 후계 첫 일 = 골 대조 보고 (GOAL-harness.md 표 A·B·C 를 읽고 아래 두 단위를 축에 매핑해 ops 에 3줄 보고한 뒤 착수)
 
 ## 단위 1 — 풀스택 다이어그램 (표 A·C·원문 5) · **닫힘**
-- 정본 `design/harness/diagrams/`: `fullstack.ir.json`(노드 83·엣지 127·추측 0) · `build.py` · `fullstack.drawio`(뷰 ⓐ~ⓓ) · `fullstack.system.drawio`(sync 대상) · `README.md`(절차·r2·r3 반영표·질문·발견) · `export/view-1~4.png`·`walkthrough.html`
+- 정본 `design/teams/harness/diagrams/`: `fullstack.ir.json`(노드 83·엣지 127·추측 0) · `build.py` · `fullstack.drawio`(뷰 ⓐ~ⓓ) · `fullstack.system.drawio`(sync 대상) · `README.md`(절차·r2·r3 반영표·질문·발견) · `export/view-1~4.png`·`walkthrough.html`
 - DA: r1 HOLD 8 → r2 APPROVE · r3(오빠 값 머신 3기) HOLD 1 → r3b APPROVE(`DA-fullstack-r1/r2/r3.md`). 커밋 49aa8ecaaa(r2) · 오빠 값 4b8a1be31e · **r3 커밋은 ops 집행 대기**(#57107 요청).
 - 남은 오빠 확인 1: `byzs-mac-mini`(tailscale · byz mac) 의 역할 — RELEASE 머신 행 값.
 - drawio-skill 은 `disable-model-invocation: true` → Skill 호출 거부 · SKILL.md Read + `scripts/*.py` 직접 실행(README §3).
 
 ## 단위 2 — P10 SPEC (표 A·B·원문 7) · **DA r1 HOLD 3 → r2 APPROVE(미반영 0 · `DA-issue-manager-slack-tmm-r1/r2.md`) · ops 수락·커밋·오빠 질문 3 인터뷰 대기(#57126)**
-- 정본 `design/harness/issue-improvement/SPEC-issue-manager-slack-tmm-20261005.md`(100줄 · §1 사실 7 · §2 슬랙 발행 전용 2종 · §3 tmm · §4 Issue 0 루프 6단계+0 지표 · §5 충돌 7 · §6 질문 3 · §7 구현 후보 C12~C14 · §8 DA 범위) · nano `FACTS-P10-20261005.md`(72줄 · 추측 5) · 원출력 `facts-raw/P10-*.txt`
+- 정본 `design/teams/harness/issue-improvement/SPEC-issue-manager-slack-tmm-20261005.md`(100줄 · §1 사실 7 · §2 슬랙 발행 전용 2종 · §3 tmm · §4 Issue 0 루프 6단계+0 지표 · §5 충돌 7 · §6 질문 3 · §7 구현 후보 C12~C14 · §8 DA 범위) · nano `FACTS-P10-20261005.md`(72줄 · 추측 5) · 원출력 `facts-raw/P10-*.txt`
 - da#1 발주 #57116(10분 · HOLD 2 = 종료 → ops). 판정 전문 = `DA-issue-manager-slack-tmm-r1.md`.
 - 다음: 판정 recv → HOLD 면 §5·§6 수정(앞 확정값 MERGED ①②③·표 C 임의 뒤집기 0) → APPROVE 면 ops 에 「수락·커밋·오빠 질문 3(§6 · 추천 첫째)」 보고. 미커밋 = SPEC·FACTS·ORDER-nano·facts-raw(ops 커밋).
 

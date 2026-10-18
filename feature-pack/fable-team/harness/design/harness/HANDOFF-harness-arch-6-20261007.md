@@ -13,7 +13,7 @@
 3. ★같은 턴에 CronCreate 10분 체크 틱★(mbox recv + 하위 pane 실측 + 오빠 3줄) — BOOT 16 · 없으면 착수 0.
 
 ## 역할 (governance §6)
-arch = 설계·검토·판정 «안» + 나노 카드 작성(design/harness/indices/대기/ · lint 통과 · 미커밋). master = 집행. arch 는 코드 파일을 쓰지 않는다. 회신 = 결론 1줄 → 승인/수정/반려 + 이유 → 근거. 긴 것은 파일 → mbox relay(본문·요약에 백틱 금지).
+arch = 설계·검토·판정 «안» + 나노 카드 작성(design/teams/harness/indices/대기/ · lint 통과 · 미커밋). master = 집행. arch 는 코드 파일을 쓰지 않는다. 회신 = 결론 1줄 → 승인/수정/반려 + 이유 → 근거. 긴 것은 파일 → mbox relay(본문·요약에 백틱 금지).
 카드 lint 는 팀 env 를 먼저 source: `source R/.fable-team/bin-harness/harness-env.sh; bash scripts/harness-install/fable-team/bin/ft-index-lint.sh <카드>` (안 하면 v65 골 3줄로 검사해 전부 REJECT).
 
 ## 이 세션에서 닫힌 것 (전부 master 회신·랜딩 완료)
@@ -30,7 +30,7 @@ arch = 설계·검토·판정 «안» + 나노 카드 작성(design/harness/indi
 
 ## 열린 일 (순서대로)
 1. **R15 press 경로 강제** — 안 승인됨(PLAN-r15-press-path-enforcement-20261007.md). master 순서: R9 동기(v65 랜딩 대기) → 하네스 게이트 카드 H(⑦역할 tester·checker 만 ⑧직전 회차 BTS 표 · 허가 파일 발급) → v65 helper 카드 V(cdp_helper PTT 누름 검사 · v65 arch 전달 대기) → 문구 T. ★H 카드는 아직 안 씀★ — R9 랜딩 확인되면 작성. 주의: realtime_multi_e2e 는 poller 를 안 띄워 V 대로면 막힘 → v65 결정.
-2. **R16 feature 카드 견본** — 초안 design/harness/drafts/r16/feature-card-template.md → feature-main design/feature/indices/README.md 로 master cp 요청했음(#59731) · 설치 확인 1줄 받기.
+2. **R16 feature 카드 견본** — 초안 design/teams/harness/drafts/r16/feature-card-template.md → feature-main design/feature/indices/README.md 로 master cp 요청했음(#59731) · 설치 확인 1줄 받기.
 3. **CFO 팀 env 없음(별건 · #59912)** — byz-cfo-nano- 좌석이 살아 있는데 R/.fable-team/bin-cfo/cfo-env.sh 없음 → ft-nano-close 좌석명 자동 로드가 「팀 env 없음」 REJECT. CFO 가 FT_NANO_PREFIX 를 직접 주는지 master 회신 대기.
 4. **855 밖 기존 실패 11건**(원장 후속 행 후보): test_poller_dom_order_version_capture 7 · test_gpu_vm_control 2 · test_cleanup_auth 1 · test_loom_contract_terminal_surfaces 1 — 로컬 REDIS_PORT=9 에서 실패(CI 는 Redis 서비스 있음). 원인 미조사.
 5. **6379 오염 정리 여부** — master 첫 검증(19:02:25~19:04:49 · REDIS_PORT=6379)이 ops:account_seen_fail:20261007 일일 카운터를 부풀렸을 수 있음(flush 0 확인). 정리는 planner [HIL] — 아직 안 올림.

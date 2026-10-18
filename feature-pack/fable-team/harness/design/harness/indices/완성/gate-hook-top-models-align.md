@@ -1,5 +1,5 @@
 # 인덱스: orchestration-gate 키트·프로젝트 사본의 TOP_MODELS 를 홈(실행 중) 값으로 정합 — Sonnet 5.5 워커 면제
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -8,7 +8,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 원문 1 C(배포·반영 — 키트를 설치하면 그대로 돌아야 한다). 핵심 한 줄: 인계 열린 일 6 「게이트 훅 3사본 정합」 · 안 design/harness/PLAN-gate-hook-3copy-align-20261007.md · master#10 승인 #60097(범위 = TOP_MODELS 정합만 · 홈 설치 0).
+골의 축: 원문 1 C(배포·반영 — 키트를 설치하면 그대로 돌아야 한다). 핵심 한 줄: 인계 열린 일 6 「게이트 훅 3사본 정합」 · 안 design/teams/harness/PLAN-gate-hook-3copy-align-20261007.md · master#10 승인 #60097(범위 = TOP_MODELS 정합만 · 홈 설치 0).
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 orchestration-gate 훅은 사본이 셋이고 TOP_MODELS 기본값이 서로 다르다. 홈 `~/.claude/hooks/orchestration-gate.sh`(실제로 도는 판 · 수정 금지) = `fable|sonnet-?5(?!-?5)` 로 Sonnet 5.5 워커를 면제한다(전역 troubleshoot 09-29 수정). 키트 `scripts/harness-install/fable-team/templates/hooks/orchestration-gate.sh` = `fable|sonnet-?5` — 이 키트를 설치하면 Sonnet 5.5 나노·tester 가 오케로 잡혀 한 턴 코드 3파일째에서 막힌다(09-29 사고 재발). 프로젝트 `.claude/hooks/orchestration-gate.sh`(`.claude/settings.json` 30행에 등록 · BYZ 세션마다 홈 훅과 같이 돈다) = `fable|opus-?4-?8` 옛 로스터. 세 사본은 다른 기능도 서로 다르다. 키트에만 ⓪ 생명주기(tmuxc open/kill) 차단이 있고, 프로젝트에만 0-b master 좌석 모드가 있다. ★그래서 «한 사본으로 덮기»는 금지이고 TOP_MODELS 두 줄만 바꾼다★. TOP_MODELS 문자열은 python re 로 평가되므로 lookahead `(?!-?5)` 가 쓰인다.
@@ -53,4 +53,4 @@ orchestration-gate 훅은 사본이 셋이고 TOP_MODELS 기본값이 서로 다
 - 세트: a0cf195d871f82cc225095db5c5b2759468417e0 · 시험: bash tests/harness/test_orch_gate_top_models.sh rc=0 · 이슈: 0
 - 추가 시험: bash tests/harness/test_orch_gate_master.sh rc=0(pass=36 fail=0) · test_orch_gate_top_models pass=10 fail=0
 - 정본 영향: 하네스 훅 사본 2개(키트 템플릿·프로젝트 .claude/hooks)의 기본값 1줄 — docs/architect 제품 정본 변경 없음 · 홈 훅 설치 0(이미 같은 값).
-- 2026-10-07 21:13 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§34
+- 2026-10-07 21:13 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§34

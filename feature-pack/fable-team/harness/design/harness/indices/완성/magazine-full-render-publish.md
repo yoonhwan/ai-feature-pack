@@ -1,6 +1,6 @@
 # 인덱스: 아침 매거진 풀 디테일 ② 렌더·여러 쪽 PDF·슬랙 2파일·--reattach (판정 354)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: #885 추가 단위 → 판정 354(planner#8 → master#12 발주 · 설계 design/harness/DESIGN-magazine-full-detail-20261008.md)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: #885 추가 단위 → 판정 354(planner#8 → master#12 발주 · 설계 design/teams/harness/DESIGN-magazine-full-detail-20261008.md)
 - 상태: 대기
 - 선행: DA 사전검증 APPROVE(아래) + proposal-tools 랜딩(magazine_slack.upload_file · find_first_line 이 ops/main-base 에 있어야 함) — base 는 그 뒤로 잡는다
 - 시험 입력: detail 픽스처(설계 §3 모양) · 가짜 Slack(tests/scripts/_magazine_fakes.py) · 가짜 eli5 모듈(sys.modules 주입) — 실 슬랙 0
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-magazine-fulldetail-20261008.md
+- DA: design/teams/harness/DA-magazine-fulldetail-20261008.md
 
 ## 조사 근거
 - `scripts/harness-install/slack-mirror/magazine_pdf.py:4` MAX_HEIGHT_PX · `:28` page.pdf 한 장(height=본문 · page_ranges="1").
@@ -50,4 +50,4 @@
 - 2026-10-08 09:35 — 대기→진행 · 좌석 byz-harness-nano-magazine-full-render-publish#0
 - 2026-10-08 — 완료 독립 검증 (arch#10 · 판정서 §50 초안) — 나노 aeea2736ea(반송 r1: md 외부 본문 인용 · eli5 실패 안내 줄): 시험 125 passed · 실자료 PDF 228쪽 · md 2단 제목 14개 전부 우리 절.
 세트: aeea2736ea112961811e5be840bd531e09304b06 · 시험: python3 -m pytest tests/scripts/test_magazine_publish.py -q rc=0 · 이슈: 0
-- 2026-10-08 09:57 — 진행→완성 · 좌석 byz-harness-nano-magazine-full-render-publish#0 · DA design/harness/OPS-VERDICTS-20261006.md#§50
+- 2026-10-08 09:57 — 진행→완성 · 좌석 byz-harness-nano-magazine-full-render-publish#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§50

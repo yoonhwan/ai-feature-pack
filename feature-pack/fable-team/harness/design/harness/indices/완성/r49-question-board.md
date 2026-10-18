@@ -1,5 +1,5 @@
 # 인덱스: 질문 보드 — UTF-8 3500 바이트 상한(게시 문자열 전체) · 건수+결정 자리+가장 오래된 5건+외 n · 닫는 사건 = planner 인박스 `미닫힘=` (R49 · master#17 #64702 ①안 · 나노 1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 원장 R49(master#17 발견 #64682) · 결정 master#17 #64702(①안 · 하네스 내부 표시 정책 · 오빠 판단 불요)
 - 상태: 대기
 - 선행: 없음(origin/main 의 `scripts/harness-install/slack-mirror/` 만 · a61bb85864 기준 참조 줄 재확인 arch#18 22:19) · 순서 = v421(+496) 랜딩 → 판정 511 카드 → 이 카드(master 한 번에 하나)
@@ -16,11 +16,11 @@
 골의 축: C(배포 발행(슬랙) — 발행물이 거부돼 멈춤) + A(모니터). 핵심 한 줄: 보드 글을 실측 거부선 아래로 묶고, 열린 질문이 planner 인박스에서 닫히면 보드에서도 닫는다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-슬랙 질문 보드(`mirror_questions.render_board` · 채널 메시지 1개를 `chat.update` 로 제자리 갱신)는 열린 질문 «전부»를 한 줄에 이어 붙여 2208자(4073 UTF-8 바이트)가 되자 슬랙이 `msg_too_long` 으로 거부하고 미러가 종료코드 1 로 반복 재기동된다(마지막 성공 3909 바이트 → 거부선 ~4000 바이트 · 한글 1자 3바이트). 근본은 질문이 닫히지 않는 것이다: 수명 = add → 슬랙 답장으로 delivered → 같은 key·같은 좌석 «이름»의 다음 보고로 close 인데, 슬랙이 읽기 전용이 된 뒤 delivered 가 안 생기고 승계로 이름이 바뀌어 close 도 안 맞는다. 고침 두 가지: ①보드 = 첫 줄(건수 + 결정 자리 + 경고) + 가장 오래된 5건 + `… 외 n건`, 실제 게시 문자열 전체를 UTF-8 3500 바이트 이하로(접기 표식 예산 선예약 · UTF-8 안전 절단 · 최종 단언) ②미러 패스당 1회 planner 인박스(`ft-inbox.sh`)를 조회해, 인박스 큐에 있고 `show` 의 `미닫힘=` 에 없는 질문을 닫는다(정본 술어 재구현 0 · 인박스에 없는 열린 질문은 `ingest` 로 1회 적재 · 해석 실패는 fail-closed). 정본 설계 = `design/harness/DESIGN-r49-question-board-20261008.md` — ★`## §2-r2` 가 §2 를 이긴다★.
+슬랙 질문 보드(`mirror_questions.render_board` · 채널 메시지 1개를 `chat.update` 로 제자리 갱신)는 열린 질문 «전부»를 한 줄에 이어 붙여 2208자(4073 UTF-8 바이트)가 되자 슬랙이 `msg_too_long` 으로 거부하고 미러가 종료코드 1 로 반복 재기동된다(마지막 성공 3909 바이트 → 거부선 ~4000 바이트 · 한글 1자 3바이트). 근본은 질문이 닫히지 않는 것이다: 수명 = add → 슬랙 답장으로 delivered → 같은 key·같은 좌석 «이름»의 다음 보고로 close 인데, 슬랙이 읽기 전용이 된 뒤 delivered 가 안 생기고 승계로 이름이 바뀌어 close 도 안 맞는다. 고침 두 가지: ①보드 = 첫 줄(건수 + 결정 자리 + 경고) + 가장 오래된 5건 + `… 외 n건`, 실제 게시 문자열 전체를 UTF-8 3500 바이트 이하로(접기 표식 예산 선예약 · UTF-8 안전 절단 · 최종 단언) ②미러 패스당 1회 planner 인박스(`ft-inbox.sh`)를 조회해, 인박스 큐에 있고 `show` 의 `미닫힘=` 에 없는 질문을 닫는다(정본 술어 재구현 0 · 인박스에 없는 열린 질문은 `ingest` 로 1회 적재 · 해석 실패는 fail-closed). 정본 설계 = `design/teams/harness/DESIGN-r49-question-board-20261008.md` — ★`## §2-r2` 가 §2 를 이긴다★.
 
 ## 사전검증
 - 소환: 예
-- DA: `design/harness/DA-r49-question-board-20261008.md` — r1 HOLD(Q1 바이트 예산 · Q2 show 파싱 · Q3·Q4 APPROVE) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64756) — arch 서명 byz-harness-arch-claude#17
+- DA: `design/teams/harness/DA-r49-question-board-20261008.md` — r1 HOLD(Q1 바이트 예산 · Q2 show 파싱 · Q3·Q4 APPROVE) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64756) — arch 서명 byz-harness-arch-claude#17
 
 ## 조사 근거
 - `scripts/harness-install/slack-mirror/mirror_questions.py:117` render_board(전부 이어 붙임) · `scripts/harness-install/slack-mirror/mirror_questions.py:130` update_board(chat.update · 글 같으면 API 0) · `scripts/harness-install/slack-mirror/mirror_questions.py:111` delivered_for(state=delivered 만) · `scripts/harness-install/slack-mirror/mirror_questions.py:97` close(멱등 · tombstone).
@@ -54,4 +54,4 @@
 세트: 101e7af897bc1b65ca1488f14e7998130706590e · 시험: bash tests/harness/test_question_board.sh rc=0 · 이슈: 0
 세트: 8d60794af705afa05166561ca3965e6e6b30952b · 시험: bash tests/harness/test_question_board.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 슬랙 미러 스크립트·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-08 22:40 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§81
+- 2026-10-08 22:40 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§81

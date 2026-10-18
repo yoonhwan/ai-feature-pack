@@ -1,5 +1,5 @@
 # 인덱스: R59 Tank 래퍼 comment-edit — byz-tank 가 쓴 Issue 코멘트만 수정 · 작성자 다르면 raise · 수정 전 원문 보관 (원장 R59 · 판정 564 · issues#6 쪽지 65989)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R59(판정 564 · 우선 높음 · R58·v558 보다 앞 순서)
 - 상태: 대기
 - 선행: 없음

@@ -18,7 +18,7 @@
 - 슬랙 launchd 3개(역방향·보고 미러·GitHub 미러)는 planner 가 bootout — plist 보존, 재개 시 `bash scripts/harness-install/slack-mirror/install*.sh`.
 
 ## 지금 단위 = 「슬랙 제외 · 이슈+하네스 구성 기획」 (오빠 직접 지시 2026-10-05)
-- 지시서 `design/harness/ORDER-harness-composition-20261005.md` · 오빠 값 `VALUES-harness-composition-20261005.md`(Q1 만 추천과 다름: **Issue # 는 메인 오케 소유 · 나노는 작업 워커 · spawn 게이트 삭제** / Q2 planner pane 1곳+tmm / Q3 경과 표시+상위 알림 / Q4 당분간 1대·설치 키트 먼저 / Q5 seats-*.json 설정 행만 남기고 상태 파생·구조 커밋 1).
+- 지시서 `design/teams/harness/ORDER-harness-composition-20261005.md` · 오빠 값 `VALUES-harness-composition-20261005.md`(Q1 만 추천과 다름: **Issue # 는 메인 오케 소유 · 나노는 작업 워커 · spawn 게이트 삭제** / Q2 planner pane 1곳+tmm / Q3 경과 표시+상위 알림 / Q4 당분간 1대·설치 키트 먼저 / Q5 seats-*.json 설정 행만 남기고 상태 파생·구조 커밋 1).
 - 설계 `DESIGN-harness-composition-20261005.md` r3(b1c3883341) — arch 작성. DA r1·r2 = HOLD(r2 쟁점은 Q1 미반영뿐 → r3 가 닫음). DA 가 «직렬 문서 DA 중단 · 통합 수락(DESIGN+VALUES+FACTS)은 ops 소유» 권고.
 - 남은 것: ①nano `FACTS-composition-20261005.md`(+facts-raw/) 수신 → arch 2차 대조 1회 ②통합 수락(ops 가 DESIGN r3 + VALUES + FACTS 를 한 번에 검토) ③§3-6 순서 1(질문 원장 `ft-hil-ask/answer` + tmm h) 구현 발주 — **오빠 확정 뒤에만**.
 

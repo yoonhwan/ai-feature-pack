@@ -1,5 +1,5 @@
 # 인덱스: 상태판 생성기 — ft-board.py(render --term|--slack · snapshot) · 명부 키 _cards·_cards_wt·_label · 불변 스냅샷 + 변경 단위 diff + ⓪팀 요약 표·①완성 트리(판정 496) (판정 421 · 430·431 · 496 · 설계 §2-2·§2-3·§3 나노 2)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 421·430·431(오빠 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유하는 완벽한 일반화」 · planner #62745 · master #62749) + 판정 496(오빠 「뉴스 공유시 메인팀 현재 상황과 메인팀 큐를 같이 정리 공유. 개편.」·「뉴스 트리와 세션과 큐를 정리공유하는 개편 / da도 같이」 · master #64447 · ★오빠 컨펌 판정 502 — planner#12 #64606★)
 - 상태: 대기
 - 선행: 나노 1(판정 원장 ft-verdict.sh · nano/v430-verdict-ledger) 랜딩 · 나노 4(인박스 ft-inbox.sh · nano/v425-master-inbox) 랜딩 — 이 카드는 두 도구를 «호출»만 한다(fold·술어 재구현 0). 나노 3(발행)은 이 카드 뒤.
@@ -16,19 +16,19 @@
 골의 축: A(모니터·오빠 요청 — 「뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유」). 핵심 한 줄: 손 트리를 버리고 원장 3종(명부·카드 폴더·판정 원장)에서만 팀 트리·작업큐·오늘 판정표를 생성하고, 매 생성의 불변 스냅샷과 변경 단위 diff 를 남긴다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-지금 뉴스 트리는 planner 가 손으로 쓰는 NEWS-TREE.md 와 ft-news-tree.py(명부 seats.json 하나만 읽고 CFO 접두 좌석만 보는) 조합이라 ①오늘 끝난 일(✅)이 요약본에서 통째로 빠지고 ②죽은 옛 좌석 25줄이 세션 상태 절에 남고 ③상태 글자가 손 글자라 콘솔·슬랙·트리가 서로 다르다(판정 410 감사 17건). 새 생성기 ft-board.py 는 입력을 원장 3종으로만 한다: 명부 `seats*.json`(팀 = 파일 1개 · 새 키 `_cards` 카드 폴더 리포 상대 경로 · `_cards_wt` 그 폴더가 있는 워크트리 이름 · `_label` 표시 이름) · 팀별 카드 폴더 indices/{대기,진행,완성} · 판정 원장(`ft-verdict.sh list --json`). 출력 한 장 = 세 칸(팀 트리 · 작업큐 · 오늘 판정표)이고, 같은 중간 dict 에서 `--term`/`--slack` 렌더만 다르다. `snapshot` 은 그 dict 전체를 불변 파일로 먼저 쓰고 직전 스냅샷과의 «변경 단위» 목록을 낸다 — 슬랙 chat.update(나노 3)는 최신만 보이므로 이력은 이 스냅샷이 가진다(DA N3 APPROVE). 팀이 늘어도 명부 파일 1개 추가로 끝나야 한다(코드 수정 0). ★판정 496 추가★: 같은 dict 에 두 칸을 더한다 — ⓪ 팀 요약 표(맨 위 · 팀당 1행: 지금·큐·오빠 할 일·결정 자리) · ① 완성 트리(골 축별 · 명부 새 키 `_tree` = 그 팀 NEWS-TREE.md 경로 · 트리는 «배치»만, 분모는 카드 폴더 전체 · 트리에 없는 카드는 `축 미연결` 묶음으로 보존 · 손 상태 글자는 읽지 않음). 렌더 순서 ⓪ 팀 요약 → ① 완성 트리 → ② 팀 트리(세션) → ③ 작업큐 → ④ 오늘 판정표. 정본 = `design/harness/DESIGN-slack-readonly-share-20261008.md` §8 + ★`### 8-2-r2` 가 §8-2·§8-4 를 이긴다★.
+지금 뉴스 트리는 planner 가 손으로 쓰는 NEWS-TREE.md 와 ft-news-tree.py(명부 seats.json 하나만 읽고 CFO 접두 좌석만 보는) 조합이라 ①오늘 끝난 일(✅)이 요약본에서 통째로 빠지고 ②죽은 옛 좌석 25줄이 세션 상태 절에 남고 ③상태 글자가 손 글자라 콘솔·슬랙·트리가 서로 다르다(판정 410 감사 17건). 새 생성기 ft-board.py 는 입력을 원장 3종으로만 한다: 명부 `seats*.json`(팀 = 파일 1개 · 새 키 `_cards` 카드 폴더 리포 상대 경로 · `_cards_wt` 그 폴더가 있는 워크트리 이름 · `_label` 표시 이름) · 팀별 카드 폴더 indices/{대기,진행,완성} · 판정 원장(`ft-verdict.sh list --json`). 출력 한 장 = 세 칸(팀 트리 · 작업큐 · 오늘 판정표)이고, 같은 중간 dict 에서 `--term`/`--slack` 렌더만 다르다. `snapshot` 은 그 dict 전체를 불변 파일로 먼저 쓰고 직전 스냅샷과의 «변경 단위» 목록을 낸다 — 슬랙 chat.update(나노 3)는 최신만 보이므로 이력은 이 스냅샷이 가진다(DA N3 APPROVE). 팀이 늘어도 명부 파일 1개 추가로 끝나야 한다(코드 수정 0). ★판정 496 추가★: 같은 dict 에 두 칸을 더한다 — ⓪ 팀 요약 표(맨 위 · 팀당 1행: 지금·큐·오빠 할 일·결정 자리) · ① 완성 트리(골 축별 · 명부 새 키 `_tree` = 그 팀 NEWS-TREE.md 경로 · 트리는 «배치»만, 분모는 카드 폴더 전체 · 트리에 없는 카드는 `축 미연결` 묶음으로 보존 · 손 상태 글자는 읽지 않음). 렌더 순서 ⓪ 팀 요약 → ① 완성 트리 → ② 팀 트리(세션) → ③ 작업큐 → ④ 오늘 판정표. 정본 = `design/teams/harness/DESIGN-slack-readonly-share-20261008.md` §8 + ★`### 8-2-r2` 가 §8-2·§8-4 를 이긴다★.
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N3(스냅샷→update→변경 단위 diff) APPROVE · 이 카드는 N3 범위) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
-- 판정 496 범위(⓪·①·렌더 순서·`--full`): 소환: 예 · DA `design/harness/DA-slack-readonly-share-20261008.md` 「판정 496 r1 판정」 HOLD(Q5·Q6) → 「판정 496 r2 판정」 APPROVE(Q5~Q8 · byz-harness-da-codex#0 #64513) — arch 서명 byz-harness-arch-claude#17
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N3(스냅샷→update→변경 단위 diff) APPROVE · 이 카드는 N3 범위) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
+- 판정 496 범위(⓪·①·렌더 순서·`--full`): 소환: 예 · DA `design/teams/harness/DA-slack-readonly-share-20261008.md` 「판정 496 r1 판정」 HOLD(Q5·Q6) → 「판정 496 r2 판정」 APPROVE(Q5~Q8 · byz-harness-da-codex#0 #64513) — arch 서명 byz-harness-arch-claude#17
 
 ## 조사 근거
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:28` 명부 새 키 3개 · `:33`~`:41` 생성기 세 칸·행 수 상한·옛 좌석 제거·렌더 2종 · `:45` 스냅샷 → update → 변경 단위 diff · 실패 순서 · 날짜 동결 · `:56` 보드 작업큐 칸 수신 대기 n 과 미보고 n 분리 · `:71` 나노 2 시험 목록 · `:139` N3 APPROVE(누락 답글 복구는 입력 해시가 같아도 막히지 않게).
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:28` 명부 새 키 3개 · `:33`~`:41` 생성기 세 칸·행 수 상한·옛 좌석 제거·렌더 2종 · `:45` 스냅샷 → update → 변경 단위 diff · 실패 순서 · 날짜 동결 · `:56` 보드 작업큐 칸 수신 대기 n 과 미보고 n 분리 · `:71` 나노 2 시험 목록 · `:139` N3 APPROVE(누락 답글 복구는 입력 해시가 같아도 막히지 않게).
 - `scripts/fable-team-bin/ft-news-tree.py:67` SEAT_PREFIX 하드코딩 · `:75` seat_state(재사용 대상) · `:89` session_block(삭제 대상 — 옛 좌석) · `:149` render(full=False 가 ✅ 가지를 뺌).
 - `scripts/fable-team-bin/ft-news-tick.sh` · `scripts/fable-team-bin/ft-news-tick-cfo.sh` — 지금 ft-news-tree.py 를 부르는 곳(이 카드는 호출부를 바꾸지 않는다 · 전환은 나노 3).
 - 나노 1 산출 `nano/v430-verdict-ledger:scripts/fable-team-bin/ft-verdict.sh` — `list [--today] [--json]` 이 n 으로 fold 한 결과(state open/done · oppa_todo 최신)를 낸다. 이 카드는 그 출력만 읽는다.
-- 나노 4 계약 `design/harness/indices/진행/v425-master-inbox.md` — `ft-inbox.sh show <좌석>` 은 정본 술어 obligation_closed 가 거짓인 줄만 낸다. 미보고 수 = 그 줄 수(술어 재작성 0).
+- 나노 4 계약 `design/teams/harness/indices/진행/v425-master-inbox.md` — `ft-inbox.sh show <좌석>` 은 정본 술어 obligation_closed 가 거짓인 줄만 낸다. 미보고 수 = 그 줄 수(술어 재작성 0).
 
 ## 구현 범위 (닫힌 목록 · 추적본 + 키트 사본 같은 바이트)
 1. `scripts/fable-team-bin/ft-board.py` 신설(+ `scripts/harness-install/fable-team/bin/ft-board.py` 사본 · 파일 200줄 넘으면 같은 디렉터리 `ft_board_*.py` 로 분리 허용 · ft-news-tree.py 는 그대로 둔다):

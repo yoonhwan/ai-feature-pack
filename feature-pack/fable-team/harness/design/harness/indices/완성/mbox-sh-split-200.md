@@ -1,5 +1,5 @@
 # 인덱스: mbox.sh 200줄 이하 분리 — 도어벨 도우미를 옆 파일로 · 동작 변화 0 [structure] (CLAUDE.md Code Metrics · 판정 #62814 arch 회신 #62821 · planner 판정 592 순서 ③)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → master #62814 질의 · arch 판정 #62821(위생 대기 1장) · planner 판정 592 ③(master#20 시작 신호 #66782)
 - 상태: 대기
 - 선행: 나노 4(v425-master-inbox · 완성) · v423 a/b/c(완성) — 둘 다 랜딩 끝 → 선행 없음
@@ -69,4 +69,4 @@ CLAUDE.md Code Metrics 는 파일 200줄 한도다. 전 좌석이 치는 통신 
 ## 결과 (나노 RESULT · master#20 옮김 2026-10-09)
 세트: 2e70f54e390755465d71321bc0c7bcaca429c148 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 통신 도구 파일 분리·시험·README 만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 03:02 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§98
+- 2026-10-09 03:02 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§98

@@ -1,6 +1,6 @@
 # 인덱스: tmm 의 bash4 소문자 변환 `${x,,}` 6곳을 bash 3.2 호환으로 + 시험을 /bin/bash 3.2 로도 (R24)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 R24(design/harness/REQUEST-LEDGER.md 9행)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 R24(design/teams/harness/REQUEST-LEDGER.md 9행)
 - 상태: 대기
 - 선행: 없음
 - 시험 입력: 기존 tests/harness/test_tmm_group.sh 의 격리 env(TMM_CATEGORIES·TMM_CAT_SESSIONS) — tmux·~/.tmm 0
@@ -13,7 +13,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 원문 5(머신 독립 배분 — byzs-mac-mini 는 macOS 기본 bash 3.2 · 좌석 운용 «전» 선행). 핵심 한 줄: 원장 R24 — 하네스 시험 32개를 bash5·/bin/bash 3.2 로 각각 돌린 결과 3.2 에서만 실패는 이것 1개(키트 fable-team 은 0) · 야간 자율 안 design/harness/PLAN-night-autonomy-20261008.md 단위 2.
+골의 축: 원문 5(머신 독립 배분 — byzs-mac-mini 는 macOS 기본 bash 3.2 · 좌석 운용 «전» 선행). 핵심 한 줄: 원장 R24 — 하네스 시험 32개를 bash5·/bin/bash 3.2 로 각각 돌린 결과 3.2 에서만 실패는 이것 1개(키트 fable-team 은 0) · 야간 자율 안 design/teams/harness/PLAN-night-autonomy-20261008.md 단위 2.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 `tmm`(tmux 세션 선택기)의 그룹 탭 라벨 함수 `cat_of()` 는 이름을 소문자로 바꿀 때 bash 4 전용 문법 `${x,,}` 을 쓴다. macOS 기본 `/bin/bash` 3.2 에서는 이 줄이 실행될 때 `bad substitution` 으로 죽는다. `bash -n`(문법 검사)은 이 오류를 못 잡는다 — 실행 때만 드러난다. 이 Mac 은 셔뱅 `#!/usr/bin/env bash` 가 homebrew bash 5 를 잡아 문제가 안 보였고, byzs-mac-mini 처럼 bash 3.2 만 있는 머신에서 처음 터진다. 고칠 것은 소문자 변환 6곳을 `tr` 로 바꾸는 것뿐이고 결과 문자열은 같다(라벨은 ASCII 이름 · 한글 등 비ASCII 는 tr 이 그대로 둔다 — `${x,,}` 도 C 로케일에선 같음).
@@ -55,4 +55,4 @@
   결론(원장 R24 답): tmm 은 bash 4+ 전용으로 명시하고, byzs-mac-mini 는 homebrew bash 설치(원격 쓰기 = 아침 사람). 키트 fable-team 은 3.2 실패 0(하네스 시험 32개 실측).
 - 2026-10-08 — 반송 r1 재작업 통과 (arch#9 재현 · 판정서 §42 초안) — 나노 2f6562f17e: base 대비 가드 13줄 추가·삭제 0 · bash5·/bin/bash 3.2 시험 rc=0 · 음성 대조(가드 없는 base → 시험 FAIL) · cat_of 150개 0.84 s(base 0.86 s).
 세트: 2f6562f17e98fade1c9333914108f85b880edc8e · 시험: bash tests/harness/test_tmm_group.sh rc=0 · 이슈: 0
-- 2026-10-08 01:55 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§42
+- 2026-10-08 01:55 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§42

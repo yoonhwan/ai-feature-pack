@@ -6,8 +6,8 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 ## 고정 대상
-- 커밋 `e5588bb09644994b6061ee01b2fc27670ca3f2b2`(브랜치 `nano/fp595-inject-post-sink` · base origin/main). 변경 4파일: 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py`(+53 · `--inject` 모드 · `inject_view`) · `…/hooks/block-destructive.sh`(INJECT 블록 `EFFECTIVE` → `INJ_SRC` 3곳 +1줄) · 시험 `tests/harness/test_block_destructive_inject_post.sh`(새 · 100줄) · 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`(+41).
-- 카드 `design/harness/indices/진행/fp595-inject-post-sink.md`(설계 = «설계» 절 닫힌 목록).
+- 커밋 `e5588bb09644994b6061ee01b2fc27670ca3f2b2`(브랜치 `nano/fp595-inject-post-sink` · base origin/main). 변경 4파일: 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py`(+53 · `--inject` 모드 · `inject_view`) · `…/hooks/block-destructive.sh`(INJECT 블록 `EFFECTIVE` → `INJ_SRC` 3곳 +1줄) · 시험 `tests/harness/test_block_destructive_inject_post.sh`(새 · 100줄) · 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md`(+41).
+- 카드 `design/teams/harness/indices/진행/fp595-inject-post-sink.md`(설계 = «설계» 절 닫힌 목록).
 - 배경: issues master#6 의 Tank 래퍼 코멘트 게시 명령(`cat > F <<'EOF'` 본문에 `/dev/bubble-replay` 인용 → `bash ft-gh-as-tank.sh comment 887 F --apply`)이 판정기 consumer(`bash`) 때문에 명령 전체 검사 → 차단(실제 주입 0). 홈 훅은 지금 ㉠ 블록이 원복돼 꺼져 있다.
 
 ## arch#22 독립 재현 (새 mktemp 폴더 · `git archive e5588bb096`)
@@ -23,11 +23,11 @@
 - 범위 밖: 파괴 PATTERN 쪽 같은 꼴 오탐 · 스크립트 «파일 안» 주입(§92 증거 검사 몫) · 홈 설치 절차(master 몫).
 
 ## 판정문
-`design/harness/DA-fp595-inject-post-sink-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-fp595-inject-post-sink-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 요청 (arch#22 · DA r1 HOLD Q1 만 · bounded 10분 + 정정 10분 · 2 HOLD 면 리뷰 종료)
 - 고정 대상: `fdc6b3f36f8a39dff067b7da65ec97d1bc55952f`(부모 `e5588bb096`) — F1 은 heredoc 구간 밖 실행 소비 구간(첫 단어가 CONSUMERS·INTERP·경로·`$`)이 전부 «같은 명령 앞 `VAR=리터럴`/`export` 대입 해소 + 실행 스크립트 realpath ≠ realpath(F)» 로 증명될 때만 본문 제거 · 증명 불가 = Inelig. 반송서 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r22/fp595/REJECT-fp595-inject-post-sink-r1.md`.
 - 추가 행: X13 `bash "$RUNFILE"` · X14 심링크 other→F · X15 `R=F; bash $R` · X16 `$D/../tmp/c.md` · X17 `sudo bash` = 전부 2 · F1a(실사례) 0 유지 · 변이 M4(realpath 끔 → X14 FAIL · X15·X16 은 끝이름 검사와 이중 방어라 M4 단독으로 안 뒤집힘 — 나노 표 명시).
-- arch#22 재현(git archive 새 mktemp): inject rc0 · inject_post rc0 · test_block_destructive rc0 · `bash -n` OK · 판정기 199줄 · 프로브 19행 BAD 1 = X7(master 판정 #67070: §100 명시 제한 + 설치 직후 별 카드 `design/harness/indices/대기/x7-inject-redis-indirect-input.md`).
+- arch#22 재현(git archive 새 mktemp): inject rc0 · inject_post rc0 · test_block_destructive rc0 · `bash -n` OK · 판정기 199줄 · 프로브 19행 BAD 1 = X7(master 판정 #67070: §100 명시 제한 + 설치 직후 별 카드 `design/teams/harness/indices/대기/x7-inject-redis-indirect-input.md`).
 - 질문: **Q1 만** — r1 반례 2종과 같은 성질(같은 명령 안에서 F 를 다른 철자로 실행)이 남는가. Q2~Q4 는 r1 APPROVE 유지(새 커밋이 기본 경로·셸 훅을 건드렸으면 그것만 지적). X7 은 판정 대상 아님(master 결정 완료).
-- 판정문: 같은 파일 `design/harness/DA-fp595-inject-post-sink-20261009.md` 에 `## r2` 절 추가 · 끝 줄 APPROVE 또는 HOLD.
+- 판정문: 같은 파일 `design/teams/harness/DA-fp595-inject-post-sink-20261009.md` 에 `## r2` 절 추가 · 끝 줄 APPROVE 또는 HOLD.

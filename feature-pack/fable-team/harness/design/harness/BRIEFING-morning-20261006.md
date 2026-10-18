@@ -23,4 +23,4 @@
 - 세션 정리: arch#2·#3 · ops#1·#3 정지 상태 — 보존 규칙 안에서 오빠 판단.
 
 ## 근거
-통합 브랜치 feat/slack-inbound-820 최신 커밋 · 판정문 design/harness/OPS-VERDICTS-20261006.md §1~§19 · 쪽지 57287·57275·57270·57269
+통합 브랜치 feat/slack-inbound-820 최신 커밋 · 판정문 design/teams/harness/OPS-VERDICTS-20261006.md §1~§19 · 쪽지 57287·57275·57270·57269

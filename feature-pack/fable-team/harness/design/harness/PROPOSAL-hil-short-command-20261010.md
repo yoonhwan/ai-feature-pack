@@ -42,4 +42,4 @@
 - 기준 코드 origin/main `ddcf90affc` · 출력처: `scripts/fable-team-bin/ft-nano-close.sh:524` · `scripts/fable-team-bin/ft-nano-spawn-undo.sh:133` · `scripts/fable-team-bin/ft-wt-sweep.sh:28`~`:29` (킷 `scripts/harness-install/fable-team/bin/` 두 벌 동일).
 - 사고 원문: mbox #71921(v65 master#161 → planner · `! bash "<115자 경로>"`) · 오빠 지시 판정 850(planner#21 #71964) · 판정 852(① 번호) · 판정 853(/tmp · planner#21 #71998) · 요청 원장 R83.
 - 손 선례: `/tmp/h1` → wt-clean 의 v65 고아 계획 심링크 · `/tmp/h2` 손 계획 파일(2026-10-10 12:43~12:45 실측).
-- 나노 카드: `design/harness/indices/대기/r83-hil-short-command.md`.
+- 나노 카드: `design/teams/harness/indices/대기/r83-hil-short-command.md`.

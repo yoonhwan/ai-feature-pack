@@ -1,6 +1,6 @@
 # RESULT: 슬랙 = 읽기 전용 공유판 — 답장 요구 0 · 첫 줄 머리표 4종 · 결정 자리 = 현역 planner 세션 이름
 
-골 축: 하네스 C(배포 발행(슬랙) 수신해 반영) + A(오빠 요청 즉시 검토). 인덱스 `design/harness/indices/진행/slack-readonly-share.md` · 설계 `design/harness/DESIGN-slack-readonly-share-20261008.md` §4-r2 · 판정 497.
+골 축: 하네스 C(배포 발행(슬랙) 수신해 반영) + A(오빠 요청 즉시 검토). 인덱스 `design/teams/harness/indices/진행/slack-readonly-share.md` · 설계 `design/teams/harness/DESIGN-slack-readonly-share-20261008.md` §4-r2 · 판정 497.
 오빠 원문 한 줄: 「거기서 자꾸 답하라는데 … 작업상황·이슈보고·변경내용·상태를 공유하고 hil이나 인터뷰가 있으면 정확히 어느 세션으로 가거나 플래너 정확한 세션을 알려주는 공유를 중점으로」
 
 세트: dc4ad4176bb50280832df6e166798532369f7c7d · 시험: bash tests/harness/test_slack_readonly_share.sh rc=0 · 이슈: 0

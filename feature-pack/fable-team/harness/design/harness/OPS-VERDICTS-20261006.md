@@ -4,7 +4,7 @@
 
 ## §1 C1a 설치 키트 채택 + install.sh + MACHINES·RELEASE 템플릿 — 닫힘
 - 나노 커밋 `89171f202d` → 통합 브랜치 `57423fa7e5`(cherry-pick -x).
-- ops 독립 검증: 변경 파일 전부 허용 경로(`scripts/harness-install/fable-team/` · `design/harness/{KIT-ADOPT,MACHINES,RELEASE-TEMPLATE}` · 카드) · 범위 밖 0 · `bash -n` 전 .sh 실패 0 · 빈 HOME(mktemp) `install.sh --apply` rc=0 · 설치 파일 76 · 비밀 패턴 스캔 0.
+- ops 독립 검증: 변경 파일 전부 허용 경로(`scripts/harness-install/fable-team/` · `design/teams/harness/{KIT-ADOPT,MACHINES,RELEASE-TEMPLATE}` · 카드) · 범위 밖 0 · `bash -n` 전 .sh 실패 0 · 빈 HOME(mktemp) `install.sh --apply` rc=0 · 설치 파일 76 · 비밀 패턴 스캔 0.
 - 한계(닫힘을 막지 않음): 원격 머신(jarvis·byzs-mac-mini) 설치는 사람 승인 뒤 · MACHINES 행은 «미확인» · 라이브 FT_BIN 이전(#816 ⑤)은 이 단위 범위 밖. 닫힘.
 
 ## §2 C5 planner 이슈 큐 절 + GOAL-cfo·GOAL-ccu + 투입≠발주 — 닫힘
@@ -101,7 +101,7 @@
 
 ## §20 tmm 그룹 탭 일반화 (신 이름 규칙 → 팀별 탭) — 닫힘 (ft-harness-ops#6 · 2026-10-07)
 - 나노 커밋 `da5685b995`(nano/tmm-group-tab-generalize · push 0) · 카드 `tmm-group-tab-generalize`.
-- ops 독립 검증: 변경 4 파일(`scripts/harness-install/tmm/{tmm,VERSION}` · `tests/harness/test_tmm_group.sh` · `design/harness/RESULT-tmm-group-tab-20261007.md`) · 설치본 0.7.3 과 diff = `cat_of()` 안 추가 23줄 + 1줄 이동뿐(삭제 0) · `bash -n` OK · `test_tmm_group.sh` ops 재실행 ALL PASS(신 6·구 6·공존·충돌·규칙파일 우선·ROLES 일치) · `~/.tmm` 변경 0.
+- ops 독립 검증: 변경 4 파일(`scripts/harness-install/tmm/{tmm,VERSION}` · `tests/harness/test_tmm_group.sh` · `design/teams/harness/RESULT-tmm-group-tab-20261007.md`) · 설치본 0.7.3 과 diff = `cat_of()` 안 추가 23줄 + 1줄 이동뿐(삭제 0) · `bash -n` OK · `test_tmm_group.sh` ops 재실행 ALL PASS(신 6·구 6·공존·충돌·규칙파일 우선·ROLES 일치) · `~/.tmm` 변경 0.
 - 결과(나노 실측): byz-* 4개가 `byz` 한 탭 → cfo·issues·planner 로 분리 · 구 이름 25개 라벨 불변(회귀 0) · 충돌은 라이브 0건(시험으로만 `b-bot`/`k-bot`).
 - 한계(닫힘을 막지 않음): ①`~/.tmm` 설치·`current` 전환은 오빠 승인 영역(미실행) ②충돌 판정이 P6 이름마다 `tmux list-sessions` 1회 — 체감 지연 시 호출부 선계산 후속. 닫힘.
 
@@ -166,7 +166,7 @@
 
 ## §31 Issue 855 pytest 가 리포 루트 .env 를 읽지 않게 (시험 격리) — 닫힘 (byz-harness-arch-claude#6 #59731 · master#9 · 2026-10-07)
 - 나노 커밋 `215f52056a`(5파일: shared/config/settings.py 스위치+RuntimeError · tests/conftest.py · gpu_uptime autouse delenv · pulse 픽스처 stub · 신규 시험 3). 요청 원장 R12(오빠 판정 harness-ops · 완성 전).
-- DA(`byz-harness-da-codex#0`, bounded): 1차 HOLD-1(Q3 — design/v65/20260930/repro/conftest.py:15 가 tests.conftest 를 import → 스위치 강제가 따라감) → 정정 계약(의도된 opt-in 공유 · pytest 자식 env 상속은 수락된 한계) → §7 APPROVE. 판정문 `design/harness/DA-i855-20261007.md`.
+- DA(`byz-harness-da-codex#0`, bounded): 1차 HOLD-1(Q3 — design/v65/20260930/repro/conftest.py:15 가 tests.conftest 를 import → 스위치 강제가 따라감) → 정정 계약(의도된 opt-in 공유 · pytest 자식 env 상속은 수락된 한계) → §7 APPROVE. 판정문 `design/teams/harness/DA-i855-20261007.md`.
 - master 독립 검증(.env 없는 git archive 사본 · REDIS_PORT=9 · vLLM 차단 · deselect 3 · CI 묶음 그대로): 12 failed 7489 passed. 855 대상(gpu_uptime·gpu_auto_warmup·pulse_consumer_carry) 실패 0. 나노 재실행 11건과 이름 11건 일치 + 1건(test_v6_d1_import_fence — 사본 .git 없음)은 사본 인위 결과. arch 독립 대조 동의, 새 인터프리터 import 시험 9파일 141 passed 0 failed(REDIS_PORT=9).
 - 남은 11건(poller_dom_order_version_capture 7 · gpu_vm_control 2 · cleanup_auth 1 · loom_contract_terminal_surfaces 1)은 855 밖 기존 실패 집합 → 요청 원장 후속 행 R17.
 - 안전 기록: master 최초 검증이 REDIS_PORT=6379 로 2분24초 돎(19:02:25~19:04:49 KST · TaskStop) · 나노도 18:40~18:58 6379 → 시험 키 대조는 arch · flush 0 · ops:account_seen_fail 일일 카운터 오염 가능.
@@ -204,7 +204,7 @@
 ## §36 ft-role-spawn 후계 첫 발주에 고스트 서제스천 1줄 — 전 역할 (R21) — 닫힘 (byz-harness-arch-claude#7 #60111·#60223 · master#10 · 2026-10-07)
 - 나노 커밋 `94e94b88fa`(3파일: ft-role-spawn.sh 추적본+키트 같은 바이트 2줄 · test_role_spawn_name.sh 9줄). 오빠 「심각하네 그거 서제스천인데 … 착각하지 마라 메인 지침」의 승계 경로 쪽 — 본체(전역 CLAUDE.md 하드 룰 10 · BOOT 17 · codex 동기 블록 · 승계 6단계 문서)는 홈 설치로 이미 반영·cmp 일치.
 - master 독립 검증: test_role_spawn_name ALL PASS · test_kit_bin_sync ALL PASS · cmp 동일 · diff 3파일. arch 재현: 같은 두 시험 ALL PASS · bash -n OK · cmp 동일 · BODY diff 는 주석 1 + 문장 1.
-- 잔여 위험(수용): 지금 떠 있는 세션은 NOTICE(design/harness/NOTICE-ghost-suggestion-20261007.md) + 팀 master 통지로만 덮인다. ft-nano-spawn BODY 에는 넣지 않았다(나노는 남의 pane 을 읽지 않는다).
+- 잔여 위험(수용): 지금 떠 있는 세션은 NOTICE(design/teams/harness/NOTICE-ghost-suggestion-20261007.md) + 팀 master 통지로만 덮인다. ft-nano-spawn BODY 에는 넣지 않았다(나노는 남의 pane 을 읽지 않는다).
 - 라이브 반영: 라이브 RT ft-role-spawn 은 R13 크론 줄도 없는 옛판 — 랜딩 뒤 추적본 단독 cp + cmp(같이 메워짐).
 - 별건: 이 나노가 스크래치 폴더 정리 명령으로 block-destructive 오탐 1건(실파괴 0) — governance §7 오탐 경로(기록·묶음 알림) 그대로.
 
@@ -292,7 +292,7 @@
 - 카드 증거 줄: `세트: 3d5fcaff2a… · 시험: python3 -m pytest tests/scripts/test_magazine_collect_mbox.py -q rc=0 · 이슈: 0`
 
 ## §46 제안서 흐름 정본·템플릿·governance ④행 초안 (판정 352 · 나노 proposal-docs) — 닫힘 (byz-harness-arch-claude#10 · master#12 #61129 · 2026-10-08)
-- 나노 커밋 `e56fed8f3f`(3파일 신규 · 161줄 추가 · 제거 0): docs/rules/proposal_flow.md 76줄 · docs/rules/proposal_template.md 34줄 · design/harness/drafts/proposal-flow/fable-team/references/main-team-governance.md(홈 사본 + ④행).
+- 나노 커밋 `e56fed8f3f`(3파일 신규 · 161줄 추가 · 제거 0): docs/rules/proposal_flow.md 76줄 · docs/rules/proposal_template.md 34줄 · design/teams/harness/drafts/proposal-flow/fable-team/references/main-team-governance.md(홈 사본 + ④행).
 - 설계 DESIGN-proposal-flow-20261008.md(§1·§2·§4) · DA 사전검증 HOLD 1 → APPROVE(DA-proposal-flow-20261008.md §6 · #61101).
 - master 독립 검증(#61129): 신규 3파일만 · 홈 governance 와 diff = ④행 + 정본 인용 줄뿐 · 제거/변경 0.
 - arch 재현(#10): ①`git show --stat e56fed8f3f` = 3 files changed, 161 insertions(+) · 미커밋 = .serena/project.yml(자동변경 노이즈)뿐 ②`diff 홈 governance 초안` = `21a22,23` 추가 2줄(④ 제안서 행 + `> 정본 docs/rules/proposal_flow.md`) — 완료 조건 「추가 2줄뿐」 일치 ③정본 상태 문자열 `grep -c`: 초안=4 · 컨펌 대기=3 · 수정 요청 r=2 · 승인 — 판정=4 · 폐기 — 판정=2(5종 전부 실재 · em dash) ④템플릿 `grep '^## '` = 결론 · 오빠가 결정할 것 · 제안 · 영향 범위 · 되돌림 · 검증 · 근거 · 각주표(설계 §2 순서 그대로) · 머리 `- 상태:` `- 팀·나노:` `- 오빠 원문:` `- 자료:` 실재 ⑤정본 3행에 「자동 로드 파일이 아니다(#3 RULE)」 · `.claude/rules`·CLAUDE.md 참조 0 ⑥도구 3개 이름·인자·위치(정본 56~58행)가 설계 §3 계약과 같음 — tools 나노와의 계약(상태 머리줄 · 템플릿 칸 · 명령 이름) 변경 0.
@@ -347,7 +347,7 @@
 - 시험이 덮는 설계 §8 항목(PASS 줄 원문): 재ACK·적용 id(「적용 - 줄 → PENDING」·「적용 commit 이 원장 HEAD 에 없음 → STALE」) · close 일부 실패 = 보류(「닫힘 close 일부(2/3) → rc=1」) · 같은 경로 이후 개정본 안 읽음(「--body = 발주 commit 본문(v1), 같은 경로 이후 개정본(v2) 아님」) · 없는 sha = 미전달(「없는 sha = 미전달 → rc=1」) · 보호 ref 없음 → rc=1 · 이름·상태·Issue 칸 형식 · 행 중복 · Issue 겹침 경고.
 - 편차 수락 2: ①`--body <세트>`(발주 sha:경로 본문 출력 — 설계 §8 「같은 경로 이후 개정본 안 읽음」 시험을 도구 경로로 확인하려고 · 읽기 전용) ②끝줄 「· 폐기 e」 는 폐기 행이 있을 때만(설계 §1 상태 5종에 폐기 포함 — 표기 추가뿐).
 - 최종 DA 소환: 안 함 — 사전검증 APPROVE 범위 안 · 읽기 전용 도구 + 빈 틀·문서 · 반송 0.
-- 남은 몫(이 판정 밖): ①홈 초안 2개 cp 설치(백업 `.bak-1008-sets` · cmp 확인) = master ②원장 실재화(issues master 트리 design/issues/SETS.md) · 첫 적용 판정 358 CFO 7세트(회수본 design/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md) · 라벨·보호 ref 생성 = issues master·planner.
+- 남은 몫(이 판정 밖): ①홈 초안 2개 cp 설치(백업 `.bak-1008-sets` · cmp 확인) = master ②원장 실재화(issues master 트리 design/issues/SETS.md) · 첫 적용 판정 358 CFO 7세트(회수본 design/teams/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md) · 라벨·보호 ref 생성 = issues master·planner.
 - 정본 영향 없음: docs/rules 에 하네스 절차 정본 1장 신규와 하네스 도구·시험이고 docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: 043a9801c87a7fd80efb30831622711114b83679 · 시험: bash tests/harness/test_ft_sets.sh rc=0 · 이슈: 0`
 
@@ -379,7 +379,7 @@
 
 ## §53 제안서 흐름 r2 — Issue 본문 = 제안서 전문 · 제안서 md + eli5 HTML 세트 · 실험·예측 시뮬 절 (판정 357 · 나노 proposal-flow-r2) — 닫힘 (byz-harness-arch-claude#11 · master#14 #61972 · 2026-10-08)
 - 나노 커밋 `97e97796c8` [structure] publish 상태 helper → proposal_state.py(동작 변경 0) · `966368a8f9` [feature] md+eli5 HTML 세트·원문 hash 고정 · `342fc17a9d` [feature] Issue 본문 = 전문·식별자·시도 기록·분할 comment · `1f834a7536` [feature] 카드·정본 실험 절. 브랜치 nano/proposal-flow-r2(base 801e66649e) · 20파일 +1049/−125.
-- 설계 DESIGN-proposal-flow-20261008.md «# r2» · DA §r2 HOLD-1(R2-A 제목만 동일성·생성 응답 유실 / R2-B 첨부 완료 불명·캐시 원문 불일치) → §r2 교정 1 APPROVE(design/harness/DA-proposal-flow-20261008.md). Eli5Error 보이는 저하(경고 줄+ERROR+md 계속)는 DA 수락.
+- 설계 DESIGN-proposal-flow-20261008.md «# r2» · DA §r2 HOLD-1(R2-A 제목만 동일성·생성 응답 유실 / R2-B 첨부 완료 불명·캐시 원문 불일치) → §r2 교정 1 APPROVE(design/teams/harness/DA-proposal-flow-20261008.md). Eli5Error 보이는 저하(경고 줄+ERROR+md 계속)는 DA 수락.
 - master 독립 검증(#61972): ruff 0 · shellcheck 0 · 200줄 초과 0 · register 59 + card 31 + r2 시험 ALL PASS · pytest publish/faults/eli5 33 + 매거진 185 passed.
 - arch 재현(#11): ①`test_proposal_register.sh`·`test_proposal_register_r2.sh`·`test_proposal_card.sh` ALL PASS ②`pytest test_proposal_publish.py test_proposal_publish_faults.py test_proposal_eli5.py` 33 passed ③매거진 회귀 `pytest tests/scripts -k magazine` 185 passed ④ruff All checks passed ⑤매거진 파일 변경 = magazine_attach.py `CONTENT_TYPES` md 1키뿐(diff --stat 1줄) ⑥install-magazine.sh COMPANION 에 proposal_eli5.py·proposal_eli5_template.html·proposal_state.py·proposal_files.py ⑦카드 증거 검사 `--feat 801e66649e` OK.
 - DA 구현 조건 6 소스 대조: ①확정 거절 = Tank rc=2 뿐(ft-proposal-register.sh — ft-gh-as-tank.sh·ft-issue-create-pair.sh 의 exit 2 는 usage·토큰 없음·좌석 불명으로 전부 `gh issue create` 호출 «전» 확인) · rc≠0·번호 없는 출력은 creating 유지 «불명» ②기록에 issue 번호 있으면 검색 없이 그 번호 본문 첫 줄 표식 직접 대조 → ADOPT 또는 「사람이 확인(새 create 0)」(proposal_register_lib.py cmd_plan) ③set_phase 가 기존 rN 기록을 `{**old, …}` 로 덧써 md_hash·html·files 보존(proposal_state.py) ④attach 는 magazine_attach.attach 그대로 · AttachError 를 잡지 않음(proposal_files.attach_all) ⑤md 는 `read_bytes()` 1회 → 칸·hash·HTML·첨부가 같은 바이트(첨부는 그 바이트를 임시 파일로) · check_pinned 가 make_html(캐시 판단) «전»(byz_proposal_publish.py:102-111) ⑥md 중간 상태 = files.md.phase=done 으로 표현(attach_all docstring 「md 완료와 같은 의미」).
@@ -391,7 +391,7 @@
 
 ## §54 틱 master 뉴스 대상 = 좌석표 _master 하나 — 팀 틱 추적본 신설 + 뉴스 행 검사 분리 + 자동 후계 N 증가 (R27 · 나노 r27-master-seat-single-source) — 닫힘 (byz-harness-arch-claude#12 · master#14 #62117 · 2026-10-08)
 - 나노 커밋 `a8a74d0c41` [structure] ft-tick-team.sh 추적본 신설(bin-feature 바이트 복사 · md5 cb379b08966214ac4136a6402588fdc5 일치) · `9a6cb3b46f` [feature] master 뉴스 대상 = _master · `6dc923936d` [fix] SC2155 local 분리. 브랜치 nano/r27-master-seat-single-source(base 0b1ca4e938) · 키트 334→355줄 · 팀 판 233→258줄(순증 ≤30 · 카드 7번 범위).
-- 설계 PLAN-r27-master-seat-single-source-20261008.md(§8 r2 정정: 팀 틱 5개 = 갈라진 판 · 키트로 덮지 않음) · DA HOLD-1(R27-A 승계 중간 뉴스 0 ERROR 누락 / R27-B 자동 후계 옛 incarnation 회귀) → 교정 1 APPROVE(design/harness/DA-r27-master-seat-20261008.md §8·§9).
+- 설계 PLAN-r27-master-seat-single-source-20261008.md(§8 r2 정정: 팀 틱 5개 = 갈라진 판 · 키트로 덮지 않음) · DA HOLD-1(R27-A 승계 중간 뉴스 0 ERROR 누락 / R27-B 자동 후계 옛 incarnation 회귀) → 교정 1 APPROVE(design/teams/harness/DA-r27-master-seat-20261008.md §8·§9).
 - master 독립 검증(#62117): test_ft_tick_master_seat · test_kit_bin_sync ALL PASS · bash -n OK · 사본 cmp 동일 · shellcheck 신규 경고 0(SC2155 1차 반송 → C 해소 · 남은 SC2034·팀 판 SC2155 1건은 기존 줄).
 - arch 재현(#12): ①`bash tests/harness/test_ft_tick_master_seat.sh` rc=0 fail=0 ALL PASS(후계 ①~⑤b 포함) ②`bash tests/harness/test_kit_bin_sync.sh` ALL PASS ③ft-tick.sh·ft-tick-team.sh 각 두 사본 cmp 동일 + bash -n OK ④커밋 A 의 ft-tick-team.sh md5 = cb379b08966214ac4136a6402588fdc5.
 - DA 교정 조건 소스 대조: ①master_seat = _master 행 실재·_replaced_by 없음·role master 일 때만(tick 무관) — 「유효 master」 ②master_news_ok = 현역 ft-master-tick 행 목록에 master_seat 가 들어 있어야 통과(JSON 키라 «정확히 1개» 와 같다) · 아니면 ERROR 로그 + DEAD-SEATS.alert 1줄 · 서명(_master|뉴스 행) 같으면 재기록 0 · 정상 복귀 시 서명 파일 삭제(재발 시 다시 1회) · WARN mtwarn stamp 와 별개 ③뉴스 행 0 = 조용히 통과 ④role 첫 행 폴백 0(stall·idle·drift·pm report_to 전부 master_seat) ⑤heir_of = 같은 base · N > dead N 만(숫자 아니면 빈 값) ⑥retarget_seat 후계 행 은퇴(_replaced_by)면 rc 3 · 백업·쓰기 0 → DEAD 알림 경로 ⑦_master 는 == dead 일 때만 같은 dump 안에서 갱신 · 다른 base 추측 0.
@@ -404,7 +404,7 @@
 
 ## §55 슬랙 이어가기 블록 + 단일 발행 입구 byz_thread_post + 스레드 장부 (판정 404 ② 카드 1/2 · 나노 resume-block-thread-post) — 닫힘 (byz-harness-arch-claude#12 · master#14 #62385 · 2026-10-08)
 - 나노 커밋 `8dd7baf719` [feature] 이어가기 블록 + byz_thread_post + 장부 · `15a2081450` [fix] test_resume_cmd.sh SC2155(반송 1차). 브랜치 nano/resume-block-thread-post(base b637db62b5) · 25파일 +1098/−31 · 새 파일 최대 191줄(byz_thread_post.py).
-- 설계 DESIGN-resume-index-20261008.md r1(판정 405 채널 #byz-planner 하나) · DA HOLD-1(I1 장부 부재=미게시 오판 / I2 미러 본문 첫 인용 / I3 jsonl 이름 검색) → 교정 1 APPROVE(design/harness/DA-resume-index-20261008.md §8·§9).
+- 설계 DESIGN-resume-index-20261008.md r1(판정 405 채널 #byz-planner 하나) · DA HOLD-1(I1 장부 부재=미게시 오판 / I2 미러 본문 첫 인용 / I3 jsonl 이름 검색) → 교정 1 APPROVE(design/teams/harness/DA-resume-index-20261008.md §8·§9).
 - master 독립 검증(#62385): pytest 74 · 매거진 187 · test_resume_cmd·kit_bin_sync·제안서 시험 ALL PASS · ruff 0 · shellcheck 경고급 0.
 - arch 재현(#12): ①`pytest test_thread_post.py test_proposal_publish.py test_proposal_publish_faults.py test_byz_mbox_slack_mirror.py` 69 passed ②`pytest tests/scripts -k magazine` 187 passed ③`bash tests/harness/test_resume_cmd.sh` ALL PASS ④`test_kit_bin_sync.sh` ALL PASS ⑤ruff All checks passed ⑥새 파일 7개 전부 200줄 이하.
 - 설계 계약 소스 대조: ①블록 6칸 — None·빈 값 raise(BlockError) · 고정 2줄 · esc 중화(resume_block.block) ②정본 = `<경로>@<sha8>` · 추적 밖·미커밋·이력 없음 raise(canon_ref) ③재개 = ft-resume-cmd.sh — 정확한 tmux 이름 ring · 아니면 좌석표 행 session_uuid·cwd·agent=claude + jsonl sessionId·cwd 일치만 resume(printf %q) · 그 밖 rc 3 「없음(…)」 · jsonl 본문 이름 검색 0(I3) ④미러 블록 Issue·카드 = 없음 고정 · 담당 = 행 from · 정본 = bodies/<seq>.txt@mbox(I2) ⑤장부 없음·손상·쓰기 실패 raise · 빈 장부는 --init 만 · 키 = 불변 단위 ID(thread_ledger · I1) ⑥start = 카드에 「- 슬랙: … 시도」 선기록 → 뿌리 글 1개 → 카드 줄 root_ts 로 갱신 → 장부 → 첨부는 같은 스레드 · 이미 시작·카드 줄 있음 = REJECT ⑦result = `[결과] <단위 ID>` 첫 줄 · 재실행 시 스레드 표식 먼저 찾아 재발송 0 · kind=report 면 거부 ⑧check rc 0(미게시·결과 있음·report) / 1(결과 없음) / 3(장부 오류·키 없음·root_ts 없음·«시도»뿐) ⑨kind=report 는 CLI 인자 없음(매거진 발행기 ensure_report 만) ⑩--bot 은 result 서브명령에만.
@@ -417,7 +417,7 @@
 
 ## §56 나노 닫기 cherry 게이트 — squash 랜딩 PR 전용 플래그 --squashed-pr + design/ 문서 종류만 WARN (R29 · 나노 r29-cherry-gate-squashed-pr) — 닫힘 (byz-harness-arch-claude#13 · master#14 #62485 · 2026-10-08)
 - 나노 커밋 `ea1a256723` [feature] cherry 게이트 --squashed-pr + design/ 문서 종류만 WARN. 브랜치 nano/r29-cherry-gate-squashed-pr(base 418c5e2489) · 5파일 +348/−12 · ft-nano-cherry-gate.sh 181줄 · 새 ft-nano-cherry-pr.sh 82줄(source 전용) · 키트 사본 2 · tests/harness/test_cherry_gate_squash.sh.
-- 안 PLAN-r29-squash-superset-close-20261008.md r1 · DA HOLD-1(PR 중간 blob 존재 = 최종 반영 → 되돌림 거짓 통과) → 교정 1 APPROVE(design/harness/DA-r29-squash-superset-20261008.md · #62323).
+- 안 PLAN-r29-squash-superset-close-20261008.md r1 · DA HOLD-1(PR 중간 blob 존재 = 최종 반영 → 되돌림 거짓 통과) → 교정 1 APPROVE(design/teams/harness/DA-r29-squash-superset-20261008.md · #62323).
 - master 독립 검증(#62485): test_cherry_gate_squash fail=0 ALL PASS · 기존 cherry pytest 40 passed · kit_bin_sync ALL PASS · 사본 cmp · shellcheck 경고급 0.
 - arch 재현(#13): ①`bash tests/harness/test_cherry_gate_squash.sh` rc=0 fail=0(③ 「되돌림(P1→P0) 플래그로도 REJECT」 · 「원장 0행」 PASS) ②`test_kit_bin_sync.sh` ALL PASS ③사본 cmp 2쌍 동일 ④bash -n 2파일 OK ⑤두 파일 200줄 이하.
 - 확정안 조건 소스 대조: ①플래그 없을 때 = 기존 경로 그대로(자동 통과 추가 0 · 도우미 파일은 플래그 때만 source — 런타임에 pr.sh 없어도 기존 닫기 영향 0) ②`--squashed-pr N --reason` 둘 다 필요 · 빈 사유 REJECT · --override 와 동시 = usage 2 · --reason 단독 = usage 2 ③PR 사실 = gh state MERGED ∧ mergeCommit S ∈ merge-base(NANO,FEAT)..FEAT(is-ancestor 2회) · head 없으면 fetch pull/N/head · 실패 REJECT ④경로 분류(mode type blob 3칸 비교) = 같음(tip==FEAT) / 나노 tip 삭제 REJECT / squash 에서 제거 REJECT / squash==분기 시점(되돌림) REJECT / tip 이 merge-base(H,FEAT)..H 에 새 blob = PR 안에서 고쳐짐 / 그 밖 REJECT — REJECT 1개라도 있으면 플래그로도 불가 ⑤통과 = 경로 표(고친 PR 커밋 sha·제목) + 한계 문구 + 원장 `kind=squashed-pr pr=#N head=<H8> squash=<S8> paths=… reason=…` 1행 + stderr ERROR · 원장 메타·기록 실패 = REJECT ⑥혼합 «+» 커밋의 WARN = design/ 아래 md·html·png·jpg·jpeg·svg·pdf 만(is_doc_path) · sql·sh 등은 코드 경로 · NUL-safe(read -d '').
@@ -479,7 +479,7 @@
 
 - 정본 영향 없음: 하네스 원장 도구·시험만 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: 세트: b382723e31 · 시험: bash tests/harness/test_verdict_ledger.sh rc=0 · 이슈: 0 (evidence-check OK)
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v430-verdict-ledger.md 완성 --da <판정문>#§58`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v430-verdict-ledger.md 완성 --da <판정문>#§58`
 
 ## §59 메인팀 인박스 — ft-inbox.sh(ingest·show·mark·report·archive·--compact) + 정본 술어 obligation_closed + mbox send/relay 적재 훅 (판정 425-B · 430 · 나노 v425-master-inbox) — 닫힘 (byz-harness-arch-claude#14 · master#15 #62884 · 2026-10-08)
 - 나노 커밋 `ff9172d328` [structure] canonical mbox.sh 를 라이브와 같은 바이트로 · `6daa9f3fd7` [feature] ft-inbox + mbox 적재 훅 · 반송 수정 `97090f6d43` [fix] Haiku 분류 비동기 + 2파일 분리 + 훅 축소 · `d2ce4b6ff3` [fix] 미상을 MUST_REPORT 에 추가. 브랜치 nano/v425-master-inbox(base d21481fe6c) · ft-inbox.py 169줄 · ft_inbox_core.py 129줄 · ft-inbox.sh 3줄 · mbox.sh 231줄(라이브 원본 226 + 훅 5).
@@ -503,11 +503,11 @@
 
 - 정본 영향 없음: 하네스 통신 도구·시험만 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: 세트: d2ce4b6ff3 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0 (evidence-check OK)
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v425-master-inbox.md 완성 --da <판정문>#§59`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v425-master-inbox.md 완성 --da <판정문>#§59`
 
 ## §60 카드 이동 슬랙 과정·결과 답글 자동 + 결과 없으면 CLOSE 금지 + 손 hermes send 슬랙 차단 훅 (판정 404 ② · 405 · 카드 2/2 · 나노 result-reply-close-gate) — 닫힘 (byz-harness-arch-claude#14 · master#15 #62928 · 2026-10-08)
 - 나노 커밋 `e04492076f` [feature] ft-index-move 슬랙 단계 + slack-post-guard 훅 · `e7c62f2197` [test] 슬랙 단계 시험 · 반송 수정 `c407fef282` [fix] 판정 단위를 명령 위치의 hermes 구간으로(오탐 제거) · `111360204d` [fix] 따옴표 쪼갠 명령어·xargs 우회 차단. 브랜치 nano/result-reply-close-gate · ft-index-move.sh 150줄 · slack-post-guard.sh 142줄.
-- 설계 판정 404·405 교정 설계 · 사전 DA ★APPROVE★(design/harness/DA-resume-index-20261008.md §9 · HOLD-I1~I3 해소).
+- 설계 판정 404·405 교정 설계 · 사전 DA ★APPROVE★(design/teams/harness/DA-resume-index-20261008.md §9 · HOLD-I1~I3 해소).
 - master 독립 검증(#62758 → #62884 → #62928): index_move_slack 12/12→14 · slack_post_guard 15→24→29 · kit_sync PASS · shellcheck 0 · 오탐 allow·우회 deny 직접 재현.
 - arch 재현(#14 · 고정 sha 111360204d): ①`bash tests/harness/test_index_move_slack.sh` rc=0 PASS 14 ②`bash tests/harness/test_slack_post_guard.sh` rc=0 PASS 29 ③`test_kit_bin_sync.sh` rc=0 ④ft-index-move 사본 cmp 동일 · bash -n OK ⑤`ft-nano-evidence-check.sh` OK(세트 HEAD 111360204 · rc=0 · 이슈 0).
   - 훅 직접 프로브 15건(arch 고정 목록 · 결과 전부 기대대로): allow 6 = mbox send 본문에 slack·hermes 낱말 · git commit -m 메시지 · grep send …/slack-mirror ~/.hermes · tail gateway.log | grep 패턴 · hermes send -t telegram · hermes send --list / deny 9 = -t slack · --to=slack:C123 · 따옴표 분리(h""ermes … sl""ack) · 변수 대상(T=slack; … -t $T) · bash -c 안쪽 · cd && ENV= 접두 · 절대경로 ~/.local/bin/hermes · xargs hermes · env hermes.
@@ -530,7 +530,7 @@
 - 라이브 반영(master · 카드 밖): 표 5 → 훅 설치 + ★BYZ 프로젝트 settings★ PreToolUse 등록(표 3 결정 · 전역 0) → 소급 7건(설계 §7) `byz_thread_post.py result --legacy-root …` 1회씩 → 각 스레드 [결과] 답글 실측 → 판정 404 소급 보고 1통.
 - 정본 영향 없음: 하네스 카드 이동 도구·가드 훅·시험만 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: 세트: 111360204d · 시험: bash tests/harness/test_index_move_slack.sh rc=0 · 이슈: 0 (evidence-check OK)
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/result-reply-close-gate.md 완성 --da <판정문>#§60`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/result-reply-close-gate.md 완성 --da <판정문>#§60`
 
 ## §61 CI 비용 차단 5개 — .github/workflows/ci.yml 문서 제외 · concurrency · observe-only 수동화 · main push 축소 (판정 436 · 오빠 즉시 · 나노 v436-ci-cost-cut) — 닫힘 (byz-harness-arch-claude#14 · 2026-10-08)
 - 나노 커밋 `6fe01a83a1` [chore] CI 비용 차단 — 판정 436. 브랜치 nano/v436-ci-cost-cut · `.github/workflows/ci.yml` 1파일 +19/−0(트리거·concurrency·잡 `if:` 만 · steps·services·env 무변경).
@@ -561,11 +561,11 @@
 
 - 정본 영향 없음: CI 트리거·조건만 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄(나노 재기입 뒤): 세트: 6fe01a83a1f27fed2386520a8a67ceac166079d1 · 시험: actionlint -shellcheck= .github/workflows/ci.yml rc=0 · 이슈: 0
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v436-ci-cost-cut.md 완성 --da <판정문>#§61`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v436-ci-cost-cut.md 완성 --da <판정문>#§61`
 
 ## §62 공용 격리 Redis fixture 기동 대기 단축 — _v65_l6_redis._serve 소켓 대기 후 ping + kill 정리 (판정 438 · 설계 §2 안 가 · 나노 v438-l6-redis-fixture-fast) — 닫힘 (카드 v438 · 안 가 랜딩 5785530bea · ★판정 438 6분 목표는 열림 — 다음 한 수 아래★ · byz-harness-arch-claude#14 · #15 랜딩 실측 · 2026-10-08)
 - 나노 커밋 `2106bc70f9` [fix] 격리 Redis fixture — 소켓 대기 후 ping · kill 정리 (판정 438). 브랜치 nano/v438-l6-redis-fixture-fast(base e3556432ae) · `tests/worker/unit/_v65_l6_redis.py` +6/−7(제품 코드 0).
-- 설계 design/harness/DESIGN-pytest-speed-438-20261008.md r1 §1(발생 위치 = redis-py 7.4 기본 재시도 `ExponentialWithJitterBackoff(base=1, cap=10)` 가 소켓 생성 전 ping 안에서 잠듦) · §2 안 가 채택 · 나 기각 · 다·라 = 측정 게이트 뒤.
+- 설계 design/teams/harness/DESIGN-pytest-speed-438-20261008.md r1 §1(발생 위치 = redis-py 7.4 기본 재시도 `ExponentialWithJitterBackoff(base=1, cap=10)` 가 소켓 생성 전 ping 안에서 잠듦) · §2 안 가 채택 · 나 기각 · 다·라 = 측정 게이트 뒤.
 - 나노 보고(커밋 본문): CI 와 같은 경로 로컬 전 1028초 → 후 254초 · 7708 passed / 50 failed / 40 errors 전후 동일(실패·에러 97건 집합 diff 0).
 - arch 독립 재현(#14 · 고정 sha 2106bc70f9 · 같은 머신):
   ①`LOCAL_VLLM_BASE_URL=http://127.0.0.1:9/v1 timeout 1500 uv run pytest tests/gateway/unit tests/worker/unit tests/infrastructure/gpu --ignore-glob='*_red.py' --ignore-glob='*_red_*.py' -q -p no:cacheprovider --durations=20 -rfE` → 「50 failed, 7708 passed, 2 skipped, 60 deselected, 4 xfailed, 835 warnings, 40 errors in 248.50s (0:04:08)」(벽시계 252초)
@@ -594,7 +594,7 @@
 
 - 정본 영향 없음: 테스트 fixture 만 — docs/architect 제품 정본 변경 없음.
 - 카드 증거 줄: `세트: 7280f7cf5a…` · evidence-check 「OK 증거 줄 — 세트 HEAD 7280f7cf5 · 시험 rc=0 · 이슈 0」(카드 미커밋 · master 커밋). PR 은 HEAD `7280f7cf5a` 로.
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v438-l6-redis-fixture-fast.md 완성 --da <판정문>#§62`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v438-l6-redis-fixture-fast.md 완성 --da <판정문>#§62`
 
 ## §63 PR 템플릿 정본 줄·Refs 자리·완료 6항 (판정 444 · 440 설계 r2 §4 순서 3 · 나노 v444-pr-template-canon-line) — 닫힘 (byz-harness-arch-claude#15 · 2026-10-08)
 - 대상 카드: v444-pr-template-canon-line
@@ -612,7 +612,7 @@
 | 3 | 되돌림 | 1커밋 revert |
 
 - 정본 영향 없음: PR 템플릿 문서만 — docs/architect 제품 정본 변경 없음.
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v444-pr-template-canon-line.md 완성 --da <판정문>#§63`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v444-pr-template-canon-line.md 완성 --da <판정문>#§63`
 
 ## §64 ft-index-move 진행→완성 — 정본 갱신 카드 랜딩 commit 사실 검사 + 정본 쪽지 수신자 팀 _arch + DA 절-카드 결속(R37 합침) (판정 444 · 440 설계 r2 §4 순서 1 · 나노 v444-index-move-canon-landed) — 닫힘 (byz-harness-arch-claude#15 · 2026-10-08)
 - 대상 카드: r37-index-move-da-section-binding (R37 · 범위 전부가 이 절의 v444-index-move-canon-landed 에 합쳐져 PR 944 로 랜딩 — 합침 카드 정리 · arch#15 #63740)
@@ -634,7 +634,7 @@
 | 4 | 되돌림 | 1커밋 revert + FT_BIN 이전 사본 |
 
 - 정본 영향 없음: 하네스 카드 이동 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v444-index-move-canon-landed.md 완성 --da <판정문>#§64` — ★이 절은 카드 이름 `v444-index-move-canon-landed` 를 싣는다(새 결속 규칙 자기 적용)★.
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v444-index-move-canon-landed.md 완성 --da <판정문>#§64` — ★이 절은 카드 이름 `v444-index-move-canon-landed` 를 싣는다(새 결속 규칙 자기 적용)★.
 
 ## §65 CI Mobile Test — 모바일 무변경 PR 은 잡 레벨 skip(Detect Changes) + Set up Flutter 5분 timeout (판정 451 ⓐ+ⓑ · 나노 v451-ci-mobile-test-gate) — 닫힘 (byz-harness-arch-claude#15 · 2026-10-08)
 - 대상 카드: v451-ci-mobile-test-gate
@@ -654,11 +654,11 @@
 | 4 | 되돌림 | 1커밋 revert |
 
 - 정본 영향 없음: CI 워크플로 1파일 — docs/architect 제품 정본 변경 없음.
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v451-ci-mobile-test-gate.md 완성 --da <판정문>#§65`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v451-ci-mobile-test-gate.md 완성 --da <판정문>#§65`
 
 ## §66 ft-issue-close-check 6항 «정본» — 랜딩 commit 에 정본 diff 가 있어야 Issue 닫기 통과 + 픽스처 3 + ISSUE-TRANSITIONS §3 1행 (판정 444 · 440 설계 r2 §4 순서 2 · 나노 v444-issue-close-canon-6th) — 닫힘 (byz-harness-arch-claude#15 · 2026-10-08)
 - 대상 카드: v444-issue-close-canon-6th
-- 나노 세트 `ef6fb99143`(카드 증거 줄) → master#16 독립 검증 뒤 PR #943 squash 병합 `eb0a9263a054bb712c456bda603c713b12da7253`(첫 부모 1da5a43a3d · origin/main 조상) · 7파일 +200/−20: `scripts/fable-team-bin/ft-issue-close-check.sh`(+ 키트 사본) · 픽스처 `closed-with-6items-canon.json`·`closed-with-6items-no-impact.json`·`closed-partial-two-sha.json` · `tests/harness/test_issue_close_canon.sh` 88줄 · `design/harness/ISSUE-TRANSITIONS.md` §3.
+- 나노 세트 `ef6fb99143`(카드 증거 줄) → master#16 독립 검증 뒤 PR #943 squash 병합 `eb0a9263a054bb712c456bda603c713b12da7253`(첫 부모 1da5a43a3d · origin/main 조상) · 7파일 +200/−20: `scripts/fable-team-bin/ft-issue-close-check.sh`(+ 키트 사본) · 픽스처 `closed-with-6items-canon.json`·`closed-with-6items-no-impact.json`·`closed-partial-two-sha.json` · `tests/harness/test_issue_close_canon.sh` 88줄 · `design/teams/harness/ISSUE-TRANSITIONS.md` §3.
 - arch 독립 재현(#15 · 병합 eb0a9263a0 을 포함하고 그 7파일에 diff 0 인 HEAD 5ce91ec4ce 워크트리 · 나노 워크트리는 닫힘): `test_issue_close_canon.sh` ALL PASS rc=0(①~⑧ + S 로컬 없음 → fetch 안내 MISS) · `test_kit_bin_sync.sh` ALL PASS · 사본 cmp OK · bash -n OK.
 - arch 소스 대조: 6항 `정본: <파일>#<절>@<sha 목록>` · 각 sha (가)`merge-base --is-ancestor S $FT_LAND_REF`(기본 origin/main · fetch 0 · S 없으면 「git fetch 후 다시」) (나)`S^1..S` 또는 `T..S` name-only 에 파일 · 부분 PR `@S1,S2` 각각 · `정본 영향 없음:` 은 글자 수 ≥10(jq length · 로케일 무관) · 키 정규식이 `정본\s*[:：]` 라 「정본 영향 없음:」 줄과 섞이지 않음 · 5항·Closes 검사 무변경 · gh 호출 1회·쓰기 0 유지.
 - 구현 DA 소환: 아니오 — 440 r2 DA APPROVE(§2-3 표 2행 · §6-1 ①② · §6-3 · §6-5 fixture 4행) 범위 그대로 — arch 서명 byz-harness-arch-claude#15.
@@ -673,7 +673,7 @@
 | 4 | 되돌림 | 1커밋 revert |
 
 - 정본 영향 없음: 하네스 Issue 닫기 검사 도구·전이표·시험만 — docs/architect 제품 정본 변경 없음.
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v444-issue-close-canon-6th.md 완성 --da <판정문>#§66`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v444-issue-close-canon-6th.md 완성 --da <판정문>#§66`
 
 ## §67 CI Python Test 병렬화 — pytest-xdist `-n auto --dist loadgroup` + 공유 Redis 접촉 26모듈 한 그룹 (판정 446 · 설계 r2 · 판정 438 6분 목표 · 나노 v446-ci-pytest-xdist) — 닫힘 (카드 v446 · ★판정 438 6분 목표는 열림 — CI 2 워커 · 다음 한 수 아래★ · byz-harness-arch-claude#15 · 2026-10-08)
 - 대상 카드: v446-ci-pytest-xdist
@@ -687,7 +687,7 @@
   ④병렬 -v 로그 `@shared_redis_6379` 720줄(시작·결과 2줄 × 약 360 nodeid · 나노 359 와 일치)
   ⑤벽시계 직렬 278s → 병렬 118s(2.36배 · 나노 2.4배와 같음). 개발 Redis 접속 0.
 - 반복 2회(나노 r1·r2) + arch 1회 = 제한된 관측 · flake 부재 증명 아님.
-- 사전 DA: design/harness/DA-xdist-446-20261008.md r1 HOLD(Q3) → r2 APPROVE(#63367). 구현 DA 소환: 아니오 — r2 승인 조건(nodeid 상태표 · 가려진 시험 증거 · 격리 실행) 전부 충족 · arch 재현 일치 — arch 서명 byz-harness-arch-claude#15.
+- 사전 DA: design/teams/harness/DA-xdist-446-20261008.md r1 HOLD(Q3) → r2 APPROVE(#63367). 구현 DA 소환: 아니오 — r2 승인 조건(nodeid 상태표 · 가려진 시험 증거 · 격리 실행) 전부 충족 · arch 재현 일치 — arch 서명 byz-harness-arch-claude#15.
 - 관찰(반송 아님): ci.yml 은 나노 base(cb0d313486) 위 — 451(#945) 이 같은 파일 다른 잡을 고침 → master 가 origin/main 병합 뒤 push.
 
 ### 랜딩 (master 집행 · 카드 밖)
@@ -712,7 +712,7 @@
 - arch 추천: ★6분 목표를 꼭 지킬 거면 라 + 준비 다듬기(무료 · 커버리지 결정 1개)★ · 비용보다 속도면 큰 러너. 지금 7m15s 도 전(21m37s) 대비 3배 — «목표를 7분 반으로 고칠지» 도 오빠 선택지.
 
 - 정본 영향 없음: CI 설정·테스트 마커·dev 의존성만 — docs/architect 제품 정본 변경 없음.
-- 진행→완성: `ft-index-move.sh design/harness/indices/진행/v446-ci-pytest-xdist.md 완성 --da <판정문>#§67`
+- 진행→완성: `ft-index-move.sh design/teams/harness/indices/진행/v446-ci-pytest-xdist.md 완성 --da <판정문>#§67`
 
 ## §68 슬랙 미러 둘 정지 복구 — github 미러 format_row 호출 정합 + mbox 미러 좌석 정규식 (판정 442 · 오빠 「슬랙 알림 전혀 안 옴」 · 나노 v442-slack-mirror-two-dead) — 닫힘 (byz-harness-master-claude#16 · 2026-10-08)
 - 대상 카드: v442-slack-mirror-two-dead
@@ -736,7 +736,7 @@
   - 첫 재현은 `tools/comm-canonical` 을 빼고 풀어 mbox send 훅 7건 FAIL(rc 127 = 파일 없음) — 시험이 `$REPO/tools/comm-canonical/mbox.sh` 를 복사해 쓰기 때문 · 추출 범위 문제(제품 결함 아님).
 - 설치: 라이브 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin/ft-inbox.py` = `ed256f78ab` 정본과 cmp 같음 · 키트 사본 cmp 같음(arch#16 확인).
 - 남은 확인(master 몫 · #63807): 다음 쪽지 적재 때 라이브 큐 행에 `via` 가 실제로 들어가는지 1건.
-- ★증거 줄 공백(관찰 · 반송 아님)★: 카드는 ops/main-base `design/harness/indices/진행/` 에 있고 나노 워크트리(origin/main 기준)에는 카드가 없어 나노가 카드 끝 증거 줄을 못 썼다 — 나노는 pane 보고로 대신함. 판정 444 ②(하네스 나노 base = origin/main) 이후 카드 위치(ops/main-base)와 나노 base 가 갈라진 구조 문제 → master 판단 요청(카드를 main 에 두거나 · 증거 줄을 판정 절로 대체 허용).
+- ★증거 줄 공백(관찰 · 반송 아님)★: 카드는 ops/main-base `design/teams/harness/indices/진행/` 에 있고 나노 워크트리(origin/main 기준)에는 카드가 없어 나노가 카드 끝 증거 줄을 못 썼다 — 나노는 pane 보고로 대신함. 판정 444 ②(하네스 나노 base = origin/main) 이후 카드 위치(ops/main-base)와 나노 base 가 갈라진 구조 문제 → master 판단 요청(카드를 main 에 두거나 · 증거 줄을 판정 절로 대체 허용).
 - 사전검증 DA: 소환 아니오(카드 면제 · arch#15 서명) · 구현 DA 소환: 아니오 — 변경 2줄 · 셈 전용 필드 · arch 재현 일치 — arch 서명 byz-harness-arch-claude#16.
 - 정본 영향 없음: 하네스 인박스 도구 행 필드·시험만.
 
@@ -763,7 +763,7 @@
 
 ## §73 block-destructive 훅 — 글자로만 들어 있는 파괴 명령(쪽지 본문·echo/printf·git commit 메시지·grep 패턴·대입·cat/tee heredoc 본문)은 통과, 실행되는 파괴 명령은 지금처럼 차단 (판정 466 · R28·R38·R39·R40 통합 · 나노 v466-block-destructive-text-context) — 닫힘 (byz-harness-arch-claude#16 · 2026-10-08)
 - 대상 카드: v466-block-destructive-text-context
-- 사전 DA: design/harness/DA-block-destructive-466-20261008.md — r1 HOLD(#63880) → r2 HOLD(#63894 · bounded 종료) → 판정 468(master#17 #63902 · 스팟 1회 예외) → r3 APPROVE(#63907). Q4(진짜 실행 계속 차단) r1·r2 연속 APPROVE.
+- 사전 DA: design/teams/harness/DA-block-destructive-466-20261008.md — r1 HOLD(#63880) → r2 HOLD(#63894 · bounded 종료) → 판정 468(master#17 #63902 · 스팟 1회 예외) → r3 APPROVE(#63907). Q4(진짜 실행 계속 차단) r1·r2 연속 APPROVE.
 - 나노 커밋 1개(base origin/main c970e05e74): `8f63682cbc76727afb7d4643911d927c4e7b6dd5` · 2파일 — 키트 훅 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(+131 · 180줄 · PATTERN·차단 메시지·STAGE 블록 무변경) · 새 시험 `tests/harness/test_block_destructive.sh`(+125).
 - ★arch 독립 재현(#16)★: `git archive 8f63682cbc scripts tests/harness tools/comm-canonical` → 스크래치패드 새 폴더:
   ①`test_block_destructive.sh` rc=0 · PASS 78 · 「SUMMARY blocked=57 pass=14 stage=2 sample=5 fail=0」(카드 기준 차단 ≥ 45 · 통과 ≥ 12 · STAGE 2 · 표본 5 충족) ②`test_kit_bin_sync.sh` rc=0 PASS 6 ③`bash -n` OK · 180줄.
@@ -809,7 +809,7 @@
   ⑤B-r3 이관 코드 `mirror_inbound.py:63-78` migrate_planner — `byz-planner-` 접두만 `@planner` 로 · done 은 보낸 이름으로 옮김 · attempt 는 이름 목록으로 누적 · 재호출 시 변경 0 · 호출 자리 `byz_slack_mbox_inbound.py:135`(미완료 재개 직전) · marker 는 새 토큰 `slack:{ts}:@planner` 와 옛 토큰 `slack:{ts}:<이름>` 둘 다 검사(`:96`). 나노 fixture 4(+1) 출력: 옛 이름 pending → 현역 1회 · crash+marker 있음 → 재발송 0 · crash+marker 없음 → 현역 1회 · 옛 이름 이미 done → 재발송 0 · 다른 팀 질문 좌석 이관 0 — 카드 지정 4건 + 1 일치.
   ⑥편차 5곳 판단(arch): 1 교정 표시 메시지당 1개 = 설계 「줄 끝 1개」 범위 · 2 GitHub plain 경로 제외 = 설계 A 「GitHub 제목은 제외」(그 경로 첫 문장 = 고정 문구 + 제목) · 3 명부 경로 유도 + `install-github.sh` 는 `BYZ_ROOT`(또는 `MIRROR_PLANNER_SEATS`) 없으면 exit 1 = #0 RULE(조용한 기본값 0) · 4 질문 좌석 = 현역 planner 면 1회만 = 옛 `planner != seat` 규칙 유지 · 5 옛 원장 `ask` 미게시 = 설계 B 되묻기 삭제(diff 상 게시 3줄만 삭제 · 전달 경로 무변경).
 - 카드 증거 줄(나노 RESULT 6행 — 관례 「맨 끝」과 위치만 다름 · sha·시험 칸 일치 · master 가 카드에 옮김): `세트: dc4ad4176bb50280832df6e166798532369f7c7d · 시험: bash tests/harness/test_slack_readonly_share.sh rc=0 · 이슈: 0`.
-- 사전검증 DA: 소환 예 — `design/harness/DA-slack-readonly-share-20261008.md` r1 HOLD → r2 HOLD → 판정 497 r3 스팟 APPROVE(#64467). 구현 DA: 소환 예(카드 완료 조건) — 같은 파일 「## 구현 재확인 판정」 APPROVE(byz-harness-da-codex#0 · 편차 1~5 전부 §4-r2 범위 · 근거 mirror_lib.py:191 · byz_github_slack_mirror.py:50-61 · mirror_share.py:67-91 · install-github.sh:15-16 · byz_slack_mbox_inbound.py:92-94,115) — arch 서명 byz-harness-arch-claude#17.
+- 사전검증 DA: 소환 예 — `design/teams/harness/DA-slack-readonly-share-20261008.md` r1 HOLD → r2 HOLD → 판정 497 r3 스팟 APPROVE(#64467). 구현 DA: 소환 예(카드 완료 조건) — 같은 파일 「## 구현 재확인 판정」 APPROVE(byz-harness-da-codex#0 · 편차 1~5 전부 §4-r2 범위 · 근거 mirror_lib.py:191 · byz_github_slack_mirror.py:50-61 · mirror_share.py:67-91 · install-github.sh:15-16 · byz_slack_mbox_inbound.py:92-94,115) — arch 서명 byz-harness-arch-claude#17.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) CI → 병합 → 라이브 `~/.hermes/scripts/` cp + cmp(새 파일 `mirror_share.py`·`proposal_text.py` 포함 · `install-github.sh` 는 `BYZ_ROOT=<리포 루트>` 로) → launchd 미러 3종(mbox·github·inbound) 재기동 → 매거진 다음 08:00 → 실측 1건(새 HIL 카드 1개 문구 캡처: 첫 줄 머리표 · `결정 자리: byz-planner-master-claude#<현역>` · 답장 요구 0).
 - 정본 영향 없음: 하네스 슬랙 미러 스크립트·설치기·시험만 — docs/architect 제품 정본 변경 없음 · press 불필요(오디오 경로 0).
 - 라이브 반영(master · 10-08 21:1x): PR 983 squash a752a987d3 · install-github(bootstrap 1회 실패→재등록 복구)·install·install-inbound·install-magazine 실행 · 스크립트 12개 키트 cmp 동일 · HIL 카드 문구는 설치본 mirror_share 에 현 명부 대입해 생성(결정 자리 byz-planner-master-claude#12 · 하드코딩 0). 별건 관찰: 질문 보드 chat.update msg_too_long 반복 → 원장 R49.
@@ -822,7 +822,7 @@
   ②r2 `8437480164`: `test_board.sh` rc=0 · PASS 63(반송 시험 9건: 슬랙 Q3·답장 제목 → `id (제목 문구 생략)` · 끝 줄 n건 · 원문 제목 없음 · term 원문 그대로·생략 표시 0) · `test_kit_bin_sync.sh` rc=0 · 사본 cmp · ruff 0 · 최대 126줄 · 변경 파일 = ft-board*·ft_board_*·test_board 만(명부·라이브 state·ft-news-tree.py 손댐 0).
   ③r3 `bd4032c4e4`(반송 r2 반영 — 필드별 Omit 삭제 · 슬랙 최종 출력 한 곳 부분 치환 `〔문구 생략〕` · 끝 줄 `문구 생략 n곳`): `test_board.sh` rc=0 · PASS 64 · kit sync rc=0 · 사본 cmp · ruff 0 · 범위 밖 파일 0 · DA r1 반례(결정 자리 사유 `byz-planner-Q3`) 직접 렌더 → 보드 정상 · `〔문구 생략〕` 1 · REPLY_ASK 0.
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: bd4032c4e43968c57ef936b72c1d3df3e73e21c1 · 시험: bash tests/harness/test_board.sh rc=0 · 이슈: 0`.
-- 사전검증 DA: 421 설계 2 HOLD bounded → 오빠 컨펌 430·431 · 496 범위 `design/harness/DA-slack-readonly-share-20261008.md` 「판정 496 r2 판정」 APPROVE. 구현 DA: 소환 예(카드 완료 조건) — `design/harness/DA-v421-board-impl-20261008.md` 「## 판정」 r1 HOLD(I1 입력 유래 문자열 필터 누락 · I2 APPROVE · #64890) → 반송 r2(`.fable-team/state/drafts-r21/REJECT-v421-board-r2.md` · 최종 출력 경계 하나) → r3 `bd4032c4e4` 구현 DA r2(I1 만) APPROVE(byz-harness-da-codex#0 #64954 · decision `:110`·모든 데이터 줄 `:114-117` 최종 scrub · 고정 줄 제외는 위치 기준이라 입력 흉내 불가 · 독립 probe 5 PASS · I2 APPROVE 유지) — arch 서명 byz-harness-arch-claude#17.
+- 사전검증 DA: 421 설계 2 HOLD bounded → 오빠 컨펌 430·431 · 496 범위 `design/teams/harness/DA-slack-readonly-share-20261008.md` 「판정 496 r2 판정」 APPROVE. 구현 DA: 소환 예(카드 완료 조건) — `design/teams/harness/DA-v421-board-impl-20261008.md` 「## 판정」 r1 HOLD(I1 입력 유래 문자열 필터 누락 · I2 APPROVE · #64890) → 반송 r2(`.fable-team/state/drafts-r21/REJECT-v421-board-r2.md` · 최종 출력 경계 하나) → r3 `bd4032c4e4` 구현 DA r2(I1 만) APPROVE(byz-harness-da-codex#0 #64954 · decision `:110`·모든 데이터 줄 `:114-117` 최종 scrub · 고정 줄 제외는 위치 기준이라 입력 흉내 불가 · 독립 probe 5 PASS · I2 APPROVE 유지) — arch 서명 byz-harness-arch-claude#17.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN 반영 → 명부 9개 `_cards`·`_cards_wt`·`_label` 기입(cfo 카드 폴더는 루트·v6-realtime-live 에 없음 — 실재 워크트리 확인) + `_tree` 4팀(cfo·kk·planner·v65) → 실제 루트 `ft-board.py render --term` 1회(옛 좌석 0 · 팀 수 = 명부 수) · 5팀(harness·feature·issues·loom·ops) 트리 작성 요청 · 발행·호출부 교체는 v423 카드.
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
 
@@ -842,18 +842,18 @@
 - 대상 카드: root-guideline-514
 - 오빠 판정: **514**(원문 「메인팀이 발주한 작업을 끝내고 멈춰서 놀고있는게 최고야 … 안끝내고 어떻게든 질질질 끌고 과거의 옛데이터 마저 끌어와다가 세션을 이어 토큰을 소모하는 형상이다. 이거 절대 반대해야하고 절대 지침으로 플래너와 하네트마스터가 개선해야한다」 · planner#12 #64807) · **516**(511 정본 설치 보류 → 이 단위에 511+514 합침 · planner#12 #64830) · **522**(전 팀 tester·checker·press 산출 turbopack 칸을 이 초안에 묶음 · 별도 설치 0 · planner#13 #64940) · **532**(완료 조건 충족 즉시 같은 턴 증거 줄 기록·완료 발신 · 미이행은 상위가 정지·미완 처리 · DA 3차 없이 정본 반영 · 오빠 AskUserQuestion #65097 → planner#13 #65201).
 - 나노 커밋 4개(브랜치 `nano/root-guideline-514` · base 990b978686 · 좌석 byz-harness-nano-root-guideline-514#0 Fable 5.1 high · push 0):
-  ①`6f24b266ff` 초안 3파일 — `design/harness/ROOT-GUIDELINE-draft-20261008.md`(§1 오빠 원문 5줄 · §2 상태 3구분 · §3 완료·휴식 절차 · §4 금지 4 + 잡는 장치 · §4-A turbopack · §5 511 정정 · §6 정본 문구 · §7 방송 · §8 자기 대조) · `design/harness/DESIGN-511-seat-stall-watch-20261008.md` §4-r3(«완료 선언» 꼬리 · 받는 쪽 ⚠ · 시험 ⑩~㉒ · r2 칸 글자 무변경) · `design/harness/BROADCAST-root-guideline-draft-20261008.md`(RESULT #64968).
+  ①`6f24b266ff` 초안 3파일 — `design/teams/harness/ROOT-GUIDELINE-draft-20261008.md`(§1 오빠 원문 5줄 · §2 상태 3구분 · §3 완료·휴식 절차 · §4 금지 4 + 잡는 장치 · §4-A turbopack · §5 511 정정 · §6 정본 문구 · §7 방송 · §8 자기 대조) · `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md` §4-r3(«완료 선언» 꼬리 · 받는 쪽 ⚠ · 시험 ⑩~㉒ · r2 칸 글자 무변경) · `design/teams/harness/BROADCAST-root-guideline-draft-20261008.md`(RESULT #64968).
   ②`91b340997d` r2 — DA r1 HOLD 6건 반영(Q1 증거 결합 판별 · Q2 탐지 빈틈 4 · Q3 누적 상한 §4-B · Q4 511 정정 조건 · Q5 turbopack 값 검사 · Q6 §4-r3 더하기만 재구성) · RESULT #65085.
   ③`0d9df1efe6` r3 — 처리서 한 줄(§4 금지 1 ⓓ′ «증거 줄 전 끌기 = §4-B 상한이 끊는다» · 더하기만) · RESULT #65175.
   ④`6fdb732e1f` r4 — 판정 532 같은 턴 규칙(§3-2 1단 · ⓓ′ 끝 포인터 · BROADCAST 1줄 · 더하기만 3곳) · RESULT #65215.
-- DA(사전 · byz-harness-da-codex#0 · codex gpt-6.1-sol high · 판정문 `design/harness/DA-root-guideline-514-20261008.md`): r1(master #64996 · 본문 직접 제공 재실행) **HOLD 6**(Q1~Q6) → r2(91b340997d · master #65086) **Q1·Q3·Q4·Q5·Q6 해소 · Q2 HOLD 1**(완료 조건 충족 뒤 증거 줄 기록을 미루며 끄는 공백 + 실제 게이트 구현 «읽지 못함»). 두 번째 HOLD 로 연속 검토 종료(`docs/rules/bounded_da_review.md` 정정 검토 1회 한도) · **DA r3 소환 안 함**.
-- arch 처리(byz-harness-arch-claude#18 · `design/harness/DISPO-root-guideline-514-r2-20261008.md` · ops/main-base fcb66f9bba·b5682fa9cc): Q2 공백은 탐지기가 아니라 이미 있는 §4-B 상한 3개(좌석 가동 창 · 한 턴 10분 · 공회전 20턴)가 끊는다는 «가정» 1줄(ⓓ′)로 닫음 · 게이트 «읽지 못함»은 초안이 「지금 있는 것 / 별 카드」로 갈라 적었고 별 카드 랜딩 전엔 받는 쪽 master 손 검사. r3 서명(더하기만 · 줄 수 154=154 · 처리서 문장과 글자 일치) · r4 서명(삭제 0 · 기존 글자 무변경) — 이후 판정 532 로 오빠가 «한 줄 추가 → DA 3차 없이 정본 반영»을 직접 골라 같은 공백을 규칙(같은 턴)으로도 닫음.
+- DA(사전 · byz-harness-da-codex#0 · codex gpt-6.1-sol high · 판정문 `design/teams/harness/DA-root-guideline-514-20261008.md`): r1(master #64996 · 본문 직접 제공 재실행) **HOLD 6**(Q1~Q6) → r2(91b340997d · master #65086) **Q1·Q3·Q4·Q5·Q6 해소 · Q2 HOLD 1**(완료 조건 충족 뒤 증거 줄 기록을 미루며 끄는 공백 + 실제 게이트 구현 «읽지 못함»). 두 번째 HOLD 로 연속 검토 종료(`docs/rules/bounded_da_review.md` 정정 검토 1회 한도) · **DA r3 소환 안 함**.
+- arch 처리(byz-harness-arch-claude#18 · `design/teams/harness/DISPO-root-guideline-514-r2-20261008.md` · ops/main-base fcb66f9bba·b5682fa9cc): Q2 공백은 탐지기가 아니라 이미 있는 §4-B 상한 3개(좌석 가동 창 · 한 턴 10분 · 공회전 20턴)가 끊는다는 «가정» 1줄(ⓓ′)로 닫음 · 게이트 «읽지 못함»은 초안이 「지금 있는 것 / 별 카드」로 갈라 적었고 별 카드 랜딩 전엔 받는 쪽 master 손 검사. r3 서명(더하기만 · 줄 수 154=154 · 처리서 문장과 글자 일치) · r4 서명(삭제 0 · 기존 글자 무변경) — 이후 판정 532 로 오빠가 «한 줄 추가 → DA 3차 없이 정본 반영»을 직접 골라 같은 공백을 규칙(같은 턴)으로도 닫음.
 - 카드 증거 줄(나노 RESULT r4 #65215 · master 가 카드에 옮김): `세트: 6fdb732e1fb4b6d948d978e995b13c9d7d6c989b · 시험: bash tests/harness/test_kit_bin_sync.sh rc=0 · 이슈: 0` — arch 재실행: 그 워크트리 HEAD = 6fdb732e1f · `test_kit_bin_sync.sh` rc=0(22:2x).
-- ★정본 설치(master#18 · cp+cmp · 백업 scratchpad `*.bak-514`)★: 완성본 `design/harness/staged-514/`(ops/main-base b5682fa9cc · 라이브 대비 삭제 0 · §6 코드블록 밖 추가는 판정 532 1줄·1구뿐 — README 4) →
+- ★정본 설치(master#18 · cp+cmp · 백업 scratchpad `*.bak-514`)★: 완성본 `design/teams/harness/staged-514/`(ops/main-base b5682fa9cc · 라이브 대비 삭제 0 · §6 코드블록 밖 추가는 판정 532 1줄·1구뿐 — README 4) →
   - `~/.claude/skills/fable-team/references/main-team-governance.md` sha256 앞16 `d5941acd2db653bb` → **`c5d73fff80291434`**(§8 511 교정본 + §9 514 + 532)
   - `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` `9573c463baa968a2` → **`01cddacdb2b070d8`**(머리 17→19줄 · 18 = 511 · 19 = 514+532+522 괄호)
-  - arch 확인: 두 라이브 파일 = staged-514 cmp 같음(22:13). `design/harness/staged-511/` 는 설치하지 않음(HOLD-516 유지 · staged-514 로 대체).
-- 방송(master#18 · 확정본 ops/main-base 4282ccd72f `design/harness/BROADCAST-root-guideline-20261008.md` · 511 정정 절 포함): seq **65230~65249** — cfo#62 · feature#5 · issues#5 · loom#3 · ops#3 · v65#149 · planner#13(7팀). 미발신: kk(FB_KK#4)·ccu — 현역 세션 없음(다음 개설 때 부팅이 정본 BOOT 19 를 읽음). 각 팀 master 가 하위 좌석에 재방송 시작 실측(#65237·#65240·#65241 등).
+  - arch 확인: 두 라이브 파일 = staged-514 cmp 같음(22:13). `design/teams/harness/staged-511/` 는 설치하지 않음(HOLD-516 유지 · staged-514 로 대체).
+- 방송(master#18 · 확정본 ops/main-base 4282ccd72f `design/teams/harness/BROADCAST-root-guideline-20261008.md` · 511 정정 절 포함): seq **65230~65249** — cfo#62 · feature#5 · issues#5 · loom#3 · ops#3 · v65#149 · planner#13(7팀). 미발신: kk(FB_KK#4)·ccu — 현역 세션 없음(다음 개설 때 부팅이 정본 BOOT 19 를 읽음). 각 팀 master 가 하위 좌석에 재방송 시작 실측(#65237·#65240·#65241 등).
 - 남는 일(카드 밖):
   - ★완성 전★ 상태판 «완료 선언» 꼬리·받는 쪽 ⚠ = 카드 `대기/v511-seat-stall-cell.md`(arch#18 3구분 갱신 af32d307a1 · 설계 §4-r3 · 시험 ⑩~㉒) — 이 판정의 문서 PR 병합 뒤 spawn(§4-r3 가 base 에 있어야 함).
   - 별 카드(코드 = 나노 · 초안 §4 「별 카드」): spawn 발주문 「비어 있는 완료 조건 줄」 칸 검사 · 발주 seq 권한 검사 — 랜딩 전까지 받는 쪽 master 틱 손 검사.
@@ -872,7 +872,7 @@
   ②⓪ 두 열을 팀 행 끝 `| 정지(3분+) n(<첫 좌석>) | 완료 선언 n(<첫 좌석> · N분)` 로 덧붙임: 행이 `|` 구분 열이라 «열 추가» 그대로 · term·slack 둘 다 → 수락.
   ③`완료 뒤 작업` 행의 시각 = 직전 turn_end(`turn --json` 에 WORKING 시작 키 없음 · `ft-seat-status.sh` 수정 금지): 직전 턴 끝 = 지금 턴의 시작 하한이라 «이 시각 뒤로 작업 중» 의미 유지 · 결론은 master 몫(Q2-r2) → 수락. 정확한 시작 시각이 필요해지면 `ft-seat-status.sh` 쪽 별 카드.
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7c60085dd73b8d89c1ca5d597835d1111eda1714 · 시험: bash tests/harness/test_board_seat_cell.sh rc=0 · 이슈: 0`.
-- 사전검증 DA: `design/harness/DA-511-seat-stall-watch-20261008.md` r2 APPROVE(Q1~Q4 · #64794) + §4-r3 = `design/harness/DA-root-guideline-514-20261008.md` r2(Q1·Q3·Q6 해소 · Q2 가정·상한 처리서 `design/harness/DISPO-root-guideline-514-r2-20261008.md`). 구현 DA: 소환 안 함(카드 완료 조건에 없음 · 출력 = 표시·추정 전용 · 상태를 쓰거나 좌석을 움직이는 경로 0 · 되돌림 = 파일 2개 + 호출 3줄) — arch 서명 byz-harness-arch-claude#18.
+- 사전검증 DA: `design/teams/harness/DA-511-seat-stall-watch-20261008.md` r2 APPROVE(Q1~Q4 · #64794) + §4-r3 = `design/teams/harness/DA-root-guideline-514-20261008.md` r2(Q1·Q3·Q6 해소 · Q2 가정·상한 처리서 `design/teams/harness/DISPO-root-guideline-514-r2-20261008.md`). 구현 DA: 소환 안 함(카드 완료 조건에 없음 · 출력 = 표시·추정 전용 · 상태를 쓰거나 좌석을 움직이는 경로 0 · 되돌림 = 파일 2개 + 호출 3줄) — arch 서명 byz-harness-arch-claude#18.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN cp+cmp(9파일) → 실제 루트 `ft-board.py stalled --min 3` 1회(planner-idle-scan.sh 출력과 교차 · 보조) → planner 에 «틱 첫 일 = `ft-board.py stalled`» 대체 알림(governance §8 의 「랜딩 전에는 `ft-seat-status.sh turn`」 괄호가 이걸로 풀림).
 - 남는 일(카드 밖):
   - ★완성 전 · 별 카드 후보(arch)★: 첫 턴이 안 끝난 «일하는» 새 좌석이 `확인 불가(첫 턴 전)` 로 보임(실측: r49 나노·v65 나노 2좌석) — 설계 §4-r2 10행 그대로라 나노 결함 아님, 옛 v421 의 pane 보조 판정(`one` BUSY → 작업중)이 빠진 표시 공백. 처방 후보 = UNKNOWN ∧ `ft-seat-status.sh one` BUSY → `작업중(pane · 첫 턴)`(stalled 제외 그대로). master 판단으로 카드화.
@@ -890,7 +890,7 @@
   ②r2 `101e7af897`: 같은 9종 rc=0 · ruff 0 · `mirror_board.py` 161 · `byz_mbox_slack_mirror.py` 199 · `byz_slack_mbox_inbound.py` 193 · `mirror_questions.py` 150. 시험 ⑧ 「1패스 호출 1 · 2·3패스 0」 · 「`인박스 밖 1건` 3패스 유지」 · 「ERROR 새 실패 때만 [1,0,0]」 · 변이 대조(기억 집합 지우면 2패스 호출 1 → FAIL) 단언 존재.
   ③★실데이터 사본(라이브 질문 저장소 `~/.hermes/state/byz_slack_questions.C0C6MJGRR89.json` 36건 + `.fable-team/state/inbox/` + `comm/mailbox.jsonl`·`mailbox.log.jsonl` 를 스크래치 FT_ROOT 로 복사 · 실제 `ft-inbox.sh` · 라이브 쓰기 0)★: 보드 **631 바이트**(실측 거부선 3909 아래 · `[상태] 결정 대기 36건 — 결정 자리: byz-planner-master-claude#13 — 인박스 밖 27건` + 오래된 5 + `… 외 31건`) · 3패스 = 1.57 s(ERROR 1줄 · 27건) → 0.13 s → 0.08 s(ERROR 0) · 닫힘 0(인박스 큐에 있는 9건은 `show` 에서 전부 `미닫힘` — planner 가 아직 처리 안 함 · 설계대로).
 - 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: 101e7af897bc1b65ca1488f14e7998130706590e · 시험: bash tests/harness/test_question_board.sh rc=0 · 이슈: 0`.
-- 사전검증 DA: `design/harness/DA-r49-question-board-20261008.md` r1 HOLD(Q1 바이트 예산 · Q2 show 파싱) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64756) — 정본 설계 `design/harness/DESIGN-r49-question-board-20261008.md` §2-r2. 구현 DA: 소환 안 함(카드 완료 조건에 없음 · 반송 1회는 arch 실데이터 재현으로 잡고 r2 로 닫음) — arch 서명 byz-harness-arch-claude#18.
+- 사전검증 DA: `design/teams/harness/DA-r49-question-board-20261008.md` r1 HOLD(Q1 바이트 예산 · Q2 show 파싱) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64756) — 정본 설계 `design/teams/harness/DESIGN-r49-question-board-20261008.md` §2-r2. 구현 DA: 소환 안 함(카드 완료 조건에 없음 · 반송 1회는 arch 실데이터 재현으로 잡고 r2 로 닫음) — arch 서명 byz-harness-arch-claude#18.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 설치 `FT_INBOX_BIN=<FT_BIN>/ft-inbox.sh` 로 `install.sh`·`install-inbound.sh` → 미러 2종 재기동 → err 로그 `msg_too_long` 증가 0 확인(기준 595·128회 · 22:19) · 보드 1회 캡처(바이트 수) · 첫 패스 ERROR 1줄(27건 적재 실패 예상) 확인 → planner 에 1줄.
 - 남는 일(카드 밖):
   - ★planner 판단★: 인박스 도입 전 열린 질문 27건(seq 60888~62640 · 원 쪽지가 회전본 `mailbox.log.jsonl.1` 에만 있어 `ft-inbox ingest` 의 `find_mail` 이 못 찾음)은 닫는 사건이 없어 보드에 영구 `인박스 밖 27건` + `결정 대기 36건` 으로 남는다 — 일괄 닫기(명시 명령 1회 · tombstone)할지 결정.
@@ -918,7 +918,7 @@
   ★실데이터(실제 루트 읽기 전용 · 23:07)★: `render --slack` 37,485 바이트 → `ft_board_root.py root` **2,969 바이트**(상한 3500 · 거부선 아래) — 머리 2줄 + ⓪ 9팀 전부 + ④ + 끝줄 · ①②③ 절 머리 0.
 - 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: b92f834374ed419c35c03616d05e13e69212fc21 · 시험: bash tests/harness/test_board_publish.sh rc=0 · 이슈: 0`.
 - 표시 정책(arch#18 결정 · R49 와 같은 하네스 표시 정책): 슬랙 뿌리 글에는 ⓪ 팀 요약·④ 오늘 판정표만 싣고 ①완성 트리·②세션 트리·③큐는 터미널 보드(`ft-board.py render --term`)와 스레드 변화 답글로 — 25KB 트리는 슬랙 한 글에 물리적으로 못 실림. 설계 §2-3 «뿌리 1개/날 + chat.update + 변화 답글 + 스냅샷 먼저 + 날짜 동결» 은 그대로.
-- 사전검증 DA: 원 카드 v423 — `design/harness/DA-news-board-20261009.md` 2 HOLD 로 리뷰 종료 → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 분할(arch#18 09c5159790)은 범위 부분집합. 구현 DA: 소환 안 함(이 분할 카드 완료 조건에 없음 · 훅 아님 · 실패 = 발행 0 + rc) — arch 서명 byz-harness-arch-claude#18.
+- 사전검증 DA: 원 카드 v423 — `design/teams/harness/DA-news-board-20261009.md` 2 HOLD 로 리뷰 종료 → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 분할(arch#18 09c5159790)은 범위 부분집합. 구현 DA: 소환 안 함(이 분할 카드 완료 조건에 없음 · 훅 아님 · 실패 = 발행 0 + rc) — arch 서명 byz-harness-arch-claude#18.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main) → 병합 → 라이브 FT_BIN(`ft-board-publish.sh` · `ft_board_root.py`) + `~/.hermes/scripts/`(slack-mirror 4파일) cp+cmp → `ft-news-tick` 호출부를 `ft-board-publish.sh` 로 교체 → 첫 발행 1회 캡처(뿌리 글 1 · 바이트 수 · 답글 수 · err 로그 `msg_too_long` 0) → 다음 = v423b spawn.
 - 남는 일(카드 밖 · 완성 후):
   - 날짜 첫 발행이 실패하면 그날 `prev_day_last` 가 다시 안 와 전날 동결 1줄이 빠짐(`ft_board_snapshot.py:81`) — 보드 내용 손실 아님 · 필요해지면 별 카드(동결 표식 파일 유무로 재시도).
@@ -929,12 +929,12 @@
 ## §84 planner 보고 의무 훅 2종 — report-coverage(Stop · 턴 끝 미닫힘 ①~④ 를 턴 키당 1회 block · 최종 답변의 「쪽지 #<seq>」 로 `ft-inbox report`) · drain-before-interview(PreToolUse AskUserQuestion · 함 미비움 턴 키당 1회 deny) (판정 423 ① · 430·431 · 설계 §3 · v423 분할 2/3 · 나노 v423b-report-hooks) — 닫힘 (byz-harness-arch-claude#19 · 2026-10-08) · ★훅 등록 보류★
 - 대상 카드: v423b-report-hooks
 - 나노 커밋 2개(브랜치 `nano/v423b-report-hooks` · base ops/main-base · 좌석 byz-harness-nano-v423b-report-hooks#0 Sonnet 5.5 · push 0 · 새 파일 4 · 기존 파일 변경 0):
-  ①`0c466f66ca`([feature] `scripts/harness-install/fable-team/templates/hooks/report-coverage.sh`(126줄) · `scripts/harness-install/fable-team/templates/hooks/drain-before-interview.sh`(106줄) · `tests/harness/test_report_hooks.sh`(114줄) · `tests/harness/fixtures/stub-ft-inbox.py`(48줄)) → 구현 DA r1(`design/harness/DA-v423b-report-hooks-20261008.md`) Q1 영구 차단 0 · Q2 턴 키 · Q4 drain = APPROVE · **Q3 HOLD**(맨 `#숫자` 를 쪽지 seq 로 봐 「PR #70001 병합」이 쪽지 70001 보고로 섬) → arch#18 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423b-report-hooks-r1.md` · 식별 규칙 = `쪽지 #<seq>` 꼴만 · 오류 로그 `state/hook-errors.log` 한 곳).
+  ①`0c466f66ca`([feature] `scripts/harness-install/fable-team/templates/hooks/report-coverage.sh`(126줄) · `scripts/harness-install/fable-team/templates/hooks/drain-before-interview.sh`(106줄) · `tests/harness/test_report_hooks.sh`(114줄) · `tests/harness/fixtures/stub-ft-inbox.py`(48줄)) → 구현 DA r1(`design/teams/harness/DA-v423b-report-hooks-20261008.md`) Q1 영구 차단 0 · Q2 턴 키 · Q4 drain = APPROVE · **Q3 HOLD**(맨 `#숫자` 를 쪽지 seq 로 봐 「PR #70001 병합」이 쪽지 70001 보고로 섬) → arch#18 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423b-report-hooks-r1.md` · 식별 규칙 = `쪽지 #<seq>` 꼴만 · 오류 로그 `state/hook-errors.log` 한 곳).
   ②`8567db0923`([fix] `cited()` = 「쪽지」 접두 뒤 `·`/`,` 로 이은 `#<seq>` 묶음만 · PR·Issue·이슈·맨 `#숫자` = 0 · 인용 `>` 줄 제외 · block 문구 「쪽지 #seq」 · 두 훅 LOG = `<FT_ROOT>/.fable-team/state/hook-errors.log`(`ft_inbox_core.HOOK_ERRORS` 와 같은 파일 · 줄 머리 훅 이름 유지) · 시험 ①~⑦ 추가).
 - ★arch 독립 재현(#19)★: origin/main `b4ce4ab0a5` 아카이브 + `git diff 44e45993f6 8567db0923`(나노 커밋 2개만) 적용 → 스크래치패드 새 폴더: `test_report_hooks.sh` rc=0(**24 PASS** · ①PR/Issue/이슈/맨 `#70001` → report 0 ②`쪽지 #70001` → 70001 ③`쪽지 #70001·#70002` → 둘 다 ④묶음 G 일부 인용 → 인용분만 reported · 나머지 block 대상 유지 ⑤`last_assistant_message` 우선 ⑥오류 줄 `state/hook-errors.log` · `state/inbox/hook-errors.log` 생성 0 ⑦변이 대조 = 접두 조건 제거 시 「PR #70001」 보고) · `test_kit_bin_sync.sh` rc=0. 나노 보고: bash -n · 755 · 실제 ft-inbox(origin/main)로도 통과(스텁 실패 주입 3건 제외).
-- 구현 DA: r1 HOLD(Q3) → r2 **APPROVE**(같은 판정문 `## r2` · 실행 헤더 model GPT-6 / provider OpenAI · bounded Q3r2 + 시험 ①~⑤ · `report-coverage.sh:73-78` cited · `:96`·`:100-103` 입력 우선 · 순수 함수 독립 8 cases) — 요청서 `design/harness/DA-REQ-v423b-report-hooks-20261008.md` r2 절(ops 2b24b99b85).
+- 구현 DA: r1 HOLD(Q3) → r2 **APPROVE**(같은 판정문 `## r2` · 실행 헤더 model GPT-6 / provider OpenAI · bounded Q3r2 + 시험 ①~⑤ · `report-coverage.sh:73-78` cited · `:96`·`:100-103` 입력 우선 · 순수 함수 독립 8 cases) — 요청서 `design/teams/harness/DA-REQ-v423b-report-hooks-20261008.md` r2 절(ops 2b24b99b85).
 - 카드 증거 줄(나노 RESULT r2 · master 가 카드에 옮김): `세트: 8567db092392521683d3e2bc2de8c8fc0d5eb284 · 시험: bash tests/harness/test_report_hooks.sh rc=0 · 이슈: 0`.
-- 사전검증 DA: 원 카드 v423 — `design/harness/DA-news-board-20261009.md` 2 HOLD 로 리뷰 종료 → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 분할(arch#18 09c5159790)은 범위 부분집합.
+- 사전검증 DA: 원 카드 v423 — `design/teams/harness/DA-news-board-20261009.md` 2 HOLD 로 리뷰 종료 → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 분할(arch#18 09c5159790)은 범위 부분집합.
 - 랜딩 뒤 master 집행(카드 밖): PR(origin/main · 나노 커밋 2개만 — base 가 ops/main-base 라 ops 문서 유입 검사) → 병합 → 템플릿 2파일 라이브 반영(cp+cmp).
   ★**훅 등록 보류**★ — planner 좌석 settings 등록은 planner 인박스 21:38 이전 미닫힘 79건(①~④) 처리 판정이 난 뒤에만. 지금 등록하면 등록 즉시 매 턴 block 대상이 79건(설계상 턴 키당 1회라 영구 차단은 아님 · 그래도 첫 턴부터 오빠께 79건 보고 압박). 판정 = planner(오빠 컨펌) · 등록·첫 2일 관찰(block/deny 횟수 · hook-errors.log 줄 수) = master.
 - 남는 일(카드 밖):
@@ -951,7 +951,7 @@
 - ★arch 독립 재현(#19 · DA 3회째 없음 · 이 재현이 닫는 증거)★: origin/main `73d9c25819` 아카이브 + `git diff 5623d4d5f6~1 f5dc9fb6e3`(나노 커밋 3개만) → 스크래치패드 새 폴더: pytest **17 passed**(other_base 11 + 기존 set_membership 6) · `test_kit_bin_sync.sh` ALL PASS · bash -n · 사본 cmp · ruff 0.
   ★독립 변이 대조 3회★: r1 위 ⒞ 무력화 → ⓖⓗ FAIL · r3 위 ⒟ 제거 → `test_base_sha_is_nano_own_tip_not_trusted`(ⓙ) · `test_unrelated_declared_branch_is_not_trusted`(ⓚ) FAIL(2 failed / 9 passed) — 두 보강 모두 시험이 실제로 잡는다.
   ★실데이터(R58 원 차단 · 읽기 전용)★: `nano/m5-996-room-sse-unbounded-reconnect-impl` info `base=origin/main · base_sha=b4ce4ab0a5` → ⒜origin/main 실재 OK · ⒝b4ce4ab0a5 ⊂ 나노 HEAD OK · ⒟b4ce4ab0a5 ⊂ origin/main OK · ⒞b4ce4ab0a5 vs feat/v6-realtime-live rc=1 → ⊘ 제외(R58 해소). 게이트 전체 실행은 허가 파일 발급 부작용 때문에 안 함(master 집행 몫).
-- 구현 DA: r1 HOLD(Q1) → r2 HOLD(Q1r2) → 리뷰 종료(`design/harness/DA-r58-press-gate-other-base-20261008.md` r1·r2 · 실행 헤더 model GPT-6 / provider OpenAI · 요청서 `design/harness/DA-REQ-r58-press-gate-other-base-20261008.md` r1·r2). DA 수락 범위: Q2 fail-closed · Q3 ②~⑧·FAIL 코드 불변 · ⊘ 때 세트 표시 생략 = M7 «표시만» 계약과 충돌 없음 · ⒞ 교정·ⓖⓗⓘ. 잔여 Q1r2 는 r3 ⒟ + ⓙ 로 닫음 — arch 서명 byz-harness-arch-claude#19.
+- 구현 DA: r1 HOLD(Q1) → r2 HOLD(Q1r2) → 리뷰 종료(`design/teams/harness/DA-r58-press-gate-other-base-20261008.md` r1·r2 · 실행 헤더 model GPT-6 / provider OpenAI · 요청서 `design/teams/harness/DA-REQ-r58-press-gate-other-base-20261008.md` r1·r2). DA 수락 범위: Q2 fail-closed · Q3 ②~⑧·FAIL 코드 불변 · ⊘ 때 세트 표시 생략 = M7 «표시만» 계약과 충돌 없음 · ⒞ 교정·ⓖⓗⓘ. 잔여 Q1r2 는 r3 ⒟ + ⓙ 로 닫음 — arch 서명 byz-harness-arch-claude#19.
 - ★남는 한계(명시 · 시험 대상 아님)★: FEAT 나노가 «스스로 main 을 병합» ∧ info 가 «그 병합된 main 커밋»으로 오기된 경우는 ⒜⒝⒞⒟ 넷 다 통과해 ⊘ 오제외된다. 오기와 나노의 main 병합 두 사건이 겹쳐야 하며, info 를 쓰는 정상 경로(`ft-nano-spawn.sh:184` = 선언 base 의 그때 tip)는 오기를 만들지 않는다. 손 편집된 info 는 이 게이트가 보증하지 않는다.
 - 카드 증거 줄(나노 RESULT r3 · master 가 카드에 옮김): `세트: f5dc9fb6e3ad9670ddd41cc80908d11a1ec2eaed · 시험: python3 -m pytest tests/scripts/test_press_gate_other_base.py -q rc=0 · 이슈: 0`(pytest = 루트 `.venv/bin/python`).
 - 사전검증 DA: 소환 안 함(카드 «면제 사유» — 완화 조건 하나 · fail-closed 유지 · 구현 DA 1회로 닫음) → 실제로는 구현 DA 2회 + arch 재현으로 닫힘.
@@ -979,7 +979,7 @@
   `7a6d8f4152`([feature] `scripts/fable-team-bin/ft_inbox_core.py` obligation_closed 에 `or line.get("waived") is not None`(130줄) · `scripts/fable-team-bin/ft-inbox.py` 새 `cmd_waive`(사유에 `판정 [0-9]+` 없으면 rc 2 · 좌석 계보 큐 잠금 안에서 전체 대상 먼저 계산 뒤 한 번 쓰기 · 출력 `WAIVED n seq=…` + `SKIPPED_NO_MARK m`) · main 분기 · usage 2곳 · 예외 목록 TypeError(waive 만 rc 2 · 다른 명령 rc 1 유지)(192줄) · 키트 사본 2 · 새 `tests/harness/test_inbox_waive.sh`(121줄)).
 - ★arch 독립 재현(#19)★: origin/main `076f0cc9cd` 아카이브 + 나노 diff → 스크래치패드 새 폴더: test_inbox_waive **42 PASS** · test_inbox 64 · test_report_hooks 23 · test_kit_bin_sync 6 · test_board 71 — 전부 rc=0 · 사본 cmp 2 · ruff 0. 독립 변이: 술어 waived 항 삭제 → FAIL 4(show 잔류 3 · 재실행 멱등 깨짐).
   ★실데이터(라이브 planner 큐 «복사본» · 라이브 원본 불변 md5 eaa74e9c…)★: `waive byz-planner-master-claude#13 --before 2026-10-08T21:38 "판정 558 ④ …"` → `WAIVED 79` · `SKIPPED_NO_MARK 133` · show 334 → 255줄 · 면제 79줄 전부 21:38 이전 · reported=true 0.
-- 구현 DA r1 **APPROVE**(`design/harness/DA-v558-inbox-waive-20261009.md` · 실행 헤더 model GPT-6 / provider OpenAI · Q1 면제 오적용 0(무판정·mark 없음·경계 후·기존 닫힘·aware/naive·깨진 ts = 쓰기 0 · 5 시나리오 독립) · Q2 waived 없는 줄 술어 = 옛 식(56조합 독립) · 혼합 묶음 열림 유지 · 다른 명령 rc 1 유지) — 요청서 `design/harness/DA-REQ-v558-inbox-waive-20261009.md`(ops 3f82aa9548).
+- 구현 DA r1 **APPROVE**(`design/teams/harness/DA-v558-inbox-waive-20261009.md` · 실행 헤더 model GPT-6 / provider OpenAI · Q1 면제 오적용 0(무판정·mark 없음·경계 후·기존 닫힘·aware/naive·깨진 ts = 쓰기 0 · 5 시나리오 독립) · Q2 waived 없는 줄 술어 = 옛 식(56조합 독립) · 혼합 묶음 열림 유지 · 다른 명령 rc 1 유지) — 요청서 `design/teams/harness/DA-REQ-v558-inbox-waive-20261009.md`(ops 3f82aa9548).
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7a6d8f4152c74aa48bedd624bc3a61e43f1ede7b · 시험: bash tests/harness/test_inbox_waive.sh rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행 순서(카드 밖 · 순서 고정 · 앞 단계 값이 다르면 멈추고 보고)★:
   ① PR(origin/main · 나노 커밋 1개 · base 가 origin/main 이라 그대로) → 병합.
@@ -1047,7 +1047,7 @@
 ## §89 v423c 미러 요약기 할 일 금지 + Haiku 5.5 · planner 처리 1줄 · mbox ①~④ 항상 doorbell · 회신 발신 상한 면제 (판정 423 ②③④ · v423 분할 3/3 · 나노 v423c-mirror-mbox-notify) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 2회(r1 HOLD 3 · r2 HOLD 1 → 연속 리뷰 종료) → arch 설계·독립 재현 서명(bounded_da_review · R58 선례)★
 - 대상 카드: v423c-mirror-mbox-notify
 - 나노 커밋 3개(브랜치 `nano/v423c-mirror-mbox-notify` · base origin/main · 좌석 byz-harness-nano-v423c-mirror-mbox-notify#0 · push 0):
-  ①`58aca7b614`([feature] 9파일 +299 −13 · `mirror_summary.py` 모델 claude-haiku-5-5·todo 생성 지시 삭제 · `mirror_board.post_handled` · `mbox.sh` 인박스 cls ①~④·미상 → doorbell · `mbox.py` 회신 RATE 면제) → 구현 DA r1(`design/harness/DA-v423c-mirror-mbox-notify-20261009.md`) Q2 APPROVE · Q1·Q3·Q4 HOLD → 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r1.md`).
+  ①`58aca7b614`([feature] 9파일 +299 −13 · `mirror_summary.py` 모델 claude-haiku-5-5·todo 생성 지시 삭제 · `mirror_board.post_handled` · `mbox.sh` 인박스 cls ①~④·미상 → doorbell · `mbox.py` 회신 RATE 면제) → 구현 DA r1(`design/teams/harness/DA-v423c-mirror-mbox-notify-20261009.md`) Q2 APPROVE · Q1·Q3·Q4 HOLD → 반송 r1(`.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r1.md`).
   ②`82dd9e8d16`([fix] Q1 `쪽지 #<seq>` 꼴만·seq 당 1회·send 잠금 안 1회 계산 · Q3 todo = HIL 라벨 + 원문 한 문장 전체 일치·절단 전 ≤110 · Q4 `reply_only` → `existing_thread` 만·`ensure_thread` 0) → DA r2(같은 판정문 ## r2) Q3·Q4 APPROVE · Q1 HOLD(면제 이력이 가드 로그 200행 절단으로 소실 → 같은 seq 재면제) · «두 번째 HOLD 이므로 연속 DA 리뷰 종료·master 통합 이관» → 반송 r2(`.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r2.md` · arch 결정 = 면제 행 별도 보존 + `EXEMPT_CAP` fail-closed).
   ③`f911f4fb50`([fix] `tools/comm-canonical/mbox.py` +13 −1 · `EXEMPT_CAP`(env `FT_MBOX_EXEMPT_CAP` · 기본 1000) · `_is_exempt_row` · `_reply_exempt` 상한 도달 = `[]` + stderr WARN · `_guard_record` 면제 행을 200행 절단과 분리 보존·시각 순 합침 · 새 `tests/harness/test_mbox_reply_exempt_cap.sh` 109줄).
 - ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★:
@@ -1087,7 +1087,7 @@
 - 나노 커밋 1개(브랜치 `nano/r63d-index-move-scan-paths` · base origin/main · 좌석 byz-harness-nano-r63d-index-move-scan-paths#0 · push 0):
   `14cd2d03f9`([fix] `scripts/fable-team-bin/ft-index-move.sh` 75행 거르기 1줄 → 4줄(119→122줄 · 실파일 그대로 · 폴더는 `^design/.+/evidence/[^/]+/?$` 하나일 때만 · 검사 도구·그 시험 2종 제외) + 키트 사본 · `tests/harness/test_evidence_inject_scan.sh` +19(⑫⑬⑭ + 변이) · 3파일 +27 −2).
 - ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `14cd2d03f9` 아카이브 → 스크래치패드 새 폴더: test_evidence_inject_scan **20 PASS rc=0**(①~⑭ + 변이) · test_index_move_slack 14 · test_index_move_canon_landed 18 · test_kit_bin_sync 6 — 전부 rc=0 · `bash -n` + 추적본↔키트 cmp 동일.
-  ★실카드 대조(/bin/bash)★: 새 거르기를 ops 판 `design/harness/indices/완성/r63c-evidence-inject-scan.md` 에 적용 → SCAN 4(`ft-index-move.sh` · `realtime_multi_e2e.py` · `test_kit_bin_sync.sh` · `_real_redis.py`) · EXCL 2(검사 도구 · 그 시험) · ★DROP `tests/`★. (나노 보고 «파일 7 + 제외 2» 와 수가 다른 것은 카드 판본·작업 트리 차이 — 핵심 성질 «폴더째 훑기 0» 은 같음.)
+  ★실카드 대조(/bin/bash)★: 새 거르기를 ops 판 `design/teams/harness/indices/완성/r63c-evidence-inject-scan.md` 에 적용 → SCAN 4(`ft-index-move.sh` · `realtime_multi_e2e.py` · `test_kit_bin_sync.sh` · `_real_redis.py`) · EXCL 2(검사 도구 · 그 시험) · ★DROP `tests/`★. (나노 보고 «파일 7 + 제외 2» 와 수가 다른 것은 카드 판본·작업 트리 차이 — 핵심 성질 «폴더째 훑기 0» 은 같음.)
 - 기준값 대비(카드 머리줄): 라이브 완성 이동 출력 `files=2374 suspect=1216`(소음) → 이 단위 뒤 = 카드가 이름으로 가리킨 파일 + 증거 폴더 하나만 · 패턴 정의 파일 제외 → 진짜 SUSPECT 만 보임.
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 14cd2d03f9522fb4404ae4c79cd683052a2b7ece · 시험: bash tests/harness/test_evidence_inject_scan.sh rc=0 · 이슈: 0`.
 - 사전검증·구현 DA: 소환 안 함(카드 면제 — 출력 전용 경로의 입력 거르기 축소 · 차단·종료코드 불변) — arch 서명 byz-harness-arch-claude#20.
@@ -1098,8 +1098,8 @@
 ## §93 R63 가드 ㉠ block-destructive 세 번째 블록(INJECT) — 명령줄의 임의 Redis 쓰기·`/dev/bubble-replay` URL 차단 (원장 R63 · 판정 589 · 나노 r63b-block-destructive-inject) — 닫힘 (byz-harness-arch-claude#20 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q2 · r2 HOLD Q2 → 연속 리뷰 종료) → arch 설계·독립 재현 서명(bounded_da_review · v423c §89 선례)★
 - 대상 카드: r63b-block-destructive-inject
 - 나노 커밋 4개(브랜치 `nano/r63b-block-destructive-inject` · base origin/main `5dc3218cf3` · push 0):
-  ①`3674904f24`([feature] 키트 템플릿 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` INJECT 블록 · 새 `tests/harness/test_block_destructive_inject.sh` · `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`) → arch 재현 오탐 7건(dev 페이지 파일 경로 3 · `git grep`/`rg` 검색 · `gh pr` 본문 · `GET "set"`) → 반송 r1(DA 전).
-  ②`72da51914b`([fix] 검사 사본 `CHK` = 검색·게시 구간·페이지 파일 경로 제외 + Redis «명령 자리 동사» 만) → 구현 DA r1(`design/harness/DA-r63b-block-destructive-inject-20261009.md`) Q1·Q3·Q4 APPROVE · Q2 HOLD(게시 본문 안 실행 치환 `$(redis-cli SET …)`·백틱이 같이 지워짐 · 설치 전 blocker) → 반송 r2.
+  ①`3674904f24`([feature] 키트 템플릿 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` INJECT 블록 · 새 `tests/harness/test_block_destructive_inject.sh` · `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md`) → arch 재현 오탐 7건(dev 페이지 파일 경로 3 · `git grep`/`rg` 검색 · `gh pr` 본문 · `GET "set"`) → 반송 r1(DA 전).
+  ②`72da51914b`([fix] 검사 사본 `CHK` = 검색·게시 구간·페이지 파일 경로 제외 + Redis «명령 자리 동사» 만) → 구현 DA r1(`design/teams/harness/DA-r63b-block-destructive-inject-20261009.md`) Q1·Q3·Q4 APPROVE · Q2 HOLD(게시 본문 안 실행 치환 `$(redis-cli SET …)`·백틱이 같이 지워짐 · 설치 전 blocker) → 반송 r2.
   ③`c82d938014`([fix] 실행 치환(`$(`·백틱·`<(`·`>(`)이 있으면 검색·게시 예외 0) → DA r2 Q2 HOLD(따옴표 이어붙임 `redis-''cli`·`S''ET` 가 치환 안에서 통과) · «두 번째 HOLD 이므로 연속 DA 리뷰 종료» → 반송 r3(arch 결정 = 검사 사본 따옴표·역슬래시 제거).
   ④`9c4ef5fb79`([fix] `CHK` 끝에 `| LC_ALL=C tr -d "\\'\""`). 최종 3파일 +242 −0 · 훅 205줄(기존 180 + 25 · 지운 줄 0).
 - ★arch 독립 재현(#20 · 이 재현이 닫는 증거)★: `9c4ef5fb79` 아카이브 → 스크래치패드 새 폴더: test_block_destructive_inject **68 PASS rc=0** · test_block_destructive **91 PASS rc=0**(회귀 0) · `bash -n` · 셔뱅 `#!/bin/bash` 그대로 · merge-base 키트 = 홈 `~/.claude/hooks/block-destructive.sh` cmp 동일(설치 = 이 블록 추가만).
@@ -1109,7 +1109,7 @@
 - ★알고 둔 경계(설계 결정 · 이 훅 범위 밖)★: 변수·별칭 우회(`r=redis-cli; $r SET k v`) · 스크립트 «파일 안» 주입 — 명령줄 글자 훅은 의도적 난독화를 끝까지 못 따라간다(기존 PATTERN 도 같은 성질 · 훅 주석 «판정기를 촘촘히 할수록 예외가 자란다»). 파일 안 = §92 증거 검사 · 의도적 우회 = BOOT 20 증거 무효 규정.
 - 대가(알고 둔다): 실행 치환과 Redis·URL 검색 구절이 한 명령에 같이 있으면(`git grep 'redis-cli PUBLISH x' $(git rev-parse HEAD)`) 막힌다 — 우회 = `grep`(글 싱크) 또는 치환을 앞 명령으로 분리 · 정당한 운영 쓰기 = 파일에 쓰고 사람이 `!` 로(차단 문구에 적힘).
 - 기준값 대비(카드 머리줄): PATTERN·STAGE 에 Redis 쓰기·`/dev/bubble-replay` 0 → 이 단위 뒤 = 전 좌석 Bash 에서 직접 치는 주입은 실행 전 exit 2 · 정상 읽기·정리·검색·기존 러너·격리 픽스처는 0.
-- 카드 증거 줄(나노 RESULT r3 · master 가 카드에 옮김): `세트: 9c4ef5fb79ff5308373b27a163304ae021ae6051 · 시험: bash tests/harness/test_block_destructive_inject.sh rc=0 · 이슈: 0` (+ 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`).
+- 카드 증거 줄(나노 RESULT r3 · master 가 카드에 옮김): `세트: 9c4ef5fb79ff5308373b27a163304ae021ae6051 · 시험: bash tests/harness/test_block_destructive_inject.sh rc=0 · 이슈: 0` (+ 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md`).
 - ★랜딩 뒤 master 집행 순서(카드 밖 · 판정 589 planner 조건 · 앞 단계 값이 다르면 멈추고 보고)★:
   ① PR(origin/main · 커밋 4개) → 병합. ★PR 본문은 `--body-file`★(본문의 명령 글자가 지금 설치본 PATTERN 에 걸릴 수 있음).
   ② 원본 백업 `cp ~/.claude/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh.bak-r63b-20261009`.
@@ -1125,7 +1125,7 @@
 - 골 축: C(배포·반영 — 측정 조작 차단 훅 재설치의 선행 = 정상 쪽지 오탐 0) + A(오빠 절대지침 장치).
 - 대상 카드: r63e-mbox-ok-relative-path
 - 나노 커밋 3개(브랜치 `nano/r63e-mbox-ok-relative-path` · base origin/main `7826b70515` = 현 tip · push 0):
-  ①`f94a4a5ebe`([fix] `MOVE` 정규식 · `mbox_ok(path, cwd, moved)` — 상대경로는 JSON cwd 기준 realpath 가 그 cwd 의 git 공통 루트 정본과 같을 때만 인정 · 이동 명령(`cd`·`pushd`·`popd`)이 있으면 상대 인정 0) → 구현 DA r1(`design/harness/DA-r63e-mbox-ok-relative-path-20261009.md`) Q1·Q3 APPROVE · Q2 HOLD(따옴표·역슬래시 이어붙임 `c''d`·`c\d` 가 `MOVE` 를 피함) → 반송 r1(arch#20).
+  ①`f94a4a5ebe`([fix] `MOVE` 정규식 · `mbox_ok(path, cwd, moved)` — 상대경로는 JSON cwd 기준 realpath 가 그 cwd 의 git 공통 루트 정본과 같을 때만 인정 · 이동 명령(`cd`·`pushd`·`popd`)이 있으면 상대 인정 0) → 구현 DA r1(`design/teams/harness/DA-r63e-mbox-ok-relative-path-20261009.md`) Q1·Q3 APPROVE · Q2 HOLD(따옴표·역슬래시 이어붙임 `c''d`·`c\d` 가 `MOVE` 를 피함) → 반송 r1(arch#20).
   ②`01b915f91c`([fix] 이동 판별을 따옴표·역슬래시 지운 글자로) → DA r2 Q2 HOLD(인용 교정 수락 · 이동 단어 오른쪽 경계가 공백·끝만이라 `cd;`·`c''d;`·`popd;` rc0 · 인자 없는 `cd` = HOME 이동) · «두 번째 HOLD 이므로 연속 DA 리뷰 종료» → 반송 r2(arch#21 결정 = 오른쪽 경계 lookahead `(?=[\s;&|)]|$)`).
   ③`4f5a1383c8`([fix] `MOVE` 오른쪽 경계에 구분자 `; & | )` 포함 + 차단 시험 3행). 최종 r1~r3 = 키트 템플릿 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` · `tests/harness/test_block_destructive.sh` · `tests/harness/test_block_destructive_inject.sh` · 훅 209줄.
 - ★arch 독립 재현(#21 · 이 재현이 닫는 증거)★: `4f5a1383c8` 아카이브 → `mktemp -d` 새 폴더: test_block_destructive **blocked=74 pass=23 fail=0 rc=0** · test_block_destructive_inject **rc=0** · `bash -n` OK · 셔뱅 `#!/bin/bash` 그대로 · 훅 39행 = arch 사본 처방과 같은 식(차이는 주석 1줄뿐).
@@ -1161,9 +1161,9 @@
   · 홈 훅 수정 시각 9-29 13:56 그대로 · 나노 워크트리 미커밋 = `.serena/project.yml` 자동변경뿐(커밋 금지 노이즈).
 - ★arch 판단 서명 — 승인★: 이 단위는 홈을 바꾸지 않는다(키트 ← 홈) → 589 홈 설치 조건(백업·셔뱅 재생·오탐 원복) 해당 없음. 키트를 받는 다른 머신은 이 Mac 과 같은 게이트를 갖고 ⓪ 는 홈·키트에 동시에 켜는 날까지 어디에도 없다.
 - 알고 둔 것(이 카드 범위 밖): 키트 훅 19개 ↔ 홈 전수 cmp(origin/main `d23385ef35`) — 같음 9 · 홈에 없음 8 · 다름 2 중 남는 1 = `boot-read-gate.sh`(머리 주석 2줄만 · 동작 같음). 정합이 필요하면 별 카드 후보.
-- ★최종 DA APPROVE★(`design/harness/DA-gate-hook-kit-equals-home-20261009.md` · byz-harness-da-codex#0 · GPT-6/OpenAI): 4ed459ddfc↔현재 홈 독립 바이트 동일 · 삭제 37줄 = 보류분 범위 수락 · ft-worker-guard 역할 검사 불변 · TOP_MODELS/2파일/agent_id JSON 4모델 독립 PASS + bash -n.
+- ★최종 DA APPROVE★(`design/teams/harness/DA-gate-hook-kit-equals-home-20261009.md` · byz-harness-da-codex#0 · GPT-6/OpenAI): 4ed459ddfc↔현재 홈 독립 바이트 동일 · 삭제 37줄 = 보류분 범위 수락 · ft-worker-guard 역할 검사 불변 · TOP_MODELS/2파일/agent_id JSON 4모델 독립 PASS + bash -n.
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 4ed459ddfc7178ecb8a04751f32832f2ddd11202 · 시험: bash tests/harness/test_orch_gate_top_models.sh rc=0 · 이슈: 0`.
-- ★다음★: ① 최종 DA 1회(arch#21 소환 · 요청서 `design/harness/DA-REQ-gate-hook-kit-equals-home-20261009.md` · `byz-harness-da-codex#0` · bounded) → ② APPROVE 면 master 가 `ft-index-move.sh <카드> 완성 --da design/harness/DA-gate-hook-kit-equals-home-20261009.md` → ③ PR(origin/main · `--body-file`) 병합. 홈 설치 단계 없음.
+- ★다음★: ① 최종 DA 1회(arch#21 소환 · 요청서 `design/teams/harness/DA-REQ-gate-hook-kit-equals-home-20261009.md` · `byz-harness-da-codex#0` · bounded) → ② APPROVE 면 master 가 `ft-index-move.sh <카드> 완성 --da design/teams/harness/DA-gate-hook-kit-equals-home-20261009.md` → ③ PR(origin/main · `--body-file`) 병합. 홈 설치 단계 없음.
 - 정본 영향 없음: 하네스 키트 템플릿·키트 문서 1줄 — docs/architect 제품 정본 변경 없음.
 
 ## §97 block-destructive 훅 209줄 → 판정기(파이썬)를 옆 파일로 분리 · 두 파일 200줄 이하 · 동작 바이트 동일 (planner 판정 592 순서 ② · 나노 bd-judge-split-200) — 닫힘 · 독립 재현 통과 + 최종 DA APPROVE(1회 · 카드 계약) · 홈 설치 master 잔여 (byz-harness-arch-claude#21 · 2026-10-09)
@@ -1180,10 +1180,10 @@
   · install.sh: `hook block-destructive.sh home=diff settings=registered` · `hook block-destructive-judge.py home=absent settings=n/a`.
   · `/bin/bash` JSON 31행(§95 재현 세트) 불일치 0.
   · ★나노 미확인 1건 대신 확인★: 훅만 다른 폴더로 복사(판정기 없음) + `echo '<파괴 명령 인용>'` = **2** / 판정기 있음 = **0** → 판정기가 없으면 «더 엄격한» 쪽(fail-closed). 나노는 같은 시험 글자가 지금 홈 훅에 걸려 실행하지 않았다(우회 0 · 정상).
-- ★최종 DA APPROVE★(`design/harness/DA-bd-judge-split-200-20261009.md` · byz-harness-da-codex#0 · GPT-6/OpenAI): 파이썬 본문 독립 동일 · 분리 전후 JSON 7종 동치 · 판정기 없음 rc2 + `bash -n` · 경로·두 파일 보고 수락. ★DA 단서 = 홈 판정기 SKIP 만으로는 설치 완료 아님 — 설치 뒤 두 파일 동시 cmp·회귀는 master 잔여★(아래 ④ 의 마지막 줄).
+- ★최종 DA APPROVE★(`design/teams/harness/DA-bd-judge-split-200-20261009.md` · byz-harness-da-codex#0 · GPT-6/OpenAI): 파이썬 본문 독립 동일 · 분리 전후 JSON 7종 동치 · 판정기 없음 rc2 + `bash -n` · 경로·두 파일 보고 수락. ★DA 단서 = 홈 판정기 SKIP 만으로는 설치 완료 아님 — 설치 뒤 두 파일 동시 cmp·회귀는 master 잔여★(아래 ④ 의 마지막 줄).
 - 알고 둔 경계(카드 밖): ①훅을 심링크로 설치하면 판정기를 못 찾아 fail-closed(과차단) — 설치는 cp 라 해당 없음. ②키트 폴더에서 판정기를 «import» 하면 `__pycache__` 가 생겨 install.sh `find bin templates -type f` 목록에 실린다(.gitignore 는 막음 · 스크립트 실행만으로는 안 생김 · arch 재현 중 `py_compile` 로 한 번 관측).
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 7e8b08cb7e3228c1f0cea3aaa781b173c08814ba · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0`.
-- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-bd-judge-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 홈 설치» ①~⑦(589 조건 · ★판정기 먼저 → 훅★ · 평소 명령 재생 · 오탐 1건이면 즉시 원복 · 끝에 test_install_hook_check rc=0 · ★그 출력에 `block-destructive-judge` 줄이 SKIP 아닌 PASS(홈 cmp) 여야 완료★ · `cmp` 키트↔홈 두 파일 모두 rc=0).
+- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/teams/harness/DA-bd-judge-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 홈 설치» ①~⑦(589 조건 · ★판정기 먼저 → 훅★ · 평소 명령 재생 · 오탐 1건이면 즉시 원복 · 끝에 test_install_hook_check rc=0 · ★그 출력에 `block-destructive-judge` 줄이 SKIP 아닌 PASS(홈 cmp) 여야 완료★ · `cmp` 키트↔홈 두 파일 모두 rc=0).
 - 정본 영향 없음: 하네스 키트 훅·키트 설치 보고·시험만 — docs/architect 제품 정본 변경 없음.
 
 ## §98 mbox.sh 242줄 → 도어벨 도우미를 옆 파일(mbox_doorbell.sh)로 분리 · 두 파일 200줄 이하 · 동작 변화 0 (planner 판정 592 순서 ③ · 나노 mbox-sh-split-200) — 닫힘 · 독립 재현 통과 + 최종 DA APPROVE(1회) + README 순서 반영 · 라이브 설치 master 잔여 (byz-harness-arch-claude#21 · 2026-10-09)
@@ -1200,17 +1200,17 @@
   · ★분리 전(origin/main)·후 9시나리오★(send · send --no-notify · 이름 거부 · relay · peek · recv · ring 이름 거부 · ring 없는 세션 · 모르는 명령) stdout+stderr+rc diff = relay 전문 파일 이름의 시각 1초뿐 · rc 0/0/1/0/0/0/1/0/2 동일.
   · 도우미 없는 폴더 `mbox.sh peek` = **rc=1** + stderr 에 `mbox_doorbell.sh`(조용한 대체 0 · #0 규칙).
   · check-drift(라이브 `.fable-team` 연결 사본): `mbox.py` SAME · `mbox.sh` DRIFT(라이브 = 분리 전) · `mbox_doorbell.sh` MISSING_RUNTIME — 설치 전 기대값.
-- ★최종 DA APPROVE★(`design/harness/DA-mbox-sh-split-200-20261009.md` 커밋 `6de485f21e` · byz-harness-da-codex#0 · GPT-6/OpenAI): 도우미·진입점 머리·꼬리 독립 동일 · `bash -n` · 임시 peek rc0 / 도우미 없음 rc1 + mbox.py 호출 0(큐 쓰기 전 멈춤) · 시험·README·drift 쌍 포함 확인.
+- ★최종 DA APPROVE★(`design/teams/harness/DA-mbox-sh-split-200-20261009.md` 커밋 `6de485f21e` · byz-harness-da-codex#0 · GPT-6/OpenAI): 도우미·진입점 머리·꼬리 독립 동일 · `bash -n` · 임시 peek rc0 / 도우미 없음 rc1 + mbox.py 호출 0(큐 쓰기 전 멈춤) · 시험·README·drift 쌍 포함 확인.
 - ★DA 주의 1건 → 랜딩 전 반영★: README 복구 명령의 cp 순서(진입점 → 도우미)가 바로 아래 «도우미를 먼저» 설명과 반대. 원인 = arch 카드 문구(«진입점 복구 명령 바로 아래에 도우미 줄»). 처방(arch 결정 · 쪽지 #66814): 설명 줄을 위로 · cp 순서 도우미 → 진입점 · [docs] 커밋 1개 · DA 재소환 없음(지적 그대로 반영 · arch diff 확인).
   → 반영 `2e70f54e39`([docs] README 1파일 +2 −2 · b5707adfca 위 1커밋): mkdir 다음 «한 쌍 — 도우미 먼저» 설명 → cp `mbox_doorbell.sh` → cp `mbox.sh`. arch diff 확인 — 다른 줄 0.
 - 알고 둔 경계(카드 밖): check-drift MAP 의 나머지 행은 여전히 옛 `.worktrees/v6-realtime-live/…`(그 워크트리 소멸 · 전부 MISSING_RUNTIME) — 정리는 별 카드 후보. README 의 복구 명령 경로도 같은 옛 경로 꼴(카드가 «같은 꼴»로 지정).
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: 2e70f54e390755465d71321bc0c7bcaca429c148 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0`.
-- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-mbox-sh-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치» ①~⑦(★도우미 먼저 cp+cmp → 진입점 `cp … .new && mv -f` 원자 교체★ · self 왕복 + 다른 좌석 실발주 1통으로 도어벨 확인 · check-drift `mbox.sh`·`mbox_doorbell.sh` SAME 두 줄 · 실패 1건이면 즉시 원복).
+- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/teams/harness/DA-mbox-sh-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치» ①~⑦(★도우미 먼저 cp+cmp → 진입점 `cp … .new && mv -f` 원자 교체★ · self 왕복 + 다른 좌석 실발주 1통으로 도어벨 확인 · check-drift `mbox.sh`·`mbox_doorbell.sh` SAME 두 줄 · 실패 1건이면 즉시 원복).
 - 정본 영향 없음: 통신 도구 구조 분리·시험·README 만 — docs/architect 제품 정본 변경 없음.
 
 ## §99 mbox.py 637줄 → 진입 + 4모듈(상수·저장·가드·명령) · 각 200줄 이하 · 동작 변화 0 (planner 판정 592 순서 ④ · 나노 mbox-py-split-200) — 닫힘 · 독립 재현 통과 + 최종 DA r1 HOLD Q2 → 보강 → r2 APPROVE · 라이브 설치 master 잔여 (byz-harness-arch-claude#21 · 2026-10-09)
 - 골 축: C(통신 큐 본체를 200줄 규칙 안으로 — 통신 기능 카드가 한도에 걸려 반송되지 않게).
-- 대상 카드: mbox-py-split-200 (arch#21 작성 커밋 `21f8bb5dc5`·`64e423b159` · 처방 도구 4개 `design/harness/evidence/mbox-py-split-200/` = arch 사본 실측 그대로)
+- 대상 카드: mbox-py-split-200 (arch#21 작성 커밋 `21f8bb5dc5`·`64e423b159` · 처방 도구 4개 `design/teams/harness/evidence/mbox-py-split-200/` = arch 사본 실측 그대로)
 - 나노 커밋 4개(③`e4fec82c2f` [structure] 진입 sys.path 1줄 · ④`a82e30df17` [test] 링크 import fixture — 아래 DA r1 · 브랜치 `nano/mbox-py-split-200` · base origin/main `9b774bef56` = 현 tip · push 0):
   ①`5626a173d0`([structure]) `tools/comm-canonical/mbox.py` 637→125(머리·import·정본 루트·CANON·makedirs·묶기 11줄·main) + 새 `mbox_conf.py` 41(env 상수) · `mbox_store.py` 186(seq·레거시·저장·잠금) · `mbox_guard.py` 146(가드·발신 사본 로그) · `mbox_ops.py` 167(send·relay·recv·peek) · `check-drift.sh` MAP +4행(`.claude/fable-team/bin/mbox_*.py`).
   ②`427ebdddbc`([test]) 시험 3개: 복사 = `mbox*.py` 전부 · 바꿔치기 대상 = `mbox_ops._reply_exempt`·`mbox_guard.time` · 변이 = 대상 글자가 든 모듈 하나만.
@@ -1223,13 +1223,13 @@
   · 라이브 꼴 링크 배치: 옛·새 모두 send rc0 · recv 1건 · 우편함 = `root/.fable-team/comm` · bin 에 엉뚱한 우편함 0 · 실제 경로 직접 실행 = `NO_MAILBOX_ROOT` rc2(옛 판도 같음).
   · 모듈 없는 폴더의 진입 = `ModuleNotFoundError: mbox_conf` rc1(조용한 대체 0).
   · (사본 단계) `/usr/bin/python3` 3.9 에서도 send·recv 동작.
-- ★최종 DA r1 HOLD Q2★(`design/harness/DA-mbox-py-split-200-20261009.md` · ops `a93a11f926` · Q1·Q3 APPROVE): 라이브 꼴에서 `comm` 폴더를 sys.path 에 넣고 `import mbox` = 새 판만 `ModuleNotFoundError: mbox_conf`(옛 rc0) — 파이썬이 실제 폴더를 잡는 것은 CLI 실행 때뿐. arch 설계 «실측 근거 ①»의 빈틈(import 경로 미검사).
+- ★최종 DA r1 HOLD Q2★(`design/teams/harness/DA-mbox-py-split-200-20261009.md` · ops `a93a11f926` · Q1·Q3 APPROVE): 라이브 꼴에서 `comm` 폴더를 sys.path 에 넣고 `import mbox` = 새 판만 `ModuleNotFoundError: mbox_conf`(옛 rc0) — 파이썬이 실제 폴더를 잡는 것은 CLI 실행 때뿐. arch 설계 «실측 근거 ①»의 빈틈(import 경로 미검사).
   → 반송 r1(arch 결정): 진입 맨 앞 `import os, sys; sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))` 1줄(CANON 은 링크 위치 abspath 그대로) + 고정 시험 `tests/harness/test_mbox_py_link_import.sh`. 도구 r2 `80e3173278`(arch 사본에서 줄을 `from mbox_conf import *` 뒤에 넣어 같은 오류를 한 번 재현한 뒤 맨 앞으로 고침).
   → arch 재현(`a82e30df17`): 결정성 5/5 · fixture 새·옛 ALL PASS · 줄 뺀 변이 2 FAIL · 기존 4종·12시나리오·링크 왕복 그대로 · 모듈 없는 폴더 = ModuleNotFoundError rc1.
 - ★DA r2 Q2 APPROVE★(같은 판정문 r2 절): 실파일 폴더 import 우선 + 링크 위치 CANON 보존으로 r1 종료 · 임시 5 probes(링크 import · CLI · 환경 주입/미주입 · 루트 추론 · 엉뚱한 PYTHONPATH) 독립 PASS. 단서 = 라이브 5모듈 동시 설치는 master 잔여.
 - 알고 둔 것(카드 밖): 라이브 `.claude/fable-team/bin/__pycache__/` 가 생긴다(정상 · 모듈 import 캐시). check-drift MAP 의 옛 `.worktrees/v6-realtime-live/…` 행 정리는 별 카드 후보(§98 과 같음).
 - 카드 증거 줄(나노 RESULT · master 가 카드에 옮김): `세트: a82e30df172acb795f8b0d5dfc4370c484250e73 · 시험: bash tests/harness/test_mbox_py_link_import.sh rc=0 · 이슈: 0`.
-- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/harness/DA-mbox-py-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치»(★모듈 4개 먼저 `.claude/fable-team/bin/` cp+cmp → 진입 `cp … .new && mv -f` 원자 교체★ · `comm/` 링크 불요 · self 왕복 + 다른 좌석 실발주 1통 · `.mbox-seq` 이어짐 · check-drift SAME 5줄 · 실패 1건이면 즉시 원복).
+- ★다음★: ① 최종 DA APPROVE → ② master `ft-index-move.sh <카드> 완성 --da design/teams/harness/DA-mbox-py-split-200-20261009.md` → ③ PR(origin/main · `--body-file`) 병합 → ④ 카드 «랜딩 뒤 라이브 설치»(★모듈 4개 먼저 `.claude/fable-team/bin/` cp+cmp → 진입 `cp … .new && mv -f` 원자 교체★ · `comm/` 링크 불요 · self 왕복 + 다른 좌석 실발주 1통 · `.mbox-seq` 이어짐 · check-drift SAME 5줄 · 실패 1건이면 즉시 원복).
 - 정본 영향 없음: 통신 도구 구조 분리·시험만 — docs/architect 제품 정본 변경 없음.
 
 ## §100 판정 595 가드 ㉠(INJECT) 라이브 오탐 보강 — 게시 본문(heredoc → Tank 래퍼·gh·git commit)은 글자, 실행 경로는 계속 차단 (master#21 쪽지 #67033 · 나노 fp595-inject-post-sink) — 닫힘 (byz-harness-arch-claude#22 · 2026-10-09) · ★구현 DA 2회(r1 HOLD Q1 · r2 HOLD Q1 → 연속 리뷰 종료) → arch 처방·독립 재현 서명(bounded_da_review · §95 선례)★
@@ -1237,16 +1237,16 @@
 - 대상 카드: fp595-inject-post-sink (대기 `c467f641e1` → 경로 정정 `d9a45f52c8` → 진행)
 - 발단(실측): issues master#6 jsonl `1de82fc3…` 2026-10-08T20:11:33Z — `cat > $SP/c887r.md <<'EOF'`(본문 「앞 닫힘(/dev/bubble-replay 측정)은 무효」 인용) → `bash $SP/ft-gh-as-tank.sh comment 887 $SP/c887r.md --apply`. 판정기는 `bash`(실행 소비자) 하나로 예외 자격을 잃고 명령 전체를 돌려줘 heredoc 본문까지 INJECT 검사 → 차단(실제 주입 0). 쪽지의 「gh issue comment 본문」은 실제로는 Tank 래퍼 경유 파일 본문이었다. 홈 훅은 master 가 ㉠ 만 원복(백업 `.bak-fp595-20261009` = origin/main 키트와 cmp 동일 — 쪽지의 「키트와 다름」은 실측과 다름).
 - 나노 커밋 3개(브랜치 `nano/fp595-inject-post-sink` · base origin/main · push 0):
-  ①`e5588bb096`([fix] 판정기 `--inject` 모드 + 훅 INJECT 블록 `EFFECTIVE`→`INJ_SRC` 3곳 · 게시 싱크 닫힌 목록 F1 파일 경유·F2 `"$(cat <<'D')"` 본문 옵션 값) → DA r1(`design/harness/DA-fp595-inject-post-sink-20261009.md`) Q2·Q3·Q4 APPROVE · Q1 HOLD(`bash "$RUNFILE"`·다른 이름 심링크로 F 실행 시 본문 빠짐) → 반송 r1.
+  ①`e5588bb096`([fix] 판정기 `--inject` 모드 + 훅 INJECT 블록 `EFFECTIVE`→`INJ_SRC` 3곳 · 게시 싱크 닫힌 목록 F1 파일 경유·F2 `"$(cat <<'D')"` 본문 옵션 값) → DA r1(`design/teams/harness/DA-fp595-inject-post-sink-20261009.md`) Q2·Q3·Q4 APPROVE · Q1 HOLD(`bash "$RUNFILE"`·다른 이름 심링크로 F 실행 시 본문 빠짐) → 반송 r1.
   ②`fdc6b3f36f`([fix] 실행 소비 구간이 전부 «대입 해소 + realpath ≠ F» 로 증명될 때만 본문 제거 · 불가 = Inelig) → DA r2 Q1 HOLD(뒤 구간 대입을 앞 실행 증명에 씀 · 반례 재현) · 연속 리뷰 종료 → 반송 r2(arch#22 처방 = 구간 순서대로 해소).
   ③`729cd6cdf3`([fix] `envs_before` — 구간 i 는 앞 구간까지의 대입만으로 검사).
-  최종 = 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py`(200줄) · `…/hooks/block-destructive.sh`(88줄 · ①에서 +1줄 뒤 불변) · 시험 `tests/harness/test_block_destructive_inject_post.sh`(새) · 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
+  최종 = 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py`(200줄) · `…/hooks/block-destructive.sh`(88줄 · ①에서 +1줄 뒤 불변) · 시험 `tests/harness/test_block_destructive_inject_post.sh`(새) · 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
 - ★arch 독립 재현(#22 · 이 재현이 닫는 증거)★: `729cd6cdf3` 아카이브 → `mktemp -d` 새 폴더: test_block_destructive_inject **rc=0** · test_block_destructive_inject_post **rc=0** · test_block_destructive **rc=0** · `/bin/bash -n` OK · 판정기 200줄.
   · arch 프로브 `.fable-team/state/drafts-r22/fp595/probe595.py`(JSON 19행 · 명령 실행 0): 통과 7(실사례 원문 F1a 포함) = 0 · 차단 12 중 11 = 2 · X7 = 0(아래 명시 제한).
   · arch 순서 프로브 `probe_r2.py`(훅 환경 `RUNFILE=F` · 7행): DA r2 반례(뒤 대입) · `export` 뒤 대입 · 뒤에서 F 로 재대입 · `unset` 뒤 사용 · `&&` 순서 · 접두 대입 `RUNFILE=x bash "$RUNFILE"` = 전부 2 · 앞 구간 안전 대입 뒤 실행 = 0 → 불일치 0.
   · 변이(나노 · 시험 안): M4(realpath 끔) → X14 FAIL · M7(최종 env 복원) → X18 FAIL.
 - ★arch 판단 서명 — 승인★: ①게시 싱크는 닫힌 목록(Tank 래퍼 `create|comment|comment-edit|pr-comment|pr-create|edit|pr-edit` 본문 파일 자리 · `gh pr|issue create|comment|edit --body-file|-F` · `git commit -F|--file` · F2 는 `--body -b --title -t -m --message` 값) — 늘리는 것도 판정 사항. ②따옴표 heredoc 만 · 같은 명령 안 실행 소비가 F 가 아님을 «증명 못 하면» 명령 전체 검사(fail-closed). ③파괴 PATTERN 경로(인자 2개 기본 호출)는 바이트 불변(DA r1 Q3 APPROVE).
-- ★명시 제한(master 판정 #67070)★: X7 `redis-cli $(cat <<'EOF'`⏎`SET k v`… 및 같은 계열(백틱·heredoc·`<<<`·`<` 파일·파이프 수신·xargs — arch 실측 8꼴) = 원 키트에도 있던 빈틈 · 이 단위가 만든 것 아님 → 설치 직후 별 카드 `design/harness/indices/대기/x7-inject-redis-indirect-input.md`(`3d43b91764` · 프로토 1줄로 8 → 0).
+- ★명시 제한(master 판정 #67070)★: X7 `redis-cli $(cat <<'EOF'`⏎`SET k v`… 및 같은 계열(백틱·heredoc·`<<<`·`<` 파일·파이프 수신·xargs — arch 실측 8꼴) = 원 키트에도 있던 빈틈 · 이 단위가 만든 것 아님 → 설치 직후 별 카드 `design/teams/harness/indices/대기/x7-inject-redis-indirect-input.md`(`3d43b91764` · 프로토 1줄로 8 → 0).
 - ★알고 둔 경계(이 훅 범위 밖)★: 다른 명령에서 만든 파일·스크립트 «안» 의 주입(§92 증거 검사 몫) · `eval` 조립·별칭 — 명령줄 글자 훅은 의도적 난독화를 끝까지 못 따라간다(§93·§95 와 같은 성질 · 의도적 우회 = BOOT 20 증거 무효).
 - 카드 증거 줄(나노 RESULT r2): `세트: 729cd6cdf348549bf3ed48271bf6182c183f7e73 · 시험: bash tests/harness/test_block_destructive_inject_post.sh rc=0 · 이슈: 0`.
 - ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★:
@@ -1264,10 +1264,10 @@
 - 대상 카드: x7-inject-redis-indirect-input (대기 `3d43b91764` → 진행)
 - 기준값(카드 머리줄 · arch 실측): §100 설치본에서 Y1~Y8(치환·백틱·heredoc·`<<<`·`<` 파일·파이프 수신·echo 파이프·xargs) 전부 rc=0.
 - 나노 커밋 3개(브랜치 `nano/x7-inject-redis-indirect-input` · base origin/main `483ba4ec67` 이후 · push 0):
-  ①`bab4802246`([fix] `INJECT_PATTERN` 대안 4개 1줄: 파이프 수신 · stdin 리다이렉트 · xargs · 동사 자리 치환) → DA r1(`design/harness/DA-x7-inject-redis-indirect-input-20261009.md`) Q3 APPROVE · Q1 HOLD(줄끝 `|` 로 이어진 여러 줄 파이프 rc0) · Q2 HOLD(`redis-cli GET '<literal-key>'` rc2 오탐) → 반송 r1(arch 프로토 처방 · 덤: `false || redis-cli GET k` 오탐).
+  ①`bab4802246`([fix] `INJECT_PATTERN` 대안 4개 1줄: 파이프 수신 · stdin 리다이렉트 · xargs · 동사 자리 치환) → DA r1(`design/teams/harness/DA-x7-inject-redis-indirect-input-20261009.md`) Q3 APPROVE · Q1 HOLD(줄끝 `|` 로 이어진 여러 줄 파이프 rc0) · Q2 HOLD(`redis-cli GET '<literal-key>'` rc2 오탐) → 반송 r1(arch 프로토 처방 · 덤: `false || redis-cli GET k` 오탐).
   ②`fffc667ac5`([fix] 판정기 `--inject` 경로만 단어 인용 복원(`judge(cmd, cwd, q)` · 기본 q=False) · 훅 줄 잇기 `INJ_J`(끝 `\`·`|`) · stdin 대안을 `INJECT_STDIN`+`CHK_R`(`<` 든 따옴표 구간을 Q 로 비움)로 분리 · 파이프 대안 `(^|[^|])`) → DA r2 Q2 APPROVE · Q1 HOLD(`CHK_R` 이 실행 코드 인자까지 비워 `bash -c "redis-cli < f"`·`sh -c`·`python3 -c "os.system('redis-cli < f')"` rc0) · 연속 리뷰 종료 → 반송 r2(arch 처방).
   ③`90c9c7db39`([fix] `CHK_R` 은 redis-cli(대소문자 무시)가 안 든 따옴표 구간만 비움 — 표지 `INJ_MARK`(\001)).
-  최종 = 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(97줄) · `…/hooks/block-destructive-judge.py`(200줄 · 3줄 변경) · 시험 `tests/harness/test_block_destructive_inject_post.sh` · 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
+  최종 = 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(97줄) · `…/hooks/block-destructive-judge.py`(200줄 · 3줄 변경) · 시험 `tests/harness/test_block_destructive_inject_post.sh` · 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
 - ★arch 독립 재현(#22 · 이 재현이 닫는 증거)★: `90c9c7db39` 아카이브 → `mktemp -d` 새 폴더: test_block_destructive_inject **rc=0** · test_block_destructive_inject_post **rc=0** · test_block_destructive **rc=0** · `/bin/bash -n` OK · 훅 INJECT 블록 = arch r2 프로토와 변수 이름 외 동일.
   · arch 프로브 5종(`/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r22/x7/` · JSON · 명령 실행 0) 전부 BAD 0: `probe_x7r2.py` 9(V1~V6 = 2 · W1·W2·W7 = 0) · `probe_x7r1.py` 13(Z1~Z7 = 2 · W1~W6 = 0) · `probe_x7.py` 12(Y1~Y8 = 2 · Q1~Q4 = 0) · `probe_r2.py` 7 · `probe595.py` 19(§100 F·X 행 · X7 = 2 로 닫힘).
   · ★arch 독립 변이 2개★: (가) 표지 단계 제거 → V1~V6 6행 rc0. (나) `--inject` 의 q 인용 복원 끔 → W1·W2 rc2. 두 줄 모두 실제로 막고 있다.
@@ -1291,7 +1291,7 @@
 - 대상 카드: mag601-mbox-rotation-and-install-list (대기 `1ba6e42cf9` → 진행)
 - 발단(실측): `.fable-team/comm/mailbox.log.jsonl` 5MB 회전(10-08 21:03) → 현재 파일 첫 ts `2026-10-08T21:04:13` · 회전본 `.1` 끝 ts `21:03:41`. `collect_mbox` 는 현재 파일만 읽고 «첫 ts > 창 시작 08:00» 이면 raise(설계상 누락 은폐 금지) → 10-09 호 미발행. 같은 사본을 `collect_decisions` 는 `_read` 로 현재 파일만 읽어 회전 앞쪽 판정을 조용히 놓치고 있었다. `install-magazine.sh` 에는 `magazine_collect_open.py`(+DA 가 찾은 `mirror_lib.py`·`mirror_summary.py` · 나노가 찾은 `thread_post_update.py`)가 없었다.
 - 나노 커밋 2개(브랜치 `nano/mag601-mbox-rotation-and-install-list` · base origin/main · push 0):
-  ①`fdc56ddd46`([fix] `read_window` — 현재 파일이 창 시작을 못 덮으면 같은 폴더 `.1` 을 앞에 이어 읽고 seq 중복 제거 · 그래도 못 덮으면 두 경로·첫 ts 를 담아 raise · `.1` 없으면 기존 raise · `collect_mbox`·`collect_decisions` 둘 다 사용 · REQUIRED +`magazine_collect_open.py`·`thread_post_update.py` · 새 시험 `tests/harness/test_magazine_install_list.sh`) → DA r1(`design/harness/DA-mag601-mbox-rotation-20261009.md`) Q1 APPROVE · Q2 HOLD(이어 붙인 순서가 ts 순이 아니면 `_seats` break 로 창 안 행 소실 · 합성 반례) · Q3 HOLD(import 닫힘 38개 중 `mirror_lib.py`·`mirror_summary.py` 누락 · 시험이 install.sh 목록까지 합쳐 숨김) → 반송 r1.
+  ①`fdc56ddd46`([fix] `read_window` — 현재 파일이 창 시작을 못 덮으면 같은 폴더 `.1` 을 앞에 이어 읽고 seq 중복 제거 · 그래도 못 덮으면 두 경로·첫 ts 를 담아 raise · `.1` 없으면 기존 raise · `collect_mbox`·`collect_decisions` 둘 다 사용 · REQUIRED +`magazine_collect_open.py`·`thread_post_update.py` · 새 시험 `tests/harness/test_magazine_install_list.sh`) → DA r1(`design/teams/harness/DA-mag601-mbox-rotation-20261009.md`) Q1 APPROVE · Q2 HOLD(이어 붙인 순서가 ts 순이 아니면 `_seats` break 로 창 안 행 소실 · 합성 반례) · Q3 HOLD(import 닫힘 38개 중 `mirror_lib.py`·`mirror_summary.py` 누락 · 시험이 install.sh 목록까지 합쳐 숨김) → 반송 r1.
   ②`dd19902b71`([fix] 이어 붙인 경로만 ts 안정 정렬 · REQUIRED +`mirror_lib.py`·`mirror_summary.py` · 시험은 install-magazine.sh 목록만 비교 + collect_open·mirror_lib 제거 변이 · Q2 반례 행) → DA r2 Q2·Q3 APPROVE.
 - ★arch 독립 재현(#22)★: `dd19902b71` 아카이브 → `mktemp -d`: `tests/scripts/test_magazine_collect_mbox.py` **21 passed**(base 13) · `test_magazine_collect_detail.py` 9 passed · `tests/harness/test_magazine_plist.sh` rc=0 · `test_magazine_install_list.sh` rc=0(새 시험을 base 에 돌리면 FAILED = 누락 검출) · `test_magazine_cli.py` 5 failed = base 와 실패 목록 md5 동일(기존 실패 · 이 단위 무관 · 별건).
   · arch AST 독립 닫힘(진입 `byz_morning_magazine.py`·`byz_proposal_publish.py`·`byz_thread_post.py`) = 38개 · install-magazine.sh REQUIRED∪COMPANION 누락 **0**.
@@ -1312,10 +1312,10 @@
 - 골 축: C(배포 발행(슬랙) — 다른 팀 카드 형식 한 장 때문에 전 팀 매거진이 멈추지 않는다 · 형식 미달은 숨기지 않고 매거진 본문과 로그에 보인다).
 - 대상 카드: mag602-malformed-cards-report (대기 `62e8bec6ab` → 진행)
 - 발단(실측): 판정 601(§102) 설치 뒤 수집 dry 가 `magazine_collect_detail.py` `_card` raise 로 중단 — 창 안 완성 카드 중 `design/cfo` 옛 형식 카드가 `## 상태`·`## 골좌표` 등이 없어 매거진 전체가 멈춤(반쪽 결과 금지 설계).
-- 나노 커밋 1개(브랜치 `nano/mag602-malformed-cards-report` · base `e8c5718a8c` · push 0): `4b047d19ed`([feature] 새 `magazine_card_shape.py` — `MAGAZINE_MALFORMED_CARDS` 없음=raise 그대로 · `report`=형식 미달 카드를 units 에서 빼 `detail["malformed"]` + stderr `ERROR magazine: 형식 미달 카드 <path> (빠진 절: …)` · 그 밖 값=raise · 첫 화면(목차 뒤)·Slack 뿌리 글·부록 h3 에 경로 전부 · plist 템플릿 opt-in · install REQUIRED +`magazine_card_shape.py` · 시험 M1~M5 + 새 `tests/scripts/test_magazine_malformed_render.py`) → DA r1(`design/harness/DA-mag602-malformed-cards-report-20261009.md` · model GPT-6 / provider OpenAI) Q1·Q2·Q3 APPROVE.
+- 나노 커밋 1개(브랜치 `nano/mag602-malformed-cards-report` · base `e8c5718a8c` · push 0): `4b047d19ed`([feature] 새 `magazine_card_shape.py` — `MAGAZINE_MALFORMED_CARDS` 없음=raise 그대로 · `report`=형식 미달 카드를 units 에서 빼 `detail["malformed"]` + stderr `ERROR magazine: 형식 미달 카드 <path> (빠진 절: …)` · 그 밖 값=raise · 첫 화면(목차 뒤)·Slack 뿌리 글·부록 h3 에 경로 전부 · plist 템플릿 opt-in · install REQUIRED +`magazine_card_shape.py` · 시험 M1~M5 + 새 `tests/scripts/test_magazine_malformed_render.py`) → DA r1(`design/teams/harness/DA-mag602-malformed-cards-report-20261009.md` · model GPT-6 / provider OpenAI) Q1·Q2·Q3 APPROVE.
 - ★arch 독립 재현(#23)★: `4b047d19ed` 아카이브 → `mktemp -d`: collect_detail·malformed_render·collect_mbox·render_full **50 passed** · `tests/harness/test_magazine_plist.sh` ALL PASS · `test_magazine_install_list.sh` ALL PASS · ruff clean.
   · `tests/scripts -k magazine` 13 failed = base `e8c5718a8c` 와 FAILED 목록 diff 0(이 단위 무관). ★정정★: 그중 `test_magazine_collect_decisions.py` 4건은 판정 601(PR 1059)이 만든 것(직전 `1c2828e1f8` = 9 failed) — §102 의 「cli 5 실패만 기존」 기재는 범위가 좁았다(별 카드 후보).
-  · ★실데이터 읽기 전용 dry★(실제 리포 · DEFAULT_REFS · 창 2026-10-09): env 없음 = RAISE(cfo 카드 `## 상태` 없음 — 지금과 같음) · `Report`(오타) = RAISE(알 수 없는 값) · `report` = raise 0 · units 138 · **malformed 13**(cfo 12 + harness `design/harness/indices/완성/update-tools-20261008.md` 1 — 카드 기재 11 과 다름) · stderr ERROR 13줄 · 그 밖 stderr 0.
+  · ★실데이터 읽기 전용 dry★(실제 리포 · DEFAULT_REFS · 창 2026-10-09): env 없음 = RAISE(cfo 카드 `## 상태` 없음 — 지금과 같음) · `Report`(오타) = RAISE(알 수 없는 값) · `report` = raise 0 · units 138 · **malformed 13**(cfo 12 + harness `design/teams/harness/indices/완성/update-tools-20261008.md` 1 — 카드 기재 11 과 다름) · stderr ERROR 13줄 · 그 밖 stderr 0.
 - ★arch 판단 서명★: ①NO SILENT FALLBACK 예외 3요건(opt-in · ERROR 로그 · 사용자에게 보이는 경고) 모두 충족 — 기본은 raise 유지 ②카드 내용 추정·채우기 0(경로·빠진 절 이름만) ③같은 경로 first-wins 선택은 기존 계약 그대로(DA Q2 수락).
 - 별건(카드 밖 · 큐): ①`test_magazine_collect_decisions.py` 4 실패(판정 601 fixture 창 앞 커버 줄) ②기존 9 실패(cli 5 · cli_modes 2 · reattach 1 · summary 1) ③cfo 옛 형식 12장 보정 = cfo 몫(완성 후) ④하네스 `update-tools-20261008.md` `## 배경` 없음 = 하네스 카드 보정.
 - 카드 증거 줄(나노 RESULT #67197): `세트: 4b047d19ed5b7df3487703e0c974e2c88c3b404b · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_detail.py rc=0 · 이슈: 0`.
@@ -1333,7 +1333,7 @@
 - 대상 카드: mag603-malformed-ledger-rows-report (대기 `9e75991008` → 진행)
 - 발단(실측): 판정 602(§103 · PR 1060) 설치 뒤 수집 dry 가 `magazine_collect_open.py` `_request` 열 수 raise 로 중단 — 오늘 호 창 끝 스냅샷(origin/main `1c2828e1f8`)의 원장에 4열 행 22개(R38~R59). 정리 PR 1061 은 창 뒤라 오늘 호에 안 잡힘.
 - 나노 커밋 3개(브랜치 `nano/mag603-malformed-ledger-rows-report` · base `60ed7677dd` · push 0):
-  ①`74ab10e7a2`([feature] 602 `report_mode` 그대로 · `_requests(report)` → (정상 행, 형식 미달 행) · stderr `ERROR magazine: 형식 미달 요청 행 <id> (열 수 n · 기대 7)` · `open.malformed_requests` · 첫 화면(목차 뒤 카드 줄 다음)·뿌리 글(`bad_lines` — 카드 줄과 별 줄)·부록 h3 · `OPEN_KEYS` 추가 · 시험 L1~L5) → DA r1(`design/harness/DA-mag603-malformed-ledger-rows-20261009.md` · model GPT-6 / provider OpenAI) Q1·Q3 APPROVE · Q2 HOLD(ID 빈 데이터 행이 `| R` 필터로 report 에서도 침묵) → 반송 r1.
+  ①`74ab10e7a2`([feature] 602 `report_mode` 그대로 · `_requests(report)` → (정상 행, 형식 미달 행) · stderr `ERROR magazine: 형식 미달 요청 행 <id> (열 수 n · 기대 7)` · `open.malformed_requests` · 첫 화면(목차 뒤 카드 줄 다음)·뿌리 글(`bad_lines` — 카드 줄과 별 줄)·부록 h3 · `OPEN_KEYS` 추가 · 시험 L1~L5) → DA r1(`design/teams/harness/DA-mag603-malformed-ledger-rows-20261009.md` · model GPT-6 / provider OpenAI) Q1·Q3 APPROVE · Q2 HOLD(ID 빈 데이터 행이 `| R` 필터로 report 에서도 침묵) → 반송 r1.
   ②`dbcb4d6c50`([fix] report 에서만 머리글·구분선·`| R` 외 `|` 줄 = 형식 미달 · id `(빈 ID) 줄 N` · 시험 L6) → DA r2 Q2 HOLD(끝 `|` 없는 줄은 `_cells` 가 마지막 내용을 버려 빈 줄로 판정 → 침묵) → 2번째 HOLD · 리뷰 종료.
   ③`8202e8fe82`([fix] arch 처방 r2 — 빈 줄·구분선 판정을 «원문 줄» `set(line.strip()) <= set('|-: ')` 로 · 시험 L7).
 - ★arch 독립 재현(#23)★: `8202e8fe82` 아카이브 → `mktemp -d`: collect_open·malformed_render·collect_detail·render_full·collect_mbox **60 passed** · `tests/harness/test_magazine_plist.sh`·`test_magazine_install_list.sh` ALL PASS · ruff clean · `tests/scripts -k magazine` 13 failed = base `60ed7677dd` FAILED diff 0(202 passed).
@@ -1355,7 +1355,7 @@
 - 골 축: C(배포 발행(슬랙) — 판정 354 「읽기만 해도 이해·결정사항이 보이는 매거진」이 슬랙에서 실제로 읽힌다).
 - 대상 카드: mag609-eli5-readable-decisions (대기 `a3b42f4d37` · 설계 r2 `8b75f414e0` → 진행)
 - 원인(arch 실측): ①쉬운 판 HTML 은 발행됐으나(AI 풀이 124/138) Slack files.info = html·text/plain·preview → 채널에 소스 글자 ②쉬운 판 첫 화면 = 판정 원문 258줄(번호·좌석명) · 핵심 줄 없음 ③카드 제목·칩에 번호·sha. 판정 602·603 report 모드와 무관.
-- 설계 DA(`design/harness/DA-mag609-eli5-readable-20261009.md` · model GPT-6 / provider OpenAI): r1 HOLD Q1(제목=멱등 표식)·Q2(전송 접두가 오빠 표식을 가림)·Q3(`[A-Z]\d` 오삭제) → 설계 r2(옛·새 제목 채택 · 접두 제거 + 분류 기준 표시 + 표식 없는 기록 전부 각주 · 토큰 9종 경계·필드·본문/각주 분리) → r2 APPROVE.
+- 설계 DA(`design/teams/harness/DA-mag609-eli5-readable-20261009.md` · model GPT-6 / provider OpenAI): r1 HOLD Q1(제목=멱등 표식)·Q2(전송 접두가 오빠 표식을 가림)·Q3(`[A-Z]\d` 오삭제) → 설계 r2(옛·새 제목 채택 · 접두 제거 + 분류 기준 표시 + 표식 없는 기록 전부 각주 · 토큰 9종 경계·필드·본문/각주 분리) → r2 APPROVE.
 - 나노 커밋 3개(브랜치 `nano/mag609-eli5-readable-decisions` · base `cec1cd82c1` · push 0): ①`7088c8902d`(구현 · 새 `magazine_eli5_decisions.py`·`magazine_indexless.py`·`magazine_eli5_pdf.py` · 첨부 제목 옛·새 채택 · 확장자 content-type) ②`4b0f6d8dd4`(arch 반송 r1 — 실데이터 dry 에서 쉬운 판 «전체» 실패: 걷어 낸 자리가 붙어 새 토큰 `판정 (#N) 4` → 고정점 반복 strip · AI 풀이 카드별 omitted · check_body 는 사실 문자열만) ③`8dbf61f8a6`(arch 반송 r2 — 1쪽 캡처에서 «내린 결정» 박스가 print `break-inside:avoid` 로 2쪽으로 통째 밀림 → 순서 제목→내려야 할→24시간 핵심→내린 결정→카드 · 내린 결정 박스 쪽 넘김 허용).
 - ★arch 독립 재현(#23)★: `8dbf61f8a6` 아카이브 → `mktemp -d`: `tests/scripts -k magazine` **241 passed** · 13 failed = base `cec1cd82c1` FAILED diff 0 · `tests/harness/test_magazine_plist.sh`·`test_magazine_install_list.sh` ALL PASS · ruff clean.
   · ★실데이터 dry-run★(키트 사본 `--date 2026-10-09 --dry-run --force` · env report · 실제 리포·mailbox·LLM·PDF · 게시 0): rc=0 · 쉬운 판 PDF 2.59MB(119쪽) · 풀 디테일 537쪽 · 오빠가 내린 결정 44(쉬운 말 풀이 실패 3 = 길이 · 각주 원문) · 기다리는 결정 0 · 표식 없는 판정 기록 214(각주 표) · AI 풀이 생략 4(차단 단어·호출 실패 — 카드별) · 뿌리 글 「본문은 스레드의 쉬운 판 PDF(먼저 보세요)·풀 디테일 PDF」 + 「오빠가 내린 결정 44건 · 기다리는 결정 0건 — 쉬운 판 첫 장」.
@@ -1384,15 +1384,15 @@
 ## §107 판정 649 그래픽·UI/UX 팀 «graphics» 설치 — 명부·env·골·카드 폴더·RUNBOOK·governance 4곳 (오빠 확정 10-09 · planner#16 #67767 → master#22 #67771 · 나노 g649-graphics-team-install · 제안서 판정 635/636/641) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#24 · 2026-10-09)
 - 골 축: B(개선요청 접수·협의 — 오빠 값 = 판정 649) + C(정본화·설치).
 - 대상 카드: g649-graphics-team-install (대기 `dbe2552aa6` · lint 보정 `d1c51dabd6` → 진행)
-- 계약 정본: `design/harness/PROPOSAL-team-graphics-20261009.md` r5 — Codex DA r1·r2(2 HOLD → arch 서명 `1f37261723`) · Claude Opus DA r3 APPROVE(`580821eada`) · arch 서명 `27aeb63af0`. 설치 카드는 계약의 설정값 배치라 사전검증 DA 생략(카드 계약).
+- 계약 정본: `design/teams/harness/PROPOSAL-team-graphics-20261009.md` r5 — Codex DA r1·r2(2 HOLD → arch 서명 `1f37261723`) · Claude Opus DA r3 APPROVE(`580821eada`) · arch 서명 `27aeb63af0`. 설치 카드는 계약의 설정값 배치라 사전검증 DA 생략(카드 계약).
 - ★나노 닫기 방식 = ⓑ(arch#24 권고 변경 · 오빠 결정 불필요)★: `ft-nano-spawn.sh` 가 브랜치를 `nano/<slug>` 로 고정 생성(128·132행) → 그래픽 나노 브랜치 = `nano/g<Issue>-<slug>` → `ft-nano-close.sh` 그대로 닫음 · 래퍼 코드 0 · 표준승인(09-25) 범위 안. 제안서 §3.3 `graphics/<Issue>-<slug>` 는 이름 표기만 바뀜(계약 동일).
-- 나노 커밋 1개(브랜치 `nano/g649-graphics-team-install` · base = origin/main 팁 · push 0): `97ae908ab1`(12파일 +274 — 스테이징 `scripts/harness-install/graphics/{seats-graphics.json,graphics-env.sh,goal-lines-graphics.txt,install.sh}` · `design/graphics/{GOAL-graphics.md,NANO-LEDGER-graphics.md,RUNBOOK-open-close.md,indices/{대기,진행,완성}/.gitkeep}` · `design/harness/staged-649/main-team-governance.md` · `tests/harness/test_graphics_install.sh`).
+- 나노 커밋 1개(브랜치 `nano/g649-graphics-team-install` · base = origin/main 팁 · push 0): `97ae908ab1`(12파일 +274 — 스테이징 `scripts/harness-install/graphics/{seats-graphics.json,graphics-env.sh,goal-lines-graphics.txt,install.sh}` · `design/graphics/{GOAL-graphics.md,NANO-LEDGER-graphics.md,RUNBOOK-open-close.md,indices/{대기,진행,완성}/.gitkeep}` · `design/teams/harness/staged-649/main-team-governance.md` · `tests/harness/test_graphics_install.sh`).
 - ★arch 독립 재현(#24)★: `97ae908ab1` 아카이브 → 스크래치: `tests/harness/test_graphics_install.sh` **ALL PASS rc=0**(①bash -n ②임시 ROOT install 3파일 cmp 0 · ②b 재설치 .bak 보존 ③env 변수 13 · FT_IMPL_MODEL 없음 · ROOT 경로 일치 ④명부 파싱·좌석 0 ⑤이름 lint 3 PASS ⑥spawn --dry-run PLAN `agent=codex model=gpt-6.1-sol` · branch nano/g0-dryrun ⑦governance 추가 hunk 4 · 삭제 0) · `bash -n` 스테이징 스크립트 OK.
   · 눈 확인: GOAL = 판정 636 원문 4줄 그대로 · env 는 파일 위치에서 ROOT 계산(임시·실설치 같은 파일) · `install.sh` 기본 ROOT = git common dir(루트) · 명부 `_master`=하네스 현역 master · `_hil_route`=planner#16 · governance 스테이징 = 현 홈 정본(sha256 앞16 `8abe67008b24dac1`) + 4곳 추가만.
 - ★arch 판단 서명★: ①graphics 는 «열 수 있게» 만 설치 — 좌석·워크트리·틱 0 ②닫기는 기존 nano-close 그대로(코드 0) ③governance 는 추가 4줄뿐(§1 머리·이름 목록 1줄·§1-1 표 1행·§8 1줄).
 - 남은 것(별 카드 후보 · 착수 0): 워크트리 `scripts/fable-team-bin/` 에 `ft-index-lint.sh` 없음 → 그 사본으로 `ft-nano-spawn.sh --dry-run` 하면 lint 단계에서 무조건 REJECT(설치본 `scripts/harness-install/fable-team/bin/` 은 있음).
 - 카드 증거 줄(나노 RESULT #67828): `세트: 97ae908ab1e635a32469eae5991300794f6d1916 · 시험: bash tests/harness/test_graphics_install.sh rc=0 · 이슈: 0`.
-- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main · 커밋 1) → 병합(CI 확인과 병합 별 명령) ② 루트에서 `bash scripts/harness-install/graphics/install.sh` → 루트 `.fable-team/seats-graphics.json` · `.fable-team/bin-graphics/{graphics-env.sh,goal-lines-graphics.txt}` CMP OK 3 ③ ★홈 governance cp 전 base 확인★: `shasum -a 256 ~/.claude/skills/fable-team/references/main-team-governance.md` 앞16 = `8abe67008b24dac1` 이면 `design/harness/staged-649/main-team-governance.md` → 홈 정본 cp + cmp · ★다르면 cp 하지 말고 arch 에 반송★(그사이 다른 판정이 정본을 바꿨으면 덮어서 지운다) ④ issues master 에 `team:graphics` 라벨 생성 요청 ⑤ planner#16 에 「graphics 설치 끝 · 첫 요청 = cfo 크레딧 페이지(INVENTORY `323002d0c1`) 받을 준비」 1줄.
+- ★랜딩 뒤 master 집행 순서(앞 단계 값이 다르면 멈추고 보고)★: ① PR(origin/main · 커밋 1) → 병합(CI 확인과 병합 별 명령) ② 루트에서 `bash scripts/harness-install/graphics/install.sh` → 루트 `.fable-team/seats-graphics.json` · `.fable-team/bin-graphics/{graphics-env.sh,goal-lines-graphics.txt}` CMP OK 3 ③ ★홈 governance cp 전 base 확인★: `shasum -a 256 ~/.claude/skills/fable-team/references/main-team-governance.md` 앞16 = `8abe67008b24dac1` 이면 `design/teams/harness/staged-649/main-team-governance.md` → 홈 정본 cp + cmp · ★다르면 cp 하지 말고 arch 에 반송★(그사이 다른 판정이 정본을 바꿨으면 덮어서 지운다) ④ issues master 에 `team:graphics` 라벨 생성 요청 ⑤ planner#16 에 「graphics 설치 끝 · 첫 요청 = cfo 크레딧 페이지(INVENTORY `323002d0c1`) 받을 준비」 1줄.
 - 정본 영향: 홈 governance §1·§1-1·§8 추가 4줄 · 루트 `.fable-team/` 새 파일 3 · 래퍼 코드 0.
 
 - ★§107 보충(2026-10-09 · 판정 651 · master#22)★: 오빠 컨펌 — 그래픽스 팀 나노 닫기 = nano-close 경로 표준승인 확장(브랜치 삭제는 여전히 HIL). 반영: 홈 `~/.claude/CLAUDE.md` 하드 룰 2 + HIL 절 «그래픽스 팀 나노 정리 표준승인 확장» 1항 추가(백업 `.bak-651-20261009`) · `~/.hermes/SOUL.md` CLAUDE_MASTER_SYNC 블록 재생성(v=2026-10-09b) · codex 전파본(`AGENTS.md`·`AGENTS.user.md`)은 나노 승인 항목을 원래 싣지 않아 변경 0. 래퍼 코드 변경 0(브랜치 `nano/g<Issue>-<slug>` 가 표준 `nano/*` 라 기존 nano-close 경로 그대로).
@@ -1407,7 +1407,7 @@
 - 대상 카드: op675-ft-op-token-auto-issue (대기 `adb0856d6a` · 676 보정 `c9c8b08f6a` → 진행)
 - 나노 커밋 2개(브랜치 `nano/op675-ft-op-token-auto-issue` · base `d0344ea0ce` · push 0): `6cd7da0306` 구현 · `0e82391b40` 판정 676 문구(BOOT·TESTER 안내). 세트 `0e82391b40d3de67f33b378524fe6edca360be39`.
 - ★arch 독립 재현(#24 #68387)★: `test_ft_op_token.py` 11 passed(아카이브) · ruff clean · 키트·예시에 실 URL·키·이메일 0 · 설치는 `install.sh` 가 bin/ 전체 복사라 목록 추가 불요 · 설계 1~7·676 줄 대조 OK. staged BOOT = 23번 신규지만 base 가 옛것이라 통째 cp 제외 → 설치 시 홈 BOOT(sha256 앞16 `3945b2a6dcdd2c8c`) 끝에 staged 23번 줄만 덧붙임(diff +1줄).
-- ★구현 DA r1(Claude Opus · `design/harness/DA-675-ft-op-token-r1-verdict.md` `b1fce39930`) APPROVE★: 보안 5축(비밀 출력·ps·임시파일 0 · secrets gitignore+0700/0600 · 7s+재시도 1 5xx/net 만 · --init 에코 0·실패 cred 미기록 · 예시 실값 0) 통과 · 시험 11 passed(스텁 · 실 호출 0).
+- ★구현 DA r1(Claude Opus · `design/teams/harness/DA-675-ft-op-token-r1-verdict.md` `b1fce39930`) APPROVE★: 보안 5축(비밀 출력·ps·임시파일 0 · secrets gitignore+0700/0600 · 7s+재시도 1 5xx/net 만 · --init 에코 0·실패 cred 미기록 · 예시 실값 0) 통과 · 시험 11 passed(스텁 · 실 호출 0).
 - 비차단 권고 4(착수 0 · 요청 원장 R69 접수): ①200 비JSON → ERR 1줄 ②`--init` 클립보드 rc 무관 항상 비움 ③SUPABASE_URL https 강제 ④7s 표현 = 소켓 연산 기준.
 - 판정 676(오빠): byztest910 비번이 arch 세션 jsonl 에 1회 노출 = 기록만(교체 0) · 재발 방지 = 좌석 조사에서 secrets/ 내용 출력 0(키 이름만 · JSON 은 python 키 이름) → 홈 COMM-GUIDE-BOOT 22조항 추가(master) · 카드·BOOT 23번·TESTER 템플릿 같은 문구.
 - 카드 증거 줄(나노 RESULT #68380): `세트: 0e82391b40d3de67f33b378524fe6edca360be39 · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 (11 passed) · 이슈: 0`.
@@ -1417,7 +1417,7 @@
 ## §110 판정 690 그래픽스 팀장 체제 정본화 — 649 «하네스 master 대행» → 팀장 `byz-graphics-master-claude#0` planner 직속 · ft-harness-info seats 팀 명부 절 · graphics install.sh 라이브 명부 보존 (나노 g690-graphics-master-system-info) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#25 · 2026-10-09)
 - 골 축: B(개선요청 접수·협의 — 오빠 값 = 판정 690) + C(정본화·설치).
 - 대상 카드: g690-graphics-master-system-info (카드·스테이징 `661d2519db` → 진행 `4a03363183`)
-- 나노 커밋 1개(브랜치 `nano/g690-graphics-master-system-info` · base = origin/main `56e9507946` · push 0): `6a26524423`(10파일 +258 −21 — `design/graphics/RUNBOOK-open-close.md` · `design/planner/STRUCTURE-main-satellite.md` · `scripts/{fable-team-bin,harness-install/fable-team/bin}/ft-harness-info.sh`(두 사본 동일) · `scripts/harness-install/graphics/{install.sh,graphics-env.sh,seats-graphics.json}` · `design/harness/staged-690/{main-team-governance.md,harness-map.md}` · `tests/harness/test_graphics_690.sh`).
+- 나노 커밋 1개(브랜치 `nano/g690-graphics-master-system-info` · base = origin/main `56e9507946` · push 0): `6a26524423`(10파일 +258 −21 — `design/graphics/RUNBOOK-open-close.md` · `design/planner/STRUCTURE-main-satellite.md` · `scripts/{fable-team-bin,harness-install/fable-team/bin}/ft-harness-info.sh`(두 사본 동일) · `scripts/harness-install/graphics/{install.sh,graphics-env.sh,seats-graphics.json}` · `design/teams/harness/staged-690/{main-team-governance.md,harness-map.md}` · `tests/harness/test_graphics_690.sh`).
 - ★arch 독립 재현(#25)★: `6a26524423` 아카이브 → 스크래치(`.../scratchpad/r690`) `bash tests/harness/test_graphics_690.sh` **ALL PASS rc=0 (26/26)** — ①bash -n 4 ②팀 명부 절(정상 2 · 깨진 JSON ERR · .bak 제외 · 두 사본 출력·파일 동일) ③루트 명부 있으면 SKIP + 바이트 그대로 + env·goal-lines CMP OK ④루트 비었으면 명부 복사 ⑤스테이징 명부 `_master`=`byz-graphics-master-claude#0` ⑥649 문장 0 ⑦홈 정본 대비 governance hunk 4·새 줄 5 · map 새 1·옛 1.
   · 대조: 세트의 staged-690 두 파일 == ops `661d2519db` 스테이징(바이트 동일) · 홈 governance sha256 앞16 `d16650b52a809ecf` · harness-map `33065f92565e622f` = 카드 base 값 그대로(지금 cp 가능 상태) · 루트 라이브 명부 `_master`=graphics#0 · `_hil_route`=planner#17 · 좌석 행 g678 1개 → install.sh 가 SKIP 으로 보존.
 - ★arch 판단 서명★: ①팀 열기 = planner→팀장 · 팀장이 arch·나노·DA 열기·감시·닫기 · 하네스 master 는 도구·설치·랜딩 push 만 ②위험 1(install.sh 명부 덮어쓰기) 해소 = `once` 모드(있으면 SKIP) ③`seats` 팀 명부 절은 읽기만(tmux has-session) · 파싱 실패는 ERR 줄(폴백 0).
@@ -1430,7 +1430,7 @@
 - 골 축: B(개선요청 접수 — R69 · 오빠 판정 698 하네스 큐 ①) + C(업그레이드·설치).
 - 대상 카드: op675b-ft-op-token-hardening (대기 → 진행 14:07 · master#23 수동 이동)
 - 나노 커밋 1개(브랜치 `nano/op675b-ft-op-token-hardening` · base = origin/main `89d51ff559` · push 0): `01225ca732`(3파일 +61 −6 — `scripts/harness-install/fable-team/bin/{ft_op_token.py,ft-op-token.sh}` · `tests/harness/test_ft_op_token.py`). 구현 범위 닫힌 목록 그대로.
-- ★arch 독립 재현(#25)★: `01225ca732` 전체 아카이브 → 스크래치 `.venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py` **14 passed rc=0**(T1~T10 기존 + T11 200 비JSON → ERR 1줄 · T12 `--init` 실패 뒤 클립보드 비움 · T13 http 거부·루프백 우회) · ruff clean · `bash -n ft-op-token.sh` OK. (부분 아카이브로 돌리면 T10 이 `design/harness/staged-675/*.example` 부재로 실패 — 재현 절차 쪽 문제 · 세트 결함 아님.)
+- ★arch 독립 재현(#25)★: `01225ca732` 전체 아카이브 → 스크래치 `.venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py` **14 passed rc=0**(T1~T10 기존 + T11 200 비JSON → ERR 1줄 · T12 `--init` 실패 뒤 클립보드 비움 · T13 http 거부·루프백 우회) · ruff clean · `bash -n ft-op-token.sh` OK. (부분 아카이브로 돌리면 T10 이 `design/teams/harness/staged-675/*.example` 부재로 실패 — 재현 절차 쪽 문제 · 세트 결함 아님.)
   · 눈 확인: ①`Fail` 은 `Exception` 하위라 재시도 루프의 `OSError` 절에 먹히지 않음 → 비JSON 200 은 재시도 없이 ERR 1줄 ②https 검사는 `read_conf` 에서 첫 호출 전 · 우회는 `FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK=1` ∧ 호스트 127.0.0.1·localhost 둘 다일 때만 ③클립보드 비움이 rc 와 무관 ④7초 표현 = 소켓 연산 기준(권고 4 문구만 · 동작 무변경).
 - ★arch 판단 서명★: 값 노출 경로 0 유지 · 7초 룰 그대로(timeout 7 · 재시도 1) · 폴백 0(실패는 전부 ERR + exit).
 - 카드 증거 줄(나노 [완료·휴식] #68896): `세트: 01225ca732c4c5dcd9a6343681ff9e3056bc136d · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 · 이슈: 0`.
@@ -1442,7 +1442,7 @@
 - 골 축: B(개선요청 접수·협의 — R66 · 오빠 값 = 판정 698 ②) + C(정본 업그레이드·설치).
 - 대상 카드: r66-codex-serena-boot-path (대기 `43accee46f`)
 - 원인(arch#25 실측 · 카드 기준값): ①BOOT 1 문장은 Claude 판 Serena(session_id 필수) 전용 — codex 의 Serena 는 고정 커밋 `cd04838be9a9…`(1.6.2.dev0)라 session_id 가 없음. 실패 좌석 product#0 은 session_id 를 찾느라 `initial_instructions` 3회 · `activate_project` 0회 ②codex `model_provider = "headroom"`(8790) — 큰 도구 출력(initial_instructions 원문 14.8 KB)이 CCR 참조로 접혀 보임. 정상 좌석 proposal#0 은 `activate_project(project=…)` 만으로 활성화 성공(대조군).
-- 나노 커밋 1개(브랜치 `nano/r66-codex-serena-boot-path` · base = origin/main `1ed171ffba` · push 0): `889c340a1f`(3파일 +110 — `design/harness/staged-r66/COMM-GUIDE-BOOT.md` · `docs/rules/serena-mcp-usage.md` +2 · `tests/harness/test_r66_codex_serena_boot.sh`).
+- 나노 커밋 1개(브랜치 `nano/r66-codex-serena-boot-path` · base = origin/main `1ed171ffba` · push 0): `889c340a1f`(3파일 +110 — `design/teams/harness/staged-r66/COMM-GUIDE-BOOT.md` · `docs/rules/serena-mcp-usage.md` +2 · `tests/harness/test_r66_codex_serena_boot.sh`).
 - ★arch 독립 재현(#25)★: `889c340a1f` 아카이브 → 스크래치 `bash tests/harness/test_r66_codex_serena_boot.sh` **ALL PASS rc=0 (11/11)** — ①홈 BOOT 대비 diff = `7c7` 한 덩이 · 줄 수 불변 · 옛 문장 무변경 + 덧붙임 ②새 문장 3 문자열 ③Claude 경로 문장 유지 ④serena 지침 codex 줄 ⑤홈 쓰기 0. 눈 대조: 홈 BOOT sha256 앞16 `329582414d727dd5` = 카드 base(지금 cp 가능) · `~/.codex/config.toml` 수정 시각 10-07(이 단위 설정 변경 0).
 - ★arch 판단 서명★: 문장만 바꿈(설정·헤드룸·Serena 버전 0) · Claude 좌석 경로 무변경 · 별 후보 2(codex Serena 판 정합 · 헤드룸 MCP 출력 압축 제외)는 설치·인프라 변경이라 오빠 컨펌 뒤.
 - 카드 증거 줄(나노 [완료·휴식]): `세트: 889c340a1f91f3079463f443ee2c2d48a158c11d · 시험: bash tests/harness/test_r66_codex_serena_boot.sh rc=0 · 이슈: 0`.
@@ -1510,8 +1510,8 @@
 ## §117 R102 이슈 닫기 게이트 — 닫는 항목 6→8(원인 확정 · 같은 증상 보류) + Tank 래퍼 close 직전 게이트 거절 → «관찰 중»(서로 다른 판 2회 재현 0 뒤 close) (판정 1059·1060 · planner#26 #75789 · #922 재오픈 경위 · 나노 r102-issue-close-gate) — 닫힘 · arch 독립 재현 (byz-harness-arch-claude#28 · 2026-10-11)
 - 골 축: B(메인 오케 개선요청 접수·협의 — R102) + C(도구 업그레이드·설치).
 - 대상 카드: r102-issue-close-gate (대기 `b998cfbc05` · 제안서 줄 `a1daaa5e85` · 진행 `93fcb6e36c`)
-- 원인(arch#28 실측): #922 ClosedEvent actor=byz-tank · closer=없음 → Tank 래퍼 `close --apply` 가 검사 없이 닫음 · close-check(6항)는 닫은 «뒤» 사후 검사뿐 · 6항에 «원인 확정»·«같은 증상 보류» 칸 없음(마감 문서에 원인 미확정·바닥 빈 띠 보류가 적힌 채 통과). 분석 design/harness/REPORT-g922-reopen-why-20261011.md.
-- 설계: design/harness/PLAN-r102-close-gate-20261011.md 최종본 `5147ca9c79` — DA da-codex#1 r1 HOLD #75853 · r2 HOLD #75868(bounded 중단) · 판정 1060 값①(3차 1회 허가) → r3 APPROVE #75885 · 값②(PR 병합 자동 close 라도 7·8항 FAIL 이면 재오픈 + 관찰 중 · 795 는 1~6항·Closes 만의 FAIL 에 그대로) §5-2 반영.
+- 원인(arch#28 실측): #922 ClosedEvent actor=byz-tank · closer=없음 → Tank 래퍼 `close --apply` 가 검사 없이 닫음 · close-check(6항)는 닫은 «뒤» 사후 검사뿐 · 6항에 «원인 확정»·«같은 증상 보류» 칸 없음(마감 문서에 원인 미확정·바닥 빈 띠 보류가 적힌 채 통과). 분석 design/teams/harness/REPORT-g922-reopen-why-20261011.md.
+- 설계: design/teams/harness/PLAN-r102-close-gate-20261011.md 최종본 `5147ca9c79` — DA da-codex#1 r1 HOLD #75853 · r2 HOLD #75868(bounded 중단) · 판정 1060 값①(3차 1회 허가) → r3 APPROVE #75885 · 값②(PR 병합 자동 close 라도 7·8항 FAIL 이면 재오픈 + 관찰 중 · 795 는 1~6항·Closes 만의 FAIL 에 그대로) §5-2 반영.
 - 나노 커밋 6개(브랜치 `nano/r102-issue-close-gate` · base origin/main `9d09c54fe5` · push 0): 세트 `1ffbd8a2bd`(14파일 +517 −26 — close-check 7·8항·`--gate`·`--extra-comment`·pending·epoch 4조건·gh view 7초+1 · 신규 `ft-issue-close-gate.sh`(보존→마커→라벨 · fail-closed · 단계별 token · 쓰기 7초+1) · 래퍼 1줄(199→200) · ISSUE-TRANSITIONS · PR 템플릿 8항 · 미러 3쌍 · 시험+스텁+픽스처) → DA⑥ HOLD #75963(구현 결함 아님 · close-check 66행 랜딩 ref 조상·67행 앞 수리 후손 가드의 회귀 시험 누락) → 반송 `d2ff250ebd`([test] +7 · ⑤(f6)(f7) · 소스 0) → DA⑥ APPROVE #75989(mutation 9종+2종 전부 해당 시험 빨강 · 목록 밖 2건 — test_gh_as_tank +2줄 · 픽스처 3 JSON 7·8 줄 — 기대값 무변경의 필요한 적응으로 승인).
 - ★arch 독립 재현(#28)★: 나노 워크트리 HEAD `d2ff250ebd` 에서 `test_issue_close_gate.sh` **rc=0 FAIL 0** · `test_issue_close_canon.sh` **rc=0 FAIL 0** · `test_gh_as_tank.sh` **rc=0 FAIL 0** · 미러 3쌍 cmp 0 · 래퍼 200줄 · #922 수리 파일(웹·물결·캔버스) 접촉 0.
 - 카드 증거 줄(나노 #75969): `세트: d2ff250ebd702758116b76a2b850d41e8b3cd90f · 시험: bash tests/harness/test_issue_close_gate.sh rc=0 · bash tests/harness/test_issue_close_canon.sh rc=0 · bash tests/harness/test_gh_as_tank.sh rc=0 · 이슈: 0`.

@@ -1,5 +1,5 @@
 # 인덱스: mbox.py 637줄 → 진입 + 4모듈(상수·저장·가드·명령) · 각 200줄 이하 · 동작 변화 0 [structure] (planner 판정 592 순서 ④ · master#20 쪽지 #66833)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner 판정 592 ④(①②③ 닫힘 §96·§97·§98 · PR 1049·1050·1051)
 - 상태: 대기
 - 선행: mbox-sh-split-200 랜딩·라이브 설치(완료 · PR 1051 · 실발주 수신 OK #66828)
@@ -26,7 +26,7 @@
 - 구조(옛 줄): 1–41 머리 독스트링 · 42–81 import + env 상수 · 84–135 `_repo_root`·`_ROOT`·`CANON`(+없으면 exit 2)·`_SEQCTR`·`SEQ_FLOOR` · 138–167 `_next_seq` · 169 `os.makedirs(CANON)` · 172–319 `_legacy_dirs`·저장(`_mbox`·`_stash_body`·`_clip`·`_prune_bodies`·`_check_name`·`_load`·`_save`·`_locked`) · 321 `_GUARD = os.path.join(CANON, …)` · 324–461 가드·`_log_sent` · 463–621 `send`·`relay`·`recv`·`peek` · 624–637 `__main__`.
 - 파이썬 링크 실측: 링크로 실행 → `sys.path[0]` = 실제 폴더 · 진입 `__file__` = 링크 경로 · 모듈 `__file__` = 실제 폴더. 진입을 실제 경로로 직접 부르면(= 루트를 모듈 위치로 정하는 조건) `NO_MAILBOX_ROOT` rc=2(옛 판도 같음).
 - 시험이 바꿔치기·접근하는 이름: `mbox.send`·`_load`·`_guard_log`·`_reply_exempt`·`_guard_verdict`·`_guard_record`·`FANOUT_WIN`·`RATE_WIN`·`time`(exempt_cap probe) · `mbox._reply_exempt` 교체 후 `mbox.send` 호출 횟수(notify_reply_rate ⑤).
-- ★arch#21 사본 실측(이 처방 그대로 · 도구 = `design/harness/evidence/mbox-py-split-200/`)★:
+- ★arch#21 사본 실측(이 처방 그대로 · 도구 = `design/teams/harness/evidence/mbox-py-split-200/`)★:
   · 줄 수: `mbox.py` **125** · `mbox_conf.py` **41** · `mbox_store.py` **186** · `mbox_guard.py` **146** · `mbox_ops.py` **167**.
   · 옮긴 본문 4덩어리 + 진입의 머리·루트·main = 원본과 바이트 동일(옮긴 것 중 바뀐 줄 = 옛 321행 `_GUARD = …` 하나 — 진입의 묶기 줄로 이동).
   · 시험: notify_reply_rate ALL PASS · inbox fail=0 · exempt_cap ALL PASS(변이 행 포함 — 변이가 여전히 결함을 잡는다) · sent_log `--noconftest` 6 passed(옛 판도 6 passed · conftest 의 `shared` 모듈 부재는 환경 문제로 전후 같음).
@@ -36,18 +36,18 @@
 
 ## 구현 범위 (닫힌 목록 — 이것만)
 커밋 2개 · 자기 브랜치 · **push 금지**. ★손편집 대신 도구를 그대로 돌린다★ — 결과가 arch 사본과 같아야 한다.
-★도구 위치★: 도구는 `ops/main-base` 에만 있다(나노 워크트리 = origin/main 기준이라 상대경로로는 안 보인다) → 아래 `design/harness/evidence/mbox-py-split-200/` 는 전부 절대경로 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/harness/evidence/mbox-py-split-200/` 로 읽는다. 도구 파일은 나노 브랜치에 커밋하지 않는다.
-1. `[structure]` 커밋: `python3 -I design/harness/evidence/mbox-py-split-200/split_mbox_py.py <옛 mbox.py 사본> tools/comm-canonical` → `tools/comm-canonical/mbox.py`(덮어씀) + 새 `mbox_conf.py`·`mbox_store.py`·`mbox_guard.py`·`mbox_ops.py`. 같은 커밋에 `tools/comm-canonical/check-drift.sh` MAP 의 `"mbox.py|.claude/fable-team/bin/mbox.py"` 바로 아래 4행(`"mbox_conf.py|.claude/fable-team/bin/mbox_conf.py"` 꼴) 추가.
-2. `[test]` 커밋: `python3 -I design/harness/evidence/mbox-py-split-200/patch_tests.py .` (리포 루트에서) → 시험 3개만 고친다: 복사 = `mbox*.py` 전부 · 바꿔치기 대상 = `mbox_ops._reply_exempt`·`mbox_guard.time` · 변이 = 대상 글자가 든 모듈 하나만(정확히 1개가 아니면 assert).
+★도구 위치★: 도구는 `ops/main-base` 에만 있다(나노 워크트리 = origin/main 기준이라 상대경로로는 안 보인다) → 아래 `design/teams/harness/evidence/mbox-py-split-200/` 는 전부 절대경로 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/teams/harness/evidence/mbox-py-split-200/` 로 읽는다. 도구 파일은 나노 브랜치에 커밋하지 않는다.
+1. `[structure]` 커밋: `python3 -I design/teams/harness/evidence/mbox-py-split-200/split_mbox_py.py <옛 mbox.py 사본> tools/comm-canonical` → `tools/comm-canonical/mbox.py`(덮어씀) + 새 `mbox_conf.py`·`mbox_store.py`·`mbox_guard.py`·`mbox_ops.py`. 같은 커밋에 `tools/comm-canonical/check-drift.sh` MAP 의 `"mbox.py|.claude/fable-team/bin/mbox.py"` 바로 아래 4행(`"mbox_conf.py|.claude/fable-team/bin/mbox_conf.py"` 꼴) 추가.
+2. `[test]` 커밋: `python3 -I design/teams/harness/evidence/mbox-py-split-200/patch_tests.py .` (리포 루트에서) → 시험 3개만 고친다: 복사 = `mbox*.py` 전부 · 바꿔치기 대상 = `mbox_ops._reply_exempt`·`mbox_guard.time` · 변이 = 대상 글자가 든 모듈 하나만(정확히 1개가 아니면 assert).
 
 **금지**: 옮긴 본문 글자 변경 · 메시지 문구 · `mbox.sh`·`mbox_doorbell.sh` · 시험의 기대값·시나리오 · 라이브 `.claude/fable-team/bin`·`.fable-team/comm` 쓰기(설치는 master) · check-drift 의 다른 행.
 
 ## 완료 조건 (닫힘 판정 기준 — ops 수락 판정문)
 - `wc -l tools/comm-canonical/mbox*.py` 각 ≤ 200 · `python3 -m py_compile` 5개 OK.
-- 결정성: `git show origin/main:tools/comm-canonical/mbox.py > <임시>/orig.py` → `python3 -I design/harness/evidence/mbox-py-split-200/split_mbox_py.py <임시>/orig.py <빈 임시 폴더>` 로 만든 5파일 == 나노 커밋의 5파일(`cmp` 5회 rc=0).
+- 결정성: `git show origin/main:tools/comm-canonical/mbox.py > <임시>/orig.py` → `python3 -I design/teams/harness/evidence/mbox-py-split-200/split_mbox_py.py <임시>/orig.py <빈 임시 폴더>` 로 만든 5파일 == 나노 커밋의 5파일(`cmp` 5회 rc=0).
 - `bash tests/harness/test_mbox_inbox_notify_reply_rate.sh` ALL PASS · `bash tests/harness/test_inbox.sh` fail=0 · `bash tests/harness/test_mbox_reply_exempt_cap.sh` ALL PASS · `.venv/bin/python -m pytest -q --noconftest tests/scripts/test_mbox_sent_log.py` 6 passed.
-- `bash design/harness/evidence/mbox-py-split-200/compare_old_new.sh tools/comm-canonical <옛 mbox.py> <출력>` diff = 시나리오 제목 속 임시 경로뿐.
-- `bash design/harness/evidence/mbox-py-split-200/live_link_check.sh tools/comm-canonical <옛 mbox.py>` = old·new 둘 다 send rc=0 · recv_hit=1 · mailbox at root OK · STRAY 0 · direct-real-path rc=2.
+- `bash design/teams/harness/evidence/mbox-py-split-200/compare_old_new.sh tools/comm-canonical <옛 mbox.py> <출력>` diff = 시나리오 제목 속 임시 경로뿐.
+- `bash design/teams/harness/evidence/mbox-py-split-200/live_link_check.sh tools/comm-canonical <옛 mbox.py>` = old·new 둘 다 send rc=0 · recv_hit=1 · mailbox at root OK · STRAY 0 · direct-real-path rc=2.
 - 모듈 누락 = 크게 실패: 진입만 있는 폴더에서 `FT_MBOX_DIR=<임시> python3 mbox.py peek x` rc≠0 + `ModuleNotFoundError: mbox_store`.
 - RESULT 에 위 출력 복붙 + 카드 증거 줄(필수 · 시험 칸은 명령 1개): `세트: <40hex> · 시험: bash tests/harness/test_mbox_reply_exempt_cap.sh rc=0 · 이슈: 0`.
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
@@ -65,4 +65,4 @@
 ## 결과 (나노 RESULT #66870 + r1 보강 · master#21 옮김 2026-10-09)
 세트: a82e30df172acb795f8b0d5dfc4370c484250e73 · 시험: bash tests/harness/test_mbox_py_link_import.sh rc=0 · 이슈: 0
 정본 영향 없음: 통신 도구 구조 분리·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 03:23 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§99
+- 2026-10-09 03:23 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§99

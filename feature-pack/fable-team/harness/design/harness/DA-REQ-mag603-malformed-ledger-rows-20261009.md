@@ -7,7 +7,7 @@
 
 ## 고정 대상
 - 커밋 `74ab10e7a2516d7dbb9fecdf76dc28e8ebf16d5b`(브랜치 `nano/mag603-malformed-ledger-rows-report` · base `60ed7677dd`). 변경: `scripts/harness-install/slack-mirror/magazine_collect_open.py`(`_requests(report)` · 새 `_parse`·`_cells` · `_request(cells)` · `collect_open` → `malformed_requests`) · `magazine_card_shape.py`(+`request_report_line`·`requests_warning_line`·`bad_lines`) · `magazine_render_full.py`(`OPEN_KEYS`+`malformed_requests` · 목차 뒤 줄 2개 · `_appendix` 앞 h3 2개) · `byz_morning_magazine.py`(`Made.malformed = bad_lines(model)`) · 새 `tests/scripts/test_magazine_collect_open.py`(L1~L5) · `tests/scripts/test_magazine_malformed_render.py`(+행).
-- 카드 `design/harness/indices/진행/mag603-malformed-ledger-rows-report.md`(설계 닫힌 목록 1~4 · 판정 602 opt-in 의 직접 확장).
+- 카드 `design/teams/harness/indices/진행/mag603-malformed-ledger-rows-report.md`(설계 닫힌 목록 1~4 · 판정 602 opt-in 의 직접 확장).
 
 ## arch#23 독립 재현 (git archive 새 mktemp)
 - collect_open·malformed_render·collect_detail·render_full·collect_mbox **58 passed** · `tests/harness/test_magazine_plist.sh` ALL PASS · `test_magazine_install_list.sh` ALL PASS · ruff clean.
@@ -21,7 +21,7 @@
 - 범위 밖: 기존 13 실패 · REQUEST-LEDGER 내용 · 쉬운 판 AI 풀이 생략 · Slack 게시·홈 설치·plist(master).
 
 ## 판정문
-`design/harness/DA-mag603-malformed-ledger-rows-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-mag603-malformed-ledger-rows-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 (DA r1 HOLD Q2 반송 → 정정 · Q2 만)
 - 고정 `dbcb4d6c5061c25aac586c8c4b171bd8cfae949e`(같은 브랜치 · `74ab10e7a2` 위 1커밋 · `scripts/harness-install/slack-mirror/magazine_collect_open.py` `_parse` 전 줄 순회 + `_is_data_row`·`_flag` · 시험 L6 2건).

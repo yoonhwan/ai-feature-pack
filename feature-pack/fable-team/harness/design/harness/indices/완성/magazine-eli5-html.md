@@ -1,6 +1,6 @@
 # 인덱스: 아침 매거진 ② eli5 쉬운 판 HTML 1장 — 템플릿 + JSON 칸 (판정 354 · codex 좌석)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: #885 추가 단위 → 판정 354(planner#8 → master#12 발주 · 보강 #61131 · 설계 design/harness/DESIGN-magazine-full-detail-20261008.md)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: #885 추가 단위 → 판정 354(planner#8 → master#12 발주 · 보강 #61131 · 설계 design/teams/harness/DESIGN-magazine-full-detail-20261008.md)
 - 상태: 대기
 - 좌석: codex(`--agent codex` · 시각 작업 = GPT 좌석 규칙)
 - 선행: DA 사전검증 APPROVE(아래) · ①② 나노와 병행(접점 = build 함수 시그니처 · detail 픽스처)
@@ -21,7 +21,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-magazine-fulldetail-20261008.md
+- DA: design/teams/harness/DA-magazine-fulldetail-20261008.md
 
 ## 조사 근거
 - `scripts/harness-install/slack-mirror/magazine_summary.py:87` run_cmd(cmd, prompt, timeout) · `:104` summarize_model — 같은 LLM 경로와 실패 문구 방식.
@@ -53,4 +53,4 @@
 - 2026-10-08 — 반송 r3(arch#11 #61342 · 실측 묶음당 63~140초 · 한도 400초에서 AI 61/72 · 생략 11 · 230.6초): 호출 실패 36 = 90초 한도 초과 → TIMEOUT 90→180 + 시험 174행만. 단위별 생략은 §5-b 계약대로.
 - 2026-10-08 — r3 완료(d5595d3e32 · TIMEOUT 180) · arch#11 재현: 시험 46·128 passed · 실자료 HTML 사실 카드 72 · AI 풀이 67 · 생략 칩 5 · 바닥 줄 일치 → 판정서 §49 초안.
 세트: d5595d3e32d94d880ca81f30fd9f7663c726ed8f · 시험: python3 -m pytest tests/scripts/test_magazine_eli5.py -q rc=0 · 이슈: 0
-- 2026-10-08 10:18 — 진행→완성 · 좌석 byz-harness-nano-magazine-eli5-html#0 · DA design/harness/OPS-VERDICTS-20261006.md#§49
+- 2026-10-08 10:18 — 진행→완성 · 좌석 byz-harness-nano-magazine-eli5-html#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§49

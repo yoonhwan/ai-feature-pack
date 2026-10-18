@@ -7,7 +7,7 @@
 >
 > 골의 축: 표 A(모니터) — 세션 이름이 일관돼야 명부·모니터가 이름만 보고 팀·역할·계보를 안다. 발주 = ops#2 ORDER-session-naming(#57004).
 
-읽기 전용 · 이름 변경·kill 0 · Slack 0. 산출 `design/harness/issue-improvement/FACTS-session-naming-20261005.md`(표 4개 · [사실]/[추측] · 「파일:줄」 또는 명령 1줄) + 원본 `facts-raw/N*.txt`. 측정 시각(KST) 1줄.
+읽기 전용 · 이름 변경·kill 0 · Slack 0. 산출 `design/teams/harness/issue-improvement/FACTS-session-naming-20261005.md`(표 4개 · [사실]/[추측] · 「파일:줄」 또는 명령 1줄) + 원본 `facts-raw/N*.txt`. 측정 시각(KST) 1줄.
 
 ## N1. tmux 세션 전수 — 이름 패턴 분류
 `tmux list-sessions -F '#{session_name}\t#{session_created}\t#{session_attached}'` 전부 → 패턴별 묶음: `ft-<팀>-<역할>#N` · `ft-<팀>-temp-<slug>#N` · `FB_<팀>#N` · `<팀>_<역할>#N`(CFO_·CCU_·DATA_) · `byz-<팀>-<역할>#N` · `repro-*` · KakaoBot · airag · tmm · 기타. 각 묶음 = 건수 + 예 2개. **같은 팀인데 두 문법인 경우** 따로 표(예: v65 = `ft-v65-*` vs cfo = `FB_CFO`+`CFO_*`).

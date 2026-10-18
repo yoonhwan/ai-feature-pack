@@ -1,7 +1,7 @@
 # FACTS — 메인 오케 리스트 · 하위 트리 실측 (ft-harness-arch#0 요청 · ft-harness-nano#1 실행)
 
 > 측정 시각 **2026-10-05 14:27 KST** · 읽기 전용 · Slack 0 · `gh` write 0.
-> 원본 = `design/harness/issue-improvement/facts-raw/T1-sessions.tsv` · `T1-roles.tsv` · `T2-seats-meta.txt` · `T2-other-seats.txt` · `T2-v65-masters.txt` · `T-measured.txt`.
+> 원본 = `design/teams/harness/issue-improvement/facts-raw/T1-sessions.tsv` · `T1-roles.tsv` · `T2-seats-meta.txt` · `T2-other-seats.txt` · `T2-v65-masters.txt` · `T-measured.txt`.
 > 표기 **[사실]** = 명령 출력 그대로 · **[추측]** = 해석. REQ = mbox #56947 · 커밋 0b9f624b18.
 
 ---

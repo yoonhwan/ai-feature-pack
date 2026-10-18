@@ -1,6 +1,6 @@
 # 인덱스: Tank 래퍼에 `label-create` 동사 — 저장소 라벨을 byz-tank 이름으로 만든다 (R68 · 판정 710 · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 `design/harness/REQUEST-LEDGER.md` R68(issues master#7 #67842) · 동기 = 10-09 issues#8 가 security 라벨을 래퍼 밖 `gh label create` 로 손으로 만듦
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 `design/teams/harness/REQUEST-LEDGER.md` R68(issues master#7 #67842) · 동기 = 10-09 issues#8 가 security 라벨을 래퍼 밖 `gh label create` 로 손으로 만듦
 - 상태: 대기
 - 선행: 없음(판정 710 이 보류 해제)
 - 시험 입력: 기존 `tests/harness/test_gh_as_tank.sh` 방식 — PATH 맨 앞 가짜 gh(호출 로그 · 응답·종료코드 env 로 조정) · 실 GitHub 호출 0 · 실 토큰 0
@@ -49,4 +49,4 @@
 ## 결과
 - 세트: c4b3c05daad8c7d57bb49f5c951ae755ce71a6b8 · 시험: bash tests/harness/test_gh_tank_label_create.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본 변경 없음 — 하네스 Tank 래퍼 label-create 동사·시험만 (arch 재현 #69133 · 판정서 §114).
-- 2026-10-09 14:42 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§114
+- 2026-10-09 14:42 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§114

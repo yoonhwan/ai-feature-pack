@@ -6,7 +6,7 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 골의 축: A(모니터·오빠 요청). 오빠 원문(판정 421): 「플랜마스터와 이슈마스터가 이 뉴스 팀트리와 작업큐를 시각화해 사용자에게 공유하는 완벽한 일반화? 개선을 하네스 마스터에 요청해서 받자. 기획을하라고해 하네스마스터가 바로 수정기획 하지말고 arch, da 사용」. 합침(R34): 「슬랙 메세지 이런거 왜 플래너로 안올라오냐?」「빠르게 공유 처리가 안되는게 문제라고 그걸 원인파악해서 개선해달라는것」.
-입력 감사 2장: design/harness/AUDIT-j410-console-vs-slack-20261008.md · design/harness/AUDIT-r34-planner-relay-latency-20261008.md.
+입력 감사 2장: design/teams/harness/AUDIT-j410-console-vs-slack-20261008.md · design/teams/harness/AUDIT-r34-planner-relay-latency-20261008.md.
 
 ## §1 실측 (지금)
 | 사실 | 값 | 근거 |
@@ -76,7 +76,7 @@
 - ①슬랙 보드 = «하루 1 뿌리 글 + 본문 갱신 + 변화 답글 1줄»(추천) vs «틱마다 새 답글»(지금 꼴).
 - ②인박스 = (다) 스크립트 큐 + Haiku 5.5 일회 호출 · 상시 좌석 0(추천) vs (가) 팀마다 Haiku 상시 좌석(오빠 안) — §6-2.
 
-## §5 DA r1 (HOLD 1 · design/harness/DA-news-board-20261009.md §2~§4) → r2 교정
+## §5 DA r1 (HOLD 1 · design/teams/harness/DA-news-board-20261009.md §2~§4) → r2 교정
 | 원인 | r2 |
 |---|---|
 | N1 flock 은 같은 물리 원장만 · 분리 사본·머신·legacy 기준값 | 2-1 판정 원장: 루트 런타임 파일 1개 · `_verdict_host`/`_verdict_root` 권위 · 두 번째 머신 거부 · seed · 사건 2종 fold · §3 나노 1 시험 |

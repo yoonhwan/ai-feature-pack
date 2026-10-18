@@ -1,9 +1,9 @@
 # 인덱스: 쪽지 가드 — 은퇴·닫힌 수신자 REJECT + planner 앞 허용 머리 집합 + [결정] 3줄 lint (N3 · 팀 운영 구조 근원 수정 · 판정 1070·1079 · arch#29)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner ORDER(판정 1069·1070) · 설계 PLAN-harness-networking-20261011.md §2 D3·D4 · 요청 원장 R97(수신자 검증 부재) 흡수
 - 제안서: 없음 — 오빠 판정 1070 으로 착수 승인된 하네스 구조 수정(판정 1079 3차 DA APPROVE #76290)
 - 상태: 대기
-- 선행: N1 랜딩(측정 스크립트가 효과 숫자를 잰다) · 설계 = `git show f0d974ab20:design/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다 · 위 명령으로 읽는다★)
+- 선행: N1 랜딩(측정 스크립트가 효과 숫자를 잰다) · 설계 = `git show f0d974ab20:design/teams/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다 · 위 명령으로 읽는다★)
 - 시험 입력: 명부 픽스처(승계 전/후 · 깨진 JSON · stop-ready/closed/stopped/_retired_role · 중복 키 · `_closed` 팀 `_kept` 보존 · planner 명부 정상+타 팀 깨짐 복합) × 머리별 본문 · `FT_SEND_DRY=1`/임시 큐 폴더 — 실 큐·실 doorbell·루트 `.fable-team/` 쓰기 0
 - 기준값(arch#29 실측 · 2026-10-11): planner 앞 쪽지 238/일 중 분류 ⑥진행·참고 76 + ⑤결과 50 = 57% · `[HIL]` 87/일(전 좌석) · `[HIL·merge]` 13 · 옛 이름 send 검증 0(R97) · mbox 정본 `tools/comm-canonical/mbox.sh` = 라이브 `.fable-team/comm/mbox.sh`(R85 `user_facing` 핫픽스 + `.bak-userfacing-1010` 포함) · `ft-seat-retire.sh` 38행 직접 쓰기(원자적 아님).
 

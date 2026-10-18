@@ -1,6 +1,6 @@
 # 인덱스: ft-op-token 후속 다듬기 3 — 비JSON 응답 ERR 1줄 · --init 클립보드 항상 비움 · https 강제 (판정 675 보안 DA r1 비차단 권고 1~3 · arch#24)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 675 후속(보안 DA r1 `design/harness/DA-675-ft-op-token-r1-verdict.md` APPROVE · 비차단 권고 4)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 판정 675 후속(보안 DA r1 `design/teams/harness/DA-675-ft-op-token-r1-verdict.md` APPROVE · 비차단 권고 4)
 - 상태: 대기
 - 선행: 판정 675 본 세트 `0e82391b40` main 랜딩(이 카드는 랜딩 뒤 origin/main 에서 딴다)
 - 시험 입력: 기존 `tests/harness/test_ft_op_token.py` 의 로컬 스텁 서버 + 임시 secrets — 실 Supabase 0
@@ -50,4 +50,4 @@
 ## 결과
 - 세트: 01225ca732c4c5dcd9a6343681ff9e3056bc136d · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본 변경 없음 — 하네스 키트 ft-op-token 다듬기만 (arch 재현 #68933 · 판정서 §111).
-- 2026-10-09 14:14 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§111
+- 2026-10-09 14:14 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§111

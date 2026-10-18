@@ -1,5 +1,5 @@
 # 인덱스: C22 회귀 재오픈 절차 + C23 close 사유 3종 검사
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -11,7 +11,7 @@
 골의 축: 원문 7 · 표 A. 핵심 한 줄: 회귀는 새 Issue 가 아니라 원 Issue 재오픈 + 깬 랜딩 역링크로, 교체·불필요 닫기는 확인 없이 닫히지 않게 한다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-회귀가 확인되면(회귀 팩 FAIL · 기준값 악화 · 라이브 경보) 원 Issue 를 재오픈하고 코멘트 「regression: 깬 sha · 발견 경로 · LEDGER 행」을 남기며 LANDING-LEDGER 행에서 깬 sha 를 역링크한다. 라이브가 깨졌으면 큐 `즉시` 행 요청 1통. revert 는 소유 오케가 손으로 하고(스크립트는 안내만 — force push 0) 그 revert 후보도 랜딩 ④~⑥ 전부를 거친다. close 사유는 완성(5항)·교체됨→#N(대체 번호 필수)·불필요(근거 필수) 3종이고 후 둘은 소유 오케 확인 seq 가 코멘트에 없으면 매니저가 반려한다. 정본: `design/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §12-3·§12-4 · §8 C22·C23 · `design/harness/LANDING-LEDGER.md`.
+회귀가 확인되면(회귀 팩 FAIL · 기준값 악화 · 라이브 경보) 원 Issue 를 재오픈하고 코멘트 「regression: 깬 sha · 발견 경로 · LEDGER 행」을 남기며 LANDING-LEDGER 행에서 깬 sha 를 역링크한다. 라이브가 깨졌으면 큐 `즉시` 행 요청 1통. revert 는 소유 오케가 손으로 하고(스크립트는 안내만 — force push 0) 그 revert 후보도 랜딩 ④~⑥ 전부를 거친다. close 사유는 완성(5항)·교체됨→#N(대체 번호 필수)·불필요(근거 필수) 3종이고 후 둘은 소유 오케 확인 seq 가 코멘트에 없으면 매니저가 반려한다. 정본: `design/teams/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §12-3·§12-4 · §8 C22·C23 · `design/teams/harness/LANDING-LEDGER.md`.
 
 ## 구현 범위 (이 셋만 — 닫힌 목록)
 1. `scripts/fable-team-bin/ft-regress-reopen.sh <issue> <깬 sha>` — 기본 dry-run(명령만 출력) · `--apply` 때만 gh reopen/edit/comment · LANDING-LEDGER 에서 깬 sha 행을 찾아 역링크 문구 생성 · `--live` 면 큐 `즉시` 행 요청 문구도 출력 · revert 명령은 «안내만»(실행 0).
@@ -29,4 +29,4 @@
 - 2026-10-06 00:10 — 대기→진행 · 좌석 ft-harness-temp-c22-regress-reopen-c23-close-reasons#0
 - 정본 영향 없음: 하네스 스크립트·시험만 추가 — docs/architect 제품 정본 변경 없음
 - 세트: 3f8fdc8b5aeb9fc0ecf8d6a2b22fb6f23fbebfef · 시험: bash -n 2종 + fixture 3개 exit 0/1/1 rc=0 · 이슈: 0
-- 2026-10-06 00:16 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§12
+- 2026-10-06 00:16 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§12

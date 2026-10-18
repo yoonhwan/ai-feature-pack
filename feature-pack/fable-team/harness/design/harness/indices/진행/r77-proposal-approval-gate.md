@@ -1,11 +1,11 @@
 # 인덱스: 제안서→구현 «오빠가 본 승인» 게이트 구조 강제 (R77 · 판정 811·814 · 816 A안 → 826 ①Issue 흡수)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R77(판정 811·814 · master#25 발주 #71347 · 근거 #71355)
 - 상태: 진행
 - 선행: 없음(오빠 채택 판정 816 · VERDICTS-planner-21-20261010.md 816 줄 · 슬랙 p1791590226702839)
 - 시험 입력: 임시 git 리포 + 가짜 발행 장부 JSON + 가짜 planner 판정 원장 폴더 + 가짜 Tank(`FT_TANK_CMD`) + 훅 stdin JSON — 실 슬랙·실 gh·실 tmux 0
 - 기준값: 지금 `ft-nano-spawn.sh`·`ft-gh-as-tank.sh create`·`ft-index-lint.sh` 에 제안서 검사 0 · 인터뷰 훅 0
-- 제안서: design/harness/PROPOSAL-proposal-approval-gate-20261010.md
+- 제안서: design/teams/harness/PROPOSAL-proposal-approval-gate-20261010.md
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.

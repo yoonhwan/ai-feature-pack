@@ -122,9 +122,9 @@
 ### 8-1 실측
 | 사실 | 값 | 근거 |
 |---|---|---|
-| 이미 있는 설계 | 판정 421 상태판 `ft-board.py` — 팀 트리(현역 좌석만) · 작업큐 · 오늘 판정표 · `render --term/--slack` 같은 dict · `snapshot` | 카드 `design/harness/indices/대기/v421-board.md` · 설계 `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md` · DA N3 APPROVE · 오빠 컨펌 430·431 |
-| 그 카드의 선행 | 나노 1 판정 원장 · 나노 4 인박스 — 둘 다 `완성/` (main b8275bf997 #929) → 지금 착수 가능 | `design/harness/indices/완성/v430-verdict-ledger.md` · `완성/v425-master-inbox.md` |
-| 발행 | 판정 421 나노 3 `v423-publish-report-hooks`(대기) — `ft-board-publish.sh` · 랜딩 뒤 master 가 ft-news-tick 호출부 교체 | `design/harness/indices/대기/v423-publish-report-hooks.md:35,63` |
+| 이미 있는 설계 | 판정 421 상태판 `ft-board.py` — 팀 트리(현역 좌석만) · 작업큐 · 오늘 판정표 · `render --term/--slack` 같은 dict · `snapshot` | 카드 `design/teams/harness/indices/대기/v421-board.md` · 설계 `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md` · DA N3 APPROVE · 오빠 컨펌 430·431 |
+| 그 카드의 선행 | 나노 1 판정 원장 · 나노 4 인박스 — 둘 다 `완성/` (main b8275bf997 #929) → 지금 착수 가능 | `design/teams/harness/indices/완성/v430-verdict-ledger.md` · `완성/v425-master-inbox.md` |
+| 발행 | 판정 421 나노 3 `v423-publish-report-hooks`(대기) — `ft-board-publish.sh` · 랜딩 뒤 master 가 ft-news-tick 호출부 교체 | `design/teams/harness/indices/대기/v423-publish-report-hooks.md:35,63` |
 | ⑥ 지금 | `ft-news-tick.sh:48` 기본 원본 = `design/v65/NEWS-TREE.md` «하나» · `ft-news-tree.py:151` 요약본은 ✅ 가지 통째로 뺌 · 전체 = `FT_NEWS_FULL=1`(오빠 10-01) | `scripts/fable-team-bin/ft-news-tick.sh:47-49` |
 | v421 에 «없는» 것 | ①완성 트리(골 축별) — v421 은 NEWS-TREE 상태 글자 읽기를 금지(손 상태 ⓓ-3)해서 축별 트리 칸이 없다 · ②팀 한 줄 요약 표 — planner#12 가 지금 손으로 쓰는 「8팀 × 지금 하는 것 · 큐 · 오빠 할 일」(#64440) | v421 카드 금지 줄 |
 | 카드에서 축을 뽑을 수 있나 | ★없다★ — `## 골좌표` 절은 거의 전부 있으나(feature 17/17 · loom 21/21 · ops 23/23 · v65 732/734 · harness 82/83) 축 표기 형식이 팀마다 다름(`M4 /` · `단위 =` · `「①…」` · `축 =` · `골의 축: A`) · `골의 축:` 줄은 harness 83 만 | 카드 폴더 9개 python 실측 |

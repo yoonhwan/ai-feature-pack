@@ -1,5 +1,5 @@
 # 인덱스: 사람이 `!` 로 칠 명령 = 짧은 한 줄 `! bash /tmp/h<번호>` — 등록 도구 ft-hil.sh + 출력처 3곳 (R83 · 판정 850·852·853)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R83(오빠 직접 지시 판정 850 · planner#21 #71964 · master#26 발주 #71971)
 - 상태: 대기
 - 선행: 없음(제안 Issue #1184 · 판정 852 ① 번호 · ★판정 853 r1: 진입점 = /tmp · 홈(~/) 생성 0★ — 카드 r1 은 이 지시 반영본)

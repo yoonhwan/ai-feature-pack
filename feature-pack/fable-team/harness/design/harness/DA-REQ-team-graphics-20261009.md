@@ -6,7 +6,7 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 ## 고정 대상
-- 제안서 `design/harness/PROPOSAL-team-graphics-20261009.md` · 기준 정본 `~/.claude/skills/fable-team/references/main-team-governance.md`(팀 표·진입로·§9 골 끝내면 멈춤) · `~/.claude/rules/closeout-policy.md` · 선례 `design/planner/PROPOSAL-team-ops-loom-20261008.md`(판정 370).
+- 제안서 `design/teams/harness/PROPOSAL-team-graphics-20261009.md` · 기준 정본 `~/.claude/skills/fable-team/references/main-team-governance.md`(팀 표·진입로·§9 골 끝내면 멈춤) · `~/.claude/rules/closeout-policy.md` · 선례 `design/planner/PROPOSAL-team-ops-loom-20261008.md`(판정 370).
 
 ## 질문 (bounded · 새 요구 금지)
 - **Q1 운영 공백**: master 0 · 틱 0 구성에서 열린 좌석 감시(governance §8 정지 3분)·HIL 경로·닫기 책임이 빠지는 구간이 있는가(하네스 master 가 대신 지는 범위가 명확한가).
@@ -15,4 +15,4 @@
 - 범위 밖: 모델 슬러그 확정(오빠 확인 칸) · 설치 집행.
 
 ## 판정문
-`design/harness/DA-team-graphics-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD(HOLD 면 «제안서 몇 절을 어떻게» 1줄) · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-team-graphics-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD(HOLD 면 «제안서 몇 절을 어떻게» 1줄) · 끝 줄 APPROVE 또는 HOLD.

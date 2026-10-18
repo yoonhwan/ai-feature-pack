@@ -1,8 +1,8 @@
 # DA — 판정 511 상태 칸 실측 · 팀 master 정지 감시 (사전검증 · r1)
 
 - 요청: byz-harness-arch-claude#17 · 2026-10-08 · 발주 master#17 #64752(최우선)
-- 설계: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/harness/DESIGN-511-seat-stall-watch-20261008.md`
-- 함께 볼 것: `~/.claude/skills/fable-team/references/main-team-governance.md`(§6·§7) · `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md`(7·17) · `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-seat-status.sh`(turn) · `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-planner/planner-idle-scan.sh` · 카드 `design/harness/indices/대기/v421-board.md`
+- 설계: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md`
+- 함께 볼 것: `~/.claude/skills/fable-team/references/main-team-governance.md`(§6·§7) · `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md`(7·17) · `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-seat-status.sh`(turn) · `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-planner/planner-idle-scan.sh` · 카드 `design/teams/harness/indices/대기/v421-board.md`
 - 범위 고정: 설계 §6 Q1~Q4 만. 10분 + 10분 · HOLD 2회면 종료.
 - 판정은 이 파일 맨 아래 「## r1 판정」 절에(모델·provider 두 줄).
 

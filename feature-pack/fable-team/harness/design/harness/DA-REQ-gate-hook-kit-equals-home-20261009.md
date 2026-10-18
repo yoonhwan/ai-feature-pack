@@ -8,7 +8,7 @@
 
 ## 고정 대상
 - 커밋 `4ed459ddfc7178ecb8a04751f32832f2ddd11202`(브랜치 `nano/gate-hook-kit-equals-home` · base origin/main `d23385ef35`) · 2파일 +1 −38: 키트 `scripts/harness-install/fable-team/templates/hooks/orchestration-gate.sh` ← 홈 `~/.claude/hooks/orchestration-gate.sh` cp · `scripts/harness-install/fable-team/templates/rules/orchestration.md:39` 보류 문구 1개.
-- 카드 `design/harness/indices/진행/gate-hook-kit-equals-home.md`(또는 대기/) · 오빠 결정 판정 343(`design/harness/TABLE-gate-hook-copies-20261008.md` 「오빠 결정」 문단).
+- 카드 `design/teams/harness/indices/진행/gate-hook-kit-equals-home.md`(또는 대기/) · 오빠 결정 판정 343(`design/teams/harness/TABLE-gate-hook-copies-20261008.md` 「오빠 결정」 문단).
 
 ## arch#21 독립 재현 (4ed459ddfc 아카이브)
 - cmp 키트↔홈 rc=0 · 실행 비트 O · 키트에 `LIFECYCLE_RE`·`in_ft_tmux` 0건 · test_orch_gate_top_models pass=10 fail=0 rc=0 · install.sh `hook orchestration-gate.sh home=same settings=registered` · 홈 훅·settings.json 변경 0.
@@ -20,4 +20,4 @@
 - 범위 밖: ⓪ 켜기(보류) · boot-read-gate 주석 2줄 차이 · 프로젝트 사본 `.claude/hooks/orchestration-gate.sh`.
 
 ## 판정문
-`design/harness/DA-gate-hook-kit-equals-home-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-gate-hook-kit-equals-home-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.

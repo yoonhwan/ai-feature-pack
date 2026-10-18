@@ -1,5 +1,5 @@
 # 인덱스: C18 브랜치 정리 후보 목록 생성기 (읽기 전용 · 변경 0)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -11,7 +11,7 @@
 골의 축: 표 A·원문 7(원격 브랜치 419 vs 마감 정본 5 — 생성이 정리보다 빠르다). 핵심 한 줄: 매니저가 브랜치를 건드리지 않고 «정리 후보 + 근거» 목록만 만들어 오빠 승인을 한 번에 받게 한다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-브랜치 정리(삭제)는 사람 승인 필수(HIL 유지 · 오빠 확정). 이 카드는 «목록 생성»만 한다: 원격·로컬 브랜치별로 ①랜딩 여부(main 에 내용이 있는가: is-ancestor 또는 cherry) ②마지막 커밋 시각 ③main 에 없는 커밋 수 ④tar 보관 유무를 표로 낸다. 정리 명령 문구는 «사람이 실행할 명령»으로 문서에만 적고 실행하지 않는다. 정본: `design/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §1 1-7 · §8 C18 · `design/harness/issue-improvement/SPEC-full-flow-20261005.md` §3 브랜치 행.
+브랜치 정리(삭제)는 사람 승인 필수(HIL 유지 · 오빠 확정). 이 카드는 «목록 생성»만 한다: 원격·로컬 브랜치별로 ①랜딩 여부(main 에 내용이 있는가: is-ancestor 또는 cherry) ②마지막 커밋 시각 ③main 에 없는 커밋 수 ④tar 보관 유무를 표로 낸다. 정리 명령 문구는 «사람이 실행할 명령»으로 문서에만 적고 실행하지 않는다. 정본: `design/teams/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §1 1-7 · §8 C18 · `design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md` §3 브랜치 행.
 
 ## 구현 범위 (이 셋만 — 닫힌 목록)
 1. `scripts/fable-team-bin/ft-branch-candidates.sh [--remote]` — 읽기 전용(for-each-ref · cherry · merge-base --is-ancestor 만) → `design/issues/BRANCH-CANDIDATES.md` 생성(표: 브랜치 · 랜딩 여부 · 미랜딩 커밋 수 · 마지막 커밋 · 분류 SAFE/REVIEW/KEEP).
@@ -29,4 +29,4 @@
 - 2026-10-06 00:13 — 대기→진행 · 좌석 ft-harness-temp-c18-branch-candidates#0
 - 정본 영향 없음: 하네스 스크립트·시험·후보 목록만 추가 — docs/architect 제품 정본 변경 없음
 - 세트: 8403cd27a7f7b14f54e25b413423cc2590a3e30a · 시험: bash tests/harness/test_branch_candidates.sh rc=0 · 이슈: 0
-- 2026-10-06 00:35 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§19
+- 2026-10-06 00:35 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§19

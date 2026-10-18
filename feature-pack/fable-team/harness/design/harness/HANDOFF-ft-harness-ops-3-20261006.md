@@ -7,8 +7,8 @@
 > (원문 7) 정말 많은 양의 이슈와 테스트, 그리고 큰 병렬적인 메인 플랜을 얼마나 잘 수행해내느냐에 핵심이 달려 있다 … 큰일을 얼마나 별개로 쪼개서 동시에 아주 잘 해결하느냐에 달려 있다. 이게 기획에 반영되어야 한다.
 ★승계 첫 일 = 골 대조 3줄을 planner(`byz-planner-arch#3`)에 mbox 보고 + 부팅 3항(세션명/모델·창/Serena) 후 착수. 이 단위는 오빠가 harness-ops pane 에서 직접 지휘 — AskUserQuestion 허용(끝나면 원복). 응답은 GUIDE-human-report 틀(결론→오빠가 할 일→바뀐 것 3줄→근거 1줄 · 내부어는 첫 등장에 풀이 · 약어 인덱스 금지).
 
-## 지금까지 확정된 것 (전부 오빠 값 확정 · 정본 = design/harness/issue-improvement/)
-PIECES.md 의 P1~P10 + MERGED(충돌 16행·구현 조각 C1~C11) 전부 «수락 + 오빠 값 확정». 값 원장 = `VALUES-pieces-P3-P5-20261005.md`(P3·P5·P6·P7·P8·P9·MERGED·P10 전부) · 풀플로우 본선 13단계 = `SPEC-full-flow-20261005.md` · 풀스택 지도 = `design/harness/diagrams/`(IR 83노드·127엣지 · 커밋 9a02598f56). **구현은 0 — 오빠 「구현 시작」 대기**(MERGED C11 문서 정정은 구현 시작과 함께). 구현 순서 = 설치 키트(C1) 먼저 + C3·C4·C5·C8 동행.
+## 지금까지 확정된 것 (전부 오빠 값 확정 · 정본 = design/teams/harness/issue-improvement/)
+PIECES.md 의 P1~P10 + MERGED(충돌 16행·구현 조각 C1~C11) 전부 «수락 + 오빠 값 확정». 값 원장 = `VALUES-pieces-P3-P5-20261005.md`(P3·P5·P6·P7·P8·P9·MERGED·P10 전부) · 풀플로우 본선 13단계 = `SPEC-full-flow-20261005.md` · 풀스택 지도 = `design/teams/harness/diagrams/`(IR 83노드·127엣지 · 커밋 9a02598f56). **구현은 0 — 오빠 「구현 시작」 대기**(MERGED C11 문서 정정은 구현 시작과 함께). 구현 순서 = 설치 키트(C1) 먼저 + C3·C4·C5·C8 동행.
 핵심 확정: 슬랙=발행 전용(인터뷰 카드·팀 뉴스)·역방향 0 · tmm=질문 원장 화면 · issue-manager=Issue 0 루프 책임(메인 Issue 수정·close=소유 오케, size:small 만 직접) · 정렬=사건만(시간 트리거 0) · 시험 묶음=카드당 1·tester 1·architect 직접 보고 · byz-e2e 증거 범위 현행 유지 · 브랜치 삭제 HIL 유지 · 머신 3기(이 Mac·jarvis·byz mac=tailscale byzs-mac-mini).
 
 ## ★열린 단위 1 (최우선) — 오빠 새 지시 = 조각 P11 「GitHub Issue 드리븐 개발」 — 아직 발주 안 함★
@@ -27,7 +27,7 @@ PIECES.md 의 P1~P10 + MERGED(충돌 16행·구현 조각 C1~C11) 전부 «수�
 
 ## 좌석 · 도구
 ft-harness-arch#3(정지 · 347k+) · arch#2(정지) · da#1(codex sol low · 대기형) · nano#1(opencode deepseek flash · 대기). 닫기(kill)는 오빠 판단(keep-last-2). mbox=`/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`. 새 arch 는 «다음 발주 시점»에 연다(빈 세션 상시 대기 금지).
-- 설치함: `~/.claude/skills/drawio-skill`(Agents365-ai v3.4.0 · sha 88fd923 · MIT · 소스 검토함 · `disable-model-invocation:true` → Skill 호출 거부 · SKILL.md Read + `scripts/diagramctl.py` 직접 실행) · draw.io CLI `/opt/homebrew/bin/drawio` · graphviz `dot` 설치됨. 정본 지도 = `design/harness/diagrams/fullstack.ir.json`(`build.py --check`·`diagramctl test`·`sync`).
+- 설치함: `~/.claude/skills/drawio-skill`(Agents365-ai v3.4.0 · sha 88fd923 · MIT · 소스 검토함 · `disable-model-invocation:true` → Skill 호출 거부 · SKILL.md Read + `scripts/diagramctl.py` 직접 실행) · draw.io CLI `/opt/homebrew/bin/drawio` · graphviz `dot` 설치됨. 정본 지도 = `design/teams/harness/diagrams/fullstack.ir.json`(`build.py --check`·`diagramctl test`·`sync`).
 - eli5 페이지(비공개 · 앞 https://claude.ai/artifact/): P7 `AJVaj7Ltqa8QaXdP2GNrFr` · 풀플로우 `2HHmNZXWsKUK8ZLkGDZ76J` · P9 `VLE8DtA2buWL2oXcowdLLx` · MERGED `1yJM3qNRoBcAqkKyfqN4pj` · 풀스택 지도 `EuKdCAVxafsT5wj1ztSvqv` · P10 `SjpkMa6Ss7fMKQ8zbZ9bcB`.
 
 ## 함정 (실측)

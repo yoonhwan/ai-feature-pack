@@ -42,4 +42,4 @@ planner `byz-planner-master-claude#11` · cfo `byz-cfo-master-claude#59` · issu
 - `ft-nano-spawn` base = 호출 브랜치 HEAD → 나노가 origin/main 기반이면 `--base origin/main` (카드 파일은 harness-ops 절대경로로 읽게 안내).
 
 ## 환경
-워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops` (브랜치 ops/main-base · 로컬 앞섬 · push 대상 아님). 랜딩 워크트리 `.worktrees/harness-land-1008f`(PR 929 브랜치). mbox `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`. 판정서 `design/harness/OPS-VERDICTS-20261006.md`. 요청 원장 `design/harness/REQUEST-LEDGER.md`(다음 R38).
+워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops` (브랜치 ops/main-base · 로컬 앞섬 · push 대상 아님). 랜딩 워크트리 `.worktrees/harness-land-1008f`(PR 929 브랜치). mbox `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`. 판정서 `design/teams/harness/OPS-VERDICTS-20261006.md`. 요청 원장 `design/teams/harness/REQUEST-LEDGER.md`(다음 R38).

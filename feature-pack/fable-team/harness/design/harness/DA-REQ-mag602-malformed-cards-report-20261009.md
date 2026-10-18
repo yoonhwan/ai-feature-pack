@@ -7,7 +7,7 @@
 
 ## 고정 대상
 - 커밋 `4b047d19ed5b7df3487703e0c974e2c88c3b404b`(브랜치 `nano/mag602-malformed-cards-report` · base `e8c5718a8c`). 변경: 새 `scripts/harness-install/slack-mirror/magazine_card_shape.py`(`report_mode`·`missing_parts`·`error_for`·`report_line`·`warning_line`) · `magazine_collect_detail.py`(`_card`·`_units`·`collect_detail` → `malformed`) · `magazine_collect.py`(+`malformed` 전달) · `magazine_render_full.py`(`DETAIL_KEYS`+`malformed` · 목차 뒤 1줄 · `_appendix` 앞 h3) · `magazine_slack.py`(`root_text(malformed=)`) · `byz_morning_magazine.py`(`Made.malformed`) · `install-magazine.sh`(REQUIRED +`magazine_card_shape.py`) · plist 템플릿(`MAGAZINE_MALFORMED_CARDS=report`) · 시험 M1~M5 · 새 `tests/scripts/test_magazine_malformed_render.py` · fixture 3곳 `"malformed": []`.
-- 카드 `design/harness/indices/진행/mag602-malformed-cards-report.md`(설계 닫힌 목록 1~5).
+- 카드 `design/teams/harness/indices/진행/mag602-malformed-cards-report.md`(설계 닫힌 목록 1~5).
 
 ## arch#23 독립 재현 (git archive 새 mktemp)
 - collect_detail·malformed_render·collect_mbox·render_full **50 passed** · `test_magazine_plist.sh` ALL PASS · `test_magazine_install_list.sh` ALL PASS · ruff clean.
@@ -21,4 +21,4 @@
 - 범위 밖: 기존 13 실패 · design/cfo 카드 보정(cfo 몫) · Slack 게시·홈 설치·plist 재적재(master).
 
 ## 판정문
-`design/harness/DA-mag602-malformed-cards-report-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-mag602-malformed-cards-report-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD · 끝 줄 APPROVE 또는 HOLD.

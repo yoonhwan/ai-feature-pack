@@ -28,7 +28,7 @@
 2. 「종료」 행 «누가» 칸: `위성 오케 작성 → planner 확인 → 영역 소유 메인 오케 집행` → `위성 오케가 CLOSEOUT 작성·커밋·push → planner 가 \`ft-team-close.sh <팀>\`(①admission: 역할 좌석 전부 jsonl IDLE 포함 → ②정리 → ③4항 검증 · 보존 2 = \`_kept\` · 그 kill 은 HIL 계획)`
 (4항 본문·«세션 개수 0 은 종료 조건이 아니다»·검증 사례는 무변경.)
 
-## D. `design/harness/issue-improvement/GUIDE-human-report-20261005.md` §2 말 규칙 끝에 1줄
+## D. `design/teams/harness/issue-improvement/GUIDE-human-report-20261005.md` §2 말 규칙 끝에 1줄
 
 ```
 - 인터뷰(AskUserQuestion)는 첫 줄에 종류 머리(`[제안]`·`[이슈]`·`[합치기]`·`[HIL]`·`[긴급]`·`[결정]`) + 링크 1개(제안·이슈·PR — `[HIL]`·`[긴급]` 은 명령 원문 줄로 대신) + `선례:` 줄 + 질문 1개 — 훅 `interview-lint` 가 막는다(governance §12).

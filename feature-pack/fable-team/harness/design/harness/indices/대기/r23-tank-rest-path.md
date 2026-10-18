@@ -1,6 +1,6 @@
 # 인덱스: Tank 래퍼 쓰기 9종을 REST(gh api) 한 길로 — GraphQL 하위 명령 호출 0 (R23)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 R23(design/harness/REQUEST-LEDGER.md 8행)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 R23(design/teams/harness/REQUEST-LEDGER.md 8행)
 - 상태: 보류 — 재발 트리거 대기(아래 「상태」 마지막 줄)
 - 선행: 재발 1회 실측 — Tank 래퍼 쓰기가 GraphQL 오류로 실패하는 같은 시각에 다른 쓰기(REST 또는 다른 Issue)는 성공(= GraphQL 경로 고유 실패의 증거)
 - 시험 입력: 기존 tests/harness/test_gh_as_tank.sh 의 가짜 gh(PATH 맨 앞) — 실제 GitHub 호출 0 · 토큰 = 가짜 문자열
@@ -13,7 +13,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R23 — planner#7 #60677 「GraphQL 연속 실패 시 #879 close 8회 보류」 → arch#8 안 design/harness/PLAN-r23-tank-rest-path-20261008.md(수정 승인: 폴백 분기 대신 REST 한 길 · 폴백 0) → master#11 승인 #60701.
+골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R23 — planner#7 #60677 「GraphQL 연속 실패 시 #879 close 8회 보류」 → arch#8 안 design/teams/harness/PLAN-r23-tank-rest-path-20261008.md(수정 승인: 폴백 분기 대신 REST 한 길 · 폴백 0) → master#11 승인 #60701.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 `ft-gh-as-tank.sh` 는 좌석의 Issue·PR 쓰기를 Tank 봇(byz-tank) 토큰으로 대신 내는 래퍼다(좌석이 직접 gh 로 쓰면 `gh-issue-author-guard.sh` 훅이 막는다). 지금 쓰기 9종(comment·pr-comment·label·close·reopen·edit·pr-edit·pr-close·pr-create)은 전부 `gh issue …`·`gh pr …` 하위 명령이고, 이 명령들은 안에서 GraphQL 을 쓴다. GraphQL 이 «Something went wrong» 을 내면 래퍼가 통째로 실패해 #879 close 가 8회 보류됐다. 이 카드는 그 9종을 REST(`gh api`) 로 «바꾼다» — GraphQL 경로를 남겨 두고 실패 시 넘어가는 폴백이 아니다(#0 규칙: 폴백 0 · 경로 하나 · 실패면 REJECT). 래퍼는 이미 REST 를 쓰고 있다(토큰 주인 `gh api user` · head 브랜치 · PR 작성자). `create` 는 다른 스크립트(`ft-issue-create-pair.sh`)라 이번 범위 밖이다. 래퍼 내부 호출은 훅이 보지 않으므로(훅은 좌석이 친 명령줄만 본다) 가드 변경은 없다.

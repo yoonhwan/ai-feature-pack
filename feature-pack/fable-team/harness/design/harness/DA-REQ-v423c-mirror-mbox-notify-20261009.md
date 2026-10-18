@@ -9,7 +9,7 @@
 ## 고정 대상
 - 커밋 `58aca7b61485747809041b7a45b36b7c3f8c38f6`(브랜치 `nano/v423c-mirror-mbox-notify` · base origin/main · 9파일 +299 −13):
   `scripts/harness-install/slack-mirror/mirror_summary.py`(DEFAULT_CMD 모델 → claude-haiku-5-5 · PROMPT todo = 원문 복사만 · `parse_summary(raw, source)` 원문에 없는 todo → null) · `byz_mbox_slack_mirror.py`(200줄 · post_handled 호출 1줄) · `mirror_board.py`(180줄 · `post_handled` · `SEQ_REF`) · `tools/comm-canonical/mbox.py`(582→610 · `_is_reply` · guard 기록 `r` · RATE 셈 제외) · `tools/comm-canonical/mbox.sh`(inbox_ingest 가 `cls` 를 INBOX_CLS 에 · `inbox_must_ring` ①~④·미상 → notify=1 · send·relay) · 시험 2 새 + 2 갱신.
-- 카드 `design/harness/indices/진행/v423c-mirror-mbox-notify.md` · 원 카드 사전 DA `design/harness/DA-news-board-20261009.md`(2 HOLD 종료 · 잔여 = 구현 DA 재확인) · 오빠 컨펌 430·431.
+- 카드 `design/teams/harness/indices/진행/v423c-mirror-mbox-notify.md` · 원 카드 사전 DA `design/teams/harness/DA-news-board-20261009.md`(2 HOLD 종료 · 잔여 = 구현 DA 재확인) · 오빠 컨펌 430·431.
 - 증거(arch#19 재현 · origin/main 3f6414e070 아카이브 + 나노 diff): test_mirror_no_todo · test_mbox_inbox_notify_reply_rate · test_kit_bin_sync · test_question_board · test_slack_readonly_share · test_inbox · test_slack_mirror_signature — 전부 rc=0.
   미러·proposal pytest 6파일(`tests/scripts/test_byz_*_slack_mirror.py` · `test_mirror_summary_cc_route.py` · `test_proposal_*.py`): 수정 전 main = 16 failed / 59 passed · 수정 후 = 16 / 59 · ★실패 목록 diff 0(회귀 0 · 기존 16건은 이 카드 밖)★.
   모델 실호출(arch · `~/.headroom/claude-hr.sh -p --model claude-haiku-5-5 …` + SUMMARY_ENV): rc=0 정상 응답(4-5 도 rc=0). 원장 R57 의 Haiku 실패(51줄 · 20초 Timeout)는 래퍼 없는 `claude -p`(ft-inbox 분류) 경로 — 이 카드 경로와 다름.
@@ -24,4 +24,4 @@
 - 범위 밖(새 요구 금지): 기존 pytest 16건 실패 · R57 분류 실패 · mbox.py 200줄 초과(기존 · 별 카드) · DEFAULT_CMD 공유 범위(판정 = master/planner 몫 — 사실만 기록).
 
 ## 판정문
-`design/harness/DA-v423c-mirror-mbox-notify-20261009.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-v423c-mirror-mbox-notify-20261009.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.

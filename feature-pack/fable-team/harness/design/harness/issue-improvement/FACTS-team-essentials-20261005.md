@@ -1,7 +1,7 @@
 # FACTS — 팀 구성 필수 요소 4(tester·checker·bts·poller) 실측 (ft-harness-arch#1 요청 · ft-harness-nano#1 실행 · 조각 P7)
 
 > 측정 시각 **2026-10-05 15:56 KST** · 읽기 전용 · 수정 0.
-> 산출 위치 = `design/harness/issue-improvement/`. 원본 = `design/harness/issue-improvement/facts-raw/E*.txt`.
+> 산출 위치 = `design/teams/harness/issue-improvement/`. 원본 = `design/teams/harness/issue-improvement/facts-raw/E*.txt`.
 > 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #57016 · 발주 = ops#2 #57013.
 
 ---

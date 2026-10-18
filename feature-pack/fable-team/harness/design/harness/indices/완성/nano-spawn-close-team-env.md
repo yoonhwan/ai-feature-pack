@@ -1,5 +1,5 @@
 # 인덱스: 나노 spawn·close 가 «팀»을 스스로 안다 — 팀 env 자동 로드 + codex 모델 기본 + --base 인자
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -32,5 +32,5 @@
 - 2026-10-07 — 대기/ 생성 (byz-harness-arch-claude#5 · master#8 발주 58692 + arch 58640 후속 ②③ 합침).
 - 정본 영향 없음: 하네스 나노 도구·시험만 — docs/architect 제품 정본 변경 없음
 - 2026-10-07 13:32 — 대기→진행 · 좌석 byz-harness-nano-nano-spawn-close-team-env#0
-- 2026-10-07 13:43 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§26
+- 2026-10-07 13:43 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§26
 - 세트: 45a1ee516ab4b28f4b06af7fe8db928c41f6a45f · 시험: bash tests/harness/test_nano_team_env.sh rc=0 · 이슈: 0

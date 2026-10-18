@@ -1,7 +1,7 @@
-.worktrees/harness-ops/design/harness/indices
-.worktrees/harness-ops/design/harness/indices/inbox
-.worktrees/harness-ops/design/harness/indices/inbox/arch
-.worktrees/harness-ops/design/harness/indices/완성
-.worktrees/harness-ops/design/harness/indices/완성/00-first-unit.md
-.worktrees/harness-ops/design/harness/indices/진행
-.worktrees/harness-ops/design/harness/indices/대기
+.worktrees/harness-ops/design/teams/harness/indices
+.worktrees/harness-ops/design/teams/harness/indices/inbox
+.worktrees/harness-ops/design/teams/harness/indices/inbox/arch
+.worktrees/harness-ops/design/teams/harness/indices/완성
+.worktrees/harness-ops/design/teams/harness/indices/완성/00-first-unit.md
+.worktrees/harness-ops/design/teams/harness/indices/진행
+.worktrees/harness-ops/design/teams/harness/indices/대기

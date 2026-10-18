@@ -7,7 +7,7 @@
 >
 > 골의 축: 표 A(모니터) + 표 C(커밋·푸시·반영) — 일이 큐로 들어와 메인팀에서 끝나고 랜딩까지 가는 길. 발주 = ops#2 ORDER-planner-issue-queue(#56994).
 
-읽기 전용 · 수정 0 · Slack 0. 산출 `design/harness/issue-improvement/FACTS-planner-queue-20261005.md`(표 4개 · [사실]/[추측] · 「파일:줄」 또는 명령 1줄 인용) + 원본 `facts-raw/Q*.txt`. 측정 시각(KST) 1줄. 루트 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` · v65 정본 사본 = `.worktrees/v6-realtime-live`.
+읽기 전용 · 수정 0 · Slack 0. 산출 `design/teams/harness/issue-improvement/FACTS-planner-queue-20261005.md`(표 4개 · [사실]/[추측] · 「파일:줄」 또는 명령 1줄 인용) + 원본 `facts-raw/Q*.txt`. 측정 시각(KST) 1줄. 루트 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` · v65 정본 사본 = `.worktrees/v6-realtime-live`.
 
 ## Q1. v65 대형 리스트 분할 병렬 랜딩 실례 (10-03 main 랜딩)
 - `.worktrees/v6-realtime-live/design/v65/20261003/CLOSEOUT-v65-main-landing-20261003.md` + `CHECKLIST-v65-main-landing.md`: 분해 단위(S1~S9 가 무엇인지 각 1줄) · 나노 수 · 랜딩 순서 · 막힌 곳(S10 사고 등) · 최종 main sha — 「파일:줄」 인용.
@@ -27,6 +27,6 @@
 - planner → 팀 투입 실례: mbox.log 에서 `from byz-planner-arch#*` 중 「Issue #\d+」 포함 건수 + 예 3건 첫 줄 · 「GO」 포함 건수.
 
 ## Q4. 팀별 「최종 완성 골」 파일
-- v65 `design/v65/20260909/GOAL-archastra-lst-on-off-completion.md` · cfo `design/cfo/GOAL*` 또는 `00-GOAL-AND-SCOPE*.md` · ccu `design/ccu/GOAL*` · kk `design/kk/GOAL*` · harness `design/harness/GOAL-harness.md` · issues `design/issues/GOAL-issues.md` — 존재 Y/N · 경로 · 축 수(표 행 수).
+- v65 `design/v65/20260909/GOAL-archastra-lst-on-off-completion.md` · cfo `design/cfo/GOAL*` 또는 `00-GOAL-AND-SCOPE*.md` · ccu `design/ccu/GOAL*` · kk `design/kk/GOAL*` · harness `design/teams/harness/GOAL-harness.md` · issues `design/issues/GOAL-issues.md` — 존재 Y/N · 경로 · 축 수(표 행 수).
 
 회신 mbox 3줄: 경로 · 못 한 항목 · 사실/추측 비율. 커밋 0(ops#2 요청).

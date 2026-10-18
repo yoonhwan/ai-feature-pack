@@ -19,7 +19,7 @@
 - 의존: draw.io CLI 설치됨(`/opt/homebrew/bin/drawio` 31.7.0) · graphviz `dot` 는 ops 가 설치 중 — `python3 ~/.claude/skills/drawio-skill/scripts/diagramctl.py doctor` 로 확인. 큰 그래프(15 노드+)는 손배치 금지 → autolayout.
 - 금지: 노드 속성·provenance 에 **시크릿·토큰·키 넣지 않는다**(`.drawio`·story 에 그대로 박힘) · 외부 서비스는 이름·역할·연결만(키·계정 ID 0).
 
-## 할 일 (산출 = tracked 경로 `design/harness/diagrams/` · 구현·시스템 변경 0)
+## 할 일 (산출 = tracked 경로 `design/teams/harness/diagrams/` · 구현·시스템 변경 0)
 1. **사실 수집(nano 읽기 전용 먼저 · press/서버 기동 0)**: ①외부 서비스 전부(Slack·GitHub·Supabase·GCP Cloud Run/IAP·STT/TTS/LLM 프로바이더·Cloudflare/도메인·cliproxy/headroom 상류 등 — 코드·환경 설정에서 실재 확인) ②머신·프로세스·포트(launchd 목록 · 38301~ 슬롯 · Caddy 8443 · gateway/worker/FE · Redis · Postgres · GPU VM/터널 · jarvis 등 다른 머신) ③하네스 노드(P2 트리: 오빠↔planner↔메인 {v65·cfo·harness-ops}·위성 {ccu·kk} · issue-manager · 각 팀 master/arch/da/nano/시험 묶음 · tmux 세션·mbox) ④로컬 파일시스템 지도(리포 루트·`.worktrees/*`·`.fable-team/`·`.claude/`·`design/*`·`~/.claude/{skills,rules,hooks,archives}`·`~/.hermes`·mbox 파일·baton). 모든 노드는 **[사실] 출처 1줄**(파일:라인 또는 명령 출력) · 확인 못 한 것은 [추측] 표시 + 점선.
 2. **IR 정본**: 노드(id·종류·계층·소유 팀·출처)·엣지(종류: 데이터/제어/mbox/배포)를 `*.ir.json` 으로. 계층(그룹/컨테이너) = ①외부 서비스 ②네트워크·머신·인프라 ③애플리케이션 서비스 ④하네스(오케·팀·좌석) ⑤로컬 파일시스템.
 3. **뷰(한 모델에서)**: ⓐ 풀스택 한 장(개관) ⓑ 인프라·배포(머신·포트·터널·표 C 머신 배분 자리) ⓒ 하네스 오케 트리·메시지 흐름(P2·P8) ⓓ 로컬 파일시스템 지도 ⓔ 일 한 건의 길(P8 13단계를 노드에 겹침 — 선택).

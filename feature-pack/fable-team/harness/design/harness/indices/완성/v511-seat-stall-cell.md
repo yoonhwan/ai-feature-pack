@@ -1,7 +1,7 @@
 # 인덱스: 상태판 좌석 칸 = 실측 — ft-board 좌석 칸을 jsonl turn 으로 «정지 N분(턴 끝)» 기계 채움 · 기다림 추정(우편 기록 범위 안) · `ft-board.py stalled` · ⓪ `정지(3분+)` 열 + «완료 선언» 꼬리·`완료 선언` 열·받는 쪽 ⚠ (판정 511 + 514 3구분 · 나노 1 · v421 랜딩 뒤)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 511(오빠 「feature 팀 놀고있는데 전팀 절대 구라 없어야한다. 이거 완전 거짓말이자나」·「각 마스터들은 자신의 팀 하위 세션을 이걸 멍청한 짓하는지 관리하는게 메인잡」 · master#17 #64752)
-- 상태: 대기 — 판정 516 보류 해제 조건 충족: 루트 지침(판정 514+532) 정본 설치 완료(governance §9 · BOOT 19 · 라이브 = `design/harness/staged-514/` cmp 같음 · 22:13 실측). 3구분 반영 = 설계 §4-r3(더하기만 · DA-root-guideline-514 r2 Q6 해소) → 구현 범위 1-⑤·시험 ⑩~㉒ 추가(arch#18).
+- 상태: 대기 — 판정 516 보류 해제 조건 충족: 루트 지침(판정 514+532) 정본 설치 완료(governance §9 · BOOT 19 · 라이브 = `design/teams/harness/staged-514/` cmp 같음 · 22:13 실측). 3구분 반영 = 설계 §4-r3(더하기만 · DA-root-guideline-514 r2 Q6 해소) → 구현 범위 1-⑤·시험 ⑩~㉒ 추가(arch#18).
 - 선행: ①v421-board 랜딩(완료 · PR 989 a7fcb904bb) ②★설계 §4-r3 이 담긴 `DESIGN-511` 이 나노 워크트리 base 에 있어야 함★ — 지금은 브랜치 `nano/root-guideline-514`(커밋 6fdb732e1f · DESIGN-511 +38 더하기만) 에만 있음 → master 가 그 문서 커밋(ROOT-GUIDELINE·DA-root-guideline·DESIGN-511)을 랜딩한 뒤 spawn
 - 시험 입력: 임시 FT_ROOT(가짜 명부 · 가짜 `comm/mailbox.log.jsonl`·`.1`·`mailbox.jsonl`) + 스텁 env `FT_BOARD_SEAT_STATUS`(좌석별 `ft-seat-status.sh turn --json` 출력·rc 고정) + `FT_BOARD_NOW`(시각 주입) — 실제 tmux·jsonl 조회 0
 - 기준값: v421 좌석 칸 = 작업중/대기/정지레디/정지 «글자만»(`scripts/fable-team-bin/ft-news-tree.py:75` seat_state 복사) · 몇 분째·무엇을 기다리는지 0 · 사건: feature nano 18분·master 8분 정지가 「게이트 1 진행」으로 보고됨
@@ -16,18 +16,18 @@
 골의 축: A(오빠 요청 즉시 반영 — 「전팀 절대 구라 없어야한다」). 핵심 한 줄: 상태판의 좌석 상태를 사람이 쓰지 않고 jsonl 턴 끝 시각에서 기계로 채워, 멈춘 좌석이 «진행»으로 보이는 길을 없앤다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-판정 511 사건: planner 표가 feature 팀을 「게이트 1 진행」으로 적었는데 실제로는 나노 18분·master 8분 멈춰 있었다(마지막 쪽지 문장을 상태로 복사). 규칙(실측만 · 정지 3분이면 그 턴 처리)은 정본 문구로 따로 설치되고, 이 카드는 그 규칙을 도구로 강제한다: v421 상태판(`ft-board.py`)의 좌석 칸을 `ft-seat-status.sh turn <좌석> --json`(jsonl 층 · `{state, turn_end, duration_ms, reported, source}`) 결과로 채우되, 정지 분은 «state=IDLE ∧ source=jsonl ∧ turn_end 가 유효한 과거 시각»일 때만 계산하고 나머지 상태(PENDING·pane·UNKNOWN·오류·stop-ready)는 관측 그대로 적는다. «기다리는 것»은 우편 기록(로그+회전본+현재 큐를 seq 로 합침) 안의 사실만 쓰고 «추정»으로 표시하며, 「발주 필요」 같은 결론은 기계가 내지 않는다(master 몫). 정본 설계 = `design/harness/DESIGN-511-seat-stall-watch-20261008.md` — ★`## §4-r2` 가 §2·§3·§4 를 이기고, `## §4-r3`(판정 514 «완료 선언» 꼬리)는 r2 칸 글자를 바꾸지 않고 «더한다»★. 3구분: ①진행(WORKING) ②정지·미완(§4-r2 그대로 `⚠정지 N분` · 깨움 대상) ③완료·휴식(마지막 발신 `[완료·휴식]` + 증거 줄 + sha 실재 → `⚠`·stalled 에서 빼고, 10분 넘게 처리 안 되면 ⚠ 를 «받는 쪽» master 에 붙인다).
+판정 511 사건: planner 표가 feature 팀을 「게이트 1 진행」으로 적었는데 실제로는 나노 18분·master 8분 멈춰 있었다(마지막 쪽지 문장을 상태로 복사). 규칙(실측만 · 정지 3분이면 그 턴 처리)은 정본 문구로 따로 설치되고, 이 카드는 그 규칙을 도구로 강제한다: v421 상태판(`ft-board.py`)의 좌석 칸을 `ft-seat-status.sh turn <좌석> --json`(jsonl 층 · `{state, turn_end, duration_ms, reported, source}`) 결과로 채우되, 정지 분은 «state=IDLE ∧ source=jsonl ∧ turn_end 가 유효한 과거 시각»일 때만 계산하고 나머지 상태(PENDING·pane·UNKNOWN·오류·stop-ready)는 관측 그대로 적는다. «기다리는 것»은 우편 기록(로그+회전본+현재 큐를 seq 로 합침) 안의 사실만 쓰고 «추정»으로 표시하며, 「발주 필요」 같은 결론은 기계가 내지 않는다(master 몫). 정본 설계 = `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md` — ★`## §4-r2` 가 §2·§3·§4 를 이기고, `## §4-r3`(판정 514 «완료 선언» 꼬리)는 r2 칸 글자를 바꾸지 않고 «더한다»★. 3구분: ①진행(WORKING) ②정지·미완(§4-r2 그대로 `⚠정지 N분` · 깨움 대상) ③완료·휴식(마지막 발신 `[완료·휴식]` + 증거 줄 + sha 실재 → `⚠`·stalled 에서 빼고, 10분 넘게 처리 안 되면 ⚠ 를 «받는 쪽» master 에 붙인다).
 
 ## 사전검증
 - 소환: 예
-- DA: `design/harness/DA-511-seat-stall-watch-20261008.md` — r1 HOLD(Q1 turn 계약 · Q2 우편 기록 범위 · Q3·Q4 APPROVE) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64794) — arch 서명 byz-harness-arch-claude#17
-- §4-r3 DA: `design/harness/DA-root-guideline-514-20261008.md`(브랜치 nano/root-guideline-514) r1 HOLD 6 → r2 Q1·Q3~Q6 해소(§4-r3 = Q1 결합 판별 · Q3 원 쪽지 시계 · Q6 null turn_end·추정 표기) · Q2 는 가정·상한으로 닫음(`design/harness/DISPO-root-guideline-514-r2-20261008.md`) — arch 서명 byz-harness-arch-claude#18
+- DA: `design/teams/harness/DA-511-seat-stall-watch-20261008.md` — r1 HOLD(Q1 turn 계약 · Q2 우편 기록 범위 · Q3·Q4 APPROVE) → r2 APPROVE(Q1~Q4 · byz-harness-da-codex#0 #64794) — arch 서명 byz-harness-arch-claude#17
+- §4-r3 DA: `design/teams/harness/DA-root-guideline-514-20261008.md`(브랜치 nano/root-guideline-514) r1 HOLD 6 → r2 Q1·Q3~Q6 해소(§4-r3 = Q1 결합 판별 · Q3 원 쪽지 시계 · Q6 null turn_end·추정 표기) · Q2 는 가정·상한으로 닫음(`design/teams/harness/DISPO-root-guideline-514-r2-20261008.md`) — arch 서명 byz-harness-arch-claude#18
 
 ## 조사 근거
 - turn 계약 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-seat-status.sh:155-195` — state ∈ {WORKING, IDLE, PENDING, UNKNOWN} · jsonl 없으면 pane 판정 + turn_end null + source=pane · `--json` 키 5개.
 - 기존 좌석 칸 `scripts/fable-team-bin/ft-news-tree.py:75` seat_state(v421 이 복사) — 이 카드가 v421 의 그 자리를 바꾼다.
 - 우편 기록 `<FT_ROOT>/.fable-team/comm/mailbox.log.jsonl` · `mailbox.log.jsonl.1`(회전본) · `mailbox.jsonl`(소비되는 현재 큐 — 이것만으로는 이전 발신·읽힌 회신이 사라짐 · DA r1 Q2).
-- 설계 `design/harness/DESIGN-511-seat-stall-watch-20261008.md:1` §1 실측 · §4(stalled·⓪ 열) · §4-r2 Q1-r2 8행 표 · Q2-r2 표시 규칙.
+- 설계 `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md:1` §1 실측 · §4(stalled·⓪ 열) · §4-r2 Q1-r2 8행 표 · Q2-r2 표시 규칙.
 
 ## 구현 범위 (닫힌 목록 · 추적본 + 키트 사본 같은 바이트)
 1. `scripts/fable-team-bin/ft-board.py`(v421 산출 · 지금 좌석 칸 = `scripts/fable-team-bin/ft-news-tree.py` seat_state 복사본을 대체 · + `scripts/harness-install/fable-team/bin/` 사본 · 200줄 넘으면 `ft_board_seat.py` 분리):
@@ -52,9 +52,9 @@
 - base_sha: a61bb8586469e2605b8a9293af7b74c62f8e2d1f (spawn 2026-10-08)
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#17 · 설계 §4-r2 · DA r2 APPROVE #64794 · 판정 511).
 - 2026-10-08 22:2x — 판정 514 3구분 반영(§4-r3 · 범위 1-⑤ · 시험 ⑩~㉒ · 보류 해제 조건 기록) — byz-harness-arch-claude#18. spawn 은 선행 ② 랜딩 뒤 master.
-- 정본 영향: 이 카드는 하네스 도구·시험만. 정본 문구(governance §8·§9 · BOOT 18·19)는 `design/harness/staged-514/` 로 설치 완료(카드 밖 · staged-511 대체).
+- 정본 영향: 이 카드는 하네스 도구·시험만. 정본 문구(governance §8·§9 · BOOT 18·19)는 `design/teams/harness/staged-514/` 로 설치 완료(카드 밖 · staged-511 대체).
 - 2026-10-08 22:18 — 대기→진행 · 좌석 byz-harness-nano-v511-seat-stall-cell#0
 세트: 7c60085dd73b8d89c1ca5d597835d1111eda1714 · 시험: bash tests/harness/test_board_seat_cell.sh rc=0 · 이슈: 0
 세트: 95a9bdf4d1e8443411653b7f40ede79a99e8a2c8 · 시험: bash tests/harness/test_board_seat_cell.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-08 22:31 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§80
+- 2026-10-08 22:31 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§80

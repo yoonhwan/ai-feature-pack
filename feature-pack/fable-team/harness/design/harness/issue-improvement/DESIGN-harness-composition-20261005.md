@@ -125,7 +125,7 @@ harness-ops      — 키트(공용 bin·env·설치)·명부 생성기·질문 �
 |---|---|---|---|
 | 키트 정본 | FT_BIN = v65 워크트리 gitignored 사본 · v65 리터럴 21/39 | `scripts/harness-install/fable-team/{bin,templates,install.sh}` = main 추적본 1:1 (#816 ⓪ 채택 먼저) · 리터럴 21개는 FT_* 로 치환(폴백 0 · 미설정 = raise) · **`mbox.py` 는 추적본에서 비추적 경로(`.claude/fable-team/`)로 «설치 복사»** — 심링크 dangling 금지 주석(F6) 그대로 | #816/#818 |
 | 설치 | 손복사 | `install.sh --team <x> --machine <m>` → `~/.fable-team/<x>/` env + bin 심링크 + tick plist · 드리프트 검사 1줄 | 키트 정본 |
-| 배분표 | 없음 | `design/harness/MACHINES.md` 행 = 팀 · 머신 · sha · 반영 시각(RELEASE 「반영됨」 행의 정본) · «독립» = 팀별 홈·명부·mbox·원장 분리(머신 공유 가능 여부 = Q4) | — |
+| 배분표 | 없음 | `design/teams/harness/MACHINES.md` 행 = 팀 · 머신 · sha · 반영 시각(RELEASE 「반영됨」 행의 정본) · «독립» = 팀별 홈·명부·mbox·원장 분리(머신 공유 가능 여부 = Q4) | — |
 | 통신 | mbox = 머신 로컬 | 머신 안 mbox 그대로 · 머신 간 = Issue 코멘트(+ 후속 층 Slack) · 공유 파일시스템 0 | 3-1 |
 | 오빠 접속 | tmm = 로컬 tmux | tmm 에 머신 열(ssh 프로파일) · 질문 원장은 머신별 파일 → Issue `hil:needed` 코멘트로 모음 | 질문 원장 |
 

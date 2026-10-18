@@ -1,9 +1,9 @@
 # 인덱스: zombie-clean keep-last-2 — 순번을 가드 앞에서 · 하한 2 전 티어 · 세대 #N 정렬 (R75 · 판정 807)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R75(판정 807 · master#25 발주 #71274 · 사전 DA r1 APPROVE #71393)
 - 상태: 대기
 - 선행: 없음
-- 제안서: 없음 — 오빠 판정 807 직접 지시(「구 세션들은 리니지2 좀비 클린이 닫는다 · 따르라」) · 설계 design/harness/DESIGN-r75-zombie-clean-keep2-order-20261010.md
+- 제안서: 없음 — 오빠 판정 807 직접 지시(「구 세션들은 리니지2 좀비 클린이 닫는다 · 따르라」) · 설계 design/teams/harness/DESIGN-r75-zombie-clean-keep2-order-20261010.md
 - 시험 입력: PATH 앞 스텁 `tmux`·`pgrep`·`ps` + 임시 `HOME` + `ZC_TIER` 고정 + `tmux-prune --dry-run` 출력의 `[dry] tmux kill` 줄 — 실 tmux 0
 - 기준값: live `~/.claude/skills/zombie-clean/scripts/zombie-clean.sh` 522줄 · attached·preserve 가 순번 미소모 · RED 에서 keep 안 회수 · `ZC_TMUX_KEEP=1` 허용 · 정렬 = session_activity
 
@@ -20,7 +20,7 @@ zombie-clean 의 `tmux_prune()` 은 세션 계보(베이스명 + `#N`)마다 최
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DESIGN-r75-zombie-clean-keep2-order-20261010.md §2-r1 — da-codex#1 r1 APPROVE (#71393 · 895ab137c1)
+- DA: design/teams/harness/DESIGN-r75-zombie-clean-keep2-order-20261010.md §2-r1 — da-codex#1 r1 APPROVE (#71393 · 895ab137c1)
 
 ## 조사 근거
 - `~/.claude/skills/zombie-clean/scripts/zombie-clean.sh:409` keep · `:419` 정렬 · `:428` 유일 세대 RED 우회 · `:432` read · `:439`~`:447` preserve·attached 뒤 idx · `:451`~`:453` RED ABANDON — 리포 추적본 없음(origin/main grep 0).

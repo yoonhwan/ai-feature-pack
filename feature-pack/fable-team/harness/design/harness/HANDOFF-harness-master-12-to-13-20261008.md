@@ -28,14 +28,14 @@
 
 ## 운영 규칙 (BOOT 15·17 · governance §6·§7)
 - master 손 = 집행(랜딩·커밋·push·좌석 개설/닫기·명부·원장·검증 파일 cp). 코드·시안·카드 증거 줄 직접 편집 0. 카드 «정본 영향 없음»/증거 줄은 arch.
-- 흐름: 발주(골 3줄+축 1줄, 긴 본문은 Write 후 `mbox relay`) → arch 설계 → DA → 나노(`. <루트>/.fable-team/bin-harness/harness-env.sh; export FT_NANO_FEAT=ops/main-base`; `zsh -lc "bash scripts/harness-install/fable-team/bin/ft-nano-spawn.sh design/harness/indices/대기/X.md --model 'claude-sonnet-5-5[1m]'"`, 시각은 `--agent codex --model gpt-6.1-sol --effort high`) → master 독립 검증(.venv/bin/python -m pytest · ruff · 200줄) → arch 재현·§N → 판정서 append → ft-index-move → cherry-pick → 닫기(유휴 3분 필요, REJECT 면 잠시 뒤 재시도).
+- 흐름: 발주(골 3줄+축 1줄, 긴 본문은 Write 후 `mbox relay`) → arch 설계 → DA → 나노(`. <루트>/.fable-team/bin-harness/harness-env.sh; export FT_NANO_FEAT=ops/main-base`; `zsh -lc "bash scripts/harness-install/fable-team/bin/ft-nano-spawn.sh design/teams/harness/indices/대기/X.md --model 'claude-sonnet-5-5[1m]'"`, 시각은 `--agent codex --model gpt-6.1-sol --effort high`) → master 독립 검증(.venv/bin/python -m pytest · ruff · 200줄) → arch 재현·§N → 판정서 append → ft-index-move → cherry-pick → 닫기(유휴 3분 필요, REJECT 면 잠시 뒤 재시도).
 - 랜딩: origin/main 위에 «내 파일만» 트리 구성(`GIT_INDEX_FILE` 임시 인덱스 + `git commit-tree`) → 브랜치 push → `bash scripts/fable-team-bin/ft-gh-as-tank.sh pr-create "제목" 본문파일 --base main --head <브랜치> --apply` → CI 초록 → squash. gate-hook 카드는 절대 포함 금지(`git add` 는 파일 단위로).
 - 발신 한도 5건/60초(초과 시 BLOCKED RATE_LIMIT — 강제 금지). 메시지 본문에 프로세스 종료 명령어 글자 금지(훅 오탐 → hil-falsepos.log 기록 후 본문 수정).
 - 막힌 명령·사람 승인 = planner [HIL]. 나노 닫기 외 tmux kill-session·삭제·원격 쓰기는 승인 없이 0.
 - 이슈는 issues master(지금 byz-issues-master-claude#3)로: 증거는 값으로 같은 턴에.
 
 ## 함정 (실측)
-- `git add design/harness/indices/` 는 보류 카드(gate-hook)까지 쓸어 담는다 → 파일 단위 add.
+- `git add design/teams/harness/indices/` 는 보류 카드(gate-hook)까지 쓸어 담는다 → 파일 단위 add.
 - `ft-index-move` 는 정본 게이트(「정본 영향 없음: <이유≥10자>」 줄)로 REJECT 할 수 있다 — 명부 index 치환은 이동 성공 «뒤에».
 - 시스템 python3 에 pytest 없음 → 각 워크트리 `.venv/bin/python -m pytest`.
 - Serena 자동 활성이 다른 나노 워크트리로 잡힐 수 있다 — 나노에게 자기 워크트리 재활성 지시.

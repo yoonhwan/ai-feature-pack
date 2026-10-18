@@ -103,6 +103,6 @@
 
 ## 5. 근거
 - `design/loom/REPORT-no-confirm-impl-3-20261010.md`(feat/loom-main · planner 대조: 520·548·552 원장 줄 0 · 745 원문 미제시)
-- `design/harness/DESIGN-proposal-flow-20261008.md` §r1(raw 경로 강제 = 완성 후·선언) · `docs/rules/proposal_flow.md:9`(컨펌 전 Issue 0 · 코드 0)
+- `design/teams/harness/DESIGN-proposal-flow-20261008.md` §r1(raw 경로 강제 = 완성 후·선언) · `docs/rules/proposal_flow.md:9`(컨펌 전 Issue 0 · 코드 0)
 - live `v6-realtime-live/.fable-team/bin/ft-nano-spawn.sh`(234줄 · 제안서 검사 0) · `ft-gh-as-tank.sh:49` `create)`(검사 0)
 - `~/.hermes/state/byz_proposal_publish.json`(loom 키 1개)

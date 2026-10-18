@@ -1,5 +1,5 @@
 # 인덱스: R63 가드 ㉠ block-destructive 세 번째 블록 — 명령줄의 임의 Redis 쓰기·bubble-replay URL 차단 (원장 R63 · 판정 589 · master#19 쪽지 #66546)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R63(우선 높음 · 판정 589 오빠 직접 지시 · ㉡ `r63c-evidence-inject-scan` 다음)
 - 상태: 대기
 - 선행: `r63c-evidence-inject-scan` 랜딩(순서 = 판정 589)
@@ -18,7 +18,7 @@
 전역 PreToolUse(Bash) 훅 `block-destructive.sh` 는 판정 466 의 `judge()`(python)로 명령을 구간으로 나눠 «글 싱크»(echo·printf·정본 mbox 송신·git commit·grep·대입·heredoc 본문) 글자를 뺀 `EFFECTIVE` 를 만들고(145행) 그것에 PATTERN 을 grep 한다(147행). 그 뒤 STAGE_PATTERN(파괴는 아니지만 되돌리기 어려운 `git add .`) 블록이 선례로 있다. 이 카드는 같은 파일에 세 번째 블록 INJECT 를 넣는다 — ★반드시 `EFFECTIVE` 를 본다★(STAGE 처럼 `$CMD` 원문을 보면 쪽지 본문·grep 패턴 글자로 막힌다 · 판정 466 이 고친 오탐 15건/일 재발). 홈 훅은 추적 밖이라 ★추적본 = 키트 템플릿★ 이고 홈 설치는 랜딩 뒤 master 집행이다.
 
 ## 사전검증
-- 소환: 아니오 (설계 = 조사 `design/harness/SURVEY-r63-injection-guard-hook-20261009.md` §2·§5 + 판정 589 조건)
+- 소환: 아니오 (설계 = 조사 `design/teams/harness/SURVEY-r63-injection-guard-hook-20261009.md` §2·§5 + 판정 589 조건)
 - 구현 DA: ★예 1회★ — 전 좌석·전 프로젝트 Bash 에 걸리는 훅(오탐 = 전 팀 마비). 질문 고정: Q1 대조표 오탐 0 · Q2 위반 차단 · Q3 `EFFECTIVE` 기준(글 싱크 통과) · Q4 기존 PATTERN·STAGE 시험 회귀 0. bounded(새 요구 0).
 
 ## 조사 근거 (origin/main 78f80f82fe · arch#20)
@@ -32,7 +32,7 @@
    - 차단 문구(stderr): 「🚫 측정 조작 차단 — 임의 Redis 쓰기·말풍선 DOM 주입(오빠 절대지침 · BOOT 20 · 전역 하드 룰 11)」 + 명령 + 「측정은 trusted 클릭 + 기존 e2e 러너만 · 정당한 운영 쓰기는 파일에 쓰고 사람이 ! 로 실행」 · `exit 2`.
    - bash 3.2 호환(`/bin/bash`): 빈 배열·`declare -A`·`${x,,}` 0.
 2. 새 시험 `tests/harness/test_block_destructive_inject.sh`(200줄 이하 · `test_block_destructive.sh` 의 run/expect 꼴 · `/bin/bash "$HOOK"`) — 대조표 아래 + 변이 대조.
-3. 대조표 산출 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md` — 행마다 명령 · 기대 rc · 실제 rc.
+3. 대조표 산출 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md` — 행마다 명령 · 기대 rc · 실제 rc.
 4. 기존 시험 PASS: `tests/harness/test_block_destructive.sh`(회귀 0) · `bash -n` 템플릿.
 커밋은 자기 브랜치, **push 금지**. **금지**: 홈 `~/.claude/hooks/` 쓰기·settings.json 수정(설치 = master) · PATTERN·STAGE·judge 변경.
 

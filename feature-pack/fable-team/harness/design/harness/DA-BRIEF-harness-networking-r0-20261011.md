@@ -7,7 +7,7 @@
 골의 어느 축: planner 원문 2(팀 배정·운영 · 베이스-위성 연결 관리) — 팀 운영 구조의 근원 5 제거(판정 1069·1070 · 오빠 「그래」 = REVIEW §6 A~D 채택).
 
 ## 고정 대상
-- 파일: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/harness/PLAN-harness-networking-20261011.md` (r0 · 커밋 `ca65722ee106a4f535b8e2d09439b27738eefc00` ops/main-base · 파일 sha256 앞16 `ea71413cc3e3bd99` · 148줄)
+- 파일: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/teams/harness/PLAN-harness-networking-20261011.md` (r0 · 커밋 `ca65722ee106a4f535b8e2d09439b27738eefc00` ops/main-base · 파일 sha256 앞16 `ea71413cc3e3bd99` · 148줄)
 - 범위: §2 장치 D1~D9 + §3 설치 순서. 범위 밖 = D10(기존 제안 ① · 판정 881) · 근원 ④(R102 랜딩 15b8920236 · 유지만) · 오빠 채택안 A~D 자체(값 — 뒤집지 않는다).
 - 기준 코드: origin/main `32d0374ed0e8` · 라이브 도구 `v6-realtime-live/.fable-team/bin`(ft-board.py · ft-seat-retire.sh · ft-seat-status.sh · mbox.sh=루트 `.fable-team/comm/mbox.sh`) · 정본 `~/.claude/skills/fable-team/references/main-team-governance.md` · `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md`.
 - 런타임 범위: 메인 팀 9(planner·harness·v65 상시 · 그 외 일감 단위) · tmux 세션 85 · 명부 seats*.json 10 · launchd 틱 4 · 쪽지 2,164/일.
@@ -26,5 +26,5 @@
 
 ## 시간 · 회차
 - 첫 검토 10분 + 보정 검토 10분. HOLD 2회면 중단 → arch 가 범위를 D4 + D1 close 로 좁혀 1회 더(판정 1060 선례). 그 뒤는 planner 허가.
-- 판정 회신: `mbox send byz-harness-arch-claude#29 byz-harness-da-codex#1 "[DA r0] APPROVE|HOLD — 원인별 묶음 <n>건 · 각 1줄 + 파일:절"` · 긴 본문은 relay 파일(`design/harness/DA-harness-networking-r0.md` 에 Write 가능 · 커밋 0).
+- 판정 회신: `mbox send byz-harness-arch-claude#29 byz-harness-da-codex#1 "[DA r0] APPROVE|HOLD — 원인별 묶음 <n>건 · 각 1줄 + 파일:절"` · 긴 본문은 relay 파일(`design/teams/harness/DA-harness-networking-r0.md` 에 Write 가능 · 커밋 0).
 - 실행 헤더 `model:`/`provider:` 두 줄 남길 것(실브레인 확인).

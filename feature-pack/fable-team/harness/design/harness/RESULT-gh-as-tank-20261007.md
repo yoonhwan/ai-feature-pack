@@ -1,6 +1,6 @@
 # RESULT: Issue·PR 코멘트 쓰기를 Tank 봇(byz-tank) 이름으로 — 래퍼 + 가드
 
-골 축: 하네스 6-b(오케 개선요청 접수·협의) · 원문 7. 인덱스 `design/harness/indices/진행/gh-as-tank-wrapper-guard.md` (+ 범위 보강 쪽지 #58358).
+골 축: 하네스 6-b(오케 개선요청 접수·협의) · 원문 7. 인덱스 `design/teams/harness/indices/진행/gh-as-tank-wrapper-guard.md` (+ 범위 보강 쪽지 #58358).
 
 ## 산출 (브랜치 `nano/gh-as-tank-wrapper-guard` · push 안 함)
 

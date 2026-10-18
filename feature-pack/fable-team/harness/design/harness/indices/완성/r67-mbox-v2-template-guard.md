@@ -1,6 +1,6 @@
 # 인덱스: 추적 사본 mbox-v2.sh 를 제자리에서 부르면 «설치용 사본» 안내 1줄로 멈춘다 (R67 · 판정 698 ③ · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 `design/harness/REQUEST-LEDGER.md` R67(harness da-claude#0 부팅 보고 #67708)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 `design/teams/harness/REQUEST-LEDGER.md` R67(harness da-claude#0 부팅 보고 #67708)
 - 상태: 대기
 - 선행: 판정 698 ② R66 카드 닫힘(한 번에 한 단위)
 - 시험 입력: 스크래치 임시 폴더에 사본만 복사(옆에 mbox.py 없음) · 임시 폴더에 가짜 mbox.py 스텁 — 루트 우편함·tmux 0
@@ -49,4 +49,4 @@
 ## 결과
 - 세트: 9e251d64053649bd0aeeb8181c2fecb329f43adf · 시험: bash tests/harness/test_mbox_v2_guard.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본 변경 없음 — 추적 사본 mbox-v2.sh 가드 1블록·시험만 (arch 재현 #69069 · 판정서 §113).
-- 2026-10-09 14:31 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§113
+- 2026-10-09 14:31 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§113

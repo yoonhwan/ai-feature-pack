@@ -22,7 +22,7 @@
 1. **휴식 유지** — 요청이 오면 그때 착수(planner#20 · 그래픽스 팀장 `byz-graphics-master-claude#1` · v65 master/arch).
 2. **R72**(접수만 · 착수 0): spawn `--recheck` 가 판정문의 «정확한 sha» 를 CUR_HEAD 와 대조 → 공용 feat 에 문서 커밋이 들어올 때마다 어긋남. 설계 방향 = 판정문에 `recheck_sha:` 칸 + 그 sha..CUR_HEAD 에 `_chg` 필터 재사용(arch#25 판단). 착수 조건 = R71 닫힘 뒤 · 오빠/planner 지시 때.
 3. 별 후보(착수 0): 루트 `.fable-team/bin`(19파일 옛 폴더) 정리/통일 · spawn 233줄(200줄 한도 초과 부채) · merge-tree 충돌 경로 전부 design/ 이면 ①검사 살리기 · 이월(R54·55·56·57·61 · GCE BREACH 2건 · 판정 621 cairn 합치기 · 판정 601 fixture).
-4. **하네스 arch**: `byz-harness-arch-claude#25` 가 ctx 400k 경고로 휴식 중(크론 삭제 · 스냅샷 `design/harness/HANDOFF-harness-arch-25-20261010.md` af77e12401). 다음 하네스 설계 요청이 오면 그때 후계 `#26` 을 그 스냅샷으로 열고 `#24` 정리(keep-last-2).
+4. **하네스 arch**: `byz-harness-arch-claude#25` 가 ctx 400k 경고로 휴식 중(크론 삭제 · 스냅샷 `design/teams/harness/HANDOFF-harness-arch-25-20261010.md` af77e12401). 다음 하네스 설계 요청이 오면 그때 후계 `#26` 을 그 스냅샷으로 열고 `#24` 정리(keep-last-2).
 
 ## 현역 좌석 (이름은 승계로 바뀐다 — 보내기 전 `ft-harness-info.sh seats`·tmux 실측)
 planner `byz-planner-master-claude#20` · harness arch `byz-harness-arch-claude#25`(휴식) · 하네스 DA 세션 없음(필요하면 새로 열기 · 명부 행 `seats-harness.json` 잔존) · 그래픽스 팀장 `byz-graphics-master-claude#1`(arch·DA·나노 0석 · 명부 arch/DA 행 잔존).
@@ -38,4 +38,4 @@ planner `byz-planner-master-claude#20` · harness arch `byz-harness-arch-claude#
 - **보고**: 오빠 보고 틀 = 결론 1줄 → 오빠 할 일 → 바뀐 것 → 근거 + PR 번호는 맨 아래 표. 휴식 중 틱은 1~3줄.
 
 ## 환경
-워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops`(ops/main-base · push 금지). mbox `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`(★발주문이 v6-realtime-live 쪽 mbox.sh 경로를 줘도 정본 경로로 recv★). 판정서 `design/harness/OPS-VERDICTS-20261006.md` · 요청 원장 `design/harness/REQUEST-LEDGER.md` · 이전 인계서 `design/harness/HANDOFF-harness-master-23-to-24-20261009.md`.
+워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops`(ops/main-base · push 금지). mbox `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`(★발주문이 v6-realtime-live 쪽 mbox.sh 경로를 줘도 정본 경로로 recv★). 판정서 `design/teams/harness/OPS-VERDICTS-20261006.md` · 요청 원장 `design/teams/harness/REQUEST-LEDGER.md` · 이전 인계서 `design/teams/harness/HANDOFF-harness-master-23-to-24-20261009.md`.

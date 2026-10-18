@@ -16,7 +16,7 @@
 |---|---|---|---|
 | ① | 골좌표에 「> 확정 2026-09-15 · 발행 FB_CFO#8」 | `ft-proposal-card.sh:49-56` | 원장의 «20자 이상 · `#` 로 시작 안 함 · 「」 없음» 첫 줄을 고른다 — `>` 인용 머리줄이 걸린다. 골과 무관한 줄이 닫는 증거가 된다 |
 | ② | 골 원문 3줄 고정 | `:67-68` | 제목 「(항상 이 3줄)」 + `sed -n '1,3p'` |
-| ③ | docs 브랜치에서 lint REJECT | `:86-90` · `DESIGN_REF` 기본값 `:59` | 구현 범위·조사 근거가 main 에만 있는 파일(`docs/rules/proposal_template.md` · `design/harness/DESIGN-proposal-flow-20261008.md`)만 인용한다. CFO 작업 브랜치 `docs/cfo-main`에는 template 이 없다(실측: 그 커밋이 HEAD 조상 아님) → lint ⑥(구현 범위 실재 경로 ≥1)·⑧(조사 근거 경로:줄 실재) REJECT |
+| ③ | docs 브랜치에서 lint REJECT | `:86-90` · `DESIGN_REF` 기본값 `:59` | 구현 범위·조사 근거가 main 에만 있는 파일(`docs/rules/proposal_template.md` · `design/teams/harness/DESIGN-proposal-flow-20261008.md`)만 인용한다. CFO 작업 브랜치 `docs/cfo-main`에는 template 이 없다(실측: 그 커밋이 HEAD 조상 아님) → lint ⑥(구현 범위 실재 경로 ≥1)·⑧(조사 근거 경로:줄 실재) REJECT |
 
 ## 안 (코드 = 이 도구 1개 + 시험 1개 · 설정 = goal-lines-cfo.txt 1줄)
 1. **골 원문 = goal-lines 파일 전체**: `N=$(grep -c '' "$GOALS")` · 제목 `## 골 원문 (항상 이 ${N}줄)` · `cat "$GOALS"`. N<3 이면 REJECT(lint 가 3줄을 요구).

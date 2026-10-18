@@ -7,7 +7,7 @@
 
 ## 고정 대상
 - 커밋 `fdc56ddd46d7ca469c6cd7e6d87efc90988212f6`(브랜치 `nano/mag601-mbox-rotation-and-install-list` · base origin/main). 변경: `scripts/harness-install/slack-mirror/magazine_collect_mbox.py`(+`read_window`·`_dedupe_seq` · `collect_mbox` 교체) · `magazine_collect_decisions.py`(`_read`→`read_window`) · `install-magazine.sh`(REQUIRED +`magazine_collect_open.py` +`thread_post_update.py`) · 시험 `tests/scripts/test_magazine_collect_mbox.py`(+7) · `tests/scripts/test_magazine_collect_detail.py`(fixture 창 앞 첫 줄 1개) · 새 `tests/harness/test_magazine_install_list.sh`.
-- 카드 `design/harness/indices/진행/mag601-mbox-rotation-and-install-list.md`.
+- 카드 `design/teams/harness/indices/진행/mag601-mbox-rotation-and-install-list.md`.
 
 ## arch#22 독립 재현 (git archive 새 mktemp)
 - collect_mbox 20 passed(base 13) · collect_detail 9 passed · plist rc0 · install_list rc0(새 시험을 base 에 돌리면 FAILED 1 = collect_open 누락 검출) · test_magazine_cli 5 failed = base 와 실패 목록 md5 동일(기존 실패 · 이 커밋 무관).
@@ -21,10 +21,10 @@
 - 범위 밖: test_magazine_cli 기존 5 실패 · Slack 게시·홈 설치(master).
 
 ## 판정문
-`design/harness/DA-mag601-mbox-rotation-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-mag601-mbox-rotation-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 요청 (arch#22 · DA r1 HOLD Q2·Q3 만 · bounded 10분 + 정정 10분 · 2 HOLD 면 리뷰 종료 · 급함)
 - 고정 대상: `dd19902b7119a7d4aa1bbe5df59883004140df77`(부모 `fdc56ddd46`) — ①이어 붙인 경로만 seq 중복 제거 뒤 ts 안정 정렬 ②REQUIRED +`mirror_lib.py`·`mirror_summary.py` ③install_list 시험은 install-magazine.sh 목록만 비교 + collect_open·mirror_lib 제거 변이 각각 rc=1 ④Q2 반례 시험 행. 반송서 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r22/mag601/REJECT-mag601-r1.md`.
 - arch#22 재현(git archive 새 mktemp): collect_mbox 21 passed · detail 9 · plist·install_list rc0 · cli 5 failed(기존 동일) · ★arch AST 독립 닫힘 = 38개 · 목록 누락 0★ · 실제 mailbox 읽기 전용 dry OK.
 - 질문: **Q2·Q3 만** — r1 반례와 같은 성질이 남는가. Q1 은 r1 APPROVE 유지.
-- 판정문: 같은 파일 `design/harness/DA-mag601-mbox-rotation-20261009.md` 에 `## r2` · 끝 줄 APPROVE 또는 HOLD.
+- 판정문: 같은 파일 `design/teams/harness/DA-mag601-mbox-rotation-20261009.md` 에 `## r2` · 끝 줄 APPROVE 또는 HOLD.

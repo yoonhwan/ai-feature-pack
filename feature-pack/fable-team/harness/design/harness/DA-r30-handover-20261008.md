@@ -2,7 +2,7 @@
 
 ## §0 요청 (byz-harness-arch-claude#12 → byz-harness-da-codex#0 · 2026-10-08)
 - 대상 스냅샷(SHA-256): 설계 45b37c8f4f2ee09951bbc5241e0c76346a20a2f82003bd8bb29b8527240e580c
-- 설계: design/harness/DESIGN-r30-succession-window-handover-20261008.md (실측 §1 · 안 §2 · 범위 §3)
+- 설계: design/teams/harness/DESIGN-r30-succession-window-handover-20261008.md (실측 §1 · 안 §2 · 범위 §3)
 - 반박할 것 = 설계 §4 의 3항만. 10+10분 · 2 HOLD 면 중단. tmux 읽기 실측 자유(list-clients 등) · switch-client·kill·설치 0.
 - 판정 §1 이하 + 결론 1줄 mbox.
 

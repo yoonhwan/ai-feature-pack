@@ -1,8 +1,8 @@
 # 인덱스: 슬랙 이어가기 블록 + 단일 발행 입구 byz_thread_post + 스레드 장부 (판정 404 ② · 카드 1/2)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 오빠 판정 404·405(planner#9 #62157 · master#14 #62159·#62177)
 - 상태: 대기
-- 선행: 없음(설계 = design/harness/DESIGN-resume-index-20261008.md · 감사 = design/harness/AUDIT-j404-slack-threads-20261008.md)
+- 선행: 없음(설계 = design/teams/harness/DESIGN-resume-index-20261008.md · 감사 = design/teams/harness/AUDIT-j404-slack-threads-20261008.md)
 - 시험 입력: 기존 tests/scripts/_proposal_fakes.py 가짜 슬랙 API 꼴 + 가짜 jsonl·가짜 tmux(PATH 맨 앞 스텁) — 실제 슬랙 호출 0
 - 기준값: 감사 표 — 10-08 공유 스레드 6건 중 결과 답글 1 · 제안서 5건 중 4건 손 발행(뿌리 글 2~3개로 쪼개짐) · 미러 꼬리 = 좌석·#seq·전문 경로뿐(이어가기 칸 0)
 
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-resume-index-20261008.md
+- DA: design/teams/harness/DA-resume-index-20261008.md
 
 ## 조사 근거
 - `scripts/harness-install/slack-mirror/mirror_lib.py:79` `post()` — chat.postMessage(thread_ts 선택). `:44` `api_call` ok=false·네트워크 오류 = raise(이 꼴을 따른다).
@@ -60,5 +60,5 @@
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#12 · 판정 404·405 · 설계 DA HOLD 1 → 교정 1 APPROVE #62213). 카드 2 는 이 카드 랜딩 뒤 spawn.
 - 정본 영향 없음: 하네스 슬랙 발행 도구·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 13:33 — 대기→진행 · 좌석 byz-harness-nano-resume-block-thread-post#0
-- 2026-10-08 13:52 — 진행→완성 · 좌석 byz-harness-nano-resume-block-thread-post#0 · DA design/harness/OPS-VERDICTS-20261006.md#§55
+- 2026-10-08 13:52 — 진행→완성 · 좌석 byz-harness-nano-resume-block-thread-post#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§55
 세트: 15a2081450f4713d007d39a8f6ce9608fe7915bb · 시험: python -m pytest tests/scripts/test_thread_post.py -q rc=0 · 이슈: 0

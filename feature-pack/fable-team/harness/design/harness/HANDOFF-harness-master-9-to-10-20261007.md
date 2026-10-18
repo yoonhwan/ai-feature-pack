@@ -14,7 +14,7 @@
 - ★mbox 본문에 `git worktree remove`·삭제 문구를 쓰지 않는다(오탐) · 백틱 금지 · 긴 본문은 Write 후 relay.
 
 ## 오늘 끝낸 것 (사실 · main 병합)
-- PR 859(81c9f3c684): Tank 래퍼 Issue edit(R10) · ft-nano-close --wt/--branch(R8) · ft-role-spawn 체크 크론(R13 A) · 팀 feature 골 파일. PR 864(c0f85616b4): Issue 855 pytest .env 격리(215f52056a) + ft-index-lint ⑦⑧(R16) · 판정서 §31~§32. 판정서 §28~§33 = `design/harness/OPS-VERDICTS-20261006.md`.
+- PR 859(81c9f3c684): Tank 래퍼 Issue edit(R10) · ft-nano-close --wt/--branch(R8) · ft-role-spawn 체크 크론(R13 A) · 팀 feature 골 파일. PR 864(c0f85616b4): Issue 855 pytest .env 격리(215f52056a) + ft-index-lint ⑦⑧(R16) · 판정서 §31~§32. 판정서 §28~§33 = `design/teams/harness/OPS-VERDICTS-20261006.md`.
 - ★팀 feature 설치(R14)★: seats-feature.json · bin-feature(feature-env.sh · goal-lines 3줄 · ft-tick · seat-status · goal-tick 스텁 · FT_MBOX_SH · FT_CARD_REQUIRE_PREVERIFY=1) · launchd com.byz.ft-tick-feature(running) · 워크트리 feature-main(브랜치 feat/feature-main) · byz-feature-master-claude#0 · byz-feature-arch-claude#0 · 나노 진행 중(#856).
 - 라이브 RT(v6-realtime-live/.fable-team/bin)에 ft-index-lint.sh 단독 설치(백업 .bak-1007-r16). 나머지 라이브 bin 은 옛 바이트 → ★FT_BIN 전환(RELEASE 0.4) 때 일괄(ft-nano-close·spawn·evidence-check 는 한 세트 — 단독 cp 금지)★.
 - DA 좌석 byz-harness-da-codex#0(codex gpt-6.1-sol low fast · 정지 레디) — 필요할 때 arch 가 소환 결정(bounded 10+10분).
@@ -22,8 +22,8 @@
 
 ## ★열린 일 (순서대로)
 1. ★PR 867(ft-nano-close WT 접두 FT_NANO_WT_PREFIX · 판정서 §33 · 원장 R18)★ CI 13/13 확인 → `gh pr merge 867 --squash`(unset GH_TOKEN · 브랜치 삭제 옵션 없이). 병합 뒤 ops/main-base 에 origin/main 병합(충돌 시 원장 3개는 양쪽 줄 보존).
-2. ★R9 키트 동기★: main 에 ft-press-baseline-check.sh 랜딩됨(0cc8ba4dff #834 A)이나 키트(scripts/harness-install/fable-team/bin)엔 baseline-check 없음 + ft-press-gate.sh 추적본↔키트 DIFF = kit_bin_sync 실패 원인. 동기 방식(키트 cp / 라이브는 0.4 일괄 vs 단독) arch#7 안 → 집행. 이후 R15 H 카드(r15-gate-permit: 게이트 ⑦ 역할·⑧ 직전 BTS 표 + 허가 파일)·T 문구 → 안: `design/harness/PLAN-r15-press-path-enforcement-20261007.md`. V(cdp_helper PTT 검사)는 v65 소관(설계 전달만).
-3. R16 견본: `design/harness/drafts/r16/feature-card-template.md` → feature-main `design/feature/indices/README.md` 로 cp(feature-main 은 PR 로 반영).
+2. ★R9 키트 동기★: main 에 ft-press-baseline-check.sh 랜딩됨(0cc8ba4dff #834 A)이나 키트(scripts/harness-install/fable-team/bin)엔 baseline-check 없음 + ft-press-gate.sh 추적본↔키트 DIFF = kit_bin_sync 실패 원인. 동기 방식(키트 cp / 라이브는 0.4 일괄 vs 단독) arch#7 안 → 집행. 이후 R15 H 카드(r15-gate-permit: 게이트 ⑦ 역할·⑧ 직전 BTS 표 + 허가 파일)·T 문구 → 안: `design/teams/harness/PLAN-r15-press-path-enforcement-20261007.md`. V(cdp_helper PTT 검사)는 v65 소관(설계 전달만).
+3. R16 견본: `design/teams/harness/drafts/r16/feature-card-template.md` → feature-main `design/feature/indices/README.md` 로 cp(feature-main 은 PR 로 반영).
 4. 요청 원장 접수 후 arch 안 대기: R7(milestone)·R11(반송)·R17(855 밖 기존 실패 11건 — poller_dom 7·gpu_vm_control 2·cleanup_auth 1·loom 1 · planner 확인)·R18(bin-cfo/cfo-env.sh 낮은 우선).
 5. ★C 축 본 줄기★: RELEASE 0.4 1장(변경표: 이름 규칙·governance 6·7·arch 상시·Tank 래퍼+가드+edit·ft-role-spawn 크론·ft-nano-close 명시모드+WT 접두·ft-index-lint ⑦⑧·tmm 0.7.4·BOOT 16조항·PR 845/846/859/864/867·6단계 문구 + 동작 변화: nano-slots 기본 6→5·후보 필터 4줄·feature 팀 FT_CARD_REQUIRE_PREVERIFY + 알려진 함정) → 이 Mac 반영(install --apply → FT_BIN 전환 → 홈 훅 → cmp 0 → 「반영됨 이 Mac <kit_sha>」; orchestration-gate 3사본 정본 결정 먼저) → 슬랙 게시(ts 를 반영 행에) → byzs-mac-mini(tailscale ssh · 홈 폴더 복사만). FT_BIN 전환은 일감 사이에만(오빠 승인 완료).
 6. 6379 카운터 정리: arch 대조 결과 → planner [HIL]. 오빠 지시 대기분 없음.

@@ -2,7 +2,7 @@
 
 ## §0 요청 (byz-harness-arch-claude#13 → byz-harness-da-codex#0 · 2026-10-08)
 - 대상 스냅샷(SHA-256): 설계 99406bcf184a088828855f22e258b9dcbbcbe50a61454b7c3e8a84357a1109fa — 이 sha 뒤 설계 수정 0.
-- 설계: design/harness/DESIGN-news-tree-workqueue-viz-20261009.md (실측 §1 · 안 §2 · 배분 §3) · 입력 감사 AUDIT-j410-console-vs-slack-20261008.md · AUDIT-r34-planner-relay-latency-20261008.md.
+- 설계: design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md (실측 §1 · 안 §2 · 배분 §3) · 입력 감사 AUDIT-j410-console-vs-slack-20261008.md · AUDIT-r34-planner-relay-latency-20261008.md.
 - 반박할 것 = 설계 §5 3항 + §2-4 의 훅 2개(report-coverage Stop · drain-before-interview PreToolUse)가 planner 를 막아 세우는 길(전역 아님 · planner 1좌석). 10+10분 · 2 HOLD 면 중단. 읽기 실측 자유 · 설치·발신·코드 0.
 - 판정 §1 이하 + 결론 1줄 mbox.
 

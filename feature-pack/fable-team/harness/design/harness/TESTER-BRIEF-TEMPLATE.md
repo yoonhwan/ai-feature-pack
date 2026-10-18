@@ -1,7 +1,7 @@
 # tester 부팅 발주 템플릿 (시험 묶음 · C10-라이트)
 
 > 오케가 묶음 tester 를 열 때 첫 발주 본문으로 쓴다. `<…>` 자리를 채운 뒤 mbox 로 보낸다.
-> 정본: `design/harness/issue-improvement/SPEC-team-essentials-20261005.md` §1-B·§1-C · `MERGED-20261005.md` 행 C10.
+> 정본: `design/teams/harness/issue-improvement/SPEC-team-essentials-20261005.md` §1-B·§1-C · `MERGED-20261005.md` 행 C10.
 > 묶음은 카드 1개당 1개다. 같은 카드가 활성인 동안 다시 열지 않는다(멱등).
 
 ---

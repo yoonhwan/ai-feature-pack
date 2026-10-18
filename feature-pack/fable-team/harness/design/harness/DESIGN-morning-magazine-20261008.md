@@ -77,11 +77,11 @@
   - 우선순위: `done` = 건너뜀(`--force` 로만 전체 재게시) · `posted`(pdf 없음) = «미완료» — 기존 ts 로 PDF 만 재시도 · `posting` = 위 표식 확인부터.
 
 ## §6 md 를 어디에 두나 — ★확정: 오빠 판정 348 (가) — ops/magazine 전용 브랜치에만 push · main 0★
-본문은 tracked 경로 `design/harness/magazine/MAGAZINE-YYYYMMDD.md` 에 쓰고, 슬랙 «본문 링크»는 GitHub URL 이어야 한다. 그러려면 **launchd 잡이 매일 커밋·push** 해야 한다.
-- **확정 (가)** (판정 348): 전용 워크트리 `.worktrees/ops-magazine`(브랜치 `ops/magazine`, origin/main 기준) 에서 잡이 md 1개만 커밋하고 **그 브랜치만** push(main push 0). 링크 = `github.com/<repo>/blob/ops/magazine/design/harness/magazine/MAGAZINE-….md`. main 반영은 master 가 마감 때 모아서. 커밋 메시지 `[docs] 아침 매거진 YYYY-MM-DD (자동)`. push 실패 → raise(슬랙 게시 전 — 링크가 깨진 글을 내지 않는다).
+본문은 tracked 경로 `design/teams/harness/magazine/MAGAZINE-YYYYMMDD.md` 에 쓰고, 슬랙 «본문 링크»는 GitHub URL 이어야 한다. 그러려면 **launchd 잡이 매일 커밋·push** 해야 한다.
+- **확정 (가)** (판정 348): 전용 워크트리 `.worktrees/ops-magazine`(브랜치 `ops/magazine`, origin/main 기준) 에서 잡이 md 1개만 커밋하고 **그 브랜치만** push(main push 0). 링크 = `github.com/<repo>/blob/ops/magazine/design/teams/harness/magazine/MAGAZINE-….md`. main 반영은 master 가 마감 때 모아서. 커밋 메시지 `[docs] 아침 매거진 YYYY-MM-DD (자동)`. push 실패 → raise(슬랙 게시 전 — 링크가 깨진 글을 내지 않는다).
 - 기각 (나) push 0 상시 — 수동 1회 시험에만 쓴다(판정 348: 「수동 1회 시험은 push 0」 = `--no-push`).
-- push 계약(구현): 워크트리 `.worktrees/ops-magazine` 은 `install-magazine.sh` 가 «없을 때만» 만든다(`git worktree add -b ops/magazine <경로> origin/main` · 있으면 그대로). 잡은 그 워크트리에서만 `git add design/harness/magazine/MAGAZINE-YYYYMMDD.md` → commit → `git push origin ops/magazine`(★force 0 · 다른 브랜치 push 0 · main 체크아웃 0★). 그 브랜치는 rebase·merge 하지 않고 매거진 커밋만 쌓는다(main 반영은 master 가 마감 때). 워크트리 없음·브랜치가 ops/magazine 이 아님·미커밋 남은 파일 있음·push 거부 → raise(슬랙 게시 전).
-- CLI 기본: 예약 모드(`--date` 없음) = push 켬 · `--no-push` = 끔(수동 시험). 링크는 push 성공 sha 기준 blob URL(`…/blob/<sha>/design/harness/magazine/MAGAZINE-….md` — 브랜치 이름보다 고정).
+- push 계약(구현): 워크트리 `.worktrees/ops-magazine` 은 `install-magazine.sh` 가 «없을 때만» 만든다(`git worktree add -b ops/magazine <경로> origin/main` · 있으면 그대로). 잡은 그 워크트리에서만 `git add design/teams/harness/magazine/MAGAZINE-YYYYMMDD.md` → commit → `git push origin ops/magazine`(★force 0 · 다른 브랜치 push 0 · main 체크아웃 0★). 그 브랜치는 rebase·merge 하지 않고 매거진 커밋만 쌓는다(main 반영은 master 가 마감 때). 워크트리 없음·브랜치가 ops/magazine 이 아님·미커밋 남은 파일 있음·push 거부 → raise(슬랙 게시 전).
+- CLI 기본: 예약 모드(`--date` 없음) = push 켬 · `--no-push` = 끔(수동 시험). 링크는 push 성공 sha 기준 blob URL(`…/blob/<sha>/design/teams/harness/magazine/MAGAZINE-….md` — 브랜치 이름보다 고정).
 
 ## §7 실행·등록
 - CLI: `byz_morning_magazine.py [--date D] [--dry-run] [--force] [--force-root] [--no-push]`(`--date` 없음 = 예약 모드 · §1 D 고르기) — `--dry-run` = md·html·PDF 를 만들고 슬랙 글을 stdout 에만(게시·push·상태 쓰기 0).
@@ -124,5 +124,5 @@
 - 되돌림: `launchctl bootout gui/$UID/com.byz.ft-magazine` + plist 삭제 · ~/.hermes/scripts 의 magazine_* 삭제(.bak 없음 — 신규) · 슬랙 글은 남는다(삭제는 사람).
 
 ## §12 DA 소환 판단
-- r1(DA HOLD-1 · design/harness/DA-magazine-20261008.md): M1 = §5 단계 상태 + 게시 전 표식 확인 + 불명 차단 · M2 = §1 «마지막 닫힌 08:00» 예정일 + 미래 날짜 거부 + 빈 날 표시 · §9 시험 1·7 보강. 같은 범위 교정 1회.
+- r1(DA HOLD-1 · design/teams/harness/DA-magazine-20261008.md): M1 = §5 단계 상태 + 게시 전 표식 확인 + 불명 차단 · M2 = §1 «마지막 닫힌 08:00» 예정일 + 미래 날짜 거부 + 빈 날 표시 · §9 시험 1·7 보강. 같은 범위 교정 1회.
 - **소환함(사전검증 1회 · 범위 고정 10분+10분 · 2 HOLD 면 중단 — bounded_da_review)**: 바깥으로 나가는 자동 게시·자동 push 가 매일 돌고, 미검증 mbox 본문이 LLM·슬랙에 들어간다. 볼 곳 3: ①§1 실패 처리가 «반쪽 매거진»을 내는 길이 없는가 ②§5 재게시 0·PDF 재시도가 뿌리 글을 2중으로 내지 않는가 ③§3 «보이는» 요약 실패 처리가 #0 RULE(조용한 폴백 0)에 맞는가.

@@ -1,5 +1,5 @@
 # 인덱스: 아침 매거진 쉬운 판이 슬랙에서 «그냥 텍스트»로 보이고 결정사항이 번호 덩어리로 묻힘 — 쉬운 판을 PDF 로 붙이고, 첫 장에 핵심 줄·결정 두 박스, 본문 번호 0 (판정 609 · 오빠 직접 지시 10-09 09:2x · planner#15 → master#22 #67313)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 609(오빠 원문 「하네스마스터 발주 매거진이 전혀 eli5 적용 안된 그냥 텍스트 문서임을 공유 핵심과 읽기좋은 내용과 인덱스리스한 문서 작성 결정사항 확실히 노출하도록 개선」)
 - 상태: 대기
 - 선행: 판정 603(PR 1062 `c3219b677f` · main)
@@ -75,4 +75,4 @@
 ## 결과 (나노 RESULT #67554 · arch#23 재현 · 설계 DA r2 APPROVE · master#22 옮김 2026-10-09)
 세트: 8dbf61f8a62201ab2042687afd0d9882a76a1f53 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_eli5_decisions.py rc=0 · 이슈: 0
 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 10:32 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§105
+- 2026-10-09 10:32 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§105

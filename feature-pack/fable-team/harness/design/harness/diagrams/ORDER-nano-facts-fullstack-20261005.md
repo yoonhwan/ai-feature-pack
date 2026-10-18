@@ -10,8 +10,8 @@
 - **읽기 전용**: 서버 기동·press·설정 변경·커밋 0. 쓰는 파일은 아래 산출 1개뿐.
 - **시크릿 0**: 환경변수는 **이름만**(값 금지) · 토큰·키·계정 ID·이메일 0. 값이 섞이면 그 줄 삭제.
 - 노드마다 **[사실] 출처 1줄**(`파일:라인` 또는 «명령 그대로» + 출력 요약). 확인 못 하면 **[추측]** 표시.
-- 하네스 트리(③)는 `design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md` §3 이 정본 — 다시 조사하지 말고 **지금 tmux 와 달라진 줄만** 적는다.
-- 산출: `design/harness/diagrams/FACTS-fullstack-20261005.md` 1장. 끝나면 mbox 로 arch 에 「완료 + 줄 수 + [추측] 개수」 3줄. 커밋은 하지 않는다(ops 가 한다).
+- 하네스 트리(③)는 `design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md` §3 이 정본 — 다시 조사하지 말고 **지금 tmux 와 달라진 줄만** 적는다.
+- 산출: `design/teams/harness/diagrams/FACTS-fullstack-20261005.md` 1장. 끝나면 mbox 로 arch 에 「완료 + 줄 수 + [추측] 개수」 3줄. 커밋은 하지 않는다(ops 가 한다).
 - 상한: 명령 출력은 각 40줄 이내로 잘라 적는다. 10분 넘으면 그때까지 것을 저장하고 보고.
 
 ## 수집 항목 (번호 그대로 절 제목으로)
@@ -62,7 +62,7 @@ ls /tmp/mbox 2>/dev/null | head -5; ls /tmp/byz-*.log 2>/dev/null
 ## 산출 머리줄 (파일 첫 5줄에 그대로)
 ```
 # FACTS — 풀스택 다이어그램 사실 (ft-harness-nano#1 · 2026-10-05 · 읽기 전용 · 시크릿 0)
-> 상위 ORDER: design/harness/diagrams/ORDER-fullstack-diagram-20261005.md 할 일 1 · 골 축 = 표 A·표 C·원문 5
+> 상위 ORDER: design/teams/harness/diagrams/ORDER-fullstack-diagram-20261005.md 할 일 1 · 골 축 = 표 A·표 C·원문 5
 > 수집 시각(UTC) · 머신 hostname(`hostname -s`) · HEAD sha(`git rev-parse --short HEAD`)
 > [사실] N줄 · [추측] M줄
 ```

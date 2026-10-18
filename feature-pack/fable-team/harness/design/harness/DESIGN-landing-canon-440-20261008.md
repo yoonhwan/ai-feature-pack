@@ -6,7 +6,7 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 골의 축: 6-b(개선요청 협의) + C(업그레이드·반영). 오빠 원문(10-08): 「이거 각 팀작업과 이슈 작업 랜딩할때 정본화, 문서화 완성은 어디서 어떻게 구성하면 좋을지 기획 da 받아보자」. 발주: planner#11 판정 440 → master#16 #63098. 기획+DA 만 · 집행·코드 0.
-읽은 정본: ~/.claude/rules/closeout-policy.md · fable-team references/main-team-governance.md · docs/rules/completion_discipline.md(§4-2 「그림 정본은 한 곳 · 사본 금지」) · docs/rules/commit_discipline.md(「squash 면 PR 본문이 영구 기록」) · design/harness/ISSUE-TRANSITIONS.md §3(close 5항).
+읽은 정본: ~/.claude/rules/closeout-policy.md · fable-team references/main-team-governance.md · docs/rules/completion_discipline.md(§4-2 「그림 정본은 한 곳 · 사본 금지」) · docs/rules/commit_discipline.md(「squash 면 PR 본문이 영구 기록」) · design/teams/harness/ISSUE-TRANSITIONS.md §3(close 5항).
 
 ## §1 실태 대조 (질문 4 · arch 실측 2026-10-08 · origin/main)
 ### 1-1. 최근 랜딩 5건 — 정본·문서가 실제 남은 곳
@@ -16,7 +16,7 @@
 | #913 (merged · fix) | selfhost 에서 Gemini cachedContent 생성 전 raise (판정 406 · Issue #792) | 코드 3파일 · PR 본문 1,240자 | 변경 0 — 그런데 cachedContent 를 다루는 정본 10장 실재(BASE_ARCHITECTURE · CFO_BILLING_SOVEREIGNTY_ARCHITECTURE · LOOM_CACHE_DESIGN 등) | ★#792 OPEN · Closes 0 · 5항 코멘트 0★ | 행동 바뀐 fix 인데 정본 0 · 카드 `design/loom/indices/진행/loom-extcall-a-cache-create-raise.md` 가 랜딩 뒤에도 진행/ |
 | #924 (merged · docs) | ROTATE loom_gateway DSN (판정 391) | design/security/ 1장 | 해당 없음(운영 절차서) | — | 없음(기록 문서 자체가 산출물) |
 | #925 (OPEN · feature) | 토스 환불 1/2 유출 카운터 (#920) | 코드 3 + design/cfo/evidence/ RESULT 1장 | 변경 0(CREDIT_ARCHITECTURE·COST_BASE_TABLE 실재) | #920 OPEN · 코멘트 0 · Closes 0 | 랜딩 전이라 판정 보류 — 단 PR 에 정본 줄 자리 0 |
-| #930 (merged · chore) | CI 비용 차단(판정 436) | ci.yml 1 · 판정서 §61·카드는 ★ops/main-base 브랜치★(design/harness/OPS-VERDICTS-20261006.md) | 해당 없음 | — | ★하네스 판정서·카드가 main 에 없다 — ops/main-base 는 origin/main 보다 269 앞 · 29 뒤★ |
+| #930 (merged · chore) | CI 비용 차단(판정 436) | ci.yml 1 · 판정서 §61·카드는 ★ops/main-base 브랜치★(design/teams/harness/OPS-VERDICTS-20261006.md) | 해당 없음 | — | ★하네스 판정서·카드가 main 에 없다 — ops/main-base 는 origin/main 보다 269 앞 · 29 뒤★ |
 
 ### 1-2. 이미 있는 장치와 그 실효
 | 장치 | 무엇을 하나 | 실측 실효 |
@@ -44,7 +44,7 @@
 | 측정·원가 원장 | `docs/architect/LANG_BENCH_LEDGER.md` · `COST_BASE_TABLE.md` 등 원장 파일 | 같음 |
 | 작업 과정(설계·DA·판정·증거) | 팀 폴더 `design/<팀>/`(카드·DA·판정서·evidence) — 과정 기록이지 정본이 아니다 | — |
 | 단위 묶음 마감 | `design/<팀>/CLOSEOUT-*.md` 1장(closeout-policy) — 정본 절 «링크»와 sha 만, 본문 재서술 0 | — |
-| 하네스 정본 | fable-team 스킬 references/ · `docs/rules/` · `design/harness/` 판정서 — ★main 에 있어야 정본★ | — |
+| 하네스 정본 | fable-team 스킬 references/ · `docs/rules/` · `design/teams/harness/` 판정서 — ★main 에 있어야 정본★ | — |
 
 ### 2-2. 어디서·누가·언제 (질문 1)
 - **원칙: 정본 diff 는 «그 변경과 같은 PR» 안에 탄다**(랜딩 전). 랜딩 뒤 따로 쓰는 정본은 안 쓰인다(G1 실측) · 같은 PR 이면 CI 1회(판정 436 — 문서만 바뀐 커밋은 CI 0 이고, 열린 PR 에 문서만 따로 push 하지 않는다).
@@ -89,7 +89,7 @@
 - Q2 「정본 갱신: X」 diff 검사가 정본 «내용» 이 맞는지까지는 못 본다 — 이 한계를 arch 판정서 1줄(정본 diff 확인)로 두는 것이 충분한가, 아니면 새 원인.
 - Q3 arch-canon 좌석을 살리지 않는 결정이 closeout-policy·completion_discipline 과 충돌하는가.
 
-## §6 r2 교정 (DA r1 HOLD-L1 · design/harness/DA-landing-canon-440-20261008.md §2)
+## §6 r2 교정 (DA r1 HOLD-L1 · design/teams/harness/DA-landing-canon-440-20261008.md §2)
 ### 6-1. 정본 증거 = 실제 랜딩 commit 과 그 확정 범위 (로컬 브랜치 diff 는 증거 아님)
 - S = 실제 랜딩 commit(main 에 들어간 sha). 확정 범위 R(S) = `S^1..S`(squash·merge 둘 다 «첫 부모 → S» · ff 랜딩이면 랜딩 전 main tip T 를 ft-land 출력에서 받아 `T..S`). ★merge-base 계산 0★(정상 랜딩 뒤 S 가 main 조상이면 빈 구간 — DA 재현 83c96ba15a).
 - 검사 ①`git merge-base --is-ancestor S origin/main`(fetch 후 · 아니면 REJECT 「랜딩 안 됨」) ②`git diff --name-only R(S)` 에 X 포함(아니면 REJECT 「랜딩 commit 에 정본 X 없음 — 로컬에만 고친 것」) ③(Q2) arch 판정서의 확인 줄 `정본 diff 확인: X §Y @<C>`(C = arch 가 검토한 candidate sha) 와 `git rev-parse C:X == S:X`(blob 같음 · 다르면 REJECT 「검토 뒤 정본이 바뀜 — 재검토」).

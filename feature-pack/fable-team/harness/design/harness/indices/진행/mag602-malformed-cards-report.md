@@ -1,5 +1,5 @@
 # 인덱스: 아침 매거진 수집 중단 — 옛 형식 완성 카드(상태·골좌표 없음)를 «형식 미달 카드» 로 드러내고 계속 발행 (판정 602 · planner 값 ① 채택 #67185 · master#21 쪽지 #67187)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 602(판정 601 ③ PR 1059 `e8c5718a8c` 설치 뒤 수집 dry 중단 · 급함)
 - 상태: 대기
 - 선행: 없음

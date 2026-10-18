@@ -8,7 +8,7 @@
 >
 > 골의 축: 표 A(모니터) · 원문 7 핵심 한 줄(쪼갠 작업을 동시에 시험하는 폭). 발주 = ops#2 ORDER-essentials-bundle(#57036). 오빠 원문: 「tester+checker(bts,poller) 하나의 구성으로 v65 에서 단순화하고 빠르게 수집 보고 아키텍트에게 올린 이게 유효함. press test 가 필요한 작업이나 플랜에」
 
-읽기 전용 · 수정 0 · 커밋 0. 이미 측정된 E1~E3(`FACTS-team-essentials-20261005.md`)은 다시 재지 않는다. 산출 `design/harness/issue-improvement/FACTS-team-essentials-r6-20261005.md` + 원본 `facts-raw/G*.txt`. 측정 시각 1줄 · [사실]/[추측] · 「파일:줄」.
+읽기 전용 · 수정 0 · 커밋 0. 이미 측정된 E1~E3(`FACTS-team-essentials-20261005.md`)은 다시 재지 않는다. 산출 `design/teams/harness/issue-improvement/FACTS-team-essentials-r6-20261005.md` + 원본 `facts-raw/G*.txt`. 측정 시각 1줄 · [사실]/[추측] · 「파일:줄」.
 
 ## G1. 묶음의 구성원 — v65 에서 tester 와 checker 는 한 좌석이었나
 - `seats.json` `role=tester` 12행 전부: 키 이름 · `agent`·`model` · 생성/닫힘 시각(필드가 있으면). 이름에 `checker` 가 든 키(`ft-v65-tester-checker-ds#19/#20`)의 role·agent·메모 필드 원문 — **tester 와 checker 를 한 좌석이 겸했는지** 명부 문구로.

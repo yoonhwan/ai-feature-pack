@@ -1,5 +1,5 @@
 # 인덱스: 가드 ㉠(INJECT) 빈틈 X7 계열 — redis-cli 가 명령을 치환·heredoc·stdin·파이프·xargs 로 받는 쓰기 차단 (판정 595 후속 · master#21 쪽지 #67070)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 595 후속(master#21 #67070 「설치 직후 별 카드 · 같은 블록」 · fp595 DA r1 이 «설치 전 열린 blocker» 로 지목)
 - 상태: 대기
 - 선행: `fp595-inject-post-sink` 랜딩 + 홈 설치(이 카드 base = 그 랜딩 뒤 origin/main)
@@ -38,7 +38,7 @@
 ## 구현 범위 (닫힌 목록)
 1. 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` INJECT 블록에 위 1줄(+ 주석 1줄). 판정기 `scripts/harness-install/fable-team/templates/hooks/block-destructive-judge.py`·PATTERN·STAGE 변경 0.
 2. 시험 `tests/harness/test_block_destructive_inject_post.sh`(fp595 가 만든 파일 · 200줄 넘으면 새 파일 `tests/harness/test_block_destructive_inject_x7.sh`)에 Y·Q 행 + 변이 M5(추가 줄 제거 → Y1·Y6 FAIL) · M6(`[|]` 를 `\|` 로 바꾼 복사본 → Q 행 FAIL).
-3. 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md` 에 Y·Q 행 추가.
+3. 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md` 에 Y·Q 행 추가.
 커밋은 자기 브랜치, **push 금지**. **금지**: 홈 `~/.claude/hooks/` 쓰기·settings.json 수정(설치 = master).
 
 ## 대조표 추가 행 (1행 = 1검사 · 명령 전문은 probe_x7.py · 표 안 임시 경로는 예시 글자)

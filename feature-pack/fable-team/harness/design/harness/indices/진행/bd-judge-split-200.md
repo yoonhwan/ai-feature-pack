@@ -1,5 +1,5 @@
 # 인덱스: block-destructive 훅 209줄 → 판정기(파이썬)를 옆 파일로 분리 · 두 파일 200줄 이하 · 동작 바이트 동일 (planner 판정 592 순서 ② · master#20 쪽지 #66754)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner 판정 592 순서 ②(① gate-hook-kit-equals-home 닫힘 §96 · PR 1049)
 - 상태: 대기
 - 선행: §95 r63e 랜딩·홈 설치(완료 · PR 1048 · 홈 = main 키트 cmp 동일)

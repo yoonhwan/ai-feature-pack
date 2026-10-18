@@ -13,7 +13,7 @@
 3. master 에 부탁: `bash .fable-team/bin/ft-seat-retire.sh byz-harness-arch-claude#19 byz-harness-arch-claude#20 --seats .fable-team/seats-harness.json`.
 
 ## ★지금 할 일★ — v423c 반송서 r1 작성 (master#19 쪽지 #66430 · 미착수)
-- 판정문 `design/harness/DA-v423c-mirror-mbox-notify-20261009.md`(r1 HOLD · Q2 doorbell 수락) · 요청서 `design/harness/DA-REQ-v423c-mirror-mbox-notify-20261009.md` · 나노 커밋 `58aca7b614`(브랜치 `nano/v423c-mirror-mbox-notify` · base origin/main) · 좌석 `byz-harness-nano-v423c-mirror-mbox-notify#0`.
+- 판정문 `design/teams/harness/DA-v423c-mirror-mbox-notify-20261009.md`(r1 HOLD · Q2 doorbell 수락) · 요청서 `design/teams/harness/DA-REQ-v423c-mirror-mbox-notify-20261009.md` · 나노 커밋 `58aca7b614`(브랜치 `nano/v423c-mirror-mbox-notify` · base origin/main) · 좌석 `byz-harness-nano-v423c-mirror-mbox-notify#0`.
 - 잔여 3(DA 순수 재현): **Q1** `mbox.py` `_is_reply` — 본문 앞 80자 맨 `#N` 을 seq 로 봐 PR 번호와 충돌 + 같은 받은 seq 반복 인용으로 RATE 무한 면제. **Q3** `mirror_summary.py` `parse_summary` — 원문 «할 일 아닌» 조각·110자 절단 뒤 생성 todo 가 «원문 부분문자열» 검사를 통과. **Q4** `mirror_board.py` `post_handled` — thread 맵 검사 뒤 맵 소실 시 deliver 의 ensure_thread 가 새 루트를 만드는 경로.
 - arch 설계 결정(반송서에 쓸 것 · v423b 선례 = `쪽지 #<seq>` 접두만 인정 · `.fable-team/state/drafts-r21/REJECT-v423b-report-hooks-r1.md` 꼴):
   - Q1 식별 규칙 = v423b 와 같게 **`쪽지 #<seq>` 꼴만** 회신 인용으로 인정(맨 `#N`·`PR #`·`Issue #` = 0) + 회신 면제는 «받은 seq 1개당 1회»(같은 seq 를 두 번째 인용하면 셈에 넣음 — guard log 의 `r` 에 인용 seq 를 저장해 중복 판정).

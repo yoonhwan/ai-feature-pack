@@ -12,9 +12,9 @@
 
 ## 진행 중 단위 = 판정 675 (오빠 문책 「토큰 안된다 매번 이렇게 멍청하게 해야되냐」)
 - 선행 완료: `.fable-team/secrets/developer-ts.cred` 저장(planner·오빠 1회). `admin-ts.cred` 는 아직(필요 시 planner 가 `/tmp/opcred.sh admin.ts@byourz.com`).
-- 카드 `design/harness/indices/진행/op675-ft-op-token-auto-issue.md`(arch#24 설계 · 커밋 adb0856d6a) · 나노 `byz-harness-nano-op675-ft-op-token-auto-issue#0`(sonnet-5-5 · base origin/main · 좌석표 `seats-harness.json` 에 행 있음 — 나노가 seats.json 만 grep 해 «없음» 오보, 회신해 둠).
+- 카드 `design/teams/harness/indices/진행/op675-ft-op-token-auto-issue.md`(arch#24 설계 · 커밋 adb0856d6a) · 나노 `byz-harness-nano-op675-ft-op-token-auto-issue#0`(sonnet-5-5 · base origin/main · 좌석표 `seats-harness.json` 에 행 있음 — 나노가 seats.json 만 grep 해 «없음» 오보, 회신해 둠).
 - 설계 요지: password grant(refresh 는 회전형이라 동시 갱신 충돌) · 7초+재시도 1(5xx·net 만) · 원문 출력 0 · URL·키·계정 표 = secrets/op-auth.conf·op-accounts.tsv(추적 0) · cred 없으면 exit 2 + `--init` 안내(`--init` = /tmp/opcred.sh 대체) · BOOT·TESTER 템플릿 1줄 · 기존 클립보드·콘솔 수동 경로 목록화·폐지.
-- 다음: 나노 RESULT → arch#24 독립 재현 → **구현 DA 1회 = 보안(`byz-harness-da-claude#0` Claude Opus · 닫지 말 것)** → 집행(PR → 병합 · 설치 → 첫 토큰 발급 실측 · 수동 경로 폐지 문서 반영) → planner `[완료·휴식]`. 나노 닫기 = `ft-nano-close.sh … --cherry-override "PR N squash <sha> blob 동일 (…)"` 후 `ft-index-move.sh 진행/<카드> 완성 --da 'design/harness/OPS-VERDICTS-20261006.md#§109'`(★카드를 완성으로 먼저 옮기지 말 것 — 닫기가 진행 경로를 찾는다★).
+- 다음: 나노 RESULT → arch#24 독립 재현 → **구현 DA 1회 = 보안(`byz-harness-da-claude#0` Claude Opus · 닫지 말 것)** → 집행(PR → 병합 · 설치 → 첫 토큰 발급 실측 · 수동 경로 폐지 문서 반영) → planner `[완료·휴식]`. 나노 닫기 = `ft-nano-close.sh … --cherry-override "PR N squash <sha> blob 동일 (…)"` 후 `ft-index-move.sh 진행/<카드> 완성 --da 'design/teams/harness/OPS-VERDICTS-20261006.md#§109'`(★카드를 완성으로 먼저 옮기지 말 것 — 닫기가 진행 경로를 찾는다★).
 - ★비밀 취급★: cred·토큰 파일 줄 전체를 `cat`/`awk` 로 찍지 말 것(키 이름만). arch#24 가 byztest910.cred 를 한 번 찍어 시험 계정 비밀번호가 arch 세션 기록에 남음 — planner 에 알림 완료(#68355).
 
 ## 열린 일 (순서)
@@ -30,11 +30,11 @@
 planner `byz-planner-master-claude#16` · harness arch `byz-harness-arch-claude#24`(Opus 5.5) · DA `byz-harness-da-claude#0`(Claude Opus 5.5 · 675 보안 DA 용 유지) · DA `byz-harness-da-codex#0` · 나노 `byz-harness-nano-op675-ft-op-token-auto-issue#0`. 좌석표 `_master` = 이 세션(#22) → 후계가 #23 으로 교체.
 
 ## 운영 규칙·함정 (이번 세션 실측)
-- **환경**: `cd .worktrees/harness-ops && source ../../.fable-team/bin-harness/harness-env.sh && export FT_SEND_FROM='byz-harness-master-claude#<본인>'` → `$FT_BIN`. 나노 spawn: `ft-nano-spawn.sh design/harness/indices/대기/<카드>.md …`(★전체 경로★) `--agent claude --model 'claude-sonnet-5-5[1m]' --effort high --base origin/main --from <본인>`. 카드 lint REJECT(골좌표 복붙·구현 범위 경로 실재)는 master 가 안 고치고 arch 에 반송.
+- **환경**: `cd .worktrees/harness-ops && source ../../.fable-team/bin-harness/harness-env.sh && export FT_SEND_FROM='byz-harness-master-claude#<본인>'` → `$FT_BIN`. 나노 spawn: `ft-nano-spawn.sh design/teams/harness/indices/대기/<카드>.md …`(★전체 경로★) `--agent claude --model 'claude-sonnet-5-5[1m]' --effort high --base origin/main --from <본인>`. 카드 lint REJECT(골좌표 복붙·구현 범위 경로 실재)는 master 가 안 고치고 arch 에 반송.
 - **병합 절차**: ops 에 §N append + 카드 `## 결과`(증거 줄 `세트: <40hex> · 시험: … rc=<n> · 이슈: 0` 한 줄 · 정본 영향 없음 줄) → `ft-nano-evidence-check.sh` OK → ops 커밋(★경로 지정 add★) → 나노 wt 에서 `git checkout -b land/<n> origin/main` → ★파일 목록 zsh 배열★ 후 `git checkout nano/<n> -- $files` + ops 문서 `git -C ../harness-ops show ops/main-base:<f> > <f>` → 로컬 시험 → push + PR(`--body-file` · `unset GH_TOKEN`) → `gh pr view`/checks(별 명령 · 이 리포 PR 은 CI 체크 0개 — 병합 근거는 로컬 검증) → `gh pr merge N --squash`(별 명령) → 나노 wt 를 `nano/<n>` 으로 되돌림 + `git -C ../ops-guard checkout --detach origin/main` → 설치 → 닫기(jsonl 마지막 기록 3분 뒤) → 카드 완성 이동 → ops 커밋.
 - **훅**: 재귀 삭제·`pkill`·`rm -rf`·쪽지 본문 속 삭제 명령 글자도 차단됨 — 본문은 파일에 쓰고 `mbox.sh relay`, 큰 삭제는 스크립트 파일 + 오빠 `!` 실행(우회 0). 내가 띄운 백그라운드는 TaskStop 이 정상 경로.
 - **틱**: `ft-board.py stalled --min 3` — 완료 선언 받으면 같은 턴 접수 회신(안 하면 «완료 선언 미처리»). 쉬는 좌석의 «정지 N분» 은 정상. 새 인박스 `mbox-v2` 추적 사본은 실패 → 루트 `.fable-team/comm/mbox.sh` 사용. mbox fan-out 차단: 같은 본문을 두 좌석에 연달아 못 보냄.
 - **보고**: 오빠 보고 틀 = 결론 1줄→오빠 할 일→바뀐 것→근거 + PR 번호는 맨 아래 표. planner 마일스톤은 mbox.
 
 ## 환경
-워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops`(ops/main-base · push 금지). mbox `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`. 판정서 `design/harness/OPS-VERDICTS-20261006.md` · 요청 원장 `design/harness/REQUEST-LEDGER.md` · 슬랙 미러 홈 `~/.hermes/scripts` · 미러 plist `~/Library/LaunchAgents/com.hermes.byz-{mbox,github}-slack-mirror.plist`(`--team-roots` 적용) · 매거진 plist `~/Library/LaunchAgents/com.byz.ft-magazine.plist`(report 모드 적재됨).
+워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops`(ops/main-base · push 금지). mbox `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh`. 판정서 `design/teams/harness/OPS-VERDICTS-20261006.md` · 요청 원장 `design/teams/harness/REQUEST-LEDGER.md` · 슬랙 미러 홈 `~/.hermes/scripts` · 미러 plist `~/Library/LaunchAgents/com.hermes.byz-{mbox,github}-slack-mirror.plist`(`--team-roots` 적용) · 매거진 plist `~/Library/LaunchAgents/com.byz.ft-magazine.plist`(report 모드 적재됨).

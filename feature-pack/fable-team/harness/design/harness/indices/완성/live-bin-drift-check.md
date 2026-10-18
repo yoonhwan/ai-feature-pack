@@ -1,5 +1,5 @@
 # 인덱스: 라이브 도구 폴더 ↔ main 키트 드리프트 검사 — tick 경고 + 나노 spawn·close 입구 BLOCK (Issue 816 ②③)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: #816
 - 상태: 대기
 - 선행: RELEASE 0.4 라이브 bin 교체 완료(master#10 집행 · tar .fable-team/state/live-bin-pre-0.4-1007.tar) — 교체 전 spawn 금지
@@ -13,7 +13,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 원문 1 C(배포·반영 — 라이브가 main 키트와 «같은 상태로 남는다») + 원문 5(머신 독립 배분 — 이 Mac 의 라이브 = 키트 sha 하나). 핵심 한 줄: Issue 816 범위 축소 승인(오빠 · planner #60527 · issues #60531 · master#10 #60537) — ⓪ 채택 단계 생략 · 덮어쓰기 1회 · ②③ 드리프트 검사 = 이 카드 · ⑤ FT_BIN 이전 = 완성 후. 안 = design/harness/PLAN-release-0.4-and-816-20261007.md 「카드 후보」.
+골의 축: 원문 1 C(배포·반영 — 라이브가 main 키트와 «같은 상태로 남는다») + 원문 5(머신 독립 배분 — 이 Mac 의 라이브 = 키트 sha 하나). 핵심 한 줄: Issue 816 범위 축소 승인(오빠 · planner #60527 · issues #60531 · master#10 #60537) — ⓪ 채택 단계 생략 · 덮어쓰기 1회 · ②③ 드리프트 검사 = 이 카드 · ⑤ FT_BIN 이전 = 완성 후. 안 = design/teams/harness/PLAN-release-0.4-and-816-20261007.md 「카드 후보」.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 팀 env 6장(`.fable-team/bin-<팀>/<팀>-env.sh` 11~15행)의 `FT_BIN` 과 launchd `com.byz.ft-tick`(ProgramArguments = 라이브 `ft-tick.sh` · 로그 /tmp/ft-tick.log)은 전부 라이브 폴더 `.worktrees/v6-realtime-live/.fable-team/bin` 을 쓴다. 이 폴더는 git 밖(`.gitignore:178 .fable-team/`)이라 main 키트(`scripts/harness-install/fable-team/bin`)가 랜딩돼도 master 가 손으로 cp 할 때만 바뀐다. 10-07 실측: 5개 파일(ft-nano-close·spawn·slots·evidence-check·role-spawn)이 옛판으로 남아 있었고 아무도 몰랐다. RELEASE 0.4 에서 한 번 1:1 로 맞췄으니, 이 카드는 «다시 어긋나면 바로 보이고, 어긋난 도구로 나노를 열고 닫지 않게» 한다. 비교 기준은 워크트리 체크아웃이 아니라 «git 의 ref»(`origin/main` 의 트리)다 — 리포 루트 체크아웃은 로컬 main 이라 약 18k 커밋 뒤다(R22 실측). 검사는 fetch 하지 않는다(그 ref 가 가리키는 sha 를 출력해 «무엇과 비교했나»를 남긴다). 운영 순서 영향: 키트 bin 을 바꾸는 나노는 «랜딩 → master 라이브 cp → 그 나노 close» 순서가 된다(cp 전 close 는 BLOCK — 의도된 동작).
@@ -34,7 +34,7 @@
 1. `scripts/harness-install/fable-team/bin/ft-live-bin-drift-check.sh` 신규(+ `scripts/fable-team-bin/ft-live-bin-drift-check.sh` 같은 바이트 · 실행 비트 755).
    - 사용: `ft-live-bin-drift-check.sh --bin <폴더> [--repo <리포>] [--ref <ref>] [--path <트리 경로>]`. 기본 `--ref ${FT_DRIFT_REF:-origin/main}` · `--path scripts/harness-install/fable-team/bin` · `--repo` 없으면 `git -C <bin> rev-parse --path-format=absolute --git-common-dir` 의 상위. `--bin` 없음 = exit 2(usage — FT_BIN 을 추측하지 않는다).
    - 기준: `git -C <repo> ls-tree <ref> <path>/` 의 blob 행(모드·blob·이름). 비교: 라이브에 없음 → `MISSING <이름>` · `git hash-object --no-filters <파일>` ≠ blob → `DIFF <이름>` · 모드 100755 ↔ 실행 비트 불일치 → `MODE <이름>` · 라이브에만 있는 일반 파일(`*.bak*` 제외 · 폴더 제외) → `EXTRA <이름>`.
-   - 출력·종료: 같으면 `OK ref=<ref>@<sha12> bin=<폴더> files=<N>` exit 0 · 어긋나면 첫 줄 `DRIFT n=<N> ref=<ref>@<sha12> bin=<폴더>` + 항목 줄 + 마지막 줄 `HINT master 라이브 cp 필요 — design/harness/PLAN-release-0.4-and-816-20261007.md 집행 순서 2~4(tar 백업 → cp → diff 0줄)` exit 1(검사가 직접 cp 하지 않는다) · ref·repo 를 못 풀면 `ERROR …` exit 3(조용한 통과 금지 · #0 RULE).
+   - 출력·종료: 같으면 `OK ref=<ref>@<sha12> bin=<폴더> files=<N>` exit 0 · 어긋나면 첫 줄 `DRIFT n=<N> ref=<ref>@<sha12> bin=<폴더>` + 항목 줄 + 마지막 줄 `HINT master 라이브 cp 필요 — design/teams/harness/PLAN-release-0.4-and-816-20261007.md 집행 순서 2~4(tar 백업 → cp → diff 0줄)` exit 1(검사가 직접 cp 하지 않는다) · ref·repo 를 못 풀면 `ERROR …` exit 3(조용한 통과 금지 · #0 RULE).
 2. `scripts/harness-install/fable-team/bin/ft-nano-spawn.sh` 28행 뒤 입구 블록(+ 추적본 같은 바이트): `case "$HERE" in */.fable-team/bin|*/.fable-team/*/bin)` 일 때만 `"$HERE/ft-live-bin-drift-check.sh" --bin "$HERE" --repo "$ROOT"` 실행 → rc≠0 이면 출력 그대로 + `REJECT 라이브 도구가 main 키트와 다르다 — master 라이브 cp 뒤 다시` exit 1. 검사 스크립트가 없으면 같은 REJECT(설치 누락 = 드리프트). 설치 꼴이 아니면 `INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $HERE` 1줄. `--dry-run` 도 같은 검사(REJECT 사유를 미리 보여 준다).
 3. `scripts/harness-install/fable-team/bin/ft-nano-close.sh` 50행 뒤 같은 블록(+ 추적본 같은 바이트) — `bad=()` 에 넣지 않고 입구에서 exit 1.
 4. `scripts/harness-install/fable-team/bin/ft-tick.sh` (+ 추적본 같은 바이트): `drift_watch()` 1개 + `pass()` 의 `sweep_wt` 다음 줄 호출. 간격 `FT_TICK_DRIFT_INTERVAL`(600s · stamp `stamp_of _all drift`) · `FT_TICK_DRIFT=0` 으로 끔(WT_SWEEP 꼴). 설치 꼴이 아니면 아무것도 안 함. `--dry-run` = `DRY kind=drift bin=<HERE> rc=<rc>` 1줄(전송 0). 어긋남이면 `log "drift: n=<N> ref=<ref>@<sha12> <첫 3개>"` 매 회 1줄 · master 우편함 송신은 «어긋남 목록이 바뀐 때만» 1회(서명 = 항목 줄 sha 를 `$STATE_DIR/drift.sig` 에 · 같은 서명이면 송신 0) · 다시 OK 가 되면 서명 파일 삭제 + `log "drift: OK"`. exit 3 이면 stderr 1줄(송신 0 · 조용히 넘기지 않음). master 는 `sweep_wt` 와 같은 `master_seat "$(read_seats)"`.
@@ -64,4 +64,4 @@
 - 세트: 66cee5fd68a061e7c36082e1fd5bf730b4530497 · 시험: bash tests/harness/test_live_bin_drift_check.sh rc=0 · 이슈: 0
 - 추가 시험: test_kit_bin_sync ALL PASS · test_nano_feat_remote_ref fail=0 · test_role_spawn_name ALL PASS(master) · 실제 라이브 bin 에 새 검사 1회(읽기만) = `OK ref=origin/main@16201f18ea7c files=74`(arch#8).
 - 정본 영향: 하네스 키트 스크립트 4개(추적본·키트)·시험만 — docs/architect 제품 정본 변경 없음 · 라이브 cp(새 검사 + spawn·close·tick)는 master 집행 · ★cp 는 origin/main 병합 + fetch 뒤에만★(ops/main-base 상태로 cp 하면 라이브 ≠ origin/main 이 돼 전 팀 spawn·close 가 BLOCK).
-- 2026-10-07 23:33 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§39
+- 2026-10-07 23:33 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§39

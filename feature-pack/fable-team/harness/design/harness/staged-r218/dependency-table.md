@@ -38,7 +38,7 @@
 
 ## 원장 R218 처리 칸 (master 가 본 원장 R218 행에 옮길 문장 — 이 브랜치의 원장 사본엔 R218 행이 없어 직접 수정하지 않음)
 
-> 처리: 시험 격리 — 공통 가짜 센서 헬퍼(셸·파이썬) + 의존 시험 10개 격리 · successor_open 스텁 이전 · 전수 표 `design/harness/staged-r218/dependency-table.md` (REJECT 값 가짜 센서 ⓑ 에서도 전부 rc0) · 제품 코드 0 · 시험 삭제·skip 0 · 발견: 의존 10개 중 5개는 부하와 무관하게 R213 이후 항상 RED(임시 bin 에 문지기만 복사해 샘플러 없음).
+> 처리: 시험 격리 — 공통 가짜 센서 헬퍼(셸·파이썬) + 의존 시험 10개 격리 · successor_open 스텁 이전 · 전수 표 `design/teams/harness/staged-r218/dependency-table.md` (REJECT 값 가짜 센서 ⓑ 에서도 전부 rc0) · 제품 코드 0 · 시험 삭제·skip 0 · 발견: 의존 10개 중 5개는 부하와 무관하게 R213 이후 항상 RED(임시 bin 에 문지기만 복사해 샘플러 없음).
 
 ## 교정 1 — 문턱 env 를 건 채 / 안 건 채 rc 표 (arch#63 재현: 호출자 셸의 문턱 env 가 새던 구멍)
 

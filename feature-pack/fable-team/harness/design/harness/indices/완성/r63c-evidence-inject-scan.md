@@ -1,10 +1,10 @@
 # 인덱스: R63 가드 ㉡ 증거 검사(차단 없음) — 증거에 인용된 스크립트의 임의 Redis 쓰기·말풍선 DOM 주입 흔적을 찾아 «보이게» (원장 R63 · 판정 589 · master#19 쪽지 #66546)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R63(우선 높음 · 판정 589 오빠 직접 지시 · ㉡ 먼저 → ㉠ `r63b-block-destructive-inject`)
 - 상태: 대기
 - 선행: 없음
 - 시험 입력: 임시 폴더 픽스처 스크립트 + origin/main 실파일 2개(기존 러너 · 재생 측정 스크립트) — 네트워크·Redis·브라우저 0
-- 기준값: origin/main 78f80f82fe 에 증거 스크립트를 주입 패턴으로 훑는 도구 0. 실제 사고 3건(#887 `design/feature/evidence/multilingual-linebreak-impl-20261008/run.py:20,27` 의 `page.goto('/dev/bubble-replay')` · #889 재생 하네스 유입 · #996 시험 스크립트 안 `redis-cli PUBLISH room_events:…`)은 전부 «스크립트 파일 안»이라 명령줄 훅(㉠)이 못 본다(조사 `design/harness/SURVEY-r63-injection-guard-hook-20261009.md` §결론).
+- 기준값: origin/main 78f80f82fe 에 증거 스크립트를 주입 패턴으로 훑는 도구 0. 실제 사고 3건(#887 `design/feature/evidence/multilingual-linebreak-impl-20261008/run.py:20,27` 의 `page.goto('/dev/bubble-replay')` · #889 재생 하네스 유입 · #996 시험 스크립트 안 `redis-cli PUBLISH room_events:…`)은 전부 «스크립트 파일 안»이라 명령줄 훅(㉠)이 못 본다(조사 `design/teams/harness/SURVEY-r63-injection-guard-hook-20261009.md` §결론).
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
 하네스 스킬 관리 오케는 메인오케들과 위성오케들에게 개선요청을 직접받아 등록관리하고 사용자와 협의해 개선하는 축도 필요함.
@@ -69,4 +69,4 @@
 ## 결과 (나노 RESULT · master#20 옮김 2026-10-09)
 세트: 2cbf28f0cf82034f5967b0c141cfd3220f0b7ae0 · 시험: bash tests/harness/test_evidence_inject_scan.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 01:29 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§92
+- 2026-10-09 01:29 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§92

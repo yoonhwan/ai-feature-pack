@@ -54,7 +54,7 @@
 
 ## §4 governance §2 ④행 (홈 파일 · master cp 설치)
 - `~/.claude/skills/fable-team/references/main-team-governance.md` 는 리포 키트에 사본이 없다(실측: `git ls-files` 에 없음 · 키트 templates 에도 없음).
-- 절차: 나노가 tracked 초안 `design/harness/drafts/proposal-flow/fable-team/references/main-team-governance.md` 를 만든다(= 홈 현재 파일 cp + §2 표에 ④행 1개 + 그 아래 1줄) → master 가 랜딩 뒤 `cp` → `cmp` 로 설치(.bak-1008-proposal). 다른 줄 변경 0.
+- 절차: 나노가 tracked 초안 `design/teams/harness/drafts/proposal-flow/fable-team/references/main-team-governance.md` 를 만든다(= 홈 현재 파일 cp + §2 표에 ④행 1개 + 그 아래 1줄) → master 가 랜딩 뒤 `cp` → `cmp` 로 설치(.bak-1008-proposal). 다른 줄 변경 0.
 - ④행 문안: `| ④ 제안서 | 오빠가 자료+한 줄 지시 → planner 가 팀 1곳 발주 → 팀 나노가 제안서(docs/rules/proposal_template.md) → 팀 master 슬랙 발행 → planner 인터뷰(승인/수정/폐기) → 승인이면 issues master 가 ft-proposal-register.sh 로 확인+등록(확인 실패 = 생성 0) → 그 뒤 구현 발주 · 정본 docs/rules/proposal_flow.md | 오빠 인터뷰 필수 · 컨펌 전 Issue·코드 0 |`
 
 ## §5 랜딩·라이브
@@ -83,7 +83,7 @@
 - 되돌림: PR revert + `~/.hermes/scripts/byz_proposal_publish.py` 삭제 + governance `.bak-1008-proposal` 복원.
 
 ## §10 DA 소환 판단
-- r1(DA HOLD-1 · design/harness/DA-proposal-flow-20261008.md): P1 = 확인·생성을 한 진입점(ft-proposal-register.sh)으로 묶고 실패 시 Tank 0회 시험 · ★수락 범위 = «제안서 표준 진입점의 실패 차단»★ — raw Tank 경로(ft-gh-as-tank.sh create)의 전역 강제 차단은 이 단위 범위 밖(키트 래퍼·가드 변경 + 라이브 반영이 필요 · 완성 후 후보로 정본에 «선언» 표기) · P2 = rN 별 원격 표식(정확 첫 줄) + 단계 상태 posting→posted→done + 불명 차단 + 첨부만 재시도 · §7 시험 2·3 장애 주입. 같은 범위 교정 1회.
+- r1(DA HOLD-1 · design/teams/harness/DA-proposal-flow-20261008.md): P1 = 확인·생성을 한 진입점(ft-proposal-register.sh)으로 묶고 실패 시 Tank 0회 시험 · ★수락 범위 = «제안서 표준 진입점의 실패 차단»★ — raw Tank 경로(ft-gh-as-tank.sh create)의 전역 강제 차단은 이 단위 범위 밖(키트 래퍼·가드 변경 + 라이브 반영이 필요 · 완성 후 후보로 정본에 «선언» 표기) · P2 = rN 별 원격 표식(정확 첫 줄) + 단계 상태 posting→posted→done + 불명 차단 + 첨부만 재시도 · §7 시험 2·3 장애 주입. 같은 범위 교정 1회.
 - **소환함(사전검증 1회 · 10분+10분 · 2 HOLD 면 중단)**. 볼 곳 2: ①«컨펌 전 Issue 0»이 선언뿐인가 — 집행 장치는 `ft-proposal-check.sh`(issues master 가 돌림)뿐이고 Tank 래퍼(`ft-gh-as-tank.sh create`)에는 걸지 않았다(키트 bin = 드리프트 BLOCK). 이 수준이 충분한가 ②슬랙 발행의 재게시 0 — 매거진과 달리 posting 단계 없이 «게시 전 채널 정확 첫 줄 확인»만 두는 것이 수동 실행 전제에서 충분한가.
 
 ---

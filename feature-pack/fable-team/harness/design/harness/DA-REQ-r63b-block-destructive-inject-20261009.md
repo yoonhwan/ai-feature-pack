@@ -7,8 +7,8 @@
 골의 축: A(모니터·오빠 요청 — 오빠 절대지침 「임의 레디스랑 말풍선 dom 밀어넣기를 절대 하지 말라」 를 장치로) + C(키트 템플릿 = 전 머신 설치본).
 
 ## 고정 대상
-- 커밋 `72da51914b66364a9c98a616ba490cc02fbc8307`(브랜치 `nano/r63b-block-destructive-inject` · 부모 `3674904f24` · base origin/main). 훅 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(+19줄 · 199줄 · INJECT-BEGIN~END 블록만 · judge·PATTERN·STAGE 변경 0) · 시험 `tests/harness/test_block_destructive_inject.sh` · 대조표 `design/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
-- 카드 `design/harness/indices/진행/r63b-block-destructive-inject.md` · 반송 r1 `.fable-team/state/drafts-r21/REJECT-r63b-block-destructive-inject-r1.md`(오탐 7건 → 검사 사본 `CHK` + Redis 명령 자리 동사) · 조사 `design/harness/SURVEY-r63-injection-guard-hook-20261009.md`.
+- 커밋 `72da51914b66364a9c98a616ba490cc02fbc8307`(브랜치 `nano/r63b-block-destructive-inject` · 부모 `3674904f24` · base origin/main). 훅 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(+19줄 · 199줄 · INJECT-BEGIN~END 블록만 · judge·PATTERN·STAGE 변경 0) · 시험 `tests/harness/test_block_destructive_inject.sh` · 대조표 `design/teams/harness/evidence/r63b-block-destructive-inject/TABLE.md`.
+- 카드 `design/teams/harness/indices/진행/r63b-block-destructive-inject.md` · 반송 r1 `.fable-team/state/drafts-r21/REJECT-r63b-block-destructive-inject-r1.md`(오탐 7건 → 검사 사본 `CHK` + Redis 명령 자리 동사) · 조사 `design/teams/harness/SURVEY-r63-injection-guard-hook-20261009.md`.
 - 적용 범위: 전역 `~/.claude/settings.json` PreToolUse(Bash) — 전 좌석·전 프로젝트(설치는 랜딩 뒤 master · 이 리뷰 대상 아님).
 
 ## arch#20 독립 재현 (증거 · 72da51914b 아카이브)
@@ -24,10 +24,10 @@
 - 범위 밖: 증거 검사(§92 · 닫힘) · 홈 설치 절차(master 몫 · planner 조건 6단계) · 스크립트 «파일 안» 주입(명령줄 훅이 원래 못 봄 — §92 몫).
 
 ## 판정문
-`design/harness/DA-r63b-block-destructive-inject-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-r63b-block-destructive-inject-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 요청 (arch#20 · DA r1 HOLD Q2 만 · bounded 10분 + 정정 10분 · 2 HOLD 면 리뷰 종료)
 - 고정 대상: `c82d93801419ed15d83f4d8304ecdd12d0b1b207`(부모 `72da51914b`) — 훅 +5 −1: `EFFECTIVE` 에 실행 치환(`$(` · 백틱 · `<(` · `>(`)이 하나라도 있으면 `CHK` sed 식에서 검색·게시 예외(`INJECT_SKIP`)를 빼고 페이지 경로 제거만. 반송서 `.fable-team/state/drafts-r21/REJECT-r63b-block-destructive-inject-r2.md`.
 - arch#20 재현(아카이브): test_block_destructive_inject 60 PASS · test_block_destructive 91 PASS · `bash -n` · 훅 204줄. `/bin/bash` JSON 주입 40행(r1 오탐 7 · 일상 통과 · 직접 위반 · 치환 반례 5 — `$(…)` gh pr 본문 · 백틱 gh comment · `<(…)` rg · `$(…)` git grep · `$(curl …/dev/bubble-replay)` gh issue) = 불일치 0(정본 mbox 송신 본문 = 0 · 가짜 경로 mbox = 2 는 판정 466 설계).
 - 질문 **Q2 만**: 치환 반례가 전부 rc 2 인가 · 치환 검사가 빠지는 꼴(예: `$(` 를 쪼개 쓰는 다른 실행 형태 — `eval`·`bash -c` 는 기존 judge 가 Inelig 로 원문 검사)이 남는가. Q1·Q3·Q4 는 r1 APPROVE 유지(재심 0). 새 요구 금지.
-- 판정문: 같은 파일 `design/harness/DA-r63b-block-destructive-inject-20261009.md` 끝에 `## r2` 절.
+- 판정문: 같은 파일 `design/teams/harness/DA-r63b-block-destructive-inject-20261009.md` 끝에 `## r2` 절.

@@ -14,7 +14,7 @@
 
 ## ★지금 할 일★ — r63e(R64) DA r1 HOLD 반송 → 결과 오면 재현 → DA r2
 - 반송서 r1 = `.fable-team/state/drafts-r21/REJECT-r63e-mbox-ok-relative-path-r1.md` (작성 완료 · master#20 에 송신 완료 — 나노 전달은 master). 처방: `moved` 를 따옴표·역슬래시 지운 글자로 판별(`c''d`·`c\d` 반례).
-- 나노 `byz-harness-nano-r63e-mbox-ok-relative-path#0` · 브랜치 `nano/r63e-mbox-ok-relative-path` · r1 커밋 `f94a4a5ebe`. DA 요청서 `design/harness/DA-REQ-r63e-mbox-ok-relative-path-20261009.md` · 판정문 `design/harness/DA-r63e-mbox-ok-relative-path-20261009.md`(r1 HOLD Q2).
+- 나노 `byz-harness-nano-r63e-mbox-ok-relative-path#0` · 브랜치 `nano/r63e-mbox-ok-relative-path` · r1 커밋 `f94a4a5ebe`. DA 요청서 `design/teams/harness/DA-REQ-r63e-mbox-ok-relative-path-20261009.md` · 판정문 `design/teams/harness/DA-r63e-mbox-ok-relative-path-20261009.md`(r1 HOLD Q2).
 - 수정 결과 오면: 아카이브 재현(test_block_destructive · _inject) + 스크래치 `probe_r63e.py`(15행 · 경로는 아래 함정) + 새 반례 2 → DA r2(Q2만 · 요청서에 `## r2 요청` 절 추가 · DA = `byz-harness-da-codex#0`) → 판정서 초안 **§95** → master.
 - 그 뒤 master 가 r63b 훅 재설치(§93 7단계 + R64 원 명령 `bash ../../.fable-team/comm/mbox.sh send … 'redis-cli SET …'` 를 JSON cwd=워크트리로 재생 = 0).
 

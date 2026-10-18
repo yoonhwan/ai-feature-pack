@@ -1,6 +1,6 @@
 # 인덱스: 나노 첫 발주문(ft-nano-spawn BODY)에 「press 금지」 1문장 (R15 T ①)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 R15(문구 부분 T · design/harness/PLAN-r15-press-path-enforcement-20261007.md ⑤ 표 3행)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 R15(문구 부분 T · design/teams/harness/PLAN-r15-press-path-enforcement-20261007.md ⑤ 표 3행)
 - 상태: 대기
 - 선행: 없음
 - 시험 입력: 리포 안 두 사본의 BODY 줄(정적 grep) — 실행·네트워크·tmux 0
@@ -60,4 +60,4 @@ press(라이브 오디오 시험)는 10-07 부터 tester·checker 좌석만 쏜�
 - 세트: 613122a5ccbff052e3a5ac6954d5b0328d2f0aa7 · 시험: bash tests/harness/test_nano_spawn_body_press.sh rc=0 · 이슈: 0
 - 추가 시험: test_kit_bin_sync · test_nano_team_env · test_live_bin_drift_check 전부 rc=0(master) · arch 재현 test_nano_spawn_body_press ALL PASS(음성 대조 포함).
 - 정본 영향: 하네스 나노 발주 문자열·시험만 — docs/architect 제품 정본 변경 없음 · 정본 충돌 2곳(design/v65/SEATBELT-README.md:211 · docs/rules/single_set_testing.md:25)은 v65·문서 몫으로 planner 경유 통지(master#11) · 라이브 ft-nano-spawn.sh cp 는 master 집행(main 병합 → fetch → cp → drift-check OK).
-- 2026-10-08 00:40 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§40
+- 2026-10-08 00:40 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§40

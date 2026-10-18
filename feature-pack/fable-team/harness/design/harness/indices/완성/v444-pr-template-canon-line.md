@@ -1,5 +1,5 @@
 # 인덱스: PR 템플릿에 «정본» 줄과 «Closes / Refs» 자리 — 랜딩 PR 이 정본 diff 를 같이 싣도록 (판정 444 · 440 설계 r2 §4 순서 3)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 444(오빠 컨펌 · planner#11 #63243 · master#16 #63247) · 판정 440 설계 r2 DA APPROVE
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(판정 444 ② · 템플릿은 ops/main-base 와 main 이 같은 바이트) · v444 다른 두 카드와 파일 겹침 0(동시 진행 가능)
@@ -24,7 +24,7 @@
 
 ## 조사 근거
 - `.github/PULL_REQUEST_TEMPLATE.md:1` 「Closes #」 첫 줄 · `.github/PULL_REQUEST_TEMPLATE.md:3` 규약 주석(정본 = ISSUE-TRANSITIONS) · `.github/PULL_REQUEST_TEMPLATE.md:8` 완료 5항 목록.
-- `design/harness/DESIGN-landing-canon-440-20261008.md:66` §2-3 한계(카드·Closes 없는 직접 PR = 랜딩 master 책임 · 템플릿 정본 줄) · `design/harness/DESIGN-landing-canon-440-20261008.md:99` §6-3 부분 PR `Refs #N`.
+- `design/teams/harness/DESIGN-landing-canon-440-20261008.md:66` §2-3 한계(카드·Closes 없는 직접 PR = 랜딩 master 책임 · 템플릿 정본 줄) · `design/teams/harness/DESIGN-landing-canon-440-20261008.md:99` §6-3 부분 PR `Refs #N`.
 
 ## 구현 범위 (닫힌 목록)
 1. `.github/PULL_REQUEST_TEMPLATE.md` 만:
@@ -47,4 +47,4 @@
 - 정본 영향 없음: PR 템플릿 문서만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 16:51 — 대기→진행 · 좌석 byz-harness-nano-v444-pr-template-canon-line#0
 세트: 7e1250a3758a7125324b97e9b7396758c3523f52 · 시험: git diff --check origin/main HEAD rc=0 · 이슈: 0
-- 2026-10-08 17:19 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§63
+- 2026-10-08 17:19 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§63

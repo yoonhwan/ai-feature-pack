@@ -1,5 +1,5 @@
 # 인덱스: v558 인박스 «면제(waived)» — 판정이 정한 옛 백로그를 보고 의무에서 뺀다 · reported 거짓 표시 0 · 정본 술어 한 곳 (판정 558 ④ · master#19 쪽지 #65914)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 558 ④(planner 인박스 21:38 이전 79건 = 훅 술어에서 제외 · reported 거짓 표시 0)
 - 상태: 대기
 - 선행: v423b 랜딩(완료 · PR 1023 · 73d9c25819) · ★v423b 훅 planner 등록은 이 카드 랜딩 + master 의 79건 면제 집행 «뒤»★

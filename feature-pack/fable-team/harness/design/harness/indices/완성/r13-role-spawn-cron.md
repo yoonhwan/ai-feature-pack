@@ -1,5 +1,5 @@
 # 인덱스: 역할 좌석 승계 첫 발주에 «체크 크론 10분 + 부팅 보고 cron= 칸» 고정 (원장 R13 A)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -23,7 +23,7 @@
 ## 완료 조건 (닫힘 판정 기준 — ops 수락 판정문)
 - `bash tests/harness/test_role_spawn_name.sh` rc=0 · `bash tests/harness/test_kit_bin_sync.sh` rc=0 · 기존 `tests/harness/test_*.sh` 전부 rc=0 · 두 사본 `bash -n` OK · `cmp` 두 사본 동일.
 - RESULT 에 --dry-run master·da 실제 출력 BODY 줄 2개 복붙.
-- 라이브 설치와 승계 6단계 5번 문구 3곳(ai-feature-pack · arch 초안 design/harness/drafts/r13/fable-team/)은 master 집행 — 카드 범위 밖.
+- 라이브 설치와 승계 6단계 5번 문구 3곳(ai-feature-pack · arch 초안 design/teams/harness/drafts/r13/fable-team/)은 master 집행 — 카드 범위 밖.
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
 ## 상태
@@ -37,4 +37,4 @@
   `BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-claude#146). 먼저 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r13-role-spawn-cron/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r13-role-spawn-cron/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 byz-v65-master-claude#145 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★`
 - dry-run BODY da (크론 문장 미포함):
   `BODY [Seatbelt 역할 교체] 너는 da 후계 좌석(byz-v65-da-claude#55). 먼저 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r13-role-spawn-cron/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r13-role-spawn-cron/design/v65/indices/inbox/da/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에.`
-- 2026-10-07 18:55 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§30
+- 2026-10-07 18:55 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§30

@@ -1,5 +1,5 @@
 # 인덱스: spawn ②-0 이 cherry 게이트에 --base sha 대신 «랜딩 브랜치»를 넘긴다 (R71 · v65 master#156 #70298 · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R71(v65 master#156 쪽지 #70298 · 하네스 master#24 #70302) · ★R70 설치 뒤에도 v65 나노 spawn 차단 중(급함)★
 - 상태: 대기
 - 선행: R70 랜딩·설치(완료 — 설치본 게이트 sha256 앞12 `d0b27c9ca663`)
@@ -49,4 +49,4 @@ v65 는 나노를 열 때 `--base <sha>` 로 기준점을 고정한다(재대조
 ## 결과
 - 세트: 51b31f5dfd6f27f52e3a867973f0ed5245740abd · 시험: bash tests/harness/test_spawn_gate_landing_branch.sh rc=0 · bash tests/harness/test_cherry_gate_identical_head.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본 변경 없음 — 하네스 키트 spawn 사본 1쌍·시험만 (arch 독립 재현 #70322 · 판정서 §116).
-- 2026-10-09 19:52 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§116
+- 2026-10-09 19:52 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§116

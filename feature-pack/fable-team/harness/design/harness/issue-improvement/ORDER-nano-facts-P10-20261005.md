@@ -10,7 +10,7 @@
 - **읽기 전용**: `gh` 는 `list`·`view`·`api GET` 만 · 서버·launchd·슬랙·tmm 설정 변경 0 · 커밋 0(ops).
 - **시크릿 0**: 토큰·webhook URL·채널 ID 값 0. 파일 경로·변수 이름·개수만.
 - 줄마다 **[사실] 출처**(명령 그대로 또는 `파일:줄`) · 못 보면 **[추측]**.
-- 산출 1장: `design/harness/issue-improvement/FACTS-P10-20261005.md` · 끝나면 mbox 로 arch 에 「완료 · 줄 수 · [추측] 수」 3줄. 상한 10분 · 명령 출력은 40줄씩.
+- 산출 1장: `design/teams/harness/issue-improvement/FACTS-P10-20261005.md` · 끝나면 mbox 로 arch 에 「완료 · 줄 수 · [추측] 수」 3줄. 상한 10분 · 명령 출력은 40줄씩.
 
 ## 1. GitHub 열린 Issue 현황
 ```bash
@@ -46,7 +46,7 @@ grep -rn "gh issue\|Issue 생성\|배분\|랜딩\|close" $(find design -iname '*
 ```bash
 ls ~/.tmm/ ~/.tmm/current/ 2>/dev/null | head -30
 tmm h 2>&1 | head -60 ; tmm --help 2>&1 | head -40
-grep -rn "tmm" ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md design/harness/issue-improvement/SPEC-session-naming-20261005.md | head -15
+grep -rn "tmm" ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md design/teams/harness/issue-improvement/SPEC-session-naming-20261005.md | head -15
 cat ~/.tmm/categories 2>/dev/null | head -30
 ```
 적을 것: 명령 목록 · 탭/그룹 키(팀과 연결 여부) · 질문(AskUserQuestion) 보이기 · 알림 · 한계(인터랙션 가능한 것/아닌 것).
@@ -56,8 +56,8 @@ cat ~/.tmm/categories 2>/dev/null | head -30
 ls ~/Library/LaunchAgents | grep -iE 'slack|mirror|inbound|hermes'
 launchctl list | grep -iE 'slack|mirror|inbound|hermes' 
 ls scripts/harness-install/slack-mirror/ ; grep -n "channel\|post\|inbound\|answer" scripts/harness-install/slack-mirror/*.sh 2>/dev/null | grep -v "xox\|http" | head -20
-grep -rln "슬랙\|slack" design/harness/*.md design/harness/issue-improvement/*.md design/planner/*.md | head -20
-grep -n "슬랙\|slack" design/harness/issue-improvement/MERGED-20261005.md design/harness/DESIGN-slack-inbound-820.md | cut -c1-200 | head -30
+grep -rln "슬랙\|slack" design/teams/harness/*.md design/teams/harness/issue-improvement/*.md design/planner/*.md | head -20
+grep -n "슬랙\|slack" design/teams/harness/issue-improvement/MERGED-20261005.md design/teams/harness/DESIGN-slack-inbound-820.md | cut -c1-200 | head -30
 gh issue view 820 --json title,state,labels | head -20
 ls ~/.hermes/channel_roles 2>/dev/null | head; grep -n "slack" ~/.hermes/config.yaml 2>/dev/null | grep -viE "token|secret|key|hook" | head -10
 ```

@@ -1,5 +1,5 @@
 # 인덱스: C16 매니저 가져오기 — 작성 경로 분류기 + 발견 지연 열 + 좌석 등록 쌍 래퍼
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -11,7 +11,7 @@
 골의 축: 표 A(요청 → Issue → 검토) · 원문 7(많은 Issue 를 가져와 분류). 핵심 한 줄: 들어온 Issue 가 어느 문으로 왔는지와 얼마나 늦게 발견됐는지를 기계가 알아야 매니저가 0 으로 줄일 수 있다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-GitHub 작성자는 전부 한 계정이라 login 으로는 오빠·좌석·사내 멤버를 가를 수 없다(사실). 그래서 폼 마커·라벨로 작성 경로 4종(기획 세션·세션 에이전트·오빠 GitHub 직접·사내 멤버)을 분류한다. 사람 등록(③④)은 라벨을 «보완» 대상으로, 좌석 등록(②)은 «반려» 대상으로 나눈다. 또 Issue 생성 시각에서 매니저 첫 코멘트까지의 지연(발견 지연)을 표로 낸다. 좌석 등록 쌍 = Issue 생성 명령과 매니저에게 가는 알림 1통을 한 묶음으로 만드는 래퍼(기본 dry-run). 정본: `design/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §2 · §8 C16 · `design/harness/issue-improvement/SPEC-issue-manager-slack-tmm-20261005.md` §4 ⓪.
+GitHub 작성자는 전부 한 계정이라 login 으로는 오빠·좌석·사내 멤버를 가를 수 없다(사실). 그래서 폼 마커·라벨로 작성 경로 4종(기획 세션·세션 에이전트·오빠 GitHub 직접·사내 멤버)을 분류한다. 사람 등록(③④)은 라벨을 «보완» 대상으로, 좌석 등록(②)은 «반려» 대상으로 나눈다. 또 Issue 생성 시각에서 매니저 첫 코멘트까지의 지연(발견 지연)을 표로 낸다. 좌석 등록 쌍 = Issue 생성 명령과 매니저에게 가는 알림 1통을 한 묶음으로 만드는 래퍼(기본 dry-run). 정본: `design/teams/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §2 · §8 C16 · `design/teams/harness/issue-improvement/SPEC-issue-manager-slack-tmm-20261005.md` §4 ⓪.
 
 ## 구현 범위 (이 셋만 — 닫힌 목록)
 1. `scripts/fable-team-bin/ft-issue-classify.sh [--from-json <파일>]` — 읽기 전용: `gh issue list --json` 결과(또는 시험용 JSON)를 받아 Issue 마다 작성 경로(① 기획 세션 · ② 세션 에이전트 · ③ 오빠 GitHub · ④ 사내 멤버 · 미분류)와 처리 분기(보완/반려/그대로)를 표로 출력 · 판단 근거(폼 마커·라벨 이름)를 한 열로 · login 은 쓰지 않는다 · 발견 지연 열(created → 매니저 첫 코멘트, 없으면 «미발견» + 나이).
@@ -29,4 +29,4 @@ GitHub 작성자는 전부 한 계정이라 login 으로는 오빠·좌석·사�
 - 2026-10-06 00:18 — 대기→진행 · 좌석 ft-harness-temp-c16-issue-classify#0
 - 정본 영향 없음: 하네스 스크립트·시험만 추가 — docs/architect 제품 정본 변경 없음
 - 세트: 880879cfa297d826d8d8b4457a68c4c6c7897f17 · 시험: bash tests/harness/test_issue_classify.sh rc=0 · 이슈: 0
-- 2026-10-06 00:27 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§16
+- 2026-10-06 00:27 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§16

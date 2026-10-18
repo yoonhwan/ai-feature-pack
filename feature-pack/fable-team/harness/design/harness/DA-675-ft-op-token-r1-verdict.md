@@ -5,7 +5,7 @@ provider: Anthropic (Claude Code · 좌석 byz-harness-da-claude#0)
 
 - 발주: harness-master#23 #68388 (bounded 10+10 · 2 HOLD 중단)
 - 골 축: 하네스 원문 1(업그레이드·커밋·push·반영) — 오빠 문책 「토큰 안된다 매번 이렇게 멍청하게 해야되냐」를 저장 cred 자동 발급으로 해소한다.
-- 대상: `nano/op675-ft-op-token-auto-issue` (wt `.worktrees/harness-op675-ft-op-token-auto-issue`) — `scripts/harness-install/fable-team/bin/ft-op-token.sh`(16줄) · `ft_op_token.py`(195줄) · `tests/harness/test_ft_op_token.py` · `design/harness/staged-675/*` · 카드 설계 1~8.
+- 대상: `nano/op675-ft-op-token-auto-issue` (wt `.worktrees/harness-op675-ft-op-token-auto-issue`) — `scripts/harness-install/fable-team/bin/ft-op-token.sh`(16줄) · `ft_op_token.py`(195줄) · `tests/harness/test_ft_op_token.py` · `design/teams/harness/staged-675/*` · 카드 설계 1~8.
 - 실측: 시험 `.venv/bin/python -m pytest -q tests/harness/test_ft_op_token.py` → **11 passed (20.35 s)** · 스텁 서버를 쓰고 실 Supabase 호출 0. 변경 파일 전체 grep(`supabase.co`·`sb_publishable_`·`sb_secret_`·`@byourz.com`·`eyJhbGci`) 결과 0건. `.fable-team/secrets` 는 `drwx------` 이고 내용은 열지 않았다(판정 676). 코드 수정 0.
 
 ## 판정 — APPROVE (차단 0 · 비차단 권고 4)

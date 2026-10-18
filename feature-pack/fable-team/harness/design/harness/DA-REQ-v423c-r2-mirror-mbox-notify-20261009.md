@@ -7,7 +7,7 @@
 골의 축: A(모니터·오빠 요청 — 「슬랙 메세지 이런거 왜 플래너로 안올라오냐」「빠르게 공유 처리가 안되는게 문제」).
 
 ## 고정 대상
-- 커밋 `82dd9e8d16c37d38f4d51d18390be990b9247989`(브랜치 `nano/v423c-mirror-mbox-notify` · 부모 r0 `58aca7b614` · 6파일 +215 −57). r1 판정문 `design/harness/DA-v423c-mirror-mbox-notify-20261009.md`(Q2 APPROVE · Q1·Q3·Q4 HOLD) · 반송서 `.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r1.md`(arch 결정 = 아래 수락 기준).
+- 커밋 `82dd9e8d16c37d38f4d51d18390be990b9247989`(브랜치 `nano/v423c-mirror-mbox-notify` · 부모 r0 `58aca7b614` · 6파일 +215 −57). r1 판정문 `design/teams/harness/DA-v423c-mirror-mbox-notify-20261009.md`(Q2 APPROVE · Q1·Q3·Q4 HOLD) · 반송서 `.fable-team/state/drafts-r21/REJECT-v423c-mirror-mbox-notify-r1.md`(arch 결정 = 아래 수락 기준).
 - 바뀐 곳: `tools/comm-canonical/mbox.py`(`_REPLY_REF` · `_reply_seqs` · `_received_seqs` · `_reply_exempt` · `send()` 가 잠금 안에서 1회 계산해 `_guard_verdict(…, exempt)`·`_guard_record(…, exempt)` 에 전달 · 기록 `r` = 면제 seq 목록) · `mirror_summary.py`(`_SPLIT`·`_sentences`·`parse_summary(raw, source, label)` · PROMPT todo 에 HIL 조건) · `mirror_deliver.py`(`existing_thread` · `Deliverer.send` 의 `reply_only` 분기) · `mirror_board.py`(item 에 `reply_only: True`) · 시험 2.
 
 ## arch#20 독립 재현 (증거 · 82dd9e8d16 아카이브 · 스크래치패드 새 폴더)
@@ -22,4 +22,4 @@
 - 범위 밖: Q2(r1 APPROVE · `mbox.sh` 무변경) · 기존 pytest 17 실패(수정 전과 같은 목록) · `mbox.py` 200줄 초과(626 · 기존 · 별 카드) · 위 «알고 둔 경계 2»(설계 결정 — 반례로 다시 올리지 않는다).
 
 ## 판정문
-`design/harness/DA-v423c-mirror-mbox-notify-20261009.md` 끝에 `## r2` 절 — Q1·Q3·Q4 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD. 실행 헤더 `model:`/`provider:` 두 줄 그대로.
+`design/teams/harness/DA-v423c-mirror-mbox-notify-20261009.md` 끝에 `## r2` 절 — Q1·Q3·Q4 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD. 실행 헤더 `model:`/`provider:` 두 줄 그대로.

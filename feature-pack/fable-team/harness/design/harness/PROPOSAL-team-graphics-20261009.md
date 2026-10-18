@@ -9,7 +9,7 @@
 >
 > 선례(팀 신설 제안서 형식): origin/main `design/planner/PROPOSAL-team-ops-loom-20261008.md`(PR #893 `299767bef7` · 판정 370·372). 이 워크트리(`ops/main-base`)에는 없다.
 >
-> r2 = 사전검증 DA r1 HOLD(`design/harness/DA-team-graphics-20261009.md` · Q1 감시·HIL 책임 · Q2 팀 신설 승인 ≠ 요청별 착수 승인 · Q3 브랜치/DA 계약 + 인계 수락→랜딩 sha→닫기) 반영. 바뀐 곳 = §2 master·DA·틱 행 · §3 전부 · §4 FE 코드 줄 · §7.
+> r2 = 사전검증 DA r1 HOLD(`design/teams/harness/DA-team-graphics-20261009.md` · Q1 감시·HIL 책임 · Q2 팀 신설 승인 ≠ 요청별 착수 승인 · Q3 브랜치/DA 계약 + 인계 수락→랜딩 sha→닫기) 반영. 바뀐 곳 = §2 master·DA·틱 행 · §3 전부 · §4 FE 코드 줄 · §7.
 >
 > r3 = DA r2(Q1·Q2 APPROVE · Q3 HOLD 1점 = 닫기 전 원격 보존·CLOSEOUT push 미확인) → 2 HOLD 로 리뷰 종료 → arch#24 가 그 1점을 §3.3·§3.7 에 반영하고 서명(아래 «arch 서명»).
 >
@@ -130,7 +130,7 @@ governance 팀 표 1행(`~/.claude/skills/fable-team/references/main-team-govern
 **DA 재소환 판단(arch#24)**: ★한다 — 1회 · Claude Opus(판정 636 절차 「제안서 → DA(Claude Opus) → planner 경유 오빠 컨펌」)★. 이유: r4 는 첫 사례만이 아니라 좌석 구성(DA 계보 codex→Claude Opus · 검토 수락 책임 이동)·단위 정의(업그레이드 + 코드 연동)·나노 석 수 기본값을 바꿨다. 범위 = r4 바뀐 곳만(r2·r3 에서 APPROVE·서명된 감시·HIL·승인 근거·닫기 계약은 재검토 0) · bounded 10분 + 정정 10분 · 2 HOLD 면 arch 서명.
 
 ## arch 서명 (byz-harness-arch-claude#24 · 2026-10-09 · DA 2 HOLD 리뷰 종료 뒤)
-- 사전검증 DA(`design/harness/DA-team-graphics-20261009.md` · codex): r1 HOLD Q1·Q2·Q3 → r2 Q1·Q2 APPROVE · Q3 HOLD 1점(§3.7 닫기 전 산출물 원격 보존·CLOSEOUT push 미확인 — closeout-policy §2·5 와 불일치).
+- 사전검증 DA(`design/teams/harness/DA-team-graphics-20261009.md` · codex): r1 HOLD Q1·Q2·Q3 → r2 Q1·Q2 APPROVE · Q3 HOLD 1점(§3.7 닫기 전 산출물 원격 보존·CLOSEOUT push 미확인 — closeout-policy §2·5 와 불일치).
 - 그 1점 정정(r3): §3.7 공통 = 하네스 master 가 닫기 전 ①산출물 원격 sha ②미커밋 0 ③CLOSEOUT push·원격 sha 실측 · b·c 에 원격 보존 위치 필수 · §3.3 graphics 좌석 push 0 + 보존 push 는 하네스 master. DA 가 요구한 교정 지점(«로컬 커밋만으로 닫지 않는 계약») 문구 그대로 반영 — 추가 기능·브랜치 삭제 0.
 - arch 판단(r3): 팀 신설 제안서로 오빠 결정 칸에 올릴 수 있다. 설치·좌석 0 은 컨펌 뒤까지 유지.
 - r4(판정 636·641 반영)는 위 §8 «DA 재소환 판단» 대로 Claude Opus DA 를 거친다 — r3 1차 HOLD(Q1·Q2·Q3 · Q4 APPROVE) → r5 교정 → 정정 검토 1회.

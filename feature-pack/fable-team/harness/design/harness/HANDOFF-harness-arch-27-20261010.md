@@ -31,4 +31,4 @@
 
 ## 추기 (16:4x · 컨텍스트 440k)
 - R87: 나노 r2 → main edda18c4a1(PR 1221) 랜딩·실머신 설치 끝(launchd 소유 · 옛 세션 터널 정리). DA 1·2·최종 3회 HOLD — 남은 1건 = install.sh 36~40 watchdog 이 부모 TERM 시 자식 고아 생존(#73362). 닫힘 판정문 0 · 카드 진행/ 유지. gateway 16:30:54 PoolTimeout 1건 = 원인 미규명(보고 «0» 과 다름). 결정 ⓐ나노 r3+master 시험 닫기 ⓑ별 카드 — master#27 쪽지 #73363 로 상신됨.
-- 반송 지시 r1: design/harness/ORDER-r87-return-r1-20261010.md.
+- 반송 지시 r1: design/teams/harness/ORDER-r87-return-r1-20261010.md.

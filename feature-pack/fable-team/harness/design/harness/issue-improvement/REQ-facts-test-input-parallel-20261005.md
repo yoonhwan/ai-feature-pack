@@ -8,7 +8,7 @@
 >
 > 골의 축: 원문 7 「시험 병렬」. 발주 = ops#3 ORDER-mic-vs-sound-input(#57059). 오빠 원문: 「테스터가 하나로 줄을 세워야 되잖아요 … 마이크를 쓰는 것과 그냥 사운드를 입력하는 것을 비교 … CCU 테스트할 때 사운드 입력으로 진행해서 마이크가 필요 없었거든요 … 프로세스에 제한이 없으면 병렬로 테스트까지」 — ★오빠 가정은 검증 대상★: «머신당 1» 자원이 하나라도 남으면 그것이 상한이다.
 
-읽기 전용 · 수정 0 · 커밋 0 · **press·러너 실행 금지**(grep·Read·ls·git log 만). 산출 `design/harness/issue-improvement/FACTS-test-input-parallel-20261005.md` + 원본 `facts-raw/H*.txt`. 측정 시각 1줄 · [사실]/[추측] · 「파일:줄」. 숫자에는 출처.
+읽기 전용 · 수정 0 · 커밋 0 · **press·러너 실행 금지**(grep·Read·ls·git log 만). 산출 `design/teams/harness/issue-improvement/FACTS-test-input-parallel-20261005.md` + 원본 `facts-raw/H*.txt`. 측정 시각 1줄 · [사실]/[추측] · 「파일:줄」. 숫자에는 출처.
 
 ## H1. v65 press 가 소리를 넣는 경로 — 구성요소 사슬과 «머신당 1»
 - `tests/e2e/realtime_multi_e2e.py`·`tcc8_completion_press.py` 에서: 음원 재생 방식(어느 명령·어느 출력 장치 — BlackHole 장치명 grep) · Chrome 이 소리를 받는 길(`getUserMedia` · 입력 장치 선택 코드 줄) · PTT/mic 클릭(`Input.dispatchMouseEvent` 줄 · `_real_click`) · CDP 접속 포트(`9333` 등) · 탭 개폐 규칙(「press 중 탭 개폐 0」 줄).

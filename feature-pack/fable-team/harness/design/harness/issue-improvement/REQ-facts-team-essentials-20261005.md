@@ -7,7 +7,7 @@
 >
 > 골의 축: 표 A(모니터) — 팀 구성에 시험·확인·대조·관측 넷이 빠지면 모니터가 성립하지 않는다(오빠 「tester, checker, bts, poller 놓치면 안 된다」). 발주 = ops#2 #57013.
 
-읽기 전용 · 수정 0. 산출 `design/harness/issue-improvement/FACTS-team-essentials-20261005.md`(표 1개 = 4요소 × 팀 3(v65·cfo·ccu) + 정의 표 · [사실]/[추측] · 「파일:줄」) + 원본 `facts-raw/E*.txt`. 측정 시각 1줄.
+읽기 전용 · 수정 0. 산출 `design/teams/harness/issue-improvement/FACTS-team-essentials-20261005.md`(표 1개 = 4요소 × 팀 3(v65·cfo·ccu) + 정의 표 · [사실]/[추측] · 「파일:줄」) + 원본 `facts-raw/E*.txt`. 측정 시각 1줄.
 
 ## E1. 넷의 정체 — 좌석 / 스킬 / 도구 중 무엇인가
 - **tester**: 에이전트 정의 `.claude/agents/ft-tester.md`(있으면 첫 10줄) · 좌석 실례 `ft-v65-tester-claude#13`(tmux 실재 Y/N · 명부 행) · 여는 명령(`ft-role-spawn.sh tester` 줄) · cfo·ccu 에 tester 좌석이 있었나(명부 6파일 grep `tester`).

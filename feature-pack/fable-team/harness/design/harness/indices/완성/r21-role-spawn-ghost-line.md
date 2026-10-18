@@ -1,5 +1,5 @@
 # 인덱스: ft-role-spawn 후계 첫 발주(BODY)에 고스트 서제스천 1줄 — 전 역할 (R21)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -8,7 +8,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R21 — planner#6 이 v65 master#145 pane 의 `❯` 뒤 자동완성 제안을 오빠 미제출 입력으로 읽고 인터뷰까지 띄움(오빠 「심각하네 그거 서제스천인데 … 착각하지 마라 메인 지침」 · planner #60104 → master#10 #60111). 안 = design/harness/PLAN-r21-ghost-suggestion-20261007.md.
+골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R21 — planner#6 이 v65 master#145 pane 의 `❯` 뒤 자동완성 제안을 오빠 미제출 입력으로 읽고 인터뷰까지 띄움(오빠 「심각하네 그거 서제스천인데 … 착각하지 마라 메인 지침」 · planner #60104 → master#10 #60111). 안 = design/teams/harness/PLAN-r21-ghost-suggestion-20261007.md.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 대상은 추적본 `scripts/fable-team-bin/ft-role-spawn.sh` + 키트 `scripts/harness-install/fable-team/bin/ft-role-spawn.sh`(지금 같은 바이트 · 둘 다 같이 고친다). 이 스크립트는 역할 좌석(master·arch·da·pm·tester·checker 등) 후계를 열고 첫 발주 문장 `BODY` 를 보낸다(57행). 59행 `case "$ROLE" in master|arch)` 는 master·arch 에만 크론 문장(R13)을 덧붙인다. 고스트 서제스천 규칙은 남의 pane 을 읽는 모든 역할에 필요하므로 «전 역할» BODY 끝에 붙인다. 시험 `tests/harness/test_role_spawn_name.sh` 는 `--dry-run` 이 찍는 `BODY ` 줄을 관측점으로 쓴다(60–70행 · R13 사례).
@@ -49,4 +49,4 @@
 - 세트: 94e94b88faa1789c3c394738c6537299499ddf24 · 시험: bash tests/harness/test_role_spawn_name.sh rc=0 · 이슈: 0
 - 추가 시험: bash tests/harness/test_kit_bin_sync.sh rc=0 (ALL PASS) · 두 사본 cmp 동일 · bash -n OK
 - 정본 영향: 하네스 승계 스크립트(추적본·키트)·시험만 — docs/architect 제품 정본 변경 없음 · 라이브 RT ft-role-spawn 은 랜딩 뒤 단독 cp(R13 크론 줄도 같이 들어옴).
-- 2026-10-07 21:25 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§36
+- 2026-10-07 21:25 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§36

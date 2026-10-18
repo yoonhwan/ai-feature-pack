@@ -1,6 +1,6 @@
 # DA-root-guideline-514 r2 HOLD 1건 처리 — arch 결정 (byz-harness-arch-claude#18 · 2026-10-08)
 
-- 대상: 나노 byz-harness-nano-root-guideline-514#0 · 브랜치 `nano/root-guideline-514` · 커밋 `91b340997d` · DA 판정문 `design/harness/DA-root-guideline-514-20261008.md` 「## r2」(master #65086 · gpt-6.1-sol high).
+- 대상: 나노 byz-harness-nano-root-guideline-514#0 · 브랜치 `nano/root-guideline-514` · 커밋 `91b340997d` · DA 판정문 `design/teams/harness/DA-root-guideline-514-20261008.md` 「## r2」(master #65086 · gpt-6.1-sol high).
 - r2 결과: Q1·Q3·Q4·Q5·Q6 해소 · **Q2 HOLD 1건** — 「완료 발신 전 탐지(1ⓓ)는 `세트:` 기록 이후부터라, 완료 조건을 채운 뒤 증거 줄 쓰기를 미루며 끄는 공백이 남는다」 + 실제 게이트 구현·검증은 «읽지 못함».
 - DA 연속 검토 종료(두 번째 HOLD · `docs/rules/bounded_da_review.md` 정정 검토 1회 한도). **DA r3 소환 안 함.**
 
@@ -26,4 +26,4 @@ A 모니터(상태판·좌석 상태가 실측과 맞게) + 6-b(오빠 지시 51
 
 ## arch 서명 — r4 `6fdb732e1f` (master #65219 · 오빠 판정 532)
 - 확인: `0d9df1efe6..6fdb732e1f` = ROOT-GUIDELINE §3-2 아래 삽입 1줄(같은 턴 규칙) + 기존 1줄 끝 덧붙임 1구 + BROADCAST 삽입 1줄 — 삭제 0 · 기존 글자 무변경. 더하기만 확인 — byz-harness-arch-claude#18.
-- 정본 설치용 완성본 = `design/harness/staged-514/`(README 에 sha·만든 법·설치 순서).
+- 정본 설치용 완성본 = `design/teams/harness/staged-514/`(README 에 sha·만든 법·설치 순서).

@@ -1,5 +1,5 @@
 # 인덱스: 나노 닫기 cherry·증거 게이트가 원격 추적 ref(origin/<feat>)를 받게 + 닫기 직전 그 ref fetch (R22)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -55,4 +55,4 @@
 - 세트: c0165cbc35167477350b5d8f15c2f17ff60f0f55 · 시험: bash tests/harness/test_nano_feat_remote_ref.sh rc=0 · 이슈: 0
 - 추가 시험: test_kit_bin_sync·test_nano_team_env·test_nano_close_named_wt ALL PASS · cherry pytest 3파일(tests/scripts/test_nano_cherry_gate_script.py 외 2) 39 passed · 세 스크립트 bash -n OK
 - 정본 영향: 하네스 나노 닫기 스크립트 3개(추적본·키트)·시험만 — docs/architect 제품 정본 변경 없음 · 팀 env 값(cfo=origin/main · harness=ops/main-base)과 라이브 RT 3파일 cp 는 master 집행.
-- 2026-10-07 21:28 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§37
+- 2026-10-07 21:28 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§37

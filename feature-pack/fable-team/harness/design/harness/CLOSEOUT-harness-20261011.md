@@ -8,7 +8,7 @@
 ## 축별 상태와 닫는 증거
 | 단위 (골 축) | 상태 | 닫는 증거 |
 |---|---|---|
-| R102 이슈 닫기 게이트 (B 개선요청 접수·협의 + C 업그레이드·설치) | 닫힘 | PR 1259 squash `15b8920236c3516defe69c2295cac7aff012c16e` · 카드 `design/harness/indices/완성/r102-issue-close-gate.md` · 판정문 `OPS-VERDICTS-20261006.md §117` · 세트 `d2ff250ebd702758116b76a2b850d41e8b3cd90f` · 요청 원장 R102 닫힘 |
+| R102 이슈 닫기 게이트 (B 개선요청 접수·협의 + C 업그레이드·설치) | 닫힘 | PR 1259 squash `15b8920236c3516defe69c2295cac7aff012c16e` · 카드 `design/teams/harness/indices/완성/r102-issue-close-gate.md` · 판정문 `OPS-VERDICTS-20261006.md §117` · 세트 `d2ff250ebd702758116b76a2b850d41e8b3cd90f` · 요청 원장 R102 닫힘 |
 | 라이브 설치 (C) | 완료 | 루트 `.fable-team/bin` + `v6-realtime-live/.fable-team/bin` 에 close-check·close-gate(신규)·ft-gh-as-tank · 백업 `.bak-r102-20261011T134602Z` · drift-check OK files=108 · dry-run ③ rc=0 · ② rc=3 · 라벨 `status:observing` 생성 |
 | ops 문서 묶음 랜딩 (판정 1064·1066 · C) | 닫힘 | PR 1260 squash `32d0374ed0e8c600e3c7ae07537cc814be989b60` · 16파일 코드 0 · 패치 동일 대조 |
 | ops 카드 cap-o5c-contract-cap-input 완성 이동 | 닫힘 | ops 쪽 커밋 `26d3f654f4`(정본 줄 `873c95783d`) · 랜딩 `32d0374ed0e8` |
@@ -31,4 +31,4 @@ push 전 로컬 검증: 시험 3종 rc=0 (`test_issue_close_gate.sh` · `test_is
 - Tank 래퍼 `ft-gh-as-tank.sh` 200줄 분할 + 내부 gh 호출 7초 룰 적용(arch#28 별 후보 · 쪽지 76125)
 
 ## 다시 여는 법
-버그·요청이 생기면 이 문서와 `design/harness/REQUEST-LEDGER.md` 를 읽고 새 master 좌석을 연다(`tmuxc open … --model 'claude-sonnet-5-5[1m]' --ctx 1m --effort high` · `zsh -lc` 로 감쌈). 승계 인계서 `HANDOFF-harness-master-28-to-29-20261011.md` 의 운영 규칙·함정 절이 유효 — 특히 라이브 도구는 `v6-realtime-live/.fable-team/bin` 에서만 실행(루트 bin 은 옛 부분 사본), 라이브 파일 모드는 설치 미러(`scripts/harness-install/fable-team/bin`)와 같게(ft-gh-as-tank.sh 는 644).
+버그·요청이 생기면 이 문서와 `design/teams/harness/REQUEST-LEDGER.md` 를 읽고 새 master 좌석을 연다(`tmuxc open … --model 'claude-sonnet-5-5[1m]' --ctx 1m --effort high` · `zsh -lc` 로 감쌈). 승계 인계서 `HANDOFF-harness-master-28-to-29-20261011.md` 의 운영 규칙·함정 절이 유효 — 특히 라이브 도구는 `v6-realtime-live/.fable-team/bin` 에서만 실행(루트 bin 은 옛 부분 사본), 라이브 파일 모드는 설치 미러(`scripts/harness-install/fable-team/bin`)와 같게(ft-gh-as-tank.sh 는 644).

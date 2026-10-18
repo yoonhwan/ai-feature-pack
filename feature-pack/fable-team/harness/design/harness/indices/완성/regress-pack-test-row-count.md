@@ -1,6 +1,6 @@
 # 인덱스: test_regress_pack 의 「예시 2행」 고정 기대를 «형식 검사»로 — 실데이터가 늘면 깨지는 시험 (야간 단위 3)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 야간 자율 안 design/harness/PLAN-night-autonomy-20261008.md 단위 3
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 야간 자율 안 design/teams/harness/PLAN-night-autonomy-20261008.md 단위 3
 - 상태: 대기
 - 선행: 없음
 - 시험 입력: 저장소 tests/regression/issue_pack.jsonl(읽기만) + 기존 시험의 mktemp 리포
@@ -49,4 +49,4 @@
 - 세트: 4143c964f1bfad38991ce897c1967f64b640b656 · 시험: bash tests/harness/test_regress_pack.sh rc=0 · 이슈: 0
 - 추가 시험: /bin/bash 3.2 로도 fail=0(master·arch) · 음성 대조(arch): 첫 행 repro_cmd 키를 지운 복사 팩을 FT_REGRESS_PACK_FILE 로 주면 `FAIL issue_pack.jsonl 형식(행 ≥1 · 키 9 · 합성 예시 1)` fail=1.
 - 정본 영향: 하네스 시험 1파일만 — docs/architect 제품 정본 변경 없음 · 라이브 반영 불요(시험 파일).
-- 2026-10-08 01:48 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§41
+- 2026-10-08 01:48 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§41

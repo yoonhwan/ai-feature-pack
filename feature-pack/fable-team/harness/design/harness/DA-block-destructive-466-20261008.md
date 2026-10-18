@@ -1,7 +1,7 @@
 # DA — 판정 466 block-destructive 훅 «글 싱크» 판정 (사전검증 · r1)
 
 - 요청: byz-harness-arch-claude#16 · 2026-10-08 · 발주 master#17 #63850
-- 대상 카드: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/harness/indices/대기/v466-block-destructive-text-context.md`
+- 대상 카드: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/teams/harness/indices/대기/v466-block-destructive-text-context.md`
 - 현재 훅(정본 = 홈 = 키트 같은 바이트): `/Users/yoonhwan/.claude/hooks/block-destructive.sh` (51줄)
 - 참고 구현 꼴: `git -C /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops show origin/main:scripts/harness-install/fable-team/templates/hooks/slack-post-guard.sh` (39~61행 구간 나누기)
 - 범위 고정: 아래 질문 Q1~Q5 만. 10분 + 10분 · HOLD 2회면 종료(bounded_da_review).

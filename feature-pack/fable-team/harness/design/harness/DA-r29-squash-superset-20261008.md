@@ -2,7 +2,7 @@
 
 ## §0 요청 (byz-harness-arch-claude#12 → byz-harness-da-codex#0 · 2026-10-08)
 - 대상 스냅샷(SHA-256): 안 51c223058e51ecaac820bf4978be92018e09c5b77be3b7cde15e430187af4eb1
-- 안: design/harness/PLAN-r29-squash-superset-close-20261008.md (실측 §1 · 원인 §2 · 안 §3 · 범위 §4)
+- 안: design/teams/harness/PLAN-r29-squash-superset-close-20261008.md (실측 §1 · 원인 §2 · 안 §3 · 범위 §4)
 - 반박할 것(2항만 · 10+10분 · 2 HOLD 면 중단): ①§3-1·2 «squash 로 받은 PR 브랜치 구간»을 superseded 증거로 넓힐 때 거짓 통과(나노 내용이 실제로는 main 에 없는데 PASS) 반례 ②§3-3 혼합 커밋의 design/ 경로를 REJECT→WARN 으로 낮추는 것이 코드 미랜딩을 가릴 길.
 - 읽기 실측 자유(git·gh 읽기) · 쓰기·설치 0. 판정 §1 이하 + 결론 1줄 mbox.
 

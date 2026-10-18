@@ -1,5 +1,5 @@
 # 인덱스: 하네스 루트 지침 초안 — 「골을 끝내면 멈추고 다음 일을 묻는다」 모든 팀·좌석이 부팅 때 읽는 최상위 지침 + 판정 511 «완료·휴식» 상태 반영 (판정 514 · 설계 좌석 Fable 5.1 high · DA sol high)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 514(오빠 절대 지침 21:3x · planner#12 #64807 · 「골을 줬으면 끝내고 놀아」·「이거 기획 da 높은 브래인으로 하네스 루트 브레인 지침 만드는거다」 · master#18)
 - 상태: 대기
 - 선행: 없음 (v421-board 랜딩과 무관 · 문서 산출만)
@@ -20,17 +20,17 @@
 
 ## 사전검증
 - 소환: 예
-- DA: codex gpt-6.1-sol effort high (기본 low 아님 · 오빠 지시) — 초안 완성 뒤 master 가 소환 · 판정문 `design/harness/DA-root-guideline-514-20261008.md`
+- DA: codex gpt-6.1-sol effort high (기본 low 아님 · 오빠 지시) — 초안 완성 뒤 master 가 소환 · 판정문 `design/teams/harness/DA-root-guideline-514-20261008.md`
 
 ## 조사 근거
-- 기존 조항: `~/.claude/rules/closeout-policy.md` 1·4(열어 두고 이어가기 금지 · 재개 = 이벤트 기반) · `~/.claude/skills/fable-team/references/main-team-governance.md`(§8 판정 511 초안 포함) · `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md`(현재 17조항 · 18줄 초안은 `design/harness/DESIGN-511-seat-stall-watch-20261008.md`).
-- 판정 511 설계·DA: `design/harness/DESIGN-511-seat-stall-watch-20261008.md` · `design/harness/DA-511-seat-stall-watch-20261008.md` — 511 의 «정지 = 나쁨» 은 «안 끝났는데 기다리며 멈춤» 에만 해당한다는 정정을 이 단위가 반영한다.
+- 기존 조항: `~/.claude/rules/closeout-policy.md` 1·4(열어 두고 이어가기 금지 · 재개 = 이벤트 기반) · `~/.claude/skills/fable-team/references/main-team-governance.md`(§8 판정 511 초안 포함) · `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md`(현재 17조항 · 18줄 초안은 `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md`).
+- 판정 511 설계·DA: `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md` · `design/teams/harness/DA-511-seat-stall-watch-20261008.md` — 511 의 «정지 = 나쁨» 은 «안 끝났는데 기다리며 멈춤» 에만 해당한다는 정정을 이 단위가 반영한다.
 - 메모리 근거 `~/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents/memory/feedback_finish_goal_then_rest_no_dragging.md`.
 - 방송 이력: 판정 511 방송은 master#17 이 6팀에 이미 발신(규칙 문서 `RULE-status-from-measurement-20261008.md`) — 정정 방송 필요 여부를 초안에 판단으로 적는다.
 
 ## 구현 범위 (닫힌 목록)
-1. 산출 파일 1: `design/harness/ROOT-GUIDELINE-draft-20261008.md` — «하네스 루트 지침» 초안. 모든 팀·좌석이 부팅 때 읽는다는 전제로 짧고 강제력 있게(조항마다 «무엇을 하지 않는다 + 하면 어떻게 잡는가»). 포함: ①오빠 원문 인용(위 배경 그대로) ②좌석 상태 3분류 정의와 판별 근거(jsonl turn 끝 · 닫는 증거 유무) ③완료·휴식 절차(끝났음 + 닫는 증거 + 다음 일 요청 1통을 planner 에 · 그 뒤 쉼 · 세션 닫기는 closeout-policy 5) ④금지 4 + 각각의 «잡는 방법» ⑤판정 511 과의 관계 정정 ⑥정본 반영 위치 제안(main-team-governance 조항 · COMM-GUIDE-BOOT 한 줄 · 상태판 «완료·휴식 = 다음 일 대기» 칸)과 각 문구 초안.
-2. 산출 파일 2: `design/harness/DESIGN-511-seat-stall-watch-20261008.md` 에 «완료·휴식» 상태 절 추가(`§4-r3`) — 기존 §4-r2 는 지우지 않고, 정지(3분+) 열이 완료·휴식 좌석을 정지·미완으로 세지 않게 하는 판별 규칙만 더한다.
+1. 산출 파일 1: `design/teams/harness/ROOT-GUIDELINE-draft-20261008.md` — «하네스 루트 지침» 초안. 모든 팀·좌석이 부팅 때 읽는다는 전제로 짧고 강제력 있게(조항마다 «무엇을 하지 않는다 + 하면 어떻게 잡는가»). 포함: ①오빠 원문 인용(위 배경 그대로) ②좌석 상태 3분류 정의와 판별 근거(jsonl turn 끝 · 닫는 증거 유무) ③완료·휴식 절차(끝났음 + 닫는 증거 + 다음 일 요청 1통을 planner 에 · 그 뒤 쉼 · 세션 닫기는 closeout-policy 5) ④금지 4 + 각각의 «잡는 방법» ⑤판정 511 과의 관계 정정 ⑥정본 반영 위치 제안(main-team-governance 조항 · COMM-GUIDE-BOOT 한 줄 · 상태판 «완료·휴식 = 다음 일 대기» 칸)과 각 문구 초안.
+2. 산출 파일 2: `design/teams/harness/DESIGN-511-seat-stall-watch-20261008.md` 에 «완료·휴식» 상태 절 추가(`§4-r3`) — 기존 §4-r2 는 지우지 않고, 정지(3분+) 열이 완료·휴식 좌석을 정지·미완으로 세지 않게 하는 판별 규칙만 더한다.
 3. 산출 파일 3: 전 팀 방송 문안 초안(오빠 원문 3줄 + 금지 4 · 팀별로 문구를 달리 쓸 필요가 있으면 그 이유 1줄 · 511 방송 정정 필요 여부 판단).
 4. 순서: 초안 → master 에 RESULT(mbox) → master 가 DA 소환 → HOLD 면 반영 → APPROVE 면 planner 가 오빠 컨펌 → master 가 정본 반영·방송. ★정본 파일(`~/.claude/**`) 직접 수정 금지★ — 이 단위는 초안까지.
 
@@ -52,4 +52,4 @@
 세트: 6fdb732e1fb4b6d948d978e995b13c9d7d6c989b · 시험: bash tests/harness/test_kit_bin_sync.sh rc=0 · 이슈: 0
 세트: 965c6695d28bce4f38cd99f59f0b7d5a631ac935 · 시험: bash tests/harness/test_kit_bin_sync.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 지침 문서·홈 정본(~/.claude 이미 설치)만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-08 22:17 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§79
+- 2026-10-08 22:17 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§79

@@ -1,5 +1,5 @@
 # 인덱스: Issue 855 — pytest 가 리포 루트 .env 를 읽지 않게 (로컬 = CI 조건) · 시험 격리 5건
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -37,4 +37,4 @@
 - 게이트 증거(나노 2026-10-07): 세트: 215f52056ab552c578f1f535ccf06f0d6b3b4cfb · 시험: ci.yml 145행 CI 묶음 + 대칭 deselect 3(.env 심링크 있음) 수정 후 첫 전체 실행 rc=1(7471 passed·27 failed: 16=내 가드가 자식 인터프리터에서 터진 회귀→PYTEST_CURRENT_TEST 추가로 수정 · 남은 11은 재실행 rc=1 11 failed, .env 없는 git archive 사본과 실패 집합 동일 · 전체 재실행은 master 대조 중이라 안 함) · 855 5건 대상 시험 PASS(gpu_uptime 포함 12 · pulse carry 11) · 이슈: 0
 - RED 2 vs 3: 카드의 «gpu 3건»은 test_gpu_uptime 단독이 아니다 — 수정 전 base(ad7481bc1a)에서 APP_ENV=local+DEV_GPU_STATUS_URL=http://127.0.0.1:9 로 gpu 관련 8파일을 돌리면 dev-proxy 때문에 test_gpu_uptime 2건(test_status_reports_uptime_when_warm·test_status_zero_uptime_when_cold) + test_gpu_auto_warmup_toggle::test_status_reports_auto_warmup_false_when_key_absent 1건 = 3 FAILED(Redis·시계 의존 아님 · 같은 원인 gpu.py _dev_proxy_base_url). 세 번째 건은 다른 파일이고, 수정 후엔 conftest 스킵으로 통과(27 failed 목록에 없음). 같은 실행의 test_gpu_vm_control 2건은 Redis 거부(855 밖).
 - 세트: 215f52056ab552c578f1f535ccf06f0d6b3b4cfb · 시험: bash -c 'pytest tests/gateway/unit/test_gpu_uptime.py tests/gateway/unit/test_settings_dotenv_skip.py tests/worker/unit/test_pulse_consumer_carry_integration.py' rc=0 · 이슈: 0
-- 2026-10-07 19:27 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§31
+- 2026-10-07 19:27 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§31

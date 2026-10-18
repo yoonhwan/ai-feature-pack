@@ -5,7 +5,7 @@
 
 1. 이관 Issue 3 인수(team:shared-harness 라벨 확인): #733 V14 세트 버저닝 · #737 V19 트랙별 FT 분담 · #761 C13c FT pack wip 리뷰 — 각 Issue 에 「인수 · 담당 ft-harness-ops#0」 코멘트 1줄(gh 는 unset GH_TOKEN 먼저).
 2. REQUEST-LEDGER R1~R3 → Issue 3건 생성(라벨 team:shared-harness scope:direct phase:pre-completion type:agent-ops status:needs-triage · 마일스톤 goal-outside) · 번호를 원장에 적음.
-3. R1(백틱 훅) 수정 1건 = 축 C 첫 발행: 훅이 mbox 인자만 검사하도록(heredoc 본문 제외) · 셔뱅 -n · 실측 1회 → 커밋 → PR(main) → design/harness/RELEASE-0.1.md(변경·설치 명령 · 머신 행: 로컬 1) → planner mbox 3줄(경로·sha·남은 일).
+3. R1(백틱 훅) 수정 1건 = 축 C 첫 발행: 훅이 mbox 인자만 검사하도록(heredoc 본문 제외) · 셔뱅 -n · 실측 1회 → 커밋 → PR(main) → design/teams/harness/RELEASE-0.1.md(변경·설치 명령 · 머신 행: 로컬 1) → planner mbox 3줄(경로·sha·남은 일).
 4. 축 A: 모니터 체크 1벌 정의(훅 로그 · 좌석 부팅 실패 · mbox DROPPED · 자동로드 예산 hygiene-check.sh rules) → 10분 루프는 좌석 자체(틱 데몬 0).
 금지: 제품 코드 · 라이브 인프라 · 다른 머신 세션 send-keys · 글로벌 CLAUDE.md 하드 룰 변경(= [HIL] → planner).
 

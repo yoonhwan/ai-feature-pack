@@ -1,5 +1,5 @@
 # 인덱스: v423a 보드 발행 — byz_thread_post `update`(하루 1 뿌리 글 chat.update + 변화 답글 · reply_pending) · ft-board-publish.sh(스냅샷 먼저 · 날짜 동결) (판정 421·423 · 430·431 · 설계 §2-3 · v423 분할 1/3)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 423(오빠 승인 6개: ①종류별 보고 의무 ②미러 할 일 금지+planner 처리 1줄 ③판정·승인·HIL 항상 doorbell ④회신 상한 완화 ⑤인터뷰 전 함 비우기 ⑥보드 planner 미처리 칸) · 421 발행 · 430·431 컨펌(planner #62745 · master #62749)
 - 상태: 대기
 - 선행: v421 상태판 랜딩(완료 · #989·#991 · v511 #1002 로 `ft-board.py stalled` 추가 — 이 카드는 `snapshot`·`render --slack` 만 호출 · 둘 다 그대로) · 순서 = v423a → v423b → v423c(master 한 번에 하나)
@@ -19,11 +19,11 @@ R34 실측: planner 는 쪽지를 빨리 읽지만(중앙값 22초) 읽은 뒤 �
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
 - 분할(arch#18): 원 카드 사전검증·DA·컨펌이 세 카드를 그대로 덮는다(범위는 원 카드 구현 범위의 부분집합).
 
 ## 조사 근거 (origin/main dbbf096099 재확인 · arch#18)
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:43`~`:47` 보드 스레드(뿌리 1개/날 · chat.update · 스냅샷 먼저 · 답글 실패 복구 · 날짜 동결 · 발행 시점).
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:43`~`:47` 보드 스레드(뿌리 1개/날 · chat.update · 스냅샷 먼저 · 답글 실패 복구 · 날짜 동결 · 발행 시점).
 - `scripts/harness-install/slack-mirror/thread_post_args.py:26` 서브명령 자리(45줄) · `scripts/harness-install/slack-mirror/byz_thread_post.py:71` cmd_start(장부 키·뿌리 글 꼴) — ★지금 192줄 → update 는 새 파일 `scripts/harness-install/slack-mirror/thread_post_update.py` 에 두고 main 에 분기 1줄만★(200줄 한도).
 - `scripts/fable-team-bin/ft-board.py:3-9` 하위 명령(collect·render·stalled·snapshot·prune) — snapshot 쓰기 실패 = rc≠0 · stdout 빈 값.
 

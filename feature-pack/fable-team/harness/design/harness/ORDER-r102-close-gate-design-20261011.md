@@ -6,14 +6,14 @@
 골의 축: 개선요청 접수·협의(B) + 업그레이드·커밋·push·반영(C) — 요청 원장 R102.
 
 ## 먼저
-~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 Read 하고 따른다(전문 COMM-GUIDE.md 는 열지 않는다). 승계 첫 일 = 골 대조 보고 + 부팅 3항 + i-have-adhd 를 master(byz-harness-master-claude#28)에 mbox 보고 + CronCreate 10분 틱. 설계 산출은 tracked 경로(design/harness/)에.
+~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 Read 하고 따른다(전문 COMM-GUIDE.md 는 열지 않는다). 승계 첫 일 = 골 대조 보고 + 부팅 3항 + i-have-adhd 를 master(byz-harness-master-claude#28)에 mbox 보고 + CronCreate 10분 틱. 설계 산출은 tracked 경로(design/teams/harness/)에.
 
 ## 일 (설계만 · 구현은 설계→DA 뒤 master 집행)
-오빠 원문 「하네스마스터 분석 개선요청」 = 개선까지 요청. 분석 보고(읽어라): design/harness/REPORT-g922-reopen-why-20261011.md — #922 가 «폰 인수 PASS 1회 + 랜딩 번호»만으로 닫혔는데 마감 문서에 원인 미확정·같은 증상 보류(바닥 빈 띠)가 적혀 있었고, 닫은 뒤 같은 자리가 재현돼 재오픈(판정 1054).
+오빠 원문 「하네스마스터 분석 개선요청」 = 개선까지 요청. 분석 보고(읽어라): design/teams/harness/REPORT-g922-reopen-why-20261011.md — #922 가 «폰 인수 PASS 1회 + 랜딩 번호»만으로 닫혔는데 마감 문서에 원인 미확정·같은 증상 보류(바닥 빈 띠)가 적혀 있었고, 닫은 뒤 같은 자리가 재현돼 재오픈(판정 1054).
 설계할 것 (판정 1059 그대로):
 1. 이슈 «완료 close 6항»(판정 780 상시 기준 — 정본 위치를 찾아 고칠 파일 확정)에 두 칸 추가: «원인 확정(Y/N + 근거)» · «같은 증상 보류 항목 0(있으면 경로)».
 2. 두 칸이 비었거나 N/보류 있음이면 issues 마스터의 닫기 도구(Tank 래퍼·ft-issue-* 계열 — 실재 경로 확인)가 닫기를 «거절» → 이슈에 «관찰 중» 표시.
 3. 관찰 중 → 닫기 조건 = 오빠 폰에서 «서로 다른 판(sha) 2회 재현 0». 이 조건의 값 기록 칸 설계.
 제약: graphics#4 의 #922 수리(바닥 빈 띠)와 겹치지 않는다(수리 파일 0 접촉) · 외부 호출은 7초 룰 · 시험 먼저(TDD) · 한 번에 하나.
-산출: design/harness/PLAN-r102-close-gate-20261011.md — 변경 파일·거절 메시지·관찰 중 라벨 위치·시험 3건(빈 칸 거절·보류 거절·정상 통과)·설치 경로(라이브 bin 복사 + 백업 .bak-r102-<ts>) · 완료 뒤 master 에 mbox 1통(경로 1줄).
+산출: design/teams/harness/PLAN-r102-close-gate-20261011.md — 변경 파일·거절 메시지·관찰 중 라벨 위치·시험 3건(빈 칸 거절·보류 거절·정상 통과)·설치 경로(라이브 bin 복사 + 백업 .bak-r102-<ts>) · 완료 뒤 master 에 mbox 1통(경로 1줄).
 DA: 설계 뒤 ft-da(byz-harness-da-codex#1)에 반박 의뢰 — bounded(2회 HOLD 면 중단·3차는 planner 허가).

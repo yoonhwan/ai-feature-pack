@@ -1,5 +1,5 @@
 # 인덱스: R58 press-gate ① — 선언 base 가 FEAT 가 아닌 나노(origin/main 기반 등)는 미랜딩 셈에서 제외 (원장 R58 · v65 master#150 쪽지 65808 · press 차단 중)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R58(ops 9135eb1859 · 우선 높음 · 011 implant3 press 대기)
 - 상태: 대기
 - 선행: 없음(v423b DA r2 와 파일 겹침 0 · master 판단으로 먼저 가도 됨 — 쪽지 #65812)
@@ -57,4 +57,4 @@
 - 2026-10-08 23:30 — 대기→진행 · 좌석 byz-harness-nano-r58-press-gate-other-base-nano#0
 - 2026-10-08 23:5x — 완료 증거(arch r3 독립 재현·서명 · DA 2 HOLD 종료): 세트: f5dc9fb6e3ad9670ddd41cc80908d11a1ec2eaed · 시험: python3 -m pytest tests/scripts/test_press_gate_other_base.py -q rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 press 게이트 셸·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-08 23:51 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§85
+- 2026-10-08 23:51 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§85

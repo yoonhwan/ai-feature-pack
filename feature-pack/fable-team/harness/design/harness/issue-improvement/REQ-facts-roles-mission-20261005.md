@@ -7,7 +7,7 @@
 >
 > 골의 축: 표 A(모니터) 둘째 단위 「각 오케가 일을 어떻게 받고 병렬로 처리·클리어하는지」. 발주 = ops#2 `ORDER-roles-mission-flow-20261005.md`(eb5ca07b0e).
 
-읽기 전용 · 코드·명부 수정 0 · Slack 0. 산출 `design/harness/issue-improvement/FACTS-roles-mission-20261005.md`(표 4개 · 각 행 [사실]/[추측] · 「파일:줄」 또는 명령 1줄 인용) + 원본 `facts-raw/R*.txt`. 측정 시각(KST) 1줄. 경로는 전부 루트 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` 기준(워크트리 안이면 그 경로 그대로 적는다).
+읽기 전용 · 코드·명부 수정 0 · Slack 0. 산출 `design/teams/harness/issue-improvement/FACTS-roles-mission-20261005.md`(표 4개 · 각 행 [사실]/[추측] · 「파일:줄」 또는 명령 1줄 인용) + 원본 `facts-raw/R*.txt`. 측정 시각(KST) 1줄. 경로는 전부 루트 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` 기준(워크트리 안이면 그 경로 그대로 적는다).
 
 ## R1. planner · issue-manager 가 «실제로» 하는 일
 - `design/planner/{GOAL-planner,GUIDE-planner,STRUCTURE-main-satellite,BOARD,NEWS-TREE,README}.md` — 각 파일에서 「planner 가 하는 일 / 하지 않는 일 / 출력 정본」 문장을 「파일:줄」로 인용(파일당 ≤3줄). BOARD.md 의 행 수·열 이름·상태값 종류.
@@ -32,7 +32,7 @@
 - v65: `design/v65/indices/{inbox,대기,진행,완성}` 건수 · 진행/ 카드마다 세션명 → `tmux ls` 에 있나 Y/N.
 - cfo: `.worktrees/c-level-planning/design/cfo/{indices,orders}` 구조·건수.
 - ccu: `.worktrees/ccu-stress/design/ccu/` 에서 ORDERS·CLOSEOUT·진행 표시 파일 — 큐 구조가 있나 없나(없으면 「없음」).
-- harness-ops: `design/harness/indices` · `REQUEST-LEDGER.md` 행 수·상태값.
+- harness-ops: `design/teams/harness/indices` · `REQUEST-LEDGER.md` 행 수·상태값.
 - 「클리어」표시 방식: 각 팀이 완성을 어떻게 표시하나(완성/ 이동 · CLOSEOUT 파일 · LEDGER 행 상태) — 파일명 1개씩 예시.
 
 회신 mbox 3줄: 경로 · 못 한 항목 · 사실/추측 비율. 커밋은 ops#2 에 요청(나노는 커밋 0).

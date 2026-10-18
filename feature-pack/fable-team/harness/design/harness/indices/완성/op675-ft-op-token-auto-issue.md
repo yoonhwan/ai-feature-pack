@@ -1,5 +1,5 @@
 # 인덱스: 운영 계정 토큰 «수동 복사» 폐지 — `ft-op-token.sh <email>` 가 저장된 cred 로 매번 새 access_token 발급 (판정 675 · 오빠 문책 10-09 「토큰 안된다 매번 이렇게 멍청하게 해야되냐」 · planner#16 #68339 → 하네스 master#22 #68340)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 675
 - 상태: 대기
 - 선행: 없음 (planner 가 1회 설정 중인 cred 파일이 있으면 그대로 읽는다 — 형식 아래 «기준값»)
@@ -33,17 +33,17 @@
 3. **설정 파일**(추적 밖 · `.fable-team/secrets/` · 0600): `op-auth.conf` = `SUPABASE_URL=` · `SUPABASE_PUBLISHABLE_KEY=` 2줄 · `op-accounts.tsv` = `email<TAB>cred 파일<TAB>토큰 파일` (기존 2계정 행 + byztest910 행). ★추적 파일에 URL·키·이메일 0★ — 키트·시험·카드 어디에도 값을 적지 않는다(시험은 가짜 값). `--init` 은 계정 표에 없는 email 이면 `ERR 계정 표에 없음` 으로 끝낸다(표 추가는 사람이 1줄 · 자동 추가 0).
 4. **7초 룰**: `urllib.request.urlopen(timeout=7)` · 재시도 1회 = 네트워크 오류·타임아웃·5xx 일 때만(4xx = 비밀번호·계정 문제 → 재시도 0 · 바로 ERR) · 재시도 사이 대기 0.5 s · 총 상한 ≈ 14.5 s.
 5. **보안**: 비밀번호는 argv·환경변수·로그·stdout 에 절대 안 나간다(파이썬이 cred 파일을 직접 읽음 · `--init` 은 `pbpaste` 출력을 파이프로 파이썬 stdin 에 넘김) · 토큰 원문 출력 0(만료 계산은 JWT payload 디코드만) · 실패 msg 는 `eyJ…`·`sb_…`·`"password"` 값 패턴 마스킹 뒤 200자 · secrets 폴더가 0700 아니거나 파일이 0600 아니면 ERR(권한을 고치는 대신 알림 — 조용한 수정 0).
-6. **좌석 안내**: ①`~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` 에 1줄(번호는 마지막 다음): 「운영 계정 토큰이 만료되면 사람에게 복사를 청하지 않는다 — `bash <루트>/.fable-team/bin/ft-op-token.sh <email>` 로 새로 받는다(cred 없으면 `--init` 1회만 사람 손 · 판정 675)」 → 스테이징 사본 + master cp. ②카드 템플릿 = `design/harness/TESTER-BRIEF-TEMPLATE.md` 에 같은 뜻 1줄(운영 계정을 쓰는 시험 절에). ③(판정 676) ①·② 두 곳 모두 같은 줄에 「좌석 조사·시험에서 secrets/·*.cred·토큰 파일 내용 출력 0 — 키 이름·존재·크기만(cut -d= -f1 · wc -c · test -s)」 문구를 함께 넣는다 — ★JSON cred 는 `=` 가 없어 `cut -d= -f1` 이 줄 전체를 찍는다(arch#24 실측 노출 원인) → JSON 은 `python3 -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))))' <파일>` 로 키 이름만★.
-7. **수동 경로 폐지 목록**: 추적 문서·스킬·홈 스킬에서 «콘솔·클립보드로 토큰을 받아 오라»는 안내를 `git grep`·`grep -r ~/.claude/skills` 로 찾아 표 1장(`design/harness/staged-675/MANUAL-TOKEN-PATHS.md` · 파일:행 · 현 문구 · 바꿀 문구). ★옛 기록(완성 카드·DA 판정문·스냅샷)은 바꾸지 않는다 — 현역 안내만 바꿀 후보★. 바꾸는 것은 이 카드 범위 밖(목록만 · master/arch 가 골라 별 단위).
+6. **좌석 안내**: ①`~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` 에 1줄(번호는 마지막 다음): 「운영 계정 토큰이 만료되면 사람에게 복사를 청하지 않는다 — `bash <루트>/.fable-team/bin/ft-op-token.sh <email>` 로 새로 받는다(cred 없으면 `--init` 1회만 사람 손 · 판정 675)」 → 스테이징 사본 + master cp. ②카드 템플릿 = `design/teams/harness/TESTER-BRIEF-TEMPLATE.md` 에 같은 뜻 1줄(운영 계정을 쓰는 시험 절에). ③(판정 676) ①·② 두 곳 모두 같은 줄에 「좌석 조사·시험에서 secrets/·*.cred·토큰 파일 내용 출력 0 — 키 이름·존재·크기만(cut -d= -f1 · wc -c · test -s)」 문구를 함께 넣는다 — ★JSON cred 는 `=` 가 없어 `cut -d= -f1` 이 줄 전체를 찍는다(arch#24 실측 노출 원인) → JSON 은 `python3 -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))))' <파일>` 로 키 이름만★.
+7. **수동 경로 폐지 목록**: 추적 문서·스킬·홈 스킬에서 «콘솔·클립보드로 토큰을 받아 오라»는 안내를 `git grep`·`grep -r ~/.claude/skills` 로 찾아 표 1장(`design/teams/harness/staged-675/MANUAL-TOKEN-PATHS.md` · 파일:행 · 현 문구 · 바꿀 문구). ★옛 기록(완성 카드·DA 판정문·스냅샷)은 바꾸지 않는다 — 현역 안내만 바꿀 후보★. 바꾸는 것은 이 카드 범위 밖(목록만 · master/arch 가 골라 별 단위).
 8. 200줄 규칙 · 새 파일은 하네스 설치 목록(키트의 install 목록)에 추가.
 
 ## 구현 범위 (닫힌 목록 · 나노)
-기존 근거 파일(읽기): `scripts/harness-install/fable-team/bin/ft-nano-spawn.sh`(키트 bin 폴더 위치 확인용) · `design/harness/TESTER-BRIEF-TEMPLATE.md` · 홈 ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(읽기만) · /tmp/opcred.sh(읽기만 · 값 복사 금지).
+기존 근거 파일(읽기): `scripts/harness-install/fable-team/bin/ft-nano-spawn.sh`(키트 bin 폴더 위치 확인용) · `design/teams/harness/TESTER-BRIEF-TEMPLATE.md` · 홈 ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(읽기만) · /tmp/opcred.sh(읽기만 · 값 복사 금지).
 아래는 전부 «새로 만든다»:
 1. 키트 bin 폴더에 ft-op-token.sh + ft_op_token.py (설계 1~5) · 키트 설치 목록에 두 파일 추가.
-2. 스테이징 design/harness/staged-675/COMM-GUIDE-BOOT.md (현 홈 정본 사본 + 설계 6① 1줄만) · `design/harness/TESTER-BRIEF-TEMPLATE.md` 에 설계 6② 1줄(추적 파일 직접 수정).
-3. design/harness/staged-675/MANUAL-TOKEN-PATHS.md (설계 7).
-4. 설정 예시 design/harness/staged-675/op-auth.conf.example · op-accounts.tsv.example — ★가짜 값만★.
+2. 스테이징 design/teams/harness/staged-675/COMM-GUIDE-BOOT.md (현 홈 정본 사본 + 설계 6① 1줄만) · `design/teams/harness/TESTER-BRIEF-TEMPLATE.md` 에 설계 6② 1줄(추적 파일 직접 수정).
+3. design/teams/harness/staged-675/MANUAL-TOKEN-PATHS.md (설계 7).
+4. 설정 예시 design/teams/harness/staged-675/op-auth.conf.example · op-accounts.tsv.example — ★가짜 값만★.
 5. 시험 tests/harness/test_ft_op_token.py (실 Supabase 0 · 로컬 스텁 서버 + 임시 secrets): T1 200 → 토큰 파일 교체·0600·stdout OK 줄에 토큰 원문 없음 T2 400 → ERR http=400 · 재시도 0 · 토큰 파일 그대로 T3 500 → 재시도 1회 뒤 ERR · 호출 2회 T4 8초 지연 → 7초 타임아웃 → 재시도 → ERR http=net · 총 15초 이내 T5 cred 없음 → exit 2 + `--init` 안내 T6 `--init`(가짜 pbpaste = PATH 앞 스텁) 성공 → cred·토큰 0600 · 실패 → cred 미작성 T7 stdout·stderr 전체에 비밀번호·토큰 원문 0(grep) T8 secrets 폴더 0755 → ERR T9 `--list` 만료 계산 T10 키트 두 파일·설정 예시 두 파일에 실 URL·키·실 이메일 문자열 0(패턴 = 호스트 `supabase.co` · 키 접두 `sb_publishable_` · 도메인 `@byourz.com` · 시험 파일 자신은 검사 대상에서 뺀다).
 6. (판정 676) 재발 방지: 이 나노의 조사·시험 자체도 「좌석 조사·시험에서 secrets/·*.cred·토큰 파일 내용 출력 0 — 키 이름·존재·크기만(cut -d= -f1 · wc -c · test -s)」 — JSON 파일은 위 설계 6③ 의 키 이름 방식만. 시험 T7 에 «도구·시험 출력 어디에도 cred·토큰 내용 0» 유지.
 커밋은 자기 브랜치, **push 금지**. **금지**: 실 Supabase 호출 · 루트 `.fable-team/`·홈 `~/.claude/` 쓰기(설치는 master) · 실 cred·토큰 파일 읽기 · 값 출력.
@@ -64,4 +64,4 @@
 ## 결과
 - 세트: 0e82391b40d3de67f33b378524fe6edca360be39 · 시험: .venv/bin/python -m pytest --noconftest tests/harness/test_ft_op_token.py rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본(docs/architect) 변경 없음 — 하네스 키트 새 도구 2·홈 BOOT 22·23조항·TESTER 템플릿 1줄(구현 DA APPROVE `b1fce39930` · arch 재현 #68387).
-- 2026-10-09 13:01 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§109
+- 2026-10-09 13:01 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§109

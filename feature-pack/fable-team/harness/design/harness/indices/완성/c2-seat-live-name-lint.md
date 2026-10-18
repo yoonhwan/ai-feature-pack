@@ -1,5 +1,5 @@
 # 인덱스: C2 명부 생성기(seats.live.json) + test_bundle 선언 lint + 세션명 문법 lint
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -11,7 +11,7 @@
 골의 축: 원문 5(머신별 독립 배분 — 좌석 명부가 실제 세션과 일치) · 원문 7. 핵심 한 줄: 살아 있는 좌석 목록과 이름 규칙이 기계로 맞아야 여러 팀이 부딪히지 않는다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-좌석 명부의 «입력» 파일(`seats-<팀>.json`)은 그대로 두고, 살아 있는 tmux 세션과 합친 «산출» `seats.live.json`을 만드는 읽기 전용 생성기와, 새 세션 이름이 P6 문법(`<프로젝트>-<팀>-<역할>-<에이전트>#N`)에 맞는지 검사하는 lint, 팀 개설 선언 칸 `test_bundle` 빈칸 REJECT 검사를 만든다. 정본: `design/harness/issue-improvement/MERGED-20261005.md` §4 행 C2 · `design/harness/issue-improvement/SPEC-session-naming-20261005.md` · `design/harness/issue-improvement/SPEC-team-essentials-20261005.md`(test_bundle 칸).
+좌석 명부의 «입력» 파일(`seats-<팀>.json`)은 그대로 두고, 살아 있는 tmux 세션과 합친 «산출» `seats.live.json`을 만드는 읽기 전용 생성기와, 새 세션 이름이 P6 문법(`<프로젝트>-<팀>-<역할>-<에이전트>#N`)에 맞는지 검사하는 lint, 팀 개설 선언 칸 `test_bundle` 빈칸 REJECT 검사를 만든다. 정본: `design/teams/harness/issue-improvement/MERGED-20261005.md` §4 행 C2 · `design/teams/harness/issue-improvement/SPEC-session-naming-20261005.md` · `design/teams/harness/issue-improvement/SPEC-team-essentials-20261005.md`(test_bundle 칸).
 
 ## 구현 범위 (이 셋만 — 닫힌 목록)
 1. `scripts/fable-team-bin/ft-seat-live.sh`(신규 · 읽기 전용) — `tmux ls` + `seats-*.json` → `seats.live.json` 산출(단일 쓰기 · 임시파일 후 mv) · live 행 수 == 접두 세션 수 검증.
@@ -29,4 +29,4 @@
 - 2026-10-06 00:04 — 대기→진행 · 좌석 ft-harness-temp-c2-seat-live-name-lint#0
 - 정본 영향 없음: 하네스 스크립트·시험만 추가 — docs/architect 제품 정본 변경 없음
 - 세트: 466d62474e75b40462e06ff33794e9967ce416b5 · 시험: bash tests/harness/test_name_lint.sh + test_seat_live.sh rc=0 · 이슈: 0
-- 2026-10-06 00:13 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§9
+- 2026-10-06 00:13 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§9

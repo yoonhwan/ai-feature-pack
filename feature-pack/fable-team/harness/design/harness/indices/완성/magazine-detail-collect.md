@@ -1,6 +1,6 @@
 # 인덱스: 아침 매거진 풀 디테일 ① 수집 — 구조 모델 새 칸 detail (판정 354)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: #885 추가 단위 → 판정 354(planner#8 → master#12 발주 · 설계 design/harness/DESIGN-magazine-full-detail-20261008.md)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: #885 추가 단위 → 판정 354(planner#8 → master#12 발주 · 설계 design/teams/harness/DESIGN-magazine-full-detail-20261008.md)
 - 상태: 대기
 - 선행: DA 사전검증 APPROVE(아래) · ②③ 나노와 병행(접점 = 설계 §3 detail 스키마)
 - 시험 입력: 임시 git 리포(2 ref) · 가짜 mbox jsonl · 가짜 gh(subprocess 대체) — 네트워크 0
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-magazine-fulldetail-20261008.md
+- DA: design/teams/harness/DA-magazine-fulldetail-20261008.md
 
 ## 조사 근거
 - `scripts/harness-install/slack-mirror/magazine_collect.py:16` — collect() 가 11칸을 조립하는 곳(detail 칸 1줄 추가 지점).
@@ -49,4 +49,4 @@
 - 2026-10-08 09:27 — 대기→진행 · 좌석 byz-harness-nano-magazine-detail-collect#0
 - 2026-10-08 — 완료 독립 검증 (arch#10 · 판정서 §48 초안) — 나노 fe1ff62a56(반송 r1: merge_bodies 881→35): 시험 96 passed · 실자료 31초 · units 72 · merges 35=본문 35.
 세트: fe1ff62a565f32a32d6ce947a9464cc61f525f59 · 시험: python3 -m pytest tests/scripts/test_magazine_collect_detail.py -q rc=0 · 이슈: 0
-- 2026-10-08 09:46 — 진행→완성 · 좌석 byz-harness-nano-magazine-detail-collect#0 · DA design/harness/OPS-VERDICTS-20261006.md#§48
+- 2026-10-08 09:46 — 진행→완성 · 좌석 byz-harness-nano-magazine-detail-collect#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§48

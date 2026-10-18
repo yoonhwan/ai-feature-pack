@@ -1,5 +1,5 @@
 # 인덱스: cherry 게이트 오탐 — tip 내용이 feat HEAD 와 같은 경로는 PASS · spawn 이 게이트 --override 를 넘긴다 (R70 · v65 arch#192 · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R70(v65 arch#192 판정 · 쪽지 #70274 · 하네스 master#24 #70276) · ★v65 나노 spawn 차단 중(급함)★
 - 상태: 대기
 - 선행: 없음

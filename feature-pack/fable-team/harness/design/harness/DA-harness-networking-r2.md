@@ -1,7 +1,7 @@
 # DA — harness networking PLAN r2
 
 판정: **APPROVE (설계 · F2/F3/F6 한정)**
-대상: `f0d974ab20`의 `design/harness/PLAN-harness-networking-20261011.md`.
+대상: `f0d974ab20`의 `design/teams/harness/PLAN-harness-networking-20261011.md`.
 발주: master#29 h29-da3 · planner 판정 1079에 따른 3차 1회 허가.
 검토자: byz-harness-da-codex#1 · 2026-10-12 KST.
 

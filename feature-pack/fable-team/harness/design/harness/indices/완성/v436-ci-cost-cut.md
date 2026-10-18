@@ -1,5 +1,5 @@
 # 인덱스: CI 비용 차단 5개 — .github/workflows/ci.yml 문서 제외 · concurrency · observe-only 수동화 · main push 축소 · 로컬 검증 (판정 436 · 오빠 즉시)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 436(오빠 「github ci/cd bucket 크래딧 소모가 심각해」「1주?사이에 $120」 · planner#10 REQ-436 · master#15 #62971)
 - 상태: 대기
 - 선행: 없음(origin/main 최신에서 브랜치)
@@ -53,7 +53,7 @@
 - 정본 영향 없음: CI 트리거·조건만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 15:12 — 대기→진행 · 좌석 byz-harness-nano-v436-ci-cost-cut#0
 - 2026-10-08 — 구현 완료(미push) · 세트: 6fe01a83a1f27fed2386520a8a67ceac166079d1 · 시험: actionlint -shellcheck= .github/workflows/ci.yml rc=0 (기본 actionlint 는 SC2086 info 2건 rc=1 — 변경 전부터 동일·본문 미변경) · 이슈: 0
-- 2026-10-08 15:31 — 진행→완성 · 좌석 byz-harness-nano-v436-ci-cost-cut#0 · DA design/harness/OPS-VERDICTS-20261006.md#§60
-- 2026-10-08 15:3x — 정정(master#15): 위 이동의 DA 인용 §60 은 카드 2 판정 절로 오기재. 이 카드의 닫힘 근거 = design/harness/OPS-VERDICTS-20261006.md#§61
+- 2026-10-08 15:31 — 진행→완성 · 좌석 byz-harness-nano-v436-ci-cost-cut#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§60
+- 2026-10-08 15:3x — 정정(master#15): 위 이동의 DA 인용 §60 은 카드 2 판정 절로 오기재. 이 카드의 닫힘 근거 = design/teams/harness/OPS-VERDICTS-20261006.md#§61
 
 세트: 6fe01a83a1f27fed2386520a8a67ceac166079d1 · 시험: actionlint -shellcheck= .github/workflows/ci.yml rc=0 · 이슈: 0

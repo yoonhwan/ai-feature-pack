@@ -1,7 +1,7 @@
 # FACTS — Slack #byz-planner 현황 사실표 (nano 전수 조사 · 2026-10-04)
 
 작성: ft-harness-nano#0 (opencode · openrouter/deepseek-flash-latest, 읽기 전용) · 발주: ft-harness-ops#1
-브리프: `design/harness/BRIEF-swarm-control-arch-20261004.md` §1단계 산출물 1번 «현황 사실표»
+브리프: `design/teams/harness/BRIEF-swarm-control-arch-20261004.md` §1단계 산출물 1번 «현황 사실표»
 조사 시각: 2026-10-04 20:45~20:5x (KST) · 채널 **C0C6MJGRR89 = #byz-planner**
 조사 방법(재현): Slack `conversations.history`(limit 200, next_cursor 끝까지) + 각 루트 `conversations.replies`(끝까지) 전수 덤프 → 아래 집계. 대조 = `~/.hermes/logs/byz_*.err`, `.fable-team/comm/mailbox.log.jsonl`(보낸 사본), `mailbox.jsonl`(큐), `~/.hermes/state/byz_*.json`, `launchctl list`.
 경계: 코드·설정·launchd·Slack 게시 **수정 0**. 모든 수치는 위 시각 스냅샷. 값·추측 구분 표기.

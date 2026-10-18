@@ -1,5 +1,5 @@
 # 인덱스: gh 가드에 PR 쓰기 5종 차단 추가 + Tank 래퍼 pr-edit·pr-close (R6 ②)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -8,7 +8,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R6 ② — arch#5 사후 검토 #58408 「안 막히는 PR 쓰기 5종」 · 안 design/harness/PLAN-r6b-pr-write-guard-20261007.md · master#10 승인 #60270(리뷰 approve/request-changes 는 대체 없이 차단 — 사람만).
+골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R6 ② — arch#5 사후 검토 #58408 「안 막히는 PR 쓰기 5종」 · 안 design/teams/harness/PLAN-r6b-pr-write-guard-20261007.md · master#10 승인 #60270(리뷰 approve/request-changes 는 대체 없이 차단 — 사람만).
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 가드 `scripts/harness-install/fable-team/templates/hooks/gh-issue-author-guard.sh`(홈 `~/.claude/hooks/` 사본과 지금 같은 바이트)는 Bash 명령을 토막(segment)으로 나눠 `violation()`(199행)에서 판정한다. gh 쓰기가 «작성자가 남는 쓰기»면 종류 author 로 exit 2 하고, 안내문(242–244행)에 Tank 래퍼 명령을 보여 준다. 리포 범위 검사 `scoped()` 가 있어 SecondWindStudio/ 리포만 막는다(개인 리포 통과). PR 쪽은 222행 `gh pr comment` 하나만 막는다. 그래서 `gh pr review` 판정·코멘트, `gh pr close -c`, `gh pr edit --body/--title`, `gh api …/pulls/N…` 쓰기, `gh api graphql` mutation 은 사람 계정 이름으로 남는다. 래퍼 `scripts/fable-team-bin/ft-gh-as-tank.sh`(+ 키트 사본 같은 바이트)는 동작별로 gh 인자 배열 CMD 를 만들고, 기본 dry-run(출력만) · `--apply` 면 Tank 토큰으로 실행한다. Issue `edit`(15–18행)은 수정 «전» 원문을 보관하고, 보관에 실패하면 수정 0 이다. 시험 `tests/harness/test_gh_as_tank.sh` 는 PATH 맨 앞 가짜 gh 로 GitHub 호출 0 이고, `block`/`pass` 도우미(151–152행)를 쓴다.
@@ -62,4 +62,4 @@
 - 세트: fb18b3a37006fa74c78e8fe1ee107c2b83915ef0 · 시험: bash tests/harness/test_gh_as_tank.sh rc=0 · 이슈: 0
 - 추가 시험: bash tests/harness/test_kit_bin_sync.sh rc=0 (ALL PASS) · 래퍼 두 사본 cmp 동일 · 가드·래퍼 bash -n OK
 - 정본 영향: 하네스 gh 가드 템플릿·Tank 래퍼·시험만 — docs/architect 제품 정본 변경 없음 · 홈 가드 설치(cp+cmp+실측 1회)·라이브 RT 래퍼 cp 는 master 집행.
-- 2026-10-07 22:13 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§38
+- 2026-10-07 22:13 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§38

@@ -82,7 +82,7 @@ plist bootout + .disabled → 좌석 세션 kill(표준승인 범위: tmux kill-
 - 곁가지(별건 · 이 설치 범위 밖): feature 틱 plist 뉴스 문구가 byz-feature-master-claude#0 고정(현역 #2) → 뉴스 틱이 옛 좌석 mbox 를 recv. 요청 원장에 R 한 줄로 올릴지 master 판단.
 
 ## ⑤ 판정 372 하네스 몫 2건 (master#13 #61420 · arch#11)
-1. **main-team-governance.md 초안** `design/harness/drafts/r372-governance/main-team-governance.md` — 실측: 홈 정본에 «팀 표»가 없다(§1 은 오케 이름 목록 1줄뿐 · 팀 «맡는 것» 표 정본 = 프로젝트 STRUCTURE §1-1 = planner 소관). 그래서 ①머리에 판정 370·372 줄(정본 머리 규칙 «오빠 값 1회») ②§1 오케 이름 목록에 feature·ops·loom 추가(feature 도 빠져 있었음) ③§1-1 «메인 팀 하네스 값» 표 신설(접두·라벨·명부·골·경계 1줄 · ops·loom 2행 + 기존 메인 팀 4행 — ★2행만 넣으면 «팀 표»가 두 팀뿐인 것처럼 읽혀 기존 행을 같이 둠 · 2행만 원하면 다른 행 삭제★). diff = 추가 13줄 + §1 1줄 교체.
+1. **main-team-governance.md 초안** `design/teams/harness/drafts/r372-governance/main-team-governance.md` — 실측: 홈 정본에 «팀 표»가 없다(§1 은 오케 이름 목록 1줄뿐 · 팀 «맡는 것» 표 정본 = 프로젝트 STRUCTURE §1-1 = planner 소관). 그래서 ①머리에 판정 370·372 줄(정본 머리 규칙 «오빠 값 1회») ②§1 오케 이름 목록에 feature·ops·loom 추가(feature 도 빠져 있었음) ③§1-1 «메인 팀 하네스 값» 표 신설(접두·라벨·명부·골·경계 1줄 · ops·loom 2행 + 기존 메인 팀 4행 — ★2행만 넣으면 «팀 표»가 두 팀뿐인 것처럼 읽혀 기존 행을 같이 둠 · 2행만 원하면 다른 행 삭제★). diff = 추가 13줄 + §1 1줄 교체.
 2. **ft-harness-info.sh — 코드 0**: `seats` = `tmux ls` 전부 + `ft-name-lint`(팀 목록 없음) → byz-ops-·byz-loom- 좌석은 열리는 즉시 노출(이름 lint PASS 실측) · `rules` 의 MAIN_CANON 은 팀 골 파일을 원래 안 넣음(cfo·feature 도 없음) → 바꿀 것 0 · `map` = harness-map.md 출력이라 팀 줄이 없다 → 홈 초안 `drafts/r372-governance/harness-map.md` 에 1행 추가(메인 팀 목록 → governance §1-1).
 - 설치: 홈 2파일 `.bak-1008-r372` → cp → cmp · 설치 PR 은 PLAN-r370 과 같은 PR.
 - 곁가지: 라벨 `team:harness-ops`(하네스 팀)와 `team:ops`(운영툴 팀)가 이름이 비슷 — issues master 분류 때 혼동 주의 1줄(라벨 개명은 범위 밖).

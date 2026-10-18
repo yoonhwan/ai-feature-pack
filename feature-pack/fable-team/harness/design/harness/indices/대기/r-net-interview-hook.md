@@ -1,9 +1,9 @@
 # 인덱스: 인터뷰 lint 훅 — AskUserQuestion PreToolUse(종류 머리 6 · 종류별 필수 줄 · 질문 1) (N5 · 팀 운영 구조 근원 수정 · 판정 1070·1079 · arch#29)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner ORDER(판정 1069·1070) · 설계 PLAN-harness-networking-20261011.md §2 D7
 - 제안서: 없음 — 오빠 판정 1070 으로 착수 승인된 하네스 구조 수정(판정 1079 3차 DA APPROVE #76290)
 - 상태: 대기
-- 선행: N4(`선례:` 줄 문자열) · N3(`[결정]` 3줄 꼴 공유) · 설계 = `git show f0d974ab20:design/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다★)
+- 선행: N4(`선례:` 줄 문자열) · N3(`[결정]` 3줄 꼴 공유) · 설계 = `git show f0d974ab20:design/teams/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다★)
 - 시험 입력: 훅 입력 JSON 픽스처 8종(stdin) — 실 settings.json·실 세션 0
 - 기준값(arch#29 실측 · 2026-10-11): 오빠가 안 본 것이 승인된 사례 811·660·713·1004(REVIEW §4 ③ · 인터뷰가 요약+경로만) · AskUserQuestion 사건 460/4일(115/일) · 기존 훅 꼴 `~/.claude/hooks/report-coverage.sh`·`boot-read-gate.sh`(PreToolUse · stdin JSON `tool_name`·`tool_input` · exit 2 = 차단 · fail-open 관례) · 제안서 Issue+`approved` 라벨 흐름 도입됨(PROPOSAL-proposal-approval-gate r1) · governance §4 각주 표 규칙.
 
@@ -26,10 +26,10 @@ planner 원문 2(팀 배정·운영) / 닫는 증거(PLAN §6 N5 복붙): 「pla
 - 7초 룰 점검(판정 666): 외부 호출 0(stdin JSON 파싱만)
 
 ## 구현 범위 (닫힌 목록 · 나노 · PLAN §6 N5 · 한 번에 하나)
-관련 파일(기존 · origin/main 실재 · 나노 base): scripts/harness-install/fable-team/templates/hooks/boot-read-gate.sh · scripts/harness-install/fable-team/templates/hooks/block-destructive.sh · design/harness/TABLE-gate-hook-copies-20261008.md
+관련 파일(기존 · origin/main 실재 · 나노 base): scripts/harness-install/fable-team/templates/hooks/boot-read-gate.sh · scripts/harness-install/fable-team/templates/hooks/block-destructive.sh · design/teams/harness/TABLE-gate-hook-copies-20261008.md
 1. ①시험 빨강 먼저 — 새 `tests/harness/test_interview_lint.sh` + 픽스처 `tests/fixtures/interview_lint/*.json` 8종(머리 없음 · 제안 링크 0 · 제안 링크 2 · HIL 원문 줄 0 · HIL 정상(링크 없음 → 통과) · 긴급 · 결정 3줄 · 질문 2) + 깨진 JSON(fail-open rc 0 + 로그 1줄). 이 커밋 rc≠0(빨강).
 2. ②새 `scripts/harness-install/hooks/interview-lint.sh`(≤150줄 · bash+python3 · 다른 tool_name 은 즉시 rc 0).
-3. ③설치 안내 1장 `design/harness/INSTALL-interview-lint.md`(master 집행용: settings.json 의 PreToolUse 배열에 1행 · planner 세션이 쓰는 settings 위치 · `.bak` · 되돌림 1줄 · 3사본 자리 — 글만 · 실 설치 0).
+3. ③설치 안내 1장 `design/teams/harness/INSTALL-interview-lint.md`(master 집행용: settings.json 의 PreToolUse 배열에 1행 · planner 세션이 쓰는 settings 위치 · `.bak` · 되돌림 1줄 · 3사본 자리 — 글만 · 실 설치 0).
 4. ④미러: 키트 `templates/hooks/` 사본 `cmp` 0(자리 없으면 TABLE-gate-hook-copies 의 정본 위치에 1벌).
 
 커밋은 자기 브랜치(단계별 · [test]→[feature]→[docs] 분리), **push 금지**. **금지**: `~/.claude/settings.json`·`~/.claude/hooks/` 실 설치(master 집행) · 다른 훅 파일 변경 · governance 글 변경(S5 arch 초안) · 위 목록 밖 파일 수정 0.

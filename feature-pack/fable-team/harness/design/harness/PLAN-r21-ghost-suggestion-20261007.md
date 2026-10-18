@@ -24,9 +24,9 @@
 | 2 | `~/.codex/AGENTS.user.md` → `~/.codex/AGENTS.md` 의 같은 블록 | AGENTS.user.md | CLAUDE_MASTER_SYNC 블록 END 앞에 영문 절 1개(전파 동기화 규칙) | +3 |
 | 3 | `ai-feature-pack/feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md`(소스 · 커밋) → `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md`(=`~/.tmuxc/versions/0.4.0/…` · cp) | COMM-GUIDE-BOOT.md | 제목 16줄→17줄 · 7 끝 「고스트 서제스천일 수 있다」→「`❯` 뒤 잔류 글자에 Enter(→ 17)」 · 17 신설 | +3 −2 |
 | 4 | `ai-feature-pack/feature-pack/fable-team/skill/references/context-management.md`(= `~/.claude/skills/fable-team` 심링크 · 커밋) | context-management.md | 승계 6단계 ⑥ 뒤에 「후계 발주문에 고스트 1줄」 | ±1 |
-| 5 | `scripts/fable-team-bin/ft-role-spawn.sh` + 키트 사본 | — | 나노 카드 `design/harness/indices/대기/r21-role-spawn-ghost-line.md`(lint 대상) | 나노 |
+| 5 | `scripts/fable-team-bin/ft-role-spawn.sh` + 키트 사본 | — | 나노 카드 `design/teams/harness/indices/대기/r21-role-spawn-ghost-line.md`(lint 대상) | 나노 |
 | 6 | 라이브 `v6-realtime-live/.fable-team/bin/ft-role-spawn.sh` | — | 5 랜딩 뒤 추적본 단독 cp + cmp(R9 방식 · 라이브 사본은 R13 줄도 없는 옛판이라 이 cp 로 같이 들어온다) | cp |
-| 7 | NOTICE | `design/harness/NOTICE-ghost-suggestion-20261007.md`(tracked) | 신규 | 커밋 |
+| 7 | NOTICE | `design/teams/harness/NOTICE-ghost-suggestion-20261007.md`(tracked) | 신규 | 커밋 |
 
 - 홈 훅·hermes SOUL.md: 변경 0(SOUL 의 동기 블록은 HIL 절만 싣는다 — 이 규칙 대상 아님).
 - 라이브 3사본 중 쓰는 것은 ft-role-spawn 하나다. BOOT 는 tmuxc 쪽이라 bin 3사본과 무관하다. 순서 = 추적·키트(나노) → 랜딩 → 라이브 cp. 0.4 일괄을 기다리지 않는다(문장 1개 · R13 누락도 같이 메운다).

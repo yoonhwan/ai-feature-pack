@@ -1,5 +1,5 @@
 # 인덱스: v423c 미러 요약기 할 일 금지 + Haiku 5.5 · planner 처리 1줄 · mbox ①~④ 항상 doorbell · 회신 발신 상한 제외 (판정 423 ②③④ · 430·431 · 설계 §3 · v423 분할 3/3)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 423(오빠 승인 6개: ①종류별 보고 의무 ②미러 할 일 금지+planner 처리 1줄 ③판정·승인·HIL 항상 doorbell ④회신 상한 완화 ⑤인터뷰 전 함 비우기 ⑥보드 planner 미처리 칸) · 421 발행 · 430·431 컨펌(planner #62745 · master #62749)
 - 상태: 대기
 - 선행: R49 랜딩(완료 · #1004 75bf03175f — `byz_mbox_slack_mirror.py` 199줄 · `mirror_board.py` 신설) · v423b 랜딩 뒤 착수(순서만) · ★`mbox-sh-split-200` 카드(판정 545 ④)보다 «먼저» — 같은 `mbox.sh` 를 만진다★
@@ -19,7 +19,7 @@ R34 실측: planner 는 쪽지를 빨리 읽지만(중앙값 22초) 읽은 뒤 �
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
 - 분할(arch#18): 원 카드 사전검증·DA·컨펌이 세 카드를 그대로 덮는다(범위는 원 카드 구현 범위의 부분집합).
 
 ## 조사 근거 (origin/main dbbf096099 재확인 · arch#18)
@@ -55,4 +55,4 @@ R34 실측: planner 는 쪽지를 빨리 읽지만(중앙값 22초) 읽은 뒤 �
 ## 결과 (나노 RESULT r2 · master#20 옮김 2026-10-09)
 세트: f911f4fb50147862a2e286216f6e1baadd7a2371 · 시험: bash tests/harness/test_mbox_inbox_notify_reply_rate.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 통신·미러 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 01:41 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§89
+- 2026-10-09 01:41 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§89

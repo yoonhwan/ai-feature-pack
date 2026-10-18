@@ -1,5 +1,5 @@
 # 인덱스: `--base <sha>` 로 연 나노 좌석 닫기 막힘 — 닫기는 sha 를 «랜딩 브랜치» 로 환원하고, spawn 은 처음부터 브랜치를 기록 (R42 · v65 실례)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R42(byz-v65-master-claude#148 #63775 보고 · master#16 접수 #63780 · 카드 요청 #63781 · 우선 보통)
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(대상 3파일은 ops/main-base 와 main 같은 바이트)
@@ -48,4 +48,4 @@
 - 정본 영향 없음: 하네스 나노 개설·닫기 도구·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 18:21 — 대기→진행 · 좌석 byz-harness-nano-r42-nano-close-sha-base#0
 세트: ce1d7da3dc28ae86ca4552a7f22a3154a047faff · 시험: bash tests/harness/test_nano_close_sha_base.sh rc=0 · 이슈: 0
-- 2026-10-08 18:40 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§71
+- 2026-10-08 18:40 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§71

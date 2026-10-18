@@ -1,5 +1,5 @@
 # 인덱스: 제안서 발행기 — 기존 스레드가 있는 승인 제안서를 «기록 rN» 답글로 발행 (R80 · R76 후속)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R80(master#25 발주 #71760 · 재현 v65 arch#197 · R76 후속)
 - 상태: 대기
 - 선행: 없음

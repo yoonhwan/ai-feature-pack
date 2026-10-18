@@ -9,8 +9,8 @@
 
 ## 규칙
 - **읽기 전용**. 수정·kill·launchd·gh write 0. `gh` 는 워크트리에서 `unset GH_TOKEN` 뒤 실행.
-- 산출 = `design/harness/issue-improvement/FACTS-composition-20261005.md` (tracked · 커밋은 ft-harness-ops#1 에 요청). 항목마다 **명령 1줄 + 결과 수치 + 예시 1~2개**. 사실/추측 분리. «0» 은 어느 명령에서 본 0 인지.
-- 표는 짧게. 긴 원본 출력은 `design/harness/issue-improvement/facts-raw/` 에 파일로 두고 경로만.
+- 산출 = `design/teams/harness/issue-improvement/FACTS-composition-20261005.md` (tracked · 커밋은 ft-harness-ops#1 에 요청). 항목마다 **명령 1줄 + 결과 수치 + 예시 1~2개**. 사실/추측 분리. «0» 은 어느 명령에서 본 0 인지.
+- 표는 짧게. 긴 원본 출력은 `design/teams/harness/issue-improvement/facts-raw/` 에 파일로 두고 경로만.
 
 ## 실측 항목 (8)
 
@@ -45,7 +45,7 @@
 
 ### F7. 멀티 머신 현황
 - `gh issue view 816 --json title,state,body` · `gh issue view 818 --json title,state,body` → 제목·상태·본문 요약 3줄(라이브 bin 1:1 이 무엇인지).
-- `ls scripts/harness-install/` 전체 · `design/harness/RELEASE-0.1.md`·`RELEASE-0.2.md` 의 「반영됨 <machine> <sha>」 행 전부 인용.
+- `ls scripts/harness-install/` 전체 · `design/teams/harness/RELEASE-0.1.md`·`RELEASE-0.2.md` 의 「반영됨 <machine> <sha>」 행 전부 인용.
 - 머신 이름이 문서에 몇 번 나오나: `grep -rio 'jarvis\|hermes(로컬)\|loom\|c2c\|mac mini\|macmini' design/harness design/planner docs/rules 2>/dev/null | cut -d: -f2 | sort | uniq -c`.
 - `ls ~/.tmuxc/` · `ls ~/.tmm/` 상위 1단(파일명만).
 

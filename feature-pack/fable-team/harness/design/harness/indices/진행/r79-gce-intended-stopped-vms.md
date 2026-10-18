@@ -1,5 +1,5 @@
 # 인덱스: GCE 가드 ⑥ — «의도된 정지» VM 등록으로 CCU VM 2대 A1P 경보 해제 (R79 · 판정 830)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R79(판정 830 · master#25 발주 #71578)
 - 상태: 대기
 - 선행: 없음

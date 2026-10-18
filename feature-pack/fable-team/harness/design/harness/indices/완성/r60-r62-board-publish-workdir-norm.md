@@ -1,5 +1,5 @@
 # 인덱스: R60+R62 보드 발행 — launchd 템플릿 WorkingDirectory(R60) + 바뀜 판정 정규화 누락(R62 · 매 틱 발행) (원장 R60·R62 · master#19 쪽지 #66304·#66445)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R60(우선 낮음 · 라이브 해결됨) + R62(우선 보통 · 스냅샷 ~109MB/일) — 같은 파일군이라 한 카드(master#19 쪽지 #66445)
 - 상태: 대기
 - 선행: v555 랜딩(완료 · PR 1034 · 56961d392a)
@@ -61,4 +61,4 @@
 ## 결과 (나노 RESULT · master#20 옮김 2026-10-09)
 세트: e329aad0d3e6d711bd525209da970d094101f8dd · 시험: bash tests/harness/test_board_publish_tick.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 발행 스크립트·launchd 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 01:42 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§90
+- 2026-10-09 01:42 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§90

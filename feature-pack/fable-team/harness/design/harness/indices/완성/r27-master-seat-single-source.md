@@ -1,8 +1,8 @@
 # 인덱스: 틱의 master 뉴스 대상 = 좌석표 _master 하나 — role·tick 행 순서로 고르지 않는다 (R27)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 R27(design/harness/REQUEST-LEDGER.md · R21 곁가지 · master#14 #62016 접수)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 R27(design/teams/harness/REQUEST-LEDGER.md · R21 곁가지 · master#14 #62016 접수)
 - 상태: 대기 — 사전검증 DA 대기(아래 「사전검증」)
-- 선행: 없음(안 = design/harness/PLAN-r27-master-seat-single-source-20261008.md)
+- 선행: 없음(안 = design/teams/harness/PLAN-r27-master-seat-single-source-20261008.md)
 - 시험 입력: 픽스처 좌석표(tests/harness/fixtures/ 아래 새 json 5종 + 가짜 tmux 스텁) + 각 틱의 --dry-run(전송 0 · tmux 무관 경로만)
 - 기준값: R21 실측 — feature 틱 로그 「master sent to byz-feature-master-claude#1 (%851)」 12:41 까지(그때 _master = #2) · 좌석표 정정 뒤 12:48:16 「master sent to byz-feature-master-claude#2 (%887)」
 
@@ -20,7 +20,7 @@ launchd 틱(`ft-tick.sh`)은 1분마다 좌석표(seats*.json)를 읽고, `tick`
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-r27-master-seat-20261008.md (byz-harness-da-codex#0 — 라이브 틱 5개(cfo·feature·loom·ops + kk 비활성)와 v65 틱의 좌석 선택이 바뀐다)
+- DA: design/teams/harness/DA-r27-master-seat-20261008.md (byz-harness-da-codex#0 — 라이브 틱 5개(cfo·feature·loom·ops + kk 비활성)와 v65 틱의 좌석 선택이 바뀐다)
 
 ## 조사 근거
 - `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-feature/ft-tick.sh:55` `master_seat()` = role=="master" 첫 행 · `:171` stall 의 master 도 같은 방식 · `:205` pm report_to = master_seat.
@@ -66,5 +66,5 @@ launchd 틱(`ft-tick.sh`)은 1분마다 좌석표(seats*.json)를 읽고, `tick`
 - 정본 영향 없음: 하네스 틱·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 — DA 교정 1 APPROVE(#62074 · DA 파일 §8·§9) → lint OK · spawn 가능(master). 나노 브랜치 nano/r27-master-seat · 커밋 A(structure)·B(feature) 분리.
 - 2026-10-08 12:59 — 대기→진행 · 좌석 byz-harness-nano-r27-master-seat-single-source#0
-- 2026-10-08 13:07 — 진행→완성 · 좌석 byz-harness-nano-r27-master-seat-single-source#0 · DA design/harness/OPS-VERDICTS-20261006.md#§54
+- 2026-10-08 13:07 — 진행→완성 · 좌석 byz-harness-nano-r27-master-seat-single-source#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§54
 세트: 6dc923936dac0033a16ab5ec9e35ca642418d1cf · 시험: bash tests/harness/test_ft_tick_master_seat.sh rc=0 · 이슈: 0

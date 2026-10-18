@@ -1,7 +1,7 @@
 # FACTS — v65 「시험 묶음」 실제 방식 실측 (ft-harness-arch#2 요청 · ft-harness-nano#1 실행 · P7 r6 정정)
 
 > 측정 시각 **2026-10-05 16:53 KST** · 읽기 전용 · 수정·커밋 0.
-> E1~E3(`FACTS-team-essentials-20261005.md`)은 재측정 안 함. 산출 위치 = `design/harness/issue-improvement/`. 원본 = `design/harness/issue-improvement/facts-raw/G*.txt`.
+> E1~E3(`FACTS-team-essentials-20261005.md`)은 재측정 안 함. 산출 위치 = `design/teams/harness/issue-improvement/`. 원본 = `design/teams/harness/issue-improvement/facts-raw/G*.txt`.
 > 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #57039 · 발주 = ops#2 ORDER-essentials-bundle(#57036). 오빠 원문: 「tester+checker(bts,poller) 하나의 구성으로 v65 에서 단순화하고 빠르게 수집 보고 아키텍트에게 올린 이게 유효함」.
 
 ---

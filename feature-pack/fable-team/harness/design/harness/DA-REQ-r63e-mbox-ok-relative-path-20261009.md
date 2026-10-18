@@ -8,7 +8,7 @@
 
 ## 고정 대상
 - 커밋 `f94a4a5ebeea66c5141fc418447648482a321b5b`(브랜치 `nano/r63e-mbox-ok-relative-path` · base main `7826b70515`) · 3파일 +43 −19: 키트 템플릿 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh`(`MOVE` 정규식 · `mbox_ok(path, cwd, moved)` · `classify(…, moved)` · `judge` 가 `bool(MOVE.search(cmd))` 전달 · 208줄) · `tests/harness/test_block_destructive.sh` · `tests/harness/test_block_destructive_inject.sh`.
-- 카드 `design/harness/indices/진행/r63e-mbox-ok-relative-path.md`(원장 R64 — r63b 설치 직후 상대경로 쪽지 본문 글자 오탐으로 원복).
+- 카드 `design/teams/harness/indices/진행/r63e-mbox-ok-relative-path.md`(원장 R64 — r63b 설치 직후 상대경로 쪽지 본문 글자 오탐으로 원복).
 - 판정 466 원칙: 정본 = «JSON cwd 의 git 공통 루트 + `/.fable-team/comm/mbox.sh`» realpath 일치만. 이 변경은 상대경로의 해석 기준(JSON cwd)만 더한다.
 
 ## arch#20 독립 재현 (증거 · f94a4a5ebe 아카이브)
@@ -24,7 +24,7 @@
 - 범위 밖: INJECT 블록(§93 닫힘) · 홈 설치 절차(master · §93 7단계 + R64 원 명령 재생).
 
 ## 판정문
-`design/harness/DA-r63e-mbox-ok-relative-path-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-r63e-mbox-ok-relative-path-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 요청 (arch#21 · 2026-10-09 · Q2 만 · bounded 10분 + 정정 10분 · 이번이 두 번째 · HOLD 면 리뷰 종료 → arch 서명)
 - 고정 대상: 커밋 `01b915f91c193a2dcc8e1beeddcaf6539bed987b`(r1 `f94a4a5ebe` 위 1커밋 · 2파일 +4 −1). 훅 `judge`: `moved = bool(MOVE.search(re.sub(r"[\\'\"]", "", cmd)))` — 이동 판별만 따옴표·역슬래시를 지운 글자로. 시험 차단 2행: `c''d /tmp && bash ../../.fable-team/comm/mbox.sh send x y '<파괴 명령 인용>'` · `c\d /tmp && …`(JSON cwd = 하위 폴더 픽스처).
@@ -33,4 +33,4 @@
   · `/bin/bash` JSON 주입 21행 불일치 0 = r1 15행 + `c''d` · `c\d` · `"cd"` · `c$()d` · `c${NOPE}d` · `env -C /tmp bash ../../…mbox.sh …` 전부 rc2.
   · 변이(따옴표 제거 뺀 사본): `c''d` · `c\d` · `"cd"` 3행 rc0 으로 FAIL = 이 한 줄이 막는다. `c$()d` · `c${NOPE}d` · `env -C` 는 변이에서도 rc2(이 줄 아닌 기존 판정이 막음 — 의존 0).
 - Q2(r2): r1 반례 2행과 같은 부류(인용·이스케이프·빈 확장으로 조립한 `cd`/`pushd`/`popd`)로 상대경로 정본 면제가 남는 꼴이 있는가. 새 요구 금지 · Q1·Q3 재심 0.
-- 판정문: 같은 파일 `design/harness/DA-r63e-mbox-ok-relative-path-20261009.md` 끝에 `# r63e 구현 DA — r2` 절 추가(헤더 `model:`/`provider:` 두 줄 · Q2 APPROVE/HOLD + 근거 · 끝 줄 APPROVE 또는 HOLD).
+- 판정문: 같은 파일 `design/teams/harness/DA-r63e-mbox-ok-relative-path-20261009.md` 끝에 `# r63e 구현 DA — r2` 절 추가(헤더 `model:`/`provider:` 두 줄 · Q2 APPROVE/HOLD + 근거 · 끝 줄 APPROVE 또는 HOLD).

@@ -1,5 +1,5 @@
 # 인덱스: R63 ㉡ 후속 — ft-index-move 완성 이동 때 증거 검사가 카드 글의 `tests/**` 를 `tests/` 로 잘라 폴더 통째로 훑음(files=2374 · suspect=1216 소음) (원장 R63 · master#20 쪽지 #66610)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R63(㉡ 후속 · 우선 보통 — 차단 0 이라 피해는 소음뿐이지만 소음이 진짜 SUSPECT 를 묻는다)
 - 상태: 대기
 - 선행: `r63c-evidence-inject-scan` 랜딩(완료 · PR 1043 · main 4c81fa97ad)
@@ -42,7 +42,7 @@
 ## 완료 조건 (닫힘 판정 기준 — ops 수락 판정문)
 - 위 시험 rc=0 · 키트 cmp 동일.
 - 카드 증거 줄 형식(필수 · 시험 칸은 명령 1개 · 없으면 반송): `세트: <40hex> · 시험: bash tests/harness/test_evidence_inject_scan.sh rc=0 · 이슈: 0`.
-- 결과 보고에 r63c 카드(`design/harness/indices/완성/r63c-evidence-inject-scan.md`)로 뽑히는 경로 목록 전/후 1줄씩(전 = 파일 4 + `tests/` · 후 = 파일 4 · 제외 대상이면 그만큼 적음).
+- 결과 보고에 r63c 카드(`design/teams/harness/indices/완성/r63c-evidence-inject-scan.md`)로 뽑히는 경로 목록 전/후 1줄씩(전 = 파일 4 + `tests/` · 후 = 파일 4 · 제외 대상이면 그만큼 적음).
 - 루트 지침(governance §9 · BOOT 19 · 판정 514·532): 완료 조건을 다 채운 «그 턴에» 증거 줄 기록 + master 에 머리 `[완료·휴식]` 1통 → 쉰다.
 - 랜딩 뒤 master 집행(카드 밖): 라이브 FT_BIN `ft-index-move.sh` cp+cmp · 다음 완성 이동 1회의 `INJECT-SCAN files=` 값이 카드 인용 파일 수 수준인지 확인.
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
@@ -56,5 +56,5 @@
 ## 결과 (나노 RESULT · master#20 옮김 2026-10-09)
 세트: 14cd2d03f9522fb4404ae4c79cd683052a2b7ece · 시험: bash tests/harness/test_evidence_inject_scan.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 01:44 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§94
-- 2026-10-09 01:45 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§94
+- 2026-10-09 01:44 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§94
+- 2026-10-09 01:45 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§94

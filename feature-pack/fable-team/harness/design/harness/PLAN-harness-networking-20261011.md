@@ -25,7 +25,7 @@
 | 0-8 | 팀 «열기·닫기» 도구는 없다 | STRUCTURE §2 개설 6항·종료 4항이 글로만 있다(`ls scripts/fable-team-bin \| grep team` = ft-tick-team.sh 뿐). 팀 신설 3건(ops·loom·graphics)이 전부 손 작업(명부·env·plist·좌석·BOARD 행) |
 | 0-9 | 승인 게이트·닫기 게이트는 랜딩됨 | 근원 ③ = 제안서 Issue+`approved` 라벨(REVIEW §6 C 「이미 도입」 · PROPOSAL-proposal-approval-gate r1) · 근원 ④ = R102 `15b8920236`(래퍼 close 거절 → 관찰 중) |
 | 0-10 | planner 입력창 주입 0 | R85 핫픽스(mbox.sh `user_facing` → doorbell 0) 적용 중 · 세션 안 감시 `ft-inbox-watch.sh` 실재(PROPOSAL-inbox-instant-no-inject ① · 판정 881) |
-| 0-11 | 선례 원장은 흩어져 있다 | VERDICTS-planner-NN(판정 ~1075) · `.fable-team/state/hil-approvals.log` · `design/harness/HIL-LEDGER.md` · REQUEST-LEDGER · MERGE-QUEUE — 한 명령으로 긁는 도구 0 → 「선례를 안 찾음」(REVIEW §4 ②) |
+| 0-11 | 선례 원장은 흩어져 있다 | VERDICTS-planner-NN(판정 ~1075) · `.fable-team/state/hil-approvals.log` · `design/teams/harness/HIL-LEDGER.md` · REQUEST-LEDGER · MERGE-QUEUE — 한 명령으로 긁는 도구 0 → 「선례를 안 찾음」(REVIEW §4 ②) |
 | 0-12 | 외부 호출 | 인박스 Haiku 분류 `FT_INBOX_HAIKU_TIMEOUT` 기본 20초(7초 룰 위반 · PROPOSAL-inbox §4) · ft-board gh 조회는 gh-cache.json 경유 · **`ft-nano-close.sh` 361~373행 `_fetch_remote_feat` 의 `git fetch` 에 상한 0**(DA r0 F5) |
 | 0-13 | **승계·인터뷰 baseline(시각 있는 사건 · 재현 가능 · DA r0 F6)** | ⓐ 역할 좌석 **부팅 보고** 쪽지(from = `byz-<팀>-<역할>-<agent>#N` · 본문 머리 `[부팅 보고]`/`[첫 보고]`/`[부팅]`) · mailbox.log.jsonl(.1) 창 **10-08 21:04 ~ 10-11 23:35(약 3.1일)** = **179건 / 계보 26**(v65 arch 23 · v65 master 21 · loom arch 18 · planner 16 · cfo master 13 · v65 tester 13 · harness arch 11 …) → **약 58건/일**. REVIEW 의 「4일 128회」는 추정이었고 같은 자로 재면 더 많다. ⓑ **AskUserQuestion tool_use** 사건(BYZ 프로젝트 전 세션 jsonl · tool_use id 중복 제거 · timestamp 일자) 10-08 110 · 10-09 167 · 10-10 104 · 10-11 79 = **460건/4일(115/일)**. REVIEW 의 「238줄」은 판정문 줄 수(추정) — 같은 자가 아니다 |
 

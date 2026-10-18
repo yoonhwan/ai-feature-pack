@@ -1,5 +1,5 @@
 # 인덱스: v555 보드 발행 5분 틱 — launchd 5분 · 변화 있을 때만 같은 뿌리 글 chat.update · 새 글 0 · 변화 없으면 스냅샷·호출 0 (판정 555 ② · master#19 쪽지 #65802)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 555 ②(master#19 쪽지 #65802 · 「보드 발행을 5분 틱에 신설 · 같은 뿌리 chat.update 만 · 새 글 0 · 변화 없으면 호출 0」)
 - 상태: 대기
 - 선행: v423b 랜딩 뒤(순서만 · 파일 겹침 0) · v423a(§83 · #1014) 랜딩 완료 — `ft-board-publish.sh`·`ft_board_root.py` 위에 얹는다

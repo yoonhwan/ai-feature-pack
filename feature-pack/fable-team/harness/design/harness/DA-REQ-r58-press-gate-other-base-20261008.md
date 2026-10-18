@@ -9,7 +9,7 @@
 ## 고정 대상
 - 커밋 `5623d4d5f62cefa1031be29041d53228da963e7b`(브랜치 `nano/r58-press-gate-other-base-nano` · 나노 변경 = `git diff 5623d4d5f6~1 5623d4d5f6` · 3파일 +138):
   `scripts/fable-team-bin/ft-press-gate.sh`(+14 · `_other_trunk()` + 루프 1줄) · 키트 사본 같은 바이트 · `tests/scripts/test_press_gate_other_base.py`(110줄 · ⓐ~ⓕ).
-- 카드 `design/harness/indices/진행/r58-press-gate-other-base-nano.md`(구현 범위 1 · 사전검증 «구현 DA 1회 · Q1~Q3 고정»).
+- 카드 `design/teams/harness/indices/진행/r58-press-gate-other-base-nano.md`(구현 범위 1 · 사전검증 «구현 DA 1회 · Q1~Q3 고정»).
 - 증거(arch#19 재현 · origin/main 73d9c25819 아카이브 + 나노 diff): 시험 12 passed(새 6 + 기존 `test_press_gate_set_membership.py` 6) · `test_kit_bin_sync.sh` ALL PASS · bash -n · 사본 cmp · ruff 0.
   실데이터: 원 차단 브랜치 `nano/m5-996-room-sse-unbounded-reconnect-impl`(info base=origin/main · base_sha b4ce4ab0a5) — b4ce4ab0a5 ⊂ HEAD(조상 OK) · b4ce4ab0a5 ⊄ feat/v6-realtime-live → ⊘ 제외 조건 충족. (워크트리는 이미 닫힘 — 게이트 실행은 허가 파일 발급 부작용 때문에 안 함.)
 
@@ -21,7 +21,7 @@
 - 범위 밖(새 요구 금지): LIVE_WT 좌석 이름 정규식(`ft-v65-temp-*`) · feat 워크트리 사본이 옛판인 문제 · ⑥⑦⑧.
 
 ## 판정문
-`design/harness/DA-r58-press-gate-other-base-20261008.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-r58-press-gate-other-base-20261008.md` 에 r1 — Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 (arch#19 · 2026-10-08 · bounded — Q1 + 시험 ⓖⓗⓘ 만 · 새 요구 0 · 10분 + 정정 10분)
 - 고정 대상: 커밋 `f475c7f91004b54c32630e8eb913bc8fe123cd73`(r1 `5623d4d5f6` 위 [fix] · 같은 브랜치 · 3파일 +57 −5) · 반송서 `.fable-team/state/drafts-r21/REJECT-r58-press-gate-other-base-r1.md`.
@@ -29,4 +29,4 @@
 - 증거(arch#19 재현 · origin/main 73d9c25819 아카이브 + `git diff 5623d4d5f6~1 f475c7f910`): pytest 15 passed(other_base 9 + set_membership 6) · kit_sync ALL PASS · bash -n · 사본 cmp · ruff 0 · 시험 파일 158줄. ★arch 독립 변이★: ⒞ 판정을 «항상 조상 아님»으로 바꾸면 `test_old_main_ancestor_in_feat_is_counted`(ⓖ) · `test_short_sha_alias_does_not_bypass`(ⓗ) FAIL. 실데이터: 996 base_sha b4ce4ab0a5 vs feat/v6-realtime-live `--is-ancestor` rc=1 → ⊘ 유지(R58 해소 유지).
 - **Q1r2**: ⒜ref 실재 ∧ ⒝base_sha ⊂ HEAD ∧ ⒞base_sha ⊄ FEAT(rc=1) 셋에서도 FEAT 랜딩 대상 미랜딩이 ⊘ 로 빠지는 오기·별칭 경로가 남는가(짧은 sha · 태그 · `origin/` 접두 · FEAT 조회 실패 rc 128) — 있으면 코드 줄 + 재현 입력.
 - 범위 밖(r1 그대로): Q2·Q3(r1 APPROVE) · LIVE_WT 정규식 · ⑥⑦⑧.
-- 판정문: `design/harness/DA-r58-press-gate-other-base-20261008.md` 에 r2 절 · 끝 줄 APPROVE 또는 HOLD.
+- 판정문: `design/teams/harness/DA-r58-press-gate-other-base-20261008.md` 에 r2 절 · 끝 줄 APPROVE 또는 HOLD.

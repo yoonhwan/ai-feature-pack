@@ -1,5 +1,5 @@
 # 인덱스: C15 GitHub Issue 폼 6개 점검·보강 — 라이브 여부 · 확인 요청 체크 + 기획 정리본 칸
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -11,7 +11,7 @@
 골의 축: 표 A(요청 → Issue). 핵심 한 줄: 오빠와 사내 멤버가 GitHub 에서 직접 올리는 Issue 가 매니저가 분류할 정보를 담아 들어오게 한다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-`.github/ISSUE_TEMPLATE/` 에 폼 6개가 이미 있다(사실). 새 폼은 만들지 않고 보강만 한다: `live_bug.yml` 에 「라이브(고객 영향) 여부」 체크와 「확인 요청(사내 멤버)」 체크 2개를 추가하고, `planner_task.yml` 에 정리본 경로 · 골좌표 · 닫는 증거 · 선행 칸이 있는지 점검해 없으면 추가한다. 자동 라벨은 **이미 있는 라벨만** 쓴다(없는 라벨 생성은 GitHub 쓰기라 이 카드에서 하지 않고 목록만 보고). `blank_issues_enabled` 는 현행 유지. 정본: `design/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §2 · §8 C15 · `design/harness/issue-improvement/MERGED-20261005.md` §4.
+`.github/ISSUE_TEMPLATE/` 에 폼 6개가 이미 있다(사실). 새 폼은 만들지 않고 보강만 한다: `live_bug.yml` 에 「라이브(고객 영향) 여부」 체크와 「확인 요청(사내 멤버)」 체크 2개를 추가하고, `planner_task.yml` 에 정리본 경로 · 골좌표 · 닫는 증거 · 선행 칸이 있는지 점검해 없으면 추가한다. 자동 라벨은 **이미 있는 라벨만** 쓴다(없는 라벨 생성은 GitHub 쓰기라 이 카드에서 하지 않고 목록만 보고). `blank_issues_enabled` 는 현행 유지. 정본: `design/teams/harness/issue-improvement/SPEC-github-issue-driven-20261006.md` §2 · §8 C15 · `design/teams/harness/issue-improvement/MERGED-20261005.md` §4.
 
 ## 구현 범위 (이 셋만 — 닫힌 목록)
 1. `.github/ISSUE_TEMPLATE/live_bug.yml` · `planner_task.yml` 보강(추가만 · 기존 필드 삭제 0) · `config.yml` 은 무변경 · 라벨은 `gh label list`(읽기)로 존재하는 것만 폼에 쓰고, 필요하지만 없는 라벨 이름 목록은 보고서에 적는다.
@@ -29,4 +29,4 @@
 - 2026-10-06 00:17 — 대기→진행 · 좌석 ft-harness-temp-c15-issue-forms#0
 - 정본 영향 없음: 하네스 폼·스크립트·문서만 추가 — docs/architect 제품 정본 변경 없음
 - 세트: 3ea186afac2acf7ce0ebde4a119e506759082417 · 시험: bash tests/harness/test_issue_forms.sh rc=0 · 이슈: 0
-- 2026-10-06 00:23 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§14
+- 2026-10-06 00:23 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§14

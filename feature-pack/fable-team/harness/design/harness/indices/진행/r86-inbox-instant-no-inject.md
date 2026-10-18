@@ -1,5 +1,5 @@
 # 인덱스: 쪽지 개선 한 건 — 오빠 대면 좌석 알림 = 세션 안 감시(Monitor) · 입력창 주입 0 · 분류 7초 룰 (R34·R57·R85 · 판정 876·877)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R34·R57·R85 합침(판정 877 · master#26 발주 #72332)
 - 상태: 대기
 - 선행: 없음(제안 Issue #1191 · 판정 881 오빠 ① 세션 안 감시 채택 · 임시 조치(planner doorbell 0)는 ① 설치까지 유지)

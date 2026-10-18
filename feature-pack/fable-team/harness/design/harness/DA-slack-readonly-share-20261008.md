@@ -1,7 +1,7 @@
 # DA — 슬랙 읽기 전용 공유판 + 결정 자리 현역 세션 안내 (사전검증 · r1)
 
 - 요청: byz-harness-arch-claude#16 · 2026-10-08 · 발주 master#17 #64368(오빠 발주 · 최우선)
-- 설계: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/harness/DESIGN-slack-readonly-share-20261008.md`
+- 설계: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/teams/harness/DESIGN-slack-readonly-share-20261008.md`
 - 코드(정본): `git -C /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops show origin/main:scripts/harness-install/slack-mirror/<파일>` (라이브 `~/.hermes/scripts/` 와 cmp 같음)
 - 범위 고정: 설계 §7 Q1~Q4 만. 10분 + 10분 · HOLD 2회면 종료.
 - ★판정은 이 파일 맨 아래 「## r1 판정」 절에 쓴다★(relay 사본 /tmp/mbox/… 금지).
@@ -55,7 +55,7 @@ APPROVE
 
 ## 판정 496 r1 요청 (arch#17 · 같은 단위 · 새 범위 — 슬랙 공유판 Q1~Q4 재심 0)
 - 설계: 같은 폴더 `DESIGN-slack-readonly-share-20261008.md` `## §8` 만(8-1 실측 · 8-2 안 · 8-3 ⑥ 관계 · 8-4 단위 · 8-5 Q5~Q8).
-- 함께 볼 것: `design/harness/indices/대기/v421-board.md`(델타의 바탕 · N3 APPROVE 범위는 재심 0) · `scripts/fable-team-bin/ft-news-tree.py`·`ft-news-tick.sh:47-49`(⑥ 지금).
+- 함께 볼 것: `design/teams/harness/indices/대기/v421-board.md`(델타의 바탕 · N3 APPROVE 범위는 재심 0) · `scripts/fable-team-bin/ft-news-tree.py`·`ft-news-tick.sh:47-49`(⑥ 지금).
 - 범위 고정 Q5~Q8 · 10분 + 10분 · HOLD 2회면 종료(bounded_da_review).
 - 판정은 아래 「## 판정 496 r1 판정」 절에(모델·provider 두 줄).
 
@@ -91,7 +91,7 @@ provider: OpenAI
 APPROVE
 
 ## 구현 재확인 요청 (arch#17 · 카드 slack-readonly-share 완료 조건 「구현 DA 가 재확인」 · 1회 · 10분)
-- 세트: `nano/slack-readonly-share` 커밋 `dc4ad4176b`(feature) · `015dba85f5`(structure) · RESULT `git -C /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-slack-readonly-share show 248e6775cf:design/harness/RESULT-slack-readonly-share-20261008.md` 「## 설계와 다르게 한 곳」 1~5 · 「B-r3 fixture 4 (+1)」.
+- 세트: `nano/slack-readonly-share` 커밋 `dc4ad4176b`(feature) · `015dba85f5`(structure) · RESULT `git -C /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-slack-readonly-share show 248e6775cf:design/teams/harness/RESULT-slack-readonly-share-20261008.md` 「## 설계와 다르게 한 곳」 1~5 · 「B-r3 fixture 4 (+1)」.
 - arch 재현(arch#17): `git archive dc4ad4176b scripts tests/harness tools/comm-canonical` → 시험 8종 rc=0(새 시험 ALL PASS · 기존 7종 PASS) · ruff 0 · 최대 195줄 · share_guard 반례 `Q3`·`Q3에 대해`·`(질문Q12)` 교정 / `FAQ3`·`Q`·평문 통과.
 - 질문 하나만: 편차 1~5 가 설계 §4-r2(A·B·C·A-r3·B-r3) 승인 범위 안인가 — 특히 ②GitHub plain 경로 검사 제외 ③명부 «경로» 유도 + `install-github.sh` BYZ_ROOT 필수(없으면 exit 1) ⑤옛 원장 `ask` 미게시(전달은 유지 — `byz_slack_mbox_inbound.py` diff 에서 ask 게시 3줄만 삭제). 범위 밖 재심 0.
 - 판정은 아래 「## 구현 재확인 판정」 절에.

@@ -1,8 +1,8 @@
 # 인덱스: 승계 때 오빠 창 자동 이관 — ft-seat-handover.sh(snapshot·apply·status) + 은퇴 좌석 relay 훅 + attach 떠넘김 Stop 훅 (R30)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R30(planner#9 → master#14 #62370 · 오빠 원문 relay #62371)
 - 상태: 대기
-- 선행: 없음(안 = design/harness/DESIGN-r30-succession-window-handover-20261008.md §2 r2 + §6 통합 이관 ①②)
+- 선행: 없음(안 = design/teams/harness/DESIGN-r30-succession-window-handover-20261008.md §2 r2 + §6 통합 이관 ①②)
 - 시험 입력: 가짜 tmux 스텁(PATH 앞에 둔 `tmux` 스크립트 · list-clients/switch-client/has-session/show-option/set-option/display-message 응답을 fixture 파일로) + 가짜 명부 JSON + 가짜 장부 jsonl + Stop/UserPromptSubmit 훅 입력 JSON — 실제 tmux switch 0
 - 기준값: 지금 승계하면 오빠 탭이 구 좌석에 남는다(실례 13:5x `/dev/ttys000` → byz-feature-master-claude#2 · 명부 _master = #3) · 구 좌석이 오빠께 attach 명령 2회 · 구 좌석이 판정 번호 매겨 충돌 2회(408·410)
 
@@ -20,12 +20,12 @@
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-r30-handover-20261008.md §7·§8 · H3 APPROVE) → master#14 #62468 이 고정 범위 구현으로 승인 · 잔여 H1·H2 는 완료 조건 시험으로 고정하고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#13
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-r30-handover-20261008.md §7·§8 · H3 APPROVE) → master#14 #62468 이 고정 범위 구현으로 승인 · 잔여 H1·H2 는 완료 조건 시험으로 고정하고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#13
 
 ## 조사 근거
-- `design/harness/DESIGN-r30-succession-window-handover-20261008.md:21` snapshot 규칙 · `:22` apply 순서(명부 대조 · identity 재확인 · skipped reason 4종) · `:25` status 호출 세션 고정(TMUX_PANE).
-- `design/harness/DESIGN-r30-succession-window-handover-20261008.md:28` status 판정표 5행 · `:36` retired-seat-guard 주입 규칙(RETIRED 읽기 질의 허용 · 새 요청 relay + QUEUED·도달 확인 뒤 전달 문구 · 창 상태 단정 0).
-- `design/harness/DESIGN-r30-succession-window-handover-20261008.md:41` Stop 훅 기준 · `:45` mbox 가드 제거 · `:75` ① H1 잔여(1탭만 follow) · `:81` ② H2 잔여(인용 문맥 선제외).
+- `design/teams/harness/DESIGN-r30-succession-window-handover-20261008.md:21` snapshot 규칙 · `:22` apply 순서(명부 대조 · identity 재확인 · skipped reason 4종) · `:25` status 호출 세션 고정(TMUX_PANE).
+- `design/teams/harness/DESIGN-r30-succession-window-handover-20261008.md:28` status 판정표 5행 · `:36` retired-seat-guard 주입 규칙(RETIRED 읽기 질의 허용 · 새 요청 relay + QUEUED·도달 확인 뒤 전달 문구 · 창 상태 단정 0).
+- `design/teams/harness/DESIGN-r30-succession-window-handover-20261008.md:41` Stop 훅 기준 · `:45` mbox 가드 제거 · `:75` ① H1 잔여(1탭만 follow) · `:81` ② H2 잔여(인용 문맥 선제외).
 - `scripts/harness-install/fable-team/templates/settings-hooks.snippet.json:57` UserPromptSubmit 등록 자리(Stop 키는 아직 없음 — 새로 추가) · `scripts/harness-install/fable-team/templates/hooks/context-distill-gate.sh:588` additionalContext 주입 출력 꼴.
 - `scripts/harness-install/fable-team/bin/ft-reach-check.sh:50` 도달 확인 인자 꼴(relay 뒤 도달 확인에 재사용).
 
@@ -61,4 +61,4 @@
 - 정본 영향 없음: 하네스 승계 도구·훅·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 14:01 — 대기→진행 · 좌석 byz-harness-nano-r30-seat-handover-window#0
 세트: 0c8045f678561d5402ed255d1ea42a59d72eefb9 · 시험: bash tests/harness/test_seat_handover.sh rc=0 · 이슈: 0
-- 2026-10-08 14:37 — 진행→완성 · 좌석 byz-harness-nano-r30-seat-handover-window#0 · DA design/harness/OPS-VERDICTS-20261006.md#§57
+- 2026-10-08 14:37 — 진행→완성 · 좌석 byz-harness-nano-r30-seat-handover-window#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§57

@@ -2,7 +2,7 @@
 
 ## §0 요청 (byz-harness-arch-claude#12 → byz-harness-da-codex#0 · 2026-10-08)
 - 대상 스냅샷(SHA-256): 카드 3902fa208b586a717aa7e393b4b1cf385a6b4083e1b989a0158dcb53cb045e41 · 안 f395fba73d425dbe26572ff66f169b2e4405fb97dc5aeab851e97b87d2c87a7f
-- 카드: design/harness/indices/대기/r27-master-seat-single-source.md · 안: design/harness/PLAN-r27-master-seat-single-source-20261008.md
+- 카드: design/teams/harness/indices/대기/r27-master-seat-single-source.md · 안: design/teams/harness/PLAN-r27-master-seat-single-source-20261008.md
 - 반박할 것(이 4개만 · 10+10분 · 2 HOLD 면 중단):
   1. 팀 판 ft-tick-team.sh 를 키트와 별도 파일로 들여오는 결정(키트로 덮지 않음)이 맞는가 — 덮으면 팀 뉴스 문구 env·RETARGET 이 사라진다는 근거(카드 배경)의 반례.
   2. master_seat 를 _master 로 바꾸고 role 첫 행 폴백을 없앨 때, 지금 라이브 좌석표(cfo·feature·loom·ops·kk·seats.json)에서 뉴스가 0 이 되는 경우가 있는가(설치 순서 ①명부 먼저로 막히는가).

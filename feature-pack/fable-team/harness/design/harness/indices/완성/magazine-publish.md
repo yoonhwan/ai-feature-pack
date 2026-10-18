@@ -1,6 +1,6 @@
 # 인덱스: 아침 매거진 ② 렌더(md·html) + 3줄 요약 + PDF + 슬랙 + CLI·launchd 템플릿 (판정 347)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 347(planner#8 → master#12 발주 · 설계 design/harness/DESIGN-morning-magazine-20261008.md)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 판정 347(planner#8 → master#12 발주 · 설계 design/teams/harness/DESIGN-morning-magazine-20261008.md)
 - 상태: 대기
 - 선행: DA 사전검증 APPROVE(아래) · 수집 나노(magazine-collect)는 선행 아님 — 구조 모델 가짜로 시험
 - 시험 입력: 설계 §8 계약 칸으로 만든 가짜 구조 모델 · 가짜 요약 명령 · 로컬 가짜 Slack HTTP 서버 — 실 슬랙·실 LLM 0
@@ -16,11 +16,11 @@
 골의 축: C(배포 발행 — 슬랙) + 원문 7(쪼개 동시에 — 매거진 나노 2석 병행). 핵심 한 줄: 판정 347 오빠 원문 「아침. 8시마다. 전날부터아침까지한 24시간 작업정리. 매거진. 발행. 슬랙. 전송메세지요약 및 pdf발행. 반복작업등록」.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-오빠가 «매일 아침 8시에 전날 8시부터 24시간 작업을 한 장으로 정리해 슬랙·PDF 로 발행»을 지시했다(판정 347). 설계(design/harness/DESIGN-morning-magazine-20261008.md)는 두 덩이로 쪼갰고, 이 카드는 뒤 덩이다: 설계 §8 «구조 모델» dict 를 받아 ①md·html 을 같은 순서로 그리고(결론→오빠 할 일→바뀐 것→근거→각주표 · 본문 #N 은 전부 각주표에) ②R25 와 같은 cc 요약 경로(`mirror_summary.DEFAULT_CMD`·`SUMMARY_ENV`·`SummaryError` 재사용 · 프롬프트만 새로)로 3줄을 만들고 ③playwright chromium 으로 PDF 를 찍고 ④슬랙 기존 미러 채널에 뿌리 글 + 스레드 PDF 를 올리며 ⑤같은 날 재게시를 막는다 — 뿌리 글 첫 줄 날짜 표식 + 상태 3단계(`posting`→`posted`→`done`) + 게시 «전» 채널 history 표식 확인(있으면 ts 채택) + `posting`인데 표식 없음 = 자동 재게시 0·ERROR·exit 1(설계 §5 · DA HOLD-M1 교정). 요약 실패는 결정적 3줄 + 「(요약 실패: 원인)」 표시 + ERROR 로그(보이는 처리), 그 밖 실패는 전부 raise. md 를 git 에 넣는 방식은 ★오빠 판정 348 로 확정★ — `ops/magazine` 전용 브랜치에만 push(main 0 · force 0) · 예약 모드 = push 켬 · 수동 시험 = `--no-push`. 계약 = 설계 §6 «push 계약».
+오빠가 «매일 아침 8시에 전날 8시부터 24시간 작업을 한 장으로 정리해 슬랙·PDF 로 발행»을 지시했다(판정 347). 설계(design/teams/harness/DESIGN-morning-magazine-20261008.md)는 두 덩이로 쪼갰고, 이 카드는 뒤 덩이다: 설계 §8 «구조 모델» dict 를 받아 ①md·html 을 같은 순서로 그리고(결론→오빠 할 일→바뀐 것→근거→각주표 · 본문 #N 은 전부 각주표에) ②R25 와 같은 cc 요약 경로(`mirror_summary.DEFAULT_CMD`·`SUMMARY_ENV`·`SummaryError` 재사용 · 프롬프트만 새로)로 3줄을 만들고 ③playwright chromium 으로 PDF 를 찍고 ④슬랙 기존 미러 채널에 뿌리 글 + 스레드 PDF 를 올리며 ⑤같은 날 재게시를 막는다 — 뿌리 글 첫 줄 날짜 표식 + 상태 3단계(`posting`→`posted`→`done`) + 게시 «전» 채널 history 표식 확인(있으면 ts 채택) + `posting`인데 표식 없음 = 자동 재게시 0·ERROR·exit 1(설계 §5 · DA HOLD-M1 교정). 요약 실패는 결정적 3줄 + 「(요약 실패: 원인)」 표시 + ERROR 로그(보이는 처리), 그 밖 실패는 전부 raise. md 를 git 에 넣는 방식은 ★오빠 판정 348 로 확정★ — `ops/magazine` 전용 브랜치에만 push(main 0 · force 0) · 예약 모드 = push 켬 · 수동 시험 = `--no-push`. 계약 = 설계 §6 «push 계약».
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-magazine-20261008.md
+- DA: design/teams/harness/DA-magazine-20261008.md
 
 ## 조사 근거
 - `scripts/harness-install/slack-mirror/mirror_summary.py:16` `DEFAULT_CMD` · `:20` `SUMMARY_ENV` — 요약 경로 재사용 지점.
@@ -64,4 +64,4 @@
   닫힘 조건 추가: 위 두 시험 출력 줄 복붙 + 전체 `pytest tests/scripts/test_magazine_*.py -q` rc=0.
 - 2026-10-08 — 반송 r1 재작업 통과 (arch#9 재현 · 판정서 §44 초안) — 나노 2389619b4f [structure] 시험 3파일 분리 + 2a820d879e [fix] ①②: 시험 76 passed · plist ALL PASS · 200줄 초과 0 · find_root 미러식 첫 줄 → None · 정확한 첫 줄 → ts · done 이면 수집 전 skip · 실자료 dry-run(요약 명령 실패 주입) → 결정적 3줄 + 「(요약 실패: …)」 + ERROR · md 245줄 · PDF 1쪽(높이 4381pt).
 세트: 2a820d879eeaff59de3e174622a2ac216519bb31 · 시험: python3 -m pytest tests/scripts/test_magazine_publish.py -q rc=0 · 이슈: 0
-- 2026-10-08 08:55 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§44
+- 2026-10-08 08:55 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§44

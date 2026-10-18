@@ -8,10 +8,10 @@
 ★승계 첫 일 = 골 대조 3줄 + 부팅 3항 + i-have-adhd 를 현역 planner(`byz-planner-master-claude#26` · `ft-harness-info.sh seats` 실측)에 mbox 보고 → 같은 턴 CronCreate 10분 틱(cron=job id) — 전임 크론 `22447b57` 은 세션 종속이라 새로 건다. BOOT 23조항 먼저. 좌석표: `bash .fable-team/bin/ft-seat-retire.sh byz-harness-master-claude#28 byz-harness-master-claude#29 --seats .fable-team/seats-harness.json`(루트에서 · `_master` 만 바뀜).★
 
 ## 지금 상태 (한 줄)
-R102(이슈 닫기 게이트) 설계 착수 — arch#28 이 설계 중(발주서 `design/harness/ORDER-r102-close-gate-design-20261011.md` · 부팅 보고 받음 · 크론 d85d7212). 나머지 하네스 일은 대기. 하네스 나노 0석.
+R102(이슈 닫기 게이트) 설계 착수 — arch#28 이 설계 중(발주서 `design/teams/harness/ORDER-r102-close-gate-design-20261011.md` · 부팅 보고 받음 · 크론 d85d7212). 나머지 하네스 일은 대기. 하네스 나노 0석.
 
 ## 열린 일 (순서)
-1. **R102 (판정 1059 · 착수 승인됨)**: 닫는 6항에 «원인 확정 · 같은 증상 보류 0» 두 칸 + 비면 issues 닫기 도구 거절 → «관찰 중» · 관찰 중 닫기 = 오빠 폰 서로 다른 판 2회 재현 0. 흐름: arch#28 설계(`design/harness/PLAN-r102-close-gate-20261011.md`) → DA(`byz-harness-da-codex#1` · bounded: 2회 HOLD 면 중단·3차는 planner 허가) → master 설치(라이브 bin 복사 + 백업 `.bak-r102-<ts>`) → planner#26 에 «설치 끝» 1줄. graphics#4 의 #922 수리와 겹치지 않음. 보고서 `design/harness/REPORT-g922-reopen-why-20261011.md`.
+1. **R102 (판정 1059 · 착수 승인됨)**: 닫는 6항에 «원인 확정 · 같은 증상 보류 0» 두 칸 + 비면 issues 닫기 도구 거절 → «관찰 중» · 관찰 중 닫기 = 오빠 폰 서로 다른 판 2회 재현 0. 흐름: arch#28 설계(`design/teams/harness/PLAN-r102-close-gate-20261011.md`) → DA(`byz-harness-da-codex#1` · bounded: 2회 HOLD 면 중단·3차는 planner 허가) → master 설치(라이브 bin 복사 + 백업 `.bak-r102-<ts>`) → planner#26 에 «설치 끝» 1줄. graphics#4 의 #922 수리와 겹치지 않음. 보고서 `design/teams/harness/REPORT-g922-reopen-why-20261011.md`.
 2. **R86 라이브 확인**: planner 가 오빠 입력창 시험 쪽지를 요청할 때만 발송(먼저 보내지 않음) → 통과 뒤 요청 원장 R34·R57·R85 닫기.
 3. **접수만(착수 0 · planner 우선순위 대기)**: R82·R84·R88·R89 · 명부 자동 갱신 부재 묶음(R90~R93·R96·R98·R100·R101 — loom 명부 9회) · R94(tcc8 러너 /tmp/tcc8-kept-tab.txt 세트 공통) · R95(DA⑥ 브리프에 «분기 플래그 판별 층 RED» 항목) · R97(mbox send 수신자 검증 부재 — WARN 부터 권고) · R99(CD standing 게이트 옛 리비전 빈 응답 1회 실패 — 재조회 또는 범위 제한).
 4. **다른 팀 명부 `_hil_route` 점검**: graphics·ops·loom·feature 는 planner#25 였음(planner 현역 #26) — 각 팀 master 요청이 오면 정정(백업 `.bak-*` + 값 1개만 교체 + 원장 행). 하네스·loom 은 정정 완료.

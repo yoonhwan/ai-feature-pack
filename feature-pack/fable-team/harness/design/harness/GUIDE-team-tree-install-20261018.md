@@ -69,11 +69,11 @@
 - 바닥 파일이 수백 개(WARN 많음) → 이번 커밋에서 옮기지 않는다. «이동 구조 커밋» 은 다음 단계(하네스 r318b 가 선례).
 - 이 1장 밖의 질문(틀 내용 바꾸고 싶다 · 칸을 더 두고 싶다) → 하네스 요청 원장 행(개선요청) — 임의로 틀을 바꾸지 않는다.
 
-- 새 팀을 «처음부터 끝까지» 친 실제 출력(scaffold created=14 · 명부 3키 · upgrade STAMP/SKIP · check-teams · map-lint · 커밋)은 하네스 도그푸딩 카드 `design/harness/indices/완성/r373-harness-dogfood-new-team-landing-scenario.md` «시나리오 기록» 절에 원문으로 있다 — 막히면 그 절과 대조한다(R373 · 시험 팀 zz-dogfood).
+- 새 팀을 «처음부터 끝까지» 친 실제 출력(scaffold created=14 · 명부 3키 · upgrade STAMP/SKIP · check-teams · map-lint · 커밋)은 하네스 도그푸딩 카드 `design/teams/harness/indices/완성/r373-harness-dogfood-new-team-landing-scenario.md` «시나리오 기록» 절에 원문으로 있다 — 막히면 그 절과 대조한다(R373 · 시험 팀 zz-dogfood).
 
 ## 3. 정본 (이 장은 복사본이다 — 어긋나면 아래가 이긴다)
 
-- 트리 r2 오빠 컨펌: `design/harness/SLACK-r318-tree-r2-20261017.md` · 설계 `design/harness/DESIGN-r318-team-folder-standard-20261017.md` · DA `design/harness/DA-r318-team-root-20261017.md`
+- 트리 r2 오빠 컨펌: `design/teams/harness/SLACK-r318-tree-r2-20261017.md` · 설계 `design/teams/harness/DESIGN-r318-team-folder-standard-20261017.md` · DA `design/teams/harness/DA-r318-team-root-20261017.md`
 - 도구 추적본: `scripts/fable-team-bin/ft-team-scaffold.sh` · `ft-team-map-lint.sh` · 틀 `scripts/harness-install/fable-team/templates/team/`
 - 명단·구성: `design/TEAMS.md` · `design/TEAMSET.md`(메타 키 `_doc` `_tree_version` `_tree` 는 표 1 아래 «명부 메타 키» 줄)
-- 후속: R368 ★착지 완료 main 0d94a216c1★(전 팀 일괄 패치 도구 `ft-team-upgrade.sh [--all|<팀>]` · TEAMS↔TEAMSET 일치 검사 `--check-teams` · 13팀 명부 `_tree_version` 1.0.0 STAMP 됨 — 카드 `design/harness/indices/완성/r368-*`) · R369(승계·부팅 본문에 팀 정본 목록 강제 — 카드 `design/harness/indices/대기/r369-*`)
+- 후속: R368 ★착지 완료 main 0d94a216c1★(전 팀 일괄 패치 도구 `ft-team-upgrade.sh [--all|<팀>]` · TEAMS↔TEAMSET 일치 검사 `--check-teams` · 13팀 명부 `_tree_version` 1.0.0 STAMP 됨 — 카드 `design/teams/harness/indices/완성/r368-*`) · R369(승계·부팅 본문에 팀 정본 목록 강제 — 카드 `design/teams/harness/indices/대기/r369-*`)

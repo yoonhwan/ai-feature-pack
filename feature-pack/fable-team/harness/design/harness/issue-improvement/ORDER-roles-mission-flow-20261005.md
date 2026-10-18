@@ -12,9 +12,9 @@
 > 앞 단위 원칙(유지): 「스택이 너무 크다 · 파일 하나 · 하나씩 · 모든 작업은 arch da 진행 기획」
 
 ## 기반 구조 (오빠 확정 · 다시 묻지 않는다)
-`design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md`(37e19724b5): 오빠 ↔ planner(컨트롤 베이스·거시) 아래 v65·cfo·harness-ops(메인)·ccu·kk(위성) 서로 동등 · issue-manager = planner 가 쓰는 Issue 실행 도구(정의된 GitHub Issue 단위 폴링·수정·테스트·랜딩·클린업). 이 트리·mbox 방식은 이미 정본 — 이 문서는 그 위에 «역할·흐름»만 얹는다.
+`design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md`(37e19724b5): 오빠 ↔ planner(컨트롤 베이스·거시) 아래 v65·cfo·harness-ops(메인)·ccu·kk(위성) 서로 동등 · issue-manager = planner 가 쓰는 Issue 실행 도구(정의된 GitHub Issue 단위 폴링·수정·테스트·랜딩·클린업). 이 트리·mbox 방식은 이미 정본 — 이 문서는 그 위에 «역할·흐름»만 얹는다.
 
-## 산출 = 문서 1개 `design/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md` (200줄 이내 · 읽는 사람 = 오빠)
+## 산출 = 문서 1개 `design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md` (200줄 이내 · 읽는 사람 = 오빠)
 네 절 · 각 절 «지금(실측 사실)» + «제안» 분리 · 오빠 값이 필요한 선택은 문서 끝 질문 목록(최대 5):
 1. **planner · issue-manager 세부 수행 역할** — 표: 입력 · 하는 일 · 출력(정본 위치) · 하지 않는 일. 둘의 경계(거시 vs Issue 1건 단위) 명시.
 2. **planner → 메인팀 병렬 발주 관리** — 발주 단위 · 팀당 동시 몇 건 · 상태 추적 · 자원 충돌(GPU·오디오 press 는 직렬) 순번 · 회수.

@@ -1,8 +1,8 @@
 # FACTS — 하네스 구성 실측 (ft-harness-arch#0 요청 · ft-harness-nano#1 실행 · 2026-10-05)
 
-> REQ 정본 = `design/harness/issue-improvement/REQ-facts-composition-20261005.md` (커밋 20cd3f3c9b) · ORDER = `design/harness/issue-improvement/ORDER-harness-composition-20261005.md` (03597ca902).
+> REQ 정본 = `design/teams/harness/issue-improvement/REQ-facts-composition-20261005.md` (커밋 20cd3f3c9b) · ORDER = `design/teams/harness/issue-improvement/ORDER-harness-composition-20261005.md` (03597ca902).
 > **읽기 전용.** 수정·kill·launchd·gh write 0. **Slack 미접촉.** `gh` 는 `unset GH_TOKEN` 후 실행.
-> 원본 출력 = `design/harness/issue-improvement/facts-raw/` (아래 표의 `raw:` 경로). 긴 출력은 파일만 두고 여기엔 수치·예시만.
+> 원본 출력 = `design/teams/harness/issue-improvement/facts-raw/` (아래 표의 `raw:` 경로). 긴 출력은 파일만 두고 여기엔 수치·예시만.
 > 표기: **[사실]** = 이번에 명령을 돌려 나온 값. **[추측]** = 그 값에서 내린 해석(명령으로 확인 안 됨).
 > 측정 시점 HEAD = `feat/slack-inbound-820` `705ab1d9c7` · tmux 세션 30 · 머신 = 로컬 yoonhwan 맥.
 
@@ -160,7 +160,7 @@ raw: `F6-mbox-analysis.txt` · `F6-mbox-py-head.txt`
 **명령**
 ```
 gh issue view 816 / 818 --json title,state,body
-ls scripts/harness-install/ ; grep -nE '반영됨|jarvis|hermes|loom|c2c|mini' design/harness/RELEASE-0.{1,2}.md
+ls scripts/harness-install/ ; grep -nE '반영됨|jarvis|hermes|loom|c2c|mini' design/teams/harness/RELEASE-0.{1,2}.md
 grep -rioE 'jarvis|loom|c2c|hermes\(로컬\)|mac mini|macmini' design/harness design/planner docs/rules
 ls ~/.tmuxc/ ; ls ~/.tmm/
 ```

@@ -1,6 +1,6 @@
 # RELEASE 0.3 — Issue 기반 개선 체계 구현 + CI 비용 구멍 차단 (2026-10-06 · 축 C)
 
-골 축: C 「업그레이드하고 레포에 커밋 푸시 … 배포 발행 수신해 반영」 · 닫는 증거 = 이 1장 + 머신별 「반영됨」 행. 설계 정본 = design/harness/issue-improvement/SPEC-github-issue-driven-20261006.md · 구현 판정 = design/harness/OPS-VERDICTS-20261006.md §1~§19.
+골 축: C 「업그레이드하고 레포에 커밋 푸시 … 배포 발행 수신해 반영」 · 닫는 증거 = 이 1장 + 머신별 「반영됨」 행. 설계 정본 = design/teams/harness/issue-improvement/SPEC-github-issue-driven-20261006.md · 구현 판정 = design/teams/harness/OPS-VERDICTS-20261006.md §1~§19.
 
 ## 변경
 | # | 변경 | 근거 | sha |

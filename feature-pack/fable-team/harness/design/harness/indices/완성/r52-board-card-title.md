@@ -1,5 +1,5 @@
 # 인덱스: 상태판 카드 제목 = 첫 5줄 안의 첫 `# ` 줄 (`<!-- ledger -->` 주석·빈 줄 건너뜀 · 없으면 `<id> (제목 없음)`) (R52 · master#18 #65016 · 나노 1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 원장 R52(master#18 발견 #65016 — cfo·feature 카드 제목이 ledger 주석 줄로 나옴)
 - 상태: 대기
 - 선행: 없음(origin/main a7fcb904bb 이후 `scripts/fable-team-bin/ft_board_collect.py` 만)
@@ -48,4 +48,4 @@
 - 2026-10-08 21:50 — 대기→진행 · 좌석 byz-harness-nano-r52-board-card-title#0
 세트: 6a3165ca75c5c740c96f5741c063a1b2e7459d49 · 시험: bash tests/harness/test_board.sh rc=0 · 이슈: 0
 세트: 464d51faab2ef95e993afa55eb6c94cba47c0aed · 시험: bash tests/harness/test_board.sh rc=0 · 이슈: 0
-- 2026-10-08 21:55 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§78
+- 2026-10-08 21:55 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§78

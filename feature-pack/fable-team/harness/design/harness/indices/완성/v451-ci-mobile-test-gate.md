@@ -1,5 +1,5 @@
 # 인덱스: CI Mobile Test — clients/mobile 변경 때만 실행(잡 레벨 변경 감지) + Set up Flutter 5분 timeout (판정 451 ⓐ+ⓑ · 판정 436 후속)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 451(planner#11 #63462 · master#16 #63468 · 근거 master 실측 #63459)
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(ci.yml 은 main 이 ops/main-base 보다 앞)
@@ -50,4 +50,4 @@ Mobile Test 잡은 모든 PR 에서 Flutter 를 내려받아 analyze·test 를 �
 - 정본 영향 없음: CI 워크플로 1파일 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 17:05 — 대기→진행 · 좌석 byz-harness-nano-v451-ci-mobile-test-gate#0
 세트: 5ce91ec4ce966f4bf65f249264f6a06de5823eed · 시험: actionlint -shellcheck= .github/workflows/ci.yml rc=0 · 이슈: 0
-- 2026-10-08 17:19 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§65
+- 2026-10-08 17:19 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§65

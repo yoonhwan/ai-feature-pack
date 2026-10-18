@@ -59,7 +59,7 @@
 - `references/context-management.md` 승계 6단계 ①스냅샷에 고정 줄: `- 열린 세트: bash <루트>/scripts/harness-install/sets/ft-sets.sh <팀> 출력 붙임`.
 - 승계 발주 템플릿(골 3줄 다음)에 1줄: `세트: ft-sets.sh <팀> — 골 대조 보고에 «세트 진행 a · 발주 b · 보류 c» 1줄`.
 - `references/harness-map.md` 에 행 1개(「큰 작업 발주·세트 상태 | SETS.md · ORDER-*.md · ft-sets.sh | design/issues/ · design/<팀>/orders/」).
-- 홈 파일 2개(context-management · harness-map)는 리포 사본이 없다 → tracked 초안 `design/harness/drafts/set-dispatch/…` → master cp 설치(제안서 흐름 governance 와 같은 절차).
+- 홈 파일 2개(context-management · harness-map)는 리포 사본이 없다 → tracked 초안 `design/teams/harness/drafts/set-dispatch/…` → master cp 설치(제안서 흐름 governance 와 같은 절차).
 
 ## §5 조회 도구 `ft-sets.sh` (요구 3)
 - `ft-sets.sh [팀]` — SETS.md 를 읽어 표 출력(팀 필터 · 상태 순 진행 → 발주 → 보류 → 닫힘) + 끝줄 「세트 진행 a · 발주 b · 보류 c · 닫힘 d」.
@@ -69,7 +69,7 @@
 - 읽기 전용 · 원격 0.
 
 ## §6 첫 적용 (CFO 7세트 · 판정 358)
-1. planner 가 `design/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md`(회수본 · 05d5a0e0ec)를 §2 형식으로 옮겨 `design/planner/orders/ORDER-358-cfo-sets.md` 커밋.
+1. planner 가 `design/teams/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md`(회수본 · 05d5a0e0ec)를 §2 형식으로 옮겨 `design/planner/orders/ORDER-358-cfo-sets.md` 커밋.
 2. issues master 가 SETS.md 7행 + 라벨 + LOOP-LEDGER 「세트=」.
 3. planner BOARD 에 링크 1줄(「세트 원장 = design/issues/SETS.md · ft-sets.sh」).
 4. cfo master 다음 승계(또는 지금 좌석의 다음 골 대조)에서 «세트 1줄» 실측 1회 = 닫는 증거.

@@ -1,9 +1,9 @@
 # 인덱스: 틱 한 줄 — ft-tick-line(라이브 turn 경계) + ft-seats-lint + 상태판 ⑤ «오빠가 정할 것» (N1 · 팀 운영 구조 근원 수정 · 판정 1070·1079 · arch#29)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner ORDER(판정 1069·1070 · 오빠 「그래」 = REVIEW §6 A~D 채택) · 설계 PLAN-harness-networking-20261011.md §2 D2·D8·D9 · §9
 - 제안서: 없음 — 오빠 판정 1070 으로 착수 승인된 하네스 구조 수정(REVIEW-4days-networking §4·§6 · 판정 1079 3차 DA APPROVE #76290)
 - 상태: 대기
-- 선행: 없음 · 설계 = `git show f0d974ab20:design/harness/PLAN-harness-networking-20261011.md`(r2 · DA APPROVE #76290 · ★나노 워크트리(origin/main)에는 이 파일이 없다 · 위 명령으로 읽는다★) · 순서 N1 → N3 → N2 → N4 → N5
+- 선행: 없음 · 설계 = `git show f0d974ab20:design/teams/harness/PLAN-harness-networking-20261011.md`(r2 · DA APPROVE #76290 · ★나노 워크트리(origin/main)에는 이 파일이 없다 · 위 명령으로 읽는다★) · 순서 N1 → N3 → N2 → N4 → N5
 - 시험 입력: 픽스처 명부 json · 가짜 좌석 jsonl(턴 끝 시각 조작) · 가짜 스냅샷 json · 가짜 tmux ls 출력(env `FT_TMUX_LS_CMD`) — 실 tmux·실 명부·루트 `.fable-team/` 쓰기 0 · gh 호출 0(캐시 파일 픽스처)
 - 기준값(arch#29 실측 · 2026-10-11): harness master#28 세션 프롬프트 128 중 크론 틱 94(73%) · 16.5h 4.28MB → ctx 402k 증류. 틱 1회 ≈ 15~30KB. `ft-board.py stalled` 실재(v6-realtime-live/.fable-team/bin · launchd 300초 스냅샷 `.fable-team/state/board/<날짜>/*.json`) · `ft-seat-status.sh turn <좌석>` 실재(1줄 5열 STATE TURN_END_ISO DURATION_MS REPORTED SOURCE) · 명부 seats*.json 10개 · tmux 세션 85.
 

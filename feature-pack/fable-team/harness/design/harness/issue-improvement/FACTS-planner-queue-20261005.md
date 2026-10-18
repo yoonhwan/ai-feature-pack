@@ -1,8 +1,8 @@
 # FACTS — planner 이슈 큐 · v65 대형 리스트 분할 병렬 · 병합 랜딩 실측 (ft-harness-arch#1 요청 · ft-harness-nano#1 실행 · 조각 P5)
 
 > 측정 시각 **2026-10-05 15:27 KST** · 읽기 전용 · 수정 0 · Slack 0.
-> 루트 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` · v65 정본 사본 = `.worktrees/v6-realtime-live`. 산출 위치 = `design/harness/issue-improvement/`.
-> 원본 = `design/harness/issue-improvement/facts-raw/Q*.txt`. 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #56995.
+> 루트 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` · v65 정본 사본 = `.worktrees/v6-realtime-live`. 산출 위치 = `design/teams/harness/issue-improvement/`.
+> 원본 = `design/teams/harness/issue-improvement/facts-raw/Q*.txt`. 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #56995.
 
 ---
 
@@ -70,7 +70,7 @@
 | cfo | **Y** | `.worktrees/c-level-planning/design/cfo/GOAL-cfo.md` (29행) | **6** | [사실] |
 | ccu | **GOAL 없음** | `.worktrees/ccu-stress/design/ccu/GOALMAP-CCU_ARCH-{4,5,6,7}.md` (17~31행 · 각 7~9행) | (GOALMAP 4장) | [사실] |
 | kk | **Y** | `.worktrees/v6-realtime-live/design/kk/GOAL-kk.md` (28행) | **7** | [사실] |
-| harness | **Y** | `.worktrees/harness-ops/design/harness/GOAL-harness.md` (22행) | **5** | [사실] |
+| harness | **Y** | `.worktrees/harness-ops/design/teams/harness/GOAL-harness.md` (22행) | **5** | [사실] |
 | issues | **Y** | `.worktrees/issue-manager/design/issues/GOAL-issues.md` (20행) | **6** | [사실] |
 
 **[추측]** ccu 만 단일 불변 GOAL 이 없고 좌석별 `GOALMAP-CCU_ARCH-N.md` 4장으로 쪼개져 있다 — ccu 가 메인/위성 경계가 불명확한 트랙이라는 정황과 일치.

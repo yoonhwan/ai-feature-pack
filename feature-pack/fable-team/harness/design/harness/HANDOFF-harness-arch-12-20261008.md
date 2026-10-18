@@ -24,7 +24,7 @@ arch = 설계·카드(대기/ · lint 통과 · 미커밋)·DA 소환 판단·�
 |---|---|
 | R21 feature 틱 뉴스 대상 | 좌석표 정정 뒤 ft-tick-feature.log 12:48:16 `master sent to byz-feature-master-claude#2` · 승계 뒤 13:26 `#3` |
 | R27 틱 master = _master 하나 (§54) | PR 909 병합 13:40 · 팀 틱 5 + v65 틱 md5 = main · 나노 6dc923936d |
-| 판정 404 ① 감사 | design/harness/AUDIT-j404-slack-threads-20261008.md (결과 답글 있는 스레드 1/6 · 원인 = 손 hermes send + 결과 단계 부재) |
+| 판정 404 ① 감사 | design/teams/harness/AUDIT-j404-slack-threads-20261008.md (결과 답글 있는 스레드 1/6 · 원인 = 손 hermes send + 결과 단계 부재) |
 | 판정 404 ② 설계 | DESIGN-resume-index-20261008.md r1 · DA HOLD 1 → 교정 1 APPROVE · 카드 2장 |
 | 판정 404 카드 1 재현 + §55 초안 | 나노 15a2081450 · 69+187 passed · 계약 10 소스 대조 · 증거 줄 OK(#62412) |
 | R29 안·카드 | PLAN-r29 r1 · DA HOLD 1 → 교정 1 APPROVE · 카드 대기/r29-cherry-gate-squashed-pr.md · 나노 spawn(master) |

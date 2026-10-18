@@ -2,7 +2,7 @@
 
 > 측정 시각 **2026-10-05 14:46 KST** · 읽기 전용 · 코드·명부 수정 0 · Slack 0.
 > 경로 기준 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents`. **planner·issues·cfo·ccu·harness 문서는 리포 루트가 아니라 워크트리 안**에 있다(각 표에 실제 경로).
-> 원본 = `design/harness/issue-improvement/facts-raw/R*.txt`. 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #56967.
+> 원본 = `design/teams/harness/issue-improvement/facts-raw/R*.txt`. 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #56967.
 
 ---
 
@@ -84,7 +84,7 @@
 | v65 | `design/v65/indices/` (루트) | 29 | 28 | 32 | **Y 0 / 28** (inbox 4) |
 | cfo | `.worktrees/c-level-planning/design/cfo/indices/` | 15 | 17 | 31 | (inbox 3 · `orders/` 평면 ORDER **204**) |
 | ccu | `.worktrees/ccu-stress/design/ccu/` | **없음** | **없음** | **없음** | ORDER 77 · RESULT 3 · CLOSEOUT 1 (평면) |
-| harness-ops | `.worktrees/harness-ops/design/harness/indices/` | 0 | 0 | 1 | REQUEST-LEDGER 데이터행 3 |
+| harness-ops | `.worktrees/harness-ops/design/teams/harness/indices/` | 0 | 0 | 1 | REQUEST-LEDGER 데이터행 3 |
 | issue-manager | `.worktrees/issue-manager/design/issues/indices/` | 0 | 0 | 3 | LOOP-LEDGER 행 31 |
 
 **[사실]** 「클리어」 표시 방식 — v65 = 카드가 `indices/완성/` 으로 이동(`00-first-unit.md` 등) · cfo = `indices/완성/` + `CLOSEOUT-cfo-accounts-20261003.md` · ccu = `CLOSEOUT-ccu-u-staircase-20261004.md` · harness = `indices/완성/00-first-unit.md` · issue = LEDGER 행 상태(`LOOP-LEDGER.md`).

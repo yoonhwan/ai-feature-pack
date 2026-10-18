@@ -12,7 +12,7 @@
 | #922 닫힘 경로 | ClosedEvent actor=byz-tank · closer=없음(PR 아님) 08:46:04Z → Reopened 12:14:58Z — ★Tank 래퍼 `close --apply` 로 닫힘★ |
 | 래퍼 close 게이트 | origin/main `scripts/fable-team-bin/ft-gh-as-tank.sh`(199줄) close 분기 = 인자 검사뿐 · close-check 호출 0 |
 | close-check 위치 | 6항 정본 = origin/main `ft-issue-close-check.sh`(83줄) · 라이브 `<루트>/.fable-team/bin/ft-issue-close-check.sh` = main 과 diff 0 · 전이표상 «close 뒤» 사후 검사(S4→S5 · ISSUE-TRANSITIONS §1) |
-| 6항 정본 문서 | `design/harness/ISSUE-TRANSITIONS.md` §3 + `.github/PULL_REQUEST_TEMPLATE.md` 「완료 6항」 |
+| 6항 정본 문서 | `design/teams/harness/ISSUE-TRANSITIONS.md` §3 + `.github/PULL_REQUEST_TEMPLATE.md` 「완료 6항」 |
 | issues master 래퍼 설치 | 세션마다 `git show origin/main:scripts/fable-team-bin/{ft-gh-as-tank.sh,…}` → scratchpad 추출(HANDOFF-issues-master r3·r4) |
 | 라벨 | `status:observing` 없음(status:* 13개 실측) |
 | 이 워크트리 | ops/main-base 는 origin/main(e9cef9a6ed) 뒤 — ★구현 나노는 origin/main 기준★ |

@@ -13,7 +13,7 @@
 3. ★같은 턴에 CronCreate 10분 체크 틱★(mbox recv + 하위 pane 실측 + 오빠 3줄) — BOOT 16 · 없으면 착수 0.
 
 ## 역할 (governance §6)
-arch = 설계·검토·판정 «안» + 나노 카드(design/harness/indices/대기/ · lint 통과 · 미커밋) + 닫힘 문안(카드 증거 줄·정본 영향 줄·판정서 §). master = 집행(커밋·push·설치·좌석). arch 는 코드 파일을 쓰지 않는다.
+arch = 설계·검토·판정 «안» + 나노 카드(design/teams/harness/indices/대기/ · lint 통과 · 미커밋) + 닫힘 문안(카드 증거 줄·정본 영향 줄·판정서 §). master = 집행(커밋·push·설치·좌석). arch 는 코드 파일을 쓰지 않는다.
 - 카드 lint: `source /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-harness/harness-env.sh; FT_CARD_REQUIRE_PREVERIFY=1 bash scripts/harness-install/fable-team/bin/ft-index-lint.sh <카드>` — 「구현 범위」에 실재 경로 전체 표기 · 「사전검증」 면제 줄 = `- 면제: … — arch 서명 <좌석>` · 「조사 근거」 = `경로:줄`.
 - ★카드 증거 줄 시험 칸 = 명령 1개★(`세트: <40hex> · 시험: <명령 1개> rc=0 · 이슈: 0`) · 추가 시험은 별도 불릿. 보내기 전 `bash scripts/fable-team-bin/ft-nano-evidence-check.sh <카드> --repo <나노 워크트리> --feat main` 으로 OK 확인(내가 한 번 깨뜨려 nano-close 가 REJECT 함).
 - 판정서 § 문안은 `.fable-team/state/drafts-r21/OPS-VERDICT-<N>.md` 에 두고 master 가 붙인다. 다음 번호 = §39.

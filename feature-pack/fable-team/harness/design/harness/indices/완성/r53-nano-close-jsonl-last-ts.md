@@ -1,5 +1,5 @@
 # 인덱스: ft-nano-close ③ 유휴 게이트 = jsonl «마지막 timestamp 기록» 시각 (파일 mtime 아님 · 기록 없으면 REJECT) (R53 · master#18 #65434 · 나노 1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 원장 R53(v65 master#149 #65422 → planner#13 #65428 → master#18 #65434)
 - 상태: 대기
 - 선행: 없음(origin/main 75bf03175f 의 `scripts/fable-team-bin/ft-nano-close.sh` ③ 블록만)
@@ -53,4 +53,4 @@
 세트: 2084e038a15ff49321bddf57e954bdf9f084725f · 시험: bash tests/harness/test_jsonl_last_ts.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 도구·시험만 — docs/architect 제품 정본 변경 없음.
 세트: 90314886b814534b999bb1c6e3e993fe4eeafea1 · 시험: bash tests/harness/test_jsonl_last_ts.sh rc=0 · 이슈: 0
-- 2026-10-08 22:51 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§82
+- 2026-10-08 22:51 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§82

@@ -1,5 +1,5 @@
 # 인덱스: LOOM DB 터널(38309 → 10.2.0.10:5432)을 세션 밖 launchd 상시 소유로 (R87 · v65 master#162 요청)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R87(v65 master#162 쪽지 #72941 · 하네스 이관 #72943 · master#27 발주 #72948)
 - 상태: 대기
 - 선행: 제안 Issue 등록 → 오빠 컨펌(①launchd 추천 · ②세션 밖 1회 · ③닫기 전 이관) → 이 머리 「- 제안서:」 를 #번호로 교체 + 구현 범위 확정 뒤 spawn · 그 전엔 spawn 0

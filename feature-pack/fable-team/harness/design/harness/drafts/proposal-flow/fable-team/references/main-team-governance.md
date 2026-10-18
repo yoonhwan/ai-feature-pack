@@ -4,7 +4,7 @@
 > 바꾸려면 오빠 값 1회(이 파일 머리에 날짜·판정 줄 추가). 자율 확대(컨펌 해제)는 §3 — harness 단위로만.
 > 출처 원문: 오빠 10-07 「planner, harness, issue, v65, cfo 기동 이름 규칙부터 맞춰 …」 · 「이슈 자율 루프는 돌되 자동 승인 진행 하지는 말고 …」 · 「정본하는게 fable-team이잖아? 우리 개선하는게」
 
-## 1. 좌석 이름 규칙 (P6 · 프로젝트 `design/harness/issue-improvement/SPEC-session-naming-20261005.md` §2 사본)
+## 1. 좌석 이름 규칙 (P6 · 프로젝트 `design/teams/harness/issue-improvement/SPEC-session-naming-20261005.md` §2 사본)
 - 문법 `<프로젝트>-<팀>-<역할>[-<꼬리>]#<N>` · 역할 예약어 10 = master arch da tester checker analyst pm nano repro tool · 역할 좌석 꼬리 = 에이전트(claude|codex|opencode|cmd) 필수 · nano 꼬리 = 카드 slug · 소문자·숫자·`-` 만 · 길이 ≤ 60. 검사 = `ft-name-lint.sh <이름>`.
 - **메인 팀 총괄(오케) 역할명은 전 팀 `master` 로 통일**(오빠 10-07 «master 가 메인오케다»): `byz-v65-master-claude` · `byz-cfo-master-claude` · `byz-planner-master-claude` · `byz-harness-master-claude` · `byz-issues-master-claude`(팀 글자 = 명부 파일명 `seats-<팀>.json` 과 같게).
 - `#N` = 승계마다 +1 이며 **옛 이름의 번호를 이어받는다**(예 `ft-v65-master-claude#142` → `byz-v65-master-claude#143`). 승계 때 자연 교체 — 살아 있는 세션을 rename·kill 하지 않는다(구 세션 닫기는 오빠/팀 판단).
@@ -36,7 +36,7 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 - arch 검토 대상(안 없이 집행 0): ①설계·새 스크립트/훅 기능 ②가드·차단 훅(설치·등록 포함) ③설치·배포(홈 디렉터리·settings.json·~/.tmm·원격 머신) ④정본 변경(governance·COMM-GUIDE·BOOT·스킬 SKILL.md·전역/프로젝트 CLAUDE.md) ⑤좌석·모델·이름 규칙 변경 ⑥PR 랜딩 순서·되돌림.
 - master 직접(검토 불요): 조회(seats·map·gh view) · 문서 오타 · 원장 행 추가(결정 없는 기록) · 나노 생존 확인 · «집행».
 - ★«집행» 정의(arch#5 판정 10-07)★: 랜딩·커밋·push·검증된 파일의 설치 복사(cp+cmp)·.bak 복원·머지 충돌의 문서 줄 순서 정리·좌석 개설/닫기·명부·원장 기록. ★파일 «내용을 쓰는 것»은 집행이 아니다★ — 코드·스크립트·훅·시험 = 나노, 시안·설계 = arch. 나노 증거 줄 REJECT = 그 나노에 반송(닫힌 나노면 재spawn). arch 안이 있어도 master 가 «손으로» 쓰지 않고, 안 없이 집행하지도 않는다(오빠 「독단 금지」 둘 다). 전역 「한 턴 코드 2파일」 은 팀 좌석 없는 단독 세션용이고 팀 master 는 0.
-- 흐름: master 발주(mbox · 골 원문 3줄 + 골 축 1줄) → arch 안(결론 1줄 · 승인/수정/반려 · 이유 3줄 · 근거 경로 · 긴 것은 design/harness/ 초안 파일) → master 집행 → master 가 결과(sha·설치 위치·되돌림 명령)를 arch 에 통지 → arch 닫힘 확인 1줄.
+- 흐름: master 발주(mbox · 골 원문 3줄 + 골 축 1줄) → arch 안(결론 1줄 · 승인/수정/반려 · 이유 3줄 · 근거 경로 · 긴 것은 design/teams/harness/ 초안 파일) → master 집행 → master 가 결과(sha·설치 위치·되돌림 명령)를 arch 에 통지 → arch 닫힘 확인 1줄.
 - 사후 검토: 긴급(라이브 장애·권한 사고)으로 master 가 먼저 집행했으면 같은 턴에 arch 에 사후 검토 발주 + 되돌림 명령을 함께 적는다.
 - 오빠 값을 arch/master 판단으로 뒤집지 않는다 — 다르게 가자는 안은 §7 경로(planner [HIL])로 값을 다시 받는다.
 - 나노 접두 = 팀 env 파일의 `FT_NANO_PREFIX`(`byz-<팀>-nano-`) — spawn·close·카드 키가 같은 값을 쓴다. 옛 이름(`ft-<팀>-temp-`) 나노가 살아 있으면 그 한 건만 명령 앞에 접두를 주입한다.

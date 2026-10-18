@@ -3,7 +3,7 @@
 > 원문(오빠 10-15): «데스크에 인터뷰가 떠 있으면 슬랙도 다 멈추고 나는 원격으로 들어가 인터뷰해야 함» · «데스크 안 멈추게»
 > 강제 장치(이 줄만으로는 규칙이 아니다 · R106): 홈 훅 `desk-self-interview-gate.sh`(AskUserQuestion) · `desk-bash-fg-gate.sh`(Bash) · 수신 데몬 `--ack` · 유휴 깨우기 `ft-idle-wake.sh`.
 
-## 1. main-team-governance.md §11-1 desk 행 (+ 키트 사본 `design/harness/staged-r205/main-team-governance.md`)
+## 1. main-team-governance.md §11-1 desk 행 (+ 키트 사본 `design/teams/harness/staged-r205/main-team-governance.md`)
 
 ```
 | desk | `byz-planner-desk-claude#N` | Opus 5.5 [1m] high | 오빠 창 기본 대화 · #byz-talk 사람 글 응대(`byz_thread_post.py reply`) · 요청 정리해 master 에 1통 | ★화면 인터뷰 0★(오빠가 desk 화면에 붙은 뒤 10분 안에 직접 키를 친 때만 예외 · 강제 `desk-self-interview-gate.sh`) — 질문은 #byz-desk 스레드 묶음 글 · ★전경 명령 30초 이하★(`timeout: 30000` 또는 `run_in_background` · 강제 `desk-bash-fg-gate.sh` · 쪽지 `mbox.sh`·`byz_thread_post.py` 도 timeout 을 준다) · 코드·커밋 0 · 팀에 직접 발주 0(master 경유) · 비밀·내부어 게시 0 |

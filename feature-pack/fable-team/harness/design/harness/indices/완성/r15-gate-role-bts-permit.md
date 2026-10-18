@@ -1,5 +1,5 @@
 # 인덱스: press 게이트 ⑦ 좌석 역할(tester·checker 만) · ⑧ 직전 회차 BTS 표 · 통과 시 좌석 허가 파일 발급 (R15 카드 H)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -8,7 +8,7 @@
 
 ## 골좌표
 하네스 GOAL 표 / 닫는 증거(정본 복붙): 「REQUEST-LEDGER.md 행 + Issue 「채택/보류 + 오빠 값」 코멘트 + 반영 sha」.
-골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R15 — v65 master#145 #59389·#59404, 오빠 원문 「bts, poller 없는 press 하는 tester+checker 세션은 없어야한다는게 팩트」. 안 = design/harness/PLAN-r15-press-path-enforcement-20261007.md ⑤ 표 순서 1(카드 H). 이 카드는 «발사 전» 게이트 쪽만 맡는다. PTT 누름 순간의 검사(카드 V)는 v65 소관이라 여기서 다루지 않는다.
+골의 축: 6-b(오케 개선요청 접수·협의). 핵심 한 줄: 원장 R15 — v65 master#145 #59389·#59404, 오빠 원문 「bts, poller 없는 press 하는 tester+checker 세션은 없어야한다는게 팩트」. 안 = design/teams/harness/PLAN-r15-press-path-enforcement-20261007.md ⑤ 표 순서 1(카드 H). 이 카드는 «발사 전» 게이트 쪽만 맡는다. PTT 누름 순간의 검사(카드 V)는 v65 소관이라 여기서 다루지 않는다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
 대상은 추적본 `scripts/fable-team-bin/ft-press-gate.sh` + 키트 `scripts/harness-install/fable-team/bin/ft-press-gate.sh` 다. base 에 PR 869 가 들어 있어 두 사본이 같은 바이트(⑥ 기준선 포함)여야 한다. 게이트 구조: 검사 ①~⑥ 이 각각 `say "✓|✗"` 한 줄을 찍고, 막히면 `FAIL=1` · 끝에서 PASS 면 exit 0, BLOCK 이면 exit 1. 자체시험 `FT_PRESS_GATE_SELFTEST=1` 은 ①~⑤ 를 stub 으로 두고 ⑥ 만 실제로 돌린다(성공 3 · 막힘 1). 시험 `tests/harness/test_press_baseline_check.sh` 가 그 SELFTEST 로 ⑥ 을 검사한다. 지금 게이트는 «누가» 부르는지 보지 않는다. 그래서 나노(옛 이름 ft-v65-temp-* 포함)가 press 해도 막히지 않았다(사고: codex 나노의 ad-hoc press.py · poller 0). 또 BTS 4자 표(TESTER-BRIEF-TEMPLATE 「보고 형식」 1: 열 = `축 | 사실 | 시간` · 행 = 아키텍처 문서 / 코드 / 로그 / 화면)를 안 채우고 다음 회차를 쏴도 막는 것이 없다. 기존 `ft-press-permit.sh` 는 «세트·오디오 장치» 허가(C7)라 이 카드와 목적이 다르다 — 건드리지 않는다.
@@ -61,4 +61,4 @@
 - 세트: a97075512b984ab244147f4b8d93982855ef86fb · 시험: bash tests/harness/test_press_role_bts_gate.sh rc=0 · 이슈: 0
 - 추가 시험: bash tests/harness/test_press_baseline_check.sh rc=0 · bash tests/harness/test_kit_bin_sync.sh rc=0 (둘 다 ALL PASS)
 - 정본 영향: 하네스 press 게이트(추적본·키트)·시험만 — docs/architect 제품 정본 변경 없음 · 라이브 RT 반영과 TESTER-BRIEF 문구(카드 T)·v65 helper(카드 V)는 범위 밖.
-- 2026-10-07 21:17 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§35
+- 2026-10-07 21:17 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§35

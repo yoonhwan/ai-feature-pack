@@ -1,5 +1,5 @@
 # 인덱스: 보드 발행 + planner 보고 의무 훅 — byz_thread_post update · ft-board-publish.sh · report-coverage(Stop) · drain-before-interview(PreToolUse) · 미러 할 일 금지 + Haiku 5.5 · ①~④ 항상 ring · 회신 상한 제외 (판정 421·423 · 430·431 · 설계 §2-3·§2-4·§3 나노 3)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 423(오빠 승인 6개: ①종류별 보고 의무 ②미러 할 일 금지+planner 처리 1줄 ③판정·승인·HIL 항상 doorbell ④회신 상한 완화 ⑤인터뷰 전 함 비우기 ⑥보드 planner 미처리 칸) · 421 발행 · 430·431 컨펌(planner #62745 · master #62749)
 - 상태: 대기
 - 선행: 나노 4(인박스 · nano/v425-master-inbox) 랜딩 · 나노 2(상태판 · 대기/v421-board.md) 랜딩 — 이 카드는 ft-inbox.sh 와 ft-board.py 를 «호출»만 한다(술어·스냅샷 재구현 0).
@@ -20,10 +20,10 @@ R34 실측: planner 는 쪽지를 빨리 읽지만(중앙값 22초) 읽은 뒤 �
 
 ## 사전검증
 - 소환: 아니오
-- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
+- 면제: 사전 DA 는 소환됐고 2 HOLD 로 리뷰 종료(bounded_da_review · 판정문 design/teams/harness/DA-news-board-20261009.md §2~§8 · N2 유한 훅(턴 키 1회)·오류 가시성·#seq 직접 참조·pending/미보고 분리 = 수락 · N2 잔여는 설계 §8 정본 술어로 고정 · N3 APPROVE) → 오빠 컨펌 GO 판정 430·431(planner #62745 · master #62749) · 잔여는 완료 조건 시험으로 닫고 구현 DA 에서 재확인 — arch 서명 byz-harness-arch-claude#14
 
 ## 조사 근거
-- `design/harness/DESIGN-news-tree-workqueue-viz-20261009.md:43`~`:47` 보드 스레드(뿌리 1개/날 · chat.update · 스냅샷 먼저 · 답글 실패 복구 · 날짜 동결 · 발행 시점) · `:50`~`:57` R34 훅 2종·미러·mbox·보드 칸 · `:72` 나노 3 시험 목록 · `:143`~`:146` 정본 술어·필수 가짜 시험·턴당 1회 상한.
+- `design/teams/harness/DESIGN-news-tree-workqueue-viz-20261009.md:43`~`:47` 보드 스레드(뿌리 1개/날 · chat.update · 스냅샷 먼저 · 답글 실패 복구 · 날짜 동결 · 발행 시점) · `:50`~`:57` R34 훅 2종·미러·mbox·보드 칸 · `:72` 나노 3 시험 목록 · `:143`~`:146` 정본 술어·필수 가짜 시험·턴당 1회 상한.
 - `scripts/harness-install/slack-mirror/thread_post_args.py:26` 서브명령 자리(start·progress·result·check·repair) · `scripts/harness-install/slack-mirror/byz_thread_post.py:70` cmd_start(장부 키·뿌리 글 꼴) — update 는 같은 장부 키 `board:<날짜>` 를 쓴다.
 - `scripts/harness-install/slack-mirror/mirror_summary.py:17` DEFAULT_CMD 모델 · `:23`~`:27` PROMPT 의 todo 생성 지시 · `:54` todo 정규화 · `scripts/harness-install/slack-mirror/byz_mbox_slack_mirror.py:74` _close_answered · `:122` _row(행 게시).
 - `tools/comm-canonical/mbox.py:386` 발신 상한 RATE_LIMIT 계산 · `tools/comm-canonical/mbox.sh:147` send 의 notify 결정 자리.

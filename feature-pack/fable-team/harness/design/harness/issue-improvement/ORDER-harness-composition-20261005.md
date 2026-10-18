@@ -24,8 +24,8 @@
 ## 일 (구현 아님)
 | 좌석 | 일 |
 |---|---|
-| ft-harness-arch#0 | 위 범위의 **하네스 구성 설계 1장** `design/harness/issue-improvement/DESIGN-harness-composition-20261005.md` — ① 현재 구성 지도(실측 근거) ② 병목·홀 목록(증거·빈도·닫는 증거) ③ 목표 구성(층·소유·흐름) ④ 오빠께 물을 질문 5개 이내(번호 선택지). 기존 WIP(`WIP-swarm-control-research-20261004.md`)와 리서치 3/4 를 이어 쓴다 |
-| ft-harness-nano#1 | arch 가 요청하는 **읽기 전용 실측**: `seats-*.json`·`.fable-team/` 구조·tmuxc 세션 목록·mbox 흐름·issue-manager 와 GitHub Issue 상태(라벨·전이)·`~/.tmuxc` 등. Slack 은 읽지 않는다. 산출은 `design/harness/issue-improvement/FACTS-composition-20261005.md` |
+| ft-harness-arch#0 | 위 범위의 **하네스 구성 설계 1장** `design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md` — ① 현재 구성 지도(실측 근거) ② 병목·홀 목록(증거·빈도·닫는 증거) ③ 목표 구성(층·소유·흐름) ④ 오빠께 물을 질문 5개 이내(번호 선택지). 기존 WIP(`WIP-swarm-control-research-20261004.md`)와 리서치 3/4 를 이어 쓴다 |
+| ft-harness-nano#1 | arch 가 요청하는 **읽기 전용 실측**: `seats-*.json`·`.fable-team/` 구조·tmuxc 세션 목록·mbox 흐름·issue-manager 와 GitHub Issue 상태(라벨·전이)·`~/.tmuxc` 등. Slack 은 읽지 않는다. 산출은 `design/teams/harness/issue-improvement/FACTS-composition-20261005.md` |
 | ft-harness-da#1 | arch 설계와 nano 사실표를 적대 검증(근거 없는 단정·건수 불일치) → 번호 목록 + APPROVE/HOLD |
 
 ## 규칙

@@ -15,9 +15,9 @@
 ## ★지금 열린 일 3개★ (모두 오빠 직접 지시 · 판정서 초안 = 루트 `.fable-team/state/drafts-r22/OPS-VERDICT-<N>.md`)
 | 판정 | 무엇 | 지금 상태 | 다음 한 수 |
 |---|---|---|---|
-| 609 매거진 쉬운 판(PDF 첨부 · 결정 두 박스 · 핵심 줄 · 본문 번호 0) | 카드 `design/harness/indices/진행/mag609-eli5-readable-decisions.md` · 설계 r2 · 설계 DA r2 APPROVE | ★arch 서명 끝 · 집행 요청 #67579★ — 나노 세트 `8dbf61f8a6`(3커밋) · §105 초안 `OPS-VERDICT-105.md` · 1쪽 캡처 `.fable-team/state/drafts-r22/cap609/dry-eli5-p1-8dbf61f8a6.png` | master 회신(병합 sha · 10-09 호 --force 재발행 ts · 쉬운 판 PDF 미리보기 확인) 받아 확인만 · 나노 mag609 = 닫을 대상 |
-| 623 슬랙 팀별 하루 뿌리 글 + 이슈 시작·끝 목록 | 카드 `design/harness/indices/진행/slack623-team-roots.md` · 설계 r2(key/post_key 분리 · 공용 잠금) · 설계 DA r2 APPROVE | 나노 첫 RESULT `24e6f5580a` 재현 OK(새 15 passed · 기존 미러 시험 31 실패 base `7a60f4fba0` 동일) · ★반송 r1 #67597 → 나노 [완료·휴식] #67606 도착(세트 sha 는 그 쪽지 전문 · 미재현)★(now_lines 가 번호 든 최신 요약을 «건너뜀» → 609 `strip_tokens` 로 걷어 쓰기 · 609 랜딩 뒤 rebase) | 나노 RESULT → 재현(새 시험 + 기존 31 diff 0) → 구현 DA 생략(카드 계약) → arch 서명 · §106 초안 → master 집행(설치 = plist 에 `--team-roots` · 미러 2종 재기동 · 실 슬랙 1회 · 오빠 화면) |
-| 635 그래픽·UI/UX 팀 신설 제안서 | `design/harness/PROPOSAL-team-graphics-20261009.md` (상시 0 · 요청 때 하네스 master 가 열고 닫음 · master 0 · arch codex `gpt-6-astra` · 나노 `gpt-6.1-sol` ≤2 · 경계 1줄) | ★사전검증 DA r1 HOLD #67608★(Q1 별도 명부 감시·HIL 책임 · Q2 팀 신설 승인 vs 요청별 착수 컨펌 분리 · Q3 브랜치/DA 계약 + 인계 수락→랜딩 sha→닫기 조건 · 선례 경로 PROPOSAL-team-ops-loom 은 design/planner 에 있음을 제안서에 정확 경로로) → 제안서 정정 r2 + DA r2 1회 — 판정문 `design/harness/DA-team-graphics-20261009.md` | APPROVE → master 경유 planner 에 오빠 컨펌 요청(질문 1 확정 + 확인 1 «arch astra · 나노 sol» 해석) · 컨펌 전 설치·좌석 0 / HOLD → 정정 1회 · 2 HOLD 면 arch 서명 |
+| 609 매거진 쉬운 판(PDF 첨부 · 결정 두 박스 · 핵심 줄 · 본문 번호 0) | 카드 `design/teams/harness/indices/진행/mag609-eli5-readable-decisions.md` · 설계 r2 · 설계 DA r2 APPROVE | ★arch 서명 끝 · 집행 요청 #67579★ — 나노 세트 `8dbf61f8a6`(3커밋) · §105 초안 `OPS-VERDICT-105.md` · 1쪽 캡처 `.fable-team/state/drafts-r22/cap609/dry-eli5-p1-8dbf61f8a6.png` | master 회신(병합 sha · 10-09 호 --force 재발행 ts · 쉬운 판 PDF 미리보기 확인) 받아 확인만 · 나노 mag609 = 닫을 대상 |
+| 623 슬랙 팀별 하루 뿌리 글 + 이슈 시작·끝 목록 | 카드 `design/teams/harness/indices/진행/slack623-team-roots.md` · 설계 r2(key/post_key 분리 · 공용 잠금) · 설계 DA r2 APPROVE | 나노 첫 RESULT `24e6f5580a` 재현 OK(새 15 passed · 기존 미러 시험 31 실패 base `7a60f4fba0` 동일) · ★반송 r1 #67597 → 나노 [완료·휴식] #67606 도착(세트 sha 는 그 쪽지 전문 · 미재현)★(now_lines 가 번호 든 최신 요약을 «건너뜀» → 609 `strip_tokens` 로 걷어 쓰기 · 609 랜딩 뒤 rebase) | 나노 RESULT → 재현(새 시험 + 기존 31 diff 0) → 구현 DA 생략(카드 계약) → arch 서명 · §106 초안 → master 집행(설치 = plist 에 `--team-roots` · 미러 2종 재기동 · 실 슬랙 1회 · 오빠 화면) |
+| 635 그래픽·UI/UX 팀 신설 제안서 | `design/teams/harness/PROPOSAL-team-graphics-20261009.md` (상시 0 · 요청 때 하네스 master 가 열고 닫음 · master 0 · arch codex `gpt-6-astra` · 나노 `gpt-6.1-sol` ≤2 · 경계 1줄) | ★사전검증 DA r1 HOLD #67608★(Q1 별도 명부 감시·HIL 책임 · Q2 팀 신설 승인 vs 요청별 착수 컨펌 분리 · Q3 브랜치/DA 계약 + 인계 수락→랜딩 sha→닫기 조건 · 선례 경로 PROPOSAL-team-ops-loom 은 design/planner 에 있음을 제안서에 정확 경로로) → 제안서 정정 r2 + DA r2 1회 — 판정문 `design/teams/harness/DA-team-graphics-20261009.md` | APPROVE → master 경유 planner 에 오빠 컨펌 요청(질문 1 확정 + 확인 1 «arch astra · 나노 sol» 해석) · 컨펌 전 설치·좌석 0 / HOLD → 정정 1회 · 2 HOLD 면 arch 서명 |
 
 ## 이 세션에서 닫힌 것
 | § | 판정 | 랜딩 |
@@ -29,7 +29,7 @@
 
 ## 별 카드 후보 (착수 0 — 지시 때만)
 1. 매거진 시험 기존 13 실패(그중 `test_magazine_collect_decisions.py` 4 = 판정 601 fixture) · 미러 시험 기존 31 실패.
-2. 하네스 카드 `design/harness/indices/완성/update-tools-20261008.md` «## 배경» 없음 · cfo 옛 카드 12(cfo 몫).
+2. 하네스 카드 `design/teams/harness/indices/완성/update-tools-20261008.md` «## 배경» 없음 · cfo 옛 카드 12(cfo 몫).
 3. 쉬운 판 핵심 2줄째 「결정할 건 없어요」(요약 슬롯 = 기다리는 결정 0) 가 «내린 결정 44» 와 헷갈림 → 문구 「기다리는 결정은 없어요」.
 
 ## 함정 (실측 · 이 세션)

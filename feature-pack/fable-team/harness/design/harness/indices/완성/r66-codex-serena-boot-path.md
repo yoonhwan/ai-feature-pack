@@ -1,6 +1,6 @@
 # 인덱스: codex 좌석 Serena 부팅 경로 — session_id 없는 고정판 + headroom 압축(CCR) 대응 문장 (R66 · 판정 698 ② · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 요청 원장 `design/harness/REQUEST-LEDGER.md` R66(v65 arch#184 관찰 #67273 · 좌석 보고 #67271)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 요청 원장 `design/teams/harness/REQUEST-LEDGER.md` R66(v65 arch#184 관찰 #67273 · 좌석 보고 #67271)
 - 상태: 대기
 - 선행: 없음(판정 698 순서상 ① op675b 닫힘 뒤 첫 단위)
 - 시험 입력: 스테이징 사본과 홈 BOOT 의 diff · 기존 codex 세션 기록(읽기만) — 실 codex 좌석 기동 0
@@ -20,16 +20,16 @@ BOOT 1 은 Claude 좌석의 Serena(새 판 · session_id 필수)에 맞춰 「`i
 
 ## 사전검증
 - 소환: 아니오 · 면제: 문장 2곳 추가(동작·설정 변경 0 · 기존 Claude 경로 문장 무변경) — arch 서명 byz-harness-arch-claude#25
-- 조사 근거: `docs/rules/serena-mcp-usage.md:1` · `design/harness/REQUEST-LEDGER.md:70` · `design/harness/staged-514/COMM-GUIDE-BOOT.md:7`
+- 조사 근거: `docs/rules/serena-mcp-usage.md:1` · `design/teams/harness/REQUEST-LEDGER.md:70` · `design/teams/harness/staged-514/COMM-GUIDE-BOOT.md:7`
 - 7초 룰 점검(판정 666): 외부 호출 0 — 해당 없음.
 
 ## 설계 (닫힌 목록)
-1. 스테이징 design/harness/staged-r66/COMM-GUIDE-BOOT.md = ★현 홈 BOOT(sha256 앞16 `329582414d727dd5`) 바이트 복사★ 뒤 1번 항목 끝에 한 문장만 덧붙임: 「★codex 좌석(`--agent codex`)은 Serena 고정 옛 판이라 session_id 가 없다 — `initial_instructions`·`get_current_config` 없이 `activate_project(project="<워크트리 절대경로>")` 만 부른다. 도구 출력이 CCR 참조로 접혀 보이면 `headroom_retrieve` 로 원문을 받는다(헤드룸 압축 · 2026-10-09 R66)★」. 그 밖의 줄 변경 0(diff = 1번 항목 1줄 바뀜뿐).
+1. 스테이징 design/teams/harness/staged-r66/COMM-GUIDE-BOOT.md = ★현 홈 BOOT(sha256 앞16 `329582414d727dd5`) 바이트 복사★ 뒤 1번 항목 끝에 한 문장만 덧붙임: 「★codex 좌석(`--agent codex`)은 Serena 고정 옛 판이라 session_id 가 없다 — `initial_instructions`·`get_current_config` 없이 `activate_project(project="<워크트리 절대경로>")` 만 부른다. 도구 출력이 CCR 참조로 접혀 보이면 `headroom_retrieve` 로 원문을 받는다(헤드룸 압축 · 2026-10-09 R66)★」. 그 밖의 줄 변경 0(diff = 1번 항목 1줄 바뀜뿐).
 2. `docs/rules/serena-mcp-usage.md` 활성화 절에 같은 뜻 1~2줄(codex 좌석 경로) 추가.
 3. 헤드룸 설정·codex 설정·Serena 버전 변경 0(별 후보로만 — 아래 상태 절).
 
 ## 구현 범위 (닫힌 목록 · 나노)
-기존 파일(수정): `docs/rules/serena-mcp-usage.md`. 새 파일: design/harness/staged-r66/COMM-GUIDE-BOOT.md · tests/harness/test_r66_codex_serena_boot.sh.
+기존 파일(수정): `docs/rules/serena-mcp-usage.md`. 새 파일: design/teams/harness/staged-r66/COMM-GUIDE-BOOT.md · tests/harness/test_r66_codex_serena_boot.sh.
 시험: ①스테이징 BOOT 와 홈 BOOT 의 `diff` = 바뀐 줄 1개(1번 항목)뿐 · 추가 0 · 삭제 0 — ★홈이 이미 스테이징과 같으면 SKIP(설치 뒤 재실행)★ · 홈이 `329582414d727dd5` 도 스테이징도 아니면 FAIL ②스테이징 1번 줄에 `activate_project(project=` · `session_id 가 없다` · `headroom_retrieve` 세 문자열 ③기존 Claude 문장(`session_id=…`) 그대로 남음 ④`docs/rules/serena-mcp-usage.md` 에 `codex` · `activate_project` 줄 1개 이상 ⑤홈·루트·`~/.codex` 쓰기 0.
 커밋은 자기 브랜치, **push 금지**. **금지**: 홈 `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` 직접 수정 · `~/.codex/config.toml` 수정 · 헤드룸 재시작.
 
@@ -49,4 +49,4 @@ BOOT 1 은 Claude 좌석의 Serena(새 판 · session_id 필수)에 맞춰 「`i
 ## 결과
 - 세트: 889c340a1f91f3079463f443ee2c2d48a158c11d · 시험: bash tests/harness/test_r66_codex_serena_boot.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본 변경 없음 — 홈 BOOT 1조항 한 문장·serena 지침 2줄만 (arch 재현 #69016 · 판정서 §112).
-- 2026-10-09 14:25 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§112
+- 2026-10-09 14:25 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§112

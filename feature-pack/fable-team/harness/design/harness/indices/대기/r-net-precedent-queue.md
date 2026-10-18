@@ -1,11 +1,11 @@
 # 인덱스: 선례 1명령 + 합치기 큐 1명령 + 인박스 Haiku 7초 (N4 · 팀 운영 구조 근원 수정 · 판정 1070·1079 · arch#29)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner ORDER(판정 1069·1070) · 설계 PLAN-harness-networking-20261011.md §2 D5·D6 · §4
 - 제안서: 없음 — 오빠 판정 1070 으로 착수 승인된 하네스 구조 수정(판정 1079 3차 DA APPROVE #76290)
 - 상태: 대기
-- 선행: N3(`[결정]` lint 가 `선례:` 줄을 요구한다 — 이 카드의 출력 문자열과 맞춘다) · 설계 = `git show f0d974ab20:design/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다★)
+- 선행: N3(`[결정]` lint 가 `선례:` 줄을 요구한다 — 이 카드의 출력 문자열과 맞춘다) · 설계 = `git show f0d974ab20:design/teams/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다★)
 - 시험 입력: 원장 픽스처(VERDICTS 2파일·hil-approvals.log·HIL-LEDGER·REQUEST-LEDGER·MERGE-QUEUE 발췌) · 임시 MERGE-QUEUE.md · gh 스텁(env `FT_GH_CMD` · 정상/`sleep 9`/rc 1) · `FT_SEND_DRY=1` — 실 gh·실 큐·실 쪽지 0
-- 기준값(arch#29 실측 · 2026-10-11): 선례 원장 5곳 흩어짐(VERDICTS-planner-NN · `.fable-team/state/hil-approvals.log` · `design/harness/HIL-LEDGER.md` · REQUEST-LEDGER · MERGE-QUEUE) · 한 명령 0 · 판정 중 «오빠 인터뷰» 238줄(합치기 36 · push 22 · 손 명령 25 · REVIEW §4 ②) · MERGE-QUEUE.md 표 8열(접수·팀·PR/세트·head·한 줄·막힘·실측·상태 · 판정 1058) · `ft_inbox_core.py` Haiku 분류 `FT_INBOX_HAIKU_TIMEOUT` 기본 20초(하루 710회 · 실패 54).
+- 기준값(arch#29 실측 · 2026-10-11): 선례 원장 5곳 흩어짐(VERDICTS-planner-NN · `.fable-team/state/hil-approvals.log` · `design/teams/harness/HIL-LEDGER.md` · REQUEST-LEDGER · MERGE-QUEUE) · 한 명령 0 · 판정 중 «오빠 인터뷰» 238줄(합치기 36 · push 22 · 손 명령 25 · REVIEW §4 ②) · MERGE-QUEUE.md 표 8열(접수·팀·PR/세트·head·한 줄·막힘·실측·상태 · 판정 1058) · `ft_inbox_core.py` Haiku 분류 `FT_INBOX_HAIKU_TIMEOUT` 기본 20초(하루 710회 · 실패 54).
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -22,7 +22,7 @@ planner 원문 2(팀 배정·운영) / 닫는 증거(PLAN §6 N4 복붙): 「[�
 
 ## 사전검증
 - 소환: 예 — DA byz-harness-da-codex#1 r0 HOLD #76217 · r1 HOLD #76265 · r2 APPROVE #76290(판정 1079) — arch 서명 byz-harness-arch-claude#29
-- 조사 근거: `design/planner/MERGE-QUEUE.md`(8열 · 즉시 질문 예외 2) · `design/planner/VERDICTS-planner-2[56]-20261011.md`(판정 줄 꼴 `NNNN planner 결정(…)`) · `.fable-team/state/hil-approvals.log` 꼴 · `design/harness/HIL-LEDGER.md` 8칸 · `scripts/fable-team-bin/ft_inbox_core.py`(`haiku()` · `FT_INBOX_HAIKU_TIMEOUT`) · `scripts/fable-team-bin/ft-hil-ask.sh`(원장 쓰기 꼴 재사용)
+- 조사 근거: `design/planner/MERGE-QUEUE.md`(8열 · 즉시 질문 예외 2) · `design/planner/VERDICTS-planner-2[56]-20261011.md`(판정 줄 꼴 `NNNN planner 결정(…)`) · `.fable-team/state/hil-approvals.log` 꼴 · `design/teams/harness/HIL-LEDGER.md` 8칸 · `scripts/fable-team-bin/ft_inbox_core.py`(`haiku()` · `FT_INBOX_HAIKU_TIMEOUT`) · `scripts/fable-team-bin/ft-hil-ask.sh`(원장 쓰기 꼴 재사용)
 - 7초 룰 점검(판정 666): `measure` 의 gh 2종 `timeout 7`+1 · Haiku 7+1 · grep·파일은 로컬
 
 ## 구현 범위 (닫힌 목록 · 나노 · PLAN §6 N4 · 한 번에 하나)

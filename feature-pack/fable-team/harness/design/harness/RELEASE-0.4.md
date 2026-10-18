@@ -1,6 +1,6 @@
 # RELEASE 0.4 — 10-07 하네스 묶음 + 라이브 도구 폴더를 main 키트와 1:1 로 (2026-10-07 · 축 C)
 
-골 축: C 「업그레이드하고 레포에 커밋 푸시 … 배포 발행 수신해 반영」 · 닫는 증거 = 이 1장 + 머신별 「반영됨」 행. 구현 판정 = design/harness/OPS-VERDICTS-20261006.md §20~§38 · 라이브 1:1 = Issue 816(트리아지 안 = design/harness/PLAN-release-0.4-and-816-20261007.md).
+골 축: C 「업그레이드하고 레포에 커밋 푸시 … 배포 발행 수신해 반영」 · 닫는 증거 = 이 1장 + 머신별 「반영됨」 행. 구현 판정 = design/teams/harness/OPS-VERDICTS-20261006.md §20~§38 · 라이브 1:1 = Issue 816(트리아지 안 = design/teams/harness/PLAN-release-0.4-and-816-20261007.md).
 
 ## 변경 (0.3 이후 main 랜딩분 · 하네스 범위)
 | # | 변경 | 근거 | sha |
@@ -45,5 +45,5 @@
 ## 이 릴리스에 안 넣은 것 (다음으로)
 | 무엇 | 언제 | 근거 |
 |---|---|---|
-| 드리프트 검사(키트 ↔ 라이브 cmp · tick 경고 · 나노 spawn/close 입구 BLOCK) — Issue 816 ②③ | 0.5 · 완성 전 | 카드 design/harness/indices/대기/live-bin-drift-check.md(교체 뒤 spawn) |
+| 드리프트 검사(키트 ↔ 라이브 cmp · tick 경고 · 나노 spawn/close 입구 BLOCK) — Issue 816 ②③ | 0.5 · 완성 전 | 카드 design/teams/harness/indices/대기/live-bin-drift-check.md(교체 뒤 spawn) |
 | FT_BIN 을 `~/.fable-team/<팀>/bin`(install.sh DEST)으로 이전 — Issue 816 ⑤ | 완성 후 · 단 v6-realtime-live 워크트리 정리보다 «먼저» | PLAN-release-0.4-and-816-20261007.md 「완성 전/후」 |

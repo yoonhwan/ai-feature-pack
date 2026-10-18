@@ -1,5 +1,5 @@
 # 인덱스: orchestration-gate 에 «master 좌석» 판별 — 세션명 역할로 켜고 코드·시안·카드 증거 직접 편집 0
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -19,7 +19,7 @@ BYZ 세션에는 프로젝트 훅 `.claude/hooks/orchestration-gate.sh`(BYZ `.cl
    ⓑMASTER 모드에서만: 코드 한도 0(첫 코드 파일 Edit/Write 부터 deny) · 코드로 세는 확장자에 html·htm·css 추가 · EXCLUDE_PATH 에서 `worktrees` 만 빼기(`.fable-team`·`.claude`·`.git`·`.omc` 등 나머지 제외는 유지 — 설치 cp·명부·규칙 동기는 계속 통과) · 경로가 `design/<무엇>/indices/(진행|완성)/` 아래 `.md` 인 Edit/Write 는 deny(증거 줄은 나노 것 — 카드 이동은 `ft-index-move.sh` Bash 경유라 안 막힌다) · 기존 Bash 우회 판정(sed -i·리다이렉트·cp/mv/tee)은 위 확장 기준 그대로 적용.
    ⓒdeny 메시지(MASTER 전용): 「master 는 코드·시안·카드 증거 줄 직접 편집 0 — 코드=나노(ft-nano-spawn), 시안·설계=arch, 증거 REJECT=그 나노에 반송 (오빠 10-07). master 손 = 랜딩·커밋·push·좌석·명부·원장·검증된 파일 설치 복사」.
    ⓓMASTER 아닌 좌석은 동작 변화 0(모델 판별·한도 2·기존 제외 전부 그대로). TOP_MODELS 값은 이 카드에서 바꾸지 않는다.
-2. 시험 `tests/harness/test_orch_gate_master.sh`(신규): PATH 앞에 가짜 `tmux`(세션명을 env 로 돌려주는 2줄 스크립트)를 둬서 훅에 JSON stdin 을 넣는다. 케이스 — master 세션(`byz-v65-master-claude#143`·옛 `ft-v65-master-claude#142` 둘 다): `.worktrees/x/a.ts` Write → 2 · `.worktrees/x/mock.html` Edit → 2 · `design/v65/indices/진행/c.md` Edit → 2 · `design/v65/indices/완성/c.md` Edit → 2 · `design/harness/OPS-VERDICTS-20261006.md` Edit → 0 · `design/v65/indices/대기/c.md` Write → 0 · `.fable-team/seats.json` Edit → 0 · Bash `sed -i s/a/b/ .worktrees/x/a.py` → 2 · Bash `cp a.sh ~/.claude/hooks/a.sh` → 0. arch 세션(`byz-harness-arch-claude#5`)·nano 세션: 같은 html·ts Edit → 0(모델 판별에서 면제 · 지금과 같음). TMUX_PANE 없음 → 기존 동작(0). agent_id 있는 입력 → 0.
+2. 시험 `tests/harness/test_orch_gate_master.sh`(신규): PATH 앞에 가짜 `tmux`(세션명을 env 로 돌려주는 2줄 스크립트)를 둬서 훅에 JSON stdin 을 넣는다. 케이스 — master 세션(`byz-v65-master-claude#143`·옛 `ft-v65-master-claude#142` 둘 다): `.worktrees/x/a.ts` Write → 2 · `.worktrees/x/mock.html` Edit → 2 · `design/v65/indices/진행/c.md` Edit → 2 · `design/v65/indices/완성/c.md` Edit → 2 · `design/teams/harness/OPS-VERDICTS-20261006.md` Edit → 0 · `design/v65/indices/대기/c.md` Write → 0 · `.fable-team/seats.json` Edit → 0 · Bash `sed -i s/a/b/ .worktrees/x/a.py` → 2 · Bash `cp a.sh ~/.claude/hooks/a.sh` → 0. arch 세션(`byz-harness-arch-claude#5`)·nano 세션: 같은 html·ts Edit → 0(모델 판별에서 면제 · 지금과 같음). TMUX_PANE 없음 → 기존 동작(0). agent_id 있는 입력 → 0.
 커밋은 자기 브랜치, **push 금지**. **금지**: 홈 `~/.claude/hooks/orchestration-gate.sh`·스킬 템플릿 사본 수정(세 사본 정합은 다음 단위 — 요청 원장 행) · TOP_MODELS 변경 · 다른 훅 수정.
 
 ## 완료 조건 (닫힘 판정 기준 — ops 수락 판정문)
@@ -35,4 +35,4 @@ BYZ 세션에는 프로젝트 훅 `.claude/hooks/orchestration-gate.sh`(BYZ `.cl
 - 정본 영향 없음: 하네스 훅·시험만 수정 — docs/architect 제품 정본 변경 없음
 - 2026-10-07 11:56 — 대기→진행 · 좌석 byz-harness-nano-orch-gate-master-role#0
 - 세트: f8e08734873d11adee58e4ec185d858e8b73b043 · 시험: bash tests/harness/test_orch_gate_master.sh rc=0 · 이슈: 0
-- 2026-10-07 12:08 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§22
+- 2026-10-07 12:08 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§22

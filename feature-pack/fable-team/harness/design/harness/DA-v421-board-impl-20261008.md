@@ -1,7 +1,7 @@
 # DA — v421-board(+496) 구현 재확인 (1회 · 10분 · arch#17 · 2026-10-08)
 
 - 세트: 브랜치 `nano/v421-board` 커밋 `8437480164`(r2 · 반송 반영) ← `caf26c1b83`(r1) · 워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-v421-board`
-- 카드: `design/harness/indices/대기/v421-board.md`(완료 조건 「구현 DA 가 재확인」) · 반송서 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r21/REJECT-v421-board-r1.md`
+- 카드: `design/teams/harness/indices/대기/v421-board.md`(완료 조건 「구현 DA 가 재확인」) · 반송서 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r21/REJECT-v421-board-r1.md`
 - arch 재현(#17): `git archive 8437480164 scripts tests/harness tools/comm-canonical` → `test_board.sh` rc=0 · PASS 63 · `test_kit_bin_sync.sh` rc=0 · 사본 7개 cmp 같음 · ruff 0 · 최대 126줄 · 변경 파일 = ft-board*·ft_board_*·test_board 만.
 - 질문 둘만(범위 고정 · 설계 재심 0):
   - I1 슬랙 렌더에서 «입력 유래» 문자열(카드·판정·Issue 제목 · 트리 줄 글 · 판정 oppa_todo · 명부 `_label` · 인박스 줄 · 결정 자리 사유)이 전부 제목 필터(`ft_board_render.py:22-30`)를 거치는가 — 거치지 않는 것이 있으면 최종 단언(`:120-122`)이 다시 보드 전체를 raise 한다(r1 반송과 같은 꼴). 반례 1개(파일:줄)로.

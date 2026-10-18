@@ -1,6 +1,6 @@
 # 인덱스: 아침 매거진 「오빠 할 일」을 «답이 안 간 요청»으로 + 요약 3줄을 구체적으로 (판정 350 후속 · 내일 08:00 호 전)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 350(오빠: launchd·랜딩 GO + 이 후속) · 설계 design/harness/DESIGN-morning-magazine-20261008.md
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 판정 350(오빠: launchd·랜딩 GO + 이 후속) · 설계 design/teams/harness/DESIGN-morning-magazine-20261008.md
 - 상태: 대기
 - 선행: 없음(§43·§44 랜딩분 위에서)
 - 시험 입력: 가짜 mbox jsonl(요청·회신 쌍) · 가짜 구조 모델 · 가짜 요약 명령 — 실 슬랙 0 · 실 LLM 은 완료 조건의 dry-run 1회만
@@ -33,7 +33,7 @@
 1. `scripts/harness-install/slack-mirror/magazine_collect_mbox.py`: 요청 = planner 좌석(`byz-planner-`) 수신 + 접두 뗀 본문이 `[HIL` 로 «시작». 답 = 요청 시각 뒤 ~ 창 끝 사이 `from` 이 planner 좌석이고 `to` 의 계보(`#N` 뗀 이름)가 요청 `from` 의 계보와 같은 쪽지가 1건 이상(승계로 이름이 바뀌어도 회신을 놓치지 않게). `mbox` 칸에 `hil_asked`(창 안 요청 수 · int) 추가, `hil` = 답이 안 간 요청의 첫 문장 목록(★상한 없음★ · 오래된 순). 계약 변경은 이 «칸 1개 추가 + hil 뜻 변경»뿐.
 2. `scripts/harness-install/slack-mirror/magazine_render.py` `_hil_blocks`: 제목 아래 1줄 「요청 {hil_asked}건 중 답이 안 간 {len(hil)}건 — planner 가 그 좌석에 회신한 것은 뺐어요」 · 목록은 8줄까지 + 남으면 「외 N건」. `scripts/harness-install/slack-mirror/magazine_slack.py` `root_text` 는 «답이 안 간 수»(= len(hil))를 그대로 쓴다(코드 변경 불요면 0).
 3. `scripts/harness-install/slack-mirror/magazine_summary.py`: `facts` 에 ⓐ답이 안 간 요청 첫 문장(최대 3) ⓑ꼬리표가 `[feature]`·`[fix]` 인 머지 제목 우선 5개 ⓒ닫힌 이슈 제목 5개 ⓓ건너뛴 날·깨진 줄이 있으면 그 사실 — 를 넣는다. `PROMPT` 칸 3개 고정: 1문장 = 가장 중요한 결과 1개를 «기능·문제 이름 그대로» · 2문장 = 오빠가 결정할 것 1개(답이 안 간 요청 중 첫 건의 요지 · 없으면 「오빠가 결정할 건 없어요」) · 3문장 = 주의할 것 1개(막힘·실패·건너뛴 날 · 없으면 그 밖의 큰 변화). 「주요 기능들」「여러 작업」 같은 묶음말 금지 문장을 프롬프트에 넣는다. `deterministic_lines` 의 「오빠 할 일」 수도 새 뜻으로.
-4. 시험: `tests/scripts/test_magazine_collect_mbox.py`(요청 시작 판정 · 접두 `[a->b]` 있는 요청 포함 · 언급만 한 글 제외 · 회신 있으면 제외 · ★후계 좌석(#N+1) 회신도 답으로 침★ · 다른 계보 회신은 무관 · 창 끝 뒤 회신은 무시 · 상한 없음 · hil_asked) · `tests/scripts/test_magazine_render.py`(「요청 N건 중 …」 줄 · 9건 → 8줄 + 「외 1건」) · `tests/scripts/test_magazine_summary.py`(facts 에 ⓐ~ⓓ · 프롬프트에 칸 3개·묶음말 금지 문구). 설계 `design/harness/DESIGN-morning-magazine-20261008.md` §1 #4 · §8 계약 줄에 `hil_asked`·`hil` 새 뜻 1줄씩.
+4. 시험: `tests/scripts/test_magazine_collect_mbox.py`(요청 시작 판정 · 접두 `[a->b]` 있는 요청 포함 · 언급만 한 글 제외 · 회신 있으면 제외 · ★후계 좌석(#N+1) 회신도 답으로 침★ · 다른 계보 회신은 무관 · 창 끝 뒤 회신은 무시 · 상한 없음 · hil_asked) · `tests/scripts/test_magazine_render.py`(「요청 N건 중 …」 줄 · 9건 → 8줄 + 「외 1건」) · `tests/scripts/test_magazine_summary.py`(facts 에 ⓐ~ⓓ · 프롬프트에 칸 3개·묶음말 금지 문구). 설계 `design/teams/harness/DESIGN-morning-magazine-20261008.md` §1 #4 · §8 계약 줄에 `hil_asked`·`hil` 새 뜻 1줄씩.
 
 커밋은 자기 브랜치, **push 금지**. **금지**: 상태기계·슬랙 게시·push·PDF 모듈 변경 · 실 슬랙 게시 · launchd 조작 · 미러 모듈 수정.
 
@@ -51,4 +51,4 @@
 - 2026-10-08 09:01 — 대기→진행 · 좌석 byz-harness-nano-magazine-hil-pending-summary#0
 - 2026-10-08 — 완료 독립 검증 (arch#9 · 판정서 §45 초안) — 나노 3d5fcaff2a: 매거진 시험 82 passed · 회신 판정은 planner 발신 쪽지만(collect_mbox.py:112) · 요청 뒤 회신만 셈 · 실자료 hil_asked=45·hil=1(seq 60960) · 실 LLM dry-run 3줄 = 「수리 버튼 백엔드…」「판정 341 집행이 운영자 토큰 부재로 막혀…」「로컬 테스트 11건 기존 실패…」(구체적) · 뿌리 글 「오빠 할 일이 1건」.
 세트: 3d5fcaff2ab823cabbaef9f9cea80f941cc2aa5f · 시험: python3 -m pytest tests/scripts/test_magazine_collect_mbox.py -q rc=0 · 이슈: 0
-- 2026-10-08 09:11 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§45
+- 2026-10-08 09:11 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§45

@@ -1,8 +1,8 @@
 # 인덱스: 나노 닫기 cherry 게이트 — squash 랜딩 PR 전용 플래그 --squashed-pr + 문서 종류만 WARN (R29)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R29(feature master#3 #62204 · planner#9 승인 조건 ③ · master#14 #62205)
 - 상태: 대기
-- 선행: 없음(안 = design/harness/PLAN-r29-squash-superset-close-20261008.md §3 r1)
+- 선행: 없음(안 = design/teams/harness/PLAN-r29-squash-superset-close-20261008.md §3 r1)
 - 시험 입력: 임시 git 리포(시험 안에서 생성) + 가짜 gh(env FT_CHERRY_GH 로 주입 · state·mergeCommit·headRefOid 지정) — 실제 GitHub 호출 0
 - 기준값: 사례 nano/f-guest-jwt-impl-s1 → 지금 REJECT(merge-tree 충돌 + 「tip 내용이 origin/main 역사에 없는 경로」) · 코드 21 중 같음 19 · PR #905 안에서 고쳐짐 2 · 유일한 통과 길 = 사유만 받는 --override
 
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-r29-squash-superset-20261008.md
+- DA: design/teams/harness/DA-r29-squash-superset-20261008.md
 
 ## 조사 근거
 - `scripts/fable-team-bin/ft-nano-cherry-gate.sh:40` «+» 커밋 분류(design/ 밖 경로 = block · design/ 만 = warn) 루프 시작.
@@ -54,4 +54,4 @@
 - 2026-10-08 13:47 — 대기→진행 · 좌석 byz-harness-nano-r29-cherry-gate-squashed-pr#0
 
 세트: ea1a256723ad6cd2c545fd97c596cffe76945088 · 시험: bash tests/harness/test_cherry_gate_squash.sh rc=0 · 이슈: 0
-- 2026-10-08 14:05 — 진행→완성 · 좌석 byz-harness-nano-r29-cherry-gate-squashed-pr#0 · DA design/harness/OPS-VERDICTS-20261006.md#§56
+- 2026-10-08 14:05 — 진행→완성 · 좌석 byz-harness-nano-r29-cherry-gate-squashed-pr#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§56

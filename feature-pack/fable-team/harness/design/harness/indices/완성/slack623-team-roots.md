@@ -1,5 +1,5 @@
 # 인덱스: 슬랙 채널이 이슈마다 뿌리 글 1개(24시간 207개)로 넘침 — 팀별 하루 뿌리 글 1개 + 그 아래 스레드 + 뿌리 글에 이슈 시작·끝 목록 (판정 623 · 오빠 직접 지시 10-09 10:0x · planner#15 → master#22 #67439)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 623(오빠 원문 「슬랙 메세지 여전히 유효성이 많이 떨어진다. 메인팀별 하는일을 하나 공유해줘서 내가 읽게하고 그팀의 세부 작업과 지금공유되는 상태 메세지를 팀별 이슈생성해서 그 하위 스레드로 공유해주는게 어떨까? 팀별 이슈인덱스 시작과 끝을 알수있게하고」)
 - 상태: 대기
 - 선행: 판정 609(쉬운 판 · 본문 인덱스 토큰 목록 — 이 카드가 같은 토큰 목록 함수를 쓴다 · 609 랜딩 뒤 spawn)
@@ -74,4 +74,4 @@
 세트: 6ea1fd5cc1b416d3ac6297111aa1a84479197231 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_mirror_team_roots.py rc=0 · 이슈: 0
 회귀: 새 시험 4파일 16 passed · 기존 미러 실패 목록 base diff 0 · ruff clean · 설치 import 닫힘 OK
 정본 영향 없음: 하네스 슬랙 미러 키트·시험만.
-- 2026-10-09 10:40 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§106
+- 2026-10-09 10:40 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§106

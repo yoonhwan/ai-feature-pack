@@ -6,15 +6,15 @@
 > 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 > (원문 7) 정말 많은 양의 이슈와 테스트, 그리고 큰 병렬적인 메인 플랜을 얼마나 잘 수행해내느냐에 핵심이 달려 있다 … 큰일을 얼마나 별개로 쪼개서 동시에 아주 잘 해결하느냐에 달려 있다.
 ★승계 첫 일 = 골 대조 3줄을 planner(`byz-planner-arch#3`)에 mbox 보고 + 부팅 3항 후 착수. 오빠 지시(2026-10-06): 「구현시작. 야간자율로 완성해서 아침에 정지레디 브리핑」 — 자율로 끝까지 돌리고, 끝나면 정지-레디 상태로 오빠 브리핑 1장(GUIDE-human-report 틀: 결론→할 일→바뀐 것 3줄→근거 1줄 · 시계·달력 창 금지 · 약어 인덱스 금지).
-- 이 단위의 골 축: 표 A·B·C + 원문 5(머신 배분) + 원문 7(쪼개 동시에). 닫는 증거 = ops 판정문 `design/harness/OPS-VERDICTS-20261006.md` 의 단위별 「닫힘」 줄.
+- 이 단위의 골 축: 표 A·B·C + 원문 5(머신 배분) + 원문 7(쪼개 동시에). 닫는 증거 = ops 판정문 `design/teams/harness/OPS-VERDICTS-20261006.md` 의 단위별 「닫힘」 줄.
 
 ## 지금까지 (통합 브랜치 feat/slack-inbound-820 에 cherry-pick -x 수거 · push 0)
-- **P11 설계 확정**(SPEC r5 · 오빠 값 Q1~Q3 전부 추천안 · 회귀 방지 4항 포함 · 상한 N=20): `design/harness/issue-improvement/SPEC-github-issue-driven-20261006.md`. 설명 페이지 https://claude.ai/artifact/6nRcvJxtJqTFK1PGgXWWxf · v65·cfo 모의 구동 https://claude.ai/artifact/F7f4wkeG3FBv9Tdb7XmZYG.
+- **P11 설계 확정**(SPEC r5 · 오빠 값 Q1~Q3 전부 추천안 · 회귀 방지 4항 포함 · 상한 N=20): `design/teams/harness/issue-improvement/SPEC-github-issue-driven-20261006.md`. 설명 페이지 https://claude.ai/artifact/6nRcvJxtJqTFK1PGgXWWxf · v65·cfo 모의 구동 https://claude.ai/artifact/F7f4wkeG3FBv9Tdb7XmZYG.
 - **구현 닫힘(판정문 §1~§15)**: C1a 키트 채택 · C5 큐 절 · C3 질문 원장 · C4 전이표/Closes · C11 문서 정정 · C9-기계 ft-land · C8 고아 카드 목록 · C6 슬롯/머리줄 · C2 명부/이름 lint · C17 기획 인계 · C21 회귀 팩 · C22/23 재오픈·close 사유 · C7 허가 파일 · C15 Issue 폼 · C20 기준값. 나노 커밋 → 통합 수거 sha 는 판정문에 있다.
-- 카드: `design/harness/indices/완성/` 13장 + 진행/ 7장(아래).
+- 카드: `design/teams/harness/indices/완성/` 13장 + 진행/ 7장(아래).
 
 ## ★열린 일 (순서대로)
-1. **판정문 §13(C7)·§14(C15)·§15(C20) 이미 기록됨 — 수거도 끝** → 남은 것 = 나노 3곳 close(`ft-nano-close.sh` · 마지막 활동 ≥3분 대기 필요) + 카드 3장 진행→완성(`ft-index-move.sh … 완성 --da design/harness/OPS-VERDICTS-20261006.md#§13|§14|§15`) + 커밋(경로 지정). 좌석 `ft-harness-temp-c7-press-permits#0`·`c15-issue-forms#0`·`c20-baseline-lint#0` · 보고 seq 57260·57264·57262.
+1. **판정문 §13(C7)·§14(C15)·§15(C20) 이미 기록됨 — 수거도 끝** → 남은 것 = 나노 3곳 close(`ft-nano-close.sh` · 마지막 활동 ≥3분 대기 필요) + 카드 3장 진행→완성(`ft-index-move.sh … 완성 --da design/teams/harness/OPS-VERDICTS-20261006.md#§13|§14|§15`) + 커밋(경로 지정). 좌석 `ft-harness-temp-c7-press-permits#0`·`c15-issue-forms#0`·`c20-baseline-lint#0` · 보고 seq 57260·57264·57262.
 2. **진행 중 나노 4곳 — 보고가 오면 «독립 검증 → cherry-pick -x → 판정문 §16~ → close → 카드 이동»**: `c16-issue-classify`(분류기·발견 지연) · `c18-branch-candidates`(브랜치 후보 목록 — 삭제 0) · `c10-bundle-ops-lite`(묶음 상태 전이) · `c19-seat-request`(좌석 필요 문구). 아직 완료 보고 없음(c18·c16 은 첫 보고만 옴).
 3. 남은 구현(선택): C9-수락(push 부분 — **push 는 오빠 승인 영역**이라 하지 않음) · C10 실측(N=1→2→4 · 관측 프로필 승인 필요 · 하지 않음).
 4. **마지막: 정지-레디 브리핑**(아래 항목) → 오빠에게 GUIDE-human-report 틀로 1장 + 설명 페이지(eli5 폼) 갱신(같은 URL) 권장.

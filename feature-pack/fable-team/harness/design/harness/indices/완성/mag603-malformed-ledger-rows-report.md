@@ -1,5 +1,5 @@
 # 인덱스: 아침 매거진 수집 중단 — REQUEST-LEDGER 형식 미달 행(열 수 ≠ 7)을 report 모드에서 «형식 미달 요청 행» 으로 드러내고 계속 발행 (판정 603 · planner 값 ① #67205 · master#21 쪽지 #67206)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 603(판정 602 PR 1060 `b545ab1225` 설치 뒤 수집 dry 가 원장에서 중단 · 급함)
 - 상태: 대기
 - 선행: 판정 602(PR 1060 · `MAGAZINE_MALFORMED_CARDS` opt-in · `scripts/harness-install/slack-mirror/magazine_card_shape.py`)
@@ -16,7 +16,7 @@
 골의 축: C(배포 발행(슬랙) — 원장 행 형식 하나 때문에 전 팀 매거진이 멈추지 않는다 · 형식 미달 행은 숨기지 않고 매거진 본문과 로그에 보인다).
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-아침 매거진 풀 디테일의 D6(열린 행)은 `magazine_collect_open.py` 의 `_requests` → `_request` 가 창 끝 sha 의 `design/harness/REQUEST-LEDGER.md` 에서 `| R` 로 시작하는 행을 7열로 읽는다. 열 수가 다르면 `MagazineError` 로 수집 전체가 멈춘다. 판정 602 는 같은 문제(완성 카드 형식 미달)를 opt-in `MAGAZINE_MALFORMED_CARDS=report` 로 풀었다(①opt-in ②stderr ERROR 줄 ③첫 화면·뿌리 글·부록 경고 — BYZ #0 NO SILENT FALLBACK 예외 3요건). 이 카드는 «같은 opt-in» 을 원장 행에도 넓힌다. 새 환경변수는 만들지 않는다. 행 내용은 추정·채우지 않는다(행 id 와 열 수만).
+아침 매거진 풀 디테일의 D6(열린 행)은 `magazine_collect_open.py` 의 `_requests` → `_request` 가 창 끝 sha 의 `design/teams/harness/REQUEST-LEDGER.md` 에서 `| R` 로 시작하는 행을 7열로 읽는다. 열 수가 다르면 `MagazineError` 로 수집 전체가 멈춘다. 판정 602 는 같은 문제(완성 카드 형식 미달)를 opt-in `MAGAZINE_MALFORMED_CARDS=report` 로 풀었다(①opt-in ②stderr ERROR 줄 ③첫 화면·뿌리 글·부록 경고 — BYZ #0 NO SILENT FALLBACK 예외 3요건). 이 카드는 «같은 opt-in» 을 원장 행에도 넓힌다. 새 환경변수는 만들지 않는다. 행 내용은 추정·채우지 않는다(행 id 와 열 수만).
 
 ## 사전검증
 - 소환: 아니오 (arch#23 설계 = 아래 닫힌 목록 · 판정 602 의 직접 확장)
@@ -57,4 +57,4 @@
 ## 결과 (나노 RESULT #67228 · arch#23 재현 · DA 2 HOLD → arch 서명 · master#22 옮김 2026-10-09)
 세트: 8202e8fe82f46c2b8b8981f67263e3e0ee7f092f · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_open.py rc=0 · 이슈: 0
 정본 영향 없음: 하네스 매거진 키트·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 09:12 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§104
+- 2026-10-09 09:12 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§104

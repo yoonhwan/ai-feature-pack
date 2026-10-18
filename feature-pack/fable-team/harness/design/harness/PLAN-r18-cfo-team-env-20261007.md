@@ -12,7 +12,7 @@
 
 ## 실측 (이 세션)
 - `.fable-team/bin-cfo/` 실재, `cfo-env.sh` 없음 → ft-nano-close 좌석명 자동 로드(40–46행)가 `REJECT 팀 env 없음`.
-- ★오기록 발견★: CFO 나노 닫기 5건(u3#0·u3#1·u4#0·u4#1·u5#0)이 `.worktrees/c-level-planning/design/harness/NANO-LEDGER-harness.md` 에 쓰였다(미커밋 +5행). 원인 = 손 주입이 `FT_NANO_LEDGER_WT=c-level-planning` 만 주고 `FT_NANO_LEDGER` 는 하네스 값이 남아 있던 것으로 보인다(추정 — 행 위치가 근거). CFO 전용 원장 파일은 없다.
+- ★오기록 발견★: CFO 나노 닫기 5건(u3#0·u3#1·u4#0·u4#1·u5#0)이 `.worktrees/c-level-planning/design/teams/harness/NANO-LEDGER-harness.md` 에 쓰였다(미커밋 +5행). 원인 = 손 주입이 `FT_NANO_LEDGER_WT=c-level-planning` 만 주고 `FT_NANO_LEDGER` 는 하네스 값이 남아 있던 것으로 보인다(추정 — 행 위치가 근거). CFO 전용 원장 파일은 없다.
 - CFO 나노 base = origin/main (nano/overdraft-u6 의 merge-base = d84e49ed93 · #778 U5 squash). docs/cfo-main 아님.
 - CFO 골 정본 = `.worktrees/c-level-planning/design/cfo/GOAL-cfo.md`. goal-lines-cfo.txt 없음.
 - 살아 있는 `byz-cfo-nano-overdraft-u6#0` 에 `@zc_*` 태그 없음(정보 — 닫기에는 영향 없음, 해제가 no-op).
@@ -44,7 +44,7 @@ export FT_MBOX_SH=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/
 ## 집행 순서
 1. **CFO master(#54)에 먼저 1줄 확인** — FT_NANO_FEAT=main · 원장 경로 design/cfo/NANO-LEDGER-cfo.md 두 값이 CFO 의도와 맞는지(오빠 값을 뒤집지 않기 위해 · 원장 위치는 CFO 소유).
 2. harness master: 위 본문으로 `cfo-env.sh` 설치(chmod 644 · source 전용).
-3. CFO master(자기 워크트리 c-level-planning): `design/cfo/NANO-LEDGER-cfo.md` 신설 → 오기록 5행을 그대로 옮김 → `git restore design/harness/NANO-LEDGER-harness.md`(c-level-planning 쪽 · 옮긴 뒤에만) → 커밋.
+3. CFO master(자기 워크트리 c-level-planning): `design/cfo/NANO-LEDGER-cfo.md` 신설 → 오기록 5행을 그대로 옮김 → `git restore design/teams/harness/NANO-LEDGER-harness.md`(c-level-planning 쪽 · 옮긴 뒤에만) → 커밋.
 4. 확인: ft-nano-close 에 dry-run 이 없다(실측 · FT_WT_AUTOCLEAN=0 은 워크트리 정리만 끔). → u6 이 끝나 닫을 때 CFO 가 env 손 주입 «없이» `bash scripts/fable-team-bin/ft-nano-close.sh byz-cfo-nano-overdraft-u6#0 …` 를 첫 실닫기로 돌리고, 「팀 env 없음」 REJECT 0 + 행이 NANO-LEDGER-cfo.md 에 찍히는지 본다. 살아 있는 u6 을 확인용으로 닫지 않는다.
 5. 되돌림: `cfo-env.sh` 삭제(파일 1장 · 다른 팀 무영향).
 

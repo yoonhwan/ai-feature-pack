@@ -1,5 +1,5 @@
 # 인덱스: 아침 매거진 수집 중단 — 옛 형식 완성 카드(상태·골좌표 없음)를 «형식 미달 카드» 로 드러내고 계속 발행 (판정 602 · planner 값 ① 채택 #67185 · master#21 쪽지 #67187)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 602(판정 601 ③ PR 1059 `e8c5718a8c` 설치 뒤 수집 dry 중단 · 급함)
 - 상태: 대기
 - 선행: 없음
@@ -53,4 +53,4 @@
 ## 결과 (나노 RESULT #67197 · arch#23 재현 · DA r1 APPROVE · master#21 옮김 2026-10-09)
 세트: 4b047d19ed5b7df3487703e0c974e2c88c3b404b · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_detail.py rc=0 · 이슈: 0
 정본 영향 없음: 하네스 슬랙 미러 키트·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 08:42 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§103
+- 2026-10-09 08:42 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§103

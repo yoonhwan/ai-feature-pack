@@ -11,7 +11,7 @@
 - **읽기 전용**: `gh` 는 `list`·`view`·`api GET` 만 · 설정 변경 0 · 커밋 0(ops).
 - **시크릿 0**: 토큰·webhook·채널 ID 값 0. 경로·변수 이름·개수만.
 - 줄마다 **[사실] 출처**(명령 그대로 또는 `파일:줄`) · 못 보면 **[추측]**.
-- 산출 1장: `design/harness/issue-improvement/FACTS-P11-20261006.md` · 끝나면 mbox 로 arch 에 「완료 · 줄 수 · [추측] 수」 3줄. 상한 10분 · 명령 출력 40줄씩. 선행 사실은 `FACTS-P10-20261005.md` 재사용(중복 조사 금지).
+- 산출 1장: `design/teams/harness/issue-improvement/FACTS-P11-20261006.md` · 끝나면 mbox 로 arch 에 「완료 · 줄 수 · [추측] 수」 3줄. 상한 10분 · 명령 출력 40줄씩. 선행 사실은 `FACTS-P10-20261005.md` 재사용(중복 조사 금지).
 
 ## 1. 입력 경로 4종의 현재 실재
 ```bash
@@ -26,7 +26,7 @@ grep -rln "gh issue create" design/ scripts/ .fable-team/ 2>/dev/null | head -20
 
 ## 2. 임시 기획 세션 → issue-manager 인계 경로
 ```bash
-grep -rn "issue-manager\|임시 마스터\|기획 세션" design/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md design/harness/issue-improvement/DESIGN-harness-composition-20261005.md | cut -c1-200 | head -20
+grep -rn "issue-manager\|임시 마스터\|기획 세션" design/teams/harness/issue-improvement/SPEC-roles-mission-flow-20261005.md design/teams/harness/issue-improvement/DESIGN-harness-composition-20261005.md | cut -c1-200 | head -20
 ls /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/ | head -40
 ```
 적을 것: 오빠가 임의로 연 기획 세션이 정리본을 issue-manager 에 넘기는 현행 경로가 있나(mbox·파일·명령) · 없으면 [사실: 없음].
@@ -34,7 +34,7 @@ ls /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/ | head -40
 ## 3. 완주(시험·정본화·워크트리/브랜치 정리) 현행
 ```bash
 git worktree list | wc -l; git branch -r | wc -l; ls .worktrees | wc -l
-ls scripts/ | grep -iE 'wt|worktree|clean|sweep' ; grep -rn "wt-clean\|wt-sweep\|nano-close" design/harness/issue-improvement/SPEC-full-flow-20261005.md | cut -c1-180 | head -10
+ls scripts/ | grep -iE 'wt|worktree|clean|sweep' ; grep -rn "wt-clean\|wt-sweep\|nano-close" design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md | cut -c1-180 | head -10
 ls design/*/CLOSEOUT* 2>/dev/null | head -10
 ```
 적을 것: 워크트리·원격 브랜치 수 · 정리 도구 목록 · 누가 어느 단계에서 호출하는지(삭제 HIL 지점 표시) · CLOSEOUT 정본 실례 수.

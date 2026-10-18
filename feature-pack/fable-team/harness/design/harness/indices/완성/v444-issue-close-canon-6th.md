@@ -1,5 +1,5 @@
 # 인덱스: ft-issue-close-check 6항 «정본» — 랜딩 commit 에 정본 diff 가 있어야 Issue 닫기 통과 + 시험 픽스처 + ISSUE-TRANSITIONS §3 표 1행 (판정 444 · 440 설계 r2 §4 순서 2)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 444(오빠 컨펌 · planner#11 #63243 · master#16 #63247) · 판정 440 설계 r2 DA APPROVE
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(판정 444 ② · 대상 3파일은 ops/main-base 와 main 이 같은 바이트) · v444-index-move-canon-landed 와 파일 겹침 0(동시 진행 가능)
@@ -25,8 +25,8 @@ ft-issue-close-check.sh 는 Issue 코멘트에서 「항목: 값」 줄 5개와 
 ## 조사 근거
 - `scripts/fable-team-bin/ft-issue-close-check.sh:4` 머리 주석 5항 · `scripts/fable-team-bin/ft-issue-close-check.sh:28` 5항 루프(줄 모양 정규식 · 값 비면·`<…>` 면 미기재) · `scripts/fable-team-bin/ft-issue-close-check.sh:35` Closes 연결 PR 검사 · `scripts/fable-team-bin/ft-issue-close-check.sh:16` `--from-json` 시험 경로(gh 대신 파일).
 - `scripts/fable-team-bin/ft-close-reason-check.sh:47` 사유=완성 이면 이 도구를 그대로 인용(출력·rc 가 바뀌면 같이 영향 — 무회귀 확인 대상).
-- `design/harness/ISSUE-TRANSITIONS.md:34` §3 close 5항 표 · `design/harness/ISSUE-TRANSITIONS.md:43` 「기준값 대비」 행(검사 무변경 행 예시).
-- `design/harness/DESIGN-landing-canon-440-20261008.md:93` §6-1 범위·검사 · `design/harness/DESIGN-landing-canon-440-20261008.md:99` §6-3 부분 PR.
+- `design/teams/harness/ISSUE-TRANSITIONS.md:34` §3 close 5항 표 · `design/teams/harness/ISSUE-TRANSITIONS.md:43` 「기준값 대비」 행(검사 무변경 행 예시).
+- `design/teams/harness/DESIGN-landing-canon-440-20261008.md:93` §6-1 범위·검사 · `design/teams/harness/DESIGN-landing-canon-440-20261008.md:99` §6-3 부분 PR.
 
 ## 구현 범위 (닫힌 목록 · 추적본 + 키트 사본 같은 바이트)
 1. `scripts/fable-team-bin/ft-issue-close-check.sh`(+ `scripts/harness-install/fable-team/bin/ft-issue-close-check.sh` 사본):
@@ -35,7 +35,7 @@ ft-issue-close-check.sh 는 Issue 코멘트에서 「항목: 값」 줄 5개와 
    - 머리 주석·PASS 문구 「5항」 → 「6항」. 나머지 동작(gh 호출 1회 · edit/close/label 0 · exit 0/1/2) 무변경.
 2. 픽스처 `tests/fixtures/issue_close/`: 기존 `closed-with-5items.json` 은 «6항 없음 → FAIL» 기대로 두고, 새 `closed-with-6items-canon.json`(정본 줄 · sha 자리는 시험이 임시 리포 sha 로 치환) · `closed-with-6items-no-impact.json`(영향 없음 이유 ≥10자) · `closed-partial-two-sha.json`(`@S1,S2`) 추가.
 3. 시험 `tests/harness/test_issue_close_canon.sh`(임시 git 리포 · `--from-json` · 실제 gh 0): ①정본 X 가 랜딩 S 에 있음 → PASS ②카드 브랜치엔 X 수정·랜딩 S 엔 코드만 → MISS(나) ③S 가 main 조상 아님 → MISS(가) ④정상 squash S 가 main 조상 → 거짓 MISS 0 ⑤`@S1,S2` 각각 통과 · 하나라도 X 없으면 MISS ⑥영향 없음 이유 9자 MISS · 10자 PASS ⑦6항 없는 기존 5항 픽스처 = FAIL ⑧`ft-close-reason-check.sh` 사유=완성 경로가 새 출력으로 rc 그대로 전달.
-4. `design/harness/ISSUE-TRANSITIONS.md` §3 표에 1행: `| 정본 | 「정본: <X>#<절>@<랜딩 sha>」 또는 「정본 영향 없음: <이유≥10자>」 — 부분 PR 은 최종 닫기 때 @S1,S2 (판정 440 r2 · 444) |` + 검사 줄 「5항」 → 「6항」.
+4. `design/teams/harness/ISSUE-TRANSITIONS.md` §3 표에 1행: `| 정본 | 「정본: <X>#<절>@<랜딩 sha>」 또는 「정본 영향 없음: <이유≥10자>」 — 부분 PR 은 최종 닫기 때 @S1,S2 (판정 440 r2 · 444) |` + 검사 줄 「5항」 → 「6항」.
 
 커밋은 자기 브랜치, **push 금지**. **금지**: 실제 Issue 코멘트·close·label · 기존 5항 판정 완화 · 예외 목록·opt-out 환경변수 · PR 템플릿 수정(카드 v444-pr-template-canon-line 몫).
 
@@ -51,4 +51,4 @@ ft-issue-close-check.sh 는 Issue 코멘트에서 「항목: 값」 줄 5개와 
 - 정본 영향 없음: 하네스 Issue 닫기 검사 도구·전이표·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 16:51 — 대기→진행 · 좌석 byz-harness-nano-v444-issue-close-canon-6th#0
 세트: ef6fb991436de5d54c0456c96efe3c1a4574d5e6 · 시험: bash tests/harness/test_issue_close_canon.sh rc=0 · 이슈: 0
-- 2026-10-08 17:19 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§66
+- 2026-10-08 17:19 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§66

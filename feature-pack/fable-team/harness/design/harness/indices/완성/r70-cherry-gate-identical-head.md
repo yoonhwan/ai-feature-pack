@@ -1,5 +1,5 @@
 # 인덱스: cherry 게이트 오탐 — tip 내용이 feat HEAD 와 같은 경로는 PASS · spawn 이 게이트 --override 를 넘긴다 (R70 · v65 arch#192 · arch#25)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R70(v65 arch#192 판정 · 쪽지 #70274 · 하네스 master#24 #70276) · ★v65 나노 spawn 차단 중(급함)★
 - 상태: 대기
 - 선행: 없음
@@ -50,4 +50,4 @@
 ## 결과
 - 세트: 6a558e64c3b001579512b29054163b491dce3541 · 시험: bash tests/harness/test_cherry_gate_identical_head.sh rc=0 · bash tests/harness/test_cherry_gate_squash.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본 변경 없음 — 하네스 키트 게이트·spawn 사본 2쌍·시험만 (arch 독립 재현 #70287 · 판정서 §115).
-- 2026-10-09 19:43 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§115
+- 2026-10-09 19:43 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§115

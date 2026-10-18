@@ -1,5 +1,5 @@
 # 인덱스: block-destructive 훅 209줄 → 판정기(파이썬)를 옆 파일로 분리 · 두 파일 200줄 이하 · 동작 바이트 동일 (planner 판정 592 순서 ② · master#20 쪽지 #66754)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner 판정 592 순서 ②(① gate-hook-kit-equals-home 닫힘 §96 · PR 1049)
 - 상태: 대기
 - 선행: §95 r63e 랜딩·홈 설치(완료 · PR 1048 · 홈 = main 키트 cmp 동일)
@@ -72,4 +72,4 @@
 ## 결과 (나노 RESULT · master#20 옮김 2026-10-09)
 세트: 7e8b08cb7e3228c1f0cea3aaa781b173c08814ba · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 훅 템플릿·설치 스크립트·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 02:44 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§97
+- 2026-10-09 02:44 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§97

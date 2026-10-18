@@ -1,6 +1,6 @@
 # 인덱스: 제안서 흐름 r2 — Issue 본문 = 제안서 전문 · 제안서 md + eli5 HTML 세트 · 실험·예측 시뮬 절 (판정 357)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 357(planner#8 → master#12·#13 #61756 · 설계 design/harness/DESIGN-proposal-flow-20261008.md «# r2»)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 판정 357(planner#8 → master#12·#13 #61756 · 설계 design/teams/harness/DESIGN-proposal-flow-20261008.md «# r2»)
 - 상태: 대기
 - 선행: DA §r2 교정 1 APPROVE(아래)
 - 시험 입력: 임시 git 리포 · 가짜 Tank · 가짜 gh 읽기(`FT_GH_READ`) · 가짜 Slack(`_proposal_fakes`·`_magazine_fakes`) · 가짜 LLM — 원격·실 LLM 0
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-proposal-flow-20261008.md
+- DA: design/teams/harness/DA-proposal-flow-20261008.md
 
 ## 조사 근거
 - `scripts/harness-install/proposal/ft-proposal-register.sh:38` — 본문 생성부(경로·판정·검증만)
@@ -56,4 +56,4 @@
 - 2026-10-08 12:24 — 대기→진행 · 좌석 byz-harness-nano-proposal-flow-r2#0
 - 2026-10-08 — 나노 산출 1f834a7536 · arch#11 재현(시험 register·register_r2·card ALL PASS · pytest publish/faults/eli5 33 · 매거진 185 · ruff 0 · 매거진 변경 magazine_attach 1줄 · DA 구현 조건 6 소스 대조 충족) → 판정서 §53 초안.
 세트: 1f834a7536aa46732b59718d7a025ac403329444 · 시험: bash tests/harness/test_proposal_register.sh rc=0 · 이슈: 0
-- 2026-10-08 12:43 — 진행→완성 · 좌석 byz-harness-nano-proposal-flow-r2#0 · DA design/harness/OPS-VERDICTS-20261006.md#§53
+- 2026-10-08 12:43 — 진행→완성 · 좌석 byz-harness-nano-proposal-flow-r2#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§53

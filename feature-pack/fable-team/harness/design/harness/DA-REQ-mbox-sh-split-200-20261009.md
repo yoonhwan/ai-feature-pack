@@ -8,7 +8,7 @@
 
 ## 고정 대상
 - 커밋 `b5707adfca92bc6242c68e266fbf5dabd5ba923f`(브랜치 `nano/mbox-sh-split-200` · base origin/main `78f8c0c739` · 2커밋: `378111e2e1` [structure] · `b5707adfca` [docs]) · 6파일 +130 −121: `tools/comm-canonical/mbox.sh`(242→127 · 10–127행 → 빈 줄 + 주석 + `source "$DIR/mbox_doorbell.sh"`) · 새 `tools/comm-canonical/mbox_doorbell.sh`(120 = 머리 3줄 + 옛 11–127행) · `check-drift.sh` MAP(`mbox.sh` 행 → 라이브 `.fable-team/comm/mbox.sh` · `mbox_doorbell.sh` 행 추가) · `README.md` 복구 줄 +2 · 시험 사본 cp 3곳(`test_inbox.sh` 163 · `test_mbox_inbox_notify_reply_rate.sh` 17·139).
-- 카드 `design/harness/indices/진행/mbox-sh-split-200.md`(또는 대기/).
+- 카드 `design/teams/harness/indices/진행/mbox-sh-split-200.md`(또는 대기/).
 
 ## arch#21 독립 재현 (b5707adfca 아카이브 · 실제 좌석 쪽지 0)
 - 도우미 본문 diff 0(옛 11–127행) · 진입점 머리 1–9행 diff 0 · 진입점 source 뒤(13행~) = 옛 128행~ diff 0 · 두 파일 `bash -n` · 실행 비트 둘 다 O.
@@ -25,4 +25,4 @@
 - 범위 밖: 라이브 설치 절차(master · 카드 «랜딩 뒤 라이브 설치» 절) · check-drift MAP 의 나머지 옛 경로 행 · mbox.py.
 
 ## 판정문
-`design/harness/DA-mbox-sh-split-200-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-mbox-sh-split-200-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.

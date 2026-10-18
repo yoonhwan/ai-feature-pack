@@ -7,7 +7,7 @@
 set -euo pipefail
 REPO="${R149_REPO:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
 SHA="${R149_LANDED:-}"
-SRC="design/harness/staged-r149/main-team-governance.md"
+SRC="design/teams/harness/staged-r149/main-team-governance.md"
 LIVE="$HOME/.claude/skills/fable-team/references/main-team-governance.md"
 
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "STOP R149_LANDED=<랜딩 커밋 40자> 가 필요하다(없거나 40자 hex 가 아니다)" >&2; exit 1; }

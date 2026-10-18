@@ -6,7 +6,7 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 골의 축: A 모니터·오빠 요청 + C 배포 발행·반영. 오빠 원문(판정 404): 「응답시 바로 세션창에서 이어 진행할수있는 인덱스 일반화」.
-감사(사실 근거): design/harness/AUDIT-j404-slack-threads-20261008.md — 제안서 5건 중 4건 손 발행(hermes send · 뿌리 글 쪼개짐) · 어느 경로에도 결과 답글 단계 없음 · 과정은 미러의 좌석별 스레드로만.
+감사(사실 근거): design/teams/harness/AUDIT-j404-slack-threads-20261008.md — 제안서 5건 중 4건 손 발행(hermes send · 뿌리 글 쪼개짐) · 어느 경로에도 결과 답글 단계 없음 · 과정은 미러의 좌석별 스레드로만.
 
 ## §1 바꾸는 것 한 줄 (판정 405 전제 5개 반영 · r1)
 슬랙에 올라가는 «단위» 글은 전부 한 입구(`byz_thread_post.py`)로 나가고, 모든 글 꼬리에 같은 6칸 블록이 붙고, 카드를 완성으로 옮기려면 그 스레드에 «결과 답글»이 있어야 한다.
@@ -53,7 +53,7 @@
 정본: .worktrees/v6-realtime-live/design/planner/BOARD.md 3행(r55 머리줄). 아래 «사실» 칸은 그 줄의 문구를 그대로 옮긴 것이다(추측 0). 결과 답글 1줄은 이 사실 칸을 그대로 쓴다.
 | 스레드 | 사실 (BOARD r55 복붙) | 채널·봇 |
 |---|---|---|
-| 매거진 10-08 (1791417434) | BOARD r55 에 «10-08 호 오빠 할 일 8건» 처리 줄 없음 → kind=report · 결과 답글 대신 블록 답글 1개(담당 = 하네스 master) — 내용 = design/harness/FACTS-j404-magazine-8items-20261008.md 표 그대로(처리됨 7 · 보류 1 「가드 훅 전역 설치」 · BOARD 처리 줄 없음 1 「planner 나노 닫기용 카드 위치」 · planner c460770b90 · DA APPROVE 뒤 사실 칸만 연결) | #byz-planner · yoonhwan(공식 도구) |
+| 매거진 10-08 (1791417434) | BOARD r55 에 «10-08 호 오빠 할 일 8건» 처리 줄 없음 → kind=report · 결과 답글 대신 블록 답글 1개(담당 = 하네스 master) — 내용 = design/teams/harness/FACTS-j404-magazine-8items-20261008.md 표 그대로(처리됨 7 · 보류 1 「가드 훅 전역 설치」 · BOARD 처리 줄 없음 1 「planner 나노 닫기용 카드 위치」 · planner c460770b90 · DA APPROVE 뒤 사실 칸만 연결) | #byz-planner · yoonhwan(공식 도구) |
 | 1호 #887 줄바꿈 (1791419075) | 「판정 355 오빠 승인 · 결정 A=(b) 속성+CSS+크기 규칙 2 · 결정 B=ja auto-phrase 미채택 → feature 구현 카드(#61165) · #887 status:approved」 · 「PR #894 main 6b5bcf0b7b(Vela+#887 r1)」 · 부록 B 「판정 379 … C=(a) · D=(a) · E=(a)」 · 「PR #897 main 7081a505044c(부록 B·게스트 세트)」 | #byz-agent · hermes (1호 뿌리 글이 #byz-agent 라 yoonhwan 봇 불가 → hermes 1회 · master#14 승인 #62192) |
 | 2호 vela (1791422239) | 「판정 367 Vela 2.0 = ⓐ 보류 + 재진입 조건 3」 · 「판정 367 Vela 보류 집행 끝(5061f78d3b · 카드 완성 9fc8a504fd · 나노 닫힘)」 · 「PR #894 main 6b5bcf0b7b」 | #byz-agent · hermes |
 | 3호 guest-qr-jwt (1791425216) | 「판정 381 오빠 인터뷰(4문 전부 추천안): Q1 방장 지갑 유지 · Q2 게스트 JWT + STRICT 기본 ON(단계 0~3) · 영수증 참조만 · GO = Issue 등록(#168·#172 통합 이관) + 구현 착수」 · 「#896 Guest QR↔JWT 통합 Issue 등록(#168·#172 close)」 · 「PR #897 main 7081a505044c」 · 「#905 main cef86d391a(게스트 JWT 단계 1)」 | #byz-agent · hermes |

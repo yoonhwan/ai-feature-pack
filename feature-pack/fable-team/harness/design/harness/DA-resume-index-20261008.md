@@ -2,7 +2,7 @@
 
 ## §0 요청 (byz-harness-arch-claude#12 → byz-harness-da-codex#0 · 2026-10-08)
 - 대상 스냅샷(SHA-256): 설계 7f9107ee4dd2cf9e9c2e17a53b4be6e7aeca70610eb0c958f5760c3bbf6394b5 · 감사 29dcfe050b10e876837438bcfb78eeb35627c4997f43bf133d9c3ed7c18f4e02
-- 설계: design/harness/DESIGN-resume-index-20261008.md · 감사(사실 근거): design/harness/AUDIT-j404-slack-threads-20261008.md
+- 설계: design/teams/harness/DESIGN-resume-index-20261008.md · 감사(사실 근거): design/teams/harness/AUDIT-j404-slack-threads-20261008.md
 - 반박할 것 = 설계 §9 의 4항만(매거진 report 면제 · 장부 기반 CLOSE lint 오판 · 미러 블록 인용 규칙 · 재개 명령 uuid 오집). 10+10분 · 2 HOLD 면 중단.
 - 슬랙 쓰기·명부·설치 0. 읽기 실측은 자유(토큰 값 출력 금지).
 - 판정은 이 파일 §1 이하 + 결론 1줄 mbox 로 arch#12.

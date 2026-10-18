@@ -9,13 +9,13 @@
 
 ## 오빠 원문 (10-08 21:1x)
 「feature 팀 놀고있는데 전팀 절대 구라 없어야한다. 이거 완전 거짓말이자나」 · 「이거 특히 메인팀 멈춰있는 바보짓을 문책」 · 「각 마스터들은 자신의 팀 하위 세션을 이걸 멍청한 짓하는지 관리하는게 메인잡이고 이거 하네스마스터한테 알려라」
-규칙 4줄(이미 방송): `design/harness/RULE-status-from-measurement-20261008.md`(커밋 4a9194054b).
+규칙 4줄(이미 방송): `design/teams/harness/RULE-status-from-measurement-20261008.md`(커밋 4a9194054b).
 
 ## §1 실측
 | 사실 | 값 | 근거 |
 |---|---|---|
 | 정본 정지 판정기 | `ft-seat-status.sh turn <좌석>` = jsonl 층 1줄 `STATE TURN_END_ISO DURATION_MS REPORTED SOURCE` · 예 `IDLE 2026-10-08T12:20:11.773Z 181216 no jsonl`(feature master#4) → 정지 분 = 지금 − TURN_END. 첫 턴 전·비 claude 는 `UNKNOWN` | `ft-seat-status.sh:21-27` 머리말 · 21:2x 실측 |
-| v421 상태판의 좌석 칸 | `seat_state` 복사 = 작업중/대기/정지레디/정지 «글자만» — 몇 분째인지·무엇을 기다리는지 없음 | `scripts/fable-team-bin/ft-news-tree.py:75-86` · 카드 `design/harness/indices/대기/v421-board.md`(나노 진행 중 · 범위 고정) |
+| v421 상태판의 좌석 칸 | `seat_state` 복사 = 작업중/대기/정지레디/정지 «글자만» — 몇 분째인지·무엇을 기다리는지 없음 | `scripts/fable-team-bin/ft-news-tree.py:75-86` · 카드 `design/teams/harness/indices/대기/v421-board.md`(나노 진행 중 · 범위 고정) |
 | planner-idle-scan.sh | 22줄 · pane `done 오후 H:MM` 시계 파싱(날짜 없음 → 자정·스크롤에 취약) · planner 좌석 이름 `byz-planner-master-claude#12` 하드코딩(승계 때 깨짐 = R43 같은 꼴) · 팀 목록 정규식 하드코딩 | `.fable-team/bin-planner/planner-idle-scan.sh` |
 | 기존 `stalled` | `ft-seat-status.sh stalled --min 3` 은 명부 밖 좌석(ft-airag-* 등)까지 훑어 경고 3줄을 섞음 — 팀별 감시용 출력으로 그대로 쓰기 어려움 | 21:2x 실측(`FT_SEATS_JSON=seats-feature.json`) |
 | 사건 | feature nano 18분·feature master 8분 정지인데 planner 표는 「게이트 1 진행」(쪽지 문장 복사) | RULE 문서 「사건 실측」 |
@@ -27,7 +27,7 @@
 - 정지 3분 이상 좌석은 그 턴에 셋 중 하나: 깨운다(Escape 1회 → `mbox ring` · 작업 중 pane Escape 금지) · 닫는다(끝난 나노) · 다음 발주를 보낸다. 「기다립니다」로 틱을 끝내지 않는다.
 - 보고(상위·오빠)의 좌석 상태 칸 = 「작업중」 또는 「정지 N분 · 기다리는 것 = <좌석> 의 <값>」. 기다리는 것이 없으면 「정지 N분 · 기다리는 것 없음 → 발주 필요」.
 - planner 는 팀 master 위에서 같은 감시를 한다(팀 master 좌석도 대상). 팀 master 가 정지 3분 이상인데 그 팀 하위 좌석도 정지면 planner 가 그 턴에 그 master 를 깨운다.
-- 위반 = 멍청한짓 1건(`~/.claude/rules/dumb-time-ledger.md`). 규칙 4줄 원문 = 프로젝트 `design/harness/RULE-status-from-measurement-20261008.md`.
+- 위반 = 멍청한짓 1건(`~/.claude/rules/dumb-time-ledger.md`). 규칙 4줄 원문 = 프로젝트 `design/teams/harness/RULE-status-from-measurement-20261008.md`.
 ```
 
 ## §3 COMM-GUIDE-BOOT 18번째 줄 초안 (머리 「17줄」 → 「18줄」 같이 고침)
@@ -88,12 +88,12 @@
 - 경계(기존 그대로): Escape 는 agent 가 도는 IDLE 좌석에만 1회 → `mbox ring` · 작업 중 pane Escape 금지(BOOT 7·17) · 나노 닫기는 nano-close 경로만 · 3분 규칙은 HIL·명시된 대기·역할 좌석 닫기 승인을 건너뛰는 근거가 아니다(§7).
 - 보고(상위·오빠)의 좌석 상태 칸 = `작업중` 또는 `정지 N분 · 기다리는 것 = <좌석> 의 <값>` — 기다리는 것은 상태판 «추정» 줄을 master 가 확인해 적는다(모르면 「확인 중」 + 그 턴 확인).
 - planner 는 팀 master 위에서 같은 감시를 한다(팀 master 좌석도 대상).
-- 위반 = 멍청한짓 1건(`~/.claude/rules/dumb-time-ledger.md`). 규칙 4줄 원문 = 프로젝트 `design/harness/RULE-status-from-measurement-20261008.md`.
+- 위반 = 멍청한짓 1건(`~/.claude/rules/dumb-time-ledger.md`). 규칙 4줄 원문 = 프로젝트 `design/teams/harness/RULE-status-from-measurement-20261008.md`.
 ```
 - §3 BOOT 18 줄은 그대로(「깨우기·닫기·다음 발주 중 하나」 → 「깨우기·닫기·다음 발주·HIL 확인 중 하나 — 경계는 7·17 그대로」 로만 고침).
 - Q4 조건: planner-idle-scan 출력은 교차 확인 보조로만(분 정본 아님) — 대체 전까지 유지.
 
-## §4-r3 «완료 선언» 꼬리 (판정 514 · 루트 지침 `design/harness/ROOT-GUIDELINE-draft-20261008.md` §2·§5 · 설계 좌석 byz-harness-nano-root-guideline-514#0 · 2026-10-08 · DA r1 Q1·Q3·Q6 반영) — §4-r2 의 칸 글자·행·분 계산은 «한 글자도» 바꾸지 않는다. 이 절은 ⓐ꼬리 1개 ⓑ`⚠`·stalled 제외 조건 1개 ⓒstalled 행 종류 1개 ⓓ⓪ 열 1개를 «더한다».
+## §4-r3 «완료 선언» 꼬리 (판정 514 · 루트 지침 `design/teams/harness/ROOT-GUIDELINE-draft-20261008.md` §2·§5 · 설계 좌석 byz-harness-nano-root-guideline-514#0 · 2026-10-08 · DA r1 Q1·Q3·Q6 반영) — §4-r2 의 칸 글자·행·분 계산은 «한 글자도» 바꾸지 않는다. 이 절은 ⓐ꼬리 1개 ⓑ`⚠`·stalled 제외 조건 1개 ⓒstalled 행 종류 1개 ⓓ⓪ 열 1개를 «더한다».
 
 정정: §4-r2 의 「정지 N분 · ⚠」 는 **정지·미완**(안 끝났는데 멈춤)에만 해당한다. 받은 골을 끝내고 멈춘 좌석(루트 지침 ③ 완료·휴식)은 정답 상태라 `⚠`·stalled 에 세지 않는다 — 단 «끝났다»는 기계가 아니라 받는 쪽 master 가 정하므로, 기계는 **완료 선언의 형태**만 찍는다. 판별 원천은 §4-r2 Q2-r2 의 우편 기록(로그+회전본+큐 · seq 중복 제거 · collect 1회) + 리포 `git cat-file -e`(sha 실재 · 읽기 1회)이고, 그 밖의 새 조회는 0.
 

@@ -1,8 +1,8 @@
 # 인덱스: 그래픽·UI/UX 팀 «graphics» 설치 — 명부·env·골·카드 폴더·governance 팀 표 (판정 649 · 오빠 확정 10-09 · planner#16 #67767 → 하네스 master#22 #67771 · 제안서 판정 635/636/641)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 649(오빠 확정 「그래픽 UI/UX 팀 이 구성으로 확정 — arch=codex astra · 나노=codex sol ≤2 · 상시 0 · 요청 때 하네스가 개설·닫기 · DA=Claude Opus」)
 - 상태: 대기
-- 선행: 제안서 `design/harness/PROPOSAL-team-graphics-20261009.md` r5 (arch 서명 `27aeb63af0` · Opus DA r3 APPROVE `580821eada`)
+- 선행: 제안서 `design/teams/harness/PROPOSAL-team-graphics-20261009.md` r5 (arch 서명 `27aeb63af0` · Opus DA r3 APPROVE `580821eada`)
 - 시험 입력: 아래 «산출 파일» 스테이징 사본 + 기존 래퍼 `--dry-run`(실 좌석·워크트리 생성 0)
 - 기준값(arch#24 실측): 팀 env 자동 로드 = `scripts/fable-team-bin/ft-nano-spawn.sh` 가 카드 경로 `design/<팀>/indices/` 의 팀으로 `$ROOT/.fable-team/bin-<팀>/<팀>-env.sh` 를 source(없으면 REJECT) · 나노 브랜치 = `nano/<카드 slug>` 고정(128·132행) · `scripts/fable-team-bin/ft-nano-close.sh` ③ = 브랜치 `nano/*` 아니면 REJECT · `ft-role-spawn.sh` = v65 inbox·README 고정(28·29행) → ops·loom 선례대로 arch·DA 는 `tmuxc open` + 명부 손 등록 · 이름 lint `byz-graphics-arch-codex#0`·`byz-graphics-da-claude#0` PASS.
 
@@ -39,11 +39,11 @@
 7. **열기·닫기 절차 1장** `design/graphics/RUNBOOK-open-close.md`(≤40줄): 열기 = 경계·승인 근거 확인 → `tmuxc open` arch(`--agent codex --model gpt-6-astra`)·명부 등록 → 카드 `design/graphics/indices/대기/g<Issue>-<slug>.md` → `ft-nano-spawn.sh <카드> --agent codex --model gpt-6.1-sol --base origin/main` · DA = `tmuxc open --agent claude --model claude-opus-5-5 --effort high` · 닫기 = 제안서 §3.7 공통 3실측 → `ft-nano-close.sh`(나노) · arch·DA 세션 닫기(★graphics arch·DA 계보도 keep-last-2 대상 — 닫기 전 오빠 판단 필요 여부를 하네스 master 가 planner 에 1줄★).
 
 ## 구현 범위 (닫힌 목록 · 나노)
-기존 근거 파일(읽기): `design/harness/PROPOSAL-team-graphics-20261009.md` · `scripts/fable-team-bin/ft-nano-spawn.sh` · `scripts/fable-team-bin/ft-nano-close.sh` · `scripts/fable-team-bin/ft-name-lint.sh` · 홈 governance 정본 ~/.claude/skills/fable-team/references/main-team-governance.md(읽기만) · 루트 .fable-team/bin-ops/ops-env.sh·.fable-team/seats-ops.json(포크 원본 · 읽기만).
+기존 근거 파일(읽기): `design/teams/harness/PROPOSAL-team-graphics-20261009.md` · `scripts/fable-team-bin/ft-nano-spawn.sh` · `scripts/fable-team-bin/ft-nano-close.sh` · `scripts/fable-team-bin/ft-name-lint.sh` · 홈 governance 정본 ~/.claude/skills/fable-team/references/main-team-governance.md(읽기만) · 루트 .fable-team/bin-ops/ops-env.sh·.fable-team/seats-ops.json(포크 원본 · 읽기만).
 아래 경로는 전부 «이 경로에 새로 만든다»:
 1. 스테이징 사본(tracked) 폴더 scripts/harness-install/graphics/ 에 seats-graphics.json · graphics-env.sh · goal-lines-graphics.txt · install.sh(루트 .fable-team/ 로 cp · 이미 있으면 .bak-<ts> 후 덮기 · cmp 출력) — 설계 1~3.
 2. repo 파일: 설계 3(design/graphics/GOAL-graphics.md) · 4(design/graphics/indices/{대기,진행,완성}/.gitkeep · design/graphics/NANO-LEDGER-graphics.md) · 7(design/graphics/RUNBOOK-open-close.md).
-3. governance 변경 = 스테이징 design/harness/staged-649/main-team-governance.md(현 정본 사본 + 설계 5 의 4곳만 · diff 는 그 4곳만).
+3. governance 변경 = 스테이징 design/teams/harness/staged-649/main-team-governance.md(현 정본 사본 + 설계 5 의 4곳만 · diff 는 그 4곳만).
 4. 시험 tests/harness/test_graphics_install.sh (실 좌석·워크트리 0): ①`bash -n` 전 스크립트 ②임시 ROOT 에 install.sh → 3파일 cmp 0 ③source graphics-env.sh 뒤 설계 2 의 변수(FT_IMPL_MODEL 제외) 전부 비어 있지 않음 ④seats-graphics.json JSON 파싱 + _master·_hil_route·_cards 존재 ⑤`scripts/fable-team-bin/ft-name-lint.sh` 로 byz-graphics-nano-g0-test#0 · byz-graphics-arch-codex#0 · byz-graphics-da-claude#0 PASS ⑥임시 카드로 `scripts/fable-team-bin/ft-nano-spawn.sh` <임시 카드 design/graphics/indices/대기/g0-dryrun.md> --agent codex --model gpt-6.1-sol --dry-run 의 PLAN 줄에 branch=nano/g0-dryrun · wt=…/graphics-nano-g0-dryrun (env 자동 로드 확인 · 임시 env 는 임시 ROOT 로 · 임시 카드는 시험 뒤 지움) ⑦staged governance 와 현 정본 diff = 설계 5 의 4곳만.
 커밋은 자기 브랜치, **push 금지**. **금지**: 루트 .fable-team/·홈 ~/.claude/ 쓰기(설치는 master) · tmux 좌석 열기 · GitHub 쓰기 · 래퍼 코드 수정(ⓑ 기준).
 
@@ -63,4 +63,4 @@
 ## 결과
 - 세트: 97ae908ab1e635a32469eae5991300794f6d1916 · 시험: bash tests/harness/test_graphics_install.sh rc=0 · 이슈: 0
 정본 영향 없음: 제품 정본(docs/architect) 변경 없음 — 하네스 팀 정본(홈 governance 추가 4줄)·그래픽스 팀 키트만 (PR 1076 4fc3140297 · 홈 설치 cmp OK).
-- 2026-10-09 11:13 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§107
+- 2026-10-09 11:13 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§107

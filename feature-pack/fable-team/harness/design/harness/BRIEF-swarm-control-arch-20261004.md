@@ -25,7 +25,7 @@
 ## 지금까지의 사실 (재측정 대상 — 믿지 말고 로그로 확인)
 - 층: 오빠 → [tmux pane 인터뷰(동기·즉답)] / [Slack #byz-planner C0C6MJGRR89 (비동기)] · 좌석 = tmux 안 Claude/Codex/opencode · 통신 = mbox.sh(파일 큐 + 도어벨).
 - 데몬 3(launchd, `~/.hermes/scripts/byz_*.py`, state `~/.hermes/state/`): mbox→Slack 미러 / GitHub→Slack 미러 / Slack→mbox 역방향. **지금 planner 가 bootout 해 멈춰 있음(plist 보존).**
-- 정본 문서: `design/harness/HANDOFF-slack-holes-20261004.md` 가 없으면 `/tmp/mbox/20261004T184031-byz-planner-arch#3-to-ft-harness-ops#1-HANDOFF-slack-holes-to-harness-ops-20261004.md` — 슬랙 홀 S1~S11, 세션·GitHub 홀 H1~H19, 오빠 대화 요지. 설계 `design/harness/DESIGN-slack-inbound-820.md`, 코드 `scripts/harness-install/slack-mirror/`, 시험 `tests/scripts/test_byz_*slack*`.
+- 정본 문서: `design/teams/harness/HANDOFF-slack-holes-20261004.md` 가 없으면 `/tmp/mbox/20261004T184031-byz-planner-arch#3-to-ft-harness-ops#1-HANDOFF-slack-holes-to-harness-ops-20261004.md` — 슬랙 홀 S1~S11, 세션·GitHub 홀 H1~H19, 오빠 대화 요지. 설계 `design/teams/harness/DESIGN-slack-inbound-820.md`, 코드 `scripts/harness-install/slack-mirror/`, 시험 `tests/scripts/test_byz_*slack*`.
 - 이미 입증된 것: 오빠 슬랙 답 1건이 좌석 mbox 에 도달(slack ts 1791103568.347679 → mbox seq 56773). 확인된 약점: 요약이 «오빠 할 일» 을 지어냄(S2), planner→좌석 결정이 슬랙에 안 보임(S3), 작업 1=스레드 1 깨짐(S4), 자유문 답 해석(S10).
 
 ## 역할과 일 (실행은 세 좌석 · ft-harness-ops#1 은 중계·집행·오빠 인터뷰)
@@ -43,7 +43,7 @@
 5. **오빠께 물을 질문 5개 이내**(번호 선택지 포함) — 뜬구름 부분의 세부를 채울 인터뷰용. 이 질문은 ft-harness-ops#1 이 오빠에게 대신 묻는다.
 
 ## 규칙
-- 하위 좌석은 AskUserQuestion 금지 — 사람 판정은 mbox 로 `ft-harness-ops#1` 에 `[HIL]`. 보고는 mbox(3~5줄) + 긴 건 파일(`design/harness/` tracked 경로) + 경로·sha 만 mbox.
+- 하위 좌석은 AskUserQuestion 금지 — 사람 판정은 mbox 로 `ft-harness-ops#1` 에 `[HIL]`. 보고는 mbox(3~5줄) + 긴 건 파일(`design/teams/harness/` tracked 경로) + 경로·sha 만 mbox.
 - 읽기 전용 단계: 라이브 파일(~/.hermes/**), launchd, Slack 게시, main 브랜치 변경 금지. 파괴·비가역은 HIL.
 - 사실과 추측을 구분해 적는다. «0» 이라고 쓸 때는 어느 축에서 본 0 인지 쓴다.
 - 이 단위의 끝 = 위 1~5 를 담은 설계 1장 + 오빠 인터뷰 질문. 구현은 오빠 확정 뒤에만.

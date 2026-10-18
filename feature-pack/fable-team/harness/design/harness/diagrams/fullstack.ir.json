@@ -2,8 +2,8 @@
  "schema": "drawio-skill/diagram-ir/v1",
  "metadata": {
   "title": "BYZ 풀스택 시스템 다이어그램 (정본 IR)",
-  "facts": "design/harness/diagrams/FACTS-fullstack-20261005.md",
-  "orch_tree": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+  "facts": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
+  "orch_tree": "design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
   "collected_utc": "2026-10-05T13:37Z",
   "head": "5e53d60f63",
   "layers": [
@@ -34,7 +34,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 14
    }
   },
@@ -51,7 +51,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 15
    }
   },
@@ -68,7 +68,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 16
    }
   },
@@ -86,7 +86,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 17
    }
   },
@@ -102,7 +102,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 19
    }
   },
@@ -135,7 +135,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 20
    }
   },
@@ -151,7 +151,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 21
    }
   },
@@ -167,7 +167,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 22
    }
   },
@@ -183,7 +183,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 23
    }
   },
@@ -199,7 +199,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 25
    }
   },
@@ -215,7 +215,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 26
    }
   },
@@ -231,7 +231,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 24
    }
   },
@@ -247,7 +247,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 28
    }
   },
@@ -264,7 +264,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 29
    }
   },
@@ -281,7 +281,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 3
    }
   },
@@ -347,7 +347,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 27
    }
   },
@@ -379,7 +379,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 45
    }
   },
@@ -395,7 +395,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 46
    }
   },
@@ -486,7 +486,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 52
    }
   },
@@ -502,7 +502,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 53
    }
   },
@@ -578,7 +578,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 54
    }
   },
@@ -594,7 +594,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 55
    }
   },
@@ -610,7 +610,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 28
    }
   },
@@ -626,7 +626,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 56
    }
   },
@@ -642,7 +642,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 50
    }
   },
@@ -659,7 +659,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 59
    }
   },
@@ -677,7 +677,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 42
    }
   },
@@ -695,7 +695,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 43
    }
   },
@@ -713,7 +713,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 44
    }
   },
@@ -763,7 +763,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 27
    }
   },
@@ -826,7 +826,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "path": "design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
     "line": 74
    }
   },
@@ -841,7 +841,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "path": "design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
     "line": 74
    }
   },
@@ -858,7 +858,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "path": "design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
     "line": 76
    }
   },
@@ -875,7 +875,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 72
    }
   },
@@ -890,7 +890,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 72
    }
   },
@@ -920,7 +920,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 72
    }
   },
@@ -936,7 +936,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -951,7 +951,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "path": "design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
     "line": 93
    }
   },
@@ -967,7 +967,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -982,7 +982,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -997,7 +997,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -1012,7 +1012,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -1027,7 +1027,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -1042,7 +1042,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
+    "path": "design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md",
     "line": 105
    }
   },
@@ -1058,7 +1058,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 75
    }
   },
@@ -1073,7 +1073,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 74
    }
   },
@@ -1089,7 +1089,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 76
    }
   },
@@ -1104,7 +1104,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 71
    }
   },
@@ -1120,7 +1120,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 83
    }
   },
@@ -1135,7 +1135,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 83
    }
   },
@@ -1150,7 +1150,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 85
    }
   },
@@ -1165,7 +1165,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 83
    }
   },
@@ -1181,7 +1181,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 84
    }
   },
@@ -1197,7 +1197,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 87
    }
   },
@@ -1213,7 +1213,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 86
    }
   },
@@ -1228,7 +1228,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 59
    }
   },
@@ -1243,7 +1243,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 83
    }
   },
@@ -1259,7 +1259,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 89
    }
   },
@@ -1274,7 +1274,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 90
    }
   },
@@ -1289,7 +1289,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 90
    }
   },
@@ -1304,7 +1304,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 90
    }
   },
@@ -1319,7 +1319,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 14
    }
   },
@@ -1334,7 +1334,7 @@
     "owner": "harness-ops"
    },
    "provenance": {
-    "path": "design/harness/diagrams/FACTS-fullstack-20261005.md",
+    "path": "design/teams/harness/diagrams/FACTS-fullstack-20261005.md",
     "line": 91
    }
   }

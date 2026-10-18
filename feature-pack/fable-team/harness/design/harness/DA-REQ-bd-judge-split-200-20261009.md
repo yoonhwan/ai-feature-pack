@@ -8,7 +8,7 @@
 
 ## 고정 대상
 - 커밋 `7e8b08cb7e3228c1f0cea3aaa781b173c08814ba`(브랜치 `nano/bd-judge-split-200` · base origin/main `4f5009a926` · 2커밋: `6fad9ddf84` [structure] · `7e8b08cb7e` [test]) · 5파일 +139 −127: 키트 `templates/hooks/block-destructive.sh`(209→87) · 새 `templates/hooks/block-destructive-judge.py`(123 = 머리 주석 2줄 + 옛 26–146행) · `install.sh`(홈 정합 루프 `*.py` 포함 · `.py` settings=n/a) · `tests/harness/test_block_destructive_inject.sh`(+1 판정기 cp) · `tests/harness/test_install_hook_check.sh`(+9 판정기 존재·cmp).
-- 카드 `design/harness/indices/진행/bd-judge-split-200.md`(또는 대기/).
+- 카드 `design/teams/harness/indices/진행/bd-judge-split-200.md`(또는 대기/).
 
 ## arch#21 독립 재현 (7e8b08cb7e 아카이브 · 명령 실행 0)
 - 본문 `diff <(origin/main 훅 26–146행) <(판정기 3행~)` = 0 · 훅 = arch 처방 사본과 cmp 동일 · `bash -n` · `py_compile` OK.
@@ -24,4 +24,4 @@
 - 범위 밖: 홈 설치 절차(master · 카드 «랜딩 뒤 홈 설치» 절) · 심링크 설치(카드에 알고 둔 경계) · 판정 규칙 자체.
 
 ## 판정문
-`design/harness/DA-bd-judge-split-200-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-bd-judge-split-200-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.

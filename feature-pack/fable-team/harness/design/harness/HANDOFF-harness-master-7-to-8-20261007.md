@@ -20,7 +20,7 @@
 - byzs-mac-mini 설치 승인 · tailscale ssh 접속 · 홈 폴더 복사만(launchd·글로벌 설정 손대지 않음).
 
 ## ★열린 일 (순서대로)
-1. **나노 2석 동시 spawn** — 카드(arch 작성·lint OK·파일 겹침 0): `design/harness/indices/대기/kit-bin-adopt.md`(73파일 표 + 채택 + sync 시험) · `kit-hooks-install-check.md`(block-destructive 템플릿 + install 훅 등록 확인 줄). 이 인계 커밋에 카드가 들어 있다. base = 최신 origin/main(spawn 은 «호출한 워크트리의 현재 브랜치»를 base 로 쓴다 → `ops/main-base` 브랜치(= origin/main)에서 호출). 나노 닫기는 카드 증거 줄 + 판정서 §24~ + FT_NANO_FEAT 주입.
+1. **나노 2석 동시 spawn** — 카드(arch 작성·lint OK·파일 겹침 0): `design/teams/harness/indices/대기/kit-bin-adopt.md`(73파일 표 + 채택 + sync 시험) · `kit-hooks-install-check.md`(block-destructive 템플릿 + install 훅 등록 확인 줄). 이 인계 커밋에 카드가 들어 있다. base = 최신 origin/main(spawn 은 «호출한 워크트리의 현재 브랜치»를 base 로 쓴다 → `ops/main-base` 브랜치(= origin/main)에서 호출). 나노 닫기는 카드 증거 줄 + 판정서 §24~ + FT_NANO_FEAT 주입.
 2. **나노 닫기 2건**: ①`byz-harness-nano-gh-guard-scope-main-prcreate#0`(PR 843 squash 병합됨 — cherry 게이트가 patch-id 상이로 + 판정 → `--cherry-override "<사유>"` + FT_NANO_FEAT 는 «로컬에 있는 브랜치»여야 함(origin/main 은 「브랜치 없음」 REJECT) → 로컬 `main` 또는 병합 브랜치) ②planner 요청 #58629 `byz-planner-nano-cfo-issues-triage#0`: planner env 를 source 하고 `FT_NANO_PREFIX=byz-planner-nano-` · `--result design/planner/TRIAGE-cfo-issues-20261007.md --recv 58621 --kill`(유휴 3분 필요). embeddinggemma2 나노는 진행 중 — 닫기 보류.
 3. **C 축 순서(arch 안)**: ②채택 PR 랜딩 → RELEASE 0.4 1장(오늘 변경표: 이름규칙·governance 6·7·arch 상시·게이트 master·Tank 래퍼+가드·ft-role-spawn·tmm 0.7.4 등 + 설치 명령 + 머신 표) → 이 Mac 반영(install --apply → FT_BIN 전환 → 홈 훅 설치 → 사용 경로 cmp 0 → 「반영됨 이 Mac <kit_sha>」) → 슬랙 게시(mbox→Slack 미러로 #byz-planner · 새 데몬 0 · ts 를 반영 행에) → byzs-mac-mini 같은 절차(ssh). 홈 settings.json 훅 등록은 키트가 편집하지 않고 머신마다 master 집행(백업+블록 추가).
 4. **② 랜딩 뒤 후속 카드 3(arch 승인)**: ①ft-role-spawn 기본 접두 byz-팀 + 번호 계산 byz-·ft- 두 계보 합산 ②ft-nano-spawn 에이전트 codex 인데 모델 미지정이면 claude 모델이 들어감 → gpt 기본 ③ft-nano-spawn `--base` 인자 + close 가 worktree-info base 읽기. (v65 총괄 #143 보고. 임시 우회 안내함: FT_ROLE_BASE_PREFIX=byz-v65- · codex 나노는 --model 명시.)
@@ -42,4 +42,4 @@
 
 ## 환경
 - 워크트리 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops` · 좌석: byz-harness-arch-claude#5(arch 상시) · byz-planner-master-claude#5(planner·HIL) · byz-issues-master-claude#1 · byz-cfo-master-claude#53 · byz-v65-master-claude#143(+arch #166 fable) · 나노 위 2건.
-- 판정서 `design/harness/OPS-VERDICTS-20261006.md` §1~§23 닫힘 · 요청 원장 `REQUEST-LEDGER.md` R1~R7 · RELEASE 0.1~0.3(0.4 작성 예정).
+- 판정서 `design/teams/harness/OPS-VERDICTS-20261006.md` §1~§23 닫힘 · 요청 원장 `REQUEST-LEDGER.md` R1~R7 · RELEASE 0.1~0.3(0.4 작성 예정).

@@ -8,12 +8,12 @@
 
 ## 범위 (고정 · 넓히지 않는다)
 **질문 하나**: `fullstack.ir.json` 의 노드·엣지가 **실재와 맞는가** — 있는데 빠진 것 / 없는데 그린 것 / 방향·종류가 틀린 것.
-- 읽을 것(순서): `design/harness/diagrams/README.md` §1·§4 → `fullstack.ir.json` → `FACTS-fullstack-20261005.md` → `design/harness/issue-improvement/SPEC-main-orch-tree-20261005.md` §3.
+- 읽을 것(순서): `design/teams/harness/diagrams/README.md` §1·§4 → `fullstack.ir.json` → `FACTS-fullstack-20261005.md` → `design/teams/harness/issue-improvement/SPEC-main-orch-tree-20261005.md` §3.
 - 실측 허용(읽기 전용): `tmux list-sessions` · `lsof -nP -iTCP -sTCP:LISTEN` · `launchctl list` · `docker ps` · `ls`. 서버 기동·press·수정·커밋 0.
 - 보지 않는 것: 그림의 미관·배치 · 설계 의견 · 하네스 규칙 적정성 · 시크릿(값은 어디에도 없어야 하며 있으면 즉시 REJECT).
 - [추측] 노드 2(`py-8000` · `redis-dev`)는 사실로 확정하거나 삭제 권고 — README §4 의 확인 방법.
 
-## 판정 형식 (mbox 5줄 이내 + 전문은 `design/harness/diagrams/DA-fullstack-r1.md`)
+## 판정 형식 (mbox 5줄 이내 + 전문은 `design/teams/harness/diagrams/DA-fullstack-r1.md`)
 ```
 판정: APPROVE | HOLD(수정 N건) | REJECT(사유 1줄)
 실브레인: model: … / provider: … (실행 헤더 두 줄 복붙)

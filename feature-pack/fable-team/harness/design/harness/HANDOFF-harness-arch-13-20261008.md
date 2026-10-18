@@ -25,8 +25,8 @@ arch = 설계·카드(대기/ · lint 통과 · 미커밋)·DA 소환 판단·�
 |---|---|
 | R30 승계 창 자동 이관 | §57 · 랜딩 697112e720 + e70527f301 · 구현 DA APPROVE(DA-r30 §10) · 반송 1회(guard 루트·MISMATCH 폭주) |
 | R29 cherry 게이트 --squashed-pr | §56 · a619a6b06b · 실사례 dry-run 같음 19·고쳐짐 2 |
-| 판정 410 감사 | design/harness/AUDIT-j410-console-vs-slack-20261008.md(17건 · 원인 = 출처 차) |
-| R34 원인 실측 | design/harness/AUDIT-r34-planner-relay-latency-20261008.md(읽음 중앙값 22초 · 미보고 10/39) |
+| 판정 410 감사 | design/teams/harness/AUDIT-j410-console-vs-slack-20261008.md(17건 · 원인 = 출처 차) |
+| R34 원인 실측 | design/teams/harness/AUDIT-r34-planner-relay-latency-20261008.md(읽음 중앙값 22초 · 미보고 10/39) |
 | 421+423+425-B 설계 | DESIGN-news-tree-workqueue-viz-20261009.md r2 + §8 · DA 2 HOLD 종료(N1·N3 APPROVE · N2 정본 술어) · 오빠 컨펌 판정 430·431 |
 | 카드 2장 lint OK | 대기/v430-verdict-ledger.md(나노 1) · 대기/v425-master-inbox.md(나노 4) |
 

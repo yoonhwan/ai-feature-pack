@@ -14,9 +14,9 @@
 
 ## ★지금 최우선 (오빠 발주 · master#17 #64368) — 슬랙 = 읽기 전용 공유판★
 - 오빠 원문: 「거기서 자꾸 답하라는데 어차피 들을것도 아니고 반영될것도 아니니 작업상황·이슈보고·변경내용·상태를 공유하고 hil이나 인터뷰가 있으면 정확히 어느 세션으로 가거나 플래너 정확한 세션을 알려주는 공유를 중점으로」
-- 설계: `design/harness/DESIGN-slack-readonly-share-20261008.md`(§1 실측 9종 · §2 답장 문구 13 · §4 새 틀 · ★§4-r2 가 §4·§5 를 이긴다★ · A-r3·B-r3 = DA r2 잔여 교정).
-- DA: `design/harness/DA-slack-readonly-share-20261008.md` — r1 HOLD(Q1·Q2·Q3) → r2 HOLD(Q1 정규식 · Q2 기존 원장 이관 · Q3·Q4 APPROVE) → bounded 종료 → master 에 «r3 스팟 1회» 결정 요청 #64449(회신 대기).
-- 남은 단계: master 결정(판정 468 선례 = 스팟 1회) → DA 파일에 「## r3 스팟 요청」 절(A-r3·B-r3 두 항목만 · 10분) 추가 + relay → APPROVE → 카드 `design/harness/indices/대기/<이름>.md`(lint `FT_CARD_REQUIRE_PREVERIFY=1` · 사전검증 「소환: 예」 + DA 경로) → master spawn → 결과 재현(가짜 LLM·가짜 tmux·가짜 history · 슬랙 API 0) → 닫힘 초안.
+- 설계: `design/teams/harness/DESIGN-slack-readonly-share-20261008.md`(§1 실측 9종 · §2 답장 문구 13 · §4 새 틀 · ★§4-r2 가 §4·§5 를 이긴다★ · A-r3·B-r3 = DA r2 잔여 교정).
+- DA: `design/teams/harness/DA-slack-readonly-share-20261008.md` — r1 HOLD(Q1·Q2·Q3) → r2 HOLD(Q1 정규식 · Q2 기존 원장 이관 · Q3·Q4 APPROVE) → bounded 종료 → master 에 «r3 스팟 1회» 결정 요청 #64449(회신 대기).
+- 남은 단계: master 결정(판정 468 선례 = 스팟 1회) → DA 파일에 「## r3 스팟 요청」 절(A-r3·B-r3 두 항목만 · 10분) 추가 + relay → APPROVE → 카드 `design/teams/harness/indices/대기/<이름>.md`(lint `FT_CARD_REQUIRE_PREVERIFY=1` · 사전검증 「소환: 예」 + DA 경로) → master spawn → 결과 재현(가짜 LLM·가짜 tmux·가짜 history · 슬랙 API 0) → 닫힘 초안.
 - master 가 이미 한 일: seats-harness·loom·ops 의 `_hil_route` 를 planner#12 로 손 정정(#64430).
 - ★판정 497(master#17 #64454)★: r3 스팟 DA 1회 승인 — 범위 = A-r3(정규식 「확인해 주」·Q번호 + 반례 3) · B-r3(옛 planner 이름 → @planner 이관 · 재발송 0 · fixture 4) 두 항목만. ★r3 도 HOLD 면 멈추고 planner#12 로★.
 - ★판정 496(master#17 #64447 · 범위 확장 · DA 소환 필수)★ — 오빠 원문 20:4x: 「기획에 물어봐 뉴스 트리와 세션과 큐를 정리공유하는 개편 / da도 같이」 + 20:3x 「뉴스 공유시 메인팀 현재 상황과 메인팀 큐를 같이 정리 공유. 개편.」. 범위: 뉴스 = ①완성 트리(골 축별) ②세션 트리(메인 8팀 좌석·상태) ③큐(팀별 다음 순서)를 한 틀로 — 슬랙·pane 뉴스 공통. DESIGN-slack-readonly-share 와 «같은 단위»로 묶어 설계. 산출 = 설계 문서 + DA 판정 경로를 ★planner#12 로 회신★(오빠 컨펌은 planner 가 올림). 기존 `ft-news-tick` ⑥(요약 기본 · 전체는 `FT_NEWS_FULL=1`) 규칙과의 관계 정리 필수. 생성 원천 후보(#64443): ft-news-tick ⑥ 출력 + 메인 8팀 명부 `seats*.json` `_master` + 큐(각 팀 indices 진행/대기 카드). planner 보고는 이미 «8팀 지금 하는 것 + 큐» 한 표로 전환됨(planner#12 #64440).

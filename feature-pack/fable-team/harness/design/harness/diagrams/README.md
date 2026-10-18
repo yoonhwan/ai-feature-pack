@@ -34,7 +34,7 @@
 ## 3. 재생성 · 검증 절차 (drift 점검 = 이 절 그대로)
 
 ```bash
-cd design/harness/diagrams
+cd design/teams/harness/diagrams
 python3 build.py --check                      # 정본 무결 (exit 0)
 python3 build.py                              # fullstack.drawio 재생성
 S=~/.claude/skills/drawio-skill/scripts

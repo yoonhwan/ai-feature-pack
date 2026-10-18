@@ -1,5 +1,5 @@
 # 인덱스: CI Python Test 병렬화 — pytest-xdist `-n auto --dist loadgroup` + 공유 Redis 모듈 한 그룹 + 가려진 공유 Redis 시험 db15 실행 (판정 446 · 설계 r2 · 판정 438 6분 목표)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 446(planner#11 #63292 · master#16 #63294) · 판정 438 다음 수(설계 438 §3-3 안 다)
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(판정 438 랜딩 5785530bea 포함 · ci.yml 은 main 이 ops/main-base 보다 19줄 앞)
@@ -20,21 +20,21 @@ CI Python Test 의 Run tests 단계는 한 프로세스로 7분 돈다. pytest-x
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-xdist-446-20261008.md
+- DA: design/teams/harness/DA-xdist-446-20261008.md
 
 ## 조사 근거
 - `.github/workflows/ci.yml:145` Run tests 명령(ops/main-base 사본 줄 · origin/main 은 155줄) · env REDIS_HOST/PORT·PAYMENT_MODE · `LST_TEST_REDIS_URL` 없음.
 - `pyproject.toml:83` dev extra(pytest·pytest-asyncio · xdist 없음) — CI 는 `uv sync --frozen --all-extras`.
 - `tests/worker/unit/conftest.py:26` `requires_real_redis` deselect(마커가 붙은 공유 Redis 시험은 기본 런 제외).
 - `tests/worker/unit/lst_runtime_cases.py:45` `LST_TEST_REDIS_URL` 없으면 RuntimeError(db15 강제) · `tests/worker/unit/test_lst_handoff_claim.py:21` db0 고정 URL.
-- `design/harness/DESIGN-xdist-446-20261008.md:44` §6 r2 완료 조건(nodeid 상태표 · 6-2 가려진 시험 · 6-3 CI).
+- `design/teams/harness/DESIGN-xdist-446-20261008.md:44` §6 r2 완료 조건(nodeid 상태표 · 6-2 가려진 시험 · 6-3 CI).
 
 ## 구현 범위 (닫힌 목록)
 1. ★로컬 비교 환경(일회용 · 리포 파일 아님)★: `docker run --rm --network none` 컨테이너(ubuntu 또는 python:3.12 + `redis-server` + uv) 안에서 워크트리 «사본» 을 마운트하고 컨테이너 안 `127.0.0.1:6379` 에 redis-server 를 띄워 CI 와 같은 경로를 돈다. env = `REDIS_HOST=localhost REDIS_PORT=6379 PAYMENT_MODE=local_mock LOCAL_VLLM_BASE_URL=http://127.0.0.1:9/v1` · `UPDATE_GOLDEN` 미설정을 RESULT 에 기록. 컨테이너를 못 띄우면 ★호스트에서 돌리지 말고★ 멈춰 보고(개발 Redis 쓰기 0).
 2. `pyproject.toml` dev extra 에 `pytest-xdist` + `uv.lock` 갱신(`uv lock` · 다른 패키지 버전 변화 0 확인).
 3. 공유 6379 모듈 표지: CI 경로(`tests/gateway/unit` · `tests/worker/unit` · `tests/infrastructure/gpu`)에서 수집되고 `requires_real_redis` 가 아닌, 127.0.0.1:6379 / `LST_TEST_REDIS_URL` 에 직접 또는 위 헬퍼 경유로 닿는 «테스트 모듈» 마다 `pytestmark = pytest.mark.xdist_group("shared_redis_6379")`(기존 pytestmark 있으면 리스트로 합침 · 헬퍼 `*_cases.py` 자체가 아니라 import 하는 테스트 모듈에). 대상 목록과 찾은 방법을 RESULT 에.
 4. `.github/workflows/ci.yml` Run tests: `-n auto --dist loadgroup` 추가(`-v --tb=short` 유지) · 설계 §6-2 조건이 맞으면(가려진 nodeid 의 원인 = `LST_TEST_REDIS_URL` 미설정) 같은 단계 env 에 `LST_TEST_REDIS_URL: redis://localhost:6379/15`. V5 focused·RED observe 잡 무변경.
-5. RESULT(`design/harness/RESULT-xdist-446-<날짜>.md`): ①컨테이너 안 직렬 vs `-n 4 --dist loadgroup` 각 `--junitxml` 에서 뽑은 nodeid 상태표 diff(0 이어야 함) + 수집·deselected 수 ②`-n 4` 2회 반복 같은 표(★제한된 관측 · flake 부재 증명 아님★) ③기존 실패 원인별 표(직렬·병렬 같은 원인) ④가려졌던 공유 Redis nodeid 목록 → db15 env 뒤 passed ⑤`-v` 출력에서 공유 모듈 nodeid 전부 `@shared_redis_6379` 접미 ⑥워커 crash 0 ⑦벽시계 직렬·병렬.
+5. RESULT(`design/teams/harness/RESULT-xdist-446-<날짜>.md`): ①컨테이너 안 직렬 vs `-n 4 --dist loadgroup` 각 `--junitxml` 에서 뽑은 nodeid 상태표 diff(0 이어야 함) + 수집·deselected 수 ②`-n 4` 2회 반복 같은 표(★제한된 관측 · flake 부재 증명 아님★) ③기존 실패 원인별 표(직렬·병렬 같은 원인) ④가려졌던 공유 Redis nodeid 목록 → db15 env 뒤 passed ⑤`-v` 출력에서 공유 모듈 nodeid 전부 `@shared_redis_6379` 접미 ⑥워커 crash 0 ⑦벽시계 직렬·병렬.
 
 커밋은 자기 브랜치, **push 금지**. **금지**: 호스트 개발 Redis(127.0.0.1:6379) 접속하는 실행 · 새 skip/deselect/xfail 추가 · 테스트 본문 수정(마커 줄 외) · `requires_real_redis` 목록 변경 · CI 재실행 반복(판정 436 — PR 은 master 가 1회 push).
 
@@ -51,4 +51,4 @@ CI Python Test 의 Run tests 단계는 한 프로세스로 7분 돈다. pytest-x
 - 2026-10-08 16:52 — 대기→진행 · 좌석 byz-harness-nano-v446-ci-pytest-xdist#0
 
 세트: b7c0600dd0dda82a58b9e5e52801f0fe1e4f1bc9 · 시험: python3 -I /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-v446-ci-pytest-xdist/0393d7e8-694d-4606-b86b-c066afd13241/scratchpad/tools/xdist_diff.py /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-v446-ci-pytest-xdist/0393d7e8-694d-4606-b86b-c066afd13241/scratchpad/m_serial/junit.xml /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-v446-ci-pytest-xdist/0393d7e8-694d-4606-b86b-c066afd13241/scratchpad/m_par_n4/junit.xml rc=0 · 이슈: 0
-- 2026-10-08 17:46 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§67
+- 2026-10-08 17:46 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§67

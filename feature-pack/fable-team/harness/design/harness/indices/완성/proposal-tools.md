@@ -1,6 +1,6 @@
 # 인덱스: 제안서 흐름 ② 도구 3개(카드·슬랙 발행·승인 확인) + magazine_slack 인자화 + 시험 (판정 352)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 352(planner#8 → master#12 발주 · 설계 design/harness/DESIGN-proposal-flow-20261008.md)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 판정 352(planner#8 → master#12 발주 · 설계 design/teams/harness/DESIGN-proposal-flow-20261008.md)
 - 상태: 대기
 - 선행: DA 사전검증 APPROVE(아래) · 문서 나노(proposal-docs)는 선행 아님 — 템플릿 칸은 설계 §2 문자로 가짜 제안서를 만들어 시험
 - 시험 입력: 임시 팀 env 디렉터리 · 가짜 제안서 md · 매거진 가짜 Slack 서버(tests/scripts/_magazine_fakes.py) — 실 슬랙 0
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-proposal-flow-20261008.md
+- DA: design/teams/harness/DA-proposal-flow-20261008.md
 
 ## 조사 근거
 - 설계 §1 상태 머리줄 · §2 템플릿 칸 · §3 도구 표·배치 · §7 시험 1~4.
@@ -51,4 +51,4 @@
 - 2026-10-08 09:16 — 대기→진행 · 좌석 byz-harness-nano-proposal-tools#0
 - 2026-10-08 — 완료 독립 검증 (arch#10 · 판정서 §47 초안) — 나노 4bf44359e4(반송 r1: 머리 상태 줄 2개 거부): 시험 96 passed · 셸 2종 ALL PASS · register 확인 실패 Tank 0회 · publish 장애 5종 · 독립 주입 7종 거부.
 세트: 4bf44359e495b6d70f4696dcc1066fdb5e251366 · 시험: python3 -m pytest tests/scripts/test_proposal_publish.py -q rc=0 · 이슈: 0
-- 2026-10-08 09:33 — 진행→완성 · 좌석 byz-harness-nano-proposal-tools#0 · DA design/harness/OPS-VERDICTS-20261006.md#§47
+- 2026-10-08 09:33 — 진행→완성 · 좌석 byz-harness-nano-proposal-tools#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§47

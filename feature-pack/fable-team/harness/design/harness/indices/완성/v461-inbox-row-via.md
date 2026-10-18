@@ -1,5 +1,5 @@
 # 인덱스: 인박스 큐 행에 분류 출처 `via` = rule | haiku | unknown — Haiku 성공률·호출 수를 셀 수 있게 (판정 461 · 판정 441 후속)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 461(planner#11 #63736 · master#16 #63739 · 근거 판정 441 점검표 master 실측)
 - 상태: 대기
 - 선행: 없음 — ★origin/main 최신에서 브랜치★(인박스 파일은 main 에만 있다 · ops/main-base 에 없음 · 라이브 `.fable-team/bin` 사본 = main 바이트 동일 arch cmp)
@@ -51,4 +51,4 @@
 - 정본 영향 없음: 하네스 인박스 도구 행 필드·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 18:15 — 대기→진행 · 좌석 byz-harness-nano-v461-inbox-row-via#0
 세트: c1c262a0c2113d2864bbe6fa63b7fcf87df03ce1 · 시험: bash tests/harness/test_inbox.sh rc=0 · 이슈: 0
-- 2026-10-08 18:32 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§70
+- 2026-10-08 18:32 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§70

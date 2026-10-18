@@ -1,5 +1,5 @@
 # 인덱스: R59 Tank 래퍼 comment-edit — byz-tank 가 쓴 Issue 코멘트만 수정 · 작성자 다르면 raise · 수정 전 원문 보관 (원장 R59 · 판정 564 · issues#6 쪽지 65989)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R59(판정 564 · 우선 높음 · R58·v558 보다 앞 순서)
 - 상태: 대기
 - 선행: 없음
@@ -57,4 +57,4 @@
 - 2026-10-08 23:51 — 대기→진행 · 좌석 byz-harness-nano-r59-tank-comment-edit#0
 - 2026-10-08 23:5x — 완료 증거(arch 재현·서명): 세트: 6fa90c8524e939e62361a698448baf7d64458321 · 시험: bash tests/harness/test_gh_tank_comment_edit.sh rc=0 · 이슈: 0
 - 정본 영향 없음: 하네스 gh 래퍼·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-08 23:58 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§86
+- 2026-10-08 23:58 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§86

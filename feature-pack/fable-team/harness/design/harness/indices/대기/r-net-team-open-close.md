@@ -1,9 +1,9 @@
 # 인덱스: 팀 열기·닫기 한 명령 — ft-team-open / ft-team-close(admission→정리→검증 3단) + nano-close fetch 7초 (N2 · 팀 운영 구조 근원 수정 · 판정 1070·1079 · arch#29)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → planner ORDER(판정 1069·1070) · 설계 PLAN-harness-networking-20261011.md §2 D1 · §4 · §9 ①-c
 - 제안서: 없음 — 오빠 판정 1070 으로 착수 승인된 하네스 구조 수정(판정 1079 3차 DA APPROVE #76290)
 - 상태: 대기
-- 선행: N1(seats-lint 가 `_kept`·OPENING 을 읽는다) · N3(은퇴 REJECT 가 승계 원자성과 짝) · 설계 = `git show f0d974ab20:design/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다★)
+- 선행: N1(seats-lint 가 `_kept`·OPENING 을 읽는다) · N3(은퇴 REJECT 가 승계 원자성과 짝) · 설계 = `git show f0d974ab20:design/teams/harness/PLAN-harness-networking-20261011.md`(r2 · ★나노 워크트리에는 없다★)
 - 시험 입력: 임시 git 리포 + 가짜 `tmuxc`/`tmux`/`launchctl` 스텁(env `FT_TMUX_CMD`·`FT_LAUNCHCTL_CMD`·`FT_TMUXC_CMD`) + 가짜 좌석 jsonl(WORKING/IDLE) + 가짜 `ft-reach-check`(도달/미도달) + 가짜 nano-close(rc 0/3) — 실 세션·실 plist·루트 `.fable-team/`·실 원격 fetch 0
 - 기준값(arch#29 실측 · 2026-10-11): 팀 열기·닫기 도구 0(STRUCTURE §2 개설 6항·종료 4항이 글로만) · 팀 신설 3건(ops·loom·graphics) 전부 손 작업 · tmux 세션 85(keep-last-2 초과 계보 다수) · launchd 틱 plist 4(loom·feature·ops·cfo) · `ft-nano-close.sh` 361~373행 `_fetch_remote_feat` `git fetch` 상한 0.
 

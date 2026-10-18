@@ -1,5 +1,5 @@
 # 인덱스: ft-proposal-card.sh — 팀 골 줄 수 따라가기 · 닫는 증거를 골 줄에서 · 경로 기준 = 호출 워크트리 (R22 10-08 행)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R22(10-08 행 · byz-cfo-master-claude#57 #61555 · master#13 #61560)
 - 상태: 대기
 - 선행: 없음(main fd25e1a76b 에 도구 랜딩됨)
@@ -16,7 +16,7 @@
 골의 축: 6-b(위성·메인 오케 개선요청 접수 → 개선). 핵심 한 줄: 제안서 카드 도구가 팀 골 원문을 팀 정본대로(줄 수 그대로) 싣고, 어느 브랜치에서 돌려도 lint 를 통과해야 한다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-`scripts/harness-install/proposal/ft-proposal-card.sh` 는 팀 master 가 제안서 나노 카드를 만드는 도구다(main fd25e1a76b). CFO 가 처음 써 보니 세 군데가 틀렸다: ①골좌표의 닫는 증거를 «원장에서 20자 이상인 첫 줄»로 고르는데(49-56행) CFO 원장 3행 인용 머리줄 「> 확정 2026-09-15 · 발행 FB_CFO#8」이 걸렸다 ②골 원문을 `sed -n '1,3p'` 로 3줄만 싣는다(67-68행) — CFO 골은 4줄이고 GOAL-cfo.md 9행이 4줄 바이트 일치를 요구한다 ③구현 범위·조사 근거가 main 에만 있는 파일(docs/rules/proposal_template.md · design/harness/DESIGN-proposal-flow-20261008.md)만 인용해, 그 파일이 없는 docs/cfo-main 브랜치에서 lint ⑥·⑧ 이 REJECT 했다. 설계 판정(arch#11): 4줄 골 허용은 설계와 어긋나지 않는다 — 설계의 「골 3줄」은 «팀 골 원문 복붙»의 서술일 뿐이다. 안 전문: design/harness/PLAN-r22-proposal-card-goal-lines-20261008.md.
+`scripts/harness-install/proposal/ft-proposal-card.sh` 는 팀 master 가 제안서 나노 카드를 만드는 도구다(main fd25e1a76b). CFO 가 처음 써 보니 세 군데가 틀렸다: ①골좌표의 닫는 증거를 «원장에서 20자 이상인 첫 줄»로 고르는데(49-56행) CFO 원장 3행 인용 머리줄 「> 확정 2026-09-15 · 발행 FB_CFO#8」이 걸렸다 ②골 원문을 `sed -n '1,3p'` 로 3줄만 싣는다(67-68행) — CFO 골은 4줄이고 GOAL-cfo.md 9행이 4줄 바이트 일치를 요구한다 ③구현 범위·조사 근거가 main 에만 있는 파일(docs/rules/proposal_template.md · design/teams/harness/DESIGN-proposal-flow-20261008.md)만 인용해, 그 파일이 없는 docs/cfo-main 브랜치에서 lint ⑥·⑧ 이 REJECT 했다. 설계 판정(arch#11): 4줄 골 허용은 설계와 어긋나지 않는다 — 설계의 「골 3줄」은 «팀 골 원문 복붙»의 서술일 뿐이다. 안 전문: design/teams/harness/PLAN-r22-proposal-card-goal-lines-20261008.md.
 
 ## 사전검증
 - 소환: 아니오
@@ -50,4 +50,4 @@
 - 2026-10-08 11:24 — 대기→진행 · 좌석 byz-harness-nano-proposal-card-goal-lines#0
 - 2026-10-08 — 나노 산출 #61602 · arch#11 독립 재현(시험 28 ALL PASS · shellcheck 0 · 실 CFO 원장(docs/cfo-main 판)·ops 원장으로 임시 리포 dry: CFO 4줄 카드 · 닫는 증거 = 골 2줄 · 템플릿 없는 브랜치에서 lint OK) → 판정서 §52 초안.
 세트: 091fc811d20ea429de3cee9b650752b1250b7289 · 시험: bash tests/harness/test_proposal_card.sh rc=0 · 이슈: 0
-- 2026-10-08 11:32 — 진행→완성 · 좌석 byz-harness-nano-proposal-card-goal-lines#0 · DA design/harness/OPS-VERDICTS-20261006.md#§52
+- 2026-10-08 11:32 — 진행→완성 · 좌석 byz-harness-nano-proposal-card-goal-lines#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§52

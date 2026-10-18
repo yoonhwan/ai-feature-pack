@@ -1,5 +1,5 @@
 # 인덱스: ft-index-move 완성 이동 — 「정본 영향 없음」 카드에는 [정본 갱신 요청] 쪽지를 보내지 않는다 (R41 · 소음 제거)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R41(byz-harness-arch-claude#15 개선요청 #63686 · 실례 #63684·#63707·#63747·#63820(v461 완성) · master#16 작성 지시 #63807 · 우선 낮음)
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(대상 2파일은 PR #944 1140076188 로 main 이 앞선다 · ops/main-base 사본은 옛 바이트라 기준으로 쓰지 않는다)
@@ -47,4 +47,4 @@
 - 정본 영향 없음: 하네스 카드 이동 도구의 쪽지 조건과 시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 18:29 — 대기→진행 · 좌석 byz-harness-nano-r41-index-move-canon-notice-noise#0
 세트: 66e26a1edda0e89be171ab291559e78e075185e7 · 시험: bash tests/harness/test_index_move_canon_landed.sh rc=0 · 이슈: 0
-- 2026-10-08 18:41 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§72
+- 2026-10-08 18:41 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§72

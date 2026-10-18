@@ -1,5 +1,5 @@
 # FACTS — 풀스택 다이어그램 사실 (ft-harness-nano#1 · 2026-10-05 · 읽기 전용 · 시크릿 0)
-> 상위 ORDER: design/harness/diagrams/ORDER-fullstack-diagram-20261005.md 할 일 1 · 골 축 = 표 A·표 C·원문 5
+> 상위 ORDER: design/teams/harness/diagrams/ORDER-fullstack-diagram-20261005.md 할 일 1 · 골 축 = 표 A·표 C·원문 5
 > 수집 시각(UTC) 2026-10-05 13:37 UTC · 머신 hostname `MacBook-Pro` · HEAD sha `5e53d60f63`
 > [사실] 44줄 · [추측] 6줄 · 환경변수는 **이름만**(값 0) · 서버 기동·press·커밋 0
 
@@ -57,7 +57,7 @@
 | LM Studio | **1234** | 로컬 LLM | [사실] lsof |
 | ssh | **10254/10255/3100/5432/54321/38391** | 터널 | [사실] lsof |
 | **GPU VM `A1P:ccu-stress-stt-tts` · `A1P:ccu-stress-vllm`** | — | 미해소 breach 26h | [사실] `state/gce-op-model/BREACH.md` |
-| **jarvis**(다른 머신) | — | 미반영(RELEASE 0.1) | [사실] `design/harness/RELEASE-0.1.md` |
+| **jarvis**(다른 머신) | — | 미반영(RELEASE 0.1) | [사실] `design/teams/harness/RELEASE-0.1.md` |
 
 **[추측]** `Python :8000` 은 GPU vLLM 로컬 프록시, `:38311`/`:8100` 은 각각 stt/embed IAP 터널(로그 파일명 근거).
 **[추측]** 포트 대역 `383xx` 는 워크트리 격리용(`38301` gateway·`38303` FE 예 — `docs/work/loom-domain-ops/BRIEF-T0-orgs-list.md:460`).
@@ -82,7 +82,7 @@ ft-*.sh 역할 1단어: `ft-checkpoint`(체크포인트) · `ft-context-monitor`
 
 **[사실] 리포 루트 `BYZ-Agents/`**: `gateway/`·`worker/`·`shared/`·`clients/`·`tests/`·`scripts/`(실행) · `design/`(설계·판정) · `docs/`(규칙) · `supabase/` · `docker/` · `infrastructure/` · `secrets/` · `state/` · `proto/` · `.claude/`(스킬·훅) · `.fable-team/`(하네스 상태) · `.worktrees/`(워크트리) · `.baton/`·`.omc/`(세션 배턴).
 - `.claude/` = `agents/`·`hooks/`(15개: orchestration-gate·context-distill-gate·serena-activate·track-lifecycle-gate 등)·`rules/`(byz-ops-usage·git-worktree-pitfalls·orchestration·troubleshoot)·`skills/`(17개: bts·byz-cycle·byz-e2e·byz-health·byz-loom·byz-ops·byz-zion 등)·`commands/`·`archives/`·`fable-team/`.
-- `design/harness/issue-improvement/` = **P1~P9 사실·SPEC·DA**(오늘 트랙). `design/v65/{날짜}/`·`design/cfo/`·`design/ccu/`(워크트리)·`design/kk/`.
+- `design/teams/harness/issue-improvement/` = **P1~P9 사실·SPEC·DA**(오늘 트랙). `design/v65/{날짜}/`·`design/cfo/`·`design/ccu/`(워크트리)·`design/kk/`.
 - `.worktrees/` = **137 워크트리**(v65-·kk-·ops-·cfo-·ccu-stress·c-level-planning 등).
 - `.fable-team/` = `seats*.json`(6)·`comm/`(mbox)·`bin-*/`(팀 키트)·`state/`(원장·락)·`secrets/`·`checkpoint/`.
 

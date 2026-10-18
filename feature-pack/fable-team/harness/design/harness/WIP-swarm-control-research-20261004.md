@@ -9,9 +9,9 @@
 > 상태: **정지 레디(오빠 지시 · mbox #56912)**. 산출물 2·4·5·설계 1장은 미착수. nano 사실표 미수신. DA 발주 0.
 
 ## 1. 읽은 정본 (구조 분석 입력)
-- `design/harness/HANDOFF-slack-holes-20261004.md` — S1~S11 · H1~H19 · 3층 구조(pane 동기 / Slack 비동기 폴링 10초 / 좌석=mbox).
-- `design/harness/DESIGN-slack-inbound-820.md` — 역방향 원장·열린 질문 보드·자유문 규칙·exactly-once 계약(중복 최악 1회).
-- `design/harness/DESIGN-slack-mirror.md` — D1 consume-on-read 문제 → 사본 로그 B 채택.
+- `design/teams/harness/HANDOFF-slack-holes-20261004.md` — S1~S11 · H1~H19 · 3층 구조(pane 동기 / Slack 비동기 폴링 10초 / 좌석=mbox).
+- `design/teams/harness/DESIGN-slack-inbound-820.md` — 역방향 원장·열린 질문 보드·자유문 규칙·exactly-once 계약(중복 최악 1회).
+- `design/teams/harness/DESIGN-slack-mirror.md` — D1 consume-on-read 문제 → 사본 로그 B 채택.
 - `design/planner/PROPOSAL-slack-driven-ops.md` — 3층 유지(슬랙=사람 창구 · planner=원장 · tmux=실행) · jarvis/hermes C안 · Issue 1=행 1 · 프로파일 레지스트리.
 - `tmm --help` — `tmm h`(HUMAN/BLOCK/STUCK 만) · `tmm s`(도달확인 송신) · `tmm ss` 전 좌석 스캔 · `tmm dead/restore-all` · fork. ★오빠 「이미 잘 되고 있는 것」의 실체 = 이 TUI(SSH 터미널 필요).
 

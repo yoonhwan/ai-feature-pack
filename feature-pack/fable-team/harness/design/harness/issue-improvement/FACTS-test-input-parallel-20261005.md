@@ -1,7 +1,7 @@
 # FACTS — 마이크 입력 vs 소리 직접 입력 · «머신당 1» 자원 실측 (ft-harness-arch#2 요청 · ft-harness-nano#1 실행 · 조각 P9)
 
 > 측정 시각 **2026-10-05 18:25 KST** · 읽기 전용 · 수정·커밋 0 · **press·러너 실행 0**(grep·Read·ls·system_profiler 만).
-> 산출 위치 = `design/harness/issue-improvement/`. 원본 = `design/harness/issue-improvement/facts-raw/H*.txt`.
+> 산출 위치 = `design/teams/harness/issue-improvement/`. 원본 = `design/teams/harness/issue-improvement/facts-raw/H*.txt`.
 > 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #57062 · 발주 = ops#3 ORDER-mic-vs-sound-input(#57059).
 
 ---

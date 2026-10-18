@@ -1,5 +1,5 @@
 # 인덱스: 아침 매거진 미발행 — mbox 사본 회전본 이어 읽기 + install-magazine 설치 목록 누락 (판정 601 · master#21 쪽지 #67164 · 급함)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 601(오늘 호 미발행 · 우선 최상)
 - 상태: 대기
 - 선행: 없음

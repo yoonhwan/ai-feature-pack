@@ -16,7 +16,7 @@
 |---|---|---|
 | ①`~/.claude/skills/fable-team/references/main-team-governance.md` **§6** (새 절) | 아래 B 본문 | 팀 운영 정본은 이 파일이 이긴다(머리말). §5 는 인계문 열린 일 3번(gh 쓰기 래퍼)이 이미 예약 |
 | ②`templates/session-prompts/architect.md` 머리에 3줄 + 스킬 키트 사본(`scripts/harness-install/fable-team/templates/session-prompts/architect.md`) 동일 반영 | 「메인 팀 상시 arch 이면 governance §6 을 먼저 Read」 | 부팅 때 읽히는 곳에 걸어야 읽힌다(하드 룰 7) |
-| ③`design/harness/GUIDE-harness-master.md`(없으면 HANDOFF 템플릿) 1줄 | 「검토 대상이면 arch 안 없이 집행 0」 | master 쪽 강제점 |
+| ③`design/teams/harness/GUIDE-harness-master.md`(없으면 HANDOFF 템플릿) 1줄 | 「검토 대상이면 arch 안 없이 집행 0」 | master 쪽 강제점 |
 | ✗ 전역 `~/.claude/CLAUDE.md` | 넣지 않는다 | 전 세션 상시 비용 · harness 팀에만 해당 · 정본 2곳이면 어긋난다 |
 
 ## B. governance §6 본문 안
@@ -28,7 +28,7 @@
 - arch 검토 대상(안 없이 집행 0): ①설계·새 스크립트/훅 기능 ②가드·차단 훅(설치·등록 포함) ③설치·배포(홈 디렉터리·settings.json·~/.tmm·원격 머신) ④정본 변경(governance·COMM-GUIDE·BOOT·스킬 SKILL.md·전역/프로젝트 CLAUDE.md) ⑤좌석·모델·이름 규칙 변경 ⑥PR 랜딩 순서·되돌림.
 - master 직접(검토 불요): 조회(seats·map·gh view) · 문서 오타 · 원장 행 추가(결정 내용 없는 기록) · 이미 arch 안이 승인한 범위 안의 집행 · 나노 생존 확인.
 - ★집행 = 랜딩·커밋·push·검증된 파일의 설치 복사(cp+cmp)·.bak 복원·머지 충돌의 문서 줄 정리·좌석·명부 — 파일 «내용을 쓰는 것»은 집행이 아니다★. 코드는 나노, 설계·시안(HTML 포함)은 arch, 나노 증거 줄 REJECT 는 그 나노에 반송(닫혔으면 재spawn). arch 안이 있어도 master 가 손으로 쓰면 위반이다(오빠 10-07 「코드를 왜 너가 작업해?」 · 「독단으로 하지 말고」). 게이트가 안 막아도 같다.
-- 흐름: master 발주(mbox · 골 원문 3줄 + 골 축 1줄) → arch 안(결론 1줄 · 판정 승인/수정/반려 · 이유 3줄 · 근거 경로 · 긴 것은 design/harness/ 초안 파일) → master 집행 → master 가 결과(sha·설치 위치·되돌림 명령)를 arch 에 통지 → arch 가 닫힘 확인 1줄.
+- 흐름: master 발주(mbox · 골 원문 3줄 + 골 축 1줄) → arch 안(결론 1줄 · 판정 승인/수정/반려 · 이유 3줄 · 근거 경로 · 긴 것은 design/teams/harness/ 초안 파일) → master 집행 → master 가 결과(sha·설치 위치·되돌림 명령)를 arch 에 통지 → arch 가 닫힘 확인 1줄.
 - 사후 검토: 긴급(라이브 장애·권한 사고)으로 master 가 먼저 집행했으면 같은 턴에 arch 에 사후 검토 발주 + 되돌림 명령을 함께 적는다.
 - 사람 판정: arch·master 모두 하위 좌석 — AskUserQuestion 금지. 오빠 값이 필요하면 [HIL] 로 현역 planner 에 올린다. 단 «하네스 내부 작업»(래퍼·가드 훅·설치)은 오빠 지시(10-07)로 인터뷰에 올리지 않는다 — arch 안 + master 집행으로 닫는다.
 - 이름: §1 규칙 · 승계 때 번호 이어받음 · 발신 전 ft-harness-info.sh seats 로 현역 이름 확인.

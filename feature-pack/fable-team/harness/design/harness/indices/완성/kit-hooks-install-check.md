@@ -1,5 +1,5 @@
 # 인덱스: 키트에 홈 훅 2개 추가 + install 출력에 «훅 등록 확인 줄» (반영 행의 근거)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -21,7 +21,7 @@
 
 ## 완료 조건 (닫힘 판정 기준 — ops 수락 판정문)
 - `bash tests/harness/test_install_hook_check.sh` rc=0 · 기존 `tests/harness/test_*.sh` 전부 rc=0 · install.sh `bash -n` OK.
-- 이 Mac 실제 홈 대상 dry-run 출력의 hook 줄 전부를 RESULT `design/harness/RESULT-kit-hooks-install-check-20261007.md` 에 붙인다(현재 반영 상태 실측 = RELEASE 0.4 머신 표의 근거).
+- 이 Mac 실제 홈 대상 dry-run 출력의 hook 줄 전부를 RESULT `design/teams/harness/RESULT-kit-hooks-install-check-20261007.md` 에 붙인다(현재 반영 상태 실측 = RELEASE 0.4 머신 표의 근거).
 - 변경 파일 = 위 3개 + RESULT 뿐.
 - 진행→완성 이동은 `ft-index-move.sh <파일> 완성 --da <판정문#§N>`.
 
@@ -31,5 +31,5 @@
 - 2026-10-07 — 대기/ 생성 (byz-harness-arch-claude#5 · master 발주 58634). 옆 카드 kit-bin-adopt 와 파일 겹침 0 → 동시 진행 가능.
 - 정본 영향 없음: 하네스 설치 키트·시험만 — docs/architect 제품 정본 변경 없음
 - 2026-10-07 12:53 — 대기→진행 · 좌석 byz-harness-nano-kit-hooks-install-check#0
-- 2026-10-07 13:33 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§24
+- 2026-10-07 13:33 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§24
 - 세트: 7ed51c846ef3fa2bbb6a7f5359922e8ac3017843 · 시험: bash tests/harness/test_install_hook_check.sh rc=0 · 이슈: 0

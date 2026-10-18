@@ -1,5 +1,5 @@
 # 인덱스: block-destructive 훅 — 원격 브랜치를 덮거나 지우는 push 꼴(`+<ref>` 강제 · `:<ref>` 삭제 · `--delete`/`-d` · `--mirror`)도 강제 push 와 같이 차단 (R44)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R44(byz-harness-arch-claude#16 v466 독립 재현 반례 · master#17 #63966 접수 지시 · 우선순위 planner)
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(판정 466 PR #962 병합본 위 · 홈 훅 = origin/main 키트 사본 cmp 같음 · arch#16 확인)
@@ -25,7 +25,7 @@
 ## 조사 근거
 - `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh:18` `PATTERN`(origin/main · v466 병합본) — push 항목 `git +push[^&|;]*(--force|-f\b)`.
 - origin/main 시험 `test_block_destructive.sh`(ops/main-base 에 없음 · 같은 바이트 = `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-main/tests/harness/test_block_destructive.sh:38`) ~`:39` push 차단 2행(`--force` · `-f`) · `:101` 커밋 메시지 안 `--force` 글자 통과.
-- 판정서 §73 ⑤(design/harness/OPS-VERDICTS-20261006.md) — `git push origin +main` 옛·새 훅 둘 다 exit 0.
+- 판정서 §73 ⑤(design/teams/harness/OPS-VERDICTS-20261006.md) — `git push origin +main` 옛·새 훅 둘 다 exit 0.
 
 ## 구현 범위 (닫힌 목록 — 키트 사본만 고치고 홈 설치는 master)
 1. `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh` `PATTERN` 의 push 항목을 `git +push[^&|;]*(--force|-f\b|--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+[^[:space:]]|[[:space:]]:[^[:space:]])` 로 바꾼다(다른 항목·판정 로직·메시지 무변경 · 주석 1줄: R44).
@@ -49,4 +49,4 @@
 - 정본 영향 없음: 전역 안전 훅의 push 차단 항목과 시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 20:16 — 대기→진행 · 좌석 byz-harness-nano-r44-block-destructive-push-refspec#0
 세트: f2c63e4bb6e5eaf58f64b3a471703ead84fd96a9 · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0
-- 2026-10-08 20:31 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§75
+- 2026-10-08 20:31 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§75

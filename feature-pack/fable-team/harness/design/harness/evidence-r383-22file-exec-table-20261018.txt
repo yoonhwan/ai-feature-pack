@@ -7,7 +7,7 @@
 표: [A] ft-nano-close old=0 new=0 path=old:design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md | new:design/teams/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md fail-closed=rc=1 «팀 명단 없음»
 표: [B] ft-index-gate old=1 new=1 path=old:design/v65/indices/진행/gx.md | new:design/teams/v65/indices/진행/gx.md fail-closed=rc=0 «후보를 못 풀었다» · rc0 허용 사유 = close 는 카드 탐색을 건너뛰고(ft-index-gate.sh :135 ERROR 뒤 계속) 상태 기록만 닫는다 · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
 표: [A] ft-index-move old=0 new=0 path=old:design/v65/indices/완성/dn.md | new:design/teams/v65/indices/완성/dn.md fail-closed=rc=1 «팀 명단 없음»
-표: [A] ft-index-move-install old=1 new=1 path=old:design/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
+표: [A] ft-index-move-install old=1 new=1 path=old:design/teams/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
 표: [B] ft-orphan-cards old=0 new=0 path=old:design/cfo/indices/진행/orphan-cfo.md | new:design/teams/cfo/indices/진행/orphan-cfo.md fail-closed=rc=0 «팀 명단 없음» · rc0 허용 사유 = 모니터 — cfo 폴더를 못 풀면 ERROR 를 찍고 그 팀만 빼고 스캔을 계속한다(ft-orphan-cards.sh :13 설계) · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
 표: [B] ft-live-bin-drift-check old=1 new=1 path=old:글자 경로 없음 | new:글자 경로 없음 fail-closed=rc=1 «DRIFT» · 해당 없음 — 경로 미해석(grep 0) · 명단 무관 사유=B: · grep -c 'ft_team\|design/' ft-live-bin-drift-check.sh = 0 · 해당 없음 — 경로 미해석(grep 0) · rc0 허용
 표: [B] ft-issue-reopen old=0 new=0 path=old:글자 경로 없음 | new:글자 경로 없음 fail-closed=rc=0 «DRY-RUN» · rc0 허용 사유 = 해당 없음 — 경로 미해석(grep 0) · 명단 무관 사유=B: · grep -c 'ft_team\|design/' ft-issue-reopen.sh = 0 · 해당 없음 — 경로 미해석(grep 0) · rc0 허용
@@ -18,7 +18,7 @@
 표: [A] ft_news_io old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «팀 명단 없음»
 표: [A] ft_news_ledger old=0 new=0 path=old:design/planner/PLAN-oppa-ledger.md | new:design/teams/planner/PLAN-oppa-ledger.md fail-closed=rc=1 «팀 명단 없음»
 표: [A] ft_news_ledger_notify old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «팀 명단 없음»
-표: [A] ft-index-lint-install old=0 new=0 path=old:design/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
+표: [A] ft-index-lint-install old=0 new=0 path=old:design/teams/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
 표: [A] ft-index-lint old=0 new=0 path=old:design/v65/GOAL-LEDGER-v65.md | new:design/teams/v65/GOAL-LEDGER-v65.md fail-closed=rc=1 «팀 명단 없음»
 표: [C] ft-pm-tick old=0 new=0 path=old:design/v65/20260826/RULES-ammo-and-distill-20260826.md | new:design/teams/v65/20260826/RULES-ammo-and-distill-20260826.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(RULES_FILE = 그 꼴 v65 · xtrace) · 사유 = 라이브 tmux·슬랙 의존(틱 루프는 target session gone 으로 종료)
 표: [C] ft-wall-check old=0 new=0 path=old:design/v65/DIRECTIVE-v65-wall.md | new:design/teams/v65/DIRECTIVE-v65-wall.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(벽 = 그 꼴 v65) · 사유 = 라이브 tmux·슬랙 의존

@@ -1,5 +1,5 @@
 # 인덱스: ft-nano-spawn — 슬랙 착수 답글 REJECT 때 세션·명부 롤백 + 장부 복구 경로 + 이미 생긴 고아 정리 (R81)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R81(v65 master#160 쪽지 #71794 · master#25 이관 #71795 · master#26 발주 #71809)
 - 상태: 대기
 - 선행: 없음(판정 845 롤백 kill 표준승인 · 846 · 847 ③④ 실패만 kill) · R80 랜딩은 선행 아님(장부 복구 ⓐ 만 R80 뒤)

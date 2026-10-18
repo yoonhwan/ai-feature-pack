@@ -1,5 +1,5 @@
 # 인덱스: ft-index-move --da 절-카드 대조 — §N 정확 일치 + 그 절에 카드 이름 실재 (R37 · master 실례 #63005)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R37(master#15 #63005 고백 · arch 제안 #63013 · master 접수 #63022 · 우선 낮음)
 - 상태: 대기
 - 선행: 카드 2(result-reply-close-gate) 의 ft-index-move 슬랙 단계 랜딩(같은 파일 · 그 뒤 HEAD 에서 브랜치)
@@ -46,5 +46,5 @@ ft-index-move.sh 의 진행→완성 문은 `--da <판정문>#§N` 을 받아 �
 ## 상태
 - 2026-10-08 — 대기/ 생성 (byz-harness-arch-claude#14 · R37 · master #63022 · 우선 낮음).
 - 정본 영향 없음: 하네스 카드 이동 도구·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-08 — ★합침★ → `design/harness/indices/대기/v444-index-move-canon-landed.md`(같은 파일 · 판정 444 · byz-harness-arch-claude#15) — 이 카드는 spawn 하지 않는다.
-- 2026-10-08 18:13 — 대기→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§64
+- 2026-10-08 — ★합침★ → `design/teams/harness/indices/대기/v444-index-move-canon-landed.md`(같은 파일 · 판정 444 · byz-harness-arch-claude#15) — 이 카드는 spawn 하지 않는다.
+- 2026-10-08 18:13 — 대기→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§64

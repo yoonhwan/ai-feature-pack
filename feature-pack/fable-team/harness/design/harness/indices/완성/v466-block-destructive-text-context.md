@@ -1,5 +1,5 @@
 # 인덱스: block-destructive 훅 — «글자로만 들어 있는» 파괴 명령(쪽지 본문·echo·파일로 쓰는 heredoc·grep 패턴·변수 대입 — 같은 호출에 실행 소비자가 없을 때만)은 통과, «실행되는» 파괴 명령은 지금처럼 차단 (판정 466 · R28·R38·R39·R40 통합)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 466(master#17 발주 #63850 · R28·R38·R39·R40 누적 오탐 통합)
 - 상태: 대기
 - 선행: 사전 DA 1회(아래 「사전검증」) — APPROVE 전 착수 0 · origin/main 최신에서 브랜치
@@ -21,11 +21,11 @@
 ## 사전검증
 - 소환: 예
 - 사유: 전 세션 공통 안전 훅의 차단 범위를 줄이는 변경(되돌리기 쉬우나 놓친 우회 1개 = 실제 파괴 1건)이라 사전 DA 1회(판정 466 조건).
-- DA: design/harness/DA-block-destructive-466-20261008.md (byz-harness-da-codex#0 r1) — r1 HOLD(#63880) → r2 HOLD(#63894 · bounded 종료) → 판정 468(master#17 #63902 · 스팟 1회 예외) → r3 APPROVE(#63907 · 설계 승인만 — 구현 시험·홈 설치는 닫힘 판정에서).
+- DA: design/teams/harness/DA-block-destructive-466-20261008.md (byz-harness-da-codex#0 r1) — r1 HOLD(#63880) → r2 HOLD(#63894 · bounded 종료) → 판정 468(master#17 #63902 · 스팟 1회 예외) → r3 APPROVE(#63907 · 설계 승인만 — 구현 시험·홈 설치는 닫힘 판정에서).
 
 ## 조사 근거
 - 키트 `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh:20` `PATTERN` · `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh:22` 차단 블록(~27행) · 29~51행 `git add` 전체 스테이징 차단(`STAGE_PATTERN` — 이 카드 무변경) · `scripts/harness-install/fable-team/templates/hooks/block-destructive.sh:36` «정교하게 파싱하지 않는 이유»(판정기가 촘촘할수록 예외 목록이 자란다) — ★이 카드는 «예외 목록»이 아니라 «글 싱크 닫힌 목록 + 나머지 전부 지금 규칙»이고, 싱크 목록을 늘리는 것도 판정 사항으로 둔다(아래 금지).
-- 오탐 기록: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/hil-falsepos.log`(10-08 행 7개) · `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/block-false-positives.log`(10-08 planner#10) · `design/harness/REQUEST-LEDGER.md` R28·R38·R39·R40 행 · mbox #63116(loom#1 2건) · #63636(loom R9 나노).
+- 오탐 기록: `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/hil-falsepos.log`(10-08 행 7개) · `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/block-false-positives.log`(10-08 planner#10) · `design/teams/harness/REQUEST-LEDGER.md` R28·R38·R39·R40 행 · mbox #63116(loom#1 2건) · #63636(loom R9 나노).
 - 이 카드가 «풀지 않는» 차단(실제 실행 — 지금처럼 HIL 또는 Write 도구 경로): R38 임시 PG 에 DROP 실제 실행 · R39 `docker build` heredoc 의 컨테이너 안 정리 줄(heredoc 이 cat/tee 가 아닌 명령에 들어감) · R40① 스크래치 폴더 재귀 삭제(실경로 재귀 삭제 — 판정 466 유지 목록) · loom 임시 detached 워크트리 제거. 텍스트로는 «임시 대상»을 증명할 수 없다.
 
 ## 구현 범위 (닫힌 목록 — 키트 사본만 고치고 홈 설치는 master)
@@ -60,4 +60,4 @@
 - 정본 영향 없음: 전역 안전 훅의 판정 단위와 시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 18:55 — 대기→진행 · 좌석 byz-harness-nano-v466-block-destructive-text-context#0
 세트: 6cd5541f9d6a0e85913a2c65253cfdf54b91e7a8 · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0
-- 2026-10-08 19:24 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§73
+- 2026-10-08 19:24 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§73

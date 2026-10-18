@@ -6,7 +6,7 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 ## 고정 대상
-- 설계 카드 `design/harness/indices/대기/slack623-team-roots.md`(설계 1~8 · 시험 T1~T8) · 기준 코드 origin/main `scripts/harness-install/slack-mirror/` (`mirror_deliver.py` `Deliverer.thread_ts`·`send` · `mirror_lib.py` `thread_key`·`root_text` · `byz_github_slack_mirror.py` `_item` · `byz_mbox_slack_mirror.py` · `mirror_questions.py` · `byz_slack_mbox_inbound.py`).
+- 설계 카드 `design/teams/harness/indices/대기/slack623-team-roots.md`(설계 1~8 · 시험 T1~T8) · 기준 코드 origin/main `scripts/harness-install/slack-mirror/` (`mirror_deliver.py` `Deliverer.thread_ts`·`send` · `mirror_lib.py` `thread_key`·`root_text` · `byz_github_slack_mirror.py` `_item` · `byz_mbox_slack_mirror.py` · `mirror_questions.py` · `byz_slack_mbox_inbound.py`).
 - 오빠 원문: 「메인팀별 하는일을 하나 공유 … 세부 작업과 상태 메세지를 팀별 이슈 … 하위 스레드로 … 팀별 이슈인덱스 시작과 끝을 알수있게」.
 - 실측: 채널 24시간 뿌리 글 207 중 이슈 하나당 뿌리 글 196(키 `#N` 마다 `root_text`).
 
@@ -17,7 +17,7 @@
 - 범위 밖: 매거진·보드·제안서·카드 단위 스레드 · 이슈 생성 경로.
 
 ## 판정문
-`design/harness/DA-slack623-team-roots-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD(HOLD 면 «설계 몇 번을 어떻게» 1줄) · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-slack623-team-roots-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD(HOLD 면 «설계 몇 번을 어떻게» 1줄) · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 (설계 DA r1 HOLD Q2·Q3 → arch 정정 · 카드 «설계 r2» 절)
 - r2-A Q2: `key`(질문·close 계약) 와 `post_key`(게시 스레드) 분리 · HIL 은 post_key=원래 key(등록·게시 thread_ts 동일) · 팀 스레드 오빠 답글 = planner 만(좌석 추정 0) · 시험 T5a~c.

@@ -1,4 +1,4 @@
-# PIECES (폴더 = design/harness/issue-improvement/ · 이슈 개선 분류) — 조각 기획 → 합치기 (오빠 지시 2026-10-05 · 정본 1장)
+# PIECES (폴더 = design/teams/harness/issue-improvement/ · 이슈 개선 분류) — 조각 기획 → 합치기 (오빠 지시 2026-10-05 · 정본 1장)
 
 > 오빠 원문: 「내 요청에 조각맞추듯 하나씩 arch da 기획해두고 합치기 전략하자」
 > 골 원문·축: `GOAL-harness.md` 3줄 그대로 · 조각마다 「골의 어느 줄·표 A/B/C 어느 닫는 증거」 한 줄 필수.

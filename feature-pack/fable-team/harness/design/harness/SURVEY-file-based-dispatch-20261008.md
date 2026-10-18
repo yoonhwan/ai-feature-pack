@@ -25,8 +25,8 @@
 | 판정 358 7세트 | `/tmp/mbox/20261008T093442-…-planner-cfo-sets.md`(2625B) + mbox seq 61214·61229·61236 | 세트 7 | planner → cfo master → cfo arch | ★아니오(휘발 /tmp · 쪽지)★ | 아니오 | 본문 안 번호 | ★공백 그 자체★ |
 | 오빠 지시 원장 v65 | `design/v65/USER-ORDERS-REGISTER.md`(OPEN·DOING·DONE·BLOCKED) | 오빠 지시 1건 | v65 master | 예 | 상태 칸 | 일부 | 지시 단위 — 세트 아님 · 팀마다 모양 다름 |
 | 오빠 지시 원장 CCU | `design/ccu/ORDERS-oppa-ccu.md`(골 원문 + 지시 표 · 창 열) | 오빠 지시 1건 | CCU master | 예 | 상태 칸 | 일부 | 위와 같은 역할 · 다른 이름 |
-| 하네스 요청 원장 | `design/harness/REQUEST-LEDGER.md`(R1~R25) | 개선요청 1건 | 하네스 master | 예 | 「오빠 값」 칸 | Issue 열 | 6-b 접수 원장 — 세트 아님 |
-| 판정서 | `design/harness/OPS-VERDICTS-20261006.md`(§1~§47) | 닫힌 단위 1개 | arch 초안 · master append | 예 | 닫힘만 | 본문 | 사후 기록 — 발주 아님 |
+| 하네스 요청 원장 | `design/teams/harness/REQUEST-LEDGER.md`(R1~R25) | 개선요청 1건 | 하네스 master | 예 | 「오빠 값」 칸 | Issue 열 | 6-b 접수 원장 — 세트 아님 |
+| 판정서 | `design/teams/harness/OPS-VERDICTS-20261006.md`(§1~§47) | 닫힌 단위 1개 | arch 초안 · master append | 예 | 닫힘만 | 본문 | 사후 기록 — 발주 아님 |
 | 승계 스냅샷 | `design/<팀>/HANDOFF-*.md`(매번 손으로) · 정본 절차 `~/.claude/skills/fable-team/references/context-management.md:108` 승계 6단계 | 좌석 1개 | 떠나는 좌석 | 손으로 적은 만큼만 | — | — | ★«열린 세트 파일 경로» 고정 칸 없음★ |
 | 마감 정본 | `design/<팀>/CLOSEOUT-*.md` · `~/.claude/rules/closeout-policy.md` | 단위·트랙 1개(끝날 때) | master | 예 | 닫힘만 | 증거 sha | 끝난 뒤 기록 — 진행 중 상태 없음 |
 | 하네스 지도 | `ft-harness-info.sh map`(`references/harness-map.md`) | 정본 목차 | 하네스 | — | — | — | 「발주·세트 원장」 행 없음 |
@@ -50,7 +50,7 @@
 ## §4 설계 r1 으로 넘길 쟁점 (조사에서 나온 것만)
 1. **세트 파일 위치**: issues master 의견은 `design/issues/SETS.md` 한 장(전 팀). 대안 = 팀별 `design/<팀>/SETS-<팀>.md`. 판정 359 요구 1 은 «팀별 tracked 경로» 예시 — 한 장이면 issues master 가 쓰기 주체, 팀별이면 팀 master 가 주체. 승계(요구 2)는 팀별이 더 단순(자기 팀 파일 1개만 읽음).
 2. **Tank edit 의존**: Issue 본문 「세트:」 줄은 Tank 래퍼 edit(원장 R10 · 미구현)이 선행. 없으면 라벨 `set:<이름>` 만 먼저(래퍼 label 은 있음).
-3. **CFO 7세트 원문 회수**: 첫 적용 재료는 `/tmp/mbox/20261008T093442-…planner-cfo-sets.md`(휘발) — 지워지기 전에 tracked 로 옮겼다 → `design/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md`(cmp 일치 · 미커밋).
+3. **CFO 7세트 원문 회수**: 첫 적용 재료는 `/tmp/mbox/20261008T093442-…planner-cfo-sets.md`(휘발) — 지워지기 전에 tracked 로 옮겼다 → `design/teams/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md`(cmp 일치 · 미커밋).
 4. **planner 발주문 골 줄 오기**: 이 단위 발주 머리 3줄이 v65 골 — planner 에 정정 1줄(하드 룰 7).
 
 근거: 실측 명령 = `git ls-tree origin/main design` · `git show origin/main:design/planner/BOARD.md` · `grep 판정 358 .fable-team/comm/mailbox.log.jsonl`(seq 61214·61229·61236) · `ft-harness-info.sh map`.

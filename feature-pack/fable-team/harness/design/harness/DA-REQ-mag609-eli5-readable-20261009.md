@@ -6,7 +6,7 @@
 메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용하는것.
 
 ## 고정 대상
-- 설계 카드 `design/harness/indices/대기/mag609-eli5-readable-decisions.md`(설계 1~6 · 구현 범위 · 원인 확인 기록) · 기준 코드 origin/main `c3219b677f` 의 `scripts/harness-install/slack-mirror/` (`magazine_eli5.py`·`magazine_eli5_template.html`·`magazine_attach.py`·`magazine_publish.py`·`byz_morning_magazine.py`·`magazine_slack.py`).
+- 설계 카드 `design/teams/harness/indices/대기/mag609-eli5-readable-decisions.md`(설계 1~6 · 구현 범위 · 원인 확인 기록) · 기준 코드 origin/main `c3219b677f` 의 `scripts/harness-install/slack-mirror/` (`magazine_eli5.py`·`magazine_eli5_template.html`·`magazine_attach.py`·`magazine_publish.py`·`byz_morning_magazine.py`·`magazine_slack.py`).
 - 오빠 원문: 「매거진이 전혀 eli5 적용 안된 그냥 텍스트 문서 … 핵심과 읽기좋은 내용과 인덱스리스한 문서 작성 결정사항 확실히 노출하도록 개선」 · 요구 4(첫 화면 핵심 3~5줄 · eli5 · 인덱스리스 · 결정 두 박스 최상단).
 
 ## arch 원인 확인 (실측)
@@ -21,7 +21,7 @@
 - 범위 밖: 풀 디테일 PDF 렌더 · 기존 13 실패 · 발행 집행(master).
 
 ## 판정문
-`design/harness/DA-mag609-eli5-readable-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD(HOLD 면 «설계 몇 번 항목을 어떻게» 1줄) · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-mag609-eli5-readable-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD(HOLD 면 «설계 몇 번 항목을 어떻게» 1줄) · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 (설계 DA r1 HOLD Q1·Q2·Q3 → arch 정정 · 같은 카드 «설계 r2» 절)
 - r2-1 Q1: 표식 채택 = 옛 제목 또는 새 제목 · 정책 ⓐ done skip ⓑ옛 HTML 이미 붙음 → 채택 ⓒ`--force` 새 형식 ⓓ`--reattach` 새 형식 새 rev · 시험 A1~A4.

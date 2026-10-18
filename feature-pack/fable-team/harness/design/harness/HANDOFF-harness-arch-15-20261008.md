@@ -35,8 +35,8 @@ arch = 설계·카드(대기/ · lint 통과 · 미커밋)·DA 소환 판단·�
 | 판정 438 6분 목표 | 오빠 판정 460: 목표 7분 반 · 7m15s 로 닫힘 · 추가 단축 0 |
 
 ## 열린 일 (순서대로)
-1. **v461 인박스 큐 행 via 필드** — 카드 `design/harness/indices/진행/v461-inbox-row-via.md`(진행 · 나노 좌석 spawn 됨/될 것) → 결과 오면 `tests/harness/test_inbox.sh` arch 재현 + 증거 줄 확인 + §70 초안.
-2. **R42 sha base 나노 닫기** — 카드 `design/harness/indices/진행/r42-nano-close-sha-base.md`(진행) · arch 판정 = 게이트 sha 수용 기각 · close 가 랜딩 브랜치로 환원(조상 아니면 REJECT) + spawn 이 base=브랜치·base_sha=sha → 결과 오면 `tests/harness/test_nano_close_sha_base.sh` 재현 + 초안.
+1. **v461 인박스 큐 행 via 필드** — 카드 `design/teams/harness/indices/진행/v461-inbox-row-via.md`(진행 · 나노 좌석 spawn 됨/될 것) → 결과 오면 `tests/harness/test_inbox.sh` arch 재현 + 증거 줄 확인 + §70 초안.
+2. **R42 sha base 나노 닫기** — 카드 `design/teams/harness/indices/진행/r42-nano-close-sha-base.md`(진행) · arch 판정 = 게이트 sha 수용 기각 · close 가 랜딩 브랜치로 환원(조상 아니면 REJECT) + spawn 이 base=브랜치·base_sha=sha → 결과 오면 `tests/harness/test_nano_close_sha_base.sh` 재현 + 초안.
 3. **R41 소음 카드**(지시 오면 작성): ft-index-move 가 «정본 영향 없음» 카드 완성에도 [정본 갱신 요청] 쪽지 → 「정본 갱신:」 줄 카드만 쪽지(master 에 개선요청 #63686 · 실례 #63684·#63707·#63747).
 4. **harness-env FT_NANO_FEAT=ops/main-base stale 여부** — master 에 판단 요청(#63795) · 회신 확인.
 5. 대기(planner 우선순위): 훅 오탐 통합 · R35 · mbox-sh-split · r23 · v421/v423 · gate-hook-kit-equals-home.

@@ -102,7 +102,7 @@ HOLD
 
 model: claude-opus-5-5[1m] · provider: Anthropic (좌석 byz-harness-da-claude#0)
 
-발주 = arch#24 #67723. 범위 = r3 1차 HOLD 교정 3점과 권고 2건의 반영 여부(`git diff 055b59f7ef a98878a20c -- design/harness/PROPOSAL-team-graphics-20261009.md`)만 봤다.
+발주 = arch#24 #67723. 범위 = r3 1차 HOLD 교정 3점과 권고 2건의 반영 여부(`git diff 055b59f7ef a98878a20c -- design/teams/harness/PROPOSAL-team-graphics-20261009.md`)만 봤다.
 
 - **Q1 — APPROVE**: §1 골 파일 = 「오빠 원문 ★전체(판정 636 · 4줄)★ 복붙(불변)」이다. 넷째 줄을 남기는 이유(첫 사례 = 팀을 연 이유)도 칸에 적혀 있다.
 - **Q2 — APPROVE**: §3.6 은 반송 → 수정 세트 graphics DA 재검토(같은 bounded)를 요구한다. 「인계 세트 sha = 그 sha 를 명시한 DA 판정문의 sha · DA 가 안 본 sha 는 인계 0」도 들어갔다. rebase·충돌 해소 줄은 요청 팀 master 의 로컬 검증 책임이다. DA 가 본 sha 와 인계 sha 가 갈라지는 지점이 닫혔다.

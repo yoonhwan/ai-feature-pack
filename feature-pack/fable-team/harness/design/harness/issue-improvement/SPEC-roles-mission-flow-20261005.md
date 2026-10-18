@@ -94,7 +94,7 @@
 | v65 | `design/v65/indices/{inbox,대기,진행,완성}` | 29 (+inbox 4) | 28 | 32 | 카드 완성/ 이동 + CLOSEOUT(`CLOSEOUT-v65-main-landing-20261003.md`) |
 | cfo | `.worktrees/c-level-planning/design/cfo/indices/{대기,진행,완성,지금아님}` + `orders/` 204 | 15 | 17 | 31 (+지금아님 18) | 카드 완성/ + `CLOSEOUT-cfo-accounts-20261003.md` |
 | ccu(위성) | **indices 없음** — `ORDER-*.md` 78 + `ORDERS-oppa-ccu.md` 원장 | — | — | — | `CLOSEOUT-ccu-u-staircase-20261004.md` |
-| harness-ops | `design/harness/indices` + `REQUEST-LEDGER.md` | 0 | 0 | 1 | 완성/ 이동 + ops 통합 수락 |
+| harness-ops | `design/teams/harness/indices` + `REQUEST-LEDGER.md` | 0 | 0 | 1 | 완성/ 이동 + ops 통합 수락 |
 | issue-manager | Issue 보드 + LOOP-LEDGER 12행 | 0 | 0 | 3 | Issue close + 완료 5항 대조 |
 
 마감 정본 = `~/.claude/rules/closeout-policy.md`: 랜딩 → 배포 브랜치 push → CLOSEOUT 1장 → 전부 닫기 · 재개 = 이벤트 기반 · 위성 종료 = «활성 작업 0» 4항(미커밋 0 · 명부 종결 · 틱 정지 · 좌석 idle+진행 카드 0 · 세션 수 0 아님).

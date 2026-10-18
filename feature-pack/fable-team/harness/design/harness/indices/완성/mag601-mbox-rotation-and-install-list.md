@@ -1,5 +1,5 @@
 # 인덱스: 아침 매거진 미발행 — mbox 사본 회전본 이어 읽기 + install-magazine 설치 목록 누락 (판정 601 · master#21 쪽지 #67164 · 급함)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 판정 601(오늘 호 미발행 · 우선 최상)
 - 상태: 대기
 - 선행: 없음
@@ -52,4 +52,4 @@
 ## 결과 (나노 RESULT #67169 + r1 반송 · arch#22 재현 · master#21 옮김 2026-10-09)
 세트: dd19902b7119a7d4aa1bbe5df59883004140df77 · 시험: .venv/bin/python -m pytest --noconftest tests/scripts/test_magazine_collect_mbox.py rc=0 · 이슈: 0
 정본 영향 없음: 하네스 슬랙 미러 키트·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 08:26 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§102
+- 2026-10-09 08:26 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§102

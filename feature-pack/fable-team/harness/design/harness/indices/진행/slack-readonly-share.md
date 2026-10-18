@@ -1,5 +1,5 @@
 # 인덱스: 슬랙 = 읽기 전용 공유판 — 답장 요구 문구 0 · 첫 줄 머리표 4종 · 결정 자리 = 현역 planner 세션 이름(live_planner) · inbound 역할 수신자 @planner (오빠 발주 master#17 #64368 · 판정 497 · 나노 1)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 오빠 발주(master#17 #64368) · 판정 497(r3 스팟 1회 · master #64454)
 - 상태: 대기
 - 선행: 없음(origin/main 의 `scripts/harness-install/slack-mirror/` 만 고친다)
@@ -16,14 +16,14 @@
 골의 축: C(배포 발행(슬랙) 수신해 반영) + A(오빠 요청 즉시 검토 — 오빠 원문 「거기서 자꾸 답하라는데 어차피 들을것도 아니고 반영될것도 아니니 작업상황·이슈보고·변경내용·상태를 공유하고 hil이나 인터뷰가 있으면 정확히 어느 세션으로 가거나 플래너 정확한 세션을 알려주는 공유를 중점으로」). 핵심 한 줄: 슬랙에 «답하라»는 글을 내보내지 않고, 결정이 필요한 글에는 지금 살아 있는 planner 세션 이름을 적는다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-슬랙 미러(`scripts/harness-install/slack-mirror/` = 라이브 `~/.hermes/scripts/`)는 9종 메시지를 내보내는데 13곳이 「이 스레드에 답해 주세요」·「Q3 답」·「확인해 주세요」 같은 답장 요구를 쓴다. 오빠는 슬랙에서 답하지 않고(10-04 이후 3건), 결정은 planner 세션의 인터뷰로 한다. 그래서 ①모든 슬랙 글의 첫 줄을 `[작업상황]`·`[이슈보고]`·`[변경내용]`·`[상태]` 중 하나로 시작하고 ②답장 요구 문구를 «내보내기 직전» 결정적 정규식 검사로 막고(LLM 프롬프트만 믿지 않음 · 막히면 대체 문구 + `(요약 문구 교정)` 표시) ③결정이 필요한 글에 `결정 자리: <현역 planner 세션 이름>` 1줄을 싣는다. 현역 이름은 `seats-planner.json` 의 `_master` 를 매번 읽고 tmux 로 살아 있는지 확인한다(하드코딩·`_hil_route` 읽기 0 · 확인 불가면 사유를 그대로 싣고 대체 이름 0 = #0 RULE). 슬랙→mbox inbound 도 같은 함수로 수신자를 정하되, 원장에는 이름 대신 역할 표식 `@planner` 를 저장해 승계 뒤 미전달 건도 현역에게 간다(기존 원장의 옛 planner 이름 항목은 1회 이관 · 이미 보낸 건 재발송 0). 정본 설계 = `design/harness/DESIGN-slack-readonly-share-20261008.md` — ★§4-r2(A·B·C·A-r3·B-r3·D)가 §4·§5 를 이긴다★.
+슬랙 미러(`scripts/harness-install/slack-mirror/` = 라이브 `~/.hermes/scripts/`)는 9종 메시지를 내보내는데 13곳이 「이 스레드에 답해 주세요」·「Q3 답」·「확인해 주세요」 같은 답장 요구를 쓴다. 오빠는 슬랙에서 답하지 않고(10-04 이후 3건), 결정은 planner 세션의 인터뷰로 한다. 그래서 ①모든 슬랙 글의 첫 줄을 `[작업상황]`·`[이슈보고]`·`[변경내용]`·`[상태]` 중 하나로 시작하고 ②답장 요구 문구를 «내보내기 직전» 결정적 정규식 검사로 막고(LLM 프롬프트만 믿지 않음 · 막히면 대체 문구 + `(요약 문구 교정)` 표시) ③결정이 필요한 글에 `결정 자리: <현역 planner 세션 이름>` 1줄을 싣는다. 현역 이름은 `seats-planner.json` 의 `_master` 를 매번 읽고 tmux 로 살아 있는지 확인한다(하드코딩·`_hil_route` 읽기 0 · 확인 불가면 사유를 그대로 싣고 대체 이름 0 = #0 RULE). 슬랙→mbox inbound 도 같은 함수로 수신자를 정하되, 원장에는 이름 대신 역할 표식 `@planner` 를 저장해 승계 뒤 미전달 건도 현역에게 간다(기존 원장의 옛 planner 이름 항목은 1회 이관 · 이미 보낸 건 재발송 0). 정본 설계 = `design/teams/harness/DESIGN-slack-readonly-share-20261008.md` — ★§4-r2(A·B·C·A-r3·B-r3·D)가 §4·§5 를 이긴다★.
 
 ## 사전검증
 - 소환: 예
-- DA: `design/harness/DA-slack-readonly-share-20261008.md` — r1 HOLD(Q1·Q2·Q3 · Q4 APPROVE) → r2 HOLD(Q1·Q2 잔여 · Q3·Q4 APPROVE) → 판정 497 r3 스팟 1회 → «## r3 판정» APPROVE(A-r3·B-r3 잔여 종료 · byz-harness-da-codex#0 #64467) — arch 서명 byz-harness-arch-claude#17
+- DA: `design/teams/harness/DA-slack-readonly-share-20261008.md` — r1 HOLD(Q1·Q2·Q3 · Q4 APPROVE) → r2 HOLD(Q1·Q2 잔여 · Q3·Q4 APPROVE) → 판정 497 r3 스팟 1회 → «## r3 판정» APPROVE(A-r3·B-r3 잔여 종료 · byz-harness-da-codex#0 #64467) — arch 서명 byz-harness-arch-claude#17
 
 ## 조사 근거
-- 설계 `design/harness/DESIGN-slack-readonly-share-20261008.md` §1(9종 생성 위치) · §2(13 문구 파일:줄) · §3(낡은 이름) · §4-r2 A(share_guard·적용 지점·대체·전문 예외·매거진 결정적 줄) · B(@planner·사유 5종·unfinished·토큰·빈 수신자·되묻기 삭제) · C(머리표 행렬·strip_head) · A-r3(정규식 완결 · `\b` 금지 이유) · B-r3(기존 원장 이관 규칙·fixture 4) · D(파일 추가).
+- 설계 `design/teams/harness/DESIGN-slack-readonly-share-20261008.md` §1(9종 생성 위치) · §2(13 문구 파일:줄) · §3(낡은 이름) · §4-r2 A(share_guard·적용 지점·대체·전문 예외·매거진 결정적 줄) · B(@planner·사유 5종·unfinished·토큰·빈 수신자·되묻기 삭제) · C(머리표 행렬·strip_head) · A-r3(정규식 완결 · `\b` 금지 이유) · B-r3(기존 원장 이관 규칙·fixture 4) · D(파일 추가).
 - 실측 줄(origin/main = 이 워크트리 사본): `scripts/harness-install/slack-mirror/mirror_inbound.py:50` planner_seat(`_hil_route` 읽음) · `scripts/harness-install/slack-mirror/resume_block.py:73` 담당 = from · `scripts/harness-install/slack-mirror/byz_slack_mbox_inbound.py:104` all(done) — 빈 recips 참 · `scripts/harness-install/slack-mirror/byz_slack_mbox_inbound.py:125` 미완료 재개 루프(B-r3 이관 자리) · `scripts/harness-install/slack-mirror/mirror_lib.py:184` what 요약/first_sentence · `scripts/harness-install/slack-mirror/mirror_plan.py:26` 되묻기 · `scripts/harness-install/slack-mirror/mirror_questions.py:54` 답하는 법 · `scripts/harness-install/slack-mirror/magazine_slack.py:56` find_first_line.
 - 줄 수(origin/main): `mirror_lib.py` 192 · `byz_proposal_publish.py` 200 · `byz_thread_post.py` 191 · `byz_mbox_slack_mirror.py` 191 · `byz_slack_mbox_inbound.py` 178 — 200줄 넘으면 새 모듈로 뺀다(아래 1).
 

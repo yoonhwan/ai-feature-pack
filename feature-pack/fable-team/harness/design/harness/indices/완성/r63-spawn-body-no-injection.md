@@ -1,5 +1,5 @@
 # 인덱스: R63 발주 템플릿에 «측정 조작 금지» 1줄 고정 — ft-role-spawn BODY(전 역할) + ft-nano-spawn BODY (원장 R63 · 오빠 절대지침 · master#19 쪽지 #66467 · planner 쪽지 #66455)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R63(우선 높음 · v423c 반송서 뒤 최우선)
 - 상태: 대기
 - 선행: 없음 (BOOT 20 조항 = master#19 추가 완료)
@@ -15,7 +15,7 @@
 골의 축: A(모니터·오빠 요청 — 오빠 절대지침 「임의 레디스랑 말풍선 dom 밀어넣기를 절대 하지 말라」 를 «읽지 않아도 보이는» 첫 발주문에 건다). 핵심 한 줄: 모든 새 좌석의 첫 발주문에 측정 조작 금지 1줄이 있다.
 
 ## 배경 (한 단락 — 나노워커가 이 파일만 읽고 착수 가능해야 함)
-오빠 절대지침(10-09): 시험·측정에서 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)와 말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거가 아니다. 실제로 #887(재생 페이지 측정)·#889(재생 하네스 유입)·#996(redis-cli PUBLISH 로 room SSE 흉내) 판정이 무효 후보가 됐다. BOOT 20 조항과 전역 하드 룰 11 은 이미 있다. 그러나 BOOT 는 좌석이 읽어야 보이고, 고스트 서제스천(BOOT 17)·크론(BOOT 16) 선례처럼 첫 발주문 BODY 에 1줄 박아야 «안 읽어도» 보인다. 이 카드는 그 1줄을 두 spawn 스크립트의 BODY 에 넣고 시험으로 고정한다. 가드 훅(차단)은 별도 조사(`design/harness/SURVEY-r63-injection-guard-hook-20261009.md` · 집행 0)이고 이 카드 밖.
+오빠 절대지침(10-09): 시험·측정에서 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)와 말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거가 아니다. 실제로 #887(재생 페이지 측정)·#889(재생 하네스 유입)·#996(redis-cli PUBLISH 로 room SSE 흉내) 판정이 무효 후보가 됐다. BOOT 20 조항과 전역 하드 룰 11 은 이미 있다. 그러나 BOOT 는 좌석이 읽어야 보이고, 고스트 서제스천(BOOT 17)·크론(BOOT 16) 선례처럼 첫 발주문 BODY 에 1줄 박아야 «안 읽어도» 보인다. 이 카드는 그 1줄을 두 spawn 스크립트의 BODY 에 넣고 시험으로 고정한다. 가드 훅(차단)은 별도 조사(`design/teams/harness/SURVEY-r63-injection-guard-hook-20261009.md` · 집행 0)이고 이 카드 밖.
 
 ## 사전검증
 - 소환: 아니오
@@ -53,4 +53,4 @@
 ## 결과 (나노 RESULT · master#20 옮김 2026-10-09)
 세트: 0bc7d3b6a94b0515a327e41a84b7cb5cdddde9af · 시험: bash tests/harness/test_role_spawn_name.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 spawn 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 01:19 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§91
+- 2026-10-09 01:19 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§91

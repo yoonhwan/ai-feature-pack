@@ -1,10 +1,10 @@
 # 인덱스: 세트 발주 원장 — ft-sets.sh 조회·검사 + SETS.md 틀 + 정본 + 승계 초안 (판정 359)
-<!-- ledger: design/harness/GOAL-harness.md -->
-- Issue: 없음 → 판정 359(planner#8 → master#13 발주 · 설계 design/harness/DESIGN-set-dispatch-20261008.md · 조사 SURVEY-file-based-dispatch-20261008.md)
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
+- Issue: 없음 → 판정 359(planner#8 → master#13 발주 · 설계 design/teams/harness/DESIGN-set-dispatch-20261008.md · 조사 SURVEY-file-based-dispatch-20261008.md)
 - 상태: 대기
 - 선행: DA 사전검증 APPROVE(아래)
 - 시험 입력: 임시 git 리포 · 가짜 SETS.md · 가짜 SET-REQUESTS.md · 가짜 발주 파일 2개정 — 원격 0
-- 기준값: 세트 원장 0 · 판정 358 CFO 7세트 = mbox + 회수본 design/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md 뿐
+- 기준값: 세트 원장 0 · 판정 358 CFO 7세트 = mbox + 회수본 design/teams/harness/drafts/file-dispatch/ORDER-358-cfo-sets-relay-20261008.md 뿐
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -20,7 +20,7 @@
 
 ## 사전검증
 - 소환: 예
-- DA: design/harness/DA-set-dispatch-20261008.md
+- DA: design/teams/harness/DA-set-dispatch-20261008.md
 
 ## 조사 근거
 - `scripts/fable-team-bin/ft-harness-info.sh:39` — map 하위 명령(정본 목차 `references/harness-map.md` 를 읽음 · 행 1개 추가 대상은 홈 파일).
@@ -31,7 +31,7 @@
 ## 구현 범위 (이 목록만 — 닫힌 목록)
 1. `scripts/harness-install/sets/ft-sets.sh` 신규 — `[팀]` 표 출력(머리줄 = 원장 경로 @ 마지막 commit · 미커밋 표시 · 팀 필터면 pending/stale) · `--check`(이름·상태·발주 칸 `git cat-file -e`·보호 ref·Issue 겹침 경고). 원장 경로 = `FT_SETS_FILE` 하나(없으면 rc≠0 · 다른 경로로 넘어가기 0).
 2. `docs/rules/set_dispatch.md` 정본(설계 §0~§5 요약 · 자동 로드 아님) · `design/issues/SETS.md` 빈 원장(머리+빈 표) · `design/cfo/orders/SET-REQUESTS.md` 빈 틀.
-3. 홈 초안: `design/harness/drafts/set-dispatch/fable-team/references/context-management.md`(승계 6단계 ① 스냅샷에 「열린 세트」 1줄) · `design/harness/drafts/set-dispatch/fable-team/references/harness-map.md`(행 1개) — 홈 파일 cp 후 추가만.
+3. 홈 초안: `design/teams/harness/drafts/set-dispatch/fable-team/references/context-management.md`(승계 6단계 ① 스냅샷에 「열린 세트」 1줄) · `design/teams/harness/drafts/set-dispatch/fable-team/references/harness-map.md`(행 1개) — 홈 파일 cp 후 추가만.
 4. 시험 `tests/harness/test_ft_sets.sh` · `tests/harness/test_set_requests.sh`(설계 §8 1·2 — 재ACK 우선 · 불일치 적용 0 · close 일부 실패 = 보류 · pending/stale · 같은 경로 이후 개정본 안 읽음 · 없는 sha = 미전달).
 
 5. 기존 `scripts/fable-team-bin/ft-harness-info.sh`·`scripts/harness-install/proposal/ft-proposal-register.sh` 는 참고만 — 수정 0.
@@ -52,4 +52,4 @@
 - 2026-10-08 09:55 — 대기→진행 · 좌석 byz-harness-nano-set-dispatch-tools#0
 - 2026-10-08 — 나노 산출 #61331 · arch#11 독립 재현(시험 25·12 ALL PASS · shellcheck 0 · 홈 초안 diff 추가 각 1줄 · 빈 원장 끝줄 확인) → 판정서 §51 초안.
 세트: 043a9801c87a7fd80efb30831622711114b83679 · 시험: bash tests/harness/test_ft_sets.sh rc=0 · 이슈: 0
-- 2026-10-08 10:06 — 진행→완성 · 좌석 byz-harness-nano-set-dispatch-tools#0 · DA design/harness/OPS-VERDICTS-20261006.md#§51
+- 2026-10-08 10:06 — 진행→완성 · 좌석 byz-harness-nano-set-dispatch-tools#0 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§51

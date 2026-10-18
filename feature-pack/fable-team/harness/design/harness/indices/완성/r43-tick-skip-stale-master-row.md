@@ -1,5 +1,5 @@
 # 인덱스: 승계 끝난 옛 master 좌석에 stall-wake 가 가지 않게 — 틱은 `_master` 아닌 role=master 행을 건너뛰고, 승계 명부 정리는 도구 한 번으로 (R43)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R43(master#17 접수 · 카드 요청 #63940 · 실례 cfo#59 439k · feature#3 · v65 `_master` 146 stale)
 - 상태: 대기
 - 선행: 없음 — origin/main 최신에서 브랜치(대상 `scripts/fable-team-bin/ft-tick.sh`·`scripts/fable-team-bin/ft-role-spawn.sh` 는 ops/main-base 와 origin/main 같은 바이트 · arch#16 cmp)
@@ -56,4 +56,4 @@
 - 정본 영향 없음: 하네스 틱 좌석 선택·승계 명부 도구·시험만 — docs/architect 제품 정본 변경 없음.
 - 2026-10-08 19:09 — 대기→진행 · 좌석 byz-harness-nano-r43-tick-skip-stale-master-row#0
 세트: dd002966ce9b70d88607c2d4f5168644c4aa61a3 · 시험: bash tests/harness/test_seat_retire.sh rc=0 · 이슈: 0
-- 2026-10-08 19:46 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§74
+- 2026-10-08 19:46 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§74

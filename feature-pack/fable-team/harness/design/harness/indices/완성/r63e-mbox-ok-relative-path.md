@@ -1,5 +1,5 @@
 # 인덱스: R64 block-destructive `mbox_ok` 가 상대경로 정본 mbox 송신을 글 싱크로 안 봄 — 본문 글자 오탐(r63b 설치 직후 원복 원인) (원장 R64 · master#20 쪽지 #66677)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → 요청 원장 R64(우선 높음 · r63b ㉠ 재설치의 선행)
 - 상태: 대기
 - 선행: r63b 랜딩(완료 · PR 1047 · main 7826b70515) — 홈 설치는 오탐 1건으로 원복됨(백업 `~/.claude/hooks/block-destructive.sh.bak-r63b-20261009`)
@@ -58,4 +58,4 @@
 ## 결과 (나노 RESULT r3 · master#20 옮김 2026-10-09)
 세트: 4f5a1383c82d956ed5edc07c44d6af3d0a97fc09 · 시험: bash tests/harness/test_block_destructive.sh rc=0 · 이슈: 0
 정본 영향 없음: 하네스 훅 템플릿·시험만 — docs/architect 제품 정본 변경 없음.
-- 2026-10-09 02:23 — 진행→완성 · DA design/harness/OPS-VERDICTS-20261006.md#§95
+- 2026-10-09 02:23 — 진행→완성 · DA design/teams/harness/OPS-VERDICTS-20261006.md#§95

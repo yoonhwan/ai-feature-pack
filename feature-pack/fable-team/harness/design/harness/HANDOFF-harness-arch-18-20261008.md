@@ -16,7 +16,7 @@
 - 반송서 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/drafts-r21/REJECT-v423b-report-hooks-r1.md`(DA r1 Q3 HOLD — 맨 `#숫자` 를 seq 로 봄 → 식별 규칙 = **`쪽지 #<seq>`** 꼴만 · hook-errors.log 를 `state/hook-errors.log` 한 곳으로 · 시험 ①~⑦). master#19 가 나노 `byz-harness-nano-v423b-report-hooks#0` 에 전달.
 - r2 커밋이 오면: 재현(origin/main 아카이브 + 나노 커밋 diff 적용 — 브랜치 base 가 ops/main-base 라 diff 는 나노 커밋만 `git diff <c>~1 <c>`) → DA r2(Q3 + 시험 ①~⑤만 · bounded) 소환을 master 에 부탁 → APPROVE 면 §84 초안 `.fable-team/state/drafts-r21/OPS-VERDICT-84.md`(꼴 = OPS-VERDICT-83.md).
 - 설치 전 planner 판단 1건(master 에 이미 전달 #65754): planner 인박스 ①~④ 미닫힘 119 seq — 등록 즉시 매 턴 block. 옛 줄 일괄 mark 먼저 할지.
-- 요청서 `design/harness/DA-REQ-v423b-report-hooks-20261008.md` · 판정문 `design/harness/DA-v423b-report-hooks-20261008.md`(r1).
+- 요청서 `design/teams/harness/DA-REQ-v423b-report-hooks-20261008.md` · 판정문 `design/teams/harness/DA-v423b-report-hooks-20261008.md`(r1).
 
 ## 그 뒤 큐 (판정 545 순서 · master 한 번에 하나)
 1. v423b 닫힘 → 2. `대기/v423c-mirror-mbox-notify.md`(요약기 할 일 금지 + Haiku 5.5 · planner 처리 1줄 · mbox ①~④ doorbell · 회신 상한 제외 · lint 실재 경로 2 확인됨) → 3. `gate-hook-kit-equals-home` → 4. `r35` → 5. `mbox-sh-split-200`(v423c 뒤). r23 보류.

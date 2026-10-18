@@ -1,11 +1,11 @@
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:5:> **건드리는 정본**: 없음(P1~P7 확정분을 «한 줄기»로 다시 적은 것 · 새 규칙 0 · 삭제 규칙은 글로벌 HIL 그대로 
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:25: ─13→ 삭제(워크트리·나노 세션 = 자동 · 브랜치·그 외 = HIL)
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:38:| 8 | **문제 확인 → 수정 → 재시험 루프** | architect(bts 루프 소유 · N·회차·계속 여부·DA 소환) · 
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:40:| 10 | **나노 close · 워크트리 정리** | 오케(`ft-nano-close.sh <좌석> --result <경로> --
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:43:| 13 | **삭제** | 자동 = nano-close 경로 · HIL = 오빠 | 12 의 CLOSEOUT push | §3 표 
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:52:| ⓔ **ack 누락** | 접수·보고·close 대조·BOARD seq 중 어느 회신이든 **10분 무응답** · 2 HOLD ·
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:57:| 대상 | 자동 / HIL | 경로 · 조건 | 보존·복원 |
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:59:| 나노 **워크트리** | **자동**(표준승인 2026-09-25) | `ft-nano-close.sh` → `baton wt-c
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:60:| 나노 **세션 kill** | **자동**(표준승인 2026-10-02) | nano-close 경로 하나뿐 · CLOSED 처리
-.worktrees/harness-ops/design/harness/issue-improvement/SPEC-full-flow-20261005.md:61:| **역할 좌석** 세션(master·arch·DA·tester·pm) | 자동이되 **keep-last-2 하한**(2026-07
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:5:> **건드리는 정본**: 없음(P1~P7 확정분을 «한 줄기»로 다시 적은 것 · 새 규칙 0 · 삭제 규칙은 글로벌 HIL 그대로 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:25: ─13→ 삭제(워크트리·나노 세션 = 자동 · 브랜치·그 외 = HIL)
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:38:| 8 | **문제 확인 → 수정 → 재시험 루프** | architect(bts 루프 소유 · N·회차·계속 여부·DA 소환) · 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:40:| 10 | **나노 close · 워크트리 정리** | 오케(`ft-nano-close.sh <좌석> --result <경로> --
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:43:| 13 | **삭제** | 자동 = nano-close 경로 · HIL = 오빠 | 12 의 CLOSEOUT push | §3 표 
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:52:| ⓔ **ack 누락** | 접수·보고·close 대조·BOARD seq 중 어느 회신이든 **10분 무응답** · 2 HOLD ·
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:57:| 대상 | 자동 / HIL | 경로 · 조건 | 보존·복원 |
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:59:| 나노 **워크트리** | **자동**(표준승인 2026-09-25) | `ft-nano-close.sh` → `baton wt-c
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:60:| 나노 **세션 kill** | **자동**(표준승인 2026-10-02) | nano-close 경로 하나뿐 · CLOSED 처리
+.worktrees/harness-ops/design/teams/harness/issue-improvement/SPEC-full-flow-20261005.md:61:| **역할 좌석** 세션(master·arch·DA·tester·pm) | 자동이되 **keep-last-2 하한**(2026-07
 ft-wt-sweep.sh

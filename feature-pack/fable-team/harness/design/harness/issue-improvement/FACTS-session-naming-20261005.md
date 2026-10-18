@@ -1,7 +1,7 @@
 # FACTS — tmux 세션명 현황 · tmuxc/tmm 이름 처리 · 이름에 기대는 스크립트 실측 (ft-harness-arch#1 요청 · ft-harness-nano#1 실행 · 조각 P6)
 
 > 측정 시각 **2026-10-05 15:45 KST** · 읽기 전용 · 이름 변경·kill 0 · Slack 0.
-> 산출 위치 = `design/harness/issue-improvement/`. 원본 = `design/harness/issue-improvement/facts-raw/N*.txt`.
+> 산출 위치 = `design/teams/harness/issue-improvement/`. 원본 = `design/teams/harness/issue-improvement/facts-raw/N*.txt`.
 > 표기 **[사실]** = 명령 출력 · **[추측]** = 해석. REQ = mbox #57005 · ORDER = ORDER-session-naming(#57004).
 
 ---

@@ -1,5 +1,5 @@
 # 인덱스: 제안서 발행기가 「승인 — 판정 N」 제안서도 «기록»으로 발행 (R76 · 판정 809)
-<!-- ledger: design/harness/GOAL-harness.md -->
+<!-- ledger: design/teams/harness/GOAL-harness.md -->
 - Issue: 없음 → R76(판정 809 · master#25 발주 #71288 · arch 카드 byz-harness-arch-claude#26)
 - 상태: 대기
 - 선행: 없음

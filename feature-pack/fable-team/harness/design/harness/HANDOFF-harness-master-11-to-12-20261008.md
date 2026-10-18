@@ -8,7 +8,7 @@
 ★승계 첫 일 = 골 대조 3줄 + 부팅 3항(세션명/모델·창/Serena) + i-have-adhd 를 현역 planner(`ft-harness-info.sh seats` · 지금 byz-planner-master-claude#7)에 mbox 보고 → 같은 턴에 CronCreate 10분 틱(보고에 cron=job id) — 없으면 착수 0.★ 오빠 보고 = 결론→할 일→바뀐 것→근거 + PR·Issue 번호는 맨 아래 각주 표.
 
 ## 지금 상태 (한 줄)
-★야간 자율 단위 8/8 끝 · 정지 레디 유지(planner 지시)★ — 새 단위 착수 0. 오빠 아침 결정 대기: mac-mini 에 homebrew bash 설치(원격 쓰기)할지. 아침 브리핑 = design/harness/BRIEFING-morning-20261008.md.
+★야간 자율 단위 8/8 끝 · 정지 레디 유지(planner 지시)★ — 새 단위 착수 0. 오빠 아침 결정 대기: mac-mini 에 homebrew bash 설치(원격 쓰기)할지. 아침 브리핑 = design/teams/harness/BRIEFING-morning-20261008.md.
 
 ## 오늘(10-08) 끝낸 것 (main 병합 · sha)
 - PR 882 1a577c3aa7: R15 T ① 나노 첫 발주문 press 금지 1문장(판정서 §40).

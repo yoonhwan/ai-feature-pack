@@ -8,7 +8,7 @@
 
 ## 고정 대상
 - 커밋 `427ebdddbc7d29af76c7da0b1fab0dc579ba987f`(브랜치 `nano/mbox-py-split-200` · base origin/main `9b774bef56` · 2커밋: `5626a173d0` [structure] · `427ebdddbc` [test]) · `tools/comm-canonical/mbox.py` 637→125 + 새 `mbox_conf.py` 41 · `mbox_store.py` 186 · `mbox_guard.py` 146 · `mbox_ops.py` 167 · `check-drift.sh` +4행 · 시험 3개(`test_mbox_inbox_notify_reply_rate.sh` · `test_mbox_reply_exempt_cap.sh` · `test_inbox.sh`).
-- 카드 `design/harness/indices/진행/mbox-py-split-200.md`(배경에 함정 2개) · 처방 도구 `design/harness/evidence/mbox-py-split-200/`(ops/main-base).
+- 카드 `design/teams/harness/indices/진행/mbox-py-split-200.md`(배경에 함정 2개) · 처방 도구 `design/teams/harness/evidence/mbox-py-split-200/`(ops/main-base).
 
 ## arch#21 독립 재현 (427ebdddbc 아카이브)
 - 결정성: origin/main `mbox.py` 에 처방 도구를 다시 돌린 5파일 == 커밋 5파일(cmp 5/5) · `py_compile` 5개 OK.
@@ -24,10 +24,10 @@
 - 범위 밖: 라이브 설치 절차(master · 카드 «랜딩 뒤 라이브 설치» 절) · check-drift 의 옛 경로 행 · mbox.sh.
 
 ## 판정문
-`design/harness/DA-mbox-py-split-200-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
+`design/teams/harness/DA-mbox-py-split-200-20261009.md` — 실행 헤더 `model:`/`provider:` 두 줄 · Q 별 APPROVE/HOLD + 근거 줄 · 끝 줄 APPROVE 또는 HOLD.
 
 ## r2 요청 (arch#21 · 2026-10-09 · Q2 만 · bounded 10분 + 정정 10분 · 이번이 두 번째 · HOLD 면 리뷰 종료 → arch 서명)
 - 고정 대상: 커밋 `a82e30df172acb795f8b0d5dfc4370c484250e73`(r1 `427ebdddbc` 위 2커밋: `e4fec82c2f` [structure] 진입 `mbox.py` 42행 앞 `import os, sys; sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))` 1줄 · `a82e30df17` [test] 새 `tests/harness/test_mbox_py_link_import.sh` 19줄). 루트·CANON 계산(`abspath(__file__)`) 불변.
 - arch#21 독립 재현(a82e30df17 아카이브): 결정성 cmp 5/5(갱신 도구 `80e3173278`) · fixture ALL PASS(CLI 링크 send·recv · comm 폴더 `import mbox` rc0 + CANON = 링크 위치 realpath · bin 에 엉뚱한 우편함 0) · fixture = 도구 폴더 파일 cmp 동일 · 추가 줄을 뺀 변이 = fixture 2 FAIL · 분리 전 옛 판도 fixture ALL PASS · 기존 시험 4종 · 12시나리오 diff 임시경로 1줄 · 링크 왕복 · 모듈 없는 폴더 진입 = ModuleNotFoundError rc1.
 - Q2(r2): r1 반례(링크 폴더를 sys.path 에 넣고 import)와 같은 부류 — 진입 `mbox.py` 를 링크·복사·다른 경로로 부르거나 import 할 때 모듈을 못 찾거나 «다른 폴더의 같은 이름 모듈»을 집거나 우편함 자리가 옛과 달라지는 꼴이 남는가. 새 요구 금지 · Q1·Q3 재심 0.
-- 판정문: 같은 파일 `design/harness/DA-mbox-py-split-200-20261009.md` 끝에 `# mbox-py-split-200 최종 DA — r2` 절(헤더 `model:`/`provider:` 두 줄 · Q2 APPROVE/HOLD + 근거 · 끝 줄 APPROVE 또는 HOLD).
+- 판정문: 같은 파일 `design/teams/harness/DA-mbox-py-split-200-20261009.md` 끝에 `# mbox-py-split-200 최종 DA — r2` 절(헤더 `model:`/`provider:` 두 줄 · Q2 APPROVE/HOLD + 근거 · 끝 줄 APPROVE 또는 HOLD).

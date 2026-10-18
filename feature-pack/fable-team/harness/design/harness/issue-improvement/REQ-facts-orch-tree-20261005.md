@@ -7,7 +7,7 @@
 >
 > 골의 축: 축 A(모니터) 첫 단위 「누가 메인 오케이고 그 밑이 어떤 구성인지」. 발주 = ops#2 ORDER-main-orch-list-20261005 (mbox #56946).
 
-읽기 전용 · Slack 0 · 산출 `design/harness/issue-improvement/FACTS-orch-tree-20261005.md`(짧게 · 표 3개) + 원본은 `facts-raw/T*.txt`. [사실]/[추측] 구분. 측정 시각(KST) 1줄.
+읽기 전용 · Slack 0 · 산출 `design/teams/harness/issue-improvement/FACTS-orch-tree-20261005.md`(짧게 · 표 3개) + 원본은 `facts-raw/T*.txt`. [사실]/[추측] 구분. 측정 시각(KST) 1줄.
 
 ## T1. 오케 후보 전수 — 한 행 = 세션 1
 `tmux list-panes -a -F '#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{session_created}'` 전 세션 + `pgrep -P <pane_pid> -l`(에이전트 실재) + 각 세션의 `tmux display -p -t <s> '#{pane_current_path}'`(워크트리).
