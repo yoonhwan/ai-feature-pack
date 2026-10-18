@@ -24,7 +24,9 @@ RDESIGN="$(cd -P "$ROOT/design" && pwd -P)"
 # 만들 경로의 «실제» 위치가 design/<팀>/ 안인가 — 가장 가까운 기존 조상을 realpath 로 푼다(링크 탈출·dangling 링크 차단 · DA⑥ r1 H2)
 inside() { local p="$1" r; while [ ! -e "$p" ] && [ ! -L "$p" ]; do p="$(dirname "$p")"; done
   r="$(cd -P "$p" 2>/dev/null && pwd -P)" || return 1
-  [ "$r" = "$RDESIGN" ] || [ "$r" = "$RDESIGN/$TEAM" ] || case "$r" in "$RDESIGN/$TEAM/"*) return 0;; *) return 1;; esac; }
+  # design/ 자체는 팀 폴더가 아직 없을 때(조상이 design/ 로 올라간 정상 경우)만 허용 — 팀 폴더가 있는데 design/ 로 풀리면 하위 링크 탈출(r318a DA⑥ r3 H2)
+  [ "$r" = "$RDESIGN" ] && [ ! -e "$DEST" ] && return 0
+  [ "$r" = "$RDESIGN/$TEAM" ] || case "$r" in "$RDESIGN/$TEAM/"*) return 0;; *) return 1;; esac; }
 while IFS= read -r rel; do
   out="$rel"; case "$out" in GOAL-TEAM.md) out="GOAL-$TEAM.md";; GUIDE-TEAM.md) out="GUIDE-$TEAM.md";; esac
   tgt="$DEST/$out"
@@ -37,5 +39,9 @@ while IFS= read -r rel; do
     sed "s/<팀>/$TEAM/g" "$TPL/$rel" > "$tgt"
   fi
   echo "$VERB design/$TEAM/$out"; N=$((N+1))
-done < <(cd "$TPL" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)
+done < <(cd "$TPL" && find . -type f ! -path ./VERSION | sed 's|^\./||' | LC_ALL=C sort)
 [ "$DRY" = 1 ] && echo "OK dry-run would-create=$N" || echo "OK created=$N"
+# 틀 버전(templates/team/VERSION)을 명부 _tree_version 에 기록 — ft-team-upgrade.sh 가 부를 땐 스스로 기록하므로 건너뛴다(R368)
+if [ "$DRY" = 0 ] && [ -z "${FT_TEAM_NO_STAMP:-}" ] && [ -f "$HERE/ft-team-upgrade.sh" ]; then
+  FT_REPO_ROOT="$ROOT" FT_TEAM_TEMPLATE_DIR="$TPL" bash "$HERE/ft-team-upgrade.sh" --stamp "$TEAM" || exit 1
+fi

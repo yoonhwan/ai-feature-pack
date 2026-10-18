@@ -100,8 +100,8 @@ o="$(chk --all)"; rc=$?; { [ "$rc" = 1 ] && [ "$(grep -c . <<<"$o")" = 2 ]; } &&
 o="$(chk nope)"; rc=$?; { [ "$rc" != 0 ] && [[ "$o" == *ERROR* ]]; } && ok "ⓙ 명부 없는 팀 → ERROR" || bad "ⓙ rc=$rc $o"
 printf '# 표 없음\n' > "$T/bad.md"; o="$(MDX="$T/bad.md" chk alpha)"; rc=$?; { [ "$rc" != 0 ] && [[ "$o" == *ERROR* ]]; } && ok "ⓙ 표 없는 TEAMSET → ERROR" || bad "ⓙ-2 rc=$rc $o"
 
-# ⓚ 실 표 — design/TEAMSET.md 가 도구로 읽히고 harness=4 · ops=5 · 기본 3(v65 5)
-for spec in harness:4 ops:5 v65:5 cfo:3; do
+# ⓚ 실 표 — design/TEAMSET.md 가 도구로 읽히고 harness=5(39477d0d01 임시 4→5) · ops=5 · 기본 3(v65 5)
+for spec in harness:5 ops:5 v65:5 cfo:3; do
   t="${spec%:*}"; n="${spec#*:}"
   pfx="byz-$t-nano-"; [ "$t" = v65 ] && pfx="ft-v65-temp-"
   o="$(PATH="$FAKE:$PATH" python3 "$BIN/ft_teamset.py" cap --root "$ROOT" --md "$REPO/design/TEAMSET.md" --prefix "$pfx" 2>&1)"

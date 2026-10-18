@@ -97,4 +97,13 @@ out="$(SC demo2)"; rc=$?
 [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT.*링크' && [ ! -e "$REPO/design/README.md" ] && ok "14 팀 폴더=design 링크 REJECT · design/README.md 0" || bad "14: rc=$rc $out $(ls "$REPO/design")"
 rm -f "$REPO/design/demo2"
 
+# 15 하위 폴더가 design/ 자체를 가리키는 링크(indices -> design/) — design/inbox 등 팀 밖 쓰기 0 · SKIP 1줄 · 나머지 칸 생성 (r318a DA⑥ r3 H2)
+echo '| demo3 | `design/demo3/` | demo3-master 계열 | 현역 |' >> "$REPO/design/TEAMS.md"
+mkdir -p "$REPO/design/demo3"; ln -s "$REPO/design" "$REPO/design/demo3/indices"
+before="$(ls -A "$REPO/design" | LC_ALL=C sort | tr '\n' ' ')"
+out="$(SC demo3)"; rc=$?
+after="$(ls -A "$REPO/design" | LC_ALL=C sort | tr '\n' ' ')"
+[ "$rc" = 0 ] && [ "$before" = "$after" ] && [ ! -e "$REPO/design/inbox" ] && echo "$out" | grep -q 'SKIP.*indices' && [ -f "$REPO/design/demo3/README.md" ] && ok "15 하위 링크=design 탈출 SKIP · design/inbox 0 · 나머지 칸 생성" || bad "15: rc=$rc before=[$before] after=[$after] $out"
+rm -f "$REPO/design/demo3/indices"
+
 echo "fail=$fail"; [ "$fail" = 0 ]
