@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — planner 앞 쪽지가 «조용히 아무도 안 받는» 상태를 소리 나게 한다: quiet 는 세션 안 감시와 한 쌍 (1.1.10)
+
+카드 r408 · desk 110229 실측 · planner 110234 · master 110237 · arch#94. 판정 876 으로 planner `_master` 는 doorbell 을 받지 않고 세션 안 감시(`ft-inbox-watch.sh` + Monitor)로 받는데, 승계(#71→#72) 뒤 감시가 안 걸려도 send 는 `doorbell=quiet` 만 찍어 큐가 3~5분씩 쌓였습니다(수동 깨움 5회).
+
+- **판정기 하나 `ft-mbox.sh watch-alive <좌석>`**(rc0 `OK watch` / rc3 `NO watch`): 감시 실체 = `ft-inbox-watch.sh` 가 exec 한 `python3 -u - <bin> <좌석>`(셸 이름은 프로세스에 안 남는다) · 끝 인자 정확 일치 ∧ `<bin>/ft-inbox-watch.sh` 실재 · 목록 `FT_PGREP`(시험) 또는 `pgrep -lf`.
+- **send/relay**(키트 `ft-mbox.sh` · 좌석들이 쓰는 `comm/mbox.sh`): user_facing 좌석에 감시가 없으면 `doorbell=quiet(WATCH 없음)` + 하네스 master(`seats-harness.json` `_master`) 앞 `[긴급 · planner watch 없음] <좌석> · 감지 HH:MM · 계기 쪽지 #N · 시작: Monitor → bash <루트>/.fable-team/bin/ft-inbox-watch.sh <좌석>` 1통 · 같은 좌석 10분 1회(표식 `state/planner-watch-missing.<좌석>`) · 판정 불가 `quiet(WATCH 판정 불가)` · 오빠 pane 주입 0(876 불변) · 명시 `ring` 불변.
+- **ft-teamset-check**: planner 팀 `_master` 감시 없음 → `ERR planner watch 없음(ft-inbox-watch.sh <좌석>)` rc1(`FT_TEAMSET_WATCH` 시험 대체).
+- **시험**: `test_inbox_watch.sh` r408 절(ⓐ~ⓔ · comm·키트 두 경로 · 미끼 3 = 접두 좌석·시작 명령 실은 send·다른 bin) · 옛 코드에서 20 FAIL. 픽스처 2: `test_ft_mbox_inbox_ingest.sh` 변이 줄 글자 · `test_arch_required_gate.sh` 감시 판정 가짜.
+
 ## 2026-10-19 — 공유 루트 cwd 에서 v65·lecture 카드 spawn 이 «팀 명단 없음» 으로 끊기던 것을 고친다: 명단 = ref · 폴더 = 호출 워크트리 실재 1개 (1.1.9)
 
 카드 r406 · planner 판정 2318 · master 110115 · arch#94 재현(`ERROR v65 은 팀 명단(TEAMS.md)에 없다 / REJECT … 선언된 정본 없음: /GOAL-LEDGER-v65.md`). 팀 폴더 전환은 main 에만 착지했는데 lint·spawn 이 «호출 워크트리의 design/TEAMS.md» 를 읽어, 명단이 옛 것인 공유 루트(feat/v6-realtime-live)에서 spawn 이 3회 REJECT 됐습니다.
