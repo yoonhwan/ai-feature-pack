@@ -47,12 +47,15 @@ fi
 # 설치 대상 = 키트 bin·templates 의 일반 파일(파이썬 캐시 제외) — 상대경로 정렬
 FILES="$(cd "$KIT" && find bin templates -type f ! -path '*/__pycache__/*' ! -name '*.pyc' | LC_ALL=C sort)"
 COUNT="$(printf '%s\n' "$FILES" | grep -c .)"
+# 홈 훅 = 키트 kit/hooks 의 이 목록만 <home>/.claude/hooks/ 로 cp -p → cmp (settings.json 훅 등록은 별도 = master)
+HOME_HOOKS="harness-freeze-gate.sh old-team-path-new-file-gate.sh"
 
 echo "== fable-team harness 설치 ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0')) =="
 echo "version=$VERSION machine=$MACHINE live=$LIVE/ files=$COUNT"
 echo "HARNESS_ROOT $LIVE/HARNESS_ROOT <- $HARNESS"
 echo "LIVE_BIN  $PROJECT/.fable-team/LIVE_BIN  <- $LIVE/bin"
 echo "LIVE_ROOT $LR_FILE <- $LROOT$([ -f "$LR_FILE" ] && echo ' (있으면 보존)')"
+for h in $HOME_HOOKS; do echo "HOOK $HOME_DIR/.claude/hooks/$h <- $HARNESS/kit/hooks/$h"; done
 if [ "$APPLY" != 1 ]; then echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
@@ -70,6 +73,16 @@ extra="$(cd "$LIVE" && find bin templates -type f ! -path '*/__pycache__/*' ! -n
 cur=""; [ -f "$LIVE/HARNESS_ROOT" ] && cur="$(sed -n '1p' "$LIVE/HARNESS_ROOT")"
 [ "$cur" = "$HARNESS" ] || printf '%s\n' "$HARNESS" > "$LIVE/HARNESS_ROOT"
 echo "COPY copied=$copied same=$same extra=$extra"
+hcopied=0; hsame=0
+for h in $HOME_HOOKS; do
+  src="$HARNESS/kit/hooks/$h"; dst="$HOME_DIR/.claude/hooks/$h"
+  [ -f "$src" ] || { echo "ERROR: 키트 훅 없음: $src" >&2; exit 1; }
+  if [ -f "$dst" ] && cmp -s "$src" "$dst" && [ "$(perm "$src")" = "$(perm "$dst")" ]; then hsame=$((hsame + 1)); continue; fi
+  mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"
+  cmp -s "$src" "$dst" || { echo "ERROR: 훅 복사 불일치: $h" >&2; exit 1; }
+  hcopied=$((hcopied + 1))
+done
+echo "HOOKS copied=$hcopied same=$hsame (settings.json 등록은 별도)"
 
 # 프로젝트 LIVE_BIN·LIVE_ROOT·연결 파일 — 설치본 도구로(키트 트리 = 이 하네스 체크아웃의 HEAD)
 REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd -P)"
