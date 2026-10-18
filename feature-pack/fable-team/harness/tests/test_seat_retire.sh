@@ -259,6 +259,30 @@ chk "⑭더 큰 번호 현역 없음 → REJECT rc 1 · 기록 0" "$rc ${out%% *
 R="$(rr_repo h "$SEATS_R2")"; H="$(rm_home rh)"; FAKE_ALIVE="" out="$(ro_run "$R" "$H" "$RN" '' --record-only)"; rc=$?
 chk "⑭현역 세션 죽음 → REJECT rc 1 · 기록 0" "$rc ${out%% *} $([ -e "$H/.claude/state/seat-resume/$RN.json" ] && echo yes || echo no)" "1 REJECT no"
 
+# ⑮ R400 --record-only --verdict <번호> (판정 2304) — 승계 아닌 «판정에 의한 닫기»의 재개 기록 · 명부 쓰기 0
+# ⓖ 현역 행(_replaced_by 없음 · _master 값) → RESUME ok · retired_by = verdict N · 명부 바이트 불변 · .bak 0
+H="$(rs_home vg)"; S="$TMP/seats-vg.json"; printf '{"_master": "M#1", "M#1": {"role": "master", "agent": "claude", "model": "m1", "tick": "t"}}' > "$S"; cp "$S" "$S.orig"
+out="$(HOME="$H" PATH="$FK:$PATH" FAKE_PANE_PID=100 FAKE_CHILDREN="7000 7001" bash "$RETIRE" 'M#1' --record-only --verdict 2304 --seats "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
+chk "⑮ⓖ rc 0 · RESUME ok 한 줄" "$rc $out" "0 RESUME ok $REC"
+chk "⑮ⓖ retired_by = verdict 2304 · model = 명부 · uuid" "$(jq -r '[.retired_by,.model,.uuid]|join(",")' "$REC")" "verdict 2304,m1,$UU1"
+chk "⑮ⓖ 명부 바이트 불변 · .bak 0" "$(cmp -s "$S" "$S.orig" && echo same || echo changed) $(ls "$S".bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "same 0"
+# ⓗ 행 없음(다른 리포 좌석) + 결속 ok → R296 ⓑⓒ 없이 RESUME ok · model = jsonl · 명부 쓰기 0
+R="$(rr_repo vh '{"_master": "byz-room-master-claude#9x"}')"; H="$(rm_home vh)"; F="$R/.fable-team/seats-room.json"; cp "$F" "$F.orig"
+FAKE_ALIVE="" out="$(ro_run "$R" "$H" "$RN" '' --record-only --verdict 2304)"; rc=$?; REC="$H/.claude/state/seat-resume/$RN.json"
+chk "⑮ⓗ rc 0 · RESUME ok(더 큰 번호 현역·생존 없이)" "$rc $out" "0 RESUME ok $REC"
+chk "⑮ⓗ retired_by = verdict 2304 · model = jsonl" "$(jq -r '[.retired_by,.model]|join(",")' "$REC")" "verdict 2304,real-model"
+chk "⑮ⓗ 명부 바이트 불변 · .bak 0" "$(cmp -s "$F" "$F.orig" && echo same || echo changed) $(ls "$R/.fable-team"/*.bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "same 0"
+# ⓗ' 행 없음인데 `_*` 칸 값 → REJECT rc 1 · 기록 0 (R296 ⓐ 유지) · 결속 실패 → NORECORD rc 0
+R="$(rr_repo vh2 "{\"_arch\": \"$RN\"}")"; H="$(rm_home vh2)"; out="$(ro_run "$R" "$H" "$RN" '' --record-only --verdict 2304)"; rc=$?
+chk "⑮ⓗ' 행 없음 + _ 칸 값 → REJECT rc 1 · 기록 0" "$rc ${out%% *} $([ -e "$H/.claude/state/seat-resume/$RN.json" ] && echo yes || echo no)" "1 REJECT no"
+H="$(rs_home vg2)"; rm "$H/.claude/sessions/7001.json"; S="$TMP/seats-vg2.json"; rs_seats "$S"
+out="$(HOME="$H" PATH="$FK:$PATH" FAKE_PANE_PID=100 FAKE_CHILDREN="7000 7001" bash "$RETIRE" 'M#1' --record-only --verdict 2304 --seats "$S")"; rc=$?
+chk "⑮ 결속 실패 → rc 0 · NORECORD · 기록 0" "$rc $(cut -d' ' -f1-2 <<< "$out") $([ -e "$H/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" "0 NORECORD M#1 no"
+# usage — --verdict 는 --record-only 와만 · 값 형식
+for a in "M#1 M#2 --verdict 2304" "M#1 --record-only --verdict" "M#1 --record-only --verdict x"; do
+  bash "$RETIRE" $a --seats "$S" > /dev/null 2>&1; chk "⑮usage [$a] rc 2" "$?" 2
+done
+
 # ⑧ 기존 시험
 for t in test_ft_tick_master_seat.sh test_role_spawn_name.sh test_kit_bin_sync.sh; do
   bash "$HERE/$t" > "$TMP/$t.out" 2>&1; chk "⑧$t rc=0" "$?" 0

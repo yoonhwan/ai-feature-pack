@@ -10,16 +10,18 @@
 #   R282 ② 은퇴인데 옛 행이 어느 명부에도 없으면(--seats 없음) 이름(ft-name-lint 통과)의 팀 명부(seats.json=v65 · seats-<팀>.json)에 은퇴 행을 만든 뒤 은퇴 — 옛 이름이 «다른» 명부 `_*` 칸에 현역이면 REJECT.
 #   R282 ③ 후계 행 model = 도달 파일(<루트>/.fable-team/state/successor/<구>.json · env FT_SUCCESSOR_DIR)의 model → 없으면 옛 값.
 #   R296 ④ `--record-only` + 행 없음 — ⓐ 옛 이름이 어느 명부 `_*` 칸의 값도 아님 ⓑ 같은 계보로 더 큰 번호가 `_*` 칸에 현역 ⓒ 그 tmux 세션 생존 — 셋 다 참일 때만 기록(retired_by = 그 현역 이름) · 명부 쓰기 0.
+#   R400 `<구> --record-only --verdict <번호>` (판정 2304) — 승계가 아닌 «판정에 의한 닫기»(ft-seat-close --verdict 가 부른다): _replaced_by·R296 ⓑⓒ 없이 결속만으로 기록(retired_by = `verdict <번호>`) · 행 없음(다른 리포 좌석)은 ⓐ 만 · 명부 쓰기 0.
 set -uo pipefail
-OLD="${1:-}"; [ -n "$OLD" ] || { echo "usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--seats <파일>]" >&2; exit 2; }
-shift; NEW=""; RECONLY=0; ARG=""
+USAGE="usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--verdict <번호>] [--seats <파일>]"
+OLD="${1:-}"; [ -n "$OLD" ] || { echo "$USAGE" >&2; exit 2; }
+shift; NEW=""; RECONLY=0; ARG=""; VERDICT=""
 case "${1:-}" in ""|--*) ;; *) NEW="$1"; shift;; esac
-while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-only) RECONLY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
-{ [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ]; } || { echo "usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--seats <파일>]" >&2; exit 2; }
+while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-only) RECONLY=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9][0-9A-Za-z._-]*$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+{ [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ] && [ -z "$VERDICT" ]; } || { echo "$USAGE" >&2; exit 2; }
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
-python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<'PY'
+python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" <<'PY'
 import json, os, re, sys, glob, shutil, datetime, subprocess, collections
-arg, root, old, new, reconly, here = sys.argv[1:7]
+arg, root, old, new, reconly, here, verdict = sys.argv[1:8]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
 try: import ft_seat_bind
 except ImportError as e: print(f"ERROR 결속 판정기 없음 {here}/ft_seat_bind.py ({e}) — 은퇴·기록 0"); sys.exit(2)
@@ -86,6 +88,14 @@ def arrival_model():   # ft-successor-open.sh 가 쓴 도달 파일의 model(R28
     return m if isinstance(m, str) and m else None
 if arg: cand = [arg]
 else: cand = [f for f in rosters if isinstance(load(f), dict) and old in load(f)]
+if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번호가 승인) · 행 없음 = R296 ⓐ 만 · 명부 쓰기 0
+    if len(cand) > 1: reject(f"명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정")
+    o = load(cand[0]).get(old) if cand and isinstance(load(cand[0]), dict) else None
+    if not isinstance(o, dict):
+        for f in rosters:
+            if active_in(f): reject(f"{old} 은 {os.path.basename(f)} 의 `_*` 칸 값인데 행이 없음 — 명부 확인")
+        o = {}
+    rec, why = find_resume(o.get("model"), f"verdict {verdict}"); write_record(rec, why); sys.exit(0)
 mkrow = False
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
     base, _, gen = old.rpartition("#"); later = []
