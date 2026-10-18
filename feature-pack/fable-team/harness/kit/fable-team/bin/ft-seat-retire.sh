@@ -10,16 +10,18 @@
 #   R282 ② 은퇴인데 옛 행이 어느 명부에도 없으면(--seats 없음) 이름(ft-name-lint 통과)의 팀 명부(seats.json=v65 · seats-<팀>.json)에 은퇴 행을 만든 뒤 은퇴 — 옛 이름이 «다른» 명부 `_*` 칸에 현역이면 REJECT.
 #   R282 ③ 후계 행 model = 도달 파일(<루트>/.fable-team/state/successor/<구>.json · env FT_SUCCESSOR_DIR)의 model → 없으면 옛 값.
 #   R296 ④ `--record-only` + 행 없음 — ⓐ 옛 이름이 어느 명부 `_*` 칸의 값도 아님 ⓑ 같은 계보로 더 큰 번호가 `_*` 칸에 현역 ⓒ 그 tmux 세션 생존 — 셋 다 참일 때만 기록(retired_by = 그 현역 이름) · 명부 쓰기 0.
+#   R400 `<구> --record-only --verdict <번호>` (판정 2304) — 승계가 아닌 «판정에 의한 닫기»(ft-seat-close --verdict 가 부른다): _replaced_by·R296 ⓑⓒ 없이 결속만으로 기록(retired_by = `verdict <번호>`) · 행 없음(다른 리포 좌석)은 ⓐ 만 · 명부 쓰기 0.
 set -uo pipefail
-OLD="${1:-}"; [ -n "$OLD" ] || { echo "usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--seats <파일>]" >&2; exit 2; }
-shift; NEW=""; RECONLY=0; ARG=""
+USAGE="usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--verdict <번호>] [--seats <파일>]"
+OLD="${1:-}"; [ -n "$OLD" ] || { echo "$USAGE" >&2; exit 2; }
+shift; NEW=""; RECONLY=0; ARG=""; VERDICT=""
 case "${1:-}" in ""|--*) ;; *) NEW="$1"; shift;; esac
-while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-only) RECONLY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
-{ [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ]; } || { echo "usage: $0 <구> <후계> [--seats <파일>] | $0 <구> --record-only [--seats <파일>]" >&2; exit 2; }
+while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-only) RECONLY=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9][0-9A-Za-z._-]*$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+{ [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ] && [ -z "$VERDICT" ]; } || { echo "$USAGE" >&2; exit 2; }
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
-python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<'PY'
-import json, os, re, sys, glob, shutil, datetime, subprocess, collections
-arg, root, old, new, reconly, here = sys.argv[1:7]
+python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" <<'PY'
+import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
+arg, root, old, new, reconly, here, verdict = sys.argv[1:8]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
 try: import ft_seat_bind
 except ImportError as e: print(f"ERROR 결속 판정기 없음 {here}/ft_seat_bind.py ({e}) — 은퇴·기록 0"); sys.exit(2)
@@ -36,7 +38,7 @@ def jsonl_model(jsonl):   # 대화 기록 끝(8MB·2000줄)에서 거꾸로 마�
     for ln in reversed(tail[-2000:]):
         try: r = json.loads(ln)
         except ValueError: continue
-        m = r.get("message") if isinstance(r, dict) and r.get("type") == "assistant" else None
+        m = r.get("message") if isinstance(r, dict) and r.get("type") == "assistant" else r.get("payload") if isinstance(r, dict) and r.get("type") == "turn_context" else None   # codex rollout = turn_context.payload.model (R400)
         m = m.get("model") if isinstance(m, dict) else None
         if isinstance(m, str) and m and not m.startswith("<"): return m   # <synthetic> 같은 자리표시 제외
     return None
@@ -46,6 +48,7 @@ def argv_model(pid):   # 실행 중 프로세스의 `--model X`(접미사 포함
     for i, t in enumerate(a):
         if t == "--model" and i + 1 < len(a): return a[i + 1]
         if t.startswith("--model="): return t[8:] or None
+        if t in ("-c", "--config") and i + 1 < len(a) and a[i + 1].startswith("model="): return a[i + 1][6:].strip("\"'") or None   # codex `-c model=X` (R400)
     return None
 def find_resume(model, retired_by):   # (기록|None, 이유) — 소유 결속은 ft_seat_bind.py 하나(R364): pane pid 자신 ∪ 직계 자식 중 세션 파일 «정확히 1개» + tmux 칸(세션·window·pane)·pid·시작시각. 이름·mtime 추측 0
     b = ft_seat_bind.bind(old)
@@ -54,8 +57,10 @@ def find_resume(model, retired_by):   # (기록|None, 이유) — 소유 결속�
     am, jm, rm = argv_model(pid), jsonl_model(jsonl), (model if isinstance(model, str) and model else None)
     use = am or (rm if rm and (not jm or base_model(rm) == base_model(jm)) else jm or rm)   # zombie-clean resume 이 --model 로 그대로 쓴다 — jsonl 값엔 [1m] 이 없어 200k 창 회귀(r2): argv → 명부(바탕 같으면 접미사 유지) → jsonl → 명부
     if not use: return None, "model 못 읽음(jsonl·명부)"
-    rec = collections.OrderedDict(name=old, engine="claude", pid=b["pid"], uuid=uuid, jsonl=jsonl, cwd=cwd, model=use, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds"), binding=b["binding"])
-    if b.get("name") != old: rec["session_name"] = b.get("name")   # 세션 파일 name(참고 칸) — 소유 증거는 binding
+    eng = b.get("engine", "claude")   # codex 좌석(R400) = rollout 결속 · 재개 = resume_cmd(zombie-clean resume 은 claude 기록만 받는다)
+    rec = collections.OrderedDict(name=old, engine=eng, pid=b["pid"], uuid=uuid, jsonl=jsonl, cwd=cwd, model=use, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds"), binding=b["binding"])
+    if eng == "codex": rec["resume_cmd"] = shlex.join(["codex"] + sh("ps", "-o", "args=", "-p", pid)[1:] + ["resume", uuid])
+    if eng == "claude" and b.get("name") != old: rec["session_name"] = b.get("name")   # 세션 파일 name(참고 칸) — 소유 증거는 binding
     if rm and base_model(rm) != base_model(use): rec["roster_model"] = rm   # 바탕이 다를 때만 — 조용히 덮지 않는다
     return rec, ""
 def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
@@ -86,6 +91,14 @@ def arrival_model():   # ft-successor-open.sh 가 쓴 도달 파일의 model(R28
     return m if isinstance(m, str) and m else None
 if arg: cand = [arg]
 else: cand = [f for f in rosters if isinstance(load(f), dict) and old in load(f)]
+if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번호가 승인) · 행 없음 = R296 ⓐ 만 · 명부 쓰기 0
+    if len(cand) > 1: reject(f"명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정")
+    o = load(cand[0]).get(old) if cand and isinstance(load(cand[0]), dict) else None
+    if not isinstance(o, dict):
+        for f in rosters:
+            if active_in(f): reject(f"{old} 은 {os.path.basename(f)} 의 `_*` 칸 값인데 행이 없음 — 명부 확인")
+        o = {}
+    rec, why = find_resume(o.get("model"), f"verdict {verdict}"); write_record(rec, why); sys.exit(0)
 mkrow = False
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
     base, _, gen = old.rpartition("#"); later = []

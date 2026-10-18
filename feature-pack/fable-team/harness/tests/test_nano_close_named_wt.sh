@@ -94,6 +94,22 @@ setup; out="$(close)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "추측 금지" "인자 없음 → 기존 fail-closed REJECT" || bad "인자 없음 rc=$rc ← ${out:0:300}"
 [ -z "$(cat "$T/tlog")" ] && ok "  └ kill 0" || bad "인자 없음인데 tmux 변경"
 
+echo "== R400 r2 카드 생애 이동 뒤(명부 index=진행/ · 카드는 형제 폴더) — 정확히 1개만 후퇴"
+IXR="$REPO/design/planner/indices"; mkdir -p "$IXR/대기" "$IXR/완성"
+setup; mv "$CARD" "$IXR/완성/ovr.md"
+out="$(HIL_DIR_T="$T/hil-r400" close --wt "$NW" --branch "$BR")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "index=진행/ · 실제 완성/ 1개 → CLOSED(rc=0)" || bad "형제 1개 rc=$rc ← ${out:0:500}"
+has "$out" "INFO 카드 위치 ← $IXR/완성/ovr.md" "  └ INFO 카드 위치 줄"
+has "$out" "OK 증거 줄" "  └ 완성/ 카드로 증거 줄 대조"
+setup; mv "$CARD" "$IXR/완성/ovr.md"; cp "$IXR/완성/ovr.md" "$IXR/대기/ovr.md"; cp "$REPO/.fable-team/seats-planner.json" "$T/seats.orig"
+out="$(HIL_DIR_T="$T/hil-r400" close --wt "$NW" --branch "$BR")"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "⑥카드 못 찾음: seats.json index=design/planner/indices/진행/ovr.md" "index=진행/ · 대기/·완성/ 둘 다 → REJECT ⑥카드 못 찾음" || bad "형제 2개 rc=$rc ← ${out:0:500}"
+has "$out" "형제 2개" "  └ 사유 «형제 2개»"
+hasnt "$out" "INFO 카드 위치" "  └ 후퇴 0(INFO 줄 없음)"
+[ -z "$(cat "$T/tlog")" ] && ok "  └ kill·태그 해제 0" || bad "형제 2개인데 tmux 변경: $(cat "$T/tlog")"
+cmp -s "$REPO/.fable-team/seats-planner.json" "$T/seats.orig" && ok "  └ 명부 바이트 그대로(index 쓰기 0)" || bad "형제 2개인데 명부 변경"
+rm -f "$IXR/대기/ovr.md" "$IXR/완성/ovr.md"
+
 echo "== 전부 맞음 → 통과"
 setup; out="$(close --wt "$NW" --branch "$BR")"; rc=$?
 [ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "전부 맞음 → CLOSED(rc=0)" || bad "통과 rc=$rc ← ${out:0:500}"

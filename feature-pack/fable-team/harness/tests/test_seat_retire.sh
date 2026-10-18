@@ -259,6 +259,63 @@ chk "⑭더 큰 번호 현역 없음 → REJECT rc 1 · 기록 0" "$rc ${out%% *
 R="$(rr_repo h "$SEATS_R2")"; H="$(rm_home rh)"; FAKE_ALIVE="" out="$(ro_run "$R" "$H" "$RN" '' --record-only)"; rc=$?
 chk "⑭현역 세션 죽음 → REJECT rc 1 · 기록 0" "$rc ${out%% *} $([ -e "$H/.claude/state/seat-resume/$RN.json" ] && echo yes || echo no)" "1 REJECT no"
 
+# ⑮ R400 --record-only --verdict <번호> (판정 2304) — 승계 아닌 «판정에 의한 닫기»의 재개 기록 · 명부 쓰기 0
+# ⓖ 현역 행(_replaced_by 없음 · _master 값) → RESUME ok · retired_by = verdict N · 명부 바이트 불변 · .bak 0
+H="$(rs_home vg)"; S="$TMP/seats-vg.json"; printf '{"_master": "M#1", "M#1": {"role": "master", "agent": "claude", "model": "m1", "tick": "t"}}' > "$S"; cp "$S" "$S.orig"
+out="$(HOME="$H" PATH="$FK:$PATH" FAKE_PANE_PID=100 FAKE_CHILDREN="7000 7001" bash "$RETIRE" 'M#1' --record-only --verdict 2304 --seats "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
+chk "⑮ⓖ rc 0 · RESUME ok 한 줄" "$rc $out" "0 RESUME ok $REC"
+chk "⑮ⓖ retired_by = verdict 2304 · model = 명부 · uuid" "$(jq -r '[.retired_by,.model,.uuid]|join(",")' "$REC")" "verdict 2304,m1,$UU1"
+chk "⑮ⓖ 명부 바이트 불변 · .bak 0" "$(cmp -s "$S" "$S.orig" && echo same || echo changed) $(ls "$S".bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "same 0"
+# ⓗ 행 없음(다른 리포 좌석) + 결속 ok → R296 ⓑⓒ 없이 RESUME ok · model = jsonl · 명부 쓰기 0
+R="$(rr_repo vh '{"_master": "byz-room-master-claude#9x"}')"; H="$(rm_home vh)"; F="$R/.fable-team/seats-room.json"; cp "$F" "$F.orig"
+FAKE_ALIVE="" out="$(ro_run "$R" "$H" "$RN" '' --record-only --verdict 2304)"; rc=$?; REC="$H/.claude/state/seat-resume/$RN.json"
+chk "⑮ⓗ rc 0 · RESUME ok(더 큰 번호 현역·생존 없이)" "$rc $out" "0 RESUME ok $REC"
+chk "⑮ⓗ retired_by = verdict 2304 · model = jsonl" "$(jq -r '[.retired_by,.model]|join(",")' "$REC")" "verdict 2304,real-model"
+chk "⑮ⓗ 명부 바이트 불변 · .bak 0" "$(cmp -s "$F" "$F.orig" && echo same || echo changed) $(ls "$R/.fable-team"/*.bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "same 0"
+# ⓗ' 행 없음인데 `_*` 칸 값 → REJECT rc 1 · 기록 0 (R296 ⓐ 유지) · 결속 실패 → NORECORD rc 0
+R="$(rr_repo vh2 "{\"_arch\": \"$RN\"}")"; H="$(rm_home vh2)"; out="$(ro_run "$R" "$H" "$RN" '' --record-only --verdict 2304)"; rc=$?
+chk "⑮ⓗ' 행 없음 + _ 칸 값 → REJECT rc 1 · 기록 0" "$rc ${out%% *} $([ -e "$H/.claude/state/seat-resume/$RN.json" ] && echo yes || echo no)" "1 REJECT no"
+H="$(rs_home vg2)"; rm "$H/.claude/sessions/7001.json"; S="$TMP/seats-vg2.json"; rs_seats "$S"
+out="$(HOME="$H" PATH="$FK:$PATH" FAKE_PANE_PID=100 FAKE_CHILDREN="7000 7001" bash "$RETIRE" 'M#1' --record-only --verdict 2304 --seats "$S")"; rc=$?
+chk "⑮ 결속 실패 → rc 0 · NORECORD · 기록 0" "$rc $(cut -d' ' -f1-2 <<< "$out") $([ -e "$H/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" "0 NORECORD M#1 no"
+# usage — --verdict 는 --record-only 와만 · 값 형식
+for a in "M#1 M#2 --verdict 2304" "M#1 --record-only --verdict" "M#1 --record-only --verdict x"; do
+  bash "$RETIRE" $a --seats "$S" > /dev/null 2>&1; chk "⑮usage [$a] rc 2" "$?" 2
+done
+
+# ⑯ R400 codex 좌석 — claude 세션 파일 0 · pane 100 → npm 200 → node 300 → codex 400 이 rollout 을 열고 있음(가짜 pgrep·ps·lsof)
+FC="$TMP/fakecodex"; mkdir -p "$FC"; cp "$FK/tmux" "$FC/tmux"
+cat > "$FC/pgrep" <<'EOF'
+#!/usr/bin/env bash
+case "$2" in 100) echo 200;; 200) echo 300;; 300) for p in ${FAKE_CODEX:-400}; do echo "$p"; done;; *) exit 1;; esac
+EOF
+cat > "$FC/ps" <<'EOF'
+#!/usr/bin/env bash
+case "$2" in lstart=) echo "Mon Jan  1 00:00:00 2001";; comm=) case "$4" in 400|401) echo /v/bin/codex;; *) echo node;; esac;;
+  args=) echo "/v/bin/codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=low -c model=gpt-x";; *) exit 1;; esac
+EOF
+cat > "$FC/lsof" <<'EOF'
+#!/usr/bin/env bash
+echo "p$4"; for f in ${FAKE_ROLLOUT:-}; do echo "n$f"; done
+EOF
+chmod +x "$FC"/*
+CX=01a149d1-1722-78f3-b6e8-bf86135458b7
+cx_home() { local h="$TMP/cx-$1"; mkdir -p "$h/.claude/sessions" "$h/.codex/sessions/2026/10/17"; local r="$h/.codex/sessions/2026/10/17/rollout-2026-10-17T21-23-22-$CX.jsonl"
+  printf '%s\n' "{\"type\":\"session_meta\",\"payload\":{\"id\":\"$CX\",\"cwd\":\"$WORK\"}}" '{"type":"turn_context","payload":{"model":"gpt-old"}}' > "$r"; echo "$h"; }
+cx_run() { HOME="$1" PATH="$FC:$PATH" FAKE_PANE_PID=100 FAKE_ROLLOUT="$2" bash "$RETIRE" 'M#1' --record-only --verdict 2304 --seats "$3"; }
+H="$(cx_home ok)"; RO="$H/.codex/sessions/2026/10/17/rollout-2026-10-17T21-23-22-$CX.jsonl"; S="$TMP/seats-cx.json"; rs_seats "$S" ''; cp "$S" "$S.orig"
+out="$(cx_run "$H" "$RO" "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
+chk "⑯codex rc 0 · RESUME ok" "$rc $out" "0 RESUME ok $REC"
+chk "⑯기록 engine·uuid·cwd·jsonl·model(argv -c)·retired_by" "$(jq -r '[.engine,.uuid,.cwd,.jsonl,.model,.retired_by]|join(",")' "$REC")" "codex,$CX,$WORK,$RO,gpt-x,verdict 2304"
+chk "⑯resume_cmd = codex <원래 인자> resume <id>" "$(jq -r .resume_cmd "$REC")" "codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=low -c model=gpt-x resume $CX"
+chk "⑯binding pid 400 · source codex-open-fd · session_name 칸 0 · 명부 불변" "$(jq -r '[(.binding.pid|tostring),.binding.source,(has("session_name")|tostring)]|join(",")' "$REC") $(cmp -s "$S" "$S.orig" && echo same || echo changed)" "400,codex-open-fd,false same"
+H="$(cx_home two)"; RO2="$H/.codex/sessions/2026/10/17/rollout-2026-10-17T21-23-22-$CX.jsonl"; out="$(FAKE_CODEX="400 401" cx_run "$H" "$RO2" "$S")"; rc=$?
+chk "⑯codex 프로세스 2개가 rollout 을 엶 → NORECORD(rollout 2개) · 기록 0" "$rc $(cut -d' ' -f1-2 <<< "$out") $(grep -c 'codex rollout 2개' <<< "$out") $([ -e "$H/.claude/state/seat-resume/M#1.json" ] && echo yes || echo no)" "0 NORECORD M#1 1 no"
+H="$(cx_home none)"; out="$(cx_run "$H" "" "$S")"; rc=$?
+chk "⑯rollout 0개 → NORECORD(rollout 0개)" "$rc $(grep -c 'codex rollout 0개' <<< "$out")" "0 1"
+H="$(cx_home badid)"; RO3="$H/.codex/sessions/2026/10/17/rollout-x-other.jsonl"; cp "$H/.codex/sessions/2026/10/17/"rollout-*"$CX".jsonl "$RO3"; out="$(cx_run "$H" "$RO3" "$S")"
+chk "⑯session_meta id ≠ 파일명 끝 → NORECORD(id·cwd 없음)" "$(grep -c 'rollout id·cwd 없음' <<< "$out")" 1
+
 # ⑧ 기존 시험
 for t in test_ft_tick_master_seat.sh test_role_spawn_name.sh test_kit_bin_sync.sh; do
   bash "$HERE/$t" > "$TMP/$t.out" 2>&1; chk "⑧$t rc=0" "$?" 0
