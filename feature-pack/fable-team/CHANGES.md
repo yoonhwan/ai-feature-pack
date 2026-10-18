@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — freeze 훅이 «병합이 가져온 그대로» 인 하네스 파일은 세지 않는다: harness-freeze-gate MERGE_HEAD 대조 (1.1.10)
+
+판정 2323 · 카드 r407 · v65 master#209 [HIL] 110183. 옛 가지에 origin/main 을 병합할 때 충돌을 손으로 풀고 `git commit` 하면, main 이 r386 에서 지운 하네스 877 파일이 staged «이름»으로 잡혀 REJECT 됐습니다(우리 손 0). 충돌 없는 병합은 git 이 커밋까지 끝내 훅을 안 타므로 같은 병합이 충돌 유무로 갈렸습니다.
+
+- **`harness/kit/hooks/harness-freeze-gate.sh`**: MERGE_HEAD 가 있으면 HIT 경로마다 staged 상태(stage 0 블롭)와 MERGE_HEAD 상태를 대조해 같으면 제외 — 같은 블롭 · ★둘 다 없음(main 의 삭제 그대로)★ 포함. 작업 트리 diff(`-a` 등)에 든 경로 · 미해소(stage≠0) · git 을 못 읽음 = 제외 0(그대로 REJECT). 남은 HIT 만 «건드린 파일 N개» · 메시지 끝 `(병합 중 MERGE_HEAD 와 같은 상태(블롭·삭제) M개 제외)`. MERGE_HEAD 없으면 출력 바이트 불변. freeze 표식·4폴더 목록 불변.
+- **카드 편차 1**: 카드는 «둘 다 못 읽으면 제외 0» 이었으나 실제 사건(110183)의 877 파일이 전부 main 쪽 삭제(D)라 그 규칙으로는 그대로 REJECT — 삭제는 «둘 다 없음 = 같은 상태» 로 제외한다. 손 삭제(MERGE_HEAD 에는 있는 파일)는 REJECT(시험 ⓓ).
+- **시험** `test_harness_freeze_gate.sh` 새 절: ⓐ 충돌 손 해소 뒤 commit(추가·삭제 그대로) 통과 ⓑ 손댄 하네스 파일 1개만 REJECT + 제외 표기 ⓑ' 작업 트리만 손댐 + `-am` REJECT ⓓ 손 삭제 REJECT ⓒ MERGE_HEAD 없음 = 고치기 전 훅과 stderr 바이트 동일. 증거 `harness/evidence/r407/test.txt`(실사건 재현: 현행 훅 877개 REJECT → 새 훅 rc0).
+
 ## 2026-10-19 — 공유 루트 cwd 에서 v65·lecture 카드 spawn 이 «팀 명단 없음» 으로 끊기던 것을 고친다: 명단 = ref · 폴더 = 호출 워크트리 실재 1개 (1.1.9)
 
 카드 r406 · planner 판정 2318 · master 110115 · arch#94 재현(`ERROR v65 은 팀 명단(TEAMS.md)에 없다 / REJECT … 선언된 정본 없음: /GOAL-LEDGER-v65.md`). 팀 폴더 전환은 main 에만 착지했는데 lint·spawn 이 «호출 워크트리의 design/TEAMS.md» 를 읽어, 명단이 옛 것인 공유 루트(feat/v6-realtime-live)에서 spawn 이 3회 REJECT 됐습니다.
