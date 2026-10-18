@@ -610,11 +610,14 @@ launchd_watch() {
 # ★R347 유출 부하 경보★ — 좌석이 SIGKILL 로 끊겨 EXIT trap 이 안 돈 busy-loop 고아(2026-10-17 load 151)를 매 루프 «dry-run 으로만» 찾아 planner 큐에 알린다.
 #   틱은 영구히 --kill 을 부르지 않는다(사살 실행자 = 머신 launchd 가드 1). 판정·경보 규칙은 ft-leak-watch.sh · 끄는 스위치 FT_TICK_LEAK_REAP=0.
 leak_watch() {
-  local out
+  local out lw_args=()
   [ "${FT_TICK_LEAK_REAP:-1}" = 1 ] || return 0
   [ -f "$HERE/ft-leak-watch.sh" ] || { echo "$(date '+%F %T') leak_watch: missing $HERE/ft-leak-watch.sh" >&2; return 0; }
-  out="$(FT_TICK_SEATS="$SEATS" FT_TICK_MBOX="$MBOX" bash "$HERE/ft-leak-watch.sh" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)"
-  [ -n "$out" ] && { [ "$DRY" = 1 ] && echo "$out" || log "${out//$'\n'/ | }"; }
+  [ "$DRY" = 1 ] && lw_args=(--dry-run)
+  out="$(FT_TICK_SEATS="$SEATS" FT_TICK_MBOX="$MBOX" bash "$HERE/ft-leak-watch.sh" ${lw_args[@]+"${lw_args[@]}"} 2>&1)"
+  if [ -n "$out" ]; then
+    if [ "$DRY" = 1 ]; then echo "$out"; else log "${out//$'\n'/ | }"; fi
+  fi
   return 0
 }
 

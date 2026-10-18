@@ -76,20 +76,22 @@ STUB
   until_of() { sed -n 's/.*"until":\([0-9a-z]*\).*/\1/p' "$T/state/autonomy.json"; }
   logn() { wc -l < "$T/state/autonomy.log" | tr -d ' '; }
   : > "$GC_CALLS"
+  # 이 구간의 읽기·끄기도 같은 고정 시계(07:00)로 부른다 — 실제 시계로 읽으면 until 이 지난 ON 은 OFF 로 읽힌다(R185 · 판정 1720 ①)
+  local A7="env FT_NOW=$((mid + 7*H)) $A"
   out="$(FT_NOW=$((mid + 7*H)) $A on --until 08:00 2>&1)"; rc=$?
   [ $rc = 0 ] && [ "$(until_of)" = "$((mid + 8*H))" ] && has "$out" '~08:00까지'; r=$?; ck "② --until 08:00 (07:00 에 켬) → 오늘 08:00 · status ~08:00까지 (until=$(until_of))" $r
-  [ "$($A mode)" = on ]; ck "② until 칸 있는 json 이 위변조로 안 읽힘" $?
+  [ "$($A7 mode)" = on ]; ck "② until 칸 있는 json 이 위변조로 안 읽힘" $?
   tail -n 1 <<<"$out" | grep -q '^\[자율 ON A[0-9]* · .*~08:00까지'; ck "② status 마지막 줄에 끝 시각" $?
-  out="$(FT_NOW=$((mid + 8*H)) $A on --until 09:00 2>/dev/null)"
+  out="$($A7 on --until 09:00 2>/dev/null)"
   [ "$(until_of)" = "$((mid + 8*H))" ] && [ "$(wc -l <<<"$out" | tr -d ' ')" = 1 ] && has "$out" '~08:00까지'; ck "② 이미 ON + 인자 → 무시 · status 만 (연장·단축 0)" $?
-  $A off >/dev/null 2>&1
+  $A7 off >/dev/null 2>&1
   FT_NOW=$((mid + 9*H)) $A on --until 08:00 >/dev/null 2>&1
   [ "$(until_of)" = "$((mid + DAY + 8*H))" ]; r=$?; ck "② --until 08:00 (09:00 에 켬 · 이미 지남) → 다음 날 08:00 (until=$(until_of))" $r
-  $A off >/dev/null 2>&1
+  $A7 off >/dev/null 2>&1
   FT_NOW=$((mid + 7*H)) $A on --for 3h >/dev/null 2>&1; [ "$(until_of)" = "$((mid + 10*H))" ]; ck "② --for 3h → +3시간" $?
-  $A off >/dev/null 2>&1
+  $A7 off >/dev/null 2>&1
   FT_NOW=$((mid + 7*H)) $A on --for 90m >/dev/null 2>&1; [ "$(until_of)" = "$((mid + 7*H + 5400))" ]; ck "② --for 90m → +90분" $?
-  $A off >/dev/null 2>&1
+  $A7 off >/dev/null 2>&1
   out="$($A on 2>&1)"; [ "$(until_of)" = null ] && has "$out" '끝 없음'; ck "② 인자 없음 → until null · 끝 없음 표시" $?
   $A off >/dev/null 2>&1; : > "$GC_CALLS"; cnt0=$(logn)
   for bad in "--until 08:00 --for 3h" "--for 3h --until 08:00" "--until 25:00" "--until 8" "--until 08:60" "--until" "--for 3d" "--for 0h" "--for h" "--for" "--bogus 1"; do
