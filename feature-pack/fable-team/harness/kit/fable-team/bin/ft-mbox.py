@@ -19,6 +19,7 @@ import fcntl
 import hashlib
 import shutil
 import glob
+import subprocess
 
 MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
@@ -80,16 +81,47 @@ def _repo_root(start):
     return None  # ★F4: .fable-team 조상이 없으면 정본을 «유도할 수 없다» — 조용히 만들지 않는다.
 
 
+def _cwd_common_comm():
+    """③ cwd 의 git 공용 루트 `<루트>/.fable-team/comm` — ★«이미 실재» 할 때만★ (r403 · 2026-10-19).
+
+    라이브 bin(`~/.claude/fable-team/live/<v>/bin`)엔 `.fable-team` 조상이 없어 ② 가 늘 None 이다
+    (cwd 무관 NO_MAILBOX_ROOT · master 109989 실측). 그래서 «부른 곳의 리포 루트» 를 본다 —
+    워크트리여도 `--git-common-dir` 의 부모는 리포 루트라 워크트리 «안» 을 정본으로 잡지 않는다.
+    ★실재 조건이라 우편함을 새로 파지 않는다(F4)★. 반환 = (루트|None, comm|None).
+    """
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, timeout=7,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None, None
+    if r.returncode != 0 or not r.stdout.strip():
+        return None, None
+    root = os.path.dirname(r.stdout.strip())
+    comm = os.path.join(root, ".fable-team", "comm")
+    return root, (comm if os.path.isdir(comm) else None)
+
+
 _ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
+# ★루트 순서 (r403 · sh `_mbox_dir` 와 같은 걸음)★: ①명시 FT_MBOX_DIR ②스크립트 조상 `.fable-team`
+#   ③cwd git 공용 루트의 `.fable-team/comm` «실재» ④NO_MAILBOX_ROOT rc2.
 # ★명시가 추론을 이긴다★ — env 로 준 FT_MBOX_DIR 은 그대로 존중한다(이전엔 래퍼가 덮어썼다).
-# ★F4: env 도 조상도 없으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
+# ★F4: 어느 단계도 못 찾으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
 CANON = os.environ.get("FT_MBOX_DIR") or (
     os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None
 )
-if not CANON:
-    sys.stderr.write("NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n")
-    sys.exit(2)
-os.makedirs(CANON, exist_ok=True)
+if CANON:
+    os.makedirs(CANON, exist_ok=True)  # 생성은 ①② 만 — ③ 은 실재 조건이다.
+else:
+    _GIT_ROOT, CANON = _cwd_common_comm()
+    if not CANON:
+        sys.stderr.write(
+            "NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n"
+            "cwd 공용 루트 %s 에도 comm 없음\n" % (_GIT_ROOT or "(git 리포 아님)")
+        )
+        sys.exit(2)
+    _ROOT = _GIT_ROOT
 
 
 def _legacy_dirs():

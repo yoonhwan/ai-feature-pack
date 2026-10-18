@@ -35,7 +35,7 @@ pane_of() {
 #   ★없으면 지금까지의 문자열 그대로다★ — ring 처럼 «큐에 넣지 않고 울리기만» 하는
 #   호출부는 실을 seq 가 없다. 없는 번호를 지어내면 그 번호가 가리키는 것이 아무것도 없다.
 doorbell() {
-  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last _ppid _msg
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" dbcomm="${4:-}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last _ppid _msg _env
   # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 지금 호출부는 우리
   #   자신의 py 출력(`seq=<digits>`)에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부
   #   신뢰»에 맡기지 않는다(세션명 allowlist 와 같은 이유). 이상하면 조용히 버리고 무번호로 간다.
@@ -117,10 +117,17 @@ doorbell() {
   #   653자 본문도 «통째로» 한 줄에 담고 줄바꿈이 0개다(pane 의 폭 기반 줄바꿈은 기록에
   #   안 섞인다). ⇒ 마커 길이는 판정에 무관하다. ★이 구분을 지우지 마라★ — 근거를
   #   「짧아야 판정된다」로 잘못 적으면 다음 사람이 판정 층을 다시 pane 으로 되돌린다.
+  # ★정본 우편함을 명시 env 로 싣는다★ (r403 · 2026-10-19) — 라이브 bin 은 조상 유도가 안 되므로
+  #   받는 좌석의 cwd 가 무엇이든 «보낸 우편함» 을 열게 `FT_MBOX_DIR=<절대경로>` 1토큰을 명령 앞에 둔다.
+  #   머리 `[발주 #N]` 첫 토큰은 불변(ft-send-verified 판정 영향 0). 경로도 allowlist(명령 삽입 차단).
+  _env=""
+  case "$dbcomm" in
+    /*) case "$dbcomm" in *[!A-Za-z0-9._/#-]*) echo "WARN doorbell 우편함 경로 allowlist 밖 — env 없이 주입: $dbcomm" >&2 ;; *) _env="FT_MBOX_DIR=$dbcomm " ;; esac ;;
+  esac
   if [ -n "$dbseq" ]; then
-    _msg="[발주 #$dbseq] bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+    _msg="[발주 #$dbseq] ${_env}bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
   else
-    _msg="[발주 도착] bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+    _msg="[발주 도착] ${_env}bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
   fi
   tmux send-keys -t "$pane" -l "$_msg" 2>/dev/null || true
   sleep 0.3
@@ -139,21 +146,12 @@ doorbell() {
 #   옛 호출부(틱 스크립트·좌석 습관)가 한동안 남기 때문이고, 무시해야 이 결정이 «강제»가 된다.
 #   레지스트리 경로: 정본 우편함 옆 (<루트>/.fable-team/seats.json). env FT_SEATS_JSON 이 이긴다.
 #   ★팩에서는 우편함 자리를 py 가 정한다(위 2026-08-25 주석)★ — 셸은 같은 규칙을 «그대로» 따라간다:
-#   FT_MBOX_DIR 이 있으면 그 옆, 없으면 스크립트 위치에서 `.fable-team` 조상 → `.worktrees` 조상(있으면 그 부모)
-#   = py `_repo_root` 와 같은 걸음. 못 찾으면 빈 값 → notify_policy 가 ring(fail-loud).
+#   우편함 자리(`_mbox_dir` · py CANON 과 같은 순서)의 옆 = `<comm>/../seats.json`.
+#   못 찾으면 빈 값 → notify_policy 가 ring(fail-loud).
 _seats_json() {
   [ -n "${FT_SEATS_JSON:-}" ] && { printf '%s' "$FT_SEATS_JSON"; return; }
-  [ -n "${FT_MBOX_DIR:-}" ] && { printf '%s/../seats.json' "$FT_MBOX_DIR"; return; }
-  local d="$BINDIR" root=""
-  while [ "$d" != "/" ]; do
-    if [ "$(basename "$d")" = ".fable-team" ]; then
-      root="$(dirname "$d")"; local a="$root"
-      while [ "$a" != "/" ]; do [ "$(basename "$a")" = ".worktrees" ] && { root="$(dirname "$a")"; break; }; a="$(dirname "$a")"; done
-      break
-    fi
-    d="$(dirname "$d")"
-  done
-  [ -n "$root" ] && printf '%s/.fable-team/seats.json' "$root"
+  local md; md="$(_mbox_dir)"
+  [ -n "$md" ] && printf '%s/../seats.json' "$md"
 }
 # echoes: quiet | ring — 판정 불가(파일 없음·JSON 깨짐)는 ring (fail-loud 쪽).
 notify_policy() {
@@ -175,6 +173,62 @@ PYEOF
 # doorbell 은 그때 무번호 문자열로 간다(조용히 틀린 번호를 싣지 않는다).
 seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
+# 인박스 적재(판정 425-B · R180) — comm/mbox.sh 의 inbox_ingest·inbox_must_ring 과 같은 계약: 전송 직후 1줄 · 실패는 stderr WARN, 전송 rc 불변.
+#   적재 줄 `INGEST … cls=<분류>` 의 분류를 INBOX_CLS 에 둔다. 적재 본체(규칙표·중복 seq SKIP)는 ft-inbox 한 곳 — 여기는 부르기만 한다.
+#   ★적재 루트 = «py 가 실제 고른 우편함»에서만 유도한다★ (DA⑥ H1) — ft-mbox.py CANON 과 같은 순서: ①FT_MBOX_DIR ②스크립트 위 `.fable-team` 조상(`.worktrees` 조상이 있으면 그 부모)의 .fable-team/comm
+#   ③cwd git 공용 루트의 .fable-team/comm «실재» 할 때만(r403 · 라이브 bin) ④빈 값.
+#   env FT_ROOT 는 보지 않는다(py 가 안 보므로 — 보면 전송한 우편함과 다른 곳에서 쪽지를 찾아 큐 0). ft-inbox 에는 FT_ROOT=<우편함 두 단계 위> 로 덮어 넘긴다.
+_mbox_dir() {
+  [ -n "${FT_MBOX_DIR:-}" ] && { printf '%s' "$FT_MBOX_DIR"; return; }
+  local d="$BINDIR" root="" gc
+  while [ "$d" != "/" ]; do
+    if [ "$(basename "$d")" = ".fable-team" ]; then
+      root="$(dirname "$d")"; local a="$root"
+      while [ "$a" != "/" ]; do [ "$(basename "$a")" = ".worktrees" ] && { root="$(dirname "$a")"; break; }; a="$(dirname "$a")"; done
+      break
+    fi
+    d="$(dirname "$d")"
+  done
+  [ -n "$root" ] && { printf '%s/.fable-team/comm' "$root"; return; }
+  gc="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
+  [ -n "$gc" ] && [ -d "$(dirname "$gc")/.fable-team/comm" ] && printf '%s/.fable-team/comm' "$(dirname "$gc")"
+}
+# py `QUEUED … file=<우편함>/mailbox.jsonl` 에서 «이번 send 가 실제로 쓴» 우편함 절대경로. 못 뽑으면 빈 값.
+comm_of() {
+  local f; f="$(printf '%s\n' "$1" | grep -oE 'file=[^ ]+' | head -1 | cut -d= -f2-)"
+  [ -n "$f" ] && (cd "$(dirname "$f")" 2>/dev/null && pwd)
+}
+inbox_ingest() {
+  INBOX_CLS=""; [ -n "$1" ] || return 0
+  local o md root
+  md="$(_mbox_dir)"; md="$(cd "$md" 2>/dev/null && pwd -P)"
+  case "$md" in
+    */.fable-team/comm) root="${md%/.fable-team/comm}" ;;
+    *) echo "WARN inbox ingest 건너뜀 — 우편함 경로가 <루트>/.fable-team/comm 꼴 아님: ${md:-$(_mbox_dir)} (쪽지 전송은 완료)" >&2; return 0 ;;
+  esac
+  o="$(FT_ROOT="$root" bash "$BINDIR/ft-inbox.sh" ingest "$1" 2>/dev/null)" || { echo "WARN inbox ingest 실패 seq=$1 (쪽지 전송은 완료)" >&2; return 0; }
+  INBOX_CLS="$(printf '%s\n' "$o" | sed -n 's/^INGEST .* cls=\([^ ]*\) .*/\1/p' | head -1)" || INBOX_CLS=""
+  return 0
+}
+# ①~④·미상(보고 의무 분류)이면 받는 좌석의 tick 유무와 무관하게 울린다. ⑤⑥·적재 실패·SKIP 은 notify_policy 그대로.
+inbox_must_ring() { case "$INBOX_CLS" in ①|②|③|④|미상) return 0;; *) return 1;; esac; }
+
+# ★오빠 대면 좌석(현역 planner = seats-planner.json `_master`)에는 doorbell 을 주입하지 않는다 — 큐만 적재(판정 876 · comm/mbox.sh user_facing 과 같은 계약).
+#   doorbell 이 오빠가 치는 문장 중간에 끼어 절단된다. --urgent·분류 ①~④ 도 이 좌석엔 울리지 않는다. 명시적 `ring` 명령만 예외. 판정 불가(레지스트리 경로·파일 없음·깨짐)는 기존대로(울림).
+user_facing() {
+  local sj pj; sj="$(_seats_json)"; [ -n "$sj" ] || return 1
+  pj="$(dirname "$sj")/seats-planner.json"
+  [ -f "$pj" ] || return 1
+  python3 - "$pj" "$1" <<'PYEOF' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
+PYEOF
+}
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
@@ -193,8 +247,18 @@ case "$cmd" in
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # py가 allowlist 검증(BAD_SESSION_NAME exit 1) + 발신 가드(BLOCKED exit 3) + 큐잉.
     # 거부되면 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
-    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} ${dispatch[@]+"${dispatch[@]}"})" || exit $?
-    if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf" "$(seq_of "$py_out")")"; else db=quiet; fi
+    # 사건 원장 훅(PLAN-status-sheet §3-1): 머리 [정지 레디]·[완료]·[완료·휴식] 만 — 본문 sha16 키 · prepared 못 쓰면 적재 0
+    SE="$BINDIR/ft-sheet-events.sh"; SK=""
+    if [ -f "$SE" ]; then SK="$(bash "$SE" key mbox "$from" "${args[*]}" 2>/dev/null)"; fi
+    if [ -n "$SK" ]; then
+      bash "$SE" prepare "$SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' "${SK%%:*}" "" "" "$from" "" mbox)" >/dev/null || { echo "REJECT 사건 원장 prepared 실패 — 큐 적재 0" >&2; exit 1; }
+    fi
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} ${dispatch[@]+"${dispatch[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; exit $_rc; }
+    [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $(seq_of "$py_out")" >/dev/null || true
+    inbox_ingest "$(seq_of "$py_out")"
+    if inbox_must_ring; then notify=1; fi
+    if user_facing "$to"; then notify=0; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell "$to" "$dbf" "$(seq_of "$py_out")" "$(comm_of "$py_out")")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
   relay)
@@ -212,7 +276,10 @@ case "$cmd" in
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
-    if [ "$notify" = 1 ]; then db="$(doorbell "$to" 0 "$(seq_of "$py_out")")"; else db=quiet; fi
+    inbox_ingest "$(seq_of "$py_out")"
+    if inbox_must_ring; then notify=1; fi
+    if user_facing "$to"; then notify=0; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell "$to" 0 "$(seq_of "$py_out")" "$(comm_of "$py_out")")"; else db=quiet; fi
     echo "$py_out doorbell=$db"
     ;;
   recv)  me="${1:?me}"; shift
@@ -227,6 +294,7 @@ case "$cmd" in
   #   ★force=1★ — 재발주는 «반드시» 창에 떠야 한다. 시간·outstanding 억제에 걸려 아무것도
   #   안 뜨면 그건 미도달과 구분이 안 된다. 억제의 취지는 홍수 방지지 재발주 봉쇄가 아니다.
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
-         db="$(doorbell "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
+         _rc_md="$(_mbox_dir)"; _rc_md="$( [ -n "$_rc_md" ] && cd "$_rc_md" 2>/dev/null && pwd )"
+         db="$(doorbell "$sess" 1 "${2:-}" "$_rc_md")"; echo "RING $sess doorbell=$db" ;;
   *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
 esac

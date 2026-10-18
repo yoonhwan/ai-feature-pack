@@ -1,0 +1,111 @@
+# r403 시험 원문 (2026-10-19 · 팩 가지 nano/r403-mbox-live-bin-root · 코드 커밋 a5cfbedb)
+
+## bash harness/tests/test_mbox_root_resolve.sh  rc=0
+ok   ⓐ 명시 FT_MBOX_DIR · cwd=/tmp rc0
+ok   ⓑ cwd 워크트리 → 리포 루트 comm rc0 · 워크트리 생성 0
+ok   ⓑ sh·py 같은 루트(file=리포 comm · seats tick → quiet)
+ok   ⓒ cwd=/tmp → NO_MAILBOX_ROOT rc2 · 새 comm 0
+ok   ⓓ doorbell 줄 글자 그대로 · 머리 [발주 #N] 첫 토큰
+ok   ⓓ doorbell 줄을 cwd=/tmp 에서 실행 → READ #1603
+ok   ⓔ 옛 꼴 조상 유도 불변(peek rc0 · send file=리포 comm)
+PASS=7 FAIL=0
+
+## bash harness/tests/test_ft_mbox_inbox_ingest.sh  rc=0
+PASS ⓐ send rc 0
+PASS ⓐ 받는 계보 큐(rcv-a.jsonl)에 그 seq 행 1
+PASS ⓐ relay 도 받는 계보 큐에 그 seq 행 1
+PASS ⓒ 같은 seq 재적재 2회 뒤에도 큐 행 1
+PASS ⓓ tick 있는 좌석 + ① → doorbell 울림(absent)
+PASS ⓓ tick 있는 좌석 + ② → doorbell 울림(absent)
+PASS ⓓ tick 있는 좌석 + ③ → doorbell 울림(absent)
+PASS ⓓ tick 있는 좌석 + ④ → doorbell 울림(absent)
+PASS ⓓ tick 있는 좌석 + 미상 → doorbell 울림(absent)
+PASS ⓓ tick 있는 좌석 + ⑤ → quiet 그대로
+PASS ⓓ tick 있는 좌석 + ⑥ → quiet 그대로
+PASS ⓓ tick 없는 좌석 + ⑥ → 기존 규칙대로 울림
+PASS ⓑ 적재 실패여도 send rc 0
+PASS ⓑ 적재 실패 + tick 있는 좌석 → 기존 규칙(quiet)
+PASS ⓑ 적재 실패는 stderr WARN
+PASS ⓑ 큐 행 0 (적재 안 됨 — 조용한 0 아님: WARN 있음)
+PASS ⓔ 변이 사본: 적재 호출 0
+PASS ⓔ 변이(적재 호출 제거) → 큐 행 0 이라 ⓐ 단언이 잡는다
+PASS ⓕ 대면 좌석 + ① → doorbell=quiet
+PASS ⓕ 대면 좌석 + ① → 큐 행 1(적재는 그대로)
+PASS ⓕ 대면 좌석 + --urgent → doorbell=quiet
+PASS ⓕ 대면 좌석 + relay ② → doorbell=quiet
+PASS ⓕ 대면 아닌 좌석 + ② → 지금 그대로 울림
+PASS ⓕ 명시 ring 은 대면 좌석에도 울림(예외)
+PASS ⓕ seats-planner.json 없음 → 판정 불가는 기존대로 울림
+PASS ⓖ 변이 사본: 억제 줄 0
+PASS ⓖ 변이(억제 제거) → 대면 좌석 ① 이 울려 ⓕ 단언이 잡는다(absent)
+PASS ⓗ FT_MBOX_DIR≠FT_ROOT send rc 0
+PASS ⓗ A 우편함에 쪽지 행 1
+PASS ⓗ A 큐(rcv-h.jsonl)에 그 seq 행 1
+PASS ⓗ B 큐 행 0
+PASS ⓘ 변이(FT_ROOT 우선) → A 큐 행 0 이라 ⓗ 단언이 잡는다
+PASS ⓙ 꼴 아닌 FT_MBOX_DIR → send rc 0
+PASS ⓙ stderr WARN
+PASS ⓙ 큐 행 0 (적재 안 함)
+PASS bash -n ft-mbox.sh
+ALL PASS
+
+## bash harness/tests/test_mbox_inbox_notify_reply_rate.sh  rc=0
+PASS tick 있는 좌석 + ① → doorbell 울림(absent)
+PASS tick 있는 좌석 + ② → doorbell 울림(absent)
+PASS tick 있는 좌석 + ③ → doorbell 울림(absent)
+PASS tick 있는 좌석 + ④ → doorbell 울림(absent)
+PASS tick 있는 좌석 + 미상 → doorbell 울림(absent)
+PASS tick 있는 좌석 + ⑤ → quiet 그대로
+PASS tick 있는 좌석 + ⑥ → quiet 그대로
+PASS tick 없는 좌석 + ⑥ → 기존 규칙대로 울림
+PASS tick 없는 좌석 + ② → 울림
+PASS --urgent 는 ⑤ 도 그대로 울림
+PASS 오빠 대면 좌석 + ① → doorbell=quiet
+PASS 오빠 대면 좌석 + ② → doorbell=quiet
+PASS 오빠 대면 좌석 + ③ → doorbell=quiet
+PASS 오빠 대면 좌석 + ④ → doorbell=quiet
+PASS 오빠 대면 좌석 + 미상 → doorbell=quiet
+PASS 오빠 대면 좌석 + ⑥ → doorbell=quiet
+PASS 오빠 대면 좌석 + --urgent → doorbell=quiet
+WARN 미등록 planner-uf#7 — 전송
+WARN [HIL] 본문에 ①막힌 명령,②막은 훅·사유,④선택지 줄 없음 — 전송은 한다
+WARN 오빠 명령 줄 판정기 없음 — 검사 없이 전송 (설치 순서)
+PASS 오빠 대면 좌석 + relay ② → doorbell=quiet
+PASS 대면 아닌 좌석(tick 없음) + ② → 지금 그대로 울림
+PASS 대면 아닌 좌석(tick 있음) + ② → 지금 그대로 울림
+PASS 명시 ring 은 대면 좌석에도 울림(예외)
+PASS seats-planner.json 없음 → 판정 불가는 기존대로 울림
+PASS 적재 실패여도 send rc 0
+PASS 적재 실패 + tick 있는 좌석 → 기존 규칙(quiet)
+PASS 적재 실패는 stderr WARN
+PASS 회신 6건/60초(서로 다른 받은 seq) → 막힘 0 · RATE_LIMIT 0
+PASS recv 로 큐에서 빠진 뒤의 회신도 면제(rc 0)
+PASS 비회신 1번째 통과
+PASS 비회신 2번째 통과
+PASS 비회신 3번째 통과
+PASS 비회신 4번째 통과
+PASS 비회신 5번째 통과
+PASS 비회신 6번째 → 막힘(exit 3)
+PASS 비회신 6번째 사유 = RATE_LIMIT
+PASS ① 받은 seq 를 「PR #seq 업데이트」로 적으면 면제 0 → 3번째 막힘
+PASS ① 「Issue #seq」 → 면제 0
+PASS ① 접두 없는 「#seq」 → 면제 0
+PASS ② 「쪽지 #seq」 → 면제(3번째 통과)
+PASS ③ 「쪽지 #S1·#S2」 → 면제(rc 0)
+PASS ③ 가드 기록 r = [S1,S2]
+PASS ④ 첫 인용 면제(0) · 같은 seq 두 번째 인용은 셈 포함 → RATE_LIMIT(3)
+PASS ⑤ send 1건당 면제 계산 1회 · record 가 같은 결과(r=[seq])
+PASS ⑥ 옛 기록 r:1(int) 혼재 → 예외 0 · 중복 판정에 안 씀
+PASS 변이: 「쪽지」 접두 조건을 빼면 ①(PR #seq)이 면제돼 시험이 잡는다(3번째 rc 0)
+PASS 변이: seq 중복 판정을 빼면 ④ 두 번째 인용이 면제돼 시험이 잡는다(0 0)
+PASS bash -n mbox.sh
+ALL PASS
+
+## bash harness/tests/test_mbox_lineage.sh  rc=1 — base 252ce484 에서도 같은 rc=1 FAILED 9 (픽스처 feature-pack/fable-team/tests/fixtures/mbox_guard 가 팩에 없음 · 시험 대상 harness/comm/mbox*.py 는 이 가지 변경 0)
+PASS ⓖ drift: 라이브 1바이트 변경 = DRIFT
+PASS ⓖ 변이: MAP 행 제거 → 미감시(출력 줄 0) 확인
+FAILED 9
+base: FAILED 9
+
+## 정적
+bash -n ft-mbox.sh · test_mbox_root_resolve.sh OK · python3 -m py_compile ft-mbox.py OK · 키트↔skill/scripts 짝 2 cmp0 · 추가 줄 600/300 0

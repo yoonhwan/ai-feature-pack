@@ -9,11 +9,21 @@ v6-realtime-live mbox.py 계승 + 팩 추가분: FT_MBOX_DIR 경로 주입·세�
 union 을 두는 이유 — 경로를 «순간에» 바꾸면 바꾸기 직전 큐잉된 메시지가 옛 파일에 남아
 ★아무도 안 읽는다★. 레거시가 전부 0행이 되면 그때 걷어낸다(그 판단은 별도).
 """
-import sys, os, re, json, time, fcntl, hashlib, shutil, glob
+
+import sys
+import os
+import re
+import json
+import time
+import fcntl
+import hashlib
+import shutil
+import glob
+import subprocess
 
 MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
-NAME_RE = re.compile(r'^[A-Za-z0-9._#-]+$')
+NAME_RE = re.compile(r"^[A-Za-z0-9._#-]+$")
 
 # ── 발신 규율 물리 가드 (COMM-GUIDE §1.5) ──────────────────────────────
 # 홍수는 사용자 입력을 막고, ring(MAX_PER_TO) 상한을 넘긴 메시지를 조용히 유실시킨다.
@@ -25,15 +35,15 @@ NAME_RE = re.compile(r'^[A-Za-z0-9._#-]+$')
 #     ③recv 가 잘라 읽고 전문 경로를 함께 준다.
 #   받는 쪽 컨텍스트는 그대로 보호되고(태우는 것은 «읽는 쪽»이다), 보내는 쪽은 아무것도
 #   잃지 않는다. relay 는 여전히 최선이다 — 사람이 쓴 요약은 기계 절단이 못 만든다.
-MAX_BODY = int(os.environ.get("FT_MBOX_MAX_BODY") or 700)        # 본문 «절단» 기준(3~5줄)
+MAX_BODY = int(os.environ.get("FT_MBOX_MAX_BODY") or 700)  # 본문 «절단» 기준(3~5줄)
 FANOUT_WIN = int(os.environ.get("FT_MBOX_FANOUT_WINDOW") or 600)  # 동일 본문 다중 좌석 판정 창(초)
-RATE_N = int(os.environ.get("FT_MBOX_RATE_N") or 5)               # from당 발신 건수
-RATE_WIN = int(os.environ.get("FT_MBOX_RATE_WINDOW") or 60)       # 그 창(초)
+RATE_N = int(os.environ.get("FT_MBOX_RATE_N") or 5)  # from당 발신 건수
+RATE_WIN = int(os.environ.get("FT_MBOX_RATE_WINDOW") or 60)  # 그 창(초)
 # ★2026-09-02 재발신 쿨다운★ — 큐잉은 «가져가기» 방식이므로 pending 동안 재발신 금지.
 # N초 경과 후 1회 허용(재발신이 기록을 갱신하므로 자연히 «1회씩»). 그 전엔 pane 캡처로 확인.
 RESEND_COOL = int(os.environ.get("FT_MBOX_RESEND_COOLDOWN") or 300)
-RECV_LIMIT = int(os.environ.get("FT_MBOX_RECV_LIMIT") or 5)       # recv 기본 표시 건수
-RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"    # 긴 본문의 정본 자리
+RECV_LIMIT = int(os.environ.get("FT_MBOX_RECV_LIMIT") or 5)  # recv 기본 표시 건수
+RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"  # 긴 본문의 정본 자리
 # ★2026-09-06 — 전문 파일은 «시간»으로 자른다★
 #   bodies/<seq>.txt 는 행이 recv 로 소비돼도 남는다. 그래야 하는 이유가 있다 —
 #   그 경로는 보고서·인계 문서에 «인용»되어 3~4일 뒤에 열린다(실측). 소비 시점에
@@ -41,7 +51,7 @@ RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"    # 긴 본문�
 #   14일 근거: 좌석 수명 실측 median 2.6일 · p90/max 4.2일 → p90 의 3배 여유.
 #   비용은 건당 4KB(gitignore 아래)라 여유를 크게 잡는 편이 싸다.
 BODIES_TTL_DAYS = int(os.environ.get("FT_MBOX_BODIES_TTL_DAYS") or 14)
-BODIES_PRUNE_EVERY = 3600   # 청소 주기(초) — 매 send 마다 listdir 하지 않는다.
+BODIES_PRUNE_EVERY = 3600  # 청소 주기(초) — 매 send 마다 listdir 하지 않는다.
 
 
 def _repo_root(start):
@@ -71,14 +81,47 @@ def _repo_root(start):
     return None  # ★F4: .fable-team 조상이 없으면 정본을 «유도할 수 없다» — 조용히 만들지 않는다.
 
 
+def _cwd_common_comm():
+    """③ cwd 의 git 공용 루트 `<루트>/.fable-team/comm` — ★«이미 실재» 할 때만★ (r403 · 2026-10-19).
+
+    라이브 bin(`~/.claude/fable-team/live/<v>/bin`)엔 `.fable-team` 조상이 없어 ② 가 늘 None 이다
+    (cwd 무관 NO_MAILBOX_ROOT · master 109989 실측). 그래서 «부른 곳의 리포 루트» 를 본다 —
+    워크트리여도 `--git-common-dir` 의 부모는 리포 루트라 워크트리 «안» 을 정본으로 잡지 않는다.
+    ★실재 조건이라 우편함을 새로 파지 않는다(F4)★. 반환 = (루트|None, comm|None).
+    """
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, timeout=7,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None, None
+    if r.returncode != 0 or not r.stdout.strip():
+        return None, None
+    root = os.path.dirname(r.stdout.strip())
+    comm = os.path.join(root, ".fable-team", "comm")
+    return root, (comm if os.path.isdir(comm) else None)
+
+
 _ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
+# ★루트 순서 (r403 · sh `_mbox_dir` 와 같은 걸음)★: ①명시 FT_MBOX_DIR ②스크립트 조상 `.fable-team`
+#   ③cwd git 공용 루트의 `.fable-team/comm` «실재» ④NO_MAILBOX_ROOT rc2.
 # ★명시가 추론을 이긴다★ — env 로 준 FT_MBOX_DIR 은 그대로 존중한다(이전엔 래퍼가 덮어썼다).
-# ★F4: env 도 조상도 없으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
-CANON = os.environ.get("FT_MBOX_DIR") or (os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None)
-if not CANON:
-    sys.stderr.write("NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n")
-    sys.exit(2)
-os.makedirs(CANON, exist_ok=True)
+# ★F4: 어느 단계도 못 찾으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
+CANON = os.environ.get("FT_MBOX_DIR") or (
+    os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None
+)
+if CANON:
+    os.makedirs(CANON, exist_ok=True)  # 생성은 ①② 만 — ③ 은 실재 조건이다.
+else:
+    _GIT_ROOT, CANON = _cwd_common_comm()
+    if not CANON:
+        sys.stderr.write(
+            "NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n"
+            "cwd 공용 루트 %s 에도 comm 없음\n" % (_GIT_ROOT or "(git 리포 아님)")
+        )
+        sys.exit(2)
+    _ROOT = _GIT_ROOT
 
 
 def _legacy_dirs():
@@ -109,10 +152,12 @@ def _legacy_dirs():
     return out
 
 
-def _mbox(d): return os.path.join(d, "mailbox.jsonl")
+def _mbox(d):
+    return os.path.join(d, "mailbox.jsonl")
 
 
-def _bodies_dir(d): return os.path.join(d, "bodies")
+def _bodies_dir(d):
+    return os.path.join(d, "bodies")
 
 
 def _stash_body(d, seq, body):
@@ -192,7 +237,7 @@ def _prune_bodies(d):
                 if os.path.getmtime(p) < cutoff:
                     os.remove(p)
             except OSError:
-                pass   # 한 건이 안 지워져도 나머지는 계속 지운다.
+                pass  # 한 건이 안 지워져도 나머지는 계속 지운다.
     except Exception:
         pass
 
@@ -246,8 +291,10 @@ def _load(d):
         for ln in open(p, encoding="utf-8"):
             ln = ln.strip()
             if ln:
-                try: rows.append(json.loads(ln))
-                except Exception: pass
+                try:
+                    rows.append(json.loads(ln))
+                except Exception:
+                    pass
     return rows
 
 
@@ -264,7 +311,8 @@ def _locked(d, fn):
     try:
         return fn()
     finally:
-        fcntl.flock(lf, fcntl.LOCK_UN); lf.close()
+        fcntl.flock(lf, fcntl.LOCK_UN)
+        lf.close()
 
 
 _GUARD = os.path.join(CANON, ".mbox-guard.json")
@@ -291,6 +339,11 @@ def _guard_record(to, frm, body):
         json.dump(log[-200:], f)
 
 
+def _is_tool_sender(frm):
+    """도구 발신자 = `ft-` 접두 + `#N` 없음(예 `ft-head-lag`) — 팀당 1통 fan-out 이 일이라 FANOUT·RATE 면제(R380). `--dispatch` 면제(doorbell 강제)와 별개."""
+    return frm.startswith("ft-") and "#" not in frm
+
+
 def _guard_verdict(to, frm, body, dispatch=False):
     """통과면 None, 아니면 (reason, hint). 판정만 하고 기록은 _guard_record 가 한다."""
     if not body.strip():
@@ -305,33 +358,63 @@ def _guard_verdict(to, frm, body, dispatch=False):
     log = _guard_log()
     h = _body_hash(body)
     # ★F1: 발신 기록 시각이 아니라 «실제 큐»에 같은 본문이 pending 인지로 판정 — 소비됐으면 통과.
-    dup = next((r for r in _load(CANON) if r.get("from") == frm
-                and r.get("to") == to and _body_hash(r.get("body", "")) == h), None)
-    last = max((r.get("t", 0) for r in log
-                if r.get("f") == frm and r.get("to") == to and r.get("h") == h), default=0)
+    dup = next(
+        (
+            r
+            for r in _load(CANON)
+            if r.get("from") == frm and r.get("to") == to and _body_hash(r.get("body", "")) == h
+        ),
+        None,
+    )
+    last = max(
+        (r.get("t", 0) for r in log if r.get("f") == frm and r.get("to") == to and r.get("h") == h),
+        default=0,
+    )
     if dup and last and now - last < RESEND_COOL:
-        return ("RESEND_COOLDOWN from=%s to=%s seq=%s %ds<%ds"
-                % (frm, to, dup.get("seq"), int(now - last), RESEND_COOL),
-                "같은 본문이 큐에 pending(seq=%s) — 받는 쪽이 «가져갈» 때까지 기다린다. "
-                "pending 동안 재발신 금지. 수신 여부가 궁금하면 pane 캡처로 확인하고, "
-                "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
-                % (dup.get("seq"), RESEND_COOL))
-    others = sorted({r["to"] for r in log
-                     if r.get("f") == frm and r.get("h") == h and r.get("to") != to
-                     and now - r.get("t", 0) < FANOUT_WIN})
+        return (
+            "RESEND_COOLDOWN from=%s to=%s seq=%s %ds<%ds"
+            % (frm, to, dup.get("seq"), int(now - last), RESEND_COOL),
+            "같은 본문이 큐에 pending(seq=%s) — 받는 쪽이 «가져갈» 때까지 기다린다. "
+            "pending 동안 재발신 금지. 수신 여부가 궁금하면 pane 캡처로 확인하고, "
+            "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
+            % (dup.get("seq"), RESEND_COOL),
+        )
+    tool, skipped = _is_tool_sender(frm), []
+    others = sorted(
+        {
+            r["to"]
+            for r in log
+            if r.get("f") == frm
+            and r.get("h") == h
+            and r.get("to") != to
+            and now - r.get("t", 0) < FANOUT_WIN
+        }
+    )
+    if others and tool:
+        others, skipped = [], skipped + ["fanout"]
     if others:
-        return ("FANOUT from=%s already_sent_to=%s" % (frm, ",".join(others)),
-                "같은 본문을 여러 좌석에 뿌리지 않는다 — 필요한 한 좌석만. "
-                "공지가 필요하면 파일에 쓰고 경로만 알린다.")
+        return (
+            "FANOUT from=%s already_sent_to=%s" % (frm, ",".join(others)),
+            "같은 본문을 여러 좌석에 뿌리지 않는다 — 필요한 한 좌석만. "
+            "공지가 필요하면 파일에 쓰고 경로만 알린다.",
+        )
     recent = sum(1 for r in log if r.get("f") == frm and now - r.get("t", 0) < RATE_WIN)
-    if recent >= RATE_N:
-        return ("RATE_LIMIT from=%s %d sends/%ds" % (frm, recent, RATE_WIN),
-                "연속 발신 상한. 받는 쪽이 읽고 답할 시간을 준다.")
+    if recent >= RATE_N and tool:
+        skipped.append("rate")
+    elif recent >= RATE_N:
+        return (
+            "RATE_LIMIT from=%s %d sends/%ds" % (frm, recent, RATE_WIN),
+            "연속 발신 상한. 받는 쪽이 읽고 답할 시간을 준다.",
+        )
+    if skipped:
+        sys.stderr.write("TOOL_SENDER from=%s exempt=%s\n" % (frm, ",".join(skipped)))
     return None
 
 
 def send(to, frm, body, force=False, dispatch=False):
-    _check_name(to); _check_name(frm)
+    _check_name(to)
+    _check_name(frm)
+
     def op():
         rows = _load(CANON)
         # ★F6: 가드 판정을 잠금 «안»에서(load 직후) — 밖이면 동시 send 가 서로의 큐를 못 봐 둘 다 통과.
@@ -341,10 +424,15 @@ def send(to, frm, body, force=False, dispatch=False):
         except Exception:
             verdict = None
         if verdict:
-            return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 해제 후 처리.
+            return ("__BLOCKED__", verdict)  # 잠금 안에서 exit 금지 — 해제 후 처리.
         seq = _next_seq(rows)
-        row = {"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-               "to": to, "from": frm, "body": body}
+        row = {
+            "seq": seq,
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "to": to,
+            "from": frm,
+            "body": body,
+        }
         # ★전문 보관은 «큐에 넣기 전»★ — 행은 큐에 있는데 전문은 없는 순간을 만들지 않는다.
         #   그 순간이 있으면 그 사이에 도착한 recv 가 «되찾을 수 없는 절단»을 하게 된다.
         if len(body) > MAX_BODY:
@@ -353,7 +441,8 @@ def send(to, frm, body, force=False, dispatch=False):
                 row["body_full"] = full
         rows.append(row)
         byto = {}
-        for r in rows: byto.setdefault(r["to"], []).append(r)
+        for r in rows:
+            byto.setdefault(r["to"], []).append(r)
         keep, dropped = [], 0
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
@@ -373,6 +462,7 @@ def send(to, frm, body, force=False, dispatch=False):
         except Exception:
             pass
         return seq, sum(1 for r in keep if r["to"] == to), dropped
+
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
@@ -383,18 +473,22 @@ def send(to, frm, body, force=False, dispatch=False):
         #   모른 채» 본문만 줄여 재발송한다 — 실제로 오늘 그 일이 났고, 당사자는 어느
         #   가드였는지 사후에도 확정하지 못했다.
         #   잘리는 쪽을 우리가 정할 수 없으므로 ★양 끝에 둔다★.
-        sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n"
-                         % (reason, hint, reason))
+        sys.stderr.write(
+            "BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n" % (reason, hint, reason)
+        )
         sys.exit(3)
     seq, pend, dropped = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
-    print(f"QUEUED seq={seq} to={to} pending={pend} "
-          f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
+    print(
+        f"QUEUED seq={seq} to={to} pending={pend} "
+        f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}"
+    )
     if dropped:
         sys.stderr.write(
             "DROPPED %d oldest to=%s (ring=%d 포화) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
             "가장 오래된 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, dropped))
+            % (dropped, to, MAX_PER_TO, pend, dropped)
+        )
     # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도
     #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
     #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
@@ -409,13 +503,16 @@ def relay(to, frm, path, summary, force=False):
     ★요약은 자동 생성하지 않는다★ — 무엇이 중요한지는 보내는 사람만 안다.
     자동 요약을 끼우면 받는 쪽은 결국 원문 전체를 열게 되고, 아낀 게 없어진다.
     """
-    _check_name(to); _check_name(frm)
+    _check_name(to)
+    _check_name(frm)
     if not os.path.isfile(path):
-        sys.stderr.write("NO_SUCH_FILE %s\n" % path); sys.exit(1)
+        sys.stderr.write("NO_SUCH_FILE %s\n" % path)
+        sys.exit(1)
     if not summary.strip():
-        sys.stderr.write("EMPTY_SUMMARY 요약 3~5줄은 보내는 사람이 쓴다.\n"); sys.exit(1)
+        sys.stderr.write("EMPTY_SUMMARY 요약 3~5줄은 보내는 사람이 쓴다.\n")
+        sys.exit(1)
     os.makedirs(RELAY_DIR, exist_ok=True)
-    safe = re.sub(r'[^A-Za-z0-9._#-]', '_', os.path.basename(path))
+    safe = re.sub(r"[^A-Za-z0-9._#-]", "_", os.path.basename(path))
     base = os.path.join(RELAY_DIR, "%s-%s-to-%s-" % (time.strftime("%Y%m%dT%H%M%S"), frm, to))
     # ★같은 이름이면 «덮어쓰지 않고» 새 자리를 만든다★ — 초 단위 타임스탬프라 같은 초에 같은
     # from→to 로 같은 파일명을 보내면 앞 스냅샷이 파괴돼, 먼저 보낸 포인터가 «나중 내용»을
@@ -426,13 +523,16 @@ def relay(to, frm, path, summary, force=False):
         dest = "%s%d-%s" % (base, n, safe)
     shutil.copyfile(path, dest)
     # ★F3: relay 도 재발신 탈출구를 send 로 전달 — 힌트대로 --force 를 붙이면 실제로 풀리게.
-    send(to, frm, "%s\n상세(전문): %s (%d B)"
-         % (summary.strip(), dest, os.path.getsize(dest)), force=force)
+    send(
+        to,
+        frm,
+        "%s\n상세(전문): %s (%d B)" % (summary.strip(), dest, os.path.getsize(dest)),
+        force=force,
+    )
 
 
 def _rows_for(d, me, frm):
-    return [r for r in _load(d)
-            if r.get("to") == me and (frm is None or r.get("from") == frm)]
+    return [r for r in _load(d) if r.get("to") == me and (frm is None or r.get("from") == frm)]
 
 
 def _consume(d, seqs):
@@ -441,12 +541,14 @@ def _consume(d, seqs):
         keep = [r for r in rows if r.get("seq") not in seqs]
         if len(keep) != len(rows):
             _save(d, keep)
+
     _locked(d, op)
 
 
 def recv(me, frm=None, limit=None):
     _check_name(me)
-    if frm is not None: _check_name(frm)
+    if frm is not None:
+        _check_name(frm)
     dirs = [CANON] + _legacy_dirs()
     got = []
     for d in dirs:
@@ -459,7 +561,8 @@ def recv(me, frm=None, limit=None):
     # ★어느 파일들을 봤는지 찍는다★ — 안 찍으면 union 이 실제로 도는지 아무도 모른다.
     print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs))
     if not got:
-        print("READ none"); return
+        print("READ none")
+        return
     byd = {}
     for d, r in got:
         byd.setdefault(os.path.abspath(d), (d, set()))[1].add(r["seq"])
@@ -496,12 +599,20 @@ if __name__ == "__main__":
     dispatch = "--dispatch" in a
     show_all = "--all" in a
     a = [x for x in a if x not in ("--force", "--all", "--dispatch")]
-    if not a: sys.exit("usage: mbox {send <to> <from> <body> [--force]"
-                       "|relay <to> <from> <file> <summary>"
-                       "|recv <me> [<from>] [--all]|peek <me>}")
+    if not a:
+        sys.exit(
+            "usage: mbox {send <to> <from> <body> [--force]"
+            "|relay <to> <from> <file> <summary>"
+            "|recv <me> [<from>] [--all]|peek <me>}"
+        )
     c = a[0]
-    if c == "send": send(a[1], a[2], " ".join(a[3:]), force, dispatch)
-    elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]), force)
-    elif c == "recv": recv(a[1], a[2] if len(a) > 2 else None, None if show_all else RECV_LIMIT)
-    elif c == "peek": peek(a[1])
-    else: sys.exit("unknown cmd")
+    if c == "send":
+        send(a[1], a[2], " ".join(a[3:]), force, dispatch)
+    elif c == "relay":
+        relay(a[1], a[2], a[3], " ".join(a[4:]), force)
+    elif c == "recv":
+        recv(a[1], a[2] if len(a) > 2 else None, None if show_all else RECV_LIMIT)
+    elif c == "peek":
+        peek(a[1])
+    else:
+        sys.exit("unknown cmd")
