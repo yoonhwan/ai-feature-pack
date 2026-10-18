@@ -1,0 +1,66 @@
+PASS 준비: 자율 ON
+PASS 키트 미러 cmp 0
+PASS 200줄 이하
+PASS ⓐ 글머리 꼴 판정 → PROXY (기존 동작)
+PASS ⓐ 표 행 판정 201 → PROXY
+PASS ⓐ 표 행 판정 202 → PROXY
+PASS ⓐ 표 행 판정 203 → PROXY
+PASS ⓐ PROXY 4건 → 원장 대리 줄 +4
+PASS ⓐ 표 행: 카드 이름 없음 → QUEUE
+PASS ⓐ 표 행: 부정·보류 낱말 → QUEUE
+PASS ⓐ 표 행: 설계만 → QUEUE
+PASS ⓐ 표 행: 착수 낱말 없음 → QUEUE
+PASS ⓐ QUEUE 4건 → 대리 줄 0
+PASS ⓑ 17060·11706·17061 이 1706 에 안 걸림 → QUEUE
+PASS ⓑ 접두 170 이 17060 에 안 걸림
+PASS ⓑ 정확히 17060 은 찾음
+PASS ⓕ card-start 인자 부족 → 예시 1줄(--kind 로 시작 · 필수 인자 전부)
+PASS ⓕ nano-reopen 인자 부족 → 예시 1줄(--kind 로 시작 · 필수 인자 전부)
+PASS ⓕ 소스의 예시 문구는 전부 --kind 로 시작
+PASS ⓒ env·파일 둘 다 없음 → QUEUE + 사유에 파일 경로
+PASS ⓒ 빈 파일 → QUEUE
+PASS ⓒ 주석·공백만 있는 파일 → QUEUE
+PASS ⓒ QUEUE 3건 → 대리 줄 0
+PASS 파일만: 배포 가지 아닌 docs/x → PROXY
+PASS ⓔ 파일에 적힌 배포 가지 v6 → QUEUE
+PASS ⓔ 파일의 glob release/* → QUEUE
+PASS ⓓ env 가 있으면 env 우선(파일 v6 은 무시) → docs/x PROXY
+PASS ⓓ env 우선(파일이 docs/x 를 배포 가지로 적어도 env 에 없으면 PROXY)
+PASS ⓓ env 가 docs/* 면 파일 v6 과 무관하게 QUEUE
+PASS ⓔ env 의 배포 가지 → QUEUE 그대로
+PASS ⓔ main → 목록과 무관하게 QUEUE
+PASS R410 판정기 키트 미러 cmp 0
+PASS R410 py_compile autonomy_classify.py
+PASS R410 ⓐ 실 계획 꼴 · plan-ver = 생성기 blob · 브랜치 보존 글자 · 세션 0 → PROXY rc0
+  ⓐ 원문: PROXY 판정 17070 · [자율 ON A1 · 05:48~ · 끝 없음 · 대리 9 · 큐 16] → 추천
+PASS R410 ⓐ 판정 원장 «대리» 1줄
+PASS R410 ⓑ plan-ver 불일치 → QUEUE STALE rc2
+  ⓑ 원문: QUEUE ② STALE 계획(plan-ver=0000000000000000000000000000000000000000 ≠ 생성기 dbd51854168b0c3d6d51b0bb1530870fa62c8120) — ft-nano-close.sh 로 다시 만든다 · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DPcDnPWn7e/planner/AUTONOMY-QUEUE.md
+PASS R410 ⓑ 좌석 tmux 세션 실재 → QUEUE rc2
+PASS R410 ⓑ tmux 실행 불가 → QUEUE(세션 0 을 확인 못 함)
+PASS R410 ⓑ 상태/wt-clean 밖 계획 → QUEUE
+PASS R410 ⓑ .. 로 빠져나간 경로 → QUEUE
+PASS R410 ⓑ «브랜치는 지우지 않는다» 없음 → QUEUE
+PASS R410 ⓑ --plan 없음 → QUEUE + 예시 1줄
+PASS R410 ⓒ 실행 줄 branch -D → QUEUE
+PASS R410 ⓒ 실행 줄 --force → QUEUE
+PASS R410 ⓑⓒ QUEUE 9건 → 대리 줄 0 · 큐 행 +9
+PASS R410 ⓐⓑ 계획 실행 0(도구는 판정만)
+PASS R410 주석 줄은 실행 줄 검사 밖 → PROXY
+PASS R410 bash -n 가드 2 파일
+PASS R410 mbox_guard.sh ≤ 200줄
+PASS R410 ⓓ 결정 1 에 대리= 없음 → REJECT rc3 · 큐 0
+  ⓓ 원문: REJECT 아침 묶음 결정 줄에 대리 시도 칸(대리=PROXY <판정번호>|QUEUE <사유>) 없음 — 되돌릴 수 있는 선택은 ft-proxy-decide(--kind wt-clean|press-order …)로 먼저 대리하고 그 결과를 줄에 적어라 · 줄: - 결정 1: h97 워크트리 정리 — 추천 «실행»
+PASS R410 ⓓ 대리=QUEUE <사유> · 대리=PROXY <번호> → 통과
+PASS R410 ⓓ 대리=PROXY 번호 없음 → REJECT
+PASS R410 ⓓ 결정 줄 없는 아침 묶음 → 영향 0
+PASS R410 ⓓ 다른 머리의 «결정» 줄 → 검사 0
+PASS R410 ⓓ relay 첨부의 결정 줄도 검사(실사건 #110310 꼴) → REJECT
+PASS R410 ⓓ relay 첨부 대리= 있음 → 통과
+PASS R410 ⓓ 본체 파일 없음 → 아침 묶음 머리 fail-closed REJECT
+PASS R410 ⓓ 본체 없음 · 다른 머리 → 통과
+PASS 변이 1 적용됨(표 행 패턴 제거)
+PASS 변이 기준: 원본은 ⓐ 표 행 PROXY
+PASS 변이 1 → ⓐ 실패(검출)
+ALL PASS
+rc=0
