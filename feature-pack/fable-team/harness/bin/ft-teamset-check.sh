@@ -8,7 +8,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 case "${1:-}" in ''|-h|--help) echo "usage: $0 <팀>|--all" >&2; exit 2;; esac
 ROOT="${FT_TEAMSET_ROOT:-$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"
-MD="${FT_TEAMSET_MD:-$(git rev-parse --show-toplevel 2>/dev/null)/design/TEAMSET.md}"
+MD="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main (호출 워크트리 파일 아님) · 출력 머리 `md=…@sha10`
 [ -n "$ROOT" ] || { echo "ERROR 리포 루트를 못 찾는다(FT_TEAMSET_ROOT)"; exit 1; }
 [ -f "$HERE/ft_teamset.py" ] || { echo "ERROR ft_teamset.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 if [ "$1" = "--all" ]; then exec python3 "$HERE/ft_teamset.py" check --root "$ROOT" --md "$MD" --all; fi

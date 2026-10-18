@@ -2,6 +2,7 @@
 # test_raised_seat.sh — R149(판정 1641): 상향 좌석(Fable 나노·astra DA) 사유 기록 + «▶내릴 것» 경보.
 # mktemp 만 쓴다(임시 git 리포 + 가짜 tmux·tmuxc·mbox·형제 도구) — 실제 리포·명부·tmux·mbox 0. 변이 시험은 R149_BIN=<변이 복사본 폴더> 로 같은 시험을 돌린다.
 set -uo pipefail
+export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="${R149_BIN:-$REPO/scripts/fable-team-bin}"; KIT="$REPO/scripts/harness-install/fable-team/bin"

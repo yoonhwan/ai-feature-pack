@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_sheet_events.sh — ft-sheet-events.sh(사건 원장 훅 · PLAN-status-sheet §3·§3-1) + 훅 5곳 연결 시험. 빨강 먼저(구현 전 rc≠0).
 set -uo pipefail
+export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 . "$HERE/../fixtures/sheet/sheet_env.sh"
 SE="$BIN/ft-sheet-events.sh"

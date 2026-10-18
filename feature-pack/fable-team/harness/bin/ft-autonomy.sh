@@ -137,7 +137,7 @@ cmd_on() {
   if [ "$(mode)" = on ]; then status; return 0; fi   # 이미 ON 이면 인자 무시 — 끝 시각은 켤 때만 정한다
   parse_end "$@"
   if [ -f "$ROOT/.fable-team/seats-planner.json" ]; then   # R342: planner(arch 상시 팀)는 `_arch` 라이브가 아니면 ON 0 — 상태·잠금을 만지기 전에 거절 · 명부 없는 환경은 검사 대상 아님
-    _ao="$(python3 "$HERE/ft_teamset.py" arch-live --root "$ROOT" --md "${FT_TEAMSET_MD:-$ROOT/design/TEAMSET.md}" --team planner 2>&1)"; _arc=$?
+    _ao="$(python3 "$HERE/ft_teamset.py" arch-live --root "$ROOT" --md "${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}" --team planner 2>&1)"; _arc=$?
     [ "$_arc" = 0 ] || { [ "$_arc" = 3 ] && echo "REJECT planner arch 없음 — 자율 ON 0 · $_ao · 먼저 planner arch 를 여세요(ft-role-spawn.sh arch)" >&2 || echo "REJECT planner arch 판정 실패(rc=$_arc) — 자율 ON 0 · $_ao" >&2; exit 2; }
   fi
   bash "$HERE/ft-autonomy-start.sh" preflight   # 인증 사전 점검 — 결과를 status 위에 찍을 뿐 켜기를 막지 않는다

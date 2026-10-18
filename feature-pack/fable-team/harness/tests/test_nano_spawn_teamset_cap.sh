@@ -68,8 +68,8 @@ o="$(PFX_TEAM=beta sp --dry-run)"; [[ "$o" == *"CAP beta live=0 cap=3"* ]] && [[
 rm -f "$Q" "$T/reclaim.calls"; o="$(sp --dry-run)"; rc=$?
 { [ "$rc" = 7 ] && [[ "$o" == *"AT-CAP"* ]] && [ ! -f "$Q" ] && [ ! -f "$T/reclaim.calls" ]; } && ok "ⓔ dry-run 상한 도달 → rc7 · 큐·회수 0" || bad "ⓔ rc=$rc $o"
 
-# ⓕ TEAMSET.md 파일 없음 → 눈에 보이는 WARN 후 통과 · 표가 깨졌으면 REJECT
-o="$(MDX="$T/없는파일.md" sp --dry-run)"; { [[ "$o" == *"WARN TEAMSET.md 없음"* ]] && [[ "$o" != *QUEUED* ]]; } && ok "ⓕ 표 파일 없음 → WARN 후 통과(착지 전 호환)" || bad "ⓕ-1 $o"
+# ⓕ TEAMSET.md 파일 없음 → REJECT rc1(R351: «표 착지 전 호환» WARN 통과 분기 제거 — 조용한 통과 0) · 표가 깨졌으면 REJECT
+o="$(MDX="$T/없는파일.md" sp --dry-run)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *REJECT* ]] && [[ "$o" != *WARN* ]] && [[ "$o" != *QUEUED* ]]; } && ok "ⓕ 표 파일 없음 → REJECT rc1(WARN 통과 0)" || bad "ⓕ-1 rc=$rc $o"
 printf '# 표 없음\n' > "$T/bad.md"; o="$(MDX="$T/bad.md" sp --dry-run)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *REJECT* ]]; } && ok "ⓕ 표 깨짐 → REJECT rc1" || bad "ⓕ-2 rc=$rc $o"
 
 # ⓖ FT_TEAMSET=0 → 칸 건너뜀(출력 0)

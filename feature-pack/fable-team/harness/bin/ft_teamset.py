@@ -32,17 +32,39 @@ def tick(s):
     return re.findall(r"`([^`]+)`", s)
 
 
-def load(md):
+GITREF = "gitref:"  # `--md gitref:<ref>:<경로>` = `git -C <root> show <ref>:<경로>` (R351 — 정본은 main tracked 한 곳 · 호출 워크트리 파일 의존 0)
+
+
+def git_out(root, *args):
     try:
-        text = Path(md).read_text(encoding="utf-8")
-    except OSError as e:
-        die(f"TEAMSET 읽기 실패 {md}: {e}")
+        r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        die(f"TEAMSET git {args[0]} 실패({e})")
+    if r.returncode:
+        die(f"TEAMSET 읽기 실패 git {' '.join(args)} ({root}): {r.stderr.strip()[:120]}")
+    return r.stdout
+
+
+def load(md, root):
+    """표를 읽어 spec 을 돌려준다. gitref 는 ref 를 ★한 번★ commit sha 로 확정한 뒤 그 sha 로 show — 판정에 쓴 표와 머리줄 sha 가 같은 판(DA⑥ H1).
+    spec["head"] = `md=<ref>@<sha10>`(fetch 는 안 한다 · 오래됨은 sha 로 드러낸다) · 파일 주입은 ''."""
+    head = ""
+    if md.startswith(GITREF):
+        ref = md[len(GITREF):]
+        rev, _, path = ref.partition(":")
+        sha = git_out(root, "rev-parse", rev + "^{commit}").strip()
+        text, head = git_out(root, "show", f"{sha}:{path}"), f"md={ref}@{sha[:10]}"
+    else:
+        try:
+            text = Path(md).read_text(encoding="utf-8")
+        except OSError as e:
+            die(f"TEAMSET 읽기 실패 {md}: {e}")
     roles, body1 = table_rows(text, "표 1")
     teams, _ = table_rows(text, "표 2")
     mb = re.search(r"나노 상한 기본:\s*(\d+)", body1)
     if not roles or not teams or not mb:
         die("TEAMSET 표 1(역할)·표 2(팀)·「나노 상한 기본: N」 중 비었다")
-    spec: dict[str, Any] = {"default": int(mb.group(1)), "role_model": {}, "keys": set(), "teams": {}, "arch": set()}
+    spec: dict[str, Any] = {"head": head, "default": int(mb.group(1)), "role_model": {}, "keys": set(), "teams": {}, "arch": set()}
     for r in roles:
         if len(r) < 5:
             die(f"표 1 열 수 부족: {r}")
@@ -86,7 +108,7 @@ def cap_of(spec, team):
 
 
 def cmd_cap(a):
-    spec, team = load(a.md), team_of(a.prefix, strict=False)
+    spec, team = load(a.md, a.root), team_of(a.prefix, strict=False)
     if team is None:  # 표 대상 아닌 접두(시험·외부 env) — 막지 않되 눈에 보이게
         print(f"SKIP 접두 {a.prefix!r} 는 팀셋 표 대상 아님(byz-<팀>-nano- | ft-v65-temp-) — 상한 검사 0")
         sys.exit(0)
@@ -143,13 +165,13 @@ def cmd_arch_live(a):
         if not roster_path(a.root, a.team).exists():
             print(f"SKIP {a.team} 명부 없음 — 검사 대상 아님")
             sys.exit(0)
-        gap = arch_gap(load(a.md), read_roster(a.root, a.team), a.team, sessions())
+        gap = arch_gap(load(a.md, a.root), read_roster(a.root, a.team), a.team, sessions())
         print(f"NO {a.team} {gap}" if gap else f"OK {a.team}")
         sys.exit(3 if gap else 0)
     for t in teams_of(a.root):  # --seat: 교대 대상이 `_master`·`_desk` 로 적힌 팀만 — `_arch` 자신의 교대는 통과(교착 0)
         d = read_roster(a.root, t)
         keys = [k for k in ("_master", "_desk", "_arch") if d.get(k) == a.seat]  # 소유 역할 키만 — _hil_route·_parent 류 참조 키는 소속이 아니다(DA⑥ r1 H1)
-        gap = arch_gap(load(a.md), d, t, sessions()) if {"_master", "_desk"} & set(keys) else ""
+        gap = arch_gap(load(a.md, a.root), d, t, sessions()) if {"_master", "_desk"} & set(keys) else ""
         if gap:
             print(f"NO {t} {gap}")
             sys.exit(3)
@@ -212,10 +234,12 @@ def check_team(spec, root, team, live):
 
 
 def cmd_check(a):
-    spec, live = load(a.md), sessions()
+    spec, live = load(a.md, a.root), sessions()
     teams = teams_of(a.root) if a.all else [a.team]
     if not a.all and not roster_path(a.root, a.team).exists():
         die(f"명부 없음: {a.team} ({roster_path(a.root, a.team).name})")
+    if spec["head"]:
+        print(spec["head"])
     rc = 0
     for t in teams:
         st, msg = check_team(spec, a.root, t, live)

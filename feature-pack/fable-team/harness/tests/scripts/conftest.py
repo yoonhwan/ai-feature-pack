@@ -63,6 +63,12 @@ def _allow_tracked_bin(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FT_ALLOW_TRACKED_BIN", "1")
 
 
+@pytest.fixture(autouse=True)
+def _teamset_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """R351: 팀셋 표는 origin/main 에서 읽는다 — 임시 리포엔 그 표가 없어 nano-spawn 이 REJECT 한다. 표 판정은 tests/harness/test_teamset_gitref.sh 가 본다."""
+    monkeypatch.setenv("FT_TEAMSET", "0")
+
+
 @pytest.fixture
 def fake_resource_env(tmp_path: Path) -> Callable[[str], dict[str, str]]:
     """R218 — 자원 문지기 가짜 센서가 걸린 env dict 를 돌려주는 함수(mode = ok|reject). 실 머신 부하·압력과 무관하게 같은 결과."""

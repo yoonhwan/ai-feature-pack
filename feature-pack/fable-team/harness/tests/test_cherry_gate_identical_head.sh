@@ -2,6 +2,7 @@
 # test_cherry_gate_identical_head.sh — R70: tip 내용이 feat HEAD 와 바이트 동일한 경로는 PASS + spawn --cherry-override 패스스루.
 # mktemp 리포(가짜 feat·nano 브랜치)만 쓴다 — 실 브랜치·루트 .fable-team/·원장 쓰기 0.
 set -uo pipefail
+export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../scripts/fable-team-bin"

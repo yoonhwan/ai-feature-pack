@@ -59,22 +59,19 @@ fi
 # ★팀셋 나노 상한 (r-teamset-standard · 판정 2170)★: design/TEAMSET.md 표의 팀 상한 — 부작용 0 지점. 넘으면 «전 팀 정지» 대신 그 팀 끝난 나노 회수 1회(--team 필수) → 그래도 넘으면 순번 큐(QUEUED · rc 7). FT_TEAMSET=0 으로 끔.
 if [ "${FT_TEAMSET:-1}" != 0 ]; then
   [ -f "$HERE/ft_teamset.py" ] && [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _tsp="${FT_NANO_PREFIX:-ft-v65-temp-}"; _tsmd="${FT_TEAMSET_MD:-$WT/design/TEAMSET.md}"
-  if [ ! -f "$_tsmd" ]; then echo "WARN TEAMSET.md 없음($_tsmd) — 팀셋 나노 상한 검사 0 (표 착지 전 호환)"
-  else
+  _tsp="${FT_NANO_PREFIX:-ft-v65-temp-}"; _tsmd="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main · 못 읽으면 REJECT(조용한 통과 0)
+  _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
+  _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
+  if [ "$_tsrc" = 4 ] && [ "$DRY" != 1 ]; then
+    bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst" >&2
     _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
-    _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
-    if [ "$_tsrc" = 4 ] && [ "$DRY" != 1 ]; then
-      bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst" >&2
-      _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
-    fi
-    printf '%s\n' "$_tso"
-    case "$_tsrc" in
-      0) ;;
-      4) [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM"; exit 7;;
-      *) echo "REJECT 팀셋 표 판정 실패(rc=$_tsrc) — 부작용 0"; exit 1;;
-    esac
   fi
+  printf '%s\n' "$_tso"
+  case "$_tsrc" in
+    0) ;;
+    4) [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM"; exit 7;;
+    *) echo "REJECT 팀셋 표 판정 실패(rc=$_tsrc) — 부작용 0"; exit 1;;
+  esac
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
 #   검사 스크립트가 없는 것도 드리프트(설치 누락) · 우회 스위치 없음 — 해결은 master 라이브 cp.

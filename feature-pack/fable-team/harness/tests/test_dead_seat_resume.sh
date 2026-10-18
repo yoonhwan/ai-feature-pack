@@ -3,6 +3,7 @@
 # 전부 mktemp 안 — 임시 HOME(seat-live·sessions·projects) · 임시 좌석표 · 가짜 tmux/pgrep(PATH 앞) · 가짜 자원 문지기·자율 모드·zombie-clean·mbox · 실 tmux·실 상태 0.
 # 변이 시험은 R163_BIN=<변이 복사본 폴더> 로 같은 시험을 다시 돌린다.
 set -uo pipefail
+export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="${R163_BIN:-$REPO/scripts/fable-team-bin}"; KIT="$REPO/scripts/harness-install/fable-team/bin"

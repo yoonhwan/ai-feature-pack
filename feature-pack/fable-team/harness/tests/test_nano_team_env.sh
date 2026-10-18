@@ -53,7 +53,7 @@ echo card > "$REPO/design/planner/indices/대기/c.md"; echo card > "$REPO/desig
 echo seq > "$T/comm/bodies/1.txt"
 
 # 자원 문지기(R161)는 이 시험의 대상이 아니라 통과로 고정한다 — env -i 라 문턱을 run 이 직접 넘긴다(머신 부하에 따라 RED/GREEN 이 바뀌지 않게 — R169).
-run() { ( cd "$REPO" && env -i HOME="$HOME" FT_RES_ROOT="$FT_RES_ROOT" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+run() { ( cd "$REPO" && env -i HOME="$HOME" FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
 : > "$T/panes"
 
 echo "== close · 팀 env 자동 로드"

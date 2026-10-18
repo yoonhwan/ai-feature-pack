@@ -2,6 +2,7 @@
 # graphics 팀 설치 시험 (판정 649 · 카드 g649-graphics-team-install) — 실 좌석·워크트리·tmux 0, 임시 ROOT 만 쓴다.
 # 실행: bash tests/harness/test_graphics_install.sh   (리포 어느 워크트리에서든)
 set -uo pipefail
+export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 SRC="$REPO/scripts/harness-install/graphics"

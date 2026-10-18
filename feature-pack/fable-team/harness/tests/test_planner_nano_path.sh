@@ -64,7 +64,7 @@ mkdir -p "$REPO/design/harness/indices/대기"; cp "$REPO/design/planner/indices
 GIT add -A >/dev/null; GIT commit -q -m cards
 GIT update-ref refs/remotes/origin/main HEAD
 
-run()  { ( cd "$REPO" && env -i FT_RES_ROOT="$FT_RES_ROOT" HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
+run()  { ( cd "$REPO" && env -i FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
 lint() { ( cd "$REPO" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$PATH" "$@" 2>&1 ); }
 LINT="$BIN/ft-index-lint.sh"
 spawn() { local bindir="$1"; shift; rm -f "$T/opened" "$T/body.txt"; run bash "$bindir/ft-nano-spawn.sh" "$@"; }
