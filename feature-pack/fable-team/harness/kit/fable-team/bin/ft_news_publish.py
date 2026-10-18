@@ -21,6 +21,7 @@ _HERMES = Path(os.environ.get("FT_HERMES_SCRIPTS") or "~/.hermes/scripts").expan
 _KIT = _HERE.parent / "harness-install" / "slack-mirror"  # 리포 안 키트(설치본이 없는 시험·개발 판)
 sys.path[:0] = [str(p) for p in (_HERE, _HERMES, _KIT) if p.is_dir()]  # 실재하는 것만 · 우선순위 = bin 옆 → 설치본 → 키트
 import ft_board_env as env  # noqa: E402
+from ft_news_post import goal_gate  # noqa: E402 — 문 모듈 누락(설치 순서)도 같은 판별(H1④)
 
 try:
     from magazine_slack import permalink, post_root  # noqa: E402
@@ -143,11 +144,16 @@ def publish(polished: Path, draft: str | None = None, at: datetime | None = None
     if not body.strip():
         LOG.error("POLISHED 가 비었다: %s — 발행 0", polished)
         return 2
+    if why := goal_gate.problem(body, state.parent):  # R362 — 골 표 문(무장 표식이 있을 때만 막는다 · 아니면 WOULD-REJECT 로그) · 기록·발행 앞
+        if goal_gate.refuse(state.parent, polished.name, why):
+            LOG.error("REJECT 골 표 없음 — %s · 발행 0", why)
+            return 3
     _warn_numbers_outside_footnote(body)
     draft = draft or _pick_draft(news, polished.name)
     pub = state / day / "published.txt"
     if pub.exists() and norm(body) == norm(pub.read_text(encoding="utf-8")):
         _record(state, news, draft, SAME)
+        goal_gate.mark_done(state.parent, body)  # 올라간 뒤 기록 저장만 끊겼던 판의 영수증 복구(R362 H3)
         print("ft-news-publish: 같은 내용 — 발행 0")
         return 0
     try:
@@ -158,6 +164,7 @@ def publish(polished: Path, draft: str | None = None, at: datetime | None = None
     pub.parent.mkdir(parents=True, exist_ok=True)
     pub.write_text(body, encoding="utf-8")
     _record(state, news, draft, polished.name)
+    goal_gate.mark_done(state.parent, body)  # 후속 판 번호를 영수증에 — «기록 저장 뒤»(그 앞에서 끊기면 재시도가 중복 게시 0 + 기록 복구) · 같은 판번호 재발행 거절
     print(f"ft-news-publish: 발행 완료 ts={ts} channel={t.channel} permalink={_link(t, ts) or '-'}")
     return 0
 

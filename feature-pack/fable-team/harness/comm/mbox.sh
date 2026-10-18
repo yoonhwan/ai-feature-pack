@@ -94,7 +94,7 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
-    guard_check "$to" "${args[*]}" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
+    guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY")
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
@@ -134,8 +134,10 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
-    guard_check "$to" "${args[*]}" || exit $?
+    guard_check "$to" "${args[*]}" "$from" "$file" || { _rc=$?; guard_tmp_clean; exit $_rc; }
     to="$GUARD_TO"; args=("$GUARD_BODY")
+    [ -z "$GUARD_TMP" ] || trap guard_tmp_clean EXIT   # 검사 사본 폴더는 끝에 지운다
+    [ -z "$GUARD_FILE" ] || file="$GUARD_FILE"          # 대상 relay 는 «검사한 그 사본» 만 전달한다(R362 · 사본 실패는 가드가 REJECT — 원본 후퇴 0)
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?

@@ -36,6 +36,9 @@ MAP=(
   "ft-agent-alive.sh|.fable-team/comm/ft-agent-alive.sh"
   # ★mbox_guard.sh = mbox.sh 가 source 함 — 한쪽만 깔리면 전 좌석 send 정지(set -e) · 감시 밖이면 무증상 (N3 · 2026-10-12)★
   "mbox_guard.sh|.fable-team/comm/mbox_guard.sh"
+  # ★mbox_guard_goal.sh = mbox_guard.sh 가 source 하는 문 ③ 골 표 게재(R362) — 한쪽만 깔리면 WARN 만 남고 문이 열린다 · 감시 밖이면 무증상★
+  "mbox_guard_goal.sh|.fable-team/comm/mbox_guard_goal.sh"
+  # ★ft-goal-table.sh·ft_goal_table.py = 문 ③ 이 부르는 판정기(R362 · 라이브 bin) — LIVE_BIN 쪽은 ft-live-install-check 가 본다★
   # ★ft-boot-report-lint.py = mbox_guard.sh 가 부팅 보고 때 부르는 lint (P4 · 2026-10-12) — 감시 밖이면 한쪽만 깔려도 무증상★
   "ft-boot-report-lint.py|.claude/fable-team/bin/ft-boot-report-lint.py"
   # ★ft-fp-run.sh = 훅 오탐 «기록+허용» 래퍼 (R105-a · 2026-10-17) — 설치 전엔 MISSING_RUNTIME(master 라이브 설치 cp 뒤 SAME)★

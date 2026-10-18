@@ -7,6 +7,7 @@
 import argparse
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -22,6 +23,19 @@ from magazine_doc_md import Doc, DocError, parse_doc
 from magazine_guide_check import check as guide_check
 from magazine_slack import SLACK_BASE, Target, permalink, post_root, upload_file
 from mirror_lib import MirrorError, read_token, save_state
+
+try:
+    from magazine_goal import block as goal_block, html_section, with_root
+except ImportError as _err:  # R362 H1 — 설치 누락: 무장 표식(FT_ROOT/.fable-team/state/goal-gate.armed)이 있으면 발행 거절 · 없으면 골 표 없이 진행(로그)
+    _why = str(_err)  # except 블록이 끝나면 _err 이름이 지워진다 — 아래 함수가 쓸 값은 여기서 잡는다
+
+    def goal_block() -> str:
+        if Path(os.environ.get("FT_ROOT", "/nonexistent"), ".fable-team/state/goal-gate.armed").is_file():
+            subprocess.run(["bash", str(Path(os.environ["FT_ROOT"], ".fable-team/bin/ft-goal-table.sh")), "notify", os.environ["FT_ROOT"], "magazine", f"magazine_goal 설치 누락({_why})"], capture_output=True, check=False, timeout=21)
+            raise MirrorError(f"골 표 모듈 없음 — magazine_goal 설치 누락({_why})")
+        logging.getLogger("magazine_doc").warning("골 표 모듈 없음(비무장) — 골 표 없이 진행: %s", _why)
+        return ""
+    html_section, with_root = (lambda goal: ""), (lambda text, goal: text)
 
 HOME = Path.home()
 LOG = logging.getLogger("magazine_doc")
@@ -45,8 +59,9 @@ def read_source(repo: str, sha: str, path: str) -> tuple[str, str]:
     return full, git("show", f"{full}:{path}")
 
 
-def root_text(date: str) -> str:
-    return f"매거진 {date} · 오빠 확인판\n오빠 할 일과 지난 판 뒤로 바뀐 것을 한 쪽에 모은 HTML 이 스레드에 붙어 있어요."
+def root_text(date: str, goal: str = "") -> str:
+    """goal = 자율 골 표 블록(R362) — 첫 줄 바로 뒤. 첫 줄은 그대로(뿌리 글 «첫 줄 정확 일치» 탐색)."""
+    return with_root(f"매거진 {date} · 오빠 확인판\n오빠 할 일과 지난 판 뒤로 바뀐 것을 한 쪽에 모은 HTML 이 스레드에 붙어 있어요.", goal)
 
 
 def load_state(path: Path) -> dict[str, object]:
@@ -63,7 +78,7 @@ def link_line(args: argparse.Namespace, root_ts: str) -> str:
         return f"SLACK 링크 못 만듦 — {type(e).__name__}: {e}"
 
 
-def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> tuple[str, str]:
+def publish(args: argparse.Namespace, key: str, date: str, html_path: Path, goal: str = "") -> tuple[str, str]:
     """(출력 줄, 뿌리 글 ts). 상태 키 = 원본 sha:경로. root_ts 를 올린 직후 기록해 업로드만 실패한 재실행이 뿌리 글을 또 만들지 않는다."""
     state_path = Path(args.state).expanduser()
     state = load_state(state_path)
@@ -71,7 +86,7 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path) -> t
     if rec.get("uploaded"):
         return f"skip {key} root_ts={rec['root_ts']} (이미 발행됨)", str(rec["root_ts"])
     target = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
-    root_ts = str(rec.get("root_ts") or post_root(target, root_text(date)))
+    root_ts = str(rec.get("root_ts") or post_root(target, root_text(date, goal)))
     state[key] = {"root_ts": root_ts, "uploaded": False, "date": date}
     state_path.parent.mkdir(parents=True, exist_ok=True)
     save_state(state_path, state)
@@ -91,16 +106,17 @@ def run(args: argparse.Namespace) -> int:
     flagged = guide_check(brief, args.publish)  # 지침 §3·§4-1 위반 — 같은 규칙(R259)
     if blocked or (flagged and args.publish):
         return 1
+    goal = goal_block()  # R362 — 게시·상태 쓰기 «전»: 무장이면 렌더·판정 실패 = 발행 실패 경로(rc1) · 비무장이면 WOULD-REJECT 로그 + 골 표 없이
     out = Path(args.out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     html_path = out / f"MAGAZINE-DOC-{date}-{full[:10]}.html"
-    html_path.write_text(render(brief), encoding="utf-8")
+    html_path.write_text(render(brief).replace("</h1>", "</h1>\n" + html_section(goal), 1) if goal else render(brief), encoding="utf-8")
     print(f"{'DRY-RUN' if args.dry_run else 'PUBLISH'} warn={flagged} elapsed={time.monotonic() - start:.1f}s html={html_path}")
     if args.dry_run:
-        print(f"--- 슬랙 뿌리 글 ---\n{root_text(date)}\nSLACK 링크 없음(드라이런)")
+        print(f"--- 슬랙 뿌리 글 ---\n{root_text(date, goal)}\nSLACK 링크 없음(드라이런)")
         return 0
-    line, root_ts = publish(args, f"{full}:{args.src_path}", date, html_path)
+    line, root_ts = publish(args, f"{full}:{args.src_path}", date, html_path, goal)
     print(line)
     print(link_line(args, root_ts))
     return 0

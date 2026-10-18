@@ -160,7 +160,7 @@ AR2="$(ls "$Q/archive/$M"-*.jsonl)"; eq "보관된 옛 행 501 에도 via 키 �
 
 # 9) mbox.sh send: ingest 실패가 send rc·출력 불변 + 성공 시 큐 적재 (임시 comm 사본)
 C="$T/sendroot/.fable-team/comm"; mkdir -p "$C" "$T/sendroot/.fable-team/bin"
-cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/mbox_guard.sh" "$REPO/tools/comm-canonical/"mbox*.py "$C/"
+cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/mbox_guard.sh" "$REPO/tools/comm-canonical/mbox_guard_goal.sh" "$REPO/tools/comm-canonical/"mbox*.py "$C/"
 export FT_MBOX_DIR="$C" FT_SEATS_JSON="$T/seats.json"; echo '{}' > "$T/seats.json"
 printf '#!/bin/sh\nexit 9\n' > "$T/sendroot/.fable-team/bin/ft-inbox.sh"
 OUT="$(FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#1 sender#1 "[판정 요청] 시험" 2>"$T/err")"; RC=$?

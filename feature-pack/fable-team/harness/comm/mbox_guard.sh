@@ -5,6 +5,29 @@
 #   ★안전 보고 우선★: 머리 [HIL]·[긴급] 은 어떤 명부 상태에서도 REJECT 하지 않는다(은퇴가 읽히면 후계로 전달 · 못 읽으면 명시 이름 그대로 + WARN + 로그).
 #   설계 정본 = PLAN-harness-networking-20261011 §2 D3·D4. 명부 경로 = _seats_json(FT_SEATS_JSON) 의 폴더. 외부 호출 0(json·큐 파일만).
 GUARD_STATE="$DIR/../state"; US=$'\037'
+# 문 ③ 골 표 상시 게재(R362) — 대상 판별(머리 7종 ∧ 명부 역할)·무장 표식은 «항상 있는» 이 파일에 둔다(본체 mbox_guard_goal.sh 가 없어도 같은 판별로 fail-closed).
+# 무장 표식 $GUARD_STATE/goal-gate.armed — 파이썬 ft_goal_gate.armed·매거진 magazine_goal.armed 와 같은 경로·의미(교차 계약 시험 test_goal_gate_armed_contract.py).
+GOAL_HEADS='^\[(부팅|틱|발주|팀 발주|착지 차례|A6|완료·휴식)'
+goal_armed() { [ -f "$GUARD_STATE/goal-gate.armed" ]; }
+_goal_sender_in_roles() {  # rc 0 = 어느 명부든 _master·_desk·_arch 값 · 1 = 아님 · 2 = 명부 읽기 실패·명부 없음으로 판정 불가(H1②)
+  python3 - "$(dirname "$(_seats_json)")" "$1" <<'PY' 2>/dev/null
+import glob, json, sys
+d, me = sys.argv[1:3]; fs, bad = glob.glob(d + "/seats*.json"), 0
+for f in fs:
+    try: v = json.load(open(f, encoding="utf-8"))
+    except Exception: bad += 1; continue
+    if isinstance(v, dict) and me in (v.get("_master"), v.get("_desk"), v.get("_arch")): sys.exit(0)
+sys.exit(2 if bad or not fs else 1)
+PY
+  local rc=$?; [ "$rc" = 0 ] || [ "$rc" = 1 ] || rc=2; return $rc
+}
+_goal_refuse() {  # <발신자> <머리> <사유> — 무장 = REJECT rc 3 + 로그 · 비무장 = WOULD-REJECT 로그 + rc 0(설치 전환 · 되돌림 = 표식 삭제)
+  if goal_armed; then guard_log mbox-guard-goal.log "REJECT from=$1 head=${2:0:20} $3"; echo "REJECT 골 없음 — $3" >&2; return 3; fi
+  guard_log mbox-guard-goal.log "WOULD-REJECT from=$1 head=${2:0:20} $3"; return 0
+}
+if [ -f "$DIR/mbox_guard_goal.sh" ]; then source "$DIR/mbox_guard_goal.sh"   # 본체가 없으면(설치 순서) 대상 메시지는 무장 = REJECT · 비무장 = WOULD-REJECT(H1①)
+else guard_tmp_clean() { :; }; _guard_goal_lint() { local f="${1%%$'\n'*}"; printf '%s' "${f#"${f%%[![:space:]]*}"}" | grep -qE "$GOAL_HEADS" && [ -n "${2:-}" ] || return 0
+  _goal_sender_in_roles "$2"; [ $? = 1 ] && return 0; _goal_refuse "$2" "$f" "골 표 문 파일 없음($DIR/mbox_guard_goal.sh) — 설치 순서"; }; fi
 
 guard_log() { mkdir -p "$GUARD_STATE" 2>/dev/null; printf '%s %s\n' "$(date -u +%FT%TZ)" "$2" >> "$GUARD_STATE/$1" 2>/dev/null || true; }
 
@@ -138,9 +161,9 @@ _guard_hold_lint() {
   esac
 }
 
-# guard_check <to> <body> — GUARD_TO·GUARD_BODY 를 정한다. rc 3 = REJECT(큐 적재 0).
+# guard_check <to> <body> [from] [relay 첨부] — GUARD_TO·GUARD_BODY(+relay 는 GUARD_FILE·GUARD_TMP)를 정한다. rc 3 = REJECT(큐 적재 0).
 guard_check() {
-  GUARD_TO="$1"; GUARD_BODY="$2"
+  GUARD_TO="$1"; GUARD_BODY="$2"; GUARD_FILE=""; GUARD_TMP=""
   local first safe=0 out verb new msg rej=""
   first="${2%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
   case "$first" in '[HIL]'*|'[HIL·'*|'[긴급]'*) safe=1;; esac
@@ -168,5 +191,6 @@ guard_check() {
   _guard_bang_lint "$2" || return $?
   _guard_boot_lint "$2" || return $?
   _guard_hold_lint "$2" || return $?
+  _guard_goal_lint "$2" "${3:-}" "${4:-}" || return $?
   return 0
 }
