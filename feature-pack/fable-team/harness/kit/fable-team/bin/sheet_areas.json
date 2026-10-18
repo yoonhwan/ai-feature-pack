@@ -1,0 +1,9 @@
+{
+  "areas": ["통역 본체", "지식(Loom·RAG)", "돈·운영툴", "일하는 방식"],
+  "teams": {
+    "v65": "통역 본체", "kk": "통역 본체", "ccu": "통역 본체", "graphics": "통역 본체",
+    "loom": "지식(Loom·RAG)", "feature": "지식(Loom·RAG)",
+    "cfo": "돈·운영툴", "ops": "돈·운영툴", "issues": "돈·운영툴",
+    "harness": "일하는 방식", "planner": "일하는 방식"
+  }
+}

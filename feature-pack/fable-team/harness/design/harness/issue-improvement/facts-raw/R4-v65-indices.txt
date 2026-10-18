@@ -1,0 +1,4 @@
+design/v65/indices/inbox:        4
+design/v65/indices/대기:       29
+design/v65/indices/진행:       28
+design/v65/indices/완성:       32

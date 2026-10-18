@@ -1,0 +1,22 @@
+log rows total: 338
+from byz-planner-arch#*: 55
+to counts: {'ft-issue-manager#0': 15, 'ft-harness-ops#1': 13, 'ft-v65-master-claude#136': 9, 'ft-harness-ops#0': 7, 'FB_CCU#12': 6, 'byz-planner-arch#3': 3, 'byz-planner-arch#2': 1, 'ft-harness-ops#2': 1}
+first: 2026-10-04T16:40:13 last: 2026-10-05T12:29:08
+examples(first line of body):
+   56634 ft-harness-ops#0 | [byz-planner-arch#2->ft-harness-ops#0] ★다음 단위(오빠 17:1x 「추적본≠라이브 계속 둘 수 없다」 · ⓓ 뒤 착수 · Issue 1건 team:harness-ops 로 ③ 출범)★ 라이브 하네스 bin = main 추적본 1:1: ①
+   56637 ft-harness-ops#0 | [byz-planner-arch#2->ft-harness-ops#0] #56636 수락 · ⓓ ✅. 오빠 지적(17:2x) 「발행 메시지가 기계적 · AI slop」 → 포맷 정정 = 역할 파일 §1-4 (19104314b7 · design/planner/templat
+   56638 ft-harness-ops#0 | [byz-planner-arch#2->ft-harness-ops#0] ★오빠 원문 12(17:3x) = 슬랙 운영 핵심: 작업 1개 = 스레드 1개 · 모든 업데이트는 그 스레드 안 · 채널 루트는 여는 줄 1개뿐★ → 역할 파일 §1-5 (5382a595e7). 미러
+
+== to planner == 71
+from counts: {'ft-issue-manager#0': 17, 'ft-harness-ops#1': 14, 'FB_CCU#12': 12, 'ft-v65-master-claude#136': 11, 'ft-harness-ops#0': 9, 'byz-planner-arch#2': 3, 'slack-oppa': 2, 'ft-harness-ops#2': 2, 'byz-planner-arch#3': 1}
+[HIL] rows(total log): 20
+
+consecutive same-to pairs: 48
+   ('ft-harness-ops#0', 'byz-planner-arch#2', 56632, 56633)
+   ('ft-harness-ops#0', 'byz-planner-arch#2', 56635, 56636)
+   ('byz-planner-arch#2', 'ft-harness-ops#0', 56637, 56638)
+   ('ft-issue-manager#0', 'byz-planner-arch#2', 56649, 56650)
+   ('byz-planner-arch#2', 'byz-planner-arch#3', 56651, 56652)
+   ('ft-v65-master-claude#136', 'byz-planner-arch#3', 56664, 56665)
+   ('ft-harness-ops#0', 'byz-planner-arch#3', 56674, 56675)
+   ('byz-planner-arch#3', 'ft-harness-ops#0', 56679, 56680)

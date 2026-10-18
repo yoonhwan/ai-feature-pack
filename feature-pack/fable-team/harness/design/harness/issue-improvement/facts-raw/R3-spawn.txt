@@ -1,0 +1,30 @@
+2:# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--recheck <판정문>] [--dry-run]
+5:# 한 번에: ①lint ②워크트리+.venv/.env 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/opus-5.5)
+6:#          ④remain-on-exit on + @zc_v65_active=1 ⑤seats.json 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로 한 줄, mbox) ⑧도달 확인(jsonl)
+10:IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
+17:#   zcode 슬러그는 설치마다 다르다 — FT_ZCODE_MODEL 로 준다(없으면 REJECT — 없는 모델을 지어내지 않는다).
+39:WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
+42:[ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
+43:case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
+44:[ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
+46:# ① lint — 누가 읽어도 착수 가능한가
+47:bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
+49:# ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
+50:#   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).
+51:#   있으면 재개·재spawn = base_sha..HEAD 사이에 카드 «## 구현 범위» 가 인용한 파일(경로 토큰 · `관련 파일:` 줄 포함 · 인용 0 이면 세트 경로 전체 worker/ gateway/ shared/ clients/web/src/ tests/e2e/ scripts/server/)이 바뀌었으면 REJECT.
+53:CUR_HEAD="$(git -C "$WT" rev-parse HEAD)" || { echo "REJECT 기준 브랜치 HEAD 조회 실패"; exit 1; }
+61:card, repo, base, head = sys.argv[1:5]
+62:txt = open(card, encoding="utf-8").read()
+80:  [ "$_crc" -eq 0 ] || { echo "REJECT 카드 base_sha 대조 실패(rc=$_crc): ${_chg:0:160}"; exit 1; }
+86:    [ "$_ok" = 1 ] || { echo "REJECT 카드 base_sha ${CARD_BASE:0:9} 이후 feat HEAD ${CUR_HEAD:0:9} 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 $(printf '%s' "$_chg" | cut -d' ' -f2)개 · 바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-)"; exit 1; }
+95:BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
+100:# ②-0 옛 nano 브랜치 충돌 (M7 · 10-02 슬러그 충돌 5회) — 나노 닫기는 워크트리만 지우고 브랜치는 보존한다(09-25 승인).
+101:#   워크트리 없음 ∧ 브랜치 실재 → 그 브랜치를 cherry 게이트로 판정. 반입이면 -r2, -r3 … 후보마다 브랜치가 있으면 «워크트리 유무와
+102:#   무관하게» 같은 판정(DA⑥ 53519 H1 — 살아 있는 -rN 워크트리도 미반입이면 재사용 0). 반입 + 워크트리 있음 = 재사용 · 브랜치 없음 = 새로.
+103:#   미반입이면 REJECT — 옛 브랜치·워크트리 삭제·덮기·재사용 0(판정은 arch). base 워크트리 재발주 재사용(아래 ②)은 그대로.
+104:#   ①b 카드 base_sha 기록보다 «앞» 이라 REJECT 면 카드 파일도 안 건드린다.
+109:      || { echo "REJECT 옛 브랜치 미반입 — $BRANCH (삭제·덮기·재사용 0 · 판정 arch):"; printf '%s\n' "$gate"; exit 1; }
+110:    echo "old_branch=$BRANCH landed=yes gate=${gate%% *}"
+121:echo "PLAN seat=$NAME agent=$AGENT model=$MODEL${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"
+124:  python3 - "$IDX" "$CUR_HEAD" <<'PY' || { echo "REJECT 카드 base_sha 기록 실패($IDX)"; exit 1; }
+135:# ② 워크트리 — 이미 있으면 재사용(재발주), 없으면 기준 브랜치에서 분기

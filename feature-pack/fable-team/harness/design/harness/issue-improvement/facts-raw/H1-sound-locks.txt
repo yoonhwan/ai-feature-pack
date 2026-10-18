@@ -1,0 +1,25 @@
+tests/e2e/realtime_multi_e2e.py:8:CDP 9333 + BlackHole 인프라는 04 와 공유.
+tests/e2e/realtime_multi_e2e.py:28:  - speaker lock: P1 에서 realtime=완화 → 동시 발화 가능(turn-queue 없음).
+tests/e2e/realtime_multi_e2e.py:290:SAY_POST_SLEEP_S = 1.5        # 발화(blocking say 완료) 후 trailing chunk(VAD silence flush ~0.8s) 전송 대기. BTS 타이밍확인(wf w99v8alo0): trailing chunk(>100KB)가 release 전 도착+전사완료, release flush 는 44B(payload 0) → 6.0→2.0→1.5 단계 단축. VAD silence_duration 0.8s + 마진 0.7s, 0.8 이하 금지(경계 침범)
+tests/e2e/realtime_multi_e2e.py:898:        f'if(!el)return "";el.scrollIntoView({{block:"center"}});'
+tests/e2e/realtime_multi_e2e.py:998:        f'if(!hit)return "";hit.scrollIntoView({{block:"center"}});'
+tests/e2e/realtime_multi_e2e.py:1324:#   (architect#4 mbox #1439 — 두 경로가 하나의 게이트를 공유, None=raise, sox stderr).
+tests/e2e/realtime_multi_e2e.py:1325:#   상세 주석·sox stderr 실측·afconvert 폴백은 tts_rms_gate.py 참조.
+tests/e2e/realtime_multi_e2e.py:1331:            audio_path = audio_tmp.name  # say -o 는 확장자로 포맷 결정 → .aiff (afconvert 가 정규화)
+tests/e2e/realtime_multi_e2e.py:1368:                #   파일에만 쓴다 → _verify_tts_output 이 afplay 로 재생해 BlackHole 입력 유지.
+tests/e2e/realtime_multi_e2e.py:3357:# Live env this session: CDP 9333 up, dev web :3015 up (WEB_PORT), gateway :8080 up,
+tests/e2e/realtime_multi_e2e.py:3365:def _close_tab_by_url(url_substr: str) -> None:
+tests/e2e/realtime_multi_e2e.py:3379:                            f"http://localhost:{CDP_PORT}/json/close/{tab_id}", method="PUT",
+tests/e2e/realtime_multi_e2e.py:3387:def _close_host_tab() -> None:
+tests/e2e/realtime_multi_e2e.py:3389:    _close_tab_by_url('/realtime')는 guest 탭(token= 포함)도 매칭해 오폭(발견7)."""
+tests/e2e/realtime_multi_e2e.py:3403:                            f"http://localhost:{CDP_PORT}/json/close/{tab_id}", method="PUT",
+tests/e2e/realtime_multi_e2e.py:3564:        _close_tab_by_url(url_marker)
+tests/e2e/realtime_multi_e2e.py:3584:        _close_tab_by_url(url_marker)
+tests/e2e/realtime_multi_e2e.py:3616:    _close_tab_by_url(url_marker)
+tests/e2e/realtime_multi_e2e.py:4273:    _close_tab_by_url(f"token={tok_a}")
+tests/e2e/realtime_multi_e2e.py:4281:    _close_tab_by_url(f"token={tok_b}")
+tests/e2e/realtime_multi_e2e.py:4314:    _close_tab_by_url(f"token={tok_a}")
+tests/e2e/realtime_multi_e2e.py:4627:    _close_tab_by_url(f"token={tokens[1]}")
+tests/e2e/realtime_multi_e2e.py:4679:    host 발화 없음(발견2). _close_host_tab 은 CDP 탭 close 일 뿐 leave API/pagehide 핸들러 없음 →
+tests/e2e/realtime_multi_e2e.py:4705:    # host 탭 close (CDP tab-close — leave API 미전송; pagehide 핸들러 없음)
+tests/e2e/realtime_multi_e2e.py:4706:    _close_host_tab()

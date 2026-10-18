@@ -1,0 +1,10 @@
+T3 mbox 실측 (정본 .claude/fable-team/bin/mbox.sh 226줄 · mbox.py 585줄)
+① usage            mbox.sh:5 / :225
+② send 파일        mbox.py:199 mailbox.jsonl · :202 bodies/<seq>.txt · :79 mailbox.log.jsonl · :131 .mbox-seq · :313 fcntl.flock(mailbox.lock)
+③ 700자            mbox.py:58 MAX_BODY=700 · :237 _clip · :242 "전문: %s (%d자)" · _stash_body :202
+④ doorbell         mbox.sh:106 msg="[발주 #$dbseq] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라" · :110 send-keys -l · :112 Enter
+④b no-notify/urgent mbox.sh:175 무시+경고 · :176 urgent=1 · :181 notify 결정 · notify_policy :147
+⑤ recv consume     mbox.py:514 _consume(keep=seq 제거) · :523 recv · :530 LIFO · :65 RECV_LIMIT=5 · :572 --all · :580 limit=None
+⑥ ring             mbox.sh:216-224 doorbell_status "$sess" 1 seq (큐 미변경·force=1)
+⑦ relay 경로       mbox.py:66 RELAY_DIR=/tmp/mbox · :481 relay() · :499 dest=%Y%m%dT%H%M%S-{from}-to-{to}-{name} 복사
+⑧ reach jsonl      ft-reach-check.sh:63-70 ~/.claude/projects/<enc>/*.jsonl · :80 grep agentName|customTitle

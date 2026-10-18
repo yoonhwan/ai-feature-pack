@@ -1,0 +1,17 @@
+{
+  "verdict": "ALL_PASS",
+  "tsc": "PASS",
+  "lint": "PASS (0 errors, 149 warnings, none in changed files' code)",
+  "jest": {
+    "suites": "158/158",
+    "tests": "1494/1494",
+    "failures": []
+  },
+  "contract_spot_checks": [
+    {"check": "use-lst-setting.ts exists + exports useLstSetting/getServerSnapshotForTest/__resetLstStoreForTest", "result": "OK"},
+    {"check": "URL param adoption does NOT write back to localStorage (source==='url' skips lsSet)", "result": "OK"},
+    {"check": "energy-lst.ts stopLstLoop sets mut.lstActive = false", "result": "OK"},
+    {"check": "isLstEnabled() remaining call sites limited to app-config definition (no consumers in realtime domain)", "result": "OK (zero matches for isLstEnabled() call syntax anywhere in src)"}
+  ],
+  "notes": "Full jest run (not partial) per contract-change rule. next lint invoked via `npm run lint` (eslint .) since `npx next lint` errored on project-dir parsing unrelated to this change."
+}

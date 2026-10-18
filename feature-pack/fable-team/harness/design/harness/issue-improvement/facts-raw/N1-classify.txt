@@ -1,0 +1,38 @@
+total: 32
+
+ft-<팀>-<역할>#N: 15
+    ft-harness-arch#0
+    ft-harness-arch#1
+    ft-harness-da#1
+
+ft-<팀>-nano-<slug>#N: 4
+    ft-kakao-nano-canary-inject#0
+    ft-kakao-nano-ops-005-notice-wire#0
+    ft-kakao-nano-send-preview#0
+
+ft-airag-<역할>#N: 3
+    ft-airag-helm-claude#4
+    ft-airag-helm-claude#5
+    ft-airag-master-claude#2
+
+FB_<팀>#N: 2
+    FB_CCU#12
+    FB_CFO#52
+
+KakaoBot#N: 2
+    KakaoBot#14
+    KakaoBot#17
+
+byz-<팀>-<역할>#N: 2
+    byz-planner-arch#1
+    byz-planner-arch#3
+
+ft-<팀>-temp-<slug>#N: 2
+    ft-v65-temp-m7-p90-lang-update-gap-decomposition#0
+    ft-v65-temp-m7-p90f-n06-n10-durable-four-of-five-rea#0
+
+repro-*: 1
+    repro-e2e#0
+
+tmm: 1
+    tmm

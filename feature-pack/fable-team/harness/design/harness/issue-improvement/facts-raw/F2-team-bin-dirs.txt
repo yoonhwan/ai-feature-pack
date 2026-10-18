@@ -1,0 +1,37 @@
+--- bin-cfo ---
+total 120
+drwxr-xr-x@   8 yoonhwan  staff    256  9 27 21:10 .
+drwxr-xr-x@ 177 yoonhwan  staff   5664 10  4 18:02 ..
+-rwxr-xr-x@   1 yoonhwan  staff    461  9 15 16:29 ft-goal-tick-cfo.sh
+-rwxr-xr-x@   1 yoonhwan  staff   7604  9 15 16:29 ft-seat-status.sh
+-rw-r--r--@   1 yoonhwan  staff   4744  9 16 12:52 ft-tick-cfo.plist
+-rw-r--r--@   1 yoonhwan  staff   1159  9 15 16:29 ft-tick.plist.pack-template
+-rwxr-xr-x@   1 yoonhwan  staff  18905  9 27 21:11 ft-tick.sh
+-rwxr-xr-x@   1 yoonhwan  staff  16187  9 27 21:10 ft-tick.sh.bak-verdict47-202609272110
+--- bin-harness ---
+total 8
+drwxr-xr-x@   3 yoonhwan  staff    96 10  4 13:23 .
+drwxr-xr-x@ 177 yoonhwan  staff  5664 10  4 18:02 ..
+-rw-r--r--@   1 yoonhwan  staff   732 10  4 13:23 harness-env.sh
+--- bin-issues ---
+total 8
+drwxr-xr-x@   3 yoonhwan  staff    96 10  4 13:26 .
+drwxr-xr-x@ 177 yoonhwan  staff  5664 10  4 18:02 ..
+-rw-r--r--@   1 yoonhwan  staff   824 10  4 13:26 issues-env.sh
+--- bin-kk ---
+total 104
+drwxr-xr-x@  10 yoonhwan  staff    320 10  2 23:38 .
+drwxr-xr-x@ 177 yoonhwan  staff   5664 10  4 18:02 ..
+-rwxr-xr-x@   1 yoonhwan  staff    335 10  2 15:07 ft-goal-tick-kk.sh
+-rwxr-xr-x@   1 yoonhwan  staff   7604 10  2 15:07 ft-seat-status.sh
+-rw-r--r--@   1 yoonhwan  staff   3578 10  2 15:07 ft-tick-kk.plist
+-rwxr-xr-x@   1 yoonhwan  staff  18905 10  2 15:07 ft-tick.sh
+-rw-r--r--@   1 yoonhwan  staff   1133 10  2 23:38 kk-env.sh
+-rw-r--r--@   1 yoonhwan  staff    999 10  2 17:18 kk-env.sh.bak-kk1
+-rw-r--r--@   1 yoonhwan  staff    999 10  2 21:43 kk-env.sh.bak-kk2-feat
+-rw-r--r--@   1 yoonhwan  staff   1133 10  2 23:38 kk-env.sh.bak-kk3
+--- bin-planner ---
+total 8
+drwxr-xr-x@   3 yoonhwan  staff    96 10  4 09:05 .
+drwxr-xr-x@ 177 yoonhwan  staff  5664 10  4 18:02 ..
+-rw-r--r--@   1 yoonhwan  staff  1280 10  4 09:05 planner-env.sh

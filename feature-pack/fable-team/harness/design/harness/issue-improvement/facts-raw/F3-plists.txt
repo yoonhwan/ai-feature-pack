@@ -1,0 +1,59 @@
+-rw-r--r--@ 1 yoonhwan  staff   727  4 30 13:14 /Users/yoonhwan/Library/LaunchAgents/ai.hermes.gateway-watchdog.plist
+-rw-r--r--@ 1 yoonhwan  staff  3949  8 23 20:50 /Users/yoonhwan/Library/LaunchAgents/ai.hermes.gateway-zion.plist
+-rw-r--r--@ 1 yoonhwan  staff  3809  8 23 20:50 /Users/yoonhwan/Library/LaunchAgents/ai.hermes.gateway.plist
+-rw-r--r--@ 1 yoonhwan  staff  1970 10  2 15:22 /Users/yoonhwan/Library/LaunchAgents/com.airag.consumer.plist
+-rw-r--r--@ 1 yoonhwan  staff   778 10  1 11:44 /Users/yoonhwan/Library/LaunchAgents/com.airag.ft-goal-tick.plist
+-rw-r--r--@ 1 yoonhwan  staff   778 10  1 11:44 /Users/yoonhwan/Library/LaunchAgents/com.airag.ft-news-tick.plist
+-rw-r--r--@ 1 yoonhwan  staff  1379  9 28 21:17 /Users/yoonhwan/Library/LaunchAgents/com.airag.notify-master-20260928-2200.plist
+-rw-r--r--@ 1 yoonhwan  staff  1322  3  3  2025 /Users/yoonhwan/Library/LaunchAgents/com.alfredapp.vitor.1password.plist
+-rw-r--r--@ 1 yoonhwan  staff  5237  9 29 11:41 /Users/yoonhwan/Library/LaunchAgents/com.byz.ft-tick-cfo.plist
+-rw-r--r--@ 1 yoonhwan  staff  1449 10  1 11:48 /Users/yoonhwan/Library/LaunchAgents/com.byz.ft-tick-kakao.plist
+-rw-r--r--@ 1 yoonhwan  staff  1133  9 30 11:49 /Users/yoonhwan/Library/LaunchAgents/com.byz.ft-tick.plist
+-rw-r--r--@ 1 yoonhwan  staff  1034  8 17 22:54 /Users/yoonhwan/Library/LaunchAgents/com.byz.gce-guard-check.plist
+-rw-r--r--@ 1 yoonhwan  staff   728  8 25 19:24 /Users/yoonhwan/Library/LaunchAgents/com.cartier-auto.watchdog.plist
+-rw-r--r--@ 1 yoonhwan  staff   856  9 23 06:15 /Users/yoonhwan/Library/LaunchAgents/com.cliproxy.api.plist
+-rw-r--r--@ 1 yoonhwan  staff  1057  5 19 12:33 /Users/yoonhwan/Library/LaunchAgents/com.cloudflare.cloudflared.plist
+-rw-r--r--@ 1 yoonhwan  staff   455  6 30 15:53 /Users/yoonhwan/Library/LaunchAgents/com.codex.dummyenv.plist
+-rw-r--r--@ 1 yoonhwan  staff   968  2 22  2026 /Users/yoonhwan/Library/LaunchAgents/com.gastown.dashboard.plist
+-rw-r--r--@ 1 yoonhwan  staff  1346  2 22  2026 /Users/yoonhwan/Library/LaunchAgents/com.gastown.langfuse.plist
+-rw-r--r--@ 1 yoonhwan  staff   563  6 30 13:10 /Users/yoonhwan/Library/LaunchAgents/com.headroom.proxy-log-cleanup.plist
+-rw-r--r--@ 1 yoonhwan  staff  1431  6 30 13:35 /Users/yoonhwan/Library/LaunchAgents/com.headroom.proxy.plist
+-rw-r--r--@ 1 yoonhwan  staff   784  7 16 09:29 /Users/yoonhwan/Library/LaunchAgents/com.headroom.stack-version-check.plist
+-rw-r--r--@ 1 yoonhwan  staff  1079 10  4 17:26 /Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-github-slack-mirror.plist
+-rw-r--r--@ 1 yoonhwan  staff  1188 10  4 17:59 /Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-mbox-slack-mirror.plist
+-rw-r--r--@ 1 yoonhwan  staff  1251 10  4 18:00 /Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-slack-mbox-inbound.plist
+-rw-r--r--@ 1 yoonhwan  staff  1532  5 18 12:45 /Users/yoonhwan/Library/LaunchAgents/com.hermes.vertex-openai-proxy.plist
+-rw-r--r--@ 1 yoonhwan  staff   715 10  1 17:21 /Users/yoonhwan/Library/LaunchAgents/com.jetbrains.toolbox.plist
+-rw-r--r--@ 1 yoonhwan  staff   982  9 10 15:49 /Users/yoonhwan/Library/LaunchAgents/com.oz.photosync.plist
+-rw-r--r--@ 1 yoonhwan  staff  1226  5 29 11:38 /Users/yoonhwan/Library/LaunchAgents/com.stockquant.docs-sync.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    68  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.apoc.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.apoc.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    73  4  9 15:21 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.architect.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.architect.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    72  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.keymaker.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.keymaker.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    68  5 17 15:12 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.link.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.link.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    75  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.merovingian.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.merovingian.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    72  4 21 00:38 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.morpheus.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.morpheus.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    69  4  9 15:21 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.mouse.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.mouse.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    67  4  9 15:21 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.neo.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.neo.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    69  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.niobe.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.niobe.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    70  4  9 15:21 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.oracle.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.oracle.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    74  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.persephone.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.persephone.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    70  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.seraph.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.seraph.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    69  4  9 15:21 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.smith.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.smith.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    77  5 17 15:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.stream-router.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.stream-router.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    70  4  9 15:21 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.switch.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.switch.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    68  5 17 15:12 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.tank.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.tank.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    71  4 21 00:19 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.trinity.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.trinity.plist
+lrwxr-xr-x@ 1 yoonhwan  staff    67  5 17 15:12 /Users/yoonhwan/Library/LaunchAgents/com.xclaw.zee.plist -> /Users/yoonhwan/Project/xclaw-v2/config/launchd/com.xclaw.zee.plist
+-rw-r--r--@ 1 yoonhwan  staff   910  7 10 09:09 /Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.codex-sol-normalize-reminder.plist
+-rw-r--r--@ 1 yoonhwan  staff   989  2 18  2026 /Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.excalidraw-canvas.plist
+-rw-r--r--@ 1 yoonhwan  staff  1224  5 15 15:15 /Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.oracle-login-reminder.plist
+-rw-r--r--@ 1 yoonhwan  staff   999  9 15 13:02 /Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.serena-guard.plist
+-rw-r--r--@ 1 yoonhwan  staff   840  7 19 00:56 /Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.v6-nine-ready-20260720.plist
+-rw-r--r--@ 1 yoonhwan  staff  1115  9 15 13:28 /Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.zombie-clean.plist
+-rw-r--r--@ 1 yoonhwan  staff   815  9 28 09:52 /Users/yoonhwan/Library/LaunchAgents/dev.byz.limit-resume-once-20260928-1201.plist
+-rw-r--r--@ 1 yoonhwan  staff  1039  6 28 13:02 /Users/yoonhwan/Library/LaunchAgents/dev.byz.v6-rate-limit-resume-once-20260628-1803.plist
+-rw-r--r--@ 1 yoonhwan  staff   784  6 28 09:42 /Users/yoonhwan/Library/LaunchAgents/dev.byz.v6-rate-limit-resume.plist
+-rw-r--r--@ 1 yoonhwan  staff  1020  4  9 13:33 /Users/yoonhwan/Library/LaunchAgents/homebrew.mxcl.ollama.plist
+-rw-r--r--  1 yoonhwan  staff   929  9 30  2024 /Users/yoonhwan/Library/LaunchAgents/homebrew.mxcl.postgresql@14.plist
+-rw-r--r--  1 root      staff   449  9  8 16:35 /Users/yoonhwan/Library/LaunchAgents/kr.co.iniline.crossex-service.plist
+-rw-r--r--  1 yoonhwan  staff   618  4 11  2024 /Users/yoonhwan/Library/LaunchAgents/net.pulsesecure.SetupClient.plist

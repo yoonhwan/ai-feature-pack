@@ -1,0 +1,2 @@
+.fable-team/seats-issues.json tester rows=1
+.fable-team/seats.json tester rows=12

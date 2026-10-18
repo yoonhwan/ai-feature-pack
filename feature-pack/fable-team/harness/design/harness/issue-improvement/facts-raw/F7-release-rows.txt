@@ -1,0 +1,13 @@
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.1.md:3:골 축: C 「업그레이드하고 레포에 커밋 푸시 … 배포 발행 수신해 반영」 · 닫는 증거 = 이 1장 + 머신별 「반영됨」 행.
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.1.md:23:| 로컬 · harness-ops 워크트리 | 반영됨 (라이브 heredoc 통과 확인) | dedceb2ba6 (main squash · PR #802) |
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.1.md:24:| 로컬 · 그 외 워크트리 130개 (10-04 측정) | 반영 1 · 구버전 85 · 훅 없음 44 (main 체크아웃·c-level-planning 포함) — 각 워크트리는 자기 브랜치가 main 을 병합할 때 반영됨, 일괄 덮어쓰기 안 함 | |
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.1.md:26:| jarvis | 미반영 · 머신 키트 뒤 | |
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:3:골 좌표: 축 C 「배포 발행(슬랙)」 — 닫는 증거 = 이 1장 + 머신별 「반영됨」 행. 설계 정본 = DESIGN-slack-mirror.md (main 9e50e6750a).
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:15:## ⓐ 증거 (머신: 로컬 yoonhwan 맥 · hermes gateway = ai.hermes.gateway)
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:16:- 역할 파일: ~/.hermes/channel_roles/slack/C0C6MJGRR89.md ← design/planner/templates/slack-channel-role-planner.md @ v6-realtime-live bc55b49f9b
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:17:- config: ~/.hermes/config.yaml slack.channel_prompts.C0C6MJGRR89 4줄 추가(diff = 순수 추가 4줄) · 백업 ~/.hermes/config.yaml.bak-20261004-163311 · yaml.safe_load 통과 · 다른 slack 키 6개 그대로
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:18:- gateway: launchctl kickstart -k gui/501/ai.hermes.gateway · pid 720 → 11187 · 로그 「✓ slack connected」 16:33:32
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:30:- 토큰: ~/.hermes/secrets/yoonhwan_bot.env (dir 700 · file 600) · auth.test = yoonhwan 봇 유효(값 미출력)
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:31:- launchd: com.hermes.byz-mbox-slack-mirror · pid 81977 · KeepAlive · ThrottleInterval 30 · 로그 ~/.hermes/logs/byz_mbox_slack_mirror.{out,err} · state ~/.hermes/state/byz_mbox_slack_mirror.byz.json
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:32:- 되돌리기: launchctl bootout gui/501/com.hermes.byz-mbox-slack-mirror · plist 삭제
+.worktrees/harness-ops/design/teams/harness/RELEASE-0.2.md:40:- 라이브 재설치: install.sh → launchd pid 73454 · ~/.hermes/scripts 에 mirror_summary.py 추가(백업 .bak-*) · state 에 threads 맵 추가(기존 키 유지)

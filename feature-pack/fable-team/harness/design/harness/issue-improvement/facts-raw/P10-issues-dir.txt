@@ -1,0 +1,5 @@
+GOAL-issues.md
+LOOP-LEDGER.md
+NANO-LEDGER-issues.md
+README.md
+indices

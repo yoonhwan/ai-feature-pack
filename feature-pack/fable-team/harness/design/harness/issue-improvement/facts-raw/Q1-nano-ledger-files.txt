@@ -1,0 +1,6 @@
+.worktrees/v6-realtime-live/design/kk/NANO-LEDGER-kk.md
+.worktrees/v6-realtime-live/design/v65/archive/NANO-LEDGER-pm1-temp-sessions-full-20261003.md
+.worktrees/v6-realtime-live/design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md
+.worktrees/harness-ops/design/kk/NANO-LEDGER-kk.md
+.worktrees/harness-ops/design/v65/archive/NANO-LEDGER-pm1-temp-sessions-full-20261003.md
+.worktrees/harness-ops/design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md

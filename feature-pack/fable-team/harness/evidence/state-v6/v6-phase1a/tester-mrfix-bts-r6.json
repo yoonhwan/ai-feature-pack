@@ -1,0 +1,13 @@
+{
+  "verdict": "PASS",
+  "turn1": "host ko cer=0.0000 no regression, hyp='오늘 회의를 시작합니다.'",
+  "turn2": {
+    "gateway_user_id": "guest-80ae6fce",
+    "source_lang": "en",
+    "provider_used": "groq (gpu_qwen3 offline->skip, groq succeeded, fireworks not needed)",
+    "cer": "0.0000 vs 'Hello nice to meet you.' actual hyp='Hello, nice to meet you.'",
+    "hallucination": "0 - no cross-lang/user contamination, tester2/ko release absent for EN request_id"
+  },
+  "evidence_dir": ".omo/evidence/v6-mrfix-short-bts-r6",
+  "notes": "ENGLISH_STT_FALLBACK_CHAIN=[groq,fireworks] wiring confirmed live: worker log shows provider_candidates=['gpu_qwen3','groq','fireworks'] lang=en, gpu_qwen3 failed offline, groq transcribe succeeded. Worker --reload picked up service.py change (WatchFiles reload log confirmed before run). Exit code 0, bts_pass=true."
+}

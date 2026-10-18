@@ -1,0 +1,4 @@
+total 0
+drwxr-xr-x@  3 yoonhwan  staff    96 10  4 16:39 .
+drwxr-xr-x@ 39 yoonhwan  staff  1248 10  4 16:39 ..
+drwxr-xr-x@ 19 yoonhwan  staff   608 10  4 17:59 slack-mirror

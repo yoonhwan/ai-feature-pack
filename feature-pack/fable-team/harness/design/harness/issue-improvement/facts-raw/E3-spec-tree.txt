@@ -1,0 +1,4 @@
+78: │        └─ tester  ★repro-e2e#0   [sonnet-5-5 · claude · repro-main(main HEAD 전용)]
+84:│   ├─ tester  ★ft-v65-tester-claude#13       [sonnet-5-5 · claude · v6-realtime-live]    press·시험
+87:│        (da · checker 는 필요할 때 열고 닫음 — 지금 0)
+110:읽는 법: 오케 1 밑에 arch(설계) · da(반박 게이트) · nano(구현 워커 · 워크트리 1개씩) · tester(시험) · checker(확인). **지금 살아 있는 하위 좌석 = v65 4 · cfo 0 · ccu 0 · harness-ops 3 · issue-manager(도구) 1 · planner 직속 0.** 세션 31(14:3x) 중 이 레포 18(오케 7 중 생존 6 + 잔존 4 + 하위 8) · 다른 레포 12 · tmm 1.

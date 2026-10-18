@@ -1,0 +1,16 @@
+        S32B80P:
+          Output Channels: 2
+        S32B80P:
+          Output Channels: 2
+        USB Advanced Audio Device:
+          Input Channels: 1
+          Output Channels: 2
+        BlackHole 2ch:
+          Input Channels: 2
+          Output Channels: 2
+        MacBook Pro Microphone:
+          Input Channels: 1
+        MacBook Pro Speakers:
+          Output Channels: 2
+        Multi-Output Device:
+          Output Channels: 2

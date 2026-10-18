@@ -1,0 +1,15 @@
+.worktrees/v6-realtime-live/.fable-team/bin/ft-checkpoint.sh:11:#   마지막 결과는 <루트>/.fable-team/checkpoint/<좌석>.last(JSON) — ft-nano-close.sh 가 읽는다.
+.worktrees/v6-realtime-live/.fable-team/bin/ft-context-monitor.sh:14:EXCLUDE_SESSIONS="${FT_CTX_EXCLUDE_SESSIONS:-ft-v65-master#7,ft-v65-master#8,ft-v65-master#9,ft-v65-architect#4,ft-v65-architect#6,ft-v65-arch-fable#1,ft-v65-arch-fable#5,ft-v65-arch-fable#9,ft-v65-arch-judge#0,ft-v65-fable-orch#1,ft-v65-fable-orch#2,ft-v65-fable-orch#3,ft-v65-fable-orch#4,ft-v65-fable-orch#5,ft-v65-fable-orch#6,ft-v65-fable-orch#7,ft-v65-fable-orch#8}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-move.sh:106:  # 정본 갱신 신호(SB-arch-canon-standing-seat-r2 §구현 범위 1) — seats.json role=arch-canon 현역 좌석에 mbox 1건.
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-move.sh:113:print(next((k for k, v in s.items() if isinstance(v, dict) and v.get("role") == "arch-canon" and "_replaced_by" not in v), ""))
+.worktrees/v6-realtime-live/.fable-team/bin/ft-index-move.sh:117:    echo "WARN 정본 갱신 요청 미발신 — seats.json 에 role=arch-canon 현역 좌석 없음(이동은 완료 · CANON-DEBT 에 «미반영» 행을 손으로 추가)"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh:23:PIDFILE="${FT_MASTER_TICK_PIDFILE:-/tmp/ft-master-tick.pid}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh:24:STAMP="${FT_MASTER_TICK_STAMP:-/tmp/ft-master-tick.last}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-master-tick.sh:30:WATCH_STAMP="${FT_MASTER_TICK_WATCH_STAMP:-/tmp/ft-master-tick-watch.last}"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-mbox-census.sh:15:alive={k for k,v in seats.items() if isinstance(v,dict) and v.get('role')!='stop-ready'}
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh:2:# ft-nano-cherry-gate.sh <feat 브랜치> <nano 브랜치> [--repo <dir>]
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-cherry-gate.sh:3:#   ft-nano-close.sh 의 «산출물이 들어왔는가» 게이트 (G4 · 골좌표 M7 — 나노 브랜치에만 남은 커밋은 feat push 가 따라오지 않는다).
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh:2:# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>"]
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh:24:case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 temp- 접두)
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh:44:    printf '#!/bin/bash\n# wt-clean 계획 — ft-nano-close.sh 가 %s 에 생성. 가드 6 → ignored 보관 → WIP 커밋 → baton wt-clean → 원장 표식. 브랜치는 지우지 않는다.\n' "$(date '+%Y-%m-%d %H:%M')"
+.worktrees/v6-realtime-live/.fable-team/bin/ft-nano-close.sh:61:key = "`%s` 닫힘(ft-nano-close)" % seat

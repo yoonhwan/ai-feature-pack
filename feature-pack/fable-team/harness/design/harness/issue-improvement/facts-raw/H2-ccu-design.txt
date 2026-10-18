@@ -1,0 +1,14 @@
+27:| `byz-agents-gateway-dev` | 00366-nqb | 80 | 1 / **5** | 1 vCPU · 2Gi | 300 s | cpu-throttling=false · VPC connector `byz-agents-connector-dev` |
+31:- ★worker 가 max=1 · 1 vCPU · 1Gi★ — 클라우드 u 의 유력 상한이 여기다(가설 — 측정 전). gateway 는 max=5 라 인스턴스 폭증 비용 축이 gateway 에 있다.
+34:- 라벨: 결과값 옆에 「gateway 00366 · worker 00259 · max 5/1 · conc 80」 을 붙인다(리비전이 바뀌면 다른 시스템).
+42:| 이미지 | 도구 코드 + ffmpeg(mp3→PCM 디코드) + 오디오 3개 + VAD 경계 스케줄 파일 굽기 · 태그 = `ccu-stress:{도구커밋sha7}` · Artifact Registry 전용 이름 |
+43:| 오디오 | para_1~3.mp3(sha256 앞8 249802f4/3b2d18dc/fd464e90 · 재합성 금지) 이미지에 굽고 태스크 시작 시 sha 검증 — 불일치 raise. 전송 형식 = WAV(PCM 16 kHz mono s16le) — §4 |
+50:- 재생·BlackHole·브라우저 0. ★레인 = owner-v1★: mp3 → 16 kHz mono s16le PCM → WAV 로 감싼 `POST /v5/audio_event`(`input_ref` · LST 라이브 창 누적 PCM ~1.1 s 간격 · 창 상한 20 s · silence_flush 800 ms) → release 창 종결 → `POST /v5/control_events`(ptt_release). 원본의 webm/opus·MediaRecorder 100 ms 슬라이스는 v65 solo 레인이 아니다(FE 는 MediaRecorder 를 만들자마자 stop · 근거 `use-energy-ptt-bridge.ts:69` · 서버 `input_reference.py:59-63` PCM/WAV 만 수락). 이미지에 ffmpeg 는 «오프라인 변환» 용으로만 — 태스크는 이미지에 구운 mp3 를 시작 시 PCM 으로 디코드.
+79:5xx 비율 급증 · 가입/삭제 API 오류 연속 · 크레딧 시딩 실패 · 생성 계정 목록과 실제 불일치 · 비용 이상(gateway 인스턴스가 max=5 에 붙어 지속 / Job 태스크 시간 폭증) · prod 호스트 응답이 한 번이라도 보이면 즉시 정지. 비용 열: 회차마다 gateway·worker 인스턴스 시간 · GPU 시간 · Job 태스크 시간.
+85:4. 미해결 질문(arch 가 답을 못 정한 것 — 나노 조사로 채움): ①클라우드 Redis 가 다른 dev 세션과 공유인가(B2 키 정리 방식) ②gateway 가 인증 사용자 수/속도 제한을 거는가 ③크레딧이 가입 시 자동 지급되는가(시딩 필요 여부).
+100:| 1 | ★레인 = owner-v1 확정★ (§4 갱신) | 나노 코드 확인 + ★dev worker 환경 실측: `V65_OWNER_BOOTSTRAP_ENABLED=1` · `V6_LST_TRANSLATE=1` · `V6_AUTHORITATIVE_STT_MODE=dev_single`/`gpu_qwen3`(GPU `10.0.0.9`)★ — 로컬과 같은 레인이 dev worker 에 켜져 있다. gateway 는 V65 env 없이 기본값(같은 코드) |
+103:| 4 | ★A6 ACK = 항상 수행★(FE 와 같은 선). 스냅샷 프레임에서 `generation`·`version`·`root` 3키만 추출(Merkle 검증 안 함). 3키 추출 불가면 도구가 raise 하고 나노가 보고 | ACK 생략 실험은 하지 않는다(단순화) — 3키를 못 뽑을 때만 arch 재판정 |
+107:| 8 | ★`sealed` 시각 = Cloud Logging 조회 또는 `phase→complete` 프레임 시각★ — 둘 다 기록하고 차이를 「측정기 몫」 라벨로 | 로컬 「worker sealed / FE cover 둘」과 같은 짝 구조를 유지 |
+110:- ★Supabase dev/prod 공유 여부★: dev 서비스는 `NEXT_PUBLIC_SUPABASE_URL=https://geevkvltclznyaxepftl.supabase.co`(dev gateway env 실측). cd-prod.yml 은 URL 을 하드코딩하지 않고 secrets 로 받아 repo 만으론 prod 가 같은 프로젝트인지 모른다. 같은 프로젝트면 가입 N명이 운영 사용자 DB 에 섞인다 → ★오빠 확인 전 가입 호출 금지★.
+115:### [2026-09-30] dev worker 재기동 직후 ~4분 프리웜 동안 gateway→worker health 5 s 초과 → 503 worker_unreachable
+117:- 사실(dev Cloud Run 로그, UTC): worker-dev 00259-2cm 인스턴스 01:37:15 SIGTERM → 01:37:22 재기동 → 프리웜(V65-WARMUP 23줄 · LOOM_CACHE prefix warm · 01:41:01 「43 ok / 2 FAILED」) → 01:41:01 barrier 통과. gateway health 는 worker /health 를 5 s 타임아웃으로 호출(gateway/routes/compat/speech.py:779) — 프리웜 중 worker 루프가 최대 3.2 s 막혀([V6-LAG]) health 응답이 5 s 를 넘겼다(01:40:01·01:40:16·01:40:46).

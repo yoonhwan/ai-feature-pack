@@ -1,0 +1,10 @@
+clients/web/src/domains/credit/credit-stream-owner.ts:41:      if (process.env.NODE_ENV !== 'production') throw new Error(DUPLICATE_MOUNT_MESSAGE);
+clients/web/src/domains/admin/viewer-context.ts:33:  return process.env.NODE_ENV !== 'production' && process.env.ADMIN_CONSOLE_PREVIEW === '1';
+clients/web/src/domains/realtime/v5-freeze-debug.ts:4: * 게이트: 기존 `NEXT_PUBLIC_BUBBLE_DEBUG` 재사용(새 플래그 없음 —
+clients/web/src/domains/realtime/v5-timeline.ts:182:      // dev-only 계측(ROOT-C) — 순수 데이터 통과. 실제 DOM 노출은 렌더의 NEXT_PUBLIC_BUBBLE_DEBUG 게이트가 결정.
+clients/web/src/domains/realtime/v65-idx2-instrument.ts:6: * `NEXT_PUBLIC_BUBBLE_DEBUG` 재사용(dev-only, 새 플래그 없음). ★console.info 만★ —
+clients/web/src/domains/realtime/bubble-debug-enabled.ts:2: * NEXT_PUBLIC_BUBBLE_DEBUG 빌드타임 게이트 — 한 곳에서만 값을 해석한다.
+clients/web/src/domains/realtime/bubble-debug-enabled.ts:7:const raw = process.env.NEXT_PUBLIC_BUBBLE_DEBUG;
+clients/web/src/domains/realtime/use-realtime-solo-v5.ts:143: * NOT(inc3): 페이지/스테이션 배선, feature flag, TTS 재생.
+clients/web/src/domains/realtime/v5-transcript-types.ts:237:   *  `event_type:segment_id`. origLen 요동의 정확한 촉발 이벤트 식별용. 렌더 노출은 NEXT_PUBLIC_BUBBLE_DEBUG 게이트. */
+clients/web/src/domains/audio/speech-auth.ts:26:  if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {

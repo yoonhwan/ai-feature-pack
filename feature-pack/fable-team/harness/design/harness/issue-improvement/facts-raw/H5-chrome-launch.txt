@@ -1,0 +1,10 @@
+tests/e2e/cdp_helper.py:47:    """Open new tab in Chrome profile (existing remote-debugging-port).
+tests/e2e/chrome_profile_pool.py:5:--user-data-dir 프로필은 디스크에 영속되므로 Preferences 에 media_stream_mic 권한을 1회 심으면
+tests/e2e/chrome_profile_pool.py:8:리포 금지(scripts/e2e/run_v5_prod_demo.sh:62-65)는 --use-fake-ui-for-media-stream /
+tests/e2e/chrome_profile_pool.py:9:--use-fake-device-for-media-stream 플래그다 — 실제 media-device 경로와 권한 표시기를 요구하는
+tests/e2e/chrome_profile_pool.py:59:        [CHROME_BIN, f"--user-data-dir={user_data_dir}", f"--remote-debugging-port={port}",
+tests/e2e/chrome_profile_pool.py:66:    out = subprocess.run(["pgrep", "-f", f"user-data-dir={user_data_dir}"],
+tests/e2e/fanout_press_harness.py:95:    tests/e2e/chrome_profile_pool.py 의 --user-data-dir 프로필(Preferences 에 권한 영속
+tests/e2e/lecture_e2e.py:8:  2. Chrome --remote-debugging-port=9333 으로 lecture_260115.html 로드됨
+tests/e2e/lecture_e2e.py:317:        print('     --remote-debugging-port=9333 \\')
+tests/e2e/lecture_e2e.py:318:        print('     --user-data-dir=/tmp/chrome-agent-profile \\')

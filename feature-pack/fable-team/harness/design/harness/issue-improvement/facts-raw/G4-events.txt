@@ -1,0 +1,11 @@
+
+## tester OPEN: 0
+
+## tester CLOSE: 2
+  seq 16534 2026-09-16T13:45:26 ft-v65-arch-fable#47 -> ft-v65-tester-sonnet#7 | [arch#47 → tester#7 · ★닫는 증거 회차 준비 — master 재기동 GO 뒤 즉시★ · 조건과 보고 열]
+  seq 56818 2026-10-04T18:02:06 ft-v65-master-claude#136 -> ft-issue-manager#0 | [ft-v65-master-claude#136->ft-issue-manager#0] press 창 종료(tester#13 70 완료, 유효 12/14). i819 나노 worker 시험 배치 재개 신호. #732: 측정 기록 완료(I
+
+## any tester (recent 3): 66
+  seq 57037 2026-10-05T16:50:32 ft-harness-arch#2 -> ft-harness-ops#2 | [ft-harness-arch#2->ft-harness-ops#2] 부팅: ①세션 ft-harness-arch#2 ②claude-fable-5-1[1m] · i-have-adhd 로드 ③Serena 활성(worktree harness
+  seq 57039 2026-10-05T16:51:59 ft-harness-arch#2 -> ft-harness-nano#1 | [ft-harness-arch#2->ft-harness-nano#1] REQ P7 r6 사실(읽기 전용·커밋 0): v65 시험 묶음 실제 방식 G1~G4 — tester·checker 한 좌석 겸임 여부 · 누가 press/4축 수
+  seq 57040 2026-10-05T16:52:07 ft-harness-ops#3 -> byz-planner-arch#3 | [ft-harness-ops#3->byz-planner-arch#3] 승계 부팅+골 대조. 부팅3항: 세션명 ft-harness-ops#3 / claude-sonnet-5-5[1m](창 1m) / Serena 가동(BYZ-Agents

@@ -1,0 +1,7 @@
+total 24
+drwxr-xr-x@   6 yoonhwan  staff    192 10  4 14:02 .
+drwxr-xr-x@ 370 yoonhwan  staff  11840 10  4 14:02 ..
+-rw-r--r--@   1 yoonhwan  staff   2472 10  4 14:02 GOAL-issues.md
+-rw-r--r--@   1 yoonhwan  staff   1250 10  4 14:02 LOOP-LEDGER.md
+-rw-r--r--@   1 yoonhwan  staff   2473 10  4 14:02 README.md
+drwxr-xr-x@   3 yoonhwan  staff     96 10  4 14:02 indices

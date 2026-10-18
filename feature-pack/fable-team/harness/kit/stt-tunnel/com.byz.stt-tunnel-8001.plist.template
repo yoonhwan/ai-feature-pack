@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.stt-tunnel-8001</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__GCLOUD__</string>
+    <string>compute</string><string>ssh</string><string>__VM__</string>
+    <string>--zone=__ZONE__</string>
+    <string>--account=__ACCOUNT__</string>
+    <string>--tunnel-through-iap</string>
+    <string>--quiet</string>
+    <string>--strict-host-key-checking=yes</string>
+    <string>--</string>
+    <string>-N</string>
+    <string>-L</string><string>__PORT__:localhost:8000</string>
+    <string>-o</string><string>BatchMode=yes</string>
+    <string>-o</string><string>ServerAliveInterval=30</string>
+    <string>-o</string><string>ServerAliveCountMax=3</string>
+    <string>-o</string><string>ExitOnForwardFailure=yes</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>__PATH__</string>
+    <key>HOME</key><string>__HOME__</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>/tmp/byz-stt-tunnel-8001.log</string>
+  <key>StandardErrorPath</key><string>/tmp/byz-stt-tunnel-8001.log</string>
+</dict>
+</plist>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-magazine</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__HOME__/.hermes/scripts/magazine_from_news.sh</string>
+    <string>--publish</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>8</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>RunAtLoad</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>BYZ_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>GH_REPO</key><string>__REPO__</string>
+    <key>MAGAZINE_CHANNEL</key><string>__CHANNEL__</string>
+    <key>MAGAZINE_MALFORMED_CARDS</key><string>report</string>
+  </dict>
+  <key>StandardOutPath</key><string>__HOME__/.hermes/logs/byz_morning_magazine.out</string>
+  <key>StandardErrorPath</key><string>__HOME__/.hermes/logs/byz_morning_magazine.err</string>
+</dict>
+</plist>

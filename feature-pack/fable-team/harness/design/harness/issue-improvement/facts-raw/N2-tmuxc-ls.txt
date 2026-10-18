@@ -1,0 +1,7 @@
+total 192
+drwxr-xr-x@ 6 yoonhwan  staff    192 10  5 15:18 .
+drwxr-xr-x@ 3 yoonhwan  staff     96  9 19 10:04 ..
+-rw-r--r--@ 1 yoonhwan  staff   5858 10  5 15:18 COMM-GUIDE-BOOT.md
+-rw-r--r--@ 1 yoonhwan  staff  40749  9 19 10:04 COMM-GUIDE.md
+-rw-r--r--@ 1 yoonhwan  staff  48892  9 23 11:29 SKILL.md
+drwxr-xr-x@ 4 yoonhwan  staff    128  9 19 10:04 references

@@ -1,0 +1,58 @@
+{
+  "_name": "Seatbelt",
+  "_version": "1.0.0",
+  "_doc": "Seatbelt 좌석 레지스트리 예시 (팩 SSOT · references/SEATBELT.md §5). tick=null 이면 mbox send 가 doorbell 을 울린다. 등록 안 된 좌석도 울린다(모르는 좌석을 침묵시키지 않는다). 쓰는 자: ft-nano-spawn/close · ft-role-spawn. agent=claude|codex|cmd|opencode. index=이 좌석이 닫는 인덱스 파일(대기/진행/완성) — 경로는 «예시»다(v65 트랙 값).",
+  "master#0": {
+    "role": "master",
+    "agent": "claude",
+    "tick": "ft-master-tick",
+    "model": "sonnet-5[1m]",
+    "index": null,
+    "_replaced_by": "master#1"
+  },
+  "da#0": {
+    "role": "da",
+    "agent": "claude",
+    "tick": null,
+    "model": "fable-5.1[1m]",
+    "index": null
+  },
+  "pm#0": {
+    "role": "pm",
+    "agent": "claude",
+    "tick": "ft-pm-tick",
+    "model": "sonnet-5[1m]",
+    "index": null
+  },
+  "nano#0": {
+    "role": "nano",
+    "agent": "claude",
+    "tick": null,
+    "model": "fable-5.1[1m]",
+    "index": "design/v65/indices/<대기|진행|완성>/M5-owner-live-operation-id.md"
+  },
+  "tester#0": {
+    "role": "tester",
+    "agent": "claude",
+    "tick": null,
+    "model": "sonnet-5[1m]",
+    "index": null
+  },
+  "harness-design#0": {
+    "role": "harness-design",
+    "agent": "claude",
+    "tick": null,
+    "model": "fable-5.1[1m]",
+    "index": "design/v65/20260914/DRAFT-harness-upgrade-v65.md"
+  },
+  "master#1": {
+    "role": "master",
+    "agent": "claude",
+    "tick": "ft-master-tick",
+    "model": "sonnet-5[1m]",
+    "index": null,
+    "_replaces": [
+      "master#0"
+    ]
+  }
+}

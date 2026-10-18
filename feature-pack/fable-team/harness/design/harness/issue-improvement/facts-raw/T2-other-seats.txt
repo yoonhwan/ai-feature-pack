@@ -1,0 +1,1 @@
+/Users/yoonhwan/Project/KakaoBot/kakao-agent-bot-planning/.fable-team/seats.json

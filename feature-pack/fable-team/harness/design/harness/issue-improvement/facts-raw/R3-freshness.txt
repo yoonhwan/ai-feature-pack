@@ -1,0 +1,7 @@
+5:#   exit 0 = FRESH(루트 포함) · 1 = STALE(루트 뒤처짐 · 겹침 0) · 2 = STALE-OVERLAP(루트가 같은 파일을 바꿈 · 재대조)
+6:#        3 = 미랜딩 0(이미 다 들어감 → 닫기만) · 4 = usage/입력 오류
+32:BASE="$(git merge-base "$BR" "$ROOT_BRANCH")"
+44:echo "base      $BASE_S ($BASE_DATE) · 루트가 그 뒤로 $BEHIND 커밋 앞섬"
+64:echo "overlap   브랜치와 루트가 base 이후 둘 다 바꾼 파일 $N_OV"
+68:echo "          ② merge-base == $ROOT_BRANCH HEAD · 충돌 0 확인 → ③ 이 워크트리 세트로 시험 → ④ 이슈 확인 → ⑤ squash 랜딩"
+73:echo "VERDICT   STALE — 루트 뒤처짐 · 겹침 0 → 병합 후 시험"

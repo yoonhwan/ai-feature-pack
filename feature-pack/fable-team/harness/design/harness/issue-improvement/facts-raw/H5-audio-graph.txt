@@ -1,0 +1,15 @@
+clients/web/src/domains/audio/energy-chunk-form.ts:4:import { createWavBlob, sha256HexBytes } from "./wav-encode";
+clients/web/src/domains/audio/energy-chunker-buffer.ts:3:import { concatInt16Frames } from './wav-encode';
+clients/web/src/domains/audio/energy-chunker-props.ts:32:  AudioContextClass?: typeof AudioContext;
+clients/web/src/domains/audio/energy-chunker-props.ts:33:  AudioWorkletNodeClass?: typeof AudioWorkletNode;
+clients/web/src/domains/audio/energy-chunker-start.ts:85:    AudioContextClass: p.current.AudioContextClass, AudioWorkletNodeClass: p.current.AudioWorkletNodeClass,
+clients/web/src/domains/audio/energy-lst.ts:11:import { concatInt16Frames } from './wav-encode';
+clients/web/src/domains/audio/pcm-capture.ts:1:// PCM 캡처(AudioWorklet) — VERBATIM 포팅: clients/spike/v5/prod-demo-audio-pcm.mjs.
+clients/web/src/domains/audio/pcm-capture.ts:20:  AudioContextClass?: typeof AudioContext;
+clients/web/src/domains/audio/pcm-capture.ts:21:  AudioWorkletNodeClass?: typeof AudioWorkletNode;
+clients/web/src/domains/audio/pcm-capture.ts:27:  audioContext: AudioContext;
+clients/web/src/domains/audio/pcm-capture.ts:46:  AudioContextClass = globalThis.AudioContext || (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext,
+clients/web/src/domains/audio/pcm-capture.ts:47:  AudioWorkletNodeClass = globalThis.AudioWorkletNode,
+clients/web/src/domains/audio/pcm-capture.ts:63:  // Do not force the capture AudioContext to 16 kHz. Chrome's fake-audio
+clients/web/src/domains/audio/pcm-capture.ts:68:  const audioContext = new AudioContextClass();
+clients/web/src/domains/audio/pcm-capture.ts:70:  const source = audioContext.createMediaStreamSource(mediaStream);

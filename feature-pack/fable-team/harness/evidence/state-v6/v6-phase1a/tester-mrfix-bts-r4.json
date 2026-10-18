@@ -1,0 +1,14 @@
+{
+  "verdict": "BLOCKED",
+  "turn1": "PASS - host ko cer=0.0000 hyp='오늘 회의를 시작합니다.' user matches tester2/JWT host, source_lang=ko",
+  "turn2": {
+    "gateway_user_id": "guest-78b0b423 (correct, no host cross-contamination)",
+    "source_lang": "en (correct)",
+    "worker_stt_lang": "en (correct - provider_candidates=['gpu_qwen3','fireworks'] EN-only chain, not ko chain)",
+    "cer": "N/A - text_len=0, cannot compute CER because STT never returned a transcript (infra failure below), NOT a routing/lang bug",
+    "host_cocapture": "0 - guest pulse_session_id=realtime-1783055415163 distinct from host's realtime-1783055403953, no ko/tester2 release found for the EN utterance"
+  },
+  "guest_console": "present - speech_ms=2900.9 (non-zero) proves real trusted-click getUserMedia capture, not the untrusted-click silent-audio symptom",
+  "evidence_dir": ".omo/evidence/v6-mrfix-short-bts-r4",
+  "notes": "Harness ws-routing fix (ws_url or get_tab_ws) VERIFIED WORKING: registry paths stable and distinct per role/token throughout run, zero wrong-tab symptoms, identity+source_lang correctly threaded gateway->worker for both host and guest. Turn2 failed for a DIFFERENT, unrelated reason: STT provider infra outage - gpu_qwen3 offline (no heartbeat) AND fireworks returned HTTP 401 Unauthorized (key issue), exhausting the EN fallback chain -> stt_timeout -> empty transcript. This is an infra/STT-key issue, not a product/harness routing bug. Recommend: orch to check Fireworks API key validity + GPU stt-gpu heartbeat before declaring the identity-slice work item closed; the identity/lang fix itself can be considered verified."
+}

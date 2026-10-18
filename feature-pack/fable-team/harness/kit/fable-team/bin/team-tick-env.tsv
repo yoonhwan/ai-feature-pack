@@ -1,0 +1,9 @@
+# team-tick-env.tsv — 팀 틱이 공용 ft-tick.sh 를 돌 때의 «팀별 값 + 팀 틱에서 끌 전역 감시» 표 (R199 · ft-tick-install.sh --team <팀> 이 읽는다)
+# 열(탭): 팀 · 명부 파일 이름(<루트>/.fable-team/ 아래) · STATE_DIR · PIDFILE · STAMP_PREFIX · 끌 감시 env(쉼표 · 값 0) · 켤 env(쉼표 · KEY=VAL)
+# STATE_DIR·PIDFILE·STAMP_PREFIX 는 팀마다 달라야 한다(메인 틱 /tmp/ft-tick-state·/tmp/ft-tick.pid·/tmp/ft-tick- 과도 다르게) — 같으면 서명·표식·단일 인스턴스 잠금이 충돌한다.
+# 끌 감시 = 전역 1개만 돌아야 하는 것: 08:15 매거진 경보·예약표(MAGAZINE·LAUNCHD) · 라이브 bin 드리프트(DRIFT) · 상향 좌석 경보(RAISED · 전 명부 스캔) · 워크트리 정리 sweep(WT_SWEEP) · 뉴스 원장(NEWS_LEDGER·NEWS_WATCH) · 자율 끝 시각 기록(AUTONOMY · 단일 기록자 = 메인 틱). hil_watch 는 명부 이름이 seats.json 이 아니면 틱이 스스로 건너뛴다.
+feature	seats-feature.json	/tmp/ft-tick-state-feature	/tmp/ft-tick-feature.pid	/tmp/ft-tick-feature-	FT_TICK_MAGAZINE,FT_TICK_LAUNCHD,FT_TICK_DRIFT,FT_TICK_RAISED,FT_TICK_WT_SWEEP,FT_TICK_NEWS_LEDGER,FT_TICK_NEWS_WATCH,FT_TICK_AUTONOMY	FT_TICK_FIRE_V2=1
+loom	seats-loom.json	/tmp/ft-tick-state-loom	/tmp/ft-tick-loom.pid	/tmp/ft-tick-loom-	FT_TICK_MAGAZINE,FT_TICK_LAUNCHD,FT_TICK_DRIFT,FT_TICK_RAISED,FT_TICK_WT_SWEEP,FT_TICK_NEWS_LEDGER,FT_TICK_NEWS_WATCH,FT_TICK_AUTONOMY	FT_TICK_FIRE_V2=1
+ops	seats-ops.json	/tmp/ft-tick-state-ops	/tmp/ft-tick-ops.pid	/tmp/ft-tick-ops-	FT_TICK_MAGAZINE,FT_TICK_LAUNCHD,FT_TICK_DRIFT,FT_TICK_RAISED,FT_TICK_WT_SWEEP,FT_TICK_NEWS_LEDGER,FT_TICK_NEWS_WATCH,FT_TICK_AUTONOMY	FT_TICK_FIRE_V2=1
+cfo	seats-cfo.json	/tmp/ft-tick-state-cfo	/tmp/ft-tick-cfo.pid	/tmp/ft-tick-cfo-	FT_TICK_MAGAZINE,FT_TICK_LAUNCHD,FT_TICK_DRIFT,FT_TICK_RAISED,FT_TICK_WT_SWEEP,FT_TICK_NEWS_LEDGER,FT_TICK_NEWS_WATCH,FT_TICK_AUTONOMY	FT_TICK_FIRE_V2=1
+concierge	seats-concierge.json	/tmp/ft-tick-state-concierge	/tmp/ft-tick-concierge.pid	/tmp/ft-tick-concierge-	FT_TICK_MAGAZINE,FT_TICK_LAUNCHD,FT_TICK_DRIFT,FT_TICK_RAISED,FT_TICK_WT_SWEEP,FT_TICK_NEWS_LEDGER,FT_TICK_NEWS_WATCH,FT_TICK_AUTONOMY	FT_TICK_FIRE_V2=1

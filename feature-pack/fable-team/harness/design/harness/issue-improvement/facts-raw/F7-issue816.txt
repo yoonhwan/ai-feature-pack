@@ -1,0 +1,10 @@
+TITLE: [harness] 라이브 하네스 bin = main 추적본 1:1 — 채택·설치·드리프트 검사·FT_BIN 이전
+STATE: OPEN
+BODY: 오빠 17:1x 「추적본≠라이브 계속 둘 수 없다」(planner #56634) — 라이브 하네스 bin = main 추적본 1:1.
+
+## 실측 (10-04 · 정확한 수치는 설계서 DESIGN-live-bin-sync.md)
+- 팀들이 실제로 실행하는 `ft-*` 도구(FT_BIN)는 루트 bin 이 아니라 **v6-realtime-live 워크트리의 `.fable-team/bin`**(gitignored 사본) — 38개 중 main 과 같음 24 · 다름 10 · main 에 없음 4. 루트 `.claude/fable-team/bin` 은 `mbox.py`·`mbox.sh` 뿐.
+- 다른 10개는 **전부 라이브가 더 최신**이다(예: ft-nano-close.sh 라이브 10-03 14:10 vs 추적본 10-03 05:09). 지시대로 «main → 라이브» 로 먼저 덮으면 이 변경들이 되돌아간다.
+- 따라서 순서 = ⓪ 라이브를 main 에 «채택»(구조 커밋·행위 0) → ① 설치 스크립트 → ② 드리프트 검사 → ③ 어긋남 [BLOCK] → ④ 손 복사 금지 규칙 → ⑤ FT_BIN 이전.
+
+접수: planner #56634 · 담당 ft-h

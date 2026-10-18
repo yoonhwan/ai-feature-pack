@@ -1,0 +1,15 @@
+byz_agent_work_unit.yml
+config.yml
+harness_request.yml
+hil_request.yml
+live_bug.yml
+planner_task.yml
+satellite_open.yml
+blank_issues_enabled: true
+contact_links:
+  - name: BYZ Core Phases and Expansion Model
+    url: https://github.com/SecondWindStudio/byz-agents/blob/main/docs/architect/BYZ_CORE_PHASES_AND_EXPANSION_MODEL.md
+    about: Long-context anchor for Issue → Research → DA → Evidence → HIL → Dev → PR → Review.
+  - name: BYZ Issue Orchestration Architecture
+    url: https://github.com/SecondWindStudio/byz-agents/blob/main/docs/architect/AGENT_ISSUE_ORCHESTRATION_ARCHITECTURE.md
+    about: Detailed GitHub Issue-centered agent operating architecture.

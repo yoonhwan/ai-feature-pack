@@ -1,0 +1,5 @@
+{
+  "_master": "T#2",
+  "T#1": {"role": "stop-ready", "agent": "claude", "tick": null, "_replaced_by": "T#2"},
+  "T#2": {"role": "master", "agent": "claude", "tick": "ft-master-tick", "_replaces": ["T#1"]}
+}

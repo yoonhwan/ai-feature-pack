@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# PLAN zz-dogfood 정리 — R373 시험 팀을 지운다 (사람 실행 `! bash /tmp/h<N>` · ft-hil.sh --add 로 등록 · 설명 = PLAN-zz-dogfood-cleanup-20261018.md)
+# 하는 일: ①가드(좌석 0 · 틀 파일만 · tmux 세션 0) ②명부를 /tmp 에 백업 ③design/zz-dogfood git rm ④TEAMS.md·TEAMSET.md 행 제거 ⑤명부 삭제 ⑥[chore] 커밋 1개
+# 되돌림(1줄): git -C $ZZ_WT revert --no-edit <이 스크립트가 찍은 커밋> && cp /tmp/zz-dogfood-roster.bak.json <루트>/.fable-team/seats-zz-dogfood.json
+# 값 0: 비밀을 다루지 않는다. 브랜치 삭제 0 · 푸시 0 · 다른 팀 파일 0.
+set -euo pipefail
+[ -n "${ZZ_WT:-}" ] || { echo "STOP ZZ_WT 가 필요하다 — 착지 뒤 origin/main 기준 워크트리 경로를 ZZ_WT 로 (예: ZZ_WT=<경로> bash $0)" >&2; exit 1; }
+WT="$ZZ_WT"
+ROOT="${ZZ_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
+R="$ROOT/.fable-team/seats-zz-dogfood.json"
+BAK=/tmp/zz-dogfood-roster.bak.json
+
+[ -d "$WT/design/zz-dogfood" ] || { echo "STOP $WT/design/zz-dogfood 가 없다(이미 지웠거나 다른 워크트리)" >&2; exit 1; }
+git -C "$WT" merge-base --is-ancestor bbcecf620e1e07efffd292a9f65487ef5cb37d38 HEAD 2>/dev/null || { echo "STOP $WT 의 HEAD 가 R373 착지분(bbcecf620e)을 품지 않았다 — 착지·병합 뒤 워크트리에서" >&2; exit 1; }
+[ -z "$(git -C "$WT" status --porcelain)" ] || { echo "STOP $WT 에 미커밋·미추적 변경이 있다(git status --porcelain 비어 있어야 함) — 정리 커밋과 섞이므로 중단" >&2; exit 1; }
+! tmux ls 2>/dev/null | grep -q '^byz-zz-dogfood' || { echo "STOP byz-zz-dogfood* tmux 세션이 살아 있다 — 닫은 뒤 다시" >&2; exit 1; }
+if [ -f "$R" ]; then
+  python3 - "$R" <<'PY' || { echo "STOP 명부에 좌석 행이 있다(키가 _ 로 시작하지 않는 항목) — 시험 팀이 아니다" >&2; exit 1; }
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+sys.exit(1 if [k for k in d if not k.startswith("_")] else 0)
+PY
+fi
+extra="$(cd "$WT" && find design/zz-dogfood -type f | grep -vE '^design/zz-dogfood/(GOAL-zz-dogfood\.md|GUIDE-zz-dogfood\.md|README\.md|STATE\.md|(archive|closeout|evidence|orders|plans|reviews|indices/(inbox|대기|완성|진행))/\.gitkeep)$' || true)"
+[ -z "$extra" ] || { echo "STOP 틀 집합 밖 파일이 있다(미추적·무시 파일 포함 · find 기준) — 손으로 본 뒤: $extra" >&2; exit 1; }
+
+[ ! -f "$R" ] || cp "$R" "$BAK"
+git -C "$WT" rm -rq design/zz-dogfood
+sed -i '' '/^| zz-dogfood | `design\/zz-dogfood\/`/d' "$WT/design/TEAMS.md"
+sed -i '' '/^| zz-dogfood | 3 | 0 | 없음 |$/d' "$WT/design/TEAMSET.md"
+git -C "$WT" add design/TEAMS.md design/TEAMSET.md
+! grep -q 'zz-dogfood' "$WT/design/TEAMS.md" "$WT/design/TEAMSET.md" || { echo "STOP 행 제거 뒤에도 zz-dogfood 가 남았다 — 되돌리려면 git -C $WT reset --hard HEAD" >&2; exit 1; }
+[ ! -f "$R" ] || rm "$R"
+git -C "$WT" commit -q -m "[chore] zz-dogfood 시험 팀 정리 (R373 · 틀 폴더·TEAMS·TEAMSET 행 · 명부는 /tmp 백업)"
+echo "OK 정리 커밋 $(git -C "$WT" rev-parse --short=10 HEAD) · 명부 백업 $BAK"

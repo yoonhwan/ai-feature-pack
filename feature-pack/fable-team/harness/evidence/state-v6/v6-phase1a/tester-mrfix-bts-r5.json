@@ -1,0 +1,17 @@
+{
+  "wiring": "PASS",
+  "cer": "INFRA_BLOCKED(gpu_qwen3 offline no-heartbeat, fireworks HTTP 401 unauthorized)",
+  "turn1": "host ko cer=0.0000, no regression, provider=groq, user_id=tester2",
+  "turn2": {
+    "gateway_user_id": "guest-12db5ee4",
+    "source_lang": "en",
+    "worker_stt_lang": "en",
+    "worker_stt_provider_candidates": "['gpu_qwen3', 'fireworks']",
+    "worker_stt_result": "empty (gpu_qwen3 offline; fireworks 401 unauthorized)",
+    "host_cocapture": "0 (turn2 utterance.released user_id=guest-12db5ee4, not tester2; distinct ws page targets confirmed)"
+  },
+  "guest_console": "present (label=guest[bjMXf6HD_O-e] v5.energy_vad/v6.100ms/v5.audio.energy lines, distinct from label=host)",
+  "runner_path_instrumentation": "present (465 _realtime_ws/_realtime_ws_by_token path=registry lines, 2 distinct ws page targets: host=4BA310..., guest=CB4823...)",
+  "evidence_dir": ".omo/evidence/v6-mrfix-short-bts-r5",
+  "notes": "Wiring PASS: guest identity (guest-12db5ee4) and source_lang=en correctly threaded gateway->worker for turn2; zero host co-capture (host stayed tester2/ko on turn1, no cross-contamination). CER split as INFRA_BLOCKED per pre-check: gpu_qwen3 offline (no heartbeat), fireworks key HTTP 401 unauthorized (both HIL-domain infra, not product code). This is NOT a wiring failure -- STT node correctly attempted both en-eligible providers in order, both failed at the provider layer, error surfaced as v5.error stt_timeout/stt_hallucination-adjacent empty text, gateway correctly published utterance.released with empty text and source_lang=en still correct. Runner exit_code=2/scenario ok=1/2 is due to CER infra block, not wiring regression."
+}

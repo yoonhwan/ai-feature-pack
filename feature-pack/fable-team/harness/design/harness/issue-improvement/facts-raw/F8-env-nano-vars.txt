@@ -1,0 +1,10 @@
+.fable-team/bin-cfo/ft-goal-tick-cfo.sh: 
+.fable-team/bin-cfo/ft-seat-status.sh: 
+.fable-team/bin-cfo/ft-tick.sh: 
+.fable-team/bin-harness/harness-env.sh: 
+.fable-team/bin-issues/issues-env.sh: 
+.fable-team/bin-kk/ft-goal-tick-kk.sh: 
+.fable-team/bin-kk/ft-seat-status.sh: 
+.fable-team/bin-kk/ft-tick.sh: 
+.fable-team/bin-kk/kk-env.sh: 
+.fable-team/bin-planner/planner-env.sh: 

@@ -1,0 +1,29 @@
+{
+  "stop_point": "other",
+  "timeline": [
+    {"t": "+0.00s", "event": "probe_start"},
+    {"t": "+1.73s", "event": "host_enter=True"},
+    {"t": "+2.59s", "event": "host_connect=True"},
+    {"t": "+9.15s", "event": "host_issue_qr share_url ok, token extracted"},
+    {"t": "+9.23s", "event": "guest tab opened (cdp_new_window)"},
+    {"t": "+10.23s", "event": "guest_ws resolved, console capture attached"},
+    {"t": "+10.24s", "event": "guest console: React DevTools + [HMR] connected (page alive)"},
+    {"t": "+10.24s", "event": "guest_entry_dialog found=True"},
+    {"t": "+11.52s", "event": "select_guest_lang(en)=True (Radix select confirmed)"},
+    {"t": "+11.57s", "event": "submit_click=OK"},
+    {"t": "+12.08s", "event": "station_ready=True"},
+    {"t": "+12.09s", "event": "connect_ready(RECORD button visible+enabled)=True"},
+    {"t": "+12.09s..+38.30s", "event": "30s DOM sample loop: record_exists=true, record_disabled=false throughout, no additional console lines (idle, expected)"},
+    {"t": "+39.33s", "event": "PTT_click1(arm)=OK"},
+    {"t": "+39.99s", "event": "[v5.energy_vad] phase=start + [v6.100ms] analysis_start + [v5.audio.energy] phase=start fired"},
+    {"t": "+40.09s", "event": "[v6.100ms] analysis_tick #1 vad_state=idle"},
+    {"t": "+40.84s", "event": "PTT_state_after_1.5s=true (still recording per DOM attr)"},
+    {"t": "+40.88s", "event": "[v5.energy_vad] phase=stop + [v5.audio.energy] stop_flush_kept (release_substantial)"},
+    {"t": "+40.92s", "event": "PTT_click2(release)=OK"},
+    {"t": "+41.03s", "event": "[v5.audio.energy] chunk_post seq=1 bytes=26040 is_final=true — POST to worker fired normally"},
+    {"t": "+42.04s", "event": "probe_end — full arm→VAD→chunk_post cycle completed, no guard errors, no exceptions"}
+  ],
+  "guest_console_lines": 11,
+  "ptt_reaction": "normal — VAD start/tick/stop + audio chunk POST fired exactly as expected; no 'guest session key missing'/'connect blocked' guard strings, no React errors, no silence",
+  "notes": "In a CLEAN single-guest fresh-window run, guest connect() fires correctly (guestLang='en' set at dialog submit, guestConnectReady true, RECORD enabled at +12s) and PTT is fully functional — contradicts the 'guestLang null / connect never fires' hypothesis for this baseline path. IMPORTANT confound found live: pre-existing stale Chrome tabs from a prior BTS run kept CDP's /json url field frozen at the initial load URL (http://localhost:3001/) even after the app had SPA-navigated to /room/.../realtime — Next.js client-side routing (pushState) does not update CDP Target url. A harness that re-resolves 'home' or 'guest' tabs by matching /json url after such SPA nav will silently attach to the wrong (or a stale/already-busy) tab, which would manifest exactly as 'zero guest console output' / connect() apparently never firing, without any code defect in guestLang/connect wiring. Recommend checking whether the failing BTS run reused pre-existing tabs/windows (multi-guest or repeated runs) rather than fresh cdp_new_window per guest — that is the most likely mechanism, not the guestLang state itself."
+}

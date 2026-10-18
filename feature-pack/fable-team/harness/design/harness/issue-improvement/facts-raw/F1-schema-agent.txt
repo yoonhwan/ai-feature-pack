@@ -1,0 +1,41 @@
+UNION_OF_ROW_FIELDS: ['_auto_retarget', '_auto_retarget_note', '_cleanup_note', '_close_reason', '_closed', '_closed_at', '_dead_pane', '_death_note', '_doc', '_fork_of', '_forked_from', '_ghost_note', '_killed_note', '_model_method', '_model_note', '_model_prev', '_model_restore_at', '_model_restore_to', '_note', '_note_parallel', '_parallel_of', '_predecessor', '_prev_index', '_prev_replaced_by', '_reopened', '_replaced_by', '_replaces', '_revived_for', '_revived_from', '_revived_note', '_session', '_spawned_by', '_stop_ready', '_stop_ready_note', '_stop_ready_reason', '_stopped_at', '_tick_was', '_was', '_why', '_worktree', 'agent', 'branch', 'card', 'doing', 'effort', 'fast', 'index', 'job', 'model', 'opened_at', 'persona', 'prev_role', 'purpose', 'replaced_at', 'report_to', 'reports_to', 'role', 'service_tier', 'spawned_by', 'status', 'stop_ready_at', 'stopped_at', 'tick', 'worktree']
+seats.json: ['_cleanup_note', '_close_reason', '_closed', '_closed_at', '_dead_pane', '_death_note', '_fork_of', '_forked_from', '_ghost_note', '_killed_note', '_model_method', '_model_note', '_model_prev', '_model_restore_at', '_model_restore_to', '_note', '_note_parallel', '_parallel_of', '_predecessor', '_prev_index', '_prev_replaced_by', '_reopened', '_replaced_by', '_replaces', '_revived_for', '_revived_from', '_revived_note', '_session', '_spawned_by', '_stop_ready', '_stop_ready_note', '_stop_ready_reason', '_stopped_at', '_tick_was', '_was', '_why', '_worktree', 'agent', 'branch', 'card', 'doing', 'effort', 'fast', 'index', 'job', 'model', 'opened_at', 'prev_role', 'purpose', 'report_to', 'role', 'service_tier', 'spawned_by', 'stop_ready_at', 'stopped_at', 'tick', 'worktree']
+seats-harness.json: ['_replaced_by', '_replaces', 'agent', 'effort', 'index', 'model', 'opened_at', 'persona', 'role', 'spawned_by', 'tick', 'worktree']
+seats-issues.json: ['_doc', 'agent', 'effort', 'index', 'model', 'opened_at', 'persona', 'reports_to', 'role', 'spawned_by', 'tick', 'worktree']
+seats-planner.json: ['_closed', 'agent', 'index', 'model', 'opened_at', 'persona', 'role', 'spawned_by', 'tick', 'worktree']
+seats-kk.json: ['_closed', '_replaced_by', '_replaces', 'agent', 'index', 'model', 'opened_at', 'role', 'spawned_by', 'status', 'tick', 'worktree']
+seats-cfo.json: ['_auto_retarget', '_auto_retarget_note', '_fork_of', '_forked_from', '_note', '_replaced_by', '_replaces', 'agent', 'branch', 'card', 'doing', 'index', 'job', 'model', 'opened_at', 'replaced_at', 'report_to', 'role', 'spawned_by', 'status', 'stopped_at', 'tick', 'worktree']
+
+## agent classify (pane_current_command)
+FB_CCU#12	2.1.289	claude(2.1.289)
+FB_CFO#52	2.1.288	claude(2.1.288)
+KakaoBot#14	2.1.287	claude(2.1.287)
+KakaoBot#17	2.1.289	claude(2.1.289)
+byz-planner-arch#1	2.1.289	claude(2.1.289)
+byz-planner-arch#3	2.1.289	claude(2.1.289)
+ft-airag-helm-claude#4	2.1.288	claude(2.1.288)
+ft-airag-helm-claude#5	2.1.289	claude(2.1.289)
+ft-airag-master-claude#2	2.1.289	claude(2.1.289)
+ft-harness-arch#0	2.1.289	claude(2.1.289)
+ft-harness-da#1	node	codex(node)
+ft-harness-nano#1	opencode	opencode
+ft-harness-ops#0	2.1.289	claude(2.1.289)
+ft-harness-ops#1	2.1.289	claude(2.1.289)
+ft-issue-manager#0	2.1.289	claude(2.1.289)
+ft-kakao-architect#27	2.1.289	claude(2.1.289)
+ft-kakao-architect#28	2.1.289	claude(2.1.289)
+ft-kakao-da#21	node	codex(node)
+ft-kakao-nano-canary-inject#0	2.1.289	claude(2.1.289)
+ft-kakao-nano-ops-005-notice-wire#0	2.1.289	claude(2.1.289)
+ft-kakao-nano-send-preview#0	2.1.289	claude(2.1.289)
+ft-kakao-nano-send-preview#1	2.1.289	claude(2.1.289)
+ft-v65-arch-claude#155	2.1.289	claude(2.1.289)
+ft-v65-master-claude#135	2.1.289	claude(2.1.289)
+ft-v65-master-claude#136	2.1.289	claude(2.1.289)
+ft-v65-temp-m7-p90-lang-update-gap-decomposition#0	2.1.289	claude(2.1.289)
+ft-v65-temp-m7-p90f-n06-n10-durable-four-of-five-rea#0	2.1.289	claude(2.1.289)
+ft-v65-tester-claude#13	2.1.289	claude(2.1.289)
+repro-e2e#0	2.1.289	claude(2.1.289)
+tmm	bash	shell/none
+
+AGENT_COUNTS {'claude(2.1.289)': 23, 'claude(2.1.288)': 2, 'claude(2.1.287)': 1, 'codex(node)': 2, 'opencode': 1, 'shell/none': 1} total 30

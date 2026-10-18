@@ -1,0 +1,9 @@
+# Human Report Guide — Correction Review
+
+Verdict: **APPROVE** within the dispatched documentary scope. Remaining blocking findings: **0**. Target: immutable #56990 relay `/tmp/mbox/20261005T151129-ft-harness-arch#1-to-ft-harness-da#1-GUIDE-human-report-20261005.md`. Review covers the three r1 findings and direct guards only, completed within ten active minutes. No implementation, installation or design review.
+
+1. **Finding 1 closed:** the artifact has 39 lines, within the explicit 40-line limit; all five ORDER categories remain, including the terminology table with at least ten entries and installation targets/line counts.
+2. **Finding 2 closed:** the good example has one immediate sequencing decision with numbered alternatives, not five simultaneous questions. The specific template rule places the question only in the action field and evidence last even when a question is present. Read the general “one question to end” wording as the number of decisions, with this explicit evidence-last rule controlling physical ordering. The example uses the four stages within ten lines and does not add the separate card-count observation.
+3. **Finding 3 closed:** the bad example retains #56986's substantive body; the good rewrite preserves acceptance, document relocation, saved/stopped state, succession prohibition and the two pending next-step paths. It removes the unproved inference about all other cards and distinguishes completed adversarial review from the responsible orchestrator's acceptance. File/commit/message identifiers are confined to the evidence line of the good example.
+
+Approval is limited to readability-rule consistency, required-item coverage and source fidelity. The user's “readable” confirmation, ops acceptance and any authorized persistent installation remain separate. No CLAUDE.md, BOOT guide, Slack template or runtime file was modified.

@@ -1,0 +1,20 @@
+{
+  "verdict": "ALL_PASS",
+  "tsc": "npx tsc --noEmit — 0 errors",
+  "jest": {
+    "suites": "161/161",
+    "tests": "1507/1507",
+    "failures": []
+  },
+  "contract_spot_checks": [
+    {"check": "lifecycle 5b: early-return only on guestConnectReady===false, latch only on connect()!==false", "result": "OK"},
+    {"check": "station.tsx: guestConnectReady = !isGuest || Boolean(guest && guestLang)", "result": "OK"},
+    {"check": "station.tsx: 10s seed-timeout effect with cleanup on guestLang arrival/unmount + guestLangRef re-check inside callback + calls onGuestStaleClear (not bare setError)", "result": "OK"},
+    {"check": "use-realtime-stt.ts: connect() first-line guard isGuestRef.current && !sessionKey -> setError + return false; connect declared to return boolean", "result": "OK"},
+    {"check": "use-realtime-stt.ts: fetchHeaders throws on same guest+!sessionKey condition", "result": "OK"},
+    {"check": "energy-chunk-transport.ts: fetchHeaders() moved inside try at all 3 call sites (postChunk/postLstChunk/postManualFlushControl), no other logic change", "result": "OK"},
+    {"check": "connect() callers: only 2 sites in station.tsx (line 300 via lifecycle 5b - consumed; line 383 handleConnect - ignored); no lecture-domain reuse (grep hit was a comment reference only)", "result": "OK"},
+    {"check": "new test cases g/h/i present and passing (realtime-room-station-seed-timeout.test.ts: i-a/i-b/i-c; use-realtime-station-lifecycle-mr-guest-connect.test.ts: a/b/c/g/h; use-realtime-stt-mr-guest-guard.test.ts: d/e/f)", "result": "OK"}
+  ],
+  "notes": "All 4 source diffs verified line-by-line against design-mr-guest-connect-fix-v2.md §②; no deviations found. Full jest suite (not scoped) run per hook-contract-change policy — 161/161 suites, 1507/1507 tests green. tsc --noEmit clean. Independent re-verification confirms implementer's self-verify claims."
+}
