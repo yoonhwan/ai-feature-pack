@@ -96,9 +96,11 @@ if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번
     o = load(cand[0]).get(old) if cand and isinstance(load(cand[0]), dict) else None
     if not isinstance(o, dict):
         for f in rosters:
-            if active_in(f): reject(f"{old} 은 {os.path.basename(f)} 의 `_*` 칸 값인데 행이 없음 — 명부 확인")
-        o = {}
-    rec, why = find_resume(o.get("model"), f"verdict {verdict}"); write_record(rec, why); sys.exit(0)
+            if active_in(f): reject(f"{old} 은 {os.path.basename(f)} 의 `_*` 칸 값인데 행이 없음 — 명부 확인 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
+        o = None
+    rec, why = find_resume((o or {}).get("model"), f"verdict {verdict}"); write_record(rec, why)
+    if o is None and not rec: print("  - 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")   # R400 r3 §D — 행 없음 NORECORD 에도 같은 안내(첫 줄 꼴 그대로)
+    sys.exit(0)
 mkrow = False
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
     base, _, gen = old.rpartition("#"); later = []
@@ -109,9 +111,9 @@ if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 
             if v == old: reject(f"{old} 은 현역({os.path.basename(f)} {k}) — 기록 모드는 은퇴한 좌석만")
             b, _, g = v.rpartition("#")
             if b == base and g.isdigit() and gen.isdigit() and int(g) > int(gen): later.append((int(g), v))
-    if not later: reject(f"{old} 보다 번호가 큰 같은 계보 현역 이름이 어느 명부 `_*` 칸에도 없음")
+    if not later: reject(f"{old} 보다 번호가 큰 같은 계보 현역 이름이 어느 명부 `_*` 칸에도 없음 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
     rb = max(later)[1]
-    if not alive(rb): reject(f"현역 {rb} 의 tmux 세션이 없음")
+    if not alive(rb): reject(f"현역 {rb} 의 tmux 세션이 없음 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
     rec, why = find_resume(None, rb); write_record(rec, why); sys.exit(0)
 if not cand and not arg and reconly != "1":   # R282 ② — 옛 행이 어느 명부에도 없는 «지금 승계 중»: 팀 명부에 은퇴 행을 만든다
     lint = subprocess.run(["bash", f"{here}/ft-name-lint.sh", old], capture_output=True, text=True)

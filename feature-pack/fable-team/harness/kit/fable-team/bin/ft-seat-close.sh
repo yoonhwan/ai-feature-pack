@@ -21,13 +21,13 @@ BY="unknown"; [ -z "${TMUX_PANE:-}" ] || BY="$(tmux display-message -p -t "$TMUX
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(못 풀면 쓰기 0) 재개 기록 → 실패면 명부·kill 0
   [ "$BY" != "$SEAT" ] || { echo "REJECT $SEAT 은 지금 이 명령을 실행하는 세션 자신 — 다른 좌석에서 닫는다"; exit 1; }
-  . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || { echo "REJECT 원장 루트를 못 풂(ft_data_root) — 쓰기 0 · kill 0"; exit 1; }
+  . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || { echo "REJECT 원장 루트를 못 풂 — FT_ROOT=<설치본 루트> 를 주고 --seats <그 루트>/.fable-team/seats.json 로 (쓰기 0 · kill 0)"; exit 1; }
   ROUT="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$VERDICT" ${ARG:+--seats "$ARG"} 2>&1)"; rrc=$?
   case "$rrc $ROUT" in "0 RESUME ok "*) REC="${ROUT#RESUME ok }"; REC="${REC%%[[:space:]]*}";; *) echo "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; exit 3;; esac
 fi
-OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" <<'PY'
-import json, glob, shutil, datetime, collections, os, sys
-arg, root, seat, reason, by, verdict, rec = sys.argv[1:8]
+OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" "$HERE/ft-seat-close.sh" <<'PY'
+import json, glob, shutil, shlex, datetime, collections, os, sys
+arg, root, seat, reason, by, verdict, rec, tool = sys.argv[1:9]
 def load(f):
     try: return json.load(open(f, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
     except (OSError, ValueError): return None
@@ -41,7 +41,8 @@ for f in (files if not verdict else []):   # ⓐ 현역 역할 좌석(_master·_
     if isinstance(d, dict) and any(k.startswith("_") and v == seat for k, v in d.items()):
         print(f"REJECT {seat} 은 {f} 의 _ 칸 값(현역 역할 좌석) — 승계 경로(ft-successor-open · ft-seat-retire) 로"); sys.exit(1)
 cand = [f for f in files if isinstance(load(f), dict) and seat in load(f)]
-if verdict and not cand: print(f"NOROW {seat} 명부 행 없음 — 기록 {rec} · kill 0 · 그 리포 루트에서 --verdict 로"); sys.exit(3)
+if verdict and not cand:   # R400 r3 §D — 명부 루트(cwd)와 원장 루트(FT_ROOT)를 같이 주는 한 줄(자동 탐색 0)
+    print(f"NOROW {seat} 명부 행 없음({arg or root + '/.fable-team/seats*.json'}) — 기록 {rec} · kill 0 · 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> {tool} {shlex.quote(seat)} --verdict {verdict} --reason {shlex.quote(reason)} --seats <그 루트>/.fable-team/seats.json"); sys.exit(3)
 if len(cand) != 1: print(f"REJECT 명부 후보 {len(cand)}개 (키 {seat}) — --seats 로 지정"); sys.exit(1)
 p = cand[0]; d = load(p); o = d.get(seat)
 if not isinstance(o, dict): print(f"REJECT {p} 의 {seat} 행이 객체가 아님"); sys.exit(1)
