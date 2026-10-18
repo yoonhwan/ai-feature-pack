@@ -11,7 +11,8 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_SECRET_SCAN_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
-export SCAN_HERE="$HERE" SCAN_ROOT="$ROOT" SCAN_MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}" SCAN_SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats-planner.json}"
+SCAN_MBOX="${FT_MBOX_SH:-}"; [ -n "$SCAN_MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 3; SCAN_MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
+export SCAN_HERE="$HERE" SCAN_ROOT="$ROOT" SCAN_MBOX SCAN_SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats-planner.json}"
 export SCAN_STATE="$HOME/.fable-team/state/secret-scan.state" SCAN_LOG="$HOME/.fable-team/state/secret-scan.log"
 MODE=scan; PLANS=()
 case "${1:-}" in

@@ -75,7 +75,7 @@ TEXT="${2:?text required}"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REACH="$HERE/ft-reach-check.sh"
 # 본문 큐. 경로는 이 리포의 정본이고, 테스트·다른 설치가 갈아끼울 수 있게 env 를 먼저 본다.
-MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"
+MBOX="${FT_MBOX_SH:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 # 발신자 이름 — mbox 의 세션명 allowlist(`[A-Za-z0-9._#-]+`)를 통과해야 한다.
 FROM="${FT_SEND_FROM:-dispatch}"
 

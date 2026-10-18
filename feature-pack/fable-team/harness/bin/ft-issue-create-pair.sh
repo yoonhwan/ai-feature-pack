@@ -14,7 +14,7 @@ ROOT="${FT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 COMMON="$(git -C "${ROOT:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
 ISSUES_SEATS="${FT_ISSUES_SEATS:-$COMMON/.fable-team/seats-issues.json}"
 MBOX="${FT_MBOX_CMD:-}"
-[ -n "$MBOX" ] || { [ -f "$HERE/../comm/mbox.sh" ] && MBOX="$HERE/../comm/mbox.sh" || MBOX="$COMMON/.fable-team/comm/mbox.sh"; }
+[ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 MARKER='<!-- ft-origin: seat -->'
 
 die() { echo "REJECT $1" >&2; exit "${2:-1}"; }

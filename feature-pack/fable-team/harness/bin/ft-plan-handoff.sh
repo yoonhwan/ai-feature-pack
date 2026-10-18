@@ -19,7 +19,7 @@ COMMON="$(git -C "${ROOT:-.}" rev-parse --path-format=absolute --git-common-dir 
 ISSUES_SEATS="${FT_ISSUES_SEATS:-$COMMON/.fable-team/seats-issues.json}"
 PLANNER_SEATS="${FT_PLANNER_SEATS:-$COMMON/.fable-team/seats-planner.json}"
 MBOX="${FT_MBOX_CMD:-}"
-[ -n "$MBOX" ] || { [ -f "$HERE/../comm/mbox.sh" ] && MBOX="$HERE/../comm/mbox.sh" || MBOX="$COMMON/.fable-team/comm/mbox.sh"; }
+[ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
 
 die() { echo "REJECT $1" >&2; exit "${2:-1}"; }
 clean() { printf '%s' "$1" | tr '\n\r' '  ' | tr -d '`' | sed 's/^ *//; s/ *$//'; }

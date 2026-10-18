@@ -20,12 +20,27 @@ FRESH_S = 600
 EXEMPT = ("harness", "planner")  # 복구 담당 팀 — 정지 대상 아님
 
 
+def _common(cwd: Path) -> Path | None:
+    try:
+        out = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return Path(out.stdout.strip()).parent if out.returncode == 0 and out.stdout.strip() else None
+
+
 def root() -> Path:
+    """리포 공용 루트 = ①FT_ROOT ②옛 설치 꼴(이 파일이 */.fable-team/bin)이면 그 위치의 git 공용 루트 ③cwd git 공용 루트(.fable-team/ 실재)
+    ④ERROR rc1 (r385 r3 · ft-harness-root.sh ft_repo_root 와 같은 순서 — 설치본(git 밖)에서 «파일 위치» 로 풀면 빈 루트가 된다)."""
     r = os.environ.get("FT_ROOT")
     if r:
         return Path(r)
-    out = subprocess.run(["git", "-C", str(Path(__file__).resolve().parent), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True)
-    return Path(out.stdout.strip()).parent
+    here = Path(__file__).resolve().parent
+    if here.name == "bin" and here.parent.name == ".fable-team":
+        return _common(here) or here.parent.parent
+    c = _common(Path.cwd())
+    if c and (c / ".fable-team").is_dir():
+        return c
+    sys.exit(f"ERROR 리포 공용 루트를 못 풂 — FT_ROOT 없음 · cwd({Path.cwd()}) 가 .fable-team/ 있는 git 리포 아님 · 옛 설치 꼴 아님({here})")
 
 
 def now() -> float:

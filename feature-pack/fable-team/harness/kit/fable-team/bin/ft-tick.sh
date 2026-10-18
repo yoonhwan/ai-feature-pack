@@ -37,7 +37,7 @@ STALL_INTERVAL="${FT_TICK_STALL_INTERVAL:-300}"   # 감시 주기(초)
 STALL_MIN="${FT_TICK_STALL_MIN:-15}"              # 이 분 이상 jsonl 무활동이면 정지
 STALL_WAKE_GAP="${FT_TICK_STALL_WAKE_GAP:-900}"   # 같은 좌석 재깨움 최소 간격(초)
 SEAT_STATUS="${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
-MBOX="${FT_TICK_MBOX:-$HERE/../comm/mbox.sh}"
+MBOX="${FT_TICK_MBOX:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
 # ★워크트리 정리 sweep (하네스 0.5 행 2 r3 · DA r2 조건 2)★ — 닫힌 나노의 계획(.fable-team/state/wt-clean/*.sh)을 매 루프 실행. 가드·원장 표식은 계획이 맡는다.
 #   [HIL] 줄이 나오면 현역 master 우편함으로 올린다(계획이 mbox 를 직접 쏘지 않는다 — 오빠 규칙 2026-09-25). FT_TICK_WT_SWEEP=0 으로 끔.
 API_OUTAGE="${FT_TICK_API_OUTAGE_BIN:-$HERE/ft_api_outage.py}"
