@@ -23,12 +23,8 @@ while [ $# -gt 0 ]; do case "$1" in
   --extra-comment) EXTRA="${2:-}"; shift 2;; --has-token) HAS_TOKEN="${2:-}"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
 case "$N" in ''|*[!0-9]*) echo "usage: $0 <Issue#> [--from-json <file>] [--repo <dir>] [--gate] [--extra-comment <file>] [--has-token <tok>]" >&2; exit 2;; esac
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -z "$REPO" ]; then   # r385: git -C $HERE 는 옛 설치 꼴에서만 — 새 설치본(git 밖)·팩 추적 사본은 cwd 리포 · 못 풀면 rc2
-  case "$HERE" in
-    */.fable-team/bin) REPO="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null || (cd "$HERE/../.." && pwd))";;
-    *) REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ERROR 리포를 못 풂 — --repo 를 준다 (cwd $(pwd))" >&2; exit 2; };;
-  esac
-fi
+# r385b: 리포 = ft_repo_root(옛 설치 꼴 · cwd 리포 공용 루트 — 같은 리포의 객체·ref 라 워크트리 최상위와 결과 같음) · 못 풀면 rc2
+[ -n "$REPO" ] || { . "$HERE/ft-harness-root.sh" && REPO="$(ft_repo_root "$HERE")"; } || exit 2
 command -v jq >/dev/null || { echo "jq 필요" >&2; exit 2; }
 
 if [ -n "$FROM_JSON" ]; then

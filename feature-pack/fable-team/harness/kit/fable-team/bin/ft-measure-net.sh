@@ -21,8 +21,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -z "${FT_ROOT:-}" ]; then
-  common="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || common=""
-  [ -n "$common" ] && FT_ROOT="$(dirname "$common")"
+  FT_ROOT="$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)" || FT_ROOT=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트(못 풀면 빈 값 — 옛 동작)
 fi
 export FT_ROOT
 [ $# -eq 3 ] || [ "${1:-}" = baseline -a $# -eq 1 ] || { echo "usage: $0 succession|interview|planner-mail <from> <to> | baseline" >&2; exit 2; }

@@ -11,7 +11,8 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BOARD="${FT_BOARD_BIN:-$HERE/ft-board.py}"
 TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
-ROOT="${FT_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir | xargs dirname)}"
+ROOT="${FT_ROOT:-}"   # r385b: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 2
 DAY="${FT_BOARD_NOW:+${FT_BOARD_NOW:0:10}}"; DAY="${DAY:-$(date +%F)}"
 SD="$ROOT/.fable-team/state/board"
 [ -f "$TP" ] || { echo "ft-board-publish: 도구 없음 $TP (#0 RULE · 폴백 0)" >&2; exit 2; }
