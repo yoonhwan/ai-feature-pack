@@ -1,0 +1,6 @@
+oprh 시작 2026-10-18 10:42:36 dry=0 · launchctl 0 · 값 출력 0 · 상한 10.5초 · op-home=/Users/yoonhwan/.config/airag/op-home
+준비: /Users/yoonhwan/.config/airag/op-home 생성(0700 · 빈 폴더)
+T0 기준(허용목록 환경): rc=0 ms=1946 형식통과=1 | AppData(preflight=no)=1 AllFiles(preflight=yes)=1 PROMPTING=0 | op요청 2건 분포={'AllFiles/preflight=yes': 1, 'AppData/preflight=no': 1} authValue=['39944.20:0', '39944.21:2'] | stderr분류=none 
+T1 HOME=op-home: rc=0 ms=2742 형식통과=1 | AppData(preflight=no)=0 AllFiles(preflight=yes)=0 PROMPTING=0 | op요청 0건 분포=- authValue=- | stderr분류=none 격리폴더사용[T1 뒤 .config/op=1 op(OP_CONFIG_DIR)=0 · T1 전 .config/op=0 op(OP_CONFIG_DIR)=0]
+T2 건너뜀 — T1 이 «config directory 류 rc≠0» 가 아님(정본 §5)
+끝 — 위 «T0/T1/T2» 줄을 그대로 Master 에 붙여 주세요 (값은 출력되지 않았습니다 · 판정은 정본 §5 표). 파일: /tmp/oprh-20261018-104235.txt
