@@ -131,8 +131,9 @@ if not isinstance(n, dict):
 else:
     if role != "stop-ready": n["role"] = role
     if not n.get("tick"): n["tick"] = tick
+if o.get("index") and not n.get("index"): n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
 n["_replaces"] = sorted(set(n.get("_replaces", []) + [old]))
-keys = [k for k, v in d.items() if k.startswith("_") and v == old]
+keys =[k for k, v in d.items() if k.startswith("_") and v == old]
 for k in keys: d[k] = new
 tmp = p + ".tmp-" + str(os.getpid())   # 쓰기 중 죽어도 원본 무손상 — tmp 에 다 쓴 뒤 한 번에 교체(N3 · D3 승계 원자성)
 with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=2); f.write("\n"); f.flush(); os.fsync(f.fileno())
