@@ -366,13 +366,13 @@ sweep_wt() {
 drift_watch() {
   local out err errf cause rc shrc hdr items sig sigf stamp rows master
   [ "$DRIFT_ENABLED" = 1 ] || return 0
-  case "$HERE" in */.fable-team/bin|*/.fable-team/*/bin) ;; *) return 0;; esac
+  case "$HERE" in */.fable-team/bin|*/.fable-team/*/bin|*/fable-team/live/*/bin) ;; *) return 0;; esac
   stamp="$(stamp_of _all drift)"
   if [ "$DRY" != 1 ] && [ $(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) )) -lt "$DRIFT_INTERVAL" ]; then return 0; fi
   [ -f "$DRIFT_CHECK" ] || { echo "$(date '+%F %T') drift_watch: missing $DRIFT_CHECK" >&2; return 0; }
   # stdout 만 머리글·항목·서명 — stderr(locale 경고 등)가 머리글이 되면 로그·알림·서명이 오염된다. stderr 는 rc≥2 원인 줄로만 쓴다.
   errf="$(mktemp)" && [ -n "$errf" ] || { echo "$(date '+%F %T') drift_watch: ERROR mktemp failed — check not run" >&2; return 0; }
-  out="$(bash "$DRIFT_CHECK" --bin "$HERE" ${ROOT:+--repo "$ROOT"} 2>"$errf")"; rc=$?
+  out="$(bash "$DRIFT_CHECK" --bin "$HERE" 2>"$errf")"; rc=$?   # 키트 리포·경로 = 하네스 코드 루트(r385 · 프로젝트 리포 전제 0)
   err="$(cat "$errf" 2>/dev/null)"; rm -f "$errf"
   if [ "$DRY" = 1 ]; then echo "DRY kind=drift bin=$HERE rc=$rc"; return 0; fi
   now > "$stamp"; sigf="$STATE_DIR/drift.sig"; mkdir -p "$STATE_DIR"

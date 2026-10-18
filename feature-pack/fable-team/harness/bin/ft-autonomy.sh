@@ -15,7 +15,8 @@
 # 이 스크립트만 log 를 쓴다 → json 이 log 의 마지막 «모드 줄»과 어긋나거나 그 뒤에 불완전·모르는 형식의 줄이 있으면 위변조 = OFF 취급. 시간 창·자동 해제 0(끝 시각은 오빠가 켤 때 정한 값뿐).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
+ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR (새 설치본 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 2
 STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
 # R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — mode·status 같은 훅 경로는 안 쓰므로 «필요할 때만» 푼다 · 못 풀면 stderr ERROR + rc1(옛 경로 후퇴 0 · #0 RULE)
 planner_dir() { if [ -n "${FT_PLANNER_DIR:-}" ]; then printf '%s\n' "$FT_PLANNER_DIR"; return 0; fi

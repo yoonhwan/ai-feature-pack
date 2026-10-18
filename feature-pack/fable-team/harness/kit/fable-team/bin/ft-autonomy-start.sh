@@ -8,7 +8,8 @@
 #               gh 실패·초과·없음 = 그 절에 «Issue 목록 못 읽음: <원인>» 1줄(조용한 생략 0 · 켜기는 안 막음). 장부 쓰기 실패 = stderr ERROR + rc 1.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
+ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR (새 설치본 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 2
 # R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
 if [ -n "${FT_PLANNER_DIR:-}" ]; then PLANNER="$FT_PLANNER_DIR"
 else . "$HERE/ft-team-lib.sh" && PLANNER="$(ft_team_in "$ROOT" planner)" || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; exit 1; }; fi

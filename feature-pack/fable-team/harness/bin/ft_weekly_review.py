@@ -20,7 +20,19 @@ from ft_weekly_table import carry, notified_state, render, set_notified, table_r
 
 MAIL_ON_RERUN = False
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
+def _repo_root() -> Path:
+    """r385 리포 공용 루트(ft-harness-root.sh ft_repo_root 와 같은 순서): 옛 설치 꼴(*/.fable-team/bin)이면 HERE.parents[1]
+    → cwd git 공용 루트(.fable-team/ 있을 때) → ERROR(새 설치본 위치로 풀지 않는다)."""
+    if HERE.name == "bin" and HERE.parent.name == ".fable-team":
+        return HERE.parents[1]
+    p = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, timeout=7)
+    r = Path(p.stdout.strip()).parent if p.returncode == 0 and p.stdout.strip() else None
+    if r and (r / ".fable-team").is_dir():
+        return r
+    raise SystemExit("ERROR 리포 공용 루트를 못 풂 — cwd(%s) 가 .fable-team/ 있는 git 리포 아님 · 옛 설치 꼴 아님(%s)" % (os.getcwd(), HERE))
+
+
+ROOT = _repo_root()
 PRUNE = {".git", "node_modules", ".worktrees", ".venv"}
 
 

@@ -13,7 +13,8 @@
 #   부하: nice 10 · 워크트리당 git 조회 ≈ 3~5회 · du 기본 0(R323 · 크기 = FT_CENSUS_GB_PER_WT 상수 × 개수 · FT_CENSUS_DU=1 일 때만 사본 표본 3개 du).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_RES_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"
+ROOT="${FT_RES_ROOT:-}"   # r385b: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → 아래 ERROR rc4
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; }
 [ -n "$ROOT" ] && [ -d "$ROOT" ] || { echo "ERROR 리포 루트를 못 찾음(FT_RES_ROOT)" >&2; exit 4; }
 case "${1:-}" in ""|--json|--plan|--hil) ;; *) echo "usage: $0 [--json | --plan | --hil]" >&2; exit 2;; esac
 export FT_ROOT="$ROOT" FT_MODE="${1:-text}" FT_SELF="$HERE/ft-disk-census.sh"

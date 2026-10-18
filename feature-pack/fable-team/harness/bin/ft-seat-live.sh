@@ -14,7 +14,7 @@
 set -uo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-COMMON="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
+COMMON="$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)"   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트
 SEATS_DIR="${FT_SEATS_DIR:-$COMMON/.fable-team}"
 STATE_DIR="${FT_STATE_DIR:-$SEATS_DIR/state}"
 TMUX_BIN="${FT_TMUX:-tmux}"

@@ -10,7 +10,8 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BOARD="${FT_BOARD_BIN:-$HERE/ft-board.py}"
 TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
-ROOT="${FT_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir | xargs dirname)}"
+ROOT="${FT_ROOT:-}"   # r385b: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 2
 NOW="${FT_BOARD_NOW:-$(date +%Y-%m-%dT%H:%M:%S)}"; DAY="${NOW:0:10}"
 SD="$ROOT/.fable-team/state/board/$DAY"; LEDGER="${FT_SHEET_LEDGER:-$ROOT/.fable-team/state/sheet-publish.jsonl}"
 PDF="${FT_SHEET_PDF_BIN:-python3 $HERE/ft_sheet_publish.py pdf}"

@@ -90,7 +90,7 @@ for F in 1 2; do
   has "$o" "missing mbox/check/prompt" "ⓐ$F ft-goal-tick 변이: 칸 경로의 프롬프트를 없애면 멈춘다"
 
   # ft-role-spawn --dry-run: 인박스·README 가 v65 칸 아래
-  B="$T/rb$F"; mkdir -p "$B" "$T/fk$F"; for f in ft-role-spawn.sh ft-team-lib.sh ft_raised.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-resource-sample.sh; do cp -p "$SRC/$f" "$B/"; done
+  B="$T/rb$F"; mkdir -p "$B" "$T/fk$F"; for f in ft-role-spawn.sh ft-team-lib.sh ft_raised.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-resource-sample.sh ft-harness-root.sh; do cp -p "$SRC/$f" "$B/"; done
   for f in ft-index-lint.sh ft-proposal-gate.sh ft-index-move.sh ft-send-verified.sh ft-agent-ready.sh ft-sheet-events.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done
   printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\nexit 0\n' > "$B/ft-sheet-events.sh"; chmod +x "$B"/*.sh
   printf '#!/bin/bash\nif [ "$1" = open ]; then n=""; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; shift; done; echo "TMUXC-DRY $n"; fi\nexit 0\n' > "$T/fk$F/tmuxc"; printf '#!/bin/bash\nexit 1\n' > "$T/fk$F/tmux"; chmod +x "$T/fk$F/tmuxc" "$T/fk$F/tmux"

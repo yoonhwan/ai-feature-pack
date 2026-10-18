@@ -17,7 +17,7 @@ else
   REASON="$1"; shift 2; INLINE=1
 fi
 case "$REASON" in *$'\n'*|*$'\r'*) echo "ft-fp-run: 사유는 1줄이어야 한다" >&2; exit 2;; esac
-ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; ROOT="${ROOT%/.git}"; ROOT="${ROOT:-$(cd "$HERE/.." && pwd)}"
+ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; ROOT="${ROOT%/.git}"; [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 4   # r385: cwd git 밖 → ft_repo_root(옛 설치 꼴) → 못 찾음 rc4(fail-closed)
 LOG="${FT_FP_LOG:-$ROOT/.fable-team/state/hook-falsepos.log}"
 DIR="${FT_FP_RUN_DIR:-$ROOT/.fable-team/state/fp-run}"
 SEAT="${FT_SEND_FROM:-$(tmux display-message -p '#S' 2>/dev/null || echo unknown)}"

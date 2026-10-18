@@ -8,8 +8,8 @@
 #   env(시험용): FT_RESOURCE_CAUSE_SH · FT_RES_ROOT · FT_DISK_FREE_GIB(숫자|fail) · FT_DISK_NOW · FT_MBOX_SH · FT_SEATS_JSON · FT_HARNESS_SEATS_JSON · FT_RES_WATCH_SH · FT_SCRATCH_REPO_SH
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_RES_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"
-[ -n "$ROOT" ] || ROOT="$(cd -- "$HERE/../.." && pwd)"
+ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 STATE="$ROOT/.fable-team/state"; ST="$STATE/disk-alarm.state"; LOG="$STATE/disk-alarm.log"
 MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}"
 WATCH="${FT_RES_WATCH_SH:-$HERE/ft-resource-watch.sh}"

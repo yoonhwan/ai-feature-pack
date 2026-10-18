@@ -84,11 +84,11 @@ echo '{"verdict": "x"' > "$HF"; out="$(H status)"; rc=$?
 { [ "$rc" = 4 ] && has "$out" "파일 손상" "손상 파일 → rc4(통과 0)"; } || bad "손상 rc=$rc"
 rm -f "$HF"
 
-# ── 교차 워크트리: 다른 워크트리에서 건 정지를 리포 루트의 다른 사본이 본다 (git common-dir 역산) ──
-G="$T/g"; mkdir -p "$G/main/scripts/b"; git -C "$G/main" init -q && git -C "$G/main" -c user.email=t@t -c user.name=t commit -q --allow-empty -m i
+# ── 교차 워크트리: 다른 워크트리(cwd)에서 건 정지를 리포 루트(cwd=main)의 다른 사본이 본다 (r385b: cwd git common-dir 역산 · 사본 위치 무관) ──
+G="$T/g"; mkdir -p "$G/main/scripts/b" "$G/main/.fable-team"; git -C "$G/main" init -q && git -C "$G/main" -c user.email=t@t -c user.name=t commit -q --allow-empty -m i
 git -C "$G/main" worktree add -q "$G/wt1" -b wt1 2>/dev/null; mkdir -p "$G/wt1/scripts/b"
-cp "$BIN/ft-spawn-hold.sh" "$G/main/scripts/b/"; cp "$BIN/ft-spawn-hold.sh" "$G/wt1/scripts/b/"
-xh() { env -u FT_RES_ROOT FT_HOLD_GATE="$T/fake/gate.sh" FT_MBOX_SH="$T/fake/mbox.sh" FT_HOLD_PLANNER_SEATS="$T/seats-planner.json" bash "$1/scripts/b/ft-spawn-hold.sh" "${@:2}" 2>&1; }
+cp "$BIN/ft-spawn-hold.sh" "$BIN/ft-harness-root.sh" "$G/main/scripts/b/"; cp "$BIN/ft-spawn-hold.sh" "$BIN/ft-harness-root.sh" "$G/wt1/scripts/b/"
+xh() { (cd "$1" && env -u FT_RES_ROOT FT_HOLD_GATE="$T/fake/gate.sh" FT_MBOX_SH="$T/fake/mbox.sh" FT_HOLD_PLANNER_SEATS="$T/seats-planner.json" bash "$1/scripts/b/ft-spawn-hold.sh" "${@:2}" 2>&1); }
 xh "$G/wt1" set --verdict 7 --until "$(ISO 60)" --release "swap<8192" --reason "교차 워크트리 시험용 정지" >/dev/null
 [ -f "$G/main/.fable-team/state/SPAWN_HOLD" ] && [ ! -e "$G/wt1/.fable-team/state/SPAWN_HOLD" ] && ok "교차: 워크트리에서 건 정지 = 리포 루트 파일 하나" || bad "교차: 파일 위치 어긋남"
 gate 12000; has "$(xh "$G/main" status)" "REJECT hold 7" "교차: 루트 사본이 워크트리의 정지를 봄"

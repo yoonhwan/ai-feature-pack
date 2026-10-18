@@ -21,7 +21,7 @@ TOK="${FT_TANK_TOK:-}"
 
 BAKDIR="${FT_ISSUE_EDIT_BAK_DIR:-}"
 if [ -z "$BAKDIR" ]; then
-  COMMON="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
+  COMMON="$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE")"   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트
   [ -n "$COMMON" ] || die "보관 폴더를 정할 수 없다(git common dir 없음 · FT_ISSUE_EDIT_BAK_DIR 미지정) — 수정 시도 0" 1
   BAKDIR="$COMMON/.fable-team/state/issue-edit-bak"
 fi

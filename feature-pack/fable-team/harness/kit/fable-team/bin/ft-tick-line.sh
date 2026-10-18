@@ -24,8 +24,7 @@ while [ $# -gt 0 ]; do
   case "$1" in --team) TEAM="${2:-}"; shift 2 ;; *) echo "usage: $0 <내 좌석> [--team <명부 파일>]" >&2; exit 2 ;; esac
 done
 if [ -z "${FT_ROOT:-}" ]; then
-  common="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || common=""
-  [ -n "$common" ] && FT_ROOT="$(dirname "$common")"
+  FT_ROOT="$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)" || FT_ROOT=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트(못 풀면 빈 값 — 옛 동작)
 fi
 export FT_ROOT SEAT TEAM HERE
 export FT_SEATS_GLOB="${FT_SEATS_GLOB:-$FT_ROOT/.fable-team/seats*.json}"

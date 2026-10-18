@@ -77,9 +77,9 @@ fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
 #   검사 스크립트가 없는 것도 드리프트(설치 누락) · 우회 스위치 없음 — 해결은 master 라이브 cp.
 case "$HERE" in
-  */.fable-team/bin|*/.fable-team/*/bin)
+  */.fable-team/bin|*/.fable-team/*/bin|*/fable-team/live/*/bin)   # r385: 버전 폴더 설치 꼴 포함 · 키트 리포 = 하네스 코드 루트(--repo 생략)
     if [ ! -f "$HERE/ft-live-bin-drift-check.sh" ]; then echo "REJECT 라이브 도구가 main 키트와 다르다 — master 라이브 cp 뒤 다시 (ft-live-bin-drift-check.sh 설치 누락)"; exit 1; fi
-    _dout="$(bash "$HERE/ft-live-bin-drift-check.sh" --bin "$HERE" --repo "$ROOT")" || { printf '%s\n' "$_dout"; echo "REJECT 라이브 도구가 main 키트와 다르다 — master 라이브 cp 뒤 다시"; exit 1; }
+    _dout="$(bash "$HERE/ft-live-bin-drift-check.sh" --bin "$HERE")" || { printf '%s\n' "$_dout"; echo "REJECT 라이브 도구가 main 키트와 다르다 — master 라이브 cp 뒤 다시"; exit 1; }
     printf '%s\n' "$_dout";;
   *) echo "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $HERE";;
 esac

@@ -9,8 +9,8 @@
 #   env(시험용): HOME · FT_SECRET_SCAN_ROOT · FT_MBOX_SH · FT_SEATS_JSON
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_SECRET_SCAN_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"
-[ -n "$ROOT" ] || ROOT="$(cd -- "$HERE/../.." && pwd)"
+ROOT="${FT_SECRET_SCAN_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 export SCAN_HERE="$HERE" SCAN_ROOT="$ROOT" SCAN_MBOX="${FT_MBOX_SH:-$HERE/../comm/mbox.sh}" SCAN_SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats-planner.json}"
 export SCAN_STATE="$HOME/.fable-team/state/secret-scan.state" SCAN_LOG="$HOME/.fable-team/state/secret-scan.log"
 MODE=scan; PLANS=()

@@ -13,9 +13,8 @@
 set +e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 if [ -z "${FT_ROOT:-}" ]; then
-  COMMON="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
-  [ -n "$COMMON" ] || { echo "ft-idle-wake: 루트를 못 찾음" >&2; exit 1; }
-  FT_ROOT="$(dirname "$COMMON")"
+  FT_ROOT="$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE")"   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트
+  [ -n "$FT_ROOT" ] || { echo "ft-idle-wake: 루트를 못 찾음" >&2; exit 1; }
 fi
 export FT_ROOT HERE
 python3 - <<'PYEOF'

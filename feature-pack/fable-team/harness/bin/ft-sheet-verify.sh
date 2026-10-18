@@ -8,7 +8,8 @@
 #      FT_SHEET_VERIFY_LIMIT(일일 상한 · 기본 24 · 낮추기만) · FT_SHEET_VERIFY_TIMEOUT(요청 1회 초 · 기본 7 = 외부 호출 7초 룰 · 낮추기만)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_ROOT:-$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir | xargs dirname)}"
+ROOT="${FT_ROOT:-}"   # r385b: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR
+[ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 2
 ST="$ROOT/.fable-team/state"
 BOARD="${FT_BOARD_BIN:-$HERE/ft-board.py}"
 MBOX="${FT_MBOX:-$ROOT/.fable-team/comm/mbox.sh}"
