@@ -67,7 +67,7 @@ r0="$(rsum)"; out="$(UP --dry-run --all)"; rc=$?
 # ⓑ 명부 없는 버전 → 틀 + _tree_version/_tree_version_note/_tree · 나머지 키 보존 · 2회째 멱등
 out="$(UP a)"; rc=$?
 v="$(jget a _tree_version)"; n="$(jget a _tree_version_note)"; tr="$(jget a _tree)"
-[ "$rc" = 0 ] && [ "$v" = "1.0.0" ] && echo "$n" | grep -q 'r368' && echo "$n" | grep -q '없음→1.0.0' && [ "$tr" = "design/a/STATE.md" ] \
+[ "$rc" = 0 ] && [ "$v" = "1.0.0" ] && echo "$n" | grep -q '^tree 1.0.0 ' && echo "$n" | grep -q '없음→1.0.0' && [ "$tr" = "design/a/STATE.md" ] \
   && [ -f "$REPO/design/a/STATE.md" ] && [ -f "$REPO/design/a/GOAL-a.md" ] && [ "$(jget a _doc)" = "a 명부" ] && [ "$(jget a _version)" = "1.2.0" ] && grep -q '"role": "nano"' "$RDIR/seats-a.json" \
   && ok "ⓑ a 패치(틀+_tree_version+_tree_version_note+_tree · 키 보존)" || bad "ⓑ: rc=$rc v=$v n=$n tree=$tr $out"
 sed -n '2p' "$RDIR/seats-a.json" | grep -q '^  "' && ok "ⓑ 들여쓰기 2칸 유지" || bad "ⓑ 들여쓰기: $(sed -n 2p "$RDIR/seats-a.json")"

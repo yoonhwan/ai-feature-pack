@@ -93,8 +93,8 @@ py() { python3 -I -c "$PY" "$@"; }
 
 stamp() {  # <팀> <have> — 명부 있으면 버전 기록, 없으면 WARN
   local t="$1" have="$2" r; r="$(roster_of "$t")"
-  [ -f "$r" ] || { echo "WARN $t 명부 없음 — _tree_version 기록 0"; return 0; }
-  py patch "$r" "$WANT" "r368 $(date +%F) ${have:-없음}→$WANT" "design/$t/STATE.md" || return 1
+  [ -f "$r" ] || { echo "WARN $t 명부 없음 — _tree_version 기록 0 — 명부를 만든 뒤 ft-team-upgrade.sh $t"; return 0; }
+  py patch "$r" "$WANT" "tree $WANT $(date +%F) ${have:-없음}→$WANT" "design/$t/STATE.md" || return 1
   echo "STAMP $t ${have:-없음}→$WANT"
 }
 have_of() { local r; r="$(roster_of "$1")"; [ -f "$r" ] && py get "$r" || true; }
