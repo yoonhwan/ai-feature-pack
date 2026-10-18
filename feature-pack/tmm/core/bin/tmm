@@ -133,7 +133,7 @@ tui_wrap() {
   #   그 뒤 ^D(종료뷰)가 «프리픽스+d» = dkey 가 되어 피커를 detach → tmm 이 통째로 끝났다(2026-09-30 사용자 지적:
   #   「^a ^d 로 뒤로갈때 tmm 으로 안 돌아가고 종료로 넘어간다」). 좌석 세션의 C-a d 는 그대로다. 피커 종료는 ^X.
   exec tmux new-session -A -s "$sess" "TMM_NO_WRAP=1 TMM_SESSION='$sess' '$SELF'${TMM_WRAP_AUTO:+ --auto $TMM_WRAP_AUTO}" \
-       ';' set -t "=$sess:" @tmm_picker 1 ';' set -t "=$sess:" prefix None "${dbind[@]}"
+       ';' set -t "=$sess:" @tmm_picker 1 ';' set -t "=$sess:" @tmm_ver "$TMM_VERSION" ';' set -t "=$sess:" prefix None "${dbind[@]}"
 }
 
 # 피커를 «이어받아도 되는가» — 붙은 클라이언트가 없고, 살아 있는 어떤 클라이언트도 이 피커를 출발 피커(@tmm_home_<tty>)·직전 세션으로 가리키지 않을 때만.
@@ -148,10 +148,24 @@ picker_free() {  # <세션명> → 0 = 이어받기 가능
   done < <(tmux list-clients -F $'#{client_tty}\t#{client_last_session}' 2>/dev/null)
   return 0
 }
+# ★업그레이드 뒤 살아남은 «다른 버전» 피커(좀비)★ — 0.8.5
+#   0.8.4 이하 피커는 재사용 규칙(picker_free)에 «버전»이 없어서, tmm 을 새로 설치해도 21:29 설치 전에 뜬 0.8.3 피커를
+#   폰이 계속 물었습니다(2026-10-18 실사고). 그 피커는 자기 RUN 디렉터리(옛 $TMPDIR)의 fzf.sock 에 POST 하는데,
+#   세션이 갈리며 소켓이 죽으면 화면은 마지막 상태로 남고 키·탭 전환·갱신이 전부 조용히 사라집니다(«아무 키도 안 먹는다»).
+#   버전이 다르면(=@tmm_ver 없음 포함) 이어받지 않는다. 클라이언트가 없으면 죽이고 그 이름을 다시 쓴다.
+picker_stale() {  # <세션명> → 0 = 지금 버전이 아님
+  local v; v="$(tmux show -t "=$1:" -qv @tmm_ver 2>/dev/null)"
+  [ "$v" != "$TMM_VERSION" ]
+}
 pick_picker_name() {  # → tmm | tmm-2 | … (TMM_SESSION 이 베이스) — 없거나 이어받을 수 있는 첫 이름
   local base sess i=2                                  # ★한 local 문 안에서 앞 변수를 참조하면 set -u 에 걸린다★
   base="${TMM_SESSION:-tmm}"; sess="$base"
-  while tmux has-session -t "=$sess" 2>/dev/null && ! picker_free "$sess"; do
+  while tmux has-session -t "=$sess" 2>/dev/null; do
+    if picker_free "$sess"; then
+      # 좀비(다른 버전)는 죽이고 이름을 다시 쓴다 — 붙은 클라이언트가 있으면 남의 화면이라 건드리지 않고 다음 이름으로(0.8.5)
+      picker_stale "$sess" && tmux kill-session -t "=$sess" 2>/dev/null
+      break
+    fi
     sess="$base-$i"; i=$((i+1)); [ "$i" -gt 32 ] && break
   done
   printf '%s' "$sess"
@@ -1409,6 +1423,13 @@ cmd_doctor() {
   [ -f "$DEAD_SCAN" ] && python3 -c 'import sys' 2>/dev/null && echo "  [✓] dead-scan: $DEAD_SCAN (종료 세션 $(python3 "$DEAD_SCAN" scan --since "$DEAD_SINCE0" 2>/dev/null | wc -l | tr -d ' ')건/${DEAD_SINCE0}h)" || { echo "  [✗] dead-scan 없음 또는 python3 없음 — 종료 뷰 불가"; ok=1; }
   [ -f "$HOME/.tmuxc/snapshots/latest.json" ] && echo "  [✓] tmuxc 스냅샷: $(readlink "$HOME/.tmuxc/snapshots/latest.json" | sed 's/.*snapshot-//;s/.json//')" || echo "  [!] tmuxc 스냅샷 없음 — SNAP 배지 없이 트랜스크립트만으로 복구"
   [ -x "$HOME/.headroom/claude-hr.sh" ] && echo "  [✓] headroom 래퍼 (복구 커맨드 경유)" || echo "  [!] headroom 래퍼 없음 — 복구는 bare claude"
+  # 다른 버전으로 떠 있는 피커 = 업그레이드 전 코드가 물고 있는 좀비. 이어받지 않지만(0.8.5) 화면에는 계속 남는다
+  local psess ps_stale=""
+  while read -r psess; do
+    [ -n "$psess" ] || continue
+    [ "$(tmux show -t "=$psess:" -qv @tmm_ver 2>/dev/null)" = "$TMM_VERSION" ] || ps_stale+=" $psess"
+  done < <(tmux list-sessions -F '#{session_name}' -f '#{@tmm_picker}' 2>/dev/null)
+  [ -z "$ps_stale" ] || echo "  [!] 다른 버전으로 떠 있는 피커:$ps_stale — 옛 코드다. 그 화면에서 ^X 로 끝내면 다음 실행부터 새 코드"
 
   cache_init; echo "  cache: $CACHE (ttl ${CACHE_TTL}s) · state: $STATE/run-<pid> · pane:${AUTO_PREVIEW}s all:${AUTO}s bell:$BELL"
   return $ok
