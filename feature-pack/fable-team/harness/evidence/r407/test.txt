@@ -1,0 +1,44 @@
+# r407 시험 원문 — 2026-10-19 03:40:02 · 팩 가지 nano/r407-freeze-gate-merge-head-blob-exclude
+$ bash -n kit/hooks/harness-freeze-gate.sh && bash -n tests/test_harness_freeze_gate.sh
+rc=0
+$ bash tests/test_harness_freeze_gate.sh
+PASS 표식 없음 = 4폴더 커밋 통과 rc=0
+PASS 표식 있음 + staged 4폴더 = REJECT rc=2
+PASS 사유에 파일 이름
+PASS git -C 대상 = REJECT rc=2
+PASS cd 따라감 = REJECT rc=2
+PASS staged 0(작업 트리만 변경) + 평범한 커밋 = 통과 rc=0
+PASS -am = 작업 트리 4폴더 REJECT rc=2
+PASS --all = REJECT rc=2
+PASS 4폴더 밖 파일 = 통과(메시지 글자 무시) rc=0
+PASS 따옴표 안 git commit = 커밋 아님 rc=0
+PASS 워크트리도 공용 루트 표식으로 REJECT(scripts/fable-team-bin) rc=2
+PASS 표식 있어도 design/harness(카드)만 = 통과(r386 전까지 BYZ 카드 커밋) rc=0
+PASS cd - 뒤 커밋 = 검사 불가 REJECT rc=2
+PASS 읽기 = 통과 rc=0
+PASS 표식 지움 = 통과(해제) rc=0
+PASS 명령 아닌 입력 = 통과 rc=0
+PASS 병합 충돌로 MERGE_HEAD 남음
+PASS ⓐ 충돌 손 해소 뒤 commit · 하네스 = MERGE_HEAD 그대로(추가 x.sh · 삭제 gone.sh) = 통과 rc=0
+PASS ⓑ 병합 중 하네스 파일 손댐(staged ≠ MERGE_HEAD) = REJECT rc=2
+PASS ⓑ 손댄 파일만 1개
+PASS ⓑ 제외 1개(gone.sh) 표기
+PASS ⓑ' 작업 트리만 손댐 + -a = REJECT(작업 트리 diff 는 제외 0) rc=2
+PASS ⓓ main 에 있는 하네스 파일을 손으로 삭제 = REJECT rc=2
+PASS ⓓ 손 삭제 keep.sh 만
+PASS ⓒ MERGE_HEAD 없음 = rc2 · stderr 바이트 동일
+== ALL PASS ==
+rc=0
+
+# 실사건 재현 — BYZ 임시 사본(ft-scratch-repo) 5d41777bbb87fdc3a993e01dd6e207a116999213 = nano/m7-port-mic-track-ended-f16d0a0522-to-ma 에 git merge --no-commit --no-ff origin/main(5d188dcf132d329e90f446a14a3c1437ddd22f18) · 표식 = BYZ 라이브 harness-freeze
+$ git diff --cached --name-status | 4폴더 | 종류별
+ 877 D
+  14 R
+$ 홈 훅(현행 · 고치기 전) ← git commit -m merge
+🚫 [harness-freeze-gate] 하네스 freeze 중 — BYZ 하네스 4폴더 커밋 REJECT (표식 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/harness-freeze · r385 freeze · 2026-10-19 · master byz-harness-master-claude#71 · 판정 2298 · 풀기 = 이 파일 삭제(§9-2))
+   건드린 파일 877개: scripts/fable-team-bin/autonomy_classify.py scripts/fable-team-bin/autonomy_scope_classify.py scripts/fable-team-bin/autonomy_scope_post.py scripts/fable-team-bin/deferral_patterns.txt scripts/fable-team-bin/eli5_terms.json 
+rc=2
+$ 키트 훅(r407) ← git commit -m merge
+rc=0
+$ grep -nE "(600|300)" kit/hooks/harness-freeze-gate.sh
+0
