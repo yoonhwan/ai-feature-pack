@@ -5,13 +5,14 @@
 #   open → answered:<값>(원장 기록) → 질문 좌석에 mbox 회신 → applied:<값>
 #   mbox 가 실패하면 answered 에서 멈추고 exit 1 — 같은 명령을 다시 치면 «전달만» 재시도한다.
 #   이미 applied 인 행 · 없는 행은 REJECT. 선택지 밖 값은 받되 NOTE 를 찍는다(Other).
-#   FT_SEND_DRY=1 이면 mbox 를 보내지 않는다(시험용). 원장 = HIL_LEDGER (기본 design/harness/HIL-LEDGER.md)
+#   FT_SEND_DRY=1 이면 mbox 를 보내지 않는다(시험용). 원장 = HIL_LEDGER (기본 <harness 팀 폴더>/HIL-LEDGER.md · TEAMS.md 폴더 칸)
 set -uo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 COMMON="$(git -C "${ROOT:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
-LEDGER="${HIL_LEDGER:-$ROOT/design/harness/HIL-LEDGER.md}"
+if [ -n "${HIL_LEDGER:-}" ]; then LEDGER="$HIL_LEDGER"
+else . "$HERE/ft-team-lib.sh"; _HT="$(ft_team_in "$ROOT" harness)" || exit 1; LEDGER="$_HT/HIL-LEDGER.md"; fi   # R382b: 팀 폴더는 TEAMS.md 칸으로
 MBOX="${FT_MBOX_CMD:-}"
 [ -n "$MBOX" ] || { [ -f "$HERE/../comm/mbox.sh" ] && MBOX="$HERE/../comm/mbox.sh" || MBOX="$COMMON/.fable-team/comm/mbox.sh"; }
 

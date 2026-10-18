@@ -14,10 +14,14 @@ SEAT="${1:?seat}"; shift || true
 TOUCH=""
 if [ "${1:-}" = "--touch" ]; then TOUCH="${2:?cite phrase}"; fi
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-LEDGER_MD="design/v65/GOAL-LEDGER-v65.md"
-SRC1="design/v65/20260909/GOAL-archastra-lst-on-off-completion.md"
-SRC2="design/v65/20260910/LIST-v65-lst-completion-MERGED.md"
-SRC3="design/v65/20260911/PLAN-v65-sm65-experiment-completion-handoff.md"
+# R382b: v65 팀 폴더는 이 리포 design/TEAMS.md 폴더 칸으로 푼다(리터럴 0) — 아래 경로는 리포 상대로 유지
+. "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh"
+V65="$(ft_team_in "$ROOT" v65)" || { echo "REJECT seat=$SEAT v65 팀 폴더를 못 풀었다(design/TEAMS.md)"; exit 4; }
+case "$V65" in "$ROOT"/*) V65="${V65#"$ROOT"/}";; *) echo "REJECT seat=$SEAT v65 팀 폴더가 리포 밖이다: $V65"; exit 4;; esac
+LEDGER_MD="$V65/GOAL-LEDGER-v65.md"
+SRC1="$V65/20260909/GOAL-archastra-lst-on-off-completion.md"
+SRC2="$V65/20260910/LIST-v65-lst-completion-MERGED.md"
+SRC3="$V65/20260911/PLAN-v65-sm65-experiment-completion-handoff.md"
 STATE="$ROOT/.fable-team/state/goal-read-ledger.json"
 TTL_SEC="${FT_GOAL_TTL_SEC:-7200}"
 MAX_COMMITS="${FT_GOAL_MAX_COMMITS:-10}"

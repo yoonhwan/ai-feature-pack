@@ -14,7 +14,20 @@ ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 
 SKILL="${FT_SKILL_DIR:-$HOME/.claude/skills/fable-team}"
 CMD="${1:-}"; shift || true
 
-main_file() { git -C "$ROOT" show "origin/main:$1" 2>/dev/null; }
+. "$HERE/ft-team-lib.sh"
+# 절대경로(꼴3 외부 루트) = 그 루트의 실파일 · 리포 상대경로(꼴1·2) = origin/main 의 git show. 외부에 파일이 없으면 빈 출력 rc≠0(옛 경로 읽기 0)
+main_file() { case "$1" in /*) cat -- "$1" 2>/dev/null;; *) git -C "$ROOT" show "origin/main:$1" 2>/dev/null;; esac; }
+main_label() { case "$1" in /*) printf '%s' "$1";; *) printf 'origin/main:%s' "$1";; esac; }
+# <팀>/<폴더 안 파일> → origin/main 의 design/TEAMS.md 폴더 칸으로 푼 경로(R382b · 꼴1·2 = 리포 상대 · 꼴3 = $FT_HARNESS_ROOT 치환 절대경로 · 못 풀면 ERROR rc1)
+main_team_path() { local t="${1%%/*}" rel
+  rel="$(git -C "$ROOT" show origin/main:design/TEAMS.md 2>/dev/null | _ft_team_rows /dev/stdin | awk -F'\t' -v t="$t" '$1==t{print $2; exit}')"
+  case "$rel" in
+    '$FT_HARNESS_ROOT/'*|'${FT_HARNESS_ROOT}/'*)
+      [ -n "${FT_HARNESS_ROOT:-}" ] && [ -d "$FT_HARNESS_ROOT" ] || { echo "ERROR $t 폴더가 \$FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: ${FT_HARNESS_ROOT:-<없음>}" >&2; return 1; }
+      printf '%s/%s%s\n' "${FT_HARNESS_ROOT%/}" "${rel#*/}" "${1#*/}";;
+    design/*) printf '%s%s\n' "$rel" "${1#*/}";;
+    *) echo "ERROR origin/main 팀 명단에서 $t 폴더를 못 풀었다: ${rel:-<없음>}" >&2; return 1;;
+  esac; }
 usage() { echo "usage: ft-harness-info.sh <map|rules|seats|requests|find 키워드>" >&2; exit 2; }
 
 CANON=(
@@ -24,15 +37,15 @@ CANON=(
   "$HOME/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md"
   "$HOME/.claude/rules/closeout-policy.md"
 )
-MAIN_CANON=(
-  design/harness/GOAL-harness.md
-  design/harness/REQUEST-LEDGER.md
-  design/harness/OPS-VERDICTS-20261006.md
-  design/harness/MACHINES.md
-  design/harness/LANDING-LEDGER.md
-  design/harness/issue-improvement/SPEC-session-naming-20261005.md
-  design/planner/GUIDE-planner.md
-  design/issues/GOAL-issues.md
+MAIN_CANON=(   # «팀/팀 폴더 안 파일» — 리포 상대경로는 main_team_path 가 푼다
+  harness/GOAL-harness.md
+  harness/REQUEST-LEDGER.md
+  harness/OPS-VERDICTS-20261006.md
+  harness/MACHINES.md
+  harness/LANDING-LEDGER.md
+  harness/issue-improvement/SPEC-session-naming-20261005.md
+  planner/GUIDE-planner.md
+  issues/GOAL-issues.md
 )
 
 case "$CMD" in
@@ -41,7 +54,7 @@ case "$CMD" in
     cat "${CANON[0]}" ;;
   rules)
     for f in "${CANON[@]}"; do [ -f "$f" ] && echo "OK    $f" || echo "없음  $f"; done
-    for f in "${MAIN_CANON[@]}"; do main_file "$f" >/dev/null && echo "OK    origin/main:$f" || echo "없음  origin/main:$f"; done ;;
+    for c in "${MAIN_CANON[@]}"; do f="$(main_team_path "$c")" || f="$c"; main_file "$f" >/dev/null && echo "OK    $(main_label "$f")" || echo "없음  $(main_label "$f")"; done ;;
   seats)
     tmux ls -F '#{session_name}' 2>/dev/null | sort | while IFS= read -r n; do
       r="$(bash "$HERE/ft-name-lint.sh" "$n")"
@@ -68,12 +81,13 @@ except Exception:
 PY
     done ;;
   requests)
-    out="$(main_file design/harness/REQUEST-LEDGER.md)" || true
-    [ -n "$out" ] || { echo "REJECT origin/main 에서 REQUEST-LEDGER.md 를 못 읽음" >&2; exit 1; }
+    rf="$(main_team_path harness/REQUEST-LEDGER.md)" || exit 1
+    out="$(main_file "$rf")" || true
+    [ -n "$out" ] || { echo "REJECT $(main_label "$rf") 에서 REQUEST-LEDGER.md 를 못 읽음" >&2; exit 1; }
     printf '%s\n' "$out" | grep -E '^\| R[0-9]+' ;;
   find)
     [ -n "${1:-}" ] || usage
     for f in "${CANON[@]}"; do [ -f "$f" ] && grep -n -- "$1" "$f" | sed "s|^|$f:|"; done
-    for f in "${MAIN_CANON[@]}"; do main_file "$f" | grep -n -- "$1" | sed "s|^|origin/main:$f:|"; done ;;
+    for c in "${MAIN_CANON[@]}"; do f="$(main_team_path "$c")" || continue; main_file "$f" | grep -n -- "$1" | sed "s|^|$(main_label "$f"):|"; done ;;
   *) usage ;;
 esac

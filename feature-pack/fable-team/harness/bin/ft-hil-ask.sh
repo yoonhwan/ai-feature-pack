@@ -5,7 +5,7 @@
 #   질문은 원장 1행 + mbox [HIL] 1통(seats-harness.json 의 _hil_route 좌석)으로 모이고, 답은 ft-hil-answer.sh 가 같은 좌석 seq 로 돌려보낸다.
 #
 # 사용: ft-hil-ask.sh <질문> [--options "a|b|c"] [--recommend a] [--seat <좌석>]
-#   원장 = design/harness/HIL-LEDGER.md (HIL_LEDGER 로 교체) · 행 8칸: # | 일시 | 좌석 | 좌석seq | 질문 | 선택지 | 추천 | 상태(open)
+#   원장 = <harness 팀 폴더>/HIL-LEDGER.md (TEAMS.md 폴더 칸 · HIL_LEDGER 로 교체) · 행 8칸: # | 일시 | 좌석 | 좌석seq | 질문 | 선택지 | 추천 | 상태(open)
 #   보내는 좌석 = --seat > FT_ME > tmux 세션명 (셋 다 없으면 REJECT)
 #   수신 = FT_HIL_ROUTE > seats-harness.json(FT_SEATS)의 _hil_route
 #   FT_SEND_DRY=1 이면 mbox 를 보내지 않고 DRY 줄만 찍는다(시험용 · seq 칸 = dry)
@@ -15,7 +15,8 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 COMMON="$(git -C "${ROOT:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
-LEDGER="${HIL_LEDGER:-$ROOT/design/harness/HIL-LEDGER.md}"
+if [ -n "${HIL_LEDGER:-}" ]; then LEDGER="$HIL_LEDGER"
+else . "$HERE/ft-team-lib.sh"; _HT="$(ft_team_in "$ROOT" harness)" || exit 1; LEDGER="$_HT/HIL-LEDGER.md"; fi   # R382b: 팀 폴더는 TEAMS.md 칸으로
 SEATS="${FT_SEATS:-$COMMON/.fable-team/seats-harness.json}"
 MBOX="${FT_MBOX_CMD:-}"
 [ -n "$MBOX" ] || { [ -f "$HERE/../comm/mbox.sh" ] && MBOX="$HERE/../comm/mbox.sh" || MBOX="$COMMON/.fable-team/comm/mbox.sh"; }

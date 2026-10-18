@@ -4,7 +4,7 @@ render  : 정본 표(골 → 팀 → 닫는 증거 6행) + planner 원장 `## �
           골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/6행 아님 = `ERROR 골 표 정본 …` rc1.
 check   : 본문에 ⓐ마커 블록(6행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~6> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
-정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = LIVE_BIN→LIVE_ROOT 의 design/planner/AUTONOMY-GOAL-A6-20261018.md) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 라이브 planner 원장) · 저장소 = FT_GOAL_REPO(기본 FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha.
+정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = LIVE_BIN→LIVE_ROOT 의 planner 팀 폴더(TEAMS.md 폴더 칸)/AUTONOMY-GOAL-A6-20261018.md) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 라이브 planner 원장) · 저장소 = FT_GOAL_REPO(기본 FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha.
 원장: 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
 from __future__ import annotations
@@ -17,9 +17,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from ft_goal_ledger import NO_STATE, find_root, ledger_state, live_root
+from ft_goal_ledger import NO_STATE, find_root, ledger_state, planner_dir
 
-DEFAULT_REL = "design/planner/AUTONOMY-GOAL-A6-20261018.md"
+DEFAULT_NAME = "AUTONOMY-GOAL-A6-20261018.md"  # planner 팀 폴더 안(폴더는 ft_team_lib 가 푼다)
 BUDGET = 1600
 CELL = 24
 HEAD = re.compile(r"^★골 표 A6 \(([0-9a-f]{10}) · [^)]*\)★$")
@@ -51,7 +51,7 @@ def _repo() -> Path:
 
 
 def _spec() -> str:
-    return os.environ.get("FT_GOAL_A6_MD") or str(live_root(GoalError) / DEFAULT_REL)
+    return os.environ.get("FT_GOAL_A6_MD") or str(planner_dir(GoalError) / DEFAULT_NAME)
 
 
 def load_canon() -> tuple[str, str, str]:

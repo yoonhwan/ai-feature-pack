@@ -4,7 +4,7 @@ publish = 직전 발행본과 «머리 시각만 지운 꼴» 이 같으면 발�
 성공 줄 = «ft-news-publish: 발행 완료 ts=<ts> channel=<C…> permalink=<링크|->» (R217 · 호출한 쪽이 stdout 으로 받는다 — 파일 인계 0) · 같은 내용 = «같은 내용 — 발행 0» 줄.
 처리 기록(state/news-publish/processed.tsv) = «초안 이름 → POLISHED 이름 | 같은 내용 · 발행 0» 1줄. 대체는 «명시 기록» 으로만 — X 를 기록할 때 X 보다 이른 «기록 없는» 초안 W 마다 «W<TAB>대체<TAB>X» 1줄을 같이 남긴다.
 근거: 초안은 R118a 생성기가 매번 전 팀을 새로 모은 «전체 상태 스냅샷» 이라 더 새로 다듬은 판이 이전 판을 내용상 대체한다. 시각만으로 대체를 추정하지 않는다(기록이 없으면 대체 아님).
-env: FT_ROOT · FT_NEWS_DIR(기본 <루트>/design/planner/news) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_HERMES_SCRIPTS(magazine_slack·mirror_lib 설치 폴더 · 기본 ~/.hermes/scripts) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험) · FT_NEWS_WORKSPACE_URL(글 주소 조립용 · 없으면 chat.getPermalink)
+env: FT_ROOT · FT_NEWS_DIR(기본 <planner 팀 폴더>/news · TEAMS.md 폴더 칸) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_HERMES_SCRIPTS(magazine_slack·mirror_lib 설치 폴더 · 기본 ~/.hermes/scripts) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험) · FT_NEWS_WORKSPACE_URL(글 주소 조립용 · 없으면 chat.getPermalink)
 """
 import argparse
 import html
@@ -21,6 +21,7 @@ _HERMES = Path(os.environ.get("FT_HERMES_SCRIPTS") or "~/.hermes/scripts").expan
 _KIT = _HERE.parent / "harness-install" / "slack-mirror"  # 리포 안 키트(설치본이 없는 시험·개발 판)
 sys.path[:0] = [str(p) for p in (_HERE, _HERMES, _KIT) if p.is_dir()]  # 실재하는 것만 · 우선순위 = bin 옆 → 설치본 → 키트
 import ft_board_env as env  # noqa: E402
+from ft_team_lib import team_in  # noqa: E402
 from ft_news_post import goal_gate  # noqa: E402 — 문 모듈 누락(설치 순서)도 같은 판별(H1④)
 
 try:
@@ -54,7 +55,7 @@ def _now() -> datetime:
 def _paths() -> tuple[Path, Path]:
     """(뉴스 폴더, 상태 폴더)."""
     root = env.ft_root()
-    return Path(os.environ.get("FT_NEWS_DIR") or root / "design" / "planner" / "news"), root / ".fable-team" / "state" / "news-publish"
+    return Path(os.environ.get("FT_NEWS_DIR") or team_in(root, "planner") / "news"), root / ".fable-team" / "state" / "news-publish"
 
 
 def _stamp(name: str) -> str:

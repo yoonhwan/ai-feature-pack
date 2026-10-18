@@ -2,7 +2,7 @@
 # ft-branch-candidates.sh [--remote] [--base REF] [--out FILE] [--repo DIR]
 #   C18 · 브랜치 정리 «후보 목록»만 만든다(읽기 전용). 브랜치·워크트리·tmux 를 지우거나 바꾸는 명령은 쓰지 않는다 —
 #   쓰는 git 은 rev-parse · for-each-ref · worktree list · merge-base --is-ancestor · cherry 뿐. 삭제는 HIL(오빠 승인) 몫이다.
-#   기본 = 로컬 브랜치 · --remote = origin/* 원격 브랜치. 산출 = design/issues/BRANCH-CANDIDATES.md (--out 으로 변경).
+#   기본 = 로컬 브랜치 · --remote = origin/* 원격 브랜치. 산출 = <issues 팀 폴더>/BRANCH-CANDIDATES.md (TEAMS.md 폴더 칸 · --out 으로 변경).
 #   exit 0 = 목록 생성 · 2 = usage/저장소 아님. 환경: FT_BRANCH_RECENT_DAYS(기본 7) · FT_BRANCH_PROTECT(보호 정규식) · FT_BRANCH_NOW(시험용 epoch).
 set -uo pipefail
 REMOTE=0; BASE=""; OUT=""; REPO="."
@@ -13,7 +13,10 @@ while [ $# -gt 0 ]; do case "$1" in
   *) echo "usage: $0 [--remote] [--base REF] [--out FILE] [--repo DIR]" >&2; exit 2;; esac; done
 G() { git -C "$REPO" "$@"; }
 G rev-parse --git-dir >/dev/null 2>&1 || { echo "REJECT git 저장소 아님: $REPO" >&2; exit 2; }
-TOP="$(G rev-parse --show-toplevel)"; [ -n "$OUT" ] || OUT="$TOP/design/issues/BRANCH-CANDIDATES.md"
+TOP="$(G rev-parse --show-toplevel)"
+if [ -z "$OUT" ]; then   # R382b: issues 팀 폴더는 TEAMS.md 폴더 칸으로 푼다(리터럴 0)
+  . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh"; _IT="$(ft_team_in "$TOP" issues)" || exit 2; OUT="$_IT/BRANCH-CANDIDATES.md"
+fi
 if [ -z "$BASE" ]; then G rev-parse --verify -q refs/remotes/origin/main >/dev/null && BASE=origin/main || BASE=main; fi
 G rev-parse --verify -q "$BASE^{commit}" >/dev/null || { echo "REJECT 기준 브랜치 없음: $BASE" >&2; exit 2; }
 BASE_SHORT="${BASE#origin/}"; BASE_SHA="$(G rev-parse --short=10 "$BASE")"

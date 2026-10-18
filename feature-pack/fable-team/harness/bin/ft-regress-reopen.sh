@@ -10,7 +10,7 @@ set -uo pipefail
 unset GH_TOKEN
 USAGE="usage: $0 <Issue#> <깬 sha> [--found gate|live|baseline] [--live] [--apply] [--ledger <파일>]"
 N="${1:-}"; SHA="${2:-}"; shift 2 || true
-APPLY=0; LIVE=0; FOUND=""; LEDGER="design/harness/LANDING-LEDGER.md"
+APPLY=0; LIVE=0; FOUND=""; LEDGER=""
 while [ $# -gt 0 ]; do case "$1" in
   --apply) APPLY=1; shift;;
   --live) LIVE=1; shift;;
@@ -22,6 +22,9 @@ case "$N" in ''|*[!0-9]*) echo "$USAGE" >&2; exit 2;; esac
 [ -n "$SHA" ] || { echo "$USAGE" >&2; exit 2; }
 [ -z "$FOUND" ] && { [ "$LIVE" -eq 1 ] && FOUND=live || FOUND=gate; }
 case "$FOUND" in gate|live|baseline) ;; *) echo "--found 는 gate|live|baseline: $FOUND" >&2; exit 2;; esac
+if [ -z "$LEDGER" ]; then   # R382b: harness 팀 폴더는 TEAMS.md 폴더 칸으로 푼다(리터럴 0 · 기본 = 지금 리포의 원장)
+  . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh"; _HT="$(ft_team_in "$(git rev-parse --show-toplevel)" harness)" || exit 2; LEDGER="$_HT/LANDING-LEDGER.md"
+fi
 [ -f "$LEDGER" ] || { echo "LANDING-LEDGER 없음: $LEDGER" >&2; exit 2; }
 
 FULL="$(git rev-parse --verify --quiet "$SHA^{commit}")" || { echo "sha 검증 실패(이 리포에 없는 커밋): $SHA" >&2; exit 2; }
@@ -44,7 +47,7 @@ CARD="$(awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}' <<<"$ROW")"
 LEDGER_ISSUE="$(awk -F'|' '{gsub(/^ +| +$/,"",$4); print $4}' <<<"$ROW")"
 case "$LEDGER_ISSUE" in "#$N") ;; *) echo "경고: 원장 행 Issue=${LEDGER_ISSUE} ≠ 요청 #${N} — 의도한 Issue 인지 확인" >&2;; esac
 
-BODY="regression: 깬 sha ${FULL} · 발견 ${FOUND} · LEDGER 행 ${ROWNO}(${CARD}) — 깬 랜딩: ${ORIGIN}/commit/${FULL} (${SUBJ}). 5항 재작성 후 다시 닫는다(design/harness/ISSUE-TRANSITIONS.md §4)."
+BODY="regression: 깬 sha ${FULL} · 발견 ${FOUND} · LEDGER 행 ${ROWNO}(${CARD}) — 깬 랜딩: ${ORIGIN}/commit/${FULL} (${SUBJ}). 5항 재작성 후 다시 닫는다(harness 팀 ISSUE-TRANSITIONS.md §4)."
 CMDS=(
   "gh issue reopen $N"
   "gh issue edit $N --add-label status:needs-review --remove-label status:done"

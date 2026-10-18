@@ -15,6 +15,7 @@ bash -n "$BIN/ft-press-baseline-check.sh" && ok "bash -n baseline-check" || bad 
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 R="$T/repo"; mkdir -p "$R/worker" "$R/design/v65/baselines/ev" "$R/cards" "$T/root/.fable-team"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$R/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 echo '{}' > "$T/root/.fable-team/seats.json"
 git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t
 echo 'x = 1' > "$R/worker/a.py"

@@ -21,6 +21,7 @@ chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
 git -C "$REPO" init -q
 mkdir -p "$REPO/.fable-team" "$REPO/design/v65/indices/inbox/arch" "$REPO/design/v65/indices/inbox/tester"
 : > "$REPO/design/v65/SEATBELT-README.md"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$REPO/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 
 write_seats() { printf '%s\n' "$1" > "$REPO/.fable-team/seats.json"; }
 SEATS_BOTH='{

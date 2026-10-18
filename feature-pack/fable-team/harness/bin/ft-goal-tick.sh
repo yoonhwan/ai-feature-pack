@@ -17,13 +17,16 @@ set -uo pipefail
 #   (11:32/36/40/44/48/52 · 세션은 실재 · env -i PATH=/usr/bin:/bin tmux -> "No such file").
 #   crontab 한 줄로 고치는 대신 스크립트가 자기 PATH 를 보장한다 — 승계·재설치 때도 따라간다.
 PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_GOAL_TICK_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
 TARGET="${FT_GOAL_TICK_TARGET:-ft-v65-master#39}"
 STREAK_FILE="${FT_GOAL_TICK_STREAK:-/tmp/ft-goal-tick.streak}"
 cd "$ROOT" || exit 0
 MBOX=.fable-team/comm/mbox.sh
 CHECK="${FT_GOAL_TICK_CHECK:-.fable-team/bin/ft-goal-check.sh}"
-PROMPT=design/v65/20260912/TICK-PROMPT-v65-unified.md
+. "$HERE/ft-team-lib.sh"   # R382b: v65 팀 폴더는 ROOT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+_V65="$(ft_team_in "$ROOT" v65)" || { echo "$(date '+%F %T') ERROR v65 팀 폴더를 못 풀었다 — exit"; exit 1; }
+PROMPT="$_V65/20260912/TICK-PROMPT-v65-unified.md"
 [ -x "$MBOX" ] && [ -x "$CHECK" ] && [ -f "$PROMPT" ] || { echo "$(date '+%F %T') missing mbox/check/prompt — exit"; exit 0; }
 tmux has-session -t "=$TARGET" 2>/dev/null || { echo "$(date '+%F %T') target absent: $TARGET"; exit 0; }
 

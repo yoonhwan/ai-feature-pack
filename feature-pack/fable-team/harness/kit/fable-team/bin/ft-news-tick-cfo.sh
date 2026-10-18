@@ -10,6 +10,8 @@ ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
 WT=$ROOT/.worktrees/v6-realtime-live
 CFO=$ROOT/.worktrees/c-level-planning
 HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/ft-team-lib.sh"   # R382b: cfo 팀 폴더는 CFO 워크트리의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+CFO_DIR="$(ft_team_in "$CFO" cfo)" || { echo "ERROR: cfo 팀 폴더를 못 풀었다($CFO/design/TEAMS.md)" >&2; exit 2; }
 ME=${1:-${FT_ME:-$(tmux ls -F '#{session_name}' 2>/dev/null | grep -E '^FB_CFO#[0-9]+$' | sort -t'#' -k2 -n | tail -1)}}
 [ -n "$ME" ] || { echo "ERROR: FB_CFO#N tmux 세션이 없다 — 인자나 FT_ME 로 좌석명을 줘라" >&2; exit 2; }
 echo "ME=$ME  $(date '+%F %T')"
@@ -30,7 +32,7 @@ for W in c-level-planning v6-realtime-live; do
 done
 echo "v65 워크트리=$(ls -d "$ROOT"/.worktrees/v65-* 2>/dev/null | wc -l | tr -d ' ')"
 echo; echo "════ ④ 정본 크기 (35KB 한도) ════"
-wc -c "$CFO/design/cfo/VERDICT-DATA-SOVEREIGNTY-20260923.md" | awk '{printf "VERDICT=%sB%s\n",$1,($1>35000?" ★초과 — archive 분리 먼저★":"")}'
+wc -c "$CFO_DIR/VERDICT-DATA-SOVEREIGNTY-20260923.md" | awk '{printf "VERDICT=%sB%s\n",$1,($1>35000?" ★초과 — archive 분리 먼저★":"")}'
 echo; echo "════ ⑥ 골 트리 (뉴스에 그대로 · 상태 = 카드 폴더·seats.json) ════"
-TREE="${FT_NEWS_TREE:-$CFO/design/cfo/NEWS-TREE.md}"
+TREE="${FT_NEWS_TREE:-$CFO_DIR/NEWS-TREE.md}"
 if [ -f "$TREE" ]; then python3 "$HERE/ft-news-tree.py" "$TREE"; else echo "ERROR: 트리 원본 없음 — $TREE" >&2; fi

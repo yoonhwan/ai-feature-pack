@@ -16,6 +16,7 @@ printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; *) exit 0;; esac
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"; chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
 git -C "$REPO" init -q
 mkdir -p "$REPO/.fable-team/state" "$REPO/design/v65/indices/inbox/master"; : > "$REPO/design/v65/SEATBELT-README.md"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$REPO/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 echo '{}' > "$REPO/.fable-team/seats.json"
 STOP="$REPO/.fable-team/state/PENALTY_STOP"
 

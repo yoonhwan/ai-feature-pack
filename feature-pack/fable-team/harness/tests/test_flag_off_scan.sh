@@ -69,6 +69,7 @@ o="$(scan "$R")"; python3 "$BIN/ft_flag_off.py" --ref HEAD --repo "$R" >/dev/nul
 FR="$(mk g)"; printf "x(process.env.NEXT_PUBLIC_FOO === '1');\nx(process.env.NEXT_PUBLIC_BAR === '1');\n" > "$FR/clients/web/src/g.ts"; commit "$FR"
 ROOT="$T/root"; mkdir -p "$ROOT/.fable-team/state/inbox"
 echo '{"_master":"byz-planner-master-claude#50","_cards_wt":"none"}' > "$ROOT/.fable-team/seats-planner.json"
+mkdir -p "$ROOT/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n' > "$ROOT/design/TEAMS.md"   # R382b: planner 폴더는 TEAMS.md 칸으로 풀린다
 : > "$ROOT/.fable-team/state/inbox/byz-planner-master-claude.jsonl"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/hil-stub.sh"
 count() {  # [FLAG_DECISIONS 파일] — 출력 마지막 줄 RC=<rc>

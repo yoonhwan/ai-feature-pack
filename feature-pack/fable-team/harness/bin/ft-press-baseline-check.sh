@@ -37,7 +37,9 @@ finish() { # $1 = 통과 사유
 BASE="$(hdr "$CARD" 기준선)" || block "카드 기준선: 머리줄 없음 — 기준선 없는 발사 차단(#834)"
 EXP="$(hdr "$CARD" 실험)" || block "카드 실험: 머리줄 없음(바꾸는 토글 key=value · 없으면 «없음»)"
 LANGS="$(hdr "$CARD" '비교 언어')" || LANGS="right=ko,left=en"
-FLAGS="$REPO/design/v65/baselines/FLAGS.md"
+. "$HERE/ft-team-lib.sh"   # R382b: v65 팀 폴더는 press 워크트리의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+V65="$(ft_team_in "$REPO" v65)" || { echo "BLOCK v65 팀 폴더를 못 풀었다($REPO/design/TEAMS.md)"; exit 1; }
+FLAGS="$V65/baselines/FLAGS.md"
 
 # 값 검사(토글·언어·control·ISO·증거 결속)는 python 한 곳 — BLOCK/NOTE 줄을 돌려준다.
 pycheck() { # mode(exp|base) 실험 FLAGS.md [비교언어 기준선파일]
@@ -127,7 +129,7 @@ case "${BASE:-}" in
     [ "${EXP:-}" = "없음" ] || block "self: 실험: 없음 아님(${EXP:-<빈 값>}) — self 는 기준선 전용 카드만"
     [ "$(hdr "$CARD" 프로필)" = "default-3bubble" ] || block "self: 프로필: default-3bubble 아님 — self 는 기준선 전용 카드만"
     runcheck exp "${EXP:-없음}" "$FLAGS"
-    finish "기준선 self — 이 회차가 기준선이다: 결과로 design/v65/baselines/BASELINE-$(git -C "$REPO" rev-parse --short=12 HEAD).md 를 쓴다(형식 design/v65/baselines/README.md)" ;;
+    finish "기준선 self — 이 회차가 기준선이다: 결과로 ${V65#"$REPO"/}/baselines/BASELINE-$(git -C "$REPO" rev-parse --short=12 HEAD).md 를 쓴다(형식 ${V65#"$REPO"/}/baselines/README.md)" ;;
 esac
 
 BF="$(abspath "$BASE")"

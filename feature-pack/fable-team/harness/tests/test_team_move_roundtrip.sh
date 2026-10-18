@@ -255,7 +255,7 @@ out="$(close3 "$T/bin3")"; rc=$?
 
 echo "== ⓓ LIVE_ROOT 파일 — LIVE_BIN 위치와 무관 · 없음 = ERROR rc1"
 D="$T/d"; mkdir -p "$D/.fable-team" "$D/data" "$D/binA" "$D/binB"
-cp "$SRC"/ft_goal_ledger.py "$D/binA/"; cp "$SRC"/ft_goal_ledger.py "$D/binB/"
+cp "$SRC"/ft_goal_ledger.py "$SRC"/ft_team_lib.py "$D/binA/"; cp "$SRC"/ft_goal_ledger.py "$SRC"/ft_team_lib.py "$D/binB/"   # R382b: ft_goal_ledger 가 ft_team_lib 를 import
 lr() { env -i HOME="$HOME" FT_ROOT="$D" python3 -I -c 'import sys;sys.path.insert(0,sys.argv[1]);import ft_goal_ledger as g
 try: print(g.live_root(RuntimeError))
 except RuntimeError as e: print(e); sys.exit(1)' "$1" 2>&1; }

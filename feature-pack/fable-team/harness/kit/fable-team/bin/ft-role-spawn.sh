@@ -57,8 +57,10 @@ if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   [ "$_prc" != 0 ] && { printf '%s\n' "$_pout"; exit "$_prc"; }
 fi
 SEATS="$ROOT/.fable-team/seats.json"
-INBOX_REL="design/v65/indices/inbox/$ROLE"; INBOX="$WT/$INBOX_REL"
-README="$WT/design/v65/SEATBELT-README.md"
+. "$HERE/ft-team-lib.sh"   # R382b: v65 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+_V65="$(ft_team_in "$WT" v65)" || { echo "REJECT v65 팀 폴더를 못 풀었다(design/TEAMS.md): $WT"; exit 1; }
+INBOX="$_V65/indices/inbox/$ROLE"; INBOX_REL="${INBOX#"$WT"/}"
+README="$_V65/SEATBELT-README.md"
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
 [ -d "$INBOX" ] || { echo "REJECT 인박스 폴더 없음: $INBOX (indices/inbox/<role>/ 가 먼저 있어야 후계가 읽을 것이 있다)"; exit 1; }
 [ -f "$README" ] || { echo "REJECT SEATBELT-README 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }

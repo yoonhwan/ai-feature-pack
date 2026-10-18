@@ -46,6 +46,7 @@ echo "PEL=$(docker exec $R redis-cli --no-auth-warning XINFO GROUPS lst_stt_requ
 WPID=$(lsof -ti:8081 -sTCP:LISTEN 2>/dev/null | head -1)
 [ -n "$WPID" ] && echo "worker pid=$WPID 기동=$(ps -o lstart= -p $WPID | sed 's/^ *//')  최신제품커밋=$(git -C "$WT" log -1 --format='%h %ad' --date=format:'%m-%d %H:%M:%S' -- worker shared gateway clients)"
 [ -n "$WPID" ] && echo "worker pid=$WPID 기동=$(ps -o lstart= -p $WPID | sed 's/^ *//')  최신제품커밋=$(git -C "$WT" log -1 --format='%h %ad' --date=format:'%m-%d %H:%M:%S' -- worker shared gateway clients)"
-echo; echo "════ ⑥ ★⓪ 완성 상태 트리 — 뉴스 «맨 위»에 그대로 붙인다 · 빠지면 발행 금지★ (오빠 09-30 「왜 작업 트리 출력안해 자꾸」 · 원본 design/v65/NEWS-TREE.md = 완성 정의 + 오빠 지시 원장 열린 행 · 원장 행이 바뀌면 같은 턴에 고친다) · 기본 = 요약본(🔄⏳❌ 만 · 오빠 10-01) · 오빠가 «전체»를 요청할 때만 FT_NEWS_FULL=1 ════"
-TREE="${FT_NEWS_TREE:-$WT/design/v65/NEWS-TREE.md}"
+echo; echo "════ ⑥ ★⓪ 완성 상태 트리 — 뉴스 «맨 위»에 그대로 붙인다 · 빠지면 발행 금지★ (오빠 09-30 「왜 작업 트리 출력안해 자꾸」 · 원본 v65 팀 폴더의 NEWS-TREE.md = 완성 정의 + 오빠 지시 원장 열린 행 · 원장 행이 바뀌면 같은 턴에 고친다) · 기본 = 요약본(🔄⏳❌ 만 · 오빠 10-01) · 오빠가 «전체»를 요청할 때만 FT_NEWS_FULL=1 ════"
+if [ -n "${FT_NEWS_TREE:-}" ]; then TREE="$FT_NEWS_TREE"   # R382b: v65 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+else . "$(cd "$(dirname "$0")" && pwd)/ft-team-lib.sh"; _V65="$(ft_team_in "$WT" v65)" && TREE="$_V65/NEWS-TREE.md" || TREE="<v65 팀 폴더 미해석>"; fi
 if [ -f "$TREE" ]; then python3 "$WT/.fable-team/bin/ft-news-tree.py" "$TREE"; else echo "ERROR: 트리 원본 없음 — $TREE" >&2; fi

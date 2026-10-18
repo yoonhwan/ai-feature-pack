@@ -23,7 +23,7 @@ TITLE = "매거진 2026-10-16 · 오빠 확인판"
 def env(tmp_path, monkeypatch):
     root = tmp_path / "ftroot"
     (root / ".fable-team" / "bin").mkdir(parents=True)
-    for f in ("ft-goal-table.sh", "ft_goal_table.py", "ft_goal_ledger.py", "ft_goal_gate.py", "ft_goal_receipt.py"):
+    for f in ("ft-goal-table.sh", "ft_goal_table.py", "ft_goal_ledger.py", "ft_goal_gate.py", "ft_goal_receipt.py", "ft_team_lib.py"):
         shutil.copy(BIN / f, root / ".fable-team" / "bin" / f)
     monkeypatch.setenv("FT_ROOT", str(root))
     monkeypatch.setenv("FT_GOAL_A6_MD", str(CANON))

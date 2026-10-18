@@ -2,7 +2,7 @@
 
 읽기만 · gh 호출 0(collect 가 이미 읽은 d["issues"] + 캐시 파일 시각만). 모름·실패·오래된 캐시는 0 이 아니다 — `확인 불가(사유)` / `(캐시 HH:MM · 미확인)`.
 전부 알고 있고 전부 신선하고 전부 0 일 때만 `오빠가 정할 것: 없음 — 오늘 질문 0` 한 줄.
-env: FT_BOARD_HIL_LEDGER(기본 <루트>/design/harness/HIL-LEDGER.md) · FT_BOARD_MERGE_QUEUE(기본 <루트>/design/harness/MERGE-QUEUE.md)
+env: FT_BOARD_HIL_LEDGER(기본 <harness 팀 폴더>/HIL-LEDGER.md) · FT_BOARD_MERGE_QUEUE(기본 <harness 팀 폴더>/MERGE-QUEUE.md) — 팀 폴더는 TEAMS.md 폴더 칸(ft_team_lib)
 """
 import json
 import os
@@ -12,6 +12,7 @@ from pathlib import Path
 
 import ft_board_env as env
 from ft_board_mail import PREFIX
+from ft_team_lib import TeamPathError, team_in
 
 CACHE_TTL = 600
 ATTN = re.compile(r"^\[(HIL|긴급)")
@@ -23,8 +24,12 @@ def _rows(path: Path):
     return [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in path.read_text(encoding="utf-8").splitlines() if ln.lstrip().startswith("|")]
 
 
-def _ledger(root: Path, var: str, rel: str):
-    return _rows(Path(os.environ.get(var) or root / rel))
+def _ledger(root: Path, var: str, name: str):
+    try:
+        path = Path(os.environ[var]) if os.environ.get(var) else team_in(root, "harness") / name
+    except TeamPathError:
+        return None  # 팀 폴더를 못 풀면 «확인 불가» 로 보고된다 — 보드 전체를 죽이지 않는다(0 으로 둔갑 0)
+    return _rows(path)
 
 
 def _queue(root: Path):
@@ -51,8 +56,8 @@ def _cache_note(root: Path, now: datetime) -> str:
 
 def decide_lines(d: dict, now: datetime) -> list[str]:
     root = env.ft_root()
-    hil = _ledger(root, "FT_BOARD_HIL_LEDGER", "design/harness/HIL-LEDGER.md")
-    mq = _ledger(root, "FT_BOARD_MERGE_QUEUE", "design/harness/MERGE-QUEUE.md")
+    hil = _ledger(root, "FT_BOARD_HIL_LEDGER", "HIL-LEDGER.md")
+    mq = _ledger(root, "FT_BOARD_MERGE_QUEUE", "MERGE-QUEUE.md")
     seqs = _queue(root)
     note = _cache_note(root, now)
     opened = [i for i in d["issues"] if i["state"] == "open"]
