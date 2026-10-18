@@ -1,0 +1,28 @@
+# r402 시험 원문 (2026-10-19 · HEAD 48d1d53f 기준 · bash tests/test_old_team_path_deny.sh)
+PASS ① Write 꼴2 팀 옛 경로 새 파일 = deny + 바른 경로
+PASS ② Write 새 꼴2 경로 = allow
+PASS ③ Edit 옛 경로 기존 파일 = allow
+PASS ④ Bash cp 옛 경로 새 파일 = deny
+PASS ⑤ Write 꼴1 팀 = allow
+PASS ⑥ TEAMS.md 없음 = allow + WARN 1줄
+PASS ⓑ 리포 밖 = allow(WARN 0)
+PASS ⓑ 꼴3 팀 = 대상 아님
+PASS ⓑ 절대경로 · 없는 하위 폴더 = deny
+PASS ⓑ 명단에 없는 폴더 = allow
+PASS ⓑ bash -n
+PASS Bash > 대상 = deny
+PASS Bash >> 대상 = deny
+PASS Bash tee = deny
+PASS Bash touch = deny
+PASS Bash mv = deny
+PASS Bash 읽기 + /dev/null = allow
+PASS Bash 따옴표 안 글자 = allow
+PASS Bash 옛 경로 → 새 경로 cp = allow
+PASS Bash 기존 파일 덮어쓰기 = allow
+PASS Bash >&2 = allow
+PASS JSON 파싱 실패 = allow + WARN
+PASS Bash 토큰화 실패 = allow + WARN
+PASS lib 없음 = allow + WARN
+PASS FT_BIN 없음 → live 최신(1.0.10 · sort -V) lib = deny
+== ALL PASS ==
+rc=0
