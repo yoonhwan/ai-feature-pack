@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — 라이브 bin 의 ft-mbox 가 우편함을 못 찾던 것을 고친다: cwd 리포 루트 comm · doorbell 이 우편함을 명시 (1.1.8)
+
+카드 r403 · master 109989(급) · planner 109978 · desk 109974. r385 라이브 bin 전환 뒤 `~/.claude/fable-team/live/<v>/bin/ft-mbox.sh` 는 스크립트 조상에 `.fable-team` 이 없어 어느 cwd 에서 불러도 `NO_MAILBOX_ROOT` rc2 였고, doorbell 이 그 경로로 `recv` 줄을 주입해 받는 좌석도 같은 실패가 났습니다.
+
+- **루트 순서(`ft-mbox.py` · `ft-mbox.sh` `_mbox_dir`/`_seats_json` 같은 걸음)**: ①`FT_MBOX_DIR` ②스크립트 조상 `.fable-team`(옛 설치 꼴 · 불변) ③cwd `git rev-parse --git-common-dir` 부모의 `.fable-team/comm` 이 «이미 실재» 할 때만 ④`NO_MAILBOX_ROOT` rc2 + 「cwd 공용 루트 <경로> 에도 comm 없음」. 우편함 생성은 ①② 만(F4).
+- **doorbell**: `[발주 #N] FT_MBOX_DIR=<이 send 가 쓴 comm 절대경로> bash <bin>/ft-mbox.sh recv <to> — …` — 받는 좌석 cwd 무관 · 머리 `[발주 #N]` 첫 토큰 불변(ft-send-verified 영향 0).
+- **시험**: 새 `test_mbox_root_resolve.sh`(ⓐ명시 env ⓑcwd 워크트리→리포 루트 comm·sh/py 같은 루트 ⓒ/tmp→rc2·생성 0 ⓓdoorbell 줄 글자·/tmp 실행 READ ⓔ옛 꼴 불변).
+
 ## 2026-10-19 — 팀 폴더 이동 뒤 옛 경로에 새 파일을 만들지 못하게 막는다: old-team-path-new-file-gate (1.1.7)
 
 판정 2294 ⓑ(planner 쪽지 109888 «옛 경로 새 파일 DENY») · 카드 r402. 12팀 폴더가 `design/teams/<팀>/`(꼴2)로 옮겨진 뒤에도 쌍둥이 역호환이 «읽기» 뿐 아니라 «쓰기» 까지 열려 있어, 옛 `design/<팀>/` 에 만든 카드·발주서가 두 폴더로 흩어졌습니다.
