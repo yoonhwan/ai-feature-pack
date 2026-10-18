@@ -18,6 +18,8 @@ grep -qE "\|[[:space:]]*\`?design/${TEAM}/\`?[[:space:]]*\|" "$TEAMS" || { echo 
 TPL="${FT_TEAM_TEMPLATE_DIR:-}"
 [ -n "$TPL" ] || for c in "$HERE/../templates/team" "$ROOT/scripts/harness-install/fable-team/templates/team"; do [ -d "$c" ] && { TPL="$c"; break; }; done
 [ -d "$TPL" ] || { echo "REJECT 빈 틀 폴더 없음: ${TPL:-<없음>}"; exit 1; }
+# 틀 파일(VERSION 제외) 0 인 폴더는 조용히 «0건 완료» 하지 않는다 — R368 설치가 라이브엔 VERSION 1파일만 복사한 사건(R377 · #0 RULE)
+[ -n "$(find "$TPL" -type f ! -name VERSION -print -quit)" ] || { echo "REJECT 틀 파일 0: $TPL (후보: $HERE/../templates/team · $ROOT/scripts/harness-install/fable-team/templates/team)"; exit 1; }
 DEST="$ROOT/design/$TEAM"; N=0; VERB=CREATE; [ "$DRY" = 1 ] && VERB=WOULD-CREATE
 [ -L "$DEST" ] && { echo "REJECT 팀 폴더가 심볼릭 링크: design/$TEAM"; exit 1; }
 RDESIGN="$(cd -P "$ROOT/design" && pwd -P)"

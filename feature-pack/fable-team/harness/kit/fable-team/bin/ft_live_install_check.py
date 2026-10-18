@@ -28,10 +28,15 @@ def run(cmd, inp=None):
 
 
 def git(repo, *args, inp=None):
-    r = run(["git", "-C", repo, *args], inp)
+    """한글 경로(indices/대기 등)는 core.quotepath=false 로 원형 · 바이트로 받아 surrogateescape 로 푼다 — non-UTF8 이름(0xff)도 예외 없이 원형 보존 (R377 DA⑥ r1)."""
+    try:
+        r = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=false", *args], input=None if inp is None else inp.encode("utf-8", "surrogateescape"),
+                           capture_output=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
+    except (subprocess.TimeoutExpired, OSError) as e:
+        die("실행 실패/7초 초과: git (%s)" % e)
     if r.returncode:
-        die("git %s 실패: %s" % (" ".join(args[:2]), r.stderr.strip()[:120]))
-    return r.stdout
+        die("git %s 실패: %s" % (" ".join(args[:2]), r.stderr.decode("utf-8", "surrogateescape").strip()[:120]))
+    return r.stdout.decode("utf-8", "surrogateescape")
 
 
 def parse_args(argv):
@@ -62,6 +67,14 @@ def subst(p):
     if "$FT_BIN" in p and not ft:
         die("FT_BIN 환경변수 없음 — 라이브 도구 폴더를 모른다")
     return p.replace("$FT_BIN", ft or "").replace("$HOME", os.environ["HOME"])
+
+
+def live_path(row, f):
+    """라이브 파일 경로 = 라이브 폴더 + 지도 패턴의 «첫 와일드카드 앞» 이후 상대 경로(중첩 폴더 보존). 와일드카드 없으면 파일 이름만 (R377)."""
+    pre = row[0].split("*")[0]
+    rel = f[len(KD):]
+    sub = rel[len(pre):] if pre and rel.startswith(pre) else ""
+    return os.path.join(subst(row[2]), sub or os.path.basename(f))
 
 
 def plist_items(repo, path, blob):
@@ -110,6 +123,7 @@ def is_shim(path):
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
     o = parse_args(sys.argv[1:])
     repo = o["repo"] or git(".", "rev-parse", "--show-toplevel").strip()
     ref, landed, removed = o["ref"], None, []
@@ -154,7 +168,7 @@ def main():
             hints.update({rel.split("/")[0]: row[3]} if items else {})
         else:
             checked += 1
-            pairs.append((f, os.path.join(subst(row[2]), os.path.basename(f)), row))
+            pairs.append((f, live_path(row, f), row))
     live = [p for p in pairs if os.path.isfile(p[1])]
     hashes = git(repo, "hash-object", "--no-filters", "--stdin-paths", inp="".join(p[1] + "\n" for p in live)).split() if live else []
     hmap = {p[1]: h for p, h in zip(live, hashes)}
@@ -171,8 +185,8 @@ def main():
         row = next((r for r in drows if fnmatch.fnmatch(f[len(KD):], r[0])), None)
         if row is None or row[1] == "plist":
             bad.append("UNKNOWN %s (삭제 파일 — landed 지도로 라이브 경로를 못 풂)" % f)
-        elif row[1] != "skip" and os.path.isfile(os.path.join(subst(row[2]), os.path.basename(f))):
-            bad.append("STALE %s -> %s" % (f, os.path.join(subst(row[2]), os.path.basename(f))))
+        elif row[1] != "skip" and os.path.isfile(live_path(row, f)):
+            bad.append("STALE %s -> %s" % (f, live_path(row, f)))
             hints[f[len(KD):].split("/")[0]] = row[3]
         else:
             print("REMOVED %s (ref tip 에서 삭제 · 라이브 잔재 0)" % f)
