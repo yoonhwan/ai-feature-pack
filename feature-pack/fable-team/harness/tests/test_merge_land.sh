@@ -138,6 +138,36 @@ pland 28 STUB_OBJECTS=1 PUSH_MODES="nff ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLO
 pland 29 STUB_OBJECTS=1 PUSH_MODES="other ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"push 실패"* ]]; ck "ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT" $?
 pland 30 STUB_OBJECTS=1 FT_PUSH_FIXED_S=9; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"WARN"*"FT_PUSH_FIXED_S"* ]]; ck "ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN" $?
 pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 25 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 25) + WARN" $?
+# R392 ⓘff — --ff: 승인 sha == PR head ∧ main 이 head 의 조상 → commit-tree 0 · push <HEAD>:refs/heads/main · 객체 0
+SF="$T/shimF"; mkdir -p "$SF"; FLOG="$T/ff.log"; RCNT="$T/ff.rcnt"
+cat > "$SF/git" <<EOF
+#!/bin/bash
+for a in "\$@"; do case "\$a" in commit-tree|push) echo "\$a \$*" >> "$FLOG";; esac; done
+if [ -n "\${FF_RACE:-}" ] && [[ " \$* " == *" refs/remotes/origin/main^{commit} "* ]]; then   # 2번째(land 의 M 읽기 · 1번째 = 게이트) 직전에 main 전진 + 로컬 원격 ref 갱신
+  echo x >> "$RCNT"; [ "\$(wc -l < "$RCNT" | tr -d ' ')" = 2 ] && "$REAL_GIT" -C "$T/race" commit -q --allow-empty -m ffrace && "$REAL_GIT" -C "$T/race" push -q origin HEAD:main && "$REAL_GIT" -C "$W" fetch -q origin
+fi
+exec "$REAL_GIT" "\$@"
+EOF
+printf '#!/bin/bash\necho "ICHK $*"\n' > "$SF/ichk"; chmod +x "$SF/git" "$SF/ichk"
+fland() {  # fland <PR> <승인 sha|head> <env…> — 대역 PATH 로 --ff 착지 · 2커밋 PR(커밋 수 보존 확인용)
+  local pr="$1" ap="$2"; shift 2; : > "$FLOG"; : > "$RCNT"; git -C "$W" fetch -q origin; FM="$(omain)"; mkpr "$pr" "pr$pr" origin/main
+  echo two > "$W/pr$pr.b"; cm "$W" "pr $pr second"; git -C "$W" push -q origin "pr$pr:refs/pull/$pr/head"; PRSHA="$(sha "$W" HEAD)"
+  python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));d["headRefOid"]=sys.argv[2];json.dump(d,open(sys.argv[1],"w"))' "$STUB_JSON" "$PRSHA"
+  [ "$ap" = head ] && ap="$PRSHA"; apv --approve-sha "$ap"
+  out="$(env PATH="$SF:$PATH" FT_INSTALL_CHECK="$SF/ichk" "$@" bash "$LAND" "$pr" --approve-sha "$ap" --ff --repo "$W" 2>&1)"; rc=$?
+}
+fland 40 head; F40="$PRSHA"
+[ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=40 sha=$F40 "*" mode=ff"* ]] && [ "$(omain)" = "$F40" ]; ck "ⓘff① 정상 → LANDED sha=HEAD mode=ff · origin main == PR head" $?
+! grep -q '^commit-tree' "$FLOG" && grep -q "^push .* $F40:refs/heads/main" "$FLOG" && ! grep -q '^push .*+' "$FLOG"; ck "ⓘff① commit-tree 호출 0 · push refspec <HEAD>:refs/heads/main(non-force)" $?
+[ "$(git -C "$ORIGIN" rev-list --count "$FM..main")" = 2 ] && ! git -C "$ORIGIN" log --format=%B "$FM..main" | grep -q 'PR #40'; ck "ⓘff① 커밋 수 보존(2) · squash 커밋 0" $?
+tail -n1 "$T/state/merge-gate.log" | grep -q "head=$F40 method=ft-merge-land-ff tree=.* landed=$F40 pr=40"; ck "ⓘff① merge-gate.log method=ft-merge-land-ff · landed=HEAD" $?
+[ "$(head -n1 "$T/.fable-team/state/base-head")" = "$F40" ] && [[ "$out" == *"ICHK --range $FM..$F40 --ref $F40 "* ]]; ck "ⓘff① base-head · install 검사 Q=HEAD(--range M..HEAD)" $?
+[[ "$out" == *"push ok objects=0 bound=11 "* ]]; ck "ⓘff④ 전송 객체 0 → push ok objects=0 bound=11" $?
+git -C "$T/race" fetch -q origin && git -C "$T/race" checkout -q -B main origin/main
+fland 41 head FF_RACE=1; [ "$rc" = 1 ] && [[ "$out" == *"ff 불가"* ]] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = ffrace ] && ! grep -q '^push' "$FLOG"; ck "ⓘff② 검사 뒤 main 전진(head 조상 아님) → push 전 REJECT · origin main = 경주 커밋 그대로" $?
+: > "$PLOG"; MF="$(omain)"; fland 42 head PATH="$SP:$SF:$PATH" STUB_OBJECTS=1 PUSH_MODES="reject"
+[ "$rc" = 1 ] && [[ "$out" == *"non-FF"* ]] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [ "$(omain)" = "$MF" ]; ck "ⓘff② 서버 non-FF 거절 스텁 → REJECT · 재시도 0 · main 불변" $?
+MF="$(omain)"; fland 43 "$M1"; [ "$rc" = 1 ] && [[ "$out" == *"ff 는 승인 sha == PR head 만"* ]] && [[ "$out" != *EQUIV* ]] && ! grep -q '^push' "$FLOG" && [ "$(omain)" = "$MF" ]; ck "ⓘff③ 승인 sha != PR head → REJECT(equiv 경로 0) · push 0 · main 불변" $?
 ! grep -vE '^\s*#' "$BIN/ft-merge-land.sh" "$BIN/ft-merge-lib.sh" | grep -qE '\b(600|300)\b'; ck "600·300 글자 0" $?
 cmp -s "$BIN/ft-merge-land.sh" "$BIN/../harness-install/fable-team/bin/ft-merge-land.sh" && cmp -s "$BIN/ft-merge-lib.sh" "$BIN/../harness-install/fable-team/bin/ft-merge-lib.sh"; ck "키트 사본 2 cmp0" $?
 
