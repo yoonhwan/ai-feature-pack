@@ -40,6 +40,8 @@ MAP=(
   "mbox_guard.sh|.fable-team/comm/mbox_guard.sh"
   # ★mbox_guard_goal.sh = mbox_guard.sh 가 source 하는 문 ③ 골 표 게재(R362) — 한쪽만 깔리면 WARN 만 남고 문이 열린다 · 감시 밖이면 무증상★
   "mbox_guard_goal.sh|.fable-team/comm/mbox_guard_goal.sh"
+  # ★mbox_guard_da.sh = mbox_guard.sh 가 source 하는 문 ④ DA 보류 2회(R387 · 판정 2282) — 한쪽만 깔리면 DA 발주는 fail-closed REJECT(본체 없음) · 감시 밖이면 무증상★
+  "mbox_guard_da.sh|.fable-team/comm/mbox_guard_da.sh"
   # ★mbox_guard_lib.sh = 두 문이 판정기 폴더를 찾는 공용 함수 _ft_live_bin(R372) — 없으면 판정기 해석 실패로 fail-closed REJECT★
   "mbox_guard_lib.sh|.fable-team/comm/mbox_guard_lib.sh"
   # ★ft-goal-table.sh·ft_goal_table.py = 문 ③ 이 부르는 판정기(R362 · 라이브 bin) — LIVE_BIN 쪽은 ft-live-install-check 가 본다★

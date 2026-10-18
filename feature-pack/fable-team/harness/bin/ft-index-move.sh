@@ -36,6 +36,13 @@ if [ "$DST" = 완성 ]; then
   body="$(awk -v s="$SEC" 'index($0,"## ")==1{f=0; r=$0; while((i=index(r,s))>0){n=substr(r,i+length(s),1); if(index(s,"§")==0||n!~/[0-9]/){f=1;break}; r=substr(r,i+length(s))} if(f){print;next}} f' "$DAF")"
   [ -n "$body" ] || { echo "REJECT $DAF 에 절 «${SEC}» 없음"; exit 1; }
   printf '%s' "$body" | grep -qE '닫힘|CLOSE' || { echo "REJECT $DAF $SEC 에 「닫힘」/「CLOSE」 없음 — DA 가 닫지 않았다"; exit 1; }
+  # R387 판정 2282 부모 완성 게이트 — ①리서치 좌석마다 `- 리서치 닫힘:` 줄(opencode = left=0 · Fable = kill rc=0) + tmux 에 그 세션 0 ②DA 보류 사건 ≥ 2 인데 유효한 재설계 해제 0 이면 완성 이동 거절(판정기 하나 = ft_da_hold_gate.py)
+  while IFS= read -r _rs; do _rseat="${_rs%% *}"; [ -n "$_rseat" ] || continue
+    grep -F -- "- 리서치 닫힘: $_rseat " "$SRC" | grep -qE 'left=0|kill rc=0' || { echo "REJECT 리서치 좌석 열림 $_rseat — 카드에 «- 리서치 닫힘: $_rseat <시각> left=0|kill rc=0» 줄 없음(ft-nano-close 출력 복붙 · 이동 0)"; exit 1; }
+    ! tmux has-session -t "=$_rseat" 2>/dev/null || { echo "REJECT 리서치 좌석 열림 $_rseat — tmux 세션이 아직 있다(이동 0)"; exit 1; }
+  done < <(sed -n 's/^- 리서치: \([^ ]*\) base=.*$/\1/p' "$SRC")
+  [ -f "$HERE/ft_da_hold_gate.py" ] || { echo "REJECT ft_da_hold_gate.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  _hg="$(python3 "$HERE/ft_da_hold_gate.py" "$SRC" --closing 2>&1)" || { echo "REJECT DA 보류 2회 — 상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄 없이 완성 이동 못 한다(이동 0): ${_hg%%$'\n'*}"; exit 1; }
   CARDID="$(basename "$SRC" .md)"
   printf '%s' "$body" | grep -Fq -- "$CARDID" || { echo "REJECT $DA 은 $CARDID 를 닫은 절이 아니다(절에 카드 이름 없음) — 그 판정 절에 「대상 카드: ${CARDID}」 줄을 넣고 다시. 이동 0"; exit 1; }
   # 정본 게이트 + 랜딩 commit 사실 검사(ft-index-move-canon.sh · 판정 440 r2 §6-1) — 이동 «전»에 검사한다.

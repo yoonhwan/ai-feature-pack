@@ -11,7 +11,7 @@ bash -n "$SRC_MOVE" && ok "bash -n" || bad "bash -n"
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRC_MOVE" "$BIN/ft-index-move.sh"; cp "$(dirname "$SRC_MOVE")/ft-index-move-canon.sh" "$(dirname "$SRC_MOVE")/ft-index-move-install.sh" "$BIN/"
+cp "$SRC_MOVE" "$BIN/ft-index-move.sh"; cp "$(dirname "$SRC_MOVE")/ft-index-move-canon.sh" "$(dirname "$SRC_MOVE")/ft-index-move-install.sh" "$(dirname "$SRC_MOVE")/ft_da_hold_gate.py" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"        # lint 는 별도 시험 — 여기선 통과 스텁
 printf '#!/usr/bin/env bash\necho "bash ring $1"\n' > "$BIN/ft-resume-cmd.sh"
 STUB="$T/byz_thread_post_stub.sh"

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--dry-run]
+# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--research] [--dry-run]
+#   --research = 리서치 나노(판정 2282 · R387 · 설계 §3·§7) — «진행/ 부모 카드»(DA 보류가 쌓인 카드)를 옮기지 않고 같은 카드에 읽기 전용 조사 좌석을 연다: 좌석 이름 꼬리 `-research` · 발주 본문에 고정 문단(산출 = RESEARCH 파일 1개 · 코드 0) · 카드에 `- 리서치: <좌석> base=<sha> 허용=…` · opencode 는 ft-opencode-reap.sh(r286) 없으면 REJECT
 #   --raise "<사유>" = 상향 모델(claude-fable-*·*astra* · 판정 1641)을 열 때 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인) · 7 = 팀셋 나노 상한 — 좌석 0 · 순번 큐(QUEUED · r-teamset-standard)
@@ -9,10 +10,10 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent A] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; MODEL=""; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+AGENT="claude"; MODEL=""; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
-  --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
+  --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -114,7 +115,8 @@ fi
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
-case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac
+if [ "$RESEARCH" = 1 ]; then case "$IDX" in */진행/*) ;; *) echo "REJECT --research 는 진행/ 에 있는 부모 카드(DA 보류가 쌓인 카드)만 — 카드는 옮기지 않는다: $IDX"; exit 1;; esac
+else case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac; fi
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
 # 형제 도구는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 lint 의 «파일 없음» 이 «lint 실패» 로, 첫 발주는 좌석을 연 «뒤» 에 죽는다. 열기 «전»에 거절한다(R134). --dry-run 은 송신 전(179행)에 끝나므로 send-verified 는 실전만.
 for _sib in ft-index-lint.sh $([ "$DRY" = 1 ] || echo ft-send-verified.sh ft-agent-ready.sh); do
@@ -127,6 +129,9 @@ case "$_rrc" in
   1) ;;
   *) echo "REJECT ft_raised.py 판정 실패 rc=$_rrc ($HERE/ft_raised.py) — 부작용 0"; exit 1;;
 esac
+
+# R387 --research: opencode 리서치 좌석은 «쓰고 바로 닫기»(메모리 버그 · r286 reap)가 전제 — 회수 도구가 없으면 부작용 «전» REJECT. Fable 등 다른 에이전트는 통과.
+[ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-1[1m])로 열거나 r286 설치 뒤"; exit 1; }
 
 # ① lint — 누가 읽어도 착수 가능한가 (P2: planner 카드 머리 「- 템플릿: 빈 카드(나노가 채움)」 = lint ⑤⑥ 만 건너뜀 · 그 밖 팀·검사는 그대로)
 _EBN=""; if [[ "$IDX" == *design/planner/indices/* ]] && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi
@@ -150,7 +155,9 @@ awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:spa
 #   통과 = `--recheck <판정문>` 이 실재하고 그 판정문이 «현재 HEAD sha»(7자 이상 접두)를 적고 있을 때만.
 CUR_HEAD="$(git -C "$WT" rev-parse "${BASE_REF:-HEAD}^{commit}")" || { echo "REJECT 기준 ${BASE_REF:+ref(--base) }HEAD 조회 실패: ${BASE_REF:-HEAD}"; exit 1; }
 CARD_BASE="$(grep -E '^[[:space:]-]*base_sha:[[:space:]]*[0-9a-f]{40}' "$IDX" | head -1 | grep -oE '[0-9a-f]{40}' | head -1)"
-if [ -z "$CARD_BASE" ]; then
+if [ "$RESEARCH" = 1 ]; then
+  STAMP_BASE=0   # 리서치 좌석은 코드를 안 만든다 — 부모 카드 base_sha 대조·기록 0(허용 밖 변경은 닫을 때 «리서치 위반» 으로 기록)
+elif [ -z "$CARD_BASE" ]; then
   STAMP_BASE=1
 else
   STAMP_BASE=0
@@ -187,6 +194,7 @@ PY
 fi
 
 SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
+[ "$RESEARCH" != 1 ] || SLUG="$(printf '%s' "$SLUG" | cut -c1-30)-research"   # R387: 좌석 이름·브랜치·워크트리 꼬리 -research
 BASE_NAME="${FT_NANO_PREFIX:-ft-v65-temp-}$SLUG"
 N=0; while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
@@ -201,6 +209,9 @@ if [ -n "${BASE_REF:-}" ] && ! git -C "$ROOT" rev-parse --verify -q "refs/heads/
 fi
 IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
 IDX_REL="${IDX_ABS#"$WT"/}"
+# R387 --research 고정 문단 — 산출 1개·코드 0·arch relay·즉시 [완료·휴식]. 허용 경로 = 부모 카드가 있는 팀 폴더의 RESEARCH-*.md
+_RS_DIR="$(dirname "$(dirname "$(dirname "$IDX_REL")")")"; _RS_ALLOW="$_RS_DIR/RESEARCH-*.md"; _RS_OUT="$_RS_DIR/RESEARCH-$(basename "$IDX" .md)-$(date +%F).md"
+_RSP=" ★리서치 워커(판정 2282 · R387)★ 네 일 = 부모 카드가 막힌 문제의 자료 조사·가설 조정·BTS 결과 수집뿐이다 — 산출 1개 = $WT/$_RS_OUT (출처·가설·BTS 결과 표기) · 이 경로($_RS_ALLOW) 밖 파일·코드 수정 0(닫을 때 도구가 허용 밖 변경을 카드에 «- 리서치 위반:» 으로 기록한다) · 끝나면 mbox relay 로 arch 에 산출 경로 + 3줄 요약을 보내고 카드 «상태» 에 «- 리서치 산출: <경로> · relay #<seq>» 줄을 쓴다 · 증거 줄 시험 칸 = «RESEARCH 파일 작성 rc=0» · 그 뒤 즉시 [완료·휴식] — 후속 일·재질문 대기 외 작업 0(opencode 좌석은 relay 직후 닫힌다)."
 
 # ②-0 옛 nano 브랜치 충돌 (M7 · 10-02 슬러그 충돌 5회) — 나노 닫기는 워크트리만 지우고 브랜치는 보존한다(09-25 승인).
 #   워크트리 없음 ∧ 브랜치 실재 → 그 브랜치를 cherry 게이트로 판정. 반입이면 -r2, -r3 … 후보마다 브랜치가 있으면 «워크트리 유무와
@@ -230,7 +241,7 @@ echo "PLAN seat=$NAME agent=$AGENT model=$MODEL${TIER:+ tier=$TIER}${FAST:+ fast
 if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
   if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi
   case "$_src" in 0|1) ;; 3) echo "REJECT 슬랙 장부 불명 — byz_thread_post.py repair --card $IDX (부작용 0)"; exit 1;; *) echo "REJECT 슬랙 장부 확인 실패 rc=$_src(127=도구 없음) — 부작용 0"; exit 1;; esac; fi
-if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit 0; fi
+if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않고 거절한다
 bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" || exit 1
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
@@ -329,8 +340,12 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open
 PY
 
 # ⑥ 대기→진행 (호출 워크트리에서 git mv — 인덱스 폴더의 정본은 기준 브랜치)
-bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
-NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
+if [ "$RESEARCH" = 1 ]; then   # R387: 부모 카드는 이미 진행/ — 옮기지 않고 «리서치: 좌석 · base · 허용» 줄만 상태 절에 덧붙인다(닫을 때 위반 검사·완성 게이트가 읽는다)
+  NEW_IDX="$IDX_REL"; printf -- '- 리서치: %s base=%s 허용=%s\n' "$NAME" "$CUR_HEAD" "$_RS_ALLOW" >> "$IDX" || human "⑥ 리서치 카드 줄"
+else
+  bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
+  NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
+fi
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
 #   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
 _CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
@@ -347,6 +362,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $WT/${FT_SEATBELT_README:-design/v65/SEATBELT-README.md} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_EBN}"
+[ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0; }

@@ -565,6 +565,27 @@ else
   bad+=("⑤cherry 게이트 스크립트 없음: $HERE/ft-nano-cherry-gate.sh (런타임 bin 에 같이 복사)")
 fi
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
+# R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
+RS_LINE=""; RS_AGENT=""
+if [ -n "${CARD:-}" ] && [ -f "$CARD" ]; then RS_LINE="$(grep -m1 -F -- "- 리서치: $SEAT base=" "$CARD" 2>/dev/null)"; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"; fi
+if [ -n "$RS_LINE" ] && [ -n "${SEAT_WT:-}" ]; then
+  python3 - "$CARD" "$SEAT" "$SEAT_WT" "$RS_LINE" <<'PY' || echo "WARN 리서치 위반 검사 실패 — 기록 못 함(닫기는 계속)"
+import re, subprocess, sys
+card, seat, wt, line = sys.argv[1:5]
+m = re.search(r"base=([0-9a-f]{7,40}) 허용=(\S+)", line)
+if not m:
+    sys.exit(0)
+base, allow = m.groups()
+pat = re.compile("^" + re.escape(allow).replace(r"\*", "[^/]*") + "$")
+files = set(subprocess.run(["git", "-C", wt, "diff", "--name-only", f"{base}..HEAD"], capture_output=True, text=True).stdout.split())
+for ln in subprocess.run(["git", "-C", wt, "status", "--porcelain", "-uall"], capture_output=True, text=True).stdout.splitlines():
+    files.add(ln[3:].split(" -> ")[-1].strip('"'))
+files = {f for f in files if f and f != ".serena/project.yml" and not pat.match(f)}
+if files:
+    open(card, "a", encoding="utf-8").write(f"- 리서치 위반: {seat} {' '.join(sorted(files))[:300]}\n")
+    print("WARN 리서치 위반 기록 — 허용(" + allow + ") 밖 변경 " + str(len(files)) + "건 (회수는 계속)")
+PY
+fi
 
 # 재실행 감지 — 명부에 좌석이 이미 없으면(해제/kill 실패 뒤 같은 close 재호출) 원장 닫힘 행이 이미 있는 한 append 하지 않는다(멱등).
 # jq 종료코드 1(has=false) 만 «없음» — 파일 오류(2·5)는 RERUN=0 으로 두어 기존 동작(append) 유지.
@@ -634,6 +655,19 @@ bash "$(dirname "$0")/ft-nano-slots.sh" || echo "WARN ft-nano-slots 실패(rc=$?
 tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부는 삭제됨)"; exit 1; }
 tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }
 echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
+# R387 §7-3·§9-3 — 리서치 좌석이었다면 카드에 `- 리서치 닫힘:` 1줄 — opencode = ft-opencode-reap.sh 의 rc·left=<n> 각각 보존(left≠0 또는 rc≠0 = `CLOSE-FAIL reap left=<n> rc=<n>` 줄 + exit 1 · 미설치만 «도구 없음») · 그 밖 = kill rc=0. 부모 완성 게이트(ft-index-move)가 읽는다. 카드 쓰기 실패는 경고.
+if [ -n "$RS_LINE" ]; then
+  _rs_tail="kill rc=0"; _rs_fail=0
+  if [ "$RS_AGENT" = opencode ]; then
+    if [ -f "$HERE/ft-opencode-reap.sh" ]; then
+      _rs_out="$(bash "$HERE/ft-opencode-reap.sh" "$SEAT" 2>&1)"; _rs_rc=$?; _rs_left="$(printf '%s' "$_rs_out" | grep -oE 'left=[0-9]+' | tail -1)"
+      if [ "$_rs_rc" -eq 0 ] && [ "$_rs_left" = "left=0" ]; then _rs_tail="reap left=0 rc=0"
+      else _rs_tail="CLOSE-FAIL reap ${_rs_left:-left=?} rc=$_rs_rc"; _rs_fail=1; fi
+    else _rs_tail="reap 도구 없음(r286 미설치)"; fi
+  fi
+  printf -- '- 리서치 닫힘: %s %s %s\n' "$SEAT" "$(date '+%F %T')" "$_rs_tail" >> "$CARD" || echo "WARN 리서치 닫힘 줄 쓰기 실패($CARD)"
+  [ "$_rs_fail" -eq 0 ] || { echo "$_rs_tail"; exit 1; }
+fi
 # 세션이 사라졌다 — 이제 계획을 실행한다(계보의 다른 세션·cwd 보유가 남아 있으면 계획이 skipped:좌석/cwd 로 대기시킨다)
 [ "$NAMED" != 1 ] && [ -n "$PLAN" ] && [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] && _wt_clean_run   # --wt/--branch 는 자동 실행 0(계획만 · 사람 ! 실행)
 exit 0

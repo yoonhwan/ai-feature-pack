@@ -20,8 +20,7 @@ else
   GOAL3='단순히 실패 사례를 많이 모았다는 이유로 실험을 닫지 않는다.'
 fi
 SECTIONS=('골 원문' '골좌표' '배경' '구현 범위' '완료 조건' '상태')
-MAX_CITES="${FT_INDEX_MAX_CITES:-4}"
-rc=0
+MAX_CITES="${FT_INDEX_MAX_CITES:-4}"; rc=0
 section_body() {  # $1=file $2=heading-prefix → 그 절 본문(다음 ## 전까지)
   awk -v h="## $2" 'index($0,h)==1{f=1;next} /^## /{f=0} f' "$1"
 }
@@ -118,6 +117,7 @@ check_proposal_line() {  # $1=file → bad+=
   if [ "$new" = 1 ]; then bad+=("「- 제안서:」 값은 #<제안 Issue 번호> 또는 「없음 — 사유」 (경로 값은 R77 r1 부터 새 카드에서 금지): ${val:0:40}")
   else echo "WARN $1 — 「- 제안서:」 경로·기타 값(옛 카드 · 새 카드는 #M 또는 없음 — 사유): ${val:0:40}"; fi
 }
+check_da_hold() { local g="$(dirname "${BASH_SOURCE[0]:-$0}")/ft_da_hold_gate.py" l; [ -f "$g" ] || return 0; while IFS= read -r l; do case "$l" in INFO*) echo "INFO $1 — ${l#INFO }";; BAD*) bad+=("${l#BAD }");; esac; done < <(python3 "$g" "$1" --lint 2>/dev/null); }   # ⑪ DA 보류 2회(R387 · 판정 2282 · 설계 §3·§8-3) — 판정기 ft_da_hold_gate.py --lint: INFO(사건 ≥ 2 인데 재설계/리서치 줄 없음 · REJECT 아님) · BAD(위반 뒤 새 워커 없이 채택 = REJECT). 판정기 부재는 INFO 만 건너뜀.
 for f in "$@"; do
   bad=()
   [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }
@@ -152,7 +152,7 @@ for f in "$@"; do
     ok=0; while IFS= read -r p; do scope_path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
-  check_proposal_line "$f"
+  check_proposal_line "$f"; check_da_hold "$f"
   inst="$(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-index-lint-install.sh" "$f")" || bad+=("$inst")   # ⑩ 하네스 카드 「- 설치:」 줄 (R245)
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi
   if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})${allow_empty:+ (empty-body allowed)}"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
