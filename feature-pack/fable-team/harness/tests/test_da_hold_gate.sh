@@ -219,9 +219,9 @@ done
 FAKE="$T/fake"; mkdir -p "$FAKE"; printf '#!/bin/sh\ncase "$1" in has-session) exit 1;; list-sessions) exit 0;; *) exit 1;; esac\n' > "$FAKE/tmux"; chmod 755 "$FAKE/tmux"
 SB="$T/bin"; cp -R "$KIT" "$SB"; printf '#!/bin/sh\necho OK\nexit 0\n' > "$SB/ft-index-lint.sh"; printf '#!/bin/sh\necho gate-ok\nexit 0\n' > "$SB/ft-proposal-gate.sh"; rm -f "$SB/ft-opencode-reap.sh"
 mkdir -p "$T/repo"; git init -q "$T/repo"; git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-mkdir -p "$T/repo/design/alpha/indices/진행" "$T/repo/design/alpha/indices/대기" "$T/repo/.fable-team"; echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
+mkdir -p "$T/repo/design/alpha/indices/진행" "$T/repo/design/alpha/indices/대기" "$T/repo/.fable-team/comm"; echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
 echo '# 카드' > "$T/repo/design/alpha/indices/진행/x.md"; echo '# 카드' > "$T/repo/design/alpha/indices/대기/y.md"
-spr() { ( cd "$T/repo" && export FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$T/repo/.fable-team/seats-alpha.json" FT_TEAMSET=0 && PATH="$FAKE:$PATH" bash "$SB/ft-nano-spawn.sh" "$@" --from byz-alpha-master-claude#1 2>&1 ); }
+spr() { ( cd "$T/repo" && export FT_ROOT="$T/repo" FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$T/repo/.fable-team/seats-alpha.json" FT_TEAMSET=0 && PATH="$FAKE:$PATH" bash "$SB/ft-nano-spawn.sh" "$@" --from byz-alpha-master-claude#1 2>&1 ); }
 o="$(spr design/alpha/indices/진행/x.md --agent claude --model 'claude-fable-5-1[1m]' --raise "리서치" --research --dry-run)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"PLAN seat=byz-alpha-nano-x-research#0"* ]] && [[ "$o" == *"RESEARCH seat=byz-alpha-nano-x-research#0 allow=design/alpha/RESEARCH-*.md"* ]] && [[ "$o" == *"리서치 워커(판정 2282"*"산출 1개"*"코드 수정 0"*"[완료·휴식]"* ]]; } && ok "spawn --research --dry-run(Fable): 이름 꼬리 -research · 고정 문단 · 허용 경로" || bad "spawn dry-run rc=$rc $o"
 o="$(spr design/alpha/indices/진행/x.md --agent opencode --model deepseek/deepseek-v4-flash --research --dry-run)"; rc=$?
