@@ -85,9 +85,11 @@ class Scan:
                     notes.append(f"a? {m} 상한 판정 불가(ft_seat_cap ERROR·없음) — a 세지 않음")
             if m in self.live and not stop and not held(t["team"]) and cap == "ok":
                 age = self.idle_age(m)  # 싼 판정(캐시)이 먼저 — master 가 IDLE 3분+ 일 때만 카드 lint(카드당 프로세스)를 돈다
-                n = waiting_cards(t["cards"], self.lint) if age is not None and age >= IDLE_MIN else 0
-                if n and not self.flags(m)["rest"] and (self.idle_age(m, fresh=True) or 0) >= IDLE_MIN:
-                    out.append(dict(kind="a", seat=m, team=t["team"], age=self.idle_age(m), why=f"대기 카드 {n}장 · master IDLE", n=n))
+                names, u = waiting_cards(t["cards"], self.lint) if age is not None and age >= IDLE_MIN else ([], 0)
+                if names and not self.flags(m)["rest"] and (self.idle_age(m, fresh=True) or 0) >= IDLE_MIN:
+                    n = len(names)
+                    listed = f"대기 카드 {n}장({', '.join(names[:5])}{f' +{n - 5}' if n > 5 else ''}) · 선행 미판정 {u}장 제외"
+                    out.append(dict(kind="a", seat=m, team=t["team"], age=self.idle_age(m), why=f"{listed} · master IDLE", listed=listed))
             for s in sorted(t["seats"]):
                 if s not in self.live:
                     continue
@@ -133,7 +135,7 @@ class Scan:
     def act(self, f: dict) -> str | None:
         k, seat = f["kind"], f["seat"]
         if k == "a":
-            self.send(seat, f"[stall a] 대기 카드 {f['n']}장 · master IDLE {f['age']:.0f}분 — 빈 석 확인하고 지금 spawn (ft-stall-scan)")
+            self.send(seat, f"[stall a] {f['listed']} · master IDLE {f['age']:.0f}분 — 빈 석 확인하고 지금 spawn (ft-stall-scan)")
         elif k == "b":
             if not self.wake(seat, None):
                 return None
