@@ -178,6 +178,47 @@ PY
 has "$(cat "$R2/.worktrees/wt-old/.worktree-info.json")" "design/teams/planner/" "ⓑ 받은 뒤 wt-old worktree-info 재작성"
 has "$(TM2 --verify planner)" "VERIFY ERR=0" "ⓑ 재맞춤 뒤 verify ERR 0"
 
+echo "== ⓗ R391 worktree 칸 없는 행 = 명부 _cards_wt 기준(이동 작업 폴더 ctx.root 아님) · 없으면 프로젝트 루트"
+R6="$T/repo6"; mkrepo "$R6" "planner=1 harness=1"
+GITC "$R6" worktree add -q "$R6/.worktrees/mv" -b mv; GITC "$R6" worktree add -q "$R6/.worktrees/cards" -b cards
+printf '{\n  "_name": "P",\n  "_cards_wt": "cards",\n  "_cards": "design/planner/indices",\n  "byz-planner-master-claude#1": {"role": "master", "index": "design/planner/indices/진행/planner-c1.md"},\n  "byz-planner-arch-claude#1": {"role": "arch", "index": "design/planner/README.md"}\n}\n' > "$R6/.fable-team/seats-planner.json"
+printf '{\n  "_name": "H",\n  "byz-harness-master-claude#1": {"role": "master", "index": "design/harness/indices/진행/harness-c1.md"}\n}\n' > "$R6/.fable-team/seats-harness.json"
+printf '{\n  "name": "byz-planner-nano-x#0",\n  "card_path": "design/planner/indices/진행/planner-c1.md"\n}\n' > "$R6/.fable-team/state/nano-card-base/byz-planner-nano-x#0.json"
+ROS0="$(shasum -a 256 "$R6/.fable-team/seats-planner.json" "$R6/.fable-team/state/nano-card-base/byz-planner-nano-x#0.json")"
+TM6() { FT_REPO_ROOT="$R6/.worktrees/mv" FT_PROJECT_ROOT="$R6" FT_HARNESS_ROOT="$T/hroot" FT_TEAM_MOVE_LSOF="$T/fake/lsof" PATH="$T/fake:$PATH" bash "$SRC/ft-team-move.sh" "$@" 2>&1; }
+out="$(TM6 --apply planner)"; rc=$?; SNAP6="$(printf '%s\n' "$out" | sed -n 's/^SNAPSHOT //p' | tail -1)"
+[ "$rc" = 0 ] && has "$out" "roster seats-planner.json 재작성 0 · 미전환 표식 2" "ⓗ 받은 작업 폴더에서 apply · _cards_wt 미전환 → 명부 재작성 0 · 표식 2" || bad "ⓗ apply rc=$rc ← ${out:0:500}"
+has "$out" "nano-card-base 재작성 0 · 미전환 표식 1" "ⓗ worktree 칸 없는 카드 기준선 = 프로젝트 루트 기준(미전환 → 표식)"
+python3 -I - "$R6/.fable-team/seats-planner.json" <<'PY' && ok "ⓗ 역할 좌석 2행 = 옛 index 원문 + _move_pending · _cards 옛 꼴" || bad "ⓗ 미전환 명부 내용"
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+assert d["_cards"] == "design/planner/indices", d["_cards"]
+for s, ix in (("byz-planner-master-claude#1", "design/planner/indices/진행/planner-c1.md"), ("byz-planner-arch-claude#1", "design/planner/README.md")):
+    assert d[s]["index"] == ix and d[s].get("_move_pending") == "design/teams/planner/", d[s]
+PY
+has "$(TM6 --verify planner)" "VERIFY ERR=0" "ⓗ 미전환 상태 verify ERR 0(옛 index 가 _cards_wt 에 실재)"
+GITC "$R6/.worktrees/cards" merge -q --ff-only mv && ok "ⓗ _cards_wt(cards) 가 이동 커밋을 받음(head-sync 모사)" || bad "ⓗ cards merge"
+out="$(TM6 --apply planner)"; rc=$?
+[ "$rc" = 0 ] && has "$out" "RESYNC planner" "ⓗ 같은 팀 --apply 다시 = RESYNC rc0" || bad "ⓗ resync rc=$rc ← ${out: -500}"
+has "$out" "roster seats-planner.json 재작성 3 · 미전환 표식 0" "  └ RESYNC 명부 재작성 3(_cards + 역할 2) · 표식 0"
+python3 -I - "$R6/.fable-team/seats-planner.json" <<'PY' && ok "ⓗ RESYNC 뒤 역할 좌석 새 경로 · _move_pending 제거 · _cards 새 꼴" || bad "ⓗ RESYNC 명부 내용"
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+assert d["_cards"] == "design/teams/planner/indices", d["_cards"]
+for s in ("byz-planner-master-claude#1", "byz-planner-arch-claude#1"):
+    assert d[s]["index"].startswith("design/teams/planner/") and "_move_pending" not in d[s], d[s]
+PY
+has "$(TM6 --verify planner)" "VERIFY ERR=0" "ⓗ RESYNC 뒤 verify ERR 0"
+out="$(TM6 --revert "$SNAP6")"; rc=$?
+[ "$rc" = 0 ] && has "$out" "REVERT-END" "ⓗ 첫 apply 스냅샷 --revert rc0" || bad "ⓗ revert rc=$rc ← ${out:0:500}"
+[ "$(shasum -a 256 "$R6/.fable-team/seats-planner.json" "$R6/.fable-team/state/nano-card-base/byz-planner-nano-x#0.json")" = "$ROS0" ] && ok "ⓗ revert 뒤 명부·카드 기준선 before_sha 복원" || bad "ⓗ revert 뒤 sha 다름"
+out="$(TM6 --apply harness)"; rc=$?
+[ "$rc" = 0 ] && has "$out" "roster seats-harness.json 재작성 0 · 미전환 표식 1" "ⓗ _cards_wt 없는 명부 = 프로젝트 루트 기준(못 받음 → 표식 1 · ctx.root 0)" || bad "ⓗ _cards_wt 없음 rc=$rc ← ${out:0:500}"
+has "$(cat "$R6/.fable-team/seats-harness.json")" '"index": "design/harness/indices/진행/harness-c1.md"' "  └ 옛 index 원문 유지"
+GITC "$R6" merge -q --ff-only mv && ok "ⓗ 프로젝트 루트가 이동 커밋을 받음" || bad "ⓗ root merge"
+has "$(TM6 --apply harness)" "roster seats-harness.json 재작성 1 · 미전환 표식 0" "ⓗ 받은 뒤 RESYNC = 프로젝트 루트 기준 재작성 1"
+hasnt "$(grep -nE 'or ctx\.root|else ctx\.root|get\("worktree", ctx\.root' "$SRC/ft_team_move.py" "$SRC/ft_team_move_apply.py" || true)" ":" "ⓗ 명부·카드 기준선 기준 경로에 ctx.root 후퇴값 0"
+
 echo "== ⓖ 7초 룰 — --sync-worktrees 는 배치 공통 deadline 70초 · 초과/실패 = PARTIAL rc3 (DA⑥ Q5)"
 cat > "$T/sync_case.py" <<'PYEOF'
 import glob, json, os, subprocess, sys

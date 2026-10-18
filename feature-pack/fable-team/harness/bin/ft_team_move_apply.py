@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from ft_team_move import Ctx, MoveError, hits, occupancy, occupancy_snapshot, old_form, pat, received, refs, run, sha256
+from ft_team_move import Ctx, MoveError, hits, occupancy, occupancy_snapshot, old_form, pat, received, refs, run, sha256, store_base
 
 
 # 7초 룰(전역 하드 룰 12) — --sync-worktrees 는 «크기를 아는 배치»: 시도 상한 = min(고정비 + 7초 × ceil(워크트리 수/기준량), 70초), 배치 전체 공통 마감 70초(팀 루프가 잔여를 차감).
@@ -135,10 +135,9 @@ def roster_step(ctx: Ctx, team: str, snap: Snap, step: dict) -> str:
         return "roster 없음(건너뜀)"
     raw = p.read_text(encoding="utf-8")
     data = json.loads(raw)
-    wt = lambda name: ctx.project / ".worktrees" / name if name else ctx.root  # noqa: E731
     done = pend = 0
     for k, v in data.items():
-        base = wt(data.get("_cards_wt")) if k.startswith("_") and k in ("_cards", "_tree") else (wt(v.get("worktree")) if isinstance(v, dict) else ctx.root)
+        base = store_base(ctx, data, v)   # worktree 칸 없는 행·_cards·_tree = 그 명부의 _cards_wt(없으면 프로젝트 루트) — ctx.root 0(R391)
         new = walk(v, lambda s, t=team: rewrite(s, t))
         if new == v:
             continue
@@ -164,7 +163,7 @@ def card_base_step(ctx: Ctx, team: str, snap: Snap, step: dict) -> str:
         if not hits(p, team):
             continue
         row = json.loads(p.read_text(encoding="utf-8"))
-        if received(Path(row.get("worktree") or ctx.root), team):
+        if received(Path(row.get("worktree") or ctx.project), team):
             row["card_path"] = rewrite(str(row.get("card_path", "")), team)
             row.pop("_move_pending", None)
             done += 1

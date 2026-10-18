@@ -102,6 +102,13 @@ def received(wt: Path, team: str) -> bool:
     return (wt / "design" / "teams" / team).is_dir()
 
 
+def store_base(ctx: Ctx, data: dict, row: object) -> Path:
+    """명부 행의 «받음» 기준 워크트리 = 행 worktree 칸 → 명부 머리 _cards_wt → 프로젝트 루트.
+    ctx.root(이동 커밋 워크트리)는 쓰지 않는다 — 거기엔 design/teams/<팀>/ 가 «항상» 있어 받음 판정이 무의미하다(R391)."""
+    name = (row.get("worktree") if isinstance(row, dict) else None) or data.get("_cards_wt")
+    return ctx.project / ".worktrees" / name if name else ctx.project
+
+
 def refs(ctx: Ctx, team: str) -> list[tuple[str, str]]:
     ros, cb = ctx.roster(team), ctx.project / ".fable-team" / "state" / "nano-card-base"
     cards = [p for p in sorted(cb.glob("*.json")) if hits(p, team)] if cb.is_dir() else []
@@ -264,7 +271,7 @@ def check_stores(ctx: Ctx, team: str) -> int:
         for seat, row in data.items():
             if seat.startswith("_") or not isinstance(row, dict) or not str(row.get("index", "")).startswith("design/"):
                 continue
-            base = ctx.project / ".worktrees" / row["worktree"] if row.get("worktree") else ctx.root
+            base = store_base(ctx, data, row)
             if not (base / row["index"]).exists() and not (row.get("_move_pending") and (base / row["index"]).exists()):
                 print(f"ERR {team} 명부 {seat} index 실재 안 함: {row['index']} (기준 {base.name})")
                 err += 1
@@ -275,7 +282,7 @@ def check_stores(ctx: Ctx, team: str) -> int:
         except ValueError:
             continue
         cp = str(row.get("card_path", ""))
-        if (cp.startswith(f"design/teams/{team}/") or cp.startswith(f"design/{team}/")) and not (Path(row.get("worktree", ctx.root)) / cp).exists():
+        if (cp.startswith(f"design/teams/{team}/") or cp.startswith(f"design/{team}/")) and not (Path(row.get("worktree") or ctx.project) / cp).exists():
             print(f"ERR {team} nano-card-base {p.name} card_path 실재 안 함: {cp}")
             err += 1
     return err
