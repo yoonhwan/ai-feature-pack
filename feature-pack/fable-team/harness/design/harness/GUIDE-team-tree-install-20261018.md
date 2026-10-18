@@ -69,6 +69,8 @@
 - 바닥 파일이 수백 개(WARN 많음) → 이번 커밋에서 옮기지 않는다. «이동 구조 커밋» 은 다음 단계(하네스 r318b 가 선례).
 - 이 1장 밖의 질문(틀 내용 바꾸고 싶다 · 칸을 더 두고 싶다) → 하네스 요청 원장 행(개선요청) — 임의로 틀을 바꾸지 않는다.
 
+- 새 팀을 «처음부터 끝까지» 친 실제 출력(scaffold created=14 · 명부 3키 · upgrade STAMP/SKIP · check-teams · map-lint · 커밋)은 하네스 도그푸딩 카드 `design/harness/indices/완성/r373-harness-dogfood-new-team-landing-scenario.md` «시나리오 기록» 절에 원문으로 있다 — 막히면 그 절과 대조한다(R373 · 시험 팀 zz-dogfood).
+
 ## 3. 정본 (이 장은 복사본이다 — 어긋나면 아래가 이긴다)
 
 - 트리 r2 오빠 컨펌: `design/harness/SLACK-r318-tree-r2-20261017.md` · 설계 `design/harness/DESIGN-r318-team-folder-standard-20261017.md` · DA `design/harness/DA-r318-team-root-20261017.md`
