@@ -1,0 +1,12 @@
+PASS ⓐ scripts/fable-team-bin/ → harness/bin/  byz=227 pack=227
+PASS ⓐ scripts/harness-install/ → harness/kit/  byz=459 pack=459
+PASS ⓐ tools/comm-canonical/ → harness/comm/  byz=31 pack=31
+PASS ⓐ design/teams/harness/ → harness/design/harness/  byz=756 pack=756
+PASS ⓐ tests/harness/ → harness/tests/  byz=224 pack=224
+PASS ⓐ tests/scripts/ → harness/tests/scripts/  byz=47 pack=47
+PASS ⓐ .fable-team/state/ → harness/evidence/state-v6/  byz=88 pack=88
+PASS ⓐ 표 밖 파일 0  (harness/ 전체 1832)
+PASS ⓑ 이력 커밋 수 bin  byz=246 pack=246
+PASS ⓒ 병합 뒤 bin·kit·comm·design·evidence 변경 0 (키트 cmp0)
+== fail=0
+reloc rc=0
