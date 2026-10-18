@@ -50,6 +50,7 @@ export FT_NANO_LEDGER=$T/ledger.md
 export FT_IMPL_MODEL='claude-sonnet-5-5[1m]'
 EOF
 echo '{}' > "$REPO/.fable-team/seats-planner.json"; echo '{}' > "$REPO/.fable-team/seats.json"
+: > "$T/ledger.md"   # R400 r3 ②: 원장은 «이미 있는» 파일만 쓴다(없으면 입구 REJECT · 첫 append 로 만들지 않는다)
 echo card > "$REPO/design/planner/indices/대기/c.md"; echo card > "$REPO/design/v65/indices/대기/c.md"
 echo seq > "$T/comm/bodies/1.txt"
 
@@ -194,11 +195,12 @@ GIT worktree remove --force "$REPO/.worktrees/feature-k-r2"; GIT branch -q -D na
 out="$(run FT_NANO_WT_PREFIX='a.b' bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0')"
 has "$out" "REJECT FT_NANO_WT_PREFIX(a.b)" "접두에 정규식 문자 → REJECT(추측 0)"
 printf '{"ft-v65-temp-k#0":{"role":"nano","index":"design/v65/indices/대기/c.md"}}\n' > "$REPO/.fable-team/seats.json"
+# R400 r3: 기본 원장 해석(명단 = origin/main ref)은 이 시험 범위 밖 — 원장은 명시(워크트리 접두 해석만 본다)
 GIT worktree add -q "$REPO/.worktrees/v65-k" -b nano/k
-out="$(run FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean3" bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0' --recv 1 --result "$REPO/.fable-team/seats.json")"
+out="$(run FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean3" bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0' --recv 1 --result "$REPO/.fable-team/seats.json")"
 hasnt "$out" "⑥나노 워크트리" "env 없는 옛 좌석 · v65-k → 지금처럼 해석"
 GIT worktree remove --force "$REPO/.worktrees/v65-k"; GIT branch -q -D nano/k
-out="$(run FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0' --recv 1 --result "$REPO/.fable-team/seats.json")"
+out="$(run FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-k#0' --recv 1 --result "$REPO/.fable-team/seats.json")"
 has "$out" "⑥나노 워크트리 없음: $REPO/.worktrees/v65-<key>[-rN]" "env 없는 옛 좌석 · 에러 문구 바이트 그대로(v65-<key>[-rN])"
 
 echo

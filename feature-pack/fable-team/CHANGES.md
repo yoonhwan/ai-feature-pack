@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — 좌석 닫기 도구가 «못 닫고 CLOSED» 를 찍지 않는다: 원장 명단은 origin/main · 명부·원장 fail-closed · 다른 리포 좌석 안내 (1.1.6)
+
+판정 2307 ①② · planner 109823(v65·lecture 나노 닫기가 원장 워크트리의 옛 TEAMS.md 때문에 REJECT) · 109839(airag 옛 판 nano-close 가 명부·원장 없이 «CLOSED» 출력 · 세션 잔존 — 1.1.4 도 같은 네 자리) · master 109876(다른 리포 좌석 닫기가 «NOROW ↔ 원장 루트 못 풂» 순환).
+
+- **기본 원장 = «명단은 ref · 폴더는 원장 워크트리»**(`ft-nano-close`): `FT_NANO_LEDGER` 가 없으면 팀 명단을 `FT_TEAMS_REF`(기본 `origin/main`)의 `design/TEAMS.md` 에서 읽고, 명단 꼴·쌍둥이 후보 중 원장 파일이 실재하는 «정확히 1개» 만 씁니다(`INFO 원장 ← <경로> (명단 <ref>)`). 0개·2개·명단 못 읽음은 REJECT(후보 목록). 새 함수 `ft-team-lib.sh` `ft_team_cands_ref <루트> <팀> [<ref>]` — `ft_team_in`·`ft_team_cands` 변경 0.
+- **fail-closed 4곳**(`ft-nano-close`): ①명부 파일 없음 ②원장 없음/쓰기 불가 → 입구 REJECT(tmux 조회·변경 전) ③명부 pop 실패 → REJECT(사건 원장 abort) ④원장 append 실패 → FAIL — 어느 경우도 «CLOSED» 줄 0. ★원장은 이미 있는 파일만 씁니다(첫 append 로 만들지 않음).★
+- **다른 리포 좌석 안내**(`ft-seat-close`·`ft-seat-retire`): NOROW·원장 루트 실패·«행 없음» 안내에 `FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json` 한 줄(지금 인자로 채움 · 자동 탐색 0 · 동작 변경 0).
+- **시험**: 새 `test_nano_close_fail_closed.sh`(ⓐ 명단 origin/main + 쌍둥이 1곳 → CLOSED ⓑ 후보 2 ⓒ 0 ⓓ ref 없음 ⓔ 명부 없음 ⓕ 명부 쓰기 실패 — 고치기 전 코드는 9 FAIL) · `test_seat_close.sh` ⓖ(FT_ROOT + --seats 다른 리포 → CLOSED-ROLE · 원장 그 루트) ⓗ(--seats 없이 → 안내 · rc3) · `test_nano_team_env.sh` 픽스처에 원장 파일 미리 생성 + 옛 이름 좌석 2회 원장 명시.
+
 ## 2026-10-19 — 판정 번호로 역할 좌석을 닫는다: ft-seat-close --verdict · ft-seat-retire --record-only --verdict (1.1.5)
 
 planner 판정 2304(오빠 승인 1건)가 현역 역할 좌석 17석을 «재개 기록 → 명부 칸 비우기 → kill» 로 닫으라 했는데, 기존 도구로는 0석이었습니다(master #109747).

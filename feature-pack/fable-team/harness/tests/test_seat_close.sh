@@ -148,7 +148,8 @@ chk "ⓒ스텁 rc≠0 이면 RESUME ok 글자여도 HELD rc 3 · 쓰기 0" "$rc 
 # ⓓ 명부 행 없음(다른 리포 좌석) → 기록만 · NOROW rc 3 · kill 0 · 명부 바이트 동일
 S="$TMP/v3.json"; mkrole "$S"; cp "$S" "$TMP/v3.orig"; : > "$LOG"
 out="$(FAKE_LIVE="byz-airag-arch-claude#3" vrun 'byz-airag-arch-claude#3' --reason r --seats "$S" --verdict 2304)"; rc=$?
-chk "ⓓrc 3 · NOROW 출력" "$rc $out" "3 NOROW byz-airag-arch-claude#3 명부 행 없음 — 기록 $TMP/resume/byz-airag-arch-claude#3.json · kill 0 · 그 리포 루트에서 --verdict 로"
+chk "ⓓrc 3 · NOROW 출력(앞부분 · R400 r3 §D 안내)" "$rc ${out%%<그 설치본 루트>*}" "3 NOROW byz-airag-arch-claude#3 명부 행 없음($S) — 기록 $TMP/resume/byz-airag-arch-claude#3.json · kill 0 · 다른 리포 좌석이면: FT_ROOT="
+chk "ⓓNOROW 안내 끝 = 지금 인자 + --seats <그 루트>" "${out##*ft-seat-close.sh }" "'byz-airag-arch-claude#3' --verdict 2304 --reason r --seats <그 루트>/.fable-team/seats.json"
 chk "ⓓ바이트 동일 · kill 0" "$(cmp -s "$S" "$TMP/v3.orig" && echo same || echo changed) $(kills)" "same 0"
 # ⓔ 자기 자신(실행 pane 세션 == 좌석) → REJECT rc 1 · 기록 호출 0 · 쓰기 0
 S="$TMP/v4.json"; mkrole "$S"; printf '%s' '{"caller#0": {"role": "arch", "tick": null}, "_arch": "caller#0"}' > "$S"; cp "$S" "$TMP/v4.orig"; : > "$LOG"; : > "$TMP/retire.log"
@@ -165,5 +166,20 @@ chk "ⓕ.bak 2 · kill 1 · 원장 1행" "$(ls "$R/.fable-team"/*.bak-close-* | 
 # usage — --verdict 값 없음·형식 밖 → rc 2
 run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict > /dev/null 2>&1; chk "ⓥ--verdict 값 없음 rc 2" "$?" 2
 run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict "x 1" > /dev/null 2>&1; chk "ⓥ--verdict 형식 밖 rc 2" "$?" 2
+
+# R400 r3 §D — 다른 리포 좌석: cwd = 리포 A(그 좌석 행 없음) · 좌석 행은 리포 B 워크트리 꼴 명부 · FT_ROOT=B + --seats B 명부
+A="$TMP/repoA"; mkdir -p "$A/.fable-team"; git -C "$A" init -q; mkrole "$A/.fable-team/seats.json"; cp "$A/.fable-team/seats.json" "$TMP/A.orig"
+B="$TMP/B"; mkdir -p "$B/.fable-team"; printf '%s' '{"_arch": "byz-airag-arch-claude#3", "byz-airag-arch-claude#3": {"role": "arch", "tick": null}}' > "$B/.fable-team/seats.json"; cp "$B/.fable-team/seats.json" "$TMP/B.orig"
+# ⓖ FT_ROOT + --seats → CLOSED-ROLE · B 명부 표기·.bak · 원장 = B 루트 · A 명부 바이트 동일
+: > "$LOG"; RA='byz-airag-arch-claude#3'
+out="$(cd "$A" && FT_ROOT="$B" FAKE_LIVE="$RA" vrun "$RA" --reason r --verdict 1 --seats "$B/.fable-team/seats.json")"; rc=$?
+chk "ⓖrc 0 · CLOSED-ROLE · kill=ok" "$rc ${out%% *} ${out##* }" "0 CLOSED-ROLE kill=ok"
+chk "ⓖB 명부 stop-ready · _arch \"\" · .bak 1" "$(J "$B/.fable-team/seats.json" "[.[\"$RA\"].role,._arch]|join(\",\")") $(ls "$B/.fable-team"/seats.json.bak-close-* | wc -l | tr -d ' ')" "stop-ready, 1"
+chk "ⓖ원장 = B 루트 1행 · A 명부 바이트 동일 · kill 1" "$(wc -l < "$B/.fable-team/state/seat-close-verdict.log" | tr -d ' ') $(cmp -s "$A/.fable-team/seats.json" "$TMP/A.orig" && echo same || echo changed) $(kills)" "1 same 1"
+# ⓗ 같은 상태(B 원복)에서 --seats 없이 → NOROW 안내에 FT_ROOT=·--seats · rc 3 · kill 0 · 두 명부 바이트 동일
+cp "$TMP/B.orig" "$B/.fable-team/seats.json"; : > "$LOG"
+out="$(cd "$A" && FT_ROOT="$B" FAKE_LIVE="$RA" vrun "$RA" --reason r --verdict 1)"; rc=$?
+chk "ⓗrc 3 · NOROW · 안내에 FT_ROOT= · --seats" "$rc ${out%% *} $(grep -c 'FT_ROOT=' <<< "$out") $(grep -c -- '--seats ' <<< "$out")" "3 NOROW 1 1"
+chk "ⓗkill 0 · 두 명부 바이트 동일" "$(kills) $(cmp -s "$A/.fable-team/seats.json" "$TMP/A.orig" && echo same || echo changed) $(cmp -s "$B/.fable-team/seats.json" "$TMP/B.orig" && echo same || echo changed)" "0 same same"
 
 echo "fail=$fail"; [ "$fail" = 0 ]

@@ -76,9 +76,24 @@ case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 �
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
 LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"
-# R383: 기본 원장 = 원장 워크트리의 v65 팀 폴더(그 워크트리의 design/TEAMS.md · 팀 이름 글자 0). 못 풀면 REJECT(#0 RULE — 옛 경로로 후퇴 0)
-if [ -n "${FT_NANO_LEDGER:-}" ]; then LEDGER="$FT_NANO_LEDGER"; else _v65="$(ft_team_in "$LEDGER_WT" v65)" || { echo "REJECT v65 팀 폴더를 못 풀었다 — 기본 원장 경로 없음 (FT_NANO_LEDGER 로 지정하거나 $LEDGER_WT/design/TEAMS.md 확인)"; exit 1; }; LEDGER="$_v65/20260912/NANO-LEDGER-pm1-temp-sessions.md"; fi
+# R383 → R400 r3(판정 2307 ①): 기본 원장 = «명단은 ref · 폴더는 원장 워크트리» — 팀 명단은 FT_TEAMS_REF(기본 origin/main)의 design/TEAMS.md 에서 읽고(원장 워크트리 사본이 옛 명단이어도 무관),
+#   그 명단 꼴·쌍둥이 후보 중 원장 파일이 실재하는 «정확히 1개» 만 쓴다. 0·2+·명단 못 읽음 = REJECT(#0 RULE — 옛 경로 후퇴·추측 0). FT_NANO_LEDGER 명시가 이긴다.
+if [ -n "${FT_NANO_LEDGER:-}" ]; then LEDGER="$FT_NANO_LEDGER"
+else
+  _ref="${FT_TEAMS_REF:-origin/main}"; _lrel="20260912/NANO-LEDGER-pm1-temp-sessions.md"
+  _cands="$(ft_team_cands_ref "$LEDGER_WT" v65 "$_ref" 2>&1)" || { case "$_cands" in *"못 읽음"*) echo "REJECT 팀 명단($_ref)을 못 읽음 — FT_NANO_LEDGER 로 지정 ($LEDGER_WT)";; *) echo "REJECT v65 팀 폴더를 못 풀었다(명단 $_ref) — ${_cands:-사유 없음} · FT_NANO_LEDGER 로 지정";; esac; exit 1; }
+  _ln=0; _lf=""; _lall=""
+  while IFS= read -r _c; do [ -n "$_c" ] || continue; _lall+=" $_c/$_lrel"; [ -f "$_c/$_lrel" ] && { _ln=$((_ln+1)); _lf+="${_lf:+ · }$_c/$_lrel"; }; done <<< "$_cands"
+  case "$_ln" in
+    1) LEDGER="$_lf"; echo "INFO 원장 ← $LEDGER (명단 $_ref)";;
+    0) echo "REJECT v65 원장을 못 찾았다 — 후보:$_lall (FT_NANO_LEDGER 로 지정)"; exit 1;;
+    *) echo "REJECT v65 원장 후보 ${_ln}개: $_lf (FT_NANO_LEDGER 로 지정)"; exit 1;;
+  esac
+fi
 case "$LEDGER" in /*) ;; *) LEDGER="$LEDGER_WT/$LEDGER";; esac
+# R400 r3(판정 2307 ②) fail-closed 입구: 명부·원장이 없으면 닫지 않는다 — 아래 명부 pop·원장 append 가 «없는 파일» 위에서 실패하고도 CLOSED 를 찍던 자리(airag 1.0.1 실사건 · 1.1.4 도 같은 꼴). tmux 조회·변경 전.
+[ -f "$SEATS" ] || { echo "REJECT 명부 없음: $SEATS — FT_SEATS_JSON 으로 지정(워크트리 .fable-team/seats.json 이면 그 절대경로)"; exit 1; }
+{ [ -f "$LEDGER" ] && [ -w "$LEDGER" ]; } || { echo "REJECT 원장 없음/쓰기 불가: $LEDGER"; exit 1; }
 WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
 
 # 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/<WT 접두(기본 v65-)><seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
@@ -614,6 +629,7 @@ d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDi
 d.pop(s, None)
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
+_prc=$?; [ "$_prc" -eq 0 ] || { echo "REJECT $SEAT"; echo "  - 명부 쓰기 실패(rc=$_prc): $SEATS"; exit 1; }   # R400 r3 ③ — 사건 원장은 trap abort · CLOSED 0
 _wt_clean_plan
 [ "$SHARED" != 1 ] || WT_MARK="mode=shared-wt wt=$SH_TOP (정리 0 · 브랜치 0)"   # 계획·정리 0 — 원장 행에 모드를 남긴다
 [ "$NAMED" != 1 ] || WT_MARK="mode=named-wt wt=$SEAT_WT branch=$NBR (계획만 · 정리 0 · 브랜치 0)"
@@ -645,7 +661,8 @@ elif [ "$RERUN" = 1 ] && [ "$_rowexists" = 1 ]; then
 else
   printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③%s. kill=%s%s · %s\n' \
     "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$([ "$ABSENT" = 1 ] && echo "세션 없음(백필)" || echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분")" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
-  [ -z "$_lock" ] || rmdir "$_lock"
+  _arc=$?; [ -z "$_lock" ] || rmdir "$_lock"
+  [ "$_arc" -eq 0 ] || { echo "FAIL $SEAT — 원장 append 실패(rc=$_arc · 명부는 삭제됨 · 같은 close 재실행이 RERUN 으로 이어간다): $LEDGER"; exit 1; }   # R400 r3 ④ — CLOSED 0
 fi
 if [ "$NAMED" = 1 ]; then
   case "$NBR" in nano/*) _why="이름이 표준 좌석 경로가 아니라(--wt/--branch 명시 모드)";; *) _why="브랜치가 nano/* 가 아니라";; esac
