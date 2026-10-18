@@ -36,17 +36,19 @@ sha() { printf '%040x' "$1"; }
 lines() { wc -l < "$LOG" | tr -d ' '; }
 grant() { run a approve-scope "$@"; }
 
-for f in ft-autonomy.sh ft-autonomy-scope.sh; do bash -n "$BIN/$f" 2>/dev/null; ck "bash -n $f" $?; done
+for f in ft-autonomy.sh ft-autonomy-scope.sh ft-autonomy-scope-code.sh; do bash -n "$BIN/$f" 2>/dev/null; ck "bash -n $f" $?; done
 python3 -m py_compile "$BIN/autonomy_scope_post.py" 2>/dev/null; ck "py_compile autonomy_scope_post.py" $?
 MIRB="$ROOT/harness/kit/fable-team/bin"
-cmp -s "$BIN/ft-autonomy.sh" "$MIRB/ft-autonomy.sh" && cmp -s "$BIN/ft-autonomy-scope.sh" "$MIRB/ft-autonomy-scope.sh" && cmp -s "$BIN/autonomy_scope_post.py" "$MIRB/autonomy_scope_post.py"; ck "설치 미러 cmp0 (bin 세 파일)" $?
+cmp -s "$BIN/ft-autonomy.sh" "$MIRB/ft-autonomy.sh" && cmp -s "$BIN/ft-autonomy-scope.sh" "$MIRB/ft-autonomy-scope.sh" && cmp -s "$BIN/ft-autonomy-scope-code.sh" "$MIRB/ft-autonomy-scope-code.sh" && cmp -s "$BIN/autonomy_scope_post.py" "$MIRB/autonomy_scope_post.py"; ck "설치 미러 cmp0 (bin 네 파일)" $?
 
 # ===== approve-scope =====
 rm -rf "$S"; mkdir -p "$S"
 grant --for 10h --max 5 --classes docs; [ $rc = 2 ] && has 'ON 이 아님'; ck "approve-scope OFF → REJECT rc 2" $?
 fresh
-grant --for 10h --max 5 --classes docs,code; [ $rc = 2 ] && has 'r298c'; ck "classes 에 code → REJECT (r298c 전)" $?
-grant --for 10h --max 5 --classes code; [ $rc = 2 ] && has 'r298c'; ck "classes=code → REJECT" $?
+grant --for 10h --max 5 --classes docs,code; [ $rc = 2 ] && has '--code-max 1~max\(5\) 필수\(받은 값: 없음\)'; ck "classes 에 code · --code-max 없음 → REJECT (R411)" $?
+grant --for 10h --max 5 --classes code --code-max 0; [ $rc = 2 ] && has '--code-max 1~max'; ck "--code-max 0 → REJECT" $?
+grant --for 10h --max 5 --classes code --code-max 6; [ $rc = 2 ] && has '--code-max 1~max'; ck "--code-max > max → REJECT" $?
+grant --for 10h --max 5 --classes docs --code-max 2; [ $rc = 2 ] && has 'code 가 있을 때만'; ck "code 없는데 --code-max → REJECT" $?
 grant --for 73h --max 5 --classes docs; [ $rc = 2 ]; ck "--for 73h → REJECT" $?
 grant --for 0h --max 5 --classes docs; [ $rc = 2 ]; ck "--for 0h → REJECT" $?
 grant --for 10 --max 5 --classes docs; [ $rc = 2 ]; ck "--for 단위 없음 → REJECT" $?
@@ -144,8 +146,12 @@ grant --for 10h --max 5 --classes docs >/dev/null; run a scope-approve "$(sha 42
 # ===== 위변조 판정 =====
 fresh; grant --for 10h --max 5 --classes docs >/dev/null; printf 'scope-use S1 notasha docs 1\n' >> "$LOG"
 [ "$(a mode)" = tamper ]; ck "scope-use 꼴 틀림 → tamper" $?
-fresh; printf 'approve-scope S1 A1 1 until=2 max=3 daily=1 classes=code\n' >> "$LOG"
-[ "$(a mode)" = tamper ]; ck "classes=code 줄 → tamper (꼴 밖)" $?
+fresh; printf 'approve-scope S1 A1 1 until=2 max=3 daily=1 classes=foo\n' >> "$LOG"
+[ "$(a mode)" = tamper ]; ck "classes=foo 줄 → tamper (꼴 밖)" $?
+fresh; printf 'approve-scope S1 A1 1 until=2 max=3 daily=1 classes=code codemax=x\n' >> "$LOG"
+[ "$(a mode)" = tamper ]; ck "codemax=x 줄 → tamper (꼴 밖)" $?
+fresh; printf 'scope-use S1 %s foo 1\n' "$(sha 1)" >> "$LOG"
+[ "$(a mode)" = tamper ]; ck "scope-use 종류 foo → tamper" $?
 fresh; printf 'scope-stop S1 1 \n' >> "$LOG"
 [ "$(a mode)" = tamper ]; ck "사유 빈 scope-stop 줄 → tamper" $?
 fresh; grant --for 10h --max 5 --classes docs >/dev/null; run a scope-approve "$(sha 51)"; printf 'junk line\n' >> "$LOG"
@@ -182,6 +188,51 @@ cp "$T/log.keep" "$LOG"; rm -f "$AP/$(sha 72)"
 run a scope-status --audit; [ $rc = 3 ] && has '^AUDIT-MISMATCH S1 used: scope-use 2 > 승인 파일 1'; ck "승인 파일 삭제 → MISMATCH used(승인 파일 수 < scope-use 수) rc 3" $?
 printf 'approve-merge %s A1 %s\n' "$(sha 73)" "$((T0+7))" > "$AP/$(sha 73)"; printf '%s\n' "approve-merge $(sha 72) A1 $T0" > "$AP/$(sha 72)"
 run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK grants=1 used=2$'; ck "오빠 수동 approve-merge 가 더 있어도(파일 3 ≥ 2) AUDIT-OK" $?
+
+# ===== R411: 종류 code — 시험 통과 세트만 · code-max 안 (판정 2326) · 실 git(임시 origin+clone) + 실 evidence-check·approval-equiv · 분류기만 스텁 =====
+R="$T/r"; OR="$T/origin.git"; CARD="$T/card.md"; export STUB_OUT="CLASS code"
+G() { git -C "$R" "$@"; }; cm() { G add -A && G commit -q -m "$1"; }; hd() { G rev-parse HEAD; }
+git init -q --bare -b main "$OR"; git clone -q "$OR" "$R" 2>/dev/null; G config user.name t; G config user.email t@t
+echo base > "$R/README.md"; cm base; G push -q origin HEAD:main; G fetch -q origin
+G checkout -q -B nano origin/main; mkdir -p "$R/src"; echo 'x = 1' > "$R/src/x.py"; cm code1; A="$(hd)"                       # 나노 세트 A(코드 1커밋)
+G checkout -q -B main origin/main; echo m > "$R/b.txt"; cm main1; G push -q origin main; G fetch -q origin                   # main 이 1커밋 나아감
+G checkout -q nano; G merge -q --no-edit origin/main >/dev/null 2>&1; SM="$(hd)"                                               # SM = A 위 main 병합만
+G checkout -q -B nano2 "$A"; echo 'y = 2' > "$R/src/y.py"; cm own2; SX="$(hd)"                                                 # SX = A 위 자기 변경 더(동일 승인 아님)
+G checkout -q -B other origin/main; mkdir -p "$R/src"; echo z > "$R/src/z.py"; cm other; X="$(hd)"; G checkout -q nano                          # X = A 의 조상 아님
+card() { printf '# 카드\n## 상태\n- 세트: %s · 시험: %s · 이슈: 0\n' "$1" "${2:-bash t.sh rc=0}" > "$CARD"; }
+ar() { FT_ROOT="$R" a "$@"; }
+# ⓐ grant
+fresh; grant --for 2h --max 5 --classes docs,ff,revert,code --code-max 2
+[ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=5 classes=docs,ff,revert,code codemax=2$'; ck "ⓐ code grant → SCOPE-GRANTED … codemax=2" $?
+grep -qxF "approve-scope S1 A1 $T0 until=$((T0+7200)) max=5 daily=5 classes=docs,ff,revert,code codemax=2" "$LOG" && [ "$(a mode)" = on ]; ck "ⓐ log grant 줄 꼴 · SCOPE_GRANT_RE 통과(mode=on)" $?
+run a scope-status; has '^\[범위 승인 S1 · A1 · .* 0/5 · 오늘 0/5 · docs,ff,revert,code · code 0/2\]$'; ck "ⓐ scope-status code 0/2" $?
+grep -q 'docs,ff,revert,code · code 2 · 부여' "$STUB_POST_LOG" && run a scope-status --audit && [ $rc = 0 ]; ck "ⓐ 슬랙 1줄 code 2 · --audit AUDIT-OK(codemax 칸)" $?
+# ⓓ 거절 — 쓰기 0
+n0="$(lines)"; card "$A"
+run ar scope-approve "$A"; [ $rc = 2 ] && has '--card <카드.md> 필요'; ck "ⓓ --card 없음 → REJECT" $?
+printf '# 카드\n## 상태\n- 없음\n' > "$CARD"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '꼴 아님'; ck "ⓓ 증거 줄 없음 → REJECT" $?
+card "$A" "bash t.sh rc=1"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '꼴 아님'; ck "ⓓ 시험 rc≠0 → REJECT" $?
+card "$X"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '증거 검사 rc=1: REJECT .*조상이 아니다'; ck "ⓓ 세트 sha 가 head 의 조상 아님 → REJECT" $?
+card "$A"; run ar scope-approve "$SX" --card "$CARD"; [ $rc = 2 ] && has '동일 승인 아님 rc=1: NOT-EQUIV'; ck "ⓓ A 위 자기 변경 더(NOT-EQUIV) → REJECT" $?
+run ar scope-approve "$A" --card "$T/none.md"; [ $rc = 2 ] && has '카드 없음'; ck "ⓓ 카드 파일 없음 → REJECT" $?
+[ "$(lines)" = "$n0" ] && [ ! -d "$AP" ] && [ ! -e "$S/autonomy-scope/S1.ledger.tsv" ]; ck "ⓓ 거절 전부 쓰기 0(승인 파일·원장 0)" $?
+# ⓑ 세트 == head
+card "$A"; run ar scope-approve "$A" --card "$CARD" --pr 9
+[ $rc = 0 ] && has "^SCOPE-OK $A class=code code=1/2 used=1/5 today=1/5\$"; ck "ⓑ 세트 == head → SCOPE-OK class=code code=1/2" $?
+[ "$(cat "$AP/$A")" = "approve-merge $A A1 $T0" ] && grep -qxF "$(cat "$AP/$A")" "$LOG" && grep -qxF "scope-use S1 $A code $T0" "$LOG"; ck "ⓑ 승인 파일 1줄 == log 한 줄 · scope-use code" $?
+printf '%s\t%s\t9\tcode\tevidence=%s@%s\t\t\n' "$T0" "$A" "$CARD" "$A" | cmp -s - "$S/autonomy-scope/S1.ledger.tsv"; ck "ⓑ 원장 5번째 칸 evidence=<카드>@<A>" $?
+[ "$(a mode)" = on ]; ck "ⓑ scope-use code 줄은 위변조 아님" $?
+STUB_OUT="CLASS docs" run ar scope-approve "$(sha 81)"; [ $rc = 0 ] && has "^SCOPE-OK $(sha 81) class=docs used=2/5 today=2/5\$"; ck "ⓔ docs 는 --card 없이 · code 건수와 별개" $?
+# ⓒ head = 세트 위 main 병합만(EQUIV)
+run ar scope-approve "$SM" --card "$CARD"
+[ $rc = 0 ] && has "^SCOPE-OK $SM class=code code=2/2 used=3/5 today=3/5 equiv=$A\$"; ck "ⓒ 세트 위 main 병합 head → SCOPE-OK equiv=A" $?
+[ "$(awk -F'\t' 'NR==3{print $5}' "$S/autonomy-scope/S1.ledger.tsv")" = "evidence=$CARD@$A" ]; ck "ⓒ 원장 evidence=<카드>@<A>" $?
+# ⓔ code-max 도달
+run ar scope-approve "$SX" --card "$CARD"; [ $rc = 2 ] && has '정지: code 건수 도달\(2/2\)'; ck "ⓔ code-max 도달 → REJECT" $?
+[ -f "$S/autonomy-scope/S1.stopped" ] && grep -q '^scope-stop S1 [0-9]* code 건수 도달(2/2)$' "$LOG" && [ ! -e "$AP/$SX" ]; ck "ⓔ 도달 = 기존 건수 도달과 같은 정지(log + .stopped) · 승인 0" $?
+run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK grants=1 used=3$'; ck "ⓔ 정상 흐름 --audit AUDIT-OK" $?
+fresh; grant --for 2h --max 5 --classes docs,ff,revert >/dev/null; card "$A"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '종류 code 는 승인 범위\(docs,ff,revert\) 밖'; ck "ⓔ 옛 grant(code 없음 · codemax 없음) → code 범위 밖 REJECT(기본 닫힘)" $?
+export STUB_OUT="CLASS docs"
 
 # ===== 훅: 상태 폴더·approve-scope 보호 =====
 mkbash() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$T"; }

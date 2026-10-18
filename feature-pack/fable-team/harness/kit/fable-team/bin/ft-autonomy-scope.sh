@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-autonomy-scope.sh — 오빠 부재 중 병합 «범위 사전 승인» 4명령 (R298 1/3 · 판정 2055 · 카드 r298a-away-scope-grant) — ft-autonomy.sh 가 source 한다(단독 실행 금지)
-#   approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert>  오빠 `!` 전용 — 기간·건수·종류를 «한 번» 정한다(code 는 열 수 없음 · r298c 전)
-#   scope-approve <40hex> [--pr <N>]   좌석 허용 — 범위 대조만(분류기 = r298b autonomy_scope_classify.py) · 통과하면 기존 형식 `approve-merge` 줄을 대신 쓴다
+#   approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>]  오빠 `!` 전용 — 기간·건수·종류를 «한 번» 정한다(code 는 --code-max 1~max 필수 · R411 판정 2326)
+#   scope-approve <40hex> [--pr <N>] [--card <카드.md>]   좌석 허용 — 범위 대조만(분류기 = r298b autonomy_scope_classify.py) · 통과하면 기존 형식 `approve-merge` 줄을 대신 쓴다 · 종류 code 는 --card 의 시험 통과 세트만(ft-autonomy-scope-code.sh)
 #   scope-stop S<n> "<사유>"            좌석 허용 — 누구나 멈춘다 · 다시 켜기 = 오빠의 새 approve-scope 뿐
 #   scope-status                       읽기 — `[범위 승인 S3 · A7 · ~03:10까지 · 4/20 · 오늘 2/10 · docs,ff,revert]`
 #   scope-status --audit               읽기 — log grant 줄 ↔ grants.audit(슬랙 ts 포함) 대조 + 승인 파일 수 ≥ scope-use 수 · 어긋나면 `AUDIT-MISMATCH …` rc 3
@@ -10,15 +10,16 @@
 # 원장 `$STATE/autonomy-scope/S<n>.ledger.tsv` 7칸 = 시각·sha·PR·종류·판정문(빈칸)·착지 sha(빈칸 — r298b 가 6번째 칸을 채운다)·되돌림 명령(빈칸)
 # 외부 호출 0 — 분류기는 로컬 git 뿐 · 7초 상한(넘으면 REJECT · 판정 666).
 SDIR="$STATE/autonomy-scope"
+. "$HERE/ft-autonomy-scope-code.sh"
 
 scope_err() { echo "SCOPE-REJECT $1" >&2; exit 2; }
 scope_wfail() { echo "REJECT $1 쓰기 실패" >&2; exit 1; }
 
-scope_load() {  # 마지막 approve-scope 줄 → G_S G_A G_UNTIL G_MAX G_DAILY G_CLASSES (rc 1 = 없음·꼴 틀림)
-  local line a u m d c; line="$(grep '^approve-scope ' "$LOG" 2>/dev/null | tail -1)"
+scope_load() {  # 마지막 approve-scope 줄 → G_S G_A G_UNTIL G_MAX G_DAILY G_CLASSES G_CODEMAX(옛 줄 = 0) (rc 1 = 없음·꼴 틀림)
+  local line a u m d c cm; line="$(grep '^approve-scope ' "$LOG" 2>/dev/null | tail -1)"
   [[ "$line" =~ $SCOPE_GRANT_RE ]] || return 1
-  read -r a G_S G_A G_AT u m d c <<<"$line"
-  G_UNTIL="${u#until=}"; G_MAX="${m#max=}"; G_DAILY="${d#daily=}"; G_CLASSES="${c#classes=}"
+  read -r a G_S G_A G_AT u m d c cm <<<"$line"
+  G_UNTIL="${u#until=}"; G_MAX="${m#max=}"; G_DAILY="${d#daily=}"; G_CLASSES="${c#classes=}"; G_CODEMAX="${cm#codemax=}"; G_CODEMAX="${G_CODEMAX:-0}"
 }
 
 scope_stopped() { [ -f "$SDIR/$1.stopped" ] || grep -q "^scope-stop $1 " "$LOG" 2>/dev/null; }
@@ -56,10 +57,10 @@ scope_slack_post() {  # <본문> → stdout = 슬랙 ts · 실패 = rc 1(호출�
 }
 
 cmd_approve_scope() {
-  local f="" mx="" dl="" cl="" h c n ev now un ts seen=","
+  local f="" mx="" dl="" cl="" cm="" h c n ev now un ts seen="," cmt="" cma=""
   while [ $# -gt 0 ]; do
-    [ $# -ge 2 ] || scope_err "$1 값 없음 (usage: approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert>)"
-    case "$1" in --for) f="$2" ;; --max) mx="$2" ;; --daily) dl="$2" ;; --classes) cl="$2" ;; *) scope_err "알 수 없는 인자: $1" ;; esac
+    [ $# -ge 2 ] || scope_err "$1 값 없음 (usage: approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>])"
+    case "$1" in --for) f="$2" ;; --max) mx="$2" ;; --daily) dl="$2" ;; --classes) cl="$2" ;; --code-max) cm="$2" ;; *) scope_err "알 수 없는 인자: $1" ;; esac
     shift 2
   done
   [[ "$f" =~ ^([0-9]+)h$ ]] && h=$((10#${BASH_REMATCH[1]})) && [ "$h" -ge 1 ] && [ "$h" -le 72 ] || scope_err "--for 는 1h~72h 형식(받은 값: ${f:-없음})"
@@ -69,19 +70,22 @@ cmd_approve_scope() {
   [ -n "$cl" ] || scope_err "--classes 없음"
   for c in ${cl//,/ }; do
     case "$c" in
-      docs|ff|revert) case "$seen" in *",$c,"*) scope_err "종류 중복: $c" ;; esac; seen="$seen$c," ;;
-      code) scope_err "종류 code 는 r298c 착지·오빠 별도 승인 전 열 수 없음" ;;
-      *) scope_err "알 수 없는 종류: $c (docs·ff·revert 만)" ;;
+      docs|ff|revert|code) case "$seen" in *",$c,"*) scope_err "종류 중복: $c" ;; esac; seen="$seen$c," ;;
+      *) scope_err "알 수 없는 종류: $c (docs·ff·revert·code 만)" ;;
     esac
   done
   [[ "$cl" != ,* && "$cl" != *, && "$cl" != *,,* ]] || scope_err "--classes 형식 틀림: $cl"
+  if [[ "$seen" == *",code,"* ]]; then   # code = 시험 통과 세트만 · 건수 상한 필수(판정 2326) — 기본 닫힘
+    [[ "$cm" =~ ^[0-9]+$ ]] && cm=$((10#$cm)) && [ "$cm" -ge 1 ] && [ "$cm" -le "$mx" ] || scope_err "종류 code 는 --code-max 1~max($mx) 필수(받은 값: ${cm:-없음})"
+    cmt=" codemax=$cm"; cma=$'\t'"codemax=$cm"
+  else [ -z "$cm" ] || scope_err "--code-max 는 --classes 에 code 가 있을 때만"; fi
   lock; [ "$(mode)" = on ] || scope_err "자율 모드가 ON 이 아님($(mode)) — 승인 기록 없음"
   n="$(grep -c '^approve-scope ' "$LOG" 2>/dev/null)"; n="S$(( ${n:-0} + 1 ))"; ev="$(event)"; now="$(now_epoch)"; un=$(( now + h * 3600 ))
-  ts="$(scope_slack_post "[범위 승인] $n · $ev · ~$(hhmm "$un")까지 · max $mx · 하루 $dl · $cl · 부여 $now")" || exit $?   # 게시 «먼저» — 실패면 아래 쓰기 0
+  ts="$(scope_slack_post "[범위 승인] $n · $ev · ~$(hhmm "$un")까지 · max $mx · 하루 $dl · $cl${cm:+ · code $cm} · 부여 $now")" || exit $?   # 게시 «먼저» — 실패면 아래 쓰기 0
   mkdir -p "$SDIR" || scope_wfail "$SDIR"
-  printf '%s\t%s\t%s\tuntil=%s\tmax=%s\tdaily=%s\tclasses=%s\tslack_ts=%s\n' "$n" "$ev" "$now" "$un" "$mx" "$dl" "$cl" "$ts" >> "$SDIR/grants.audit" || scope_wfail "$SDIR/grants.audit"
-  printf 'approve-scope %s %s %s until=%s max=%s daily=%s classes=%s\n' "$n" "$ev" "$now" "$un" "$mx" "$dl" "$cl" >> "$LOG" || scope_wfail log
-  unlock; scope_load; echo "SCOPE-GRANTED $G_S $G_A until=$(hhmm "$G_UNTIL") max=$G_MAX daily=$G_DAILY classes=$G_CLASSES"
+  printf '%s\t%s\t%s\tuntil=%s\tmax=%s\tdaily=%s\tclasses=%s%s\tslack_ts=%s\n' "$n" "$ev" "$now" "$un" "$mx" "$dl" "$cl" "$cma" "$ts" >> "$SDIR/grants.audit" || scope_wfail "$SDIR/grants.audit"
+  printf 'approve-scope %s %s %s until=%s max=%s daily=%s classes=%s%s\n' "$n" "$ev" "$now" "$un" "$mx" "$dl" "$cl" "$cmt" >> "$LOG" || scope_wfail log
+  unlock; scope_load; echo "SCOPE-GRANTED $G_S $G_A until=$(hhmm "$G_UNTIL") max=$G_MAX daily=$G_DAILY classes=$G_CLASSES$cmt"
 }
 
 scope_run_cls() {  # <하위명령> <sha|""> → OUT·RC·FIRST (분류기 r298b · 로컬 git 뿐 · 7초 상한 — 넘으면 rc≠0 = REJECT 쪽)
@@ -107,10 +111,13 @@ scope_classify() {  # <sha> → stdout = 종류 · 실패 = REJECT(사유 그대
 }
 
 cmd_scope_approve() {
-  local sha="${1:-}" pr="" cls used today now line dir="$STATE/autonomy-merge-approved"
-  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || scope_err "sha 형식 틀림(40hex 소문자): $sha (usage: scope-approve <40hex> [--pr <N>])"
-  shift; if [ "${1:-}" = --pr ]; then [[ "${2:-}" =~ ^[0-9]+$ ]] || scope_err "--pr 값 틀림"; pr="$2"; shift 2; fi
-  [ $# -eq 0 ] || scope_err "알 수 없는 인자: $1"
+  local sha="${1:-}" pr="" card="" cls used today now line ev="" cu="" dir="$STATE/autonomy-merge-approved"
+  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || scope_err "sha 형식 틀림(40hex 소문자): $sha (usage: scope-approve <40hex> [--pr <N>] [--card <카드.md>])"
+  shift
+  while [ $# -gt 0 ]; do case "$1" in
+    --pr) [[ "${2:-}" =~ ^[0-9]+$ ]] || scope_err "--pr 값 틀림"; pr="$2"; shift 2 ;;
+    --card) [ -n "${2:-}" ] || scope_err "--card 값 없음"; card="$2"; shift 2 ;;
+    *) scope_err "알 수 없는 인자: $1" ;; esac; done
   lock; scope_load || scope_err "활성 범위 승인 없음"
   scope_block
   if [ -n "$BLOCK" ]; then [ "$AUTOSTOP" = 1 ] && scope_write_stop "$G_S" "$BLOCK"; scope_err "$G_S 정지: $BLOCK"; fi
@@ -119,6 +126,11 @@ cmd_scope_approve() {
   if grep -q "^scope-use S[0-9]* $sha " "$LOG" 2>/dev/null; then echo "SCOPE-NOOP $sha used=$used/$G_MAX today=$today/$G_DAILY"; return 0; fi
   cls="$(scope_classify "$sha")" || exit $?
   case ",$G_CLASSES," in *",$cls,"*) ;; *) scope_err "종류 $cls 는 승인 범위($G_CLASSES) 밖" ;; esac
+  if [ "$cls" = code ]; then   # R411: code 건수(docs 와 별개) → 시험 통과 세트 검사 — 통과 전 쓰기 0
+    cu="$(scope_code_used "$G_S")"
+    [ "$cu" -lt "$G_CODEMAX" ] || { scope_write_stop "$G_S" "code 건수 도달($cu/$G_CODEMAX)"; scope_err "$G_S 정지: code 건수 도달($cu/$G_CODEMAX)"; }
+    scope_code_check "$sha" "$card"; cu=$((cu + 1)); ev="evidence=$card@$CODE_A"
+  fi
   if [ "$cls" != revert ]; then
     [ "$used" -lt "$G_MAX" ] || { scope_write_stop "$G_S" "건수 도달($used/$G_MAX)"; scope_err "$G_S 정지: 건수 도달($used/$G_MAX)"; }
     [ "$today" -lt "$G_DAILY" ] || scope_err "하루 건수 도달(오늘 $today/$G_DAILY)"
@@ -129,8 +141,8 @@ cmd_scope_approve() {
   printf 'scope-use %s %s %s %s\n' "$G_S" "$sha" "$cls" "$now" >> "$LOG" || scope_wfail log
   printf '%s\n' "$line" >> "$LOG" || scope_wfail log
   { printf '%s\n' "$line" > "$dir/$sha.tmp" && mv "$dir/$sha.tmp" "$dir/$sha"; } || scope_wfail "$dir/$sha"
-  printf '%s\t%s\t%s\t%s\t\t\t\n' "$now" "$sha" "$pr" "$cls" >> "$SDIR/$G_S.ledger.tsv" || scope_wfail "$SDIR/$G_S.ledger.tsv"
-  echo "SCOPE-OK $sha class=$cls used=$used/$G_MAX today=$today/$G_DAILY"
+  printf '%s\t%s\t%s\t%s\t%s\t\t\n' "$now" "$sha" "$pr" "$cls" "$ev" >> "$SDIR/$G_S.ledger.tsv" || scope_wfail "$SDIR/$G_S.ledger.tsv"
+  echo "SCOPE-OK $sha class=$cls${cu:+ code=$cu/$G_CODEMAX} used=$used/$G_MAX today=$today/$G_DAILY${CODE_EQUIV:+ equiv=$CODE_EQUIV}"
 }
 
 cmd_scope_stop() {
@@ -145,8 +157,8 @@ scope_audit() {  # grants.audit ↔ log grant 줄 · 승인 파일 수 ≥ scope
   local audit="$SDIR/grants.audit" line key bad=0 ng na files=0 uses=0 rows f
   ng="$(grep -c '^approve-scope ' "$LOG" 2>/dev/null)"; na="$(wc -l < "$audit" 2>/dev/null | tr -d ' ')"
   while IFS= read -r line; do
-    key="$(cut -d' ' -f2-8 <<<"$line" | tr ' ' '\t')"
-    awk -F'\t' -v k="$key" 'BEGIN{OFS="\t"} ($1 OFS $2 OFS $3 OFS $4 OFS $5 OFS $6 OFS $7)==k && $8 ~ /^slack_ts=[0-9]+\.[0-9]+$/ {f=1} END{exit !f}' "$audit" 2>/dev/null \
+    key="$(cut -d' ' -f2- <<<"$line" | tr ' ' '\t')"   # 7칸(옛 줄) 또는 8칸(+codemax · R411) — 마지막 칸 = 슬랙 ts
+    awk -F'\t' -v k="$key" '{r=$1; for (i = 2; i < NF; i++) r = r "\t" $i} r==k && $NF ~ /^slack_ts=[0-9]+\.[0-9]+$/ {f=1} END{exit !f}' "$audit" 2>/dev/null \
       || { echo "AUDIT-MISMATCH $(cut -d' ' -f2 <<<"$line") grant: grants.audit 에 일치하는 줄(슬랙 ts 포함) 없음"; bad=1; }
   done < <(grep '^approve-scope ' "$LOG" 2>/dev/null)
   [ "${na:-0}" = "${ng:-0}" ] || { echo "AUDIT-MISMATCH - grant 줄 수: log ${ng:-0} ≠ grants.audit ${na:-0}"; bad=1; }
@@ -169,5 +181,6 @@ cmd_scope_status() {
   scope_load || { echo "[범위 승인 없음]"; return 0; }
   scope_block
   if [ -n "$BLOCK" ]; then echo "[범위 승인 $G_S 정지: $BLOCK]"; return 0; fi
-  echo "[범위 승인 $G_S · $G_A · ~$(hhmm "$G_UNTIL")까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES]"
+  local c=""; [ "$G_CODEMAX" -gt 0 ] && c=" · code $(scope_code_used "$G_S")/$G_CODEMAX"
+  echo "[범위 승인 $G_S · $G_A · ~$(hhmm "$G_UNTIL")까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c]"
 }
