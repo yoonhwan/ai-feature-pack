@@ -13,8 +13,13 @@ WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 MAX="${FT_NANO_SLOTS:-5}"
-IDX_DIR="${FT_INDEX_DIR:-$WT/design/v65/indices}"
-[ -n "${FT_INDEX_DIR:-}" ] || [ -d "$IDX_DIR" ] || [ ! -d "$WT/design/teams/v65/indices" ] || IDX_DIR="$WT/design/teams/v65/indices"   # R382: 이동 뒤 폴더
+if [ -n "${FT_INDEX_DIR:-}" ]; then IDX_DIR="$FT_INDEX_DIR"
+else   # R383: v65 팀 폴더 후보(명단 꼴 → 쌍둥이)는 WT 의 design/TEAMS.md 로 — 팀 이름 글자 0 · 이동 전·후 둘 다 찾는다
+  . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다" >&2; exit 1; }
+  _cands="$(ft_team_cands "$WT" v65)" || { echo "ERROR v65 팀 폴더를 못 풀었다(design/TEAMS.md)" >&2; exit 1; }
+  IDX_DIR="$(printf '%s\n' "$_cands" | head -1)/indices"
+  for _c in $_cands; do [ -d "$_c/indices" ] && { IDX_DIR="$_c/indices"; break; }; done
+fi
 if [ "${1:-}" = "--inventory" ]; then
   FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"; LANDING="${FT_NANO_LANDING_LEDGER:-$ROOT/.fable-team/state/nano-landing.jsonl}"
   refs="$(git -C "$WT" for-each-ref --no-merged="$FEAT" --format='%(refname:short)|%(committerdate:short)|%(objectname)|%(ahead-behind:'"$FEAT"')' refs/heads/nano/)" \

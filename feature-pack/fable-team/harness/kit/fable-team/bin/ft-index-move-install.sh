@@ -10,7 +10,10 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 CARD="${1:-}"; LANDED=""; shift 2>/dev/null || { echo "usage: $0 <카드> [--landed <A..B|sha>]" >&2; exit 2; }
 [ "${1:-}" = --landed ] && LANDED="${2:-}"
 [ -f "$CARD" ] || { echo "REJECT 카드 없음: $CARD"; exit 1; }
-case "$CARD" in */design/harness/indices/*) ;; *) exit 0;; esac
+. "$HERE/ft-team-lib.sh" || { echo "REJECT ft-team-lib.sh 를 못 읽었다: $HERE (이동 0)"; exit 1; }
+# R383: 하네스 팀 카드 판정 = 팀 폴더 명단(ft_team_has · 쌍둥이 둘 다) · 명단은 카드가 있는 워크트리의 것 · 못 읽으면 «통과» 로 후퇴하지 않고 REJECT
+FT_REPO_ROOT="$(git -C "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null)" ft_team_has harness "$(cd "$(dirname "$CARD")" && pwd)/$(basename "$CARD")" indices/; _hrc=$?
+case "$_hrc" in 0) ;; 1) exit 0;; *) echo "REJECT 하네스 팀 폴더를 못 풀었다(design/TEAMS.md) — 카드 종류를 못 정한다 (이동 0)"; exit 1;; esac
 rej() { echo "REJECT $* (이동 0)"; exit 1; }
 USE="쓰는 법: 카드에 「- 설치: 있음|없음」 줄 (하네스 키트·도구·훅·데몬을 바꾸면 있음)"
 LINE="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*설치:' "$CARD")"

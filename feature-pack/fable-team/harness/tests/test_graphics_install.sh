@@ -21,6 +21,7 @@ for f in "$SRC/install.sh" "$SRC/graphics-env.sh" "${BASH_SOURCE[0]}"; do
 done
 
 # ② 임시 ROOT 에 install.sh → 3파일 cmp 0
+mkdir -p "$ROOT/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$ROOT/design/TEAMS.md"   # R383: spawn 이 팀 폴더 명단을 읽는다
 git init -q "$ROOT" && git -C "$ROOT" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
 ROOT="$(cd "$ROOT" && pwd -P)"   # macOS /var → /private/var — spawn 은 git 이 돌려준 실경로를 PLAN 에 찍는다
 if out="$(bash "$SRC/install.sh" "$ROOT" 2>&1)"; then

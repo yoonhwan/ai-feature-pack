@@ -13,6 +13,7 @@ LINES="$(awk 'END{print NR}' "$LINT")"; [ "$LINES" -le 160 ] && ok "키트 ${LIN
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cd "$T" && git init -q . || { echo "FAIL git init"; exit 1; }
 mkdir -p design/planner src
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n' > "$T"/design/TEAMS.md   # R383: 린트가 팀 폴더 명단을 읽는다
 G1='골 첫 줄 시험용 문장이다.'; G2='골 둘째 줄 시험용 문장이다.'; G3='골 셋째 줄 시험용 문장이다.'
 printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > goal.txt
 echo '원장 본문: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > design/LEDGER.md

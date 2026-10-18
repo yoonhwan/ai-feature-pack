@@ -56,6 +56,8 @@ D; [ "$rc" = 5 ] && ! grep -q '^PROXY' <<<"$out" && grep -q '번호' "$T/err"; c
 
 # ===== ⓕ lint 표 행 조건부 승인 =====
 LINT="$KIT/ft-index-lint.sh"; R="$T/repo"; mkdir -p "$R/design/planner" "$R/src"; cd "$R" && git init -q . || { echo "FAIL git init"; exit 1; }
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n' > "$R"/design/TEAMS.md   # R383: 린트가 팀 폴더 명단을 읽는다
+
 G1='골 첫 줄 시험용 문장이다.'; G2='골 둘째 줄 시험용 문장이다.'; G3='골 셋째 줄 시험용 문장이다.'
 printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > goal.txt
 echo '원장 본문: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > design/LEDGER.md

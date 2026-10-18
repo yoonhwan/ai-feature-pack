@@ -17,8 +17,10 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
 STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
-PLANNER="${FT_PLANNER_DIR:-$ROOT/design/planner}"
-JSON="$STATE/autonomy.json"; LOG="$STATE/autonomy.log"; QUEUE="$PLANNER/AUTONOMY-QUEUE.md"
+# R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — mode·status 같은 훅 경로는 안 쓰므로 «필요할 때만» 푼다 · 못 풀면 stderr ERROR + rc1(옛 경로 후퇴 0 · #0 RULE)
+planner_dir() { if [ -n "${FT_PLANNER_DIR:-}" ]; then printf '%s\n' "$FT_PLANNER_DIR"; return 0; fi
+  ( . "$HERE/ft-team-lib.sh" && ft_team_in "$ROOT" planner ) || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; return 1; }; }
+JSON="$STATE/autonomy.json"; LOG="$STATE/autonomy.log"
 
 jfield() {  # <키> — autonomy.json 한 줄 값(문자열·숫자)
   sed -n "s/.*\"$1\": *\"\{0,1\}\([A-Za-z0-9]*\)\"\{0,1\}[,}].*/\1/p" "$JSON" 2>/dev/null | head -1
@@ -73,9 +75,10 @@ mode() {
 event() { log_last_mode | cut -f3; }
 
 count_proxy() {  # <A<N>> — 판정 원장의 대리 줄 수
-  local n; n="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -cF "[대리 · 자율 ON $1]")"; echo "${n:-0}"
+  local n pd; pd="$(planner_dir)" || { echo "?"; return 0; }; n="$(cat "$pd"/VERDICTS-*.md 2>/dev/null | grep -cF "[대리 · 자율 ON $1]")"; echo "${n:-0}"
 }
-count_queue() { local n; n="$(grep -cF "| $1 |" "$QUEUE" 2>/dev/null)"; echo "${n:-0}"; }
+queue_file() { local pd; pd="$(planner_dir)" || return 1; printf '%s\n' "$pd/AUTONOMY-QUEUE.md"; }
+count_queue() { local n q; q="$(queue_file)" || { echo "?"; return 0; }; n="$(grep -cF "| $1 |" "$q" 2>/dev/null)"; echo "${n:-0}"; }
 
 status() {
   local m e s u
@@ -156,7 +159,7 @@ cmd_off() {
   if { [ "$(mode)" = off ] && [ -f "$JSON" ]; } || { [ ! -f "$JSON" ] && [ -z "$ev" ]; }; then unlock; echo "[자율 OFF] (이미 OFF)"; return 0; fi
   [ -n "$ev" ] || ev="A0"
   write_state off "$ev"; unlock
-  echo "[자율 OFF] $ev 구간 요약: 대리 $(count_proxy "$ev") · 큐 $(count_queue "$ev") · 큐 파일 $QUEUE"
+  echo "[자율 OFF] $ev 구간 요약: 대리 $(count_proxy "$ev") · 큐 $(count_queue "$ev") · 큐 파일 $(queue_file 2>/dev/null || echo "<planner 폴더 못 풂>")"
 }
 
 cmd_expire() {  # 끝 도달 기록 — 정합 ON ∧ until 지남일 때만 off 줄 1회(log 먼저·json 나중). 단일 기록자 = 틱 · 끄기만(on 은 오빠 `!` 전용 · R164)

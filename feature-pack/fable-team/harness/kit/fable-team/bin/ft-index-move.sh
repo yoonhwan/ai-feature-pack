@@ -117,7 +117,11 @@ if [ "$DST" = 완성 ]; then
   ROOT="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
   STATE_DIR="${FT_INDEX_STATE_DIR:-$ROOT/.fable-team/state}"
   TRACK="${FT_TRACK:-}"
-  [ -n "$TRACK" ] || case "$IDX_ROOT" in */design/v65/indices|*/design/teams/v65/indices) TRACK=v65;; *) TRACK=default;; esac
+  if [ -z "$TRACK" ]; then   # R383: v65 카드 판정 = 팀 폴더 명단(ft_team_has · 쌍둥이 둘 다) · 명단을 못 읽으면(rc2) default 로 후퇴하지 않고 REJECT
+    . "$HERE/ft-team-lib.sh" || { echo "REJECT ft-team-lib.sh 를 못 읽었다: $HERE"; exit 1; }
+    FT_REPO_ROOT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null)" ft_team_has v65 "$IDX_ROOT/" indices/; _hrc=$?   # 명단은 카드가 있는 워크트리의 것(워크트리마다 이동 상태가 다르다)
+    case "$_hrc" in 0) TRACK=v65;; 1) TRACK=default;; *) echo "REJECT v65 팀 폴더를 못 풀었다(design/TEAMS.md) — 트랙을 못 정한다: FT_TRACK 을 주거나 명단을 고친다"; exit 1;; esac
+  fi
   LEDGER="$STATE_DIR/index-ledger.$TRACK.jsonl"
   ID="$(basename "$SRC" .md)"
   row="{\"ts\":\"$(date '+%Y-%m-%dT%H:%M:%S%z')\",\"ev\":\"close\",\"id\":\"$ID\",\"da\":\"$DA\",\"seat\":\"${SEAT:--}\",\"via\":\"index-move\"}"

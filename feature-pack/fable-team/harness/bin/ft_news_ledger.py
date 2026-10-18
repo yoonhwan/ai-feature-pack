@@ -21,6 +21,7 @@ from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # 
 from ft_news_post import goal_gate, is_draft, news_now, pending_now, publish  # noqa: E402
 from ft_news_status import interval_s, last_status, mark_status, status_or_none  # noqa: E402
 from ft_news_watch import check_stale, locked  # noqa: E402
+from ft_team_lib import TeamPathError, team_in, team_rel  # noqa: E402
 
 LOG = logging.getLogger("ft_news_ledger")
 HERE = Path(__file__).resolve().parent
@@ -154,11 +155,20 @@ def decision_line(root: Path) -> str:
     return " · ".join(x for x in (text, stall_cell(root), reclaim_cell(root)) if x)
 
 
+def planner_ledger_rel(repo: Path) -> str:
+    """원장의 git 상대 경로 — 명단 꼴이 리포 밖(꼴3 $FT_HARNESS_ROOT)이면 git show 대상이 아니므로 명시 오류."""
+    folder = team_rel("planner", repo)
+    if not folder.startswith("design/"):
+        raise TeamPathError(f"ERROR planner 폴더가 리포 밖 꼴이라 원장을 git 상대 경로로 못 만든다: {folder} (FT_LEDGER_PATH 로 지정)")
+    return folder + "PLAN-oppa-ledger.md"
+
+
 def _run(root: Path, state: Path) -> tuple[int, str]:
     repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
-    rel = os.environ.get("FT_LEDGER_PATH") or "design/planner/PLAN-oppa-ledger.md"
-    news = Path(os.environ.get("FT_NEWS_DIR") or root / "design" / "planner" / "news")
     try:
+        # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
+        rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
+        news = Path(os.environ.get("FT_NEWS_DIR") or team_in(root, "planner") / "news")
         cur = _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
         if not cur:
             raise RuntimeError(f"{rel} 가 커밋되지 않았다(뉴스는 커밋된 판만)")

@@ -24,7 +24,9 @@ STAMP="${FT_PM_TICK_STAMP:-/tmp/ft-pm-tick.last}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTEXT_MONITOR="${FT_PM_CONTEXT_MONITOR:-$SCRIPT_DIR/ft-context-monitor.sh}"
 FABLE_ORCH="${FT_PM_FABLE_ORCH:-ft-v65-fable-orch#9}"
-RULES_FILE="${FT_PM_RULES_FILE:-design/v65/20260826/RULES-ammo-and-distill-20260826.md}"
+# R383: 기본 규칙 문서 = v65 팀 폴더(cwd 리포의 design/TEAMS.md · 팀 이름 글자 0) — 못 풀면 ERROR 종료(옛 경로 후퇴 0)
+if [ -n "${FT_PM_RULES_FILE:-}" ]; then RULES_FILE="$FT_PM_RULES_FILE"
+else _v65rel="$( . "$SCRIPT_DIR/ft-team-lib.sh" && ft_team_rel v65 )" || { echo "ERROR v65 팀 폴더를 못 풀었다(design/TEAMS.md) — FT_PM_RULES_FILE 로 지정하거나 명단을 고친다" >&2; exit 1; }; RULES_FILE="${_v65rel}20260826/RULES-ammo-and-distill-20260826.md"; fi
 CURRENT_INDEX="${FT_PM_CURRENT_INDEX:-v65-S4}"
 CURRENT_AMMO="${FT_PM_CURRENT_AMMO:-6}"
 CTX_SUMMARY="${FT_PM_CTX_SUMMARY:-n/a}"

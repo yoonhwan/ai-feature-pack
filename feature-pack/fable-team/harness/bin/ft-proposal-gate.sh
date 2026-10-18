@@ -14,7 +14,8 @@ usage() { echo "usage: $0 --issue <번호> | --card <카드.md> | --writing-card
 [ $# -ge 2 ] || usage
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; ROOT="${ROOT:-$(pwd)}"
 export GATE_REPO="${GH_REPO:-SecondWindStudio/byz-agents}" GATE_TANK="${FT_TANK_LOGIN:-byz-tank}" GATE_OPPA="${FT_OPPA_GH_LOGINS:-yoonhwan}"
-export GATE_VDIR="${FT_PLANNER_VERDICTS_DIR:-${BYZ_ROOT:-$ROOT}/.worktrees/v6-realtime-live/design/planner}" GATE_TO="${FT_GATE_GH_TIMEOUT:-7}"
+# R383: 판정 원장 폴더 기본값 = 운영 정본 워크트리의 planner 팀 폴더(그 워크트리의 design/TEAMS.md · 팀 이름 글자 0) — 판정 번호를 대조하는 «그 순간» 에만 푼다(제안서 없음 카드는 안 읽는다) · 못 풀면 후퇴 없이 REJECT(#0 RULE)
+export GATE_VDIR="${FT_PLANNER_VERDICTS_DIR:-}" GATE_VROOT="${BYZ_ROOT:-$ROOT}/.worktrees/v6-realtime-live" GATE_BIN="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" GATE_TO="${FT_GATE_GH_TIMEOUT:-7}"
 
 py_issue() {  # $1=issue|labels $2=번호 — gh 읽기 + 판정(issue) 또는 라벨 출력(labels)
 python3 - "$1" "$2" <<'PY'
@@ -82,6 +83,13 @@ elif who and who[-1] == tank:
         miss.append(f"ⓑ {tank} 가 단 approved 인데 코멘트 「[인터뷰 판정 N]」 없음")
     else:
         n = ns[-1]
+        if not vdir:
+            sys.path.insert(0, E["GATE_BIN"])
+            from ft_team_lib import TeamPathError, team_in
+            try:
+                vdir = str(team_in(E["GATE_VROOT"], "planner"))
+            except TeamPathError as e:
+                die(f"판정 원장 폴더를 못 풀었다 — {e} (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)")
         rows = [ln for f in sorted(glob.glob(os.path.join(vdir, "VERDICTS-planner-*.md"))) for ln in open(f, encoding="utf-8", errors="replace").read().splitlines() if re.match(rf"^{n} 오빠 인터뷰", ln)]
         if any(re.search(rf"(?<![\w.\-])github\.com/{re.escape(repo)}/issues/{num}(?![0-9])", ln, re.I) for ln in rows):
             how = f"ⓑ 판정 {n}"

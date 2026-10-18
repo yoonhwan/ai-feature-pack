@@ -10,7 +10,7 @@ KIT="$HERE/../../scripts/harness-install/fable-team/bin"
 for f in "$KIT"/ft-{nano-spawn,proposal-gate,gh-as-tank}.sh; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
 
 # ── spawn --dry-run: lint 는 항상 통과하는 가짜 · 게이트는 진짜 · gh 는 가짜 ──
-mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$T/bin/"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"; echo '{}' > "$T/seats.json"
+mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$T/bin/"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"; echo '{}' > "$T/seats.json"
 card() {  # card <파일이름> <머리 제안서 줄|-> [머리 Issue 줄|-] [구현 범위 줄 · 기본 x] [본문 추가 줄]
   { echo "# 인덱스: $1"; [ "${3:--}" = "-" ] && echo "- Issue: 없음" || echo "$3"; echo "- 상태: 대기"; echo "- 선행: 없음"; echo "- 시험 입력: 없음"; echo "- 기준값: 없음 → 대체 축 x"
     [ "$2" = "-" ] || echo "$2"; echo "## 구현 범위"; echo "${4:-x}"; [ -n "${5:-}" ] && echo "$5"; } > "$T/idx/대기/$1.md"; }

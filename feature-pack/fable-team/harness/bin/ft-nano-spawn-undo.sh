@@ -25,7 +25,11 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
 fi
 PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"; SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; TAG="${FT_ACTIVE_TAG:-@zc_v65_active}"
 STATE="${FT_UNDO_STATE:-$ROOT/.fable-team/state}"; MBOX_DIR="${FT_MBOX_DIR:-$ROOT/.fable-team/comm}"
-LEDGER="${FT_NANO_LEDGER:-$ROOT/.worktrees/v6-realtime-live/design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md}"
+if [ -n "${FT_NANO_LEDGER:-}" ]; then LEDGER="$FT_NANO_LEDGER"
+else   # R383: v65 팀 폴더는 운영 정본 워크트리의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 «원장 못 씀» WARN 경로(끝의 >> 실패)로 간다
+  . "$(dirname -- "$SELF")/ft-team-lib.sh" || rej "ft-team-lib.sh 를 못 읽었다"
+  if _v65="$(ft_team_in "$ROOT/.worktrees/v6-realtime-live" v65)"; then LEDGER="$_v65/20260912/NANO-LEDGER-pm1-temp-sessions.md"; else LEDGER=""; echo "WARN 원장 팀 폴더(v65)를 못 풀었다 — 원장 기록 건너뜀" >&2; fi
+fi
 [ -f "$SEATS" ] || rej "seats.json 없음: $SEATS"
 # ② 카드 — --card 또는 명부 행 index 의 /진행/ → /대기/
 if [ -z "$CARD" ]; then

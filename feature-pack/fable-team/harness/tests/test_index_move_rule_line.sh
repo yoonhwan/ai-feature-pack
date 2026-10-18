@@ -13,6 +13,7 @@ for f in ft-index-move.sh "../harness-install/fable-team/bin/ft-index-move.sh"; 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
 cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft-evidence-inject-scan.sh" "$BIN/"
+cp "$SRCDIR/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export HOME="$T/home" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true FT_LAND_REF=HEAD
 mkdir -p "$HOME/.claude" "$T/state"
@@ -23,6 +24,7 @@ printf '# 판정문\n## §1 닫힘: 카드 이름 r1 r2 r3 r4 r5 r6 r7 r8 h1 h2 
 echo "# 프로젝트 지침" > "$REPO/CLAUDE.md"; echo "# 규칙" > "$REPO/.claude/rules/r.md"; echo "# 일반 문서" > "$REPO/design/x.md"
 echo '#!/usr/bin/env bash' > "$REPO/hooks/guard.sh"
 git -C "$REPO" init -q -b main . && git -C "$REPO" config user.email t@t && git -C "$REPO" config user.name t
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
 git -C "$REPO" add -A && git -C "$REPO" commit -qm base
 DA="$REPO/design/harness/DA-x.md#§1"
 

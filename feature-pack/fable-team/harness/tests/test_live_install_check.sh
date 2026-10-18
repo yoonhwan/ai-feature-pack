@@ -132,6 +132,8 @@ grep -q 'ft-install-pending' "$BIN/ft-news-tick.sh"; ck "⑦ 뉴스 틱이 ft-in
 
 # ── 카드 완성 이동 게이트 (ft-index-move-install.sh) ───────────────────────────
 CR="$R"; mkdir -p "$CR/design/harness/indices/진행" "$CR/design/cfo/indices/진행"; export FT_INSTALL_PENDING_DIR="$PD"
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| cfo | `design/cfo/` | c | 현역 |\n' > "$CR/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
+
 card() {  # card <이름> <설치줄|-> <실사건줄|-> [dir]
   local f="$CR/${4:-design/harness/indices}/진행/$1.md"
   { echo "# 인덱스: $1"; [ "$2" = "-" ] || echo "- 설치: $2"; [ "$3" = "-" ] || echo "- 실사건: $3"; echo "## 상태"; echo "- x"; } > "$f"; echo "$f"
@@ -158,6 +160,7 @@ grep -q 'ft-index-move-install' "$BIN/ft-index-move.sh"; ck "ft-index-move.sh �
 # ── 린트 ⑥: 하네스 카드 「- 설치:」 줄 ──────────────────────────────────────────
 LINT="$HERE/../../scripts/harness-install/fable-team/bin/ft-index-lint.sh"
 LR="$T/lintrepo"; mkdir -p "$LR/design/harness/indices/대기" "$LR/design/other/indices/대기" "$LR/src"; git -C "$LR" init -q -b main .
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| other | `design/other/` | o | 현역 |\n' > "$LR/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
 G1='골 첫 줄 시험용 문장이다.'; G2='골 둘째 줄 시험용 문장이다.'; G3='골 셋째 줄 시험용 문장이다.'
 printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > "$LR/goal.txt"; echo '원장 본문: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > "$LR/LEDGER.md"; echo x > "$LR/src/t.sh"
 lcard() {  # lcard <dir> <이름> <설치줄|-> <구현 범위 본문>

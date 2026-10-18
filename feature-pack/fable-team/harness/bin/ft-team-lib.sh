@@ -41,3 +41,16 @@ ft_index_twin() { local p="$1"
   esac; }
 #   ft_team_in <루트> <팀>          : 그 «루트(워크트리 포함)» 의 design/TEAMS.md 로 푼 팀 폴더 절대경로 — 워크트리마다 이동 상태가 다를 수 있으니 도구가 읽는 루트의 명단을 쓴다. 명단·팀 없음 = ERROR rc1(옛 design/<팀>/ 후퇴 0)
 ft_team_in() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1"; ft_team_root "$2" ); }
+#   ft_team_cands <루트> <팀>       : 그 루트에서 팀 폴더 «후보» 절대경로 줄마다 — 명단 꼴 먼저 · 쌍둥이(--alt)가 있으면 뒤에(꼴3 은 쌍둥이 0). 이동 «전·후 둘 다 찾는» 도구용(R383 · 팀 이름 글자 0). 명단·팀 없음 = ERROR rc1
+ft_team_cands() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1"; ft_team_root "$2" || exit 1; ft_team_root "$2" --alt 2>/dev/null; exit 0 ); }
+#   ft_team_has <팀> <경로> [<하위>] : 경로가 그 팀 폴더(<하위> 가 있으면 그 아래) 안인가 — 명단 꼴·쌍둥이 둘 다 본다(상대·절대경로 모두 · 꼴3 은 FT_HARNESS_ROOT 절대경로). rc0 안 · rc1 밖(명단에 없는 팀도 «밖») · rc2 명단을 못 읽음/꼴3 env 없음(ERROR)
+ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
+  md="$(ft_team_teams_md)" || return 2
+  ft_team_names "$md" | grep -qxF -- "$t" || return 1
+  rel="$(ft_team_rel "$t")" || return 2
+  case "$rel" in
+    '$FT_HARNESS_ROOT/'*|'${FT_HARNESS_ROOT}/'*) c="$(ft_team_root "$t")" || return 2; case "$p" in "$c/$sub"*) return 0;; esac; return 1;;
+  esac
+  case "$p" in *"$rel$sub"*) return 0;; esac
+  c="$(ft_index_twin "$rel")" && case "$p" in *"$c$sub"*) return 0;; esac
+  return 1; }

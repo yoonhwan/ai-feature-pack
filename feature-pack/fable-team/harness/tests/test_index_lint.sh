@@ -12,6 +12,7 @@ bash -n "$LINT" && ok "bash -n" || bad "bash -n"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cd "$T" && git init -q . || { echo "FAIL git init"; exit 1; }
 mkdir -p design src
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n' > "$T"/design/TEAMS.md   # R383: 린트가 팀 폴더 명단을 읽는다
 G1='골 첫 줄 시험용 문장이다.'; G2='골 둘째 줄 시험용 문장이다.'; G3='골 셋째 줄 시험용 문장이다.'
 printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > goal.txt
 echo '원장 본문: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > design/LEDGER.md
@@ -106,7 +107,7 @@ expect_rej "$(mkw proposal-y '- 제안서: 나중에 쓴다')"     "⑨ 작성 �
 # R6=origin/main 에만 scripts/x.sh · scripts/kit.d/a.sh · design/da-only.md 가 있고 워크트리는 그 앞 커밋 · R6N=origin/main ref 자체가 없는 리포
 gt() { git -c user.email=t@t -c user.name=t commit -qm "$1" >/dev/null 2>&1; }
 R6="$T/r154"; R6N="$T/r154n"
-for r in "$R6" "$R6N"; do mkdir -p "$r/design" "$r/src"; ( cd "$r" && git init -q . && cp "$T/design/LEDGER.md" design/ && printf 'l1\nl2\nl3\n' > src/target.sh && printf 'g1\ng2\ng3\n' > src/grow.sh && git add -A && gt base ); done
+for r in "$R6" "$R6N"; do mkdir -p "$r/design" "$r/src"; ( cd "$r" && git init -q . && cp "$T/design/LEDGER.md" "$T/design/TEAMS.md" design/ && printf 'l1\nl2\nl3\n' > src/target.sh && printf 'g1\ng2\ng3\n' > src/grow.sh && git add -A && gt base ); done
 ( cd "$R6" && mkdir -p scripts/kit.d && echo x > scripts/x.sh && echo a > scripts/kit.d/a.sh && echo '판정: APPROVE' > design/da-only.md && printf 'g4\ng5\n' >> src/grow.sh && git add -A && gt main-only \
   && git update-ref refs/remotes/origin/main HEAD && git reset -q --hard HEAD~1 )
 mk6() {  # mk6 <리포> <이름> <구현 범위 한 줄> [사전검증 본문 조사 근거 본문] → 카드 경로

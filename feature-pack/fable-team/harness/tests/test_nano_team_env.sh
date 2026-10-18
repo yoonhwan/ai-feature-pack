@@ -16,7 +16,7 @@ for f in ft-nano-close.sh ft-nano-spawn.sh ft-nano-evidence-check.sh; do bash -n
 ok "bash -n 3종"
 
 mkdir -p "$T/bin" "$T/fake"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-team-lib.sh" "$T/bin/"
 cp "$SRC/ft-resource-gate.sh" "$SRC/ft_raised.py" "$SRC/ft_teamset.py" "$SRC/ft_spawn_queue.py" "$T/bin/"   # spawn 이 부르는 자원 문지기(R161)·상향 판정기 — 임시 bin 에도 있어야 한다
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
@@ -37,6 +37,7 @@ chmod +x "$T/bin/"* "$T/fake/"*
 
 # 임시 리포
 REPO="$T/repo"; mkdir -p "$REPO"
+mkdir -p "$REPO/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383: spawn·설치 게이트가 팀 폴더 명단을 읽는다
 git -C "$REPO" init -q -b main && git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 git -C "$REPO" update-ref refs/remotes/origin/main HEAD

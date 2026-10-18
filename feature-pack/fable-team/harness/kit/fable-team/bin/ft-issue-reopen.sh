@@ -13,7 +13,7 @@ case "$N" in ''|*[!0-9]*) echo "usage: $0 <Issue#> <랜딩sha> [--apply]" >&2; e
 FULL="$(git rev-parse --verify --quiet "$SHA^{commit}")" || { echo "sha 검증 실패(이 리포에 없는 커밋): $SHA" >&2; exit 2; }
 URL="$(gh repo view --json url -q .url 2>/dev/null)"; [ -n "$URL" ] || { echo "리포 URL 조회 실패" >&2; exit 2; }
 SUBJ="$(git log -1 --format=%s "$FULL")"
-BODY="[reopen] 회귀 — 깬 랜딩: ${URL}/commit/${FULL} (${SUBJ}). 5항 재작성 후 다시 닫는다(design/harness/ISSUE-TRANSITIONS.md §4)."
+BODY="[reopen] 회귀 — 깬 랜딩: ${URL}/commit/${FULL} (${SUBJ}). 5항 재작성 후 다시 닫는다(하네스 팀 폴더의 ISSUE-TRANSITIONS.md §4)."
 
 CMDS=(
   "gh issue reopen $N"

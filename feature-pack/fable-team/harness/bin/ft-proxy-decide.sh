@@ -12,7 +12,9 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
 STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
-PLANNER="${FT_PLANNER_DIR:-$ROOT/design/planner}"
+# R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
+if [ -n "${FT_PLANNER_DIR:-}" ]; then PLANNER="$FT_PLANNER_DIR"
+else . "$HERE/ft-team-lib.sh" && PLANNER="$(ft_team_in "$ROOT" planner)" || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; exit 4; }; fi
 QUEUE="$PLANNER/AUTONOMY-QUEUE.md"
 AUT="$HERE/ft-autonomy.sh"; CLS="$HERE/autonomy_classify.py"
 . "$HERE/ft-verdict-row.sh" || { echo "REJECT 판정 줄 공용 함수(ft-verdict-row.sh)를 못 읽음 — 같은 폴더에 있어야 한다" >&2; exit 4; }   # 원장 두 꼴(글머리·표 행) 읽기 정본

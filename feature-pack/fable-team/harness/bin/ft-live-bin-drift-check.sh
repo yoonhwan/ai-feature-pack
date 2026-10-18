@@ -55,5 +55,5 @@ if [ -z "$items" ]; then echo "OK ref=$REF@$short bin=$BIN files=$files"; exit 0
 sorted="$(printf '%s' "$items" | sort)"
 echo "DRIFT n=$(printf '%s\n' "$sorted" | grep -c .) ref=$REF@$short bin=$BIN"
 printf '%s\n' "$sorted"
-echo "HINT master 라이브 cp 필요 — design/harness/PLAN-release-0.4-and-816-20261007.md 집행 순서 2~4(tar 백업 → cp → diff 0줄)"
+echo "HINT master 라이브 cp 필요 — 하네스 팀 폴더의 PLAN-release-0.4-and-816-20261007.md 집행 순서 2~4(tar 백업 → cp → diff 0줄)"
 exit 1

@@ -7,7 +7,10 @@
 set -u
 WT="$(git rev-parse --show-toplevel)" || { echo "FAIL ft-orphan-cards — git 루트 확인 실패" >&2; exit 1; }
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
-EXTRA="${FT_ORPHAN_EXTRA_DIRS-cfo=$ROOT/.worktrees/c-level-planning/design/cfo/indices/진행}"
+# R383: cfo 카드 폴더 기본값 = c-level-planning 워크트리의 cfo 팀 폴더(그 워크트리의 design/TEAMS.md · 팀 이름 글자 0). 워크트리가 없으면 «없음» 을 ERROR 로 한 줄 알리고 EXTRA 비움(기본 스캔은 계속)
+if [ "${FT_ORPHAN_EXTRA_DIRS+set}" = set ]; then EXTRA="$FT_ORPHAN_EXTRA_DIRS"
+else . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" || { echo "FAIL ft-orphan-cards — ft-team-lib.sh 를 못 읽었다" >&2; exit 1; }
+  if _cfo="$(ft_team_in "$ROOT/.worktrees/c-level-planning" cfo)"; then EXTRA="cfo=$_cfo/indices/진행"; else EXTRA=""; echo "ERROR cfo 카드 폴더를 못 풀었다($ROOT/.worktrees/c-level-planning/design/TEAMS.md) — cfo 진행 카드는 이번 스캔에서 빠진다" >&2; fi; fi
 
 err="$(tmux ls -F '#{session_name}' 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ]; then

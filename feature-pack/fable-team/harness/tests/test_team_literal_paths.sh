@@ -224,7 +224,7 @@ except Exception as e: print(type(e).__name__, e)' "$R3" 2>&1)"
 has "$o" "TeamPathError ERROR 카드가 git 저장소 밖" "ⓔ 변이: 외부 카드가 저장소 밖이면 명시 TeamPathError(빈 목록 0)"
 
 if [ "${FT_TLP_RUN_EXISTING:-0}" = 1 ]; then
-  echo "== ⓓ 기존 시험 rc0"
-  for t in test_goal_table_gate test_team_move_roundtrip; do bash "$HERE/$t.sh" > "$T/$t.out" 2>&1; rc=$?; [ "$rc" = 0 ] && ok "ⓓ $t rc0" || bad "ⓓ $t rc=$rc"; done
+  echo "== ⓓ 기존 시험 rc0 (R383: 2차 19파일 쌍둥이 시험 · 이어하기 시험 포함)"
+  for t in test_goal_table_gate test_team_move_roundtrip test_team_literal_paths2 test_team_move_resume; do bash "$HERE/$t.sh" > "$T/$t.out" 2>&1; rc=$?; [ "$rc" = 0 ] && ok "ⓓ $t rc0" || bad "ⓓ $t rc=$rc"; done
 fi
 echo "== fail=$fail"; [ "$fail" = 0 ]

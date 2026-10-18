@@ -66,10 +66,11 @@ n1="$(wc -l < "$FT_INDEX_STATE_DIR/inject-scan.log" 2>/dev/null | tr -d ' ')"; s
 [ -n "$n1" ] && [ "$n1" -ge 1 ] && [ "$n1" = "$n2" ] && grep -q 'INJECT-SCAN files=' "$FT_INDEX_STATE_DIR/inject-scan.log" && ok "9c SUSPECT 시 log append · 0건이면 무기록" || bad "9c: n1=$n1 n2=$n2"
 
 # 10 진행→완성 이동: SUSPECT 줄 출력 · rc=0 · 카드 완성/ 이동
-BIN="$T/bin"; mkdir -p "$BIN"; cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SCAN" "$BIN/"
+BIN="$T/bin"; mkdir -p "$BIN"; cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft-team-lib.sh" "$SCAN" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true
 REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/design/x/evidence/e1"
+mkdir -p "$REPO/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383: spawn·설치 게이트가 팀 폴더 명단을 읽는다
 git -C "$REPO" init -q -b main . && git -C "$REPO" config user.email t@t && git -C "$REPO" config user.name t
 cp "$FX/p3.py" "$REPO/design/x/evidence/e1/run.py"
 git -C "$REPO" add -A && git -C "$REPO" commit -qm evidence

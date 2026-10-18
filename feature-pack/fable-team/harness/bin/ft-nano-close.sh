@@ -76,7 +76,9 @@ case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 �
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
 LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"
-LEDGER="${FT_NANO_LEDGER:-design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md}"; case "$LEDGER" in /*) ;; *) LEDGER="$LEDGER_WT/$LEDGER";; esac
+# R383: 기본 원장 = 원장 워크트리의 v65 팀 폴더(그 워크트리의 design/TEAMS.md · 팀 이름 글자 0). 못 풀면 REJECT(#0 RULE — 옛 경로로 후퇴 0)
+if [ -n "${FT_NANO_LEDGER:-}" ]; then LEDGER="$FT_NANO_LEDGER"; else _v65="$(ft_team_in "$LEDGER_WT" v65)" || { echo "REJECT v65 팀 폴더를 못 풀었다 — 기본 원장 경로 없음 (FT_NANO_LEDGER 로 지정하거나 $LEDGER_WT/design/TEAMS.md 확인)"; exit 1; }; LEDGER="$_v65/20260912/NANO-LEDGER-pm1-temp-sessions.md"; fi
+case "$LEDGER" in /*) ;; *) LEDGER="$LEDGER_WT/$LEDGER";; esac
 WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
 
 # 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/<WT 접두(기본 v65-)><seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.

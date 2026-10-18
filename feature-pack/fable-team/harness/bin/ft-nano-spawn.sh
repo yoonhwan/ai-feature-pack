@@ -134,7 +134,9 @@ esac
 [ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-1[1m])로 열거나 r286 설치 뒤"; exit 1; }
 
 # ① lint — 누가 읽어도 착수 가능한가 (P2: planner 카드 머리 「- 템플릿: 빈 카드(나노가 채움)」 = lint ⑤⑥ 만 건너뜀 · 그 밖 팀·검사는 그대로)
-_EBN=""; if [[ "$IDX" == *design/planner/indices/* ]] && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi
+[ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+. "$HERE/ft-team-lib.sh"   # R383: planner 카드 판정·SEATBELT 경로를 팀 폴더 명단으로 푼다(팀 이름 글자 0)
+_EBN=""; if ft_team_has planner "$IDX" indices/ && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
 # ①-0 제안서 «오빠가 본 승인» 게이트 (R77 · 판정 816 — 로직은 ft-proposal-gate.sh --card)
 _pg="$(bash "$HERE/ft-proposal-gate.sh" --card "$IDX")" || { echo "REJECT 제안서 승인 증거 부족 — $_pg"; exit 1; }; echo "$_pg"
@@ -147,7 +149,7 @@ print(' '.join(k.replace(' ', '_') for k in ('Issue', '상태', '선행', '시�
 # ①a-2 기준값 머리줄(C20 · SPEC-github-issue-driven §12-1) — 없거나 빈칸이면 REJECT 가 아니라 «후보 제외» 경고(위 4줄 검사와 같은 방식 · 현행 동작 보존).
 #   지표가 없으면 「없음 → 대체 축」 을 적어야 하며 빈칸은 안 된다(design/harness/BASELINE-TEMPLATE.md).
 awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:space:]]*기준값:[[:space:]]*[^[:space:]]' \
-  || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · design/harness/BASELINE-TEMPLATE.md): $IDX"
+  || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): $IDX"
 
 # ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
 #   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).
@@ -361,7 +363,9 @@ PY
 bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열림+명부+카드 이동까지 끝 = 착수 사건 성공 (append 실패는 stderr SHEET-EVENT-PENDING · rc 그대로)
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
-BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $WT/${FT_SEATBELT_README:-design/v65/SEATBELT-README.md} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_EBN}"
+if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"   # R383: 기본값은 v65 팀 폴더(WT 의 design/TEAMS.md)
+else _SBR="$(ft_team_in "$WT" v65)/SEATBELT-README.md" || { echo "REJECT v65 팀 폴더를 못 풀었다(design/TEAMS.md) — SEATBELT-README 경로 없음"; exit 1; }; fi
+BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_EBN}"
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?

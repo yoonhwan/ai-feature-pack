@@ -21,7 +21,7 @@ G1="$(sed -n 1p "$TXT")"; G2="$(sed -n 2p "$TXT")"; G3="$(sed -n 3p "$TXT")"
 
 # ── 임시 리포 · 사본 bin · 가짜 도구
 BIN="$T/bin"; BIN2="$T/bin-stublint"; mkdir -p "$BIN" "$T/fake" "$T/comm/bodies"
-for f in ft-nano-spawn.sh ft-index-lint.sh ft-index-lint-install.sh ft-proposal-gate.sh ft-index-move.sh ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py ft-nano-cherry-gate.sh ft-nano-spawn-undo.sh ft-resource-gate.sh ft_raised.py ft_teamset.py ft_spawn_queue.py; do cp "$SRC/$f" "$BIN/" 2>/dev/null; done
+for f in ft-nano-spawn.sh ft-index-lint.sh ft-index-lint-install.sh ft-proposal-gate.sh ft-index-move.sh ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py ft-nano-cherry-gate.sh ft-nano-spawn-undo.sh ft-resource-gate.sh ft_raised.py ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp "$SRC/$f" "$BIN/" 2>/dev/null; done
 printf '#!/usr/bin/env bash\necho "$2" > "%s/body.txt"; exit 0\n' "$T" > "$BIN/ft-send-verified.sh"   # 발주 BODY 를 잡는다
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-agent-ready.sh"   # R251 필수 형제 — 기동 확인 자체는 test_spawn_agent_ready.sh 가 본다
 cp -R "$BIN" "$BIN2"; printf '#!/usr/bin/env bash\necho "OK stub-lint $1"; exit 0\n' > "$BIN2/ft-index-lint.sh"
@@ -39,6 +39,7 @@ printf '#!/usr/bin/env bash\necho "TMUXC $*"; case " $* " in *" --dry-run "*) ;;
 printf '#!/bin/sh\nexit 0\n' > "$T/fake/sleep"; chmod +x "$BIN/"* "$BIN2/"* "$T/fake/"*
 
 REPO="$T/repo"; mkdir -p "$REPO"
+mkdir -p "$REPO/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383: spawn·설치 게이트가 팀 폴더 명단을 읽는다
 git -C "$REPO" init -q -b main && git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 mkdir -p "$REPO/.fable-team/bin-planner" "$REPO/design/planner/indices/대기" "$REPO/design/planner/indices/진행" "$REPO/design/v65/indices/대기" "$REPO/scripts"

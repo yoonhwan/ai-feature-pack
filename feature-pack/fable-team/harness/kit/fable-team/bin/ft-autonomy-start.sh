@@ -9,7 +9,9 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-$(cd "$HERE/../.." && pwd)}"
-PLANNER="${FT_PLANNER_DIR:-$ROOT/design/planner}"
+# R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
+if [ -n "${FT_PLANNER_DIR:-}" ]; then PLANNER="$FT_PLANNER_DIR"
+else . "$HERE/ft-team-lib.sh" && PLANNER="$(ft_team_in "$ROOT" planner)" || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; exit 1; }; fi
 CALL_TIMEOUT_S=7; CALL_RETRIES=1
 [[ "${FT_CALL_TIMEOUT_S:-}" =~ ^[1-7]$ ]] && CALL_TIMEOUT_S="$FT_CALL_TIMEOUT_S"   # 시험용 — 줄이기만 된다(7 초과는 무시)
 

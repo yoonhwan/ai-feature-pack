@@ -8,6 +8,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/scripts/fable-team-bin"; KIT="$REPO/scripts/harness-install/fable-team/bin"; SRC="$REPO/tools/comm-canonical"
 GATE="$KIT/ft_da_hold_gate.py"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+mkdir -p "$T/design"; printf '| 팀 | 폴더 | 팀장 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$T/design/TEAMS.md"   # R383: 린트가 planner·v65 폴더를 명단으로 푼다(lint 시험 cwd = $T)
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
 # ── 0. 문법·키트 사본 동일 ──

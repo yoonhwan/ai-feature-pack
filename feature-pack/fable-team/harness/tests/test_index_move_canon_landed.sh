@@ -13,6 +13,7 @@ for f in ft-index-move.sh ft-index-move-canon.sh; do bash -n "$SRCDIR/$f" && ok 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
 cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$BIN/"
+cp "$SRCDIR/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\necho "$*" >> "$MBOX_LOG"\nexit 0\n' > "$T/fake-mbox.sh"; chmod 755 "$T/fake-mbox.sh"
 export FT_MBOX="$T/fake-mbox.sh" MBOX_LOG="$T/mbox.log" FT_INDEX_STATE_DIR="$T/state" FT_LAND_REF=main FT_SEATS_JSON="$T/none.json"
@@ -23,6 +24,7 @@ G() { git -C "$REPO" "$@"; }
 G init -q -b main . && G config user.email t@t && G config user.name t
 X=docs/architect/X.md
 printf '## 절A 제목\nv1\n' > "$REPO/$X"; echo base > "$REPO/code.txt"
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
 G add -A && G commit -qm base
 sha() { G rev-parse HEAD; }
 edit_x() { echo "$1" >> "$REPO/$X"; G commit -qam "x $1"; }

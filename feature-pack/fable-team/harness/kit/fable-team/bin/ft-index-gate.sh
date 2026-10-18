@@ -131,7 +131,9 @@ PY
     #   --da 는 gate 가 지어내지 않는다. ★전제: ft-index-move.sh 는 이 파일과 같은 폴더($HERE)에 있다.★
     TOP="$(git rev-parse --show-toplevel 2>/dev/null)"
     CARD=""; CARD_DIR=""
-    for d in 진행 대기 완성; do for f in "$TOP/design/v65/indices/$d/$ID.md" "$TOP/design/teams/v65/indices/$d/$ID.md"; do [ -f "$f" ] && { CARD="$f"; CARD_DIR="$d"; break 2; }; done; done   # R382: 쌍둥이 후보
+    # R383: v65 팀 폴더 후보(명단 꼴 → 쌍둥이)는 toplevel 의 design/TEAMS.md 로 — 팀 이름 글자 0 · 명단을 못 읽으면 후보 0(카드 없음 취급이 아니라 ERROR 출력 + 원장 close 는 기존 경로 그대로)
+    _V65C="$(. "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" && ft_team_cands "$TOP" v65)" || echo "ERROR v65 팀 폴더 후보를 못 풀었다(design/TEAMS.md) — 카드 탐색 건너뜀" >&2
+    for d in 진행 대기 완성; do for _c in $_V65C; do f="$_c/indices/$d/$ID.md"; [ -f "$f" ] && { CARD="$f"; CARD_DIR="$d"; break 2; }; done; done   # R382: 쌍둥이 후보
     if [ -n "$CARD" ] && [ "$TRACK" != v65 ] && [ "$TRACK" != selftest ]; then
       # 트랙 규칙 하나(DA r1 R2 · r2 N1): design/v65/indices 카드의 원장은 v65 다. 비었든(default 추론) 다른 이름을 «명시»했든
       #   open·confirm 은 이미 $TRACK 원장에 갔으니 close 만 v65 로 보내도 갈린다 → REJECT. selftest 는 회귀 전용 예외.

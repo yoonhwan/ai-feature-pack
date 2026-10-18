@@ -12,6 +12,7 @@ bash -n "$SRC_MOVE" && ok "bash -n" || bad "bash -n"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
 cp "$SRC_MOVE" "$BIN/ft-index-move.sh"; cp "$(dirname "$SRC_MOVE")/ft-index-move-canon.sh" "$(dirname "$SRC_MOVE")/ft-index-move-install.sh" "$(dirname "$SRC_MOVE")/ft_da_hold_gate.py" "$BIN/"
+cp "$(dirname "$SRC_MOVE")/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"        # lint 는 별도 시험 — 여기선 통과 스텁
 printf '#!/usr/bin/env bash\necho "bash ring $1"\n' > "$BIN/ft-resume-cmd.sh"
 STUB="$T/byz_thread_post_stub.sh"
@@ -32,6 +33,7 @@ mkdir -p "$T/state"
 REPO="$T/repo"; mkdir -p "$REPO/design/harness/indices"/{대기,진행,완성}
 git -C "$REPO" init -q -b main . && git -C "$REPO" config user.email t@t && git -C "$REPO" config user.name t
 printf '# 판정문\n## §1 닫힘: 결과 제목 줄 시험 b1 b2 b3 b3b b4 b5 b6 b7\n본문\n' > "$REPO/design/harness/DA-x.md"   # R37: 절에 카드 이름이 있어야 닫힌 절
+printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$REPO/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
 git -C "$REPO" add -A && git -C "$REPO" commit -qm base   # 6: --landed 는 랜딩 브랜치 조상 commit 이어야 한다(영향 없음 카드도 (가) 검사)
 LSHA="$(git -C "$REPO" rev-parse HEAD)"; export FT_LAND_REF=HEAD
 DA="$REPO/design/harness/DA-x.md#§1"

@@ -11,6 +11,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from ft_team_lib import team_in
+
 LOG = logging.getLogger("ft_news_ledger")
 VERDICT_ROW = re.compile(r"^\|\s*(\d+)\s*\|\s*(\d{1,2}):([\dx]{2})\s*\|\s*(.*?)\s*\|?\s*$")
 OPPA = "(오빠)"
@@ -22,7 +24,7 @@ TAIL = " · 반영됐나요?"
 def verdict_rows(root: Path, wt: str) -> list[tuple[str, str]]:
     """[(판정 번호, 내용 칸)] — 카드 워크트리의 VERDICTS-planner-*-*.md 전부."""
     out = []
-    for f in sorted((root / ".worktrees" / wt / "design" / "planner").glob("VERDICTS-planner-*-*.md")):
+    for f in sorted(team_in(root / ".worktrees" / wt, "planner").glob("VERDICTS-planner-*-*.md")):
         out += [(m[1], m[4]) for ln in f.read_text(encoding="utf-8").splitlines() if (m := VERDICT_ROW.match(ln))]
     return out
 

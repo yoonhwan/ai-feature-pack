@@ -1,0 +1,42 @@
+# r383 r5 — 수용행렬 22행 두 꼴 실행 대조표(설계 §10-1·§10-4 등급) · tests/harness/test_team_literal_paths2.sh 원문 · 2026-10-18 · 세트 = (아래 커밋 sha 줄)
+# 실행: bash tests/harness/test_team_literal_paths2.sh </dev/null → == fail=0 · PASS 322 · 표 22 · 도우미 2 표 밖
+
+표: [A] ft-nano-spawn old=0 new=0 path=old:design/v65/indices/진행/slug.md | new:design/teams/v65/indices/진행/slug.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft-nano-slots old=0 new=0 path=old:design/v65/indices/대기/slot-c.md | new:design/teams/v65/indices/대기/slot-c.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft-nano-spawn-undo old=0 new=0 path=old:design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md | new:design/teams/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft-nano-close old=0 new=0 path=old:design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md | new:design/teams/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md fail-closed=rc=1 «팀 명단 없음»
+표: [B] ft-index-gate old=1 new=1 path=old:design/v65/indices/진행/gx.md | new:design/teams/v65/indices/진행/gx.md fail-closed=rc=0 «후보를 못 풀었다» · rc0 허용 사유 = close 는 카드 탐색을 건너뛰고(ft-index-gate.sh :135 ERROR 뒤 계속) 상태 기록만 닫는다 · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
+표: [A] ft-index-move old=0 new=0 path=old:design/v65/indices/완성/dn.md | new:design/teams/v65/indices/완성/dn.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft-index-move-install old=1 new=1 path=old:design/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
+표: [B] ft-orphan-cards old=0 new=0 path=old:design/cfo/indices/진행/orphan-cfo.md | new:design/teams/cfo/indices/진행/orphan-cfo.md fail-closed=rc=0 «팀 명단 없음» · rc0 허용 사유 = 모니터 — cfo 폴더를 못 풀면 ERROR 를 찍고 그 팀만 빼고 스캔을 계속한다(ft-orphan-cards.sh :13 설계) · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
+표: [B] ft-live-bin-drift-check old=1 new=1 path=old:글자 경로 없음 | new:글자 경로 없음 fail-closed=rc=1 «DRIFT» · 해당 없음 — 경로 미해석(grep 0) · 명단 무관 사유=B: · grep -c 'ft_team\|design/' ft-live-bin-drift-check.sh = 0 · 해당 없음 — 경로 미해석(grep 0) · rc0 허용
+표: [B] ft-issue-reopen old=0 new=0 path=old:글자 경로 없음 | new:글자 경로 없음 fail-closed=rc=0 «DRY-RUN» · rc0 허용 사유 = 해당 없음 — 경로 미해석(grep 0) · 명단 무관 사유=B: · grep -c 'ft_team\|design/' ft-issue-reopen.sh = 0 · 해당 없음 — 경로 미해석(grep 0) · rc0 허용
+표: [A] ft-autonomy-start old=0 new=0 path=old:design/planner/AUTONOMY-START-A1.md | new:design/teams/planner/AUTONOMY-START-A1.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft-autonomy old=0 new=0 path=old:design/planner/AUTONOMY-QUEUE.md | new:design/teams/planner/AUTONOMY-QUEUE.md fail-closed=rc=0 «팀 명단 없음» · rc0 허용 사유 = off 는 명단을 안 읽는 분기(상태 파일만 닫는다 · 행렬 §10-1 «rc0 허용 · 명단을 안 읽는 분기») · on(명단 읽는 분기)=rc1 «팀 명단 없음»
+표: [A] ft-proposal-gate old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «판정 원장 폴더를 못 풀었다»
+표: [A] ft-proxy-decide old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=4 «팀 명단 없음»
+표: [A] ft_news_io old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft_news_ledger old=0 new=0 path=old:design/planner/PLAN-oppa-ledger.md | new:design/teams/planner/PLAN-oppa-ledger.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft_news_ledger_notify old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «팀 명단 없음»
+표: [A] ft-index-lint-install old=0 new=0 path=old:design/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
+표: [A] ft-index-lint old=0 new=0 path=old:design/v65/GOAL-LEDGER-v65.md | new:design/teams/v65/GOAL-LEDGER-v65.md fail-closed=rc=1 «팀 명단 없음»
+표: [C] ft-pm-tick old=0 new=0 path=old:design/v65/20260826/RULES-ammo-and-distill-20260826.md | new:design/teams/v65/20260826/RULES-ammo-and-distill-20260826.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(RULES_FILE = 그 꼴 v65 · xtrace) · 사유 = 라이브 tmux·슬랙 의존(틱 루프는 target session gone 으로 종료)
+표: [C] ft-wall-check old=0 new=0 path=old:design/v65/DIRECTIVE-v65-wall.md | new:design/teams/v65/DIRECTIVE-v65-wall.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(벽 = 그 꼴 v65) · 사유 = 라이브 tmux·슬랙 의존
+표: [C] ft-wall-read old=0 new=0 path=old:design/v65/DIRECTIVE-v65-wall.md | new:design/teams/v65/DIRECTIVE-v65-wall.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(벽 = 그 꼴 v65) · 사유 = 라이브 tmux·슬랙 의존
+도우미: ft-team-lib old=0 new=0 fail-closed=rc=1 «팀 명단 없음» — 쌍둥이 시험(ⓑ) + 린트 자가 실행 · 표 밖
+도우미: ft-team-path-lint old=1 new=1 fail-closed=rc=0 «TEAMS.md 를 못 읽어» · rc0 허용 사유 = 린트는 명단 없이도 돈다(팀 이름 목록만 못 넓힘 · 도우미 · 표 밖) — 쌍둥이 시험(ⓑ) + 린트 자가 실행 · 표 밖
+PASS ⓔ 표 줄 수 = 22(수용행렬 = 셸 14 + 파이썬 3 + 키트 5 · 도우미 2 는 표 밖)
+등급 합계: A=15 B=4 C=3 (행렬 §10-4 열거 = A17 B2 C3 · 실측 미달 칸은 표 줄 사유 «A→B 하향»)
+PASS ⓔ 등급 합계 = 22
+
+## 변이 1건(§10-2 ⑥) — 키트 ft-index-lint.sh default_ledger 를 글자 경로($ROOT/design/v65/GOAL-LEDGER-v65.md)로 심음 → 린트 + ⓔ 그 행 FAIL → 복원(git diff 0)
+ERR 리터럴 팀 이름 경로 1개 파일 — ft_team_root(셸)·ft_team_lib.team_in(파이썬)으로 바꾼다: ft-index-lint.sh
+FAIL ⓐ 키트 bin 린트 rc=1 ← ft-index-lint.sh:10:default_ledger() { [ -z "${FT_GOAL_LEDGER:-}" ] || { printf '%s' "$ROOT/$FT_GOAL_LEDGER"; return; }; printf '%s' "$ROOT/design/v65/GOAL-LEDG
+FAIL ⓔ2 ft-index-lint rc=1 ← REJECT design/teams/v65/indices/진행/lint.md (ledger=design/v65/GOAL-LEDGER-v65.md)
+FAIL ⓔ 표 [A] ft-index-lint: 기록 없음(old=0 new=1 fc=rc=1 «팀 명단 없음»)
+== fail=3
+복원 뒤: == fail=0
+
+## 등급 하향 2(§10-4 착지 규칙 · 제품 코드 0)
+표: [B] ft-index-gate old=1 new=1 path=old:design/v65/indices/진행/gx.md | new:design/teams/v65/indices/진행/gx.md fail-closed=rc=0 «후보를 못 풀었다» · rc0 허용 사유 = close 는 카드 탐색을 건너뛰고(ft-index-gate.sh :135 ERROR 뒤 계속) 상태 기록만 닫는다 · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
+표: [B] ft-orphan-cards old=0 new=0 path=old:design/cfo/indices/진행/orphan-cfo.md | new:design/teams/cfo/indices/진행/orphan-cfo.md fail-closed=rc=0 «팀 명단 없음» · rc0 허용 사유 = 모니터 — cfo 폴더를 못 풀면 ERROR 를 찍고 그 팀만 빼고 스캔을 계속한다(ft-orphan-cards.sh :13 설계) · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보

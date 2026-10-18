@@ -54,7 +54,8 @@ chk --range "$B..$C" --ref "$C"; [ "$rc" = 0 ] && has "OK n=1"; ck "ⓗ --ref Q 
 grep -q -- '--ref "\$Q"' "$BIN/ft-merge-land.sh"; ck "ⓗ ft-merge-land.sh 가 착지 직후 검사에 --ref \"\$Q\" 전달" $?
 G update-ref refs/remotes/origin/main "$E"
 # ⓕ 이동 게이트: --landed <B> 그대로 OK · install-pending 파일 제거
-mkdir -p "$R/design/harness/indices/진행"; PD="$T/pending"; mkdir -p "$PD"; : > "$PD/$B.txt"
+mkdir -p "$R/design/harness/indices/진행"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| cfo | `design/cfo/` | c | 현역 |\n' > "$R/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
+PD="$T/pending"; mkdir -p "$PD"; : > "$PD/$B.txt"
 CARD="$R/design/harness/indices/진행/t.md"; printf '# 인덱스: t\n- 설치: 있음\n- 실사건: 뒤 커밋 덮은 카드 · 증거 mbox #107707\n## 상태\n- x\n' > "$CARD"
 out="$(FT_INSTALL_PENDING_DIR="$PD" bash "$GATE" "$CARD" --landed "$B" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "OK 설치 확인"; ck "ⓕ ft-index-move-install --landed B → OK(우회 0)" $?
 [ ! -e "$PD/$B.txt" ]; ck "ⓕ 통과 시 B 의 install-pending 파일 제거" $?
