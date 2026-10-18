@@ -10,10 +10,12 @@ LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다
 ## 파일 지도
 | 파일 | 역할 |
 |---|---|
-| GOAL-harness.md | ★불변★ 오빠 원문 + 축 A·B·C 좌표표 |
-| REQUEST-LEDGER.md | 축 B 원장 — 요청자·증상·Issue #·오빠 값·반영 sha (행 추가만) |
-| RELEASE-<ver>.md | 축 C 발행 1장/버전 — 변경·설치 명령·머신별 반영 행 |
-| indices/{대기,진행,완성}/ | 카드 1장 = 1단위 · inbox/arch/ = planner·오빠 접수 |
+| `GOAL-harness.md` | ★불변★ 오빠 원문 + 축 A·B·C 좌표표 |
+| `GUIDE-harness.md` | 팀 지침 — 팀 폴더 설치 1장은 GUIDE-team-tree-install-20261018.md |
+| `STATE.md` | 재개용 요약 1장 — 지금 단위·카드 폴더·착지·설치 표(링크만) |
+| `REQUEST-LEDGER.md` | 축 B 원장 — 요청자·증상·Issue #·오빠 값·반영 sha (행 추가만) |
+| `RELEASE-<ver>.md` | 축 C 발행 1장/버전 — 변경·설치 명령·머신별 반영 행 |
+| `indices/{대기,진행,완성}/` | 카드 1장 = 1단위 · inbox/arch/ = planner·오빠 접수 |
 
 ## 부팅 5단계
 ① 골 대조: GOAL 원문 읽고 「첫 단위가 축 A/B/C 어디인가」 한 줄.
