@@ -121,8 +121,24 @@ def stall_cell(root: Path) -> str:
     return " ".join(last.split()[:5]) if last.startswith("stall=") else ""
 
 
+def reclaim_cell(root: Path) -> str:
+    """뉴스 첫 줄의 `reclaimed=N` 칸(R332) = ft-resource-reclaim --preventive 가 reclaim.log 에 남긴 «마지막 `PREVENTIVE reclaimed=N …` 요약줄»의 N(꼬리 64KB 만 읽음). 로그 없음·요약 없음·경합 줄(`skipped=lock`) = 칸 생략이 아니라 `reclaimed=미관측` 명시(0 으로 읽히지 않게 · DA⑥ H3) · 뉴스는 막지 않는다."""
+    try:
+        with (root / ".fable-team" / "state" / "reclaim.log").open("rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 65536))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return "reclaimed=미관측"
+    for line in reversed(tail.splitlines()):
+        hit = re.match(r"PREVENTIVE reclaimed=(\d+)\b", line)
+        if hit:
+            return f"reclaimed={hit.group(1)}"
+    return "reclaimed=미관측"
+
+
 def decision_line(root: Path) -> str:
-    """뉴스 첫 줄(R214 · 판정 1804) = ft-decision-count.sh 한 줄 + stall 칸(R320b). planner 좌석표가 없는 루트(팀 밖·시험)는 줄 없음 · 도구 실패는 ERROR 로그(뉴스는 막지 않는다)."""
+    """뉴스 첫 줄(R214 · 판정 1804) = ft-decision-count.sh 한 줄 + stall 칸(R320b) + reclaimed 칸(R332). planner 좌석표가 없는 루트(팀 밖·시험)는 줄 없음 · 도구 실패는 ERROR 로그(뉴스는 막지 않는다)."""
     if not (root / ".fable-team" / "seats-planner.json").is_file():
         return ""
     text = ""
@@ -134,7 +150,7 @@ def decision_line(root: Path) -> str:
             text = done.stdout.strip()
     except (OSError, subprocess.TimeoutExpired) as e:
         LOG.error("결정 대기열 줄 건너뜀: %s", e)
-    return " · ".join(x for x in (text, stall_cell(root)) if x)
+    return " · ".join(x for x in (text, stall_cell(root), reclaim_cell(root)) if x)
 
 
 def _run(root: Path, state: Path) -> tuple[int, str]:

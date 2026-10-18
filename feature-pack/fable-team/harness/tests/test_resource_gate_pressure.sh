@@ -245,7 +245,7 @@ unlock; rm -f "$TSV"
 
 # 감시자 tick 이 샘플러를 부른다(가짜 측정·임시 루트·동결 문턱 밖 값)
 rm -f "$TSV"
-env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=35 FT_RES_SNAP_SEC=999999 bash "$REPO/scripts/fable-team-bin/ft-resource-watch.sh" tick >/dev/null 2>&1
+env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=35 FT_RES_SNAP_SEC=999999 FT_RECLAIM_PREVENT_SEC=0 bash "$REPO/scripts/fable-team-bin/ft-resource-watch.sh" tick >/dev/null 2>&1
 { [ -s "$TSV" ] && [ ! -f "$FREEZE" ]; } && ok "감시자 tick → pressure.tsv 1줄" || bad "감시자 tick 표본 없음"
 
 # 키트 사본 일치 · 감시자 줄 수 · bash -n · core.bare

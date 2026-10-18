@@ -4,6 +4,7 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+export FT_RECLAIM_PREVENT_SEC=0   # R332 3b: 기존 시험은 선제 회수 호출 0 (예방 시험만 아래 ptick 이 켠다 · 실 tmux 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"; BIN="$REPO/scripts/fable-team-bin"; KIT="$REPO/scripts/harness-install/fable-team/bin"
 fail=0
@@ -11,7 +12,10 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 eq()  { [ "$1" = "$2" ] && ok "$3" || bad "$3 — «${1}» ≠ «${2}»"; }
 has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «${2}» ← ${1:0:300}";; esac; }
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+kids() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kids "$c"; echo "$c"; done; }   # 자손 pid(깊은 쪽 먼저)
+T="$(cd "$(mktemp -d)" && pwd -P)"
+# 시험이 끝나거나 끊길 때(EXIT·INT·TERM) 이 시험이 띄운 자손(awk·tick 등)을 모두 정리한다 — 멈춘 자손이 2시간 남던 사고(DA⑥ H4)
+trap 'kill $(kids $$) 2>/dev/null; rm -rf "$T"' EXIT; trap 'exit 143' INT TERM
 S="$T/stub"; R="$T/R"; ST="$R/.fable-team/state"; mkdir -p "$S" "$ST"
 FREEZE="$ST/RESOURCE_FREEZE"; PTSV="$ST/pressure.tsv"; WLOG="$ST/resource-watch.log"
 printf '#!/bin/sh\ncase "$2" in\n  vm.swapusage) echo "total = 14336.00M  used = ${FAKE_SWAP}.00M  free = 1000.00M  (encrypted)";;\n  kern.memorystatus_vm_pressure_level) echo "$FAKE_LEVEL";;\n  *) exit 1;;\nesac\n' > "$S/sysctl"
@@ -147,5 +151,75 @@ eq "$(wcalls)" 0 "R323 다른 스캔이 잠금 중(살아 있는 pid) → 두 �
 has "$(tail -3 "$WLOG")" "du 스캔 진행 중" "R323 건너뛴 사실을 로그 1줄"
 reset_du; mkdir "$ST/du-scan.lock.d"; true & dp=$!; wait $dp; echo "$dp $(date +%s)" > "$ST/du-scan.lock.d/owner"; echo "$dp" > "$ST/du-scan.lock.d/pid"
 snap; eq "$(wcalls)" 1 "R323 죽은 pid 잠금 = 회수 후 스캔"
+
+# ── R332. 선제 회수 호출 — tick 진입 직후 «독립된» 보조 호출(ft-resource-preventive.sh) · 예방 stamp+실행권 한 직렬 · 실패·경합이 측정·동결을 안 바꿈 ──
+# 회수 도구는 대역(FT_RECLAIM_SH)만 쓴다 — 실 tmux·실 kill 0. 위 기존 시험은 파일 맨 위 export 의 FT_RECLAIM_PREVENT_SEC=0 으로 예방 호출 0.
+bash -n "$BIN/ft-resource-preventive.sh" && ok "bash -n preventive" || bad "bash -n preventive"
+cmp -s "$BIN/ft-resource-preventive.sh" "$KIT/ft-resource-preventive.sh" && ok "키트 사본 cmp 0 preventive" || bad "키트 사본 어긋남 preventive"
+grep -q 'ft-resource-preventive.sh' "$BIN/ft-resource-watch.sh" && ok "R332 감시자가 선제 호출을 부름" || bad "R332 감시자 연결 없음"
+RC="$T/rc"; mkdir -p "$RC" "$T/badsys"; RCSH="$RC/reclaim.sh"
+printf '#!/bin/sh\nexit 1\n' > "$T/badsys/sysctl"; chmod 755 "$T/badsys/sysctl"
+cat > "$RCSH" <<EOF
+#!/bin/bash
+echo "\$*" >> "$RC/calls"
+sleep "\$(cat "$RC/sleep" 2>/dev/null || echo 0)"
+cat "$RC/out" 2>/dev/null
+exit "\$(cat "$RC/rc" 2>/dev/null || echo 0)"
+EOF
+chmod +x "$RCSH"
+rcalls() { [ -f "$RC/calls" ] && wc -l < "$RC/calls" | tr -d ' ' || echo 0; }
+pstate() { rm -f "$RC/calls" "$ST/.preventive-last"; rm -rf "$ST/preventive.lock.d"; echo 0 > "$RC/sleep"; echo 0 > "$RC/rc"; echo "PREVENTIVE reclaimed=0 candidates=0 skipped=0" > "$RC/out"; rm -f "$FREEZE"; seed 6000 50 1 2; }
+ptick() { env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FT_RECLAIM_PREVENT_SEC=600 FT_RECLAIM_SH="$RCSH" FAKE_SWAP=6000 FAKE_LEVEL=1 FAKE_MEMFREE=50 "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
+# ⓔ 정상 / gate 측정 오류 / 새 freeze 생성 — 세 경로 모두 due 면 예방 호출 1 (조기 종료와 독립)
+pstate; ptick; eq "$(rcalls)" 1 "R332 ⓔ 정상 tick → 예방 호출 1"
+[ -f "$ST/.preventive-last" ] && ok "R332 ⓔ 완료 stamp 기록" || bad "R332 ⓔ 완료 stamp 없음"
+pstate; ptick PATH="$T/badsys:$S:$PATH"; prc=$?
+{ [ "$prc" -ne 0 ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ gate 측정 오류(tick rc=$prc)에서도 예방 호출 1" || bad "R332 ⓔ 측정 오류 경로 rc=$prc 호출=$(rcalls)"
+pstate; ptick FAKE_SWAP=13000 FAKE_LEVEL=2
+{ [ -f "$FREEZE" ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ 새 freeze 생성 tick 에서도 예방 호출 1 · 동결은 그대로 생성" || bad "R332 ⓔ freeze 경로 호출=$(rcalls) freeze=$([ -f "$FREEZE" ] && echo 있음 || echo 없음)"
+# ⓑ stamp 오래됨 + 동시 두 tick → 호출 1 (실행권 mkdir 1회 · 경합이면 즉시 포기)
+pstate; echo 2 > "$RC/sleep"; ( ptick & ptick & wait )
+eq "$(rcalls)" 1 "R332 ⓑ 동시 두 tick → 예방 호출 1"
+# ⓒ 후보 0 정상 완료도 완료 기록 → 다음 600초 안 tick 호출 0 · 기한이 지나면 다시 호출
+echo 0 > "$RC/sleep"; ptick; ptick; eq "$(rcalls)" 1 "R332 ⓒ 후보 0 정상 완료 뒤 600초 안 tick 호출 0"
+sleep 2; ptick FT_RECLAIM_PREVENT_SEC=1; eq "$(rcalls)" 2 "R332 ⓒ 기한(1초) 지나면 다시 호출"
+# ⓓ 경합(skipped=lock)·실패(rc≠0)는 완료 기록 0 → 다음 tick 재시도 · 측정 tick 은 상한 안에 끝남
+pstate; echo "PREVENTIVE skipped=lock" > "$RC/out"; t0=$(date +%s); ptick; ptick
+{ [ "$(rcalls)" = 2 ] && [ ! -e "$ST/.preventive-last" ]; } && ok "R332 ⓓ 경합 skipped=lock = stamp 0 · 다음 tick 재시도(호출 2)" || bad "R332 ⓓ 경합 호출=$(rcalls) stamp=$([ -e "$ST/.preventive-last" ] && echo 있음 || echo 없음)"
+[ $(( $(date +%s) - t0 )) -le 15 ] && ok "R332 ⓓ 경합 tick 두 번 15초 안 종료" || bad "R332 ⓓ 경합 tick 이 느림"
+pstate; echo 1 > "$RC/rc"; echo "boom" > "$RC/out"; ptick FAKE_SWAP=13000 FAKE_LEVEL=2; ptick FAKE_SWAP=13000 FAKE_LEVEL=2
+{ [ "$(rcalls)" = 2 ] && [ ! -e "$ST/.preventive-last" ] && [ -f "$FREEZE" ]; } && ok "R332 ⓓ 회수 실패(rc1) = stamp 0·재시도 · 측정·동결은 정상" || bad "R332 ⓓ 실패 경로 호출=$(rcalls)"
+# 잠금 점유: 살아 있는 pid = 호출 0 · 남의 잠금 보존 / 죽은 pid = 회수 후 호출 1
+pstate; mkdir "$ST/preventive.lock.d"; echo $$ > "$ST/preventive.lock.d/pid"; ptick
+{ [ "$(rcalls)" = 0 ] && [ "$(cat "$ST/preventive.lock.d/pid")" = "$$" ]; } && ok "R332 살아 있는 실행권 = 호출 0 · 남의 잠금 보존" || bad "R332 살아 있는 잠금 처리 이상"
+rm -rf "$ST/preventive.lock.d"; true & dpp=$!; wait $dpp; mkdir "$ST/preventive.lock.d"; echo "$dpp" > "$ST/preventive.lock.d/pid"; ptick
+eq "$(rcalls)" 1 "R332 죽은 pid 실행권 = 회수 후 호출 1"
+[ ! -d "$ST/preventive.lock.d" ] && ok "R332 끝난 뒤 실행권 해제" || bad "R332 실행권이 남음"
+# ⓕ FT_RECLAIM_PREVENT_SEC=0 → 호출 0
+pstate; ptick FT_RECLAIM_PREVENT_SEC=0; eq "$(rcalls)" 0 "R332 ⓕ FT_RECLAIM_PREVENT_SEC=0 → 호출 0"
+# DA⑥ H2: 낡은 stamp + 죽은 pid 잠금 + 동시 두 호출 → 호출 1 (회수+획득 직렬화 · 남의 새 잠금을 지우지 않음) — 삭제 도구를 느리게 해 «둘 다 죽은 잠금을 본 뒤 지우는» 창을 연다(옛 코드는 호출 2)
+SR="$T/slowrm"; mkdir -p "$SR"; printf '#!/bin/sh\nsleep 0.4\nexec /bin/rm "$@"\n' > "$SR/rm"; chmod 755 "$SR/rm"
+pv() { env FT_RES_ROOT="$R" PATH="$SR:$PATH" FT_RECLAIM_PREVENT_SEC=600 FT_RECLAIM_SH="$RCSH" bash "$BIN/ft-resource-preventive.sh" >/dev/null 2>&1; }
+h2bad=0
+for _r in 1 2 3; do
+  pstate; echo 1 > "$RC/sleep"; mkdir "$ST/preventive.lock.d"; true & dq=$!; wait $dq; echo "$dq" > "$ST/preventive.lock.d/pid"
+  ( pv & sleep 0.2; pv & wait )   # 둘째가 0.2초 늦게 와 «첫째가 새 잠금을 만든 뒤» 낡은 삭제가 끝나는 순서를 만든다
+  [ "$(rcalls)" = 1 ] || { h2bad=$((h2bad+1)); echo "  H2 회차 $_r 호출=$(rcalls)"; }
+done
+[ "$h2bad" = 0 ] && ok "R332 H2 죽은 잠금 + 동시 두 호출 ×3 → 호출 1" || bad "R332 H2 동시 회수 경쟁 ${h2bad}/3 회차에서 호출 2"
+rm -rf "$ST/preventive.lock.d" "$ST/preventive.lock.d.rc"
+# DA⑥ H4: stdin 을 열어 둔 채(tty 없는 배경 셸 꼴) freeze 생성 tick·scan 이 awk 에서 멈추면 안 된다 — 입력 파일 인자 명시
+mkfifo "$T/hold"; exec 7<>"$T/hold"
+held() { # held <상한초> <watch 인자…> — stdin=열린 fifo · 제한 안에 안 끝나면 정리하고 rc 1
+  local lim="$1" i wp; shift
+  ( env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40 FT_RECLAIM_PREVENT_SEC=0 bash "$BIN/ft-resource-watch.sh" "$@" <&7 >/dev/null 2>&1 ) & wp=$!
+  for i in $(seq 1 $((lim*10))); do kill -0 "$wp" 2>/dev/null || { wait "$wp"; return 0; }; sleep 0.1; done
+  kill $(pgrep -P "$wp") "$wp" 2>/dev/null; return 1
+}
+rm -f "$FREEZE"; printf '%s\tdisk.free\t100000000\n%s\tworktrees.total\t100\n' "$((NOW-900))" "$((NOW-900))" > "$ST/disk-attrib.tsv"; seed 13000 40 2 2
+held 8 tick && ok "R332 H4 stdin 을 열어 둔 freeze 생성 tick(top1_disk awk) → 8초 안 종료" || bad "R332 H4 top1_disk awk 가 stdin 에서 멈춤"
+[ -f "$FREEZE" ] && ok "R332 H4 freeze 파일 생성" || bad "R332 H4 freeze 미생성"
+held 8 scan && ok "R332 H4 stdin 을 열어 둔 scan(disk_top·floor_line awk) → 8초 안 종료" || bad "R332 H4 scan awk 가 stdin 에서 멈춤"
+exec 7<&-
 
 echo "---- fail=$fail"; [ "$fail" -eq 0 ]
