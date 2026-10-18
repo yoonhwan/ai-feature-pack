@@ -71,6 +71,7 @@ def env(tmp_path: Path) -> dict[str, Path]:
     (repo / ".fable-team" / "seats.json").write_text("{}\n")
     _commit(repo, ".gitignore", ".worktrees/\n.fable-team/\n", "base")
     _commit(repo, "design/TEAMS.md", "| 팀 | 폴더 | 팀장 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | v65#1 | 현역 |\n", "teams")  # R383: v65 폴더는 design/TEAMS.md 로 푼다
+    _commit(repo, "design/v65/SEATBELT-README.md", "# sb\n", "sb")  # R406: 발주 본문 README = 실재 1개
     _commit(repo, CARD, "# card\n", "card")
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -94,6 +95,7 @@ def _spawn(e: dict[str, Path]) -> subprocess.CompletedProcess[str]:
         **os.environ,
         **GIT_ENV,
         "SHIM_STATE": str(e["state"]),
+        "FT_TEAMS_REF": "HEAD",  # R406: 픽스처 명단은 커밋된 HEAD 에만 있다(origin/main ref 0) — 실 리포는 origin/main
         "PATH": f"{e['shim']}{os.pathsep}{os.environ['PATH']}",
     }
     return subprocess.run(
