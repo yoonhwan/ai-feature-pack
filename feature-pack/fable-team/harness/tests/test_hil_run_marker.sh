@@ -81,8 +81,8 @@ zh() { env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$ZD" HIL_CLIP=0 FT_SE
 tick() { (cd "$Z" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HIL_DIR="$ZD" "$@" \
   FT_TICK_SEATS="$Z/seats.json" FT_TICK_STATE_DIR="$Z/state" FT_TICK_STAMP_PREFIX="$Z/stamp-" FT_TICK_PIDFILE="$Z/tick.pid" FT_TICK_MBOX="$Z/mbox-stub.sh" \
   FT_TICK_HIL_BIN="$SRC/ft-hil.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_API_OUTAGE=0 \
-  FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_AUTONOMY=0 FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_STALL_INTERVAL=9999999999 \
-  /bin/bash "$SRC/ft-tick.sh" --once 2>&1); }
+  FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_AUTONOMY=0 FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_STALL_INTERVAL=9999999999 FT_TICK_LEAK_REAP=0 \
+  /bin/bash "$SRC/ft-tick.sh" --once 2>&1); }   # R347: 이 시험은 HIL 쪽지 개수만 본다 — 실 ps 에 의존하는 유출 경보는 끈다
 tickx() { local a=(); while [ "${1:-}" = env ]; do a+=("$2"); shift 2; done; tick env ${a[@]+"${a[@]}"}; }
 plan G; zh --add "$T/G.sh.hil" >/dev/null
 o="$(tickx)"; has "$o" "hil_watch: 미실행 h 1개" "1개 → 로그 1줄"

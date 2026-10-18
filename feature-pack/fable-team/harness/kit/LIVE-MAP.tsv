@@ -11,6 +11,7 @@ launchd/*	skip	-	plist 템플릿 외 파일(문서·메모) — 설치 대상 �
 loom-tunnel/*	skip	-	plist 템플릿·install.sh 외 파일(문서·메모) — 설치 대상 아님
 iap-tunnels/*	skip	-	R327b install.sh(embed 18712 · llm 18703 — llm 은 오빠 확인 후 --oppa-confirmed) · plist 템플릿은 위 plist 행 — 리포 경로로 호출(라이브 복사 없음)
 stt-tunnel/*	skip	-	plist 템플릿·install.sh 외 파일(문서·메모) — 설치 대상 아님
+fable-team/bin/ft-leak-reap.sh	bin	$FT_BIN	master: cp -p → cmp0 (R347) · 상류 추적 3칸 = 경로 ai-feature-pack feature-pack/fable-team/skill/scripts/ft-leak-reap.sh · 고정 SHA 819dd4e · 상류 콘텐츠 sha256 72770e36b54e5546ed82bc59a8e751bf73e128b4cc3b91eeb01c823242578d32 (BYZ 수입본은 4개 안전 변경 항목 차이 — rc20 조사 실패·FT_PS_SNAPSHOT 계약(+생산·검증·신선도)·ps timeout 7초·사건 지문 fp+--snapshot 발행 · 카드 R347) · 상류 대조 시점 = REVIEW-harness 주간 점검표 고정 행 「상류 리퍼 SHA 대조」 · ft-live-install-check 는 키트→라이브만 대조
 fable-team/bin/*	bin	$FT_BIN	master: tar 백업 → cp → drift-check OK (ft-live-install.sh · design/harness/PLAN-release-0.4-and-816-20261007.md)
 hooks/*	cmp	$HOME/.claude/hooks	master: cp -p <키트>/hooks/<파일> ~/.claude/hooks/ (settings.json 훅 등록은 별도)
 slack-mirror/*	cmp	$HOME/.hermes/scripts	master: slack-mirror/install-*.sh 재실행(또는 cp -p) 후 데몬 kickstart

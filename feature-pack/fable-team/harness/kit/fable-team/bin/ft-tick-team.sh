@@ -218,8 +218,19 @@ stall() {
   done <<< "$rows"
 }
 
+# ★R347 유출 부하 경보★ — ft-tick.sh 의 같은 이름 함수와 같은 계약(dry-run 경보만 · 사살은 머신 launchd 가드 1 · 끄는 스위치 FT_TICK_LEAK_REAP=0).
+leak_watch() {
+  local out
+  [ "${FT_TICK_LEAK_REAP:-1}" = 1 ] || return 0
+  [ -f "$HERE/ft-leak-watch.sh" ] || { echo "$(date '+%F %T') leak_watch: missing $HERE/ft-leak-watch.sh" >&2; return 0; }
+  out="$(FT_TICK_SEATS="$SEATS" FT_TICK_MBOX="$MBOX" bash "$HERE/ft-leak-watch.sh" $([ "$DRY" = 1 ] && echo --dry-run) 2>&1)"
+  [ -n "$out" ] && { [ "$DRY" = 1 ] && echo "$out" || log "${out//$'\n'/ | }"; }
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to master mok
+  leak_watch
   stall
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
