@@ -21,8 +21,7 @@ _guard_goal_lint() {
   _goal_sender_in_roles "$from"; rc=$?
   [ "$rc" = 1 ] && return 0
   [ "$rc" = 0 ] || { _goal_refuse "$from" "$first" "발신자 대상 여부 판정 불가(명부 읽기 실패)"; return $?; }
-  tool="${FT_BIN:-$DIR/../bin}/ft-goal-table.sh"
-  [ -f "$tool" ] || { _goal_refuse "$from" "$first" "판정기 없음($tool)"; return $?; }
+  tool="$(_ft_live_bin ft-goal-table.sh 2>&1)" || { _goal_refuse "$from" "$first" "판정기 없음($tool)"; return $?; }
   if [ -n "$attach" ]; then
     GUARD_TMP="$(mktemp -d "$GUARD_STATE/goal-relay.XXXXXX" 2>/dev/null)" && [ -f "$attach" ] && cp "$attach" "$GUARD_TMP/$(basename "$attach")" 2>/dev/null \
       && GUARD_FILE="$GUARD_TMP/$(basename "$attach")" && [ -r "$GUARD_FILE" ] || { GUARD_FILE=""; _goal_refuse "$from" "$first" "relay 첨부 사본 생성·읽기 실패($attach)"; return $?; }

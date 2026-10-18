@@ -29,6 +29,7 @@ if [ -f "$DIR/mbox_guard_goal.sh" ]; then source "$DIR/mbox_guard_goal.sh"   # �
 else guard_tmp_clean() { :; }; _guard_goal_lint() { local f="${1%%$'\n'*}"; printf '%s' "${f#"${f%%[![:space:]]*}"}" | grep -qE "$GOAL_HEADS" && [ -n "${2:-}" ] || return 0
   _goal_sender_in_roles "$2"; [ $? = 1 ] && return 0; _goal_refuse "$2" "$f" "골 표 문 파일 없음($DIR/mbox_guard_goal.sh) — 설치 순서"; }; fi
 
+if [ -f "$DIR/mbox_guard_lib.sh" ]; then source "$DIR/mbox_guard_lib.sh"; fi   # _ft_live_bin(R372) — 없으면 판정기 해석 실패 = fail-closed(REJECT)
 guard_log() { mkdir -p "$GUARD_STATE" 2>/dev/null; printf '%s %s\n' "$(date -u +%FT%TZ)" "$2" >> "$GUARD_STATE/$1" 2>/dev/null || true; }
 
 # warn | reject — env FT_PLANNER_HEAD_MODE > queues.conf 의 planner_head_mode= > warn. 모르는 값은 warn.
@@ -151,8 +152,7 @@ _guard_hold_lint() {
   case "$first" in '[spawn 정지]'*) ;; *) return 0;; esac
   hn="$(printf '%s' "$1" | grep -oE 'hold=[0-9]+' | head -1 | cut -d= -f2)" || hn=""
   [ -n "$hn" ] || { echo "REJECT [spawn 정지] 쪽지에 hold=<판정 번호> 가 없다 — 정지는 ft-spawn-hold.sh set … 로 건 뒤 그 번호를 적어라(문장만으로는 정지가 아니다)" >&2; return 3; }
-  sh="${FT_BIN:-$DIR/../bin}/ft-spawn-hold.sh"
-  [ -f "$sh" ] || { echo "REJECT [spawn 정지] 판정기 없음($sh) — 정지 선언은 확인 없이 보내지 않는다(R320c fail-closed) · 판정기(ft-spawn-hold.sh)를 먼저 설치하라" >&2; return 3; }
+  sh="$(_ft_live_bin ft-spawn-hold.sh 2>&1)" || { echo "REJECT [spawn 정지] 판정기 없음($sh) — 정지 선언은 확인 없이 보내지 않는다(R320c fail-closed) · 판정기(ft-spawn-hold.sh)를 먼저 설치하라" >&2; return 3; }
   res="$(bash "$sh" status --check "$hn" 2>&1)"; rc=$?
   case "$rc" in
     0) return 0;;
