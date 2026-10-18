@@ -2,7 +2,7 @@
 # test_index_lint.sh — ft-index-lint 시험: 스위치 꺼짐(기존 동작 그대로) · 켜짐(⑦ 사전검증 · ⑧ 조사 근거). 임시 리포에서만 돈다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LINT="$HERE/../../scripts/harness-install/fable-team/bin/ft-index-lint.sh"
+LINT="$HERE/../../harness/kit/fable-team/bin/ft-index-lint.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

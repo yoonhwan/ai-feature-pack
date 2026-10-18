@@ -5,7 +5,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-V="$ROOT/scripts/fable-team-bin/ft-sheet-verify.sh"
+V="$ROOT/harness/bin/ft-sheet-verify.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -134,7 +134,7 @@ done
 ! grep -nE '\b(600|300)\b' "$V" 2>/dev/null | grep -v '^[0-9]*:#' | grep -q . && ok "새 스크립트에 600/300 초 값 0" || bad "600/300 잔존"
 
 # 9) publish 연결 — --sheet 발행 rc 0 ∧ FT_SHEET_VERIFY=1 일 때만 검증 1회 · 검증 실패는 발행 rc 를 바꾸지 않는다
-PB="$T/pub"; mkdir -p "$PB"; cp "$ROOT/scripts/fable-team-bin/ft-board-publish.sh" "$PB/"; : > "$PB/tp.py"
+PB="$T/pub"; mkdir -p "$PB"; cp "$ROOT/harness/bin/ft-board-publish.sh" "$PB/"; : > "$PB/tp.py"
 printf '#!/usr/bin/env bash\nexit "$(cat "$(dirname "$0")/pub_rc")"\n' > "$PB/ft-sheet-publish.sh"
 printf '#!/usr/bin/env bash\necho x >> "$(dirname "$0")/vcalls"\nexit "$(cat "$(dirname "$0")/v_rc" 2>/dev/null || echo 0)"\n' > "$PB/ft-sheet-verify.sh"
 pub() { echo "$1" > "$PB/pub_rc"; : > "$PB/vcalls"; env FT_THREAD_POST="$PB/tp.py" FT_ROOT="$FT" ${2:+FT_SHEET_VERIFY=$2} bash "$PB/ft-board-publish.sh" --sheet >/dev/null 2>&1; echo "$? $(wc -l < "$PB/vcalls" | tr -d ' ')"; }
@@ -142,7 +142,7 @@ pub() { echo "$1" > "$PB/pub_rc"; : > "$PB/vcalls"; env FT_THREAD_POST="$PB/tp.p
   && ok "publish --sheet: 성공 ∧ FT_SHEET_VERIFY=1 → 검증 1회 · env 없음/발행 rc≠0 → 0회 · 검증 rc=5 여도 발행 rc 0" || bad "publish 연결: $(pub 0 1) $(pub 0) $(pub 3 1)"
 
 # 10) N1 seats-lint ⓒ — `_headless` 행은 세션이 없어도 불일치가 아니다(없으면 ⓒ — 변이 대조)
-LD="$T/lint"; mkdir -p "$LD"; LINT="$ROOT/scripts/fable-team-bin/ft-seats-lint.sh"
+LD="$T/lint"; mkdir -p "$LD"; LINT="$ROOT/harness/bin/ft-seats-lint.sh"
 printf '{"_label":"planner","_master":"m#1","m#1":{"role":"master"},"byz-planner-pm-sheet":{"role":"pm","tick":null,"_headless":true}}\n' > "$LD/seats-planner.json"
 lint() { FT_ROOT="$LD" FT_SEATS_GLOB="$LD/seats*.json" FT_TMUX_LS_CMD="echo m#1" bash "$LINT"; }
 lint >"$T/l1.txt" 2>&1; r1=$?

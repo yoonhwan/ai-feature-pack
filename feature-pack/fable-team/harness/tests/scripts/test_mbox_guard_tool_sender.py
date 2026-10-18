@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-MBOX = Path(__file__).resolve().parents[2] / "tools" / "comm-canonical" / "mbox.py"
+MBOX = Path(__file__).resolve().parents[3] / "harness" / "comm" / "mbox.py"
 TOOL = "ft-head-lag"
 
 

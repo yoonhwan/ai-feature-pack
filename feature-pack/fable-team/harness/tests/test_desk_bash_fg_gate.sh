@@ -3,7 +3,7 @@
 # 격리: 임시 루트(FT_ROOT) + 테스트 tmux 서버(-L 소켓). 판단 근거 = 도구 입력의 run_in_background·timeout 두 값뿐.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/scripts/harness-install/hooks/desk-bash-fg-gate.sh"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/hooks/desk-bash-fg-gate.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
 

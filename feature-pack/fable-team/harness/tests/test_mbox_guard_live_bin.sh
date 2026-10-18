@@ -1,7 +1,7 @@
 #!/bin/bash
 # R372 — mbox 가드가 판정기를 FT_BIN → ../LIVE_BIN(1행 절대경로) → ../bin 순으로 찾는다.
 # 임시 comm 폴더 + 가짜 판정기(호출 로그만 남기고 rc0) + 격리 큐 — 실 큐·루트 .fable-team/ 쓰기 0.
-SRC="$(cd "$(dirname "$0")/../../tools/comm-canonical" && pwd)"
+SRC="$(cd "$(dirname "$0")/../../harness/comm" && pwd)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "ok   $1"; }

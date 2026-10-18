@@ -4,7 +4,7 @@
 # 실제 프록시·슬랙·claude 호출 0 — 스텁 명령 · 127.0.0.1 가짜 서버.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${SLACK_MIRROR_KIT:-$HERE/../../scripts/harness-install/slack-mirror}"
+KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"
 [ -d "$KIT" ] || { echo "FAIL kit dir missing: $KIT"; exit 1; }
 python3 -I - "$KIT" <<'PYEOF'
 import json, stat, sys, tempfile

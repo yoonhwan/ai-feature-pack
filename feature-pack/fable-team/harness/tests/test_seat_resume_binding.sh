@@ -7,7 +7,7 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; KIT="$HERE/../../scripts/harness-install"; COMM="$HERE/../../tools/comm-canonical"
+BIN="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit"; COMM="$HERE/../../harness/comm"
 RETIRE="$BIN/ft-seat-retire.sh"; BIND="$BIN/ft_seat_bind.py"; ZC="$KIT/zombie-clean/zombie-clean.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fail=0

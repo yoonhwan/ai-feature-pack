@@ -3,7 +3,7 @@
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + PATH 앞 gh 스텁 — 실 state·원장·gh 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; BIN="$ROOT/scripts/fable-team-bin"; MIR="$ROOT/scripts/harness-install/fable-team/bin"
+ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"
 fail=0; n=0
 ck() { n=$((n+1)); if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; fail=$((fail+1)); fi; }
 has() { grep -qE -- "$2" <<<"$1"; }   # has "<출력>" "<정규식>"

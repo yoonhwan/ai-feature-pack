@@ -7,7 +7,7 @@
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="${WT_TEST_SRC:-$HERE/../../scripts/harness-install/fable-team/bin}"   # 옛 도구로 돌려 시험이 결함을 잡는지 볼 때만 덮어쓴다
+SRC="${WT_TEST_SRC:-$HERE/../../harness/kit/fable-team/bin}"   # 옛 도구로 돌려 시험이 결함을 잡는지 볼 때만 덮어쓴다
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

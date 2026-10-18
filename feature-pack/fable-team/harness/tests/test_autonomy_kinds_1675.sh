@@ -5,7 +5,7 @@
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/scripts/harness-install/fable-team/templates/hooks"; BIN="$ROOT/scripts/fable-team-bin"; MIR="$ROOT/scripts/harness-install/fable-team/bin"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"
 SG="$HK/autonomy-state-guard.sh"; MG="$HK/autonomy-merge-guard.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }

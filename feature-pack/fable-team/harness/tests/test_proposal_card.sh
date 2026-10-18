@@ -3,7 +3,7 @@
 #   같은 slug 두 번 → rc≠0 · 잘못된 slug → rc≠0 · 팀 env 없음 → rc≠0. 임시 리포에서만 돈다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-CARD="$HERE/../../scripts/harness-install/proposal/ft-proposal-card.sh"
+CARD="$HERE/../../harness/kit/proposal/ft-proposal-card.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

@@ -3,7 +3,7 @@
 # 격리: 임시 HOME(가짜 ~/.claude/projects·~/.codex/sessions) + 가짜 mbox · 실 세션 기록 읽기 0 · 실 /tmp/h* 읽기 0(--plans 명시). 값은 전부 가짜.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SC="$HERE/../../scripts/fable-team-bin/ft-secret-scan.sh"
+SC="$HERE/../../harness/bin/ft-secret-scan.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" FT_SECRET_SCAN_ROOT="$T/root" FT_MBOX_SH="$T/mbox.sh" FT_SEATS_JSON="$T/seats.json"
 CL="$HOME/.claude/projects/x/a.jsonl"; CX="$HOME/.codex/sessions/2026/10/17/rollout-a.jsonl"; PLAN="$T/plan.sh.hil"

@@ -4,7 +4,7 @@
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REPO="$HERE/../.."; D="$REPO/scripts/harness-install/iap-tunnels"; INST="$D/install.sh"; TPL="$D/com.byz.iap-tunnel.plist.template"
+REPO="$HERE/../.."; D="$REPO/harness/kit/iap-tunnels"; INST="$D/install.sh"; TPL="$D/com.byz.iap-tunnel.plist.template"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -47,7 +47,7 @@ reset() { rm -f "$LOADED" "$FOREIGN" "$LCLOG"; rm -rf "$IH"; mkdir -p "$IH"; }
 # ── 정적 ──
 /bin/bash -n "$INST" && ok "/bin/bash -n install.sh" || bad "/bin/bash -n install.sh"
 command -v plutil >/dev/null 2>&1 && { plutil -lint "$TPL" >/dev/null && ok "plutil -lint 템플릿" || bad "plutil -lint 템플릿"; }
-bash "$REPO/scripts/fable-team-bin/ft-tmp-trap-lint.sh" "$INST" >/dev/null 2>&1 && ok "ft-tmp-trap-lint" || bad "ft-tmp-trap-lint"
+bash "$REPO/harness/bin/ft-tmp-trap-lint.sh" "$INST" >/dev/null 2>&1 && ok "ft-tmp-trap-lint" || bad "ft-tmp-trap-lint"
 eq "$(rc bogus)" 2 "알 수 없는 이름 rc=2"
 
 # ── 치환 결과 대조 (render · 변경 0) ──
@@ -131,7 +131,7 @@ echo 200 > "$HCODE"; reset; run llm --apply --oppa-confirmed >/dev/null
 has "$(run llm --apply --oppa-confirmed)" "ALREADY" "health 200 이면 재설치는 ALREADY"
 
 # ── LIVE-MAP ──
-MAP="$REPO/scripts/harness-install/LIVE-MAP.tsv"
+MAP="$REPO/harness/kit/LIVE-MAP.tsv"
 has "$(grep -F 'iap-tunnels/*' "$MAP")" "skip" "LIVE-MAP iap-tunnels skip 행"
 
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL=$fail"; exit 1; }

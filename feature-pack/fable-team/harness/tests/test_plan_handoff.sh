@@ -3,8 +3,8 @@
 # --dry-run 과 임시 seats 파일만 쓴다 — 실제 mbox 발신·Issue 생성 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-CMD="$HERE/../../scripts/fable-team-bin/ft-plan-handoff.sh"
-TPL="$HERE/../../design/harness/PLAN-HANDOFF-TEMPLATE.md"
+CMD="$HERE/../../harness/bin/ft-plan-handoff.sh"
+TPL="$HERE/../../harness/design/harness/PLAN-HANDOFF-TEMPLATE.md"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 
 echo '{"_master":"ft-issue-manager#0"}' > "$T/seats-issues.json"

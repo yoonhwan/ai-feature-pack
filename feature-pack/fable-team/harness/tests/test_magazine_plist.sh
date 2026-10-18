@@ -3,7 +3,7 @@
 # + launchctl 0 (--load 없음) · .bak · ops/magazine 워크트리는 «없을 때만» 생성. HOME·BYZ_ROOT 를 임시로 바꿔 실 ~/.hermes·launchd 는 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-INSTALL="$HERE/../../scripts/harness-install/slack-mirror/install-magazine.sh"
+INSTALL="$HERE/../../harness/kit/slack-mirror/install-magazine.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

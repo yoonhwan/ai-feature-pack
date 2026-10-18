@@ -3,7 +3,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-WATCH="$REPO/scripts/fable-team-bin/ft-inbox-watch.sh"
+WATCH="$REPO/harness/bin/ft-inbox-watch.sh"
 T="$(mktemp -d)"; trap 'kill "${WP:-0}" 2>/dev/null; rm -rf "$T"' EXIT
 export FT_ROOT="$T/root" FT_INBOX_WATCH_POLL=0.1
 mkdir -p "$FT_ROOT/.fable-team/state/inbox" "$FT_ROOT/.fable-team/comm/bodies"

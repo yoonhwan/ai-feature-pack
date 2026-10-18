@@ -3,8 +3,8 @@
 # 임시 디렉터리 가짜 jsonl 만 쓴다 — 실제 tmux·좌석·~/.claude/projects 조회 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TRK="$HERE/../../scripts/fable-team-bin"
-KIT="$HERE/../../scripts/harness-install/fable-team/bin"
+TRK="$HERE/../../harness/bin"
+KIT="$HERE/../../harness/kit/fable-team/bin"
 LTS="${LTS_UNDER_TEST:-$TRK/ft-jsonl-last-ts.py}"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

@@ -3,8 +3,8 @@
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 스크립트 사본만 쓴다 — 실제 리포·seats·tmux 세션·원격 쓰기 0. cherry 게이트는 «진짜» 를 쓴다(인자만 기록하는 래퍼 경유).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
-TRK="$HERE/../../scripts/fable-team-bin"
+SRC="$HERE/../../harness/kit/fable-team/bin"
+TRK="$HERE/../../harness/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

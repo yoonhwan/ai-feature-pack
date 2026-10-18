@@ -4,8 +4,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-TR="${KIT_SYNC_TR:-$ROOT/scripts/fable-team-bin}"
-KIT="${KIT_SYNC_KIT:-$ROOT/scripts/harness-install/fable-team/bin}"
+TR="${KIT_SYNC_TR:-$ROOT/harness/bin}"
+KIT="${KIT_SYNC_KIT:-$ROOT/harness/kit/fable-team/bin}"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

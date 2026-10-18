@@ -4,7 +4,7 @@
 # 실제 gh·tmux·슬랙 호출 0 · 라이브 .fable-team 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 T="$(mktemp -d)"; trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

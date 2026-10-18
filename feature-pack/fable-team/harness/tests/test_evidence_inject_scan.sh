@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SRCDIR="$ROOT/scripts/fable-team-bin"
+SRCDIR="$ROOT/harness/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

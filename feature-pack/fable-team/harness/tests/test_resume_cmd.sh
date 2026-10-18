@@ -2,7 +2,7 @@
 # test_resume_cmd.sh — ft-resume-cmd.sh (이어가기 블록 «재개» 칸 · 설계 §2 · DA HOLD-I3). 가짜 tmux(PATH 맨 앞 스텁) · 가짜 jsonl · 가짜 좌석표 — 실제 tmux/claude 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-CMD="$HERE/../../scripts/fable-team-bin/ft-resume-cmd.sh"
+CMD="$HERE/../../harness/bin/ft-resume-cmd.sh"
 NONE='없음(좌석 종료 · 확인된 세션 매핑 없음 — 카드 정본으로 새로 연다)'
 fail=0
 ok()  { echo "PASS $1"; }

@@ -42,7 +42,7 @@ now() { date +%s; }
 mk_tsv() { local n i t; n=$(now); : > "$TSV"; for i in 0 1 2 3 4 5; do t=$((n-(5-i)*60)); printf '%s\t%s\t50\t1\t2303978\n' "$t" $(( $1 + $2*i )) >> "$TSV"; done; }
 rm_freeze() { rm -f "$FREEZE"; }
 # g <check|check --succession|status> — 기본 정상 값(오늘 실측: level 1·memfree 51·swap 6133·agents 35)에 env 로 덮어쓴다. OUT·RC
-g() { local a="$1"; shift; OUT="$(env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=35 "$@" bash "$REPO/scripts/fable-team-bin/ft-resource-gate.sh" $a 2>&1)"; RC=$?; }
+g() { local a="$1"; shift; OUT="$(env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=35 "$@" bash "$REPO/harness/bin/ft-resource-gate.sh" $a 2>&1)"; RC=$?; }
 # expect <이름> <rc> <출력 패턴(grep -E)>
 expect() { { [ "$RC" -eq "$2" ] && echo "$OUT" | grep -Eq "$3"; } && ok "$1" || bad "$1 rc=$RC want=$2 /$3/ OUT=$OUT"; }
 
@@ -120,7 +120,7 @@ printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' "$n" $((n-60)) > "$TSV"
 g check; expect "H1 시각 내림차순 → rc4 corrupt" 4 'pressure.tsv corrupt'
 printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' "$n" "$n" > "$TSV"
 g check; expect "H1 시각 차 0(두 줄 같은 시각) → rc4 corrupt" 4 'pressure.tsv corrupt'
-SAMP="$REPO/scripts/fable-team-bin/ft-resource-sample.sh"
+SAMP="$REPO/harness/bin/ft-resource-sample.sh"
 sm() { OUT="$(env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 "$@" bash "$SAMP" 2>&1)"; RC=$?; }
 for v in LEVEL SWAP MEM VM; do
   rm -f "$TSV"; sm FAKE_RC_$v=42
@@ -149,7 +149,7 @@ rm -f "$TSV"
 mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "probe 일반 agents99 gate rc3" 3 '^REJECT resource agents=99 limit=65$'
 # H3(r2) — 승계 면제 = NAME==OLD 계보 베이스#(N+1) ∧ OLD 가 명부 역할 키(_master 등) 값 ∧ OLD tmux 생존 (agents 99 로 일반 REJECT 되는 상황)
 mk_tsv 6133 0
-SUC="$REPO/scripts/fable-team-bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
+SUC="$REPO/harness/bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
 # R358: ft-successor-open.sh :39 의 arch-live 판정(R342)이 $FT_RES_ROOT/design/TEAMSET.md 를 읽는다 — 리포 정본을 복사해 심는다(가짜 표 손글씨 0).
 mkdir -p "$R/design" && cp "$REPO/design/TEAMSET.md" "$R/design/TEAMSET.md"
 # R361: R351 이후 --md 기본값은 gitref:origin/main:… 이라 git 저장소가 아닌 임시 루트 $R 에선 못 읽는다 — 복사해 둔 정본 파일을 FT_TEAMSET_MD 로 직접 가리킨다.
@@ -180,7 +180,7 @@ mv "$R/design/TEAMSET.md.off" "$R/design/TEAMSET.md"
 OLDN='alive-old#1'; NEWN='unrelated-new#9'; so FT_TEAMSET_MD= FAKE_HAS=0
 { [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'ERROR TEAMSET 읽기 실패 git rev-parse'; } && ok "H3 변이(FT_TEAMSET_MD 없음) → gitref 읽기 실패 rc1" || bad "H3 변이 FT_TEAMSET_MD 없음 rc=$RC $OUT"
 # 변이 — 계보 검사를 지운 successor-open 은 위 불일치 단언에서 «걸려야» 한다
-MUT="$T/mut"; mkdir -p "$MUT"; cp "$REPO"/scripts/fable-team-bin/ft-*.sh "$MUT"/
+MUT="$T/mut"; mkdir -p "$MUT"; cp "$REPO"/harness/bin/ft-*.sh "$MUT"/
 sed 's/\[ "\$NAME" = "\${BASH_REMATCH\[1\]}#\$((BASH_REMATCH\[2\]+1))" \]/true/' "$SUC" > "$MUT/ft-successor-open.sh"
 cmp -s "$MUT/ft-successor-open.sh" "$SUC" && bad "H3 변이 준비 실패(치환 0)" || {
   OLDN='alive-old#1'; NEWN='unrelated-new#9'; SUCX="$MUT/ft-successor-open.sh" so FAKE_HAS=0
@@ -220,7 +220,7 @@ conc() {
 }
 conc "$SAMP"
 { [ "$ROWS" = 2 ] && [ "$RA" = 0 ] && [ "$RB" = 0 ] && [ ! -d "$LK" ]; } && ok "r3 동시 교차 → 표본 2줄 유지·rc0·잠금 해제" || bad "r3 동시 교차 rows=$ROWS A=$RA B=$RB"
-MUT2="$T/mut2"; mkdir -p "$MUT2"; cp "$REPO"/scripts/fable-team-bin/ft-*.sh "$MUT2"/
+MUT2="$T/mut2"; mkdir -p "$MUT2"; cp "$REPO"/harness/bin/ft-*.sh "$MUT2"/
 sed 's/^until mkdir "\$LOCK" 2>\/dev\/null; do$/until true; do/' "$SAMP" > "$MUT2/ft-resource-sample.sh"
 cmp -s "$MUT2/ft-resource-sample.sh" "$SAMP" && bad "r3 변이 준비 실패(치환 0)" || {
   conc "$MUT2/ft-resource-sample.sh"
@@ -249,14 +249,14 @@ unlock; rm -f "$TSV"
 
 # 감시자 tick 이 샘플러를 부른다(가짜 측정·임시 루트·동결 문턱 밖 값)
 rm -f "$TSV"
-env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=35 FT_RES_SNAP_SEC=999999 FT_RECLAIM_PREVENT_SEC=0 bash "$REPO/scripts/fable-team-bin/ft-resource-watch.sh" tick >/dev/null 2>&1
+env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=35 FT_RES_SNAP_SEC=999999 FT_RECLAIM_PREVENT_SEC=0 bash "$REPO/harness/bin/ft-resource-watch.sh" tick >/dev/null 2>&1
 { [ -s "$TSV" ] && [ ! -f "$FREEZE" ]; } && ok "감시자 tick → pressure.tsv 1줄" || bad "감시자 tick 표본 없음"
 
 # 키트 사본 일치 · 감시자 줄 수 · bash -n · core.bare
 for f in ft-resource-gate.sh ft-resource-watch.sh ft-resource-sample.sh ft-resource-reclaim.sh ft-successor-open.sh; do
-  bash -n "$REPO/scripts/fable-team-bin/$f" && cmp -s "$REPO/scripts/fable-team-bin/$f" "$REPO/scripts/harness-install/fable-team/bin/$f" && ok "bash -n + 키트 cmp $f" || bad "$f"
+  bash -n "$REPO/harness/bin/$f" && cmp -s "$REPO/harness/bin/$f" "$REPO/harness/kit/fable-team/bin/$f" && ok "bash -n + 키트 cmp $f" || bad "$f"
 done
-[ "$(wc -l < "$REPO/scripts/fable-team-bin/ft-resource-watch.sh" | tr -d ' ')" -le 245 ] && ok "감시자 줄 수 ≤245" || bad "감시자 줄 수"
-grep -q '_rgsucc="--succession"' "$REPO/scripts/fable-team-bin/ft-successor-open.sh" && ok "successor-open 이 조건부 --succession" || bad "successor-open --succession"
+[ "$(wc -l < "$REPO/harness/bin/ft-resource-watch.sh" | tr -d ' ')" -le 245 ] && ok "감시자 줄 수 ≤245" || bad "감시자 줄 수"
+grep -q '_rgsucc="--succession"' "$REPO/harness/bin/ft-successor-open.sh" && ok "successor-open 이 조건부 --succession" || bad "successor-open --succession"
 [ "$(git -C "$REPO" config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare"
 echo "fail=$fail"; [ $fail -eq 0 ]

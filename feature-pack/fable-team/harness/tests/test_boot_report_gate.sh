@@ -3,7 +3,7 @@
 # 격리 큐(FT_MBOX_DIR) + 정본 사본 + 명부 픽스처 tests/fixtures/mbox_guard/succ_boot* — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
-SRC="$REPO/tools/comm-canonical"; FX="$REPO/tests/fixtures/mbox_guard"
+SRC="$REPO/harness/comm"; FX="$REPO/tests/fixtures/mbox_guard"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"

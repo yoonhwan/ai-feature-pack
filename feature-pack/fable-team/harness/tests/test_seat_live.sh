@@ -3,7 +3,7 @@
 # 가짜 tmux(FT_TMUX) · 임시 명부 디렉터리(FT_SEATS_DIR)만 쓴다 — 실제 tmux 세션·seats-*.json 은 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 GEN="$BIN/ft-seat-live.sh"; TBL="$BIN/ft-test-bundle-lint.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

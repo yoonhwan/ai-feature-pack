@@ -6,7 +6,7 @@ set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-ZC="$REPO/scripts/harness-install/zombie-clean"
+ZC="$REPO/harness/kit/zombie-clean"
 GUARD="$ZC/serena-guard.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
@@ -142,7 +142,7 @@ curls="$(wc -l < "$CURLN" | tr -d ' ')"
 grep -q 'SERENA_ENSURE_DEADLINE_S:-60' "$MCP" && ok "ensure 기본 마감 60s(총 70s 천장 안)" || bad "ensure 기본 마감값 없음"
 
 # LIVE-MAP: serena-mcp 는 ~/.claude/scripts · guard 는 skills 폴더 · install.sh 는 skip
-MAP="$REPO/scripts/harness-install/LIVE-MAP.tsv"
+MAP="$REPO/harness/kit/LIVE-MAP.tsv"
 has "$(grep -F 'zombie-clean/serena-mcp.sh' "$MAP")" '$HOME/.claude/scripts' "LIVE-MAP serena-mcp 행"
 has "$(grep -F 'zombie-clean/install.sh' "$MAP")" "skip" "LIVE-MAP install.sh skip 행"
 l_mcp="$(grep -n -F 'zombie-clean/serena-mcp.sh' "$MAP" | cut -d: -f1)"; l_all="$(grep -n -F 'zombie-clean/*.sh' "$MAP" | cut -d: -f1)"

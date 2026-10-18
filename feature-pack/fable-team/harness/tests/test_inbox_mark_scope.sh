@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-INBOX="$REPO/scripts/fable-team-bin/ft-inbox.sh"
+INBOX="$REPO/harness/bin/ft-inbox.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export FT_ROOT="$T/root"; mkdir -p "$FT_ROOT/.fable-team/state/inbox" "$FT_ROOT/.fable-team/comm/bodies"
 unset FT_SEAT TMUX_PANE

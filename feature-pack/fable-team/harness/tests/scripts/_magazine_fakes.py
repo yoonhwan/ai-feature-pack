@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-KIT = Path(__file__).resolve().parents[2] / "scripts" / "harness-install" / "slack-mirror"
+KIT = Path(__file__).resolve().parents[3] / "harness" / "kit" / "slack-mirror"
 if str(KIT) not in sys.path:
     sys.path.insert(0, str(KIT))
 

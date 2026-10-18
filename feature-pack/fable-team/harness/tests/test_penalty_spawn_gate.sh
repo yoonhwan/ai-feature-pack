@@ -4,7 +4,7 @@
 set -u   # pipefail 쓰지 않는다 — `cmd | grep -q` 가 SIGPIPE(141)로 거짓 FAIL 을 낸다
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/harness-install/fable-team/bin"
+BIN="$HERE/../../harness/kit/fable-team/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

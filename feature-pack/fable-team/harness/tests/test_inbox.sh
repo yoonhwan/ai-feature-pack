@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-INBOX="$REPO/scripts/fable-team-bin/ft-inbox.sh"
+INBOX="$REPO/harness/bin/ft-inbox.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export FT_ROOT="$T/root"; mkdir -p "$FT_ROOT/.fable-team/comm/bodies"
 MB="$FT_ROOT/.fable-team/comm/mailbox.jsonl"
@@ -160,14 +160,14 @@ AR2="$(ls "$Q/archive/$M"-*.jsonl)"; eq "보관된 옛 행 501 에도 via 키 �
 
 # 9) mbox.sh send: ingest 실패가 send rc·출력 불변 + 성공 시 큐 적재 (임시 comm 사본)
 C="$T/sendroot/.fable-team/comm"; mkdir -p "$C" "$T/sendroot/.fable-team/bin"
-cp "$REPO/tools/comm-canonical/mbox.sh" "$REPO/tools/comm-canonical/mbox_doorbell.sh" "$REPO/tools/comm-canonical/mbox_guard.sh" "$REPO/tools/comm-canonical/mbox_guard_goal.sh" "$REPO/tools/comm-canonical/"mbox*.py "$C/"
+cp "$REPO/harness/comm/mbox.sh" "$REPO/harness/comm/mbox_doorbell.sh" "$REPO/harness/comm/mbox_guard.sh" "$REPO/harness/comm/mbox_guard_goal.sh" "$REPO/harness/comm/"mbox*.py "$C/"
 export FT_MBOX_DIR="$C" FT_SEATS_JSON="$T/seats.json"; echo '{}' > "$T/seats.json"
 printf '#!/bin/sh\nexit 9\n' > "$T/sendroot/.fable-team/bin/ft-inbox.sh"
 OUT="$(FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#1 sender#1 "[판정 요청] 시험" 2>"$T/err")"; RC=$?
 eq "ingest 실패해도 send rc 0" "$RC" "0"
 echo "$OUT" | grep -q "QUEUED seq=" && ok "ingest 실패해도 QUEUED 출력 유지" || bad "QUEUED 출력 없음: $OUT"
 grep -q "WARN inbox ingest 실패" "$T/err" && ok "ingest 실패는 stderr WARN" || bad "WARN 없음"
-cp "$INBOX" "$REPO/scripts/fable-team-bin/ft-inbox.py" "$REPO/scripts/fable-team-bin/ft_inbox_core.py" "$T/sendroot/.fable-team/bin/"
+cp "$INBOX" "$REPO/harness/bin/ft-inbox.py" "$REPO/harness/bin/ft_inbox_core.py" "$T/sendroot/.fable-team/bin/"
 OUT2="$(FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#2 sender#2 "[판정 요청] 다른 시험" 2>/dev/null)"; RC=$?
 S2="$(echo "$OUT2" | sed -n 's/.*seq=\([0-9]*\).*/\1/p' | head -1)"
 eq "ingest 성공 send rc 0" "$RC" "0"
@@ -209,7 +209,7 @@ FT_INBOX_HAIKU="$T/haiku-fail2.sh" ing 712 "[a#1->$ME] 또 규칙표 밖 문장 
 for _ in $(seq 1 40); do grep -q "seq=712" "$FT_ROOT/.fable-team/state/hook-errors.log" 2>/dev/null && break; sleep 0.25; done
 eq "Haiku 2회 실패 → 미상 유지" "$(field "$Q/$M.jsonl" 712 cls)" "미상"
 grep "seq=712" "$FT_ROOT/.fable-team/state/hook-errors.log" | grep -q "BOOM-STDOUT-FRAG" && ok "오류 로그에 stdout 조각" || bad "오류 로그에 stdout 조각 없음"
-eq "haiku 기본 상한 7초 · 시간 초과도 1회 재시도 뒤 raise" "$(python3 - "$REPO/scripts/fable-team-bin" <<'PY'
+eq "haiku 기본 상한 7초 · 시간 초과도 1회 재시도 뒤 raise" "$(python3 - "$REPO/harness/bin" <<'PY'
 import os, subprocess, sys
 sys.path.insert(0, sys.argv[1])
 os.environ.pop("FT_INBOX_HAIKU_TIMEOUT", None)

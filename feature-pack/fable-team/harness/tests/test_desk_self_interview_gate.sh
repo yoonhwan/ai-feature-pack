@@ -3,7 +3,7 @@
 # 격리: 임시 루트(FT_ROOT) + 테스트 tmux 서버(-L 소켓) + 진짜 pty 클라이언트. 실 ~/.claude·실 tmux 서버 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/scripts/harness-install/hooks/desk-self-interview-gate.sh"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/hooks/desk-self-interview-gate.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
 

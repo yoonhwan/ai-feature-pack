@@ -8,7 +8,7 @@
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="$HERE/../../scripts/harness-install/fable-team/bin"
+KIT="$HERE/../../harness/kit/fable-team/bin"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

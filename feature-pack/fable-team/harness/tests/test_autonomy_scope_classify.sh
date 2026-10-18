@@ -3,7 +3,7 @@
 # 임시 origin(bare)+clone · gh 는 스텁 · 실 gh·실 원격·실 Redis 0 (GIT_* 환경 변수 안 건다 — BOOT 25)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; CLS="$BIN/autonomy_scope_classify.py"; LAND="$BIN/ft-merge-land.sh"
+BIN="$HERE/../../harness/bin"; CLS="$BIN/autonomy_scope_classify.py"; LAND="$BIN/ft-merge-land.sh"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
@@ -114,5 +114,5 @@ land 34 --approve-sha "$P34"; chmod 755 "$T/state/autonomy-scope"
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(printf '%s\n' "$out" | grep -c '^WARN 대리 승인 원장 기록 실패')" = 1 ] && [ "$(awk -F'\t' '{print $6}' "$LEDGER")" = "" ]; ck "원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변" $?
 
 [ "$(git -C "$W" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
-cmp -s "$BIN/ft-merge-land.sh" "$HERE/../../scripts/harness-install/fable-team/bin/ft-merge-land.sh" && cmp -s "$CLS" "$HERE/../../scripts/harness-install/fable-team/bin/autonomy_scope_classify.py"; ck "키트 사본 == scripts/fable-team-bin (cmp0)" $?
+cmp -s "$BIN/ft-merge-land.sh" "$HERE/../../harness/kit/fable-team/bin/ft-merge-land.sh" && cmp -s "$CLS" "$HERE/../../harness/kit/fable-team/bin/autonomy_scope_classify.py"; ck "키트 사본 == scripts/fable-team-bin (cmp0)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

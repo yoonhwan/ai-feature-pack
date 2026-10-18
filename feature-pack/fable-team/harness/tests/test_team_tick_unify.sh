@@ -9,7 +9,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-KIT="$REPO/scripts/fable-team-bin"; INST="$REPO/scripts/harness-install/fable-team/bin"
+KIT="$REPO/harness/bin"; INST="$REPO/harness/kit/fable-team/bin"
 TMP="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$TMP"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

@@ -4,8 +4,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-PUB="$ROOT/scripts/fable-team-bin/ft-board-publish.sh"
-TP="$ROOT/scripts/harness-install/slack-mirror/byz_thread_post.py"
+PUB="$ROOT/harness/bin/ft-board-publish.sh"
+TP="$ROOT/harness/kit/slack-mirror/byz_thread_post.py"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -144,7 +144,7 @@ rc="$(run_launchd "$PUB")"
 [ "$rc" = 0 ] && [ "$(grep -c '^update$' "$T/tp_calls")" = 1 ] && ! grep -q unbound "$T/err.txt" \
   && ok "ⓗ /bin/bash + POST_ARGS 미설정 → update 1회 · rc 0 · unbound 0" || bad "ⓗ rc=$rc err=$(cat "$T/err.txt")"
 # 변이 대조: 빈 배열 안전 꼴을 되돌리면 ⓗ 가 FAIL(unbound) 해야 한다
-mkdir -p "$T/mut"; cp "$ROOT"/scripts/fable-team-bin/ft_board_root.py "$T/mut/"
+mkdir -p "$T/mut"; cp "$ROOT"/harness/bin/ft_board_root.py "$T/mut/"
 sed 's/\${POST_ARGS\[@\]+"\${POST_ARGS\[@\]}"}/"${POST_ARGS[@]}"/' "$PUB" > "$T/mut/ft-board-publish.sh"
 grep -q 'update "${POST_ARGS\[@\]}"' "$T/mut/ft-board-publish.sh" || bad "변이 파일 생성 실패"
 export FT_BOARD_NOW="2026-10-12T09:00:00"; mkbody I 1 09:00; : > "$T/tp_calls"
@@ -152,7 +152,7 @@ rc="$(run_launchd "$T/mut/ft-board-publish.sh")"
 { [ "$rc" != 0 ] && grep -q unbound "$T/err.txt"; } && ok "변이 대조: 빈 배열 안전 꼴 되돌리면 ⓗ FAIL (rc=$rc unbound)" || bad "변이 대조: 되돌려도 ⓗ 통과(검사 무력) rc=$rc"
 
 # ⓘ 템플릿 ProgramArguments 첫 값 · env · StartInterval · RunAtLoad
-PL="$ROOT/scripts/harness-install/slack-mirror/com.byz.ft-board-publish.plist.template"
+PL="$ROOT/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template"
 python3 - "$PL" <<'PY3' && ok "ⓘ 템플릿: /opt/homebrew/bin/bash · ONLY_CHANGED=1 · StartInterval 300 · RunAtLoad false" || bad "ⓘ 템플릿 값"
 import plistlib, sys
 d = plistlib.load(open(sys.argv[1], "rb"))

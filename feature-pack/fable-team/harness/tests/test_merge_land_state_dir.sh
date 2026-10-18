@@ -2,7 +2,7 @@
 # test_merge_land_state_dir.sh — R253: 자율 상태 폴더 해석 = ft-autonomy.sh state-dir 한 곳 (설치 폴더 ≠ repo 픽스처 · FT_ROOT·FT_AUTONOMY_STATE_DIR unset · gh 는 스텁 · 실 원격 0)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }

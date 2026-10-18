@@ -3,7 +3,7 @@
 #   ①mic 1바퀴 ②api 1바퀴 ③멤버 있는 동안 2번째 가입 REJECT ④멤버 남은 채 세트 해제 REJECT ⑤장치 허가 중 두 번째 장치 요청 REJECT
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TOOL="$HERE/../../scripts/fable-team-bin/ft-press-permit.sh"
+TOOL="$HERE/../../harness/bin/ft-press-permit.sh"
 LIVE="$HERE/../../.fable-team/state/permits"
 fail=0
 ok()  { echo "PASS $1"; }

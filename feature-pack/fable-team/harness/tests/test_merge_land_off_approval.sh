@@ -2,7 +2,7 @@
 # test_merge_land_off_approval.sh — R336: 자율 OFF 에서도 착지 = 오빠 approve-merge 승인 파일 + log 한 줄 (임시 origin+clone · gh 스텁 · 가짜 state-dir · 실 PR·실 main 0)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; LAND="$BIN/ft-merge-land.sh"; AUT="$BIN/ft-autonomy.sh"
+BIN="$HERE/../../harness/bin"; LAND="$BIN/ft-merge-land.sh"; AUT="$BIN/ft-autonomy.sh"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }

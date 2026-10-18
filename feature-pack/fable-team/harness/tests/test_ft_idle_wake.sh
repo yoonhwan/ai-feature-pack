@@ -3,7 +3,7 @@
 # 격리: 대역 큐(mailbox.jsonl) · 대역 seat-status(상태 파일) · 대역 mbox(ring 호출 기록) · 테스트 tmux 서버(-L) · 가짜 시계(FT_IDLE_WAKE_NOW).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; SH="$ROOT/scripts/fable-team-bin/ft-idle-wake.sh"
+ROOT="$HERE/../.."; SH="$ROOT/harness/bin/ft-idle-wake.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
 
@@ -96,7 +96,7 @@ wake; [ "$(rings)" = 1 ]; ck "⑯b 다음 실행에 재시도 → ring 호출 1(
 wake; [ "$(rings)" = 0 ]; ck "⑯c 성공 뒤엔 다시 안 함" $?
 
 # ⑫ launchd plist 틀 — 60초 간격 · 자리표시자 2종만 · plutil lint
-PT="$ROOT/scripts/harness-install/launchd/com.byz.ft-idle-wake.plist.template"
+PT="$ROOT/harness/kit/launchd/com.byz.ft-idle-wake.plist.template"
 sed -e 's#__FT_BIN__#/x/bin#g' -e 's#__BYZ_ROOT__#/x#g' "$PT" > "$T/p.plist" 2>/dev/null
 plutil -lint "$T/p.plist" >/dev/null 2>&1 && grep -q '<key>StartInterval</key><integer>60</integer>' "$T/p.plist" && ! grep -q '__' "$T/p.plist"; ck "⑫ plist 틀: lint OK · StartInterval 60 · 자리표시자 완전 치환" $?
 

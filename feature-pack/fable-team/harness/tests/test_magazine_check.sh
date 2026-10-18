@@ -7,7 +7,7 @@
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -151,6 +151,6 @@ cp "$T/tk/bin/ft-tick.sh" "$T/tk/bin/ft-tick-orig.sh"; cp "$T/tk/bin/ft-tick-mut
 MUT="$(tickg "$T/tk/seats-main.json" FT_TICK_MAG_SEATS="$T/tk/seats-planner.json")"; cp "$T/tk/bin/ft-tick-orig.sh" "$T/tk/bin/ft-tick.sh"
 cmp -s "$T/tk/bin/ft-tick-mut.sh" "$T/tk/bin/ft-tick-orig.sh" && bad "ⓖe 변이 sed 가 아무것도 안 바꿈" || { [ -z "$MUT" ] && ok "ⓖe 변이(\$mseats→\$SEATS) → ⓖb «호출 1» FAIL 을 시험이 잡음" || bad "ⓖe 변이가 안 잡힘: $MUT"; }
 # ⓖf 원본·설치 키트 ft-tick.sh 동일
-cmp -s "$BIN/ft-tick.sh" "$HERE/../../scripts/harness-install/fable-team/bin/ft-tick.sh" && ok "ⓖf 원본·설치 키트 ft-tick.sh cmp 0" || bad "ⓖf 원본·키트 불일치"
+cmp -s "$BIN/ft-tick.sh" "$HERE/../../harness/kit/fable-team/bin/ft-tick.sh" && ok "ⓖf 원본·설치 키트 ft-tick.sh cmp 0" || bad "ⓖf 원본·키트 불일치"
 
 [ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

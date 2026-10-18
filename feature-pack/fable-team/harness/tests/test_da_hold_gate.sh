@@ -5,7 +5,7 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REPO="$HERE/../.."; BIN="$REPO/scripts/fable-team-bin"; KIT="$REPO/scripts/harness-install/fable-team/bin"; SRC="$REPO/tools/comm-canonical"
+REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"; SRC="$REPO/harness/comm"
 GATE="$KIT/ft_da_hold_gate.py"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/design"; printf '| 팀 | 폴더 | 팀장 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$T/design/TEAMS.md"   # R383: 린트가 planner·v65 폴더를 명단으로 푼다(lint 시험 cwd = $T)
@@ -205,7 +205,7 @@ rcls - claude; { [ "$RC" = 0 ] && grep -q '리서치 닫힘: s#0 .* kill rc=0' "
 
 # ── 8c. staged 문서 = 홈 원본 + 40번/§12 추가만 (삭제 줄 0) ──
 for pair in "$HOME/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md:COMM-GUIDE-BOOT.md" "$HOME/.claude/skills/fable-team/references/main-team-governance.md:main-team-governance.md"; do
-  hf="${pair%%:*}"; sf="$REPO/design/harness/staged-r387/${pair##*:}"
+  hf="${pair%%:*}"; sf="$REPO/harness/design/harness/staged-r387/${pair##*:}"
   if [ -f "$hf" ]; then n="$(diff "$hf" "$sf" | grep -c '^<')"; [ "$n" = 0 ] && ok "staged ${pair##*:}: 홈 대비 삭제 줄 0" || bad "staged ${pair##*:}: 홈 대비 삭제 $n 줄(홈이 바뀐 뒤 사본을 다시 뜬다)"; else echo "SKIP 홈 파일 없음 $hf"; fi
 done
 

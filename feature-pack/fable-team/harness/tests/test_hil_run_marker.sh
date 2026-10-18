@@ -3,7 +3,7 @@
 # 임시 HIL_DIR · 가짜 계획 · 가짜 mbox · 가짜 좌석표만 쓴다 — 실 /tmp/h* · 실 .fable-team/state · 실 mbox 0. 시험에 GIT_* 없음(env -i / env -u).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="${R186_BIN:-$HERE/../../scripts/harness-install/fable-team/bin}"
+SRC="${R186_BIN:-$HERE/../../harness/kit/fable-team/bin}"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -151,8 +151,8 @@ bash "$MD/h1" >/dev/null 2>&1
 ! sed -n 1p "$MD/h1.ran" 2>/dev/null | grep -qE '^[0-9]+$' && ok "변이: 시작 표식이 사라져 ⓐ 의 «h1.ran 1행 = 시작 epoch» 가 FAIL 한다" || bad "변이가 ⓐ 를 못 깬다"
 
 echo "== 키트 두 벌 cmp · core.bare"
-cmp -s "$HERE/../../scripts/fable-team-bin/ft-hil.sh" "$HERE/../../scripts/harness-install/fable-team/bin/ft-hil.sh" && ok "ft-hil.sh cmp 0" || bad "ft-hil.sh 키트 다름"
-cmp -s "$HERE/../../scripts/fable-team-bin/ft-tick.sh" "$HERE/../../scripts/harness-install/fable-team/bin/ft-tick.sh" && ok "ft-tick.sh cmp 0" || bad "ft-tick.sh 키트 다름"
+cmp -s "$HERE/../../harness/bin/ft-hil.sh" "$HERE/../../harness/kit/fable-team/bin/ft-hil.sh" && ok "ft-hil.sh cmp 0" || bad "ft-hil.sh 키트 다름"
+cmp -s "$HERE/../../harness/bin/ft-tick.sh" "$HERE/../../harness/kit/fable-team/bin/ft-tick.sh" && ok "ft-tick.sh cmp 0" || bad "ft-tick.sh 키트 다름"
 [ "$(git -C "$HERE" config --get core.bare)" = false ] && ok "core.bare = false" || bad "core.bare != false"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL $fail"; exit 1; }

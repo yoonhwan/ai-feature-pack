@@ -4,7 +4,7 @@
 # 변이 2: ⓐ형태 키 하나 뺀 복사본 → 형태 축 FAIL · ⓑ자리표시자 제외 지운 복사본 → 오탐 축 FAIL.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/scripts/harness-install/fable-team/templates/hooks"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export HOME="$T/home" FT_SECRET_LEAK_LOG="$T/leak.log" FT_SECRET_FALSEPOS_LOG="$T/falsepos.log"
 mkdir -p "$HOME"

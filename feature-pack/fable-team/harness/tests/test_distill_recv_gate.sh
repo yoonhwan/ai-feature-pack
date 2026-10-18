@@ -4,7 +4,7 @@
 # transcript fixture 로 토큰 값을 주고, 가짜 tmux(PATH 앞)로 좌석명을 준다 — 실 세션·홈·명부 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-HOOK="$HERE/../../scripts/harness-install/fable-team/templates/hooks/context-distill-gate.sh"
+HOOK="$HERE/../../harness/kit/fable-team/templates/hooks/context-distill-gate.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

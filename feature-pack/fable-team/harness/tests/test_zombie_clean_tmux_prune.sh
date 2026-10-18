@@ -4,7 +4,7 @@
 # 시험 대상은 ZC_SCRIPT 로 바꿀 수 있다(RED 확인용 · 기본 = 리포 추적본).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ZC="${ZC_SCRIPT:-$HERE/../../scripts/harness-install/zombie-clean/zombie-clean.sh}"
+ZC="${ZC_SCRIPT:-$HERE/../../harness/kit/zombie-clean/zombie-clean.sh}"
 fail=0; pass=0
 ok()  { echo "PASS $1"; pass=$((pass+1)); }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

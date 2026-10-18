@@ -2,7 +2,7 @@
 # test_index_lint_conditional.sh — ft-index-lint 「마지막 판정 HOLD + planner 조건부 승인」 예외 시험(판정 1206·1219). 임시 리포에서만 돈다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LINT="$HERE/../../scripts/harness-install/fable-team/bin/ft-index-lint.sh"
+LINT="$HERE/../../harness/kit/fable-team/bin/ft-index-lint.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

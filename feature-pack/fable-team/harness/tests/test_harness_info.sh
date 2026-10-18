@@ -2,7 +2,7 @@
 # test_harness_info.sh — ft-harness-info.sh 조회 명령 시험: usage·map(없으면 REJECT)·rules·seats(가짜 tmux)·find. 읽기 전용.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-S="$HERE/../../scripts/fable-team-bin/ft-harness-info.sh"
+S="$HERE/../../harness/bin/ft-harness-info.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

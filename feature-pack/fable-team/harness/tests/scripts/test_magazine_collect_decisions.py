@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-KIT = Path(__file__).resolve().parents[2] / "scripts" / "harness-install" / "slack-mirror"
+KIT = Path(__file__).resolve().parents[3] / "harness" / "kit" / "slack-mirror"
 sys.path.insert(0, str(KIT))
 import magazine_collect_decisions as md  # noqa: E402
 

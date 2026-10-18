@@ -77,7 +77,7 @@ bash "$TANK" label 88 --add approved --apply >/dev/null 2>&1; eq "label 성공 �
 lacks "이미 닫힘 재실행 = close 재수행 0" "$(cat "$STUB_LOG")" "issue close"; eq "재실행 = dup(행 2 그대로)" "$(rows)" 2
 
 # 훅 연결 — mbox: 머리 3종만 1행(본문은 안 읽음) · 일반 쪽지 0행
-new_root; export FT_MBOX_DIR="$FT_ROOT/.fable-team/comm"; MB="$BIN/../harness-install/fable-team/bin/ft-mbox.sh"
+new_root; export FT_MBOX_DIR="$FT_ROOT/.fable-team/comm"; MB="$BIN/../kit/fable-team/bin/ft-mbox.sh"
 bash "$MB" send p-master#1 h-master#1 "[정지 레디] 끝 ZZ-body-9" >/dev/null 2>&1; bash "$MB" send p-master#1 h-master#1 "[완료·휴식] 끝" >/dev/null 2>&1
 bash "$MB" send p-master#1 h-master#1 "그냥 쪽지" >/dev/null 2>&1
 eq "mbox: 머리 3종만 → 행 2" "$(rows)" 2; lacks "mbox: 본문 안 읽음" "$(cat "$FB/state/sheet-events.jsonl")" "ZZ-body-9"
@@ -124,7 +124,7 @@ K="$(bash "$SE" key issue-close 5)"; bash "$SE" prepare "$K" "$(jsonof issue-clo
 STUB_STATE=CLOSED bash "$SE" reconcile --confirm >/dev/null 2>&1; eq "F3 confirm(gh CLOSED) 승격 → 행 1" "$(rows)" 1
 
 # ── fix2 F6 — 라이브 진입점 = 정본 tools/comm-canonical/mbox.sh : 머리 3종만 훅 · 헬퍼 부재 시 send rc 0 + stderr 1줄
-CANON="$HERE/../../tools/comm-canonical"
+CANON="$HERE/../../harness/comm"
 canon_env() { # canon_env <헬퍼 설치 여부 1|0>
   new_root; CE="$T/canon$NROOT"; mkdir -p "$CE/comm" "$CE/bin" "$CE/seats"; cp "$CANON"/mbox*.py "$CANON"/mbox*.sh "$CE/comm/"; git -C "$CE" init -q
   echo '{}' > "$CE/seats/seats.json"; echo '{}' > "$CE/seats/seats-planner.json"

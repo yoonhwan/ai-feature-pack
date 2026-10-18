@@ -2,7 +2,7 @@
 # test_mbox_py_link_import.sh — 라이브 꼴 링크 배치(<root>/.fable-team/comm/mbox.py → <root>/.claude/fable-team/bin/mbox.py · 모듈은 bin 에만)에서
 # CLI 왕복 + «comm 폴더를 sys.path 에 넣고 import mbox» 가 둘 다 되고 CANON = <root>/.fable-team/comm 인지 본다(DA r1 Q2 · mbox-py-split-200). 라이브 쓰기 0.
 set -uo pipefail
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; SRC="${MBOX_PY_DIR:-$HERE/../../tools/comm-canonical}"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; SRC="${MBOX_PY_DIR:-$HERE/../../harness/comm}"
 T="$(mktemp -d)"; R="$T/root"; fail=0
 ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 mkdir -p "$R/.fable-team/comm" "$R/.claude/fable-team/bin"; git -C "$R" init -q

@@ -5,8 +5,8 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
-RETIRE="$HERE/../../scripts/fable-team-bin/ft-seat-retire.sh"
+SRC="$HERE/../../harness/kit/fable-team/bin"
+RETIRE="$HERE/../../harness/bin/ft-seat-retire.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 export ZC_RESUME_DIR="$T/resume"   # 재개 기록은 임시 폴더로(실 ~/.claude 0)
 fail=0

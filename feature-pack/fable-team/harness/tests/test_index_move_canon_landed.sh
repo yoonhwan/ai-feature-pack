@@ -3,7 +3,7 @@
 # 임시 git 리포(main 흉내)·가짜 mbox·카드/판정문 픽스처만 — 실제 indices·판정서·seats.json·mbox 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRCDIR="$HERE/../../scripts/fable-team-bin"
+SRCDIR="$HERE/../../harness/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

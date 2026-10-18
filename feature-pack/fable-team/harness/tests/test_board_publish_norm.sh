@@ -4,8 +4,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-PUB="${NORM_PUB:-$ROOT/scripts/fable-team-bin/ft-board-publish.sh}"
-PL="$ROOT/scripts/harness-install/slack-mirror/com.byz.ft-board-publish.plist.template"
+PUB="${NORM_PUB:-$ROOT/harness/bin/ft-board-publish.sh}"
+PL="$ROOT/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -53,10 +53,10 @@ mutn "s# -e 's/\\\\(턴 끝 ([^']*'##" "- s#0 대기열 있음(턴 끝 00:58)" "
   && bad "변이: 턴 끝 규칙 제거해도 ⓚ 둘째 쌍 같음(검사 무력)" || ok "변이: 턴 끝 규칙 제거 → ⓚ 둘째 쌍이 달라짐(FAIL 감지 가능)"
 
 # ⓜ 발행 본문 불변: HEAD 의 옛 스크립트와 새 스크립트가 같은 입력에서 published.txt 바이트 동일
-if git -C "$ROOT" cat-file -e HEAD:scripts/fable-team-bin/ft-board-publish.sh 2>/dev/null; then
+if git -C "$ROOT" cat-file -e HEAD:feature-pack/fable-team/harness/bin/ft-board-publish.sh 2>/dev/null; then
   mkdir -p "$T/old" "$T/new" "$T/stub"
-  cp "$ROOT"/scripts/fable-team-bin/ft_board_root.py "$T/old/"; cp "$ROOT"/scripts/fable-team-bin/ft_board_root.py "$T/new/"
-  git -C "$ROOT" show HEAD:scripts/fable-team-bin/ft-board-publish.sh > "$T/old/ft-board-publish.sh"; cp "$PUB" "$T/new/ft-board-publish.sh"
+  cp "$ROOT"/harness/bin/ft_board_root.py "$T/old/"; cp "$ROOT"/harness/bin/ft_board_root.py "$T/new/"
+  git -C "$ROOT" show HEAD:feature-pack/fable-team/harness/bin/ft-board-publish.sh > "$T/old/ft-board-publish.sh"; cp "$PUB" "$T/new/ft-board-publish.sh"
   printf '#!/usr/bin/env bash\ncase "$1" in render) cat "%s/body.txt";; snapshot) echo "{\\"snap\\":\\"a→a\\",\\"changes\\":[],\\"prev_day_last\\":null}";; *) exit 0;; esac\n' "$T" > "$T/stub/fb"
   chmod +x "$T/stub/fb"; printf 'import sys\n' > "$T/stub/tp.py"
   python3 - > "$T/body.txt" <<'PY'

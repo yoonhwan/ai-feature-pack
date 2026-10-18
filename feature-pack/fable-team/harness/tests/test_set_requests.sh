@@ -4,7 +4,7 @@
 #   ③ 전 상태 불일치 → 적용 0(MISMATCH)   ④ close 일부 실패 → 보류 — close 실패 · 닫힘 아님   임시 git 리포에서만 돈다(원격 0).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SETS="$HERE/../../scripts/harness-install/sets/ft-sets.sh"
+SETS="$HERE/../../harness/kit/sets/ft-sets.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

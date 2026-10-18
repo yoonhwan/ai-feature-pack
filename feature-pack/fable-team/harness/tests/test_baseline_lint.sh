@@ -3,7 +3,7 @@
 # 가짜 seats·임시 카드·가짜 ft-index-lint 만 쓴다 — --dry-run 이라 spawn·gh·카드 수정 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

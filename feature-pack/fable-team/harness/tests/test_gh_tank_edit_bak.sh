@@ -4,10 +4,10 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$(cd -- "$HERE/../.." && pwd)"
-BIN="$ROOT/scripts/fable-team-bin"
+BIN="$ROOT/harness/bin"
 WRAP="$BIN/ft-gh-as-tank.sh"
 BODY="$BIN/ft-gh-tank-edit-bak.sh"
-KIT="$ROOT/scripts/harness-install/fable-team/bin"
+KIT="$ROOT/harness/kit/fable-team/bin"
 BASE_SHA="abf90e322108d6d1c1a780257deb0b7d9a4104f1"
 fail=0
 ok()  { echo "PASS $1"; }

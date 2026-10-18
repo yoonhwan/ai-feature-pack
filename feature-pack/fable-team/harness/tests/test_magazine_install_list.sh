@@ -5,7 +5,7 @@
 # 변이: REQUIRED 에서 magazine_collect_open.py · mirror_lib.py · magazine_doc_md.py 를 각각 뺀 복사본은 rc=1 이어야 한다. 실 ~/.hermes·launchd 는 건드리지 않는다(읽기 전용).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="$HERE/../../scripts/harness-install/slack-mirror"
+KIT="$HERE/../../harness/kit/slack-mirror"
 PY="${PYTHON:-$HERE/../../.venv/bin/python}"; [ -x "$PY" ] || PY="python3"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

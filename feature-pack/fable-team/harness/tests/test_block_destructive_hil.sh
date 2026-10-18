@@ -4,7 +4,7 @@
 # ①은 훅·판정기를 임시 폴더에 복사해 그 옆 hil-paths.txt 로 시험한다(홈 훅·홈 파일 0).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${BD_KIT:-$HERE/../../scripts/harness-install/fable-team/templates/hooks}"
+KIT="${BD_KIT:-$HERE/../../harness/kit/fable-team/templates/hooks}"
 T="$(mktemp -d)"
 trap '[ -n "$T" ] && rm -rf "$T"' EXIT
 mkdir -p "$T/hooks" "$T/bin" "$T/evil" "$T/repo"
@@ -113,7 +113,7 @@ pas "echo 'git worktree remove 글자'"
 HOOK="$T/hooks/block-destructive.sh"
 
 # 설치 스크립트: --apply 가 hil-paths.txt 를 쓰고(realpath 줄) · dry-run 은 쓰지 않는다 (임시 홈)
-KITDIR="$(cd "$KIT/.." && pwd)"; [ -f "$KITDIR/install.sh" ] || KITDIR="$HERE/../../scripts/harness-install/fable-team"
+KITDIR="$(cd "$KIT/.." && pwd)"; [ -f "$KITDIR/install.sh" ] || KITDIR="$HERE/../../harness/kit/fable-team"
 H="$T/home"; mkdir -p "$H/.claude/hooks"
 bash "$KITDIR/install.sh" --home "$H" --team t >/dev/null 2>&1
 if [ ! -e "$H/.claude/hooks/hil-paths.txt" ]; then echo "PASS [inst] dry-run 목록 0"; else echo "FAIL [inst] dry-run 이 목록을 썼다"; fail=$((fail+1)); fi

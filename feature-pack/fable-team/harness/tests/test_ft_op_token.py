@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-KIT_BIN = ROOT / "scripts/harness-install/fable-team/bin"
+KIT_BIN = ROOT / "harness/kit/fable-team/bin"
 TOOL = KIT_BIN / "ft-op-token.sh"
-STAGED = ROOT / "design/harness/staged-675"
+STAGED = ROOT / "harness/design/harness/staged-675"
 EMAIL = "tester@example.test"
 PASSWORD = "Pw-fake-12345"
 KEY = "fake-publishable-key"

@@ -2,7 +2,7 @@
 # test_merge_gate.sh — ft-merge-gate.sh 게이트 시험 (R230 · 임시 origin+clone 픽스처만)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; GATE="$BIN/ft-merge-gate.sh"
+BIN="$HERE/../../harness/bin"; GATE="$BIN/ft-merge-gate.sh"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:260}"; fail=$((fail+1)); fi; }

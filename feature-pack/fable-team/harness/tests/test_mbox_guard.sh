@@ -4,8 +4,8 @@
 # 임시 폴더에 정본 mbox*.py·mbox*.sh 를 복사해 격리 큐(FT_MBOX_DIR)로만 돈다 — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
-SRC="$REPO/tools/comm-canonical"; FX="$REPO/tests/fixtures/mbox_guard"
-RETIRE="$REPO/scripts/fable-team-bin/ft-seat-retire.sh"
+SRC="$REPO/harness/comm"; FX="$REPO/tests/fixtures/mbox_guard"
+RETIRE="$REPO/harness/bin/ft-seat-retire.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
@@ -154,7 +154,7 @@ new_env ok; send_as 'byz-planner-master-claude#9' "$(printf '[HIL] 막힌 명령
 [ "$RC" = 0 ] && [ "$(queued_to 'byz-planner-master-claude#9')" = 1 ] && ok "R106: ①막힌 명령 원문 + ! bash /tmp/h7 = 전송" || bad "R106 정상 꼴 rc=$RC :: $OUT"
 
 # ── 10. R320 spawn 정지 쪽지 — 정지 선언은 머리 `[spawn 정지]` 하나뿐 · 같은 본문의 hold=<판정 번호> 를 ft-spawn-hold.sh status --check 와 «같은 판정기» 로 검사
-HOLD_SH="$REPO/scripts/fable-team-bin/ft-spawn-hold.sh"
+HOLD_SH="$REPO/harness/bin/ft-spawn-hold.sh"
 printf '#!/bin/bash\ncat "%s/hold-gate.status"\n' "$T" > "$T/stub/hold-gate.sh"; chmod +x "$T/stub/hold-gate.sh"
 hgate() { echo "disk=105 swap=$1 memfree=39 level=2 rate=96 agents=49 freeze=0" > "$T/hold-gate.status"; }
 hold_env() { new_env ok; mkdir -p "$ENVROOT/.fable-team/bin"; cp "$HOLD_SH" "$ENVROOT/.fable-team/bin/"; }

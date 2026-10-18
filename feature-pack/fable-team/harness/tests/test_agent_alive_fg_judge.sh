@@ -7,8 +7,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-AL="$REPO/tools/comm-canonical/ft-agent-alive.sh"; DB="$REPO/tools/comm-canonical/mbox_doorbell.sh"
-KIT="$REPO/scripts/fable-team-bin"; INST="$REPO/scripts/harness-install/fable-team/bin"
+AL="$REPO/harness/comm/ft-agent-alive.sh"; DB="$REPO/harness/comm/mbox_doorbell.sh"
+KIT="$REPO/harness/bin"; INST="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

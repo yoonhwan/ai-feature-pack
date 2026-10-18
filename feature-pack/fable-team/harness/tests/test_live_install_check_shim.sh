@@ -4,7 +4,7 @@
 # 임시 HOME·임시 git 리포(= 임시 루트)·가짜 라이브 bin 만 — 실 라이브·실 원격·press·Redis 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; KITMAP="$HERE/../../scripts/harness-install/LIVE-MAP.tsv"
+BIN="$HERE/../../harness/bin"; KITMAP="$HERE/../../harness/kit/LIVE-MAP.tsv"
 CHK="$BIN/ft-live-install-check.sh"; SHIM="$BIN/ft-root-bin-shim.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:500}"; fail=$((fail+1)); fi; }

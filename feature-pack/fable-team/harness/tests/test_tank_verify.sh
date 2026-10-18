@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_tank_verify.sh — ft-tank-verify.sh 5단계 시험 (가짜 gh · 네트워크 0)
 set -uo pipefail
-HERE="$(cd -- "$(dirname -- "$0")" && pwd)"; BIN="$HERE/../../scripts/fable-team-bin"
+HERE="$(cd -- "$(dirname -- "$0")" && pwd)"; BIN="$HERE/../../harness/bin"
 T="$(mktemp -d)"; trap 'find "$T" -mindepth 1 -delete 2>/dev/null; rmdir "$T" 2>/dev/null' EXIT
 pass=0; fail=0
 ok() { echo "PASS $1"; pass=$((pass+1)); }

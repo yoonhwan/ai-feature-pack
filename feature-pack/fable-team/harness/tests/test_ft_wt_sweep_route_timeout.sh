@@ -5,8 +5,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-SWEEP="$ROOT/scripts/fable-team-bin/ft-wt-sweep.sh"
-TICK="$ROOT/scripts/fable-team-bin/ft-tick.sh"
+SWEEP="$ROOT/harness/bin/ft-wt-sweep.sh"
+TICK="$ROOT/harness/bin/ft-tick.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -111,7 +111,7 @@ chk "ⓔ 팀 2개 → 2통" "$(wc -l < "$X/m.log" | tr -d ' ')" 2
 body="$(sed 's/^to=[^ ]* body=//' "$X/l.log")"
 case "$body" in '[HIL] [라우팅 실패 loom] 워크트리 정리'*) ok "ⓕ 본문 = [HIL] [라우팅 실패 loom] 워크트리 정리 …";; *) bad "ⓕ 본문 머리 순서 :: ${body:0:60}";; esac
 G="$TMP/g"; mkdir -p "$G/.fable-team/comm" "$G/.fable-team/state" "$G/seats" "$G/stub"
-cp "$ROOT"/tools/comm-canonical/mbox*.py "$ROOT"/tools/comm-canonical/mbox*.sh "$ROOT"/tools/comm-canonical/bang_command_check.py "$G/.fable-team/comm/"
+cp "$ROOT"/harness/comm/mbox*.py "$ROOT"/harness/comm/mbox*.sh "$ROOT"/harness/comm/bang_command_check.py "$G/.fable-team/comm/"
 git -C "$G" init -q; cp "$ROOT"/tests/fixtures/mbox_guard/ok/seats*.json "$G/seats/"
 printf '#!/bin/sh\nexit 1\n' > "$G/stub/tmux"; chmod +x "$G/stub/tmux"
 guard() { ( cd "$G" && env PATH="$G/stub:$PATH" FT_SEATS_JSON="$G/seats/seats.json" FT_PLANNER_HEAD_MODE=reject FT_MBOX_DIR="$G/.fable-team/comm" \

@@ -5,7 +5,7 @@
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REPO="$HERE/../.."; BIN="${R347_BIN:-$REPO/scripts/fable-team-bin}"; KIT="$REPO/scripts/harness-install/fable-team/bin"
+REPO="$HERE/../.."; BIN="${R347_BIN:-$REPO/harness/bin}"; KIT="$REPO/harness/kit/fable-team/bin"
 T0="$(mktemp -d)"; T="$(cd "$T0" && pwd -P)"; MARK="leakmark_$$_$RANDOM"; PGIDS=""; DP=""
 # ★정리 주체★ 정상·INT·TERM·HUP·QUIT 종료 = 이 trap 이 «이 시험이 만든» 프로세스 그룹(PGID)만 TERM→1s→KILL. 외부 SIGKILL 시에는 trap 이 없다 — 그때 정리 주체 = 머신 가드(launchd ft-leak-reap).
 cleanup() {

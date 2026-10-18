@@ -3,7 +3,7 @@
 # 임시 HOME·임시 git 리포·가짜 launchctl/ps 만 — 실 라이브(~/.hermes·~/.claude·FT_BIN)·실 원격·실 gh 0. press 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; KITMAP="$HERE/../../scripts/harness-install/LIVE-MAP.tsv"
+BIN="$HERE/../../harness/bin"; KITMAP="$HERE/../../harness/kit/LIVE-MAP.tsv"
 CHK="$BIN/ft-live-install-check.sh"; LAND="$BIN/ft-merge-land.sh"; GATE="$BIN/ft-index-move-install.sh"; PEND="$BIN/ft-install-pending.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:400}"; fail=$((fail+1)); fi; }
@@ -158,7 +158,7 @@ grep -q 'ft-index-move-install' "$BIN/ft-index-move.sh"; ck "ft-index-move.sh �
 [ "$(wc -l < "$GATE" 2>/dev/null | tr -d ' ')" -le 60 ]; ck "ft-index-move-install.sh ≤ 60줄" $?
 
 # ── 린트 ⑥: 하네스 카드 「- 설치:」 줄 ──────────────────────────────────────────
-LINT="$HERE/../../scripts/harness-install/fable-team/bin/ft-index-lint.sh"
+LINT="$HERE/../../harness/kit/fable-team/bin/ft-index-lint.sh"
 LR="$T/lintrepo"; mkdir -p "$LR/design/harness/indices/대기" "$LR/design/other/indices/대기" "$LR/src"; git -C "$LR" init -q -b main .
 printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| other | `design/other/` | o | 현역 |\n' > "$LR/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
 G1='골 첫 줄 시험용 문장이다.'; G2='골 둘째 줄 시험용 문장이다.'; G3='골 셋째 줄 시험용 문장이다.'

@@ -2,8 +2,8 @@
 # test_team_upgrade.sh — ft-team-upgrade.sh: 팀 틀 버전 비교 + 일괄 패치(R368). 임시 git 리포 픽스처만 — 실제 design/·명부 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRCDIR="$HERE/../../scripts/fable-team-bin"
-KIT="$HERE/../../scripts/harness-install/fable-team"
+SRCDIR="$HERE/../../harness/bin"
+KIT="$HERE/../../harness/kit/fable-team"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

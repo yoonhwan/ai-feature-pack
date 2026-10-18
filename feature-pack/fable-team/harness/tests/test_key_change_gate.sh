@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-HOOKDIR="$REPO/scripts/harness-install/fable-team/templates/hooks"
+HOOKDIR="$REPO/harness/kit/fable-team/templates/hooks"
 HOOK="$HOOKDIR/key-change-gate.sh"
 S="$REPO/.claude/skills/byz-keys/scripts"
 T="$(mktemp -d)"; trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT

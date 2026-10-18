@@ -6,7 +6,7 @@ export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임�
 # shellcheck source=_proposal_issue_env.sh
 . "$(dirname "${BASH_SOURCE[0]:-$0}")/_proposal_issue_env.sh"
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
-KIT="$HERE/../../scripts/harness-install/fable-team/bin"
+KIT="$HERE/../../harness/kit/fable-team/bin"
 for f in "$KIT"/ft-{nano-spawn,proposal-gate,gh-as-tank}.sh; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
 
 # ── spawn --dry-run: lint 는 항상 통과하는 가짜 · 게이트는 진짜 · gh 는 가짜 ──

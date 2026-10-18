@@ -5,9 +5,9 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-HOOKDIR="$ROOT/scripts/harness-install/fable-team/templates/hooks"
+HOOKDIR="$ROOT/harness/kit/fable-team/templates/hooks"
 HOOK="${BD_HOOK:-$HOOKDIR/block-destructive.sh}"
-WRAP="${FP_WRAP:-$ROOT/scripts/fable-team-bin/ft-fp-run.sh}"
+WRAP="${FP_WRAP:-$ROOT/harness/bin/ft-fp-run.sh}"
 T="$(mktemp -d)"
 trap '[ -n "$T" ] && rm -rf "$T"' EXIT
 R="$(cd "$T" && pwd -P)/root"

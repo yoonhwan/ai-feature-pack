@@ -3,7 +3,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-INBOX="$REPO/scripts/fable-team-bin/ft-inbox.sh"
+INBOX="$REPO/harness/bin/ft-inbox.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export FT_ROOT="$T/root"; mkdir -p "$FT_ROOT/.fable-team/state/inbox" "$FT_ROOT/.fable-team/comm/bodies"
 Q="$FT_ROOT/.fable-team/state/inbox"
@@ -82,7 +82,7 @@ r=[json.loads(l) for l in open(sys.argv[1])]
 print(all(x["waived"]["by"]==sys.argv[2] and x["reported"] is False for x in r))' "$AR" "$WHY")" "True"
 
 # ⓕ 면제 없는 줄: 술어가 옛 식과 전 조합 같음 + show·archive 출력이 옛 동작 골든과 바이트 같음
-eq "ⓕ 술어 전 조합(mark×cls×reported×waived키 없음/None)이 옛 식과 같음" "$(python3 - "$REPO/scripts/fable-team-bin" <<'PY'
+eq "ⓕ 술어 전 조합(mark×cls×reported×waived키 없음/None)이 옛 식과 같음" "$(python3 - "$REPO/harness/bin" <<'PY'
 import itertools, sys
 sys.path.insert(0, sys.argv[1])
 from ft_inbox_core import CLS, MUST_REPORT, obligation_closed
@@ -113,8 +113,8 @@ bash "$INBOX" archive "$ME" | grep -q "ARCHIVED 0 KEPT 2" && ok "ⓖ 묶음 arch
 # 기존 시험 + 키트 사본 동기 + 구문
 bash "$HERE/test_kit_bin_sync.sh" >/dev/null 2>&1 && ok "test_kit_bin_sync.sh PASS" || bad "test_kit_bin_sync.sh FAIL"
 for f in ft_inbox_core.py ft-inbox.py; do
-  cmp -s "$REPO/scripts/fable-team-bin/$f" "$REPO/scripts/harness-install/fable-team/bin/$f" && ok "키트 사본 바이트 같음 $f" || bad "키트 사본 다름 $f"
-  [ "$(wc -l < "$REPO/scripts/fable-team-bin/$f")" -le 200 ] && ok "$f 200줄 이하" || bad "$f 200줄 초과"
+  cmp -s "$REPO/harness/bin/$f" "$REPO/harness/kit/fable-team/bin/$f" && ok "키트 사본 바이트 같음 $f" || bad "키트 사본 다름 $f"
+  [ "$(wc -l < "$REPO/harness/bin/$f")" -le 200 ] && ok "$f 200줄 이하" || bad "$f 200줄 초과"
 done
 
 echo "RESULT fail=$fail"

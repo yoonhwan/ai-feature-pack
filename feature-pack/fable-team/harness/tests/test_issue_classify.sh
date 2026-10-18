@@ -3,7 +3,7 @@
 # fixture JSON 과 --dry-run 만 쓴다 — gh 쓰기·mbox 발신·--apply 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 FX="$HERE/../fixtures/issue_classify"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export FT_NOW=1791244800   # 2026-10-06T00:00:00Z — fixture 생성 2026-10-04T00:00:00Z 와 정확히 2일

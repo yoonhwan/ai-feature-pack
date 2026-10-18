@@ -3,8 +3,8 @@
 # 임시 git 리포만 쓴다 — 실제 리포·seats·tmux·원격 0. 스크립트의 «R196 블록» 을 잘라 eval 한다(test_nano_close_sha_base.sh 꼴).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
-TRK="$HERE/../../scripts/fable-team-bin"
+SRC="$HERE/../../harness/kit/fable-team/bin"
+TRK="$HERE/../../harness/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

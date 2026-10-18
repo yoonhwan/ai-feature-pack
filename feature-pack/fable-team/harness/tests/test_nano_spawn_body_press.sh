@@ -3,8 +3,8 @@
 # 두 사본(추적본·키트)의 ^BODY= 줄을 읽는다. spawn 의 --dry-run 은 BODY 를 출력하지 않아 정적 grep 이 유일한 관측점이다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TRACKED="$HERE/../../scripts/fable-team-bin/ft-nano-spawn.sh"
-KIT="$HERE/../../scripts/harness-install/fable-team/bin/ft-nano-spawn.sh"
+TRACKED="$HERE/../../harness/bin/ft-nano-spawn.sh"
+KIT="$HERE/../../harness/kit/fable-team/bin/ft-nano-spawn.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

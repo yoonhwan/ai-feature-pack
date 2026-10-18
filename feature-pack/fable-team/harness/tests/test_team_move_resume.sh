@@ -4,7 +4,7 @@
 #   기대: 13팀 한 번에 → PARTIAL rc3(pending_teams 기록) → 같은 호출 N회 → 마지막 rc0 · MOVED 13 · pending=[] · 이동 커밋 13개(중복 0) · 스냅샷 폴더마다 따로(앞 스냅샷 바이트 불변)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/fable-team-bin"
+SRC="$HERE/../../harness/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 fail=0

@@ -3,7 +3,7 @@
 # mktemp 홈만 쓴다(실 ~/.claude 미접촉). block-destructive 템플릿은 실 홈 파일과 cmp(있을 때만).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="$HERE/../../scripts/harness-install/fable-team"
+KIT="$HERE/../../harness/kit/fable-team"
 INSTALL="$KIT/install.sh"
 fail=0
 ok()  { echo "PASS $1"; }

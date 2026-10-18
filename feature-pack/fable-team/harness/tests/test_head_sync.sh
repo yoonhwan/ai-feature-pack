@@ -2,7 +2,7 @@
 # test_head_sync.sh — ft-head-sync.sh 최신화 도구 시험 (R230 · 임시 origin+clone+워크트리 픽스처만)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; SYNC="$BIN/ft-head-sync.sh"
+BIN="$HERE/../../harness/bin"; SYNC="$BIN/ft-head-sync.sh"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }

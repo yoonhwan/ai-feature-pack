@@ -4,7 +4,7 @@
 # 축 ⓐ 일치 계획 = 기존 결과 그대로 ⓑ 생성기 1바이트 수정·삭제·hash 실패 = STALE 1줄 exit 3 + 손 0 ⓓ sweep 경로 STALE 불변 ⓔ 다른 cwd·심링크 실행도 같은 결과 ⓕ 키트 2곳 cmp 0 · 변이 2
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
+SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -12,7 +12,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 has()  { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:400}";; esac; }
 
 echo "== ⓕ 키트 2곳 같은 바이트 + bash -n"
-cmp -s "$HERE/../../scripts/fable-team-bin/ft-nano-close.sh" "$SRC/ft-nano-close.sh" && ok "cmp ft-nano-close.sh (fable-team-bin == harness-install)" || bad "cmp ft-nano-close.sh 다름"
+cmp -s "$HERE/../../harness/bin/ft-nano-close.sh" "$SRC/ft-nano-close.sh" && ok "cmp ft-nano-close.sh (fable-team-bin == harness-install)" || bad "cmp ft-nano-close.sh 다름"
 bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n ft-nano-close.sh"
 
 mkdir -p "$T/bin" "$T/fake" "$T/failgit" "$T/lnk"

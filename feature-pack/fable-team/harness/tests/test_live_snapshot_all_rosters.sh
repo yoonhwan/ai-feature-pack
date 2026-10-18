@@ -5,7 +5,7 @@
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REPO="$(cd -- "$HERE/../.." && pwd)"; TICK="$REPO/scripts/fable-team-bin/ft-tick.sh"; KIT="$REPO/scripts/harness-install/fable-team/bin/ft-tick.sh"
+REPO="$(cd -- "$HERE/../.." && pwd)"; TICK="$REPO/harness/bin/ft-tick.sh"; KIT="$REPO/harness/kit/fable-team/bin/ft-tick.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

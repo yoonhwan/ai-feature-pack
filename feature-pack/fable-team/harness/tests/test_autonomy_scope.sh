@@ -3,7 +3,7 @@
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR) + FT_NOW 고정 시계 + 가짜 분류기(FT_SCOPE_CLASSIFY) — 실 state·실 git 분류 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; BIN="$ROOT/scripts/fable-team-bin"; SG="$ROOT/scripts/harness-install/fable-team/templates/hooks/autonomy-state-guard.sh"
+ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; SG="$ROOT/harness/kit/fable-team/templates/hooks/autonomy-state-guard.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
 has() { grep -qE -- "$1" <<<"$out"; }
@@ -38,7 +38,7 @@ grant() { run a approve-scope "$@"; }
 
 for f in ft-autonomy.sh ft-autonomy-scope.sh; do bash -n "$BIN/$f" 2>/dev/null; ck "bash -n $f" $?; done
 python3 -m py_compile "$BIN/autonomy_scope_post.py" 2>/dev/null; ck "py_compile autonomy_scope_post.py" $?
-MIRB="$ROOT/scripts/harness-install/fable-team/bin"
+MIRB="$ROOT/harness/kit/fable-team/bin"
 cmp -s "$BIN/ft-autonomy.sh" "$MIRB/ft-autonomy.sh" && cmp -s "$BIN/ft-autonomy-scope.sh" "$MIRB/ft-autonomy-scope.sh" && cmp -s "$BIN/autonomy_scope_post.py" "$MIRB/autonomy_scope_post.py"; ck "설치 미러 cmp0 (bin 세 파일)" $?
 
 # ===== approve-scope =====

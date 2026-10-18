@@ -3,7 +3,7 @@
 # 임시 HIL_DIR·임시 HOME·pbcopy 셸 스텁만 쓴다 — 실 /tmp·실 클립보드·실 계획 실행 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
+SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -12,7 +12,7 @@ has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:3
 
 bash -n "$SRC/ft-hil.sh" && ok "bash -n ft-hil.sh" || bad "bash -n ft-hil.sh"
 [ "$(wc -l < "$SRC/ft-hil.sh")" -le 200 ] && ok "ft-hil.sh 200줄 이하(R186: 표식·대체·미실행 3기능으로 100 → 200)" || bad "ft-hil.sh 200줄 초과"
-cmp -s "$SRC/ft-hil.sh" "$HERE/../../scripts/fable-team-bin/ft-hil.sh" && ok "킷 두 벌 cmp 동일" || bad "킷 두 벌이 다르다"
+cmp -s "$SRC/ft-hil.sh" "$HERE/../../harness/bin/ft-hil.sh" && ok "킷 두 벌 cmp 동일" || bad "킷 두 벌이 다르다"
 
 mkdir -p "$T/fake" "$T/home" "$T/d"
 printf '#!/usr/bin/env bash\ncat > "%s/clip.txt"\necho x >> "%s/clip.calls"\n' "$T" "$T" > "$T/fake/pbcopy"; chmod +x "$T/fake/pbcopy"

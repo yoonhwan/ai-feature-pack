@@ -2,7 +2,7 @@
 # 시험: orchestration-gate 키트·프로젝트 사본의 TOP_MODELS 기본값 정합
 # Sonnet 5 · Fable = 오케(3번째 코드 파일 Edit exit 2) / Sonnet 5.5 · agent_id 있음 = 면제(exit 0).
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-KIT="$ROOT/scripts/harness-install/fable-team/templates/hooks/orchestration-gate.sh"
+KIT="$ROOT/harness/kit/fable-team/templates/hooks/orchestration-gate.sh"
 PROJ="$ROOT/.claude/hooks/orchestration-gate.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 

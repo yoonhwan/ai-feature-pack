@@ -5,7 +5,7 @@
 # 임시 git 리포 + 가짜 tmux/tmuxc/sleep(PATH 앞) + 스크립트 사본만 쓴다 — 실 리포·seats·tmux·Redis 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="$HERE/../../scripts/harness-install/fable-team"; SRC="$KIT/bin"; TXT="$KIT/bin-planner/goal-lines-planner.txt"; ENVSRC="$KIT/bin-planner/planner-env.sh"
+KIT="$HERE/../../harness/kit/fable-team"; SRC="$KIT/bin"; TXT="$KIT/bin-planner/goal-lines-planner.txt"; ENVSRC="$KIT/bin-planner/planner-env.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0

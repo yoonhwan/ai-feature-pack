@@ -2,7 +2,7 @@
 # test_index_move_slack.sh — ft-index-move 슬랙 단계(판정 405 §4) 시험. 가짜 byz_thread_post 스텁(rc 지정) + 임시 git 리포 카드 픽스처. 실제 슬랙 호출 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC_MOVE="$HERE/../../scripts/harness-install/fable-team/bin/ft-index-move.sh"
+SRC_MOVE="$HERE/../../harness/kit/fable-team/bin/ft-index-move.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

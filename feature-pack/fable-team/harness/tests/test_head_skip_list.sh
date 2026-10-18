@@ -3,7 +3,7 @@
 # 도구 폴더를 임시 폴더로 복사해 시험한다(파일 1줄 바꾸기·삭제가 실 파일에 닿지 않게) · 임시 origin+clone+워크트리 · 시험용 tmux 서버(-L) · 가짜 명부·mbox
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC_BIN="$HERE/../../scripts/fable-team-bin"
+SRC_BIN="$HERE/../../harness/bin"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
@@ -56,6 +56,6 @@ cp "$SRC_BIN/ft-head-skip.txt" "$SKIPF"
 # ── 정적: 기본값 4개(main·master·release·deploy) 보존 · 하드코딩 정규식 2곳 삭제 · 키트 사본 일치
 n=0; for k in 'main' 'master' 'release/.*' 'deploy/.*'; do grep -qxF "$k" "$SRC_BIN/ft-head-skip.txt" || n=1; done; [ "$n" = 0 ]; ck "정적: 기본값 4개 줄 보존" $?
 ! grep -qE 'release/\.\*' "$SRC_BIN/ft_head_lag.py" "$SRC_BIN/ft-head-sync.sh"; ck "정적: 하드코딩 기본 정규식 2곳 삭제" $?
-cmp -s "$SRC_BIN/ft-head-skip.txt" "$HERE/../../scripts/harness-install/fable-team/bin/ft-head-skip.txt"; ck "정적: 키트 사본 ft-head-skip.txt 일치" $?
+cmp -s "$SRC_BIN/ft-head-skip.txt" "$HERE/../../harness/kit/fable-team/bin/ft-head-skip.txt"; ck "정적: 키트 사본 ft-head-skip.txt 일치" $?
 [ "$(git -C "$W" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

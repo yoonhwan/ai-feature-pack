@@ -5,8 +5,8 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
-K1="$REPO/scripts/fable-team-bin"
-K2="$REPO/scripts/harness-install/fable-team/bin"
+K1="$REPO/harness/bin"
+K2="$REPO/harness/kit/fable-team/bin"
 FILES="ft-resource-gate.sh ft-resource-watch.sh ft-resource-sample.sh ft-nano-spawn.sh ft-role-spawn.sh ft-successor-open.sh"
 fail=0
 ok()  { echo "PASS $1"; }

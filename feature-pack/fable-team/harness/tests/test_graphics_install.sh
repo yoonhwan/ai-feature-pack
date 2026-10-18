@@ -5,12 +5,12 @@ set -uo pipefail
 export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-SRC="$REPO/scripts/harness-install/graphics"
-KIT="$REPO/scripts/harness-install/fable-team/bin"     # spawn·lint 키트(scripts/fable-team-bin 에는 ft-index-lint.sh 가 없다 — 같은 ft-nano-spawn.sh)
+SRC="$REPO/feature-pack/fable-team/harness/kit/graphics"
+KIT="$REPO/feature-pack/fable-team/harness/kit/fable-team/bin"     # spawn·lint 키트(scripts/fable-team-bin 에는 ft-index-lint.sh 가 없다 — 같은 ft-nano-spawn.sh)
 LIVE_GOV="$HOME/.claude/skills/fable-team/references/main-team-governance.md"
-STAGED_GOV="$REPO/design/harness/staged-649/main-team-governance.md"
+STAGED_GOV="$REPO/feature-pack/fable-team/harness/design/harness/staged-649/main-team-governance.md"
 T="$(mktemp -d)"; ROOT="$T/root"; trap 'rm -rf "$T"' EXIT
-. "$REPO/tests/harness/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
+. "$REPO/feature-pack/fable-team/harness/tests/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=1; }
@@ -66,7 +66,7 @@ PY
 
 # ⑤ ft-name-lint
 for n in byz-graphics-nano-g0-test#0 byz-graphics-arch-codex#0 byz-graphics-da-claude#0; do
-  bash "$REPO/scripts/fable-team-bin/ft-name-lint.sh" "$n" >/dev/null 2>&1 && ok "⑤ name-lint $n" || bad "⑤ name-lint $n"
+  bash "$REPO/feature-pack/fable-team/harness/bin/ft-name-lint.sh" "$n" >/dev/null 2>&1 && ok "⑤ name-lint $n" || bad "⑤ name-lint $n"
 done
 
 # ⑥ 임시 카드 → ft-nano-spawn --dry-run (임시 ROOT · 실 좌석 0)

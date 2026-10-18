@@ -3,7 +3,7 @@
 # mktemp 리포 + 가짜 gh(FT_CHERRY_GH) 만 쓴다 — 실제 리포·GitHub·원격 호출 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-G="$HERE/../../scripts/fable-team-bin/ft-nano-cherry-gate.sh"
+G="$HERE/../../harness/bin/ft-nano-cherry-gate.sh"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; R=""; OUT=""; RC=0; LEDGER=""

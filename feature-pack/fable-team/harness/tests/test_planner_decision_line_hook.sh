@@ -3,7 +3,7 @@
 # 임시 FT_ROOT · 가짜 도구(ft-decision-count 대역) · 가짜 transcript 만 쓴다 — 실 인박스·실 tmux 0. 시험에 GIT_* 없음(env -i).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-HOOK="${R214_HOOK:-$HERE/../../scripts/harness-install/hooks/planner-decision-line.sh}"
+HOOK="${R214_HOOK:-$HERE/../../harness/kit/hooks/planner-decision-line.sh}"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

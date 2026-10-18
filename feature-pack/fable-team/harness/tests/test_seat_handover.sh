@@ -4,9 +4,9 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-HO="$REPO/scripts/fable-team-bin/ft-seat-handover.sh"
-GUARD="$REPO/scripts/harness-install/fable-team/templates/hooks/retired-seat-guard.sh"
-STOP="$REPO/scripts/harness-install/fable-team/templates/hooks/no-attach-to-user.sh"
+HO="$REPO/harness/bin/ft-seat-handover.sh"
+GUARD="$REPO/harness/kit/fable-team/templates/hooks/retired-seat-guard.sh"
+STOP="$REPO/harness/kit/fable-team/templates/hooks/no-attach-to-user.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -127,7 +127,7 @@ out="$(PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" TMUX_PANE=%1 FT_ROOT="$T/root" FT_H
 out="$(PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" FT_HANDOVER_LEDGER="$T/ledger.jsonl" FT_SEATS_JSON="$T/seats.json" env -u TMUX_PANE bash "$HO" status 2>&1)"; rc=$?
 [ "$rc" -eq 2 ] && ok "세션·TMUX_PANE 둘 다 없으면 rc 2(추측 0)" || bad "무인자: rc=$rc $out"
 # ── guard 훅 ────────────────────────────────────────────────────────────
-guard() { echo '{}' | PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" TMUX_PANE="$1" FT_BIN="${2:-$REPO/scripts/fable-team-bin}" FT_ROOT="$T/root" \
+guard() { echo '{}' | PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" TMUX_PANE="$1" FT_BIN="${2:-$REPO/harness/bin}" FT_ROOT="$T/root" \
           FT_HANDOVER_LEDGER="$T/ledger.jsonl" FT_SEATS_JSON="$T/seats.json" bash "$GUARD" 2>&1; }
 reset; done_row "$OLD" "$NEW"; out="$(guard %1)"
 has "$out" "은퇴 좌석" && has "$out" "후계 $NEW" && has "$out" "도달 확인" && has "$out" "단정 문구 0" && ok "guard: RETIRED 주입" || bad "guard RETIRED: $out"

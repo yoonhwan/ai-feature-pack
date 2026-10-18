@@ -3,7 +3,7 @@
 # 임시 origin+clone+워크트리 · 시험용 tmux 서버(-L) · 가짜 명부·mbox · gh 스텁 — 실 저장소·실 tmux·실 mbox·실 원격 0
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; LAND="$BIN/ft-merge-land.sh"; LAG="$BIN/ft-head-lag.sh"; PY="$BIN/ft_head_lag.py"; PY2="$BIN/ft_head_lag_seats.py"
+BIN="$HERE/../../harness/bin"; LAND="$BIN/ft-merge-land.sh"; LAG="$BIN/ft-head-lag.sh"; PY="$BIN/ft_head_lag.py"; PY2="$BIN/ft_head_lag_seats.py"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }

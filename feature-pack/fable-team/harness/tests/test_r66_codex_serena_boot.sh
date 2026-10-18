@@ -3,7 +3,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-STAGED="$ROOT/design/harness/staged-r66/COMM-GUIDE-BOOT.md"
+STAGED="$ROOT/harness/design/harness/staged-r66/COMM-GUIDE-BOOT.md"
 HOME_BOOT="${R66_HOME_BOOT:-$HOME/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md}"
 RULE="$ROOT/docs/rules/serena-mcp-usage.md"
 BASE16="329582414d727dd5"

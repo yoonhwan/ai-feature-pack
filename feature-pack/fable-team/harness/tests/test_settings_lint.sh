@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-LINT="$REPO/scripts/fable-team-bin/ft-settings-lint.py"
+LINT="$REPO/harness/bin/ft-settings-lint.py"
 FX="$HERE/fixtures/settings-lint"
 fail=0
 ok()  { echo "PASS $1"; }

@@ -3,12 +3,12 @@
 #   규칙은 «읽히는 곳(상시 로드 지침)» + «막는 곳(훅·게이트)» 이 실재해야 닫는다. 임시 HOME·임시 git 리포 픽스처만 — 실제 indices·홈 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRCDIR="$HERE/../../scripts/fable-team-bin"
+SRCDIR="$HERE/../../harness/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
-for f in ft-index-move.sh "../harness-install/fable-team/bin/ft-index-move.sh"; do bash -n "$SRCDIR/$f" && ok "bash -n $f" || bad "bash -n $f"; done
+for f in ft-index-move.sh "../kit/fable-team/bin/ft-index-move.sh"; do bash -n "$SRCDIR/$f" && ok "bash -n $f" || bad "bash -n $f"; done
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"

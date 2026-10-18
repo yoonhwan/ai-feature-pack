@@ -13,8 +13,8 @@ from _magazine_ledger import argv, make_env
 
 import magazine_doc as md
 
-ROOT = Path(__file__).resolve().parents[2]
-BIN = ROOT / "scripts" / "fable-team-bin"
+ROOT = Path(__file__).resolve().parents[3]
+BIN = ROOT / "harness" / "bin"
 CANON = ROOT / "tests" / "fixtures" / "goal_table" / "AUTONOMY-GOAL-A6-20261018.md"
 TITLE = "매거진 2026-10-16 · 오빠 확인판"
 
@@ -79,7 +79,7 @@ def test_dry_run_prints_the_block_in_the_slack_text(env, capsys):
     assert "--- 슬랙 뿌리 글 ---" in out and "★골 표 A6 (" in out
 
 
-KIT = ROOT / "scripts" / "harness-install" / "slack-mirror"
+KIT = ROOT / "harness" / "kit" / "slack-mirror"
 
 
 def _stand_in(root: Path, armed_flag: bool) -> subprocess.CompletedProcess:

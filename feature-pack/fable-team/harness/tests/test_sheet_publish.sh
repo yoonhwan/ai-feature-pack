@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-PUB="$ROOT/scripts/fable-team-bin/ft-board-publish.sh"
+PUB="$ROOT/harness/bin/ft-board-publish.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -66,7 +66,7 @@ root_last() { tail -1 "$S/root.last"; }
 S1=aaaaaaaaaaaaaaaa; P1=1111111111111111; P2=2222222222222222; P3=3333333333333333; P4=4444444444444444
 
 bash -n "$PUB" && ok "bash -n" || bad "bash -n"
-bash -n "$ROOT/scripts/fable-team-bin/ft-sheet-publish.sh" 2>/dev/null && ok "bash -n ft-sheet-publish.sh" || bad "ft-sheet-publish.sh 없음/문법"
+bash -n "$ROOT/harness/bin/ft-sheet-publish.sh" 2>/dev/null && ok "bash -n ft-sheet-publish.sh" || bad "ft-sheet-publish.sh 없음/문법"
 
 # ① 상세만 변경(구조 rev 같고 발행 rev 변경) → 발행 rev 마다 PDF 1회
 tree 일A; setrev $S1 $P1; rc="$(pub)"
@@ -120,10 +120,10 @@ H="$T/home"; mkdir -p "$H/.hermes/scripts"; cp "$S/fake-tp" "$H/.hermes/scripts/
 printf 'def html_to_pdf(html, pdf, footer="x"):\n    pdf.write_bytes(b"pdf")\n    return 2\n' > "$H/.hermes/scripts/magazine_pdf.py"
 setrev $S1 $P3; rc="$(unset FT_THREAD_POST FT_SHEET_PDF_BIN FT_SHEET_MIRROR_DIR; HOME="$H" FT_SHEET_LEDGER="$T/c.jsonl" bash "$PUB" --sheet >"$T/c.out" 2>"$T/c.err"; echo $?)"
 grep -q '^attach|' "$H/.hermes/scripts/tp.log" 2>/dev/null && [ "$rc" = 0 ] && ok "ⓒ 기본 HOME 배치(env 미설정) → magazine_pdf import 성공 · 첨부 1" || bad "ⓒ 기본 배치 rc=$rc: $(cat "$T/c.err")"
-( unset FT_THREAD_POST FT_SHEET_MIRROR_DIR; python3 "$ROOT/scripts/fable-team-bin/ft_sheet_publish.py" pdf a b ) >/dev/null 2>"$T/e.err"
+( unset FT_THREAD_POST FT_SHEET_MIRROR_DIR; python3 "$ROOT/harness/bin/ft_sheet_publish.py" pdf a b ) >/dev/null 2>"$T/e.err"
 [ "$?" != 0 ] && grep -q 'MIRROR_DIR' "$T/e.err" && ok "ⓒ env 없으면 convert raise(현재 폴더 탐색 0)" || bad "ⓒ env 없는데 조용히 진행"
 # 변이: 로컬 준비를 update «뒤» 로 되돌린 복사본 → ⓐ 가 빨강이어야 한다
-mkdir -p "$T/mut"; cp "$ROOT/scripts/fable-team-bin/ft-sheet-publish.sh" "$ROOT/scripts/fable-team-bin/ft_sheet_publish.py" "$ROOT/scripts/fable-team-bin/ft_board_root.py" "$T/mut/"
+mkdir -p "$T/mut"; cp "$ROOT/harness/bin/ft-sheet-publish.sh" "$ROOT/harness/bin/ft_sheet_publish.py" "$ROOT/harness/bin/ft_board_root.py" "$T/mut/"
 python3 - "$T/mut/ft-sheet-publish.sh" <<'PY'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
@@ -166,13 +166,13 @@ export FT_BOARD_NOW="2026-10-17T09:00:00"; tree 일G; setrev $S1 $P1; : > "$S/co
 ) > "$T/bytes.txt" 2>&1
 grep -q '^SAME$' "$T/bytes.txt" && ok "F5 render --sheet(md·text·html·rev) --from 출력 == 직접 collect 출력(바이트 동일)" || bad "F5 바이트 동일 실패: $(tr '\n' ' ' < "$T/bytes.txt" | cut -c1-200)"
 # launchd 템플릿 2종 — 설치가 시트 경로를 재현한다(--sheet · --emit-model)
-TPL="$ROOT/scripts/harness-install/slack-mirror"
+TPL="$ROOT/harness/kit/slack-mirror"
 grep -q '<string>--sheet</string>' "$TPL/com.byz.ft-board-publish.plist.template" && ok "템플릿 ft-board-publish 에 --sheet" || bad "템플릿 ft-board-publish --sheet 없음"
 # R109 ⓒ — 매거진이 쓰는 경로 == 시트가 읽는 경로(기본 <루트>/.fable-team/state/sheet-story.json): 시트 plist 에 FT_SHEET_STORY 덮어쓰기 0 · 두 plist 같은 __BYZ_ROOT__
 grep -q '<string>--emit-model</string><string>__BYZ_ROOT__/.fable-team/state/sheet-story.json</string>' "$TPL/com.byz.ft-magazine-model.plist.template" && ok "템플릿 ft-magazine-model --emit-model = 시트 이야기 경로(R184: 발행 예약과 분리)" || bad "템플릿 ft-magazine-model --emit-model 경로 불일치"
 ! grep -q 'FT_SHEET_STORY' "$TPL/com.byz.ft-board-publish.plist.template" && grep -q '<key>FT_ROOT</key><string>__BYZ_ROOT__</string>' "$TPL/com.byz.ft-board-publish.plist.template" && ok "템플릿 ft-board-publish 는 기본 이야기 경로(덮어쓰기 0 · FT_ROOT=__BYZ_ROOT__)" || bad "템플릿 ft-board-publish 이야기 경로 덮어쓰기"
 ! grep -q 'model-latest.json' "$TPL/com.byz.ft-magazine-model.plist.template" && ok "옛 model-latest.json 경로 잔존 0" || bad "옛 model-latest.json 잔존"
 # 600/300 잔존 0
-! grep -rnE '\b(600|300)\b' "$ROOT/scripts/fable-team-bin/ft-sheet-publish.sh" "$ROOT/scripts/fable-team-bin/ft_sheet_publish.py" 2>/dev/null | grep -v '^#' | grep -q . && ok "새 스크립트에 600/300 초 값 0" || bad "600/300 잔존"
+! grep -rnE '\b(600|300)\b' "$ROOT/harness/bin/ft-sheet-publish.sh" "$ROOT/harness/bin/ft_sheet_publish.py" 2>/dev/null | grep -v '^#' | grep -q . && ok "새 스크립트에 600/300 초 값 0" || bad "600/300 잔존"
 
 echo "fail=$fail"; [ "$fail" = 0 ]

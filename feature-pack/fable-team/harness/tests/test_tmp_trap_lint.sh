@@ -3,7 +3,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
-SUT="$REPO/scripts/fable-team-bin/ft-tmp-trap-lint.sh"
+SUT="$REPO/harness/bin/ft-tmp-trap-lint.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

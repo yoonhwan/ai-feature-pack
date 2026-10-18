@@ -5,7 +5,7 @@ set -uo pipefail
 export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="$HERE/../../scripts/fable-team-bin"
+KIT="$HERE/../../harness/bin"
 G="${FT_TEST_GATE:-$KIT/ft-nano-cherry-gate.sh}"          # RED 확인용: 옛 사본 경로를 FT_TEST_GATE 로 준다
 SP="$KIT/ft-nano-spawn.sh"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
@@ -69,7 +69,7 @@ grep -q -- '--override "\$CO"' "$SP" && ok "⑥--override 사유 전달" || bad 
 # ⑦ 기존 squash 시험 · ⑧ 쌍 cmp · bash -n · 줄 수 (게이트 사본이 기본 경로일 때만 — RED 확인 시에는 건너뜀)
 if [ -z "${FT_TEST_GATE:-}" ]; then
   bash "$HERE/test_cherry_gate_squash.sh" >"$T/squash.out" 2>&1 && ok "⑦squash 시험 rc=0" || bad "⑦squash 시험 실패 :: $(tail -3 "$T/squash.out")"
-  INST="$HERE/../../scripts/harness-install/fable-team/bin"
+  INST="$HERE/../../harness/kit/fable-team/bin"
   for f in ft-nano-cherry-gate.sh ft-nano-spawn.sh; do
     cmp -s "$KIT/$f" "$INST/$f" && ok "⑧cmp $f" || bad "⑧cmp $f 불일치"
     bash -n "$KIT/$f" && bash -n "$INST/$f" && ok "⑧bash -n $f" || bad "⑧bash -n $f"

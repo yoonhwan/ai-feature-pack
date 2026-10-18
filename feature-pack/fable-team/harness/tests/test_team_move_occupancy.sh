@@ -5,7 +5,7 @@
 # 임시 폴더·가짜 tmux·가짜 lsof 만 쓴다 — 실제 리포·seats·tmux 세션은 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/fable-team-bin"; KIT="$HERE/../../scripts/harness-install/fable-team/bin"
+SRC="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 fail=0

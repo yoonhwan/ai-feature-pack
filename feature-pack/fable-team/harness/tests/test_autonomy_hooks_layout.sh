@@ -5,7 +5,7 @@
 # 격리: HOME·루트·라이브·상태 전부 임시 — 실 ~/.claude·실 상태·실 gh 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/scripts/harness-install/fable-team/templates/hooks"; BIN="$ROOT/scripts/fable-team-bin"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"; BIN="$ROOT/harness/bin"
 IG="$HK/autonomy-interview-gate.sh"; MG="$HK/autonomy-merge-guard.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }

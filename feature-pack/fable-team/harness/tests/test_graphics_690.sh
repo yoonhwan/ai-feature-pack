@@ -4,10 +4,10 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 W="$(cd "$HERE/../.." && pwd)"
-GI="$W/scripts/harness-install/graphics"
-INFO_A="$W/scripts/harness-install/fable-team/bin/ft-harness-info.sh"
-INFO_B="$W/scripts/fable-team-bin/ft-harness-info.sh"
-STG="$W/design/harness/staged-690"
+GI="$W/harness/kit/graphics"
+INFO_A="$W/harness/kit/fable-team/bin/ft-harness-info.sh"
+INFO_B="$W/harness/bin/ft-harness-info.sh"
+STG="$W/harness/design/harness/staged-690"
 HOME_REF="$HOME/.claude/skills/fable-team/references"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

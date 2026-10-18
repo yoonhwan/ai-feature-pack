@@ -4,8 +4,8 @@
 # 좌석 턴은 실 ft-seat-status.sh `turn --file <픽스처 jsonl> --json` 을 스텁 경유로 부른다(턴 경계 판정식까지 실물).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; FX="$HERE/../fixtures/tick_line"
-MIRROR="$HERE/../../scripts/harness-install/fable-team/bin"
+BIN="$HERE/../../harness/bin"; FX="$HERE/../fixtures/tick_line"
+MIRROR="$HERE/../../harness/kit/fable-team/bin"
 TICK="$BIN/ft-tick-line.sh"; LINT="$BIN/ft-seats-lint.sh"; MEAS="$BIN/ft-measure-net.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

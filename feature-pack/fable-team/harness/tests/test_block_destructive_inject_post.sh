@@ -5,7 +5,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-HOOK="${BD_HOOK:-$ROOT/scripts/harness-install/fable-team/templates/hooks/block-destructive.sh}"
+HOOK="${BD_HOOK:-$ROOT/harness/kit/fable-team/templates/hooks/block-destructive.sh}"
 JUDGE="$(dirname "$HOOK")/block-destructive-judge.py"
 T="$(mktemp -d)"
 trap '[ -n "$T" ] && rm -rf "$T"' EXIT

@@ -3,7 +3,7 @@
 # 진짜 ~/.zshrc·루트 .env 접근 0 · 네트워크 0 · 가짜 값 문자열이 출력·argv 에 나오면 FAIL.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/fable-team-bin"
+SRC="$HERE/../../harness/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

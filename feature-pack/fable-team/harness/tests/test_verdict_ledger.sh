@@ -3,7 +3,7 @@
 # 임시 디렉터리 FT_ROOT·가짜 hostname(FT_VERDICT_HOSTNAME)만 쓴다 — 실제 루트 .fable-team/state/verdicts.jsonl 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-V="$HERE/../../scripts/fable-team-bin/ft-verdict.sh"
+V="$HERE/../../harness/bin/ft-verdict.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 
 fail=0

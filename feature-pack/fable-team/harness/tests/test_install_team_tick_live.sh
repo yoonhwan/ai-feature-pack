@@ -5,8 +5,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-INSTALL="$REPO/design/harness/staged-r150/install-team-tick-live.sh"
-KIT="$REPO/scripts/harness-install/fable-team/bin/ft-tick.sh"
+INSTALL="$REPO/harness/design/harness/staged-r150/install-team-tick-live.sh"
+KIT="$REPO/harness/kit/fable-team/bin/ft-tick.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 PB=/usr/libexec/PlistBuddy
 fail=0

@@ -4,7 +4,7 @@
 #   SELFTEST 성공 = 3 · 막힘 = 1 · 보통 모드에 SELFTEST 상속 = 1 · SELFTEST 출력에 «발화해도 된다» 0건.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 GATE="$BIN/ft-press-gate.sh"
 fail=0; n=0
 ok()  { echo "PASS $1"; }

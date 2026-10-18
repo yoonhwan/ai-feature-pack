@@ -2,7 +2,7 @@
 # test_merge_land.sh — ft-merge-land.sh 착지 시험 (R230 교정 2 H1 · 임시 origin+clone · gh 는 스텁 · 실 gh·실 원격 0)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; LAND="$BIN/ft-merge-land.sh"
+BIN="$HERE/../../harness/bin"; LAND="$BIN/ft-merge-land.sh"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
@@ -169,7 +169,7 @@ fland 41 head FF_RACE=1; [ "$rc" = 1 ] && [[ "$out" == *"ff 불가"* ]] && [ "$(
 [ "$rc" = 1 ] && [[ "$out" == *"non-FF"* ]] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [ "$(omain)" = "$MF" ]; ck "ⓘff② 서버 non-FF 거절 스텁 → REJECT · 재시도 0 · main 불변" $?
 MF="$(omain)"; fland 43 "$M1"; [ "$rc" = 1 ] && [[ "$out" == *"ff 는 승인 sha == PR head 만"* ]] && [[ "$out" != *EQUIV* ]] && ! grep -q '^push' "$FLOG" && [ "$(omain)" = "$MF" ]; ck "ⓘff③ 승인 sha != PR head → REJECT(equiv 경로 0) · push 0 · main 불변" $?
 ! grep -vE '^\s*#' "$BIN/ft-merge-land.sh" "$BIN/ft-merge-lib.sh" | grep -qE '\b(600|300)\b'; ck "600·300 글자 0" $?
-cmp -s "$BIN/ft-merge-land.sh" "$BIN/../harness-install/fable-team/bin/ft-merge-land.sh" && cmp -s "$BIN/ft-merge-lib.sh" "$BIN/../harness-install/fable-team/bin/ft-merge-lib.sh"; ck "키트 사본 2 cmp0" $?
+cmp -s "$BIN/ft-merge-land.sh" "$BIN/../kit/fable-team/bin/ft-merge-land.sh" && cmp -s "$BIN/ft-merge-lib.sh" "$BIN/../kit/fable-team/bin/ft-merge-lib.sh"; ck "키트 사본 2 cmp0" $?
 
 [ "$(git -C "$W" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
 ! grep -vE '^\s*#' "$LAND" | grep -qE 'git[^|]*(reset|rebase|--force|\+refs)|push[^|]*-f '; ck "정적: land 에 force·reset·rebase·+refspec 0" $?

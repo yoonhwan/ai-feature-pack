@@ -2,7 +2,7 @@
 # test_slack_post_guard.sh — slack-post-guard.sh 시험: deny 6 · allow 4(+ 비 Bash·JSON 오류 fail-open). 가짜 PreToolUse JSON 입력만 — 슬랙 호출 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-G="$HERE/../../scripts/harness-install/fable-team/templates/hooks/slack-post-guard.sh"
+G="$HERE/../../harness/kit/fable-team/templates/hooks/slack-post-guard.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

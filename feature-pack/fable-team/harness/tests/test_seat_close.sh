@@ -3,7 +3,7 @@
 # 모든 쓰기는 mktemp scratch 안 — 가짜 tmux(PATH 앞) · 실제 세션·명부 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; CLOSE="${FT_SEAT_CLOSE_BIN:-$BIN/ft-seat-close.sh}"; TICK="$BIN/ft-tick.sh"
+BIN="$HERE/../../harness/bin"; CLOSE="${FT_SEAT_CLOSE_BIN:-$BIN/ft-seat-close.sh}"; TICK="$BIN/ft-tick.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 unset FT_SEATS_JSON
 fail=0

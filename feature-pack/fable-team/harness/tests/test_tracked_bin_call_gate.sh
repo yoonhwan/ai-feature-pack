@@ -4,8 +4,8 @@
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/fable-team-bin"
-HK="$HERE/../../scripts/harness-install/hooks/tracked-bin-call-gate.sh"
+SRC="$HERE/../../harness/bin"
+HK="$HERE/../../harness/kit/hooks/tracked-bin-call-gate.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

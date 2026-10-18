@@ -2,8 +2,8 @@
 # test_team_map_lint.sh — ft-team-map-lint.sh: README 파일 지도 ↔ 실제 바닥 파일 대조(R318a). 임시 폴더 픽스처만.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRCDIR="$HERE/../../scripts/fable-team-bin"
-KIT="$HERE/../../scripts/harness-install/fable-team"
+SRCDIR="$HERE/../../harness/bin"
+KIT="$HERE/../../harness/kit/fable-team"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

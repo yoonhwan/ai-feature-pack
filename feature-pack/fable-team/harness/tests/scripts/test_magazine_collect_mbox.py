@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-KIT = Path(__file__).resolve().parents[2] / "scripts" / "harness-install" / "slack-mirror"
+KIT = Path(__file__).resolve().parents[3] / "harness" / "kit" / "slack-mirror"
 sys.path.insert(0, str(KIT))
 import magazine_collect_mbox as mm  # noqa: E402
 from magazine_window import MagazineError  # noqa: E402

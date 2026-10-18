@@ -3,7 +3,7 @@
 # 임시 git 리포 + --from-json 픽스처만 쓴다 — 실제 gh 호출·Issue 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 FX="$HERE/../fixtures/issue_close"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

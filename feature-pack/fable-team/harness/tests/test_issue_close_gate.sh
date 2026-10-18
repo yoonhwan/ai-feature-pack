@@ -4,8 +4,8 @@
 # 임시 git 리포 + --from-json 상태 파일 + 가짜 Tank 래퍼(stubs/fake-tank.sh)만 쓴다 — 실 gh 호출·Issue 쓰기·루트 .fable-team/ 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
-MIR="$HERE/../../scripts/harness-install/fable-team/bin"
+BIN="$HERE/../../harness/bin"
+MIR="$HERE/../../harness/kit/fable-team/bin"
 STUB="$HERE/stubs/fake-tank.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

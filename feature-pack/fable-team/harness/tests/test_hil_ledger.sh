@@ -3,7 +3,7 @@
 # 임시 원장·FT_SEND_DRY=1·가짜 mbox 만 쓴다 — 실제 _hil_route 좌석·라이브 mbox 파일은 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 ASK="$BIN/ft-hil-ask.sh"; ANS="$BIN/ft-hil-answer.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 

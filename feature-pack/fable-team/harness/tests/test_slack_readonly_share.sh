@@ -5,7 +5,7 @@
 # 슬랙 API·실제 tmux·실제 LLM 0 — 함수 직접 호출 + 가짜 tmux 스텁 + 가짜 요약기 + 가짜 history.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${SLACK_MIRROR_KIT:-$HERE/../../scripts/harness-install/slack-mirror}"
+KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"
 [ -d "$KIT" ] || { echo "FAIL kit dir missing: $KIT"; exit 1; }
 out="$(python3 -I - "$KIT" <<'PYEOF' 2>&1
 import argparse, json, os, re, stat, sys, tempfile, textwrap

@@ -2,7 +2,7 @@
 # test_proposal_interview_gate.sh — proposal-interview-gate.sh(PreToolUse:AskUserQuestion 훅) 시험(R77 r1 · 판정 826). stdin JSON 만 먹인다 — 실 도구·실 gh 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-HOOK="$HERE/../../scripts/harness-install/fable-team/templates/hooks/proposal-interview-gate.sh"
+HOOK="$HERE/../../harness/kit/fable-team/templates/hooks/proposal-interview-gate.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1 :: rc=$rc out=$out"; fail=$((fail+1)); }

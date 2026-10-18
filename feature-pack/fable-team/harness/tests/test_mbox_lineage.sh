@@ -4,7 +4,7 @@
 # 정본 mbox*.py 를 임시 폴더에 복사해 돈다 — 실 큐·실 doorbell(tmux)·루트 .fable-team/ 쓰기 0 · 변이 대조 2종은 사본 끝에 한 덩이만 덧붙인다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
-SRC="$REPO/tools/comm-canonical"; FX="$REPO/tests/fixtures/mbox_guard"
+SRC="$REPO/harness/comm"; FX="$REPO/tests/fixtures/mbox_guard"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 P=byz-planner-master-claude; F=byz-feature-master-claude

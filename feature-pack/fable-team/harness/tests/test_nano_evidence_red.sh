@@ -3,7 +3,7 @@
 # 임시 git 리포(원장 wt + 나노 wt)만 쓴다 — 실 명부·실 워크트리·실 카드 쓰기 0 · 외부 호출 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/fable-team-bin"; MIR="$HERE/../../scripts/harness-install/fable-team/bin"
+SRC="$HERE/../../harness/bin"; MIR="$HERE/../../harness/kit/fable-team/bin"
 EV="$SRC/ft-nano-evidence-check.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0

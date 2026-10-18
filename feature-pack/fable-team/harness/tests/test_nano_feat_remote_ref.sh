@@ -3,7 +3,7 @@
 # mktemp 리포(bare 원격 + 클론)만 쓴다 — 실제 리포·네트워크 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"
+BIN="$HERE/../../harness/bin"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

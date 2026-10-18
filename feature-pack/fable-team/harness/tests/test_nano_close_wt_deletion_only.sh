@@ -3,7 +3,7 @@
 # 실작업물로 세지 않는다. 임시 git 리포 + 가짜 tmux + 스텁 baton 만 쓴다 — 실제 리포·워크트리·baton·tmux 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
+SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

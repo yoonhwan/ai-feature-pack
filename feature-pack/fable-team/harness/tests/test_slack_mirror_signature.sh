@@ -4,7 +4,7 @@
 #  ② mbox 미러 좌석 정규식 기본값(install.sh)이 현역 planner 이름 byz-planner-master-claude#N 을 매칭한다
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${SLACK_MIRROR_KIT:-$HERE/../../scripts/harness-install/slack-mirror}"
+KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

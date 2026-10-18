@@ -2,7 +2,7 @@
 # test_merge_head_gate.sh — 홈 훅 merge-head-gate.sh 시험 (R230 · stdin JSON 만 먹인다 — 실 ~/.claude·실 gh·실 원격 0)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/scripts/harness-install/hooks/merge-head-gate.sh"; BIN="$ROOT/scripts/fable-team-bin"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/hooks/merge-head-gate.sh"; BIN="$ROOT/harness/bin"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
@@ -14,7 +14,7 @@ run() { out="$(printf '%s' "$(mkbash "$1" "${2:-$W}")" | ${ENVPFX:-} bash "$HK" 
 al() { run "$1" "${3:-$W}"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "$2" $?; }
 dn() { run "$1" "${3:-$W}"; [ "$rc" = 0 ] && grep -q 'permissionDecision": "deny"' <<<"$out"; ck "$2" $?; }
 
-bash -n "$HK"; ck "bash -n hook" $?; python3 -I -c "import ast;ast.parse(open('$ROOT/scripts/harness-install/hooks/merge_cmd.py').read())"; ck "py 구문 merge_cmd" $?
+bash -n "$HK"; ck "bash -n hook" $?; python3 -I -c "import ast;ast.parse(open('$ROOT/harness/kit/hooks/merge_cmd.py').read())"; ck "py 구문 merge_cmd" $?
 # 픽스처: main 이 줄을 더한 뒤 — 옛 브랜치(old: 못 포함) · 병합한 브랜치(good) · 현재 main 에서 딴 브랜치(fresh)
 git -C "$W" checkout -q -b old; echo c > "$W/c.txt"; cm "$W" "old work"; git -C "$W" branch good
 git -C "$W" checkout -q main; printf 'l1\nMAIN-LINE\nl2\nl3\n' > "$W/a.txt"; cm "$W" "main adds"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
@@ -55,5 +55,5 @@ dn "git push origin deadbeefdeadbeefdeadbeefdeadbeefdeadbeef:main" "sha 를 못 
 FT_MERGE_GATE_SH="$T/none.sh"; dn "git push origin $GOOD:main" "게이트 도구 못 찾음 → deny(병합은 되돌리기 어려움)"; export FT_MERGE_GATE_SH="$BIN/ft-merge-gate.sh"
 grep -q 'ALLOW push' "$T/hook.log"; ck "결속 기록: hook.log 에 ALLOW push sha 줄" $?
 printf 'not json' | bash "$HK" >/dev/null 2>&1; [ $? = 0 ]; ck "JSON 파싱 불가 = 인식 전 단계 → 통과" $?
-! grep -vE '^\s*#' "$HK" "$ROOT/scripts/harness-install/hooks/merge_cmd.py" | grep -qE 'git[^|]*(reset|rebase)'; ck "정적: 훅·모듈에 reset·rebase 0" $?
+! grep -vE '^\s*#' "$HK" "$ROOT/harness/kit/hooks/merge_cmd.py" | grep -qE 'git[^|]*(reset|rebase)'; ck "정적: 훅·모듈에 reset·rebase 0" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

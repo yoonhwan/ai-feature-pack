@@ -2,7 +2,7 @@
 # test_name_lint.sh — C2 세션명 문법 lint 시험: 통과 3 · REJECT 3 (+ 경계 케이스). tmux·명부는 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LINT="$HERE/../../scripts/fable-team-bin/ft-name-lint.sh"
+LINT="$HERE/../../harness/bin/ft-name-lint.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

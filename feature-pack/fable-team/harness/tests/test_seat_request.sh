@@ -3,7 +3,7 @@
 # 가짜 tmux(FT_TMUX) · 가짜 gh(FT_GH) · fixture 명부(FT_SEATS_DIR)만 쓴다 — 실제 tmux·gh·seats-*.json 은 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-GEN="$HERE/../../scripts/fable-team-bin/ft-seat-request.sh"
+GEN="$HERE/../../harness/bin/ft-seat-request.sh"
 FX="$HERE/../fixtures/seat_request"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

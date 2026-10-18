@@ -4,7 +4,7 @@
 # 축 ⓐ 인자 없으면 불변 ⓑ REJECT 6종 ⓒ --cherry-override 동시 = exit 2 ⓓ cherry 원장 1행 사유 ⓔ 브랜치 삭제 0 · 명부 손 편집 없이 CLOSED ⓕ 키트 2곳 cmp 0 · 변이 2
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/harness-install/fable-team/bin"
+SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -14,7 +14,7 @@ hasnt(){ case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «$2»";; *) ok "$3
 
 echo "== ⓕ 키트 2곳 같은 바이트 + bash -n"
 for f in ft-nano-close.sh ft-nano-superseded-check.sh; do
-  cmp -s "$HERE/../../scripts/fable-team-bin/$f" "$SRC/$f" && ok "cmp $f (fable-team-bin == harness-install)" || bad "cmp $f 다름"
+  cmp -s "$HERE/../../harness/bin/$f" "$SRC/$f" && ok "cmp $f (fable-team-bin == harness-install)" || bad "cmp $f 다름"
   bash -n "$SRC/$f" && ok "bash -n $f" || bad "bash -n $f"
 done
 

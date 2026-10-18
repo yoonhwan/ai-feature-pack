@@ -3,8 +3,8 @@
 #   허용 뿌리 = docs/architect/ · docs/rules/ · design/<TEAMS.md 팀>/GUIDE-*.md · design/<팀>/README.md. 임시 git 리포 픽스처만.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRCDIR="$HERE/../../scripts/fable-team-bin"
-KIT="$HERE/../../scripts/harness-install/fable-team/bin"
+SRCDIR="$HERE/../../harness/bin"
+KIT="$HERE/../../harness/kit/fable-team/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

@@ -7,7 +7,7 @@
 # 실제 슬랙·claude 호출 0 — 스텁 명령 · 스텁 deliver · 임시 스레드 맵.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${SLACK_MIRROR_KIT:-$HERE/../../scripts/harness-install/slack-mirror}"
+KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"
 [ -d "$KIT" ] || { echo "FAIL kit dir missing: $KIT"; exit 1; }
 out="$(python3 -I - "$KIT" <<'PYEOF' 2>&1
 import contextlib, io, json, re, stat, sys, tempfile

@@ -2,7 +2,7 @@
 # test_ft_sets.sh — ft-sets.sh 시험(설계 §8-1): 표·필터·정렬·건수·원장 없음·머리줄·--check·발주 sha:경로 본문·미전달·보호 ref·Issue 겹침. 임시 git 리포에서만 돈다(원격 0).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SETS="$HERE/../../scripts/harness-install/sets/ft-sets.sh"
+SETS="$HERE/../../harness/kit/sets/ft-sets.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

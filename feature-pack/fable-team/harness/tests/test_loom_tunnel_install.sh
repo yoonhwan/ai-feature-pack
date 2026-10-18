@@ -3,7 +3,7 @@
 # 실 터널·실 launchd·실 DB 0. 실행: bash tests/harness/test_loom_tunnel_install.sh (리포 어느 워크트리에서든)
 set -uo pipefail
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-SRC="$REPO/scripts/harness-install/loom-tunnel"
+SRC="$REPO/feature-pack/fable-team/harness/kit/loom-tunnel"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 S="$T/state"; B="$T/bin"; AG="$T/agents"; mkdir -p "$S" "$B"
 fail=0

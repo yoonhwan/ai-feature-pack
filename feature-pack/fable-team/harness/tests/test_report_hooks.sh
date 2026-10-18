@@ -3,7 +3,7 @@
 # 임시 FT_ROOT(가짜 인박스 큐) + 스텁 ft-inbox.sh·mbox.sh + 가짜 훅 JSON/transcript 픽스처만 — 실제 claude·tmux·슬랙·라이브 .fable-team 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-H="$HERE/../../scripts/harness-install/fable-team/templates/hooks"
+H="$HERE/../../harness/kit/fable-team/templates/hooks"
 RC="$H/report-coverage.sh"; DR="$H/drain-before-interview.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0

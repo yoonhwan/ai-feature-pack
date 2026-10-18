@@ -3,7 +3,7 @@
 # 픽스처 = tests/fixtures/deferral/<케이스>.<확장자>.fx — 케이스가 «추가되는 줄»이 되도록 커밋해 diff 를 만든다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LINT="$HERE/../../scripts/fable-team-bin/ft-deferral-lint.sh"
+LINT="$HERE/../../harness/bin/ft-deferral-lint.sh"
 FX="$HERE/../fixtures/deferral"
 fail=0
 ok()  { echo "PASS $1"; }

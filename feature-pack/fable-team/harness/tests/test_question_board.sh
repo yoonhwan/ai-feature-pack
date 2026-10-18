@@ -6,7 +6,7 @@
 # 실제 슬랙·인박스·tmux 호출 0 — 스텁 ft-inbox.sh · 슬랙 함수 스텁(받은 text 기록) · 임시 큐 파일.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${SLACK_MIRROR_KIT:-$HERE/../../scripts/harness-install/slack-mirror}"
+KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"
 [ -d "$KIT" ] || { echo "FAIL kit dir missing: $KIT"; exit 1; }
 out="$(python3 -I - "$KIT" <<'PYEOF' 2>&1
 import argparse, contextlib, io, json, os, subprocess, sys, tempfile, time

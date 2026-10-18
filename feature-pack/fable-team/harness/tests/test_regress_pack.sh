@@ -2,7 +2,7 @@
 # test_regress_pack.sh — C21 회귀 팩 시험: mktemp 저장소로 add→select(겹침 있음/없음)→run(unit PASS/FAIL·press 목록만)→retire 1바퀴 + 상한 경고.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TOOL="$HERE/../../scripts/fable-team-bin/ft-regress-pack.sh"
+TOOL="$HERE/../../harness/bin/ft-regress-pack.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

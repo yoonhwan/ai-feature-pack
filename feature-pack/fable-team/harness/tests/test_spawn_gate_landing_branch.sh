@@ -4,7 +4,7 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-KIT="${FT_TEST_KIT:-$HERE/../../scripts/fable-team-bin}"   # RED 확인용: 옛 사본 디렉터리를 FT_TEST_KIT 로 준다
+KIT="${FT_TEST_KIT:-$HERE/../../harness/bin}"   # RED 확인용: 옛 사본 디렉터리를 FT_TEST_KIT 로 준다
 SP="$KIT/ft-nano-spawn.sh"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
@@ -68,7 +68,7 @@ printf '%s' "$OUT" | grep -qE 'PASS|REJECT|DONE' && ok "⑥내용 판정까지 �
 if [ -z "${FT_TEST_KIT:-}" ]; then
   bash "$HERE/test_cherry_gate_identical_head.sh" >"$T/h.out" 2>&1 && ok "⑦identical_head rc=0" || bad "⑦identical_head 실패 :: $(tail -3 "$T/h.out")"
   bash "$HERE/test_cherry_gate_squash.sh" >"$T/s.out" 2>&1 && ok "⑦squash rc=0" || bad "⑦squash 실패 :: $(tail -3 "$T/s.out")"
-  INST="$HERE/../../scripts/harness-install/fable-team/bin"
+  INST="$HERE/../../harness/kit/fable-team/bin"
   cmp -s "$KIT/ft-nano-spawn.sh" "$INST/ft-nano-spawn.sh" && ok "⑧cmp spawn" || bad "⑧cmp spawn 불일치"
   bash -n "$KIT/ft-nano-spawn.sh" && bash -n "$INST/ft-nano-spawn.sh" && ok "⑧bash -n" || bad "⑧bash -n"
 fi

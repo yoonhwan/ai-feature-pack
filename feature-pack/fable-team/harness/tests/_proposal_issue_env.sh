@@ -5,7 +5,7 @@
 #   GH_FAIL=1 이면 rc 1. 변형 픽스처 = _proposal_issue_fixture.py.
 # shellcheck disable=SC2034  # source 되는 파일 — 변수는 부르는 시험 스크립트가 쓴다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-PROP="$HERE/../../scripts/harness-install/proposal"; FX="$HERE/_proposal_issue_fixture.py"
+PROP="$HERE/../../harness/kit/proposal"; FX="$HERE/_proposal_issue_fixture.py"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

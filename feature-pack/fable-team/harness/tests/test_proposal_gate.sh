@@ -2,7 +2,7 @@
 # test_proposal_gate.sh — ft-proposal-gate.sh --issue 단독 시험(R77 r1 · 판정 826). 가짜 gh(PATH 대신 FT_GH_READ)·가짜 planner 원장만 — 실 gh·실 슬랙·실 tmux 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-GATE="$HERE/../../scripts/harness-install/fable-team/bin/ft-proposal-gate.sh"; FX="$HERE/_proposal_issue_fixture.py"
+GATE="$HERE/../../harness/kit/fable-team/bin/ft-proposal-gate.sh"; FX="$HERE/_proposal_issue_fixture.py"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1 :: rc=$rc out=$out"; fail=$((fail+1)); }

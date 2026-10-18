@@ -3,7 +3,7 @@
 # mktemp 저장소(bare origin + clone)만 쓴다 — 실제 리포·origin 은 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LAND="$HERE/../../scripts/fable-team-bin/ft-land.sh"
+LAND="$HERE/../../harness/bin/ft-land.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 fail=0

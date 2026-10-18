@@ -4,8 +4,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-PUB="$ROOT/scripts/fable-team-bin/ft-board-publish.sh"
-TP="$ROOT/scripts/harness-install/slack-mirror/byz_thread_post.py"
+PUB="$ROOT/harness/bin/ft-board-publish.sh"
+TP="$ROOT/harness/kit/slack-mirror/byz_thread_post.py"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -127,8 +127,8 @@ rc="$(publish)"
 
 # 6) ⓪ 40팀(길게) → `… 외 n팀` · ≤ 3500 · UTF-8 decode 성공
 mkbody G 40 25000
-R="$(python3 "$ROOT/scripts/fable-team-bin/ft_board_root.py" root < "$T/stub/body.txt" | python3 -c 'import sys; d=sys.stdin.buffer.read(); d.decode("utf-8"); print(len(d))')"
-python3 "$ROOT/scripts/fable-team-bin/ft_board_root.py" root < "$T/stub/body.txt" | grep -q '… 외 [0-9]*팀' && [ "$R" -le 3500 ] && ok "⓪ 40팀 → '… 외 n팀' · ${R}B ≤ 3500 · UTF-8 decode OK" || bad "40팀 접기 R=$R"
+R="$(python3 "$ROOT/harness/bin/ft_board_root.py" root < "$T/stub/body.txt" | python3 -c 'import sys; d=sys.stdin.buffer.read(); d.decode("utf-8"); print(len(d))')"
+python3 "$ROOT/harness/bin/ft_board_root.py" root < "$T/stub/body.txt" | grep -q '… 외 [0-9]*팀' && [ "$R" -le 3500 ] && ok "⓪ 40팀 → '… 외 n팀' · ${R}B ≤ 3500 · UTF-8 decode OK" || bad "40팀 접기 R=$R"
 
 # 7) 절 머리 없는 본문 → update 0 + rc 1
 printf '[상태] 머리만 있는 본문\n' > "$T/stub/body.txt"; before="$(wc -l < "$LOG" | tr -d ' ')"

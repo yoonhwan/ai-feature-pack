@@ -9,7 +9,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
-KIT="$REPO/scripts/harness-install/fable-team/bin/ft-tick.sh"
+KIT="$REPO/harness/kit/fable-team/bin/ft-tick.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -19,7 +19,7 @@ chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi
 # 라이브 bin 꼴: drift_watch 는 */.fable-team/bin 에서 돌 때만 켜진다. cwd 는 git 이 아닌 scratch → ROOT=cwd.
 mkdir -p "$TMP/repo/.fable-team/bin"; LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"
 cp "${R150_TICK:-$KIT}" "$LIVE"
-chk "ⓕ 키트 두 사본 동일" "$(cmp -s "$KIT" "$REPO/scripts/fable-team-bin/ft-tick.sh" && echo same || echo differ)" same
+chk "ⓕ 키트 두 사본 동일" "$(cmp -s "$KIT" "$REPO/harness/bin/ft-tick.sh" && echo same || echo differ)" same
 bash -n "$LIVE" && ok "bash -n" || bad "bash -n"
 
 # 가짜 tmux: list-panes = FAKE_PANES · send-keys -l 본문을 FAKE_SENT_DIR/p<pane> 에 저장 (PATH 스텁은 틱의 PATH 앞붙임에 지므로 export -f)
@@ -76,7 +76,7 @@ for t in main ops cfo feature loom; do
   printf '{"_master":"%s-M#1","%s-M#1":{"role":"master","tick":"ft-master-tick"},"%s-N#1":{"role":"nano","tick":null}}' "$t" "$t" "$t" > "$s"
 done
 # R186 hil_watch: 메인 틱만 돈다 — h 폴더는 팀 공통. 45분 묵은 미실행 h 1개 + 가짜 ft-hil 기록 대신 실물 ft-hil.sh(HIL_DIR=scratch)
-mkdir -p "$TMP/hil"; cp "$REPO/scripts/fable-team-bin/ft-hil.sh" "$TMP/repo/.fable-team/bin/ft-hil.sh"
+mkdir -p "$TMP/hil"; cp "$REPO/harness/bin/ft-hil.sh" "$TMP/repo/.fable-team/bin/ft-hil.sh"
 printf '#!/usr/bin/env bash\ntrue\n' > "$TMP/hil-plan.sh.hil"
 HIL_DIR="$TMP/hil" HIL_CLIP=0 FT_SECRET_JUDGE="$TMP/none.py" bash "$TMP/repo/.fable-team/bin/ft-hil.sh" --add "$TMP/hil-plan.sh.hil" >/dev/null 2>&1
 touch -t "$(date -v-45M +%Y%m%d%H%M 2>/dev/null || date -d '45 minutes ago' +%Y%m%d%H%M)" "$TMP/hil/h1"

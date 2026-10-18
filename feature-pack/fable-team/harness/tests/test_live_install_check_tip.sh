@@ -3,7 +3,7 @@
 # 임시 HOME·임시 git 리포(origin/main 은 refs/remotes/origin/main 으로 흉내)·가짜 launchctl 없음(plist 파일 안 건드림). 실 라이브·실 원격·press 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; KITMAP="$HERE/../../scripts/harness-install/LIVE-MAP.tsv"
+BIN="$HERE/../../harness/bin"; KITMAP="$HERE/../../harness/kit/LIVE-MAP.tsv"
 CHK="$BIN/ft-live-install-check.sh"; GATE="$BIN/ft-index-move-install.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:500}"; fail=$((fail+1)); fi; }

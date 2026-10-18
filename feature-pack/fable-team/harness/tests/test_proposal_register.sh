@@ -3,7 +3,7 @@
 #   open/approve/inbox 의 시험은 test_proposal_open.sh · test_proposal_approve_inbox.sh.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REG="$HERE/../../scripts/harness-install/proposal/ft-proposal-register.sh"
+REG="$HERE/../../harness/kit/proposal/ft-proposal-register.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

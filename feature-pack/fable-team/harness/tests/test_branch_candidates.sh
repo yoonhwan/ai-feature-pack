@@ -2,7 +2,7 @@
 # test_branch_candidates.sh — C18 브랜치 정리 후보 목록 시험: mktemp 저장소 SAFE/KEEP/REVIEW 각 1 + 불변 증거 + 실제 리포 전후 브랜치 수.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TOOL="$HERE/../../scripts/fable-team-bin/ft-branch-candidates.sh"
+TOOL="$HERE/../../harness/bin/ft-branch-candidates.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

@@ -3,8 +3,8 @@
 # tmux·~/.tmm 은 건드리지 않는다 (TMM_CATEGORIES·TMM_CAT_SESSIONS 로 격리).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TMM="$HERE/../../scripts/harness-install/tmm/tmm"
-LINT="$HERE/../../scripts/fable-team-bin/ft-name-lint.sh"
+TMM="$HERE/../../harness/kit/tmm/tmm"
+LINT="$HERE/../../harness/bin/ft-name-lint.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

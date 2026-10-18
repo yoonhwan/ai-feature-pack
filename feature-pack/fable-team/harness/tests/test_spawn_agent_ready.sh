@@ -3,9 +3,9 @@
 # 실 좌석·tmux 서버·네트워크 0 — 가짜 pane = bash -c 프로세스 트리 · 가짜 프록시 = 임시 포트 · tmux 는 PATH 가짜.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TRK="$HERE/../../scripts/fable-team-bin"
-KIT="$HERE/../../scripts/harness-install/fable-team/bin"
-DB="$HERE/../../tools/comm-canonical/mbox_doorbell.sh"; AL="$HERE/../../tools/comm-canonical/ft-agent-alive.sh"   # R346: 본체 판별 함수는 판정기 파일로 이사
+TRK="$HERE/../../harness/bin"
+KIT="$HERE/../../harness/kit/fable-team/bin"
+DB="$HERE/../../harness/comm/mbox_doorbell.sh"; AL="$HERE/../../harness/comm/ft-agent-alive.sh"   # R346: 본체 판별 함수는 판정기 파일로 이사
 T="$(cd "$(mktemp -d)" && pwd -P)"; PIDS=()
 kill_tree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done; kill "$1" 2>/dev/null; }
 trap 'for p in ${PIDS[@]+"${PIDS[@]}"}; do kill_tree "$p"; done; rm -rf "$T"' EXIT

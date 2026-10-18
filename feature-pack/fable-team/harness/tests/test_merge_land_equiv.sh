@@ -2,7 +2,7 @@
 # test_merge_land_equiv.sh — R247 판정 1917: 승인 sha A 뒤 «main 병합만» 한 PR head S 는 같은 승인으로 착지 (임시 origin+clone · gh 는 스텁 · 실 gh·실 원격 0)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-BIN="$HERE/../../scripts/fable-team-bin"; LAND="$BIN/ft-merge-land.sh"; EQV="$BIN/ft-approval-equiv.sh"; EQP="$BIN/ft_approval_equiv.py"
+BIN="$HERE/../../harness/bin"; LAND="$BIN/ft-merge-land.sh"; EQV="$BIN/ft-approval-equiv.sh"; EQP="$BIN/ft_approval_equiv.py"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }

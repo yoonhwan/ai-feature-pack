@@ -4,7 +4,7 @@
 #   전 케이스 «ft-press-gate.sh 최종 exit» 단언: SELFTEST 성공 = 3 · 막힘 = 1.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-GATE="$HERE/../../scripts/fable-team-bin/ft-press-gate.sh"
+GATE="$HERE/../../harness/bin/ft-press-gate.sh"
 fail=0; n=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

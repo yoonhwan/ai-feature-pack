@@ -6,7 +6,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
 FX="$HERE/fixtures"
-TICKS=("$ROOT/scripts/fable-team-bin/ft-tick.sh" "$ROOT/scripts/fable-team-bin/ft-tick-team.sh")
+TICKS=("$ROOT/harness/bin/ft-tick.sh" "$ROOT/harness/bin/ft-tick-team.sh")
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }
@@ -69,7 +69,7 @@ for tick in "${TICKS[@]}"; do
 done
 
 # ── 팀 판 자동 후계 5경우(가짜 tmux 스텁: ls 는 FAKE_TMUX_LS · list-panes 는 빈 결과) ──
-TEAM="$ROOT/scripts/fable-team-bin/ft-tick-team.sh"
+TEAM="$ROOT/harness/bin/ft-tick-team.sh"
 # 틱이 PATH 맨 앞에 /opt/homebrew/bin 을 붙이므로 PATH 스텁은 진짜 tmux 에 진다 — export -f 함수는 PATH 보다 먼저 잡힌다.
 tmux() { [ "$1" = ls ] && printf '%s\n' ${FAKE_TMUX_LS:-}; return 0; }
 export -f tmux

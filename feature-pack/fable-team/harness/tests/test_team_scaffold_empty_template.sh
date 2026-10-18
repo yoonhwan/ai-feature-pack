@@ -3,7 +3,7 @@
 # 임시 git 리포·임시 틀 폴더·임시 FT_BIN 만 — 실 design/·실 라이브 쓰기 0. press 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRCDIR="$HERE/../../scripts/fable-team-bin"; KITROOT="$HERE/../../scripts/harness-install"
+SRCDIR="$HERE/../../harness/bin"; KITROOT="$HERE/../../harness/kit"
 KIT="$KITROOT/fable-team"; KITMAP="$KITROOT/LIVE-MAP.tsv"; CHK="$SRCDIR/ft-live-install-check.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:500}"; fail=$((fail+1)); fi; }

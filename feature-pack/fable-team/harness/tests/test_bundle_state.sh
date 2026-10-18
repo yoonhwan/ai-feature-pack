@@ -2,7 +2,7 @@
 # test_bundle_state.sh — C10 ft-bundle-state.sh 시험: 정상 1바퀴 · 금지 전이 3종 · 재오픈 경로 · 원본 JSON 불변. 복사본만 만진다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-TOOL="$HERE/../../scripts/fable-team-bin/ft-bundle-state.sh"
+TOOL="$HERE/../../harness/bin/ft-bundle-state.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

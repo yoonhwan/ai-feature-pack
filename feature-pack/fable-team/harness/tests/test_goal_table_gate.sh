@@ -3,7 +3,7 @@
 # 가짜 정본·원장 파일(R371: 상태 출처 = planner 원장 «## 메인 골 6줄» 표) + 임시 폴더의 정본 mbox*.py·mbox*.sh 사본 + 격리 큐(FT_MBOX_DIR) — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
-TOOL="$REPO/scripts/fable-team-bin/ft-goal-table.sh"; SRC="$REPO/tools/comm-canonical"
+TOOL="$REPO/harness/bin/ft-goal-table.sh"; SRC="$REPO/harness/comm"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 teams_md() { mkdir -p "$1/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n' > "$1/design/TEAMS.md"; }   # R382b: planner 폴더는 TEAMS.md 칸으로 풀린다
@@ -107,7 +107,7 @@ mkledger "$NOWSTAMP"; BASE="$LEDGER"
 LR="$(mktemp -d "$T/lr.XXXXXX")"; mkdir -p "$LR/live/.fable-team/bin" "$LR/live/design/planner" "$LR/root/.fable-team" "$LR/root/.worktrees/v6-realtime-live/design/planner"
 teams_md "$LR/live"; sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$BASE" > "$LR/live/design/planner/PLAN-oppa-ledger.md"
 sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$BASE" > "$LR/root/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
-default_render() { env -u FT_GOAL_A6_LEDGER FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1; }
+default_render() { env -u FT_GOAL_A6_LEDGER FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/harness/bin/ft_goal_table.py" 2>&1; }
 printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"; printf '%s\n' "$LR/live" > "$LR/root/.fable-team/LIVE_ROOT"
 OUT="$(default_render)"; RC=$?
 [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ1 LIVE_ROOT 파일 → 새 LIVE 원장만(옛 v6 원장 OLD 0)" || bad "ⓝ1 두 루트 rc=$RC :: $OUT"
@@ -119,14 +119,14 @@ printf '%s\n' "$LR/없는폴더" > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(defa
 [ "$RC" = 1 ] && case "$OUT" in *'LIVE_ROOT 이 없거나 무효'*) true;; *) false;; esac && ok "ⓝ2 LIVE_ROOT 값 무효(없는 폴더) = ERROR rc1" || bad "ⓝ2 무효 rc=$RC :: $OUT"
 printf 'live\n' > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(default_render)"; RC=$?
 [ "$RC" = 1 ] && ok "ⓝ2 LIVE_ROOT 상대경로 = ERROR rc1" || bad "ⓝ2 상대 rc=$RC :: $OUT"
-printf '%s\n' "$LR/live" > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(FT_GOAL_A6_LEDGER="$BASE" FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1)"
+printf '%s\n' "$LR/live" > "$LR/root/.fable-team/LIVE_ROOT"; OUT="$(FT_GOAL_A6_LEDGER="$BASE" FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/harness/bin/ft_goal_table.py" 2>&1)"
 printf '%s' "$OUT" | grep -q '상태3 진행' && ok "ⓝ FT_GOAL_A6_LEDGER 가 LIVE_ROOT 보다 우선" || bad "ⓝ env 우선 :: $OUT"
 mkledger "$NOWSTAMP"
 
 # ── ⓣ arch 재현 r3 — 설치본 위치 FT_ROOT 없음(조상 탐색) · FT_ROOT=LIVE_BIN 없는 폴더 · LIVE_BIN 삭제 = 정본·원장 둘 다 ERROR(고정 v6 경로 0) (표본 3)
 mkledger "$NOWSTAMP"
 TR="$(mktemp -d "$T/tr.XXXXXX")"; LV="$TR/.worktrees/live"; mkdir -p "$LV/.fable-team/bin" "$LV/design/planner" "$TR/.fable-team" "$TR/.worktrees/v6-realtime-live/design/planner"
-cp "$REPO/scripts/fable-team-bin/ft_goal_table.py" "$REPO/scripts/fable-team-bin/ft_goal_ledger.py" "$REPO/scripts/fable-team-bin/ft_team_lib.py" "$LV/.fable-team/bin/"; teams_md "$LV"
+cp "$REPO/harness/bin/ft_goal_table.py" "$REPO/harness/bin/ft_goal_ledger.py" "$REPO/harness/bin/ft_team_lib.py" "$LV/.fable-team/bin/"; teams_md "$LV"
 cp "$CANON" "$LV/design/planner/AUTONOMY-GOAL-A6-20261018.md"; cp "$CANON" "$TR/.worktrees/v6-realtime-live/design/planner/AUTONOMY-GOAL-A6-20261018.md"
 sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$LEDGER" > "$LV/design/planner/PLAN-oppa-ledger.md"; sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$LEDGER" > "$TR/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
 printf '%s\n' "$LV/.fable-team/bin" > "$TR/.fable-team/LIVE_BIN"; printf '%s\n' "$LV" > "$TR/.fable-team/LIVE_ROOT"
@@ -142,7 +142,7 @@ OUT="$(env -u FT_ROOT -u FT_GOAL_A6_LEDGER FT_GOAL_A6_MD="$CANON" python3 "$LV/.
 mkledger "$NOWSTAMP"
 
 # ── 후퇴 0 — 옛 상태 파일 출처 문자열이 코드·도구에 없다
-if grep -rnE 'FT_GOAL_A6_STATE|GOAL-A6-STATE|--state' "$REPO/scripts/fable-team-bin"/ft_goal*.py "$TOOL" >/dev/null 2>&1; then bad "후퇴 0: 옛 상태 파일 출처가 남음"; else ok "후퇴 0: FT_GOAL_A6_STATE·GOAL-A6-STATE·--state 참조 0"; fi
+if grep -rnE 'FT_GOAL_A6_STATE|GOAL-A6-STATE|--state' "$REPO/harness/bin"/ft_goal*.py "$TOOL" >/dev/null 2>&1; then bad "후퇴 0: 옛 상태 파일 출처가 남음"; else ok "후퇴 0: FT_GOAL_A6_STATE·GOAL-A6-STATE·--state 참조 0"; fi
 mkledger "$NOWSTAMP"
 
 # ── ⓗ check 단독

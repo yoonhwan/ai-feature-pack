@@ -6,7 +6,7 @@ set -uo pipefail
 export LC_ALL=C LANG=C  # 로케일 고정(DA⑥ 관찰 — UTF-8 로케일 좌석에서도 같은 결과)
 # 계약 예외(arch#68): 새 OP 토큰은 `op vault get` 자식 1개 env 로만 — 부모 env 불변 · 다른 자식 env 0 · 출력·journal·argv 0 (6b 시험이 확인).
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../scripts/fable-team-bin"
+SRC="$HERE/../../harness/bin"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -257,6 +257,6 @@ chk "변이3 잡힘: intent-only 처리 없으면 조회 있음에도 운영 호
 fix; run "$NEW" GH_TOKEN_ORG
 chk "journal 600 · 값 0 · 지문 접두만" '[ "$(stat -f %Lp "$(J gh-token-org)")" = 600 ] && ! grep -qF "$NEW" "$(J gh-token-org)" && grep -q "\"fp\": \"$(fpof "$NEW")\"" "$(J gh-token-org)" && [ "$(grep -o "\"fp\": \"[0-9a-f]*\"" "$(J gh-token-org)" | head -1 | sed "s/.*: \"//; s/\"//" | wc -c | tr -d " ")" = 7 ]'
 chk "외부 호출 timeout=7 + 재시도 1" 'grep -q "timeout=7" "$SRC/ft_key_rotate_steps.py" && grep -q "for _ in (0, 1)" "$SRC/ft_key_rotate_steps.py"'
-chk "원본·키트 사본 cmp 0" 'for f in ft-key-rotate.sh ft_key_rotate.py ft_key_rotate_io.py ft_key_rotate_lines.py ft_key_rotate_table.py ft_key_rotate_journal.py ft_key_rotate_bundle.py ft_key_rotate_steps.py; do cmp -s "$SRC/$f" "$SRC/../harness-install/fable-team/bin/$f" || { echo "diff $f"; exit 1; }; done'
+chk "원본·키트 사본 cmp 0" 'for f in ft-key-rotate.sh ft_key_rotate.py ft_key_rotate_io.py ft_key_rotate_lines.py ft_key_rotate_table.py ft_key_rotate_journal.py ft_key_rotate_bundle.py ft_key_rotate_steps.py; do cmp -s "$SRC/$f" "$SRC/../kit/fable-team/bin/$f" || { echo "diff $f"; exit 1; }; done'
 
 echo "---"; [ "$fail" -eq 0 ] && echo "ALL PASS" || { echo "FAILED=$fail"; exit 1; }

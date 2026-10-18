@@ -3,8 +3,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
-WRAP="$ROOT/scripts/fable-team-bin/ft-gh-as-tank.sh"
-BODY="$ROOT/scripts/fable-team-bin/ft-gh-tank-comment-edit.sh"
+WRAP="$ROOT/harness/bin/ft-gh-as-tank.sh"
+BODY="$ROOT/harness/bin/ft-gh-tank-comment-edit.sh"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
