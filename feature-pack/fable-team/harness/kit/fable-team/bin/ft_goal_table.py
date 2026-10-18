@@ -1,11 +1,11 @@
 """ft_goal_table — 자율 골 표(A6) 렌더 + 판정기 하나 (R362 · 쓰는 쪽 ft-goal-table.sh · 뉴스·매거진·쪽지 가드가 같은 함수를 부른다).
 
-render  : 정본 표(골 → 팀 → 닫는 증거 6행) + planner 상태 파일 → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
+render  : 정본 표(골 → 팀 → 닫는 증거 6행) + planner 원장 `## 메인 골 6줄` 표(행 순번 결속 · ft_goal_ledger) → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
           골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/6행 아님 = `ERROR 골 표 정본 …` rc1.
 check   : 본문에 ⓐ마커 블록(6행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~6> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
-정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>`) · 상태 = FT_GOAL_A6_STATE · 저장소 = FT_GOAL_REPO(기본 FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha.
-상태 파일: `정본 sha10: <sha10>` · `갱신: YYYY-MM-DD HH:MM` · 행 `| <1~6> | 지금 상태 | 남은 것 |` (누락 = «상태 없음» · 중복 = ERROR · sha 불일치 = «상태 낡음»).
+정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = LIVE_BIN→LIVE_ROOT 의 design/planner/AUTONOMY-GOAL-A6-20261018.md) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 라이브 planner 원장) · 저장소 = FT_GOAL_REPO(기본 FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha.
+원장: 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
 from __future__ import annotations
 
@@ -17,13 +17,14 @@ import sys
 import unicodedata
 from pathlib import Path
 
+from ft_goal_ledger import NO_STATE, find_root, ledger_state, live_root
+
 DEFAULT_REL = "design/planner/AUTONOMY-GOAL-A6-20261018.md"
 BUDGET = 1600
 CELL = 24
 HEAD = re.compile(r"^★골 표 A6 \(([0-9a-f]{10}) · [^)]*\)★$")
 TAIL = "★/골 표★"
 COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
-NO_STATE = "상태 없음"
 
 
 class GoalError(RuntimeError):  # RuntimeError — 뉴스 원장 실행의 기존 except(RuntimeError) 가 «발행 0» 으로 받는다
@@ -35,7 +36,7 @@ def _norm(s: str) -> str:
 
 
 def _root() -> Path:
-    return Path(os.environ.get("FT_ROOT") or Path(__file__).resolve().parents[2])
+    return find_root(GoalError)
 
 
 def _git(repo: Path, *a: str) -> str:
@@ -50,7 +51,7 @@ def _repo() -> Path:
 
 
 def _spec() -> str:
-    return os.environ.get("FT_GOAL_A6_MD") or str(_root() / ".worktrees" / "v6-realtime-live" / DEFAULT_REL)
+    return os.environ.get("FT_GOAL_A6_MD") or str(live_root(GoalError) / DEFAULT_REL)
 
 
 def load_canon() -> tuple[str, str, str]:
@@ -77,23 +78,10 @@ def parse_rows(text: str) -> list[list[str]]:
     return rows
 
 
-def _state(path: str, sha: str) -> tuple[str, dict[int, str]]:
-    """(머리 상태 글자, {행번호: 지금 상태}) — 파일 없음 = «상태 없음» · sha 불일치 = «상태 낡음» · 중복 행 = GoalError."""
-    p = Path(path)
-    if not p.is_file():
-        return NO_STATE, {}
-    got, seen, stamp, file_sha = {}, set(), "", ""
-    for ln in p.read_text(encoding="utf-8").splitlines():
-        if m := re.match(r"^정본 sha10:\s*([0-9a-f]{10})", ln):
-            file_sha = m[1]
-        elif m := re.match(r"^갱신:\s*\S+\s+(\d{2}:\d{2})", ln):
-            stamp = m[1]
-        elif m := re.match(r"^\|\s*([1-6])\s*\|\s*(.*?)\s*\|", ln):
-            if (n := int(m[1])) in seen:
-                raise GoalError(f"ERROR 골 표 상태 파일에 {n} 행이 두 번이다")
-            seen.add(n)
-            got[n] = m[2]
-    return ("상태 낡음" if file_sha != sha else f"상태 {stamp or '시각 없음'}"), (got if file_sha == sha else {})
+def _ledger_show(spec: str) -> str:
+    """`gitref:<ref>:<경로>` 원장 → 그 ref 의 commit 으로 1회 확정해 읽는다."""
+    _, ref, rel = spec.split(":", 2)
+    return _git(_repo(), "show", f"{_git(_repo(), 'rev-parse', '--verify', ref).strip()}:{rel}")
 
 
 def _cut(s: str, keep_all: bool = False) -> str:
@@ -101,10 +89,10 @@ def _cut(s: str, keep_all: bool = False) -> str:
     return s if keep_all or len(s) <= CELL else s[:CELL] + "…"
 
 
-def render(state_path: str | None = None) -> str:
+def render() -> str:
     text, sha, _ = load_canon()
     rows = parse_rows(text)
-    head, states = _state(state_path or os.environ.get("FT_GOAL_A6_STATE") or str(_root() / "design" / "planner" / "GOAL-A6-STATE.md"), sha)
+    head, states = ledger_state(_ledger_show, GoalError)
     body = [f"| {_cut(g, True)} | {_cut(t)} | {_cut(states.get(i, NO_STATE))} | {_cut(e)} |" for i, (g, t, e) in enumerate(rows, 1)]
     out = "\n".join([f"★골 표 A6 ({sha} · {head})★", "| 골 | 팀 | 지금 상태 | 닫는 증거 |", "|---|---|---|---|", *body, TAIL])
     if len(out.encode("utf-8")) > BUDGET:
@@ -157,8 +145,7 @@ def main(argv: list[str]) -> int:
             rc, msg = check(sys.stdin.read() if src == "-" else Path(src).read_text(encoding="utf-8"), "--block-only" in argv)
             print(msg)
             return rc
-        state = argv[argv.index("--state") + 1] if "--state" in argv else None
-        sys.stdout.write(render(state))
+        sys.stdout.write(render())
         return 0
     except GoalError as e:
         print(e, file=sys.stderr)

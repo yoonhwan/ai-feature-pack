@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # test_goal_table_gate.sh — R362 골 표(A6) 상시 게재 문: 렌더(ⓐⓑ) · 판정기 check(ⓗ) · 쪽지 가드 문 ③(ⓔⓕⓘⓙ).
-# 가짜 정본·상태 파일 + 임시 폴더의 정본 mbox*.py·mbox*.sh 사본 + 격리 큐(FT_MBOX_DIR) — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
+# 가짜 정본·원장 파일(R371: 상태 출처 = planner 원장 «## 메인 골 6줄» 표) + 임시 폴더의 정본 mbox*.py·mbox*.sh 사본 + 격리 큐(FT_MBOX_DIR) — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 TOOL="$REPO/scripts/fable-team-bin/ft-goal-table.sh"; SRC="$REPO/tools/comm-canonical"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
-CANON="$T/AUTONOMY-GOAL-A6.md"; STATE="$T/GOAL-A6-STATE.md"
+CANON="$T/AUTONOMY-GOAL-A6.md"; LEDGER="$T/PLAN-oppa-ledger.md"
 cat > "$CANON" <<'EOF'
 # 자율 골 A6 (시험 픽스처 — 실 정본 표 6행 복사)
 
@@ -22,28 +22,36 @@ cat > "$CANON" <<'EOF'
 | 메모리 세션 제한으로 안 멈춰 있게 완성 | harness(장치) · 각 팀장(끝난 좌석 닫기) | 정지 좌석 = 승인·차례 대기만(사유 1줄) · 자원 문지기 REJECT 로 멈춘 팀 0 |
 EOF
 SHA="$(shasum -a 256 "$CANON" | cut -c1-10)"
-mkstate() {  # <sha10> — 상태 파일(행마다 | 행번호 | 지금 상태 | 남은 것 |)
-  python3 - "$CANON" "$1" > "$STATE" <<'PY'
+NOWSTAMP="$(python3 -c 'import datetime;print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))')"
+mkledger() {  # <갱신 'YYYY-MM-DD HH:MM'> [행 수=6] [절 제목=기본] — planner 원장 모양: 골 글자는 정본과 다르다(순번 결속만) · 뒤쪽 절의 표는 읽히면 안 된다
+  python3 - "$1" "${2:-6}" "${3:-## 메인 골 6줄 — 지금 상태 (오빠 원문 그대로)}" > "$LEDGER" <<'PY'
 import sys
-rows = [l.split("|")[1].strip() for l in open(sys.argv[1], encoding="utf-8") if l.startswith("| ") and not l.startswith("| 골(") ]
-print("# 골 표 상태\n정본 sha10: " + sys.argv[2] + "\n갱신: 2026-10-18 10:30")
-for i, r in enumerate(rows, 1): print(f"| {i} | 상태{i} 진행 | 남은{i} |")
+stamp, n, head = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+print("# 오빠 원장\n\n> 마지막 갱신: " + stamp + " · planner#68\n\n**결론**: 시험\n\n" + head + "\n")
+print("| 골(오빠 원문) | 지금 상태 | 닫히려면 남은 것 |\n|---|---|---|")
+for i in range(1, n + 1):
+    st = "긴상태값이길다긴상태값이길다긴상태값이길다긴상태값" if i == 2 else f"상태{i} 진행"
+    print(f"| 원장 글자 {i} | {st} | 남은{i} |")
+print("\n## 다른 절\n\n| a | 읽히면 안 됨 | c |\n|---|---|---|\n| x | 새는상태 | z |")
 PY
 }
-render() { FT_GOAL_A6_MD="${CANON_OVERRIDE:-$CANON}" FT_GOAL_A6_STATE="${STATE_OVERRIDE:-$STATE}" bash "$TOOL" "$@"; }
+render() { FT_GOAL_A6_MD="${CANON_OVERRIDE:-$CANON}" FT_GOAL_A6_LEDGER="${LEDGER_OVERRIDE:-$LEDGER}" bash "$TOOL" "$@"; }
 # check_body <본문> → RC·OUT
 check_body() { OUT="$(printf '%s' "$1" | render check - 2>&1)"; RC=$?; }
 
-# ── ⓐ 렌더: 머리·6행·꼬리·900B·상태 칸
-mkstate "$SHA"; BLOCK="$(render 2>&1)"; RC=$?
+# ── ⓐ 렌더: 머리·6행·꼬리·1600B·상태 칸(원장 2열 · 행 순번 결속)
+mkledger "$NOWSTAMP"; BLOCK="$(render 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "ⓐ 렌더 rc0" || bad "ⓐ 렌더 rc=$RC :: $BLOCK"
-printf '%s\n' "$BLOCK" | head -1 | grep -qE "^★골 표 A6 \($SHA · 상태 10:30\)★$" && ok "ⓐ 머리 마커 줄" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
+printf '%s\n' "$BLOCK" | head -1 | grep -qxF "★골 표 A6 ($SHA · 원장:${NOWSTAMP:5})★" && ok "ⓐ 머리 마커 줄(원장:<갱신>)" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
 printf '%s\n' "$BLOCK" | tail -1 | grep -qx '★/골 표★' && ok "ⓐ 꼬리 마커 줄" || bad "ⓐ 꼬리"
 [ "$(printf '%s\n' "$BLOCK" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓐ 표 7줄(제목 1 + 골 6)" || bad "ⓐ 표 행 수"
-printf '%s' "$BLOCK" | grep -q '상태3 진행' && ok "ⓐ 상태 칸 값 반영" || bad "ⓐ 상태 칸 값 없음"
+printf '%s' "$BLOCK" | grep -q '상태3 진행' && ok "ⓐ 상태 칸 = 원장 2열 값(행 3)" || bad "ⓐ 상태 칸 값 없음"
+printf '%s' "$BLOCK" | grep -qF '긴상태값이길다긴상태값이길다긴상태값이길다긴상태…' && ok "ⓐ 상태 칸 24자 + «…»" || bad "ⓐ 24자 축약"
+printf '%s' "$BLOCK" | grep -q '원장 글자' && bad "ⓐ 원장 골 글자가 블록에 샘(정본 글자만)" || ok "ⓐ 골 칸은 정본 글자(원장 글자 0)"
+printf '%s' "$BLOCK" | grep -q '새는상태' && bad "ⓐ 뒤쪽 절 표가 읽힘" || ok "ⓐ 첫 표만 읽음(뒤쪽 절 표 0)"
 [ "$RC" = 0 ] && [ "$(printf '%s\n' "$BLOCK" | wc -c)" -gt 100 ] && [ "$(printf '%s\n' "$BLOCK" | wc -c)" -le 1600 ] && ok "ⓐ ≤1600B" || bad "ⓐ $(printf '%s\n' "$BLOCK" | wc -c)B"
-OUT="$(STATE_OVERRIDE="$T/없는상태.md" render 2>&1)"; RC=$?
-[ "$RC" = 0 ] && [ "$(printf '%s' "$OUT" | grep -o '상태 없음' | wc -l)" -ge 6 ] && ok "ⓐ 상태 파일 없음 = «상태 없음» 6칸(빈 칸 0)" || bad "ⓐ 상태 없음 rc=$RC :: $OUT"
+OUT="$(LEDGER_OVERRIDE="$T/없는원장.md" render 2>"$T/err")"; RC=$?
+[ "$RC" = 0 ] && [ "$(printf '%s' "$OUT" | grep -o '상태 없음' | wc -l)" -ge 6 ] && [ "$(grep -c '^WARN 골 표 원장' "$T/err")" = 1 ] && ok "ⓐ 원장 파일 없음 = «상태 없음» 6칸 + WARN 1줄 rc0" || bad "ⓐ 원장 없음 rc=$RC :: $OUT :: $(cat "$T/err")"
 
 # ── ⓑ 정본 이상 = ERROR rc1 (조용한 빈 표 0)
 OUT="$(CANON_OVERRIDE="$T/없는정본.md" render 2>&1)"; RC=$?
@@ -52,10 +60,87 @@ grep -v 'harness(장치)' "$CANON" > "$T/canon5.md"
 OUT="$(CANON_OVERRIDE="$T/canon5.md" render 2>&1)"; RC=$?
 [ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 정본'*) true;; *) false;; esac && ok "ⓑ 표 5행 ERROR rc1" || bad "ⓑ 5행 rc=$RC :: $OUT"
 
-# ── ⓕ 상태 낡음 (상태의 sha ≠ 정본 sha)
-mkstate "0000000000"; OUT="$(render 2>&1)"; RC=$?
-[ "$RC" = 0 ] && printf '%s\n' "$OUT" | head -1 | grep -q '상태 낡음' && ok "ⓕ sha 불일치 머리에 «상태 낡음»" || bad "ⓕ 낡음 rc=$RC :: $(printf '%s' "$OUT" | head -1)"
-mkstate "$SHA"
+# ── ⓑ 원장 행 수 ≠ 6 = ERROR rc1 (조용한 «상태 없음» 0)
+for n in 5 7; do
+  mkledger "$NOWSTAMP" "$n"; OUT="$(render 2>&1)"; RC=$?
+  [ "$RC" = 1 ] && case "$OUT" in *"ERROR 골 표 원장 행 수 ${n}≠6"*) true;; *) false;; esac && ok "ⓑ 원장 표 ${n}행 ERROR rc1" || bad "ⓑ 원장 ${n}행 rc=$RC :: $OUT"
+done
+
+# ── ⓒ 원장에 절 없음 = 6칸 «상태 없음» + stderr WARN 1줄 · rc0 (발행은 된다)
+mkledger "$NOWSTAMP" 6 "## 엉뚱한 절"; OUT="$(render 2>"$T/err")"; RC=$?
+[ "$RC" = 0 ] && [ "$(printf '%s' "$OUT" | grep -o '상태 없음' | wc -l)" -ge 6 ] && [ "$(grep -c '^WARN 골 표 원장' "$T/err")" = 1 ] && ok "ⓒ 절 없음 = «상태 없음» 6칸 + WARN 1줄 rc0" || bad "ⓒ 절 없음 rc=$RC :: $OUT :: $(cat "$T/err")"
+
+# ── ⓓ gitref 출처 = 파일과 같은 결과
+mkledger "$NOWSTAMP"; FILE_OUT="$(render 2>&1)"
+GR="$T/gitrepo"; mkdir -p "$GR/design/planner"; cp "$LEDGER" "$GR/design/planner/PLAN-oppa-ledger.md"
+git -C "$GR" init -q && git -C "$GR" add -A && git -C "$GR" -c user.name=t -c user.email=t@t commit -qm l
+OUT="$(FT_GOAL_REPO="$GR" LEDGER_OVERRIDE="gitref:HEAD:design/planner/PLAN-oppa-ledger.md" render 2>&1)"; RC=$?
+[ "$RC" = 0 ] && [ "$OUT" = "$FILE_OUT" ] && ok "ⓓ gitref 원장 = 파일 원장과 같은 블록" || bad "ⓓ gitref rc=$RC :: $OUT"
+
+# ── ⓔ 원장 «마지막 갱신» 24h 초과 = 머리 «상태 낡음»
+mkledger "2020-01-01 10:30"; STALE="$(render 2>&1)"; RC=$?
+[ "$RC" = 0 ] && printf '%s\n' "$STALE" | head -1 | grep -q '상태 낡음' && printf '%s\n' "$STALE" | head -1 | grep -q '원장:01-01 10:30' && ok "ⓔ 24h 초과 머리에 «상태 낡음» + 원장:<갱신>" || bad "ⓔ 낡음 rc=$RC :: $(printf '%s' "$STALE" | head -1)"
+printf '%s\n' "$FILE_OUT" | head -1 | grep -q '상태 낡음' && bad "ⓔ 신선한 원장이 낡음으로 찍힘" || ok "ⓔ 신선한 원장은 «상태 낡음» 0"
+
+# ── ⓕ check 불변 — 상태 칸·낡음이 바뀌어도 check rc 동일
+check_body "$STALE"$'\n골좌표: 3 — m.lecture 멀티'; R1=$RC
+check_body "$FILE_OUT"$'\n골좌표: 3 — m.lecture 멀티'; R2=$RC
+[ "$R1" = 0 ] && [ "$R2" = 0 ] && ok "ⓕ 상태칸·낡음 달라도 check rc 동일(0)" || bad "ⓕ check rc $R1/$R2"
+
+# ── ⓜ DA⑥ r1 H1 — 표 셀 `\|` 복원 · 열 수 검증 · 빈 셀 구분 (표본 3)
+mkledger "$NOWSTAMP"; sed -i.bak -e 's/^| 원장 글자 3 | 상태3 진행 |/| 원장 글자 3 \\| 골 | 상태3 진행\\|검증 |/' -e 's/| 남은4 |$/| 남은\\|4 |/' "$LEDGER"; rm -f "$LEDGER.bak"
+OUT="$(render 2>&1)"; RC=$?
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -qF '상태3 진행/검증' && ! printf '%s' "$OUT" | grep -qE '상태3 진행/?\|? *\|' && ok "ⓜ1 상태 셀 `진행\|검증` → 전체 보존(절단 0) · 골·남은것 칸의 `\|` 도 열 수 유지" || bad "ⓜ1 이스케이프 rc=$RC :: $OUT"
+mkledger "$NOWSTAMP"; sed -i.bak 's/^| 원장 글자 4 | 상태4 진행 | 남은4 |$/| 원장 글자 4 | 상태4 진행 |/' "$LEDGER"; rm -f "$LEDGER.bak"
+OUT="$(render 2>&1)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 원장 열 수 2≠3'*) true;; *) false;; esac && ok "ⓜ2 열 수 부족 ERROR rc1(행 수 6 이어도)" || bad "ⓜ2 부족 rc=$RC :: $OUT"
+mkledger "$NOWSTAMP"; sed -i.bak 's/^| 원장 글자 4 | 상태4 진행 | 남은4 |$/| 원장 글자 4 | 상태4 진행|검증 | 남은4 |/' "$LEDGER"; rm -f "$LEDGER.bak"
+OUT="$(render 2>&1)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 원장 열 수 4≠3'*) true;; *) false;; esac && ok "ⓜ2 열 수 초과(이스케이프 없는 |) ERROR rc1" || bad "ⓜ2 초과 rc=$RC :: $OUT"
+mkledger "$NOWSTAMP"; sed -i.bak 's/^| 원장 글자 5 | 상태5 진행 | 남은5 |$/| 원장 글자 5 |  | 남은5 |/' "$LEDGER"; rm -f "$LEDGER.bak"
+OUT="$(render 2>&1)"; RC=$?
+[ "$RC" = 0 ] && [ "$(printf '%s' "$OUT" | grep -o '상태 없음' | wc -l | tr -d ' ')" = 1 ] && printf '%s' "$OUT" | grep -q '상태6 진행' && ok "ⓜ3 진짜 빈 셀 = 그 행만 «상태 없음»(나머지 행 보존)" || bad "ⓜ3 빈 셀 rc=$RC :: $OUT"
+
+# ── ⓝ DA⑥ r1 H2 — 기본 출처 = LIVE_BIN 1행 → LIVE_ROOT 원장 · 옛 v6 원장·고정 접미사 후퇴 0 (표본 2)
+mkledger "$NOWSTAMP"; BASE="$LEDGER"
+LR="$(mktemp -d "$T/lr.XXXXXX")"; mkdir -p "$LR/live/.fable-team/bin" "$LR/live/design/planner" "$LR/root/.fable-team" "$LR/root/.worktrees/v6-realtime-live/design/planner"
+sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$BASE" > "$LR/live/design/planner/PLAN-oppa-ledger.md"
+sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$BASE" > "$LR/root/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
+default_render() { env -u FT_GOAL_A6_LEDGER FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1; }
+printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"
+OUT="$(default_render)"; RC=$?
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ1 LIVE_BIN → 새 LIVE 원장만(옛 v6 원장 OLD 0)" || bad "ⓝ1 두 루트 rc=$RC :: $OUT"
+rm -f "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효'*) true;; *) false;; esac && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓝ2 LIVE_BIN 없음 = ERROR rc1(옛 원장 선택 0)" || bad "ⓝ2 LIVE_BIN 없음 rc=$RC :: $OUT"
+printf '%s\n' "$LR/없는폴더" > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'LIVE_BIN 이 없거나 무효'*) true;; *) false;; esac && ok "ⓝ2 LIVE_BIN 값 무효(없는 폴더) = ERROR rc1" || bad "ⓝ2 무효 rc=$RC :: $OUT"
+printf 'live/.fable-team/bin\n' > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(default_render)"; RC=$?
+[ "$RC" = 1 ] && ok "ⓝ2 LIVE_BIN 상대경로 = ERROR rc1" || bad "ⓝ2 상대 rc=$RC :: $OUT"
+printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"; OUT="$(FT_GOAL_A6_LEDGER="$BASE" FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/scripts/fable-team-bin/ft_goal_table.py" 2>&1)"
+printf '%s' "$OUT" | grep -q '상태3 진행' && ok "ⓝ FT_GOAL_A6_LEDGER 가 LIVE_BIN 보다 우선" || bad "ⓝ env 우선 :: $OUT"
+mkledger "$NOWSTAMP"
+
+# ── ⓣ arch 재현 r3 — 설치본 위치 FT_ROOT 없음(조상 탐색) · FT_ROOT=LIVE_BIN 없는 폴더 · LIVE_BIN 삭제 = 정본·원장 둘 다 ERROR(고정 v6 경로 0) (표본 3)
+mkledger "$NOWSTAMP"
+TR="$(mktemp -d "$T/tr.XXXXXX")"; LV="$TR/.worktrees/live"; mkdir -p "$LV/.fable-team/bin" "$LV/design/planner" "$TR/.fable-team" "$TR/.worktrees/v6-realtime-live/design/planner"
+cp "$REPO/scripts/fable-team-bin/ft_goal_table.py" "$REPO/scripts/fable-team-bin/ft_goal_ledger.py" "$LV/.fable-team/bin/"
+cp "$CANON" "$LV/design/planner/AUTONOMY-GOAL-A6-20261018.md"; cp "$CANON" "$TR/.worktrees/v6-realtime-live/design/planner/AUTONOMY-GOAL-A6-20261018.md"
+sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$LEDGER" > "$LV/design/planner/PLAN-oppa-ledger.md"; sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$LEDGER" > "$TR/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
+printf '%s\n' "$LV/.fable-team/bin" > "$TR/.fable-team/LIVE_BIN"
+inst_render() { env -u FT_ROOT -u FT_GOAL_A6_MD -u FT_GOAL_A6_LEDGER "$@" python3 "$LV/.fable-team/bin/ft_goal_table.py" 2>&1; }
+OUT="$(inst_render)"; RC=$?
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD' && [ "$(printf '%s' "$OUT" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓣ1 설치본 위치 + FT_ROOT 없음 → 조상 탐색으로 정본·원장 기본 경로 해석 · 6칸 채움(OLD 0)" || bad "ⓣ1 설치본 rc=$RC :: $OUT"
+OUT="$(inst_render FT_ROOT="$LV")"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *"$LV/.fable-team/LIVE_BIN"*) true;; *) false;; esac && ok "ⓣ2 FT_ROOT=LIVE_BIN 없는 폴더 → ERROR 사유에 그 경로" || bad "ⓣ2 FT_ROOT rc=$RC :: $OUT"
+rm -f "$TR/.fable-team/LIVE_BIN"; OUT="$(inst_render)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'LIVE_BIN 이 없거나 무효'*) true;; *) false;; esac && ! printf '%s' "$OUT" | grep -q 'OLD' && ok "ⓣ3 LIVE_BIN 삭제 → ERROR(정본·원장 둘 다 고정 v6 경로 0)" || bad "ⓣ3 LIVE_BIN 삭제 rc=$RC :: $OUT"
+OUT="$(env -u FT_ROOT -u FT_GOAL_A6_LEDGER FT_GOAL_A6_MD="$CANON" python3 "$LV/.fable-team/bin/ft_goal_table.py" 2>&1)"; RC=$?
+[ "$RC" = 1 ] && ok "ⓣ3 정본만 env 로 줘도 원장 기본 경로는 LIVE_BIN 없으면 ERROR" || bad "ⓣ3 원장 :: rc=$RC $OUT"
+mkledger "$NOWSTAMP"
+
+# ── 후퇴 0 — 옛 상태 파일 출처 문자열이 코드·도구에 없다
+if grep -rnE 'FT_GOAL_A6_STATE|GOAL-A6-STATE|--state' "$REPO/scripts/fable-team-bin"/ft_goal*.py "$TOOL" >/dev/null 2>&1; then bad "후퇴 0: 옛 상태 파일 출처가 남음"; else ok "후퇴 0: FT_GOAL_A6_STATE·GOAL-A6-STATE·--state 참조 0"; fi
+mkledger "$NOWSTAMP"
 
 # ── ⓗ check 단독
 GOOD="$BLOCK"$'\n골좌표: 3 — m.lecture 멀티'
@@ -72,13 +157,13 @@ check_body $'★/골 표★\n골좌표: 3 — m.lecture 멀티'; [ "$RC" = 3 ] &
 # ── 쪽지 가드 문 ③ — 격리 루트
 new_env() {
   ENVROOT="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENVROOT/.fable-team/comm" "$ENVROOT/.fable-team/state" "$ENVROOT/.fable-team/bin" "$ENVROOT/seats"
-  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENVROOT/.fable-team/comm/"; cp "$TOOL" "$(dirname "$TOOL")/ft_goal_table.py" "$ENVROOT/.fable-team/bin/" 2>/dev/null; git -C "$ENVROOT" init -q
+  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENVROOT/.fable-team/comm/"; cp "$TOOL" "$(dirname "$TOOL")/ft_goal_table.py" "$(dirname "$TOOL")/ft_goal_ledger.py" "$ENVROOT/.fable-team/bin/" 2>/dev/null; git -C "$ENVROOT" init -q
   echo '{"_master":"byz-planner-master-claude#9","_desk":"byz-planner-desk-claude#3","_arch":"byz-planner-arch-claude#4"}' > "$ENVROOT/seats/seats-planner.json"
   echo '{"_master":"byz-harness-master-claude#64","_arch":"byz-harness-arch-claude#81","byz-harness-nano-x#0":{"role":"nano"}}' > "$ENVROOT/seats/seats-harness.json"
   echo '{}' > "$ENVROOT/seats/seats.json"; [ "${UNARMED:-0}" = 1 ] || : > "$ENVROOT/.fable-team/state/goal-gate.armed"
 }
 send_from() {  # <from> <body> → RC·OUT (수신자 = 명부에 없는 나노 → 수신자 문·planner 머리 문 둘 다 비켜 간다)
-  OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_STATE="$STATE" \
+  OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$LEDGER" \
     FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
     bash "$ENVROOT/.fable-team/comm/mbox.sh" send 'byz-zz-nano-q#0' "$1" "$2" 2>&1)"; RC=$?
 }
@@ -114,7 +199,7 @@ new_env; send_from "$PM" "[발주 #1] 골좌표 줄 없음"$'\n'"$BLOCK"
 
 # ⓚ 실물 정본(1274B 표) — 골 원문 전문 보존 + ≤1600B
 REAL="$REPO/tests/fixtures/goal_table/AUTONOMY-GOAL-A6-20261018.md"
-OUT="$(CANON_OVERRIDE="$REAL" STATE_OVERRIDE="$T/없음.md" render 2>&1)"; RC=$?
+OUT="$(CANON_OVERRIDE="$REAL" LEDGER_OVERRIDE="$T/없음.md" render 2>/dev/null)"; RC=$?
 [ "$RC" = 0 ] && [ "$(printf '%s\n' "$OUT" | wc -c)" -le 1600 ] && ok "ⓚ 실물 정본 ≤1600B" || bad "ⓚ rc=$RC $(printf '%s\n' "$OUT" | wc -c)B :: $OUT"
 full=0; while IFS= read -r g; do printf '%s' "$OUT" | grep -qF "$g" || full=1; done < <(python3 -c 'import sys;[print(l.split("|")[1].strip()) for l in open(sys.argv[1],encoding="utf-8") if l.startswith("| ") and not l.startswith("| 골(")]' "$REAL")
 [ "$full" = 0 ] && ok "ⓚ 골 원문 6칸 전문 보존(절단 0)" || bad "ⓚ 골 원문 절단"
@@ -127,7 +212,7 @@ grep -q '^[^ ]* REJECT from=' "$ENVROOT/.fable-team/state/mbox-guard-goal.log" &
 
 # ⓝ relay — 첨부 사본을 검사하고 그 사본이 그대로 relay 된다
 relay_from() {  # <from> <첨부 파일> <요약> → RC·OUT
-  OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_STATE="$STATE" \
+  OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$LEDGER" \
     FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
     bash "$ENVROOT/.fable-team/comm/mbox.sh" relay 'byz-zz-nano-q#0' "$1" "$2" "$3" 2>&1)"; RC=$?
 }
