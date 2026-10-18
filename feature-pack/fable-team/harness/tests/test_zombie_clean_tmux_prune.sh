@@ -30,6 +30,10 @@ case "$1" in
   list-panes)
     n="${@: -3:1}"
     if grep -E "^$n " "$FIXTURE" | grep -qw server; then echo 9001; else echo 8000; fi ;;   # 8000 = 평범한 pane (자식 = 에이전트 pid 4242)
+  display)   # R364: 결속 재비교(ft_seat_bind.py --expect)가 묻는 pane pid + 식별(<세션>:@window.%pane) — 그 포맷만 답한다(다른 display 호출은 옛 그대로 무출력)
+    case "${5:-}" in '#{pane_pid}'*) ;; *) exit 0 ;; esac
+    n="${4#=}"; n="${n%:}"; if grep -E "^$n " "$FIXTURE" | grep -qw server; then pp=9001; else pp=8000; fi
+    printf '%s\t%s:@1.%%1\n' "$pp" "$n" ;;
   kill-session) echo "kill $*" >> "$TMP_KILLLOG" ;;
   has-session) n="${3#=}"; grep -qE "^$n " "$FIXTURE" && exit 0; exit 1 ;;   # fixture 에 줄이 있으면 «살아 있는 세션»
   new-session|send-keys) echo "$*" >> "${TMP_CALLLOG:-/dev/null}"
@@ -42,7 +46,7 @@ cat > "$FAKE/pgrep" <<'EOF'
 if [ "$1" = "-P" ]; then case "$2" in 9001) echo 9002; echo 4242; exit 0 ;; 8000) echo 4242; exit 0 ;; esac; fi
 exec /usr/bin/pgrep "$@"
 EOF
-printf '#!/usr/bin/env bash\n[ "$4" = "9002" ] && { echo "uvicorn app:app"; exit 0; }\n[ "$4" = "4242" ] && { echo "claude"; exit 0; }\nexec /bin/ps "$@"\n' > "$FAKE/ps"
+printf '#!/usr/bin/env bash\n[ "$2" = "lstart=" ] && { echo "Mon Jan  1 00:00:00 2001"; exit 0; }\n[ "$2" = "comm=" ] && { echo /u/.local/bin/claude; exit 0; }\n[ "$4" = "9002" ] && { echo "uvicorn app:app"; exit 0; }\n[ "$4" = "4242" ] && { echo "claude"; exit 0; }\nexec /bin/ps "$@"\n' > "$FAKE/ps"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"   # reclaim_init 의 tmuxc save — 실 tmuxc 호출 0
 chmod +x "$FAKE/tmux" "$FAKE/pgrep" "$FAKE/ps" "$FAKE/tmuxc"
 
@@ -134,7 +138,7 @@ mkrec() { # <세션명> [name|engine|jsonl|jsonlname|cwd|model|pid: 그 칸만 �
   local n="$1" bad="${2:-}" u nm="$1" en=claude cw="$TMP/cwd" md="m1" jl pd=4242
   u="u-$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '-')"; jl="$TMP/cwd/$u.jsonl"; : > "$jl"; : > "$TMP/cwd/other.jsonl"
   case "$bad" in name) nm=other ;; engine) en=codex ;; jsonl) jl="$TMP/cwd/none.jsonl" ;; jsonlname) jl="$TMP/cwd/other.jsonl" ;; cwd) cw="$TMP/nodir" ;; model) md="" ;; pid) pd=7777 ;; esac
-  printf '{"name":"%s","engine":"%s","pid":%s,"uuid":"%s","jsonl":"%s","cwd":"%s","model":"%s","retired_by":"x","at":"t"}' "$nm" "$en" "$pd" "$u" "$jl" "$cw" "$md" > "$RECD/$n.json"
+  printf '{"name":"%s","engine":"%s","pid":%s,"uuid":"%s","jsonl":"%s","cwd":"%s","model":"%s","retired_by":"x","at":"t","binding":{"session":"%s","window":"@1","pane":"%%1","pid":%s,"lstart":"Mon Jan  1 00:00:00 2001","source":"tmux-col"}}' "$nm" "$en" "$pd" "$u" "$jl" "$cw" "$md" "$n" "$pd" > "$RECD/$n.json"
 }
 # T15 — ① 멤버 2개 계보(J#2 현역·J#1 직전 세대) · 직전 세대에 검증된 기록 · idle 충분 → 직전 세대만 kill (DA② H1 반례)
 rm -f "$RECD"/*; mkrec 'RA#1'

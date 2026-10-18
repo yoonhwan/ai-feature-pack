@@ -34,6 +34,8 @@ MAP=(
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"
   # ★ft-agent-alive.sh = mbox_doorbell.sh 가 source 하는 판정기(전경 셸·정지 본체 = NOAGENT) + 틱·seat-live CLI (R346) — 한쪽만 깔리면 doorbell 이 «판정 불가»(주입 0) · 틱은 발사 0 — 설치 전엔 MISSING_RUNTIME(master 라이브 설치 cp 뒤 SAME)★
   "ft-agent-alive.sh|.fable-team/comm/ft-agent-alive.sh"
+  # ★ft_seat_bind.py = 좌석 pane 소유 결속 판정기(R364) — comm 쪽 소비자(ft-agent-alive 본체 후보 · 2단계)가 «같은 폴더» 고정 경로로 부른다 · 설치 전엔 MISSING_RUNTIME★
+  "ft_seat_bind.py|.fable-team/comm/ft_seat_bind.py"
   # ★mbox_guard.sh = mbox.sh 가 source 함 — 한쪽만 깔리면 전 좌석 send 정지(set -e) · 감시 밖이면 무증상 (N3 · 2026-10-12)★
   "mbox_guard.sh|.fable-team/comm/mbox_guard.sh"
   # ★mbox_guard_goal.sh = mbox_guard.sh 가 source 하는 문 ③ 골 표 게재(R362) — 한쪽만 깔리면 WARN 만 남고 문이 열린다 · 감시 밖이면 무증상★

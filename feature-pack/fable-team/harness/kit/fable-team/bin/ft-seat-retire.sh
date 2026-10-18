@@ -20,6 +20,9 @@ ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<'PY'
 import json, os, re, sys, glob, shutil, datetime, subprocess, collections
 arg, root, old, new, reconly, here = sys.argv[1:7]
+sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
+try: import ft_seat_bind
+except ImportError as e: print(f"ERROR 결속 판정기 없음 {here}/ft_seat_bind.py ({e}) — 은퇴·기록 0"); sys.exit(2)
 def load(f):
     try: return json.load(open(f, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
     except (OSError, ValueError): return None
@@ -44,23 +47,21 @@ def argv_model(pid):   # 실행 중 프로세스의 `--model X`(접미사 포함
         if t == "--model" and i + 1 < len(a): return a[i + 1]
         if t.startswith("--model="): return t[8:] or None
     return None
-def find_resume(model, retired_by):   # (기록|None, 이유) — 실행 중 프로세스 결속(DA② H2): pane 자식 중 세션 파일이 있는 «정확히 1개» 의 sessionId. 이름·mtime 추측 0
-    home = os.path.expanduser("~"); pp = sh("tmux", "display", "-p", "-t", "=" + old + ":", "#{pane_pid}")
-    if not pp: return None, "tmux 세션 없음"
-    kids = [k for k in sh("pgrep", "-P", pp[0]) if os.path.isfile(f"{home}/.claude/sessions/{k}.json")]
-    if len(kids) != 1: return None, f"세션 파일 {len(kids)}개"
-    s = load(f"{home}/.claude/sessions/{kids[0]}.json"); s = s if isinstance(s, dict) else {}
-    if s.get("name") != old or str(s.get("pid")) != kids[0]: return None, "세션 파일 name·pid 불일치"
-    uuid, cwd = s.get("sessionId") or "", s.get("cwd") or ""
-    jsonl = f"{home}/.claude/projects/{re.sub('[^A-Za-z0-9]', '-', cwd)}/{uuid}.jsonl"
-    if not (uuid and cwd and os.path.isfile(jsonl)): return None, "uuid·cwd·jsonl 없음"
-    am, jm, rm = argv_model(kids[0]), jsonl_model(jsonl), (model if isinstance(model, str) and model else None)
+def find_resume(model, retired_by):   # (기록|None, 이유) — 소유 결속은 ft_seat_bind.py 하나(R364): pane pid 자신 ∪ 직계 자식 중 세션 파일 «정확히 1개» + tmux 칸(세션·window·pane)·pid·시작시각. 이름·mtime 추측 0
+    b = ft_seat_bind.bind(old)
+    if b["rc"] != 0: return None, ("조회 불가: " if b["rc"] == 2 else "") + b["reason"]
+    pid, uuid, cwd, jsonl = str(b["pid"]), b["uuid"], b["cwd"], b["jsonl"]
+    am, jm, rm = argv_model(pid), jsonl_model(jsonl), (model if isinstance(model, str) and model else None)
     use = am or (rm if rm and (not jm or base_model(rm) == base_model(jm)) else jm or rm)   # zombie-clean resume 이 --model 로 그대로 쓴다 — jsonl 값엔 [1m] 이 없어 200k 창 회귀(r2): argv → 명부(바탕 같으면 접미사 유지) → jsonl → 명부
     if not use: return None, "model 못 읽음(jsonl·명부)"
-    rec = collections.OrderedDict(name=old, engine="claude", pid=int(kids[0]), uuid=uuid, jsonl=jsonl, cwd=cwd, model=use, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds"))
+    rec = collections.OrderedDict(name=old, engine="claude", pid=b["pid"], uuid=uuid, jsonl=jsonl, cwd=cwd, model=use, retired_by=retired_by, at=datetime.datetime.now().isoformat(timespec="seconds"), binding=b["binding"])
+    if b.get("name") != old: rec["session_name"] = b.get("name")   # 세션 파일 name(참고 칸) — 소유 증거는 binding
     if rm and base_model(rm) != base_model(use): rec["roster_model"] = rm   # 바탕이 다를 때만 — 조용히 덮지 않는다
     return rec, ""
 def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
+    if rec:   # 기록 직전 재확인 1회(R364) — 결속이 그새 바뀌었으면(pane·pid 교체) 기록 0
+        b2 = ft_seat_bind.bind(old)
+        if b2["rc"] != 0 or b2["binding"] != rec["binding"]: rec, why = None, "기록 직전 재확인 불일치"
     rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume"); rp = f"{rd}/{old}.json"
     try:
         if not rec: raise ValueError(why)

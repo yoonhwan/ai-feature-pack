@@ -85,7 +85,7 @@ chk "⑦이미 닫힌 B#0 불변" "$(J "$S" '.["B#0"]|[._replaced_by,.role]|join
 FK="$TMP/fake"; mkdir -p "$FK"
 cat > "$FK/tmux" <<'EOF'
 #!/usr/bin/env bash
-[ "$1" = display ] && [ -n "${FAKE_PANE_PID:-}" ] && { echo "$FAKE_PANE_PID"; exit 0; }
+[ "$1" = display ] && [ -n "${FAKE_PANE_PID:-}" ] && { n="${4#=}"; n="${n%:}"; printf '%s\t%s:@1.%%1\n' "$FAKE_PANE_PID" "$n"; exit 0; }   # R364: pane pid + 식별(<세션>:@window.%pane)
 [ "$1" = has-session ] && { for a in ${FAKE_ALIVE:-}; do [ "=$a" = "$3" ] && exit 0; done; exit 1; }
 exit 1
 EOF
@@ -96,7 +96,10 @@ exit 1
 EOF
 cat > "$FK/ps" <<'EOF'
 #!/usr/bin/env bash
-[ "$1" = -o ] && [ -n "${FAKE_ARGV:-}" ] && { echo "$FAKE_ARGV"; exit 0; }
+if [ "$1" = -o ]; then   # R364: 결속 판정기가 lstart·comm 을 묻는다 — 고정 값(옛 시각 · claude)
+  case "$2" in lstart=) echo "Mon Jan  1 00:00:00 2001"; exit 0;; comm=) echo /u/.local/bin/claude; exit 0;; esac
+  [ -n "${FAKE_ARGV:-}" ] && { echo "$FAKE_ARGV"; exit 0; }
+fi
 exit 1
 EOF
 chmod +x "$FK/tmux" "$FK/pgrep" "$FK/ps"
@@ -114,7 +117,7 @@ H="$(rs_home ok)"; S="$TMP/seats-r.json"; rs_seats "$S"; out="$(rs_run "$H" "$S"
 chk "⑨정상 rc" "$rc" 0
 chk "⑨RETIRED 첫 줄 불변" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=[]"
 chk "⑨둘째 줄 = RESUME ok <기록 경로>" "$(sed -n 2p <<< "$out")" "RESUME ok $REC"
-chk "⑨기록 파일 9칸" "$(jq 'keys|length' "$REC" 2>/dev/null)" 9
+chk "⑨기록 파일 10칸(9 + binding · R364)" "$(jq 'keys|length' "$REC" 2>/dev/null)" 10
 chk "⑨uuid = 세션 파일 sessionId (더 최신 다른 jsonl 무시)" "$(jq -r '[.uuid,.jsonl]|join(",")' "$REC" 2>/dev/null)" "$UU1,$H/.claude/projects/$ENC/$UU1.jsonl"
 chk "⑨name·engine·pid·cwd·model·retired_by" "$(jq -r '[.name,.engine,(.pid|tostring),.cwd,.model,.retired_by]|join(",")' "$REC" 2>/dev/null)" "M#1,claude,7001,$WORK,m1,M#2"
 chk "⑨명부 구 행 _resume_uuid" "$(J "$S" '.["M#1"]._resume_uuid')" "$UU1"
@@ -151,7 +154,7 @@ rr_run() { HOME="$1" PATH="$FK:$PATH" FAKE_PANE_PID="${FAKE_PANE_PID-100}" FAKE_
 H="$(rs_home rr)"; S="$TMP/seats-rr.json"; rr_seats "$S"; cp "$S" "$S.orig"; out="$(rr_run "$H" "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
 chk "⑩ⓐ rc 0" "$rc" 0
 chk "⑩ⓐ 출력 = RESUME ok <기록 경로> 한 줄(RETIRED 줄 없음)" "$out" "RESUME ok $REC"
-chk "⑩ⓐ 기록 키 9개" "$(jq 'keys|sort|join(",")' "$REC" 2>/dev/null)" '"at,cwd,engine,jsonl,model,name,pid,retired_by,uuid"'
+chk "⑩ⓐ 기록 키 10개(9 + binding · R364)" "$(jq 'keys|sort|join(",")' "$REC" 2>/dev/null)" '"at,binding,cwd,engine,jsonl,model,name,pid,retired_by,uuid"'
 chk "⑩ⓐ uuid·name·engine·pid·model" "$(jq -r '[.uuid,.name,.engine,(.pid|tostring),.model]|join(",")' "$REC" 2>/dev/null)" "$UU1,M#1,claude,7001,m1"
 chk "⑩ⓐ retired_by = 명부 _replaced_by(M#7)" "$(jq -r .retired_by "$REC" 2>/dev/null)" "M#7"
 chk "⑩ⓑ 명부 바이트 불변" "$(cmp -s "$S" "$S.orig" && echo same || echo changed)" same

@@ -363,12 +363,13 @@ for why, ok in (("name", d.get("name") == name), ("engine", d.get("engine") == "
 PY
 }
 
-# $1=세션명 — 기록의 pid 가 «지금 그 tmux 세션 pane 의 자식»인가(닫기 전용 · DA⑥ 잔여 H1). 은퇴 때 그 프로세스에서 만든 기록만 닫기 근거다 —
-#   은퇴 쪽 무효화(.stale 이동)가 I/O 실패로 못 되어도 옛 기록은 pid 가 달라 닫기 근거가 못 된다. 못 읽으면 닫지 않는다(fail-closed). resume 경로는 세션이 죽은 뒤라 쓰지 않는다.
+# $1=세션명 — 기록의 binding(세션·window·pane·pid·시작시각)이 «지금 그 좌석 pane 의 그 프로세스»와 같은가(닫기 전용 · DA⑥ 잔여 H1 · R364 판정기 하나).
+#   은퇴 때 그 프로세스에서 만든 기록만 닫기 근거다 — pane 이 바뀌었거나(같은 이름 재생성)·pid 재사용(시작시각 불일치)·binding 없는 옛 기록은 닫지 않는다. 판정기 ft_seat_bind.py = 이 스크립트와 «같은 폴더» 고정 경로(리포 탐색 0) ·
+#   없거나 조회 불가(rc 2)면 닫지 않는다(fail-closed · 옛 판정 후퇴 0). resume 경로는 세션이 죽은 뒤라 쓰지 않는다.
 resume_record_pid_live() {
-    local pid pp; pid=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("pid",""))' "$(resume_record_file "$1")" 2>/dev/null)
-    pp=$(tmux list-panes -t "$1" -F '#{pane_pid}' 2>/dev/null | head -1)
-    [[ -n "$pid" && -n "$pp" ]] && pgrep -P "$pp" 2>/dev/null | grep -qx "$pid"
+    local bind; bind="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_seat_bind.py"
+    [[ -f "$bind" ]] || { echo "  ERROR 결속 판정기 없음: $bind" >&2; return 2; }
+    python3 "$bind" "$1" --expect "$(resume_record_file "$1")" >/dev/null 2>&1
 }
 
 # resume '<세션명>' [--dry-run] — 검증된 재개 기록으로 같은 대화를 같은 폴더·모델로 다시 연다. 검증 실패·이미 살아 있음 = ❌ rc 1.
