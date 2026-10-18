@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — 범위 사전 승인에 종류 code 를 연다: 시험 통과 세트만 · code-max 안 (1.1.10)
+
+카드 r411 · 판정 2326(오빠 «자율 개선두건 진행») · planner 110362 · master 110379 ②. 자율 ON 중 코드 세트 병합이 «앞 착지가 main 을 옮김 → 다음 PR head 바뀜 → 승인 sha 어긋남 → 오빠 재승인 h» 로 줄줄이 멈췄습니다(#1933→#1934 · h104). `approve-scope` 종류가 docs·ff·revert 뿐이라 코드 세트는 매 sha 오빠 손 1줄이었습니다.
+
+- **approve-scope**(오빠 `!` 전용 그대로): `--classes …,code --code-max <1~max>` — code 가 있으면 `--code-max` 필수(없음·0·max 초과 = REJECT) · code 없이 `--code-max` = REJECT · grant 줄·grants.audit·슬랙 1줄·출력에 `codemax=` 칸. 옛 grant 줄(codemax 없음)은 그대로 읽힘(code 0 = 닫힘). 기본값 불변(h119 code_merge=off) — 오빠가 code 를 적을 때만 열린다.
+- **scope-approve `--card <카드.md>`**: 분류기가 `CLASS code` 면 ①카드 마지막 `세트: <A> · 시험: … rc=0 · 이슈: 0` ②`ft-nano-evidence-check.sh <카드> --repo ROOT --ancestor-of <sha>` rc0 ③A≠sha 면 `ft-approval-equiv.sh A <sha>` EQUIV — 셋 다일 때만 승인 줄(`approve-merge <sha> <A> <epoch>` 불변)을 쓴다. 그 밖 = `SCOPE-REJECT`(쓰기 0). code 건수(docs 와 별개) 도달 = 기존 «건수 도달» 과 같은 정지. 원장 5번째 칸 `evidence=<카드>@<A>` · 출력 `code=n/max`(+ `equiv=<A>`). 새 `ft-autonomy-scope-code.sh`(source 전용). 분류기 FORBID(DDL·배포·키·과금·의존·전역 규칙)는 code 에도 그대로.
+- **시험**: `test_autonomy_scope.sh` 새 절 ⓐ~ⓔ(임시 origin+clone 실 git · 실 evidence-check·approval-equiv · 분류기만 스텁) + 기존 절 갱신(code REJECT → code-max 검사 · tamper 꼴) — 134 PASS.
+
 ## 2026-10-19 — 공유 루트 cwd 에서 v65·lecture 카드 spawn 이 «팀 명단 없음» 으로 끊기던 것을 고친다: 명단 = ref · 폴더 = 호출 워크트리 실재 1개 (1.1.9)
 
 카드 r406 · planner 판정 2318 · master 110115 · arch#94 재현(`ERROR v65 은 팀 명단(TEAMS.md)에 없다 / REJECT … 선언된 정본 없음: /GOAL-LEDGER-v65.md`). 팀 폴더 전환은 main 에만 착지했는데 lint·spawn 이 «호출 워크트리의 design/TEAMS.md» 를 읽어, 명단이 옛 것인 공유 루트(feat/v6-realtime-live)에서 spawn 이 3회 REJECT 됐습니다.
