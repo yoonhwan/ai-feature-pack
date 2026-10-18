@@ -1,0 +1,326 @@
+Timestamp               Ty Process[PID:TID]
+2026-10-18 09:45:17.916 Df tccd[164:311cb33] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[300].0xc001c1540
+2026-10-18 09:45:17.917 Df tccd[164:312d79c] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=300, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=300.698
+2026-10-18 09:45:17.918 Df tccd[164:312d79c] [com.apple.TCC:access] AUTHREQ_CTX: msgID=300.698, function=<private>, service=kTCCServiceDeveloperTool, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:17.918 Df tccd[164:312d79c] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=300.698, attribution={accessing={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, requesting={TCCDProcess: identifier=com.apple.syspolicyd, pid=300, auid=0, euid=0, binary_path=/usr/libexec/syspolicyd}, },
+2026-10-18 09:45:17.919 Df tccd[164:312d79c] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:17.921 Df tccd[164:312d79c] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=300.698, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:17.921 Df tccd[164:312d79c] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00270600 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:17.922 Df tccd[164:312d79c] [com.apple.TCC:access] Service kTCCServiceDeveloperTool does not allow prompting; returning denied.
+2026-10-18 09:45:17.922 Df tccd[164:312d79c] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=300.698, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:17.922 Df tccd[164:312d79c] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=300.698
+2026-10-18 09:45:17.922 Df tccd[164:311cb33] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 300) either cancelled the connection or exited
+2026-10-18 09:45:18.072 Df tccd[164:312d79c] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[57343].0xc001c1540
+2026-10-18 09:45:18.072 Df tccd[164:311cb33] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.5
+2026-10-18 09:45:18.073 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.5, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAllFiles, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:18.073 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.5, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=49818, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:18.074 Df tccd[164:311cb33] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:18.075 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.5, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:18.075 Df tccd[164:311cb33] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00271b00 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:18.076 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=57343.5, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:18.076 Df tccd[164:311cb33] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=57343.5
+2026-10-18 09:45:18.076 Df tccd[164:311cb33] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 57343) either cancelled the connection or exited
+2026-10-18 09:45:18.076 Df tccd[164:311cb33] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[57343].0xc001c1540
+2026-10-18 09:45:18.076 Df tccd[164:311cb33] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.7
+2026-10-18 09:45:18.076 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e0280] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[57343].0x9fa1e0280
+2026-10-18 09:45:18.076 Df tccd[812:312a18a] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.6
+2026-10-18 09:45:18.077 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.7, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAllFiles, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:18.077 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.7, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=49817, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:18.077 Df tccd[812:312a18a] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.6, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAppData, preflight=no, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:18.077 Df tccd[812:312a18a] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.6, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=49818, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:18.078 Df tccd[164:311cb33] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:18.078 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.7, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:18.079 Df tccd[164:311cb33] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00270600 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:18.079 Df tccd[812:312a18a] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:18.079 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=57343.7, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:18.079 Df tccd[164:311cb33] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=57343.7
+2026-10-18 09:45:18.079 Df tccd[164:311cb33] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 57343) either cancelled the connection or exited
+2026-10-18 09:45:18.080 Df tccd[164:312d79c] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[57343].0xc001c1540
+2026-10-18 09:45:18.080 Df tccd[164:311cb33] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.8
+2026-10-18 09:45:18.080 Df tccd[812:312a18a] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.6, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:18.081 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.8, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAllFiles, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:18.081 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.8, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=49815, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:18.081 Df tccd[812:312a18a] [com.apple.TCC:access] Session scoped auth is invalid for client: <private>
+2026-10-18 09:45:18.081 Df tccd[812:312a18a] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0x9fa32aa00 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:18.082 Df tccd[164:311cb33] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:18.082 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.8, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:18.082 Df tccd[812:312a18a] [com.apple.TCC:access] AUTHREQ_PROMPTING: msgID=57343.6, service=kTCCServiceSystemPolicyAppData, subject=Sub:{/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}Resp:{TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13},
+2026-10-18 09:45:18.082 Df tccd[812:312a18a] [com.apple.TCC:access] got authorization choices for staged prompting request: legacy SPI: 0 service: <private> currentAuth: 1 desiredAuth: 2
+2026-10-18 09:45:18.082 Df tccd[812:312a18a] [com.apple.TCC:access] aButtonAuth: 5 bButtonAuth: 0 cButtonAuth: 1
+2026-10-18 09:45:18.082 Df tccd[164:311cb33] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00270600 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:18.083 Df tccd[164:311cb33] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=57343.8, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:18.083 Df tccd[164:311cb33] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=57343.8
+2026-10-18 09:45:18.083 Df tccd[164:311cb33] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 57343) either cancelled the connection or exited
+2026-10-18 09:45:24.422 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e17c0] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e17c0
+2026-10-18 09:45:24.423 Df tccd[812:312e961] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.40
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.40, function=TCCAccessRequest, service=kTCCServiceCalendar, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.40, attribution={accessing={TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] Granting TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived access to kTCCServiceCalendar via entitlement 'com.apple.private.tcc.allow'
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.40, authValue=2, authReason=11, authVersion=2, desired_auth=0, error=(null),
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.40
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.xpc:connection] [0x9fa1e17c0] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:24.426 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:24.426 Df tccd[812:312e961] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.41
+2026-10-18 09:45:24.428 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.41, function=TCCAccessRequest, service=kTCCServiceReminders, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:24.428 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.41, attribution={accessing={TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:24.428 Df tccd[812:312e961] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived
+2026-10-18 09:45:24.431 A  tccd[812:312e961] (Security) SecKeyVerifySignature
+2026-10-18 09:45:24.431 A  tccd[812:312e961] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:24.437 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52816.41, subject=/usr/libexec/proactived,
+2026-10-18 09:45:24.439 Df tccd[812:312e961] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /usr/libexec/proactived, type: 1: 0x9fa328000 at /usr/libexec/proactived
+2026-10-18 09:45:24.439 A  tccd[812:312e961] (Security) SecKeyVerifySignature
+2026-10-18 09:45:24.440 A  tccd[812:312e961] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:24.443 A  tccd[812:312e961] (Security) SecKeyVerifySignature
+2026-10-18 09:45:24.444 A  tccd[812:312e961] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:24.446 Df tccd[812:312e961] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:24.446 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.41, authValue=1, authReason=0, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:24.446 Df tccd[812:312e961] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.41
+2026-10-18 09:45:24.446 Df tccd[812:312e961] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:24.446 Df tccd[812:312e961] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.42
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.42, function=TCCAccessRequest, service=kTCCServiceCalendar, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.42, attribution={accessing={TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] Granting TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived access to kTCCServiceCalendar via entitlement 'com.apple.private.tcc.allow'
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.42, authValue=2, authReason=11, authVersion=2, desired_auth=0, error=(null),
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.42
+2026-10-18 09:45:24.447 Df tccd[812:312e961] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:24.448 Df tccd[812:312e961] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:24.448 Df tccd[812:312e961] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.43
+2026-10-18 09:45:24.448 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.43, function=TCCAccessRequest, service=kTCCServiceReminders, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:24.448 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.43, attribution={accessing={TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:24.448 Df tccd[812:312e961] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactived, pid=50344, auid=501, euid=501, binary_path=/usr/libexec/proactived
+2026-10-18 09:45:24.450 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52816.43, subject=/usr/libexec/proactived,
+2026-10-18 09:45:24.451 Df tccd[812:312e961] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /usr/libexec/proactived, type: 1: 0x9fa328000 at /usr/libexec/proactived
+2026-10-18 09:45:24.451 A  tccd[812:312e961] (Security) SecKeyVerifySignature
+2026-10-18 09:45:24.451 A  tccd[812:312e961] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:24.454 A  tccd[812:312e961] (Security) SecKeyVerifySignature
+2026-10-18 09:45:24.454 A  tccd[812:312e961] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:24.456 Df tccd[812:312e961] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:24.456 Df tccd[812:312e961] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.43, authValue=1, authReason=0, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:24.456 Df tccd[812:312e961] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.43
+2026-10-18 09:45:24.461 Df tccd[812:312e961] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:26.746 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[52826].0xc001c1540
+2026-10-18 09:45:26.746 Df tccd[164:312d816] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=52826, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52826.1
+2026-10-18 09:45:26.746 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52826.1, function=<private>, service=kTCCServiceListenEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:26.746 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52826.1, attribution={requesting={TCCDProcess: identifier=com.apple.AppSSOAgent, pid=52826, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent}, },
+2026-10-18 09:45:26.753 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52826.1, subject=com.apple.AppSSOAgent,
+2026-10-18 09:45:26.753 Df tccd[164:312d816] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier com.apple.AppSSOAgent, type: 0: 0xc00270600 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app
+2026-10-18 09:45:26.754 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.754 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.772 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.772 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.772 Df tccd[164:312d816] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:26.772 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52826.1, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:26.772 Df tccd[164:312d816] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=52826.1
+2026-10-18 09:45:26.772 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 52826) either cancelled the connection or exited
+2026-10-18 09:45:26.773 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[163].0xc001c1540
+2026-10-18 09:45:26.773 Df tccd[164:312eedf] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=163, sender_uid=88, sender_auid=-1, function=TCCAccessRequest, msgID=163.767
+2026-10-18 09:45:26.774 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_CTX: msgID=163.767, function=<private>, service=kTCCServiceListenEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:26.774 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=163.767, attribution={accessing={TCCDProcess: identifier=com.apple.AppSSOAgent, pid=52826, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer}, },
+2026-10-18 09:45:26.774 Df tccd[164:312eedf] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer is checking access for accessor TCCDProcess: identifier=com.apple.AppSSOAgent, pid=52826, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+2026-10-18 09:45:26.776 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=163.767, subject=com.apple.AppSSOAgent,
+2026-10-18 09:45:26.777 Df tccd[164:312eedf] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier com.apple.AppSSOAgent, type: 0: 0xc00270600 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app
+2026-10-18 09:45:26.777 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.777 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.781 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.781 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.782 Df tccd[164:312eedf] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:26.782 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=163.767, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:26.783 Df tccd[164:312eedf] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=163.767
+2026-10-18 09:45:26.784 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 163) either cancelled the connection or exited
+2026-10-18 09:45:26.840 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[52878].0xc001c1540
+2026-10-18 09:45:26.840 Df tccd[164:312d816] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=52878, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=52878.1
+2026-10-18 09:45:26.841 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52878.1, function=<private>, service=kTCCServiceListenEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:26.841 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52878.1, attribution={requesting={TCCDProcess: identifier=com.apple.AppSSODaemon, pid=52878, auid=0, euid=0, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon}, },
+2026-10-18 09:45:26.841 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52878.1, subject=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon,
+2026-10-18 09:45:26.842 Df tccd[164:312d816] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon, type: 1: 0xc00270600 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon
+2026-10-18 09:45:26.842 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.842 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.844 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.844 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.846 Df tccd[164:312d816] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:26.846 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52878.1, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:26.846 Df tccd[164:312d816] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=52878.1
+2026-10-18 09:45:26.846 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 52878) either cancelled the connection or exited
+2026-10-18 09:45:26.846 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[163].0xc001c1540
+2026-10-18 09:45:26.846 Df tccd[164:312eedf] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=163, sender_uid=88, sender_auid=-1, function=TCCAccessRequest, msgID=163.768
+2026-10-18 09:45:26.847 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_CTX: msgID=163.768, function=<private>, service=kTCCServiceListenEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:26.847 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=163.768, attribution={accessing={TCCDProcess: identifier=com.apple.AppSSODaemon, pid=52878, auid=0, euid=0, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer}, },
+2026-10-18 09:45:26.847 Df tccd[164:312eedf] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer is checking access for accessor TCCDProcess: identifier=com.apple.AppSSODaemon, pid=52878, auid=0, euid=0, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon
+2026-10-18 09:45:26.847 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=163.768, subject=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon,
+2026-10-18 09:45:26.848 Df tccd[164:312eedf] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon, type: 1: 0xc00270600 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon
+2026-10-18 09:45:26.848 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.848 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.851 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.851 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.854 Df tccd[164:312eedf] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:26.854 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=163.768, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:26.854 Df tccd[164:312eedf] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=163.768
+2026-10-18 09:45:26.861 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 163) either cancelled the connection or exited
+2026-10-18 09:45:26.899 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[301].0xc001c1540
+2026-10-18 09:45:26.899 Df tccd[164:312d816] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=301, sender_uid=55, sender_auid=-1, function=TCCCreateDesignatedRequirementIdentityFromAuditTokenForService, msgID=301.383
+2026-10-18 09:45:26.901 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.901 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.922 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c0640] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[163].0xc001c0640
+2026-10-18 09:45:26.922 Df tccd[164:312eedf] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=163, sender_uid=88, sender_auid=-1, function=TCCAccessRequest, msgID=163.769
+2026-10-18 09:45:26.922 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_CTX: msgID=163.769, function=<private>, service=kTCCServicePostEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:26.922 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=163.769, attribution={accessing={TCCDProcess: identifier=com.apple.AppSSOAgent, pid=52826, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer}, },
+2026-10-18 09:45:26.922 Df tccd[164:312eedf] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer is checking access for accessor TCCDProcess: identifier=com.apple.AppSSOAgent, pid=52826, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+2026-10-18 09:45:26.928 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=163.769, subject=com.apple.AppSSOAgent,
+2026-10-18 09:45:26.931 Df tccd[164:312eedf] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier com.apple.AppSSOAgent, type: 0: 0xc00270000 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app
+2026-10-18 09:45:26.931 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.932 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.938 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.939 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.940 Df tccd[164:312d816] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier com.apple.AppSSOAgent, type: 0: 0xc00272d00 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app
+2026-10-18 09:45:26.940 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.941 Df tccd[164:312eedf] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:26.941 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=163.769, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:26.941 Df tccd[164:312eedf] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=163.769
+2026-10-18 09:45:26.941 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c0640] invalidated because the client process (pid 163) either cancelled the connection or exited
+2026-10-18 09:45:26.941 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.945 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.945 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.950 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:26.950 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:26.952 Df tccd[164:312d816] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:26.953 Df tccd[164:312d816] [com.apple.TCC:access] REPLY: (0) function=TCCCreateDesignatedRequirementIdentityFromAuditTokenForService, msgID=301.383
+2026-10-18 09:45:26.957 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 301) either cancelled the connection or exited
+2026-10-18 09:45:27.039 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[301].0xc001c1540
+2026-10-18 09:45:27.039 Df tccd[164:312eedf] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=301, sender_uid=55, sender_auid=-1, function=TCCCreateDesignatedRequirementIdentityFromAuditTokenForService, msgID=301.384
+2026-10-18 09:45:27.040 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:27.041 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:27.044 Df tccd[164:312eedf] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon, type: 1: 0xc00272d00 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon
+2026-10-18 09:45:27.044 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:27.044 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:27.047 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:27.047 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:27.049 A  tccd[164:312eedf] (Security) SecKeyVerifySignature
+2026-10-18 09:45:27.049 A  tccd[164:312eedf] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:27.051 Df tccd[164:312eedf] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:27.051 Df tccd[164:312eedf] [com.apple.TCC:access] REPLY: (0) function=TCCCreateDesignatedRequirementIdentityFromAuditTokenForService, msgID=301.384
+2026-10-18 09:45:27.052 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 301) either cancelled the connection or exited
+2026-10-18 09:45:28.387 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c1540] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[57343].0xc001c1540
+2026-10-18 09:45:28.387 Df tccd[164:312eedf] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.9
+2026-10-18 09:45:28.388 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.9, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAllFiles, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:28.388 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.9, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=53511, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:28.389 Df tccd[164:312eedf] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:28.390 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.9, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:28.390 Df tccd[164:312eedf] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00272d00 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:28.391 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=57343.9, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:28.391 Df tccd[164:312eedf] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=57343.9
+2026-10-18 09:45:28.391 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c1540] invalidated because the client process (pid 57343) either cancelled the connection or exited
+2026-10-18 09:45:28.391 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c0640] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[57343].0xc001c0640
+2026-10-18 09:45:28.391 Df tccd[164:312d816] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.10
+2026-10-18 09:45:28.392 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.10, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAllFiles, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:28.392 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.10, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=53510, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:28.392 Df tccd[164:312d816] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:28.392 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.10, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:28.393 Df tccd[164:312d816] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00272d00 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:28.393 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=57343.10, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:28.393 Df tccd[164:312d816] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=57343.10
+2026-10-18 09:45:28.393 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c0640] invalidated because the client process (pid 57343) either cancelled the connection or exited
+2026-10-18 09:45:28.395 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c0640] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[57343].0xc001c0640
+2026-10-18 09:45:28.395 Df tccd[164:312eedf] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=57343, sender_uid=0, sender_auid=-1, function=TCCAccessRequest, msgID=57343.11
+2026-10-18 09:45:28.395 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_CTX: msgID=57343.11, function=TCCAccessRequest, service=kTCCServiceSystemPolicyAllFiles, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:28.395 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=57343.11, attribution={responsible={TCCDProcess: identifier=-, pid=46481, auid=501, euid=501, responsible_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, binary_path=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13}, accessing={TCCDProcess: identifier=com.1password.op, pid=53516, auid=501, euid=501, binary_path=/opt/homebrew/Caskroom/1password-cli/2.32.1/op}, requesting={TCCDProcess: identifier=com.apple.sandboxd, pid=57343, auid=0, euid=0, binary_path=/usr/libexec/sandboxd}, },
+2026-10-18 09:45:28.396 Df tccd[164:312eedf] [com.apple.securityd:security_exception] MacOS error: -67062
+2026-10-18 09:45:28.396 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=57343.11, subject=/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13,
+2026-10-18 09:45:28.397 Df tccd[164:312eedf] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13, type: 1: 0xc00272d00 at /Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/bin/python3.13
+2026-10-18 09:45:28.397 Df tccd[164:312eedf] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=57343.11, authValue=0, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:28.397 Df tccd[164:312eedf] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=57343.11
+2026-10-18 09:45:28.397 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c0640] invalidated because the client process (pid 57343) either cancelled the connection or exited
+2026-10-18 09:45:30.804 Df tccd[164:312eedf] [com.apple.xpc:connection] [0xc001c0640] activating connection: mach=false listener=false peer=true name=com.apple.tccd.system.peer[163].0xc001c0640
+2026-10-18 09:45:30.804 Df tccd[164:312d816] [com.apple.TCC:access] REQUEST: tccd_uid=0, sender_pid=163, sender_uid=88, sender_auid=-1, function=TCCAccessRequest, msgID=163.770
+2026-10-18 09:45:30.805 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_CTX: msgID=163.770, function=<private>, service=kTCCServicePostEvent, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:30.805 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=163.770, attribution={accessing={TCCDProcess: identifier=com.apple.AppSSODaemon, pid=52878, auid=0, euid=0, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon}, requesting={TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer}, },
+2026-10-18 09:45:30.805 Df tccd[164:312d816] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.WindowServer, pid=163, auid=88, euid=88, binary_path=/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/Resources/WindowServer is checking access for accessor TCCDProcess: identifier=com.apple.AppSSODaemon, pid=52878, auid=0, euid=0, binary_path=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon
+2026-10-18 09:45:30.806 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=163.770, subject=/System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon,
+2026-10-18 09:45:30.807 Df tccd[164:312d816] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon, type: 1: 0xc00272d00 at /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSODaemon
+2026-10-18 09:45:30.808 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:30.808 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:30.814 A  tccd[164:312d816] (Security) SecKeyVerifySignature
+2026-10-18 09:45:30.815 A  tccd[164:312d816] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:30.816 Df tccd[164:312d816] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:30.816 Df tccd[164:312d816] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=163.770, authValue=1, authReason=5, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:30.816 Df tccd[164:312d816] [com.apple.TCC:access] REPLY: (0) function=TCCAccessRequest, msgID=163.770
+2026-10-18 09:45:30.817 Df tccd[164:312d816] [com.apple.xpc:connection] [0xc001c0640] invalidated because the client process (pid 163) either cancelled the connection or exited
+2026-10-18 09:45:36.305 Df coreduetd[52797:312efe8] [com.apple.TCC:access] send_message_with_reply_sync(): user tccd unavailable, sending 0xc3815f900 to system tccd
+2026-10-18 09:45:36.305 E  coreduetd[52797:312efe8] [com.apple.TCC:access] send_message_with_reply_sync(): XPC_ERROR_CONNECTION_INVALID for message 0xc3815f900
+2026-10-18 09:45:36.305 E  coreduetd[52797:312efe8] [com.apple.TCC:access] TCCAccessRequest_block_invoke: Connection invalid
+2026-10-18 09:45:36.352 Df coreduetd[52797:312efe8] [com.apple.TCC:access] send_message_with_reply_sync(): user tccd unavailable, sending 0xc3815e820 to system tccd
+2026-10-18 09:45:36.353 E  coreduetd[52797:312efe8] [com.apple.TCC:access] send_message_with_reply_sync(): XPC_ERROR_CONNECTION_INVALID for message 0xc3815e820
+2026-10-18 09:45:36.353 E  coreduetd[52797:312efe8] [com.apple.TCC:access] _tcc_server_send_request_authorization_block_invoke_2: Connection invalid
+2026-10-18 09:45:36.353 E  coreduetd[52797:312efe8] [com.apple.TCC:access] Created Error: Error Domain=kTCCErrorDomain Code=2 "Connection invalid" UserInfo={NSDescription=Connection invalid}
+2026-10-18 09:45:55.186 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:55.217 Df tccd[812:311d2c4] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.44
+2026-10-18 09:45:55.272 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.44, function=TCCAccessRequest, service=kTCCServiceCalendar, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:55.272 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.44, attribution={responsible={TCCDProcess: identifier=com.apple.duetexpertd, pid=49965, auid=501, euid=501, responsible_path=/usr/libexec/duetexpertd, binary_path=/usr/libexec/duetexpertd}, accessing={TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:55.272 Df tccd[812:311d2c4] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService
+2026-10-18 09:45:55.281 A  tccd[812:311d2c4] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.281 A  tccd[812:311d2c4] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.289 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52816.44, subject=/usr/libexec/duetexpertd,
+2026-10-18 09:45:55.338 Df tccd[812:311d2c4] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /usr/libexec/duetexpertd, type: 1: 0x9fa328000 at /usr/libexec/duetexpertd
+2026-10-18 09:45:55.338 A  tccd[812:311d2c4] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.338 A  tccd[812:311d2c4] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.351 A  tccd[812:311d2c4] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.351 A  tccd[812:311d2c4] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.356 Df tccd[812:311d2c4] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:55.356 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.44, authValue=1, authReason=0, authVersion=2, desired_auth=4, error=(null),
+2026-10-18 09:45:55.357 Df tccd[812:311d2c4] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.44
+2026-10-18 09:45:55.357 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:55.357 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:55.357 Df tccd[812:311d2c4] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.45
+2026-10-18 09:45:55.423 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.45, function=<private>, service=kTCCServiceCalendar, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:55.423 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.45, attribution={requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:55.423 Df tccd[812:311d2c4] [com.apple.TCC:access] Granting TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd access to kTCCServiceCalendar via entitlement 'com.apple.private.tcc.allow'
+2026-10-18 09:45:55.423 Df tccd[812:311d2c4] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.45, authValue=2, authReason=11, authVersion=2, desired_auth=0, error=(null),
+2026-10-18 09:45:55.423 Df tccd[812:311d2c4] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.45
+2026-10-18 09:45:55.423 Df tccd[812:311d2c4] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:55.435 Df tccd[812:3137c30] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:55.436 Df tccd[812:3137c30] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.46
+2026-10-18 09:45:55.436 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.46, function=TCCAccessRequest, service=kTCCServiceReminders, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:55.436 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.46, attribution={responsible={TCCDProcess: identifier=com.apple.duetexpertd, pid=49965, auid=501, euid=501, responsible_path=/usr/libexec/duetexpertd, binary_path=/usr/libexec/duetexpertd}, accessing={TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:55.436 Df tccd[812:3137c30] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService
+2026-10-18 09:45:55.439 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52816.46, subject=/usr/libexec/duetexpertd,
+2026-10-18 09:45:55.471 Df tccd[812:3137c30] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /usr/libexec/duetexpertd, type: 1: 0x9fa328000 at /usr/libexec/duetexpertd
+2026-10-18 09:45:55.471 A  tccd[812:3137c30] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.472 A  tccd[812:3137c30] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.475 A  tccd[812:3137c30] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.475 A  tccd[812:3137c30] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.477 Df tccd[812:3137c30] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:55.477 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.46, authValue=1, authReason=0, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:55.477 Df tccd[812:3137c30] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.46
+2026-10-18 09:45:55.477 Df tccd[812:3137c30] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:55.477 Df tccd[812:3137c30] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:55.477 Df tccd[812:3137c30] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.47
+2026-10-18 09:45:55.478 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.47, function=TCCAccessRequest, service=kTCCServiceCalendar, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:55.478 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.47, attribution={responsible={TCCDProcess: identifier=com.apple.duetexpertd, pid=49965, auid=501, euid=501, responsible_path=/usr/libexec/duetexpertd, binary_path=/usr/libexec/duetexpertd}, accessing={TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:55.478 Df tccd[812:3137c30] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService
+2026-10-18 09:45:55.480 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52816.47, subject=/usr/libexec/duetexpertd,
+2026-10-18 09:45:55.481 Df tccd[812:3137c30] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /usr/libexec/duetexpertd, type: 1: 0x9fa328000 at /usr/libexec/duetexpertd
+2026-10-18 09:45:55.481 A  tccd[812:3137c30] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.481 A  tccd[812:3137c30] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.486 A  tccd[812:3137c30] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.486 A  tccd[812:3137c30] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.488 Df tccd[812:3137c30] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:55.488 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.47, authValue=1, authReason=0, authVersion=2, desired_auth=4, error=(null),
+2026-10-18 09:45:55.488 Df tccd[812:3137c30] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.47
+2026-10-18 09:45:55.488 Df tccd[812:3137c30] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
+2026-10-18 09:45:55.489 Df tccd[812:3137c30] [com.apple.xpc:connection] [0x9fa1e0b40] activating connection: mach=false listener=false peer=true name=com.apple.tccd.peer[52816].0x9fa1e0b40
+2026-10-18 09:45:55.489 Df tccd[812:3137c30] [com.apple.TCC:access] REQUEST: tccd_uid=501, sender_pid=52816, sender_uid=501, sender_auid=501, function=TCCAccessRequest, msgID=52816.48
+2026-10-18 09:45:55.489 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_CTX: msgID=52816.48, function=TCCAccessRequest, service=kTCCServiceReminders, preflight=yes, query=1, client_dict=(null), daemon_dict=<private>
+2026-10-18 09:45:55.490 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION: msgID=52816.48, attribution={responsible={TCCDProcess: identifier=com.apple.duetexpertd, pid=49965, auid=501, euid=501, responsible_path=/usr/libexec/duetexpertd, binary_path=/usr/libexec/duetexpertd}, accessing={TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService}, requesting={TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd}, },
+2026-10-18 09:45:55.490 Df tccd[812:3137c30] [com.apple.TCC:access] requestor: TCCDProcess: identifier=com.apple.calaccessd, pid=52816, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/CalendarDaemon.framework/Support/calaccessd is checking access for accessor TCCDProcess: identifier=com.apple.proactive.AppPredictionIntentsHelperService, pid=70960, auid=501, euid=501, binary_path=/System/Library/PrivateFrameworks/AppPredictionFoundation.framework/Versions/A/XPCServices/AppPredictionIntentsHelperService.xpc/Contents/MacOS/AppPredictionIntentsHelperService
+2026-10-18 09:45:55.491 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_SUBJECT: msgID=52816.48, subject=/usr/libexec/duetexpertd,
+2026-10-18 09:45:55.492 Df tccd[812:3137c30] [com.apple.TCC:access] -[TCCDAccessIdentity staticCode]: static code for: identifier /usr/libexec/duetexpertd, type: 1: 0x9fa328000 at /usr/libexec/duetexpertd
+2026-10-18 09:45:55.492 A  tccd[812:3137c30] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.492 A  tccd[812:3137c30] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.495 A  tccd[812:3137c30] (Security) SecKeyVerifySignature
+2026-10-18 09:45:55.495 A  tccd[812:3137c30] (Security) SecTrustEvaluateIfNecessary
+2026-10-18 09:45:55.499 Df tccd[812:3137c30] [com.apple.TCC:access] Platform binary prompting is 'Deny' because: is Platform Binary
+2026-10-18 09:45:55.499 Df tccd[812:3137c30] [com.apple.TCC:access] AUTHREQ_RESULT: msgID=52816.48, authValue=1, authReason=0, authVersion=1, desired_auth=0, error=(null),
+2026-10-18 09:45:55.499 Df tccd[812:3137c30] [com.apple.TCC:access] REPLY: (501) function=TCCAccessRequest, msgID=52816.48
+2026-10-18 09:45:55.499 Df tccd[812:3137c30] [com.apple.xpc:connection] [0x9fa1e0b40] invalidated because the client process (pid 52816) either cancelled the connection or exited
