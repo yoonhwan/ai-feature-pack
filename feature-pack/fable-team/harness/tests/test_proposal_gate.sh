@@ -64,6 +64,29 @@ ledger "816 오빠 인터뷰(A안 · Issue https://GitHub.com/O/R/issues/12): �
                          expect "19c 저장소 대소문자 무시 → OK" 0 '^OK #12 승인 ⓑ 판정 816$'
 ledger "816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택"
 
+# ── r492: 원장 = ref(origin/main) 트리 · 체크아웃 파일 0(옛 라이브 모사) · 표 행 꼴 ──
+V="$T/vrepo"; VO="$T/vorigin.git"; git init -q --bare "$VO"; git init -q "$V"
+vg() { git -C "$V" -c user.name=t -c user.email=t@t "$@"; }
+vpush() {  # vpush <원장 본문|-(원장 없음)> <TEAMS.md 있음 1|0> — origin/main 에 그 상태를 올리고 체크아웃은 원장 «이전» 커밋으로
+  rm -rf "$V/design"; mkdir -p "$V/design"; echo base > "$V/README"; vg add -A >/dev/null; vg commit -q --allow-empty -m base
+  [ "$2" = 1 ] && printf '| 팀 | 폴더 | master | 상태 |\n|---|---|---|---|\n| planner | `design/teams/planner/` | x | 현역 |\n' > "$V/design/TEAMS.md"
+  [ "$1" != - ] && { mkdir -p "$V/design/teams/planner"; printf '%s\n' "$1" > "$V/design/teams/planner/VERDICTS-planner-1.md"; }
+  vg add -A >/dev/null; vg commit -q --allow-empty -m ledger; vg push -q -f "$VO" HEAD:main; vg fetch -q "$VO" "+main:refs/remotes/origin/main"; vg reset -q --hard HEAD~1; }
+rexpect() {  # 체크아웃 = 원장 없음 · FT_PLANNER_VERDICTS_DIR 비움 · BYZ_ROOT=임시 리포
+  out="$(cd "$T" && env -u FT_PLANNER_VERDICTS_DIR BYZ_ROOT="$V" bash "$GATE" --issue 12 2>&1)"; rc=$?
+  if [ "$rc" = "$2" ] && echo "$out" | grep -qE "$3" && [ ! -e "$V/design/teams/planner/VERDICTS-planner-1.md" ]; then ok "$1"; else bad "$1"; fi; }
+fx b
+vpush "| 816 | 23:0x | (오빠 인터뷰 4) A안 채택 · https://github.com/o/r/issues/12 · 1580b" 1
+rexpect "ⓐ ★r492★ origin/main 원장 표 행 + 체크아웃 파일 0 → OK" 0 '^OK #12 승인 ⓑ 판정 816$'
+vpush "| 816 | 23:0x | (오빠 인터뷰 4) A안 채택 · https://github.com/o/r/issues/120" 1
+rexpect "ⓑ ★r492★ 같은 표 행인데 링크 issues/120 → REJECT" 1 '^REJECT #12 .*ⓑ planner 원장 「816 오빠 인터뷰」 줄에 o/r issues/12 없음'
+vpush "816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택" 1
+rexpect "ⓒ ★r492★ 줄머리 꼴도 ref 경유로 OK" 0 '^OK #12 승인 ⓑ 판정 816$'
+vpush "816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택" 0
+rexpect "ⓓ ★r492★ origin/main 에 TEAMS.md 없음(ref 못 읽음) → REJECT(후퇴 0)" 1 '^REJECT #12 판정 원장 폴더를 못 풀었다'
+vpush - 1
+rexpect "ⓓb ★r492★ 명단은 있는데 ref 에 원장 파일 0 → REJECT" 1 '^REJECT #12 판정 원장 폴더를 못 풀었다 .*후보 0개'
+
 # ── B3: --writing-card 경로 정규화(.. 해소) · 심링크 탈출 ──
 mkdir -p "$T/cards" "$T/repo/design/harness" "$T/outside" "$T/repo2/design/team" "$T/repo2/idx"; ln -s "$T/outside" "$T/repo2/design/x"; ( cd "$T/repo2" && git init -q . )
 wcard() {  # wcard <파일> <구현 범위 본문>
