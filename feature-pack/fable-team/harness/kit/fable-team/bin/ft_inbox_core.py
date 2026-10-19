@@ -111,10 +111,26 @@ def write_q(path, rows):
     os.replace(tmp, path)
 
 
-def obligation_closed(line):
-    """정본 술어(설계 §8) — show·archive·묶음이 이 함수 하나만 호출한다. 판정 558 ④ · 명시 면제(waived)도 닫힘."""
-    return line["mark"] is not None and (line["cls"] not in MUST_REPORT or line["reported"] is True
-                                         or line.get("waived") is not None)
+def obligation_closed(line, answered=frozenset()):
+    """정본 술어(설계 §8) — show·archive·묶음이 이 함수 하나만 호출한다. 판정 558 ④ · 명시 면제(waived)도 닫힘.
+    answered = 큐 주인 계보가 쪽지로 답한 seq 집합(answered_seqs) — 넘기면 그 seq 도 닫힘(R337) · 안 넘기면 옛 식 그대로."""
+    return bool(answered) and line["seq"] in answered or line["mark"] is not None and (
+        line["cls"] not in MUST_REPORT or line["reported"] is True or line.get("waived") is not None)
+
+
+ANSWER = re.compile(r"(?:확인|회신|수령|적용|답)\s*#(\d+)|#(\d+)\s*(?:확인|회신|수령|적용|답)")
+
+
+def answered_seqs(seat):
+    """seat 계보가 보낸 쪽지(mail_files 전부)가 «#N 확인/회신/수령/적용/답» 으로 참조한 seq 집합 (R337).
+    보낸 이 = 같은 계보만 — 남의 좌석(desk·팀장)이 그 seq 를 참조해도 닫힘 0(R326 «자기 큐만» 과 같은 방향)."""
+    me, out = f'"from": "{lineage(seat)}', set()
+    for p in mail_files():
+        with open(p, encoding="utf-8") as f:
+            for ln in f:
+                if me in ln and lineage((d := json.loads(ln))["from"]) == lineage(seat):
+                    out.update(int(a or b) for a, b in ANSWER.findall(d.get("body", "")))
+    return out
 
 
 def group_closed(rows, gid):

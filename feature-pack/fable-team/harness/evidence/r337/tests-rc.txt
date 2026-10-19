@@ -1,0 +1,17 @@
+# r337 시험 rc (HEAD 2babf11fc5e717c282c352fe15b7380fb0be6b41 · 2026-10-20 07:50:54)
+All checks passed!
+ruff rc=0
+65 passed in 47.52s
+pytest rc=0
+test_kit_bin_sync.sh rc=0 FAIL=0
+test_inbox.sh rc=0 FAIL=0
+test_inbox_waive.sh rc=0 FAIL=0
+test_inbox_mark_rotated.sh rc=0 FAIL=0
+test_inbox_watch.sh rc=0 FAIL=0
+test_inbox_ingest_root_rotate.sh rc=0 FAIL=0
+test_decision_count_tables_ref.sh rc=0 FAIL=0
+test_flag_off_scan.sh rc=1 FAIL=4
+     199 bin/ft_decision_count.py
+     199 bin/ft_inbox_core.py
+      53 bin/ft_decision_kind.py
+     451 total

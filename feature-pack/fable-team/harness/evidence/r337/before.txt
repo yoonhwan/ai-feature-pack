@@ -1,0 +1,23 @@
+# 고치기 전(RED 커밋 e7fb50c8 의 bin 2파일 · 시험은 HEAD 것) 2026-10-20 07:53:34
+E       AssertionError: 결정 인터뷰 9건 · 스크립트 0건 · 팀 대기 9건(가장 오래 byz-cfo-master-claude#1 1500분) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)
+E       assert False
+E       AssertionError: ['결정 인터뷰 9건 · 스크립트 0건 · 팀 대기 9건(가장 오래 byz-cfo-master-claude#1 1500분) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)', '  #...1 byz-graphics-master-claude#3 30분 [결정] PR #11 승인? ①예 ②아니오', '  #7 byz-cfo-
+E       assert (False)
+E       AssertionError: 결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 2건(가장 오래 byz-graphics-master-claude#3 1000분) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)
+E       assert (True and '팀 대기 0건' in '결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 2건(가장 오래 byz-graphics-master-claude#3 1000분) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)\n')
+E       AssertionError: 결정 인터뷰 2건 · 스크립트 0건 · 팀 대기 1건(가장 오래 byz-cfo-master-claude#1 50분) (옛 좌석 미닫힘 1) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)
+E       assert (False)
+E       AssertionError: 결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 0건 (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)
+E       assert (True and 'AUTONOMY-QUEUE' not in '결정 인터뷰 0건 ·...EUE 파일 없음)\n'
+E       AssertionError: 결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 1건(가장 오래 byz-graphics-master-claude#3 5분) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)
+E       assert (0 == 4)
+E       AssertionError: 결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 900건(가장 오래 byz-t0-master-claude#1 900분) (AUTONOMY-QUEUE 파일 없음) (MERGE-QUEUE 파일 없음)
+E       assert False
+FAILED tests/scripts/test_decision_count_truth.py::test_a_sample_counts_only_open_question_heads
+FAILED tests/scripts/test_decision_count_truth.py::test_b_detail_has_reason_word_and_keeps_stale_visible
+FAILED tests/scripts/test_decision_count_truth.py::test_c_rest_notice_from_live_seat_is_not_team_wait
+FAILED tests/scripts/test_decision_count_truth.py::test_c2_dead_seat_question_is_memo_not_n
+FAILED tests/scripts/test_decision_count_truth.py::test_d_missing_autonomy_queue_file_is_zero_without_memo
+FAILED tests/scripts/test_decision_count_truth.py::test_e_unreadable_body_of_open_row_is_rc4_not_guessed
+FAILED tests/scripts/test_decision_count_truth.py::test_f_budget_with_big_sent_log_and_900_rows
+7 failed in 2.68s
