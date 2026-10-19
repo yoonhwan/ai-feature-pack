@@ -201,11 +201,46 @@ def test_r478c_working_team_from_live_seats_is_above_resting_and_never_in_restin
     html_p, _ = fh.run_files(DATA, tmp_path, NOW)
     lines = html_p.read_text(encoding="utf-8").splitlines()
     at = lambda s: next(i for i, ln in enumerate(lines) if s in ln)  # noqa: E731
-    work_h, rest_h = at("<h2>일하는 팀</h2>"), at("<h2>쉬는 팀</h2>")
-    chatbot, ops, kk = at("<strong>chatbot</strong>"), at("<strong>ops</strong>"), at("<strong>kk</strong>")
-    assert work_h < chatbot < ops < rest_h < kk  # 일하는 좌석 많은 순(chatbot 2 > ops 1) · 쉬는 팀은 아래
+    work_h, goal_h, rest_h = at("<h2>일하는 팀</h2>"), at("<h2>골 6개</h2>"), at("<h2>쉬는 팀</h2>")
+    chatbot, ops, kk = at('<p class="say">chatbot</p>'), at('<p class="say">ops</p>'), at("<strong>kk</strong>")
+    # r478d: 일하는 팀 = 골 카드 위 그림 카드(좌석 많은 순 chatbot 2 > ops 1) · 쉬는 팀은 맨 아래 목록
+    assert work_h < chatbot < ops < goal_h < rest_h < kk
     assert "LLM 이 잘못 넣은" not in "\n".join(lines)  # LLM 의 일함/쉼 판정은 쓰지 않는다
-    assert "일하는 좌석 2/6 · 이름 바꾸기" in lines[chatbot] and "확인 불가 1" in lines[ops] and "라이브 좌석 0 · 일하는 좌석 0" in lines[kk]
+    assert "일하는 좌석 2/6" in lines[chatbot - 1] and "이름 바꾸기" in lines[chatbot + 2] and "확인 불가 1" in lines[ops - 1]
+    assert "라이브 좌석 0 · 일하는 좌석 0" in lines[kk]
+    assert "\n".join(lines).count('<section class="goal work">') == 2 and '<section class="goal work">' in lines[chatbot - 4]
+
+
+# ── r478d: 요약·중요한 일 = 코드 판정 따르기 · 자율 실측 ───────────────────
+
+FALSE_LINE = "모든 팀은 작업을 멈추고 대기 중이며 사장님의 재개 지시와 합치기 승인 한 줄을 기다립니다"
+
+
+def test_r478d_lint_rejects_all_stopped_and_approval_wait_against_code_facts(tmp_path, oc):
+    html_p, sum_p = fh.run_files(DATA, tmp_path, NOW)
+    page, summary = html_p.read_text(encoding="utf-8"), sum_p.read_text(encoding="utf-8")
+    assert "자율 모름" in page and lint.problems(page, summary) == []
+    bad = lint.problems(page, "가\n" + FALSE_LINE)
+    assert any("일하는 팀 2개인데" in p for p in bad) and any("자율 모름 인데" in p for p in bad)
+    assert any("일하는 팀 2개인데" in p for p in lint.problems(page, "가\n전 팀이 대기 중입니다"))
+    assert lint.problems(page, "가\n전팀 지침과 폴더 기준 재기동은 다음 차례 대기") == []  # 골 제목 «전팀 지침…» 은 오탐 0
+    off = page.replace("자율 모름", "자율 OFF")
+    assert not any("자율" in p for p in lint.problems(off, "가\n합치기 승인을 기다립니다"))  # OFF 면 승인 대기 문장은 사실
+    assert any("자율 ON 인데" in p for p in lint.problems(page.replace("자율 모름", "자율 ON"), "가\n합치기 승인을 기다립니다"))
+    resting_only = re.sub(r'  <section class="goal work">.*?</section>\n?', "", page, flags=re.S)
+    assert not any("일하는 팀" in p for p in lint.problems(resting_only, "가\n모든 팀이 쉬는 중"))  # 일하는 팀 0 이면 사실
+
+
+def test_r478d_prompt_carries_code_facts_and_autonomy_in_footer(tmp_path, oc, monkeypatch):
+    _, log = oc
+    data = {**DATA, "facts": fh.facts(LIVE, "ON")}
+    assert data["facts"] == {"일하는 팀": ["chatbot", "ops"], "쉬는 팀": ["kk"], "자율": "ON"}
+    html_p, _ = fh.run_files(data, tmp_path, NOW)
+    top = next(c[-1] for c in calls(log) if '"summary":' in c[-1].split("출력 스키마:")[1].splitlines()[0])
+    assert '"일하는 팀": [' in top and '"chatbot"' in top and '"자율": "ON"' in top and "facts 가 이긴다" in top
+    assert "자율 ON" in html_p.read_text(encoding="utf-8")
+    monkeypatch.setattr(fh, "HERE", tmp_path)  # ft-autonomy.sh 없음 = 모름
+    assert fh.autonomy(tmp_path) == "모름"
 
 
 def test_r478c_no_live_input_fails_without_publish(tmp_path, oc):

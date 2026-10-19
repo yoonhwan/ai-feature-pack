@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BYZ 팀 지도 10-19 21:35</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;600;800&display=swap">
+<style>
+:root{
+  --bg:#eef3f5; --card:#ffffff; --ink:#15262e; --soft:#5a6d76; --line:#d3dee3;
+  --accent:#0f7c86; --done:#2e9a5b; --now:#e0a21b; --left:#b9c6cc; --hot:#d2523b; --rest:#7d8a90;
+  --done-bg:#e3f4ea; --now-bg:#fdf3dc; --left-bg:#eef2f4; --hot-bg:#fbe6e1; --rest-bg:#e7ecee;
+  --display:"Jua","Gothic A1","Apple SD Gothic Neo",system-ui,sans-serif;
+  --body:"Gothic A1","Apple SD Gothic Neo",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1a1f; --card:#17262d; --ink:#e7f0f3; --soft:#9db1b9; --line:#2a3c44;
+  --accent:#4cc3cc; --done:#5cc98a; --now:#f2c25a; --left:#4d6069; --hot:#f08068; --rest:#8a9aa1;
+  --done-bg:#183326; --now-bg:#3a2f14; --left-bg:#1e2d34; --hot-bg:#3b1f19; --rest-bg:#1c282d; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:900px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,6vw,46px);line-height:1.15;margin:0}
+h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
+.lead{color:var(--soft);margin:6px 0 0;font-size:15px}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600}
+.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.c-done{background:var(--done-bg)} .c-done i{background:var(--done)}
+.c-now{background:var(--now-bg)} .c-now i{background:var(--now)}
+.c-left{background:var(--left-bg)} .c-left i{background:var(--left)}
+.c-hot{background:var(--hot-bg)} .c-hot i{background:var(--hot)}
+.c-rest{background:var(--rest-bg)} .c-rest i{background:var(--rest)}
+
+/* 우선순위 */
+.prio{background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:18px;display:grid;gap:12px}
+.prio ol{margin:0;padding:0;list-style:none;display:grid;gap:8px;counter-reset:p}
+.prio li{counter-increment:p;display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--left-bg)}
+.prio li::before{content:counter(p);font-family:var(--display);font-size:26px;color:var(--accent);text-align:center}
+.prio li.hot{background:var(--hot-bg)} .prio li.hot::before{color:var(--hot)}
+.prio .what{min-width:0}
+.prio .what strong{display:block}
+.prio .what span{color:var(--soft);font-size:14px}
+.who{font-size:13px;font-weight:700;color:var(--soft);white-space:nowrap}
+
+/* 골 카드 */
+.goal{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;grid-template-columns:84px 1fr;gap:16px;align-items:start}
+.goal svg.ic{width:84px;height:84px}
+.goal .body{min-width:0;display:grid;gap:10px}
+.gnum{font-size:12px;letter-spacing:.08em;color:var(--soft);font-weight:800}
+.say{margin:0;font-size:17px;font-weight:600}
+.track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.work .track{grid-template-columns:1fr}
+.step{border-radius:10px;padding:10px 12px;font-size:14px;min-width:0}
+.step b{display:block;font-size:12px;letter-spacing:.05em;margin-bottom:2px}
+.s-done{background:var(--done-bg)} .s-done b{color:var(--done)}
+.s-now{background:var(--now-bg)} .s-now b{color:var(--now)}
+.s-left{background:var(--left-bg)} .s-left b{color:var(--soft)}
+.s-hot{background:var(--hot-bg)} .s-hot b{color:var(--hot)}
+
+.teams{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.team{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14px;min-width:0}
+.team strong{display:block;font-family:var(--display);font-weight:400;font-size:18px}
+.team.rest{background:var(--rest-bg);border-style:dashed}
+.team.rest strong::after{content:" · 쉬는 중";font-family:var(--body);font-size:12px;color:var(--rest);font-weight:700}
+.foot{color:var(--soft);font-size:13px}
+@media (max-width:640px){
+  .goal{grid-template-columns:1fr}
+  .goal svg.ic{width:64px;height:64px}
+  .track{grid-template-columns:1fr}
+  .teams{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .prio li{grid-template-columns:32px 1fr}
+  .who{grid-column:2}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>우리 팀들, 지금 어디쯤?</h1>
+    <p class="lead">2026-10-19 21:35 기준 · 스크립트가 원장·카드·세션 상태·main 커밋을 모아 정리한 지도</p>
+  </header>
+
+  <!-- 맨 위: 큰 일·해야 할 일 우선순위 -->
+  <section class="prio">
+    <h2 style="margin:0">지금 제일 중요한 일 (순서대로)</h2>
+    <ol>
+      <li class="hot"><div class="what"><strong>통역 — 마지막 문장이 사라지는 문제 잡는 중</strong><span>겹쳐 말할 때 생기던 헛소리는 거의 잡혔고, 이제는 조용히 말할 때 끝 문장이 한 번씩 빠지는 것만 남았다. 원인을 설계 담당이 전부 훑었고, 다섯 번째 음성 시험을 돌리고 있다.</span></div><span class="who">통역팀</span></li>
+      <li class="hot"><div class="what"><strong>합치기 승인 한 줄이 아직 남음</strong><span>시험을 통과한 고침 여러 건이 승인 한 줄을 못 받아 본선에 못 들어갔다. 이 줄 하나가 통역·방·강의를 같이 막고 있다.</span></div><span class="who">데스크</span></li>
+      <li><div class="what"><strong>하네스 — 지원 모드로 돌아감</strong><span>오늘 개선 묶음을 여러 개 합쳤고, 통역팀장을 깨우던 장치가 여러 번 실패하다 저녁에 복구됐다. 옮긴 파일을 인정해 주는 병합 검사도 새로 붙였다.</span></div><span class="who">하네스팀</span></li>
+      <li><div class="what"><strong>개발 배포 막힘 풀림</strong><span>옛 서버 판을 치우고 검사를 고쳐 배포가 다시 통과했다. 이제 남은 일은 끝난 자리를 닫고, 꺼진 자리를 자동으로 찾아내는 장치를 다는 것이다.</span></div><span class="who">하네스팀</span></li>
+      <li><div class="what"><strong>챗봇 — 기획 문서와 작업 카드 착지</strong><span>제안서와 기획서, 구현 카드 묶음이 본선에 들어갔다. 팀 폴더 이동은 지식검색 다음 순서로 기다리고 있다.</span></div><span class="who">챗봇팀</span></li>
+      <li><div class="what"><strong>결제 — 크레딧 화면 시험 고침</strong><span>사용권 기간을 서버에서 처리하고 크레딧 화면 시험을 고친 것이 다음 합치기 열차에 실려 있다. 담당 없는 결제 문제도 우선순위로 정리할 차례다.</span></div><span class="who">결제팀</span></li>
+      <li><div class="what"><strong>지식검색 — 기본 고침 본선 착지</strong><span>기본 작업 세 건이 본선에 들어갔고, 외부 호출 응답 시간에 상한을 두는 규칙을 묶는 중이다. 다음은 다시 심기와 삭제 뒤 남는 것 정리.</span></div><span class="who">지식검색팀</span></li>
+    </ol>
+  </section>
+
+  <div class="legend" aria-label="색 뜻">
+    <span class="chip c-done"><i></i>끝남</span>
+    <span class="chip c-now"><i></i>지금 하는 중</span>
+    <span class="chip c-left"><i></i>남은 일</span>
+    <span class="chip c-hot"><i></i>급한 불</span>
+    <span class="chip c-rest"><i></i>쉬는 팀</span>
+  </div>
+
+  <h2>일하는 팀</h2>
+  <section class="goal work">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">일하는 좌석 3/6</span>
+      <p class="say">harness</p>
+      <div class="track">
+        <div class="step s-now"><b>지금</b>자율 실행 스위치와 뉴스 개편, 팀 목표 점검 표를 정리하고 있으며, 모아서 한 번에 넘길 작업 차례를 기다린다.</div>
+      </div>
+    </div>
+  </section>
+  <section class="goal work">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">일하는 좌석 2/4</span>
+      <p class="say">v65</p>
+      <div class="track">
+        <div class="step s-now"><b>지금</b>잡음이 큰 환경에서 끊긴 꼬리를 끝까지 보내고, 아이폰이 백그라운드에서 돌아온 뒤 오디오 시계가 멈추는 문제와 확정분 보관을 다루며, 화면에 확정이 안 보이는 문제를 기다린다.</div>
+      </div>
+    </div>
+  </section>
+  <section class="goal work">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">일하는 좌석 1/3</span>
+      <p class="say">cfo</p>
+      <div class="track">
+        <div class="step s-now"><b>지금</b>계약 기간을 서버가 정하도록 손보고, 인증 기록과 오류 문구에서 민감한 값을 지우는 일을 하며, 운영 도구 설계를 정리하는 다음 단계를 기다린다.</div>
+      </div>
+    </div>
+  </section>
+  <section class="goal work">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">일하는 좌석 1/5</span>
+      <p class="say">chatbot</p>
+      <div class="track">
+        <div class="step s-now"><b>지금</b>봇이 어디까지 답할지와 봇 신원 종류를 정리하고 시연용 상담방을 여는 일을 하며, 다음으로 강의 질문 카드를 기다린다.</div>
+      </div>
+    </div>
+  </section>
+  <section class="goal work">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">일하는 좌석 1/4</span>
+      <p class="say">loom</p>
+      <div class="track">
+        <div class="step s-now"><b>지금</b>은퇴한 문서 본문이 남는 문제와 언어 표기 정규화, 권한 판정을 고치는 일을 하며, 저장소에 본문이 남지 않는지 다시 확인하는 차례를 기다린다.</div>
+      </div>
+    </div>
+  </section>
+
+  <h2>골 6개</h2>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--hot-bg)"/><rect x="33" y="16" width="18" height="32" rx="9" fill="var(--accent)"/><path d="M25 40a17 17 0 0 0 34 0" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M42 57v10M32 67h20" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M60 22l10-6M62 32h10" stroke="var(--hot)" stroke-width="4" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">골 1 · v65</span>
+      <p class="say">v65 마이크 넘기기 완성</p>
+      <div class="track">
+        <div class="step s-done"><b>끝남</b>마이크를 넘기는 기능에서 잡음이 엉뚱한 말로 바뀌는 문제와 말끝이 잘리는 문제를 여러 차례 고쳐, 소란한 환경에서도 엉뚱한 말이 나오지 않고 말끝 버리기도 모두 통과했습니다. 다만 조용한 목소리에서 마지막 문장이 사라지는 문제가 한 번 남아 최종 반영은 미뤘습니다.</div>
+        <div class="step s-hot"><b>급한 불</b>원인을 처음부터 끝까지 다시 훑어 다음 고침을 만들고, 그 고침으로 음성 시험을 돌리는 중입니다. 팀장이 교대했고, 화면 도구와 설치 버튼 쪽은 합치는 순서를 다시 정리하기를 기다리고 있습니다.</div>
+        <div class="step s-left"><b>남은 일</b>이번 시험에서 조용한 말의 마지막 문장까지 살아나는지 확인하고, 대표 승인 한 줄이 떨어지면 준비된 고침 묶음을 한 번에 반영해야 끝납니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">골 2 · room · 설계 v65 arch</span>
+      <p class="say">m.room 멀티 사용자 v65 마이그레이션 + 게스트 대화 사용성 3명 이상</p>
+      <div class="track">
+        <div class="step s-done"><b>끝남</b>여러 사람이 동시에 말해도 알아듣는 기능이 시험을 통과해 정식 코드에 반영됐습니다.</div>
+        <div class="step s-now"><b>지금</b>팀은 잠시 쉬고 있고, 작업 폴더를 정해진 순서에 맞게 옮기는 차례를 기다리고 있습니다.</div>
+        <div class="step s-left"><b>남은 일</b>폴더 이동이 끝나면 다시 손님 여러 명이 함께 대화하는 상황을 확인하는 일이 남아 있습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><rect x="16" y="18" width="52" height="30" rx="4" fill="var(--card)" stroke="var(--ink)" stroke-width="3.5"/><rect x="48" y="24" width="16" height="12" rx="2" fill="var(--accent)"/><path d="M24 28h18M24 36h14" stroke="var(--soft)" stroke-width="3.5" stroke-linecap="round"/><circle cx="30" cy="62" r="6" fill="var(--done)"/><circle cx="54" cy="62" r="6" fill="var(--done)"/></svg>
+    <div class="body">
+      <span class="gnum">골 3 · lecture</span>
+      <p class="say">m.lecture 멀티 사용자 v65 마이그레이션 + 게스트채팅 PiP · 번역 PiP 전부</p>
+      <div class="track">
+        <div class="step s-done"><b>끝남</b>강의 기능의 기본 이전 작업은 정식 코드에 반영됐습니다. 문장 나누기와 진행자가 방을 다시 여는 기능은 합치는 순서를 기다리고 있습니다.</div>
+        <div class="step s-now"><b>지금</b>음성 시험 차례를 기다리는 중이며, 통역 쪽 문제 시험이 끝난 뒤에 순서가 돌아옵니다.</div>
+        <div class="step s-left"><b>남은 일</b>기다리던 고침들을 반영하고 음성 시험을 통과한 뒤, 실제 강의 방에서 여러 사람이 함께 쓰는 모습까지 확인해야 합니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><path d="M52 18a12 12 0 0 0-14 16L18 54l8 8 20-20a12 12 0 0 0 16-14l-8 8-8-2-2-8z" fill="var(--accent)"/><circle cx="62" cy="62" r="7" fill="var(--done)"/></svg>
+    <div class="body">
+      <span class="gnum">골 4 · harness</span>
+      <p class="say">하네스팀 랜딩부터</p>
+      <div class="track">
+        <div class="step s-done"><b>끝남</b>설치 뒤에도 팀을 계속 돕는 체제로 돌아갔고, 오늘 준비한 개선 묶음들을 정식 코드에 합쳤습니다. 팀장을 깨우지 못하던 점검 장치도 고쳐 정상으로 돌아왔고, 파일을 옮겨도 검사가 통과하도록 인정 규칙을 넣었습니다.</div>
+        <div class="step s-now"><b>지금</b>새로 들어온 요청을 받아 지원 작업을 이어가고 있습니다.</div>
+        <div class="step s-left"><b>남은 일</b>다음 재개 전에 꼭 필요한 안전장치 묶음을 넣는 일과, 대표 확인을 기다리는 마무리 작업이 남아 있습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><path d="M16 30h18l5 6h29v28H16z" fill="var(--accent)"/><path d="M16 36h52" stroke="var(--card)" stroke-width="3"/><path d="M50 46l8 8 12-14" fill="none" stroke="var(--done)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="body">
+      <span class="gnum">골 5 · harness · planner</span>
+      <p class="say">전팀 지침과 프로젝트 폴더 기준 재기동</p>
+      <div class="track">
+        <div class="step s-done"><b>끝남</b>재무 팀 자리 이동을 마쳤고, 지식 관리 팀 순서도 승인 기록을 남겨 정리했습니다. 관리 화면 기획도 담당 팀들 몫이 정식 코드에 반영됐습니다.</div>
+        <div class="step s-now"><b>지금</b>같은 승인을 자동으로 인정해 주는 장치가 설치되면 마지막 반영이 이뤄지는 상태로 대기 중입니다.</div>
+        <div class="step s-left"><b>남은 일</b>다시 시작할 때 설계 담당이 없는 팀에 설계 자리를 먼저 열어 주는 일이 남아 있습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><rect x="14" y="28" width="50" height="28" rx="5" fill="none" stroke="var(--ink)" stroke-width="3.5"/><rect x="64" y="36" width="6" height="12" rx="2" fill="var(--ink)"/><rect x="19" y="33" width="30" height="18" rx="2" fill="var(--done)"/></svg>
+    <div class="body">
+      <span class="gnum">골 6 · harness · 각 팀장</span>
+      <p class="say">메모리 세션 제한으로 안 멈춰 있게 완성</p>
+      <div class="track">
+        <div class="step s-done"><b>끝남</b>개발 서버에 배포가 막히던 문제를 풀었고, 점검이 통역 팀장을 다시 깨우도록 복구했습니다. 통역 팀 명부의 비어 있던 기획 칸도 채워 교대가 막히지 않게 했습니다.</div>
+        <div class="step s-now"><b>지금</b>각 팀이 끝난 작업 자리를 닫는 일을 이어가고 있습니다.</div>
+        <div class="step s-left"><b>남은 일</b>합치는 작업이 끝난 뒤 끝난 자리를 확실히 닫고, 꺼진 자리를 스스로 알아채는 장치를 설치해야 완성됩니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <h2>쉬는 팀</h2>
+  <div class="teams">
+    <div class="team rest"><strong>feature</strong>라이브 좌석 2 · 일하는 좌석 0 · 지식 결과를 짝 맞추고 지식 범위를 정하며 방 별명 기능을 붙이는 일을 하고, 다음으로 사용자 규칙의 읽기 전용 기간 상한을 기다린다.</div>
+    <div class="team rest"><strong>graphics</strong>라이브 좌석 1 · 일하는 좌석 0 · 승인된 제안대로 안내 문구를 고르게 다듬고, 홈페이지 디자인을 올리면서 화면 코드와 연결하는 일을 한다.</div>
+    <div class="team rest"><strong>issues</strong>라이브 좌석 1 · 일하는 좌석 0 · 지금 진행 중인 카드가 없고, 안내 문구 시험에서 생긴 오류를 팀 폴더를 옮겨 해결하는 일이 다음 차례다.</div>
+    <div class="team rest"><strong>kk</strong>라이브 좌석 0 · 일하는 좌석 0 · 체인 최종 검토와 마무리 사건, 통역·전사, 외부 상위 모델 교차 채점이 남아 있다.</div>
+    <div class="team rest"><strong>lecture</strong>라이브 좌석 1 · 일하는 좌석 0 · 지금 할 일 카드가 없고, 다음에 기다리는 일도 없다.</div>
+    <div class="team rest"><strong>ops</strong>라이브 좌석 3 · 일하는 좌석 0 · 운영 도구 설계를 정리하고 화면 시험과 조직 지식 비용 표를 다루며, 다음으로 지식 사용량 화면을 기다린다.</div>
+    <div class="team rest"><strong>planner</strong>라이브 좌석 4 · 일하는 좌석 0 · 외부 호출 제한 시간을 요청과 출력 크기에 비례하게 바꾸고, 인증 메일 서식 전부를 완성하는 일을 한다.</div>
+    <div class="team rest"><strong>room</strong>라이브 좌석 1 · 일하는 좌석 0 · 지금 할 일 카드가 없고, 다음에 기다리는 일도 없다.</div>
+  </div>
+
+  <p class="foot">근거: 판정 2305 · 판정 2341 · arch#263 · 06959b5dc3 · 1d2aef8a53 · 3f788f1663 · cc71610580 · 923b3e6bd9 · 자율 OFF · 정리 opencode/deepseek-v4.1-flash-free</p>
+</div>
+</body>
+</html>
