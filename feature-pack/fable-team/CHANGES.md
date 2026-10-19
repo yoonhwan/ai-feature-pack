@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — `ft-hil.sh --pending` = 파이썬 한 번의 훑기 · 같은 결과를 1초 안에 · 읽기 실패 rc 3 (r521 · 1.1.79)
+
+- 사건: `--pending` 이 `/tmp/h<N>` 880개를 파일마다 `plan_of`(sed·head)·`done_rc`(grep)·`age_min`/`since_min`(stat·date) 하위 프로세스로 훑어 부하 17 에서 2.8~3.2초 · 부하 26~30 에서 4.35~4.68초 → `ft-decision-count` 1회 예산 5.0초(R303)에 붙어 rc4 «ft-hil.sh TimeoutExpired» 2회(§74 r517 · §77 r337 편차 · arch 106 실측).
+- 새 `ft_hil_pending.py <HIL_DIR> [--each]`: 옛 pending() 과 같은 규칙 — 이름 h<숫자> · 일반 파일(링크 0) · 첫 `# ft-hil-entry plan=` 줄 값 있음 · `.superseded` 없음 · `.ran` 에 `^rc=[0-9]* ` 행 = 끝 · 없으면 중단/실행 중(1행 epoch · 숫자 아니면 `.ran` mtime) · `.ran` 없음 = 미실행(mtime) · 분 = 0 쪽으로 버림(셸 산술과 같음) · 이름순. 출력 꼴 바이트 같음(요약 1줄 · `--each` = `h<N> <분>` · 0개·폴더 없음 = 출력 0 rc 0).
+- `ft-hil.sh` pending() 본문 → 같은 폴더 `ft_hil_pending.py` 호출 1줄. `plan_of`·`age_min`·`since_min`·`done_rc` 셸 함수는 목록·`--add` 가 그대로 쓴다.
+- 바뀐 것 1: 읽기 실패(폴더·h 파일·`.ran` 권한 등) = stdout 0 · stderr `ERROR ft-hil --pending 읽기 실패: <경로>: <이유>` 1줄 · rc 3(옛 판은 그 파일을 건너뛰거나 0개로 조용히 rc 0). 결정 셈은 rc≠0 을 ReadError 로 드러낸다.
+- 시험 `test_hil_pending_single_pass.sh`(새 · 임시 HIL_DIR · 외부 호출 0 · GIT_* 0) ⓐ 900개 1초 안 ⓑ 6종(미실행·실행 끝·실행 중·대체됨·옛 링크·표식 없음) + 가장자리 꼴 9종(1행 숫자 아님·`rc= `·`rc=0` 공백 없음·미래 시작 -2분·빈 표식·끝 개행 없음·폴더 h<N>·깨진 대체 링크·숫자 아닌 꼬리/0 앞자리) 과 900개에서 요약·`--each`·다른 인자가 옛 판(시험 안 복사본)과 바이트 같음 ⓒ 0개·폴더 없음 = 출력 0 rc0 ⓓ 권한 0(h 파일·`.ran`·폴더) = stdout 0 · stderr 1줄 · rc 3 — 고치기 전 FAIL 7(ⓐ 3.54초 · ⓓ 6건 조용한 0 · `harness/evidence/r521/before-fix.txt`) · 고친 뒤 ALL PASS(ⓐ 0.139초 · `after-fix.txt`) · 실 `/tmp`(h 363개) 읽기 전용 옛 판 대비 diff 0 · 1.54초 → 0.08~0.10초(`real-tmp-readonly.txt`).
+- 기존 시험 픽스처 1: `test_tick_team_msg.sh` 가 가짜 bin 에 `ft-hil.sh` 만 복사 → 짝 `ft_hil_pending.py` 도 복사(고치기 전 ⓔ FAIL 2 → rc0). 운영 루트 shim 은 LIVE_BIN 사본을 `exec` 하므로 짝을 찾는다. 기존 시험 결과·base 대조 = `existing-tests.txt`.
+- 설치: 키트 2(`ft-hil.sh` · 새 `ft_hil_pending.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r521`.
+- 범위 밖: 오래된 h 파일 지우기·옮기기(삭제 = 사람 판단) · 결정 셈 예산 5.0초(R303) · 7초 룰 변경 0.
+
 ## 2026-10-20 — nano-close reap 실패 뒤 «같은 close 재실행» 이 실제로 이어지게 + reap 1회 재시도 (r520 · 1.1.78)
 
 - 사건: r519 나노 닫기 1차에서 reap 이 left=1(그 순간 돌던 `git status` 1개)로 CLOSE-FAIL — 안내는 «명부는 삭제됨 · 같은 close 재실행» 인데, 재실행은 RERUN 판별(명부에 좌석 없음 · 원장 닫힘 행 있음)에 닿기 «전» 카드 찾기(명부 index)에서 «카드 못 찾음»(팩 경로는 ⓐ 문구) REJECT → 그 좌석을 닫을 도구 경로 0(harness master 83 발주 119095 ① · arch 106 실측).

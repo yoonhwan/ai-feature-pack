@@ -1,0 +1,71 @@
+# r521 기존 시험 — ft-hil.sh·hil_watch·--pending 을 부르는 시험 전부 + kit_bin_sync (팩 nano/r521 · 직렬)
+# 고친 뒤 test_tick_team_msg ⓔ FAIL 2 = 가짜 bin 에 ft-hil.sh 만 복사(짝 ft_hil_pending.py 없음) → 시험 픽스처에 짝 복사 추가 후 rc0
+tests/test_block_destructive_hil.sh rc=0 · 63 PASS · 0 FAIL
+tests/test_ft_wt_sweep_route_timeout.sh rc=1 · 37 PASS · 1 FAIL
+PASS ⓕ 본문 = [HIL] [라우팅 실패 loom] 워크트리 정리 …
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r521-hil-pending-single-pass/feature-pack/fable-team/harness/tests/../../tests/fixtures/mbox_guard/ok/seats*.json: No such file or directory
+PASS ⓕ 라우팅 실패 본문 → planner 머리 검사(reject) 통과 rc
+FAIL ⓕ 대조: 머리 순서 뒤집으면 가드 rc3 (got=[0] want=[3])
+fail=1
+tests/test_hil.sh rc=0 · 32 PASS · 0 FAIL
+tests/test_hil_run_marker.sh rc=1 · 68 PASS · 2 FAIL
+== 키트 두 벌 cmp · core.bare
+PASS ft-hil.sh cmp 0
+PASS ft-tick.sh cmp 0
+PASS core.bare = false
+FAIL 1
+tests/test_mbox_guard.sh rc=1 · 42 PASS · 25 FAIL
+PASS R320c ⓔ 판정기 rc4 여도 머리 없는 쪽지 전송 «[완료] 끝»
+PASS bash -n mbox.sh
+PASS bash -n mbox_guard.sh
+PASS bash -n ft-seat-retire.sh
+FAILED 24
+tests/test_nano_close_fail_closed.sh rc=0 · 48 PASS · 0 FAIL
+tests/test_nano_close_named_wt.sh rc=0 · 63 PASS · 0 FAIL
+tests/test_nano_close_pack_wt.sh rc=0 · 30 PASS · 0 FAIL
+tests/test_nano_close_rerun_early.sh rc=0 · 37 PASS · 0 FAIL
+tests/test_nano_close_worktree_list_pipe.sh rc=0 · 18 PASS · 0 FAIL
+tests/test_nano_close_wt_deletion_only.sh rc=0 · 23 PASS · 0 FAIL
+tests/test_nano_succession_index.sh rc=1 · 20 PASS · 4 FAIL
+== ⓕ 사슬 순환(_replaces 가 서로 가리킴) → 무한 루프 0 · REJECT
+PASS ⓕ rc (timeout 124 아님)
+PASS ⓕ REJECT
+
+FAILED 3
+tests/test_pack_nano_worktree_place.sh rc=0 · 22 PASS · 0 FAIL
+tests/test_resource_reclaim_preventive.sh rc=0 · 87 PASS · 0 FAIL
+tests/test_team_literal_paths2.sh rc=0 · 326 PASS · 0 FAIL
+tests/test_team_move_roundtrip.sh rc=1 · 103 PASS · 3 FAIL
+PASS ⓔ 키트 bin 도 0
+PASS ⓔ ft-team-path-lint.sh rc0
+PASS ⓔ 변이: 조립 한 줄 → ERR rc1
+PASS ⓔ 전환 끝(전 팀 꼴2) + 쌍둥이 호출 잔존 → ERR rc1
+== fail=3
+tests/test_wt_clean_plan_self_check.sh rc=1 · 5 PASS · 13 FAIL
+PASS 변이 자기검사 블록 제거(1바이트 수정 경우) — ⓑ 시험이 실패를 검출
+PASS 변이 비교를 «비었으면 통과» 로(생성기 삭제 경우) — ⓑ 시험이 실패를 검출
+PASS 변이 종료 코드 무시(|| _lv="" 제거) — ⓑ 시험이 실패를 검출
+
+FAILED 15
+tests/test_wt_clean_two_stage.sh rc=0 · 60 PASS · 0 FAIL
+tests/test_tick_team_msg.sh rc=0 · 32 PASS · 0 FAIL (픽스처 고친 뒤)
+tests/test_kit_bin_sync.sh rc=0 · 7 PASS · 0 FAIL
+All checks passed!
+ruff rc=0
+
+In kit/fable-team/bin/ft-hil.sh line 115:
+  local f="$1" s e r
+                 ^-- SC2034 (warning): e appears unused. Verify use (or export if used externally).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2034 -- e appears unused. Verify use (or ...
+shellcheck rc=1
+# shellcheck SC2034 = ft-hil.sh state_of 의 기존 줄(115 · local e 미사용 · 이 단위 변경 아님) · 새 시험 파일 경고 0
+# rc≠0 6개 = origin/main 12193cb6 사본(git archive)에서도 같은 rc·FAIL(이 단위와 무관한 기존 RED):
+BASE test_ft_wt_sweep_route_timeout rc=1 · 37 PASS · 1 FAIL
+BASE test_hil_run_marker rc=1 · 67 PASS · 3 FAIL
+BASE test_mbox_guard rc=1 · 42 PASS · 25 FAIL
+BASE test_nano_succession_index rc=1 · 20 PASS · 4 FAIL
+BASE test_team_move_roundtrip rc=1 · 103 PASS · 3 FAIL
+BASE test_wt_clean_plan_self_check rc=1 · 5 PASS · 13 FAIL
+# test_hil_run_marker: base FAIL 3 → 이 판 FAIL 2(남은 것 = 틱 --dry-run «DRY kind=hil» 줄 · 틱 쪽 기존 RED · 그 로그의 pending 문구 «미실행 h 1개 · 가장 오래된 0분» 은 그대로)
