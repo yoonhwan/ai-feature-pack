@@ -1,0 +1,18 @@
+# r518 재번호 시험 rc (2026-10-20 07:35:58 · 세트 f4dc4f66 · 팩 main 1b43e63d 병합 · nice -n 15 직렬)
+test_raised_card_state_three_places rc=0 pass=38 fail=0
+test_raised_seat rc=0 pass=119 fail=0
+test_pack_nano_worktree_place rc=0 pass=22 fail=0
+test_tick_team_msg rc=0 pass=32 fail=0
+test_tick_shim_guard rc=0 pass=26 fail=0
+test_harness_root rc=0 pass=74 fail=0
+test_ft_tick_master_seat rc=0 pass=62 fail=0
+test_ft_tick_renamed_args rc=0 pass=6 fail=0
+test_team_tick_unify rc=0 pass=56 fail=0
+test_tick_line rc=0 pass=198 fail=0
+test_baseline_lint rc=0 pass=7 fail=0
+test_kit_bin_sync rc=0 pass=7 fail=0
+test_dead_seat_resume rc=0 pass=85 fail=0
+test_role_spawn_team rc=0 pass=18 fail=0
+test_proposal_gate_wiring rc=0 pass=19 fail=0
+test_nano_team_env rc=0 pass=43 fail=0
+ruff rc=0 · py_compile rc=0 · kit↔bin cmp0
