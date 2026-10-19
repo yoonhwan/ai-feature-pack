@@ -1,0 +1,38 @@
+# r486 시험 원문 — 팩 가지 nano/r486-nano-sparse-checkout-hides-other-te (fix 826e92b7) · base origin/main 0051effd · 2026-10-20
+
+## 새 시험
+$ python -m pytest -q harness/tests/test_team_lib_sparse.py
+.............                                                            [100%]
+13 passed in 0.77s
+rc=0
+옛 코드(0051effd 키트·bin) 대조: 9 failed, 4 passed (ⓐ·ⓓ·셸·같은 글자·spawn 줄 = 빨강)
+
+## 기존 시험
+rc=0 test_team_roster_ref.sh · ALL PASS
+rc=0 test_team_path_oldpath_md.sh · == fail=0
+rc=0 test_old_team_path_deny.sh · == ALL PASS ==
+rc=0 test_goal_check_ref.sh · == test_goal_check_ref: fail=0
+rc=0 test_kit_bin_sync.sh · ALL PASS
+rc=0 test_nano_spawn_reuse_info.sh · ALL PASS
+rc=0 test_nano_spawn_teamset_cap.sh · ALL PASS
+rc=0 test_nano_spawn_tier.sh · ALL PASS
+rc=0 test_nano_team_env.sh · ALL PASS
+rc=0 test_nano_feat_remote_ref.sh · RESULT fail=0
+rc=0 test_team_map_lint.sh · fail=0
+rc=1 test_team_literal_paths.sh · == fail=6
+rc=1 test_team_literal_paths2.sh · == fail=18
+rc=2 test_nano_spawn_body_press.sh · FAILED=2
+rc=1 test_news_tree_root.sh · == fail=1
+→ rc≠0 4종(test_team_literal_paths{,2} · test_nano_spawn_body_press ⓒ node_modules · test_news_tree_root) = origin/main 0051effd 에서 실패 줄 동일(tmp 경로 정규화 diff 0) — 선재
+
+bash -n: rc=0
+core.bare=false
+
+## 사전 실사건(나노 손 · 실사건 본판은 master 설치 뒤)
+sparse BYZ 나노 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r486-nano-sparse-checkout-hides-other-te (목록 /* !/design/teams/*/ /design/teams/harness/)
+$ ft_team_in <나노 워크트리> v65  (새 키트 ft-team-lib.sh)
+SPARSE-HIDDEN design/teams/v65 — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라
+rc=1
+$ pytest tests/worker/unit/test_v65_m5_lst_runaway_long_unit.py  (BYZ 가지 671b53b4 의 tests/shared 사본)
+E   tests.shared.ft_team_lib.SparseHidden: SPARSE-HIDDEN design/teams/v65 — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라
+1 error in 2.37s
