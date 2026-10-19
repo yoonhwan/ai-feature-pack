@@ -243,6 +243,12 @@ echo "PLAN seat=$NAME agent=$AGENT model=$MODEL${TIER:+ tier=$TIER}${FAST:+ fast
 if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
   if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi
   case "$_src" in 0|1) ;; 3) echo "REJECT 슬랙 장부 불명 — byz_thread_post.py repair --card $IDX (부작용 0)"; exit 1;; *) echo "REJECT 슬랙 장부 확인 실패 rc=$_src(127=도구 없음) — 부작용 0"; exit 1;; esac; fi
+# r444 ⑤ 디스크 여유 검사 — 새 워크트리를 만들 때만 · 여유 < FT_NANO_MIN_FREE_GI(40)Gi 면 spawn 0(부작용 «전»). 회수 연결(r440)은 착지 뒤 — 지금은 REJECT 1줄 + [HIL]. 측정 실패도 REJECT(여유 미상 ≠ 충분).
+if [ ! -d "$WTDIR" ]; then
+  _free="${FT_DISK_FREE_GIB:-$(df -Pk "$ROOT" 2>/dev/null | awk 'NR==2 && $4+0>0{print int($4/1048576)}')}"
+  case "$_free" in ''|*[!0-9]*) echo "REJECT [HIL] 디스크 여유 측정 실패(df $ROOT · 값 '${_free}') — spawn 0 · 여유 미상은 충분하다는 뜻 아님"; exit 1;; esac
+  [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || { echo "REJECT [HIL] 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — spawn 0 · 회수 먼저(유휴·완료 좌석 ft-resource-reclaim.sh · 정리 계획 ft-wt-sweep.sh) 뒤 다시"; exit 1; }
+fi
 if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않고 거절한다
 bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" || exit 1
@@ -279,8 +285,19 @@ link_web_node_modules() {
 }
 
 # ② 워크트리 — 이미 있으면 재사용(재발주), 없으면 기준 브랜치에서 분기
+# r444 ⑤ sparse — 남의 팀 폴더(design/teams/<남>/)는 체크아웃하지 않는다(나노 1개 1.5Gi 중 design 1.34Gi). 자기 팀 폴더는 통째(증거 폴더를 빼면 새 증거 `git add` 가 rc1 — 실측).
+#   팀을 못 정하면(카드 경로가 design/(teams/)<팀>/indices 꼴 아님) 전체 체크아웃 · FT_NANO_SPARSE=0 이면 끔 · 되돌림: git -C <워크트리> sparse-checkout disable
+sparse_patterns() { printf '/*\n!/design/teams/*/\n/design/teams/%s/\n' "$1"; }
 if [ ! -d "$WTDIR" ]; then
-  git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
+  _SPT="$(printf '%s' "$IDX_ABS" | sed -nE 's#.*/design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p')"   # 카드가 다른 워크트리(절대경로)에 있어도 팀을 푼다
+  if [ "${FT_NANO_SPARSE:-1}" = 1 ] && [ -n "$_SPT" ]; then
+    git -C "$ROOT" worktree add --no-checkout "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
+    sparse_patterns "$_SPT" | git -C "$WTDIR" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$WTDIR" checkout -q 2>/dev/null \
+      || { echo "REJECT sparse 체크아웃 실패($WTDIR · 브랜치 $BRANCH · 워크트리는 남김 — 사람 판정)"; exit 1; }
+    echo "SPARSE team=$_SPT 남의 팀 design 제외 (되돌림: git -C $WTDIR sparse-checkout disable)"
+  else
+    git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
+  fi
   for l in .venv .env; do [ -e "$ROOT/$l" ] && ln -sfn "../../$l" "$WTDIR/$l"; done
   link_web_node_modules "$ROOT" "$WTDIR"
   # base_sha(오빠 ORDERS 103 · single_set_testing §3 ①): 갈라진 시점을 남겨 ft-nano-freshness 가 «루트부터» 판정한다.
