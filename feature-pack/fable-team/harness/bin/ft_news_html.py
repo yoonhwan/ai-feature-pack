@@ -210,10 +210,13 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
     since = lambda k: now - datetime.strptime(last[k], "%Y-%m-%d %H:%M") if last.get(k) else timedelta.max  # noqa: E731
     if since("fail_at") < timedelta(minutes=int(os.environ.get("FT_NEWS_RETRY_MIN", "5"))):
         return 1, "지도 만들기 실패(재시도 대기)"
+    warn = os.environ.get("FT_LEDGER_SYNC_ERROR", "")  # r503 — 원장 사본 갱신 실패면 «변화 없음» 줄·지도 글 머리에 그 사유를 싣는다(낡은 판을 «변화 없음» 으로 읽지 않게)
+    if warn and warn not in os.environ.get("FT_NEWS_HEAD", ""):
+        os.environ["FT_NEWS_HEAD"] = f"{os.environ.get('FT_NEWS_HEAD') or '팀 지도'} · {warn}"
     if base == cur and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0 · 오늘 지도 있음 = 적정한 반복 한 줄만
         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
             return 0, "원장 커밋 0"
-        rc = publish_line(f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link') or last['map_at']}", now)
+        rc = publish_line(f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link') or last['map_at']}" + (f" · {warn}" if warn else ""), now)
         if rc == 0:
             _save(hs, {**last, "at": stamp})
         return rc, "원장 커밋 0"
@@ -237,7 +240,8 @@ def _ledger_args() -> tuple[Path, Path, str, str, str]:
     """(루트, 원장 리포, 원장 경로, 기준선, 지금 커밋) — 뉴스 틱(ft_news_ledger._run)과 같은 풀이."""
     import ft_board_env as env
     from ft_goal_ledger import live_root
-    from ft_news_ledger import planner_ledger_rel
+    from ft_news_ledger import planner_ledger_rel, sync_repo
+    sync_repo()  # r503 — 명시된 원장 사본만 origin/main 전진 · 실패는 ERROR 로그(지금 판으로 계속)
     root = env.ft_root()
     repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
     rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)

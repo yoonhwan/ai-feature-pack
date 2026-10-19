@@ -126,6 +126,57 @@ prev_suite() {   # $1=시험할 스크립트 경로 — 문지기·ft-hil 대역
 prev_suite "$BIN/$SCRIPT_NAME"
 [ "$fail" -eq 0 ] && ok "R332 실물 묶음 전부 통과" || bad "R332 실물 묶음 실패 ${fail}건"
 
+# ── r502: launchd 기본 PATH(/usr/bin:/bin)에서도 tmux 를 찾는다 · tmux 조회 실패 ≠ 세션 0 ──
+#   ★FT_RECLAIM_EXTRA_PATH 는 늘 가짜·빈 폴더로 준다 — 기본값(/opt/homebrew/bin)이면 실 tmux 를 부른다★
+rawrun() {   # rawrun <PATH> <스크립트> [인자…] — run() 과 같은 env 이되 PATH 를 그대로 쓴다(가짜 폴더를 앞에 붙이지 않음)
+  local p="$1" s="$2"; shift 2
+  PATH="$p" HOME="$H" FT_RES_ROOT="$T/root" FT_SEATS_JSON="$ST/seats.json" FT_SEAT_STATUS="$F/seat-status.sh" FT_NANO_CLOSE="$F/nano-close.sh" \
+    FT_MBOX_SH="$F/mbox.sh" ZC_RESUME_DIR="$H/.claude/state/seat-resume" FT_PRESS_PERMIT_DIR="$T/permits" FT_RECLAIM_LOCK_TRIES=10 \
+    FT_PACK_ROOT="$P" FT_LANDED_CHECK="$BIN/ft-landed-check.sh" FT_SWAPUSAGE="$SWAP_LOW" /bin/bash "$s" "$@" 2>&1
+}
+E="$T/empty"; mkdir -p "$E" "$T/tfail" "$T/tnosrv"
+printf '#!/bin/bash\ncase "$1" in list-sessions) echo "error connecting to /private/tmp/tmux-501/default (Permission denied)" >&2; exit 1;; *) exec "%s/tmux" "$@";; esac\n' "$F" > "$T/tfail/tmux"
+printf '#!/bin/bash\ncase "$1" in list-sessions) echo "no server running on /private/tmp/tmux-501/default" >&2; exit 1;; *) exec "%s/tmux" "$@";; esac\n' "$F" > "$T/tnosrv/tmux"
+chmod +x "$T/tfail/tmux" "$T/tnosrv/tmux"
+r502_suite() {   # $1=시험할 회수 도구
+  local S="$1" out rc LOGF="$T/root/.fable-team/state/reclaim.log"
+  # ⓐ PATH 에 tmux 없음 + FT_RECLAIM_EXTRA_PATH=가짜 tmux 폴더 → 도구가 덧붙여 찾음 → 후보 = 픽스처 세션
+  swapworld; out="$(FT_RECLAIM_EXTRA_PATH="$F" rawrun /usr/bin:/bin "$S" --preventive --dry-run)"; rc=$?
+  eq "$rc" 0 "r502 ⓐ PATH=/usr/bin:/bin + EXTRA=가짜 tmux 폴더 → rc0"
+  has "$out" "candidates=12 " "r502 ⓐ 덧붙인 PATH 에서 tmux 를 찾아 후보 12(조용한 0 아님)"
+  swapworld; out="$(FT_RECLAIM_EXTRA_PATH="$E" rawrun /usr/bin:/bin "$S" --preventive)"; rc=$?
+  eq "$rc" 4 "r502 ⓐ' 어디에도 tmux 없음 → rc4"; has "$out" "ERROR tmux 없음(PATH=/usr/bin:/bin:$E)" "r502 ⓐ' ERROR tmux 없음 + PATH 원문"
+  hasnt "$out" "PREVENTIVE " "r502 ⓐ' 요약줄 0"
+  # ⓑ tmux 찾음 · list-sessions rc1 + 서버 없음 아닌 stderr → ERROR rc4 · 요약줄 0 · 닫기 0 · 잠금 해제
+  swapworld; out="$(FT_RECLAIM_EXTRA_PATH="$E" rawrun "$T/tfail:$F:/usr/bin:/bin" "$S" --preventive)"; rc=$?
+  eq "$rc" 4 "r502 ⓑ list-sessions 실패 → rc4"
+  has "$out" "ERROR tmux list-sessions rc=1: error connecting to /private/tmp/tmux-501/default (Permission denied)" "r502 ⓑ ERROR 줄 = rc + stderr 첫 줄"
+  hasnt "$out" "PREVENTIVE " "r502 ⓑ 출력 요약줄 0"; eq "$(cnt "$LOGF" PREVENTIVE)" 0 "r502 ⓑ reclaim.log 요약줄 0"
+  eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "r502 ⓑ 닫기 0"
+  [ ! -d "$T/root/.fable-team/state/reclaim.lock.d" ] && ok "r502 ⓑ 잠금 해제" || bad "r502 ⓑ 잠금이 남았다"
+  # ⓑ' 감시자 보조(ft-resource-preventive.sh)가 이 실패를 stamp 0 + resource-watch.log ERROR 로 받는다(다음 틱 재시도)
+  swapworld; FT_RECLAIM_EXTRA_PATH="$E" PATH="$T/tfail:$F:/usr/bin:/bin" HOME="$H" FT_RES_ROOT="$T/root" FT_SEATS_JSON="$ST/seats.json" FT_SEAT_STATUS="$F/seat-status.sh" \
+    FT_NANO_CLOSE="$F/nano-close.sh" FT_MBOX_SH="$F/mbox.sh" FT_PACK_ROOT="$P" FT_SWAPUSAGE="$SWAP_LOW" FT_RECLAIM_SH="$S" /bin/bash "$BIN/ft-resource-preventive.sh" >/dev/null 2>&1
+  [ ! -e "$T/root/.fable-team/state/.preventive-last" ] && ok "r502 ⓑ' stamp 0(다음 틱 재시도)" || bad "r502 ⓑ' 실패인데 stamp 를 찍었다"
+  has "$(cat "$T/root/.fable-team/state/resource-watch.log" 2>/dev/null)" "ERROR preventive rc=4 ERROR tmux list-sessions rc=1" "r502 ⓑ' resource-watch.log ERROR 1줄"
+  # ⓒ «no server running» 만 세션 0 으로 인정 → rc0 · candidates=0
+  swapworld; out="$(FT_RECLAIM_EXTRA_PATH="$E" rawrun "$T/tnosrv:$F:/usr/bin:/bin" "$S" --preventive)"; rc=$?
+  eq "$rc" 0 "r502 ⓒ 서버 없음 → rc0"; has "$out" "PREVENTIVE reclaimed=0 candidates=0 skipped=0" "r502 ⓒ 서버 없음 = 세션 0 정상 요약줄"
+}
+r502_suite "$BIN/$SCRIPT_NAME"
+# ⓓ 감시자 머리 PATH — env -i PATH=/usr/bin:/bin 로 tick → 하위(선제 회수·표본)가 받은 PATH 끝 = FT_RECLAIM_EXTRA_PATH(기본 /opt/homebrew/bin:/usr/local/bin)
+WB="$T/wbin"; mkdir -p "$WB"; cp "$BIN/ft-resource-watch.sh" "$WB/"
+printf '#!/bin/bash\nprintf "%%s\\n" "$PATH" > "%s/sample.path"\n' "$T" > "$WB/ft-resource-sample.sh"
+printf '#!/bin/bash\necho "ERROR gate 대역(측정 0 · 동결·알림 0)"; exit 4\n' > "$WB/ft-resource-gate.sh"
+printf '#!/bin/bash\nprintf "%%s\\n" "$PATH" > "%s/pv.path"\n' "$T" > "$T/pvpath.sh"; chmod +x "$WB"/*.sh "$T/pvpath.sh"
+env -i HOME="$H" PATH=/usr/bin:/bin FT_RES_ROOT="$T/wroot" FT_PREVENTIVE_SH="$T/pvpath.sh" FT_RECLAIM_EXTRA_PATH="$T/xp" /bin/bash "$WB/ft-resource-watch.sh" tick >/dev/null 2>&1
+eq "$(cat "$T/pv.path" 2>/dev/null)" "/usr/bin:/bin:$T/xp" "r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA"
+eq "$(cat "$T/sample.path" 2>/dev/null)" "/usr/bin:/bin:$T/xp" "r502 ⓓ 표본도 같은 PATH"
+rm -f "$T/pv.path"; env -i HOME="$H" PATH=/usr/bin:/bin FT_RES_ROOT="$T/wroot" FT_PREVENTIVE_SH="$T/pvpath.sh" /bin/bash "$WB/ft-resource-watch.sh" tick >/dev/null 2>&1
+eq "$(cat "$T/pv.path" 2>/dev/null)" "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin" "r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로"
+bash -n "$BIN/ft-resource-watch.sh" && ok "bash -n ft-resource-watch.sh" || bad "bash -n ft-resource-watch.sh"
+cmp -s "$BIN/ft-resource-watch.sh" "$KIT/ft-resource-watch.sh" && ok "키트 사본 cmp 0 ft-resource-watch.sh" || bad "키트 사본 어긋남 ft-resource-watch.sh"
+
 MUT="$T/mut"; mkdir -p "$MUT"
 sed 's/\[ "\$PREV" = 1 \] && tries=1//' "$BIN/$SCRIPT_NAME" > "$MUT/$SCRIPT_NAME"   # R332: 선제 모드의 «대기 0» 제거 → 잠금 경합에서 기다린다
 saved=$fail; fail=0; prev_suite "$MUT/$SCRIPT_NAME" >"$T/mut3.out"; m3=$fail; fail=$saved
@@ -133,6 +184,12 @@ saved=$fail; fail=0; prev_suite "$MUT/$SCRIPT_NAME" >"$T/mut3.out"; m3=$fail; fa
 sed 's/\[ "\${wc:-x}" = 0 \] || /true || /' "$BIN/$SCRIPT_NAME" > "$MUT/$SCRIPT_NAME"   # 판정 2197: 쉬는 역할 좌석의 «대기 카드 0» 판정 제거 → 대기 카드가 있어도 닫는다
 saved=$fail; fail=0; prev_suite "$MUT/$SCRIPT_NAME" >"$T/mut4.out"; m4=$fail; fail=$saved
 [ "$m4" -gt 0 ] && ok "변이4(대기 카드 0 판정 제거) → 단언 FAIL ${m4}건" || bad "변이4 가 잡히지 않음(시험이 약하다)"
+sed 's/return 4;; esac/sess="";; esac/' "$BIN/$SCRIPT_NAME" > "$MUT/$SCRIPT_NAME"   # r502: tmux 조회 실패를 «세션 0» 으로 삼킴(옛 동작)
+saved=$fail; fail=0; r502_suite "$MUT/$SCRIPT_NAME" >"$T/mut5.out"; m5=$fail; fail=$saved
+[ "$m5" -gt 0 ] && ok "변이5(tmux 실패 = 세션 0) → 단언 FAIL ${m5}건" || bad "변이5 가 잡히지 않음(시험이 약하다)"
+grep -v 'FT_RECLAIM_EXTRA_PATH:-' "$BIN/$SCRIPT_NAME" > "$MUT/$SCRIPT_NAME"   # r502: PATH 덧붙임 제거 → launchd PATH 에서 tmux 를 못 찾는다
+saved=$fail; fail=0; r502_suite "$MUT/$SCRIPT_NAME" >"$T/mut6.out"; m6=$fail; fail=$saved
+[ "$m6" -gt 0 ] && ok "변이6(PATH 덧붙임 제거) → 단언 FAIL ${m6}건" || bad "변이6 이 잡히지 않음(시험이 약하다)"
 
 
 [ "$(git -C "$REPO" config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare 이상"
