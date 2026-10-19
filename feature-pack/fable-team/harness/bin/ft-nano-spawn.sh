@@ -242,7 +242,9 @@ OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
 case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
 [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
-echo "PLAN seat=$NAME agent=$AGENT model=$MODEL${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"
+# r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
+_VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"
+echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"
 # R81 ⓐ 슬랙 장부 사전 확인 — 카드에 「- 슬랙:」 줄이 있으면 부작용 «전»에 check(dry-run 도 같다): rc 0·1 통과 · 3 = 장부 불명 · 그 밖·도구 없음 = REJECT
 if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
   if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi

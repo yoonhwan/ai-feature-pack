@@ -48,9 +48,13 @@ prepare_color_environment() {
 create_tmux_session() {
   local name="$1"
   local root="$2"
+  shift 2
+  # 나머지 인자 = 그 세션에만 심을 추가 env(KEY=VALUE) — r476 opencode 모델(OPENCODE_CONFIG_CONTENT)
+  local env_args=() kv
+  for kv in "$@"; do env_args+=(-e "$kv"); done
   prepare_color_environment
   # r448: 좌석 표식 FT_SEAT=<세션명> — 생성 «때» 심어야 첫 셸·에이전트·그 자손이 물려받는다(뒤에 set-environment 는 이미 뜬 셸에 안 닿음 · 실측). ft-seat-reap 이 ppid 1 고아의 주인을 이 값으로 찾는다.
-  tmux new-session -d -s "$name" -c "$root" -e "FT_SEAT=$name" || return 1
+  tmux new-session -d -s "$name" -c "$root" -e "FT_SEAT=$name" ${env_args[@]+"${env_args[@]}"} || return 1
   # ★detached 생성은 창 옵션을 window-size=manual(80x24) 로 박는다★ — 나중에 큰 클라이언트가 붙어도 안 커지고
   #   오른쪽·아래가 점으로 채워진다(2026-09-09 실측: 재부팅 후 스폰된 25좌석 전부). 창 옵션을 풀어 서버 기본(latest)을 따른다.
   tmux set -wu -t "=$name:" window-size 2>/dev/null || true
@@ -283,16 +287,23 @@ resolve_codex_cmd() {
 }
 
 # opencode 는 role→effort 매핑이 없다(reasoning effort 개념 부재) — 모델이 유일한 등급 축이다.
-# 따라서 role 은 받되 커맨드에 반영하지 않고, --model 만 그대로 넘긴다.
+# 따라서 role 은 받되 커맨드에 반영하지 않는다.
 # --auto: 명시적으로 deny 되지 않은 권한을 자동 승인. claude 의 --dangerously-skip-permissions,
 # codex 의 --dangerously-bypass-approvals-and-sandbox 와 같은 자리 — tmuxc 세션은 워커용이라
 # 매 승인에 사람이 붙지 않는 것이 전제다.
+# r476: opencode 2.0.32 TUI 최상위에는 --model 이 없다(run 서브명령 전용 → «Unrecognized flag: --model» 기동 실패).
+#   모델은 플래그가 아니라 세션 생성 때 env OPENCODE_CONFIG_CONTENT 로 심는다(opencode_session_env).
 resolve_opencode_cmd() {
+  printf '%s' "opencode --auto"
+}
+
+# opencode 좌석 모델 → 세션 env 1칸(KEY=VALUE). 모델 미지정이면 출력 0 — opencode 기본값(설정/최근 사용)을 따른다.
+# 글로벌 ~/.config/opencode/opencode.json·워크트리 파일은 건드리지 않는다 — env 는 그 tmux 세션에만 닿는다.
+opencode_session_env() {
   local model="${1:-}"
-  local cmd="opencode --auto"
-  # 모델 미지정이면 opencode 기본값(설정/최근 사용)을 따른다 — 여기서 임의 기본값을 박지 않는다.
-  [[ -n "$model" ]] && cmd="$cmd --model $(printf '%q' "$model")"
-  printf '%s' "$cmd"
+  [[ -n "$model" ]] || return 0
+  printf 'OPENCODE_CONFIG_CONTENT=%s' \
+    "$(python3 -c 'import json,sys;print(json.dumps({"model":sys.argv[1]},separators=(",",":")))' "$model")"
 }
 
 # Command Code(commandcode.ai, 바이너리 `cmd`) 는 --model 과 --effort 를 둘 다 받는다.
@@ -360,11 +371,10 @@ resolve_codex_fork_cmd() {
     "$(printf '%q' "$source_id")" "${effort:-$role_effort}" "$model_opt"
 }
 
+# 모델은 여기서 붙이지 않는다 — open 과 같이 opencode_session_env 가 세션 env 로 심는다(r476).
 resolve_opencode_fork_cmd() {
-  local source_id="$1" model="${2:-}"
-  local cmd="opencode --auto --session $(printf '%q' "$source_id") --fork"
-  [[ -n "$model" ]] && cmd="$cmd --model $(printf '%q' "$model")"
-  printf '%s' "$cmd"
+  local source_id="$1"
+  printf '%s' "opencode --auto --session $(printf '%q' "$source_id") --fork"
 }
 
 resolve_cmdcode_fork_cmd() {
@@ -518,15 +528,18 @@ cmd_open() {
 
   local run_cmd
   run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast")"
+  local seat_env=()
+  [[ "$agent" == "opencode" && -n "$model" ]] && seat_env=("$(opencode_session_env "$model")")
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
+    [[ ${#seat_env[@]} -eq 0 ]] || printf 'env=%s\n' "${seat_env[@]}"
     return 0
   fi
 
   tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
   ensure_serena "$root"   # UC1-7: serena 공유서버 선기동 (미구성 프로젝트 no-op)
-  create_tmux_session "$name" "$root"
+  create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd"
   sleep 4
 
@@ -677,16 +690,19 @@ cmd_fork() {
 
   local run_cmd
   run_cmd="$(agent_fork_cmd "$agent" "$name" "$role" "$src_id" "$model" "$effort" "$ctx")"
+  local seat_env=()
+  [[ "$agent" == "opencode" && -n "$model" ]] && seat_env=("$(opencode_session_env "$model")")
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\nsource_agent=%s\nsource_id=%s\ncommand=%s\n' \
       "$name" "$root" "$agent" "$role" "$src_agent" "$src_id" "$run_cmd"
+    [[ ${#seat_env[@]} -eq 0 ]] || printf 'env=%s\n' "${seat_env[@]}"
     return 0
   fi
 
   tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
   ensure_serena "$root"
-  create_tmux_session "$name" "$root"
+  create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd"
   sleep 4
 

@@ -33,12 +33,17 @@ CONTENT = {"summary": ["통역 고침 시험 중", "방은 쉬는 중", "하네�
            "goals": [{"done": "끝난 것", "now": "하는 것", "left": "남은 것", "hot": i == 0} for i in range(6)],
            "working": [{"team": "ops", "text": "메뉴 만드는 중"}], "resting": [{"team": "kk", "text": "닫힘"}], "refs": ["#113248", "a608fea5a0"]}
 FAKE_OC = """#!/usr/bin/env python3
-import json, os, sys, time
+import json, os, stat, sys, time
 log = os.environ["FAKE_OC_LOG"]
-n = sum(1 for _ in open(log)) if os.path.exists(log) else 0
 open(log, "a").write(json.dumps(sys.argv[1:]) + "\\n")
+open(log + ".stdin", "a").write(str(stat.S_ISCHR(os.fstat(0).st_mode)) + "\\n")  # /dev/null = 문자 장치
 if "--standalone" not in sys.argv: sys.exit(1)
-if os.environ.get("FAKE_OC_FAIL_FIRST") and n == 0: sys.exit(1)
+if os.environ.get("FAKE_OC_FAIL_FIRST"):
+    try:
+        os.close(os.open(log + ".failed", os.O_CREAT | os.O_EXCL))  # 병렬 호출 중 «처음 하나» 만 실패(출력 0)
+        sys.exit(1)
+    except FileExistsError:
+        pass
 time.sleep(float(os.environ.get("FAKE_OC_SLEEP", "0")))
 print(json.dumps({"type": "step_start"}))
 print(json.dumps({"type": "text", "part": {"text": open(os.environ["FAKE_OC_REPLY"]).read()}}))
@@ -154,13 +159,34 @@ def test_c_retry_once_only_before_first_output(tmp_path, oc, monkeypatch):
     _, log = oc
     monkeypatch.setenv("FAKE_OC_FAIL_FIRST", "1")
     fh.run_files({"goals": GOALS}, tmp_path, NOW)
-    assert len(calls(log)) == 2
+    assert len(calls(log)) == 4  # 갈래 3 + 출력 0 으로 실패한 갈래 재시도 1
     log.unlink()
     monkeypatch.delenv("FAKE_OC_FAIL_FIRST")
     monkeypatch.setenv("FAKE_OC_RC", "1")  # 출력 뒤 실패 = 재시도 0
     with pytest.raises(fr.NewsHtmlError):
         fh.run_files({"goals": GOALS}, tmp_path, NOW)
-    assert len(calls(log)) == 1
+    assert len(calls(log)) == 3
+
+
+# ── r478b: 갈래 3개 병렬 · 갈래별 입력만 · 상한 = 크기 비례 · stdin 차단 ──
+
+def test_split_parts_get_only_their_inputs_and_stdin_is_devnull(tmp_path, oc):
+    _, log = oc
+    data = {"now": "x", "goals": GOALS, "ledger": [{"title": "원장절", "text": "원장글"}], "urgent": ["긴급머리"], "teams": ["팀줄"], "commits": ["abc 커밋글"]}
+    fh.run_files(data, tmp_path, NOW)
+    prompts = {next(p for p in fr.PARTS if f'"{fr.PARTS[p][0][0]}":' in c[-1].split("출력 스키마:")[1].splitlines()[0]): c[-1] for c in calls(log)}
+    assert set(prompts) == {"top", "goals", "teams"}
+    assert "팀줄" in prompts["teams"] and "원장글" not in prompts["teams"]
+    assert "원장글" in prompts["goals"] and "팀줄" not in prompts["goals"] and "커밋글" not in prompts["goals"]
+    assert all(x in prompts["top"] for x in ("원장글", "긴급머리", "커밋글")) and "팀줄" not in prompts["top"]
+    assert Path(str(log) + ".stdin").read_text().split() == ["True"] * 3
+
+
+def test_cap_is_size_scaled_and_never_above_70():
+    small = fr.build_prompt({"teams": ["팀"]}, "teams")
+    assert fr.cap_s(small, "teams") == 3.5 + 7 * 4  # 예상 출력 1200자 / 300 = 4
+    assert fr.cap_s(small, "goals") == 3.5 + 7 * 6
+    assert fr.cap_s("가" * 200000, "top") == 70  # 큰 입력 = 70초 천장
 
 
 def test_c_total_deadline_kills_and_fails(tmp_path, oc, monkeypatch):
@@ -359,8 +385,9 @@ def test_g_effort_table_rows_per_variant(tmp_path, oc):
     assert [r.split(" | ")[0] for r in rows] == ["| base", "| max", "| depth:두 번 따져 본다"]
     assert all(" | 0 | OK | 2 | " in r for r in rows)
     models = [c[3] for c in calls(oc[1])]
-    assert models == ["opencode/deepseek-v4.1-flash-free", "opencode/deepseek-v4.1-flash-free#max", "opencode/deepseek-v4.1-flash-free"]
-    assert "두 번 따져 본다" in calls(oc[1])[2][-1] and "기본값 결정(사람 1줄)" in table.read_text(encoding="utf-8")
+    base = "opencode/deepseek-v4.1-flash-free"
+    assert models == [base] * 3 + [base + "#max"] * 3 + [base] * 3  # 변형마다 갈래 3
+    assert all("두 번 따져 본다" in c[-1] for c in calls(oc[1])[6:]) and "기본값 결정(사람 1줄)" in table.read_text(encoding="utf-8")
     assert subprocess.run(["bash", str(BIN / "ft-news-effort-test.sh")], capture_output=True, check=False).returncode == 2
 
 
