@@ -10,6 +10,8 @@
 #   r426: 설치기 관리 launchd plist(ft_plist_env.py list · 지금 = 쪽지→슬랙 미러)는 «설치된 것만» 템플릿 렌더본으로 갱신 — 다를 때만 .bak-r426 + 재적재.
 #         --dry-run 은 PENDING plist-env 줄만 · launchctl 은 FT_LAUNCHCTL(시험 주입).
 #   r457: plist 갱신은 --project 가 git 공용 루트일 때만 — 워크트리면 SKIP plist-env 1줄(shim 설치는 그대로).
+#   r459: 팩 comm 도구(harness/comm 의 일반 파일 · 우편함·큐 데이터 제외)를 <공용 루트>/.fable-team/comm 에 cp -p(덮기 전 .bak-<버전> · 루트 전용 파일 유지 · 삭제 0)
+#         dry-run = COMM 줄 + `COMM copied=N same=M` · 워크트리 --project 는 SKIP comm · apply 끝 = 기동 뒤 스크립트가 바뀐 launchd 데몬 RESTART 줄(실행 0 · master 집행).
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -70,6 +72,24 @@ HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
 # r426: 설치기 관리 launchd plist(ft_plist_env.py list) — «설치된 것만» 템플릿 렌더본(FT_ROOT=프로젝트 · inbox=LIVE_BIN)과 대조.
 #   다르면 apply = .bak-r426(첫 원본 보존) + 교체 + bootout·bootstrap·kickstart(변경 때만) · 같으면 쓰기 0 · 렌더 실패 = ERROR(조용한 통과 0)
 LC="${FT_LAUNCHCTL:-launchctl}"
+# r459: comm 도구 동기화 — 데이터 파일(우편함·순번·가드 상태·큐 설정·본문·relay·캐시)은 대상 밖 · 이름 목록 = 팩 comm 의 최상위 일반 파일
+COMM_SRC="$HARNESS/comm"; COMM_DST="${COMMON:-$PROJECT}/.fable-team/comm"
+comm_sync() {
+  local f n dst copied=0 same=0
+  if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then echo "SKIP comm (--project 가 git 공용 루트 아님: 루트=$COMMON — comm 은 루트 설치에서만)"; return 0; fi
+  [ -d "$COMM_SRC" ] || { echo "ERROR: 팩 comm 없음: $COMM_SRC" >&2; exit 1; }
+  for f in "$COMM_SRC"/*; do
+    n="$(basename "$f")"; [ -f "$f" ] || continue
+    case "$n" in mailbox*.jsonl|.mbox-seq|.mbox-guard.json|queues.conf|*.pyc) continue;; esac
+    dst="$COMM_DST/$n"
+    if [ -f "$dst" ] && cmp -s "$f" "$dst" && [ "$(perm "$f")" = "$(perm "$dst")" ]; then same=$((same + 1)); continue; fi
+    copied=$((copied + 1))
+    if [ "$APPLY" != 1 ]; then echo "COMM $dst <- $f$([ -f "$dst" ] && echo ' (다름 · apply 때 .bak-'"$VERSION"')')"; continue; fi
+    mkdir -p "$COMM_DST"; [ ! -f "$dst" ] || [ -e "$dst.bak-$VERSION" ] || cp -p "$dst" "$dst.bak-$VERSION"
+    cp -p "$f" "$dst"; cmp -s "$f" "$dst" || { echo "ERROR: comm 복사 불일치: $dst" >&2; exit 1; }
+  done
+  echo "COMM copied=$copied same=$same dest=$COMM_DST$([ "$APPLY" = 1 ] && echo " (덮은 파일의 되돌림 = <파일>.bak-$VERSION)")"
+}
 plist_sync() {
   local label tpl dst new
   if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then
@@ -93,10 +113,10 @@ plist_sync() {
     echo "PLIST applied $label (되돌림 = $dst.bak-r426 · kickstart)"
   done < <(python3 "$KIT/bin/ft_plist_env.py" list)
 }
-if [ "$APPLY" != 1 ]; then plist_sync; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
+perm() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
+if [ "$APPLY" != 1 ]; then plist_sync; comm_sync; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
-perm() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
 PREV=""; [ -f "$PROJECT/.fable-team/LIVE_BIN" ] && PREV="$(sed -n '1p' "$PROJECT/.fable-team/LIVE_BIN")"
 copied=0; same=0
 while IFS= read -r rel; do
@@ -137,6 +157,9 @@ for src in "$KIT"/githooks/*; do
   gcopied=$((gcopied + 1))
 done
 echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되돌림 = <파일>.bak-$VERSION)"
+comm_sync
+# r459: 먼저 기동한 데몬은 메모리의 옛 사본으로 돈다 — 기동 < 스크립트(shim·LIVE_BIN 지도·라이브 도구) mtime 인 라벨을 RESTART 줄로(판정식 = ft_live_install_check restart_due 하나)
+python3 "$KIT/bin/ft_live_install_check.py" --restart-scan "$HOME_DIR/Library/LaunchAgents" || { echo "ERROR: RESTART 판정 실패" >&2; exit 1; }
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi
 echo "== 끝 =="

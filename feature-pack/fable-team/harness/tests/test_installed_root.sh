@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_installed_root.sh — r385 r3: 설치본(<HOME>/.claude/fable-team/live/<ver>/bin · git 밖)에서 «파일 위치 조상 탐색» 없이 루트·comm 을 푼다.
 #   ⓐ ft_goal_ledger.find_root 순서: FT_ROOT → cwd git 공용 루트(.fable-team/LIVE_BIN) → 옛 설치 꼴 조상 → ERROR
-#   ⓑ ft_comm_dir(= ft_data_root/.fable-team/comm) — ft-tick.sh·ft-hil-ask.sh 가 그 mbox.sh 로 푼다(인자 검사 전 대입만 · bash -x 추적 · 부작용 0)
+#   ⓑ ft_comm_dir(= 공용 루트/.fable-team/comm · r459: LIVE_ROOT 를 보지 않는다) — ft-tick.sh·ft-hil-ask.sh 가 그 mbox.sh 로 푼다(인자 검사 전 대입만 · bash -x 추적 · 부작용 0)
 #   ⓒ cwd=git 밖 → ERROR rc≠0 + 임시 HOME 쓰기 0 · FT_ROOT 명시 → 그 값 · 옛 설치 꼴(<리포>/.fable-team/bin) → 옛 «$HERE/../comm» 과 같은 곳
 #   ⓓ 실제 BYZ(읽기만 · FT_TEST_BYZ_ROOT · 없으면 SKIP 표기) cwd 에서 설치본 ft-goal-table.sh rc0 + 골 표
 #   ⓔ r385 r4: ft_board_env.ft_root 같은 순서(①FT_ROOT 그 값 그대로) · 설치본 ft-sheet-events.sh(spawn·nano-close 의 prepare 경로) 루트 풀이
@@ -47,9 +47,9 @@ eq "$(root_of "$NOGIT" "$LB" FT_ROOT="$FX")" "$FX" "ⓐ FT_ROOT 명시 → 그 �
 eq "$(root_of "$NOGIT" "$FX/.fable-team/bin")" "$FX" "ⓐ 옛 설치 꼴(<리포>/.fable-team/bin) · cwd=git 밖 → 조상 탐색(회귀 0)"
 
 # ── ⓑ comm · tick·hil-ask mbox 경로 ──
-eq "$(cd "$FX" && HOME="$H" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$LB")" "$LR/.fable-team/comm" "ⓑ ft_comm_dir 설치본 · cwd=리포 → LIVE_ROOT 의 comm"
-eq "$(mbox_of "$FX" ft-tick.sh)" "$LR/.fable-team/comm/mbox.sh" "ⓑ ft-tick.sh 설치본 · cwd=리포 → <라이브 루트>/.fable-team/comm/mbox.sh"
-eq "$(mbox_of "$FX" ft-hil-ask.sh)" "$LR/.fable-team/comm/mbox.sh" "ⓑ ft-hil-ask.sh 설치본 · cwd=리포 → <라이브 루트>/.fable-team/comm/mbox.sh"
+eq "$(cd "$FX" && HOME="$H" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$LB")" "$FX/.fable-team/comm" "ⓑ ft_comm_dir 설치본 · cwd=리포 → 공용 루트 comm(LIVE_ROOT 0 · r459)"
+eq "$(mbox_of "$FX" ft-tick.sh)" "$FX/.fable-team/comm/mbox.sh" "ⓑ ft-tick.sh 설치본 · cwd=리포 → <공용 루트>/.fable-team/comm/mbox.sh(r459)"
+eq "$(mbox_of "$FX" ft-hil-ask.sh)" "$FX/.fable-team/comm/mbox.sh" "ⓑ ft-hil-ask.sh 설치본 · cwd=리포 → <공용 루트>/.fable-team/comm/mbox.sh(r459)"
 eq "$(mbox_of "$FX" ft-tick.sh FT_TICK_MBOX=/x/mbox.sh)" "/x/mbox.sh" "ⓑ ft-tick.sh env 명시 → 그 값"
 old="$(cd "$NOGIT" && HOME="$H" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$FX/.fable-team/bin")"
 eq "$old" "$(cd "$FX/.fable-team/bin/../comm" && pwd)" "ⓑ 옛 설치 꼴 → 옛 «\$HERE/../comm» 과 같은 곳(회귀 0)"

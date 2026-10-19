@@ -81,6 +81,23 @@ ft_team_file_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin
   while IFS= read -r c; do [ -n "$c" ] && [ -f "$c/$f" ] && hits+=("$c/$f"); done <<< "$cands"
   [ "${#hits[@]}" = 1 ] || { echo "ERROR $t $f 실재 후보 ${#hits[@]}개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 $(printf '%s ' $cands))" >&2; return 1; }
   printf '%s\n' "${hits[0]}"; }
+#   ft_team_doc_ref <루트> <팀> <파일> [<ref>] : 정본 문서 «읽기» 경로(r459 · 자리 규칙 «정본 = ref origin/main») — 후보 폴더 중 실재 정확히 1개면 그 경로 ·
+#                                    실재 0 이면 `git show <ref>:<명단 꼴 폴더>/<파일>` 본문을 임시 파일로 쓰고 그 경로(정리 = 부르는 쪽 · ft_team_doc_tmp 로 판별) ·
+#                                    명단 못 읽음·팀 없음·실재 2+·ref 에도 없음 = stderr ERROR rc1(추측·옛 경로 후퇴 0) · 읽기 전용 — 원장처럼 «쓰는» 파일엔 ft_team_file_ref
+ft_team_doc_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c first="" hits=() tmp rel
+  cands="$(ft_team_cands_ref "$r" "$t" "$ref")" || return 1
+  while IFS= read -r c; do [ -n "$c" ] || continue; [ -n "$first" ] || first="$c"; [ -f "$c/$f" ] && hits+=("$c/$f"); done <<< "$cands"
+  case "${#hits[@]}" in
+    1) printf '%s\n' "${hits[0]}"; return 0;;
+    0) ;;
+    *) echo "ERROR $t $f 실재 후보 ${#hits[@]}개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 $(printf '%s ' $cands))" >&2; return 1;;
+  esac
+  rel="${first#"$r"/}"; tmp="$(mktemp "$(_ft_team_doc_dir)/ft-team-doc.XXXXXX")" || return 1
+  git -C "$r" show "$ref:$rel/$f" > "$tmp" 2>/dev/null && [ -s "$tmp" ] || { rm -f "$tmp"; echo "ERROR $t $f 실재 0 · $ref:$rel/$f 도 없음(명단 $ref:design/TEAMS.md · 후보 $(printf '%s ' $cands))" >&2; return 1; }
+  printf '%s\n' "$tmp"; }
+#   ft_team_doc_tmp <경로>          : ft_team_doc_ref 가 만든 임시 본문이면 rc0(부르는 쪽이 rm) · 루트 실재 파일이면 rc1
+_ft_team_doc_dir() { local d="${TMPDIR:-/tmp}"; printf '%s\n' "${d%/}"; }
+ft_team_doc_tmp() { case "$1" in "$(_ft_team_doc_dir)"/ft-team-doc.*) return 0;; esac; return 1; }
 #   ft_team_has_ref <루트> <팀> <경로> [<하위>] [<ref>] : ft_team_has 를 «ref 명단» 으로(R406) — rc 는 ft_team_has 와 같다(ref 못 읽음 = rc2)
 ft_team_has_ref() { ( r="$1"; ref="${5:-${FT_TEAMS_REF:-origin/main}}"; md="$(mktemp)" || exit 2; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 2; }

@@ -4,7 +4,8 @@
 --range A..B 는 대상 파일 집합만 정하고, 대조 blob 은 --ref(기본 origin/main) tip 에서 읽는다 (R367).
 r385: --repo 기본 = 하네스 코드 루트(FT_HARNESS_ROOT · <이 폴더>/../HARNESS_ROOT · 팩 harness/)의 리포 · --kit 기본 = 그 리포 기준 kit/ 경로 ·
 --project = shim 대조할 프로젝트 루트(기본 = --repo 의 공용 루트).
-r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 = 템플릿 렌더본(FT_ROOT = 프로젝트 루트) 바이트 대조 → 아니면 PENDING plist-env."""
+r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 = 템플릿 렌더본(FT_ROOT = 프로젝트 루트) 바이트 대조 → 아니면 PENDING plist-env.
+r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 < 스크립트 mtime» 인 라벨의 RESTART 줄만(install.sh --apply 끝 · 실행 0 · rc0)."""
 import fnmatch
 import os
 import re
@@ -149,12 +150,56 @@ def plist_items(repo, path, blob):
     miss = ["MISSING %s -> %s" % (path, s) for s in scripts if not os.path.isfile(s)]
     if not pm or miss:
         return miss  # PID 없음(주기 실행 job) = 시작 시각 비교 불가 — 적재만 확인
-    ls = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pm.group(1)]).stdout.split()
+    return ["RESTART " + label] if restart_due(pm.group(1), scripts) else []
+
+
+def restart_due(pid, scripts):
+    """프로세스 시작 시각 < 스크립트 mtime 최대값 → True (R245 판정식 하나 · r459 설치기 restart_scan 도 이것)."""
+    ls = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pid]).stdout.split()
     try:
         started = time.mktime(time.strptime(" ".join(ls), "%a %b %d %H:%M:%S %Y"))
     except ValueError:
         die("ps lstart 해석 실패: %s" % ls)
-    return ["RESTART " + label] if started < max((os.path.getmtime(s) for s in scripts), default=0) else []
+    return started < max((os.path.getmtime(s) for s in scripts), default=0)
+
+
+HARNESS_SCRIPT = re.compile(r"(/\.fable-team/bin/|/fable-team/live/[^/]+/bin/)[^/]+\.(sh|py)$")
+
+
+def shim_deps(script):
+    """스크립트 + (shim 이면) <폴더>/../LIVE_BIN 지도 파일 + 지도가 가리키는 라이브 도구 — 셋 중 하나라도 기동 뒤 바뀌면 재기동 대상."""
+    deps = [script]
+    if is_shim(script):
+        lf = os.path.join(os.path.dirname(script), "..", "LIVE_BIN")
+        deps.append(lf)
+        if os.path.isfile(lf):
+            with open(lf, encoding="utf-8") as fh:
+                deps.append(os.path.join(fh.readline().strip(), os.path.basename(script)))
+    return [d for d in deps if os.path.isfile(d)]
+
+
+def restart_scan(pdir):
+    """r459: <pdir>/*.plist 중 ProgramArguments 가 하네스 스크립트(.fable-team/bin · fable-team/live/<ver>/bin)이고 적재·PID 있는 데몬의
+    기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0 — 재기동은 master 가 줄의 명령으로."""
+    import plistlib
+    out = []
+    for name in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
+        if not name.endswith(".plist"):
+            continue
+        try:
+            with open(os.path.join(pdir, name), "rb") as fh:
+                d = plistlib.load(fh)
+        except Exception:  # noqa: BLE001 — 손상 plist 는 이 스캔 밖(설치기 관리 plist 는 plist_sync 가 따로 본다)
+            continue
+        label = d.get("Label") or name[: -len(".plist")]
+        deps = [x for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and HARNESS_SCRIPT.search(a) for x in shim_deps(a)]
+        if not deps:
+            continue
+        r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
+        pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout) if not r.returncode else None
+        if pm and restart_due(pm.group(1), deps):
+            out.append("RESTART %s — launchctl kickstart -k gui/%d/%s" % (label, os.getuid(), label))
+    return out
 
 
 def plist_env(repo, blob, root):
@@ -246,6 +291,9 @@ def is_shim(path):
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
+    if sys.argv[1:2] == ["--restart-scan"]:  # r459: install.sh --apply 끝 — RESTART 줄만(읽기 전용 · rc0)
+        print("\n".join(restart_scan(sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))) or "RESTART 0")
+        sys.exit(0)
     o = parse_args(sys.argv[1:])
     repo = resolve_kit(o)
     ref, landed, removed = o["ref"], None, []

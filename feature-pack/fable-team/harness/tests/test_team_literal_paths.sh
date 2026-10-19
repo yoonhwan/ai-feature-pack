@@ -87,7 +87,7 @@ for F in 1 2; do
   has "$o" "target absent" "ⓐ$F ft-goal-tick: 프롬프트·mbox·check 게이트를 통과(칸 경로의 프롬프트)"
   rm "$VT/20260912/TICK-PROMPT-v65-unified.md"
   o="$(FT_GOAL_TICK_ROOT="$R" FT_GOAL_TICK_TARGET="r382b-없는-좌석#0" FT_GOAL_TICK_CHECK="$T/tk$F/check.sh" FT_GOAL_TICK_STREAK="$T/tk$F/streak" bash "$SRC/ft-goal-tick.sh" 2>&1)"
-  has "$o" "missing mbox/check/prompt" "ⓐ$F ft-goal-tick 변이: 칸 경로의 프롬프트를 없애면 멈춘다"
+  has "$o" "ERROR v65 틱 프롬프트를 못 풀었다" "ⓐ$F ft-goal-tick 변이: 칸 경로·ref 둘 다 프롬프트가 없으면 멈춘다(r459 ERROR)"
 
   # ft-role-spawn --dry-run: 인박스·README 가 v65 칸 아래
   B="$T/rb$F"; mkdir -p "$B" "$T/fk$F"; for f in ft-role-spawn.sh ft-team-lib.sh ft_raised.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-resource-sample.sh ft-harness-root.sh; do cp -p "$SRC/$f" "$B/"; done
@@ -144,7 +144,7 @@ print(w.p1_queue(r)); print(w.h2_requests(r)); print(w.h1_cards(r, datetime(2026
   for f in ft-news-tick ft-news-tick-cfo; do
     n="$(grep -vE '^[[:space:]]*#' "$SRC/$f.sh" | grep -cE 'design/(teams/)?(planner|harness|cfo|ops|graphics|issues|feature|kk|v65|loom|lecture|room|concierge)/')"; [ "$n" = 0 ] && ok "ⓐ$F $f: 리터럴 팀 경로 0" || bad "ⓐ$F $f 리터럴 $n곳"
   done
-  has "$(grep -c 'ft_team_in' "$SRC/ft-news-tick.sh")" "1" "ⓐ$F ft-news-tick: v65 트리 = ft_team_in"; has "$(grep -c 'ft_team_in "\$CFO" cfo' "$SRC/ft-news-tick-cfo.sh")" "1" "ⓐ$F ft-news-tick-cfo: cfo 폴더 = ft_team_in"
+  has "$(grep -c 'ft_team_doc_ref "$ROOT" v65 NEWS-TREE.md' "$SRC/ft-news-tick.sh")" "1" "ⓐ$F ft-news-tick: v65 트리 = ft_team_doc_ref(명단 ref · r459)"; has "$(grep -c 'ft_team_in "\$CFO" cfo' "$SRC/ft-news-tick-cfo.sh")" "1" "ⓐ$F ft-news-tick-cfo: cfo 폴더 = ft_team_in"
 done
 for k in goal info; do [ "${OUTS[${k}1]}" = "${OUTS[${k}2]}" ] && [ -n "${OUTS[${k}1]}" ] && ok "ⓐ 꼴1 == 꼴2 정규화 출력 동일($k)" || bad "ⓐ 꼴1 ≠ 꼴2 ($k)"; done
 

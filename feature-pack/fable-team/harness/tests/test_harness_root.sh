@@ -9,7 +9,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HROOT="$(cd -- "$HERE/.." && pwd -P)"
 KBIN="$HROOT/kit/fable-team/bin"
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; T="$(cd "$T" && pwd -P)"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -89,6 +89,101 @@ eq "$rc" 3 "ⓛ 하네스 루트 못 풂(env·HARNESS_ROOT 없음) → ERROR rc3
 for f in ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh; do
   grep -qF '*/fable-team/live/*/bin' "$KBIN/$f" && ok "ⓛ $f 드리프트 입구가 새 설치 꼴 인정" || bad "ⓛ $f 새 설치 꼴 패턴 없음"
 done
+
+# ══ r459 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main) ══
+# ── ⓐ ft_comm_dir: FT_MBOX_DIR → FT_ROOT → 옛 설치 꼴 공용 루트 → cwd 공용 루트 · LIVE_ROOT 는 읽지 않는다 ──
+mkdir -p "$L/.fable-team/comm"; printf '%s\n' "$L" > "$R/.fable-team/LIVE_ROOT"
+out="$(res "$T/wt" ft_comm_dir "$LB")"; rc=$?
+[ "$rc" != 0 ] && has "$out" "ERROR comm 폴더 없음: $R/.fable-team/comm" "ⓐ LIVE_ROOT 에만 comm · 공용 루트 comm 없음 → ERROR rc≠0(LIVE_ROOT 후퇴 0)" || bad "ⓐ rc=$rc «$out»"
+mkdir -p "$R/.fable-team/comm"
+eq "$(res "$T/wt" ft_comm_dir "$LB")" "$R/.fable-team/comm" "ⓐ cwd=워크트리 · LIVE_ROOT 있음 → 공용 루트 comm"
+eq "$(res "$R" ft_comm_dir "$LB")" "$R/.fable-team/comm" "ⓐ cwd=메인 → 공용 루트 comm"
+mkdir -p "$T/mbx" "$T/froot/.fable-team/comm"
+eq "$(cd "$T/wt" && FT_MBOX_DIR="$T/mbx" FT_ROOT="$T/froot" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$LB")" "$T/mbx" "ⓐ FT_MBOX_DIR 이 1순위"
+eq "$(cd "$NOGIT" && FT_ROOT="$T/froot" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$LB")" "$T/froot/.fable-team/comm" "ⓐ FT_ROOT → <FT_ROOT>/.fable-team/comm"
+eq "$(res "$NOGIT" ft_comm_dir "$OB")" "$R/.fable-team/comm" "ⓐ 옛 설치 꼴 · cwd git 밖 → git -C 폴더 공용 루트 comm"
+out="$(res "$NOGIT" ft_comm_dir "$LB")"; rc=$?; [ "$rc" != 0 ] && has "$out" "ERROR comm 폴더를 못 풂" "ⓐ 설치본 · cwd git 밖 · env 0 → ERROR" || bad "ⓐ git 밖 rc=$rc «$out»"
+rm -f "$R/.fable-team/LIVE_ROOT"
+
+# ── ⓑ 옛 통째 사본이 shim 폴더에서 돌면 exit 3 (상세 = test_tick_shim_guard.sh) ──
+SB="$T/shimbin"; mkdir -p "$SB"; cp -p "$KBIN/ft-tick.sh" "$SB/"; printf '#!/usr/bin/env bash\n# ft-root-bin-shim: ft_raised.py → LIVE_BIN\n' > "$SB/ft_raised.py"
+out="$(cd "$T/wt" && bash "$SB/ft-tick.sh" --once --dry-run 2>&1)"; rc=$?
+eq "$rc" 3 "ⓑ shim 폴더의 ft-tick.sh → exit 3"; has "$out" "ERROR shim 폴더에서 실행" "ⓑ ERROR shim 폴더 줄"
+
+# ── ⓒ ft_team_doc_ref: 명단 = ref · 실재 1 → 그 경로 · 실재 0 → ref 본문 임시 파일 · 2+·ref 없음 = ERROR ──
+D="$T/docrepo"; mkdir -p "$D/design/teams/v65/20260912" "$D/.fable-team/comm"; git -C "$D" init -q -b main
+printf '| 팀 | 폴더 |\n|---|---|\n| v65 | `design/teams/v65/` |\n' > "$D/design/TEAMS.md"
+printf 'TREE-R459\n' > "$D/design/teams/v65/NEWS-TREE.md"
+printf '# 틱\n```\nPROMPT-R459 <세션명>\n```\n' > "$D/design/teams/v65/20260912/TICK-PROMPT-v65-unified.md"
+git -C "$D" add -A && git -C "$D" -c user.email=t@t -c user.name=t commit -q -m ref && git -C "$D" update-ref refs/remotes/origin/main HEAD
+# 체크아웃은 뒤(옛 명단 · v65 폴더 0) — 112632 재현
+printf '| 팀 | 폴더 |\n|---|---|\n| cfo | `design/cfo/` |\n' > "$D/design/TEAMS.md"; git -C "$D" rm -rq design/teams/v65; git -C "$D" -c user.email=t@t -c user.name=t commit -qam behind
+lib() { (cd "$D" && TMPDIR="$T/tmpd" bash -c '. "$1/ft-team-lib.sh"; '"$1" _ "$KBIN" 2>&1); }
+mkdir -p "$T/tmpd"
+out="$(lib 'ft_team_in "'"$D"'" v65')"; rc=$?; [ "$rc" != 0 ] && ok "ⓒ 재현: 옛 ft_team_in(체크아웃 명단) → rc≠0" || bad "ⓒ 재현 실패 rc=$rc «$out»"
+out="$(lib 'p="$(ft_team_doc_ref "'"$D"'" v65 NEWS-TREE.md)" && cat "$p" && ft_team_doc_tmp "$p" && echo TMP && rm -f "$p"')"; rc=$?
+eq "$rc" 0 "ⓒ 실재 0 → ref 본문 rc0"; has "$out" "TREE-R459" "ⓒ ref 본문 내용"; has "$out" "TMP" "ⓒ ft_team_doc_tmp = 임시 본문"
+eq "$(ls "$T/tmpd" | grep -c ft-team-doc)" 0 "ⓒ 부르는 쪽 정리 뒤 임시 파일 0"
+mkdir -p "$D/design/teams/v65"; printf 'LOCAL\n' > "$D/design/teams/v65/NEWS-TREE.md"
+eq "$(lib 'ft_team_doc_ref "'"$D"'" v65 NEWS-TREE.md')" "$D/design/teams/v65/NEWS-TREE.md" "ⓒ 루트 실재 1 → 그 경로"
+mkdir -p "$D/design/v65"; printf 'TWIN\n' > "$D/design/v65/NEWS-TREE.md"
+out="$(lib 'ft_team_doc_ref "'"$D"'" v65 NEWS-TREE.md')"; rc=$?; [ "$rc" = 1 ] && has "$out" "실재 후보 2개" "ⓒ 쌍둥이 2 → ERROR rc1" || bad "ⓒ 2+ rc=$rc «$out»"
+rm -rf "$D/design/v65" "$D/design/teams/v65"
+out="$(lib 'ft_team_doc_ref "'"$D"'" v65 NEWS-TREE.md no/such/ref')"; rc=$?; [ "$rc" = 1 ] && has "$out" "못 읽음" "ⓒ ref 못 읽음 → ERROR rc1" || bad "ⓒ ref rc=$rc «$out»"
+out="$(lib 'ft_team_doc_ref "'"$D"'" v65 NOPE.md')"; rc=$?; [ "$rc" = 1 ] && has "$out" "도 없음" "ⓒ ref 에도 없음 → ERROR rc1" || bad "ⓒ 없음 rc=$rc «$out»"
+# goal-tick: 체크아웃에 v65 폴더 0 · 옛 명단이어도 프롬프트를 ref 로 풀고 다음 단계(대상 좌석 확인)까지 간다
+printf '#!/bin/sh\nexit 0\n' > "$D/.fable-team/comm/mbox.sh"; chmod 755 "$D/.fable-team/comm/mbox.sh"
+out="$(cd "$D" && TMPDIR="$T/tmpd" FT_GOAL_TICK_ROOT="$D" FT_GOAL_TICK_CHECK="$T/noop.sh" FT_GOAL_TICK_TARGET="no-such-seat-r459" FT_GOAL_TICK_STREAK="$T/streak" bash "$KBIN/ft-goal-tick.sh" 2>&1)"; rc=$?
+eq "$rc" 0 "ⓒ goal-tick rc0(112632 → 통과)"; has "$out" "target absent: no-such-seat-r459" "ⓒ goal-tick 프롬프트 풀고 대상 확인까지"
+case "$out" in *ERROR*) bad "ⓒ goal-tick ERROR 줄 «$out»";; *) ok "ⓒ goal-tick ERROR 0";; esac
+eq "$(ls "$T/tmpd" | grep -c ft-team-doc)" 0 "ⓒ goal-tick 임시 본문 정리(trap)"
+# news-tick: FT_NEWS_ROOT 픽스처 · 트리 렌더러 = 가짜(받은 파일 첫 줄) · docker 가짜
+FB="$T/fakebin"; mkdir -p "$FB" "$D/.worktrees/v6-realtime-live/.fable-team/bin"; printf '#!/bin/sh\nexit 1\n' > "$FB/docker"; chmod 755 "$FB/docker"
+printf 'import sys\nprint("TREE-OK", open(sys.argv[1]).readline().strip())\n' > "$D/.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tree.py"
+out="$(cd "$D" && PATH="$FB:$PATH" TMPDIR="$T/tmpd" FT_NEWS_ROOT="$D" FT_ME=me bash "$KBIN/ft-news-tick.sh" 2>&1)"
+has "$out" "TREE-OK TREE-R459" "ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0)"
+case "$out" in *"트리 원본 없음"*|*"미해석"*) bad "ⓒ news-tick 트리 미해석";; *) ok "ⓒ news-tick 트리 ERROR 0";; esac
+eq "$(ls "$T/tmpd" | grep -c ft-team-doc)" 0 "ⓒ news-tick 임시 본문 정리(trap)"
+! grep -nE '/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents($|[^/]|/\.worktrees/v6-realtime-live)' "$KBIN/ft-goal-tick.sh" "$KBIN/ft-news-tick.sh" >/dev/null && ok "ⓒ goal·news 틱 글자 ROOT 0" || bad "ⓒ 글자 ROOT 남음"
+
+# ── ⓓ install.sh --dry-run: 팩 comm 도구 ↔ <공용 루트>/.fable-team/comm cmp → COMM 줄 · 쓰기 0 ──
+P2="$T/proj2"; mkdir -p "$P2/.fable-team/bin" "$P2/.fable-team/comm/bodies" "$P2/.fable-team/comm/relay"; git init -q -b main "$P2"; P2="$(cd "$P2" && pwd -P)"
+printf 'old\n' > "$P2/.fable-team/comm/mbox.sh"; printf '{}\n' > "$P2/.fable-team/comm/mailbox.jsonl"; printf 'q\n' > "$P2/.fable-team/comm/queues.conf"; printf 'b\n' > "$P2/.fable-team/comm/bodies/1.txt"
+H2="$T/h2"; LA="$H2/Library/LaunchAgents"; mkdir -p "$LA"
+printf '#!/bin/sh\necho "$@" >> "%s/lc.log"\n[ "$1" = list ] && printf "{\\n\\t\\"PID\\" = 4242;\\n};\\n"\nexit 0\n' "$T" > "$FB/launchctl"; chmod 755 "$FB/launchctl"
+printf '#!/bin/sh\necho "${R459_LSTART:-Mon Jan  1 00:00:00 2024}"\n' > "$FB/ps"; chmod 755 "$FB/ps"
+NCOMM="$(cd "$HROOT/comm" && find . -maxdepth 1 -type f ! -name 'mailbox*.jsonl' ! -name '.mbox-seq' ! -name '.mbox-guard.json' ! -name 'queues.conf' ! -name '*.pyc' ! -name '.*' | grep -c .)"
+inst() { env HOME="$H2" FT_LAUNCHCTL="$FB/launchctl" FT_PS="$FB/ps" bash "$HROOT/install.sh" "$@" --project "$P2" --home "$H2" 2>&1; }
+SNAP2="$(cd "$P2/.fable-team/comm" && find . -type f -exec cksum {} + | LC_ALL=C sort)"
+out="$(inst --dry-run)"; rc=$?
+eq "$rc" 0 "ⓓ install --dry-run rc0"; has "$out" "COMM copied=$NCOMM same=0 dest=$P2/.fable-team/comm" "ⓓ COMM copied=$NCOMM(팩 도구 전부) same=0"
+has "$out" "COMM $P2/.fable-team/comm/mbox.sh <- $HROOT/comm/mbox.sh (다름" "ⓓ 다른 파일 = COMM 줄 + (다름)"
+case "$out" in *"comm/mailbox.jsonl <-"*|*"comm/queues.conf <-"*|*"bodies"*) bad "ⓓ 데이터 파일이 대상에 들어감";; *) ok "ⓓ 데이터 파일(우편함·큐·본문) 대상 밖";; esac
+eq "$(cd "$P2/.fable-team/comm" && find . -type f -exec cksum {} + | LC_ALL=C sort)" "$SNAP2" "ⓓ dry-run 쓰기 0"
+WT2="$T/wt2"; git -C "$P2" -c user.email=t@t -c user.name=t commit -q --allow-empty -m i; git -C "$P2" worktree add -q "$WT2" -b w2; mkdir -p "$WT2/.fable-team/bin"
+out="$(env HOME="$H2" FT_LAUNCHCTL="$FB/launchctl" bash "$HROOT/install.sh" --dry-run --project "$WT2" --home "$H2" 2>&1)"
+has "$out" "SKIP comm (--project 가 git 공용 루트 아님" "ⓓ 워크트리 --project → SKIP comm"
+
+# ── ⓔ install.sh --apply: comm cp(.bak) · 루트 전용 유지 · 2회째 same · RESTART 줄(실행 0) ──
+mkdir -p "$T/other/.fable-team/bin"; DM="$T/other/.fable-team/bin/ft-daemon-r459.sh"; printf '#!/bin/sh\n' > "$DM"
+cat > "$LA/com.t.r459.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Label</key><string>com.t.r459</string>
+<key>ProgramArguments</key><array><string>/bin/bash</string><string>$DM</string></array></dict></plist>
+EOF
+: > "$T/lc.log"; out="$(inst --apply)"; rc=$?
+VER="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$HROOT/../manifest.json")"
+eq "$rc" 0 "ⓔ install --apply rc0"; has "$out" "COMM copied=$NCOMM same=0" "ⓔ COMM copied=$NCOMM"
+cmp -s "$HROOT/comm/mbox.sh" "$P2/.fable-team/comm/mbox.sh" && ok "ⓔ comm/mbox.sh cmp0" || bad "ⓔ comm/mbox.sh 다름"
+eq "$(cat "$P2/.fable-team/comm/mbox.sh.bak-$VER" 2>/dev/null)" "old" "ⓔ 덮기 전 .bak-$VER"
+eq "$(cat "$P2/.fable-team/comm/mailbox.jsonl")$(cat "$P2/.fable-team/comm/queues.conf")$(cat "$P2/.fable-team/comm/bodies/1.txt")" "{}qb" "ⓔ 루트 전용 파일 3 유지"
+has "$out" "RESTART com.t.r459 — launchctl kickstart -k gui/$(id -u)/com.t.r459" "ⓔ 기동 < mtime → RESTART 줄"
+grep -q kickstart "$T/lc.log" && bad "ⓔ launchctl kickstart 실행됨" || ok "ⓔ kickstart 실행 0(master 집행)"
+out="$(R459_LSTART="Fri Jan  1 00:00:00 2038" inst --apply)"; rc=$?
+eq "$rc" 0 "ⓔ 2회째 rc0"; has "$out" "COMM copied=0 same=$NCOMM" "ⓔ 2회째 same(멱등)"; has "$out" "RESTART 0" "ⓔ 기동 > mtime → RESTART 0"
+eq "$(cat "$P2/.fable-team/comm/mbox.sh.bak-$VER")" "old" "ⓔ .bak 첫 원본 보존(2회째 안 덮음)"
+! grep -nE '\b(600|300)\b' "$KBIN/ft-harness-root.sh" "$KBIN/ft-team-lib.sh" "$KBIN/ft-goal-tick.sh" "$HROOT/install.sh" >/dev/null && ok "ⓔ 고친 파일 600/300 0" || bad "ⓔ 600/300 있음"
 
 echo "fail=$fail"
 [ "$fail" = 0 ] && echo "ALL PASS"

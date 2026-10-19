@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Seatbelt 0.4 ft-tick launchd 템플릿 — ft-tick-install.sh 가 __WORKTREE__ / __SCRIPT__ 를 치환해
+<!-- Seatbelt 0.4 ft-tick launchd 템플릿 — ft-tick-install.sh 가 __WORKTREE__(= git 공용 루트 · r459) / __SCRIPT__ / __COMM__(공용 루트 comm) 를 치환해
      ~/Library/LaunchAgents/com.byz.ft-tick.plist 로 쓴다. 직접 bootstrap 하지 않는다(치환 전). -->
 <plist version="1.0"><dict>
   <key>Label</key><string>com.byz.ft-tick</string>
@@ -12,6 +12,9 @@
   <key>EnvironmentVariables</key><dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>LANG</key><string>ko_KR.UTF-8</string>
+    <key>FT_TICK_MBOX</key><string>__COMM__/mbox.sh</string>
+    <key>FT_MBOX_DIR</key><string>__COMM__</string>
+    <key>FT_TICK_AGENT_ALIVE</key><string>__COMM__/ft-agent-alive.sh</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
