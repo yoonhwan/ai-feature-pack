@@ -1,5 +1,30 @@
 # Changes
 
+## 2026-10-19 — 팀 «이름» 바꾸기 도구 `ft-team-rename.sh`: 명단·폴더·명부·env·저장 참조를 한 번에 + 스냅샷 되돌림 + 옛 계보 우편 감시 (r468 · 1.1.32)
+
+카드 r468 · master 78 발주 112808(오빠 «컨시어지 이름 잔존 없도록») · arch 101 실측 · 계획 `design/harness/PLAN-team-rename-concierge-to-chatbot-20261019.md` §3·§6. 기존 `ft-team-move.sh` 는 «같은 이름의 폴더 이동»(design/<팀> → design/teams/<팀>)만 알아, 팀 이름을 바꾸려면 명단 2·폴더·명부·env·틱 표·카드 본문·저장 참조 7종을 손으로 고쳐야 했고 되돌림 스냅샷이 없었습니다.
+
+- **새 `ft-team-rename.sh` + `ft_team_rename.py`**(bin·kit 짝): 이동 도구의 Ctx·점유 판정·Snap·revert·명부 기준 워크트리(store_base)·walk/dump_like/write_text 를 import(복제 0 · 이동 파일 변경 0).
+  - `--plan <옛> <새>` = 명단 2행 · 팀 폴더 파일 수 · 본문 치환 예상(패턴 2) · 명부 칸 4·행 수 · REF4~7 · env 파일 · 워크트리 받음/미전환 · BLOCK → `PLAN-END blockers=<n>` · 쓰기 0.
+  - `--apply` = 선검사(새 이름 명단에 없음 · 옛 이름 있음 · 폴더 칸 `design/teams/<옛>/` 꼴 · 쌍둥이 `design/<옛>/` 잔존 = `REJECT 먼저 ft-team-move` · 목적지·새 명부·새 env 없음 · 스테이징 비움 · 작업 트리 깨끗 · pane cwd·lsof 점유 0 — 하나라도 걸리면 쓰기 0) → 스냅샷 `.fable-team/state/team-rename/<ts>-<옛>-<새>/` → `git mv` + TEAMS/TEAMSET 행(첫 칸) + 본문 치환 «`design/teams/<옛>/` · `byz-<옛>-`» 둘뿐 + TEAMS 각주 «옛 이름 <옛> → <새>(개명 <날짜> · 좌석 계보 byz-<옛>-* 는 은퇴)» → 한 커밋 → 명부 `seats-<옛>.json` → `seats-<새>.json`(+`.bak-rename-<ts>` · `_name`·`_label` 대소문자 따라 · 경로 칸 · `_doc` · `_renamed_from`·`_renamed_at` · 행 이름·`_master` 등 좌석 이름 불변 · 못 받은 워크트리 기준 행 = `_move_pending`) → nano-card-base·worktree-info·baton·추가 파일 → env `bin-<옛>/` → `bin-<새>/`(파일 이름 + 값: 명부 파일·나노 접두·워크트리 접두·활성 태그·원장 경로 새 꼴·틱 라벨 · 권한 유지) → `AFTER 옛 자리 잔여 <n>`.
+  - 같은 `--apply` 를 개명 뒤 다시 = `RESYNC`(head-sync 로 받은 워크트리의 `_move_pending` 행·worktree-info 만 · git 변경 0).
+  - `--verify <새>` = 명단·폴더·map-lint·명부 index·카드 기준선·팀 집합 + 옛 폴더·옛 명부·옛 env·옛 명단 행 잔존 = ERR · 잔여 «<옛>» 글자 = WARN 목록(각주·옛 좌석 이름 제외 · 다른 팀 이력 문서는 1줄 요약 · 제품 코드 폴더는 훑지 않음) → `VERIFY ERR=<n> WARN=<m>`.
+  - `--revert <스냅샷>` = 만든 파일(새 명부·.bak-rename·새 env) 지움 → 이동 도구 revert(바이트 복원 sha256 + `git revert`).
+- **ft-tick.sh** `renamed_watch`: 명부 `_renamed_from` 이 7일 안이면 옛 계보(byz-<옛>-* 최신 번호 좌석) `peek`(소비 0) → pending>0 이면 그 명부 `_master` 에 `[개명 우편]` 1줄 · 1시간 1번(`FT_TICK_RENAMED_SEC`) · 목록이 바뀔 때만(`renamed.sig`) · `FT_TICK_RENAMED=0` 으로 끔. 주석 1(R324 목록 concierge → chatbot).
+- **team-tick-env.tsv**: concierge 행 → chatbot(명부·STATE_DIR·PIDFILE·STAMP) · 팀 틱 전 행 끌 감시에 `FT_TICK_RENAMED`(전 명부 스캔은 메인 틱 1개).
+- **시험** 새 `tests/test_team_rename.sh` ⓐ~ⓖ 86 PASS(plan 쓰기 0 · REJECT 4종 쓰기 0 · 쌍둥이/옛 꼴 REJECT · apply 한 커밋·명부·env·저장 참조 · RESYNC · verify ERR 0·WARN 목록·변이 ERR · revert 뒤 파일·폴더 manifest 원본 동일 · watch 7일·중복 0 · 600/300 0) · `tests/test_team_tick_unify.sh` concierge → chatbot.
+- 실 리포 읽기만: origin/main(a608fea5a0) 사본에서 `--plan concierge chatbot` = 폴더 71파일 · 본문 치환 예상 82+66 · 명부 행 17 · nano-card-base 12 · worktree-info 2 · env 6(이름 4) · `PLAN-END blockers=0`. 증거 `harness/evidence/r468/`.
+- 범위 밖: 제품 코드·UI 글자 · 가지·워크트리 이름(보존) · 좌석 교대(successor-open) · launchd 팀 틱 신규 설치.
+
+## 2026-10-19 — 슬랙 보고 도구 인자: reply 의 `--channel` 기본값(None)이 다른 서브명령 7개로 새던 것을 막는다 (r474 · 1.1.31)
+
+카드 r474 · master 79 발주 113237·113489 · arch 102 실측. r414 의 `rpl.set_defaults(channel=None)` 은 reply 만 노렸지만, argparse `parents=[common]` 는 부모의 Action «객체» 를 자식이 공유하고 `set_defaults` 는 그 Action 의 `.default` 를 고치므로 start·progress·result·check·repair·update·attach 의 기본 채널까지 None 이 됐습니다 → 홈 설치(10-19 09:24) 뒤 뉴스 발행 `conversations.history channel_not_found` · 임시 우회 = 뉴스 plist env `FT_NEWS_POST_ARGS=--channel C0C6MJGRR89`. 기존 시험은 매 호출에 `--channel C1` 을 명시해 기본값을 못 봤습니다.
+
+- **kit/slack-mirror/thread_post_args.py**: `--channel` 을 `common` 에서 빼 두 부모로 — `chan`(기본 CHANNEL · 서브명령 7개) / `chan_reply`(기본 None · reply). Action 공유가 없어져 `set_defaults` 삭제 · reply ∧ `--ts` ∧ None → CHANNEL 되돌림 줄 유지 · 그 밖 변경 0.
+- **시험** 새 `tests/scripts/test_thread_post_args.py`(`PYTHONPATH=kit/slack-mirror:tests/scripts python3 -m pytest …`): ⓐ 서브명령 7개 기본 channel == CHANNEL ⓑ reply --thread = None ⓒ reply --ts = CHANNEL ⓓ 명시 `--channel C1` 9경우 전부 C1 · 같은 프로세스 reply 뒤 update 도 CHANNEL. RED = origin/main 판 8 FAIL(ⓐ 7 + 누수 1 · 전부 `channel=None`) → 고친 판 19 passed · 기존 `test_thread_post.py`·`test_thread_post_attach.py` 포함 45 passed · `tests/test_thread_reply_named.sh`(r414) ALL PASS.
+- **master 할 일**: 착지 → `install.sh --apply --project <루트>` → 홈 `~/.hermes/scripts/thread_post_args.py` cmp0 → 실사건 1 = plist env 없이 뉴스 발행 1회(`conversations.history` ok · 뉴스 틱 로그 줄) → `com.byz.ft-news-planner.plist` 의 `FT_NEWS_POST_ARGS` 줄 제거(되돌림 = 줄 복구 · 파일 되돌림 = `.bak-r474`).
+- 범위 밖: 등록부(r414) · 뉴스 발행 본체(r458) · 다른 kit 파일.
+
 ## 2026-10-19 — 틱 데몬 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main): comm 을 공용 루트로 · shim 폴더 옛 사본 자가 검사 · 골·뉴스 틱 정본 ref 읽기 · 설치기 comm 동기화 + RESTART 줄 (r459 · 1.1.30)
 
 카드 r459 · master 112539·112636 · arch 101 실측 · 골 6(메인 골 1 팀장 v65 master 가 틱 없이 36시간). 메인 틱이 10-18 09:53 부터 `skip … 에이전트 판정 불가(<v6>/.fable-team/comm/ft-agent-alive.sh 실행 실패)` 839회 — `ft_comm_dir` 가 데이터 루트 = LIVE_ROOT(옛 라이브 워크트리 v6-realtime-live)의 comm 으로 풀렸는데 거기엔 판정기가 없었습니다(진짜 우편함·판정기 = 공용 루트 comm). 10-19 09:04 shim 교체 뒤엔 «먼저 기동한» 틱 6개가 메모리의 옛 사본으로 shim 폴더의 `.py` 를 python3 로 읽어 SyntaxError 를 반복했고, goal-tick 은 글자 ROOT(v6)·뉴스 틱은 체크아웃 명단으로 v65 폴더를 못 풀어 ERROR(112632).

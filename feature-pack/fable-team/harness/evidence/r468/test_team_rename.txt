@@ -1,0 +1,95 @@
+== 0 문법 · 키트 사본 cmp0
+PASS bash -n ft-team-rename.sh
+PASS bash -n ft-tick.sh
+PASS ast ft_team_rename.py
+PASS 키트 사본 cmp0 ft-team-rename.sh
+PASS 키트 사본 cmp0 ft_team_rename.py
+PASS 키트 사본 cmp0 ft-tick.sh
+PASS 키트 사본 cmp0 team-tick-env.tsv
+== ⓐ --plan old new = 변경 표 · 쓰기 0
+PASS ⓐ plan rc0 · blockers=0
+PASS ⓐ 명단 TEAMS.md 행
+PASS   └ TEAMSET.md 행
+PASS ⓐ 파일 N · 본문 치환 예상(패턴 2)
+PASS ⓐ 명부 칸 4 · 행 수
+PASS ⓐ 저장 참조 REF4
+PASS   └ REF5
+PASS   └ REF6
+PASS   └ REF7
+PASS ⓐ env 폴더 3파일
+PASS ⓐ plan 쓰기 0(manifest·HEAD 동일)
+== ⓔ REJECT 4종 — 쓰기 0
+PASS ⓔ 새 이름이 명단에 이미 있음 → REJECT rc1
+PASS   └ 새 이름이 명단에 이미 있음 쓰기 0(HEAD·스냅샷·새 명부 없음)
+PASS ⓔ 옛 이름 없음 → REJECT rc1
+PASS   └ 옛 이름 없음 쓰기 0(HEAD·스냅샷·새 명부 없음)
+PASS ⓔ 작업 트리 더러움 → REJECT rc1
+PASS   └ 작업 트리 더러움 쓰기 0(HEAD·스냅샷·새 명부 없음)
+PASS ⓔ pane cwd 점유 → REJECT rc1
+PASS   └ pane cwd 점유 쓰기 0(HEAD·스냅샷·새 명부 없음)
+PASS ⓔ REJECT 4종 뒤 manifest 원본 그대로
+== ⓕ 쌍둥이(옛 꼴 design/old 잔존) · 옛 꼴 행 → REJECT 먼저 ft-team-move
+PASS ⓕ 쌍둥이 → REJECT 먼저 ft-team-move
+PASS   └ 쌍둥이 REJECT 쓰기 0(rename 안에서 이동 0)
+PASS ⓕ 옛 꼴 행 → plan BLOCK
+PASS   └ blockers>0
+== ⓑ --apply old new
+PASS ⓑ apply rc0
+PASS ⓑ 스냅샷 .fable-team/state/team-rename/<ts>-old-new/
+PASS ⓑ git mv design/teams/old → new
+PASS ⓑ 한 커밋 · 작업 트리 깨끗
+PASS ⓑ TEAMS.md 행
+PASS   └ 옛 행 0
+PASS ⓑ TEAMS.md 각주 1줄
+PASS   └ 다른 팀 행 그대로
+PASS ⓑ TEAMSET.md 행
+PASS ⓑ 본문 치환 패턴 2(폴더 경로 · 좌석 접두)
+PASS ⓑ 그 밖 글자 0 변경(«old 팀 화면» 그대로)
+PASS ⓑ 다른 팀 문서 치환 0
+PASS ⓑ 명부 seats-old.json → seats-new.json + .bak-rename-<ts>
+PASS ⓑ 명부 칸(_name·_label·_tree 새 꼴·_doc·_renamed_from) · 행 이름·_master 불변 · 받은 행 새 경로 · 못 받은(wt1) 행 _move_pending
+PASS ⓑ env bin-old/ → bin-new/ · 파일 이름 3 바뀜
+PASS   └ 실행 권한 유지
+PASS ⓑ env 값: seats-new.json
+PASS ⓑ env 값: FT_NANO_PREFIX=byz-new-nano-
+PASS ⓑ env 값: FT_NANO_WT_PREFIX=new-
+PASS ⓑ env 값: @zc_new_active
+PASS ⓑ env 값: FT_NANO_LEDGER=design/teams/new/NANO-LEDGER-old.md
+PASS ⓑ env 값: bin-new/goal-lines-new.txt
+PASS ⓑ env 값: # new 팀 값
+PASS ⓑ env 값: /.worktrees/old-main
+PASS ⓑ env plist 라벨·로그
+PASS ⓑ nano-card-base card_path
+PASS ⓑ 미전환 워크트리 worktree-info 옛 경로 유지
+PASS ⓑ baton 재작성
+PASS ⓑ AFTER 줄 — 옛 폴더·명부·env 잔여 0
+PASS ⓑ wt1 이 개명 커밋을 받음(head-sync 모사)
+PASS ⓑ 같은 명령 다시 = RESYNC rc0
+PASS   └ 행 이름 그대로
+PASS ⓑ RESYNC 뒤 wt1 행 새 경로 · _move_pending 제거
+PASS ⓑ RESYNC 뒤 worktree-info 재작성
+== ⓒ --verify new
+PASS ⓒ verify ERR 0 rc0
+PASS ⓒ 잔여 «old» 글자 WARN 목록(카드 본문)
+PASS   └ env 잔여(워크트리 이름 old-main · 보존 대상) WARN
+PASS   └ 다른 팀 이력 문서 1줄 요약
+PASS   └ 각주 줄은 WARN 제외
+PASS   └ 옛 좌석 이름(_master) WARN 제외
+PASS ⓒ 개명 기록 없는 명부 = WARN(검사 생략 표시)
+PASS ⓒ 변이: 옛 env 폴더 잔존 = ERR rc1
+== ⓓ --revert (RESYNC 스냅샷 → apply 스냅샷 순) → ⓐ 전 상태 cmp0
+PASS ⓓ RESYNC 스냅샷 revert rc0
+PASS ⓓ apply 스냅샷 revert rc0
+PASS ⓓ revert 뒤 모든 파일·폴더 sha256 원본 동일(명부·env·저장 참조 포함 · .bak-rename 0)
+PASS ⓓ git revert 뒤 트리 = 원본 커밋 트리
+PASS ⓓ 스냅샷 7종 revert_match 전부 True
+== ⓖ 옛 계보 우편 감시(watch) · ft-tick 배선
+PASS ⓖ watch: 7일 안 명부의 옛 계보(최신 번호 좌석)만 peek · pending>0 1줄 · 8일 지난 명부·개명 없는 명부·중복 0
+PASS ⓖ ft-tick pass() 가 renamed_watch 를 부른다
+PASS   └ 1시간 간격
+PASS   └ 중복 억제 서명
+PASS ⓖ 팀 틱 표 전 행 = RENAMED 끔(전 명부 스캔은 메인 틱 1개)
+PASS ⓖ 키트 틱 표 concierge → chatbot 행
+PASS   └ concierge 행 0
+PASS ⓖ 이름 바꾸기 도구에 600/300 숫자 0
+== fail=0

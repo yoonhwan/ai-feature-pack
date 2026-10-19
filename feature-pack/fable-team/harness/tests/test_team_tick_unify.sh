@@ -62,7 +62,7 @@ PY
   chk "ⓐ $t FIRE_V2 · STATE_DIR" "$(envof "$TMP/new-$t.plist" FT_TICK_FIRE_V2) $(envof "$TMP/new-$t.plist" FT_TICK_STATE_DIR)" "1 /tmp/ft-tick-state-$t"
 done
 chk "ⓐ dry-run: 실 plist 불변" "$(cmp -s "$TMP/ops-from.plist" "$TMP/plists/com.byz.ft-tick-ops.plist" && echo same || echo changed)" same
-# 표와 plist 값이 어긋나면 거부(사람 확인) · 공용 bin 에 seat-status 없으면 거부 · 팀 표에 없으면 거부 · 원본 plist 없으면 거부(concierge)
+# 표와 plist 값이 어긋나면 거부(사람 확인) · 공용 bin 에 seat-status 없으면 거부 · 팀 표에 없으면 거부 · 원본 plist 없으면 거부(chatbot)
 python3 - "$TMP/plists/com.byz.ft-tick-loom.plist" <<'PY'
 import plistlib, sys
 d = plistlib.load(open(sys.argv[1], "rb")); d["EnvironmentVariables"]["FT_TICK_PIDFILE"] = "/tmp/other.pid"; plistlib.dump(d, open(sys.argv[1], "wb"))
@@ -72,9 +72,9 @@ cp "$TMP/ops-from.plist" "$TMP/plists/com.byz.ft-tick-ops.plist"
 mkdir -p "$TMP/live-noss"; cp "$KIT/ft-tick.sh" "$TMP/live-noss/"
 chk "ⓐ 공용 bin 에 seat-status 없음 → 거부 rc" "$(env FT_TICK_TEAM_TSV="$TSV" FT_TICK_PLIST_DIR="$TMP/plists" bash "$KIT/ft-tick-install.sh" --team ops --script "$TMP/live-noss/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 1
 chk "ⓐ 표에 없는 팀 → 거부 rc" "$(inst --team nope --dry-run >/dev/null 2>&1; echo $?)" 1
-chk "ⓐ concierge: 원본 plist 없음 → 거부 rc" "$(inst --team concierge --dry-run >/dev/null 2>&1; echo $?)" 1
-inst --team concierge --from "$TMP/ops-from.plist" --dry-run > "$TMP/new-concierge.plist" 2>/dev/null
-chk "ⓐ concierge --from: 좌석표·라벨·로그" "$(envof "$TMP/new-concierge.plist" FT_TICK_SEATS | sed 's|.*/||') $(python3 -c 'import plistlib,sys;d=plistlib.load(open(sys.argv[1],"rb"));print(d["Label"],d["StandardOutPath"])' "$TMP/new-concierge.plist")" "seats-concierge.json com.byz.ft-tick-concierge /tmp/ft-tick-concierge.log"
+chk "ⓐ chatbot: 원본 plist 없음 → 거부 rc" "$(inst --team chatbot --dry-run >/dev/null 2>&1; echo $?)" 1
+inst --team chatbot --from "$TMP/ops-from.plist" --dry-run > "$TMP/new-chatbot.plist" 2>/dev/null
+chk "ⓐ chatbot --from: 좌석표·라벨·로그" "$(envof "$TMP/new-chatbot.plist" FT_TICK_SEATS | sed 's|.*/||') $(python3 -c 'import plistlib,sys;d=plistlib.load(open(sys.argv[1],"rb"));print(d["Label"],d["StandardOutPath"])' "$TMP/new-chatbot.plist")" "seats-chatbot.json com.byz.ft-tick-chatbot /tmp/ft-tick-chatbot.log"
 
 # ⓖ DA⑥ r1 H1: own 모드 plist 의 STATE_DIR 이 표와 다르면 거부(없으면 추가) · H2: --script 기본 = 메인 plist · 워크트리·키트 원본 경로 거부
 cp "$TMP/plists/com.byz.ft-tick-ops.plist" "$TMP/ops-keep.plist"

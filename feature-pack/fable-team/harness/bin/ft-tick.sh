@@ -49,6 +49,9 @@ WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT
 DRIFT_CHECK="${FT_TICK_DRIFT_BIN:-$HERE/ft-live-bin-drift-check.sh}"; DRIFT_ENABLED="${FT_TICK_DRIFT:-1}"; DRIFT_INTERVAL="${FT_TICK_DRIFT_INTERVAL:-600}"
 # ★상향 좌석 «내릴 것» 경보 (R149 · 판정 1641)★ — 명부 raised.card 가 완성/ 으로 갔거나 없어졌는데 행이 남은 좌석을 목록이 «바뀔 때만» master 우편함 1회(서명 $STATE_DIR/raised.sig). FT_TICK_RAISED=0 으로 끔. 판별은 형제 모듈 ft_raised.py.
 RAISED="${FT_TICK_RAISED_BIN:-$HERE/ft_raised.py}"
+# ★r468 개명 팀 옛 계보 우편 감시★ — 명부 _renamed_from 이 7일 안인 팀의 옛 이름 계보(byz-<옛>-*)에 쌓인 우편을 그 명부 _master 에 1줄(목록이 «바뀔 때만» · 서명 $STATE_DIR/renamed.sig).
+#   FT_TICK_RENAMED_SEC(3600)마다 1번 · FT_TICK_RENAMED=0 으로 끔 · 판별은 형제 ft_team_rename.py watch(peek 만 · 우편 소비 0).
+RENAMED="${FT_TICK_RENAMED_BIN:-$HERE/ft_team_rename.py}"
 # ★R163 (판정 1675 ②) 죽은 좌석 자동 재개★ — 살아 있는 claude 좌석 스냅샷(live_snapshot) · 죽음 판정+재개(dead_seat_watch) · 누적 정지(idle_long_watch). 끄는 스위치 FT_TICK_LIVE_SNAPSHOT / FT_TICK_RESUME / FT_TICK_IDLE_LONG = 0.
 RESUME_ATTEMPT="${FT_TICK_RESUME_ATTEMPT:-$HERE/ft-resume-attempt.sh}"
 AUTONOMY_BIN="${FT_TICK_AUTONOMY_BIN:-$HERE/ft-autonomy.sh}"
@@ -414,6 +417,29 @@ raised_watch() {
     && echo "$sig" > "$sigf" || echo "$(date '+%F %T') raised_watch: mbox failed" >&2
 }
 
+renamed_watch() {   # r468 — 옛 계보 우편 «있음» 을 새 명부 _master 에 알린다(relay 는 master 손 · 계획 §4-4)
+  local out pend sig sigf stamp last to
+  [ "${FT_TICK_RENAMED:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=renamed bin=$RENAMED"; return 0; fi
+  mkdir -p "$STATE_DIR"; stamp="$STATE_DIR/renamed.last"; sigf="$STATE_DIR/renamed.sig"
+  last="$(cat "$stamp" 2>/dev/null || echo 0)"; case "$last" in ''|*[!0-9]*) last=0;; esac
+  [ $(( $(now) - last )) -ge "${FT_TICK_RENAMED_SEC:-3600}" ] || return 0
+  now > "$stamp"
+  out="$(python3 -I "$RENAMED" watch "$MBOX" "$SEATS" $(ls "$(dirname "$SEATS")"/seats-*.json 2>/dev/null) 2>&1)" \
+    || { echo "$(date '+%F %T') renamed_watch: ERROR rc=$?: $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2; return 0; }
+  printf '%s\n' "$out" | grep '^ERROR' | head -3 | sed "s/^/$(date '+%F %T') renamed_watch: /" >&2
+  pend="$(printf '%s\n' "$out" | grep '^PENDING')"
+  [ -n "$pend" ] || { rm -f "$sigf"; return 0; }
+  sig="$(printf '%s\n' "$pend" | LC_ALL=C shasum)"; sig="${sig:0:40}"
+  [ "$(cat "$sigf" 2>/dev/null)" = "$sig" ] && return 0
+  for to in $(printf '%s\n' "$pend" | cut -f2 | sort -u); do
+    [ "$to" != - ] || { echo "$(date '+%F %T') renamed_watch: 옛 계보 우편 있음 · 명부 _master 없음" >&2; continue; }
+    bash "$MBOX" send "$to" ft-tick "[개명 우편] 옛 이름 계보에 안 읽은 우편 — $(printf '%s\n' "$pend" | awk -F'\t' -v t="$to" '$2==t{printf "%s %s건(%s→%s) ", $3, $4, $5, $6}')— bash $MBOX recv '<옛 좌석>' 로 받아 새 좌석에 relay(r468)" >/dev/null 2>&1 \
+      || { echo "$(date '+%F %T') renamed_watch: mbox failed to=$to" >&2; return 0; }
+  done
+  echo "$sig" > "$sigf"
+}
+
 # R125(판정 1437): 뉴스 입력 = 오빠 원장 한 파일 — 지금 커밋 ≠ 기준선이면 바뀐 줄만 발행(R118b 30분 무초안 감시는 초안이 없어져 삭제).
 # 원장 갱신 0 인 새 판정 알림도 같은 스크립트가 보므로 매 루프 부른다(기준선이 같으면 git log 1번). FT_TICK_NEWS_LEDGER=0 으로 끔.
 news_ledger() {
@@ -495,7 +521,7 @@ hil_watch() {
 }
 
 live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐 좌석만 쓴다(ft-resume-attempt.sh snapshot · codex·cmd 는 쓰지 않음)
-  #   R324: 틱 데몬이 없는 팀(harness·planner·graphics·issues·concierge·room·lecture…)은 재개 기록이 0 이었다 — 이 틱은 자기 명부 «뒤에» 같은 폴더의 다른 명부(seats.json·seats-*.json)도 훑는다.
+  #   R324: 틱 데몬이 없는 팀(harness·planner·graphics·issues·chatbot·room·lecture…)은 재개 기록이 0 이었다 — 이 틱은 자기 명부 «뒤에» 같은 폴더의 다른 명부(seats.json·seats-*.json)도 훑는다.
   #   다른 명부 훑기는 상태 폴더의 live-sweep stamp 로 FT_TICK_LIVE_SWEEP_SEC(300)마다 1번만(틱 여러 개가 같은 상태 폴더를 쓰면 하나만 돈다 · 스냅샷은 UNCHANGED 면 쓰기 0 이라 겹쳐도 무해) · dry-run 은 stamp 를 쓰지 않는다.
   local rows seat role agent model out roster seen=" " sweep sstamp last
   [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
@@ -637,6 +663,7 @@ pass() {
   sweep_wt
   drift_watch
   raised_watch
+  renamed_watch
   launchd_watch
   news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
