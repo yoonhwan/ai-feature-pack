@@ -38,6 +38,9 @@ while [ $# -gt 0 ]; do case "$1" in
 if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -Eq '^REJECT resource (agents|swap|memfree|level|rate)='; then
   printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 3
 fi
+# r502: launchd 기본 PATH(/usr/bin:/bin:…)엔 홈브루 tmux 가 없다 — 끝에 덧붙여 어디서 불려도 같은 tmux 를 찾는다(앞쪽 PATH·시험 대역 우선순위는 그대로) · 못 찾으면 «세션 0» 이 아니라 ERROR
+PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH
+command -v tmux >/dev/null 2>&1 || { echo "ERROR tmux 없음(PATH=$PATH)" >&2; exit 4; }
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
@@ -281,7 +284,13 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
   local need="$1" now sess cand="" name act att idle base gen newer line kind basis
   now=$(date +%s); measure_pressure
   RTAB="$(roster_table)"; local roletab=""; [ "$PREV" = 1 ] && roletab="$(role_seat_table)"   # 1차 거르기용 스냅샷(R332 H5 — 세션마다 python 을 부르지 않는다)
-  sess="$(tmux list-sessions -F '#{session_name}|#{session_activity}|#{session_attached}' 2>/dev/null)"
+  local tfmt='#{session_name}|#{session_activity}|#{session_attached}' trc terr
+  sess="$(tmux list-sessions -F "$tfmt" 2>/dev/null)"; trc=$?
+  if [ "$trc" != 0 ]; then   # r502: «못 불렀다» 와 «세션이 없다» 를 가른다 — 서버 없음만 세션 0 · 그 밖은 ERROR rc4(요약줄 0 · 감시자 stamp 0 → 다음 틱 재시도)
+    terr="$(tmux list-sessions -F "$tfmt" 2>&1 >/dev/null)"
+    case "$terr" in *"no server running"*) sess="";;
+      *) echo "ERROR tmux list-sessions rc=$trc: $(printf '%s\n' "$terr" | head -1)" >&2; return 4;; esac
+  fi
   while IFS='|' read -r name act att; do
     [ -n "$name" ] || continue
     [ -z "$TEAM" ] || team_ok "$name" || continue   # r-teamset-standard: 그 팀 나노 밖은 후보도 «승인 범위 밖» 표도 아니다

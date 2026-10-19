@@ -7,6 +7,7 @@
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
 #   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) · 워크트리 합계는 FT_RES_DU_TTL_SEC(1800초) 캐시(du-cache.tsv) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_DU_TTL_SEC · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
 set -uo pipefail
+PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH   # r502: launchd 기본 PATH 에 홈브루 경로를 덧붙인다 — 표본·문지기·선제 회수 하위 호출 전부 같은 tmux·도구를 본다(plist 손 생성물 수정 0)
 
 CMD="${1:-tick}"
 case "$CMD" in tick|scan) ;; *) echo "usage: $0 [tick|scan]" >&2; exit 2;; esac

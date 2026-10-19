@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — 선제 회수가 launchd PATH 에서 tmux 를 못 찾아 «후보 0» 으로 조용히 끝나던 결함 (r502 · 1.1.58)
+
+- 사건: harness arch 105 실측 01:5x — `.fable-team/state/reclaim.log` PREVENTIVE 줄 220개가 전부 `candidates=0` · 같은 시각 대화 셸 손 실행은 `candidates=23`. launchd `com.byz.ft-resource-watch`(plist env = `FT_RES_ROOT`·`FT_ROOT` 뿐)가 기본 PATH `/usr/bin:/bin:/usr/sbin:/sbin` 로 돌아 `/opt/homebrew/bin/tmux` 를 못 찾고, `tmux list-sessions … 2>/dev/null` 빈 출력을 «세션 0» 으로 읽었다 — 골 6 장치(압력 때 끝난 좌석 회수 · r500 압력 티어)가 설치 뒤 한 번도 자동으로 안 돌았다.
+- `ft-resource-reclaim.sh`: ①머리(--on-reject 통과 분기 뒤)에서 `PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"` · `command -v tmux` 없으면 `ERROR tmux 없음(PATH=…)` rc4 ②`reclaim_core` 후보 수집: `tmux list-sessions` rc≠0 이면 stderr 를 다시 받아 `no server running` 만 세션 0 · 그 밖 `ERROR tmux list-sessions rc=<rc>: <stderr 첫 줄>` rc4(요약줄 0 → `ft-resource-preventive.sh` 가 stamp 0 + resource-watch.log `ERROR preventive rc=4 …` · 다음 틱 재시도). 닫기 직전 재확인(`fresh_att` 등)의 tmux 실패는 «후보 탈락» 그대로.
+- `ft-resource-watch.sh`: set 직후 같은 PATH 덧붙임 1줄 — 표본·문지기·선제 회수 하위 호출 전부 같은 도구. plist(키트 밖 손 생성물) 수정 0.
+- 카드와 다른 점 1: 카드는 PATH «머리» 에 붙이라 했으나 «끝» 에 덧붙인다 — 머리에 붙이면 대화 셸·시험에서 앞선 PATH 를 덮어(시험 가짜 `tmux`·`sysctl` 대역 폴더보다 `/opt/homebrew/bin` 이 먼저 → 시험이 실 tmux 서버를 부른다 · launchd 에서도 `/usr/bin` 의 python3·git 이 홈브루 것으로 바뀐다). 끝에 붙이면 없는 도구만 채운다(tmux·timeout/gtimeout). 시험 ⓓ 는 «PATH 끝 = EXTRA» 로 단언.
+- 시험 `test_resource_reclaim_preventive.sh` r502 ⓐ(PATH=/usr/bin:/bin + EXTRA=가짜 tmux 폴더 → candidates=12)·ⓐ'(tmux 없음 → rc4)·ⓑ(list-sessions rc1 → ERROR rc4 · 요약줄·닫기 0 · 잠금 해제)·ⓑ'(preventive 보조 stamp 0 + ERROR 1줄)·ⓒ(no server running → candidates=0 rc0)·ⓓ(`env -i PATH=/usr/bin:/bin` tick → 선제 회수·표본이 받은 PATH 끝 = EXTRA · 미설정 = 홈브루 기본) + 변이 2(tmux 실패=세션 0 FAIL 5 · PATH 덧붙임 제거 FAIL 3) — 87 PASS · 기존 `test_resource_reclaim.sh` 107 · `_pressure.sh` 28 · `test_resource_watch.sh` 75 rc0. 설치: LIVE_BIN 키트 2 cmp0 · 홈 0 · plist 0 · 되돌림 = 설치본 `.bak-r502` 2 또는 `FT_RECLAIM=0`. 범위 밖: 다른 launchd 작업(ft-tick·뉴스·매거진) PATH 점검 · 회수 정책값 · r500 판정식. 원문 = `harness/evidence/r502/tests-rc.txt`.
+
 ## 2026-10-20 — 회수 압력 티어: swap ≥85% 면 착지 나노 idle 문턱 30→5분 · «병합 끝 나노» = 가지 착지 나노만 (r500 · 1.1.57)
 
 - 사건: harness master 81 실측 115983 — swap 92% 인데 `ft-resource-reclaim` 이 «병합 끝 나노» 9~10석을 idle 30분 가드로 전부 SKIP(RECLAIMED 0) · spawn 문지기가 swap·rate 로 새 좌석을 막아 팀이 섰다. 같은 표에 방금 spawn 된 ops O3·O4(가지 미착지)도 «병합 끝 나노» 로 들어갔다 — 분류가 이름(`*-nano-*#0`)뿐. planner 80 대리 결정 115991.
