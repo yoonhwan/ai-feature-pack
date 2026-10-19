@@ -58,7 +58,7 @@ def test_neither_location_fails_loudly_with_searched_paths(tmp_path):
     r = _run(script, tmp_path / "home")
     assert r.returncode != 0
     assert str(tmp_path / "home" / ".hermes" / "scripts") in r.stderr
-    assert str(tmp_path / "root" / ".fable-team" / "harness-install" / "slack-mirror") in r.stderr
+    assert str(tmp_path / "root" / ".fable-team" / "kit" / "slack-mirror") in r.stderr
 
 
 def test_ft_hermes_scripts_env_overrides_install_folder(tmp_path):
