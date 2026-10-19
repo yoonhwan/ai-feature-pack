@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 뉴스 지도: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수 (r490 · 1.1.47)
+
+- 22:04 뉴스(load 25~31)에서 chatbot 5석의 `ft-seat-status.sh turn` 이 7초 상한을 넘어 «?» 가 됐는데 `facts`·`bucket` 이 일하는 0 인 팀을 전부 «쉬는 팀» 에 넣어 일하는 챗봇팀이 «쉼» 으로 나갔다(오빠 «챗봇팀은 왜쉬어?»).
+- `ft_news_html.py`: `_turn` = 첫 출력 전 실패 1회 재시도(7초 룰 · 시간 초과는 프로세스 묶음째 kill) · 풀 = min(좌석 수, 32) · 팀 칸 `unknown_reason` · `facts` 3분류(일하는 · 확인 불가 · 쉬는). `ft_news_html_render.py`: 3분류 bucket + «확인 불가» 블록 · 프롬프트 1줄. 틀 `news-team-map.html`: H2 «확인 불가» + chip. `ft_news_html_lint.py`: H2 5개 · 확인 불가 팀 이름 + 쉬/멈/정지/대기 단정 = 위반.
+- 시험 `test_news_html.sh` 32 passed(새 ⓐ~ⓓ · 옛 판 RED 4) · 되돌림 = 이 절 커밋 revert(설치본 `.bak-r490`) · 단계 = `harness/evidence/r490/master-steps.md`.
+
 ## 2026-10-20 — 뉴스 ⑥ 트리: 루트·팀 폴더는 부르는 쪽이 넘긴다 — ref 임시본에서 git 128 고침 (r489 · 1.1.46)
 
 - r484 뒤에도 ⑥ 트리가 비었다 — 공용 루트 체크아웃엔 v65 `NEWS-TREE.md` 가 없어 `ft_team_doc_ref` 가 `$TMPDIR/ft-team-doc.*` 임시본을 주는데, `ft-news-tree.py` 가 리포 루트(`git -C <트리 폴더> rev-parse`)·카드 폴더(`tree.parent/indices`)를 트리 파일 위치에서 유도해 `CalledProcessError 128`(arch 103 실측).

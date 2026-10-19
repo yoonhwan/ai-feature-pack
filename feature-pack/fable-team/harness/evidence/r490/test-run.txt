@@ -1,0 +1,22 @@
+# r490 시험 원문 (2026-10-19 22:40 · load averages: 23.09 19.44 20.46)
+$ bash harness/tests/test_news_html.sh -v
+============================= 32 passed in 25.64s ==============================
+rc=0
+
+$ python3 -m py_compile (bin·kit 짝 3 + 시험)
+ok harness/kit/fable-team/bin/ft_news_html.py
+ok harness/kit/fable-team/bin/ft_news_html_lint.py
+ok harness/kit/fable-team/bin/ft_news_html_render.py
+ok harness/tests/scripts/test_ft_news_html.py
+cmp0 bin/kit ft_news_html.py
+cmp0 bin/kit ft_news_html_lint.py
+cmp0 bin/kit ft_news_html_render.py
+
+$ 옛 판(HEAD~ = origin/main 86257c17) 코드 + 새 시험 -k r490 → RED 4 (같은 세션 실측)
+4 failed, 28 deselected (r490 ⓐ~ⓓ 전부)
+
+$ ft-news-effort-test.sh --variants high --input <live build input.json> — 실 opencode
+high secs=6.0 rc=1 · opencode 403 FreeTierError «abusive traffic from this IP»(v2.0.32 · 범위 밖 · master 114854)
+$ 같은 live 입력 + 가짜 opencode(FT_OPENCODE) — 틀·린트 경로
+| high | 0.5 | 0 | OK | 1 | 87 |  |
+live facts: {'일하는 팀': ['planner', 'chatbot', 'harness', 'v65', 'cfo', 'graphics', 'loom', 'ops'], '확인 불가': [], '쉬는 팀': ['feature', 'issues', 'kk', 'lecture', 'room'], '자율': 'OFF'}

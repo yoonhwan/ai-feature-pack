@@ -8,16 +8,16 @@
 <style>
 :root{
   --bg:#eef3f5; --card:#ffffff; --ink:#15262e; --soft:#5a6d76; --line:#d3dee3;
-  --accent:#0f7c86; --done:#2e9a5b; --now:#e0a21b; --left:#b9c6cc; --hot:#d2523b; --rest:#7d8a90;
-  --done-bg:#e3f4ea; --now-bg:#fdf3dc; --left-bg:#eef2f4; --hot-bg:#fbe6e1; --rest-bg:#e7ecee;
+  --accent:#0f7c86; --done:#2e9a5b; --now:#e0a21b; --left:#b9c6cc; --hot:#d2523b; --rest:#7d8a90; --unk:#7a5fb0;
+  --done-bg:#e3f4ea; --now-bg:#fdf3dc; --left-bg:#eef2f4; --hot-bg:#fbe6e1; --rest-bg:#e7ecee; --unk-bg:#efeaf7;
   --display:"Jua","Gothic A1","Apple SD Gothic Neo",system-ui,sans-serif;
   --body:"Gothic A1","Apple SD Gothic Neo",system-ui,sans-serif;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#0f1a1f; --card:#17262d; --ink:#e7f0f3; --soft:#9db1b9; --line:#2a3c44;
-  --accent:#4cc3cc; --done:#5cc98a; --now:#f2c25a; --left:#4d6069; --hot:#f08068; --rest:#8a9aa1;
-  --done-bg:#183326; --now-bg:#3a2f14; --left-bg:#1e2d34; --hot-bg:#3b1f19; --rest-bg:#1c282d; color-scheme:dark}}
+  --accent:#4cc3cc; --done:#5cc98a; --now:#f2c25a; --left:#4d6069; --hot:#f08068; --rest:#8a9aa1; --unk:#b9a2e6;
+  --done-bg:#183326; --now-bg:#3a2f14; --left-bg:#1e2d34; --hot-bg:#3b1f19; --rest-bg:#1c282d; --unk-bg:#2a2340; color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
 .wrap{max-width:900px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
@@ -32,6 +32,7 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
 .c-left{background:var(--left-bg)} .c-left i{background:var(--left)}
 .c-hot{background:var(--hot-bg)} .c-hot i{background:var(--hot)}
 .c-rest{background:var(--rest-bg)} .c-rest i{background:var(--rest)}
+.c-unk{background:var(--unk-bg)} .c-unk i{background:var(--unk)}
 
 /* 우선순위 */
 .prio{background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:18px;display:grid;gap:12px}
@@ -64,6 +65,8 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
 .team strong{display:block;font-family:var(--display);font-weight:400;font-size:18px}
 .team.rest{background:var(--rest-bg);border-style:dashed}
 .team.rest strong::after{content:" · 쉬는 중";font-family:var(--body);font-size:12px;color:var(--rest);font-weight:700}
+.team.unk{background:var(--unk-bg);border-style:dotted}
+.team.unk strong::after{content:" · 상태 확인 불가";font-family:var(--body);font-size:12px;color:var(--unk);font-weight:700}
 .foot{color:var(--soft);font-size:13px}
 @media (max-width:640px){
   .goal{grid-template-columns:1fr}
@@ -95,11 +98,17 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
     <span class="chip c-now"><i></i>지금 하는 중</span>
     <span class="chip c-left"><i></i>남은 일</span>
     <span class="chip c-hot"><i></i>급한 불</span>
+    <span class="chip c-unk"><i></i>확인 불가</span>
     <span class="chip c-rest"><i></i>쉬는 팀</span>
   </div>
 
   <h2>일하는 팀</h2>
 {{WORKING}}
+
+  <h2>확인 불가</h2>
+  <div class="teams">
+{{UNKNOWN}}
+  </div>
 
   <h2>골 6개</h2>
 
