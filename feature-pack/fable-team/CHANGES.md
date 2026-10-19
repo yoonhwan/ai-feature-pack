@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-19 — 팀 폴더 옛 경로 재발 방지: 쌍둥이 공존이면 리졸버는 새 꼴 + WARN · 카드·문서 옛 글자 md 린트 · 옛 위치 카드는 spawn·lint·move·착지 REJECT · ft-team-move 쌍둥이 병합 이동 (버전 = 착지 순서대로 master · r444·r445 뒤)
+## 2026-10-19 — 팀 폴더 옛 경로 재발 방지: 쌍둥이 공존이면 리졸버는 새 꼴 + WARN · 카드·문서 옛 글자 md 린트 · 옛 위치 카드는 spawn·lint·move·착지 REJECT · ft-team-move 쌍둥이 병합 이동 (1.1.17)
 
 카드 r447 · master 111463 ②·111467 · arch#98 보고 `REPORT-team-path-oldpath-audit-20261019.md` §1·§2. main 은 팀 폴더를 `design/teams/<팀>/` 로 옮겼지만 concierge-main 은 이동 커밋을 받고도 옛 `design/concierge/`(37) 에서 계속 일해 새 폴더(45)와 공존했고, 경로 린트는 `*.sh *.py` 만 봐 카드·문서의 옛 글자와 옛 위치 카드는 아무도 막지 않았습니다.
 
