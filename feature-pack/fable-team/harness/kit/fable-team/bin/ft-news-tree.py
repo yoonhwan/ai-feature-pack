@@ -76,12 +76,16 @@ def seats_on(seats: dict, idx: str) -> list[str]:
     return out
 
 
-def seat_turn(status_sh: Path, seat: str) -> str:
-    try:
-        r = subprocess.run(["bash", str(status_sh), "turn", seat], capture_output=True, text=True, timeout=10)
-        return (r.stdout.split() or ["?"])[0]
-    except (OSError, subprocess.TimeoutExpired):
-        return "?"
+def seat_turn(ctx: dict, seat: str) -> str:
+    # r504: 지도 1회에 판정 1번 — 살아 있는 명부 좌석 전부를 ft_seat_turn.turns 로 한 번에(좌석별 하위 프로세스 0) · 못 찾음 = «?»
+    if "turns" not in ctx:
+        from ft_seat_turn import turns  # 스크립트 옆 모듈(sys.path[0])
+        projects = Path(os.environ.get("FT_CLAUDE_PROJECTS") or Path.home() / ".claude" / "projects")
+        try:
+            ctx["turns"] = turns([s for s in ctx["seats"] if s in ctx["alive"]], os.environ.get("FT_TMUX", "tmux"), projects)
+        except (OSError, subprocess.TimeoutExpired):
+            ctx["turns"] = {}
+    return ctx["turns"].get(seat, ("?", ""))[0]
 
 
 SHORT_MAX = 160
@@ -101,8 +105,8 @@ def seat_state(ctx: dict, seat: str) -> str:
         return "정지"
     if role == "stop-ready":
         return "정지레디"
-    turn = seat_turn(ctx["status_sh"], seat)
-    if turn == "UNKNOWN":  # 첫 턴이 안 끝난 새 좌석은 jsonl 에 turn_duration 이 없다 — pane 스피너로 판정
+    turn = seat_turn(ctx, seat)
+    if turn in ("UNKNOWN", "?"):  # 판정 불가·jsonl 없음(codex 등) — pane 스피너로 판정(옛 turn 의 jsonl 없음 경로와 같음)
         r = subprocess.run(["bash", str(ctx["status_sh"]), "one", seat], capture_output=True, text=True, timeout=10)
         turn = {"BUSY": "WORKING", "IDLE": "IDLE"}.get((r.stdout.split() or ["", "?"])[1], turn)
     return TURN_KO.get(turn, turn)

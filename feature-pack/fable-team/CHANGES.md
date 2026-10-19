@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 좌석 턴 판정기 하나(`ft_seat_turn.py`) · 뉴스 HTML·지도 = 좌석별 하위 프로세스 0 (r504 · 1.1.60)
+
+- 사건: 02:07 뉴스 지도에서 실좌석이 일하는 4팀(실통역·방·강의·계획)이 «확인 불가» — `ft_news_html.live_teams` 가 좌석마다 `bash ft-seat-status.sh turn <좌석>`(7초 · 재시도 1 · 풀 32)·`ft-news-tree.py seat_turn` 이 좌석마다 같은 셸(10초)을 부르고, 셸은 다시 좌석마다 폴더 jsonl 전부의 머리 1MB 를 읽고 파이썬을 띄웠다 → 부하 15~56 에서 상한 초과 + 동시 하위 프로세스 수십 개가 부하를 더 올림(arch 105 실측 · master 116770).
+- `ft_seat_turn.py`(신설 · 122줄): `turn_of_file(path, tail_bytes, tail_start, master, status_only)` = `ft-seat-status.sh` heredoc 판정 본문을 그대로 옮김(동작 변경 0 · 판정 정본 = jsonl 턴 경계 그대로 · BOOT 18 덧말 0 — 판정기 위치만 모듈로) · `turns(seats, tmux, projects)` = r497 `find_jsonls` 1회(tmux list-panes 1회) + 좌석마다 꼬리만 읽기 · 못 찾음 = («?», «jsonl 없음») · 읽기 실패 = («?», «읽기 실패») · CLI `python3 ft_seat_turn.py <jsonl>` = 탭 5칸(env FT_SEAT_TAIL_BYTES·FT_SEAT_TAIL_START·MASTER·NEED_ENDS).
+- `ft-seat-status.sh turn_of_file`: heredoc 대신 `python3 "$(dirname "$0")/ft_seat_turn.py"` — 출력 바이트 같음(시험 ⓔ: origin/main 판과 40석 × 5 플래그 바이트 대조).
+- `ft_news_html.py live_teams`: `_turn`·`_turn_once`·ThreadPool·`SEAT_POOL` 삭제 → `_turns()` = `ft_seat_turn.turns` 1회(env `FT_TMUX`·`FT_CLAUDE_PROJECTS` = ft_model_swap 과 같음) · tmux list-panes 7초 초과 = 전 좌석 («?», «tmux 시간 초과») · 사유 칸 = «jsonl 없음 N석 · 읽기 실패 N석»(r490 `unknown_reason` 꼴 · «확인 불가 ≠ 쉼» 유지) · 298→281줄.
+- `ft-news-tree.py seat_state`: 지도 1회에 `turns()` 한 번(살아 있는 명부 좌석 전부) 캐시 · UNKNOWN 과 «?»(jsonl 없음 — codex 등) 만 기존 `one` pane 판정(옛 turn 의 jsonl 없음 → pane 경로와 같음 · 10초 상한 그대로).
+- 시험 `test_seat_turn_batch.py`(새) ⓐ~ⓔ + tmux 시간 초과 6 passed · 변이 1(PENDING→IDLE) = FAIL 3 · 기존 `test_ft_news_html.py` 38 · `test_ft_seat_turn_window.py` 8 · `test_ft_seat_codex.py` 10 · `test_kit_bin_sync.sh` · `test_news_html.sh` rc0. 기대 변경: `test_ft_news_html.py` r478c·r490 a·b 가 `_turn`(가짜 셸) 대신 `_turns` 를 바꿔치기 · r490 d(풀 32 시험) 삭제 — 풀이 없어졌다(대신 ⓑ «40석 < 7초 · list-panes 1 · seat-status 0»). 기존 실패(origin/main 과 같음): 셸 시험 5(tick_line 84 등) · pytest 3 — 원문 `harness/evidence/r504/tests-rc.txt`.
+- 설치: LIVE_BIN 키트 4(`ft_seat_turn.py` 새 · `ft-seat-status.sh` · `ft-news-tree.py` · `ft_news_html.py`) cmp0 · 홈 0 · plist 0 · 되돌림 = 이 커밋 revert(설치본 `.bak-r504`). 범위 밖: `find_jsonls` 규칙 · 다른 호출처(틱·stall·reclaim)의 좌석별 `turn` 호출 · 판정 규칙 · `skill/scripts`·`comm` 의 옛 ft-seat-status 사본(이미 kit 와 다름).
 ## 2026-10-20 — 뉴스·매거진이 읽는 원장 사본을 매 회 origin/main 으로 전진 · 매거진 기본 원본 = 뉴스와 같은 사본·새 경로 (r503 · 1.1.59)
 
 - 사건: desk 116740 → harness master 81 발주 116754 — 뉴스 사본 `.worktrees/news-ledger-main`(detached) 은 fetch·전진 주체가 없어 main 뒤 71커밋 · 01:50 원장 착지를 못 보고 «변화 없음» 3회(02:08 master 손 전진). 08:00 매거진은 기본값 `.worktrees/v6-realtime-live`(가지 위 · main 뒤 223) 의 옛 경로 `design/planner/PLAN-oppa-ledger.md`(마지막 10-19 18:55)를 읽는다 — 어느 쪽도 «낡았다» 신호 0. arch 105 실측(카드 Issue ①~⑤).
