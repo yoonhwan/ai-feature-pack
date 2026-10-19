@@ -1,0 +1,24 @@
+PASS sh -n pre-push
+FAIL ⓐ rc=1 (기대 0)
+    
+    PUSH_DENIED — 이 push range 에 제품코드가 있다.
+      range: ee42b1d5993aac9fd94c712d561bb42640b26dda
+        gateway/a.py
+    
+      ★git push 는 네 커밋만이 아니라 브랜치 tip 까지 «전부» 올린다★ —
+      네 커밋이 docs 뿐이어도 그 아래 남의 보류 제품 커밋이 따라간다.
+      조치: master 에 «DA⑥ 완료 여부 + 대상 sha» 를 명시해 push 를 요청하라.
+      정본: design/v65/20260908/RULE-push-channel-single-owner.md
+      DA⑥ 승인이 이미 있으면: FT_PUSH_DA6_OK=<sha목록> git push …
+    
+FAIL ⓑ rc=0 (기대 1)
+FAIL ⓑ range 줄 없음
+FAIL ⓑ gateway/b.py 없음
+FAIL ⓑ 우회 rc=0
+PASS ⓒ 기존 가지 문서만 → 통과
+PASS ⓒ 기존 가지 제품 포함 → 거부 range remote..local
+FAIL ⓓ 기준 없음 rc=0
+FAIL ⓓ diff 실패 rc=0
+PASS ⓔ GATE_BRANCH 아님 → 검사 0
+--- FAIL 7
+rc=1

@@ -1,12 +1,20 @@
 # Changes
 
-## 2026-10-20 — nano-close --wt 팩 경로: 하네스 팩 나노의 ⑥·⑤·미커밋을 팩 리포 기준으로 대조 (r508 · 1.1.66)
+## 2026-10-20 — nano-close --wt 팩 경로: 하네스 팩 나노의 ⑥·⑤·미커밋을 팩 리포 기준으로 대조 (r508 · 1.1.68)
 
 - 사건: 하네스 팩 나노(작업 = `ai-feature-pack/.worktrees/<…>` · 카드 «세트:» = 팩 커밋)는 `ft-nano-close.sh` ⑥ 이 BYZ 쪽 같은 이름 워크트리(spawn base) HEAD 와 대조해 병합 뒤 항상 REJECT · `--wt` 명시 모드도 BYZ 등록 워크트리만 받아 팩 경로 거절 → 매번 `--suspended` 우회(r499·r502·r466 실사건 · harness master 82 발주 116983 · arch 105 실측).
 - `ft-nano-close.sh`(kit↔bin cmp0): `--wt` ⓐ — BYZ 조건이 아니면 `FT_PACK_ROOT`(기본 `$HOME/Project/ai-feature-pack`)의 `.worktrees/` 아래 ∧ 그 리포 `worktree list` 등록이면 대조 리포 `SEAT_REPO` = 팩 · 카드 해석 뒤 머리 `- 설치: 있음`(하네스 카드) 아니면 지금 ⓐ REJECT 문구 + 덧말 «팩 경로는 하네스 카드(- 설치: 있음)만». ⓑ 브랜치·ⓔ 미커밋·⑥ 증거 줄(`--repo` = 팩 워크트리)·⑤ cherry(`--repo` = 팩 리포 · origin/main 재대조·fetch 포함)·feat fetch·base sha 조상 = `SEAT_REPO`(기본 `$ROOT` — 다른 경로 변화 0) · 팩 모드 feat 기본 = origin/main. 정리 계획 0 + `INFO 팩 워크트리 정리 = 별 경로` 1줄 · 원장 `mode=pack-wt wt=… branch=… repo=…`.
 - 카드와 다른 점 2(실사건 꼴): ①pane cwd(ⓒ)는 BYZ 쪽 같은 좌석 표준 워크트리라 «--wt 또는 그 표준 워크트리» 를 받는다 ②spawn 이 BYZ 쪽에 같은 이름 워크트리를 만들어 «표준 전용 워크트리가 따로 있다» REJECT 가 늘 걸린다 — 팩 모드만 그 검사를 건너뛴다. `_fetch_remote_feat` 는 `${SEAT_REPO:-$ROOT}`(함수만 떼어 쓰는 `test_nano_feat_remote_ref.sh` 호환).
 - 시험 `test_nano_close_pack_wt.sh`(새 · 임시 리포 R·P + P bare 원격 · 외부 호출 0) ⓐ 팩 경로 CLOSED(고치기 전 FAIL 8 · 뒤 PASS) ⓑ 제품 카드 → ⓐ REJECT ⓒ 미등록 폴더 → REJECT ⓓ 팩 미커밋 → ⓔ REJECT ⓔ 인자 없음 → BYZ HEAD 대조(변경 0) · 기존 `test_nano_close_*.sh` 8 rc0 · 관련 시험 7 = base 대비 새 FAIL 0(기존 RED 그대로). 증거 `harness/evidence/r508/`.
 - 설치: 키트 1(`ft-nano-close.sh`) → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r508`.
+
+## 2026-10-20 — push 게이트 새 가지 range = merge-base(origin/main, tip)..tip · 훅이 처음 키트에 들어옴 (r511 · 1.1.67)
+
+- 사건: 문서 3파일 새 가지 첫 push 가 `PUSH_DENIED «range 에 제품코드»` → `FT_PUSH_DA6_OK` 우회 기록(v65 쪽지 117396 → planner 117419 → harness master 82 발주 117428). 원인: `pre-push:27-28` 새 가지(remote_sha 0)면 `range="$local_sha"` — `git diff --name-only <커밋>` 은 «그 커밋 ↔ 작업 트리» 라 미커밋 변경을 잡고(오탐) 올라가는 제품 커밋은 놓친다(누락 — 작업 트리가 깨끗하면 제품 커밋 가지도 통과). `:33` `2>/dev/null` 이 diff 실패를 «hits 없음 = 통과» 로 삼켰다.
+- 훅이 처음 키트에 들어옴: `kit/fable-team/githooks/pre-push`(새 · 출발점 = 공용 루트 손 설치본 09-09 바이트 그대로 → 구조 커밋) — 설치하면(`install.sh --apply` GITHOOKS 줄) 공용 루트 판을 덮고 `pre-push.bak-<버전>` 을 남긴다. 정본 위치 = 팩 키트.
+- 고침: 새 가지 `base=$(git merge-base origin/main "$local_sha")` · 비면 `PUSH_DENIED — 새 가지 기준(merge-base origin/main) 못 구함 — 거부 유지` rc1 · 있으면 `range="$base..$local_sha"` · diff rc≠0 = `PUSH_DENIED — range diff 실패 — 거부 유지` rc1(조용한 통과 0). 기존 가지 `remote..local`·`FT_PUSH_DA6_OK` 우회 기록·GATE_BRANCH·PRODUCT_PATHS 그대로.
+- 시험 `test_pre_push_range.sh`(새 · 임시 bare origin + 클론 · stdin 직접 · push 0 · 가짜 bd): ⓐ 새 가지 문서 + 미커밋 gateway → 통과 ⓑ 새 가지 gateway 커밋 → 거부 + `range: <mb>..<tip>` · 우회 기록 ⓒ 기존 가지 문서 통과·제품 거부 ⓓ origin/main 없음·diff 실패 → 거부 ⓔ GATE_BRANCH 아님 → 검사 0 = 11 PASS(bash5 + /bin/bash 3.2) · 변이(옛 설치본) FAIL 7. shellcheck -S warning = 옛 줄 `:24` SC2034(local_ref·remote_ref) 만. 원문 = `harness/evidence/r511/tests-rc.txt`(고치기 전 = `before-fix.txt`). 기존 `test_evidence_log_gate.sh` ⓖ 기대값 = 키트 githooks 2개(`GITHOOKS copied=2`·2회째 `same=2`) + pre-push cmp0·실행 비트 1줄 · 병합 HEAD 재실행 = `merge-head-rc.txt`.
+- 범위 밖: 다른 githooks(commit-msg·post-*·prepare-commit-msg) 키트 이관(같은 «손 설치» 꼴 — 별 카드 후보) · GATE_BRANCH 확장 · `--no-verify` 차단.
 
 ## 2026-10-20 — 뉴스 갈래 상한의 CLI 기동 고정비 = 잠정 3.5초 → 실측 p90 · 지도 실패 연속 3틱 = 고정 문구 «뉴스 지연» 1번 (r510 · 1.1.65)
 
