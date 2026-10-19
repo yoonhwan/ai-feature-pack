@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — 미완·정지 나노를 닫는 길: `ft-nano-close.sh --suspended "<사유>"` — ⑥ 만 면제 · 카드 «중단» 끝줄 · 브랜치 보존 (1.1.18)
+
+카드 r450 · master 111726 · loom master 111718 «미완 나노 닫는 길이 있나». 팀 정지(판정 2365)로 구현 중 멈춘 loom #1442 나노는 시험 rc=1 이라 ⑥ 증거 줄로 못 닫고, 대체 카드가 없어 `--superseded-by` 도 못 써서 세션·워크트리를 쥔 채 멈춰 있었습니다(거짓 rc=0 금지).
+
+- **ft-nano-close.sh**: 인자 `--suspended "<사유>"`(빈 값·여러 줄·`--superseded-by`·`--cherry-override` 동시 = usage 2) · ⑥ 자리 = 새 검사 · 실작업물 미커밋은 먼저 `[wip] nano close <좌석>` 커밋(실패 = REJECT) · ⑤ 에 `--override "suspended: <사유>"` · 원장 행 `suspended=1 reason=… set=…` · 출력 `CLOSED <좌석> suspended=1 reason=<사유> set=<HEAD>` · 브랜치 삭제 0 · 인자 없으면 동작 불변. bin·kit 짝 cmp0.
+- **ft-nano-suspended-check.sh**(새): `<카드> --wt <워크트리> --reason "<사유>" [--apply]` — HEAD(브랜치 위 40hex)·미커밋 0 · `--apply` 면 카드 «## 상태» 끝에 `중단: <사유> · 세트 <HEAD> · <날짜> · 재개 = planner 발주 뒤 새 세션(브랜치 <이름> 보존)`(같은 세트면 0 · 멱등) · 출력 `SUSPENDED-OK card=… set=…`.
+- **시험**: `test_nano_close_suspended.sh` ⓐ~ⓖ ALL PASS rc0(옛 close 로 돌리면 FAILED 17 — `evidence/r450/red-old-close.txt`) · 기존 `test_nano_close_*.sh` 5 rc0. 증거 `harness/evidence/r450/test.txt`.
+
 ## 2026-10-19 — 팀 폴더 옛 경로 재발 방지: 쌍둥이 공존이면 리졸버는 새 꼴 + WARN · 카드·문서 옛 글자 md 린트 · 옛 위치 카드는 spawn·lint·move·착지 REJECT · ft-team-move 쌍둥이 병합 이동 (1.1.17)
 
 카드 r447 · master 111463 ②·111467 · arch#98 보고 `REPORT-team-path-oldpath-audit-20261019.md` §1·§2. main 은 팀 폴더를 `design/teams/<팀>/` 로 옮겼지만 concierge-main 은 이동 커밋을 받고도 옛 `design/concierge/`(37) 에서 계속 일해 새 폴더(45)와 공존했고, 경로 린트는 `*.sh *.py` 만 봐 카드·문서의 옛 글자와 옛 위치 카드는 아무도 막지 않았습니다.
