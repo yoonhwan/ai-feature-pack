@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-10-19 — 틱 데몬 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main): comm 을 공용 루트로 · shim 폴더 옛 사본 자가 검사 · 골·뉴스 틱 정본 ref 읽기 · 설치기 comm 동기화 + RESTART 줄 (r459 · 1.1.26)
+
+카드 r459 · master 112539·112636 · arch 101 실측 · 골 6(메인 골 1 팀장 v65 master 가 틱 없이 36시간). 메인 틱이 10-18 09:53 부터 `skip … 에이전트 판정 불가(<v6>/.fable-team/comm/ft-agent-alive.sh 실행 실패)` 839회 — `ft_comm_dir` 가 데이터 루트 = LIVE_ROOT(옛 라이브 워크트리 v6-realtime-live)의 comm 으로 풀렸는데 거기엔 판정기가 없었습니다(진짜 우편함·판정기 = 공용 루트 comm). 10-19 09:04 shim 교체 뒤엔 «먼저 기동한» 틱 6개가 메모리의 옛 사본으로 shim 폴더의 `.py` 를 python3 로 읽어 SyntaxError 를 반복했고, goal-tick 은 글자 ROOT(v6)·뉴스 틱은 체크아웃 명단으로 v65 폴더를 못 풀어 ERROR(112632).
+
+- **ft-harness-root.sh** `ft_comm_dir`: ①env `FT_MBOX_DIR`(comm 폴더 그 자체) ②env `FT_ROOT` ③`*/.fable-team/bin` 이면 `git -C` 공용 루트 ④cwd 공용 루트 — LIVE_ROOT 분기 제거 · comm 없음 = ERROR 그대로. `ft_data_root` 는 state 용 그대로(주석 «comm 은 쓰지 않는다»).
+- **ft-tick.sh · ft-tick-team.sh**: 기동 1회 자가 검사 — 형제 `ft_raised.py` 첫 3줄에 `ft-root-bin-shim` 마커가 있으면 `ERROR shim 폴더에서 실행 — launchctl kickstart 로 LIVE_BIN 재기동` exit 3(옛 통째 사본이 조용히 돌지 못한다). MBOX·AGENT_ALIVE 기본 = 공용 루트 comm(ft_comm_dir).
+- **ft-team-lib.sh** `ft_team_doc_ref <루트> <팀> <파일> [<ref>]`: 명단 = ref(origin/main) · 후보 폴더 중 실재 정확히 1개면 그 경로 · 0 이면 `git show <ref>:<명단 꼴 폴더>/<파일>` 본문을 임시 파일로(정리 = 부르는 쪽 · `ft_team_doc_tmp`) · 2+·ref 못 읽음·ref 에도 없음 = ERROR rc1. 읽기 전용(원장처럼 쓰는 파일은 `ft_team_file_ref`).
+- **ft-goal-tick.sh**: 글자 ROOT 제거 → ROOT = `ft_repo_root`(env `FT_GOAL_TICK_ROOT` 시험용 유지) · 틱 프롬프트 = `ft_team_doc_ref` + trap 정리. **ft-news-tick.sh**: 글자 ROOT 제거(env `FT_NEWS_ROOT` → `ft_repo_root`) · NEWS-TREE.md = `ft_team_doc_ref`(`FT_NEWS_TREE` 우선 그대로). **ft-nano-close.sh**: 원장 0·2+ REJECT 문구를 헬퍼 ERROR 꼴(«실재 후보 N개 — 정확히 1개여야 한다(명단 … · 후보 …)») 하나로.
+- **ft-tick-install.sh · ft-tick.plist**: 메인 plist `WorkingDirectory` = git 공용 루트 + env `FT_TICK_MBOX`·`FT_MBOX_DIR`·`FT_TICK_AGENT_ALIVE`(공용 루트 comm · `__COMM__`) — 팀 plist 와 같은 틀 · 공용 루트 comm 없음 = REJECT · dry-run + `FT_TICK_PRINT_PLIST=1` = 렌더본 출력.
+- **install.sh**: ⓐ `comm_sync` — 팩 `harness/comm` 최상위 일반 파일(제외 = `mailbox*.jsonl`·`.mbox-seq`·`.mbox-guard.json`·`queues.conf`·`*.pyc` · 폴더 `bodies/`·`relay/` 는 대상 밖)을 `<공용 루트>/.fable-team/comm/` 에 cp -p · 덮기 전 `.bak-<버전>`(첫 원본 보존) · 삭제 0 · dry-run = `COMM <dst> <- <src>` 줄 + `COMM copied=N same=M` · 워크트리 `--project` = `SKIP comm`. ⓑ apply 끝 `ft_live_install_check.py --restart-scan` — 판정식 `restart_due`(R245 plist_items 에서 뽑은 함수 하나)로 «기동 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime» 인 적재 데몬마다 `RESTART <label> — launchctl kickstart -k gui/<uid>/<label>` 줄(실행 0 · master 집행).
+- **시험**: `test_harness_root.sh` r459 ⓐ~ⓔ 추가 · 새 `test_tick_shim_guard.sh` ⓐ~ⓒ · `test_nano_close_fail_closed.sh` ⓑⓒ 문구 갱신. 실 머신 읽기만: `install.sh --dry-run --project <BYZ 루트>` rc0 · `COMM copied=24 same=8`(루트 mbox.sh·ft_seat_bind.py 는 팩보다 뒤 — r408 미설치) · `--restart-scan` = 팀 틱 4 + 슬랙 수신 2 RESTART. 증거 `harness/evidence/r459/`.
+- 범위 밖: state 폴더 통합(v6 ↔ 루트) · r458(뉴스 폴더 = 원장 리포 TEAMS.md · 뉴스 틱의 `WT=<루트>/.worktrees/v6-realtime-live` 도구 경로) · 루트 체크아웃 당기기.
+
 ## 2026-10-19 — `pipefail` 아래 `… | grep -q` 가 64 KB 넘는 입력에서 SIGPIPE(141)로 «찾았는데 실패» — 목록은 변수로 받은 뒤 here-string 으로 grep (1.1.25)
 
 카드 r453 · master 111789·112300 · arch#99 실측(BYZ 루트 워크트리 308개 · porcelain 59,129 B · `ft-nano-close.sh --plan-only` 가 등록 워크트리를 «아니다» 로 REJECT → 판정 2367 정리 2곳 막힘). grep 이 찾고 먼저 닫으면 왼쪽(git·printf)이 아직 쓰는 중이라 SIGPIPE 를 받고 `pipefail` 이 141 을 파이프 결과로 올린다. 입력이 파이프 버퍼(실측 60 KB rc0 · 66 KB rc141)를 넘을 때만 나서 워크트리가 적을 땐 시험이 못 잡았다.
