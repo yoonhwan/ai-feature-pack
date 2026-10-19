@@ -593,8 +593,11 @@ _fopen="$(TMUXC_OPENCODE_DB="$EMPTYSTORE/none.db" TMUXC_OPENCODE_SESSIONS="$EMPT
   "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC3 --source ses_abc123 --agent opencode --model 'anthropic/claude-opus-5' --dry-run 2>&1 || true)"
 printf '%s\n' "$_fopen" | grep -qF -- 'opencode --auto --session ses_abc123 --fork' || {
   echo 'FAIL: opencode fork argv must be `--session ID --fork`'; printf '%s\n' "$_fopen"; exit 1; }
-printf '%s\n' "$_fopen" | grep -qF -- '--model anthropic/claude-opus-5' || {
-  echo 'FAIL: opencode fork --model must pass through'; printf '%s\n' "$_fopen"; exit 1; }
+# r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — 모델은 세션 env OPENCODE_CONFIG_CONTENT 로 넘어간다
+printf '%s\n' "$_fopen" | grep -qxF -- 'env=OPENCODE_CONFIG_CONTENT={"model":"anthropic/claude-opus-5"}' || {
+  echo 'FAIL: opencode fork model must pass through as OPENCODE_CONFIG_CONTENT env'; printf '%s\n' "$_fopen"; exit 1; }
+printf '%s\n' "$_fopen" | grep -q -- '^command=.*--model' && {
+  echo 'FAIL: opencode fork command must not carry --model (2.0.32: Unrecognized flag)'; printf '%s\n' "$_fopen"; exit 1; }
 _fopeneff="$(TMUXC_OPENCODE_DB="$EMPTYSTORE/none.db" TMUXC_OPENCODE_SESSIONS="$EMPTYSTORE/opensessions" \
   "$ROOT/core/bin/tmuxc" fork "$ROOT" --name FC3B --source ses_abc123 --agent opencode --effort high --dry-run 2>&1 || true)"
 printf '%s\n' "$_fopeneff" | grep -q -- '--effort 는' || {
