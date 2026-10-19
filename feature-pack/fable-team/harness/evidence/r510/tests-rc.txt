@@ -1,0 +1,45 @@
+$ pytest -q -p no:cacheprovider harness/tests/scripts/test_news_html_cli_startup.py
+.........                                                                [100%]
+9 passed in 22.27s
+rc=0
+
+$ bash harness/tests/test_news_html.sh
+.......................................                                  [100%]
+39 passed in 24.02s
+rc=0
+
+$ bash harness/tests/test_ledger_repo_sync.sh
+PASS usage rc2
+PASS 공용 git config 불변
+ALL PASS
+rc=0
+
+$ pytest -q -p no:cacheprovider harness/tests/scripts/test_seat_turn_batch.py
+FAILED harness/tests/scripts/test_seat_turn_batch.py::test_a_module_matches_old_shell_verdict_40_of_40
+FAILED harness/tests/scripts/test_seat_turn_batch.py::test_e_shell_turn_output_bytes_unchanged
+2 failed, 4 passed in 3.75s
+rc=1
+
+$ python3 -m py_compile harness/bin/ft_news_html.py harness/bin/ft_news_html_render.py harness/kit/fable-team/bin/ft_news_html.py harness/kit/fable-team/bin/ft_news_html_render.py
+rc=0
+
+$ cmp harness/bin/ft_news_html.py harness/kit/fable-team/bin/ft_news_html.py
+rc=0
+
+$ cmp harness/bin/ft_news_html_render.py harness/kit/fable-team/bin/ft_news_html_render.py
+rc=0
+
+$ ruff check --select E,F,W --line-length 250 harness/bin/ft_news_html.py harness/bin/ft_news_html_render.py harness/tests/scripts/test_news_html_cli_startup.py
+help: Remove definition: `slack`
+
+Found 11 errors.
+rc=1
+
+$ (변이) bin 2파일 = origin/main 판 → pytest harness/tests/scripts/test_news_html_cli_startup.py
+7 failed, 2 passed in 8.94s
+(기대 = FAIL · 판 되돌림 뒤 kit↔bin cmp0)
+
+$ ruff check --select E,F,W --line-length 250 (2파일 + 새 시험)
+All checks passed! rc=0
+
+참고: test_seat_turn_batch.py rc=1 = r504(302c2b7c) 착지 뒤 «origin/main 판이 이미 고친 판 — 대조 기준 아님» 자기 대조 단정 2건(ⓐ·ⓔ) · origin/main 판 기준이라 이 단위 변경과 무관 · 파일 겹침 0 → 고침 단위 후보로 master 보고
