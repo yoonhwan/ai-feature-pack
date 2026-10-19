@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 공용 루트 설치가 등록 워크트리의 연결 파일(shim) LIVE_BIN 도 새 판으로 (r512 · 1.1.69)
+
+- 사건: `install.sh --apply --project <공용 루트>` 는 공용 루트 `.fable-team/LIVE_BIN` 만 바꾸고, 연결 파일은 «자기 워크트리 ../LIVE_BIN» 1줄을 읽어 자기 LIVE_BIN 을 가진 워크트리는 옛 판으로 돌았다(arch 106 실측 04:2x · 16곳 중 12곳 1.1.49~1.1.64 · v6-realtime-live 는 설치마다 master 손 보충 · master 82 발주 117810).
+- `harness/install.sh`: 공용 루트 shim 단계 «뒤» `wt_shim_refresh` — `git worktree list --porcelain` 중 공용 루트 아님 ∧ `<wt>/.fable-team/LIVE_BIN` 실재 ∧ bin 에 머리 2줄 `# ft-root-bin-shim:` 파일 1개 이상인 워크트리마다 같은 설치본 `ft-root-bin-shim.sh --root <wt> --live <새 bin> --repo --path --ref`(같은 키트 트리) → LIVE_BIN 갱신 + 새 도구 이름 연결. 줄 = `REFRESHED wt-shim <wt> <옛> -> <새> · SHIM …` / `OK wt-shim <wt> (같음)` / `SKIP wt-shim <wt> (shim 아님|폴더 없음)` / `ERROR wt-shim <wt> rc=<n>: …` · 끝줄 `WT-SHIM refreshed=N skip=M fail=K` · K>0 = 다음 워크트리 계속 + 끝 `INSTALLED <v> · WT-SHIM ERROR — LIVE_BIN 전환은 끝났다 …` rc1(조용한 통과 0). dry-run = `PLAN wt-shim <wt> <옛> -> <새>` + `WT-SHIM plan=N skip=M` · 쓰기 0. 워크트리 `--project` 설치 = 순회 0. 옛 통째 사본 bin 은 손대지 않는다(이동 0 · install-check STALE-COPY 그대로).
+- 카드와 다른 점 1: `--live-root` 는 워크트리에 LIVE_ROOT 파일이 «없을 때만» 공용 루트로 준다(있으면 인자 0 = 보존) — shim 도구는 인자가 없으면 라이브 bin/../.. 를 데이터 루트로 적기 때문.
+- 시험 `test_install_worktree_shim.sh`(새 · 임시 리포 C + W1 shim · W2 옛 사본 · W3 없음 · 임시 HOME · 가짜 launchctl): ⓒ dry-run PLAN 1줄·쓰기 0 ⓐ W1 LIVE_BIN = B · 새 이름 연결 · LIVE_ROOT 보존 · `refreshed=1 skip=1 fail=0` ⓑ W2 바이트 그대로·stale 0·W3 변화 0 ⓔ 두 번째 `refreshed=0`·쓰기 0 · `--project W1` 순회 0 ⓕ 폴더 없는 워크트리 SKIP ⓓ W1 bin 읽기 전용 → `ERROR wt-shim W1 rc=3` + 끝 rc1 · 공용 루트 전환 끝 = 34 PASS(bash5 + /bin/bash 3.2) · 고치기 전 FAIL 16(`harness/evidence/r512/before-fix.txt`). 기존 install 시험 6 rc0 · `test_live_install.sh`·`test_harness_root.sh` ⓒ 는 base(origin/main) install.sh 로도 같은 FAIL(이 변경과 무관 · 원문 `tests-rc.txt`). 실 공용 루트 dry-run = `WT-SHIM plan=18 skip=0` · 옛 판 11(`dry-run-common-root.txt`).
+- 설치: 설치기 1(키트 밖) → 다음 `install.sh --apply --project <공용 루트>` 부터 · LIVE_BIN 지도 cmp 대상 0 · 홈 0 · plist 0 · 되돌림 = 설치기 이전 판 + 워크트리 LIVE_BIN 1줄(REFRESHED 줄의 «옛» 값).
+- 범위 밖: 옛 통째 사본 워크트리 정리 · 연결 파일이 공용 루트 LIVE_BIN 을 직접 읽게 바꾸기(별 카드 후보) · 다른 리포 루트.
+
 ## 2026-10-20 — nano-close --wt 팩 경로: 하네스 팩 나노의 ⑥·⑤·미커밋을 팩 리포 기준으로 대조 (r508 · 1.1.68)
 
 - 사건: 하네스 팩 나노(작업 = `ai-feature-pack/.worktrees/<…>` · 카드 «세트:» = 팩 커밋)는 `ft-nano-close.sh` ⑥ 이 BYZ 쪽 같은 이름 워크트리(spawn base) HEAD 와 대조해 병합 뒤 항상 REJECT · `--wt` 명시 모드도 BYZ 등록 워크트리만 받아 팩 경로 거절 → 매번 `--suspended` 우회(r499·r502·r466 실사건 · harness master 82 발주 116983 · arch 105 실측).
