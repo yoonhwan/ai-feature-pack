@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-nano-never-started-check.sh <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode] [--successor-auto --seats <명부>]
+# ft-nano-never-started-check.sh <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode] [--successor-auto --seats <명부>] [--landed-auto]
 #   ft-nano-close.sh --never-started 의 «산출 0» 검사 (r506): 발주를 한 번도 처리하지 못한 나노는 회수할 산출·seq·증거 줄이 없다 — 그 대신 «한 일 0» 을 값 4개로 센다.
 #     ⓐ 대화 기록 assistant 턴 0 (규칙 1 · 에이전트별) — claude(기본) = ~/.claude/projects/<워크트리 인코딩>/*.jsonl 중 좌석명(agentName/customTitle) 파일의 type=assistant(model <synthetic> 제외) 줄 수(jsonl 없음 = 0)
 #        opencode = ${FT_OPENCODE_DB:-~/.local/share/opencode/opencode.db} 읽기 전용(7초 상한) · session.directory == 워크트리 실경로(또는 그 아래) ∧ time_created ≥ .worktree-info.json created_at(못 정하면 시각 조건 0)
@@ -9,13 +9,16 @@
 #     ⓓ 좌석이 보낸 쪽지 0 — <우편함>/mailbox.log.jsonl(+ 회전본 .1) 의 "from": "<좌석>" 줄 수
 #   --successor-auto(규칙 2·3): 같은 계보(이름 베이스 같고 #번호가 더 큼) 좌석이 ⓐtmux 생존 ⓑpane cwd toplevel == 워크트리 ⓒ명부 행 실재 ∧ _replaced_by 없음 — 셋 다 값으로 확인되면
 #     `SUCCESSOR <이름>` 을 내고 ⓑⓒ(커밋·미커밋 = 후계 몫)를 건너뛴다 · 후계 0 = `SUCCESSOR none` · 못 셈(tmux·명부 조회 실패) = `SUCCESSOR unknown` → 4값 전부(추측 면제 0)
+#   --landed-auto(규칙 2b · 개정 r3): 후계가 없거나 못 셀 때 — ft-landed-check.sh <리포> ${FT_NEVER_MAIN_REF:-origin/main} <가지> <카드 키> 가 rc0(ancestor·cherry·card)이면
+#     `LANDED <근거>` 를 내고 ⓑ 커밋 수만 건너뛴다(ⓒ 미커밋·ⓐ 턴·ⓓ 발신은 그대로) · grep·no·판정 실패·7초 초과 = `LANDED no` → 4값 전부
 #   exit 0 = `NEVER-STARTED ok turns=0 commits=… dirty=… sent=0` · 1 = `REJECT never-started: <항목> <값>` 또는 `… 확인 못 함 <항목>`(셀 수 없으면 통과 0) · 2 = usage
 set -uo pipefail
 USAGE="usage: $0 <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode] [--successor-auto --seats <명부>]"
 SEAT="${1:-}"; shift 2>/dev/null || { echo "$USAGE" >&2; exit 2; }
-WT=""; BR=""; BASE=""; CARD=""; COMM="${FT_INBOX_ROOT:-}"; AGENT=""; SUCC_AUTO=0; SEATS=""
+WT=""; BR=""; BASE=""; CARD=""; COMM="${FT_INBOX_ROOT:-}"; AGENT=""; SUCC_AUTO=0; SEATS=""; LAND_AUTO=0
 while [ $# -gt 0 ]; do
   [ "$1" != --successor-auto ] || { SUCC_AUTO=1; shift; continue; }
+  [ "$1" != --landed-auto ] || { LAND_AUTO=1; shift; continue; }
   [ $# -ge 2 ] || { echo "$USAGE" >&2; exit 2; }
   case "$1" in --wt) WT="$2";; --branch) BR="$2";; --base) BASE="$2";; --card) CARD="$2";; --comm) COMM="$2";; --agent) AGENT="$2";; --seats) SEATS="$2";;
     *) echo "$USAGE" >&2; exit 2;; esac; shift 2; done
@@ -78,6 +81,17 @@ PY
     if [ -z "$turns" ]; then bad+=("확인 못 함 opencode.db($db · 없음·잠김·스키마 다름)"); elif [ "$turns" != 0 ]; then bad+=("opencode 턴 $turns"); fi;;
   *) bad+=("확인 못 함 대화 기록(agent=$AGENT)");;
 esac
+# 규칙 2b 착지 가지(개정 r3) — 후계가 없고 센 커밋이 0 이 아닐 때만 · 판정 7초 상한(perl alarm) · rc0 강한 근거(ancestor·cherry·card)만
+LANDED=no
+landed_check() {
+  local root key lc lw
+  root="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+  key="$(printf '%s' "$BR" | sed 's|^nano/||; s|-r[0-9][0-9]*$||')"; lc="$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-landed-check.sh"
+  if [ -n "$root" ] && [ -f "$lc" ] && lw="$(perl -e 'alarm shift; exec @ARGV' 7 bash "$lc" "$root" "${FT_NEVER_MAIN_REF:-origin/main}" "refs/heads/$BR" "$key" 2>/dev/null)"; then
+    case "$lw" in ancestor|cherry|card) LANDED="$lw";; esac
+  fi
+  echo "LANDED $LANDED"
+}
 commits=skip; dirty=skip
 case "$SUCC" in none|unknown)
 # ⓑ base 위 커밋
@@ -86,7 +100,8 @@ case "$SUCC" in none|unknown)
 if [ -z "$BASE" ]; then bad+=("확인 못 함 base(--base · 카드 base_sha · .worktree-info.json base_sha 모두 없음)")
 elif ! git -C "$WT" rev-parse -q --verify "$BASE^{commit}" >/dev/null || ! git -C "$WT" rev-parse -q --verify "refs/heads/$BR" >/dev/null; then bad+=("확인 못 함 커밋(base $BASE · 가지 $BR)")
 else commits="$(git -C "$WT" rev-list --count "$BASE..refs/heads/$BR")" || commits=""
-  if [ -z "$commits" ]; then bad+=("확인 못 함 커밋(rev-list 실패)"); elif [ "$commits" != 0 ]; then bad+=("커밋 $commits"); fi; fi
+  [ -z "$commits" ] || [ "$commits" = 0 ] || [ "$LAND_AUTO" = 0 ] || landed_check   # 2b 는 «센 커밋이 0 이 아닐 때» 만(0 커밋 가지는 늘 ancestor — 기본 닫기 그대로)
+  if [ -z "$commits" ]; then bad+=("확인 못 함 커밋(rev-list 실패)"); elif [ "$LANDED" != no ]; then commits="skip(landed $LANDED)"; elif [ "$commits" != 0 ]; then bad+=("커밋 $commits"); fi; fi
 # ⓒ 미커밋 (노이즈 제외)
 if st="$(git -C "$WT" status --porcelain -uall 2>/dev/null)"; then   # -uall: 새 폴더를 «dir/» 한 줄로 접지 않는다(노이즈 파일 이름 대조)
   dirty="$(printf '%s\n' "$st" | grep -vE '([ /])(\.worktree-info\.json|next-env\.d\.ts|tsconfig\.json|\.serena/project\.yml)"?$' | grep -c .)"

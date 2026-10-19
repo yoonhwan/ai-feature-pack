@@ -22,7 +22,7 @@ done
 mkdir -p "$T/bin" "$T/fake" "$T/home"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 printf '#!/bin/sh\necho "oc-reap $1 left=0 rc=0"\n' > "$T/bin/ft-opencode-reap.sh"   # r286 회수 = 스텁(opencode 좌석 닫기 · 실기계 프로세스 0)
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-never-started-check.sh" "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-never-started-check.sh" "$SRC/ft-landed-check.sh" "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 cat > "$T/fake/tmux" <<'EOF'
@@ -60,7 +60,7 @@ setup() {  # «한 일 0» 상태로 리셋: 세션 없음 · HEAD == base · �
   printf '# 인덱스: ns\n## 상태\n- base_sha: %s (spawn)\n- 2026-10-20 진행\n' "$BASE" > "$CARD"
 }
 close() { run FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-planner.json" FT_NANO_LEDGER="$LEDGER" FT_NANO_FEAT=main \
-  FT_CHERRY_OVERRIDE_LEDGER="$T/cherry.log" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "$T/bin/ft-nano-close.sh" "$SEAT" "$@"; }
+  FT_CHERRY_OVERRIDE_LEDGER="$T/cherry.log" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 FT_NEVER_MAIN_REF=main bash "$T/bin/ft-nano-close.sh" "$SEAT" "$@"; }
 CHK() { run bash "$T/bin/ft-nano-never-started-check.sh" "$SEAT" --wt "$NW" --branch "$BR" --comm "$T/comm" "$@"; }
 untouched() {
   [ -z "$(cat "$T/tlog")" ] && ok "  └ kill·태그 해제 0" || bad "$1: tmux 변경"
@@ -195,6 +195,33 @@ reject "후계 행 _replaced_by 있음 → 후계 아님 · 4값" "never-started
 shared; printf '%s|%s\n%s|%s\n' "$SEAT" "$NW" "$SUC" "$T" > "$T/panes-path"
 reject "후계 pane toplevel ≠ 워크트리 → 후계 아님 · 4값" "never-started: 커밋 8"
 rm -f "$T/panes-path"
+
+echo "== ⓛ~ⓝ 착지 가지(규칙 2b · 개정 r3) — 후계 없음 · ft-landed-check rc0(ancestor·cherry·card) 이면 커밋 수 생략 · 미커밋·턴·발신은 그대로"
+landed() {  # landed <근거> — 가지에 커밋 2 · main 에 같은 patch(cherry) 또는 키 메시지(grep)
+  setup; for i in 1 2; do echo "$i" > "$NW/l$i.txt"; git -C "$NW" add "l$i.txt"; git -C "$NW" commit -q -m "l$i"; done
+  git -C "$REPO" checkout -q --detach "$BASE"   # main 은 매번 base 에서 다시(앞 회차의 착지분이 남지 않게)
+  git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "main 다른 일"   # 부모를 갈라 같은 초 cherry-pick 이 같은 sha(=ancestor)가 되지 않게
+  case "$1" in
+    cherry) git -C "$REPO" -c user.email=t@t -c user.name=t cherry-pick "$BASE..$BR" >/dev/null;;
+    grep) git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "[docs] ns 정리(키만 언급)";;
+  esac
+  git -C "$REPO" branch -q -f main HEAD; git -C "$REPO" checkout -q main 2>/dev/null || git -C "$REPO" symbolic-ref HEAD refs/heads/main
+}
+landed cherry; out="$(close --never-started "$REASON")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT never-started (착지 가지 cherry · 워크트리 정리 0)" "ⓛ cherry 착지 · 미커밋 0 → CLOSED never-started (착지 가지 cherry · 워크트리 정리 0)" || bad "ⓛ rc=$rc ← ${out:0:1200}"
+has "$out" "LANDED cherry" "  └ 검사기 LANDED <근거>"; has "$out" "commits=skip(landed cherry)" "  └ 커밋 수 생략(착지 몫)"
+[ ! -e "$T/wtclean/$SEAT.sh" ] && ok "  └ 정리 계획 0" || bad "  └ 정리 계획 생김"
+has "$(cat "$LEDGER")" "mode=never-started-landed landed=cherry" "  └ 원장 행 = 착지 가지 표기"
+git -C "$REPO" rev-parse --verify -q "refs/heads/$BR" >/dev/null && ok "  └ 브랜치 실재(삭제 0)" || bad "  └ 브랜치 삭제됨"
+landed cherry; printf '%s|%%1\n' "$SEAT" > "$T/panes"; out="$(close --never-started "$REASON")"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT never-started (착지 가지 cherry · 워크트리 정리 0)" "ⓛ 세션 생존 → CLOSED … (착지 가지 cherry …) + kill" || bad "ⓛ' rc=$rc ← ${out:0:800}"
+has "$out" "KILLED $SEAT" "  └ 세션 kill"
+landed grep; reject "ⓜ grep 근거(약한 증거) → 2b 적용 0 · 4값" "never-started: 커밋 2"
+landed cherry; echo x > "$NW/dirty.txt"; reject "ⓝ 착지 + 미커밋 1 → REJECT" "never-started: 미커밋 1파일"
+landed cherry; printf '{"seq": 40, "from": "%s", "to": "m", "body": "x"}\n' "$SEAT" >> "$T/comm/mailbox.log.jsonl"; reject "착지 + #0 발신 1 → REJECT" "never-started: 보낸 쪽지 1"
+landed cherry; out="$(run FT_NEVER_MAIN_REF=no-such-ref bash "$T/bin/ft-nano-never-started-check.sh" "$SEAT" --wt "$NW" --branch "$BR" --comm "$T/comm" --landed-auto)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "커밋 2" "착지 판정 실패(main ref 없음) → 2b 적용 0 · REJECT 커밋 2" || bad "판정 실패 rc=$rc ← $out"
+setup
 
 echo "== usage rc2 · 변경 0"
 usage2() { local name="$1"; shift; setup; out="$(close "$@")"; rc=$?; [ "$rc" -eq 2 ] && ok "$name → usage rc=2" || bad "$name — rc=$rc ← ${out:0:300}"; untouched "$name"; }
