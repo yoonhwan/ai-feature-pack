@@ -1,0 +1,67 @@
+# r513 고친 뒤 — 2026-10-20 05:08:17 · 6ba27451+작업트리
+## bash tests/test_da_codex_wrapper.sh (GNU bash, 버전 5.3.9(1)-release (aarch64-apple-darwin24.6.0))
+PASS ⓐ rc0
+PASS ⓐ bypass 헤더 인자
+PASS ⓐ 기본 모델 sol
+PASS ⓐ 기본 effort high
+PASS ⓐ --skip-git-repo-check
+PASS ⓐ -C <cwd>
+PASS ⓐ stdin = /dev/null(0 바이트)
+PASS ⓐ 첫 인자 exec
+PASS ⓑ 끝줄 OUT <경로> rc=0
+PASS ⓑ 파일명 da-<시각>-<pid>.out
+PASS ⓑ out-dir 안
+PASS ⓑ 실행 헤더 model:/provider: 두 줄 보존(stderr 포함)
+PASS ⓑ 판정 본문 보존
+PASS ⓑ 두 번째 실행 = 다른 이름
+PASS ⓑ 첫 파일 덮어쓰기 0(파일 2개)
+PASS ⓒ 머리말 1줄(나눠 읽기 · 검증 불가 표기)
+PASS ⓒ 둘째 줄 = 프롬프트 원문
+PASS ⓓ --model/--effort 덮어쓰기(헤더 유지)
+PASS ⓓ 프롬프트 없음 = rc2 + 사유 · codex 0
+PASS ⓓ 빈 프롬프트 = rc2 + 사유 · codex 0
+PASS ⓓ rc2 = 출력 파일 0
+PASS ⓓ --cwd 없음 = rc2
+PASS ⓔ codex rc7 → 래퍼 rc7 · 출력 파일 남김
+PASS ⓔ 백그라운드 & 0
+PASS ⓔ 래퍼 종료 시점에 codex 끝남(전경)
+ALL PASS
+rc=0
+## /bin/bash tests/test_da_codex_wrapper.sh (GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24))
+PASS ⓐ rc0
+PASS ⓐ bypass 헤더 인자
+PASS ⓐ 기본 모델 sol
+PASS ⓐ 기본 effort high
+PASS ⓐ --skip-git-repo-check
+PASS ⓐ -C <cwd>
+PASS ⓐ stdin = /dev/null(0 바이트)
+PASS ⓐ 첫 인자 exec
+PASS ⓑ 끝줄 OUT <경로> rc=0
+PASS ⓑ 파일명 da-<시각>-<pid>.out
+PASS ⓑ out-dir 안
+PASS ⓑ 실행 헤더 model:/provider: 두 줄 보존(stderr 포함)
+PASS ⓑ 판정 본문 보존
+PASS ⓑ 두 번째 실행 = 다른 이름
+PASS ⓑ 첫 파일 덮어쓰기 0(파일 2개)
+PASS ⓒ 머리말 1줄(나눠 읽기 · 검증 불가 표기)
+PASS ⓒ 둘째 줄 = 프롬프트 원문
+PASS ⓓ --model/--effort 덮어쓰기(헤더 유지)
+PASS ⓓ 프롬프트 없음 = rc2 + 사유 · codex 0
+PASS ⓓ 빈 프롬프트 = rc2 + 사유 · codex 0
+PASS ⓓ rc2 = 출력 파일 0
+PASS ⓓ --cwd 없음 = rc2
+PASS ⓔ codex rc7 → 래퍼 rc7 · 출력 파일 남김
+PASS ⓔ 백그라운드 & 0
+PASS ⓔ 래퍼 종료 시점에 codex 끝남(전경)
+ALL PASS
+rc=0
+## bash -n
+rc=0
+## shellcheck kit/fable-team/bin/ft-da-codex.sh
+rc=0
+## shellcheck -S warning tests/test_da_codex_wrapper.sh
+rc=0
+## ft-tmp-trap-lint
+PASS kit/fable-team/bin/ft-da-codex.sh
+PASS tests/test_da_codex_wrapper.sh
+rc=0

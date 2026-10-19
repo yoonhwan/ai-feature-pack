@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — DA 용 codex 래퍼: 헤드룸 «건너뛰기» 헤더로 본문 접힘 0 (r513 · 1.1.70)
+
+- 사건: codex 는 전역 `~/.codex/config.toml` `model_provider = "headroom"`(127.0.0.1:8790)을 타고, 헤드룸 0.33.0 은 큰 `/v1/responses` 요청 본문을 «캐시 참조»로 접는다(`proxy.log:3664` 1093262→934768 bytes). 원문 조회 `headroom_retrieve` 는 DA 의 `approval_policy = "never"` 가 거부(«MCP tool call requires approval, but approval policy is never») → DA 가 본문 대조 0 으로 «검증 불가» HOLD · 라운드 1회 소진(ops org-pick DA② r3 · arch 106 실측 · master 82 발주 118143).
+- `kit/fable-team/bin/ft-da-codex.sh`(새): `--cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model gpt-6.1-sol] [--effort high]` → `codex exec --skip-git-repo-check -C <cwd> -c model=… -c model_reasoning_effort=… -c 'model_providers.headroom.http_headers={"x-headroom-bypass"="true"}' "<머리말>\n<프롬프트>" < /dev/null` 전경 실행(백그라운드 0). 경로(8790→8317)·계정 회전·모델 그대로 · 헤드룸은 `Responses passthrough reason=bypass_header mutation=disabled`(arch 106 실행 시험 `proxy.log:3677`). 출력 = `<out-dir>/da-<YYYYmmdd-HHMMSS>-<pid>.out` 실행마다 새 이름(있으면 `-<n>` 덧붙임 · 덮어쓰기 0 — 10-20 chatbot «판정 파일 덮어씀» 계열 차단) · stdout+stderr 함께(실행 헤더 `model:`/`provider:` 두 줄 보존) · 끝줄 `OUT <경로> rc=<n>` · rc = codex rc. 머리말 1줄 «파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다»(codex 자체 도구 출력 잘림 — 216 KB cat 중간 줄 UNREADABLE, 헤드룸과 무관). 프롬프트 파일 없음·빈 파일·`--cwd`/`--out-dir` 없음·모르는 인자 = rc2 + 사유(codex 0 · 출력 파일 0).
+- 시험 `test_da_codex_wrapper.sh`(새 · PATH 앞 가짜 codex · 외부 호출 0 · 헤드룸 0 · GIT_* env 0): ⓐ 인자(bypass 헤더 · sol · high · `--skip-git-repo-check` · `-C` · stdin 0 바이트) ⓑ 새 파일 이름·두 번 실행 = 파일 2개·헤더 두 줄·끝줄 ⓒ 머리말 첫 줄 + 원문 둘째 줄 ⓓ `--model`/`--effort` 덮어쓰기 · 없음/빈 파일/`--cwd` 없음 rc2 ⓔ codex rc7 → 래퍼 rc7 + 파일 남김 · `&` 0 · 느린 codex 끝난 뒤 래퍼 종료 = 25 PASS(bash5 + /bin/bash 3.2) · 고치기 전 FAIL(`harness/evidence/r513/before-fix.txt`) · shellcheck rc0(래퍼) · tmp-trap-lint PASS.
+- 설치: 키트 1 → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0(지침 1줄 = 착지 뒤 arch 손) · plist 0 · 되돌림 = 래퍼 대신 옛 `codex exec` 1줄.
+- 범위 밖: 헤드룸 설정·기동 인자 · 전역 `~/.codex/config.toml`(일반 codex 작업은 압축 그대로) · 승인 정책 완화 · 시간 상한 추가·변경 · DA 좌석 정의 파일.
+
 ## 2026-10-20 — 공용 루트 설치가 등록 워크트리의 연결 파일(shim) LIVE_BIN 도 새 판으로 (r512 · 1.1.69)
 
 - 사건: `install.sh --apply --project <공용 루트>` 는 공용 루트 `.fable-team/LIVE_BIN` 만 바꾸고, 연결 파일은 «자기 워크트리 ../LIVE_BIN» 1줄을 읽어 자기 LIVE_BIN 을 가진 워크트리는 옛 판으로 돌았다(arch 106 실측 04:2x · 16곳 중 12곳 1.1.49~1.1.64 · v6-realtime-live 는 설치마다 master 손 보충 · master 82 발주 117810).
