@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-19 — opencode 좌석 모델 = 세션 env `OPENCODE_CONFIG_CONTENT`: `--model` 플래그 0 · tmuxc 0.4.1 (r476 · 1.1.35)
+
+카드 r476 · cfo 113325(정본화 나노 opencode 기동 실패 → claude 대체) · master 79 발주 113358 ①. opencode 2.0.32 TUI 최상위 플래그엔 `--model` 이 없고(`opencode run` 전용) tmuxc 가 `opencode --auto --model <ID>` 로 띄워 «Unrecognized flag: --model» 로 첫 줄에서 죽었습니다 — 정본화·리서치·검색 나노(opencode)가 전 팀에서 못 열렸습니다.
+
+- **tmuxc 0.4.1**(`feature-pack/tmuxc`): `resolve_opencode_cmd`·`resolve_opencode_fork_cmd` 에서 `--model` 제거 · 새 `opencode_session_env` = `OPENCODE_CONFIG_CONTENT={"model":"<ID>"}`(python json 이스케이프 · `#variant` 글자 그대로) · `create_tmux_session` 이 추가 env 를 `new-session -e`(FT_SEAT 옆)로 심음 — open·fork 의 opencode+모델일 때만 · `--dry-run` 에 `env=` 줄 · 모델 미지정 = env 0(opencode 기본값) · 다른 agent 경로 변경 0 · 글로벌 `~/.config/opencode/opencode.json`·워크트리 파일 0.
+- **ft-nano-spawn.sh**(bin·kit 짝): PLAN 줄에 `via=OPENCODE_CONFIG_CONTENT`(opencode 만).
+- **시험** 새 `tmuxc/test/test_tmuxc_opencode_model.sh` ⓐ~ⓔ(가짜 opencode·tmux · 실 opencode·외부 호출 0) · `tmuxc/test/verify.sh` 의 opencode fork «`--model` 통과» 단언을 env 계약으로 교체.
+- **실측**: 실 opencode 2.0.32 `run --standalone`(플래그 없이 env 만) → 세션 model 칸 = deepseek-v4.1-flash-free · 대조 glm-5.3-flash-free 도 일치(env 가 모델을 정함) · `#max`/`#high` 는 rc0 이나 variant 기록 0 → base ID 권고.
+- **master 할 일**: `harness/evidence/r476/master-steps.md` — ★tmuxc `install.sh` 를 그대로 돌리지 않는다(팩 COMM-GUIDE-BOOT.md 가 라이브보다 옛 판 → 스킬 링크가 옛 판으로 바뀜)★ · 버전 폴더 복사 설치 + current 전환 · 실사건 opencode 좌석 1석.
+- 범위 밖: tmuxc restore 스냅샷 opencode 분기(`--model` 합성 · 이제 argv 에 모델 없음 → 기본 모델로 복원) · 팩 COMM-GUIDE-BOOT.md 역반영.
+
 ## 2026-10-19 — 뉴스 HTML 모드: 팀 지도 HTML + 한 줄 · opencode 딥식 무료 비대화 1회 (r478 · 1.1.34)
 
 카드 r478 · 오빠 확정 10-19 19:3x(desk 113404·113411·113414 «내용 좋다 html 만 발급 · 슬랙 한 줄 시간과 적정한 반복 · 스크립트로 agent-cli · 결과물·속도로 effort 결정 · 요약과 html 아웃풋»).
