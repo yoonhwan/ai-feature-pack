@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — 오빠 큐 자리 리졸버 1개 + card-start 카드 상대경로 cwd → ref 읽기 (r515 · 1.1.72)
+
+- 사건: `ft-proxy-decide.sh` 가 오빠 큐(AUTONOMY-QUEUE) 줄을 «데이터 루트(LIVE_ROOT = v6-realtime-live 워크트리) 체크아웃의 옛 명단» 으로 푼 `design/planner/AUTONOMY-QUEUE.md` 에 씀(정본 = main `design/teams/planner/` · v6 가지엔 새 폴더 없음) · `--card` 상대경로를 cwd 에서만 찾아 «카드를 못 읽음» 으로 QUEUE(planner 쪽지 118583 · 05:55 loom l3c card-start 2회 · `v6-realtime-live/design/planner/AUTONOMY-QUEUE.md:63`) · 같은 큐를 읽는 `ft-autonomy.sh`·`ft_decision_count.py` 도 같은 옛 자리.
+- `ft-team-lib.sh` `ft_planner_queue <루트>` (새 · 파이썬 짝 `ft_team_lib.planner_queue`): `FT_PLANNER_DIR` 있으면 그 폴더 · 없으면 ref(`FT_TEAMS_REF` · 기본 origin/main) 명단 꼴 planner 폴더가 루트에 실재하면 그 폴더 · 실재 0(이동 전 가지 체크아웃)이면 공용 루트 `.fable-team/state/planner/AUTONOMY-QUEUE.md` · ref 명단 못 읽음·공용 루트 못 풂 = ERROR rc1(옛 체크아웃 꼴·쌍둥이 후퇴 0 — `ft_team_in_ref` 는 실재 쌍둥이 1개면 옛 꼴을 돌려주므로 쓰지 않고 «명단 꼴 후보 1번» 만 본다). 파이썬 `ft_team_lib.data_root`(새 · 셸 `ft_data_root` 짝: FT_ROOT → 공용 루트 LIVE_ROOT 1행(절대경로 폴더 아니면 ERROR) → 공용 루트).
+- 사용처 3: `ft-proxy-decide.sh` QUEUE = 리졸버(폴더는 쓸 때 만든다 · 판정 원장 VERDICTS 읽기는 그대로) · `ft-autonomy.sh` `queue_file` = 리졸버(status·off 의 큐 수·경로) · `ft_decision_count.py` AUTONOMY-QUEUE = `planner_queue(data_root(R))`(env `FT_DECISION_AUTONOMY_QUEUE` 우선 그대로 · 카드 워크트리 후보 0 · MERGE-QUEUE·FLAG-DECISIONS 그대로).
+- card-start 카드: 절대경로 = 그 파일만(지금과 같음) · 상대경로 = cwd 에 있으면 그 파일 · 없으면 `git -C <루트> show <ref>:<경로>` 본문(임시 파일 0 · 변수) · 둘 다 없으면 QUEUE «카드를 못 읽음: <cwd 경로> · <ref>:<경로>».
+- 시험 `test_proxy_decide_queue_card_resolve.sh`(새 · 임시 리포 main 새 꼴 + 옛 꼴 가지 워크트리 = 데이터 루트 · 외부 호출 0 · GIT_* env 0) ⓐ~ⓖ 31 PASS · 고치기 전 FAIL 10(`harness/evidence/r515/before-fix.txt` · ⓐ 옛 자리 쓰기 재현). 기존 시험 2개 보정: `test_team_literal_paths2.sh` 자율 3종(FT_TEAMS_REF=HEAD — 픽스처 origin/main ref 0) · `test_flag_off_scan.sh` 결정 셈(FT_DECISION_AUTONOMY_QUEUE — git 밖 루트).
+- 설치: 키트 5(`ft-team-lib.sh` · `ft-proxy-decide.sh` · `ft-autonomy.sh` · `ft_decision_count.py` · `ft_team_lib.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 5 · 홈 0 · plist 0 · 되돌림 = `.bak-r515`.
+- 범위 밖: v6 라이브 가지에 main 병합 · 옛 `design/planner/AUTONOMY-QUEUE.md` 기존 줄 이관(planner 손) · 큐 묶음 질문(r165) · 자율 중 질문 0(r291) · 셈 분모(r337) · nano-reopen 카드 읽기(cwd 그대로).
+
 ## 2026-10-20 — 범위 분류표: 낱말 금지(과금·키)는 문서 줄 아래 · 경로로 지정한 문서 금지만 위 (r514 · 1.1.71)
 
 - 사건: 자율 범위 분류기 BYZ 내장표(`autonomy_scope_rules.py` · 위에서부터 첫 일치)에서 낱말 금지 줄(과금 `billing|credit|payment|pricing|toss|subscription` · 키 `credential`)이 문서 줄 `^(design|docs)/.*\.md$` 위에 있어, 이름에 그 낱말이 든 문서만 바꾼 PR 이 FORBID — BYZ PR 2143(`docs/architect/CFO_BILLING_SOVEREIGNTY_ARCHITECTURE.md` 1파일) → `SCOPE-REJECT FORBID kind=billing`(planner 쪽지 118375 · master 82 발주 118379 · arch 106 실측: BYZ origin/main design·docs 아래 .md 중 같은 꼴 398개).

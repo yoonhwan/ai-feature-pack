@@ -209,3 +209,27 @@ def team_in_ref(root: Path | str, team: str, ref: str = "origin/main") -> Path:
     if len(hits) != 1:
         raise TeamPathError(f"ERROR {team} 폴더 실재 후보 {len(hits)}개 — 정확히 1개여야 한다(명단 {ref}:design/TEAMS.md · 후보 {cand})")
     return hits[0]
+
+
+def data_root(common: Path | str) -> str:
+    """r515: 셸 ft_data_root 의 파이썬 짝(대리 도구와 같은 데이터 루트) — env FT_ROOT · 없으면 <공용 루트>/.fable-team/LIVE_ROOT 1행(절대경로 폴더 · 아니면 TeamPathError) · 파일 없으면 공용 루트."""
+    live = Path(common, ".fable-team", "LIVE_ROOT")
+    if os.environ.get("FT_ROOT") or not live.is_file():
+        return os.environ.get("FT_ROOT") or str(common)
+    v = (live.read_text(encoding="utf-8").splitlines() or [""])[0].strip()
+    if not (v.startswith("/") and os.path.isdir(v)):
+        raise TeamPathError(f"ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «{v}» ({live})")
+    return v
+
+
+def planner_queue(root: Path | str) -> Path:
+    """r515 — 셸 ft_planner_queue 와 같은 규칙: FT_PLANNER_DIR · ref(FT_TEAMS_REF·origin/main) 명단 꼴 planner 폴더가 루트에 실재 · 아니면 공용 루트 .fable-team/state/planner (옛 체크아웃 꼴 후퇴 0 · 못 풀면 TeamPathError)."""
+    if os.environ.get("FT_PLANNER_DIR"):
+        return Path(os.environ["FT_PLANNER_DIR"]) / "AUTONOMY-QUEUE.md"
+    first = _cands_ref(root, "planner", os.environ.get("FT_TEAMS_REF") or "origin/main")[0]
+    if first.is_dir():
+        return first / "AUTONOMY-QUEUE.md"
+    g = _git_out(Path(root), "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+    if not g:
+        raise TeamPathError(f"ERROR planner 큐 자리를 못 풂 — 명단 꼴 폴더 없음({first}) · 공용 루트(git common dir) 못 읽음: {root}")
+    return Path(g[:-5] if g.endswith("/.git") else g) / ".fable-team/state/planner/AUTONOMY-QUEUE.md"

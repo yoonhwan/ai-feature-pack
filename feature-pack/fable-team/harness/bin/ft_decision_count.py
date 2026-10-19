@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
 from ft_flag_off import open_flags, scan  # noqa: E402
 from ft_inbox_core import MUST_REPORT, R, lineage, obligation_closed, qpath, read_q  # noqa: E402
-from ft_team_lib import TeamPathError, team_in  # noqa: E402
+from ft_team_lib import TeamPathError, data_root, planner_queue, team_in  # noqa: E402
 
 T0 = time.monotonic()
 # 도구 1회 전체 예산 — 외부 조회(tmux·ft-hil.sh)는 남은 예산만큼만 기다린다. 2.0 → 5.0 (R303 · 판정 1395): 실측 중앙 1.47 s · 최대 1.59 s(CPU 28개 부하) · 실사용 rc4 62건 전부 ft-hil.sh 시간 초과(swap) · 호출자 ft_news_ledger 가 timeout=7 이라 그 밑(7초 룰)
@@ -52,11 +52,11 @@ def planner():
         raise ReadError(f"planner 좌석표 {type(e).__name__} {e}")
 
 
-def table(env, name, wt):
-    """(데이터 행 목록, 머리 칸 목록) — 파일이 없으면 None."""
+def table(env, name, wt, at=None):
+    """(데이터 행 목록, 머리 칸 목록) — 파일이 없으면 None. at = 고정 자리 함수(r515 큐 리졸버 · env 다음 · 카드 워크트리 후보 0)."""
     try:  # R382b: planner 폴더는 TEAMS.md 폴더 칸으로 — 루트는 필수, 카드 워크트리 후보는 그 워크트리에 명단이 있을 때만
-        cand = [os.environ[env]] if os.environ.get(env) else [str(team_in(R, "planner") / name)]
-        if not os.environ.get(env) and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
+        cand = [os.environ[env]] if os.environ.get(env) else [str(at() if at else team_in(R, "planner") / name)]
+        if not os.environ.get(env) and not at and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
             cand.append(str(team_in(f"{R}/.worktrees/{wt}", "planner") / name))
     except TeamPathError as e:
         raise ReadError(f"{name} 위치를 못 풀었다: {e}")
@@ -160,7 +160,7 @@ def flag_off(wt):
 def summary(now):
     me, wt = planner()
     decide, team, old = inbox(me, now)
-    mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt)
+    mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt, lambda: planner_queue(data_root(R)))
     a, note = autonomy_open(aq) if aq else (0, "(AUTONOMY-QUEUE 파일 없음)")
     f, fnote = flag_off(wt)
     notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {old})" if old else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)

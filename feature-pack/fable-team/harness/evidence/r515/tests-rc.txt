@@ -1,0 +1,23 @@
+test_proxy_decide_queue_card_resolve.sh rc=0 pass=31 fail=0
+test_proxy_decide_r188.sh rc=0 pass=61 fail=0
+test_autonomy_core.sh rc=1 pass=194 fail=1
+  = base 와 같은 FAIL 목록(기존 실패 · 이 가지 무관)
+test_autonomy_level.sh rc=0 pass=65 fail=0
+test_autonomy_kinds_1675.sh rc=0 pass=109 fail=0
+test_autonomy_hooks.sh rc=0 pass=184 fail=0
+test_autonomy_preflight.sh rc=0 pass=113 fail=0
+test_autonomy_scope.sh rc=0 pass=134 fail=0
+test_autonomy_merge_equiv.sh rc=0 pass=13 fail=0
+test_kit_bin_sync.sh rc=0 pass=7 fail=0
+test_team_literal_paths.sh rc=1 pass=113 fail=6
+  = base 와 같은 FAIL 목록(기존 실패 · 이 가지 무관)
+test_team_literal_paths2.sh rc=1 pass=302 fail=22
+  = base 와 같은 FAIL 목록(기존 실패 · 이 가지 무관)
+test_merge_land_state_dir.sh rc=0 pass=8 fail=0
+test_planner_decision_line_hook.sh rc=0 pass=12 fail=0
+test_flag_off_scan.sh rc=1 pass=35 fail=4
+  = base 와 같은 FAIL 목록(기존 실패 · 이 가지 무관)
+pytest decision_count+team_lib: /opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+All checks passed!
+ruff rc=0
+pytest test_decision_count.py+test_team_lib_sparse.py+test_team_lib_twin.py (BYZ .venv): 47 passed rc=0

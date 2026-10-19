@@ -1,0 +1,32 @@
+PASS 준비: 자율 ON
+PASS 키트 미러 cmp 0: ft-team-lib.sh
+PASS 키트 미러 cmp 0: ft-proxy-decide.sh
+PASS 키트 미러 cmp 0: ft-autonomy.sh
+PASS 키트 미러 cmp 0: ft_decision_count.py
+PASS 키트 미러 cmp 0: ft_team_lib.py
+PASS ⓐ card-start QUEUE → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.77gx68FUwr/repo/.fable-team/state/planner/AUTONOMY-QUEUE.md 에 1행
+PASS ⓐ 옛 자리(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.77gx68FUwr/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md) 쓰기 0
+PASS ⓐ QUEUE 출력의 큐 파일 = 리졸버 자리
+PASS ⓑ 셸·파이썬 리졸버 경로 글자 같음 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.77gx68FUwr/repo/.fable-team/state/planner/AUTONOMY-QUEUE.md | /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.77gx68FUwr/repo/.fable-team/state/planner/AUTONOMY-QUEUE.md)
+PASS ⓑ ft-autonomy status 큐 1 (리졸버 자리에서 셈)
+PASS ⓑ ft-decision-count 가 같은 큐 행 1 을 셈
+PASS ⓑ FT_ROOT 없음(LIVE_ROOT) proxy-decide 큐 = 같은 자리 2행
+PASS ⓑ FT_ROOT 없음(LIVE_ROOT) ft-decision-count 가 같은 자리 2행을 셈
+PASS ⓑ 파이썬 data_root: LIVE_ROOT 상대경로 = ERROR(조용한 대체 0)
+PASS ⓒ 셸 FT_PLANNER_DIR = 그 폴더
+PASS ⓒ 파이썬 FT_PLANNER_DIR = 그 폴더
+PASS ⓒ proxy-decide FT_PLANNER_DIR 큐 = 그 폴더
+PASS ⓒ 새 꼴 체크아웃 루트 = 명단 꼴 폴더
+PASS ⓓ 전제: 카드가 cwd(W) 에 없음
+PASS ⓓ ref 카드 읽음 → 판정 줄 검사 통과 PROXY
+PASS ⓓ ref 카드 읽은 뒤 판정 줄 검사가 계속 돈다(없는 판정 → QUEUE)
+PASS ⓔ 못 읽음 사유에 cwd 경로 · ref 경로 둘 다
+PASS ⓕ 절대경로 없는 파일 → ref 로 안 감
+PASS ⓕ 절대경로 실재 파일 → 그 파일로 PROXY
+PASS ⓖ ft-team-path-lint 키트 폴더(5파일 포함) OK 하드코딩 0
+PASS bash -n ft-team-lib.sh
+PASS bash -n ft-proxy-decide.sh
+PASS bash -n ft-autonomy.sh
+PASS py_compile
+PASS ft-proxy-decide 200줄 이하
+== ALL PASS
