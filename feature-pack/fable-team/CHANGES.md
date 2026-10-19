@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 완성 이동의 정본 갱신 요청 쪽지 = 카드 팀 명부의 `_arch` 로(기본 v65 명부 고정 0) (r487 · 1.1.64)
+
+- 사건: loom 카드 완성 이동(`design/teams/loom/indices/완성/loom-canon-plan-l1-l3.md`)의 «정본 갱신 요청» 쪽지 114386 이 v65 arch 264 에게 갔다(v65 arch 264 요청 114392 → harness arch 103 카드). 원인: `ft-index-move.sh:161` `SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"` — 주석은 «팀 현역 arch» 인데 env 가 없으면 기본 명부(= v65 `_label`)로 고정.
+- `ft-index-move.sh`(kit↔bin cmp0): 쪽지 직전에 팀 해석 — 명단(카드 워크트리 `design/TEAMS.md`) 팀마다 `ft_team_has <팀> <카드 indices 폴더>/ indices/`(쌍둥이 둘 다) · 정확히 1팀 = 그 팀 · 명부 = `seats-<팀>.json`(v65 = `seats.json`) · `FT_SEATS_JSON` 명시가 이김. 0·2+ 팀 = `INFO 정본 쪽지 생략 — 팀 못 정함(명단 팀 N개 · <카드>)` · 명부 파일 없음 = `INFO 정본 쪽지 생략 — 팀 명부 없음(<팀>)` · 출력 `NOTIFIED 정본 갱신 요청 → <arch> (팀 <팀>[ · 명부 FT_SEATS_JSON])` · INFO(_arch 없음)·WARN(발신 실패) 줄에도 팀 글자. 이동·원장·종료코드 변경 0(게이트 아님) · 명부 쓰기 0 · v65 카드 수신자 그대로.
+- 시험: `test_index_move_canon_route.sh`(새) ⓐ 팀 a 카드 → `seats-a.json` `A#1` · `V#1` 0 ⓑ `FT_SEATS_JSON` 명시 → `V#1` ⓒ 팀 b(명부 없음) → 쪽지 0 + INFO · 이동 rc0 ⓓ v65 카드 → `seats.json` `V#1` = 5 PASS(bash5 + /bin/bash 3.2) · 변이(origin/main 판) FAIL 4. 기존 `test_index_move_canon_landed.sh` 18·`canonize` 22·`rule_line` 17·`slack` 14 rc0 · shellcheck -S warning rc0. 설치: LIVE_BIN 키트 1 cmp0 · 홈 0 · 되돌림 = 설치본 `.bak-r487`. 원문 = `harness/evidence/r487/tests-rc.txt`.
+
 ## 2026-10-20 — nano-close --never-started: 발주를 한 번도 처리 못 한 나노(산출 0)를 «한 일 0» 4값으로 닫는다 (r506 · 1.1.63)
 
 - 사건: loom g5a·g5b 정본 나노 #0 — 발주 116731 을 받고 처리 0 · `ft-nano-close.sh` 가 ①`--result` ②`--recv` ⑥증거 줄을 요구해 닫을 경로가 없었다(산출·회수 seq·증거 줄이 원래 없다). 좌석이 자원을 쥔 채 남는다(골 6).
