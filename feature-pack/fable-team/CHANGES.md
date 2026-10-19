@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — 팀 폴더 쌍둥이(옛 꼴 `design/<팀>/` + 새 꼴 `design/teams/<팀>/`)를 ERROR 대신 ref 트리로 가름 (r495 · 1.1.53)
+
+- 사건: v65 master 213(요청 115538)이 뒤처진 체크아웃 `v6-realtime-live`(origin/main 뒤 192커밋 · `design/v65` tracked 17661 + `design/teams/v65` tracked 2)에서 `ft-goal-check` → «ERROR … v65 폴더 실재 후보 2개 — 정확히 1개여야 한다» rc4 · v65 골 틱이 섰다. ref(origin/main)는 `design/v65` 0 · `design/teams/v65` 13583 — 어느 쪽이 팀 폴더인지 이미 말하는데 판정기가 ref 트리를 안 봤다.
+- `ft_team_lib.py team_in_ref` · 셸 `ft_team_in_ref <루트> <팀> [ref]`(신설 · 같은 규칙 · 같은 글자): 실재 1 = 그대로 · 쌍둥이 2 = `git ls-tree -d <ref> -- <후보>` 가 비어 있지 않은 쪽 — 1개 = 그것 + stderr `WARN TWIN-STALE <버린 후보> (ref 에 없음 · 체크아웃 ref 뒤 N커밋)` · 2개 = 명단 꼴 + `WARN TWIN-BOTH …` · 0개 = 기존 ERROR « (ref 에 둘 다 없음)» · 실재 0 = 기존 ERROR(SPARSE-HIDDEN 먼저). 읽기만(ls-tree·rev-list) — 폴더 이동·쓰기 0.
+- `ft-goal-check.sh`: HITS 재구현 삭제 → `ft_team_in_ref` 1줄(«실재 0» 만 기존 ref 본문 경로 · 그 밖 실패 = ERROR rc4). 고른 폴더에 없는 정본은 그 파일만 `<ref>:<명단 꼴>/<파일>` 본문 + 출력 «끝» `NOTE 정본 = <ref> 본문(체크아웃 ref 뒤 N커밋): <파일…>` 1줄(첫 줄 = 판정 그대로) · ref 에도 없을 때만 REJECT 정본 부재. (`ft_team_doc_ref` 를 안 쓴 이유: 쌍둥이에서 «옛 꼴 실재 1개» 를 골라 옛 체크아웃 파일을 돌려준다.)
+- `ft-nano-close.sh`: 원장은 «쓰는» 파일이라 ref 본문 대체 0 — 기존 «원장 파일 실재 정확히 1개» 규칙 유지(뒤처진 체크아웃 `v6-realtime-live` 는 지금도 옛 꼴 `design/v65/…/NANO-LEDGER` 에 쓴다 · 새 꼴엔 원장 0 → 카드 §4 대로 폴더 먼저 고르면 운영 닫기가 REJECT) · 원장이 쌍둥이 «둘 다» 에 있을 때만 `ft_team_in_ref` 로 가름(ref 에 둘 다 없음 = 기존 REJECT 후보 2개).
+- 시험 기대 변경: `test_goal_check_ref.sh` ⓐ8 «쌍둥이 → ERROR»(r479) → «ref 한쪽 → GOAL-OK + WARN TWIN-STALE» — 이유: 전환기엔 뒤처진 체크아웃의 쌍둥이가 «정상 상태» 라 ERROR 는 v65 골 틱을 세웠고, 가름 근거(ref 트리)는 추측이 아니라 정본 조회다. ⓔ3(골 표 planner 쌍둥이)도 같은 판정기라 «ref 쪽 + WARN TWIN-STALE · 빈 새 꼴 = ERROR rc1» 로 바뀐다(옛 꼴 후퇴 0). 신규 ⓐ8b(TWIN-BOTH)·ⓐ8c(ref 둘 다 없음 ERROR)·ⓐ8d(새 꼴 원장 없음 → ref 본문 + NOTE) · `test_team_lib_twin.py` ⓐ~ⓓ(kit·bin · 셸·파이썬 같은 글자) · `test_nano_close_fail_closed.sh` ⓑ2. 설치: LIVE_BIN 키트 4 cmp0 · 홈 0 · plist 0 · 되돌림 = 이 커밋 revert(설치본 `.bak-r495`). 범위 밖: 폴더 실제 이동(planner) · `ft_goal_ledger` 골 표의 ref 본문 대체. 원문 = `harness/evidence/r495/tests-rc.txt`.
+
 ## 2026-10-20 — 새 워크트리 `.fable-team/bin` 첫 설치 길 = shim `--init` (r494 · 1.1.52)
 
 - 사건: chatbot#8 tester 실음성 시험(P3)이 홈 훅 `press-runner-gate.sh` 의 «게이트가 없다 chatbot-main/.fable-team/bin/ft-press-gate.sh fail-closed(R106c)» deny 로 멈췄다(요청 115353). shim(`:25` 루트 bin 없음 ERROR)·설치기(`:42` REJECT)·훅(설치 안내 0) 셋 다 «bin 이 이미 있다» 전제라 새 워크트리는 어느 길로도 bin 을 못 얻는다 — 실측 `.worktrees/*/.fable-team` 313 중 bin 없음 306. master 손(`mkdir bin` + shim)으로 임시 해소.
