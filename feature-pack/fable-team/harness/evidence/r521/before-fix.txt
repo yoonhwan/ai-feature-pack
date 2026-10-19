@@ -1,0 +1,30 @@
+ 8:12  up 2 days, 17:39, 3 users, load averages: 7.85 14.91 17.03
+== ⓐ h 900개 → 1초 안
+FAIL 900개 --pending 3.536초 ≥ 1초
+== ⓑ 6종 섞음 · 가장자리 꼴 · 900개 — 옛 판과 바이트 같음
+PASS mix --pending (요약) — 옛 판과 바이트 같음(1줄 · rc=0)
+PASS mix --pending --each — 옛 판과 바이트 같음(24줄 · rc=0)
+PASS mix --pending --bogus — 옛 판과 바이트 같음(1줄 · rc=0)
+PASS 요약 1줄 꼴 = 미실행 h 24개 (중단/실행 중 11개 포함) · 가장 오래된 60분
+PASS big --pending (요약) — 옛 판과 바이트 같음(1줄 · rc=0)
+PASS big --pending --each — 옛 판과 바이트 같음(18줄 · rc=0)
+== ⓒ 0개 · 폴더 없음 → 출력 0 rc0
+PASS empty (요약) = 출력 0 rc0
+PASS empty --each = 출력 0 rc0
+PASS zero (요약) = 출력 0 rc0
+PASS zero --each = 출력 0 rc0
+PASS missing (요약) = 출력 0 rc0
+PASS missing --each = 출력 0 rc0
+== ⓓ 읽기 실패 → 조용한 0 아님(stdout 0 · stderr 1줄 · rc≠0)
+FAIL h 파일 권한 0 (요약) rc=0 out=미실행 h 2개 · 가장 오래된 3분 err=sed: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6RCCeEaRE6/r1/h2: Permission denied
+FAIL h 파일 권한 0 --each rc=0 out=h1 1
+h3 3 err=sed: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6RCCeEaRE6/r1/h2: Permission denied
+FAIL .ran 권한 0 (요약) rc=0 out=미실행 h 4개 (중단/실행 중 2개 포함) · 가장 오래된 4분 err=
+FAIL .ran 권한 0 --each rc=0 out=h1 1
+h2 2
+h3 0
+h4 4 err=
+FAIL 폴더 권한 0 (요약) rc=0 out= err=
+FAIL 폴더 권한 0 --each rc=0 out= err=
+== 결과: FAIL 7
+rc=1
