@@ -1,7 +1,8 @@
 """ft_news_html_lint — 뉴스 HTML 모드(r478) 게시 «전» 검사: 팀 지도 HTML + 요약. 통과 = `OK` rc0 · 위반 = `LINT <무엇>` 줄들 rc3(발행 0).
 
-규칙: 절 5(h1 «우리 팀들, 지금 어디쯤?» + h2 4개) · 중요한 일 1~7 · 골 6행 · 본문 번호(#숫자·판정 N·sha 꼴)는 맨 아래 각주(<p class="foot">)에만 ·
-요약 1~3줄·≤600 B · 시크릿 꼴 0(HTML·요약 둘 다) · 요약·중요한 일이 코드 판정과 어긋남 0(fact_problems · r478d). 쓰는 쪽 = ft_news_html.py publish · ft-news-effort-test.sh.
+규칙: 절 6(h1 «우리 팀들, 지금 어디쯤?» + h2 5개 · r490 «확인 불가») · 중요한 일 1~7 · 골 6행 · 본문 번호(#숫자·판정 N·sha 꼴)는 맨 아래 각주(<p class="foot">)에만 ·
+요약 1~3줄·≤600 B · 시크릿 꼴 0(HTML·요약 둘 다) · 요약·중요한 일이 코드 판정과 어긋남 0(fact_problems · r478d · r490 확인 불가 팀 쉼 단정).
+쓰는 쪽 = ft_news_html.py publish · ft-news-effort-test.sh.
   ft_news_html_lint.py <html> <summary>
 """
 import re
@@ -9,7 +10,7 @@ import sys
 from pathlib import Path
 
 H1 = "우리 팀들, 지금 어디쯤?"
-H2 = ("지금 제일 중요한 일 (순서대로)", "일하는 팀", "골 6개", "쉬는 팀")  # r478d: 일하는 팀 = 골 카드 위 그림 카드
+H2 = ("지금 제일 중요한 일 (순서대로)", "일하는 팀", "확인 불가", "골 6개", "쉬는 팀")  # r478d: 일하는 팀 = 골 카드 위 그림 카드 · r490: 확인 불가 ≠ 쉬는 팀
 MAX_IMPORTANT, GOALS = 7, 6
 SUMMARY_LINES, SUMMARY_BYTES = 3, 600
 SECRET = re.compile(r"xox[abposr]-[\w-]{6,}|sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AIza[\w-]{30,}"
@@ -19,6 +20,8 @@ FOOT = re.compile(r'<p class="foot">.*?</p>', re.S)
 ALL_STOP = re.compile(r"(모든|전체)\s*팀[^.\n]{0,40}?(멈|정지|대기|쉬)|전\s?팀(이|은|들이|들은)\s[^.\n]{0,40}?(멈|정지|대기|쉬)"  # «전팀 지침…» 제목은 조사 없음 = 제외
                       r"|팀(이|은|들이|들은)?\s*(모두|전부|다)\s[^.\n]{0,20}?(멈|정지|대기|쉬)")
 APPROVAL_WAIT = re.compile(r"승인[^.\n]{0,15}?(기다|대기)")
+REST_SAID = re.compile(r"쉬|멈|정지|대기")
+UNKNOWN_TEAM = re.compile(r'<div class="team unk"><strong>(.*?)</strong>')
 
 
 def _text(html: str) -> str:
@@ -32,7 +35,7 @@ def problems(html: str, summary: str) -> list[str]:
     h1 = re.findall(r"<h1>(.*?)</h1>", html, re.S)
     h2 = [re.sub(r"<[^>]+>", "", h).strip() for h in re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.S)]
     if h1 != [H1] or h2 != list(H2):
-        out.append(f"절 5 아님 — h1={h1} h2={h2}")
+        out.append(f"절 6 아님 — h1={h1} h2={h2}")
     prio = re.search(r'<section class="prio">(.*?)</section>', html, re.S)
     n = len(re.findall(r"<li[ >]", prio[1])) if prio else 0
     if not 1 <= n <= MAX_IMPORTANT:
@@ -62,6 +65,16 @@ def fact_problems(html: str, summary: str, prio: str) -> list[str]:
     auto_v = auto[1] if auto else "모름"
     if auto_v != "OFF" and (m := APPROVAL_WAIT.search(said)):
         out.append(f"자율 {auto_v} 인데 «{m[0].strip()}» 문장")
+    return out + unknown_problems(html, said)
+
+
+def unknown_problems(html: str, said: str) -> list[str]:
+    """«확인 불가» 블록 팀(turn 시간 초과·실패 = 모름 · r490 · 오빠 «챗봇팀은 왜쉬어?»)을 이름으로 짚은 문장에 쉬·멈·정지·대기 단정 = 위반."""
+    out: list[str] = []
+    for team in dict.fromkeys(t.strip() for t in UNKNOWN_TEAM.findall(html)):
+        name = re.compile(rf"(?<![\w-]){re.escape(team)}(?![\w-])")
+        if bad := next((s.strip() for s in re.split(r"[.\n]", said) if name.search(s) and REST_SAID.search(s)), None):
+            out.append(f"확인 불가 팀 {team} 에 쉼 단정 «{bad}»")
     return out
 
 

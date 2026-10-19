@@ -1,11 +1,17 @@
 # Changes
 
-## 2026-10-20 — 홈 훅 설치 = kit/hooks 전부 + 실행 비트 · settings 등록 훅 전수 점검 (r491 · 1.1.47)
+## 2026-10-20 — 홈 훅 설치 = kit/hooks 전부 + 실행 비트 · settings 등록 훅 전수 점검 (r491 · 1.1.48)
 
 - 사건: 손으로 cp 한 홈 훅(`autonomy-merge-guard.sh`)이 664 로 들어와 전 좌석 매 Bash 마다 `/bin/sh: …: Permission denied`. 설치기는 홈 훅 3개만 복사하고 `cp -p → cmp`(내용)만 봐서 실행 비트를 확인하는 경로가 없었다.
 - `harness/install.sh`: 홈 훅 목록 = `kit/hooks/` 일반 파일 전부(고정 3 → 자동 10) · 복사 뒤(또는 내용 같아도) 실행 비트 없으면 `chmod +x` + `HOOK <경로> chmod +x` 줄 · 요약 `HOOKS copied= same= chmod=` · dry-run HOOK 줄 `(exec)`. 새 `audit_registered_hooks <settings.json> <home>`(apply·dry-run 끝 둘 다): 등록 명령의 `…/hooks/…` 경로(`$HOME`·`${HOME}`·`~` 확장) 실재 + 명령 첫 낱말로 직접 실행되는 경로는 실행 비트 → `HOOKS registered=N ok=N bad=M` · 문제 = apply `ERROR HOOK-EXEC <경로> <없음|실행 비트 없음>` rc1 / dry-run `PENDING HOOK-EXEC …` rc0 · settings 없음 = registered=0 · JSON 깨짐 = rc1. `bash <경로>`·가드(`if [ -x …`) 로 부르는 경로는 실재만(644 여도 돈다 — 과차단 0). settings 쓰기 0 · 키트 밖 훅 chmod 0.
 - `ft_live_install_check.py`(bin/kit 짝 cmp0): `hooks/*` 행 라이브 파일 실행 비트 없으면 `EXEC-BIT`(키트 모드 644 여도 · 옛 `MODE` 는 키트 100755 일 때만 봤다).
 - 시험 `harness/tests/test_install_hook_check.sh` r491ⓐ~ⓔ 25칸(옛 판 15 빨강) · 실 홈 dry-run `HOOKS registered=29 ok=29 bad=0`. 기존 `test_live_install.sh`·`test_live_install_check.sh`·`test_live_install_check_tip.sh`·`test_harness_root.sh` 의 빨강은 origin/main 그대로(개수·문구 동일 — 선재). 원문 = `harness/evidence/r491/tests-rc.txt`.
+
+## 2026-10-20 — 뉴스 지도: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수 (r490 · 1.1.47)
+
+- 22:04 뉴스(load 25~31)에서 chatbot 5석의 `ft-seat-status.sh turn` 이 7초 상한을 넘어 «?» 가 됐는데 `facts`·`bucket` 이 일하는 0 인 팀을 전부 «쉬는 팀» 에 넣어 일하는 챗봇팀이 «쉼» 으로 나갔다(오빠 «챗봇팀은 왜쉬어?»).
+- `ft_news_html.py`: `_turn` = 첫 출력 전 실패 1회 재시도(7초 룰 · 시간 초과는 프로세스 묶음째 kill) · 풀 = min(좌석 수, 32) · 팀 칸 `unknown_reason` · `facts` 3분류(일하는 · 확인 불가 · 쉬는). `ft_news_html_render.py`: 3분류 bucket + «확인 불가» 블록 · 프롬프트 1줄. 틀 `news-team-map.html`: H2 «확인 불가» + chip. `ft_news_html_lint.py`: H2 5개 · 확인 불가 팀 이름 + 쉬/멈/정지/대기 단정 = 위반.
+- 시험 `test_news_html.sh` 32 passed(새 ⓐ~ⓓ · 옛 판 RED 4) · 되돌림 = 이 절 커밋 revert(설치본 `.bak-r490`) · 단계 = `harness/evidence/r490/master-steps.md`.
 
 ## 2026-10-20 — 뉴스 ⑥ 트리: 루트·팀 폴더는 부르는 쪽이 넘긴다 — ref 임시본에서 git 128 고침 (r489 · 1.1.46)
 
