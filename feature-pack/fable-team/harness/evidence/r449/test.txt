@@ -1,0 +1,56 @@
+PASS bash -n · sh -n (land·untrack·pre-commit·lib)
+PASS bin·kit 짝 cmp0 ft-merge-land.sh
+PASS bin·kit 짝 cmp0 ft-evidence-untrack.sh
+PASS bin·kit 짝 cmp0 ft-evidence-lib.sh
+PASS ft-merge-land.sh ≤ 120줄
+PASS 판정식 증거 design/x/a.log
+PASS 판정식 증거 design/x/b.out
+PASS 판정식 증거 design/x/c.nohup
+PASS 판정식 증거 design/x/d_guard.log
+PASS 판정식 증거 design/x/poller_dom.jsonl
+PASS 판정식 증거 design/x/poller_dom.jsonl.gz
+PASS 판정식 증거 design/x/guard_base.txt
+PASS 판정식 증거 design/a/b/worker.pid
+PASS 판정식 증거 design/x/r.stdout
+PASS 판정식 아님 design/x/SUMMARY-x.md
+PASS 판정식 아님 design/x/note.md
+PASS 판정식 아님 design/x/guard.sh
+PASS 판정식 아님 design/x/poller_intent.json
+PASS 판정식 아님 design/x/DESIGN-guard.md
+PASS 판정식 아님 design/x/results.jsonl
+PASS 판정식 아님 a.log
+PASS 판정식 아님 scripts/x.out
+PASS 판정식 아님 design/x/poller.py
+PASS ⓐ git add -f 로그 5 + commit → EVIDENCE-LOG-GATE rc1 · 커밋 0
+PASS ⓐ' commit --only(임시 index) 도 REJECT
+PASS ⓑ SUMMARY-x.md·note.md·guard.sh 만 → 통과
+PASS ⓒ env 만(표식 없음) → REJECT
+PASS ⓒ env=1(번호 표식 없음) → REJECT
+PASS ⓒ 표식만(env 없음) → REJECT
+PASS ⓒ env 77 + 표식 evidence-log-ok.77 → 통과
+PASS 판정식 lib 못 찾음 + design/ staged → REJECT(조용한 통과 0)
+PASS 판정식 lib 못 찾음이어도 design/ 밖 커밋은 통과
+PASS ⓓ 가지 diff 에 design/y/z.out → REJECT 1줄(파일명) · main 불변
+PASS ⓓ 요약 md 만 → 착지
+PASS ⓓ untrack 가지(D 만) → 착지 · main 에서 로그 0
+PASS ⓓ 판정식 lib 없는 설치 → 실행 0 rc2(조용한 통과 0)
+PASS ⓔ 미커밋 있으면 REJECT · index 불변
+PASS ⓔ --dry-run 목록 = 판정식과 같음(n=8) · index 불변
+PASS ⓔ 적용 UNTRACK n=8 dry=0
+PASS ⓔ 적용 뒤 ls-files design | 판정식 0 · 나머지 4 tracked
+PASS ⓔ 파일은 디스크에 그대로(8 + design 밖 keep.log)
+PASS ⓔ design/ 밖 로그는 건드리지 않음(범위 밖)
+PASS ⓔ .gitignore 줄 뒤 git status 에 untrack 한 파일 0(?? 없음)
+PASS ⓔ untrack 커밋(D)은 pre-commit 통과
+PASS ⓔ 2회째 n=0(멱등)
+PASS ⓔ 인자 없음 → usage rc2
+PASS ⓔ' 픽스처 = cone 밖 파일은 디스크에 없음
+PASS ⓔ' sparse 워크트리에서 cone 밖 포함 n=2 전부 untrack · 디스크 보존
+PASS ⓖ install --apply → githooks/pre-commit cmp0 · 실행 비트 · .bak-1.1.17
+PASS ⓖ 2회째 same=1(멱등)
+PASS ⓖ dry-run GITHOOK 줄 · hooksPath 어긋남 WARN
+PASS ⓕ 새 파일 600/300 0
+PASS ⓕ 새 파일 외부 호출 0
+PASS ⓕ 이 시험에 GIT_* 경로 env 0
+ALL PASS
+rc=0

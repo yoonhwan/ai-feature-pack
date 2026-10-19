@@ -1,0 +1,11 @@
+test_merge_land.sh rc=0 pass=49 fail=0
+test_merge_land_equiv.sh rc=0 pass=41 fail=0
+test_merge_land_off_approval.sh rc=0 pass=14 fail=0
+test_merge_land_state_dir.sh rc=0 pass=8 fail=0
+test_kit_bin_sync.sh rc=0 pass=6 fail=0
+test_live_install_check_shim.sh rc=0 pass=15 fail=0
+test_install_check_repo_outside.sh rc=0 pass=9 fail=0
+test_merge_head_gate.sh rc=0 pass=32 fail=0
+test_live_install_check.sh rc=1 pass=33 fail=19
+test_live_install_check_tip.sh rc=1 pass=2 fail=13
+# test_live_install_check.sh·_tip.sh 실패 수는 base 7e8791d3 와 같음(19·13 — r385 재배치 뒤 픽스처가 옛 scripts/harness-install 경로 · 이 단위 밖 · 별 카드)
