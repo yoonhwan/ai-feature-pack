@@ -38,7 +38,11 @@ v65_tree "$S/design/teams/v65" REF; planner_tree "$S/design/teams/planner"; g "$
 echo root > "$R/README"; g "$R" add -A; g "$R" commit -qm base; g "$R" fetch -q "$S" main:refs/remotes/origin/main
 REFSHA="$(g "$R" log -1 --format=%h refs/remotes/origin/main -- design/teams/v65/GOAL-LEDGER-v65.md)"
 export TMPDIR="$T/tmpd"; mkdir -p "$TMPDIR"
-check() { OUT="$(cd "$R" && bash "$BIN/ft-goal-check.sh" "$@" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"; }
+check() { OUT="$(cd "${CWD:-$R}" && env -u FT_ROOT bash "$BIN/ft-goal-check.sh" "$@" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"; }
+
+# r485-⓪ 상태 자리(공용 루트 .fable-team/) 못 풂 → ERROR exit 4(조용히 cwd 에 쓰기 0) · 그 뒤 픽스처에 .fable-team/ 를 둔다(실 공용 루트 꼴)
+check seat-a; [ "$RC" = 4 ] && printf '%s' "$OUT" | grep -q '^ERROR seat=seat-a 공용 루트를 못 풂' && [ ! -e "$R/.fable-team" ] && ok "r485-⓪ .fable-team 없는 리포 → ERROR 공용 루트 exit 4 · 쓰기 0" || bad "r485-⓪ rc=$RC :: $OUT :: $ERR"
+mkdir -p "$R/.fable-team"
 
 # ⓐ 공유 루트 cwd · 체크아웃에 v65 폴더 0 · 명단 파일 0 → ref 명단 + ref 본문으로 판정(못 풀었다 0 · exit 4 는 cited 에만)
 check seat-a; [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q "^REREAD-REQUIRED seat=seat-a (좌석 원장 부재" && printf '%s' "$OUT" | grep -q "골원장 sha=$REFSHA" && ok "ⓐ1 폴더 0 → ref 본문·ref sha 로 REREAD-REQUIRED rc3" || bad "ⓐ1 rc=$RC :: $OUT :: $ERR"
@@ -91,6 +95,52 @@ render; [ "$RC" = 0 ] && [ "$OUT" = "$FIRST" ] && [ -z "$ERR" ] && ok "ⓔ2 LIVE
 mkdir -p "$LR/design/teams/planner"; render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더 실재 후보 2개' && ok "ⓔ3 쌍둥이 둘 다 실재 → ERROR 후보 2개 rc1" || bad "ⓔ3 rc=$RC :: $OUT :: $ERR"
 rmdir "$LR/design/teams/planner"; mv "$LR/design/planner" "$T/planner.off"
 render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더 실재 후보 0개' && ok "ⓔ4 둘 다 없음 → ERROR(원장 없음 · 추측 0) rc1" || bad "ⓔ4 rc=$RC :: $OUT :: $ERR"
+
+# ── r485: 원장 키 = ref sha · 상태 = 공용 루트 1개 · 경과 = ref 기준
+# 픽스처: P = origin 판 · Q = 공용 루트(clone · main 이 ref 보다 원장 1커밋 뒤) · W = Q 의 워크트리(원장 한 줄 더 커밋 = 체크아웃 sha ≠ ref sha) · 세 루트의 원장 sha 가 전부 다르다(실측 꼴)
+P="$T/r485src"; Q="$T/r485"; W="$T/r485wt"; X="$T/r485nov"; LP=design/teams/v65/GOAL-LEDGER-v65.md
+WT_ONLY="체크아웃에만-있는-문구-워크트리-좌석이-추가했다"; REF_ONLY="ref-에만-있는-문구-origin-main-이-추가했다"
+mkdir -p "$P/design"; g "$P" init -q -b main
+printf "$HEADROW"'| v65 | `design/teams/v65/` | x | 현역 |\n' > "$P/design/TEAMS.md"; v65_tree "$P/design/teams/v65" R485; g "$P" add -A; g "$P" commit -qm c1
+git clone -q "$P" "$Q"; mkdir -p "$Q/.fable-team"
+printf '| **M2** 참조 | %s | 진행 |\n' "$REF_ONLY" >> "$P/$LP"; g "$P" commit -qam c2; g "$Q" fetch -q origin
+g "$Q" worktree add -q -b wt "$W" origin/main
+printf '| **M3** 좌석 | %s | 진행 |\n' "$WT_ONLY" >> "$W/$LP"; g "$W" commit -qam c3
+rsha() { g "$Q" log -1 --format=%h origin/main -- "$LP"; }
+SQ="$(g "$Q" log -1 --format=%h -- "$LP")"; SW="$(g "$W" log -1 --format=%h -- "$LP")"; SR="$(rsha)"
+[ "$SQ" != "$SR" ] && [ "$SW" != "$SR" ] && [ "$SQ" != "$SW" ] && ok "r485 픽스처 원장 sha 셋 다름(Q=$SQ W=$SW ref=$SR)" || bad "r485 픽스처 sha Q=$SQ W=$SW ref=$SR"
+ST="$Q/.fable-team/state/goal-read-ledger.json"
+row() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));e=d.get(sys.argv[2],{});print(e.get(sys.argv[3],""))' "$ST" "$1" "$2"; }
+
+# r485-ⓐ 워크트리 cwd 에서 --touch → 공용 루트 state 에만 행 1 · ledger_sha = ref sha(체크아웃 sha 아님) · ref_sha 칸
+CWD="$W" check seat-r --touch "$PHRASE"
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q "^GOAL-READ seat=seat-r ledger=$SR .* ref=$(g "$Q" rev-parse --short origin/main) state=.*/r485/.fable-team/state/goal-read-ledger.json OK" && ok "r485-ⓐ1 워크트리 touch → GOAL-READ ref=· state=공용 루트 rc0" || bad "r485-ⓐ1 rc=$RC :: $OUT :: $ERR"
+[ -f "$ST" ] && [ ! -e "$W/.fable-team" ] && [ "$(row seat-r ledger_sha)" = "$SR" ] && [ "$(row seat-r ref_sha)" = "$(g "$Q" rev-parse --short origin/main)" ] && ok "r485-ⓐ2 상태 = 공용 루트 1개 · ledger_sha=ref($SR ≠ 체크아웃 $SW) · ref_sha 칸" || bad "r485-ⓐ2 ledger=$(row seat-r ledger_sha) ref=$(row seat-r ref_sha) wt=$(ls -a "$W" | tr '\n' ' ')"
+
+# r485-ⓑ 공용 루트 cwd(틱 자리)에서 같은 좌석 → GOAL-OK rc0 · REREAD 0
+CWD="$Q" check seat-r; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^GOAL-OK seat=seat-r' && ! printf '%s' "$OUT" | grep -q REREAD && ok "r485-ⓑ 공용 루트 cwd → GOAL-OK rc0(틱과 좌석이 같은 행)" || bad "r485-ⓑ rc=$RC :: $OUT :: $ERR"
+
+# r485-ⓒ ref 에 원장 커밋 1 → 양쪽 cwd 모두 rc3 «골 원장 갱신됨»
+printf '| **M4** 추가 | 원장-갱신-문구-하나-더 | 진행 |\n' >> "$P/$LP"; g "$P" commit -qam c4; g "$Q" fetch -q origin
+CWD="$Q" check seat-r; R1=$RC; O1="$OUT"; CWD="$W" check seat-r
+[ "$R1" = 3 ] && [ "$RC" = 3 ] && printf '%s' "$O1" | grep -q "골 원장 갱신됨 ${SR}→$(rsha)" && printf '%s' "$OUT" | grep -q '골 원장 갱신됨' && ok "r485-ⓒ ref 원장 커밋 → 공용 루트·워크트리 둘 다 rc3 골 원장 갱신됨" || bad "r485-ⓒ rc=$R1/$RC :: $O1 :: $OUT"
+
+# r485-ⓓ 경과 = ref 기준 — 워크트리 로컬 커밋만 늘면 rc0 · ref 에 다른 파일 커밋 MAX+1 → rc3
+CWD="$W" check seat-r --touch "$PHRASE" >/dev/null
+for i in 1 2 3; do echo "$i" > "$W/local$i"; g "$W" add -A; g "$W" commit -qm "l$i"; done
+OUT="$(cd "$W" && env -u FT_ROOT FT_GOAL_MAX_COMMITS=2 bash "$BIN/ft-goal-check.sh" seat-r 2>&1)"; RC=$?
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'commits_since=0' && ok "r485-ⓓ1 워크트리 로컬 커밋 3(>MAX 2) → rc0 commits_since=0" || bad "r485-ⓓ1 rc=$RC :: $OUT"
+for i in 1 2 3; do echo "$i" > "$P/other$i"; g "$P" add -A; g "$P" commit -qm "o$i"; done; g "$Q" fetch -q origin
+OUT="$(cd "$W" && env -u FT_ROOT FT_GOAL_MAX_COMMITS=2 bash "$BIN/ft-goal-check.sh" seat-r 2>&1)"; RC=$?
+[ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '커밋 3개 경과 > 2' && ok "r485-ⓓ2 ref 에 다른 파일 커밋 3 → rc3 커밋 3개 경과" || bad "r485-ⓓ2 rc=$RC :: $OUT"
+
+# r485-ⓔ cited — 체크아웃에만 있는 문구 → OK(체크아웃 파일) · 체크아웃 폴더 없음 + ref 에만 있는 문구 → OK(ref 본문) · 옛 꼴 행(ref_sha 없음) → REREAD
+CWD="$W" check seat-r --touch "$WT_ONLY"; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^GOAL-READ seat=seat-r' && ok "r485-ⓔ1 체크아웃 전용 문구 touch → OK" || bad "r485-ⓔ1 rc=$RC :: $OUT :: $ERR"
+g "$Q" worktree add -q -b nov "$X" origin/main; g "$X" rm -rq design/teams/v65; g "$X" commit -qm nov
+CWD="$X" check seat-x --touch "$REF_ONLY"; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q "^GOAL-READ seat=seat-x ledger=$(rsha)" && ok "r485-ⓔ2 체크아웃 폴더 0 + ref 전용 문구 → ref 본문으로 OK" || bad "r485-ⓔ2 rc=$RC :: $OUT :: $ERR"
+python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));d["seat-r"].pop("ref_sha");json.dump(d,open(sys.argv[1],"w"))' "$ST"
+CWD="$Q" check seat-r; [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '옛 꼴 행 — ref_sha 없음' && ok "r485-ⓔ3 옛 꼴 행(ref_sha 없음) → REREAD rc3 «다시 touch»" || bad "r485-ⓔ3 rc=$RC :: $OUT"
+[ -n "$(rsha)" ] && [ "$(row seat-x ledger_sha)" = "$(rsha)" ] && [ -n "$(row seat-r ledger_sha)" ] && [ ! -e "$X/.fable-team" ] && ok "r485-ⓔ4 상태 파일 1개에 seat-r·seat-x 둘 다(워크트리 X 자리 0)" || bad "r485-ⓔ4 seat-x=$(row seat-x ledger_sha)"
 
 grep -nE '\b(600|300)\b' "$BIN/ft-goal-check.sh" "$BIN/ft_team_lib.py" "$BIN/ft_goal_ledger.py" >/dev/null && bad "600/300 상한 등장" || ok "고친 파일 600/300 0"
 echo "== test_goal_check_ref: fail=$fail"; [ "$fail" = 0 ]

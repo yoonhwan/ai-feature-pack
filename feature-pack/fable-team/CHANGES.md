@@ -1,10 +1,33 @@
 # Changes
 
-## 2026-10-19 — 병합 줄 대조가 «팀 폴더 옛 꼴 글자만 바꾼 줄» 을 같은 줄로 센다 (r477 · 1.1.39)
+## 2026-10-19 — 병합 줄 대조가 «팀 폴더 옛 꼴 글자만 바꾼 줄» 을 같은 줄로 센다 (r477 · 1.1.43)
 
 - `ft_merge_lines.py` 가 줄 비교 전에 «main 이 더한 줄» 의 팀 폴더 옛 꼴(`design/<팀>/`)을 새 꼴(`design/teams/<팀>/`)로 정규화 — 명단 = `ft_team_lib.team_rows_ref`(`FT_TEAMS_REF` · 기본 origin/main) · 꼴2 팀만 · 한 방향(옛→새) · 접두 글자 치환만 · PASS 줄에 `PATHSUBST <n>줄`(0 = 칸 생략).
 - 정규화는 main 이 더한 줄에만 적용한다 — 후보 줄까지 정규화하면 «새 꼴 → 옛 꼴» 역방향(카드 ⓓ 거절)이 통과한다(시험이 못 박음). 명단 못 읽음 = `WARN 명단 ref 못 읽음 — PATHSUBST 0` 1줄(stderr) + 옛 동작(정규화 0 · 추측 0 · 합성 픽스처는 WARN 0).
 - 시험 새 `tests/test_merge_lines_pathsubst.sh` ⓐ~ⓕ ALL PASS · 기존 merge·land 시험 9종 ALL PASS(선재 빨강 2종은 origin/main 그대로) · 옛 판 RED(ⓐ → DENY) · 실사건: loom PR 1976 head 280b041aa5(M=75b386) 옛 판 DENY 83파일 → 새 판 DENY 2파일 + PATHSUBST 155줄(남은 2 = 명단 밖 `concierge` 재명명 팀 — 추측 0 규칙대로 거절 · `harness/evidence/r477/master-steps.md`).
+
+## 2026-10-19 — 뉴스 HTML: top 갈래를 요약·중요한 일 2갈래로 쪼갬 · 상한 초과 = 첫 출력 전 실패 재시도 1 (r478e · 1.1.42)
+
+- 첫 자동 틱이 부하(load 25~50)에서 `opencode run top 상한 38s 초과` — top(요약+중요한 일+근거) 한 호출이 max/high 에서 흔들림. 7초 룰대로 top → summary(요약+근거) · important(중요한 일) 2갈래로 쪼개 4갈래 병렬 · 시도당 상한 크기 비례 그대로 · 시도당 상한 초과 = 첫 출력 전 실패로 보고 총 마감 70초 안 재시도 1회.
+- 시험 `test_news_html.sh` 28 passed(새 2: 한 갈래 부하 지연 → 전체 발행 0 · 초과 재시도 1). 실측(같은 입력 · load 15~50): high 최대 갈래 26.4/20.9초 · base 27.9/29.2초 · max 는 22~62초로 흔들림 → 권장 effort=high. 단계 = `harness/evidence/r478e/master-steps.md`.
+
+## 2026-10-19 — 골 원장 판정기: 판정 키 = ref origin/main sha · 상태 = 공용 루트 1개 · 경과 = ref 기준 (r485 · 1.1.41)
+
+- v65 master 가 자기 워크트리에서 `--touch` 해도 다음 틱(공용 루트 cwd)이 `REREAD-REQUIRED` — 원장 sha·상태 파일·커밋 경과를 전부 «cwd 의 git 루트» 에서 잡아 틱과 좌석이 다른 파일에 다른 키를 썼다.
+- `ft-goal-check.sh`: 상태 = `${FT_ROOT:-ft_repo_root}/.fable-team/state/goal-read-ledger.json`(못 풀면 ERROR exit 4) · 원장·정본 sha = `$REF` 의 명단 꼴 경로 이력(체크아웃이 옛 꼴 폴더여도 같은 값 · ref 에 원장 없으면 ERROR) · touch 행에 `ref_sha` · 경과 = `rev-list <ref_sha>..$REF`(좌석 로컬 커밋은 안 셈) · `ref_sha` 없는 옛 꼴 행 = REREAD «다시 touch» · GOAL-READ 에 `ref= state=`. 체크아웃은 cited grep·NEXT 에만. 판정 세 조건(원장 갱신·TTL·경과)은 그대로.
+- 시험 `test_goal_check_ref.sh` r485-⓪·ⓐ~ⓔ 12 + 기존 22 = fail=0. 이행·되돌림 = `harness/evidence/r485/master-steps.md`.
+
+## 2026-10-20 — 뉴스 틱 ⑥ 완성 트리 복구: 도구는 $HERE(LIVE_BIN) 형제를 부른다 · shim 은 exec 만 (r484 · 1.1.40)
+
+- 1.1.37 부터 뉴스 ⑥ 트리가 비었다 — `ft-news-tick.sh:56` 이 옛 라이브 워크트리 자리 `ft-news-tree.py` 를 `python3` 에 넘겼는데 그 자리는 r413 뒤 bash shim 이라 `SyntaxError: unmatched ')'`(v65 master 212 #114311).
+- `ft-news-tick.sh` 도구 호출 8줄 + `ft-news-tick-cfo.sh:22` → `$HERE/…` · `WT` 는 제품 커밋 조회에만. 새 린트 `ft-shim-exec-lint.sh`(키트 bin 에 `python3|bash|sh "$X/.fable-team/bin/…"` 꼴 0 · `test_kit_bin_sync.sh` 가 부름). shim 생성기 변경 0.
+- 시험 `test_root_bin_shim.sh` r484 ⓐ~ⓓ + 옛 꼴 SyntaxError 재현 대조 · 같은 파일 기존 RED 11건(r385 뒤 키트 기본 변경)도 `--repo·--path` 명시로 rc0. 단계 = `harness/evidence/r484/nano-steps.md`.
+
+## 2026-10-19 — 뉴스 HTML: 일하는 팀 = 골 위 그림 카드 · 요약이 코드 판정(일하는 팀·자율)을 따른다 (r478d · 1.1.39)
+
+- 오빠 2차 반려(«챗봇이 아래에 텍스트만») — 일하는 팀(라이브 좌석 실측)을 골 카드와 같은 그림 카드로 «골 6개» 위에 · 쉬는 팀은 맨 아래 목록.
+- desk 실측 거짓 요약(«모든 팀 멈춤 · 승인 기다림») — 프롬프트에 코드 판정 facts(일하는/쉬는 팀 · `ft-autonomy.sh mode`) · 린트가 «일하는 팀 ≥1 인데 모두 멈춤» · «자율 OFF 아닌데 승인 기다림» 을 발행 0 으로 막는다.
+- 시험 `test_news_html.sh` 26 passed. 단계 = `harness/evidence/r478d/master-steps.md`.
 
 ## 2026-10-19 — 뉴스 HTML «일하는 팀» = 라이브 좌석 실측 · 일하는 팀이 위 (r478c · 1.1.38)
 
