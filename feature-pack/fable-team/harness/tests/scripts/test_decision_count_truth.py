@@ -1,9 +1,16 @@
 """R337 ft-decision-count — 「결정 인터뷰 N건」 = 머리 질문 표식 있는 미닫힘만 · 통보 머리 0 · planner 계보가 «#N 회신/답…» 으로 참조한 쪽지는 닫힘 · 24시간 넘은 질문은 «묵은» 칸.
-임시 FT_ROOT·가짜 인박스·가짜 mailbox 로그만(실 mailbox 0). 고정물은 test_decision_count 의 것을 그대로 쓴다."""
+임시 FT_ROOT·가짜 인박스·가짜 mailbox 로그만(실 mailbox 0). 임시 루트는 test_decision_count.make_env 그대로."""
 import json
 import time
 
-from test_decision_count import ME, NOW, env, put, row, run  # noqa: F401  (env = pytest 고정물)
+import pytest
+from test_decision_count import ME, NOW, make_env, put, row, run
+
+
+@pytest.fixture
+def env(tmp_path):
+    return make_env(tmp_path)
+
 
 G, C, L = "byz-graphics-master-claude#3", "byz-cfo-master-claude#1", "byz-loom-master-claude#1"
 
@@ -30,11 +37,14 @@ def sample():
             row(10, "②", L, ago=5, body="[오디오 끝] tester rc=0")]
 
 
+ANSWERS = [("byz-planner-master-claude#49", G, "[회신 #4] 승인 — 범위 상향"),  # 같은 계보(옛 세대)의 답 = 닫힘
+           ("byz-planner-desk-claude#23", G, "[회신 #1] desk 가 대신 답"),  # 남의 좌석 참조 = 닫힘 아님
+           (G, ME, "#2 확인 — cfo 질문 봤음")]
+
+
 def test_a_sample_counts_only_open_question_heads(env):
     put(env, sample())
-    sent(env, [("byz-planner-master-claude#49", G, "[회신 #4] 승인 — 범위 상향"),  # 같은 계보(옛 세대)의 답 = 닫힘
-               ("byz-planner-desk-claude#23", G, "[회신 #1] desk 가 대신 답"),  # 남의 좌석 참조 = 닫힘 아님
-               (G, ME, "#2 확인 — cfo 질문 봤음")])
+    sent(env, ANSWERS)
     r = run(env)
     assert r.returncode == 0, r.stderr
     assert r.stdout.startswith("결정 인터뷰 3건 · 스크립트 0건 · 팀 대기 2건(가장 오래 byz-cfo-master-claude#1 60분) · 묵은 1건"), r.stdout
@@ -42,6 +52,7 @@ def test_a_sample_counts_only_open_question_heads(env):
 
 def test_b_detail_has_reason_word_and_keeps_stale_visible(env):
     put(env, sample())
+    sent(env, ANSWERS)
     d = run(env, "--detail").stdout.splitlines()
     assert d[1].startswith("  #2 ") and " 질문표식 " in d[1] and d[2].startswith("  #1 ") and " 질문표식 " in d[2], d
     rest = "\n".join(d[3:])
@@ -53,6 +64,12 @@ def test_c_rest_notice_from_live_seat_is_not_team_wait(env):
               row(2, "④", C, ago=900, body="[완료·휴식 유지 #77] 그대로")])
     out = run(env).stdout
     assert out.startswith("결정 인터뷰 0건") and "팀 대기 0건" in out and "가장 오래" not in out, out
+
+
+def test_c2_dead_seat_question_is_memo_not_n(env):
+    put(env, [row(1, "②", "byz-old-master-claude#7", ago=100), row(2, "②", C, ago=50)])
+    out = run(env).stdout
+    assert out.startswith("결정 인터뷰 1건") and "(옛 좌석 미닫힘 1)" in out, out
 
 
 def test_d_missing_autonomy_queue_file_is_zero_without_memo(env):
@@ -72,6 +89,7 @@ def test_f_budget_with_big_sent_log_and_900_rows(env):
     put(env, [row(i, "미상", f"byz-t{i % 9}-master-claude#1", ago=i, body="[결정] x?" if i % 3 else "[완료] y") for i in range(1, 901)])
     sent(env, [(f"byz-t{i % 9}-master-claude#1", ME, "[보고] " + "가" * 300) for i in range(30000)]
          + [("byz-planner-master-claude#50", G, f"[회신 #{i}] 답") for i in range(1, 300)])
+    (env["root"] / "live.txt").write_text("".join(f"byz-t{i}-master-claude#1\n" for i in range(9)))
     t0 = time.time()
     r = run(env)
     assert r.returncode == 0 and time.time() - t0 <= 2.5, (time.time() - t0, r.stderr)

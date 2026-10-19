@@ -45,6 +45,11 @@ def put(env, rows):
 
 @pytest.fixture
 def env(tmp_path):
+    return make_env(tmp_path)
+
+
+def make_env(tmp_path):
+    """임시 FT_ROOT 한 벌 — test_decision_count_truth(R337)도 같은 것을 쓴다."""
     (tmp_path / ".fable-team").mkdir()
     (tmp_path / "design").mkdir()  # R382b: planner 폴더는 TEAMS.md 폴더 칸으로 풀린다
     (tmp_path / "design/TEAMS.md").write_text("| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n", encoding="utf-8")
