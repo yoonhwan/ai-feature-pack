@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — 하네스 팩 나노 작업 폴더 자리 = <팩>/.worktrees/<키> (r519 · 1.1.75)
+
+- 사건: 팩 작업 폴더 자리를 정한 곳이 없어 r517 나노가 세션 스크래치(`/private/tmp/…/scratchpad/afp`)에 팩 워크트리를 만들었고, `ft-nano-close.sh` 팩 모드(r508 · `--wt` = 팩 `.worktrees/` 아래만)가 2회 REJECT(harness master 83 발주 119026 ①). 닫기 기준을 넓히지 않고 «만드는 자리» 를 정한다(arch 106).
+- `ft-nano-spawn.sh`: `pack_wt_line <카드> <키> <브랜치>`(새) — 카드에 `- 설치: 있음`(하네스 카드)이면 첫 발주문 끝에 «★팩 작업 폴더 = `${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}/.worktrees/<키>` (`git -C <팩> worktree add … -b <브랜치> origin/main` · 세션 스크래치 0 — 닫기 = `nano-close --wt … --branch …`)★» 1줄 · dry-run 에도 `BODY+` 로 출력 · 그 밖 카드 = 출력 0.
+- `ft-nano-close.sh`: `_pack_move_hint`(새) — ⓐ REJECT 대상 `--wt` 가 팩 «등록» 워크트리인데 표준 자리 밖이면 같은 REJECT 줄 끝에 « · 표준 자리 밖 — `mkdir -p <팩>/.worktrees && git -C <팩> worktree move <옛> <팩>/.worktrees/<키>` 뒤 같은 명령(--wt …)» (키 = `--branch` 의 `nano/` 뒤) · 판정(REJECT)·닫기 기준 변경 0 · 팩 미등록 폴더는 덧말 0. `mkdir -p` 는 팩 `.worktrees/` 가 없으면 `worktree move` 가 실패해서(시험 ⓓ 실측).
+- 시험 `test_pack_nano_worktree_place.sh`(새 · 임시 리포 2개 + 가짜 tmux · spawn 은 함수 추출 · 외부 호출 0 · GIT_* env 0) ⓐ 하네스 카드 줄·기본 팩 경로 ⓑ 제품 카드 0줄 ⓒ 스크래치 꼴 등록 워크트리 REJECT 그대로 + 덧말 · 미등록 폴더 덧말 0 ⓓ 덧말 명령 «그대로» 실행 → 같은 명령 CLOSED(mode=pack-wt) = ALL PASS · 고치기 전 FAIL 10(`harness/evidence/r519/before.txt` · ⓓ CLOSED 는 그때도 PASS = 팩 모드 그대로).
+- 설치: 키트 2(`ft-nano-spawn.sh` · `ft-nano-close.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r519`.
+
 ## 2026-10-20 — 결정 셈 planner 표(MERGE-QUEUE·FLAG-DECISIONS) = ref origin/main 명단 + ref 본문 (r517 · 1.1.74)
 
 - 사건: `ft-decision-count.sh` 가 planner 표 자리를 «루트(공용 루트) 체크아웃의 `design/TEAMS.md`» 로 풀어, 공용 루트 체크아웃(main 51881ba2e4 · 2026-09-23 · 명단 없음)·v6 어느 cwd 에서 불러도 `ERROR … 팀 명단 없음 … design/TEAMS.md` rc4(planner 쪽지 118922 · harness master 83 발주 118925 · arch 106 실측). 발주의 «실패인데 rc 0» 은 재현 0 — 도구 rc = 4 · 0 은 `| tail` 파이프 끝 rc.

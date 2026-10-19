@@ -1,0 +1,12 @@
+
+In kit/fable-team/bin/ft-nano-spawn.sh line 51:
+    . "$_tenv"
+      ^------^ SC1090 (warning): ShellCheck can't follow non-constant source. Use a directive to specify location.
+
+
+In kit/fable-team/bin/ft-nano-close.sh line 88:
+    . "$_tenv"
+      ^------^ SC1090 (warning): ShellCheck can't follow non-constant source. Use a directive to specify location.
+
+For more information:
+  https://www.shellcheck.net/wiki/SC1090 -- ShellCheck can't follow non-const...

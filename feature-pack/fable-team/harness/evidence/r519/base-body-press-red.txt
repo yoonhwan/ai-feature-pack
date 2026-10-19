@@ -1,0 +1,4 @@
+origin/main 1af0f63a (ft-scratch-repo 사본) test_nano_spawn_body_press.sh rc=2 FAILED=2:
+FAIL ⓒ status 에 node_modules 보임
+FAIL ⓒ 전체 스테이징이 node_modules 를 담음
+→ 이 카드 변경 전부터 같은 RED (link_web_node_modules · .gitignore 칸) — 범위 밖 · 수정 단위 요청
