@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — 슬랙 보고 도구 인자: reply 의 `--channel` 기본값(None)이 다른 서브명령 7개로 새던 것을 막는다 (r474 · 1.1.31)
+
+카드 r474 · master 79 발주 113237·113489 · arch 102 실측. r414 의 `rpl.set_defaults(channel=None)` 은 reply 만 노렸지만, argparse `parents=[common]` 는 부모의 Action «객체» 를 자식이 공유하고 `set_defaults` 는 그 Action 의 `.default` 를 고치므로 start·progress·result·check·repair·update·attach 의 기본 채널까지 None 이 됐습니다 → 홈 설치(10-19 09:24) 뒤 뉴스 발행 `conversations.history channel_not_found` · 임시 우회 = 뉴스 plist env `FT_NEWS_POST_ARGS=--channel C0C6MJGRR89`. 기존 시험은 매 호출에 `--channel C1` 을 명시해 기본값을 못 봤습니다.
+
+- **kit/slack-mirror/thread_post_args.py**: `--channel` 을 `common` 에서 빼 두 부모로 — `chan`(기본 CHANNEL · 서브명령 7개) / `chan_reply`(기본 None · reply). Action 공유가 없어져 `set_defaults` 삭제 · reply ∧ `--ts` ∧ None → CHANNEL 되돌림 줄 유지 · 그 밖 변경 0.
+- **시험** 새 `tests/scripts/test_thread_post_args.py`(`PYTHONPATH=kit/slack-mirror:tests/scripts python3 -m pytest …`): ⓐ 서브명령 7개 기본 channel == CHANNEL ⓑ reply --thread = None ⓒ reply --ts = CHANNEL ⓓ 명시 `--channel C1` 9경우 전부 C1 · 같은 프로세스 reply 뒤 update 도 CHANNEL. RED = origin/main 판 8 FAIL(ⓐ 7 + 누수 1 · 전부 `channel=None`) → 고친 판 19 passed · 기존 `test_thread_post.py`·`test_thread_post_attach.py` 포함 45 passed · `tests/test_thread_reply_named.sh`(r414) ALL PASS.
+- **master 할 일**: 착지 → `install.sh --apply --project <루트>` → 홈 `~/.hermes/scripts/thread_post_args.py` cmp0 → 실사건 1 = plist env 없이 뉴스 발행 1회(`conversations.history` ok · 뉴스 틱 로그 줄) → `com.byz.ft-news-planner.plist` 의 `FT_NEWS_POST_ARGS` 줄 제거(되돌림 = 줄 복구 · 파일 되돌림 = `.bak-r474`).
+- 범위 밖: 등록부(r414) · 뉴스 발행 본체(r458) · 다른 kit 파일.
+
 ## 2026-10-19 — 틱 데몬 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main): comm 을 공용 루트로 · shim 폴더 옛 사본 자가 검사 · 골·뉴스 틱 정본 ref 읽기 · 설치기 comm 동기화 + RESTART 줄 (r459 · 1.1.30)
 
 카드 r459 · master 112539·112636 · arch 101 실측 · 골 6(메인 골 1 팀장 v65 master 가 틱 없이 36시간). 메인 틱이 10-18 09:53 부터 `skip … 에이전트 판정 불가(<v6>/.fable-team/comm/ft-agent-alive.sh 실행 실패)` 839회 — `ft_comm_dir` 가 데이터 루트 = LIVE_ROOT(옛 라이브 워크트리 v6-realtime-live)의 comm 으로 풀렸는데 거기엔 판정기가 없었습니다(진짜 우편함·판정기 = 공용 루트 comm). 10-19 09:04 shim 교체 뒤엔 «먼저 기동한» 틱 6개가 메모리의 옛 사본으로 shim 폴더의 `.py` 를 python3 로 읽어 SyntaxError 를 반복했고, goal-tick 은 글자 ROOT(v6)·뉴스 틱은 체크아웃 명단으로 v65 폴더를 못 풀어 ERROR(112632).
