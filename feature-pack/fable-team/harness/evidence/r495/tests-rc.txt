@@ -44,3 +44,6 @@ $ 변경 파일을 부르는 시험 50개(tests/*.sh tests/*/*.sh grep ft-goal-c
 1 tests/test_team_move_roundtrip.sh
 1 tests/test_wt_clean_plan_self_check.sh
 $ ft-team-path-lint.sh kit/fable-team/bin → ① INFO 리터럴 대기 0 · ② ERR 쌍둥이 후보 ft-nano-close.sh(:505 ft_index_twin · 기존 줄 · 이 diff 의 ft_index_twin 0)·ft-nano-spawn.sh — origin/main 에서도 같음
+$ (실사건 미리보기 · 읽기 전용 · --touch 0) cd .worktrees/v6-realtime-live && FT_ROOT=<BYZ 루트> bash <나노 bin>/ft-goal-check.sh byz-v65-master-claude#213
+  새: stderr «WARN TWIN-STALE …/v6-realtime-live/design/v65 (ref 에 없음 · 체크아웃 ref 뒤 202커밋)» · stdout «REREAD-REQUIRED … 커밋 11개 경과 > 10» + 끝 «NOTE 정본 = origin/main 본문(체크아웃 ref 뒤 202커밋): GOAL-LEDGER-v65.md + 정본 3» rc=3 (= 정상 골 흐름 · touch 뒤 GOAL-OK)
+  옛(라이브 1.1.52): «ERROR seat=byz-v65-master-claude#213 v65 폴더 실재 후보 2개 — 정확히 1개여야 한다(…)» rc=4
