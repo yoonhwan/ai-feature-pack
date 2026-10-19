@@ -1,10 +1,16 @@
 # Changes
 
-## 2026-10-20 — 키트 ft-mbox send/relay 도 보관 로그 mailbox.log.jsonl 에 1행 + send 자가 점검 WARN (r488 · 1.1.43)
+## 2026-10-20 — 키트 ft-mbox send/relay 도 보관 로그 mailbox.log.jsonl 에 1행 + send 자가 점검 WARN (r488 · 1.1.44)
 
 - 라이브 `ft-mbox.sh send`(키트 단일 파일 `ft-mbox.py`)는 보낸 행을 `mailbox.jsonl` 에만 써서, recv 가 소비하면 그 쪽지의 레코드가 어디에도 남지 않았다(bodies 만) → `ft_da_hold_gate find_record` 등이 «쪽지 없음» 판정(실측 114380~114490 중 6건). 루트 모듈판 `mbox_guard._log_sent` 규칙 그대로 `ft-mbox.py send`(relay 는 send 경유)가 `_save` 직후 같은 잠금 안에서 `mailbox.log.jsonl` 에 1행 append · `FT_MBOX_LOG_MAX_BYTES`(기본 5MB) 초과 시 `.1` 회전 · 기록 실패는 stderr WARN(전송 rc 불변).
 - `ft-mbox.sh` send/relay 끝에 그 seq 행이 로그에 정확히 1행인지 `grep -c` — 아니면 stderr `WARN sent-log <n> seq=<N> file=<경로>`(fail-open). skill/scripts 사본 2 동기화(cmp 0). 큐 꼴·recv 소비 규칙·루트 untracked 정본 변경 0.
 - 시험 `harness/tests/test_ft_mbox_sent_log.sh` ⓐ~ⓕ(변이 포함) · 되돌림 = 이 절 커밋 revert(설치본은 `.bak-r488`).
+
+## 2026-10-19 — 병합 줄 대조가 «팀 폴더 옛 꼴 글자만 바꾼 줄» 을 같은 줄로 센다 (r477 · 1.1.43)
+
+- `ft_merge_lines.py` 가 줄 비교 전에 «main 이 더한 줄» 의 팀 폴더 옛 꼴(`design/<팀>/`)을 새 꼴(`design/teams/<팀>/`)로 정규화 — 명단 = `ft_team_lib.team_rows_ref`(`FT_TEAMS_REF` · 기본 origin/main) · 꼴2 팀만 · 한 방향(옛→새) · 접두 글자 치환만 · PASS 줄에 `PATHSUBST <n>줄`(0 = 칸 생략).
+- 정규화는 main 이 더한 줄에만 적용한다 — 후보 줄까지 정규화하면 «새 꼴 → 옛 꼴» 역방향(카드 ⓓ 거절)이 통과한다(시험이 못 박음). 명단 못 읽음 = `WARN 명단 ref 못 읽음 — PATHSUBST 0` 1줄(stderr) + 옛 동작(정규화 0 · 추측 0 · 합성 픽스처는 WARN 0).
+- 시험 새 `tests/test_merge_lines_pathsubst.sh` ⓐ~ⓕ ALL PASS · 기존 merge·land 시험 9종 ALL PASS(선재 빨강 2종은 origin/main 그대로) · 옛 판 RED(ⓐ → DENY) · 실사건: loom PR 1976 head 280b041aa5(M=75b386) 옛 판 DENY 83파일 → 새 판 DENY 2파일 + PATHSUBST 155줄(남은 2 = 명단 밖 `concierge` 재명명 팀 — 추측 0 규칙대로 거절 · `harness/evidence/r477/master-steps.md`).
 
 ## 2026-10-19 — 뉴스 HTML: top 갈래를 요약·중요한 일 2갈래로 쪼갬 · 상한 초과 = 첫 출력 전 실패 재시도 1 (r478e · 1.1.42)
 
