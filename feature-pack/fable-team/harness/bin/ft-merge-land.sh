@@ -53,6 +53,7 @@ if [ "$HEADSHA" != "$AP" ]; then
 fi
 EQM="$(printf '%s' "$EQ" | sed -n 's/.* mode=\([a-z]*\) overlap=\([0-9]*\).*/equiv=\1 overlap=\2/p')"   # R281: merge-gate.log·PR 코멘트에 «어느 경로로 같은 승인이 됐나»
 M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"
+[ ! -f "$HERE/ft-team-lib.sh" ] || OLDP="$(. "$HERE/ft-team-lib.sh" && ft_old_form_added "$REPO" "$M" "$S")" || rej "$OLDP"   # r447: 명단 새 꼴 팀의 옛 꼴 위치에 새 파일 = 착지 0
 if [ -n "$FF" ]; then   # R392: 가지가 이미 원격에 있으면 squash Q 의 트리·블롭 전부를 다시 보낸다(have 가 edge 아님 · #1927 675 MB) — ref 만 S 로 전진
   G merge-base --is-ancestor "$M" "$S" || rej "main($M) 이 head 의 조상이 아님 — ff 불가 · --ff 빼고 squash 또는 최신화"
   Q="$S"; PBO="0 $(fm_push_calc 0)"

@@ -12,7 +12,7 @@ ROOT="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "ERR ft-team-lib.sh 없음: $HERE (팀 경로 단일 출처 · R382)"; exit 1; }
 . "$HERE/ft-team-lib.sh"; export FT_REPO_ROOT="$ROOT"
-D="$(ft_team_root "$TEAM" 2>&1)" || { echo "ERR $TEAM 폴더를 못 풀었다 — ${D#ERROR }"; exit 1; }; REL="$(ft_team_rel "$TEAM")"   # REL = 명단 칸 원문(끝 /)
+D="$(FT_TEAM_TWIN_WARN=0 ft_team_root "$TEAM" 2>&1)" || { echo "ERR $TEAM 폴더를 못 풀었다 — ${D#ERROR }"; exit 1; }; REL="$(ft_team_rel "$TEAM")"   # REL = 명단 칸 원문(끝 /)
 [ -d "$D" ] || { echo "ERR ${REL} 폴더 없음"; exit 1; }
 [ -f "$D/README.md" ] || { echo "ERR ${REL}README.md 없음 — ft-team-scaffold.sh $TEAM"; exit 1; }
 python3 - "$D" "$REL" <<'PY'

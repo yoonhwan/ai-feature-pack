@@ -20,6 +20,7 @@ case "$DST" in 대기|진행|완성) ;; *) echo "REJECT dst 는 대기|진행|�
 [ -f "$SRC" ] || { echo "REJECT 없음: $SRC"; exit 1; }
 SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경로 — 상대경로면 아래 git -C ls-files 추적 판정이 untracked 로 떨어져 mv 가 된다(DA r1 R5)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+[ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
 [ "$FROM" != "$DST" ] || { echo "REJECT 이미 $DST 에 있다"; exit 1; }
