@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — desk 보고 스레드 뿌리 ts 를 도구가 소유한다: `reply --thread <이름>` + 승계 본문 ts 손 복사 REJECT (1.1.12)
+
+카드 r414 · master 110781 ① · desk#20 110779(오빠 «여기는 왜 매새지 안오냐» · «다음 증류 땐 자동으로»). 뿌리 ts(10-16)가 인계서 13장에 손으로 복사돼 이어졌고, 3일 된 스레드 답글은 채널 본문에 안 보였다.
+
+- **`kit/slack-mirror/thread_post_update.py`**: `reply --thread <이름>` — 등록부 `<FT_ROOT>/.fable-team/state/slack-threads.json`(env `FT_SLACK_THREADS`) `{"<이름>": {channel, root_ts, date, history[]}}`. 없음 ∨ 날짜(KST) ≠ 오늘 ∨ 채널 다름 → 채널에 뿌리 글 `[<이름> 보고 <날짜>]` 1건 + 등록(옛 뿌리 history) → 답글. 본문 post_guard 검사는 뿌리 글 «전»(걸리면 뿌리·등록부 불변). 등록부 손상 = raise.
+- **`thread_post_args.py`**: `--ts`·`--thread` 배타 필수(둘 다·둘 다 없음 = usage rc2) · `--thread` 는 `--channel` 생략 시 등록부 채널 · `--ts` 만 = 기존 동작(기본 채널) 불변.
+- **`ft-successor-open.sh` ⓐ'**: 후계 이름 `*-desk-*`|`*-planner-*` 이고 본문에 `--ts <10자리>.<6자리>` → `REJECT 본문에 슬랙 ts 손 복사(--ts …) — byz_thread_post.py reply --thread <이름> 으로(r414)` · 열기 0.
+- **카드 편차 2**: reply 인자는 실제 위치인 `thread_post_args.py` 를 고쳤다(설치 `~/.hermes/scripts` 3 파일) · 시험 가짜 전송은 `FT_SLACK_POST` 주입 대신 기존 `--slack-base` 로컬 가짜 서버(제품 코드에 시험 전용 경로 0).
+- **시험** `tests/test_thread_reply_named.sh` ⓐ~ⓔ 11 PASS · 기존 `test_successor_open.sh`·`test_index_move_slack.sh` rc0 · pytest thread_post·post_guard 62 passed. 증거 `harness/evidence/r414/test.txt`.
+
 ## 2026-10-19 — 범위 사전 승인에 종류 code 를 연다: 시험 통과 세트만 · code-max 안 (1.1.11)
 
 카드 r411 · 판정 2326(오빠 «자율 개선두건 진행») · planner 110362 · master 110379 ②. 자율 ON 중 코드 세트 병합이 «앞 착지가 main 을 옮김 → 다음 PR head 바뀜 → 승인 sha 어긋남 → 오빠 재승인 h» 로 줄줄이 멈췄습니다(#1933→#1934 · h104). `approve-scope` 종류가 docs·ff·revert 뿐이라 코드 세트는 매 sha 오빠 손 1줄이었습니다.

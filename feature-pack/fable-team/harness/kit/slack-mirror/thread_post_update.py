@@ -5,32 +5,84 @@
   답글 = `--reply` + 장부 `reply_pending`(직전 답글 누락)이 있으면 그것도 함께 — 입력이 같아도 pending 이 있으면 답글을 낸다.
   update 성공 · 답글 실패 = rc 3 + 장부 `reply_pending` 에 그 답글 문구를 남긴다(다음 update 가 «직전 답글 누락 …» 으로 함께 낸다).
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
+`reply --thread <이름>`(r414): 뿌리 ts 를 도구가 소유 — 등록부(slack-threads.json)에 없거나 날짜(KST)·채널이 바뀌면 채널에 뿌리 글을 새로 올려 등록.
 """
 import argparse
+import json
+import os
 import re
 import sys
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import thread_ledger as lg
 from file_guard import check_files
 from magazine_slack import Target, upload_file
 from mirror_lib import MirrorError, api_call, esc
-from post_guard import check, guarded_post as post
+from post_guard import DEFAULT_ROOT, ROOT_ENV, check, guarded_post as post
 
 KEY = re.compile(r"board:\d{4}-\d{2}-\d{2}")
 TS = re.compile(r"\d+\.\d+")
+NAME = re.compile(r"[a-z][a-z0-9_-]{0,31}")
+KST = ZoneInfo("Asia/Seoul")
+THREADS_ENV = "FT_SLACK_THREADS"
+
+
+def threads_path() -> Path:
+    """이름 스레드 등록부 — env FT_SLACK_THREADS, 없으면 <FT_ROOT|기본 루트>/.fable-team/state/slack-threads.json."""
+    env = os.environ.get(THREADS_ENV)
+    return Path(env) if env else Path(os.environ.get(ROOT_ENV) or DEFAULT_ROOT) / ".fable-team/state/slack-threads.json"
+
+
+def _load_threads(p: Path) -> dict:
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise MirrorError(f"스레드 등록부 손상: {p} ({e})") from e
+    if not isinstance(data, dict):
+        raise MirrorError(f"스레드 등록부 최상위가 객체 아님: {p}")
+    return data
+
+
+def named_root(t: Target, name: str, channel: str | None) -> tuple[str, str]:
+    """이름 → (채널, 뿌리 ts). 없음 ∨ 날짜 ≠ 오늘(KST) ∨ 채널이 다름 → 뿌리 글 `[<이름> 보고 <날짜>]` 1건 + 등록(옛 뿌리는 history)."""
+    p, today = threads_path(), datetime.now(KST).date().isoformat()
+    reg = _load_threads(p)
+    cur = reg.get(name) or {}
+    ch = channel or cur.get("channel")
+    if not ch:
+        raise MirrorError(f"--channel 이 필요하다 — 등록부에 {name} 없음: {p}")
+    if cur.get("root_ts") and cur.get("date") == today and cur.get("channel") == ch:
+        return ch, cur["root_ts"]
+    root = post(t.base, t.token, ch, f"[{name} 보고 {today}]", human=True)
+    old = [{k: cur.get(k) for k in ("channel", "root_ts", "date")}] if cur.get("root_ts") else []
+    reg[name] = {"channel": ch, "root_ts": root, "date": today, "history": cur.get("history", []) + old}
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(reg, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    os.replace(tmp, p)
+    print(f"root {name} ts={root}")
+    return ch, root
 
 
 def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
-    """`reply --channel <ID> --ts <뿌리 ts> --text-file <파일>` — 아무 스레드에 답글 1개(카드·장부 불요 · 첨부 0). 사람 채널 입구라 1·2묶음 검사를 «항상» 건다."""
-    if not TS.fullmatch(a.ts):
+    """`reply (--ts <뿌리 ts> | --thread <이름>) --text-file <파일> [--channel <ID>]` — 스레드에 답글 1개(카드·장부 불요 · 첨부 0). 사람 채널 입구라 1·2묶음 검사를 «항상» 건다."""
+    if a.ts is not None and not TS.fullmatch(a.ts):
         raise MirrorError(f"--ts 는 슬랙 ts 꼴(예 1700000000.000100): {a.ts}")
+    if a.thread is not None and not NAME.fullmatch(a.thread):
+        raise MirrorError(f"--thread 는 소문자 이름(예 desk): {a.thread}")
     body = Path(a.text_file).read_text(encoding="utf-8").strip()
     if not body:
         raise MirrorError(f"본문 파일이 비었다: {a.text_file}")
+    text = esc(body)
+    check(text, a.channel or "", human=True)  # 뿌리 글 «전» — 본문이 걸리면 뿌리·등록부 불변
     t = target(a)
-    ts = post(t.base, t.token, a.channel, esc(body), a.ts, human=True)
+    ch, root = (a.channel, a.ts) if a.ts is not None else named_root(t, a.thread, a.channel)
+    ts = post(t.base, t.token, ch, text, root, human=True)
     print(f"reply ts={ts}")
     return 0
 
