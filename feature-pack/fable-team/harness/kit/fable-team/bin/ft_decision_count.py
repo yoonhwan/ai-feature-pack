@@ -13,12 +13,13 @@ import subprocess
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
 from ft_flag_off import open_flags, scan  # noqa: E402
 from ft_inbox_core import MUST_REPORT, R, lineage, obligation_closed, qpath, read_q  # noqa: E402
-from ft_team_lib import TeamPathError, data_root, planner_queue, team_in  # noqa: E402
+from ft_team_lib import TeamPathError, data_root, planner_queue, team_doc_ref, team_in  # noqa: E402
 
 T0 = time.monotonic()
 # 도구 1회 전체 예산 — 외부 조회(tmux·ft-hil.sh)는 남은 예산만큼만 기다린다. 2.0 → 5.0 (R303 · 판정 1395): 실측 중앙 1.47 s · 최대 1.59 s(CPU 28개 부하) · 실사용 rc4 62건 전부 ft-hil.sh 시간 초과(swap) · 호출자 ft_news_ledger 가 timeout=7 이라 그 밑(7초 룰)
@@ -53,24 +54,23 @@ def planner():
 
 
 def table(env, name, wt, at=None):
-    """(데이터 행 목록, 머리 칸 목록) — 파일이 없으면 None. at = 고정 자리 함수(r515 큐 리졸버 · env 다음 · 카드 워크트리 후보 0)."""
-    try:  # R382b: planner 폴더는 TEAMS.md 폴더 칸으로 — 루트는 필수, 카드 워크트리 후보는 그 워크트리에 명단이 있을 때만
-        cand = [os.environ[env]] if os.environ.get(env) else [str(at() if at else team_in(R, "planner") / name)]
-        if not os.environ.get(env) and not at and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
+    """(데이터 행 목록, 머리 칸 목록) — 표가 없으면 None. 자리 = env 파일 → at(r515 큐 고정 자리) → 카드 워크트리 디스크(명단 있을 때 · 미착지 최신 행) → ref 정본 본문(r517)."""
+    try:  # r517: 루트 자리 = ref(FT_TEAMS_REF·origin/main) 명단 + ref 본문 — 공용 루트 체크아웃이 옛 main(명단 없음)이어도 읽힌다 · 체크아웃 명단 0
+        cand = [os.environ[env]] if os.environ.get(env) else [str(at())] if at else []
+        if not cand and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
             cand.append(str(team_in(f"{R}/.worktrees/{wt}", "planner") / name))
+        path = next((c for c in cand if os.path.isfile(c)), None)
+        text = Path(path).read_text(encoding="utf-8") if path else None if os.environ.get(env) or at else team_doc_ref(R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main")
     except TeamPathError as e:
         raise ReadError(f"{name} 위치를 못 풀었다: {e}")
-    path = next((c for c in cand if os.path.isfile(c)), None)
-    if path is None:
-        return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in f if ln.lstrip().startswith("|")]
     except (OSError, ValueError) as e:
         raise ReadError(f"{name} 읽기 실패: {type(e).__name__} {e}")
+    if text is None:
+        return None
+    rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in text.splitlines() if ln.lstrip().startswith("|")]
     rows = [r for r in rows if not all(re.fullmatch(r":?-+:?", c) for c in r)]
     if not rows:
-        raise ReadError(f"{name} 에 표가 없다(원천 손상): {path}")  # 헤더만 있는 빈 표(=0)와 구분
+        raise ReadError(f"{name} 에 표가 없다(원천 손상): {path or 'ref:' + name}")  # 헤더만 있는 빈 표(=0)와 구분
     return rows[1:], rows[0]
 
 

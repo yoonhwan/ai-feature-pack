@@ -1,0 +1,21 @@
+PASS 준비: 체크아웃에 명단·planner 폴더 없음
+PASS 키트 미러 cmp 0: ft_decision_count.py
+PASS 키트 미러 cmp 0: ft_team_lib.py
+FAIL ⓐ 공용 루트 cwd: rc0 · 결정 인터뷰 1건(ref MERGE-QUEUE 대기 1) :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓐ «팀 명단 없음» 0(체크아웃 명단 안 씀) :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓐ 다른 리포 cwd(v6 대역): 같은 줄 rc0 :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓐ2 카드 워크트리 MERGE-QUEUE(대기 3)가 ref(대기 1)보다 먼저 :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓑ table(FLAG-DECISIONS) = ref 본문 1행 · 머리 4칸 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r517-decision-count-planner-tables-from-/e4cd95eb-f894-4d92-8209-b82c636d3bf4/scratchpad/afp/feature-pack/fable-team/harness/bin/ft_decision_count.py", line 58, in 
+FAIL ⓑ table(MERGE-QUEUE) = ref 본문 2행 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r517-decision-count-planner-tables-from-/e4cd95eb-f894-4d92-8209-b82c636d3bf4/scratchpad/afp/feature-pack/fable-team/harness/bin/ft_decision_count.py", line 58, in 
+FAIL ⓑ 변이: ref FLAG-DECISIONS 머리 손상 → rc4(ref 본문이 실제로 판정에 쓰인다) :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓒ ref 에 표 없음 → «(MERGE-QUEUE 파일 없음)» + rc0 :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓒ table(FLAG-DECISIONS) = None(파일 없음은 실패 아님) :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r517-decision-count-planner-tables-from-/e4cd95eb-f894-4d92-8209-b82c636d3bf4/scratchpad/afp/feature-pack/fable-team/harness/bin/ft_decision_count.py", line 58, in 
+FAIL ⓓ origin 없음 → rc4 + «명단 ref 못 읽음» · 숫자 0 :: rc=4 out=ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓔ FT_DECISION_MERGE_QUEUE = 그 파일(대기 3) :: rc=4 out=ERROR ft-decision-count: FLAG-DECISIONS.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+FAIL ⓔ env 파일 없음 = 지금처럼 메모(ref 로 새지 않음) :: rc=4 out=ERROR ft-decision-count: FLAG-DECISIONS.md 위치를 못 풀었다: ERROR 팀 명단 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Y3V90iwXn/repo/design/TEAMS.md
+PASS ft_decision_count.py 200줄 ≤ 200
+PASS compile 2(바이트코드 파일 0)
+== FAIL 12
