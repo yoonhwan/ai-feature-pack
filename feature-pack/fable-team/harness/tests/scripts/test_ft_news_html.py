@@ -31,7 +31,12 @@ GOALS = [{"n": i, "goal": f"골 글 {i}", "team": f"t{i} (byz-t{i}-master)", "st
 CONTENT = {"summary": ["통역 고침 시험 중", "방은 쉬는 중", "하네스 설치 끝"],
            "important": [{"title": "환각 고치기", "detail": "말끝 잡음", "who": "v65", "hot": True}, {"title": "합치기", "detail": "차례", "who": "room"}],
            "goals": [{"done": "끝난 것", "now": "하는 것", "left": "남은 것", "hot": i == 0} for i in range(6)],
-           "working": [{"team": "ops", "text": "메뉴 만드는 중"}], "resting": [{"team": "kk", "text": "닫힘"}], "refs": ["#113248", "a608fea5a0"]}
+           "team_notes": [{"team": "kk", "text": "닫힘"}, {"team": "chatbot", "text": "이름 바꾸기"}, {"team": "ops", "text": "메뉴 만드는 중"}],
+           "resting": [{"team": "chatbot", "text": "LLM 이 잘못 넣은 쉬는 팀"}],  # r478c 반려 재현 — LLM 의 일함/쉼 판정은 버린다
+           "refs": ["#113248", "a608fea5a0"]}
+LIVE = [{"team": "kk", "live": 0, "working": 0, "unknown": 0}, {"team": "ops", "live": 2, "working": 1, "unknown": 1},
+        {"team": "chatbot", "live": 6, "working": 2, "unknown": 0}]
+DATA = {"goals": GOALS, "live": LIVE}
 FAKE_OC = """#!/usr/bin/env python3
 import json, os, stat, sys, time
 log = os.environ["FAKE_OC_LOG"]
@@ -44,7 +49,9 @@ if os.environ.get("FAKE_OC_FAIL_FIRST"):
         sys.exit(1)
     except FileExistsError:
         pass
-time.sleep(float(os.environ.get("FAKE_OC_SLEEP", "0")))
+slow = os.environ.get("FAKE_OC_SLOW_MATCH")  # 있으면 이 글자가 든 갈래만 지연(부하 모사)
+if not slow or slow in sys.argv[-1].split("출력 스키마:")[-1].splitlines()[0]:
+    time.sleep(float(os.environ.get("FAKE_OC_SLEEP", "0")))
 print(json.dumps({"type": "step_start"}))
 print(json.dumps({"type": "text", "part": {"text": open(os.environ["FAKE_OC_REPLY"]).read()}}))
 sys.exit(int(os.environ.get("FAKE_OC_RC", "0")))
@@ -93,6 +100,7 @@ def test_a_build_bundles_ledger_teams_urgent_commits_and_scrubs_secrets(tmp_path
     rows = [{"ts": "2026-10-19T09:00:00", "body": "[긴급] 뉴스 멈춤\n본문"}, {"ts": "2026-10-17T09:00:00", "body": "[긴급] 옛 일"}, {"ts": "2026-10-19T09:01:00", "body": "[발주] 보통"}]
     (box / "mailbox.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
     monkeypatch.setattr(fh, "goals", lambda: GOALS)
+    monkeypatch.setattr(fh, "live_teams", lambda r: LIVE)  # 실측 함수는 test_r478c_live_teams_… 가 따로
     monkeypatch.setenv("FT_NEWS_MAIN_REF", "HEAD")
     data = fh.build(root, repo, rel, "", _git(repo, "rev-parse", "HEAD"), NOW)
     assert [g["n"] for g in data["goals"]] == [1, 2, 3, 4, 5, 6]
@@ -117,7 +125,7 @@ def _style(html: str) -> str:
 def test_b_run_calls_opencode_standalone_json_with_variant_and_fills_template(tmp_path, oc, monkeypatch):
     _, log = oc
     monkeypatch.setenv("FT_NEWS_EFFORT", "max")
-    html_p, sum_p = fh.run_files({"goals": GOALS}, tmp_path / "out", NOW)
+    html_p, sum_p = fh.run_files(DATA, tmp_path / "out", NOW)
     args = calls(log)[0]
     assert args[:6] == ["run", "--standalone", "--model", "opencode/deepseek-v4.1-flash-free#max", "--format", "json"]
     assert html_p.name == "NEWS-20261019-0915.html" and sum_p.name == "NEWS-20261019-0915.summary.txt"
@@ -134,7 +142,7 @@ def test_b_base_variant_has_no_suffix_and_depth_goes_into_prompt(tmp_path, oc, m
     _, log = oc
     monkeypatch.setenv("FT_NEWS_EFFORT", "base")
     monkeypatch.setenv("FT_NEWS_DEPTH", "깊이: 팀마다 두 번 따져 본다")
-    fh.run_files({"goals": GOALS}, tmp_path, NOW)
+    fh.run_files(DATA, tmp_path, NOW)
     args = calls(log)[0]
     assert args[3] == "opencode/deepseek-v4.1-flash-free" and "깊이: 팀마다 두 번 따져 본다" in args[-1]
 
@@ -145,55 +153,155 @@ def test_b_base_variant_has_no_suffix_and_depth_goes_into_prompt(tmp_path, oc, m
 def test_c_bad_reply_fails_without_files(tmp_path, oc, reply):
     oc[0].write_text(reply, encoding="utf-8")
     with pytest.raises(fr.NewsHtmlError):
-        fh.run_files({"goals": GOALS}, tmp_path / "out", NOW)
+        fh.run_files(DATA, tmp_path / "out", NOW)
     assert not (tmp_path / "out").exists()
 
 
 def test_c_cli_run_failure_is_rc1(tmp_path, oc):
     oc[0].write_text("아님", encoding="utf-8")
-    (tmp_path / "in.json").write_text(json.dumps({"goals": GOALS}), encoding="utf-8")
+    (tmp_path / "in.json").write_text(json.dumps(DATA), encoding="utf-8")
     assert fh.main(["run", "--input", str(tmp_path / "in.json"), "--out", str(tmp_path / "o")]) == 1
 
 
 def test_c_retry_once_only_before_first_output(tmp_path, oc, monkeypatch):
     _, log = oc
     monkeypatch.setenv("FAKE_OC_FAIL_FIRST", "1")
-    fh.run_files({"goals": GOALS}, tmp_path, NOW)
-    assert len(calls(log)) == 4  # 갈래 3 + 출력 0 으로 실패한 갈래 재시도 1
+    fh.run_files(DATA, tmp_path, NOW)
+    assert len(calls(log)) == 5  # 갈래 4 + 출력 0 으로 실패한 갈래 재시도 1
     log.unlink()
     monkeypatch.delenv("FAKE_OC_FAIL_FIRST")
     monkeypatch.setenv("FAKE_OC_RC", "1")  # 출력 뒤 실패 = 재시도 0
     with pytest.raises(fr.NewsHtmlError):
-        fh.run_files({"goals": GOALS}, tmp_path, NOW)
-    assert len(calls(log)) == 3
+        fh.run_files(DATA, tmp_path, NOW)
+    assert len(calls(log)) == 4
 
 
-# ── r478b: 갈래 3개 병렬 · 갈래별 입력만 · 상한 = 크기 비례 · stdin 차단 ──
+# ── r478b·r478e: 갈래 4개 병렬 · 갈래별 입력만 · 상한 = 크기 비례 · stdin 차단 ──
+
+def _prompts(log: Path) -> dict[str, str]:
+    return {next(p for p in fr.PARTS if f'"{fr.PARTS[p][0][0]}":' in c[-1].split("출력 스키마:")[1].splitlines()[0]): c[-1] for c in calls(log)}
+
 
 def test_split_parts_get_only_their_inputs_and_stdin_is_devnull(tmp_path, oc):
     _, log = oc
-    data = {"now": "x", "goals": GOALS, "ledger": [{"title": "원장절", "text": "원장글"}], "urgent": ["긴급머리"], "teams": ["팀줄"], "commits": ["abc 커밋글"]}
+    data = {"now": "x", "goals": GOALS, "ledger": [{"title": "원장절", "text": "원장글"}], "urgent": ["긴급머리"], "teams": ["팀줄"], "live": LIVE, "commits": ["abc 커밋글"]}
     fh.run_files(data, tmp_path, NOW)
-    prompts = {next(p for p in fr.PARTS if f'"{fr.PARTS[p][0][0]}":' in c[-1].split("출력 스키마:")[1].splitlines()[0]): c[-1] for c in calls(log)}
-    assert set(prompts) == {"top", "goals", "teams"}
+    prompts = _prompts(log)
+    assert set(prompts) == {"summary", "important", "goals", "teams"}
     assert "팀줄" in prompts["teams"] and "원장글" not in prompts["teams"]
     assert "원장글" in prompts["goals"] and "팀줄" not in prompts["goals"] and "커밋글" not in prompts["goals"]
-    assert all(x in prompts["top"] for x in ("원장글", "긴급머리", "커밋글")) and "팀줄" not in prompts["top"]
-    assert Path(str(log) + ".stdin").read_text().split() == ["True"] * 3
+    assert all(x in prompts["summary"] for x in ("원장글", "긴급머리", "커밋글")) and "팀줄" not in prompts["summary"]
+    assert all(x in prompts["important"] for x in ("원장글", "긴급머리")) and "커밋글" not in prompts["important"]
+    assert '"important":' not in prompts["summary"].split("출력 스키마:")[1].splitlines()[0]  # 요약 갈래는 중요한 일을 안 만든다
+    assert Path(str(log) + ".stdin").read_text().split() == ["True"] * 4
 
 
 def test_cap_is_size_scaled_and_never_above_70():
     small = fr.build_prompt({"teams": ["팀"]}, "teams")
     assert fr.cap_s(small, "teams") == 3.5 + 7 * 4  # 예상 출력 1200자 / 300 = 4
     assert fr.cap_s(small, "goals") == 3.5 + 7 * 6
-    assert fr.cap_s("가" * 200000, "top") == 70  # 큰 입력 = 70초 천장
+    assert fr.cap_s("가" * 200000, "summary") == 70  # 큰 입력 = 70초 천장
+
+
+def test_r478e_one_slow_part_over_cap_fails_whole_map_publish_zero(tmp_path, oc, monkeypatch):
+    _, log = oc
+    monkeypatch.setattr(fr, "DEADLINE_S", 3)  # 모든 갈래 상한 = min(크기 비례, 3초)
+    monkeypatch.setenv("FAKE_OC_SLEEP", "6")
+    monkeypatch.setenv("FAKE_OC_SLOW_MATCH", '"important":')  # 부하 모사 — 중요한 일 갈래만 느리다
+    with pytest.raises(fr.NewsHtmlError, match="important 상한"):
+        fh.run_files(DATA, tmp_path / "o", NOW)
+    assert not (tmp_path / "o").exists()  # 나머지 3갈래는 끝났지만 지도·발행 0
+    assert sum('"important":' in c[-1].split("출력 스키마:")[1].splitlines()[0] for c in calls(log)) == 1  # 총 마감 3초 = 재시도 시간 없음
+
+
+def test_r478e_timeout_is_first_output_failure_retried_once_within_deadline(tmp_path, oc, monkeypatch):
+    _, log = oc
+    monkeypatch.setattr(fr, "cap_s", lambda prompt, part: 2)  # 시도당 2초 · 총 마감 70초
+    monkeypatch.setenv("FAKE_OC_SLEEP", "4")
+    monkeypatch.setenv("FAKE_OC_SLOW_MATCH", '"important":')
+    with pytest.raises(fr.NewsHtmlError, match="important 상한 2s 초과"):
+        fh.run_files(DATA, tmp_path / "o", NOW)
+    assert sum('"important":' in c[-1].split("출력 스키마:")[1].splitlines()[0] for c in calls(log)) == 2  # 초과 = 첫 출력 전 실패 → 재시도 1
+
+
+# ── r478c: 일하는/쉬는 팀 = 라이브 좌석 실측(코드) · 일하는 팀이 위 ─────────
+
+def test_r478c_working_team_from_live_seats_is_above_resting_and_never_in_resting(tmp_path, oc):
+    html_p, _ = fh.run_files(DATA, tmp_path, NOW)
+    lines = html_p.read_text(encoding="utf-8").splitlines()
+    at = lambda s: next(i for i, ln in enumerate(lines) if s in ln)  # noqa: E731
+    work_h, goal_h, rest_h = at("<h2>일하는 팀</h2>"), at("<h2>골 6개</h2>"), at("<h2>쉬는 팀</h2>")
+    chatbot, ops, kk = at('<p class="say">chatbot</p>'), at('<p class="say">ops</p>'), at("<strong>kk</strong>")
+    # r478d: 일하는 팀 = 골 카드 위 그림 카드(좌석 많은 순 chatbot 2 > ops 1) · 쉬는 팀은 맨 아래 목록
+    assert work_h < chatbot < ops < goal_h < rest_h < kk
+    assert "LLM 이 잘못 넣은" not in "\n".join(lines)  # LLM 의 일함/쉼 판정은 쓰지 않는다
+    assert "일하는 좌석 2/6" in lines[chatbot - 1] and "이름 바꾸기" in lines[chatbot + 2] and "확인 불가 1" in lines[ops - 1]
+    assert "라이브 좌석 0 · 일하는 좌석 0" in lines[kk]
+    assert "\n".join(lines).count('<section class="goal work">') == 2 and '<section class="goal work">' in lines[chatbot - 4]
+
+
+# ── r478d: 요약·중요한 일 = 코드 판정 따르기 · 자율 실측 ───────────────────
+
+FALSE_LINE = "모든 팀은 작업을 멈추고 대기 중이며 사장님의 재개 지시와 합치기 승인 한 줄을 기다립니다"
+
+
+def test_r478d_lint_rejects_all_stopped_and_approval_wait_against_code_facts(tmp_path, oc):
+    html_p, sum_p = fh.run_files(DATA, tmp_path, NOW)
+    page, summary = html_p.read_text(encoding="utf-8"), sum_p.read_text(encoding="utf-8")
+    assert "자율 모름" in page and lint.problems(page, summary) == []
+    bad = lint.problems(page, "가\n" + FALSE_LINE)
+    assert any("일하는 팀 2개인데" in p for p in bad) and any("자율 모름 인데" in p for p in bad)
+    assert any("일하는 팀 2개인데" in p for p in lint.problems(page, "가\n전 팀이 대기 중입니다"))
+    assert lint.problems(page, "가\n전팀 지침과 폴더 기준 재기동은 다음 차례 대기") == []  # 골 제목 «전팀 지침…» 은 오탐 0
+    off = page.replace("자율 모름", "자율 OFF")
+    assert not any("자율" in p for p in lint.problems(off, "가\n합치기 승인을 기다립니다"))  # OFF 면 승인 대기 문장은 사실
+    assert any("자율 ON 인데" in p for p in lint.problems(page.replace("자율 모름", "자율 ON"), "가\n합치기 승인을 기다립니다"))
+    resting_only = re.sub(r'  <section class="goal work">.*?</section>\n?', "", page, flags=re.S)
+    assert not any("일하는 팀" in p for p in lint.problems(resting_only, "가\n모든 팀이 쉬는 중"))  # 일하는 팀 0 이면 사실
+
+
+def test_r478d_prompt_carries_code_facts_and_autonomy_in_footer(tmp_path, oc, monkeypatch):
+    _, log = oc
+    data = {**DATA, "facts": fh.facts(LIVE, "ON")}
+    assert data["facts"] == {"일하는 팀": ["chatbot", "ops"], "쉬는 팀": ["kk"], "자율": "ON"}
+    html_p, _ = fh.run_files(data, tmp_path, NOW)
+    top = next(c[-1] for c in calls(log) if '"summary":' in c[-1].split("출력 스키마:")[1].splitlines()[0])
+    assert '"일하는 팀": [' in top and '"chatbot"' in top and '"자율": "ON"' in top and "facts 가 이긴다" in top
+    assert "자율 ON" in html_p.read_text(encoding="utf-8")
+    monkeypatch.setattr(fh, "HERE", tmp_path)  # ft-autonomy.sh 없음 = 모름
+    assert fh.autonomy(tmp_path) == "모름"
+
+
+def test_r478c_no_live_input_fails_without_publish(tmp_path, oc):
+    with pytest.raises(fr.NewsHtmlError, match="live"):
+        fh.run_files({"goals": GOALS}, tmp_path / "o", NOW)
+    assert not (tmp_path / "o").exists()
+
+
+def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch):
+    fable = tmp_path / ".fable-team"
+    fable.mkdir()
+    for name in ("seats-chatbot.json", "seats-kk.json", "seats.json"):
+        (fable / name).write_text("{}", encoding="utf-8")
+    sessions = ["byz-chatbot-master-claude#7", "byz-chatbot-nano-c-k1#0", "byz-chatbot-nano-c-k6#0", "byz-concierge-master-claude#6",
+                "byz-v65-master-claude#212", "ft-v65-temp-m5#0", "byz-planner-desk-claude#24"]
+    turns = {"byz-chatbot-nano-c-k1#0": "WORKING", "byz-chatbot-nano-c-k6#0": "WORKING", "ft-v65-temp-m5#0": "?"}
+    monkeypatch.setattr(fh, "_sessions", lambda: sessions)
+    monkeypatch.setattr(fh, "_turn", lambda s: turns.get(s, "IDLE"))
+    got = {t["team"]: t for t in fh.live_teams(tmp_path)}
+    assert set(got) == {"chatbot", "kk", "v65"}  # 명부 있는 팀만 · seats.json = v65
+    assert (got["chatbot"]["live"], got["chatbot"]["working"]) == (3, 2)  # 옛 이름 concierge 좌석은 chatbot 에 안 섞인다
+    assert (got["v65"]["live"], got["v65"]["working"], got["v65"]["unknown"]) == (2, 0, 1)
+    assert (got["kk"]["live"], got["kk"]["working"]) == (0, 0)
+    with pytest.raises(RuntimeError, match="명부 0개"):
+        fh.live_teams(tmp_path / "없음")
 
 
 def test_c_total_deadline_kills_and_fails(tmp_path, oc, monkeypatch):
     monkeypatch.setattr(fr, "DEADLINE_S", 2)
     monkeypatch.setenv("FAKE_OC_SLEEP", "5")
     with pytest.raises(fr.NewsHtmlError, match="총 마감"):
-        fh.run_files({"goals": GOALS}, tmp_path, NOW)
+        fh.run_files(DATA, tmp_path, NOW)
     assert not list(tmp_path.glob("*.html"))
 
 
@@ -201,7 +309,7 @@ def test_c_total_deadline_kills_and_fails(tmp_path, oc, monkeypatch):
 
 @pytest.fixture
 def page(tmp_path, oc):
-    html_p, sum_p = fh.run_files({"goals": GOALS}, tmp_path / "p", NOW)
+    html_p, sum_p = fh.run_files(DATA, tmp_path / "p", NOW)
     return html_p.read_text(encoding="utf-8"), sum_p.read_text(encoding="utf-8")
 
 
@@ -306,7 +414,7 @@ def slack(tmp_path, monkeypatch):
 
 
 def test_e_publish_one_root_post_with_html_and_rerun_adopts(tmp_path, oc, slack):
-    html_p, sum_p = fh.run_files({"goals": GOALS}, tmp_path / "out", NOW)
+    html_p, sum_p = fh.run_files(DATA, tmp_path / "out", NOW)
     rc, got = fh.publish_files(html_p, sum_p, NOW)
     assert rc == 0 and len(slack.msgs) == 1 and slack.uploads == [html_p.read_bytes()]
     m = slack.msgs[0]
@@ -317,7 +425,7 @@ def test_e_publish_one_root_post_with_html_and_rerun_adopts(tmp_path, oc, slack)
 
 
 def test_e_attach_failure_posts_text_rc3_then_next_tick_attaches(tmp_path, oc, slack, capsys):
-    html_p, sum_p = fh.run_files({"goals": GOALS}, tmp_path / "out", NOW)
+    html_p, sum_p = fh.run_files(DATA, tmp_path / "out", NOW)
     slack.fail_upload = True
     rc, got = fh.publish_files(html_p, sum_p, NOW)
     assert rc == 3 and got["ts"] and slack.msgs[0]["text"].endswith("(지도 HTML 미첨부 — 다음 틱 재시도)") and "files" not in slack.msgs[0]
@@ -332,7 +440,7 @@ def test_e_attach_failure_posts_text_rc3_then_next_tick_attaches(tmp_path, oc, s
 
 
 def _tick_env(tmp_path, monkeypatch, made: list):
-    monkeypatch.setattr(fh, "build", lambda *a: {"goals": GOALS})
+    monkeypatch.setattr(fh, "build", lambda *a: DATA)
     real = fh.run_files
     monkeypatch.setattr(fh, "run_files", lambda d, out, now: made.append(now) or real(d, out, now))
     return tmp_path / "state"
@@ -376,7 +484,7 @@ def test_f_ledger_calls_tick_only_in_html_mode():
 # ── ⓖ effort 표 ──────────────────────────────────────────────────
 
 def test_g_effort_table_rows_per_variant(tmp_path, oc):
-    (tmp_path / "in.json").write_text(json.dumps({"goals": GOALS}, ensure_ascii=False), encoding="utf-8")
+    (tmp_path / "in.json").write_text(json.dumps(DATA, ensure_ascii=False), encoding="utf-8")
     table = tmp_path / "EFFORT-news-html-20261019.md"
     done = subprocess.run(["bash", str(BIN / "ft-news-effort-test.sh"), "--variants", "base,max,depth:두 번 따져 본다", "--input", str(tmp_path / "in.json"), "--table", str(table)],
                           capture_output=True, text=True, env={**os.environ, "FT_NEWS_NOW": "2026-10-19 09:15"}, check=False)
@@ -386,8 +494,8 @@ def test_g_effort_table_rows_per_variant(tmp_path, oc):
     assert all(" | 0 | OK | 2 | " in r for r in rows)
     models = [c[3] for c in calls(oc[1])]
     base = "opencode/deepseek-v4.1-flash-free"
-    assert models == [base] * 3 + [base + "#max"] * 3 + [base] * 3  # 변형마다 갈래 3
-    assert all("두 번 따져 본다" in c[-1] for c in calls(oc[1])[6:]) and "기본값 결정(사람 1줄)" in table.read_text(encoding="utf-8")
+    assert models == [base] * 4 + [base + "#max"] * 4 + [base] * 4  # 변형마다 갈래 4
+    assert all("두 번 따져 본다" in c[-1] for c in calls(oc[1])[8:]) and "기본값 결정(사람 1줄)" in table.read_text(encoding="utf-8")
     assert subprocess.run(["bash", str(BIN / "ft-news-effort-test.sh")], capture_output=True, check=False).returncode == 2
 
 

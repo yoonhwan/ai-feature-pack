@@ -51,6 +51,7 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
 .gnum{font-size:12px;letter-spacing:.08em;color:var(--soft);font-weight:800}
 .say{margin:0;font-size:17px;font-weight:600}
 .track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.work .track{grid-template-columns:1fr}
 .step{border-radius:10px;padding:10px 12px;font-size:14px;min-width:0}
 .step b{display:block;font-size:12px;letter-spacing:.05em;margin-bottom:2px}
 .s-done{background:var(--done-bg)} .s-done b{color:var(--done)}
@@ -96,6 +97,9 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
     <span class="chip c-hot"><i></i>급한 불</span>
     <span class="chip c-rest"><i></i>쉬는 팀</span>
   </div>
+
+  <h2>일하는 팀</h2>
+{{WORKING}}
 
   <h2>골 6개</h2>
 
@@ -164,11 +168,6 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
       </div>
     </div>
   </section>
-
-  <h2>일하는 팀</h2>
-  <div class="teams">
-{{WORKING}}
-  </div>
 
   <h2>쉬는 팀</h2>
   <div class="teams">

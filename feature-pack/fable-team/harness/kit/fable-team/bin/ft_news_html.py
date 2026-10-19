@@ -16,10 +16,12 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 from ft_news_html_lint import SECRET, problems  # noqa: E402
 from ft_news_html_render import PARTS, NewsHtmlError, build_prompt, call_model, render  # noqa: E402
 
@@ -27,6 +29,7 @@ LOG = logging.getLogger("ft_news_html")
 KEEP = ("오빠 할 일", "팀 작업", "드러난 문제", "체크리스트")  # 원장에서 싣는 절(머리 글자) — 나머지(완료 보관·옛 지시)는 지도 원천이 아니다
 SECTION_CHARS, LEDGER_CHARS, URGENT_N, MAILBOX_TAIL = 2500, 9000, 5, 262144
 HEAD = re.compile(r"^(#{2,3})\s+(.*)")
+SEAT_S = 7  # tmux ls · 좌석 turn 판정 각 1회 상한(7초 룰)
 
 
 def _git(repo: Path, *a: str) -> str:
@@ -105,21 +108,70 @@ def teams(root: Path) -> list[str] | str:
         return f"원천 없음: {e}"
 
 
+def _sessions() -> list[str]:
+    """tmux 세션 이름 전부 — 서버 없음 = [] · 그 밖의 실패 = RuntimeError(발행 0)."""
+    done = subprocess.run(["tmux", "ls", "-F", "#{session_name}"], capture_output=True, text=True, timeout=SEAT_S, check=False)
+    if done.returncode != 0 and "no server running" not in done.stderr:
+        raise RuntimeError(f"tmux ls 실패 rc={done.returncode}: {done.stderr.strip()[:120]}")
+    return done.stdout.split() if done.returncode == 0 else []
+
+
+def _turn(seat: str) -> str:
+    """좌석 jsonl 턴 판정 첫 칸(WORKING·IDLE·…) — ft-seat-status.sh turn 정본 · 실패·시간 초과 = «?»(확인 불가로 센다)."""
+    try:
+        done = subprocess.run(["bash", str(HERE / "ft-seat-status.sh"), "turn", seat, "--no-reported"], capture_output=True, text=True, timeout=SEAT_S, check=False)
+    except subprocess.TimeoutExpired:
+        return "?"
+    return (done.stdout.split() or ["?"])[0] if done.returncode == 0 else "?"
+
+
+def live_teams(root: Path) -> list[dict]:
+    """팀별 라이브 좌석 실측(r478c): 팀 = 명부 seats-<팀>.json(+ seats.json = v65) · 좌석 = tmux 세션 중 `byz-<팀>-`·`ft-<팀>-` 로 시작하는 것 ·
+    일하는 좌석 = ft-seat-status.sh turn 이 WORKING. 쪽지 문장·스냅샷의 옛 «일함» 값은 쓰지 않는다."""
+    fable = root / ".fable-team"
+    names = [p.name[len("seats-"):-len(".json")] for p in fable.glob("seats-*.json")] + (["v65"] if (fable / "seats.json").is_file() else [])
+    if not names:
+        raise RuntimeError(f"명부 0개({fable}/seats-*.json) — 팀 실측 불가")
+    sessions = _sessions()
+    seats = {t: [s for s in sessions if s.startswith((f"byz-{t}-", f"ft-{t}-"))] for t in sorted(set(names))}
+    every = sorted({s for ss in seats.values() for s in ss})
+    with ThreadPoolExecutor(8) as pool:
+        state = dict(zip(every, pool.map(_turn, every)))
+    return [{"team": t, "live": len(ss), "working": sum(state[s] == "WORKING" for s in ss), "unknown": sum(state[s] == "?" for s in ss)} for t, ss in seats.items()]
+
+
 def commits(repo: Path, base: str) -> list[str]:
     ref, n = os.environ.get("FT_NEWS_MAIN_REF", "origin/main"), os.environ.get("FT_NEWS_COMMITS", "15")
     return _git(repo, "log", "--format=%h %s", "-n", n, f"{base}..{ref}" if base else ref).splitlines()
 
 
+def autonomy(root: Path) -> str:
+    """자율 모드 실측 — ft-autonomy.sh mode(on|off) → ON·OFF · 위변조·실패·시간 초과 = «모름»(요약에 승인·자율 문장 금지 · r478d)."""
+    try:
+        done = subprocess.run(["bash", str(HERE / "ft-autonomy.sh"), "mode"], capture_output=True, text=True, timeout=SEAT_S, check=False,
+                              env={**os.environ, "FT_ROOT": str(root)})
+    except (OSError, subprocess.TimeoutExpired):
+        return "모름"
+    return {"on": "ON", "off": "OFF"}.get(done.stdout.strip() if done.returncode == 0 else "", "모름")
+
+
+def facts(live: list[dict], auto: str) -> dict:
+    """요약·중요한 일 문장이 따라야 할 코드 판정(r478d) — 일하는 팀(좌석 많은 순)·쉬는 팀·자율."""
+    work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
+    return {"일하는 팀": [t["team"] for t in work], "쉬는 팀": [t["team"] for t in live if not t["working"]], "자율": auto}
+
+
 def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) -> dict:
-    data = {"now": f"{now:%Y-%m-%d %H:%M}", "goals": goals(), "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
-            "urgent": urgent(root, now), "teams": teams(root), "commits": commits(repo, base)}
+    live = live_teams(root)
+    data = {"now": f"{now:%Y-%m-%d %H:%M}", "facts": facts(live, autonomy(root)), "goals": goals(), "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
+            "urgent": urgent(root, now), "teams": teams(root), "live": live, "commits": commits(repo, base)}
     return _scrub(data)
 
 
 def run_files(data: dict, out: Path, now: datetime) -> tuple[Path, Path]:
     from ft_news_html_render import model_id
     c, secs = call_model(data)
-    page = render(c, data["goals"], now)
+    page = render(c, data["goals"], now, (data.get("facts") or {}).get("자율", "모름"))
     out.mkdir(parents=True, exist_ok=True)
     html_p = out / f"NEWS-{now:%Y%m%d-%H%M}.html"
     sum_p = html_p.with_suffix(".summary.txt")

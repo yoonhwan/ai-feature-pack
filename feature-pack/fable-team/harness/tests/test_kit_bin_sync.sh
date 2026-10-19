@@ -30,6 +30,9 @@ check() {
 out="$(check "$TR" "$KIT")"; n="${out##*N=}"
 [ "$n" = 0 ] && ok "tracked bin ⊂ kit bin (bytes+mode)" || bad "drift: $(echo "$out" | grep -v '^N=' | tr '\n' ';')"
 
+# r484: shim 은 exec 만 — 키트 bin 에 `python3|bash|sh "$X/.fable-team/bin/…"` 꼴 0
+out="$(bash "$KIT/ft-shim-exec-lint.sh" "$KIT" 2>&1)" && ok "shim-exec lint: $out" || bad "shim-exec lint: $(echo "$out" | tr '\n' ';')"
+
 # 음성 대조: 복사본에 어긋남을 만들어 이 시험이 잡는지 본다
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/tr" "$T/kit"
