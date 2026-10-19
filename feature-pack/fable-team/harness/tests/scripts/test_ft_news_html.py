@@ -65,9 +65,9 @@ def oc(tmp_path, monkeypatch):
     exe.write_text(FAKE_OC, encoding="utf-8")
     exe.chmod(0o755)
     reply.write_text("```json\n" + json.dumps(CONTENT, ensure_ascii=False) + "\n```", encoding="utf-8")
-    for k, v in {"FT_OPENCODE": str(exe), "FAKE_OC_REPLY": str(reply), "FAKE_OC_LOG": str(log)}.items():
+    for k, v in {"FT_OPENCODE": str(exe), "FAKE_OC_REPLY": str(reply), "FAKE_OC_LOG": str(log), "FT_NEWS_STARTUP_LOG": str(tmp_path / "startup.tsv")}.items():
         monkeypatch.setenv(k, v)
-    for k in ("FT_NEWS_EFFORT", "FT_NEWS_MODEL", "FT_NEWS_DEPTH", "FT_NEWS_HEAD"):
+    for k in ("FT_NEWS_EFFORT", "FT_NEWS_MODEL", "FT_NEWS_DEPTH", "FT_NEWS_HEAD", "FT_NEWS_FIXED_S"):
         monkeypatch.delenv(k, raising=False)
     return reply, log
 
@@ -216,7 +216,7 @@ def test_r478e_one_slow_part_over_cap_fails_whole_map_publish_zero(tmp_path, oc,
 
 def test_r478e_timeout_is_first_output_failure_retried_once_within_deadline(tmp_path, oc, monkeypatch):
     _, log = oc
-    monkeypatch.setattr(fr, "cap_s", lambda prompt, part: 2)  # 시도당 2초 · 총 마감 70초
+    monkeypatch.setattr(fr, "cap_s", lambda prompt, part, fixed: 2)  # 시도당 2초 · 총 마감 70초
     monkeypatch.setenv("FAKE_OC_SLEEP", "4")
     monkeypatch.setenv("FAKE_OC_SLOW_MATCH", '"important":')
     with pytest.raises(fr.NewsHtmlError, match="important 상한 2s 초과"):
