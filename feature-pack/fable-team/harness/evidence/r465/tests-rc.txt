@@ -1,0 +1,15 @@
+# r465 시험 원문 · 세트 b16fc1d5c6e0900f910b8c4d4fea941dff053f8f (origin/main 339117c5 위)
+## test_seat_retire_rosters.sh rc=0 · PASS 38
+## test_seat_retire.sh rc=1 · PASS 171
+FAIL ⑧test_ft_tick_master_seat.sh rc=0 (got=[4] want=[0])
+## test_seat_retire_keep.sh rc=0 · PASS 13
+## test_seat_close.sh rc=0 · PASS 81
+## test_kit_bin_sync.sh rc=0 · PASS 7
+## test_role_spawn_name.sh rc=0 · PASS 24
+## test_seat_reap_left0.sh rc=0 · PASS 55
+## test_seat_resume_binding.sh rc=0 · PASS 92
+## 짝 cmp
+cmp0 2/2
+bash -n ok
+py_compile ok
+## 선재(origin/main 0051effd 같은 FAIL 4줄 · 은퇴 도구 참조 0): test_ft_tick_master_seat.sh rc4

@@ -1,0 +1,27 @@
+PASS r465ⓐrc 0 · RETIRED 첫 줄 files=3 roles·routes
+PASS r465ⓐseats·lecture _arch · room _hil_route = 후계
+PASS r465ⓐ파일마다 .bak 1(3) · planner 바이트 불변 · 옛 이름 칸 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓑrc 0 · FIXED files=1 roles=[lecture]
+PASS r465ⓑlecture _arch 후계 · seats.json 바이트 불변
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓑ세 번째 = NOOP
+PASS r465ⓒrc 1 · ERROR · 손상 파일 이름 · 바이트 불변 · .bak 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓒNOOP 경로도 손상 → ERROR rc 1
+PASS r465ⓓ명부 후보 0 + lint 실패 → REJECT rc 1 · 바이트 불변
+PASS r465ⓓ후계 이미 은퇴 → rc 3 · lecture 불변 · .bak 0
+PASS r465ⓔ대조: 은퇴 전 close → 현역 역할 좌석 REJECT
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓔ은퇴 뒤 close → 현역 역할 좌석 REJECT 0 · 옛 이름 칸 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓕ은퇴 + 빈 _arch → FILLED · 값 후계
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓕNOOP 경로 + _arch 없음 → FIXED … FILLED (NOOP 아님)
+PASS r465ⓕ_arch = 살아 있는 다른 좌석 → REJECT rc 1 · 쓰기 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓕ_arch = 죽은 다른 좌석 → 채우기 0 (추측 0) · lecture·room 만 보정
+PASS 짝 cmp0
+PASS 짝 cmp0 (ft_roster_lib.py · r465)
+fail=0
+ALL PASS
