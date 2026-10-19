@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 오빠 큐 자리 리졸버 1개 + card-start 카드 상대경로 cwd → ref 읽기 (r515 · 1.1.72)
+## 2026-10-20 — 오빠 큐 자리 리졸버 1개 + card-start 카드 상대경로 cwd → ref 읽기 (r515 · 1.1.73)
 
 - 사건: `ft-proxy-decide.sh` 가 오빠 큐(AUTONOMY-QUEUE) 줄을 «데이터 루트(LIVE_ROOT = v6-realtime-live 워크트리) 체크아웃의 옛 명단» 으로 푼 `design/planner/AUTONOMY-QUEUE.md` 에 씀(정본 = main `design/teams/planner/` · v6 가지엔 새 폴더 없음) · `--card` 상대경로를 cwd 에서만 찾아 «카드를 못 읽음» 으로 QUEUE(planner 쪽지 118583 · 05:55 loom l3c card-start 2회 · `v6-realtime-live/design/planner/AUTONOMY-QUEUE.md:63`) · 같은 큐를 읽는 `ft-autonomy.sh`·`ft_decision_count.py` 도 같은 옛 자리.
 - `ft-team-lib.sh` `ft_planner_queue <루트>` (새 · 파이썬 짝 `ft_team_lib.planner_queue`): `FT_PLANNER_DIR` 있으면 그 폴더 · 없으면 ref(`FT_TEAMS_REF` · 기본 origin/main) 명단 꼴 planner 폴더가 루트에 실재하면 그 폴더 · 실재 0(이동 전 가지 체크아웃)이면 공용 루트 `.fable-team/state/planner/AUTONOMY-QUEUE.md` · ref 명단 못 읽음·공용 루트 못 풂 = ERROR rc1(옛 체크아웃 꼴·쌍둥이 후퇴 0 — `ft_team_in_ref` 는 실재 쌍둥이 1개면 옛 꼴을 돌려주므로 쓰지 않고 «명단 꼴 후보 1번» 만 본다). 파이썬 `ft_team_lib.data_root`(새 · 셸 `ft_data_root` 짝: FT_ROOT → 공용 루트 LIVE_ROOT 1행(절대경로 폴더 아니면 ERROR) → 공용 루트).
@@ -9,6 +9,13 @@
 - 시험 `test_proxy_decide_queue_card_resolve.sh`(새 · 임시 리포 main 새 꼴 + 옛 꼴 가지 워크트리 = 데이터 루트 · 외부 호출 0 · GIT_* env 0) ⓐ~ⓖ 31 PASS · 고치기 전 FAIL 10(`harness/evidence/r515/before-fix.txt` · ⓐ 옛 자리 쓰기 재현). 기존 시험 2개 보정: `test_team_literal_paths2.sh` 자율 3종(FT_TEAMS_REF=HEAD — 픽스처 origin/main ref 0) · `test_flag_off_scan.sh` 결정 셈(FT_DECISION_AUTONOMY_QUEUE — git 밖 루트).
 - 설치: 키트 5(`ft-team-lib.sh` · `ft-proxy-decide.sh` · `ft-autonomy.sh` · `ft_decision_count.py` · `ft_team_lib.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 5 · 홈 0 · plist 0 · 되돌림 = `.bak-r515`.
 - 범위 밖: v6 라이브 가지에 main 병합 · 옛 `design/planner/AUTONOMY-QUEUE.md` 기존 줄 이관(planner 손) · 큐 묶음 질문(r165) · 자율 중 질문 0(r291) · 셈 분모(r337) · nano-reopen 카드 읽기(cwd 그대로).
+
+## 2026-10-20 — 하네스 시험 RED 8개를 «기존 RED» 로 두지 않고 원인 분류 → 시험 7 + 도구 1줄 (r509 · 1.1.72)
+
+- 사건: 팩 origin/main 에서 RED 인 시험 8개(셸 6 · pytest 2)가 나노 증거마다 «기존 RED 제외» 로 밀려 왔다(harness master 82 발주 117070 · arch 105 분류 · 판정 1395). 분류 실측: 픽스처 누락 1 · 리포 분리·ref 명단 뒤 환경·배치 전제 5 · 낡은 대조 1 · 도구 결함 1.
+- 시험(7 · 도구 0): ①`test_tick_line` — BYZ `tests/fixtures/tick_line/` 18파일을 `harness/fixtures/tick_line/` 로(시험 FX 경로 그대로 · `git show` · 내용 0 변경) · 픽스처에 가려 있던 14개 = 임시 bin 에 `ft-seat-status.sh` 만 복사(r504 판정 본문 `ft_seat_turn.py` → `ft_api_outage_util` 짝 누락) → `*.py` 같이 복사 ②`test_team_literal_paths2` 22개 — 린트 명단 = 시험이 만든 «전환 중» 명단(`FT_TEAMS_MD` · 팩엔 design/TEAMS.md 0) · 픽스처 리포에 origin/main ref · `FT_TEAMS_REF=HEAD`(R416 slots · r495 close 원장) · 제안서 판정 원장 = ref 트리(r492 — 옛 «v6 워크트리 폴더» 기대 폐기 · 두 꼴에 원장 = 추측 0 REJECT 단언 추가) · close 의 `ft-seat-reap.sh`(r448) 대역 · drift 키트 경로 = 팩 배치 · fail-closed 문구 = «ref 못 읽음» ③`test_ft_tick_master_seat` — `FT_TICK_RESUME=0`(죽은 좌석 감시는 R27 밖 · 실 tmux·자율 상태 읽기 0) ④`test_harness_root` ⓒ — 뉴스 틱 ⑥ 은 r484 부터 같은 bin 실 렌더러 → 가짜 렌더러 삭제 · 픽스처 `🔄` 줄 + `.fable-team/seats.json` · «ERROR 0» 단언이 Traceback 도 잡게 ⑤`test_news_tree_root` 대조 — «옛 판» = r489 직전 `86257c17` 고정(origin/main 은 이미 새 판) ⑥`test_team_tick_unify` ⓖ H2 = **시험** — r385 글자 치환이 `ft-tick-install.sh` 거부 패턴만 `harness/bin`·`harness/kit/fable-team/bin` 으로 바꾸고 시험은 옛 `scripts/fable-team-bin`(BYZ main 에도 없음) → 새 두 경로 거부 단언 ⑧`test_news_status_section.py` KIT = `harness/kit/fable-team/bin`.
+- 도구(1줄): ⑦`ft_news_publish.py` `_KIT` = `harness-install/slack-mirror`(r385 뒤 없는 폴더) → `kit/slack-mirror`(bin·kit cmp0) · 설치본 없는 시험·개발 판에서 magazine_slack 못 찾던 결함 · 라이브는 `~/.hermes/scripts` 로 찾아 동작 변경 0.
+- 시험: 대상 8개 고치기 전 FAIL 1·84·1·1·22·4 + pytest 2 → 뒤 전부 rc0(origin/main 93f3dcca 병합 판) · 원문 `harness/evidence/r509/tests-rc-target8.txt` · 기존 시험 전체(셸 246 + pytest · 부하로 85번째 뒤 정지 → 이어 실행) = 이 단위 밖 RED 셸 64개 중 62개 main 93f3dcca 와 같은 rc·FAIL 수 · 2개(goal_table_gate·wt_clean_two_stage)는 병합 판 재실행 rc0 · pytest 104 failed 전부 main 에도 있음(main 106 = 104 + 이 단위가 고친 2) · 내 판에만 있는 실패 0 — 원문 `harness/evidence/r509/baseline-compare.txt`·`tests-rc-all.txt` · 밖 RED 는 r481(7) 과 별도 고침 단위 후보. 설치: LIVE_BIN 키트 1(`ft_news_publish.py`) cmp0 · 홈 0 · plist 0 · 되돌림 = 이 커밋 revert(설치본 `.bak-r509`).
 
 ## 2026-10-20 — 범위 분류표: 낱말 금지(과금·키)는 문서 줄 아래 · 경로로 지정한 문서 금지만 위 (r514 · 1.1.71)
 

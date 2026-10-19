@@ -1,0 +1,75 @@
+== r509 기존 시험 전체 — 이 단위 밖 RED 의 origin/main 대조 (팩 origin/main 93f3dcca · ft-scratch-repo 사본 · nice 15 직렬)
+실행: 1~85번 = 병합 전 판(ddc44a5a+r509) · 86~246번 + pytest = 병합 판 509ecbaa(부하로 04:0x 정지 → 04:10 이어 실행 · master 82 #117527) · 대상 8개는 최신 병합 1477c7e4 에서 재실행(tests-rc-target8.txt)
+
+-- 셸: 대상 밖 RED 64개 = main 에서도 같은 rc·FAIL 수 62 · 다른 것 2(최신 병합 판 재실행 rc0)
+SAME tests/test_agent_alive_fg_judge.sh rc=1 FAIL=2
+SAME tests/test_autonomy_core.sh rc=1 FAIL=1
+SAME tests/test_autonomy_hooks_layout.sh rc=1 FAIL=7
+SAME tests/test_boot_report_gate.sh rc=1 FAIL=7
+SAME tests/test_byz_keys_ledger.sh rc=86 FAIL=87
+SAME tests/test_byz_keys_usage.sh rc=40 FAIL=41
+SAME tests/test_cherry_gate_identical_head.sh rc=1 FAIL=3
+SAME tests/test_da_hold_gate.sh rc=1 FAIL=2
+SAME tests/test_deferral_lint.sh rc=65 FAIL=66
+SAME tests/test_evidence_inject_scan.sh rc=1 FAIL=6
+SAME tests/test_fake_resource_env.sh rc=1 FAIL=2
+SAME tests/test_flag_off_scan.sh rc=1 FAIL=4
+SAME tests/test_ft_land.sh rc=1 FAIL=11
+SAME tests/test_ft_wt_sweep_route_timeout.sh rc=1 FAIL=1
+SAME tests/test_goal_hook_adoption_archive.sh rc=7 FAIL=7
+SAME tests/test_goal_hook_merge.sh rc=2 FAIL=2
+DIFF tests/test_goal_table_gate.sh main=[rc=0 FAIL=0] mine=[rc=1 FAIL=1]
+SAME tests/test_graphics_690.sh rc=1 FAIL=5
+SAME tests/test_graphics_install.sh rc=1 FAIL=5
+SAME tests/test_hil_run_marker.sh rc=1 FAIL=2
+SAME tests/test_inbox_watch.sh rc=1 FAIL=3
+SAME tests/test_issue_classify.sh rc=1 FAIL=8
+SAME tests/test_issue_close_canon.sh rc=1 FAIL=21
+SAME tests/test_issue_forms.sh rc=3 FAIL=11
+SAME tests/test_key_change_gate.sh rc=41 FAIL=42
+SAME tests/test_kit_exec_modes.sh rc=1 FAIL=5
+SAME tests/test_live_install.sh rc=1 FAIL=6
+SAME tests/test_live_install_check.sh rc=1 FAIL=2
+SAME tests/test_live_install_check_tip.sh rc=1 FAIL=3
+SAME tests/test_live_snapshot_all_rosters.sh rc=1 FAIL=1
+SAME tests/test_loom_tunnel_install.sh rc=1 FAIL=3
+SAME tests/test_mbox_guard.sh rc=1 FAIL=25
+SAME tests/test_mbox_lineage.sh rc=1 FAIL=10
+SAME tests/test_mbox_v2_guard.sh rc=1 FAIL=12
+SAME tests/test_nano_spawn_body_press.sh rc=2 FAIL=3
+SAME tests/test_nano_succession_index.sh rc=1 FAIL=4
+SAME tests/test_op_vault_develop_gate.sh rc=1 FAIL=1
+SAME tests/test_orch_gate_master.sh rc=1 FAIL=0
+SAME tests/test_orch_gate_top_models.sh rc=1 FAIL=5
+SAME tests/test_pack_relocation.sh rc=1 FAIL=1
+SAME tests/test_penalty_spawn_gate.sh rc=6 FAIL=6
+SAME tests/test_planner_nano_path.sh rc=1 FAIL=2
+SAME tests/test_press_role_bts_gate.sh rc=1 FAIL=8
+SAME tests/test_proposal_card.sh rc=1 FAIL=7
+SAME tests/test_r66_codex_serena_boot.sh rc=2 FAIL=3
+SAME tests/test_regress_pack.sh rc=1 FAIL=1
+SAME tests/test_resource_gate.sh rc=1 FAIL=8
+SAME tests/test_resource_gate_pressure.sh rc=1 FAIL=5
+SAME tests/test_resource_watch.sh rc=1 FAIL=1
+SAME tests/test_seat_handover.sh rc=1 FAIL=3
+SAME tests/test_seat_request.sh rc=1 FAIL=17
+SAME tests/test_settings_lint.sh rc=1 FAIL=2
+SAME tests/test_sheet_verify.sh rc=1 FAIL=8
+SAME tests/test_slack_readonly_share.sh rc=1 FAIL=1
+SAME tests/test_spawn_gate_landing_branch.sh rc=1 FAIL=3
+SAME tests/test_team_literal_paths.sh rc=1 FAIL=6
+SAME tests/test_team_move_roundtrip.sh rc=1 FAIL=3
+SAME tests/test_team_scaffold_empty_template.sh rc=1 FAIL=8
+SAME tests/test_team_upgrade.sh rc=1 FAIL=2
+SAME tests/test_teamset_check.sh rc=5 FAIL=6
+SAME tests/test_teamset_gitref.sh rc=3 FAIL=4
+SAME tests/test_tracked_bin_call_gate.sh rc=1 FAIL=25
+SAME tests/test_wt_clean_plan_self_check.sh rc=1 FAIL=13
+DIFF tests/test_wt_clean_two_stage.sh main=[rc=0 FAIL=0] mine=[rc=1 FAIL=2]
+RERUN tests/test_goal_table_gate.sh 1477c7e4 이전 병합판 rc=0 PASS=97 FAIL=0
+RERUN tests/test_wt_clean_two_stage.sh 1477c7e4 rc=0 PASS=60 FAIL=0
+
+-- pytest tests/scripts 전체: 내 판 104 failed, 1748 passed, 2 skipped in 919.43s (0:15:19) · main 106 failed, 1737 passed, 2 skipped in 702.90s (0:11:42)
+내 판에만 실패: 0건 · main 에만 실패(= 이 단위가 고친 것):
+tests/scripts/test_ft_news_publish_import_path.py::test_repo_original_finds_kit_folder
+tests/scripts/test_news_status_section.py::test_h1_tick_calls_stale_watch_when_ledger_off

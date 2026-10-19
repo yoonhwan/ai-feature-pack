@@ -24,7 +24,7 @@ jeq() {  # <라벨> <json> <파이썬 식(d=파싱 결과)> <기대 값(JSON)> �
 export FT_BOARD_NOW="2026-10-12T10:00:00" FT_SEATS_JSON="$T/none.json"
 export FT_BOARD_SEAT_STATUS="$T/seat.sh" TURN_MAP="$T/map" FX
 mkdir -p "$T/map"
-mkdir -p "$T/bin"; cp "$BIN/ft-seat-status.sh" "$T/bin/"
+mkdir -p "$T/bin"; cp "$BIN/ft-seat-status.sh" "$BIN"/*.py "$T/bin/"  # 판정 본문 짝 파이썬(r504 ft_seat_turn.py → ft_api_outage_util …) 같이
 cat > "$T/seat.sh" <<EOF
 #!/bin/sh
 # 지원 호출: \$1=jsonl \$2=좌석 (경로 해석) · \$1=turn --file <경로> --json [--bytes] (실 판정) · \$1=turn \$2=좌석 --json (옛 경로)

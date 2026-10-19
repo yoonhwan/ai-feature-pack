@@ -93,7 +93,7 @@ plistlib.dump({"Label": "com.byz.ft-tick", "ProgramArguments": ["/opt/homebrew/b
 PY
 instd --team ops --dry-run > "$TMP/h2.plist" 2>/dev/null; rc=$?
 chk "ⓖ H2 --script 생략 → 메인 plist 의 스크립트" "$rc $(python3 -c 'import plistlib,sys;print(plistlib.load(open(sys.argv[1],"rb"))["ProgramArguments"][1])' "$TMP/h2.plist")" "0 $TMP/live/ft-tick.sh"
-for bad_dir in "$TMP/wt/.worktrees/x/.fable-team/bin" "$TMP/wt/scripts/fable-team-bin"; do
+for bad_dir in "$TMP/wt/.worktrees/x/.fable-team/bin" "$TMP/wt/harness/bin" "$TMP/wt/harness/kit/fable-team/bin"; do  # 키트 원본 = 팩 배치(r385 · 옛 scripts/fable-team-bin 은 없음)
   mkdir -p "$bad_dir"; cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$bad_dir/"
   chk "ⓖ H2 --script ${bad_dir#$TMP/} → 거부 rc" "$(instd --team ops --script "$bad_dir/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 1
 done
