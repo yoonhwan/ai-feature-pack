@@ -152,19 +152,31 @@ if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
 fi
 printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
 if [ "$DST" = 완성 ]; then
-  # 정본 갱신 신호 — 수신자 = 명부(env FT_SEATS_JSON 우선) 최상위 `_arch`(팀 현역 arch). 키 없음·빈 값 = 쪽지 0 + INFO 1줄.
+  # 정본 갱신 신호 — 수신자 = 카드 팀 명부(env FT_SEATS_JSON 이 이김) 최상위 `_arch`(팀 현역 arch). 키 없음·빈 값 = 쪽지 0 + INFO 1줄.
+  #   r487: 팀 = 카드 폴더가 든 명단 팀 정확히 1개(ft_team_has · 쌍둥이 둘 다 · 명단 = 카드 워크트리) · 명부 = seats-<팀>.json(v65 = seats.json) · 0·2+ 팀·명부 없음 = 쪽지 0 + INFO.
   #   게이트 아님: 발신이 실패해도 이동은 이미 끝났고 exit 0 이다(경고 1줄만). 회복 경로 = CANON-DEBT 미반영 행.
   #   「정본 영향 없음:」 카드는 arch 가 할 일이 없으므로 쪽지 0 + INFO 1줄(R41) — 정본 쪽지는 정본을 고칠 때만 간다.
   case "${CANON_NOTE:-}" in
     정본\ 영향\ 없음:*) echo "INFO 정본 쪽지 생략 — 정본 영향 없음 카드"; exit 0 ;;
   esac
-  SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+  _hits=(); _wt="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null)"
+  if . "$HERE/ft-team-lib.sh" 2>/dev/null; then
+    while IFS= read -r _t; do [ -n "$_t" ] && FT_REPO_ROOT="$_wt" ft_team_has "$_t" "$IDX_ROOT/" indices/ 2>/dev/null && _hits+=("$_t"); done < <(FT_REPO_ROOT="$_wt" ft_team_names 2>/dev/null)
+  fi
+  _team="${_hits[0]:-}"; [ "${#_hits[@]}" = 1 ] || _team=""
+  SEATS="${FT_SEATS_JSON:-}"
+  if [ -z "$SEATS" ]; then
+    [ -n "$_team" ] || { echo "INFO 정본 쪽지 생략 — 팀 못 정함(명단 팀 ${#_hits[@]}개 · ${NEW#"$ROOT"/})"; exit 0; }
+    if [ "$_team" = v65 ]; then SEATS="$ROOT/.fable-team/seats.json"; else SEATS="$ROOT/.fable-team/seats-$_team.json"; fi
+    [ -f "$SEATS" ] || { echo "INFO 정본 쪽지 생략 — 팀 명부 없음($_team)"; exit 0; }
+  fi
+  _tl="팀 ${_team:-?}${FT_SEATS_JSON:+ · 명부 FT_SEATS_JSON}"
   ARCH="$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1])).get("_arch",""); print(v if isinstance(v,str) else "")' "$SEATS" 2>/dev/null)"
   if [ -z "$ARCH" ]; then
-    echo "INFO 정본 쪽지 생략 — 명부에 _arch 없음"
+    echo "INFO 정본 쪽지 생략 — 명부에 _arch 없음($_tl)"
   elif ! bash "${FT_MBOX:-$ROOT/.fable-team/comm/mbox.sh}" send "$ARCH" "${SEAT:-ft-index-move}" "[정본 갱신 요청] ${NEW#"$ROOT"/} · DA $DA · ${CANON_NOTE:-}" >/dev/null 2>&1; then
-    echo "WARN 정본 갱신 요청 발신 실패 → $ARCH (이동은 완료 · CANON-DEBT 에 «미반영» 행을 손으로 추가)"
+    echo "WARN 정본 갱신 요청 발신 실패 → $ARCH ($_tl · 이동은 완료 · CANON-DEBT 에 «미반영» 행을 손으로 추가)"
   else
-    echo "NOTIFIED 정본 갱신 요청 → $ARCH"
+    echo "NOTIFIED 정본 갱신 요청 → $ARCH ($_tl)"
   fi
 fi
