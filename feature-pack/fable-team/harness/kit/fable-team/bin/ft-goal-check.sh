@@ -8,16 +8,20 @@
 # r479 자리 규칙: 명단 = ref(FT_TEAMS_REF · 기본 origin/main · 체크아웃 TEAMS.md 는 판정에 안 쓴다 · 어긋나면 끝에 WARN 1줄)
 #   v65 폴더 = 그 루트에 실재하는 후보 정확히 1개 · 0개면 정본 4파일을 ref 본문(ft_team_doc_ref 임시 파일)으로 읽고 sha 도 ref 이력
 # 「틱 기준 매 업데이트」(#11389 ①) 의 정의: 갱신되는 것은 골 원장 파일이 아니라 «좌석 원장»
-#   .fable-team/state/goal-read-ledger.json[seat] = {ledger_sha, sources_sha, head_sha, read_at, cited}.
+#   <공용 루트>/.fable-team/state/goal-read-ledger.json[seat] = {ledger_sha, sources_sha, ref_sha, head_sha, read_at, cited}.
 #   골 원장(GOAL-LEDGER-v65.md)은 수락 항목 원장이라 틱마다 안 바뀐다 — 바뀌는 것은 «읽었다는 증거»다.
-#   변화 없는 틱도 --touch 로 read_at/head_sha 를 갱신한다(cited 는 실재 문구 필수).
+#   변화 없는 틱도 --touch 로 read_at/ref_sha 를 갱신한다(cited 는 실재 문구 필수).
+# r485 자리 규칙(r459): 상태 = 공용 루트 1개(FT_ROOT · 없으면 ft_repo_root) · 원장·정본 sha = $REF 의 명단 꼴 경로 이력(공유 .git 라 어느 워크트리서도 같다)
+#   커밋 경과 = rev-list <ref_sha>..$REF(좌석 로컬 커밋은 안 센다) · 체크아웃(cwd 루트)은 cited grep·NEXT 읽기에만 · head_sha 칸은 옛 꼴 호환으로 남김
 # ★파이프 금지★ — `| head` 에 물리면 exit 가 파이프 끝단 것으로 읽힌다(ft-wall-check.sh 와 동일).
 set -uo pipefail
 SEAT="${1:?seat}"; shift || true
 TOUCH=""
 if [ "${1:-}" = "--touch" ]; then TOUCH="${2:?cite phrase}"; fi
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-. "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+. "$HERE/ft-team-lib.sh"; . "$HERE/ft-harness-root.sh"
+DATA="${FT_ROOT:-$(ft_repo_root "$HERE")}" || { echo "ERROR seat=$SEAT 공용 루트를 못 풂(상태 파일 자리) — FT_ROOT 또는 .fable-team/ 있는 git 리포 cwd"; exit 4; }
 REF="${FT_TEAMS_REF:-origin/main}"
 TMPS=(); WARN=""
 trap 'rm -f ${TMPS[@]+"${TMPS[@]}"}; [ -z "$WARN" ] || echo "$WARN" >&2' EXIT
@@ -36,8 +40,6 @@ if [ "${#HITS[@]}" = 1 ]; then
   LEDGER_MD="$V65/$LEDGER_NAME"; LEDGER_FILE="$ROOT/$LEDGER_MD"
   SRCS=(); for f in "${SRC_NAMES[@]}"; do SRCS+=("$V65/$f"); done
   for f in "$LEDGER_MD" "${SRCS[@]}"; do [ -f "$ROOT/$f" ] || { echo "REJECT seat=$SEAT 정본 부재: $f"; exit 4; }; done
-  LSHA="$(git -C "$ROOT" log -1 --format=%h -- "$LEDGER_MD")"
-  SSHA="$(git -C "$ROOT" log -1 --format=%h -- "${SRCS[@]}")"
 else
   # 실재 0 — 정본은 ref 본문(임시 파일) · sha = ref 이력의 마지막 커밋(체크아웃이 따라잡아도 같은 값)
   V65="$(printf '%s\n' "$CANDS" | head -1)"; V65="${V65#"$ROOT"/}"
@@ -46,11 +48,15 @@ else
     TMPS+=("$t"); [ "$f" = "$LEDGER_NAME" ] && LEDGER_FILE="$t"
   done
   LEDGER_MD="$V65/$LEDGER_NAME"
-  SRCS=(); for f in "${SRC_NAMES[@]}"; do SRCS+=("$V65/$f"); done
-  LSHA="$(git -C "$ROOT" log -1 --format=%h "$REF" -- "$LEDGER_MD")"
-  SSHA="$(git -C "$ROOT" log -1 --format=%h "$REF" -- "${SRCS[@]}")"
 fi
-STATE="$ROOT/.fable-team/state/goal-read-ledger.json"
+# 판정 키 = $REF 의 명단 꼴 폴더 이력(체크아웃 폴더가 옛 꼴이어도 ref 쪽 경로로 잰다 — 원장 갱신 감지를 잃지 않게)
+RV65="$(printf '%s\n' "$CANDS" | head -1)"; RV65="${RV65#"$ROOT"/}"
+RSRCS=(); for f in "${SRC_NAMES[@]}"; do RSRCS+=("$RV65/$f"); done
+git -C "$ROOT" cat-file -e "$REF:$RV65/$LEDGER_NAME" 2>/dev/null || { echo "ERROR seat=$SEAT 골 원장이 $REF 에 없다: $RV65/$LEDGER_NAME — 판정 키 = ref sha(추측 0)"; exit 4; }
+LSHA="$(git -C "$ROOT" log -1 --format=%h "$REF" -- "$RV65/$LEDGER_NAME")"
+SSHA="$(git -C "$ROOT" log -1 --format=%h "$REF" -- "${RSRCS[@]}")"
+REF_SHA="$(git -C "$ROOT" rev-parse --short "$REF")"
+STATE="$DATA/.fable-team/state/goal-read-ledger.json"
 TTL_SEC="${FT_GOAL_TTL_SEC:-7200}"
 MAX_COMMITS="${FT_GOAL_MAX_COMMITS:-10}"
 HEAD_SHA="$(git -C "$ROOT" rev-parse --short HEAD)"
@@ -59,9 +65,9 @@ if [ -n "$TOUCH" ]; then
   grep -qF -- "$TOUCH" "$LEDGER_FILE" \
     || { echo "REJECT seat=$SEAT cited 문구가 골 원장에 없다 (열지 않았다): $TOUCH"; exit 4; }
 fi
-python3 - "$STATE" "$SEAT" "$LSHA" "$SSHA" "$HEAD_SHA" "$TTL_SEC" "$MAX_COMMITS" "$TOUCH" "$ROOT" "$LEDGER_MD" "$LEDGER_FILE" <<'PY'
+python3 - "$STATE" "$SEAT" "$LSHA" "$SSHA" "$HEAD_SHA" "$TTL_SEC" "$MAX_COMMITS" "$TOUCH" "$ROOT" "$LEDGER_MD" "$LEDGER_FILE" "$REF" "$REF_SHA" <<'PY'
 import json, sys, os, datetime, subprocess, re
-state, seat, lsha, ssha, head, ttl, maxc, touch, root, ledger_md, ledger_file = sys.argv[1:12]
+state, seat, lsha, ssha, head, ttl, maxc, touch, root, ledger_md, ledger_file, ref, ref_sha = sys.argv[1:14]
 ttl = int(ttl); maxc = int(maxc)
 d = json.load(open(state)) if os.path.exists(state) else {}
 now = datetime.datetime.now()
@@ -72,20 +78,21 @@ def reread(why):
     sys.exit(3)
 
 if touch:
-    d[seat] = {"ledger_sha": lsha, "sources_sha": ssha, "head_sha": head,
+    d[seat] = {"ledger_sha": lsha, "sources_sha": ssha, "ref_sha": ref_sha, "head_sha": head,
                "read_at": now.isoformat(timespec="seconds"), "cited": touch[:120]}
     os.makedirs(os.path.dirname(state), exist_ok=True)
     json.dump(d, open(state, "w"), ensure_ascii=False, indent=1)
-    print(f"GOAL-READ seat={seat} ledger={lsha} sources={ssha} head={head} OK")
+    print(f"GOAL-READ seat={seat} ledger={lsha} sources={ssha} head={head} ref={ref_sha} state={state} OK")
 
 e = d.get(seat)
 if not e: reread("(좌석 원장 부재 — 신규/승계)")
+if not e.get("ref_sha"): reread("(옛 꼴 행 — ref_sha 없음 · 다시 touch)")
 if e.get("ledger_sha") != lsha: reread(f"골 원장 갱신됨 {e.get('ledger_sha')}→{lsha}")
 if e.get("sources_sha") != ssha: reread(f"정본 갱신됨 {e.get('sources_sha')}→{ssha}")
 age = (now - datetime.datetime.fromisoformat(e["read_at"])).total_seconds()
 if age > ttl: reread(f"만료 {int(age)}s > {ttl}s")
 try:
-    n = int(subprocess.check_output(["git", "-C", root, "rev-list", "--count", f"{e['head_sha']}..HEAD"],
+    n = int(subprocess.check_output(["git", "-C", root, "rev-list", "--count", f"{e['ref_sha']}..{ref}"],
                                     text=True, stderr=subprocess.DEVNULL).strip())
 except subprocess.CalledProcessError:
     n = maxc + 1

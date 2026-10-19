@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-19 — 골 원장 판정기: 판정 키 = ref origin/main sha · 상태 = 공용 루트 1개 · 경과 = ref 기준 (r485 · 1.1.41)
+
+- v65 master 가 자기 워크트리에서 `--touch` 해도 다음 틱(공용 루트 cwd)이 `REREAD-REQUIRED` — 원장 sha·상태 파일·커밋 경과를 전부 «cwd 의 git 루트» 에서 잡아 틱과 좌석이 다른 파일에 다른 키를 썼다.
+- `ft-goal-check.sh`: 상태 = `${FT_ROOT:-ft_repo_root}/.fable-team/state/goal-read-ledger.json`(못 풀면 ERROR exit 4) · 원장·정본 sha = `$REF` 의 명단 꼴 경로 이력(체크아웃이 옛 꼴 폴더여도 같은 값 · ref 에 원장 없으면 ERROR) · touch 행에 `ref_sha` · 경과 = `rev-list <ref_sha>..$REF`(좌석 로컬 커밋은 안 셈) · `ref_sha` 없는 옛 꼴 행 = REREAD «다시 touch» · GOAL-READ 에 `ref= state=`. 체크아웃은 cited grep·NEXT 에만. 판정 세 조건(원장 갱신·TTL·경과)은 그대로.
+- 시험 `test_goal_check_ref.sh` r485-⓪·ⓐ~ⓔ 12 + 기존 22 = fail=0. 이행·되돌림 = `harness/evidence/r485/master-steps.md`.
+
 ## 2026-10-20 — 뉴스 틱 ⑥ 완성 트리 복구: 도구는 $HERE(LIVE_BIN) 형제를 부른다 · shim 은 exec 만 (r484 · 1.1.40)
 
 - 1.1.37 부터 뉴스 ⑥ 트리가 비었다 — `ft-news-tick.sh:56` 이 옛 라이브 워크트리 자리 `ft-news-tree.py` 를 `python3` 에 넘겼는데 그 자리는 r413 뒤 bash shim 이라 `SyntaxError: unmatched ')'`(v65 master 212 #114311).
