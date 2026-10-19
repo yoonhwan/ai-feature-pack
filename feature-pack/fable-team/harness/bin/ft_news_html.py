@@ -6,6 +6,7 @@ opencode run(딥식 무료 · 비대화 1회)에 넘기고 «요약 3줄 + 팀 �
   ft_news_html.py publish --html <f> --summary <f>            린트(rc3 = 발행 0) → 게시(ft_news_publish.publish_html)
 뉴스 틱(ft_news_ledger.py · FT_NEWS_MODE=html)은 tick() — 원장 새 커밋 또는 그날 첫 발행 = 지도 1장 · 변화 0 = FT_NEWS_REPEAT_MIN(기본 30)분마다
 «[뉴스 HH:MM] 변화 없음 · 지도 <직전 지도 링크>» 한 줄만. 미첨부(rc3)로 올라간 글은 다음 틱이 그 글 스레드에 첨부를 다시 시도한다.
+지도 만들기 실패가 FT_NEWS_DELAY_TICKS(기본 3)틱 연속이면 고정 문구 «뉴스 지연» 한 줄 1번(정지 1건당 · 모델·판단 0) · 다음 지도 발행 때 «뉴스 복구» 한 줄(r510 · state/news-delay.json).
 env: FT_ROOT · FT_LEDGER_REPO · FT_LEDGER_PATH · FT_NEWS_DIR · FT_NEWS_NOW · FT_NEWS_REPEAT_MIN · FT_NEWS_COMMITS(기본 15) · FT_NEWS_MAIN_REF(기본 origin/main)
      + ft_news_html_render(FT_NEWS_MODEL · FT_NEWS_EFFORT · FT_NEWS_DEPTH · FT_OPENCODE) · ft_news_publish(FT_NEWS_HEAD 등)
 """
@@ -173,14 +174,14 @@ def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) 
 
 def run_files(data: dict, out: Path, now: datetime) -> tuple[Path, Path]:
     from ft_news_html_render import model_id
-    c, secs = call_model(data)
+    c, secs, fixed = call_model(data)
     page = render(c, data["goals"], now, (data.get("facts") or {}).get("자율", "모름"))
     out.mkdir(parents=True, exist_ok=True)
     html_p = out / f"NEWS-{now:%Y%m%d-%H%M}.html"
     sum_p = html_p.with_suffix(".summary.txt")
     html_p.write_text(page, encoding="utf-8")
     sum_p.write_text("\n".join(s.strip() for s in c["summary"] if s.strip()) + "\n", encoding="utf-8")
-    print(f"ft-news-html: 만듦 {html_p.name} secs={max(secs.values()):.1f}({' '.join(f'{p}={s:.1f}' for p, s in secs.items())}) model={model_id()} important={len(c['important'])} summary={len(sum_p.read_bytes())}B")
+    print(f"ft-news-html: 만듦 {html_p.name} secs={max(secs.values()):.1f}({' '.join(f'{p}={s:.1f}' for p, s in secs.items())}) fixed={fixed:.1f}s model={model_id()} important={len(c['important'])} summary={len(sum_p.read_bytes())}B")
     return html_p, sum_p
 
 
@@ -198,6 +199,31 @@ def publish_files(html_p: Path, sum_p: Path, now: datetime) -> tuple[int, dict |
 def _save(f: Path, data: dict) -> None:
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def _delay_fail(state: Path, now: datetime, why: str, last: dict) -> None:
+    """r510 5b — 지도 만들기 실패 1틱 셈 · 연속 FT_NEWS_DELAY_TICKS 째에 고정 문구 지연 글 1번(같은 정지 동안 다시 0 · 발신 실패면 다음 틱 재시도)."""
+    from ft_news_publish import publish_line
+    f = state / "news-delay.json"
+    d = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
+    d = {"n": d.get("n", 0) + 1, "why": d.get("why") or why[:120], "since": d.get("since") or f"{now:%Y-%m-%d %H:%M}", "sent": d.get("sent", False)}
+    if not d["sent"] and d["n"] >= int(os.environ.get("FT_NEWS_DELAY_TICKS", "3")):
+        mark = last.get("map_at", "")[11:] or "없음"
+        d["sent"] = publish_line(f"뉴스 지연 — 사유: {d['why']} · 마지막 판 {mark}({last.get('link') or '링크 없음'}) · 부하 {os.getloadavg()[0]:.2f}", now) == 0
+    _save(f, d)
+
+
+def _delay_clear(state: Path, now: datetime, last: dict) -> None:
+    """지도 글이 올라갔다 — 지연 셈 지움 · 지연 글을 냈던 정지면 «뉴스 복구 HH:MM · 지연 N분»(N = 직전 판부터) 한 줄."""
+    from ft_news_publish import publish_line
+    f = state / "news-delay.json"
+    if not f.is_file():
+        return
+    d = json.loads(f.read_text(encoding="utf-8"))
+    f.unlink()
+    if d.get("sent"):
+        mins = int((now - datetime.strptime(last.get("map_at") or d["since"], "%Y-%m-%d %H:%M")).total_seconds() // 60)
+        publish_line(f"뉴스 복구 {now:%H:%M} · 지연 {mins}분", now)
 
 
 def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, cur: str) -> tuple[int, str]:
@@ -225,9 +251,11 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
     except (NewsHtmlError, RuntimeError, OSError, ValueError, KeyError) as e:
         LOG.error("지도 만들기 실패 — 발행 0: %s", e)
         _save(hs, {**last, "fail_at": stamp})
+        _delay_fail(state, now, f"지도 만들기 실패 — 발행 0: {e}", last)
         return 1, "지도 만들기 실패"
     rc, got = publish_files(html_p, sum_p, now)
     if got is not None:  # 글이 올라갔다(미첨부 rc3 포함) — 기준선 전진
+        _delay_clear(state, now, last)
         _save(hs, {"at": stamp, "map_at": stamp, "ts": got.get("ts"), "link": got.get("permalink")})
         state.mkdir(parents=True, exist_ok=True)
         (state / "last.sha").write_text(cur + "\n", encoding="utf-8")
