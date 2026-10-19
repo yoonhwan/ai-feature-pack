@@ -41,8 +41,10 @@
 
 ## 컨텍스트 증류 (하드 게이트 + v3 자율 증류)
 
-- **300k 토큰** = `context-distill-gate.sh warn`이 매 턴 증류 경고 주입 → **`ft-ctx-triage.sh` 진단 → 문제 수정 → 증류 결정**(context-management.md §2.5·설계 §2-2). 결정 후 승인 2-모드(standing=자율 / 미승인=AskUserQuestion+op-token).
-- **450k 토큰** = `context-distill-gate.sh block`이 신규 서브에이전트/워크플로/**Bash `ft-tmux-spawn.sh` 스폰**을 물리 차단 — 진행분만 마무리하고 즉시 증류.
+- 임계 = **550k 경고 · 600k 차단 — 전 프로젝트 공통**(오빠 2026-10-19 R445 · 홈·프로젝트 이원화 끝). codex·opencode 좌석은 자체 자동 압축이라 이 게이트 미적용.
+
+- **550k 토큰** = `context-distill-gate.sh warn`이 매 턴 증류 경고 주입 → **`ft-ctx-triage.sh` 진단 → 문제 수정 → 증류 결정**(context-management.md §2.5·설계 §2-2). 결정 후 승인 2-모드(standing=자율 / 미승인=AskUserQuestion+op-token).
+- **600k 토큰** = `context-distill-gate.sh block`이 신규 서브에이전트/워크플로/**Bash `ft-tmux-spawn.sh` 스폰**을 물리 차단 — 진행분만 마무리하고 즉시 증류.
 - **워커·오케 증류는 독립 축**: 워커 증류는 `ft-tmux-distill.sh`(#N+1 승계, handover token), 오케 증류(A=자기 setsid distill / B=재시작)는 워커 tmux 세션을 건드리지 않는다(생존이 v3 계약).
 
 - **승계 6단계 (2026-09-30 — 하나라도 빠지면 마무리 아님)**: ①스냅샷 커밋 ②후계 스폰 ③상태·해야 할 것·컨텍스트 요약을 mbox로 **한 번 더 송신**(경로만 보내지 않는다) ④후계 응답(골 대조) recv ⑤뉴스 틱(launchd ft-tick)이 후계로 가는지 확인(tick 로그·`seats.json` `_replaced_by`) + 후계 부팅 보고의 `cron=<job id>` 확인(세션 CronCreate 는 승계로 옮겨지지 않는다 · BOOT 16) ⑥그 뒤 구 좌석 유휴. 후계 발주문에도 이 6단계를 적어 계속 잇는다.

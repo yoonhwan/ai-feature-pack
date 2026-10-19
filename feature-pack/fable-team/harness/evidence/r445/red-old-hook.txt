@@ -1,0 +1,34 @@
+# 옛 훅(origin/main 키트 400k/450k)을 BYZ 자리에 넣어 돌린 RED — 새 단언이 옛 값을 잡는다
+PASS kit /bin/bash -n
+PASS kit 기본값 550_000/600_000/recv 550_000
+PASS kit ⓐ 540k warn → 출력 0
+PASS kit ⓑ 560k warn → 경고 1 (550k·600k 표기)
+PASS kit ⓒ 590k block Task → 허용
+PASS kit ⓓ 610k block Task → exit 2
+PASS kit ⓔ1 560k hard recv · 도달 파일 없음 → 차단
+PASS kit ⓔ2 560k hard recv · 도달 파일 있음 → 허용
+PASS kit ⓔ3 540k hard recv → 허용(recv 선 550k)
+PASS kit ⓔ4 610k hard 일반 도구 → 차단
+PASS kit ⓖ 600/300 s 0 · codex/opencode 설정 참조 0
+FAIL ⓕ BYZ 훅 cmp ≠ 0
+PASS byz /bin/bash -n
+FAIL byz 기본값 줄
+FAIL byz ⓐ rc=0 out={"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "\ud83d\uded1 [context-distill-gate] \ucee8\ud14d\uc2a4\ud2b8 540k \ud1a0\ud070 \u2014 \uac15\uc81c\uc120(450k) \ub3cc\ud30c \uc0c1\ud0dc. \uc99d\ub958 \ub3c4\uad6c\ub9cc \ud5c8\uc6a9\ub41c\ub2e4. \uc9c0\uae08 \uc2a4\ub0c5\uc0f7\u00b7baton save\u00b7\ud6c4\uacc4 \uc2a4\ud3f0."}}
+FAIL byz ⓑ rc=0 out={"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "\ud83d\uded1 [context-distill-gate] \ucee8\ud14d\uc2a4\ud2b8 560k \ud1a0\ud070 \u2014 \uac15\uc81c\uc120(450k) \ub3cc\ud30c \uc0c1\ud0dc. \uc99d\ub958 \ub3c4\uad6c\ub9cc \ud5c8\uc6a9\ub41c\ub2e4. \uc9c0\uae08 \uc2a4\ub0c5\uc0f7\u00b7baton save\u00b7\ud6c4\uacc4 \uc2a4\ud3f0."}}
+FAIL byz ⓒ rc=2 err=🛑 [context-distill-gate] 컨텍스트 590k 토큰 — 증류 강제선(450k 절대값) 돌파. 도구 «Task» 차단.
+허용되는 것만: 스냅샷(HANDOFF-*.md · design/**/inbox/**/*.md · .fable-team/state/**) 쓰기 · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · ★후계 개설 = zsh -lc "tmuxc open <wt> --name <좌석> --agent claude --model <ID> --ctx 1m --effort high" 또는 .fable-team/bin/ft-role-spawn.sh★.
+★한 줄에 허용 명령만★ — 변수 대입(f=…)·echo·ls·$()·리다이렉트(>/dev/null)를 섞으면 줄 전체가 차단된다. 명령마다 따로 호출.
+증류 커밋은 git commit --only -F <파일> -- <경로> 로 — -m 안의 명령치환·백틱·따옴표 밖 확장은 차단된다. push 옵션은 -u/-q/-v/-n/--dry-run/--follow-tags/--tags/--all/--porcelain 만.
+지금: ①워커 전원 수거 ②write-through·HANDOFF 최신화 ③baton save ④후계 스폰(zsh -lc "tmuxc open …" 단독 한 줄) ⑤정지 레디. 사람 입력(UserPromptSubmit)은 막지 않는다.
+FAIL byz ⓓ rc=2 err=🛑 [context-distill-gate] 컨텍스트 610k 토큰 — 증류 강제선(450k 절대값) 돌파. 도구 «Task» 차단.
+허용되는 것만: 스냅샷(HANDOFF-*.md · design/**/inbox/**/*.md · .fable-team/state/**) 쓰기 · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · ★후계 개설 = zsh -lc "tmuxc open <wt> --name <좌석> --agent claude --model <ID> --ctx 1m --effort high" 또는 .fable-team/bin/ft-role-spawn.sh★.
+★한 줄에 허용 명령만★ — 변수 대입(f=…)·echo·ls·$()·리다이렉트(>/dev/null)를 섞으면 줄 전체가 차단된다. 명령마다 따로 호출.
+증류 커밋은 git commit --only -F <파일> -- <경로> 로 — -m 안의 명령치환·백틱·따옴표 밖 확장은 차단된다. push 옵션은 -u/-q/-v/-n/--dry-run/--follow-tags/--tags/--all/--porcelain 만.
+지금: ①워커 전원 수거 ②write-through·HANDOFF 최신화 ③baton save ④후계 스폰(zsh -lc "tmuxc open …" 단독 한 줄) ⑤정지 레디. 사람 입력(UserPromptSubmit)은 막지 않는다.
+PASS byz ⓔ1 560k hard recv · 도달 파일 없음 → 차단
+PASS byz ⓔ2 560k hard recv · 도달 파일 있음 → 허용
+FAIL byz ⓔ3 rc=2 err=🛑 [context-distill-gate] 컨텍스트 540k — 후계 도달 전 새 일 수락 0 (R107). .fable-team/bin/ft-successor-open.sh 로 후계를 열고 도달 확인부터. 쪽지는 큐에 남아 후계가 계보로 받는다. peek 은 허용.
+PASS byz ⓔ4 610k hard 일반 도구 → 차단
+PASS byz ⓖ 600/300 s 0 · codex/opencode 설정 참조 0
+FAIL=7
+rc=7
