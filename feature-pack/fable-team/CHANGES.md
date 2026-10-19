@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-19 — 뉴스 HTML 모드 호출 쪼개기: 갈래 3개 병렬 · 크기 비례 상한 · stdin 차단 (r478b · 1.1.36)
+
+- 첫 실제 틱이 `opencode run 총 마감 70s 초과`(max) — 원인 = 한 호출에 출력 전부(3~4.4K자) × max 생각 시간(실측 65.6초·130초+). 7초 룰대로 top·goals·teams 3갈래를 «그 갈래 입력만» 넣어 병렬 호출 · 시도당 상한 = 크기 비례(≤70) · stdin=/dev/null.
+- 실측(같은 입력): base 30~44초 → 17.9초 · max 65.6~130초+ → 30.5초 · 린트 OK.
+- 파일: `ft_news_html_render.py`·`ft_news_html.py`(bin·kit 짝) + 시험 `test_ft_news_html.py` · 단계 = `harness/evidence/r478b/master-steps.md`.
+
 ## 2026-10-19 — opencode 좌석 모델 = 세션 env `OPENCODE_CONFIG_CONTENT`: `--model` 플래그 0 · tmuxc 0.4.1 (r476 · 1.1.35)
 
 카드 r476 · cfo 113325(정본화 나노 opencode 기동 실패 → claude 대체) · master 79 발주 113358 ①. opencode 2.0.32 TUI 최상위 플래그엔 `--model` 이 없고(`opencode run` 전용) tmuxc 가 `opencode --auto --model <ID>` 로 띄워 «Unrecognized flag: --model» 로 첫 줄에서 죽었습니다 — 정본화·리서치·검색 나노(opencode)가 전 팀에서 못 열렸습니다.
