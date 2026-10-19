@@ -258,7 +258,7 @@ if [ ! -d "$WTDIR" ]; then
   case "$_free" in ''|*[!0-9]*) echo "REJECT [HIL] 디스크 여유 측정 실패(df $ROOT · 값 '${_free}') — spawn 0 · 여유 미상은 충분하다는 뜻 아님"; exit 1;; esac
   [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || { echo "REJECT [HIL] 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — spawn 0 · 회수 먼저(유휴·완료 좌석 ft-resource-reclaim.sh · 정리 계획 ft-wt-sweep.sh) 뒤 다시"; exit 1; }
 fi
-if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; "${OPEN[@]}" --dry-run; exit 0; fi
+if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; [ -d "$WTDIR" ] || echo "PLAN shim-init $WTDIR (워크트리 생성 직후 ft-root-bin-shim.sh --init)"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않고 거절한다
 bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" || exit 1
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
@@ -307,6 +307,9 @@ if [ ! -d "$WTDIR" ]; then
   else
     git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
   fi
+  # r494: 새 워크트리에 하네스 입구(.fable-team/bin 연결 파일 + LIVE_BIN·LIVE_ROOT) — 실패해도 spawn 은 계속 · 조용한 통과 0(NOTE 줄)
+  _shim_out="$(bash "$HERE/ft-root-bin-shim.sh" --root "$WTDIR" --live "$(sed -n 1p "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null)" --init 2>&1)" \
+    && echo "$(tail -1 <<< "$_shim_out") (shim-init $WTDIR)" || echo "NOTE shim-init 실패: $(tail -1 <<< "$_shim_out")"
   for l in .venv .env; do [ -e "$ROOT/$l" ] && ln -sfn "../../$l" "$WTDIR/$l"; done
   link_web_node_modules "$ROOT" "$WTDIR"
   # base_sha(오빠 ORDERS 103 · single_set_testing §3 ①): 갈라진 시점을 남겨 ft-nano-freshness 가 «루트부터» 판정한다.
