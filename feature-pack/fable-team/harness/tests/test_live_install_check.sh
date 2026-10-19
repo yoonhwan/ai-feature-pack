@@ -36,7 +36,7 @@ exit 113
 EOF
 printf '#!/bin/bash\necho "${STUB_LSTART:-Thu Oct 15 10:00:00 2026}"\n' > "$T/fake-ps"; chmod +x "$T/fake-launchctl" "$T/fake-ps"
 export FT_LAUNCHCTL="$T/fake-launchctl" FT_PS="$T/fake-ps" STUB_LOADED=""
-chk() { out="$(bash "$CHK" "$@" --repo "$R" 2>&1)"; rc=$?; }
+chk() { out="$(bash "$CHK" "$@" --repo "$R" --kit "$KD" 2>&1)"; rc=$?; }   # r426: r385 뒤 키트 경로 기본 = 하네스 루트 → 임시 리포는 --kit 명시(shim 시험 r413 과 같은 꼴)
 commit_kit() { G add -A && G commit -qm "$1"; G update-ref refs/remotes/origin/main HEAD; G rev-parse HEAD; }   # 새 HEAD sha 출력 · origin/main = HEAD (R367: --range 대조는 ref tip)
 
 [ -f "$CHK" ] && bash -n "$CHK"; ck "bash -n ft-live-install-check.sh (파일 실재)" $?

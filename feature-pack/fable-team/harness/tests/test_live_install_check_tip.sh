@@ -19,7 +19,7 @@ cp "$KITMAP" "$R/$KD/LIVE-MAP.tsv"
 commit_kit() { G add -A && G commit -qm "$1" && G update-ref refs/remotes/origin/main HEAD; G rev-parse HEAD; }   # 새 HEAD 를 origin/main 으로 둔다
 put() { printf '#!/bin/bash\necho %s\n' "$2" > "$1"; chmod 755 "$1"; }
 blob10() { git -C "$R" hash-object --no-filters "$1" | cut -c1-10; }
-chk() { out="$(bash "$CHK" "$@" --repo "$R" 2>&1)"; rc=$?; }
+chk() { out="$(bash "$CHK" "$@" --repo "$R" --kit "$KD" 2>&1)"; rc=$?; }   # r426: r385 뒤 키트 경로 기본 = 하네스 루트 → 임시 리포는 --kit 명시(shim 시험 r413 과 같은 꼴)
 
 put "$R/$KA" v0; C0="$(commit_kit c0)"
 put "$R/$KA" v1; B="$(commit_kit B-v1)"          # 착지 B
