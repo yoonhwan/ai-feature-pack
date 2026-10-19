@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — 뉴스 HTML 모드: 팀 지도 HTML + 한 줄 · opencode 딥식 무료 비대화 1회 (r478 · 1.1.34)
+
+카드 r478 · 오빠 확정 10-19 19:3x(desk 113404·113411·113414 «내용 좋다 html 만 발급 · 슬랙 한 줄 시간과 적정한 반복 · 스크립트로 agent-cli · 결과물·속도로 effort 결정 · 요약과 html 아웃풋»).
+
+- `FT_NEWS_MODE=html` 이면 뉴스 틱이 원장·골 표·보드 스냅샷·[긴급] 머리·main 커밋을 묶어 `opencode run --standalone`(딥식 무료 · 70초 총 마감 · 첫 출력 전 실패만 재시도 1)에 넘기고, 내용 JSON 을 고정 틀(`templates/news-team-map.html` · 기준본과 같은 CSS·절)에 넣어 HTML 을 만든 뒤 린트 통과분만 슬랙 최상위 글 «[뉴스 HH:MM] 팀 지도 — 요약» + 요약 2줄 + HTML 첨부로 올린다. 변화 0 = 30분마다 한 줄(`FT_NEWS_REPEAT_MIN`) · 하루 첫 틱 = 지도 · 첨부 실패 = 글만 + rc3 + 다음 틱 재첨부.
+- 새(bin·kit 짝): `ft_news_html.py`(build·run·publish·tick) · `ft_news_html_render.py`(프롬프트·호출·파싱·틀) · `ft_news_html_lint.py`(절 5·중요한 일 ≤7·골 6·번호 각주만·요약 ≤3줄·600B·시크릿 0) · `ft-news-effort-test.sh`(변형 비교표) · 틀 1 · `magazine_slack.upload_file(thread_ts=None, comment=)`.
+- 모드 없음 = 옛 판 경로 그대로 · 되돌림 = plist env 줄 제거. 시험 새 `tests/test_news_html.sh` ⓐ~ⓗ · 증거 `harness/evidence/r478/`.
+
 ## 2026-10-19 — opencode 나노 = 읽고 모으기 · 쓰면 매번 완전히 닫기: `ft-opencode-reap.sh`(left=0) · nano-close 회수 · spawn `--tier search` · 나노 기본 모델 Sonnet 5.5 · Bash 직접 사용 알림 훅 (r286 · 1.1.33)
 
 카드 r286 · 오빠 하네스 뉴스(desk#7 #100242 · master#56 #100251) · 판정 2035(opencode 정리 kill 표준승인 · 전역 하드 룰 2). Sonnet 5.5 가 Opus·sol 보다 처리 능력이 낫고, opencode 의 DeepSeek V4.1 Flash Free 가 1M 컨텍스트를 무료로 준다 — 단 opencode 는 메모리 문제가 있어 쓰면 매번 완전히 닫아야 합니다. 실측: opencode 가 `opencode serve` 자식(400MB+)을 띄우고 tmux 세션만 지우면 부모를 잃고 남으며, `serve --service` 는 ppid 1 · cwd $HOME 으로 뜨기도 합니다(공유 서비스 가능).
