@@ -35,7 +35,14 @@ ft_team_root() { local t="$1" alt=0 rel root out; [ "${2:-}" = --alt ] && alt=1
     design/*)       if [ "$alt" = 1 ]; then out="$root/design/teams/$t/"; else out="$root/$rel"; fi;;
     *) echo "ERROR $t 폴더 칸을 풀지 못했다: $rel" >&2; return 1;;
   esac
+  case "$alt$rel" in 0design/*) _ft_team_sparse_check "$root" "${rel%/}" || return 1;; esac
   printf '%s\n' "${out%/}"; }
+# r486: 폴더가 tracked 인데 sparse 체크아웃(r444 · 나노 = 자기 팀 design 만)으로 디스크에 없으면 stderr `SPARSE-HIDDEN <경로> …` + rc1 — 일반 «없음» 과 가른다(파이썬 SparseHidden 과 같은 글자)
+#   전체 체크아웃·untracked·디스크에 있음 = 통과 · FT_TEAM_SPARSE_CHECK=0 = 끔(후보를 «실재 여부 무관» 으로 세는 ft_team_cands* 만)
+_ft_team_sparse_check() { [ "${FT_TEAM_SPARSE_CHECK:-1}" != 0 ] && [ ! -e "$1/$2" ] || return 0
+  [ "$(git -C "$1" config --bool core.sparseCheckout 2>/dev/null)" = true ] || return 0
+  git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1 || return 0
+  echo "SPARSE-HIDDEN $2 — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라" >&2; return 1; }
 # r447: 명단 새 꼴인데 옛 꼴 폴더에 파일이 남았으면(쌍둥이 공존) 새 꼴을 돌려주고 stderr WARN 1줄 — 옛 꼴로 되돌아가지 않는다
 #   FT_TEAM_TWIN_WARN=0 = 끔 — 쌍둥이를 일부러 둘 다 세는 ft_team_cands* 와 stderr 를 값으로 받는 호출처(map-lint)만
 _ft_team_twin_warn() { local old="${1%/}" n; [ "${FT_TEAM_TWIN_WARN:-1}" != 0 ] && [ -d "$old" ] || return 0
@@ -70,11 +77,11 @@ ft_index_twin() { local p="$1"
 #   ft_team_in <루트> <팀>          : 그 «루트(워크트리 포함)» 의 design/TEAMS.md 로 푼 팀 폴더 절대경로 — 워크트리마다 이동 상태가 다를 수 있으니 도구가 읽는 루트의 명단을 쓴다. 명단·팀 없음 = ERROR rc1(옛 design/<팀>/ 후퇴 0)
 ft_team_in() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1"; ft_team_root "$2" ); }
 #   ft_team_cands <루트> <팀>       : 그 루트에서 팀 폴더 «후보» 절대경로 줄마다 — 명단 꼴 먼저 · 쌍둥이(--alt)가 있으면 뒤에(꼴3 은 쌍둥이 0). 이동 «전·후 둘 다 찾는» 도구용(R383 · 팀 이름 글자 0). 명단·팀 없음 = ERROR rc1
-ft_team_cands() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1" FT_TEAM_TWIN_WARN=0; ft_team_root "$2" || exit 1; ft_team_root "$2" --alt 2>/dev/null; exit 0 ); }
+ft_team_cands() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0; ft_team_root "$2" || exit 1; ft_team_root "$2" --alt 2>/dev/null; exit 0 ); }
 #   ft_team_cands_ref <루트> <팀> [<ref>] : «명단 = ref · 폴더 = 루트»(R400 r3) — 명단은 `git show <ref>:design/TEAMS.md`(기본 origin/main · 워크트리 사본이 옛 명단이어도 무관), 후보 폴더는 그 루트 아래(명단 꼴 먼저 · 쌍둥이 뒤 · 꼴3 은 쌍둥이 0). ref 못 읽음 = `ERROR … 못 읽음` · 팀 없음 = ERROR(ft_team_rel) · 둘 다 rc1
 ft_team_cands_ref() { ( r="$1"; t="$2"; ref="${3:-origin/main}"; md="$(mktemp)" || exit 1; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 1; }
-  export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r" FT_TEAM_TWIN_WARN=0; ft_team_root "$t" || exit 1; ft_team_root "$t" --alt 2>/dev/null; exit 0 ); }
+  export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0; ft_team_root "$t" || exit 1; ft_team_root "$t" --alt 2>/dev/null; exit 0 ); }
 #   ft_team_file_ref <루트> <팀> <파일> [<ref>] : ft_team_cands_ref 후보 폴더 중 <파일> 이 «실재하는 정확히 1개» 의 절대경로(R406 · 기본 ref = FT_TEAMS_REF 또는 origin/main) — 명단 못 읽음·팀 없음·실재 0·2+ = stderr ERROR(ref·후보 경로) rc1 · 추측·옛 경로 후퇴 0
 ft_team_file_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c hits=()
   cands="$(ft_team_cands_ref "$r" "$t" "$ref")" || return 1
