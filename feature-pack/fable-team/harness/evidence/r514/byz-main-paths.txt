@@ -1,0 +1,5 @@
+BYZ origin/main design·docs *.md 낱말 파일 398 → {('docs', 'docs'): 398}
+그 밖 낱말 경로 1747 → {'global-rule': 7, 'deploy': 5, 'billing': 1219, 'key': 458, 'ddl': 58}
+PR2143 docs/architect/CFO_BILLING_SOVEREIGNTY_ARCHITECTURE.md → ('docs', 'docs')
+COST_BASE_TABLE → ('forbid', 'billing')
+byz origin/main = 465f515ee7a8364e809c1875bcdd6b2e174697f9

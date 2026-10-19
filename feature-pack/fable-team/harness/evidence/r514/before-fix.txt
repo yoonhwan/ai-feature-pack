@@ -1,0 +1,21 @@
+FAIL ⓐ docs/architect/CFO_BILLING_X.md → CLASS docs :: rc=3 out=FORBID kind=billing 과금 경로: docs/architect/CFO_BILLING_X.md
+FAIL ⓐ 낱말 문서 2(credit·pricing/toss/subscription) → CLASS docs :: rc=3 out=FORBID kind=billing 과금 경로: design/cfo/credit-ledger.md
+PASS ⓑ gateway/billing/x.py → FORBID kind=billing
+PASS ⓑ design/billing/x.py(design 아래 코드) → FORBID kind=billing
+PASS ⓑ docs/payment.sh(.md 아님) → FORBID kind=billing
+FAIL ⓒ 문서(BILLING) + gateway/billing/x.py → FORBID kind=billing :: rc=3 out=FORBID kind=billing 과금 경로: docs/architect/CFO_BILLING_X.md
+FAIL ⓒ 변이 — 문서 1파일만 남김 → CLASS docs :: rc=3 out=FORBID kind=billing 과금 경로: docs/architect/CFO_BILLING_X.md
+PASS ⓓ docs/architect/COST_BASE_TABLE.md → FORBID kind=billing
+PASS ⓓ CLAUDE.md → FORBID kind=global-rule
+PASS ⓓ .claude/rules/x.md → FORBID kind=global-rule
+PASS ⓓ design/x/COMM-GUIDE.md → FORBID kind=global-rule
+FAIL ⓔ design/x/credential-rotation.md → CLASS docs :: rc=3 out=FORBID kind=key 키 경로: design/x/credential-rotation.md
+PASS ⓔ shared/credential_store.py → FORBID kind=key
+PASS ⓔ secrets/a.json → FORBID kind=key
+PASS ⓔ docs/x.cred → FORBID kind=key
+FAIL 분류표: 낱말 줄 docs 아래·code 위 · COST_BASE_TABLE·secrets 경로 줄 docs 위 · credential 낱말 docs 위 0 :: rc=3 out=0
+PASS py_compile rules
+PASS 키트 사본 == harness/bin (cmp0)
+PASS core.bare 오염 0
+FAILED 6
+rc=1
