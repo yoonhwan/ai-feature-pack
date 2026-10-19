@@ -145,16 +145,33 @@ def commits(repo: Path, base: str) -> list[str]:
     return _git(repo, "log", "--format=%h %s", "-n", n, f"{base}..{ref}" if base else ref).splitlines()
 
 
+def autonomy(root: Path) -> str:
+    """자율 모드 실측 — ft-autonomy.sh mode(on|off) → ON·OFF · 위변조·실패·시간 초과 = «모름»(요약에 승인·자율 문장 금지 · r478d)."""
+    try:
+        done = subprocess.run(["bash", str(HERE / "ft-autonomy.sh"), "mode"], capture_output=True, text=True, timeout=SEAT_S, check=False,
+                              env={**os.environ, "FT_ROOT": str(root)})
+    except (OSError, subprocess.TimeoutExpired):
+        return "모름"
+    return {"on": "ON", "off": "OFF"}.get(done.stdout.strip() if done.returncode == 0 else "", "모름")
+
+
+def facts(live: list[dict], auto: str) -> dict:
+    """요약·중요한 일 문장이 따라야 할 코드 판정(r478d) — 일하는 팀(좌석 많은 순)·쉬는 팀·자율."""
+    work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
+    return {"일하는 팀": [t["team"] for t in work], "쉬는 팀": [t["team"] for t in live if not t["working"]], "자율": auto}
+
+
 def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) -> dict:
-    data = {"now": f"{now:%Y-%m-%d %H:%M}", "goals": goals(), "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
-            "urgent": urgent(root, now), "teams": teams(root), "live": live_teams(root), "commits": commits(repo, base)}
+    live = live_teams(root)
+    data = {"now": f"{now:%Y-%m-%d %H:%M}", "facts": facts(live, autonomy(root)), "goals": goals(), "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
+            "urgent": urgent(root, now), "teams": teams(root), "live": live, "commits": commits(repo, base)}
     return _scrub(data)
 
 
 def run_files(data: dict, out: Path, now: datetime) -> tuple[Path, Path]:
     from ft_news_html_render import model_id
     c, secs = call_model(data)
-    page = render(c, data["goals"], now)
+    page = render(c, data["goals"], now, (data.get("facts") or {}).get("자율", "모름"))
     out.mkdir(parents=True, exist_ok=True)
     html_p = out / f"NEWS-{now:%Y%m%d-%H%M}.html"
     sum_p = html_p.with_suffix(".summary.txt")

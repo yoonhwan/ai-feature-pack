@@ -24,14 +24,20 @@ MODEL = "opencode/deepseek-v4.1-flash-free"
 DEADLINE_S = 70
 FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  # 7초 룰 기준량 · CLI 기동 고정비 · 한글 섞인 글 ≈ 3 B/토큰(추정)
 HOT = ' class="hot"'
+WORK_ICON = ('<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/>'
+             '<circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/>'
+             '<path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>')
 TEMPLATES = (HERE.parent / "templates", HERE.parent / "kit" / "fable-team" / "templates")  # 설치본·키트 bin 옆 → 팩 harness/bin 옆
 SCHEMAS = {"summary": '["3줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
            "goals": '[{"done":"","now":"","left":"","hot":false}]', "team_notes": '[{"team":"live 의 team 그대로","text":""}]'}
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자)
-    "top": (("summary", "important", "refs"), ("now", "goals", "ledger", "urgent", "commits"),
+    "top": (("summary", "important", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
             '- "summary" = 1~3줄 · 합쳐 600바이트 이하 · 첫 줄 = 지금 가장 중요한 한 가지.\n'
             '- "important" = 지금 제일 중요한 일 순서대로 1~7개 · 급한 불이면 "hot": true.\n'
-            '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만.', 1500),
+            '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만.\n'
+            '- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
+            '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
+            '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.', 1500),
     "goals": (("goals",), ("now", "goals", "ledger"),
               '- "goals" = 입력 goals 순서 그대로 정확히 6개 · done(끝남)/now(지금)/left(남은 일) 각 한두 문장 · 급한 불이면 "hot": true.', 1800),
     "teams": (("team_notes",), ("now", "teams", "live"),
@@ -148,7 +154,7 @@ def bucket(notes: object, live: object) -> dict[str, list[dict]]:
     text = {str(n.get("team", "")).strip(): str(n.get("text", "")).strip() for n in notes if isinstance(n, dict)} if isinstance(notes, list) else {}
     work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
     unknown = lambda t: f" · 확인 불가 {t['unknown']}" if t.get("unknown") else ""  # noqa: E731
-    return {"working": [{"team": t["team"], "text": f"일하는 좌석 {t['working']}/{t['live']}{unknown(t)} · {text.get(t['team']) or '설명 없음'}"} for t in work],
+    return {"working": [{"team": t["team"], "seats": f"일하는 좌석 {t['working']}/{t['live']}{unknown(t)}", "note": text.get(t["team"]) or "설명 없음"} for t in work],
             "resting": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 일하는 좌석 0{unknown(t)} · {text.get(t['team']) or '설명 없음'}"}
                         for t in live if not t["working"]]}
 
@@ -178,16 +184,24 @@ def _goal(n: int, meta: dict, g: dict) -> dict[str, str]:
     return {f"G{n}_TONE": tone, f"G{n}_HEAD": _e(f"골 {n} · {team}"), f"G{n}_SAY": _e(meta.get("goal", "")), f"G{n}_TRACK": track}
 
 
-def render(c: dict, goals: list[dict], now: datetime) -> str:
+def _work_card(t: dict) -> str:
+    """일하는 팀 = 골 카드와 같은 그림 카드(r478d · 오빠 2차 반려 «챗봇이 아래에 텍스트만») — 좌석 수는 코드 · 설명은 LLM 한 문장."""
+    return (f'  <section class="goal work">\n    {WORK_ICON}\n    <div class="body">\n      <span class="gnum">{_e(t["seats"])}</span>\n'
+            f'      <p class="say">{_e(t["team"])}</p>\n      <div class="track">\n        <div class="step s-now"><b>지금</b>{_e(t["note"])}</div>\n'
+            '      </div>\n    </div>\n  </section>')
+
+
+def render(c: dict, goals: list[dict], now: datetime, autonomy: str = "모름") -> str:
+    """autonomy = 자율 모드 실측(ON·OFF·모름) — 각주에 «자율 X» 로 싣고 린트가 승인 문장을 그 값과 대조한다(r478d)."""
     tpl = next((d / "news-team-map.html" for d in TEMPLATES if (d / "news-team-map.html").is_file()), None)
     if tpl is None:
         raise NewsHtmlError(f"틀 없음 news-team-map.html ({', '.join(map(str, TEMPLATES))})")
     vals = {"STAMP": f"{now:%m-%d %H:%M}", "LEAD": f"{now:%Y-%m-%d %H:%M} 기준 · 스크립트가 원장·카드·세션 상태·main 커밋을 모아 정리한 지도",
             "IMPORTANT": "\n".join(f'      <li{HOT if x.get("hot") else ""}><div class="what"><strong>{_e(x.get("title"))}</strong>'
                                    f'<span>{_e(x.get("detail"))}</span></div><span class="who">{_e(x.get("who"))}</span></li>' for x in c["important"]),
-            "WORKING": "\n".join(f'    <div class="team"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["working"]),
+            "WORKING": "\n".join(map(_work_card, c["working"])) or '  <p class="lead">지금 일하는 좌석 0 (tmux 좌석·jsonl 실측)</p>',
             "RESTING": "\n".join(f'    <div class="team rest"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["resting"]),
-            "FOOT": _e(f"근거: {' · '.join(c['refs']) or '원장·카드·세션 상태·main 커밋'} · 정리 {model_id()}")}
+            "FOOT": _e(f"근거: {' · '.join(c['refs']) or '원장·카드·세션 상태·main 커밋'} · 자율 {autonomy} · 정리 {model_id()}")}
     for n, (meta, g) in enumerate(zip(goals, c["goals"]), 1):
         vals |= _goal(n, meta, g)
     out = re.sub(r"\{\{(\w+)\}\}", lambda m: vals.get(m[1], m[0]), tpl.read_text(encoding="utf-8"))
