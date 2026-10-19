@@ -193,12 +193,12 @@ python3 "$T/rs_viol.py" "$T/rscard2.md" "s#0" "$T/wt" "$(grep '리서치:' "$T/r
 grep -q 'ft-opencode-reap.sh' "$BIN/ft-nano-close.sh" && grep -q '리서치 닫힘' "$BIN/ft-nano-close.sh" && ok "close: 닫힘 줄 기록 + opencode reap 연결 실재" || bad "close: 닫힘 줄 코드 없음"
 
 # ── 8b. ft-nano-close 리서치 닫힘 줄 · reap 실패 흡수 금지(§9-3) — 스크립트에서 닫힘 블록을 꺼내 가짜 reap 으로 실행 ──
-_s="$(grep -n '^# R387 §7-3·§9-3' "$BIN/ft-nano-close.sh" | head -1 | cut -d: -f1)"; _e="$(awk -v s="${_s:-0}" 'NR>s && /^fi$/{print NR; exit}' "$BIN/ft-nano-close.sh")"
-sed -n "$((_s+1)),${_e}p" "$BIN/ft-nano-close.sh" > "$T/rs_close.sh"
+_s="$(grep -n '^_oc_close() {' "$BIN/ft-nano-close.sh" | head -1 | cut -d: -f1)"; _e="$(awk -v s="${_s:-0}" 'NR>s && /^}$/{print NR; exit}' "$BIN/ft-nano-close.sh")"   # r286: 닫힘 블록 = 함수 _oc_close(opencode 좌석 전부 · 리서치 줄 포함)
+{ [ -n "$_s" ] && [ -n "$_e" ] && sed -n "${_s},${_e}p" "$BIN/ft-nano-close.sh" && echo _oc_close; } > "$T/rs_close.sh"
 [ -s "$T/rs_close.sh" ] && ok "close: 닫힘 블록 추출" || bad "close: 닫힘 블록 추출 실패"
 mkdir -p "$T/rh"; rcls() { # <reap 본문|-> <agent> → OUT·RC · 카드 CD
   CD="$T/rcard.md"; printf '# c\n## 상태\n' > "$CD"; rm -f "$T/rh/ft-opencode-reap.sh"; [ "$1" = - ] || printf '%s\n' "$1" > "$T/rh/ft-opencode-reap.sh"
-  OUT="$(RS_LINE=x RS_AGENT="$2" HERE="$T/rh" SEAT='s#0' CARD="$CD" bash "$T/rs_close.sh" 2>&1)"; RC=$?; }
+  OUT="$(RS_LINE=x OC="$([ "$2" = opencode ] && echo 1 || echo 0)" OC_BIN="$T/rh/ft-opencode-reap.sh" SEAT='s#0' CARD="$CD" bash "$T/rs_close.sh" 2>&1)"; RC=$?; }
 rcls '#!/bin/sh
 echo "left=1"; exit 1' opencode; { [ "$RC" = 1 ] && [[ "$OUT" == *"CLOSE-FAIL reap left=1 rc=1"* ]] && grep -q '리서치 닫힘: s#0 .* CLOSE-FAIL reap left=1 rc=1' "$CD"; } && ok "close: reap(left=1 · rc1) → CLOSE-FAIL 출력 + exit 1 + 카드 원문(도구 없음으로 흡수 0)" || bad "close reap 실패 rc=$RC $OUT"
 rcls '#!/bin/sh

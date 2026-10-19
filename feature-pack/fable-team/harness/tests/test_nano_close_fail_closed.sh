@@ -107,5 +107,25 @@ hasnt "$(cat "$T/tlog")" "kill-session" "  └ kill-session 0"
 has "$(cat "$T/reap-args")" "$SEAT --wt $NW" "  └ reap 인자 = 좌석 + --wt 좌석 워크트리"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 
+echo "== ⓗ r286: opencode 좌석 = 명부 지우기 앞 기록(--record) · 세션 kill 뒤 회수(--apply) · left≠0 → CLOSE-FAIL rc 1 · 재실행은 pid 파일로 판정"
+OCS="$T/ocstate"; mkdir -p "$OCS"
+ocstub() { printf '#!/bin/sh\necho "$*" >> "%s/oc-args"\ncase "$*" in *--record*) echo "oc-record $1 n=1"; exit 0;; esac\necho "REAPED $1 n=1 left=%s rc=%s"; exit %s\n' "$T" "$1" "$1" "$1" > "$T/bin/ft-opencode-reap.sh"; chmod +x "$T/bin/ft-opencode-reap.sh"; : > "$T/oc-args"; }
+ocseats() { printf '{"%s":{"role":"nano","agent":"%s","index":"design/planner/indices/진행/ovr.md"}}\n' "$SEAT" "$1" > "$SEATS"; }
+closeoc() { run FT_OC_STATE_DIR="$OCS" FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$SEATS" FT_NANO_LEDGER_WT="$REPO" \
+  FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" bash "$T/bin/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 1 --wt "$NW" --branch "$BR"; }
+setup; ocseats opencode; ocstub 0; out="$(closeoc)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "OC-REAPED $SEAT reap left=0 rc=0" "ⓗ opencode 좌석 → OC-REAPED left=0 (rc 0)" || bad "ⓗ rc=$rc ← ${out:0:600}"
+has "$(sed -n 1p "$T/oc-args")" "$SEAT --wt $NW --record" "  └ 1번째 = --record(좌석 워크트리)"
+has "$(sed -n 2p "$T/oc-args")" "$SEAT --wt $NW --apply" "  └ 2번째 = --apply"
+has "$(cat "$T/tlog")" "kill-session" "  └ 회수는 세션 kill 뒤(kill-session 실행됨)"
+setup; ocseats opencode; ocstub 1; out="$(closeoc)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "CLOSE-FAIL reap left=1 rc=1" "ⓗ left=1 → CLOSE-FAIL rc 1" || bad "ⓗ left=1 rc=$rc ← ${out:0:600}"
+hasnt "$out" "OC-REAPED" "  └ OC-REAPED 0"
+setup; ocseats claude; ocstub 0; out="$(closeoc)"; rc=$?
+[ "$rc" -eq 0 ] && [ ! -s "$T/oc-args" ] && ok "ⓗ claude 좌석 · pid 파일 없음 → opencode 회수 호출 0" || bad "ⓗ claude rc=$rc args=$(cat "$T/oc-args")"
+setup; ocseats claude; ocstub 0; : > "$OCS/$SEAT.pids"; out="$(closeoc)"; rc=$?
+[ "$rc" -eq 0 ] && grep -q -- '--apply' "$T/oc-args" && ok "ⓗ 명부에 opencode 없어도 pid 파일 있으면 회수(재실행 경로)" || bad "ⓗ pid 파일 rc=$rc args=$(cat "$T/oc-args")"
+rm -f "$T/bin/ft-opencode-reap.sh" "$OCS/$SEAT.pids"
+
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

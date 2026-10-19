@@ -1,5 +1,34 @@
 # Changes
 
+## 2026-10-19 — opencode 나노 = 읽고 모으기 · 쓰면 매번 완전히 닫기: `ft-opencode-reap.sh`(left=0) · nano-close 회수 · spawn `--tier search` · 나노 기본 모델 Sonnet 5.5 · Bash 직접 사용 알림 훅 (r286 · 1.1.33)
+
+카드 r286 · 오빠 하네스 뉴스(desk#7 #100242 · master#56 #100251) · 판정 2035(opencode 정리 kill 표준승인 · 전역 하드 룰 2). Sonnet 5.5 가 Opus·sol 보다 처리 능력이 낫고, opencode 의 DeepSeek V4.1 Flash Free 가 1M 컨텍스트를 무료로 준다 — 단 opencode 는 메모리 문제가 있어 쓰면 매번 완전히 닫아야 합니다. 실측: opencode 가 `opencode serve` 자식(400MB+)을 띄우고 tmux 세션만 지우면 부모를 잃고 남으며, `serve --service` 는 ppid 1 · cwd $HOME 으로 뜨기도 합니다(공유 서비스 가능).
+
+- **새 `ft-opencode-reap.sh <좌석> [--wt] [--record [--since]] [--apply] | --pid-file F [--apply]`**(bin·kit 짝): 대상 = ①좌석 pane 나무 안 opencode ③ppid 1 ∧ cwd ⊂ 좌석 워크트리(안쪽 다른 워크트리 제외) · pid 파일(`~/.claude/state/opencode/<좌석>.pids` · 시작 시각 lstart 같을 때만 — pid 재사용 오살 0) · `--record --since` 뒤 새로 뜬 부모 잃은 serve(new — 닫을 때 다른 opencode 가 살아 있으면 공유로 보고 `oc-skip`) · 그 자손 전부. 내 uid · 다른 tmux 세션 나무 · 자기 조상 제외. `--apply` = TERM → 3 s → (같은 lstart 만) KILL → 재조사 2회전 → `REAPED <좌석> n= left= rc=`(rc 0 = left 0 · 1 = 남음 · 20 = 조사 실패). 외부 호출 각 7 s.
+- **ft-nano-close.sh**: 명부 agent=opencode 또는 pid 파일이 있으면 명부를 지우기 «앞» `--record` · 세션 kill «뒤» `--apply`(ABSENT 경로 포함) → `OC-REAPED <좌석> reap left=0 rc=0` · left≠0 ∨ rc≠0 = `CLOSE-FAIL … exit 1`(재실행 = pid 파일로 다시 회수). 리서치 닫힘 줄(R387)은 같은 결과(함수 `_oc_close` 하나).
+- **ft-nano-spawn.sh**: `--tier search` = opencode + `${FT_OC_MODEL:-opencode/deepseek-v4.1-flash-free}` · `--agent opencode` 모델 없으면 같은 기본(옛 REJECT 대신) · impl 기본 `FT_IMPL_MODEL:-claude-sonnet-5-5[1m]` · checker/tester sonnet 칸 `claude-sonnet-5-5[1m]` · opencode 좌석은 열린 뒤 `--record --since` · 검색 나노 발주 문단(코드 수정·커밋 0).
+- **새 홈 훅 `kit/hooks/opencode-reap-check.sh`**(PostToolUse · Bash): opencode 가 «명령 자리»에 있을 때만(echo·grep 인자·따옴표·heredoc 제외 · bash -c 재귀) 660 s 안에 시작한 부모 잃은 opencode 를 찾아 pid 파일 + `ft-opencode-reap.sh --pid-file … --apply` 1줄 알림 · kill 0 · 깨진 입력 = rc 1 + ERROR.
+- **정본 사본** `harness/design/harness/staged-r286/`: 홈 `orchestration.md` 로스터(구현·추론·테스트 = claude-sonnet-5-5[1m] · 대량 서치 = opencode 나노 · arch·DA 행 변경 0) · `COMM-GUIDE-BOOT.md` 41항.
+- **시험** 새 `tests/test_opencode_reap.sh` 50 PASS(남의 opencode 3종 생존 · TERM 무시 KILL · 신호 0 left=2 rc1 · pid 재사용 가드 · 공유 serve oc-skip · 훅 실행 자리 8종) · 새 `tests/test_nano_spawn_tier.sh` 25 · `test_nano_close_fail_closed.sh` ⓗ(record→apply 순서 · CLOSE-FAIL · pid 파일 재실행) · `test_nano_team_env.sh` 기대값 2(의도된 기본 모델) · `test_da_hold_gate.sh` 8b 추출 = `_oc_close`. 회귀 59 새 FAIL 0. 증거 `harness/evidence/r286/`.
+- **master 할 일**: `evidence/r286/master-steps.md` — LIVE_BIN 3 cmp0 · 홈 훅 + settings PostToolUse 1줄 · 홈 정본 2 cp · 실사건 = `--tier search` 나노 1석 열고 닫아 `OC-REAPED … left=0` + ps 에 그 좌석 opencode 0.
+- 범위 밖: 전역 CLAUDE.md «오케스트레이션» 절 모델 줄 · BYZ `.claude/rules/orchestration.md` · 공유 serve 자체의 메모리.
+
+## 2026-10-19 — 팀 «이름» 바꾸기 도구 `ft-team-rename.sh`: 명단·폴더·명부·env·저장 참조를 한 번에 + 스냅샷 되돌림 + 옛 계보 우편 감시 (r468 · 1.1.32)
+
+카드 r468 · master 78 발주 112808(오빠 «컨시어지 이름 잔존 없도록») · arch 101 실측 · 계획 `design/harness/PLAN-team-rename-concierge-to-chatbot-20261019.md` §3·§6. 기존 `ft-team-move.sh` 는 «같은 이름의 폴더 이동»(design/<팀> → design/teams/<팀>)만 알아, 팀 이름을 바꾸려면 명단 2·폴더·명부·env·틱 표·카드 본문·저장 참조 7종을 손으로 고쳐야 했고 되돌림 스냅샷이 없었습니다.
+
+- **새 `ft-team-rename.sh` + `ft_team_rename.py`**(bin·kit 짝): 이동 도구의 Ctx·점유 판정·Snap·revert·명부 기준 워크트리(store_base)·walk/dump_like/write_text 를 import(복제 0 · 이동 파일 변경 0).
+  - `--plan <옛> <새>` = 명단 2행 · 팀 폴더 파일 수 · 본문 치환 예상(패턴 2) · 명부 칸 4·행 수 · REF4~7 · env 파일 · 워크트리 받음/미전환 · BLOCK → `PLAN-END blockers=<n>` · 쓰기 0.
+  - `--apply` = 선검사(새 이름 명단에 없음 · 옛 이름 있음 · 폴더 칸 `design/teams/<옛>/` 꼴 · 쌍둥이 `design/<옛>/` 잔존 = `REJECT 먼저 ft-team-move` · 목적지·새 명부·새 env 없음 · 스테이징 비움 · 작업 트리 깨끗 · pane cwd·lsof 점유 0 — 하나라도 걸리면 쓰기 0) → 스냅샷 `.fable-team/state/team-rename/<ts>-<옛>-<새>/` → `git mv` + TEAMS/TEAMSET 행(첫 칸) + 본문 치환 «`design/teams/<옛>/` · `byz-<옛>-`» 둘뿐 + TEAMS 각주 «옛 이름 <옛> → <새>(개명 <날짜> · 좌석 계보 byz-<옛>-* 는 은퇴)» → 한 커밋 → 명부 `seats-<옛>.json` → `seats-<새>.json`(+`.bak-rename-<ts>` · `_name`·`_label` 대소문자 따라 · 경로 칸 · `_doc` · `_renamed_from`·`_renamed_at` · 행 이름·`_master` 등 좌석 이름 불변 · 못 받은 워크트리 기준 행 = `_move_pending`) → nano-card-base·worktree-info·baton·추가 파일 → env `bin-<옛>/` → `bin-<새>/`(파일 이름 + 값: 명부 파일·나노 접두·워크트리 접두·활성 태그·원장 경로 새 꼴·틱 라벨 · 권한 유지) → `AFTER 옛 자리 잔여 <n>`.
+  - 같은 `--apply` 를 개명 뒤 다시 = `RESYNC`(head-sync 로 받은 워크트리의 `_move_pending` 행·worktree-info 만 · git 변경 0).
+  - `--verify <새>` = 명단·폴더·map-lint·명부 index·카드 기준선·팀 집합 + 옛 폴더·옛 명부·옛 env·옛 명단 행 잔존 = ERR · 잔여 «<옛>» 글자 = WARN 목록(각주·옛 좌석 이름 제외 · 다른 팀 이력 문서는 1줄 요약 · 제품 코드 폴더는 훑지 않음) → `VERIFY ERR=<n> WARN=<m>`.
+  - `--revert <스냅샷>` = 만든 파일(새 명부·.bak-rename·새 env) 지움 → 이동 도구 revert(바이트 복원 sha256 + `git revert`).
+- **ft-tick.sh** `renamed_watch`: 명부 `_renamed_from` 이 7일 안이면 옛 계보(byz-<옛>-* 최신 번호 좌석) `peek`(소비 0) → pending>0 이면 그 명부 `_master` 에 `[개명 우편]` 1줄 · 1시간 1번(`FT_TICK_RENAMED_SEC`) · 목록이 바뀔 때만(`renamed.sig`) · `FT_TICK_RENAMED=0` 으로 끔. 주석 1(R324 목록 concierge → chatbot).
+- **team-tick-env.tsv**: concierge 행 → chatbot(명부·STATE_DIR·PIDFILE·STAMP) · 팀 틱 전 행 끌 감시에 `FT_TICK_RENAMED`(전 명부 스캔은 메인 틱 1개).
+- **시험** 새 `tests/test_team_rename.sh` ⓐ~ⓖ 86 PASS(plan 쓰기 0 · REJECT 4종 쓰기 0 · 쌍둥이/옛 꼴 REJECT · apply 한 커밋·명부·env·저장 참조 · RESYNC · verify ERR 0·WARN 목록·변이 ERR · revert 뒤 파일·폴더 manifest 원본 동일 · watch 7일·중복 0 · 600/300 0) · `tests/test_team_tick_unify.sh` concierge → chatbot.
+- 실 리포 읽기만: origin/main(a608fea5a0) 사본에서 `--plan concierge chatbot` = 폴더 71파일 · 본문 치환 예상 82+66 · 명부 행 17 · nano-card-base 12 · worktree-info 2 · env 6(이름 4) · `PLAN-END blockers=0`. 증거 `harness/evidence/r468/`.
+- 범위 밖: 제품 코드·UI 글자 · 가지·워크트리 이름(보존) · 좌석 교대(successor-open) · launchd 팀 틱 신규 설치.
+
 ## 2026-10-19 — 슬랙 보고 도구 인자: reply 의 `--channel` 기본값(None)이 다른 서브명령 7개로 새던 것을 막는다 (r474 · 1.1.31)
 
 카드 r474 · master 79 발주 113237·113489 · arch 102 실측. r414 의 `rpl.set_defaults(channel=None)` 은 reply 만 노렸지만, argparse `parents=[common]` 는 부모의 Action «객체» 를 자식이 공유하고 `set_defaults` 는 그 Action 의 `.default` 를 고치므로 start·progress·result·check·repair·update·attach 의 기본 채널까지 None 이 됐습니다 → 홈 설치(10-19 09:24) 뒤 뉴스 발행 `conversations.history channel_not_found` · 임시 우회 = 뉴스 plist env `FT_NEWS_POST_ARGS=--channel C0C6MJGRR89`. 기존 시험은 매 호출에 `--channel C1` 을 명시해 기본값을 못 봤습니다.
