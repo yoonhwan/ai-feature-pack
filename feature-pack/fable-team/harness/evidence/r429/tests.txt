@@ -1,0 +1,46 @@
+# r429 시험 기록 — 팩 워크트리 nano-r429-seat-retire-rosters · base nano/r427 tip a183c6c8
+== test_seat_retire_rosters.sh rc=0 pass=21
+fail=0
+== test_seat_retire.sh rc=5 pass=167
+FAIL ①stall: 옛 M#1 제외 · M#2·N#0 포함 (got=[] want=[M#2 N#0])
+FAIL ②_master 없음 → 무변경(M#1 M#2 N#0) (got=[] want=[M#1 M#2 N#0])
+FAIL ②_master 문자열 아님 → 무변경 (got=[] want=[M#1 M#2])
+FAIL ⑧test_ft_tick_master_seat.sh rc=0 (got=[44] want=[0])
+FAIL ⑧test_role_spawn_name.sh rc=0 (got=[1] want=[0])
+fail=5
+== test_seat_retire_keep.sh rc=0 pass=13
+fail=0
+== test_successor_open.sh rc=0 pass=14
+== test_seat_close.sh rc=0 pass=81
+fail=0
+== test_mbox_guard.sh rc=1 pass=42
+FAIL 후계 이름 없음 :: WARN 미등록 byz-planner-master-claude#8 — 전송
+FAIL REJECT 인데 큐에 들어감
+FAIL HIL 후계 전달 rc=0 :: WARN 미등록 byz-planner-master-claude#8 — 전송
+FAIL 깨진 명부 HIL rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL mbox-guard.log 없음
+FAIL 읽기 실패 문구 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL 명부 충돌 문구 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL 타 팀 깨짐 rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL kept rc=0 :: WARN 미등록 byz-cfo-master-claude#5 — 전송
+FAIL warn 모드 rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL queues.conf 모드 rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL 별칭 rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL reject 문구 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL relay rc=0 :: WARN 미등록 byz-planner-master-claude#8 — 전송
+FAIL kill 흉내 rc=1
+FAIL 원본이 깨졌다/바뀌었다
+FAIL 정상 은퇴 rc=1 out=REJECT /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.v5Kr70c3JS/seats-r.json 에 구 행 byz-planner-master-claude#9 없음
+FAIL 은퇴 결과 틀림
+FAIL G1(a) rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL G1(c) rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL V6 변이가 (c) 에 안 잡힘 rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL G1(d) rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL R320 유효 정지 rc=3 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+FAIL R320 가드가 정지 파일을 지움
+FAILED 24
+== 짝 cmp
+cmp0
+== base a183c6c8(git archive 사본) 같은 실패: test_seat_retire.sh rc=5 (①②stall 3 · ⑧tick_master_seat rc44 · role_spawn_name rc1) · test_mbox_guard.sh rc=1 — r427 master-steps 5 의 별도 고침 단위와 같음
+== test_mbox_guard.sh FAIL 25줄 = base a183c6c8 사본과 diff 0(IDENTICAL) — 그중 retire 경유 2건(kill 흉내·정상 은퇴)도 base 에서 픽스처 '구 행 없음' 으로 같은 실패 · retire 논리 커버는 test_seat_retire_rosters.sh
+== install.sh --dry-run --project BYZ rc=0 (LIVE_BIN <- ~/.claude/fable-team/live/1.1.17/bin)

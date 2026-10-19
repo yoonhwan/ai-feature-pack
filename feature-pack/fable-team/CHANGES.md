@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — 승계 은퇴가 «모든 명부»의 라우팅 칸(`_hil_route`…)을 후계로 바꾼다 — planner 교대 뒤 손 갱신 0 (1.1.17)
+
+카드 r429 · planner 증거 ① · EVAL I2 · arch#96 실측. `ft-seat-retire <구> <후계>` 는 «옛 이름이 값인 `_*` 칸 전부» 를 바꾼다고 돼 있었지만 고치는 파일은 자기 팀 명부 하나뿐이었습니다. planner master 이름은 모든 팀 명부의 `_hil_route`(사람 판정 요청이 가는 곳)에 들어 있어, planner 가 승계할 때마다 나머지 명부를 손으로 고쳐야 했고 그동안 [HIL] 쪽지가 은퇴 좌석에 쌓였습니다(mbox-guard forward 로 겨우 구제).
+
+- **ft-seat-retire.sh**: 자기 팀 명부 은퇴 뒤 같은 폴더(루트 `.fable-team`)의 다른 `seats*.json` 전부에서 값이 <구> 인 «라우팅 칸»(`ROUTE` = `_hil_route`·`_planner`·`_desk_route` + 이름이 `_route` 로 끝나는 칸)만 <후계> 로 · 역할 칸(`_master`·`_arch`…)은 자기 팀 명부만. 전부 검증 뒤 쓰기 — 명부 하나라도 JSON 손상이면 `ERROR 명부 JSON 손상 [<파일>]` rc1 · 쓰기 0. 바뀐 파일마다 `.bak-retire-<ts>` · tmp→교체. 출력 첫 줄 끝에 ` files=<N> routes=[<파일>:<칸>…]`(앞부분 `RETIRED <구> -> <후계> file=… keys=[…]` 그대로).
+- **R282 ② 판정 개정**: 옛 행이 어느 명부에도 없을 때의 «다른 명부에서 현역» REJECT 는 역할 칸만 본다(라우팅 칸에 옛 이름이 있는 건 이번에 바뀔 대상 — 막지 않음).
+- **시험**: 새 `test_seat_retire_rosters.sh` ⓐ~ⓔ(files=3 · 남의 `_master` 불변 · R282 ② · 손상 1개 = 전부 0 · 600/300 0) · `test_seat_retire.sh` ③⑨ 첫 줄 기대값에 ` files=1 routes=[]`.
+- 범위 밖(이름만): 명부 칸 이름 표준화 · `ft-tick-team.sh retarget_seat` 통합 · NOOP(이미 은퇴) 재실행 때 남은 라우팅 칸 쓸기.
+
 ## 2026-10-19 — tmux 세션이 이미 없는 «죽은 좌석» 명부 행을 `--verdict` 가 닫는다(CLOSED-DEAD) · 재개 기록은 보존 · `--reopen` 으로 되살린 좌석 복원 (1.1.16)
 
 카드 r427 · master 증거 ⑫(110863) · EVAL I16 · planner 판정 2344. «팀장 하나만»(판정 2341)으로 feature 팀 13석을 `ft-seat-close --verdict` 로 닫으려 했더니 전부 `HELD … NORECORD 조회 불가: pane 식별 조회 불가` 였습니다. 그 좌석들은 tmux 세션이 이미 없어 pane 에서 대화 uuid 를 뽑을 수 없는데, 닫기 도구는 «살아 있는 좌석» 길만 있었고, 기록 실패 처리에서 기존 재개 기록을 `.stale-<ts>` 로 «무효화» 해 지웠습니다(byz-feature-da-codex#2).
