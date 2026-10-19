@@ -1,10 +1,11 @@
 """r497 — 역할 좌석 모델 한도 → 대체 모델 후계 자동 교대 (`ft_model_swap.py`) + R146 모델별 복구 시험 ⓐ~ⓘ.
 
-임시 루트 + 가짜 tmux·seat-status·successor-open·mbox + 고정 시계(--now)만 — 실제 tmux·mbox·~/.claude 조회 0 · 외부 호출 0.
+임시 루트 + 임시 projects 폴더 + 가짜 tmux·successor-open·mbox + 고정 시계(--now)만 — 실제 tmux·mbox·~/.claude 조회 0 · 외부 호출 0.
 """
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -59,10 +60,10 @@ class Fx:
             _ = (self.ft / "state" / "successor" / "byz-x-arch-claude#6.json").write_text(json.dumps(
                 {"successor": ARCH, "seq": 9001, "reached_at": "2026-10-20T00:27:28+0900", "rc": 0, "model": "claude-fable-5-1[1m]"}), encoding="utf-8")
             _ = (self.ft / "comm" / "bodies" / "9001.txt").write_text("\n".join([*GOAL, "인계서: design/x/BRIEF.md"]) + "\n", encoding="utf-8")
-        self.jdir, self.argv, self.log = tmp / "j", tmp / "so.argv", tmp / "mbox.log"
-        self.jdir.mkdir()
-        self._fake("tmux", f'cat "{tmp}/sessions"')
-        self._fake("seat-status", f'[ "$1" = jsonl ] && [ -f "{self.jdir}/$2.jsonl" ] && echo "{self.jdir}/$2.jsonl"')
+        self.jdir = tmp / "projects" / re.sub(r"[^A-Za-z0-9]", "-", WT)  # ~/.claude/projects/<pane cwd 인코딩> 꼴
+        self.argv, self.log = tmp / "so.argv", tmp / "mbox.log"
+        self.jdir.mkdir(parents=True)
+        self._fake("tmux", f'case "$1" in list-sessions) cat "{tmp}/sessions";; list-panes) cat "{tmp}/panes";; esac')
         self._fake("so", f'printf "%s\\n" "$@" > "{self.argv}.tmp" && mv "{self.argv}.tmp" "{self.argv}"')
         self._fake("mbox", f'echo "$2|$3|$4" >> "{self.log}"')
 
@@ -71,15 +72,19 @@ class Fx:
         _ = p.write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8")
         p.chmod(0o755)
 
-    def add(self, seat: str, recs: list[dict[str, object]]) -> None:
-        with (self.jdir / f"{seat}.jsonl").open("a", encoding="utf-8") as fh:
-            fh.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in recs)
+    def add(self, seat: str, recs: list[dict[str, object]], name: str = "") -> Path:
+        p = self.jdir / f"{name or seat}.jsonl"
+        head = [] if p.exists() else [{"type": "agent-name", "agentName": seat}]  # 좌석명 레코드 = 파일 머리(Claude Code 꼴 · 공백 없는 JSON)
+        with p.open("a", encoding="utf-8") as fh:
+            fh.writelines(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in [*head, *recs])
+        return p
 
     def run(self, now: int = N, *extra: str) -> subprocess.CompletedProcess[str]:
         _ = (self.ft / "seats-x.json").write_text(json.dumps(self.seats), encoding="utf-8")
         _ = (self.tmp / "sessions").write_text("\n".join(self.sessions) + "\n", encoding="utf-8")
+        _ = (self.tmp / "panes").write_text("".join(f"{s}\t{WT}\n" for s in self.sessions), encoding="utf-8")
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-        env.update(TZ="UTC", FT_TMUX=str(self.tmp / "tmux"), FT_SEAT_STATUS=str(self.tmp / "seat-status"), FT_SUCCESSOR_OPEN=str(self.tmp / "so"))
+        env.update(TZ="UTC", FT_TMUX=str(self.tmp / "tmux"), FT_CLAUDE_PROJECTS=str(self.tmp / "projects"), FT_SUCCESSOR_OPEN=str(self.tmp / "so"))
         cmd = [sys.executable, "-I", str(SWAP), "--root", str(self.root), "--mbox", str(self.tmp / "mbox"), "--now", str(now), *extra]
         return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=30)
 
@@ -115,6 +120,18 @@ def test_b_one_minute_old_limit_waits(tmp_path):  # ⓑ
     fx.add(ARCH, _err("e1", N - 60, _limit()))
     r = fx.run()
     assert r.returncode == 0 and f"WAIT {ARCH} 정지 1분" in r.stdout and not fx.argv.exists() and fx.mail() == []
+
+
+def test_b2_jsonl_lookup_newest_recent_file_only(tmp_path):  # 좌석 jsonl 찾기 = pane cwd 폴더 · 최근 2일 · 머리의 좌석명 · 최신 1개
+    fx = Fx(tmp_path)
+    old = fx.add(ARCH, _err("e-old", N - 240, _limit()), name="old")
+    os.utime(old, (time.time() - 3 * 86400, time.time() - 3 * 86400))  # 3일 전 파일 = 후보 아님
+    assert "PLAN" not in fx.run().stdout and "WAIT" not in fx.run().stdout
+    fx.add(ARCH, _err("e-mid", N - 240, _limit()), name="mid")
+    os.utime(fx.jdir / "mid.jsonl", (time.time() - 100, time.time() - 100))
+    fx.add(ARCH, _ok("n1", N - 30, "claude-sonnet-5-5"), name="new")  # 최신 파일 = 정상 턴 → 이 좌석은 안 멈춤
+    r = fx.run()
+    assert r.returncode == 0 and "PLAN" not in r.stdout and "WAIT" not in r.stdout and not fx.argv.exists()
 
 
 def test_c_retry_after_phrase_waits_with_eta(tmp_path):  # ⓒ

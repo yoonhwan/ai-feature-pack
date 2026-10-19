@@ -136,15 +136,35 @@ def read_table(path: Path) -> dict[str, object] | None:
         return None
 
 
-def seat_jsonl(seat_status: str, seat: str) -> str:
-    """r497 `ft-seat-status.sh jsonl <좌석>`(7초 룰) → 파일 경로 · 없음·초과 = ''(초과는 WARN)."""
-    try:
-        r = subprocess.run(["bash", seat_status, "jsonl", seat], capture_output=True, text=True, timeout=7)
-    except subprocess.TimeoutExpired:
-        print(f"WARN model_swap: jsonl 7초 초과 {seat}", file=sys.stderr)
-        return ""
-    path = r.stdout.strip() if r.returncode == 0 else ""
-    return path if path and Path(path).is_file() else ""
+def find_jsonls(seats: list[str], tmux: str, projects: Path, days: int = 2) -> dict[str, str]:
+    """r497 좌석들 → 최신 jsonl 을 «한 번에». ft-seat-status.sh jsonl 은 좌석마다 폴더 jsonl 전부(5989개)의 머리 1MB 를 읽어
+    부하 30 에서 1회 10초(실측) — 여기선 폴더 = tmux pane cwd 인코딩(같은 규칙) · 후보 = 최근 days 일 수정 파일만 · 파일 머리 1번 읽어 전 좌석 대조."""
+    r = subprocess.run([tmux, "list-panes", "-a", "-F", "#{session_name}\t#{pane_current_path}"], capture_output=True, text=True, timeout=7)
+    groups: dict[Path, list[str]] = {}
+    for s, cwd in (ln.split("\t", 1) for ln in (r.stdout if r.returncode == 0 else "").splitlines() if "\t" in ln):
+        if s in seats and not any(s in g for g in groups.values()):
+            groups.setdefault(projects / re.sub(r"[^A-Za-z0-9]", "-", cwd), []).append(s)
+    out: dict[str, str] = {}
+    for d, group in groups.items():
+        try:
+            files = sorted(((p.stat().st_mtime, p) for p in d.glob("*.jsonl")), reverse=True)
+        except OSError:
+            continue
+        for _, p in (f for f in files if time.time() - f[0] < days * 86400):
+            if not (left := [s for s in group if s not in out]):
+                break
+            try:
+                with p.open("rb") as fh:
+                    head = fh.read(1 << 20)
+            except OSError:  # 읽는 사이 지워진 파일
+                continue
+            out.update({s: str(p) for s in left if f'"agentName":"{s}"'.encode() in head or f'"customTitle":"{s}"'.encode() in head})
+    return out
+
+
+def jsonl_cwd(path: str) -> str:
+    """r497 좌석 jsonl 의 마지막 `cwd`(후계 워크트리) · 없으면 ''."""
+    return next((str(r["cwd"]) for r in reversed(records(path)) if isinstance(r.get("cwd"), str)), "") if path else ""
 
 
 def next_name(names: set[str], base: str) -> str:
