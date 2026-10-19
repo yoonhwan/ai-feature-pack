@@ -198,6 +198,14 @@ comm_of() {
   local f; f="$(printf '%s\n' "$1" | grep -oE 'file=[^ ]+' | head -1 | cut -d= -f2-)"
   [ -n "$f" ] && (cd "$(dirname "$f")" 2>/dev/null && pwd)
 }
+# r488 자가 점검: 보낸 seq 행이 보관 로그(mailbox.log.jsonl)에 정확히 1행인가 — 아니면 stderr WARN(전송 rc 불변 · fail-open).
+sent_log_check() {  # <seq> <우편함 comm 절대경로>
+  local n f="$2/mailbox.log.jsonl"
+  [ -n "$1" ] && [ -n "$2" ] || return 0
+  n="$(grep -c "\"seq\": $1," "$f" 2>/dev/null)" || true
+  [ "${n:-0}" = 1 ] || echo "WARN sent-log ${n:-0} seq=$1 file=$f" >&2
+  return 0
+}
 inbox_ingest() {
   INBOX_CLS=""; [ -n "$1" ] || return 0
   local o md root
@@ -284,6 +292,7 @@ case "$cmd" in
     fi
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"} ${dispatch[@]+"${dispatch[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; exit $_rc; }
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $(seq_of "$py_out")" >/dev/null || true
+    sent_log_check "$(seq_of "$py_out")" "$(comm_of "$py_out")"
     inbox_ingest "$(seq_of "$py_out")"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
@@ -306,6 +315,7 @@ case "$cmd" in
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}" ${force[@]+"${force[@]}"})" || exit $?
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
+    sent_log_check "$(seq_of "$py_out")" "$(comm_of "$py_out")"
     inbox_ingest "$(seq_of "$py_out")"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi

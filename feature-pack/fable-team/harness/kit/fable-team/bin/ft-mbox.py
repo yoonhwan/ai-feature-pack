@@ -52,6 +52,12 @@ RELAY_DIR = os.environ.get("FT_MBOX_RELAY_DIR") or "/tmp/mbox"  # 긴 본문의 
 #   비용은 건당 4KB(gitignore 아래)라 여유를 크게 잡는 편이 싸다.
 BODIES_TTL_DAYS = int(os.environ.get("FT_MBOX_BODIES_TTL_DAYS") or 14)
 BODIES_PRUNE_EVERY = 3600  # 청소 주기(초) — 매 send 마다 listdir 하지 않는다.
+# ★보낸 행의 «추가 전용» 사본 (r488 · 출처 = 루트 mbox_conf.py:40-41 그대로)★
+#   mailbox.jsonl 은 consume-on-read 라 recv 하면 행이 사라진다. 이 사본이 없으면 소비된 쪽지의
+#   레코드가 어디에도 없어 가드(ft_da_hold_gate)·보드·미러가 «쪽지 없음»으로 판정한다.
+#   한도 초과 시 .1 로 한 번 회전해 최대 2×한도로 묶는다(무한 증가 0).
+SENT_LOG = "mailbox.log.jsonl"
+SENT_LOG_MAX_BYTES = int(os.environ.get("FT_MBOX_LOG_MAX_BYTES") or 5 * 1024 * 1024)
 
 
 def _repo_root(start):
@@ -315,6 +321,22 @@ def _locked(d, fn):
         lf.close()
 
 
+def _log_sent(d, row):
+    """보낸 행을 추가 전용 사본에 1줄 쓴다(r488 · 출처 = 루트 mbox_guard.py `_log_sent` 그대로).
+
+    실패해도 send 는 산다 — 단 «조용히» 삼키지 않고 stderr WARN 으로 드러낸다. 우편함 잠금 안에서 부른다.
+    """
+    p = os.path.join(d, SENT_LOG)
+    try:
+        if os.path.exists(p) and os.path.getsize(p) > SENT_LOG_MAX_BYTES:
+            os.replace(p, p + ".1")
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError as e:
+        sys.stderr.write("WARN %s 사본 기록 실패(%s) — 이 행은 recv 뒤 레코드가 남지 않는다. 큐에는 정상 적재됨.\n"
+                         % (SENT_LOG, type(e).__name__))
+
+
 _GUARD = os.path.join(CANON, ".mbox-guard.json")
 
 
@@ -453,6 +475,7 @@ def send(to, frm, body, force=False, dispatch=False):
                 dropped = len(rs) - MAX_PER_TO
             keep.extend(rs[-MAX_PER_TO:])
         _save(CANON, keep)
+        _log_sent(CANON, row)  # r488 — 같은 잠금 안 · relay 는 send 를 타므로 여기 한 곳
         # ★가드 기록을 «이미 잡고 있는» 우편함 잠금 안에서 한다★ — 밖에서 하면 동시 send 가
         # 읽고-고쳐-쓰기로 겹쳐 기록이 유실되고(실측 20건 중 일부), 가드가 «덜 잡는» 쪽으로 샌다.
         # 잠금을 새로 «거는» 것은 오히려 나쁘다 — flock 은 블로킹이라 물고 죽은 프로세스가
