@@ -2,7 +2,8 @@
 # ft-seat-retire.sh <구> <후계> [--seats <파일>] — 승계 뒤 옛 좌석 행을 한 번에 은퇴시킨다 (R43).
 #   구 행: tick=None · _replaced_by=<후계> · role=stop-ready(원래 role 은 _retired_role) · 후계 행: 없으면 생성·있으면 role/tick 상속·_replaces 추가.
 #   최상위 _<이름> 문자열 키 중 값이 <구> 인 것(_master·_arch·_hil_route…) 전부 → <후계>. retarget_seat(ft-tick-team.sh)와 같은 규칙을 «살아 있는 승계»에 쓴다.
-#   명부 = --seats · FT_SEATS_JSON · <루트>/.fable-team/seats*.json 중 키 <구> 를 가진 파일 정확히 1개. r429 같은 폴더의 다른 명부 = 라우팅 칸(ROUTE)만 → <후계> · 전부 검증 뒤 쓰기(손상 1개 = ERROR rc 1 · 쓰기 0) · 출력 files=N routes=[…].
+#   명부 = --seats · FT_SEATS_JSON · <루트>/.fable-team/seats*.json 중 키 <구> 를 가진 파일 정확히 1개. r465 같은 폴더의 다른 명부 = 값이 <구> 인 `_*` 칸 전부(역할 roles + 라우팅 routes · 공유 arch) → <후계> · 전부 검증 뒤 쓰기(손상 1개 = ERROR rc 1 · 쓰기 0) · 출력 files=N roles=[…] routes=[…].
+#   r465 재실행(이미 은퇴)도 남은 칸을 보정 → FIXED … · 옛 이름 칸 0 + 후계 행 실재 + 후계 역할 칸(_master·_arch·_da·_tester) 빈 값/없음 → 채움 ` FILLED <명부>:<칸>` · 그 칸이 살아 있는 다른 좌석 = REJECT rc 1(쓰기 0).
 #   rc 0 = RETIRED/NOOP · 1 = 명부 못 정함·구 행 없음 · 2 = usage · 3 = 후계 행이 이미 은퇴(쓰기 0). 쓰기 전 <파일>.bak-retire-<ts>.
 #   RETIRED 줄 다음에 재개 기록 결과 1줄 — `RESUME ok <~/.claude/state/seat-resume/<구>.json>` 또는 `NORECORD <구> <이유>` (rc 에 섞지 않음 · 판정 1344). 부팅 보고 retire 칸 옆에 복붙.
 #   `<구> --record-only [--seats <파일>]` (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다. 명부 쓰기·.bak 0 · 구 행에 _replaced_by 없으면 REJECT rc 1(현역 좌석에 닫기 근거를 만들지 않는다) · retired_by = 그 _replaced_by. <후계> 와 같이 주면 usage rc 2.
@@ -26,7 +27,7 @@ python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
-try: import ft_seat_bind; from ft_roster_lib import load, dump, is_route, scan_routes, apply_routes   # 명부 읽기·원자 쓰기·라우팅 칸 쓸기(r429) = 같은 폴더 lib
+try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465) = 같은 폴더 lib
 except ImportError as e: print(f"ERROR 결속 판정기·명부 lib 없음 {here}/ft_seat_bind.py · ft_roster_lib.py ({e}) — 은퇴·기록 0"); sys.exit(2)
 def sh(*a):
     try: return subprocess.run(a, capture_output=True, text=True, timeout=7).stdout.split()
@@ -109,8 +110,8 @@ def record(model, retired_by):   # 기록 모드 공통 — r427 --keep-existing
     write_record(rec, why); return rec
 rosters = sorted(glob.glob(root + "/.fable-team/seats*.json"))
 def reject(why): print(f"REJECT {why}"); sys.exit(1)
-def active_in(f, roles_only=False):   # 그 명부 최상위 `_*` 문자열 칸(_master·_arch·_hil_route…)의 값에 옛 이름이 있나 = 현역 (roles_only = 라우팅 칸 제외 · r429)
-    dd = load(f); return isinstance(dd, dict) and any(k.startswith("_") and v == old and not (roles_only and is_route(k)) for k, v in dd.items() if isinstance(v, str))
+def active_in(f):   # 그 명부 최상위 `_*` 문자열 칸(_master·_arch·_hil_route…)의 값에 옛 이름이 있나 = 현역
+    dd = load(f); return isinstance(dd, dict) and any(k.startswith("_") and v == old for k, v in dd.items() if isinstance(v, str))
 def alive(name):
     try: return subprocess.run(["tmux", "has-session", "-t", "=" + name], capture_output=True, timeout=7).returncode == 0
     except (OSError, subprocess.SubprocessError): return False
@@ -148,7 +149,6 @@ if not cand and not arg and reconly != "1":   # R282 ② — 옛 행이 어느 �
     if lint.returncode != 0: reject(f"명부 후보 0개 (키 {old}) · 이름 lint 실패 — --seats 로 지정")
     parts = old.rpartition("#")[0].split("-"); tf = root + "/.fable-team/" + ("seats.json" if parts[1] == "v65" else f"seats-{parts[1]}.json")
     if not isinstance(load(tf), dict): reject(f"명부 후보 0개 (키 {old}) · 팀 명부 없음 {tf} — --seats 로 지정")
-    if any(f != tf and active_in(f, True) for f in rosters): reject(f"{old} 은 다른 명부에서 현역 — 은퇴 행을 만들지 않는다(현역에 닫기 근거 0)")
     cand, mkrow = [tf], True
 if len(cand) != 1: print(f"REJECT 명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정"); sys.exit(1)
 p = cand[0]; d = load(p); o = d.get(old) if isinstance(d, dict) else None
@@ -158,31 +158,37 @@ if reconly == "1":   # 기록 모드 — 명부 쓰기 0(.bak 도 0) · 은퇴�
     rb = o.get("_replaced_by")
     if not (isinstance(rb, str) and rb): print(f"REJECT {old} 은 현역 행(_replaced_by 없음) — 기록 모드는 은퇴한 좌석만 file={p}"); sys.exit(1)
     record(o.get("model"), rb); sys.exit(0)
-if o.get("_replaced_by") == new: print(f"NOOP {old} 은 이미 {new} 로 은퇴 file={p}"); sys.exit(0)
-n = d.get(new)
-if isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT 후계 {new} 가 이미 은퇴(_replaced_by={n['_replaced_by']}) — 쓰기 0"); sys.exit(3)
-others, routes, bad = scan_routes(p, old)   # r429 같은 폴더(루트 .fable-team) 명부 전부 — 라우팅 칸만
+noop, n = o.get("_replaced_by") == new, d.get(new)   # r465 재실행도 남은 칸 보정·빈 칸 채우기 — 바꿀 것 0 일 때만 옛 NOOP
+if not noop and isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT 후계 {new} 가 이미 은퇴(_replaced_by={n['_replaced_by']}) — 쓰기 0"); sys.exit(3)
+others, cells, bad = scan_cells(p, old)   # r465 같은 폴더(루트 .fable-team) 다른 명부 전부 — 값이 <구> 인 `_*` 칸 전부(역할·라우팅)
 if bad: print(f"ERROR 명부 JSON 손상 {bad} — 전부 검증 뒤 쓰기라 쓰기 0 file={p}"); sys.exit(1)
-ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S"); shutil.copy(p, p + ".bak-retire-" + ts)
-if mkrow: d[old] = o   # .bak 뒤에 — 아래 은퇴 흐름이 이 행을 닫는다
-rec, why = find_resume(o.get("model"), new)   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
-if rec: o["_resume_uuid"] = rec["uuid"]
-else: o.pop("_resume_uuid", None)   # 옛 은퇴가 남긴 값이 닫기 근거로 남지 않게(DA⑥ H1)
-role, tick = o.get("role"), o.get("tick")
-if role != "stop-ready": o["_retired_role"] = role
-o["tick"] = None; o["_replaced_by"] = new; o["role"] = "stop-ready"
-if not isinstance(n, dict):
-    n = d[new] = collections.OrderedDict([("role", role), ("agent", o.get("agent", "claude")), ("model", arrival_model() or o.get("model") or (rec or {}).get("model")), ("tick", tick)])
-else:
-    if role != "stop-ready": n["role"] = role
-    if not n.get("tick"): n["tick"] = tick
-if o.get("index") and not n.get("index"): n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
-n["_replaces"] = sorted(set(n.get("_replaces", []) + [old]))
-keys =[k for k, v in d.items() if k.startswith("_") and v == old]
-for k in keys: d[k] = new
-dump(p, d)   # 쓰기 중 죽어도 원본 무손상(tmp→교체)
-rk = apply_routes(others, routes, new, ts)   # r429 남의 명부 = 라우팅 칸만 · 파일마다 .bak
-print(f"RETIRED {old} -> {new} file={p} keys={keys} files={1 + len(routes)} routes={rk}")
+keys = [k for k, v in d.items() if k.startswith("_") and v == old]; fc, fv = (None, None) if keys else role_cell(d, new)   # r465 사례 2 — 옛 이름 칸 0 이면 후계 역할 칸이 빈 값/없음일 때 채움
+if fc and isinstance(fv, str) and fv not in ("", new) and alive(fv): reject(f"{os.path.basename(p)} {fc} = 살아 있는 다른 좌석 {fv} — 채우지 않는다(쓰기 0 · 추측 0)")
+fc = fc if fv in (None, "") else None
+if noop and not (keys or cells or fc): print(f"NOOP {old} 은 이미 {new} 로 은퇴 file={p}"); sys.exit(0)
+own, ts, rec, why = not noop or bool(keys or fc), datetime.datetime.now().strftime("%Y%m%d%H%M%S"), None, ""   # own = 자기 명부를 쓰나
+if own: shutil.copy(p, p + ".bak-retire-" + ts)
+if not noop:
+    if mkrow: d[old] = o   # .bak 뒤에 — 아래 은퇴 흐름이 이 행을 닫는다
+    rec, why = find_resume(o.get("model"), new)   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
+    if rec: o["_resume_uuid"] = rec["uuid"]
+    else: o.pop("_resume_uuid", None)   # 옛 은퇴가 남긴 값이 닫기 근거로 남지 않게(DA⑥ H1)
+    role, tick = o.get("role"), o.get("tick")
+    if role != "stop-ready": o["_retired_role"] = role
+    o["tick"] = None; o["_replaced_by"] = new; o["role"] = "stop-ready"
+    if not isinstance(n, dict):
+        n = d[new] = collections.OrderedDict([("role", role), ("agent", o.get("agent", "claude")), ("model", arrival_model() or o.get("model") or (rec or {}).get("model")), ("tick", tick)])
+    else:
+        if role != "stop-ready": n["role"] = role
+        if not n.get("tick"): n["tick"] = tick
+    if o.get("index") and not n.get("index"): n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
+    n["_replaces"] = sorted(set(n.get("_replaces", []) + [old]))
+for k in keys + ([fc] if fc else []): d[k] = new
+if own: dump(p, d)   # 쓰기 중 죽어도 원본 무손상(tmp→교체)
+roles, rk = apply_cells(others, cells, new, ts)   # r465 남의 명부 = 값이 <구> 인 칸 전부 · 파일마다 .bak
+tail = f"keys={keys} files={int(own) + len(cells)} roles={roles} routes={rk}" + (f" FILLED {os.path.basename(p)}:{fc}" if fc else "")
+if noop: print(f"FIXED {old} -> {new} file={p} {tail}"); sys.exit(0)
+print(f"RETIRED {old} -> {new} file={p} {tail}")
 write_record(rec, why)
 PY
 prc=$?

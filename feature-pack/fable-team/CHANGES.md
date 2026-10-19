@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 공유 역할 좌석 승계: 은퇴가 «모든 명부»의 역할 칸(`_arch`·`_master`…)까지 후계로 · 재실행 보정 · 빈 역할 칸 채우기 (r465 · 1.1.51)
+
+- 사건(v65 master 211 · 112532): 공유 arch 262→263 은퇴 뒤 `seats-lecture.json _arch` = 262 그대로 → `ft-seat-close 262` 가 «현역 역할 좌석» REJECT · retire 재실행은 NOOP · 명부 손 편집 0 이라 갈 길 0. 사례 2(112813): `close --verdict` 가 `_arch` 를 "" 로 비운 뒤 resume 한 좌석은 retire 가 `keys=[]` 로 끝나 칸이 빈 채 남음(planner 손 채움).
+- **ft-seat-retire.sh**: 같은 폴더 다른 명부의 «값이 <구> 인 최상위 `_*` 문자열 칸 전부»(역할 + 라우팅)를 후계로(옛 r429 = 라우팅만). 출력 첫 줄 `… keys=[…] files=N roles=[<파일>:<칸>…] routes=[…]`(`roles=` 칸 추가). R282 ② «다른 명부에서 현역 → REJECT» 삭제(그 칸도 이번에 바뀐다) · close 의 현역 판정은 불변.
+- **재실행(이미 은퇴)**: 남은 칸이 있으면 보정 `FIXED <구> -> <후계> file=… keys=[…] files=N roles=[…] routes=[…]` · 없으면 옛 `NOOP` 그대로(멱등).
+- **빈 역할 칸 채우기**: 자기 명부에 옛 이름 칸 0 · 후계 행 실재 · 후계 이름의 역할 칸(`_master`·`_arch`·`_da`·`_tester`)이 "" 또는 없음 → 후계로 채우고 첫 줄 끝 ` FILLED <명부>:<칸>` · 그 칸이 살아 있는(tmux) 다른 좌석이면 `REJECT` rc1 쓰기 0 · 죽은 다른 좌석이면 채우지 않음(추측 0).
+- 그대로: 전부 검증 뒤 쓰기(명부 하나 손상 = `ERROR` rc1 · 쓰기 0) · 바뀐 파일마다 `.bak-retire-<ts>` · tmp→교체 · 바꾸는 값 = «옛 → 후계» 치환뿐(행 삭제 0).
+- **ft_roster_lib.py**(bin/kit 짝 cmp0): `scan_cells`·`apply_cells`(→ roles/routes 나눔)·`role_cell` 추가.
+- **시험**: `test_seat_retire_rosters.sh` r465ⓐ~ⓕ(공유 arch files=3 · FIXED 보정·NOOP 멱등 · 손상 ERROR · 기존 REJECT 그대로(lint·rc3) · close «현역» REJECT 대조 1→0 · FILLED/살아 있는 좌석 REJECT/죽은 좌석 채우기 0) + 옛 ⓐⓑⓒ' 기대값을 새 계약으로(남의 `_master` 도 후계) · `test_seat_retire.sh` ③⑨⑬ 기대값(`roles=` 칸 · ⑬ REJECT→RETIRED). `test_seat_retire.sh` ⑧ 의 `test_ft_tick_master_seat.sh` rc4 는 origin/main 0051effd 에서도 같은 FAIL 4줄(선재 · 은퇴 도구 참조 0).
+- 설치 뒤 실사건: 다음 공유 역할 좌석 승계 1건 → 모든 명부에서 값이 <옛 이름> 인 `_*` 칸 0 + `ft-seat-close <옛>` 통과.
+
 ## 2026-10-20 — 제안서 게이트 판정 원장 = ref(origin/main) 트리 · 표 행 꼴도 읽는다 (r492 · 1.1.50)
 
 - 사건: feature#31 F-1509(main RED 수정) 카드 spawn 이 `REJECT 1509 ⓑ planner 원장 「1637 오빠 인터뷰」 줄에 … issues/1509 없음` — planner 는 링크를 main 에 올렸는데(33d5b75186) 게이트가 옛 라이브 체크아웃(`.worktrees/v6-realtime-live` · main 뒤 186커밋)에서, 줄머리 `N 오빠 인터뷰` 꼴로만 원장을 읽었다(실제 행 = 표 행 `| 1637 | 23:0x | (오빠 인터뷰 4) …`).

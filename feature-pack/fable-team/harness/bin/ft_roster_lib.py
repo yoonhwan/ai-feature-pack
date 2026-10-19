@@ -2,7 +2,7 @@
 r429 묶음: 두 도구에 같은 글자로 있던 load/쓰기와 retire 의 라우팅 칸 쓸기를 한 곳으로 옮겼다(동작 불변 · 줄 수 상한)."""
 import collections, glob, json, os, shutil
 
-ROUTE = ("_hil_route", "_planner", "_desk_route")   # r429 라우팅 칸(+ 이름이 _route 로 끝나는 칸) — 남의 명부에서도 바꾼다 · 역할 칸(_master·_arch…)은 자기 팀 명부만
+ROUTE = ("_hil_route", "_planner", "_desk_route")   # r429 라우팅 칸(+ 이름이 _route 로 끝나는 칸) · r465 부터 은퇴는 남의 명부 역할 칸도 바꾼다(scan_cells) — 이 표는 출력 roles/routes 구분용
 
 
 def is_route(k): return k in ROUTE or k.endswith("_route")
@@ -30,3 +30,19 @@ def apply_routes(others, routes, new, ts):   # r429 남의 명부 = 라우팅 �
     for f, ks in routes.items():
         shutil.copy(f, f + ".bak-retire-" + ts); others[f].update((k, new) for k in ks); dump(f, others[f])
     return [os.path.basename(f) + ":" + k for f, ks in routes.items() for k in ks]
+
+
+def role_cell(dd, new):   # r465 사례 2 — 후계 이름(byz-<팀>-<역할>-<에이전트>#N)의 역할 칸(_master·_arch·_da·_tester) · 후계 행 실재일 때만 → (칸, 지금 값) · 아니면 (None, None)
+    c = "_" + (new.rpartition("#")[0].split("-") + ["", "", ""])[2]
+    return (c, dd.get(c)) if c in ("_master", "_arch", "_da", "_tester") and isinstance(dd.get(new), dict) else (None, None)
+
+
+def scan_cells(p, old):   # r465 같은 폴더 다른 명부 전부 — 최상위 `_*` 문자열 칸 중 값 == old 전부(라우팅·역할 구분 없이 · 공유 arch 의 남의 팀 `_arch` 포함) · 꼴은 scan_routes 와 같다
+    others, _, bad = scan_routes(p, old)
+    cells = {} if bad else {f: ks for f, ks in ((f, [k for k, v in dd.items() if k.startswith("_") and v == old]) for f, dd in others.items()) if ks}
+    return others, cells, bad
+
+
+def apply_cells(others, cells, new, ts):   # r465 = apply_routes 와 같은 쓰기(파일마다 .bak-retire-<ts> · tmp→교체) → (roles[파일:칸…], routes[파일:칸…]) 출력용
+    out = apply_routes(others, cells, new, ts)
+    return [c for c in out if not is_route(c.split(":", 1)[1])], [c for c in out if is_route(c.split(":", 1)[1])]
