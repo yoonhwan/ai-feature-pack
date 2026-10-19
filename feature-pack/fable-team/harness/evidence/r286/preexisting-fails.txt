@@ -1,0 +1,6 @@
+# r286 기존 실패(이 가지 변경 0 · main 에서도 같은 FAIL 줄)
+- test_da_hold_gate 8c: staged-r387 COMM-GUIDE-BOOT.md·main-team-governance.md 가 홈 대비 삭제 4·3 줄 — 홈이 r387 뒤에 바뀜(사본 재생성 필요 · 이 카드 밖) · main(harness-live) 같은 2 FAIL
+- test_settings_lint: 리포 .claude/settings.json → rc=2 usage(팩에 .claude/settings.json 없음) · main 같은 1 FAIL
+- 회귀(ft-nano-spawn/close 를 부르는 시험 59개): 가지 실패 31 → 기준선(origin/main b75e62f7 git archive) 같은 시험 재실행 대조 — 파이썬 14 = 가지 전부 rc0(기준선 실패는 pytest 미설치·git 없는 압축본 탓) · 셸 실패 16 = 기준선과 FAIL 줄 동일(경로 정규화) · test_team_literal_paths2 의 drift 4줄은 git 체크아웃(harness-live 98e127fb)에서 같은 줄 · test_nano_team_env 2 FAIL = 이 카드의 의도된 기본값 변경 → 기대값 갱신 후 ALL PASS
+- 새 FAIL 0
+- 가지 rc≠0 셸(기준선 동일): test_cherry_gate_identical_head.sh test_graphics_install.sh test_nano_spawn_body_press.sh test_nano_succession_index.sh test_penalty_spawn_gate.sh test_planner_nano_path.sh test_resource_gate.sh test_spawn_gate_landing_branch.sh test_team_literal_paths2.sh test_team_move_roundtrip.sh test_teamset_check.sh test_teamset_gitref.sh test_tracked_bin_call_gate.sh test_wt_clean_plan_self_check.sh 
