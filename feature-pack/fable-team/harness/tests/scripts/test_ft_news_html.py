@@ -287,7 +287,7 @@ def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch)
                 "byz-v65-master-claude#212", "ft-v65-temp-m5#0", "byz-planner-desk-claude#24"]
     turns = {"byz-chatbot-nano-c-k1#0": "WORKING", "byz-chatbot-nano-c-k6#0": "WORKING", "ft-v65-temp-m5#0": "?"}
     monkeypatch.setattr(fh, "_sessions", lambda: sessions)
-    monkeypatch.setattr(fh, "_turn", lambda s: (turns.get(s, "IDLE"), "timeout" if turns.get(s) == "?" else ""))
+    monkeypatch.setattr(fh, "_turns", lambda ss: {s: (turns.get(s, "IDLE"), "jsonl 없음" if turns.get(s) == "?" else "") for s in ss})
     got = {t["team"]: t for t in fh.live_teams(tmp_path)}
     assert set(got) == {"chatbot", "kk", "v65"}  # 명부 있는 팀만 · seats.json = v65
     assert (got["chatbot"]["live"], got["chatbot"]["working"]) == (3, 2)  # 옛 이름 concierge 좌석은 chatbot 에 안 섞인다
@@ -297,57 +297,41 @@ def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch)
         fh.live_teams(tmp_path / "없음")
 
 
-# ── r490: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수(≤32) ─────────
+# ── r490: «확인 불가»(판정 못 함) ≠ «쉬는 팀» · r504: 판정 = ft_seat_turn.turns 한 번(좌석별 하위 프로세스·재시도·풀 0 — test_seat_turn_batch) ─────────
 
-FAKE_STATUS = """#!/usr/bin/env bash
-# 가짜 ft-seat-status.sh turn <좌석> — 좌석 이름으로 분기(FAKE_ST_MODE=b 면 a-1·a-2 늘 느림) · 첫 호출 표식 = FAKE_ST_DIR
-seat="$2"; mark="$FAKE_ST_DIR/$(printf %s "$seat" | tr -c 'A-Za-z0-9' _)"
-first=0; mkdir "$mark" 2>/dev/null && first=1
-case "$seat" in
-  byz-a-1) [ "${FAKE_ST_MODE:-}" = b ] && exec sleep "$FAKE_ST_SLOW"; echo "WORKING 1" ;;
-  byz-a-2) { [ "${FAKE_ST_MODE:-}" = b ] || [ "$first" = 1 ]; } && exec sleep "$FAKE_ST_SLOW"; echo "WORKING 1" ;;
-  byz-a-3) exit 1 ;;
-  byz-big-*) sleep 1; echo "IDLE 0" ;;
-  *) echo "IDLE 0" ;;
-esac
-"""
+R490_TURNS = {"byz-a-1": ("WORKING", ""), "byz-a-2": ("WORKING", ""), "byz-a-3": ("?", "읽기 실패")}
 
 
 @pytest.fixture
 def seat_root(tmp_path, monkeypatch):
-    """임시 루트(명부 a·b·v65) + 가짜 tmux ls(a 3 · b 2 · v65 1) + 가짜 ft-seat-status.sh(HERE 바꿔치기) · SEAT_S 7→2 · 느린 좌석 5초(비율 유지)."""
-    fable, fake_bin, marks = tmp_path / ".fable-team", tmp_path / "bin", tmp_path / "marks"
-    for d in (fable, fake_bin, marks):
-        d.mkdir()
+    """임시 루트(명부 a·b·v65) + 가짜 tmux ls(a 3 · b 2 · v65 1) + 가짜 판정(_turns · R490_TURNS 밖 = IDLE)."""
+    fable = tmp_path / ".fable-team"
+    fable.mkdir()
     for name in ("seats-a.json", "seats-b.json", "seats.json"):
         (fable / name).write_text("{}", encoding="utf-8")
-    (fake_bin / "ft-seat-status.sh").write_text(FAKE_STATUS, encoding="utf-8")
-    monkeypatch.setattr(fh, "HERE", fake_bin)
-    monkeypatch.setattr(fh, "SEAT_S", 2)
     monkeypatch.setattr(fh, "_sessions", lambda: ["byz-a-1", "byz-a-2", "byz-a-3", "byz-b-1", "byz-b-2", "byz-v65-1"])
-    monkeypatch.setenv("FAKE_ST_DIR", str(marks))
-    monkeypatch.setenv("FAKE_ST_SLOW", "5")
-    monkeypatch.delenv("FAKE_ST_MODE", raising=False)
+    monkeypatch.setattr(fh, "_turns", lambda ss: {s: R490_TURNS.get(s, ("IDLE", "")) for s in ss})
     return tmp_path
 
 
-def test_r490_a_retry_recovers_slow_seat_and_failed_seat_is_unknown_not_resting(seat_root):
+def test_r490_a_failed_seat_is_unknown_not_resting(seat_root):
     got = {t["team"]: t for t in fh.live_teams(seat_root)}
-    assert (got["a"]["live"], got["a"]["working"], got["a"]["unknown"], got["a"]["unknown_reason"]) == (3, 2, 1, "실패 1석")  # a-2 = 재시도로 복구
+    assert (got["a"]["live"], got["a"]["working"], got["a"]["unknown"], got["a"]["unknown_reason"]) == (3, 2, 1, "읽기 실패 1석")
     assert (got["b"]["working"], got["b"]["unknown"], got["v65"]["unknown"]) == (0, 0, 0)
     assert fh.facts(list(got.values()), "모름") == {"일하는 팀": ["a"], "확인 불가": [], "쉬는 팀": ["b", "v65"], "자율": "모름"}
 
 
 def test_r490_b_all_unknown_team_goes_to_unknown_block_with_reason_never_resting(seat_root, oc, monkeypatch, tmp_path):
-    monkeypatch.setenv("FAKE_ST_MODE", "b")
+    monkeypatch.setitem(R490_TURNS, "byz-a-1", ("?", "jsonl 없음"))
+    monkeypatch.setitem(R490_TURNS, "byz-a-2", ("?", "jsonl 없음"))
     live = fh.live_teams(seat_root)
     a = next(t for t in live if t["team"] == "a")
-    assert (a["working"], a["unknown"], a["unknown_reason"]) == (0, 3, "turn 시간 초과 2석 · 실패 1석")
+    assert (a["working"], a["unknown"], a["unknown_reason"]) == (0, 3, "jsonl 없음 2석 · 읽기 실패 1석")
     assert fh.facts(live, "모름")["확인 불가"] == ["a"] and "a" not in fh.facts(live, "모름")["쉬는 팀"]
     page = fh.run_files({**DATA, "live": live}, tmp_path / "out", NOW)[0].read_text(encoding="utf-8")
     unk = page.split("<h2>확인 불가</h2>")[1].split("<h2>")[0]
     rest = page.split("<h2>쉬는 팀</h2>")[1]
-    assert "<strong>a</strong>" in unk and "turn 시간 초과 2석 · 실패 1석" in unk and "<strong>a</strong>" not in rest
+    assert "<strong>a</strong>" in unk and "jsonl 없음 2석 · 읽기 실패 1석" in unk and "<strong>a</strong>" not in rest
     assert page.index("<h2>일하는 팀</h2>") < page.index("<h2>확인 불가</h2>") < page.index("<h2>골 6개</h2>")
     assert "c-unk" in page and "{{" not in page
 
@@ -390,17 +374,6 @@ def test_r498_ab_negated_tail_after_rest_word_is_not_assertion(lecture_page, lin
 def test_r498_cd_positive_rest_assertion_still_rejected(lecture_page, line):
     bad = [p for p in lint.problems(lecture_page, "가\n" + line) if "확인 불가 팀" in p]
     assert bad == [f"확인 불가 팀 lecture 에 쉼 단정 «{line}»"]
-
-
-def test_r490_d_pool_is_seat_count_capped_32_so_40_seats_finish_within_two_seat_caps(seat_root, monkeypatch):
-    import time
-    monkeypatch.setattr(fh, "_sessions", lambda: [f"byz-big-{i:02d}" for i in range(40)])
-    (seat_root / ".fable-team" / "seats-big.json").write_text("{}", encoding="utf-8")
-    start = time.monotonic()
-    big = next(t for t in fh.live_teams(seat_root) if t["team"] == "big")
-    assert (big["live"], big["unknown"]) == (40, 0)
-    assert time.monotonic() - start <= 2 * fh.SEAT_S  # 풀 8 이면 40석 × 1초 = 5회전 ≥ 5초 > 4초
-    assert fh.SEAT_POOL == 32
 
 
 def test_c_total_deadline_kills_and_fails(tmp_path, oc, monkeypatch):
@@ -566,6 +539,20 @@ def test_e_tick_map_then_repeat_line_every_30_min(tmp_path, oc, slack, monkeypat
     assert slack.msgs[-1]["text"] == "[뉴스 09:46] 변화 없음 · 지도 " + json.loads((state / "html.json").read_text())["link"]
     monkeypatch.setenv("FT_NEWS_NOW", "2026-10-20 08:01")  # 하루 첫 발행 = 변화 없어도 지도 1회
     assert fh.tick(*args, "b", "b")[0] == 0 and len(made) == 2
+
+
+def test_r503_sync_error_rides_map_head_and_repeat_line(tmp_path, oc, slack, monkeypatch):
+    made: list = []
+    state = _tick_env(tmp_path, monkeypatch, made)
+    args = (tmp_path, state, tmp_path, "x.md", tmp_path / "news")
+    monkeypatch.setenv("FT_NEWS_HEAD", "")
+    monkeypatch.setenv("FT_LEDGER_SYNC_ERROR", "원장 사본 갱신 안 됨 — ERROR x")
+    monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:15")
+    assert fh.tick(*args, "a", "b")[0] == 0
+    assert "[뉴스 09:15] 팀 지도 · 원장 사본 갱신 안 됨 — ERROR x — " in json.dumps(slack.msgs, ensure_ascii=False)
+    monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:46")
+    assert fh.tick(*args, "b", "b")[0] == 0
+    assert slack.msgs[-1]["text"].startswith("[뉴스 09:46] 변화 없음 · 지도 ") and slack.msgs[-1]["text"].endswith(" · 원장 사본 갱신 안 됨 — ERROR x")
 
 
 def test_e_tick_failure_publishes_nothing_keeps_base_and_backs_off(tmp_path, oc, slack, monkeypatch):
