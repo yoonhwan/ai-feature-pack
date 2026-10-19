@@ -39,7 +39,10 @@ STALL_INTERVAL="${FT_TICK_STALL_INTERVAL:-300}"   # 감시 주기(초)
 STALL_MIN="${FT_TICK_STALL_MIN:-15}"              # 이 분 이상 jsonl 무활동이면 정지
 STALL_WAKE_GAP="${FT_TICK_STALL_WAKE_GAP:-900}"   # 같은 좌석 재깨움 최소 간격(초)
 SEAT_STATUS="${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
-MBOX="${FT_TICK_MBOX:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r459: comm = 공용 루트 .fable-team/comm(ft_comm_dir · LIVE_ROOT 0) — AGENT_ALIVE 도 그 옆
+MBOX="${FT_TICK_MBOX:-}"
+# r507: 형제 ft-harness-root.sh 는 런타임 경로 — SC1091(info) 도 shellcheck rc1 이라 시험이 RED
+# shellcheck source=/dev/null
+[ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r459: comm = 공용 루트 .fable-team/comm(ft_comm_dir · LIVE_ROOT 0) — AGENT_ALIVE 도 그 옆
 # ★워크트리 정리 sweep (하네스 0.5 행 2 r3 · DA r2 조건 2)★ — 닫힌 나노의 계획(.fable-team/state/wt-clean/*.sh)을 매 루프 실행. 가드·원장 표식은 계획이 맡는다.
 #   [HIL] 줄이 나오면 현역 master 우편함으로 올린다(계획이 mbox 를 직접 쏘지 않는다 — 오빠 규칙 2026-09-25). FT_TICK_WT_SWEEP=0 으로 끔.
 API_OUTAGE="${FT_TICK_API_OUTAGE_BIN:-$HERE/ft_api_outage.py}"
@@ -434,14 +437,15 @@ raised_watch() {
 }
 
 renamed_watch() {   # r468 — 옛 계보 우편 «있음» 을 새 명부 _master 에 알린다(relay 는 master 손 · 계획 §4-4)
-  local out pend sig sigf stamp last to
+  local out pend sig sigf stamp last to f seatfiles=()
   [ "${FT_TICK_RENAMED:-1}" = 1 ] || return 0
   if [ "$DRY" = 1 ]; then echo "DRY kind=renamed bin=$RENAMED"; return 0; fi
   mkdir -p "$STATE_DIR"; stamp="$STATE_DIR/renamed.last"; sigf="$STATE_DIR/renamed.sig"
   last="$(cat "$stamp" 2>/dev/null || echo 0)"; case "$last" in ''|*[!0-9]*) last=0;; esac
   [ $(( $(now) - last )) -ge "${FT_TICK_RENAMED_SEC:-3600}" ] || return 0
   now > "$stamp"
-  out="$(python3 -I "$RENAMED" watch "$MBOX" "$SEATS" $(ls "$(dirname "$SEATS")"/seats-*.json 2>/dev/null) 2>&1)" \
+  for f in "$(dirname "$SEATS")"/seats-*.json; do [ -e "$f" ] && seatfiles+=("$f"); done   # r507: ls 파싱 0 — 공백 이름·0개 안전
+  out="$(python3 -I "$RENAMED" watch "$MBOX" "$SEATS" ${seatfiles[@]+"${seatfiles[@]}"} 2>&1)" \
     || { echo "$(date '+%F %T') renamed_watch: ERROR rc=$?: $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2; return 0; }
   printf '%s\n' "$out" | grep '^ERROR' | head -3 | sed "s/^/$(date '+%F %T') renamed_watch: /" >&2
   pend="$(printf '%s\n' "$out" | grep '^PENDING')"

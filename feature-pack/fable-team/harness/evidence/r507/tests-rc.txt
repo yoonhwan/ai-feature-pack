@@ -1,0 +1,45 @@
+tests/test_ft_tick_renamed_args.sh rc=0 PASS=6 FAIL=0
+tests/test_ft_tick_master_seat.sh rc=4 PASS=58 FAIL=4
+tests/test_team_rename.sh rc=0 PASS=86 FAIL=0
+tests/test_tick_line.sh rc=83 PASS=114 FAIL=84
+tests/test_tick_shim_guard.sh rc=0 PASS=26 FAIL=0
+tests/test_tick_team_msg.sh rc=0 PASS=32 FAIL=0
+tests/test_team_tick_unify.sh rc=1 PASS=54 FAIL=1
+tests/test_board_publish_tick.sh rc=0 PASS=14 FAIL=0
+pytest test_ft_news_ledger.py: 24 passed in 12.29s
+== ⓐ shellcheck kit/fable-team/bin/ft-tick.sh
+rc=0
+== shellcheck bin/ft-tick.sh
+rc=0
+== bash -n
+rc=0
+== cmp kit↔bin
+rc=0
+== ⓑ pytest -k shellcheck
+1 passed, 23 deselected in 1.10s
+== ⓒ 변이(origin/main ft-tick.sh 로 test_ft_tick_renamed_args.sh) rc=1
+PASS renamed_watch 함수 추출
+FAIL renamed_watch 에 $(ls …) 남음
+FAIL ⓒ bash5 2개 rc=0 
+PASS ⓒ bash5 명부 0개 → 인자 0개(glob 글자 안 넘어감 · set -u 통과)
+FAIL ⓒ bash3 2개 rc=0 
+PASS ⓒ bash3 명부 0개 → 인자 0개(glob 글자 안 넘어감 · set -u 통과)
+---- fail=3
+== origin/main 대조(같은 수 RED · 이 단위 밖)
+ORIGIN-MAIN test_ft_tick_master_seat.sh rc=4 PASS=58 FAIL=4 (dead_seat_watch: ERROR autonomy mode unreadable (none))
+ORIGIN-MAIN test_tick_line.sh rc=83 PASS=114 FAIL=84 (fixtures/tick_line/ 없음)
+ORIGIN-MAIN test_team_tick_unify.sh rc=1 PASS=54 FAIL=1 (ⓖ H2 --script wt/scripts/fable-team-bin 거부 안 됨)
+== 병합 HEAD 재실행(origin/main ecef75d0 병합 · 1.1.62)
+shellcheck kit rc=0
+shellcheck bin rc=0
+cmp kit↔bin rc=0
+24 passed in 12.33s
+---- fail=0
+renamed_args rc=
+renamed_args rc=0 (재실행 · 위 rc= 빈 칸은 tee 파이프 PIPESTATUS 표기 오류)
+== 병합 HEAD 재실행 2(origin/main 6275300f · r505 1.1.61 병합 · 1.1.62 유지)
+shellcheck kit rc=0
+shellcheck bin rc=0
+cmp kit↔bin rc=0
+pytest test_ft_news_ledger.py 24 passed in 8.05s rc=0
+test_ft_tick_renamed_args.sh PASS=6 rc=0

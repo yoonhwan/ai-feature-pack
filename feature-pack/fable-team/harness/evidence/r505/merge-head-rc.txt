@@ -1,0 +1,17 @@
+병합 HEAD 242b5c7bb08ab90b5561a4b8627f659c44bda73f · origin/main ecef75d0
+cmp0 ft-seat-reap.sh
+cmp0 ft-seat-retire.sh
+cmp0 ft-seat-close.sh
+cmp0 ft-nano-close.sh
+== test_seat_reap_services.sh rc=0 16 PASS 0 FAIL · ALL PASS
+== test_seat_reap_left0.sh rc=1 54 PASS 2 FAIL · FAILED 1
+FAIL ⓔtmuxc create_tmux_session → 첫 셸 FT_SEAT=<세션명> (got=[] want=[X=r448e-9616#0])
+FAILED 1
+== test_seat_retire.sh rc=1 171 PASS 1 FAIL · fail=1
+FAIL ⑧test_ft_tick_master_seat.sh rc=0 (got=[4] want=[0])
+== test_seat_retire_keep.sh rc=0 13 PASS 0 FAIL · fail=0
+== test_seat_retire_rosters.sh rc=0 46 PASS 0 FAIL · ALL PASS
+== test_seat_close.sh rc=0 81 PASS 0 FAIL · fail=0
+== test_nano_close_fail_closed.sh rc=0 48 PASS 0 FAIL · ALL PASS
+== test_seat_reap_left0.sh 재실행 1 rc=0 ALL PASS · 재실행 2 rc=1 ⓔtmuxc 첫 셸 FT_SEAT 파일 1초 대기 FAIL(got=[]) — load avg 18.7~23 · 병합이 tmuxc·reap 를 안 바꿈(9dd40c01..병합 diff 에 tmuxc·reap 0) = 타이밍 흔들림 · r448 시험 몫 별건
+== test_seat_retire.sh ⑧ = test_ft_tick_master_seat.sh ft-tick ERROR 4 — base 10a6a36b 에서도 같은 4 FAIL(before) · 별건
