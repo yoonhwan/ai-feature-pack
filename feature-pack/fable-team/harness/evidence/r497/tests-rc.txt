@@ -1,0 +1,27 @@
+# r497 시험 원문 (base origin/main 5779acde · 2026-10-20)
+$ pytest -v harness/tests/scripts/test_model_swap.py harness/tests/scripts/test_ft_api_outage.py
+test_model_swap.py ⓐ test_a_fable_limit_four_minutes_swaps_to_opus_with_goal_lines PASSED
+test_model_swap.py ⓑ test_b_one_minute_old_limit_waits PASSED
+test_model_swap.py ⓑ2 test_b2_jsonl_lookup_newest_recent_file_only PASSED
+test_model_swap.py ⓒ test_c_retry_after_phrase_waits_with_eta PASSED
+test_model_swap.py ⓓ test_d_same_model_normal_elsewhere_is_recovered PASSED
+test_model_swap.py ⓔ test_e_nano_codex_opencode_rows_are_skipped PASSED
+test_model_swap.py ⓕ test_f_same_uuid_rerun_is_noop_and_name_skips_live_session PASSED
+test_model_swap.py ⓖ test_g_limited_fallback_moves_to_next_then_hil_once PASSED
+test_model_swap.py ⓘ test_i_no_goal_source_is_hil_and_no_swap PASSED
+test_model_swap.py ⓗ test_h_outage_recovery_is_per_model PASSED
+test_model_swap.py ⓗ test_h_swapped_seat_gets_no_resume PASSED
+test_model_swap.py test_tick_dry_run_lists_model_swap_kind PASSED (seats.json = DRY kind=model-swap · seats-cfo.json = 없음)
+test_model_swap.py test_kit_copies_identical_and_size PASSED (kit↔bin 5 · ft_model_swap.py 180줄)
+test_ft_api_outage.py 23 PASSED (기존 21 + 틱 2 RED 수리: r459 뒤 comm 없는 임시 루트 → FT_TICK_MBOX)
+36 passed · rc=0
+$ ruff check (ft_model_swap.py ft_api_outage.py ft_api_outage_util.py test_model_swap.py test_ft_api_outage.py) → All checks passed · rc=0
+$ bash -n bin/ft-tick.sh rc=0 · py_compile 3 rc=0 · bash tests/test_kit_bin_sync.sh → ALL PASS
+$ ft-tick·승계 관련 셸 시험 24개(tests/*.sh 중 ft-tick.sh|ft_api_outage 를 부르는 것): 실패 12개 = origin/main 5779acde 등록 사본(ft-scratch-repo)에서 같은 12 · FAIL 줄 정규화(임시 경로·숫자) diff 0
+  test_agent_alive_fg_judge · test_autonomy_core · test_ft_wt_sweep_route_timeout · test_ft_tick_master_seat · test_hil_run_marker · test_harness_root
+  test_live_snapshot_all_rosters · test_seat_retire · test_team_move_roundtrip · test_tick_line · test_team_tick_unify · test_tracked_bin_call_gate
+$ (실사건 미리보기 · 읽기 전용 · --dry-run · 공용 루트 BYZ · load 26~33)
+  옛 조회(ft-seat-status.sh jsonl 좌석별 · 7초 상한): 1회 10.2초 실측 · «jsonl 7초 초과» 역할 좌석 6(lecture master 6 · planner master 80 · planner desk 25 · room master 4 · v65 arch 266 · v65 master 214) → 감시 밖
+  새 조회(find_jsonls 한 번에 · 최근 2일 파일 머리): 전체 2.11초 rc=0 · 살아 있는 역할 claude 좌석 21 / 찾음 21 · arch 105 경로 = seat-status 결과와 같음(SAME)
+  출력: SKIP 155(역할 좌석 아님) · PLAN 0 · HIL 0 · WAIT 0(지금 한도 정지 좌석 0)
+press 필요: 없음(오디오 경로 무관)

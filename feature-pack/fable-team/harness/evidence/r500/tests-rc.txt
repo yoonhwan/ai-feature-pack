@@ -244,3 +244,7 @@ byz-chatbot-nano-c-k3c-answer-language-vs-knowledge-quote#0 | 미병합 나노 |
 byz-loom-nano-loom-1082-g5b-compose-db-read-total-dead#0 | 병합 끝 나노 | - | SKIP jsonl WORKING(IDLE 아님)
 RECLAIMED 0 pressure=1 swap=86%
 PREVENTIVE reclaimed=0 candidates=26 skipped=20 pressure=1 swap=86%
+## origin/main(4e3bf65c) 병합 뒤 재시험 — 버전 1.1.57
+bash tests/test_resource_reclaim_pressure.sh → pass=28 fail=0 rc=0
+bash tests/test_resource_reclaim.sh → pass=107 fail=0 rc=0
+bash tests/test_kit_bin_sync.sh → pass=7 fail=0 rc=0

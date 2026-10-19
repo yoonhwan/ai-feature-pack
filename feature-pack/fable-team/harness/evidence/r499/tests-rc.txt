@@ -1,0 +1,22 @@
+# r499 시험 원문 (base 5779acde · 병합 origin/main 뒤 재실행 rosters 46·close 81·kit_bin_sync 7·keep 13 rc0 · 1.1.55 · 2026-10-20 00:55:19)
+## tests/test_seat_retire_rosters.sh rc=0 pass=46 fail_lines=0
+PASS r499ⓖ옛 stop-ready·_retired_role 없음·후계 행 없음 → rc 0 · 첫 줄 role stop-ready->arch
+PASS r499ⓖ후계 role=arch · _arch 후계 · 옛 행 _retired_role 안 씀(추측 0)
+PASS r499ⓗ옛 _retired_role=master → 후계 role=master (역할 칸보다 먼저)
+PASS r499ⓘ후계 행 있음·stop-ready·_replaced_by 없음 → 도출 role · 출력 role stop-ready->arch
+PASS r499ⓘ대조: 정상 승계(옛 arch · 후계 arch) → role 꼬리 0
+PASS r499ⓙ재실행(NOOP 자리) + 현역 후계 stop-ready 꼴 → FIXED … role stop-ready->arch rc 0
+PASS r499ⓙ후계 role=arch · .bak 1 · 다시 = NOOP
+PASS r499ⓙ역할 칸 값 아님·_retired_role 없음·이름 토큰 nano → 고치지 않음(NOOP 그대로 · 바이트 불변)
+ALL PASS
+## tests/test_seat_close.sh rc=0 pass=81 fail_lines=0
+fail=0
+## tests/test_seat_retire_keep.sh rc=0 pass=13 fail_lines=0
+fail=0
+## tests/test_seat_retire.sh rc=1 pass=171 fail_lines=1
+FAIL ⑧test_ft_tick_master_seat.sh rc=0 (got=[4] want=[0])
+fail=1
+## tests/test_kit_bin_sync.sh rc=0 pass=7 fail_lines=0
+ALL PASS
+## test_seat_retire.sh 기준선(변경 전 main 5779acde) PASS/FAIL 목록 diff = 0 · FAIL ⑧test_ft_tick_master_seat.sh 동일
+## bash -n bin/ft-seat-retire.sh rc=0 · wc -l=     200 · kit↔bin cmp: 0
