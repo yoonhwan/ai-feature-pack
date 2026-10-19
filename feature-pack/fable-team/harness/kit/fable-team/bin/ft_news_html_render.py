@@ -26,7 +26,7 @@ FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  #
 HOT = ' class="hot"'
 TEMPLATES = (HERE.parent / "templates", HERE.parent / "kit" / "fable-team" / "templates")  # 설치본·키트 bin 옆 → 팩 harness/bin 옆
 SCHEMAS = {"summary": '["3줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
-           "goals": '[{"done":"","now":"","left":"","hot":false}]', "working": '[{"team":"","text":""}]', "resting": '[{"team":"","text":""}]'}
+           "goals": '[{"done":"","now":"","left":"","hot":false}]', "team_notes": '[{"team":"live 의 team 그대로","text":""}]'}
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자)
     "top": (("summary", "important", "refs"), ("now", "goals", "ledger", "urgent", "commits"),
             '- "summary" = 1~3줄 · 합쳐 600바이트 이하 · 첫 줄 = 지금 가장 중요한 한 가지.\n'
@@ -34,8 +34,9 @@ PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 �
             '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만.', 1500),
     "goals": (("goals",), ("now", "goals", "ledger"),
               '- "goals" = 입력 goals 순서 그대로 정확히 6개 · done(끝남)/now(지금)/left(남은 일) 각 한두 문장 · 급한 불이면 "hot": true.', 1800),
-    "teams": (("working", "resting"), ("now", "teams"),
-              '- "working" = 일하는 팀 · "resting" = 쉬는 팀(일하는 좌석 0) — 입력 teams 근거 · 팀마다 한 문장.', 1200),
+    "teams": (("team_notes",), ("now", "teams", "live"),
+              '- "team_notes" = 입력 live 의 팀마다 정확히 1개 · team 은 live 의 team 글자 그대로 · text = 그 팀이 지금 하는 일 또는 기다리는 것 한 문장(입력 teams 근거).\n'
+              '- 일하는 팀/쉬는 팀 판정·좌석 수는 쓰지 않는다 — 코드가 live(tmux 좌석·jsonl 실측)로 정한다.', 1200),
 }
 PROMPT = """너는 BYZ 팀 뉴스 편집자다. 아래 «입력» JSON 만 근거로 «팀 지도» 의 한 부분을 JSON 객체 하나로만 답한다 — 설명·코드 펜스 0.
 규칙:
@@ -136,7 +137,20 @@ def call_model(data: dict) -> tuple[dict, dict[str, float]]:
     for p, f in futs.items():
         got, secs[p] = f.result()
         content |= got
-    return check_content(content), secs
+    return check_content(content | bucket(content.pop("team_notes"), data.get("live"))), secs
+
+
+def bucket(notes: object, live: object) -> dict[str, list[dict]]:
+    """일하는/쉬는 팀 = 코드가 live(팀별 tmux 좌석·jsonl turn 실측)로 정한다(r478c · 오빠 반려 «일하는 챗봇이 쉬는 쪽에»).
+    일하는 팀 = 일하는 좌석(WORKING) ≥ 1 · 일하는 좌석 많은 순 · LLM 은 팀별 설명 한 문장만(없으면 «설명 없음» 그대로)."""
+    if not isinstance(live, list) or not live:
+        raise NewsHtmlError("입력 live(팀별 라이브 좌석 실측) 없음 — 일하는/쉬는 팀을 정할 수 없다")
+    text = {str(n.get("team", "")).strip(): str(n.get("text", "")).strip() for n in notes if isinstance(n, dict)} if isinstance(notes, list) else {}
+    work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
+    unknown = lambda t: f" · 확인 불가 {t['unknown']}" if t.get("unknown") else ""  # noqa: E731
+    return {"working": [{"team": t["team"], "text": f"일하는 좌석 {t['working']}/{t['live']}{unknown(t)} · {text.get(t['team']) or '설명 없음'}"} for t in work],
+            "resting": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 일하는 좌석 0{unknown(t)} · {text.get(t['team']) or '설명 없음'}"}
+                        for t in live if not t["working"]]}
 
 
 def check_content(c: dict) -> dict:
