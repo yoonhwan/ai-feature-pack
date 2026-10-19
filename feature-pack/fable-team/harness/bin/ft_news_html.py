@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import signal
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -30,6 +31,7 @@ KEEP = ("오빠 할 일", "팀 작업", "드러난 문제", "체크리스트")  
 SECTION_CHARS, LEDGER_CHARS, URGENT_N, MAILBOX_TAIL = 2500, 9000, 5, 262144
 HEAD = re.compile(r"^(#{2,3})\s+(.*)")
 SEAT_S = 7  # tmux ls · 좌석 turn 판정 각 1회 상한(7초 룰)
+SEAT_POOL = 32  # 좌석 turn 동시 판정 상한(r490 · 풀 8 이면 부하에서 7초 초과가 줄줄이 겹쳤다)
 
 
 def _git(repo: Path, *a: str) -> str:
@@ -116,18 +118,34 @@ def _sessions() -> list[str]:
     return done.stdout.split() if done.returncode == 0 else []
 
 
-def _turn(seat: str) -> str:
-    """좌석 jsonl 턴 판정 첫 칸(WORKING·IDLE·…) — ft-seat-status.sh turn 정본 · 실패·시간 초과 = «?»(확인 불가로 센다)."""
+def _turn_once(seat: str) -> tuple[str, str]:
+    """ft-seat-status.sh turn 1회 — (첫 칸, "") · 시간 초과 = ("?", "timeout")(프로세스 묶음째 kill · 손자가 파이프를 쥐어도 상한 안) · rc≠0 = ("?", "rc")."""
+    p = subprocess.Popen(["bash", str(HERE / "ft-seat-status.sh"), "turn", seat, "--no-reported"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
     try:
-        done = subprocess.run(["bash", str(HERE / "ft-seat-status.sh"), "turn", seat, "--no-reported"], capture_output=True, text=True, timeout=SEAT_S, check=False)
+        out, _ = p.communicate(timeout=SEAT_S)
     except subprocess.TimeoutExpired:
-        return "?"
-    return (done.stdout.split() or ["?"])[0] if done.returncode == 0 else "?"
+        os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        return "?", "timeout"
+    return ((out.split() or ["?"])[0], "") if p.returncode == 0 else ("?", "rc")
+
+
+def _turn(seat: str) -> tuple[str, str]:
+    """좌석 jsonl 턴 판정 (첫 칸 WORKING·IDLE·…, 사유) — 첫 출력 전 실패(시간 초과·rc≠0)는 1회 재시도(7초 룰 · r490) ·
+    둘 다 실패 = ("?", timeout|rc) → «확인 불가»로 센다(«쉬는»이 아니다)."""
+    got = _turn_once(seat)
+    return _turn_once(seat) if got[0] == "?" else got
+
+
+def _unknown_reason(reasons: list[str]) -> str:
+    parts = [f"turn 시간 초과 {reasons.count('timeout')}석" if "timeout" in reasons else "", f"실패 {reasons.count('rc')}석" if "rc" in reasons else ""]
+    return " · ".join(p for p in parts if p)
 
 
 def live_teams(root: Path) -> list[dict]:
     """팀별 라이브 좌석 실측(r478c): 팀 = 명부 seats-<팀>.json(+ seats.json = v65) · 좌석 = tmux 세션 중 `byz-<팀>-`·`ft-<팀>-` 로 시작하는 것 ·
-    일하는 좌석 = ft-seat-status.sh turn 이 WORKING. 쪽지 문장·스냅샷의 옛 «일함» 값은 쓰지 않는다."""
+    일하는 좌석 = ft-seat-status.sh turn 이 WORKING · 확인 불가 = «?»(사유 unknown_reason · r490). 쪽지 문장·스냅샷의 옛 «일함» 값은 쓰지 않는다."""
     fable = root / ".fable-team"
     names = [p.name[len("seats-"):-len(".json")] for p in fable.glob("seats-*.json")] + (["v65"] if (fable / "seats.json").is_file() else [])
     if not names:
@@ -135,9 +153,10 @@ def live_teams(root: Path) -> list[dict]:
     sessions = _sessions()
     seats = {t: [s for s in sessions if s.startswith((f"byz-{t}-", f"ft-{t}-"))] for t in sorted(set(names))}
     every = sorted({s for ss in seats.values() for s in ss})
-    with ThreadPoolExecutor(8) as pool:
+    with ThreadPoolExecutor(max(1, min(len(every), SEAT_POOL))) as pool:  # 좌석 ≤ 32 면 한 번에 — 합계 ≤ 2×SEAT_S
         state = dict(zip(every, pool.map(_turn, every)))
-    return [{"team": t, "live": len(ss), "working": sum(state[s] == "WORKING" for s in ss), "unknown": sum(state[s] == "?" for s in ss)} for t, ss in seats.items()]
+    return [{"team": t, "live": len(ss), "working": sum(state[s][0] == "WORKING" for s in ss), "unknown": sum(state[s][0] == "?" for s in ss),
+             "unknown_reason": _unknown_reason([state[s][1] for s in ss if state[s][0] == "?"])} for t, ss in seats.items()]
 
 
 def commits(repo: Path, base: str) -> list[str]:
@@ -156,9 +175,10 @@ def autonomy(root: Path) -> str:
 
 
 def facts(live: list[dict], auto: str) -> dict:
-    """요약·중요한 일 문장이 따라야 할 코드 판정(r478d) — 일하는 팀(좌석 많은 순)·쉬는 팀·자율."""
+    """요약·중요한 일 문장이 따라야 할 코드 판정(r478d) — 일하는 팀(좌석 많은 순)·확인 불가(일하는 0 ∧ 확인 불가 ≥1 · r490)·쉬는 팀(둘 다 0)·자율."""
     work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
-    return {"일하는 팀": [t["team"] for t in work], "쉬는 팀": [t["team"] for t in live if not t["working"]], "자율": auto}
+    return {"일하는 팀": [t["team"] for t in work], "확인 불가": [t["team"] for t in live if not t["working"] and t.get("unknown")],
+            "쉬는 팀": [t["team"] for t in live if not t["working"] and not t.get("unknown")], "자율": auto}
 
 
 def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) -> dict:

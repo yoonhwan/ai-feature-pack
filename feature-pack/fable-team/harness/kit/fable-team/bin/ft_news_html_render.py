@@ -32,6 +32,7 @@ SCHEMAS = {"summary": '["3줄 이하"]', "important": '[{"title":"","detail":"",
            "goals": '[{"done":"","now":"","left":"","hot":false}]', "team_notes": '[{"team":"live 의 team 그대로","text":""}]'}
 FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
               '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
+              '- facts.확인 불가 팀은 쉬는 팀이 아니다 — 그 팀이 쉰다·멈췄다·대기 중이라고 상태를 단정하지 말 것(쓰려면 «상태 확인 불가»).\n'
               '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
@@ -150,20 +151,24 @@ def call_model(data: dict) -> tuple[dict, dict[str, float]]:
 
 def bucket(notes: object, live: object) -> dict[str, list[dict]]:
     """일하는/쉬는 팀 = 코드가 live(팀별 tmux 좌석·jsonl turn 실측)로 정한다(r478c · 오빠 반려 «일하는 챗봇이 쉬는 쪽에»).
-    일하는 팀 = 일하는 좌석(WORKING) ≥ 1 · 일하는 좌석 많은 순 · LLM 은 팀별 설명 한 문장만(없으면 «설명 없음» 그대로)."""
+    일하는 팀 = 일하는 좌석(WORKING) ≥ 1 · 일하는 좌석 많은 순 · LLM 은 팀별 설명 한 문장만(없으면 «설명 없음» 그대로).
+    확인 불가 = 일하는 0 ∧ turn «?» ≥ 1(사유 칸 · r490 · 오빠 «챗봇팀은 왜쉬어?») · 쉬는 팀 = 일하는 0 ∧ 확인 불가 0."""
     if not isinstance(live, list) or not live:
         raise NewsHtmlError("입력 live(팀별 라이브 좌석 실측) 없음 — 일하는/쉬는 팀을 정할 수 없다")
     text = {str(n.get("team", "")).strip(): str(n.get("text", "")).strip() for n in notes if isinstance(n, dict)} if isinstance(notes, list) else {}
     work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
     unknown = lambda t: f" · 확인 불가 {t['unknown']}" if t.get("unknown") else ""  # noqa: E731
+    why = lambda t: t.get("unknown_reason") or f"turn 확인 불가 {t['unknown']}석"  # noqa: E731
     return {"working": [{"team": t["team"], "seats": f"일하는 좌석 {t['working']}/{t['live']}{unknown(t)}", "note": text.get(t["team"]) or "설명 없음"} for t in work],
-            "resting": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 일하는 좌석 0{unknown(t)} · {text.get(t['team']) or '설명 없음'}"}
-                        for t in live if not t["working"]]}
+            "unknown": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 확인 불가 {t['unknown']} ({why(t)}) · {text.get(t['team']) or '설명 없음'}"}
+                        for t in live if not t["working"] and t.get("unknown")],
+            "resting": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 일하는 좌석 0 · {text.get(t['team']) or '설명 없음'}"}
+                        for t in live if not t["working"] and not t.get("unknown")]}
 
 
 def check_content(c: dict) -> dict:
     """합친 내용 꼴 검사 — 필수 키·꼴 어긋남·골 6 아님 = NewsHtmlError(자르기·채우기 0)."""
-    need = {"summary": str, "important": dict, "goals": dict, "working": dict, "resting": dict}
+    need = {"summary": str, "important": dict, "goals": dict, "working": dict, "unknown": dict, "resting": dict}
     for key, kind in need.items():
         if not isinstance(c.get(key), list) or not all(isinstance(x, kind) for x in c[key]):
             raise NewsHtmlError(f"응답 필수 키 없음·꼴 다름: {key}")
@@ -202,6 +207,7 @@ def render(c: dict, goals: list[dict], now: datetime, autonomy: str = "모름") 
             "IMPORTANT": "\n".join(f'      <li{HOT if x.get("hot") else ""}><div class="what"><strong>{_e(x.get("title"))}</strong>'
                                    f'<span>{_e(x.get("detail"))}</span></div><span class="who">{_e(x.get("who"))}</span></li>' for x in c["important"]),
             "WORKING": "\n".join(map(_work_card, c["working"])) or '  <p class="lead">지금 일하는 좌석 0 (tmux 좌석·jsonl 실측)</p>',
+            "UNKNOWN": "\n".join(f'    <div class="team unk"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["unknown"]),
             "RESTING": "\n".join(f'    <div class="team rest"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["resting"]),
             "FOOT": _e(f"근거: {' · '.join(c['refs']) or '원장·카드·세션 상태·main 커밋'} · 자율 {autonomy} · 정리 {model_id()}")}
     for n, (meta, g) in enumerate(zip(goals, c["goals"]), 1):

@@ -263,7 +263,7 @@ def test_r478d_lint_rejects_all_stopped_and_approval_wait_against_code_facts(tmp
 def test_r478d_prompt_carries_code_facts_and_autonomy_in_footer(tmp_path, oc, monkeypatch):
     _, log = oc
     data = {**DATA, "facts": fh.facts(LIVE, "ON")}
-    assert data["facts"] == {"일하는 팀": ["chatbot", "ops"], "쉬는 팀": ["kk"], "자율": "ON"}
+    assert data["facts"] == {"일하는 팀": ["chatbot", "ops"], "확인 불가": [], "쉬는 팀": ["kk"], "자율": "ON"}
     html_p, _ = fh.run_files(data, tmp_path, NOW)
     top = next(c[-1] for c in calls(log) if '"summary":' in c[-1].split("출력 스키마:")[1].splitlines()[0])
     assert '"일하는 팀": [' in top and '"chatbot"' in top and '"자율": "ON"' in top and "facts 가 이긴다" in top
@@ -287,7 +287,7 @@ def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch)
                 "byz-v65-master-claude#212", "ft-v65-temp-m5#0", "byz-planner-desk-claude#24"]
     turns = {"byz-chatbot-nano-c-k1#0": "WORKING", "byz-chatbot-nano-c-k6#0": "WORKING", "ft-v65-temp-m5#0": "?"}
     monkeypatch.setattr(fh, "_sessions", lambda: sessions)
-    monkeypatch.setattr(fh, "_turn", lambda s: turns.get(s, "IDLE"))
+    monkeypatch.setattr(fh, "_turn", lambda s: (turns.get(s, "IDLE"), "timeout" if turns.get(s) == "?" else ""))
     got = {t["team"]: t for t in fh.live_teams(tmp_path)}
     assert set(got) == {"chatbot", "kk", "v65"}  # 명부 있는 팀만 · seats.json = v65
     assert (got["chatbot"]["live"], got["chatbot"]["working"]) == (3, 2)  # 옛 이름 concierge 좌석은 chatbot 에 안 섞인다
@@ -295,6 +295,88 @@ def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch)
     assert (got["kk"]["live"], got["kk"]["working"]) == (0, 0)
     with pytest.raises(RuntimeError, match="명부 0개"):
         fh.live_teams(tmp_path / "없음")
+
+
+# ── r490: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수(≤32) ─────────
+
+FAKE_STATUS = """#!/usr/bin/env bash
+# 가짜 ft-seat-status.sh turn <좌석> — 좌석 이름으로 분기(FAKE_ST_MODE=b 면 a-1·a-2 늘 느림) · 첫 호출 표식 = FAKE_ST_DIR
+seat="$2"; mark="$FAKE_ST_DIR/$(printf %s "$seat" | tr -c 'A-Za-z0-9' _)"
+first=0; mkdir "$mark" 2>/dev/null && first=1
+case "$seat" in
+  byz-a-1) [ "${FAKE_ST_MODE:-}" = b ] && exec sleep "$FAKE_ST_SLOW"; echo "WORKING 1" ;;
+  byz-a-2) { [ "${FAKE_ST_MODE:-}" = b ] || [ "$first" = 1 ]; } && exec sleep "$FAKE_ST_SLOW"; echo "WORKING 1" ;;
+  byz-a-3) exit 1 ;;
+  byz-big-*) sleep 1; echo "IDLE 0" ;;
+  *) echo "IDLE 0" ;;
+esac
+"""
+
+
+@pytest.fixture
+def seat_root(tmp_path, monkeypatch):
+    """임시 루트(명부 a·b·v65) + 가짜 tmux ls(a 3 · b 2 · v65 1) + 가짜 ft-seat-status.sh(HERE 바꿔치기) · SEAT_S 7→2 · 느린 좌석 5초(비율 유지)."""
+    fable, fake_bin, marks = tmp_path / ".fable-team", tmp_path / "bin", tmp_path / "marks"
+    for d in (fable, fake_bin, marks):
+        d.mkdir()
+    for name in ("seats-a.json", "seats-b.json", "seats.json"):
+        (fable / name).write_text("{}", encoding="utf-8")
+    (fake_bin / "ft-seat-status.sh").write_text(FAKE_STATUS, encoding="utf-8")
+    monkeypatch.setattr(fh, "HERE", fake_bin)
+    monkeypatch.setattr(fh, "SEAT_S", 2)
+    monkeypatch.setattr(fh, "_sessions", lambda: ["byz-a-1", "byz-a-2", "byz-a-3", "byz-b-1", "byz-b-2", "byz-v65-1"])
+    monkeypatch.setenv("FAKE_ST_DIR", str(marks))
+    monkeypatch.setenv("FAKE_ST_SLOW", "5")
+    monkeypatch.delenv("FAKE_ST_MODE", raising=False)
+    return tmp_path
+
+
+def test_r490_a_retry_recovers_slow_seat_and_failed_seat_is_unknown_not_resting(seat_root):
+    got = {t["team"]: t for t in fh.live_teams(seat_root)}
+    assert (got["a"]["live"], got["a"]["working"], got["a"]["unknown"], got["a"]["unknown_reason"]) == (3, 2, 1, "실패 1석")  # a-2 = 재시도로 복구
+    assert (got["b"]["working"], got["b"]["unknown"], got["v65"]["unknown"]) == (0, 0, 0)
+    assert fh.facts(list(got.values()), "모름") == {"일하는 팀": ["a"], "확인 불가": [], "쉬는 팀": ["b", "v65"], "자율": "모름"}
+
+
+def test_r490_b_all_unknown_team_goes_to_unknown_block_with_reason_never_resting(seat_root, oc, monkeypatch, tmp_path):
+    monkeypatch.setenv("FAKE_ST_MODE", "b")
+    live = fh.live_teams(seat_root)
+    a = next(t for t in live if t["team"] == "a")
+    assert (a["working"], a["unknown"], a["unknown_reason"]) == (0, 3, "turn 시간 초과 2석 · 실패 1석")
+    assert fh.facts(live, "모름")["확인 불가"] == ["a"] and "a" not in fh.facts(live, "모름")["쉬는 팀"]
+    page = fh.run_files({**DATA, "live": live}, tmp_path / "out", NOW)[0].read_text(encoding="utf-8")
+    unk = page.split("<h2>확인 불가</h2>")[1].split("<h2>")[0]
+    rest = page.split("<h2>쉬는 팀</h2>")[1]
+    assert "<strong>a</strong>" in unk and "turn 시간 초과 2석 · 실패 1석" in unk and "<strong>a</strong>" not in rest
+    assert page.index("<h2>일하는 팀</h2>") < page.index("<h2>확인 불가</h2>") < page.index("<h2>골 6개</h2>")
+    assert "c-unk" in page and "{{" not in page
+
+
+@pytest.fixture
+def unknown_page(tmp_path, oc):
+    live = [{"team": "a", "live": 3, "working": 0, "unknown": 2, "unknown_reason": "turn 시간 초과 2석"},
+            {"team": "b", "live": 2, "working": 0, "unknown": 0, "unknown_reason": ""}]
+    html_p, _ = fh.run_files({**DATA, "live": live}, tmp_path / "u", NOW)
+    return html_p.read_text(encoding="utf-8")
+
+
+def test_r490_c_lint_rejects_resting_claim_on_unknown_team(unknown_page):
+    bad = lint.problems(unknown_page, "가\na 팀은 쉬는 중")
+    assert [p for p in bad if "확인 불가 팀" in p] == ["확인 불가 팀 a 에 쉼 단정 «a 팀은 쉬는 중»"]
+    assert lint.problems(unknown_page, "가\na 팀 상태 확인 불가") == []
+    assert lint.problems(unknown_page, "가\nb 팀은 쉬는 중") == []  # 쉬는 팀(확인 불가 0)은 사실
+    assert lint.problems(unknown_page, "가\nab 팀은 쉬는 중") == []  # 이름 경계 — a 가 다른 이름 안에 든 것은 아님
+
+
+def test_r490_d_pool_is_seat_count_capped_32_so_40_seats_finish_within_two_seat_caps(seat_root, monkeypatch):
+    import time
+    monkeypatch.setattr(fh, "_sessions", lambda: [f"byz-big-{i:02d}" for i in range(40)])
+    (seat_root / ".fable-team" / "seats-big.json").write_text("{}", encoding="utf-8")
+    start = time.monotonic()
+    big = next(t for t in fh.live_teams(seat_root) if t["team"] == "big")
+    assert (big["live"], big["unknown"]) == (40, 0)
+    assert time.monotonic() - start <= 2 * fh.SEAT_S  # 풀 8 이면 40석 × 1초 = 5회전 ≥ 5초 > 4초
+    assert fh.SEAT_POOL == 32
 
 
 def test_c_total_deadline_kills_and_fails(tmp_path, oc, monkeypatch):
@@ -326,7 +408,8 @@ def test_d_lint_rules(page):
     assert any("요약 4줄" in p for p in lint.problems(html, summary + "넷째 줄\n"))
     assert any("요약 1줄" in p for p in lint.problems(html, "가" * 250))  # 750B > 600B
     assert any("시크릿" in p for p in lint.problems(html.replace("끝난 것", "xoxb-1234567-zzzz", 1), summary))
-    assert any("절 5" in p for p in lint.problems(html.replace("<h2>쉬는 팀</h2>", ""), summary))
+    assert any("절 6" in p for p in lint.problems(html.replace("<h2>쉬는 팀</h2>", ""), summary))
+    assert any("절 6" in p for p in lint.problems(html.replace("<h2>확인 불가</h2>", ""), summary))
 
 
 def test_d_lint_cli_rc3_and_publish_zero(tmp_path, page, monkeypatch):
