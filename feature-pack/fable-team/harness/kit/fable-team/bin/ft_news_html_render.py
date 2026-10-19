@@ -3,9 +3,11 @@
 LLM 은 «내용(JSON)» 만 낸다 — 틀(CSS·절 머리·골 그림)은 templates/news-team-map.html 에 고정(기준본 BYZ-team-map-ref-20261019.html 과 같은 모양).
 7초 룰(하드 룰 12 · 판정 1375): 한 번에 내용 전부(출력 3~4.4K자 = 기준량 300자의 10배+)를 받으면 base 30~44초 · max 65초~130초+ 로 70초를 넘었다(r478b 실측)
 → «쪼갤 수 있으면 쪼갠다»: 갈래 4개(summary = 요약·근거 / important = 중요한 일 / goals = 골 6 / teams = 팀 설명 · r478e 에서 옛 top 을 둘로)를 «그 갈래에 필요한 입력만» 넣어 병렬로 부른다.
-시도당 상한 = min(고정비 3.5 + 7 × ceil(max(입력 토큰 ÷ IN_TOKENS, 예상 출력 글자 ÷ OUT_CHARS)), 총 마감) · 재시도는 «첫 출력 전 실패» 1회만 · 갈래 전부 합친 총 마감 70초 · 실패 = NewsHtmlError(발행 0 · #0 RULE).
+시도당 상한 = min(고정비 + 7 × ceil(max(입력 토큰 ÷ IN_TOKENS, 예상 출력 글자 ÷ OUT_CHARS)), 총 마감) · 재시도는 «첫 출력 전 실패» 1회만 · 갈래 전부 합친 총 마감 70초 · 실패 = NewsHtmlError(발행 0 · #0 RULE).
+고정비(r510) = CLI 기동부터 stdout 첫 바이트까지 «실측» 의 p90 — 기록 state/news-cli-startup.tsv(최근 20 · 시간 초과 = «>상한» 하한값) · 기록 3개 미만 = 잠정 3.5 · FT_NEWS_FIXED_S 가 있으면 그 값(되돌림 = 3.5).
 opencode run --standalone = 비대화 1회 · stdin 은 /dev/null(물려받은 stdin 이면 240초 동안 시작 0 실측) · 시간 초과면 프로세스 묶음째 kill.
 env: FT_NEWS_MODEL(기본 opencode/deepseek-v4.1-flash-free) · FT_NEWS_EFFORT(변형 → --model <ID>#<변형> · 비거나 base = 변형 없음) · FT_NEWS_DEPTH(프롬프트 «깊이» 문장 · 변형이 없을 때 대체) · FT_OPENCODE(기본 opencode)
+     · FT_NEWS_FIXED_S(기동 고정비 고정) · FT_NEWS_STARTUP_LOG(기동 기록 · 기본 <루트>/.fable-team/state/news-cli-startup.tsv)
 """
 import html
 import json
@@ -14,6 +16,8 @@ import os
 import re
 import signal
 import subprocess
+import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -23,6 +27,8 @@ HERE = Path(__file__).resolve().parent
 MODEL = "opencode/deepseek-v4.1-flash-free"
 DEADLINE_S = 70
 FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  # 7초 룰 기준량 · CLI 기동 고정비 · 한글 섞인 글 ≈ 3 B/토큰(추정)
+STARTUP_KEEP, STARTUP_MIN = 20, 3  # r510 — 기동 기록 최근 20줄 · 3개 미만 = 잠정 FIXED_S
+_STARTUP_LOCK = threading.Lock()  # 갈래 4개가 병렬로 기록한다
 HOT = ' class="hot"'
 WORK_ICON = ('<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/>'
              '<circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/>'
@@ -76,10 +82,56 @@ def build_prompt(data: dict, part: str) -> str:
             .replace("@DATA@", json.dumps(sub, ensure_ascii=False, indent=1)))
 
 
-def cap_s(prompt: str, part: str) -> float:
-    """시도당 상한(7초 룰 «크기 아는 배치»)."""
+def cap_s(prompt: str, part: str, fixed: float = FIXED_S) -> float:
+    """시도당 상한(7초 룰 «크기 아는 배치») · fixed = CLI 기동 고정비(fixed_s)."""
     units = max(len(prompt.encode("utf-8")) / BYTES_PER_TOKEN / IN_TOKENS, PARTS[part][3] / OUT_CHARS)
-    return min(FIXED_S + UNIT_S * math.ceil(units), DEADLINE_S)
+    return min(fixed + UNIT_S * math.ceil(units), DEADLINE_S)
+
+
+def startup_log() -> Path:
+    if os.environ.get("FT_NEWS_STARTUP_LOG"):
+        return Path(os.environ["FT_NEWS_STARTUP_LOG"])
+    from ft_board_env import ft_root
+    return ft_root() / ".fable-team" / "state" / "news-cli-startup.tsv"
+
+
+def _startup_rows() -> list[str]:
+    try:
+        return startup_log().read_text(encoding="utf-8").splitlines()[-STARTUP_KEEP:]
+    except FileNotFoundError:
+        return []
+    except (OSError, RuntimeError) as e:
+        print(f"WARN 기동 기록 못 읽음 — 고정비 잠정 {FIXED_S}s: {e}", file=sys.stderr)
+        return []
+
+
+def fixed_s() -> float:
+    """CLI 기동 고정비 = FT_NEWS_FIXED_S › 기록 p90(nearest-rank · «>상한» 은 그 상한값) › 기록 3개 미만 = 잠정 FIXED_S."""
+    if os.environ.get("FT_NEWS_FIXED_S"):
+        return float(os.environ["FT_NEWS_FIXED_S"])
+    vals = []
+    for ln in _startup_rows():
+        try:
+            vals.append(float(ln.rsplit("\t", 1)[-1].lstrip(">")))
+        except ValueError:
+            continue
+    vals.sort()
+    return vals[math.ceil(0.9 * len(vals)) - 1] if len(vals) >= STARTUP_MIN else FIXED_S
+
+
+def record_startup(part: str, first: float | None, cap: float) -> None:
+    """시도 1개 = 1줄 «시각\t갈래\t첫 출력까지 초 | >상한» · 최근 STARTUP_KEEP 줄만 · 쓰기 실패 = WARN(발행은 계속)."""
+    row = f"{datetime.now():%Y-%m-%d %H:%M:%S}\t{part}\t" + (f"{first:.1f}" if first is not None else f">{cap:.1f}")
+    try:
+        f = startup_log()
+        with _STARTUP_LOCK:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            old = f.read_text(encoding="utf-8").splitlines() if f.is_file() else []
+            tmp = f.with_name(f"{f.name}.{os.getpid()}.tmp")
+            tmp.write_text("\n".join([*old, row][-STARTUP_KEEP:]) + "\n", encoding="utf-8")
+            os.replace(tmp, f)
+    except (OSError, RuntimeError) as e:
+        print(f"WARN 기동 기록 못 씀 — 발행은 계속: {e}", file=sys.stderr)
 
 
 def _texts(stdout: str) -> str:
@@ -95,16 +147,36 @@ def _texts(stdout: str) -> str:
     return "".join(out)
 
 
-def _once(cmd: list[str], left: float, part: str) -> tuple[int | None, str, str]:
-    """(rc, stdout, stderr) — 시간 초과 = (None, 그때까지 stdout, 사유). 답 글은 끝에 한 번에 오므로 초과 = «첫 출력 전 실패»(r478e)."""
-    p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", start_new_session=True)
+def _once(cmd: list[str], left: float, part: str) -> tuple[int | None, str, str, float | None]:
+    """(rc, stdout, stderr, 첫 출력까지 초 | None) — 시간 초과 = (None, 그때까지 stdout, 사유, …). 답 글은 끝에 한 번에 오므로 초과 = «첫 출력 전 실패»(r478e).
+    첫 출력 = stdout 첫 바이트(r510 — 기동 고정비 실측 · 답 글이 끝에 한 번에 오면 완료 시각과 같다 = 보수적)."""
+    t0 = time.monotonic()
+    p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    got, first = {"out": b"", "err": b""}, []
+
+    def pump(f, key: str) -> None:
+        while b := f.read1(65536):
+            if key == "out" and not first:
+                first.append(time.monotonic() - t0)
+            got[key] += b
+    ths = [threading.Thread(target=pump, args=a, daemon=True) for a in ((p.stdout, "out"), (p.stderr, "err"))]
+    for t in ths:
+        t.start()
     try:
-        out, err = p.communicate(timeout=left)
+        p.wait(timeout=left)
+        for t in ths:  # 프로세스가 끝나도 손주가 파이프를 쥐면 상한까지만 기다린다
+            t.join(max(0.0, t0 + left - time.monotonic()))
+        over = any(t.is_alive() for t in ths)
     except subprocess.TimeoutExpired:
+        over = True
+    if over:
         os.killpg(p.pid, signal.SIGKILL)  # --standalone 사설 서버까지 묶음째(잔존 0)
-        out, _ = p.communicate()
-        return None, out or "", f"{part} 상한 {left:.0f}s 초과(총 마감 {DEADLINE_S}s)"
-    return p.returncode, out, err
+        p.wait()
+        for t in ths:
+            t.join()
+    out, err = (got[k].decode("utf-8", "replace") for k in ("out", "err"))
+    at = first[0] if first else None
+    return (None, out, f"{part} 상한 {left:.0f}s 초과(총 마감 {DEADLINE_S}s)", at) if over else (p.returncode, out, err, at)
 
 
 def _json(text: str, part: str) -> dict:
@@ -118,16 +190,19 @@ def _json(text: str, part: str) -> dict:
     return {k: c.get(k) for k in PARTS[part][0]}
 
 
-def call_part(data: dict, part: str, end: float) -> tuple[dict, float]:
-    """한 갈래 — (그 갈래 키 dict, 걸린 초). 첫 출력 전 실패(답 글 0 · 시도당 상한 초과 포함)만 1회 재시도 · 둘 다 총 마감 안."""
+def call_part(data: dict, part: str, end: float, fixed: float = FIXED_S) -> tuple[dict, float]:
+    """한 갈래 — (그 갈래 키 dict, 걸린 초). 첫 출력 전 실패(답 글 0 · 시도당 상한 초과 포함)만 1회 재시도 · 둘 다 총 마감 안.
+    시도마다 «첫 출력까지 초»(시간 초과 = «>상한») 를 기동 기록에 1줄(r510)."""
     prompt = build_prompt(data, part)
     cmd = [os.environ.get("FT_OPENCODE") or "opencode", "run", "--standalone", "--model", model_id(), "--format", "json", prompt]
     start, why = time.monotonic(), ""
     for _ in range(2):
-        left = min(cap_s(prompt, part), end - time.monotonic())
+        left = min(cap_s(prompt, part, fixed), end - time.monotonic())
         if left <= 1:
             break
-        rc, out, err = _once(cmd, left, part)
+        rc, out, err, first = _once(cmd, left, part)
+        if first is not None or rc is None:
+            record_startup(part, first, left)
         text = _texts(out)
         if rc == 0 and text.strip():
             return _json(text, part), time.monotonic() - start
@@ -137,16 +212,18 @@ def call_part(data: dict, part: str, end: float) -> tuple[dict, float]:
     raise NewsHtmlError(f"opencode run {part} 실패({model_id()}): {why or '총 마감 남은 시간 없음'}")
 
 
-def call_model(data: dict) -> tuple[dict, dict[str, float]]:
-    """갈래 전부 병렬 → (합친 내용, 갈래별 걸린 초). 하나라도 실패 = NewsHtmlError(나머지도 각자 상한 안에서 끝난다)."""
-    end = time.monotonic() + DEADLINE_S
+def call_model(data: dict) -> tuple[dict, dict[str, float], float]:
+    """갈래 전부 병렬 → (합친 내용, 갈래별 걸린 초, 기동 고정비). 하나라도 실패 = NewsHtmlError(나머지도 각자 상한 안에서 끝난다)."""
+    end, fixed = time.monotonic() + DEADLINE_S, fixed_s()
+    if fixed >= DEADLINE_S:
+        print(f"WARN 기동 고정비 p90 {fixed:.1f}s ≥ 천장 {DEADLINE_S}s — 갈래 상한 = 천장", file=sys.stderr)
     with ThreadPoolExecutor(len(PARTS)) as pool:
-        futs = {p: pool.submit(call_part, data, p, end) for p in PARTS}
+        futs = {p: pool.submit(call_part, data, p, end, fixed) for p in PARTS}
     content, secs = {}, {}
     for p, f in futs.items():
         got, secs[p] = f.result()
         content |= got
-    return check_content(content | bucket(content.pop("team_notes"), data.get("live"))), secs
+    return check_content(content | bucket(content.pop("team_notes"), data.get("live"))), secs, fixed
 
 
 def bucket(notes: object, live: object) -> dict[str, list[dict]]:
