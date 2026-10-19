@@ -1,0 +1,13 @@
+tests/test_index_move_canon_route.sh rc=0 PASS=5 FAIL=0
+tests/test_index_move_canon_landed.sh rc=0 PASS=18 FAIL=0
+tests/test_index_move_canonize.sh rc=0 PASS=22 FAIL=0
+tests/test_index_move_rule_line.sh rc=0 PASS=17 FAIL=0
+tests/test_index_move_slack.sh rc=0 PASS=14 FAIL=0
+BASH_BIN=/bin/bash(3.2) tests/test_index_move_canon_route.sh rc=0 PASS=5 FAIL=0
+변이(origin/main 판 ft-index-move.sh) test_index_move_canon_route.sh rc=1 PASS=1 FAIL=4
+== bash -n kit(bash5)·bin(/bin/bash 3.2)
+rc=0
+== cmp kit↔bin
+rc=0
+== shellcheck -S warning bin/ft-index-move.sh rc=0
+   (origin/main 판 rc=0)

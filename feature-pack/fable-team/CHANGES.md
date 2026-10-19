@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 완성 이동의 정본 갱신 요청 쪽지 = 카드 팀 명부의 `_arch` 로(기본 v65 명부 고정 0) (r487 · 1.1.63)
+
+- 사건: loom 카드 완성 이동(`design/teams/loom/indices/완성/loom-canon-plan-l1-l3.md`)의 «정본 갱신 요청» 쪽지 114386 이 v65 arch 264 에게 갔다(v65 arch 264 요청 114392 → harness arch 103 카드). 원인: `ft-index-move.sh:161` `SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"` — 주석은 «팀 현역 arch» 인데 env 가 없으면 기본 명부(= v65 `_label`)로 고정.
+- `ft-index-move.sh`(kit↔bin cmp0): 쪽지 직전에 팀 해석 — 명단(카드 워크트리 `design/TEAMS.md`) 팀마다 `ft_team_has <팀> <카드 indices 폴더>/ indices/`(쌍둥이 둘 다) · 정확히 1팀 = 그 팀 · 명부 = `seats-<팀>.json`(v65 = `seats.json`) · `FT_SEATS_JSON` 명시가 이김. 0·2+ 팀 = `INFO 정본 쪽지 생략 — 팀 못 정함(명단 팀 N개 · <카드>)` · 명부 파일 없음 = `INFO 정본 쪽지 생략 — 팀 명부 없음(<팀>)` · 출력 `NOTIFIED 정본 갱신 요청 → <arch> (팀 <팀>[ · 명부 FT_SEATS_JSON])` · INFO(_arch 없음)·WARN(발신 실패) 줄에도 팀 글자. 이동·원장·종료코드 변경 0(게이트 아님) · 명부 쓰기 0 · v65 카드 수신자 그대로.
+- 시험: `test_index_move_canon_route.sh`(새) ⓐ 팀 a 카드 → `seats-a.json` `A#1` · `V#1` 0 ⓑ `FT_SEATS_JSON` 명시 → `V#1` ⓒ 팀 b(명부 없음) → 쪽지 0 + INFO · 이동 rc0 ⓓ v65 카드 → `seats.json` `V#1` = 5 PASS(bash5 + /bin/bash 3.2) · 변이(origin/main 판) FAIL 4. 기존 `test_index_move_canon_landed.sh` 18·`canonize` 22·`rule_line` 17·`slack` 14 rc0 · shellcheck -S warning rc0. 설치: LIVE_BIN 키트 1 cmp0 · 홈 0 · 되돌림 = 설치본 `.bak-r487`. 원문 = `harness/evidence/r487/tests-rc.txt`.
+
 ## 2026-10-20 — ft-tick shellcheck RED 고침: renamed_watch 명부 인자 = 배열+glob(ls 파싱 0) · SC1091 source 지시 (r507 · 1.1.62)
 
 - 사건: 팩 시험 `test_ft_tick_passes_shellcheck`(shellcheck rc0 단정)가 RED 인 채로 r478·r479·r503 증거에 «기존 RED» 로 적혀 왔다(harness master 82 발주 116983 · arch 105 실측). 원인 2: ①`ft-tick.sh:444` `renamed_watch` 의 `$(ls "$(dirname "$SEATS")"/seats-*.json 2>/dev/null)` 따옴표 없는 명령 치환(SC2046 warning · r468 95fe73bb 가 넣은 줄 — 공백 있는 명부 이름이 쪼개진다) ②`:42` `. "$HERE/ft-harness-root.sh"` 의 SC1091(info) — info 도 shellcheck rc1 이라 ①만 고치면 시험이 계속 RED(카드 ⓐ 조건 실측).
