@@ -1,0 +1,62 @@
+# r416 시험 — 2026-10-19 09:25 · HEAD 기준 9aaef214+작업트리
+$ bash -n bin/ft-nano-slots.sh kit/fable-team/bin/ft-nano-slots.sh
+rc=0
+$ cmp bin/ft-nano-slots.sh kit/fable-team/bin/ft-nano-slots.sh
+rc=0 (짝 cmp0)
+
+$ bash tests/test_nano_slots.sh
+PASS bash -n 2종
+PASS 1 노는 석 3 = 점유 · 빈 석 0 (상한 5)
+PASS 1 빈 석 0 → spawn 지시 0
+PASS 1 노는 석은 «푸는 대상» 으로 표시
+PASS 2 머리줄 충족 카드 = 후보
+PASS 2 머리줄 없는 카드 후보 제외
+PASS 2 제외 사유 1줄(누락 키 명시)
+PASS 2 활성 Issue 밖 카드 제외
+PASS 3 일반 5/5 꽉 참 + 예약석 비어 있음
+PASS 3 라이브 카드만 예약석 후보
+PASS 3 예약석 점유자는 상한을 먹지 않음(점유 4/5)
+PASS 4ⓐ 옛 사본 명단 + ref 명단 v65 → rc0 · 빈 석 4 · v65 카드 후보
+PASS 4ⓐ stderr «팀 명단(TEAMS.md)에 없다» 0
+PASS 4ⓑ ref 못 읽음 → ERROR rc1 · SLOTS 0(cwd 명단 후퇴 0)
+PASS 4ⓒ FT_INDEX_DIR 주입 → 명단 호출 0 · rc0
+PASS 4ⓓ 기본 ref(origin/main) 명단에 v65 없음 → rc1
+PASS 4ⓓ FT_TEAMS_REF=teams-alt → 그 ref 명단 · rc0
+
+ALL PASS
+rc=0
+
+$ bash tests/test_nano_close_fail_closed.sh
+ALL PASS
+rc=0
+
+$ bash tests/test_nano_close_named_wt.sh
+PASS   └ R416 꼬리 ft-nano-slots 출력(SLOTS 줄)
+PASS   └ R416 꼬리 WARN ft-nano-slots 0(루트 사본 옛 명단)
+PASS   └ R416 꼬리 cwd 명단 ERROR 0
+ALL PASS
+rc=0
+
+$ bash tests/test_nano_close_sha_base.sh
+ALL PASS
+rc=0
+
+$ bash tests/test_nano_close_superseded_by.sh
+ALL PASS
+rc=0
+
+$ bash tests/test_nano_close_wt_deletion_only.sh
+ALL PASS
+rc=0
+
+$ grep -nE '(600|300)' kit/fable-team/bin/ft-nano-slots.sh
+hits=0 (600/300 0)
+
+# RED 대조(옛 origin/main 9aaef2141f 의 ft-nano-slots.sh 로 같은 시험 · scratchpad 사본)
+test_nano_slots.sh: FAIL 4ⓐ rc=1 err=ERROR v65 은 팀 명단(TEAMS.md)에 없다 · FAIL 4ⓑ · FAIL 4ⓓ(FT_TEAMS_REF) → FAIL 4
+test_nano_close_named_wt.sh: FAIL R416 SLOTS 줄 없음 · FAIL «WARN ft-nano-slots» 있음 · FAIL «팀 명단(TEAMS.md)에 없다» 있음 → FAILED 3 (= v6-live 꼬리 3줄 재현)
+
+# r2 재적용(팩 origin/main 35bccbb6e7 위 · 1.1.15)
+$ bash tests/test_nano_slots.sh
+ALL PASS
+rc=0

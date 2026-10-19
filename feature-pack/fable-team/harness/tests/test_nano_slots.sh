@@ -70,6 +70,34 @@ EOF
 printf 'a\nb\nc\nd\nr\n' > "$T/live.txt"
 run | head -1 | grep -q '점유 4/5 .* 빈 석 1 · 예약석 점유 r' && ok "3 예약석 점유자는 상한을 먹지 않음(점유 4/5)" || bad "3 예약석 점유 줄: $(run | head -1)"
 
+# 케이스 4 (R416) — 명단 = ref · 폴더 = 그 루트 실재: 공유 루트 사본 TEAMS.md 가 옛 판(v65 행 없음)이어도 ref 명단으로 푼다
+cp "$BIN/ft-team-lib.sh" "$T/bin/"
+R="$T/repo"; mkdir -p "$R/design/teams/v65/indices/대기"
+teams() { printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n'; for t in "$@"; do printf '| %s | `design/teams/%s/` | x | 현역 |\n' "$t" "$t"; done; }
+gr() { git -C "$R" -c user.name=t -c user.email=t@t "$@"; }   # 임시 리포 안에서만 · 공용 config 쓰기 0
+gr init -q
+teams planner kk > "$R/design/TEAMS.md"; gr add -A; gr commit -qm old; OLD="$(gr rev-parse HEAD)"
+teams planner kk v65 > "$R/design/TEAMS.md"; gr commit -qam new; NEW="$(gr rev-parse HEAD)"
+gr update-ref refs/remotes/origin/main "$NEW"
+teams planner kk > "$R/design/TEAMS.md"   # 워크트리 사본 = 옛 판(미커밋) — v6-live 꼴
+{ echo "# 인덱스: v65-card"; echo "Issue: #7"; echo "상태: 대기"; echo "선행: 없음"; echo "시험 입력: 없음"; echo "## 구현 범위"; } > "$R/design/teams/v65/indices/대기/v65-card.md"
+echo '{"w1":{"role":"nano"}}' > "$T/seats.json"; printf 'w1\n' > "$T/live.txt"
+runr() { (cd "$R" && unset FT_INDEX_DIR FT_TEAMS_REF FT_TEAMS_MD FT_REPO_ROOT FT_ACTIVE_ISSUES
+  PATH="$T/bin:$PATH" FT_SEATS_JSON="$T/seats.json" "$@" bash "$T/bin/ft-nano-slots.sh" 2>"$T/err"); }
+out="$(runr env)"; rc=$?
+[ "$rc" = 0 ] && echo "$out" | grep -q '빈 석 4' && echo "$out" | grep -q 'ft-nano-spawn.sh .*v65-card.md' && ok "4ⓐ 옛 사본 명단 + ref 명단 v65 → rc0 · 빈 석 4 · v65 카드 후보" || bad "4ⓐ rc=$rc out=$(echo "$out" | head -1) err=$(cat "$T/err")"
+grep -q '팀 명단(TEAMS.md)에 없다' "$T/err" && bad "4ⓐ stderr 에 cwd 명단 ERROR" || ok "4ⓐ stderr «팀 명단(TEAMS.md)에 없다» 0"
+gr update-ref -d refs/remotes/origin/main
+out="$(runr env)"; rc=$?
+[ "$rc" = 1 ] && grep -q 'ERROR v65 명단(origin/main:design/TEAMS.md)을 못 읽음' "$T/err" && ! echo "$out" | grep -q SLOTS && ok "4ⓑ ref 못 읽음 → ERROR rc1 · SLOTS 0(cwd 명단 후퇴 0)" || bad "4ⓑ rc=$rc err=$(cat "$T/err")"
+out="$(runr env FT_INDEX_DIR="$T/idx")"; rc=$?
+[ "$rc" = 0 ] && echo "$out" | grep -q 'SLOTS nano' && [ ! -s "$T/err" ] && ok "4ⓒ FT_INDEX_DIR 주입 → 명단 호출 0 · rc0" || bad "4ⓒ rc=$rc err=$(cat "$T/err")"
+gr update-ref refs/remotes/origin/main "$OLD"; gr update-ref refs/heads/teams-alt "$NEW"
+out="$(runr env)"; rc=$?
+[ "$rc" = 1 ] && grep -q 'v65 은 팀 명단(TEAMS.md)에 없다' "$T/err" && ok "4ⓓ 기본 ref(origin/main) 명단에 v65 없음 → rc1" || bad "4ⓓ 기본 ref rc=$rc err=$(cat "$T/err")"
+out="$(runr env FT_TEAMS_REF=teams-alt)"; rc=$?
+[ "$rc" = 0 ] && echo "$out" | grep -q 'v65-card.md' && ok "4ⓓ FT_TEAMS_REF=teams-alt → 그 ref 명단 · rc0" || bad "4ⓓ FT_TEAMS_REF rc=$rc err=$(cat "$T/err")"
+
 # 실제 seats 파일 무변경 확인은 완료 조건 쪽(git status) — 이 시험은 FT_SEATS_JSON 가짜만 읽는다
 echo; [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAIL $fail"
 exit "$fail"
