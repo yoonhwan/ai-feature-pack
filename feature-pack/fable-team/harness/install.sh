@@ -15,6 +15,9 @@
 #         dry-run = COMM 줄 + `COMM copied=N same=M` · 워크트리 --project 는 SKIP comm · apply 끝 = 기동 뒤 스크립트가 바뀐 launchd 데몬 RESTART 줄(실행 0 · master 집행).
 #   r464: plist 단계는 LIVE_BIN 전환 «뒤» · 교체 전 직전 사본 .bak-<version> · bootstrap 1초 간격 최대 3회(7초 안)
 #         · 그래도 실패면 직전 사본 원복 + 다시 올림 → PLIST RESTORED + 마지막 줄 INSTALLED <version> · PLIST ERROR rc1.
+#   r512: 공용 루트 설치는 shim 단계 뒤 등록 워크트리 중 bin 이 이미 연결 파일(shim)인 곳마다 같은 설치본 shim 을 다시 돌린다
+#         (연결 파일은 «자기 워크트리 ../LIVE_BIN» 을 읽는다 — 공용 루트만 바꾸면 그 워크트리는 옛 판) · 옛 통째 사본 bin = SKIP(손대지 않음)
+#         · 끝줄 `WT-SHIM refreshed=N skip=M fail=K` · K>0 = 끝 rc1 · dry-run = `PLAN wt-shim <wt> <옛> -> <새>` · 워크트리 --project = 순회 0.
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -191,7 +194,38 @@ hook_audit() {  # dry-run = PENDING (rc 불변) · apply = ERROR + HOOK_FAIL=1(�
     case "$ln" in HOOK-EXEC\ *) echo "$tag $ln"; HOOK_FAIL=1;; *) echo "$ln";; esac
   done <<< "$out"
 }
-if [ "$APPLY" != 1 ]; then plist_sync; comm_sync; restart_scan; hook_audit; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
+WT_FAIL=0
+wt_is_shim() {  # $1 = bin 폴더 → 머리 2줄에 연결 파일 표식이 있는 일반 파일 1개 이상
+  local f
+  for f in "$1"/*; do [ -f "$f" ] || continue; case "$(head -2 "$f")" in *'# ft-root-bin-shim:'*) return 0;; esac; done
+  return 1
+}
+wt_state() { (cd "$1/.fable-team" && cat LIVE_BIN LIVE_ROOT 2>/dev/null; ls -A bin; cksum bin/* 2>/dev/null) || true; }
+wt_shim_refresh() {  # r512: 공용 루트 설치에서만 · 워크트리마다 실패해도 다음 계속 · 실패 수 > 0 = WT_FAIL(끝 rc1)
+  local wt old out rc before n=0 skip=0 nfail=0 lrarg
+  [ -n "$COMMON" ] && [ "$PROJECT" = "$COMMON" ] || return 0
+  while IFS= read -r wt; do
+    [ -n "$wt" ] || continue
+    if [ ! -d "$wt" ]; then echo "SKIP wt-shim $wt (폴더 없음)"; skip=$((skip + 1)); continue; fi
+    [ "$(cd "$wt" && pwd -P)" != "$COMMON" ] || continue
+    [ -f "$wt/.fable-team/LIVE_BIN" ] || continue
+    wt_is_shim "$wt/.fable-team/bin" || { echo "SKIP wt-shim $wt (shim 아님)"; skip=$((skip + 1)); continue; }
+    old="$(sed -n '1p' "$wt/.fable-team/LIVE_BIN")"
+    if [ "$APPLY" != 1 ]; then echo "PLAN wt-shim $wt ${old:-없음} -> $LIVE/bin"; n=$((n + 1)); continue; fi
+    before="$(wt_state "$wt")"
+    lrarg=(); [ -f "$wt/.fable-team/LIVE_ROOT" ] || lrarg=(--live-root "$COMMON")   # 있으면 보존(인자 0) · 없을 때만 공용 루트(라이브 bin/../.. 유도 방지)
+    if out="$(bash "$LIVE/bin/ft-root-bin-shim.sh" --root "$wt" --live "$LIVE/bin" --repo "$REPO" --path "$KPATH" --ref "$REF" ${lrarg[@]+"${lrarg[@]}"} 2>&1)"; then
+      if [ "$before" = "$(wt_state "$wt")" ]; then echo "OK wt-shim $wt (같음)"
+      else n=$((n + 1)); echo "REFRESHED wt-shim $wt ${old:-없음} -> $LIVE/bin · $(printf '%s\n' "$out" | grep . | tail -1)"; fi
+    else
+      rc=$?; nfail=$((nfail + 1)); echo "ERROR wt-shim $wt rc=$rc: $(printf '%s\n' "$out" | grep . | tail -1)"
+    fi
+  done < <(git -C "$COMMON" worktree list --porcelain | sed -n 's/^worktree //p')
+  if [ "$APPLY" != 1 ]; then echo "WT-SHIM plan=$n skip=$skip (dry-run · 쓰기 0)"; return 0; fi
+  echo "WT-SHIM refreshed=$n skip=$skip fail=$nfail"
+  [ "$nfail" = 0 ] || WT_FAIL=1
+}
+if [ "$APPLY" != 1 ]; then wt_shim_refresh; plist_sync; comm_sync; restart_scan; hook_audit; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
 PREV=""; [ -f "$PROJECT/.fable-team/LIVE_BIN" ] && PREV="$(sed -n '1p' "$PROJECT/.fable-team/LIVE_BIN")"
@@ -225,9 +259,11 @@ echo "HOOKS copied=$hcopied same=$hsame chmod=$hchmod (settings.json 등록은 �
 # 프로젝트 LIVE_BIN·LIVE_ROOT·연결 파일 — 설치본 도구로(키트 트리 = 이 하네스 체크아웃의 HEAD)
 REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd -P)"
 REF="$(git -C "$REPO" rev-parse HEAD)"
+KPATH="${HARNESS#"$REPO"/}/kit/fable-team/bin"
 INIT_ARG=(); [ "$SHIM_INIT" = 0 ] || INIT_ARG=(--init)   # r494: rc≠0 = set -e 로 여기서 멈춘다(ERROR 줄 그대로)
 bash "$LIVE/bin/ft-root-bin-shim.sh" --root "$PROJECT" --live "$LIVE/bin" --live-root "$LROOT" \
-  --repo "$REPO" --path "${HARNESS#"$REPO"/}/kit/fable-team/bin" --ref "$REF" ${INIT_ARG[@]+"${INIT_ARG[@]}"}
+  --repo "$REPO" --path "$KPATH" --ref "$REF" ${INIT_ARG[@]+"${INIT_ARG[@]}"}
+wt_shim_refresh   # r512: 공용 루트 전환 «뒤» 등록 워크트리 연결 파일 갱신
 gcopied=0; gsame=0
 for src in "$KIT"/githooks/*; do
   [ -f "$src" ] || continue
@@ -247,5 +283,6 @@ restart_scan   # r459: plist 단계(재적재한 라벨은 새로 기동) «뒤�
 hook_audit     # r491: 등록 훅 전수 — 손으로 들어온 훅의 실행 비트·실재도 여기서 걸린다
 if [ "$HOOK_FAIL" = 1 ]; then echo "INSTALLED $VERSION · HOOK-EXEC ERROR — 설치는 끝났다 · 위 ERROR HOOK-EXEC 줄의 훅을 고친다(chmod +x 또는 settings 등록 정리 = master)"; echo "== 끝 =="; exit 1; fi
 if [ "$PLIST_FAIL" = 1 ]; then echo "INSTALLED $VERSION · PLIST ERROR — LIVE_BIN 전환은 끝났다 · plist 는 위 RESTORED/ERROR 줄"; echo "== 끝 =="; exit 1; fi
+if [ "$WT_FAIL" = 1 ]; then echo "INSTALLED $VERSION · WT-SHIM ERROR — LIVE_BIN 전환은 끝났다 · 위 ERROR wt-shim 줄의 워크트리는 옛 판 그대로(손 = bash $LIVE/bin/ft-root-bin-shim.sh --root <워크트리> --live $LIVE/bin)"; echo "== 끝 =="; exit 1; fi
 echo "INSTALLED $VERSION · PLIST ok"
 echo "== 끝 =="

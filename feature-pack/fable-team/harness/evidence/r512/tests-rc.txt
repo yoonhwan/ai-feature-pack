@@ -1,0 +1,29 @@
+## pack HEAD(작업 트리 · 커밋 전) base=ffd13a39afdcf9c4f58d1e7c71955093e475aae6
+test_install_worktree_shim.sh rc=0 PASS=34 FAIL=0
+test_live_install.sh rc=1 PASS= FAIL=
+FAIL ⓐ 일치 — rc=3 기대=0
+FAIL ⓐ OK 이미 일치 줄 — 없음: «OK 이미 일치» ← ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.beSkQpGu7H/.fable-team/bin — bash <하네스>/harness/install.sh --app
+FAIL ⓑ 3개 설치 — rc=3 기대=0
+FAIL ⓑ INSTALLED n=3 — 없음: «INSTALLED n=3 ref=» ← ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.beSkQpGu7H/.fable-team/bin — bash <하네스>/harness/ins
+FAIL ⓑ 재검사 OK — rc=3 기대=0
+FAIL ⓑ MODE 원복 실패(c.py 실행 비트 남음)
+test_installed_root.sh rc=0 PASS=22 FAIL=0
+test_live_install_check_shim.sh rc=0 PASS=15 FAIL=0
+test_root_bin_shim.sh rc=0 PASS=94 FAIL=0
+test_install_hook_check.sh rc=0 PASS=44 FAIL=0
+test_evidence_log_gate.sh rc=0 PASS=55 FAIL=0
+test_harness_root.sh rc=1 PASS=73 FAIL=1
+FAIL ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0) — 없음: «TREE-OK TREE-R459» ← ME=me (seats.json 현역 master)
+test_live_install_check_plist_env.sh rc=0 PASS=39 FAIL=0
+/bin/bash(3.2.57(1)-release) test_install_worktree_shim.sh rc=0 PASS=34
+shellcheck rc=0
+## base install.sh(origin/main ffd13a39) 대조
+test_live_install.sh rc=1 PASS= FAIL=
+FAIL ⓐ 일치 — rc=3 기대=0
+FAIL ⓐ OK 이미 일치 줄 — 없음: «OK 이미 일치» ← ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): /private/var/folders/vm/j7_jw8050t553wj5wqlvn
+FAIL ⓑ 3개 설치 — rc=3 기대=0
+FAIL ⓑ INSTALLED n=3 — 없음: «INSTALLED n=3 ref=» ← ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): /private/var/folders/vm/j7_jw805
+FAIL ⓑ 재검사 OK — rc=3 기대=0
+FAIL ⓑ MODE 원복 실패(c.py 실행 비트 남음)
+test_harness_root.sh rc=1 PASS=73 FAIL=1
+FAIL ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0) — 없음: «TREE-OK TREE-R459» ← ME=me (seats.json 현역 master)

@@ -1,0 +1,97 @@
+PASS bash -n install.sh
+PASS 픽스처 W1 = shim bin · LIVE_BIN = A · 새 이름 없음
+PASS ⓒ dry-run (rc=0)
+FAIL ⓒ PLAN wt-shim W1 (옛 판 -> 새 판) — 없음: «PLAN wt-shim /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.worktrees/w1 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/liveA/bin -> /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/fable-team/live/1.1.68/bin» ← him/feature-pack/fable-team/harness/comm/mbox_ops.py
+COMM /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm/mbox_store.py <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r512-install-wt-shim/feature-pack/fable-team/harness/comm/mbox_store.py
+COMM copied=32 same=0 dest=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+(dry-run: 쓰지 않았다 — 설치하려면 --apply)
+FAIL ⓒ PLAN wt-shim 줄 수 ≠ 1
+FAIL ⓒ dry-run W2 SKIP 줄 — 없음: «SKIP wt-shim /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.worktrees/w2 (shim 아님)» ← him/feature-pack/fable-team/harness/comm/mbox_ops.py
+COMM /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm/mbox_store.py <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r512-install-wt-shim/feature-pack/fable-team/harness/comm/mbox_store.py
+COMM copied=32 same=0 dest=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+(dry-run: 쓰지 않았다 — 설치하려면 --apply)
+PASS ⓒ 쓰기 0(W1·W2·C 바이트 불변)
+PASS ⓐ apply 공용 루트 (rc=0)
+PASS ⓐ 공용 루트 LIVE_BIN = B
+FAIL ⓐ W1 LIVE_BIN 옛 판 그대로: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/liveA/bin
+FAIL ⓐ W1 새 이름 연결 없음
+PASS ⓐ W1 LIVE_ROOT 보존(= C)
+FAIL ⓐ WT-SHIM refreshed=1 skip=1 fail=0 — 없음: «WT-SHIM refreshed=1 skip=1 fail=0» ← lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림 1줄: printf '%s\n' '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/liveA/bin' > '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/LIVE_BIN'
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+PASS ⓐ 끝줄 INSTALLED
+FAIL ⓑ SKIP wt-shim W2 (shim 아님) — 없음: «SKIP wt-shim /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.worktrees/w2 (shim 아님)» ← lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림 1줄: printf '%s\n' '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/liveA/bin' > '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/LIVE_BIN'
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+PASS ⓑ W2 바이트 그대로(LIVE_BIN 포함)
+PASS ⓑ W2 bin.stale-* 0
+PASS ⓑ W3 변화 0(.fable-team 없음 그대로)
+PASS ⓑ W3 는 대상 아님(줄 0)
+PASS ⓔ 두 번째 apply (rc=0)
+FAIL ⓔ refreshed=0(멱등) — 없음: «WT-SHIM refreshed=0 skip=1 fail=0» ← >.bak-1.1.68)
+COMM copied=0 same=32 dest=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림: 이전 LIVE_BIN 값 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/fable-team/live/1.1.68/bin(이번 값과 같거나 없음 — 되돌릴 것 0)
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+PASS ⓔ W1 쓰기 0
+PASS ⓔ --project W1 apply (rc=0)
+PASS ⓔ 워크트리 설치 = 순회 0(WT-SHIM 줄 0)
+FAIL ⓔ 워크트리 설치 = wt-shim 줄 0 — 있으면 안 됨: «wt-shim»
+PASS ⓕ prunable 있어도 apply (rc=0)
+FAIL ⓕ SKIP wt-shim W3 (폴더 없음) — 없음: «SKIP wt-shim /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.worktrees/w3 (폴더 없음)» ← >.bak-1.1.68)
+COMM copied=0 same=32 dest=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림: 이전 LIVE_BIN 값 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/fable-team/live/1.1.68/bin(이번 값과 같거나 없음 — 되돌릴 것 0)
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+FAIL ⓕ skip=2 — 없음: «WT-SHIM refreshed=0 skip=2 fail=0» ← >.bak-1.1.68)
+COMM copied=0 same=32 dest=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f1/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림: 이전 LIVE_BIN 값 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/fable-team/live/1.1.68/bin(이번 값과 같거나 없음 — 되돌릴 것 0)
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+FAIL ⓓ W1 실패 → 설치 끝 rc1 — rc=0 기대=1
+FAIL ⓓ ERROR wt-shim W1 rc=3 — 없음: «ERROR wt-shim /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.worktrees/w1 rc=3» ← lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림 1줄: printf '%s\n' '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/liveA/bin' > '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.fable-team/LIVE_BIN'
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+FAIL ⓓ WT-SHIM fail=1 — 없음: «WT-SHIM refreshed=0 skip=1 fail=1» ← lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림 1줄: printf '%s\n' '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/liveA/bin' > '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.fable-team/LIVE_BIN'
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+FAIL ⓓ «LIVE_BIN 전환은 끝났다» 문구 — 없음: «LIVE_BIN 전환은 끝났다» ← lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.fable-team/comm (덮은 파일의 되돌림 = <파일>.bak-1.1.68)
+되돌림 1줄: printf '%s\n' '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/liveA/bin' > '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/f2/c/.fable-team/LIVE_BIN'
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+RESTART 0
+HOOKS registered=0 ok=0 bad=0 (settings 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vK26LB8nTj/home/.claude/settings.json)
+INSTALLED 1.1.68 · PLIST ok
+== 끝 ==
+PASS ⓓ 공용 루트 LIVE_BIN = B(전환 끝)
+FAIL ⓓ 조용한 통과 0(성공 끝줄 없음) — 있으면 안 됨: «INSTALLED 1.1.68 · PLIST ok»
+fail=16
+rc=1
