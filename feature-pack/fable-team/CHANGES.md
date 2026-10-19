@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-19 — 좌석을 닫으면 그 좌석이 띄운 백그라운드 루프도 멈춘다(reap left=0 · 못 멈추면 CLOSE-FAIL) · 감시 루프는 상한·stop-file 래퍼 없이는 착지 0 · tmuxc 가 좌석 표식 FT_SEAT 를 심는다 (버전 = 착지 순서대로 master · r447 뒤) (1.1.19)
+
+카드 r448 · master 111691 · 오빠 «이렇게 무식하고 멍청하게 쌓고있는건데». v65 tester67 이 띄운 `while … sleep 5 … >> guard.log` 루프 5개가 좌석 소멸 뒤 ppid 1 고아로 06:00~13:19 각 ~4,600줄을 쌓았습니다. 닫기 3종은 세션 kill 만 했고, 유출 안전망(ft-leak-reap)은 CPU ≥30 s 만 잡아 sleep 루프는 영원히 남았습니다.
+
+- **새 `ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only]`**: 후보(내 uid) = ①tmux 세션 pane 자손 ②env `FT_SEAT=<좌석>`(ppid 무관) ②b argv `ft-bg-loop.sh --seat <좌석>` ③env 안 보임 ∧ ppid 1 ∧ cwd ⊂ 좌석 워크트리(`.git` 있는 폴더 · 안쪽 다른 워크트리 제외 · 다른 라이브 세션이 같은 워크트리를 쓰면 ③ 생략 `cwd=shared`) ∧ 명령에 sleep·while · 후보의 자식(via=자손). 제외 = 남의 FT_SEAT · 보호 exe(`ft-leak-reap.sh` PROTECT_EXE 를 그대로 읽음) · 자기 조상 · 다른 세션 pane 나무. TERM → 3 s → (시작 시각 같을 때만) KILL → 1 s → 재조사 2회전. 끝 줄 `reap <좌석> stopped=<n> left=<n> rc=<n>` · 조사 실패 rc 20(ft-leak-reap ① 계약) · 외부 호출 각 7 s.
+- **닫기 3종**: `ft-seat-close.sh`(kill 앞 · 세션이 없어도) · `ft-nano-close.sh`(세션 kill·ABSENT 종료 앞 · `--wt <좌석 워크트리>`) · `ft-seat-retire.sh`(은퇴 뒤 `--orphans-only` — 살아 있는 옛 에이전트는 zombie-clean 몫) — left≠0 ∨ rc≠0 = `CLOSE-FAIL reap left=<n> rc=<n>` + exit 1(세션 보존) · 성공 줄 끝 `reap left=0 rc=0` · 상세 줄은 stderr · `FT_SEAT_REAP_BIN` 주입. bin·kit 짝 cmp0.
+- **tmuxc `create_tmux_session`**: `tmux new-session … -e "FT_SEAT=<세션명>"` 1줄 — 카드의 «spawn 3종 뒤 `tmux set-environment`» 는 이미 뜬 셸·에이전트에 안 닿아(실측 `X=none` · `-e` 는 `X=<이름>`) spawn 3종 대신 세 경로가 모두 거치는 tmuxc 한 곳에 심었다(spawn 3종 변경 0).
+- **새 `ft-bg-loop.sh --seat <좌석> --max-sec <n> --stop-file <경로> -- <명령>`**: 둘 다 필수 · 명령은 자기 프로세스 그룹 · 끝 줄 `bg-loop end reason=max-sec|stop-file|cmd-exit|signal sec=<n> rc=<n>` · TERM·INT·HUP 이면 그룹 정지.
+- **새 `ft-bg-loop-lint.sh <파일|폴더>… | --range <A..B> [--repo]`**: `while` 루프(짝 done 줄까지) 안에 `sleep`+`>>` 가 있는데 앞에 `ft-bg-loop` 가 없으면 `ERR <파일>:<줄>` · `--range` = 가지가 추가·수정한 `design/**`·`tests/e2e/**` `*.sh` 만(옛 증거 범위 밖). **ft-merge-land.sh** 착지 게이트 1줄(ERR = 착지 0).
+- **한계(기록)**: macOS 는 `/bin/sh`·`/bin/zsh`·`/bin/sleep` 같은 플랫폼 바이너리의 env 를 ps 로 숨긴다(brew bash·python·node 는 보임). 10-19 사건의 guard.sh 는 `#!/bin/zsh` + 공유 루트(v6-realtime-live) cwd 라 ②·③ 로는 안 잡힌다 — 그 꼴은 래퍼(②b argv)+린트로 막는다.
+- **시험**: 새 `test_seat_reap_left0.sh` 55 PASS(3회 연속 · 실 tmux 세션 2 + 표식 고아 루프 · 끝에 잔존 프로세스·세션 0) · `test_nano_close_fail_closed.sh` ⓖ(reap left=1 → CLOSE-FAIL · kill 0 · --wt 전달) · 기존 닫기 시험은 reap 스텁. 기존 `test_seat_close`·`test_nano_close_*` 5·`test_merge_land*` 3·`test_leak_reap`·`test_successor_open`·`test_nano_spawn_reuse_info` rc0 · `test_seat_retire`(5 FAIL)·`test_merge_land_state_dir`(6 FAIL)·`test_role_spawn_name`(22 FAIL)는 origin/main 기준선과 같은 실패. 증거 `harness/evidence/r448/`.
+
 ## 2026-10-19 — 미완·정지 나노를 닫는 길: `ft-nano-close.sh --suspended "<사유>"` — ⑥ 만 면제 · 카드 «중단» 끝줄 · 브랜치 보존 (1.1.18)
 
 카드 r450 · master 111726 · loom master 111718 «미완 나노 닫는 길이 있나». 팀 정지(판정 2365)로 구현 중 멈춘 loom #1442 나노는 시험 rc=1 이라 ⑥ 증거 줄로 못 닫고, 대체 카드가 없어 `--superseded-by` 도 못 써서 세션·워크트리를 쥔 채 멈춰 있었습니다(거짓 rc=0 금지).

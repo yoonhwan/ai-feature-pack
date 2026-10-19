@@ -76,13 +76,21 @@ lineage_ok() {
   while IFS= read -r s; do [ "${s%#*}" = "$base" ] && [[ "${s##*#}" =~ ^[0-9]+$ ]] && [ "${s##*#}" -gt "$n" ] && up=$((up+1)); done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null)
   [ "$up" -ge 2 ] || { [ "$up" -ge 1 ] && [ -f "$rec" ]; }
 }
+# r448: kill «앞» 그 좌석이 띄운 백그라운드 루프 정지(ft-seat-reap) — left≠0 ∨ rc≠0 = CLOSE-FAIL rc 1(세션 보존 · 명부 표기는 남음 · 사람 판단). 세션이 이미 없어도 고아 루프를 본다.
+reap() {
+  local o r; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" 2>&1)"; r=$?; RL="$(printf '%s\n' "$o" | grep -oE 'left=[0-9?]+' | tail -1)"
+  printf '%s\n' "$o" >&2
+  [ "$r" -eq 0 ] && [ "$RL" = left=0 ] && return 0
+  vlog fail-reap; echo "CLOSE-FAIL reap ${RL:-left=?} rc=$r — $SEAT 세션 보존(명부 표기는 남음 file=$FILE)"; exit 1
+}
 if tmux has-session -t "=$SEAT" 2>/dev/null; then
   [ -n "$VERDICT" ] || lineage_ok || { echo "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"; exit 3; }   # --verdict = 판정 승인 1건 + 재개 기록 확인됨
+  reap
   if [ -n "$(tmux show-options -qv -t "=$SEAT" @zc_v65_active 2>/dev/null)" ]; then
     tmux set-option -t "=$SEAT" -u @zc_v65_active || { vlog fail-tag; echo "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; exit 1; }
   fi
   tmux kill-session -t "=$SEAT" || { vlog fail-kill; echo "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; exit 1; }
   KILL=ok
-else KILL=none; fi
-[ -z "$VERDICT" ] || { vlog "$KILL"; echo "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL"; exit 0; }
-echo "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL"
+else reap; KILL=none; fi
+[ -z "$VERDICT" ] || { vlog "$KILL"; echo "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL reap left=0 rc=0"; exit 0; }
+echo "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL reap left=0 rc=0"

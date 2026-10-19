@@ -5,6 +5,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; CLOSE="${FT_SEAT_CLOSE_BIN:-$BIN/ft-seat-close.sh}"; TICK="$BIN/ft-tick.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$TMP/reap-stub.sh"; export FT_SEAT_REAP_BIN="$TMP/reap-stub.sh"   # r448: 닫기의 reap = 스텁(실기계 프로세스 0) · reap 자체는 test_seat_reap_left0.sh
 unset FT_SEATS_JSON
 fail=0
 ok()  { echo "PASS $1"; }
@@ -43,7 +44,7 @@ resume_of() { # <명부> — 틱 resume_rows 출력의 좌석 열
 S="$TMP/a.json"; mkseats "$S"; : > "$LOG"; echo "{}" > "$ZC_RESUME_DIR/W#1.json"
 out="$(FAKE_LIVE="W#1 W#2" FAKE_SESSION=1 FAKE_TAG=1 run bash "$CLOSE" 'W#1' --reason "판정 2050 노출 나노" --seats "$S")"; rc=$?
 chk "①rc" "$rc" 0
-chk "①출력" "$out" "CLOSED-SESSION W#1 file=$S role_was=tester kill=ok"
+chk "①출력" "$out" "CLOSED-SESSION W#1 file=$S role_was=tester kill=ok reap left=0 rc=0"
 chk "①role·tick" "$(J "$S" '[.["W#1"].role,(.["W#1"].tick|tostring)]|join(",")')" "stop-ready,null"
 chk "①_closed_role" "$(J "$S" '.["W#1"]._closed_role')" tester
 chk "①_closed 3칸(by·at·reason)" "$(J "$S" '.["W#1"]._closed|[(.by!=null),(.at!=null),.reason]|join(",")')" "true,true,판정 2050 노출 나노"
@@ -56,7 +57,7 @@ chk "①틱 resume_rows 에 W#1 없음(M#1 P#1 만)" "$(resume_of "$S")" "M#1 P#
 # ② 세션 없음 → kill=none · 표기는 됨 · 태그 해제·kill 호출 0
 S="$TMP/b.json"; mkseats "$S"; : > "$LOG"
 out="$(FAKE_SESSION=0 run bash "$CLOSE" 'N#0' --reason r --seats "$S")"; rc=$?
-chk "②rc·출력" "$rc $out" "0 CLOSED-SESSION N#0 file=$S role_was=nano kill=none"
+chk "②rc·출력" "$rc $out" "0 CLOSED-SESSION N#0 file=$S role_was=nano kill=none reap left=0 rc=0"
 chk "②표기됨" "$(J "$S" '.["N#0"].role')" stop-ready
 chk "②kill 0" "$(kills)" 0
 
@@ -117,7 +118,7 @@ chk "⑦d 기록만 있고 후계 0 rc 3 · kill 0" "$rc $(kills)" "3 0"
 # ⑦e 직전 세대 + 재개 기록 있음 + 후계 1개 생존 → rc 0 · kill 1 (판정 1344 주 경로 — lineage_ok 의 기록 갈래)
 : > "$LOG"; S="$TMP/j.json"; mkseats "$S"; echo "{}" > "$ZC_RESUME_DIR/W#1.json"
 out="$(FAKE_LIVE="W#1 W#2" FAKE_SESSION=1 run bash "$CLOSE" 'W#1' --reason r --seats "$S")"; rc=$?
-chk "⑦e 기록 있음·후계 1개 rc 0 · kill=ok · kill 1" "$rc ${out##* } $(kills)" "0 kill=ok 1"
+chk "⑦e 기록 있음·후계 1개 rc 0 · kill=ok · kill 1" "$rc $(grep -o 'kill=[a-z]*' <<< "$out") $(kills)" "0 kill=ok 1"
 
 # R400 «역할 좌석 닫기» --verdict — 재개 기록은 가짜 retire 스텁(FT_SEAT_RETIRE_BIN) · 원장 루트 = FT_ROOT scratch · 실제 기록·명부·세션 0
 # (ⓐ = 위 ①~⑦ 이 --verdict 없는 호출 그대로 PASS)
@@ -132,7 +133,7 @@ vrun() { FAKE_RETIRE_OUT="${FAKE_RETIRE_OUT-RESUME ok $TMP/resume/$1.json}" RETI
 # ⓑ 현역 칸(_arch) 좌석 + 기록 ok + 계보 최신(--verdict 없으면 REJECT·held 였을 좌석) → 칸 "" · .bak · kill 1 · 원장 1행
 S="$TMP/v1.json"; mkrole "$S"; : > "$LOG"; : > "$TMP/retire.log"
 out="$(FAKE_LIVE="A#1" FAKE_SESSION=1 vrun 'A#1' --reason "판정 2304 역할 좌석 닫기" --seats "$S" --verdict 2304)"; rc=$?
-chk "ⓑrc 0 · CLOSED-ROLE 출력" "$rc $out" "0 CLOSED-ROLE A#1 verdict=2304 record=$TMP/resume/A#1.json cells=$S:_arch kill=ok"
+chk "ⓑrc 0 · CLOSED-ROLE 출력" "$rc $out" "0 CLOSED-ROLE A#1 verdict=2304 record=$TMP/resume/A#1.json cells=$S:_arch kill=ok reap left=0 rc=0"
 chk "ⓑretire 스텁 인자(--record-only --verdict · --seats 전달)" "$(cat "$TMP/retire.log")" "A#1 --record-only --verdict 2304 --seats $S"
 chk "ⓑ_arch \"\" · 다른 _ 칸 불변" "$(J "$S" '[._arch,._master,._hil_route]|join(",")')" ",M#1,P#1"
 chk "ⓑ행 stop-ready · _closed_role · _closed.verdict·reason" "$(J "$S" '.["A#1"]|[.role,(.tick|tostring),._closed_role,._closed.verdict,._closed.reason]|join(",")')" "stop-ready,null,arch,2304,판정 2304 역할 좌석 닫기"
@@ -161,7 +162,7 @@ R="$TMP/vrepo"; mkdir -p "$R/.fable-team"; git -C "$R" init -q
 mkrole "$R/.fable-team/seats.json"; printf '%s' '{"_hil_route": "A#1", "_desk": "D#1", "D#1": {"role": "desk"}}' > "$R/.fable-team/seats-x.json"; : > "$LOG"; : > "$VLOG"
 out="$(cd "$R" && FAKE_LIVE="A#1" vrun 'A#1' --reason r --verdict 2304)"; rc=$?
 RR="$(cd "$R" && pwd -P)"   # 루트 = git common dir(실경로) · 명부 순서 = glob 정렬(seats-x < seats.)
-chk "ⓕrc 0 · cells 두 명부" "$rc ${out#*cells=}" "0 $RR/.fable-team/seats-x.json:_hil_route;$RR/.fable-team/seats.json:_arch kill=ok"
+chk "ⓕrc 0 · cells 두 명부" "$rc ${out#*cells=}" "0 $RR/.fable-team/seats-x.json:_hil_route;$RR/.fable-team/seats.json:_arch kill=ok reap left=0 rc=0"
 chk "ⓕ두 명부 칸 \"\" · 다른 칸 불변" "$(J "$R/.fable-team/seats.json" '[._arch,._master]|join(",")') $(J "$R/.fable-team/seats-x.json" '[._hil_route,._desk]|join(",")')" ",M#1 ,D#1"
 chk "ⓕ.bak 2 · kill 1 · 원장 1행" "$(ls "$R/.fable-team"/*.bak-close-* | wc -l | tr -d ' ') $(kills) $(wc -l < "$VLOG" | tr -d ' ')" "2 1 1"
 # usage — --verdict 값 없음·형식 밖 → rc 2
@@ -174,7 +175,7 @@ B="$TMP/B"; mkdir -p "$B/.fable-team"; printf '%s' '{"_arch": "byz-airag-arch-cl
 # ⓖ FT_ROOT + --seats → CLOSED-ROLE · B 명부 표기·.bak · 원장 = B 루트 · A 명부 바이트 동일
 : > "$LOG"; RA='byz-airag-arch-claude#3'
 out="$(cd "$A" && FT_ROOT="$B" FAKE_LIVE="$RA" vrun "$RA" --reason r --verdict 1 --seats "$B/.fable-team/seats.json")"; rc=$?
-chk "ⓖrc 0 · CLOSED-ROLE · kill=ok" "$rc ${out%% *} ${out##* }" "0 CLOSED-ROLE kill=ok"
+chk "ⓖrc 0 · CLOSED-ROLE · kill=ok" "$rc ${out%% *} $(grep -o 'kill=[a-z]*' <<< "$out")" "0 CLOSED-ROLE kill=ok"
 chk "ⓖB 명부 stop-ready · _arch \"\" · .bak 1" "$(J "$B/.fable-team/seats.json" "[.[\"$RA\"].role,._arch]|join(\",\")") $(ls "$B/.fable-team"/seats.json.bak-close-* | wc -l | tr -d ' ')" "stop-ready, 1"
 chk "ⓖ원장 = B 루트 1행 · A 명부 바이트 동일 · kill 1" "$(wc -l < "$B/.fable-team/state/seat-close-verdict.log" | tr -d ' ') $(cmp -s "$A/.fable-team/seats.json" "$TMP/A.orig" && echo same || echo changed) $(kills)" "1 same 1"
 # ⓗ 같은 상태(B 원복)에서 --seats 없이 → NOROW 안내에 FT_ROOT=·--seats · rc 3 · kill 0 · 두 명부 바이트 동일
