@@ -37,6 +37,30 @@ def role_cell(dd, new):   # r465 사례 2 — 후계 이름(byz-<팀>-<역할>-<
     return (c, dd.get(c)) if c in ("_master", "_arch", "_da", "_tester") and isinstance(dd.get(new), dict) else (None, None)
 
 
+ROLES = ("_master", "_arch", "_desk", "_da", "_tester", "_pm")   # r499 후계 role 도출용 역할 칸
+
+
+def held_roles(dd, keys, new):   # r499 후계가 맡는(맡을) 역할 칸 — 옮기는 칸(keys 순) + 이미 값이 후계인 칸
+    return [k for k in list(keys) + [c for c in ROLES if dd.get(c) == new] if k in ROLES]
+
+
+def succ_role(o, cells, name):   # r499 후계 role — 옛 role(stop-ready 아니면) → 옛 _retired_role → 역할 칸(cells 순) 이름 → 이름 토큰(byz-<팀>-<역할>-<에이전트>#N) · 다 없으면 stop-ready(추측 0)
+    if o.get("role") != "stop-ready": return o.get("role")
+    r = o.get("_retired_role")
+    if isinstance(r, str) and r and r != "stop-ready": return r
+    for k in cells:
+        if k in ROLES: return k[1:]
+    t = "_" + (name.rpartition("#")[0].split("-") + ["", "", ""])[2]
+    return t[1:] if t in ROLES else "stop-ready"
+
+
+def fix_role(o, n, cells, name):   # r499 재실행 보정 — 후계 행이 역할 칸 값(cells) ∧ role=stop-ready ∧ _replaced_by 없음 → 도출 role 로 고침(메모리 · 쓰기는 호출자) → 고친 role · 아니면 ""
+    ok = bool(cells) and isinstance(n, dict) and n.get("role") == "stop-ready" and not n.get("_replaced_by")
+    r = succ_role(o, cells, name) if ok else "stop-ready"
+    if r != "stop-ready": n["role"] = r
+    return "" if r == "stop-ready" else r
+
+
 def scan_cells(p, old):   # r465 같은 폴더 다른 명부 전부 — 최상위 `_*` 문자열 칸 중 값 == old 전부(라우팅·역할 구분 없이 · 공유 arch 의 남의 팀 `_arch` 포함) · 꼴은 scan_routes 와 같다
     others, _, bad = scan_routes(p, old)
     cells = {} if bad else {f: ks for f, ks in ((f, [k for k, v in dd.items() if k.startswith("_") and v == old]) for f, dd in others.items()) if ks}

@@ -110,6 +110,23 @@ out="$(cd "$R" && FAKE_ALIVE_NAME="$LIVE" HOME="$TMP/home" PATH="$FA:$PATH" env 
 chk "r465ⓕ_arch = 살아 있는 다른 좌석 → REJECT rc 1 · 쓰기 0" "$rc ${out%% *} $(cmp -s "$(F "$R" seats.json)" "$TMP/f3.orig" && echo same || echo changed) $(ls "$R/.fable-team" | grep -c 'bak-retire')" "1 REJECT same 0"
 R="$(srepo f4 "{\"_arch\": \"$LIVE\", \"$A1\": {\"role\": \"stop-ready\", \"_replaced_by\": \"$A2\"}, \"$A2\": $NROW}")"; out="$(srun "$R" "$A1" "$A2")"
 chk "r465ⓕ_arch = 죽은 다른 좌석 → 채우기 0 (추측 0) · lecture·room 만 보정" "$(J "$(F "$R" seats.json)" ._arch) $(grep -c FILLED <<< "$out") ${out%% *}" "$LIVE 0 FIXED"
+# r499 — 옛 행이 이미 stop-ready(은퇴 전 닫힘 표기)면 후계 role = _retired_role → 역할 칸 → 이름 토큰 · 재실행도 stop-ready 꼴 현역 후계를 고침
+trepo() { local r="$TMP/t-$1"; mkdir -p "$r/.fable-team"; git -C "$r" init -q; printf '%s' "$2" > "$r/.fable-team/seats.json"; echo "$r"; }
+SR='{"role": "stop-ready", "agent": "claude", "model": "m", "tick": null}'
+R="$(trepo g "{\"_arch\": \"$A1\", \"$A1\": $SR}")"; out="$(srun "$R" "$A1" "$A2")"; rc=$?
+chk "r499ⓖ옛 stop-ready·_retired_role 없음·후계 행 없음 → rc 0 · 첫 줄 role stop-ready->arch" "$rc ${out%%$'\n'*}" "0 RETIRED $A1 -> $A2 file=$(F "$R" seats.json) keys=['_arch'] files=1 roles=[] routes=[] role stop-ready->arch"
+chk "r499ⓖ후계 role=arch · _arch 후계 · 옛 행 _retired_role 안 씀(추측 0)" "$(J "$(F "$R" seats.json)" "[.[\"$A2\"].role, ._arch, (.[\"$A1\"]|has(\"_retired_role\"))]|map(tostring)|join(\",\")")" "arch,$A2,false"
+R="$(trepo h "{\"_arch\": \"$A1\", \"$A1\": {\"role\": \"stop-ready\", \"_retired_role\": \"master\", \"agent\": \"claude\", \"tick\": null}}")"; out="$(srun "$R" "$A1" "$A2")"; rc=$?
+chk "r499ⓗ옛 _retired_role=master → 후계 role=master (역할 칸보다 먼저)" "$rc $(J "$(F "$R" seats.json)" ".[\"$A2\"].role") $(grep -oE 'role stop-ready->[a-z]+' <<< "$out")" "0 master role stop-ready->master"
+R="$(trepo i "{\"_arch\": \"$A1\", \"$A1\": $SR, \"$A2\": $SR}")"; out="$(srun "$R" "$A1" "$A2")"; rc=$?
+chk "r499ⓘ후계 행 있음·stop-ready·_replaced_by 없음 → 도출 role · 출력 role stop-ready->arch" "$rc ${out%% *} $(J "$(F "$R" seats.json)" ".[\"$A2\"].role") $(grep -oE 'role stop-ready->[a-z]+' <<< "$out")" "0 RETIRED arch role stop-ready->arch"
+R="$(trepo i2 "{\"_arch\": \"$A1\", \"$A1\": $ROW, \"$A2\": $NROW}")"; out="$(srun "$R" "$A1" "$A2")"
+chk "r499ⓘ대조: 정상 승계(옛 arch · 후계 arch) → role 꼬리 0" "$(J "$(F "$R" seats.json)" ".[\"$A2\"].role") $(grep -c 'role stop-ready->' <<< "$out")" "arch 0"
+R="$(trepo j "{\"_arch\": \"$A2\", \"$A1\": {\"role\": \"stop-ready\", \"_replaced_by\": \"$A2\"}, \"$A2\": $SR}")"; out="$(srun "$R" "$A1" "$A2")"; rc=$?
+chk "r499ⓙ재실행(NOOP 자리) + 현역 후계 stop-ready 꼴 → FIXED … role stop-ready->arch rc 0" "$rc ${out%%$'\n'*}" "0 FIXED $A1 -> $A2 file=$(F "$R" seats.json) keys=[] files=1 roles=[] routes=[] role stop-ready->arch"
+chk "r499ⓙ후계 role=arch · .bak 1 · 다시 = NOOP" "$(J "$(F "$R" seats.json)" ".[\"$A2\"].role") $(ls "$R/.fable-team" | grep -c 'bak-retire') $(srun "$R" "$A1" "$A2" | head -1 | cut -d' ' -f1)" "arch 1 NOOP"
+N1='byz-harness-nano-r1-x#0'; N2='byz-harness-nano-r1-x#1'; R="$(trepo j2 "{\"_master\": \"byz-harness-master-claude#1\", \"$N1\": {\"role\": \"stop-ready\", \"_replaced_by\": \"$N2\"}, \"$N2\": $SR}")"; cp "$(F "$R" seats.json)" "$TMP/j2.orig"; out="$(srun "$R" "$N1" "$N2")"; rc=$?
+chk "r499ⓙ역할 칸 값 아님·_retired_role 없음·이름 토큰 nano → 고치지 않음(NOOP 그대로 · 바이트 불변)" "$rc ${out%% *} $(cmp -s "$(F "$R" seats.json)" "$TMP/j2.orig" && echo same || echo changed)" "0 NOOP same"
 # ⑧ 짝 cmp0 (bin ↔ kit)
 chk "짝 cmp0" "$(cmp -s "$RETIRE" "$HERE/../kit/fable-team/bin/ft-seat-retire.sh" && echo same || echo diff)" same
 chk "짝 cmp0 (ft_roster_lib.py · r465)" "$(cmp -s "$(dirname "$RETIRE")/ft_roster_lib.py" "$HERE/../kit/fable-team/bin/ft_roster_lib.py" && echo same || echo diff)" same

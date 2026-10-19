@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-20 — 승계 후계 행이 옛 행의 `stop-ready` 를 물려받던 사슬을 끊음 (r499 · 1.1.54)
+
+- 사건: harness master 81 발주 115727 — v65 arch 265 · chatbot arch 5 행이 현역(`_arch` 값)인데 role=stop-ready. arch 105 실측: `ft-seat-retire.sh` 가 후계 행을 «옛 role 글자» 로 만들어, 옛 행이 승계 «전에» 이미 stop-ready 였으면 후계도 stop-ready 로 태어난다(`_retired_role` 은 바꿀 때만 적어 비어 있음 → 다음 승계도 같은 값). v65 262→264→265 사슬 · master 손 정정 뒤 265→266 은 정상. 지금 명부 13 전수: loom `_arch`=arch 59 · ops `_arch`=arch 38 이 같은 꼴.
+- `ft_roster_lib.py` 신설 3: `succ_role(o, cells, name)` = 옛 role(stop-ready 아니면 그 값) → 옛 `_retired_role` → 옮기는 역할 칸(`_master·_arch·_desk·_da·_tester·_pm` · keys 순) 이름 → 이름 토큰(`byz-<팀>-<역할>-<에이전트>#N`) · 다 없으면 stop-ready 그대로(추측 0) · `held_roles` · `fix_role`.
+- `ft-seat-retire.sh`: 후계 행 생성·상속 모두 도출값 · 기존 후계 행이 stop-ready(∧ `_replaced_by` 없음)이면 도출값으로 고침 · 옛 행 `_retired_role` 은 지금처럼 «원래 role 이 stop-ready 가 아닐 때만»(없는 값 만들지 않음). 재실행(NOOP 자리)도 후계가 «역할 칸 값 ∧ role=stop-ready ∧ `_replaced_by` 없음» 이면 `.bak-retire-<ts>` 뒤 고치고 `FIXED <구> -> <후계> file=… … role stop-ready-><역할>` 1줄 rc0 · 그 밖은 출력 그대로. 승계 출력(RETIRED/FIXED) 첫 줄 꼬리에 ` role stop-ready-><역할>` 가 붙을 수 있다(정상 승계는 0). 200줄 상한 유지.
+- 시험: `test_seat_retire_rosters.sh` r499ⓖ~ⓙ(+ ⓘ 대조 · ⓙ nano 음성) · 기존 ⓐ~ⓕ·r465 · `test_seat_close.sh` · `test_seat_retire_keep.sh` rc0. `test_seat_retire.sh` rc1 = ⑧ `test_ft_tick_master_seat.sh` 1건 — 변경 전 main(5779acde)과 PASS/FAIL 목록 동일(이 단위 밖). 설치: LIVE_BIN 키트 2(`ft-seat-retire.sh` · `ft_roster_lib.py`) cmp0 · 홈 0 · plist 0 · 되돌림 = 설치본 `.bak-r499`. 범위 밖: 역할 칸이 빈 값이 된 원인 · stop-ready 표기 주체(`ft-seat-close.sh`) · 역할 칸 값이 아닌 과거 행. 원문 = `harness/evidence/r499/tests-rc.txt`.
+
 ## 2026-10-20 — 팀 폴더 쌍둥이(옛 꼴 `design/<팀>/` + 새 꼴 `design/teams/<팀>/`)를 ERROR 대신 ref 트리로 가름 (r495 · 1.1.53)
 
 - 사건: v65 master 213(요청 115538)이 뒤처진 체크아웃 `v6-realtime-live`(origin/main 뒤 192커밋 · `design/v65` tracked 17661 + `design/teams/v65` tracked 2)에서 `ft-goal-check` → «ERROR … v65 폴더 실재 후보 2개 — 정확히 1개여야 한다» rc4 · v65 골 틱이 섰다. ref(origin/main)는 `design/v65` 0 · `design/teams/v65` 13583 — 어느 쪽이 팀 폴더인지 이미 말하는데 판정기가 ref 트리를 안 봤다.
