@@ -1,0 +1,38 @@
+# r488 시험 실행 원문 · 세트 302562659a838ad63678ca7180760d8fe254d8fe · 2026-10-19 22:13:50
+$ bash harness/tests/test_ft_mbox_sent_log.sh
+PASS ⓐ send rc 0
+PASS ⓐ 큐 1행
+PASS ⓐ 로그 1행
+PASS ⓐ 키 동일
+PASS ⓐ WARN 0
+PASS ⓑ recv 뒤 큐 0
+PASS ⓑ recv 뒤 로그 1
+PASS ⓒ relay rc 0
+PASS ⓒ relay 로그 1행
+PASS ⓒ WARN 0
+PASS ⓓ .1 에 옛 행 전부
+PASS ⓓ 새 로그 1행
+PASS ⓓ 새 로그 = 이번 seq
+PASS ⓓ mail_files 가 .1 을 읽음
+PASS ⓔ rc 0
+PASS ⓔ stdout QUEUED
+PASS ⓔ 큐 1행
+PASS ⓔ stderr WARN sent-log 0
+PASS ⓕ 변이 → 로그 0 (ⓐ FAIL)
+PASS ⓕ 변이 → WARN sent-log 0
+---
+ALL PASS
+rc=0
+$ bash harness/tests/test_mbox_guard_live_bin.sh → rc=0 · PASS=8 FAIL=0
+$ bash harness/tests/test_mbox_inbox_notify_reply_rate.sh → rc=0 · ALL PASS
+$ bash harness/tests/test_mbox_py_link_import.sh → rc=0 · ALL PASS
+$ bash harness/tests/test_mbox_reply_exempt_cap.sh → rc=0 · ALL PASS
+$ bash harness/tests/test_mbox_root_resolve.sh → rc=0 · PASS=7 FAIL=0
+$ bash harness/tests/test_ft_mbox_inbox_ingest.sh → rc=0 · ALL PASS
+$ bash harness/tests/test_da_hold_gate_landed.sh → rc=0 · fail=0
+$ bash harness/tests/test_mbox_guard.sh → rc=1 · FAILED 24
+$ bash harness/tests/test_mbox_lineage.sh → rc=1 · FAILED 9
+$ bash harness/tests/test_mbox_v2_guard.sh → rc=1 · FAILED
+$ bash harness/tests/test_da_hold_gate.sh → rc=1 · fail=2
+# 기준선 origin/main c44c6e0e: test_mbox_guard FAILED 24 · test_mbox_lineage FAILED 9 · test_mbox_v2_guard FAILED · test_da_hold_gate fail=2(staged COMM-GUIDE-BOOT/governance 사본 drift = §8c) — 동일 건수 · 이번 변경 무관
+# 짝: cmp kit/ft-mbox.{py,sh} skill/scripts/ft-mbox.{py,sh} = 0

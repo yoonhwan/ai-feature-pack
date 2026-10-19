@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 키트 ft-mbox send/relay 도 보관 로그 mailbox.log.jsonl 에 1행 + send 자가 점검 WARN (r488 · 1.1.43)
+
+- 라이브 `ft-mbox.sh send`(키트 단일 파일 `ft-mbox.py`)는 보낸 행을 `mailbox.jsonl` 에만 써서, recv 가 소비하면 그 쪽지의 레코드가 어디에도 남지 않았다(bodies 만) → `ft_da_hold_gate find_record` 등이 «쪽지 없음» 판정(실측 114380~114490 중 6건). 루트 모듈판 `mbox_guard._log_sent` 규칙 그대로 `ft-mbox.py send`(relay 는 send 경유)가 `_save` 직후 같은 잠금 안에서 `mailbox.log.jsonl` 에 1행 append · `FT_MBOX_LOG_MAX_BYTES`(기본 5MB) 초과 시 `.1` 회전 · 기록 실패는 stderr WARN(전송 rc 불변).
+- `ft-mbox.sh` send/relay 끝에 그 seq 행이 로그에 정확히 1행인지 `grep -c` — 아니면 stderr `WARN sent-log <n> seq=<N> file=<경로>`(fail-open). skill/scripts 사본 2 동기화(cmp 0). 큐 꼴·recv 소비 규칙·루트 untracked 정본 변경 0.
+- 시험 `harness/tests/test_ft_mbox_sent_log.sh` ⓐ~ⓕ(변이 포함) · 되돌림 = 이 절 커밋 revert(설치본은 `.bak-r488`).
+
 ## 2026-10-19 — 뉴스 HTML: top 갈래를 요약·중요한 일 2갈래로 쪼갬 · 상한 초과 = 첫 출력 전 실패 재시도 1 (r478e · 1.1.42)
 
 - 첫 자동 틱이 부하(load 25~50)에서 `opencode run top 상한 38s 초과` — top(요약+중요한 일+근거) 한 호출이 max/high 에서 흔들림. 7초 룰대로 top → summary(요약+근거) · important(중요한 일) 2갈래로 쪼개 4갈래 병렬 · 시도당 상한 크기 비례 그대로 · 시도당 상한 초과 = 첫 출력 전 실패로 보고 총 마감 70초 안 재시도 1회.
