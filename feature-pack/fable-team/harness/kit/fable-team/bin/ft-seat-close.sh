@@ -39,7 +39,7 @@ files = [arg] if arg else sorted(glob.glob(root + "/.fable-team/seats*.json"))
 for f in (files if not verdict else []):   # ⓐ 현역 역할 좌석(_master·_arch·_hil_route·_desk …)은 세션만 닫지 않는다(--verdict = 판정 승인 경로만 예외)
     d = load(f)
     if isinstance(d, dict) and any(k.startswith("_") and v == seat for k, v in d.items()):
-        print(f"REJECT {seat} 은 {f} 의 _ 칸 값(현역 역할 좌석) — 승계 경로(ft-successor-open · ft-seat-retire) 로"); sys.exit(1)
+        print(f"REJECT {seat} 은 {f} 의 _ 칸 값(현역 역할 좌석) — 승계 경로(ft-successor-open · ft-seat-retire) 로 · 후계 없이 닫으려면 --verdict <판정번호>(R400 · 사람 승인 1건)"); sys.exit(1)
 cand = [f for f in files if isinstance(load(f), dict) and seat in load(f)]
 if verdict and not cand:   # R400 r3 §D — 명부 루트(cwd)와 원장 루트(FT_ROOT)를 같이 주는 한 줄(자동 탐색 0)
     print(f"NOROW {seat} 명부 행 없음({arg or root + '/.fable-team/seats*.json'}) — 기록 {rec} · kill 0 · 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> {tool} {shlex.quote(seat)} --verdict {verdict} --reason {shlex.quote(reason)} --seats <그 루트>/.fable-team/seats.json"); sys.exit(3)

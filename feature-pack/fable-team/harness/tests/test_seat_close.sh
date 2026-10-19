@@ -65,6 +65,7 @@ S="$TMP/c.json"; mkseats "$S"; cp "$S" "$TMP/c.orig"; : > "$LOG"
 for s in 'M#1' 'P#1'; do
   out="$(run bash "$CLOSE" "$s" --reason r --seats "$S")"; rc=$?
   chk "③$s rc 1 · REJECT" "$rc ${out%% *}" "1 REJECT"
+  chk "③$s REJECT 에 --verdict 경로 1줄(r413)" "$(case "$out" in *"후계 없이 닫으려면 --verdict <판정번호>(R400"*) echo has;; *) echo none;; esac)" has
 done
 chk "③바이트 불변·.bak 0·kill 0" "$(cmp -s "$S" "$TMP/c.orig" && echo same || echo changed) $(ls "$TMP"/c.json.bak-close-* 2>/dev/null | wc -l | tr -d ' ') $(kills)" "same 0 0"
 

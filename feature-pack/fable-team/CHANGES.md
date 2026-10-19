@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — 워크트리 «옛 bin 통째 사본» 을 알아보고 설치 명령을 말한다: drift-check 메시지 · install-check STALE-COPY 행 · seat-close REJECT 에 --verdict 경로 (1.1.14)
+
+카드 r413 · v65 쪽지 110777 · master 110781 ②·110801 ③. 공유 루트 `v6-realtime-live/.fable-team/bin` 이 shim 이 아닌 옛 통째 사본(418 파일 · LIVE_BIN·해석기 없음)이라 그 cwd 의 nano-close 입구 drift-check 가 BYZ 옛 키트 경로를 찾다 «ERROR ref 에 경로가 없음 → main 키트와 다르다» 로 막혔고, 받는 쪽은 무엇을 할지 몰랐습니다.
+
+- **`ft-live-bin-drift-check.sh`**: 해석기 호출 «앞» 에 `--bin` 이 `*/.fable-team/bin` ∧ `../LIVE_BIN` 없음 ∧ `ft-harness-root.sh` 없음 ∧ shim 표식 파일 0 ∧ 일반 파일 ≥1 이면 `ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): <bin> — bash <하네스>/install.sh --apply --project <루트>` rc3(하네스 = `FT_HARNESS_ROOT` · `../HARNESS_ROOT` · 못 풀면 `<하네스>/harness` 글자). 그 밖은 바이트 불변 · drift REJECT 우회 0.
+- **`ft-live-install-check.sh` / `ft_live_install_check.py`**: `--project`(기본 리포 공용 루트)와 그 `.worktrees/*` 의 `.fable-team/bin` 중 LIVE_BIN 없음 ∧ shim 0 ∧ 파일 ≥1 → `STALE-COPY <bin> files=<n>` + `HINT <bin> bash <하네스>/install.sh --apply --project <워크트리>` · PENDING rc1(`--range` 도 같음 · 읽기만).
+- **`ft-seat-close.sh`**: 현역 역할 좌석 REJECT 문구 끝에 ` · 후계 없이 닫으려면 --verdict <판정번호>(R400 · 사람 승인 1건)` (동작 불변).
+- **시험**: `test_live_install_check_shim.sh` 새 절 r413ⓐ~ⓒ + 픽스처를 r385 뒤 인자(`--kit`·`--path`)로 갱신(base 에서도 9 FAIL 이던 기준선) · `test_seat_close.sh` ③ 에 문구 단언. 증거 `harness/evidence/r413/test.txt`·`test-r2.txt` · base 동일 실패 5종 `preexisting-fails.txt`.
+
 ## 2026-10-19 — 범위 분류기 «전역 규칙» 이 옛 라이브 설치 사본 경로 `scripts/harness-install/` 도 FORBID 한다 (1.1.13)
 
 카드 r412 · arch#95 재현 · 판정 1395(떨어지는 시험 = 고침 단위). 팩 이전 때 «전역 규칙» 정규식에 새 경로 `harness/kit/` 만 넣고 옛 경로가 빠져, 머리 주석(「옛·새 경로 어느 쪽이든 맞으면 FORBID」)과 어긋났고 팩 시험 절 «scripts/harness-install/ → FORBID» 가 base 부터 FAIL 1(`rc=0 out=CLASS code`)이었습니다. r411 이 code 종류를 연 뒤에는 옛 설치 경로를 다시 들여오는 세트가 code 로 대리 승인될 수 있어 실사건 전에 막습니다.
