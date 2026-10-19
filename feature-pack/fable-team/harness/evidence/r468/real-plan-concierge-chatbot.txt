@@ -1,0 +1,12 @@
+PLAN-RENAME concierge → chatbot design/teams/concierge/ → design/teams/chatbot/
+  ROW TEAMS.md | concierge | `design/teams/concierge/` | byz-concierge-master-claude | 현역 |
+  ROW TEAMSET.md | concierge | 3 | 1 | 상시 |
+  REF1 팀 폴더 파일 71개 · 본문 치환 예상 design/teams/concierge/ 82곳 · byz-concierge- 66곳
+  REF3 명부 seats-concierge.json → seats-chatbot.json 칸 4(_name·_label·_tree·_doc) · 행 17
+  REF4 nano-card-base 파일 12개
+  REF5 worktree-info 파일 2개
+  REF6 baton branches.json 참조 0곳
+  REF7 추가 파일 0개
+  ENV bin-concierge/ → bin-chatbot/ 파일 6개 · 이름 바뀜 4
+  WT 받음 0 · 미전환(_move_pending 후보) 388
+PLAN-END blockers=0

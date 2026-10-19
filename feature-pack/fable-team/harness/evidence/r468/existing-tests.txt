@@ -1,0 +1,16 @@
+## test_team_move_roundtrip (가지) rc=1 PASS=103
+FAIL ⓒ 꼴3 env 없음 = ERROR(옛 경로 후퇴 0) — 없음: «ERROR» ← /Users/yoonhwan/Project/ai-feature-pack/.worktrees/nano-r468-team-rename/feature-pack/fable-team/harness/design/harness
+FAIL   └ rc=1 — 없음: «rc=1» ← /Users/yoonhwan/Project/ai-feature-pack/.worktrees/nano-r468-team-rename/feature-pack/fable-team/harness/design/harness
+FAIL ⓑ' 쌍둥이 rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UA6JJ0XoZb/bin3
+## test_team_move_occupancy (가지) rc=0 PASS=29
+## test_team_move_resume (가지) rc=0 PASS=10
+## test_install_team_tick_live (가지) rc=0 PASS=48
+## test_raised_seat (가지) rc=0 PASS=119
+## test_live_snapshot_all_rosters (가지) rc=1 PASS=9
+FAIL dry-run: 다른 명부 좌석도 DRY 줄에 나오되 스냅샷 호출 0 — «0|» ≠ «1|»
+## test_team_tick_unify (가지) rc=1 PASS=54
+FAIL ⓖ H2 --script wt/scripts/fable-team-bin → 거부 rc (got=[0] want=[1])
+## origin/main 457f34fc 기준선(같은 FAIL = 기존 결함)
+- unify-base: FAIL ⓖ H2 --script wt/scripts/fable-team-bin → 거부 rc (got=[0] want=[1]) 
+- base-test_team_move_roundtrip: FAIL ⓒ 꼴3 env 없음 = ERROR(옛 경로 후퇴 0) — 없음: «ERROR» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-457f34fc-1792408241-64785/feature-pack/fable-t FAIL   └ rc=1 — 없음: «rc=1» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-457f34fc-1792408241-64785/feature-pack/fable-team/harness/design/harn FAIL ⓑ' 쌍둥이 rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5pq2tlqMAC/bin3 
+- base-test_live_snapshot_all_rosters: FAIL dry-run: 다른 명부 좌석도 DRY 줄에 나오되 스냅샷 호출 0 — «0|» ≠ «1|» 
