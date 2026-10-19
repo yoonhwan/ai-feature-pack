@@ -1,0 +1,25 @@
+PASS py_compile 2 · bash -n install.sh
+PASS bin/kit 짝 cmp0 (ft_plist_env · ft_live_install_check)
+PASS 미러 템플릿에 FT_ROOT=__ROOT__ 키
+PASS ⓐ 렌더본 FT_ROOT=<루트> · inbox=<LIVE_BIN>/ft-inbox.sh · 채널 보존 · plutil rc0
+PASS ⓑ install-check: FT_ROOT 없는 설치본 → PENDING plist-env rc1 + HINT
+PASS ⓑ install.sh --dry-run(설치본 bin 전) → PLIST 줄 · rc0 · 쓰기 0 · kickstart 0
+PASS ⓑ install.sh --apply → 교체 + .bak-r426 + bootstrap·kickstart 각 1
+PASS ⓑ .bak-r426 = 옛 설치본 · 설치본 FT_ROOT=<루트> · plutil rc0
+PASS ⓑ inbox 경로 = 설치본 LIVE_BIN(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mabCrpYiTP/home/.claude/fable-team/live/1.1.15/bin)
+PASS ⓑ apply 뒤 install-check → OK rc0
+PASS ⓒ 같음 → OK plist-env · 쓰기 0 · kickstart 0
+PASS ⓒ dry-run(설치 뒤) → OK plist-env
+PASS ⓒ' 설치 뒤 FT_ROOT 빠짐 → dry-run PENDING plist-env · 쓰기 0
+PASS ⓒ' 재apply → .bak-r426 는 첫 원본 보존 · 렌더본 복구
+PASS ⓓ 렌더: 루트 없음 → ERROR rc3
+PASS ⓓ install-check --project 없는 루트 → ERROR rc3
+PASS ⓓ install-check LIVE_BIN 없음 → ERROR rc3
+PASS ⓓ 설치본에 --channel 값 없음 → install.sh ERROR rc1 · 쓰기 0 · kickstart 0
+PASS ⓓ 관리 밖 라벨 → ERROR rc3
+PASS usage → rc2
+PASS 미설치 → SKIP(새로 깔지 않음 · 처음 설치는 slack-mirror/install.sh)
+PASS ⓔ 600/300 초 상한 0
+PASS ⓔ 시험 시간 < 10분 (32s)
+PASS core.bare 오염 0
+ALL PASS

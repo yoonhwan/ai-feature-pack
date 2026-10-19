@@ -1,0 +1,23 @@
+# r455a 시험 rc — 팩 nano/r455a-harness-tests-red-root-resolver-fi · base ed8e118e · 팩 루트 · env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE · 2026-10-19 16:16:27
+test_role_spawn_name.sh rc=0 · ALL PASS
+test_planner_nano_path.sh rc=1 · FAILED 1
+    FAIL 기존 test_nano_spawn_body_press.sh rc≠0 ← PASS ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임) PASS core.bare=false FAILED=2 
+    FAILED 1
+test_graphics_install.sh rc=1 · FAILED
+    FAIL ⑦ 라이브 정본에 «판정 649» 없음
+    FAIL ⑦ 라이브 정본에 «graphics 팀장 = `byz-graphics-master-claude#N`» 없음
+    FAIL ⑦ 라이브 정본에 «^| graphics | `byz-graphics-`» 없음
+    FAIL ⑦ 라이브 정본에 «graphics 는 팀장(`seats-graphics.json` `_master`)이» 없음
+    FAILED
+test_graphics_690.sh rc=1 · FAIL=4
+    FAIL ⑦ governance 변경 hunk(추가 1 · 바꿈 3 = 5곳) 홈 정본이 옛 sha 도 스테이징도 아님
+    FAIL ⑦ governance 새 줄 홈 정본이 옛 sha 도 스테이징도 아님
+    FAIL ⑦ harness-map 새 줄 홈 정본이 옛 sha 도 스테이징도 아님
+    FAIL ⑦ harness-map 옛 줄 홈 정본이 옛 sha 도 스테이징도 아님
+    FAIL=4
+test_proposal_gate_wiring.sh rc=0 · ALL PASS
+test_board_publish.sh rc=0 · fail=0
+test_board_publish_tick.sh rc=0 · fail=0
+test_nano_team_env.sh rc=0 · ALL PASS
+test_harness_info.sh rc=0 · ALL PASS
+test_autonomy_preflight.sh rc=0 · == 113 checks, fail=0 (timeout 600 · 이 가지에서 머리 주석 1줄 편집 뒤 실행 · 소요 ≈ 4분)

@@ -7,6 +7,8 @@
 #            → 설치본 ft-root-bin-shim.sh 로 프로젝트 LIVE_BIN(=<버전>/bin) · LIVE_ROOT(있으면 보존 · 없으면 --live-root 또는 프로젝트) · 루트 연결 파일.
 #   멱등: 같은 명령 2회째 = 복사 0(cmp 같음) · 연결 파일 MOVED 0. 남는 설치본 파일(키트에 없는 이름)은 지우지 않고 EXTRA 로 센다.
 #   되돌림 = 프로젝트 .fable-team/LIVE_BIN 1줄을 이전 값으로(버전 폴더는 남는다).
+#   r426: 설치기 관리 launchd plist(ft_plist_env.py list · 지금 = 쪽지→슬랙 미러)는 «설치된 것만» 템플릿 렌더본으로 갱신 — 다를 때만 .bak-r426 + 재적재.
+#         --dry-run 은 PENDING plist-env 줄만 · launchctl 은 FT_LAUNCHCTL(시험 주입).
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -61,7 +63,29 @@ GH_DEST="$PROJECT/.fable-team/githooks"
 for g in "$KIT"/githooks/*; do [ -f "$g" ] && echo "GITHOOK $GH_DEST/$(basename "$g") <- $g"; done
 HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
 [ -z "$HP" ] || [ "$HP" = "$GH_DEST" ] || [ "$HP" = .fable-team/githooks ] || echo "WARN core.hooksPath=$HP != $GH_DEST — 훅이 실제로 도는 곳과 다르다(--project 를 공용 루트로)"
-if [ "$APPLY" != 1 ]; then echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
+# r426: 설치기 관리 launchd plist(ft_plist_env.py list) — «설치된 것만» 템플릿 렌더본(FT_ROOT=프로젝트 · inbox=LIVE_BIN)과 대조.
+#   다르면 apply = .bak-r426(첫 원본 보존) + 교체 + bootout·bootstrap·kickstart(변경 때만) · 같으면 쓰기 0 · 렌더 실패 = ERROR(조용한 통과 0)
+LC="${FT_LAUNCHCTL:-launchctl}"
+plist_sync() {
+  local label tpl dst new
+  while IFS=$'\t' read -r label tpl; do
+    dst="$HOME_DIR/Library/LaunchAgents/$label.plist"
+    if [ ! -f "$dst" ]; then echo "SKIP plist $label (설치 안 됨 — 처음 설치는 kit/${tpl%%/*}/install.sh)"; continue; fi
+    if [ "$APPLY" != 1 ] && [ ! -f "$LIVE/bin/ft-inbox.sh" ]; then echo "PLIST $label (설치본 bin 없음 — apply 때 렌더·대조)"; continue; fi
+    new="$(python3 "$KIT/bin/ft_plist_env.py" render "$label" "$HARNESS/kit/$tpl" "$dst" "$PROJECT" "$LIVE/bin" "$HOME_DIR")" \
+      || { echo "ERROR: plist 렌더 실패 $label: $new" >&2; exit 1; }
+    if printf '%s\n' "$new" | cmp -s - "$dst"; then echo "OK plist-env $label"; continue; fi
+    echo "PENDING plist-env $label (설치본 ≠ 템플릿 렌더본)"
+    [ "$APPLY" = 1 ] || continue
+    [ -f "$dst.bak-r426" ] || cp -p "$dst" "$dst.bak-r426"
+    printf '%s\n' "$new" > "$dst"
+    "$LC" bootout "gui/$(id -u)/$label" 2>/dev/null || true
+    "$LC" bootstrap "gui/$(id -u)" "$dst" || { echo "ERROR: launchctl bootstrap 실패 $label — 되돌림 = cp -p '$dst.bak-r426' '$dst'" >&2; exit 1; }
+    "$LC" kickstart -k "gui/$(id -u)/$label" || { echo "ERROR: launchctl kickstart 실패 $label" >&2; exit 1; }
+    echo "PLIST applied $label (되돌림 = $dst.bak-r426 · kickstart)"
+  done < <(python3 "$KIT/bin/ft_plist_env.py" list)
+}
+if [ "$APPLY" != 1 ]; then plist_sync; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
 perm() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
@@ -88,6 +112,7 @@ for h in $HOME_HOOKS; do
   hcopied=$((hcopied + 1))
 done
 echo "HOOKS copied=$hcopied same=$hsame (settings.json 등록은 별도)"
+plist_sync
 
 # 프로젝트 LIVE_BIN·LIVE_ROOT·연결 파일 — 설치본 도구로(키트 트리 = 이 하네스 체크아웃의 HEAD)
 REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd -P)"

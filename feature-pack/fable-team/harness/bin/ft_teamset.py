@@ -148,8 +148,20 @@ def arch_gap(spec, d, team, live):
         return ""
     a = d.get("_arch")
     if not isinstance(a, str) or not a:
-        return "arch 없음 — 명부 _arch 칸이 비었다"
-    return "" if a in live else f"arch 없음 — 명부 _arch {a} 라이브 아님"
+        return f"arch 없음 — 명부 _arch 칸이 비었다 {arch_open_hint(d, team)}"
+    return "" if a in live else f"arch 없음 — 명부 _arch {a} 라이브 아님 {arch_open_hint(d, team)}"
+
+
+def arch_open_hint(d, team):
+    """R437 — arch 없음 사유 뒤 «있는 길» 1줄: 명부 `_arch` 에 이름이 있으면 그 좌석의 자기 교대(successor-open · arch-live 통과 · 구 좌석 생존 불요), 비었으면 ft-role-spawn --team."""
+    a = d.get("_arch")
+    m = re.fullmatch(r"(.+)-([a-z]+)#(\d+)", a) if isinstance(a, str) else None
+    if not m:
+        return f"→ 열기: ft-role-spawn.sh arch --team {team}"
+    row = d.get(a) if isinstance(d.get(a), dict) else {}
+    model, ctx = row.get("model") or "claude-opus-5-5[1m]", " --ctx 1m" if m.group(2) == "claude" else ""
+    return (f"→ 열기: ft-successor-open.sh '{a}' <{team} 워크트리> --name '{m.group(1)}-{m.group(2)}#{int(m.group(3)) + 1}' "
+            f"--agent {m.group(2)} --model '{model}'{ctx} --effort high --body-file <골 3줄+인계>")
 
 
 def watch_gap(team, m):

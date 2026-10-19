@@ -12,7 +12,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
 T="$(mktemp -d)"; SRV=""
 trap '[ -n "$SRV" ] && kill "$SRV" 2>/dev/null; rm -rf "$T"' EXIT
-mkdir -p "$T/ft" "$T/stub"
+mkdir -p "$T/ft/.fable-team" "$T/stub"   # r455a: R231a 교정 2 — 명부 폴더 없음 = raise · 폴더만 두면 명부 0 = 사람 채널 ∅
 LOG="$T/slack.log"; : > "$LOG"
 
 # 가짜 슬랙 API — chat.postMessage / chat.update 만. 한 줄 = METHOD|channel|ts|thread_ts|text 바이트수|text(개행→\n). $T/fail_reply 가 있으면 스레드 답글만 ok=false.

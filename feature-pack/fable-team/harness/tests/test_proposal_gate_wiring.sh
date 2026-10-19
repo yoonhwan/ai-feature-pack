@@ -50,8 +50,13 @@ passed && ok "13 오탐 회귀: 본문에 「제안」 낱말만 있는 일반 �
 
 # ── Tank create 는 게이트 없이(r1: 제안 Issue 를 여는 것이 흐름의 시작) — PROPOSAL 인용 본문도 dry-run 진행 ──
 printf '제안서 design/team/PROPOSAL-foo-20261010.md 를 Issue 로 연다\n' > "$T/body.md"
-out="$(env -u FT_ISSUE_BOT_TOKEN FT_ISSUE_BOT_TOKEN_FILE=/nonexistent bash "$KIT/ft-gh-as-tank.sh" create "제목" "$T/body.md" 2>&1)"; rc=$?
+# r455a: create 는 ft-issue-create-pair.sh 로 위임 — 그 도구 계약(데이터 루트 comm · 보내는 좌석 · issues 명부)을 임시 값으로 준다
+mkdir -p "$T/root/.fable-team/comm"; echo '{"_master":"zz-mgr#0"}' > "$T/seats-issues.json"
+out="$(env -u FT_ISSUE_BOT_TOKEN -u FT_MBOX_CMD FT_ROOT="$T/root" FT_ME=zz-test#0 FT_ISSUES_SEATS="$T/seats-issues.json" FT_ISSUE_BOT_TOKEN_FILE=/nonexistent bash "$KIT/ft-gh-as-tank.sh" create "제목" "$T/body.md" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && echo "$out" | grep -q '^DRY as=' && ok "14 Tank create: PROPOSAL 인용 본문 → 게이트 없이 dry-run 진행(회귀)" || bad "14 rc=$rc $out"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$T/mbox-stub"
+out="$(env -u FT_ISSUE_BOT_TOKEN -u FT_ROOT FT_MBOX_CMD="bash $T/mbox-stub" FT_ME=zz-test#0 FT_ISSUES_SEATS="$T/seats-issues.json" FT_ISSUE_BOT_TOKEN_FILE=/nonexistent bash "$KIT/ft-gh-as-tank.sh" create "제목" "$T/body.md" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && echo "$out" | grep -q '^DRY as=' && ok "14c Tank create: FT_MBOX_CMD 스텁(데이터 루트 없이)도 dry-run 진행" || bad "14c rc=$rc $out"
 grep -q 'proposal-gate' "$KIT/ft-gh-as-tank.sh" && bad "14b Tank 래퍼에 게이트 호출이 남아 있다" || ok "14b Tank 래퍼에 게이트 호출 0(origin/main 판)"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

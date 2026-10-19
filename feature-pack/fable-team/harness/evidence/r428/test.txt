@@ -1,0 +1,18 @@
+# r428 시험 원문 · 2026-10-19 10:10:27 · pack 7e4fc49e+작업트리 · base 7e4fc49e(1.1.15)
+## py_compile · bash -n · cmp(bin=kit) · 600/300
+py_compile ft_stall_scan.py rc=0
+cmp bin=kit ft_stall_scan.py rc=0
+py_compile ft_stall_detect.py rc=0
+cmp bin=kit ft_stall_detect.py rc=0
+bash -n ft-stall-scan.sh rc=0
+cmp bin=kit ft-stall-scan.sh rc=0
+grep timeout=600|300: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r428-stall-hold/feature-pack/fable-team/harness/kit/fable-team/bin/ft_stall_scan.py:0 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r428-stall-hold/feature-pack/fable-team/harness/kit/fable-team/bin/ft_stall_detect.py:0 
+## RED — 새 시험 r428 ⓐ~ⓔ 를 base 코드(1.1.15 kit)로
+FAILED tests/scripts/test_ft_stall_scan.py::test_r428_a_hold_file_turns_a_into_c_without_nag
+FAILED tests/scripts/test_ft_stall_scan.py::test_r428_b_stop_ready_master_without_hold_file_is_c_and_one_note_a_day
+FAILED tests/scripts/test_ft_stall_scan.py::test_r428_d_hold_measure_failure_is_error_not_nag
+3 failed, 2 passed, 34 deselected in 4.03s
+## GREEN — test_ft_stall_scan · news_cell · penalty
+.....................................................                    [100%]
+53 passed in 23.53s
+pytest rc=0 (53 passed)

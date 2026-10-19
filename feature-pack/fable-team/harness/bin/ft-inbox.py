@@ -17,13 +17,13 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import (  # noqa: E402
-    COMM, HOOK_ERRORS, INBOX, PRIO, die, find_mail, group_closed, haiku, haiku_class, hits,
+    COMM, HOOK_ERRORS, INBOX, PRIO, die, find_mail, find_seq, group_closed, haiku, haiku_class, hits,
     lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q,
 )
 
 
-def cmd_ingest(seq):
-    mail = find_mail(int(seq))
+def cmd_ingest(seq, mail=None):
+    mail = mail or find_mail(int(seq))
     if mail is None:
         die(f"seq={seq} 를 mailbox 에서 못 찾음 — 읽은 파일: {', '.join(mail_files()) or '없음'}")
     os.makedirs(f"{COMM}/bodies", exist_ok=True)
@@ -97,13 +97,20 @@ def cmd_show(seat, compact):
 
 
 def locate(seat, targets):
-    """seq 또는 group id → 그 «좌석 큐»의 대상 seq 집합. 다른 큐에만 있으면 REJECT(그 큐 이름을 알린다)."""
-    mine = hits(qpath(seat), targets)
+    """seq 또는 group id → 그 «좌석 큐»의 대상 seq 집합. 다른 큐에만 있으면 REJECT(그 큐 이름을 알린다).
+    큐에 없는 seq 는 우편함 파일(mail_files 순)에서 찾아 이 좌석 계보 앞 쪽지면 적재 뒤 대상으로 삼는다(r430 · send 때 적재 빠진 쪽지)."""
+    mine, unseen = hits(qpath(seat), targets), []
+    for t in [t for t in targets if not mine[t] and t.isdigit()]:
+        if (mail := find_mail(int(t))) and lineage(mail["to"]) == lineage(seat):
+            cmd_ingest(t, mail)
+            mine[t] = {int(t)}
+        unseen += [] if mail else [t]
     missing = [t for t in targets if not mine[t]]
     if missing:
         others = sorted({os.path.basename(qp)[:-6] for qp in glob.glob(f"{INBOX}/*.jsonl") if qp != qpath(seat)
                          for s in hits(qp, missing).values() if s})
-        die(f"대상 못 찾음(좌석 {seat}): {missing}" + (f" — 그 줄은 {', '.join(others)} 큐 것(남의 큐는 고치지 않는다)" if others else ""))
+        die(f"대상 못 찾음(좌석 {seat}): {missing}" + (f" — 그 줄은 {', '.join(others)} 큐 것(남의 큐는 고치지 않는다)" if others else "")
+            + "".join(f" · 대상 못 찾음 seq={t} ({len(mail_files())} 파일 조회)" for t in unseen))
     return set().union(*mine.values())
 
 
@@ -122,6 +129,8 @@ def cmd_mark(seat, target, kind, note):
     if kind not in ("처리", "위임", "보류") or not note.strip():
         die('usage: mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>]', 2)
     mutate(seat, [target], lambda x: x.update(mark={"kind": kind, "note": note.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}))
+    if target.isdigit():  # 쪽지 원본이 있는 우편함 파일(r430) — 큐에만 있으면 «없음(큐만)»
+        print(f"MARKED seq={target} file={os.path.basename(find_seq(int(target))[0] or '없음(큐만)')}")
 
 
 def cmd_report(seat, targets):

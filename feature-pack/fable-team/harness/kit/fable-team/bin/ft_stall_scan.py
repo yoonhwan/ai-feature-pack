@@ -70,20 +70,25 @@ class Scan:
         resumed = set((penalty or {}).get("resumed") or [])
         mail = pending_mail(self.comm, self.now)
         stop = policy_stop(self.root, self.now, os.environ.get("FT_SPAWN_HOLD_SH") or str(HERE / "ft-spawn-hold.sh"))
+        if stop and stop.startswith("ERROR"):
+            notes.append(f"{stop} — a 독촉 0")
 
         def held(team: str) -> bool:  # 정지 중이고 재개 전인 팀 — 처리 0 (복구 팀은 대상 아님)
             return penalty is not None and team not in resumed and team not in exempt
 
         for t in load_teams(self.root):
             m = t["master"]
-            # a — 그 팀이 지금 spawn 가능(유효 정지 아님 ∧ 페널티 중이면 재개된 팀 ∧ 실제 spawn 상한 판정 통과)일 때만. 정상 대기는 세지 않는다.
+            if m in self.live and not stop and t["master_stop"]:  # r428 — 정지 레디 팀은 노는 게 맞다: a 대신 c(정지 파일 0 알림)
+                out.append(dict(kind="c", seat=m, team=t["team"], age=0.0, why="정지 레디(명부 role=stop-ready)인데 정지 파일 0 — `ft-spawn-hold.sh set` 필요 · 독촉 0", stopready=True))
+            # a — 그 팀이 지금 spawn 가능(유효 정지 아님 ∧ 정지 레디 아님 ∧ 페널티 중이면 재개된 팀 ∧ 실제 spawn 상한 판정 통과)일 때만. 정상 대기는 세지 않는다.
             cap = "ok"
-            if m in self.live and not stop and not held(t["team"]):
+            can_a = m in self.live and not stop and not t["master_stop"] and not held(t["team"])
+            if can_a:
                 cap = spawn_capacity(self.root, t["team"], self.cap_cmd)
                 if cap == "unknown":
                     unknown += 1
                     notes.append(f"a? {m} 상한 판정 불가(ft_seat_cap ERROR·없음) — a 세지 않음")
-            if m in self.live and not stop and not held(t["team"]) and cap == "ok":
+            if can_a and cap == "ok":
                 age = self.idle_age(m)  # 싼 판정(캐시)이 먼저 — master 가 IDLE 3분+ 일 때만 카드 lint(카드당 프로세스)를 돈다
                 names, u = waiting_cards(t["cards"], self.lint) if age is not None and age >= IDLE_MIN else ([], 0)
                 if names and not self.flags(m)["rest"] and (self.idle_age(m, fresh=True) or 0) >= IDLE_MIN:
@@ -147,8 +152,20 @@ class Scan:
             seat = next((t["master"] for t in load_teams(self.root) if t["team"] == "planner"), None)
             if not seat:
                 return None
+            if f.get("stopready"):
+                return self.stopready_note(seat, f)
             self.send(seat, f"[긴급] 정지 중: {f['why']} — 기한·해제 조건 확인 · 지금 해제 가능한지 판단 (ft-stall-scan c)")
         return f"act={k} to={seat}"
+
+    def stopready_note(self, planner: str, f: dict) -> str | None:
+        """r428 — 정지 파일 없이 정지 레디로만 멈춘 팀 → planner 1통 · 팀당 하루 1회(표식 state/stall-scan.stopready-<날짜> 에 팀 이름)."""
+        mark = self.state_dir / f"stall-scan.stopready-{time.strftime('%Y%m%d', time.localtime(self.now))}"
+        if f["team"] in (mark.read_text(encoding="utf-8").split() if mark.exists() else []):
+            return None
+        self.send(planner, f"[정지 파일 0] {f['team']} master {f['seat']} 명부 role=stop-ready 인데 SPAWN_HOLD 없음 — 정지면 `ft-spawn-hold.sh set --verdict …` · 아니면 명부 정정 (ft-stall-scan c · 하루 1회)", urgent=False)
+        with open(mark, "a", encoding="utf-8") as fh:
+            _ = fh.write(f["team"] + "\n")
+        return f"act=c to={planner}"
 
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()

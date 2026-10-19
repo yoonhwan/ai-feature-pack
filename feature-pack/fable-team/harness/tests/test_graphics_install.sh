@@ -70,8 +70,10 @@ for n in byz-graphics-nano-g0-test#0 byz-graphics-arch-codex#0 byz-graphics-da-c
 done
 
 # ⑥ 임시 카드 → ft-nano-spawn --dry-run (임시 ROOT · 실 좌석 0)
-mkdir -p "$ROOT/design/graphics/indices/대기"
-cp "$REPO/design/graphics/GOAL-graphics.md" "$ROOT/design/graphics/GOAL-graphics.md"
+mkdir -p "$ROOT/design/graphics/indices/대기" "$ROOT/.fable-team/comm"   # r455a: r385 r3 ft_comm_dir 계약(FT_ROOT 아래 comm 폴더)
+# r455a: 팩(r386 이식)엔 design/graphics/ 가 없다 — 있으면 복사, 없으면 설치된 골 3줄로 시험용 GOAL 을 만든다(조용한 cp 실패 0)
+if [ -f "$REPO/design/graphics/GOAL-graphics.md" ]; then cp "$REPO/design/graphics/GOAL-graphics.md" "$ROOT/design/graphics/GOAL-graphics.md"
+else { echo "# GOAL — graphics (시험용 · goal-lines-graphics.txt 3줄)"; echo; sed -n 1,3p "$ROOT/.fable-team/bin-graphics/goal-lines-graphics.txt"; } > "$ROOT/design/graphics/GOAL-graphics.md"; fi
 CARD="$ROOT/design/graphics/indices/대기/g0-dryrun.md"
 {
   echo "# 인덱스: g0-dryrun (graphics 설치 시험용 임시 카드)"
@@ -87,7 +89,8 @@ CARD="$ROOT/design/graphics/indices/대기/g0-dryrun.md"
   echo; echo "## 상태"; echo "- 임시"
 } > "$CARD"
 git -C "$ROOT" add -A >/dev/null && git -C "$ROOT" -c user.name=t -c user.email=t@t commit -q -m card
-plan="$(cd "$ROOT" && env -u FT_NANO_PREFIX -u FT_IMPL_MODEL bash "$KIT/ft-nano-spawn.sh" design/graphics/indices/대기/g0-dryrun.md --agent codex --model gpt-6.1-sol --dry-run 2>&1)"; prc=$?
+git -C "$ROOT" update-ref refs/remotes/origin/main HEAD   # r455a: R400 r3 — spawn 은 팀 명단을 origin/main:design/TEAMS.md 에서 읽는다
+plan="$(cd "$ROOT" && env -u FT_NANO_PREFIX -u FT_IMPL_MODEL FT_ROOT="$ROOT" bash "$KIT/ft-nano-spawn.sh" design/graphics/indices/대기/g0-dryrun.md --agent codex --model gpt-6.1-sol --dry-run 2>&1)"; prc=$?
 rm -f "$CARD"
 if [ "$prc" = 0 ] && grep -q "^ENV team=graphics prefix=byz-graphics-nano-" <<<"$plan" \
    && grep -q "^PLAN .*branch=nano/g0-dryrun" <<<"$plan" && grep -q "wt=$ROOT/.worktrees/graphics-nano-g0-dryrun " <<<"$plan"; then

@@ -1,5 +1,76 @@
 # Changes
 
+## 2026-10-19 — 루트 3분리(r385 r3)·명부 폴더 raise(R231a) 뒤 빨강이던 팩 시험을 픽스처로 초록 · `ft-harness-info.sh seats` 는 comm 을 못 풀어도 목록·팀 명부 절을 찍는다 (1.1.23)
+
+카드 r455a · master 111909 · arch#100 실측 · 판정 1395(«기존 RED» 변명 0). 도구 계약이 바뀌었는데(데이터 루트 = FT_ROOT → `.fable-team/LIVE_ROOT` → 옛 설치 꼴 · comm 폴더 필수 · 명부 폴더 없음 = raise · close 가 `ft-seat-reap.sh` 호출) 그 계약을 쓰는 시험 픽스처가 같은 단위에서 안 바뀌어 첫 줄 ERROR 로 끝나고 있었습니다.
+
+- **키트 `ft-harness-info.sh` seats**(bin·kit 짝 cmp0): `ft_comm_dir` 실패 → `exit 1` 대신 `ALIVE` 비움 = ⚠ NOAGENT 표시 0(머리 주석 «판정기 없거나 판정 불가면 표시 0» 그대로) · 세션 목록·팀 명부 절은 그대로 찍는다. 다른 절 변경 0. 옛 판: comm 없는 git 리포에서 rc1 `ERROR` 1줄 · 새 판: rc0 명부 절 출력.
+- **픽스처(단언 약화 0 · env·mkdir·스텁만)**: `test_role_spawn_name` `FT_ROOT=<임시 리포>` + `.fable-team/comm` · `test_graphics_install` ⑥ `FT_ROOT` + comm + 임시 ROOT 에 `origin/main` ref(R400 r3 명단 읽기) + 팩엔 `design/graphics/` 가 없어 조용히 실패하던 GOAL 복사를 «설치된 골 3줄로 시험용 GOAL» 로 · `test_graphics_690` ② 스텁 ALIVE 유/무 2케이스(무 = 외부 FT_ROOT·ALIVE 를 지워 판정 불가 경로 강제 · ERROR 줄 0 단언) · `test_proposal_gate_wiring` 14 create-pair 계약(FT_ROOT+comm · FT_ME · FT_ISSUES_SEATS) + 14c `FT_MBOX_CMD` 스텁 · `test_board_publish`·`_tick` `mkdir -p $T/ft/.fable-team` · `test_nano_team_env` 임시 bin 에 `ft-seat-reap.sh` 스텁(r448 · 실기계 프로세스 0).
+- **`test_autonomy_preflight`**: 머리 주석 1줄(소요 ≈ 4분 · 120초 상한이면 rc=124 — 빨강 아님). 코드 0.
+- **결과**(팩 루트 · GIT_* 0): role_spawn_name · proposal_gate_wiring · board_publish · board_publish_tick · nano_team_env · autonomy_preflight(600 s · 113 checks fail=0) · harness_info(덤 · 옛 rc2) rc0. 남은 빨강 = `test_graphics_install` ⑦ · `test_graphics_690` ⑦(라이브 governance·harness-map 정본이 staged 판으로 승격된 적 없음 — 카드 «판정 요청» · 시험 결함 아님) · `test_planner_nano_path` 하위 `test_nano_spawn_body_press`(r455b).
+- **범위 밖(새 카드 후보)**: `test_team_literal_paths`(같은 comm 계약 + 골 표 정본 파일 없음) · `test_agent_alive_fg_judge`(BYZ 경로 목록 · 이식 누락) — 둘 다 base(ed8e118e)에서도 rc1.
+
+## 2026-10-19 — `ft-inbox mark <seq>` 가 큐에 없는 쪽지도 우편함 파일(현행·로그·회전본)에서 찾아 적재 뒤 표시한다 (1.1.23)
+
+카드 r430 · planner 증거 ②(110829) · EVAL I3 · arch#96. planner 가 `mark 110726` 류를 치면 `REJECT 대상 못 찾음(좌석 …)` 이 났습니다. ★실측(10-19): 원인은 카드 가정(«mark 가 mailbox.jsonl 만 본다»)이 아니었습니다 — 쪽지 조회 `mail_files()` 는 이미 현행 → `mailbox.log.jsonl` → 회전본(숫자 순)을 다 보고, mark 는 우편함이 아니라 «좌석 큐»(`state/inbox/<계보>.jsonl`)만 봅니다. 110726·110770·110796 은 send 때 큐 적재가 빠져(planner 큐 5994행에 없음 · 원본은 `mailbox.log.jsonl`) 큐에 행이 없었습니다★ — 같은 seq 를 임시 루트에서 `ingest` 하면 바로 들어갑니다.
+
+- **`ft_inbox_core.find_seq(seq)`**(새): `mail_files()` 순서 첫 1건 → (파일 경로, 행) · 글자 선거름(`"seq": N`) 뒤에만 json 해석 — 5MB 회전본 끝 행 0.09 s. `find_mail` 은 그 래퍼(ingest 그대로).
+- **`ft-inbox.py` locate**(mark·report 공통): 좌석 큐에 없는 숫자 seq 는 우편함 파일에서 찾아 ①수신 계보 = 호출 좌석 계보면 `ingest`(같은 행 꼴 · `INGEST …` 줄) 뒤 대상으로 삼고 ②남의 계보 앞 쪽지면 기존대로 REJECT(남의 큐·내 큐 쓰기 0) ③어디에도 없으면 기존 줄 뒤에 ` · 대상 못 찾음 seq=<n> (<N> 파일 조회)` rc1(조용한 통과 0).
+- **mark 출력**: 기존 `OK <큐> seq=…` 다음에 숫자 대상이면 `MARKED seq=<n> file=<쪽지 원본 우편함 파일 이름>`(큐에만 있으면 `file=없음(큐만)`). 표식 저장 위치는 기존 그대로(좌석 큐 행 `mark`).
+- **시험**: 새 `test_inbox_mark_rotated.sh` 23 PASS(ⓐ mailbox.jsonl ⓑ log.jsonl ⓒ 회전본 `.2`·`.10` 숫자 순 ⓓ 없음 rc1 + 문구 + 큐 불변 ⓔ 5MB ≤1 s ⓕ 600/300 0 ⓖ 남의 계보 앞 쪽지 rc1 · 재표시 적재 0) · 옛 코드에서 15 FAIL. 기존 `test_inbox*`·`test_ft_mbox_inbox_ingest`·`test_proposal_approve_inbox` rc0.
+- **범위 밖**: send 때 적재가 왜 빠졌는지(적재 실패는 `WARN` 만 stderr · 실패 경로 관측은 실사건 때) · recv/peek 조회 범위 · 회전 정책 · stall-scan d 판정.
+
+## 2026-10-19 — arch 가 죽은 «arch 상시» 팀의 교대 교착을 푼다: `ft-role-spawn --team <팀>` + arch 없음 REJECT·ERR 문구가 «있는 길» 명령 1줄을 적는다 (1.1.24 · 묶음 가지에 재적용)
+
+카드 r437 · master 110967 · planner 110961(판정 2346). feature master#30 교대가 `REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(ft-role-spawn arch)` 로 막혔는데, 안내가 가리킨 `ft-role-spawn.sh` 는 v65 명부(seats.json)·v65 폴더에 고정돼 feature arch 를 못 열었습니다(CFO 선례와 같은 뿌리). 죽은 arch 의 자기 교대(successor-open)는 게이트가 이미 통과시키므로, 도구가 그 길을 정확히 적게 합니다. 게이트 판정 기준(R342)은 불변 · master 교대 예외 0.
+
+- **ft-role-spawn.sh**: `--team <팀>`(기본 v65 = 동작 불변). 팀이면 명부 `seats-<팀>.json` · 인박스·README = `ft_team_in "$WT" <팀>` 폴더 · 이름 `byz-<팀>-<역할>-<에이전트>#N`(계보 하나) · 페널티 게이트 팀 = 그 팀. 명단 밖 팀·폴더 칸 오류·명부 없음·`<팀> SEATBELT-README.md 없음: <경로>`·인박스 없음 = REJECT(v65 로 조용한 대체 0 · #0 RULE). 명부 `_<역할>` 이 교체 대상 밖 좌석(죽은 arch · 행 없음)을 가리키면 REJECT + successor-open 명령 안내(두 arch 0). 빈 역할 키(`_master`·`_arch`·`_da`·`_tester`)는 새 좌석으로 채운다(팀 모드만).
+- **ft_teamset.py** `arch_open_hint`(판정기 하나): arch 없음 사유 끝에 `→ 열기: …` 1줄 — 명부 `_arch` 에 이름 있음 = `ft-successor-open.sh '<그 arch>' <팀 워크트리> --name '<베이스>#N+1' --agent … --model … --body-file …` · 비었음 = `ft-role-spawn.sh arch --team <팀>`. 같은 문자열이 `ft-successor-open` REJECT(arch-live NO 줄)와 `ft-teamset-check` ERR 줄 둘 다에 실린다.
+- **ft-successor-open.sh**: REJECT 머리 `먼저 arch 를 열어라(ft-role-spawn arch)` → `(아래 «→ 열기» 명령 · R437)`. **ft-teamset-check.sh**: 머리 주석에 ERR arch 줄 형식 1줄(동작 불변). bin·kit 짝 cmp0.
+- **시험**: `test_role_spawn_team.sh` ⓐ~ⓖ ALL PASS(ⓐ 실제 명부 쓰기 = seats-feat.json·_arch 채움·seats.json 쓰기 0 · ⓑ v65 불변 · ⓒ README 없음 REJECT · ⓓ 명단 밖·_arch 충돌 REJECT · ⓔ successor-open 문구 2꼴 · arch 자기 교대 통과 불변 · ⓕ teamset-check ERR 2꼴 · ⓖ 600/300 0). 증거 `harness/evidence/r437/`.
+- 범위 밖(기록만): 팀 폴더 SEATBELT-README 생성(`ft-team-upgrade` 몫 — feature 폴더엔 아직 없음 → 그때까지 feature arch 는 successor-open 경로) · 명부 `_arch` 가 죽은 좌석을 가리키는 행 자동 보정.
+
+## 2026-10-19 — 정지 감시기가 정지 중인 팀에 «지금 spawn» 을 독촉하지 않는다: 명부 stop-ready 판정 · 정지 판정 실패를 정지 없음으로 읽지 않음 (1.1.23 묶음: r426·r427·r428·r429)
+
+카드 r428 · 쪽지 110864(v65 «대기 카드 85장 · 지금 spawn»)·110865 · arch#96 실측 · EVAL I17. 오빠가 «정지 레디·팀장 하나만»(판정 2341·2342)을 건 v65 에 stall a 독촉이 나갔습니다. 실측: 정지는 쪽지 문장으로만 걸려 정지 파일 0(`hold=none`), 명부 master 행은 `role=stop-ready` 였는데 감시기는 master 의 role 을 보지 않았습니다. (감시기 파이썬은 R320b 부터 SPAWN_HOLD 를 `status --check` 로 이미 읽는다 — arch 실측의 «grep 0» 은 래퍼 `ft-stall-scan.sh` 만 본 값.)
+
+- **ft_stall_detect.py**: `load_teams` 가 팀마다 `master_stop`(명부 `_master` 행 `role=stop-ready` · ft-seat-close R297 표기)을 싣는다. `policy_stop` — 유효 정지 글 = `SPAWN_HOLD 유효 · 정지 중(hold=<번호>) · 독촉 0` · 판정 불가 글은 모두 `ERROR` 로 시작 · ★`--check` 가 측정 실패(status rc4 «ERROR hold …»)를 rc3 으로 감싸 돌려주던 것을 «정지 없음» 으로 읽어 a 를 내던 구멍을 막는다(본문에 `ERROR hold` 가 있으면 판정 실패)★.
+- **ft_stall_scan.py**: master 가 살아 있고 stop-ready 이며 유효 정지가 없으면 그 팀 a 대신 c 1건(`정지 레디(명부 role=stop-ready)인데 정지 파일 0 — ft-spawn-hold.sh set 필요 · 독촉 0`) + planner 쪽지 `[정지 파일 0] <팀> master <좌석> …` 1통(팀당 하루 1회 · 표식 `state/stall-scan.stopready-<YYYYMMDD>` · urgent 아님). 판정 실패면 출력에 `ERROR SPAWN_HOLD 판정 실패 … — a 독촉 0` 1줄. b·d·페널티·RESOURCE_FREEZE 무변경. bin·kit 짝 cmp0.
+- **시험**: `tests/scripts/test_ft_stall_scan.py` r428 ⓐ~ⓔ(ⓐ 진짜 `ft-spawn-hold.sh set` 정지 파일 → a 0·c 1·master 쪽지 0·로그 `act=c … hold=2341`·파일 유지 ⓑ stop-ready → c 1·planner 1통·같은 날 2회째 0 ⓒ 정지 없음 → a 그대로(r409 선행 미판정 포함) ⓓ 해제 조건 측정 실패 → a 0·ERROR 1줄 ⓔ 600/300 0) — base 코드로 ⓐⓑⓓ RED · 53 passed. 증거 `harness/evidence/r428/`.
+- 범위 밖: 정지 파일 자동 생성(정지는 사람·planner 의 `set`) · r409 선행 줄 판정 · b·d.
+
+## 2026-10-19 — 승계 은퇴가 «모든 명부»의 라우팅 칸(`_hil_route`…)을 후계로 바꾼다 — planner 교대 뒤 손 갱신 0
+
+카드 r429 · planner 증거 ① · EVAL I2 · arch#96 실측. `ft-seat-retire <구> <후계>` 는 «옛 이름이 값인 `_*` 칸 전부» 를 바꾼다고 돼 있었지만 고치는 파일은 자기 팀 명부 하나뿐이었습니다. planner master 이름은 모든 팀 명부의 `_hil_route`(사람 판정 요청이 가는 곳)에 들어 있어, planner 가 승계할 때마다 나머지 명부를 손으로 고쳐야 했고 그동안 [HIL] 쪽지가 은퇴 좌석에 쌓였습니다(mbox-guard forward 로 겨우 구제).
+
+- **ft-seat-retire.sh**: 자기 팀 명부 은퇴 뒤 같은 폴더(루트 `.fable-team`)의 다른 `seats*.json` 전부에서 값이 <구> 인 «라우팅 칸»(`ROUTE` = `_hil_route`·`_planner`·`_desk_route` + 이름이 `_route` 로 끝나는 칸)만 <후계> 로 · 역할 칸(`_master`·`_arch`…)은 자기 팀 명부만. 전부 검증 뒤 쓰기 — 명부 하나라도 JSON 손상이면 `ERROR 명부 JSON 손상 [<파일>]` rc1 · 쓰기 0. 바뀐 파일마다 `.bak-retire-<ts>` · tmp→교체. 출력 첫 줄 끝에 ` files=<N> routes=[<파일>:<칸>…]`(앞부분 `RETIRED <구> -> <후계> file=… keys=[…]` 그대로).
+- **R282 ② 판정 개정**: 옛 행이 어느 명부에도 없을 때의 «다른 명부에서 현역» REJECT 는 역할 칸만 본다(라우팅 칸에 옛 이름이 있는 건 이번에 바뀔 대상 — 막지 않음).
+- **시험**: 새 `test_seat_retire_rosters.sh` ⓐ~ⓔ(files=3 · 남의 `_master` 불변 · R282 ② · 손상 1개 = 전부 0 · 600/300 0) · `test_seat_retire.sh` ③⑨ 첫 줄 기대값에 ` files=1 routes=[]`.
+- 범위 밖(이름만): 명부 칸 이름 표준화 · `ft-tick-team.sh retarget_seat` 통합 · NOOP(이미 은퇴) 재실행 때 남은 라우팅 칸 쓸기.
+
+## 2026-10-19 — tmux 세션이 이미 없는 «죽은 좌석» 명부 행을 `--verdict` 가 닫는다(CLOSED-DEAD) · 재개 기록은 보존 · `--reopen` 으로 되살린 좌석 복원
+
+카드 r427 · master 증거 ⑫(110863) · EVAL I16 · planner 판정 2344. «팀장 하나만»(판정 2341)으로 feature 팀 13석을 `ft-seat-close --verdict` 로 닫으려 했더니 전부 `HELD … NORECORD 조회 불가: pane 식별 조회 불가` 였습니다. 그 좌석들은 tmux 세션이 이미 없어 pane 에서 대화 uuid 를 뽑을 수 없는데, 닫기 도구는 «살아 있는 좌석» 길만 있었고, 기록 실패 처리에서 기존 재개 기록을 `.stale-<ts>` 로 «무효화» 해 지웠습니다(byz-feature-da-codex#2).
+
+- **ft-seat-close.sh**: `--verdict` 에서 `tmux has-session` 0 이면 죽은 좌석 분기 — `ft-seat-retire --record-only --verdict <번호> --keep-existing` → 명부 행 stop-ready + `_closed.dead=true`(role 은 stop-ready 그대로 — ft-tick resume_rows·seats-lint·stall 이 이 값으로 «재개 0» 을 판정하므로 새 role 값을 만들지 않음) · 그 좌석 값인 `_*` 칸 "" · kill 0 → `CLOSED-DEAD <좌석> record=<kept|new|NORECORD> handoff=<칸들|->` rc0 · 비운 칸이 있으면 «교대 0 · planner 1줄» 안내. NORECORD 여도 닫는다(죽은 좌석은 kill 할 것 0). 살아 있는 좌석 경로(HELD rc3)는 그대로.
+- **ft-seat-close.sh --reopen <좌석>**: zombie-clean resume 으로 되살린 좌석(세션 있어야 함 · 없으면 REJECT)의 행을 role=`_closed_role`(없으면 active)·tick=`_closed_tick` 로 되돌리고 `_closed*` 제거 · 닫을 때 `_closed_from`(파일:칸) 에 적어 둔 칸이 지금도 "" 면 다시 그 좌석으로(그새 교대된 칸은 덮지 않음) → `REOPENED <좌석> roles=<칸들> role=<role>`. 재개 기록은 그대로.
+- **ft-seat-retire.sh**: `--keep-existing`(`--record-only` 전용) — 기존 기록 있으면 새 시도 0 → `RESUME kept <경로>` · 없고 세션도 없으면 대화 기록 탐색 1회(`~/.claude/history.jsonl` 의 그 좌석 이름 줄 → project·sessionId → 그 jsonl 머리 64KB 에 `"agentName":"<좌석>"` «정확히 1개» · binding.source=`dead-agent-name`). 기록 실패(NORECORD)는 옛 기록을 건드리지 않는다(무효화 0 — 닫기 판정은 zombie-clean 이 binding `--expect` 로 다시 본다 · DA⑥ H1 개정) · 새 기록 «성공» 때만 옛 것을 `<경로>.prev-<ts>` 로.
+- **시험**: `test_seat_close.sh` r427 ⓐ~ⓓ·ⓖ·ⓕ(진짜 retire · 가짜 tmux·HOME) · 새 `test_seat_retire_keep.sh` ①~⑧ · `test_seat_retire.sh` ⑨H1·⑩ⓓstale 기대값을 «보존» 으로 개정.
+- 범위 밖(이름만): zombie-clean resume 이 `--reopen` 을 자동 호출 · 죽은 좌석 자동 수거 · `_*` 칸 교대 자동 선정(planner 결정) · codex 좌석의 죽은 뒤 기록 탐색(rollout).
+
+## 2026-10-19 — 설치기가 쪽지→슬랙 미러 launchd plist 의 환경(FT_ROOT · inbox 경로)까지 템플릿에서 갱신하고, install-check 가 `PENDING plist-env` 를 센다 (버전 = master 착지 순)
+
+카드 r426 · EVAL-new-harness-overnight-20261019 §3 I1 · arch#96 실측 · planner 판정 2344. 10-19 00:35~08:22 미러(`com.hermes.byz-mbox-slack-mirror`)가 FT_ROOT 없이 옛 워크트리 bin(`v6-realtime-live/.fable-team/bin/ft-inbox.sh`)을 불러 1분마다 exit1(917회) — 오빠 슬랙 수신 7시간 47분 정지. 설치기는 bin·hermes 스크립트만 바꾸고 plist 환경은 그대로였고, install-check 는 Label 적재만 봐서 «OK» 였다(사람이 08:22 손 수정 `.bak-ftroot-20261019`).
+
+- **`kit/slack-mirror/com.hermes.byz-mbox-slack-mirror.plist.template`**: `EnvironmentVariables` 에 `<key>FT_ROOT</key><string>__ROOT__</string>` 1줄. `slack-mirror/install.sh` 는 `__ROOT__ = BYZ_ROOT` 치환 1칸 추가(처음 설치 경로도 같은 렌더).
+- **`kit/fable-team/bin/ft_plist_env.py`(새 · bin 짝)**: 설치기 관리 라벨 표 `MANAGED`(지금 = 미러 1) · `render` = 템플릿 + 설치된 plist 의 머신별 값(`__PY__`·`--project/--seat/--channel/--mention/--repo`) 보존 + `__ROOT__`=프로젝트 루트 · `__INBOX_BIN__`=`<LIVE_BIN>/ft-inbox.sh` · `__MAILBOX__`=`<루트>/.fable-team/comm/mailbox.log.jsonl`. 루트·LIVE_BIN·설치값 없음 · 자리표시 잔재 · plist 해석 실패 · 렌더본 FT_ROOT≠루트 = `ERROR` rc3(조용한 통과 0).
+- **`harness/install.sh`**: plist 절 — «설치된 것만» 렌더본과 cmp → 다르면 `--apply` = `.bak-r426`(첫 원본 보존) + 교체 + `launchctl bootout`·`bootstrap`·`kickstart -k`(변경 때만) · 같으면 쓰기 0 · `--dry-run` 은 `PENDING plist-env <라벨>` 줄만(rc0) · 미설치 = `SKIP`(새로 깔지 않음 · 처음 설치는 slack-mirror/install.sh). launchctl = `FT_LAUNCHCTL`(시험 주입).
+- **`bin/ft_live_install_check.py`**(bin·kit 짝 cmp0): plist 행 중 관리 라벨은 설치본 = 렌더본 바이트 대조 → 아니면 `PENDING plist-env <라벨> (… FT_ROOT=<루트>)` + `HINT plist-env bash <하네스>/install.sh --apply --project <루트>`. 루트 = `--project` 또는 리포 공용 루트(shim 대조와 같음) · LIVE_BIN 없음 = ERROR rc3(`--project` 를 주라는 안내). `LIVE-MAP.tsv` 머리 설명 1줄 갱신.
+- **카드 편차 2**: ①템플릿을 `kit/launchd/` 새 파일로 만들지 않고 이미 있던 `kit/slack-mirror/…plist.template` 을 고쳤다(arch 실측이 `kit/launchd/` 만 봄 · 같은 라벨 템플릿 2개 = 두 정본) · 자리표시는 기존 `__X__` 꼴 ②설치 적용은 `kickstart` 만으로는 launchd 가 plist 를 다시 읽지 않아 `bootout`→`bootstrap`→`kickstart -k`(slack-mirror/install.sh 와 같은 순서).
+- **시험**: `tests/test_live_install_check_plist_env.sh` ⓐ~ⓔ 24 PASS(임시 HOME·가짜 launchctl · 실 등록 0). 기존 `test_live_install_check.sh`·`test_live_install_check_tip.sh` 는 base 에서 각 18·12 FAIL(r385 뒤 `--kit` 미전달 · shim 시험 r413 이 고친 것과 같은 꼴) → `chk()` 에 `--kit "$KD"` 1칸으로 1·2 FAIL 로 — 남은 3건은 이 카드 밖(아래). 증거 `harness/evidence/r426/`.
+- **base 부터 남은 FAIL 3(기록만 · 고침 단위 필요)**: ①`test_live_install_check.sh` 린트 ⑥ «구현 범위가 scripts/harness-install/ 언급 + 없음 → REJECT» — `ft-index-lint.sh` 가 옛 키트 경로 언급을 더는 안 센다 ②③`test_live_install_check_tip.sh` ⓕ 2건 — `ft-index-move-install.sh` 가 검사 도구에 `--kit` 없이 `--repo` 만 넘겨 임시 리포 픽스처에서 «하네스 루트가 --repo 밖» ERROR.
+- **master 절차**(착지 뒤): ①`bash <팩>/feature-pack/fable-team/harness/install.sh --dry-run --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents` → `PENDING plist-env com.hermes.byz-mbox-slack-mirror` 1줄 확인(나노 실측 10-19: 의미 차이 = `--inbox-bin` 옛 워크트리 bin → `~/.claude/fable-team/live/<버전>/bin/ft-inbox.sh` 하나 · FT_ROOT 는 손 수정본과 같음) ②`--apply` → `PLIST applied …` · `~/Library/LaunchAgents/com.hermes.byz-mbox-slack-mirror.plist.bak-r426` 실재 ③`launchctl print gui/$UID/com.hermes.byz-mbox-slack-mirror` state=running ④`~/.hermes/logs/byz_mbox_slack_mirror.err` 꼬리 1분 관측 — 새 줄 0(특히 «FT_ROOT 없음»·ft-inbox 오류) ⑤`ft-live-install-check.sh --range <병합 전 main>..<착지 sha> --project <BYZ 루트>` → OK ⑥실사건 = 다음 planner 쪽지가 슬랙 채널에 미러됨(`.out` 1행). 되돌림 = `cp -p <plist>.bak-r426 <plist>` + bootout·bootstrap.
+
 ## 2026-10-19 — BYZ 리포 안 1Password(op) 볼트 명령은 develop 볼트 + develop 토큰 꼴만 — 홈 훅 `op-vault-develop-gate.sh` (1.1.22)
 
 카드 r451 · master 111771 · desk 111757 · 오빠 «op 볼트는 무조건 develop 사용하라고 강력지침» «kskill은 슬랙 자동화용이다». 기본 `OP_SERVICE_ACCOUNT_TOKEN` 은 kskill(슬랙 자동화 전용) 볼트만 보여, 좌석이 그냥 `op item create` 를 치면 kskill 에 들어갔습니다(컨시어지 시연 계정 8개). 지침 줄(전역 하드 룰 15)은 이미 있어 이 단위는 «막는 장치» 입니다.

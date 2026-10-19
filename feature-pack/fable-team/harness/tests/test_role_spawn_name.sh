@@ -14,12 +14,13 @@ bash -n "$SPAWN" && ok "bash -n" || bad "bash -n"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; mkdir -p "$REPO" "$FAKE"
+export FT_ROOT="$REPO"   # r455a: r385 r3 ft_data_root·ft_comm_dir 계약 — 임시 리포를 데이터 루트로 준다(comm 폴더는 아래 mkdir)
 printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; *) exit 0;; esac\n' > "$FAKE/tmux"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"
 chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
 
 git -C "$REPO" init -q
-mkdir -p "$REPO/.fable-team" "$REPO/design/v65/indices/inbox/arch" "$REPO/design/v65/indices/inbox/tester"
+mkdir -p "$REPO/.fable-team/comm" "$REPO/design/v65/indices/inbox/arch" "$REPO/design/v65/indices/inbox/tester"
 : > "$REPO/design/v65/SEATBELT-README.md"
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$REPO/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 

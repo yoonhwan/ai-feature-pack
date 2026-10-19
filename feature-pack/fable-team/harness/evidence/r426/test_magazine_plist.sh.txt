@@ -1,0 +1,26 @@
+PASS bash -n install-magazine.sh
+PASS install rc=0
+PASS plist 생성
+PASS plutil -lint
+PASS Hour 8
+PASS Minute 0
+PASS RunAtLoad false
+PASS KeepAlive 없음
+PASS Label
+PASS 환경값 치환
+PASS 형식 미달 카드 opt-in(report)
+PASS 미치환 토큰 0
+PASS ⓐ 예약 명령 = magazine_from_news.sh --publish
+PASS ⓐ 발행 예약에 --emit-model 0
+PASS ⓐ FT_ROOT 주입
+PASS ⓐ 시트 모델 예약은 별 Label(--emit-model)
+PASS magazine_from_news.sh 설치(+x)
+PASS 모듈 복사
+PASS launchctl 호출 0
+PASS ops/magazine 워크트리 생성
+PASS 재실행: 워크트리 그대로
+PASS .bak 생성
+PASS --load 는 bootstrap 호출
+PASS ⓑ disabled + --load → rc 1 + ERROR
+PASS ⓑ enable·bootstrap 호출 0
+ALL PASS

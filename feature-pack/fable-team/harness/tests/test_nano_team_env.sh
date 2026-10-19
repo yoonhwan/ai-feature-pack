@@ -22,6 +22,7 @@ cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
+printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"   # r455a: close 의 reap(r448) = 스텁(실기계 프로세스 0 · run 이 env -i 라 기본 경로 $HERE 에 둔다) · reap 자체는 test_seat_reap_left0.sh
 printf '#!/usr/bin/env bash\necho called > "%s/cherry.called"\necho "REJECT cherry stub"; exit 1\n' "$T" > "$T/bin/ft-nano-cherry-gate.sh"
 cat > "$T/fake/tmux" <<'EOF'
 #!/usr/bin/env bash

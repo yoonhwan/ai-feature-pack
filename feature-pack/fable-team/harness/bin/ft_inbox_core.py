@@ -128,14 +128,19 @@ def mail_files():
     return [p for p in (f"{COMM}/mailbox.jsonl", f"{COMM}/mailbox.log.jsonl", *rot) if os.path.exists(p)]
 
 
-def find_mail(seq):
+def find_seq(seq):
+    """mail_files() 순서로 첫 1건 → (파일 경로, 쪽지 행). 없으면 (None, None). 글자 선거름 뒤에만 json 해석(5MB ≤1초 · r430)."""
+    key = f'"seq": {seq}'
     for p in mail_files():
         with open(p, encoding="utf-8") as f:
             for ln in f:
-                row = json.loads(ln) if ln.strip() else {}
-                if row.get("seq") == seq:
-                    return row
-    return None
+                if key in ln and json.loads(ln).get("seq") == seq:
+                    return p, json.loads(ln)
+    return None, None
+
+
+def find_mail(seq):
+    return find_seq(seq)[1]
 
 
 def norm_key(frm, body):

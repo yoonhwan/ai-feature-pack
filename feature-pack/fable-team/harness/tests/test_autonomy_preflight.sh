@@ -2,6 +2,7 @@
 # test_autonomy_preflight.sh — 자율 «켜기·시작»(r-autonomy-night-preflight · #1406 · 판정 1355·1359) 시험.
 #   ①켜기 직전 인증 사전 점검(gcloud 2종 · 7초+재시도 1) ②끝 시각 인자(--until/--for) ③시작 장부.
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + PATH 앞 가짜 gcloud·gh 스텁 + 고정 시계(FT_NOW) — 실 gcloud·gh·상태 파일 0.
+# 소요 ≈ 4분(r455a 실측 · 2026-10-19) — 120초 상한으로 돌리면 rc=124, 빨강 아님 · 600초 상한으로 돌린다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"
