@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-19 — 병합 줄 대조가 «팀 폴더 옛 꼴 글자만 바꾼 줄» 을 같은 줄로 센다 (r477 · 1.1.43)
+
+- `ft_merge_lines.py` 가 줄 비교 전에 «main 이 더한 줄» 의 팀 폴더 옛 꼴(`design/<팀>/`)을 새 꼴(`design/teams/<팀>/`)로 정규화 — 명단 = `ft_team_lib.team_rows_ref`(`FT_TEAMS_REF` · 기본 origin/main) · 꼴2 팀만 · 한 방향(옛→새) · 접두 글자 치환만 · PASS 줄에 `PATHSUBST <n>줄`(0 = 칸 생략).
+- 정규화는 main 이 더한 줄에만 적용한다 — 후보 줄까지 정규화하면 «새 꼴 → 옛 꼴» 역방향(카드 ⓓ 거절)이 통과한다(시험이 못 박음). 명단 못 읽음 = `WARN 명단 ref 못 읽음 — PATHSUBST 0` 1줄(stderr) + 옛 동작(정규화 0 · 추측 0 · 합성 픽스처는 WARN 0).
+- 시험 새 `tests/test_merge_lines_pathsubst.sh` ⓐ~ⓕ ALL PASS · 기존 merge·land 시험 9종 ALL PASS(선재 빨강 2종은 origin/main 그대로) · 옛 판 RED(ⓐ → DENY) · 실사건: loom PR 1976 head 280b041aa5(M=75b386) 옛 판 DENY 83파일 → 새 판 DENY 2파일 + PATHSUBST 155줄(남은 2 = 명단 밖 `concierge` 재명명 팀 — 추측 0 규칙대로 거절 · `harness/evidence/r477/master-steps.md`).
+
 ## 2026-10-19 — 뉴스 HTML: top 갈래를 요약·중요한 일 2갈래로 쪼갬 · 상한 초과 = 첫 출력 전 실패 재시도 1 (r478e · 1.1.42)
 
 - 첫 자동 틱이 부하(load 25~50)에서 `opencode run top 상한 38s 초과` — top(요약+중요한 일+근거) 한 호출이 max/high 에서 흔들림. 7초 룰대로 top → summary(요약+근거) · important(중요한 일) 2갈래로 쪼개 4갈래 병렬 · 시도당 상한 크기 비례 그대로 · 시도당 상한 초과 = 첫 출력 전 실패로 보고 총 마감 70초 안 재시도 1회.
