@@ -3,6 +3,7 @@
 #   ①ft-teamset-check ERR ②ft-successor-open(master·desk 교대) REJECT ③ft-autonomy on(planner) REJECT — 판정기 하나 = ft_teamset.py arch-live.
 # 전부 mktemp 안 — 가짜 TEAMSET·가짜 명부·가짜 tmux/tmuxc(PATH)·임시 재개 기록·임시 상태 폴더. 실 tmux·실 자율 전환 0.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

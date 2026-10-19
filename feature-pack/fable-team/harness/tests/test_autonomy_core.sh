@@ -2,6 +2,7 @@
 # test_autonomy_core.sh — 자율 대리 결정 모드 본체 3종(ft-autonomy · autonomy_classify · ft-proxy-decide) 시험.
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + PATH 앞 gh 스텁 — 실 state·원장·gh 0.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"
 fail=0; n=0

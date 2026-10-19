@@ -486,7 +486,8 @@ autonomy_expire() {
   out="$(bash "$AUTONOMY_BIN" expire 2>&1)"; rc=$?
   [ "$rc" = 0 ] || { echo "$(date '+%F %T') autonomy_expire: ERROR rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2; return 0; }
   case "$out" in
-    EXPIRED\ A*) log "autonomy_expire: $out"; notify_team "[자율 ${out#EXPIRED } 끝 도달 → OFF] 끝 시각이 지나 ft-autonomy.sh expire 가 OFF 로 기록했다. 다시 켜려면 오빠 ! 한 줄(on)." planner;;
+    EXPIRED\ A*) log "autonomy_expire: $out"; notify_team "[자율 ${out#EXPIRED } 끝 도달 → OFF] 끝 시각이 지나 ft-autonomy.sh expire 가 OFF 로 기록했다. 다시 켜려면 오빠 ! 한 줄(on)." planner
+                 log "autonomy_interview: $(bash "$AUTONOMY_BIN" interview-note "${out#EXPIRED }" expire 2>&1 | tail -1)";;   # r466: desk 에 [자율 인터뷰] 1통(연장/종료/레벨 변경 · 10분 중복 억제)
   esac
   return 0
 }

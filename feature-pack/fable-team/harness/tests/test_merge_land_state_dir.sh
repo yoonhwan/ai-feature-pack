@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_merge_land_state_dir.sh — R253: 자율 상태 폴더 해석 = ft-autonomy.sh state-dir 한 곳 (설치 폴더 ≠ repo 픽스처 · FT_ROOT·FT_AUTONOMY_STATE_DIR unset · gh 는 스텁 · 실 원격 0)
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
 . "$HERE/_merge_fixture.sh"
@@ -19,7 +20,7 @@ printf '#!/bin/bash\nexit 0\n' > "$T/install-stub"; chmod +x "$T/gh-stub" "$T/in
 
 mkinst() {  # mkinst <설치 루트> — <루트>/.fable-team/bin 에 병합 도구 묶음 복사(repo·원격은 설치 폴더 밖) · 시작 장부·뒤처짐 알림은 무동작 스텁
   local b="$1/.fable-team/bin"; mkdir -p "$b"
-  for f in ft-merge-land.sh ft-merge-lib.sh ft-evidence-lib.sh ft-merge-gate.sh ft_merge_lines.py ft-autonomy.sh ft-harness-root.sh; do cp "$BIN/$f" "$b/$f"; done
+  for f in ft-merge-land.sh ft-merge-lib.sh ft-evidence-lib.sh ft-merge-gate.sh ft_merge_lines.py ft-autonomy.sh ft-autonomy-level.sh ft-harness-root.sh; do cp "$BIN/$f" "$b/$f"; done
   for f in ft-autonomy-start.sh ft-head-lag.sh; do printf '#!/bin/bash\nexit 0\n' > "$b/$f"; done
   chmod +x "$b"/*.sh
 }
