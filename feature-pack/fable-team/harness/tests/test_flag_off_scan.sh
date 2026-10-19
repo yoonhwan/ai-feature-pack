@@ -73,7 +73,7 @@ mkdir -p "$ROOT/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|--
 : > "$ROOT/.fable-team/state/inbox/byz-planner-master-claude.jsonl"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/hil-stub.sh"
 count() {  # [FLAG_DECISIONS 파일] — 출력 마지막 줄 RC=<rc>
-  local out; out="$(env FT_ROOT="$ROOT" FT_DECISION_NOW=2026-10-15T18:00:00 FT_DECISION_HIL="$T/hil-stub.sh" FT_DECISION_TMUX=false \
+  local out; out="$(env FT_ROOT="$ROOT" FT_DECISION_AUTONOMY_QUEUE="$ROOT/AQ.md" FT_DECISION_NOW=2026-10-15T18:00:00 FT_DECISION_HIL="$T/hil-stub.sh" FT_DECISION_TMUX=false \
     FT_FLAG_OFF_REPO="${FR_USE:-$FR}" FT_FLAG_OFF_REF="${FR_REF:-HEAD}" ${1:+FT_DECISION_FLAG_DECISIONS="$1"} python3 "$BIN/ft_decision_count.py" 2>&1; echo "RC=$?")"; echo "$out"
 }
 

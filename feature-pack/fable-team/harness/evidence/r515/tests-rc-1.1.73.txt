@@ -1,0 +1,31 @@
+세트 2a962d1a70ee68f47eccc3a225e4cd500ee6afc2 · main 9af3b78a 병합 뒤 · nice -n 15 직렬
+test_proxy_decide_queue_card_resolve.sh rc=0 pass=31 fail=0
+test_proxy_decide_r188.sh rc=0 pass=61 fail=0
+test_autonomy_core.sh rc=1 pass=194 fail=1
+FAIL 7초+재시도 1회 = external_call.py 값과 같음
+test_autonomy_level.sh rc=0 pass=65 fail=0
+test_autonomy_kinds_1675.sh rc=0 pass=109 fail=0
+test_autonomy_hooks.sh rc=0 pass=184 fail=0
+test_autonomy_preflight.sh rc=0 pass=113 fail=0
+test_autonomy_scope.sh rc=0 pass=134 fail=0
+test_autonomy_merge_equiv.sh rc=0 pass=13 fail=0
+test_kit_bin_sync.sh rc=0 pass=7 fail=0
+test_team_literal_paths.sh rc=1 pass=113 fail=6
+FAIL ⓐ1 골 표 rc=1 ← ERROR 골 표 정본 읽기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Wiu9aKc8UP/
+FAIL ⓐ1 hil-ask rc=1 ← ERROR comm 폴더 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Wiu9aKc8
+FAIL ⓐ1 hil-answer rc=1 ← ERROR comm 폴더 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Wiu9a
+FAIL ⓐ2 골 표 rc=1 ← ERROR 골 표 정본 읽기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Wiu9aKc8UP/
+FAIL ⓐ2 hil-ask rc=1 ← ERROR comm 폴더 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Wiu9aKc8
+FAIL ⓐ2 hil-answer rc=1 ← ERROR comm 폴더 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Wiu9a
+test_team_literal_paths2.sh rc=0 pass=326 fail=0
+test_merge_land_state_dir.sh rc=0 pass=8 fail=0
+test_planner_decision_line_hook.sh rc=0 pass=12 fail=0
+test_flag_off_scan.sh rc=1 pass=35 fail=4
+FAIL rc=1: ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · cwd(/Users/yoonhwan/Project/ai-feature-pack/.
+FAIL 후보 줄 그대로 — 없음: «LAND-CANDIDATE» ← ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · cwd(/Users/yoonhw
+FAIL 새 플래그 줄 — 없음: «FLAG-OFF 새로 생김 NEXT_PUBLIC_LAND» ← ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · c
+FAIL 3
+pytest decision_count+team_lib: 47 passed in 32.73s
+All checks passed!
+ruff rc=0
+대조: autonomy_core 1 · team_literal_paths 6 · flag_off_scan 4 FAIL = main 9af3b78a 에서도 같은 목록(이 가지 무관 · 별 고침 단위) · team_literal_paths2 = 병합 뒤 0 FAIL(r509)

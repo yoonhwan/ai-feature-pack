@@ -1,0 +1,42 @@
+PASS 준비: 자율 ON
+PASS 키트 미러 cmp 0: ft-team-lib.sh
+PASS 키트 미러 cmp 0: ft-proxy-decide.sh
+PASS 키트 미러 cmp 0: ft-autonomy.sh
+PASS 키트 미러 cmp 0: ft_decision_count.py
+PASS 키트 미러 cmp 0: ft_team_lib.py
+FAIL ⓐ card-start QUEUE → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.fable-team/state/planner/AUTONOMY-QUEUE.md 에 1행 :: rc=2 out=QUEUE 카드를 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/none.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+FAIL ⓐ 옛 자리(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md) 쓰기 0 :: rc=2 out=QUEUE 카드를 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/none.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+FAIL ⓐ QUEUE 출력의 큐 파일 = 리졸버 자리 :: rc=2 out=QUEUE 카드를 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/none.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+/opt/homebrew/bin/bash: 줄 1: ft_planner_queue: 명령을 찾을 수 없음
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'<base-archive>/feature-pack/fable-team/harness/tests/../bin');from ft_team_lib import planner_queue;print(planner_queue('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live'))
+                                                                                                                                                                                                                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ImportError: cannot import name 'planner_queue' from 'ft_team_lib' (<base-archive>/feature-pack/fable-team/harness/tests/../bin/ft_team_lib.py)
+FAIL ⓑ 셸·파이썬 리졸버 경로 글자 같음 ( | ) :: rc=2 out=QUEUE 카드를 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/none.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+PASS ⓑ ft-autonomy status 큐 1 (리졸버 자리에서 셈)
+PASS ⓑ ft-decision-count 가 같은 큐 행 1 을 셈
+/opt/homebrew/bin/bash: 줄 1: ft_planner_queue: 명령을 찾을 수 없음
+FAIL ⓒ 셸 FT_PLANNER_DIR = 그 폴더 :: rc=0 out=
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'<base-archive>/feature-pack/fable-team/harness/tests/../bin');from ft_team_lib import planner_queue;print(planner_queue('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live'))
+                                                                                                                                                                                                                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ImportError: cannot import name 'planner_queue' from 'ft_team_lib' (<base-archive>/feature-pack/fable-team/harness/tests/../bin/ft_team_lib.py)
+FAIL ⓒ 파이썬 FT_PLANNER_DIR = 그 폴더 :: rc=0 out=
+PASS ⓒ proxy-decide FT_PLANNER_DIR 큐 = 그 폴더
+/opt/homebrew/bin/bash: 줄 1: ft_planner_queue: 명령을 찾을 수 없음
+FAIL ⓒ 새 꼴 체크아웃 루트 = 명단 꼴 폴더 :: rc=2 out=
+PASS ⓓ 전제: 카드가 cwd(W) 에 없음
+FAIL ⓓ ref 카드 읽음 → 판정 줄 검사 통과 PROXY :: rc=2 out=QUEUE 카드를 못 읽음: design/teams/loom/indices/대기/loom-x.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+FAIL ⓓ ref 카드 읽은 뒤 판정 줄 검사가 계속 돈다(없는 판정 → QUEUE) :: rc=2 out=QUEUE 카드를 못 읽음: design/teams/loom/indices/대기/loom-x.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+FAIL ⓔ 못 읽음 사유에 cwd 경로 · ref 경로 둘 다 :: rc=2 out=QUEUE 카드를 못 읽음: design/teams/loom/indices/대기/ghost.md · 큐 파일 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lV9sJHzulV/repo/.worktrees/live/design/planner/AUTONOMY-QUEUE.md
+PASS ⓕ 절대경로 없는 파일 → ref 로 안 감
+PASS ⓕ 절대경로 실재 파일 → 그 파일로 PROXY
+PASS ⓖ ft-team-path-lint 키트 폴더(5파일 포함) OK 하드코딩 0
+PASS bash -n ft-team-lib.sh
+PASS bash -n ft-proxy-decide.sh
+PASS bash -n ft-autonomy.sh
+PASS py_compile
+PASS ft-proxy-decide 200줄 이하
+== FAIL 10
