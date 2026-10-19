@@ -1,0 +1,39 @@
+# r503 시험 원문 — 2026-10-20 02:22 · 가지 nano/r503-ledger-copy-self-refresh-news-and-m
+## bash tests/test_ledger_repo_sync.sh
+PASS ⓐ 깨끗한 detached → SYNC c89b762654..a37fa66e94
+PASS ⓐ 전진 뒤에도 detached
+PASS ⓑ 이미 최신(미추적 파일 있음) → SYNC up-to-date a37fa66e94 · 쓰기 0
+PASS ⓒ 더러운 사본 → rc3 · HEAD 그대로
+PASS ⓓ 가지 위 → rc3 · 전진 0
+PASS ⓔ fetch 실패 → rc4 · ERROR ledger 사본 fetch 실패: fatal: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn
+PASS usage rc2
+PASS 공용 git config 불변
+ALL PASS
+rc=0
+## pytest -k r503 (뉴스 호출 2 · 매거진 호출 2 · html 틱 1)
+5 passed, 59 deselected in 1.48s
+rc=0
+## pytest test_ft_news_ledger.py test_ft_news_html.py (shellcheck 1건 제외 — 아래 기존 RED)
+63 passed, 1 deselected in 32.45s
+rc=0
+## bash tests/test_goal_table_gate.sh
+fail=0
+rc=0
+## bash tests/test_magazine_plist.sh
+ALL PASS
+rc=0
+## bash tests/test_news_html.sh
+40 passed in 26.36s
+rc=0
+## bash -n · py_compile · tmp-trap-lint · kit↔bin cmp
+bash -n rc=0
+py_compile rc=0
+PASS tests/test_ledger_repo_sync.sh
+tmp-trap-lint rc=0
+cmp0 ft_news_ledger.py
+cmp0 ft_news_html.py
+cmp0 ft-ledger-repo-sync.sh
+## 기존 RED(이 단위 밖): test_ft_tick_passes_shellcheck = shellcheck SC2046 bin/ft-tick.sh:444 · ft-tick.sh 는 origin/main 과 diff 0
+1 failed, 23 deselected in 1.26s
+rc=1
+ft-tick.sh diff 0 vs origin/main
