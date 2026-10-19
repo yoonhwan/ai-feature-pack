@@ -2,6 +2,7 @@
 # fable-team autonomy-merge-guard — PreToolUse:Bash (r-autonomy-hooks 훅③ · 판정 1355 · EVAL-night-autonomy-20261013 결함 2)
 # 왜: 10-13 밤 planner 가 main 병합·배포를 판별기 없이 손판단(1333·1337) → 판정 1675: 자율 중에도 main 병합 = 오빠 값(push-merge 대리 폐지).
 # 동작(ON·BYZ 리포 안만): 오빠 승인 `<상태>/autonomy-merge-approved/<40hex>`(ft-autonomy.sh approve-merge 가 씀)가 있고 그 내용 1줄이 `<상태>/autonomy.log` 에 글자 그대로 있는 sha 만 통과.
+#   ★r462★ 글자 일치가 아니면 그 승인 sha 들 중 «같은 변경 집합»(ft_approval_equiv.py EQUIV = 승인 위 main 병합·rebase 만 · 자기 변경 diff·병합 트리 동일)이 있을 때 통과 + 로그 `EQUIV <승인> -> <head>`.
 #   옛 `autonomy-merge-ok/`(push-merge PROXY 시절 파일)는 읽지 않는다 — 파일은 보존, 승인 근거 아님(DA② H1).
 #   · `gh pr merge`/`ft-gh-as-tank.sh pr merge` → `--match-head-commit <sha>` 필수(헤드 결속은 gh 가 강제). `gh api …/pulls/N/merge` 는 `sha=<sha>`.
 #   · main 대상 `git push`(main·HEAD:main·x:main·refs/heads/main · `--repo` 포함 · 맨 push+현재 브랜치 main) → 보내는 쪽 ref(없으면 HEAD)의 rev-parse sha. 삭제(:main·--delete/-d)·--all·--mirror·와일드카드는 항상 deny. --dry-run allow.
@@ -22,6 +23,7 @@ VALOPTS = {"-u", "-C", "-S", "-P", "-k", "-s", "-n"}  # 값을 하나 더 먹는
 SHA = re.compile(r"^[0-9a-f]{40}$")
 REASON = ("자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, "
           "main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐.")
+EQUIV_HINT = " 승인 sha 위에 main 병합만 더한 head(같은 변경 집합)는 재승인 없이 통과한다(EQUIV · r462) — head 객체·origin/main 이 로컬에 있어야 대조된다."
 
 UNREADABLE = "자율 상태(ft-autonomy.sh mode)를 못 읽어 병합을 막았다 — 도구 경로·상태 폴더를 고친 뒤 다시 친다(R176). "
 
@@ -149,10 +151,37 @@ def head_arg(args, flag):
     return ""
 
 class Guard:
-    def __init__(self, state, cwd):  # state 없음(못 읽음) = 승인 근거 0 → 병합·main push 전부 deny
+    def __init__(self, state, cwd, sh=None):  # state 없음(못 읽음) = 승인 근거 0 → 병합·main push 전부 deny
         self.approved, self.logpath, self.cwd = (os.path.join(state, "autonomy-merge-approved"), os.path.join(state, "autonomy.log"), cwd) if state else (None, None, cwd)
+        self.judge = os.path.join(os.path.dirname(sh), "ft_approval_equiv.py") if sh else ""
+        self.why = ""
 
     def ok(self, sha):
+        """정확 일치(exact) → 아니면 EQUIV(r462): 오빠 승인 sha 중 «같은 변경 집합»(ft_approval_equiv.py rc0 = 승인 위 main 병합·rebase 만)이 있으면 통과.
+        판정기는 ft-merge-land(R247)·scope-approve(r411)와 같은 것 하나 — 못 판단(rc3·시간 초과 7초)·판정기 없음 = 통과 0."""
+        if self.exact(sha):
+            return True
+        if not SHA.match(sha) or not self.approved or not os.path.isfile(self.judge):
+            return False
+        try:
+            cands = sorted((a for a in os.listdir(self.approved) if SHA.match(a)), key=lambda a: os.path.getmtime(os.path.join(self.approved, a)), reverse=True)
+        except OSError:
+            return False
+        deadline = time.time() + 21  # 7초 × 3 — 훅 하나가 세션을 오래 붙잡지 않게(판정 666)
+        for a in (a for a in cands if self.exact(a)):
+            if time.time() > deadline:
+                break
+            try:
+                p = subprocess.run(["python3", "-I", self.judge, self.cwd, a, sha, "origin", "main"], capture_output=True, text=True, timeout=7)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if p.returncode == 0 and p.stdout.startswith("EQUIV "):
+                note(f"EQUIV {a} -> {sha} ({p.stdout.strip()[:200]})")
+                return True
+            self.why = self.why or (p.stdout.strip().splitlines() or ["판정기 출력 없음"])[0][:200]
+        return False
+
+    def exact(self, sha):
         """승인 파일 1줄(`approve-merge <sha> …`)이 autonomy.log 의 한 줄과 글자 그대로 같을 때만 — 파일만 있으면(직접 쓰기) 아니다."""
         if not SHA.match(sha) or not self.approved:
             return False
@@ -235,12 +264,13 @@ try:
         note(f"ft-autonomy.sh mode 를 못 읽음(도구={sh}) — 병합·main push 는 deny(R176 · 판정 1675 ①)")
     elif mode != "on":
         sys.exit(0)
-    hit = Guard(autonomy_state(sh) if mode else "", cwd).denied(cmd)
+    guard = Guard(autonomy_state(sh) if mode else "", cwd, sh)
+    hit = guard.denied(cmd)
 except (ValueError, OSError, AttributeError, subprocess.SubprocessError) as e:
     note(f"{type(e).__name__} {e} — 허용(fail-open)")
     sys.exit(0)
 if hit:
-    reason = REASON if mode else UNREADABLE + REASON
+    reason = (REASON if mode else UNREADABLE + REASON) + (f" 재승인 필요 — 승인 sha 와 같은 변경 집합 아님: {guard.why}" if guard.why else EQUIV_HINT)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}, ensure_ascii=False))
 PYEOF
 exit 0
