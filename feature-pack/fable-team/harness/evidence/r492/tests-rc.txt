@@ -1,0 +1,70 @@
+# r492 시험 원문 (2026-10-19 · 나노 byz-harness-nano-r492-proposal-gate-ledger-from-ref-main-#0)
+## 1. bash -n
+bash -n rc=0 (gate · test)
+## 2. cmp bin/kit
+cmp rc=0
+## 3. bash tests/test_proposal_gate.sh (새 게이트)
+PASS bash -n
+PASS 1 ⓐ 오빠 계정이 approved → OK
+PASS 2 ⓑ byz-tank approved + 인터뷰 코멘트 + 원장 줄 issues/12 → OK
+PASS 3 approved 라벨 없음 → REJECT
+PASS 4 rejected 라벨 → REJECT
+PASS 5 needs-reply 라벨 → REJECT
+PASS 6 작성자가 byz-tank 아님 → REJECT
+PASS 7 필수 칸 「제안」 빔 → REJECT
+PASS 8 근거에 sha 없음 → REJECT
+PASS 9 ⓑ 인터뷰 코멘트 없음 → REJECT
+PASS 10 ⓑ 원장 줄에 issues/12 없음(issues/120 는 다른 번호) → REJECT
+PASS 11 gh 시간 초과(1초 + 재시도 1회) → REJECT
+PASS 12 gh 빈 응답 → REJECT
+PASS 12b gh 실패 rc → REJECT
+PASS 재시도 1회 실제로 일어남(issue view ≥ 2회 기록)
+PASS 13 본문 첫 줄 숨은 표식 없음 → REJECT
+PASS 14 approved 를 단 사람이 오빠·Tank 아님 → REJECT
+PASS 15 라벨은 있는데 timeline 에 labeled 이벤트 없음 → REJECT
+PASS 16 60,000자 초과 분할(근거 칸이 이어서 코멘트에) → OK
+PASS 17 ★H1★ 승인 뒤 오빠 코멘트(needs-reply 라벨은 없음) → REJECT
+PASS 17b ★H1★ 오빠 코멘트 시각 불명 → REJECT(fail-closed)
+PASS 17c 승인 «전» 오빠 코멘트 → OK(승인 때 본 의견)
+PASS 18 ★H1★ 승인 뒤 Tank 「r1 변경」 코멘트 → REJECT(본문 갱신 뒤 과거 승인)
+PASS 18b 승인 «전» 「r1 변경」 코멘트(재승인 뒤) → OK
+PASS 19 ★H2★ ⓑ 원장 줄이 다른 저장소 issues/12 → REJECT
+PASS 19b ★H2★ 호스트 접두가 다른 링크(evilgithub.com/o/r) → REJECT
+PASS 19c 저장소 대소문자 무시 → OK
+PASS ⓐ ★r492★ origin/main 원장 표 행 + 체크아웃 파일 0 → OK
+PASS ⓑ ★r492★ 같은 표 행인데 링크 issues/120 → REJECT
+PASS ⓒ ★r492★ 줄머리 꼴도 ref 경유로 OK
+PASS ⓓ ★r492★ origin/main 에 TEAMS.md 없음(ref 못 읽음) → REJECT(후퇴 0)
+PASS ⓓb ★r492★ 명단은 있는데 ref 에 원장 파일 0 → REJECT
+PASS 20 design/ 아래 .md 만 → 면제(rc0)
+PASS 21 ★B3★ design/harness/../../AGENTS.md → rc1(.. 로 design/ 탈출)
+PASS 21b ★B3★ ../AGENTS.md → rc1
+PASS 21c design/harness/../harness/PROPOSAL-foo-20261010.md(.. 해소 뒤에도 design/ 안) → rc0
+PASS 21d ★B3★ design/..  만 → rc1
+PASS 22 읽기 예외: evidence 폴더·proposal_template.md 와 함께 → rc0
+PASS 22b ★B3★ evidence 폴더 뒤 .. 로 탈출(evidence/proposal-x/../../../AGENTS.md) → rc1
+PASS 22c ★B3★ docs/rules/../ops.md → rc1(템플릿 예외 아님)
+PASS 23 ★B3★ 심링크 design/x → 리포 밖 · design/x/PROPOSAL-a-20261010.md → rc1
+PASS 23b 카드가 있는 git toplevel(repo2) 기준 정상 경로 → rc0(cwd=repo 와 달라도)
+PASS usage → rc 2
+PASS 번호 아님 → rc 2
+ALL PASS
+rc=0
+## 4. 같은 시험을 origin/main 옛 게이트로 (빨강 대조)
+FAIL ⓐ ★r492★ origin/main 원장 표 행 + 체크아웃 파일 0 → OK :: rc=1 out=REJECT #12 판정 원장 폴더를 못 풀었다 — ERROR 팀 명단 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VmUj9vW8zH/vrepo/.worktrees/v6-realtime-live/design/TEAMS.md (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)
+FAIL ⓑ ★r492★ 같은 표 행인데 링크 issues/120 → REJECT :: rc=1 out=REJECT #12 판정 원장 폴더를 못 풀었다 — ERROR 팀 명단 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VmUj9vW8zH/vrepo/.worktrees/v6-realtime-live/design/TEAMS.md (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)
+FAIL ⓒ ★r492★ 줄머리 꼴도 ref 경유로 OK :: rc=1 out=REJECT #12 판정 원장 폴더를 못 풀었다 — ERROR 팀 명단 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VmUj9vW8zH/vrepo/.worktrees/v6-realtime-live/design/TEAMS.md (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)
+FAIL ⓓb ★r492★ 명단은 있는데 ref 에 원장 파일 0 → REJECT :: rc=1 out=REJECT #12 판정 원장 폴더를 못 풀었다 — ERROR 팀 명단 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VmUj9vW8zH/vrepo/.worktrees/v6-realtime-live/design/TEAMS.md (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)
+FAILED 4
+rc=1
+## 5. 실사건 읽기 전용 대조 — cwd=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents · gh 읽기만 · issue 1509
+new: OK #1509 승인 ⓑ 판정 1637 rc=0
+old(LIVE 1.1.48): REJECT #1509 ⓑ planner 원장 「1637 오빠 인터뷰」 줄에 SecondWindStudio/byz-agents issues/1509 없음
+## 6. 카드 설계 그대로(team_in_ref) 였다면 — 라이브 루트 체크아웃 폴더 vs ref 원장
+team_in_ref(BYZ root, planner) = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/design/planner
+origin/main VERDICTS-planner-* in design/teams/planner = 27
+origin/main VERDICTS-planner-* in design/planner = 0
+## 7. test_proposal_gate_wiring.sh
+PASS 14b Tank 래퍼에 게이트 호출 0(origin/main 판)
+ALL PASS
+rc=0

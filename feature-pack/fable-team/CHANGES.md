@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — 제안서 게이트 판정 원장 = ref(origin/main) 트리 · 표 행 꼴도 읽는다 (r492 · 1.1.50)
+
+- 사건: feature#31 F-1509(main RED 수정) 카드 spawn 이 `REJECT 1509 ⓑ planner 원장 「1637 오빠 인터뷰」 줄에 … issues/1509 없음` — planner 는 링크를 main 에 올렸는데(33d5b75186) 게이트가 옛 라이브 체크아웃(`.worktrees/v6-realtime-live` · main 뒤 186커밋)에서, 줄머리 `N 오빠 인터뷰` 꼴로만 원장을 읽었다(실제 행 = 표 행 `| 1637 | 23:0x | (오빠 인터뷰 4) …`).
+- `ft-proposal-gate.sh`: `GATE_VROOT` → `GATE_ROOT=${BYZ_ROOT:-<리포 루트>}` · `GATE_REF=${FT_TEAMS_REF:-origin/main}`. 원장 = 명단 `<ref>:design/TEAMS.md` 후보(명단 꼴·쌍둥이 · `_cands_ref`) 중 `<ref>` 트리에 `VERDICTS-planner-*.md` 가 있는 폴더 정확히 1개를 `git ls-tree`·`git show` 로 읽는다(체크아웃 파일 0 · 7초). 0·2+ 개·명단 못 읽음·`git show` 실패 = REJECT(후퇴 0). `FT_PLANNER_VERDICTS_DIR` 지정 시에만 폴더 파일 직접(시험용 그대로).
+- 행 판정: 줄머리 `^N 오빠 인터뷰` 또는 표 행 `^| N | … (오빠 인터뷰` · 링크 검사·REJECT 문구 그대로.
+- 카드 설계와 다른 점: 카드는 `team_in_ref`(디스크 실재 후보 1개)였지만 라이브 루트 체크아웃엔 옛 쌍둥이 `design/planner` 만 있고 ref 원장은 `design/teams/planner` 에만 있어(ref 의 design/planner 원장 0) 그대로면 실사건이 계속 REJECT — 폴더 선택도 ref 트리로 한다.
+- 시험 `harness/tests/test_proposal_gate.sh` 새 절 ⓐ~ⓓ+ⓓb(임시 리포 + bare origin · 체크아웃은 원장 이전 커밋) 포함 ALL PASS rc0 · 옛 게이트 대조 4 FAIL · 실사건 읽기 전용 `--issue 1509` 새 `OK #1509 승인 ⓑ 판정 1637` / 옛 REJECT. 되돌림 = 이 커밋 revert(설치본 `.bak-r492`). 원문 = `harness/evidence/r492/tests-rc.txt`.
+
 ## 2026-10-20 — sparse 나노에서 남의 팀 폴더 = «SPARSE-HIDDEN <경로>» 로 원인을 말한다 + 발주문 광역 pytest 1줄 (r486 · 1.1.49)
 
 - 사건: 나노 워크트리는 r444 ⑤ 로 자기 팀 design 만 체크아웃한다. 다른 팀 폴더를 읽는 시험(BYZ `test_v65_m5_lst_runaway*` → `team_in(root,'v65')`)이 그 안에서 «실패 10 + 수집 오류 2» 로 보여 chatbot K1 나노·arch·v65 arch 가 ~1시간(r468 에 이어 2회째 · 요청 114385).
