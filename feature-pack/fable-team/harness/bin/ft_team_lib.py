@@ -6,6 +6,7 @@ TEAMS.md «폴더» 칸(3번째 열) 3꼴을 푼다 — 도구는 `design/<팀>/
 env: FT_REPO_ROOT(기본 git 루트) · FT_TEAMS_MD(기본 <루트>/design/TEAMS.md · team_in 은 무시) · FT_HARNESS_ROOT(꼴3 치환값)
 ref 판(r479 · 셸 ft_team_cands_ref 와 같은 규칙): team_rows_ref · team_cands_ref · team_in_ref — 명단 = `git show <ref>:design/TEAMS.md` · 폴더 = 그 루트에 실재하는 후보
 쌍둥이 판(r495 · 셸 ft_team_in_ref 와 같은 규칙): team_in_ref 가 쌍둥이 둘 다 실재면 ref 트리(ls-tree -d)에 있는 쪽 + stderr `WARN TWIN-STALE` · ref 에 둘 다 = 명단 꼴 + `WARN TWIN-BOTH` · ref 에 둘 다 없음 = TeamPathError
+문서 본문 ref 판(r517): team_doc_ref — ref 명단 후보의 `<ref>:<후보>/<파일>` 본문 · ref 에 없음 = None · 못 읽음 = TeamPathError(ft_decision_count 의 planner 표)
 sparse 판(r486): team_root·team_in·team_in_ref 가 «tracked 인데 sparse 로 디스크에 없음» 을 SparseHidden(TeamPathError) 로 말한다 — 메시지 `SPARSE-HIDDEN <경로> …`(셸 ft_team_root 와 같은 글자) · team_cands_ref 는 «실재 여부 무관» 그대로
 """
 from __future__ import annotations
@@ -176,6 +177,27 @@ def _cands_ref(root: Path | str, team: str, ref: str) -> list[Path]:
 def team_cands_ref(root: Path | str, team: str, ref: str = "origin/main") -> list[Path]:
     """«명단 = ref · 폴더 = 루트»(r479): ref 명단으로 푼 후보 중 그 루트에 실재하는 폴더만(명단 꼴 먼저)."""
     return [c for c in _cands_ref(root, team, ref) if c.is_dir()]
+
+
+def team_doc_ref(root: Path | str, team: str, name: str, ref: str = "origin/main") -> str | None:
+    """r517: 정본 문서 «읽기» 본문 = ref 판(셸 ft_team_doc_ref 의 ref 쪽 · 임시 파일 0 · 체크아웃 명단·디스크 0) — ref 명단 후보(_cands_ref · 명단 꼴 먼저)마다
+    `<ref>:<후보>/<name>` 이 ref 트리에 있으면 그 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0)."""
+    base = Path(root)
+    for c in _cands_ref(base, team, ref):
+        try:
+            path = f"{c.relative_to(base)}/{name}"
+            ls = _git_out(base, "ls-tree", "--name-only", ref, "--", path)
+            if ls.returncode == 0 and not ls.stdout.strip():
+                continue
+            out = _git_out(base, "show", f"{ref}:{path}") if ls.returncode == 0 else ls
+        except ValueError:
+            raise TeamPathError(f"ERROR {team} 폴더가 리포 밖({c}) — ref 문서 읽기 대상 아님") from None
+        except (OSError, subprocess.SubprocessError) as e:
+            raise TeamPathError(f"ERROR {ref}:{c}/{name} 못 읽음: {e}") from e
+        if out.returncode != 0:
+            raise TeamPathError(f"ERROR {ref}:{path} 못 읽음: rc={out.returncode} {out.stderr.strip()[:120]}")
+        return out.stdout
+    return None
 
 
 def _behind(base: Path, ref: str) -> str:

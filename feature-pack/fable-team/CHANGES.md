@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 결정 셈 planner 표(MERGE-QUEUE·FLAG-DECISIONS) = ref origin/main 명단 + ref 본문 (r517 · 1.1.74)
+
+- 사건: `ft-decision-count.sh` 가 planner 표 자리를 «루트(공용 루트) 체크아웃의 `design/TEAMS.md`» 로 풀어, 공용 루트 체크아웃(main 51881ba2e4 · 2026-09-23 · 명단 없음)·v6 어느 cwd 에서 불러도 `ERROR … 팀 명단 없음 … design/TEAMS.md` rc4(planner 쪽지 118922 · harness master 83 발주 118925 · arch 106 실측). 발주의 «실패인데 rc 0» 은 재현 0 — 도구 rc = 4 · 0 은 `| tail` 파이프 끝 rc.
+- `ft_team_lib.team_doc_ref(root, team, name, ref)` (새 · 셸 `ft_team_doc_ref` 의 ref 쪽 · 임시 파일 0): ref 명단 후보(`_cands_ref` · 명단 꼴 먼저)마다 `<ref>:<후보>/<name>` 이 ref 트리(`ls-tree`)에 있으면 `git show` 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0 · 체크아웃 명단·옛 경로 후퇴 0).
+- `ft_decision_count.table()`: 자리 = env 파일(그대로) → `at`(AUTONOMY-QUEUE · r515 `planner_queue` 그대로) → 카드 워크트리 디스크(그 워크트리에 명단이 있을 때 · 미착지 최신 행 · 먼저) → ref 본문(`FT_TEAMS_REF` · 기본 origin/main). 표 «내용» 판정 규칙(칸·대기 셈·손상 rc4) 변경 0 · 못 읽음 = ReadError rc4 그대로. 파일 200줄 그대로(test_flag_off_scan 상한).
+- 시험 `test_decision_count_tables_ref.sh`(새 · 임시 리포 체크아웃 = 옛 커밋(명단 없음) · origin/main = 새 꼴 명단 + `design/teams/planner` 표 · 외부 호출 0 · GIT_* env 0) ⓐ 공용 루트·다른 리포 cwd rc0 + 대기 1 · ⓐ2 카드 워크트리 표 먼저 ⓑ FLAG-DECISIONS ref 본문 · 머리 손상 변이 rc4 ⓒ ref 에 표 없음 = 메모 + rc0 ⓓ origin 없음 = rc4 «명단 ref 못 읽음» ⓔ env 지정 = 그 파일 = 17 PASS · 고치기 전 FAIL 12(`harness/evidence/r517/before-fix.txt`). 기존 시험 2개 보정(git 밖 임시 루트 → 표 자리 env 고정): `tests/scripts/test_decision_count.py` run() `FT_DECISION_FLAG_DECISIONS` · `test_flag_off_scan.sh` count() `FT_DECISION_MERGE_QUEUE`·`FT_DECISION_FLAG_DECISIONS`. 실 공용 루트·v6 cwd 읽기 전용 실행: 라이브 1.1.73 rc4 → 이 판 rc0(`harness/evidence/r517/real-root-smoke.txt`).
+- 설치: 키트 2(`ft_decision_count.py` · `ft_team_lib.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r517`.
+- 범위 밖: 셈 분모(r337 — 실 MERGE-QUEUE 27행 중 «대기» 로 시작하는 행 0 · 상태값 «⏳ 아침 큐» 등) · 공용 루트 체크아웃 갱신 · `seats-planner.json` 위치 · 원장 VERDICTS 읽기.
+
 ## 2026-10-20 — 오빠 큐 자리 리졸버 1개 + card-start 카드 상대경로 cwd → ref 읽기 (r515 · 1.1.73)
 
 - 사건: `ft-proxy-decide.sh` 가 오빠 큐(AUTONOMY-QUEUE) 줄을 «데이터 루트(LIVE_ROOT = v6-realtime-live 워크트리) 체크아웃의 옛 명단» 으로 푼 `design/planner/AUTONOMY-QUEUE.md` 에 씀(정본 = main `design/teams/planner/` · v6 가지엔 새 폴더 없음) · `--card` 상대경로를 cwd 에서만 찾아 «카드를 못 읽음» 으로 QUEUE(planner 쪽지 118583 · 05:55 loom l3c card-start 2회 · `v6-realtime-live/design/planner/AUTONOMY-QUEUE.md:63`) · 같은 큐를 읽는 `ft-autonomy.sh`·`ft_decision_count.py` 도 같은 옛 자리.

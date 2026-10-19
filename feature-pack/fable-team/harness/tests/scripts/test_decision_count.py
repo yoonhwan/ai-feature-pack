@@ -22,6 +22,7 @@ def run(env, *args, extra=None):
     e.update(FT_ROOT=str(env["root"]), FT_DECISION_NOW=NOW.isoformat(), HIL_DIR=str(env["hil"]), HIL_CLIP="0",
              FT_SECRET_JUDGE=str(env["root"] / "none.py"), FT_DECISION_MBOX=str(env["mbox"]), FT_DECISION_TMUX=str(env["root"] / "tmux-stub.sh"),
              FT_DECISION_AUTONOMY_QUEUE=str(env["root"] / "AQ.md"), FT_DECISION_MERGE_QUEUE=str(env["root"] / "MQ.md"),
+             FT_DECISION_FLAG_DECISIONS=str(env["root"] / "FD.md"),  # r517: 루트 자리는 ref 본문 — git 밖 임시 루트라 표 자리를 env 로 고정
              FT_FLAG_OFF_REPO=str(env["root"] / "flagrepo"), FT_FLAG_OFF_REF="HEAD")  # R239: 꺼진 플래그 검사는 플래그 0 인 임시 git 저장소만 본다
     return subprocess.run(["bash", str(BIN / "ft-decision-count.sh"), *args], capture_output=True, text=True, env=e, timeout=30)
 

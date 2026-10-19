@@ -1,0 +1,14 @@
+== cwd=공용 루트 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents 체크아웃=51881ba2e4 TEAMS.md=없음
+-- 라이브 1.1.73:
+ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/design/TEAMS.md
+rc=4
+-- r517 판:
+결정 인터뷰 0건 · 스크립트 7건 · 팀 대기 39건(가장 오래 byz-planner-arch-claude#7 1042분) (옛 좌석 미닫힘 480) (AUTONOMY-QUEUE 파일 없음)
+rc=0
+== cwd=v6 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live
+-- 라이브 1.1.73:
+ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 팀 명단 없음: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/design/TEAMS.md
+rc=4
+-- r517 판:
+결정 인터뷰 0건 · 스크립트 7건 · 팀 대기 39건(가장 오래 byz-planner-arch-claude#7 1042분) (옛 좌석 미닫힘 480) (AUTONOMY-QUEUE 파일 없음)
+rc=0

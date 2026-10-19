@@ -1,0 +1,18 @@
+PASS 준비: 체크아웃에 명단·planner 폴더 없음
+PASS 키트 미러 cmp 0: ft_decision_count.py
+PASS 키트 미러 cmp 0: ft_team_lib.py
+PASS ⓐ 공용 루트 cwd: rc0 · 결정 인터뷰 1건(ref MERGE-QUEUE 대기 1)
+PASS ⓐ «팀 명단 없음» 0(체크아웃 명단 안 씀)
+PASS ⓐ 다른 리포 cwd(v6 대역): 같은 줄 rc0
+PASS ⓐ2 카드 워크트리 MERGE-QUEUE(대기 3)가 ref(대기 1)보다 먼저
+PASS ⓑ table(FLAG-DECISIONS) = ref 본문 1행 · 머리 4칸
+PASS ⓑ table(MERGE-QUEUE) = ref 본문 2행
+PASS ⓑ 변이: ref FLAG-DECISIONS 머리 손상 → rc4(ref 본문이 실제로 판정에 쓰인다)
+PASS ⓒ ref 에 표 없음 → «(MERGE-QUEUE 파일 없음)» + rc0
+PASS ⓒ table(FLAG-DECISIONS) = None(파일 없음은 실패 아님)
+PASS ⓓ origin 없음 → rc4 + «명단 ref 못 읽음» · 숫자 0
+PASS ⓔ FT_DECISION_MERGE_QUEUE = 그 파일(대기 3)
+PASS ⓔ env 파일 없음 = 지금처럼 메모(ref 로 새지 않음)
+PASS ft_decision_count.py 200줄 ≤ 200
+PASS compile 2(바이트코드 파일 0)
+== FAIL 0
