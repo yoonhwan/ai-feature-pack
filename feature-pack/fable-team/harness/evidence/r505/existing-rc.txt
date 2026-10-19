@@ -1,0 +1,7 @@
+== test_seat_reap_left0.sh rc=0 55 PASS 0 FAIL · ALL PASS
+== test_seat_retire.sh rc=1 171 PASS 1 FAIL · fail=1
+FAIL ⑧test_ft_tick_master_seat.sh rc=0 (got=[4] want=[0])
+== test_seat_retire_keep.sh rc=0 13 PASS 0 FAIL · fail=0
+== test_seat_retire_rosters.sh rc=0 46 PASS 0 FAIL · ALL PASS
+== test_seat_close.sh rc=0 81 PASS 0 FAIL · fail=0
+== test_nano_close_fail_closed.sh rc=0 48 PASS 0 FAIL · ALL PASS

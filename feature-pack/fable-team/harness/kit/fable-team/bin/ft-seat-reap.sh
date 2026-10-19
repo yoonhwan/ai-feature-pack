@@ -7,6 +7,8 @@
 #     ③env 에 FT_SEAT 안 보임 ∧ ppid 1(고아) ∧ cwd ⊂ 좌석 워크트리(--wt · 없으면 세션 session_path · `.git` 있는 폴더만 · 안쪽 다른 워크트리 제외) ∧ 명령에 sleep·while
 #        — 다른 라이브 tmux 세션이 그 워크트리 안에 있으면 ③ 생략(출력 `cwd=shared`) · 다른 세션 pane 나무에 속한 것도 제외
 #   제외: 남의 FT_SEAT · 보호 exe(ft-leak-reap.sh 의 PROTECT_EXE 를 그대로 읽음 — 못 읽으면 rc 20) · 이 명령 자신과 조상
+#     · 서비스 나무(r505 — 모든 모드 · 서비스 정지는 scripts/server/stop.command 몫): ⓐTCP LISTEN 을 쥔 프로세스와 그 조상·자손(`lsof -iTCP -sTCP:LISTEN` · 실패 = rc 20)
+#       ⓑ 서비스 명령 꼴 FT_REAP_SERVICE_RE(기본 아래 SERVICE_RE)와 그 자손 — 후보였을 것만 앞 줄 `reap-skip pid=<n> why=service-listen|service-cmd cmd=<앞 100자>`(stopped·left 에 안 셈)
 #   --orphans-only = ppid 1 인 것만(ft-seat-retire — 은퇴한 좌석의 살아 있는 에이전트·pane 나무는 건드리지 않는다)
 #   정지: TERM → 최대 3 s → (같은 시작 시각일 때만) KILL → 최대 1 s → 재조사(같은 규칙) · left = 재조사 후보 수
 #   후보의 자식(env 를 못 읽는 sleep 등)도 같은 주인(via=자손 · stopped 수엔 안 셈)
@@ -33,6 +35,9 @@ def run(cmd, ok_err=()):
     return r.stdout if r.returncode == 0 else ""
 try: PROTECT = ast.literal_eval(re.search(r"^PROTECT_EXE = (\{.*\})$", open(leak, encoding="utf-8").read(), re.M).group(1))
 except (OSError, AttributeError, ValueError, SyntaxError) as e: die(f"보호 목록을 못 읽음 {leak}: {e}")
+SERVICE_RE = r"\b(uvicorn|gunicorn|hypercorn)\b|-m (worker|gateway)\b|\bnext (dev|start)\b|next-server|run\.command"
+try: SVC = re.compile(os.environ.get("FT_REAP_SERVICE_RE") or SERVICE_RE)
+except re.error as e: die(f"FT_REAP_SERVICE_RE 정규식 오류: {e}")
 def ps_table():   # pid → (ppid, pgid, uid, lstart, cmd, ft_seat|None)
     t = {}
     for ln in run(["ps", "-axww", "-o", "pid=,ppid=,pgid=,uid=,lstart=,command="]).splitlines():
@@ -80,6 +85,18 @@ def desc(t, roots):
         for k in kids.get(st.pop(), []):
             if k not in out: out.add(k); st.append(k)
     return out
+def services(t):   # pid → why — 서비스 나무(r505): ⓐLISTEN 을 쥔 프로세스 + 조상 + 자손 ⓑ서비스 명령 꼴 + 자손
+    try: o = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fp"], capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
+    except (OSError, subprocess.SubprocessError) as e: die(f"lsof LISTEN 실행 실패: {e}")
+    lis = {int(l[1:]) for l in o.stdout.splitlines() if l[:1] == "p" and l[1:].isdigit()}
+    if o.returncode != 0 and not lis and (o.returncode != 1 or o.stderr.strip()): die(f"lsof LISTEN rc={o.returncode}: {o.stderr.strip()[:80]}")   # rc 1 + stderr 0 = LISTEN 0
+    up = set()
+    for p in lis:
+        while p in t and p > 1 and p not in up: up.add(p); p = t[p][0]
+    why = {p: "service-listen" for p in up | desc(t, lis)}
+    cmd = {p for p, r in t.items() if SVC.search(r[4])}
+    for p in cmd | desc(t, cmd): why.setdefault(p, "service-cmd")
+    return why
 def inside(p, top): return p == top or p.startswith(top.rstrip("/") + "/")
 def own_wt(p, top):   # cwd 와 top 사이에 다른 `.git` 이 있으면 안쪽 다른 워크트리 — 이 좌석 것 아님
     while inside(p, top) and p != top:
@@ -97,7 +114,7 @@ def survey():
     shared = bool(wt) and any(x[0] != seat and (inside(os.path.realpath(x[2]), wt) or inside(os.path.realpath(x[3]), wt)) for x in pl)
     cw = cwds() if wt and not shared else {}
     bg = {p for p, r in t.items() if re.search(r"ft-bg-loop\.sh .*--seat " + re.escape(seat) + r"(\s|$)", r[4])}
-    cand, tree = {}, desc(t, mine)
+    cand, tree, svc, skip = {}, desc(t, mine), services(t), {}
     for pid, (ppid, pgid, uid, lst, cmd, fs) in t.items():
         if uid != me or pid in anc or pid in mine or (orph and ppid != 1): continue
         if fs is not None and fs != seat and pid not in bg: continue   # 남의 좌석(래퍼 argv --seat 가 env 보다 우선 — 래퍼는 띄운 좌석의 env 를 물려받는다)
@@ -105,12 +122,16 @@ def survey():
         if exe in PROTECT: continue
         via = ("①" if pid in tree else "②" if fs == seat else "②b" if pid in bg else
                "③" if fs is None and ppid == 1 and pid not in other and pid in cw and own_wt(os.path.realpath(cw[pid]), wt) and re.search(r"\b(sleep|while)\b", cmd) else "")
-        if via: cand[pid] = (via, lst, cmd)
+        if via and pid in svc: skip[pid] = (svc[pid], cmd)
+        elif via: cand[pid] = (via, lst, cmd)
     for pid in desc(t, list(cand)) - set(cand) - anc:   # 후보의 자식(env 를 못 읽는 sleep 등)도 같은 주인
         r = t[pid]
-        if r[2] == me and (r[5] is None or r[5] == seat) and os.path.basename((r[4].split() or [""])[0]) not in PROTECT: cand[pid] = ("자손", r[3], r[4])
-    return cand, t, shared
-cand, _, shared = survey()
+        if r[2] == me and (r[5] is None or r[5] == seat) and os.path.basename((r[4].split() or [""])[0]) not in PROTECT:
+            if pid in svc: skip[pid] = (svc[pid], r[4])
+            else: cand[pid] = ("자손", r[3], r[4])
+    return cand, t, shared, skip
+cand, _, shared, skip = survey()
+for p, (w, c) in sorted(skip.items()): print(f"reap-skip pid={p} why={w} cmd={c[:100]}")
 tail = " cwd=shared" if shared else ""
 if dry:
     for p, (v, _, c) in sorted(cand.items()): print(f"reap-cand pid={p} via={v} cmd={c[:100]}")
@@ -136,7 +157,7 @@ def stop(cand):
 seen, again = set(), cand
 for _ in range(2):   # 2회전 — 1회전 사이에 새로 드러난 것(부모를 잃은 자식 등)까지
     if not again: break
-    seen |= {p for p, x in again.items() if x[0] != "자손"}; stop(again); again, _, _ = survey()
+    seen |= {p for p, x in again.items() if x[0] != "자손"}; stop(again); again, _, _, _ = survey()
 left = sum(1 for x in again.values() if x[0] != "자손"); rc = 1 if left else 0
 for p, (v, _, c) in sorted(again.items()): print(f"reap-left pid={p} via={v} cmd={c[:100]}")
 print(f"reap {seat} stopped={len(seen - set(again))} left={left} rc={rc}{tail}"); sys.exit(rc)   # stopped = 뿌리 수(자손 sleep 등은 reap-kill 줄에만)

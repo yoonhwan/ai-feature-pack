@@ -37,3 +37,9 @@ cmp kit↔bin rc=0
 ---- fail=0
 renamed_args rc=
 renamed_args rc=0 (재실행 · 위 rc= 빈 칸은 tee 파이프 PIPESTATUS 표기 오류)
+== 병합 HEAD 재실행 2(origin/main 6275300f · r505 1.1.61 병합 · 1.1.62 유지)
+shellcheck kit rc=0
+shellcheck bin rc=0
+cmp kit↔bin rc=0
+pytest test_ft_news_ledger.py 24 passed in 8.05s rc=0
+test_ft_tick_renamed_args.sh PASS=6 rc=0
