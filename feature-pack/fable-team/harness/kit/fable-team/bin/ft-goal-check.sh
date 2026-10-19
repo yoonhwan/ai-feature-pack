@@ -4,9 +4,10 @@
 #   exit 0 = GOAL-OK          (좌석 원장 최신 · NEXT 행 출력)
 #   exit 3 = REREAD-REQUIRED  (좌석 원장 부재 / 골 원장·정본 sha 바뀜 / TTL 만료 / 커밋 N개 경과)
 #   exit 4 = REJECT           (--touch 문구가 골 원장 본문에 실재하지 않음 = 복붙이 아니다)
-#            ERROR            (명단 ref 못 읽음 · v65 폴더 실재 후보 2+ · 정본이 체크아웃에도 ref 에도 없음 — 추측 0)
+#            ERROR            (명단 ref 못 읽음 · v65 쌍둥이가 ref 에 둘 다 없음 · 정본이 체크아웃에도 ref 에도 없음 — 추측 0)
 # r479 자리 규칙: 명단 = ref(FT_TEAMS_REF · 기본 origin/main · 체크아웃 TEAMS.md 는 판정에 안 쓴다 · 어긋나면 끝에 WARN 1줄)
-#   v65 폴더 = 그 루트에 실재하는 후보 정확히 1개 · 0개면 정본 4파일을 ref 본문(ft_team_doc_ref 임시 파일)으로 읽고 sha 도 ref 이력
+#   v65 폴더 = ft_team_in_ref(실재 1개 · 쌍둥이 = ref 트리에 있는 쪽 + stderr WARN TWIN-STALE/BOTH · r495) · 0개면 정본 4파일을 ref 본문(ft_team_doc_ref 임시 파일)으로 읽고 sha 도 ref 이력
+#   고른 폴더에 없는 정본은 그 파일만 ref 본문 + 출력 끝 `NOTE 정본 = <ref> 본문(체크아웃 ref 뒤 N커밋): <파일…>` 1줄(r495)
 # 「틱 기준 매 업데이트」(#11389 ①) 의 정의: 갱신되는 것은 골 원장 파일이 아니라 «좌석 원장»
 #   <공용 루트>/.fable-team/state/goal-read-ledger.json[seat] = {ledger_sha, sources_sha, ref_sha, head_sha, read_at, cited}.
 #   골 원장(GOAL-LEDGER-v65.md)은 수락 항목 원장이라 틱마다 안 바뀐다 — 바뀌는 것은 «읽었다는 증거»다.
@@ -28,18 +29,29 @@ trap 'rm -f ${TMPS[@]+"${TMPS[@]}"}; [ -z "$WARN" ] || echo "$WARN" >&2' EXIT
 ref_rel() { ( md="$(mktemp)" || exit 1; trap 'rm -f "$md"' EXIT
   git -C "$ROOT" show "$REF:design/TEAMS.md" > "$md" 2>/dev/null && FT_TEAMS_MD="$md" FT_REPO_ROOT="$ROOT" ft_team_rel v65 2>/dev/null ); }
 CANDS="$(ft_team_cands_ref "$ROOT" v65 "$REF" 2>&1)" || { echo "ERROR seat=$SEAT 명단 ref 못 읽음 — $CANDS"; exit 4; }
-HITS=(); while IFS= read -r c; do [ -n "$c" ] && [ -d "$c" ] && HITS+=("$c"); done <<< "$CANDS"
-[ "${#HITS[@]}" -le 1 ] || { echo "ERROR seat=$SEAT v65 폴더 실재 후보 ${#HITS[@]}개 — 정확히 1개여야 한다(명단 $REF:design/TEAMS.md · 후보 ${HITS[*]})"; exit 4; }
+# r495: 폴더 = ft_team_in_ref 하나(쌍둥이 = ref 트리로 가름 · WARN TWIN-* 은 stderr 그대로) · «실재 0» 만 아래 ref 본문 경로 · 그 밖 실패 = ERROR
+EF="$(mktemp)" || exit 4; TMPS+=("$EF")
+V65ABS="$(FT_TEAM_SPARSE_CHECK=0 ft_team_in_ref "$ROOT" v65 "$REF" 2>"$EF")"; IRC=$?; IERR="$(cat "$EF")"
+if [ "$IRC" != 0 ]; then case "$IERR" in *"실재 후보 0개"*) V65ABS="";; *) echo "ERROR seat=$SEAT v65 ${IERR#ERROR v65 }"; exit 4;; esac
+elif [ -n "$IERR" ]; then echo "$IERR" >&2; fi
+BEHIND="$(git -C "$ROOT" rev-list --count "HEAD..$REF" 2>/dev/null)" || BEHIND="?"; NOTE=""
 if [ -f "$ROOT/design/TEAMS.md" ] && [ "$(FT_TEAMS_MD="$ROOT/design/TEAMS.md" FT_REPO_ROOT="$ROOT" ft_team_rel v65 2>/dev/null)" != "$(ref_rel)" ]; then
   WARN="WARN 체크아웃 명단 $ROOT/design/TEAMS.md 의 v65 칸이 $REF 와 다르다 — 판정은 $REF 명단 + 실재 폴더"; fi
 LEDGER_NAME=GOAL-LEDGER-v65.md
 SRC_NAMES=(20260909/GOAL-archastra-lst-on-off-completion.md 20260910/LIST-v65-lst-completion-MERGED.md 20260911/PLAN-v65-sm65-experiment-completion-handoff.md)
-if [ "${#HITS[@]}" = 1 ]; then
+# 판정 키 = $REF 의 명단 꼴 폴더 이력(체크아웃 폴더가 옛 꼴이어도 ref 쪽 경로로 잰다 — 원장 갱신 감지를 잃지 않게)
+RV65="$(printf '%s\n' "$CANDS" | head -1)"; RV65="${RV65#"$ROOT"/}"
+if [ -n "$V65ABS" ]; then
   # 체크아웃 실재 폴더 — «리포 밖» 은 꼴3 만 생긴다
-  case "${HITS[0]}" in "$ROOT"/*) V65="${HITS[0]#"$ROOT"/}";; *) echo "REJECT seat=$SEAT v65 팀 폴더가 리포 밖이다: ${HITS[0]}"; exit 4;; esac
+  case "$V65ABS" in "$ROOT"/*) V65="${V65ABS#"$ROOT"/}";; *) echo "REJECT seat=$SEAT v65 팀 폴더가 리포 밖이다: $V65ABS"; exit 4;; esac
   LEDGER_MD="$V65/$LEDGER_NAME"; LEDGER_FILE="$ROOT/$LEDGER_MD"
-  SRCS=(); for f in "${SRC_NAMES[@]}"; do SRCS+=("$V65/$f"); done
-  for f in "$LEDGER_MD" "${SRCS[@]}"; do [ -f "$ROOT/$f" ] || { echo "REJECT seat=$SEAT 정본 부재: $f"; exit 4; }; done
+  # r495: 고른 폴더에 없는 정본은 그 파일만 $REF 본문($REF:<명단 꼴>/<파일>) — ref 에도 없을 때만 REJECT 정본 부재
+  for f in "$LEDGER_NAME" "${SRC_NAMES[@]}"; do
+    [ -f "$ROOT/$V65/$f" ] && continue
+    t="$(mktemp "$(_ft_team_doc_dir)/ft-team-doc.XXXXXX")" || exit 4; TMPS+=("$t")
+    { git -C "$ROOT" show "$REF:$RV65/$f" > "$t" 2>/dev/null && [ -s "$t" ]; } || { echo "REJECT seat=$SEAT 정본 부재: $V65/$f ($REF:$RV65/$f 도 없음)"; exit 4; }
+    NOTE+="${NOTE:+ }$f"; [ "$f" = "$LEDGER_NAME" ] && LEDGER_FILE="$t"
+  done
 else
   # 실재 0 — 정본은 ref 본문(임시 파일) · sha = ref 이력의 마지막 커밋(체크아웃이 따라잡아도 같은 값)
   V65="$(printf '%s\n' "$CANDS" | head -1)"; V65="${V65#"$ROOT"/}"
@@ -49,8 +61,6 @@ else
   done
   LEDGER_MD="$V65/$LEDGER_NAME"
 fi
-# 판정 키 = $REF 의 명단 꼴 폴더 이력(체크아웃 폴더가 옛 꼴이어도 ref 쪽 경로로 잰다 — 원장 갱신 감지를 잃지 않게)
-RV65="$(printf '%s\n' "$CANDS" | head -1)"; RV65="${RV65#"$ROOT"/}"
 RSRCS=(); for f in "${SRC_NAMES[@]}"; do RSRCS+=("$RV65/$f"); done
 git -C "$ROOT" cat-file -e "$REF:$RV65/$LEDGER_NAME" 2>/dev/null || { echo "ERROR seat=$SEAT 골 원장이 $REF 에 없다: $RV65/$LEDGER_NAME — 판정 키 = ref sha(추측 0)"; exit 4; }
 LSHA="$(git -C "$ROOT" log -1 --format=%h "$REF" -- "$RV65/$LEDGER_NAME")"
@@ -65,6 +75,8 @@ if [ -n "$TOUCH" ]; then
   grep -qF -- "$TOUCH" "$LEDGER_FILE" \
     || { echo "REJECT seat=$SEAT cited 문구가 골 원장에 없다 (열지 않았다): $TOUCH"; exit 4; }
 fi
+# r495: NOTE 는 판정 출력 «뒤» stdout 1줄(첫 줄 = 판정 그대로) — rc 는 판정기 것
+[ -z "$NOTE" ] || trap 'rm -f ${TMPS[@]+"${TMPS[@]}"}; [ -z "$WARN" ] || echo "$WARN" >&2; echo "NOTE 정본 = $REF 본문(체크아웃 ref 뒤 ${BEHIND}커밋): $NOTE"' EXIT
 python3 - "$STATE" "$SEAT" "$LSHA" "$SSHA" "$HEAD_SHA" "$TTL_SEC" "$MAX_COMMITS" "$TOUCH" "$ROOT" "$LEDGER_MD" "$LEDGER_FILE" "$REF" "$REF_SHA" <<'PY'
 import json, sys, os, datetime, subprocess, re
 state, seat, lsha, ssha, head, ttl, maxc, touch, root, ledger_md, ledger_file, ref, ref_sha = sys.argv[1:14]

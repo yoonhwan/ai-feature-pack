@@ -82,6 +82,24 @@ ft_team_cands() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1" FT_TEAM_TWIN_WAR
 ft_team_cands_ref() { ( r="$1"; t="$2"; ref="${3:-origin/main}"; md="$(mktemp)" || exit 1; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 1; }
   export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0; ft_team_root "$t" || exit 1; ft_team_root "$t" --alt 2>/dev/null; exit 0 ); }
+#   ft_team_in_ref <루트> <팀> [<ref>] : 파이썬 team_in_ref 와 같은 규칙(r495) — ft_team_cands_ref 후보 중 실재 1개 = 그것 · 쌍둥이 2개 = ref 트리(ls-tree -d)에 있는 쪽 + stderr `WARN TWIN-STALE <버린 후보> …` ·
+#                                    ref 에 둘 다 = 명단 꼴 + `WARN TWIN-BOTH …` · ref 에 둘 다 없음·실재 0 = stderr ERROR rc1(실재 0 은 SPARSE-HIDDEN 먼저 · FT_TEAM_SPARSE_CHECK=0 = 끔) · stdout 폴더 1줄 · 읽기만(폴더 이동·쓰기 0)
+ft_team_in_ref() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" cands c hits=() on=() n
+  cands="$(ft_team_cands_ref "$r" "$t" "$ref")" || return 1
+  while IFS= read -r c; do [ -n "$c" ] && [ -d "$c" ] && hits+=("$c"); done <<< "$cands"
+  case "${#hits[@]}" in
+    1) printf '%s\n' "${hits[0]}"; return 0;;
+    0) while IFS= read -r c; do case "$c" in "$r"/*) _ft_team_sparse_check "$r" "${c#"$r"/}" || return 1;; esac; done <<< "$cands"
+       echo "ERROR $t 폴더 실재 후보 0개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 ${cands//$'\n'/ })" >&2; return 1;;
+  esac
+  for c in "${hits[@]}"; do [ -n "$(git -C "$r" ls-tree -d "$ref" -- "${c#"$r"/}" 2>/dev/null)" ] && on+=("$c"); done
+  case "${#on[@]}" in
+    1) n="$(git -C "$r" rev-list --count "HEAD..$ref" 2>/dev/null)" || n=""
+       for c in "${hits[@]}"; do [ "$c" = "${on[0]}" ] || echo "WARN TWIN-STALE $c (ref 에 없음 · 체크아웃 ref 뒤 ${n:-?}커밋)" >&2; done
+       printf '%s\n' "${on[0]}";;
+    2) echo "WARN TWIN-BOTH ${hits[0]} ${hits[1]} (ref 에 둘 다 · 명단 꼴 ${hits[0]})" >&2; printf '%s\n' "${hits[0]}";;
+    *) echo "ERROR $t 폴더 실재 후보 2개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 ${cands//$'\n'/ }) (ref 에 둘 다 없음)" >&2; return 1;;
+  esac; }
 #   ft_team_file_ref <루트> <팀> <파일> [<ref>] : ft_team_cands_ref 후보 폴더 중 <파일> 이 «실재하는 정확히 1개» 의 절대경로(R406 · 기본 ref = FT_TEAMS_REF 또는 origin/main) — 명단 못 읽음·팀 없음·실재 0·2+ = stderr ERROR(ref·후보 경로) rc1 · 추측·옛 경로 후퇴 0
 ft_team_file_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c hits=()
   cands="$(ft_team_cands_ref "$r" "$t" "$ref")" || return 1
