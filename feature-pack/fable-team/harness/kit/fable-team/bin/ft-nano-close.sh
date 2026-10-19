@@ -16,6 +16,9 @@
 #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
 #     확인 ⓐ등록된 .worktrees/ 아래 워크트리 ⓑ그 워크트리 체크아웃 브랜치 == --branch ⓒ세션이 살아 있으면 pane cwd toplevel == --wt ⓓ다른 pane 이 --wt 안 cwd 0 ⓔ미커밋 0 ⓕ기존 종료조건 3·증거 줄 ⓖcherry 는 --branch 기준(우회는 기존 --cherry-override 뿐).
 #     통과해도 WIP 자동 커밋·wt-clean 실행·브랜치 삭제 0 — 정리 계획만 <wt-clean>/<seat>.sh.hil 로 생성(sweep 순회 밖 · 사람 ! 실행).
+#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드 머리 `- 설치: 있음`(하네스 카드)이면 ⓐ 통과 —
+#       ⓑ브랜치·ⓔ미커밋·⑥증거 줄·⑤cherry(·feat fetch)를 팩 리포 기준으로(feat 기본 origin/main) · ⓒ pane cwd 는 --wt 또는 같은 좌석의 BYZ 쪽 표준 워크트리 · 정리 계획 0(INFO 1줄 · 원장 mode=pack-wt).
+#       제품 카드·미등록 폴더 = 지금 ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
 #   --shared-wt = 전용 워크트리가 없는 «공유 워크트리 좌석»(예: pane cwd = 공유 c-level-planning) 닫기 — 명시 인자로만(자동 판별 0). 확인 ⓐ~ⓔ 전부 통과해야 하고, 통과해도 cherry·wt-clean 은 건너뛰고 세션 kill·명부·원장만(워크트리·파일·브랜치 손대지 않음).
 #   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
 #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
@@ -423,26 +426,37 @@ if [ "$SHARED" = 1 ]; then
 fi
 # ★--wt/--branch (오빠 10-07 · 원장 R8 보강)★ 이름이 표준이 아닌 «전용» 워크트리 좌석. 표준 해석(_resolve_seat_wt)이 못 찾는 것을 «명시 인자»로 대신하되 전부 확인한다 — 하나라도 아니면 REJECT.
 #   통과하면 SEAT_WT·SEAT_BR 만 이 값으로 정한다(⑥ 증거 줄·⑤ cherry·계획 생성이 그 «한 곳» 값을 쓴다). 자동 판별 0 · WIP 자동 커밋 0 · wt-clean 실행 0.
+SEAT_REPO="$ROOT"; PACK_WT=0   # r508: ⓑ·⑤·feat 대조 리포 — 팩 나노(--wt 팩 경로)만 팩 리포 · 그 밖은 지금 그대로 $ROOT
+# r508: --wt 가 팩 리포 등록 .worktrees/ 면 대조 리포를 팩으로(하네스 카드 확인은 카드 해석 뒤 — 아래 «r508 ⓐ 카드»)
+_pack_wt() {
+  local pk pporc
+  pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 1
+  [[ "$1" == "$pk/.worktrees/"?* ]] || return 1
+  pporc="$(git -C "$pk" worktree list --porcelain 2>/dev/null)" || return 1
+  grep -qxF "worktree $1" <<<"$pporc" || return 1
+  PACK_WT=1; SEAT_REPO="$pk"; _porc="$pporc"
+}
 if [ "$NAMED" = 1 ]; then
   _std_wt="$SEAT_WT"; SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""   # 표준 해석 결과·«추측 금지» 에러는 이 모드에서 명시 인자가 대신한다(표준 후보가 따로 있으면 아래서 REJECT)
   _nw="$(cd "$NWT" 2>/dev/null && pwd -P)"
   _porc="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)"
   if [ -z "$_nw" ]; then bad+=("ⓐ--wt 경로가 없다: $NWT")
-  elif [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! grep -qxF "worktree $_nw" <<<"$_porc"; then
-    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다")
+  elif { [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! grep -qxF "worktree $_nw" <<<"$_porc"; } && ! _pack_wt "$_nw"; then
+    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만")
   else
     _nb="$(printf '%s\n' "$_porc" | awk -v t="$_nw" '/^worktree /{p=substr($0,10)} /^branch /{if(p==t){b=substr($0,8); sub("^refs/heads/","",b); print b}}')"
     if [ "$_nb" != "$NBR" ]; then bad+=("ⓑ--wt($_nw)에 체크아웃된 브랜치(${_nb:-detached})가 --branch($NBR)와 다르다")
     else
       SEAT_WT="$_nw"; SEAT_BR="$NBR"
       case "$NBR" in main|master|"${FT_NANO_FEAT:-feat/v6-realtime-live}") bad+=("ⓑ--branch($NBR)는 정본 줄기(base)다 — 좌석 브랜치가 아니라 닫지 않는다");; esac
-      if [ -n "$_std_wt" ] && [ "$_std_wt" != "$_nw" ]; then bad+=("ⓐ표준 전용 워크트리($_std_wt)가 따로 있다 — --wt($_nw)와 다르다, 추측 금지(인자 없이 닫거나 인자를 고쳐라)"); fi
+      # r508: 팩 나노는 spawn 이 BYZ 쪽에 같은 이름 표준 워크트리를 만든다(일은 팩 워크트리) — 그 둘이 다른 것이 정상이라 이 검사를 건너뛴다
+      if [ "$PACK_WT" != 1 ] && [ -n "$_std_wt" ] && [ "$_std_wt" != "$_nw" ]; then bad+=("ⓐ표준 전용 워크트리($_std_wt)가 따로 있다 — --wt($_nw)와 다르다, 추측 금지(인자 없이 닫거나 인자를 고쳐라)"); fi
     fi
   fi
   # ⓒ 세션이 살아 있으면 pane cwd 의 toplevel == --wt (죽었으면 «세션 없음 자체가 충족» — 아래 ABSENT 경로)
   if [ -n "$cwd" ] && [ -n "$_nw" ]; then
     _ctop="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
-    [ "$_ctop" = "$_nw" ] || bad+=("ⓒpane cwd($cwd)의 toplevel(${_ctop:-없음})이 --wt($_nw)와 다르다")
+    [ "$_ctop" = "$_nw" ] || { [ "$PACK_WT" = 1 ] && [ -n "$_std_wt" ] && [ "$_ctop" = "$_std_wt" ]; } || bad+=("ⓒpane cwd($cwd)의 toplevel(${_ctop:-없음})이 --wt($_nw)와 다르다")
   fi
   # ⓓ 다른 tmux pane 중 cwd 가 --wt 안인 것 0 — 있으면 공유 워크트리다
   if [ "$tmux_ok" = 1 ] && [ -n "$_nw" ]; then
@@ -471,27 +485,28 @@ _FEAT="${FT_NANO_FEAT:-}"
 # R42: info.base 가 ref 가 아니고 commit(sha)이면 «랜딩 브랜치 정보 없음» — 기본 사슬로 랜딩 브랜치를 정한다(FT_NANO_FEAT 명시값은 그대로 우선). 조상 확인은 fetch 뒤.
 _BASE_SHA=""
 if [ -z "${FT_NANO_FEAT:-}" ] && [ -n "$_FEAT" ] \
-   && ! git -C "$ROOT" rev-parse --verify -q "refs/heads/$_FEAT" >/dev/null \
-   && ! git -C "$ROOT" rev-parse --verify -q "refs/remotes/$_FEAT" >/dev/null \
-   && git -C "$ROOT" rev-parse --verify -q "$_FEAT^{commit}" >/dev/null; then
+   && ! git -C "$SEAT_REPO" rev-parse --verify -q "refs/heads/$_FEAT" >/dev/null \
+   && ! git -C "$SEAT_REPO" rev-parse --verify -q "refs/remotes/$_FEAT" >/dev/null \
+   && git -C "$SEAT_REPO" rev-parse --verify -q "$_FEAT^{commit}" >/dev/null; then
   _BASE_SHA="$_FEAT"; _FEAT=""
 fi
+[ "$PACK_WT" != 1 ] || _FEAT="${_FEAT:-origin/main}"   # r508: 팩 리포에는 feat/v6-realtime-live 가 없다 — 팩 착지 줄기
 _FEAT="${_FEAT:-feat/v6-realtime-live}"
 # R22: base 가 원격 추적 ref(origin/<b>)면 닫기 직전 그 ref 하나만 fetch — 옛 ref 로 대조하지 않는다(#0 RULE). 로컬 브랜치 값이면 fetch 0.
 _fetch_remote_feat() {
-  local feat="$1" remote br
-  git -C "$ROOT" rev-parse --verify -q "refs/heads/$feat" >/dev/null && return 0
-  git -C "$ROOT" rev-parse --verify -q "refs/remotes/$feat" >/dev/null || return 0
+  local feat="$1" remote br repo="${SEAT_REPO:-$ROOT}"   # r508: 대조 리포(팩 나노 = 팩) · 함수만 떼어 쓰는 시험은 ROOT
+  git -C "$repo" rev-parse --verify -q "refs/heads/$feat" >/dev/null && return 0
+  git -C "$repo" rev-parse --verify -q "refs/remotes/$feat" >/dev/null || return 0
   remote="${feat%%/*}"; br="${feat#*/}"
-  if git -C "$ROOT" fetch -q "$remote" "$br" >/dev/null 2>&1; then
-    echo "INFO feat=$feat @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$feat") (fetch 완료)"
+  if git -C "$repo" fetch -q "$remote" "$br" >/dev/null 2>&1; then
+    echo "INFO feat=$feat @ $(git -C "$repo" rev-parse --short "refs/remotes/$feat") (fetch 완료)"
   else
     bad+=("⑤ feat 원격 ref fetch 실패: $feat — 옛값으로 대조하지 않는다")
   fi
 }
 _fetch_remote_feat "$_FEAT"
 if [ -n "$_BASE_SHA" ]; then
-  if git -C "$ROOT" merge-base --is-ancestor "$_BASE_SHA" "$_FEAT" 2>/dev/null; then
+  if git -C "$SEAT_REPO" merge-base --is-ancestor "$_BASE_SHA" "$_FEAT" 2>/dev/null; then
     echo "INFO base sha ${_BASE_SHA:0:9} → 랜딩 브랜치 $_FEAT"
   else
     bad+=("base 가 sha ${_BASE_SHA:0:9} 이고 $_FEAT 의 조상이 아니다 — FT_NANO_FEAT=<랜딩 브랜치> 로 다시")
@@ -547,6 +562,10 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
       for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$_hit" ] && [ -f "$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _hit="$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
+fi
+# r508 ⓐ 카드: 팩 경로는 하네스 카드(머리 `- 설치: 있음`)만 — 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
+if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && grep -qE '^- 설치: 있음' "$CARD"; }; then
+  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 ${CARD:-못 찾음})")
 fi
 # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
 _cp_pressed=1
@@ -656,15 +675,15 @@ elif [ "$SHARED" = 1 ]; then
   fi
 elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   # --cherry-override 는 ⑤ 에만 전달한다(①~④·⑥ 영향 0). FT_SEAT 로 원장 행 seat 칸이 좌석명이 된다.
-  _gate_args=(--repo "$ROOT" --mode close); [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
+  _gate_args=(--repo "$SEAT_REPO" --mode close); [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
   [ "$SUPER" -eq 0 ] || _gate_args+=(--override "superseded-by $SUPERSEDED")   # R171: 대체 나노는 산출을 랜딩하지 않는다 — cherry REJECT 일 때만 원장 1행(사유 = 대체 카드)
   [ "$SUSP" -eq 0 ] || _gate_args+=(--override "suspended: $SUSP_REASON")   # r450: 중단 나노도 미완 산출을 랜딩하지 않는다(브랜치 보존) — 같은 자리 · 같은 원장
   _gate_out="$(FT_SEAT="$SEAT" "$HERE/ft-nano-cherry-gate.sh" "$_FEAT" "$_gate_br" "${_gate_args[@]}" 2>&1)"; _gate_rc=$?
   # 판정 1280: 팀 base 기준 REJECT «일 때만» origin/main 기준으로 같은 게이트를 한 번 더(--override 전달 0) — 뒤처진 팀 base 에서 main 에 squash 된 나노를 막지 않는다.
   #   fetch 실패면 옛 ref 로 대조하지 않는다(R22 · #0 RULE). 팀 base 가 이미 main·origin/main 이면 두 번째 실행 0.
   if [ "$_gate_rc" -ne 0 ] && [ "$_FEAT" != origin/main ] && [ "$_FEAT" != main ]; then
-    if git -C "$ROOT" fetch -q origin main >/dev/null 2>&1; then
-      _om_out="$(FT_SEAT="$SEAT" "$HERE/ft-nano-cherry-gate.sh" origin/main "$_gate_br" --repo "$ROOT" --mode close 2>&1)"; _om_rc=$?
+    if git -C "$SEAT_REPO" fetch -q origin main >/dev/null 2>&1; then
+      _om_out="$(FT_SEAT="$SEAT" "$HERE/ft-nano-cherry-gate.sh" origin/main "$_gate_br" --repo "$SEAT_REPO" --mode close 2>&1)"; _om_rc=$?
       if [ "$_om_rc" -eq 0 ]; then _gate_rc=0; _gate_out="INFO cherry 게이트 — $_FEAT 기준 REJECT(${_gate_out%%$'\n'*}) · origin/main 기준 통과(${_om_out%%$'\n'*}) (사유 content_on_origin_main)"
       else _gate_out="$_gate_out"$'\n'"origin/main 기준: ${_om_out%%$'\n'*}"; fi
     else _gate_out="$_gate_out"$'\n'"origin/main fetch 실패 — 옛 ref 로 대조하지 않는다(R22)"; fi
@@ -672,7 +691,7 @@ elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   [ "$_gate_rc" -eq 0 ] || bad+=("⑤$(printf '%s' "$_gate_out" | sed '2,$s/^/    /')")
   # 나노 생애(오빠 ORDERS 103 · docs/rules/single_set_testing.md §3): 미랜딩이면 «루트부터» 판정과 다음 수(최신 루트 병합→시험→squash 랜딩)를 같이 낸다.
   if [ "$_gate_rc" -ne 0 ] && [ -x "$HERE/ft-nano-freshness.sh" ]; then
-    _fresh_out="$(cd "$ROOT" && "$HERE/ft-nano-freshness.sh" "$_gate_br" --root "$_FEAT" 2>&1 | grep -E '^(base|branch|overlap|다음|VERDICT|  )')"
+    _fresh_out="$(cd "$SEAT_REPO" &&"$HERE/ft-nano-freshness.sh" "$_gate_br" --root "$_FEAT" 2>&1 | grep -E '^(base|branch|overlap|다음|VERDICT|  )')"
     bad+=("⑤-생애 $(printf '%s' "$_fresh_out" | sed '2,$s/^/    /')")
   fi
   [ "$_gate_rc" -ne 0 ] || echo "$_gate_out"
@@ -734,9 +753,11 @@ PY
 _prc=$?; [ "$_prc" -eq 0 ] || { echo "REJECT $SEAT"; echo "  - 명부 쓰기 실패(rc=$_prc): $SEATS"; exit 1; }   # R400 r3 ③ — 사건 원장은 trap abort · CLOSED 0
 if [ -n "$NS_LAND" ]; then PLAN=""; WT_MARK="mode=never-started-landed landed=$NS_LAND reason=«${NEVER_REASON}» (정리 계획 0 · [wip] 0 · 브랜치 0)"   # 개정 r3 규칙 2b
 elif [ -n "$NS_SUCC" ]; then PLAN=""; WT_MARK="mode=never-started-shared successor=$NS_SUCC reason=«${NEVER_REASON}» (정리 계획 0 · [wip] 0 · 브랜치 0)"   # r506 r2: 후계가 쓰는 워크트리 — 손대지 않는다
+elif [ "$PACK_WT" = 1 ]; then PLAN=""   # r508: 팩 워크트리 정리는 이 카드 밖(별 경로) — 계획 0
 else _wt_clean_plan; fi
 [ "$SHARED" != 1 ] || WT_MARK="mode=shared-wt wt=$SH_TOP (정리 0 · 브랜치 0)"   # 계획·정리 0 — 원장 행에 모드를 남긴다
 [ "$NAMED" != 1 ] || WT_MARK="mode=named-wt wt=$SEAT_WT branch=$NBR (계획만 · 정리 0 · 브랜치 0)"
+[ "$PACK_WT" != 1 ] || WT_MARK="mode=pack-wt wt=$SEAT_WT branch=$NBR repo=$SEAT_REPO (계획 0 · 정리 0 · 브랜치 0)"
 # 원장 append 도 계획의 mark() 와 «같은» mkdir 락(<원장>.lock) 아래 — 락 밖 >> 와 mark 의 read→replace 가 겹치면 행이 소실된다(DA r3 실측 204/8000). 락 실패는 REJECT 가 아니라 append 강행(닫힘 행이 없는 것이 더 나쁘다) + 경고.
 _lock="$LEDGER.lock"; _i=0
 until mkdir "$_lock" 2>/dev/null; do _i=$((_i+1)); [ "$_i" -lt 100 ] || { echo "WARN 원장 락 10s 초과($_lock) — 락 없이 처리" >&2; _lock=""; break; }; sleep 0.1; done
@@ -773,6 +794,7 @@ if [ "$NAMED" = 1 ]; then
   _hb="$(dirname "$0")/ft-hil.sh"; _hm=""  # R83: 사람 ! 실행 안내 = 짧은 링크 · ft-hil.sh 없거나 실패면 지금 문구 + WARN
   [ -z "$PLAN" ] || { command -v "$_hb" >/dev/null 2>&1 && _hm="$("$_hb" --add "$PLAN" 2>/dev/null | tail -1)"; [ -n "$_hm" ] || echo "WARN ft-hil 실패 — 경로 안내로 후퇴" >&2; }
   [ -z "$PLAN" ] || echo "워크트리 정리 계획: $PLAN — $_why 자율 정리 범위 밖 — 사람 ! 실행: ${_hm:-! bash $PLAN} (자동 wt-clean 0 · 브랜치 삭제 0)"
+  [ "$PACK_WT" != 1 ] || echo "INFO 팩 워크트리 정리 = 별 경로 — $SEAT_WT (팩 리포 $SEAT_REPO · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)"
 elif [ -n "$PLAN" ]; then echo "워크트리 정리 계획: $PLAN (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)"; fi
 # r6(DA r5 MINOR e): 명부 pop 은 ABSENT 여부와 무관하게 위에서 항상 실행된다 — 「명부 확인」은 사실과 달랐다.
 bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 원장 append 직후 = 닫힘 사건 성공(append 실패는 stderr SHEET-EVENT-PENDING)
