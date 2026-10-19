@@ -436,13 +436,22 @@ _pack_wt() {
   grep -qxF "worktree $1" <<<"$pporc" || return 1
   PACK_WT=1; SEAT_REPO="$pk"; _porc="$pporc"
 }
+# r519: 팩 등록 워크트리인데 표준 자리(팩 .worktrees/) 밖(세션 스크래치 등)이면 «옮기는 한 줄» — 판정(REJECT)은 그대로 · 출력만
+_pack_move_hint() {
+  local pk
+  pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 0
+  [[ "$1" == "$pk/.worktrees/"?* ]] && return 0
+  git -C "$pk" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $1" || return 0
+  printf ' · 표준 자리 밖 — mkdir -p %s/.worktrees && git -C %s worktree move %s %s/.worktrees/%s 뒤 같은 명령(--wt %s/.worktrees/%s)' \
+    "$pk" "$pk" "$1" "$pk" "${NBR#nano/}" "$pk" "${NBR#nano/}"
+}
 if [ "$NAMED" = 1 ]; then
   _std_wt="$SEAT_WT"; SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""   # 표준 해석 결과·«추측 금지» 에러는 이 모드에서 명시 인자가 대신한다(표준 후보가 따로 있으면 아래서 REJECT)
   _nw="$(cd "$NWT" 2>/dev/null && pwd -P)"
   _porc="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)"
   if [ -z "$_nw" ]; then bad+=("ⓐ--wt 경로가 없다: $NWT")
   elif { [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! grep -qxF "worktree $_nw" <<<"$_porc"; } && ! _pack_wt "$_nw"; then
-    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만")
+    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만$(_pack_move_hint "$_nw")")
   else
     _nb="$(printf '%s\n' "$_porc" | awk -v t="$_nw" '/^worktree /{p=substr($0,10)} /^branch /{if(p==t){b=substr($0,8); sub("^refs/heads/","",b); print b}}')"
     if [ "$_nb" != "$NBR" ]; then bad+=("ⓑ--wt($_nw)에 체크아웃된 브랜치(${_nb:-detached})가 --branch($NBR)와 다르다")
