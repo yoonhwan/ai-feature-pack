@@ -1,0 +1,12 @@
+# r462 시험 rc (2026-10-19 · 가지 nano/r462 작업트리)
+test_autonomy_merge_equiv rc=0 13P 0F (새)
+test_autonomy_hooks rc=0 165P 0F
+test_autonomy_hooks_layout rc=1 11P 7F
+test_autonomy_kinds_1675 rc=0 109P 0F
+test_merge_land_off_approval rc=0 14P 0F
+test_autonomy_core rc=1 194P 1F
+test_autonomy_scope rc=0 134P 0F
+test_merge_land_equiv rc=0 41P 0F
+test_autonomy_preflight rc=0 113P 0F
+# 기존 RED(origin/main d8305edb 원본 사본에서도 같은 실패 = 이 가지와 무관): test_autonomy_hooks_layout 7F(ⓛ0 라이브 상태 ON 준비 실패에서 연쇄) · test_autonomy_core 1F(팩 밖 BYZ shared/config/external_call.py 를 팩 ROOT 로 찾음)
+# 변이: 고치기 전 훅(origin/main)으로 test_autonomy_merge_equiv = fail=4

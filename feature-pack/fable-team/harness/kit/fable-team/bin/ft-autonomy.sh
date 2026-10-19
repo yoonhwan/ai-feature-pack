@@ -183,7 +183,7 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
     printf '%s\n' "$line" >> "$LOG" || { echo "REJECT log 쓰기 실패" >&2; exit 1; }
     { printf '%s\n' "$line" > "$dir/$sha.tmp" && mv "$dir/$sha.tmp" "$dir/$sha"; } || { echo "REJECT 승인 파일 쓰기 실패: $dir/$sha" >&2; exit 1; }
     echo "APPROVED $sha $ev"
-  done
+  done; echo "EQUIV 허용 범위: 이 승인은 같은 변경 집합(승인 sha 위에 main 병합만 더한 head)에도 유효 — 병합 훅이 ft_approval_equiv 로 대조(r462)" >&2
 }
 
 case "${1:-}" in

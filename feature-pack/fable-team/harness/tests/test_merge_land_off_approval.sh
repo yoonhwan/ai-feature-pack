@@ -35,7 +35,7 @@ land 1 --approve-sha "$P1"
 
 # ④ OFF 에서 approve-merge → 기록 1줄(이벤트 칸 OFF) · 파일 1줄 · 상태는 OFF 그대로(위변조 아님)
 approve "$P1"
-[ "$rc" = 0 ] && [[ "$out" == "APPROVED $P1 OFF" ]]; ck "④ OFF · approve-merge 기록 성공(APPROVED … OFF)" $?
+[ "$rc" = 0 ] && [[ "${out%%$'\n'*}" == "APPROVED $P1 OFF" ]];ck "④ OFF · approve-merge 기록 성공(APPROVED … OFF)" $?
 [ "$(wc -l < "$(FILE "$P1")" | tr -d ' ')" = 1 ] && grep -qE "^approve-merge $P1 OFF [0-9]+$" "$(FILE "$P1")" && grep -qxF "$(head -n1 "$(FILE "$P1")")" "$T/state/autonomy.log"; ck "④ 승인 파일 1줄 == autonomy.log 한 줄(이벤트 OFF)" $?
 [ "$(bash "$AUT" mode)" = off ]; ck "④ 승인 뒤에도 mode=off(위변조 아님)" $?
 approve "$P1" "xyz"; [ "$rc" = 2 ]; ck "④ 형식 틀린 sha → 여전히 REJECT rc2" $?

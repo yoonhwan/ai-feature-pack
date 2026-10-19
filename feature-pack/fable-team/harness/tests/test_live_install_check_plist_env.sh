@@ -30,12 +30,17 @@ legacy; cp -p "$T/legacy.plist" "$DST"
 cat > "$T/fake-launchctl" <<'EOF'
 #!/bin/bash
 echo "$*" >> "$LC_LOG"
+# r464: FT_FAKE_BOOTSTRAP_FAIL=<n> → 이 값을 켠 뒤 첫 n 회 bootstrap 실패(카운터 = $BOOT_CNT · 시각 = $BOOT_TS)
+if [ "$1" = bootstrap ]; then
+  date +%s >> "$BOOT_TS"; c=$(( $(cat "$BOOT_CNT" 2>/dev/null || echo 0) + 1 )); echo "$c" > "$BOOT_CNT"
+  [ "$c" -gt "${FT_FAKE_BOOTSTRAP_FAIL:-0}" ] || { echo "Bootstrap failed: 5: Input/output error" >&2; exit 5; }
+fi
 [ "$1" = list ] || exit 0
 case " ${STUB_LOADED:-} " in *" $2 "*) printf '{\n\t"Label" = "%s";\n};\n' "$2"; exit 0;; esac
 exit 113
 EOF
 chmod +x "$T/fake-launchctl"
-export FT_LAUNCHCTL="$T/fake-launchctl" LC_LOG="$T/lc.log" STUB_LOADED="$LABEL"; : > "$LC_LOG"
+export FT_LAUNCHCTL="$T/fake-launchctl" LC_LOG="$T/lc.log" STUB_LOADED="$LABEL" BOOT_CNT="$T/boot.cnt" BOOT_TS="$T/boot.ts"; : > "$LC_LOG"
 nkick() { grep -c '^kickstart' "$LC_LOG"; }
 nboot() { grep -c '^bootstrap' "$LC_LOG"; }
 sum() { cksum < "$DST"; }
@@ -95,6 +100,33 @@ out="$(bash "$INST" --apply --project "$Q" --home "$HOME" 2>&1)"; rc=$?; [ "$rc"
 ck "r457ⓔ git 밖 --project → install.sh ERROR rc1 · plist 불변(새 통과 0)" $?
 chk --project "$Q"; [ "$rc" = 3 ] && has "git 공용 루트 아님"; ck "r457ⓔ git 밖 --project → install-check ERROR rc3" $?
 cp -p "$T/good.plist" "$DST"
+
+# r464 — bootout 직후 bootstrap 실패(launchd 비동기) → 1초 간격 최대 3회 · 그래도 실패면 직전 plist 원복 + 다시 올림 · LIVE_BIN 전환은 plist «앞»
+VER="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$H/../manifest.json")"; NEWBIN="$(cd "$HOME/.claude/fable-team/live/$VER/bin" && pwd -P)"
+lbin() { (cd "$(sed -n 1p "$P/.fable-team/LIVE_BIN")" && pwd -P); }
+fails() { export FT_FAKE_BOOTSTRAP_FAIL="$1"; : > "$BOOT_CNT"; : > "$BOOT_TS"; }
+cp -p "$T/legacy.plist" "$DST"; cp -p "$DST.bak-r426" "$T/bak0"; printf '%s\n' "$LB" > "$P/.fable-team/LIVE_BIN"; k0="$(nkick)"; fails 1
+inst --apply; [ "$rc" = 0 ] && has "PLIST applied $LABEL (retry=1 · 되돌림 = $DST.bak-$VER" && [ "$(grep -c . "$BOOT_TS")" = 2 ] && [ "$(nkick)" = $((k0 + 1)) ] \
+  && cmp -s "$DST" "$T/good.plist" && [ "$(lbin)" = "$NEWBIN" ] && has "INSTALLED $VER · PLIST ok"
+ck "r464ⓐ bootstrap 1회 실패 뒤 성공 → PLIST applied (retry=1) · kickstart 1 · 렌더본 · LIVE_BIN 전환 · rc0" $?
+cp -p "$T/legacy.plist" "$DST"; printf '%s\n' "$LB" > "$P/.fable-team/LIVE_BIN"; k0="$(nkick)"; fails 3
+inst --apply; [ "$rc" = 1 ] && has "PLIST RESTORED $LABEL — 새 렌더본 적용 실패(bootstrap 3회 실패: Bootstrap failed: 5: Input/output error)" \
+  && cmp -s "$DST" "$T/legacy.plist" && [ "$(grep -c . "$BOOT_TS")" = 4 ] && [ "$(nkick)" = "$k0" ] && ! has "PLIST applied" \
+  && has "INSTALLED $VER · PLIST ERROR" && [ "$(lbin)" = "$NEWBIN" ]
+ck "r464ⓑ bootstrap 3회 실패 → 직전 plist 원복(cmp0) + 원복본 bootstrap · RESTORED · rc1 · LIVE_BIN 은 이미 새 버전" $?
+cmp -s "$DST.bak-r426" "$T/bak0"; ck "r464ⓑ .bak-r426(첫 원본) 보존" $?
+fails 6; cp -p "$T/legacy.plist" "$DST"; inst --apply; [ "$rc" = 1 ] && has "ERROR: plist 원복본 bootstrap 도 실패 $LABEL" && has "손 복구 = launchctl bootstrap" \
+  && cmp -s "$DST" "$T/legacy.plist" && has "INSTALLED $VER · PLIST ERROR"
+ck "r464ⓑ' 원복본 bootstrap 도 실패 → ERROR + 손 복구 1줄 · plist 는 원복본 · rc1" $?
+fails 0; cp -p "$T/good.plist" "$DST"; k0="$(nkick)"; b0="$(nboot)"; s0="$(sum)"
+inst --apply; [ "$rc" = 0 ] && has "OK plist-env $LABEL" && [ "$(nkick)" = "$k0" ] && [ "$(nboot)" = "$b0" ] && [ "$(sum)" = "$s0" ]
+ck "r464ⓒ 렌더본 같음 → 쓰기 0 · bootstrap·kickstart 0" $?
+sed '/<key>FT_ROOT<\/key>/d' "$T/good.plist" > "$T/prev.plist"; cp -p "$T/prev.plist" "$DST"; inst --apply
+[ "$rc" = 0 ] && cmp -s "$DST.bak-$VER" "$T/prev.plist" && cmp -s "$DST.bak-r426" "$T/bak0" && ! cmp -s "$T/prev.plist" "$T/bak0" && cmp -s "$DST" "$T/good.plist"
+ck "r464ⓓ 되돌림 기준 = 직전 plist(.bak-$VER) · .bak-r426 보존" $?
+fails 3; cp -p "$T/legacy.plist" "$DST"; inst --apply; span=$(( $(tail -1 "$BOOT_TS") - $(head -1 "$BOOT_TS") ))
+[ "$rc" = 1 ] && [ "$(grep -c . "$BOOT_TS")" = 4 ] && [ "$span" -le 7 ]; ck "r464ⓔ 재시도 첫~마지막 bootstrap ${span}s ≤ 7초" $?
+fails 0; cp -p "$T/good.plist" "$DST"
 
 # ⓓ 치환 실패 = ERROR (조용한 통과 0)
 out="$(python3 "$ENV_PY" render "$LABEL" "$TPL" "$DST" "$T/no-root" "$LB" "$HOME" 2>&1)"; rc=$?; [ "$rc" = 3 ] && has "ERROR" && has "루트 없음"; ck "ⓓ 렌더: 루트 없음 → ERROR rc3" $?
