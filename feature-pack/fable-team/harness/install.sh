@@ -57,15 +57,16 @@ fi
 # 설치 대상 = 키트 bin·templates 의 일반 파일(파이썬 캐시 제외) — 상대경로 정렬
 FILES="$(cd "$KIT" && find bin templates -type f ! -path '*/__pycache__/*' ! -name '*.pyc' | LC_ALL=C sort)"
 COUNT="$(printf '%s\n' "$FILES" | grep -c .)"
-# 홈 훅 = 키트 kit/hooks 의 이 목록만 <home>/.claude/hooks/ 로 cp -p → cmp (settings.json 훅 등록은 별도 = master)
-HOME_HOOKS="harness-freeze-gate.sh old-team-path-new-file-gate.sh op-vault-develop-gate.sh"
+# 홈 훅 = 키트 kit/hooks 의 일반 파일 전부 → <home>/.claude/hooks/ 로 cp -p → cmp → chmod +x (settings.json 훅 등록은 별도 = master)
+#   r491: 손 cp 는 실행 비트를 안 따라온다(664 훅 1개 = 전 좌석 매 Bash «Permission denied») — 목록 고정 0 · 실행 비트까지 설치기가 본다
+HOME_HOOKS="$(cd "$HARNESS/kit/hooks" && find . -maxdepth 1 -type f ! -name '*.pyc' | sed 's|^\./||' | LC_ALL=C sort)"
 
 echo "== fable-team harness 설치 ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0')) =="
 echo "version=$VERSION machine=$MACHINE live=$LIVE/ files=$COUNT"
 echo "HARNESS_ROOT $LIVE/HARNESS_ROOT <- $HARNESS"
 echo "LIVE_BIN  $PROJECT/.fable-team/LIVE_BIN  <- $LIVE/bin"
 echo "LIVE_ROOT $LR_FILE <- $LROOT$([ -f "$LR_FILE" ] && echo ' (있으면 보존)')"
-for h in $HOME_HOOKS; do echo "HOOK $HOME_DIR/.claude/hooks/$h <- $HARNESS/kit/hooks/$h"; done
+for h in $HOME_HOOKS; do echo "HOOK $HOME_DIR/.claude/hooks/$h <- $HARNESS/kit/hooks/$h (exec)"; done
 # r449: 프로젝트 git 훅 = 키트 kit/fable-team/githooks/* → <프로젝트>/.fable-team/githooks/ (core.hooksPath 가 가리키는 곳 · LIVE_BIN 연결 «뒤» 에 복사 — 새 pre-commit 이 새 bin 의 판정식을 찾게)
 GH_DEST="$PROJECT/.fable-team/githooks"
 for g in "$KIT"/githooks/*; do [ -f "$g" ] && echo "GITHOOK $GH_DEST/$(basename "$g") <- $g"; done
@@ -142,7 +143,47 @@ plist_sync() {
 perm() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
 # r459: 먼저 기동한 데몬은 메모리의 옛 사본으로 돈다 — 기동 < 스크립트(shim·LIVE_BIN 지도·라이브 도구) mtime 인 라벨을 RESTART 줄로(판정식 = ft_live_install_check restart_due 하나 · 읽기만 · dry-run 은 설치 전 시점 값)
 restart_scan() { python3 "$KIT/bin/ft_live_install_check.py" --restart-scan "$HOME_DIR/Library/LaunchAgents" || { echo "ERROR: RESTART 판정 실패" >&2; exit 1; }; }
-if [ "$APPLY" != 1 ]; then plist_sync; comm_sync; restart_scan; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
+# r491: settings.json 에 등록된 훅 경로(…/hooks/<파일> · $HOME/… · ~/…) 전수 — 실재 + (명령 첫 낱말로 직접 실행되면) 실행 비트 · 읽기만(settings 쓰기 0)
+#   출력 = 문제마다 `HOOK-EXEC <경로> <없음|실행 비트 없음>` + 끝 줄 `HOOKS registered=N ok=N bad=M` · settings 없음 = registered=0 · JSON 깨짐 = rc1
+#   `bash <경로>`·`if [ -x <경로> ]…` 처럼 인터프리터·가드로 부르는 경로는 실재만 본다(644 여도 돈다 — 과차단 0)
+audit_registered_hooks() {
+  python3 -I - "$1" "$2" <<'PY'
+import json, os, re, sys
+settings, home = sys.argv[1], sys.argv[2]
+if not os.path.isfile(settings):
+    print("HOOKS registered=0 ok=0 bad=0 (settings 없음: %s)" % settings); sys.exit(0)
+try:
+    cfg = json.load(open(settings, encoding="utf-8"))
+except (OSError, ValueError) as e:
+    print("ERROR settings.json 못 읽음: %s (%s)" % (settings, e)); sys.exit(1)
+need = {}  # 경로 → 실행 비트 필요 여부(직접 실행이 한 번이라도 있으면 True)
+for groups in (cfg.get("hooks") or {}).values():
+    for g in groups or []:
+        for h in g.get("hooks") or []:
+            words = re.findall(r"""[^\s'";&|()]+""", h.get("command") or "")
+            for i, w in enumerate(words):
+                if "hooks/" not in w or not re.match(r"(/|~/|\$HOME/|\$\{HOME\}/)", w):
+                    continue
+                p = re.sub(r"^(~|\$HOME|\$\{HOME\})/", home.rstrip("/") + "/", w)
+                need[p] = need.get(p, False) or i == 0
+bad = 0
+for p in sorted(need):
+    why = "없음" if not os.path.isfile(p) else ("실행 비트 없음" if need[p] and not os.access(p, os.X_OK) else "")
+    if why:
+        bad += 1; print("HOOK-EXEC %s %s" % (p, why))
+print("HOOKS registered=%d ok=%d bad=%d" % (len(need), len(need) - bad, bad))
+PY
+}
+HOOK_FAIL=0
+hook_audit() {  # dry-run = PENDING (rc 불변) · apply = ERROR + HOOK_FAIL=1(끝 rc1)
+  local out ln tag=PENDING
+  [ "$APPLY" = 1 ] && tag=ERROR
+  out="$(audit_registered_hooks "$HOME_DIR/.claude/settings.json" "$HOME_DIR")" || { printf '%s\n' "$out" >&2; exit 1; }
+  while IFS= read -r ln; do
+    case "$ln" in HOOK-EXEC\ *) echo "$tag $ln"; HOOK_FAIL=1;; *) echo "$ln";; esac
+  done <<< "$out"
+}
+if [ "$APPLY" != 1 ]; then plist_sync; comm_sync; restart_scan; hook_audit; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
 PREV=""; [ -f "$PROJECT/.fable-team/LIVE_BIN" ] && PREV="$(sed -n '1p' "$PROJECT/.fable-team/LIVE_BIN")"
@@ -158,16 +199,20 @@ extra="$(cd "$LIVE" && find bin templates -type f ! -path '*/__pycache__/*' ! -n
 cur=""; [ -f "$LIVE/HARNESS_ROOT" ] && cur="$(sed -n '1p' "$LIVE/HARNESS_ROOT")"
 [ "$cur" = "$HARNESS" ] || printf '%s\n' "$HARNESS" > "$LIVE/HARNESS_ROOT"
 echo "COPY copied=$copied same=$same extra=$extra"
-hcopied=0; hsame=0
+hcopied=0; hsame=0; hchmod=0
 for h in $HOME_HOOKS; do
   src="$HARNESS/kit/hooks/$h"; dst="$HOME_DIR/.claude/hooks/$h"
-  [ -f "$src" ] || { echo "ERROR: 키트 훅 없음: $src" >&2; exit 1; }
-  if [ -f "$dst" ] && cmp -s "$src" "$dst" && [ "$(perm "$src")" = "$(perm "$dst")" ]; then hsame=$((hsame + 1)); continue; fi
-  mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"
-  cmp -s "$src" "$dst" || { echo "ERROR: 훅 복사 불일치: $h" >&2; exit 1; }
-  hcopied=$((hcopied + 1))
+  if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
+    hsame=$((hsame + 1))
+  else
+    mkdir -p "$(dirname "$dst")"; cp -p "$src" "$dst"
+    cmp -s "$src" "$dst" || { echo "ERROR: 훅 복사 불일치: $h" >&2; exit 1; }
+    hcopied=$((hcopied + 1))
+  fi
+  # r491: cmp 는 내용만 — 실행 비트는 따로(키트 644 · 손 cp 664 여도 홈에선 실행돼야 한다)
+  [ -x "$dst" ] || { chmod +x "$dst"; hchmod=$((hchmod + 1)); echo "HOOK $dst chmod +x"; }
 done
-echo "HOOKS copied=$hcopied same=$hsame (settings.json 등록은 별도)"
+echo "HOOKS copied=$hcopied same=$hsame chmod=$hchmod (settings.json 등록은 별도)"
 
 # 프로젝트 LIVE_BIN·LIVE_ROOT·연결 파일 — 설치본 도구로(키트 트리 = 이 하네스 체크아웃의 HEAD)
 REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd -P)"
@@ -190,6 +235,8 @@ else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거�
 # r464: plist 는 LIVE_BIN 전환 «뒤» — plist 실패가 코드 전환을 막지 못한다(1.1.25 «새 폴더만 생김» 사고)
 plist_sync
 restart_scan   # r459: plist 단계(재적재한 라벨은 새로 기동) «뒤» 의 기동 시각으로 판정
+hook_audit     # r491: 등록 훅 전수 — 손으로 들어온 훅의 실행 비트·실재도 여기서 걸린다
+if [ "$HOOK_FAIL" = 1 ]; then echo "INSTALLED $VERSION · HOOK-EXEC ERROR — 설치는 끝났다 · 위 ERROR HOOK-EXEC 줄의 훅을 고친다(chmod +x 또는 settings 등록 정리 = master)"; echo "== 끝 =="; exit 1; fi
 if [ "$PLIST_FAIL" = 1 ]; then echo "INSTALLED $VERSION · PLIST ERROR — LIVE_BIN 전환은 끝났다 · plist 는 위 RESTORED/ERROR 줄"; echo "== 끝 =="; exit 1; fi
 echo "INSTALLED $VERSION · PLIST ok"
 echo "== 끝 =="
