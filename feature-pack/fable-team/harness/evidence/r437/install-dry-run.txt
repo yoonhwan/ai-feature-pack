@@ -1,0 +1,8 @@
+== fable-team harness 설치 (dry-run · 쓰기 0) ==
+version=1.1.16 machine=MacBook-Pro live=/Users/yoonhwan/.claude/fable-team/live/1.1.16/ files=324
+HARNESS_ROOT /Users/yoonhwan/.claude/fable-team/live/1.1.16/HARNESS_ROOT <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r437-role-spawn-team/feature-pack/fable-team/harness
+LIVE_BIN  /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_BIN  <- /Users/yoonhwan/.claude/fable-team/live/1.1.16/bin
+LIVE_ROOT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_ROOT <- /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live (있으면 보존)
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r437-role-spawn-team/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r437-role-spawn-team/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh
+(dry-run: 쓰지 않았다 — 설치하려면 --apply)

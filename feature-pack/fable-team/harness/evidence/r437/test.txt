@@ -1,0 +1,25 @@
+$ bash tests/test_role_spawn_team.sh
+PASS bash -n ft-role-spawn.sh
+PASS bash -n ft-successor-open.sh
+PASS bash -n ft-teamset-check.sh
+PASS ⓐ dry-run: 이름 byz-feat-arch-claude#0 · 인박스·README = feat 폴더 · v65 경로 0
+PASS ⓐ 실제: seats-feat.json 행+_arch=byz-feat-arch-claude#0 · seats.json(v65) 쓰기 0
+PASS ⓐ 다음 회: 번호 이어받기 #1 · 교체 = 현역 #0
+PASS ⓑ --team 없음: byz-v65-arch-claude#4 · v65 인박스 · 교체 #3 (불변)
+PASS ⓑ --team v65 = 기본과 같다
+PASS ⓒ README 없음 → REJECT(경로) rc1 · PLAN 0 · v65 대체 0
+PASS ⓓ 명단 밖 팀 → REJECT rc1
+PASS ⓓ 팀 이름 형식 위반 → usage rc2
+PASS ⓓ _arch=#41(행 없음·죽음) → REJECT + successor-open 안내 · 두 arch 0
+PASS ⓔ 죽은 arch(_arch=#41) → REJECT 문구에 successor-open #41→#42 명령 1줄
+PASS ⓔ _arch 칸 없음 → REJECT 문구에 ft-role-spawn.sh arch --team feat 1줄
+PASS ⓔ arch 자신의 교대는 여전히 통과(게이트 기준 불변): OK feat _arch
+PASS ⓕ teamset-check ERR 줄 = 죽은 arch + successor-open 1줄
+PASS ⓕ teamset-check ERR 줄 = 빈 _arch + role-spawn --team 1줄
+PASS ⓖ 바꾼 줄 600/300 0
+ALL PASS
+rc=0
+cmp0 ft-role-spawn.sh
+cmp0 ft-successor-open.sh
+cmp0 ft-teamset-check.sh
+cmp0 ft_teamset.py

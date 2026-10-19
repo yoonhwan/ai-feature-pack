@@ -1,0 +1,18 @@
+# r437 — 브랜치 실패 = base(origin/main 7e4fc49e 의 git archive 추출본) 실패의 부분집합 (이 단위가 만든 새 실패 0)
+# 주 원인(base 공통): kit/bin 의 ft-spawn-hold.sh 가 임시 리포(LIVE_ROOT 없음)에서 «ERROR 라이브 루트를 못 풂» → 그 도구를 부르는 시험이 PLAN 전에 끝남 (r385 이후) · TEAMSET.md 미실재 픽스처
+# 비교 = FAIL 줄 앞 60~90자 정렬 diff
+test_role_spawn_name.sh        br 22 = base 22 (SAME)
+test_planner_nano_path.sh      br 3  = base 3  (SAME)
+test_tracked_bin_call_gate.sh  br 25 = base 25 (SAME)
+test_dead_seat_resume.sh       br rc124 timeout(FAIL 0) = base (SAME)
+test_seat_retire.sh            br 5  = base 5  (SAME · ⑦ 블록 인자에 TEAM 추가 후 — 추가 전 br 9)
+test_teamset_check.sh          br 6  ⊂ base 7 (base 추가분 = core.bare 추출본 꼴)
+test_teamset_gitref.sh         br 4  ⊂ base 5 (같은 사유)
+test_team_literal_paths.sh     br 6  ⊂ base 14
+test_goal_table_gate.sh        br 1  = base 1
+test_penalty_spawn_gate.sh     br 6  = base 6
+test_proposal_gate_wiring.sh   br 2  = base 2
+test_resource_gate.sh          br 8  ⊂ base 9
+test_resource_gate_pressure.sh br 4  ⊂ base 5
+# 통과(rc0): test_role_spawn_team(ⓐ~ⓖ) · test_successor_open · test_arch_required_gate · test_raised_seat · test_spawn_hold · test_team_roster_ref · test_resource_reclaim(+preventive) · test_nano_team_env · test_live_bin_drift_check · test_distill_recv_gate · test_baseline_lint · test_thread_reply_named
+# 판정 1395: 떨어지는 시험 = 고침 단위 — 위 base 공통 실패(ft-spawn-hold 라이브 루트·TEAMSET 픽스처)는 별도 카드 후보로 master 에 올림

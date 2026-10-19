@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — arch 가 죽은 «arch 상시» 팀의 교대 교착을 푼다: `ft-role-spawn --team <팀>` + arch 없음 REJECT·ERR 문구가 «있는 길» 명령 1줄을 적는다 (1.1.24 · 묶음 가지에 재적용)
+
+카드 r437 · master 110967 · planner 110961(판정 2346). feature master#30 교대가 `REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(ft-role-spawn arch)` 로 막혔는데, 안내가 가리킨 `ft-role-spawn.sh` 는 v65 명부(seats.json)·v65 폴더에 고정돼 feature arch 를 못 열었습니다(CFO 선례와 같은 뿌리). 죽은 arch 의 자기 교대(successor-open)는 게이트가 이미 통과시키므로, 도구가 그 길을 정확히 적게 합니다. 게이트 판정 기준(R342)은 불변 · master 교대 예외 0.
+
+- **ft-role-spawn.sh**: `--team <팀>`(기본 v65 = 동작 불변). 팀이면 명부 `seats-<팀>.json` · 인박스·README = `ft_team_in "$WT" <팀>` 폴더 · 이름 `byz-<팀>-<역할>-<에이전트>#N`(계보 하나) · 페널티 게이트 팀 = 그 팀. 명단 밖 팀·폴더 칸 오류·명부 없음·`<팀> SEATBELT-README.md 없음: <경로>`·인박스 없음 = REJECT(v65 로 조용한 대체 0 · #0 RULE). 명부 `_<역할>` 이 교체 대상 밖 좌석(죽은 arch · 행 없음)을 가리키면 REJECT + successor-open 명령 안내(두 arch 0). 빈 역할 키(`_master`·`_arch`·`_da`·`_tester`)는 새 좌석으로 채운다(팀 모드만).
+- **ft_teamset.py** `arch_open_hint`(판정기 하나): arch 없음 사유 끝에 `→ 열기: …` 1줄 — 명부 `_arch` 에 이름 있음 = `ft-successor-open.sh '<그 arch>' <팀 워크트리> --name '<베이스>#N+1' --agent … --model … --body-file …` · 비었음 = `ft-role-spawn.sh arch --team <팀>`. 같은 문자열이 `ft-successor-open` REJECT(arch-live NO 줄)와 `ft-teamset-check` ERR 줄 둘 다에 실린다.
+- **ft-successor-open.sh**: REJECT 머리 `먼저 arch 를 열어라(ft-role-spawn arch)` → `(아래 «→ 열기» 명령 · R437)`. **ft-teamset-check.sh**: 머리 주석에 ERR arch 줄 형식 1줄(동작 불변). bin·kit 짝 cmp0.
+- **시험**: `test_role_spawn_team.sh` ⓐ~ⓖ ALL PASS(ⓐ 실제 명부 쓰기 = seats-feat.json·_arch 채움·seats.json 쓰기 0 · ⓑ v65 불변 · ⓒ README 없음 REJECT · ⓓ 명단 밖·_arch 충돌 REJECT · ⓔ successor-open 문구 2꼴 · arch 자기 교대 통과 불변 · ⓕ teamset-check ERR 2꼴 · ⓖ 600/300 0). 증거 `harness/evidence/r437/`.
+- 범위 밖(기록만): 팀 폴더 SEATBELT-README 생성(`ft-team-upgrade` 몫 — feature 폴더엔 아직 없음 → 그때까지 feature arch 는 successor-open 경로) · 명부 `_arch` 가 죽은 좌석을 가리키는 행 자동 보정.
+
 ## 2026-10-19 — 정지 감시기가 정지 중인 팀에 «지금 spawn» 을 독촉하지 않는다: 명부 stop-ready 판정 · 정지 판정 실패를 정지 없음으로 읽지 않음 (1.1.23 묶음: r426·r427·r428·r429)
 
 카드 r428 · 쪽지 110864(v65 «대기 카드 85장 · 지금 spawn»)·110865 · arch#96 실측 · EVAL I17. 오빠가 «정지 레디·팀장 하나만»(판정 2341·2342)을 건 v65 에 stall a 독촉이 나갔습니다. 실측: 정지는 쪽지 문장으로만 걸려 정지 파일 0(`hold=none`), 명부 master 행은 `role=stop-ready` 였는데 감시기는 master 의 role 을 보지 않았습니다. (감시기 파이썬은 R320b 부터 SPAWN_HOLD 를 `status --check` 로 이미 읽는다 — arch 실측의 «grep 0» 은 래퍼 `ft-stall-scan.sh` 만 본 값.)

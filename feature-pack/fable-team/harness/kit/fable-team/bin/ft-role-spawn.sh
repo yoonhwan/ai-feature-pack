@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# ft-role-spawn.sh <master|da|pm|arch|tester> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
+# ft-role-spawn.sh <master|da|pm|arch|tester> [--team <팀>] [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
+#   --team(R437 · 기본 v65): 명부 = v65 는 seats.json · 그 외 seats-<팀>.json · 인박스·README = TEAMS.md 의 그 팀 폴더 · 이름 byz-<팀>-<역할>-<에이전트>#N
+#     팀 폴더·README·인박스·명부가 없으면 REJECT(v65 로 조용히 대체 0) · 명부 `_<역할>` 이 교체 대상 밖 좌석을 가리키면 REJECT(그 좌석은 ft-successor-open 교대)
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 #   상향 모델(claude-fable-*·*astra* · 판정 1641)은 --raise "<사유>" --raise-card <indices/…/X.md> 필수 — 명부 행에 raised{reason,card,by,at,close_on} (R149)
 # ft-nano-spawn.sh 를 본떴다. 차이 셋:
@@ -16,14 +18,15 @@ set -uo pipefail
 ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch|tester> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
 case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac
 # 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
-AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; RAISE=""; RAISE_CARD=""
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; RAISE=""; RAISE_CARD=""; TEAM="v65"
 while [ $# -gt 0 ]; do case "$1" in
-  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;
+  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;; --team) TEAM="${2:-}"; shift 2 2>/dev/null || shift;;
   --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;; --raise-card) RAISE_CARD="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 # 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
+[[ "$TEAM" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "usage: --team 은 팀 이름 [a-z0-9_-] (받은 값: $TEAM)" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
@@ -52,23 +55,27 @@ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 팀 = env FT_PENALTY_TEAM, 없으면 FT_ROLE_BASE_PREFIX(`byz-<팀>-`)에서 — 팀을 못 알면 정지 중엔 거절. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
 if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   [ -f "$HERE/ft-penalty.sh" ] || { echo "REJECT 전 세션 정지 중인데 ft-penalty.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _ptm="${FT_PENALTY_TEAM:-}"; [ -n "$_ptm" ] || { [[ "${FT_ROLE_BASE_PREFIX:-}" =~ ^[a-z]+-([a-z0-9]+)- ]] && _ptm="${BASH_REMATCH[1]}"; }
+  _ptm="${FT_PENALTY_TEAM:-}"; [ -n "$_ptm" ] || [ "$TEAM" = v65 ] || _ptm="$TEAM"; [ -n "$_ptm" ] || { [[ "${FT_ROLE_BASE_PREFIX:-}" =~ ^[a-z]+-([a-z0-9]+)- ]] && _ptm="${BASH_REMATCH[1]}"; }
   _pout="$(FT_ROOT="$ROOT" bash "$HERE/ft-penalty.sh" check "$_ptm" 2>&1)"; _prc=$?
   [ "$_prc" != 0 ] && { printf '%s\n' "$_pout"; exit "$_prc"; }
 fi
-SEATS="$ROOT/.fable-team/seats.json"
-. "$HERE/ft-team-lib.sh"   # R382b: v65 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
-_V65="$(ft_team_in "$WT" v65)" || { echo "REJECT v65 팀 폴더를 못 풀었다(design/TEAMS.md): $WT"; exit 1; }
-INBOX="$_V65/indices/inbox/$ROLE"; INBOX_REL="${INBOX#"$WT"/}"
-README="$_V65/SEATBELT-README.md"
-[ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
+[ "$TEAM" = v65 ] && SEATS="$ROOT/.fable-team/seats.json" || SEATS="$ROOT/.fable-team/seats-$TEAM.json"   # 명부 이름 규칙 = ft_teamset.py roster_path
+. "$HERE/ft-team-lib.sh"   # R382b: 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+_TD="$(ft_team_in "$WT" "$TEAM")" || { echo "REJECT $TEAM 팀 폴더를 못 풀었다(design/TEAMS.md 명단에 없거나 폴더 칸 오류): $WT"; exit 1; }
+INBOX="$_TD/indices/inbox/$ROLE"; INBOX_REL="${INBOX#"$WT"/}"
+README="$_TD/SEATBELT-README.md"
+[ -f "$SEATS" ] || { echo "REJECT 명부 없음: $SEATS"; exit 1; }
+[ -f "$README" ] || { echo "REJECT $TEAM SEATBELT-README.md 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }
 [ -d "$INBOX" ] || { echo "REJECT 인박스 폴더 없음: $INBOX (indices/inbox/<role>/ 가 먼저 있어야 후계가 읽을 것이 있다)"; exit 1; }
-[ -f "$README" ] || { echo "REJECT SEATBELT-README 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }
 
-# 이름: byz-v65-<role>-<agent>#<N+1> — N = tmux 세션 + seats.json 키 중 «세 베이스(BASE_NAME·NEW_BASE·OLD_BASE)» 의 최댓값 (없으면 -1 → #0)
-BASE_NAME="${FT_ROLE_BASE_PREFIX:-byz-v65-}$ROLE-$AGENT"   # 기본 = 정본 이름 byz-v65-… (오빠 10-07) · FT_ROLE_BASE_PREFIX 로 바꿀 수 있음
-NEW_BASE="byz-v65-$ROLE-$AGENT"                             # 정본 계보
-OLD_BASE="ft-v65-$ROLE-$AGENT"                              # 옛 계보 — 접두를 무엇으로 주든 두 계보 모두 번호 이어받기·교체 대상
+# 이름: byz-<팀>-<role>-<agent>#<N+1> — N = tmux 세션 + 명부 키 중 «세 베이스(BASE_NAME·NEW_BASE·OLD_BASE)» 의 최댓값 (없으면 -1 → #0)
+if [ "$TEAM" = v65 ]; then
+  BASE_NAME="${FT_ROLE_BASE_PREFIX:-byz-v65-}$ROLE-$AGENT"   # 기본 = 정본 이름 byz-v65-… (오빠 10-07) · FT_ROLE_BASE_PREFIX 로 바꿀 수 있음
+  NEW_BASE="byz-v65-$ROLE-$AGENT"                             # 정본 계보
+  OLD_BASE="ft-v65-$ROLE-$AGENT"                              # 옛 계보 — 접두를 무엇으로 주든 두 계보 모두 번호 이어받기·교체 대상
+else
+  BASE_NAME="byz-$TEAM-$ROLE-$AGENT"; NEW_BASE="$BASE_NAME"; OLD_BASE="$BASE_NAME"   # 팀 좌석은 정본 계보 하나(BOOT 13)
+fi
 maxn="$( { tmux ls -F '#{session_name}' 2>/dev/null; python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1],encoding="utf-8")).keys()))' "$SEATS"; } \
   | awk -v a="$BASE_NAME#" -v b="$NEW_BASE#" -v c="$OLD_BASE#" '{p=""; if(index($0,a)==1){p=a}else if(index($0,b)==1){p=b}else if(index($0,c)==1){p=c}; if(p!=""){n=substr($0,length(p)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1}} END{print (f?m:-1)}')"
 N=$((maxn+1)); while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
@@ -81,6 +88,13 @@ d = json.load(open(sys.argv[1], encoding="utf-8"))
 print(" ".join(k for k, v in d.items() if isinstance(v, dict) and v.get("role") == sys.argv[2] and not v.get("_replaced_by") and k.split("#")[0] in (sys.argv[3], sys.argv[4], sys.argv[5])))
 PY
 )"
+# R437: 팀 명부의 `_<역할>` 이 교체 대상 밖 좌석(죽은 arch 등 · 명부 행 없음)을 가리키면 새로 열지 않는다 — 두 좌석이 되고 `_<역할>` 은 옛 이름에 남는다. 그 좌석은 자기 교대(successor-open)로 잇는다.
+if [ "$TEAM" != v65 ]; then
+  _rk="$(python3 -c 'import json,sys;v=json.load(open(sys.argv[1],encoding="utf-8")).get("_"+sys.argv[2]);print(v if isinstance(v,str) else "")' "$SEATS" "$ROLE")"
+  if [ -n "$_rk" ] && [[ " ${OLD:-} " != *" $_rk "* ]]; then
+    echo "REJECT 명부 _$ROLE=$_rk 가 이미 있다(교체 대상 행 아님) — 그 좌석의 교대로 연다: ft-successor-open.sh '$_rk' <$TEAM 워크트리> --name '${_rk%#*}#<N+1>' --agent … --model … --body-file <골 3줄+인계>"; exit 1
+  fi
+fi
 # tmuxc 옵션은 에이전트별로 다르다(tmuxc 도움말: `--ctx` 는 claude 만 · `--effort` 는 claude·cmd·codex). 안 받는 옵션을 넘기면
 # tmuxc 가 거부한다(실측 dry-run 2026-09-14: `--ctx 는 --agent claude 에서만 사용 (agent=codex)`). 받는 것만 넘긴다.
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
@@ -118,9 +132,9 @@ tmux set-option -t "$PANE" @zc_v65_active 1
 # ft-tick.sh 가 «no active seat with tick» 만 찍고 뉴스 발행이 통째로 멈춘다(15:03~15:08 · 5틱 연속).
 # 위 11행 주석의 「틱 데몬이 seats.json 을 따라오는 것은 0.4 — 그 전엔 null 이 안전」은 stale 이다 —
 # 지금 도는 ft-tick.sh 가 이미 그 0.4 이고, 매 루프 seats.json 을 다시 읽는다.
-python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$NEW_BASE" "$OLD_BASE" "$RAISE" "$RAISE_CARD" "$FROM" <<'PY'
+python3 - "$SEATS" "$NAME" "$ROLE" "$AGENT" "$MODEL" "$INBOX_REL" "$NEW_BASE" "$OLD_BASE" "$RAISE" "$RAISE_CARD" "$FROM" "$TEAM" <<'PY'
 import json, sys, collections, datetime
-p, name, role, agent, model, inbox, new_base, old_base, raise_reason, raise_card, by = sys.argv[1:12]
+p, name, role, agent, model, inbox, new_base, old_base, raise_reason, raise_card, by, team = sys.argv[1:13]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 # 같은 계열(베이스명 = #N 앞)만 잇는다 — 역할만 같으면 다른 트랙(CFO_F_ARCH 등) 좌석까지 닫는다(2026-09-29 CFO#30 제보).
 base = name.split("#")[0]
@@ -133,6 +147,8 @@ for k in old:  # R43: _replaced_by 만으론 tick·role·_<역할> 키가 옛 �
     for tk, tv in d.items():
         if tk.startswith("_") and tv == k: d[tk] = name
 d[name] = collections.OrderedDict([("role", role), ("agent", agent), ("tick", tick), ("model", model), ("index", inbox + "/"), ("_replaces", old)])
+if team != "v65" and role in ("master", "arch", "da", "tester") and not d.get("_" + role):   # R437: 빈 역할 키(TEAMSET 표 1 명부 키)는 새 좌석으로 — 위 셸 게이트가 다른 좌석을 가리키는 경우는 이미 막았다
+    d["_" + role] = name
 if raise_reason.strip() and raise_card.strip():   # R149: index(=inbox) 의미는 그대로 두고 «닫는 단위 카드» 는 raised.card 에만 — ft-tick raised_watch 가 ▶내릴 것
     d[name]["raised"] = collections.OrderedDict([("reason", raise_reason.strip()), ("card", raise_card.strip()), ("by", by), ("at", datetime.datetime.now().isoformat(timespec="seconds")), ("close_on", "card 가 완성/ 으로 가거나 없어짐 · 또는 좌석 닫기")])
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
