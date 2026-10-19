@@ -175,8 +175,8 @@ mvcard() { MVC="$T/mv/design/alpha/indices/진행/$1.md"; shift; { echo '# c'; e
 mvrun() { ( cd "$T/mv" && PATH="$T/stub:$PATH" bash "$KIT/ft-index-move.sh" "$MVC" 완성 --da "$T/mv/da.md#§1" --seat s 2>&1 ); }
 mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=design/alpha/RESEARCH-*.md'; o="$(mvrun)"; { [[ "$o" == *"REJECT 리서치 좌석 열림 byz-alpha-nano-x-research#0"* ]]; } && ok "index-move: 리서치 닫힘 줄 없음 → REJECT 리서치 좌석 열림" || bad "index-move 닫힘줄없음 $o"
 mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=x' '- 리서치 닫힘: byz-alpha-nano-x-research#0 2026-10-18 reap 없음'; o="$(mvrun)"; [[ "$o" == *"REJECT 리서치 좌석 열림"* ]] && ok "index-move: 닫힘 줄에 left=0·kill rc=0 없음 → REJECT" || bad "index-move left0없음 $o"
-mvcard mv1 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1'; o="$(mvrun)"; [[ "$o" == *"REJECT DA 보류 2회"* ]] && ok "index-move: 사건 2 · 해제 0 → REJECT DA 보류 2회" || bad "index-move 보류2 $o"
-mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=x' '- 리서치 닫힘: byz-alpha-nano-x-research#0 2026-10-18 kill rc=0'; o="$(mvrun)"; [[ "$o" != *"리서치 좌석 열림"* && "$o" != *"DA 보류 2회"* ]] && ok "index-move: 닫힘 줄(kill rc=0) + 보류 0 → 이 게이트 통과(뒤 검사로 진행)" || bad "index-move 통과 $o"
+mvcard mv1 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1'; o="$(mvrun)"; [[ "$o" == *"REJECT DA 보류 가드: HOLD events=2"* ]] && ok "index-move: 사건 2 · 해제 0 → REJECT DA 보류 가드: HOLD events=2(r456 판정기 첫 줄)" || bad "index-move 보류2 $o"
+mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=x' '- 리서치 닫힘: byz-alpha-nano-x-research#0 2026-10-18 kill rc=0'; o="$(mvrun)"; [[ "$o" != *"리서치 좌석 열림"* && "$o" != *"DA 보류 가드"* ]] && ok "index-move: 닫힘 줄(kill rc=0) + 보류 0 → 이 게이트 통과(뒤 검사로 진행)" || bad "index-move 통과 $o"
 
 # ── 8. ft-nano-close 리서치 위반 기록 블록(스크립트에서 python 블록을 꺼내 실행) ──
 _s="$(grep -n 'python3 - "\$CARD" "\$SEAT" "\$SEAT_WT" "\$RS_LINE"' "$BIN/ft-nano-close.sh" | head -1 | cut -d: -f1)"; _e="$(awk -v s="${_s:-0}" 'NR>s && /^PY$/{print NR; exit}' "$BIN/ft-nano-close.sh")"
