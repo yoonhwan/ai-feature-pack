@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — 설치기 plist 교체가 «절반 상태» 로 멈추지 않는다 — bootstrap 재시도 · 실패면 직전 plist 원복 · LIVE_BIN 전환 뒤로 (r464 · 1.1.27)
+
+카드 r464 · master 112557 카드A · 1.1.25 설치 실사고(1.1.25 폴더만 생기고 LIVE_BIN 1.1.24 · 슬랙 미러 bootout 된 채 · master 손 bootstrap pid 89173). `bootout` 은 launchd 가 프로세스 종료를 기다리는 비동기 동작이라 바로 `bootstrap` 하면 실패할 수 있고, 설치기는 그 실패를 `exit 1` 로 받아 «plist 는 새 것 · 미러는 내려감 · LIVE_BIN 은 옛 것» 을 남겼다 — 되돌림은 안내 글자뿐이었다.
+
+- **교체**: 덮기 전 직전 사본 `<plist>.bak-<version>`(매 교체 · `.bak-r426` 첫 원본은 그대로) → bootout → bootstrap 1초 간격 최대 3회(7초 안) → kickstart → `PLIST applied <label> (retry=<n> · 되돌림 = <plist>.bak-<version> · kickstart)`.
+- **실패**: bootstrap 3회 또는 kickstart 실패 → 직전 사본 원복 + bootstrap(같은 재시도) → `PLIST RESTORED <label> — 새 렌더본 적용 실패(<launchctl 출력 1줄>)` · 원복본 bootstrap 도 실패면 `ERROR: plist 원복본 bootstrap 도 실패 … 손 복구 = launchctl bootstrap gui/<uid> '<plist>'`.
+- **순서**: plist 단계는 LIVE_BIN 전환·githooks «뒤». 실패해도 코드 전환은 끝나 있고 마지막 줄 `INSTALLED <version> · PLIST ERROR …` + rc1. 성공은 `INSTALLED <version> · PLIST ok`. dry-run 출력 불변.
+- **시험** `tests/test_live_install_check_plist_env.sh` r464ⓐ~ⓔ 7줄 추가(39 PASS): ⓐ 1회 실패 뒤 retry=1 ⓑ 3회 실패 → 원복 cmp0 · RESTORED · rc1 · LIVE_BIN 새 버전 · `.bak-r426` 보존 ⓑ' 원복도 실패 → ERROR ⓒ 같음 → launchctl 0 ⓓ 되돌림 기준 = 직전 사본 ⓔ 재시도 ≤7초. 가짜 launchctl 스위치 `FT_FAKE_BOOTSTRAP_FAIL=<n>`. RED = 옛 설치기 위 5 FAIL.
+- **범위 밖**: plist 템플릿 내용 · r457 공용 루트 분기.
+
 ## 2026-10-19 — 병합 줄 대조(`ft_merge_lines.py`)가 «다른 폴더로 옮긴 파일» 을 옮긴 곳에서 센다 — D 인데 같은 이름 1개면 이동 · 옛 경로 글자 1쌍 치환 (r461 · 1.1.26)
 
 카드 r461 · master 112578·112657 · loom master 36 결정 요청 112574. 보호 집합의 키가 «파일 경로» 라서, 작은 카드를 다른 폴더로 옮기며 경로 글자 줄을 바꾸면 `diff -M` 유사도가 50% 밑으로 떨어져 «D(삭제) + A(새 파일)» 로 갈라지고 «S 가 삭제» 로 거절됐다. git 이 R 로 잡아도 main 이 더한 «옛 경로 글자 줄» 이 새 경로 글자로 바뀌면 «사라짐» 이었다.
