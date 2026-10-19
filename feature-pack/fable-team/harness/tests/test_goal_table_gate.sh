@@ -6,7 +6,9 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.
 TOOL="$REPO/harness/bin/ft-goal-table.sh"; SRC="$REPO/harness/comm"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
-teams_md() { mkdir -p "$1/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n' > "$1/design/TEAMS.md"; }   # R382b: planner 폴더는 TEAMS.md 칸으로 풀린다
+teams_md() { mkdir -p "$1/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n' > "$1/design/TEAMS.md"   # R382b: planner 폴더는 TEAMS.md 칸으로 풀린다
+  # r479: 명단 = ref origin/main(체크아웃 파일 아님) — 그 폴더를 리포로 만들고 명단 커밋을 origin/main 에 둔다
+  [ -d "$1/.git" ] || git -C "$1" init -q; git -C "$1" add design/TEAMS.md && git -C "$1" -c user.name=t -c user.email=t@t commit -qm teams && git -C "$1" update-ref refs/remotes/origin/main HEAD; }
 CANON="$T/AUTONOMY-GOAL-A6.md"; LEDGER="$T/PLAN-oppa-ledger.md"
 cat > "$CANON" <<'EOF'
 # 자율 골 A6 (시험 픽스처 — 실 정본 표 6행 복사)

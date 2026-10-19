@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-19 — r479 골 읽기 판정기·골 표 원장도 «명단 = ref origin/main · 폴더 = 그 루트에 실재» (r479 · 1.1.37)
+
+- `ft-goal-check.sh` 가 v65 폴더를 체크아웃 `design/TEAMS.md` 가 아니라 ref 명단(`FT_TEAMS_REF` · 기본 origin/main)으로 풀고, 그 루트에 실재하는 후보 1개를 쓴다(0개 = ref 본문 · 2개+ = ERROR). 공유 루트에 명단 파일이 없어 v65 master 에 매 틱 REJECT(rc=4)가 가던 일이 끝난다.
+- `ft_goal_ledger.planner_dir`(골 표 원장 · 쪽지 가드 · 뉴스 골 표) 도 같은 규칙 — LIVE_ROOT 의 명단을 새 판으로 갈아도 옛 판 그대로여도 같은 원장을 찾는다.
+- `ft_team_lib` 에 ref 판 3(`team_rows_ref` · `team_cands_ref` · `team_in_ref`) — 셸 `ft_team_cands_ref` 와 같은 규칙 · 기존 함수 동작 그대로. 단계 = `harness/evidence/r479/master-steps.md`.
+
 ## 2026-10-19 — 뉴스 HTML 모드 호출 쪼개기: 갈래 3개 병렬 · 크기 비례 상한 · stdin 차단 (r478b · 1.1.36)
 
 - 첫 실제 틱이 `opencode run 총 마감 70s 초과`(max) — 원인 = 한 호출에 출력 전부(3~4.4K자) × max 생각 시간(실측 65.6초·130초+). 7초 룰대로 top·goals·teams 3갈래를 «그 갈래 입력만» 넣어 병렬 호출 · 시도당 상한 = 크기 비례(≤70) · stdin=/dev/null.
