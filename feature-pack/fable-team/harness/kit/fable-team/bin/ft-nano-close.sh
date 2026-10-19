@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>" | --superseded-by <대체 카드 경로> | --suspended "<사유>"] [--shared-wt | --wt <경로> --branch <이름>]
+# ft-nano-close.sh <좌석> --never-started "<사유>" [--wt <경로> --branch <이름>]
+#   --never-started "<사유>" = 발주를 한 번도 처리하지 못한 나노(산출 0)를 닫는다(r506). ①--result ②--recv ⑥증거 줄을 면제하는 대신 ft-nano-never-started-check.sh 가
+#     «한 일 0» 을 값 4개(대화 기록 assistant 턴 0 · base 위 커밋 0 · 워크트리 미커밋 0 · 좌석 발신 쪽지 0)로 센다 — 하나라도 0 이 아니거나 셀 수 없으면 REJECT.
+#     ③유휴·⑤cherry·세션 kill·워크트리 정리 계획·명부·원장은 기존 경로 그대로 · 출력 `CLOSED <좌석> never-started «<사유>»` · 브랜치 삭제 0.
+#     빈 사유·--superseded-by·--suspended·--shared-wt 와 동시 = usage 2 · 인자 없으면 동작 불변.
+#     r2(arch 105): 턴 근거는 에이전트별(claude jsonl · opencode = opencode.db) · 같은 워크트리를 같은 계보 더 큰 번호의 현역 좌석이 쓰면(검사기 SUCCESSOR <이름>) 커밋·미커밋은 후계 몫 —
+#     «턴 0 ∧ 발신 0» 만 요구하고 ⑤ cherry·정리 계획을 건너뛴다(세션 kill + 명부·원장만) · 출력 `CLOSED <좌석> never-started (공유 워크트리 → 후계 <이름> · 워크트리 정리 0)` · 후계를 못 세면 4값 전부.
 #   --suspended "<사유>" = 팀 정지 등으로 «미완» 인 채 멈춘 나노(⑥ 증거 줄 rc≠0 · 대체 카드 없음)를 닫는다(r450). ⑥ 만 면제하고 그 자리에서 ft-nano-suspended-check.sh 가
 #     HEAD(브랜치 위)·미커밋 0 을 보고(실작업물 미커밋은 먼저 [wip] 커밋 · 실패 = REJECT), 닫기 직전 카드 «## 상태» 끝에 `중단: <사유> · 세트 <HEAD> · …` 1줄(멱등)을 남긴다.
 #     ⑤ cherry 게이트엔 --override "suspended: <사유>" 자동 전달 · 원장 행 suspended=1 reason=… set=… · 출력 `CLOSED <좌석> suspended=1 reason=<사유> set=<HEAD>` · 브랜치 삭제 0.
@@ -28,14 +35,22 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
-RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""
+RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""
 while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; --plan-only) [ $# -ge 2 ] || { echo "usage: --plan-only <워크트리 경로> (경로 인자 누락)" >&2; exit 2; }; PLAN_ONLY=1; PO_WT="$2"; shift 2;; --shared-wt) SHARED=1; shift;;
   --wt) [ $# -ge 2 ] || { echo "usage: --wt <경로> (경로 인자 누락)" >&2; exit 2; }; HAVE_NWT=1; NWT="$2"; shift 2;;
   --branch) [ $# -ge 2 ] || { echo "usage: --branch <이름> (이름 인자 누락)" >&2; exit 2; }; HAVE_NBR=1; NBR="$2"; shift 2;;
   --cherry-override) [ $# -ge 2 ] || { echo "usage: --cherry-override <사유> (사유 인자 누락)" >&2; exit 2; }; HAVE_CHERRY_OVERRIDE=1; CHERRY_OVERRIDE="$2"; shift 2;;
   --superseded-by) [ $# -ge 2 ] || { echo "usage: --superseded-by <대체 카드 경로> (경로 인자 누락)" >&2; exit 2; }; SUPER=1; SUPERSEDED="$2"; shift 2;;
   --suspended) [ $# -ge 2 ] || { echo "usage: --suspended <사유> (사유 인자 누락)" >&2; exit 2; }; SUSP=1; SUSP_REASON="$2"; shift 2;;
+  --never-started) [ $# -ge 2 ] || { echo "usage: --never-started <사유> (사유 인자 누락)" >&2; exit 2; }; NEVER=1; NEVER_REASON="$2"; shift 2;;
   *) echo "unknown $1" >&2; exit 2;; esac; done
+# --never-started(r506): 빈·여러 줄 사유 · 다른 ⑥ 면제 모드(--superseded-by·--suspended)·--shared-wt(전용 워크트리가 없어 «한 일 0» 을 셀 수 없다)와 동시 = usage(2)
+if [ "$NEVER" -eq 1 ]; then
+  [ -n "${NEVER_REASON//[[:space:]]/}" ] || { echo "usage: --never-started 사유가 비어 있음(사유 없는 면제 거부)" >&2; exit 2; }
+  case "$NEVER_REASON" in *$'\n'*|*$'\r'*) echo "usage: --never-started 사유는 한 줄이어야 한다" >&2; exit 2;; esac
+  [ "$SUPER" -eq 0 ] && [ "$SUSP" -eq 0 ] || { echo "usage: --never-started 는 --superseded-by·--suspended 와 동시에 못 쓴다(⑥ 면제 사유가 둘이 된다)" >&2; exit 2; }
+  [ "$SHARED" -eq 0 ] || { echo "usage: --never-started 는 --shared-wt 와 같이 쓰지 못한다(공유 워크트리의 커밋·미커밋은 좌석 몫으로 셀 수 없다)" >&2; exit 2; }
+fi
 # --suspended(r450): 빈 사유·다른 우회 인자와 동시 = usage(2) — ⑤·⑥ 우회 사유가 둘이 되면 원장 사유가 갈린다(--superseded-by 와 같은 꼴)
 if [ "$SUSP" -eq 1 ] && [ -z "${SUSP_REASON//[[:space:]]/}" ]; then echo "usage: --suspended 사유가 비어 있음(사유 없는 면제 거부)" >&2; exit 2; fi
 case "$SUSP_REASON" in *$'\n'*|*$'\r'*) echo "usage: --suspended 사유는 한 줄이어야 한다" >&2; exit 2;; esac
@@ -294,12 +309,15 @@ _wt_clean_run() {
   echo "워크트리 정리: $res (로그 $PLAN.log)"
 }
 bad=()
-# ① 결과 보존
+# ① 결과 보존 · ② master 회수 — --never-started(r506)는 회수할 산출·seq 가 없다: 면제(대신 ⑥ 자리에서 «한 일 0» 4값 검사)
+if [ "$NEVER" = 1 ]; then :
+else
 [ -n "$RESULT" ] && [ -e "$RESULT" ] || bad+=("①결과 경로 없음: ${RESULT:-<미지정>}")
 # ② master 회수 — 그 seq 가 실제로 존재했는가 (행이 소비돼도 bodies/<seq>.txt 또는 카운터 이하)
 if [ -z "$RECV" ]; then bad+=("②--recv <seq> 미지정")
 elif ! { [ -f "$COMM/bodies/$RECV.txt" ] || grep -q "\"seq\": *$RECV," "$COMM/mailbox.jsonl" 2>/dev/null || [ "$RECV" -le "$(cat "$COMM/.mbox-seq" 2>/dev/null || echo 0)" ]; }; then
   bad+=("②seq $RECV 가 우편함 기록에 없다")
+fi
 fi
 # ③ 실제 유휴 — pane 이 아니라 jsonl 마지막 레코드 시각 (pane ❯ 는 ghost 를 못 가른다)
 # pane_id 경유 — `-t "=$SEAT"` 는 `#` 든 이름에 display-message 가 빈 값을 돌려준다(실측 2026-09-14)
@@ -486,7 +504,9 @@ if [ "$tmux_ok" = 1 ]; then
     # r7(DA r6 MAJOR 1): 같은 좌석명 jsonl 이 여러 개(재기동)일 수 있다 — 「이름순 첫 파일」(head -1) 대신 «매칭 전부 중 mtime 최대».
     f="$(grep -lE "\"(agentName|customTitle)\":\"$(printf '%s' "$SEAT" | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null \
         | while IFS= read -r mf; do stat -f '%m %N' "$mf"; done | sort -rn | head -1 | cut -d' ' -f2-)"
-    if [ -z "$f" ]; then
+    if [ -z "$f" ] && [ "$NEVER" = 1 ]; then
+      echo "INFO ③ never-started — 좌석 jsonl 없음: 유휴 판정은 ⑥ 턴 0 검사(에이전트별 기록)가 대신 · 워크트리 mtime 은 보지 않는다(공유 워크트리 후계 편집이 섞인다)"
+    elif [ -z "$f" ]; then
       # codex/cmd/opencode 는 claude jsonl 이 없다 — 파일 mtime 으로 대신(에이전트 무관 하한)
       last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
       [ -z "$last" ] || bad+=("③워크트리에 ${IDLE_MIN}분 내 편집: $last")
@@ -557,7 +577,19 @@ _susp_wip() {
   git -C "$SEAT_WT" commit -q -m "[wip] nano close $SEAT" || return 1
   echo "INFO [wip] 커밋 $(git -C "$SEAT_WT" rev-parse --short HEAD) — 중단 전 미커밋 보존"
 }
-if [ "$SUPER" = 1 ]; then
+if [ "$NEVER" = 1 ]; then
+  # r506 한 일 0: rc=0 세트 증거 줄 대신 ft-nano-never-started-check.sh(턴·커밋·미커밋·발신 4값 0). 카드는 base_sha 출처로만(없어도 .worktree-info.json) · 역할 무관.
+  if [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/${WT_PREFIX}<key>[-rN]} — «한 일 0» 을 셀 워크트리가 없다")
+  elif [ ! -x "$HERE/ft-nano-never-started-check.sh" ]; then bad+=("⑥한 일 0 검사 스크립트 없음: $HERE/ft-nano-never-started-check.sh (런타임 bin 에 같이 복사)")
+  else
+    _ns_args=(--wt "$SEAT_WT" --branch "${SEAT_BR:-nano/$_KEY}" --comm "$COMM" --agent "$(jq -r --arg s "$SEAT" '.[$s].agent // "claude"' "$SEATS" 2>/dev/null)" --successor-auto --seats "$SEATS")
+    [ -z "$CARD" ] || _ns_args+=(--card "$CARD")
+    _ns_out="$("$HERE/ft-nano-never-started-check.sh" "$SEAT" "${_ns_args[@]}" 2>&1)"; _ns_rc=$?
+    # r506 r2 규칙 2: 같은 워크트리의 현역 후계 좌석이 값으로 확인되면(SUCCESSOR <이름>) 커밋·미커밋은 후계 몫 — 아래 ⑤ cherry·정리 계획을 건너뛴다(세션 kill + 명부·원장만)
+    NS_SUCC="$(printf '%s\n' "$_ns_out" | sed -n 's/^SUCCESSOR //p' | head -1)"; case "$NS_SUCC" in none|unknown) NS_SUCC="";; esac
+    if [ "$_ns_rc" -eq 0 ]; then echo "$_ns_out"; else NS_SUCC=""; bad+=("⑥$(printf '%s' "$_ns_out" | grep -v '^SUCCESSOR ' | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
+  fi
+elif [ "$SUPER" = 1 ]; then
   # R171 대체됨: rc=0 세트 증거 줄 대신 «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드 실재(대기/진행/완료) + 자기 자신 아님. 역할 무관(카드를 못 찾으면 REJECT).
   if [ -z "$CARD" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 대체됨 줄을 대조할 카드가 없다${_sibn:+ · 형제 ${_sibn}개}")
   elif [ ! -x "$HERE/ft-nano-superseded-check.sh" ]; then bad+=("⑥대체됨 검사 스크립트 없음: $HERE/ft-nano-superseded-check.sh (런타임 bin 에 같이 복사)")
@@ -605,7 +637,9 @@ fi
 _gate_br=""; [ -z "$SEAT_WT" ] || _gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
 [ -n "$_gate_br" ] || _gate_br="${SEAT_BR:-nano/$_KEY}"
 [ "$NAMED" != 1 ] || _gate_br="$NBR"   # --wt/--branch: cherry 게이트는 «--branch 기준»(ⓖ) — info 파일 값이 아니다. 우회는 기존 --cherry-override 뿐.
-if [ "$SHARED" = 1 ]; then
+if [ -n "${NS_SUCC:-}" ]; then
+  echo "INFO ⑤ cherry 건너뜀 — never-started 공유 워크트리: 가지의 커밋은 후계 $NS_SUCC 몫(워크트리·브랜치 손대기 0)"
+elif [ "$SHARED" = 1 ]; then
   # ⓓ --result 가 공유 워크트리에서 «추적 중» 이고 그 경로에 미커밋 변경 0 (워크트리 «전체» 미커밋은 다른 세션 것이라 보지 않는다)
   if [ -n "$SH_TOP" ] && [ -e "$RESULT" ]; then
     _rel="$(python3 -c 'import os,sys;print(os.path.relpath(os.path.realpath(sys.argv[1]),os.path.realpath(sys.argv[2])))' "$RESULT" "$SH_TOP")"
@@ -646,6 +680,8 @@ if [ "$SUSP" = 1 ]; then
   echo "$_su_out"
 fi
 _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$SUSP_SET"
+[ "$NEVER" -eq 0 ] || { _su_tag=" never-started «${NEVER_REASON}»"; RESULT="(never-started · 산출 0)"; RECV="-"; }   # r506: 원장 ①② 칸 = 면제 표기 · 출력·원장 꼬리는 suspended 와 같은 자리
+[ -z "$NS_SUCC" ] || _su_tag=" never-started (공유 워크트리 → 후계 $NS_SUCC · 워크트리 정리 0)"   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 if [ -n "${CARD:-}" ] && [ -f "$CARD" ]; then RS_LINE="$(grep -m1 -F -- "- 리서치: $SEAT base=" "$CARD" 2>/dev/null)"; fi
@@ -689,7 +725,8 @@ d.pop(s, None)
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 _prc=$?; [ "$_prc" -eq 0 ] || { echo "REJECT $SEAT"; echo "  - 명부 쓰기 실패(rc=$_prc): $SEATS"; exit 1; }   # R400 r3 ③ — 사건 원장은 trap abort · CLOSED 0
-_wt_clean_plan
+if [ -n "$NS_SUCC" ]; then PLAN=""; WT_MARK="mode=never-started-shared successor=$NS_SUCC reason=«${NEVER_REASON}» (정리 계획 0 · [wip] 0 · 브랜치 0)"   # r506 r2: 후계가 쓰는 워크트리 — 손대지 않는다
+else _wt_clean_plan; fi
 [ "$SHARED" != 1 ] || WT_MARK="mode=shared-wt wt=$SH_TOP (정리 0 · 브랜치 0)"   # 계획·정리 0 — 원장 행에 모드를 남긴다
 [ "$NAMED" != 1 ] || WT_MARK="mode=named-wt wt=$SEAT_WT branch=$NBR (계획만 · 정리 0 · 브랜치 0)"
 # 원장 append 도 계획의 mark() 와 «같은» mkdir 락(<원장>.lock) 아래 — 락 밖 >> 와 mark 의 read→replace 가 겹치면 행이 소실된다(DA r3 실측 204/8000). 락 실패는 REJECT 가 아니라 append 강행(닫힘 행이 없는 것이 더 나쁘다) + 경고.

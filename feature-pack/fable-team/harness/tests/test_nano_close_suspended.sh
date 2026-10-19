@@ -157,7 +157,8 @@ setup; out="$(CHK --reason "  ")"; rc=$?; [ "$rc" -eq 2 ] && ok "빈 사유 → 
 setup; out="$(CHK)"; rc=$?; [ "$rc" -eq 2 ] && ok "--reason 누락 → usage 2" || bad "--reason 누락 rc=$rc"
 
 echo "== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (새 검사 스크립트 + close 의 r450 줄)"
-NEWL="$(cat "$SRC/ft-nano-suspended-check.sh"; grep -n 'r450\|SUSP\|_susp_wip\|_su_' "$SRC/ft-nano-close.sh")"
+# 줄 번호 없이 grep — 번호 600·300 줄이 아래 숫자 검사에 걸리는 오탐(r506 줄 이동 실측)
+NEWL="$(cat "$SRC/ft-nano-suspended-check.sh"; grep 'r450\|SUSP\|_susp_wip\|_su_' "$SRC/ft-nano-close.sh")"
 hasnt "$(printf '%s\n' "$NEWL" | grep -nE '(^|[^0-9])(600|300)([^0-9]|$)')" ":" "ⓖ 600/300 숫자 0"
 hasnt "$(printf '%s\n' "$NEWL" | grep -nE 'curl|wget|https?://|gh |nc ')" ":" "ⓖ 외부 호출 0"
 hasnt "$NEWL" "GIT_DIR=" "ⓖ GIT_DIR env 0"
