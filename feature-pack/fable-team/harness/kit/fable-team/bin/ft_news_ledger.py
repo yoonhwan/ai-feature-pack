@@ -3,6 +3,7 @@
 줄 키 = 칸(`## N.`) · 소제목(`### `) · 표 첫 칸(순번 칸 제외)/목록·문단 줄 전체. 뉴스는 «커밋된» 판 둘(기준선 ↔ 지금)의 차이만 — 미커밋 수정·안 바뀐 줄은 싣지 않는다.
 기준선(state/news-ledger/last.sha)은 «전 판» 발행 성공(rc 0) 뒤에만 옮긴다(3500B 넘으면 칸 경계로 n/N 판 · ft_news_ledger_text.py) · 첫 실행 = 기준선만. 원장 문장 그대로라 Haiku 0.
 알림 = «(오빠)» 판정인데 원장 본문에 번호가 없으면 planner 에 한 틱 1통 묶음(뉴스 본문 0 · ft_news_ledger_notify.py).
+FT_NEWS_MODE=html(r478) = 판 대신 ft_news_html.tick(팀 지도 HTML 첨부 + 한 줄 · 변화 0 은 FT_NEWS_REPEAT_MIN 간격 한 줄) · 그 밖의 값은 이 경로 그대로.
 env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.fable-team/LIVE_ROOT 1행 — 없으면 ERROR · R382) · FT_LEDGER_PATH(기본 그 리포 TEAMS.md 의 planner 폴더/PLAN-oppa-ledger.md) — 원장 정본 = 이 두 값 «한 곳»: sha·경로·뉴스 폴더(<루트>/<원장 폴더>/news)·골 표 원장 모두 여기서 푼다 · 기준선 판에 같은 경로가 없으면 ERROR(R458) · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
 """
 import logging
@@ -195,6 +196,9 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
             notify(root, _git(repo, "show", f"{cur}:{rel}"), state)
         except Exception as e:  # 알림 실패가 뉴스를 막지 않는다
             LOG.error("알림 건너뜀: %s", e)
+        if os.environ.get("FT_NEWS_MODE") == "html":  # r478 — 팀 지도 HTML + 한 줄(ft_news_html) · 모드 없음 = 옛 판 경로 그대로
+            from ft_news_html import tick
+            return tick(root, state, repo, rel, news, base, cur)
         status = status_or_none(root, news_now())
         why = "스냅샷 오래됨" if interval_s() > 0 and (status is None or status[0][1][0].startswith("(세션 상태 스냅샷")) else "원장 커밋 0"
         if base == cur:
