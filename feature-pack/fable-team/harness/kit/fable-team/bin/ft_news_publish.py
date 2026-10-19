@@ -2,12 +2,14 @@
 
 publish = 직전 발행본과 «머리 시각만 지운 꼴» 이 같으면 발행 0 · 다르면 채널 «최상위 새 글» 1개(오빠 판정 1438 — 스레드·답글·update·첨부 0). 올리기 전 그날 봇 글 중 본문이 같은 글이 있으면 채택(첫 줄만 보면 머리 시각이 같은 새 판이 사라져 통째 비교)(응답 유실 뒤 재실행이 두 번 올리지 않는다). 본문 UTF-8 3500B 초과 = raise.
 성공 줄 = «ft-news-publish: 발행 완료 ts=<ts> channel=<C…> permalink=<링크|->» (R217 · 호출한 쪽이 stdout 으로 받는다 — 파일 인계 0) · 같은 내용 = «같은 내용 — 발행 0» 줄.
+HTML 모드(r478 · publish_html) = 한 줄+요약 2줄 글 1개에 팀 지도 HTML 첨부(채널 최상위 · 스레드 0) · 첨부 실패 = 글만 + rc3 + 다음 틱 retry_attach · 변화 0 = publish_line 한 줄.
 처리 기록(state/news-publish/processed.tsv) = «초안 이름 → POLISHED 이름 | 같은 내용 · 발행 0» 1줄. 대체는 «명시 기록» 으로만 — X 를 기록할 때 X 보다 이른 «기록 없는» 초안 W 마다 «W<TAB>대체<TAB>X» 1줄을 같이 남긴다.
 근거: 초안은 R118a 생성기가 매번 전 팀을 새로 모은 «전체 상태 스냅샷» 이라 더 새로 다듬은 판이 이전 판을 내용상 대체한다. 시각만으로 대체를 추정하지 않는다(기록이 없으면 대체 아님).
 env: FT_ROOT · FT_NEWS_DIR(기본 <planner 팀 폴더>/news · TEAMS.md 폴더 칸) · FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py · target() 재사용) · FT_NEWS_POST_ARGS(--slack-base/--token-file/--channel) · FT_HERMES_SCRIPTS(magazine_slack·mirror_lib 설치 폴더 · 기본 ~/.hermes/scripts) · FT_NEWS_NOW("YYYY-MM-DD HH:MM" · 시험) · FT_NEWS_WORKSPACE_URL(글 주소 조립용 · 없으면 chat.getPermalink)
 """
 import argparse
 import html
+import json
 import logging
 import os
 import re
@@ -167,6 +169,79 @@ def publish(polished: Path, draft: str | None = None, at: datetime | None = None
     _record(state, news, draft, polished.name)
     goal_gate.mark_done(state.parent, body)  # 후속 판 번호를 영수증에 — «기록 저장 뒤»(그 앞에서 끊기면 재시도가 중복 게시 0 + 기록 복구) · 같은 판번호 재발행 거절
     print(f"ft-news-publish: 발행 완료 ts={ts} channel={t.channel} permalink={_link(t, ts) or '-'}")
+    return 0
+
+
+def html_post_text(summary: str, now: datetime) -> str:
+    """HTML 모드 글(r478) = «[뉴스 HH:MM] <FT_NEWS_HEAD · 기본 팀 지도> — 요약 1줄» + 요약 2줄. 고정 문구는 이 한 곳."""
+    lines = [ln.strip() for ln in summary.splitlines() if ln.strip()]
+    return "\n".join([f"[뉴스 {now:%H:%M}] {os.environ.get('FT_NEWS_HEAD') or '팀 지도'} — {lines[0]}", *lines[1:3]])
+
+
+def publish_html(html_p: Path, summary: str, now: datetime) -> tuple[int, dict | None]:
+    """(rc, 영수증 {ts, channel, permalink}) — 채널 최상위 글 1개에 HTML 첨부(files.completeUploadExternal initial_comment · 스레드 0).
+    그날 같은 글이 이미 있으면 채택(응답 유실 재실행 중복 0). 첨부 실패 = 글만 올리고 «미첨부» 끝줄 · rc3 · 다음 틱 retry_attach 가 그 글 스레드에 첨부.
+    글도 못 올림 = (1, None)."""
+    day, text = f"{now:%Y-%m-%d}", html_post_text(summary, now)
+    if len(text.encode("utf-8")) > MAX_BYTES:
+        LOG.error("뉴스 글 %dB > %dB — 발행 0", len(text.encode("utf-8")), MAX_BYTES)
+        return 1, None
+    rc = 0
+    try:
+        t, oldest = _target(day, html_p), datetime.strptime(day, "%Y-%m-%d").timestamp()
+        if not (ts := _find_posted(t, text, oldest)):
+            from magazine_slack import upload_file  # HTML 모드만 — 옛 판 경로는 설치본 magazine_slack 판에 묶이지 않는다
+            try:
+                upload_file(t, None, html_p, html_p.name, "text/html", data=html_p.read_bytes(), comment=text)
+                ts = _find_posted(t, text, oldest) or ""
+            except MirrorError as e:
+                LOG.error("HTML 첨부 실패: %s — 글만 올리고 다음 틱이 첨부 재시도", e)
+                rc, ts = 3, post_root(t, text + "\n(지도 HTML 미첨부 — 다음 틱 재시도)")
+                state = _paths()[1]
+                state.mkdir(parents=True, exist_ok=True)
+                (state / "pending-attach.json").write_text(json.dumps({"day": day, "ts": ts, "html": str(html_p)}), encoding="utf-8")
+    except MirrorError as e:
+        LOG.error("뉴스 지도 발행 실패: %s", e)
+        return 1, None
+    link = _link(t, ts) if ts else None
+    print(f"ft-news-publish: 발행 완료 ts={ts or '-'} channel={t.channel} permalink={link or '-'}" + (" 미첨부" if rc else ""))
+    return rc, {"ts": ts, "channel": t.channel, "permalink": link}
+
+
+def retry_attach(now: datetime) -> None:
+    """미첨부로 올라간 지도 글(pending-attach.json)에 HTML 을 그 글 스레드로 다시 첨부 — 실패는 ERROR 로그 + 다음 틱 다시(뉴스는 막지 않는다)."""
+    f = _paths()[1] / "pending-attach.json"
+    if not f.is_file():
+        return
+    p = json.loads(f.read_text(encoding="utf-8"))
+    html_p = Path(p["html"])
+    if not html_p.is_file():
+        LOG.error("미첨부 지도 파일 없음 %s — 재시도 끝(글 ts=%s)", html_p, p["ts"])
+        f.unlink()
+        return
+    from magazine_slack import upload_file
+    try:
+        upload_file(_target(p["day"], html_p), p["ts"], html_p, html_p.name, "text/html")
+    except MirrorError as e:
+        LOG.error("지도 첨부 재시도 실패(다음 틱 다시): %s", e)
+        return
+    f.unlink()
+    print(f"ft-news-publish: 미첨부 지도 첨부 완료 ts={p['ts']} ({now:%H:%M})")
+
+
+def publish_line(text: str, now: datetime) -> int:
+    """HTML 모드 «변화 없음» 한 줄 — 채널 최상위 새 글 1."""
+    day = f"{now:%Y-%m-%d}"
+    f = _paths()[1] / day / "line.txt"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text, encoding="utf-8")
+    try:
+        t = _target(day, f)
+        ts = post_root(t, text)
+    except MirrorError as e:
+        LOG.error("뉴스 한 줄 발행 실패: %s", e)
+        return 1
+    print(f"ft-news-publish: 발행 완료 ts={ts} channel={t.channel} permalink=-")
     return 0
 
 

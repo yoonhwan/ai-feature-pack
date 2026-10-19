@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BYZ 팀 지도 {{STAMP}}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;600;800&display=swap">
+<style>
+:root{
+  --bg:#eef3f5; --card:#ffffff; --ink:#15262e; --soft:#5a6d76; --line:#d3dee3;
+  --accent:#0f7c86; --done:#2e9a5b; --now:#e0a21b; --left:#b9c6cc; --hot:#d2523b; --rest:#7d8a90;
+  --done-bg:#e3f4ea; --now-bg:#fdf3dc; --left-bg:#eef2f4; --hot-bg:#fbe6e1; --rest-bg:#e7ecee;
+  --display:"Jua","Gothic A1","Apple SD Gothic Neo",system-ui,sans-serif;
+  --body:"Gothic A1","Apple SD Gothic Neo",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1a1f; --card:#17262d; --ink:#e7f0f3; --soft:#9db1b9; --line:#2a3c44;
+  --accent:#4cc3cc; --done:#5cc98a; --now:#f2c25a; --left:#4d6069; --hot:#f08068; --rest:#8a9aa1;
+  --done-bg:#183326; --now-bg:#3a2f14; --left-bg:#1e2d34; --hot-bg:#3b1f19; --rest-bg:#1c282d; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:900px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,6vw,46px);line-height:1.15;margin:0}
+h2{font-family:var(--display);font-weight:400;font-size:24px;margin:8px 0 0}
+.lead{color:var(--soft);margin:6px 0 0;font-size:15px}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600}
+.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.c-done{background:var(--done-bg)} .c-done i{background:var(--done)}
+.c-now{background:var(--now-bg)} .c-now i{background:var(--now)}
+.c-left{background:var(--left-bg)} .c-left i{background:var(--left)}
+.c-hot{background:var(--hot-bg)} .c-hot i{background:var(--hot)}
+.c-rest{background:var(--rest-bg)} .c-rest i{background:var(--rest)}
+
+/* 우선순위 */
+.prio{background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:18px;display:grid;gap:12px}
+.prio ol{margin:0;padding:0;list-style:none;display:grid;gap:8px;counter-reset:p}
+.prio li{counter-increment:p;display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--left-bg)}
+.prio li::before{content:counter(p);font-family:var(--display);font-size:26px;color:var(--accent);text-align:center}
+.prio li.hot{background:var(--hot-bg)} .prio li.hot::before{color:var(--hot)}
+.prio .what{min-width:0}
+.prio .what strong{display:block}
+.prio .what span{color:var(--soft);font-size:14px}
+.who{font-size:13px;font-weight:700;color:var(--soft);white-space:nowrap}
+
+/* 골 카드 */
+.goal{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;grid-template-columns:84px 1fr;gap:16px;align-items:start}
+.goal svg.ic{width:84px;height:84px}
+.goal .body{min-width:0;display:grid;gap:10px}
+.gnum{font-size:12px;letter-spacing:.08em;color:var(--soft);font-weight:800}
+.say{margin:0;font-size:17px;font-weight:600}
+.track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.step{border-radius:10px;padding:10px 12px;font-size:14px;min-width:0}
+.step b{display:block;font-size:12px;letter-spacing:.05em;margin-bottom:2px}
+.s-done{background:var(--done-bg)} .s-done b{color:var(--done)}
+.s-now{background:var(--now-bg)} .s-now b{color:var(--now)}
+.s-left{background:var(--left-bg)} .s-left b{color:var(--soft)}
+.s-hot{background:var(--hot-bg)} .s-hot b{color:var(--hot)}
+
+.teams{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.team{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14px;min-width:0}
+.team strong{display:block;font-family:var(--display);font-weight:400;font-size:18px}
+.team.rest{background:var(--rest-bg);border-style:dashed}
+.team.rest strong::after{content:" · 쉬는 중";font-family:var(--body);font-size:12px;color:var(--rest);font-weight:700}
+.foot{color:var(--soft);font-size:13px}
+@media (max-width:640px){
+  .goal{grid-template-columns:1fr}
+  .goal svg.ic{width:64px;height:64px}
+  .track{grid-template-columns:1fr}
+  .teams{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .prio li{grid-template-columns:32px 1fr}
+  .who{grid-column:2}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>우리 팀들, 지금 어디쯤?</h1>
+    <p class="lead">{{LEAD}}</p>
+  </header>
+
+  <!-- 맨 위: 큰 일·해야 할 일 우선순위 -->
+  <section class="prio">
+    <h2 style="margin:0">지금 제일 중요한 일 (순서대로)</h2>
+    <ol>
+{{IMPORTANT}}
+    </ol>
+  </section>
+
+  <div class="legend" aria-label="색 뜻">
+    <span class="chip c-done"><i></i>끝남</span>
+    <span class="chip c-now"><i></i>지금 하는 중</span>
+    <span class="chip c-left"><i></i>남은 일</span>
+    <span class="chip c-hot"><i></i>급한 불</span>
+    <span class="chip c-rest"><i></i>쉬는 팀</span>
+  </div>
+
+  <h2>골 6개</h2>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--{{G1_TONE}}-bg)"/><rect x="33" y="16" width="18" height="32" rx="9" fill="var(--accent)"/><path d="M25 40a17 17 0 0 0 34 0" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M42 57v10M32 67h20" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M60 22l10-6M62 32h10" stroke="var(--hot)" stroke-width="4" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">{{G1_HEAD}}</span>
+      <p class="say">{{G1_SAY}}</p>
+      <div class="track">
+{{G1_TRACK}}
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--{{G2_TONE}}-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <div class="body">
+      <span class="gnum">{{G2_HEAD}}</span>
+      <p class="say">{{G2_SAY}}</p>
+      <div class="track">
+{{G2_TRACK}}
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--{{G3_TONE}}-bg)"/><rect x="16" y="18" width="52" height="30" rx="4" fill="var(--card)" stroke="var(--ink)" stroke-width="3.5"/><rect x="48" y="24" width="16" height="12" rx="2" fill="var(--accent)"/><path d="M24 28h18M24 36h14" stroke="var(--soft)" stroke-width="3.5" stroke-linecap="round"/><circle cx="30" cy="62" r="6" fill="var(--done)"/><circle cx="54" cy="62" r="6" fill="var(--done)"/></svg>
+    <div class="body">
+      <span class="gnum">{{G3_HEAD}}</span>
+      <p class="say">{{G3_SAY}}</p>
+      <div class="track">
+{{G3_TRACK}}
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--{{G4_TONE}}-bg)"/><path d="M52 18a12 12 0 0 0-14 16L18 54l8 8 20-20a12 12 0 0 0 16-14l-8 8-8-2-2-8z" fill="var(--accent)"/><circle cx="62" cy="62" r="7" fill="var(--done)"/></svg>
+    <div class="body">
+      <span class="gnum">{{G4_HEAD}}</span>
+      <p class="say">{{G4_SAY}}</p>
+      <div class="track">
+{{G4_TRACK}}
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--{{G5_TONE}}-bg)"/><path d="M16 30h18l5 6h29v28H16z" fill="var(--accent)"/><path d="M16 36h52" stroke="var(--card)" stroke-width="3"/><path d="M50 46l8 8 12-14" fill="none" stroke="var(--done)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="body">
+      <span class="gnum">{{G5_HEAD}}</span>
+      <p class="say">{{G5_SAY}}</p>
+      <div class="track">
+{{G5_TRACK}}
+      </div>
+    </div>
+  </section>
+
+  <section class="goal">
+    <svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--{{G6_TONE}}-bg)"/><rect x="14" y="28" width="50" height="28" rx="5" fill="none" stroke="var(--ink)" stroke-width="3.5"/><rect x="64" y="36" width="6" height="12" rx="2" fill="var(--ink)"/><rect x="19" y="33" width="30" height="18" rx="2" fill="var(--done)"/></svg>
+    <div class="body">
+      <span class="gnum">{{G6_HEAD}}</span>
+      <p class="say">{{G6_SAY}}</p>
+      <div class="track">
+{{G6_TRACK}}
+      </div>
+    </div>
+  </section>
+
+  <h2>일하는 팀</h2>
+  <div class="teams">
+{{WORKING}}
+  </div>
+
+  <h2>쉬는 팀</h2>
+  <div class="teams">
+{{RESTING}}
+  </div>
+
+  <p class="foot">{{FOOT}}</p>
+</div>
+</body>
+</html>
