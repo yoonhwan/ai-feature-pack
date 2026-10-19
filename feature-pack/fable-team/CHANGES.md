@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 뉴스 린트: 확인 불가 팀 «쉼» 판정이 부정 꼬리(«…지 않»·«아니»·«지 못») 문장은 통과 (r498 · 1.1.54)
+
+- 사건: planner 뉴스 틱 발행 0(요청 115673) — `/tmp/byz-ft-news-planner.log` 2913~2915 «ERROR 린트 위반 2건 — 발행 0 (확인 불가 팀 lecture 에 쉼 단정 «lecture·planner·room은 상태를 확인할 수 없어서 쉰다거나 멈췄다고 단정하지 않습니다»)». r490 `unknown_problems` 가 «팀 이름 + 쉬·멈·정지·대기 글자» 만 봐서, 지시대로 «단정하지 않는다» 고 쓴 문장이 거꾸로 걸렸다.
+- `ft_news_html_lint.py`: `NEGATED_TAIL`(24자 안 `지 않`·`지 못`·`아니`·`아닙`·`않습니다`·`않는다`·`않음`) · `CLAUSE_END`(`,`·`，`·`.`·줄바꿈·`며 ` — «고 » 로는 자르지 않는다: «멈췄다고 단정하지 않» 의 «다고» 가 잘린다) · `_rest_asserted(s)` = 쉼 글자 매치마다 «뒤» 같은 절에 부정 꼬리가 없으면 단정(하나라도 단정 = 위반). `unknown_problems` 는 `REST_SAID.search` → `_rest_asserted` 1곳만 · 출력 문구 그대로. kit↔bin 짝 cmp0.
+- 시험 `test_ft_news_html.py` r498 ⓐⓑ 3문장 위반 0 · ⓒⓓ 4문장(부정이 쉼 글자 «앞» 다른 말·다른 절에 붙음) 위반 1씩 — `test_news_html.sh` 39 passed(기존 32 + 7) · 옛 판 ⓐⓑ 3/3 REJECT. 설치: LIVE_BIN 키트 1 cmp0 · 홈 0 · plist 0(틱이 매번 부름) · 되돌림 = 이 커밋 revert(설치본 `.bak-r498`). 범위 밖: 프롬프트 문구 · `ALL_STOP`·`APPROVAL_WAIT` · 갈래 시간 상한(important 50.6초 = 1차 상한 초과 + 재시도 성공 · 총 마감 70초 안 · 정상). 원문 = `harness/evidence/r498/tests-rc.txt`.
+
 ## 2026-10-20 — 팀 폴더 쌍둥이(옛 꼴 `design/<팀>/` + 새 꼴 `design/teams/<팀>/`)를 ERROR 대신 ref 트리로 가름 (r495 · 1.1.53)
 
 - 사건: v65 master 213(요청 115538)이 뒤처진 체크아웃 `v6-realtime-live`(origin/main 뒤 192커밋 · `design/v65` tracked 17661 + `design/teams/v65` tracked 2)에서 `ft-goal-check` → «ERROR … v65 폴더 실재 후보 2개 — 정확히 1개여야 한다» rc4 · v65 골 틱이 섰다. ref(origin/main)는 `design/v65` 0 · `design/teams/v65` 13583 — 어느 쪽이 팀 폴더인지 이미 말하는데 판정기가 ref 트리를 안 봤다.
