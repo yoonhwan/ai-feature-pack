@@ -12,6 +12,12 @@ export BATON_HOME
 cmd="${1:-help}"
 shift || true
 
+# 슬래시 이름과 같은 `archive:<sub>` 표기 허용 (v1.2.17 · 예: baton archive:prune --standalone)
+if [[ "$cmd" == archive:* ]]; then
+  set -- "${cmd#archive:}" "$@"
+  cmd=archive
+fi
+
 case "$cmd" in
   plan)         baton_cmd_plan "$@" ;;
   wt-create)    baton_cmd_wt_create "$@" ;;
@@ -67,14 +73,22 @@ case "$cmd" in
       extract) baton_archive_extract "$@" ;;
       close)   baton_archive_close "$@" ;;
       prune)
-        days=30; dry=false
-        for a in "$@"; do
-          case "$a" in
-            --dry-run) dry=true ;;
-            --days) shift; days="$1" ;;
+        # --standalone: wt-clean 밖 독립 실행(launchd) — 기간 + 0B tar + 고아 INDEX 행 · --project 로 위치 지정 (v1.2.17)
+        days=30; dry=false; standalone=false
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --dry-run)    dry=true ;;
+            --days)       shift; days="${1:?--days 값 필요}" ;;
+            --standalone) standalone=true ;;
+            --project)    shift; cd "${1:?--project 경로 필요}" ;;
           esac
+          shift || true
         done
-        baton_archive_prune "$days" "$dry"
+        if $standalone; then
+          baton_archive_prune_standalone "$days" "$dry"
+        else
+          baton_archive_prune "$days" "$dry"
+        fi
         ;;
       *) echo "알 수 없는 archive 서브명령: $sub"; exit 1 ;;
     esac

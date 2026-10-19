@@ -2,6 +2,31 @@
 
 이 파일은 사용자가 직접 편집 가능합니다. 글로벌 설치본(`~/.baton/versions/{ver}/`)의 변경 이력을 추적하세요.
 
+## [1.2.17] — 2026-10-19 (wt-clean 보관본 다이어트)
+
+> 실측: 로컬 `main` 이 멈춰 `main..HEAD` 가 원격 역사 전체(22,537 커밋)가 되고 squash 랜딩은 늘 «미머지» 로 잡혀 보관본 1개 0.9Gi × 119개 ≈110Gi.
+
+### Changed — `baton_archive_create` 미머지 패치
+- **범위** = `merge-base(<기준>, HEAD)..HEAD` · 기준 = `BATON_ARCHIVE_BASE` → `.worktree-info.json` `base` → `origin/main` → `main` 중 실재하는 첫 ref · 없으면 `patch=nobase`.
+- **머지 판정** = HEAD 가 `origin/main`·`main`·`master` 조상 ∨ 착지 sha(`baton wt-clean --landed <sha>` 또는 `BATON_ARCHIVE_LANDED`)가 그 조상.
+- **브랜치가 `refs/heads`·`refs/archive` 에 남아 있으면 패치 생략**(리포 내용의 복제) — INDEX 행 `patch_meta: "patch=skipped branch=<이름> tip=<sha>"`.
+- **상한** `BATON_ARCHIVE_PATCH_MAX_BYTES`(기본 50MB) — 넘으면 패치를 버리고 `patch=oversize`.
+- **제외 경로** `*.log`·`**/evidence/**`·`*.wav`·`*.jsonl`·`*.png`·`*.tar*` · `--no-textconv --no-ext-diff`(바이너리는 본문 없이 1줄).
+- tar 에 `.archive-meta.txt`(끝 커밋 1줄 · base · merge_base) 항상 포함 · INDEX 행에 `patch`·`tip`·`patch_meta` 추가.
+
+### Added
+- `baton archive prune --standalone [--days N] [--dry-run] [--project <dir>]` (= `baton archive:prune …`) — wt-clean 밖 독립 실행(launchd 일 1회용): 기간 prune + 0B `*.tar`/`*.tar.gz` 삭제 + tar 없는 INDEX 행 정리. INDEX 에 없는 tar(크기 > 0)는 건드리지 않는다.
+
+### Fixed
+- `baton_archive_prune` 의 `$removed건` 이 `set -u` 에서 «바인딩 해제한 변수» 로 죽던 문제(지울 것이 있을 때만 발생) → `${removed}`.
+- 설치본 1.2.14 로컬 패치 3건 상류 반영: commits 목록 `| head -20` SIGPIPE → `-n 20` · INDEX append 실패 시 rc1 · archive 실패 시 wt-clean 이 워크트리를 지우지 않음.
+- `baton archive prune --days N` 인자 해석(for+shift) 오류 → while 해석.
+
+### Verify
+- `test/test_archive_patch_range.sh` ⓐ~ⓖ(임시 리포 픽스처 · 외부 호출 0) · `test/verify.sh` [14].
+
+---
+
 ## [1.2.16] — 2026-07-19 (auto-distill cross-event cooldown)
 
 ### Fixed
