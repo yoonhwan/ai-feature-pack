@@ -1,0 +1,9 @@
+# r508 관련 시험 — 같은 base(74487d29) 사본 vs 나노 판 «^FAIL» 줄 대조 (임시 경로 정규화 · comm -13)
+test_nano_feat_remote_ref     base=0  mine=0  only_mine=0   (첫 실행 FAIL 3 = SEAT_REPO 미정의 → ${SEAT_REPO:-$ROOT} 로 고침 뒤 rc0)
+test_wt_clean_plan_self_check base=13 mine=13 only_mine=0   (기존 RED)
+test_nano_succession_index    base=4  mine=4  only_mine=0   (기존 RED)
+test_seat_reap_left0          base=2  mine=0  only_mine=0   (기존 RED · 실행마다 흔들림)
+test_team_literal_paths2      base=22 mine=22 only_mine=0   (기존 RED)
+test_tracked_bin_call_gate    base=25 mine=25 only_mine=0   (기존 RED)
+test_da_hold_gate             base=2  mine=2  only_mine=0   (기존 RED)
+pass: test_nano_team_env · test_wt_clean_two_stage · test_finished_cleanup_auto · test_sheet_events · test_jsonl_last_ts rc0
