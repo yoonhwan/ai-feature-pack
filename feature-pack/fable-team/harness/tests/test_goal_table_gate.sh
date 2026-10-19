@@ -281,7 +281,7 @@ teams_md "$NREPO"; mkledger "$NOWSTAMP"; TLED="$NR/ledger-teams.md"
 cp "$TLED" "$NREPO/design/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" init -q && git -C "$NREPO" add -A && git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qm base
 BASE_SHA="$(git -C "$NREPO" rev-parse HEAD)"; printf '\n## 3. 팀 작업\n\n- 새 줄 r458\n' >> "$NREPO/design/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qam cur
 news_run() {  # [env…] → OUT(ERROR 로그·news=·parts) · RC — 발행 도구·알림·요약 송신은 시험 대역(실 슬랙·실 mbox 0)
-  OUT="$(env -u FT_NEWS_DIR -u FT_LEDGER_PATH FT_ROOT="$NROOT" FT_LEDGER_REPO="$NREPO" FT_NEWS_STATUS_INTERVAL=0 FT_NEWS_NOW="2026-10-19 18:00" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$TLED" "$@" python3 - "$REPO/harness/bin" "$NROOT" <<'PY' 2>&1
+  OUT="$(env -u FT_NEWS_DIR -u FT_LEDGER_PATH FT_ROOT="$NROOT" FT_LEDGER_REPO="$NREPO" FT_LEDGER_SYNCED=1 FT_NEWS_STATUS_INTERVAL=0 FT_NEWS_NOW="2026-10-19 18:00" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$TLED" "$@" python3 - "$REPO/harness/bin" "$NROOT" <<'PY' 2>&1
 import logging, sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1]); logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")

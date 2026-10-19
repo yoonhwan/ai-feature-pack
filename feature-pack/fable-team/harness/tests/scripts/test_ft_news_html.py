@@ -568,6 +568,20 @@ def test_e_tick_map_then_repeat_line_every_30_min(tmp_path, oc, slack, monkeypat
     assert fh.tick(*args, "b", "b")[0] == 0 and len(made) == 2
 
 
+def test_r503_sync_error_rides_map_head_and_repeat_line(tmp_path, oc, slack, monkeypatch):
+    made: list = []
+    state = _tick_env(tmp_path, monkeypatch, made)
+    args = (tmp_path, state, tmp_path, "x.md", tmp_path / "news")
+    monkeypatch.setenv("FT_NEWS_HEAD", "")
+    monkeypatch.setenv("FT_LEDGER_SYNC_ERROR", "원장 사본 갱신 안 됨 — ERROR x")
+    monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:15")
+    assert fh.tick(*args, "a", "b")[0] == 0
+    assert "[뉴스 09:15] 팀 지도 · 원장 사본 갱신 안 됨 — ERROR x — " in json.dumps(slack.msgs, ensure_ascii=False)
+    monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:46")
+    assert fh.tick(*args, "b", "b")[0] == 0
+    assert slack.msgs[-1]["text"].startswith("[뉴스 09:46] 변화 없음 · 지도 ") and slack.msgs[-1]["text"].endswith(" · 원장 사본 갱신 안 됨 — ERROR x")
+
+
 def test_e_tick_failure_publishes_nothing_keeps_base_and_backs_off(tmp_path, oc, slack, monkeypatch):
     made: list = []
     state = _tick_env(tmp_path, monkeypatch, made)
