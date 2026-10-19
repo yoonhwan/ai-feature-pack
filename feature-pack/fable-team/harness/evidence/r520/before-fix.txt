@@ -1,0 +1,82 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 1차 reap 늘 left=1 → CLOSE-FAIL · 2차 같은 명령(reap left=0) → «재실행» + 카드 검사 건너뜀 + CLOSED · 원장 행 1개 그대로
+PASS ⓐ 1차 → CLOSE-FAIL(rc=1)
+PASS   └ 1차 뒤 명부 행 없음(실사건 꼴)
+PASS   └ 1차 뒤 원장 닫힘 행 1
+PASS   └ 1차 세션 보존
+FAIL ⓐ 2차 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin
+INFO feat=origin/main @ 2e15de3 (fetch 완료)
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/repo)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 못 찾음)
+FAIL   └ 조기 재실행 판별 출력 — 없음: «재실행 — 명부에 없고 원장 닫힘 행 있음» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin
+INFO feat=origin/main @ 2e15de3 (fetch 완료)
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/repo)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 못 찾음)
+FAIL   └ 카드 검사 건너뜀 — 있으면 안 됨: «카드 못 찾음»
+FAIL   └ REJECT 0 — 있으면 안 됨: «REJECT»
+PASS   └ 원장 닫힘 행 1개 그대로(append 0)
+FAIL   └ reap 호출 0 · 
+FAIL   └ 태그 해제 — 없음: «set-option -t %1 -u @zc_v65_active» ← 
+FAIL   └ 세션 kill — 없음: «kill-session -t %1» ← 
+PASS   └ 팩 워크트리·브랜치 그대로
+== ⓐ' 재실행인데 세션도 이미 없음 → reap 만 · CLOSED(세션 없음) · kill 0
+FAIL ⓐ' rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin
+INFO feat=origin/main @ 2e15de3 (fetch 완료)
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/repo)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 못 찾음)
+PASS   └ tmux 변경 0
+PASS   └ 원장 행 1개 그대로
+== ⓑ reap 1회째 left=1 · 2회째 left=0 → 1차에서 바로 CLOSED(재시도 1회)
+FAIL ⓑ rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin
+INFO feat=origin/main @ 2e15de3 (fetch 완료)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD a67ec87fb · 시험 rc=0 · 이슈 0
+OK cherry stub
+INFO 팩 워크트리 정리 = 별 경로 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack/.worktrees/k (팩 리포 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)
+reap byz-harness-nano-k#0 stopped=0 left=1 rc=1
+CLOSE-FAIL reap left=1 rc=1 — byz-harness-nano-k#0 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)
+FAIL   └ «reap 재시도 1» 출력 — 없음: «reap 재시도 1» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin
+INFO feat=origin/main @ 2e15de3 (fetch 완료)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD a67ec87fb · 시험 rc=0 · 이슈 0
+OK cherry stub
+INFO 팩 워크트리 정리 = 별 경로 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack/.worktrees/k (팩 리포 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)
+reap byz-harness-nano-k#0 stopped=0 left=1
+FAIL   └ reap 호출 1
+FAIL   └ 세션 kill — 없음: «kill-session» ← 
+PASS   └ 원장 행 1
+== ⓒ reap 늘 left=1 → 재시도 1회 뒤 CLOSE-FAIL(무한 재시도 0)
+PASS ⓒ CLOSE-FAIL
+FAIL   └ reap 호출 1
+FAIL   └ 재시도 출력 — 없음: «reap 재시도 1» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/bin
+INFO feat=origin/main @ 2e15de3 (fetch 완료)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD a67ec87fb · 시험 rc=0 · 이슈 0
+OK cherry stub
+INFO 팩 워크트리 정리 = 별 경로 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack/.worktrees/k (팩 리포 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bQVjZezhhY/pack · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)
+reap byz-harness-nano-k#0 stopped=0 left=1
+PASS   └ 세션 보존
+== ⓓ 명부 행 없음 ∧ 원장 닫힘 행 없음 → 조기 재실행 0 · REJECT(처음 보는 좌석을 검사 없이 닫지 않음)
+PASS ⓓ REJECT
+PASS   └ 재실행 판별 0
+PASS   └ kill·태그 0
+PASS   └ reap 0
+PASS   └ 원장 행 0
+== ⓔ 명부 행 있음 = 지금 경로 그대로(카드·증거 검사 · reap 1회 · append 1)
+PASS ⓔ CLOSED
+PASS   └ ⑥ 증거 검사 거침
+PASS   └ 재실행 판별 0
+PASS   └ 재시도 0
+PASS   └ reap 1회
+PASS   └ 원장 append 1
+
+FAILED 14

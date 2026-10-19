@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — nano-close reap 실패 뒤 «같은 close 재실행» 이 실제로 이어지게 + reap 1회 재시도 (r520 · 1.1.77)
+
+- 사건: r519 나노 닫기 1차에서 reap 이 left=1(그 순간 돌던 `git status` 1개)로 CLOSE-FAIL — 안내는 «명부는 삭제됨 · 같은 close 재실행» 인데, 재실행은 RERUN 판별(명부에 좌석 없음 · 원장 닫힘 행 있음)에 닿기 «전» 카드 찾기(명부 index)에서 «카드 못 찾음»(팩 경로는 ⓐ 문구) REJECT → 그 좌석을 닫을 도구 경로 0(harness master 83 발주 119095 ① · arch 106 실측).
+- `ft-nano-close.sh` 조기 재실행: 인자·명부·원장 결정 직후, 카드 찾기 «앞» — 명부에 행 없음(`jq has` rc 1 만) ∧ 원장에 «`<좌석>` 닫힘(ft-nano-close)» 행 1개 이상이면 «재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만» → 카드·증거·cherry 검사 0 · reap(재시도 포함) → 세션 있으면 태그 해제 + kill → opencode 회수 → `CLOSED <좌석> (재실행 · 세션 kill|세션 없음 · 원장 행 그대로 · append 0)`. 명부·원장 쓰기 0 · 워크트리·브랜치 손대기 0. 워크트리 인자 = `--wt` › 원장 행 `wt=<절대경로>`(pack-wt·named-wt 꼴) › 없음(--shared-wt 는 늘 없음). tmux 조회 실패(서버 없음 외) = REJECT(fail-closed). 원장 행이 없는 좌석(처음 보는 좌석)은 이 길로 오지 않는다 — 기존 검사 그대로. `--plan-only` 대상 아님.
+- reap 1회 재시도(`_seat_reap`): left≠0 ∨ rc≠0 이면 `FT_REAP_RETRY_SLEEP`(기본 3)초 뒤 1회만 다시 · 두 번째 결과로 판정 · 출력 «reap 재시도 1 — 1회째 left=… rc=…». 그래도 남으면 지금처럼 CLOSE-FAIL(무한 재시도 0). 정상 경로·재실행 경로 공용.
+- 구조 이동(별 커밋): `_oc_close`·`OC_BIN`/`OC_PF` 정의를 위로(본문 그대로). 아래 옛 RERUN 분기(`RERUN=1 ∧ 원장 행` → append 생략)는 조기 재실행이 먼저 잡아 사실상 닿지 않지만 방어로 남김.
+- 시험 `test_nano_close_rerun_early.sh`(새 · test_nano_close_pack_wt 꼴 픽스처 + 가짜 reap 모드 파일 · 외부 호출 0 · GIT_* env 0) ⓐ 1차 CLOSE-FAIL → 2차 재실행 CLOSED(원장 행 1 그대로 · 태그 해제·kill) · ⓐ' 세션도 없음 → CLOSED kill 0 · ⓑ 1회째 left=1·2회째 left=0 → 1차 CLOSED(reap 2회) · ⓒ 늘 left=1 → reap 정확히 2회 뒤 CLOSE-FAIL · ⓓ 명부·원장 행 둘 다 없음 → REJECT(재실행 0 · reap 0) · ⓔ 명부 행 있음 = 기존 경로(증거 검사 · reap 1회 · append 1) — 고치기 전 FAIL 14(`harness/evidence/r520/before-fix.txt` · ⓐ 2차 «카드 못 찾음» REJECT 재현) · 고친 뒤 ALL PASS(`after-fix.txt`) · 기존 nano-close 시험 9 + seat_reap_left0·opencode_reap·nano_team_env·pack_nano_worktree_place rc0(`existing-tests.txt`).
+- 설치: 키트 1(`ft-nano-close.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r520`.
+- 범위 밖: 명부 삭제와 reap 의 순서 바꾸기 · `ft-seat-close.sh` NOROW 동작 · 손 tmux kill.
+
 ## 2026-10-20 — 상향 좌석 «▶내릴 것» 카드 상태 = 데이터 루트 · 공용 루트 · ref origin/main 세 자리 중 가장 앞선 것 (r518 · 1.1.76)
 
 - 사건: 틱 `raised_watch` 의 판정기 `ft_raised.py card_state` 가 카드 실재를 `--root`(= 공용 루트 · 체크아웃 main 51881ba2e4 · 2026-09-23 · `design/teams/` 없음) 한 곳에서만 찾아, v6 라이브 워크트리 «진행» 에만 있는 v65 카드 2장의 상향 좌석을 «(카드 없음)» → master 에 «▶내릴 것» 오탐(v65 master 쪽지 119019 · 틱 쪽지 119017 · harness master 83 발주 119026 ② · arch 106 실측). r515·r517 과 같은 뿌리(공용 루트 체크아웃 옛 판을 정본처럼 읽음).

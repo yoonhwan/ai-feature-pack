@@ -330,6 +330,48 @@ _oc_close() {
   [ "$fail" -eq 0 ] || { echo "$tail — $SEAT opencode 프로세스가 남았다(명부는 삭제됨 · 같은 close 재실행이 pid 파일로 다시 회수)"; exit 1; }
   [ "$OC" = 0 ] || echo "OC-REAPED $SEAT $tail"
 }
+# r448 + r520: 좌석 백그라운드 루프 reap — left≠0 ∨ rc≠0 이면 FT_REAP_RETRY_SLEEP(기본 3)초 뒤 «1회만» 다시(그 순간 돌던 일시 프로세스 · r519 1차 실사건 = git status 1개). 두 번째 결과로 판정.
+#   _wtarg 는 호출 시점 값 · 결과는 _rp_left·_rp_rc 에 남긴다(호출자가 CLOSE-FAIL 문구를 낸다).
+_seat_reap() {
+  local out i
+  for i in 1 2; do
+    if [ "$i" = 2 ]; then echo "reap 재시도 1 — 1회째 ${_rp_left:-left=?} rc=$_rp_rc · ${FT_REAP_RETRY_SLEEP:-3}초 뒤"; sleep "${FT_REAP_RETRY_SLEEP:-3}"; fi
+    out="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" ${_wtarg[@]+"${_wtarg[@]}"} 2>&1)"; _rp_rc=$?; _rp_left="$(printf '%s\n' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
+    printf '%s\n' "$out" >&2
+    [ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] && return 0
+  done
+  return 1
+}
+# ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.
+#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
+#   원장 행이 없으면(처음 보는 좌석) 이 길로 오지 않는다 — 아래 기존 검사 그대로. --plan-only 는 대상 아님. 워크트리 = --wt › 원장 행 wt=<절대경로>(pack-wt·named-wt 꼴) › 없음(reap 은 세션 경로).
+_lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null | tail -1)"
+jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
+if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
+  echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
+  SEAT_WT=""
+  if [ "$NAMED" = 1 ]; then SEAT_WT="$(cd "$NWT" 2>/dev/null && pwd -P)"
+  elif [ "$SHARED" != 1 ]; then _w="$(printf '%s' "$_lrow" | grep -oE 'wt=/[^ ]+' | tail -1)"; _w="${_w#wt=}"; [ -z "$_w" ] || [ ! -d "$_w" ] || SEAT_WT="$_w"; fi
+  _tp="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; _trc=$?
+  case "$_trc:$_tp" in
+    0:*) PANE="$(printf '%s\n' "$_tp" | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')";;
+    1:*"no server running"*) PANE="";;
+    *) echo "REJECT $SEAT"; echo "  - 재실행: tmux 조회 실패(rc=$_trc: ${_tp:0:60}) — 세션 생존 불명(fail-closed)"; exit 1;;
+  esac
+  RS_LINE=""; CARD=""; OC_WT=(); [ -z "$SEAT_WT" ] || OC_WT=(--wt "$SEAT_WT"); OC=0; [ ! -f "$OC_PF" ] || OC=1
+  _wtarg=(); [ -z "$SEAT_WT" ] || _wtarg=(--wt "$SEAT_WT")
+  _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(재실행 · 명부·원장 그대로 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
+  if [ -n "$PANE" ]; then
+    tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(재실행 · 세션 잔존)"; exit 1; }
+    tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(재실행 · 세션 잔존 · 태그는 해제됨)"; exit 1; }
+    echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
+  fi
+  _oc_close
+  [ ! -f "$WT_CLEAN_DIR/$SEAT.sh" ] || echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"
+  _ses="세션 없음"; [ -z "$PANE" ] || _ses="세션 kill"
+  echo "CLOSED $SEAT (재실행 · $_ses · 원장 행 그대로 · append 0) — reap left=0 rc=0"
+  exit 0
+fi
 bad=()
 # ① 결과 보존 · ② master 회수 — --never-started(r506)는 회수할 산출·seq 가 없다: 면제(대신 ⑥ 자리에서 «한 일 0» 4값 검사)
 if [ "$NEVER" = 1 ]; then :
@@ -827,9 +869,7 @@ _sp_tag=""; [ "$SUPER" -eq 0 ] || _sp_tag=" superseded-by=$SUPERSEDED"   # R171
 _sp_tag+="$_su_tag"   # r450
 # r448: 세션 kill «앞»(세션이 이미 없어도) 그 좌석이 띄운 백그라운드 루프 정지 — left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(세션 보존 · 명부는 삭제됨 → 같은 close 재실행이 RERUN 으로 이어간다)
 _wtarg=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || _wtarg=(--wt "$SEAT_WT")
-_rp_out="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" ${_wtarg[@]+"${_wtarg[@]}"} 2>&1)"; _rp_rc=$?; _rp_left="$(printf '%s\n' "$_rp_out" | grep -oE 'left=[0-9?]+' | tail -1)"
-printf '%s\n' "$_rp_out" >&2
-[ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
+_seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
 if [ "$ABSENT" = 1 ]; then _oc_close; echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
 echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0"
 # 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
