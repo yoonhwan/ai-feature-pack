@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — ft-tick shellcheck RED 고침: renamed_watch 명부 인자 = 배열+glob(ls 파싱 0) · SC1091 source 지시 (r507 · 1.1.60)
+
+- 사건: 팩 시험 `test_ft_tick_passes_shellcheck`(shellcheck rc0 단정)가 RED 인 채로 r478·r479·r503 증거에 «기존 RED» 로 적혀 왔다(harness master 82 발주 116983 · arch 105 실측). 원인 2: ①`ft-tick.sh:444` `renamed_watch` 의 `$(ls "$(dirname "$SEATS")"/seats-*.json 2>/dev/null)` 따옴표 없는 명령 치환(SC2046 warning · r468 95fe73bb 가 넣은 줄 — 공백 있는 명부 이름이 쪼개진다) ②`:42` `. "$HERE/ft-harness-root.sh"` 의 SC1091(info) — info 도 shellcheck rc1 이라 ①만 고치면 시험이 계속 RED(카드 ⓐ 조건 실측).
+- `ft-tick.sh`(kit↔bin cmp0): ①`local … f seatfiles=()` · `for f in "$(dirname "$SEATS")"/seats-*.json; do [ -e "$f" ] && seatfiles+=("$f"); done` → `"$RENAMED" watch "$MBOX" "$SEATS" ${seatfiles[@]+"${seatfiles[@]}"}`(bash 3.2 + `set -u` 빈 배열 안전 · 0개면 인자 0 — glob 글자 안 넘어감) ②`MBOX=…` 줄을 둘로 나눠 `[ -n "$MBOX" ] || { . …; }` 앞에 `# shellcheck source=/dev/null`(지시는 «다음 명령» 에만 걸려 한 줄 `a; b || {…}` 에선 `.` 에 안 닿음 · `source=ft-harness-root.sh` 는 -x 없이 여전히 SC1091 — 실측). 동작 변경 0.
+- 시험: `test_ft_tick_renamed_args.sh`(새) — renamed_watch 함수만 떼어 가짜 RENAMED(argv JSON) · 명부 2개(`seats-a.json`·`seats-b c.json`) → 인자 2개 정확히 · 0개 → 인자 0 · bash5 + /bin/bash 3.2 = 6 PASS · 변이(origin/main 판) FAIL 3. `shellcheck ft-tick.sh` rc0 · `test_ft_news_ledger.py` 24 passed(shellcheck 시험 포함) · 틱 시험 `test_team_rename.sh` 86·`test_tick_shim_guard.sh` 26·`test_tick_team_msg.sh` 32·`test_board_publish_tick.sh` 14 rc0. origin/main 에서도 같은 수로 RED 인 시험 3(이 단위 밖 · 고침 단위 후보로 master 에 보고): `test_ft_tick_master_seat.sh` FAIL 4(dead_seat_watch `ERROR autonomy mode unreadable (none)`) · `test_tick_line.sh` FAIL 84(픽스처 `fixtures/tick_line/` 없음) · `test_team_tick_unify.sh` FAIL 1(ⓖ H2 `wt/scripts/fable-team-bin` 거부 안 됨). 설치: LIVE_BIN 키트 1 cmp0 · 홈 0 · plist 0 · 되돌림 = 설치본 `.bak-r507`. 원문 = `harness/evidence/r507/tests-rc.txt`.
+
 ## 2026-10-20 — 뉴스·매거진이 읽는 원장 사본을 매 회 origin/main 으로 전진 · 매거진 기본 원본 = 뉴스와 같은 사본·새 경로 (r503 · 1.1.59)
 
 - 사건: desk 116740 → harness master 81 발주 116754 — 뉴스 사본 `.worktrees/news-ledger-main`(detached) 은 fetch·전진 주체가 없어 main 뒤 71커밋 · 01:50 원장 착지를 못 보고 «변화 없음» 3회(02:08 master 손 전진). 08:00 매거진은 기본값 `.worktrees/v6-realtime-live`(가지 위 · main 뒤 223) 의 옛 경로 `design/planner/PLAN-oppa-ledger.md`(마지막 10-19 18:55)를 읽는다 — 어느 쪽도 «낡았다» 신호 0. arch 105 실측(카드 Issue ①~⑤).
