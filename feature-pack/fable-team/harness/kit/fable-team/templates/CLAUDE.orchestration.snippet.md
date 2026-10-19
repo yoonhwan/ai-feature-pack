@@ -13,5 +13,5 @@
 
 **한 턴에 코드 파일 2개까지만 직접 수정한다. 3개째부터는 `hooks/orchestration-gate.sh`가 물리적으로 차단한다.** 코드 수정이 필요하면 ft-implementer/ft-tester에 위임한다. Bash(`sed -i`·`echo >`·`tee`)로 코드파일을 우회 수정하지 않는다. **v3 — 래퍼 외 생명주기 명령 직접 발행 금지: `tmuxc open|kill|clean|distill`은 Bash 직접 호출 금지, `.fable-team/bin/ft-tmux-*.sh` 래퍼 경유만**(게이트가 면제보다 먼저 deny). 상세 기준은 `.claude/rules/orchestration.md` 참조.
 
-컨텍스트 300k에서 증류 경고(`ft-ctx-triage.sh` 진단→결정, 승인 2-모드), 450k에서 신규 스폰 물리 차단(`context-distill-gate.sh`). v3 워커는 tmux 세션이라 오케 증류에도 생존(워커 증류=`ft-tmux-distill.sh` #N+1 승계).
+컨텍스트 550k에서 증류 경고(`ft-ctx-triage.sh` 진단→결정, 승인 2-모드), 600k에서 신규 스폰 물리 차단(`context-distill-gate.sh`) — 550k 경고 · 600k 차단 전 프로젝트 공통(R445 · 2026-10-19). v3 워커는 tmux 세션이라 오케 증류에도 생존(워커 증류=`ft-tmux-distill.sh` #N+1 승계).
 <!-- fable-team:orchestration-gate END -->

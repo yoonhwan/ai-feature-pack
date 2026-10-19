@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — claude 좌석 전부 증류 경고 550k · 차단 600k 로 통일 (홈·BYZ 이원화 끝 · 승계 recv 차단선 550k 같이 이동) (1.1.16)
+
+카드 r445 · master 111389 · 오빠 «전부 550k경고 600k 차단으로 가자. 1/3 줄이고». Fable 1M 창에서 400k 경고·450k 차단(키트==홈 훅)과 프로젝트 훅은 창의 절반도 못 쓰고 승계를 불렀습니다.
+
+- **context-distill-gate.sh**(키트 템플릿): `WARN_DEFAULT, BLOCK_DEFAULT = 550_000, 600_000` · `RECV_DEFAULT = 550_000`(후계 도달 전 recv 차단선 = 경고선과 같이 이동) · 머리 주석 R445 1줄. 판정·allowlist·메시지 코드 불변(메시지는 값에서 계산).
+- **ft-successor-open.sh**: 주석 6·104 «400k» → «550k»(값을 읽지 않음 · 동작 불변) · bin·kit 짝 cmp0.
+- **문서 템플릿**: `templates/rules/orchestration.md` 증류 절 550k/600k + «전 프로젝트 공통» 1줄 · `CLAUDE.orchestration.snippet.md` 16행 550k/600k.
+- **범위 밖**: codex(`~/.codex/config.toml` auto_compact 780k)·opencode(`opencode.json` compaction auto) 설정 변경 0 · `ft-mbox-bridge.sh:6`·`ft-index-gate.sh:12` 역사 수치 불변.
+- **시험**: `test_distill_gate_550_600.sh`(인자 없이 호출 · ⓐ540k warn 0 ⓑ560k 경고 «550k·600k» ⓒ590k block 허용 ⓓ610k block exit2 ⓔ hard recv 560k 도달 파일 없음 차단/있음 허용·540k 허용·610k 일반 도구 차단 ⓕ BYZ 사본 cmp0 + 같은 케이스 ⓖ 600/300 s·codex/opencode 참조 0) ALL PASS rc0 · 옛 훅 RED 7 · 기존 `test_distill_recv_gate.sh`·`test_successor_open.sh` rc0. 증거 `harness/evidence/r445/`.
+
 ## 2026-10-19 — 공유 루트에서 나노를 닫으면 꼬리에 남던 «팀 명단 없음» ERROR·WARN 을 없앤다: 빈 석 계산도 명단 = ref · 폴더 = 그 루트 (1.1.15)
 
 카드 r416 · v65#211 쪽지 110851 · master 110852 · arch#96 실측. v65 가 공유 루트 v6-realtime-live 에서 나노를 닫으면 닫기는 통과하는데 꼬리에 `ERROR v65 은 팀 명단(TEAMS.md)에 없다` · `ERROR v65 팀 폴더를 못 풀었다(design/TEAMS.md)` · `WARN ft-nano-slots 실패(rc=1) — 빈 석을 손으로 세라` 3줄이 남았습니다. 세 줄 전부 닫기 끝에 부르는 `ft-nano-slots.sh` 가 cwd 사본 `design/TEAMS.md`(옛 8행 · v65 행 없음)로 팀 폴더를 풀던 한 곳에서 나왔습니다.
