@@ -1,5 +1,28 @@
 # Changes
 
+## 2026-10-19 — 틱 데몬 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main): comm 을 공용 루트로 · shim 폴더 옛 사본 자가 검사 · 골·뉴스 틱 정본 ref 읽기 · 설치기 comm 동기화 + RESTART 줄 (r459 · 1.1.30)
+
+카드 r459 · master 112539·112636 · arch 101 실측 · 골 6(메인 골 1 팀장 v65 master 가 틱 없이 36시간). 메인 틱이 10-18 09:53 부터 `skip … 에이전트 판정 불가(<v6>/.fable-team/comm/ft-agent-alive.sh 실행 실패)` 839회 — `ft_comm_dir` 가 데이터 루트 = LIVE_ROOT(옛 라이브 워크트리 v6-realtime-live)의 comm 으로 풀렸는데 거기엔 판정기가 없었습니다(진짜 우편함·판정기 = 공용 루트 comm). 10-19 09:04 shim 교체 뒤엔 «먼저 기동한» 틱 6개가 메모리의 옛 사본으로 shim 폴더의 `.py` 를 python3 로 읽어 SyntaxError 를 반복했고, goal-tick 은 글자 ROOT(v6)·뉴스 틱은 체크아웃 명단으로 v65 폴더를 못 풀어 ERROR(112632).
+
+- **ft-harness-root.sh** `ft_comm_dir`: ①env `FT_MBOX_DIR`(comm 폴더 그 자체) ②env `FT_ROOT` ③`*/.fable-team/bin` 이면 `git -C` 공용 루트 ④cwd 공용 루트 — LIVE_ROOT 분기 제거 · comm 없음 = ERROR 그대로. `ft_data_root` 는 state 용 그대로(주석 «comm 은 쓰지 않는다»).
+- **ft-tick.sh · ft-tick-team.sh**: 기동 1회 자가 검사 — 형제 `ft_raised.py` 첫 3줄에 `ft-root-bin-shim` 마커가 있으면 `ERROR shim 폴더에서 실행 — launchctl kickstart 로 LIVE_BIN 재기동` exit 3(옛 통째 사본이 조용히 돌지 못한다). MBOX·AGENT_ALIVE 기본 = 공용 루트 comm(ft_comm_dir).
+- **ft-team-lib.sh** `ft_team_doc_ref <루트> <팀> <파일> [<ref>]`: 명단 = ref(origin/main) · 후보 폴더 중 실재 정확히 1개면 그 경로 · 0 이면 `git show <ref>:<명단 꼴 폴더>/<파일>` 본문을 임시 파일로(정리 = 부르는 쪽 · `ft_team_doc_tmp`) · 2+·ref 못 읽음·ref 에도 없음 = ERROR rc1. 읽기 전용(원장처럼 쓰는 파일은 `ft_team_file_ref`).
+- **ft-goal-tick.sh**: 글자 ROOT 제거 → ROOT = `ft_repo_root`(env `FT_GOAL_TICK_ROOT` 시험용 유지) · 틱 프롬프트 = `ft_team_doc_ref` + trap 정리. **ft-news-tick.sh**: 글자 ROOT 제거(env `FT_NEWS_ROOT` → `ft_repo_root`) · NEWS-TREE.md = `ft_team_doc_ref`(`FT_NEWS_TREE` 우선 그대로). **ft-nano-close.sh**: 원장 0·2+ REJECT 문구를 헬퍼 ERROR 꼴(«실재 후보 N개 — 정확히 1개여야 한다(명단 … · 후보 …)») 하나로.
+- **ft-tick-install.sh · ft-tick.plist**: 메인 plist `WorkingDirectory` = git 공용 루트 + env `FT_TICK_MBOX`·`FT_MBOX_DIR`·`FT_TICK_AGENT_ALIVE`(공용 루트 comm · `__COMM__`) — 팀 plist 와 같은 틀 · 공용 루트 comm 없음 = REJECT · dry-run + `FT_TICK_PRINT_PLIST=1` = 렌더본 출력.
+- **install.sh**: ⓐ `comm_sync` — 팩 `harness/comm` 최상위 일반 파일(제외 = `mailbox*.jsonl`·`.mbox-seq`·`.mbox-guard.json`·`queues.conf`·`*.pyc` · 폴더 `bodies/`·`relay/` 는 대상 밖)을 `<공용 루트>/.fable-team/comm/` 에 cp -p · 덮기 전 `.bak-<버전>`(첫 원본 보존) · 삭제 0 · dry-run = `COMM <dst> <- <src>` 줄 + `COMM copied=N same=M` · 워크트리 `--project` = `SKIP comm`. ⓑ apply 끝 `ft_live_install_check.py --restart-scan` — 판정식 `restart_due`(R245 plist_items 에서 뽑은 함수 하나)로 «기동 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime» 인 적재 데몬마다 `RESTART <label> — launchctl kickstart -k gui/<uid>/<label>` 줄(실행 0 · master 집행).
+- **시험**: `test_harness_root.sh` r459 ⓐ~ⓔ 추가 · 새 `test_tick_shim_guard.sh` ⓐ~ⓒ · `test_nano_close_fail_closed.sh` ⓑⓒ 문구 갱신. 실 머신 읽기만: `install.sh --dry-run --project <BYZ 루트>` rc0 · `COMM copied=24 same=8`(루트 mbox.sh·ft_seat_bind.py 는 팩보다 뒤 — r408 미설치) · `--restart-scan` = 팀 틱 4 + 슬랙 수신 2 RESTART. 증거 `harness/evidence/r459/`.
+- 범위 밖: state 폴더 통합(v6 ↔ 루트) · r458(뉴스 폴더 = 원장 리포 TEAMS.md · 뉴스 틱의 `WT=<루트>/.worktrees/v6-realtime-live` 도구 경로) · 루트 체크아웃 당기기.
+
+## 2026-10-19 — 원장 뉴스가 «원장 정본 한 곳»(FT_LEDGER_REPO + 경로)에서만 sha·경로·뉴스 폴더를 푼다 + 뉴스·매거진 골 표 뒤 «팀별 완성 진행» 블록 (r458 · 1.1.29)
+
+카드 r458 · master 112887·112904·112907·113018 · arch 101 실측. 10-18 08:43 뒤 뉴스 발행 0: 원장 경로는 원장 리포(LIVE_ROOT) 명단으로, 뉴스 폴더는 공용 루트(로컬 main 2만 커밋 뒤 · TEAMS.md 없음) 명단으로 풀어 `ERROR 팀 명단 없음` 2671회. 임시 처방(h182 · 원장 리포를 c-level-planning 으로) 뒤엔 `git show 실패: path design/teams/planner/… not in c7b4a5db8b` — 기준선(last.sha)은 옛 경로 리포 판, 경로는 새 경로라 «출처 2개».
+
+- **출처 1개**: 뉴스 폴더 = `<루트>/<원장 경로의 폴더>/news`(원장 경로 = FT_LEDGER_PATH › 원장 리포 TEAMS.md 의 planner 폴더) · 폴더 없음 = `ERROR 뉴스 폴더 없음 <경로>`(폴백 0) · FT_NEWS_DIR 우선 그대로. 골 표·팀별 진행이 읽는 원장도 같은 값(FT_GOAL_A6_LEDGER › FT_LEDGER_REPO+FT_LEDGER_PATH › 원장 리포 planner 폴더).
+- **기준선 판 검사**: 기준선 sha 판에 «같은 리포·같은 경로» 원장이 없으면 `기준선 <sha10> 판에 원장 정본 <경로> 이 없다 … 옛 경로 후퇴 0` ERROR(발행 0) — 옛 경로(design/planner/)·쌍둥이 경로로 읽지 않는다(#0 RULE · master 113018). 복구 = 원장을 정본 경로로 커밋 → 기준선을 그 판으로.
+- **팀별 완성 진행**: `ft-goal-table.sh teams` = 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 `★팀별 완성 진행 (<원장 sha10>)★ … ★/팀별 완성 진행★`(≤1600B · «지금» 칸 24→16→8자). 표 없음·예산 초과·도구 실패 = 빈 글 + WARN — ★새 거절 게이트 0★(골 표 check 불변). 뉴스 첫 판 = 머리 → 골 표 → 팀별 진행 → lead(3500B 계산 포함 · 이어진 판엔 없음) · 매거진 뿌리 글·HTML 절 골 표 바로 뒤.
+- **시험** `tests/test_goal_table_gate.sh` r458 16 PASS(ⓐ 루트 명단 없음 → 원장 리포 명단 · 폴더 없음 ERROR ⓑ FT_NEWS_DIR 우선 ⓒ teams 블록·표 없음 WARN rc0·check 불변 ⓓ 첫 판 순서·3500B·이어진 판 0 ⓔ 매거진 뿌리 글·HTML·무장이어도 거절 0 ⓕ 옛 경로 기준선·다른 리포 sha = 명확한 ERROR · 정본 판끼리 발행 · FT_LEDGER_PATH 한 값) · 전체 fail=0. RED: origin/main 판 10 FAIL · `check_base` 만 빼면 ⓕ 2 FAIL(실 오류 `exists on disk, but not in` 그대로 재현). ⓚ 픽스처 `tests/fixtures/goal_table/AUTONOMY-GOAL-A6-20261018.md` 가 팩에 없어 기존부터 FAIL → BYZ origin/main 판 복사.
+- **범위 밖**: 원장을 새 경로 판으로 옮기기(planner 몫 · master 요청) · 공용 루트 main 당기기 · 세션 상태 스냅샷 낡음(ERROR 로그 · 발행은 막지 않음) · 팀 틱 «지금 하는 것» 자동 수집.
+
 ## 2026-10-19 — 자율 ON 병합 훅이 «오빠 승인 sha 위에 main 병합만 더한 head»(같은 변경 집합)를 재승인 없이 통과시킨다 (r462 · 1.1.28)
 
 카드 r462 · ops master 33 [HIL] 112442 → planner 112456 → master 78 발주 112459. 훅 `autonomy-merge-guard.sh` 는 승인 파일 이름 == `--match-head-commit` sha 글자 일치만 봐서, 착지 직전 표준인 main 병합으로 head 가 바뀌면 «승인한 변경 집합은 그대로» 인데도 매번 오빠 재승인을 요구했습니다(ops PR 1960 왕복).

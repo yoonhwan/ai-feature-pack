@@ -4,6 +4,8 @@ render  : 정본 표(골 → 팀 → 닫는 증거 6행) + planner 원장 `## �
           골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/6행 아님 = `ERROR 골 표 정본 …` rc1.
 check   : 본문에 ⓐ마커 블록(6행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~6> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
+teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
+          표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
 정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = LIVE_BIN→LIVE_ROOT 의 planner 팀 폴더(TEAMS.md 폴더 칸)/AUTONOMY-GOAL-A6-20261018.md) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 라이브 planner 원장) · 저장소 = FT_GOAL_REPO(기본 FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha.
 원장: 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
@@ -17,7 +19,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from ft_goal_ledger import NO_STATE, find_root, ledger_state, planner_dir
+from ft_goal_ledger import NO_STATE, find_root, ledger_spec, ledger_state, planner_dir, read_spec, table_rows
 
 DEFAULT_NAME = "AUTONOMY-GOAL-A6-20261018.md"  # planner 팀 폴더 안(폴더는 ft_team_lib 가 푼다)
 BUDGET = 1600
@@ -25,6 +27,9 @@ CELL = 24
 HEAD = re.compile(r"^★골 표 A6 \(([0-9a-f]{10}) · [^)]*\)★$")
 TAIL = "★/골 표★"
 COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
+TEAMS_SECTION = re.compile(r"^##\s+팀별 완성 진행")
+TEAMS_TAIL = "★/팀별 완성 진행★"
+TEAMS_NOW_CELLS = (24, 16, 8)  # «지금 하는 것» 칸 — 예산(1600B)에 들 때까지 줄인다 · 팀·끝선·착지 칸은 12자
 
 
 class GoalError(RuntimeError):  # RuntimeError — 뉴스 원장 실행의 기존 except(RuntimeError) 가 «발행 0» 으로 받는다
@@ -100,6 +105,34 @@ def render() -> str:
     return out + "\n"
 
 
+def render_teams() -> str:
+    """팀별 완성 진행 블록(R458) — 원장 = 골 표 상태 칸과 같은 파일(ledger_spec) · 표 없음/예산 초과 = "" + stderr WARN(raise 0)."""
+    spec = ledger_spec(GoalError)
+    text = read_spec(spec, _ledger_show)
+    rows = table_rows(text, GoalError, TEAMS_SECTION) if text is not None else None
+    if not rows:
+        print(f"WARN 팀별 완성 진행 표 없음: {spec}", file=sys.stderr)
+        return ""
+    sha = _git(_repo(), "rev-parse", "--verify", spec.split(":", 2)[1]).strip()[:10] if spec.startswith("gitref:") else hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
+    out = ""
+    for width in TEAMS_NOW_CELLS:
+        body = [f"| {_clip(r[0], 12)} | {_clip(_at(r, 1), 12)} | {_clip(_at(r, 2), 12)} | {_clip(_at(r, 3), width)} |" for r in rows]
+        out = "\n".join([f"★팀별 완성 진행 ({sha})★", "| 팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것 |", "|---|---|---|---|", *body, TEAMS_TAIL])
+        if len(out.encode("utf-8")) <= BUDGET:
+            return out + "\n"
+    print(f"WARN 팀별 완성 진행 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B ({len(rows)}행) — 블록 없이 발행", file=sys.stderr)
+    return ""
+
+
+def _at(row: list[str], i: int) -> str:
+    return row[i] if i < len(row) and row[i] else "-"
+
+
+def _clip(s: str, n: int) -> str:
+    s = _norm(s).replace("|", "/")
+    return s if len(s) <= n else s[:n] + "…"
+
+
 def _canon_for(sha: str) -> list[list[str]]:
     text, cur, _ = load_canon()
     if cur == sha:
@@ -145,7 +178,7 @@ def main(argv: list[str]) -> int:
             rc, msg = check(sys.stdin.read() if src == "-" else Path(src).read_text(encoding="utf-8"), "--block-only" in argv)
             print(msg)
             return rc
-        sys.stdout.write(render())
+        sys.stdout.write(render_teams() if argv[:1] == ["teams"] else render())
         return 0
     except GoalError as e:
         print(e, file=sys.stderr)

@@ -1,0 +1,44 @@
+# r459 시험 rc — 팩 HEAD 5953c686f6f4711e6ebd51158aef3c5c250cbf53 · 팩 harness 폴더 · env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE
+test_harness_root rc=0 · PASS 73 · FAIL 0
+test_tick_shim_guard rc=0 · PASS 26 · FAIL 0
+test_tick_team_msg rc=0 · PASS 32 · FAIL 0
+test_nano_close_fail_closed rc=0 · PASS 36 · FAIL 0
+test_installed_root rc=0 · PASS 22 · FAIL 0
+test_live_install_check_shim rc=0 · PASS 15 · FAIL 0
+test_evidence_log_gate rc=0 · PASS 54 · FAIL 0
+test_install_hook_check rc=0 · PASS 19 · FAIL 0
+test_install_team_tick_live rc=0 · PASS 48 · FAIL 0
+test_ft_tick_master_seat rc=4 · PASS 58 · FAIL 4
+test_team_literal_paths rc=1 · PASS 113 · FAIL 6
+
+# 관련 83개(바뀐 도구 이름을 부르는 시험 전부) 대조 — 브랜치(커밋 전 같은 내용) vs base d8305edb(git archive 사본 · git 없는 사본이라 근사)
+# 브랜치 rc0 54개 · 빨강 29개 → 그중 이 단위가 고친 것 2(installed_root·team_literal_paths 일부 = 새 계약 반영) · 나머지 빨강 = base 에서도 빨강(FAIL 수 같거나 base 가 더 많음)
+branch·base  test_agent_alive_fg_judge.sh fails=2 fails=2
+branch·base  test_autonomy_core.sh fails=1 fails=1
+branch·base  test_da_hold_gate.sh fails=2 fails=2
+branch·base  test_evidence_inject_scan.sh fails=6 fails=6
+branch·base  test_ft_tick_master_seat.sh fails=4 fails=44
+branch·base  test_ft_wt_sweep_route_timeout.sh fails=1 fails=1
+branch·base  test_goal_table_gate.sh fails=1 fails=1
+branch·base  test_graphics_690.sh fails=5 fails=5
+branch·base  test_graphics_install.sh fails=5 fails=19
+branch·base  test_hil_run_marker.sh fails=2 fails=3
+branch·base  test_installed_root.sh fails=3 fails=0
+branch·base  test_live_install.sh fails=6 fails=6
+branch·base  test_live_install_check.sh fails=2 fails=2
+branch·base  test_live_install_check_tip.sh fails=3 fails=3
+branch·base  test_live_snapshot_all_rosters.sh fails=1 fails=1
+branch·base  test_loom_tunnel_install.sh fails=3 fails=35
+branch·base  test_nano_succession_index.sh fails=4 fails=4
+branch·base  test_pack_relocation.sh fails=1 fails=0
+branch·base  test_planner_nano_path.sh fails=2 fails=2
+branch·base  test_seat_retire.sh fails=1 fails=4
+branch·base  test_team_literal_paths.sh fails=10 fails=14
+branch·base  test_team_literal_paths2.sh fails=18 fails=18
+branch·base  test_team_move_roundtrip.sh fails=3 fails=3
+branch·base  test_team_scaffold_empty_template.sh fails=8 fails=8
+branch·base  test_team_tick_unify.sh fails=1 fails=1
+branch·base  test_teamset_check.sh fails=6 fails=7
+branch·base  test_tick_line.sh fails=84 fails=84
+branch·base  test_tracked_bin_call_gate.sh fails=25 fails=25
+branch·base  test_wt_clean_plan_self_check.sh fails=13 fails=13

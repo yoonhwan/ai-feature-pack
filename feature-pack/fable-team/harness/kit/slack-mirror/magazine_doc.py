@@ -25,7 +25,7 @@ from magazine_slack import SLACK_BASE, Target, permalink, post_root, upload_file
 from mirror_lib import MirrorError, read_token, save_state
 
 try:
-    from magazine_goal import block as goal_block, html_section, with_root
+    from magazine_goal import block as goal_block, html_section, teams_block, with_root
 except ImportError as _err:  # R362 H1 — 설치 누락: 무장 표식(FT_ROOT/.fable-team/state/goal-gate.armed)이 있으면 발행 거절 · 없으면 골 표 없이 진행(로그)
     _why = str(_err)  # except 블록이 끝나면 _err 이름이 지워진다 — 아래 함수가 쓸 값은 여기서 잡는다
 
@@ -35,7 +35,7 @@ except ImportError as _err:  # R362 H1 — 설치 누락: 무장 표식(FT_ROOT/
             raise MirrorError(f"골 표 모듈 없음 — magazine_goal 설치 누락({_why})")
         logging.getLogger("magazine_doc").warning("골 표 모듈 없음(비무장) — 골 표 없이 진행: %s", _why)
         return ""
-    html_section, with_root = (lambda goal: ""), (lambda text, goal: text)
+    html_section, with_root, teams_block = (lambda goal: ""), (lambda text, goal: text), (lambda: "")
 
 HOME = Path.home()
 LOG = logging.getLogger("magazine_doc")
@@ -106,7 +106,7 @@ def run(args: argparse.Namespace) -> int:
     flagged = guide_check(brief, args.publish)  # 지침 §3·§4-1 위반 — 같은 규칙(R259)
     if blocked or (flagged and args.publish):
         return 1
-    goal = goal_block()  # R362 — 게시·상태 쓰기 «전»: 무장이면 렌더·판정 실패 = 발행 실패 경로(rc1) · 비무장이면 WOULD-REJECT 로그 + 골 표 없이
+    goal = "\n".join(x for x in (goal_block(), teams_block()) if x)  # R458 팀별 완성 진행 = 골 표 바로 뒤(뿌리 글·HTML 같은 절) · R362 — 게시·상태 쓰기 «전»: 무장이면 렌더·판정 실패 = 발행 실패 경로(rc1) · 비무장이면 WOULD-REJECT 로그 + 골 표 없이
     out = Path(args.out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()

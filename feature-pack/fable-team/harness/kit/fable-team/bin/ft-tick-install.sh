@@ -3,6 +3,7 @@
 #   설치:  ft-tick-install.sh [--worktree DIR] [--script PATH] [--dry-run]
 #          → ft-tick.plist 템플릿의 __WORKTREE__/__SCRIPT__ 치환 → ~/Library/LaunchAgents/com.byz.ft-tick.plist
 #          → plutil -lint → launchctl bootstrap gui/$UID → launchctl print 로 state 출력
+#          r459: WorkingDirectory = git 공용 루트 · env FT_TICK_MBOX·FT_MBOX_DIR·FT_TICK_AGENT_ALIVE = 공용 루트 comm(__COMM__) · dry-run + FT_TICK_PRINT_PLIST=1 = 렌더본 출력
 #   제거:  ft-tick-install.sh --uninstall   → launchctl bootout gui/$UID/com.byz.ft-tick + plist 삭제
 #   ★팀 틱 (R199)★  ft-tick-install.sh --team <팀> [--script PATH] [--from <plist>] [--dry-run]   (--script 생략 = 메인 plist 의 스크립트 · 워크트리·키트 원본 경로는 REJECT)
 #          → 그 팀의 «지금 plist»(또는 --from) 를 바탕으로 ProgramArguments[1] = 공용 ft-tick.sh · team-tick-env.tsv 의 팀 값(STATE_DIR) + 끌 전역 감시(값 0) + FT_TICK_FIRE_V2=1 을 더한 plist 를 만든다.
@@ -110,11 +111,16 @@ fi
 [ -f "$SCRIPT" ]   || { echo "REJECT ft-tick.sh 없음: $SCRIPT"; exit 1; }
 [ -d "$WT" ]       || { echo "REJECT 워크트리 없음: $WT"; exit 1; }
 [ -x /opt/homebrew/bin/bash ] || { echo "REJECT /opt/homebrew/bin/bash 없음 (plist ProgramArguments)"; exit 1; }
+# r459: 메인 plist 도 팀 plist 와 같은 틀 — WorkingDirectory = git 공용 루트 · 우편함·판정기 env = 공용 루트 comm(옛 라이브 워크트리 comm 0)
+COMMON="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; COMMON="${COMMON%/.git}"
+[ -n "$COMMON" ] && [ -d "$COMMON/.fable-team/comm" ] || { echo "REJECT 공용 루트 comm 없음: ${COMMON:-<git 밖>}/.fable-team/comm ($WT)"; exit 1; }
+COMM="$COMMON/.fable-team/comm"
 
-render() { sed -e "s|__WORKTREE__|$WT|g" -e "s|__SCRIPT__|$SCRIPT|g" "$TEMPLATE"; }
+render() { sed -e "s|__WORKTREE__|$COMMON|g" -e "s|__SCRIPT__|$SCRIPT|g" -e "s|__COMM__|$COMM|g" "$TEMPLATE"; }
 if [ "$DRY" = 1 ]; then
   TMP="$(mktemp /tmp/ft-tick-plist.XXXXXX)"; render > "$TMP"
-  plutil -lint "$TMP" >/dev/null && echo "PLAN plist lint OK · script=$SCRIPT · cwd=$WT · dst=$PLIST_DST · bootstrap $DOMAIN" || { echo "REJECT 렌더된 plist lint 실패: $TMP"; exit 1; }
+  plutil -lint "$TMP" >/dev/null && echo "PLAN plist lint OK · script=$SCRIPT · cwd=$COMMON · comm=$COMM · dst=$PLIST_DST · bootstrap $DOMAIN" || { echo "REJECT 렌더된 plist lint 실패: $TMP"; exit 1; }
+  [ -z "${FT_TICK_PRINT_PLIST:-}" ] || cat "$TMP"
   rm -f "$TMP"; exit 0
 fi
 

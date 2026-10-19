@@ -18,15 +18,18 @@ set -uo pipefail
 #   crontab 한 줄로 고치는 대신 스크립트가 자기 PATH 를 보장한다 — 승계·재설치 때도 따라간다.
 PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="${FT_GOAL_TICK_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
+# r459 자리 규칙: 데이터(우편함·명부) = 공용 루트 · 정본 문서(명단·틱 프롬프트) = ref origin/main — 글자 ROOT(옛 라이브 워크트리) 0
+. "$HERE/ft-harness-root.sh"
+ROOT="${FT_GOAL_TICK_ROOT:-}"   # 시험용 env 유지
+[ -n "$ROOT" ] || ROOT="$(ft_repo_root "$HERE")" || { echo "$(date '+%F %T') ERROR 공용 루트를 못 풀었다 — exit"; exit 1; }
 TARGET="${FT_GOAL_TICK_TARGET:-ft-v65-master#39}"
 STREAK_FILE="${FT_GOAL_TICK_STREAK:-/tmp/ft-goal-tick.streak}"
 cd "$ROOT" || exit 0
 MBOX=.fable-team/comm/mbox.sh
 CHECK="${FT_GOAL_TICK_CHECK:-.fable-team/bin/ft-goal-check.sh}"
-. "$HERE/ft-team-lib.sh"   # R382b: v65 팀 폴더는 ROOT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
-_V65="$(ft_team_in "$ROOT" v65)" || { echo "$(date '+%F %T') ERROR v65 팀 폴더를 못 풀었다 — exit"; exit 1; }
-PROMPT="$_V65/20260912/TICK-PROMPT-v65-unified.md"
+. "$HERE/ft-team-lib.sh"   # r459: 명단 = ref · 체크아웃에 v65 폴더가 없으면 ref 본문(ft_team_doc_ref)
+PROMPT="$(ft_team_doc_ref "$ROOT" v65 20260912/TICK-PROMPT-v65-unified.md)" || { echo "$(date '+%F %T') ERROR v65 틱 프롬프트를 못 풀었다 — exit"; exit 1; }
+ft_team_doc_tmp "$PROMPT" && trap 'rm -f "$PROMPT"' EXIT
 [ -x "$MBOX" ] && [ -x "$CHECK" ] && [ -f "$PROMPT" ] || { echo "$(date '+%F %T') missing mbox/check/prompt — exit"; exit 0; }
 tmux has-session -t "=$TARGET" 2>/dev/null || { echo "$(date '+%F %T') target absent: $TARGET"; exit 0; }
 

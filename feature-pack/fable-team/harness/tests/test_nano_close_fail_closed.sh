@@ -78,11 +78,11 @@ has "$out" "INFO 원장 ← $OLDL (명단 origin/main)" "  └ INFO 원장 ← <
 
 echo "== ⓑ 두 쌍둥이 모두 원장 → REJECT 후보 2개"
 setup; mkdir -p "$(dirname "$NEWL")"; : > "$NEWL"; out="$(close)"; rc=$?
-rejected "$out" "$rc" "ⓑ"; has "$out" "REJECT v65 원장 후보 2개: $NEWL · $OLDL" "  └ 사유(명단 꼴 먼저 · 쌍둥이 뒤)"
+rejected "$out" "$rc" "ⓑ"; has "$out" "REJECT v65 원장 실재 후보 2개 — 정확히 1개여야 한다(명단 origin/main:design/TEAMS.md · 후보 $NEWL $OLDL · 실재 $NEWL · $OLDL)" "  └ 사유(명단 꼴 먼저 · 쌍둥이 뒤 · r459 헬퍼 ERROR 꼴)"
 
 echo "== ⓒ 어느 쪽에도 원장 없음 → REJECT 못 찾았다(후보 목록)"
 setup; rm -f "$OLDL"; out="$(close)"; rc=$?
-rejected "$out" "$rc" "ⓒ"; has "$out" "REJECT v65 원장을 못 찾았다 — 후보: $NEWL $OLDL" "  └ 사유 + 후보 2"
+rejected "$out" "$rc" "ⓒ"; has "$out" "REJECT v65 원장 실재 후보 0개 — 정확히 1개여야 한다(명단 origin/main:design/TEAMS.md · 후보 $NEWL $OLDL · 실재 없음)" "  └ 사유 + 후보 2(r459 헬퍼 ERROR 꼴)"
 
 echo "== ⓓ origin/main ref 없음 → REJECT 명단 못 읽음(작업 트리 사본으로 후퇴 0)"
 setup; git -C "$REPO" update-ref -d refs/remotes/origin/main; out="$(close)"; rc=$?

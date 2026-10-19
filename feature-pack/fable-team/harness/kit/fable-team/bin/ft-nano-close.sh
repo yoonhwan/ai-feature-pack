@@ -96,8 +96,7 @@ else
   while IFS= read -r _c; do [ -n "$_c" ] || continue; _lall+=" $_c/$_lrel"; [ -f "$_c/$_lrel" ] && { _ln=$((_ln+1)); _lf+="${_lf:+ · }$_c/$_lrel"; }; done <<< "$_cands"
   case "$_ln" in
     1) LEDGER="$_lf"; echo "INFO 원장 ← $LEDGER (명단 $_ref)";;
-    0) echo "REJECT v65 원장을 못 찾았다 — 후보:$_lall (FT_NANO_LEDGER 로 지정)"; exit 1;;
-    *) echo "REJECT v65 원장 후보 ${_ln}개: $_lf (FT_NANO_LEDGER 로 지정)"; exit 1;;
+    *) echo "REJECT v65 원장 실재 후보 ${_ln}개 — 정확히 1개여야 한다(명단 $_ref:design/TEAMS.md · 후보$_lall · 실재 ${_lf:-없음}) · FT_NANO_LEDGER 로 지정"; exit 1;;   # r459: ft_team_doc_ref 의 ERROR 꼴과 같은 문구
   esac
 fi
 case "$LEDGER" in /*) ;; *) LEDGER="$LEDGER_WT/$LEDGER";; esac
