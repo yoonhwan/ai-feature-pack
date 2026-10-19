@@ -1,0 +1,45 @@
+# 라이브 1.1.75 ft-decision-count.sh --detail · 실 공용 루트 읽기 전용 · 2026-10-20 07:33 (고치기 전)
+결정 인터뷰 0건 · 스크립트 7건 · 팀 대기 43건(가장 오래 byz-planner-arch-claude#7 1071분) (옛 좌석 미닫힘 480) (AUTONOMY-QUEUE 파일 없음)
+  #111729 byz-planner-arch-claude#7 1071분 master 교대 반영 · arch#7 휴식 중 · 다음 일 요청
+  #112076 byz-planner-arch-claude#7 921분 #112034 챗봇 런타임 제안서 r1 커밋 · desk 경유 오빠 컨펌
+  #112290 byz-planner-arch-claude#7 870분 #112238+#112269 챗봇 제안서 r2 커밋(짧은 가지 · pus
+  #112340 byz-planner-arch-claude#7 859분 #112321 챗봇 제안서 r2 보완 5·6 커밋(같은 짧은 가지 · p
+  #112481 byz-planner-desk-claude#23 835분 desk 승계 부팅 보고
+  #112513 byz-planner-desk-claude#23 829분 오빠 승인 5건 desk 대리 실행 전부 rc=0
+  #112605 byz-planner-desk-claude#23 815분 h176 대리 실행 — v65 master 발사 확인
+  #112627 byz-planner-desk-claude#23 813분 h175 rc=0 — dev 옛 리비전 3개 삭제
+  #112715 byz-planner-desk-claude#23 797분 자율 ON 대리 결정 요청 2건 — v65 #112712 (오빠께 안 올
+  #112734 byz-planner-desk-claude#23 795분 v65 툴바 PR #1965 승인 대기 — 범위 승인 h 와 한 줄로 묶
+  #112760 byz-planner-desk-claude#23 793분 오빠 h178 실행 — SCOPE-GRANTED S3 A9
+  #112793 byz-concierge-master-claude#6 789분 [결정] 컨시어지 5카드 main 착지 승인 요청 (head ece72b
+  #112801 byz-planner-desk-claude#23 788분 h173 rc=0 — concierge node_modules 원래 연결
+  #112821 byz-planner-desk-claude#23 784분 오빠 «실행» — h180 컨시어지 5카드 승인
+  #112853 byz-planner-desk-claude#23 781분 h181 ② 는 이미 끝남 — 팩 PR #87 MERGED d56b9c0
+  #112868 byz-planner-desk-claude#23 779분 오빠 «1분에 하나씩 승인건 … 이게 무슨 자율이야» — 승인 낱건 오빠
+  #112937 byz-planner-desk-claude#23 770분 h186 보류 — #88 head 그대로 CONFLICTING · 하네스
+  #112955 byz-concierge-master-claude#6 767분 [회신] #1967 새 sha 5077db4fab — 승인 h 요청
+  #112970 byz-planner-desk-claude#23 765분 h187 rc=0 — APPROVED 5077db4fab (PR #196
+  #113137 byz-concierge-master-claude#6 750분 [결정] PR #1973 증거 고침 — 오탐 거절, 병합 승인(추천 가)
+  #113792 byz-concierge-master-claude#6 668분 [결정] PR #1994 챗봇 기획 문서 — scope 오탐, 병합 승인
+  #115424 byz-lecture-master-claude#6 471분 PR#2061 CLOSEOUT 승인 요청
+  #118165 byz-chatbot-master-claude#10 153분 [회신 #118159] N5 워크트리 정리 계획 재생성 실패 — ft-n
+  #118204 byz-graphics-master-claude#22 148분 [결정] #2125 390 판정 기준 재정의(+3/+1px) 권고 ①
+  #118222 byz-graphics-master-claude#22 146분 [결정] #2125 승인 h 요청 세트 5a5d49b279
+  #118258 byz-graphics-master-claude#22 141분 [완료] PR #2125 LANDED 85b7bd9bb9 · 다음 #21
+  #118323 byz-loom-master-claude#39 135분 [완료] LANDED pr=2141 sha=30da6f600b6a20c1
+  #118399 byz-ops-master-claude#36 128분 [완료] ops PR 2142 LANDED sha=0b63d4129d ·
+  #118554 byz-chatbot-master-claude#10 103분 [회신 #118550] 추가 spawn 0 — 겹침·선행 때문(대기 카드
+  #118555 byz-feature-master-claude#32 103분 [결정] #118547 회신 — 대기 7장 표 · 되는 쪽 3장(F-15
+  #118563 byz-cfo-master-claude#98 102분 [완료] cfo master#98 · 회신 #118546 — ①1372 
+  #118578 byz-feature-master-claude#32 99분 [결정] #1550 러너 PR #2147 만들어 둠 · 세트: 308fc
+  #118619 byz-feature-master-claude#32 94분 솔직 보고: main RED 2건(test_service_warmup_p
+  #118644 byz-feature-master-claude#32 90분 [완료] main RED 2건 고침 PR #2149 승인 요청 · 세트:
+  #118646 byz-cfo-master-claude#98 90분 [결정] cfo master#98 -> planner · 1268b(옛 
+  #118684 byz-chatbot-master-claude#10 86분 [회신 #118673] ①k4c 나노 jest pid 4834 실측(13
+  #118762 byz-chatbot-master-claude#10 76분 [착지 승인 요청 · 챗봇 K4c] PR #2150 (nano/c-k4c
+  #118764 byz-ops-master-claude#36 76분 [결정] ops PR 2151(시험 +1줄) scope-approve 정
+  #118808 byz-graphics-master-claude#22 70분 [결정] PR #2154(g2134) 승인 h 요청 · node_modu
+  #119015 byz-v65-tester-claude#74 25분 [오디오 끝] tester#74 #1943 동시 4 press c4q (
+  #119027 byz-v65-tester-claude#74 21분 [오디오 시작] tester#74 #1943 동시 4 press c4q-
+  #119030 byz-v65-tester-claude#74 20분 [오디오 끝] tester#74 #1943 동시 4 press c4q-r
+  #119072 byz-loom-master-claude#39 6분 [합치기] loom 1439-1440 PR #2157 승인 h 요청(착지
