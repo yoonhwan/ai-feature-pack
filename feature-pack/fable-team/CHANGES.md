@@ -24,6 +24,16 @@
 - **시험** `tests/test_nano_close_worktree_list_pipe.sh`(새 · 18 PASS): 임시 리포 + 긴 이름 등록 워크트리 452개(porcelain 162,697 B) · ⓐ 옛 꼴 git 파이프·printf 파이프 rc141 · here-string rc0 ⓑ `--plan-only` 목록 앞(v65-aaa)·맨 뒤(v65-zzz) → `PLANNED` ⓒ 미등록 → 기존 REJECT · 계획 0 ⓓ `--shared-wt` 등록 공유 워크트리(목록 앞) → ⓑ 오판 0 · 미등록 cwd → ⓑ bad 1줄. 고치기 전 `ft-nano-close.sh`(origin/main) 로 같은 시험 = FAILED 3(ⓑ v65-aaa REJECT · ⓓ 오판) — 맨 뒤 v65-zzz 는 옛 판도 통과(결함은 «앞쪽에서 찾을 때만»).
 - **범위 밖**: 워크트리 수 줄이기(r444 sweep · 판정 1920) · `pipefail` 끄기. 라이브 BYZ porcelain 은 지금 62,091 B(경계 바로 아래 — 다시 넘으면 옛 판은 재발).
 
+## 2026-10-19 — 설치기가 launchd plist(쪽지→슬랙 미러)를 git 공용 루트 설치에서만 갱신한다: 워크트리 `--project` 는 `SKIP plist-env` (r457)
+
+카드 r457 · master 112171 · arch#100 실측. r426 의 plist 갱신이 `--project` 글자를 그대로 FT_ROOT·`--mailbox` 로 렌더해, r413 STALE-COPY 안내대로 워크트리(`.worktrees/v6-realtime-live`)를 `--project` 로 설치하자 미러 plist 가 우편함 없는 워크트리 경로로 교체됐습니다(1.1.24 설치 실사고 · master 복원). 설치기의 «프로젝트» 가 두 뜻(shim 을 둘 폴더 = 워크트리 가능 · launchd 가 볼 루트 = 공용 루트만)이었습니다.
+
+- **install.sh**: `PROJECT` 확정 직후 `git rev-parse --path-format=absolute --git-common-dir` 로 공용 루트(`pwd -P` 정규화). `plist_sync` 첫 줄 — `--project` ≠ 공용 루트면 `SKIP plist-env <라벨> (--project 가 git 공용 루트 아님: 루트=<경로> — plist 는 루트 설치에서만)` 1줄 · 렌더·교체·launchctl 0(dry-run 같음). shim·훅·githooks 설치는 그대로. git 밖은 기존 흐름(렌더기 ERROR).
+- **ft_plist_env.py** render(이중 방어 · 외부 호출 0): 루트에 `.git` 폴더가 없으면 `RenderError 루트가 git 공용 루트 아님(워크트리|.git 없음)` rc3. bin·kit 짝 cmp0.
+- **ft_live_install_check.py**: `plist_root`(공용 루트 · git 밖이면 그대로) — plist-env 대조와 `HINT plist-env … --project` 둘 다 공용 루트. STALE-COPY HINT 는 워크트리 그대로. bin·kit 짝 cmp0.
+- **시험**: `test_live_install_check_plist_env.sh` 픽스처 프로젝트를 git 리포로 + r457ⓐ~ⓔ(ⓐ 루트 OK 그대로 ⓑ 워크트리 dry-run·apply SKIP 1줄 · plist cmp 불변 · launchctl 0 · shim 설치 됨 ⓒ 렌더기 워크트리 rc3 · 루트 rc0 ⓓ install-check 워크트리 → 대조·HINT 공용 루트 ⓔ git 밖 install.sh rc1 · install-check rc3) — 32 PASS. 실 머신 dry-run(읽기만): 루트 `OK plist-env` · v6-realtime-live `SKIP plist-env` · plist cksum 불변. 증거 `harness/evidence/r457/`.
+- 범위 밖: 템플릿 `--project __PROJECT__` 자리 · 미러 스크립트 · r413 HINT 문구. base 에서도 빨강인 `test_live_install.sh`·`test_live_install_check.sh` ⑥·`test_live_install_check_tip.sh` ⓕ 는 master-steps 에 기록(새 단위 후보).
+
 ## 2026-10-19 — 루트 3분리(r385 r3)·명부 폴더 raise(R231a) 뒤 빨강이던 팩 시험을 픽스처로 초록 · `ft-harness-info.sh seats` 는 comm 을 못 풀어도 목록·팀 명부 절을 찍는다 (1.1.23)
 
 카드 r455a · master 111909 · arch#100 실측 · 판정 1395(«기존 RED» 변명 0). 도구 계약이 바뀌었는데(데이터 루트 = FT_ROOT → `.fable-team/LIVE_ROOT` → 옛 설치 꼴 · comm 폴더 필수 · 명부 폴더 없음 = raise · close 가 `ft-seat-reap.sh` 호출) 그 계약을 쓰는 시험 픽스처가 같은 단위에서 안 바뀌어 첫 줄 ERROR 로 끝나고 있었습니다.

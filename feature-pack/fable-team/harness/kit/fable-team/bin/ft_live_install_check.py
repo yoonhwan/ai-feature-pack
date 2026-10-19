@@ -187,6 +187,14 @@ def project_root(repo, project):
     return gc[: -len("/.git")] if gc.endswith("/.git") else os.path.dirname(gc)
 
 
+def plist_root(repo, project):
+    """r457: launchd plist 의 루트 = project_root 의 git 공용 루트(워크트리 --project 도 루트로) · git 밖이면 그대로(렌더기가 ERROR)."""
+    root = project_root(repo, project)
+    r = run(["git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    gc = r.stdout.strip()
+    return os.path.realpath(gc[: -len("/.git")]) if r.returncode == 0 and gc.endswith("/.git") else root
+
+
 def shim_items(repo, tree, project=None):
     """라이브 bin 에 실재하는 키트 도구마다 루트 .fable-team/bin/<이름> 연결 파일(앞 3줄에 SHIMMARK)이 있는지 (R374). LIVE_BIN 파일 없음 = 검사 대상 아님.
     루트 = --project(r385 · 키트 리포와 프로젝트가 갈린 뒤) 또는 키트 리포의 공용 루트."""
@@ -281,10 +289,10 @@ def main():
         elif row[1] == "plist":
             checked += 1
             items = plist_items(repo, f, tree[f][1])
-            env = plist_env(repo, tree[f][1], project_root(repo, o["project"]))
+            env = plist_env(repo, tree[f][1], plist_root(repo, o["project"]))
             bad += items + env
             hints.update({rel.split("/")[0]: row[3]} if items else {})
-            hints.update({"plist-env": "bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", project_root(repo, o["project"]))} if env else {})
+            hints.update({"plist-env": "bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"]))} if env else {})
         else:
             checked += 1
             pairs.append((f, live_path(row, f), row))
