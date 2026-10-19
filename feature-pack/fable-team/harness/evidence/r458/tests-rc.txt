@@ -1,0 +1,22 @@
+# r458 시험 (팩 feature-pack/fable-team/harness 에서 · GIT_* env 0)
+bash tests/test_goal_table_gate.sh rc=0
+bash tests/test_magazine_check.sh rc=0
+bash tests/test_installed_root.sh rc=0
+bash tests/test_team_literal_paths2.sh rc=1 (FAIL 18·6·3 = origin/main d56b9c0e 와 같음 · 기존)
+bash tests/test_team_literal_paths.sh rc=1 (FAIL 18·6·3 = origin/main d56b9c0e 와 같음 · 기존)
+bash tests/test_team_move_roundtrip.sh rc=1 (FAIL 18·6·3 = origin/main d56b9c0e 와 같음 · 기존)
+python3.11 -m pytest -q tests/scripts/test_magazine_goal.py tests/scripts/test_ft_news_publish_import_path.py = 9 passed 1 failed(test_repo_original_finds_kit_folder · origin/main 도 같음)
+py_compile bin/ft_news_ledger.py rc=0
+py_compile bin/ft_goal_ledger.py rc=0
+py_compile bin/ft_goal_table.py rc=0
+py_compile bin/ft_news_ledger_text.py rc=0
+py_compile bin/ft_news_post.py rc=0
+py_compile kit/slack-mirror/magazine_goal.py rc=0
+py_compile kit/slack-mirror/magazine_doc.py rc=0
+bash -n bin/ft-goal-table.sh rc=0
+cmp bin/kit ft-goal-table.sh rc=0
+cmp bin/kit ft_goal_ledger.py rc=0
+cmp bin/kit ft_goal_table.py rc=0
+cmp bin/kit ft_news_ledger.py rc=0
+cmp bin/kit ft_news_ledger_text.py rc=0
+cmp bin/kit ft_news_post.py rc=0

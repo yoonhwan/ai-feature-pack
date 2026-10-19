@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — 원장 뉴스가 «원장 정본 한 곳»(FT_LEDGER_REPO + 경로)에서만 sha·경로·뉴스 폴더를 푼다 + 뉴스·매거진 골 표 뒤 «팀별 완성 진행» 블록 (r458 · 1.1.27)
+
+카드 r458 · master 112887·112904·112907·113018 · arch 101 실측. 10-18 08:43 뒤 뉴스 발행 0: 원장 경로는 원장 리포(LIVE_ROOT) 명단으로, 뉴스 폴더는 공용 루트(로컬 main 2만 커밋 뒤 · TEAMS.md 없음) 명단으로 풀어 `ERROR 팀 명단 없음` 2671회. 임시 처방(h182 · 원장 리포를 c-level-planning 으로) 뒤엔 `git show 실패: path design/teams/planner/… not in c7b4a5db8b` — 기준선(last.sha)은 옛 경로 리포 판, 경로는 새 경로라 «출처 2개».
+
+- **출처 1개**: 뉴스 폴더 = `<루트>/<원장 경로의 폴더>/news`(원장 경로 = FT_LEDGER_PATH › 원장 리포 TEAMS.md 의 planner 폴더) · 폴더 없음 = `ERROR 뉴스 폴더 없음 <경로>`(폴백 0) · FT_NEWS_DIR 우선 그대로. 골 표·팀별 진행이 읽는 원장도 같은 값(FT_GOAL_A6_LEDGER › FT_LEDGER_REPO+FT_LEDGER_PATH › 원장 리포 planner 폴더).
+- **기준선 판 검사**: 기준선 sha 판에 «같은 리포·같은 경로» 원장이 없으면 `기준선 <sha10> 판에 원장 정본 <경로> 이 없다 … 옛 경로 후퇴 0` ERROR(발행 0) — 옛 경로(design/planner/)·쌍둥이 경로로 읽지 않는다(#0 RULE · master 113018). 복구 = 원장을 정본 경로로 커밋 → 기준선을 그 판으로.
+- **팀별 완성 진행**: `ft-goal-table.sh teams` = 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 `★팀별 완성 진행 (<원장 sha10>)★ … ★/팀별 완성 진행★`(≤1600B · «지금» 칸 24→16→8자). 표 없음·예산 초과·도구 실패 = 빈 글 + WARN — ★새 거절 게이트 0★(골 표 check 불변). 뉴스 첫 판 = 머리 → 골 표 → 팀별 진행 → lead(3500B 계산 포함 · 이어진 판엔 없음) · 매거진 뿌리 글·HTML 절 골 표 바로 뒤.
+- **시험** `tests/test_goal_table_gate.sh` r458 16 PASS(ⓐ 루트 명단 없음 → 원장 리포 명단 · 폴더 없음 ERROR ⓑ FT_NEWS_DIR 우선 ⓒ teams 블록·표 없음 WARN rc0·check 불변 ⓓ 첫 판 순서·3500B·이어진 판 0 ⓔ 매거진 뿌리 글·HTML·무장이어도 거절 0 ⓕ 옛 경로 기준선·다른 리포 sha = 명확한 ERROR · 정본 판끼리 발행 · FT_LEDGER_PATH 한 값) · 전체 fail=0. RED: origin/main 판 10 FAIL · `check_base` 만 빼면 ⓕ 2 FAIL(실 오류 `exists on disk, but not in` 그대로 재현). ⓚ 픽스처 `tests/fixtures/goal_table/AUTONOMY-GOAL-A6-20261018.md` 가 팩에 없어 기존부터 FAIL → BYZ origin/main 판 복사.
+- **범위 밖**: 원장을 새 경로 판으로 옮기기(planner 몫 · master 요청) · 공용 루트 main 당기기 · 세션 상태 스냅샷 낡음(ERROR 로그 · 발행은 막지 않음) · 팀 틱 «지금 하는 것» 자동 수집.
+
 ## 2026-10-19 — 병합 줄 대조(`ft_merge_lines.py`)가 «다른 폴더로 옮긴 파일» 을 옮긴 곳에서 센다 — D 인데 같은 이름 1개면 이동 · 옛 경로 글자 1쌍 치환 (r461 · 1.1.26)
 
 카드 r461 · master 112578·112657 · loom master 36 결정 요청 112574. 보호 집합의 키가 «파일 경로» 라서, 작은 카드를 다른 폴더로 옮기며 경로 글자 줄을 바꾸면 `diff -M` 유사도가 50% 밑으로 떨어져 «D(삭제) + A(새 파일)» 로 갈라지고 «S 가 삭제» 로 거절됐다. git 이 R 로 잡아도 main 이 더한 «옛 경로 글자 줄» 이 새 경로 글자로 바뀌면 «사라짐» 이었다.
