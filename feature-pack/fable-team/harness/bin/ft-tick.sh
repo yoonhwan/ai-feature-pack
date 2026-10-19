@@ -337,6 +337,22 @@ outage_watch() {
   return 0
 }
 
+# ── r497 역할 좌석 모델 한도 → 대체 모델 후계 자동 교대 ─────────────────────────────────────────────
+# ft_model_swap.py 가 명부 «전체»(seats*.json)의 역할 좌석을 보므로 공용 루트 틱(명부 seats.json) 1곳에서만 — 팀 틱(seats-<팀>.json)은 건너뛴다(중복 교대 0).
+# PLAN·HIL 줄은 틱 로그에 · 도구 실패는 ERROR 1줄만 남기고 틱은 계속(조용한 생략 0). FT_MODEL_SWAP=0 으로 끔.
+MODEL_SWAP="${FT_TICK_MODEL_SWAP_BIN:-$HERE/ft_model_swap.py}"
+model_swap() {
+  local out rc ft
+  [ "${FT_MODEL_SWAP:-1}" = 1 ] && [ "$(basename "$SEATS")" = seats.json ] || return 0
+  ft="$(dirname "$SEATS")"   # 루트 = 명부가 놓인 .fable-team 의 부모 — 임시 명부(시험)로 실제 루트 좌석을 교대하지 않는다
+  if [ "$DRY" = 1 ]; then echo "DRY kind=model-swap bin=$MODEL_SWAP fable-team=$ft"; return 0; fi
+  [ "$(basename "$ft")" = .fable-team ] || { log "model_swap: skip — 명부가 <루트>/.fable-team/seats.json 꼴 아님 ($SEATS)"; return 0; }
+  out="$(python3 "$MODEL_SWAP" --root "$(dirname "$ft")" --mbox "$MBOX" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | grep -E '^(PLAN|HIL|BUSY) ' | while IFS= read -r l; do log "model_swap: $l"; done
+  [ "$rc" = 0 ] || echo "$(date '+%F %T') model_swap: ERROR model_swap rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+  return 0
+}
+
 sweep_wt() {
   local out hil master rows tagged team lines hdr tf
   [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
@@ -660,6 +676,7 @@ pass() {
   idle_watch
   idle_long_watch
   outage_watch
+  model_swap
   stall
   sweep_wt
   drift_watch

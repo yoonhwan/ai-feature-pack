@@ -351,7 +351,8 @@ def test_tick_dry_run_lists_api_outage_kind(tmp_path):  # 2 — ft-tick 호출�
     seats = tmp_path / "seats.json"
     seats.write_text(json.dumps({"_master": "t-m#1", "t-m#1": {"role": "master", "tick": None}}), encoding="utf-8")
     env = {**os.environ, "FT_TICK_SEATS": str(seats), "FT_TICK_WT_SWEEP": "0", "FT_TICK_HIL": "0","FT_TICK_DRIFT": "0",
-           "FT_TICK_NEWS_LEDGER": "0", "FT_TICK_IDLE_ENABLED": "0", "FT_TICK_STATE_DIR": str(tmp_path / "st")}
+           "FT_TICK_NEWS_LEDGER": "0", "FT_TICK_IDLE_ENABLED": "0", "FT_TICK_STATE_DIR": str(tmp_path / "st"),
+           "FT_TICK_MBOX": str(tmp_path / "mbox.sh")}  # r459 뒤 comm 폴더 없는 임시 루트는 mbox 를 직접 준다(r497 에서 RED 수리)
     for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY"):
         env.pop(k, None)
     r = subprocess.run(["bash", str(SCRIPTS / "ft-tick.sh"), "--once", "--dry-run"], capture_output=True, text=True, env=env, timeout=60)
@@ -366,7 +367,7 @@ def test_tick_survives_outage_tool_failure_with_one_error_line(tmp_path):  # 2 �
     env = {**os.environ, "FT_TICK_SEATS": str(seats), "FT_TICK_WT_SWEEP": "0", "FT_TICK_HIL": "0","FT_TICK_DRIFT": "0", "FT_TICK_NEWS_LEDGER": "0",
            "FT_TICK_IDLE_ENABLED": "0", "FT_TICK_STATE_DIR": str(tmp_path / "st"), "FT_TICK_PIDFILE": str(tmp_path / "pid"),
            "FT_TICK_STALL_INTERVAL": "99999", "FT_TICK_API_OUTAGE_BIN": str(bad), "FT_TICK_STAMP_PREFIX": str(tmp_path / "stamp-"),
-           "FT_TICK_API_OUTAGE_STATE": str(tmp_path / "ao.json")}
+           "FT_TICK_API_OUTAGE_STATE": str(tmp_path / "ao.json"), "FT_TICK_MBOX": str(tmp_path / "mbox.sh"), "FT_MODEL_SWAP": "0"}
     for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY"):
         env.pop(k, None)
     r = subprocess.run(["bash", str(SCRIPTS / "ft-tick.sh"), "--once"], capture_output=True, text=True, env=env, timeout=60)
