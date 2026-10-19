@@ -1,0 +1,37 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ --wt 팩 등록 워크트리 + 하네스 카드(- 설치: 있음) → ⑥ 팩 HEAD 대조 PASS · CLOSED
+PASS ⓐ 팩 경로 → CLOSED(rc=0)
+PASS   └ ⑥ 증거 줄 = 팩 워크트리 HEAD 대조 통과
+PASS   └ ⑤ cherry = --repo 팩 리포 · origin/main · --branch
+PASS   └ 정리 계획 0 · INFO 1줄
+PASS   └ PLANNED/계획 안내 0
+PASS   └ wt-clean 계획 파일 0
+PASS   └ 원장 행 mode=pack-wt
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ 팩·BYZ 워크트리 그대로
+PASS   └ 팩 브랜치 그대로
+== ⓑ 같은 입력 · 카드 «- 설치: 없음»(제품 카드) → ⓐ REJECT(팩 경로는 하네스 카드만)
+PASS ⓑ 제품 카드 → REJECT
+PASS   └ 지금 ⓐ 문구 그대로
+PASS   └ 덧말
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+== ⓒ --wt 가 팩 .worktrees/ 아래 미등록 폴더 → REJECT
+PASS ⓒ 미등록 폴더 → ⓐ REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+== ⓓ 팩 워크트리 미커밋 1 → REJECT(팩 리포 기준 ⓔ)
+PASS ⓓ 팩 미커밋 → ⓔ REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+== ⓔ --wt 없이(표준 해석) 팩 나노 → 지금처럼 BYZ 워크트리 대조(동작 변경 0)
+PASS ⓔ 표준 해석 → BYZ HEAD 대조 REJECT(지금 그대로)
+PASS   └ 팩 경로 분기 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+
+ALL PASS

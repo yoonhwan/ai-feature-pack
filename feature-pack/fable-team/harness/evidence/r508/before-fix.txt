@@ -1,0 +1,59 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ --wt 팩 등록 워크트리 + 하네스 카드(- 설치: 있음) → ⑥ 팩 HEAD 대조 PASS · CLOSED
+FAIL ⓐ rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo)에 등록된 .worktrees/ 아래 워크트리가 아니다
+  - ⓒpane cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo/.worktrees/harness-k)의 toplevel(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo/.worktrees/harness-k)이 --wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k)와 다르다
+  - ⑥나노 워크트리 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0
+FAIL   └ ⑥ 증거 줄 = 팩 워크트리 HEAD 대조 통과 — 없음: «OK 증거 줄» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo)에 등록된 .worktrees/ 아래 
+FAIL   └ cherry 인자: origin/main nano/k repo=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo
+FAIL   └ 정리 계획 0 · INFO 1줄 — 없음: «INFO 팩 워크트리 정리 = 별 경로» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo)에 등록된 .worktrees/ 아래 
+PASS   └ PLANNED/계획 안내 0
+PASS   └ wt-clean 계획 파일 0
+FAIL   └ 원장 행 mode=pack-wt — 없음: «mode=pack-wt wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k branch=nano/k» ← 
+FAIL   └ 세션 kill(표준승인 경로) — 없음: «kill-session» ← 
+PASS   └ 팩·BYZ 워크트리 그대로
+PASS   └ 팩 브랜치 그대로
+== ⓑ 같은 입력 · 카드 «- 설치: 없음»(제품 카드) → ⓐ REJECT(팩 경로는 하네스 카드만)
+PASS ⓑ 제품 카드 → REJECT
+PASS   └ 지금 ⓐ 문구 그대로
+FAIL   └ 덧말 — 없음: «팩 경로는 하네스 카드(- 설치: 있음)만» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo)에 등록된 .worktrees/ 아래 
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+== ⓒ --wt 가 팩 .worktrees/ 아래 미등록 폴더 → REJECT
+PASS ⓒ 미등록 폴더 → ⓐ REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+== ⓓ 팩 워크트리 미커밋 1 → REJECT(팩 리포 기준 ⓔ)
+FAIL ⓓ 팩 미커밋 → ⓔ REJECT — 없음: «ⓔ--wt 미커밋 변경 1건» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/bin
+OK cherry stub
+REJECT byz-harness-nano-k#0
+  - ⓐ--wt(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/pack/.worktrees/k)가 이 리포(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PrE8Rdqb5w/repo)에 등록된 .worktrees/ 아래 
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+== ⓔ --wt 없이(표준 해석) 팩 나노 → 지금처럼 BYZ 워크트리 대조(동작 변경 0)
+PASS ⓔ 표준 해석 → BYZ HEAD 대조 REJECT(지금 그대로)
+PASS   └ 팩 경로 분기 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+
+FAILED 8

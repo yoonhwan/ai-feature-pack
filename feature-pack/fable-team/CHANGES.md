@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — nano-close --wt 팩 경로: 하네스 팩 나노의 ⑥·⑤·미커밋을 팩 리포 기준으로 대조 (r508 · 1.1.65)
+
+- 사건: 하네스 팩 나노(작업 = `ai-feature-pack/.worktrees/<…>` · 카드 «세트:» = 팩 커밋)는 `ft-nano-close.sh` ⑥ 이 BYZ 쪽 같은 이름 워크트리(spawn base) HEAD 와 대조해 병합 뒤 항상 REJECT · `--wt` 명시 모드도 BYZ 등록 워크트리만 받아 팩 경로 거절 → 매번 `--suspended` 우회(r499·r502·r466 실사건 · harness master 82 발주 116983 · arch 105 실측).
+- `ft-nano-close.sh`(kit↔bin cmp0): `--wt` ⓐ — BYZ 조건이 아니면 `FT_PACK_ROOT`(기본 `$HOME/Project/ai-feature-pack`)의 `.worktrees/` 아래 ∧ 그 리포 `worktree list` 등록이면 대조 리포 `SEAT_REPO` = 팩 · 카드 해석 뒤 머리 `- 설치: 있음`(하네스 카드) 아니면 지금 ⓐ REJECT 문구 + 덧말 «팩 경로는 하네스 카드(- 설치: 있음)만». ⓑ 브랜치·ⓔ 미커밋·⑥ 증거 줄(`--repo` = 팩 워크트리)·⑤ cherry(`--repo` = 팩 리포 · origin/main 재대조·fetch 포함)·feat fetch·base sha 조상 = `SEAT_REPO`(기본 `$ROOT` — 다른 경로 변화 0) · 팩 모드 feat 기본 = origin/main. 정리 계획 0 + `INFO 팩 워크트리 정리 = 별 경로` 1줄 · 원장 `mode=pack-wt wt=… branch=… repo=…`.
+- 카드와 다른 점 2(실사건 꼴): ①pane cwd(ⓒ)는 BYZ 쪽 같은 좌석 표준 워크트리라 «--wt 또는 그 표준 워크트리» 를 받는다 ②spawn 이 BYZ 쪽에 같은 이름 워크트리를 만들어 «표준 전용 워크트리가 따로 있다» REJECT 가 늘 걸린다 — 팩 모드만 그 검사를 건너뛴다. `_fetch_remote_feat` 는 `${SEAT_REPO:-$ROOT}`(함수만 떼어 쓰는 `test_nano_feat_remote_ref.sh` 호환).
+- 시험 `test_nano_close_pack_wt.sh`(새 · 임시 리포 R·P + P bare 원격 · 외부 호출 0) ⓐ 팩 경로 CLOSED(고치기 전 FAIL 8 · 뒤 PASS) ⓑ 제품 카드 → ⓐ REJECT ⓒ 미등록 폴더 → REJECT ⓓ 팩 미커밋 → ⓔ REJECT ⓔ 인자 없음 → BYZ HEAD 대조(변경 0) · 기존 `test_nano_close_*.sh` 8 rc0 · 관련 시험 7 = base 대비 새 FAIL 0(기존 RED 그대로). 증거 `harness/evidence/r508/`.
+- 설치: 키트 1(`ft-nano-close.sh`) → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r508`.
+
 ## 2026-10-20 — 완성 이동의 정본 갱신 요청 쪽지 = 카드 팀 명부의 `_arch` 로(기본 v65 명부 고정 0) (r487 · 1.1.64)
 
 - 사건: loom 카드 완성 이동(`design/teams/loom/indices/완성/loom-canon-plan-l1-l3.md`)의 «정본 갱신 요청» 쪽지 114386 이 v65 arch 264 에게 갔다(v65 arch 264 요청 114392 → harness arch 103 카드). 원인: `ft-index-move.sh:161` `SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"` — 주석은 «팀 현역 arch» 인데 env 가 없으면 기본 명부(= v65 `_label`)로 고정.
