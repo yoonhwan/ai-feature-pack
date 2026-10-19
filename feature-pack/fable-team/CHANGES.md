@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 자율 ON 인터뷰 1회(기간 + 레벨 full|mid|each)로 범위 승인까지 함께 걸기 · 레벨 재발급 · 종류 학습 · 자율 상태 가드 (r466 · 1.1.45)
+
+- `ft-autonomy.sh on --for <기간> --level <full|mid|each>` 한 줄(h)이 범위 승인까지 걸어 OFF 까지 병합 질문을 줄인다. 새 `ft-autonomy-level.sh`·`ft-autonomy-interview.sh`(인터뷰 답 → h 1줄) · 분류기를 표(`autonomy_scope_rules.py`·`scope-classes-pack.tsv`·`scope-ddl-record.tsv`)로 · 카드 이동(R100·이름 같음·양쪽 docs)은 docs 로 통과 · 첫 OFF 도달은 틱이 desk 에 [자율 인터뷰] 1통.
+- 홈 훅 `autonomy-state-guard.sh`: 자율 ON = approve-merge 허용+로그 · OFF = deny · on/off 는 항상 deny. 시험 새 2 · 기존 15개 머리에 `FT_AUTONOMY_LEVEL=each`(--level 생략=full 이면 on 이 실 슬랙 게시라서).
+- 되돌릴 땐 자율 OFF 상태에서(옛 판은 level 칸 승인 줄을 위변조로 읽음). 단계 = `harness/evidence/r466/master-steps.md`.
+
 ## 2026-10-20 — 키트 ft-mbox send/relay 도 보관 로그 mailbox.log.jsonl 에 1행 + send 자가 점검 WARN (r488 · 1.1.44)
 
 - 라이브 `ft-mbox.sh send`(키트 단일 파일 `ft-mbox.py`)는 보낸 행을 `mailbox.jsonl` 에만 써서, recv 가 소비하면 그 쪽지의 레코드가 어디에도 남지 않았다(bodies 만) → `ft_da_hold_gate find_record` 등이 «쪽지 없음» 판정(실측 114380~114490 중 6건). 루트 모듈판 `mbox_guard._log_sent` 규칙 그대로 `ft-mbox.py send`(relay 는 send 경유)가 `_save` 직후 같은 잠금 안에서 `mailbox.log.jsonl` 에 1행 append · `FT_MBOX_LOG_MAX_BYTES`(기본 5MB) 초과 시 `.1` 회전 · 기록 실패는 stderr WARN(전송 rc 불변).
