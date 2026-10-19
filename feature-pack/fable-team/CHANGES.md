@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — nano-close --never-started: 발주를 한 번도 처리 못 한 나노(산출 0)를 «한 일 0» 4값으로 닫는다 (r506 · 1.1.61)
+
+- 사건: loom g5a·g5b 정본 나노 #0 — 발주 116731 을 받고 처리 0 · `ft-nano-close.sh` 가 ①`--result` ②`--recv` ⑥증거 줄을 요구해 닫을 경로가 없었다(산출·회수 seq·증거 줄이 원래 없다). 좌석이 자원을 쥔 채 남는다(골 6).
+- `ft-nano-never-started-check.sh`(새): ⓐ턴 0 — claude = 좌석명 jsonl 의 assistant(`<synthetic>` 제외) · opencode = opencode.db(`FT_OPENCODE_DB`) 읽기 전용 · session.directory == 워크트리 실경로(또는 아래) ∧ time_created ≥ `.worktree-info.json` created_at 의 assistant 메시지 · 세션→메시지 2단 질의 + 진행 처리기 7초 상한(통째 join 은 실 db 5GB 에서 7.3초 실측) · db 없음·잠김·스키마 다름·그 밖 에이전트 = 확인 못 함 ⓑbase(--base › 카드 base_sha › info base_sha) 위 커밋 0 ⓒ미커밋 0(`status -uall` · 노이즈 `.worktree-info.json`·`next-env.d.ts`·`tsconfig.json`·`.serena/project.yml` 제외) ⓓ발신 쪽지 0(mailbox.log.jsonl + .1) · `--successor-auto`(설계 r2 규칙 2·3): 같은 계보 더 큰 번호 좌석이 tmux 생존 ∧ pane toplevel == 워크트리 ∧ 명부 행 실재·`_replaced_by` 없음 → `SUCCESSOR <이름>` · ⓑⓒ 생략 · 못 셈 = `SUCCESSOR unknown` → 4값 전부.
+- `ft-nano-close.sh --never-started "<사유>"`: ①② 면제 · ⑥ 자리 = 위 검사기 · ③ jsonl 없을 때 워크트리 mtime 후퇴 끔(공유 워크트리 후계 편집이 섞인다 · 유휴는 턴 0 이 대신) · 후계 있으면 ⑤ cherry·정리 계획 0 · 출력 `CLOSED <좌석> never-started «<사유>»` / `CLOSED <좌석> never-started (공유 워크트리 → 후계 <이름> · 워크트리 정리 0)` · 원장 ①② 칸 = 면제 표기 · 빈·여러 줄 사유·`--superseded-by`·`--suspended`·`--shared-wt` 동시 = usage 2 · 인자 없으면 불변 · 브랜치 삭제 0.
+- 카드와 다른 점 1: 노이즈에 `.serena/project.yml` 추가(nano-close 기존 노이즈 · Serena activate 가 매번 고친다). 2: 검사기 인자 `--card`·`--comm`·`--seats` 추가(base_sha 출처 · 우편함 · 후계 명부).
+- 시험 `test_nano_close_never_started.sh`(새) ⓐ~ⓝ(155 PASS) + 셀 수 없음 4 + usage 7 + 불변 · 기존 `test_nano_close*.sh` 7개 rc0 · `test_nano_close_suspended.sh` 숫자 검사의 `grep -n` 줄 번호(600) 오탐 제거(기대값 변경 0).
+- 개정 r3 규칙 2b(`--landed-auto`): 후계가 없고 센 커밋이 0 이 아니면 `ft-landed-check.sh <리포> ${FT_NEVER_MAIN_REF:-origin/main} <가지> <키>`(7초 · perl alarm) rc0(ancestor·cherry·card)일 때 `LANDED <근거>` · 커밋 수만 생략(미커밋·턴·발신 그대로) · 같은 닫기(⑤·정리 계획 0) · 출력 `CLOSED <좌석> never-started (착지 가지 <근거> · 워크트리 정리 0)` · grep·no·판정 실패 = 적용 0. 0 커밋 가지는 늘 ancestor 라 2b 를 타지 않는다(기본 닫기·정리 계획 그대로).
+- 실사건 실측(읽기 전용 검사기): loom #0 → r2 만으로는 `SUCCESSOR none`(후계 #1 이 먼저 닫힘) · `REJECT never-started: 커밋 8` → r3 뒤 `SUCCESSOR none · LANDED cherry · NEVER-STARTED ok turns=0 commits=skip(landed cherry) dirty=0 sent=0` rc0(1초).
+- 설치: 키트 2(`ft-nano-close.sh` · `ft-nano-never-started-check.sh` 새) → LIVE_BIN cmp0 2 · 홈 0 · plist 0.
+
 ## 2026-10-20 — 좌석 턴 판정기 하나(`ft_seat_turn.py`) · 뉴스 HTML·지도 = 좌석별 하위 프로세스 0 (r504 · 1.1.60)
 
 - 사건: 02:07 뉴스 지도에서 실좌석이 일하는 4팀(실통역·방·강의·계획)이 «확인 불가» — `ft_news_html.live_teams` 가 좌석마다 `bash ft-seat-status.sh turn <좌석>`(7초 · 재시도 1 · 풀 32)·`ft-news-tree.py seat_turn` 이 좌석마다 같은 셸(10초)을 부르고, 셸은 다시 좌석마다 폴더 jsonl 전부의 머리 1MB 를 읽고 파이썬을 띄웠다 → 부하 15~56 에서 상한 초과 + 동시 하위 프로세스 수십 개가 부하를 더 올림(arch 105 실측 · master 116770).

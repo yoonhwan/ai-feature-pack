@@ -1,0 +1,673 @@
+# r506 시험 증거 · 코드 HEAD 0807eb6f2e11dc2fb781f036e3ae3e4984fef3ae · 2026-10-20 02:57:25
+### bash harness/tests/test_nano_close_fail_closed.sh
+PASS bash -n ft-nano-close.sh
+PASS bash -n ft-team-lib.sh
+== ⓐ 명단 = origin/main(작업 트리 사본은 옛 명단) · 원장 = 쌍둥이(design/v65) 1곳에만 → CLOSED
+PASS ⓐ CLOSED(rc=0)
+PASS   └ INFO 원장 ← <쌍둥이 경로> (명단 origin/main)
+PASS   └ 원장에 닫힘 행 1
+== ⓑ 두 쌍둥이 모두 원장 → REJECT 후보 2개
+PASS ⓑ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유(명단 꼴 먼저 · 쌍둥이 뒤 · r459 헬퍼 ERROR 꼴)
+== ⓑ2 (r495) 두 쌍둥이 모두 원장 ∧ origin/main 트리엔 새 꼴(design/teams/v65)만 → ft_team_in_ref 로 가름 · 새 꼴 원장에 CLOSED + WARN TWIN-STALE
+PASS ⓑ2 CLOSED(rc=0)
+PASS   └ INFO 원장 ← 새 꼴(ref 트리에 있는 쪽)
+PASS   └ WARN TWIN-STALE <옛 꼴>
+PASS   └ 새 꼴 원장에만 닫힘 행 1
+== ⓒ 어느 쪽에도 원장 없음 → REJECT 못 찾았다(후보 목록)
+PASS ⓒ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유 + 후보 2(r459 헬퍼 ERROR 꼴)
+== ⓓ origin/main ref 없음 → REJECT 명단 못 읽음(작업 트리 사본으로 후퇴 0)
+PASS ⓓ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+== ⓔ 명부 파일 없음 → REJECT 명부 없음(입구 · 원장 쓰기 0)
+PASS ⓔ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+PASS   └ 원장 행 0
+== ⓕ 명부 쓰기 실패(chmod 444) → REJECT 명부 쓰기 실패 · 원장 행 0
+PASS ⓕ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+PASS   └ 원장 행 0
+== ⓖ r448: 닫기 출력 reap 줄 · reap left≠0 → CLOSE-FAIL rc 1 · kill 0(reap 은 kill «앞» · --wt 좌석 워크트리 전달)
+PASS ⓖ 성공 출력에 reap left=0 rc=0
+PASS ⓖ CLOSE-FAIL reap left=1 rc=1 (rc 1)
+PASS   └ kill-session 0
+PASS   └ reap 인자 = 좌석 + --wt 좌석 워크트리
+== ⓗ r286: opencode 좌석 = 명부 지우기 앞 기록(--record) · 세션 kill 뒤 회수(--apply) · left≠0 → CLOSE-FAIL rc 1 · 재실행은 pid 파일로 판정
+PASS ⓗ opencode 좌석 → OC-REAPED left=0 (rc 0)
+PASS   └ 1번째 = --record(좌석 워크트리)
+PASS   └ 2번째 = --apply
+PASS   └ 회수는 세션 kill 뒤(kill-session 실행됨)
+PASS ⓗ left=1 → CLOSE-FAIL rc 1
+PASS   └ OC-REAPED 0
+PASS ⓗ claude 좌석 · pid 파일 없음 → opencode 회수 호출 0
+PASS ⓗ 명부에 opencode 없어도 pid 파일 있으면 회수(재실행 경로)
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_named_wt.sh
+PASS bash -n ft-nano-close.sh
+== usage (exit 2)
+PASS --wt 만 → exit 2
+PASS --branch 만 → exit 2
+PASS --shared-wt 와 같이 → exit 2
+PASS --wt 빈 값 → exit 2
+PASS --wt 값 누락 → exit 2
+== REJECT 5종 (ⓐ~ⓔ)
+PASS ⓐ 등록 안 된 경로 → REJECT
+PASS   └ 사유 «ⓐ»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS ⓐ .worktrees/ 밖 경로 → REJECT
+PASS   └ 사유 «ⓐ»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS ⓑ 브랜치 불일치 → REJECT
+PASS   └ 사유 «ⓑ»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS ⓑ 정본 줄기(main) 브랜치 → REJECT
+PASS   └ 사유 «ⓑ»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS ⓒ pane cwd toplevel 불일치 → REJECT
+PASS ⓓ 다른 pane 이 같은 워크트리 → REJECT(공유)
+PASS   └ 사유에 그 pane 이름
+PASS ⓔ 미커밋 있음 → REJECT
+PASS   └ 사유 «ⓔ»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+== 인자 없이 같은 좌석 → 지금처럼 REJECT(무변화)
+PASS 인자 없음 → 기존 fail-closed REJECT
+PASS   └ kill 0
+== R400 r2 카드 생애 이동 뒤(명부 index=진행/ · 카드는 형제 폴더) — 정확히 1개만 후퇴
+PASS index=진행/ · 실제 완성/ 1개 → CLOSED(rc=0)
+PASS   └ INFO 카드 위치 줄
+PASS   └ 완성/ 카드로 증거 줄 대조
+PASS index=진행/ · 대기/·완성/ 둘 다 → REJECT ⑥카드 못 찾음
+PASS   └ 사유 «형제 2개»
+PASS   └ 후퇴 0(INFO 줄 없음)
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 바이트 그대로(index 쓰기 0)
+== 전부 맞음 → 통과
+PASS 전부 맞음 → CLOSED(rc=0)
+PASS   └ R416 꼬리 ft-nano-slots 출력(SLOTS 줄)
+PASS   └ R416 꼬리 WARN ft-nano-slots 0(루트 사본 옛 명단)
+PASS   └ R416 꼬리 cwd 명단 ERROR 0
+PASS   └ ⓕ 증거 줄(--repo = --wt · 현재 HEAD) 통과
+PASS   └ ⓖ cherry 게이트가 --branch 기준으로 호출됨
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ 원장 행 mode=named-wt wt=<경로> branch=<이름>
+PASS   └ 명부 삭제
+PASS   └ wt-clean 계획 생성(.sh.hil — sweep 순회 밖)
+PASS   └ .sh 없음 → ft-wt-sweep 이 자동 실행하지 않는다
+PASS   └ 출력에 «자율 정리 범위 밖 — 사람 ! 실행»
+PASS   └ R83: 안내가 짧은 링크 ! bash <HIL_DIR>/h<N> (긴 계획 경로 아님)
+PASS   └ 진입 파일 대상 = 계획 .sh.hil (R186: 링크 → 진입 파일)
+PASS   └ 사유 문구(브랜치 nano/* 아님)
+PASS   └ wt-clean 실행 0 — 워크트리 그대로
+PASS   └ 브랜치 그대로
+PASS   └ WIP 자동 커밋 0(HEAD 그대로)
+PASS   └ 계획에 --branch 값이 구워짐
+PASS   └ ft-wt-sweep --dry-run 순회에 안 잡힌다
+== 사람이 계획을 실행 — nano/* 가 아닌 브랜치도 가드 ③ 을 통과하고 브랜치는 남는다
+PASS 계획 실행 → cleaned
+PASS   └ 워크트리 정리됨
+PASS   └ 계획 실행 뒤에도 브랜치 그대로
+PASS   └ 원장 표식 wt=cleaned
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_never_started.sh
+== 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS bash -n ft-nano-close.sh
+PASS cmp ft-nano-never-started-check.sh (bin == kit)
+PASS bash -n ft-nano-never-started-check.sh
+== ⓐ 4값 0 · 세션 살아 있음 → CLOSED never-started «사유» · kill · 정리 계획 · 브랜치 보존
+PASS ⓐ rc=0 · CLOSED <좌석> never-started «<사유>»
+PASS   └ ⑥ 자리 = 한 일 0 검사 통과 줄
+PASS   └ ① 면제
+PASS   └ ② 면제
+PASS   └ ⑥ 증거 줄 면제
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ tmux kill-session 호출
+PASS   └ 워크트리 정리 계획 생성(기존 경로)
+PASS   └ 닫힘 원장 행 꼬리 never-started «<사유>»
+PASS   └ 원장 ①② 칸 = 면제 표기
+PASS   └ 명부 삭제
+PASS   └ 브랜치 실재(삭제 0)
+== ⓐ 세션 없음 → CLOSED-ABSENT never-started
+PASS ⓐ 세션 없음 → CLOSED-ABSENT never-started
+== ⓑ 대화 기록에 assistant 턴 1 → REJECT · <synthetic> 만이면 턴 0
+PASS ⓑ 턴 1 → REJECT «never-started: 대화 기록에 턴 1»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ <synthetic> assistant 만 → 턴 0 통과
+PASS ⓑ 같은 워크트리의 다른 좌석(#1) jsonl 은 세지 않는다
+== ⓒ base 위 커밋 1 → REJECT
+PASS ⓒ 커밋 1 → REJECT «never-started: 커밋 1»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ 미커밋 파일 1 → REJECT · 노이즈 4종만이면 통과
+PASS ⓓ 미커밋 1 → REJECT «never-started: 미커밋 1파일»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓓ 노이즈(.worktree-info.json·tsconfig.json·next-env.d.ts·.serena/project.yml)만 → 통과
+== ⓔ 좌석이 보낸 쪽지 1 → REJECT (회전본 .1 포함)
+PASS ⓔ 쪽지 1 → REJECT «never-started: 보낸 쪽지 1»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓔ 회전본 .1 의 발신도 센다
+== 셀 수 없음 → REJECT(확인 못 함)
+PASS base 못 정함(카드 base_sha·info 둘 다 없음) → REJECT «확인 못 함 base»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 우편함 기록 없음 → 확인 못 함
+PASS 없는 base sha → 확인 못 함
+PASS agent=codex(대화 기록 셀 길 없음) → REJECT «확인 못 함 대화 기록(agent=codex)»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== opencode — opencode.db session.directory = 워크트리의 assistant 메시지 수
+PASS ⓗ opencode.db 없음 → 확인 못 함
+PASS ⓕ opencode 세션 assistant 0(user 발주만) → 통과
+PASS ⓖ opencode 세션(워크트리 아래) assistant 2 → REJECT «opencode 턴 2»
+PASS opencode 다른 폴더(<wt>-other) 세션은 세지 않는다
+PASS ⓕ 좌석 생성 시각(created_at) 전의 옛 opencode 세션은 세지 않는다
+PASS ⓗ opencode.db 잠김(상한 초과) → 확인 못 함
+PASS ⓗ 스키마 다름 → 확인 못 함
+== ⓕ close — opencode 좌석(명부 agent=opencode · claude jsonl 없음) + db assistant 0 → CLOSED never-started
+PASS ⓕ opencode 좌석 → CLOSED never-started
+PASS ⓖ opencode 좌석 + assistant 1 → REJECT «never-started: opencode 턴 1»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓘ~ⓚ 공유 워크트리 후계(같은 계보 #1 · tmux 생존 · pane toplevel == 워크트리)
+PASS ⓘ 후계 현역 → CLOSED never-started (공유 워크트리 → 후계 <이름> · 워크트리 정리 0)
+PASS   └ 검사기 SUCCESSOR <후계>
+PASS   └ 커밋·미커밋 검사 생략(후계 몫)
+PASS   └ #0 세션 kill
+PASS   └ 후계 세션 kill 0
+PASS   └ 워크트리 HEAD·미커밋 그대로([wip] 0)
+PASS   └ 정리 계획 0
+PASS   └ 원장 행 = 공유 후계 표기
+PASS   └ 후계 명부 행 그대로
+PASS ⓙ 후계 있음 + #0 발신 1 → REJECT «never-started: 보낸 쪽지 1»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓚ 후계 판정 못 함(tmux 조회 실패) → 4값 전부 · REJECT 커밋 8
+PASS   └ 미커밋도 검사
+PASS 후계 행 _replaced_by 있음 → 후계 아님 · 4값 → REJECT «never-started: 커밋 8»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 후계 pane toplevel ≠ 워크트리 → 후계 아님 · 4값 → REJECT «never-started: 커밋 8»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓛ~ⓝ 착지 가지(규칙 2b · 개정 r3) — 후계 없음 · ft-landed-check rc0(ancestor·cherry·card) 이면 커밋 수 생략 · 미커밋·턴·발신은 그대로
+PASS ⓛ cherry 착지 · 미커밋 0 → CLOSED never-started (착지 가지 cherry · 워크트리 정리 0)
+PASS   └ 검사기 LANDED <근거>
+PASS   └ 커밋 수 생략(착지 몫)
+PASS   └ 정리 계획 0
+PASS   └ 원장 행 = 착지 가지 표기
+PASS   └ 브랜치 실재(삭제 0)
+PASS ⓛ 세션 생존 → CLOSED … (착지 가지 cherry …) + kill
+PASS   └ 세션 kill
+PASS ⓜ grep 근거(약한 증거) → 2b 적용 0 · 4값 → REJECT «never-started: 커밋 2»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓝ 착지 + 미커밋 1 → REJECT → REJECT «never-started: 미커밋 1파일»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 착지 + #0 발신 1 → REJECT → REJECT «never-started: 보낸 쪽지 1»
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 착지 판정 실패(main ref 없음) → 2b 적용 0 · REJECT 커밋 2
+== usage rc2 · 변경 0
+PASS 빈 사유 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 공백 사유 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 값 누락 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 여러 줄 사유 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS + --suspended → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS + --superseded-by → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS + --shared-wt → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS 검사 단독: 정상 rc0 · --branch 누락 usage 2
+== 인자 없으면 지금 동작 그대로 — ①② REJECT
+PASS 인자 없음 → ① REJECT 그대로
+PASS   └ ② REJECT 그대로
+PASS   └ 한 일 0 검사 안 돎
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== 600/300 s · 외부 호출 · GIT_* env 0 (새 검사 스크립트 + close 의 r506 줄)
+PASS 600/300 숫자 0
+PASS 외부 호출 0
+PASS GIT_DIR env 0
+PASS GIT_WORK_TREE env 0
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_sha_base.sh
+PASS bash -n ft-nano-close.sh
+PASS 사본 cmp ft-nano-close.sh
+PASS bash -n ft-nano-spawn.sh
+PASS 사본 cmp ft-nano-spawn.sh
+== ① info.base=sha(랜딩 브랜치 조상) + 산출이 기본 랜딩 브랜치에 squash 랜딩 → 통과
+PASS CLOSED(rc=0)
+PASS   └ INFO 줄(sha → 랜딩 브랜치)
+PASS   └ 게이트 기준 = 랜딩 브랜치(sha 아님)
+== ② info.base=sha 인데 랜딩 브랜치의 조상이 아님 → REJECT(추측 0)
+PASS REJECT 문구
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+== ③ info.base=브랜치 → 지금과 같은 결과(INFO 없음 · 그 브랜치가 기준)
+PASS CLOSED(rc=0)
+PASS   └ sha 분기 INFO 없음
+PASS   └ 게이트 기준 = info.base 브랜치
+== ④ FT_NANO_FEAT 명시 → 그 값 우선(sha base 여도 sha 분기 안 탐)
+PASS   └ sha 분기 INFO 없음
+PASS   └ 게이트 기준 = FT_NANO_FEAT 값
+== ⑤ spawn: --base <sha> 면 info base=랜딩 브랜치(지금 브랜치/FT_NANO_FEAT) · 브랜치 이름 base 는 무변경
+PASS spawn 에 R42 블록 있음
+PASS sha → 지금 브랜치(fix/ovr-sha)
+PASS sha + FT_NANO_FEAT → 그 값
+PASS 브랜치 이름 → 무변경
+PASS --base 없음 → 무변경(지금 브랜치)
+PASS .worktree-info.json 기록이 "base"=$INFO_BASE · "base_sha"=BASE_BRANCH 의 짧은 sha
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_superseded_by.sh
+== ⓕ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (fable-team-bin == harness-install)
+PASS bash -n ft-nano-close.sh
+PASS cmp ft-nano-superseded-check.sh (fable-team-bin == harness-install)
+PASS bash -n ft-nano-superseded-check.sh
+== ⓐ 인자 없이 닫으면 지금 동작(⑥ 증거 줄 요구) 그대로
+PASS ⓐ 인자 없음 + 대체됨 줄만 있고 세트 증거 줄 없음 → 기존 ⑥ REJECT → REJECT
+PASS   └ 사유 «증거 줄»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓐ 인자 없음 + 증거 줄 rc=0 → 기존 경로로 CLOSED(superseded-by 표식 없음)
+PASS   └ 출력에 superseded-by 표식 없음
+PASS   └ 닫힘 원장 행에 superseded-by 표식 없음
+== usage (exit 2)
+PASS ⓒ --superseded-by 값 누락 → exit 2
+PASS ⓒ --superseded-by 빈 값 → exit 2
+PASS ⓒ --cherry-override 와 동시 → exit 2
+PASS ⓒ 순서 바꿔도 exit 2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓑ REJECT 6종 — 대체 카드 없음·자기 자신·대기/진행/완료 밖·사유 빈칸·대체됨 줄 없음·경로 불일치
+PASS ⓑ 대체 카드 파일 없음 → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 대체 카드 = 자기 자신 → REJECT
+PASS   └ 사유 «자신이다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 대체 카드가 대기/진행/완료 밖(폐기/) → REJECT
+PASS   └ 사유 «{대기,진행,완료}»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 대체 카드 경로에 .. → REJECT
+PASS   └ 사유 ««..»»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 사유 빈칸 → REJECT
+PASS   └ 사유 «사유가 비어»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ «대체됨:» 줄 없음 → REJECT
+PASS   └ 사유 «대체됨:» 줄이 아니다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 대체됨 줄이 «맨 끝»이 아님 → REJECT
+PASS   └ 사유 «대체됨:» 줄이 아니다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 줄의 경로 ≠ --superseded-by 값 → REJECT
+PASS   └ 사유 «다르다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== 전부 맞음 → CLOSED (세션 없음)
+PASS ⓔ 통과 → CLOSED superseded-by=<카드> (rc=0)
+PASS   └ ⑥ 대체됨 검사 통과 줄
+PASS   └ 명부 삭제 — 손 편집 없이 도구가 갱신
+PASS   └ 닫힘 원장 행에 superseded-by=<카드>
+PASS   └ 브랜치 삭제 0
+PASS   └ 나노 HEAD 그대로
+== ⓓ ⑤ cherry — 미랜딩 코드는 REJECT 일 상황 → override 사유 = superseded-by <카드>, 원장 1행
+PASS ⓓ cherry-gate-override 원장 1행
+PASS   └ 사유 = superseded-by <카드>
+PASS   └ seat 칸 = 좌석명
+PASS 기존 --cherry-override 사유는 그대로(⑥ 은 별개 REJECT: 증거 줄 없음)
+PASS 인자 없이는 cherry 원장에 superseded-by 행 0
+== 세션이 살아 있는 좌석 → CLOSED + 태그 해제 + kill (브랜치 보존)
+PASS 살아 있는 좌석 → CLOSED <좌석> superseded-by=<카드> 1줄
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ 가짜 tmux kill-session 호출
+PASS   └ 브랜치 삭제 0
+PASS   └ 명부 삭제
+== ⓑ 심링크 우회 차단 (DA⑥ r171 H1) — 이름만 허용 꼴인 심링크의 실제 위치(canonical)가 base 의 indices/{대기,진행,완료} 밖이면 REJECT
+PASS ⓑ① 허용 이름 심링크 → base 밖 파일 → REJECT
+PASS   └ 사유 «실제 위치가 허용 범위 밖»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 사유에 canonical 경로
+PASS ⓑ② indices/진행 폴더 자체가 base 밖 폴더 심링크 → REJECT
+PASS   └ 사유 «실제 위치가 허용 범위 밖»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ③ 허용 이름 심링크 → base 안 비-indices 파일(README.md) → REJECT
+PASS   └ 사유 «실제 위치가 허용 범위 밖»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ④ base 안 다른 허용 카드로의 심링크 → 정상 통과
+== 변이 3 — canonical 범위 검사를 지우면 ①② 가 통과해 버린다(= 이 시험이 변이를 검출)
+PASS 변이 C: ① base 밖 파일 심링크가 통과 → 시험 ①이 변이를 검출
+PASS 변이 C: ② base 밖 폴더 심링크가 통과 → 시험 ②가 변이를 검출
+== 변이 2 — 검사를 지우면 ⓑ 케이스가 통과해 버린다(= 이 시험이 변이를 검출)
+PASS 변이 A(대체됨 줄 검사 제거): «대체됨:» 줄 없는 카드가 통과 → ⓑ 케이스가 변이를 검출
+PASS 변이 B(대체 카드 실재 검사 제거): 없는 대체 카드가 통과 → ⓑ 케이스가 변이를 검출
+PASS 원본 복구 뒤 같은 입력은 다시 REJECT
+== R177 다른 팀 대체 카드 — 대체 카드 팀의 원장 워크트리를 검사 base 에만 더한다(임시 루트만 · 실 루트 .fable-team 읽기 0)
+PASS ⓕ --team-root 없는 검사 단독 → REJECT rc=1(기존과 같음)
+PASS ⓐ --team-root 를 주면 loom 원장 WT 에서 찾아 OK rc=0
+PASS ⓐ 다른 팀 카드 → close --superseded-by 통과 + CLOSED
+PASS ⓓ 닫힘 원장 행 = 닫는 좌석 팀 원장(FT_NANO_LEDGER)에만 1행
+PASS   └ 대체 카드 팀 원장 WT 쓰기 0(카드 1개 그대로)
+PASS ⓑ 없는 팀(env 없음) → 추가 0 → 기존 REJECT → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓒ env 값에 다른 $VAR → 추가 0 → REJECT → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓐ env 값의 명령 치환 → 추가 0 → REJECT → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ env 를 source·eval 하지 않음(명령 치환 실행 0)
+PASS ⓒ env 값이 디렉터리가 아님 → 추가 0 → REJECT → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓔ 대체 카드 팀 WT 안 심링크 → base 밖 파일 → REJECT → REJECT
+PASS   └ 사유 «실제 위치가 허용 범위 밖»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ graphics 꼴("$_GR_ROOT/…")는 루트로 치환해 통과
+PASS ⓒ DA⑥ H1① $_GR_ROOT_BAD 접두 치환 → 추가 0 → REJECT → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓒ DA⑥ H1② 닫히지 않은 따옴표 → 추가 0 → REJECT → REJECT
+PASS   └ 사유 «대체 카드 파일이 없다»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 홑따옴표 쌍은 벗겨 통과
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_suspended.sh
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS bash -n ft-nano-close.sh
+PASS cmp ft-nano-suspended-check.sh (bin == kit)
+PASS bash -n ft-nano-suspended-check.sh
+== ⓐ 빈 사유 → usage rc2 · 닫힘 0
+PASS ⓐ --suspended "" → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓐ --suspended "   "(공백) → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓐ --suspended 값 누락 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓐ 여러 줄 사유 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+== ⓓ 다른 우회 인자와 동시 → usage rc2
+PASS ⓓ --suspended + --superseded-by → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓓ --superseded-by + --suspended(순서 바꿈) → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓓ --suspended + --cherry-override → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓓ --cherry-override + --suspended(순서 바꿈) → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+== ⓕ 인자 없으면 지금 동작 그대로 — rc=1 증거 줄은 ⑥ REJECT
+PASS ⓕ 인자 없음 + 시험 rc=1 증거 줄 → REJECT
+PASS   └ 사유 = 증거 줄 rc=1
+PASS   └ 출력에 suspended 표식 없음
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+== ⓑ --suspended 통과 (세션 없음) → CLOSED-ABSENT suspended=1 · 카드 중단 끝줄 · 원장 · cherry override · 브랜치 보존
+PASS ⓑ 통과 rc=0 · CLOSED-ABSENT <좌석> suspended=1 reason=<사유> set=<HEAD>
+PASS   └ ⑥ 자리 = 중단 검사 통과 줄
+PASS   └ ⑥ 증거 줄 검사 면제
+PASS   └ 카드 «## 상태» 맨 끝줄 = 중단: <사유> · 세트 <HEAD> · <날짜> · 재개 …
+PASS   └ 세트 40hex · 날짜 YYYY-MM-DD HH:MM
+PASS   └ 뒤 절(## 정본)은 그대로 · 중단 줄은 상태 절 안
+PASS   └ 닫힘 원장 행에 suspended=1 reason=<사유> set=<HEAD>
+PASS   └ ⑤ cherry override 원장 1행 · 사유 = suspended: <사유>
+PASS   └ 명부 삭제(기존 CLOSED 경로)
+PASS   └ 브랜치 실재(삭제 0)
+PASS   └ 미커밋 0 이면 HEAD 그대로([wip] 0)
+== ⓑ 세션이 살아 있는 좌석 → CLOSED suspended=1 + kill (브랜치 보존)
+PASS 살아 있는 좌석 → CLOSED <좌석> suspended=1 reason=<사유> set=<HEAD>
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ 브랜치 삭제 0
+== ⓒ 미커밋 있음 → [wip] 커밋 먼저 · 그 HEAD 로 중단
+PASS ⓒ 미커밋 → rc=0 · HEAD 이동([wip] 커밋)
+PASS   └ 커밋 메시지 [wip] nano close <좌석>
+PASS   └ 미커밋 0(새 파일·수정 전부 커밋)
+PASS   └ CLOSED 의 set = [wip] 뒤 HEAD
+PASS   └ 카드 중단 줄 세트 = [wip] 뒤 HEAD
+PASS ⓒ [wip] 커밋 실패 → REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS   └ HEAD 그대로
+== ⓔ 멱등 — 같은 세트의 중단 끝줄이 이미 있으면 다시 쓰지 않는다
+PASS ⓔ 같은 세트로 다시 닫기 → rc=0 · 기록=이미 있음
+PASS   └ 카드 중단 줄 1개(중복 append 0)
+PASS ⓔ 검사 단독 --apply 2회 → 두 번째 이미 있음
+PASS   └ 중단 줄 1개
+== 검사 단독 REJECT/usage — detached · 미커밋 · 상태 절 없음 · 빈 사유 · --apply 없으면 쓰기 0
+PASS --apply 없음 → 통과 · 기록=검사만
+PASS   └ 카드 쓰기 0
+PASS 미커밋 → REJECT «[wip] 먼저»
+PASS   └ 카드 쓰기 0
+PASS detached HEAD → REJECT
+PASS 상태 절 없음 → REJECT
+PASS 빈 사유 → usage 2
+PASS --reason 누락 → usage 2
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (새 검사 스크립트 + close 의 r450 줄)
+PASS ⓖ 600/300 숫자 0
+PASS ⓖ 외부 호출 0
+PASS ⓖ GIT_DIR env 0
+PASS ⓖ GIT_WORK_TREE env 0
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_worktree_list_pipe.sh
+PASS bash -n ft-nano-close.sh
+PASS 픽스처 porcelain 164047 B > 64 KB
+PASS 목록 순서: v65-aaa = 앞(3행) · v65-zzz = 맨 뒤
+== ⓐ 고치기 전 꼴 재현(RED 모양) — pipefail + 파이프 grep -q → 141
+PASS ⓐ git worktree list | grep -qxF (목록 앞) → rc 141
+PASS ⓐ printf | grep -qxF 도 같음 → rc 141 (카드 처방 printf 파이프는 고침이 아니다)
+PASS ⓐ here-string 꼴 → rc 0
+== ⓑ --plan-only 등록 경로 → PLANNED (목록 앞·뒤)
+PASS ⓑ v65-aaa → PLANNED(rc=0)
+PASS   └ 오판 REJECT 0
+PASS   └ kill·태그 변경 0
+PASS ⓑ v65-zzz → PLANNED(rc=0)
+PASS   └ 오판 REJECT 0
+PASS   └ kill·태그 변경 0
+== ⓒ 미등록 경로 → 기존 REJECT 그대로(fail-closed)
+PASS ⓒ 미등록 → REJECT(rc=1)
+PASS   └ 계획 0
+== ⓓ --shared-wt ⓑ 검사 — 등록 cwd 통과 · 미등록 cwd bad 1줄
+PASS ⓓ 등록 공유 워크트리(목록 앞) → ⓑ 오판 0
+PASS   └ 브랜치 feat/shared 읽음(nano/* 아님)
+PASS ⓓ 미등록 cwd → ⓑ bad 1줄 · REJECT
+== GIT_* 0
+PASS GIT_* env 0
+ALL PASS
+rc=0
+### bash harness/tests/test_nano_close_wt_deletion_only.sh
+PASS bash -n ft-nano-close.sh
+== ⓐ ' D' 3개만 → cleaned(삭제만 3파일 …)
+PASS ⓐ → cleaned(삭제만 3파일)
+PASS   └ 복원 안내(경로 · 브랜치)
+PASS   └ 워크트리 정리됨
+PASS   └ 브랜치 tip 그대로(삭제 커밋 0 · [wip] 0)
+PASS   └ 원장 표식 wt=cleaned(삭제만 3파일 …)
+== ⓑ ' D' 3개 + .serena/project.yml ' M' → 같음
+PASS ⓑ → cleaned(삭제만 3파일)
+PASS   └ 워크트리 정리됨
+PASS   └ 브랜치 tip 그대로(삭제 커밋 0 · [wip] 0)
+== ⓒ ' D' 3개 + 실 ' M' 1 → 지금처럼 멈춤(skipped:실작업물 미커밋 1파일)
+PASS ⓒ → skipped(셈 = 실변경 줄 1)
+PASS   └ 워크트리 그대로
+PASS   └ 브랜치 tip 그대로(삭제 커밋 0 · [wip] 0)
+== ⓓ ' D' 3개 + '??' 1 → 미커밋 1
+PASS ⓓ → skipped 1파일
+PASS   └ 워크트리 그대로
+== ⓔ 'D '(인덱스에 올린 삭제) 1 + ' D' 3 → 미커밋 1
+PASS ⓔ → skipped 1파일(' D' 3 은 안 센다)
+PASS   └ 워크트리 그대로
+== ⓕ 삭제 없는 깨끗한 워크트리 → 기존 표식 그대로(cleaned · '삭제만' 문구 0)
+PASS ⓕ → cleaned
+PASS   └ '삭제만' 문구 없음
+== ⓖ 추적 안 된 .serena/project.yml + ' D' 3 → [wip] 커밋에 삭제 0 (브랜치에 f1~f3 그대로)
+PASS   └ 전제: '?? .serena/project.yml' 로 보임
+PASS ⓖ → cleaned(삭제만 3파일)
+PASS   └ 워크트리 정리됨
+PASS   └ 브랜치에 삭제 커밋 0
+PASS   └ 브랜치 tip 에 f1~f3 그대로
+ALL PASS
+rc=0
+### bash harness/tests/test_kit_bin_sync.sh
+PASS dirs exist
+PASS tracked bin ⊂ kit bin (bytes+mode)
+PASS shim-exec lint: OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+rc=0
+### cmp kit↔bin · bash -n
+cmp0 ft-nano-close.sh
+bash -n ok ft-nano-close.sh
+cmp0 ft-nano-never-started-check.sh
+bash -n ok ft-nano-never-started-check.sh
+### 실 좌석 읽기 전용 검사기(loom #0)
+SUCCESSOR none
+LANDED cherry
+NEVER-STARTED ok turns=0 commits=skip(landed cherry) dirty=0 sent=0
+rc=0
