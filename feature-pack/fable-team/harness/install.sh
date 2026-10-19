@@ -56,6 +56,11 @@ echo "HARNESS_ROOT $LIVE/HARNESS_ROOT <- $HARNESS"
 echo "LIVE_BIN  $PROJECT/.fable-team/LIVE_BIN  <- $LIVE/bin"
 echo "LIVE_ROOT $LR_FILE <- $LROOT$([ -f "$LR_FILE" ] && echo ' (있으면 보존)')"
 for h in $HOME_HOOKS; do echo "HOOK $HOME_DIR/.claude/hooks/$h <- $HARNESS/kit/hooks/$h"; done
+# r449: 프로젝트 git 훅 = 키트 kit/fable-team/githooks/* → <프로젝트>/.fable-team/githooks/ (core.hooksPath 가 가리키는 곳 · LIVE_BIN 연결 «뒤» 에 복사 — 새 pre-commit 이 새 bin 의 판정식을 찾게)
+GH_DEST="$PROJECT/.fable-team/githooks"
+for g in "$KIT"/githooks/*; do [ -f "$g" ] && echo "GITHOOK $GH_DEST/$(basename "$g") <- $g"; done
+HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
+[ -z "$HP" ] || [ "$HP" = "$GH_DEST" ] || [ "$HP" = .fable-team/githooks ] || echo "WARN core.hooksPath=$HP != $GH_DEST — 훅이 실제로 도는 곳과 다르다(--project 를 공용 루트로)"
 if [ "$APPLY" != 1 ]; then echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
@@ -89,6 +94,16 @@ REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd
 REF="$(git -C "$REPO" rev-parse HEAD)"
 bash "$LIVE/bin/ft-root-bin-shim.sh" --root "$PROJECT" --live "$LIVE/bin" --live-root "$LROOT" \
   --repo "$REPO" --path "${HARNESS#"$REPO"/}/kit/fable-team/bin" --ref "$REF"
+gcopied=0; gsame=0
+for src in "$KIT"/githooks/*; do
+  [ -f "$src" ] || continue
+  dst="$GH_DEST/$(basename "$src")"
+  if [ -f "$dst" ] && cmp -s "$src" "$dst" && [ "$(perm "$src")" = "$(perm "$dst")" ]; then gsame=$((gsame + 1)); continue; fi
+  mkdir -p "$GH_DEST"; [ ! -f "$dst" ] || cp -p "$dst" "$dst.bak-$VERSION"
+  cp -p "$src" "$dst"; cmp -s "$src" "$dst" || { echo "ERROR: git 훅 복사 불일치: $dst" >&2; exit 1; }
+  gcopied=$((gcopied + 1))
+done
+echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되돌림 = <파일>.bak-$VERSION)"
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi
 echo "== 끝 =="

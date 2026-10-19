@@ -1,0 +1,63 @@
+#!/usr/bin/env sh
+# 위임 shim — core.hooksPath 가 .fable-team/githooks 로 전환되면서
+# .beads/hooks/pre-commit 가 실행되지 않게 되는 것을 막는다(push 게이트 부작용 방지).
+# 게이트는 pre-push 에만 있고, 나머지 훅은 기존 동작을 그대로 유지한다.
+# 키트 정본 = 하네스 kit/fable-team/githooks/pre-commit · 설치 = harness/install.sh --apply --project <루트> (r449)
+
+# ── 공유 index 커밋 차단 (오빠 지시 2026-09-16 「커밋 엇갈림 규칙으로 막자」) ─────────
+# 왜: v65 워크트리 하나에 좌석이 10+ 개 붙어 있다. `git add` 로 공유 index(.git/index)에 올린 뒤
+#     `git commit` 하면 «다른 좌석이 올려둔 것까지» 같이 실린다(실증 40080cdbb · 2026-09-16 85336f6d8 ·
+#     7b28b2335 커밋메시지 엇갈림). `git commit --only -- <경로>` 는 임시 index 를 쓰므로 안 섞인다.
+# 어떻게: --only/--include 는 GIT_INDEX_FILE 을 `next-index-*` 로 바꾼다. 그게 아니면서 stage 가
+#     차 있으면 거부한다. 게이트는 이 워크트리에만 건다(다른 트랙 세션을 막지 않는다).
+_byz_top="$(git rev-parse --show-toplevel 2>/dev/null)"
+case "$_byz_top" in
+  */.worktrees/v6-realtime-live)
+    if [ "${BYZ_COMMIT_SHARED_INDEX_OK:-0}" != 1 ]; then
+      case "${GIT_INDEX_FILE:-}" in
+        *next-index-*) : ;;   # --only / --include — 임시 index, 안전
+        *)
+          if [ -n "$(git diff --cached --name-only 2>/dev/null)" ]; then
+            echo "BYZ-COMMIT-GATE: 공유 index 로 커밋하려 한다 — 남의 stage 가 같이 실린다." >&2
+            echo "  지금 stage 된 것:" >&2
+            git diff --cached --name-only 2>/dev/null | sed 's/^/    /' >&2
+            echo "  조치: git reset  후  git commit --only -- <내 경로들>" >&2
+            echo "  (정말 공유 index 로 올려야 하면 BYZ_COMMIT_SHARED_INDEX_OK=1 을 붙인다 — 이유를 커밋 본문에 적어라)" >&2
+            exit 1
+          fi
+          ;;
+      esac
+    fi
+    ;;
+esac
+# ────────────────────────────────────────────────────────────────────────────────
+
+# ── 증거 로그 커밋 차단 (r449 · 오빠 2026-10-19 «무의미한 파일을 왜 커밋하는데? … 아래로만 커지는 로그성파일») ──
+# 왜: .gitignore 의 *.log 를 `git add -f` 가 뚫었다(design/ 아래 614개 303 MB) — add 단계 검사는 무력이라 index 단계에서 본다.
+# 판정식 = ft-evidence-lib.sh 한 곳(ft-merge-land·ft-evidence-untrack 과 같은 함수) · 찾는 곳 = <훅 폴더>/../LIVE_BIN 의 bin · 없으면 <훅 폴더>/../bin.
+# 예외 = BYZ_EVIDENCE_LOG_OK=<사람 승인 번호> ∧ <공용 루트>/.fable-team/state/evidence-log-ok.<번호> 표식 파일 — 둘 다 있어야 통과.
+_ft_ev_staged="$(git diff --cached --name-only -z --no-renames --diff-filter=AM -- design 2>/dev/null | tr '\0' '\n')"
+if [ -n "$_ft_ev_staged" ]; then
+  _ft_hd="$(cd "$(dirname "$0")" && pwd -P)"
+  if [ -f "$_ft_hd/../LIVE_BIN" ]; then _ft_evlib="$(sed -n 1p "$_ft_hd/../LIVE_BIN")/ft-evidence-lib.sh"; else _ft_evlib="$_ft_hd/../bin/ft-evidence-lib.sh"; fi
+  [ -f "$_ft_evlib" ] || { echo "EVIDENCE-LOG-GATE: 판정식 없음($_ft_evlib) — design/ 커밋 0 · 설치: bash <하네스>/install.sh --apply --project <루트>" >&2; exit 1; }
+  . "$_ft_evlib"
+  _ft_ev_hits="$(printf '%s\n' "$_ft_ev_staged" | ft_evidence_filter)"
+  if [ -n "$_ft_ev_hits" ]; then
+    _ft_ok="${BYZ_EVIDENCE_LOG_OK:-}"
+    _ft_root="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
+    if printf '%s' "$_ft_ok" | grep -Eq '^[0-9]+$' && [ -f "$_ft_root/.fable-team/state/evidence-log-ok.$_ft_ok" ]; then
+      echo "EVIDENCE-LOG-GATE: 사람 승인 $_ft_ok 로 증거 로그 $(printf '%s\n' "$_ft_ev_hits" | grep -c .) 통과" >&2
+    else
+      echo "EVIDENCE-LOG-GATE: 증거 로그 $(printf '%s\n' "$_ft_ev_hits" | grep -c .) staged — git rm --cached $(printf '%s\n' "$_ft_ev_hits" | head -n 10 | tr '\n' ' ')· 요약은 SUMMARY-*.md" >&2
+      [ -z "$_ft_ok" ] || echo "  BYZ_EVIDENCE_LOG_OK=$_ft_ok 인데 승인 표식 $_ft_root/.fable-team/state/evidence-log-ok.<번호> 없음 — 사람 승인 번호 + 표식 둘 다" >&2
+      exit 1
+    fi
+  fi
+fi
+# ────────────────────────────────────────────────────────────────────────────────
+
+if [ -x "$_byz_top/.beads/hooks/pre-commit" ]; then
+  exec "$_byz_top/.beads/hooks/pre-commit" "$@"
+fi
+exit 0

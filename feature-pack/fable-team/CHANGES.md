@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-19 — design/ 아래 증거 로그(.log·.out·.nohup·guard/poller 로그)는 커밋도 착지도 안 된다 · 이미 들어간 614개는 index 에서만 뺀다 (1.1.20)
+
+카드 r449 · master 111666 · 오빠 «아니 이 무의미한 파일을 왜 커밋하는데? 관리도 안되고 무식하게 아래로만 커지는 로그성파일인데». `.gitignore` 의 `*.log` 를 `git add -f` 가 뚫어 BYZ origin/main `design/` 아래에 로그성 파일이 쌓였습니다(실측 643bf03512: 판정식 614개 303.2 MB). add 단계는 `-f` 로 무력이라 index 단계·착지 단계 두 곳에 섭니다.
+
+- **판정식 한 곳 `ft-evidence-lib.sh`**(새 · POSIX · source 전용): `design/` 아래 ①끝이 `.log·.out·.nohup·.stdout·.stderr·.pid` ②이름에 `guard·poller` 가 들고 끝이 `.jsonl·.jsonl.gz·.txt`. md·json·py·sh 는 이름에 guard·poller 가 있어도 아님(설계 문서 203·poller_intent.json 등 보존). 카드 문구의 «이름에 guard/poller 든 것 전부»는 md·py 까지 잡아 범위를 좁혔습니다 — 아래 «편차».
+- **`kit/fable-team/githooks/pre-commit`**(새 · BYZ `.fable-team/githooks/pre-commit` 2307 B 를 키트로 올림 · v6 공유 index 차단·beads 위임 그대로): «증거 로그» 절 — `git diff --cached --name-only -z --no-renames --diff-filter=AM -- design` 중 판정식 → stderr `EVIDENCE-LOG-GATE: 증거 로그 <n> staged — git rm --cached <목록 ≤10> · 요약은 SUMMARY-*.md` exit 1. `commit --only`(임시 index)도 같다. 예외 = `BYZ_EVIDENCE_LOG_OK=<사람 승인 번호>` ∧ `<공용 루트>/.fable-team/state/evidence-log-ok.<번호>` 표식 둘 다. 판정식은 `<훅 폴더>/../LIVE_BIN` 의 bin(없으면 `../bin`) — 못 찾으면 design/ 이 staged 일 때만 REJECT(조용한 통과 0 · design/ 밖 커밋은 통과).
+- **`ft-merge-land.sh`**: main 확인 직후 가지 diff(`M...S --diff-filter=AM --no-renames -- design`) 에 판정식 → `REJECT 증거 로그 <n> — git rm --cached 뒤 다시: <파일명…> (착지 0)`. 판정식 lib 못 읽으면 rc2 실행 0. 113줄(≤120).
+- **`ft-evidence-untrack.sh [--dry-run] <리포 루트>`**(새): `git ls-files -z -- design | 판정식` → `git --literal-pathspecs rm --cached --pathspec-file-nul`(디스크 보존 · 이력 재작성 0 · 커밋은 부른 쪽) · 출력 `UNTRACK n=<n> MB=<m> dry=<0|1>`(크기 = index blob) · 미커밋 tracked 변경 있으면 REJECT «[wip] 먼저».
+- **`harness/install.sh`**: `--apply` 가 LIVE_BIN 연결 «뒤» 에 `kit/fable-team/githooks/*` → `<프로젝트>/.fable-team/githooks/` cp -p → cmp(덮기 전 `<파일>.bak-<버전>` · 출력 `GITHOOKS copied= same=`) · dry-run `GITHOOK` 줄 · `core.hooksPath` 가 다른 곳이면 WARN. **LIVE-MAP**: `fable-team/githooks/*` skip 행(설치 = install.sh · 대조 = cmp 명령).
+- **시험**: `test_evidence_log_gate.sh` 52 PASS(판정식 단위 18 · ⓐ add -f 5개 REJECT·커밋 0 · ⓐ' commit --only · ⓑ md·sh 통과 · ⓒ env/표식 4조합 · lib 없음 REJECT/design 밖 통과 · ⓓ 가지 diff z.out REJECT 1줄·요약 md 착지·untrack(D) 착지·lib 없는 설치 rc2 · ⓔ untrack dirty REJECT·dry-run 목록 = 판정식·적용 n=8·디스크 보존·.gitignore 뒤 status 0·D 커밋 훅 통과·멱등·usage · ⓖ install githooks cmp0·.bak·멱등·WARN · ⓕ 600/300·외부 호출·GIT_* env 0). `test_merge_land_state_dir.sh` 설치 묶음에 `ft-evidence-lib.sh`·`ft-harness-root.sh` 추가(base 에서 6 FAIL 이던 r385 뒤 누락 → ALL PASS). 증거 `harness/evidence/r449/`.
+- **편차·범위 밖**: 판정식 614/303 MB vs 카드 955/361 MB — 차이 = 이름에 guard·poller 든 md·json·py·sh(설계 문서·도구 · 지우면 안 됨)와 이름 없는 `*.jsonl`(results·values 측정표 202개 — 원장이 가리킴). `test_live_install_check.sh`·`_tip.sh` 실패 19·13 은 base 와 같음(r385 뒤 픽스처 옛 경로 · 별 카드).
+
 ## 2026-10-19 — 좌석을 닫으면 그 좌석이 띄운 백그라운드 루프도 멈춘다(reap left=0 · 못 멈추면 CLOSE-FAIL) · 감시 루프는 상한·stop-file 래퍼 없이는 착지 0 · tmuxc 가 좌석 표식 FT_SEAT 를 심는다 (버전 = 착지 순서대로 master · r447 뒤) (1.1.19)
 
 카드 r448 · master 111691 · 오빠 «이렇게 무식하고 멍청하게 쌓고있는건데». v65 tester67 이 띄운 `while … sleep 5 … >> guard.log` 루프 5개가 좌석 소멸 뒤 ppid 1 고아로 06:00~13:19 각 ~4,600줄을 쌓았습니다. 닫기 3종은 세션 kill 만 했고, 유출 안전망(ft-leak-reap)은 CPU ≥30 s 만 잡아 sleep 루프는 영원히 남았습니다.

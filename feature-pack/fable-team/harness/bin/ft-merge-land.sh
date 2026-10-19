@@ -8,7 +8,7 @@
 #   exit 0 = 착지+정리 · 1 = REJECT(착지 0) · 2 = usage·승인 없음 · 3 = 착지 성공 · PR 코멘트/닫기 실패(수동). FT_GH/FT_GH_WRITE = 시험 주입.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-. "$HERE/ft-merge-lib.sh"
+. "$HERE/ft-merge-lib.sh"; . "$HERE/ft-evidence-lib.sh" && [ -n "${FT_EVIDENCE_RX:-}" ] || { echo "REJECT 증거 로그 판정식 없음($HERE/ft-evidence-lib.sh) — 실행 0"; exit 2; }   # r449: pre-commit·ft-evidence-untrack 과 같은 함수
 PR=""; AP=""; REPO=""; REMOTE="origin"; TARGET="main"; FF=""; T0=$SECONDS
 GH_R="${FT_GH:-gh}"; GH_W="${FT_GH_WRITE:-$HERE/ft-gh-as-tank.sh}"
 usage() { echo "usage: $0 <PR번호> --approve-sha <40hex> [--ff] [--repo <dir>] [--remote origin] [--target main]" >&2; exit 2; }
@@ -54,6 +54,8 @@ fi
 EQM="$(printf '%s' "$EQ" | sed -n 's/.* mode=\([a-z]*\) overlap=\([0-9]*\).*/equiv=\1 overlap=\2/p')"   # R281: merge-gate.log·PR 코멘트에 «어느 경로로 같은 승인이 됐나»
 M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"
 [ ! -f "$HERE/ft-team-lib.sh" ] || OLDP="$(. "$HERE/ft-team-lib.sh" && ft_old_form_added "$REPO" "$M" "$S")" || rej "$OLDP"   # r447: 명단 새 꼴 팀의 옛 꼴 위치에 새 파일 = 착지 0
+EVL="$(G diff --name-only -z --no-renames --diff-filter=AM "$M...$S" -- design | tr '\0' '\n' | ft_evidence_filter)"   # r449: 가지가 더하거나 고친 design/ 증거 로그 = 착지 0(pre-commit 을 우회한 커밋도 여기서 선다)
+[ -z "$EVL" ] || rej "증거 로그 $(printf '%s\n' "$EVL" | grep -c .) — git rm --cached 뒤 다시: $(printf '%s\n' "$EVL" | head -n 10 | tr '\n' ' ')"
 if [ -n "$FF" ]; then   # R392: 가지가 이미 원격에 있으면 squash Q 의 트리·블롭 전부를 다시 보낸다(have 가 edge 아님 · #1927 675 MB) — ref 만 S 로 전진
   G merge-base --is-ancestor "$M" "$S" || rej "main($M) 이 head 의 조상이 아님 — ff 불가 · --ff 빼고 squash 또는 최신화"
   Q="$S"; PBO="0 $(fm_push_calc 0)"
