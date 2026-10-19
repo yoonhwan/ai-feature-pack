@@ -29,7 +29,7 @@ R="$T/repo"; B="$T/bin"; SEATS="$R/.fable-team/seats.json"; CARD_REL="design/v65
 mkdir -p "$R/.fable-team" "$R/design/v65/indices/대기" "$R/design/v65/indices/inbox/master" "$R/design/v65/indices/inbox/da" "$B" "$T/sess" "$T/fake"
 git -C "$R" init -q -b main && : > "$R/.gitkeep" && git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m init
 printf '# 인덱스: r149x\n## 상태\n' > "$R/$CARD_REL"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"
-for f in ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft_raised.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp -p "$BIN/$f" "$B/"; done   # R382b: ft-role-spawn 이 ft-team-lib.sh 로 v65 폴더를 푼다
+for f in ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft_raised.py ft_team_lib.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp -p "$BIN/$f" "$B/"; done   # R382b: ft-role-spawn 이 ft-team-lib.sh 로 v65 폴더를 푼다
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$R/design/TEAMS.md"
 git -C "$R" add design/TEAMS.md && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m teams; export FT_TEAMS_REF=HEAD   # R406: spawn 은 명단을 ref 에서 읽는다 — 픽스처는 origin/main ref 0 이라 커밋된 HEAD
 for f in ft-index-lint.sh ft-proposal-gate.sh ft-index-move.sh ft-send-verified.sh ft-agent-ready.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done
@@ -73,6 +73,9 @@ has "$r" '"card": "design/v65/indices/진행/r149x.md"' "role 행 raised.card = 
 # ── ④ check ──
 CK="$T/ck"; mkdir -p "$CK/design/x/indices/진행" "$CK/design/x/indices/완성" "$CK/design/x/indices/대기"
 : > "$CK/design/x/indices/진행/a.md"; : > "$CK/design/x/indices/완성/b.md"; : > "$CK/design/x/indices/진행/c.md"; : > "$CK/design/x/indices/완성/d.md"; : > "$CK/design/x/indices/대기/w.md"
+# r518: check 는 ref origin/main 도 본다(못 읽으면 rc 2) — 판정 폴더마다 빈 커밋 + origin/main ref 를 둔다(ref 트리 0 → 판정은 디스크 그대로)
+refroot() { git -C "$1" init -q 2>/dev/null; git -C "$1" -c user.email=t@t -c user.name=t commit -q --allow-empty -m ref && git -C "$1" update-ref refs/remotes/origin/main HEAD; }
+refroot "$CK"
 mk() { python3 - "$@" <<'PY'
 import json, sys
 rows = {"_master": "m#1"}
@@ -100,7 +103,7 @@ json.dump({"_master": "m#1", "a": {"role": "nano", "raised": {"card": "design/x/
 PY
 o="$(python3 "$RAISED" check "$CK/s2.json" --root "$CK" 2>&1)"; rc=$?; rc_is "$rc" 0 "check 전부 진행/ → rc 0"; eq "$o" "" "check 전부 진행/ → 출력 0"
 python3 "$RAISED" check "$CK/s.json" "$CK/s.json" "$CK/./s.json" "$CK/s*.json" --root "$CK" >/dev/null 2>&1
-DUP="$T/dup"; mkdir -p "$DUP/design/x/indices/완성"; : > "$DUP/design/x/indices/완성/z.md"
+DUP="$T/dup"; mkdir -p "$DUP/design/x/indices/완성"; : > "$DUP/design/x/indices/완성/z.md"; refroot "$DUP"
 python3 - "$DUP/seats-t.json" <<'PY2'
 import json, sys
 json.dump({"_master": "m#1", "m#1": {"role": "master", "agent": "claude", "tick": None}, "nano-z": {"role": "nano", "model": "claude-fable-5-1", "raised": {"reason": "r", "card": "design/x/indices/완성/z.md"}}}, open(sys.argv[1], "w"), ensure_ascii=False)
@@ -154,7 +157,7 @@ d="$(cd "$CK" && FT_TICK_SEATS="$TK/seats.json" FT_TICK_STATE_DIR="$T/state-dry"
 has "$d" "DRY kind=raised bin=" "--dry-run → DRY kind=raised"; eq "$(sends)" "$b" "--dry-run 송신 0"
 
 # C2 tick: FT_TICK_SEATS=seats-t.json 하나 + 같은 폴더 seats-*.json glob 이 같은 명부를 가리켜도 송신 1건
-TD="$T/td"; mkdir -p "$TD/design/x/indices/완성"; : > "$TD/design/x/indices/완성/z.md"; cp "$DUP/seats-t.json" "$TD/seats-t.json"
+TD="$T/td"; mkdir -p "$TD/design/x/indices/완성"; : > "$TD/design/x/indices/완성/z.md"; cp "$DUP/seats-t.json" "$TD/seats-t.json"; refroot "$TD"
 b="$(sends)"; (cd "$TD" && git init -q 2>/dev/null; FT_TICK_SEATS="$TD/seats-t.json" FT_TICK_STATE_DIR="$T/state-dup" FT_TICK_MBOX="$T/fakembox.sh" FT_TICK_PIDFILE="$T/tick.pid" FT_TICK_STAMP_PREFIX="$T/stamp-dup-" FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_API_OUTAGE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_STALL_INTERVAL=99999999999 FT_TICK_GOAL_INTERVAL=99999999999 bash "$B/ft-tick.sh" --once >/dev/null 2>&1)
 eq "$(( $(sends) - b ))" 1 "C2 tick: 명부 하나 + 같은 폴더 glob → 송신 1건"; has "$(tail -1 "$T/mbox.log")" "상향 좌석 1건" "C2 tick: 본문 1건(중복 0)"
 echo "--- 증거: 시험 로케일 ${LC_ALL:-기본}"

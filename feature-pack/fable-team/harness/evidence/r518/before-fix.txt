@@ -1,0 +1,39 @@
+PASS 키트 사본 cmp 0 ft_raised.py
+PASS 키트 사본 cmp 0 ft_team_lib.py
+PASS py_compile ft_raised.py
+PASS ⓐ rc (rc=0)
+FAIL ⓐ 데이터 루트 진행/ 에만 → ▶내릴 것 0 (고치기 전: «(카드 없음)» 오탐) — «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)» ≠ «»
+PASS ⓐ stderr 0
+PASS ⓐ2 rc (rc=0)
+PASS ⓐ2 공용 루트 진행/ → 0
+PASS ⓐ3 rc (rc=0)
+FAIL ⓐ3 ref origin/main 진행/ → 0 — «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)» ≠ «»
+PASS ⓑ rc (rc=0)
+PASS ⓑ 1줄
+FAIL ⓑ ref 완성 > 데이터 루트 진행 — 없음: «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 완성)» ← ▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)
+PASS ⓑ2 대기 < 진행 → 진행 = 0줄
+PASS ⓑ3 공용 루트 완성 > 데이터 루트 진행
+PASS ⓒ rc (rc=0)
+PASS ⓒ 1줄
+PASS ⓒ 세 자리 없음 → 카드 없음
+PASS ⓒ 세 자리 다 봄 → 표기 0
+PASS ⓓ rc (rc=0)
+PASS ⓓ 데이터 루트를 못 봄 → 공용 루트·ref 판정 1줄
+FAIL ⓓ 못 본 자리 표기(조용한 통과 0) — 없음: «(카드 없음) · 못 본 자리: 데이터 루트(LIVE_ROOT 없음» ← ▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)
+PASS ⓓ2 rc (rc=0)
+FAIL ⓓ2 LIVE_ROOT 없음 + ref 진행/ → 0 — «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)» ≠ «»
+FAIL ⓓ3 LIVE_ROOT 가 없는 폴더 → rc2 — rc=0 기대=2
+FAIL ⓓ3 사유 줄 — 없음: «ft_raised: ERROR» ← 
+FAIL ⓓ3 목록 0 — «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)» ≠ «»
+FAIL ⓔ origin 없음 → rc2 — rc=0 기대=2
+FAIL ⓔ stderr 사유 — 없음: «ft_raised: ERROR» ← 
+FAIL ⓔ 사유에 ref 이름 — 없음: «origin/main» ← 
+FAIL ⓔ 목록 0(조용한 «없음» 0) — «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)» ≠ «»
+FAIL ⓔ2 리포 아님 → rc2 — rc=0 기대=2
+FAIL ⓔ2 사유 — 없음: «origin/main» ← 
+FAIL ⓔ2 목록 0 — «▶내릴 것 ft-v65-temp-m5-x 모델=claude-fable-5-1 사유=ghost verdict (카드 없음)» ≠ «»
+FAIL ⓕ 틱: 데이터 루트 진행/ 카드 → ▶내릴 것 쪽지 0 — «1» ≠ «0»
+PASS ⓕ 틱 raised_watch ERROR 0
+PASS ⓕ2 틱: ref 완성 → 쪽지 1(진짜 경보는 그대로)
+PASS ⓕ2 틱 ERROR 0
+FAILED 16
