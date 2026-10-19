@@ -38,7 +38,7 @@ chk "②_master 문자열 아님 → 무변경" "$(stall_seats "{\"_master\": 7,
 S="$TMP/seats-a.json"; printf '%s' "{\"_master\": \"M#1\", \"_hil_route\": \"M#1\", \"_version\": \"x\", \"M#1\": {\"role\": \"master\", \"agent\": \"claude\", \"model\": \"m1\", \"tick\": \"ft-master-tick\"}}" > "$S"
 out="$(bash "$RETIRE" 'M#1' 'M#2' --seats "$S")"; rc=$?
 chk "③rc" "$rc" 0
-chk "③RETIRED 줄(첫 줄 · 부팅 보고 retire= 계약 불변)" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=['_master', '_hil_route'] files=1 routes=[]"
+chk "③RETIRED 줄(첫 줄 · 부팅 보고 retire= 계약 불변)" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=['_master', '_hil_route'] files=1 roles=[] routes=[]"
 chk "③구 행 _replaced_by·role·_retired_role·tick" "$(J "$S" '[.["M#1"]._replaced_by, .["M#1"].role, .["M#1"]._retired_role, (.["M#1"].tick|tostring)]|join(",")')" "M#2,stop-ready,master,null"
 chk "③후계 행 생성(role·agent·model·tick·_replaces)" "$(J "$S" '.["M#2"]|[.role,.agent,.model,.tick,(._replaces|join("+"))]|join(",")')" "master,claude,m1,ft-master-tick,M#1"
 chk "③_master·_hil_route → M#2" "$(J "$S" '[._master,._hil_route,._version]|join(",")')" "M#2,M#2,x"
@@ -116,7 +116,7 @@ rs_seats() { printf '{"M#1": {"role": "master", "agent": "claude", %s "tick": "t
 rs_run() { HOME="$1" PATH="$FK:$PATH" FAKE_PANE_PID="${FAKE_PANE_PID-100}" FAKE_CHILDREN="${FAKE_CHILDREN-7000 7001}" bash "$RETIRE" 'M#1' 'M#2' --seats "$2"; }
 H="$(rs_home ok)"; S="$TMP/seats-r.json"; rs_seats "$S"; out="$(rs_run "$H" "$S")"; rc=$?; REC="$H/.claude/state/seat-resume/M#1.json"
 chk "⑨정상 rc" "$rc" 0
-chk "⑨RETIRED 첫 줄 불변" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=[] files=1 routes=[]"
+chk "⑨RETIRED 첫 줄 불변(r465 · 같은 폴더 seats-b.json _master=M#1 도 후계)" "${out%%$'\n'*}" "RETIRED M#1 -> M#2 file=$S keys=[] files=2 roles=['seats-b.json:_master'] routes=[]"
 chk "⑨둘째 줄 = RESUME ok <기록 경로>" "$(sed -n 2p <<< "$out")" "RESUME ok $REC"
 chk "⑨기록 파일 10칸(9 + binding · R364)" "$(jq 'keys|length' "$REC" 2>/dev/null)" 10
 chk "⑨uuid = 세션 파일 sessionId (더 최신 다른 jsonl 무시)" "$(jq -r '[.uuid,.jsonl]|join(",")' "$REC" 2>/dev/null)" "$UU1,$H/.claude/projects/$ENC/$UU1.jsonl"
@@ -244,7 +244,7 @@ chk "⑬팀 명부 없음 → REJECT rc 1 · 파일 생성 0" "$rc ${out%% *} $(
 R="$(rr_repo c "$SEATS_ROOM")"; H="$(rm_home rc)"; out="$(ro_run "$R" "$H" 'M#1' 'M#2')"; rc=$?
 chk "⑬이름 lint 실패 → REJECT rc 1 · 명부 불변" "$rc ${out%% *} $(cmp -s "$R/.fable-team/seats-room.json" <(printf '%s' "$SEATS_ROOM") && echo same || echo changed)" "1 REJECT same"
 R="$(rr_repo d "$SEATS_ROOM")"; printf '{"_master": "%s"}' "$RN" > "$R/.fable-team/seats-other.json"; H="$(rm_home rd)"; out="$(ro_run "$R" "$H" "$RN" "$RN2")"; rc=$?
-chk "⑬옛 이름이 다른 명부에서 현역(_master) → REJECT rc 1 · 행 생성 0" "$rc ${out%% *} $(jq -r 'has("'"$RN"'")' "$R/.fable-team/seats-room.json") $(ls "$R/.fable-team"/*.bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "1 REJECT false 0"
+chk "⑬옛 이름이 다른 명부 역할 칸(_master) → r465 그 칸도 후계 · RETIRED rc 0 · 은퇴 행 생성 · .bak 2" "$rc ${out%% *} $(jq -r 'has("'"$RN"'")' "$R/.fable-team/seats-room.json") $(J "$R/.fable-team/seats-other.json" ._master) $(ls "$R/.fable-team"/*.bak-retire-* 2>/dev/null | wc -l | tr -d ' ')" "0 RETIRED true $RN2 2"
 
 # ⑭ R296 ④ --record-only + 행 없음 — ⓐ 현역 아님 ⓑ 더 큰 번호 현역 ⓒ 그 세션 생존
 SEATS_R2="{\"_master\": \"$RN2\"}"
