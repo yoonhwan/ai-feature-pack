@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — 루트 3분리(r385 r3)·명부 폴더 raise(R231a) 뒤 빨강이던 팩 시험을 픽스처로 초록 · `ft-harness-info.sh seats` 는 comm 을 못 풀어도 목록·팀 명부 절을 찍는다 (1.1.23)
+
+카드 r455a · master 111909 · arch#100 실측 · 판정 1395(«기존 RED» 변명 0). 도구 계약이 바뀌었는데(데이터 루트 = FT_ROOT → `.fable-team/LIVE_ROOT` → 옛 설치 꼴 · comm 폴더 필수 · 명부 폴더 없음 = raise · close 가 `ft-seat-reap.sh` 호출) 그 계약을 쓰는 시험 픽스처가 같은 단위에서 안 바뀌어 첫 줄 ERROR 로 끝나고 있었습니다.
+
+- **키트 `ft-harness-info.sh` seats**(bin·kit 짝 cmp0): `ft_comm_dir` 실패 → `exit 1` 대신 `ALIVE` 비움 = ⚠ NOAGENT 표시 0(머리 주석 «판정기 없거나 판정 불가면 표시 0» 그대로) · 세션 목록·팀 명부 절은 그대로 찍는다. 다른 절 변경 0. 옛 판: comm 없는 git 리포에서 rc1 `ERROR` 1줄 · 새 판: rc0 명부 절 출력.
+- **픽스처(단언 약화 0 · env·mkdir·스텁만)**: `test_role_spawn_name` `FT_ROOT=<임시 리포>` + `.fable-team/comm` · `test_graphics_install` ⑥ `FT_ROOT` + comm + 임시 ROOT 에 `origin/main` ref(R400 r3 명단 읽기) + 팩엔 `design/graphics/` 가 없어 조용히 실패하던 GOAL 복사를 «설치된 골 3줄로 시험용 GOAL» 로 · `test_graphics_690` ② 스텁 ALIVE 유/무 2케이스(무 = 외부 FT_ROOT·ALIVE 를 지워 판정 불가 경로 강제 · ERROR 줄 0 단언) · `test_proposal_gate_wiring` 14 create-pair 계약(FT_ROOT+comm · FT_ME · FT_ISSUES_SEATS) + 14c `FT_MBOX_CMD` 스텁 · `test_board_publish`·`_tick` `mkdir -p $T/ft/.fable-team` · `test_nano_team_env` 임시 bin 에 `ft-seat-reap.sh` 스텁(r448 · 실기계 프로세스 0).
+- **`test_autonomy_preflight`**: 머리 주석 1줄(소요 ≈ 4분 · 120초 상한이면 rc=124 — 빨강 아님). 코드 0.
+- **결과**(팩 루트 · GIT_* 0): role_spawn_name · proposal_gate_wiring · board_publish · board_publish_tick · nano_team_env · autonomy_preflight(600 s · 113 checks fail=0) · harness_info(덤 · 옛 rc2) rc0. 남은 빨강 = `test_graphics_install` ⑦ · `test_graphics_690` ⑦(라이브 governance·harness-map 정본이 staged 판으로 승격된 적 없음 — 카드 «판정 요청» · 시험 결함 아님) · `test_planner_nano_path` 하위 `test_nano_spawn_body_press`(r455b).
+- **범위 밖(새 카드 후보)**: `test_team_literal_paths`(같은 comm 계약 + 골 표 정본 파일 없음) · `test_agent_alive_fg_judge`(BYZ 경로 목록 · 이식 누락) — 둘 다 base(ed8e118e)에서도 rc1.
+
 ## 2026-10-19 — `ft-inbox mark <seq>` 가 큐에 없는 쪽지도 우편함 파일(현행·로그·회전본)에서 찾아 적재 뒤 표시한다 (1.1.23)
 
 카드 r430 · planner 증거 ②(110829) · EVAL I3 · arch#96. planner 가 `mark 110726` 류를 치면 `REJECT 대상 못 찾음(좌석 …)` 이 났습니다. ★실측(10-19): 원인은 카드 가정(«mark 가 mailbox.jsonl 만 본다»)이 아니었습니다 — 쪽지 조회 `mail_files()` 는 이미 현행 → `mailbox.log.jsonl` → 회전본(숫자 순)을 다 보고, mark 는 우편함이 아니라 «좌석 큐»(`state/inbox/<계보>.jsonl`)만 봅니다. 110726·110770·110796 은 send 때 큐 적재가 빠져(planner 큐 5994행에 없음 · 원본은 `mailbox.log.jsonl`) 큐에 행이 없었습니다★ — 같은 seq 를 임시 루트에서 `ingest` 하면 바로 들어갑니다.
