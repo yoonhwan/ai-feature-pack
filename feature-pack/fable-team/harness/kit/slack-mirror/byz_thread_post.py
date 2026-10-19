@@ -4,6 +4,7 @@
 한 단위 = 한 스레드: start 가 뿌리 글 1개(첨부는 그 스레드 답글) · progress/result 는 같은 스레드 답글. 모든 글 꼬리에 이어가기 블록 2줄.
 게시 «전» 카드에 `- 슬랙: <ch> · 시도 <ISO>` 를 쓰고 성공하면 `- 슬랙: <ch> <root_ts>` + 장부 기록(카드 줄이 «게시 대상» 표식).
 슬랙 실패·장부 손상·블록 칸 누락은 전부 raise → exit 1 (#0 RULE). kind=report 는 이 도구로 지정할 수 없다(매거진 발행기만).
+reply --thread <이름>(r414): 보고 스레드 뿌리는 등록부 slack-threads.json 이 소유 — 인계서에 ts 글자를 옮기지 않는다(--ts 는 손으로 아는 스레드용).
 """
 import argparse
 import logging

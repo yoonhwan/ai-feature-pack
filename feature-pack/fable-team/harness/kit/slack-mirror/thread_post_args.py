@@ -45,13 +45,18 @@ def parse(argv: list[str]) -> argparse.Namespace:
     u.add_argument("--text-file", required=True)
     u.add_argument("--reply", default="", help="변화 답글 1줄")
     rpl = sub.add_parser("reply", parents=[common], help="아무 스레드에 답글 1개(desk 입구 · 카드·장부 불요)")
-    rpl.add_argument("--ts", required=True, help="뿌리 글 ts")
+    root = rpl.add_mutually_exclusive_group(required=True)
+    root.add_argument("--ts", help="뿌리 글 ts(손으로 아는 스레드)")
+    root.add_argument("--thread", help="이름 스레드(예 desk) — 뿌리는 등록부 slack-threads.json 이 소유(r414)")
     rpl.add_argument("--text-file", required=True)
+    rpl.set_defaults(channel=None)  # --thread 는 등록부 채널을 쓴다 · --ts 는 아래에서 옛 기본값
     t = sub.add_parser("attach", parents=[common], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)
     t.add_argument("--title", required=True)
     a = p.parse_args(argv)
+    if a.cmd == "reply" and a.ts is not None and a.channel is None:
+        a.channel = CHANNEL  # 기존 --ts 호출 불변
     if a.cmd not in ("update", "attach", "reply") and not (a.card or getattr(a, "unit_id", None)):
         p.error("--card 가 필요하다")
     return a
