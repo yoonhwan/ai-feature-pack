@@ -5,6 +5,7 @@ TEAMS.md «폴더» 칸(3번째 열) 3꼴을 푼다 — 도구는 `design/<팀>/
 실패는 TeamPathError — 옛 `design/<팀>/` 으로 되돌아가지 않는다(#0 RULE).
 env: FT_REPO_ROOT(기본 git 루트) · FT_TEAMS_MD(기본 <루트>/design/TEAMS.md · team_in 은 무시) · FT_HARNESS_ROOT(꼴3 치환값)
 ref 판(r479 · 셸 ft_team_cands_ref 와 같은 규칙): team_rows_ref · team_cands_ref · team_in_ref — 명단 = `git show <ref>:design/TEAMS.md` · 폴더 = 그 루트에 실재하는 후보
+쌍둥이 판(r495 · 셸 ft_team_in_ref 와 같은 규칙): team_in_ref 가 쌍둥이 둘 다 실재면 ref 트리(ls-tree -d)에 있는 쪽 + stderr `WARN TWIN-STALE` · ref 에 둘 다 = 명단 꼴 + `WARN TWIN-BOTH` · ref 에 둘 다 없음 = TeamPathError
 sparse 판(r486): team_root·team_in·team_in_ref 가 «tracked 인데 sparse 로 디스크에 없음» 을 SparseHidden(TeamPathError) 로 말한다 — 메시지 `SPARSE-HIDDEN <경로> …`(셸 ft_team_root 와 같은 글자) · team_cands_ref 는 «실재 여부 무관» 그대로
 """
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/)?[a-z0-9][a-z0-9_-]*/$")
@@ -176,14 +178,34 @@ def team_cands_ref(root: Path | str, team: str, ref: str = "origin/main") -> lis
     return [c for c in _cands_ref(root, team, ref) if c.is_dir()]
 
 
+def _behind(base: Path, ref: str) -> str:
+    out = _git_out(base, "rev-list", "--count", f"HEAD..{ref}")
+    return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else "?"
+
+
+def _twin_pick(base: Path, team: str, ref: str, hits: list[Path], cand: str) -> Path:
+    """r495: 쌍둥이 둘 다 실재 → ref 트리(ls-tree -d)에 있는 쪽 · 한쪽 = 그것 + WARN TWIN-STALE · 둘 다 = 명단 꼴(hits[0]) + WARN TWIN-BOTH · 둘 다 없음 = TeamPathError(셸 ft_team_in_ref 와 같은 글자)."""
+    onref = [c for c in hits if _git_out(base, "ls-tree", "-d", ref, "--", str(c.relative_to(base))).stdout.strip()]
+    if len(onref) == 1:
+        stale = next(c for c in hits if c != onref[0])
+        print(f"WARN TWIN-STALE {stale} (ref 에 없음 · 체크아웃 ref 뒤 {_behind(base, ref)}커밋)", file=sys.stderr)
+        return onref[0]
+    if len(onref) == 2:
+        print(f"WARN TWIN-BOTH {hits[0]} {hits[1]} (ref 에 둘 다 · 명단 꼴 {hits[0]})", file=sys.stderr)
+        return hits[0]
+    raise TeamPathError(f"ERROR {team} 폴더 실재 후보 2개 — 정확히 1개여야 한다(명단 {ref}:design/TEAMS.md · 후보 {cand}) (ref 에 둘 다 없음)")
+
+
 def team_in_ref(root: Path | str, team: str, ref: str = "origin/main") -> Path:
-    """team_in 의 ref 판 — 실재 후보 정확히 1개 · 0·2+ = TeamPathError(사유에 후보 · 추측 0)."""
+    """team_in 의 ref 판 — 실재 후보 1개 = 그것 · 쌍둥이 2개 = ref 트리로 가름(r495 · _twin_pick) · 0 = TeamPathError(사유에 후보 · 추측 0)."""
     cands = _cands_ref(root, team, ref)
     hits = [c for c in cands if c.is_dir()]
     if not hits:
         for c in cands:
             _check_sparse(Path(root), c)
+    cand = " ".join(map(str, cands))
+    if len(hits) == 2:
+        return _twin_pick(Path(root), team, ref, hits, cand)
     if len(hits) != 1:
-        cand = " ".join(map(str, cands))
         raise TeamPathError(f"ERROR {team} 폴더 실재 후보 {len(hits)}개 — 정확히 1개여야 한다(명단 {ref}:design/TEAMS.md · 후보 {cand})")
     return hits[0]

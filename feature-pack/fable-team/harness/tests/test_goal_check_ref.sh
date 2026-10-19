@@ -55,8 +55,25 @@ check seat-a --touch "원장에-없는-문구-스무자-이상-길게-적는다"
 v65_tree "$R/design/v65" OLD; g "$R" add -A; g "$R" commit -qm old-v65
 check seat-b; [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '열어라: design/v65/GOAL-LEDGER-v65.md' && ok "ⓐ6 체크아웃 옛 꼴 폴더 실재 1 → 그 폴더(design/v65) 로 판정" || bad "ⓐ6 rc=$RC :: $OUT :: $ERR"
 check seat-b --touch "$PHRASE"; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^GOAL-OK seat=seat-b' && ok "ⓐ7 체크아웃 원장 --touch → GOAL-OK rc0" || bad "ⓐ7 rc=$RC :: $OUT :: $ERR"
-mkdir -p "$R/design/teams/v65"; check seat-b; [ "$RC" = 4 ] && printf '%s' "$OUT" | grep -q '^ERROR seat=seat-b v65 폴더 실재 후보 2개' && ok "ⓐ8 쌍둥이 둘 다 실재 → ERROR 후보 2개 exit 4(fail-closed)" || bad "ⓐ8 rc=$RC :: $OUT"
-rmdir "$R/design/teams/v65" "$R/design/teams"
+# r495: 쌍둥이 둘 다 실재 → ref 트리로 가름(ⓐ8 기대 변경 — r479 «ERROR» 는 뒤처진 체크아웃마다 v65 골 틱을 세웠다)
+v65_tree "$R/design/teams/v65" NEW; check seat-b
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^GOAL-OK seat=seat-b' && ! printf '%s' "$OUT" | grep -q '^NOTE' && [ "$(printf '%s\n' "$ERR" | grep -c "^WARN TWIN-STALE .*/design/v65 (ref 에 없음 · 체크아웃 ref 뒤 [0-9]*커밋)$")" = 1 ] && ok "ⓐ8 쌍둥이 ∧ ref 한쪽(teams) → GOAL-OK rc0 + stderr WARN TWIN-STALE 1줄(옛 꼴) · NOTE 0" || bad "ⓐ8 rc=$RC :: $OUT :: $ERR"
+DV="$(g "$R" rev-parse HEAD:design/v65)"   # ⓐ8b ref = origin/main + design/v65(이동 중 커밋 꼴)
+ND="$( { g "$R" ls-tree refs/remotes/origin/main:design; printf '040000 tree %s\tv65\n' "$DV"; } | g "$R" mktree)"
+NT="$( { g "$R" ls-tree refs/remotes/origin/main | grep -v $'\tdesign$'; printf '040000 tree %s\tdesign\n' "$ND"; } | g "$R" mktree)"
+g "$R" update-ref refs/remotes/origin/both "$(g "$R" commit-tree -p refs/remotes/origin/main -m both "$NT")"
+FT_TEAMS_REF=origin/both check seat-b
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^GOAL-OK seat=seat-b' && [ "$(printf '%s\n' "$ERR" | grep -c "^WARN TWIN-BOTH [^ ]*/design/teams/v65 [^ ]*/design/v65 (ref 에 둘 다 · 명단 꼴 [^ ]*/design/teams/v65)$")" = 1 ] && ok "ⓐ8b ref 에 둘 다 → 명단 꼴(teams) + WARN TWIN-BOTH rc0" || bad "ⓐ8b rc=$RC :: $OUT :: $ERR"
+LB="$(g "$R" hash-object -w "$S/design/TEAMS.md")"   # ⓐ8c ref = 명단만(v65 폴더 0)
+LT="$(printf '040000 tree %s\tdesign\n' "$(printf '100644 blob %s\tTEAMS.md\n' "$LB" | g "$R" mktree)" | g "$R" mktree)"
+g "$R" update-ref refs/remotes/origin/onlylist "$(g "$R" commit-tree -m onlylist "$LT")"
+FT_TEAMS_REF=origin/onlylist check seat-b
+[ "$RC" = 4 ] && printf '%s' "$OUT" | grep -q '^ERROR seat=seat-b v65 폴더 실재 후보 2개 — 정확히 1개여야 한다(명단 origin/onlylist:design/TEAMS.md · 후보 .*) (ref 에 둘 다 없음)$' && ! printf '%s' "$OUT" | grep -q 'GOAL-\|REREAD' && ok "ⓐ8c ref 에 둘 다 없음 → ERROR 후보 2개 (ref 에 둘 다 없음) exit 4(fail-closed 그대로)" || bad "ⓐ8c rc=$RC :: $OUT :: $ERR"
+rm "$R/design/teams/v65/GOAL-LEDGER-v65.md"; check seat-b   # ⓐ8d 고른 새 꼴 폴더에 원장 없음 → 그 파일만 ref 본문 + NOTE(끝 줄)
+[ "$RC" = 0 ] && [ "$(printf '%s\n' "$OUT" | head -1 | cut -d' ' -f1)" = GOAL-OK ] && [ "$(printf '%s\n' "$OUT" | tail -1)" = "NOTE 정본 = origin/main 본문(체크아웃 ref 뒤 $(g "$R" rev-list --count HEAD..origin/main)커밋): GOAL-LEDGER-v65.md" ] && ok "ⓐ8d 새 꼴에 원장 없음 → ref 본문 + NOTE 끝 줄 · GOAL-OK rc0" || bad "ⓐ8d rc=$RC :: $OUT :: $ERR"
+check seat-b --touch "$PHRASE"; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^GOAL-READ seat=seat-b' && ok "ⓐ8d2 --touch 문구 = ref 본문 원장에서 찾음 rc0" || bad "ⓐ8d2 rc=$RC :: $OUT :: $ERR"
+[ "$(ls "$TMPDIR" | grep -c ft-team-doc)" = 0 ] && ok "ⓐ8d3 ref 본문 임시 파일 정리(trap)" || bad "ⓐ8d3 임시 파일 남음: $(ls "$TMPDIR")"
+rm -rf "$R/design/teams"; g "$R" update-ref -d refs/remotes/origin/both; g "$R" update-ref -d refs/remotes/origin/onlylist
 
 # ⓑ 체크아웃에 TEAMS.md 를 둬도(옛 꼴 · v65 행 없음) 결과 동일 — 파일이 아니라 ref · 어긋남 = 끝에 WARN 1줄
 check seat-b; BASE_OUT="$(printf '%s' "$OUT" | head -1 | cut -d' ' -f1-2)"; BASE_RC=$RC
@@ -92,7 +109,7 @@ render() { OUT="$(cd "$T" && env -u FT_GOAL_A6_MD -u FT_GOAL_A6_LEDGER -u FT_LED
 render; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '상태3 진행' && [ "$(printf '%s' "$OUT" | grep -c '진행')" = 6 ] && ok "ⓔ1 옛 명단 그대로 → 골 표 6행 + 원장 상태" || bad "ⓔ1 rc=$RC :: $OUT :: $ERR"
 FIRST="$OUT"; cp "$S/design/TEAMS.md" "$LR/design/TEAMS.md"
 render; [ "$RC" = 0 ] && [ "$OUT" = "$FIRST" ] && [ -z "$ERR" ] && ok "ⓔ2 LIVE_ROOT 명단을 origin/main 판으로 갈아도 같은 골 표(planner = 실재 design/planner) · WARN 0" || bad "ⓔ2 rc=$RC :: $OUT :: $ERR"
-mkdir -p "$LR/design/teams/planner"; render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더 실재 후보 2개' && ok "ⓔ3 쌍둥이 둘 다 실재 → ERROR 후보 2개 rc1" || bad "ⓔ3 rc=$RC :: $OUT :: $ERR"
+mkdir -p "$LR/design/teams/planner"; render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q "^WARN TWIN-STALE $LR/design/planner (ref 에 없음" && printf '%s' "$ERR" | grep -q "^ERROR .*$LR/design/teams/planner/" && ok "ⓔ3 쌍둥이 → ref 쪽(teams) + WARN TWIN-STALE · 빈 새 꼴 = ERROR rc1(옛 꼴 후퇴 0 · r495)" || bad "ⓔ3 rc=$RC :: $OUT :: $ERR"
 rmdir "$LR/design/teams/planner"; mv "$LR/design/planner" "$T/planner.off"
 render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더 실재 후보 0개' && ok "ⓔ4 둘 다 없음 → ERROR(원장 없음 · 추측 0) rc1" || bad "ⓔ4 rc=$RC :: $OUT :: $ERR"
 

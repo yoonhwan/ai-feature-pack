@@ -80,6 +80,17 @@ echo "== ⓑ 두 쌍둥이 모두 원장 → REJECT 후보 2개"
 setup; mkdir -p "$(dirname "$NEWL")"; : > "$NEWL"; out="$(close)"; rc=$?
 rejected "$out" "$rc" "ⓑ"; has "$out" "REJECT v65 원장 실재 후보 2개 — 정확히 1개여야 한다(명단 origin/main:design/TEAMS.md · 후보 $NEWL $OLDL · 실재 $NEWL · $OLDL)" "  └ 사유(명단 꼴 먼저 · 쌍둥이 뒤 · r459 헬퍼 ERROR 꼴)"
 
+echo "== ⓑ2 (r495) 두 쌍둥이 모두 원장 ∧ origin/main 트리엔 새 꼴(design/teams/v65)만 → ft_team_in_ref 로 가름 · 새 꼴 원장에 CLOSED + WARN TWIN-STALE"
+setup; mkdir -p "$(dirname "$NEWL")"; : > "$NEWL"
+KT="$(printf '100644 blob %s\tkeep\n' "$(GIT hash-object -w --stdin </dev/null)" | GIT mktree)"
+DT="$( { GIT ls-tree "$MAIN:design"; printf '040000 tree %s\tteams\n' "$(printf '040000 tree %s\tv65\n' "$KT" | GIT mktree)"; } | GIT mktree)"
+GIT update-ref refs/remotes/origin/main "$(GIT commit-tree -p "$MAIN" -m twin-ref "$(printf '040000 tree %s\tdesign\n' "$DT" | GIT mktree)")"
+out="$(close)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓑ2 CLOSED(rc=0)" || bad "ⓑ2 rc=$rc ← ${out:0:600}"
+has "$out" "INFO 원장 ← $NEWL (명단 origin/main)" "  └ INFO 원장 ← 새 꼴(ref 트리에 있는 쪽)"
+has "$out" "WARN TWIN-STALE $REPO/design/v65 (ref 에 없음" "  └ WARN TWIN-STALE <옛 꼴>"
+[ "$(grep -c "\`$SEAT\` 닫힘(ft-nano-close)" "$NEWL")" = 1 ] && [ ! -s "$OLDL" ] && ok "  └ 새 꼴 원장에만 닫힘 행 1" || bad "  └ 닫힘 행 new=$(grep -c 닫힘 "$NEWL") old=$(grep -c 닫힘 "$OLDL")"
+
 echo "== ⓒ 어느 쪽에도 원장 없음 → REJECT 못 찾았다(후보 목록)"
 setup; rm -f "$OLDL"; out="$(close)"; rc=$?
 rejected "$out" "$rc" "ⓒ"; has "$out" "REJECT v65 원장 실재 후보 0개 — 정확히 1개여야 한다(명단 origin/main:design/TEAMS.md · 후보 $NEWL $OLDL · 실재 없음)" "  └ 사유 + 후보 2(r459 헬퍼 ERROR 꼴)"

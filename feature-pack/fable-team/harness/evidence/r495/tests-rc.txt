@@ -1,0 +1,49 @@
+# r495 시험 원문 (base origin/main 2ca7a953 · 2026-10-20)
+$ bash harness/tests/test_goal_check_ref.sh
+PASS ⓐ1 폴더 0 → ref 본문·ref sha 로 REREAD-REQUIRED rc3
+PASS ⓐ1 «못 풀었다·팀 명단 없음» 0
+PASS ⓐ2 --touch(ref 본문 원장 문구) → GOAL-READ·GOAL-OK·NEXT rc0
+PASS ⓐ3 재실행 GOAL-OK rc0
+PASS ⓐ4 cited 없음 → REJECT exit 4(유일한 REJECT 4)
+PASS ⓐ5 ref 본문 임시 파일 정리(trap)
+PASS ⓐ6 체크아웃 옛 꼴 폴더 실재 1 → 그 폴더(design/v65) 로 판정
+PASS ⓐ7 체크아웃 원장 --touch → GOAL-OK rc0
+PASS ⓐ8 쌍둥이 ∧ ref 한쪽(teams) → GOAL-OK rc0 + stderr WARN TWIN-STALE 1줄(옛 꼴) · NOTE 0
+PASS ⓐ8b ref 에 둘 다 → 명단 꼴(teams) + WARN TWIN-BOTH rc0
+PASS ⓐ8c ref 에 둘 다 없음 → ERROR 후보 2개 (ref 에 둘 다 없음) exit 4(fail-closed 그대로)
+PASS ⓐ8d 새 꼴에 원장 없음 → ref 본문 + NOTE 끝 줄 · GOAL-OK rc0
+PASS ⓐ8d2 --touch 문구 = ref 본문 원장에서 찾음 rc0
+PASS ⓐ8d3 ref 본문 임시 파일 정리(trap)
+PASS ⓔ3 쌍둥이 → ref 쪽(teams) + WARN TWIN-STALE · 빈 새 꼴 = ERROR rc1(옛 꼴 후퇴 0 · r495)
+== test_goal_check_ref: fail=0
+rc=0
+$ pytest -q harness/tests/test_team_lib_twin.py harness/tests/test_team_lib_sparse.py harness/tests/scripts/test_team_lib_ref.py
+30 passed in 1.95s
+rc=0
+$ bash harness/tests/test_nano_close_fail_closed.sh
+== ⓑ2 (r495) 두 쌍둥이 모두 원장 ∧ origin/main 트리엔 새 꼴(design/teams/v65)만 → ft_team_in_ref 로 가름 · 새 꼴 원장에 CLOSED + WARN TWIN-STALE
+PASS ⓑ2 CLOSED(rc=0)
+PASS   └ INFO 원장 ← 새 꼴(ref 트리에 있는 쪽)
+PASS   └ WARN TWIN-STALE <옛 꼴>
+PASS   └ 새 꼴 원장에만 닫힘 행 1
+== ⓒ 어느 쪽에도 원장 없음 → REJECT 못 찾았다(후보 목록)
+rc=0
+$ bash -n bin/ft-team-lib.sh bin/ft-goal-check.sh bin/ft-nano-close.sh → rc=0 (3) · kit↔bin cmp0 4
+$ 변경 파일을 부르는 시험 50개(tests/*.sh tests/*/*.sh grep ft-goal-check|ft-nano-close|ft-team-lib|ft_team_lib|ft_goal_ledger|ft_goal_table): ok=37 · 실패 13 = origin/main 2ca7a953 사본에서 같은 13 · FAIL 줄 정규화 diff 0(기존 실패 · 이 변경 무관)
+1 tests/test_evidence_inject_scan.sh
+1 tests/test_da_hold_gate.sh
+1 tests/test_nano_succession_index.sh
+1 tests/test_harness_root.sh
+1 tests/test_news_tree_root.sh
+1 tests/test_team_scaffold_empty_template.sh
+5 tests/test_teamset_check.sh
+1 tests/test_tracked_bin_call_gate.sh
+1 tests/test_planner_nano_path.sh
+1 tests/test_team_literal_paths.sh
+1 tests/test_team_literal_paths2.sh
+1 tests/test_team_move_roundtrip.sh
+1 tests/test_wt_clean_plan_self_check.sh
+$ ft-team-path-lint.sh kit/fable-team/bin → ① INFO 리터럴 대기 0 · ② ERR 쌍둥이 후보 ft-nano-close.sh(:505 ft_index_twin · 기존 줄 · 이 diff 의 ft_index_twin 0)·ft-nano-spawn.sh — origin/main 에서도 같음
+$ (실사건 미리보기 · 읽기 전용 · --touch 0) cd .worktrees/v6-realtime-live && FT_ROOT=<BYZ 루트> bash <나노 bin>/ft-goal-check.sh byz-v65-master-claude#213
+  새: stderr «WARN TWIN-STALE …/v6-realtime-live/design/v65 (ref 에 없음 · 체크아웃 ref 뒤 202커밋)» · stdout «REREAD-REQUIRED … 커밋 11개 경과 > 10» + 끝 «NOTE 정본 = origin/main 본문(체크아웃 ref 뒤 202커밋): GOAL-LEDGER-v65.md + 정본 3» rc=3 (= 정상 골 흐름 · touch 뒤 GOAL-OK)
+  옛(라이브 1.1.52): «ERROR seat=byz-v65-master-claude#213 v65 폴더 실재 후보 2개 — 정확히 1개여야 한다(…)» rc=4

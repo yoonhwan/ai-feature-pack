@@ -94,6 +94,8 @@ else
   _cands="$(ft_team_cands_ref "$LEDGER_WT" v65 "$_ref" 2>&1)" || { case "$_cands" in *"못 읽음"*) echo "REJECT 팀 명단($_ref)을 못 읽음 — FT_NANO_LEDGER 로 지정 ($LEDGER_WT)";; *) echo "REJECT v65 팀 폴더를 못 풀었다(명단 $_ref) — ${_cands:-사유 없음} · FT_NANO_LEDGER 로 지정";; esac; exit 1; }
   _ln=0; _lf=""; _lall=""
   while IFS= read -r _c; do [ -n "$_c" ] || continue; _lall+=" $_c/$_lrel"; [ -f "$_c/$_lrel" ] && { _ln=$((_ln+1)); _lf+="${_lf:+ · }$_c/$_lrel"; }; done <<< "$_cands"
+  # r495: 원장은 «쓰는» 파일이라 ref 본문 대체 0 — 파일 실재 1개면 그것(뒤처진 체크아웃의 옛 꼴 원장 포함) · 2개(쌍둥이 둘 다)면 폴더를 ft_team_in_ref(ref 트리)로 가름
+  [ "$_ln" = 2 ] && _v="$(ft_team_in_ref "$LEDGER_WT" v65 "$_ref")" && [ -f "$_v/$_lrel" ] && { _ln=1; _lf="$_v/$_lrel"; }
   case "$_ln" in
     1) LEDGER="$_lf"; echo "INFO 원장 ← $LEDGER (명단 $_ref)";;
     *) echo "REJECT v65 원장 실재 후보 ${_ln}개 — 정확히 1개여야 한다(명단 $_ref:design/TEAMS.md · 후보$_lall · 실재 ${_lf:-없음}) · FT_NANO_LEDGER 로 지정"; exit 1;;   # r459: ft_team_doc_ref 의 ERROR 꼴과 같은 문구
