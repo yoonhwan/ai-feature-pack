@@ -4,11 +4,19 @@
 F = S 의 first-parent 사슬에서 «M 의 조상인 첫 커밋». F == M(처음부터 M 위) = 보호 집합 빈 집합 = 통과.
 위치·순서는 보지 않는다(개수까지 포함하면 통과). 삭제·바이너리 변경·명령 실패는 전부 deny.
 r461: 다른 폴더로 옮긴 파일(git R, 또는 D 인데 S 트리에 같은 이름이 정확히 1개)은 옮긴 곳에서 줄을 센다 — 옛 경로 글자 → 새 경로 글자 1쌍 치환 허용 · 후보 0·2+ 는 삭제로 deny.
+r477: 비교 «전» main 이 더한 줄에 명단(ref FT_TEAMS_REF · 기본 origin/main) 기준 팀 폴더 정규화(옛 꼴 `design/<팀>/` → 새 꼴 `design/teams/<팀>/` · 명단 꼴2 팀만 · 한 방향)를 적용해 «정규화 뒤 같은 줄 = 같은 줄»(PATHSUBST). 후보 줄은 원문 그대로 — 새 꼴을 옛 꼴로 되돌린 줄은 소실. 명단 못 읽음 = 정규화 0 + stderr WARN 1줄(옛 동작 그대로).
 exit 0 = 통과 · 1 = deny(사유 stdout) · 2 = 명령 실패(사유 stdout · deny 와 같게 취급)."""
 import collections
+import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from ft_team_lib import team_rows_ref
+except Exception:  # 옛 설치본(모듈·함수 없음) = 옛 동작 + WARN
+    team_rows_ref = None
 
 
 class Fail(Exception):
@@ -77,13 +85,49 @@ def moved_to(repo, s, path, tree):
     return None, "S 가 삭제" + (" · 같은 이름 후보 %d개(추측 0)" % len(cands) if cands else "")
 
 
+def _roster_hint(repo, ref):
+    """명단을 «기대할 수 있는» 저장소인가 — 명시 ref · 체크아웃 TEAMS.md · ref 트리의 TEAMS.md. 아니면(합성 픽스처) WARN 0."""
+    if os.environ.get("FT_TEAMS_REF") or os.path.isfile(os.path.join(repo, "design", "TEAMS.md")):
+        return True
+    try:
+        p = subprocess.run(["git", "-C", repo, "cat-file", "-e", "%s:design/TEAMS.md" % ref], capture_output=True, timeout=7)
+    except Exception:
+        return True
+    return p.returncode == 0
+
+
+def team_table(repo):
+    """r477: 명단(ref FT_TEAMS_REF · 기본 origin/main)의 꼴2 팀 → 옛 꼴 접두. 못 읽음 = None(추측 0 · 옛 동작)."""
+    ref = os.environ.get("FT_TEAMS_REF") or "origin/main"
+    if team_rows_ref is None:
+        if _roster_hint(repo, ref):
+            print("WARN 명단 ref 못 읽음 — PATHSUBST 0", file=sys.stderr)
+        return None
+    try:
+        rows = team_rows_ref(ref, repo)
+    except Exception:
+        if _roster_hint(repo, ref):
+            print("WARN 명단 ref 못 읽음 — PATHSUBST 0", file=sys.stderr)
+        return None
+    return {team: "design/%s/" % team for team, rel in rows.items() if rel.startswith("design/teams/")}
+
+
+def norm(line, table):
+    """r477: 본문 안 «옛 팀 폴더» 글자를 새 꼴로 — 명단 꼴2 팀만 · 한 방향(옛→새)만."""
+    if table:
+        for team, old in table.items():
+            line = line.replace(old, "design/teams/%s/" % team)
+    return line
+
+
 def main(repo, m, s):
     f = fork_point(repo, m, s)
     if f == m:
         print("PASS 처음부터 main 위(F==M) — 보호 집합 빈 집합")
         return 0
+    table = team_table(repo)
     adds, binary = added_lines(repo, f, m)
-    changed, bad, moved, tree = m_to_s(repo, m, s), [], [], []
+    changed, bad, moved, tree, pathsubst = m_to_s(repo, m, s), [], [], [], 0
     for path in sorted(set(adds) | binary):
         if path not in changed:
             continue
@@ -94,9 +138,19 @@ def main(repo, m, s):
                 bad.append("%s: main 이 바꾼 파일을 %s" % (path, why)); continue
         if path in binary:
             bad.append("%s: 바이너리가 main 의 것과 다름" % path); continue
-        have = collections.Counter(l.rstrip("\r") for l in git(repo, "show", "%s:%s" % (s, sp)).split("\n") if l.strip())
-        # 이동이면 main 줄 속 «옛 경로» 글자를 «새 경로» 로 바꾼 줄도 같은 줄로 센다(치환은 그 1쌍만 · 줄마다 둘 중 많은 쪽)
-        lost = sum(max(0, n - max(have[l], have[l.replace(path, sp)])) for l, n in adds[path].items() if l.strip())
+        raw = collections.Counter(l.rstrip("\r") for l in git(repo, "show", "%s:%s" % (s, sp)).split("\n") if l.strip())
+        # r477: «main 이 더한 줄» 만 팀 폴더 옛 꼴 → 새 꼴 정규화(한 방향) — 후보가 새 꼴을 옛 꼴로 되돌린 줄은 소실 그대로
+        # r461: 이동이면 main 줄 속 «옛 경로» 글자를 «새 경로» 로 바꾼 줄도 같은 줄로 센다(치환은 그 1쌍만)
+        lost = 0
+        for l, n in adds[path].items():
+            if not l.strip():
+                continue
+            moved_line = l.replace(path, sp)
+            raw_hit = max(raw[l], raw[moved_line])
+            hit = max(raw[l], raw[moved_line], raw[norm(l, table)], raw[norm(moved_line, table)])
+            lost += max(0, n - hit)
+            if min(n, hit) > min(n, raw_hit):  # 정규화로만 같아진 줄 = PATHSUBST
+                pathsubst += 1
         if lost:
             bad.append("%s: main 이 더한 줄 %d 개가 S 에서 사라짐" % (path, lost) if sp == path
                        else "%s: %s 로 이동했으나 main 이 더한 줄 %d 개 없음" % (path, sp, lost))
@@ -106,7 +160,8 @@ def main(repo, m, s):
         print("DENY main 이 더한 줄을 지움(옛 브랜치 F=%s) — main 에서 새 브랜치로 따라: %s" % (f[:10], "; ".join(bad[:8])))
         return 1
     show = "".join("; MOVED " + x for x in moved[:3]) + (" 외 %d" % (len(moved) - 3) if len(moved) > 3 else "")
-    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s" % (len(adds) + len(binary), f[:10], len(moved), show))
+    sub = " · PATHSUBST %d줄" % pathsubst if pathsubst else ""
+    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s%s" % (len(adds) + len(binary), f[:10], len(moved), show, sub))
     return 0
 
 

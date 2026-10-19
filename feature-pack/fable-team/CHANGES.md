@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-19 — 병합 줄 대조가 «팀 폴더 옛 꼴 글자만 바꾼 줄» 을 같은 줄로 센다 (r477 · 1.1.39)
+
+- `ft_merge_lines.py` 가 줄 비교 전에 «main 이 더한 줄» 의 팀 폴더 옛 꼴(`design/<팀>/`)을 새 꼴(`design/teams/<팀>/`)로 정규화 — 명단 = `ft_team_lib.team_rows_ref`(`FT_TEAMS_REF` · 기본 origin/main) · 꼴2 팀만 · 한 방향(옛→새) · 접두 글자 치환만 · PASS 줄에 `PATHSUBST <n>줄`(0 = 칸 생략).
+- 정규화는 main 이 더한 줄에만 적용한다 — 후보 줄까지 정규화하면 «새 꼴 → 옛 꼴» 역방향(카드 ⓓ 거절)이 통과한다(시험이 못 박음). 명단 못 읽음 = `WARN 명단 ref 못 읽음 — PATHSUBST 0` 1줄(stderr) + 옛 동작(정규화 0 · 추측 0 · 합성 픽스처는 WARN 0).
+- 시험 새 `tests/test_merge_lines_pathsubst.sh` ⓐ~ⓕ ALL PASS · 기존 merge·land 시험 9종 ALL PASS(선재 빨강 2종은 origin/main 그대로) · 옛 판 RED(ⓐ → DENY) · 실사건: loom PR 1976 head 280b041aa5(M=75b386) 옛 판 DENY 83파일 → 새 판 DENY 2파일 + PATHSUBST 155줄(남은 2 = 명단 밖 `concierge` 재명명 팀 — 추측 0 규칙대로 거절 · `harness/evidence/r477/master-steps.md`).
+
 ## 2026-10-19 — 뉴스 HTML «일하는 팀» = 라이브 좌석 실측 · 일하는 팀이 위 (r478c · 1.1.38)
 
 - 오빠 반려(일하는 chatbot 이 쉬는 팀에) — 일하는/쉬는 팀 판정을 LLM 에서 코드로: 명부 팀별 tmux 좌석 + `ft-seat-status.sh turn` WORKING 수로 나누고 일하는 좌석 많은 순으로 위에 · LLM 은 팀별 설명 한 문장만. 라이브 좌석 판정이 없으면 발행 0.
