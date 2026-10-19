@@ -5,7 +5,7 @@
 ## 가지 1
 | 리포 | 가지 | 내용 |
 |---|---|---|
-| ai-feature-pack | `nano/r458-news-magazine-stall-recovery-and-te` (워크트리 `.worktrees/nano-r458-news-magazine` · base d56b9c0e = origin/main) | 키트 6(bin·kit 짝 cmp0) `ft_news_ledger.py` `ft_goal_ledger.py` `ft_goal_table.py` `ft-goal-table.sh` `ft_news_ledger_text.py` `ft_news_post.py` + `slack-mirror/magazine_goal.py` `magazine_doc.py` · 시험 1 · 픽스처 1 · CHANGES · manifest 1.1.27 |
+| ai-feature-pack | `nano/r458-news-magazine-stall-recovery-and-te` (워크트리 `.worktrees/nano-r458-news-magazine` · base d56b9c0e = origin/main) | 키트 6(bin·kit 짝 cmp0) `ft_news_ledger.py` `ft_goal_ledger.py` `ft_goal_table.py` `ft-goal-table.sh` `ft_news_ledger_text.py` `ft_news_post.py` + `slack-mirror/magazine_goal.py` `magazine_doc.py` · 시험 1 · 픽스처 1 · CHANGES · manifest 1.1.29 |
 | BYZ-Agents | `nano/r458-news-magazine-stall-recovery-and-te` | 커밋 0(이 단위는 팩만) |
 
 ## 순서

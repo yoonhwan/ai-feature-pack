@@ -1,0 +1,8 @@
+# r464 시험 rc (나노 · 코드 HEAD f0d2f0cbe5cd5301fa8fb7910befcfecd16a5159 · 팩 harness 폴더 cwd)
+bash -n install.sh rc=0
+bash tests/test_live_install_check_plist_env.sh rc=0 · 39 PASS · ALL PASS (r464ⓐ~ⓔ 7줄)
+bash tests/test_installed_root.sh rc=0 · 22 PASS
+bash tests/test_live_install_check_shim.sh rc=0 · 15 PASS · ALL PASS
+RED: 새 시험을 base d56b9c0e 설치기 위에서 rc=1 · FAILED 5 (r464ⓐ·ⓑ·ⓑ'·ⓓ·ⓔ)
+기존 빨강(base d56b9c0e 와 PASS/FAIL 줄 같음 · 이 단위 무관): test_live_install.sh rc=1 · test_live_install_check.sh rc=1 FAILED 1 · test_live_install_check_tip.sh rc=1 FAILED 2
+install.sh --dry-run --project <BYZ 루트> rc=0 · 쓰기 0 · PLIST com.hermes.byz-mbox-slack-mirror (설치본 bin 없음 — apply 때 렌더·대조) — base 판과 버전 글자 외 출력 같음

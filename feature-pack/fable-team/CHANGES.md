@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-19 — 원장 뉴스가 «원장 정본 한 곳»(FT_LEDGER_REPO + 경로)에서만 sha·경로·뉴스 폴더를 푼다 + 뉴스·매거진 골 표 뒤 «팀별 완성 진행» 블록 (r458 · 1.1.27)
+## 2026-10-19 — 원장 뉴스가 «원장 정본 한 곳»(FT_LEDGER_REPO + 경로)에서만 sha·경로·뉴스 폴더를 푼다 + 뉴스·매거진 골 표 뒤 «팀별 완성 진행» 블록 (r458 · 1.1.29)
 
 카드 r458 · master 112887·112904·112907·113018 · arch 101 실측. 10-18 08:43 뒤 뉴스 발행 0: 원장 경로는 원장 리포(LIVE_ROOT) 명단으로, 뉴스 폴더는 공용 루트(로컬 main 2만 커밋 뒤 · TEAMS.md 없음) 명단으로 풀어 `ERROR 팀 명단 없음` 2671회. 임시 처방(h182 · 원장 리포를 c-level-planning 으로) 뒤엔 `git show 실패: path design/teams/planner/… not in c7b4a5db8b` — 기준선(last.sha)은 옛 경로 리포 판, 경로는 새 경로라 «출처 2개».
 
@@ -9,6 +9,26 @@
 - **팀별 완성 진행**: `ft-goal-table.sh teams` = 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 `★팀별 완성 진행 (<원장 sha10>)★ … ★/팀별 완성 진행★`(≤1600B · «지금» 칸 24→16→8자). 표 없음·예산 초과·도구 실패 = 빈 글 + WARN — ★새 거절 게이트 0★(골 표 check 불변). 뉴스 첫 판 = 머리 → 골 표 → 팀별 진행 → lead(3500B 계산 포함 · 이어진 판엔 없음) · 매거진 뿌리 글·HTML 절 골 표 바로 뒤.
 - **시험** `tests/test_goal_table_gate.sh` r458 16 PASS(ⓐ 루트 명단 없음 → 원장 리포 명단 · 폴더 없음 ERROR ⓑ FT_NEWS_DIR 우선 ⓒ teams 블록·표 없음 WARN rc0·check 불변 ⓓ 첫 판 순서·3500B·이어진 판 0 ⓔ 매거진 뿌리 글·HTML·무장이어도 거절 0 ⓕ 옛 경로 기준선·다른 리포 sha = 명확한 ERROR · 정본 판끼리 발행 · FT_LEDGER_PATH 한 값) · 전체 fail=0. RED: origin/main 판 10 FAIL · `check_base` 만 빼면 ⓕ 2 FAIL(실 오류 `exists on disk, but not in` 그대로 재현). ⓚ 픽스처 `tests/fixtures/goal_table/AUTONOMY-GOAL-A6-20261018.md` 가 팩에 없어 기존부터 FAIL → BYZ origin/main 판 복사.
 - **범위 밖**: 원장을 새 경로 판으로 옮기기(planner 몫 · master 요청) · 공용 루트 main 당기기 · 세션 상태 스냅샷 낡음(ERROR 로그 · 발행은 막지 않음) · 팀 틱 «지금 하는 것» 자동 수집.
+## 2026-10-19 — 자율 ON 병합 훅이 «오빠 승인 sha 위에 main 병합만 더한 head»(같은 변경 집합)를 재승인 없이 통과시킨다 (r462 · 1.1.28)
+
+카드 r462 · ops master 33 [HIL] 112442 → planner 112456 → master 78 발주 112459. 훅 `autonomy-merge-guard.sh` 는 승인 파일 이름 == `--match-head-commit` sha 글자 일치만 봐서, 착지 직전 표준인 main 병합으로 head 가 바뀌면 «승인한 변경 집합은 그대로» 인데도 매번 오빠 재승인을 요구했습니다(ops PR 1960 왕복).
+
+- **판정기 = 이미 있는 것 하나**: `ft_approval_equiv.py`(R247 ft-merge-land · r411 scope-approve CODE_EQUIV 가 쓰는 같은 판정기). 카드 처방의 새 `autonomy_equiv.py` 는 만들지 않았다 — 같은 판정식이 이미 함수(파일)로 빠져 있어 새 파일 = 중복.
+- **훅**: 글자 일치 실패 시 승인 폴더의 sha 들(파일 1줄 == autonomy.log 줄 검사를 먼저 통과한 것만 · 최신순 · 7초 × 3 마감) 중 판정기 `EQUIV` rc0 인 것이 있으면 통과 + 훅 로그 `EQUIV <승인> -> <head>`. 없으면 기존 deny 사유 + `재승인 필요 — 승인 sha 와 같은 변경 집합 아님: <판정기 사유 원문>`(판정기를 못 돌렸으면 EQUIV 안내 1줄). 판정기 없음·rc3·시간 초과 = 통과 0(판정 1675 «병합 = 오빠 값» 불변).
+- **`ft-autonomy.sh approve-merge`**: stdout `APPROVED …` 줄은 그대로, stderr 에 `EQUIV 허용 범위: …` 1줄(200줄 한도 안 · bin·kit cmp0). 기존 시험 2곳(`test_autonomy_kinds_1675` ⓑ OFF · `test_merge_land_off_approval` ④)의 `2>&1` 글자 일치 단언을 «첫 줄 == APPROVED …» 로 바꿈(1675 쪽은 EQUIV 줄 존재도 단언).
+- **ops 실사건 실측**(BYZ 리포): 승인 45cd3c302b 는 head 6f66271305 의 조상이 «아니다»(가지를 89c8e21f13 로 다시 만든 뒤 main 병합) — 카드 Issue ③ «45cd 위» 와 다름. 그래도 판정기 rebase 모드 조건(main 6d4ccce32c ⊂ head · 자기 변경 diff 동일 · `merge-tree(45cd, 6d4c)` = head 트리 8b87f3a161)이 그 당시 main 기준으로 전부 참 → 이 훅이면 EQUIV 통과였다. 지금은 main 이 더 나가 같은 head 는 NOT-EQUIV(«PR head 도 지금 main 위가 아님») — main 을 한 번 더 병합하면 다시 EQUIV.
+- **시험** `tests/test_autonomy_merge_equiv.sh`(새 · 13 PASS): ⓐ A 위 main 병합 → 통과 + 로그 ⓑ +가지 새 커밋 → deny(«일반 커밋 1») ⓒ A 를 조상으로 안 둔 다른 변경 → deny ⓓ H == A → 통과 · EQUIV 로그 0 ⓔ 승인 파일만(log 줄 없음) → H·A 둘 다 deny + 판정기 없음 → H deny · A 통과 + approve-merge stdout 불변·stderr 1줄. 고치기 전 훅(origin/main)으로 같은 시험 = fail 4(ⓐ·ⓑ·ⓒ·ⓓ로그).
+- **범위 밖**: 자율 OFF 경로 · scope-approve code-max · PR 1960 착지 · 판정기 rebase 모드의 «지금 main ⊂ head» 조건 완화(ft-merge-land 와 공유라 따로).
+
+## 2026-10-19 — 설치기 plist 교체가 «절반 상태» 로 멈추지 않는다 — bootstrap 재시도 · 실패면 직전 plist 원복 · LIVE_BIN 전환 뒤로 (r464 · 1.1.27)
+
+카드 r464 · master 112557 카드A · 1.1.25 설치 실사고(1.1.25 폴더만 생기고 LIVE_BIN 1.1.24 · 슬랙 미러 bootout 된 채 · master 손 bootstrap pid 89173). `bootout` 은 launchd 가 프로세스 종료를 기다리는 비동기 동작이라 바로 `bootstrap` 하면 실패할 수 있고, 설치기는 그 실패를 `exit 1` 로 받아 «plist 는 새 것 · 미러는 내려감 · LIVE_BIN 은 옛 것» 을 남겼다 — 되돌림은 안내 글자뿐이었다.
+
+- **교체**: 덮기 전 직전 사본 `<plist>.bak-<version>`(매 교체 · `.bak-r426` 첫 원본은 그대로) → bootout → bootstrap 1초 간격 최대 3회(7초 안) → kickstart → `PLIST applied <label> (retry=<n> · 되돌림 = <plist>.bak-<version> · kickstart)`.
+- **실패**: bootstrap 3회 또는 kickstart 실패 → 직전 사본 원복 + bootstrap(같은 재시도) → `PLIST RESTORED <label> — 새 렌더본 적용 실패(<launchctl 출력 1줄>)` · 원복본 bootstrap 도 실패면 `ERROR: plist 원복본 bootstrap 도 실패 … 손 복구 = launchctl bootstrap gui/<uid> '<plist>'`.
+- **순서**: plist 단계는 LIVE_BIN 전환·githooks «뒤». 실패해도 코드 전환은 끝나 있고 마지막 줄 `INSTALLED <version> · PLIST ERROR …` + rc1. 성공은 `INSTALLED <version> · PLIST ok`. dry-run 출력 불변.
+- **시험** `tests/test_live_install_check_plist_env.sh` r464ⓐ~ⓔ 7줄 추가(39 PASS): ⓐ 1회 실패 뒤 retry=1 ⓑ 3회 실패 → 원복 cmp0 · RESTORED · rc1 · LIVE_BIN 새 버전 · `.bak-r426` 보존 ⓑ' 원복도 실패 → ERROR ⓒ 같음 → launchctl 0 ⓓ 되돌림 기준 = 직전 사본 ⓔ 재시도 ≤7초. 가짜 launchctl 스위치 `FT_FAKE_BOOTSTRAP_FAIL=<n>`. RED = 옛 설치기 위 5 FAIL.
+- **범위 밖**: plist 템플릿 내용 · r457 공용 루트 분기.
 
 ## 2026-10-19 — 병합 줄 대조(`ft_merge_lines.py`)가 «다른 폴더로 옮긴 파일» 을 옮긴 곳에서 센다 — D 인데 같은 이름 1개면 이동 · 옛 경로 글자 1쌍 치환 (r461 · 1.1.26)
 

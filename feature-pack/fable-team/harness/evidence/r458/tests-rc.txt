@@ -1,5 +1,5 @@
 # r458 시험 (팩 feature-pack/fable-team/harness 에서 · GIT_* env 0)
-bash tests/test_goal_table_gate.sh rc=0
+bash tests/test_goal_table_gate.sh rc=0 (origin/main 98e127fb 병합 뒤 재실행 rc0 · magazine_check·installed_root 도 rc0)
 bash tests/test_magazine_check.sh rc=0
 bash tests/test_installed_root.sh rc=0
 bash tests/test_team_literal_paths2.sh rc=1 (FAIL 18·6·3 = origin/main d56b9c0e 와 같음 · 기존)
