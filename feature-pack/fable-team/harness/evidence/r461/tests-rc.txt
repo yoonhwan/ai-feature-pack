@@ -1,0 +1,12 @@
+# r461 시험 rc (나노 · 코드 HEAD ee3b55ed7aa584a43f455f28083c515e43340def · 팩 harness 폴더 cwd)
+bash tests/test_merge_lines_moved.sh rc=0 · 13 PASS · ALL PASS
+bash tests/test_merge_gate.sh rc=0 · 26 PASS · ALL PASS
+bash tests/test_merge_head_gate.sh rc=0 · 32 PASS · ALL PASS
+bash tests/test_merge_land.sh rc=0 · 49 PASS · ALL PASS
+bash tests/test_merge_land_equiv.sh rc=0 · 41 PASS · ALL PASS
+bash tests/test_merge_land_off_approval.sh rc=0 · 14 PASS · ALL PASS
+bash tests/test_merge_land_state_dir.sh rc=0 · 8 PASS · ALL PASS
+RED: FT_MERGE_LINES=<origin/main d8305edb 판> bash tests/test_merge_lines_moved.sh rc=1 · FAILED 6
+python3 -m py_compile bin/ft_merge_lines.py rc=0
+cmp bin kit ft_merge_lines.py rc=0
+실사건 사전(읽기만): ft_merge_lines.py <BYZ> 30cef9026e 39a6d47bc0 rc=1 · DENY 14건(옛 판 15) — master-steps 3
