@@ -27,13 +27,19 @@ def run(env, *args, extra=None):
     return subprocess.run(["bash", str(BIN / "ft-decision-count.sh"), *args], capture_output=True, text=True, env=e, timeout=30)
 
 
-def row(seq, cls, frm="byz-cfo-master-claude#1", ago=5, closed=False):
+def row(seq, cls, frm="byz-cfo-master-claude#1", ago=5, closed=False, body="[결정] 값 필요? ①예 ②아니오"):
     return {"seq": seq, "ts": (NOW - timedelta(minutes=ago)).isoformat(), "from": frm, "cls": cls, "prio": 2.0, "group": f"g{seq}",
-            "body_path": "", "mark": {"kind": "처리"} if closed else None, "reported": closed}
+            "body_path": "", "mark": {"kind": "처리"} if closed else None, "reported": closed, "body": body}
 
 
 def put(env, rows):
+    """큐 + 본문 파일(R337: 결정 인터뷰는 본문 첫 줄 머리의 질문 표식으로 센다 — 기본 본문 = [결정] 질문)."""
+    bodies = env["root"] / ".fable-team/comm/bodies"
+    bodies.mkdir(parents=True, exist_ok=True)
     (env["root"] / ".fable-team/state/inbox").mkdir(parents=True, exist_ok=True)
+    for r in rows:
+        (bodies / f"{r['seq']}.txt").write_text(f"[{r['from']}->{ME}] " + r.pop("body", "") + "\n", encoding="utf-8")
+        r["body_path"] = str(bodies / f"{r['seq']}.txt")
     (env["root"] / ".fable-team/state/inbox" / QNAME).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
 
 
