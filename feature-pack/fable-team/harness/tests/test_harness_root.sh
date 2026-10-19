@@ -113,7 +113,7 @@ eq "$rc" 3 "ⓑ shim 폴더의 ft-tick.sh → exit 3"; has "$out" "ERROR shim �
 # ── ⓒ ft_team_doc_ref: 명단 = ref · 실재 1 → 그 경로 · 실재 0 → ref 본문 임시 파일 · 2+·ref 없음 = ERROR ──
 D="$T/docrepo"; mkdir -p "$D/design/teams/v65/20260912" "$D/.fable-team/comm"; git -C "$D" init -q -b main
 printf '| 팀 | 폴더 |\n|---|---|\n| v65 | `design/teams/v65/` |\n' > "$D/design/TEAMS.md"
-printf 'TREE-R459\n' > "$D/design/teams/v65/NEWS-TREE.md"
+printf '🔄 TREE-R459\n' > "$D/design/teams/v65/NEWS-TREE.md"   # 🔄 줄 = 실 렌더러 요약본이 싣는 꼴(r509)
 printf '# 틱\n```\nPROMPT-R459 <세션명>\n```\n' > "$D/design/teams/v65/20260912/TICK-PROMPT-v65-unified.md"
 git -C "$D" add -A && git -C "$D" -c user.email=t@t -c user.name=t commit -q -m ref && git -C "$D" update-ref refs/remotes/origin/main HEAD
 # 체크아웃은 뒤(옛 명단 · v65 폴더 0) — 112632 재현
@@ -137,12 +137,11 @@ out="$(cd "$D" && TMPDIR="$T/tmpd" FT_GOAL_TICK_ROOT="$D" FT_GOAL_TICK_CHECK="$T
 eq "$rc" 0 "ⓒ goal-tick rc0(112632 → 통과)"; has "$out" "target absent: no-such-seat-r459" "ⓒ goal-tick 프롬프트 풀고 대상 확인까지"
 case "$out" in *ERROR*) bad "ⓒ goal-tick ERROR 줄 «$out»";; *) ok "ⓒ goal-tick ERROR 0";; esac
 eq "$(ls "$T/tmpd" | grep -c ft-team-doc)" 0 "ⓒ goal-tick 임시 본문 정리(trap)"
-# news-tick: FT_NEWS_ROOT 픽스처 · 트리 렌더러 = 가짜(받은 파일 첫 줄) · docker 가짜
-FB="$T/fakebin"; mkdir -p "$FB" "$D/.worktrees/v6-realtime-live/.fable-team/bin"; printf '#!/bin/sh\nexit 1\n' > "$FB/docker"; chmod 755 "$FB/docker"
-printf 'import sys\nprint("TREE-OK", open(sys.argv[1]).readline().strip())\n' > "$D/.worktrees/v6-realtime-live/.fable-team/bin/ft-news-tree.py"
+# news-tick: FT_NEWS_ROOT 픽스처 · 트리 렌더러 = 같은 bin 의 실 ft-news-tree.py(r484 $HERE · 옛 v6 워크트리 가짜 렌더러는 안 쓰인다 · r509) · docker 가짜
+FB="$T/fakebin"; mkdir -p "$FB"; printf '#!/bin/sh\nexit 1\n' > "$FB/docker"; chmod 755 "$FB/docker"; echo '{}' > "$D/.fable-team/seats.json"   # 실 렌더러는 공용 루트 명부를 읽는다
 out="$(cd "$D" && PATH="$FB:$PATH" TMPDIR="$T/tmpd" FT_NEWS_ROOT="$D" FT_ME=me bash "$KBIN/ft-news-tick.sh" 2>&1)"
-has "$out" "TREE-OK TREE-R459" "ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0)"
-case "$out" in *"트리 원본 없음"*|*"미해석"*) bad "ⓒ news-tick 트리 미해석";; *) ok "ⓒ news-tick 트리 ERROR 0";; esac
+has "$out" "🔄 TREE-R459" "ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0)"
+case "$out" in *"트리 원본 없음"*|*"미해석"*|*Traceback*) bad "ⓒ news-tick 트리 미해석·Traceback";; *) ok "ⓒ news-tick 트리 ERROR 0";; esac
 eq "$(ls "$T/tmpd" | grep -c ft-team-doc)" 0 "ⓒ news-tick 임시 본문 정리(trap)"
 ! grep -nE '/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents($|[^/]|/\.worktrees/v6-realtime-live)' "$KBIN/ft-goal-tick.sh" "$KBIN/ft-news-tick.sh" >/dev/null && ok "ⓒ goal·news 틱 글자 ROOT 0" || bad "ⓒ 글자 ROOT 남음"
 

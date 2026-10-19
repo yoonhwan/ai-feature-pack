@@ -29,21 +29,23 @@ CONS_SH=(ft-nano-spawn ft-nano-slots ft-nano-spawn-undo ft-nano-close ft-index-g
 HELPER_SH=(ft-team-lib ft-team-path-lint)
 grade() { case "$1" in ft-live-bin-drift-check|ft-issue-reopen) echo B;; ft-pm-tick|ft-wall-check|ft-wall-read) echo C;; *) echo A;; esac; }   # §10-4 등급 = 행렬 기대(실측 미달 칸은 enote 사유로 낮춘다 · 아래 표 단언)
 
-echo "== ⓐ 린트 · 문법 · 키트 사본 cmp0 · lib 모드"
-out="$(bash "$SRC/ft-team-path-lint.sh" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$out" "INFO 리터럴 대기 0" "ⓐ 실 bin 린트: INFO 리터럴 대기 0" && has "$out" "OK 하드코딩 0" "  └ OK 하드코딩 0" || bad "ⓐ 실 bin 린트 rc=$rc ← $out"
-out="$(bash "$SRC/ft-team-path-lint.sh" "$KIT" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$out" "INFO 리터럴 대기 0" "ⓐ 키트 bin 린트(키트 전용 5 포함): INFO 대기 0 · rc0" || bad "ⓐ 키트 bin 린트 rc=$rc ← $out"
-for f in "${CHANGED_SH[@]}"; do bash -n "$SRC/$f.sh" && ok "bash -n $f" || bad "bash -n $f"; cmp -s "$SRC/$f.sh" "$KIT/$f.sh" && ok "키트 사본 cmp0 $f" || bad "키트 사본 cmp $f"; done
-for f in "${CHANGED_PY[@]}"; do python3 -I -c "import ast,sys;ast.parse(open(sys.argv[1],encoding='utf-8').read())" "$SRC/$f.py" && ok "ast $f" || bad "ast $f"; cmp -s "$SRC/$f.py" "$KIT/$f.py" && ok "키트 사본 cmp0 $f.py" || bad "키트 사본 cmp $f.py"; done
-for f in "${KITONLY_SH[@]}"; do bash -n "$KIT/$f.sh" && ok "bash -n 키트 전용 $f" || bad "bash -n 키트 전용 $f"; done
-[ "$(stat -f %Lp "$SRC/ft-team-lib.sh" 2>/dev/null || stat -c %a "$SRC/ft-team-lib.sh")" = 755 ] && ok "ⓐ ft-team-lib.sh 모드 755(추적본)" || bad "ⓐ lib 모드"
-[ "$(stat -f %Lp "$KIT/ft-team-lib.sh" 2>/dev/null || stat -c %a "$KIT/ft-team-lib.sh")" = 755 ] && ok "ⓐ ft-team-lib.sh 모드 755(키트)" || bad "ⓐ 키트 lib 모드"
-
 TEAMS=(harness planner cfo ops v65)
 mkteams() {  # <루트> <꼴 1|2|3> [<꼴3 외부 루트>]  — TEAMS.md 만 쓴다
   local R="$1" form="$2" t p; mkdir -p "$R/design"
   { printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n'
     for t in "${TEAMS[@]}"; do case "$form" in 1) p="design/$t/";; 2) p="design/teams/$t/";; 3) p="\$FT_HARNESS_ROOT/design/$t/";; esac; printf '| %s | `%s` | b | 현역 |\n' "$t" "$p"; done; } > "$R/design/TEAMS.md"
 }
+
+echo "== ⓐ 린트 · 문법 · 키트 사본 cmp0 · lib 모드"
+mkteams "$T/a" 1; export FT_TEAMS_MD="$T/a/design/TEAMS.md"   # 린트 명단 = 시험이 만든 «전환 중»(옛 꼴) 명단 — 팩 리포엔 design/TEAMS.md 가 없다(r509)
+out="$(bash "$SRC/ft-team-path-lint.sh" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$out" "INFO 리터럴 대기 0" "ⓐ 실 bin 린트: INFO 리터럴 대기 0" && has "$out" "OK 하드코딩 0" "  └ OK 하드코딩 0" || bad "ⓐ 실 bin 린트 rc=$rc ← $out"
+out="$(bash "$SRC/ft-team-path-lint.sh" "$KIT" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$out" "INFO 리터럴 대기 0" "ⓐ 키트 bin 린트(키트 전용 5 포함): INFO 대기 0 · rc0" || bad "ⓐ 키트 bin 린트 rc=$rc ← $out"
+unset FT_TEAMS_MD
+for f in "${CHANGED_SH[@]}"; do bash -n "$SRC/$f.sh" && ok "bash -n $f" || bad "bash -n $f"; cmp -s "$SRC/$f.sh" "$KIT/$f.sh" && ok "키트 사본 cmp0 $f" || bad "키트 사본 cmp $f"; done
+for f in "${CHANGED_PY[@]}"; do python3 -I -c "import ast,sys;ast.parse(open(sys.argv[1],encoding='utf-8').read())" "$SRC/$f.py" && ok "ast $f" || bad "ast $f"; cmp -s "$SRC/$f.py" "$KIT/$f.py" && ok "키트 사본 cmp0 $f.py" || bad "키트 사본 cmp $f.py"; done
+for f in "${KITONLY_SH[@]}"; do bash -n "$KIT/$f.sh" && ok "bash -n 키트 전용 $f" || bad "bash -n 키트 전용 $f"; done
+[ "$(stat -f %Lp "$SRC/ft-team-lib.sh" 2>/dev/null || stat -c %a "$SRC/ft-team-lib.sh")" = 755 ] && ok "ⓐ ft-team-lib.sh 모드 755(추적본)" || bad "ⓐ lib 모드"
+[ "$(stat -f %Lp "$KIT/ft-team-lib.sh" 2>/dev/null || stat -c %a "$KIT/ft-team-lib.sh")" = 755 ] && ok "ⓐ ft-team-lib.sh 모드 755(키트)" || bad "ⓐ 키트 lib 모드"
 
 echo "== ⓑ lib 도우미 — ft_team_cands · ft_team_has (3꼴 표)"
 for F in 1 2 3; do mkteams "$T/b$F" "$F"; done; mkdir -p "$T/hr/design"
@@ -74,6 +76,7 @@ mkfix() {  # <루트> <꼴 1|2>  — planner 판정 원장 1줄 · v65·harness�
   printf '| 번호 | 시각 | 내용 |\n|---|---|---|\n| 77 | 10:00 | (오빠) 결정 시험 |\n' > "$base/planner/VERDICTS-planner-1-20261018.md"
   printf '# 원장\n' > "$base/planner/PLAN-oppa-ledger.md"
   git -C "$R" init -q -b main; GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m init
+  git -C "$R" update-ref refs/remotes/origin/main HEAD   # 명단 = ref origin/main(R406·R416) — 픽스처가 ref 를 스스로 만든다(r509)
 }
 for F in 1 2; do
   R="$T/f$F"; mkfix "$R" "$F"
@@ -124,15 +127,14 @@ done
 # 제안서 게이트 ⓑ(byz-tank approved + 인터뷰 판정): 판정 원장 폴더를 planner 팀 폴더(두 꼴)에서 «그 순간» 에 푼다 — FT_PLANNER_VERDICTS_DIR 없이
 printf '#!/usr/bin/env bash\ncase "$1 $2" in\n  "issue view") cat "$FAKE/view-$3.json";;\n  "api --paginate") n="${4#repos/*/issues/}"; cat "$FAKE/timeline-${n%%/timeline}.json";;\n  *) exit 1;;\nesac\n' > "$T/gh"
 for F in 1 2; do
-  R="$T/f$F"; WV="$R/.worktrees/v6-realtime-live"; mkdir -p "$WV/design"; cp "$R/design/TEAMS.md" "$WV/design/TEAMS.md"
-  PB="$WV/design/$([ "$F" = 2 ] && echo teams/)planner"; mkdir -p "$PB"
-  printf '816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택\n' > "$PB/VERDICTS-planner-1-20261018.md"
+  R="$T/f$F"; PB="$R/design/$([ "$F" = 2 ] && echo teams/)planner"   # r492: 판정 원장 = ref(origin/main) 트리의 planner 칸 — 픽스처 ref 에 커밋한다(r509)
+  printf '816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택\n' > "$PB/VERDICTS-planner-2-20261018.md"
+  GITC "$R" add "$PB/VERDICTS-planner-2-20261018.md" && GITC "$R" commit -q -m v816 && git -C "$R" update-ref refs/remotes/origin/main HEAD
   mkdir -p "$T/gh$F"; python3 "$HERE/_proposal_issue_fixture.py" "$T/gh$F" 12 b; cp "$T/gh" "$T/gh$F/gh"
   o="$(cd "$R" && env -u FT_PLANNER_VERDICTS_DIR FAKE="$T/gh$F" FT_GH_READ="bash $T/gh$F/gh" GH_REPO="o/r" FT_GATE_GH_TIMEOUT=2 BYZ_ROOT="$R" bash "$SRC/ft-proposal-gate.sh" --issue 12 2>&1)"
-  has "$o" "OK #12 승인 ⓑ 판정 816" "ⓒ$F ft-proposal-gate: 판정 원장 폴더를 v6 워크트리의 planner 칸(${F}꼴)에서 푼다(FT_PLANNER_VERDICTS_DIR 없이)"
+  has "$o" "OK #12 승인 ⓑ 판정 816" "ⓒ$F ft-proposal-gate: 판정 원장 폴더를 ref 트리의 planner 칸(${F}꼴)에서 푼다(FT_PLANNER_VERDICTS_DIR 없이)"
 done
-rm -f "$T/f1/.worktrees/v6-realtime-live/design/TEAMS.md"
-o="$(cd "$T/f1" && env -u FT_PLANNER_VERDICTS_DIR FAKE="$T/gh1" FT_GH_READ="bash $T/gh1/gh" GH_REPO="o/r" FT_GATE_GH_TIMEOUT=2 BYZ_ROOT="$T/f1" bash "$SRC/ft-proposal-gate.sh" --issue 12 2>&1)"; rc=$?
+o="$(cd "$T/f1" && env -u FT_PLANNER_VERDICTS_DIR FT_TEAMS_REF=refs/heads/no-such-ref FAKE="$T/gh1" FT_GH_READ="bash $T/gh1/gh" GH_REPO="o/r" FT_GATE_GH_TIMEOUT=2 BYZ_ROOT="$T/f1" bash "$SRC/ft-proposal-gate.sh" --issue 12 2>&1)"; rc=$?
 [ "$rc" = 1 ] && has "$o" "판정 원장 폴더를 못 풀었다" "ⓒ 변이: 명단을 못 읽으면 옛 경로로 후퇴하지 않고 REJECT rc1" || bad "ⓒ 판정 원장 명단 없음 rc=$rc ← $o"
 # 명단을 못 읽으면 후퇴하지 않고 REJECT
 mkdir -p "$T/nolist/design/harness/indices/진행"; git -C "$T/nolist" init -q -b main; printf '# 인덱스: c\n- 설치: 있음\n' > "$T/nolist/design/harness/indices/진행/h.md"
@@ -146,7 +148,7 @@ done
 for f in ft-autonomy-start ft-autonomy ft-proxy-decide; do grep -q 'ft_team_in "\$ROOT" planner' "$SRC/$f.sh" && ok "ⓓ $f: planner 폴더 = ft_team_in" || bad "ⓓ $f planner 해석"; done
 grep -q 'ft_team_has_ref "\$WT" planner "\$IDX" indices/' "$SRC/ft-nano-spawn.sh" && ok "ⓓ ft-nano-spawn: planner 카드 판정 = ft_team_has_ref(명단 = ref · R406)" || bad "ⓓ spawn planner 판정"
 grep -q 'ft_team_file_ref "\$WT" v65 SEATBELT-README.md' "$SRC/ft-nano-spawn.sh" && ok "ⓓ ft-nano-spawn: SEATBELT 경로 = ft_team_file_ref v65(명단 = ref · 실재 1개 · R406)" || bad "ⓓ spawn SEATBELT"
-for f in ft-nano-close ft-nano-spawn-undo; do grep -q 'ft_team_in .* v65' "$SRC/$f.sh" && ok "ⓓ $f: 기본 원장 = ft_team_in v65" || bad "ⓓ $f 원장"; done
+for f in ft-nano-close ft-nano-spawn-undo; do grep -q 'ft_team_in\(_ref\)\{0,1\} .* v65' "$SRC/$f.sh" && ok "ⓓ $f: 기본 원장 = ft_team_in(_ref · r495) v65" || bad "ⓓ $f 원장"; done
 
 echo "== ⓔ 22파일 «실제 호출» 두 꼴 대조표 (DA⑥ r1 Q1 · 옛 꼴 ↔ 새 꼴 픽스처마다 실행 · 읽기 도구는 꼴에만 있는 산출물을 찾는다 · 쓰기 도구는 decoy(다른 꼴 폴더) 불변 + 새 경로 쓰기)"
 exe() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$1"; chmod +x "$1"; }
@@ -197,13 +199,14 @@ p_close() {  # ft-nano-close — 명부 index 는 «다른 꼴» 경로(쌍둥�
   bin="$T/xcb$F"; fake="$T/xcf$F"; mkdir -p "$bin" "$fake" "$T/xcm$F/bodies"
   cp "$KIT/ft-nano-slots.sh" "$KIT/ft-nano-close.sh" "$KIT/ft-nano-evidence-check.sh" "$KIT/ft-wt-sweep.sh" "$KIT/ft-team-lib.sh" "$KIT/ft-hil.sh" "$KIT/ft-sheet-events.sh" "$KIT"/ft_sheet_events.py "$KIT"/ft_sheet_confirm.py "$KIT"/ft_sheet_key.py "$KIT"/ft_board_env.py "$KIT"/ft_board_mail.py "$bin/"
   exe "$bin/ft-nano-cherry-gate.sh" 'echo "OK cherry stub"; exit 0'
+  exe "$bin/ft-seat-reap.sh" 'echo "REAP stub left=0"; exit 0'   # r448: close 가 좌석 프로세스 회수를 부른다 — 시험은 실 프로세스 kill 0(대역)
   exe "$fake/tmux" 'case "$1" in list-panes) case "$*" in *pane_current_path*) cat "$FAKE_PANE_CWDS";; *) cat "$FAKE_PANES";; esac;; display-message) cat "$FAKE_CWD";; has-session) exit 1;; set-option|kill-session) echo "$*" >> "$FAKE_LOG";; esac'
   oi="design/v65/indices/진행/ovr.md"; si="design/teams/v65/indices/진행/ovr.md"; [ "$F" = 1 ] && oi="$si"   # oi = 명부에 적힌 «다른 꼴» 경로
   printf '{"%s":{"role":"nano","index":"%s"}}\n' "$SEAT_C" "$oi" > "$R/.fable-team/seats-planner.json"
   printf '## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$R/$b/v65/indices/진행/ovr.md"
   echo seq > "$T/xcm$F/bodies/1.txt"; echo res > "$T/xcr$F.md"; printf '%s|%%1\n' "$SEAT_C" > "$T/xcp$F"; printf '%s|%s\n' "$SEAT_C" "$NW" > "$T/xcw$F"; printf '%s' "$NW" > "$T/xcd$F"; : > "$T/xcl$F"
   s0="$(snap "$LW" "$a/v65" "$a/planner")"
-  o="$(cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$T/xcsr$F" HIL_DIR="$T/xch$F" HIL_CLIP=0 PATH="$fake:$PATH" FAKE_PANES="$T/xcp$F" FAKE_CWD="$T/xcd$F" FAKE_PANE_CWDS="$T/xcw$F" FAKE_LOG="$T/xcl$F" FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$R/.fable-team/seats-planner.json" FT_INBOX_ROOT="$T/xcm$F" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/xcc$F" timeout 60 bash "$bin/ft-nano-close.sh" "$SEAT_C" --result "$T/xcr$F.md" --recv 1 --wt "$NW" --branch nano/ovr 2>&1)"; rc=$?
+  o="$(cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$T/xcsr$F" HIL_DIR="$T/xch$F" HIL_CLIP=0 PATH="$fake:$PATH" FAKE_PANES="$T/xcp$F" FAKE_CWD="$T/xcd$F" FAKE_PANE_CWDS="$T/xcw$F" FAKE_LOG="$T/xcl$F" FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$R/.fable-team/seats-planner.json" FT_INBOX_ROOT="$T/xcm$F" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/xcc$F" FT_TEAMS_REF=HEAD timeout 60 bash "$bin/ft-nano-close.sh" "$SEAT_C" --result "$T/xcr$F.md" --recv 1 --wt "$NW" --branch nano/ovr 2>&1)"; rc=$?
   [ "$rc" = 0 ] && has "$o" "CLOSED $SEAT_C" "ⓔ$F ft-nano-close: 명부 index(다른 꼴)의 카드를 쌍둥이 후보로 찾아 CLOSED" || bad "ⓔ$F ft-nano-close rc=$rc ← ${o:0:400}"
   L="$LW/$b/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md"; has "$(cat "$L" 2>/dev/null)" "$SEAT_C" "ⓔ$F ft-nano-close: 원장 append = ${F}꼴 v65 폴더(ft_team_in 원장 워크트리)"
   [ "$(snap "$LW" "$a/v65" "$a/planner")" = "$s0" ] && ok "ⓔ$F ft-nano-close: decoy 원장(다른 꼴) sha 불변" || bad "ⓔ$F ft-nano-close decoy 변함"
@@ -250,7 +253,7 @@ p_reads() {
   rm -f "$R/$a/v65/indices/대기/slug.md"; mkdir -p "$T/xsl$F" "$T/xslt$F"; cp "$SRC/ft-nano-slots.sh" "$SRC/ft-team-lib.sh" "$T/xsl$F/"
   exe "$T/xsl$F/ft-seat-status.sh" 'echo "IDLE 2020-01-01T00:00:00Z"'; exe "$T/xsl$F/tmux" 'exit 0'; echo '{}' > "$T/xslt$F/seats.json"
   printf '# 인덱스: slot-c\nIssue: #7\n상태: 대기\n선행: 없음\n시험 입력: 없음\n기준값: 없음 → 대체 축 x\n## 구현 범위\nx\n' > "$R/$b/v65/indices/대기/slot-c.md"
-  o="$(cd "$R" && PATH="$T/xsl$F:$PATH" FT_SEATS_JSON="$T/xslt$F/seats.json" timeout 20 bash "$T/xsl$F/ft-nano-slots.sh" 2>/dev/null)"; rc=$?
+  o="$(cd "$R" && PATH="$T/xsl$F:$PATH" FT_SEATS_JSON="$T/xslt$F/seats.json" FT_TEAMS_REF=HEAD timeout 20 bash "$T/xsl$F/ft-nano-slots.sh" 2>/dev/null)"; rc=$?   # R416: 명단 = ref — 픽스처는 HEAD 커밋
   has "$o" "slot-c" "ⓔ$F ft-nano-slots: ${F}꼴 v65 indices/대기 의 카드를 찾는다"; erec ft-nano-slots "$F" "$rc" "$b/v65/indices/대기/slot-c.md"
   # ft-orphan-cards — c-level-planning 워크트리의 cfo 팀 폴더(그 워크트리의 TEAMS.md · 그 꼴) 진행 카드
   mkdir -p "$R/.worktrees/c-level-planning/design" "$R/.worktrees/c-level-planning/$b/cfo/indices/진행"; cp "$R/design/TEAMS.md" "$R/.worktrees/c-level-planning/design/TEAMS.md"
@@ -270,12 +273,14 @@ p_reads() {
   printf '# 인덱스: c\n## 상태\n- x\n' > "$R/$b/harness/indices/진행/n.md"; o="$(cd "$R" && timeout 20 bash "$KIT/ft-index-lint-install.sh" "$R/$b/harness/indices/진행/n.md" 2>&1)"; rc2=$?
   [ "$rc2" = 1 ] && has "$o" "설치:" "ⓔ$F ft-index-lint-install(키트): 하네스 카드(${F}꼴) 설치 줄 없음 → REJECT rc1(다른 꼴로 풀리면 «범위 밖 통과» 가 됐을 것)" || bad "ⓔ$F ft-index-lint-install n.md rc=$rc2 ← ${o:0:200}"
   erec ft-index-lint-install "$F" "$rc" "$b/harness/indices/진행/h.md"
-  # ft-proposal-gate — 판정 원장 폴더 = v6 워크트리의 planner 칸(꼴)에서 «그 순간» 푼다
-  W="$R/.worktrees/v6-realtime-live"; mkdir -p "$W/design" "$W/$b/planner"; cp "$R/design/TEAMS.md" "$W/design/TEAMS.md"
-  printf '816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택\n' > "$W/$b/planner/VERDICTS-planner-1-20261018.md"
+  # ft-proposal-gate — 판정 원장 폴더 = ref 트리의 planner 칸(꼴 · r492) — 픽스처는 HEAD 커밋
+  printf '816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택\n' > "$R/$b/planner/VERDICTS-planner-1-20261018.md"; GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m v816
   mkdir -p "$T/xgh$F"; python3 "$HERE/_proposal_issue_fixture.py" "$T/xgh$F" 12 b; printf '#!/usr/bin/env bash\ncase "$1 $2" in\n  "issue view") cat "$FAKE/view-$3.json";;\n  "api --paginate") n="${4#repos/*/issues/}"; cat "$FAKE/timeline-${n%%/timeline}.json";;\n  *) exit 1;;\nesac\n' > "$T/xgh$F/gh"; chmod +x "$T/xgh$F/gh"
-  o="$(cd "$R" && env -u FT_PLANNER_VERDICTS_DIR FAKE="$T/xgh$F" FT_GH_READ="bash $T/xgh$F/gh" GH_REPO="o/r" FT_GATE_GH_TIMEOUT=2 BYZ_ROOT="$R" timeout 30 bash "$SRC/ft-proposal-gate.sh" --issue 12 2>&1)"; rc=$?
-  has "$o" "OK #12 승인 ⓑ 판정 816" "ⓔ$F ft-proposal-gate: v6 워크트리 planner 칸(${F}꼴)의 판정 816 을 읽는다"; erec ft-proposal-gate "$F" "$rc" "$b/planner/VERDICTS-planner-1-20261018.md"
+  o="$(cd "$R" && env -u FT_PLANNER_VERDICTS_DIR FAKE="$T/xgh$F" FT_GH_READ="bash $T/xgh$F/gh" GH_REPO="o/r" FT_GATE_GH_TIMEOUT=2 BYZ_ROOT="$R" FT_TEAMS_REF=HEAD timeout 30 bash "$SRC/ft-proposal-gate.sh" --issue 12 2>&1)"; rc=$?
+  [ "$rc" = 1 ] && has "$o" "후보 2개" "ⓔ$F ft-proposal-gate: 두 꼴에 판정 원장(decoy 포함) = 추측 0 REJECT(r492)" || bad "ⓔ$F ft-proposal-gate decoy rc=$rc ← ${o:0:300}"
+  git -C "$R" rm -q "$a/planner/VERDICTS-planner-1-20261018.md"; GITC "$R" commit -q -m no-decoy
+  o="$(cd "$R" && env -u FT_PLANNER_VERDICTS_DIR FAKE="$T/xgh$F" FT_GH_READ="bash $T/xgh$F/gh" GH_REPO="o/r" FT_GATE_GH_TIMEOUT=2 BYZ_ROOT="$R" FT_TEAMS_REF=HEAD timeout 30 bash "$SRC/ft-proposal-gate.sh" --issue 12 2>&1)"; rc=$?
+  has "$o" "OK #12 승인 ⓑ 판정 816" "ⓔ$F ft-proposal-gate: ref 트리 planner 칸(${F}꼴)의 판정 816 을 읽는다"; erec ft-proposal-gate "$F" "$rc" "$b/planner/VERDICTS-planner-1-20261018.md"
   # ft-index-gate — close(--da 없음) REJECT 문장이 «풀린 카드 경로» 를 찍는다
   printf '# 인덱스: gx\n' > "$R/$b/v65/indices/진행/gx.md"; GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m gx; mkdir -p "$T/xgs$F"
   g() { (cd "$R" && FT_TRACK=v65 FT_INDEX_STATE_DIR="$T/xgs$F" timeout 20 bash "$SRC/ft-index-gate.sh" "$@" 2>&1); }
@@ -325,8 +330,8 @@ p_auto() {
 for F in 1 2; do p_auto "$F"; done
 # ── 글자만 바꾼 2종(경로를 풀지 않는다 — 실행해 «글자 하드코딩 경로가 출력에 없고 rc 가 두 꼴에서 같음» 을 본다) ──
 p_text() {
-  local F="$1" R="$T/xt$F" b o rc; b="$(bf "$F")"; efix "$R" "$F"; mkdir -p "$R/scripts/harness-install/fable-team/bin" "$T/xtb$F" "$T/xtg$F"
-  echo '#!/usr/bin/env bash' > "$R/scripts/harness-install/fable-team/bin/x.sh"; GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m kit
+  local F="$1" R="$T/xt$F" b o rc; b="$(bf "$F")"; efix "$R" "$F"; mkdir -p "$R/feature-pack/fable-team/harness/kit/fable-team/bin" "$T/xtb$F" "$T/xtg$F"   # 키트 경로 = 팩 배치(r385 · drift-check 기본 --path)
+  echo '#!/usr/bin/env bash' > "$R/feature-pack/fable-team/harness/kit/fable-team/bin/x.sh"; GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m kit
   o="$(cd "$R" && timeout 20 bash "$SRC/ft-live-bin-drift-check.sh" --bin "$T/xtb$F" --repo "$R" --ref HEAD 2>&1)"; rc=$?
   [ "$rc" = 1 ] && has "$o" "DRIFT" "ⓔ$F ft-live-bin-drift-check: 빈 bin 이면 DRIFT rc1" || bad "ⓔ$F drift rc=$rc ← ${o:0:200}"
   hasnt "$o" "design/harness/" "ⓔ$F ft-live-bin-drift-check: HINT 에 글자 경로(design/harness/) 없음"; has "$o" "하네스 팀 폴더의 PLAN-release" "  └ HINT = 팀 폴더 서술형"; erec ft-live-bin-drift-check "$F" "$rc" -
@@ -392,11 +397,11 @@ fcrec() {  # <도구> <rc> <출력> <기대 문구> [nz|z0 <사유>] — 행렬 
 }
 for d in xs1 xc1 xu1 xm1 xr1 xa1 xl1; do dropteams "$T/$d"; done
 R="$T/xs1"; o="$(cd "$R" && PATH="$T/xsh1:$PATH" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_TEAMSET=0 timeout 20 bash "$T/xhb1/ft-nano-spawn.sh" "$R/design/v65/indices/대기/slug.md" --from me#1 2>&1)"; fcrec ft-nano-spawn $? "$o" "design/TEAMS.md)을 못 읽음"   # R406: 명단 = ref(origin/main) — 픽스처엔 ref 가 없다
-R="$T/xc1"; o="$(cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$T/xcsr1" HIL_DIR="$T/xch1" HIL_CLIP=0 PATH="$T/xcf1:$PATH" FAKE_PANES="$T/xcp1" FAKE_CWD="$T/xcd1" FAKE_PANE_CWDS="$T/xcw1" FAKE_LOG="$T/xcl1" FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$R/.fable-team/seats-planner.json" FT_INBOX_ROOT="$T/xcm1" FT_NANO_IDLE_MIN=0 timeout 60 bash "$T/xcb1/ft-nano-close.sh" "$SEAT_C" --result "$T/xcr1.md" --recv 1 --wt "$R/.worktrees/v65-ovr" --branch nano/ovr 2>&1)"; fcrec ft-nano-close $? "$o" "팀 명단 없음"
+R="$T/xc1"; o="$(cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$T/xcsr1" HIL_DIR="$T/xch1" HIL_CLIP=0 PATH="$T/xcf1:$PATH" FAKE_PANES="$T/xcp1" FAKE_CWD="$T/xcd1" FAKE_PANE_CWDS="$T/xcw1" FAKE_LOG="$T/xcl1" FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$R/.fable-team/seats-planner.json" FT_INBOX_ROOT="$T/xcm1" FT_NANO_IDLE_MIN=0 timeout 60 bash "$T/xcb1/ft-nano-close.sh" "$SEAT_C" --result "$T/xcr1.md" --recv 1 --wt "$R/.worktrees/v65-ovr" --branch nano/ovr 2>&1)"; fcrec ft-nano-close $? "$o" "팀 명단(origin/main)을 못 읽음"   # r495: 명단 = ref — 픽스처엔 origin/main ref 가 없다
 R="$T/xu1"; o="$(cd "$R" && PATH="$T/xuf1:$PATH" HOME="$T/xuh1" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_UNDO_STATE="$T/xus1" FT_MBOX_DIR="$R/.fable-team/comm" timeout 30 bash "$SRC/ft-nano-spawn-undo.sh" "$SEAT_N" --card "$R/design/v65/indices/대기/u.md" 2>&1)"; fcrec ft-nano-spawn-undo $? "$o" "팀 명단 없음"
 R="$T/xm1"; printf '# 인덱스: dn2\n- 정본 영향 없음: 시험용 카드라서 정본 갱신 대상이 없다\n- 규칙: 없음 — 시험용 카드라서 규칙 줄 대상이 아니다\n## 상태\n- 세트: x\n' > "$R/design/v65/indices/진행/dn2.md"; printf '## §1 dn2\n닫힘 dn2\n' > "$T/xmda2.md"
 o="$(cd "$R" && FT_INDEX_STATE_DIR="$T/xms1" timeout 30 bash "$SRC/ft-index-move.sh" "$R/design/v65/indices/진행/dn2.md" 완성 --da "$T/xmda2.md#§1" --seat s#1 2>&1)"; fcrec ft-index-move $? "$o" "팀 명단 없음"
-R="$T/xr1"; o="$(cd "$R" && PATH="$T/xsl1:$PATH" FT_SEATS_JSON="$T/xslt1/seats.json" timeout 20 bash "$T/xsl1/ft-nano-slots.sh" 2>&1)"; fcrec ft-nano-slots $? "$o" "팀 명단 없음"
+R="$T/xr1"; o="$(cd "$R" && PATH="$T/xsl1:$PATH" FT_SEATS_JSON="$T/xslt1/seats.json" timeout 20 bash "$T/xsl1/ft-nano-slots.sh" 2>&1)"; fcrec ft-nano-slots $? "$o" "design/TEAMS.md)을 못 읽음"   # R416: 명단 = ref(origin/main)
 o="$(cd "$R" && PATH="$T/xob1:$PATH" FT_SEATS_JSON="$T/xslt1/seats.json" timeout 20 bash "$T/xob1/ft-orphan-cards.sh" 2>&1)"; rc=$?
 fcrec ft-orphan-cards "$rc" "$o" "팀 명단 없음" z0 "모니터 — cfo 폴더를 못 풀면 ERROR 를 찍고 그 팀만 빼고 스캔을 계속한다(ft-orphan-cards.sh :13 설계) · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림"
 enote ft-orphan-cards "A→B 하향: fail-closed rc=$rc(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보"

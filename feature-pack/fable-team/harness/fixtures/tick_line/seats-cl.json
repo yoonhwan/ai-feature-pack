@@ -1,0 +1,8 @@
+{
+  "_label": "cl",
+  "_closed": "2026-10-10T00:00:00Z",
+  "_master": "byz-cl-master-claude#2",
+  "byz-cl-master-claude#1": {"role": "stopped", "_kept": true, "_closed": "2026-10-10T00:00:00Z"},
+  "byz-cl-master-claude#2": {"role": "stopped", "_kept": true, "_closed": "2026-10-10T00:00:00Z"},
+  "byz-cl-nano-x-claude#0": {"role": "closed", "_closed": "2026-10-10T00:00:00Z"}
+}

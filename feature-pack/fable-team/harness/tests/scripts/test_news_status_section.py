@@ -20,7 +20,7 @@ import ft_news_ledger as nl
 import ft_news_status as ns
 import ft_news_watch as nw
 
-KIT = BIN.parent / "harness-install" / "fable-team" / "bin"
+KIT = BIN.parent / "kit" / "fable-team" / "bin"  # 팩 배치(r509 · 옛 harness-install 꼴 0)
 NOW = "2026-10-13 15:00"
 WAIT_NO = "추정: byz-a-master-claude#2 에 마지막 발신 #11(14:00) · 기록상 이후 byz-a-master-claude#2 회신 없음"
 

@@ -1,0 +1,6 @@
+{"seq": 1, "ts": "2026-10-08T09:00:00", "to": "byz-planner-master-claude#25", "from": "byz-aa-master-claude#1", "body": "[byz-aa-master-claude#1->byz-planner-master-claude#25] [부팅 보고] 세션 aa"}
+{"seq": 2, "ts": "2026-10-09T09:00:00", "to": "byz-planner-master-claude#25", "from": "byz-aa-master-claude#2", "body": "[byz-aa-master-claude#2->byz-planner-master-claude#25] [부팅 보고] 승계"}
+{"seq": 3, "ts": "2026-10-09T09:05:00", "to": "byz-planner-master-claude#25", "from": "byz-aa-master-claude#2", "body": "[byz-aa-master-claude#2->byz-planner-master-claude#25] [부팅 보고] 같은 from 두 번째"}
+{"seq": 4, "ts": "2026-10-10T09:00:00", "to": "byz-planner-master-claude#27", "from": "byz-aa-master-claude#3", "body": "[byz-aa-master-claude#3->byz-planner-master-claude#27] [첫 보고] 승계"}
+{"seq": 5, "ts": "2026-10-08T10:00:00", "to": "byz-aa-master-claude#1", "from": "byz-bb-arch-codex#0", "body": "[byz-bb-arch-codex#0->byz-aa-master-claude#1] [부팅] 첫"}
+{"seq": 6, "ts": "2026-10-07T23:00:00", "to": "byz-aa-master-claude#1", "from": "byz-bb-arch-codex#1", "body": "[byz-bb-arch-codex#1->byz-aa-master-claude#1] [부팅 보고] 창 밖"}

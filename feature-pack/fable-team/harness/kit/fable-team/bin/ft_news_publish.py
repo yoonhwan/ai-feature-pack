@@ -20,7 +20,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 _HERMES = Path(os.environ.get("FT_HERMES_SCRIPTS") or "~/.hermes/scripts").expanduser()  # 설치본 — 라이브 bin 은 옆 키트 폴더가 없어 여기서 찾는다
-_KIT = _HERE.parent / "harness-install" / "slack-mirror"  # 리포 안 키트(설치본이 없는 시험·개발 판)
+_KIT = _HERE.parent / "kit" / "slack-mirror"  # 리포 안 키트(설치본이 없는 시험·개발 판 · 팩 배치 harness/bin → harness/kit · r509)
 sys.path[:0] = [str(p) for p in (_HERE, _HERMES, _KIT) if p.is_dir()]  # 실재하는 것만 · 우선순위 = bin 옆 → 설치본 → 키트
 import ft_board_env as env  # noqa: E402
 from ft_team_lib import team_in  # noqa: E402

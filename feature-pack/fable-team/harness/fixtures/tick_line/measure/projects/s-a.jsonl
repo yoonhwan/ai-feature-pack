@@ -1,0 +1,4 @@
+{"type": "assistant", "timestamp": "2026-10-09T12:00:00.000Z", "message": {"content": [{"type": "tool_use", "id": "t1", "name": "AskUserQuestion", "input": {}}]}}
+{"type": "assistant", "timestamp": "2026-10-09T12:30:00.000Z", "message": {"content": [{"type": "tool_use", "id": "t2", "name": "AskUserQuestion", "input": {}}]}}
+{"type": "assistant", "timestamp": "2026-10-09T12:40:00.000Z", "message": {"content": [{"type": "tool_use", "id": "x1", "name": "Bash", "input": {}}]}}
+{"type": "user", "timestamp": "2026-10-09T12:41:00.000Z"}

@@ -1,0 +1,19 @@
+== r509 대상 8개 (셸 6 · pytest 2) · 실행 = cd feature-pack/fable-team/harness && bash tests/<t>.sh · pytest = BYZ .venv python -m pytest -p no:cacheprovider
+-- 고치기 전(팩 ddc44a5a)
+test_news_tree_root.sh PASS=22 FAIL=1
+test_tick_line.sh PASS=114 FAIL=84
+test_harness_root.sh PASS=73 FAIL=1
+test_team_tick_unify.sh PASS=54 FAIL=1
+test_team_literal_paths2.sh PASS=302 FAIL=22
+test_ft_tick_master_seat.sh PASS=58 FAIL=4
+pytest test_repo_original_finds_kit_folder: 1 failed in 0.15s
+pytest test_h1_tick_calls_stale_watch_when_ledger_off: 1 failed in 0.24s
+-- 고친 뒤(origin/main 1.1.70 병합 1477c7e4)
+test_news_tree_root.sh PASS=23 FAIL=0
+test_tick_line.sh PASS=198 FAIL=0
+test_harness_root.sh PASS=74 FAIL=0
+test_team_tick_unify.sh PASS=56 FAIL=0
+test_team_literal_paths2.sh PASS=326 FAIL=0
+test_ft_tick_master_seat.sh PASS=62 FAIL=0
+pytest test_repo_original_finds_kit_folder: 1 passed in 0.12s
+pytest test_h1_tick_calls_stale_watch_when_ledger_off: 1 passed in 0.07s
