@@ -42,12 +42,19 @@ tmuxc fork <path> --name NEW (--from LIVE_SESSION | --source ID --agent claude|c
 |---|---|---|
 | claude | `--resume <ID> --fork-session` | headroom 래퍼 경유, `[1m]`/effort 승계 |
 | codex | `codex fork <ID>` | `-c model=`/`-c model_reasoning_effort=` 통과 |
-| opencode | `--session <ID> --fork` | `--model` 그대로 |
+| opencode | `--session <ID> --fork` | 모델 = 세션 env `OPENCODE_CONFIG_CONTENT` (아래) |
 | cmd | `--resume <ID> --fork-session` | `--model`/`--effort` |
 
 - `--from <라이브세션>`: 엔진·모델·conversation id를 라이브 프로세스/트랜스크립트에서 해석. **교차엔진 불가**(같은 엔진만).
 - `--source <ID> --agent <엔진>`: id 직접 지정. 엔진 저장소 실재 여부를 best-effort 확인.
 - `omx`는 네이티브 fork가 없어 대상에서 제외.
+
+### opencode 좌석 모델 (0.4.1 · r476)
+
+opencode 2.0.x TUI 최상위에는 `--model` 이 없다(`opencode run` 전용 → `Unrecognized flag: --model` 기동 실패).
+`open`/`fork --agent opencode --model <ID>` 는 모델을 플래그 대신 **세션 생성 때 env**
+`OPENCODE_CONFIG_CONTENT={"model":"<ID>"}` 로 그 tmux 세션에만 심는다(`--dry-run` 의 `env=` 줄).
+글로벌 `~/.config/opencode/opencode.json`·워크트리 파일은 건드리지 않는다. 모델 미지정이면 env 0(opencode 기본값).
 
 ## BYZ 권장 패턴
 
