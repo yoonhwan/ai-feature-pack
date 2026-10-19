@@ -31,7 +31,7 @@ build() {  # $1 = 작업 폴더 → 루트 리포($1/root) + 라이브($1/live)
   printf 'bak\n' > "$W/root/.fable-team/bin/ft-a.sh.bak-1"
   mkdir -p "$W/root/.fable-team/bin/__pycache__"; printf 'c\n' > "$W/root/.fable-team/bin/__pycache__/x.pyc"
 }
-RUN() { bash "$SH" --root "$W/root" --live "$W/live" --ref HEAD "$@"; }
+RUN() { bash "$SH" --root "$W/root" --live "$W/live" --ref HEAD --repo "$W/root" --path "$KP" "$@"; }   # r385 뒤 키트 기본 = 팩 리포 → 픽스처 키트를 명시
 
 W="$T/w1"; build "$W"; RB="$W/root/.fable-team/bin"
 before_a="$(cksum < "$RB/ft-a.sh")"
@@ -82,14 +82,14 @@ hasnt "$out" "LIVE-A" "H1 연결 파일: 상대 LIVE_BIN → 라이브 도구 �
 printf '%s\n' "$W/live" > "$W/root/.fable-team/LIVE_BIN"
 # H1(r3): 생성 도구 --live 가 상대 경로 → ERROR rc3 · 쓰기 0(LIVE_BIN 불변)
 lb_before="$(cksum < "$W/root/.fable-team/LIVE_BIN")"
-out="$(cd "$W" && bash "$SH" --root "$W/root" --live live --ref HEAD 2>&1)"; rc=$?
+out="$(cd "$W" && bash "$SH" --root "$W/root" --live live --ref HEAD --repo "$W/root" --path "$KP" 2>&1)"; rc=$?
 rc_is "$rc" 3 "H1 생성 도구: 상대 --live → rc3"; has "$out" "ERROR" "H1 생성 도구: ERROR 줄"
 [ "$(cksum < "$W/root/.fable-team/LIVE_BIN")" = "$lb_before" ] && ok "H1 생성 도구: 거절 시 LIVE_BIN 불변" || bad "H1 생성 도구가 상대 --live 로 LIVE_BIN 을 바꿨다"
 
 # 변이: 연결 파일의 «대상 없음 검사» 를 지운 도구 → ⓑ 가 FAIL 해야 한다(시험이 이빨이 있는지)
 MUT="$T/shim-mut.sh"; grep -v '라이브 도구 없음' "$SH" > "$MUT"
 [ "$(grep -c '라이브 도구 없음' "$MUT" || true)" = 0 ] && ok "변이 파일 생성(대상 없음 검사 제거)" || bad "변이 생성 실패"
-W2="$T/w2"; build "$W2"; bash "$MUT" --root "$W2/root" --live "$W2/live" --ref HEAD >/dev/null 2>&1
+W2="$T/w2"; build "$W2"; bash "$MUT" --root "$W2/root" --live "$W2/live" --ref HEAD --repo "$W2/root" --path "$KP" >/dev/null 2>&1
 mv "$W2/live/ft-a.sh" "$T/a2.bak"; out="$(bash "$W2/root/.fable-team/bin/ft-a.sh" 2>&1)"; rc=$?
 { [ "$rc" = 0 ] || ! grep -q 'ERROR' <<<"$out"; } && ok "변이 시 ⓑ 단언이 깨진다(대상 없음인데 ERROR 가 사라짐 — 시험이 변이를 잡는다)" || bad "변이인데도 ⓑ 가 통과 — 시험이 이빨이 없다"
 
