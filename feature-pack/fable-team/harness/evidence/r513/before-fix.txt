@@ -1,0 +1,4 @@
+# r513 고치기 전 (래퍼 없음 · base 6ba27451) — 2026-10-20 05:06:55
+FAIL ⓐ 래퍼 없음: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r513-da-codex-bypass/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-da-codex.sh — bypass 헤더 인자 0
+FAILED=1
+rc=1
