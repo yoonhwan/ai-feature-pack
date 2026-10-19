@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ft_news_html_lint import SECRET, problems  # noqa: E402
-from ft_news_html_render import NewsHtmlError, build_prompt, call_model, parse_content, render  # noqa: E402
+from ft_news_html_render import PARTS, NewsHtmlError, build_prompt, call_model, render  # noqa: E402
 
 LOG = logging.getLogger("ft_news_html")
 KEEP = ("오빠 할 일", "팀 작업", "드러난 문제", "체크리스트")  # 원장에서 싣는 절(머리 글자) — 나머지(완료 보관·옛 지시)는 지도 원천이 아니다
@@ -118,15 +118,14 @@ def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) 
 
 def run_files(data: dict, out: Path, now: datetime) -> tuple[Path, Path]:
     from ft_news_html_render import model_id
-    text, secs = call_model(build_prompt(data))
-    c = parse_content(text)
+    c, secs = call_model(data)
     page = render(c, data["goals"], now)
     out.mkdir(parents=True, exist_ok=True)
     html_p = out / f"NEWS-{now:%Y%m%d-%H%M}.html"
     sum_p = html_p.with_suffix(".summary.txt")
     html_p.write_text(page, encoding="utf-8")
     sum_p.write_text("\n".join(s.strip() for s in c["summary"] if s.strip()) + "\n", encoding="utf-8")
-    print(f"ft-news-html: 만듦 {html_p.name} secs={secs:.1f} model={model_id()} important={len(c['important'])} summary={len(sum_p.read_bytes())}B")
+    print(f"ft-news-html: 만듦 {html_p.name} secs={max(secs.values()):.1f}({' '.join(f'{p}={s:.1f}' for p, s in secs.items())}) model={model_id()} important={len(c['important'])} summary={len(sum_p.read_bytes())}B")
     return html_p, sum_p
 
 
@@ -211,8 +210,9 @@ def main(argv: list[str]) -> int:
             out = Path(a.out)
             out.mkdir(parents=True, exist_ok=True)
             _save(out / "input.json", data)
-            (out / "prompt.txt").write_text(build_prompt(data), encoding="utf-8")
-            print(f"ft-news-html: 묶음 {out / 'input.json'} · 프롬프트 {out / 'prompt.txt'}")
+            for part in PARTS:
+                (out / f"prompt-{part}.txt").write_text(build_prompt(data, part), encoding="utf-8")
+            print(f"ft-news-html: 묶음 {out / 'input.json'} · 프롬프트 {out}/prompt-{{{','.join(PARTS)}}}.txt")
             return 0
         run_files(data, Path(a.out), now)
         return 0
