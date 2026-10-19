@@ -56,7 +56,7 @@ bdn "$MG" "gh pr merge 7 --match-head-commit $G" "ⓒ 다른 sha 의 승인 줄�
 bdn "$MG" "gh pr merge 7 --squash --match-head-commit $F" "ⓑ 승인 안 한 다른 sha → 계속 deny" "$R2"
 mode_off; bal "$MG" "gh pr merge 7 --squash" "ⓑ OFF → allow(불변)" "$R2"
 before="$(ls "$AP" 2>/dev/null | wc -l | tr -d ' ')"; out="$(a approve-merge "$H" 2>&1)"; rc=$?
-[ "$rc" = 0 ] && [ "$out" = "APPROVED $H OFF" ] && [ "$(ls "$AP" 2>/dev/null | wc -l | tr -d ' ')" = "$((before+1))" ] && grep -qE "^approve-merge $H OFF [0-9]+$" "$AP/$H" && grep -qxF "$(head -n1 "$AP/$H")" "$S/autonomy.log"; ck "ⓑ OFF 에서 approve-merge → 기록(이벤트 칸 OFF · 파일+log 한 줄 · R336)" $?
+[ "$rc" = 0 ] && [ "${out%%$'\n'*}" = "APPROVED $H OFF" ] && grep -q '^EQUIV 허용 범위: ' <<<"$out" &&[ "$(ls "$AP" 2>/dev/null | wc -l | tr -d ' ')" = "$((before+1))" ] && grep -qE "^approve-merge $H OFF [0-9]+$" "$AP/$H" && grep -qxF "$(head -n1 "$AP/$H")" "$S/autonomy.log"; ck "ⓑ OFF 에서 approve-merge → 기록(이벤트 칸 OFF · 파일+log 한 줄 · R336)" $?
 rm -f "$AP/$H" "$S/autonomy.log"
 mode_on; n0="$(wc -l < "$S/autonomy.log" | tr -d ' ')"
 for bad in "" "abc" "${H}0" "$(printf '%s' "$H" | tr a-f A-F)" "--help"; do

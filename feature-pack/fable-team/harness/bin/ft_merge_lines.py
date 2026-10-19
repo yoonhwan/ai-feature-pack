@@ -3,6 +3,7 @@
 전제: M 은 S 의 조상(ft-merge-gate.sh 가 먼저 확인). 보호 집합 = diff -M F M 의 파일별 추가 줄 다중집합(공백뿐인 줄 제외),
 F = S 의 first-parent 사슬에서 «M 의 조상인 첫 커밋». F == M(처음부터 M 위) = 보호 집합 빈 집합 = 통과.
 위치·순서는 보지 않는다(개수까지 포함하면 통과). 삭제·바이너리 변경·명령 실패는 전부 deny.
+r461: 다른 폴더로 옮긴 파일(git R, 또는 D 인데 S 트리에 같은 이름이 정확히 1개)은 옮긴 곳에서 줄을 센다 — 옛 경로 글자 → 새 경로 글자 1쌍 치환 허용 · 후보 0·2+ 는 삭제로 deny.
 exit 0 = 통과 · 1 = deny(사유 stdout) · 2 = 명령 실패(사유 stdout · deny 와 같게 취급)."""
 import collections
 import re
@@ -65,29 +66,47 @@ def m_to_s(repo, m, s):
     return out
 
 
+def moved_to(repo, s, path, tree):
+    """r461: S 에서 사라진(D) 파일 → S 트리의 같은 이름 파일이 정확히 1개면 그 경로. 0 = 삭제 · 2+ = 모호(추측 0) → (None, 사유)."""
+    if not tree:
+        tree.extend(git(repo, "ls-tree", "-r", "-z", "--name-only", s).split("\0"))
+    base = path.rsplit("/", 1)[-1]
+    cands = [p for p in tree if p.rsplit("/", 1)[-1] == base]
+    if len(cands) == 1:
+        return cands[0], None
+    return None, "S 가 삭제" + (" · 같은 이름 후보 %d개(추측 0)" % len(cands) if cands else "")
+
+
 def main(repo, m, s):
     f = fork_point(repo, m, s)
     if f == m:
         print("PASS 처음부터 main 위(F==M) — 보호 집합 빈 집합")
         return 0
     adds, binary = added_lines(repo, f, m)
-    changed, bad = m_to_s(repo, m, s), []
+    changed, bad, moved, tree = m_to_s(repo, m, s), [], [], []
     for path in sorted(set(adds) | binary):
         if path not in changed:
             continue
         st, sp = changed[path]
         if st == "D":
-            bad.append("%s: main 이 바꾼 파일을 S 가 삭제" % path); continue
+            sp, why = (None, "S 가 삭제") if path in binary else moved_to(repo, s, path, tree)
+            if why:
+                bad.append("%s: main 이 바꾼 파일을 %s" % (path, why)); continue
         if path in binary:
             bad.append("%s: 바이너리가 main 의 것과 다름" % path); continue
         have = collections.Counter(l.rstrip("\r") for l in git(repo, "show", "%s:%s" % (s, sp)).split("\n") if l.strip())
-        lost = sum(max(0, n - have[l]) for l, n in adds[path].items() if l.strip())
+        # 이동이면 main 줄 속 «옛 경로» 글자를 «새 경로» 로 바꾼 줄도 같은 줄로 센다(치환은 그 1쌍만 · 줄마다 둘 중 많은 쪽)
+        lost = sum(max(0, n - max(have[l], have[l.replace(path, sp)])) for l, n in adds[path].items() if l.strip())
         if lost:
-            bad.append("%s: main 이 더한 줄 %d 개가 S 에서 사라짐" % (path, lost))
+            bad.append("%s: main 이 더한 줄 %d 개가 S 에서 사라짐" % (path, lost) if sp == path
+                       else "%s: %s 로 이동했으나 main 이 더한 줄 %d 개 없음" % (path, sp, lost))
+        elif sp != path:
+            moved.append("%s -> %s" % (path, sp))
     if bad:
         print("DENY main 이 더한 줄을 지움(옛 브랜치 F=%s) — main 에서 새 브랜치로 따라: %s" % (f[:10], "; ".join(bad[:8])))
         return 1
-    print("PASS 보호 집합 %d 파일 · F=%s" % (len(adds) + len(binary), f[:10]))
+    show = "".join("; MOVED " + x for x in moved[:3]) + (" 외 %d" % (len(moved) - 3) if len(moved) > 3 else "")
+    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s" % (len(adds) + len(binary), f[:10], len(moved), show))
     return 0
 
 

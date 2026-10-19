@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-19 — 틱 데몬 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main): comm 을 공용 루트로 · shim 폴더 옛 사본 자가 검사 · 골·뉴스 틱 정본 ref 읽기 · 설치기 comm 동기화 + RESTART 줄 (r459 · 1.1.26)
+## 2026-10-19 — 틱 데몬 자리 규칙 3줄(코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main): comm 을 공용 루트로 · shim 폴더 옛 사본 자가 검사 · 골·뉴스 틱 정본 ref 읽기 · 설치기 comm 동기화 + RESTART 줄 (r459 · 1.1.29)
 
 카드 r459 · master 112539·112636 · arch 101 실측 · 골 6(메인 골 1 팀장 v65 master 가 틱 없이 36시간). 메인 틱이 10-18 09:53 부터 `skip … 에이전트 판정 불가(<v6>/.fable-team/comm/ft-agent-alive.sh 실행 실패)` 839회 — `ft_comm_dir` 가 데이터 루트 = LIVE_ROOT(옛 라이브 워크트리 v6-realtime-live)의 comm 으로 풀렸는데 거기엔 판정기가 없었습니다(진짜 우편함·판정기 = 공용 루트 comm). 10-19 09:04 shim 교체 뒤엔 «먼저 기동한» 틱 6개가 메모리의 옛 사본으로 shim 폴더의 `.py` 를 python3 로 읽어 SyntaxError 를 반복했고, goal-tick 은 글자 ROOT(v6)·뉴스 틱은 체크아웃 명단으로 v65 폴더를 못 풀어 ERROR(112632).
 
@@ -12,6 +12,37 @@
 - **install.sh**: ⓐ `comm_sync` — 팩 `harness/comm` 최상위 일반 파일(제외 = `mailbox*.jsonl`·`.mbox-seq`·`.mbox-guard.json`·`queues.conf`·`*.pyc` · 폴더 `bodies/`·`relay/` 는 대상 밖)을 `<공용 루트>/.fable-team/comm/` 에 cp -p · 덮기 전 `.bak-<버전>`(첫 원본 보존) · 삭제 0 · dry-run = `COMM <dst> <- <src>` 줄 + `COMM copied=N same=M` · 워크트리 `--project` = `SKIP comm`. ⓑ apply 끝 `ft_live_install_check.py --restart-scan` — 판정식 `restart_due`(R245 plist_items 에서 뽑은 함수 하나)로 «기동 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime» 인 적재 데몬마다 `RESTART <label> — launchctl kickstart -k gui/<uid>/<label>` 줄(실행 0 · master 집행).
 - **시험**: `test_harness_root.sh` r459 ⓐ~ⓔ 추가 · 새 `test_tick_shim_guard.sh` ⓐ~ⓒ · `test_nano_close_fail_closed.sh` ⓑⓒ 문구 갱신. 실 머신 읽기만: `install.sh --dry-run --project <BYZ 루트>` rc0 · `COMM copied=24 same=8`(루트 mbox.sh·ft_seat_bind.py 는 팩보다 뒤 — r408 미설치) · `--restart-scan` = 팀 틱 4 + 슬랙 수신 2 RESTART. 증거 `harness/evidence/r459/`.
 - 범위 밖: state 폴더 통합(v6 ↔ 루트) · r458(뉴스 폴더 = 원장 리포 TEAMS.md · 뉴스 틱의 `WT=<루트>/.worktrees/v6-realtime-live` 도구 경로) · 루트 체크아웃 당기기.
+
+## 2026-10-19 — 자율 ON 병합 훅이 «오빠 승인 sha 위에 main 병합만 더한 head»(같은 변경 집합)를 재승인 없이 통과시킨다 (r462 · 1.1.28)
+
+카드 r462 · ops master 33 [HIL] 112442 → planner 112456 → master 78 발주 112459. 훅 `autonomy-merge-guard.sh` 는 승인 파일 이름 == `--match-head-commit` sha 글자 일치만 봐서, 착지 직전 표준인 main 병합으로 head 가 바뀌면 «승인한 변경 집합은 그대로» 인데도 매번 오빠 재승인을 요구했습니다(ops PR 1960 왕복).
+
+- **판정기 = 이미 있는 것 하나**: `ft_approval_equiv.py`(R247 ft-merge-land · r411 scope-approve CODE_EQUIV 가 쓰는 같은 판정기). 카드 처방의 새 `autonomy_equiv.py` 는 만들지 않았다 — 같은 판정식이 이미 함수(파일)로 빠져 있어 새 파일 = 중복.
+- **훅**: 글자 일치 실패 시 승인 폴더의 sha 들(파일 1줄 == autonomy.log 줄 검사를 먼저 통과한 것만 · 최신순 · 7초 × 3 마감) 중 판정기 `EQUIV` rc0 인 것이 있으면 통과 + 훅 로그 `EQUIV <승인> -> <head>`. 없으면 기존 deny 사유 + `재승인 필요 — 승인 sha 와 같은 변경 집합 아님: <판정기 사유 원문>`(판정기를 못 돌렸으면 EQUIV 안내 1줄). 판정기 없음·rc3·시간 초과 = 통과 0(판정 1675 «병합 = 오빠 값» 불변).
+- **`ft-autonomy.sh approve-merge`**: stdout `APPROVED …` 줄은 그대로, stderr 에 `EQUIV 허용 범위: …` 1줄(200줄 한도 안 · bin·kit cmp0). 기존 시험 2곳(`test_autonomy_kinds_1675` ⓑ OFF · `test_merge_land_off_approval` ④)의 `2>&1` 글자 일치 단언을 «첫 줄 == APPROVED …» 로 바꿈(1675 쪽은 EQUIV 줄 존재도 단언).
+- **ops 실사건 실측**(BYZ 리포): 승인 45cd3c302b 는 head 6f66271305 의 조상이 «아니다»(가지를 89c8e21f13 로 다시 만든 뒤 main 병합) — 카드 Issue ③ «45cd 위» 와 다름. 그래도 판정기 rebase 모드 조건(main 6d4ccce32c ⊂ head · 자기 변경 diff 동일 · `merge-tree(45cd, 6d4c)` = head 트리 8b87f3a161)이 그 당시 main 기준으로 전부 참 → 이 훅이면 EQUIV 통과였다. 지금은 main 이 더 나가 같은 head 는 NOT-EQUIV(«PR head 도 지금 main 위가 아님») — main 을 한 번 더 병합하면 다시 EQUIV.
+- **시험** `tests/test_autonomy_merge_equiv.sh`(새 · 13 PASS): ⓐ A 위 main 병합 → 통과 + 로그 ⓑ +가지 새 커밋 → deny(«일반 커밋 1») ⓒ A 를 조상으로 안 둔 다른 변경 → deny ⓓ H == A → 통과 · EQUIV 로그 0 ⓔ 승인 파일만(log 줄 없음) → H·A 둘 다 deny + 판정기 없음 → H deny · A 통과 + approve-merge stdout 불변·stderr 1줄. 고치기 전 훅(origin/main)으로 같은 시험 = fail 4(ⓐ·ⓑ·ⓒ·ⓓ로그).
+- **범위 밖**: 자율 OFF 경로 · scope-approve code-max · PR 1960 착지 · 판정기 rebase 모드의 «지금 main ⊂ head» 조건 완화(ft-merge-land 와 공유라 따로).
+
+## 2026-10-19 — 설치기 plist 교체가 «절반 상태» 로 멈추지 않는다 — bootstrap 재시도 · 실패면 직전 plist 원복 · LIVE_BIN 전환 뒤로 (r464 · 1.1.27)
+
+카드 r464 · master 112557 카드A · 1.1.25 설치 실사고(1.1.25 폴더만 생기고 LIVE_BIN 1.1.24 · 슬랙 미러 bootout 된 채 · master 손 bootstrap pid 89173). `bootout` 은 launchd 가 프로세스 종료를 기다리는 비동기 동작이라 바로 `bootstrap` 하면 실패할 수 있고, 설치기는 그 실패를 `exit 1` 로 받아 «plist 는 새 것 · 미러는 내려감 · LIVE_BIN 은 옛 것» 을 남겼다 — 되돌림은 안내 글자뿐이었다.
+
+- **교체**: 덮기 전 직전 사본 `<plist>.bak-<version>`(매 교체 · `.bak-r426` 첫 원본은 그대로) → bootout → bootstrap 1초 간격 최대 3회(7초 안) → kickstart → `PLIST applied <label> (retry=<n> · 되돌림 = <plist>.bak-<version> · kickstart)`.
+- **실패**: bootstrap 3회 또는 kickstart 실패 → 직전 사본 원복 + bootstrap(같은 재시도) → `PLIST RESTORED <label> — 새 렌더본 적용 실패(<launchctl 출력 1줄>)` · 원복본 bootstrap 도 실패면 `ERROR: plist 원복본 bootstrap 도 실패 … 손 복구 = launchctl bootstrap gui/<uid> '<plist>'`.
+- **순서**: plist 단계는 LIVE_BIN 전환·githooks «뒤». 실패해도 코드 전환은 끝나 있고 마지막 줄 `INSTALLED <version> · PLIST ERROR …` + rc1. 성공은 `INSTALLED <version> · PLIST ok`. dry-run 출력 불변.
+- **시험** `tests/test_live_install_check_plist_env.sh` r464ⓐ~ⓔ 7줄 추가(39 PASS): ⓐ 1회 실패 뒤 retry=1 ⓑ 3회 실패 → 원복 cmp0 · RESTORED · rc1 · LIVE_BIN 새 버전 · `.bak-r426` 보존 ⓑ' 원복도 실패 → ERROR ⓒ 같음 → launchctl 0 ⓓ 되돌림 기준 = 직전 사본 ⓔ 재시도 ≤7초. 가짜 launchctl 스위치 `FT_FAKE_BOOTSTRAP_FAIL=<n>`. RED = 옛 설치기 위 5 FAIL.
+- **범위 밖**: plist 템플릿 내용 · r457 공용 루트 분기.
+
+## 2026-10-19 — 병합 줄 대조(`ft_merge_lines.py`)가 «다른 폴더로 옮긴 파일» 을 옮긴 곳에서 센다 — D 인데 같은 이름 1개면 이동 · 옛 경로 글자 1쌍 치환 (r461 · 1.1.26)
+
+카드 r461 · master 112578·112657 · loom master 36 결정 요청 112574. 보호 집합의 키가 «파일 경로» 라서, 작은 카드를 다른 폴더로 옮기며 경로 글자 줄을 바꾸면 `diff -M` 유사도가 50% 밑으로 떨어져 «D(삭제) + A(새 파일)» 로 갈라지고 «S 가 삭제» 로 거절됐다. git 이 R 로 잡아도 main 이 더한 «옛 경로 글자 줄» 이 새 경로 글자로 바뀌면 «사라짐» 이었다.
+
+- **규칙**(소실 판정 «전»): ①D 면 S 트리(`ls-tree -r`)에서 같은 basename 을 찾아 **정확히 1개**일 때만 그 파일을 옮긴 곳으로 본다 — 0개 = 기존 «S 가 삭제» · 2개 이상 = `S 가 삭제 · 같은 이름 후보 N개(추측 0)` ②옮긴 파일(R 또는 ①)은 main 줄마다 «그대로» 와 «옛 경로 → 새 경로 1쌍 치환» 중 많은 쪽으로 센다 ③포함 안 되면 `<새 경로> 로 이동했으나 main 이 더한 줄 N 개 없음` ④바이너리 D·R 은 기존 거절 그대로 · 같은 경로 줄 소실은 기존 «사라짐» 그대로.
+- PASS 줄 = `PASS 보호 집합 N 파일 · F=… · 이동 인정 K; MOVED a -> b …(3개 + 외 N)`(한 줄 · ft-merge-gate 가 `ALLOW … · $OUT` 로 싣는다). DENY 첫 단어 불변.
+- **시험** `tests/test_merge_lines_moved.sh`(새 · 13 PASS): 전제 2(ⓐ 가 실제 D+A · ⓕ2 가 실제 R) · ⓐ 3장·48장 이동 PASS · ⓑ 진짜 삭제 · ⓒ 이동+줄 2개 소실 · ⓓ 같은 이름 2개 · ⓔ 바이너리 이동 = DENY · ⓕ 큰 카드 R(같은 내용·경로 줄 치환) PASS · 같은 경로 줄 소실 «사라짐» 그대로. RED = `FT_MERGE_LINES=<옛 판>` 으로 6 FAIL(ⓐ·ⓐ48·ⓒ·ⓓ·ⓕ·ⓕ2).
+- **실사건 실측(loom PR 1959 head 39a6d47bc0 · M=30cef9026e = 17:53 거절 당시 origin/main · 읽기만)**: 옛 판 DENY 15건(R 13 + D 2) → 새 판 DENY 14건. 살린 것 1(`대기/loom-789-u2b…` D → `완성/` 같은 내용). ★남은 14건은 경로 글자가 아니라 카드 본문 줄(base_sha·선행·상태·시험 줄)이 main 판과 다르다★ — main 이 F 이후 고친 카드 내용을 S 의 옮긴 카드가 안 가졌다(loom ⓐ «origin/main 판 복원» 이 같은 경로 파일만 덮어서 옮긴 카드는 빠짐). 이건 이동 규칙이 덮을 일이 아니라 진짜 «main 이 더한 줄 소실» 이다 → loom 쪽 처리 필요(아래 master-steps).
+- **범위 밖**: `-M` 유사도 인자 · ft-merge-gate 다른 검사 · 병합 훅(r462).
 
 ## 2026-10-19 — `pipefail` 아래 `… | grep -q` 가 64 KB 넘는 입력에서 SIGPIPE(141)로 «찾았는데 실패» — 목록은 변수로 받은 뒤 here-string 으로 grep (1.1.25)
 
