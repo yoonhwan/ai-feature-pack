@@ -3,7 +3,7 @@
 줄 키 = 칸(`## N.`) · 소제목(`### `) · 표 첫 칸(순번 칸 제외)/목록·문단 줄 전체. 뉴스는 «커밋된» 판 둘(기준선 ↔ 지금)의 차이만 — 미커밋 수정·안 바뀐 줄은 싣지 않는다.
 기준선(state/news-ledger/last.sha)은 «전 판» 발행 성공(rc 0) 뒤에만 옮긴다(3500B 넘으면 칸 경계로 n/N 판 · ft_news_ledger_text.py) · 첫 실행 = 기준선만. 원장 문장 그대로라 Haiku 0.
 알림 = «(오빠)» 판정인데 원장 본문에 번호가 없으면 planner 에 한 틱 1통 묶음(뉴스 본문 0 · ft_news_ledger_notify.py).
-env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.fable-team/LIVE_ROOT 1행 — 없으면 ERROR · R382) · FT_LEDGER_PATH · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
+env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.fable-team/LIVE_ROOT 1행 — 없으면 ERROR · R382) · FT_LEDGER_PATH(기본 그 리포 TEAMS.md 의 planner 폴더/PLAN-oppa-ledger.md) — 원장 정본 = 이 두 값 «한 곳»: sha·경로·뉴스 폴더(<루트>/<원장 폴더>/news)·골 표 원장 모두 여기서 푼다 · 기준선 판에 같은 경로가 없으면 ERROR(R458) · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
 """
 import logging
 import os
@@ -18,10 +18,10 @@ from ft_goal_ledger import live_root  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
 from ft_news_digest import maybe_send  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
-from ft_news_post import goal_gate, is_draft, news_now, pending_now, publish  # noqa: E402
+from ft_news_post import goal_gate, is_draft, news_now, pending_now, publish, teams_block  # noqa: E402
 from ft_news_status import interval_s, last_status, mark_status, status_or_none  # noqa: E402
 from ft_news_watch import check_stale, locked  # noqa: E402
-from ft_team_lib import TeamPathError, team_in, team_rel  # noqa: E402
+from ft_team_lib import TeamPathError, team_rel  # noqa: E402
 
 LOG = logging.getLogger("ft_news_ledger")
 HERE = Path(__file__).resolve().parent
@@ -163,17 +163,34 @@ def planner_ledger_rel(repo: Path) -> str:
     return folder + "PLAN-oppa-ledger.md"
 
 
+def news_dir(root: Path, rel: str) -> Path:
+    """뉴스 폴더 = <루트>/<원장 경로의 폴더>/news — 원장 정본(리포+경로) 한 값에서 푼다(R458 · 루트 체크아웃의 옛 명단 0) · 없으면 RuntimeError(폴백 0)."""
+    news = root / Path(rel).parent / "news"
+    if not news.is_dir():
+        raise RuntimeError(f"뉴스 폴더 없음 {news}(원장 경로 {rel} 기준 · FT_NEWS_DIR 로 지정 가능)")
+    return news
+
+
+def check_base(repo: Path, sha: str, rel: str) -> None:
+    """기준선 sha 판도 원장 정본(같은 리포·같은 경로)이어야 한다(R458) — 다른 리포 판·옛 경로 판이면 RuntimeError(경로 후퇴·쌍둥이 읽기 0 · #0 RULE)."""
+    if subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{sha}:{rel}"], capture_output=True, check=False).returncode != 0:
+        raise RuntimeError(f"기준선 {sha[:10]} 판에 원장 정본 {rel} 이 없다(원장 리포 {repo}) — 기준선이 다른 리포·옛 경로 판이다 · "
+                           "원장을 이 경로 판으로 커밋한 뒤 기준선(state/news-ledger/last.sha)을 그 판으로 다시 잡아야 발행된다(옛 경로 후퇴 0)")
+
+
 def _run(root: Path, state: Path) -> tuple[int, str]:
     repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
     try:
         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
         rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
-        news = Path(os.environ.get("FT_NEWS_DIR") or team_in(root, "planner") / "news")
+        news = Path(os.environ["FT_NEWS_DIR"]) if os.environ.get("FT_NEWS_DIR") else news_dir(root, rel)
         cur = _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
         if not cur:
             raise RuntimeError(f"{rel} 가 커밋되지 않았다(뉴스는 커밋된 판만)")
         base_f = state / "last.sha"
         base = base_f.read_text(encoding="utf-8").strip() if base_f.exists() else ""
+        if base and base != cur:
+            check_base(repo, base, rel)
         try:
             notify(root, _git(repo, "show", f"{cur}:{rel}"), state)
         except Exception as e:  # 알림 실패가 뉴스를 막지 않는다
@@ -187,7 +204,7 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         if diff and interval_s() > 0 and status is None:  # 필수 절을 못 만들면 게시·기준선 전진 0 — 재시도 가능(H2)
             return 1, why
         extra, new = (status[0],) if status else (), parse_ledger(new_text) if diff else {}
-        parts = render_parts(now, new, diff, rel, extra, decision_line(root), goal_gate.goal_block(state.parent)) if diff else []
+        parts = render_parts(now, new, diff, rel, extra, decision_line(root), goal_gate.goal_block(state.parent), teams_block()) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
         LOG.error("원장 뉴스 실패: %s", e)
         return 1, "원장 읽기 실패"
@@ -208,7 +225,7 @@ def _status_only(news: Path, state: Path, rel: str, cur: str, status, why: str) 
     if last and (last[0] == digest or (news_now() - last[1]).total_seconds() < interval_s()):
         return 0, why
     now = pending_now(state, "status", digest)
-    rc, posts = publish(news, state, render_parts(now, {}, [], rel, (block,), goal=goal_gate.goal_block(state.parent)), now, cur)
+    rc, posts = publish(news, state, render_parts(now, {}, [], rel, (block,), goal=goal_gate.goal_block(state.parent), teams=teams_block()), now, cur)
     if rc == 0 and not is_draft():
         mark_status(state, digest, now)
         maybe_send(env.ft_root(), state, now, [], build_blocks({}, [], (block,)), status, 1, posts)

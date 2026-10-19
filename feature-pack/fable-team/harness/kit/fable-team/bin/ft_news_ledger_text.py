@@ -54,9 +54,11 @@ def _put_line(now: datetime, rel: str, parts: list[list[Block]], title: str, lin
     parts.append(alone)
 
 
-def render_parts(now: datetime, new: Lines, diff: list[tuple[str, str]], rel: str, extra: tuple[Block, ...] = (), lead: str = "", goal: str = "") -> list[str]:
+def render_parts(now: datetime, new: Lines, diff: list[tuple[str, str]], rel: str, extra: tuple[Block, ...] = (), lead: str = "", goal: str = "", teams: str = "") -> list[str]:
     """lead = 머리 바로 아래 1줄(R214: planner 결정 대기열 `결정 인터뷰 N건 · 스크립트 N건 …`) — 판마다 붙고 3500B 계산에 들어간다.
-    goal = 골 표 블록(R362 · ft-goal-table.sh 출력) — 첫 판 머리 줄 바로 아래(lead 앞)에만 실리고 3500B 계산에 들어간다 · 이어진 판 머리에는 `골표 <sha10>` 묶음 표지."""
+    goal = 골 표 블록(R362 · ft-goal-table.sh 출력) — 첫 판 머리 줄 바로 아래(lead 앞)에만 실리고 3500B 계산에 들어간다 · 이어진 판 머리에는 `골표 <sha10>` 묶음 표지.
+    teams = 팀별 완성 진행 블록(R458 · ft-goal-table.sh teams) — 첫 판 골 표 바로 뒤(lead 앞) · 3500B 계산 포함 · 빈 값이면 줄 0."""
+    goal = "\n".join(x for x in (goal.strip("\n"), teams.strip("\n")) if x)
     tag = _tag(goal, now)
     parts: list[list[Block]] = [[]]
     for block in build_blocks(new, diff, extra):

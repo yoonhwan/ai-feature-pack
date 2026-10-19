@@ -1,6 +1,7 @@
 """magazine_goal — 아침 매거진(오빠 확인판)에 자율 골 표(A6)를 싣는 문 (R362 · magazine_doc.py 가 부른다).
 
 골 표 = ft-goal-table.sh render 출력(마커 2줄 사이 표) — 뿌리 글 첫 줄 바로 뒤 + HTML 맨 위 절. 판정은 ft-goal-table.sh check --block-only(판정기 하나).
+팀별 완성 진행 = ft-goal-table.sh teams 출력(R458) — 골 표 바로 뒤 · 없거나 실패 = WARN + 빈 글(무장이어도 거절 0 · 골 표 게이트만 그대로).
 무장 표식 = <FT_ROOT>/.fable-team/state/goal-gate.armed — 있으면 렌더·판정 실패 = GoalGateError(MirrorError 계열 → magazine_doc.main 의 «발행 실패» 경로 1개 · 게시·상태 쓰기 0) ·
 없으면 WOULD-REJECT 한 줄(state/mbox-guard-goal.log)만 남기고 골 표 없이 진행(설치 전환 · 되돌림 = 표식 삭제).
 env: FT_ROOT(magazine_from_news.sh 가 필수로 준다) · FT_GOAL_TABLE(판정기 경로 · 기본 <FT_ROOT>/.fable-team/bin/ft-goal-table.sh). 외부 호출 0(로컬 스크립트 1회 · 7초 상한).
@@ -59,6 +60,15 @@ def block() -> str:
             raise
         LOG.warning("골 표 없이 진행(비무장): %s", e)
         _log(f"WOULD-REJECT magazine {str(e)[:200]}")
+        return ""
+
+
+def teams_block() -> str:
+    """팀별 완성 진행 블록(마커 2줄 포함 · R458) — 실패·표 없음 = WARN + 빈 글(발행 거절 0)."""
+    try:
+        return _run("teams").strip("\n")
+    except GoalGateError as e:
+        LOG.warning("팀별 완성 진행 없이 진행: %s", e)
         return ""
 
 

@@ -5,13 +5,13 @@
 ## 가지 1
 | 리포 | 가지 | 내용 |
 |---|---|---|
-| ai-feature-pack | `nano/r459-tick-daemon-comm-at-common-root-shi` (워크트리 `.worktrees/r459-tick-comm-root` · base d8305edb = origin/main) | 키트 9 파일(bin·kit 짝 cmp0): `ft-harness-root.sh` · `ft-tick.sh` · `ft-tick-team.sh` · `ft-team-lib.sh` · `ft-goal-tick.sh` · `ft-news-tick.sh` · `ft-tick-install.sh` · `ft-tick.plist` · `ft-nano-close.sh`(문구) · `ft_live_install_check.py`(restart_due 추출 + --restart-scan) + 설치기 `install.sh` · 시험 `test_harness_root.sh`(r459 ⓐ~ⓔ) · 새 `test_tick_shim_guard.sh` · `test_nano_close_fail_closed.sh`(문구) · CHANGES 1절 · manifest 1.1.29 · 이 파일 · `tests-rc.txt` |
+| ai-feature-pack | `nano/r459-tick-daemon-comm-at-common-root-shi` (워크트리 `.worktrees/r459-tick-comm-root` · base d8305edb = origin/main) | 키트 9 파일(bin·kit 짝 cmp0): `ft-harness-root.sh` · `ft-tick.sh` · `ft-tick-team.sh` · `ft-team-lib.sh` · `ft-goal-tick.sh` · `ft-news-tick.sh` · `ft-tick-install.sh` · `ft-tick.plist` · `ft-nano-close.sh`(문구) · `ft_live_install_check.py`(restart_due 추출 + --restart-scan) + 설치기 `install.sh` · 시험 `test_harness_root.sh`(r459 ⓐ~ⓔ) · 새 `test_tick_shim_guard.sh` · `test_nano_close_fail_closed.sh`(문구) · CHANGES 1절 · manifest 1.1.30 · 이 파일 · `tests-rc.txt` |
 | BYZ-Agents | `nano/r459-tick-daemon-comm-at-common-root-shi` | 커밋 0(이 단위는 팩만 · 카드 증거 줄은 harness-ops 카드에) |
 
 ## 순서
 1. 팩 PR → main 착지(push·PR·`ft-merge-land` = master). 착지 전 팩 루트에서 `tests-rc.txt` 의 명령 재실행.
-2. 설치 전 확인(읽기만): `bash feature-pack/fable-team/harness/install.sh --dry-run --project <BYZ 공용 루트>` → `COMM copied=24 same=8` 근처 · ★`COMM …/mbox.sh <- … (다름 …)` 는 루트 mbox.sh 가 팩보다 뒤(r408 uf_watch 미설치) — 덮으면 r408 동작이 같이 들어간다(되돌림 = `mbox.sh.bak-1.1.29`)★.
-3. 설치: `bash feature-pack/fable-team/harness/install.sh --apply --project <BYZ 공용 루트>` → LIVE_BIN(1.1.29) 키트 cmp0 + 루트 comm 도구 cmp0(`COMM copied=… same=…`) · 출력 끝 `RESTART <라벨> — launchctl kickstart -k gui/501/<라벨>` 줄 목록. `ft-live-install-check.sh --range d8305edb..<착지 sha>` OK.
+2. 설치 전 확인(읽기만): `bash feature-pack/fable-team/harness/install.sh --dry-run --project <BYZ 공용 루트>` → `COMM copied=24 same=8` 근처 · ★`COMM …/mbox.sh <- … (다름 …)` 는 루트 mbox.sh 가 팩보다 뒤(r408 uf_watch 미설치) — 덮으면 r408 동작이 같이 들어간다(되돌림 = `mbox.sh.bak-1.1.30`)★.
+3. 설치: `bash feature-pack/fable-team/harness/install.sh --apply --project <BYZ 공용 루트>` → LIVE_BIN(1.1.30) 키트 cmp0 + 루트 comm 도구 cmp0(`COMM copied=… same=…`) · 출력 끝 `RESTART <라벨> — launchctl kickstart -k gui/501/<라벨>` 줄 목록. `ft-live-install-check.sh --range d8305edb..<착지 sha>` OK.
 4. 메인 plist 재생성(선택 · 임시 완화 (가)가 이미 env 3줄을 넣었으면 cmp 만): `bash <LIVE_BIN>/ft-tick-install.sh --worktree <BYZ 공용 루트> --script <지금 메인 plist 의 스크립트> --dry-run` + `FT_TICK_PRINT_PLIST=1` → WorkingDirectory·env 3줄 = 공용 루트 comm 확인. 되돌림 = plist `.bak`.
 5. kickstart(★master 집행★ · 3 의 RESTART 줄 그대로): 틱 6 라벨(`com.byz.ft-tick` · `-cfo` · `-ops` · `-loom` · `-feature` + 나머지 팀) — 나노 실측 읽기 시점(설치 전)엔 팀 4 + 슬랙 수신 2(`com.hermes.byz-slack-mbox-inbound`·`-talk-inbound`)가 RESTART 대상.
 6. 실사건 1(카드 `- 실사건:` 줄): kickstart 뒤 `/tmp/ft-tick.log` 새 `ft-tick started` 줄 · 그 뒤 `SyntaxError` 0 · `에이전트 판정 불가` skip 0 · v65 master 좌석 «발사 1» 줄 · `/tmp/ft-goal-tick.log` ERROR 0. 네 값 + 줄 번호를 복붙.
