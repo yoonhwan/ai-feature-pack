@@ -5,6 +5,7 @@ TEAMS.md «폴더» 칸(3번째 열) 3꼴을 푼다 — 도구는 `design/<팀>/
 실패는 TeamPathError — 옛 `design/<팀>/` 으로 되돌아가지 않는다(#0 RULE).
 env: FT_REPO_ROOT(기본 git 루트) · FT_TEAMS_MD(기본 <루트>/design/TEAMS.md · team_in 은 무시) · FT_HARNESS_ROOT(꼴3 치환값)
 ref 판(r479 · 셸 ft_team_cands_ref 와 같은 규칙): team_rows_ref · team_cands_ref · team_in_ref — 명단 = `git show <ref>:design/TEAMS.md` · 폴더 = 그 루트에 실재하는 후보
+sparse 판(r486): team_root·team_in·team_in_ref 가 «tracked 인데 sparse 로 디스크에 없음» 을 SparseHidden(TeamPathError) 로 말한다 — 메시지 `SPARSE-HIDDEN <경로> …`(셸 ft_team_root 와 같은 글자) · team_cands_ref 는 «실재 여부 무관» 그대로
 """
 from __future__ import annotations
 
@@ -18,6 +19,32 @@ _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/
 
 class TeamPathError(RuntimeError):
     pass
+
+
+class SparseHidden(TeamPathError):
+    """r486: 폴더가 tracked 인데 sparse 체크아웃(r444 · 나노 = 자기 팀 design 만)으로 디스크에 없다 — 일반 «없음» 실패와 가른다."""
+
+    def __init__(self, rel: str):
+        super().__init__(f"SPARSE-HIDDEN {rel} — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라")
+        self.rel: str = rel
+
+
+def _git_out(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", "-C", str(base), *args], capture_output=True, text=True, timeout=7)
+
+
+def _check_sparse(base: Path, path: Path) -> None:
+    """path 가 디스크에 없고 · 루트가 sparse 이고 · 그 경로가 tracked 면 SparseHidden. 그 밖(전체 체크아웃·untracked·디스크에 있음)은 아무것도 안 한다."""
+    if path.exists():
+        return
+    try:
+        rel = str(path.relative_to(base))
+    except ValueError:
+        return
+    if _git_out(base, "config", "--bool", "core.sparseCheckout").stdout.strip() != "true":
+        return
+    if _git_out(base, "ls-files", "--error-unmatch", "--", rel).returncode == 0:
+        raise SparseHidden(rel)
 
 
 def repo_root() -> Path:
@@ -86,7 +113,11 @@ def _harness_root_from_map() -> str:
 def team_root(team: str, root: Path | None = None, alt: bool = False) -> Path:
     """팀 폴더 절대경로. alt=True = 쌍둥이 경로(꼴1↔꼴2 · 꼴3 은 쌍둥이 없음 = TeamPathError)."""
     rel = team_rel(team, root)
-    return _rel_path(team, rel, root or repo_root(), alt)
+    base = root or repo_root()
+    out = _rel_path(team, rel, base, alt)
+    if not alt and not rel.startswith(("$FT_HARNESS_ROOT/", "${FT_HARNESS_ROOT}/")):
+        _check_sparse(Path(base), out)
+    return out
 
 
 def _rel_path(team: str, rel: str, base: Path, alt: bool) -> Path:
@@ -149,6 +180,9 @@ def team_in_ref(root: Path | str, team: str, ref: str = "origin/main") -> Path:
     """team_in 의 ref 판 — 실재 후보 정확히 1개 · 0·2+ = TeamPathError(사유에 후보 · 추측 0)."""
     cands = _cands_ref(root, team, ref)
     hits = [c for c in cands if c.is_dir()]
+    if not hits:
+        for c in cands:
+            _check_sparse(Path(root), c)
     if len(hits) != 1:
         cand = " ".join(map(str, cands))
         raise TeamPathError(f"ERROR {team} 폴더 실재 후보 {len(hits)}개 — 정확히 1개여야 한다(명단 {ref}:design/TEAMS.md · 후보 {cand})")

@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — sparse 나노에서 남의 팀 폴더 = «SPARSE-HIDDEN <경로>» 로 원인을 말한다 + 발주문 광역 pytest 1줄 (r486 · 1.1.49)
+
+- 사건: 나노 워크트리는 r444 ⑤ 로 자기 팀 design 만 체크아웃한다. 다른 팀 폴더를 읽는 시험(BYZ `test_v65_m5_lst_runaway*` → `team_in(root,'v65')`)이 그 안에서 «실패 10 + 수집 오류 2» 로 보여 chatbot K1 나노·arch·v65 arch 가 ~1시간(r468 에 이어 2회째 · 요청 114385).
+- `ft_team_lib.py`: `SparseHidden(TeamPathError)` · 판별 = 디스크 없음 ∧ `core.sparseCheckout=true` ∧ `git ls-files --error-unmatch <상대경로>` rc0 · `team_root`(alt·꼴3 아님)·`team_in`·`team_in_ref`(실재 0) 에서. 메시지 `SPARSE-HIDDEN <경로> — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라`. `team_cands_ref` 는 «실재 여부 무관» 그대로.
+- `ft-team-lib.sh`: `ft_team_root` 같은 분기 · stderr 같은 글자 1줄 · rc1. `ft_team_cands`·`ft_team_cands_ref` 는 `FT_TEAM_SPARSE_CHECK=0`(→ `ft_team_doc_ref` 의 ref 본문 후퇴 그대로).
+- `ft-nano-spawn.sh`: 발주문(BODY) 끝에 «★광역 pytest 금지 — … ft-scratch-repo.sh <base> 사본에서 · 도구는 SPARSE-HIDDEN <경로> 로 말한다(r486)★» · dry-run 은 PLAN 뒤 `BODY+…` 줄.
+- BYZ 쪽: BYZ 시험은 팩 키트가 아니라 `tests/shared/ft_team_lib.py`(r405 사본)를 import 한다 — 같은 분기를 BYZ 가지 `nano/r486-nano-sparse-checkout-hides-other-te` 671b53b4 에 따로 둠(착지는 master 판단).
+- 시험 새 `harness/tests/test_team_lib_sparse.py` 13 passed(옛 코드 대조 9 failed) · 기존 team/nano/goal 시험 11종 rc0 · 빨강 4종은 origin/main 과 실패 줄 동일(선재). 되돌림 = 이 절 커밋 revert(설치본 `.bak-r486`). 원문 = `harness/evidence/r486/tests-rc.txt`.
+
 ## 2026-10-20 — 홈 훅 설치 = kit/hooks 전부 + 실행 비트 · settings 등록 훅 전수 점검 (r491 · 1.1.48)
 
 - 사건: 손으로 cp 한 홈 훅(`autonomy-merge-guard.sh`)이 664 로 들어와 전 좌석 매 Bash 마다 `/bin/sh: …: Permission denied`. 설치기는 홈 훅 3개만 복사하고 `cp -p → cmp`(내용)만 봐서 실행 비트를 확인하는 경로가 없었다.
