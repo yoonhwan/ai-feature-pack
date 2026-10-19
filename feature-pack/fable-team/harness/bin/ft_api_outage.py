@@ -6,6 +6,7 @@ Claude Code 는 API 가 오류를 내면 그 턴을 «합성 오류 assistant(is
 입력(stdin): `<좌석>\t<jsonl 경로>`(꼬리 1MB). 끊긴 좌석 = 마지막 대화 레코드가 오류 레코드 + 그 뒤 turn_duration.
   OUTAGE = 오류가 최근 --window-min(10)분 안 → [API 장애 시작] · RECOVERED = 마지막 오류 뒤 정상 assistant(model ≠ <synthetic>) →
   [API 장애 끝](해제 시각 = 오류 뒤 «첫» 정상 · 복구 순간에 고정) + 끊긴 좌석마다 [재개] 1통(오류 uuid 기록 · 장애 «중» 재개 0).
+  r497: 정상은 «오류 문구 `for model <id>` 와 같은 바탕 모델»만 센다(모델 미상 = 아무 정상) · ft_model_swap 이 교대한 uuid 는 [재개] 0.
   시작·끝 = «수신자별 전역 1통»(<상태 폴더>/notify-<수신자>.json) · 재개 uuid = 좌석표별 상태 · 상태 없음·손상 = 기준선만(WARN).
 분류 = «사용량 제한»(rate_limit·조직 거절·구독 비활성 — 판정 1633, 문구별 건수는 괄호) + «기타 API 오류».
 해제 예상 = 문구의 `resets <시각>`·`retry after N` 근거 표시, 없으면 «미상 · 첫 제한 HH:MM»(+5시간 금지). 쪽지에 오류 본문 0.
@@ -18,15 +19,13 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # 형제 모듈 — python -I 에서도 찾는다
-from ft_api_outage_util import CAUSES, cause_of, hhmm, locked, reset_of  # noqa: E402
+from ft_api_outage_util import (CAUSES, cause_of, epoch as _epoch, eta_of, hhmm, is_error as _is_error,  # noqa: E402
+                                is_normal as _is_normal, locked, model_of, records as _records, reset_of)
 
-TAIL = 1 << 20
 SENDER = "ft-api-outage"
-Rec = dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -36,41 +35,19 @@ class Cut:
     cause: str
     stuck: bool
     reset: str
+    model: str = ""  # r497: 오류 문구 `for model <id>` 의 바탕 id — 같은 모델이 돌아와야 그 Cut 이 복구다('' = 모델 미상 · 아무 정상)
+    eta: int = 0     # r497: `retry after N` 해제 예상 epoch(0 = 근거 없음)
 
 
-def _epoch(rec: Rec) -> int:
-    return int(datetime.fromisoformat(str(rec["timestamp"]).replace("Z", "+00:00")).timestamp())
+def back(cut: Cut, oks: list[tuple[int, str]]) -> bool:
+    """오류 뒤 «그 Cut 의 바탕 모델» 정상 assistant 가 있나 — 다른 모델이 일한 것은 복구가 아니다(r497)."""
+    return any(t > cut.ts and (not cut.model or m == cut.model) for t, m in oks)
 
 
-def _records(path: str) -> list[Rec]:
-    with open(path, "rb") as fh:
-        size = fh.seek(0, 2)
-        _ = fh.seek(max(0, size - TAIL))
-        raw = fh.read().split(b"\n")
-    out: list[Rec] = []
-    for line in raw[1:] if size > TAIL else raw:
-        try:
-            rec = json.loads(line)
-            _ = _epoch(rec)
-        except (ValueError, KeyError, TypeError):
-            continue
-        out.append(rec)
-    return out
-
-
-def _is_error(rec: Rec) -> bool:
-    return rec.get("type") == "assistant" and rec.get("isApiErrorMessage") is True
-
-
-def _is_normal(rec: Rec) -> bool:
-    msg = rec.get("message")
-    return rec.get("type") == "assistant" and not _is_error(rec) and not (isinstance(msg, dict) and msg.get("model") == "<synthetic>")  # pyright: ignore[reportUnknownMemberType]
-
-
-def analyze(path: str) -> tuple[Cut | None, list[int]]:
-    """→ (마지막 오류 레코드 · stuck 여부 포함, 정상 assistant 시각 전부)."""
+def analyze(path: str) -> tuple[Cut | None, list[tuple[int, str]]]:
+    """→ (마지막 오류 레코드 · stuck 여부 포함, 정상 assistant (시각, 바탕 모델) 전부)."""
     recs = _records(path)
-    oks = [_epoch(r) for r in recs if _is_normal(r)]
+    oks = [(_epoch(r), model_of(r)) for r in recs if _is_normal(r)]
     errs = [i for i, r in enumerate(recs) if _is_error(r)]
     if not errs:
         return None, oks
@@ -78,7 +55,7 @@ def analyze(path: str) -> tuple[Cut | None, list[int]]:
     conv = [r for r in recs[i + 1:] if r.get("type") in ("user", "assistant")]
     done = any(r.get("type") == "system" and r.get("subtype") == "turn_duration" for r in recs[i + 1:])
     ts = _epoch(recs[i])
-    return Cut(str(recs[i].get("uuid", "")), ts, cause_of(recs[i]), not conv and done, reset_of(recs[i], ts)), oks
+    return Cut(str(recs[i].get("uuid", "")), ts, cause_of(recs[i]), not conv and done, reset_of(recs[i], ts), model_of(recs[i]), eta_of(recs[i], ts)), oks
 
 
 class Outage:
@@ -102,6 +79,17 @@ class Outage:
         except (ValueError, OSError) as exc:
             print(f"WARN api_outage: state unreadable {path.name} ({exc}) — baseline only", file=sys.stderr)
             return None
+
+    def swapped(self) -> set[str]:
+        """r497 ft_model_swap 이 교대한 오류 uuid — 상태 없음 = 빈 집합 · 손상 = WARN + 빈 집합."""
+        path = Path(self.a.swap_state or Path(self.a.state).parent.parent / "model-swap" / "state.json")
+        try:
+            return set(map(str, json.loads(path.read_text(encoding="utf-8")).get("swapped", [])))
+        except FileNotFoundError:
+            return set()
+        except (ValueError, OSError, AttributeError) as exc:
+            print(f"WARN api_outage: swap state unreadable {path} ({exc})", file=sys.stderr)
+            return set()
 
     def save(self, path: Path, st: dict[str, object]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,6 +124,7 @@ class Outage:
         res = {seat: analyze(path) for seat, path in seats.items()}
         cuts = {s: c for s, (c, _) in res.items() if c is not None}
         oks = [t for _, o in res.values() for t in o]
+        last = max(cuts.values(), key=lambda c: c.ts) if cuts else None  # r497: «끝» = 가장 최근 오류의 모델이 돌아온 때
         sf = Path(self.a.state)
         st, last_err = self.load(sf), max((c.ts for c in cuts.values()), default=0)
         stuck = {s: c for s, c in cuts.items() if c.stuck}
@@ -151,12 +140,17 @@ class Outage:
             if not self.announce("시작", st, recent, since, 0):
                 return  # 로컬 상태 전진 0 — 다음 틱이 이어서 재시도
             st.update(status="OUTAGE", since=since)
-        after = [t for t in oks if t > last_err]
+        after = [t for t, m in oks if t > last_err and (last is None or not last.model or m == last.model)]
         if st["status"] == "OUTAGE" and after:
             st.update(status="RECOVERED", released=min(after))  # 가장 최근 오류 뒤 «첫» 정상 — 이후 고정
         self.save(sf, st)
         if st["status"] != "RECOVERED": return  # noqa: E701  # GUARD:no-resume-during-outage
+        swapped = self.swapped()
         targets = {s: c for s, c in fresh.items() if c.ts >= int(st.get("since", 0))}  # pyright: ignore[reportArgumentType]
+        for s, c in list(targets.items()):  # r497: 교대된 좌석 · 제 모델이 아직 안 돌아온 좌석은 [재개] 0(같은 한도에 다시 막힌다)
+            if c.uuid in swapped or not back(c, oks):
+                print(f"SKIP 재개 {s} — {'교대됨' if c.uuid in swapped else (c.model or '?') + ' 복구 전'}")
+                del targets[s]
         if not self.announce("끝", st, recent, 0, len(targets)):
             return  # 상태는 RECOVERED 로 남는다 — 다음 틱이 이어서 재시도
         for seat, cut in targets.items():  # 발신 실패는 raise — 상태는 RECOVERED 로 남아 다음 틱이 이어서 재시도
@@ -175,6 +169,7 @@ def main() -> int:
     _ = ap.add_argument("--now", type=int, default=int(time.time()))
     _ = ap.add_argument("--window-min", type=int, default=10)
     _ = ap.add_argument("--lock-timeout", type=float, default=7.0)  # 7초 룰
+    _ = ap.add_argument("--swap-state", default="")  # r497 · 기본 = <상태 폴더>/../model-swap/state.json
     args = ap.parse_args()
     seats = dict(ln.rstrip("\n").split("\t", 1) for ln in sys.stdin if "\t" in ln)
     try:
