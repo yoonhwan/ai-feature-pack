@@ -1,0 +1,9 @@
+# r413 r2 재시험 — base 팩 origin/main aeb43a29 · 2026-10-19 09:48:53
+test_live_install_check_shim rc=0 ALL PASS
+test_seat_close rc=0 fail=0
+test_live_bin_drift_check rc=0 ALL PASS
+cmp0 ft-live-bin-drift-check.sh
+cmp0 ft-live-install-check.sh
+cmp0 ft_live_install_check.py
+cmp0 ft-seat-close.sh
+manifest 1.1.14
