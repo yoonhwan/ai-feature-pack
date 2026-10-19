@@ -50,13 +50,15 @@ out="$(python3 "$PY" "$TMPTREE" --root "$R" --team-dir "$R/design/nope" 2>&1)"; 
 rc_is "$rc" 0 "ⓒ 폴더 없음"; has "$out" "? 엑스 카드 ?(폴더 없음)" "ⓒ 줄에 ?(폴더 없음)"; hasnt "$out" "Traceback" "ⓒ Traceback 0"
 has "$out" "베타 하는 중" "ⓒ 카드 없는 줄은 그대로"
 
-# ⓓ 역호환: 인자 없이 체크아웃 트리 → 옛 스크립트(origin/main 판)와 같은 출력
+# 옛 판 = r489(020547f0) 직전 커밋 고정 — origin/main 은 r489 착지 뒤 고친 판이라 «옛 판» 대조가 성립 안 함(r509)
+OLDREF=86257c17025557589f5ad51d69236239ddf7efc5
+# ⓓ 역호환: 인자 없이 체크아웃 트리 → 옛 스크립트(OLDREF 판)와 같은 출력
 git -C "$R" checkout -q -- design/v65/indices
 OLD="$T/old-ft-news-tree.py"
-if git -C "$HERE" show "origin/main:feature-pack/fable-team/harness/kit/fable-team/bin/ft-news-tree.py" > "$OLD" 2>/dev/null; then
+if git -C "$HERE" show "$OLDREF:feature-pack/fable-team/harness/kit/fable-team/bin/ft-news-tree.py" > "$OLD" 2>/dev/null; then
   new="$(python3 "$PY" "$R/design/v65/NEWS-TREE.md" 2>&1)"; rc=$?; old="$(python3 "$OLD" "$R/design/v65/NEWS-TREE.md" 2>&1)"
   rc_is "$rc" 0 "ⓓ 인자 없이 체크아웃 트리"; [ "$new" = "$old" ] && ok "ⓓ 옛 스크립트와 출력 바이트 같음" || bad "ⓓ 출력 다름 ← new=${new:0:200} old=${old:0:200}"
-else bad "ⓓ origin/main 판 ft-news-tree.py 를 못 읽음"; fi
+else bad "ⓓ OLDREF 판 ft-news-tree.py 를 못 읽음"; fi
 
 # 틱 ⑥ 실사건 재현: 체크아웃에 NEWS-TREE.md·indices 없음(공용 루트 꼴) → ref 임시본 → 두 인자 실려 트리 줄 ≥1
 L="$T/live"; mkdir -p "$L"; cp -p "$PY" "$KB/ft-harness-root.sh" "$KB/ft-team-lib.sh" "$L/"
@@ -67,13 +69,13 @@ rm -rf "$R/design/v65/indices" "$R/design/v65/NEWS-TREE.md"
 out="$(cd "$R" && TMPDIR="$T/tmp" FT_NEWS_ROOT="$R" bash "$L/ft-news-tick-s6.sh" 2>"$T/err")"; err="$(cat "$T/err")"
 has "$out" "🔄 엑스 카드" "틱 ⑥ 트리 줄(카드 상태 = ref)"; hasnt "$err$out" "Traceback" "틱 ⑥ Traceback 0"; hasnt "$err$out" "SyntaxError" "틱 ⑥ SyntaxError 0"
 [ -z "$(ls "$T/tmp" | grep -v AbC123)" ] && ok "틱 ⑥ ref 임시본 삭제(trap 그대로)" || bad "틱 ⑥ 임시본 남음: $(ls "$T/tmp")"
-# 대조: 옛 틱(origin/main 판) ⑥ 절 = 같은 픽스처에서 CalledProcessError
-if git -C "$HERE" show "origin/main:feature-pack/fable-team/harness/kit/fable-team/bin/ft-news-tick.sh" > "$T/old-tick.sh" 2>/dev/null; then
+# 대조: 옛 틱(OLDREF 판) ⑥ 절 = 같은 픽스처에서 CalledProcessError
+if git -C "$HERE" show "$OLDREF:feature-pack/fable-team/harness/kit/fable-team/bin/ft-news-tick.sh" > "$T/old-tick.sh" 2>/dev/null; then
   cp -p "$OLD" "$L/ft-news-tree.py"; mk_s6 "$T/old-tick.sh" "$L/ft-news-tick-old-s6.sh"
   out="$(cd "$R" && TMPDIR="$T/tmp" FT_NEWS_ROOT="$R" bash "$L/ft-news-tick-old-s6.sh" 2>&1)"
   has "$out" "CalledProcessError" "대조: 옛 틱 ⑥ = CalledProcessError 재현"
   cp -p "$PY" "$L/ft-news-tree.py"
-else bad "대조: origin/main 판 ft-news-tick.sh 를 못 읽음"; fi
+else bad "대조: OLDREF 판 ft-news-tick.sh 를 못 읽음"; fi
 
 # cfo 틱 ⑥ 호출 줄도 같은 꼴
 grep -q 'ft-news-tree.py" "$TREE" --root "$ROOT" --team-dir "$CFO_DIR"' "$KB/ft-news-tick-cfo.sh" && ok "cfo ⑥ 호출 줄에 --root · --team-dir" || bad "cfo ⑥ 호출 줄 꼴 다름"

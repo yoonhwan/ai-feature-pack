@@ -13,7 +13,7 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi; }
 
-ENVX="FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_DRIFT=0"
+ENVX="FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_DRIFT=0 FT_TICK_RESUME=0"  # RESUME=0: 죽은 좌석 감시(실 tmux·자율 상태 읽기)는 R27 밖 · r509
 # dry <틱> <픽스처> <케이스명> [출력접미사] → stdout/stderr 를 $TMP/<케이스>.out<접미사> 에. 알림 파일 = $TMP/<케이스>/p-DEAD-SEATS.alert
 dry() {
   local tick="$1" fx="$2" name="$3" sfx="${4:-}"; mkdir -p "$TMP/$name"

@@ -1,0 +1,11 @@
+{
+  "_label": "tt",
+  "_master": "byz-tt-master-claude#1",
+  "_hil_route": "byz-tt-master-claude#1",
+  "_arch": "byz-tt-arch-claude#1",
+  "byz-tt-master-claude#1": {"role": "master", "agent": "claude", "tick": null},
+  "byz-tt-arch-claude#1": {"role": "arch", "agent": "claude", "tick": null},
+  "byz-tt-nano-a-claude#0": {"role": "nano", "agent": "claude", "tick": null},
+  "byz-tt-master-claude#0": {"role": "stop-ready", "_replaced_by": "byz-tt-master-claude#1"},
+  "byz-tt-da-codex#0": {"role": "stop-ready", "agent": "codex"}
+}
