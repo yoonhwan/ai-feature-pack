@@ -1,0 +1,30 @@
+tests/test_install_hook_check.sh rc=0 PASS=44 FAIL=0
+tests/test_live_install.sh rc=1 PASS= FAIL=
+FAIL ⓐ 일치 — rc=3 기대=0
+FAIL ⓐ OK 이미 일치 줄 — 없음: «OK 이미 일치» ← ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9EBVXh0ahJ/.fable-team/bin — bash <하네스>/harness/install.sh --apply --project /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9EBVXh0ahJ
+FAIL ⓑ 3개 설치 — rc=3 기대=0
+FAIL ⓑ INSTALLED n=3 — 없음: «INSTALLED n=3 ref=» ← ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9EBVXh0ahJ/.fable-team/bin — bash <하네스>/harness/install.sh --apply --project /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9EBVXh0ahJ
+FAIL ⓑ 재검사 OK — rc=3 기대=0
+tests/test_live_install_check.sh rc=1 PASS=50 FAIL=2
+FAIL ⑥ 구현 범위가 scripts/harness-install/ 언급 + 없음 → REJECT :: rc=0 out=OK /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Bqd0ozzNsv/lintrepo/design/harness/indices/대기/l4.md (ledger=LEDGER.md)
+FAILED 1
+tests/test_live_install_check_plist_env.sh rc=0 PASS=39 FAIL=0
+tests/test_live_install_check_shim.sh rc=0 PASS=15 FAIL=0
+tests/test_live_install_check_tip.sh rc=1 PASS=12 FAIL=3
+FAIL ⓕ ft-index-move-install --landed B → OK(우회 0) :: rc=1 out=ERROR 하네스 루트(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness)가 --repo(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6F42Py7MZw/repo) 밖 — --kit 를 준다 · 범위에 하네스 파일 1: scripts/harness-install/fable-team/bin/ft-a.sh
+FAIL ⓕ 통과 시 B 의 install-pending 파일 제거 :: rc=1 out=ERROR 하네스 루트(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness)가 --repo(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6F42Py7MZw/repo) 밖 — --kit 를 준다 · 범위에 하네스 파일 1: scripts/harness-install/fable-team/bin/ft-a.sh
+FAILED 2
+tests/test_install_check_repo_outside.sh rc=0 PASS=9 FAIL=0
+tests/test_install_hook_check.sh rc=0 PASS=44 FAIL=0
+tests/test_install_team_tick_live.sh rc=0 PASS=48 FAIL=0
+tests/test_harness_root.sh rc=1 PASS=73 FAIL=1
+FAIL ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0) — 없음: «TREE-OK TREE-R459» ← ME=me (seats.json 현역 master)
+tests/test_installed_root.sh rc=0 PASS=22 FAIL=0
+--- 기준(origin/main 1fb3d56c 코드로 같은 4종 · 고친 5파일만 origin/main 판으로 바꿔 실행 후 원복) ---
+BASE tests/test_live_install.sh rc=1 PASS=2 FAIL=6 (같은 ⓐ·ⓑ «옛 설치 사본» 6)
+BASE tests/test_live_install_check.sh rc=1 PASS=50 FAIL=2 (같은 ⑥ lint 1)
+BASE tests/test_live_install_check_tip.sh rc=1 PASS=12 FAIL=3 (같은 ⓕ «하네스 루트가 --repo 밖» 2)
+BASE tests/test_harness_root.sh rc=1 PASS=73 FAIL=1 (같은 ⓒ news-tick 트리 1)
+=> 선재 빨강 4종(이 단위 변경과 무관 · 개수·문구 동일) — 고침 단위 필요
+--- RED(옛 install.sh + 옛 checker 로 새 시험) ---
+FAILED=15 (r491ⓐ~ⓔ 15칸 전부 빨강)
