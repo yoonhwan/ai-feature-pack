@@ -21,6 +21,8 @@ ALL_STOP = re.compile(r"(모든|전체)\s*팀[^.\n]{0,40}?(멈|정지|대기|쉬
                       r"|팀(이|은|들이|들은)?\s*(모두|전부|다)\s[^.\n]{0,20}?(멈|정지|대기|쉬)")
 APPROVAL_WAIT = re.compile(r"승인[^.\n]{0,15}?(기다|대기)")
 REST_SAID = re.compile(r"쉬|멈|정지|대기")
+NEGATED_TAIL = re.compile(r"[^,，.\n]{0,24}?(지\s*않|지\s*못|아니|아닙|않습니다|않는다|않음)")  # r498: 쉼 글자 «뒤» 같은 절의 부정 꼬리
+CLAUSE_END = re.compile(r"[,，.\n]|며 ")  # «고 » 로는 자르지 않는다 — «멈췄다고 단정하지 않» 의 «다고» 가 잘린다
 UNKNOWN_TEAM = re.compile(r'<div class="team unk"><strong>(.*?)</strong>')
 
 
@@ -68,12 +70,17 @@ def fact_problems(html: str, summary: str, prio: str) -> list[str]:
     return out + unknown_problems(html, said)
 
 
+def _rest_asserted(s: str) -> bool:
+    """쉼 글자 하나라도 «뒤» 같은 절 안에 부정 꼬리가 없으면 단정(r498 · «쉰다거나 멈췄다고 단정하지 않습니다» 는 단정 아님)."""
+    return any(not NEGATED_TAIL.match(CLAUSE_END.split(s[m.end():], maxsplit=1)[0]) for m in REST_SAID.finditer(s))
+
+
 def unknown_problems(html: str, said: str) -> list[str]:
     """«확인 불가» 블록 팀(turn 시간 초과·실패 = 모름 · r490 · 오빠 «챗봇팀은 왜쉬어?»)을 이름으로 짚은 문장에 쉬·멈·정지·대기 단정 = 위반."""
     out: list[str] = []
     for team in dict.fromkeys(t.strip() for t in UNKNOWN_TEAM.findall(html)):
         name = re.compile(rf"(?<![\w-]){re.escape(team)}(?![\w-])")
-        if bad := next((s.strip() for s in re.split(r"[.\n]", said) if name.search(s) and REST_SAID.search(s)), None):
+        if bad := next((s.strip() for s in re.split(r"[.\n]", said) if name.search(s) and _rest_asserted(s)), None):
             out.append(f"확인 불가 팀 {team} 에 쉼 단정 «{bad}»")
     return out
 
