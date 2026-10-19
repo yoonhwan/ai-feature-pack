@@ -1,12 +1,20 @@
 # Changes
 
-## 2026-10-20 — nano-close --wt 팩 경로: 하네스 팩 나노의 ⑥·⑤·미커밋을 팩 리포 기준으로 대조 (r508 · 1.1.65)
+## 2026-10-20 — nano-close --wt 팩 경로: 하네스 팩 나노의 ⑥·⑤·미커밋을 팩 리포 기준으로 대조 (r508 · 1.1.66)
 
 - 사건: 하네스 팩 나노(작업 = `ai-feature-pack/.worktrees/<…>` · 카드 «세트:» = 팩 커밋)는 `ft-nano-close.sh` ⑥ 이 BYZ 쪽 같은 이름 워크트리(spawn base) HEAD 와 대조해 병합 뒤 항상 REJECT · `--wt` 명시 모드도 BYZ 등록 워크트리만 받아 팩 경로 거절 → 매번 `--suspended` 우회(r499·r502·r466 실사건 · harness master 82 발주 116983 · arch 105 실측).
 - `ft-nano-close.sh`(kit↔bin cmp0): `--wt` ⓐ — BYZ 조건이 아니면 `FT_PACK_ROOT`(기본 `$HOME/Project/ai-feature-pack`)의 `.worktrees/` 아래 ∧ 그 리포 `worktree list` 등록이면 대조 리포 `SEAT_REPO` = 팩 · 카드 해석 뒤 머리 `- 설치: 있음`(하네스 카드) 아니면 지금 ⓐ REJECT 문구 + 덧말 «팩 경로는 하네스 카드(- 설치: 있음)만». ⓑ 브랜치·ⓔ 미커밋·⑥ 증거 줄(`--repo` = 팩 워크트리)·⑤ cherry(`--repo` = 팩 리포 · origin/main 재대조·fetch 포함)·feat fetch·base sha 조상 = `SEAT_REPO`(기본 `$ROOT` — 다른 경로 변화 0) · 팩 모드 feat 기본 = origin/main. 정리 계획 0 + `INFO 팩 워크트리 정리 = 별 경로` 1줄 · 원장 `mode=pack-wt wt=… branch=… repo=…`.
 - 카드와 다른 점 2(실사건 꼴): ①pane cwd(ⓒ)는 BYZ 쪽 같은 좌석 표준 워크트리라 «--wt 또는 그 표준 워크트리» 를 받는다 ②spawn 이 BYZ 쪽에 같은 이름 워크트리를 만들어 «표준 전용 워크트리가 따로 있다» REJECT 가 늘 걸린다 — 팩 모드만 그 검사를 건너뛴다. `_fetch_remote_feat` 는 `${SEAT_REPO:-$ROOT}`(함수만 떼어 쓰는 `test_nano_feat_remote_ref.sh` 호환).
 - 시험 `test_nano_close_pack_wt.sh`(새 · 임시 리포 R·P + P bare 원격 · 외부 호출 0) ⓐ 팩 경로 CLOSED(고치기 전 FAIL 8 · 뒤 PASS) ⓑ 제품 카드 → ⓐ REJECT ⓒ 미등록 폴더 → REJECT ⓓ 팩 미커밋 → ⓔ REJECT ⓔ 인자 없음 → BYZ HEAD 대조(변경 0) · 기존 `test_nano_close_*.sh` 8 rc0 · 관련 시험 7 = base 대비 새 FAIL 0(기존 RED 그대로). 증거 `harness/evidence/r508/`.
 - 설치: 키트 1(`ft-nano-close.sh`) → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r508`.
+
+## 2026-10-20 — 뉴스 갈래 상한의 CLI 기동 고정비 = 잠정 3.5초 → 실측 p90 · 지도 실패 연속 3틱 = 고정 문구 «뉴스 지연» 1번 (r510 · 1.1.65)
+
+- 사건: 부하 48~52 에서 뉴스 HTML 이 02:08 뒤 발행 0 — `/tmp/byz-ft-news-planner.log` «ERROR 지도 만들기 실패 — 발행 0: opencode run summary 실패(…): summary 상한 24s 초과(총 마감 70s)» 8회 연속(arch 105 자체 발견 · master 82 117315). 원인: 갈래 시도당 상한 `min(FIXED_S 3.5 + 7 × ceil(단위), 70)` 의 CLI 기동 고정비 3.5초가 «잠정값» — 부하 50 에서 `opencode run --standalone` 기동이 그보다 훨씬 길어 1차·재시도 둘 다 첫 출력 전에 상한 도달(성공 판에도 갈래 40~52초 = 재시도 성공이 이미 섞여 있었다).
+- `ft_news_html_render.py`(kit↔bin cmp0): ①`_once` 가 stdout 첫 바이트 시각을 잰다(파이프 2개 읽기 스레드 · 프로세스가 끝나도 손주가 파이프를 쥐면 상한까지만 · 넘으면 묶음째 kill 그대로) ②시도마다 기동 기록 `<루트>/.fable-team/state/news-cli-startup.tsv`(env `FT_NEWS_STARTUP_LOG`)에 `시각\t갈래\t첫 출력까지 초` 1줄 · 시간 초과(출력 0) = `>상한`(하한값 — 다음 틱이 올려 잡는다) · 최근 20줄 · 쓰기 실패 = `WARN 기동 기록 못 씀 — 발행은 계속` ③`fixed_s()` = env `FT_NEWS_FIXED_S` › 기록 p90(nearest-rank) › 기록 3개 미만 = 잠정 3.5 · `cap_s(prompt, part, fixed)` = `min(fixed + 7 × ceil(단위), 70)` · 갈래 4개가 같은 값(호출 1회에 한 번 셈) ④`fixed ≥ 70` = stderr `WARN 기동 고정비 p90 <n>s ≥ 천장 70s — 갈래 상한 = 천장`. 천장 70초·재시도 1회(첫 출력 전만)·총 마감 70초 그대로(하드 룰 12 «CLI 기동 고정비를 따로 더하되 천장은 같다» 안 — 잠정값을 실측으로).
+- `ft_news_html.py`(kit↔bin cmp0): «만듦» 줄에 `fixed=<값>s` · 틱의 지도 만들기 실패(모델 갈래 실패)가 연속 `FT_NEWS_DELAY_TICKS`(기본 3)틱이면 `publish_line` 으로 고정 문구 1번 «뉴스 지연 — 사유: <첫 실패 줄 120자> · 마지막 판 HH:MM(<직전 판 링크>) · 부하 <load1>»(정지 1건당 1번 · 발신 실패면 다음 틱 재시도 · 모델·판단·요약 0 · 상태 `<state>/news-delay.json`) · 다음 지도 발행 때 «뉴스 복구 HH:MM · 지연 N분»(N = 직전 판부터) · 지연 글을 안 냈던 짧은 정지는 조용히 지움. «재시도 대기» 틱은 셈 밖(시도 0).
+- 시험: `test_news_html_cli_startup.py`(새) ⓐ 기록 0·2개 = 3.5 ⓑ 기록 10개 p90 = 4.5 · `FT_NEWS_FIXED_S=3.5` 이면 느린 갈래 두 시도 초과 · 실측 고정비면 성공 ⓒ p90 ≥ 70 = 상한 70 + WARN · 만듦 줄 `fixed=70.0s` ⓓ 시도마다 1줄·최근 20·시간 초과 `>1.8` 2줄·쓰기 실패 WARN + 발행 계속 ⓔ 고정비 60 이어도 총 마감 3초 안 · 재시도 0 ⓕ 실패 3틱 → 지연 글 1 · 4틱째 0 · 성공 → 복구 줄 1 · 2틱 정지 = 조용 = 9 passed · 변이(origin/main 판 2파일) FAIL 7. 기존 `test_news_html.sh`·`test_ledger_repo_sync.sh` rc0(픽스처 `oc` 에 기동 기록 tmp 격리 · 상한 대역 lambda 인자 1 추가). 원문 = `harness/evidence/r510/tests-rc.txt`.
+- 설치: LIVE_BIN 키트 2(`ft_news_html_render.py` · `ft_news_html.py`) cmp0 · 홈 0 · plist 0 · 되돌림 = 설치본 `.bak-r510` 또는 env `FT_NEWS_FIXED_S=3.5`(옛 상한 · 지연 글은 `FT_NEWS_DELAY_TICKS` 를 크게).
 
 ## 2026-10-20 — 완성 이동의 정본 갱신 요청 쪽지 = 카드 팀 명부의 `_arch` 로(기본 v65 명부 고정 0) (r487 · 1.1.64)
 
