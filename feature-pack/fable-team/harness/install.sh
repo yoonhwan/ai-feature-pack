@@ -10,6 +10,8 @@
 #   r426: 설치기 관리 launchd plist(ft_plist_env.py list · 지금 = 쪽지→슬랙 미러)는 «설치된 것만» 템플릿 렌더본으로 갱신 — 다를 때만 .bak-r426 + 재적재.
 #         --dry-run 은 PENDING plist-env 줄만 · launchctl 은 FT_LAUNCHCTL(시험 주입).
 #   r457: plist 갱신은 --project 가 git 공용 루트일 때만 — 워크트리면 SKIP plist-env 1줄(shim 설치는 그대로).
+#   r464: plist 단계는 LIVE_BIN 전환 «뒤» · 교체 전 직전 사본 .bak-<version> · bootstrap 1초 간격 최대 3회(7초 안)
+#         · 그래도 실패면 직전 사본 원복 + 다시 올림 → PLIST RESTORED + 마지막 줄 INSTALLED <version> · PLIST ERROR rc1.
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -70,6 +72,29 @@ HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
 # r426: 설치기 관리 launchd plist(ft_plist_env.py list) — «설치된 것만» 템플릿 렌더본(FT_ROOT=프로젝트 · inbox=LIVE_BIN)과 대조.
 #   다르면 apply = .bak-r426(첫 원본 보존) + 교체 + bootout·bootstrap·kickstart(변경 때만) · 같으면 쓰기 0 · 렌더 실패 = ERROR(조용한 통과 0)
 LC="${FT_LAUNCHCTL:-launchctl}"
+PLIST_FAIL=0
+# r464: bootout 은 비동기(launchd 가 프로세스 종료를 기다림) — 바로 bootstrap 하면 실패할 수 있다 → 1초 간격 최대 3회 · 7초 안(7초 룰)
+#   BOOT_TRY = 실패한 횟수 · BOOT_WHY = 마지막 launchctl 출력 1줄
+boot_retry() {
+  local t0=$SECONDS out
+  BOOT_TRY=0; BOOT_WHY=""
+  while :; do
+    if out="$("$LC" bootstrap "gui/$(id -u)" "$1" 2>&1)"; then return 0; fi
+    BOOT_WHY="$(printf '%s\n' "$out" | grep . | tail -1 || true)"; BOOT_WHY="${BOOT_WHY:-출력 없음}"
+    BOOT_TRY=$((BOOT_TRY + 1))
+    [ "$BOOT_TRY" -lt 3 ] && [ $((SECONDS - t0)) -lt 6 ] || return 1
+    sleep 1
+  done
+}
+# r464: 새 렌더본 적용 실패 → 직전 사본을 되돌리고 다시 올린 «뒤» 에 실패 표식(절반 상태 0 · 되돌림이 글자뿐인 것 0)
+plist_restore() {
+  local label="$1" dst="$2" why="$3"
+  "$LC" bootout "gui/$(id -u)/$label" 2>/dev/null || true
+  cp -p "$dst.bak-$VERSION" "$dst"
+  if boot_retry "$dst"; then echo "PLIST RESTORED $label — 새 렌더본 적용 실패($why) · 직전 plist($dst.bak-$VERSION) 로 되돌리고 다시 올림"
+  else echo "ERROR: plist 원복본 bootstrap 도 실패 $label ($BOOT_WHY) — 미러 내려감 · 손 복구 = launchctl bootstrap gui/$(id -u) '$dst'" >&2; fi
+  PLIST_FAIL=1
+}
 plist_sync() {
   local label tpl dst new
   if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then
@@ -86,11 +111,12 @@ plist_sync() {
     echo "PENDING plist-env $label (설치본 ≠ 템플릿 렌더본)"
     [ "$APPLY" = 1 ] || continue
     [ -f "$dst.bak-r426" ] || cp -p "$dst" "$dst.bak-r426"
+    cp -p "$dst" "$dst.bak-$VERSION"
     printf '%s\n' "$new" > "$dst"
     "$LC" bootout "gui/$(id -u)/$label" 2>/dev/null || true
-    "$LC" bootstrap "gui/$(id -u)" "$dst" || { echo "ERROR: launchctl bootstrap 실패 $label — 되돌림 = cp -p '$dst.bak-r426' '$dst'" >&2; exit 1; }
-    "$LC" kickstart -k "gui/$(id -u)/$label" || { echo "ERROR: launchctl kickstart 실패 $label" >&2; exit 1; }
-    echo "PLIST applied $label (되돌림 = $dst.bak-r426 · kickstart)"
+    if ! boot_retry "$dst"; then plist_restore "$label" "$dst" "bootstrap ${BOOT_TRY}회 실패: $BOOT_WHY"; continue; fi
+    "$LC" kickstart -k "gui/$(id -u)/$label" || { plist_restore "$label" "$dst" "kickstart 실패"; continue; }
+    echo "PLIST applied $label (retry=$BOOT_TRY · 되돌림 = $dst.bak-$VERSION · kickstart)"
   done < <(python3 "$KIT/bin/ft_plist_env.py" list)
 }
 if [ "$APPLY" != 1 ]; then plist_sync; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
@@ -120,7 +146,6 @@ for h in $HOME_HOOKS; do
   hcopied=$((hcopied + 1))
 done
 echo "HOOKS copied=$hcopied same=$hsame (settings.json 등록은 별도)"
-plist_sync
 
 # 프로젝트 LIVE_BIN·LIVE_ROOT·연결 파일 — 설치본 도구로(키트 트리 = 이 하네스 체크아웃의 HEAD)
 REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd -P)"
@@ -139,4 +164,8 @@ done
 echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되돌림 = <파일>.bak-$VERSION)"
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi
+# r464: plist 는 LIVE_BIN 전환 «뒤» — plist 실패가 코드 전환을 막지 못한다(1.1.25 «새 폴더만 생김» 사고)
+plist_sync
+if [ "$PLIST_FAIL" = 1 ]; then echo "INSTALLED $VERSION · PLIST ERROR — LIVE_BIN 전환은 끝났다 · plist 는 위 RESTORED/ERROR 줄"; echo "== 끝 =="; exit 1; fi
+echo "INSTALLED $VERSION · PLIST ok"
 echo "== 끝 =="
