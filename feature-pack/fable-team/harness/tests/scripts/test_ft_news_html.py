@@ -49,7 +49,9 @@ if os.environ.get("FAKE_OC_FAIL_FIRST"):
         sys.exit(1)
     except FileExistsError:
         pass
-time.sleep(float(os.environ.get("FAKE_OC_SLEEP", "0")))
+slow = os.environ.get("FAKE_OC_SLOW_MATCH")  # 있으면 이 글자가 든 갈래만 지연(부하 모사)
+if not slow or slow in sys.argv[-1].split("출력 스키마:")[-1].splitlines()[0]:
+    time.sleep(float(os.environ.get("FAKE_OC_SLEEP", "0")))
 print(json.dumps({"type": "step_start"}))
 print(json.dumps({"type": "text", "part": {"text": open(os.environ["FAKE_OC_REPLY"]).read()}}))
 sys.exit(int(os.environ.get("FAKE_OC_RC", "0")))
@@ -165,34 +167,61 @@ def test_c_retry_once_only_before_first_output(tmp_path, oc, monkeypatch):
     _, log = oc
     monkeypatch.setenv("FAKE_OC_FAIL_FIRST", "1")
     fh.run_files(DATA, tmp_path, NOW)
-    assert len(calls(log)) == 4  # 갈래 3 + 출력 0 으로 실패한 갈래 재시도 1
+    assert len(calls(log)) == 5  # 갈래 4 + 출력 0 으로 실패한 갈래 재시도 1
     log.unlink()
     monkeypatch.delenv("FAKE_OC_FAIL_FIRST")
     monkeypatch.setenv("FAKE_OC_RC", "1")  # 출력 뒤 실패 = 재시도 0
     with pytest.raises(fr.NewsHtmlError):
         fh.run_files(DATA, tmp_path, NOW)
-    assert len(calls(log)) == 3
+    assert len(calls(log)) == 4
 
 
-# ── r478b: 갈래 3개 병렬 · 갈래별 입력만 · 상한 = 크기 비례 · stdin 차단 ──
+# ── r478b·r478e: 갈래 4개 병렬 · 갈래별 입력만 · 상한 = 크기 비례 · stdin 차단 ──
+
+def _prompts(log: Path) -> dict[str, str]:
+    return {next(p for p in fr.PARTS if f'"{fr.PARTS[p][0][0]}":' in c[-1].split("출력 스키마:")[1].splitlines()[0]): c[-1] for c in calls(log)}
+
 
 def test_split_parts_get_only_their_inputs_and_stdin_is_devnull(tmp_path, oc):
     _, log = oc
     data = {"now": "x", "goals": GOALS, "ledger": [{"title": "원장절", "text": "원장글"}], "urgent": ["긴급머리"], "teams": ["팀줄"], "live": LIVE, "commits": ["abc 커밋글"]}
     fh.run_files(data, tmp_path, NOW)
-    prompts = {next(p for p in fr.PARTS if f'"{fr.PARTS[p][0][0]}":' in c[-1].split("출력 스키마:")[1].splitlines()[0]): c[-1] for c in calls(log)}
-    assert set(prompts) == {"top", "goals", "teams"}
+    prompts = _prompts(log)
+    assert set(prompts) == {"summary", "important", "goals", "teams"}
     assert "팀줄" in prompts["teams"] and "원장글" not in prompts["teams"]
     assert "원장글" in prompts["goals"] and "팀줄" not in prompts["goals"] and "커밋글" not in prompts["goals"]
-    assert all(x in prompts["top"] for x in ("원장글", "긴급머리", "커밋글")) and "팀줄" not in prompts["top"]
-    assert Path(str(log) + ".stdin").read_text().split() == ["True"] * 3
+    assert all(x in prompts["summary"] for x in ("원장글", "긴급머리", "커밋글")) and "팀줄" not in prompts["summary"]
+    assert all(x in prompts["important"] for x in ("원장글", "긴급머리")) and "커밋글" not in prompts["important"]
+    assert '"important":' not in prompts["summary"].split("출력 스키마:")[1].splitlines()[0]  # 요약 갈래는 중요한 일을 안 만든다
+    assert Path(str(log) + ".stdin").read_text().split() == ["True"] * 4
 
 
 def test_cap_is_size_scaled_and_never_above_70():
     small = fr.build_prompt({"teams": ["팀"]}, "teams")
     assert fr.cap_s(small, "teams") == 3.5 + 7 * 4  # 예상 출력 1200자 / 300 = 4
     assert fr.cap_s(small, "goals") == 3.5 + 7 * 6
-    assert fr.cap_s("가" * 200000, "top") == 70  # 큰 입력 = 70초 천장
+    assert fr.cap_s("가" * 200000, "summary") == 70  # 큰 입력 = 70초 천장
+
+
+def test_r478e_one_slow_part_over_cap_fails_whole_map_publish_zero(tmp_path, oc, monkeypatch):
+    _, log = oc
+    monkeypatch.setattr(fr, "DEADLINE_S", 3)  # 모든 갈래 상한 = min(크기 비례, 3초)
+    monkeypatch.setenv("FAKE_OC_SLEEP", "6")
+    monkeypatch.setenv("FAKE_OC_SLOW_MATCH", '"important":')  # 부하 모사 — 중요한 일 갈래만 느리다
+    with pytest.raises(fr.NewsHtmlError, match="important 상한"):
+        fh.run_files(DATA, tmp_path / "o", NOW)
+    assert not (tmp_path / "o").exists()  # 나머지 3갈래는 끝났지만 지도·발행 0
+    assert sum('"important":' in c[-1].split("출력 스키마:")[1].splitlines()[0] for c in calls(log)) == 1  # 총 마감 3초 = 재시도 시간 없음
+
+
+def test_r478e_timeout_is_first_output_failure_retried_once_within_deadline(tmp_path, oc, monkeypatch):
+    _, log = oc
+    monkeypatch.setattr(fr, "cap_s", lambda prompt, part: 2)  # 시도당 2초 · 총 마감 70초
+    monkeypatch.setenv("FAKE_OC_SLEEP", "4")
+    monkeypatch.setenv("FAKE_OC_SLOW_MATCH", '"important":')
+    with pytest.raises(fr.NewsHtmlError, match="important 상한 2s 초과"):
+        fh.run_files(DATA, tmp_path / "o", NOW)
+    assert sum('"important":' in c[-1].split("출력 스키마:")[1].splitlines()[0] for c in calls(log)) == 2  # 초과 = 첫 출력 전 실패 → 재시도 1
 
 
 # ── r478c: 일하는/쉬는 팀 = 라이브 좌석 실측(코드) · 일하는 팀이 위 ─────────
@@ -465,8 +494,8 @@ def test_g_effort_table_rows_per_variant(tmp_path, oc):
     assert all(" | 0 | OK | 2 | " in r for r in rows)
     models = [c[3] for c in calls(oc[1])]
     base = "opencode/deepseek-v4.1-flash-free"
-    assert models == [base] * 3 + [base + "#max"] * 3 + [base] * 3  # 변형마다 갈래 3
-    assert all("두 번 따져 본다" in c[-1] for c in calls(oc[1])[6:]) and "기본값 결정(사람 1줄)" in table.read_text(encoding="utf-8")
+    assert models == [base] * 4 + [base + "#max"] * 4 + [base] * 4  # 변형마다 갈래 4
+    assert all("두 번 따져 본다" in c[-1] for c in calls(oc[1])[8:]) and "기본값 결정(사람 1줄)" in table.read_text(encoding="utf-8")
     assert subprocess.run(["bash", str(BIN / "ft-news-effort-test.sh")], capture_output=True, check=False).returncode == 2
 
 

@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-10-19 — 뉴스 HTML: top 갈래를 요약·중요한 일 2갈래로 쪼갬 · 상한 초과 = 첫 출력 전 실패 재시도 1 (r478e · 1.1.42)
+
+- 첫 자동 틱이 부하(load 25~50)에서 `opencode run top 상한 38s 초과` — top(요약+중요한 일+근거) 한 호출이 max/high 에서 흔들림. 7초 룰대로 top → summary(요약+근거) · important(중요한 일) 2갈래로 쪼개 4갈래 병렬 · 시도당 상한 크기 비례 그대로 · 시도당 상한 초과 = 첫 출력 전 실패로 보고 총 마감 70초 안 재시도 1회.
+- 시험 `test_news_html.sh` 28 passed(새 2: 한 갈래 부하 지연 → 전체 발행 0 · 초과 재시도 1). 실측(같은 입력 · load 15~50): high 최대 갈래 26.4/20.9초 · base 27.9/29.2초 · max 는 22~62초로 흔들림 → 권장 effort=high. 단계 = `harness/evidence/r478e/master-steps.md`.
+
 ## 2026-10-19 — 골 원장 판정기: 판정 키 = ref origin/main sha · 상태 = 공용 루트 1개 · 경과 = ref 기준 (r485 · 1.1.41)
 
 - v65 master 가 자기 워크트리에서 `--touch` 해도 다음 틱(공용 루트 cwd)이 `REREAD-REQUIRED` — 원장 sha·상태 파일·커밋 경과를 전부 «cwd 의 git 루트» 에서 잡아 틱과 좌석이 다른 파일에 다른 키를 썼다.
