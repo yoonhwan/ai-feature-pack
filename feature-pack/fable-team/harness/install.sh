@@ -9,6 +9,7 @@
 #   되돌림 = 프로젝트 .fable-team/LIVE_BIN 1줄을 이전 값으로(버전 폴더는 남는다).
 #   r426: 설치기 관리 launchd plist(ft_plist_env.py list · 지금 = 쪽지→슬랙 미러)는 «설치된 것만» 템플릿 렌더본으로 갱신 — 다를 때만 .bak-r426 + 재적재.
 #         --dry-run 은 PENDING plist-env 줄만 · launchctl 은 FT_LAUNCHCTL(시험 주입).
+#   r457: plist 갱신은 --project 가 git 공용 루트일 때만 — 워크트리면 SKIP plist-env 1줄(shim 설치는 그대로).
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -36,6 +37,9 @@ done
 [ -n "$PROJECT" ] || { echo "REJECT --project <프로젝트 루트> 필수 — cwd 로 추론하지 않는다 (쓰기 0)" >&2; exit 2; }
 [ -d "$PROJECT/.fable-team/bin" ] || { echo "REJECT 프로젝트에 .fable-team/bin 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
 PROJECT="$(cd "$PROJECT" && pwd -P)"
+# r457: launchd plist 는 git 공용 루트 설치에서만 — 워크트리 --project(r413 shim 설치)는 plist 를 건드리지 않는다
+COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"; COMMON="${COMMON%/.git}"
+[ -z "$COMMON" ] || [ ! -d "$COMMON" ] || COMMON="$(cd "$COMMON" && pwd -P)"
 [ -f "$MANIFEST" ] || { echo "ERROR: manifest 없음: $MANIFEST" >&2; exit 1; }
 [ -d "$KIT/bin" ] && [ -d "$KIT/templates" ] || { echo "ERROR: 키트 없음: $KIT/{bin,templates}" >&2; exit 1; }
 VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$MANIFEST")"
@@ -68,6 +72,10 @@ HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
 LC="${FT_LAUNCHCTL:-launchctl}"
 plist_sync() {
   local label tpl dst new
+  if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then
+    echo "SKIP plist-env $(python3 "$KIT/bin/ft_plist_env.py" list | cut -f1 | tr '\n' ' ')(--project 가 git 공용 루트 아님: 루트=$COMMON — plist 는 루트 설치에서만)"
+    return 0
+  fi
   while IFS=$'\t' read -r label tpl; do
     dst="$HOME_DIR/Library/LaunchAgents/$label.plist"
     if [ ! -f "$dst" ]; then echo "SKIP plist $label (설치 안 됨 — 처음 설치는 kit/${tpl%%/*}/install.sh)"; continue; fi

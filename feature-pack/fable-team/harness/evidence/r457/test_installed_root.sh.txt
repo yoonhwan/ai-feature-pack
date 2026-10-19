@@ -1,0 +1,23 @@
+PASS ⓐ 설치본 · cwd=리포 → git 공용 루트(.fable-team/LIVE_BIN)
+PASS ⓐ 설치본 · cwd=리포 하위 폴더 → 공용 루트
+PASS ⓐ 설치본 · cwd=git 밖 → ERROR
+PASS ⓐ FT_ROOT 명시 → 그 값
+PASS ⓐ 옛 설치 꼴(<리포>/.fable-team/bin) · cwd=git 밖 → 조상 탐색(회귀 0)
+PASS ⓑ ft_comm_dir 설치본 · cwd=리포 → LIVE_ROOT 의 comm
+PASS ⓑ ft-tick.sh 설치본 · cwd=리포 → <라이브 루트>/.fable-team/comm/mbox.sh
+PASS ⓑ ft-hil-ask.sh 설치본 · cwd=리포 → <라이브 루트>/.fable-team/comm/mbox.sh
+PASS ⓑ ft-tick.sh env 명시 → 그 값
+PASS ⓑ 옛 설치 꼴 → 옛 «$HERE/../comm» 과 같은 곳(회귀 0)
+PASS ⓒ ft-tick.sh 설치본 · cwd=git 밖 → ERROR rc=1
+PASS ⓒ ft-goal-table.sh 설치본 · cwd=git 밖 → ERROR rc=1
+PASS ⓒ 임시 HOME 밑 새 파일 0
+PASS ⓓ 설치본 · cwd=BYZ → ft-goal-table.sh rc0 + 골 표 (8행)
+PASS ⓔ ft_root 설치본 · cwd=리포 → git 공용 루트(.fable-team/LIVE_BIN)
+PASS ⓔ ft_root 설치본 · cwd=리포 하위 폴더 → 공용 루트
+PASS ⓔ ft_root 설치본 · cwd=git 밖 → raise
+PASS ⓔ ft_root FT_ROOT 명시 → 그 값 그대로(LIVE_BIN 검사 0)
+PASS ⓔ ft_root 옛 설치 꼴 · cwd=git 밖 → git -C HERE 공용 루트(회귀 0)
+PASS ⓔ ft-sheet-events.sh 설치본 · cwd=git 밖 → rc=1 + 사유
+PASS ⓔ spawn 경로(ft-nano-spawn.sh:251 꼴) 설치본 · cwd=리포 → key+prepare rc0
+PASS ⓔ 임시 HOME 밑 새 파일 0
+== ALL PASS · skip=0 ==

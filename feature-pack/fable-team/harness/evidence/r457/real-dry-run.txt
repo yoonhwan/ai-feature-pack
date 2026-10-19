@@ -1,0 +1,15 @@
+# 실 머신 install.sh --dry-run (읽기만 · 2026-10-19 · 미러 plist cksum 전후 같음)
+## --project <BYZ 공용 루트> rc=0
+HARNESS_ROOT /Users/yoonhwan/.claude/fable-team/live/1.1.24/HARNESS_ROOT <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh
+HOOK /Users/yoonhwan/.claude/hooks/op-vault-develop-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/hooks/op-vault-develop-gate.sh
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/pre-commit <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-commit
+OK plist-env com.hermes.byz-mbox-slack-mirror
+## --project <BYZ>/.worktrees/v6-realtime-live rc=0
+HARNESS_ROOT /Users/yoonhwan/.claude/fable-team/live/1.1.24/HARNESS_ROOT <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh
+HOOK /Users/yoonhwan/.claude/hooks/op-vault-develop-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/hooks/op-vault-develop-gate.sh
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/githooks/pre-commit <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r457-plist-common-root/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-commit
+SKIP plist-env com.hermes.byz-mbox-slack-mirror (--project 가 git 공용 루트 아님: 루트=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents — plist 는 루트 설치에서만)

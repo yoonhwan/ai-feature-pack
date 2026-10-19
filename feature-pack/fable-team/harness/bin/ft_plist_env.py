@@ -51,6 +51,9 @@ def render(template, installed, root, live_bin, home):
     """템플릿 본문 → 렌더본 문자열. 렌더본의 EnvironmentVariables.FT_ROOT = root 까지 확인한다."""
     if not os.path.isdir(os.path.join(root, ".fable-team")):
         raise RenderError("프로젝트 루트 없음(.fable-team 없음): %s" % root)
+    if not os.path.isdir(os.path.join(root, ".git")):  # r457: 워크트리(.git 파일)·git 밖 = launchd 가 볼 루트가 아니다
+        why = "워크트리" if os.path.isfile(os.path.join(root, ".git")) else ".git 없음"
+        raise RenderError("루트가 git 공용 루트 아님(%s): %s" % (why, root))
     inbox = os.path.join(live_bin, "ft-inbox.sh")
     if not os.path.isabs(live_bin) or not os.path.isfile(inbox):
         raise RenderError("LIVE_BIN 에 ft-inbox.sh 없음: %s" % inbox)
