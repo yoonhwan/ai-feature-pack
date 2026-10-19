@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — `ft-inbox mark <seq>` 가 큐에 없는 쪽지도 우편함 파일(현행·로그·회전본)에서 찾아 적재 뒤 표시한다 (1.1.23)
+
+카드 r430 · planner 증거 ②(110829) · EVAL I3 · arch#96. planner 가 `mark 110726` 류를 치면 `REJECT 대상 못 찾음(좌석 …)` 이 났습니다. ★실측(10-19): 원인은 카드 가정(«mark 가 mailbox.jsonl 만 본다»)이 아니었습니다 — 쪽지 조회 `mail_files()` 는 이미 현행 → `mailbox.log.jsonl` → 회전본(숫자 순)을 다 보고, mark 는 우편함이 아니라 «좌석 큐»(`state/inbox/<계보>.jsonl`)만 봅니다. 110726·110770·110796 은 send 때 큐 적재가 빠져(planner 큐 5994행에 없음 · 원본은 `mailbox.log.jsonl`) 큐에 행이 없었습니다★ — 같은 seq 를 임시 루트에서 `ingest` 하면 바로 들어갑니다.
+
+- **`ft_inbox_core.find_seq(seq)`**(새): `mail_files()` 순서 첫 1건 → (파일 경로, 행) · 글자 선거름(`"seq": N`) 뒤에만 json 해석 — 5MB 회전본 끝 행 0.09 s. `find_mail` 은 그 래퍼(ingest 그대로).
+- **`ft-inbox.py` locate**(mark·report 공통): 좌석 큐에 없는 숫자 seq 는 우편함 파일에서 찾아 ①수신 계보 = 호출 좌석 계보면 `ingest`(같은 행 꼴 · `INGEST …` 줄) 뒤 대상으로 삼고 ②남의 계보 앞 쪽지면 기존대로 REJECT(남의 큐·내 큐 쓰기 0) ③어디에도 없으면 기존 줄 뒤에 ` · 대상 못 찾음 seq=<n> (<N> 파일 조회)` rc1(조용한 통과 0).
+- **mark 출력**: 기존 `OK <큐> seq=…` 다음에 숫자 대상이면 `MARKED seq=<n> file=<쪽지 원본 우편함 파일 이름>`(큐에만 있으면 `file=없음(큐만)`). 표식 저장 위치는 기존 그대로(좌석 큐 행 `mark`).
+- **시험**: 새 `test_inbox_mark_rotated.sh` 23 PASS(ⓐ mailbox.jsonl ⓑ log.jsonl ⓒ 회전본 `.2`·`.10` 숫자 순 ⓓ 없음 rc1 + 문구 + 큐 불변 ⓔ 5MB ≤1 s ⓕ 600/300 0 ⓖ 남의 계보 앞 쪽지 rc1 · 재표시 적재 0) · 옛 코드에서 15 FAIL. 기존 `test_inbox*`·`test_ft_mbox_inbox_ingest`·`test_proposal_approve_inbox` rc0.
+- **범위 밖**: send 때 적재가 왜 빠졌는지(적재 실패는 `WARN` 만 stderr · 실패 경로 관측은 실사건 때) · recv/peek 조회 범위 · 회전 정책 · stall-scan d 판정.
+
 ## 2026-10-19 — arch 가 죽은 «arch 상시» 팀의 교대 교착을 푼다: `ft-role-spawn --team <팀>` + arch 없음 REJECT·ERR 문구가 «있는 길» 명령 1줄을 적는다 (1.1.24 · 묶음 가지에 재적용)
 
 카드 r437 · master 110967 · planner 110961(판정 2346). feature master#30 교대가 `REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(ft-role-spawn arch)` 로 막혔는데, 안내가 가리킨 `ft-role-spawn.sh` 는 v65 명부(seats.json)·v65 폴더에 고정돼 feature arch 를 못 열었습니다(CFO 선례와 같은 뿌리). 죽은 arch 의 자기 교대(successor-open)는 게이트가 이미 통과시키므로, 도구가 그 길을 정확히 적게 합니다. 게이트 판정 기준(R342)은 불변 · master 교대 예외 0.
