@@ -1,10 +1,23 @@
 # Changes
 
-## 2026-10-20 — 뉴스 지도: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수 (r490 · 1.1.45)
+## 2026-10-20 — 뉴스 지도: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수 (r490 · 1.1.47)
 
 - 22:04 뉴스(load 25~31)에서 chatbot 5석의 `ft-seat-status.sh turn` 이 7초 상한을 넘어 «?» 가 됐는데 `facts`·`bucket` 이 일하는 0 인 팀을 전부 «쉬는 팀» 에 넣어 일하는 챗봇팀이 «쉼» 으로 나갔다(오빠 «챗봇팀은 왜쉬어?»).
 - `ft_news_html.py`: `_turn` = 첫 출력 전 실패 1회 재시도(7초 룰 · 시간 초과는 프로세스 묶음째 kill) · 풀 = min(좌석 수, 32) · 팀 칸 `unknown_reason` · `facts` 3분류(일하는 · 확인 불가 · 쉬는). `ft_news_html_render.py`: 3분류 bucket + «확인 불가» 블록 · 프롬프트 1줄. 틀 `news-team-map.html`: H2 «확인 불가» + chip. `ft_news_html_lint.py`: H2 5개 · 확인 불가 팀 이름 + 쉬/멈/정지/대기 단정 = 위반.
 - 시험 `test_news_html.sh` 32 passed(새 ⓐ~ⓓ · 옛 판 RED 4) · 되돌림 = 이 절 커밋 revert(설치본 `.bak-r490`) · 단계 = `harness/evidence/r490/master-steps.md`.
+
+## 2026-10-20 — 뉴스 ⑥ 트리: 루트·팀 폴더는 부르는 쪽이 넘긴다 — ref 임시본에서 git 128 고침 (r489 · 1.1.46)
+
+- r484 뒤에도 ⑥ 트리가 비었다 — 공용 루트 체크아웃엔 v65 `NEWS-TREE.md` 가 없어 `ft_team_doc_ref` 가 `$TMPDIR/ft-team-doc.*` 임시본을 주는데, `ft-news-tree.py` 가 리포 루트(`git -C <트리 폴더> rev-parse`)·카드 폴더(`tree.parent/indices`)를 트리 파일 위치에서 유도해 `CalledProcessError 128`(arch 103 실측).
+- `ft-news-tree.py`: `--root`·`--team-dir`(env `FT_NEWS_ROOT`·`FT_NEWS_TEAM_DIR`) · 카드 폴더 = `<팀 폴더>/indices` 실재 → ref(`FT_TEAMS_REF` · 기본 origin/main) 같은 상대 경로 `ls-tree` → 둘 다 없으면 줄에 `?(폴더 없음)`(rc0 · 말단 줄에 `?N`). 인자 없으면 옛 유도 그대로(출력 바이트 같음).
+- `ft-news-tick.sh:56` = `--root "$ROOT" --team-dir "$(ft_team_cands_ref "$ROOT" v65 | head -1)"`(lib source 를 53행 앞으로 · 56행 위치 유지 = r484 린트·시험 그대로) · `ft-news-tick-cfo.sh:38` = `--team-dir "$CFO_DIR"`. 임시본 삭제 trap 그대로.
+- 시험 새 `harness/tests/test_news_tree_root.sh` ⓐ~ⓓ + 틱 ⑥ 재현 + 옛 판 CalledProcessError 대조 23 PASS · 기존 4종 rc0 · 공용 루트 cwd ⑥ 절(새 키트 사본) rc0 62줄 Traceback 0. 원문 = `harness/evidence/r489/tests-rc.txt`.
+
+## 2026-10-20 — 자율 ON 인터뷰 1회(기간 + 레벨 full|mid|each)로 범위 승인까지 함께 걸기 · 레벨 재발급 · 종류 학습 · 자율 상태 가드 (r466 · 1.1.45)
+
+- `ft-autonomy.sh on --for <기간> --level <full|mid|each>` 한 줄(h)이 범위 승인까지 걸어 OFF 까지 병합 질문을 줄인다. 새 `ft-autonomy-level.sh`·`ft-autonomy-interview.sh`(인터뷰 답 → h 1줄) · 분류기를 표(`autonomy_scope_rules.py`·`scope-classes-pack.tsv`·`scope-ddl-record.tsv`)로 · 카드 이동(R100·이름 같음·양쪽 docs)은 docs 로 통과 · 첫 OFF 도달은 틱이 desk 에 [자율 인터뷰] 1통.
+- 홈 훅 `autonomy-state-guard.sh`: 자율 ON = approve-merge 허용+로그 · OFF = deny · on/off 는 항상 deny. 시험 새 2 · 기존 15개 머리에 `FT_AUTONOMY_LEVEL=each`(--level 생략=full 이면 on 이 실 슬랙 게시라서).
+- 되돌릴 땐 자율 OFF 상태에서(옛 판은 level 칸 승인 줄을 위변조로 읽음). 단계 = `harness/evidence/r466/master-steps.md`.
 
 ## 2026-10-20 — 키트 ft-mbox send/relay 도 보관 로그 mailbox.log.jsonl 에 1행 + send 자가 점검 WARN (r488 · 1.1.44)
 

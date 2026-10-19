@@ -4,6 +4,7 @@
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + PATH 앞 가짜 gcloud·gh 스텁 + 고정 시계(FT_NOW) — 실 gcloud·gh·상태 파일 0.
 # 소요 ≈ 4분(r455a 실측 · 2026-10-19) — 120초 상한으로 돌리면 rc=124, 빨강 아님 · 600초 상한으로 돌린다.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"
 fail=0; n=0

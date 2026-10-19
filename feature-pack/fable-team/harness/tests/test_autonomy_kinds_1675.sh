@@ -3,6 +3,7 @@
 #   병합 승인 출처 분리(autonomy-merge-approved + log 줄) · 병합 가드·상태 가드 전환. 축 ⓐ~ⓖ + 변이 3.
 # 격리: 임시 FT_ROOT·상태·원장·재개 기록 + 임시 git 저장소(브랜치·원격 픽스처) + 훅 stdin JSON — 실 상태·실 gh·실 원격 0.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"

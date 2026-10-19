@@ -34,4 +34,4 @@ echo; echo "════ ④ 정본 크기 (35KB 한도) ════"
 wc -c "$CFO_DIR/VERDICT-DATA-SOVEREIGNTY-20260923.md" | awk '{printf "VERDICT=%sB%s\n",$1,($1>35000?" ★초과 — archive 분리 먼저★":"")}'
 echo; echo "════ ⑥ 골 트리 (뉴스에 그대로 · 상태 = 카드 폴더·seats.json) ════"
 TREE="${FT_NEWS_TREE:-$CFO_DIR/NEWS-TREE.md}"
-if [ -f "$TREE" ]; then python3 "$HERE/ft-news-tree.py" "$TREE"; else echo "ERROR: 트리 원본 없음 — $TREE" >&2; fi
+if [ -f "$TREE" ]; then python3 "$HERE/ft-news-tree.py" "$TREE" --root "$ROOT" --team-dir "$CFO_DIR"; else echo "ERROR: 트리 원본 없음 — $TREE" >&2; fi

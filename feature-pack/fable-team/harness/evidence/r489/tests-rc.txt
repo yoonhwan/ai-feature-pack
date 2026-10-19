@@ -1,0 +1,133 @@
+# r489 시험 원문 (나노 · 020547f0)
+## test_news_tree_root
+PASS 대조: 인자 없이 임시본 = CalledProcessError 재현(rc=1)
+PASS ⓐ 임시본 + 두 인자 (rc=0)
+PASS ⓐ 카드 상태 = 체크아웃 indices/진행
+PASS ⓐ 트리 줄 ≥1
+PASS ⓐ ⚠카드없음 0
+PASS ⓐ Traceback 0
+PASS ⓑ indices 없음 → ref (rc=0)
+PASS ⓑ ref 읽기 = ⓐ 와 같은 출력
+PASS ⓑ env 동치 (rc=0)
+PASS ⓑ env(FT_NEWS_ROOT·FT_NEWS_TEAM_DIR) = 인자와 같은 출력
+PASS ⓒ 폴더 없음 (rc=0)
+PASS ⓒ 줄에 ?(폴더 없음)
+PASS ⓒ Traceback 0
+PASS ⓒ 카드 없는 줄은 그대로
+PASS ⓓ 인자 없이 체크아웃 트리 (rc=0)
+PASS ⓓ 옛 스크립트와 출력 바이트 같음
+PASS 틱 ⑥ 호출 줄에 --root · --team-dir 실림
+PASS 틱 ⑥ 트리 줄(카드 상태 = ref)
+PASS 틱 ⑥ Traceback 0
+PASS 틱 ⑥ SyntaxError 0
+PASS 틱 ⑥ ref 임시본 삭제(trap 그대로)
+PASS 대조: 옛 틱 ⑥ = CalledProcessError 재현
+PASS cfo ⑥ 호출 줄에 --root · --team-dir
+== fail=0
+rc=0
+## test_root_bin_shim
+PASS bash -n
+PASS ⓔ dry-run (rc=0)
+PASS ⓔ dry-run 숫자(SHIM 2 · MOVED 4 · UNKNOWN 1)
+PASS ⓔ dry-run 쓰기 0(옛 사본 그대로 · LIVE_BIN 없음 · stale 폴더 없음)
+PASS 실행 (rc=0)
+PASS 숫자 일치(dry-run 과 같음)
+PASS ⓒ 키트 밖 이름 목록 보고
+PASS stale 폴더 생성
+PASS ⓒ·ⓓ 키트 밖·.bak·__pycache__·옛 사본 전부 stale 로 옮김
+PASS ⓓ 옛 사본 바이트 그대로
+PASS ⓒ 루트 bin 에 키트 밖·bak·pycache 연결 0(없음)
+PASS ⓒ *.sh·*.py 가 아닌 키트 이름(data.txt)은 연결 0
+PASS LIVE_BIN 1줄
+PASS ⓐ $HERE=라이브 bin · 인자 그대로
+PASS ⓐ stdin 그대로
+PASS ⓐ rc 그대로 (rc=7)
+PASS ⓐ 옛 사본 실행 0
+PASS ⓐ .py 연결(python3)
+PASS ⓓ 두 번째 실행 (rc=0)
+PASS ⓓ 두 번째 = MOVED 0
+PASS ⓓ 멱등(바이트·stale 폴더 수 불변)
+PASS ⓑ LIVE_BIN 없음 → ERROR rc≠0 (rc=3)
+PASS ⓑ LIVE_BIN 빈 값 → ERROR rc≠0
+PASS ⓑ 대상 파일 없음 → ERROR rc≠0
+PASS ⓑ 옛 사본 실행 0
+PASS H1 연결 파일: 상대 LIVE_BIN → ERROR rc≠0(rc=3)
+PASS H1 연결 파일: 상대 LIVE_BIN → 라이브 도구 실행 0
+PASS H1 생성 도구: 상대 --live → rc3 (rc=3)
+PASS H1 생성 도구: ERROR 줄
+PASS H1 생성 도구: 거절 시 LIVE_BIN 불변
+PASS 변이 파일 생성(대상 없음 검사 제거)
+PASS 변이 시 ⓑ 단언이 깨진다(대상 없음인데 ERROR 가 사라짐 — 시험이 변이를 잡는다)
+PASS r484 ⑥ 절 사본 생성
+PASS r484 픽스처: 워크트리 ft-news-tree.py = bash shim
+PASS r484 ⓐ ⑥ 절 아래 트리 줄 ≥1
+PASS r484 ⓐ stderr SyntaxError 0
+PASS r484 대조: 옛 호출 꼴 = SyntaxError 재현
+PASS r484 ⓑ 옛 줄 → 린트 rc1 (rc=1)
+PASS r484 ⓑ REJECT 파일:줄 원문
+PASS r484 ⓒ 키트 bin 전수 린트 (rc=0)
+PASS r484 ⓒ OK 0건
+PASS r484 ⓓ bash <shim> 직접 실행 = 트리 줄
+PASS r484 ⓓ SyntaxError 0
+== fail=0
+rc=0
+## test_kit_bin_sync
+PASS dirs exist
+PASS tracked bin ⊂ kit bin (bytes+mode)
+PASS shim-exec lint: OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+rc=0
+## test_tick_shim_guard
+PASS bash -n ft-tick.sh
+PASS bash -n ft-tick-team.sh
+PASS bash -n ft-tick-install.sh
+PASS bin·kit 짝 cmp0 ft-tick.sh
+PASS bin·kit 짝 cmp0 ft-tick-team.sh
+PASS bin·kit 짝 cmp0 ft-tick-install.sh
+PASS bin·kit 짝 cmp0 ft-tick.plist
+PASS ⓐ shim 폴더 ft-tick.sh → exit 3
+PASS ⓐ ft-tick.sh ERROR 줄(재기동 안내)
+PASS ⓐ shim 폴더 ft-tick-team.sh → exit 3
+PASS ⓐ ft-tick-team.sh ERROR 줄(재기동 안내)
+PASS ⓐ 쪽지 0(조용히 돌지 않음)
+PASS ⓑ LIVE_BIN ft-tick.sh → exit 3 아님(rc=0)
+PASS ⓑ LIVE_BIN ft-tick.sh shim ERROR 0
+PASS ⓑ LIVE_BIN ft-tick.sh comm = 공용 루트로 풀림(cwd=워크트리)
+PASS ⓑ LIVE_BIN ft-tick-team.sh → exit 3 아님(rc=0)
+PASS ⓑ LIVE_BIN ft-tick-team.sh shim ERROR 0
+PASS ⓑ LIVE_BIN ft-tick-team.sh comm = 공용 루트로 풀림(cwd=워크트리)
+PASS ⓒ ft-tick-install --dry-run rc0
+PASS ⓒ PLAN 줄 cwd = 공용 루트(워크트리 아님)
+PASS ⓒ WorkingDirectory = 공용 루트
+PASS ⓒ FT_TICK_MBOX = 공용 루트 comm
+PASS ⓒ FT_MBOX_DIR = 공용 루트 comm
+PASS ⓒ FT_TICK_AGENT_ALIVE = 공용 루트 comm
+PASS ⓒ 공용 루트 comm 없음 → REJECT
+PASS ⓒ plist 600/300 0
+fail=0
+ALL PASS
+rc=0
+## test_live_install_check_shim
+PASS ⓐ 루트 shim 0 → PENDING shim ×3 rc1
+PASS ⓑ0 ft-root-bin-shim.sh → SHIM 3
+PASS ⓑ shim 실재 → OK · shim 줄 0 rc0
+PASS ⓒ 라이브에 없는 루트 옛 사본 → 보고 0
+PASS ⓓ LIVE_BIN 없음 → shim 줄 0 · ERROR 0 · rc0
+PASS ⓕ check 누락 목록 == 헤더 없는 라이브 이름 집합(2)
+PASS ⓕ dry-run SHIM 3 = 라이브 키트 도구 수
+PASS ⓖ 헤더 없는 같은 이름 루트 사본 → PENDING shim
+PASS ⓗ --range 에서도 PENDING shim
+PASS r413ⓐ 옛 사본 → drift-check rc3 · 설치 명령(하네스 못 풂 = <하네스>) · 옛 경로 0
+PASS r413ⓐ FT_HARNESS_ROOT → 그 하네스의 install.sh
+PASS r413ⓐ LIVE_BIN 있으면 옛 사본 판정 0(기존 경로)
+PASS r413ⓑ 옛 사본 루트·워크트리 → PENDING STALE-COPY ×2 + HINT 설치 명령
+PASS r413ⓒ shim 루트·shim 워크트리 → OK · STALE-COPY 0
+PASS core.bare 오염 0
+ALL PASS
+rc=0
+## bash -n
+bash -n 2 OK

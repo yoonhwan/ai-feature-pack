@@ -1,0 +1,5 @@
+# scope-ddl-record.tsv — «이미 오빠 승인으로 적용된 DDL» 기록 줄을 찾는 곳 (r466 · autonomy_scope_classify.py --ddl-records)
+# 줄 꼴(탭): 기록 파일(리포 기준 경로 · `-` = 이 PR 의 추가 줄) · 줄 정규식(파이썬 re · {sql} = 새 sql 파일 이름)
+# 새 *.sql 은 아래 어느 한 곳에 «그 파일 이름 + applied + 판정 번호» 줄이 있어야 docs 로 허용 — 없으면 FORBID kind=ddl-no-record
+-	{sql}.*applied:?\s*(판정\s*)?[0-9]+|applied:?\s*(판정\s*)?[0-9]+.*{sql}
+design/teams/planner/PLAN-oppa-ledger.md	{sql}.*applied:?\s*(판정\s*)?[0-9]+|applied:?\s*(판정\s*)?[0-9]+.*{sql}

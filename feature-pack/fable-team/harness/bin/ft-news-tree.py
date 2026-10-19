@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ft-news-tree.py <TREE.md> — 뉴스용 «완성본 하는 일» 트리를 한 번에 그린다.
+"""ft-news-tree.py <TREE.md> [--full] [--root <루트>] [--team-dir <팀 폴더>] — 뉴스용 «완성본 하는 일» 트리를 한 번에 그린다.
 
 왜: 나노가 많아지면 하는 일이 좌석마다 흩어진다. 오빠 2026-09-23 「많은 일을 많은 나노워커가 해도
 뉴스에서 메인하네스가 한번에 노출하도록 트리구조 출력」. 오케가 손으로 트리를 다시 쓰면 매번 달라지고
@@ -15,6 +15,11 @@ TREE.md 한 줄 = 한 노드. 들여쓰기 2칸 = 한 단계. `#` 로 시작하�
 «세션명 - 상태 - 역할 - 진행내용» 은 같은 함수(seat_state)·같은 seats.json 행(card · job · doing)에서 나온다.
   좌석 행 card = 카드 id(트리 [idx:] 와 매칭) · job = 역할 · doing = 진행내용 — 오케가 발주할 때 seats.json 에 적는다.
   대상 = 이름이 FB_CFO·CFO_ 로 시작하고 (tmux 가 살아 있거나 · 대체 없이 멈춘) 행.
+
+루트·팀 폴더(r489): 트리 파일이 ref 임시본($TMPDIR)이면 그 자리에서 리포·카드 폴더를 유도할 수 없다 — 부르는 쪽이 넘긴다.
+  --root(env FT_NEWS_ROOT) = seats.json 을 읽을 리포 · --team-dir(env FT_NEWS_TEAM_DIR) = 카드 폴더(indices)의 팀 폴더.
+  카드 폴더 = <팀 폴더>/indices 실재 → ref(FT_TEAMS_REF · 기본 origin/main)의 같은 상대 경로 → 둘 다 없으면 «?(폴더 없음)».
+  둘 다 없으면 옛 유도 그대로(트리 파일 폴더 기준 · 역호환).
 """
 import json
 import os
@@ -28,11 +33,28 @@ FOLDER_GLYPH = {"완성": "✅", "진행": "🔄", "대기": "⏳", "inbox": "�
 LINE = re.compile(r"^(?P<ind> *)(?:\[(?P<st>[" + GLYPHS + r"])?\s*(?:idx:(?P<idx>[^\]\s]+))?\]\s*)?(?P<text>.*)$")
 
 
-def card_folder(indices: Path, idx: str) -> str | None:
+def card_folder(indices: Path | set[str], idx: str) -> str | None:
+    # indices = 실재 카드 폴더(Path) 또는 ref 의 «<폴더>/<카드>.md» 목록(set · r489)
     for folder in FOLDER_GLYPH:
-        if (indices / folder / f"{idx}.md").exists():
+        if isinstance(indices, set):
+            if f"{folder}/{idx}.md" in indices:
+                return folder
+        elif (indices / folder / f"{idx}.md").exists():
             return folder
     return None
+
+
+def card_source(team_dir: Path, root: Path) -> Path | set[str] | None:
+    # r489: <팀 폴더>/indices 실재 → 그 폴더 · 없으면 ref 의 같은 상대 경로 목록 · 그것도 없으면 None(= ?(폴더 없음))
+    local = team_dir / "indices"
+    if local.is_dir():
+        return local
+    rel = os.path.relpath(local, root)
+    ref = os.environ.get("FT_TEAMS_REF", "origin/main")
+    r = subprocess.run(["git", "-C", str(root), "ls-tree", "-r", "--name-only", ref, "--", f"{rel}/"],
+                       capture_output=True, text=True)
+    names = {p[len(rel) + 1:] for p in r.stdout.splitlines()} if r.returncode == 0 else set()
+    return names or None
 
 
 def nano_slug(idx: str) -> str:
@@ -114,7 +136,9 @@ def parse(path: Path) -> list[dict]:
 def resolve(node: dict, ctx: dict) -> str:
     kids = [resolve(c, ctx) for c in node["children"]]
     note = ""
-    if node["idx"]:
+    if node["idx"] and ctx["indices"] is None:  # r489: 루트에도 ref 에도 카드 폴더가 없다 — 모른다고 쓰고 죽지 않는다
+        st, note = node["st"] or "?", " ?(폴더 없음)"
+    elif node["idx"]:
         folder = card_folder(ctx["indices"], node["idx"])
         derived = FOLDER_GLYPH.get(folder or "", "❌")
         if folder is None:
@@ -158,20 +182,31 @@ def render(nodes: list[dict], prefix: str = "", full: bool = True) -> list[str]:
     return lines
 
 
+def opt(args: list[str], name: str, env: str) -> str:
+    # r489: `name 값` 을 args 에서 빼서 돌려준다 · 없으면 env · 둘 다 없으면 "" (= 옛 유도)
+    if name in args:
+        i = args.index(name)
+        val = args[i + 1] if i + 1 < len(args) else ""
+        del args[i:i + 2]
+        return val
+    return os.environ.get(env, "")
+
+
 def main() -> int:
     # 전체본 = 오빠가 «전체»를 요청할 때만(--full 또는 FT_NEWS_FULL=1) — 기본은 요약본(컨텍스트 소모)
     full = "--full" in sys.argv or os.environ.get("FT_NEWS_FULL") == "1"
     args = [a for a in sys.argv[1:] if a != "--full"]
+    root_arg, team_arg = opt(args, "--root", "FT_NEWS_ROOT"), opt(args, "--team-dir", "FT_NEWS_TEAM_DIR")
     if len(args) != 1:
         print(__doc__, file=sys.stderr)
         return 2
     tree = Path(args[0])
-    wt = Path(subprocess.run(["git", "-C", str(tree.parent), "rev-parse", "--show-toplevel"],
+    wt = Path(subprocess.run(["git", "-C", root_arg or str(tree.parent), "rev-parse", "--show-toplevel"],
                              capture_output=True, text=True, check=True).stdout.strip())
     common = Path(subprocess.run(["git", "-C", str(wt), "rev-parse", "--path-format=absolute", "--git-common-dir"],
                                  capture_output=True, text=True, check=True).stdout.strip()).parent
     ctx = {
-        "indices": tree.parent / "indices",
+        "indices": card_source(Path(team_arg), wt) if team_arg else tree.parent / "indices",
         "seats": json.loads((common / ".fable-team" / "seats.json").read_text(encoding="utf-8")),
         # 트리 원본 워크트리(c-level-planning)엔 .fable-team/bin 이 없다 — 이 스크립트 옆 것을 쓴다(없으면 턴이 전부 ?)
         "status_sh": Path(__file__).resolve().parent / "ft-seat-status.sh",
@@ -187,7 +222,8 @@ def main() -> int:
         print(f"{n['out_st']} {n['text'] if full else short(n['text'])}{n['note']}")
         print("\n".join(render(n["children"], full=full)))
     total = sum(ctx["count"].values())
-    print("\n말단 " + " · ".join(f"{g}{ctx['count'].get(g, 0)}" for g in GLYPHS) + f" / {total}")
+    unknown = f" · ?{ctx['count']['?']}" if "?" in ctx["count"] else ""
+    print("\n말단 " + " · ".join(f"{g}{ctx['count'].get(g, 0)}" for g in GLYPHS) + unknown + f" / {total}")
     if not full:
         print("(요약본 — ✅ 닫힌 가지 생략 · 긴 행은 «무엇 … 지금» 만 · 전체본: FT_NEWS_FULL=1)")
     print("\n세션 상태")
