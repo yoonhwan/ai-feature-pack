@@ -14,10 +14,8 @@ import json
 import logging
 import os
 import re
-import signal
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -30,8 +28,7 @@ LOG = logging.getLogger("ft_news_html")
 KEEP = ("오빠 할 일", "팀 작업", "드러난 문제", "체크리스트")  # 원장에서 싣는 절(머리 글자) — 나머지(완료 보관·옛 지시)는 지도 원천이 아니다
 SECTION_CHARS, LEDGER_CHARS, URGENT_N, MAILBOX_TAIL = 2500, 9000, 5, 262144
 HEAD = re.compile(r"^(#{2,3})\s+(.*)")
-SEAT_S = 7  # tmux ls · 좌석 turn 판정 각 1회 상한(7초 룰)
-SEAT_POOL = 32  # 좌석 turn 동시 판정 상한(r490 · 풀 8 이면 부하에서 7초 초과가 줄줄이 겹쳤다)
+SEAT_S = 7  # tmux ls 1회 상한(7초 룰)
 
 
 def _git(repo: Path, *a: str) -> str:
@@ -118,43 +115,29 @@ def _sessions() -> list[str]:
     return done.stdout.split() if done.returncode == 0 else []
 
 
-def _turn_once(seat: str) -> tuple[str, str]:
-    """ft-seat-status.sh turn 1회 — (첫 칸, "") · 시간 초과 = ("?", "timeout")(프로세스 묶음째 kill · 손자가 파이프를 쥐어도 상한 안) · rc≠0 = ("?", "rc")."""
-    p = subprocess.Popen(["bash", str(HERE / "ft-seat-status.sh"), "turn", seat, "--no-reported"], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+def _turns(seats: list[str]) -> dict[str, tuple[str, str]]:
+    """좌석들 → (WORKING·IDLE·…|«?», 사유) 한 번에 — 판정기 = ft_seat_turn(셸 도구와 같은 것 · 좌석별 하위 프로세스 0 · r504)."""
+    from ft_seat_turn import turns
     try:
-        out, _ = p.communicate(timeout=SEAT_S)
-    except subprocess.TimeoutExpired:
-        os.killpg(p.pid, signal.SIGKILL)
-        p.communicate()
-        return "?", "timeout"
-    return ((out.split() or ["?"])[0], "") if p.returncode == 0 else ("?", "rc")
-
-
-def _turn(seat: str) -> tuple[str, str]:
-    """좌석 jsonl 턴 판정 (첫 칸 WORKING·IDLE·…, 사유) — 첫 출력 전 실패(시간 초과·rc≠0)는 1회 재시도(7초 룰 · r490) ·
-    둘 다 실패 = ("?", timeout|rc) → «확인 불가»로 센다(«쉬는»이 아니다)."""
-    got = _turn_once(seat)
-    return _turn_once(seat) if got[0] == "?" else got
+        return turns(seats, os.environ.get("FT_TMUX", "tmux"), Path(os.environ.get("FT_CLAUDE_PROJECTS") or Path.home() / ".claude" / "projects"))
+    except subprocess.TimeoutExpired:  # tmux list-panes 7초 초과 — 전 좌석 «확인 불가»(사유 보임 · 쉼 아님)
+        return {s: ("?", "tmux 시간 초과") for s in seats}
 
 
 def _unknown_reason(reasons: list[str]) -> str:
-    parts = [f"turn 시간 초과 {reasons.count('timeout')}석" if "timeout" in reasons else "", f"실패 {reasons.count('rc')}석" if "rc" in reasons else ""]
-    return " · ".join(p for p in parts if p)
+    return " · ".join(f"{r} {reasons.count(r)}석" for r in dict.fromkeys(reasons))  # «jsonl 없음 N석 · 읽기 실패 N석» (r490 꼴)
 
 
 def live_teams(root: Path) -> list[dict]:
     """팀별 라이브 좌석 실측(r478c): 팀 = 명부 seats-<팀>.json(+ seats.json = v65) · 좌석 = tmux 세션 중 `byz-<팀>-`·`ft-<팀>-` 로 시작하는 것 ·
-    일하는 좌석 = ft-seat-status.sh turn 이 WORKING · 확인 불가 = «?»(사유 unknown_reason · r490). 쪽지 문장·스냅샷의 옛 «일함» 값은 쓰지 않는다."""
+    일하는 좌석 = 턴 판정(ft_seat_turn)이 WORKING · 확인 불가 = «?»(사유 unknown_reason · r490). 쪽지 문장·스냅샷의 옛 «일함» 값은 쓰지 않는다."""
     fable = root / ".fable-team"
     names = [p.name[len("seats-"):-len(".json")] for p in fable.glob("seats-*.json")] + (["v65"] if (fable / "seats.json").is_file() else [])
     if not names:
         raise RuntimeError(f"명부 0개({fable}/seats-*.json) — 팀 실측 불가")
     sessions = _sessions()
     seats = {t: [s for s in sessions if s.startswith((f"byz-{t}-", f"ft-{t}-"))] for t in sorted(set(names))}
-    every = sorted({s for ss in seats.values() for s in ss})
-    with ThreadPoolExecutor(max(1, min(len(every), SEAT_POOL))) as pool:  # 좌석 ≤ 32 면 한 번에 — 합계 ≤ 2×SEAT_S
-        state = dict(zip(every, pool.map(_turn, every)))
+    state = _turns(sorted({s for ss in seats.values() for s in ss}))
     return [{"team": t, "live": len(ss), "working": sum(state[s][0] == "WORKING" for s in ss), "unknown": sum(state[s][0] == "?" for s in ss),
              "unknown_reason": _unknown_reason([state[s][1] for s in ss if state[s][0] == "?"])} for t, ss in seats.items()]
 

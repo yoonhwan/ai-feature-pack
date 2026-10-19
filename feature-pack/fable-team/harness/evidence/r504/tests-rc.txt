@@ -1,0 +1,71 @@
+# r504 시험 원문 (2026-10-20 · 팩 가지 nano/r504-news-seat-turn-batch-jsonl-no-per-s · base 855d2797)
+## pytest tests/scripts/test_seat_turn_batch.py
+......                                                                   [100%]
+6 passed in 22.55s
+rc=0
+## pytest tests/scripts/test_ft_news_html.py
+......................................                                   [100%]
+38 passed in 18.14s
+rc=0
+## pytest tests/scripts/test_ft_seat_turn_window.py
+........                                                                 [100%]
+8 passed in 0.91s
+rc=0
+## pytest tests/scripts/test_ft_seat_codex.py
+..........                                                               [100%]
+10 passed in 0.89s
+rc=0
+## bash tests/test_kit_bin_sync.sh
+ALL PASS
+PASS 수 7
+rc=0
+## bash tests/test_news_tree_root.sh
+FAIL 대조: 옛 틱 ⑥ = CalledProcessError 재현 — 없음: «CalledProcessError» ← 
+PASS 수 22
+rc=1
+## bash tests/test_news_html.sh
+38 passed in 17.50s
+PASS 수 0
+rc=0
+## bash tests/test_tick_line.sh
+FAIL M6 baseline raw == 2 (창 밖 부팅 보고 제외) (기대 '2' 실제 'Traceback (most recent call last):
+FAIL M6 baseline succession == 1 (기대 '1' 실제 'Traceback (most recent call last):
+FAIL M6 baseline first_boot == 1 (기대 '1' 실제 'Traceback (most recent call last):
+FAIL M6 baseline interview == 3 (기대 '3' 실제 'Traceback (most recent call last):
+FAIL M6 baseline window 고정 (기대 '{"interview": ["2026-10-08T00:00:00Z", "2026-10-11T14:45:59Z"], "mailbox": ["2026-10-08T21:04:00", "2026-10-11T23:45:59"]}' 실제 'Traceback (most recent call last):
+FAIL 83
+PASS 수 114
+rc=83
+## bash tests/test_harness_root.sh
+FAIL ⓒ news-tick 트리 = ref 본문(체크아웃 v65 폴더 0) — 없음: «TREE-OK TREE-R459» ← ME=me (seats.json 현역 master)
+PASS 수 73
+rc=1
+## bash tests/test_root_bin_shim.sh
+PASS 수 94
+rc=0
+## bash tests/test_nano_slots.sh
+ALL PASS
+PASS 수 17
+rc=0
+## bash tests/test_team_tick_unify.sh
+FAIL ⓖ H2 --script wt/scripts/fable-team-bin → 거부 rc (got=[0] want=[1])
+PASS 수 54
+rc=1
+## bash tests/test_team_literal_paths2.sh
+FAIL   └ HINT = 팀 폴더 서술형 — 없음: «하네스 팀 폴더의 PLAN-release» ← ERROR ref 에 경로가 없음: HEAD:feature-pack/fable-team/harness/kit/fable-team/bin
+FAIL ⓔ2 drift rc=3 ← ERROR ref 에 경로가 없음: HEAD:feature-pack/fable-team/harness/kit/fable-team/bin
+FAIL   └ HINT = 팀 폴더 서술형 — 없음: «하네스 팀 폴더의 PLAN-release» ← ERROR ref 에 경로가 없음: HEAD:feature-pack/fable-team/harness/kit/fable-team/bin
+FAIL ⓔ fail-closed ft-nano-close: rc=1 · «팀 명단 없음» — 없음: «팀 명단 없음» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UMnEAc0y3j/xcb1
+FAIL ⓔ fail-closed ft-nano-slots: rc=1 · «팀 명단 없음» — 없음: «팀 명단 없음» ← ERROR v65 명단(origin/main:design/TEAMS.md)을 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UMnEAc0y3j/xr1
+FAIL ⓔ fail-closed drift rc=3 ← ERROR ref 에 경로가 없음: HEAD:feature-pack/fable-team/harness/kit/fable-team/bin
+PASS 수 302
+rc=1
+## 기존 셸 시험 실패 대조: test_news_tree_root 1 · test_tick_line 84 · test_harness_root 1 · test_team_tick_unify 1 · test_team_literal_paths2 22 = origin/main 855d2797 사본과 FAIL 줄 같음(임시 폴더 이름만 다름 · diff 0)
+## pytest 뉴스 묶음 10개 (test_news_status_section.py)
+FAILED tests/scripts/test_ft_news_publish_import_path.py::test_repo_original_finds_kit_folder
+FAILED tests/scripts/test_news_status_section.py::test_h1_tick_calls_stale_watch_when_ledger_off
+3 failed, 103 passed in 29.91s
+rc=1
+## 기존 pytest 실패 3(test_ft_tick_passes_shellcheck · test_repo_original_finds_kit_folder · test_h1_tick_calls_stale_watch_when_ledger_off) = origin/main 855d2797 사본과 FAILED 줄 같음 — 고침 단위는 master 에 별 카드 요청
+## 병합 HEAD 497d31c0(origin/main ecee4971 · r503 1.1.59) 재실행 — 1.1.60
+test_seat_turn_batch 6 passed rc=0 · test_ft_news_html 39 passed rc=0(r503 시험 1 포함) · test_ft_seat_turn_window 8 passed rc=0 · test_ft_seat_codex 10 passed rc=0 · test_kit_bin_sync ALL PASS rc=0 · test_ledger_repo_sync(r503) ALL PASS
