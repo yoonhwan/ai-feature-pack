@@ -14,9 +14,10 @@ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 MAX="${FT_NANO_SLOTS:-5}"
 if [ -n "${FT_INDEX_DIR:-}" ]; then IDX_DIR="$FT_INDEX_DIR"
-else   # R383: v65 팀 폴더 후보(명단 꼴 → 쌍둥이)는 WT 의 design/TEAMS.md 로 — 팀 이름 글자 0 · 이동 전·후 둘 다 찾는다
+else   # R416: «명단 = ref · 폴더 = WT 실재»(R400 r3·R406 과 같은 함수) — 공유 루트의 옛 TEAMS.md 사본을 믿지 않는다 · ref 못 읽음 = ERROR(cwd 명단 후퇴 0)
   . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다" >&2; exit 1; }
-  _cands="$(ft_team_cands "$WT" v65)" || { echo "ERROR v65 팀 폴더를 못 풀었다(design/TEAMS.md)" >&2; exit 1; }
+  _ref="${FT_TEAMS_REF:-origin/main}"
+  _cands="$(ft_team_cands_ref "$WT" v65 "$_ref")" || { echo "ERROR v65 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $WT)" >&2; exit 1; }
   IDX_DIR="$(printf '%s\n' "$_cands" | head -1)/indices"
   for _c in $_cands; do [ -d "$_c/indices" ] && { IDX_DIR="$_c/indices"; break; }; done
 fi

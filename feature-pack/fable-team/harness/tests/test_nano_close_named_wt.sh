@@ -111,8 +111,15 @@ cmp -s "$REPO/.fable-team/seats-planner.json" "$T/seats.orig" && ok "  └ 명�
 rm -f "$IXR/대기/ovr.md" "$IXR/완성/ovr.md"
 
 echo "== 전부 맞음 → 통과"
+# R416: CLOSED 꼬리의 ft-nano-slots 가 실제로 돈다 — 루트 사본 TEAMS.md = 옛 판(v65 행 없음) · ref(origin/main) 명단 = v65 있음 (v6-live 꼴)
+cp "$SRC/ft-nano-slots.sh" "$SRC/ft-team-lib.sh" "$T/bin/"; mkdir -p "$REPO/design/teams/v65/indices/대기"
+printf '| 팀 | 폴더 |\n|---|---|\n| v65 | `design/teams/v65/` |\n' > "$REPO/design/TEAMS.md"; GIT add design/TEAMS.md; GIT commit -qm teams
+GIT update-ref refs/remotes/origin/main HEAD; printf '| 팀 | 폴더 |\n|---|---|\n| kk | `design/kk/` |\n' > "$REPO/design/TEAMS.md"
 setup; out="$(close --wt "$NW" --branch "$BR")"; rc=$?
 [ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "전부 맞음 → CLOSED(rc=0)" || bad "통과 rc=$rc ← ${out:0:500}"
+has "$out" "SLOTS nano" "  └ R416 꼬리 ft-nano-slots 출력(SLOTS 줄)"
+hasnt "$out" "WARN ft-nano-slots" "  └ R416 꼬리 WARN ft-nano-slots 0(루트 사본 옛 명단)"
+hasnt "$out" "팀 명단(TEAMS.md)에 없다" "  └ R416 꼬리 cwd 명단 ERROR 0"
 has "$out" "OK 증거 줄" "  └ ⓕ 증거 줄(--repo = --wt · 현재 HEAD) 통과"
 [ "$(cat "$T/cherry.args" 2>/dev/null)" = "feat/v6-realtime-live $BR" ] && ok "  └ ⓖ cherry 게이트가 --branch 기준으로 호출됨" || bad "cherry 인자: $(cat "$T/cherry.args" 2>/dev/null)"
 has "$(cat "$T/tlog")" "kill-session" "  └ 세션 kill(표준승인 경로)"

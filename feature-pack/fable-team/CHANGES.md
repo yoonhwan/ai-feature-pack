@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-19 — 공유 루트에서 나노를 닫으면 꼬리에 남던 «팀 명단 없음» ERROR·WARN 을 없앤다: 빈 석 계산도 명단 = ref · 폴더 = 그 루트 (1.1.15)
+
+카드 r416 · v65#211 쪽지 110851 · master 110852 · arch#96 실측. v65 가 공유 루트 v6-realtime-live 에서 나노를 닫으면 닫기는 통과하는데 꼬리에 `ERROR v65 은 팀 명단(TEAMS.md)에 없다` · `ERROR v65 팀 폴더를 못 풀었다(design/TEAMS.md)` · `WARN ft-nano-slots 실패(rc=1) — 빈 석을 손으로 세라` 3줄이 남았습니다. 세 줄 전부 닫기 끝에 부르는 `ft-nano-slots.sh` 가 cwd 사본 `design/TEAMS.md`(옛 8행 · v65 행 없음)로 팀 폴더를 풀던 한 곳에서 나왔습니다.
+
+- **ft-nano-slots.sh**: `ft_team_cands "$WT" v65` → `ft_team_cands_ref "$WT" v65 "${FT_TEAMS_REF:-origin/main}"`(R400 r3 nano-close · R406 spawn·lint 와 같은 함수). ref 못 읽음 = `ERROR v65 명단(<ref>:design/TEAMS.md)을 못 읽음` rc1 — cwd 명단으로 되돌아가지 않는다(#0 RULE). 실패 줄에 ref·루트를 적는다. `FT_INDEX_DIR` 주입 경로는 불변. bin·kit 짝 cmp0.
+- **시험**: `test_nano_slots.sh` 케이스 4(ⓐ 옛 사본 + ref 명단 v65 → rc0·빈 석·v65 카드 후보 ⓑ ref 없음 → ERROR rc1·SLOTS 0 ⓒ FT_INDEX_DIR → 명단 호출 0 ⓓ FT_TEAMS_REF 로 ref 선택) · `test_nano_close_named_wt.sh` 통과 케이스에 꼬리 SLOTS 줄 있음·WARN·cwd 명단 ERROR 0 — 옛 코드로 돌리면 둘 다 RED(꼬리 3줄 재현). 증거 `harness/evidence/r416/`.
+- 범위 밖(기록만): cwd 명단(`ft_team_in`/`ft_team_cands`)을 쓰는 나머지 라이브 도구 17개 — 공유 루트에서 같은 꼴이 관측되면 도구 하나 = 카드 하나.
+
 ## 2026-10-19 — 워크트리 «옛 bin 통째 사본» 을 알아보고 설치 명령을 말한다: drift-check 메시지 · install-check STALE-COPY 행 · seat-close REJECT 에 --verdict 경로 (1.1.14)
 
 카드 r413 · v65 쪽지 110777 · master 110781 ②·110801 ③. 공유 루트 `v6-realtime-live/.fable-team/bin` 이 shim 이 아닌 옛 통째 사본(418 파일 · LIVE_BIN·해석기 없음)이라 그 cwd 의 nano-close 입구 drift-check 가 BYZ 옛 키트 경로를 찾다 «ERROR ref 에 경로가 없음 → main 키트와 다르다» 로 막혔고, 받는 쪽은 무엇을 할지 몰랐습니다.
