@@ -90,6 +90,17 @@ try:
 except ImportError as _e:
     goal_gate = _MissingGate(_e)
 
+
+def teams_block() -> str:
+    """뉴스 첫 판 골 표 뒤 «팀별 완성 진행» 블록(R458 · ft_goal_table.render_teams) — 실패 = WARN + 빈 글(새 거절 게이트 0 · 뉴스를 멈추지 않는다 · 골 6)."""
+    try:
+        import ft_goal_table as gt  # noqa: E402
+        return gt.render_teams()
+    except (ImportError, RuntimeError, OSError, ValueError) as e:
+        LOG.warning("팀별 완성 진행 블록 없이 발행: %s", e)
+        return ""
+
+
 HERE = Path(__file__).resolve().parent
 POSTED = re.compile(r"^ft-news-publish: 발행 완료 ts=(\d+\.\d+) channel=([A-Z][A-Z0-9]*) permalink=(\S+)$")  # 줄 «전체» 일치만 — 본문 인용 줄을 결과로 오인하지 않는다
 SAME_LINE = "ft-news-publish: 같은 내용 — 발행 0"

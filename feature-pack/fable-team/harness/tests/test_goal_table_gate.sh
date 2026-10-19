@@ -271,4 +271,96 @@ printf '%s\n골좌표: 4 — 하네스팀 랜딩부터\n본문\n' "$BLOCK" > "$T
 new_env; relay_from "$PM" "$T/att-coord.md" $'[발주 #3] 요약만 — 좌표 줄 없음'
 [ "$RC" = 3 ] && [ "$(queued)" = 0 ] && ok "ⓢ 요약에 골좌표 없음(첨부 안에만 있음) → REJECT" || bad "ⓢ 요약 좌표 rc=$RC :: $OUT"
 
+# ══ R458 — 뉴스 폴더·원장 sha·경로 = 원장 리포 1곳 · 팀별 완성 진행 블록(뉴스 첫 판·매거진) · 거절 게이트 0
+NR="$T/r458"; NROOT="$NR/root"; NREPO="$NR/ledger"; mkdir -p "$NROOT/.fable-team/state/news-ledger" "$NROOT/design/planner/news" "$NREPO/design/planner"   # 루트 = TEAMS.md 없음(로컬 main 이 뒤처진 공용 루트 재현)
+teams_md "$NREPO"; mkledger "$NOWSTAMP"; TLED="$NR/ledger-teams.md"
+{ cat "$LEDGER"; printf '\n## 팀별 완성 진행\n\n| 팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것 |\n|---|---|---|---|\n'
+  for i in 0 1 2 3 4 5 6 7 8 9 10 11; do printf '| team%s | %s/6 | abcdef%04d | 지금하는일%s 길게길게길게길게길게길게길게길게 |\n' "$i" "$((i % 7))" "$i" "$i"; done; } > "$TLED"
+cp "$TLED" "$NREPO/design/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" init -q && git -C "$NREPO" add -A && git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qm base
+BASE_SHA="$(git -C "$NREPO" rev-parse HEAD)"; printf '\n## 3. 팀 작업\n\n- 새 줄 r458\n' >> "$NREPO/design/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qam cur
+news_run() {  # [env…] → OUT(ERROR 로그·news=·parts) · RC — 발행 도구·알림·요약 송신은 시험 대역(실 슬랙·실 mbox 0)
+  OUT="$(env -u FT_NEWS_DIR -u FT_LEDGER_PATH FT_ROOT="$NROOT" FT_LEDGER_REPO="$NREPO" FT_NEWS_STATUS_INTERVAL=0 FT_NEWS_NOW="2026-10-19 18:00" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$TLED" "$@" python3 - "$REPO/harness/bin" "$NROOT" <<'PY' 2>&1
+import logging, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1]); logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+import ft_news_ledger as nl
+def fake(news, state, parts, now, cur):
+    print(f"news={news}"); [print(f"===PART {i}\n{p}") for i, p in enumerate(parts, 1)]
+    return 0, [None] * len(parts)
+nl.publish, nl.maybe_send, nl.notify = fake, lambda *a, **k: None, lambda *a, **k: None
+state = Path(sys.argv[2]) / ".fable-team/state/news-ledger"
+rc, why = nl._run(Path(sys.argv[2]), state); print(f"rc={rc} why={why}"); raise SystemExit(rc)
+PY
+)"; RC=$?; }
+part1() { printf '%s\n' "$OUT" | awk '/^===PART 1$/{f=1;next} /^===PART /{f=0} f'; }
+
+# ⓐ 루트에 TEAMS.md 없음 + 원장 리포 명단(옛 꼴) → 뉴스 폴더 = <루트>/design/planner/news (지금 ERROR 팀 명단 없음 재현 → 통과)
+printf '%s\n' "$BASE_SHA" > "$NROOT/.fable-team/state/news-ledger/last.sha"; news_run
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -qxF "news=$NROOT/design/planner/news" && ! printf '%s' "$OUT" | grep -q '팀 명단 없음' && ok "ⓐ r458 루트 명단 없음 → 원장 리포 명단으로 뉴스 폴더 풀림 rc0" || bad "ⓐ r458 뉴스 폴더 rc=$RC :: $OUT"
+mv "$NROOT/design/planner/news" "$NR/news.off"; news_run
+[ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q "ERROR 원장 뉴스 실패: 뉴스 폴더 없음 $NROOT/design/planner/news" && ! printf '%s' "$OUT" | grep -q '^news=' && ok "ⓐ r458 폴더 실재 0 → ERROR 뉴스 폴더 없음(폴백 0 · 발행 0)" || bad "ⓐ r458 폴더 없음 rc=$RC :: $OUT"
+mv "$NR/news.off" "$NROOT/design/planner/news"
+# ⓑ FT_NEWS_DIR 지정은 그대로 우선
+news_run FT_NEWS_DIR="$NR/custom-news"
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -qxF "news=$NR/custom-news" && ok "ⓑ r458 FT_NEWS_DIR 우선" || bad "ⓑ r458 FT_NEWS_DIR rc=$RC :: $OUT"
+# ⓒ ft-goal-table.sh teams — 마커 2줄 · 열 4 · 12행 · ≤1600B · 표 없음 = 빈 출력 + WARN rc0(거절 0)
+TB="$(FT_GOAL_A6_LEDGER="$TLED" bash "$TOOL" teams 2>"$T/err")"; RC=$?; TSHA="$(shasum -a 256 "$TLED" | cut -c1-10)"
+[ "$RC" = 0 ] && printf '%s\n' "$TB" | head -1 | grep -qxF "★팀별 완성 진행 ($TSHA)★" && printf '%s\n' "$TB" | tail -1 | grep -qxF '★/팀별 완성 진행★' && ok "ⓒ r458 teams 마커 2줄(원장 sha10)" || bad "ⓒ r458 teams 마커 rc=$RC :: $TB"
+[ "$(printf '%s\n' "$TB" | grep -c '^| team')" = 12 ] && printf '%s' "$TB" | grep -qF '| team3 | 3/6 | abcdef0003 |' && [ "$(printf '%s\n' "$TB" | wc -c)" -le 1600 ] && ok "ⓒ r458 teams 12행·칸(팀|끝선|착지|지금) · ≤1600B($(printf '%s\n' "$TB" | wc -c | tr -d ' ')B)" || bad "ⓒ r458 teams 행 :: $TB"
+printf '%s' "$TB" | grep -q '읽히면 안 됨\|원장 글자' && bad "ⓒ r458 다른 절 표가 섞임" || ok "ⓒ r458 «## 팀별 완성 진행» 절 표만 읽음"
+TB0="$(FT_GOAL_A6_LEDGER="$LEDGER" bash "$TOOL" teams 2>"$T/err")"; RC=$?
+[ "$RC" = 0 ] && [ -z "$TB0" ] && grep -q '^WARN 팀별 완성 진행 표 없음' "$T/err" && ok "ⓒ r458 표 없음 = 빈 출력 + WARN rc0(거절 0)" || bad "ⓒ r458 표 없음 rc=$RC :: $TB0 :: $(cat "$T/err")"
+check_body "$BLOCK"$'\n'"$TB"$'\n골좌표: 4 — 하네스팀 랜딩부터'; [ "$RC" = 0 ] && ok "ⓒ r458 check 불변(골 표 + teams 블록 → GOAL-OK)" || bad "ⓒ r458 check rc=$RC :: $OUT"
+# ⓓ 뉴스 첫 판 = 머리 → 골 표 → 팀별 진행 → lead · 3500B 포함 · 이어진 판엔 없음
+news_run; P1="$(part1)"
+lno() { printf '%s\n' "$P1" | grep -n "$1" | head -1 | cut -d: -f1; }
+ORDER="$(lno '^\*뉴스 ') $(lno '^★골 표 A6') $(lno '^★/골 표★') $(lno '^★팀별 완성 진행 (') $(lno '^★/팀별 완성 진행★') $(lno '^\*바뀐 것\*')"
+[ "$RC" = 0 ] && [ "$ORDER" = "$(printf '%s\n' $ORDER | sort -n | tr '\n' ' ' | sed 's/ $//')" ] && [ "$(printf '%s\n' $ORDER | wc -l | tr -d ' ')" = 6 ] && ok "ⓓ r458 첫 판 순서 머리→골 표→팀별 진행" || bad "ⓓ r458 순서 [$ORDER] :: $P1"
+OUT="$(FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$TLED" python3 - "$REPO/harness/bin" <<'PY' 2>&1
+import sys; from datetime import datetime
+sys.path.insert(0, sys.argv[1])
+import ft_goal_table as gt, ft_news_ledger_text as t
+goal, teams = gt.render(), gt.render_teams()
+diff = [("새로", f"줄 {i} " + "가" * 120) for i in range(60)]
+parts = t.render_parts(datetime(2026, 10, 19, 18, 0), {}, diff, "design/planner/PLAN-oppa-ledger.md", (), "결정 인터뷰 0건", goal, teams)
+print(len(parts), max(len(p.encode()) for p in parts), "★팀별 완성 진행 (" in parts[0], sum("★팀별 완성 진행" in p for p in parts[1:]), parts[0].index("★/팀별 완성 진행★") < parts[0].index("결정 인터뷰"))
+none = t.render_parts(datetime(2026, 10, 19, 18, 0), {}, diff[:1], "x", (), "", goal, "")
+print("빈teams", "팀별" not in none[0])
+PY
+)"
+set -- $OUT; [ "${1:-0}" -ge 2 ] && [ "${2:-9999}" -le 3500 ] && [ "${3:-}" = True ] && [ "${4:-}" = 0 ] && [ "${5:-}" = True ] && [ "${7:-}" = True ] && ok "ⓓ r458 판 $1개 · 최대 ${2}B ≤3500 · 팀별 진행 첫 판만(lead 앞) · 빈 값 = 줄 0" || bad "ⓓ r458 나누기 :: $OUT"
+# ⓔ 매거진 — 같은 블록이 뿌리 글·HTML 절에 · 표 없음·도구 실패 = 빈 글(무장이어도 발행 거절 0)
+MAG="$REPO/harness/kit/slack-mirror"; mkdir -p "$NR/mag/.fable-team/state"; : > "$NR/mag/.fable-team/state/goal-gate.armed"
+OUT="$(FT_ROOT="$NR/mag" FT_GOAL_TABLE="$TOOL" FT_GOAL_A6_MD="$CANON" python3 - "$MAG" "$TLED" "$LEDGER" <<'PY' 2>&1
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import magazine_goal as mg
+os.environ["FT_GOAL_A6_LEDGER"] = sys.argv[2]
+goal = "\n".join(x for x in (mg.block(), mg.teams_block()) if x)
+root = mg.with_root("매거진 2026-10-19 · 오빠 확인판\n둘째 줄", goal)
+lines = root.splitlines()
+print("first", lines[0] == "매거진 2026-10-19 · 오빠 확인판", "order", lines.index("★/골 표★") < lines.index(next(l for l in lines if l.startswith("★팀별 완성 진행 ("))) < lines.index("둘째 줄"), "html", "★팀별 완성 진행 (" in mg.html_section(goal))
+os.environ["FT_GOAL_A6_LEDGER"] = sys.argv[3]
+print("empty", repr(mg.teams_block()))
+os.environ["FT_GOAL_TABLE"] = "/없는/ft-goal-table.sh"
+print("broken", repr(mg.teams_block()))
+PY
+)"
+printf '%s' "$OUT" | grep -q '^first True order True html True$' && printf '%s' "$OUT" | grep -q "^empty ''$" && printf '%s' "$OUT" | grep -q "^broken ''$" && ok "ⓔ r458 매거진 뿌리 글(첫 줄 그대로 → 골 표 → 팀별 진행)·HTML 절 · 표 없음/도구 없음 = 빈 글(무장 거절 0)" || bad "ⓔ r458 매거진 :: $OUT"
+# ⓕ 원장 sha·경로·리포 = 원장 정본 한 값(FT_LEDGER_REPO + 경로) — 기준선 판이 옛 경로(design/planner/)·지금 판이 새 경로(design/teams/planner/) = 명확한 ERROR(옛 경로 후퇴·쌍둥이 읽기 0 · 발행 0)
+mkdir -p "$NREPO/design/teams" "$NROOT/design/teams/planner/news"; git -C "$NREPO" mv design/planner design/teams/planner && sed -i.bak 's#`design/planner/`#`design/teams/planner/`#' "$NREPO/design/TEAMS.md" && rm -f "$NREPO/design/TEAMS.md.bak"
+git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qam move; MOVE_SHA="$(git -C "$NREPO" rev-parse HEAD)"
+printf '%s\n' "$BASE_SHA" > "$NROOT/.fable-team/state/news-ledger/last.sha"; news_run FT_GOAL_A6_LEDGER=
+[ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q "ERROR 원장 뉴스 실패: 기준선 ${BASE_SHA:0:10} 판에 원장 정본 design/teams/planner/PLAN-oppa-ledger.md 이 없다" && printf '%s' "$OUT" | grep -q '옛 경로 후퇴 0' && ! printf '%s' "$OUT" | grep -q '^news=\|exists on disk, but not in' && ok "ⓕ r458 기준선 옛 경로 ≠ 정본 새 경로 → 명확한 ERROR(발행 0 · git show 날 오류 0)" || bad "ⓕ r458 옛 경로 기준선 rc=$RC :: $OUT"
+printf '%s\n' "ffffffffffffffffffffffffffffffffffffffff" > "$NROOT/.fable-team/state/news-ledger/last.sha"; news_run FT_GOAL_A6_LEDGER=
+[ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '기준선 ffffffffff 판에 원장 정본' && ! printf '%s' "$OUT" | grep -q '^news=' && ok "ⓕ r458 원장 리포에 없는 기준선 sha(다른 리포 판) → ERROR(발행 0)" || bad "ⓕ r458 남의 sha rc=$RC :: $OUT"
+printf '\n- 이동 뒤 줄 r458\n' >> "$NREPO/design/teams/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qam after
+printf '%s\n' "$MOVE_SHA" > "$NROOT/.fable-team/state/news-ledger/last.sha"; news_run FT_GOAL_A6_LEDGER=
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -qxF "news=$NROOT/design/teams/planner/news" && printf '%s' "$OUT" | grep -q '이동 뒤 줄 r458' && printf '%s' "$OUT" | grep -q '^★팀별 완성 진행 (' && ok "ⓕ r458 기준선·지금 둘 다 정본 경로 → 발행 rc0 · 뉴스 폴더·골 표 원장 = 같은 정본(기본값)" || bad "ⓕ r458 정본 판 rc=$RC :: $OUT"
+printf '%s\n' "$MOVE_SHA" > "$NROOT/.fable-team/state/news-ledger/last.sha"; mkdir -p "$NROOT/design/alt/news" "$NREPO/design/alt"; cp "$NREPO/design/teams/planner/PLAN-oppa-ledger.md" "$NREPO/design/alt/L.md"; git -C "$NREPO" add -A; git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qm alt
+printf '%s\n' "$(git -C "$NREPO" rev-parse HEAD)" > "$NROOT/.fable-team/state/news-ledger/last.sha"; printf '\n- alt 줄 r458\n' >> "$NREPO/design/alt/L.md"; git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qam alt2
+news_run FT_GOAL_A6_LEDGER= FT_LEDGER_PATH=design/alt/L.md
+[ "$RC" = 0 ] && printf '%s' "$OUT" | grep -qxF "news=$NROOT/design/alt/news" && printf '%s' "$OUT" | grep -q 'alt 줄 r458' && printf '%s' "$OUT" | grep -q '^★팀별 완성 진행 (' && ok "ⓕ r458 FT_LEDGER_PATH 한 값 → 원장·뉴스 폴더·팀별 진행 출처 모두 그 경로(TEAMS.md 무관)" || bad "ⓕ r458 FT_LEDGER_PATH rc=$RC :: $OUT"
+grep -nE '\b(600|300)\b' "$REPO/harness/bin/ft_news_ledger.py" "$REPO/harness/bin/ft_goal_table.py" "$REPO/harness/kit/slack-mirror/magazine_goal.py" >/dev/null && bad "ⓕ r458 600/300 상한 등장" || ok "ⓕ r458 600/300 0"
+
 echo "fail=$fail"; [ "$fail" = 0 ]

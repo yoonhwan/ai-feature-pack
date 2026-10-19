@@ -64,19 +64,24 @@ def live_root(error: type[Exception], root: Path | None = None) -> Path:
 
 
 def planner_dir(error: type[Exception]) -> Path:
-    """LIVE_ROOT 의 planner 팀 폴더 — TEAMS.md 폴더 칸으로 푼다(R382b · 못 풀면 error · 옛 글자 경로로 후퇴 0)."""
-    root = live_root(error)
+    """원장 리포(env FT_LEDGER_REPO · 없으면 LIVE_ROOT)의 planner 팀 폴더 — 그 리포의 TEAMS.md 폴더 칸으로 푼다(R382b · R458: 원장 뉴스와 같은 출처 1개 · 못 풀면 error · 옛 글자 경로로 후퇴 0)."""
+    root = Path(os.environ["FT_LEDGER_REPO"]) if os.environ.get("FT_LEDGER_REPO") else live_root(error)
     try:
         return team_in(root, "planner")
     except TeamPathError as e:
         raise error(str(e)) from e
 
 
-def _spec(error: type[Exception]) -> str:
-    return os.environ.get("FT_GOAL_A6_LEDGER") or str(planner_dir(error) / "PLAN-oppa-ledger.md")
+def ledger_spec(error: type[Exception]) -> str:
+    """원장 = FT_GOAL_A6_LEDGER › 원장 정본 한 값(FT_LEDGER_REPO + FT_LEDGER_PATH · 뉴스와 같은 값 · R458) › 원장 리포 planner 폴더/PLAN-oppa-ledger.md."""
+    if os.environ.get("FT_GOAL_A6_LEDGER"):
+        return os.environ["FT_GOAL_A6_LEDGER"]
+    if os.environ.get("FT_LEDGER_PATH"):
+        return str((Path(os.environ["FT_LEDGER_REPO"]) if os.environ.get("FT_LEDGER_REPO") else live_root(error)) / os.environ["FT_LEDGER_PATH"])
+    return str(planner_dir(error) / "PLAN-oppa-ledger.md")
 
 
-def _read(spec: str, git_show: Callable[[str], str]) -> str | None:
+def read_spec(spec: str, git_show: Callable[[str], str]) -> str | None:
     if spec.startswith("gitref:"):
         return git_show(spec)
     try:
@@ -93,13 +98,13 @@ def _cells(line: str) -> list[str]:
     return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", body)]
 
 
-def _rows(text: str, error: type[Exception]) -> list[list[str]] | None:
-    """절 아래 첫 표의 데이터 행(칸 분리) — 절이 없으면 None · 열 수가 머리 줄과 다른 행 = error."""
+def table_rows(text: str, error: type[Exception], section: re.Pattern[str] = SECTION) -> list[list[str]] | None:
+    """절(기본 `## 메인 골 6줄` · R458 `## 팀별 완성 진행`) 아래 첫 표의 데이터 행(칸 분리) — 절이 없으면 None · 열 수가 머리 줄과 다른 행 = error."""
     rows: list[list[str]] = []
     inside = False
     width = 0
     for ln in text.splitlines():
-        if SECTION.match(ln):
+        if section.match(ln):
             inside = True
         elif inside and ln.startswith("## "):
             break
@@ -128,9 +133,9 @@ def _stale(text: str, now: datetime) -> tuple[str, bool]:
 
 def ledger_state(git_show: Callable[[str], str], error: type[Exception], now: datetime | None = None) -> tuple[str, dict[int, str]]:
     """(머리 글자, {행번호: 지금 상태}) — error = 호출자의 GoalError."""
-    spec = _spec(error)
-    text = _read(spec, git_show)
-    rows = _rows(text, error) if text is not None else None
+    spec = ledger_spec(error)
+    text = read_spec(spec, git_show)
+    rows = table_rows(text, error) if text is not None else None
     if rows is None:
         print(f"WARN 골 표 원장 상태 칸 없음({'파일' if text is None else '절'}): {spec} — «{NO_STATE}» 6칸으로 발행", file=sys.stderr)
         return NO_STATE, {}
