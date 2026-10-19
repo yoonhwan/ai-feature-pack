@@ -43,7 +43,11 @@ if [ "$DST" = 완성 ]; then
     ! tmux has-session -t "=$_rseat" 2>/dev/null || { echo "REJECT 리서치 좌석 열림 $_rseat — tmux 세션이 아직 있다(이동 0)"; exit 1; }
   done < <(sed -n 's/^- 리서치: \([^ ]*\) base=.*$/\1/p' "$SRC")
   [ -f "$HERE/ft_da_hold_gate.py" ] || { echo "REJECT ft_da_hold_gate.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _hg="$(python3 "$HERE/ft_da_hold_gate.py" "$SRC" --closing 2>&1)" || { echo "REJECT DA 보류 2회 — 상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄 없이 완성 이동 못 한다(이동 0): ${_hg%%$'\n'*}"; exit 1; }
+  # r456: 거절 문구 = 판정기 첫 줄 그대로(UNPARSED 를 «보류 2회» 로 찍지 않는다) · 착지 증거(--da 판정문 행 + --landed/카드 «- 착지:») 는 판정기가 LANDED-CLOSE 로 통과시킨다
+  _hg="$(python3 "$HERE/ft_da_hold_gate.py" "$SRC" --closing ${DA:+--da "$DA"} ${LANDED:+--landed "${LANDED##*..}"} 2>&1)" || {
+    _h1="${_hg%%$'\n'*}"; _lb="$(printf '%s\n' "$_hg" | grep -m1 '^LANDED-INVALID')"
+    case "$_h1" in UNPARSED*) _how="옛 표기 → DA②·DA⑥ 단계 기호로 교정";; *) _how="상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄";; esac
+    echo "REJECT DA 보류 가드: $_h1 — 해제 = $_how 또는 착지 증거(카드 «- 착지: <sha>» + DA 닫힘 판정문 «닫힘 — <카드> — main \`<sha>\`» 행)${_lb:+ · $_lb} (이동 0)"; exit 1; }
   CARDID="$(basename "$SRC" .md)"
   printf '%s' "$body" | grep -Fq -- "$CARDID" || { echo "REJECT $DA 은 $CARDID 를 닫은 절이 아니다(절에 카드 이름 없음) — 그 판정 절에 「대상 카드: ${CARDID}」 줄을 넣고 다시. 이동 0"; exit 1; }
   # 정본 게이트 + 랜딩 commit 사실 검사(ft-index-move-canon.sh · 판정 440 r2 §6-1) — 이동 «전»에 검사한다.
@@ -138,7 +142,7 @@ fi
 printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DA:+ · DA $DA}" >> "$NEW"
 # r444: 완성 + --landed = 카드에 `- 착지: <sha>`(판정기 ft-finished-check E1 이 읽는 줄) → 끝난 가지 refs/archive 이동 1회(FINISHED 만 · 삭제 0). 실패·SKIP 은 출력만 — 이동 종료코드 불변.
 if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
-  printf -- '- 착지: %s\n' "${LANDED##*..}" >> "$NEW"
+  grep -qF -- "- 착지: ${LANDED##*..}" "$NEW" || printf -- '- 착지: %s\n' "${LANDED##*..}" >> "$NEW"   # r456: 일괄 닫기 도구가 먼저 쓴 같은 줄은 두 번 쓰지 않는다
   _slug="$(basename "$NEW" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
   if [ -f "$HERE/ft-branch-archive.sh" ]; then
     while IFS= read -r _b; do [ -n "$_b" ] || continue
