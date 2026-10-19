@@ -1,0 +1,242 @@
+### tests/test_da_hold_gate_landed.sh
+PASS 짝 cmp0 ft_da_hold_gate.py
+PASS 짝 cmp0 ft-index-move.sh
+PASS 짝 cmp0 ft-index-close-landed.sh
+PASS bash -n ft-index-move.sh
+PASS bash -n ft-index-close-landed.sh
+PASS ruff ft_da_hold_gate.py
+PASS 600/300 값 0
+PASS ⓐ UNPARSED + 착지(조상) + 판정문 행 → LANDED-CLOSE rc0
+  ⓐ 원문: LANDED-CLOSE sha=2e549d0e588eb4e64a864abf2270f7cee47ff8cf da=<tmp>/repo/design/teams/alpha/DA-CLOSE-batch.md#§1
+PASS ⓐ 첫 줄 = LANDED-CLOSE
+PASS ⓐ' 카드 줄 + --landed 일치 → rc0
+PASS ⓑ 전제: 착지 증거 없으면 HOLD events=2 rc3
+PASS ⓑ events=2 + --landed + 판정문 행 → LANDED-CLOSE rc0
+  ⓑ 원문: LANDED-CLOSE sha=2fb7fcc40a973134782f63e751e9657743399946 da=<tmp>/repo/design/teams/alpha/DA-CLOSE-batch.md#§2
+PASS ⓒ 착지 줄만(--da 없음) → UNPARSED 그대로 rc3
+PASS ⓒ 첫 줄 UNPARSED 불변
+PASS ⓒ 다른 카드 절(§2) → 행 없음 → UNPARSED rc3 + LANDED-INVALID no-da-row
+PASS ⓒ 행 없음 첫 줄 UNPARSED
+PASS ⓒ sha 불일치(카드 S1 · 판정문 S2) → HOLD … budget_left=0 rc3
+PASS ⓒ 불일치 첫 줄 HOLD
+PASS ⓒ 카드 줄 ≠ --landed → rc3 LANDED-INVALID mismatch
+PASS ⓓ 조상 아닌 sha → rc3 + LANDED-INVALID not-ancestor
+  ⓓ 원문: UNPARSED - 2026-10-13 — r2 사전 DA r1 HOLD 2(옛 표기) HOLD events=0 reviews=0 releases=0/0 budget_left=2 LANDED-INVALID not-ancestor b817fa312d9632f2253576271e1df3d0168ff904
+PASS ⓔ --entry: 착지 증거 있어도 판정 동일 rc3 («HOLD events=2 reviews=3 releases=0/0 budget_left=0»)
+PASS ⓔ --entry 출력에 LANDED 0
+PASS ⓕ index-move: UNPARSED 거절 = 판정기 첫 줄 + 옛 표기 안내(«보류 2회» 0)
+  ⓕ 원문(UNPARSED): REJECT DA 보류 가드: UNPARSED - 2026-10-13 — r2 사전 DA r1 HOLD 2(옛 표기) — 해제 = 옛 표기 → DA②·DA⑥ 단계 기호로 교정 또는 착지 증거(카드 «- 착지: <sha>» + DA 닫힘 판정문 «닫힘 — <카드> — main `<sha>`» 행) (이동 0)
+PASS ⓕ index-move: HOLD 거절 = «HOLD events=2 …» + 재설계 해제 안내
+PASS ⓕ index-move: --landed + 판정문 행 → 보류 가드 통과(rc=0 · WARN ft-branch-archive.sh 없음(<tmp>/bin) — 끝난 가지 보관 이동 0)
+PASS ⓕ index-move 착지 → 완성/ + 착지 줄 1개
+  dry: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+  dry: |---|---|---|---|---|---|
+  dry: | §1 | c-unp | 진행 | ok | 무 | LANDED-CLOSE sha=2e549d0e588eb4e64a864abf2270f7cee47ff8cf da=<tmp>/repo/design/teams/alpha/DA-CLOSE-batch.md#§1 |
+  dry: | §2 | c-hold | 완성 | ok | 무 | SKIP 이미 완성 |
+  dry: | §3 | c-gone | 없음 | ok | 무 | SKIP 카드 없음 |
+  dry: | §4 | c-side | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+  dry: | §5 | c-other | 대기 | ok | 무 | LANDED-CLOSE sha=2fb7fcc40a973134782f63e751e9657743399946 da=<tmp>/repo/design/teams/alpha/DA-CLOSE-batch.md#§5 |
+  dry: DRY rows=5 (쓰기 0)
+PASS ⓕ --dry-run: 행마다 카드·위치·조상·착지 줄·예상 표 · 쓰기 0
+  run: MOVED c-unp
+  run: SKIP c-hold 이미 완성
+  run: SKIP c-gone 카드 없음
+  run: REJECT c-side LANDED-INVALID not-ancestor b817fa312d9632f2253576271e1df3d0168ff904 (쓰기 0)
+  run: MOVED c-other
+  run: TOTAL rows=5 MOVED=2 REJECT=1 SKIP=2
+PASS ⓕ 실행: MOVED 2 · SKIP 2 · REJECT 1(조상 아님) · 집계 줄 · rc1
+PASS ⓕ c-unp 완성/ + 착지 줄 1개(판정문#§ 출처)
+PASS ⓕ c-other 완성/ + 착지 줄 1개(판정문#§ 출처)
+PASS ⓕ 조상 아닌 카드: 이동 0 · 쓰기 0
+PASS ⓕ 판정문 없음 → rc2
+fail=0
+rc=0
+### tests/test_da_hold_gate.sh
+PASS bash -n ft-nano-spawn.sh
+PASS 키트 cmp 0 ft-nano-spawn.sh
+PASS bash -n ft-nano-close.sh
+PASS 키트 cmp 0 ft-nano-close.sh
+PASS bash -n ft-index-move.sh
+PASS 키트 cmp 0 ft-index-move.sh
+PASS 키트 cmp 0 ft_da_hold_gate.py
+PASS bash -n mbox_guard.sh
+PASS bash -n mbox_guard_da.sh
+PASS bash -n ft-index-lint.sh
+PASS ruff ft_da_hold_gate.py
+PASS mbox_guard.sh ≤ 200줄
+PASS 600/300 값 0
+PASS HOLD 0 → rc0
+PASS HOLD 1 사건 → rc0
+PASS r382d 꼴(⑥r1·⑥r2) → rc3 budget 0
+PASS v65 M7 꼴(r 없음 = r1 · 2사건) → rc3
+PASS cfo pg-pool 꼴(같은 키 재기록 2줄 → 1사건) → rc0
+PASS cfo reconcile 꼴(②r1·②r2·⑥r1 → 3사건) → rc3
+PASS 해석 못 하는 후보 줄 → UNPARSED rc3(fail-closed)
+PASS 재설계 줄은 카운트를 되돌리지 않는다 → rc3
+PASS 머리가 DA 가 아닌 줄은 후보 아님 → rc0
+PASS 유효 해제 1 → 예산 1 → rc0
+PASS 보류 쪽지(머리 다름/해제=1 없음) INVALID → rc3
+PASS 카드명만 언급한 쪽지 INVALID → rc3
+PASS from 이 명부 이름과 1글자 다름 INVALID → rc3
+PASS _hil_route(planner) 해제도 유효 → rc0
+PASS 다른 카드 이름 머리의 쪽지 → INVALID
+PASS 같은 seq 두 줄 → RELEASE-DUP
+PASS 없는 seq → INVALID(쪽지 없음)
+PASS 해제 뒤 arch 발주 줄은 소진이 아니다 → releases=1/0
+PASS 입장 검사(기록 0) → rc0
+PASS 입장 허용 + --record → rc0
+PASS 입장 줄 기록(단계r라운드 · 발주서 · 해제 seq · 시각)
+PASS 입장 줄 뒤 → 해제 소진 releases=1/1 budget_left=-1 rc3
+PASS 같은 (카드,단계,rN) 재입장 → DUP-ENTRY rc3
+PASS 소진된 해제로 다음 라운드 입장 → rc3(새 해제 필요)
+PASS 입장 줄 없는 옛 꼴: 해제 뒤 CLOSE 판정 줄도 소진
+PASS 발주 줄 없는 입장 → NO-ORDER-LINE rc3
+PASS 해제 없이 r3 이름만 바꾼 재발주 → rc3
+PASS 발주 줄·문맥 속 HOLD 글자는 사건이 아니다(사이 단계 기호·발주 금지) → events=1
+PASS 작성자·«사전» prefix 가 붙은 실제 줄 꼴도 사건으로 센다 → events=2
+PASS DA 와 HOLD 가 있는데 단계 기호 없음 → UNPARSED rc3
+PASS §10 ①: HOLD 2 → 해제 A → ⑥r1 입장 → HOLD(사건 3) → 해제 B → ⑥r2 입장 = rc0 (events=3 releases=2/1 budget_left=1)
+PASS §10 ①: 같은 상태에서 해제 B 없이 ⑥r2 입장 = rc3 (budget_left=0)
+PASS §10 ②: 해제 B 소진 뒤 ⑥r3 입장 = rc3 (events=4 releases=2/2 budget_left=0 · 새 해제 필요)
+PASS §10: 사건 < 2 면 기본 예산 2−사건(해제는 더하지 않는다) → budget_left=1
+PASS closing: 사건 2 · 해제 0 → rc3
+PASS closing: 소진된 유효 해제 있음 → rc0
+PASS closing: 사건 1 → rc0
+PASS 실제 v65 M7 카드 사본(작성자 prefix · r 없는 DA② HOLD + DA② r2 HOLD) → events=2
+  실제 카드 출력: HOLD events=2 reviews=4 releases=0/0 budget_left=0
+PASS 실제 cfo pg-pool 사본(②r1 · ⑥r1 두 단계) → events=2
+  실제 카드 출력: HOLD events=2 reviews=3 releases=0/0 budget_left=0
+PASS 실제 cfo reconcile 사본(②r1·②r2·⑥r1) → events=3
+  실제 카드 출력: HOLD events=3 reviews=3 releases=0/0 budget_left=0
+PASS 계보: 기록 없는 직전 세대(#67) 발신 해제 → INVALID
+  이 카드 출력: HOLD events=3 reviews=5 releases=1/1 budget_left=0 RELEASE-OK #108869 from=byz-harness-master-claude#67(계보 #67→#68)
+PASS 계보: 은퇴 기록 있는 직전 세대(#67 → #68) 해제 유효 · events=3 releases=1/1
+PASS 계보 라벨 from=…(계보 #67→#68) 출력
+PASS 계보: 다른 베이스 이름 기록은 무효
+PASS 계보: 현역보다 번호가 큰 이름은 무효
+PASS 가드: HOLD 2 카드 → REJECT DA 보류 2회 · 큐 적재 0
+REJECT 원문: REJECT DA 보류 2회 — 3번째 검증 0 · 재설계(상위 master·planner 의 [재설계 해제 <카드>.md] 쪽지 + 카드 «- 재설계 해제: #seq» 줄) 또는 리서치 나노(ft-nano-spawn <카드> --agent opencode --model deepseek/deepseek-v4-flash --research) · BOOT 40 · HOLD events=2 rev
+PASS 가드: HOLD 1 카드 → 큐 적재
+PASS 가드: 입장 허용 순간 카드에 «- DA 입장:» 줄 기록
+PASS 가드: 같은 (카드,단계,rN) 두 번째 → REJECT DUP-ENTRY · 큐 적재 0
+PASS 가드: [DA⑥ r2 발주 · 마지막] 머리 매치 → 통과
+PASS 가드: - 카드: 줄 0개 → REJECT(fail-closed)
+PASS 가드: - 카드: 줄 2개 → REJECT
+PASS 가드: 없는 파일 → REJECT
+PASS 가드: 카드에 같은 rN 발주 줄 없음 → REJECT
+PASS 가드: UNPARSED 줄 → REJECT(fail-closed)
+PASS 가드: DA 수신자가 아니면 검사 0
+PASS 가드: [HIL] 은 대상 밖
+PASS 가드: 판정기 bash shim → 큐 적재 1 · «- DA 입장:» 줄(R389 ⓒ)
+PASS 가드: 판정기 부재 → REJECT(fail-closed)
+PASS 가드: 본체 파일 부재 → DA 발주 REJECT(설치 순서)
+PASS lint ⓓ: HOLD 2 + 재설계/리서치 줄 없음 → INFO 1줄(REJECT 아님)
+PASS lint: 재설계 줄 있으면 INFO 0
+PASS lint: 위반 뒤 새 워커 없이 채택 → REJECT
+PASS lint: 새 워커 줄 뒤 채택 → OK
+PASS index-move: 리서치 닫힘 줄 없음 → REJECT 리서치 좌석 열림
+PASS index-move: 닫힘 줄에 left=0·kill rc=0 없음 → REJECT
+PASS index-move: 사건 2 · 해제 0 → REJECT DA 보류 가드: HOLD events=2(r456 판정기 첫 줄)
+PASS index-move: 닫힘 줄(kill rc=0) + 보류 0 → 이 게이트 통과(뒤 검사로 진행)
+PASS close: 위반 검사 python 블록 추출
+PASS close: 허용 밖 커밋·작업트리 변경만 «리서치 위반» 으로 기록(허용 경로 제외)
+PASS close: 허용 경로(RESEARCH-*.md)만 → 위반 0
+PASS close: 닫힘 줄 기록 + opencode reap 연결 실재
+PASS close: 닫힘 블록 추출
+PASS close: reap(left=1 · rc1) → CLOSE-FAIL 출력 + exit 1 + 카드 원문(도구 없음으로 흡수 0)
+PASS close: reap(left=0 · rc0) → 닫힘 줄 left=0
+PASS close: left=0 인데 rc2 → CLOSE-FAIL
+PASS close: reap 도구 미설치만 «도구 없음»
+PASS close: Fable 좌석 → kill rc=0 줄
+FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 4 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL staged main-team-governance.md: 홈 대비 삭제 3 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+PASS spawn --research --dry-run(Fable): 이름 꼬리 -research · 고정 문단 · 허용 경로
+PASS spawn --research opencode + reap 도구 없음 → REJECT 원문
+PASS spawn --research opencode + reap 도구 있음 → 통과
+PASS spawn --research 는 진행/ 부모 카드만
+PASS spawn 기본(--research 없음): 진행/ 카드는 여전히 REJECT
+fail=2
+rc=1
+### tests/test_index_move_canon_landed.sh
+PASS bash -n ft-index-move.sh
+PASS bash -n ft-index-move-canon.sh
+PASS 1 랜딩 commit 에 정본 없음 → REJECT(나)
+PASS 2 정상 squash → 통과
+PASS 3 확인 뒤 정본이 바뀜 → REJECT(다)
+PASS 4 ff --landed T..S → 통과
+PASS 4b ff 인데 S 만 → 구간에 X 없어 REJECT
+PASS 5 --landed 없음 → REJECT
+PASS 5b arch 확인 줄 없음 → REJECT
+PASS 5c 영향 없음 + main 조상 아닌 S → REJECT(가)
+PASS 5d 영향 없음 + 랜딩된 S → (가)만 통과
+PASS 6 다른 카드 절 인용 → REJECT
+PASS 7 §5 인용 + §57 절만 → REJECT(절 없음)
+PASS 7b §5 절에 닫힘 없음 → REJECT
+PASS 7c §5 정확 일치 절 → 통과
+PASS 8 _arch 있음 → 그 좌석에 쪽지
+PASS 8b _arch 없음 → 쪽지 0·INFO·이동 완료
+PASS 8c _arch 있음 + 영향 없음 카드 → 쪽지 0·INFO·이동 완료
+fail=0
+rc=0
+### tests/test_index_move_canonize.sh
+PASS 키트 사본 cmp0 ft-index-move.sh
+PASS 키트 사본 cmp0 ft-index-move-canon.sh
+PASS 1 정본화 docs/rules/ 실재 OK
+PASS 2 정본화 GUIDE-harness.md OK
+PASS 3 정본화 팀 README OK
+PASS 4 정본화 docs/architect/ OK
+PASS 5 정본화 두 경로(쉼표) OK
+PASS 6 /etc/passwd REJECT
+PASS 7 docs/../x REJECT
+PASS 8 없는 파일 REJECT
+PASS 9 심볼릭 링크 탈출 REJECT
+PASS 10 TEAMS.md 밖 팀 GUIDE REJECT
+PASS 11 팀 폴더 GUIDE·README 외 파일 REJECT
+PASS 12 두 경로 중 하나라도 나쁘면 REJECT
+PASS 13 허용 뿌리 밖 repo 파일 REJECT
+PASS 14 기존 정본 영향 없음(10자+) OK
+PASS 15 정본 줄 전부 없음 REJECT(세 꼴 안내)
+PASS 16 정본 갱신 --landed 필수 유지
+PASS 17 뿌리(docs/rules)가 밖 링크 REJECT
+PASS 18 뿌리(design/<팀>)가 밖 링크 REJECT
+PASS 19 두 경로 중 뿌리 링크 하나면 REJECT
+PASS 20 링크 아닌 뿌리는 여전히 OK
+fail=0
+rc=0
+### tests/test_index_move_rule_line.sh
+PASS bash -n ft-index-move.sh
+PASS bash -n ../kit/fable-team/bin/ft-index-move.sh
+PASS ⓐ 규칙 줄 없음 → REJECT
+PASS ⓑ 없음 + 사유 10자 이상 → 통과
+PASS ⓒ 사유 10자 미만 → REJECT
+PASS ⓓ 지침·강제 실재 → 통과
+PASS ⓔ 강제 경로 없음 → REJECT
+PASS ⓕ 상시 로드 목록 밖 지침 → REJECT
+PASS ⓕb 지침 경로 없음 → REJECT
+PASS ⓕc 프로젝트 rules md → 통과
+PASS ⓖ 대기→진행 검사 0
+PASS fix1ⓐ 없음X … → REJECT
+PASS fix1ⓑ 하이픈 구분자 → REJECT
+PASS fix1ⓒ 붙여쓴 em dash → REJECT
+PASS fix1ⓓ 정상 사유 → 통과
+PASS fix1ⓔ 강제 칸 없음 → REJECT
+PASS fix1ⓕ 한글 9자 사유 → REJECT(바이트 아닌 글자 수)
+fail=0
+rc=0
+### tests/test_index_move_slack.sh
+PASS bash -n
+PASS 1 대기→진행 슬랙 줄 없음: 호출 0·이동
+PASS 2 대기→진행 착수 답글(카드·블록 인자)·이동
+PASS 3 progress 실패 → REJECT·위치 불변
+PASS 4 진행→완성 슬랙 줄 없음: 호출 0·이동
+PASS 5 check 0 → result 호출 0·이동
+PASS 6 check 1 → result 자동(verdict·landed)·이동
+PASS 6b --landed 생략 → 인자 없음
+PASS 7 result 실패 → REJECT·위치 불변
+PASS 8 check 3 → REJECT(repair)·result 0·위치 불변
+PASS 9 check 기타 rc → REJECT
+PASS 10 도구 없음 → REJECT
+PASS 11 슬랙 줄 없음 + 도구 없음 → 이동
+PASS 12 되돌리기: 호출 0
+fail=0
+rc=0

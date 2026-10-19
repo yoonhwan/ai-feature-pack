@@ -1,0 +1,29 @@
+| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | F-0b-knowledge-result-node-pairing | 완성 | ok | 무 | SKIP 이미 완성 |
+| §2 | F-0b-knowledge-scope-proto-json | 완성 | ok | 무 | SKIP 이미 완성 |
+| §3 | F-1358-rooms-nickname-member-guard | 완성 | ok | 무 | SKIP 이미 완성 |
+| §4 | F-1395g-redis-port-race-pin | 완성 | ok | 무 | SKIP 이미 완성 |
+| §5 | F-1434-hotel-fewshot-profile-file | 완성 | ok | 무 | SKIP 이미 완성 |
+| §6 | F-1458-memory-judge | 진행 | ok | 무 | LANDED-CLOSE sha=6a92c4876ccf780f85d0fb89332812ebf4c92b3a da=DA-CLOSE-progress-batch-20261019.md#§6 |
+| §7 | F-1458-memory-judge-rebase | 완성 | ok | 무 | SKIP 이미 완성 |
+| §8 | F-1458-note-growth | 진행 | ok | 무 | LANDED-CLOSE sha=5d99d55c8036ef8db0d379b076409e149a39c179 da=DA-CLOSE-progress-batch-20261019.md#§8 |
+| §9 | F-1458-note-growth-realign | 진행 | ok | 무 | LANDED-CLOSE sha=5d99d55c8036ef8db0d379b076409e149a39c179 da=DA-CLOSE-progress-batch-20261019.md#§9 |
+| §10 | F-1458-note-save-failure-visible | 진행 | ok | 무 | LANDED-CLOSE sha=c91f0877a9f9d28d44b1948a6148f6905c86dc2b da=DA-CLOSE-progress-batch-20261019.md#§10 |
+| §11 | F-1483-isolated-redis-port-race | 완성 | ok | 무 | SKIP 이미 완성 |
+| §12 | F-1491-test-order-task-leak | 완성 | ok | 무 | SKIP 이미 완성 |
+| §13 | F-1529-concierge-org-profile-pg-pool-tests | 완성 | ok | 무 | SKIP 이미 완성 |
+| §14 | F-1815-chat-consumer-pending-reclaim | 진행 | ok | 무 | LANDED-CLOSE sha=3f799cae91d0769dcc59a6c4c3588284bb7497d8 da=DA-CLOSE-progress-batch-20261019.md#§14 |
+| §15 | F-chat-demo-org-gate | 완성 | ok | 무 | SKIP 이미 완성 |
+| §16 | F-concierge-1a-1-chatgraph-adapt | 진행 | ok | 무 | LANDED-CLOSE sha=5f3f6dacdca825834d4bf838501104370f42a6bd da=DA-CLOSE-progress-batch-20261019.md#§16 |
+| §17 | F-concierge-1a-2-hooks-surface | 완성 | ok | 무 | SKIP 이미 완성 |
+| §18 | F-concierge-1a-3-ai-answer-text-entry | 완성 | ok | 무 | SKIP 이미 완성 |
+| §19 | F-concierge-7s-fix-external-call | 완성 | ok | 무 | SKIP 이미 완성 |
+| §20 | F-concierge-le-fix-insight-service-contract | 진행 | ok | 무 | LANDED-CLOSE sha=a6220aaff87abc159cda794769ac0daeadd70d17 da=DA-CLOSE-progress-batch-20261019.md#§20 |
+| §21 | F-concierge-s1-0-voice-switch | 진행 | ok | 무 | LANDED-CLOSE sha=e5185d70ec758062cd6aeef28ab4b8a22121b978 da=DA-CLOSE-progress-batch-20261019.md#§21 |
+| §22 | F-concierge-s1-2-org-persona-rules | 진행 | ok | 무 | LANDED-CLOSE sha=8f51a19c2849d1a481418f146c6d656edc39e667 da=DA-CLOSE-progress-batch-20261019.md#§22 |
+| §23 | F-d2b-chat-default-nickname-length | 완성 | ok | 무 | SKIP 이미 완성 |
+| §24 | F-lefix-static-auth-regression | 완성 | ok | 무 | SKIP 이미 완성 |
+| §25 | F-note-load-double-prefix | 완성 | ok | 무 | SKIP 이미 완성 |
+| §26 | F-rag-pricelist-jsonl | 완성 | ok | 무 | SKIP 이미 완성 |
+DRY rows=26 (쓰기 0)

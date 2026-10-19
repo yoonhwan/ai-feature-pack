@@ -11,6 +11,8 @@
     budget_left = 사건<2 ? 2−사건 : 미소진 유효 해제 수 · rc3 ⇔ budget_left ≤ 0.
 출력 첫 줄 `HOLD events=<n> reviews=<m> releases=<유효>/<소진> budget_left=<b>` | `UNPARSED <줄>` | `NO-ORDER-LINE <단계> r<N>` | `DUP-ENTRY <단계>r<N>` | `ENTRY-WRITE-FAIL …` (+ 해제 줄들 RELEASE-OK·INVALID·DUP).
 rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ 2 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
+  착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 origin/main 조상 ∧ --da 판정문(§N 절)에
+    «닫힘 — <카드 stem> — main `<같은 sha>`» 행 → 첫 줄 `LANDED-CLOSE sha=<sha> da=<--da>` rc0. 하나라도 빠지면 기존 판정 불변 + `LANDED-INVALID <사유>` 줄.
 """
 from __future__ import annotations
 
@@ -28,6 +30,7 @@ ORDER = re.compile(r"DA([②⑥])\s*r(\d+)\s*발주")
 CLOSEV = re.compile(r"DA([②⑥])\s*r(\d+)\s*CLOSE")
 ENTRY = re.compile(r"^- DA 입장:\s*([②⑥])r(\d+)")
 SEAT = re.compile(r"^(.*)#(\d+)$")
+LANDED = re.compile(r"^- 착지:\s*`?([0-9a-f]{7,40})\b")
 
 
 def root_of(card: str) -> str:
@@ -129,6 +132,51 @@ def record_entry(card: str, key: tuple[str, str], order: str, seq: str) -> str:
         return str(e)
 
 
+def da_section(path: str, sec: str) -> str:
+    """판정문 본문 — sec(§N) 가 있으면 `## ` 헤더에 §N 정확 일치(뒤가 숫자 아님)인 절만(ft-index-move 와 같은 규칙)."""
+    txt = open(path, encoding="utf-8", errors="replace").read()
+    if not sec:
+        return txt
+    pat = re.compile(r"^## .*" + re.escape(sec) + (r"(?!\d)" if sec.startswith("§") else ""))
+    out, on = [], False
+    for ln in txt.splitlines():
+        if ln.startswith("## "):
+            on = bool(pat.match(ln))
+        if on:
+            out.append(ln)
+    return "\n".join(out)
+
+
+def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -> tuple[str, str]:
+    """(LANDED-CLOSE 첫 줄 | "", LANDED-INVALID 사유 | "") — 착지 주장(카드 줄·--landed)이 없으면 둘 다 ""."""
+    claims = [m.group(1) for m in (LANDED.match(ln.strip()) for ln in lines) if m]
+    if not claims and not landed:
+        return "", ""
+
+    def full(s: str) -> str:
+        out = subprocess.run(["git", "-C", root, "rev-parse", "--verify", "--quiet", s + "^{commit}"], capture_output=True, text=True)
+        return out.stdout.strip() if out.returncode == 0 else ""
+
+    sha = full(landed or claims[0])
+    if not sha:
+        return "", "LANDED-INVALID unknown-sha " + (landed or claims[0])
+    if landed and claims and sha not in {full(c) for c in claims}:
+        return "", "LANDED-INVALID mismatch 카드 착지 줄 ≠ --landed"
+    if subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", sha, "origin/main"], capture_output=True).returncode != 0:
+        return "", "LANDED-INVALID not-ancestor " + sha
+    if not da:
+        return "", "LANDED-INVALID no-da (--da <판정문#§N> 없음)"
+    path, _, sec = da.partition("#")
+    path = path if os.path.isfile(path) or not root else os.path.join(root, path)
+    if not os.path.isfile(path):
+        return "", "LANDED-INVALID da-missing " + path
+    stem = os.path.splitext(os.path.basename(card))[0]
+    row = re.compile(r"닫힘\s*—\s*" + re.escape(stem) + r"\s*—\s*main\s*`?" + sha + r"\b")
+    if not row.search(da_section(path, sec)):
+        return "", f"LANDED-INVALID no-da-row «닫힘 — {stem} — main `{sha[:10]}…`» 없음 ({da})"
+    return f"LANDED-CLOSE sha={sha} da={da}", ""
+
+
 def lint(txt: str, events: int) -> None:
     lines = txt.splitlines()
     if events >= 2 and not any(re.match(r"^- (재설계|리서치):", ln) for ln in lines):
@@ -146,7 +194,7 @@ def main() -> int:
     ap.add_argument("--entry", nargs=2, metavar=("STAGE", "ROUND"))
     for k in ("--closing", "--lint", "--record"):
         ap.add_argument(k, action="store_true")
-    for k in ("--root", "--seats", "--seats-dir", "--comm", "--mailbox", "--order-file", "--resume-dir"):
+    for k in ("--root", "--seats", "--seats-dir", "--comm", "--mailbox", "--order-file", "--resume-dir", "--landed", "--da"):
         ap.add_argument(k, default="")
     a = ap.parse_args()
     if not os.path.isfile(a.card):
@@ -188,6 +236,14 @@ def main() -> int:
     if a.lint:
         lint(txt, len(s["events"]))
         return 0
+    land_bad = ""
+    if a.closing:  # r456: 착지 증거(조상 sha ∧ 판정문 행)는 완성 이동에서만 세 번째 통과 근거 — 입장(--entry)은 불변
+        land_ok, land_bad = landed_check(card, txt[lo:hi].splitlines(), root, a.landed, a.da)
+        if land_ok:
+            print(land_ok)
+            print(summary)
+            return 0
+        notes += [land_bad] if land_bad else []
     head = ""
     if s["bad"]:
         head = "UNPARSED " + s["bad"][0][:120]
@@ -198,6 +254,8 @@ def main() -> int:
     if head:
         print(head)
         print(summary)
+        if land_bad:
+            print(land_bad)
         return 3
     blocked = (len(s["events"]) >= 2 and not valid) if a.closing else budget <= 0
     if ekey and not blocked and a.record:
