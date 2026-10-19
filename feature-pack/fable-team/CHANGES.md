@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 뉴스 틱 ⑥ 완성 트리 복구: 도구는 $HERE(LIVE_BIN) 형제를 부른다 · shim 은 exec 만 (r484 · 1.1.40)
+
+- 1.1.37 부터 뉴스 ⑥ 트리가 비었다 — `ft-news-tick.sh:56` 이 옛 라이브 워크트리 자리 `ft-news-tree.py` 를 `python3` 에 넘겼는데 그 자리는 r413 뒤 bash shim 이라 `SyntaxError: unmatched ')'`(v65 master 212 #114311).
+- `ft-news-tick.sh` 도구 호출 8줄 + `ft-news-tick-cfo.sh:22` → `$HERE/…` · `WT` 는 제품 커밋 조회에만. 새 린트 `ft-shim-exec-lint.sh`(키트 bin 에 `python3|bash|sh "$X/.fable-team/bin/…"` 꼴 0 · `test_kit_bin_sync.sh` 가 부름). shim 생성기 변경 0.
+- 시험 `test_root_bin_shim.sh` r484 ⓐ~ⓓ + 옛 꼴 SyntaxError 재현 대조 · 같은 파일 기존 RED 11건(r385 뒤 키트 기본 변경)도 `--repo·--path` 명시로 rc0. 단계 = `harness/evidence/r484/nano-steps.md`.
+
 ## 2026-10-19 — 뉴스 HTML: 일하는 팀 = 골 위 그림 카드 · 요약이 코드 판정(일하는 팀·자율)을 따른다 (r478d · 1.1.39)
 
 - 오빠 2차 반려(«챗봇이 아래에 텍스트만») — 일하는 팀(라이브 좌석 실측)을 골 카드와 같은 그림 카드로 «골 6개» 위에 · 쉬는 팀은 맨 아래 목록.

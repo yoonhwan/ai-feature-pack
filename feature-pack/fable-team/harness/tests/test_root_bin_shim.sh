@@ -31,7 +31,7 @@ build() {  # $1 = 작업 폴더 → 루트 리포($1/root) + 라이브($1/live)
   printf 'bak\n' > "$W/root/.fable-team/bin/ft-a.sh.bak-1"
   mkdir -p "$W/root/.fable-team/bin/__pycache__"; printf 'c\n' > "$W/root/.fable-team/bin/__pycache__/x.pyc"
 }
-RUN() { bash "$SH" --root "$W/root" --live "$W/live" --ref HEAD "$@"; }
+RUN() { bash "$SH" --root "$W/root" --live "$W/live" --ref HEAD --repo "$W/root" --path "$KP" "$@"; }   # r385 뒤 키트 기본 = 팩 리포 → 픽스처 키트를 명시
 
 W="$T/w1"; build "$W"; RB="$W/root/.fable-team/bin"
 before_a="$(cksum < "$RB/ft-a.sh")"
@@ -82,15 +82,46 @@ hasnt "$out" "LIVE-A" "H1 연결 파일: 상대 LIVE_BIN → 라이브 도구 �
 printf '%s\n' "$W/live" > "$W/root/.fable-team/LIVE_BIN"
 # H1(r3): 생성 도구 --live 가 상대 경로 → ERROR rc3 · 쓰기 0(LIVE_BIN 불변)
 lb_before="$(cksum < "$W/root/.fable-team/LIVE_BIN")"
-out="$(cd "$W" && bash "$SH" --root "$W/root" --live live --ref HEAD 2>&1)"; rc=$?
+out="$(cd "$W" && bash "$SH" --root "$W/root" --live live --ref HEAD --repo "$W/root" --path "$KP" 2>&1)"; rc=$?
 rc_is "$rc" 3 "H1 생성 도구: 상대 --live → rc3"; has "$out" "ERROR" "H1 생성 도구: ERROR 줄"
 [ "$(cksum < "$W/root/.fable-team/LIVE_BIN")" = "$lb_before" ] && ok "H1 생성 도구: 거절 시 LIVE_BIN 불변" || bad "H1 생성 도구가 상대 --live 로 LIVE_BIN 을 바꿨다"
 
 # 변이: 연결 파일의 «대상 없음 검사» 를 지운 도구 → ⓑ 가 FAIL 해야 한다(시험이 이빨이 있는지)
 MUT="$T/shim-mut.sh"; grep -v '라이브 도구 없음' "$SH" > "$MUT"
 [ "$(grep -c '라이브 도구 없음' "$MUT" || true)" = 0 ] && ok "변이 파일 생성(대상 없음 검사 제거)" || bad "변이 생성 실패"
-W2="$T/w2"; build "$W2"; bash "$MUT" --root "$W2/root" --live "$W2/live" --ref HEAD >/dev/null 2>&1
+W2="$T/w2"; build "$W2"; bash "$MUT" --root "$W2/root" --live "$W2/live" --ref HEAD --repo "$W2/root" --path "$KP" >/dev/null 2>&1
 mv "$W2/live/ft-a.sh" "$T/a2.bak"; out="$(bash "$W2/root/.fable-team/bin/ft-a.sh" 2>&1)"; rc=$?
 { [ "$rc" = 0 ] || ! grep -q 'ERROR' <<<"$out"; } && ok "변이 시 ⓑ 단언이 깨진다(대상 없음인데 ERROR 가 사라짐 — 시험이 변이를 잡는다)" || bad "변이인데도 ⓑ 가 통과 — 시험이 이빨이 없다"
+
+# ── r484: 뉴스 틱 ⑥ 은 $HERE(LIVE_BIN) 의 진짜 .py 를 부른다 · shim 은 exec 만(인터프리터에 넘기지 않는다) ──
+KB="$HERE/../../harness/kit/fable-team/bin"; LINT="$KB/ft-shim-exec-lint.sh"
+R="$T/r484"; L="$R/live"; V="$R/.worktrees/v6-realtime-live"; mkdir -p "$L" "$V/$KP" "$V/.fable-team/bin"
+cp -p "$KB/ft-news-tree.py" "$KB/ft-harness-root.sh" "$KB/ft-team-lib.sh" "$LINT" "$L/"
+# ⑥ 절만 도는 사본(머리 ~ WT= 줄 + ⑥ 절) — ①~⑤ 의 tmux·docker·mbox 호출 0
+awk '1; /^WT=/{exit}' "$KB/ft-news-tick.sh" > "$L/ft-news-tick-s6.sh"
+awk '/════ ⑥/{p=1} p' "$KB/ft-news-tick.sh" >> "$L/ft-news-tick-s6.sh"
+grep -q 'ft-news-tree.py' "$L/ft-news-tick-s6.sh" && ok "r484 ⑥ 절 사본 생성" || bad "r484 ⑥ 절 사본에 트리 호출 없음"
+mkdir -p "$R/.fable-team"; printf '%s\n' "$L" > "$R/.fable-team/LIVE_BIN"
+# 옛 라이브 워크트리 자리 = 생성기가 만든 진짜 bash shim
+git init -q -b main "$V"; cp -p "$KB/ft-news-tree.py" "$V/$KP/"
+git -C "$V" add -A && git -C "$V" -c user.email=t@t -c user.name=t commit -q -m kit
+bash "$SH" --root "$V" --live "$L" --ref HEAD --repo "$V" --path "$KP" >/dev/null 2>&1
+head -1 "$V/.fable-team/bin/ft-news-tree.py" | grep -q bash && ok "r484 픽스처: 워크트리 ft-news-tree.py = bash shim" || bad "r484 픽스처: shim 아님"
+git init -q -b main "$R"; printf '{}\n' > "$R/.fable-team/seats.json"   # ft-news-tree.py 는 트리 파일 리포의 공용 .fable-team/seats.json 을 읽는다
+MD="$R/NEWS-TREE.md"; printf '[✅] 알파 끝\n[🔄] 베타 하는 중\n[⏳] 감마 대기\n' > "$MD"
+# ⓐ 고친 ⑥ 절 → 트리 줄 ≥1 · SyntaxError 0
+out="$(cd "$R" && FT_NEWS_ROOT="$R" FT_NEWS_TREE="$MD" FT_ME=t bash "$L/ft-news-tick-s6.sh" 2>"$R/err")"; err="$(cat "$R/err")"
+has "$out" "베타 하는 중" "r484 ⓐ ⑥ 절 아래 트리 줄 ≥1"; hasnt "$err$out" "SyntaxError" "r484 ⓐ stderr SyntaxError 0"
+# 대조: 옛 호출 꼴(python3 "$WT/…/ft-news-tree.py") 은 같은 픽스처에서 SyntaxError — 버그 재현(시험 이빨)
+out="$(python3 "$V/.fable-team/bin/ft-news-tree.py" "$MD" 2>&1)"; has "$out" "SyntaxError" "r484 대조: 옛 호출 꼴 = SyntaxError 재현"
+# ⓑ 옛 줄을 넣은 사본 → 린트 REJECT rc1
+LB="$R/lintbad"; mkdir -p "$LB"; cp -p "$KB/ft-news-tick.sh" "$LB/"
+sed -i.bak '56s#python3 "\$HERE/ft-news-tree.py"#python3 "$WT/.fable-team/bin/ft-news-tree.py"#' "$LB/ft-news-tick.sh"; rm -f "$LB/ft-news-tick.sh.bak"
+out="$(bash "$LINT" "$LB" 2>&1)"; rc=$?
+rc_is "$rc" 1 "r484 ⓑ 옛 줄 → 린트 rc1"; has "$out" 'REJECT ft-news-tick.sh:56 인터프리터가 shim 을 읽는다 — $HERE/ft-news-tree.py 로' "r484 ⓑ REJECT 파일:줄 원문"
+# ⓒ 키트 bin 전수 = OK 0건
+out="$(bash "$LINT" "$KB" 2>&1)"; rc=$?; rc_is "$rc" 0 "r484 ⓒ 키트 bin 전수 린트"; has "$out" "OK 0건" "r484 ⓒ OK 0건"
+# ⓓ shim 직접 실행은 그대로(생성기 변경 0)
+out="$(bash "$V/.fable-team/bin/ft-news-tree.py" "$MD" 2>&1)"; has "$out" "베타 하는 중" "r484 ⓓ bash <shim> 직접 실행 = 트리 줄"; hasnt "$out" "SyntaxError" "r484 ⓓ SyntaxError 0"
 
 echo "== fail=$fail"; [ "$fail" = 0 ]

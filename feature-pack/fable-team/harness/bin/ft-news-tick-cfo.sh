@@ -7,7 +7,6 @@
 # 사용: bash ft-news-tick-cfo.sh [ME]   (기본 ME = seats.json 의 FB_CFO#N 최신 · 없으면 FT_ME)
 set -u
 ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
-WT=$ROOT/.worktrees/v6-realtime-live
 CFO=$ROOT/.worktrees/c-level-planning
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/ft-team-lib.sh"   # R382b: cfo 팀 폴더는 CFO 워크트리의 design/TEAMS.md 폴더 칸으로(리터럴 0)
@@ -19,7 +18,7 @@ echo "════ ① 내 큐 ════"
 bash "$ROOT/.fable-team/comm/mbox.sh" recv "$ME" --all 2>&1 | grep -vE '^SCANNED' | head -40
 echo; echo "════ ② CFO 좌석 (tmux 실재 · 턴 · 큐) ════"
 for S in $(tmux ls -F '#{session_name}' 2>/dev/null | grep -E '^(FB_CFO|CFO_HARNESS|CFO_SINBO|ft-v65-temp-sb-harness-0-5-row[0-9]+)' | sort); do
-  T=$(bash "$WT/.fable-team/bin/ft-seat-status.sh" turn "$S" 2>/dev/null | awk '{print $1}')
+  T=$(bash "$HERE/ft-seat-status.sh" turn "$S" 2>/dev/null | awk '{print $1}')
   Q=$(bash "$ROOT/.fable-team/comm/mbox.sh" peek "$S" 2>/dev/null | grep -oE 'pending=[0-9]+' | head -1)
   printf "%-56s %-8s %s\n" "$S" "${T:-?}" "${Q:-}"
 done
