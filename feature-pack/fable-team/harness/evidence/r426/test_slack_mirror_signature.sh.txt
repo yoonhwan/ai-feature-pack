@@ -1,0 +1,4 @@
+PASS kit dir exists
+PASS github _item: opened·summary-fail·hil 텍스트 생성(TypeError 0)
+PASS seat default: planner-master-claude#11 · 옛 arch#3 매칭, 무관 이름 비매칭
+ALL PASS

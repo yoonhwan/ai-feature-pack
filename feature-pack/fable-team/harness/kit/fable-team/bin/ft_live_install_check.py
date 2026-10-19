@@ -3,13 +3,17 @@
 종료: 0 OK · 1 PENDING · 2 usage · 3 ERROR(지도·ref 못 품 · B 가 ref 조상 아님 — #0 RULE). 쓰기 0 · fetch 0 · launchctl·ps 각 7초 상한.
 --range A..B 는 대상 파일 집합만 정하고, 대조 blob 은 --ref(기본 origin/main) tip 에서 읽는다 (R367).
 r385: --repo 기본 = 하네스 코드 루트(FT_HARNESS_ROOT · <이 폴더>/../HARNESS_ROOT · 팩 harness/)의 리포 · --kit 기본 = 그 리포 기준 kit/ 경로 ·
---project = shim 대조할 프로젝트 루트(기본 = --repo 의 공용 루트)."""
+--project = shim 대조할 프로젝트 루트(기본 = --repo 의 공용 루트).
+r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 = 템플릿 렌더본(FT_ROOT = 프로젝트 루트) 바이트 대조 → 아니면 PENDING plist-env."""
 import fnmatch
 import os
 import re
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ft_plist_env  # noqa: E402 — r426 설치기 관리 plist 렌더(같은 폴더 · 설치본에도 함께 복사)
 
 KD = MAPPATH = KBIN = ""  # main 이 --kit 으로 채운다(리포 기준 키트 경로 · 끝 / )
 SHIMMARK = "# ft-root-bin-shim:"  # ft-root-bin-shim.sh 가 연결 파일 2행에 쓰는 표식
@@ -153,6 +157,36 @@ def plist_items(repo, path, blob):
     return ["RESTART " + label] if started < max((os.path.getmtime(s) for s in scripts), default=0) else []
 
 
+def plist_env(repo, blob, root):
+    """r426: 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본이 템플릿 렌더본(FT_ROOT=프로젝트 루트 · inbox=LIVE_BIN)과 바이트 같아야 한다.
+    설치 안 됨 = 검사 밖(NOTLOADED 가 센다) · LIVE_BIN·루트·설치값 없음 = ERROR(조용한 통과 0)."""
+    body = git(repo, "cat-file", "blob", blob)
+    m = re.search(r"<key>Label</key>\s*<string>([^<]+)</string>", body)
+    label = m.group(1) if m else ""
+    dst = ft_plist_env.plist_path(os.environ["HOME"], label)
+    if label not in ft_plist_env.MANAGED or not os.path.isfile(dst):
+        return []
+    lf = os.path.join(root, ".fable-team", "LIVE_BIN")
+    if not os.path.isfile(lf):
+        die("plist-env %s: LIVE_BIN 없음(%s) — 렌더본을 못 만든다 · --project <프로젝트 루트> 를 준다" % (label, lf))
+    with open(lf, encoding="utf-8") as fh:
+        live = fh.readline().strip()
+    try:
+        new = ft_plist_env.render(body, dst, root, live, os.environ["HOME"])
+    except ft_plist_env.RenderError as e:
+        die("plist-env %s 렌더 실패: %s" % (label, e))
+    with open(dst, encoding="utf-8", errors="replace") as fh:
+        return [] if fh.read() == new else ["PENDING plist-env %s (설치본 ≠ 템플릿 렌더본 · FT_ROOT=%s)" % (label, root)]
+
+
+def project_root(repo, project):
+    """shim 대조와 같은 루트: --project 또는 키트 리포의 공용 루트."""
+    if project:
+        return os.path.realpath(project)
+    gc = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    return gc[: -len("/.git")] if gc.endswith("/.git") else os.path.dirname(gc)
+
+
 def shim_items(repo, tree, project=None):
     """라이브 bin 에 실재하는 키트 도구마다 루트 .fable-team/bin/<이름> 연결 파일(앞 3줄에 SHIMMARK)이 있는지 (R374). LIVE_BIN 파일 없음 = 검사 대상 아님.
     루트 = --project(r385 · 키트 리포와 프로젝트가 갈린 뒤) 또는 키트 리포의 공용 루트."""
@@ -247,8 +281,10 @@ def main():
         elif row[1] == "plist":
             checked += 1
             items = plist_items(repo, f, tree[f][1])
-            bad += items
+            env = plist_env(repo, tree[f][1], project_root(repo, o["project"]))
+            bad += items + env
             hints.update({rel.split("/")[0]: row[3]} if items else {})
+            hints.update({"plist-env": "bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", project_root(repo, o["project"]))} if env else {})
         else:
             checked += 1
             pairs.append((f, live_path(row, f), row))

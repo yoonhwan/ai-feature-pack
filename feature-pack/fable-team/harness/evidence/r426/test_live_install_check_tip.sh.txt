@@ -1,0 +1,17 @@
+PASS ⓐ 라이브=tip(뒤 커밋이 덮음) → OK n=1 rc0
+PASS ⓑ 라이브 낡음 → PENDING + DIFF · live= tip= landed=
+PASS ⓒ B 가 ref 조상 아님 → ERROR 조상 rc3(조용한 통과 0)
+PASS ⓓ --all 같음 → OK n=1
+PASS ⓓ --all 다름 → DIFF 줄 그대로(landed= 0)
+PASS ⓔ 삭제 + 라이브 잔재 있음 → PENDING STALE rc1 (삭제 0)
+PASS ⓔ 삭제 + 라이브 잔재 없음 → REMOVED · OK n=0 rc0
+PASS ⓔ 삭제 + landed 지도로 경로 못 풂 → UNKNOWN rc1(조용한 통과 0)
+PASS ⓗ 로컬 origin/main=M(Q 미반영) 기본 ref → ERROR rc3
+PASS ⓗ --ref Q → OK(ERROR 0)
+PASS ⓗ ft-merge-land.sh 가 착지 직후 검사에 --ref "$Q" 전달
+FAIL ⓕ ft-index-move-install --landed B → OK(우회 0) :: rc=1 out=ERROR 하네스 루트(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r426-plist-env/feature-pack/fable-team/harness)가 --repo(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZclbaopqdN/repo) 밖 — --kit 를 준다 · 범위에 하네스 파일 1: scripts/harness-install/fable-team/bin/ft-a.sh
+REJECT 라이브 설치 어긋남(rc=3) — master 설치 뒤 다시 이동 (이동 0)
+FAIL ⓕ 통과 시 B 의 install-pending 파일 제거 :: rc=1 out=ERROR 하네스 루트(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r426-plist-env/feature-pack/fable-team/harness)가 --repo(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZclbaopqdN/repo) 밖 — --kit 를 준다 · 범위에 하네스 파일 1: scripts/harness-install/fable-team/bin/ft-a.sh
+REJECT 라이브 설치 어긋남(rc=3) — master 설치 뒤 다시 이동 (이동 0)
+PASS core.bare 오염 0
+FAILED 2

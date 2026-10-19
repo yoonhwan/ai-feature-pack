@@ -31,7 +31,7 @@ for f in byz_mbox_slack_mirror.py mirror_lib.py mirror_share.py mirror_summary.p
 done
 chmod +x "$HOME/.hermes/scripts/byz_mbox_slack_mirror.py"
 
-PY="$PY" HOME_DIR="$HOME" PROJECT="$PROJECT" MAILBOX="$MAILBOX" INBOX_BIN="$INBOX_BIN" SEAT="$SEAT" CHANNEL="$CHANNEL" MENTION="$MENTION" REPO="$REPO" \
+PY="$PY" HOME_DIR="$HOME" ROOT="$ROOT" PROJECT="$PROJECT" MAILBOX="$MAILBOX" INBOX_BIN="$INBOX_BIN" SEAT="$SEAT" CHANNEL="$CHANNEL" MENTION="$MENTION" REPO="$REPO" \
   python3 - "$KIT/$LABEL.plist.template" "$PLIST" <<'PYEOF'
 import os, sys
 t = open(sys.argv[1], encoding="utf-8").read()
