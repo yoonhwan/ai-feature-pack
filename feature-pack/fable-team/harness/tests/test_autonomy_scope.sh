@@ -2,6 +2,7 @@
 # test_autonomy_scope.sh — 범위 사전 승인 4명령(approve-scope·scope-approve·scope-stop·scope-status) + 위변조 판정 + 상태 폴더 훅 시험 (R298 1/3 · 판정 2055)
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR) + FT_NOW 고정 시계 + 가짜 분류기(FT_SCOPE_CLASSIFY) — 실 state·실 git 분류 0.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 손 approve-scope 경로라 each(레벨 시험 = test_autonomy_level.sh)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; SG="$ROOT/harness/kit/fable-team/templates/hooks/autonomy-state-guard.sh"
 fail=0; rc=0; out=""
@@ -120,7 +121,7 @@ rm -rf "$S"; mkdir -p "$S"; a on >/dev/null 2>&1; run a scope-approve "$(sha 36)
 # check-revert(r298b) — 분류 «전» 첫 단계: rc 4 = 정지 + REJECT · rc 1 = REJECT · rc 0 = 진행
 fresh; grant --for 10h --max 5 --classes docs >/dev/null; export STUB_ARGS_LOG="$T/stub-args.log"; : > "$STUB_ARGS_LOG"
 run a scope-approve "$(sha 61)"; [ $rc = 0 ]; ck "check-revert rc 0 → 진행(SCOPE-OK)" $?
-[ "$(head -1 "$STUB_ARGS_LOG")" = "check-revert --repo $T --remote origin --target main --scope S1" ] && [ "$(sed -n 2p "$STUB_ARGS_LOG")" = "classify $(sha 61) --repo $T --remote origin --target main --scope S1" ]; ck "check-revert 가 classify «전» 에 · 인자(--repo ROOT --remote origin --target main --scope S1)" $?
+[ "$(head -1 "$STUB_ARGS_LOG")" = "check-revert --repo $T --remote origin --target main --scope S1" ] && [[ "$(sed -n 2p "$STUB_ARGS_LOG")" == "classify $(sha 61) --repo $T --remote origin --target main --scope S1 --ddl-records "*/scope-ddl-record.tsv ]]; ck "check-revert 가 classify «전» 에 · 인자(--repo ROOT --remote origin --target main --scope S1)" $?
 n0="$(lines)"; ls "$AP" > "$T/ap.before"
 STUB_REVERT_RC=4 STUB_REVERT_OUT="REVERTED $(sha 61) by $(sha 99)" run a scope-approve "$(sha 62)"
 [ $rc = 2 ] && has "정지: REVERTED $(sha 61) by $(sha 99)"; ck "check-revert rc 4 → REJECT + 사유 그대로" $?

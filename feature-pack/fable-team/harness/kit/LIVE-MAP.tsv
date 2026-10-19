@@ -18,6 +18,8 @@ slack-mirror/*	cmp	$HOME/.hermes/scripts	master: slack-mirror/install-*.sh 재�
 fable-team/bin-planner/*	skip	-	팀 env 스테이징 — fable-team/install.sh 가 팀 폴더로 복사
 fable-team/templates/team/*	cmp	$FT_BIN/../templates/team	master: cp -pR <키트>/fable-team/templates/team/. <LIVE_BIN>/../templates/team/ → cmp0 (R377 · 라이브 scaffold 가 틀 파일 0 으로 조용히 통과하던 사건 · 중첩 폴더는 상대 경로 그대로 대조)
 fable-team/githooks/*	skip	-	r449 프로젝트 git 훅(core.hooksPath) — harness/install.sh --apply --project <공용 루트> 가 <루트>/.fable-team/githooks/ 로 cp -p → cmp0(출력 GITHOOKS copied=·same=) · 덮기 전 <파일>.bak-<버전> · 라이브 대조 = cmp <키트>/fable-team/githooks/pre-commit <루트>/.fable-team/githooks/pre-commit
+fable-team/templates/autonomy-level.conf	cmp	$FT_BIN/../templates	master: harness/install.sh --apply(키트 templates → <LIVE_BIN>/../templates cp -p) → cmp0 (r466 · ft-autonomy.sh on --level 의 레벨 기본표 — 없으면 on REJECT)
+fable-team/templates/scope-*.tsv	cmp	$FT_BIN/../templates	master: harness/install.sh --apply → cmp0 (r466 · 범위 승인 분류기의 팩 분류표·DDL 적용 기록표 — ft-autonomy-scope.sh 가 <LIVE_BIN>/../templates 에서 읽는다)
 fable-team/templates/*	skip	-	새 프로젝트 설치 템플릿 — 라이브 대조 대상 아님
 fable-team/*	skip	-	팀 설치 산출(템플릿 plist 등) — fable-team/install.sh 소관
 graphics/*	skip	-	graphics 팀 스테이징 — graphics/install.sh 가 <ROOT>/.fable-team/ 으로 복사

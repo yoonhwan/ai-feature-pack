@@ -2,31 +2,25 @@
 """autonomy_scope_classify.py — 오빠 부재 중 사전 승인(R298)의 «세트 종류» 분류기 (설계 DESIGN-r298-away-preapproval-merge §3·§7 · 판정 2055).
 
   autonomy_scope_classify.py classify <40hex> --repo <dir> [--remote origin] [--target main] --scope S<n>
-      `CLASS docs|ff|revert|code` rc0 | `FORBID <사유>` rc3 | `ERROR <사유>` rc1 (못 판단 = 닫힌 쪽 · 호출자 REJECT)
+        [--table <분류표.tsv>] [--ddl-records <기록표.tsv>] [--learned <키,…>]
+      `CLASS docs|ff|revert|code[ kind=<키,…> learned]` rc0 | `FORBID kind=<키> <사유>` rc3 | `ERROR <사유>` rc1 (못 판단 = 닫힌 쪽 · 호출자 REJECT)
   autonomy_scope_classify.py check-revert --repo <dir> [--remote origin] [--target main] --scope S<n>
       `OK` rc0 | `REVERTED <착지 sha> by <sha>` rc4 | `ERROR <사유>` rc1
-diff = merge-base(<remote>/<target>, sha)..sha · 로컬 git 만(호출마다 7초 상한) · 원장 = <state>/autonomy-scope/S<n>.ledger.tsv (6번째 칸 = 착지 sha)."""
+diff = merge-base(<remote>/<target>, sha)..sha · 로컬 git 만(호출마다 7초 상한) · 원장 = <state>/autonomy-scope/S<n>.ledger.tsv (6번째 칸 = 착지 sha).
+r466: 분류표(기본 BYZ 내장 · 팩 표 파일) · 카드 폴더 이동(R100 · 파일 이름 같음 · 양쪽 docs) = docs · 적용 기록 있는 새 *.sql(그 밖 docs 만) = docs ·
+      FORBID 마다 종류 키 · --learned 의 키(오빠 승인 1회로 저장된 종류 · secret 제외)는 docs 로 통과시키고 `kind=… learned` 를 붙인다."""
 import os
 import re
 import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import autonomy_scope_rules as rules  # noqa: E402
+
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SCOPE_RE = re.compile(r"^S[0-9]+$")
 GIT_TIMEOUT_S = 7
 LEDGER_LANDED_COL = 5   # 0 기준 — 승인 시각·sha·PR·종류·판정문·착지 sha·되돌림 명령
-
-# (이름, 정규식) — 옛·새 경로 어느 쪽이든 맞으면 종류와 무관하게 FORBID
-PATH_RULES = [(n, re.compile(rx, re.I)) for n, rx in [
-    ("DDL", r"(^|/)migrations/|\.sql$|^alembic/"),
-    ("배포·인프라", r"^\.github/workflows/|^infra/|^terraform/|cloudbuild|(^|/)Dockerfile|^deploy/|^scripts/deploy"),
-    ("키", r"^secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$|credential"),
-    ("과금", r"billing|credit|payment|pricing|toss|subscription|^docs/architect/COST_BASE_TABLE\.md$"),
-    ("의존", r"(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$|(^|/)[^/]*[-.]lock[^/]*$"),
-    ("전역 규칙", r"(^|/)CLAUDE\.md$|(^|/)\.claude/|COMM-GUIDE|(^|/)harness/kit/|(^|/)scripts/harness-install/"),
-]]
-DOC_RE = re.compile(r"^(design|docs)/.*\.md$")   # 확장자만으로 문서 판정 0 — design/ 아래 .py·.sh 는 code, 루트 .md 는 docs 아님
 SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}")
 
 
@@ -59,22 +53,6 @@ def parse_raw(out):   # `git diff --raw -z -M` → [(옛 모드, 새 모드, 상
     if any(toks[i:]):
         raise Err("diff --raw 해석 실패")
     return rows
-
-
-def path_reason(path):
-    for name, rx in PATH_RULES:
-        if rx.search(path):
-            return "%s 경로: %s" % (name, path)
-    return None
-
-
-def row_reason(row):
-    om, nm, st, paths = row
-    if st[0] not in "AM":
-        return "상태 %s: %s" % (st, " → ".join(paths))   # 삭제·이름 바꾸기·복사·타입 변경
-    if (st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644"):
-        return "모드 %s→%s: %s" % (om, nm, paths[0])
-    return next(filter(None, map(path_reason, paths)), None)
 
 
 def added_text(repo, base, sha):
@@ -127,7 +105,11 @@ def is_exact_revert(repo, sha, landed):   # 부모 1개 ∧ 그 diff 의 patch-i
     return bool(want) and any(patch_id(repo, sha_l, sha_l + "^") == want for sha_l in landed)
 
 
-def classify(repo, remote, target, scope, sha):
+def show_at(repo, sha):   # sha 트리의 파일 본문(없으면 "")
+    return lambda path: run(repo, ["show", "%s:%s" % (sha, path)]).stdout
+
+
+def classify(repo, remote, target, scope, sha, table=None, records=None, learned=()):
     ref = "refs/remotes/%s/%s" % (remote, target)
     git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
     git(repo, "rev-parse", "--verify", "-q", sha + "^{commit}")
@@ -137,13 +119,23 @@ def classify(repo, remote, target, scope, sha):
     rows = parse_raw(git(repo, "diff", "--raw", "-z", "-M", base, sha))
     if not rows:
         raise Err("빈 diff(승인할 변경 없음)")
-    why = next(filter(None, map(row_reason, rows)), None) or secret_reason(added_text(repo, base, sha))
-    if why:
-        return 3, "FORBID " + why
-    if not all(DOC_RE.match(r[3][0]) for r in rows):
-        return 0, "CLASS code"
+    added = added_text(repo, base, sha)
+    ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
+    judged = [rules.judge_row(table or rules.BYZ_TABLE, r, ddl_ok) for r in rows]
+    secret = secret_reason(added)
+    if secret:
+        judged.append(("forbid", "secret", secret))
+    used = rules.apply_learned(judged, learned)
+    hit = next(((k, w) for c, k, w in judged if c == "forbid"), None)
+    if hit:
+        return 3, "FORBID kind=%s %s" % hit
+    if any(k == "ddl-recorded" for _, k, _ in judged) and any(c != "docs" for c, _, _ in judged):
+        return 3, "FORBID kind=ddl DDL 기록 PR 에 문서 밖 변경"
+    tail = " kind=%s learned" % ",".join(used) if used else ""
+    if any(c != "docs" for c, _, _ in judged):
+        return 0, "CLASS code" + tail
     is_ff = run(repo, ["merge-base", "--is-ancestor", ref, sha]).returncode == 0
-    return 0, "CLASS ff" if is_ff else "CLASS docs"
+    return 0, ("CLASS ff" if is_ff else "CLASS docs") + tail
 
 
 def find_reverter(repo, ref, landed):   # 착지 뒤 ref 에 «This reverts commit <L>» 이 든 커밋 → 그 sha
@@ -168,10 +160,10 @@ def check_revert(repo, remote, target, scope):
 
 def parse_args(argv):
     if not argv or argv[0] not in ("classify", "check-revert"):
-        raise Err("usage: classify <40hex>|check-revert --repo <dir> [--remote r] [--target t] --scope S<n>")
+        raise Err("usage: classify <40hex>|check-revert --repo <dir> [--remote r] [--target t] --scope S<n> [--table f] [--ddl-records f] [--learned k,…]")
     cmd, rest = argv[0], list(argv[1:])
     sha = rest.pop(0) if cmd == "classify" and rest and not rest[0].startswith("--") else None
-    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None}
+    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": ""}
     while rest:
         key = rest.pop(0)
         if key not in opts or not rest:
@@ -181,14 +173,22 @@ def parse_args(argv):
         raise Err("--repo 와 --scope S<n> 필수")
     if cmd == "classify" and not SHA_RE.match(sha or ""):
         raise Err("<40hex> 필수")
-    return cmd, sha, opts["--repo"], opts["--remote"], opts["--target"], opts["--scope"]
+    learned = tuple(k for k in (opts["--learned"] or "").split(",") if k)
+    if not all(rules.KIND_RE.match(k) for k in learned):
+        raise Err("--learned 키 꼴 틀림")
+    return cmd, sha, opts, learned
 
 
 def main(argv):
     try:
-        cmd, sha, repo, remote, target, scope = parse_args(argv)
-        rc, line = classify(repo, remote, target, scope, sha) if cmd == "classify" else check_revert(repo, remote, target, scope)
-    except Err as e:
+        cmd, sha, o, learned = parse_args(argv)
+        repo, remote, target, scope = o["--repo"], o["--remote"], o["--target"], o["--scope"]
+        if cmd == "classify":
+            table, records = rules.load_table(o["--table"]), rules.load_ddl_records(o["--ddl-records"])
+            rc, line = classify(repo, remote, target, scope, sha, table, records, learned)
+        else:
+            rc, line = check_revert(repo, remote, target, scope)
+    except (Err, rules.TableErr, OSError) as e:
         rc, line = 1, "ERROR %s" % e
     except Exception as e:   # 판정기 내부 오류도 닫힌 쪽(#0 RULE) — 이유는 형 이름뿐
         rc, line = 1, "ERROR 내부 오류 %s" % type(e).__name__

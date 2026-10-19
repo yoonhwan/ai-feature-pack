@@ -4,6 +4,7 @@
 #   ⓔ 번호 0개 원장 → proxy-decide 발급 0 · ⓕ lint 가 표 행 «조건부 승인» 으로 HOLD 예외 통과(글머리도 그대로)
 # 격리: 임시 FT_ROOT·상태·원장 + 임시 git 저장소 — 실 원장·실 상태·실 mbox 쓰기 0.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"

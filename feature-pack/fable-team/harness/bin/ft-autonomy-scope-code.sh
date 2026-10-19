@@ -18,10 +18,10 @@ scope_code_check() {
   line="$(grep -E '세트:' "$card" | tail -1)"
   [[ "$line" =~ $re ]] || scope_err "카드 증거 줄이 «세트: <40hex> · 시험: … rc=0 · 이슈: 0» 꼴 아님: ${line:0:160}"
   CODE_A="${BASH_REMATCH[1]}"; CODE_EQUIV=""
-  scope_code_tool ft-nano-evidence-check.sh "$card" --repo "$ROOT" --ancestor-of "$sha"
+  scope_code_tool ft-nano-evidence-check.sh "$card" --repo "${SCOPE_REPO:-$ROOT}" --ancestor-of "$sha"
   [ "$RC" = 0 ] || scope_err "증거 검사 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   [ "$CODE_A" = "$sha" ] && return 0
-  scope_code_tool ft-approval-equiv.sh "$CODE_A" "$sha" --repo "$ROOT"
+  scope_code_tool ft-approval-equiv.sh "$CODE_A" "$sha" --repo "${SCOPE_REPO:-$ROOT}"   # r466: --repo pack 이면 팩 리포
   [ "$RC" = 0 ] && [[ "$FIRST" == EQUIV\ * ]] || scope_err "세트 ${CODE_A:0:9} ≠ $sha — 동일 승인 아님 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   CODE_EQUIV="$CODE_A"
 }
