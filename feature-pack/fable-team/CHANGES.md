@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-20 — 승계 은퇴 reap 이 press 서비스(gateway·worker)를 죽이던 결함 — reap 후보에서 서비스 나무 제외 (r505 · 1.1.59)
+
+- 사건: v65 tester 72 은퇴 02:07:34 → 02:07:49 gateway·worker 동시 SIGTERM · tester 73 보고 «reap stopped=2 left=0» · press 회차 nf1·nf2 무효(v65 master 214 쪽지 116837). `ft-seat-retire.sh` 가 부르는 `ft-seat-reap.sh <구> --orphans-only` 의 후보 = uid 같음 ∧ ppid 1 ∧ exe ∉ PROTECT_EXE ∧ env FT_SEAT==좌석(②) — run.command 서비스는 nohup·& 로 떠 ppid 1 + 좌석 env 상속, venv 실행 파일 이름 `python` 은 PROTECT_EXE(`python3`) 밖이라 «감시 루프» 와 같은 모양으로 걸렸다.
+- `ft-seat-reap.sh`: 조사마다 «서비스 나무» 를 만든다 — ⓐ`lsof -nP -iTCP -sTCP:LISTEN -Fp`(7 s 상한 · 실패 = rc 20 «조사 실패», rc 1 + stderr 0 만 LISTEN 0) 의 pid + 그 조상(ppid 사슬 · pid 1 앞까지) + 자손 → `service-listen` ⓑ명령 꼴 `SERVICE_RE`(`uvicorn|gunicorn|hypercorn` · `-m worker|gateway` · `next dev|start` · `next-server` · `run.command` · env `FT_REAP_SERVICE_RE` 로 덮기 · 정규식 오류 = rc 20) + 자손 → `service-cmd`. 후보(①②②b③)·자손 루프에서 서비스 나무는 빼고 앞 줄 `reap-skip pid=<n> why=service-listen|service-cmd cmd=<앞 100자>`(첫 조사에서 1회 · stopped·left 에 안 셈 · 끝 줄 형식 그대로). 모든 모드(은퇴 `--orphans-only` · seat-close · nano-close) 공통 — 서비스 정지는 `scripts/server/stop.command` 몫.
+- 보호 exe 목록에 이름을 더하는 길은 안 썼다(venv 마다 python·python3·Python 으로 다시 샌다 · `ft-leak-reap.sh` PROTECT_EXE 변경 0). 파괴 경계: kill 대상을 줄이기만 한다(새 kill 0) · r448 루프 회수 그대로.
+- 시험 `test_seat_reap_services.sh`(실프로세스 · 표식 r505fx-<pid> 고아만 · tmux 0): ⓐ venv python LISTEN 서비스(ppid 1 · FT_SEAT) 생존 + `why=service-listen` ⓑ LISTEN 없는 `python -m worker.x` 생존 + `why=service-cmd` ⓒ `bash -c 'while :; do sleep 1; done'` 정지 `stopped=1 left=0 rc=0` ⓓ 서비스 자식(bash sleep · FT_SEAT 상속) 닫기 경로에서도 생존 ⓔ `FT_REAP_SERVICE_RE` 덮기 → ⓑ 다시 후보 · 가짜 lsof rc2 → rc 20 + 아무것도 안 죽임 — 고치기 전 판 FAIL 9(서비스 `via=②` 로 정지 · 사건 재현) → 후 ALL PASS. 기존 `test_seat_reap_left0`·`test_seat_retire_keep`·`test_seat_retire_rosters`·`test_seat_close`·`test_nano_close_fail_closed` rc0 · `test_seat_retire` ⑧(`test_ft_tick_master_seat.sh` ft-tick ERROR 4)은 base 10a6a36b 에서도 같은 4 FAIL — 이 변경 무관(따로 보고). 증거 `harness/evidence/r505/`.
+
 ## 2026-10-20 — 선제 회수가 launchd PATH 에서 tmux 를 못 찾아 «후보 0» 으로 조용히 끝나던 결함 (r502 · 1.1.58)
 
 - 사건: harness arch 105 실측 01:5x — `.fable-team/state/reclaim.log` PREVENTIVE 줄 220개가 전부 `candidates=0` · 같은 시각 대화 셸 손 실행은 `candidates=23`. launchd `com.byz.ft-resource-watch`(plist env = `FT_RES_ROOT`·`FT_ROOT` 뿐)가 기본 PATH `/usr/bin:/bin:/usr/sbin:/sbin` 로 돌아 `/opt/homebrew/bin/tmux` 를 못 찾고, `tmux list-sessions … 2>/dev/null` 빈 출력을 «세션 0» 으로 읽었다 — 골 6 장치(압력 때 끝난 좌석 회수 · r500 압력 티어)가 설치 뒤 한 번도 자동으로 안 돌았다.
