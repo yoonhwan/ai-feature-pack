@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+# ─────────────────────────────────────────────────────────────────────────────
+# push 물리 게이트 (2026-09-09, master#32 #5116/#5127 승인)
+#
+# 왜: 하룻밤에 push 채널이 5번 뚫렸다. RULE 문서 커밋 «직후» 5번째가 났다 —
+#     문서만으로는 안 막힌다는 것이 실증됐다.
+# 무엇을 막나: 발신자 신원이 아니라 ★push range 전체에 제품코드가 있는가★.
+#     `git push` 는 브랜치 tip 까지 «모든» 커밋을 올린다 — 좌석은 「내 것 하나만」이라
+#     믿지만 그 아래 남의 보류 커밋이 전부 따라간다(위반 4·5 의 기전).
+# 한계: `git push --no-verify` 는 이 훅을 건너뛴다. 이건 ★실수 방지 장치★ 이지
+#     권한 통제가 아니다. 위반 5건이 전부 실수였으므로 유효하다.
+# 정본 설계: design/v65/20260908/DESIGN-arch31x-push-gate.md
+# ─────────────────────────────────────────────────────────────────────────────
+GATE_BRANCH="feat/v6-realtime-live"
+PRODUCT_PATHS="clients/web/src gateway worker shared"
+ZERO="0000000000000000000000000000000000000000"
+
+cur_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+gate() {
+  # 브랜치 필터 — 이 트랙에만 적용(다른 워크트리/트랙 무영향)
+  [ "$cur_branch" = "$GATE_BRANCH" ] || return 0
+
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "$local_sha" ] && continue
+    [ "$local_sha" = "$ZERO" ] && continue          # 브랜치 삭제
+    if [ "$remote_sha" = "$ZERO" ]; then
+      range="$local_sha"                            # 신규 브랜치
+    else
+      range="$remote_sha..$local_sha"
+    fi
+
+    hits=$(git diff --name-only "$range" -- $PRODUCT_PATHS 2>/dev/null)
+    [ -z "$hits" ] && continue
+
+    if [ -n "$FT_PUSH_DA6_OK" ]; then
+      # 탈출구 — 반드시 stderr 에 남긴다. 「승인받고 민 것」과 「뚫린 것」이 갈려야 한다.
+      echo "PUSH_GATE_BYPASS: FT_PUSH_DA6_OK=$FT_PUSH_DA6_OK range=$range" >&2
+      echo "$hits" | sed 's/^/  bypassed: /' >&2
+      continue
+    fi
+
+    echo "" >&2
+    echo "PUSH_DENIED — 이 push range 에 제품코드가 있다." >&2
+    echo "  range: $range" >&2
+    echo "$hits" | sed 's/^/    /' >&2
+    echo "" >&2
+    echo "  ★git push 는 네 커밋만이 아니라 브랜치 tip 까지 «전부» 올린다★ —" >&2
+    echo "  네 커밋이 docs 뿐이어도 그 아래 남의 보류 제품 커밋이 따라간다." >&2
+    echo "  조치: master 에 «DA⑥ 완료 여부 + 대상 sha» 를 명시해 push 를 요청하라." >&2
+    echo "  정본: design/v65/20260908/RULE-push-channel-single-owner.md" >&2
+    echo "  DA⑥ 승인이 이미 있으면: FT_PUSH_DA6_OK=<sha목록> git push …" >&2
+    echo "" >&2
+    return 1
+  done
+  return 0
+}
+
+gate || exit 1
+
+# 게이트 통과 — 기존 beads shim 에 위임(설치돼 있을 때만)
+if command -v bd >/dev/null 2>&1; then
+  exec bd hooks run pre-push "$@"
+fi
+exit 0
