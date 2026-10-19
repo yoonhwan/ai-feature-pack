@@ -19,6 +19,7 @@ export HOME="$T/home"; LA="$HOME/Library/LaunchAgents"; DST="$LA/$LABEL.plist"
 mkdir -p "$LA" "$HOME/.hermes/scripts" "$T/proj/.fable-team/bin" "$T/livebin"
 echo 'print(1)' > "$HOME/.hermes/scripts/byz_mbox_slack_mirror.py"
 P="$(cd "$T/proj" && pwd -P)"; LB="$T/livebin"
+git -C "$P" init -q -b main && git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m p0  # r457: 프로젝트 = git 공용 루트
 printf '#!/bin/bash\n' > "$LB/ft-inbox.sh"; printf '%s\n' "$LB" > "$P/.fable-team/LIVE_BIN"
 # 옛 설치본(사건 당시 꼴) = FT_ROOT 없음 · inbox 가 워크트리 옛 bin
 legacy() {
@@ -73,6 +74,27 @@ inst --dry-run; [ "$rc" = 0 ] && has "OK plist-env $LABEL"; ck "ⓒ dry-run(설�
 cp -p "$DST" "$T/good.plist"; sed -i '' '/<key>FT_ROOT<\/key>/d' "$DST"; s0="$(sum)"; k0="$(nkick)"
 inst --dry-run; [ "$rc" = 0 ] && has "PENDING plist-env $LABEL" && [ "$(sum)" = "$s0" ] && [ "$(nkick)" = "$k0" ]; ck "ⓒ' 설치 뒤 FT_ROOT 빠짐 → dry-run PENDING plist-env · 쓰기 0" $?
 cp -p "$DST.bak-r426" "$T/bak0"; inst --apply; cmp -s "$DST.bak-r426" "$T/bak0" && cmp -s "$DST" "$T/good.plist"; ck "ⓒ' 재apply → .bak-r426 는 첫 원본 보존 · 렌더본 복구" $?
+
+# r457 — plist 는 git 공용 루트 설치에서만 · 워크트리 --project(r413 shim 설치)는 plist 0
+git -C "$P" worktree add -q --detach "$P/.worktrees/w" && mkdir -p "$P/.worktrees/w/.fable-team/bin"; W="$(cd "$P/.worktrees/w" && pwd -P)"
+instw() { out="$(bash "$INST" "$@" --project "$W" --home "$HOME" 2>&1)"; rc=$?; }
+inst --dry-run; [ "$rc" = 0 ] && has "OK plist-env $LABEL" && ! has "SKIP plist-env"; ck "r457ⓐ --project <공용 루트> → 기존 그대로(OK plist-env · SKIP 0)" $?
+cp -p "$T/legacy.plist" "$DST"; k0="$(nkick)"; b0="$(nboot)"
+instw --dry-run; [ "$rc" = 0 ] && has "SKIP plist-env $LABEL (--project 가 git 공용 루트 아님: 루트=$P" && ! has "PENDING plist-env" && cmp -s "$DST" "$T/legacy.plist"
+ck "r457ⓑ 워크트리 dry-run → SKIP plist-env 1줄 · plist 불변" $?
+instw --apply; [ "$rc" = 0 ] && [ "$(grep -c '^SKIP plist-env' <<< "$out")" = 1 ] && ! has "PLIST applied" && cmp -s "$DST" "$T/legacy.plist" \
+  && [ "$(nkick)" = "$k0" ] && [ "$(nboot)" = "$b0" ] && [ -f "$W/.fable-team/LIVE_BIN" ]
+ck "r457ⓑ 워크트리 apply → SKIP 1줄 · plist cmp 불변 · launchctl 0 · shim 설치(LIVE_BIN)는 그대로" $?
+out="$(python3 "$ENV_PY" render "$LABEL" "$TPL" "$T/good.plist" "$W" "$LB" "$HOME" 2>&1)"; rc=$?; [ "$rc" = 3 ] && has "루트가 git 공용 루트 아님(워크트리)"
+ck "r457ⓒ 렌더기 직접 · 워크트리 루트 → RenderError rc3" $?
+out="$(python3 "$ENV_PY" render "$LABEL" "$TPL" "$T/good.plist" "$P" "$LB" "$HOME" 2>&1)"; rc=$?; [ "$rc" = 0 ]; ck "r457ⓒ 렌더기 직접 · 공용 루트 → rc0" $?
+chk --project "$W"; [ "$rc" = 1 ] && has "PENDING plist-env $LABEL" && has "FT_ROOT=$P)" && has "HINT plist-env bash " && has "install.sh --apply --project $P" && ! has "--project $W"
+ck "r457ⓓ install-check 워크트리 --project → plist-env 대조·HINT 는 공용 루트($P)" $?
+Q="$T/nogit"; mkdir -p "$Q/.fable-team/bin"; cp -p "$P/.fable-team/LIVE_BIN" "$Q/.fable-team/LIVE_BIN"; Q="$(cd "$Q" && pwd -P)"; k0="$(nkick)"
+out="$(bash "$INST" --apply --project "$Q" --home "$HOME" 2>&1)"; rc=$?; [ "$rc" = 1 ] && has "ERROR" && has "git 공용 루트 아님(.git 없음)" && cmp -s "$DST" "$T/legacy.plist" && [ "$(nkick)" = "$k0" ]
+ck "r457ⓔ git 밖 --project → install.sh ERROR rc1 · plist 불변(새 통과 0)" $?
+chk --project "$Q"; [ "$rc" = 3 ] && has "git 공용 루트 아님"; ck "r457ⓔ git 밖 --project → install-check ERROR rc3" $?
+cp -p "$T/good.plist" "$DST"
 
 # ⓓ 치환 실패 = ERROR (조용한 통과 0)
 out="$(python3 "$ENV_PY" render "$LABEL" "$TPL" "$DST" "$T/no-root" "$LB" "$HOME" 2>&1)"; rc=$?; [ "$rc" = 3 ] && has "ERROR" && has "루트 없음"; ck "ⓓ 렌더: 루트 없음 → ERROR rc3" $?
