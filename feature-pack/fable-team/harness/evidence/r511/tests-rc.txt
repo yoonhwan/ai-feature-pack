@@ -1,0 +1,33 @@
+## 고친 판 (bash 5.3.9(1)-release)
+PASS sh -n pre-push
+PASS ⓐ 새 가지 문서만 + 미커밋 제품 → 통과 rc0
+PASS ⓑ 새 가지 제품 커밋 → 거부 rc1
+PASS ⓑ 출력 range: <mb>..<tip>
+PASS ⓑ 출력에 gateway/b.py
+PASS ⓑ 우회 FT_PUSH_DA6_OK → 통과 + BYPASS 기록
+PASS ⓒ 기존 가지 문서만 → 통과
+PASS ⓒ 기존 가지 제품 포함 → 거부 range remote..local
+PASS ⓓ origin/main 없음 → 거부 rc1 + 사유
+PASS ⓓ diff 실패(모르는 remote sha) → 거부 rc1
+PASS ⓔ GATE_BRANCH 아님 → 검사 0
+--- ALL PASS
+rc=0
+## /bin/bash 3.2 실행
+--- ALL PASS
+rc=0
+## 변이 ⓔ — PRE_PUSH=설치본(옛 판 range=$local_sha · 공용 루트 09-09)
+FAIL ⓐ rc=1 (기대 0)
+FAIL ⓑ rc=0 (기대 1)
+FAIL ⓑ range 줄 없음
+FAIL ⓑ gateway/b.py 없음
+FAIL ⓑ 우회 rc=0
+FAIL ⓓ 기준 없음 rc=0
+FAIL ⓓ diff 실패 rc=0
+--- FAIL 7
+rc=1
+## shellcheck -S warning (SC2034 local_ref·remote_ref = 옛 판 :24 그대로 · 이 단위 변경 줄 0건)
+3
+rc(-e SC2034)=0
+## sh -n · bash -n
+rc=0
+rc=0

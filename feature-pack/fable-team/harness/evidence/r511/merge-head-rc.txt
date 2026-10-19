@@ -1,0 +1,31 @@
+## 병합 HEAD 재실행 (origin/main 11a4fcd3 병합 · 1.1.67)
+### test_pre_push_range.sh (bash5)
+PASS sh -n pre-push
+PASS ⓐ 새 가지 문서만 + 미커밋 제품 → 통과 rc0
+PASS ⓑ 새 가지 제품 커밋 → 거부 rc1
+PASS ⓑ 출력 range: <mb>..<tip>
+PASS ⓑ 출력에 gateway/b.py
+PASS ⓑ 우회 FT_PUSH_DA6_OK → 통과 + BYPASS 기록
+PASS ⓒ 기존 가지 문서만 → 통과
+PASS ⓒ 기존 가지 제품 포함 → 거부 range remote..local
+PASS ⓓ origin/main 없음 → 거부 rc1 + 사유
+PASS ⓓ diff 실패(모르는 remote sha) → 거부 rc1
+PASS ⓔ GATE_BRANCH 아님 → 검사 0
+--- ALL PASS
+rc=0
+### /bin/bash 3.2
+--- ALL PASS
+rc=0
+### 변이 PRE_PUSH=옛 설치본
+--- FAIL 7
+rc=1
+### test_evidence_log_gate.sh (기존 githooks 시험 · ⓖ 기대값 = 키트 githooks 2개로 갱신 + pre-push cmp 1줄)
+PASS count=55
+PASS ⓖ install --apply → githooks/pre-commit cmp0 · 실행 비트 · .bak-1.1.67
+PASS ⓖ install --apply → githooks/pre-push cmp0 · 실행 비트
+PASS ⓖ 2회째 same=2(멱등)
+PASS ⓖ dry-run GITHOOK 줄 · hooksPath 어긋남 WARN
+ALL PASS
+rc=0
+### bash -n
+rc=0

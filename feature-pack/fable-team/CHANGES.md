@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — push 게이트 새 가지 range = merge-base(origin/main, tip)..tip · 훅이 처음 키트에 들어옴 (r511 · 1.1.67)
+
+- 사건: 문서 3파일 새 가지 첫 push 가 `PUSH_DENIED «range 에 제품코드»` → `FT_PUSH_DA6_OK` 우회 기록(v65 쪽지 117396 → planner 117419 → harness master 82 발주 117428). 원인: `pre-push:27-28` 새 가지(remote_sha 0)면 `range="$local_sha"` — `git diff --name-only <커밋>` 은 «그 커밋 ↔ 작업 트리» 라 미커밋 변경을 잡고(오탐) 올라가는 제품 커밋은 놓친다(누락 — 작업 트리가 깨끗하면 제품 커밋 가지도 통과). `:33` `2>/dev/null` 이 diff 실패를 «hits 없음 = 통과» 로 삼켰다.
+- 훅이 처음 키트에 들어옴: `kit/fable-team/githooks/pre-push`(새 · 출발점 = 공용 루트 손 설치본 09-09 바이트 그대로 → 구조 커밋) — 설치하면(`install.sh --apply` GITHOOKS 줄) 공용 루트 판을 덮고 `pre-push.bak-<버전>` 을 남긴다. 정본 위치 = 팩 키트.
+- 고침: 새 가지 `base=$(git merge-base origin/main "$local_sha")` · 비면 `PUSH_DENIED — 새 가지 기준(merge-base origin/main) 못 구함 — 거부 유지` rc1 · 있으면 `range="$base..$local_sha"` · diff rc≠0 = `PUSH_DENIED — range diff 실패 — 거부 유지` rc1(조용한 통과 0). 기존 가지 `remote..local`·`FT_PUSH_DA6_OK` 우회 기록·GATE_BRANCH·PRODUCT_PATHS 그대로.
+- 시험 `test_pre_push_range.sh`(새 · 임시 bare origin + 클론 · stdin 직접 · push 0 · 가짜 bd): ⓐ 새 가지 문서 + 미커밋 gateway → 통과 ⓑ 새 가지 gateway 커밋 → 거부 + `range: <mb>..<tip>` · 우회 기록 ⓒ 기존 가지 문서 통과·제품 거부 ⓓ origin/main 없음·diff 실패 → 거부 ⓔ GATE_BRANCH 아님 → 검사 0 = 11 PASS(bash5 + /bin/bash 3.2) · 변이(옛 설치본) FAIL 7. shellcheck -S warning = 옛 줄 `:24` SC2034(local_ref·remote_ref) 만. 원문 = `harness/evidence/r511/tests-rc.txt`(고치기 전 = `before-fix.txt`). 기존 `test_evidence_log_gate.sh` ⓖ 기대값 = 키트 githooks 2개(`GITHOOKS copied=2`·2회째 `same=2`) + pre-push cmp0·실행 비트 1줄 · 병합 HEAD 재실행 = `merge-head-rc.txt`.
+- 범위 밖: 다른 githooks(commit-msg·post-*·prepare-commit-msg) 키트 이관(같은 «손 설치» 꼴 — 별 카드 후보) · GATE_BRANCH 확장 · `--no-verify` 차단.
+
 ## 2026-10-20 — 뉴스 갈래 상한의 CLI 기동 고정비 = 잠정 3.5초 → 실측 p90 · 지도 실패 연속 3틱 = 고정 문구 «뉴스 지연» 1번 (r510 · 1.1.65)
 
 - 사건: 부하 48~52 에서 뉴스 HTML 이 02:08 뒤 발행 0 — `/tmp/byz-ft-news-planner.log` «ERROR 지도 만들기 실패 — 발행 0: opencode run summary 실패(…): summary 상한 24s 초과(총 마감 70s)» 8회 연속(arch 105 자체 발견 · master 82 117315). 원인: 갈래 시도당 상한 `min(FIXED_S 3.5 + 7 × ceil(단위), 70)` 의 CLI 기동 고정비 3.5초가 «잠정값» — 부하 50 에서 `opencode run --standalone` 기동이 그보다 훨씬 길어 1차·재시도 둘 다 첫 출력 전에 상한 도달(성공 판에도 갈래 40~52초 = 재시도 성공이 이미 섞여 있었다).
