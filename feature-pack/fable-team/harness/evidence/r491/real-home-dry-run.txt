@@ -1,0 +1,13 @@
+version=1.1.46 machine=MacBook-Pro live=/Users/yoonhwan/.claude/fable-team/live/1.1.46/ files=351
+HOOK /Users/yoonhwan/.claude/hooks/desk-bash-fg-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/desk-bash-fg-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/desk-self-interview-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/desk-self-interview-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge-head-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/merge-head-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge_cmd.py <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/merge_cmd.py (exec)
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/op-vault-develop-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/op-vault-develop-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/opencode-reap-check.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/opencode-reap-check.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/planner-decision-line.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/planner-decision-line.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/tracked-bin-call-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/hooks/tracked-bin-call-gate.sh (exec)
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/pre-commit <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r491-install-home-hooks-chmod-x/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-commit
+HOOKS registered=29 ok=29 bad=0

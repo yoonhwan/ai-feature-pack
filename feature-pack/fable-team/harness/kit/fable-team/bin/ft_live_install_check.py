@@ -349,8 +349,11 @@ def main():
     hmap = {p[1]: h for p, h in zip(live, hashes)}
     for f, lp, row in pairs:
         why = "MISSING" if lp not in hmap else ("DIFF" if hmap[lp] != tree[f][1] else "")
-        if not why and tree[f][0] == "100755" and not os.access(lp, os.X_OK):
-            why = "MODE"
+        if not why and not os.access(lp, os.X_OK):
+            if f[len(KD):].startswith("hooks/"):  # r491: 홈 훅은 키트 모드와 무관하게 실행돼야 한다(settings 가 직접 실행)
+                why = "EXEC-BIT"
+            elif tree[f][0] == "100755":
+                why = "MODE"
         if why:
             tail = " live=%s tip=%s landed=%s" % (hmap[lp][:10], tree[f][1][:10], landed[:10]) if why == "DIFF" and landed else ""
             bad.append("%s %s -> %s%s" % (why, f, lp, tail))
