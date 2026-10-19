@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_merge_land.sh — ft-merge-land.sh 착지 시험 (R230 교정 2 H1 · 임시 origin+clone · gh 는 스텁 · 실 gh·실 원격 0)
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; LAND="$BIN/ft-merge-land.sh"
 . "$HERE/_merge_fixture.sh"

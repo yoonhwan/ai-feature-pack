@@ -2,7 +2,9 @@
 # fable-team autonomy-state-guard — PreToolUse:Bash|Write|Edit|NotebookEdit (r-autonomy-hooks 훅② · 판정 1322·1355 · DESIGN-autonomy-proxy-decision r3 §1)
 # 왜: 좌석이 자율 모드를 스스로 켜고 끄거나 상태 파일을 고치면 모드 전체가 무의미하다. ON/OFF 는 오빠 `!` 한 줄(ft-hil.sh 계획 파일)로만.
 # 막는 것(모드 ON/OFF 무관 · BYZ 리포 안): `autonomy.json`·`autonomy.log`(+`.tmp`)·`autonomy-merge-ok/`·`autonomy-merge-approved/`·`autonomy-scope/`·`autonomy-digest/`·`seat-resume-attempts/` 경로를 «쓰는» 호출,
-#   `ft-autonomy.sh on|off|approve-merge`·`ft-queue-digest.sh issue`·`ft-resume-attempt.sh allow` 실행(판정 1675 · 뒤 두 도구는 r163·r165 가 만든다).
+#   `ft-autonomy.sh on|off|approve-merge|approve-scope|forget-kind`·`ft-queue-digest.sh issue`·`ft-resume-attempt.sh allow` 실행(판정 1675 · 뒤 두 도구는 r163·r165 가 만든다).
+#   r466 5c: 인자에 오빠 진입 파일(`/tmp/h<N>`·$HIL_DIR/h<N>)·계획 파일(`*.sh.hil`)이 있으면 그 본문(진입 파일의 `plan=` 이 가리키는 계획 파일까지 1단)에 같은 판정 —
+#     단 approve-merge 는 자율 ON(ft-autonomy.sh mode = on)이면 허용 + 로그 `hN-approve seat=<tmux 세션|unknown> file=<경로>`(자율 중 병합 승인 = desk 실행) · OFF·못 읽음 = deny · on|off|forget-kind|approve-scope = 늘 deny · 파일 못 읽음 = 허용 + 로그.
 #   Write/Edit/NotebookEdit 는 file_path·notebook_path. Bash 는 «양성 일치»만: 리다이렉트 `>`/`>>`/`>|` 대상 · tee · cp(마지막 인자=대상) · mv/rm/ln/install/touch/truncate 인자 · dd of= · sed/perl -i.
 #   읽기 목록 밖을 전부 막는 방향은 오탐 폭발(r106c 실측)이라 금지 — cat·jq·grep·tail·ft-autonomy.sh status|mode|event·따옴표 안 글자·heredoc 본문은 allow.
 # 한계(설계 §1): bypass 좌석의 적대적 우회(python -c 로 쓰기 등)까지는 못 막는다 — 그건 ft-autonomy.sh 의 위변조 표시가 잡는다.
@@ -17,7 +19,8 @@ import json, os, re, shlex, subprocess, sys, time
 
 LOG = os.environ.get("FT_AUTONOMY_HOOK_LOG") or os.path.expanduser("~/.claude/logs/autonomy-hooks.log")
 PROT = re.compile(r"(^|/)(autonomy\.(json|log)(\.tmp)?|(autonomy-merge-ok|autonomy-merge-approved|autonomy-scope|autonomy-digest|seat-resume-attempts)(/|$))")
-DENY_EXEC = {"ft-autonomy.sh": ("on", "off", "approve-merge", "approve-scope"), "ft-queue-digest.sh": ("issue",), "ft-resume-attempt.sh": ("allow",)}  # 뒤 두 도구는 r163·r165 가 만든다 — 이름만 먼저 막는다
+DENY_EXEC = {"ft-autonomy.sh": ("on", "off", "approve-merge", "approve-scope", "forget-kind"), "ft-queue-digest.sh": ("issue",), "ft-resume-attempt.sh": ("allow",)}  # 뒤 두 도구는 r163·r165 가 만든다 — 이름만 먼저 막는다
+HFILE = re.compile(r"(^|/)h[0-9]+$|\.sh\.hil$")
 WRAP = {"sudo", "env", "command", "exec", "nohup", "time", "timeout", "nice"}
 SHELLS = {"bash", "sh", "zsh", "dash"}
 VALOPTS = {"-u", "-C", "-S", "-P", "-k", "-s", "-n"}  # 값을 하나 더 먹는 래퍼 옵션(env -u NAME · timeout -k N · nice -n N)
@@ -36,13 +39,50 @@ def note(msg):
         pass
 
 
-def in_byz(cwd):
+def byz_root(cwd):
     root = os.environ.get("FT_ROOT")
     if not root:
         p = subprocess.run(["git", "-C", cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(), "rev-parse", "--path-format=absolute", "--git-common-dir"],
                            capture_output=True, text=True, timeout=5)
         root = os.path.dirname(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else ""
-    return bool(root) and os.path.isdir(os.path.join(root, ".fable-team"))
+    return root if root and os.path.isdir(os.path.join(root, ".fable-team")) else ""
+
+
+def autonomy_mode(root):   # r466: ft-autonomy.sh mode — FT_AUTONOMY_SH → 루트 shim → $FT_HARNESS_ROOT/bin · 못 읽으면 ""
+    hr = os.environ.get("FT_HARNESS_ROOT") or ""
+    cands = [os.environ.get("FT_AUTONOMY_SH") or "", os.path.join(root, ".fable-team/bin/ft-autonomy.sh"), hr and os.path.join(hr, "bin/ft-autonomy.sh")]
+    sh = next((c for c in cands if c and os.path.isfile(c)), None)
+    try:
+        p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=5) if sh else None
+    except (OSError, subprocess.SubprocessError):
+        p = None
+    m = p.stdout.strip() if p is not None and p.returncode == 0 else ""
+    return m if m in ("on", "off", "tamper") else ""
+
+
+def hil_text(path):   # 진입 파일·계획 파일 본문(진입 파일이면 plan= 이 가리키는 계획 파일까지 1단) → (계획 경로, 본문) · 못 읽음 = None
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            text = f.read(65536)
+        m = re.search(r"^# ft-hil-entry plan=(\S+)", text, re.M)
+        if m:
+            path = m.group(1)
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text = f.read(65536)
+        return path, text
+    except OSError as e:
+        note(f"hN 파일 못 읽음 {path}: {type(e).__name__} — 허용(fail-open)")
+        return None
+
+
+def seat_name():
+    if not os.environ.get("TMUX"):
+        return "unknown"
+    try:
+        p = subprocess.run(["tmux", "display-message", "-p", "#S"], capture_output=True, text=True, timeout=2)
+        return p.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
 
 
 def strip_heredocs(cmd):
@@ -116,15 +156,17 @@ def resolve(words):
     return "", []
 
 
-def violates(cmd, depth=0):
+def violates(cmd, depth=0, merge_ok=False, merges=None):   # merge_ok = 계획 파일 안 approve-merge 허용(자율 ON) · merges = 허용한 approve-merge 를 모은다
     for words, reds in simple_commands(cmd):
         if any(PROT.search(t) for t in reds):
             return True
         prog, args = resolve(words)
-        if prog == "-c" and depth < 3 and args and violates(args[0], depth + 1):
+        if prog == "-c" and depth < 3 and args and violates(args[0], depth + 1, merge_ok, merges):
             return True
         plain = [a for a in args if not a.startswith("-")]
-        if plain[:1] and plain[0] in DENY_EXEC.get(prog, ()):
+        if prog == "ft-autonomy.sh" and plain[:1] == ["approve-merge"] and merge_ok and merges is not None:
+            merges.append(" ".join(plain[:2]))
+        elif plain[:1] and plain[0] in DENY_EXEC.get(prog, ()):
             return True
         if prog in ANY_ARG and any(PROT.search(a) for a in plain):
             return True
@@ -137,17 +179,41 @@ def violates(cmd, depth=0):
     return False
 
 
+def hil_files(cmd):   # 명령 낱말 중 진입 파일(h<N>)·계획 파일(*.sh.hil) 경로
+    return [w for words, _ in simple_commands(cmd) for w in words if HFILE.search(w) and not w.startswith("-")]
+
+
+def hil_violates(cmd, root):   # r466 5c → (막음 여부, 사유 꼬리)
+    mode = None
+    for path in hil_files(cmd):
+        got = hil_text(path)
+        if got is None:
+            continue
+        plan, text = got
+        if mode is None:
+            mode = autonomy_mode(root) if re.search(r"ft-autonomy\.sh", text) else ""
+        merges = []
+        if violates(text, merge_ok=(mode == "on"), merges=merges):
+            return True, f" — 진입 파일 {path} 의 계획({plan}) 안 명령도 같다(r466 · 자율 {mode or '못 읽음'})"
+        for m in merges:
+            note(f"hN-approve seat={seat_name()} file={path} plan={plan} {m}")
+    return False, ""
+
+
 try:
     d = json.loads(os.environ["INPUT"])
     ti = d.get("tool_input") or {}
     tool = d.get("tool_name")
-    if tool not in ("Bash", "Write", "Edit", "NotebookEdit") or not in_byz(d.get("cwd")):
+    root = byz_root(d.get("cwd")) if tool in ("Bash", "Write", "Edit", "NotebookEdit") else ""
+    if not root:
         sys.exit(0)
-    hit = violates(ti.get("command") or "") if tool == "Bash" else bool(PROT.search(str(ti.get("file_path") or ti.get("notebook_path") or "")))
+    hit, tail = (violates(ti.get("command") or ""), "") if tool == "Bash" else (bool(PROT.search(str(ti.get("file_path") or ti.get("notebook_path") or ""))), "")
+    if tool == "Bash" and not hit:
+        hit, tail = hil_violates(ti.get("command") or "", root)
 except (ValueError, OSError, AttributeError, subprocess.SubprocessError) as e:
     note(f"{type(e).__name__} {e} — 허용(fail-open)")
     sys.exit(0)
 if hit:
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": REASON}}, ensure_ascii=False))
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": REASON + tail}}, ensure_ascii=False))
 PYEOF
 exit 0

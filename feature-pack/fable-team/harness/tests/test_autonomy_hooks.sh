@@ -2,6 +2,7 @@
 # test_autonomy_hooks.sh — 자율 대리 결정 모드 «강제 장치» 훅 3종 + ft-proxy-decide ok 파일 시험 (r-autonomy-hooks · 판정 1322·1355)
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + 훅에 stdin JSON 만 먹인다 — 실 ~/.claude·실 상태 파일·실 gh 0.
 set -uo pipefail
+export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"; BIN="$ROOT/harness/bin"; MIR="$ROOT/harness/kit/fable-team/bin"
 IG="$HK/autonomy-interview-gate.sh"; SG="$HK/autonomy-state-guard.sh"; MG="$HK/autonomy-merge-guard.sh"
@@ -80,6 +81,27 @@ al "$SG" "$(mkfile Write /tmp/x.md)" "ⓒ2 Write 본문에 경로 글자만 → 
 al "$SG" "$(mkfile Edit "$T/design.md")" "ⓒ2b Edit 다른 파일 → allow"
 outside bal "$SG" "echo x > autonomy.json" "ⓑ3 BYZ 밖에서는 allow" "$T/outside"
 run "$SG" '{깨진'; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓑ4 깨진 JSON → allow" $?
+# ⓛ r466 5c — 진입 파일(h<N>) · 계획 파일(*.sh.hil) 안 명령도 같은 판정 · approve-merge 는 자율 ON 이면 허용 + 로그
+HP="$T/plan-am.sh.hil"; HE="$T/h9999"; HSH=1111111111111111111111111111111111111111
+printf '#!/usr/bin/env bash\nset -euo pipefail\nbash "$FT_BIN/ft-autonomy.sh" approve-merge %s\n' "$HSH" > "$HP"
+printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%s; bash "$P"\n' "$HP" "$HP" > "$HE"
+mode_on; : > "$T/hook.log"
+ENVPFX="env -u TMUX"; bal "$SG" "bash $HE" "ⓛ1 ON + 진입 파일 → 계획 approve-merge → allow"; ENVPFX=""
+grep -q "hN-approve seat=unknown file=$HE plan=$HP approve-merge $HSH" "$T/hook.log"; ck "ⓛ1b allow 로그 hN-approve seat=… file=… (r466)" $?
+bal "$SG" "bash $HP" "ⓛ1c ON + 계획 파일 직접 → allow"
+mode_off; bdn "$SG" "bash $HE" "ⓛ2 OFF + 진입 파일 approve-merge → deny"
+grep -q '진입 파일' <<<"$out"; ck "ⓛ2b deny 사유에 진입 파일·계획 경로" $?
+for sub in on off forget-kind approve-scope; do
+  printf 'bash /x/ft-autonomy.sh %s --for 12h\n' "$sub" > "$HP"
+  mode_on; bdn "$SG" "bash $HE" "ⓛ3 ON + 계획에 ft-autonomy.sh $sub → deny"
+  mode_off; bdn "$SG" "bash $HE" "ⓛ3b OFF + 계획에 ft-autonomy.sh $sub → deny"
+done
+printf 'echo x > %s/autonomy.json\n' "$S" > "$HP"; mode_on; bdn "$SG" "bash $HE" "ⓛ4 계획 안 상태 파일 쓰기 → deny"
+printf 'echo hello\n' > "$HP"; bal "$SG" "bash $HE" "ⓛ5 계획에 자율 명령 없음 → allow"
+: > "$T/hook.log"; bal "$SG" "bash $T/h8888" "ⓛ6 진입 파일 없음 → allow(fail-open)"
+grep -q 'hN 파일 못 읽음' "$T/hook.log"; ck "ⓛ6b 못 읽음 로그" $?
+printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s/none.sh.hil\n' "$T" > "$HE"; bal "$SG" "bash $HE" "ⓛ7 계획 파일 없음 → allow + 로그"
+bdn "$SG" "bash /x/ft-autonomy.sh forget-kind deps" "ⓛ8 좌석 forget-kind 직접 → deny"
 
 # ===== ③ autonomy-merge-guard =====
 mkrepo() { git -c init.defaultBranch=main init -q "$1" && git -C "$1" checkout -q -B main && git -C "$1" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$2"; }
