@@ -36,7 +36,9 @@ def load_teams(root: Path) -> list[dict[str, Any]]:
         seats = {k: v for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)
                  and v.get("role") not in OFF_ROLES and not v.get("_replaced_by") and not v.get("_closed")}
         cards = root / ".worktrees" / d["_cards_wt"] / d["_cards"] if d.get("_cards_wt") and d.get("_cards") else (root / d["_cards"] if d.get("_cards") else None)
-        teams.append({"team": label, "master": d.get("_master"), "cards": cards, "seats": set(seats)})
+        mrow = d.get(d.get("_master") or "")
+        teams.append({"team": label, "master": d.get("_master"), "cards": cards, "seats": set(seats),
+                      "master_stop": isinstance(mrow, dict) and mrow.get("role") == "stop-ready"})  # r428 — ft-seat-close R297 표기
     return teams
 
 
@@ -152,7 +154,8 @@ def waiting_cards(cards: Path | None, lint: str) -> tuple[list[str], int]:
 
 def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:
     """c 정책 정지 — RESOURCE_FREEZE 실재 또는 SPAWN_HOLD 가 «지금 유효»(R320 ft-spawn-hold.sh status --check <판정> rc0 · 기한·해제 조건 판정은 그쪽이 정본).
-    판정기가 없거나 못 돌면 «정지 판정 불가» 로 센다(조용히 0 으로 두지 않는다 · #0 RULE)."""
+    판정기가 없거나 못 돌면 «정지 판정 불가» 로 센다(조용히 0 으로 두지 않는다 · #0 RULE) — 그 글은 `ERROR` 로 시작한다(r428).
+    --check 는 측정 실패(status rc4 «ERROR hold …»)도 rc3 으로 감싸 돌려준다 → rc3 이라도 본문에 `ERROR hold` 가 있으면 판정 실패다(정지 없음으로 읽지 않는다)."""
     st = root / ".fable-team/state"
     if (st / "RESOURCE_FREEZE").exists():
         return "RESOURCE_FREEZE 실재"
@@ -162,11 +165,15 @@ def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:
     try:
         verdict = str(json.loads(hold.read_text(encoding="utf-8"))["verdict"])
     except (OSError, ValueError, KeyError):
-        return "SPAWN_HOLD 실재(판정 번호 읽기 실패)"
+        return "ERROR SPAWN_HOLD 실재(판정 번호 읽기 실패) · 정지 판정 불가"
     if not hold_cmd or not Path(hold_cmd).exists():
-        return f"SPAWN_HOLD 실재 hold={verdict} (ft-spawn-hold.sh 판정기 없음 — 유효 여부 판정 불가)"
+        return f"ERROR SPAWN_HOLD 실재 hold={verdict} (ft-spawn-hold.sh 판정기 없음 — 유효 여부 판정 불가)"
     rc, out = run(["bash", hold_cmd, "status", "--check", verdict])
-    return f"SPAWN_HOLD 유효 hold={verdict}" if rc == 0 else (None if rc == 3 else f"SPAWN_HOLD 판정 실패 rc={rc} {out.strip()[:60]}")
+    if rc == 0:
+        return f"SPAWN_HOLD 유효 · 정지 중(hold={verdict}) · 독촉 0"
+    if rc == 3 and "ERROR hold" not in out:
+        return None
+    return f"ERROR SPAWN_HOLD 판정 실패 rc={rc} hold={verdict} {out.strip()[-80:]}"
 
 
 def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:

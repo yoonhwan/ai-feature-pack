@@ -2,11 +2,15 @@
 
 가짜 세계(_stall_world) — 실 ring·kill 0. 처리 = mbox 스텁 로그·tmux 스텁 로그로 센다.
 """
+import json
+import re
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from _stall_world import World, counts
+from _stall_world import BIN, NOW, World, counts
 
 
 @pytest.fixture
@@ -368,3 +372,72 @@ def test_c_hold_checker_failure_is_loud(w: World) -> None:
     _hold(w, 4)
     r = w.scan()
     assert counts(r.stdout)["c"] == "1" and "판정 실패" in r.stdout
+
+
+# r428 — 정지 중(정지 파일 · 명부 stop-ready) 팀에 a 독촉 0. 정지 파일은 진짜 ft-spawn-hold.sh 로 건다(가짜는 해제 조건 측정기만).
+def _real_hold(w: World, verdict: int, gate_ok: bool = True) -> None:
+    gate = w.stub / "gate.sh"
+    _ = gate.write_text("#!/bin/sh\necho 'swap=10 memfree=1 agents=5 level=2'\n" if gate_ok else "#!/bin/sh\nexit 1\n")
+    w.env.update(FT_SPAWN_HOLD_SH=str(BIN / "ft-spawn-hold.sh"), FT_RES_ROOT=str(w.root), FT_HOLD_GATE=str(gate), FT_HOLD_NOW=str(NOW))
+    until = datetime.fromtimestamp(NOW + 3600, timezone.utc).isoformat()
+    r = subprocess.run(["bash", str(BIN / "ft-spawn-hold.sh"), "set", "--verdict", str(verdict), "--until", until, "--release", "swap<1", "--reason", "오빠 정지 레디 · 팀장 하나만 시험"],
+                       env=w.env, capture_output=True, text=True, timeout=15)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def _stop_ready(w: World, seat: str = "t1-master#1", label: str = "t1") -> None:
+    p = w.root / f".fable-team/seats-{label}.json"
+    d = json.loads(p.read_text())
+    d[seat]["role"] = "stop-ready"
+    _ = p.write_text(json.dumps(d))
+
+
+def test_r428_a_hold_file_turns_a_into_c_without_nag(w: World) -> None:  # ⓐ
+    _real_hold(w, 2341)
+    w.cards("t1", ["c1", "c2"])
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert r.returncode == 0, r.stderr
+    assert counts(r.stdout)["a"] == "0" and counts(r.stdout)["c"] == "1" and "정지 중(hold=2341) · 독촉 0" in r.stdout
+    assert not sends(w, "t1-master#1")
+    assert any("act=c" in x and "hold=2341" in x for x in w.scan_log()), w.scan_log()
+    assert (w.root / ".fable-team/state/SPAWN_HOLD").exists()  # --check = 부작용 0(삭제·쪽지 0)
+
+
+def test_r428_b_stop_ready_master_without_hold_file_is_c_and_one_note_a_day(w: World) -> None:  # ⓑ
+    w.env["FT_STALL_PENALTY_AUTO"] = "0"
+    _stop_ready(w)
+    w.cards("t1", ["c1"])
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert counts(r.stdout)["a"] == "0" and counts(r.stdout)["c"] == "1" and "정지 파일 0" in r.stdout
+    assert not sends(w, "t1-master#1")
+    s = sends(w, "planner#1")
+    assert len(s) == 1 and "[정지 파일 0] t1 master t1-master#1" in s[0] and "--urgent" not in s[0]
+    w.advance(3600)  # 같은 날 · 10분 억제 밖
+    assert counts(w.scan().stdout)["c"] == "1" and len(sends(w, "planner#1")) == 1
+
+
+def test_r428_c_no_hold_no_stop_ready_keeps_a_and_r409_prereq(w: World) -> None:  # ⓒ
+    w.cards("t1", ["ok1"])
+    w.cards("t1", ["pr"], "- 선행: PR #1932 승인\n")
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert counts(r.stdout)["a"] == "1" and counts(r.stdout)["c"] == "0"
+    assert "대기 카드 1장(ok1) · 선행 미판정 1장 제외" in _alert(w)
+
+
+def test_r428_d_hold_measure_failure_is_error_not_nag(w: World) -> None:  # ⓓ status rc4 → --check 가 rc3 으로 감싼다
+    _real_hold(w, 2341, gate_ok=False)
+    w.cards("t1", ["c1"])
+    w.state("t1-master#1", "IDLE", 5)
+    r = w.scan()
+    assert counts(r.stdout)["a"] == "0" and not sends(w, "t1-master#1")
+    assert sum(1 for x in r.stdout.splitlines() if x.startswith("ERROR SPAWN_HOLD 판정 실패")) == 1, r.stdout
+
+
+def test_r428_e_no_600_300_and_timeouts_within_ten_minutes() -> None:  # ⓔ
+    for f in ("ft_stall_scan.py", "ft_stall_detect.py"):
+        src = (BIN / f).read_text(encoding="utf-8")
+        assert not re.search(r"timeout\s*=\s*(600|300)\b", src)
+        assert all(int(x) <= 600 for x in re.findall(r"timeout\s*=\s*(\d+)", src))

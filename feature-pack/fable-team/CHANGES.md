@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-19 — 정지 감시기가 정지 중인 팀에 «지금 spawn» 을 독촉하지 않는다: 명부 stop-ready 판정 · 정지 판정 실패를 정지 없음으로 읽지 않음 (1.1.16)
+
+카드 r428 · 쪽지 110864(v65 «대기 카드 85장 · 지금 spawn»)·110865 · arch#96 실측 · EVAL I17. 오빠가 «정지 레디·팀장 하나만»(판정 2341·2342)을 건 v65 에 stall a 독촉이 나갔습니다. 실측: 정지는 쪽지 문장으로만 걸려 정지 파일 0(`hold=none`), 명부 master 행은 `role=stop-ready` 였는데 감시기는 master 의 role 을 보지 않았습니다. (감시기 파이썬은 R320b 부터 SPAWN_HOLD 를 `status --check` 로 이미 읽는다 — arch 실측의 «grep 0» 은 래퍼 `ft-stall-scan.sh` 만 본 값.)
+
+- **ft_stall_detect.py**: `load_teams` 가 팀마다 `master_stop`(명부 `_master` 행 `role=stop-ready` · ft-seat-close R297 표기)을 싣는다. `policy_stop` — 유효 정지 글 = `SPAWN_HOLD 유효 · 정지 중(hold=<번호>) · 독촉 0` · 판정 불가 글은 모두 `ERROR` 로 시작 · ★`--check` 가 측정 실패(status rc4 «ERROR hold …»)를 rc3 으로 감싸 돌려주던 것을 «정지 없음» 으로 읽어 a 를 내던 구멍을 막는다(본문에 `ERROR hold` 가 있으면 판정 실패)★.
+- **ft_stall_scan.py**: master 가 살아 있고 stop-ready 이며 유효 정지가 없으면 그 팀 a 대신 c 1건(`정지 레디(명부 role=stop-ready)인데 정지 파일 0 — ft-spawn-hold.sh set 필요 · 독촉 0`) + planner 쪽지 `[정지 파일 0] <팀> master <좌석> …` 1통(팀당 하루 1회 · 표식 `state/stall-scan.stopready-<YYYYMMDD>` · urgent 아님). 판정 실패면 출력에 `ERROR SPAWN_HOLD 판정 실패 … — a 독촉 0` 1줄. b·d·페널티·RESOURCE_FREEZE 무변경. bin·kit 짝 cmp0.
+- **시험**: `tests/scripts/test_ft_stall_scan.py` r428 ⓐ~ⓔ(ⓐ 진짜 `ft-spawn-hold.sh set` 정지 파일 → a 0·c 1·master 쪽지 0·로그 `act=c … hold=2341`·파일 유지 ⓑ stop-ready → c 1·planner 1통·같은 날 2회째 0 ⓒ 정지 없음 → a 그대로(r409 선행 미판정 포함) ⓓ 해제 조건 측정 실패 → a 0·ERROR 1줄 ⓔ 600/300 0) — base 코드로 ⓐⓑⓓ RED · 53 passed. 증거 `harness/evidence/r428/`.
+- 범위 밖: 정지 파일 자동 생성(정지는 사람·planner 의 `set`) · r409 선행 줄 판정 · b·d.
+
 ## 2026-10-19 — 승계 은퇴가 «모든 명부»의 라우팅 칸(`_hil_route`…)을 후계로 바꾼다 — planner 교대 뒤 손 갱신 0 (1.1.17)
 
 카드 r429 · planner 증거 ① · EVAL I2 · arch#96 실측. `ft-seat-retire <구> <후계>` 는 «옛 이름이 값인 `_*` 칸 전부» 를 바꾼다고 돼 있었지만 고치는 파일은 자기 팀 명부 하나뿐이었습니다. planner master 이름은 모든 팀 명부의 `_hil_route`(사람 판정 요청이 가는 곳)에 들어 있어, planner 가 승계할 때마다 나머지 명부를 손으로 고쳐야 했고 그동안 [HIL] 쪽지가 은퇴 좌석에 쌓였습니다(mbox-guard forward 로 겨우 구제).
