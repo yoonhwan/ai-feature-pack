@@ -160,6 +160,7 @@ eq "$rc" 0 "ⓓ install --dry-run rc0"; has "$out" "COMM copied=$NCOMM same=0 de
 has "$out" "COMM $P2/.fable-team/comm/mbox.sh <- $HROOT/comm/mbox.sh (다름" "ⓓ 다른 파일 = COMM 줄 + (다름)"
 case "$out" in *"comm/mailbox.jsonl <-"*|*"comm/queues.conf <-"*|*"bodies"*) bad "ⓓ 데이터 파일이 대상에 들어감";; *) ok "ⓓ 데이터 파일(우편함·큐·본문) 대상 밖";; esac
 eq "$(cd "$P2/.fable-team/comm" && find . -type f -exec cksum {} + | LC_ALL=C sort)" "$SNAP2" "ⓓ dry-run 쓰기 0"
+has "$out" "RESTART 0" "ⓓ dry-run 도 RESTART 판정 줄(읽기만 · 적재 데몬 0)"
 WT2="$T/wt2"; git -C "$P2" -c user.email=t@t -c user.name=t commit -q --allow-empty -m i; git -C "$P2" worktree add -q "$WT2" -b w2; mkdir -p "$WT2/.fable-team/bin"
 out="$(env HOME="$H2" FT_LAUNCHCTL="$FB/launchctl" bash "$HROOT/install.sh" --dry-run --project "$WT2" --home "$H2" 2>&1)"
 has "$out" "SKIP comm (--project 가 git 공용 루트 아님" "ⓓ 워크트리 --project → SKIP comm"
