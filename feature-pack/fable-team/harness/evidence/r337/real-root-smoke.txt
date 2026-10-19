@@ -1,0 +1,8 @@
+# 실 공용 루트 읽기 전용 비교 (2026-10-20 07:53:11) — 쓰기 0(--alarm 안 씀)
+## 라이브 /Users/yoonhwan/.claude/fable-team/live/1.1.76/bin
+결정 인터뷰 0건 · 스크립트 7건 · 팀 대기 1건(가장 오래 byz-planner-desk-claude#26 0분) (옛 좌석 미닫힘 37) (AUTONOMY-QUEUE 파일 없음)
+rc=0
+## 이 판(HEAD 2babf11f)
+결정 인터뷰 0건 · 스크립트 7건 · 팀 대기 0건 · 묵은 8건 (옛 좌석 미닫힘 1)
+  #119151 byz-planner-desk-claude#26 0분 통보 [틱] desk#26 -> planner#82 · 07:52 스왑 재상승
+real 2.63

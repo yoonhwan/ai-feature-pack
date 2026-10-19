@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — nano-close reap 실패 뒤 «같은 close 재실행» 이 실제로 이어지게 + reap 1회 재시도 (r520 · 1.1.77)
+## 2026-10-20 — nano-close reap 실패 뒤 «같은 close 재실행» 이 실제로 이어지게 + reap 1회 재시도 (r520 · 1.1.78)
 
 - 사건: r519 나노 닫기 1차에서 reap 이 left=1(그 순간 돌던 `git status` 1개)로 CLOSE-FAIL — 안내는 «명부는 삭제됨 · 같은 close 재실행» 인데, 재실행은 RERUN 판별(명부에 좌석 없음 · 원장 닫힘 행 있음)에 닿기 «전» 카드 찾기(명부 index)에서 «카드 못 찾음»(팩 경로는 ⓐ 문구) REJECT → 그 좌석을 닫을 도구 경로 0(harness master 83 발주 119095 ① · arch 106 실측).
 - `ft-nano-close.sh` 조기 재실행: 인자·명부·원장 결정 직후, 카드 찾기 «앞» — 명부에 행 없음(`jq has` rc 1 만) ∧ 원장에 «`<좌석>` 닫힘(ft-nano-close)» 행 1개 이상이면 «재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만» → 카드·증거·cherry 검사 0 · reap(재시도 포함) → 세션 있으면 태그 해제 + kill → opencode 회수 → `CLOSED <좌석> (재실행 · 세션 kill|세션 없음 · 원장 행 그대로 · append 0)`. 명부·원장 쓰기 0 · 워크트리·브랜치 손대기 0. 워크트리 인자 = `--wt` › 원장 행 `wt=<절대경로>`(pack-wt·named-wt 꼴) › 없음(--shared-wt 는 늘 없음). tmux 조회 실패(서버 없음 외) = REJECT(fail-closed). 원장 행이 없는 좌석(처음 보는 좌석)은 이 길로 오지 않는다 — 기존 검사 그대로. `--plan-only` 대상 아님.
@@ -9,6 +9,17 @@
 - 시험 `test_nano_close_rerun_early.sh`(새 · test_nano_close_pack_wt 꼴 픽스처 + 가짜 reap 모드 파일 · 외부 호출 0 · GIT_* env 0) ⓐ 1차 CLOSE-FAIL → 2차 재실행 CLOSED(원장 행 1 그대로 · 태그 해제·kill) · ⓐ' 세션도 없음 → CLOSED kill 0 · ⓑ 1회째 left=1·2회째 left=0 → 1차 CLOSED(reap 2회) · ⓒ 늘 left=1 → reap 정확히 2회 뒤 CLOSE-FAIL · ⓓ 명부·원장 행 둘 다 없음 → REJECT(재실행 0 · reap 0) · ⓔ 명부 행 있음 = 기존 경로(증거 검사 · reap 1회 · append 1) — 고치기 전 FAIL 14(`harness/evidence/r520/before-fix.txt` · ⓐ 2차 «카드 못 찾음» REJECT 재현) · 고친 뒤 ALL PASS(`after-fix.txt`) · 기존 nano-close 시험 9 + seat_reap_left0·opencode_reap·nano_team_env·pack_nano_worktree_place rc0(`existing-tests.txt`).
 - 설치: 키트 1(`ft-nano-close.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r520`.
 - 범위 밖: 명부 삭제와 reap 의 순서 바꾸기 · `ft-seat-close.sh` NOROW 동작 · 손 tmux kill.
+
+## 2026-10-20 — 결정 인터뷰 N = 현역 좌석·도구가 보낸 «질문 표식» 미닫힘만 · 통보 0 · planner 답장 자동 닫힘 · 묵은 칸 (r337 · 1.1.77)
+
+- 사건: planner 보고 첫 줄 「결정 인터뷰 N건」(판정 1804)의 분모가 «인박스 ②③ 분류 미닫힘» 이라 [완료]·[정지 레디]·[수령]·[회신] 통보가 섞이고, planner 가 쪽지로 답해도(`ft-inbox mark` 안 함) 원쪽지가 안 닫혀 하루 종일 28~31(10-17 22:1x · 실제 질문 [결정] 4). 팀 대기도 같은 꼴 — 07:33 라이브 1.1.75 「팀 대기 43건(가장 오래 byz-planner-arch-claude#7 1071분)」 의 가장 오래 = [완료·휴식] 통보(r2 ㉠) · 「(AUTONOMY-QUEUE 파일 없음)」 메모 매번(r2 ㉡).
+- `ft_decision_kind.py`(새 · 분류 1곳): 본문 첫 줄 «머리»(앞 대괄호 묶음) → 질문표식 = `[결정]`·`[HIL]`·`[인터뷰 요청]`(«·» 변형 포함 · `[결정 대기 경보]` 같은 이름 겹침 제외) 또는 `[긴급]` + 첫 줄 «?»·«예/아니오»·«①…②» / 통보 = 통보 머리(`[완료…]`·`[정지 레디]`·`[수령]`·`[회신…]`·`[보고]` — 물음표가 있어도 0) 또는 표식 없음 / 묵음 = 24시간 넘은 질문. 본문 못 읽음 = ReadError rc4(분류 지어내기 0).
+- `ft_inbox_core.obligation_closed(line, answered=frozenset())` 정본 술어 확장 + `answered_seqs(seat)`: 큐 주인 계보가 보낸 쪽지(mail_files 전부 · 계보 글자 선거름)의 «#N 확인/회신/수령/적용/답» 참조 seq = 닫힘 · 남의 좌석(desk·팀장) 참조 0(R326 «자기 큐만» 과 같은 방향) · 인자 없이 부르면 옛 식 그대로(test_inbox_waive ⓕ 전 조합 0). «답» 은 카드 4낱말 밖 — 실 planner 발신 «#117757 답» 꼴 실측으로 넣음.
+- `ft_decision_count.py`: N = 질문표식 중 죽은 '#' 좌석이 아닌 것(죽은 좌석 질문 = «옛 좌석 미닫힘» 메모 · 실측 07:4x 37건 중 32건이 tmux 없는 좌석) · 팀 대기 = 현역 다른 팀 좌석 질문만 · ` · 묵은 M건`(M>0 일 때만 · 첫 줄 머리 «결정 인터뷰 N건 · 스크립트 M건» 불변 = planner-decision-line 훅·ft_news_ledger 그대로) · `--detail` = 현역 다른 팀 미닫힘 전부 + 이유 낱말(질문표식 → 묵음 → 통보 순) · AUTONOMY-QUEUE 자리에 파일 없음 = 0행 메모 0(리졸버 실패만 rc4). 199줄.
+- 시험 `tests/scripts/test_decision_count_truth.py`(새 · 7) — 표본 10건(새 질문 3 · planner 옛 세대 회신 닫힘 1 · 25시간 질문 1 · 통보 5) 「결정 인터뷰 3건 · … · 묵은 1건」 · desk 회신 = 닫힘 아님 · [완료·휴식] 팀 대기 0 · 죽은 좌석 질문 메모 · 큐 파일 없음 메모 0 · 본문 없음 rc4 · 로그 3만 줄 + 900행 ≤ 2.5 s. 고치기 전 7 FAIL(`harness/evidence/r337/before.txt`). 기존 `test_decision_count.py` 고정물: row() 기본 본문 = [결정] 질문 · put() 이 본문 파일을 씀 · make_env 분리 — 단언 변경 0.
+- 실 공용 루트 읽기 전용(`real-root-smoke.txt`): 라이브 1.1.76 「팀 대기 1건(가장 오래 byz-planner-desk-claude#26 0분) (옛 좌석 미닫힘 37) (AUTONOMY-QUEUE 파일 없음)」 → 이 판 「팀 대기 0건 · 묵은 8건 (옛 좌석 미닫힘 1)」 (desk [틱] 통보) · 2.6~3.4 s(예산 5 s).
+- 설치: 키트 3(`ft_decision_count.py` · `ft_inbox_core.py` · `ft_decision_kind.py` 새) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 3 · 홈 0 · plist 0 · 되돌림 = `.bak-r337`.
+- 범위 밖(따로 단위): `test_flag_off_scan.sh` ⓜ(ft-land → ft-sheet-events 루트 풀이 · 팩 체크아웃에 `.fable-team/LIVE_BIN` 없음) FAIL 3 — origin/main 77efe21b 판 파일로도 같음(`flag-off-scan-base-origin-main.txt`).
 
 ## 2026-10-20 — 상향 좌석 «▶내릴 것» 카드 상태 = 데이터 루트 · 공용 루트 · ref origin/main 세 자리 중 가장 앞선 것 (r518 · 1.1.76)
 

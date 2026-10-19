@@ -1,0 +1,56 @@
+== ⓐ === '1' 플래그 + ARG 없음 + build-arg 없음 → 1건
+PASS 1건
+PASS 출력 형식
+== ⓑ (override ?? process.env.X) === '1' 꼴도 검출 + === 'true'
+PASS override 꼴
+PASS 'true' 꼴
+== ⓒ ARG 있음 + build-arg 값(true/1) → 0건
+PASS true → 0건
+PASS 1 → 0건
+== ⓓ ARG 있음 + build-arg 없음 → 1건(ARG 있음 · 값 없음)
+PASS ARG 있음 · 값 없음
+== ⓓ' 같은 플래그가 여러 곳 → 1행(첫 위치)
+PASS 플래그당 1행
+== ⓕ __tests__ · *.test.ts(x) · *.spec.ts(x) 안 등장은 무시
+PASS 시험 파일 0건
+== ⓘ git 읽기 실패 → stderr ERROR + rc 4 (숫자 지어내기 0)
+PASS rc 4 + ERROR
+PASS Dockerfile 없음 = 판정 불가 rc 4
+== ⓖ 결정 건수 줄에 (꺼진 플래그 N) 칸 + 결정 인터뷰 N 합산
+PASS rc0
+PASS 합산 2
+PASS 칸
+== ⓗ 결정 기록 파일 없음 = 기록 0 + 메모
+PASS 메모
+== ⓔ 결정 기록 행(켬|끔 · 판정 비지 않음) → 그 플래그 0건 · 판정 비면 계속 1건
+PASS FOO 결정됨 → 1
+PASS 칸 1
+PASS 파일 있으면 메모 없음
+PASS 판정 칸 비면 미결정
+PASS 전부 결정 → 0
+PASS 0이면 메모 생략
+== ⓙ 도구 git 실패 → rc 4
+PASS rc 4
+PASS ERROR 줄
+== ⓚ 랜딩 검사 — --new-between: 새로 생긴 미결정 플래그만 출력 · 기존 플래그는 침묵
+PASS rc0
+PASS 새 플래그 줄
+PASS 문구
+PASS 기존 플래그 침묵
+PASS 변화 없으면 무출력
+== ⓛ 공용 함수 fm_flag_off_new — 실패해도 rc 0 + WARN 1줄 · 성공이면 같은 줄
+PASS 성공 출력
+PASS rc 0
+PASS WARN
+PASS 실패여도 rc 0
+== ⓜ ft-land.sh 랜딩 검사 줄 (rc·후보 불변)
+FAIL rc=1: ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · cwd(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/fable-team/harness) git 공용 루트에 .fable-team/LIVE_BIN 없음 · 이 파일(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/fable-team/harness/bin)은 옛 설치 꼴(<리포>/.fable-team/bin) 아님
+ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · cwd(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/fable-team/harness) git 공용 루트에 .fable-team/LIVE_BIN 없음 · 이 파일(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/fable-team/harness/bin)은 옛 설치 꼴(<리포>/.fable-team/bin) 아님
+ABORT 사건 원장 prepared 실패 — 후보 작업 거절
+FAIL 후보 줄 그대로 — 없음: «LAND-CANDIDATE» ← ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · cwd(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/fable-team/harness) git 공용 루트에 .fable-team/LIVE_BIN 없음 · 이 파일(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/
+FAIL 새 플래그 줄 — 없음: «FLAG-OFF 새로 생김 NEXT_PUBLIC_LAND» ← ft-sheet-events: RuntimeError: 루트를 못 풂 — FT_ROOT 없음 · cwd(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/fable-team/harness) git 공용 루트에 .fable-team/LIVE_BIN 없음 · 이 파일(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r337-decision-count-truth/feature-pack/
+PASS ft_flag_off.py 123줄 ≤ 200
+PASS ft_decision_count.py 200줄 ≤ 200
+PASS bash -n
+
+FAIL 3
