@@ -1,0 +1,11 @@
+== test_scope_classify_keyword_docs rc=0 19 PASS 0 FAIL · ALL PASS
+== test_autonomy_scope_classify rc=0 72 PASS 0 FAIL · ALL PASS
+== test_autonomy_scope rc=0 134 PASS 0 FAIL · fail=0
+== test_autonomy_scope_pack rc=0 13 PASS 0 FAIL · fail=0
+== test_inbox_mark_scope rc=0 28 PASS 1 FAIL · FAILED=0
+FAILED=0
+== test_autonomy_merge_equiv rc=0 13 PASS 0 FAIL · fail=0
+== test_kit_bin_sync rc=0 7 PASS 0 FAIL · ALL PASS
+py_compile rc=0
+kit↔bin cmp0
+LIVE 1.1.70 다름(설치 전 · 정상)

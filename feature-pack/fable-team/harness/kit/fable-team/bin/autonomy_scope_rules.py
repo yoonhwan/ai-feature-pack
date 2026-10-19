@@ -12,11 +12,14 @@ LABEL = {"ddl": "DDL", "deploy": "배포·인프라", "key": "키", "billing": "
 BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     ("forbid", "ddl", r"(^|/)migrations/|\.sql$|^alembic/"),
     ("forbid", "deploy", r"^\.github/workflows/|^infra/|^terraform/|cloudbuild|(^|/)Dockerfile|^deploy/|^scripts/deploy"),
-    ("forbid", "key", r"^secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$|credential"),
-    ("forbid", "billing", r"billing|credit|payment|pricing|toss|subscription|^docs/architect/COST_BASE_TABLE\.md$"),
+    ("forbid", "key", r"^secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$"),
+    ("forbid", "billing", r"^docs/architect/COST_BASE_TABLE\.md$"),
     ("forbid", "deps", r"(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$|(^|/)[^/]*[-.]lock[^/]*$"),
     ("forbid", "global-rule", r"(^|/)CLAUDE\.md$|(^|/)\.claude/|COMM-GUIDE|(^|/)harness/kit/|(^|/)scripts/harness-install/"),
     ("docs", "docs", r"^(design|docs)/.*\.md$"),   # 확장자만으로 문서 판정 0 — design/ 아래 .py·.sh 는 code, 루트 .md 는 docs 아님
+    # 낱말 금지는 문서 줄 아래 — 경로로 지정한 문서 금지만 문서 줄 위(r514)
+    ("forbid", "billing", r"billing|credit|payment|pricing|toss|subscription"),
+    ("forbid", "key", r"credential"),
     ("code", "code", r"."),
 ]]
 

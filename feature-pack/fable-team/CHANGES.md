@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — 범위 분류표: 낱말 금지(과금·키)는 문서 줄 아래 · 경로로 지정한 문서 금지만 위 (r514 · 1.1.71)
+
+- 사건: 자율 범위 분류기 BYZ 내장표(`autonomy_scope_rules.py` · 위에서부터 첫 일치)에서 낱말 금지 줄(과금 `billing|credit|payment|pricing|toss|subscription` · 키 `credential`)이 문서 줄 `^(design|docs)/.*\.md$` 위에 있어, 이름에 그 낱말이 든 문서만 바꾼 PR 이 FORBID — BYZ PR 2143(`docs/architect/CFO_BILLING_SOVEREIGNTY_ARCHITECTURE.md` 1파일) → `SCOPE-REJECT FORBID kind=billing`(planner 쪽지 118375 · master 82 발주 118379 · arch 106 실측: BYZ origin/main design·docs 아래 .md 중 같은 꼴 398개).
+- `kit/fable-team/bin/autonomy_scope_rules.py`(bin cmp0): billing 줄 → 경로 `^docs/architect/COST_BASE_TABLE\.md$`(문서 줄 위 그대로) + 낱말(문서 줄 아래 · code 줄 위) · key 줄 → 경로 `^secrets/|….env…|\.cred$`(위 그대로) + 낱말 `credential`(문서 줄 아래). ddl·deploy·deps·global-rule·docs·code 순서·정규식 그대로 · 분류기·팩 표 tsv 변경 0. 코드 파일은 문서 줄에 안 맞으니 지금처럼 낱말 줄에 걸린다.
+- 시험 `test_scope_classify_keyword_docs.sh`(새 · 임시 리포 · 외부 호출 0 · GIT_* env 0): ⓐ 낱말 문서 → CLASS docs ⓑ `gateway/billing/x.py`·`design/billing/x.py`·`docs/payment.sh` → FORBID billing ⓒ 문서+코드 → FORBID billing(코드 경로) · 변이(문서만) → docs ⓓ COST_BASE_TABLE.md → billing · CLAUDE.md·`.claude/`·COMM-GUIDE → global-rule ⓔ `design/x/credential-rotation.md` → docs · `shared/credential_store.py`·`secrets/a.json`·`docs/x.cred` → key + 분류표 순서 검사 = 19 PASS · 고치기 전 FAIL 6(`harness/evidence/r514/before-fix.txt`). 기존 `test_autonomy_scope_classify.sh` f5(`design/billing-notes.md` → FORBID) 는 이 변경이 바꾸는 꼴 그대로라 f5 = 코드 경로 FORBID + f5b = 문서 docs 로 나눔. 실데이터 = BYZ origin/main 낱말 문서 398 → docs 398 · 그 밖 낱말 경로 1747 → code 0(`byz-main-paths.txt`).
+- 설치: 키트 1 → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r514`(분류표 줄 순서 원복).
+- 범위 밖: «*.md 전부 docs»(원가 정본·규칙 문서까지 풀림) · 루트 *.md(지금처럼 code) · `.env` 경로 줄이 `x.environment.md` 같은 문서 이름에 맞는 꼴(실측 0 · 별 카드 후보) · 학습 키(--learned).
+
 ## 2026-10-20 — DA 용 codex 래퍼: 헤드룸 «건너뛰기» 헤더로 본문 접힘 0 (r513 · 1.1.70)
 
 - 사건: codex 는 전역 `~/.codex/config.toml` `model_provider = "headroom"`(127.0.0.1:8790)을 타고, 헤드룸 0.33.0 은 큰 `/v1/responses` 요청 본문을 «캐시 참조»로 접는다(`proxy.log:3664` 1093262→934768 bytes). 원문 조회 `headroom_retrieve` 는 DA 의 `approval_policy = "never"` 가 거부(«MCP tool call requires approval, but approval policy is never») → DA 가 본문 대조 0 으로 «검증 불가» HOLD · 라운드 1회 소진(ops org-pick DA② r3 · arch 106 실측 · master 82 발주 118143).
