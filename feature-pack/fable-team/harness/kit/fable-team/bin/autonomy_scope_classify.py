@@ -24,7 +24,7 @@ PATH_RULES = [(n, re.compile(rx, re.I)) for n, rx in [
     ("키", r"^secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$|credential"),
     ("과금", r"billing|credit|payment|pricing|toss|subscription|^docs/architect/COST_BASE_TABLE\.md$"),
     ("의존", r"(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$|(^|/)[^/]*[-.]lock[^/]*$"),
-    ("전역 규칙", r"(^|/)CLAUDE\.md$|(^|/)\.claude/|COMM-GUIDE|(^|/)harness/kit/"),
+    ("전역 규칙", r"(^|/)CLAUDE\.md$|(^|/)\.claude/|COMM-GUIDE|(^|/)harness/kit/|(^|/)scripts/harness-install/"),
 ]]
 DOC_RE = re.compile(r"^(design|docs)/.*\.md$")   # 확장자만으로 문서 판정 0 — design/ 아래 .py·.sh 는 code, 루트 .md 는 docs 아님
 SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}")

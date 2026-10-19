@@ -1,0 +1,18 @@
+# r412 r2 시험 2026-10-19 09:24:58 · base origin/main 28e8d992668380cec2f18ea24584544b2c89d54f · 체리픽 145bab91
+## ⓐ test_autonomy_scope_classify.sh
+ALL PASS
+rc=0
+## ⓑⓒ path_reason 직접
+scripts/harness-install/fable-team/bin/ft-x.sh -> 전역 규칙 경로: scripts/harness-install/fable-team/bin/ft-x.sh
+harness/kit/fable-team/bin/x.sh -> 전역 규칙 경로: harness/kit/fable-team/bin/x.sh
+src/x.py -> None
+CLAUDE.md -> 전역 규칙 경로: CLAUDE.md
+## ⓓ test_autonomy_scope.sh
+fail=0
+rc=0
+## py_compile · 줄 수 · cmp · 버전
+py_compile rc=0
+     200
+cmp0 bin==kit
+manifest 1.1.13
+1

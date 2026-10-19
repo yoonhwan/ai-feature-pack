@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-19 — 범위 분류기 «전역 규칙» 이 옛 라이브 설치 사본 경로 `scripts/harness-install/` 도 FORBID 한다 (1.1.13)
+
+카드 r412 · arch#95 재현 · 판정 1395(떨어지는 시험 = 고침 단위). 팩 이전 때 «전역 규칙» 정규식에 새 경로 `harness/kit/` 만 넣고 옛 경로가 빠져, 머리 주석(「옛·새 경로 어느 쪽이든 맞으면 FORBID」)과 어긋났고 팩 시험 절 «scripts/harness-install/ → FORBID» 가 base 부터 FAIL 1(`rc=0 out=CLASS code`)이었습니다. r411 이 code 종류를 연 뒤에는 옛 설치 경로를 다시 들여오는 세트가 code 로 대리 승인될 수 있어 실사건 전에 막습니다.
+
+- **`autonomy_scope_classify.py`**(bin·kit 짝 cmp0): `PATH_RULES` «전역 규칙» 같은 줄에 `|(^|/)scripts/harness-install/` 1 토큰 · 줄 수 200 불변. `src/x.py` → code 그대로(오탐 0).
+- **시험**: 본문 변경 0 — `test_autonomy_scope_classify.sh` ALL PASS rc0 · `test_autonomy_scope.sh` fail=0 rc0. 증거 `harness/evidence/r412/test.txt`.
+
 ## 2026-10-19 — desk 보고 스레드 뿌리 ts 를 도구가 소유한다: `reply --thread <이름>` + 승계 본문 ts 손 복사 REJECT (1.1.12)
 
 카드 r414 · master 110781 ① · desk#20 110779(오빠 «여기는 왜 매새지 안오냐» · «다음 증류 땐 자동으로»). 뿌리 ts(10-16)가 인계서 13장에 손으로 복사돼 이어졌고, 3일 된 스레드 답글은 채널 본문에 안 보였다.
