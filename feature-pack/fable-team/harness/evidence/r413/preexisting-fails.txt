@@ -1,0 +1,6 @@
+# base cfb975e1 에서도 같은 개수로 실패(이 단위 변경 무관 · 별도 고침 단위 필요)
+test_live_install_check base: FAILED 18 · branch: FAILED 18
+test_live_install_check_tip base: FAILED 12 · branch: FAILED 12
+test_live_install base: tests/test_live_install.sh: 줄 60: bak�: 바인딩 해제한 변수 · branch: tests/test_live_install.sh: 줄 60: bak�: 바인딩 해제한 변수
+test_team_literal_paths2 base: == fail=13 · branch: == fail=13
+test_tracked_bin_call_gate base: == fail=25 · branch: == fail=25

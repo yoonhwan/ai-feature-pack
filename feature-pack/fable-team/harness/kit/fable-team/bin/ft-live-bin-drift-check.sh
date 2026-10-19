@@ -23,6 +23,23 @@ done
 [ -d "$BIN" ] || err "bin 폴더 없음: $BIN"
 BIN="$(cd -- "$BIN" && pwd)"
 
+stale_copy() {  # r413: 프로젝트 .fable-team/bin 이 shim 아닌 옛 통째 사본(LIVE_BIN·shim·해석기 0 · 파일 ≥1)인가
+  case "$BIN" in */.fable-team/bin) ;; *) return 1;; esac
+  [ ! -f "$BIN/../LIVE_BIN" ] && [ ! -f "$BIN/ft-harness-root.sh" ] || return 1
+  local f n=0
+  for f in "$BIN"/*; do
+    [ -f "$f" ] && [ ! -L "$f" ] || continue
+    head -3 "$f" | grep -qF '# ft-root-bin-shim:' && return 1
+    n=$((n + 1))
+  done
+  [ "$n" -ge 1 ]
+}
+if stale_copy; then  # 해석기 호출 «앞» — 옛 사본은 하네스 루트를 못 풀어 «main 키트와 다르다» 로 오인된다
+  hr="${FT_HARNESS_ROOT:-}"; [ -n "$hr" ] || { [ -f "$HERE/../HARNESS_ROOT" ] && hr="$(head -1 "$HERE/../HARNESS_ROOT")"; }
+  if [ -n "$hr" ]; then inst="$hr/install.sh"; else inst="<하네스>/harness/install.sh"; fi
+  err "옛 설치 사본(shim 아님 · LIVE_BIN 없음): $BIN — bash $inst --apply --project ${BIN%/.fable-team/bin}"
+fi
+
 if [ -z "$REPO" ] || [ -z "$TPATH" ]; then  # 기본 = 하네스 코드 루트(팩)의 키트 bin 트리 (r385 · 리포 루트 전제 0)
   [ -f "$HERE/ft-harness-root.sh" ] || err "해석기 없음: $HERE/ft-harness-root.sh — --repo·--path 를 준다"; . "$HERE/ft-harness-root.sh"
   hr="$(ft_harness_root "$HERE")" || err "하네스 루트를 못 풂(FT_HARNESS_ROOT · ../HARNESS_ROOT 없음) — --repo·--path 를 준다"

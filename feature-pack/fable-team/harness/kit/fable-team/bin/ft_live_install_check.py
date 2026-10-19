@@ -174,6 +174,27 @@ def shim_items(repo, tree, project=None):
     return miss, "bash %s/ft-root-bin-shim.sh --root %s --live %s" % (live, root, live)
 
 
+def stale_copies(repo, project=None):
+    """r413: 루트·.worktrees/* 의 .fable-team/bin 중 LIVE_BIN 없음 ∧ shim 0 ∧ 파일 ≥1 = 옛 통째 사본 → (항목 줄, HINT) 목록. 읽기만."""
+    if project:
+        root = os.path.realpath(project)
+    else:
+        gc = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+        root = gc[: -len("/.git")] if gc.endswith("/.git") else os.path.dirname(gc)
+    hr = harness_root()
+    inst = os.path.join(hr, "install.sh") if hr else "<하네스>/harness/install.sh"
+    wts = [root] + sorted(os.path.join(root, ".worktrees", d) for d in (os.listdir(os.path.join(root, ".worktrees")) if os.path.isdir(os.path.join(root, ".worktrees")) else []))
+    out = []
+    for wt in wts:
+        rbin = os.path.join(wt, ".fable-team", "bin")
+        if not os.path.isdir(rbin) or os.path.isfile(os.path.join(wt, ".fable-team", "LIVE_BIN")):
+            continue
+        files = [p for p in (os.path.join(rbin, n) for n in os.listdir(rbin)) if os.path.isfile(p) and not os.path.islink(p)]
+        if files and not any(is_shim(p) for p in files):
+            out.append(("STALE-COPY %s files=%d" % (rbin, len(files)), "bash %s --apply --project %s" % (inst, wt)))
+    return out
+
+
 def is_shim(path):
     if os.path.islink(path) or not os.path.isfile(path):
         return False
@@ -213,6 +234,9 @@ def main():
     miss, shint = shim_items(repo, tree, o["project"])
     bad += ["PENDING shim " + n for n in miss]
     hints.update({"shim": shint} if miss else {})
+    for item, hint in stale_copies(repo, o["project"]):
+        bad.append(item)
+        hints[item.split()[1]] = hint
     for f in files:
         rel = f[len(KD):]
         row = next((r for r in rows if fnmatch.fnmatch(rel, r[0])), None)

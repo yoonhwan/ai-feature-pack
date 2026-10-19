@@ -1,0 +1,42 @@
+# r413 시험 증거 — base origin/main cfb975e1 · 2026-10-19 09:09:06
+## bash tests/test_live_install_check_shim.sh
+PASS ⓐ 루트 shim 0 → PENDING shim ×3 rc1
+PASS ⓑ0 ft-root-bin-shim.sh → SHIM 3
+PASS ⓑ shim 실재 → OK · shim 줄 0 rc0
+PASS ⓒ 라이브에 없는 루트 옛 사본 → 보고 0
+PASS ⓓ LIVE_BIN 없음 → shim 줄 0 · ERROR 0 · rc0
+PASS ⓕ check 누락 목록 == 헤더 없는 라이브 이름 집합(2)
+PASS ⓕ dry-run SHIM 3 = 라이브 키트 도구 수
+PASS ⓖ 헤더 없는 같은 이름 루트 사본 → PENDING shim
+PASS ⓗ --range 에서도 PENDING shim
+PASS r413ⓐ 옛 사본 → drift-check rc3 · 설치 명령(하네스 못 풂 = <하네스>) · 옛 경로 0
+PASS r413ⓐ FT_HARNESS_ROOT → 그 하네스의 install.sh
+PASS r413ⓐ LIVE_BIN 있으면 옛 사본 판정 0(기존 경로)
+PASS r413ⓑ 옛 사본 루트·워크트리 → PENDING STALE-COPY ×2 + HINT 설치 명령
+PASS r413ⓒ shim 루트·shim 워크트리 → OK · STALE-COPY 0
+PASS core.bare 오염 0
+ALL PASS
+rc=0
+## bash tests/test_seat_close.sh (③·끝줄)
+rc=0
+PASS ③M#1 rc 1 · REJECT
+PASS ③M#1 REJECT 에 --verdict 경로 1줄(r413)
+PASS ③P#1 rc 1 · REJECT
+PASS ③P#1 REJECT 에 --verdict 경로 1줄(r413)
+PASS ③바이트 불변·.bak 0·kill 0
+fail=0
+## bash tests/test_live_bin_drift_check.sh (끝줄)
+rc=0
+ALL PASS
+## test_install_check_repo_outside / test_harness_root
+== ALL PASS ==
+ALL PASS
+## 짝 cmp
+cmp0 ft-live-bin-drift-check.sh
+cmp0 ft-live-install-check.sh
+cmp0 ft_live_install_check.py
+cmp0 ft-seat-close.sh
+## bash -n
+syntax-ok
+## install.sh --dry-run --project v6-realtime-live
+rc=0
