@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 상향 좌석 «▶내릴 것» 카드 상태 = 데이터 루트 · 공용 루트 · ref origin/main 세 자리 중 가장 앞선 것 (r518 · 1.1.75)
+## 2026-10-20 — 상향 좌석 «▶내릴 것» 카드 상태 = 데이터 루트 · 공용 루트 · ref origin/main 세 자리 중 가장 앞선 것 (r518 · 1.1.76)
 
 - 사건: 틱 `raised_watch` 의 판정기 `ft_raised.py card_state` 가 카드 실재를 `--root`(= 공용 루트 · 체크아웃 main 51881ba2e4 · 2026-09-23 · `design/teams/` 없음) 한 곳에서만 찾아, v6 라이브 워크트리 «진행» 에만 있는 v65 카드 2장의 상향 좌석을 «(카드 없음)» → master 에 «▶내릴 것» 오탐(v65 master 쪽지 119019 · 틱 쪽지 119017 · harness master 83 발주 119026 ② · arch 106 실측). r515·r517 과 같은 뿌리(공용 루트 체크아웃 옛 판을 정본처럼 읽음).
 - `ft_raised.py card_state(root, card, data)`: 자리 3 = 데이터 루트(`ft_team_lib.data_root` · r515 — FT_ROOT → 공용 루트 LIVE_ROOT 1행 → 공용 루트) 체크아웃 · `root` 체크아웃 · ref `origin/main`(`git -C root cat-file --batch-check` 1회 · 7초 상한) · «완성 > 진행 > 대기» 중 처음 맞는 것 · 셋 다 0 = «없음». «내릴 것» 기준(완성·없음) 변경 0 · `ft-tick.sh` 호출 인자·출력 꼴 변경 0.
@@ -9,6 +9,14 @@
 - 시험 `test_raised_card_state_three_places.sh`(새 · 임시 공용 루트 C(카드 폴더 없음) + LIVE_ROOT = 임시 데이터 루트 D + 임시 bare origin · 외부 호출 0 · GIT_* env 0) ⓐ~ⓕ 38 PASS(ⓕ = 틱 실경로 쪽지 0 · 진짜 완성 경보 1) · 고치기 전 FAIL 16(`harness/evidence/r518/before-fix.txt` · ⓐ 오탐·틱 쪽지 1 재현) · 변이(데이터 루트 자리 제거) FAIL 2(`mutation-no-data-root.txt`). 기존 시험 보정 1: `test_raised_seat.sh` — 판정 폴더 3곳(ck·dup·td)에 빈 커밋 + origin/main ref(ref 트리 0 → 판정은 디스크 그대로) · 임시 bin 에 `ft_team_lib.py` 복사 · 단언 변경 0. 실 공용 루트 읽기 전용: 라이브 1.1.74 «▶내릴 것 ft-v65-temp-m5-1943-r7a-fix3-r8-ghost-verdict-notice#0 … (카드 없음)» 1줄 → 이 판 0줄(`real-root-smoke.txt`).
 - 설치: 키트 1(`ft_raised.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0 · plist 0(틱은 다음 실행부터 새 판) · 되돌림 = `.bak-r518`.
 - 범위 밖: 공용 루트 체크아웃 갱신 · 명부 «카드 워크트리» 칸 · 같은 꼴(공용 루트 체크아웃을 정본처럼 읽는) 도구 전수 스캔(arch 제안 후보).
+
+## 2026-10-20 — 하네스 팩 나노 작업 폴더 자리 = <팩>/.worktrees/<키> (r519 · 1.1.75)
+
+- 사건: 팩 작업 폴더 자리를 정한 곳이 없어 r517 나노가 세션 스크래치(`/private/tmp/…/scratchpad/afp`)에 팩 워크트리를 만들었고, `ft-nano-close.sh` 팩 모드(r508 · `--wt` = 팩 `.worktrees/` 아래만)가 2회 REJECT(harness master 83 발주 119026 ①). 닫기 기준을 넓히지 않고 «만드는 자리» 를 정한다(arch 106).
+- `ft-nano-spawn.sh`: `pack_wt_line <카드> <키> <브랜치>`(새) — 카드에 `- 설치: 있음`(하네스 카드)이면 첫 발주문 끝에 «★팩 작업 폴더 = `${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}/.worktrees/<키>` (`git -C <팩> worktree add … -b <브랜치> origin/main` · 세션 스크래치 0 — 닫기 = `nano-close --wt … --branch …`)★» 1줄 · dry-run 에도 `BODY+` 로 출력 · 그 밖 카드 = 출력 0.
+- `ft-nano-close.sh`: `_pack_move_hint`(새) — ⓐ REJECT 대상 `--wt` 가 팩 «등록» 워크트리인데 표준 자리 밖이면 같은 REJECT 줄 끝에 « · 표준 자리 밖 — `mkdir -p <팩>/.worktrees && git -C <팩> worktree move <옛> <팩>/.worktrees/<키>` 뒤 같은 명령(--wt …)» (키 = `--branch` 의 `nano/` 뒤) · 판정(REJECT)·닫기 기준 변경 0 · 팩 미등록 폴더는 덧말 0. `mkdir -p` 는 팩 `.worktrees/` 가 없으면 `worktree move` 가 실패해서(시험 ⓓ 실측).
+- 시험 `test_pack_nano_worktree_place.sh`(새 · 임시 리포 2개 + 가짜 tmux · spawn 은 함수 추출 · 외부 호출 0 · GIT_* env 0) ⓐ 하네스 카드 줄·기본 팩 경로 ⓑ 제품 카드 0줄 ⓒ 스크래치 꼴 등록 워크트리 REJECT 그대로 + 덧말 · 미등록 폴더 덧말 0 ⓓ 덧말 명령 «그대로» 실행 → 같은 명령 CLOSED(mode=pack-wt) = ALL PASS · 고치기 전 FAIL 10(`harness/evidence/r519/before.txt` · ⓓ CLOSED 는 그때도 PASS = 팩 모드 그대로).
+- 설치: 키트 2(`ft-nano-spawn.sh` · `ft-nano-close.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r519`.
 
 ## 2026-10-20 — 결정 셈 planner 표(MERGE-QUEUE·FLAG-DECISIONS) = ref origin/main 명단 + ref 본문 (r517 · 1.1.74)
 
