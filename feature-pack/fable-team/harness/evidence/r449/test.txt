@@ -44,6 +44,8 @@ PASS ⓔ .gitignore 줄 뒤 git status 에 untrack 한 파일 0(?? 없음)
 PASS ⓔ untrack 커밋(D)은 pre-commit 통과
 PASS ⓔ 2회째 n=0(멱등)
 PASS ⓔ 인자 없음 → usage rc2
+PASS ⓔ' 픽스처 = cone 밖 파일은 디스크에 없음
+PASS ⓔ' sparse 워크트리에서 cone 밖 포함 n=2 전부 untrack · 디스크 보존
 PASS ⓖ install --apply → githooks/pre-commit cmp0 · 실행 비트 · .bak-1.1.17
 PASS ⓖ 2회째 same=1(멱등)
 PASS ⓖ dry-run GITHOOK 줄 · hooksPath 어긋남 WARN

@@ -113,6 +113,13 @@ git -C "$U" config core.hooksPath "$KIT/githooks"; out="$(cd "$U" && git commit 
 [ "$rc" = 0 ]; ck "ⓔ untrack 커밋(D)은 pre-commit 통과" $?
 out="$(bash "$UNT" "$U" 2>&1)"; rc=$?; [ "$rc" = 0 ] && [ "$out" = "UNTRACK n=0 MB=0.0 dry=0" ]; ck "ⓔ 2회째 n=0(멱등)" $?
 out="$(bash "$UNT" 2>&1)"; rc=$?; [ "$rc" = 2 ]; ck "ⓔ 인자 없음 → usage rc2" $?
+# ⓔ' sparse-checkout 워크트리(나노 spawn 기본 · cone 밖 design/teams/*) — r449 실측: --sparse 없으면 59/614 만 빠지고 실패
+S="$T/s"; git init -q -b main "$S"; git -C "$S" config user.name t; git -C "$S" config user.email t@t; git -C "$S" config commit.gpgsign false
+mkdir -p "$S/design/teams/v65/e" "$S/design/teams/harness/e"; echo a > "$S/design/teams/v65/e/a.log"; echo b > "$S/design/teams/harness/e/b.out"; echo c > "$S/design/teams/v65/e/n.md"
+git -C "$S" add -f -A; git -C "$S" commit -q -m seed; git -C "$S" sparse-checkout set --no-cone '/*' '!/design/teams/*/' '/design/teams/harness/' >/dev/null 2>&1
+[ ! -e "$S/design/teams/v65/e/a.log" ]; ck "ⓔ' 픽스처 = cone 밖 파일은 디스크에 없음" $?
+out="$(bash "$UNT" "$S" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [[ "$out" == "UNTRACK n=2 MB="*" dry=0" ]] && [ "$(git -C "$S" ls-files design | grep -c .)" = 1 ] && [ -f "$S/design/teams/harness/e/b.out" ]; ck "ⓔ' sparse 워크트리에서 cone 밖 포함 n=2 전부 untrack · 디스크 보존" $?
 
 # ⓖ install.sh --apply → <프로젝트>/.fable-team/githooks/pre-commit cmp0 · 덮기 전 .bak-<버전> · 2회째 same
 P="$T/proj"; mkdir -p "$P/.fable-team/bin" "$P/.fable-team/githooks" "$T/home/.claude/hooks"; git init -q -b main "$P"; echo old > "$P/.fable-team/githooks/pre-commit"

@@ -25,6 +25,7 @@ MB="$(awk -v b="$BYTES" 'BEGIN{printf "%.1f", b/1048576}')"
 if [ "$DRY" = 1 ]; then cat "$T/list"
 elif [ "$N" -gt 0 ]; then
   tr '\n' '\0' < "$T/list" > "$T/list0"
-  G --literal-pathspecs rm --cached -q --pathspec-from-file="$T/list0" --pathspec-file-nul || { echo "REJECT git rm --cached 실패(index 불변 확인: git status)"; exit 1; }
+  # --sparse: sparse-checkout 워크트리(나노 spawn 기본)에서 cone 밖 항목도 index 에서 뺀다 — 없으면 일부만 빠지고 실패한다(r449 실측 59/614)
+  G --literal-pathspecs rm --cached --sparse -q --pathspec-from-file="$T/list0" --pathspec-file-nul || { echo "REJECT git rm --cached 실패 — index 가 일부 바뀌었을 수 있음 · 되돌림: git -C $ROOT reset -q"; exit 1; }
 fi
 echo "UNTRACK n=$N MB=$MB dry=$DRY"
