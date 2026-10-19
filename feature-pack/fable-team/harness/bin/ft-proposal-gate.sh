@@ -2,20 +2,21 @@
 # ft-proposal-gate.sh --issue <M> | --card <인덱스카드.md> | --writing-card <인덱스카드.md> — «오빠가 본 승인» 게이트 (R77 r1 · 판정 826 · 정본 = 제안 GitHub Issue 하나)
 #   --issue M : 읽기 전용(gh issue view + timeline)으로 승인 증거를 «Issue» 에서만 본다. 하나라도 빠지면 REJECT(통과 0 · #0 RULE).
 #     라벨 proposal+approved · rejected·needs-reply 없음 · 작성자 byz-tank · 본문 첫 줄 표식 `<!-- byz-proposal-id: <팀>/<slug> -->` · 필수 칸 6개(결론·오빠가 결정할 것·배경·제안·되돌림·근거)
-#     비어 있지 않음 · `## 근거` 에 sha(7~40 hex · 숫자 1개 이상) · 마지막 `approved` 라벨 단 사람 ⓐ오빠 계정(FT_OPPA_GH_LOGINS) 또는 ⓑbyz-tank + 코멘트 `[인터뷰 판정 N]` + planner 원장 `N 오빠 인터뷰` 줄에 github.com/<저장소>/issues/M(저장소 포함)
+#     비어 있지 않음 · `## 근거` 에 sha(7~40 hex · 숫자 1개 이상) · 마지막 `approved` 라벨 단 사람 ⓐ오빠 계정(FT_OPPA_GH_LOGINS) 또는 ⓑbyz-tank + 코멘트 `[인터뷰 판정 N]` + planner 원장 N 행(줄머리 `N 오빠 인터뷰` 또는 표 행 `| N | … (오빠 인터뷰`) 에 github.com/<저장소>/issues/M(저장소 포함)
+#     ★r492: 원장 = ref(FT_TEAMS_REF · 기본 origin/main) 트리 — 명단 `<ref>:design/TEAMS.md` 후보 중 `<ref>` 에 VERDICTS-planner-*.md 가 있는 폴더 정확히 1개를 `git show` 로 읽는다(체크아웃 파일 0 · 0·2+ 개 = REJECT)★
 #     승인(approved) 라벨 시각 «이후» 의 비-Tank 코멘트(시각 불명 포함) · Tank 「rN 변경」 코멘트가 있으면 REJECT(의견·본문 갱신에 과거 승인 재사용 0)
 #     출력 `OK #M 승인 ⓐ` · `OK #M 승인 ⓑ 판정 N` rc0 · `REJECT <사유>` rc1 · usage rc2.  gh 호출은 7초 + 재시도 1회(전역 7초 룰) · 실패·빈 응답 = REJECT.
 #   --card 카드 : 나노 spawn 입구. 머리 `- 제안서: #M` → --issue M · `없음 — 사유` 인데 본문이 PROPOSAL-*.md 를 인용하거나 `- Issue:` 가 proposal 라벨 Issue 면 REJECT(우회 차단)
 #     · `proposal-*` 카드는 «제안서 작성 카드»(--writing-card)만 면제, 아니면 `#M` 이 아닌 한 REJECT(이름만으로 면제 0).
 #   --writing-card 카드 : rc0 = 구현 범위가 인용한 경로가 1개 이상이고 전부 design/ 아래 .md(+ evidence/proposal-<slug>/ 폴더 · 읽기용 docs/rules/proposal_template.md). 경로는 `..`·심링크를 해소한 뒤 «리포(카드의 git toplevel · 없으면 cwd) design/ 하위» 일 때만 인정. 경로 0개·그 밖 경로 = rc1.
-# 시험용 env: FT_GH_READ(가짜 gh) · GH_REPO · FT_GATE_GH_TIMEOUT(기본 7) · FT_TANK_LOGIN(byz-tank) · FT_OPPA_GH_LOGINS(yoonhwan) · FT_PLANNER_VERDICTS_DIR(기본 $BYZ_ROOT/.worktrees/v6-realtime-live/design/planner) · BYZ_ROOT
+# 시험용 env: FT_GH_READ(가짜 gh) · GH_REPO · FT_GATE_GH_TIMEOUT(기본 7) · FT_TANK_LOGIN(byz-tank) · FT_OPPA_GH_LOGINS(yoonhwan) · FT_PLANNER_VERDICTS_DIR(지정 시에만 그 폴더 파일 직접 · 기본 = ref 트리) · FT_TEAMS_REF(origin/main) · BYZ_ROOT
 set -uo pipefail
 usage() { echo "usage: $0 --issue <번호> | --card <카드.md> | --writing-card <카드.md>" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; ROOT="${ROOT:-$(pwd)}"
 export GATE_REPO="${GH_REPO:-SecondWindStudio/byz-agents}" GATE_TANK="${FT_TANK_LOGIN:-byz-tank}" GATE_OPPA="${FT_OPPA_GH_LOGINS:-yoonhwan}"
-# R383: 판정 원장 폴더 기본값 = 운영 정본 워크트리의 planner 팀 폴더(그 워크트리의 design/TEAMS.md · 팀 이름 글자 0) — 판정 번호를 대조하는 «그 순간» 에만 푼다(제안서 없음 카드는 안 읽는다) · 못 풀면 후퇴 없이 REJECT(#0 RULE)
-export GATE_VDIR="${FT_PLANNER_VERDICTS_DIR:-}" GATE_VROOT="${BYZ_ROOT:-$ROOT}/.worktrees/v6-realtime-live" GATE_BIN="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" GATE_TO="${FT_GATE_GH_TIMEOUT:-7}"
+# R383·r492: 판정 원장 = 루트의 ref(origin/main) 트리 planner 폴더(명단도 ref · 체크아웃 0 · 팀 이름 글자 0) — 판정 번호를 대조하는 «그 순간» 에만 푼다(제안서 없음 카드는 안 읽는다) · 못 풀면 후퇴 없이 REJECT(#0 RULE)
+export GATE_VDIR="${FT_PLANNER_VERDICTS_DIR:-}" GATE_ROOT="${BYZ_ROOT:-$ROOT}" GATE_REF="${FT_TEAMS_REF:-origin/main}" GATE_BIN="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" GATE_TO="${FT_GATE_GH_TIMEOUT:-7}"
 
 py_issue() {  # $1=issue|labels $2=번호 — gh 읽기 + 판정(issue) 또는 라벨 출력(labels)
 python3 - "$1" "$2" <<'PY'
@@ -45,6 +46,43 @@ def gh(*args):
                 last = "JSON 아님"; continue
         last = f"rc={r.returncode}" if r.returncode else "빈 응답"
     die(f"gh 읽기 실패({' '.join(args[:2])}): {last}")
+
+
+def git_ref(*args):  # 루트 리포의 ref 읽기 — 실패·빈 출력 = None(부르는 쪽이 REJECT)
+    try:
+        r = subprocess.run(["git", "-C", E["GATE_ROOT"], *args], capture_output=True, text=True, timeout=to)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 and r.stdout.strip() else None
+
+
+def ledger_ref():  # r492: 명단·원장 모두 ref 트리 — 후보(명단 꼴·쌍둥이) 중 ref 에 VERDICTS-planner-*.md 가 있는 폴더 정확히 1개
+    sys.path.insert(0, E["GATE_BIN"])
+    from ft_team_lib import TeamPathError, _cands_ref
+    root, ref = E["GATE_ROOT"], E["GATE_REF"]
+    try:
+        cands = _cands_ref(root, "planner", ref)
+    except TeamPathError as e:
+        die(f"판정 원장 폴더를 못 풀었다 — {e} (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)")
+    hits = []
+    for c in cands:
+        try:
+            rel = c.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        names = (git_ref("ls-tree", "-r", "--name-only", ref, "--", rel) or "").splitlines()
+        files = [p for p in names if os.path.dirname(p) == rel and re.fullmatch(r"VERDICTS-planner-.*\.md", os.path.basename(p))]
+        if files:
+            hits.append(sorted(files))
+    if len(hits) != 1:
+        die(f"판정 원장 폴더를 못 풀었다 — {ref} 트리에 VERDICTS-planner-*.md 가 있는 planner 후보 {len(hits)}개(정확히 1개여야 한다 · 후보 {' '.join(map(str, cands))})")
+    texts = []
+    for p in hits[0]:
+        t = git_ref("show", f"{ref}:{p}")
+        if t is None:
+            die(f"판정 원장을 ref 에서 못 읽었다 — {ref}:{p}")
+        texts.append(t)
+    return texts
 
 
 v = gh("issue", "view", num, "--repo", repo, "--json", "number,author,labels,body,comments")
@@ -83,14 +121,8 @@ elif who and who[-1] == tank:
         miss.append(f"ⓑ {tank} 가 단 approved 인데 코멘트 「[인터뷰 판정 N]」 없음")
     else:
         n = ns[-1]
-        if not vdir:
-            sys.path.insert(0, E["GATE_BIN"])
-            from ft_team_lib import TeamPathError, team_in
-            try:
-                vdir = str(team_in(E["GATE_VROOT"], "planner"))
-            except TeamPathError as e:
-                die(f"판정 원장 폴더를 못 풀었다 — {e} (FT_PLANNER_VERDICTS_DIR 로 지정하거나 명단을 고친다)")
-        rows = [ln for f in sorted(glob.glob(os.path.join(vdir, "VERDICTS-planner-*.md"))) for ln in open(f, encoding="utf-8", errors="replace").read().splitlines() if re.match(rf"^{n} 오빠 인터뷰", ln)]
+        texts = [open(f, encoding="utf-8", errors="replace").read() for f in sorted(glob.glob(os.path.join(vdir, "VERDICTS-planner-*.md")))] if vdir else ledger_ref()
+        rows = [ln for t in texts for ln in t.splitlines() if re.match(rf"^(?:{n} 오빠 인터뷰|\|\s*{n}\s*\|.*?\(오빠 인터뷰)", ln)]
         if any(re.search(rf"(?<![\w.\-])github\.com/{re.escape(repo)}/issues/{num}(?![0-9])", ln, re.I) for ln in rows):
             how = f"ⓑ 판정 {n}"
         else:
