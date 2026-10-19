@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-20 — 하네스 시험 RED 8개를 «기존 RED» 로 두지 않고 원인 분류 → 시험 7 + 도구 1줄 (r509 · 1.1.66)
+
+- 사건: 팩 origin/main 에서 RED 인 시험 8개(셸 6 · pytest 2)가 나노 증거마다 «기존 RED 제외» 로 밀려 왔다(harness master 82 발주 117070 · arch 105 분류 · 판정 1395). 분류 실측: 픽스처 누락 1 · 리포 분리·ref 명단 뒤 환경·배치 전제 5 · 낡은 대조 1 · 도구 결함 1.
+- 시험(7 · 도구 0): ①`test_tick_line` — BYZ `tests/fixtures/tick_line/` 18파일을 `harness/fixtures/tick_line/` 로(시험 FX 경로 그대로 · `git show` · 내용 0 변경) · 픽스처에 가려 있던 14개 = 임시 bin 에 `ft-seat-status.sh` 만 복사(r504 판정 본문 `ft_seat_turn.py` → `ft_api_outage_util` 짝 누락) → `*.py` 같이 복사 ②`test_team_literal_paths2` 22개 — 린트 명단 = 시험이 만든 «전환 중» 명단(`FT_TEAMS_MD` · 팩엔 design/TEAMS.md 0) · 픽스처 리포에 origin/main ref · `FT_TEAMS_REF=HEAD`(R416 slots · r495 close 원장) · 제안서 판정 원장 = ref 트리(r492 — 옛 «v6 워크트리 폴더» 기대 폐기 · 두 꼴에 원장 = 추측 0 REJECT 단언 추가) · close 의 `ft-seat-reap.sh`(r448) 대역 · drift 키트 경로 = 팩 배치 · fail-closed 문구 = «ref 못 읽음» ③`test_ft_tick_master_seat` — `FT_TICK_RESUME=0`(죽은 좌석 감시는 R27 밖 · 실 tmux·자율 상태 읽기 0) ④`test_harness_root` ⓒ — 뉴스 틱 ⑥ 은 r484 부터 같은 bin 실 렌더러 → 가짜 렌더러 삭제 · 픽스처 `🔄` 줄 + `.fable-team/seats.json` · «ERROR 0» 단언이 Traceback 도 잡게 ⑤`test_news_tree_root` 대조 — «옛 판» = r489 직전 `86257c17` 고정(origin/main 은 이미 새 판) ⑥`test_team_tick_unify` ⓖ H2 = **시험** — r385 글자 치환이 `ft-tick-install.sh` 거부 패턴만 `harness/bin`·`harness/kit/fable-team/bin` 으로 바꾸고 시험은 옛 `scripts/fable-team-bin`(BYZ main 에도 없음) → 새 두 경로 거부 단언 ⑧`test_news_status_section.py` KIT = `harness/kit/fable-team/bin`.
+- 도구(1줄): ⑦`ft_news_publish.py` `_KIT` = `harness-install/slack-mirror`(r385 뒤 없는 폴더) → `kit/slack-mirror`(bin·kit cmp0) · 설치본 없는 시험·개발 판에서 magazine_slack 못 찾던 결함 · 라이브는 `~/.hermes/scripts` 로 찾아 동작 변경 0.
+- 시험: 대상 8개 고치기 전 FAIL 1·84·1·1·22·4 + pytest 2 → 뒤 전부 rc0(origin/main 93f3dcca 병합 판) · 원문 `harness/evidence/r509/tests-rc-target8.txt` · 기존 시험 전체 = `harness/evidence/r509/tests-rc-*.txt`(부하로 중간 정지 → 이어 실행 · 이 단위 밖 RED 는 origin/main 대조 분류표). 설치: LIVE_BIN 키트 1(`ft_news_publish.py`) cmp0 · 홈 0 · plist 0 · 되돌림 = 이 커밋 revert(설치본 `.bak-r509`).
+
 ## 2026-10-20 — 뉴스 갈래 상한의 CLI 기동 고정비 = 잠정 3.5초 → 실측 p90 · 지도 실패 연속 3틱 = 고정 문구 «뉴스 지연» 1번 (r510 · 1.1.65)
 
 - 사건: 부하 48~52 에서 뉴스 HTML 이 02:08 뒤 발행 0 — `/tmp/byz-ft-news-planner.log` «ERROR 지도 만들기 실패 — 발행 0: opencode run summary 실패(…): summary 상한 24s 초과(총 마감 70s)» 8회 연속(arch 105 자체 발견 · master 82 117315). 원인: 갈래 시도당 상한 `min(FIXED_S 3.5 + 7 × ceil(단위), 70)` 의 CLI 기동 고정비 3.5초가 «잠정값» — 부하 50 에서 `opencode run --standalone` 기동이 그보다 훨씬 길어 1차·재시도 둘 다 첫 출력 전에 상한 도달(성공 판에도 갈래 40~52초 = 재시도 성공이 이미 섞여 있었다).
