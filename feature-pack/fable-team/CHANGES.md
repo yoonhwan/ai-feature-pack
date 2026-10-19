@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — tmux 세션이 이미 없는 «죽은 좌석» 명부 행을 `--verdict` 가 닫는다(CLOSED-DEAD) · 재개 기록은 보존 · `--reopen` 으로 되살린 좌석 복원 (1.1.16)
+
+카드 r427 · master 증거 ⑫(110863) · EVAL I16 · planner 판정 2344. «팀장 하나만»(판정 2341)으로 feature 팀 13석을 `ft-seat-close --verdict` 로 닫으려 했더니 전부 `HELD … NORECORD 조회 불가: pane 식별 조회 불가` 였습니다. 그 좌석들은 tmux 세션이 이미 없어 pane 에서 대화 uuid 를 뽑을 수 없는데, 닫기 도구는 «살아 있는 좌석» 길만 있었고, 기록 실패 처리에서 기존 재개 기록을 `.stale-<ts>` 로 «무효화» 해 지웠습니다(byz-feature-da-codex#2).
+
+- **ft-seat-close.sh**: `--verdict` 에서 `tmux has-session` 0 이면 죽은 좌석 분기 — `ft-seat-retire --record-only --verdict <번호> --keep-existing` → 명부 행 stop-ready + `_closed.dead=true`(role 은 stop-ready 그대로 — ft-tick resume_rows·seats-lint·stall 이 이 값으로 «재개 0» 을 판정하므로 새 role 값을 만들지 않음) · 그 좌석 값인 `_*` 칸 "" · kill 0 → `CLOSED-DEAD <좌석> record=<kept|new|NORECORD> handoff=<칸들|->` rc0 · 비운 칸이 있으면 «교대 0 · planner 1줄» 안내. NORECORD 여도 닫는다(죽은 좌석은 kill 할 것 0). 살아 있는 좌석 경로(HELD rc3)는 그대로.
+- **ft-seat-close.sh --reopen <좌석>**: zombie-clean resume 으로 되살린 좌석(세션 있어야 함 · 없으면 REJECT)의 행을 role=`_closed_role`(없으면 active)·tick=`_closed_tick` 로 되돌리고 `_closed*` 제거 · 닫을 때 `_closed_from`(파일:칸) 에 적어 둔 칸이 지금도 "" 면 다시 그 좌석으로(그새 교대된 칸은 덮지 않음) → `REOPENED <좌석> roles=<칸들> role=<role>`. 재개 기록은 그대로.
+- **ft-seat-retire.sh**: `--keep-existing`(`--record-only` 전용) — 기존 기록 있으면 새 시도 0 → `RESUME kept <경로>` · 없고 세션도 없으면 대화 기록 탐색 1회(`~/.claude/history.jsonl` 의 그 좌석 이름 줄 → project·sessionId → 그 jsonl 머리 64KB 에 `"agentName":"<좌석>"` «정확히 1개» · binding.source=`dead-agent-name`). 기록 실패(NORECORD)는 옛 기록을 건드리지 않는다(무효화 0 — 닫기 판정은 zombie-clean 이 binding `--expect` 로 다시 본다 · DA⑥ H1 개정) · 새 기록 «성공» 때만 옛 것을 `<경로>.prev-<ts>` 로.
+- **시험**: `test_seat_close.sh` r427 ⓐ~ⓓ·ⓖ·ⓕ(진짜 retire · 가짜 tmux·HOME) · 새 `test_seat_retire_keep.sh` ①~⑧ · `test_seat_retire.sh` ⑨H1·⑩ⓓstale 기대값을 «보존» 으로 개정.
+- 범위 밖(이름만): zombie-clean resume 이 `--reopen` 을 자동 호출 · 죽은 좌석 자동 수거 · `_*` 칸 교대 자동 선정(planner 결정) · codex 좌석의 죽은 뒤 기록 탐색(rollout).
+
 ## 2026-10-19 — 설치기가 쪽지→슬랙 미러 launchd plist 의 환경(FT_ROOT · inbox 경로)까지 템플릿에서 갱신하고, install-check 가 `PENDING plist-env` 를 센다 (버전 = master 착지 순)
 
 카드 r426 · EVAL-new-harness-overnight-20261019 §3 I1 · arch#96 실측 · planner 판정 2344. 10-19 00:35~08:22 미러(`com.hermes.byz-mbox-slack-mirror`)가 FT_ROOT 없이 옛 워크트리 bin(`v6-realtime-live/.fable-team/bin/ft-inbox.sh`)을 불러 1분마다 exit1(917회) — 오빠 슬랙 수신 7시간 47분 정지. 설치기는 bin·hermes 스크립트만 바꾸고 plist 환경은 그대로였고, install-check 는 Label 적재만 봐서 «OK» 였다(사람이 08:22 손 수정 `.bak-ftroot-20261019`).

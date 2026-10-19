@@ -137,15 +137,14 @@ H="$(rs_home pid)"; printf '{"pid":9999,"sessionId":"%s","cwd":"%s","name":"M#1"
 H="$(rs_home nojsonl)"; rm "$H/.claude/projects/$ENC/$UU1.jsonl"; rs_norecord jsonl없음 "$H"
 H="$(rs_home nomodel)"; rs_norecord model없음 "$H" ''
 H="$(rs_home notmux)"; FAKE_PANE_PID="" rs_norecord tmux세션없음 "$H"
-# ⑨-H1 (DA⑥) — 옛 재개 기록이 있는 좌석이 이번엔 NORECORD → 옛 기록을 지우지 않고 stale 로 이름 바꿔 닫기 근거에서 뺀다
+# ⑨-H1 (DA⑥ → r427 ⓔ 개정) — 옛 재개 기록이 있는 좌석이 이번엔 NORECORD → 옛 기록은 «그대로»(무효화 0 · 닫기 판정은 zombie-clean 의 binding --expect)
 H="$(rs_home stale)"; rm "$H/.claude/sessions/7001.json"; RD="$H/.claude/state/seat-resume"; mkdir -p "$RD"
-printf '{"name":"M#1","engine":"claude","uuid":"%s"}' "$UU2" > "$RD/M#1.json"
+printf '{"name":"M#1","engine":"claude","uuid":"%s"}' "$UU2" > "$RD/M#1.json"; cp "$RD/M#1.json" "$TMP/h1.orig"
 S="$TMP/seats-stale.json"; printf '{"M#1": {"role": "master", "agent": "claude", "model": "m1", "tick": "t", "_resume_uuid": "%s"}}' "$UU2" > "$S"
 out="$(rs_run "$H" "$S")"; rc=$?
 chk "⑨H1 rc 0" "$rc" 0
-chk "⑨H1 둘째 줄 = NORECORD … · 이전 기록 무효화 <새 경로>" "$(sed -n 2p <<< "$out" | sed -E 's/^(NORECORD M#1 .* · 이전 기록 무효화 ).*(M#1\.json\.stale-[0-9]{14})$/\1\2/' | sed "s|$RD/||")" "$(sed -n 2p <<< "$out" | sed -E 's/ · 이전 기록 무효화 .*//') · 이전 기록 무효화 M#1.json.stale-$(ls "$RD" | sed -n 's/^M#1\.json\.stale-//p')"
-chk "⑨H1 <구>.json 0 · stale 1" "$([ -e "$RD/M#1.json" ] && echo yes || echo no) $(ls "$RD" | grep -c '^M#1\.json\.stale-[0-9]\{14\}$')" "no 1"
-chk "⑨H1 stale 내용 보존(uuid)" "$(jq -r .uuid "$RD"/M#1.json.stale-* 2>/dev/null)" "$UU2"
+chk "⑨H1 둘째 줄 = NORECORD … · 기존 기록 보존 <경로>" "$(sed -n 2p <<< "$out" | sed -E 's/^NORECORD M#1 .* · (기존 기록 보존 .*)$/\1/')" "기존 기록 보존 $RD/M#1.json"
+chk "⑨H1 <구>.json 바이트 불변 · stale 0 · prev 0" "$(cmp -s "$RD/M#1.json" "$TMP/h1.orig" && echo same || echo changed) $(ls "$RD" | grep -c 'stale-\|prev-')" "same 0"
 chk "⑨H1 명부 구 행 _resume_uuid 제거" "$(J "$S" '.["M#1"]|has("_resume_uuid")')" false
 
 # ⑩ --record-only (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다 · 명부 쓰기 0
@@ -182,11 +181,11 @@ H="$(rs_home rrn5)"; rm "$H/.claude/projects/$ENC/$UU1.jsonl"; rr_norecord jsonl
 H="$(rs_home rrn6)"; rr_norecord model없음 "$H" ''
 H="$(rs_home rrn7)"; FAKE_PANE_PID="" rr_norecord tmux세션없음 "$H"
 H="$(rs_home rrn8)"; rm "$H/.claude/sessions/7001.json"; rr_norecord codex좌석 "$H" '"model": "gpt-6.1-sol",' codex
-# ⓓ 이미 있던 <구>.json → .stale-<ts> 이름 바꿈(명부는 그대로)
-H="$(rs_home rrstale)"; rm "$H/.claude/sessions/7001.json"; RD="$H/.claude/state/seat-resume"; mkdir -p "$RD"; printf '{"name":"M#1","uuid":"%s"}' "$UU2" > "$RD/M#1.json"
+# ⓓ 이미 있던 <구>.json → 그대로(r427 ⓔ — NORECORD 는 옛 기록 무효화 0 · 명부도 그대로)
+H="$(rs_home rrstale)"; rm "$H/.claude/sessions/7001.json"; RD="$H/.claude/state/seat-resume"; mkdir -p "$RD"; printf '{"name":"M#1","uuid":"%s"}' "$UU2" > "$RD/M#1.json"; cp "$RD/M#1.json" "$TMP/rr.orig"
 S="$TMP/seats-rrstale.json"; rr_seats "$S"; cp "$S" "$S.orig"; out="$(rr_run "$H" "$S")"; rc=$?
 chk "⑩ⓓstale rc 0·NORECORD" "$rc $(cut -d' ' -f1-2 <<< "$out")" "0 NORECORD M#1"
-chk "⑩ⓓstale <구>.json 0 · stale 1" "$([ -e "$RD/M#1.json" ] && echo yes || echo no) $(ls "$RD" | grep -c '^M#1\.json\.stale-[0-9]\{14\}$')" "no 1"
+chk "⑩ⓓstale <구>.json 바이트 불변 · stale 0" "$(cmp -s "$RD/M#1.json" "$TMP/rr.orig" && echo same || echo changed) $(ls "$RD" | grep -c 'stale-')" "same 0"
 chk "⑩ⓓstale 명부 불변" "$(cmp -s "$S" "$S.orig" && echo same || echo changed)" same
 # ⓕ --record-only + <후계> → usage rc 2 · 쓰기 0
 H="$(rs_home rrf)"; S="$TMP/seats-rrf.json"; rr_seats "$S"; cp "$S" "$S.orig"

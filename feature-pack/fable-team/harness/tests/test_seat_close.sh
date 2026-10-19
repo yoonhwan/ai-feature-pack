@@ -184,4 +184,55 @@ out="$(cd "$A" && FT_ROOT="$B" FAKE_LIVE="$RA" vrun "$RA" --reason r --verdict 1
 chk "ⓗrc 3 · NOROW · 안내에 FT_ROOT= · --seats" "$rc ${out%% *} $(grep -c 'FT_ROOT=' <<< "$out") $(grep -c -- '--seats ' <<< "$out")" "3 NOROW 1 1"
 chk "ⓗkill 0 · 두 명부 바이트 동일" "$(kills) $(cmp -s "$A/.fable-team/seats.json" "$TMP/A.orig" && echo same || echo changed) $(cmp -s "$B/.fable-team/seats.json" "$TMP/B.orig" && echo same || echo changed)" "0 same same"
 
+# r427 «죽은 좌석»(tmux 세션 없음) --verdict — 진짜 ft-seat-retire(같은 bin) · 가짜 HOME(대화 기록 목록·jsonl) · 실제 기록·명부·세션 0
+DH="$TMP/dhome"; WK="$TMP/dwork"; mkdir -p "$DH/.claude" "$WK"; ENC="$(printf '%s' "$WK" | sed 's/[^A-Za-z0-9]/-/g')"; UU=11111111-2222-3333-4444-555555555555
+drun() { HOME="$DH" FT_SEAT_RETIRE_BIN="$BIN/ft-seat-retire.sh" FAKE_SESSION="${FAKE_SESSION-0}" run bash "$CLOSE" "$@"; }
+nrec() { ls "$ZC_RESUME_DIR" | wc -l | tr -d ' '; }
+# ⓐ 세션 없음 + 기존 재개 기록 있음 → CLOSED-DEAD record=kept rc 0 · 기록 바이트 불변 · 행 stop-ready+_closed.dead · _arch "" · 교대 0 안내 · kill·태그 0
+rm -f "$ZC_RESUME_DIR"/*; printf '{"name":"A#1","uuid":"%s"}' "$UU" > "$ZC_RESUME_DIR/A#1.json"; cp "$ZC_RESUME_DIR/A#1.json" "$TMP/ra.orig"
+S="$TMP/d1.json"; mkrole "$S"; : > "$LOG"; : > "$VLOG"
+out="$(drun 'A#1' --reason "죽은 좌석" --seats "$S" --verdict 2344)"; rc=$?
+chk "ⓐrc 0 · CLOSED-DEAD 출력" "$rc ${out%%$'\n'*}" "0 CLOSED-DEAD A#1 record=kept handoff=$S:_arch"
+chk "ⓐ둘째 줄 «교대 0 · planner 1줄»" "$(sed -n 2p <<< "$out" | grep -c '교대 0 · planner 1줄')" 1
+chk "ⓐ기록 바이트 불변 · 파일 수 1" "$(cmp -s "$ZC_RESUME_DIR/A#1.json" "$TMP/ra.orig" && echo same || echo changed) $(nrec)" "same 1"
+chk "ⓐ행 stop-ready·dead·verdict · _closed_from · _closed_tick" "$(J "$S" '.["A#1"]|[.role,(._closed.dead|tostring),._closed.verdict,(._closed_from|join("+")),._closed_tick]|join(",")')" "stop-ready,true,2344,$S:_arch,ft-arch-tick"
+chk "ⓐ_arch \"\" · 다른 칸 불변" "$(J "$S" '[._arch,._master,._hil_route]|join(",")')" ",M#1,P#1"
+chk "ⓐkill 0 · 태그 해제 0 · 원장 kill=dead" "$(kills) $(grep -c '^set-option' "$LOG") ${out:+$(cut -f6 "$VLOG")}" "0 0 kill=dead"
+# ⓓ 세션 «있음» + 기록 실패 → HELD rc 3 그대로 · 재개 기록 호출에 --keep-existing 0
+cat > "$TMP/bin/retire-spy" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >> "$RETIRE_LOG"; echo "NORECORD $1 조회 불가: pane 식별 조회 불가"
+EOF
+chmod +x "$TMP/bin/retire-spy"; S="$TMP/d4.json"; mkrole "$S"; cp "$S" "$TMP/d4.orig"; : > "$TMP/retire.log"; : > "$LOG"
+out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-spy" FAKE_SESSION=1 FAKE_LIVE="A#1" run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict 2344)"; rc=$?
+chk "ⓓ살아 있는 좌석 · 기록 실패 → HELD rc 3 · keep 0 · 쓰기·kill 0" "$rc ${out%% — *} $(grep -c -- --keep-existing "$TMP/retire.log") $(cmp -s "$S" "$TMP/d4.orig" && echo same || echo changed) $(kills)" "3 HELD A#1 재개 기록 실패 0 same 0"
+# ⓑ 세션 없음 + 기록 없음 + 대화 기록(agent-name 줄) 1개 → 기록 1개 생성(record=new) · CLOSED-DEAD
+rm -f "$ZC_RESUME_DIR"/*; mkdir -p "$DH/.claude/projects/$ENC"
+printf '{"display":"[발주 #1] mbox recv A#1","project":"%s","sessionId":"%s"}\n' "$WK" "$UU" > "$DH/.claude/history.jsonl"
+printf '{"type":"agent-name","agentName":"A#1","sessionId":"%s"}\n' "$UU" > "$DH/.claude/projects/$ENC/$UU.jsonl"
+S="$TMP/d2.json"; mkrole "$S"; : > "$LOG"
+out="$(drun 'A#1' --reason r --seats "$S" --verdict 2344)"; rc=$?
+chk "ⓑrc 0 · CLOSED-DEAD record=new" "$rc ${out%%$'\n'*}" "0 CLOSED-DEAD A#1 record=new handoff=$S:_arch"
+chk "ⓑ기록 1개 · uuid·cwd·model·binding" "$(nrec) $(jq -r '[.uuid,.cwd,.model,.binding.source,(.pid|tostring)]|join(",")' "$ZC_RESUME_DIR/A#1.json")" "1 $UU,$WK,m,dead-agent-name,null"
+# ⓒ 세션 없음 + 기록·대화 기록 둘 다 없음 → CLOSED-DEAD record=NORECORD rc 0 · 무효화·stale 파일 0
+rm -f "$ZC_RESUME_DIR"/* "$DH/.claude/history.jsonl"; S="$TMP/d3.json"; mkrole "$S"; : > "$LOG"
+out="$(drun 'A#1' --reason r --seats "$S" --verdict 2344)"; rc=$?
+chk "ⓒrc 0 · CLOSED-DEAD record=NORECORD · 기록 파일 0" "$rc ${out%%$'\n'*} $(nrec)" "0 CLOSED-DEAD A#1 record=NORECORD handoff=$S:_arch 0"
+chk "ⓒ행 닫힘 · kill 0" "$(J "$S" '.["A#1"].role') $(kills)" "stop-ready 0"
+# ⓖ 재개 복원 — ⓐ 로 닫힌 좌석을 resume 으로 다시 열면(세션 있음) --reopen 이 role·tick·_arch 를 되돌린다 · 기록 그대로
+S="$TMP/d1.json"; printf '{"name":"A#1"}' > "$ZC_RESUME_DIR/A#1.json"; cp "$ZC_RESUME_DIR/A#1.json" "$TMP/rg.orig"; cp "$S" "$TMP/g0.orig"
+out="$(FAKE_SESSION=0 run bash "$CLOSE" --reopen 'A#1' --seats "$S")"; rc=$?
+chk "ⓖ세션 없음 → REJECT rc 1 · 명부 불변" "$rc ${out%% *} $(cmp -s "$S" "$TMP/g0.orig" && echo same || echo changed)" "1 REJECT same"
+out="$(FAKE_SESSION=1 run bash "$CLOSE" --reopen 'A#1' --seats "$S")"; rc=$?
+chk "ⓖrc 0 · REOPENED 출력" "$rc $out" "0 REOPENED A#1 roles=_arch role=arch file=$S"
+chk "ⓖ행 role·tick 복원 · _closed* 0 · _arch=A#1" "$(J "$S" '[.["A#1"].role,.["A#1"].tick,(.["A#1"]|keys|map(select(startswith("_closed")))|length|tostring),._arch]|join(",")')" "arch,ft-arch-tick,0,A#1"
+chk "ⓖ기록 바이트 불변 · .bak-reopen 1" "$(cmp -s "$ZC_RESUME_DIR/A#1.json" "$TMP/rg.orig" && echo same || echo changed) $(ls "$S".bak-reopen-* | wc -l | tr -d ' ')" "same 1"
+out="$(FAKE_SESSION=1 run bash "$CLOSE" --reopen 'A#1' --seats "$S")"; chk "ⓖ재호출 NOOP" "${out%% *}" NOOP
+S="$TMP/d2.json"; jq '._arch="A#2"' "$S" > "$S.t" && mv "$S.t" "$S"   # ⓑ 로 닫힌 행 · 그새 _arch 교대
+out="$(FAKE_SESSION=1 run bash "$CLOSE" 'A#1' --reopen --seats "$S")"; rc=$?
+chk "ⓖ교대된 칸은 덮지 않음" "$rc $(J "$S" '._arch') ${out#*roles=}" "0 A#2 - role=arch file=$S · 교대된 칸(복원 0): $S:_arch=A#2"
+run bash "$CLOSE" --reopen 'A#1' --verdict 1 --seats "$S" > /dev/null 2>&1; chk "ⓖ--reopen+--verdict rc 2" "$?" 2
+# ⓕ 600/300 0
+chk "ⓕ600/300 0(ft-seat-close·ft-seat-retire)" "$(grep -cE '\b(600|300)\b' "$CLOSE" "$BIN/ft-seat-retire.sh" | cut -d: -f2 | xargs)" "0 0"
+
 echo "fail=$fail"; [ "$fail" = 0 ]
