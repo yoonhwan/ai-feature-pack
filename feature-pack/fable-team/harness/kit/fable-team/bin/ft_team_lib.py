@@ -4,6 +4,7 @@ TEAMS.md «폴더» 칸(3번째 열) 3꼴을 푼다 — 도구는 `design/<팀>/
   꼴1 `design/<팀>/` · 꼴2 `design/teams/<팀>/` · 꼴3 `$FT_HARNESS_ROOT/design/<팀>/`(env 치환 · 하네스 팩 분리 뒤)
 실패는 TeamPathError — 옛 `design/<팀>/` 으로 되돌아가지 않는다(#0 RULE).
 env: FT_REPO_ROOT(기본 git 루트) · FT_TEAMS_MD(기본 <루트>/design/TEAMS.md · team_in 은 무시) · FT_HARNESS_ROOT(꼴3 치환값)
+ref 판(r479 · 셸 ft_team_cands_ref 와 같은 규칙): team_rows_ref · team_cands_ref · team_in_ref — 명단 = `git show <ref>:design/TEAMS.md` · 폴더 = 그 루트에 실재하는 후보
 """
 from __future__ import annotations
 
@@ -37,8 +38,12 @@ def teams_md(root: Path | None = None) -> Path:
 
 def team_rows(md: Path) -> dict[str, str]:
     """명단 → {팀: 칸 원문 경로} (3꼴 중 하나인 행만 · 같은 팀이 둘이면 첫 행)."""
+    return _rows_text(md.read_text(encoding="utf-8"))
+
+
+def _rows_text(text: str) -> dict[str, str]:
     rows: dict[str, str] = {}
-    for line in md.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         if not line.startswith("|"):
             continue
         cells = line.split("|")
@@ -81,7 +86,10 @@ def _harness_root_from_map() -> str:
 def team_root(team: str, root: Path | None = None, alt: bool = False) -> Path:
     """팀 폴더 절대경로. alt=True = 쌍둥이 경로(꼴1↔꼴2 · 꼴3 은 쌍둥이 없음 = TeamPathError)."""
     rel = team_rel(team, root)
-    base = root or repo_root()
+    return _rel_path(team, rel, root or repo_root(), alt)
+
+
+def _rel_path(team: str, rel: str, base: Path, alt: bool) -> Path:
     if rel.startswith(("$FT_HARNESS_ROOT/", "${FT_HARNESS_ROOT}/")):
         if alt:
             raise TeamPathError(f"ERROR {team} 은 꼴3 이라 쌍둥이 경로가 없다")
@@ -106,3 +114,42 @@ def team_in(root: Path | str, team: str) -> Path:
     finally:
         if saved is not None:
             os.environ["FT_TEAMS_MD"] = saved
+
+
+def team_rows_ref(ref: str = "origin/main", repo: Path | str | None = None) -> dict[str, str]:
+    """명단 = `git show <ref>:design/TEAMS.md`(R400 r3 · r479 — 체크아웃 사본이 옛 명단이어도·없어도 무관) · 못 읽음 = TeamPathError(옛 파일 후퇴 0)."""
+    base = Path(repo) if repo else repo_root()
+    try:
+        out = subprocess.run(["git", "-C", str(base), "show", f"{ref}:design/TEAMS.md"],
+                             capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise TeamPathError(f"ERROR 명단 ref 못 읽음({ref}:design/TEAMS.md): {base} — {e}") from e
+    if out.returncode != 0:
+        raise TeamPathError(f"ERROR 명단 ref 못 읽음({ref}:design/TEAMS.md): {base}")
+    return _rows_text(out.stdout)
+
+
+def _cands_ref(root: Path | str, team: str, ref: str) -> list[Path]:
+    """셸 ft_team_cands_ref 와 같은 규칙 — 명단 꼴 먼저 · 쌍둥이 뒤 · 꼴3 은 쌍둥이 0 (실재 여부 무관)."""
+    rows = team_rows_ref(ref, root)
+    if team not in rows:
+        raise TeamPathError(f"ERROR {team} 은 팀 명단({ref}:design/TEAMS.md)에 없다")
+    out = [_rel_path(team, rows[team], Path(root), False)]
+    if not rows[team].startswith(("$FT_HARNESS_ROOT/", "${FT_HARNESS_ROOT}/")):
+        out.append(_rel_path(team, rows[team], Path(root), True))
+    return out
+
+
+def team_cands_ref(root: Path | str, team: str, ref: str = "origin/main") -> list[Path]:
+    """«명단 = ref · 폴더 = 루트»(r479): ref 명단으로 푼 후보 중 그 루트에 실재하는 폴더만(명단 꼴 먼저)."""
+    return [c for c in _cands_ref(root, team, ref) if c.is_dir()]
+
+
+def team_in_ref(root: Path | str, team: str, ref: str = "origin/main") -> Path:
+    """team_in 의 ref 판 — 실재 후보 정확히 1개 · 0·2+ = TeamPathError(사유에 후보 · 추측 0)."""
+    cands = _cands_ref(root, team, ref)
+    hits = [c for c in cands if c.is_dir()]
+    if len(hits) != 1:
+        cand = " ".join(map(str, cands))
+        raise TeamPathError(f"ERROR {team} 폴더 실재 후보 {len(hits)}개 — 정확히 1개여야 한다(명단 {ref}:design/TEAMS.md · 후보 {cand})")
+    return hits[0]

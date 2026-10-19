@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
-from ft_team_lib import TeamPathError, team_in
+from ft_team_lib import TeamPathError, team_in_ref, team_rows, team_rows_ref
 
 NO_STATE = "상태 없음"
 SECTION = re.compile(r"^##\s+메인 골 6줄")
@@ -64,12 +64,17 @@ def live_root(error: type[Exception], root: Path | None = None) -> Path:
 
 
 def planner_dir(error: type[Exception]) -> Path:
-    """원장 리포(env FT_LEDGER_REPO · 없으면 LIVE_ROOT)의 planner 팀 폴더 — 그 리포의 TEAMS.md 폴더 칸으로 푼다(R382b · R458: 원장 뉴스와 같은 출처 1개 · 못 풀면 error · 옛 글자 경로로 후퇴 0)."""
+    """원장 리포(env FT_LEDGER_REPO · 없으면 LIVE_ROOT)의 planner 팀 폴더 — 명단 = ref(env FT_TEAMS_REF · 기본 origin/main) · 폴더 = 그 리포에 실재하는 후보 정확히 1개(r479 · 체크아웃 TEAMS.md 는 판정에 안 쓴다 · 어긋나면 WARN 1줄 · 못 풀면 error · 옛 글자 경로로 후퇴 0)."""
     root = Path(os.environ["FT_LEDGER_REPO"]) if os.environ.get("FT_LEDGER_REPO") else live_root(error)
+    ref = os.environ.get("FT_TEAMS_REF") or "origin/main"
     try:
-        return team_in(root, "planner")
+        found = team_in_ref(root, "planner", ref)
     except TeamPathError as e:
         raise error(str(e)) from e
+    md = root / "design" / "TEAMS.md"
+    if md.is_file() and team_rows(md).get("planner") != team_rows_ref(ref, root).get("planner"):
+        print(f"WARN 체크아웃 명단 {md} 의 planner 칸이 {ref} 와 다르다 — 판정은 {ref} 명단 + 실재 폴더 {found}", file=sys.stderr)
+    return found
 
 
 def ledger_spec(error: type[Exception]) -> str:
