@@ -5,7 +5,7 @@
 ## 가지 1
 | 리포 | 가지 | 내용 |
 |---|---|---|
-| ai-feature-pack | `nano/r453-nano-close-worktree-list-pipe-sigpi` (워크트리 `.worktrees/r453-wl-pipe` · base fec5d3b3 = origin/main) | 키트 4 파일(bin·kit 짝 cmp0): `ft-nano-close.sh`(3줄) · `ft-landed-check.sh` · `ft-index-move-canon.sh` · `ft-scratch-repo.sh` · 새 시험 `tests/test_nano_close_worktree_list_pipe.sh` · CHANGES 1절 · manifest 1.1.25 · 이 파일 · `tests-rc.txt` |
+| ai-feature-pack | `nano/r453-nano-close-worktree-list-pipe-sigpi` (워크트리 `.worktrees/r453-wl-pipe` · base fec5d3b3 = origin/main · 그 위에 r457 87ccd812·r456 d9c35e93 병합 — master 112374) | 키트 4 파일(bin·kit 짝 cmp0): `ft-nano-close.sh`(3줄) · `ft-landed-check.sh` · `ft-index-move-canon.sh` · `ft-scratch-repo.sh` · 새 시험 `tests/test_nano_close_worktree_list_pipe.sh` · CHANGES 1절 · manifest 1.1.25 · 이 파일 · `tests-rc.txt` |
 | BYZ-Agents | `nano/r453-nano-close-worktree-list-pipe-sigpi` | 커밋 0(이 단위는 팩만) |
 
 ## 순서
