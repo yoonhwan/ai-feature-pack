@@ -1,0 +1,23 @@
+# r412 시험 2026-10-19 09:16:17 · HEAD-base 9aaef2141feded6126d9479cf196dd5f80008f14
+## ⓐ test_autonomy_scope_classify.sh
+PASS 원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변
+PASS core.bare 오염 0
+PASS 키트 사본 == scripts/fable-team-bin (cmp0)
+ALL PASS
+rc=0
+## ⓑⓒ path_reason 직접
+scripts/harness-install/fable-team/bin/ft-x.sh -> 전역 규칙 경로: scripts/harness-install/fable-team/bin/ft-x.sh
+harness/kit/fable-team/bin/x.sh -> 전역 규칙 경로: harness/kit/fable-team/bin/x.sh
+src/x.py -> None
+CLAUDE.md -> 전역 규칙 경로: CLAUDE.md
+## ⓓ test_autonomy_scope.sh
+PASS Edit autonomy-scope/ → deny
+PASS 다른 경로 Write → allow
+fail=0
+rc=0
+## py_compile · 줄 수 · cmp
+py_compile rc=0
+     200 harness/bin/autonomy_scope_classify.py
+     200 harness/kit/fable-team/bin/autonomy_scope_classify.py
+     400 total
+cmp0 bin==kit
