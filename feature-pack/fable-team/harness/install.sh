@@ -48,7 +48,7 @@ fi
 FILES="$(cd "$KIT" && find bin templates -type f ! -path '*/__pycache__/*' ! -name '*.pyc' | LC_ALL=C sort)"
 COUNT="$(printf '%s\n' "$FILES" | grep -c .)"
 # 홈 훅 = 키트 kit/hooks 의 이 목록만 <home>/.claude/hooks/ 로 cp -p → cmp (settings.json 훅 등록은 별도 = master)
-HOME_HOOKS="harness-freeze-gate.sh old-team-path-new-file-gate.sh"
+HOME_HOOKS="harness-freeze-gate.sh old-team-path-new-file-gate.sh op-vault-develop-gate.sh"
 
 echo "== fable-team harness 설치 ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0')) =="
 echo "version=$VERSION machine=$MACHINE live=$LIVE/ files=$COUNT"

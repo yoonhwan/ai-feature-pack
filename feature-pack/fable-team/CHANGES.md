@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-19 — BYZ 리포 안 1Password(op) 볼트 명령은 develop 볼트 + develop 토큰 꼴만 — 홈 훅 `op-vault-develop-gate.sh` (1.1.22)
+
+카드 r451 · master 111771 · desk 111757 · 오빠 «op 볼트는 무조건 develop 사용하라고 강력지침» «kskill은 슬랙 자동화용이다». 기본 `OP_SERVICE_ACCOUNT_TOKEN` 은 kskill(슬랙 자동화 전용) 볼트만 보여, 좌석이 그냥 `op item create` 를 치면 kskill 에 들어갔습니다(컨시어지 시연 계정 8개). 지침 줄(전역 하드 룰 15)은 이미 있어 이 단위는 «막는 장치» 입니다.
+
+- **새 `kit/hooks/op-vault-develop-gate.sh`**(PreToolUse:Bash · 홈 훅): 명령을 구분자(`; && || | 개행 $( \``)로 나눠 실행 낱말이 `op` 이고 하위 명령이 `item create|edit|get|list|delete` · `document …` 이면 `--vault develop`/`--vault=develop`, `read` 면 모든 `op://` 참조의 볼트가 develop — 그리고 명령 글자에 `OP_SERVICE_ACCOUNT_TOKEN="$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP"` 대입(앞 대입·`export`·`env` 꼴)이 있어야 통과. 아니면 exit 2 + stderr `REJECT op 볼트 = develop 만 — kskill 은 슬랙 자동화 전용(오빠 10-19) · 꼴: … (빠진 것: …)`. `op vault list`·`whoami`·`signin`·`account`·`--version`·`--help`·`item move` 등 볼트 선택이 아닌 명령은 통과. `bash -c "…"` 문자열 안도 검사, 따옴표 안 글자·grep 인자·커밋 메시지는 실행 아님.
+- **범위 = BYZ 리포 안만**: `FT_ROOT`(있으면) 또는 cwd 의 origin URL 이 `…/byz-agents(.git)` 이거나 최상위에 `.claude/skills/byz-keys/`. ★공용 루트 체크아웃(옛 main)에는 byz-keys 가 없고 팩 리포에도 `.fable-team` 이 있어(10-19 실측) 파일 표식 하나로는 못 가린다 — origin URL 이 주 판별★. BYZ 밖(hermes 슬랙 자동화)은 통과.
+- **fail-open**: 입력 JSON 못 읽음·파이썬 예외 = 통과 + stderr `WARN`(다른 홈 훅과 같은 꼴 · 거절만 하는 훅). 외부 호출 0(위반 후보일 때만 로컬 git 2회 · 각 5 s). ★토큰 값은 읽지도 찍지도 않는다(OP_* 환경값 접근 0 · 명령 글자만)★.
+- **`harness/install.sh`** HOME_HOOKS 에 `op-vault-develop-gate.sh` 1토큰(→ `~/.claude/hooks/` cp -p → cmp) · **`templates/settings-hooks.snippet.json`** PreToolUse `Bash` 1항(`$HOME/.claude/hooks/op-vault-develop-gate.sh` — 홈 settings.json 등록 꼴 그대로 · 실제 등록은 master).
+- **시험**: 새 `test_op_vault_develop_gate.sh` 49 PASS(ⓐ kskill 생성 REJECT + 안내 원문 ⓑ develop 볼트인데 토큰 0·기본 토큰 대입 REJECT ⓒ 올바른 꼴·`--vault=`·export·env·`op read op://develop` 통과 / op://kskill·document kskill REJECT ⓓ 볼트 인자 0 REJECT · 볼트 선택 아닌 7 명령 통과 ⓔ BYZ 밖·git 밖 통과 · 표식 없는 origin byz-agents 리포 REJECT · FT_ROOT=BYZ REJECT ⓕ `&&`·`;`·`|`·`$( )`·`bash -c`·절대경로 op REJECT · 따옴표/grep/커밋 메시지·tool≠Bash·못 읽음·빈 입력 통과 ⓖ 600/300 0 · 가짜 op 호출 0 · OP_ 환경값 접근 0 · 가짜 토큰 값 출력 0 · install/스니펫/권한/bash -n). 기존 `test_old_team_path_deny`·`test_install_hook_check`·`test_harness_freeze_gate` rc0.
+- **범위 밖**: kskill 에 이미 생긴 시연 계정 8개의 develop 이전(ops · `op item move` 는 막지 않음) · hermes 쪽 op · 토큰 교체 · `skill/templates/settings-hooks.snippet.json`(이미 키트 사본과 다른 쌍둥이 · 이 단위 손대지 않음).
+
 ## 2026-10-19 — planner 앞 쪽지가 «조용히 아무도 안 받는» 상태를 소리 나게 한다: quiet 는 세션 안 감시와 한 쌍 (1.1.21)
 
 카드 r408 · desk 110229 실측 · planner 110234 · master 110237 · arch#94. 판정 876 으로 planner `_master` 는 doorbell 을 받지 않고 세션 안 감시(`ft-inbox-watch.sh` + Monitor)로 받는데, 승계(#71→#72) 뒤 감시가 안 걸려도 send 는 `doorbell=quiet` 만 찍어 큐가 3~5분씩 쌓였습니다(수동 깨움 5회).
