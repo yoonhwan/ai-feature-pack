@@ -1,0 +1,45 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 1차 reap 늘 left=1 → CLOSE-FAIL · 2차 같은 명령(reap left=0) → «재실행» + 카드 검사 건너뜀 + CLOSED · 원장 행 1개 그대로
+PASS ⓐ 1차 → CLOSE-FAIL(rc=1)
+PASS   └ 1차 뒤 명부 행 없음(실사건 꼴)
+PASS   └ 1차 뒤 원장 닫힘 행 1
+PASS   └ 1차 세션 보존
+PASS ⓐ 2차(재실행) → CLOSED(rc=0)
+PASS   └ 조기 재실행 판별 출력
+PASS   └ 카드 검사 건너뜀
+PASS   └ REJECT 0
+PASS   └ 원장 닫힘 행 1개 그대로(append 0)
+PASS   └ reap 1회 · --wt = 팩 워크트리
+PASS   └ 태그 해제
+PASS   └ 세션 kill
+PASS   └ 팩 워크트리·브랜치 그대로
+== ⓐ' 재실행인데 세션도 이미 없음 → reap 만 · CLOSED(세션 없음) · kill 0
+PASS ⓐ' 세션 없음 재실행 → CLOSED
+PASS   └ tmux 변경 0
+PASS   └ 원장 행 1개 그대로
+== ⓑ reap 1회째 left=1 · 2회째 left=0 → 1차에서 바로 CLOSED(재시도 1회)
+PASS ⓑ 재시도로 CLOSED
+PASS   └ «reap 재시도 1» 출력
+PASS   └ reap 2회
+PASS   └ 세션 kill
+PASS   └ 원장 행 1
+== ⓒ reap 늘 left=1 → 재시도 1회 뒤 CLOSE-FAIL(무한 재시도 0)
+PASS ⓒ CLOSE-FAIL
+PASS   └ reap 정확히 2회
+PASS   └ 재시도 출력
+PASS   └ 세션 보존
+== ⓓ 명부 행 없음 ∧ 원장 닫힘 행 없음 → 조기 재실행 0 · REJECT(처음 보는 좌석을 검사 없이 닫지 않음)
+PASS ⓓ REJECT
+PASS   └ 재실행 판별 0
+PASS   └ kill·태그 0
+PASS   └ reap 0
+PASS   └ 원장 행 0
+== ⓔ 명부 행 있음 = 지금 경로 그대로(카드·증거 검사 · reap 1회 · append 1)
+PASS ⓔ CLOSED
+PASS   └ ⑥ 증거 검사 거침
+PASS   └ 재실행 판별 0
+PASS   └ 재시도 0
+PASS   └ reap 1회
+PASS   └ 원장 append 1
+
+ALL PASS

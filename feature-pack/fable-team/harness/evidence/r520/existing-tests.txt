@@ -1,0 +1,16 @@
+test_nano_close_fail_closed.sh rc=0 ALL PASS
+test_nano_close_named_wt.sh rc=0 ALL PASS
+test_nano_close_never_started.sh rc=0 ALL PASS
+test_nano_close_pack_wt.sh rc=0 ALL PASS
+test_nano_close_rerun_early.sh rc=0 ALL PASS
+test_nano_close_sha_base.sh rc=0 ALL PASS
+test_nano_close_superseded_by.sh rc=0 ALL PASS
+test_nano_close_suspended.sh rc=0 ALL PASS
+test_nano_close_worktree_list_pipe.sh rc=0 ALL PASS
+test_nano_close_wt_deletion_only.sh rc=0 ALL PASS
+test_seat_reap_left0.sh rc=0 ALL PASS
+test_opencode_reap.sh rc=0 ALL PASS
+test_nano_team_env.sh rc=0 ALL PASS
+test_pack_nano_worktree_place.sh rc=0 ALL PASS
+test_da_hold_gate.sh rc=1 fail=2
+shellcheck -S error rc=0
