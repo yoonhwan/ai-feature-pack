@@ -4,11 +4,27 @@
 #   ② 전환 끝나면 쌍둥이 후보 제거 요구 — TEAMS.md 폴더 칸에 옛 꼴1(design/<팀>/)이 0 인데 ft_index_twin 호출이 남은 도구가 있으면 ERR.
 #      꼴1 이 남아 있으면 «전환 중» INFO 한 줄(통과).
 #   env: FT_REPO_ROOT(기본 git 루트 · ②의 TEAMS.md 위치). 출력 끝줄 `OK …` 또는 `ERR …` · exit 0 = OK · 1 = ERR · 2 = usage
+# --md <팀 폴더|파일.md> (r447): 카드·문서(*.md) 본문 전부(주석·코드 블록 포함)에서 옛 꼴 `design/<팀>/` 글자 —
+#   명단 새 꼴(design/teams/<팀>/) 팀 = ERR `<파일>:<줄>: …` · 명단 옛 꼴(전환 중) 팀 = INFO(통과) · 꼴3 팀 = 대상 아님. 명단 = 대상이 든 리포의 design/TEAMS.md(FT_REPO_ROOT·FT_TEAMS_MD 가 이긴다)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-DIR="${1:-$HERE}"; [ $# -le 1 ] && [ -d "$DIR" ] || { echo "usage: $0 [<bin 폴더>]" >&2; exit 2; }
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "ERR ft-team-lib.sh 없음: $HERE"; exit 1; }
 . "$HERE/ft-team-lib.sh"
+md_lint() { local tgt="$1" d rows new old f out n=0 nf=0 tot=0 info=""
+  d="$(cd -- "$([ -d "$tgt" ] && echo "$tgt" || dirname -- "$tgt")" && pwd -P)" || { echo "ERR 대상 폴더를 못 연다: $tgt"; return 1; }
+  rows="$(FT_REPO_ROOT="${FT_REPO_ROOT:-$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)}" _ft_team_rows)" || { echo "ERR 팀 명단을 못 읽었다 — md 검사 불가: $tgt"; return 1; }
+  new="$(printf '%s\n' "$rows" | awk -F'\t' '$2 ~ /^design\/teams\//{print $1}' | paste -sd'|' -)"
+  old="$(printf '%s\n' "$rows" | awk -F'\t' '$2 ~ /^design\// && $2 !~ /^design\/teams\//{print $1}' | paste -sd'|' -)"
+  while IFS= read -r f; do [ -n "$f" ] || continue; tot=$((tot+1))
+    if [ -n "$new" ] && out="$(grep -nE "(^|[^A-Za-z0-9_])design/($new)/" -- "$f")"; then
+      printf '%s\n' "$out" | cut -c1-160 | sed "s|^|ERR $f:|"; n=$((n+$(printf '%s\n' "$out" | grep -c .))); nf=$((nf+1)); fi
+    [ -n "$old" ] && grep -qE "(^|[^A-Za-z0-9_])design/($old)/" -- "$f" && info="$info ${f#"$d"/}"
+  done < <(if [ -d "$tgt" ]; then find "$tgt" -type f -name '*.md' | LC_ALL=C sort; else printf '%s\n' "$tgt"; fi)
+  [ -z "$info" ] || echo "INFO 전환 중 팀(명단 옛 꼴: $old) 옛 꼴 글자 파일(통과):$info"
+  [ "$n" = 0 ] || { echo "ERR 카드·문서 옛 경로 글자 ${n}줄(${nf}파일) — design/teams/<팀>/ 로 고친다(명단 새 꼴 팀: $new)"; return 1; }
+  echo "OK md 옛 경로 글자 0 (검사 ${tot}파일)"; }
+if [ "${1:-}" = --md ]; then [ $# = 2 ] && [ -e "$2" ] || { echo "usage: $0 --md <팀 폴더|파일.md>" >&2; exit 2; }; md_lint "$2"; exit $?; fi
+DIR="${1:-$HERE}"; [ $# -le 1 ] && [ -d "$DIR" ] || { echo "usage: $0 [<bin 폴더>] | --md <팀 폴더|파일.md>" >&2; exit 2; }
 PAT='design/\$'"\\{?[A-Za-z_]+\\}?/"
 bad="$(cd "$DIR" && grep -nE "$PAT" -- *.sh *.py 2>/dev/null | cut -c1-160)"
 [ -z "$bad" ] || { printf '%s\n' "$bad"; echo "ERR 팀 경로 조립 하드코딩 $(printf '%s\n' "$bad" | grep -c .)곳 — ft_team_root 로 바꾼다"; exit 1; }

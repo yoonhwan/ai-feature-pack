@@ -346,7 +346,7 @@ for F in 1 2; do p_text "$F"; done
 # ── lib · 린트 · 파이썬 3 ───────────────────────────────────────────────
 p_misc() {
   local F="$1" R="$T/xl$F" b a o rc W; b="$(bf "$F")"; a="$(af "$F")"; efix "$R" "$F"
-  o="$(cd "$R" && FT_REPO_ROOT="$R" bash -c '. "$1"; ft_team_root v65' _ "$SRC/ft-team-lib.sh" 2>&1)"; rc=$?
+  o="$(cd "$R" && FT_REPO_ROOT="$R" bash -c '. "$1"; ft_team_root v65' _ "$SRC/ft-team-lib.sh" 2>/dev/null)"; rc=$?   # r447: 쌍둥이 공존이면 stderr WARN 1줄 — 값은 stdout 만
   [ "$o" = "$R/$b/v65" ] && ok "ⓔ$F ft-team-lib: ft_team_root v65 = $R/$b/v65" || bad "ⓔ$F lib root: $o"; erec ft-team-lib "$F" "$rc" "$b/v65"
   mkdir -p "$T/xld$F" "$T/xlc$F"; echo 'x="design/v65/indices"' > "$T/xld$F/a.sh"; echo 'echo hi' > "$T/xlc$F/a.sh"
   o="$(cd "$R" && FT_REPO_ROOT="$R" FT_TEAM_LITERAL_PENDING= timeout 30 bash "$SRC/ft-team-path-lint.sh" "$T/xld$F" 2>&1)"; rc=$?

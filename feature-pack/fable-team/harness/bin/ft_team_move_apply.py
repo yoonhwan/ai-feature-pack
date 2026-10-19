@@ -260,7 +260,8 @@ def apply_team(ctx: Ctx, team: str, snap: Snap, deadline: float | None, take_occ
     if not old_form(ctx.rows[team]):
         if not received(ctx.root, team):
             raise MoveError(f"REJECT {team} 폴더 칸이 새 꼴인데 이 워크트리에 design/teams/{team}/ 가 없다: {ctx.rows[team]}")
-        return resync_team(ctx, team, snap)
+        import ft_team_move_twin as tw   # r447: 새 꼴 + 옛 폴더 추적 파일 잔존(쌍둥이 공존) = 옛 내용 우선 병합 이동
+        return tw.merge(ctx, team, snap, take_occ()) if tw.old_files(ctx, team) else resync_team(ctx, team, snap)
     preflight(ctx, team, take_occ())   # 이동 «직전» 점유 입력(앞 팀 이동 사이에 새로 연 프로세스를 잡는다)
     step = new_step(team, [f"{k} {v}" for k, v in refs(ctx, team)])
     snap.data["steps"].append(step)

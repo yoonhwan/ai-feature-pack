@@ -208,7 +208,13 @@ def cmd_plan(ctx: Ctx, arg: str) -> int:
     for team in pick(ctx, arg):
         rel = ctx.rows[team]
         if not old_form(rel):
-            print(f"SKIP {team} 이미 옮겼거나 이 도구 대상이 아니다: {rel}")
+            import ft_team_move_twin as tw   # r447: 쌍둥이 공존이면 병합 이동 계획 1줄 + 점유
+            line = tw.plan_line(ctx, team) if rel.startswith("design/teams/") else None
+            print(line or f"SKIP {team} 이미 옮겼거나 이 도구 대상이 아니다: {rel}")
+            occ = occupancy(ctx, team, snap) if line else []
+            for ln in occ:
+                print(f"  {ln}")
+            blockers += len(occ)
             continue
         src, dst = ctx.root / "design" / team, ctx.root / "design" / "teams" / team
         print(f"PLAN {team} design/{team}/ → design/teams/{team}/")
@@ -250,6 +256,10 @@ def cmd_verify(ctx: Ctx, arg: str) -> int:
         for p in left:
             shown = p.relative_to(ctx.root) if p.is_relative_to(ctx.root) else p   # 꼴3 팀 폴더는 리포 밖
             print(f"WARN {team} 잔여 옛 경로 design/{team}/ : {shown}")
+            warn += 1
+        twin = tracked(ctx, team)   # r447: 쌍둥이 공존(옛 폴더 추적 파일 잔존) — 병합 이동 안내
+        if twin:
+            print(f"WARN {team} 쌍둥이 옛 폴더 design/{team}/ 추적 파일 {len(twin)}개 — ft-team-move.sh --apply {team}")
             warn += 1
     up = run("bash", str(HERE / "ft-team-upgrade.sh"), "--check-teams", env=env)
     if up.returncode != 0:

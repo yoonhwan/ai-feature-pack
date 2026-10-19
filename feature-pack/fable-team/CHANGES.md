@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-19 — 팀 폴더 옛 경로 재발 방지: 쌍둥이 공존이면 리졸버는 새 꼴 + WARN · 카드·문서 옛 글자 md 린트 · 옛 위치 카드는 spawn·lint·move·착지 REJECT · ft-team-move 쌍둥이 병합 이동 (버전 = 착지 순서대로 master · r444·r445 뒤)
+
+카드 r447 · master 111463 ②·111467 · arch#98 보고 `REPORT-team-path-oldpath-audit-20261019.md` §1·§2. main 은 팀 폴더를 `design/teams/<팀>/` 로 옮겼지만 concierge-main 은 이동 커밋을 받고도 옛 `design/concierge/`(37) 에서 계속 일해 새 폴더(45)와 공존했고, 경로 린트는 `*.sh *.py` 만 봐 카드·문서의 옛 글자와 옛 위치 카드는 아무도 막지 않았습니다.
+
+- **`ft-team-lib.sh`**: `ft_team_root` 가 명단 새 꼴 ∧ 옛 꼴 폴더에 파일 실재면 새 꼴 반환 + stderr `WARN 옛 꼴 잔존 <N>파일 — ft-team-move.sh --apply <팀>` (`--alt` 불변 · 쌍둥이를 일부러 세는 `ft_team_cands*` 와 stderr 를 값으로 받는 `ft-team-map-lint.sh` 는 `FT_TEAM_TWIN_WARN=0`). 새 함수 `ft_old_form_team <경로>` · `ft_card_location_ok <카드>`(명단 = 카드가 든 리포 TEAMS.md · 명단 없으면 판정 생략) · `ft_old_form_added <리포> <base> <head>`(`diff -z` — 한글 경로 원문).
+- **`ft-team-path-lint.sh --md <팀 폴더|파일>`**: `*.md` 본문 전부(주석·코드 블록 포함)에서 옛 꼴 `design/<팀>/` 글자 — 명단 새 꼴 팀 = `ERR <파일>:<줄>: …` rc1 · 전환 중(명단 옛 꼴) 팀 = INFO · 꼴3 팀 대상 아님. 기존 bin 검사 모드 불변.
+- **`ft-index-lint.sh`·`ft-nano-spawn.sh`·`ft-index-move.sh`**: 카드 위치 옛 꼴(명단 새 꼴 팀) → `REJECT 카드 위치 옛 경로 — ft-team-move.sh --apply <팀> 뒤 다시` 1줄(nano-spawn 은 쌍둥이 해석 뒤 검사) · **`ft-merge-land.sh`**: 가지가 옛 꼴 위치에 새 파일을 만들면 착지 0. 넷 다 lib 이 있을 때만(lib 없이 복사해 쓰는 기존 시험 30여 개 · nano-spawn 116행 관례 · 설치본은 lib 항상 있음).
+- **`ft-team-move.sh --plan|--apply <팀>`** + 새 **`ft_team_move_twin.py`**: 명단 새 꼴인데 옛 폴더에 추적 파일 남은 팀 = `PLAN-TWIN` 1줄 · `--apply` 가 병합 이동(유일본 `git mv` · 같은 이름 다른 내용 = 옛 쪽 내용 승 `git mv -f` · 본문 치환 뒤 같은 내용 = 옛 삭제) + 새 폴더 본문 옛 글자 치환 + 한 커밋 + 저장 참조 재작성 → `TWIN-MERGED <팀> MOVED <N> OVERWROTE <M> DROPPED-SAME <K>` · 미커밋 = `REJECT … [wip] 먼저` · `--revert` 로 원본 sha 복원 · `--verify` 에 쌍둥이 잔존 WARN.
+- **시험**: 새 `test_team_path_oldpath_md.sh` ⓐ~ⓕ 63 PASS · `test_team_literal_paths2.sh` ⓔ 리졸버 값 캡처를 `2>/dev/null`(WARN 은 stderr) — 나머지 관련 29개 FAIL·PASS 개수 main 과 동일.
+- **master 단계**: ①착지(r444 뒤) → `install.sh --apply` → LIVE_BIN cmp0 ②planner 1줄 뒤 concierge master 가 concierge-main 에서 `ft-team-move.sh --plan concierge` → `--apply concierge` 1회 → `git ls-tree HEAD design/concierge` 0 ③린트 실사건 1건(`ft-team-path-lint.sh --md <팀 폴더>` ERR 줄) ④arch: COMM-GUIDE-BOOT 14 «팀 폴더 경로» 절 1줄.
+- 범위 밖(기록만): 팀 가지 main 병합·전환 집행(팀 master · planner 순번) · `ft-index-lint` 에 md 본문 검사 배선 · BYZ main 명단 기준 `ft-team-path-lint` «전환 끝 · 쌍둥이 후보 잔존(ft-nano-close·ft-nano-spawn)» ERR(이 카드 전부터 있음).
+
 ## 2026-10-19 — claude 좌석 전부 증류 경고 550k · 차단 600k 로 통일 (홈·BYZ 이원화 끝 · 승계 recv 차단선 550k 같이 이동) (1.1.16)
 
 카드 r445 · master 111389 · 오빠 «전부 550k경고 600k 차단으로 가자. 1/3 줄이고». Fable 1M 창에서 400k 경고·450k 차단(키트==홈 훅)과 프로젝트 훅은 창의 절반도 못 쓰고 승계를 불렀습니다.

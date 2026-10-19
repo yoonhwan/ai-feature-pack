@@ -120,7 +120,7 @@ check_proposal_line() {  # $1=file → bad+=
 check_da_hold() { local g="$(dirname "${BASH_SOURCE[0]:-$0}")/ft_da_hold_gate.py" l; [ -f "$g" ] || return 0; while IFS= read -r l; do case "$l" in INFO*) echo "INFO $1 — ${l#INFO }";; BAD*) bad+=("${l#BAD }");; esac; done < <(python3 "$g" "$1" --lint 2>/dev/null); }   # ⑪ DA 보류 2회(R387 · 판정 2282 · 설계 §3·§8-3) — 판정기 ft_da_hold_gate.py --lint: INFO(사건 ≥ 2 인데 재설계/리서치 줄 없음 · REJECT 아님) · BAD(위반 뒤 새 워커 없이 채택 = REJECT). 판정기 부재는 INFO 만 건너뜀.
 for f in "$@"; do
   bad=()
-  [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }
+  [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }; [ ! -f "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" ] || ( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_card_location_ok "$f" ) || { rc=1; continue; }   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더에 있으면 REJECT
   LEDGER="$(ledger_for "$f")"
   [ -f "$LEDGER" ] || { echo "REJECT $f — 선언된 정본 없음: $LEDGER"; rc=1; continue; }
   LEDGER_N="$(norm < "$LEDGER")"
