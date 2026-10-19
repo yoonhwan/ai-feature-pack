@@ -7,6 +7,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
 TICK="$BIN/ft-tick.sh"; RETIRE="$BIN/ft-seat-retire.sh"; SPAWN="$BIN/ft-role-spawn.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$TMP/reap-stub.sh"; export FT_SEAT_REAP_BIN="$TMP/reap-stub.sh"   # r448: 은퇴의 reap = 스텁(실기계 프로세스 0) · reap 자체는 test_seat_reap_left0.sh
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }

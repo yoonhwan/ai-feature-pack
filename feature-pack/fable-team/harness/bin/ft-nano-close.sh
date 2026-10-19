@@ -724,8 +724,13 @@ elif [ -n "$PLAN" ]; then echo "워크트리 정리 계획: $PLAN (실행은 세
 bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 원장 append 직후 = 닫힘 사건 성공(append 실패는 stderr SHEET-EVENT-PENDING)
 _sp_tag=""; [ "$SUPER" -eq 0 ] || _sp_tag=" superseded-by=$SUPERSEDED"   # R171
 _sp_tag+="$_su_tag"   # r450
-if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만"; exit 0; fi
-echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디"
+# r448: 세션 kill «앞»(세션이 이미 없어도) 그 좌석이 띄운 백그라운드 루프 정지 — left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(세션 보존 · 명부는 삭제됨 → 같은 close 재실행이 RERUN 으로 이어간다)
+_wtarg=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || _wtarg=(--wt "$SEAT_WT")
+_rp_out="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" ${_wtarg[@]+"${_wtarg[@]}"} 2>&1)"; _rp_rc=$?; _rp_left="$(printf '%s\n' "$_rp_out" | grep -oE 'left=[0-9?]+' | tail -1)"
+printf '%s\n' "$_rp_out" >&2
+[ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
+if [ "$ABSENT" = 1 ]; then echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
+echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0"
 # 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
 bash "$(dirname "$0")/ft-nano-slots.sh" || echo "WARN ft-nano-slots 실패(rc=$?) — 빈 석을 손으로 세라"
 

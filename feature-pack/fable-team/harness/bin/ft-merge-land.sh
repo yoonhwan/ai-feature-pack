@@ -63,6 +63,7 @@ Q="$(G commit-tree "$S^{tree}" -p "$M" -m "$MSG")" || rej "commit-tree 실패"
 [ "$(G rev-parse "$Q^{tree}")" = "$(G rev-parse "$S^{tree}")" ] && G merge-base --is-ancestor "$M" "$S" || rej "착지 후보 tree != 검사 tree 이거나 검사한 head 가 착지 부모 main($M)을 품지 않음 — 검사 뒤 main 이 움직였다(다시 최신화)"   # R247 DA⑥ HOLD2-①: 부모 M 이 S 의 조상이어야 «검사한 트리 == main 위에 놓이는 트리»(M ⊂ Q 는 항상 참이라 무의미했음)
 PBO="$(fm_push_bound "$REPO" "$M" "$Q")"
 fi
+[ ! -f "$HERE/ft-bg-loop-lint.sh" ] || BLO="$(bash "$HERE/ft-bg-loop-lint.sh" --range "$M..$S" --repo "$REPO")" || rej "$(printf '%s' "$BLO" | head -3 | tr '\n' ' ')"   # r448: 가지가 추가·수정한 design/·tests/e2e/ *.sh 의 while+sleep+>> 루프가 ft-bg-loop.sh 래퍼 밖 = 착지 0
 
 TB="$(fm_timeout_bin)" || rej "timeout 도구 없음"
 PN="${PBO% *}"; PB="${PBO#* }"; PV="$(fm_push_calc '?' 2>/dev/null)"   # R354: PB = 크기 비례로 «계산한 최대 시도 시간» · AB = 그 시도에 실제로 건 상한 min(PB, 남은 시간) · PV = 최소 1단위(F+7)

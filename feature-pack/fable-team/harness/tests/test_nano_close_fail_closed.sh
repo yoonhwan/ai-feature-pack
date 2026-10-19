@@ -5,6 +5,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
+mkdir -p "$T/bin"; printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"   # r448: 닫기의 reap = 같은 bin 스텁(env -i 시험 · 실기계 프로세스 0) · reap 자체는 test_seat_reap_left0.sh
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -97,6 +98,14 @@ setup; chmod 444 "$SEATS"; out="$(close)"; rc=$?
 rejected "$out" "$rc" "ⓕ"; has "$out" "명부 쓰기 실패(rc=" "  └ 사유"
 [ ! -s "$OLDL" ] && ok "  └ 원장 행 0" || bad "  └ 원장에 행이 생김"
 chmod 644 "$SEATS"
+
+echo "== ⓖ r448: 닫기 출력 reap 줄 · reap left≠0 → CLOSE-FAIL rc 1 · kill 0(reap 은 kill «앞» · --wt 좌석 워크트리 전달)"
+setup; out="$(close)"; has "$out" "reap left=0 rc=0" "ⓖ 성공 출력에 reap left=0 rc=0"
+setup; printf '#!/bin/sh\necho "$*" > "%s/reap-args"\necho "reap $1 stopped=0 left=1 rc=1"; exit 1\n' "$T" > "$T/bin/ft-seat-reap.sh"; out="$(close)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "CLOSE-FAIL reap left=1 rc=1" "ⓖ CLOSE-FAIL reap left=1 rc=1 (rc 1)" || bad "ⓖ rc=$rc ← ${out:0:600}"
+hasnt "$(cat "$T/tlog")" "kill-session" "  └ kill-session 0"
+has "$(cat "$T/reap-args")" "$SEAT --wt $NW" "  └ reap 인자 = 좌석 + --wt 좌석 워크트리"
+printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
