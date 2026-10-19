@@ -739,12 +739,15 @@ baton_cmd_wt_clean() {
   local target=""
   local merged_only=false
   # --skip-save 옵션 처리 (finish가 이미 save 한 경우)
-  for a in "$@"; do
-    case "$a" in
+  # --landed <sha>: squash 착지 sha — main 조상이면 보관본을 merged 로 본다 (v1.2.17)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
       --merged)    merged_only=true ;;
       --skip-save) export BATON_WT_CLEAN_SKIP_SAVE=1 ;;
-      *) [[ -z "$target" ]] && target="$a" ;;
+      --landed)    shift; export BATON_ARCHIVE_LANDED="${1:-}" ;;
+      *) [[ -z "$target" ]] && target="$1" ;;
     esac
+    shift || true
   done
   local root
   root=$(baton_project_root)
@@ -836,7 +839,7 @@ baton_wt_clean_one() {
   echo
   echo "📦 아카이브 생성 중..."
   local archive_file
-  archive_file=$(baton_archive_create "$wt_path" "")
+  archive_file=$(baton_archive_create "$wt_path" "") || { echo "❌ archive 실패 — 워크트리 삭제 중단: $wt_path" >&2; return 1; }
   echo "📍 위치: $archive_file"
   echo "⏳ 보관: 30일"
   echo "🔍 검색: /baton:archive search [keyword]"

@@ -323,6 +323,15 @@ else
 fi
 rm -rf "$adh_dir"
 
+# [14] v1.2.17+ — wt-clean 보관본 패치 범위·상한 + 독립 prune
+echo
+echo "[14] v1.2.17 archive patch range / size cap / standalone prune 검증"
+if bash "$PACKAGE_DIR/test/test_archive_patch_range.sh" >/dev/null 2>&1; then
+  ok "test_archive_patch_range.sh ⓐ~ⓖ"
+else
+  ng "test_archive_patch_range.sh failed (직접 실행해 실패 항목 확인)"
+fi
+
 # summary
 echo
 echo "-----------------------------------------"
