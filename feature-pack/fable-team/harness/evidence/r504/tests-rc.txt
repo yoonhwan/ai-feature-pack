@@ -67,3 +67,5 @@ FAILED tests/scripts/test_news_status_section.py::test_h1_tick_calls_stale_watch
 3 failed, 103 passed in 29.91s
 rc=1
 ## 기존 pytest 실패 3(test_ft_tick_passes_shellcheck · test_repo_original_finds_kit_folder · test_h1_tick_calls_stale_watch_when_ledger_off) = origin/main 855d2797 사본과 FAILED 줄 같음 — 고침 단위는 master 에 별 카드 요청
+## 병합 HEAD 497d31c0(origin/main ecee4971 · r503 1.1.59) 재실행 — 1.1.60
+test_seat_turn_batch 6 passed rc=0 · test_ft_news_html 39 passed rc=0(r503 시험 1 포함) · test_ft_seat_turn_window 8 passed rc=0 · test_ft_seat_codex 10 passed rc=0 · test_kit_bin_sync ALL PASS rc=0 · test_ledger_repo_sync(r503) ALL PASS
