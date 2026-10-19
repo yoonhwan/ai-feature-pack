@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-10-19 — 뉴스 HTML «일하는 팀» = 라이브 좌석 실측 · 일하는 팀이 위 (r478c · 1.1.38)
+
+- 오빠 반려(일하는 chatbot 이 쉬는 팀에) — 일하는/쉬는 팀 판정을 LLM 에서 코드로: 명부 팀별 tmux 좌석 + `ft-seat-status.sh turn` WORKING 수로 나누고 일하는 좌석 많은 순으로 위에 · LLM 은 팀별 설명 한 문장만. 라이브 좌석 판정이 없으면 발행 0.
+- 시험 `test_news_html.sh` 24 passed · 라이브 1회: chatbot 일하는 팀 188행 < 쉬는 팀 195행. 단계 = `harness/evidence/r478c/master-steps.md`.
+
 ## 2026-10-19 — r479 골 읽기 판정기·골 표 원장도 «명단 = ref origin/main · 폴더 = 그 루트에 실재» (r479 · 1.1.37)
 
 - `ft-goal-check.sh` 가 v65 폴더를 체크아웃 `design/TEAMS.md` 가 아니라 ref 명단(`FT_TEAMS_REF` · 기본 origin/main)으로 풀고, 그 루트에 실재하는 후보 1개를 쓴다(0개 = ref 본문 · 2개+ = ERROR). 공유 루트에 명단 파일이 없어 v65 master 에 매 틱 REJECT(rc=4)가 가던 일이 끝난다.
