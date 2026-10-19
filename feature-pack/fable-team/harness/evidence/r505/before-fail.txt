@@ -1,0 +1,41 @@
+PASS bash -n ft-seat-reap.sh
+PASS 짝 cmp0 ft-seat-reap.sh
+== 픽스처 — ⓐ LISTEN 서비스(+ⓓ 자식) · ⓑ worker 명령 꼴 · ⓒ 감시 루프 (전부 ppid 1 · FT_SEAT=r505t-66882#1)
+PASS 픽스처 4(ⓐ·ⓑ·ⓒ 고아 · ⓓ 자식)
+PASS ⓐ LISTEN 실재
+PASS ⓓ 자식 ppid = 서비스
+== ⓐⓑⓒ 은퇴 경로(--orphans-only) — 서비스 생존 · 루프만 정지
+FAIL ⓐⓑ dry-run 후보에 서비스 ← reap-cand pid=66919 via=② cmd=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.a
+reap-cand pid=66944 via=자손 cmd=/opt/homebrew/bin/bash -c sleep 120; : child-r505fx-66882
+reap-cand pid=66953 via=자손 cmd=sleep 120
+reap-cand pid=67174 via=② cmd=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.a
+reap-cand pid=67510 via=② cmd=/opt/homebrew/bin/bash -c while :; do sleep 1; done # loop-r505fx-66882
+reap-cand pid=67514 via=자손 cmd=sleep 1
+reap r505t-66882#1 found=6 dry-run rc=0
+PASS ⓒ dry-run 루프 후보
+FAIL ⓐ reap-skip why=service-listen — 없음: «reap-skip pid=66919 why=service-listen» ← reap-kill pid=66919 via=② cmd=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.a
+reap-kill pid=66944 via=자손 cmd=/opt/homebrew/bin/bash -c sleep 120; : child-r505fx-66882
+reap-kill pid=66953 via=자손 cmd=sleep 120
+reap-kill pid=67174 via=② cmd=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.a
+reap-kill pid=67510 via=② cmd=/opt/homebrew/bin/bash -c while :; do sleep 1; done # loop-r505fx-66882
+reap-kill pid=67885 via=자손 cmd=sleep 1
+reap r505t-66882#1 stopped=3 left=0 rc=0
+FAIL ⓑ reap-skip why=service-cmd — 없음: «reap-skip pid=67174 why=service-cmd» ← reap-kill pid=66919 via=② cmd=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.a
+reap-kill pid=66944 via=자손 cmd=/opt/homebrew/bin/bash -c sleep 120; : child-r505fx-66882
+reap-kill pid=66953 via=자손 cmd=sleep 120
+reap-kill pid=67174 via=② cmd=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.a
+reap-kill pid=67510 via=② cmd=/opt/homebrew/bin/bash -c while :; do sleep 1; done # loop-r505fx-66882
+reap-kill pid=67885 via=자손 cmd=sleep 1
+reap r505t-66882#1 stopped=3 left=0 rc=0
+FAIL ⓐⓑ 서비스 생존 · ⓒ 루프 정지 (got=[dead dead dead] want=[alive alive dead])
+FAIL ⓒ 끝 줄 stopped=1 left=0 rc=0 (got=[0 reap r505t-66882#1 stopped=3 left=0 rc=0] want=[0 reap r505t-66882#1 stopped=1 left=0 rc=0])
+== ⓓ 닫기 경로(--orphans-only 없음) — 서비스 자식도 생존(서비스 나무째 제외)
+FAIL ⓓ 자식 reap-skip why=service-listen — 없음: «reap-skip pid=66944 why=service-listen» ← reap r505t-66882#1 stopped=0 left=0 rc=0
+FAIL ⓓ 서비스·자식 생존 · 끝 줄 stopped=0 left=0 rc=0 (got=[dead dead 0 reap r505t-66882#1 stopped=0 left=0 rc=0] want=[alive alive 0 reap r505t-66882#1 stopped=0 left=0 rc=0])
+== ⓔ FT_REAP_SERVICE_RE 덮기(서비스 명령 꼴 끔) → ⓑ 가 다시 후보 · lsof 실패 = rc 20
+FAIL ⓔ덮기 → ⓑ 후보(via=②) — 없음: «reap-cand pid=67174 via=②» ← reap r505t-66882#1 found=0 dry-run rc=0
+FAIL ⓔlsof 실패 → rc 20 · left=? · 아무것도 안 죽임 (got=[0 reap r505t-66882#1 stopped=1 left=0 rc=0 dead dead] want=[20 reap r505t-66882#1 stopped=0 left=? rc=20 alive alive])
+PASS ⓔ 600/300 0
+
+FAILED 9
+rc=1
