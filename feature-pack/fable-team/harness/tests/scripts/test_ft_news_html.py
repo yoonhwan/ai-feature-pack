@@ -368,6 +368,30 @@ def test_r490_c_lint_rejects_resting_claim_on_unknown_team(unknown_page):
     assert lint.problems(unknown_page, "가\nab 팀은 쉬는 중") == []  # 이름 경계 — a 가 다른 이름 안에 든 것은 아님
 
 
+# ── r498: 쉼 글자 «뒤» 같은 절의 부정 꼬리 = 단정 아님 · 긍정 단정은 그대로 REJECT ─────────
+R498_OK = ["lecture·planner·room은 상태를 확인할 수 없어서 쉰다거나 멈췄다고 단정하지 않습니다",  # ⓐ 라이브 1.1.53 로그 원문
+           "lecture 는 쉬지 않았을 수 있습니다", "lecture 가 멈춘 것은 아닙니다"]  # ⓑ
+R498_BAD = ["lecture 는 쉬는 중입니다", "lecture 는 확인이 안 돼 멈춘 상태입니다",  # ⓒ 부정이 쉼 글자 «앞» 다른 말에 붙음
+            "lecture 는 대기 중이며 확인되지 않습니다",
+            "lecture 는 쉬고 있고, 원인은 단정하지 않습니다"]  # ⓓ 다른 절 부정
+
+
+@pytest.fixture
+def lecture_page(unknown_page):
+    return unknown_page.replace('<div class="team unk"><strong>a</strong>', '<div class="team unk"><strong>lecture</strong>')
+
+
+@pytest.mark.parametrize("line", R498_OK)
+def test_r498_ab_negated_tail_after_rest_word_is_not_assertion(lecture_page, line):
+    assert lint.problems(lecture_page, "가\n" + line) == []
+
+
+@pytest.mark.parametrize("line", R498_BAD)
+def test_r498_cd_positive_rest_assertion_still_rejected(lecture_page, line):
+    bad = [p for p in lint.problems(lecture_page, "가\n" + line) if "확인 불가 팀" in p]
+    assert bad == [f"확인 불가 팀 lecture 에 쉼 단정 «{line}»"]
+
+
 def test_r490_d_pool_is_seat_count_capped_32_so_40_seats_finish_within_two_seat_caps(seat_root, monkeypatch):
     import time
     monkeypatch.setattr(fh, "_sessions", lambda: [f"byz-big-{i:02d}" for i in range(40)])

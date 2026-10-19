@@ -1,4 +1,4 @@
-# r499 시험 원문 (base 5779acde · 2026-10-20 00:55:19)
+# r499 시험 원문 (base 5779acde · 병합 origin/main 뒤 재실행 rosters 46·close 81·kit_bin_sync 7·keep 13 rc0 · 1.1.55 · 2026-10-20 00:55:19)
 ## tests/test_seat_retire_rosters.sh rc=0 pass=46 fail_lines=0
 PASS r499ⓖ옛 stop-ready·_retired_role 없음·후계 행 없음 → rc 0 · 첫 줄 role stop-ready->arch
 PASS r499ⓖ후계 role=arch · _arch 후계 · 옛 행 _retired_role 안 씀(추측 0)
