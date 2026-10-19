@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-19 — 자율 ON 병합 훅이 «오빠 승인 sha 위에 main 병합만 더한 head»(같은 변경 집합)를 재승인 없이 통과시킨다 (r462 · 버전 = 착지 때 master)
+## 2026-10-19 — 자율 ON 병합 훅이 «오빠 승인 sha 위에 main 병합만 더한 head»(같은 변경 집합)를 재승인 없이 통과시킨다 (r462 · 1.1.27)
 
 카드 r462 · ops master 33 [HIL] 112442 → planner 112456 → master 78 발주 112459. 훅 `autonomy-merge-guard.sh` 는 승인 파일 이름 == `--match-head-commit` sha 글자 일치만 봐서, 착지 직전 표준인 main 병합으로 head 가 바뀌면 «승인한 변경 집합은 그대로» 인데도 매번 오빠 재승인을 요구했습니다(ops PR 1960 왕복).
 
@@ -10,6 +10,16 @@
 - **ops 실사건 실측**(BYZ 리포): 승인 45cd3c302b 는 head 6f66271305 의 조상이 «아니다»(가지를 89c8e21f13 로 다시 만든 뒤 main 병합) — 카드 Issue ③ «45cd 위» 와 다름. 그래도 판정기 rebase 모드 조건(main 6d4ccce32c ⊂ head · 자기 변경 diff 동일 · `merge-tree(45cd, 6d4c)` = head 트리 8b87f3a161)이 그 당시 main 기준으로 전부 참 → 이 훅이면 EQUIV 통과였다. 지금은 main 이 더 나가 같은 head 는 NOT-EQUIV(«PR head 도 지금 main 위가 아님») — main 을 한 번 더 병합하면 다시 EQUIV.
 - **시험** `tests/test_autonomy_merge_equiv.sh`(새 · 13 PASS): ⓐ A 위 main 병합 → 통과 + 로그 ⓑ +가지 새 커밋 → deny(«일반 커밋 1») ⓒ A 를 조상으로 안 둔 다른 변경 → deny ⓓ H == A → 통과 · EQUIV 로그 0 ⓔ 승인 파일만(log 줄 없음) → H·A 둘 다 deny + 판정기 없음 → H deny · A 통과 + approve-merge stdout 불변·stderr 1줄. 고치기 전 훅(origin/main)으로 같은 시험 = fail 4(ⓐ·ⓑ·ⓒ·ⓓ로그).
 - **범위 밖**: 자율 OFF 경로 · scope-approve code-max · PR 1960 착지 · 판정기 rebase 모드의 «지금 main ⊂ head» 조건 완화(ft-merge-land 와 공유라 따로).
+
+## 2026-10-19 — 병합 줄 대조(`ft_merge_lines.py`)가 «다른 폴더로 옮긴 파일» 을 옮긴 곳에서 센다 — D 인데 같은 이름 1개면 이동 · 옛 경로 글자 1쌍 치환 (r461 · 1.1.26)
+
+카드 r461 · master 112578·112657 · loom master 36 결정 요청 112574. 보호 집합의 키가 «파일 경로» 라서, 작은 카드를 다른 폴더로 옮기며 경로 글자 줄을 바꾸면 `diff -M` 유사도가 50% 밑으로 떨어져 «D(삭제) + A(새 파일)» 로 갈라지고 «S 가 삭제» 로 거절됐다. git 이 R 로 잡아도 main 이 더한 «옛 경로 글자 줄» 이 새 경로 글자로 바뀌면 «사라짐» 이었다.
+
+- **규칙**(소실 판정 «전»): ①D 면 S 트리(`ls-tree -r`)에서 같은 basename 을 찾아 **정확히 1개**일 때만 그 파일을 옮긴 곳으로 본다 — 0개 = 기존 «S 가 삭제» · 2개 이상 = `S 가 삭제 · 같은 이름 후보 N개(추측 0)` ②옮긴 파일(R 또는 ①)은 main 줄마다 «그대로» 와 «옛 경로 → 새 경로 1쌍 치환» 중 많은 쪽으로 센다 ③포함 안 되면 `<새 경로> 로 이동했으나 main 이 더한 줄 N 개 없음` ④바이너리 D·R 은 기존 거절 그대로 · 같은 경로 줄 소실은 기존 «사라짐» 그대로.
+- PASS 줄 = `PASS 보호 집합 N 파일 · F=… · 이동 인정 K; MOVED a -> b …(3개 + 외 N)`(한 줄 · ft-merge-gate 가 `ALLOW … · $OUT` 로 싣는다). DENY 첫 단어 불변.
+- **시험** `tests/test_merge_lines_moved.sh`(새 · 13 PASS): 전제 2(ⓐ 가 실제 D+A · ⓕ2 가 실제 R) · ⓐ 3장·48장 이동 PASS · ⓑ 진짜 삭제 · ⓒ 이동+줄 2개 소실 · ⓓ 같은 이름 2개 · ⓔ 바이너리 이동 = DENY · ⓕ 큰 카드 R(같은 내용·경로 줄 치환) PASS · 같은 경로 줄 소실 «사라짐» 그대로. RED = `FT_MERGE_LINES=<옛 판>` 으로 6 FAIL(ⓐ·ⓐ48·ⓒ·ⓓ·ⓕ·ⓕ2).
+- **실사건 실측(loom PR 1959 head 39a6d47bc0 · M=30cef9026e = 17:53 거절 당시 origin/main · 읽기만)**: 옛 판 DENY 15건(R 13 + D 2) → 새 판 DENY 14건. 살린 것 1(`대기/loom-789-u2b…` D → `완성/` 같은 내용). ★남은 14건은 경로 글자가 아니라 카드 본문 줄(base_sha·선행·상태·시험 줄)이 main 판과 다르다★ — main 이 F 이후 고친 카드 내용을 S 의 옮긴 카드가 안 가졌다(loom ⓐ «origin/main 판 복원» 이 같은 경로 파일만 덮어서 옮긴 카드는 빠짐). 이건 이동 규칙이 덮을 일이 아니라 진짜 «main 이 더한 줄 소실» 이다 → loom 쪽 처리 필요(아래 master-steps).
+- **범위 밖**: `-M` 유사도 인자 · ft-merge-gate 다른 검사 · 병합 훅(r462).
 
 ## 2026-10-19 — `pipefail` 아래 `… | grep -q` 가 64 KB 넘는 입력에서 SIGPIPE(141)로 «찾았는데 실패» — 목록은 변수로 받은 뒤 here-string 으로 grep (1.1.25)
 
