@@ -62,7 +62,7 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · N · K
   else TMUX_OK=0; echo "ERROR tmux 목록 실패 — 등록 사본 판정 생략 (tmux=${TMUX_BIN:-없음})" >&2; fi
   TD="${TMPDIR:-/tmp}"; TD="${TD%/}"; cwds="$(lsof -w -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
   for d in $(find "$TD" -maxdepth 1 -type d -name 'tmp.*' -user "$(id -un)" -mmin +"$AGE" 2>/dev/null); do
-    printf '%s\n' "$cwds" | grep -q "^$d" || add "$(kb "$d")" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남"
+    grep -q "^$d" <<<"$cwds" || add "$(kb "$d")" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남"
   done
 }
 

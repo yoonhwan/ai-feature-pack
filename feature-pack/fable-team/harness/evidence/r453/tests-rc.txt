@@ -1,0 +1,26 @@
+# r453 시험 rc — 팩 HEAD 1c83815a56861736628ea58999685c77c0b461ec(r457 87ccd812 · r456 d9c35e93 병합 뒤) · 팩 루트 · env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE
+test_nano_close_worktree_list_pipe rc=0 · ALL PASS · PASS 18
+test_nano_close_fail_closed rc=0 · ALL PASS · PASS 36
+test_nano_close_named_wt rc=0 · ALL PASS · PASS 63
+test_nano_close_sha_base rc=0 · ALL PASS · PASS 21
+test_nano_close_superseded_by rc=0 · ALL PASS · PASS 140
+test_nano_close_suspended rc=0 · ALL PASS · PASS 92
+test_nano_close_wt_deletion_only rc=0 · ALL PASS · PASS 23
+test_index_move_canon_landed rc=0 · fail=0 · PASS 18
+test_index_move_rule_line rc=0 · fail=0 · PASS 17
+test_index_move_slack rc=0 · fail=0 · PASS 14
+test_index_move_canonize rc=0 · fail=0 · PASS 22
+test_scratch_repo rc=0 · ALL PASS · PASS 23
+test_finished_cleanup_auto rc=0 · ALL PASS · PASS 30
+test_da_hold_gate_landed rc=0 · fail=0 · PASS 32
+test_live_install_check_plist_env rc=0 · ALL PASS · PASS 32
+ft-index-close-landed.sh bin·kit cmp0
+ft-index-move-canon.sh bin·kit cmp0
+ft-index-move.sh bin·kit cmp0
+ft-landed-check.sh bin·kit cmp0
+ft-nano-close.sh bin·kit cmp0
+ft-scratch-repo.sh bin·kit cmp0
+ft_da_hold_gate.py bin·kit cmp0
+ft_live_install_check.py bin·kit cmp0
+ft_plist_env.py bin·kit cmp0
+범위 밖 빨강(변경 무관 · 병합 전과 같음): test_da_hold_gate fail=2(staged COMM-GUIDE-BOOT·governance 사본 ↔ 홈 삭제 줄 — r456 evidence/test.txt:151-158 에도 같은 fail=2) · test_evidence_inject_scan FAILED 5(⑧ 증거 파일 MISSING · ⑩⑩b⑫⑬ 임시 bin 에 ft_da_hold_gate.py 없음)

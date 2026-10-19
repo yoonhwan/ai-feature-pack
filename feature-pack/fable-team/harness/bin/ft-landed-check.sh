@@ -10,7 +10,8 @@ ROOT="${1:-}"; MAIN="${2:-}"; BR="${3:-}"; KEY="${4:-}"
 git -C "$ROOT" rev-parse -q --verify "$MAIN^{commit}" >/dev/null && TIP="$(git -C "$ROOT" rev-parse -q --verify "$BR^{commit}")" || { echo "no"; echo "ref 없음: $MAIN / $BR" >&2; exit 2; }
 if git -C "$ROOT" merge-base --is-ancestor "$TIP" "$MAIN"; then echo ancestor; exit 0; fi
 ch="$(git -C "$ROOT" cherry "$MAIN" "$BR" 2>/dev/null)"; crc=$?
-if [ "$crc" -eq 0 ] && ! printf '%s\n' "$ch" | grep -q '^+'; then echo cherry; exit 0; fi
+# r453: 파이프(printf | grep -q)면 64 KB 넘는 cherry 에서 grep 이 «+» 를 찾고 닫자마자 SIGPIPE 141 → ! 로 뒤집혀 미착지가 cherry 로 읽힌다 → here-string
+if [ "$crc" -eq 0 ] && ! grep -q '^+' <<<"$ch"; then echo cherry; exit 0; fi
 while IFS= read -r f; do
   git -C "$ROOT" show "$MAIN:$f" 2>/dev/null | grep -oE '세트: [0-9a-f]{40}' | grep -q "$TIP" && { echo card; exit 0; }
 done < <(git -C "$ROOT" ls-tree -r --name-only "$MAIN" -- design 2>/dev/null | grep -E "^design/[^/]+/indices/완성/$(printf '%s' "$KEY" | sed 's/[][\.*^$/]/\\&/g')\.md$")

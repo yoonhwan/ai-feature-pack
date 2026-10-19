@@ -1,5 +1,29 @@
 # Changes
 
+## 2026-10-19 — `pipefail` 아래 `… | grep -q` 가 64 KB 넘는 입력에서 SIGPIPE(141)로 «찾았는데 실패» — 목록은 변수로 받은 뒤 here-string 으로 grep (1.1.25)
+
+카드 r453 · master 111789·112300 · arch#99 실측(BYZ 루트 워크트리 308개 · porcelain 59,129 B · `ft-nano-close.sh --plan-only` 가 등록 워크트리를 «아니다» 로 REJECT → 판정 2367 정리 2곳 막힘). grep 이 찾고 먼저 닫으면 왼쪽(git·printf)이 아직 쓰는 중이라 SIGPIPE 를 받고 `pipefail` 이 141 을 파이프 결과로 올린다. 입력이 파이프 버퍼(실측 60 KB rc0 · 66 KB rc141)를 넘을 때만 나서 워크트리가 적을 땐 시험이 못 잡았다.
+
+- **처방 편차**: 카드 처방 `printf '%s\n' "$_wl" | grep -qxF` 도 같은 141 이다(실측 300 KB · 3/3 rc141 · 시험 ⓐ 에 단언) — `printf` 도 파이프 왼쪽에서 쓰다가 SIGPIPE 를 받는다. 그래서 `grep … <<<"$변수"`(here-string · 파이프 0). 캡처 실패 = 빈 목록 = 기존 REJECT 그대로(fail-closed · 판정 기준 불변).
+- **전수 린트**(키트 bin · `set -o pipefail` 파일 안 `| grep -q` · bin·kit 짝 cmp0):
+
+| 파일:줄 | 왼쪽 입력 | 141 이면 | 처치 |
+|---|---|---|---|
+| `ft-nano-close.sh:376` `--plan-only` | `git worktree list --porcelain` | 등록 워크트리 REJECT(오판) | 고침 — `_wl` 캡처 + here-string |
+| `ft-nano-close.sh:398` `--shared-wt` ⓑ | `git worktree list --porcelain` | ⓑ bad «등록 아님»(오판) | 고침 — here-string |
+| `ft-nano-close.sh:410` `--wt` ⓐ | `printf "$_porc"`(같은 목록) | ⓐ bad «등록 아님»(오판) | 고침 — here-string |
+| `ft-landed-check.sh:14` | `printf "$ch"`(`git cherry` · 가지 커밋 수에 비례) | `!` 로 뒤집혀 **미착지가 cherry(착지)** 로 읽힘 — fail-open | 고침 |
+| `ft-index-move-canon.sh:107` | `printf "$CHANGED"`(`git diff --name-only` 범위) | 정본 있는데 «없음» REJECT | 고침 |
+| `ft-scratch-repo.sh:65` | `printf "$cwds"`(`lsof` 전 프로세스 cwd · 실측 25,950 B) | **쓰는 중인 tmp 를 삭제 후보로** 올림 — fail-open | 고침 |
+| `ft-launchd-check.sh:27` | `launchctl print-disabled`(실측 1,762 B) | — | 유지(작음) |
+| `ft-resource-reclaim.sh:35-36` | 인자 문자열 `ONREJ` | — | 유지(인자 크기) |
+| `ft-scratch-repo.sh:60` | tmux 세션 이름(실측 1,479 B) | — | 유지(작음) |
+| `ft-wt-sweep.sh:189` | `.deleting` 표식 첫 줄들 | — | 유지(작음) |
+| `ft-nano-close.sh:330` | `printf "$tmux_out" \| awk …exit` | rc 미사용(값만 씀) | 유지(무해) |
+
+- **시험** `tests/test_nano_close_worktree_list_pipe.sh`(새 · 18 PASS): 임시 리포 + 긴 이름 등록 워크트리 452개(porcelain 162,697 B) · ⓐ 옛 꼴 git 파이프·printf 파이프 rc141 · here-string rc0 ⓑ `--plan-only` 목록 앞(v65-aaa)·맨 뒤(v65-zzz) → `PLANNED` ⓒ 미등록 → 기존 REJECT · 계획 0 ⓓ `--shared-wt` 등록 공유 워크트리(목록 앞) → ⓑ 오판 0 · 미등록 cwd → ⓑ bad 1줄. 고치기 전 `ft-nano-close.sh`(origin/main) 로 같은 시험 = FAILED 3(ⓑ v65-aaa REJECT · ⓓ 오판) — 맨 뒤 v65-zzz 는 옛 판도 통과(결함은 «앞쪽에서 찾을 때만»).
+- **범위 밖**: 워크트리 수 줄이기(r444 sweep · 판정 1920) · `pipefail` 끄기. 라이브 BYZ porcelain 은 지금 62,091 B(경계 바로 아래 — 다시 넘으면 옛 판은 재발).
+
 ## 2026-10-19 — 설치기가 launchd plist(쪽지→슬랙 미러)를 git 공용 루트 설치에서만 갱신한다: 워크트리 `--project` 는 `SKIP plist-env` (r457)
 
 카드 r457 · master 112171 · arch#100 실측. r426 의 plist 갱신이 `--project` 글자를 그대로 FT_ROOT·`--mailbox` 로 렌더해, r413 STALE-COPY 안내대로 워크트리(`.worktrees/v6-realtime-live`)를 `--project` 로 설치하자 미러 plist 가 우편함 없는 워크트리 경로로 교체됐습니다(1.1.24 설치 실사고 · master 복원). 설치기의 «프로젝트» 가 두 뜻(shim 을 둘 폴더 = 워크트리 가능 · launchd 가 볼 루트 = 공용 루트만)이었습니다.
