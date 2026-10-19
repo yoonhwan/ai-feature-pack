@@ -1,0 +1,98 @@
+byz_nano_head=abc990572f00e7d999781e423e44d0bf8d9edf01 pack_head=db473f3254d9021c8efd9152f19718d62be9b935 at=2026-10-19 11:47:08
+PASS bash -n ft-seat-close.sh
+PASS ft-seat-close.sh ≤ 120줄
+PASS ①rc
+PASS ①출력
+PASS ①role·tick
+PASS ①_closed_role
+PASS ①_closed 3칸(by·at·reason)
+PASS ①.bak 1개
+PASS ①kill 호출 1
+PASS ①태그 해제 호출 1 · kill 직전
+PASS ①다른 행·_ 칸 불변
+PASS ①틱 resume_rows 에 W#1 없음(M#1 P#1 만)
+PASS ②rc·출력
+PASS ②표기됨
+PASS ②kill 0
+PASS ③M#1 rc 1 · REJECT
+PASS ③M#1 REJECT 에 --verdict 경로 1줄(r413)
+PASS ③P#1 rc 1 · REJECT
+PASS ③P#1 REJECT 에 --verdict 경로 1줄(r413)
+PASS ③바이트 불변·.bak 0·kill 0
+PASS ④후보 2개 rc 1 · REJECT
+PASS ④후보 2개 쓰기 0
+PASS ④후보 0개 rc 1 · REJECT
+PASS ④후보 1개 자동 선택 rc 0
+PASS ④--reason 없음 rc 2
+PASS ④--reason 공백 rc 2
+PASS ④좌석 없음 rc 2
+PASS ⑤rc 1 · FAIL kill
+PASS ⑤표기 남음
+PASS ⑤틱 resume_rows 에 W#1 없음
+PASS ⑥재호출 _closed_role 보존
+PASS ⑥재호출 reason 갱신
+PASS ⑦a 계보 최신 rc 3 · kill=held
+PASS ⑦a 표기 됨 · kill 0
+PASS ⑦b 기록 없음·후계 1개 rc 3 · kill 0
+PASS ⑦c 후계 2개 생존 rc 0 · kill 1
+PASS ⑦d 기록만 있고 후계 0 rc 3 · kill 0
+PASS ⑦e 기록 있음·후계 1개 rc 0 · kill=ok · kill 1
+PASS ⓑrc 0 · CLOSED-ROLE 출력
+PASS ⓑretire 스텁 인자(--record-only --verdict · --seats 전달)
+PASS ⓑ_arch "" · 다른 _ 칸 불변
+PASS ⓑ행 stop-ready · _closed_role · _closed.verdict·reason
+PASS ⓑ.bak 1 · kill 1 · 태그 해제 1
+PASS ⓑ원장 1행(판정·좌석·기록·칸·kill)
+PASS ⓒrc 3 · HELD
+PASS ⓒ사유 원문 포함
+PASS ⓒ바이트 동일 · .bak 0 · kill 0 · 원장 0
+PASS ⓒ스텁 rc≠0 이면 RESUME ok 글자여도 HELD rc 3 · 쓰기 0
+PASS ⓓrc 3 · NOROW 출력(앞부분 · R400 r3 §D 안내)
+PASS ⓓNOROW 안내 끝 = 지금 인자 + --seats <그 루트>
+PASS ⓓ바이트 동일 · kill 0
+PASS ⓔrc 1 · REJECT · 기록 호출 0 · 바이트 동일 · kill 0
+PASS ⓕrc 0 · cells 두 명부
+PASS ⓕ두 명부 칸 "" · 다른 칸 불변
+PASS ⓕ.bak 2 · kill 1 · 원장 1행
+PASS ⓥ--verdict 값 없음 rc 2
+PASS ⓥ--verdict 형식 밖 rc 2
+PASS ⓖrc 0 · CLOSED-ROLE · kill=ok
+PASS ⓖB 명부 stop-ready · _arch "" · .bak 1
+PASS ⓖ원장 = B 루트 1행 · A 명부 바이트 동일 · kill 1
+PASS ⓗrc 3 · NOROW · 안내에 FT_ROOT= · --seats
+PASS ⓗkill 0 · 두 명부 바이트 동일
+PASS ⓐrc 0 · CLOSED-DEAD 출력
+PASS ⓐ둘째 줄 «교대 0 · planner 1줄»
+PASS ⓐ기록 바이트 불변 · 파일 수 1
+PASS ⓐ행 stop-ready·dead·verdict · _closed_from · _closed_tick
+PASS ⓐ_arch "" · 다른 칸 불변
+PASS ⓐkill 0 · 태그 해제 0 · 원장 kill=dead
+PASS ⓓ살아 있는 좌석 · 기록 실패 → HELD rc 3 · keep 0 · 쓰기·kill 0
+PASS ⓑrc 0 · CLOSED-DEAD record=new
+PASS ⓑ기록 1개 · uuid·cwd·model·binding
+PASS ⓒrc 0 · CLOSED-DEAD record=NORECORD · 기록 파일 0
+PASS ⓒ행 닫힘 · kill 0
+PASS ⓖ세션 없음 → REJECT rc 1 · 명부 불변
+PASS ⓖrc 0 · REOPENED 출력
+PASS ⓖ행 role·tick 복원 · _closed* 0 · _arch=A#1
+PASS ⓖ기록 바이트 불변 · .bak-reopen 1
+PASS ⓖ재호출 NOOP
+PASS ⓖ교대된 칸은 덮지 않음
+PASS ⓖ--reopen+--verdict rc 2
+PASS ⓕ600/300 0(ft-seat-close·ft-seat-retire)
+fail=0
+PASS bash -n ft-seat-retire.sh
+PASS ①rc 0 · RESUME kept <경로>
+PASS ①바이트 불변 · 파일 1
+PASS ②rc 0 · RESUME ok
+PASS ②기록 칸
+PASS ③rc 0 · NORECORD … 0개 · 파일 0
+PASS ④NORECORD 2개 · 파일 0
+PASS ⑤살아 있는 좌석 → pane 결속(binding=tmux 칸 아님 legacy-name · pid 7001)
+PASS ⑥rc 0 · NORECORD · 기존 기록 보존 안내
+PASS ⑥옛 기록 바이트 불변 · 파일 1
+PASS ⑦rc 0 · RESUME ok · 이전 기록 <prev>
+PASS ⑦새 uuid · prev 내용 = 옛 uuid
+PASS ⑧승계 경로 + --keep-existing rc 2
+fail=0
+rc_seat_close=0 rc_retire_keep=0
