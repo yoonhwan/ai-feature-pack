@@ -1,0 +1,17 @@
+### test_opencode_reap rc=0 PASS=50 FAIL=0
+ALL PASS
+### test_nano_spawn_tier rc=0 PASS=25 FAIL=0
+ALL PASS
+### test_nano_close_fail_closed rc=0 PASS=44 FAIL=0
+ALL PASS
+### test_nano_team_env rc=0 PASS=43 FAIL=0
+ALL PASS
+### test_da_hold_gate rc=1 PASS=96 FAIL=2
+FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 4 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL staged main-team-governance.md: 홈 대비 삭제 3 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+### test_kit_bin_sync rc=0 PASS=6 FAIL=0
+ALL PASS
+### test_settings_lint rc=1 PASS=7 FAIL=2
+FAIL 리포 .claude/settings.json → rc=2 usage: ft-settings-lint.py <settings.json> [--root <dir>]
+FAILED 1
+bash -n 6 files OK
