@@ -1,4 +1,4 @@
-# r414 시험 원문 (2026-10-19 09:08:19)
+# r414 r2 시험 원문 (2026-10-19 09:17:53 · base origin/main 9aaef214)
 $ bash tests/test_thread_reply_named.sh
 PASS ⓐ 등록부 없음 → 뿌리 1 + 등록 + 답글 1(thread_ts=뿌리) rc0
 PASS ⓑ 같은 날 → 뿌리 0 · 답글 1 · 등록부 불변
@@ -36,7 +36,7 @@ PASS 12 되돌리기: 호출 0
 fail=0
 rc=0
 $ (tests/scripts) pytest test_post_guard.py test_thread_post.py test_thread_post_attach.py
-62 passed in 1.75s
+62 passed in 1.76s
 $ py_compile · bash -n · cmp bin↔kit
 py_compile rc=0
 bash-n rc=0
