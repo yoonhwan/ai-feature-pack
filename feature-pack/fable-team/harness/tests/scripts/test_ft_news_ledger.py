@@ -57,7 +57,8 @@ def env(tmp_path, monkeypatch):
     stub.write_text(STUB, encoding="utf-8")
     mbox.write_text('#!/usr/bin/env bash\necho "$@" >> "$FT_MBOX_LOG"\n', encoding="utf-8")
     for k, v in {"FT_ROOT": root, "FT_LEDGER_REPO": repo, "FT_NEWS_DIR": root / "news", "FT_NEWS_PUBLISH": f"bash {stub}",
-                 "FT_STUB_LOG": tmp_path / "stub.log", "FT_MBOX_LOG": tmp_path / "mbox.log", "FT_NEWS_NOW": "2026-10-13 15:00"}.items():
+                 "FT_STUB_LOG": tmp_path / "stub.log", "FT_MBOX_LOG": tmp_path / "mbox.log", "FT_NEWS_NOW": "2026-10-13 15:00",
+                 "FT_LEDGER_SYNCED": "1"}.items():  # r503 사본 전진은 test_ledger_repo_sync.sh 몫 — 여기 원장 리포는 가지 위 임시 리포
         monkeypatch.setenv(k, str(v))
     monkeypatch.delenv("FT_STUB_RC", raising=False)
     monkeypatch.setenv("FT_NEWS_STATUS_INTERVAL", "0")  # R209 상태 절·주기·경보 끔 = 옛 동작(새 시험은 test_news_status_section.py)
@@ -187,7 +188,7 @@ def run_link(env_t, extra: dict | None = None) -> subprocess.CompletedProcess:
     repo, root, tmp = env_t
     doc = tmp / "doc.py"
     doc.write_text("import sys\nprint('ARGS', *sys.argv[1:])\n", encoding="utf-8")
-    e = {"PATH": PATH, "FT_ROOT": str(root), "FT_LEDGER_REPO": str(repo), "FT_MAGAZINE_DOC": str(doc), **(extra or {})}
+    e = {"PATH": PATH, "FT_ROOT": str(root), "FT_LEDGER_REPO": str(repo), "FT_LEDGER_PATH": REL, "FT_MAGAZINE_DOC": str(doc), "FT_LEDGER_SYNCED": "1", **(extra or {})}  # r503 기본 경로 = design/teams/planner/ — 이 픽스처는 옛 경로 리포
     return subprocess.run(["bash", str(KIT / "magazine_from_news.sh"), "--publish"], env=e, capture_output=True, text=True, timeout=30)
 
 
@@ -204,6 +205,54 @@ def test_magazine_rejects_uncommitted_ledger_edit_and_uncommitted_file(env):
     (repo / REL).write_text(REAL + "\n- 커밋 전 줄\n", encoding="utf-8")
     r = run_link(env)
     assert r.returncode == 5 and "미커밋" in r.stderr
+
+
+# ── r503 원장 사본 전진 호출: 가짜 sync rc3 → 뉴스 발행 계속 + 머리 ERROR 줄 · 매거진 exit 6 · 매거진 기본값 = 뉴스 사본·새 경로 ──
+def fake_sync(tmp: Path, rc: int, line: str) -> Path:
+    f = tmp / f"fake-sync-{rc}.sh"
+    f.write_text(f'#!/usr/bin/env bash\necho "$1" >> "{tmp}/sync.calls"\necho "{line}"\nexit {rc}\n', encoding="utf-8")
+    return f
+
+
+def test_r503_news_sync_fail_still_publishes_with_error_head_line(env, monkeypatch):
+    repo, root, tmp = env
+    for k, v in {"FT_LEDGER_SYNCED": "0", "FT_LEDGER_SYNC_ERROR": "", "FT_LEDGER_SYNC": str(fake_sync(tmp, 3, "ERROR ledger 사본이 가지 main 위 — 전진 0"))}.items():
+        monkeypatch.setenv(k, v)
+    commit(repo, REAL)
+    assert nl.run() == 0 and not news_files(root)  # 첫 실행 = 기준선만
+    monkeypatch.setenv("FT_LEDGER_SYNCED", "0")  # 다음 틱(새 프로세스)
+    commit(repo, REAL.replace(ROW_OLD, ROW_NEW))
+    assert nl.run() == 0 and len(news_files(root)) == 1
+    assert (tmp / "sync.calls").read_text(encoding="utf-8").splitlines() == [str(repo)] * 2
+    log = (tmp / "stub.log").read_text(encoding="utf-8")
+    assert "원장 사본 갱신 안 됨 — ERROR ledger 사본이 가지 main 위 — 전진 0" in log and "다시 손봄" in log
+
+
+def test_r503_news_sync_ok_once_per_tick_and_only_for_explicit_repo(env, monkeypatch):
+    repo, root, tmp = env
+    for k, v in {"FT_LEDGER_SYNCED": "0", "FT_LEDGER_SYNC_ERROR": "", "FT_LEDGER_SYNC": str(fake_sync(tmp, 0, "SYNC aaaaaaaaaa..bbbbbbbbbb"))}.items():
+        monkeypatch.setenv(k, v)
+    assert nl.sync_repo() == "" and nl.sync_repo() == ""  # 같은 틱 두 번째 = 건너뜀
+    assert (tmp / "sync.calls").read_text(encoding="utf-8").splitlines() == [str(repo)]
+    monkeypatch.setenv("FT_LEDGER_SYNCED", "0")
+    monkeypatch.delenv("FT_LEDGER_REPO")
+    assert nl.sync_repo() == "" and len((tmp / "sync.calls").read_text(encoding="utf-8").splitlines()) == 1  # 기본 LIVE_ROOT = 옮기지 않음
+
+
+def test_r503_magazine_sync_fail_exits_6_and_publishes_nothing(env):
+    repo, root, tmp = env
+    commit(repo, REAL)
+    r = run_link(env, {"FT_LEDGER_SYNCED": "0", "FT_LEDGER_SYNC": str(fake_sync(tmp, 3, "ERROR ledger 사본 미커밋 추적 변경 1 — 전진 0 (x.md)"))})
+    assert r.returncode == 6 and "원장 사본 갱신 실패 — ERROR ledger 사본 미커밋 추적 변경 1" in r.stderr and "ARGS" not in r.stdout
+    r = run_link(env, {"FT_LEDGER_SYNCED": "0", "FT_LEDGER_SYNC": str(fake_sync(tmp, 0, "SYNC up-to-date"))})
+    assert r.returncode == 0 and "ARGS" in r.stdout and "SYNC up-to-date" in r.stderr
+
+
+def test_r503_magazine_default_source_is_news_copy_new_path(env):
+    repo, root, tmp = env
+    e = {"PATH": PATH, "FT_ROOT": str(root), "FT_LEDGER_SYNCED": "1", "FT_MAGAZINE_DOC": str(tmp / "doc.py")}
+    r = subprocess.run(["bash", str(KIT / "magazine_from_news.sh")], env=e, capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and f"{root}/.worktrees/news-ledger-main/design/teams/planner/PLAN-oppa-ledger.md" in r.stderr
 
 
 # ── 3ⓐ ft-tick.sh 연결: 30분 무초안 감시 → 원장 한 줄 ─────────────

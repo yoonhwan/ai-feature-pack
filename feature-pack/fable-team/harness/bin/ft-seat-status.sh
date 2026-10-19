@@ -141,57 +141,8 @@ for k, v in d.items():
 PY
 }
 
-turn_of_file() {  # $1=jsonl → "STATE\tTURN_END_ISO\tDURATION_MS\tREPORTED\tREAD_BYTES"
-  FILE="$1" TAIL_BYTES="${FT_SEAT_TAIL_BYTES:-1048576}" TAIL_START="${FT_SEAT_TAIL_START:-65536}" MASTER="$([ "$NOREP" = 1 ] || master_seat_of_json)" NEED_ENDS="$([ "$NOREP" = 1 ] && echo 1 || echo 2)" python3 - <<'PY'
-import json, os
-path = os.environ["FILE"]; cap = int(os.environ["TAIL_BYTES"]); master = os.environ.get("MASTER", "")
-win, raw, got = min(int(os.environ["TAIL_START"]), cap), b"", 0
-size = os.path.getsize(path)
-need_ends = int(os.environ["NEED_ENDS"]); status_only = os.environ["NEED_ENDS"] == "1"
-while True:  # 끝 64KB 부터 — 턴 끝 레코드 «need_ends»개를 찾을 때까지 앞쪽으로 2배씩(최대 cap). 앞서 읽은 꼬리는 다시 읽지 않는다.
-    want = min(win, size)
-    with open(path, "rb") as fh:
-        fh.seek(size - want); raw = fh.read(want - got) + raw
-    got = want
-    data = raw.split(b"\n", 1)[1] if size > want and b"\n" in raw else (b"" if size > want else raw)   # 잘린 첫 줄 버림
-    recs = []
-    for line in data.split(b"\n"):
-        if not line.strip(): continue
-        try: recs.append(json.loads(line))
-        except ValueError: continue                   # 손상 행은 건너뛴다 (마지막 미완 행 포함)
-    ends = [i for i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
-    if len(ends) >= need_ends or want >= size or want >= cap: break
-    # 상태 전용: 끝 레코드가 창 밖이어도 창 안에 user/assistant 가 있으면 «그 끝 뒤» 기록이므로 열린 턴 = WORKING (턴 끝 시각은 불요)
-    if status_only and not ends and any(r.get("type") in ("user", "assistant") for r in recs):
-        print("WORKING\t-\t-\t-\t%d" % got); raise SystemExit
-    win = min(win * 2, cap)
-read_total = got
-if not ends:  # 끝 레코드 0개 — 창 안에 user/assistant 가 있으면 «마지막 끝 뒤의 기록» = 열린 턴(긴 턴·첫 턴 · 두 모드 공통)
-    state = "WORKING" if any(r.get("type") in ("user", "assistant") for r in recs) else "UNKNOWN"
-    print("%s\t-\t-\t-\t%d" % (state, read_total)); raise SystemExit
-last = ends[-1]; prev = ends[-2] if len(ends) > 1 else -1
-end = recs[last]
-state, pending = "IDLE", False
-for r in recs[last + 1:]:
-    t = r.get("type")
-    if t in ("user", "assistant"): state = "WORKING"; break
-    if t == "queue-operation":
-        pending = r.get("operation") == "enqueue"
-if state == "IDLE" and pending: state = "PENDING"
-reported = "-"
-if master:
-    needle = "mbox.sh send " + master
-    reported = "no"
-    for r in recs[prev + 1:last]:
-        if r.get("type") != "assistant": continue
-        content = (r.get("message") or {}).get("content")
-        if not isinstance(content, list): continue
-        for b in content:
-            if isinstance(b, dict) and b.get("type") == "tool_use" and needle in json.dumps(b.get("input", {}), ensure_ascii=False):
-                reported = "yes"; break
-        if reported == "yes": break
-print("%s\t%s\t%s\t%s\t%d" % (state, end.get("timestamp", "-"), end.get("durationMs", "-"), reported, read_total))
-PY
+turn_of_file() {  # $1=jsonl → "STATE\tTURN_END_ISO\tDURATION_MS\tREPORTED\tREAD_BYTES" — 판정 본문 = ft_seat_turn.py(r504 · 뉴스와 같은 판정기 하나)
+  MASTER="$([ "$NOREP" = 1 ] || master_seat_of_json)" NEED_ENDS="$([ "$NOREP" = 1 ] && echo 1 || echo 2)" python3 "$(dirname "$0")/ft_seat_turn.py" "$1"
 }
 
 turn_row_of_file() {  # $1=jsonl → "STATE\tTURN_END\tMS\tREPORTED\tjsonl\tREAD_BYTES" (6열 · SOURCE 는 5열째)

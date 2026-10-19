@@ -179,7 +179,30 @@ def check_base(repo: Path, sha: str, rel: str) -> None:
                            "원장을 이 경로 판으로 커밋한 뒤 기준선(state/news-ledger/last.sha)을 그 판으로 다시 잡아야 발행된다(옛 경로 후퇴 0)")
 
 
+def sync_repo() -> str:
+    """r503 — env FT_LEDGER_REPO 로 «명시된» 원장 사본만 ft-ledger-repo-sync.sh(FT_LEDGER_SYNC 로 대역)로 origin/main 전진 · 기본 LIVE_ROOT(공용 루트 체크아웃)는 옮기지 않는다.
+    같은 틱 1회(FT_LEDGER_SYNCED=1 · 자식 프로세스도 물려받음). 반환 = 뉴스 머리 줄(정상·건너뜀 = "") — 실패면 ERROR 로그 + FT_LEDGER_SYNC_ERROR 에 같은 줄 · 발행은 지금 판으로 계속(조용한 낡음 0)."""
+    repo = os.environ.get("FT_LEDGER_REPO")
+    if not repo or os.environ.get("FT_LEDGER_SYNCED") == "1":
+        return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
+    os.environ["FT_LEDGER_SYNCED"] = "1"
+    try:
+        done = subprocess.run(["bash", os.environ.get("FT_LEDGER_SYNC") or str(HERE / "ft-ledger-repo-sync.sh"), repo], capture_output=True, text=True, timeout=20)
+        lines = (done.stdout.strip() or done.stderr.strip()).splitlines()
+        line, rc = (lines[-1] if lines else f"rc={done.returncode} 출력 없음"), done.returncode
+    except (OSError, subprocess.TimeoutExpired) as e:
+        line, rc = f"ERROR ledger 사본 sync 실행 실패: {e}", 1
+    if rc == 0:
+        LOG.info("%s", line)
+        os.environ.pop("FT_LEDGER_SYNC_ERROR", None)
+        return ""
+    LOG.error("원장 사본 갱신 안 됨 rc=%s: %s", rc, line)
+    os.environ["FT_LEDGER_SYNC_ERROR"] = f"원장 사본 갱신 안 됨 — {line[:160]}"
+    return os.environ["FT_LEDGER_SYNC_ERROR"]
+
+
 def _run(root: Path, state: Path) -> tuple[int, str]:
+    sync_note = sync_repo()
     repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
     try:
         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
@@ -208,7 +231,8 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         if diff and interval_s() > 0 and status is None:  # 필수 절을 못 만들면 게시·기준선 전진 0 — 재시도 가능(H2)
             return 1, why
         extra, new = (status[0],) if status else (), parse_ledger(new_text) if diff else {}
-        parts = render_parts(now, new, diff, rel, extra, decision_line(root), goal_gate.goal_block(state.parent), teams_block()) if diff else []
+        lead = " · ".join(x for x in (sync_note, decision_line(root)) if x)
+        parts = render_parts(now, new, diff, rel, extra, lead, goal_gate.goal_block(state.parent), teams_block()) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
         LOG.error("원장 뉴스 실패: %s", e)
         return 1, "원장 읽기 실패"
