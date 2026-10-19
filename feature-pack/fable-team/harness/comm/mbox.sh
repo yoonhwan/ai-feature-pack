@@ -62,6 +62,23 @@ except Exception:
 sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
 PY
 }
+# ★user_facing 좌석의 quiet = 세션 안 감시와 한 쌍(r408)★ — 판정기는 bin/ft-mbox.sh watch-alive 하나(팩 키트 send 와 같은 판정). 오빠 pane 주입 0(876 불변).
+#   감시 없음 → db 꼬리 `(WATCH 없음)`(quiet → `quiet(WATCH 없음)`) + 하네스 master(seats-harness.json `_master`) 긴급 1통(같은 좌석 10분 1회 · 표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드에 재알림이 막히지 않게).
+#   판정 불가 = 꼬리 `(WATCH 판정 불가)` + stderr(조용한 통과 0) · 적재 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도).
+uf_watch() {  # <to> <계기 쪽지 seq>
+  local to="$1" ft="$DIR/.." o rc=0 hm mk q
+  o="$(bash "${FT_BIN:-$DIR/../bin}/ft-mbox.sh" watch-alive "$to" 2>/dev/null)" || rc=$?
+  [ "$rc" = 0 ] && return 0
+  case "$rc:$o" in 3:"NO watch"*) ;; *) db="${db}(WATCH 판정 불가)"; echo "WARN planner watch 판정 불가 rc=$rc $to: ${o:0:80}" >&2; return 0;; esac
+  db="${db}(WATCH 없음)"; mk="$ft/state/planner-watch-missing.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
+  hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}" 2>/dev/null)" || hm=""
+  [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음 · 긴급 0통" >&2; return 0; }
+  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${2:-?} · 시작: Monitor → bash $(cd "$ft" && pwd)/bin/ft-inbox-watch.sh $to")" \
+    || { echo "WARN planner watch 없음 $to — 긴급 적재 실패(다음 send 재시도)" >&2; return 0; }
+  mkdir -p "$ft/state" && : > "$mk"
+  echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 $(seq_of "$q" || true)" >&2
+}
 
 # py 의 `QUEUED seq=<N> …` 한 줄에서 이번 발주의 번호만 뽑는다. 못 뽑으면 빈 값.
 # ★`set -euo pipefail` 이라 실패를 «반드시» 삼켜야 한다★ — grep 이 0건이면 rc1 이고
@@ -118,9 +135,10 @@ case "$cmd" in
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $seq" >/dev/null || true
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
-    if user_facing "$to"; then notify=0; fi
+    uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
     if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=quiet; fi
+    if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
     echo "$py_out doorbell=$db"
     ;;
   relay)
@@ -144,8 +162,9 @@ case "$cmd" in
     seq="$(seq_of "$py_out")" || seq=""
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
-    if user_facing "$to"; then notify=0; fi
+    uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=quiet; fi
+    if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
     echo "$py_out doorbell=$db"
     ;;
   recv)  me="${1:?me}"; shift

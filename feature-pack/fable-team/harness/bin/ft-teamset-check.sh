@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ft-teamset-check.sh [<팀>|--all] — 라이브 tmux + 명부를 design/TEAMSET.md 표와 대조한다 (r-teamset-standard · 판정 2170 · 읽기 전용).
 #   출력 팀당 1줄 `<팀> OK|WARN|ERR …` · rc: ERR 있으면 1 · 표·명부·tmux 를 못 읽으면 `ERROR …` rc1(조용한 통과 0).
-#   ERR = 필수 master 없음 · 명부 _master 가 라이브 아님 / WARN = 나노 상한 초과 · 재개 기록 없는 직전 세대 · 표에 없는 _키 / 정보 = 모델≠표(상태 불변).
-#   env(시험): FT_TEAMSET_ROOT FT_TEAMSET_MD ZC_RESUME_DIR
+#   ERR = 필수 master 없음 · 명부 _master 가 라이브 아님 · planner _master 의 세션 안 감시(ft-inbox-watch.sh) 없음(r408) / WARN = 나노 상한 초과 · 재개 기록 없는 직전 세대 · 표에 없는 _키 / 정보 = 모델≠표(상태 불변).
+#   env(시험): FT_TEAMSET_ROOT FT_TEAMSET_MD ZC_RESUME_DIR FT_TEAMSET_WATCH
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
