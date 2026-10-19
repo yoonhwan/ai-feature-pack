@@ -44,7 +44,7 @@ prev_suite() {   # $1=시험할 스크립트 경로 — 문지기·ft-hil 대역
   ls "$T/root/.fable-team/state"/reboot-plan-*.sh.hil >/dev/null 2>&1 && bad "R332 ⓐ 재부팅 계획 파일을 만들었다" || ok "R332 ⓐ 재부팅 계획 0"
   [ ! -e "$T/root/.fable-team/state/reclaim-hil.sig" ] && ok "R332 ⓐ HIL sig 0" || bad "R332 ⓐ HIL sig 를 썼다"
   has "$(cat "$T/root/.fable-team/state/reclaim.log")" "mode=preventive" "R332 ⓐ reclaim.log 모드 칸 preventive"
-  eq "$(grep '^PREVENTIVE ' "$T/root/.fable-team/state/reclaim.log")" "PREVENTIVE reclaimed=4 candidates=12 skipped=7" "R332 ⓐ log 에 요약줄 1(뉴스 칸이 읽는 줄)"
+  eq "$(grep '^PREVENTIVE ' "$T/root/.fable-team/state/reclaim.log")" "PREVENTIVE reclaimed=4 candidates=12 skipped=7 pressure=0 swap=10%" "R332 ⓐ log 에 요약줄 1(뉴스 칸이 읽는 줄 · r500 압력 꼬리)"
 
   # 닫기 직전 재확인(fresh_ok)은 그대로 — 첫 판정 뒤 WORKING 으로 바뀐 직전 세대는 안 닫는다
   swapworld; echo 1 > "$ST/flip.byz-t-role-claude_1"

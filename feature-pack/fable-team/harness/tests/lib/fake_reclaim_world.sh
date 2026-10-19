@@ -68,6 +68,10 @@ mkrecord() { # 이름 pane_pid child_pid
   python3 -c 'import json,sys;json.dump({"name":sys.argv[1],"engine":"claude","uuid":sys.argv[2],"jsonl":sys.argv[3],"cwd":sys.argv[4],"model":"claude-sonnet-5-5[1m]","pid":sys.argv[5]},open(sys.argv[6],"w"))' \
     "$1" "$u" "$T/$u.jsonl" "$d" "$3" "$H/.claude/state/seat-resume/$1.json"
   echo "$2 $3" >> "$ST/kids"; }
+# r500: 착지 판정용 가짜 팩 리포(main = origin/main · 나노 a~h 가지 = main 조상 → ancestor 착지) — 기존 시험의 «병합 끝 나노» 가 그대로 착지로 읽힌다
+P="$T/pack"; mkdir -p "$P"; git -C "$P" init -q -b main; git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m base
+git -C "$P" update-ref refs/remotes/origin/main HEAD; for c in a b c d e f g h; do git -C "$P" branch "nano/$c"; done
+SWAP_LOW="total = 1000.00M  used = 100.00M  free = 900.00M  (encrypted)"   # 압력 아님(10%) — 시험 기본값(실 sysctl 을 읽지 않는다)
 
 setup() {   # 시험마다 새 세계
   rm -rf "$ST" "$T/root"; mkdir -p "$ST" "$T/root/.fable-team/state"; rm -f "$H/.claude/state/seat-resume/"*.json
@@ -103,7 +107,8 @@ PY
 run() {   # run <스크립트> [도구 인자…] — 가짜를 env/PATH 로 주입(추가 env 는 `VAR=값 run …` 으로)
   local s="$1"; shift
   PATH="$F:$PATH" HOME="$H" TOKEN_SENTINEL=sk-ant-SECRET-xyz FT_RES_ROOT="$T/root" FT_SEATS_JSON="$ST/seats.json" FT_SEAT_STATUS="$F/seat-status.sh" FT_NANO_CLOSE="$F/nano-close.sh" \
-    FT_MBOX_SH="$F/mbox.sh" ZC_RESUME_DIR="$H/.claude/state/seat-resume" FT_PRESS_PERMIT_DIR="$T/permits" FT_RECLAIM_LOCK_TRIES=10 bash "$s" "$@" 2>&1
+    FT_MBOX_SH="$F/mbox.sh" ZC_RESUME_DIR="$H/.claude/state/seat-resume" FT_PRESS_PERMIT_DIR="$T/permits" FT_RECLAIM_LOCK_TRIES=10 \
+    FT_PACK_ROOT="${FT_PACK_ROOT:-$P}" FT_LANDED_CHECK="${FT_LANDED_CHECK:-$BIN/ft-landed-check.sh}" FT_SWAPUSAGE="${FT_SWAPUSAGE-$SWAP_LOW}" bash "$s" "$@" 2>&1
 }
 printf '#!/bin/bash\n[ -f "%s/rej.hard" ] && { cat "%s/rej.text"; exit 3; }\n[ -f "%s/rej.once" ] && [ ! -s "%s/kill.log" ] && [ ! -s "%s/nc.log" ] && { cat "%s/rej.text"; exit 3; }\necho "OK disk=99GiB"\n' "$ST" "$ST" "$ST" "$ST" "$ST" "$ST" > "$F/gate-res.sh"
 printf '#!/bin/bash\necho "! bash /tmp/h777"\n' > "$F/hil.sh"; chmod +x "$F/gate-res.sh" "$F/hil.sh"

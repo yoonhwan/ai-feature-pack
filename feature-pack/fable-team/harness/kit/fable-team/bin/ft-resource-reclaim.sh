@@ -9,18 +9,21 @@
 # ft-resource-reclaim.sh [--dry-run] --on-reject "<문지기 출력>" [--caller <세션명>] [--gate <ft-resource-gate.sh>]
 #   R198(판정 1767) · 자원 문지기가 «에이전트 수» 로 막았을 때만 불려, 기존 표준승인 범위 안의 유휴·완료 좌석을 need 개 닫는다.
 #   새 파괴 권한 0 — 닫는 경로는 승인 표의 두 행뿐(표 밖 kill 0 · 브랜치 삭제 0):
-#     병합 끝 나노   : 세션 `*-nano-*#0` · 명부 index 카드 · jsonl IDLE → `ft-nano-close.sh` (그 도구의 게이트 그대로 · REJECT 면 후보 탈락)
+#     병합 끝 나노   : 세션 `*-nano-*#0` ∧ 가지 착지(r500 · `ft-landed-check.sh` rc0 = ancestor·cherry·card · 7초 상한) · 명부 index 카드 · jsonl IDLE → `ft-nano-close.sh` (그 도구의 게이트 그대로 · REJECT 면 후보 탈락)
+#       착지 아님(grep·no·가지 없음·시간 초과) = «미병합 나노» — 닫지 않고 표 «승인 범위 밖» 줄만(fail-closed)
 #     직전 세대 좌석 : 같은 계보에 더 새 #N 현역 · 검증된 재개 기록(zombie-clean resume_record_check 와 같은 규칙 + pid) · idle·attached·라이브서버·V65 active 가드 → tmux kill-session
 #   그 밖(현역 역할 좌석·기록 없는 직전 세대·codex DA 등)은 닫지 않고 표의 «승인 범위 밖» 으로만 올린다.
 #   제외(후보 아님): 부르는 쪽 세션과 그 조상 pane · 명부 `_*` 상위 오케 · attached · jsonl WORKING/PENDING/UNKNOWN · mbox pending>0 · press 허가 보유.
 #   --on-reject: 출력이 `REJECT resource agents=A limit=L` 이면 need=A−L+1 로 1번 → 문지기 재검 OK 면 rc0 · 아니면 원래 REJECT + 표 + [HIL] 1통 후 rc3.
 #     R320: `REJECT resource swap|memfree|level|rate=…` 도 받는다 — 필요 개수가 없으므로 승인 두 행의 후보를 «전부» 닫고 재검 · 그래도 REJECT 면 [HIL] 1통에 재부팅 계획(`ft-hil.sh --add` 가 돌려주는 `! bash /tmp/h<N>` 1줄 · 안내만 · 재부팅은 사람 손).
-#     병합 끝 나노(카드가 indices/완성/ 에 있음)는 idle 문턱 FT_RECLAIM_DONE_IDLE_MIN(기본 5분) · 그 밖 후보는 FT_RECLAIM_IDLE_MIN(기본 30분).
+#     병합 끝 나노(카드가 indices/완성/ 에 있음 · 또는 r500 압력 = swap 사용률 ≥ FT_RECLAIM_PRESSURE_SWAP_PCT(기본 85))는 idle 문턱 FT_RECLAIM_DONE_IDLE_MIN(기본 5분) · 그 밖 후보는 FT_RECLAIM_IDLE_MIN(기본 30분).
+#     표 끝 요약 줄(RECLAIMED · PREVENTIVE)에 `pressure=0|1 swap=<pct>%` · swap 측정 실패 = 압력 아님 + `WARN swap 측정 실패` 1줄.
 #     다른 사유(디스크·동결·측정 실패 ERROR)·형식 불일치는 손대지 않고 그대로 rc3·rc4 (좌석을 닫아도 안 풀리는 사유).
 #   FT_RECLAIM=0 이면 호출처가 이 도구를 부르지 않는다(시험·비상용 · 기본 1).
 #   잠금 mkdir 로 동시 호출이 같은 좌석을 두 번 닫지 않는다 · 표는 .fable-team/state/reclaim.log 에 그대로 append · 비밀 0.
 #   env(시험): FT_RES_ROOT FT_SEATS_JSON FT_SEAT_STATUS FT_NANO_CLOSE FT_MBOX_SH ZC_RESUME_DIR FT_RECLAIM_IDLE_MIN FT_RECLAIM_DONE_IDLE_MIN FT_RECLAIM_LOCK_TRIES FT_PRESS_PERMIT_DIR FT_HIL_SH FT_RECLAIM_ROLE_IDLE_MIN
-#   bash 3.2 호환(declare -A·mapfile 금지) · 외부 호출 0(로컬 tmux·프로세스·파일·mbox 만).
+#     FT_RECLAIM_PRESSURE_SWAP_PCT FT_SWAPUSAGE(가짜 `vm.swapusage` 줄 · 빈 값 = 측정 실패) FT_LANDED_CHECK FT_PACK_ROOT(기본 ~/Project/ai-feature-pack)
+#   bash 3.2 호환(declare -A·mapfile 금지) · 외부 호출 0(로컬 tmux·프로세스·파일·mbox·git 만).
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 
@@ -50,6 +53,8 @@ PERMITS="${FT_PRESS_PERMIT_DIR:-$ROOT/.fable-team/state/press-permits}"
 IDLE_MIN="${FT_RECLAIM_IDLE_MIN:-30}"; DONE_IDLE_MIN="${FT_RECLAIM_DONE_IDLE_MIN:-5}"; ROLE_IDLE_MIN="${FT_RECLAIM_ROLE_IDLE_MIN:-180}"
 HILBIN="${FT_HIL_SH:-$HERE/ft-hil.sh}"
 LOCK="$STATE/reclaim.lock.d"; LOG="$STATE/reclaim.log"; HILSIG="$STATE/reclaim-hil.sig"
+PRESS_PCT="${FT_RECLAIM_PRESSURE_SWAP_PCT:-85}"; PACK_ROOT="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
+LANDED="${FT_LANDED_CHECK:-$HERE/ft-landed-check.sh}"; TOBIN="$(command -v timeout || command -v gtimeout)"
 SRVRE='server\.sh|uvicorn|next-server|next dev|caddy|redis-server|postgres|cli-proxy|headroom|hermes|[Oo]llama|node .*(dev|start|watch)'
 [ "$DRY" = 1 ] || mkdir -p "$STATE" 2>/dev/null || { echo "ERROR reclaim 상태 폴더 생성 실패: $STATE" >&2; exit 4; }   # dry-run 은 파일시스템·mbox·kill 0 (DA⑥ H3)
 # BYZ 명부 = 기본 명부 + 같은 폴더의 seats*.json(팀별). 후보 판정(H1)·상위 오케 보호·index 조회가 전부 이 목록을 본다.
@@ -157,10 +162,46 @@ card_for() {
   case "$i" in */indices/*/*) d="${i%/indices/*}/indices/완성/${i##*/}"; [ -e "$d" ] && printf '%s' "$d";; esac
   return 0
 }
-idle_min_for() {   # $1=세션명 $2=종류 → 이 후보의 idle 문턱(분) — 병합 끝 나노 + 카드가 완성/ 이면 DONE_IDLE_MIN
+idle_min_for() {   # $1=세션명 $2=종류 → 이 후보의 idle 문턱(분) — 병합 끝 나노 + (카드가 완성/ ∨ r500 압력) 이면 DONE_IDLE_MIN
   [ "$2" != "쉬는 역할 좌석" ] || { echo "$ROLE_IDLE_MIN"; return; }
   [ "$2" = "병합 끝 나노" ] || { echo "$IDLE_MIN"; return; }
+  [ "$PRESSURE" != 1 ] || { echo "$DONE_IDLE_MIN"; return; }
   case "$(card_for "$(roster_field "$1" index)")" in */indices/완성/*) echo "$DONE_IDLE_MIN";; *) echo "$IDLE_MIN";; esac
+}
+# r500: 메모리 압력 = swap 사용률 ≥ PRESS_PCT — 한 실행에 1번(reclaim_core 시작 · 메인 셸) · 측정 실패 = 압력 아님 + WARN 1줄(표 끝)
+PRESSURE=0; SWAP_PCT="?"; SWAP_WARN=""
+measure_pressure() {
+  local s; s="${FT_SWAPUSAGE-$(sysctl -n vm.swapusage 2>/dev/null)}"
+  SWAP_PCT="$(printf '%s\n' "$s" | awk 'function mb(v,  u){u=substr(v,length(v)); v+=0; return u=="G"?v*1024:(u=="K"?v/1024:v)}
+    {for(i=1;i+2<=NF;i++){if($i=="total"){t=mb($(i+2)); seen=1} if($i=="used")w=mb($(i+2))}}
+    END{if(seen) printf "%d", (t>0 ? w*100/t : 0)}')"
+  case "$SWAP_PCT" in ''|*[!0-9]*) SWAP_PCT="?"; PRESSURE=0; SWAP_WARN="WARN swap 측정 실패 — 압력 아님(문턱 ${IDLE_MIN}분)"; return;; esac
+  if [ "$SWAP_PCT" -ge "$PRESS_PCT" ]; then PRESSURE=1; else PRESSURE=0; fi
+}
+# r500: 나노 가지가 main 에 «착지» 했는가 — 판정기는 ft-landed-check.sh 하나(census·nano-close 계획과 같은 판정) · 7초 상한 · 판정 실패·시간 초과 = 미착지(fail-closed)
+#   가지 = nano/<세션 키> 또는 가장 큰 nano/<세션 키>-r<N>(ft-nano-spawn 재사용 꼴) · BYZ 루트와 팩 리포 중 «그 가지가 있는 리포 전부» 가 rc0 이어야 착지
+#   (하네스 나노는 BYZ 에도 커밋 0 인 같은 이름 가지가 있어 BYZ 만 보면 늘 ancestor 로 읽힌다 — 작업 가지는 팩)
+LN_CACHE=""; LN_RC=1; LN_WHY=""
+landed_nano() {   # $1=세션명 → LN_RC(0 = 착지 강한 근거) · LN_WHY(근거 1단어 | 가지 없음 | 시간 초과) — 메인 셸에서 부른다(같은 실행 세션별 1회 캐시)
+  local n="$1" key card repo br out rc found=0 hit
+  hit="$(printf '%s' "$LN_CACHE" | awk -F'\t' -v n="$n" '$1==n{print $2"\t"$3; exit}')"
+  if [ -n "$hit" ]; then LN_RC="${hit%%	*}"; LN_WHY="${hit#*	}"; return 0; fi
+  key="${n%#0}"; case "$key" in ft-v65-temp-*) key="${key#ft-v65-temp-}";; *) key="${key#*-nano-}";; esac
+  card="$(roster_field "$n" index)"; card="${card##*/}"; card="${card%.md}"
+  LN_RC=0; LN_WHY=""
+  for repo in "$ROOT" "$PACK_ROOT"; do
+    [ -e "$repo/.git" ] || continue
+    br="$(git -C "$repo" for-each-ref --format='%(refname:short)' "refs/heads/nano/$key" "refs/heads/nano/$key-r*" 2>/dev/null \
+      | awk -v b="nano/$key" '$0==b{r=1} $0!=b{x=substr($0,length(b)+3); if(x !~ /^[0-9]+$/) next; r=x+0} r>=m{m=r; best=$0} END{print best}')"
+    [ -n "$br" ] || continue
+    found=1
+    if [ -z "$TOBIN" ]; then LN_RC=1; LN_WHY="7초 상한 도구 없음"; break; fi
+    out="$("$TOBIN" 7 bash "$LANDED" "$repo" origin/main "$br" "${card:-$key}" 2>/dev/null)"; rc=$?; out="${out%%$'\n'*}"
+    case "$rc" in 0) LN_WHY="$out";; 124|137) LN_RC=1; LN_WHY="시간 초과"; break;; *) LN_RC=1; LN_WHY="${out:-no}"; break;; esac
+  done
+  [ "$found" = 1 ] || { LN_RC=1; LN_WHY="가지 없음"; }
+  LN_CACHE="$LN_CACHE$n	$LN_RC	$LN_WHY
+"
 }
 fresh_att() { tmux list-sessions -F '#{session_name}|#{session_attached}' 2>/dev/null | awk -F'|' -v n="$1" '$1==n{print $2; exit}'; }
 
@@ -238,7 +279,7 @@ row() { TABLE="$TABLE$(printf '%s | %s | %s | %s' "$1" "$2" "$3" "$4")
 
 reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
   local need="$1" now sess cand="" name act att idle base gen newer line kind basis
-  now=$(date +%s)
+  now=$(date +%s); measure_pressure
   RTAB="$(roster_table)"; local roletab=""; [ "$PREV" = 1 ] && roletab="$(role_seat_table)"   # 1차 거르기용 스냅샷(R332 H5 — 세션마다 python 을 부르지 않는다)
   sess="$(tmux list-sessions -F '#{session_name}|#{session_activity}|#{session_attached}' 2>/dev/null)"
   while IFS='|' read -r name act att; do
@@ -248,7 +289,7 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
     kind=""
     [ -n "$roletab" ] && printf '%s\n' "$roletab" | awk -F'\t' -v n="$name" '$1==n{f=1} END{exit !f}' && kind="쉬는 역할 좌석"   # R332·판정 2197: 선제 모드만 · --on-reject 는 역할 좌석을 닫지 않는다
     [ -n "$kind" ] || case "$name" in
-      *-nano-*'#0') kind="병합 끝 나노";;
+      *-nano-*'#0') kind="나노";;   # r500: 착지 판정 전 — 1차 거르기(idle·attached·보호) 뒤 «병합 끝 나노»|«미병합 나노» 로 가른다
       *) base="${name%#*}"; gen="${name##*#}"
          case "$gen" in ''|*[!0-9]*) ;; *)
            newer="$(printf '%s\n' "$sess" | awk -F'|' -v b="$base" -v g="$gen" '{n=$1; if(index(n,b"#")==1){x=substr(n,length(b)+2); if(x ~ /^[0-9]+$/ && x+0>g+0) print n}}' | head -1)"
@@ -275,6 +316,20 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
   CAND_N="$(printf '%s' "$cand" | grep -c .)"
   local why seq idx out rc imin
   while IFS='|' read -r idle kind name att; do
+    if [ "$kind" = "나노" ]; then   # r500: idle(착지했다고 볼 때의 문턱)·attached·보호를 먼저 거르고 통과한 나노만 git 착지 판정(압력 때 git 호출 최소)
+      imin="$(idle_min_for "$name" "병합 끝 나노")"
+      [ "$idle" -ge "$imin" ] || { row "$name" "$kind" "-" "SKIP idle ${idle}분 < ${imin}분"; continue; }
+      [ "${att:-0}" -eq 0 ] 2>/dev/null || { row "$name" "$kind" "-" "SKIP attached(사람이 보는 화면)"; continue; }
+      ! protected "$name" || { row "$name" "$kind" "-" "SKIP 부르는 쪽·상위 오케"; continue; }
+      landed_nano "$name"
+      if [ "$LN_RC" != 0 ]; then
+        kind="미병합 나노"
+        [ "$idle" -ge "$IDLE_MIN" ] || { row "$name" "$kind" "-" "SKIP idle ${idle}분 < ${IDLE_MIN}분"; continue; }
+        OOS="$OOS$name
+"; row "$name" "$kind" "-" "HIL(승인 범위 밖: 미병합 나노 — 착지 판정 $LN_WHY)"; continue
+      fi
+      kind="병합 끝 나노"
+    fi
     imin="$(idle_min_for "$name" "$kind")"
     [ "$idle" -ge "$imin" ] || { row "$name" "$kind" "-" "SKIP idle ${idle}분 < ${imin}분"; continue; }
     why="$(fresh_ok "$name" "$kind")" || { row "$name" "$kind" "-" "SKIP $why"; continue; }
@@ -322,7 +377,8 @@ acquire_lock() {
 
 emit_table() {
   printf '후보 | 종류 | 승인 근거 | 결과\n%s' "$TABLE"
-  echo "RECLAIMED $CLOSED_N"
+  [ -z "$SWAP_WARN" ] || echo "$SWAP_WARN"
+  echo "RECLAIMED $CLOSED_N pressure=$PRESSURE swap=$SWAP_PCT%"
 }
 log_table() { [ "$DRY" = 1 ] && return 0; { echo "# $(date '+%F %T') caller=${CALLER:-?} need=${1:-?} why=${WHY:--} mode=${MODE:--} dry=$DRY"; emit_table; } >> "$LOG" 2>/dev/null; }
 
@@ -348,7 +404,7 @@ if [ "$PREV" = 1 ]; then   # R332: 선제 모드 — 문지기·[HIL]·재부팅
   acquire_lock; _lrc=$?
   [ "$_lrc" = 0 ] || { [ "$_lrc" = 5 ] && exit 0; exit 4; }
   reclaim_core 9999 || exit 4
-  _pl="PREVENTIVE reclaimed=$CLOSED_N candidates=$CAND_N skipped=$(printf '%s' "$TABLE" | grep -c ' | SKIP')"
+  _pl="PREVENTIVE reclaimed=$CLOSED_N candidates=$CAND_N skipped=$(printf '%s' "$TABLE" | grep -c ' | SKIP') pressure=$PRESSURE swap=$SWAP_PCT%"
   log_table 9999; [ "$DRY" = 1 ] || echo "$_pl" >> "$LOG" 2>/dev/null
   emit_table; echo "$_pl"; exit 0
 fi

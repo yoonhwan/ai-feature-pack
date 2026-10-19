@@ -36,7 +36,7 @@ suite() {   # $1=시험할 스크립트 경로 — 한 묶음 단언 (실물이�
   has "$(cat "$ST/nc.log")" "--result $T/cards/a.md --recv 10097" "ⓐ nano-close 인자 = 카드 경로 + 그 나노의 마지막 보고 seq"
   eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 2 "ⓒ 필요 수(need=2)만 닫음 — 그 이상 0 (나노 e 도 닫을 수 있었지만 안 닫음)"
   has "$out" "RECLAIMED 2" "표 끝 RECLAIMED 2"
-  has "$out" "byz-t-nano-b#0 | 병합 끝 나노 | - | SKIP attached" "ⓑ attached 후보 제외"
+  has "$out" "byz-t-nano-b#0 | 나노 | - | SKIP attached" "ⓑ attached 후보 제외(r500: 착지 판정 전에 거름)"
   has "$out" "byz-t-nano-c#0 | 병합 끝 나노 | - | SKIP jsonl WORKING" "ⓑ jsonl WORKING 후보 제외"
   has "$out" "byz-t-nano-d#0 | 병합 끝 나노 | - | SKIP mbox pending=2" "ⓑ mbox pending>0 후보 제외"
   has "$out" "byz-t-vrole-claude#1 | 직전 세대 좌석 | - | SKIP V65 active" "ⓑ V65 active 제외"
