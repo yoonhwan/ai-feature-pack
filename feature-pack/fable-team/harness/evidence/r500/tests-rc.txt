@@ -1,0 +1,246 @@
+# r500 시험 원문 (2026-10-20 · 팩 가지 nano/r500-reclaim-pressure-tier-landed-nano-i · base b45b6a7d)
+## bash tests/test_resource_reclaim_pressure.sh
+PASS bash -n ft-resource-reclaim.sh
+PASS 키트 사본 cmp 0 ft-resource-reclaim.sh
+PASS ⓐ swap 92% · 착지 나노 idle 6분(카드 진행/) → nano-close
+PASS ⓐ 표 행 = 병합 끝 나노 CLOSED
+PASS ⓐ 요약 줄 pressure=1 swap=92%
+PASS ⓐ reclaim.log 요약 줄에 압력 꼬리
+PASS ⓑ 미착지 나노 nano-close 0
+PASS ⓑ 미착지 나노 = 승인 범위 밖 줄(착지 판정 no)
+PASS ⓐ dry-run 착지 나노 WOULD-CLOSE
+PASS ⓐ dry-run 닫기 0
+PASS ⓒ swap 60% · 착지 나노 6분 닫기 0
+PASS ⓒ 문턱 30분 SKIP
+PASS ⓒ 요약 줄 pressure=0 swap=60%
+PASS ⓓ 카드 완성/ 착지 나노 6분 → nano-close(압력 없어도 5분)
+PASS ⓔ 시간 초과 나노 닫기 0
+PASS ⓔ 표 사유 착지 판정 시간 초과
+PASS ⓔ 7초 상한(전체 9초)
+PASS ⓕ 측정 실패 = 압력 아님 → 6분 나노 닫기 0
+PASS ⓕ WARN swap 측정 실패 1줄
+PASS ⓕ 요약 줄 pressure=0 swap=?%
+PASS ⓖ BYZ 빈 가지(ancestor)여도 팩 미착지면 닫기 0
+PASS ⓖ BYZ+팩 = 팩 판정(no)
+PASS ⓖ 가지 없음 = 미병합
+PASS ⓖ 가지 없음 닫기 0
+PASS r500 실물 묶음 전부 통과
+PASS 변이1(압력 티어 제거) → 단언 FAIL 3건
+PASS 변이2(착지 판정 제거) → 단언 FAIL 8건
+PASS core.bare=false
+---- fail=0
+rc=0
+## bash tests/test_resource_reclaim.sh
+PASS bash -n ft-resource-reclaim.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-role-spawn.sh
+PASS bash -n ft-successor-open.sh
+PASS 키트 사본 cmp 0 ft-resource-reclaim.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-role-spawn.sh
+PASS 키트 사본 cmp 0 ft-successor-open.sh
+PASS 실행 권한 ft-resource-reclaim.sh
+PASS need=2 rc0
+PASS ⓐ kill-session = 재개 기록 있는 직전 세대 1개뿐(행 밖 0 · codex/기록없음/active/서버/현역 0)
+PASS ⓐ nano-close = 가장 오래 쉰 병합 끝 나노 1개뿐
+PASS ⓐ nano-close 인자 = 카드 경로 + 그 나노의 마지막 보고 seq
+PASS ⓒ 필요 수(need=2)만 닫음 — 그 이상 0 (나노 e 도 닫을 수 있었지만 안 닫음)
+PASS 표 끝 RECLAIMED 2
+PASS ⓑ attached 후보 제외(r500: 착지 판정 전에 거름)
+PASS ⓑ jsonl WORKING 후보 제외
+PASS ⓑ mbox pending>0 후보 제외
+PASS ⓑ V65 active 제외
+PASS ⓑ 라이브 서버 보유 제외
+PASS 재개 기록 없는 직전 세대 = 승인 범위 밖(HIL)
+PASS codex DA = 승인 범위 밖(HIL)
+PASS 회귀 H1: 명부 밖 직전 세대(재개 기록 유효) = 승인 범위 밖 표 행
+PASS 회귀 H1: 명부 밖 좌석 kill 0
+PASS ⓑ 부르는 쪽(master) 표에도 안 올림
+PASS ⓑ 상위 오케(_hil_route) 표에도 안 올림
+PASS 로그 = 표 그대로 append
+PASS ⓕ 표·로그에 비밀 0
+PASS ⓐ nano-close REJECT = 후보 탈락 + HIL
+PASS 거절된 나노 다음 후보로 넘어감(직전 세대 1개 kill)
+PASS dry-run 나노 표시
+PASS dry-run = 실제 kill·close 0
+PASS 회귀 H3: dry-run 은 reclaim.log 쓰기 0
+PASS 회귀 H3: dry-run REJECT 에서 [HIL] mbox 발신 0
+PASS 회귀 H3: dry-run REJECT 에서 kill·close 0
+PASS 회귀 H3: dry-run REJECT 로그·sig 0
+PASS dry-run REJECT 원문 통과
+PASS dry-run REJECT rc3
+PASS 회귀 r3: 시험 전제 — 명부가 첫 판정 중 바뀜
+PASS 회귀 r3: 보호 전이(현역 master) 후 kill 0
+PASS 회귀 r3: 재확인 거절 표 행
+PASS 회귀 r3: dry-run direct mktemp 호출 0
+PASS 회귀 r3: dry-run on-reject mktemp 호출 0
+PASS 회귀 r3: 실행 분기도 정렬용 임시 파일 0
+PASS 회귀 H2: 재확인에서 WORKING 으로 바뀐 직전 세대 kill 0
+PASS 회귀 H2: SKIP(재확인 거절) 표 행
+PASS 회귀 H2: 나노 pending 변화 SKIP(재확인 거절)
+PASS 회귀 H2: 바뀐 나노 nano-close 호출 0
+PASS ⓓ 정리 뒤 문지기 OK → rc0
+PASS need = agents − limit + 1 = 3
+PASS ⓒ need=3 만큼만 닫음
+PASS ⓐ 재개 기록 없는 직전 세대 kill 0
+PASS ⓓ 여전히 REJECT → rc3
+PASS ⓓ 원래 REJECT 문구 그대로
+PASS ⓓ 후보 표 동반
+PASS ⓓ [HIL] 1통 → _hil_route
+PASS HIL 머리
+PASS ⓓ 같은 날 같은 후보 묶음 = HIL 재발신 0
+PASS 재발신 0 안내
+PASS ⓔ 디스크 REJECT = rc3 그대로
+PASS ⓔ 디스크 사유엔 정리 0
+PASS ⓔ 원문 통과
+PASS ⓔ 동시 2호출 = 같은 좌석 중복 kill/close 0
+PASS ⓕ --team rc0
+PASS ⓕ 그 팀 가장 오래 쉰 나노 1개만 닫음
+PASS ⓕ 접두 밖 직전 세대 kill 0 (재개 기록 있는 role#1 도 후보 아님)
+PASS ⓕ 접두 밖 좌석은 표 행도 0
+PASS ⓕ 접두 밖 codex DA 는 «승인 범위 밖» 행도 0
+PASS ⓕ 다른 팀(zz) 지정 = byz-t-* 닫기 0
+PASS ⓕ 접두 불일치 = RECLAIMED 0
+PASS ⓕ 팀 명부에 행 없는 나노는 닫지 않음(소속 확인)
+PASS 실물 묶음 전부 통과
+PASS FT_RECLAIM=0 → 정리 도구 호출 0
+PASS FT_RECLAIM=0 → 원래 REJECT
+PASS 기본 → 문지기 REJECT 때만 정리 도구 1번
+PASS 문지기 출력 그대로 전달
+PASS 정리 실패 → 기존 REJECT rc 유지
+PASS R320 swap REJECT → 정리 뒤 문지기 OK rc0
+PASS R320 swap 사유 회수 표
+PASS R320 닫는 나노 = 후보 전부(a·e 30분↑ · f 완성 카드 5분↑) · b attached·c WORKING·d pending·g 3분·h 미완성 6분 0
+PASS R320 kill-session = 재개 기록 있는 직전 세대뿐(역할 현역·codex DA·기록 없음·명부 밖 0)
+PASS R320 완성 카드 나노 5분 문턱
+PASS R320 완성 카드 아닌 나노 30분 문턱
+PASS R320 reclaim.log 헤더에 swap 사유
+PASS R320 memfree=9% limit=15% → 정리 뒤 rc0
+PASS R320 memfree=9% limit=15% → 나노 3석 닫기
+PASS R320 level=4 limit=2 → 정리 뒤 rc0
+PASS R320 level=4 limit=2 → 나노 3석 닫기
+PASS R320 rate=900MiB/min limit=512MiB/min → 정리 뒤 rc0
+PASS R320 rate=900MiB/min limit=512MiB/min → 나노 3석 닫기
+PASS R320 정리 뒤에도 REJECT → rc3
+PASS R320 원래 REJECT 문구
+PASS R320 [HIL] 1통 → _hil_route
+PASS R320 [HIL] 에 재부팅 계획 1줄(ft-hil 이 돌려준 ! bash /tmp/h<N>)
+PASS R320 재부팅 계획 파일 작성
+PASS R320 계획 내용 = 안내만(실행 명령 0)
+PASS R320 같은 날 같은 묶음 [HIL] 재발신 0
+PASS R320 dry-run 표시
+PASS R320 dry-run kill·close·mbox 0
+PASS R320 측정 실패 ERROR rc4 유지
+PASS R320 측정 실패엔 정리 0
+PASS R320 동결 REJECT rc3 유지
+PASS R320 동결엔 정리 0
+PASS R320 FT_RECLAIM_DONE_IDLE_MIN=2 → 3분 쉰 완성 나노도 닫음
+PASS 변이1(승인 표 판정 제거) → 단언 FAIL 3건
+PASS 변이2(잠금 제거) → 단언 FAIL 1건
+PASS core.bare=false
+---- fail=0
+rc=0
+## bash tests/test_resource_reclaim_preventive.sh
+PASS bash -n ft-resource-reclaim.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-role-spawn.sh
+PASS bash -n ft-successor-open.sh
+PASS 키트 사본 cmp 0 ft-resource-reclaim.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-role-spawn.sh
+PASS 키트 사본 cmp 0 ft-successor-open.sh
+PASS 실행 권한 ft-resource-reclaim.sh
+PASS R332 ⓐ preventive rc0
+PASS R332 ⓐ nano-close = a·e(30분↑) · f(완성 카드 6분) — b attached·c WORKING·d pending·g 3분·h 미완성 6분 0
+PASS R332 ⓐ kill-session = 재개 기록 있는 직전 세대뿐
+PASS R332 ⓐ 출력 1줄 = 닫음 4 · 후보 12(나노 8 + 직전 세대 4) · SKIP 7
+PASS R332 ⓐ 문지기·ft-hil 호출 0
+PASS R332 ⓐ [HIL] 쪽지 0
+PASS R332 ⓐ 재부팅 계획 0
+PASS R332 ⓐ HIL sig 0
+PASS R332 ⓐ reclaim.log 모드 칸 preventive
+PASS R332 ⓐ log 에 요약줄 1(뉴스 칸이 읽는 줄 · r500 압력 꼬리)
+PASS R332 재확인 WORKING 전환 → kill 0
+PASS R332 재확인 거절 표 행
+PASS R332 ⓖ dry-run 표시
+PASS R332 ⓖ dry-run 요약줄
+PASS R332 ⓖ dry-run kill·close·mbox 0
+PASS R332 ⓖ dry-run 로그·잠금 0
+PASS R332 ⓓ 잠금 경합 rc0
+PASS R332 ⓓ 출력 = PREVENTIVE skipped=lock 한 줄
+PASS R332 ⓓ 대기 0(≤2초)
+PASS R332 ⓓ 경합 = 닫기 0
+PASS R332 ⓓ 로그 0 · 남의 잠금 그대로
+PASS R332 ⓓ 죽은 pid 의 낡은 잠금은 회수 후 실행
+PASS R332 판정 2197 쉬는 현역 arch(대기 0·pending 0·IDLE·180분↑·재개 기록) → kill-session
+PASS R332 2197 표 행(근거·재개 명령)
+PASS R332 2197 대기/README.md 만 있으면 0장으로 본다
+PASS R332 2197 세션 idle 170분 → kill 0
+PASS R332 2197 idle 문턱 180분 표 행
+PASS R332 2197 대기 카드 1장 → kill 0
+PASS R332 2197 대기 카드 SKIP 사유
+PASS R332 2197 pending>0 → kill 0
+PASS R332 2197 pending SKIP 사유
+PASS R332 2197 WORKING → kill 0
+PASS R332 2197 세션 idle 200분이어도 jsonl 턴 종료 100분 전이면 kill 0(크론 틱 등 출력 활동)
+PASS R332 2197 턴 종료 나이 SKIP 사유
+PASS R332 2197 턴 종료 시각 없음 → kill 0
+PASS R332 2197 시각 없음 SKIP 사유
+PASS R332 2197 attached → kill 0
+PASS R332 2197 재개 기록 없음 → kill 0
+PASS R332 2197 재개 기록 없음 = 승인 범위 밖 행
+PASS R332 2197 V65 active → kill 0
+PASS R332 2197 명부 현역(_arch)이 아니면 kill 0
+PASS R332 2197 _hil_route 좌석 kill 0
+PASS R332 2197 role 이 master·arch 가 아니면 kill 0
+PASS R332 2197 planner 명부의 오케는 kill 0
+PASS R332 H1 대기 폴더 존재 + 조회 실패 → 닫기 0
+PASS R332 H1 조회 실패 SKIP 사유
+PASS R332 2197 대기 폴더를 못 읽으면(0장 증명 불가) 후보 아님
+PASS R332 2197 --on-reject 경로는 역할 좌석을 닫지 않음(계약 변경 0)
+PASS R332 2197 dry-run 표시
+PASS R332 2197 dry-run kill 0
+PASS R332 2197 닫기 직전 재확인에서 WORKING → kill 0
+PASS R332 2197 재확인 거절 행
+PASS R332 실물 묶음 전부 통과
+PASS 변이3(선제 모드 대기 0 제거) → 단언 FAIL 1건
+PASS 변이4(대기 카드 0 판정 제거) → 단언 FAIL 7건
+PASS core.bare=false
+---- fail=0
+rc=0
+## bash tests/test_nano_spawn_teamset_cap.sh
+PASS bash -n ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS bash -n ft-resource-reclaim.sh
+PASS 키트 사본 cmp 0 ft-resource-reclaim.sh
+PASS bash -n ft-nano-close.sh
+PASS 키트 사본 cmp 0 ft-nano-close.sh
+PASS ⓐ 상한 미만 → CAP 줄 · 회수 0 · QUEUED 0
+PASS ⓑ 상한 도달 → --team 으로 회수 1회 → 통과
+PASS ⓒ 회수 0 → QUEUED 순번=1 rc7 · 부작용 0
+PASS ⓒ 같은 카드 재시도 → 순번 그대로 · 중복 0
+PASS ⓓ 다른 팀(beta) 통과 — 일괄 정지 0
+PASS ⓔ dry-run 상한 도달 → rc7 · 큐·회수 0
+PASS ⓕ 표 파일 없음 → REJECT rc1(WARN 통과 0)
+PASS ⓕ 표 깨짐 → REJECT rc1
+PASS ⓖ FT_TEAMSET=0 → 상한 칸 건너뜀
+PASS ⓗ reclaim 에 --team 실재
+PASS ⓗ --team dry-run rc0 · 후보 0(가짜 tmux 에 활동 시각 없음)
+PASS core.bare=false
+rc=0
+## base(origin/main b45b6a7d) 에서도 실패 — 이 단위와 무관(FAIL 집합 동일): test_resource_gate_pressure.sh H3 4건(ft-successor-open comm 폴더) · test_tracked_bin_call_gate.sh ⓖ 25건(ft-nano-spawn/close 라이브 exec)
+## 실측 dry-run (BYZ 공용 루트 · --dry-run --preventive · 닫기·쓰기 0 · nano-close=/bin/false) 나노 행
+byz-harness-nano-r466-autonomy-on-off-interview-period-an#0 | 병합 끝 나노 | - | SKIP jsonl WORKING(IDLE 아님)
+byz-ops-nano-ops-concierge-pg-env-applies-all-migrati#0 | 미병합 나노 | - | HIL(승인 범위 밖: 미병합 나노 — 착지 판정 grep)
+byz-ops-nano-gw-cors-expose-retry-after#0 | 병합 끝 나노 | 나노 세션 정리 2026-10-02 | SKIP 명부 index 카드 없음
+byz-ops-nano-ops-concierge-roundtrip-pg-operator-put#0 | 미병합 나노 | - | HIL(승인 범위 밖: 미병합 나노 — 착지 판정 grep)
+byz-ops-nano-ops-plan-o3-org-admin-ai-reply-screen#0 | 병합 끝 나노 | 나노 세션 정리 2026-10-02 | SKIP 명부 index 카드 없음
+byz-ops-nano-ops-plan-o4-request-flow#0 | 미병합 나노 | - | HIL(승인 범위 밖: 미병합 나노 — 착지 판정 no)
+byz-harness-nano-r497-model-limit-auto-successor-swap#0 | 미병합 나노 | - | HIL(승인 범위 밖: 미병합 나노 — 착지 판정 no)
+byz-chatbot-nano-c-n5-rename-docs-old-name-grep-zero#0 | 미병합 나노 | - | HIL(승인 범위 밖: 미병합 나노 — 착지 판정 no)
+byz-harness-nano-r500-reclaim-pressure-tier-landed-nano-i#0 | 나노 | - | SKIP 부르는 쪽·상위 오케
+byz-loom-nano-loom-1082-g5a-static-lang-system-from-db#0 | 미병합 나노 | - | HIL(승인 범위 밖: 미병합 나노 — 착지 판정 no)
+byz-chatbot-nano-c-k3c-answer-language-vs-knowledge-quote#0 | 미병합 나노 | - | SKIP idle 21분 < 30분
+byz-loom-nano-loom-1082-g5b-compose-db-read-total-dead#0 | 병합 끝 나노 | - | SKIP jsonl WORKING(IDLE 아님)
+RECLAIMED 0 pressure=1 swap=86%
+PREVENTIVE reclaimed=0 candidates=26 skipped=20 pressure=1 swap=86%

@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-20 — 회수 압력 티어: swap ≥85% 면 착지 나노 idle 문턱 30→5분 · «병합 끝 나노» = 가지 착지 나노만 (r500 · 1.1.55)
+
+- 사건: harness master 81 실측 115983 — swap 92% 인데 `ft-resource-reclaim` 이 «병합 끝 나노» 9~10석을 idle 30분 가드로 전부 SKIP(RECLAIMED 0) · spawn 문지기가 swap·rate 로 새 좌석을 막아 팀이 섰다. 같은 표에 방금 spawn 된 ops O3·O4(가지 미착지)도 «병합 끝 나노» 로 들어갔다 — 분류가 이름(`*-nano-*#0`)뿐. planner 80 대리 결정 115991.
+- `ft-resource-reclaim.sh`: ①`measure_pressure`(한 실행 1번 · `FT_SWAPUSAGE`(시험) 또는 `sysctl -n vm.swapusage` used/total ≥ `FT_RECLAIM_PRESSURE_SWAP_PCT`(기본 85) · 측정 실패 = 압력 아님 + `WARN swap 측정 실패` 1줄) ②`idle_min_for`: 병합 끝 나노 ∧ (카드 완성/ ∨ 압력) → `DONE_IDLE_MIN`(5) ③분류: 이름 `*-nano-*#0` = «나노»(판정 전) → idle(착지 가정 문턱)·attached·보호 1차 거르기 통과분만 `landed_nano` — 가지 `nano/<키>` 또는 가장 큰 `-r<N>` · BYZ 루트와 팩 리포(`FT_PACK_ROOT`) 중 «가지가 있는 리포 전부» 가 `timeout 7 ft-landed-check.sh … origin/main` rc0 이어야 «병합 끝 나노» · 그 밖(grep·no·가지 없음·시간 초과·timeout 도구 없음) = «미병합 나노» → 닫기 0 · idle ≥ 30분이면 표 `HIL(승인 범위 밖: 미병합 나노 — 착지 판정 <근거>)` ④요약 줄 `RECLAIMED N …`·`PREVENTIVE …` 꼬리 `pressure=0|1 swap=<pct>%`(뉴스·감시자 파서는 앞머리만 읽어 영향 0). kit↔bin cmp0.
+- 카드와 다른 점 1: 카드 §2 는 «BYZ 에 가지가 있으면 BYZ» 였으나, 하네스 나노는 BYZ 에 커밋 0 인 같은 이름 가지가 있어(이 좌석 실측: BYZ `nano/r500-…` = base c251017221 = main 조상) BYZ 만 보면 늘 ancestor(=착지) 로 읽힌다 → 두 리포 모두 rc0 일 때만 착지(fail-closed) · 시험 ⓖ.
+- 시험 `test_resource_reclaim_pressure.sh`(새) ⓐ~ⓖ 28 PASS · 변이 2(압력 티어 제거 FAIL 3 · 착지 판정 제거 FAIL 8) · 기존 `test_resource_reclaim.sh` 107 · `_preventive.sh` 65 · `test_nano_spawn_teamset_cap.sh` 18 rc0. 기대 변경 2: attached 나노 표 종류 «병합 끝 나노» → «나노»(착지 판정 전에 거름) · PREVENTIVE 요약 줄 꼬리. 가짜 세계에 가짜 팩 리포(나노 a~h 가지 = main 조상) · `FT_SWAPUSAGE` 기본 10%(실 sysctl 0). 설치: LIVE_BIN 키트 1 cmp0 · 홈 0 · plist 0(선제 감시 600초) · 되돌림 = 이 커밋 revert(설치본 `.bak-r500`) 또는 env `FT_RECLAIM_PRESSURE_SWAP_PCT=101`. 범위 밖: 직전 세대·쉬는 역할 좌석 문턱 · `ft-resource-gate.sh` · nano-close 게이트. 원문 = `harness/evidence/r500/tests-rc.txt`.
+
 ## 2026-10-20 — 뉴스 린트: 확인 불가 팀 «쉼» 판정이 부정 꼬리(«…지 않»·«아니»·«지 못») 문장은 통과 (r498 · 1.1.54)
 
 - 사건: planner 뉴스 틱 발행 0(요청 115673) — `/tmp/byz-ft-news-planner.log` 2913~2915 «ERROR 린트 위반 2건 — 발행 0 (확인 불가 팀 lecture 에 쉼 단정 «lecture·planner·room은 상태를 확인할 수 없어서 쉰다거나 멈췄다고 단정하지 않습니다»)». r490 `unknown_problems` 가 «팀 이름 + 쉬·멈·정지·대기 글자» 만 봐서, 지시대로 «단정하지 않는다» 고 쓴 문장이 거꾸로 걸렸다.
