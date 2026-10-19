@@ -36,13 +36,8 @@ fi
 OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" "$HERE/ft-seat-close.sh" "$DEAD" "$REOPEN" <<'PY'
 import json, glob, shutil, shlex, datetime, collections, os, sys
 arg, root, seat, reason, by, verdict, rec, tool, dead, reopen = sys.argv[1:11]
-def load(f):
-    try: return json.load(open(f, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
-    except (OSError, ValueError): return None
-def save(p, d):
-    tmp = p + ".tmp-" + str(os.getpid())   # 쓰기 중 죽어도 원본 무손상
-    with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=2); f.write("\n"); f.flush(); os.fsync(f.fileno())
-    shutil.copymode(p, tmp); os.replace(tmp, p)
+sys.path.insert(0, os.path.dirname(tool))   # 명부 읽기·원자 쓰기(쓰기 중 죽어도 원본 무손상) = 같은 폴더 lib(retire 와 공용)
+from ft_roster_lib import load, dump as save
 files = [arg] if arg else sorted(glob.glob(root + "/.fable-team/seats*.json"))
 for f in (files if not (verdict or reopen == "1") else []):   # ⓐ 현역 역할 좌석(_master·_arch·_hil_route·_desk …)은 세션만 닫지 않는다(--verdict = 판정 승인 경로만 예외)
     d = load(f)

@@ -11,6 +11,7 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi; }
 J() { jq -r "$2" "$1"; }
+printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$TMP/reap-stub.sh"; export FT_SEAT_REAP_BIN="$TMP/reap-stub.sh"   # r448: 은퇴의 reap = 스텁(실기계 프로세스 0 · test_seat_retire.sh 와 같은 꼴)
 FK="$TMP/fake"; mkdir -p "$FK"; printf '#!/usr/bin/env bash\nexit 1\n' > "$FK/tmux"; chmod +x "$FK/tmux"   # 결속 0 → NORECORD(은퇴 결과와 분리)
 OLD='byz-planner-master-claude#9'; NEW='byz-planner-master-claude#10'
 repo() { # <라벨> → scratch 리포(.fable-team 에 seats-planner·seats.json·seats-a·seats-b)
