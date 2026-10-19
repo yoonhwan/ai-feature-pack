@@ -371,7 +371,9 @@ if [ "$PLAN_ONLY" = 1 ]; then
   [ "$tmux_ok" = 1 ] || { printf 'REJECT --plan-only: tmux 조회 실패 — 좌석 생존 불명(fail-closed)\n'; printf '%s\n' "${bad[@]}"; exit 1; }
   [ -z "$PANE" ] || { echo "REJECT --plan-only: 좌석 세션이 살아 있다($SEAT)"; exit 1; }
   _po="$(cd "$PO_WT" 2>/dev/null && pwd -P)"
-  [ -n "$_po" ] && [[ "$_po" == "$ROOT/.worktrees/"?* ]] && git -C "$ROOT" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $_po" || { echo "REJECT --plan-only: 이 리포 .worktrees/ 아래 등록 워크트리가 아니다: $PO_WT"; exit 1; }
+  # r453: 목록은 변수로 받은 뒤 here-string 으로 grep — `… | grep -q` 는 출력이 64 KB 를 넘으면 grep 이 먼저 닫아 SIGPIPE(141)·pipefail 로 «찾았는데 실패»(printf 파이프도 같음). 캡처 실패 = 빈 목록 = REJECT.
+  _wl="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)" || _wl=""
+  [ -n "$_po" ] && [[ "$_po" == "$ROOT/.worktrees/"?* ]] && grep -qxF "worktree $_po" <<<"$_wl" || { echo "REJECT --plan-only: 이 리포 .worktrees/ 아래 등록 워크트리가 아니다: $PO_WT"; exit 1; }
   _pb="$(git -C "$_po" symbolic-ref --short -q HEAD)"
   _is_seat_branch "$_pb" || { echo "REJECT --plan-only: 가지(${_pb:-detached})가 좌석 키(nano/${_KEY}[-rN])와 맞지 않는다"; exit 1; }
   SEAT_WT="$_po"; SEAT_BR="$_pb"
@@ -392,7 +394,8 @@ if [ "$SHARED" = 1 ]; then
     SEAT_WT_ERR=""
     SH_TOP="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
     SH_BR="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null | awk -v t="$SH_TOP" '/^worktree /{p=substr($0,10)} /^branch /{if(p==t){b=substr($0,8); sub("^refs/heads/","",b); print b}}')"
-    if [ -z "$SH_TOP" ] || ! git -C "$ROOT" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $SH_TOP"; then bad+=("ⓑpane cwd($cwd)의 toplevel 이 등록된 워크트리가 아니다")
+    # r453: 파이프 대신 here-string — 64 KB 넘는 목록에서 SIGPIPE 141 오판 방지(위 --plan-only 와 같은 꼴)
+    if [ -z "$SH_TOP" ] || ! grep -qxF "worktree $SH_TOP" <<<"$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)"; then bad+=("ⓑpane cwd($cwd)의 toplevel 이 등록된 워크트리가 아니다")
     elif [ -z "$SH_BR" ]; then bad+=("ⓑ공유 워크트리 $SH_TOP 의 브랜치를 알 수 없다(detached) — 추측 금지")
     else case "$SH_BR" in nano/*) bad+=("ⓑ공유 워크트리 $SH_TOP 가 나노 브랜치($SH_BR) — 공유 좌석이 아니라 전용 경로로 닫아라");; esac; fi
   fi
@@ -404,7 +407,7 @@ if [ "$NAMED" = 1 ]; then
   _nw="$(cd "$NWT" 2>/dev/null && pwd -P)"
   _porc="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)"
   if [ -z "$_nw" ]; then bad+=("ⓐ--wt 경로가 없다: $NWT")
-  elif [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! printf '%s\n' "$_porc" | grep -qxF "worktree $_nw"; then
+  elif [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! grep -qxF "worktree $_nw" <<<"$_porc"; then
     bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다")
   else
     _nb="$(printf '%s\n' "$_porc" | awk -v t="$_nw" '/^worktree /{p=substr($0,10)} /^branch /{if(p==t){b=substr($0,8); sub("^refs/heads/","",b); print b}}')"

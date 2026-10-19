@@ -104,7 +104,7 @@ fi
 CHANGED="$(g diff --name-only "$RANGE" 2>/dev/null)"
 while IFS= read -r X; do
   [ -n "$X" ] || continue
-  printf '%s\n' "$CHANGED" | grep -Fxq -- "$X" || rej "랜딩 commit 에 정본 $X 없음 — 로컬에만 고친 것($RANGE)"
+  grep -Fxq -- "$X" <<<"$CHANGED" || rej "랜딩 commit 에 정본 $X 없음 — 로컬에만 고친 것($RANGE)"
   xre="$(printf '%s' "$X" | sed 's/[][\.*^$/]/\\&/g')"
   CS="$(printf '%s\n' "$BODY" | grep -oE "정본 diff 확인:[[:space:]]*${xre}[[:space:]]+§[^@]*@[0-9a-fA-F]{7,40}" | sed 's/.*@//')"
   [ -n "$CS" ] || rej "판정문 절에 「정본 diff 확인: $X §Y @<sha>」 줄 없음 — arch 검토 기록 필요"
