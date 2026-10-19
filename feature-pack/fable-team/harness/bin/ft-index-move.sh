@@ -135,6 +135,16 @@ if [ "$DST" = 완성 ]; then
   fi
 fi
 printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DA:+ · DA $DA}" >> "$NEW"
+# r444: 완성 + --landed = 카드에 `- 착지: <sha>`(판정기 ft-finished-check E1 이 읽는 줄) → 끝난 가지 refs/archive 이동 1회(FINISHED 만 · 삭제 0). 실패·SKIP 은 출력만 — 이동 종료코드 불변.
+if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
+  printf -- '- 착지: %s\n' "${LANDED##*..}" >> "$NEW"
+  _slug="$(basename "$NEW" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
+  if [ -f "$HERE/ft-branch-archive.sh" ]; then
+    while IFS= read -r _b; do [ -n "$_b" ] || continue
+      FT_FINISHED_CARD_ROOTS="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null)" bash "$HERE/ft-branch-archive.sh" "$_b" --repo "$ROOT" 2>&1 | head -1
+    done < <(git -C "$ROOT" for-each-ref --format='%(refname:short)' "refs/heads/nano/$_slug" "refs/heads/nano/$_slug-r*")
+  else echo "WARN ft-branch-archive.sh 없음($HERE) — 끝난 가지 보관 이동 0"; fi
+fi
 printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
 if [ "$DST" = 완성 ]; then
   # 정본 갱신 신호 — 수신자 = 명부(env FT_SEATS_JSON 우선) 최상위 `_arch`(팀 현역 arch). 키 없음·빈 값 = 쪽지 0 + INFO 1줄.

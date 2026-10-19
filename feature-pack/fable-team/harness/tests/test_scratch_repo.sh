@@ -48,15 +48,13 @@ sc --sweep
 { [ -d "$L" ] && [ -d "$TMPD/tmp.new1" ]; } && ok "ⓜ 주인 살아 있는 사본·새 tmp.* 는 남음" || bad "ⓜ 지워짐"
 git -C "$G" worktree list | grep -q "$D1" && bad "ⓛ worktree 목록에 남음" || ok "ⓛ git worktree 목록에서도 제거"
 sc --sweep; [ -z "$OUT" ] && ok "ⓝ 지울 것 없으면 출력 0" || bad "ⓝ [$OUT]"
-# DA⑥ HOLD3: ①tmux 목록 실패 ≠ 세션 0 ②주인 '-' 등록 거부 ③등록 사본도 나이 문턱
-OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 3600
-sc --report; echo "$OUT" | grep -q "$Y" && bad "ⓞ 주인 없음+생성 1시간 → 후보 아니어야" || ok "ⓞ 주인 없음+생성 1시간 → 후보 0"
-age_reg "$Y" 90000
-sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+생성 25시간 → 후보 1" || bad "ⓞ 25시간 후보 아님 $OUT"
+# DA⑥ HOLD3: ①tmux 목록 실패 ≠ 세션 0 ②주인 '-' 등록 거부 · ③(r444) 등록 사본은 나이 문턱 0 — 주인이 죽으면 즉시 후보
+OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 60
+sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+생성 1분 → 즉시 후보(r444)" || bad "ⓞ 주인 없음 1분 후보 아님 $OUT"
 touch "$T/tmuxfail"; sc --report
 { ! echo "$OUT" | grep -q "$Y" && echo "$OUT" | grep -q 'ERROR tmux 목록 실패 — 등록 사본 판정 생략'; } && ok "ⓟ tmux 목록 실패 → 등록 사본 후보 0 + ERROR" || bad "ⓟ $OUT"
 mkdir -p "$TMPD/tmp.old3"; touch -t 202001010000 "$TMPD/tmp.old3"; sc --report; echo "$OUT" | grep -q 'tmp.old3' && ok "ⓟ tmux 실패여도 tmp.* 판정은 계속" || bad "ⓟ tmp.* 판정 중단 $OUT"
-sc --sweep; [ -d "$Y" ] && ok "ⓟ tmux 실패 중 --sweep 도 등록 사본 삭제 0" || bad "ⓟ sweep 이 등록 사본 삭제"
+sc --sweep; { [ -d "$Y" ] && [ -d "$TMPD/tmp.old3" ] && echo "$OUT" | grep -q '^ERROR tmux unreadable'; } && ok "ⓟ tmux 실패 중 --sweep = ERROR 1줄(stdout) + 삭제 0(tmp.* 포함 · r444)" || bad "ⓟ sweep tmux 실패 [$OUT]"
 rm -f "$T/tmuxfail"
 before="$(git -C "$G" worktree list | wc -l)"; OWN=- sc "$SHA" --repo "$G"
 { [ $RC != 0 ] && [ "$(git -C "$G" worktree list | wc -l)" = "$before" ] && echo "$OUT" | grep -q '주인'; } && ok "ⓠ 주인 '-' → 등록 거부 rc≠0 · worktree 0" || bad "ⓠ rc=$RC out=$OUT"

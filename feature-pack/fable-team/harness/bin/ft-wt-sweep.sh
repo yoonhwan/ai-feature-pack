@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-wt-sweep.sh [--dry-run | --finish <포인터>]  — 닫힌 나노의 워크트리 정리 계획(.fable-team/state/wt-clean/<seat>.sh)을 «세션이 사라진 뒤» 실행한다.
+# ft-wt-sweep.sh [--dry-run | --finish <포인터> | --launchd]  — 닫힌 나노의 워크트리 정리 계획(.fable-team/state/wt-clean/<seat>.sh)을 «세션이 사라진 뒤» 실행한다.
 #   하네스 0.5 행 2 r2~r4 (DA r1 조건 1 · DA r2 조건 2 · DA r3 MAJOR N1): close 는 계획을 «생성만» 하고, 실행은 이 sweep(또는 close --kill 성공 뒤)에서만.
 #   ★호출처(r3 배선)★: ft-tick.sh 의 pass() 가 매 루프(60s) `sweep_wt()` 로 이 스크립트를 부른다(FT_TICK_WT_SWEEP=0 으로 끔). 수동 호출도 같은 진입점.
 #   계획 스크립트 자신이 가드(계보 세션 자기 포함 0 · cwd 보유 프로세스 0 · branch nano/* · HEAD=branch 도달성 · 실작업물 0 · ignored 보관 · 도구 실패=skipped)와 원장 표식을 담당한다.
@@ -12,6 +12,9 @@
 #   ⓑ계획 머리 `# plan-ver:` ≠ 옆의 라이브 생성기(ft-nano-close.sh blob sha) = 실행 거부(.stale 로 이동 + STALE 1줄). 머리 표식이 없어도 생성기 계획(`# wt-clean 계획 — ft-nano-close.sh`)이면 옛 판으로 거부. 생성기 계획이 아닌 것(수동·스텁)은 대상 아님.
 #   ⓒ껍데기 경보 = 반쯤 지워진 워크트리(tracked 최상위 항목 2개 이상 부재 · 포인터 없는 .deleting-*)의 목록을 «바뀐 때만» [HIL] 1줄(FT_WT_SHELL_SCAN_SEC 간격 · 기본 600s).
 #   실행 위치 무관(원장·워크트리는 계획에 절대경로로 박혀 있다). FT_WT_AUTOCLEAN=0 이면 아무것도 실행하지 않는다.
+#   ★r444 --launchd★(com.byz.ft-wt-sweep · 일 1회 — 사람 h 0): FT_ROOT 필수 · 그 루트에서 sweep 1회(FT_WT_SWEEP_MAX 기본 20) → [HIL] 줄을 팀 master 우편함으로(ft-tick sweep_wt 와 같은 규칙)
+#     → 끝난 가지 재확인(refs/heads/nano/* 최신순 FT_WT_ARCHIVE_MAX 기본 200 · ft-branch-archive.sh · FINISHED 만 refs/archive 로) → 로그 <FT_ROOT>/.fable-team/state/wt-sweep.log 1줄 `cleaned=N wait=N hil=N … archived=N`.
+#   ★r444 4b★ 껍데기 경보 [HIL] 은 폴더 주인 팀마다 1줄 `seat=byz-<팀>-wt-shell`(팀 = .worktree-info.json purpose 의 카드 경로 · 명단에 있는 팀만 · 못 정하면 harness) — 호출자가 그 팀 master 로 보낸다.
 set -uo pipefail
 SELF="$(cd -- "$(dirname -- "$0")" && pwd)/$(basename -- "$0")"
 BATON="${BATON_BIN:-$HOME/.baton/current/bin/baton}"
@@ -63,6 +66,41 @@ finish_one() {
   rm -f "$ptr" "$ptr.fail"; echo "FINISH OK ${del##*/}"
 }
 if [ "${1:-}" = "--finish" ]; then [ -n "${2:-}" ] && [ -f "$2" ] || { echo "usage: $0 --finish <포인터 파일>" >&2; exit 2; }; finish_one "$2"; exit $?; fi
+# --launchd — 일 1회 진입. 본체는 같은 스크립트 1회(출력 캡처) · 이 블록은 라우팅·보관 재확인·로그만.
+if [ "${1:-}" = "--launchd" ]; then
+  [ -n "${FT_ROOT:-}" ] && [ -d "$FT_ROOT" ] || { echo "ERROR --launchd 는 FT_ROOT(리포 루트) 필수: ${FT_ROOT:-<없음>}" >&2; exit 2; }
+  cd "$FT_ROOT" || exit 2
+  LST="$FT_ROOT/.fable-team/state"; mkdir -p "$LST"
+  out="$(FT_WT_SWEEP_MAX="${FT_WT_SWEEP_MAX:-20}" bash "$SELF" 2>&1)"; rc=$?
+  printf '%s\n' "$out"
+  sm="$(printf '%s\n' "$out" | grep '^sweep 계획 ' | tail -1)"
+  num() { local v; v="$(printf '%s' "$sm" | sed -nE "s#.*$1 ([0-9]+).*#\\1#p")"; echo "${v:-0}"; }
+  # [HIL] → 팀 master(seat=byz-<팀>- → seats-<팀>.json _master · v65·표기 없음 = seats.json _master · 못 찾음 = harness master + [라우팅 실패])
+  MB="${FT_MBOX_SH:-}"; [ -n "$MB" ] || { . "$(dirname "$SELF")/ft-harness-root.sh" 2>/dev/null && MB="$(ft_comm_dir "$(dirname "$SELF")")/mbox.sh"; }
+  mjson() { python3 -c 'import json,sys
+try: d=json.load(open(sys.argv[1])); m=d.get("_master"); v=d.get(m) if isinstance(m,str) else None
+except (OSError,ValueError): sys.exit(0)
+print(m if isinstance(v,dict) and not v.get("_replaced_by") else "")' "$1" 2>/dev/null; }
+  routed=0; rfail=0
+  while IFS= read -r ln; do
+    s="$(printf '%s' "$ln" | grep -oE 'seat=[^ ]+' | head -1)"; s="${s#seat=}"; tm=""; hdr=""
+    case "$s" in byz-v65-*|ft-v65-*|'') tm=v65;; byz-*) tm="$(printf '%s' "$s" | cut -d- -f2)";; *) tm='?';; esac
+    case "$tm" in v65) to="$(mjson "$FT_ROOT/.fable-team/seats.json")";; *) to="$(mjson "$FT_ROOT/.fable-team/seats-$tm.json")";; esac
+    [ -n "$to" ] || { hdr="[라우팅 실패 $tm] "; to="$(mjson "$FT_ROOT/.fable-team/seats-harness.json")"; }
+    if [ -n "$to" ] && [ -n "$MB" ] && bash "$MB" send "$to" ft-wt-sweep "[HIL] ${hdr}워크트리 정리 사람 판정 — $(printf '%s' "$ln" | cut -c7-200)" --urgent >/dev/null 2>&1; then routed=$((routed+1))
+    else rfail=$((rfail+1)); echo "ERROR [HIL] 라우팅 실패(to=${to:-없음} mbox=${MB:-없음}): ${ln:0:120}" >&2; fi
+  done < <(printf '%s\n' "$out" | grep '^\[HIL\]')
+  # 끝난 가지 재확인 — FINISHED 만 refs/archive 로(삭제 0). 최신 가지부터(새로 끝난 것이 먼저 잡히게)
+  AR="$(dirname "$SELF")/ft-branch-archive.sh"; ar=0; ask=0
+  if [ -f "$AR" ] && [ "${FT_WT_ARCHIVE:-1}" = 1 ]; then
+    while IFS= read -r b; do [ -n "$b" ] || continue
+      if bash "$AR" "$b" --repo "$FT_ROOT" >/dev/null 2>&1; then ar=$((ar+1)); else ask=$((ask+1)); fi
+    done < <(git -C "$FT_ROOT" for-each-ref --sort=-committerdate --count="${FT_WT_ARCHIVE_MAX:-200}" --format='%(refname:short)' 'refs/heads/nano/')
+  fi
+  printf '%s rc=%s cleaned=%s wait=%s hil=%s stale=%s carry=%s resume=%s routed=%s route_fail=%s archived=%s archive_skip=%s\n' "$(date '+%F %T')" "$rc" \
+    "$(num 'cleaned/none')" "$(num wait)" "$(num hil)" "$(num stale)" "$(num 이월)" "$(num 이어정리)" "$routed" "$rfail" "$ar" "$ask" >> "$LST/wt-sweep.log"
+  tail -1 "$LST/wt-sweep.log"; exit "$rc"
+fi
 
 DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
 [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || { echo "FT_WT_AUTOCLEAN=0 — sweep 실행 안 함"; exit 0; }
@@ -133,8 +171,13 @@ for ptr in "$DIR"/*.deleting; do
   rs=$((rs+1)); launch_finish "$ptr" "$(sed -n 2p "$ptr")"; echo "RESUME $seat $(sed -n 1p "$ptr")"
 done
 # 껍데기 경보 — 반쯤 지워진 워크트리 목록을 «바뀐 때만» 1줄. 부하 때문에 SCAN_SEC 간격으로만 훑는다.
+# 폴더 주인 팀(4b) — .worktree-info.json purpose 의 카드 경로 design/(teams/)<팀>/indices · 명단(ft-team-lib)에 있는 팀만 · 못 정하면 harness
+owner_team() {
+  local t; t="$(sed -nE 's#.*design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p' "$1/.worktree-info.json" 2>/dev/null | head -1)"
+  if [ -n "$t" ] && [ -f "$(dirname "$SELF")/ft-team-lib.sh" ] && ( . "$(dirname "$SELF")/ft-team-lib.sh"; FT_REPO_ROOT="$SCAN_ROOT" ft_team_names 2>/dev/null ) | grep -qxF -- "$t"; then echo "$t"; else echo harness; fi
+}
 shell_scan() {
-  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live
+  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm
   [ "$DRY" != 1 ] && [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT" ] && [ -d "$DIR" ] || return 0
   now="$(date +%s)"; [ $(( now - $(cat "$stamp" 2>/dev/null || echo 0) )) -ge "$SCAN_SEC" ] || return 0
   echo "$now" > "$stamp"
@@ -148,13 +191,15 @@ shell_scan() {
          while IFS= read -r name; do [ -e "$p/$name" ] || missing=$((missing+1)); done < <(git -C "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null);;
     esac
     [ "$missing" -ge 2 ] || continue
-    list="$list${p##*/} "; cnt=$((cnt+1))
+    tm="$(owner_team "$p")"; list="$list$tm:${p##*/} "; cnt=$((cnt+1))
   done < <(git -C "$SCAN_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
   sig="$(printf '%s' "$list" | tr ' ' '\n' | sort | tr '\n' ' ')"
   if [ -z "$sig" ]; then rm -f "$sigf"; return 0; fi
   [ "$sig" = "$(cat "$sigf" 2>/dev/null)" ] && return 0
   printf '%s' "$sig" > "$sigf"
-  echo "[HIL] 반쯤 지워진 워크트리 껍데기 ${cnt}곳: ${sig% } — 처리는 오빠 값(바뀐 때만 1줄)"
+  for tm in $(printf '%s' "$sig" | tr ' ' '\n' | cut -d: -f1 | sort -u); do
+    echo "[HIL] seat=byz-$tm-wt-shell 반쯤 지워진 워크트리 껍데기 $(printf '%s' "$sig" | tr ' ' '\n' | grep -c "^$tm:")곳(전체 ${cnt}곳): $(printf '%s' "$sig" | tr ' ' '\n' | sed -n "s/^$tm://p" | tr '\n' ' ')— 처리는 오빠 값(바뀐 때만 1줄)"
+  done
 }
 shell_scan
 echo "sweep 계획 $n · cleaned/none $c · wait $w · hil $h$([ "$d" -gt 0 ] && echo " · 이월 $d")$([ "$st" -gt 0 ] && echo " · stale $st")$([ "$rs" -gt 0 ] && echo " · 이어정리 $rs")"

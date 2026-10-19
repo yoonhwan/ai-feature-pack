@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-wt-sweep</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__FT_BIN__/ft-wt-sweep.sh</string>
+    <string>--launchd</string>
+  </array>
+  <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>4</integer>
+    <key>Minute</key><integer>15</integer>
+  </dict>
+  <key>RunAtLoad</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_RES_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_WT_SWEEP_MAX</key><string>20</string>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/byz-ft-wt-sweep.log</string>
+  <key>StandardErrorPath</key><string>/tmp/byz-ft-wt-sweep.log</string>
+</dict>
+</plist>

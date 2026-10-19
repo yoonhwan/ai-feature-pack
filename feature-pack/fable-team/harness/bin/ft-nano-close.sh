@@ -491,7 +491,17 @@ _ic="$SEAT"; _iseen="|$SEAT|"; _in=0
 while [ -z "$IDX" ] && [ "$_in" -lt 10 ]; do _ic="$(jq -r --arg s "$_ic" '.[$s]._replaces[0]? // empty' "$SEATS" 2>/dev/null)"; { [ -n "$_ic" ] && [[ "$_iseen" != *"|$_ic|"* ]]; } || break
   _iseen+="$_ic|"; _in=$((_in+1)); IDX="$(jq -r --arg s "$_ic" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; [ -z "$IDX" ] || echo "INFO index 상속 ← $_ic"; done
 _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_index_twin "$IDX")"; }   # R382: design/teams/<팀>/ ↔ design/<팀>/ 쌍둥이 후보(미전환·전환 워크트리가 섞인 기간)
-for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX" ${_tw:+"$WT/$_tw" "$ROOT/$_tw" "$LEDGER_WT/$_tw"}; do [ -n "$IDX" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
+# r444 ⑥(planner #111324 · L6b): 카드 = 팀 폴더 리졸버(ft_team_cands_ref · 명단 = ref · 폴더 = 각 루트)의 indices/<단계>/<파일> 먼저 — 단계 진행→완성→대기 순 · 루트 WT→ROOT→LEDGER_WT 순.
+#   옛 글자 경로(design/<팀>/indices/대기)에 남은 사본이 실제 카드(design/teams/<팀>/indices/진행 · 미커밋)를 가리지 않게. 못 찾으면 아래 기존 후보 그대로.
+if [ -n "$IDX" ] && [[ "$IDX" =~ design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/[^/]+/([^/]+)$ ]] && declare -F ft_team_cands_ref >/dev/null; then
+  _ct="${BASH_REMATCH[2]}"; _cf="${BASH_REMATCH[3]}"
+  for _d in 진행 완성 대기; do [ -z "$CARD" ] || break
+    for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$CARD" ] || break
+      while IFS= read -r _c; do [ -n "$_c" ] && [ -z "$CARD" ] && [ -f "$_c/indices/$_d/$_cf" ] && CARD="$_c/indices/$_d/$_cf"
+      done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done; done
+  [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
+fi
+for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX" ${_tw:+"$WT/$_tw" "$ROOT/$_tw" "$LEDGER_WT/$_tw"}; do [ -n "$IDX" ] && [ -z "$CARD" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
 # R400 r2: 카드 생애 이동(대기→진행→완성) 뒤 명부 index 는 옛 폴더 그대로 — 같은 indices 뿌리의 형제 폴더에서 같은 파일명이 «정확히 1개» 일 때만 그 카드(쌍둥이도 같은 규칙 · 0·2+ = 아래 REJECT 그대로 · 명부 쓰기 0)
 _sibn=""
 if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
