@@ -6,15 +6,29 @@
 #   ③ 연결 파일이 아닌 기존 항목(옛 사본·.bak-*·__pycache__·키트 밖 이름)은 `<루트>/.fable-team/bin.stale-<시각>/` 로 «옮긴다»(삭제 0 · 되돌리기 = 그 폴더를 bin 으로)
 #   키트 밖 이름은 연결하지 않고 `UNKNOWN <이름>` 목록으로 보고. 멱등: 두 번째 실행 = 쓰기 0 · MOVED 0.
 #   출력 끝줄 `SHIM n · MOVED m · UNKNOWN k` (--dry-run 은 쓰기 0 · 같은 숫자 · `PLAN …` 줄).  종료: 0 · 2 usage · 3 ERROR(조용한 통과 0)
+#   r494 --init: 루트 bin 이 없을 때 루트가 «설치된 리포(공용 루트 .fable-team/LIVE_BIN 실재)의 git 워크트리 최상위» 면 bin 을 만들고 위 흐름 그대로
+#     (LIVE_ROOT 기본 = 공용 루트 경로 그 자체 · 공용 루트 LIVE_ROOT 파일 값 복사 0) · 공용 루트 자체·git 밖·설치 안 된 리포 = ERROR rc3 + 사유
 set -uo pipefail
-usage() { echo "usage: $0 --root <리포 루트> --live <라이브 bin> [--live-root <데이터 루트>] [--ref <ref>] [--repo <키트 리포>] [--path <키트 경로>] [--dry-run]" >&2; exit 2; }
+usage() { echo "usage: $0 --root <리포 루트> --live <라이브 bin> [--live-root <데이터 루트>] [--ref <ref>] [--repo <키트 리포>] [--path <키트 경로>] [--init] [--dry-run]" >&2; exit 2; }
 err()   { echo "ERROR $*"; exit 3; }
+wt_common() {  # r494: $1 = 루트 → «설치된 리포의 git 워크트리 최상위» 면 공용 루트 물리 경로 · 아니면 사유 + rc1
+  local rp top gd cp
+  rp="$(cd -- "$1" 2>/dev/null && pwd -P)" || { echo "루트 폴더 없음: $1"; return 1; }
+  top="$(git -C "$rp" rev-parse --show-toplevel 2>/dev/null)" || { echo "git 밖: $rp"; return 1; }
+  [ "$(cd -- "$top" && pwd -P)" = "$rp" ] || { echo "워크트리 최상위가 아님: $rp (최상위 $top)"; return 1; }
+  gd="$(git -C "$rp" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { echo "git 공용 폴더를 못 풂: $rp"; return 1; }
+  cp="$(cd -- "${gd%/.git}" 2>/dev/null && pwd -P)" || { echo "공용 루트 폴더 없음: ${gd%/.git}"; return 1; }
+  [ "$cp" != "$rp" ] || { echo "공용 루트 자체다: $rp — 공용 루트 설치는 install.sh --apply --project $rp"; return 1; }
+  [ -f "$cp/.fable-team/LIVE_BIN" ] || { echo "설치된 리포가 아님(공용 루트 LIVE_BIN 없음): $cp/.fable-team/LIVE_BIN"; return 1; }
+  echo "$cp"
+}
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT=""; LIVE=""; LROOT=""; REF="${FT_DRIFT_REF:-origin/main}"; REPO=""; TPATH=""; DRY=0
+ROOT=""; LIVE=""; LROOT=""; REF="${FT_DRIFT_REF:-origin/main}"; REPO=""; TPATH=""; DRY=0; INIT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift;;
+    --init) INIT=1; shift;;
     --root|--live|--live-root|--ref|--repo|--path) [ $# -ge 2 ] || usage
       case "$1" in --root) ROOT="$2";; --live) LIVE="$2";; --live-root) LROOT="$2";; --ref) REF="$2";; --repo) REPO="$2";; --path) TPATH="$2";; esac; shift 2;;
     *) usage;;
@@ -22,10 +36,16 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$ROOT" ] && [ -n "$LIVE" ] || usage
 case "$LIVE" in /*) ;; *) err "--live 는 절대경로(/ 로 시작)여야 한다: $LIVE";; esac
-[ -d "$ROOT/.fable-team/bin" ] || err "루트 bin 없음: $ROOT/.fable-team/bin"
+NEWBIN=0; WTC=""   # r494: 새로 만들 bin · 워크트리의 공용 루트
+if [ ! -d "$ROOT/.fable-team/bin" ]; then
+  [ "$INIT" = 1 ] || err "루트 bin 없음: $ROOT/.fable-team/bin (새 워크트리면 --init)"
+  WTC="$(wt_common "$ROOT")" || err "--init 불가 — $WTC"
+  NEWBIN=1
+elif [ "$INIT" = 1 ]; then WTC="$(wt_common "$ROOT")" || WTC=""; fi   # bin 있는 루트 = 지금 흐름 · LIVE_ROOT 기본값만 같은 규칙
 [ -d "$LIVE" ] || err "라이브 bin 없음: $LIVE"
 ROOT="$(cd -- "$ROOT" && pwd)"; LIVE="$(cd -- "$LIVE" && pwd)"
 if [ -n "$LROOT" ]; then case "$LROOT" in /*) ;; *) err "--live-root 는 절대경로(/ 로 시작)여야 한다: $LROOT";; esac; [ -d "$LROOT" ] || err "--live-root 폴더 없음: $LROOT"; LROOT="$(cd -- "$LROOT" && pwd)"
+elif [ -n "$WTC" ]; then LROOT="$WTC"
 else LROOT="$(cd -- "$LIVE/../.." 2>/dev/null && pwd)" || err "LIVE_ROOT 를 라이브 bin/../.. 로 풀지 못했다: $LIVE (--live-root 로 지정)"; fi
 RBIN="$ROOT/.fable-team/bin"
 if [ -z "$REPO" ] || [ -z "$TPATH" ]; then  # 키트 트리 = 하네스 코드 루트(팩) 리포 · 프로젝트 루트(--root) 리포가 아니다 (r385)
@@ -38,6 +58,10 @@ sha="$(git -C "$REPO" rev-parse --verify -q "$REF^{commit}")" || err "ref 를 �
 kit="$(git -C "$REPO" ls-tree --name-only "$sha" "${TPATH%/}/")" || err "ls-tree 실패: $REF:$TPATH"
 [ -n "$kit" ] || err "ref 에 경로가 없음: $REF:$TPATH"
 kitnames="$(printf '%s\n' "$kit" | sed 's|.*/||')"
+if [ "$NEWBIN" = 1 ]; then  # r494: 모든 검사를 통과한 뒤에만 만든다(ERROR = 생성 0)
+  if [ "$DRY" = 1 ]; then echo "PLAN init $RBIN (새 워크트리 · 공용 루트 $WTC)"
+  else mkdir -p "$RBIN" || err "bin 못 만듦: $RBIN"; echo "INIT $RBIN (새 워크트리 · 공용 루트 $WTC)"; fi
+fi
 
 MARK="# ft-root-bin-shim:"
 shim_body() {  # $1 = 도구 이름

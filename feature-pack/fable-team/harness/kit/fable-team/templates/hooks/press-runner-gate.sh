@@ -55,8 +55,16 @@ except (ValueError, AttributeError) as e: note(f"stdin JSON 파싱 불가({e}) �
 run, inline = walk(str((data.get("tool_input") or {}).get("command") or ""))
 if data.get("tool_name") not in (None, "Bash") or not run: sys.exit(0)
 cwd = data.get("cwd") or os.getcwd()
-gate = os.environ.get("FT_PRESS_GATE_BIN") or os.path.join(subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip() or cwd, ".fable-team/bin/ft-press-gate.sh")
-if not os.access(gate, os.X_OK): deny(f"press 러너 실행인데 게이트가 없다({gate}) — fail-closed(R106c)" + GUIDE)
+git = lambda *a: subprocess.run(["git", "-C", cwd, *a], capture_output=True, text=True).stdout.strip()
+top = git("rev-parse", "--show-toplevel") or cwd
+gate = os.environ.get("FT_PRESS_GATE_BIN") or os.path.join(top, ".fable-team/bin/ft-press-gate.sh")
+def install_hint():  # r494: 새 워크트리 bin 없음 = 설치본 shim --init 1줄 · LIVE_BIN = 공용 루트 .fable-team/LIVE_BIN 1줄(못 읽으면 글자 <LIVE_BIN>)
+    gd, lb = git("rev-parse", "--path-format=absolute", "--git-common-dir"), ""
+    try: lb = open(os.path.join(os.path.dirname(gd) if os.path.basename(gd) == ".git" else gd, ".fable-team/LIVE_BIN"), encoding="utf-8").readline().strip() if gd else ""
+    except OSError: pass
+    lb = lb or "<LIVE_BIN>"
+    return f" · 설치(master) = bash {lb}/ft-root-bin-shim.sh --root {top} --live {lb} --init"
+if not os.access(gate, os.X_OK): deny(f"press 러너 실행인데 게이트가 없다({gate}) — fail-closed(R106c)" + GUIDE + install_hint())
 try: r = subprocess.run([gate], env={**os.environ, **inline}, capture_output=True, text=True, timeout=60)
 except (OSError, subprocess.TimeoutExpired) as e: deny(f"ft-press-gate 실행 실패({e}) — fail-closed(R106c)")
 if r.returncode != 0:

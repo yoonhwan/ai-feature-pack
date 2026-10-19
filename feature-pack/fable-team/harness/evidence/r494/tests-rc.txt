@@ -1,0 +1,77 @@
+# r494 시험 원문 — HEAD=aba3afedba47e73d0f387aeccfb114485039825b · 2026-10-19 23:52:52
+bash -n kit/fable-team/bin/ft-root-bin-shim.sh rc=0
+bash -n kit/fable-team/bin/ft-nano-spawn.sh rc=0
+bash -n install.sh rc=0
+bash -n kit/fable-team/templates/hooks/press-runner-gate.sh rc=0
+
+## bash tests/test_root_bin_shim.sh
+PASS r494 ⓐ --init (rc=0)
+PASS r494 ⓐ INIT 줄
+PASS r494 ⓐ SHIM 2 · MOVED 0 · UNKNOWN 0
+PASS r494 ⓐ ft-press-gate.sh 연결 파일 실행 가능
+PASS r494 ⓐ LIVE_BIN = 라이브
+PASS r494 ⓐ LIVE_ROOT = 공용 루트 경로(파일 값 /old/… 복사 0)
+PASS r494 ⓐ 연결 파일 → 라이브 게이트 실행
+PASS r494 ⓐ 두 번째 --init (rc=0)
+PASS r494 ⓐ 두 번째 MOVED 0
+PASS r494 ⓐ 두 번째 INIT 0
+PASS r494 ⓐ 두 번째 NOTE 0
+PASS r494 ⓐ 두 번째 = 쓰기 0(바이트 불변)
+PASS r494 ⓐ --init --dry-run (rc=0)
+PASS r494 ⓐ dry-run PLAN init 줄
+PASS r494 ⓐ dry-run 쓰기 0
+PASS r494 ⓑ --init 없음 → rc3 (rc=3)
+PASS r494 ⓑ ERROR + --init 안내
+PASS r494 ⓑ 생성 0
+PASS r494 ⓒ git 밖 → rc3 (rc=3)
+PASS r494 ⓒ git 밖 사유
+PASS r494 ⓒ git 밖 생성 0
+PASS r494 ⓒ 공용 루트 자체 → rc3 (rc=3)
+PASS r494 ⓒ 공용 루트 사유
+PASS r494 ⓒ 공용 루트 생성 0
+PASS r494 ⓒ 설치 안 된 리포 → rc3 (rc=3)
+PASS r494 ⓒ LIVE_BIN 없음 사유
+PASS r494 ⓒ 설치 안 된 리포 생성 0
+PASS r494 ⓓ install --dry-run 워크트리 (rc=0)
+PASS r494 ⓓ PLAN shim-init 줄
+PASS r494 ⓓ dry-run 생성 0
+PASS r494 ⓓ install --apply 워크트리 (rc=0)
+PASS r494 ⓓ apply INIT 줄
+PASS r494 ⓓ apply 뒤 bin/ft-press-gate.sh 실재
+PASS r494 ⓓ apply LIVE_ROOT = 공용 루트
+PASS r494 ⓓ 공용 루트 bin 없음 → REJECT rc2 (rc=2)
+PASS r494 ⓓ REJECT 문구 그대로
+PASS r494 ⓔ 훅 판정 deny 그대로
+PASS r494 ⓔ deny 문구에 shim --init 1줄(리포 LIVE_BIN)
+PASS r494 ⓔ LIVE_BIN 못 읽으면 글자 <LIVE_BIN>
+PASS r494 ⓔ .. spawn shim-init 2줄 추출
+PASS r494 ⓔ .. 성공 = SHIM 줄 1
+PASS r494 ⓔ .. 실패 = NOTE 줄
+PASS r494 ⓔ .. 실패에도 spawn 계속
+PASS r494 ⓔ .. 인자 = --root 워크트리 --live 루트 LIVE_BIN --init
+PASS r494 ⓔ fable-team spawn shim-init 2줄 추출
+PASS r494 ⓔ fable-team 성공 = SHIM 줄 1
+PASS r494 ⓔ fable-team 실패 = NOTE 줄
+PASS r494 ⓔ fable-team 실패에도 spawn 계속
+PASS r494 ⓔ fable-team 인자 = --root 워크트리 --live 루트 LIVE_BIN --init
+PASS r494 shim 추적본 = 키트(cmp)
+PASS r494 nano-spawn 추적본 = 키트(cmp)
+== fail=0
+rc=0
+
+## bash tests/test_nano_spawn_tier.sh
+ALL PASS
+rc=0
+
+## bash tests/test_install_hook_check.sh
+ALL PASS
+rc=0
+
+## bash tests/test_installed_root.sh
+== ALL PASS · skip=0 ==
+rc=0
+
+## pytest tests/scripts/test_press_runner_gate_hook.py
+32 passed in 5.97s
+
+## 변이: origin 옛 shim(339117c5) 대입 → r494 절 FAIL 19 (rc1) — 시험 이빨

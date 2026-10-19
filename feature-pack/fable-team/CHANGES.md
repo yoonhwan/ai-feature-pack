@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 새 워크트리 `.fable-team/bin` 첫 설치 길 = shim `--init` (r494 · 1.1.52)
+
+- 사건: chatbot#8 tester 실음성 시험(P3)이 홈 훅 `press-runner-gate.sh` 의 «게이트가 없다 chatbot-main/.fable-team/bin/ft-press-gate.sh fail-closed(R106c)» deny 로 멈췄다(요청 115353). shim(`:25` 루트 bin 없음 ERROR)·설치기(`:42` REJECT)·훅(설치 안내 0) 셋 다 «bin 이 이미 있다» 전제라 새 워크트리는 어느 길로도 bin 을 못 얻는다 — 실측 `.worktrees/*/.fable-team` 313 중 bin 없음 306. master 손(`mkdir bin` + shim)으로 임시 해소.
+- `ft-root-bin-shim.sh --init`: bin 없음 ∧ 루트가 «설치된 리포(공용 루트 `.fable-team/LIVE_BIN` 실재)의 git 워크트리 최상위» → 모든 검사 뒤 `mkdir` + `INIT <bin> (새 워크트리 · 공용 루트 …)` 줄 + 기존 흐름. LIVE_ROOT 기본 = 공용 루트 경로 그 자체(공용 루트 LIVE_ROOT 파일 값 복사 0 · master 115441). 공용 루트 자체·git 밖·워크트리 최상위 아님·설치 안 된 리포 = `ERROR --init 불가 — <사유>` rc3 · 생성 0. `--init` 없이 bin 없음 = 기존 ERROR + « (새 워크트리면 --init)». `--dry-run` = `PLAN init` 줄 · 쓰기 0. bin 있는 루트는 지금 흐름 그대로.
+- `install.sh`: bin 없음 ∧ `--project` 가 git 워크트리 → dry-run `PLAN shim-init <워크트리>` · apply = 설치본 shim `--init`(LIVE_ROOT 기본 = 공용 루트 · rc≠0 = 그 자리에서 멈춤). 공용 루트·git 밖 bin 없음 = REJECT rc2 그대로. 프로젝트 폴더 없음 = REJECT rc2(쓰기 0).
+- 홈 훅 `press-runner-gate.sh`: 게이트 없음 deny 문구 끝에 « · 설치(master) = bash <LIVE_BIN>/ft-root-bin-shim.sh --root <toplevel> --live <LIVE_BIN> --init»(LIVE_BIN = `git-common-dir` 부모의 `.fable-team/LIVE_BIN` 1줄 · 못 읽으면 글자 `<LIVE_BIN>`) · 판정 변경 0.
+- `ft-nano-spawn.sh`: `git worktree add`(sparse 는 checkout 뒤) 직후 shim `--init` — 성공 = `SHIM n · MOVED m · UNKNOWN k (shim-init <워크트리>)` 1줄 · 실패 = `NOTE shim-init 실패: <사유>`(spawn 계속 · 조용한 통과 0) · dry-run `PLAN shim-init`.
+- 시험 `harness/tests/test_root_bin_shim.sh` r494 절 ⓐ~ⓔ(임시 «설치된 리포» + `git worktree add` + git 밖 폴더 + 공용 루트 사본 + 설치 안 된 리포 · 외부 호출 0 · GIT_* 0) rc0 · 옛 shim 대입 19 FAIL. 설치: LIVE_BIN 키트 2(shim·nano-spawn) cmp0 + 홈 훅 1(`templates/hooks/press-runner-gate.sh` → `~/.claude/hooks/` cp+755) · 되돌림 = 이 커밋 revert(설치본 `.bak-r494`). 범위 밖: 기존 306 워크트리 일괄 설치(master 별 h) · baton wt-create 배선. 원문 = `harness/evidence/r494/tests-rc.txt`.
+
 ## 2026-10-20 — 공유 역할 좌석 승계: 은퇴가 «모든 명부»의 역할 칸(`_arch`·`_master`…)까지 후계로 · 재실행 보정 · 빈 역할 칸 채우기 (r465 · 1.1.51)
 
 - 사건(v65 master 211 · 112532): 공유 arch 262→263 은퇴 뒤 `seats-lecture.json _arch` = 262 그대로 → `ft-seat-close 262` 가 «현역 역할 좌석» REJECT · retire 재실행은 NOOP · 명부 손 편집 0 이라 갈 길 0. 사례 2(112813): `close --verdict` 가 `_arch` 를 "" 로 비운 뒤 resume 한 좌석은 retire 가 `keys=[]` 로 끝나 칸이 빈 채 남음(planner 손 채움).

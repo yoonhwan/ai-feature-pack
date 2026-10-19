@@ -2,7 +2,8 @@
 # install.sh — fable-team harness 설치 입구 (설계 DESIGN-harness-repo-split-and-teams-move-20261018 §9-3 입구 표 · r385 B1)
 # 사용: bash harness/install.sh [--dry-run|--apply] --project <프로젝트 루트> [--home DIR] [--machine NAME] [--live-root DIR]
 #   버전 = ../manifest.json "version" 하나(손으로 적지 않는다). 설치 폴더 = <home>/.claude/fable-team/live/<version>/{bin,templates,HARNESS_ROOT}
-#   --project 필수(dry-run·apply 둘 다 · cwd 추론 0 · 없으면 rc2 쓰기 0). 프로젝트에 .fable-team/bin 이 있어야 한다.
+#   --project 필수(dry-run·apply 둘 다 · cwd 추론 0 · 없으면 rc2 쓰기 0). 프로젝트에 .fable-team/bin 이 있어야 한다
+#     — r494: 없고 --project 가 git 워크트리면 dry-run `PLAN shim-init` · apply = 설치본 shim --init(LIVE_ROOT 기본 = 공용 루트) · 공용 루트 bin 없음 = REJECT rc2.
 #   --apply: 키트 kit/fable-team/{bin,templates} 일반 파일을 버전 폴더에 cp -p → cmp · <버전>/HARNESS_ROOT = 이 하네스 루트 1줄
 #            → 설치본 ft-root-bin-shim.sh 로 프로젝트 LIVE_BIN(=<버전>/bin) · LIVE_ROOT(있으면 보존 · 없으면 --live-root 또는 프로젝트) · 루트 연결 파일.
 #   멱등: 같은 명령 2회째 = 복사 0(cmp 같음) · 연결 파일 MOVED 0. 남는 설치본 파일(키트에 없는 이름)은 지우지 않고 EXTRA 로 센다.
@@ -39,11 +40,17 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$PROJECT" ] || { echo "REJECT --project <프로젝트 루트> 필수 — cwd 로 추론하지 않는다 (쓰기 0)" >&2; exit 2; }
-[ -d "$PROJECT/.fable-team/bin" ] || { echo "REJECT 프로젝트에 .fable-team/bin 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
+[ -d "$PROJECT" ] || { echo "REJECT 프로젝트 폴더 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
 PROJECT="$(cd "$PROJECT" && pwd -P)"
 # r457: launchd plist 는 git 공용 루트 설치에서만 — 워크트리 --project(r413 shim 설치)는 plist 를 건드리지 않는다
 COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"; COMMON="${COMMON%/.git}"
 [ -z "$COMMON" ] || [ ! -d "$COMMON" ] || COMMON="$(cd "$COMMON" && pwd -P)"
+# r494: 새 워크트리(bin 없음)는 설치본 shim --init 으로 bin 을 만든다 · 공용 루트(·git 밖) bin 없음 = REJECT 그대로
+SHIM_INIT=0
+if [ ! -d "$PROJECT/.fable-team/bin" ]; then
+  [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ] || { echo "REJECT 프로젝트에 .fable-team/bin 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
+  SHIM_INIT=1
+fi
 [ -f "$MANIFEST" ] || { echo "ERROR: manifest 없음: $MANIFEST" >&2; exit 1; }
 [ -d "$KIT/bin" ] && [ -d "$KIT/templates" ] || { echo "ERROR: 키트 없음: $KIT/{bin,templates}" >&2; exit 1; }
 VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$MANIFEST")"
@@ -52,7 +59,7 @@ VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["vers
 LIVE="$HOME_DIR/.claude/fable-team/live/$VERSION"
 LR_FILE="$PROJECT/.fable-team/LIVE_ROOT"
 if [ -z "$LROOT" ]; then
-  if [ -f "$LR_FILE" ]; then LROOT="$(sed -n '1p' "$LR_FILE" | tr -d '\r')"; else LROOT="$PROJECT"; fi
+  if [ -f "$LR_FILE" ]; then LROOT="$(sed -n '1p' "$LR_FILE" | tr -d '\r')"; elif [ "$SHIM_INIT" = 1 ]; then LROOT="$COMMON"; else LROOT="$PROJECT"; fi
 fi
 # 설치 대상 = 키트 bin·templates 의 일반 파일(파이썬 캐시 제외) — 상대경로 정렬
 FILES="$(cd "$KIT" && find bin templates -type f ! -path '*/__pycache__/*' ! -name '*.pyc' | LC_ALL=C sort)"
@@ -64,6 +71,7 @@ HOME_HOOKS="$(cd "$HARNESS/kit/hooks" && find . -maxdepth 1 -type f ! -name '*.p
 echo "== fable-team harness 설치 ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0')) =="
 echo "version=$VERSION machine=$MACHINE live=$LIVE/ files=$COUNT"
 echo "HARNESS_ROOT $LIVE/HARNESS_ROOT <- $HARNESS"
+[ "$SHIM_INIT" = 0 ] || echo "PLAN shim-init $PROJECT (새 워크트리 · bin 없음 → 설치본 ft-root-bin-shim.sh --init · 공용 루트 $COMMON)"
 echo "LIVE_BIN  $PROJECT/.fable-team/LIVE_BIN  <- $LIVE/bin"
 echo "LIVE_ROOT $LR_FILE <- $LROOT$([ -f "$LR_FILE" ] && echo ' (있으면 보존)')"
 for h in $HOME_HOOKS; do echo "HOOK $HOME_DIR/.claude/hooks/$h <- $HARNESS/kit/hooks/$h (exec)"; done
@@ -217,8 +225,9 @@ echo "HOOKS copied=$hcopied same=$hsame chmod=$hchmod (settings.json 등록은 �
 # 프로젝트 LIVE_BIN·LIVE_ROOT·연결 파일 — 설치본 도구로(키트 트리 = 이 하네스 체크아웃의 HEAD)
 REPO="$(git -C "$HARNESS" rev-parse --show-toplevel)"; REPO="$(cd "$REPO" && pwd -P)"
 REF="$(git -C "$REPO" rev-parse HEAD)"
+INIT_ARG=(); [ "$SHIM_INIT" = 0 ] || INIT_ARG=(--init)   # r494: rc≠0 = set -e 로 여기서 멈춘다(ERROR 줄 그대로)
 bash "$LIVE/bin/ft-root-bin-shim.sh" --root "$PROJECT" --live "$LIVE/bin" --live-root "$LROOT" \
-  --repo "$REPO" --path "${HARNESS#"$REPO"/}/kit/fable-team/bin" --ref "$REF"
+  --repo "$REPO" --path "${HARNESS#"$REPO"/}/kit/fable-team/bin" --ref "$REF" ${INIT_ARG[@]+"${INIT_ARG[@]}"}
 gcopied=0; gsame=0
 for src in "$KIT"/githooks/*; do
   [ -f "$src" ] || continue

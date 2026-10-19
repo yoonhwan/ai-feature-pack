@@ -124,4 +124,76 @@ out="$(bash "$LINT" "$KB" 2>&1)"; rc=$?; rc_is "$rc" 0 "r484 ⓒ 키트 bin 전�
 # ⓓ shim 직접 실행은 그대로(생성기 변경 0)
 out="$(bash "$V/.fable-team/bin/ft-news-tree.py" "$MD" 2>&1)"; has "$out" "베타 하는 중" "r484 ⓓ bash <shim> 직접 실행 = 트리 줄"; hasnt "$out" "SyntaxError" "r484 ⓓ SyntaxError 0"
 
+# ── r494: 새 워크트리(bin 0) = shim --init 으로 bin 생성 · install.sh 워크트리 경유 · 훅 deny 설치 1줄 · nano-spawn NOTE/SHIM ──
+R4="$T/r494"; RP="$R4/repo"; LV="$R4/live"; mkdir -p "$RP/$KP" "$LV" "$R4/plain"
+git init -q -b main "$RP"; printf 'g\n' > "$RP/$KP/ft-press-gate.sh"; printf 'a\n' > "$RP/$KP/ft-a.sh"
+git -C "$RP" add -A && git -C "$RP" -c user.email=t@t -c user.name=t commit -q -m kit
+printf '#!/usr/bin/env bash\necho "LIVE-GATE $*"\n' > "$LV/ft-press-gate.sh"; printf 'echo A\n' > "$LV/ft-a.sh"
+mkdir -p "$RP/.fable-team/bin"; printf '%s\n' "$LV" > "$RP/.fable-team/LIVE_BIN"; printf '/old/v6-realtime-live\n' > "$RP/.fable-team/LIVE_ROOT"   # 공용 루트 LIVE_ROOT = 다른 값(복사 0 확인)
+for w in w1 w2 w3 w4; do git -C "$RP" worktree add -q -b "$w" "$RP/.worktrees/$w" main; done
+R4RUN() { local r="$1"; shift; bash "$SH" --root "$r" --live "$LV" --ref HEAD --repo "$RP" --path "$KP" "$@"; }
+W1="$RP/.worktrees/w1"
+# ⓐ --init → bin 생성 + 연결 파일 + LIVE_BIN + LIVE_ROOT(= 공용 루트 경로) · 두 번째 = 쓰기 0
+out="$(R4RUN "$W1" --init 2>&1)"; rc=$?
+rc_is "$rc" 0 "r494 ⓐ --init"; has "$out" "INIT $W1/.fable-team/bin" "r494 ⓐ INIT 줄"; has "$out" "SHIM 2 · MOVED 0 · UNKNOWN 0" "r494 ⓐ SHIM 2 · MOVED 0 · UNKNOWN 0"
+[ -x "$W1/.fable-team/bin/ft-press-gate.sh" ] && ok "r494 ⓐ ft-press-gate.sh 연결 파일 실행 가능" || bad "r494 ⓐ 연결 파일 없음"
+[ "$(cat "$W1/.fable-team/LIVE_BIN")" = "$LV" ] && ok "r494 ⓐ LIVE_BIN = 라이브" || bad "r494 ⓐ LIVE_BIN 값"
+[ "$(cat "$W1/.fable-team/LIVE_ROOT")" = "$RP" ] && ok "r494 ⓐ LIVE_ROOT = 공용 루트 경로(파일 값 /old/… 복사 0)" || bad "r494 ⓐ LIVE_ROOT=$(cat "$W1/.fable-team/LIVE_ROOT")"
+has "$(bash "$W1/.fable-team/bin/ft-press-gate.sh" x 2>&1)" "LIVE-GATE x" "r494 ⓐ 연결 파일 → 라이브 게이트 실행"
+snap1="$(cd "$W1/.fable-team" && cksum LIVE_BIN LIVE_ROOT bin/* | sort)"
+out="$(R4RUN "$W1" --init 2>&1)"; rc=$?
+rc_is "$rc" 0 "r494 ⓐ 두 번째 --init"; has "$out" "SHIM 2 · MOVED 0 · UNKNOWN 0" "r494 ⓐ 두 번째 MOVED 0"; hasnt "$out" "INIT " "r494 ⓐ 두 번째 INIT 0"; hasnt "$out" "NOTE" "r494 ⓐ 두 번째 NOTE 0"
+[ "$snap1" = "$(cd "$W1/.fable-team" && cksum LIVE_BIN LIVE_ROOT bin/* | sort)" ] && ok "r494 ⓐ 두 번째 = 쓰기 0(바이트 불변)" || bad "r494 ⓐ 두 번째가 썼다"
+out="$(R4RUN "$RP/.worktrees/w2" --init --dry-run 2>&1)"; rc=$?
+rc_is "$rc" 0 "r494 ⓐ --init --dry-run"; has "$out" "PLAN init $RP/.worktrees/w2/.fable-team/bin" "r494 ⓐ dry-run PLAN init 줄"
+[ ! -e "$RP/.worktrees/w2/.fable-team" ] && ok "r494 ⓐ dry-run 쓰기 0" || bad "r494 ⓐ dry-run 이 썼다"
+# ⓑ --init 없이 bin 없음 → 기존 ERROR + 안내 · 생성 0
+out="$(R4RUN "$RP/.worktrees/w3" 2>&1)"; rc=$?
+rc_is "$rc" 3 "r494 ⓑ --init 없음 → rc3"; has "$out" "ERROR 루트 bin 없음: $RP/.worktrees/w3/.fable-team/bin (새 워크트리면 --init)" "r494 ⓑ ERROR + --init 안내"
+[ ! -e "$RP/.worktrees/w3/.fable-team" ] && ok "r494 ⓑ 생성 0" || bad "r494 ⓑ 생성됨"
+# ⓒ git 밖 · 공용 루트 자체(bin 지운 사본) · 설치 안 된 리포(LIVE_BIN 없음) → rc3 ERROR · 생성 0
+out="$(R4RUN "$R4/plain" --init 2>&1)"; rc=$?
+rc_is "$rc" 3 "r494 ⓒ git 밖 → rc3"; has "$out" "ERROR --init 불가 — git 밖" "r494 ⓒ git 밖 사유"; [ ! -e "$R4/plain/.fable-team" ] && ok "r494 ⓒ git 밖 생성 0" || bad "r494 ⓒ git 밖 생성됨"
+C2="$R4/common2"; mkdir -p "$C2/.fable-team"; git init -q -b main "$C2"; printf '%s\n' "$LV" > "$C2/.fable-team/LIVE_BIN"
+out="$(R4RUN "$C2" --init 2>&1)"; rc=$?
+rc_is "$rc" 3 "r494 ⓒ 공용 루트 자체 → rc3"; has "$out" "공용 루트 자체다: $C2 — 공용 루트 설치는 install.sh" "r494 ⓒ 공용 루트 사유"; [ ! -e "$C2/.fable-team/bin" ] && ok "r494 ⓒ 공용 루트 생성 0" || bad "r494 ⓒ 공용 루트 bin 생성됨"
+C3="$R4/noinst"; mkdir -p "$C3"; git init -q -b main "$C3"; git -C "$C3" -c user.email=t@t -c user.name=t commit -q --allow-empty -m e; git -C "$C3" worktree add -q -b x "$C3/.worktrees/x" main
+out="$(R4RUN "$C3/.worktrees/x" --init 2>&1)"; rc=$?
+rc_is "$rc" 3 "r494 ⓒ 설치 안 된 리포 → rc3"; has "$out" "설치된 리포가 아님" "r494 ⓒ LIVE_BIN 없음 사유"; [ ! -e "$C3/.worktrees/x/.fable-team" ] && ok "r494 ⓒ 설치 안 된 리포 생성 0" || bad "r494 ⓒ 생성됨"
+# ⓓ install.sh: 워크트리 bin 없음 → dry-run PLAN shim-init · apply = bin 실재 · 공용 루트 bin 없음 = REJECT rc2 그대로
+HINST="$HERE/../install.sh"; IH="$R4/home"; mkdir -p "$IH/Library/LaunchAgents" "$R4/fb"; printf '#!/bin/sh\nexit 0\n' > "$R4/fb/launchctl"; chmod 755 "$R4/fb/launchctl"
+hinst() { local p="$1"; shift; env HOME="$IH" FT_LAUNCHCTL="$R4/fb/launchctl" bash "$HINST" "$@" --project "$p" --home "$IH" 2>&1; }
+W4="$RP/.worktrees/w4"
+out="$(hinst "$W4" --dry-run)"; rc=$?
+rc_is "$rc" 0 "r494 ⓓ install --dry-run 워크트리"; has "$out" "PLAN shim-init $W4" "r494 ⓓ PLAN shim-init 줄"; [ ! -e "$W4/.fable-team/bin" ] && ok "r494 ⓓ dry-run 생성 0" || bad "r494 ⓓ dry-run 생성됨"
+out="$(hinst "$W4" --apply)"; rc=$?
+rc_is "$rc" 0 "r494 ⓓ install --apply 워크트리"; has "$out" "INIT $W4/.fable-team/bin" "r494 ⓓ apply INIT 줄"
+[ -x "$W4/.fable-team/bin/ft-press-gate.sh" ] && ok "r494 ⓓ apply 뒤 bin/ft-press-gate.sh 실재" || bad "r494 ⓓ apply 뒤 bin 없음 :: $(printf '%s' "$out" | tail -4)"
+[ "$(cat "$W4/.fable-team/LIVE_ROOT" 2>/dev/null)" = "$RP" ] && ok "r494 ⓓ apply LIVE_ROOT = 공용 루트" || bad "r494 ⓓ LIVE_ROOT=$(cat "$W4/.fable-team/LIVE_ROOT" 2>/dev/null)"
+out="$(hinst "$C2" --dry-run)"; rc=$?
+rc_is "$rc" 2 "r494 ⓓ 공용 루트 bin 없음 → REJECT rc2"; has "$out" "REJECT 프로젝트에 .fable-team/bin 없음" "r494 ⓓ REJECT 문구 그대로"
+# ⓔ 훅: bin 없는 워크트리에서 러너 실행 → deny 문구에 설치 1줄(리포 LIVE_BIN 값) · 판정 deny 그대로
+HOOK="$HERE/../kit/fable-team/templates/hooks/press-runner-gate.sh"; W3="$RP/.worktrees/w3"
+hk() { printf '%s' "{\"tool_name\":\"Bash\",\"cwd\":\"$1\",\"tool_input\":{\"command\":\"python3 tests/e2e/realtime_multi_e2e.py\"}}" | env -u FT_PRESS_GATE_BIN FT_PRESS_RUNNER_GATE_LOG="$R4/gate.log" bash "$HOOK" 2>&1; }
+out="$(hk "$W3")"
+has "$out" '"permissionDecision": "deny"' "r494 ⓔ 훅 판정 deny 그대로"
+has "$out" "설치(master) = bash $LV/ft-root-bin-shim.sh --root $W3 --live $LV --init" "r494 ⓔ deny 문구에 shim --init 1줄(리포 LIVE_BIN)"
+out="$(hk "$R4/plain")"; has "$out" "--live <LIVE_BIN> --init" "r494 ⓔ LIVE_BIN 못 읽으면 글자 <LIVE_BIN>"
+# ⓔ nano-spawn: 워크트리 생성 직후 shim --init 줄 — 성공 = SHIM 끝줄 · 실패 = NOTE shim-init 실패(조용한 통과 0) · 추적본·키트 둘 다
+for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-spawn.sh"; do
+  tag="$(basename "$(dirname "$(dirname "$SP")")")"; SN="$R4/sn-$tag"; mkdir -p "$SN/h" "$SN/root/.fable-team"; printf '%s\n' "$LV" > "$SN/root/.fable-team/LIVE_BIN"
+  awk '/# r494: 새 워크트리에 하네스 입구/{f=1;next} f{print} f && /NOTE shim-init 실패/{exit}' "$SP" > "$SN/snip.sh"
+  [ "$(grep -c . "$SN/snip.sh")" = 2 ] && ok "r494 ⓔ $tag spawn shim-init 2줄 추출" || bad "r494 ⓔ $tag 추출 실패"
+  printf '#!/usr/bin/env bash\necho "args=$*"; echo "SHIM 9 · MOVED 0 · UNKNOWN 0"\n' > "$SN/h/ft-root-bin-shim.sh"
+  out="$(HERE="$SN/h" ROOT="$SN/root" WTDIR="$SN/wt" bash -c ". '$SN/snip.sh'" 2>&1)"
+  has "$out" "SHIM 9 · MOVED 0 · UNKNOWN 0 (shim-init $SN/wt)" "r494 ⓔ $tag 성공 = SHIM 줄 1"
+  printf '#!/usr/bin/env bash\necho "args=$*" >&2; echo "ERROR --init 불가 — git 밖: x"; exit 3\n' > "$SN/h/ft-root-bin-shim.sh"
+  out="$(HERE="$SN/h" ROOT="$SN/root" WTDIR="$SN/wt" bash -c ". '$SN/snip.sh'; echo CONT" 2>&1)"
+  has "$out" "NOTE shim-init 실패: ERROR --init 불가 — git 밖: x" "r494 ⓔ $tag 실패 = NOTE 줄"; has "$out" "CONT" "r494 ⓔ $tag 실패에도 spawn 계속"
+  printf '#!/usr/bin/env bash\necho "$*"\n' > "$SN/h/ft-root-bin-shim.sh"
+  has "$(HERE="$SN/h" ROOT="$SN/root" WTDIR="$SN/wt" bash -c ". '$SN/snip.sh'" 2>&1)" "--root $SN/wt --live $LV --init" "r494 ⓔ $tag 인자 = --root 워크트리 --live 루트 LIVE_BIN --init"
+done
+cmp -s "$HERE/../bin/ft-root-bin-shim.sh" "$HERE/../kit/fable-team/bin/ft-root-bin-shim.sh" && ok "r494 shim 추적본 = 키트(cmp)" || bad "r494 shim 추적본 ≠ 키트"
+cmp -s "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-spawn.sh" && ok "r494 nano-spawn 추적본 = 키트(cmp)" || bad "r494 nano-spawn 추적본 ≠ 키트"
+
 echo "== fail=$fail"; [ "$fail" = 0 ]
