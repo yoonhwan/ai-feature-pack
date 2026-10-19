@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 — 뉴스 지도: «확인 불가»(turn 시간 초과·실패) ≠ «쉬는 팀» · turn 재시도 1 · 풀 = 좌석 수 (r490 · 1.1.45)
+
+- 22:04 뉴스(load 25~31)에서 chatbot 5석의 `ft-seat-status.sh turn` 이 7초 상한을 넘어 «?» 가 됐는데 `facts`·`bucket` 이 일하는 0 인 팀을 전부 «쉬는 팀» 에 넣어 일하는 챗봇팀이 «쉼» 으로 나갔다(오빠 «챗봇팀은 왜쉬어?»).
+- `ft_news_html.py`: `_turn` = 첫 출력 전 실패 1회 재시도(7초 룰 · 시간 초과는 프로세스 묶음째 kill) · 풀 = min(좌석 수, 32) · 팀 칸 `unknown_reason` · `facts` 3분류(일하는 · 확인 불가 · 쉬는). `ft_news_html_render.py`: 3분류 bucket + «확인 불가» 블록 · 프롬프트 1줄. 틀 `news-team-map.html`: H2 «확인 불가» + chip. `ft_news_html_lint.py`: H2 5개 · 확인 불가 팀 이름 + 쉬/멈/정지/대기 단정 = 위반.
+- 시험 `test_news_html.sh` 32 passed(새 ⓐ~ⓓ · 옛 판 RED 4) · 되돌림 = 이 절 커밋 revert(설치본 `.bak-r490`) · 단계 = `harness/evidence/r490/master-steps.md`.
+
 ## 2026-10-20 — 키트 ft-mbox send/relay 도 보관 로그 mailbox.log.jsonl 에 1행 + send 자가 점검 WARN (r488 · 1.1.44)
 
 - 라이브 `ft-mbox.sh send`(키트 단일 파일 `ft-mbox.py`)는 보낸 행을 `mailbox.jsonl` 에만 써서, recv 가 소비하면 그 쪽지의 레코드가 어디에도 남지 않았다(bodies 만) → `ft_da_hold_gate find_record` 등이 «쪽지 없음» 판정(실측 114380~114490 중 6건). 루트 모듈판 `mbox_guard._log_sent` 규칙 그대로 `ft-mbox.py send`(relay 는 send 경유)가 `_save` 직후 같은 잠금 안에서 `mailbox.log.jsonl` 에 1행 append · `FT_MBOX_LOG_MAX_BYTES`(기본 5MB) 초과 시 `.1` 회전 · 기록 실패는 stderr WARN(전송 rc 불변).
