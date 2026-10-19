@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — push 게이트 새 가지 range = merge-base(origin/main, tip)..tip · 훅이 처음 키트에 들어옴 (r511 · 1.1.66)
+
+- 사건: 문서 3파일 새 가지 첫 push 가 `PUSH_DENIED «range 에 제품코드»` → `FT_PUSH_DA6_OK` 우회 기록(v65 쪽지 117396 → planner 117419 → harness master 82 발주 117428). 원인: `pre-push:27-28` 새 가지(remote_sha 0)면 `range="$local_sha"` — `git diff --name-only <커밋>` 은 «그 커밋 ↔ 작업 트리» 라 미커밋 변경을 잡고(오탐) 올라가는 제품 커밋은 놓친다(누락 — 작업 트리가 깨끗하면 제품 커밋 가지도 통과). `:33` `2>/dev/null` 이 diff 실패를 «hits 없음 = 통과» 로 삼켰다.
+- 훅이 처음 키트에 들어옴: `kit/fable-team/githooks/pre-push`(새 · 출발점 = 공용 루트 손 설치본 09-09 바이트 그대로 → 구조 커밋) — 설치하면(`install.sh --apply` GITHOOKS 줄) 공용 루트 판을 덮고 `pre-push.bak-<버전>` 을 남긴다. 정본 위치 = 팩 키트.
+- 고침: 새 가지 `base=$(git merge-base origin/main "$local_sha")` · 비면 `PUSH_DENIED — 새 가지 기준(merge-base origin/main) 못 구함 — 거부 유지` rc1 · 있으면 `range="$base..$local_sha"` · diff rc≠0 = `PUSH_DENIED — range diff 실패 — 거부 유지` rc1(조용한 통과 0). 기존 가지 `remote..local`·`FT_PUSH_DA6_OK` 우회 기록·GATE_BRANCH·PRODUCT_PATHS 그대로.
+- 시험 `test_pre_push_range.sh`(새 · 임시 bare origin + 클론 · stdin 직접 · push 0 · 가짜 bd): ⓐ 새 가지 문서 + 미커밋 gateway → 통과 ⓑ 새 가지 gateway 커밋 → 거부 + `range: <mb>..<tip>` · 우회 기록 ⓒ 기존 가지 문서 통과·제품 거부 ⓓ origin/main 없음·diff 실패 → 거부 ⓔ GATE_BRANCH 아님 → 검사 0 = 11 PASS(bash5 + /bin/bash 3.2) · 변이(옛 설치본) FAIL 7. shellcheck -S warning = 옛 줄 `:24` SC2034(local_ref·remote_ref) 만. 원문 = `harness/evidence/r511/tests-rc.txt`(고치기 전 = `before-fix.txt`).
+- 범위 밖: 다른 githooks(commit-msg·post-*·prepare-commit-msg) 키트 이관(같은 «손 설치» 꼴 — 별 카드 후보) · GATE_BRANCH 확장 · `--no-verify` 차단.
+
 ## 2026-10-20 — 완성 이동의 정본 갱신 요청 쪽지 = 카드 팀 명부의 `_arch` 로(기본 v65 명부 고정 0) (r487 · 1.1.64)
 
 - 사건: loom 카드 완성 이동(`design/teams/loom/indices/완성/loom-canon-plan-l1-l3.md`)의 «정본 갱신 요청» 쪽지 114386 이 v65 arch 264 에게 갔다(v65 arch 264 요청 114392 → harness arch 103 카드). 원인: `ft-index-move.sh:161` `SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"` — 주석은 «팀 현역 arch» 인데 env 가 없으면 기본 명부(= v65 `_label`)로 고정.

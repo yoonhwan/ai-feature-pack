@@ -25,12 +25,23 @@ gate() {
     [ -z "$local_sha" ] && continue
     [ "$local_sha" = "$ZERO" ] && continue          # 브랜치 삭제
     if [ "$remote_sha" = "$ZERO" ]; then
-      range="$local_sha"                            # 신규 브랜치
+      # 신규 브랜치 — 올라가는 것 = main 과 갈라진 뒤의 커밋(r511). 커밋 하나만 넘기면 git diff 가
+      # «그 커밋 ↔ 작업 트리» 로 읽어 미커밋 변경을 잡고(오탐) 올라가는 제품 커밋은 놓친다.
+      base=$(git merge-base origin/main "$local_sha" 2>/dev/null)
+      if [ -z "$base" ]; then
+        echo "PUSH_DENIED — 새 가지 기준(merge-base origin/main) 못 구함 — 거부 유지 (local: $local_sha)" >&2
+        return 1
+      fi
+      range="$base..$local_sha"
     else
       range="$remote_sha..$local_sha"
     fi
 
-    hits=$(git diff --name-only "$range" -- $PRODUCT_PATHS 2>/dev/null)
+    # diff 실패를 «hits 없음» 으로 읽지 않는다 — 실패 = 거부(#0 RULE · r511)
+    if ! hits=$(git diff --name-only "$range" -- $PRODUCT_PATHS); then
+      echo "PUSH_DENIED — range diff 실패 — 거부 유지 (range: $range)" >&2
+      return 1
+    fi
     [ -z "$hits" ] && continue
 
     if [ -n "$FT_PUSH_DA6_OK" ]; then
