@@ -15,6 +15,7 @@ from pathlib import Path
 from magazine_slack import Target
 from mirror_lib import MirrorError, thread_texts
 from post_guard import guarded_post as post
+from thread_room_shape import ROOM_HINT, refuse_room_post, room_shaped, topic_only  # noqa: F401 — 판정 정본은 한 파일(r617)
 
 STATE_ENV = "FT_SLACK_STATE_DIR"  # 수신 원장·답 기록이 사는 폴더(기본 ~/.hermes/state)
 INBOUND_ENV = "FT_SLACK_INBOUND_LEDGER"  # 원장 파일 하나로 고정(시험)
@@ -23,7 +24,7 @@ INBOUND_PREFIX = "byz_slack_mbox_inbound."
 ANSWERED_NAME = "byz_slack_answered.json"
 WINDOW = 7 * 86400  # 수신 데몬이 원장에 기억하는 창과 같다(R242) — 그 밖의 글은 답 자리를 따지지 않는다
 SHOW = 3  # 거절 문구에 싣는 최신 글 수 — 답 기록이 비어 처음 켜도 한 줄이 감당하게
-TOPIC_ENV = "FT_SLACK_TOPIC_ONLY"  # 주제 전용(이름 스레드 답 금지) 이름들 · 쉼표 · 빈 값 = 거절 끔(r561)
+TOPIC_ENV = "FT_SLACK_TOPIC_ONLY"  # 주제 전용 이름들 — 판정 정본 = thread_room_shape(r617)
 TOPIC_DEFAULT = "desk"
 ROOT_HEAD = 400  # 거절 문구에 싣는 뿌리 원문 길이 — 답하는 사람이 «그 글을 읽게»(r585)
 DECL = re.compile(r"요청\s*(\d+)\s*개\s*중\s*(\d+)\s*개\s*답함")  # 본문 첫 줄의 선언(r585)
@@ -111,12 +112,6 @@ def unanswered(channel: str, name: str) -> list[str]:
     return sorted(out)
 
 
-def topic_only() -> set[str]:
-    """주제 전용 이름들 — env 미설정 = 기본 `desk` · 빈 값 = 거절 끔(r561)."""
-    raw = os.environ.get(TOPIC_ENV)
-    return {x.strip() for x in (TOPIC_DEFAULT if raw is None else raw).split(",") if x.strip()}
-
-
 def refuse_topic(name: str, force: bool) -> None:
     """주제 전용 이름이면 답 안 된 글 유무와 무관하게 거절 — 스레드 = 주제 대화 전용 · 방 글 = post(r561)."""
     if name not in topic_only():
@@ -138,6 +133,7 @@ def refuse_unanswered(name: str, channel: str | None, force: bool) -> None:
         return
     shown = pending[-SHOW:]  # 최신부터 — 쪽지·stderr 한 줄이 감당할 만큼만(나머지는 개수로)
     msg = " · ".join(f"답할 오빠 글 {ts} — reply --to-slack {ts}" for ts in shown)
+    msg += " (승인·질문 묶음 = post --to desk)"  # 묶음 글은 스레드가 아니라 방(r617)
     if len(pending) > len(shown):
         msg += f" · …외 {len(pending) - len(shown)}건"
     if force:

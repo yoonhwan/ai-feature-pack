@@ -1,0 +1,63 @@
+FF.F.F.                                                                  [100%]
+=================================== FAILURES ===================================
+________________________ test_ts_room_shape_is_refused _________________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-412/test_ts_room_shape_is_refused0')
+slack = <_proposal_fakes.FakeSlack object at 0x1049bbdd0>
+capsys = <_pytest.capture.CaptureFixture object at 0x1049bb230>
+
+    def test_ts_room_shape_is_refused(env, slack, capsys):  # ⓐ  # noqa: F811
+>       assert run(env, slack, "--ts", T, "--text", ROOM) == 2
+E       AssertionError: assert 0 == 2
+E        +  where 0 = run(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-412/test_ts_room_shape_is_refused0'), <_proposal_fakes.FakeSlack object at 0x1049bbdd0>, '--ts', '1792492349.071989', '--text', '승인 묶음 (h12 · h13) — 아래를 그대로 실행\n! bash /tmp/h12')
+
+tests/scripts/test_thread_topic_only_replies.py:48: AssertionError
+----------------------------- Captured stdout call -----------------------------
+reply ts=1792537523.888505
+_____________________ test_to_slack_room_shape_is_refused ______________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-412/test_to_slack_room_shape_is_re0')
+slack = <_proposal_fakes.FakeSlack object at 0x1049e3f80>
+capsys = <_pytest.capture.CaptureFixture object at 0x1049e3380>
+
+    def test_to_slack_room_shape_is_refused(env, slack, capsys):  # ⓑ  # noqa: F811
+>       assert run(env, slack, "--to-slack", T, "--text", ROOM) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = run(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-412/test_to_slack_room_shape_is_re0'), <_proposal_fakes.FakeSlack object at 0x1049e3f80>, '--to-slack', '1792492349.071989', '--text', '승인 묶음 (h12 · h13) — 아래를 그대로 실행\n! bash /tmp/h12')
+
+tests/scripts/test_thread_topic_only_replies.py:54: AssertionError
+----------------------------- Captured stderr call -----------------------------
+ERROR MirrorError: REJECT 답 — 첫 줄에 «요청 N개 중 M개 답함» 이 없어요
+--- 오빠 글(뿌리) 앞 400자 ---
+오빠 글 뿌리 — 3개 확인 부탁
+--- 쓰는 법: 첫 줄 «요청 N개 중 M개 답함» · 남으면 «남은 것: …» · 번호 대신 쉬운 말
+_______________ test_force_thread_posts_room_shape_with_warning ________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-412/test_force_thread_posts_room_s0')
+slack = <_proposal_fakes.FakeSlack object at 0x1049e3f20>
+capsys = <_pytest.capture.CaptureFixture object at 0x104f57a10>
+
+    def test_force_thread_posts_room_shape_with_warning(env, slack, capsys):  # ⓓ  # noqa: F811
+        assert run(env, slack, "--ts", T, "--force-thread", "--text", ROOM) == 0
+        out = capsys.readouterr()
+>       assert slack.replies[-1]["thread_ts"] == T and "WARN 방 글 꼴 강제 전송" in out.err
+E       AssertionError: assert ('1792492349.071989' == '1792492349.071989'
+E         
+E           1792492349.071989 and 'WARN 방 글 꼴 강제 전송' in '')
+E        +  where '' = CaptureResult(out='reply ts=1792537524.301894\n', err='').err
+
+tests/scripts/test_thread_topic_only_replies.py:66: AssertionError
+____________________ test_room_heads_and_room_shaped_edges _____________________
+
+    def test_room_heads_and_room_shaped_edges():
+>       assert trs.room_shaped("[상태] 승인 대기") and trs.room_shaped("[뉴스] 오늘") and trs.room_shaped("[desk · 승인] x")
+               ^^^^^^^^^^^^^^^
+E       AttributeError: module 'thread_reply_slack' has no attribute 'room_shaped'
+
+tests/scripts/test_thread_topic_only_replies.py:76: AttributeError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_topic_only_replies.py::test_ts_room_shape_is_refused
+FAILED tests/scripts/test_thread_topic_only_replies.py::test_to_slack_room_shape_is_refused
+FAILED tests/scripts/test_thread_topic_only_replies.py::test_force_thread_posts_room_shape_with_warning
+FAILED tests/scripts/test_thread_topic_only_replies.py::test_room_heads_and_room_shaped_edges
+4 failed, 3 passed in 1.17s

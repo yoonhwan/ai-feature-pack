@@ -1,0 +1,5 @@
+== base(origin/main) 판: test_thread_room_post.py::test_thread_desk_force_sends_with_warning ==
+tests/scripts/test_thread_room_post.py:91: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_room_post.py::test_thread_desk_force_sends_with_warning
+1 failed, 7 passed in 1.53s
