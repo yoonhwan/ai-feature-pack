@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 설치기가 launchd 키트 템플릿의 실행 경로를 판 없는 루트 shim 으로 렌더 · 설치 검사가 판 고정 plist 를 DRIFT 로 (r538 · 1.1.92)
+
+- 사건: `com.byz.ft-wt-sweep` plist 가 손 sed 렌더(`harness/evidence/r444/master-steps.md:11` «s|__FT_BIN__|<LIVE_BIN>|g»)로 판 붙은 라이브 경로(`live/1.1.16/bin`)에 고정돼 키트를 올려도 sweep 이 옛 판으로 돌았다(r535 고침이 launchd 경로로 안 돎 · master 84 손 재작성 뒤에도 `live/1.1.86` 고정 · 발주 119766 ②). `install.sh` 에 `__FT_BIN__` 치환 0 · 설치 검사에 판 고정 검사 0(arch 107 실측).
+- `ft_plist_env.py`: `bin-list <키트>` = `__FT_BIN__` 템플릿 7개(launchd 6 + slack-mirror board-publish · 템플릿 Label ≠ 파일 이름 = ERROR) · `render-bin <템플릿> <루트> [<설치 plist>] [--need-exist]` = `__FT_BIN__` → `<루트>/.fable-team/bin`(판 없는 루트 shim · LIVE_BIN 을 따라감) · `__BYZ_ROOT__` → 루트 · 자리표시 잔재·plist 해석 실패·git 공용 루트 아님·(apply)루트 bin 도구 없음 = ERROR rc3. 설치 plist 를 주면 ★ProgramArguments 하나만★ 렌더본 것으로 바꾼다 — 머신별 env·주기는 설치본 그대로(실측: 설치본에만 있는 `FT_STALL_PENALTY_AUTO=0` · news-planner `FT_LEDGER_REPO`·`FT_NEWS_DIR`·`FT_NEWS_MODEL`·`FT_NEWS_MODE=html` 을 템플릿 통째 교체가 지웠을 것 · `harness/evidence/r538/real-diff-installed-vs-render.txt`).
+- `install.sh` `launchd_sync`(plist_sync 뒤 · shim 단계 뒤): «설치된 라벨만» 렌더 → 설치본과 바이트 대조 → 다르면 `.bak-r538`(첫 원본) + `.bak-<version>`(직전) + 교체 + `launchctl bootout`·`bootstrap`(r464 재시도·원복 재사용 · kickstart 0 — 주기 job 을 지금 돌리지 않는다) · 요약 `LAUNCHD rendered=N changed=M restarted=K` · 미설치 라벨 = `SKIP launchd`(새로 깔지 않음) · 템플릿 밖 plist 손 0 · 워크트리 `--project` = `SKIP launchd` · `--dry-run` = 비교 줄만.
+- `ft_live_install_check.py` `pinned_drift`: `~/Library/LaunchAgents/com.byz.*.plist` 실행 경로에 `/fable-team/live/<판>/bin/` 이 있고 그 판 ≠ 루트 LIVE_BIN 판 → `DRIFT launchd <라벨> pinned=<판>` + `HINT launchd bash <하네스>/install.sh --apply --project <루트>`(PENDING rc1).
+- 시험 `test_install_launchd_render.sh`(새 · 임시 HOME·루트·키트 리포·가짜 launchctl · 실 launchd 0) ⓐ~ⓕ — 고치기 전 FAIL 15(`harness/evidence/r538/before-test_install_launchd_render.txt`) · 고친 뒤 ALL PASS 23. ⓖ 기존 install·install-check 시험 11 중 rc0 9 · rc1 2(`test_live_install` · `test_live_install_check` ⑥)는 팩 origin/main 8d5be256 에서도 같은 FAIL(`base-origin-main-preexisting.txt` · 이 가지 diff 밖 도구).
+- 실측(읽기만): 실제 루트 `--dry-run` = `LAUNCHD rendered=5 changed=5 restarted=0` · head-lag·idle-wake 는 미설치 SKIP · plist cksum 불변(`real-dry-run-byz-root.txt`).
+- 설치: `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 이 설치가 첫 렌더(5 라벨 실행 경로 → `<루트>/.fable-team/bin/…` · bootout·bootstrap 5) · 되돌림 = `<plist>.bak-r538`.
+- 범위 밖: 템플릿 밖 plist(ft-leak-reap · hermes 계열 · tunnel 류) · plist 주기·env 바꾸기 · 미설치 템플릿 새로 깔기 · 키트 밖 KakaoBot plist.
+
 ## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.91)
 
 - 사건: desk 26 이 `zombie-clean.sh resume 'byz-concierge-master-claude#6'` 으로 좌석을 다시 열자 날 `claude --resume <uuid> --model …` 로 떠 ANTHROPIC_BASE_URL 없음(프록시 8317 미경유 · 직결) → «session limit · resets 12pm» 정지(desk 26 쪽지 119405 · harness master 83 발주 119409). tmuxc 열기·fork 는 이미 래퍼 경유 — 키트에서 날 claude 를 여는 곳은 재개 3곳뿐(arch 107 실측).

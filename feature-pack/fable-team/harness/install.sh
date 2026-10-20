@@ -18,6 +18,8 @@
 #   r512: 공용 루트 설치는 shim 단계 뒤 등록 워크트리 중 bin 이 이미 연결 파일(shim)인 곳마다 같은 설치본 shim 을 다시 돌린다
 #         (연결 파일은 «자기 워크트리 ../LIVE_BIN» 을 읽는다 — 공용 루트만 바꾸면 그 워크트리는 옛 판) · 옛 통째 사본 bin = SKIP(손대지 않음)
 #         · 끝줄 `WT-SHIM refreshed=N skip=M fail=K` · K>0 = 끝 rc1 · dry-run = `PLAN wt-shim <wt> <옛> -> <새>` · 워크트리 --project = 순회 0.
+#   r538: `__FT_BIN__` 키트 launchd 템플릿(kit/*/*.plist.template)은 «설치된 것만» 실행 경로(ProgramArguments)를 판 없는 루트 shim(<루트>/.fable-team/bin)으로 렌더 → 다를 때만
+#         .bak-r538 + 교체 + bootout·bootstrap · 끝줄 `LAUNCHD rendered=N changed=M restarted=K` · 워크트리 --project = SKIP launchd.
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -151,6 +153,34 @@ plist_sync() {
     echo "PLIST applied $label (retry=$BOOT_TRY · 되돌림 = $dst.bak-$VERSION · kickstart)"
   done < <(python3 "$KIT/bin/ft_plist_env.py" list)
 }
+# r538: `__FT_BIN__` 키트 launchd 템플릿(ft_plist_env.py bin-list) — 판 없는 루트 shim(<루트>/.fable-team/bin · LIVE_BIN 을 따라감)으로 렌더 → 설치본과 바이트 대조.
+#   손 sed 렌더가 판 붙은 live 경로(live/1.1.16/bin)를 박아 키트를 올려도 옛 판이 돈 사건 · 설치 안 된 라벨 = SKIP(새로 깔지 않음) · 템플릿 밖 plist 손 0
+#   바꾸는 것 = 설치본의 ProgramArguments 하나(렌더본 것) — 머신별 env(FT_STALL_PENALTY_AUTO=0 · FT_NEWS_* 등)·주기는 설치본 그대로
+#   다르면 apply = .bak-r538(첫 원본) + .bak-<version>(직전) + 교체 + bootout·bootstrap(kickstart 0 — 주기 job 을 지금 돌리지 않는다) · 실패 = plist_restore · 렌더 실패 = ERROR rc1
+launchd_sync() {
+  local label tpl dst new list n=0 ch=0 rs=0 need=()
+  if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then echo "SKIP launchd (--project 가 git 공용 루트 아님: 루트=$COMMON — plist 는 루트 설치에서만)"; return 0; fi
+  [ "$APPLY" != 1 ] || need=(--need-exist)
+  list="$(python3 "$KIT/bin/ft_plist_env.py" bin-list "$HARNESS/kit")" || { echo "ERROR: launchd 템플릿 목록 실패: $list" >&2; exit 1; }
+  while IFS=$'\t' read -r label tpl; do
+    [ -n "$label" ] || continue
+    dst="$HOME_DIR/Library/LaunchAgents/$label.plist"
+    if [ ! -f "$dst" ]; then echo "SKIP launchd $label (설치 안 됨 — 새로 깔지 않음)"; continue; fi
+    new="$(python3 "$KIT/bin/ft_plist_env.py" render-bin "$tpl" "$PROJECT" "$dst" ${need[@]+"${need[@]}"})" \
+      || { echo "ERROR: launchd 렌더 실패 $label: $new" >&2; exit 1; }
+    n=$((n + 1))
+    if printf '%s\n' "$new" | cmp -s - "$dst"; then echo "OK launchd $label"; continue; fi
+    ch=$((ch + 1)); echo "PENDING launchd $label (실행 경로 ≠ 렌더본 → $PROJECT/.fable-team/bin · env·주기는 설치본 그대로)"
+    [ "$APPLY" = 1 ] || continue
+    [ -f "$dst.bak-r538" ] || cp -p "$dst" "$dst.bak-r538"
+    cp -p "$dst" "$dst.bak-$VERSION"
+    printf '%s\n' "$new" > "$dst"
+    "$LC" bootout "gui/$(id -u)/$label" 2>/dev/null || true
+    if ! boot_retry "$dst"; then plist_restore "$label" "$dst" "bootstrap ${BOOT_TRY}회 실패: $BOOT_WHY"; continue; fi
+    rs=$((rs + 1)); echo "LAUNCHD applied $label (retry=$BOOT_TRY · 되돌림 = $dst.bak-$VERSION · 첫 원본 = $dst.bak-r538)"
+  done <<< "$list"
+  echo "LAUNCHD rendered=$n changed=$ch restarted=$rs$([ "$APPLY" = 1 ] || echo ' (dry-run · 쓰기 0)')"
+}
 perm() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
 # r459: 먼저 기동한 데몬은 메모리의 옛 사본으로 돈다 — 기동 < 스크립트(shim·LIVE_BIN 지도·라이브 도구) mtime 인 라벨을 RESTART 줄로(판정식 = ft_live_install_check restart_due 하나 · 읽기만 · dry-run 은 설치 전 시점 값)
 restart_scan() { python3 "$KIT/bin/ft_live_install_check.py" --restart-scan "$HOME_DIR/Library/LaunchAgents" || { echo "ERROR: RESTART 판정 실패" >&2; exit 1; }; }
@@ -225,7 +255,7 @@ wt_shim_refresh() {  # r512: 공용 루트 설치에서만 · 워크트리마다
   echo "WT-SHIM refreshed=$n skip=$skip fail=$nfail"
   [ "$nfail" = 0 ] || WT_FAIL=1
 }
-if [ "$APPLY" != 1 ]; then wt_shim_refresh; plist_sync; comm_sync; restart_scan; hook_audit; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
+if [ "$APPLY" != 1 ]; then wt_shim_refresh; plist_sync; launchd_sync; comm_sync; restart_scan; hook_audit; echo "(dry-run: 쓰지 않았다 — 설치하려면 --apply)"; exit 0; fi
 
 [ -d "$LROOT" ] || { echo "ERROR: LIVE_ROOT 폴더 없음: $LROOT" >&2; exit 1; }
 PREV=""; [ -f "$PROJECT/.fable-team/LIVE_BIN" ] && PREV="$(sed -n '1p' "$PROJECT/.fable-team/LIVE_BIN")"
@@ -279,6 +309,7 @@ if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: prin
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi
 # r464: plist 는 LIVE_BIN 전환 «뒤» — plist 실패가 코드 전환을 막지 못한다(1.1.25 «새 폴더만 생김» 사고)
 plist_sync
+launchd_sync   # r538: shim 단계 «뒤» — 렌더본이 부르는 루트 shim 이 실재해야 한다(--need-exist)
 restart_scan   # r459: plist 단계(재적재한 라벨은 새로 기동) «뒤» 의 기동 시각으로 판정
 hook_audit     # r491: 등록 훅 전수 — 손으로 들어온 훅의 실행 비트·실재도 여기서 걸린다
 if [ "$HOOK_FAIL" = 1 ]; then echo "INSTALLED $VERSION · HOOK-EXEC ERROR — 설치는 끝났다 · 위 ERROR HOOK-EXEC 줄의 훅을 고친다(chmod +x 또는 settings 등록 정리 = master)"; echo "== 끝 =="; exit 1; fi

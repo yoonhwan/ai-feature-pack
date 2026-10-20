@@ -5,7 +5,8 @@
 r385: --repo 기본 = 하네스 코드 루트(FT_HARNESS_ROOT · <이 폴더>/../HARNESS_ROOT · 팩 harness/)의 리포 · --kit 기본 = 그 리포 기준 kit/ 경로 ·
 --project = shim 대조할 프로젝트 루트(기본 = --repo 의 공용 루트).
 r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 = 템플릿 렌더본(FT_ROOT = 프로젝트 루트) 바이트 대조 → 아니면 PENDING plist-env.
-r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 < 스크립트 mtime» 인 라벨의 RESTART 줄만(install.sh --apply 끝 · 실행 0 · rc0)."""
+r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 < 스크립트 mtime» 인 라벨의 RESTART 줄만(install.sh --apply 끝 · 실행 0 · rc0).
+r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더)."""
 import fnmatch
 import os
 import re
@@ -202,6 +203,35 @@ def restart_scan(pdir):
     return out
 
 
+PINNED = re.compile(r"/fable-team/live/([^/]+)/bin/")
+
+
+def pinned_drift(root):
+    """r538: ~/Library/LaunchAgents/com.byz.*.plist ProgramArguments 에 판 붙은 live 경로(/fable-team/live/<판>/bin/)가 있고
+    그 판 ≠ 루트 LIVE_BIN 의 판 → DRIFT 줄(키트를 올려도 옛 판이 돈다). LIVE_BIN 없음·판 경로 아님 = 검사 밖. 읽기만."""
+    import plistlib
+    lf = os.path.join(root, ".fable-team", "LIVE_BIN")
+    if not os.path.isfile(lf):
+        return []
+    with open(lf, encoding="utf-8") as fh:
+        cur = PINNED.search(fh.readline().strip().rstrip("/") + "/")
+    pdir = os.path.join(os.environ["HOME"], "Library", "LaunchAgents")
+    out = []
+    for name in sorted(os.listdir(pdir)) if cur and os.path.isdir(pdir) else []:
+        if not (name.startswith("com.byz.") and name.endswith(".plist")):
+            continue
+        try:
+            with open(os.path.join(pdir, name), "rb") as fh:
+                d = plistlib.load(fh)
+        except Exception:  # noqa: BLE001 — 손상 plist 는 이 검사 밖(restart_scan 과 같음)
+            continue
+        vers = [m.group(1) for a in (d.get("ProgramArguments") or []) if isinstance(a, str) for m in [PINNED.search(a)] if m]
+        old = next((v for v in vers if v != cur.group(1)), None)
+        if old:
+            out.append("DRIFT launchd %s pinned=%s" % (d.get("Label") or name[: -len(".plist")], old))
+    return out
+
+
 def plist_env(repo, blob, root):
     """r426: 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본이 템플릿 렌더본(FT_ROOT=프로젝트 루트 · inbox=LIVE_BIN)과 바이트 같아야 한다.
     설치 안 됨 = 검사 밖(NOTLOADED 가 센다) · LIVE_BIN·루트·설치값 없음 = ERROR(조용한 통과 0)."""
@@ -327,6 +357,9 @@ def main():
     for item, hint in stale_copies(repo, o["project"]):
         bad.append(item)
         hints[item.split()[1]] = hint
+    drift = pinned_drift(plist_root(repo, o["project"]))  # r538: 판 고정 launchd plist
+    bad += drift
+    hints.update({"launchd": "bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"]))} if drift else {})
     for f in files:
         rel = f[len(KD):]
         row = next((r for r in rows if fnmatch.fnmatch(rel, r[0])), None)
