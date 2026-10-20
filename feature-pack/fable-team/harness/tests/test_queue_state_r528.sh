@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_queue_state_r528.sh — 오빠 큐 상태 칸 = 대기·진행·보류·완료 넷 + 정지 종류 셋(어휘 정본 queue-states.tsv · 판정기 ft_queue_state.py)
 #   ⓐ 4 상태 꼴 OK ⓑ 정지 종류 붙임 OK ⓒ 보류 재확인 시각 없음 → ERR(줄 번호) ⓓ 어휘 밖·빈 칸 → ERR · 끝줄 QUEUE-STATE
-#   ⓔ ft-proxy-decide QUEUE 새 줄 7칸 · 끝 칸 대기 · 새 파일 머리 7칸(상태) ⓕ 옛 머리 «처리됨» 도 같은 칸 · decision-count 가 «대기» 를 열린 줄로 셈
+#   ⓔ ft-proxy-decide QUEUE 새 줄 · 상태 칸 대기 · 새 파일 머리 7칸(상태) + r529 칸 셋(번호·팀·보여준 시각 · 상태 뒤) ⓕ 옛 머리 «처리됨» 도 같은 칸 · decision-count 가 «대기» 를 열린 줄로 셈
 # 격리: 임시 큐·FT_ROOT·상태 — 실 큐·실 mbox 쓰기 0 · 외부 호출 0.
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each
@@ -79,13 +79,13 @@ Q="$P/AUTONOMY-QUEUE.md"
 out="$("$BASH" "$BIN/ft-proxy-decide.sh" --kind card-start --card "$T/none.md" --verdict 100 --q q1 --choice c --why w --undo u 2>&1)"; rc=$?
 [ "$rc" = 2 ]; ck "ⓔ 준비: QUEUE rc2" $?
 head="$(grep -m1 '^| 자율' "$Q")"; row="$(grep '| q1 |' "$Q")"
-[ "$head" = '| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 |' ]; ck "ⓔ 새 파일 머리 7칸 · 끝 칸 «상태»" $?
+[ "$head" = '| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 | 번호 | 팀 | 보여준 시각 |' ]; ck "ⓔ 새 파일 머리 = 7칸 + r529 칸 셋(상태 뒤 번호·팀·보여준 시각)" $?
 echo "  ⓔ 원문: $head"; echo "  ⓔ 원문: $row"
-[ "$(awk -F'|' '{print NF-2}' <<<"$row")" = 7 ] && grep -q '| 대기 |$' <<<"$row"; ck "ⓔ 새 QUEUE 줄 7칸 · 끝 칸 대기" $?
+[ "$(awk -F'|' '{print NF-2}' <<<"$row")" = 10 ] && [ "$(awk -F'|' '{gsub(/ /,"",$8);print $8}' <<<"$row")" = 대기 ]; ck "ⓔ 새 QUEUE 줄 10칸(r529) · 상태 칸 대기" $?
 L "$Q"; okall 1; ck "ⓔ 도구가 쓴 큐 = 린트 OK" $?
 mkq "$P/AUTONOMY-QUEUE.md" 처리됨 '보류 — 옛 문장'
 "$BASH" "$BIN/ft-proxy-decide.sh" --kind card-start --card "$T/none.md" --verdict 100 --q q2 --choice c --why w --undo u >/dev/null 2>&1
-row="$(grep '| q2 |' "$Q")"; [ "$(awk -F'|' '{print NF-2}' <<<"$row")" = 7 ] && grep -q '| 대기 |$' <<<"$row"; ck "ⓔ 옛 머리(처리됨) 큐에도 새 줄 7칸 · 대기" $?
+row="$(grep '| q2 |' "$Q")"; [ "$(awk -F'|' '{print NF-2}' <<<"$row")" = 10 ] && [ "$(awk -F'|' '{gsub(/ /,"",$8);print $8}' <<<"$row")" = 대기 ]; ck "ⓔ 옛 머리(처리됨) 큐에도 새 줄 10칸(r529 · 머리에 칸 셋 붙임) · 상태 칸 대기" $?
 
 # ===== ⓕ decision-count: «대기» = 열린 줄 · 빈 칸(옛) = 열린 줄 · 다른 상태 = 닫힘 =====
 DQ="$T/dq.md"; mkq "$DQ" 상태 '대기' '대기 · 대기중정지' '진행 — x' '보류 — y · 재확인 2026-10-21 09:00' '완료 — 판정 1'
