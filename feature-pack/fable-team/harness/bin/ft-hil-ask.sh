@@ -2,12 +2,14 @@
 # ft-hil-ask.sh — 하위 좌석의 사람 질문을 «질문 원장 1곳»에 올린다 (C3).
 #
 # 왜 있나: 하위 좌석(워커·나노·tester·architect)은 AskUserQuestion 을 못 쓴다 — 사용자가 그 pane 을 못 본다.
-#   질문은 원장 1행 + mbox [HIL] 1통(seats-harness.json 의 _hil_route 좌석)으로 모이고, 답은 ft-hil-answer.sh 가 같은 좌석 seq 로 돌려보낸다.
+#   질문은 원장 1행 + mbox [HIL] 1통(«보내는 좌석의 팀 명부» 의 _hil_route 좌석)으로 모이고, 답은 ft-hil-answer.sh 가 같은 좌석 seq 로 돌려보낸다.
 #
 # 사용: ft-hil-ask.sh <질문> [--options "a|b|c"] [--recommend a] [--seat <좌석>]
 #   원장 = <harness 팀 폴더>/HIL-LEDGER.md (TEAMS.md 폴더 칸 · HIL_LEDGER 로 교체) · 행 8칸: # | 일시 | 좌석 | 좌석seq | 질문 | 선택지 | 추천 | 상태(open)
 #   보내는 좌석 = --seat > FT_ME > tmux 세션명 (셋 다 없으면 REJECT)
-#   수신 = FT_HIL_ROUTE > seats-harness.json(FT_SEATS)의 _hil_route
+#   명부 = FT_SEATS > 보내는 좌석 이름의 팀 명부 (r578 · mbox_guard tfile 과 같은 규칙)
+#          ^(byz|ft)-<팀>- → v65 = seats.json · 그 외 = seats-<팀>.json · 팀을 못 읽거나 파일 없으면 REJECT
+#   수신 = FT_HIL_ROUTE > 그 명부의 _hil_route
 #   FT_SEND_DRY=1 이면 mbox 를 보내지 않고 DRY 줄만 찍는다(시험용 · seq 칸 = dry)
 # 실패는 전부 raise(exit≠0) — 원장에 행이 «없으면» 질문도 안 나간 것이다(mbox 실패 시 행 추가 0).
 set -uo pipefail
@@ -17,7 +19,6 @@ ROOT="${FT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 COMMON="$(git -C "${ROOT:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git$##')"
 if [ -n "${HIL_LEDGER:-}" ]; then LEDGER="$HIL_LEDGER"
 else . "$HERE/ft-team-lib.sh"; _HT="$(ft_team_in "$ROOT" harness)" || exit 1; LEDGER="$_HT/HIL-LEDGER.md"; fi   # R382b: 팀 폴더는 TEAMS.md 칸으로
-SEATS="${FT_SEATS:-$COMMON/.fable-team/seats-harness.json}"
 MBOX="${FT_MBOX_CMD:-}"
 [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
 
@@ -38,12 +39,25 @@ done
 [ -z "$SEAT" ] && SEAT="${FT_ME:-}"
 [ -z "$SEAT" ] && [ -n "${TMUX:-}" ] && SEAT="$(tmux display -p '#S' 2>/dev/null)"
 [ -n "$SEAT" ] || die "보내는 좌석을 알 수 없다 — --seat 또는 FT_ME" 2
+# r578: 명부 기본값 = «보내는 좌석의 팀 명부» (예전엔 하네스 명부 고정 → 어떤 팀이 물어도 하네스 _hil_route 로 갔다)
+#   FT_HIL_ROUTE 를 명시했으면 명부가 필요 없다(명부 해석은 수신을 정할 때만).
+SEATS=""
+if [ -z "${FT_HIL_ROUTE:-}" ]; then
+  if [ -n "${FT_SEATS:-}" ]; then SEATS="$FT_SEATS"
+  else
+    TEAM=""
+    [[ "$SEAT" =~ ^(byz|ft)-([a-z0-9]+)- ]] && TEAM="${BASH_REMATCH[2]}"
+    [ -n "$TEAM" ] || die "좌석 이름에서 팀을 못 읽어 명부를 고를 수 없다: $SEAT — FT_SEATS 로 명부를 지정하라" 2
+    if [ "$TEAM" = v65 ]; then SEATS="$COMMON/.fable-team/seats.json"; else SEATS="$COMMON/.fable-team/seats-$TEAM.json"; fi
+    [ -f "$SEATS" ] || die "팀 명부 없음 $SEATS" 2
+  fi
+fi
 if [ -n "$RECOMMEND" ]; then
   [ -n "$OPTIONS" ] || die "--recommend 는 --options 와 함께" 2
   case "|$OPTIONS|" in *"|$RECOMMEND|"*) ;; *) die "--recommend 값이 선택지에 없다: $RECOMMEND" 2;; esac
 fi
 ROUTE="${FT_HIL_ROUTE:-$(jq -r '._hil_route // empty' "$SEATS" 2>/dev/null)}"
-[ -n "$ROUTE" ] || die "_hil_route 없음 — $SEATS 의 _hil_route 또는 FT_HIL_ROUTE" 2
+[ -n "$ROUTE" ] || die "_hil_route 없음 — ${SEATS:-FT_SEATS 미지정} 의 _hil_route 또는 FT_HIL_ROUTE" 2
 
 send_mbox() {  # <to> <from> <body> → seq 를 stdout
   if [ "${FT_SEND_DRY:-0}" = 1 ]; then echo "DRY send to=$1 from=$2 body=$3" >&2; echo dry; return 0; fi

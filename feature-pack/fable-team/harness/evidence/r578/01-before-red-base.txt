@@ -1,0 +1,34 @@
+$ FT_HIL_ASK_BIN=<origin/main 판 ft-hil-ask.sh> bash harness/tests/test_hil_route_team.sh
+PASS bash -n ft-hil-ask.sh
+PASS 킷 두 벌 cmp 동일
+== ⓐ ops 좌석 · ops 명부 _hil_route=desk · 하네스 명부=planner → desk (고치기 전 = planner FAIL)
+PASS ⓐ ask rc=0
+FAIL ⓐ 수신 = byz-planner-master-claude#86 (하네스 명부 planner 로 갔나)
+FAIL ⓐ ASKED 줄 route = desk — 없음: «route=byz-planner-desk-claude#5» ← WARN 수신 좌석 세션 없음(doorbell=absent): byz-planner-master-claude#86
+ASKED row=1 seat=byz-ops-master-claude#1 seq=555 route=byz-planner-master-claude#86 ledger=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.fsvi9v3Jkn/HIL-LEDGER.md
+== ⓑ feature 좌석 · feature 명부 _hil_route=planner → planner
+PASS ⓑ ask rc=0
+PASS ⓑ 수신 = feature 명부의 planner
+== ⓒ 팀 명부에 _hil_route 없음(cfo 꼴) → REJECT · 다른 팀 대체 0
+FAIL ⓒ rc=0 — 조용히 대체됨
+FAIL ⓒ 사유 = 그 명부에 _hil_route 없음 — 없음: «_hil_route 없음» ← WARN 수신 좌석 세션 없음(doorbell=absent): byz-planner-master-claude#86
+ASKED row=3 seat=byz-cfo-master-codex#1 seq=555 route=byz-planner-master-claude#86 ledger=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.fsvi9v3Jkn/HIL-LEDGER.md
+FAIL ⓒ 사유에 읽은 명부 경로(cfo) — 없음: «seats-cfo.json» ← WARN 수신 좌석 세션 없음(doorbell=absent): byz-planner-master-claude#86
+ASKED row=3 seat=byz-cfo-master-codex#1 seq=555 route=byz-planner-master-claude#86 ledger=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.fsvi9v3Jkn/HIL-LEDGER.md
+FAIL ⓒ 송신이 나갔다
+== ⓒ2 팀 명부 파일 자체가 없음 → REJECT «팀 명부 없음 <경로>»
+FAIL ⓒ2 rc=0 WARN 수신 좌석 세션 없음(doorbell=absent): byz-planner-master-claude#86
+ASKED row=4 seat=byz-ghost-master-claude#9 seq=555 route=byz-planner-master-claude#86 ledger=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.fsvi9v3Jkn/HIL-LEDGER.md
+== ⓓ FT_SEATS·FT_HIL_ROUTE 명시 = 그대로 우선
+PASS ⓓ FT_SEATS 명시 우선
+PASS ⓓ FT_HIL_ROUTE 명시 우선
+== ⓔ 명부 lint: _hil_route = 다른 명부(planner)에만 행이 있는 살아 있는 desk 좌석 → 경보 0 · 죽으면 경보
+PASS ⓔ 살아 있는 다른 명부 좌석 = _hil_route 경보 0
+PASS ⓔ rc=0 불일치 0
+PASS ⓔ 죽은 좌석 → ⓑ 경보
+PASS ⓔ 경보 시 rc≠0
+== 기존 시험 회귀 (test_hil_ledger.sh)
+PASS test_hil_ledger.sh PASS
+FAILED 7
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1
