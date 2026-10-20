@@ -662,6 +662,10 @@ printf '%s\n' "$_pi_ser" | grep -qxF "mcp=$SERROOT/.pi/mcp.json" || { echo 'FAIL
 printf '%s\n' "$_pi_ser" | grep -q "^mcp_json=.*--project $SERROOT" || { echo 'FAIL: mcp_json 에 --project <경로> 없음'; printf '%s\n' "$_pi_ser" | grep '^mcp_json='; exit 1; }
 printf '%s\n' "$_pi_ser" | grep -q -- '--context codex' || { echo 'FAIL: mcp_json 에 --context codex 없음'; exit 1; }
 printf '%s\n' "$_pi_ser" | grep -q 'serena@cd04838be9a92fd5c4963e59ecbe88419482d741' || { echo 'FAIL: 고정 sha 아님'; exit 1; }
+# MCP 도구는 --tools 에 패턴으로 들어 있어야 «선언» 된다(실측: 없으면 좌석이 JSON-RPC 우회로 감)
+printf '%s\n' "$_pi_ser" | grep -q -- "--tools 'read,bash,edit,write,grep,find,ls,mcp__serena__\*'" || { echo 'FAIL: pi --tools 에 mcp__serena__* 패턴이 없음(도구 미선언)'; printf '%s\n' "$_pi_ser" | grep '^command='; exit 1; }
+# 플래그 없을 때 명령은 «문자 단위 불변»(인용부호도 붙지 않는다)
+printf '%s\n' "$_pi_plain" | grep -q -- '--tools read,bash,edit,write,grep,find,ls --thinking' || { echo 'FAIL: --serena 없이 --tools 출력이 변했다'; printf '%s\n' "$_pi_plain" | grep '^command='; exit 1; }
 if [ -e "$SERROOT/.pi/mcp.json" ]; then echo 'FAIL: --dry-run 이 파일을 썼다(쓰기 0 계약 위반)'; exit 1; fi
 # 쓰기 경로는 실전 open 뿐 — 같은 함수를 직접 불러 잰다(세션 없이).
 eval "$(python3 - "$ROOT/core/bin/tmuxc" <<'PYEXTRACT'
