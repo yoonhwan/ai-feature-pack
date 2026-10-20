@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# 시험 격리(2026-10-20): 좌석 셸이 TMUXC_PI_* 를 export 해 두면 tmuxc 가 그 값을 «재사용» 해
+#   fork/pi 시험이 엉뚱한 sid 를 물고 실패한다(실측: pi 좌석에서 verify rc=1). 시험은 항상 깨끗한 env 로.
+unset TMUXC_PI_SESSION_ID TMUXC_PI_MODEL TMUXC_PI_THINKING TMUXC_PI_SERENA TMUXC_ROLE TMUXC_AGENT 2>/dev/null || true
 "$ROOT/core/bin/tmuxc" --help >/dev/null
 "$ROOT/core/bin/tmuxc" open "$ROOT" --name TMUXC_VERIFY --agent codex --role worker --dry-run | grep -q 'session=TMUXC_VERIFY'
 
@@ -643,5 +646,55 @@ printf '%s\n' "$_ffound" | grep -q 'source_id=ffffffff-0000-0000-0000-0000000000
 tmux has-session -t FC7 2>/dev/null && { echo 'FAIL: fork --dry-run must not create a tmux session'; exit 1; }
 
 rm -rf "$EMPTYSTORE" "$NOTFOUNDSTORE" "$FORKCWD"
+
+# ㉘ pi --serena (0.4.3) — 기동 때 Serena 를 «이 워크트리 프로젝트» 로 활성 + --approve 로만 프로젝트 신뢰
+#   오빠 지시 2026-10-20: «trust 를 넓히지 않는다. 기동 때 serena 에 경로를 지정해두고 온보딩해서 간다.»
+#   계약: ①플래그 없으면 출력 «문자 단위 불변» ②--dry-run 은 파일 쓰기 0(내용만 출력) ③실전 open 이 파일을 쓴다.
+SERWT="$(mktemp -d)/wtserena"; mkdir -p "$SERWT"; git -C "$SERWT" init -q .
+_pi_plain="$("$ROOT/core/bin/tmuxc" open "$SERWT" --agent pi --dry-run 2>&1)"
+if printf '%s\n' "$_pi_plain" | grep -q -- '--approve'; then echo 'FAIL: --serena 없이 --approve 가 붙었다(플래그 없으면 동작 불변)'; printf '%s\n' "$_pi_plain"; exit 1; fi
+printf '%s\n' "$_pi_plain" | grep -q '^mcp' && { echo 'FAIL: --serena 없이 mcp 줄이 나온다'; exit 1; }
+_pi_ser="$("$ROOT/core/bin/tmuxc" open "$SERWT" --agent pi --serena --dry-run 2>&1)"
+SERROOT="$(printf '%s\n' "$_pi_ser" | sed -n 's/^root=//p' | head -1)"
+[ -n "$SERROOT" ] || { echo 'FAIL: --serena dry-run 에 root 없음'; printf '%s\n' "$_pi_ser"; exit 1; }
+printf '%s\n' "$_pi_ser" | grep -q -- '--approve' || { echo 'FAIL: --serena 인데 pi 명령에 --approve 없음'; printf '%s\n' "$_pi_ser"; exit 1; }
+printf '%s\n' "$_pi_ser" | grep -qxF "mcp=$SERROOT/.pi/mcp.json" || { echo 'FAIL: dry-run 에 mcp=<경로> 줄 없음'; printf '%s\n' "$_pi_ser"; exit 1; }
+printf '%s\n' "$_pi_ser" | grep -q "^mcp_json=.*--project $SERROOT" || { echo 'FAIL: mcp_json 에 --project <경로> 없음'; printf '%s\n' "$_pi_ser" | grep '^mcp_json='; exit 1; }
+printf '%s\n' "$_pi_ser" | grep -q -- '--context codex' || { echo 'FAIL: mcp_json 에 --context codex 없음'; exit 1; }
+printf '%s\n' "$_pi_ser" | grep -q 'serena@cd04838be9a92fd5c4963e59ecbe88419482d741' || { echo 'FAIL: 고정 sha 아님'; exit 1; }
+if [ -e "$SERROOT/.pi/mcp.json" ]; then echo 'FAIL: --dry-run 이 파일을 썼다(쓰기 0 계약 위반)'; exit 1; fi
+# 쓰기 경로는 실전 open 뿐 — 같은 함수를 직접 불러 잰다(세션 없이).
+eval "$(python3 - "$ROOT/core/bin/tmuxc" <<'PYEXTRACT'
+import sys
+src = open(sys.argv[1], encoding="utf-8").read()
+a = src.index("TMUXC_PI_SERENA_SHA=")
+b = src.index("agent_cmd() {", a)
+sys.stdout.write(src[a:b])
+PYEXTRACT
+)"
+[ "$TMUXC_PI_SERENA_SHA" = 'cd04838be9a92fd5c4963e59ecbe88419482d741' ] || { echo 'FAIL: 고정 sha 변수'; exit 1; }
+pi_serena_write_files "$SERROOT" || { echo 'FAIL: pi_serena_write_files rc≠0'; exit 1; }
+[ -s "$SERROOT/.pi/mcp.json" ] || { echo 'FAIL: 실전 쓰기 경로가 mcp.json 을 안 씀'; exit 1; }
+python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))["mcpServers"]["serena"]; t=d["toolExposure"]
+need={"find_symbol","find_referencing_symbols","get_symbols_overview","activate_project","onboarding"}
+assert not need-set(t), ("toolExposure 누락", sorted(need-set(t)))
+assert all(t[k]=="direct" for k in need), "핵심 도구가 direct 아님"
+assert d.get("exposure")=="hidden", "exposure 는 hidden"
+assert d["args"][1].count("--project")==1, "--project 1회"
+assert "read_file" not in t and "execute_shell_command" not in t, "중복 도구 노출"' "$SERROOT/.pi/mcp.json" || { echo 'FAIL: mcp.json 내용 계약'; exit 1; }
+grep -qxF '.pi/' "$(git -C "$SERROOT" rev-parse --path-format=absolute --git-path info/exclude)" || { echo 'FAIL: .pi/ 가 .git/info/exclude 에 없음'; exit 1; }
+grep -qxF '.serena/' "$(git -C "$SERROOT" rev-parse --path-format=absolute --git-path info/exclude)" || { echo 'FAIL: .serena/ 가 .git/info/exclude 에 없음'; exit 1; }
+pi_serena_write_files "$SERROOT" >/dev/null 2>&1
+[ "$(grep -cxF '.pi/' "$(git -C "$SERROOT" rev-parse --path-format=absolute --git-path info/exclude)")" = 1 ] || { echo 'FAIL: exclude 줄 중복(멱등 아님)'; exit 1; }
+# 기존 mcp.json 의 다른 서버는 보존된다(덮어쓰기 금지)
+printf '{"mcpServers":{"other":{"command":"x"}}}\n' > "$SERROOT/.pi/mcp.json"
+pi_serena_write_files "$SERROOT" >/dev/null 2>&1
+python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))["mcpServers"]
+assert "other" in d and "serena" in d, sorted(d)' "$SERROOT/.pi/mcp.json" || { echo 'FAIL: 기존 서버 보존 실패'; exit 1; }
+_got="$("$ROOT/core/bin/tmuxc" open "$SERROOT" --agent codex --serena --dry-run 2>&1 || true)"
+printf '%s\n' "$_got" | grep -q 'only for --agent pi\|--serena 는 --agent pi' || { echo "FAIL: --agent codex --serena 가 거부되지 않음: $_got"; exit 1; }
+rm -rf "$(dirname "$SERWT")"
 
 echo "tmuxc verify OK"

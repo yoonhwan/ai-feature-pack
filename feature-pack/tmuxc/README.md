@@ -63,6 +63,21 @@ tmuxc open . --name PI_REVIEW --agent pi --role orchestrator --effort high
 - `--like <pi-session>`으로 live pi의 model/thinking을 상속할 수 있다.
 - Pi 자체 스킬은 `~/.agents/skills/pi-ops` 및 `/skill:pi-ops` 참고.
 
+### Pi + Serena (0.4.3)
+
+```bash
+tmuxc open .worktrees/my-task --name PI_IMPL --agent pi --serena --role worker
+```
+
+- `--serena`는 **`--agent pi` 전용**. 그 워크트리의 `.pi/mcp.json`에 serena를 **stdio · `--project <그 경로>`**로 적고, pi 명령에 `--approve`(이번 실행만 프로젝트 신뢰 · `trust.json` 저장 0)를 붙인다.
+- `--context codex`를 쓴다: pi도 codex처럼 자체 파일·셸 도구를 갖고 있어, serena의 `read_file`·`create_text_file`·`execute_shell_command` 같은 중복 도구를 빼고 심볼 도구만 남기는 context가 맞다.
+- 노출은 화이트리스트(`exposure:"hidden"` + `toolExposure`)뿐 — `activate_project`·`find_symbol`·`find_referencing_symbols`·`get_symbols_overview`·`find_implementations`·`onboarding`·`list_memories`·`read_memory`·`write_memory`만 direct. 나머지는 등록되지만 호출 불가.
+- 기동 때 활성 프로젝트가 이미 지정되므로 **첫 `find_symbol`에 `activate_project` 선행 호출이 필요 없다**. 온보딩은 `list_memories`에 온보딩 기억이 없으면 `onboarding` 1회.
+- 워크트리의 `.pi/`·`.serena/`를 `.git/info/exclude`에 넣는다(커밋 금지 · 좌석 로컬).
+- 공유 HTTP serena를 쓰지 않는 이유: serena 1개는 **활성 프로젝트 1개**만 갖는다 — 여러 좌석이 공유하면 서로 `activate`를 밀어낸다. stdio는 pi 세션이 끝날 때 프로세스 그룹째 회수된다.
+- `--dry-run`은 **파일을 쓰지 않는다** — `mcp=`(경로)와 `mcp_json=`(쓸 내용)만 출력한다.
+- 플래그가 없으면 이전과 동작 차이 0. 다른 에이전트에 `--serena`를 주면 거부한다.
+
 ### opencode 좌석 모델 (0.4.1 · r476)
 
 opencode 2.0.x TUI 최상위에는 `--model` 이 없다(`opencode run` 전용 → `Unrecognized flag: --model` 기동 실패).
