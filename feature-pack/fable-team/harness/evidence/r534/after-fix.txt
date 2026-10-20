@@ -1,0 +1,58 @@
+# r534 고친 뒤 — 팩 69bf51a8 · 2026-10-20 11:13:47
+PASS bash -n watch
+PASS bash -n du-lib
+PASS 감시자 줄 수 ≤245(증분 함수는 du-lib)
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-du-lib.sh
+PASS 키트 사본 cmp 0 ft-resource-cause.sh
+PASS ⓐ 1틱 = 8개만 잼 → worktrees.known 8/20
+PASS ⓐ 1틱 합 = PARTIAL(모르는 폴더 있음 — 부분 합을 숫자처럼 쓰지 않음)
+PASS ⓐ 워크트리 폴더 전체 du 0회
+PASS ⓐ 폴더별 du = 틱당 8회
+PASS ⓐ 2틱 → 16/20
+PASS ⓐ 3틱 → 20/20
+PASS ⓐ 20/20 → worktrees.total = 캐시 합 숫자(10+…+200=2100)
+PASS ⓐ TIMEOUT 줄 0
+PASS ⓐ 한 바퀴 끝 → wt.top 1위 w20 200
+PASS ⓐ wt.top 상위 5줄
+PASS ⓐ 캐시 du-cache.tsv 에 wt:<이름> 줄
+PASS ⓑ 순번 = 새 폴더(wnew) → 바뀐 폴더(w03)
+PASS ⓑ 잰 뒤 안 바뀐 폴더는 다음 틱 맨 앞 아님
+PASS ⓑ 새 폴더 포함 21/21
+PASS ⓑ 합 = 2100 + 새 폴더 7
+PASS ⓒ 사라진 폴더 캐시 줄 제거
+PASS ⓒ 전체 20
+PASS ⓒ 합에서 50 빠짐(2107−50)
+PASS ⓓ 넘긴 폴더만 TIMEOUT 표기
+PASS ⓓ TIMEOUT 은 그 폴더 1줄
+PASS ⓓ 합 줄 known 19/20
+PASS ⓓ 옛 값(70)을 새 값처럼 안 씀 — PARTIAL 합 = 나머지 19개(2057−70)
+PASS ⓓ 넘긴 폴더 = 나눔 표식(split)
+PASS ⓓ 다음 틱 하위 a·b 측정 → 20/20
+PASS ⓓ 합 = 1987 + 30 + 45
+PASS ⓓ 나눈 폴더 통째 du 는 다시 안 함
+PASS ⓓ 나눌 수 없음 → 캐시 표기 stale
+PASS ⓓ stale 은 known 에서 빠짐
+PASS ⓓ stale 값은 합에 0
+PASS ⓔ claude.projects = 하위 합 600
+PASS ⓔ claude.projects.known 3/3
+PASS ⓔ caches = 100
+PASS ⓔ caches.known 2/2
+PASS ⓔ pytest = 11
+PASS ⓔ pytest.known 2/2
+PASS ⓔ 큰 폴더 통째 du 0회
+PASS ⓔ TIMEOUT 0
+PASS ⓖ 기본 예산 55초(≤60)
+PASS ⓖ 가짜 du 합 15초 · 예산 5초 → tick 5s ≤ 8
+PASS ⓖ 예산으로 끊은 du 는 TIMEOUT 표기 0
+PASS ⓖ 예산으로 끊은 du 는 나눔 표식 0
+PASS ⓖ du 잔존 0
+PASS ⓕ cause disk rc0
+PASS ⓕ 1위 harness-grow +2.0G → 나노 좌석
+PASS ⓕ 1시간 안 생긴 폴더 통째 증가 · 주인 못 찾음 → «주인 미상»
+PASS ⓕ 옛 폴더의 처음 잰 하위는 증가 아님
+PASS ⓕ stale 값은 증가 아님
+PASS ⓕ 1시간 밖 측정은 제외
+PASS ⓕ 캐시에 증가 없음 → 추측 0 한 줄
+---- fail=0
+rc=0
