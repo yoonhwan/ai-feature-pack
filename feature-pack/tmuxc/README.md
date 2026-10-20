@@ -85,6 +85,14 @@ opencode 2.0.x TUI 최상위에는 `--model` 이 없다(`opencode run` 전용 �
 `OPENCODE_CONFIG_CONTENT={"model":"<ID>"}` 로 그 tmux 세션에만 심는다(`--dry-run` 의 `env=` 줄).
 글로벌 `~/.config/opencode/opencode.json`·워크트리 파일은 건드리지 않는다. 모델 미지정이면 env 0(opencode 기본값).
 
+### 비 claude 좌석의 git 비대화 (0.4.4 · r610)
+
+pi 좌석이 `git rebase --continue` 에서 화면 없는 `vi`(git 기본 편집기)를 열어 54분 멈춘 사건(r599) 재발 방지.
+`open`/`fork` 는 **claude 가 아닌 좌석**(pi·codex·opencode·cmd)의 tmux 세션 env 에
+`GIT_EDITOR=true` · `GIT_SEQUENCE_EDITOR=true` · `GIT_TERMINAL_PROMPT=0` 을 심는다(`--dry-run` 의 `env=` 줄).
+claude 좌석은 Claude Code 가 이미 같은 값을 넣으므로 env 줄 변화 0.
+이미 떠 있는 좌석에는 적용되지 않는다 — 새 좌석부터.
+
 ## BYZ 권장 패턴
 
 ```bash

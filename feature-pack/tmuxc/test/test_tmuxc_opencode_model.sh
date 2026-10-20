@@ -53,7 +53,7 @@ grep -qF -- "-e FT_SEAT=R476 -e OPENCODE_CONFIG_CONTENT={\"model\":\"$ID\"}" "$T
 
 # ⓒ 모델 미지정 — env 0 · 명령 opencode --auto(기본값 박기 0)
 out="$(run_open --dry-run 2>&1)"
-printf '%s\n' "$out" | grep -q '^env=' && bad "ⓒ 모델 없음인데 env 줄: $out" || ok "ⓒ 모델 없음 → env 0"
+printf '%s\n' "$out" | grep -q '^env=OPENCODE_CONFIG_CONTENT' && bad "ⓒ 모델 없음인데 env 줄: $out" || ok "ⓒ 모델 없음 → OPENCODE env 0(r610 GIT_* 3줄은 있음)"
 printf '%s\n' "$out" | grep -qx 'command=opencode --auto' && ok "ⓒ 명령 opencode --auto 그대로" || bad "ⓒ 명령: $out"
 rm -rf "$T/out"; mkdir -p "$T/out"; run_open >/dev/null 2>&1
 grep -q OPENCODE_CONFIG_CONTENT "$T/out/tmux.log" && bad "ⓒ 실행에 env 심음" || ok "ⓒ 실행 new-session 에 OPENCODE env 0"
@@ -72,9 +72,9 @@ out="$(env -i PATH="$T/bin:$PATH" HOME="$T/home" TMUXC_OPENCODE_SESSIONS="$T/ocs
 printf '%s\n' "$out" | grep -qx 'command=opencode --auto --session ses_x --fork' && ok "fork 명령 --model 0" || bad "fork 명령: $out"
 printf '%s\n' "$out" | grep -qxF "env=OPENCODE_CONFIG_CONTENT={\"model\":\"$ID\"}" && ok "fork env 1" || bad "fork env: $out"
 
-# 다른 agent 경로 변경 0 — codex 는 env 줄 0
+# 다른 agent 경로 — OPENCODE env 0(r610 부터 GIT_* 3줄은 모든 비 claude 좌석에 실린다)
 out="$(env -i PATH="$T/bin:$PATH" HOME="$T/home" bash "$TMUXC" open "$T/wt" --name R476C --agent codex --model gpt-x --dry-run 2>&1)"
-printf '%s\n' "$out" | grep -q '^env=' && bad "codex 에 env 줄: $out" || ok "codex env 0(다른 agent 불변)"
+printf '%s\n' "$out" | grep -q '^env=OPENCODE' && bad "codex 에 OPENCODE env 줄: $out" || ok "codex OPENCODE env 0(다른 agent 불변)"
 
 # ⓔ ft-nano-spawn PLAN 줄 — opencode = via=OPENCODE_CONFIG_CONTENT · claude = via 0 (PLAN 블록만 꺼내 돌린다)
 for SP in "${SPAWNS[@]}"; do

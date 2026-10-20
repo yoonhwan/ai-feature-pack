@@ -701,4 +701,18 @@ _got="$("$ROOT/core/bin/tmuxc" open "$SERROOT" --agent codex --serena --dry-run 
 printf '%s\n' "$_got" | grep -q 'only for --agent pi\|--serena 는 --agent pi' || { echo "FAIL: --agent codex --serena 가 거부되지 않음: $_got"; exit 1; }
 rm -rf "$(dirname "$SERWT")"
 
+# ㉙ 비 claude 좌석 git 비대화 3종 (0.4.4) — pi 좌석이 화면 없는 vi 로 54분 정지(r599)
+#   계약: ①비 claude(pi·codex·opencode·cmd) 좌석 env 에 GIT_EDITOR=true · GIT_SEQUENCE_EDITOR=true ·
+#   GIT_TERMINAL_PROMPT=0 ②claude 좌석은 env 줄 변화 0
+GITWT="$(mktemp -d)/wtgit"; mkdir -p "$GITWT"; git -C "$GITWT" init -q .
+for _ag in pi codex opencode cmd; do
+  _gout="$("$ROOT/core/bin/tmuxc" open "$GITWT" --agent "$_ag" --dry-run 2>&1)"
+  for _kv in GIT_EDITOR=true GIT_SEQUENCE_EDITOR=true GIT_TERMINAL_PROMPT=0; do
+    printf '%s\n' "$_gout" | grep -qxF "env=$_kv" || { echo "FAIL: --agent $_ag env=$_kv 없음"; printf '%s\n' "$_gout"; exit 1; }
+  done
+done
+_cout="$("$ROOT/core/bin/tmuxc" open "$GITWT" --agent claude --dry-run 2>&1)"
+if printf '%s\n' "$_cout" | grep -q '^env=GIT_'; then echo 'FAIL: claude 좌석에 GIT_* env(회귀)'; printf '%s\n' "$_cout"; exit 1; fi
+rm -rf "$(dirname "$GITWT")"
+
 echo "tmuxc verify OK"
