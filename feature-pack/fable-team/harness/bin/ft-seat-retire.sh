@@ -118,8 +118,7 @@ def alive(name):
 def arrival_model():   # ft-successor-open.sh 가 쓴 도달 파일의 model(R282 ③)
     a = load(f"{os.environ.get('FT_SUCCESSOR_DIR') or root + '/.fable-team/state/successor'}/{old}.json"); m = a.get("model") if isinstance(a, dict) else None
     return m if isinstance(m, str) and m else None
-if arg: cand = [arg]
-else: cand = [f for f in rosters if isinstance(load(f), dict) and old in load(f)]
+mkrow = False; cand = [arg] if arg else [f for f in rosters if isinstance(load(f), dict) and old in load(f)]
 if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번호가 승인) · 행 없음 = R296 ⓐ 만 · 명부 쓰기 0
     if len(cand) > 1: reject(f"명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정")
     o = load(cand[0]).get(old) if cand and isinstance(load(cand[0]), dict) else None
@@ -130,7 +129,6 @@ if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번
     rec = record((o or {}).get("model"), f"verdict {verdict}")
     if o is None and not rec: print("  - 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")   # R400 r3 §D — 행 없음 NORECORD 에도 같은 안내(첫 줄 꼴 그대로)
     sys.exit(0)
-mkrow = False
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
     base, _, gen = old.rpartition("#"); later = []
     for f in rosters:
