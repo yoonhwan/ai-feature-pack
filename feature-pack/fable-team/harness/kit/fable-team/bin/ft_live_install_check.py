@@ -7,7 +7,8 @@ r385: --repo 기본 = 하네스 코드 루트(FT_HARNESS_ROOT · <이 폴더>/..
 r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 = 템플릿 렌더본(FT_ROOT = 프로젝트 루트) 바이트 대조 → 아니면 PENDING plist-env.
 r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 < 스크립트 mtime» 인 라벨의 RESTART 줄만(install.sh --apply 끝 · 실행 0 · rc0).
 r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더).
-r544: com.byz.*.plist 실행 경로(ProgramArguments 의 .sh/.py)가 없는 파일 → DRIFT launchd <라벨> missing=<경로> (지운 워크트리를 가리키는 데몬이 매시간 실패 — gce-guard 사건 · 키트 템플릿 밖 plist 도 실재만 검사 · 고치기 0)."""
+r544: com.byz.*.plist 실행 경로(ProgramArguments 의 .sh/.py)가 없는 파일 → DRIFT launchd <라벨> missing=<경로> (지운 워크트리를 가리키는 데몬이 매시간 실패 — gce-guard 사건 · 키트 템플릿 밖 plist 도 실재만 검사 · 고치기 0).
+r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대조 대상 = <그 폴더>/../LIVE_BIN 의 판 폴더 같은 상대 경로 파일 · 줄 끝에 «via shim → <판 폴더>» (팀 env FT_BIN = 연결 파일 폴더 — 설치가 맞아도 DIFF 로 나오던 것)."""
 import fnmatch
 import os
 import re
@@ -134,6 +135,24 @@ def live_path(row, f):
     rel = f[len(KD):]
     sub = rel[len(pre):] if pre and rel.startswith(pre) else ""
     return os.path.join(subst(row[2]), sub or os.path.basename(f))
+
+
+def shim_compare(lp):
+    """r583: bin 행 라이브 파일이 연결 파일이면 판 폴더의 같은 상대 경로 파일을 대조 대상으로 (shim_deps 와 같은 풀이).
+    연결 파일 아님 → (None, "", "") · 판 파일 있음 → (판 파일, 판 폴더, "") · 못 풂 → (None, 판 폴더 or "", "MISSING") — 조용한 OK·폴백 0(LIVE_BIN 이 절대경로 폴더 아님 = ERROR 종료 3)."""
+    if not is_shim(lp):
+        return None, "", ""
+    folder = os.path.dirname(lp)
+    lf = os.path.join(folder, "..", "LIVE_BIN")
+    if not os.path.isfile(lf):
+        return None, "", "MISSING"
+    with open(lf, encoding="utf-8") as fh:
+        live = fh.readline().strip()
+    if not os.path.isabs(live) or not os.path.isdir(live):
+        die("LIVE_BIN 이 절대경로 폴더가 아님: %r (%s)" % (live, lf))
+    fold = os.path.realpath(live)
+    tgt = os.path.join(fold, os.path.relpath(lp, folder))
+    return (tgt, fold, "") if os.path.isfile(tgt) else (None, fold, "MISSING")
 
 
 def plist_items(repo, path, blob):
@@ -406,19 +425,23 @@ def main():
         else:
             checked += 1
             pairs.append((f, live_path(row, f), row))
-    live = [p for p in pairs if os.path.isfile(p[1])]
-    hashes = git(repo, "hash-object", "--no-filters", "--stdin-paths", inp="".join(p[1] + "\n" for p in live)).split() if live else []
-    hmap = {p[1]: h for p, h in zip(live, hashes)}
+    cmp = {lp: shim_compare(lp) for _f, lp, _r in pairs}  # r583: 연결 파일이면 판 폴더 파일로 대조
+    eff = {lp: (cmp[lp][0] or lp) for lp in cmp if not cmp[lp][2]}
+    live = [p for p in eff if os.path.isfile(eff[p])]
+    hashes = git(repo, "hash-object", "--no-filters", "--stdin-paths", inp="".join(eff[p] + "\n" for p in live)).split() if live else []
+    hmap = {p: h for p, h in zip(live, hashes)}
     for f, lp, row in pairs:
-        why = "MISSING" if lp not in hmap else ("DIFF" if hmap[lp] != tree[f][1] else "")
-        if not why and not os.access(lp, os.X_OK):
+        tgt, fold, cerr = cmp[lp]
+        why = cerr or ("MISSING" if lp not in hmap else ("DIFF" if hmap[lp] != tree[f][1] else ""))
+        if not why and not os.access(eff[lp], os.X_OK):
             if f[len(KD):].startswith("hooks/"):  # r491: 홈 훅은 키트 모드와 무관하게 실행돼야 한다(settings 가 직접 실행)
                 why = "EXEC-BIT"
             elif tree[f][0] == "100755":
                 why = "MODE"
         if why:
             tail = " live=%s tip=%s landed=%s" % (hmap[lp][:10], tree[f][1][:10], landed[:10]) if why == "DIFF" and landed else ""
-            bad.append("%s %s -> %s%s" % (why, f, lp, tail))
+            via = " via shim → %s" % fold if fold else (" via shim → %s (%s)" % (os.path.normpath(os.path.join(os.path.dirname(lp), "..", "LIVE_BIN")), "없음" if cerr == "MISSING" else "절대경로 폴더 아님") if cerr else "")
+            bad.append("%s %s -> %s%s%s" % (why, f, lp, tail, via))
             hints[f[len(KD):].split("/")[0]] = row[3]
     drows = rows if (o["map"] or not removed) else load_map(git(repo, "show", landed + ":" + MAPPATH))
     for f in removed:  # tip 에서 삭제된 파일 — landed(B) 시점 지도로 라이브 경로를 풀어 잔재가 있으면 PENDING (읽기만 · 삭제 0)

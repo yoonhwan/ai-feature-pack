@@ -1,0 +1,15 @@
+# r583 실사건 재현(읽기 전용 · 쓰기 0 · 2026-10-21) — 범위 41af1eed..ab9d3b7a · live=/Users/yoonhwan/.claude/fable-team/live/1.1.127/bin · FT_BIN(팀 env)=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin
+## OLD(origin/main) · FT_BIN=연결 폴더
+PENDING n=4
+DIFF feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_classify.py -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/autonomy_scope_classify.py live=90ea794cb5 tip=592f246a81 landed=ab9d3b7a
+DIFF feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_rules.py -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/autonomy_scope_rules.py live=5cddd529ec tip=97f57fff11 landed=ab9d3b7a
+DIFF feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_secret.py -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/autonomy_scope_secret.py live=c79e63f80e tip=58a9501ce3 landed=ab9d3b7a
+DIFF feature-pack/fable-team/harness/kit/fable-team/bin/ft-autonomy-scope.sh -> /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-autonomy-scope.sh live=aaaff3f2e9 tip=a5e2ae6109 landed=ab9d3b7a
+HINT fable-team master: install.sh --apply --project <루트> (shim + 판 폴더 LIVE_BIN — r385 뒤 · design/harness/PLAN-release-0.4-and-816-20261007.md)
+rc=1
+## NEW(고친 판) · FT_BIN=연결 폴더
+OK n=4 skip=0
+rc=0
+## NEW(고친 판) · FT_BIN=판 폴더
+OK n=4 skip=0
+rc=0
