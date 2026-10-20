@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 자원 감시자 디스크 기록표: 워크트리·큰 폴더를 1단계 폴더별 «증분» 측정 · 합 = 캐시 합 + «앎/전체» · 원인 도구 = 워크트리별 1시간 증가 (r534 · 1.1.87)
+## 2026-10-20 — 자원 감시자 디스크 기록표: 워크트리·큰 폴더를 1단계 폴더별 «증분» 측정 · 합 = 캐시 합 + «앎/전체» · 원인 도구 = 워크트리별 1시간 증가 (r534 · 1.1.88)
 
 - 사건: 감시자 `disk-attrib.tsv` 의 `worktrees.total` 이 10-17 21:22 뒤 매회 TIMEOUT(393회 · 워크트리 443개 전체 `du -sk` 1회가 7초 상한에 걸림) · pytest 30·caches 79·claude.projects 50회도 TIMEOUT → 여유 342→238GiB(−104)인데 아는 칸 합 ≈ +6GiB(오빠 «디스크 한 100G 줄었는데?» · desk 27 쪽지 119645 → planner 83 119646 → master 84 발주 119648).
 - 새 `ft-resource-du-lib.sh`(감시자가 source · 단독 실행 0 · 감시자 줄 수 ≤245 단정 때문에 형제 파일 — master 84 발주 119773): `inc_group` = 폴더 하나를 1단계 단위로 증분 측정. 한 틱 `FT_RES_WT_PER_TICK`(25)개 · 각 `run_capped du -sk`(7초 · nice 19 · 기존 잠금 그대로) · 순번 = 캐시 없음 → 잰 뒤 바뀜(2시간 안 mtime) → 캐시 오래된 순. 캐시 `du-cache.tsv` 줄 = `ts · <pfx>:<rel> · kb · 직전 ts · 직전 kb · 표식` + 바퀴 시작 `<pfx>#round`. 사라진 폴더 줄 제거 · 옛 통째 `worktrees.total` 캐시 줄 버림.
@@ -9,8 +9,18 @@
 - `ft-resource-cause.sh disk`: `worktrees.total` 증가 때 «최근 60분 건드린 워크트리» 대신 `du-cache.tsv` `wt:` 줄의 1시간 증가 상위 3(잰 값 − 직전 값 · 직전 값 없는 단위는 그 워크트리가 1시간 안에 생겼을 때만 통째 · stale·split 제외) + 주인 좌석(기존 풀이 규칙 · 못 찾으면 «주인 미상») · 증가 없으면 `워크트리별 1시간 증가 없음(du-cache)`.
 - 시험 새 `test_resource_watch_incremental_r534.sh`(가짜 du = 경로별 크기·시간 표 · 임시 HOME/TMPDIR/state · 외부 호출 0 · GIT_* 0) ⓐ~ⓖ — 고치기 전 FAIL 39(`harness/evidence/r534/before-fix.txt` · ⓐ worktrees.total=TIMEOUT) · 고친 뒤 PASS 55 · rc0(`after-fix.txt`). 기존: `test_resource_watch`(R323 단정을 폴더별 의미로 · 실 HOME 격리) · `test_resource_cause`(워크트리 풀이 = 캐시) · `test_resource_reclaim_preventive`(감시자 복사 때 du-lib 같이) · disk_alarm·reclaim·reclaim_pressure rc0 · `test_resource_gate_pressure` «감시자 줄 수 ≤245» PASS(origin/main 246줄 FAIL 해소) · gate 8·gate_pressure 4·fake_env 2 FAIL = 팩 origin/main 에서도 같음(comm 폴더 해석·python 추적 · 이 단위 밖)(`existing-tests.txt`). 실데이터 미리 보기(읽기만 · 임시 state): 틱 26~32초 · TIMEOUT 0 · 워크트리 75/434(`real-dryrun.txt`).
 - 첫 바퀴 길이(틱당 25 · 10분 틱): 워크트리 434 ≈ 18틱(3시간) · claude.projects 2520 ≈ 101틱(17시간 — 그동안 `claude.projects PARTIAL`) · caches 100 ≈ 4틱 · pytest 1틱. 그 뒤는 새·바뀐 폴더가 다음 틱 맨 앞.
+- r522(1.1.87) 병합 뒤: 감시자 263줄 → `du_line`·`du_lock` 을 `ft-resource-du-lib.sh` 로 옮기고(동작 변경 0) 증분 칸 순회를 1줄로 → 243줄 · `test_resource_gate_pressure.sh` «감시자 줄 수 ≤245» PASS(origin/main 6e72a9ab 은 265줄 FAIL) · r522 `test_resource_cpu_owner` ALL PASS 28 · 기록 `harness/evidence/r534/merge-r522-1.1.88.txt`.
 - 설치: 키트 3(`ft-resource-watch.sh` · `ft-resource-du-lib.sh` · `ft-resource-cause.sh` · harness/bin 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 3 · 감시자 launchd `com.byz.ft-resource-watch` 재기동(plist 0) · 홈 0 · 되돌림 = `.bak-r534`.
 - 범위 밖: 워크트리 정리·삭제 · 디스크 경보 문턱 · −104GiB 원인 찾기(planner 읽기 전용) · 감시 주기 변경.
+
+## 2026-10-20 — CPU 폭주 «주인» 한 줄 + 감시자 기록·planner 쪽지 1통 · 끄기 0 (r522 · 1.1.87)
+
+- 사건: 08:4x `/usr/bin/yes` 여러 개가 CPU 100% — 오빠가 손으로 끔 · 누가 띄웠는지 사후 추적 자료 0(desk 26 쪽지 119295 · 자원 감시자는 디스크·메모리·swap 만 봄 · arch 106 실측).
+- `ft-resource-cause.sh cpu`(새 모드): `LC_ALL=C ps -axo pid=,ppid=,tty=,etime=,pcpu=,comm=` 를 명령 이름(경로 뺀 이름 · 공백 든 이름 그대로)별로 묶어 «각 CPU ≥30% 인 것 ≥3개 ∧ 그중 가장 오래 ≥5분» 묶음만 → `cpu <명령>×<개수> CPU <합>% <분>분 · 주인 <세션>` (묶음마다 `; ` · CPU 합 큰 순). 주인 = 조상 pane 의 tmux 세션(mem 과 같은 걸음 · 40단) → 없으면 tty ↔ `#{pane_tty}` «<세션> (tty)» → 없으면 «미상»(추측 0) · 주인이 여럿이면 앞 3개 + «외 N». 해당 0 = 빈 출력 rc0 · ps 자료 0 = stderr ERROR rc4. 읽기 전용(프로세스 끄기·우선순위 변경 0). 시험 env `FT_RES_PS`·`FT_RES_TMUX`(가짜 출력 파일).
+- `ft-resource-watch.sh` tick: 표본 뒤 · 문지기·동결 분기 «앞»에 `cpu_watch` 1회(상한 `FT_RES_CPU_CAP_SEC` 7초 · 넘거나 rc≠0 = 로그 ERROR · 동결 판정 영향 0). 출력 있으면 `state/runaway-cpu.log` 1줄(시각 + 줄) · 서명(명령·주인·개수 = CPU·분 뺀 줄)이 직전과 다르면 planner 명부(`FT_SEATS_JSON` · 기본 `seats-planner.json`) `_master` 에 `[CPU 폭주] <줄> · 끄기는 사람 판단 · kill 0` 1통 · 발신 성공 때만 서명 저장(`state/.runaway-cpu.sig` · 실패 = 다음 tick 재시도) · 폭주가 끝나면(빈 출력) 서명 지움 → 다음 폭주는 새 사건. `_master` 없음·우편함 못 풂·발신 실패 = 로그 ERROR(조용한 통과 0).
+- 시험 `test_resource_cpu_owner.sh`(새 · 가짜 ps·tmux·센서·mbox · 임시 루트 · 외부 호출 0 · GIT_* 0) ⓐ 조상 pane(중간 zsh 경유) ⓑ ppid 1 · tty 대조 «(tty)» ⓒ ppid 1 · tty ?? → 주인 미상 ⓓ tick: 로그 1줄 + 쪽지 1통 · 같은 서명 다음 tick 쪽지 0 · 개수 바뀌면 1통 · `_master` 없음 ERROR · 원인 도구 실패 ERROR ⓔ 2개·4분 → 빈 출력·기록 0 ⓕ 가짜 kill·renice·pkill·killall 호출 0 + 코드(따옴표·주석 뺀)에 호출 0 — 고치기 전 FAIL 18(`harness/evidence/r522/before-fix.txt` · ⓐ usage rc2) · 고친 뒤 ALL PASS 28(`after-fix.txt`) · 기존 시험 base 대조 = `existing-tests.txt`.
+- 설치: 키트 2(`ft-resource-cause.sh` · `ft-resource-watch.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 감시자 launchd 재기동(RESTART 줄) · 홈 0 · plist 0 · 되돌림 = `.bak-r522`.
+- 범위 밖: 자동 끄기·우선순위 변경 · CPU 를 동결·회수 조건에 넣기 · 명령 이름 허용 목록 · 08:4x 사건의 주인 찾기(자료 0).
 
 ## 2026-10-20 — 닫힌 나노 정리 계획이 밀리지 않게: sweep 시간 상한 안 여러 건 · 옛 판 계획 재생성 · 지운 크기·등록 없는 폴더 목록 (r535 · 1.1.86)
 

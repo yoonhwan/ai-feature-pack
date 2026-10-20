@@ -1,8 +1,24 @@
 #!/usr/bin/env bash
 # ft-resource-du-lib.sh — ft-resource-watch.sh 가 source 하는 증분 du 측정 함수(r534). 단독 실행 0.
-#   감시자 전역을 쓴다: STATE · DISK_TSV · DU_CACHE · DU_CAP · PER_TICK · SPLIT_MAX · run_capped. 읽기·기록만(지우기 0 — 지우는 건 자기 임시 파일·캐시 줄뿐).
+#   감시자 전역을 쓴다: STATE · DISK_TSV · DU_CACHE · DU_LOCK · DU_CAP · PER_TICK · SPLIT_MAX · run_capped. 읽기·기록만(지우기 0 — 지우는 건 자기 임시 파일·캐시 줄·죽은 pid 의 스캔 잠금뿐).
+#   du_line · du_lock 은 R323 감시자 본문에서 옮겨 왔다(r522 병합 뒤 감시자 줄 수 ≤245 · 동작 변경 0).
 TAB="$(printf '\t')"; NL='
 '
+du_line() { # now name path
+  local now="$1" name="$2" p="$3" raw rc
+  if [ ! -e "$p" ]; then printf '%s\t%s\t0\n' "$now" "$name" >> "$DISK_TSV"; return; fi
+  raw=$(run_capped du -sk "$p"); rc=$?
+  if [ "$rc" = 124 ]; then printf '%s\t%s\tTIMEOUT\n' "$now" "$name" >> "$DISK_TSV"; return; fi
+  printf '%s\t%s\t%s\n' "$now" "$name" "$(printf '%s' "$raw" | awk 'END{print $1+0}')" >> "$DISK_TSV"
+}
+du_lock() { # 스냅샷 전체에 잠금 1개 — rc0 = 잡음 · rc1 = 다른 살아 있는 스캔이 있음. 죽은 pid 의 잠금은 회수.
+  local hp
+  mkdir "$DU_LOCK" 2>/dev/null || {
+    hp="$(cat "$DU_LOCK/pid" 2>/dev/null)"
+    if [ -n "$hp" ] && ! kill -0 "$hp" 2>/dev/null; then rm -r -f "$DU_LOCK"; mkdir "$DU_LOCK" 2>/dev/null || return 1; else return 1; fi
+  }
+  echo $$ > "$DU_LOCK/pid"
+}
 # r534: 큰 폴더(워크트리 443개 등)를 통째 du 1회로 재면 7초 상한에 매번 걸린다(10-17 뒤 worktrees.total TIMEOUT 393회) → 1단계 단위로 나눠 틱마다 몇 개씩.
 #   캐시 du-cache.tsv 줄 = ts · <pfx>:<rel> · kb · 직전 ts · 직전 kb · 표식(빈 값 | stale = 상한 넘김·옛 값 보존·합 제외 | split = 다음 틱부터 그 아래 1단계로 · 깊이 SPLIT_MAX) + 바퀴 시작 줄 ts · <pfx>#round
 _inc_walk() { # base rel depth splits [find 조건…] — 출력 «U|S<TAB>rel<TAB>mtime<TAB>d|f» (S = 나눔 표식 폴더 · 그 아래로 내려감)
