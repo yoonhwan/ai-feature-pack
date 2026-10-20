@@ -1,0 +1,36 @@
+PASS bash -n 추적본
+PASS bash -n 키트
+PASS 두 사본 cmp 동일
+PASS 추적본 ^BODY= 줄 1개
+PASS 추적본 press 금지 문장
+PASS 추적본 ft-press-gate ⑦ 근거
+PASS 추적본 측정 조작 금지 문장
+PASS 추적본 증거 줄 직접 기록 문장
+PASS 키트 ^BODY= 줄 1개
+PASS 키트 press 금지 문장
+PASS 키트 ft-press-gate ⑦ 근거
+PASS 키트 측정 조작 금지 문장
+PASS 키트 증거 줄 직접 기록 문장
+PASS 음성 대조: 문장 제거 시 FAIL 발생
+PASS 음성 대조 2: 문장 제거 시 FAIL 발생
+PASS 음성 대조 3: 문장 제거 시 FAIL 발생
+PASS link_web_node_modules 함수 추출
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r570-nano-spawn-body-no-repo-wide-search/feature-pack/fable-team/harness/tests/../../.gitignore: No such file or directory
+PASS ⓐ 상대 심링크
+PASS ⓐ 링크가 루트 폴더로 해석
+PASS ⓓ lock=same 출력
+FAIL ⓒ status 에 node_modules 보임
+FAIL ⓒ 전체 스테이징이 node_modules 를 담음
+PASS 멱등 재호출 rc 0
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r570-nano-spawn-body-no-repo-wide-search/feature-pack/fable-team/harness/tests/../../.gitignore: No such file or directory
+PASS ⓓ lock=differ 출력
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r570-nano-spawn-body-no-repo-wide-search/feature-pack/fable-team/harness/tests/../../.gitignore: No such file or directory
+PASS ⓑ 링크 0
+PASS ⓑ node_modules=none 출력
+PASS ⓔ .venv .env 심링크 줄 그대로
+PASS spawn 이 심링크 단계를 호출
+grep: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r570-nano-spawn-body-no-repo-wide-search/feature-pack/fable-team/harness/tests/../../.gitignore: No such file or directory
+PASS ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임)
+PASS core.bare=false
+FAILED=2
+rc=2

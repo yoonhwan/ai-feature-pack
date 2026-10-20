@@ -1,0 +1,28 @@
+PASS bash -n 추적본
+PASS bash -n 키트
+PASS 두 사본 cmp 동일
+PASS 추적본 ^_SRX= 줄 1개
+PASS 추적본 검색 범위 금지 문장
+PASS 추적본 광역 명령 3종 명시
+PASS 추적본 serena 먼저 문장
+PASS 추적본 명부 손대지 않음 문장
+PASS 추적본 BODY+ echo 1개
+PASS 추적본 BODY= 에 반영
+PASS 키트 ^_SRX= 줄 1개
+PASS 키트 검색 범위 금지 문장
+PASS 키트 광역 명령 3종 명시
+PASS 키트 serena 먼저 문장
+PASS 키트 명부 손대지 않음 문장
+PASS 키트 BODY+ echo 1개
+PASS 키트 BODY= 에 반영
+PASS ⓑ _SRX 줄 AGENT 분기 0
+PASS ⓑ echo 무조건(조건문 안 아님)
+PASS ⓑ BODY 줄 AGENT 분기 0
+PASS ⓑ pi·claude emit 동일
+PASS ⓑ pi emit 에 그 줄
+PASS ⓓ 음성 대조: 문장 제거 시 FAIL 발생
+PASS ⓓ-2 음성 대조: 명부 문장 제거 시 FAIL
+PASS 기존 _SPX 불변
+PASS 기존 press 금지 문장 불변
+ALL PASS
+rc=0

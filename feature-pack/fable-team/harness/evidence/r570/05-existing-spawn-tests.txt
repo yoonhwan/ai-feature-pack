@@ -1,0 +1,20 @@
+=== tests/test_nano_spawn_body_press.sh
+rc=2
+PASS core.bare=false
+FAILED=2
+=== tests/test_nano_spawn_pi_effort_serena.sh
+rc=0
+
+ALL PASS
+=== tests/test_nano_spawn_reuse_info.sh
+rc=0
+
+ALL PASS
+=== tests/test_nano_spawn_teamset_cap.sh
+rc=1
+FAILED 1
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=== tests/test_nano_spawn_tier.sh
+rc=0
+
+ALL PASS
