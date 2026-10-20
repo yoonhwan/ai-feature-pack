@@ -1,0 +1,59 @@
+# r582 0단계 측정 — important 갈래가 왜 잘리는가 (측정 먼저 · 코드 고치기 전)
+
+일시: 2026-10-21 00:33~00:47 KST · 좌석 byz-harness-nano-r582-news-http-truncated-answer-names-ca#0
+대상: 실설치본 `/Users/yoonhwan/.claude/fable-team/live/1.1.125/bin/ft_news_html_render.py`(origin/main 판) — `_http_once` 와 «같은 요청»
+  · 모델 `opengateway/deepseek/deepseek-v4.1-flash-ultrafast` · 주소 `https://apis.opengateway.ai/v1` · stream=true · `FT_NEWS_HTTP_MAX_TOKENS=4096`(plist 실제 값)
+  · 프롬프트 = 실입력으로 만든 important 갈래 프롬프트(14,302 B) — `ft_news_html.py build`(LLM 호출 0) 로 뽑았다. 픽스처 조작 0 · 키 원문 출력 0.
+  · 스크립트 = `00-measure.py` · 필드 탐색 = `00-probe-field.py`
+
+## ① 같은 요청 5회 (실 공급자 1회당 호출 1 · 상한 120s)
+
+```
+# 모델=deepseek/deepseek-v4.1-flash-ultrafast url=https://apis.opengateway.ai max_tokens=4096 prompt=14302B
+1: finish_reason=length · 답 0자 · 생각 13509자 · JSON=실패 · 이벤트 1612
+2: finish_reason=stop · 답 757자 · 생각 9568자 · JSON=OK · 이벤트 1372
+3: finish_reason=stop · 답 793자 · 생각 9429자 · JSON=OK · 이벤트 1343
+4: finish_reason=stop · 답 747자 · 생각 10507자 · JSON=OK · 이벤트 1415
+5: finish_reason=length · 답 472자 · 생각 13013자 · JSON=실패 · 이벤트 1582
+usage-확인(1회, stream_options.include_usage): finish_reason=stop · 답 823자 · 생각 8690자 · JSON=OK
+   · usage={"prompt_tokens": 5126, "completion_tokens": 3325, "total_tokens": 8451, "prompt_tokens_details": {"cached_tokens": 5120}}
+```
+
+읽는 법:
+- 실패 2/5 = 전부 `finish_reason=length` — 잘림이 맞다. 1회는 답 0자(생각만 13.5K자), 1회는 답 472자에서 끊김(끝 근처 열 = arch 112 가 본 `Expecting ',' delimiter` 그 꼴).
+- 생각(reasoning_content)이 8.7K~13.5K자 ≈ 2.9K~4.5K 토큰 — `max_tokens 4096` 을 **생각이 먼저 먹는다**. 정상 회차조차 답 750자는 전체의 20% 수준.
+- usage 확인 회차: completion 3,325 토큰 중 생각 8,690자(≈2.9K 토큰) — 가설(④) 성립: 생각이 한도를 먹어 답이 잘린다.
+
+## ② 생각 끄는 필드 탐색 (후보 7종 × 1회 — «4xx 아님 ∧ 생각 0자» 를 찾는다)
+
+```
+없음(대조):                        finish_reason=length · 답 0자 · 생각 13663자 · JSON=실패
+reasoning.enabled=false:           finish_reason=length · 답 0자 · 생각 12266자 · JSON=실패
+reasoning.effort=none:             finish_reason=stop   · 답 856자 · 생각 9389자 · JSON=OK
+reasoning_effort=none:             finish_reason=stop   · 답 765자 · 생각 0자    · JSON=OK   ← 먹는다
+thinking.type=disabled:            finish_reason=stop   · 답 774자 · 생각 0자    · JSON=OK   ← 먹는다
+enable_thinking=false:             finish_reason=length · 답 446자 · 생각 11945자 · JSON=실패
+chat_template_kwargs.thinking=false: finish_reason=stop · 답 801자 · 생각 0자    · JSON=OK   ← 먹는다
+```
+
+안정성 확인(먹는 필드 2종 × 3회):
+
+```
+reasoning_effort=none-1: finish_reason=stop · 답 750자 · 생각 0자 · JSON=OK
+thinking.type=disabled-1: finish_reason=stop · 답 881자 · 생각 0자 · JSON=OK
+reasoning_effort=none-2: finish_reason=stop · 답 724자 · 생각 0자 · JSON=OK
+thinking.type=disabled-2: finish_reason=stop · 답 894자 · 생각 0자 · JSON=OK
+reasoning_effort=none-3: finish_reason=stop · 답 853자 · 생각 0자 · JSON=OK
+thinking.type=disabled-3: finish_reason=stop · 답 848자 · 생각 0자 · JSON=OK
+```
+
+## ③ 갈래 결정 — ⓐ (length + 생각 큼) → 요청에 «생각 끔»
+
+- 갈래 = ⓐ. 고친 곳 = 요청 본문 **1곳**: `REASONING_OFF = {"reasoning_effort": "none"}` (`ft_news_html_render.py`, `_http_once` body 에 풀어 넣음).
+- 3종(`reasoning_effort=none` · `thinking.type=disabled` · `chat_template_kwargs.thinking=false`) 이 모두 먹지만, **OpenAI 호환 규격 필드 이름**(`reasoning_effort`)을 골랐다 — 나머지 둘은 공급자 확장이라 다음 공급자 교체에서 뜻이 바뀔 수 있다.
+- 거부 대비: 공급자가 그 필드를 4xx 로 거부하면 `HTTP 400 — 생각 끄기 필드(reasoning_effort) 거부: <본문 160자>` 를 ERROR 로 남긴다(조용히 빼고 보내기 0). 시험 ⓓ 가 확인.
+- 재시도 규칙(전역 하드 룰 12)은 손대지 않았다 — 출력이 시작된 뒤 실패는 여전히 재시도 0(시험 ⓔ).
+
+## ④ 곁들여 — usage 를 실제로 받으려면 `stream_options.include_usage`
+
+0단계 «usage-확인» 회차가 이 공급자에서 `include_usage` 를 받아 주는 것을 확인했다(usage 3키 반환). 그래서 요청에 `"stream_options": {"include_usage": True}` 를 함께 넣어, 실패 줄이 «토큰 입N/출M» 까지 남게 했다(생각이 한도를 먹었다는 근거가 로그에 남는다). 거부하면 위 ③처럼 HTTP 코드가 그대로 ERROR 로 남는다.

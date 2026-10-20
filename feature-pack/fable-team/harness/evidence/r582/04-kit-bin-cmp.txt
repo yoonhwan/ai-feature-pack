@@ -1,0 +1,7 @@
+$ cmp kit/fable-team/bin/ft_news_html_render.py bin/ft_news_html_render.py
+cmp rc=0 (같음)
+$ /opt/homebrew/bin/python3.11 -m py_compile …
+py_compile rc=0
+$ rebase origin/main 후 base
+57c4cdba [fix] 뉴스 important 갈래 잘린 답 — finish_reason·생각·usage 기록 + «답이 잘림» 이름 + 생각 끄기 1필드 (r582)
+a61419cf Merge pull request #195 from yoonhwan/nano/r583-install-check-bin-row-follows-root-

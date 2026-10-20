@@ -39,6 +39,9 @@ HTTP_BASE = {"openrouter": "https://openrouter.ai/api/v1",
              "opengateway": "https://apis.opengateway.ai/v1"}  # 공급자 접두 → OpenAI 호환 주소 앞자리(r575 opengateway = pi 딥식)
 HTTP_KEY = {"openrouter": "OPENROUTER_API_KEY", "opengateway": "OPENGATEWAY_API_KEY"}
 DEADLINE_S = 70
+# r582 — 0단계 측정(harness/evidence/r582/00-measure.txt): deepseek v4.1 은 답 전에 생각을 8.7K~13.5K 자 쓰고, 그 토큰이 max_tokens 4096 을 먼저 먹어
+# 5회 중 2회가 finish_reason=length(답 0자 또는 끝 근처에서 잘림)로 실패했다. 같은 프롬프트로 필드 3종을 재어 «생각 0자 · JSON OK» 3/3 이 나온 필드 = reasoning_effort.
+REASONING_OFF = {"reasoning_effort": "none"}  # 생각 끄기 — 0단계 원문이 정한 한 곳. 공급자가 거부(4xx)하면 그 사실을 ERROR 로 남긴다(조용히 빼기 0)
 FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  # 7초 룰 기준량 · CLI 기동 고정비 · 한글 섞인 글 ≈ 3 B/토큰(추정)
 STARTUP_KEEP, STARTUP_MIN = 20, 3  # r510 — 기동 기록 최근 20줄 · 3개 미만 = 잠정 FIXED_S
 _STARTUP_LOCK = threading.Lock()  # 갈래 4개가 병렬로 기록한다
@@ -255,9 +258,10 @@ def _once(cmd: list[str], left: float, part: str) -> tuple[int | None, str, str,
     return (None, out, f"{part} 상한 {left:.0f}s 초과(총 마감 {DEADLINE_S}s)", at) if over else (p.returncode, out, err, at)
 
 
-def _sse_text(lines) -> tuple[str, list]:
-    """OpenAI 호환 스트림 줄 → (이어 붙인 글, 첫 글 시각 목록) — data: 줄만 · 깨진 줄·[DONE] 무시."""
-    out, first = [], []
+def _sse_text(lines) -> tuple[str, list, dict]:
+    """OpenAI 호환 스트림 줄 → (이어 붙인 글, 첫 글 시각 목록, 끝난 이유 묶음) — data: 줄만 · 깨진 줄·[DONE] 무시.
+    묶음 = {finish_reason: 마지막 값 · usage: 마지막 값 · reasoning: 생각(reasoning_content) 글자 수} — 답 글은 지금처럼 content 만(r582)."""
+    out, first, meta = [], [], {"finish_reason": None, "usage": {}, "reasoning": 0}
     for raw in lines:
         if not first:
             first.append(time.monotonic())
@@ -271,31 +275,50 @@ def _sse_text(lines) -> tuple[str, list]:
             ev = json.loads(body)
         except ValueError:
             continue
+        if ev.get("usage"):
+            meta["usage"] = ev["usage"]
         for ch in ev.get("choices") or []:
-            text = (ch.get("delta") or {}).get("content") or ""
+            delta = ch.get("delta") or {}
+            text = delta.get("content") or ""
             if text:
                 out.append(str(text))
-    return "".join(out), first
+            if delta.get("reasoning_content"):
+                meta["reasoning"] += len(str(delta["reasoning_content"]))
+            if ch.get("finish_reason"):
+                meta["finish_reason"] = ch["finish_reason"]
+    return "".join(out), first, meta
 
 
 def _http_once(prompt: str, part: str, left: float) -> tuple[int | None, str, str, float | None]:
     """HTTP 1회 — (rc, 답 글, 사유, 첫 출력까지 초 | None). 스트림 첫 바이트까지 잰다 · 시간 초과 = (None, …, «상한 초과», None) = 첫 출력 전 실패(재시도 1)."""
     url, model, key = http_target()
     body = json.dumps({"model": model, "stream": True, "max_tokens": int(os.environ.get("FT_NEWS_HTTP_MAX_TOKENS", "2048")),  # 예상 출력 1800자 여유(무제한 = 모델 65536 요구 → 크레딧 초과 402 실측)
+                       **REASONING_OFF,  # r582 — 생각 끄기(0단계 측정이 정한 필드 1곳)
+                       "stream_options": {"include_usage": True},  # r582 — 잘림 계산 근거(토큰)를 usage 로 남긴다(0단계에서 이 공급자가 받는 것 확인)
                        "messages": [{"role": "user", "content": prompt}]}, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key(key)}"})
     t0 = time.monotonic()
     try:
         with urllib.request.urlopen(req, timeout=left) as r:  # noqa: S310 — 주소 = 공급자 표(시험은 로컬 서버)
-            text, first = _sse_text(r)
+            text, first, meta = _sse_text(r)
     except urllib.error.HTTPError as e:
+        if e.code == 400 and REASONING_OFF:  # r582 — 생각 끄기 필드를 공급자가 거부 = 조용히 빼고 보내지 않고 ERROR 로 남긴다
+            detail = e.read()[:160].decode("utf-8", "replace").replace("\n", " ")
+            return e.code, "", f"{part} HTTP 400 — 생각 끄기 필드({','.join(REASONING_OFF)}) 거부: {detail}", None
         return e.code, "", f"{part} HTTP {e.code}", None
     except (socket.timeout, TimeoutError):
         return None, "", f"{part} 상한 {left:.0f}s 초과(총 마감 {DEADLINE_S}s)", None
     except (urllib.error.URLError, OSError) as e:
         return 1, "", f"{part} HTTP 실패: {e}", None
     at = first[0] - t0 if first else None
-    return (0, text, "", at) if text.strip() else (1, "", f"{part} 답 글 0자", at)
+    diag = f"끝난 이유={meta['finish_reason'] or '없음'} · 답 {len(text)}자 · 생각 {meta['reasoning']}자"
+    if meta["usage"]:  # usage 를 보내는 공급자(stream_options)면 토큰까지 남긴다 — 잘림 계산 근거
+        diag += f" · 토큰 입{meta['usage'].get('prompt_tokens', '?')}/출{meta['usage'].get('completion_tokens', '?')}"
+    if not text.strip():
+        return 1, "", f"{part} 답 0자 · {diag}", at
+    if meta["finish_reason"] == "length":  # 잘린 답 — JSON 파싱 실패로 오해하지 않게 이름 붙인다(발행 0)
+        return 1, text, f"{part} 답이 잘림(finish_reason=length · 답 {len(text)}자 · 생각 {meta['reasoning']}자) — 발행 0", at
+    return 0, text, "", at
 
 
 def _json(text: str, part: str) -> dict:
