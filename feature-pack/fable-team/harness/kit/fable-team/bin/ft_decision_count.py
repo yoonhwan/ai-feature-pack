@@ -92,10 +92,11 @@ def merge_waiting(t):
 
 
 def autonomy_open(t):
-    if "처리됨" not in t[1]:
+    col = next((c for c in ("상태", "처리됨") if c in t[1]), None)   # r528: 상태 칸(옛 이름 처리됨) · 열린 줄 = 빈 칸(옛) 또는 «대기»
+    if col is None:
         return len(t[0]), NO_MARK
-    i = column("AUTONOMY-QUEUE", t, "처리됨")
-    return sum(1 for r in t[0] if not r[i]), ""
+    i = column("AUTONOMY-QUEUE", t, col)
+    return sum(1 for r in t[0] if not r[i] or r[i].split("·")[0].split("—")[0].strip() == "대기"), ""
 
 
 def inbox(me, now):

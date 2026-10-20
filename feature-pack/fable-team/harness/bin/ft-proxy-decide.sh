@@ -59,9 +59,9 @@ queue_exit() {  # <사유> — 큐 1행 + 같은 질문 기록, rc 2 (쓰기 실
   if [ ! -f "$QUEUE" ]; then
     mkdir -p "$(dirname "$QUEUE")" || fail "큐 폴더 생성 실패: $(dirname "$QUEUE")"
     printf '%s\n\n%s\n%s\n' '# AUTONOMY-QUEUE — 자율 대리 결정 모드가 대리하지 않은 질문 (오빠 큐)' \
-      '| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 |' '|---|---|---|---|---|---|' > "$QUEUE" || fail "큐 파일 생성 실패: $QUEUE"
-  fi
-  printf '| %s | %s | %s | %s | %s | %s |\n' "$EV" "$(date '+%Y-%m-%d %H:%M')" "$(san "$kind")" "$(san "$q")" "$(san "$choice")" "$(san "$why_q")" >> "$QUEUE" || fail "큐 행 쓰기 실패: $QUEUE"
+      '| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 |' '|---|---|---|---|---|---|---|' > "$QUEUE" || fail "큐 파일 생성 실패: $QUEUE"
+  fi   # r528: 끝 칸 = 상태(어휘 정본 queue-states.tsv · 새 줄은 «대기» · 옛 머리 «처리됨» 도 같은 칸)
+  printf '| %s | %s | %s | %s | %s | %s | 대기 |\n' "$EV" "$(date '+%Y-%m-%d %H:%M')" "$(san "$kind")" "$(san "$q")" "$(san "$choice")" "$(san "$why_q")" >> "$QUEUE" || fail "큐 행 쓰기 실패: $QUEUE"
   printf '%s %s\n' "$EV" "$qhash" >> "$SEEN" || fail "재시도 기록 쓰기 실패: $SEEN"
   unlock
   echo "QUEUE $why_q · 큐 파일 $QUEUE"
