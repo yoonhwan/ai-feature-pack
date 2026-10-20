@@ -26,9 +26,9 @@ PASS ⓔ3 체크아웃 디스크 쌍둥이(빈 새 꼴) 있어도 ref 판 1개�
 PASS ⓔ3b ref 에 쌍둥이 둘 다 → ERROR 2개 rc1(추측 0)
 PASS ⓔ4 체크아웃에 planner 폴더가 없어도 ref 판으로 rc0 · 표 동일(r545 — 공용 체크아웃이 뒤처져도 안 멈춘다)
 PASS ⓔ4b ref 에도 없음 → ERROR 0개 rc1(추측·옛 글자 경로 후퇴 0)
-PASS r485 픽스처 원장 sha 셋 다름(Q=a6b92b9 W=559005f ref=3f37b0f)
+PASS r485 픽스처 원장 sha 셋 다름(Q=9a5020b W=1e93ab4 ref=31ecb0e)
 PASS r485-ⓐ1 워크트리 touch → GOAL-READ ref=· state=공용 루트 rc0
-PASS r485-ⓐ2 상태 = 공용 루트 1개 · ledger_sha=ref(3f37b0f ≠ 체크아웃 559005f) · ref_sha 칸
+PASS r485-ⓐ2 상태 = 공용 루트 1개 · ledger_sha=ref(31ecb0e ≠ 체크아웃 1e93ab4) · ref_sha 칸
 PASS r485-ⓑ 공용 루트 cwd → GOAL-OK rc0(틱과 좌석이 같은 행)
 PASS r485-ⓒ ref 원장 커밋 → 공용 루트·워크트리 둘 다 rc3 골 원장 갱신됨
 PASS r485-ⓓ1 워크트리 로컬 커밋 3(>MAX 2) → rc0 commits_since=0
@@ -39,3 +39,4 @@ PASS r485-ⓔ3 옛 꼴 행(ref_sha 없음) → REREAD rc3 «다시 touch»
 PASS r485-ⓔ4 상태 파일 1개에 seat-r·seat-x 둘 다(워크트리 X 자리 0)
 PASS 고친 파일 600/300 0
 == test_goal_check_ref: fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -17,8 +17,8 @@ PASS ⓓ gitref 원장 = 파일 원장과 같은 블록
 PASS ⓔ 24h 초과 머리에 «상태 낡음» + 원장:<갱신>
 PASS ⓔ 신선한 원장은 «상태 낡음» 0
 PASS ⓕ 상태칸·낡음 달라도 check rc 동일(0)
-harness/tests/test_goal_table_gate.sh: 줄 97: 진행|검증: 명령을 찾을 수 없음
-harness/tests/test_goal_table_gate.sh: 줄 97: |: 명령을 찾을 수 없음
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r545-goal-table-reads-origin-main-gitref/feature-pack/fable-team/harness/tests/test_goal_table_gate.sh: 줄 98: 진행|검증: 명령을 찾을 수 없음
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r545-goal-table-reads-origin-main-gitref/feature-pack/fable-team/harness/tests/test_goal_table_gate.sh: 줄 98: |: 명령을 찾을 수 없음
 PASS ⓜ1 상태 셀  → 전체 보존(절단 0) · 골·남은것 칸의  도 열 수 유지
 PASS ⓜ2 열 수 부족 ERROR rc1(행 수 6 이어도)
 PASS ⓜ2 열 수 초과(이스케이프 없는 |) ERROR rc1
@@ -98,3 +98,4 @@ PASS ⓕ r458 기준선·지금 둘 다 정본 경로 → 발행 rc0 · 뉴스 �
 PASS ⓕ r458 FT_LEDGER_PATH 한 값 → 원장·뉴스 폴더·팀별 진행 출처 모두 그 경로(TEAMS.md 무관)
 PASS ⓕ r458 600/300 0
 fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
