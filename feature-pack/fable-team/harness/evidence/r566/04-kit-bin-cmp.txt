@@ -2,5 +2,5 @@
 cmp0 OK
 == bash -n
 bash -n OK
-== 새 시험 bash -n
-bash -n OK
+test bash -n OK
+== base = origin/main 277ee397
