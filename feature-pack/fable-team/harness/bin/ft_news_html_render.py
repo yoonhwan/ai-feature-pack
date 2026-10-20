@@ -61,7 +61,7 @@ FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» 
               '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
-                f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 500바이트 이하 · 첫 줄은 코드가 넣는다.\n'  # r590 — 견본과 같은 상한에서 만든다
+                f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 @SUM_BYTES@바이트 이하 · 첫 줄은 코드가 넣는다.\n'  # r590·r596 — 숫자는 그 틱 상태 줄 길이를 뺀 값(SUMMARY_BYTES − 상태 줄 − 줄바꿈)
                 '- 팀 상태(일함·쉼·정지·확인 불가·몇 팀)는 쓰지 말 것 — 첫 줄 «팀 상태» 는 코드가 좌석 실측으로 넣는다(r588).\n'
                 '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만(10개 이하).\n' + FACT_RULES, 700),
     "important": (("important",), ("now", "facts", "goals", "ledger", "urgent"),
@@ -162,7 +162,22 @@ def build_prompt(data: dict, part: str) -> str:
     schema = "{" + ",".join(f'"{k}":{SCHEMAS[k]}' for k in keys) + "}"
     sub = {k: data[k] for k in inputs if k in data}
     return (PROMPT.replace("@RULES@", rules).replace("@DEPTH@", os.environ.get("FT_NEWS_DEPTH", "")).replace("@SCHEMA@", schema)
-            .replace("@DATA@", json.dumps(sub, ensure_ascii=False, indent=1)))
+            .replace("@DATA@", json.dumps(sub, ensure_ascii=False, indent=1))
+            .replace("@SUM_BYTES@", str(summary_budget(prompt_status_line(data)) if part == "summary" else SUMMARY_BYTES)))
+
+
+def prompt_status_line(data: dict) -> str:
+    """그 틱의 팀 상태 줄 — live 좌석 실측만으로 만든다(모델 글 의존 0 · add_status_line 과 같은 함수·같은 바이트)."""
+    return status_line(bucket({}, data.get("live")))
+
+
+def summary_budget(status: str) -> int:
+    """모델 몫 바이트 = SUMMARY_BYTES − 그 틱 상태 줄 바이트 − 줄바꿈(SUMMARY_LINES − 1).
+    0 이하면 모델 호출 전에 ERROR(발행 0 · 조용한 자르기 0) — r596."""
+    left = SUMMARY_BYTES - len(status.encode("utf-8")) - (SUMMARY_LINES - 1)
+    if left <= 0:
+        raise NewsHtmlError(f"상태 줄만 {len(status.encode('utf-8'))}B — 모델 몫 {left}B(상한 {SUMMARY_BYTES}B) 발행 0")
+    return left
 
 
 def cap_s(prompt: str, part: str, fixed: float = FIXED_S) -> float:

@@ -1,0 +1,1 @@
+cmp kit/bin vs harness/bin rc=0
