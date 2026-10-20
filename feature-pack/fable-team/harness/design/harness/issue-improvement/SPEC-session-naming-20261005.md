@@ -59,7 +59,7 @@
   프로젝트 = 주제 토큰 · 소문자 (byz = BYZ 에이전트 · kakao · rag …) — 필수(오빠 10-05 값)
   팀   = 소문자·숫자 (v65 · cfo · ccu · kk · planner · harness · issues · kakao · airag)  — 명부 파일 seats-<팀>.json 과 같은 글자
   역할 = master | arch | da | tester | checker | analyst | pm | nano | repro | tool | desk   — 예약어 11 · 추가는 이 표에만 (desk = planner 팀 사람 대응 좌석 · R205 · 오빠 판정 1779)
-  꼬리 = 소문자·숫자·'-' · nano 는 카드 slug(필수) · 역할 좌석은 에이전트(claude|codex|opencode|cmd) **필수**(선택이면 계보가 둘로 갈린다 — DA r1 ③)
+  꼬리 = 소문자·숫자·'-' · nano 는 카드 slug(필수) · 역할 좌석은 에이전트(claude|codex|opencode|cmd|pi) **필수**(선택이면 계보가 둘로 갈린다 — DA r1 ③)
   #N   = 계보 번호 · 역할 좌석: 승계마다 +1(keep-last-2 단위) · nano: 재spawn 횟수(0 부터)
   구분자 = '-' 만 · '_'·대문자·공백 0 · 길이 ≤ 60(tmm 가운데 접기 전 전체가 ls 에 보이게)
 ```

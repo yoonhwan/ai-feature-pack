@@ -1,0 +1,21 @@
+base: 2db68db8 + merge origin/nano/r527 82cceb64 (작업 트리 · 커밋 전) · cwd=새 임시 git 리포 · env -u FT_ROOT FT_MBOX_DIR GIT_*
+rc=0 test_install_launchd_render.sh · ALL PASS
+rc=0 test_pi_agent_allow_r540.sh · ALL PASS
+rc=0 test_seat_turn_compact.py · 6 passed in 0.20s
+rc=0 test_seat_turn_batch.py · 6 passed in 24.78s
+rc=0 test_ft_seat_turn_window.py · 8 passed in 0.77s
+rc=0 test_ft_seat_codex.py · 10 passed in 0.75s
+rc=0 test_ft_news_html.py · 39 passed in 19.92s
+rc=0 test_tick_line.sh · ALL PASS
+rc=1 test_live_install.sh · 
+rc=1 test_live_install_check.sh · FAILED 1
+rc=0 test_live_install_check_plist_env.sh · ALL PASS
+rc=0 test_live_install_check_shim.sh · ALL PASS
+rc=0 test_live_install_check_tip.sh · ALL PASS
+rc=0 test_install_check_repo_outside.sh · == ALL PASS ==
+rc=0 test_install_hook_check.sh · ALL PASS
+rc=0 test_install_team_tick_live.sh · ALL PASS
+rc=0 test_install_worktree_shim.sh · fail=0
+rc=0 test_installed_root.sh · == ALL PASS · skip=0 ==
+rc=0 test_installed_root.sh · == ALL PASS · skip=0 ==
+rc1 2(test_live_install · test_live_install_check ⑥) = 병합 전·팩 origin/main 8d5be256 과 같은 FAIL(base-origin-main-preexisting.txt) · 이 가지 diff 밖 도구

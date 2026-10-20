@@ -1,0 +1,127 @@
+== role-spawn bin/ft-role-spawn.sh claude
+hold=none
+PLAN seat=byz-v65-master-claude#0 role=master agent=claude model=claude-opus-5-5[1m] wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-claude#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-claude#0 --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort low --dry-run
+== role-spawn kit/fable-team/bin/ft-role-spawn.sh claude
+hold=none
+PLAN seat=byz-v65-master-claude#0 role=master agent=claude model=claude-opus-5-5[1m] wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-claude#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-claude#0 --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort low --dry-run
+== nano-spawn OPEN harness/bin/ft-nano-spawn.sh claude
+tmuxc open /w --name n --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort high
+== nano-spawn OPEN harness/kit/fable-team/bin/ft-nano-spawn.sh claude
+tmuxc open /w --name n --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort high
+== nano-spawn OPEN skill/scripts/ft-nano-spawn.sh claude
+tmuxc open /w --name n --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort high
+== nano-spawn 기본 모델 bin/ft-nano-spawn.sh claude
+claude|claude-sonnet-5-5[1m]
+== nano-spawn 기본 모델 kit/fable-team/bin/ft-nano-spawn.sh claude
+claude|claude-sonnet-5-5[1m]
+== tmux-spawn 열기 인자 harness/kit/fable-team/bin/ft-tmux-spawn.sh claude
+--model claude-opus-5-5[1m] --effort high
+== tmux-spawn 열기 인자 skill/scripts/ft-tmux-spawn.sh claude
+--model claude-opus-5-5[1m] --effort high
+== role-spawn bin/ft-role-spawn.sh codex
+hold=none
+PLAN seat=byz-v65-master-codex#0 role=master agent=codex model=gpt-6-luna wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-codex#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-codex#0 --agent codex --model gpt-6-luna --effort low --dry-run
+== role-spawn kit/fable-team/bin/ft-role-spawn.sh codex
+hold=none
+PLAN seat=byz-v65-master-codex#0 role=master agent=codex model=gpt-6-luna wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-codex#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-codex#0 --agent codex --model gpt-6-luna --effort low --dry-run
+== nano-spawn OPEN harness/bin/ft-nano-spawn.sh codex
+tmuxc open /w --name n --agent codex --model gpt-6-luna --effort high
+== nano-spawn OPEN harness/kit/fable-team/bin/ft-nano-spawn.sh codex
+tmuxc open /w --name n --agent codex --model gpt-6-luna --effort high
+== nano-spawn OPEN skill/scripts/ft-nano-spawn.sh codex
+tmuxc open /w --name n --agent codex --model gpt-6-luna --effort high
+== nano-spawn 기본 모델 bin/ft-nano-spawn.sh codex
+codex|gpt-6-luna
+== nano-spawn 기본 모델 kit/fable-team/bin/ft-nano-spawn.sh codex
+codex|gpt-6-luna
+== tmux-spawn 열기 인자 harness/kit/fable-team/bin/ft-tmux-spawn.sh codex
+--model gpt-6-luna
+== tmux-spawn 열기 인자 skill/scripts/ft-tmux-spawn.sh codex
+--model gpt-6-luna
+== role-spawn bin/ft-role-spawn.sh opencode
+hold=none
+PLAN seat=byz-v65-master-opencode#0 role=master agent=opencode model=opencode/deepseek-v4.1-flash-free wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-opencode#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-opencode#0 --agent opencode --model opencode/deepseek-v4.1-flash-free --dry-run
+== role-spawn kit/fable-team/bin/ft-role-spawn.sh opencode
+hold=none
+PLAN seat=byz-v65-master-opencode#0 role=master agent=opencode model=opencode/deepseek-v4.1-flash-free wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-opencode#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-opencode#0 --agent opencode --model opencode/deepseek-v4.1-flash-free --dry-run
+== nano-spawn OPEN harness/bin/ft-nano-spawn.sh opencode
+tmuxc open /w --name n --agent opencode --model opencode/deepseek-v4.1-flash-free
+== nano-spawn OPEN harness/kit/fable-team/bin/ft-nano-spawn.sh opencode
+tmuxc open /w --name n --agent opencode --model opencode/deepseek-v4.1-flash-free
+== nano-spawn OPEN skill/scripts/ft-nano-spawn.sh opencode
+tmuxc open /w --name n --agent opencode --model opencode/deepseek-v4.1-flash-free
+== nano-spawn 기본 모델 bin/ft-nano-spawn.sh opencode
+opencode|opencode/deepseek-v4.1-flash-free
+== nano-spawn 기본 모델 kit/fable-team/bin/ft-nano-spawn.sh opencode
+opencode|opencode/deepseek-v4.1-flash-free
+== tmux-spawn 열기 인자 harness/kit/fable-team/bin/ft-tmux-spawn.sh opencode
+--model opencode/deepseek-v4.1-flash-free
+== tmux-spawn 열기 인자 skill/scripts/ft-tmux-spawn.sh opencode
+--model opencode/deepseek-v4.1-flash-free
+== role-spawn bin/ft-role-spawn.sh cmd
+hold=none
+PLAN seat=byz-v65-master-cmd#0 role=master agent=cmd model=deepseek/deepseek-v4-flash wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-cmd#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-cmd#0 --agent cmd --model deepseek/deepseek-v4-flash --effort low --dry-run
+== role-spawn kit/fable-team/bin/ft-role-spawn.sh cmd
+hold=none
+PLAN seat=byz-v65-master-cmd#0 role=master agent=cmd model=deepseek/deepseek-v4-flash wt=/private<TMP>/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-cmd#0). 먼저 /private<TMP>/repo/design/v65/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private<TMP>/repo/design/v65/indices/inbox/master/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+TMUXC open /private<TMP>/repo --name byz-v65-master-cmd#0 --agent cmd --model deepseek/deepseek-v4-flash --effort low --dry-run
+== nano-spawn OPEN harness/bin/ft-nano-spawn.sh cmd
+tmuxc open /w --name n --agent cmd --model deepseek/deepseek-v4-flash --effort high
+== nano-spawn OPEN harness/kit/fable-team/bin/ft-nano-spawn.sh cmd
+tmuxc open /w --name n --agent cmd --model deepseek/deepseek-v4-flash --effort high
+== nano-spawn OPEN skill/scripts/ft-nano-spawn.sh cmd
+tmuxc open /w --name n --agent cmd --model deepseek/deepseek-v4-flash --effort high
+== nano-spawn 기본 모델 bin/ft-nano-spawn.sh cmd
+cmd|deepseek/deepseek-v4-flash
+== nano-spawn 기본 모델 kit/fable-team/bin/ft-nano-spawn.sh cmd
+cmd|deepseek/deepseek-v4-flash
+== tmux-spawn 열기 인자 harness/kit/fable-team/bin/ft-tmux-spawn.sh cmd
+--model deepseek/deepseek-v4-flash --effort high
+== tmux-spawn 열기 인자 skill/scripts/ft-tmux-spawn.sh cmd
+--model deepseek/deepseek-v4-flash --effort high
+== tmux-spawn 준비 확인 claude·codex 식 (pi 아닌 갈래)
+CLAUDE_READY_RE="${FT_CLAUDE_READY_REGEX:-ctx:|\? for shortcuts|esc to interrupt}"
+[ -z "$CODEX_READY_RE" ] && CODEX_READY_RE='^[[:space:]]*[A-Za-z0-9._/-]+[[:space:]]+(minimal|low|medium|high|xhigh)[[:space:]]+·'
+CLAUDE_READY_RE="${FT_CLAUDE_READY_REGEX:-ctx:|\? for shortcuts|esc to interrupt}"
+[ -z "$CODEX_READY_RE" ] && CODEX_READY_RE='^[[:space:]]*[A-Za-z0-9._/-]+[[:space:]]+(minimal|low|medium|high|xhigh)[[:space:]]+·'
+== reach-check claude 좌석 (agentName + user 마커 · queue enqueue · 남의 파일만)
+-- user kit/fable-team/bin/ft-reach-check.sh
+  hit: a.jsonl
+REACHED session=s#1 submitted=1 (baseline=0) dir=-Users-x-p
+rc=0
+-- user comm/ft-reach-check.sh
+  hit: a.jsonl
+REACHED session=s#1 submitted=1 (baseline=0) dir=-Users-x-p
+rc=0
+-- queued kit/fable-team/bin/ft-reach-check.sh
+  hit: a.jsonl(queued)
+REACHED session=s#1 submitted=1 (baseline=0) dir=-Users-x-p
+rc=0
+-- queued comm/ft-reach-check.sh
+NOT_REACHED session=s#1 submitted=0 (baseline=0) after 1s
+rc=4
+-- other kit/fable-team/bin/ft-reach-check.sh
+  warn: 좌석 파일 특정 실패(s#1) — 디렉터리 전수로 판정한다(다른 좌석 수신이 섞일 수 있다)
+  hit: b.jsonl
+REACHED session=s#1 submitted=1 (baseline=0) dir=-Users-x-p
+rc=0
+-- other comm/ft-reach-check.sh
+  warn: 좌석 파일 특정 실패(s#1) — 디렉터리 전수로 판정한다(다른 좌석 수신이 섞일 수 있다)
+  hit: b.jsonl
+REACHED session=s#1 submitted=1 (baseline=0) dir=-Users-x-p
+rc=0

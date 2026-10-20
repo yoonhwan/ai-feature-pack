@@ -5,7 +5,7 @@
 > 출처 원문: 오빠 10-07 「planner, harness, issue, v65, cfo 기동 이름 규칙부터 맞춰 …」 · 「이슈 자율 루프는 돌되 자동 승인 진행 하지는 말고 …」 · 「정본하는게 fable-team이잖아? 우리 개선하는게」
 
 ## 1. 좌석 이름 규칙 (P6 · 프로젝트 `design/harness/issue-improvement/SPEC-session-naming-20261005.md` §2 사본)
-- 문법 `<프로젝트>-<팀>-<역할>[-<꼬리>]#<N>` · 역할 예약어 10 = master arch da tester checker analyst pm nano repro tool · 역할 좌석 꼬리 = 에이전트(claude|codex|opencode|cmd) 필수 · nano 꼬리 = 카드 slug · 소문자·숫자·`-` 만 · 길이 ≤ 60. 검사 = `ft-name-lint.sh <이름>`.
+- 문법 `<프로젝트>-<팀>-<역할>[-<꼬리>]#<N>` · 역할 예약어 10 = master arch da tester checker analyst pm nano repro tool · 역할 좌석 꼬리 = 에이전트(claude|codex|opencode|cmd|pi) 필수 · nano 꼬리 = 카드 slug · 소문자·숫자·`-` 만 · 길이 ≤ 60. 검사 = `ft-name-lint.sh <이름>`.
 - **메인 팀 총괄(오케) 역할명은 전 팀 `master` 로 통일**(오빠 10-07 «master 가 메인오케다»): `byz-v65-master-claude` · `byz-cfo-master-claude` · `byz-planner-master-claude` · `byz-harness-master-claude` · `byz-issues-master-claude`(팀 글자 = 명부 파일명 `seats-<팀>.json` 과 같게).
 - `#N` = 승계마다 +1 이며 **옛 이름의 번호를 이어받는다**(예 `ft-v65-master-claude#142` → `byz-v65-master-claude#143`). 승계 때 자연 교체 — 살아 있는 세션을 rename·kill 하지 않는다(구 세션 닫기는 오빠/팀 판단).
 - 이 이름 규칙은 SKILL.md 의 구 규약 `ft-<slug>-<role>#0` 를 **신규 좌석부터 대체**한다.

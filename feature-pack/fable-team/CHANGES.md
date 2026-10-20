@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 설치기가 launchd 키트 템플릿의 실행 경로를 판 없는 루트 shim 으로 렌더 · 설치 검사가 판 고정 plist 를 DRIFT 로 (r538 · 1.1.92)
+## 2026-10-20 — 설치기가 launchd 키트 템플릿의 실행 경로를 판 없는 루트 shim 으로 렌더 · 설치 검사가 판 고정 plist 를 DRIFT 로 (r538 · 1.1.94)
 
 - 사건: `com.byz.ft-wt-sweep` plist 가 손 sed 렌더(`harness/evidence/r444/master-steps.md:11` «s|__FT_BIN__|<LIVE_BIN>|g»)로 판 붙은 라이브 경로(`live/1.1.16/bin`)에 고정돼 키트를 올려도 sweep 이 옛 판으로 돌았다(r535 고침이 launchd 경로로 안 돎 · master 84 손 재작성 뒤에도 `live/1.1.86` 고정 · 발주 119766 ②). `install.sh` 에 `__FT_BIN__` 치환 0 · 설치 검사에 판 고정 검사 0(arch 107 실측).
 - `ft_plist_env.py`: `bin-list <키트>` = `__FT_BIN__` 템플릿 7개(launchd 6 + slack-mirror board-publish · 템플릿 Label ≠ 파일 이름 = ERROR) · `render-bin <템플릿> <루트> [<설치 plist>] [--need-exist]` = `__FT_BIN__` → `<루트>/.fable-team/bin`(판 없는 루트 shim · LIVE_BIN 을 따라감) · `__BYZ_ROOT__` → 루트 · 자리표시 잔재·plist 해석 실패·git 공용 루트 아님·(apply)루트 bin 도구 없음 = ERROR rc3. 설치 plist 를 주면 ★ProgramArguments 하나만★ 렌더본 것으로 바꾼다 — 머신별 env·주기는 설치본 그대로(실측: 설치본에만 있는 `FT_STALL_PENALTY_AUTO=0` · news-planner `FT_LEDGER_REPO`·`FT_NEWS_DIR`·`FT_NEWS_MODEL`·`FT_NEWS_MODE=html` 을 템플릿 통째 교체가 지웠을 것 · `harness/evidence/r538/real-diff-installed-vs-render.txt`).
@@ -10,6 +10,25 @@
 - 실측(읽기만): 실제 루트 `--dry-run` = `LAUNCHD rendered=5 changed=5 restarted=0` · head-lag·idle-wake 는 미설치 SKIP · plist cksum 불변(`real-dry-run-byz-root.txt`).
 - 설치: `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 이 설치가 첫 렌더(5 라벨 실행 경로 → `<루트>/.fable-team/bin/…` · bootout·bootstrap 5) · 되돌림 = `<plist>.bak-r538`.
 - 범위 밖: 템플릿 밖 plist(ft-leak-reap · hermes 계열 · tunnel 류) · plist 주기·env 바꾸기 · 미설치 템플릿 새로 깔기 · 키트 밖 KakaoBot plist.
+- r527(1.1.93 · r540 1.1.92 포함) 위에 병합 · 1.1.94 재번호: 충돌 CHANGES·manifest 2개뿐(기계 해소) · r540·r527 이 바꾼 파일과 이 가지 파일 겹침 0(install.sh·ft_plist_env·ft_live_install_check 무변경) · 시험 재실행 = `harness/evidence/r538/merge-r527-1.1.94.txt`.
+
+## 2026-10-20 — 좌석 턴 판정기가 쉬는 동안 자동 압축된 좌석을 WORKING 으로 읽던 것 고침: 압축 요약 user 는 턴 시작 0 (r527 · 1.1.93)
+
+- 사건: `ft-seat-status.sh turn 'byz-graphics-arch-claude#19'` = `WORKING 2026-10-19T20:42:30.877Z` — 마지막 턴 끝 뒤 기록 39개가 붙임·제목·모드 + `system/compact_boundary` 1 + `user`(isCompactSummary=true · 21:37Z) 1 뿐인데 판정식이 «turn_duration 뒤 user/assistant 1개 = WORKING» 이라 압축 요약 1줄을 새 턴으로 셈(arch 107 실측 · master 83 쪽지 119445 공통 원인 ② · tester 0·chatbot N1 같은 꼴). 뉴스·stall-scan·회수가 같은 판정기라 그 좌석을 깨우기·닫기·정지 감시에서 건너뜀.
+- `ft_seat_turn.py`: `_opens_turn(r)` = user/assistant 중 `type=="user" and isCompactSummary` 제외 · 판정 자리 3곳 전부(`_window` 상태 전용 조기 반환 · 창 안 턴 끝 0 분기 · 턴 끝 뒤 훑기)에 같은 제외(DA② HOLD 1 반영) · compact_boundary 는 system 이라 원래 0 · 턴 끝 시각·REPORTED·PENDING 규칙 그대로 · `harness/bin` 사본 cmp0.
+- 시험 새 `tests/scripts/test_seat_turn_compact.py` ⓐ IDLE+턴 끝 시각 ⓑ 요약 뒤 진짜 user = WORKING ⓒ 요약 뒤 assistant = WORKING ⓓ enqueue+요약 = PENDING ⓕ 첫 창 192B 에 요약만(상태 전용 조기 반환) → 창 넓혀 IDLE · 창 안 턴 끝 0 + 요약만 = UNKNOWN(두 모드) — 고치기 전 FAIL 4(`harness/evidence/r527/before-test_seat_turn_compact.txt`) → 후 6 passed. 기존 `test_seat_turn_batch.py` 옛 판 대조 기준 = origin/main → r504 착지 직전 `855d2797`(origin/main 이 이미 r504 판이라 ⓐ·ⓔ 가 «이미 고친 판» 단언으로 FAIL 2 · 고친 뒤 6 passed). 관련 시험 rc0 = `harness/evidence/r527/after-tests.txt`.
+- 설치: 키트 1 → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · launchd 0 · 홈 0 · 되돌림 = `.bak-r527`.
+- 범위 밖: pane 스피너 판정 · jsonl 고르기(newest_jsonl_of) · 압축 자체 막기 · isMeta 처리.
+## 2026-10-20 — pi 를 하네스 에이전트로 허용: 이름 꼬리 · 열기 도구 · 준비 확인 · 승계 시작·도달 확인 (r540 · 1.1.92)
+
+- 사건: 오빠 지시로 aifp 팀이 pi 좌석(deepseek-v4.1-flash-ultrafast)을 넣었는데 하네스가 세 곳에서 거절 — 이름 lint 꼬리(claude codex opencode cmd) · 열기 도구 `--agent` 검사·모델 표·`--effort` 분기 · `ft-tmux-spawn.sh` 준비 확인이 claude 글자(`ctx:`)만 봐 pi 좌석을 90초 뒤 kill(aifp 쪽지 119886·119914 · harness master 84 발주 119888·119912·119915). 오빠 확정(119940·119944): 후계 `aifp-pi-master-pi` 를 `ft-successor-open.sh --agent pi` 로 열고 기동·도달 확인까지 → 도달 확인이 claude 대화 기록만 읽어 pi 분기 추가.
+- aifp 패치 14파일(기준 6e72a9ab · 지금 판에 `git apply` 그대로 OK): `ft-name-lint.sh` AGENTS 에 pi · `ft-role-spawn.sh`·`ft-successor-open.sh` `--agent` 에 pi · `ft-nano-spawn.sh` 모델 표 `pi) FT_PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast` · 세 도구 `--effort` 분기에 pi(tmuxc 가 `--thinking` 으로 바꿈) · `ft-tmux-spawn.sh` 열기 인자 `claude|cmd|pi` + 준비 확인 pi 분기 `FT_PI_READY_REGEX` · 정본 문서 2(SPEC-session-naming §2-A · main-team-governance §1) 에이전트 목록에 pi.
+- 준비 확인 식 넓힘(나노 실측): aifp 식 `<모델> • <effort>` 는 pi 가 폭이 모자랄 때 오른쪽부터 자르고(pi `footer.js:231-237`) effort 없이 뜨면 `• thinking off` 라 정상 좌석을 kill → 둘째 갈래 = 왼쪽 통계 문맥 칸 `(\?|N%)/N[kM]`(`0.0%/1.0M`) 추가. 판정표 `harness/evidence/r540/ready-regex-table.txt`(라이브 149 · 폭 80 시작·잘림·thinking off MATCH · 라이브 claude·codex 화면 오탐 0).
+- 도달 확인 pi 분기(`ft-reach-check.sh` 키트·`harness/comm` 짝 같은 블록): pi 좌석(= `FT_REACH_AGENT=pi` 또는 pane 자식 본체 `pi`)이면 `~/.pi/agent/sessions/--<cwd 앞 '/' 빼고 '/'·'\'·':'→'-'>--/*.jsonl`(pi session-manager 규칙 · 실측 폴더 5개 일치 · `FT_PI_SESSIONS_DIR` 로 바꿈) 중 `session_info.name == 좌석` 파일의 `message.role==user` 마커로 판정 · 좌석 파일 못 고르면 전수로 넓히지 않고 0 + 사유 · pi 기록 뿌리 없음 = UNVERIFIABLE 5. pi 는 첫 user 입력 전엔 파일을 안 만든다(session-manager `_persist`) — 폴더·파일 없음 = «아직 0» + 사유. claude 경로 출력 base 대조 diff 0.
+- `ft-successor-open.sh`: 시작 확인이 pi 면 같은 폴더의 `session_info.name` 관측(tmuxc 부팅 문장 제출 뒤 파일이 생김) · 송신·ring 재확인에 `FT_REACH_AGENT=<agent>` 전달.
+- 시험 `test_pi_agent_allow_r540.sh`(새 · 가짜 tmux/tmuxc/pgrep/mbox · 임시 HOME · `fixtures/r540` 화면 글자 · 실 좌석·실 pi·외부 호출 0) — 고치기 전 FAIL 25(`harness/evidence/r540/before-test_pi_agent_allow_r540.txt`) · 고친 뒤 ALL PASS 50. 승계 열기 ⓙ 는 실 `ft-send-verified.sh`·`ft-reach-check.sh` 로 돈다(OK + 도달 파일 · ring 0 / 기록 못 읽음 rc5 + [HIL] + 도달 파일 0). claude·codex·opencode·cmd 열기 출력 base 대조 127줄 diff 0(`base-compare-diff.txt`).
+- 설치: 키트 6(`ft-name-lint.sh` · `ft-role-spawn.sh` · `ft-nano-spawn.sh` · `ft-successor-open.sh` · `ft-tmux-spawn.sh` · `ft-reach-check.sh`) + 홈 문서 1(`main-team-governance.md`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 데몬 0 · 되돌림 = `.bak-r540`.
+- 범위 밖: pi 닫기 회수(r542) · 검색 나노 기본 pi(r543) · pi 좌석 틱 · `ft-agent-ready.sh` pi 맞춤 · `ft_stall_detect.py:18` 정지 스캔 claude|codex(pi 정지 감지 별 요청) · `harness/comm/ft-reach-check.sh` 옛 드리프트(queue-operation 블록 없음 · 이 카드 전부터) · skill/scripts 옛 사본 드리프트(pi 줄만 같이 넣음).
 
 ## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.91)
 

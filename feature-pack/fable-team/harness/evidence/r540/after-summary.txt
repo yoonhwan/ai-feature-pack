@@ -1,0 +1,14 @@
+# r540 고친 뒤 관련 시험 rc (나노 HEAD 작업 트리 · 직렬)
+test_pi_agent_allow_r540 rc=0 ALL PASS
+test_name_lint rc=0 fail=0
+test_successor_open rc=0 ALL PASS
+test_role_spawn_name rc=0 ALL PASS
+test_role_spawn_team rc=0 ALL PASS
+test_nano_spawn_tier rc=0 ALL PASS
+test_nano_spawn_reuse_info rc=0 ALL PASS
+test_nano_spawn_teamset_cap rc=0 ALL PASS
+test_spawn_hold rc=0 ---- fail=0
+test_distill_recv_gate rc=0 ALL PASS
+test_nano_spawn_body_press rc=2 FAILED=2
+test_nano_spawn_body_press FAILED=2 = base(origin/main git archive) 에도 같은 FAIL 2 (+ archive 는 git 아님 core.bare 1) — 이 카드 무관
+../test/mbox-guard.sh T16 = 스크립트 /tmp 복사 실행 환경 의존 · mbox 파일 변경 0
