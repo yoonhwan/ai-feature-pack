@@ -1,0 +1,43 @@
+# 07 실환경 읽기 전용 1회 (mbox=가짜 · 상태=임시 · 실 발신 0) 2026-10-21
+# rc=0 · 출력 0줄 · 가짜 mbox 호출 0
+# 이유: 지금 이 머신에서 com.airag.* 두 데몬의 launchctl list 종료 코드가 127 → 0 으로 바뀌어 있다(카드 §Issue 는 06:3x 실측).
+## launchctl list 발췌 (실측)
+1050	0	com.byz.iap-tunnel-18712
+-	0	com.byz.ft-secret-scan
+53030	255	com.byz.stt-tunnel-8001
+28279	-9	com.byz.ft-tick-loom
+-	0	ai.hermes.gateway-watchdog
+-	0	com.byz.ft-news-planner
+-	0	com.byz.ft-magazine
+36558	-9	com.byz.ft-tick
+57547	0	com.byz.ft-tick-kakao
+22104	0	com.byz.ft-tick-feature
+-	0	com.byz.ft-leak-reap
+1089	0	ai.hermes.gateway
+1036	0	com.hermes.byz-github-slack-mirror
+1061	0	ai.hermes.gateway-zion
+-	0	com.airag.ft-goal-tick
+-	0	com.airag.ft-news-tick
+1070	0	com.hermes.vertex-openai-proxy
+-	0	com.byz.ft-planner-decisions
+-	0	com.byz.ft-stall-scan
+30480	0	com.byz.ft-tick-ops
+36568	-15	com.hermes.byz-slack-talk-inbound
+-	0	com.byz.ft-weekly-review
+1107	0	com.byz.iap-tunnel-18703
+-	0	com.byz.cfo-g4-observe
+-	0	com.byz.gce-guard-check
+-	0	com.byz.ft-board-publish
+-	0	com.byz.serena-ensure
+36560	-15	com.byz.ft-wt-sweep
+50402	255	com.byz.loom-pg-tunnel
+36564	-15	com.hermes.byz-slack-mbox-inbound
+7965	-15	com.hermes.byz-mbox-slack-mirror
+-	0	com.byz.ft-magazine-model
+42069	0	com.byz.ft-resource-watch
+21780	0	com.byz.ft-tick-cfo
+## launchctl print com.airag.ft-goal-tick 발췌
+	state = not running
+		/bin/bash
+		/Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/.fable-team/bin/ft-goal-tick-airag.sh
+	last exit code = 0
