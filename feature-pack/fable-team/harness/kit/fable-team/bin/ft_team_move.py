@@ -5,6 +5,7 @@
 팀 폴더 해석은 ft-team-lib.sh(TEAMS.md 폴더 칸 3꼴 · 단일 출처)를 «부른다» — 여기서 명단을 다시 파싱하지 않는다.
 저장 참조 7종: ①팀 폴더 파일 ②TEAMS.md 폴더 칸 ③명부(.fable-team/seats-<팀>.json · v65=seats.json) ④nano-card-base ⑤worktree-info ⑥baton branches.json ⑦텍스트 참조(카드 본문·README 지도·.gitignore·추가 파일).
 env: FT_REPO_ROOT(이동을 커밋할 워크트리) · FT_PROJECT_ROOT(.fable-team·.worktrees·.baton 이 있는 프로젝트 루트 · 기본 git 공용 루트) · FT_TEAM_MOVE_EXTRA(콜론 구분 추가 텍스트 파일) · FT_TEAM_MOVE_LSOF(기본 lsof) · FT_TEAM_MOVE_STATE
+r587: 코드·시험 안에 박헌 옛 경로(design/<팀>/)도 읽는다 — --verify 는 ERR, --plan 은 BEFORE code-ref 줄 · 기록(archive·evidence·closeout·.claude/archives)은 셈 밖 · 자동 재작성 0.
 """
 from __future__ import annotations
 
@@ -20,6 +21,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LIB = HERE / "ft-team-lib.sh"
+CODE_GLOBS = ("*.py", "*.sh", "*.ts", "*.tsx", "*.js", "*.json", "*.toml", "*.yaml")   # r587: 옛 경로를 훑는 «코드·시험» 꼴
+RECORD_DIRS = ("archive", "evidence", "closeout")   # r587: 이동 뒤 기록 폴더 = 옛 경로가 남아도 셈 밖
 
 
 class MoveError(RuntimeError):
@@ -91,6 +94,31 @@ def hits(path: Path, team: str) -> int:
         return len(pat(team).findall(path.read_text(encoding="utf-8")))
     except (OSError, UnicodeDecodeError):
         return 0
+
+
+def is_record(rel: str, team: str) -> bool:
+    """기록 안 파일인가 — design/teams/<팀>/{archive,evidence,closeout}/** · design/teams/<팀>/CLOSEOUT* · .claude/archives/** (r587 · 옛 경로가 남아 있어도 셈 밖)."""
+    parts = rel.split("/")
+    if len(parts) > 2 and parts[0] == ".claude" and parts[1] == "archives":
+        return True
+    if len(parts) < 4 or parts[:3] != ["design", "teams", team]:
+        return False
+    return parts[3] in RECORD_DIRS or parts[3].startswith("CLOSEOUT")
+
+
+def code_refs(ctx: Ctx, team: str) -> list[tuple[str, int]]:
+    """코드·시험 안에 박힌 옛 경로 `design/<팀>/` — (경로, 줄) 정렬 목록 (r587 · 읽기만 · 자동 재작성 0).
+    git grep 1회(7초 룰) · CODE_GLOBS 만 · 기록(archive·evidence·closeout·.claude/archives)은 셈 밖."""
+    g = run("git", "grep", "-n", "-F", "-e", f"design/{team}/", "--", *CODE_GLOBS, cwd=ctx.root)
+    if g.returncode not in (0, 1):   # 1 = 히트 0 · 그 밖 = 검색 실패(조용한 통과 0)
+        raise MoveError(f"ERROR {team} 코드·시험 옛 경로 검색 실패(rc={g.returncode}): {g.stderr.strip()[:160]}")
+    out: list[tuple[str, int]] = []
+    for line in g.stdout.splitlines():
+        path, _, rest = line.partition(":")
+        no, _, _ = rest.partition(":")
+        if no.isdigit() and not is_record(path, team):
+            out.append((path, int(no)))
+    return sorted(set(out))
 
 
 def tracked(ctx: Ctx, team: str) -> list[Path]:
@@ -220,6 +248,9 @@ def cmd_plan(ctx: Ctx, arg: str) -> int:
         print(f"PLAN {team} design/{team}/ → design/teams/{team}/")
         for k, v in refs(ctx, team):
             print(f"  REF{k} {v}")
+        crefs = code_refs(ctx, team)   # r587: 이동 전에 고칠 코드·시험 목록도 blockers 로 센다
+        print(f"  BEFORE {team} code-ref {len(crefs)}")
+        blockers += len(crefs)
         bad = [] if src.is_dir() else [f"BLOCK 원본 폴더 없음: {src}"]
         bad += [f"BLOCK 목적지 이미 있음: {dst}"] if dst.exists() else []
         occ = occupancy(ctx, team, snap)
@@ -252,7 +283,12 @@ def cmd_verify(ctx: Ctx, arg: str) -> int:
             print(f"ERR {team} map-lint: {last}")
             err += 1
         err += check_stores(ctx, team)
-        left = [p for p in folder.rglob("*") if p.is_file() and hits(p, team)]
+        crefs = code_refs(ctx, team)   # r587: 코드·시험 안 옛 경로 = ERR(기록은 셈 밖)
+        for path, no in crefs:
+            print(f"ERR {team} 코드 옛 경로 design/{team}/ : {path}:{no}")
+        err += len(crefs)
+        left = [p for p in folder.rglob("*") if p.is_file() and hits(p, team)
+                and not (p.is_relative_to(ctx.root) and is_record(str(p.relative_to(ctx.root)), team))]
         for p in left:
             shown = p.relative_to(ctx.root) if p.is_relative_to(ctx.root) else p   # 꼴3 팀 폴더는 리포 밖
             print(f"WARN {team} 잔여 옛 경로 design/{team}/ : {shown}")

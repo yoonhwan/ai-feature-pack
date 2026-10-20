@@ -1,0 +1,24 @@
+== ⓒ 이동 전 --plan: BEFORE code-ref 2 + blockers 에 셈
+PASS ⓒ plan rc0
+PASS ⓒ BEFORE x code-ref 2(tests/test_x.py · scripts/y.sh)
+PASS ⓒ blockers 에 code-ref 2 가 들어간다
+== ⓐ 이동 뒤 --verify: 코드·시험 옛 경로 = ERR(기록은 셈 밖)
+PASS ⓐ apply x rc0
+PASS ⓐ verify rc1(ERR>0)
+PASS ⓐ ERR tests/test_x.py:1
+PASS ⓐ ERR scripts/y.sh:2
+PASS ⓐ VERIFY ERR=2(코드·시험 2파일)
+PASS ⓑ archive 기록은 셈 밖(ERR·WARN 0)
+PASS ⓑ evidence 기록은 셈 밖
+PASS ⓑ CLOSEOUT 기록은 셈 밖
+== ⓑ code_refs 직접 호출 — 기록 폴더 제외 · 히트 = (경로, 줄)
+PASS ⓑ code_refs = 코드·시험 2건(기록 3종 제외) · 경로 정렬
+== ⓓ 옛 경로 0 이면 VERIFY ERR=0 그대로
+PASS ⓓ verify rc0
+PASS ⓓ 코드·시험에 옛 경로 0 + 기록만 있음 → ERR=0(기록은 셈 밖)
+== 0 문법 · 키트 사본 cmp0
+PASS ast ft_team_move.py
+PASS ast ft_team_move_apply.py
+PASS 키트 사본 cmp0 ft_team_move.py
+PASS 키트 사본 cmp0 ft-team-move.sh
+== fail=0
