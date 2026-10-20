@@ -1,0 +1,5 @@
+[병합 HEAD 위 재실행 — r543 · main a785f82c(1.1.94) 병합 뒤 · 번호 충돌만 해소]
+test_nano_spawn_tier.sh: ALL PASS (43 PASS)
+test_nano_spawn_reuse_info.sh: ALL PASS · test_nano_spawn_teamset_cap.sh: ALL PASS
+pytest rollback+base_sha: 37 passed
+bin == kit(cmp): 같음 · 충돌 파일 = CHANGES.md·manifest.json 두 개뿐(코드 충돌 0)

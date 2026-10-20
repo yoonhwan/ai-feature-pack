@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 회수 판정기에 «에이전트별 이름 집합»: 나노 닫기가 pi 좌석도 회수(쓰고 바로 닫기) (r542 · 1.1.93)
+## 2026-10-20 — 회수 판정기에 «에이전트별 이름 집합»: 나노 닫기가 pi 좌석도 회수(쓰고 바로 닫기) (r542 · 1.1.96)
 
 - 사건: 하드 룰 14 «opencode 워커는 쓰고 바로 닫는다» 장치는 프로세스 이름을 opencode 로만 찾아(`ft-opencode-reap.sh` `OC = {"opencode", ".opencode", "opencode-ai"}`) pi 나노를 닫을 때 pi 회수 0 — 오빠 지시 «나노워커 pi 전환»(aifp 팀장 쪽지 119906 · harness master 84 발주 119907)의 닫기 쪽. 오빠 표준승인(desk 인터뷰 119922 · 전역 `~/.claude/CLAUDE.md:65`) = pi 정리 kill 범위 «그 좌석이 띄운 pi 프로세스 나무만 · 남의 pi 0 · 못 끄면 닫기 실패».
 - `ft-opencode-reap.sh`: `--agent opencode|pi`(기본 opencode = 지금 동작 그대로 · 인자 없이도 동작) · 이름 집합 표 1개(opencode = 지금 셋 그대로 · pi = `pi` 와 node 본문 경로 `pi-coding-agent/dist`) · 판정기 1곳 재사용(새 도구 0 · 파일 이름 그대로) · pid 파일·`REAPED … left=/rc=` 끝 줄 꼴 변경 0 · 조사 줄에 `agent=<에이전트>` 1칸 추가.
@@ -11,6 +11,34 @@
 - 설치: 키트 2(`ft-opencode-reap.sh` · `ft-nano-close.sh` — 짝 bin cmp0) + 홈 훅 1(`opencode-reap-check.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 데몬 0 · 되돌림 = `.bak-r542`.
 - 범위 밖: 나노 열기 쪽(r543) · 판정기 파일 이름 바꾸기 · pi 말고 다른 에이전트 · 기록 없는 부모 잃은 pi kill(승인 범위 밖 — 필요하면 새 결정).
 
+
+## 2026-10-20 — ft-nano-spawn 일반화: 티어는 «기본값 공급자» · 검색 나노 기본 에이전트 pi (r543 · 1.1.95)
+
+- 사건: chatbot master#10 이 `ft-nano-spawn.sh <카드> --agent pi --tier search` 로 리서치 나노를 열었는데 pi 가 아니라 opencode 좌석이 열렸고(#120064) opencode 무료 경로가 이 IP 에서 «abusive traffic» 으로 막혀 처리 0 · `--never-started` 로 닫음. 오빠 지시 «ft-nano-spawn.sh 일반화 업그레이드».
+- 원인(실측): 티어 `case` 가 `--agent`/`--model` 을 무시하고 에이전트·모델·effort·fast 를 통째로 덮어쓴다 — `search) AGENT="opencode"` · `checker|tester` 는 codex/cmd/claude · `impl:2|3` 은 codex/cmd. `--agent pi --tier checker:1` 도 codex 로 열렸다.
+- 고침 2가지(키트 `ft-nano-spawn.sh` · 추적본 `harness/bin` 같은 글자): ①`--agent` 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다(`AGENT_SET` · 티어 이름 검사와 ROLE 은 그대로) ②`--tier search` 기본 에이전트 = `FT_SEARCH_AGENT`(기본 `pi` → 모델은 에이전트별 기본 `FT_PI_MODEL`) · `FT_SEARCH_AGENT=opencode` 로 r286 옛 경로 복귀. 검색 나노 발주 문단·머리 usage 도 에이전트 이름·`pi` 포함으로.
+- 시험: `test_nano_spawn_tier.sh` 43건 ALL PASS(신규 9: search 기본 pi · env 로 opencode 복귀 · 명시 agent 가 search/checker/impl 티어를 이김 · 명시 model 우선 · 모르는 티어는 명시 agent 여도 거절) — 고치기 전 FAIL 17(`harness/evidence/r543/before-fix.txt`) · 기존 spawn 시험 37(py)+2(sh) PASS · `test_nano_spawn_body_press.sh` 는 기준판과 같은 기존 FAIL 2(ⓒ node_modules · 이 변경 무관).
+- 범위 밖: pi 닫기 회수(r542) · `skill/scripts/ft-nano-spawn.sh` 사본은 추적본과 319줄 갈라진 옛 판이라 이번에 안 건드림(별 정리) · 설치(키트 1 `ft-nano-spawn.sh`)는 하네스 master 가 `install.sh --apply`.
+
+## 2026-10-20 — 설치기가 launchd 키트 템플릿의 실행 경로를 판 없는 루트 shim 으로 렌더 · 설치 검사가 판 고정 plist 를 DRIFT 로 (r538 · 1.1.94)
+
+- 사건: `com.byz.ft-wt-sweep` plist 가 손 sed 렌더(`harness/evidence/r444/master-steps.md:11` «s|__FT_BIN__|<LIVE_BIN>|g»)로 판 붙은 라이브 경로(`live/1.1.16/bin`)에 고정돼 키트를 올려도 sweep 이 옛 판으로 돌았다(r535 고침이 launchd 경로로 안 돎 · master 84 손 재작성 뒤에도 `live/1.1.86` 고정 · 발주 119766 ②). `install.sh` 에 `__FT_BIN__` 치환 0 · 설치 검사에 판 고정 검사 0(arch 107 실측).
+- `ft_plist_env.py`: `bin-list <키트>` = `__FT_BIN__` 템플릿 7개(launchd 6 + slack-mirror board-publish · 템플릿 Label ≠ 파일 이름 = ERROR) · `render-bin <템플릿> <루트> [<설치 plist>] [--need-exist]` = `__FT_BIN__` → `<루트>/.fable-team/bin`(판 없는 루트 shim · LIVE_BIN 을 따라감) · `__BYZ_ROOT__` → 루트 · 자리표시 잔재·plist 해석 실패·git 공용 루트 아님·(apply)루트 bin 도구 없음 = ERROR rc3. 설치 plist 를 주면 ★ProgramArguments 하나만★ 렌더본 것으로 바꾼다 — 머신별 env·주기는 설치본 그대로(실측: 설치본에만 있는 `FT_STALL_PENALTY_AUTO=0` · news-planner `FT_LEDGER_REPO`·`FT_NEWS_DIR`·`FT_NEWS_MODEL`·`FT_NEWS_MODE=html` 을 템플릿 통째 교체가 지웠을 것 · `harness/evidence/r538/real-diff-installed-vs-render.txt`).
+- `install.sh` `launchd_sync`(plist_sync 뒤 · shim 단계 뒤): «설치된 라벨만» 렌더 → 설치본과 바이트 대조 → 다르면 `.bak-r538`(첫 원본) + `.bak-<version>`(직전) + 교체 + `launchctl bootout`·`bootstrap`(r464 재시도·원복 재사용 · kickstart 0 — 주기 job 을 지금 돌리지 않는다) · 요약 `LAUNCHD rendered=N changed=M restarted=K` · 미설치 라벨 = `SKIP launchd`(새로 깔지 않음) · 템플릿 밖 plist 손 0 · 워크트리 `--project` = `SKIP launchd` · `--dry-run` = 비교 줄만.
+- `ft_live_install_check.py` `pinned_drift`: `~/Library/LaunchAgents/com.byz.*.plist` 실행 경로에 `/fable-team/live/<판>/bin/` 이 있고 그 판 ≠ 루트 LIVE_BIN 판 → `DRIFT launchd <라벨> pinned=<판>` + `HINT launchd bash <하네스>/install.sh --apply --project <루트>`(PENDING rc1).
+- 시험 `test_install_launchd_render.sh`(새 · 임시 HOME·루트·키트 리포·가짜 launchctl · 실 launchd 0) ⓐ~ⓕ — 고치기 전 FAIL 15(`harness/evidence/r538/before-test_install_launchd_render.txt`) · 고친 뒤 ALL PASS 23. ⓖ 기존 install·install-check 시험 11 중 rc0 9 · rc1 2(`test_live_install` · `test_live_install_check` ⑥)는 팩 origin/main 8d5be256 에서도 같은 FAIL(`base-origin-main-preexisting.txt` · 이 가지 diff 밖 도구).
+- 실측(읽기만): 실제 루트 `--dry-run` = `LAUNCHD rendered=5 changed=5 restarted=0` · head-lag·idle-wake 는 미설치 SKIP · plist cksum 불변(`real-dry-run-byz-root.txt`).
+- 설치: `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 이 설치가 첫 렌더(5 라벨 실행 경로 → `<루트>/.fable-team/bin/…` · bootout·bootstrap 5) · 되돌림 = `<plist>.bak-r538`.
+- 범위 밖: 템플릿 밖 plist(ft-leak-reap · hermes 계열 · tunnel 류) · plist 주기·env 바꾸기 · 미설치 템플릿 새로 깔기 · 키트 밖 KakaoBot plist.
+- r527(1.1.93 · r540 1.1.92 포함) 위에 병합 · 1.1.94 재번호: 충돌 CHANGES·manifest 2개뿐(기계 해소) · r540·r527 이 바꾼 파일과 이 가지 파일 겹침 0(install.sh·ft_plist_env·ft_live_install_check 무변경) · 시험 재실행 = `harness/evidence/r538/merge-r527-1.1.94.txt`.
+
+## 2026-10-20 — 좌석 턴 판정기가 쉬는 동안 자동 압축된 좌석을 WORKING 으로 읽던 것 고침: 압축 요약 user 는 턴 시작 0 (r527 · 1.1.93)
+
+- 사건: `ft-seat-status.sh turn 'byz-graphics-arch-claude#19'` = `WORKING 2026-10-19T20:42:30.877Z` — 마지막 턴 끝 뒤 기록 39개가 붙임·제목·모드 + `system/compact_boundary` 1 + `user`(isCompactSummary=true · 21:37Z) 1 뿐인데 판정식이 «turn_duration 뒤 user/assistant 1개 = WORKING» 이라 압축 요약 1줄을 새 턴으로 셈(arch 107 실측 · master 83 쪽지 119445 공통 원인 ② · tester 0·chatbot N1 같은 꼴). 뉴스·stall-scan·회수가 같은 판정기라 그 좌석을 깨우기·닫기·정지 감시에서 건너뜀.
+- `ft_seat_turn.py`: `_opens_turn(r)` = user/assistant 중 `type=="user" and isCompactSummary` 제외 · 판정 자리 3곳 전부(`_window` 상태 전용 조기 반환 · 창 안 턴 끝 0 분기 · 턴 끝 뒤 훑기)에 같은 제외(DA② HOLD 1 반영) · compact_boundary 는 system 이라 원래 0 · 턴 끝 시각·REPORTED·PENDING 규칙 그대로 · `harness/bin` 사본 cmp0.
+- 시험 새 `tests/scripts/test_seat_turn_compact.py` ⓐ IDLE+턴 끝 시각 ⓑ 요약 뒤 진짜 user = WORKING ⓒ 요약 뒤 assistant = WORKING ⓓ enqueue+요약 = PENDING ⓕ 첫 창 192B 에 요약만(상태 전용 조기 반환) → 창 넓혀 IDLE · 창 안 턴 끝 0 + 요약만 = UNKNOWN(두 모드) — 고치기 전 FAIL 4(`harness/evidence/r527/before-test_seat_turn_compact.txt`) → 후 6 passed. 기존 `test_seat_turn_batch.py` 옛 판 대조 기준 = origin/main → r504 착지 직전 `855d2797`(origin/main 이 이미 r504 판이라 ⓐ·ⓔ 가 «이미 고친 판» 단언으로 FAIL 2 · 고친 뒤 6 passed). 관련 시험 rc0 = `harness/evidence/r527/after-tests.txt`.
+- 설치: 키트 1 → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · launchd 0 · 홈 0 · 되돌림 = `.bak-r527`.
+- 범위 밖: pane 스피너 판정 · jsonl 고르기(newest_jsonl_of) · 압축 자체 막기 · isMeta 처리.
 ## 2026-10-20 — pi 를 하네스 에이전트로 허용: 이름 꼬리 · 열기 도구 · 준비 확인 · 승계 시작·도달 확인 (r540 · 1.1.92)
 
 - 사건: 오빠 지시로 aifp 팀이 pi 좌석(deepseek-v4.1-flash-ultrafast)을 넣었는데 하네스가 세 곳에서 거절 — 이름 lint 꼬리(claude codex opencode cmd) · 열기 도구 `--agent` 검사·모델 표·`--effort` 분기 · `ft-tmux-spawn.sh` 준비 확인이 claude 글자(`ctx:`)만 봐 pi 좌석을 90초 뒤 kill(aifp 쪽지 119886·119914 · harness master 84 발주 119888·119912·119915). 오빠 확정(119940·119944): 후계 `aifp-pi-master-pi` 를 `ft-successor-open.sh --agent pi` 로 열고 기동·도달 확인까지 → 도달 확인이 claude 대화 기록만 읽어 pi 분기 추가.

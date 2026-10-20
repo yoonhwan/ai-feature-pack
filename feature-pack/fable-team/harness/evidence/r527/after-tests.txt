@@ -1,0 +1,232 @@
+$ /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_seat_turn_compact.py -q
+......                                                                   [100%]
+6 passed in 0.20s
+rc=0
+$ /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_seat_turn_batch.py -q
+......                                                                   [100%]
+6 passed in 30.38s
+rc=0
+$ /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_ft_seat_turn_window.py -q
+........                                                                 [100%]
+8 passed in 1.31s
+rc=0
+$ /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_ft_seat_codex.py -q
+..........                                                               [100%]
+10 passed in 1.22s
+rc=0
+$ /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_ft_news_html.py -q
+.......................................                                  [100%]
+39 passed in 20.23s
+rc=0
+$ bash tests/test_tick_line.sh
+PASS bash -n ft-tick-line.sh
+PASS ≤200줄 ft-tick-line.sh
+PASS 미러 cmp 0 ft-tick-line.sh
+PASS bash -n ft-seats-lint.sh
+PASS ≤200줄 ft-seats-lint.sh
+PASS 미러 cmp 0 ft-seats-lint.sh
+PASS bash -n ft-measure-net.sh
+PASS ≤200줄 ft-measure-net.sh
+PASS 미러 cmp 0 ft-measure-net.sh
+PASS bash -n ft-seat-status.sh
+PASS 미러 cmp 0 ft-seat-status.sh
+PASS ≤200줄 ft_tick_line.py
+PASS py_compile ft_tick_line.py
+PASS 미러 cmp 0 ft_tick_line.py
+PASS ≤200줄 ft_tick_line_io.py
+PASS py_compile ft_tick_line_io.py
+PASS 미러 cmp 0 ft_tick_line_io.py
+PASS ≤200줄 ft_board_env.py
+PASS py_compile ft_board_env.py
+PASS 미러 cmp 0 ft_board_env.py
+PASS ≤200줄 ft_board_render.py
+PASS py_compile ft_board_render.py
+PASS 미러 cmp 0 ft_board_render.py
+PASS ≤200줄 ft_board_decide.py
+PASS py_compile ft_board_decide.py
+PASS 미러 cmp 0 ft_board_decide.py
+PASS ≤200줄 ft-board.py
+PASS py_compile ft-board.py
+PASS 미러 cmp 0 ft-board.py
+PASS T1 첫 줄 TICK 좌석
+PASS T1 스냅샷 age=15s
+PASS T1 src=turn-live(2)+snapshot@
+PASS T1 할 일 없음
+PASS T1 한 줄
+PASS T2 스냅샷 0행인데 라이브 3분 → 정지 3분 행
+PASS T2 행에 좌석
+PASS T2 할 일 없음 아님
+PASS T3 라이브 IDLE 4분 → 행
+PASS T3 WORKING 나노는 행 아님
+PASS T4 스냅샷 옛 8분 행을 따르지 않음
+PASS T4 라이브 WORKING → 할 일 없음
+PASS U1 좌석 측정 실패 → UNKNOWN
+PASS U1 UNKNOWN 행에 좌석+이유
+PASS U1 할 일 없음 금지
+PASS U2 스냅샷 없음 → 첫 줄 UNKNOWN 1건
+PASS U2 이유는 행으로
+PASS U2 할 일 없음 금지
+PASS U3 명부에 없는 좌석 → UNKNOWN(명부
+PASS F2 출력 ≤5줄
+PASS F2 ≤500자(444 문자 · 546 바이트)
+PASS F2 첫 줄 UNKNOWN 8석
+PASS F2 첫 줄에 이유 없음
+PASS F2 할 일 없음 금지
+PASS F2 마지막 줄 잘림 표시
+PASS F2 경로 줄 실재 · 8행
+PASS F2 파일명 <좌석>-<ts>.txt
+PASS F2 전체 행 파일 좌석당 20개 상한
+PASS I1 첫 틱 stderr io 줄
+PASS I1 첫 틱 resolve=8 (경로 신규 해석)
+PASS I1 경로 캐시 파일 실재
+PASS I2 두 번째 틱 files=8
+PASS I2 두 번째 틱 resolve=0 (경로 캐시 적중)
+PASS I2 bytes=2608 ≤ 8×64KB · ms=753
+PASS I2 작은 jsonl 은 파일 전체만 읽음(8×파일 크기)
+PASS I3 mtime 역행 → 재해석 1회
+PASS I3 그 다음 틱은 다시 캐시 적중
+PASS I4 파일 삭제 → 그 좌석만 전수 재해석 1회(나머지 7석은 새 항목만 스캔)
+PASS I4 재해석 뒤에도 files=8
+PASS D1 첫 틱: old(IDLE) 를 읽음 → 할 일 없음
+PASS D1 첫 틱 resolve=1
+PASS D2 디렉터리 무변화 → resolve=0
+PASS D3 다른 디렉터리 변화 → 재해석 0
+PASS D4 같은 디렉터리에 새 최신 jsonl → 전수 재해석 0 · 새 파일만 읽음(new=1)
+PASS D4 새 파일(WORKING)을 읽는다 → 정지 행 없음
+PASS D4 캐시에 new.jsonl · dir · dir_mtime 저장
+PASS D5 이후 무변화 틱 → resolve=0
+PASS D5 bytes=267 ≤ 1석×64KB
+PASS D6 캐시 경로 파일 삭제 → 전수 재해석 1(old 로 복귀)
+PASS F5b-R4 캐시 없음(첫 틱) → 전수 재해석(기존 경로) 1석(틱이 읽는 좌석 = arch)
+PASS F5b-R3 디렉터리 무변화 → scan=0
+PASS F5b-R3 디렉터리 무변화 → new=0
+PASS F5b-R3 디렉터리 무변화 → resolve=0
+PASS F5b-R3 bytes=383 ≤ 2×64KB
+PASS F5b-R1 다른 좌석 새 파일 1개 → 전수 재해석 0 (200개를 다시 훑지 않는다)
+PASS F5b-R1 새 파일만 앞을 읽음 new=1
+PASS F5b-R1 bytes=66308 ≤ 64KB+1MB
+PASS F5b-R1 대상 좌석(arch)은 old(IDLE) 유지 → 할 일 없음
+PASS F5b-R1 다음 틱(무변화) → new=0 (새 파일은 한 번만 본다)
+PASS F5b-R2 새 파일로 교체 new=1
+PASS F5b-R2 전수 재해석 0
+PASS F5b-R2 캐시 경로 = arch-new.jsonl
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS F5b-R5 needle 정합: 새 경로 == newest_jsonl_of
+PASS F5b-R5 customTitle 파일(b)을 고름(mtime 최신)
+PASS I4b 해석 실패 좌석 포함 첫 틱 resolve=8
+PASS I4b 부정 캐시 → 둘째 틱 resolve=0
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5 작은 파일 read_bytes == 파일 크기
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5 큰 턴 state == IDLE (끝 레코드 2개를 찾을 때까지 넓힘)
+PASS I5 큰 턴 read_bytes == 파일 크기(넓힐 때 앞서 읽은 꼬리를 다시 읽지 않는다 — 합이 아니라 최종 창)
+PASS I5 큰 턴 turn_end 는 마지막 레코드
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5b --no-reported: 끝 레코드 1개면 멈춤 → read_bytes == 64KB(실 좌석 jsonl 의 긴 턴 2배 확장 방지)
+PASS I5b --no-reported: state 는 그대로 IDLE
+PASS I5b --no-reported: reported 는 null
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5c 열린 턴 상태 전용 → WORKING
+PASS I5c 열린 턴 read_bytes == 64KB (1MB 확장 0)
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5c 기본 모드도 끝 레코드를 끝까지 찾은 뒤 창 안 user/assistant 로 WORKING (R144 — 옛 UNKNOWN 교정)
+PASS I5c 기본 모드 WORKING 의 reported 는 null
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5 텍스트 기본은 5열(ft-tick.sh read 보호)
+warn: seats.json 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XjxCIfo0yv/none.json) — AGENT 열은 '-', (replaced) 판정 없음
+PASS I5 --bytes 는 6열째에 바이트
+PASS I6 jsonl 서브커맨드: 없는 좌석 rc 1
+PASS Q1 큐 5건
+PASS Q1 주의 seq 11
+PASS Q1 주의 seq 12
+PASS Q1 주의 seq 15
+PASS Q1 남의 쪽지 제외
+PASS Q1 머리 없음은 주의 아님
+PASS Q1 할 일 없음 아님
+PASS C1 출력 ≤5줄
+PASS C1 ≤500자
+PASS C1 마지막 줄 잘림 표시
+PASS C1 전체 행 파일 8행
+PASS C1 첫 줄 정지 8
+PASS L0 틱 줄에 불일치 1
+PASS L0 할 일 없음 아님
+PASS S0 정상 + 닫힌 팀 보존 좌석 → 불일치 0
+PASS S0 rc 0
+PASS S0b --team 정상
+PASS S1 ⓐ 행 없는 세션
+PASS S1 ⓐ 닫힌 팀 보존 표시 없는 세션
+PASS S1 불일치 2
+PASS S1 rc 1
+PASS S1b --team tt 는 ghost 만
+PASS S2 ⓑ _master 가 은퇴(_replaced_by)
+PASS S2b ⓑ _master 세션 죽음
+PASS S2c 개설 중 빈 _master → OPENING
+PASS S2c 불일치 아님
+PASS S2d _opened 없이 30분 넘음 → 불일치
+PASS S3 ⓒ 활성 행인데 세션 없음
+PASS S4 ⓓ 계보당 세션 3 > 2
+PASS S5 ⓔ 같은 키가 명부 2개
+PASS S5b ⓔ 한 파일 안 중복 키
+PASS S6 ⓕ 파싱 실패 UNKNOWN 파일
+PASS S6 불일치 0 이지만 UNKNOWN 1
+PASS S6 rc 1
+PASS R1 ⑤ 절 제목
+PASS R1 HIL-LEDGER open 1건
+PASS R1 큐 긴급 #7
+PASS R1 MERGE-QUEUE 대기 1
+PASS R1 제안 승인/반려 없음 1
+PASS R1 관찰 중 1
+PASS R1 비어 있지 않으면 '없음' 줄 없음
+PASS R1 ④ 오늘 판정표 뒤에 ⑤
+PASS R2 슬랙 꼴에도 ⑤
+PASS R3 캐시 오래됨 → 미확인 표기
+PASS R3 없음으로 접지 않음
+PASS R4 전부 0 ∧ 신선 → 없음 한 줄
+PASS R5 원장 파일 없음 → 확인 불가(없음으로 접지 않음)
+PASS R5 없음 한 줄 아님
+PASS G1 CLI 기본(env 미지정) + 캐시 없음 → gh 외부 실행 0
+PASS G1 ⑤ 에 캐시 없음 · 미확인
+PASS G1 질문 0 으로 접지 않음
+PASS G2 CLI 기본 + 오래된 캐시 → gh 외부 실행 0
+PASS G2 캐시 09:00 · 미확인
+PASS G2 질문 0 으로 접지 않음
+PASS G2b --refresh-gh → spy 호출 1회
+PASS G3 갱신 모드 run timeout 인자 [7]
+PASS G3 spy 호출 1회
+PASS G3b gh_issues 플래그 없음 → 외부 0
+PASS G4 실패 + 캐시 있음 → raise 0 · 캐시 유지(1건)
+PASS G4 gh 호출 2회(시도 1 + 재시도 1)
+PASS G5 실패 + 캐시 없음 → raise(rc≠0)
+PASS G6 publish render 호출 인자에 --refresh-gh
+PASS G6 publish snapshot 호출도 --refresh-gh
+PASS G7 tick-line 에 CACHE_ONLY export 없음
+PASS M1 1줄 JSON
+PASS M1 raw == 5
+PASS M1 succession == 2
+PASS M1 first_boot == 3
+PASS M1 lineages == 3
+PASS M2 total == 3 (id 중복 제거·창 밖 제외)
+PASS M2 일자별 == {10-09:2, 10-10:1}
+PASS M3 부팅 보고 없는 fixture → total == 0
+PASS M3 unclassified == 7 (첫 부팅 전 구간)
+PASS M3 by_seat == {}
+PASS P1 DA fixture: 현역 #27 → total == 1
+PASS P1 by_seat == {#27: 1}
+PASS P1 부팅 전 1건 → unclassified == 1
+PASS P2 total == 3 (#26 몫 2 + #27 몫 1 · 은퇴 뒤 #26 앞·창 밖 제외)
+PASS P2 by_seat 정확
+PASS P2 #26 부팅이 앞서므로 unclassified == 0
+PASS P2 일자별은 센 것만
+PASS M6 baseline raw == 2 (창 밖 부팅 보고 제외)
+PASS M6 baseline succession == 1
+PASS M6 baseline first_boot == 1
+PASS M6 baseline interview == 3
+PASS M6 baseline window 고정
+PASS M4 알 수 없는 지표 rc 2
+PASS M4b 인자 부족 rc 2
+PASS M5 로그 없음 → 실패(0 아님)
+---
+ALL PASS
+rc=0
+$ cmp kit/fable-team/bin/ft_seat_turn.py bin/ft_seat_turn.py
+rc=0

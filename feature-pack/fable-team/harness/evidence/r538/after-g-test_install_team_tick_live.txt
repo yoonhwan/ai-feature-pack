@@ -1,0 +1,50 @@
+PASS bash -n
+PASS dry-run rc
+PASS dry-run: launchctl 호출 0
+PASS dry-run: plist 불변
+PASS 구판 라이브 → 설치 거부 rc
+PASS RAISED 스위치 없는 라이브 → 설치 거부 rc
+PASS 구판 라이브 거부: plist 불변·launchctl 0
+PASS 설치 rc
+PASS cfo ProgramArguments[1] = 라이브
+PASS cfo env 4키
+PASS cfo 기존 키 불변
+PASS cfo 백업 = 원본
+PASS cfo plutil -lint
+PASS feature ProgramArguments[1] = 라이브
+PASS feature env 4키
+PASS feature 기존 키 불변
+PASS feature 백업 = 원본
+PASS feature plutil -lint
+PASS loom ProgramArguments[1] = 라이브
+PASS loom env 4키
+PASS loom 기존 키 불변
+PASS loom 백업 = 원본
+PASS loom plutil -lint
+PASS ops ProgramArguments[1] = 라이브
+PASS ops env 4키
+PASS ops 기존 키 불변
+PASS ops 백업 = 원본
+PASS ops plutil -lint
+PASS launchctl bootout·bootstrap 팀마다 1쌍(8줄)
+PASS 첫 루프 확인 줄 출력
+PASS 설치 재실행(멱등) rc
+PASS 멱등: launchctl 추가 호출 0
+PASS 되돌림 rc
+PASS cfo 되돌림 = 원본 plist
+PASS cfo 되돌림 ProgramArguments[1] = 옛 경로·파일 실재
+PASS cfo 팀 사본 내용 불변
+PASS feature 되돌림 = 원본 plist
+PASS feature 되돌림 ProgramArguments[1] = 옛 경로·파일 실재
+PASS feature 팀 사본 내용 불변
+PASS loom 되돌림 = 원본 plist
+PASS loom 되돌림 ProgramArguments[1] = 옛 경로·파일 실재
+PASS loom 팀 사본 내용 불변
+PASS ops 되돌림 = 원본 plist
+PASS ops 되돌림 ProgramArguments[1] = 옛 경로·파일 실재
+PASS ops 팀 사본 내용 불변
+PASS 되돌림 launchctl 8줄 추가(총 16)
+PASS 백업 없는 되돌림 거부 rc
+PASS 인자 오류 rc
+fail=0
+ALL PASS

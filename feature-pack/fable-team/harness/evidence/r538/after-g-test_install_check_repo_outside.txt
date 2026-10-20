@@ -1,0 +1,10 @@
+PASS 범위에 하네스 파일 0 → OK n=0 rc0
+PASS index-move 꼴 <sha>^..<sha> → OK n=0 rc0
+PASS merge-land 꼴 --ref <B> → OK n=0 rc0
+PASS 범위에 scripts/fable-team-bin/x.sh → ERROR rc3 + 파일명
+PASS 옛 하네스 파일 삭제만(r386 꼴) → OK n=0 rc0
+PASS 팩 꼴 */harness/kit/ 변경(다른 체크아웃) → ERROR rc3 + 파일명
+PASS 범위 끝 sha 없음 → ERROR rc3
+PASS --all → 옛 ERROR 그대로 rc3
+PASS 임시 HOME 밑 새 파일 0
+== ALL PASS ==

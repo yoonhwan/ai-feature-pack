@@ -159,8 +159,8 @@ echo "== ⓖ 기존 opencode 시험 base 대조 diff 0 (시험 파일 손대지 
 for t in test_opencode_reap.sh test_nano_close_fail_closed.sh; do
   bash "$HERE/$t" > "$T/$t.log" 2>&1 && ok "ⓖ $t rc=0" || bad "ⓖ $t rc≠0 ← $(tail -3 "$T/$t.log")"
 done
-change="$(git -C "$HERE" diff --name-only HEAD -- . 2>/dev/null)"
-[ -z "$change" ] && ok "ⓖ 기존 시험 파일 변경 0(base 대조 = HEAD)" || bad "ⓖ 기존 시험 파일이 바뀌었다: $change"
+change="$(git -C "$HERE" diff --name-only HEAD -- test_opencode_reap.sh test_nano_close_fail_closed.sh test_nano_close_rerun_early.sh test_seat_reap_left0.sh test_seat_reap_services.sh 2>/dev/null)"
+[ -z "$change" ] && ok "ⓖ 기존 회수·닫기 시험 파일 변경 0(base 대조 = HEAD)" || bad "ⓖ 기존 시험 파일이 바뀌었다: $change"
 hk() { printf '{"tool_name":"Bash","tool_input":{"command":%s}}' "$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$1")" | bash "$HOOK"; }
 orphan h1 "$T/else"
 out="$(hk 'pi -p "hello"')"

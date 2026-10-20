@@ -4,6 +4,7 @@
 판정(BOOT 18 · Seatbelt 1.1): Claude Code jsonl 은 턴이 끝날 때 system/turn_duration 을 찍는다.
   STATE = 마지막 turn_duration 뒤에 user/assistant 있으면 WORKING · 없으면 IDLE · 뒤에 queue-operation enqueue 만 있으면 PENDING
           · 창(최대 tail_bytes)에 turn_duration 이 없어도 user/assistant 가 있으면 WORKING · 둘 다 없으면 UNKNOWN
+          · 압축 요약 user(isCompactSummary)·compact_boundary 는 턴 시작으로 세지 않는다(r527 · 쉬는 동안 자동 압축)
   REPORTED = 그 턴의 assistant tool_use 입력에 `mbox.sh send <master>` 문자열 실재(yes/no) · master 미상이면 '-'
 쓰는 곳: 셸 도구(`ft-seat-status.sh turn`) = CLI · 뉴스 HTML·지도 = turns() — 좌석 → 최신 jsonl 을 한 번에(find_jsonls) 찾고 같은 프로세스에서 꼬리만 읽는다
 (좌석별 하위 프로세스 0 · 부하 15~56 에서 좌석당 셸 1회가 상한을 넘겨 «확인 불가» 가 되던 꼴).
@@ -22,6 +23,12 @@ from ft_api_outage_util import find_jsonls  # noqa: E402
 
 TAIL_BYTES, TAIL_START = 1 << 20, 1 << 16
 Row = tuple[str, str, str, str, int]
+
+
+def _opens_turn(r: dict) -> bool:
+    """user/assistant = 턴 기록 — 단 쉬는 동안 자동 압축이 남긴 요약 user(isCompactSummary)는 새 턴이 아니다(r527).
+    (system/compact_boundary 는 type 이 system 이라 원래 세지 않는다.)"""
+    return r.get("type") in ("user", "assistant") and not (r.get("type") == "user" and r.get("isCompactSummary"))
 
 
 def _records(data: bytes) -> list[dict]:
@@ -53,7 +60,7 @@ def _window(path: str, cap: int, start: int, need_ends: int, status_only: bool) 
         if len(ends) >= need_ends or want >= size or want >= cap:
             return recs, ends, got, False
         # 상태 전용: 끝 레코드가 창 밖이어도 창 안에 user/assistant 가 있으면 «그 끝 뒤» 기록 = 열린 턴 WORKING (턴 끝 시각은 불요)
-        if status_only and not ends and any(r.get("type") in ("user", "assistant") for r in recs):
+        if status_only and not ends and any(_opens_turn(r) for r in recs):
             return recs, ends, got, True
         win = min(win * 2, cap)
 
@@ -76,15 +83,14 @@ def turn_of_file(path: str, tail_bytes: int = TAIL_BYTES, tail_start: int = TAIL
     if early:
         return "WORKING", "-", "-", "-", got
     if not ends:  # 끝 레코드 0개 — 창 안에 user/assistant 가 있으면 «마지막 끝 뒤의 기록» = 열린 턴(긴 턴·첫 턴 · 두 모드 공통)
-        return ("WORKING" if any(r.get("type") in ("user", "assistant") for r in recs) else "UNKNOWN"), "-", "-", "-", got
+        return ("WORKING" if any(_opens_turn(r) for r in recs) else "UNKNOWN"), "-", "-", "-", got
     last, prev = ends[-1], (ends[-2] if len(ends) > 1 else -1)
     end, state, pending = recs[last], "IDLE", False
     for r in recs[last + 1:]:
-        t = r.get("type")
-        if t in ("user", "assistant"):
+        if _opens_turn(r):
             state = "WORKING"
             break
-        if t == "queue-operation":
+        if r.get("type") == "queue-operation":
             pending = r.get("operation") == "enqueue"
     if state == "IDLE" and pending:
         state = "PENDING"

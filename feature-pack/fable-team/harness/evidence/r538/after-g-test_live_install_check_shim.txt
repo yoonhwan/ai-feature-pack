@@ -1,0 +1,16 @@
+PASS ⓐ 루트 shim 0 → PENDING shim ×3 rc1
+PASS ⓑ0 ft-root-bin-shim.sh → SHIM 3
+PASS ⓑ shim 실재 → OK · shim 줄 0 rc0
+PASS ⓒ 라이브에 없는 루트 옛 사본 → 보고 0
+PASS ⓓ LIVE_BIN 없음 → shim 줄 0 · ERROR 0 · rc0
+PASS ⓕ check 누락 목록 == 헤더 없는 라이브 이름 집합(2)
+PASS ⓕ dry-run SHIM 3 = 라이브 키트 도구 수
+PASS ⓖ 헤더 없는 같은 이름 루트 사본 → PENDING shim
+PASS ⓗ --range 에서도 PENDING shim
+PASS r413ⓐ 옛 사본 → drift-check rc3 · 설치 명령(하네스 못 풂 = <하네스>) · 옛 경로 0
+PASS r413ⓐ FT_HARNESS_ROOT → 그 하네스의 install.sh
+PASS r413ⓐ LIVE_BIN 있으면 옛 사본 판정 0(기존 경로)
+PASS r413ⓑ 옛 사본 루트·워크트리 → PENDING STALE-COPY ×2 + HINT 설치 명령
+PASS r413ⓒ shim 루트·shim 워크트리 → OK · STALE-COPY 0
+PASS core.bare 오염 0
+ALL PASS
