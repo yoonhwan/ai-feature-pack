@@ -1,0 +1,43 @@
+# base origin/main 61166100 — 고치기 전 판(키트·bin 원본) + 최종 시험
+PASS 키트 사본 cmp 0 ft-resource-cause.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+FAIL ⓐ cpu 모드 rc0 — «2» ≠ «0»
+FAIL ⓐ yes×4 각 90% 8분 → 조상 pane 의 세션 한 줄 — «usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin/ft-resource-cause.sh disk|mem» ≠ «cpu yes×4 CPU 360% 8분 · 주인 byz-v65-master-claude#0»
+PASS ⓐ 같은 이름 3개 미만(mds 1개)은 제외
+PASS ⓐ 각 30% 미만(10%)은 제외
+FAIL ⓑ ppid 1 · tty 대조 → 같은 세션(tty) — «usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin/ft-resource-cause.sh disk|mem» ≠ «cpu yes×4 CPU 360% 8분 · 주인 byz-v65-master-claude#0 (tty)»
+FAIL ⓒ ppid 1 · tty ?? → 주인 미상 — «usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin/ft-resource-cause.sh disk|mem» ≠ «cpu yes×4 CPU 360% 8분 · 주인 미상»
+FAIL ⓔ 2개 → 빈 출력 rc0 — «2|usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin/ft-resource-cause.sh disk|mem» ≠ «0|»
+FAIL ⓔ 가장 오래된 것 4분 → 빈 출력 — «usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin/ft-resource-cause.sh disk|mem» ≠ «»
+PASS ps 자료 0 → rc≠0 (2)
+harness/tests/test_resource_cpu_owner.sh: 줄 68: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.sH1QBCfDUw/R/.fable-team/state/runaway-cpu.log: No such file or directory
+FAIL ⓓ tick 1 → runaway-cpu.log 1줄 — «» ≠ «1»
+FAIL ⓓ 로그 줄 = 주인 줄 — 없음: «cpu yes×4 CPU 360% 8분 · 주인 byz-v65-master-claude#0» ← 
+FAIL ⓓ planner 쪽지 1통 — «0» ≠ «1»
+FAIL ⓓ 수신자 = planner 명부 _master — 없음: «send byz-t-planner-claude#9 » ← 
+FAIL ⓓ 쪽지 본문 «끄기는 사람 판단 · kill 0» — 없음: «끄기는 사람 판단 · kill 0» ← 
+FAIL ⓓ 같은 서명(명령·주인·개수 · CPU·분만 바뀜) → 다음 tick 쪽지 0 — «0» ≠ «1»
+FAIL ⓓ 개수가 바뀌면(4→5) 쪽지 1통 더 — «0» ≠ «2»
+FAIL ⓓ planner _master 없음 → 로그 ERROR — 없음: «ERROR CPU 폭주 쪽지 수신자 없음» ← 2026-10-20T00:04:36Z	gate WARN resource rate=na pressure.tsv 표본 1줄 — 속도 칸만 건너뛰고 판정
+2026-10-20T00:04:36Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T00:04:37Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T00:04:37Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T00:04:38Z	ERROR ft-disk-alarm rc
+FAIL ⓓ 수신자 없음 → 쪽지 0 — «0» ≠ «2»
+harness/tests/test_resource_cpu_owner.sh: 줄 82: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.sH1QBCfDUw/R/.fable-team/state/runaway-cpu.log: No such file or directory
+harness/tests/test_resource_cpu_owner.sh: 줄 84: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.sH1QBCfDUw/R/.fable-team/state/runaway-cpu.log: No such file or directory
+PASS ⓔ 2개 tick → 로그 줄 증가 0
+harness/tests/test_resource_cpu_owner.sh: 줄 86: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.sH1QBCfDUw/R/.fable-team/state/runaway-cpu.log: No such file or directory
+PASS ⓔ 4분 tick → 로그 줄 증가 0
+FAIL ⓔ 조건 미달 → 쪽지 0 — «0» ≠ «2»
+FAIL 원인 도구 rc≠0 → 로그 ERROR — 없음: «ERROR cpu 원인» ← 2026-10-20T00:04:36Z	gate WARN resource rate=na pressure.tsv 표본 1줄 — 속도 칸만 건너뛰고 판정
+2026-10-20T00:04:36Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T00:04:37Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T00:04:37Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T00:04:38Z	ERROR ft-disk-alarm rc
+PASS ⓕ 가짜 kill·renice·pkill·killall 호출 0
+PASS ⓕ ft-resource-cause.sh 에 kill 계열 0
+FAIL ⓕ watch cpu_watch 없음
+PASS ⓕ cpu_watch 에 kill 계열 0
+---- fail=18
+rc=1
