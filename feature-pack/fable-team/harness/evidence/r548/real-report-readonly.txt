@@ -1,0 +1,9 @@
+# r548 읽기 전용 실측 — 새 키트 판으로 실제 등록표를 --report (삭제 0 · 쓰기 0)
+# 시각: 2026-10-20 16:13:09 · FT_RES_ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents · SUT=kit/fable-team/bin/ft-scratch-repo.sh
+# 환경: 40 tmux 세션 · lsof rc=0
+--- --report:
+0.00	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.12boukT2sv	TMPDIR tmp.* 1440분 지남
+0.00	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nayQm0aXSQ	TMPDIR tmp.* 1440분 지남
+--- --report --summary:
+주인 없는 임시 사본 2개 0.00 GiB
+(삭제 0 — --report 는 지우지 않는다 · 로그 append 0)

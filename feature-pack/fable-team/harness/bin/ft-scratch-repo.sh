@@ -4,10 +4,13 @@
 #   ft-scratch-repo.sh --done <경로>                 등록된 사본만 worktree 제거 + 등록 줄 삭제 (등록 밖 경로는 거부)
 #   ft-scratch-repo.sh --report [--summary]          «주인 없는 사본» 크기 목록 — 삭제 0. --summary = `주인 없는 임시 사본 N개 N.N GiB` 한 줄(0개면 출력 없음)
 #   ft-scratch-repo.sh --sweep                       주인 없는 사본 정리(판정 1920): 첫 1회 = 목록 보고만(실삭제 0, 표식 scratch-sweep.armed) · 그 뒤부터 자동 삭제 · 지울 게 없으면 출력 0
-#     r444: tmux 목록을 못 읽으면 stdout `ERROR tmux unreadable …` 1줄(호출자 ft-disk-alarm 이 planner 로) + 삭제 0 · 지운 뒤 로그 `swept=N owner-dead=N tmp=N`
+#     r444: tmux 목록을 못 읽으면 stdout `ERROR tmux unreadable …` 1줄(호출자 ft-disk-alarm 이 planner 로) + 삭제 0 · 지운 뒤 로그 `swept=N owner-dead=N tmp=N held=N`
+#     r548: 어떤 프로세스의 cwd(그 폴더 또는 그 아래)인 사본은 지우지 않고 붙잡는다 — 로그 `붙잡음 …` 줄 + stdout `[장비 정리] 주인 <좌석> 사본 <경로> 에서 pid <n> <명령> 실행 중 — 삭제 보류` 최대 3줄(나머지 개수 1줄)
+#     r548: cwd 를 묻는 lsof 가 실패하거나 0줄이면 «아무도 안 씀» 으로 읽지 않는다 — 로그·stdout `ERROR lsof 실패 — 삭제 0` 1줄 + 이번 정리 전체 생략(등록 사본·tmp.* 포함)
 #   ft-scratch-repo.sh --judged <경로>               «판정 끝난» 사본이면 rc 0 · 아니면 1 · 등록 사본 아님/없는 경로 2 — 사본 HEAD 가 main 에 착지했거나, 그 sha 앞 8자가 main 의 design/ 문서에 적혔고 그 문서 커밋이 AGE 분 지났을 때(삭제 0 · r-disk-drop-worktree-scratch-census)
 #   같은 주인의 «등록 사본» 이 3개를 넘게 살아 있으면 새로 만들 때 stderr WARN + 가장 오래된 «판정 끝난» 사본 경로(삭제는 좌석 손 — `--done <경로>`). env FT_SCRATCH_MAIN(판정 기준 ref · 기본 origin/main 있으면 그것 없으면 main)
-#   «주인 없는 사본» = 등록 사본 중 주인 세션이 tmux 에 없는 것 «즉시»(r444 · 나이 문턱 0 · tmux 목록 실패면 이 판정 생략) + TMPDIR `tmp.*` 중 FT_SCRATCH_AGE_MIN(1440분) 지나고 내 소유이며 어떤 프로세스의 cwd 도 아닌 것
+#   ★cwd 로 쓰이는 사본은 두 종류 모두 삭제 0 + «붙잡음» 목록(경로·pid·명령·주인) — 붙잡힌 사본은 그 팀이 시험 장비를 정리해야 지워진다(오빠 10-20 «시험 끝 = 띄운 장비 정리»)★
+#   «주인 없는 사본» = 등록 사본 중 주인 세션이 tmux 에 없고 «등록 뒤 FT_SCRATCH_AGE_MIN(1440분) 지난» 것(판정 1920 문구 · r444 의 나이 문턱 0 을 r548 이 되돌림 · tmux 목록 실패면 이 판정 생략) + TMPDIR `tmp.*` 중 FT_SCRATCH_AGE_MIN 지나고 내 소유이며 어떤 프로세스의 cwd 도 아닌 것
 #   같은 sha·같은 주인의 등록 사본이 디스크에 있으면 새로 만들지 않고 그 경로를 다시 준다(r444).
 #   env: FT_RES_ROOT · FT_SCRATCH_DIR(사본 부모, 기본 $TMPDIR) · FT_SCRATCH_OWNER(주인, 기본 현재 tmux 세션)
 #        FT_TMUX_BIN(기본 PATH → /opt/homebrew/bin → /usr/local/bin — launchd PATH 엔 homebrew 가 없다 · r444) · FT_TMUX_SOCKET(있으면 -S) · FT_TMUX_TMPDIR(있으면 TMUX_TMPDIR)
@@ -49,20 +52,55 @@ warn_many() { # <주인> — 등록 사본(디스크에 있는 것) > 3 이면 W
   [ "$n" -gt 3 ] || return 0
   echo "WARN 주인 $o 의 등록 사본이 ${n}개 — 가장 오래된 «판정 끝난» 사본: ${oldest:-없음(판정 끝난 사본 0)}${oldest:+ (삭제는 좌석 손: ft-scratch-repo.sh --done $oldest)}" >&2
 }
-orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · N · K
-  local SESS p o t d TD cwds; ORPH=""; N=0; K=0; TMUX_OK=1
+CWDROWS=""; HPID=""; HCMD=""   # r548: lsof 결과(경로·pid·명령) 1회 파싱분 · cwd_holder 의 출력 자리
+cwd_holder() { # <폴더> → 0 = 어떤 프로세스가 그 폴더 «또는 그 아래» 를 cwd 로 쓴다(폴더 경계 비교) · HPID/HCMD 에 그 프로세스 첫 줄 · 없으면 1
+  local d="$1" p pid cmd
+  HPID=""; HCMD=""
+  while IFS="$(printf '\t')" read -r p pid cmd; do
+    case "$p" in "$d"|"$d"/*) HPID="$pid"; HCMD="$cmd"; return 0;; esac
+  done <<EOF
+$CWDROWS
+EOF
+  return 1
+}
+held_report() { # r548: 붙잡은 사본 = 로그 «붙잡음» 줄 전부 + stdout «[장비 정리]» 최대 3줄 + «…외 N건»
+  local k p ty why own pid cmd i=0
+  while IFS="$(printf '\t')" read -r k p ty why own pid cmd; do
+    [ -n "$p" ] || continue
+    i=$((i+1))
+    printf '%s 붙잡음 %s (pid %s %s · 주인 %s)\n' "$(date +%F)" "$p" "$pid" "$cmd" "$own" >> "$SLOG"
+    [ "$i" -le 3 ] && echo "[장비 정리] 주인 $own 사본 $p 에서 pid $pid $cmd 실행 중 — 삭제 보류"
+  done <<EOF
+$HOLD
+EOF
+  [ "$HELD" -le 3 ] || echo "[장비 정리] …외 $((HELD-3)) 건"
+}
+orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD = "kb<TAB>경로<TAB>reg|tmp<TAB>사유(붙잡음)·…<TAB>주인<TAB>pid<TAB>명령" · N · K · HELD · TMUX_OK · LSOF_OK
+  local SESS p o t d TD now RAW; ORPH=""; HOLD=""; N=0; K=0; HELD=0; TMUX_OK=1; LSOF_OK=1; now="$(date +%s)"
   add() { ORPH="$ORPH$1	$2	$3	$4
 "; N=$((N+1)); case "$1" in ''|*[!0-9]*) ;; *) K=$((K+$1));; esac; }
-  # 등록 사본: tmux 목록을 못 읽으면(rc≠0) «세션 0» 으로 세지 않고 이 판정 전체를 건너뛴다(#0 RULE) · 주인 없음 = 즉시(r444 · 나이 문턱 0 — 주인이 죽으면 쓸 사람이 없다)
+  hold() { HOLD="$HOLD$1	$2	$3	$4	$5	$6	$7
+"; HELD=$((HELD+1)); }
+  # r548: «누가 이 폴더를 cwd 로 쓰나» 를 한 번($TMO lsof -Fpcn)만 묻고 등록 사본·tmp 둘 다에 쓴다. 실패(rc≠0)하거나 0줄이면 «아무도 안 씀» 으로 읽지 않고 이번 판정 전체를 접는다(조용한 통과 0).
+  RAW="$($TMO lsof -w -d cwd -Fpcn 2>/dev/null)" || LSOF_OK=0
+  [ -n "$RAW" ] || LSOF_OK=0
+  if [ "$LSOF_OK" = 0 ]; then echo "ERROR lsof 실패 — 삭제 0 (cwd 판정 불가)" >&2; return 0; fi
+  CWDROWS="$(printf '%s\n' "$RAW" | awk '/^p/{pid=substr($0,2);next} /^c/{cmd=substr($0,2);next} /^n/{if (pid!="") printf "%s\t%s\t%s\n", substr($0,2), pid, cmd}')"
+  # 등록 사본: tmux 목록을 못 읽으면(rc≠0) «세션 0» 으로 세지 않고 이 판정 전체를 건너뛴다(#0 RULE) · 후보 = 주인 없음 ∧ 등록 뒤 AGE 분 지남(판정 1920 문구 · r548 이 r444 의 문턱 0 을 되돌림)
   if SESS="$(tmux_sessions)"; then
     while IFS="$(printf '\t')" read -r p o t; do
       [ -n "$p" ] && [ -d "$p" ] || continue
-      printf '%s\n' "$SESS" | grep -qx -- "$o" || add "$(kb "$p")" "$p" reg "등록 사본 · 주인 $o 없음"
+      printf '%s\n' "$SESS" | grep -qx -- "$o" && continue
+      case "$t" in ''|*[!0-9]*) echo "ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 $p · 3열 '${t}')" >&2; continue;; esac
+      [ $((now - t)) -ge $((AGE*60)) ] || continue
+      if cwd_holder "$p"; then hold "$(kb "$p")" "$p" reg "등록 사본 · 주인 $o 없음 · 붙잡음 pid $HPID $HCMD" "$o" "$HPID" "$HCMD"
+      else add "$(kb "$p")" "$p" reg "등록 사본 · 주인 $o 없음"; fi
     done < <(cat "$TSV" 2>/dev/null)
   else TMUX_OK=0; echo "ERROR tmux 목록 실패 — 등록 사본 판정 생략 (tmux=${TMUX_BIN:-없음})" >&2; fi
-  TD="${TMPDIR:-/tmp}"; TD="${TD%/}"; cwds="$(lsof -w -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+  TD="${TMPDIR:-/tmp}"; TD="${TD%/}"
   for d in $(find "$TD" -maxdepth 1 -type d -name 'tmp.*' -user "$(id -un)" -mmin +"$AGE" 2>/dev/null); do
-    grep -q "^$d" <<<"$cwds" || add "$(kb "$d")" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남"
+    if cwd_holder "$d"; then hold "$(kb "$d")" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남 · 붙잡음 pid $HPID $HCMD" "-" "$HPID" "$HCMD"
+    else add "$(kb "$d")" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남"; fi
   done
 }
 
@@ -76,12 +114,16 @@ case "${1:-}" in
   --report)
     orphans
     if [ "${2:-}" = --summary ]; then [ "$N" = 0 ] || printf '주인 없는 임시 사본 %s개 %s GiB\n' "$N" "$(gib "$K")"
-    else printf '%s' "$ORPH" | awk -F'\t' '$1!=""{printf "%s\t%s\t%s\n", sprintf("%.2f", $1/1048576), $2, $4}'; fi;;
+    else printf '%s%s' "$ORPH" "$HOLD" | awk -F'\t' '$2!=""{k=$1; if (k !~ /^[0-9]+$/) k=0; printf "%s\t%s\t%s\n", sprintf("%.2f", k/1048576), $2, $4}'; fi;;   # r548: 붙잡은 사본도 «붙잡음 pid …» 칸으로 보인다 · --summary 는 지울 수 있는 것만 센다
   --sweep)
     orphans
+    # r548: cwd 를 못 물으면 «아무도 안 씀» 으로 읽지 않는다 — 로그·stdout ERROR 1줄 + 삭제 0(등록 사본·tmp.* 포함)
+    if [ "$LSOF_OK" = 0 ]; then printf '%s ERROR lsof 실패 — 삭제 0\n' "$(date +%F)" >> "$SLOG"
+      echo "ERROR lsof 실패 — 임시 사본 정리 생략·삭제 0 (cwd 판정 불가)"; exit 0; fi
     # r444: launchd 에서 tmux 를 못 읽으면 «생략» 으로 조용히 끝내지 않는다 — stdout 1줄(호출자가 planner 쪽지로) + 삭제 0(tmp.* 포함)
     if [ "$TMUX_OK" = 0 ]; then printf '%s ERROR tmux unreadable — 삭제 0 (tmux=%s)\n' "$(date +%F)" "${TMUX_BIN:-없음}" >> "$SLOG"
       echo "ERROR tmux unreadable — 임시 사본 정리 생략·삭제 0 (tmux=${TMUX_BIN:-없음} · FT_TMUX_BIN/FT_TMUX_SOCKET 확인)"; exit 0; fi
+    [ "$HELD" = 0 ] || held_report   # r548: 붙잡은 사본은 지우지 않고 알린다(삭제 후보 0 이어도 알린다)
     [ "$N" != 0 ] || exit 0
     if [ ! -f "$ARMED" ]; then date +%s > "$ARMED"; printf '%s [목록 보고 · 실삭제 0] %s개 %s GiB\n%s' "$(date +%F)" "$N" "$(gib "$K")" "$ORPH" >> "$SLOG"
       printf '[임시 사본 목록 보고 · 실삭제 0 · 다음 정리부터 자동] 주인 없는 사본 %s개 %s GiB: %s\n' "$N" "$(gib "$K")" "$(printf '%s' "$ORPH" | awk -F'\t' 'NR<=3{printf "%s%s", (NR>1?", ":""), $2}')"; exit 0; fi
@@ -93,7 +135,7 @@ case "${1:-}" in
     done <<EOF
 $ORPH
 EOF
-    printf '%s swept=%s owner-dead=%s tmp=%s\n' "$(date +%F)" "$DEL" "$DREG" "$((DEL-DREG))" >> "$SLOG"
+    printf '%s swept=%s owner-dead=%s tmp=%s held=%s\n' "$(date +%F)" "$DEL" "$DREG" "$((DEL-DREG))" "$HELD" >> "$SLOG"
     [ "$DEL" = 0 ] || printf '[임시 사본 자동 삭제] 주인 없는 사본 %s개 %s GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log\n' "$DEL" "$(gib "$DK")";;
   -*|"") die "usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] | --done <경로> | --judged <경로> | --report [--summary] | --sweep" 2;;
   *)

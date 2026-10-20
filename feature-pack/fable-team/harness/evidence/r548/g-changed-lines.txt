@@ -1,0 +1,24 @@
+# r548 기존 시험 변경 줄 (고침이 기존 동작을 깨지 않는다)
+
+## 1) tests/test_scratch_repo.sh 의 유일한 변경(ⓞ 픽스처 나이 + 이름)
+diff --git a/feature-pack/fable-team/harness/tests/test_scratch_repo.sh b/feature-pack/fable-team/harness/tests/test_scratch_repo.sh
+index 794a407d..647f4cda 100644
+--- a/feature-pack/fable-team/harness/tests/test_scratch_repo.sh
++++ b/feature-pack/fable-team/harness/tests/test_scratch_repo.sh
+@@ -50,8 +50,8 @@ sc --sweep
+ git -C "$G" worktree list | grep -q "$D1" && bad "ⓛ worktree 목록에 남음" || ok "ⓛ git worktree 목록에서도 제거"
+ sc --sweep; [ -z "$OUT" ] && ok "ⓝ 지울 것 없으면 출력 0" || bad "ⓝ [$OUT]"
+ # DA⑥ HOLD3: ①tmux 목록 실패 ≠ 세션 0 ②주인 '-' 등록 거부 · ③(r444) 등록 사본은 나이 문턱 0 — 주인이 죽으면 즉시 후보
+-OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 60
+-sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+생성 1분 → 즉시 후보(r444)" || bad "ⓞ 주인 없음 1분 후보 아님 $OUT"
++OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 90000
++sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+등록 25시간 → 후보(판정 1920 · r548 이 r444 문턱 0 을 되돌림)" || bad "ⓞ 주인 없음 25시간 후보 아님 $OUT"
+ touch "$T/tmuxfail"; sc --report
+ { ! echo "$OUT" | grep -q "$Y" && echo "$OUT" | grep -q 'ERROR tmux 목록 실패 — 등록 사본 판정 생략'; } && ok "ⓟ tmux 목록 실패 → 등록 사본 후보 0 + ERROR" || bad "ⓟ $OUT"
+ mkdir -p "$TMPD/tmp.old3"; touch -t 202001010000 "$TMPD/tmp.old3"; sc --report; echo "$OUT" | grep -q 'tmp.old3' && ok "ⓟ tmux 실패여도 tmp.* 판정은 계속" || bad "ⓟ tmp.* 판정 중단 $OUT"
+
+## 2) 기존 시험 PASS/FAIL 줄 — «고치기 전 판(origin/main 키트)» vs «고친 판» diff
+(diff 0 — PASS/FAIL 줄 완전 동일 · 23줄)
+
+## 3) 기존 pytest
+pytest -q test_scratch_repo_census.py → 8 passed

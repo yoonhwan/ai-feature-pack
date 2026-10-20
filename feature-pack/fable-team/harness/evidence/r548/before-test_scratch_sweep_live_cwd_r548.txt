@@ -1,0 +1,20 @@
+FAIL ⓕ rc=0 out=[임시 사본 목록 보고 · 실삭제 0 · 다음 정리부터 자동] 주인 없는 사본 2개 0.00 GiB: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.toDhRDRtvX/scratch/repo-973d1784-1792480336-72098, /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.toDhRDRtvX/scratch/repo-973d1784-1792480336-72130
+PASS ⓕ armed 표식 생김(다음부터 자동)
+FAIL ⓐ rc=0 out=[임시 사본 자동 삭제] 주인 없는 사본 2개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log A=없음 D=없음
+FAIL ⓑ 로그 붙잡음 줄 없음: 6줄
+FAIL ⓑ 요약 줄: 2026-10-20 swept=2 owner-dead=2 tmp=0
+PASS ⓒ 주인 살아 있는 사본 P 는 그대로(동작 유지)
+FAIL ⓒ report []
+FAIL ⓓ rc=0 out=[임시 사본 자동 삭제] 주인 없는 사본 2개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log E=없음
+FAIL ⓓ 0줄 out=
+FAIL ⓔ ab=남음 abc=남음
+FAIL ⓗ 1시간 후보 [0.00	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.toDhRDRtvX/scratch/repo-973d1784-1792480337-72549	등록 사본 · 주인 gone-f 없음]
+FAIL ⓗ 1시간 사본 삭제됨
+FAIL ⓗ 25시간 후보 아님 []
+FAIL ⓗ env 60분 []
+FAIL ⓗ 나이 모름 []
+FAIL ⓗ 나이 모름 사본 삭제됨
+PASS ⓖ 기존 test_scratch_repo.sh = ALL PASS
+PASS ⓖ 기존 test_scratch_repo_census.py = 통과
+(14 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
