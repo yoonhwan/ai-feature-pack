@@ -1,0 +1,13 @@
+PASS bash -n
+FAIL ⓐ rc=0 SLOTS nano 점유 1/5 (일하는 석 0 · 노는 석 1) · 빈 석 4 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+  ✗ 노는 석 w1 (IDLE 3578214분) → ★master 가 막힌 것을 푼다★(무엇을 기다리나 = 랜딩·DA 소환 요청·press 순번·판정 → 그 턴에 집행·요청) → 완성 → 테스트 끝나면 ft-nano-close(워크트리 정리·브랜치 보존)
+FAIL ⓐ 옛 쌍둥이 카드가 후보
+PASS ⓐ stderr 0(명단 폴더 채택 · WARN 없음)
+PASS ⓑ1 _cards_wt 없음 → cwd 기준(옛 폴더) 회귀
+FAIL ⓑ2 rc=0 SLOTS nano 점유 1/5 (일하는 석 0 · 노는 석 1) · 빈 석 4 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+  ✗ 노는 석 w1 (IDLE 3578214분) → ★master 가 막힌 것을 푼다★(무엇을 기다리나 = 랜딩·DA 소환 요청·press 순번·판정 → 그 턴에 집행·요청) → 완성 → 테스트 끝나면 ft-nano-close(워크트리 정리·브랜치 보존)
+FAIL ⓑ2 WARN 줄: 
+FAIL ⓒ rc=0 out=SLOTS nano 점유 1/5 (일하는 석 0 · 노는 석 1) · 빈 석 4 · 예약석 비어 있음(+1 · 라이브 카드 전용) err=
+PASS ⓓ FT_INDEX_DIR 명시 → 그 폴더 · rc0
+
+FAIL 5
