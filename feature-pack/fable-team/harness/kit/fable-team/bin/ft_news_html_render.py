@@ -33,6 +33,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ft_key_rotate_lines import parse_line  # noqa: E402  키 읽기 꼴 재사용(r563 · 값 출력 0)
 
+DROP_ENV = "FT_NEWS_DROP_LINE"  # r603 — 0번 규칙 예외 ① 명시 스위치(html·render 공용) · 없으면 지금 동작(발행 0)
+
 HERE = Path(__file__).resolve().parent
 MODEL = "opencode/deepseek-v4.1-flash-free"
 VIA_HTTP, VIA_OPENCODE = "http", "opencode"
@@ -453,15 +455,36 @@ def status_line(c: dict) -> str:
 
 
 def add_status_line(c: dict) -> dict:
-    """summary 첫 줄 = 코드가 만든 팀 상태 줄(원문 그대로 · r588) · 상태 줄 포함 3줄·600B 넘으면 «자르지 않고» ERROR(조용한 자르기 0)."""
+    """summary 첫 줄 = 코드가 만든 팀 상태 줄(원문 그대로 · r588) · 상태 줄 포함 3줄·600B 넘으면 «자르지 않고» ERROR(조용한 자르기 0).
+    r603: 스위치(FT_NEWS_DROP_LINE=1)가 켜 있으면 모델 줄을 뒤에서부터 통째로 빼서 맞춘다(상태 줄 유지 · 빼진 줄은 c["dropped"]).
+    다 빼도 넘치면(상태 줄만으로 넘침) 지금처럼 ERROR."""
     c["summary"] = [status_line(c), *[s.strip() for s in c["summary"] if s.strip()]]
+    c["dropped"] = []
     text = "\n".join(c["summary"])
-    if len(c["summary"]) > SUMMARY_LINES or len(text.encode("utf-8")) > SUMMARY_BYTES:
-        left = model_budget(c["summary"][0])
-        chars = max(0, math.floor(left * SUMMARY_MARGIN / SUMMARY_CHAR_BYTES))  # r598 — 다음 넘침 원인 판정용
-        raise NewsHtmlError(f"요약 {len(c['summary'])}줄·{len(text.encode('utf-8'))}B — 팀 상태 줄 포함 {SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내여야 한다(자르지 않는다) "
-                            f"(모델 몫 {chars}글자 = {left}B)")
-    return c
+    if len(c["summary"]) <= SUMMARY_LINES and len(text.encode("utf-8")) <= SUMMARY_BYTES:
+        return c
+    dropped: list[str] = []
+    if os.environ.get(DROP_ENV, "").strip() == "1" and (fitted := _drop_to_fit(c["summary"], dropped)):
+        c["summary"], c["dropped"] = fitted, dropped
+        return c
+    left = model_budget(c["summary"][0])
+    chars = max(0, math.floor(left * SUMMARY_MARGIN / SUMMARY_CHAR_BYTES))  # r598 — 다음 넘침 원인 판정용
+    raise NewsHtmlError(f"요약 {len(c['summary'])}줄·{len(text.encode('utf-8'))}B — 팀 상태 줄 포함 {SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내여야 한다(자르지 않는다) "
+                        f"(모델 몫 {chars}글자 = {left}B)")
+
+
+def _drop_to_fit(lines: list[str], dropped: list[str]) -> list[str] | None:
+    """모델 줄을 «뒤에서부터 통째로» 빼서 3줄·600B 안(«(빠진 줄 N)» 꼬리 포함) · 줄 중간 자르기 0 · 1줄(상태 줄)만 남아도 넘치면 None."""
+    while True:
+        out = list(lines)
+        if dropped:
+            out[-1] = f"{out[-1]} (빠진 줄 {len(dropped)})"
+        if len(out) <= SUMMARY_LINES and len("\n".join(out).encode("utf-8")) <= SUMMARY_BYTES:
+            return out
+        if len(out) <= 1:
+            return None
+        dropped.append(f"summary {len(out)}: 길이 넘침")
+        lines = out[:-1]
 
 
 def check_content(c: dict) -> dict:
@@ -507,7 +530,8 @@ def render(c: dict, goals: list[dict], now: datetime, autonomy: str = "모름") 
             "WORKING": "\n".join(map(_work_card, c["working"])) or '  <p class="lead">지금 일하는 좌석 0 (tmux 좌석·jsonl 실측)</p>',
             "UNKNOWN": "\n".join(f'    <div class="team unk"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["unknown"]),
             "RESTING": "\n".join(f'    <div class="team rest"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["resting"]),
-            "FOOT": _e(f"근거: {' · '.join(c['refs']) or '원장·카드·세션 상태·main 커밋'} · 자율 {autonomy} · 정리 {model_id()}")}
+            "FOOT": _e(f"근거: {' · '.join(c['refs']) or '원장·카드·세션 상태·main 커밋'} · 자율 {autonomy} · 정리 {model_id()}"
+                       + (f" · 빠진 줄 {len(c['dropped'])}개 — {'; '.join(c['dropped'])}" if c.get("dropped") else ""))}
     for n, (meta, g) in enumerate(zip(goals, c["goals"]), 1):
         vals |= _goal(n, meta, g)
     out = re.sub(r"\{\{(\w+)\}\}", lambda m: vals.get(m[1], m[0]), tpl.read_text(encoding="utf-8"))

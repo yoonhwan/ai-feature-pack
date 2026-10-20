@@ -22,8 +22,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from ft_news_html_lint import SECRET, problems  # noqa: E402
-from ft_news_html_render import PARTS, NewsHtmlError, build_prompt, call_model, render  # noqa: E402
+from ft_news_html_lint import FOOT, SECRET, problem_records, problems  # noqa: E402
+from ft_news_html_render import DROP_ENV, PARTS, NewsHtmlError, build_prompt, call_model, render  # noqa: E402
 
 LOG = logging.getLogger("ft_news_html")
 KEEP = ("오빠 할 일", "팀 작업", "드러난 문제", "체크리스트")  # 원장에서 싣는 절(머리 글자) — 나머지(완료 보관·옛 지시)는 지도 원천이 아니다
@@ -195,10 +195,73 @@ def run_files(data: dict, out: Path, now: datetime) -> tuple[Path, Path]:
     return html_p, sum_p
 
 
+def _drop_one(html: str, summary: str, attr: str) -> tuple[str, str] | None:
+    """귀속(«summary 3»·«important 2») 하나를 그 줄·항목 통째로 뺐다 — (html, summary) · 못 빼면 None(굳은 위반과 같은 처리)."""
+    kind, _, num = attr.partition(" ")
+    if not num.isdigit():
+        return None
+    n = int(num)
+    if kind == "summary":
+        lines = [ln for ln in summary.splitlines() if ln.strip()]
+        if n < 2 or n > len(lines):  # 1번 = 코드가 넣은 팀 상태 줄 · 빼지 않는다
+            return None
+        del lines[n - 1]
+        return html, "\n".join(lines) + "\n"
+    if kind == "important":
+        prio = re.search(r'<section class="prio">(.*?)</section>', html, re.S)
+        items = re.findall(r"<li[ >].*?</li>", prio[1], re.S) if prio else []
+        if not 1 <= n <= len(items) or len(items) <= 1:  # 빼고 나니 0개 = 발행 0(지금과 같음)
+            return None
+        return html.replace(items[n - 1], "", 1), summary
+    return None
+
+
+def _tail(summary: str, n: int) -> str:
+    """«(빠진 줄 N)» 꼬리를 마지막 줄에 붙인 미리보기 — 줄 수를 늘리지 않는다(합계 600B 판정은 린트가 한다)."""
+    lines = [ln.rstrip() for ln in summary.splitlines() if ln.strip()]
+    if n and lines:
+        lines[-1] = f"{lines[-1]} (빠진 줄 {n})"
+    return "\n".join(lines) + "\n" if lines else summary
+
+
+def _footnote(html: str, dropped: list[str]) -> str:
+    """각주(단일 <p class="foot">)에 «빠진 줄 N개 — <갈래 번호>: <사유>» — 화면 경고(#0 RULE 예외 ③)."""
+    foot = FOOT.search(html)
+    if not dropped or not foot:
+        return html
+    note = f" · 빠진 줄 {len(dropped)}개 — {'; '.join(dropped)}"
+    at = foot.end() - len("</p>")
+    return html[:at] + note + html[at:]
+
+
+def drop_soft(html: str, summary: str, limit: int = 12) -> tuple[str, str, list[str]]:
+    """(html, summary, 빠진 줄 설명) — 무른 위반(린트가 «summary N»·«important N» 로 꾸는 것)의 그 줄·항목만 빼고 다시 본다.
+    굳은 위반(구조·시크릿·각주 밖 번호·귀속 없음)은 건드리지 않는다 — 뺄 수 없으면 지금 판 그대로 돌려준다(발행 0)."""
+    dropped: list[str] = []
+    for _ in range(limit):
+        soft = [(m, a) for m, a in problem_records(html, _tail(summary, len(dropped))) if a]
+        if not soft:
+            return (_footnote(html, dropped), _tail(summary, len(dropped)), dropped) if dropped else (html, summary, [])
+        msg, attr = soft[-1]
+        got = _drop_one(html, summary, attr)
+        if got is None:
+            break
+        html, summary = got
+        dropped.append(f"{attr}: {msg.replace(f'[{attr}] ', '').replace(f'[{attr}]', '')}")
+    return html, summary, []
+
+
 def publish_files(html_p: Path, sum_p: Path, now: datetime) -> tuple[int, dict | None]:
-    """(rc, 영수증) — 린트 위반 = (3, None) 발행 0 · 게시 결과는 ft_news_publish.publish_html 그대로(미첨부 = rc3 + 영수증)."""
-    summary = sum_p.read_text(encoding="utf-8")
-    if found := problems(html_p.read_text(encoding="utf-8"), summary):
+    """(rc, 영수증) — 린트 위반 = (3, None) 발행 0 · 게시 결과는 ft_news_publish.publish_html 그대로(미첨부 = rc3 + 영수증).
+    r603: `FT_NEWS_DROP_LINE=1` 이면 무른 위반 줄·항목을 빼고 각주·꼬리로 보이게 하고 ERROR 로그 1줄 남긴 뒤 다시 린트한다."""
+    summary, html = sum_p.read_text(encoding="utf-8"), html_p.read_text(encoding="utf-8")
+    if os.environ.get(DROP_ENV, "").strip() == "1":
+        html, summary, dropped = drop_soft(html, summary)
+        if dropped:
+            LOG.error("무른 위반 %d건 — 줄 빼고 발행 (%s)", len(dropped), " · ".join(dropped))
+            html_p.write_text(html, encoding="utf-8")
+            sum_p.write_text(summary, encoding="utf-8")
+    if found := problems(html, summary):
         print("\n".join(f"LINT {p}" for p in found))
         LOG.error("린트 위반 %d건 — 발행 0 (%s)", len(found), found[0])
         return 3, None

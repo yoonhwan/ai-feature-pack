@@ -34,25 +34,33 @@ def _text(html: str) -> str:
 
 
 def problems(html: str, summary: str) -> list[str]:
-    out: list[str] = []
+    """위반 문구 목록(문자열) — 호출자 회귀 0 · 귀속이 필요하면 problem_records."""
+    return [msg for msg, _ in problem_records(html, summary)]
+
+
+def problem_records(html: str, summary: str) -> list[tuple[str, str]]:
+    """(위반 문구, 귀속) — 귀속 = «summary 3»·«important 2» = 무른 위반(그 줄만 빼면 됨 · r603) · "" = 굳은 위반(줄 귀속 없음 = 발행 0)."""
+    out: list[tuple[str, str]] = []
     h1 = re.findall(r"<h1>(.*?)</h1>", html, re.S)
     h2 = [re.sub(r"<[^>]+>", "", h).strip() for h in re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.S)]
     if h1 != [H1] or h2 != list(H2):
-        out.append(f"절 6 아님 — h1={h1} h2={h2}")
+        out.append((f"절 6 아님 — h1={h1} h2={h2}", ""))
     prio = re.search(r'<section class="prio">(.*?)</section>', html, re.S)
     n = len(re.findall(r"<li[ >]", prio[1])) if prio else 0
     if not 1 <= n <= MAX_IMPORTANT:
-        out.append(f"중요한 일 {n}개 (1~{MAX_IMPORTANT})")
+        out.append((f"중요한 일 {n}개 (1~{MAX_IMPORTANT})", ""))
     if (g := html.count('<section class="goal">')) != GOALS:
-        out.append(f"골 {g}행 ({GOALS}행이어야)")
+        out.append((f"골 {g}행 ({GOALS}행이어야)", ""))
     if found := NUMBER.findall(_text(FOOT.sub(" ", html))):
-        out.append(f"각주 밖 번호 {len(found)}건 ({', '.join(found[:3])})")
+        out.append((f"각주 밖 번호 {len(found)}건 ({', '.join(found[:3])})", ""))
     lines = [ln for ln in summary.splitlines() if ln.strip()]
     if not 1 <= len(lines) <= SUMMARY_LINES or len(summary.encode("utf-8")) > SUMMARY_BYTES:
-        out.append(f"요약 {len(lines)}줄·{len(summary.encode('utf-8'))}B ({SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내)")
+        # r603 — 넘침은 «마지막 모델 줄» 하나에 귀속(뒤에서부터 통째로 빼면 맞는다) · 1줄(상태 줄)만 남았으면 귀속 없음
+        out.append((f"요약 {len(lines)}줄·{len(summary.encode('utf-8'))}B ({SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내)",
+                    f"summary {len(lines)}" if len(lines) > 1 else ""))
     if SECRET.search(html) or SECRET.search(summary):
-        out.append("시크릿 꼴 있음")
-    return out + fact_problems(html, summary, prio[1] if prio else "")
+        out.append(("시크릿 꼴 있음", ""))  # 굳은 위반 — 줄 빼기로 고치지 않는다
+    return out + fact_records(html, summary, prio[1] if prio else "")
 
 
 def _segments(summary: str, prio: str) -> list[tuple[str, str]]:
@@ -71,21 +79,27 @@ def _first(segs: list[tuple[str, str]], rx: re.Pattern) -> tuple[str, str] | Non
 
 
 def fact_problems(html: str, summary: str, prio: str) -> list[str]:
-    """요약·중요한 일 문장 ↔ 코드 판정(r478d · desk 실측 거짓 문장): 일하는 팀(지도 «일하는 팀» 칸 = 라이브 좌석 실측) ≥1 인데
-    «모든 팀 … 멈춤·대기» = 위반 · 각주 «자율 ON|OFF|모름» 이 OFF 가 아닌데 «승인 … 기다림» = 위반(ON 이면 desk 가 병합 · 모름이면 쓰지 않는다).
-    r594: 위반 문구에 갈래·번호와 문장 전문을 싣는다 — «승인을 기다» 조각만으로는 모델 지어냄인지 원장 사실인지 못 가른다."""
-    out: list[str] = []
+    """요약·중요한 일 문장 ↔ 코드 판정(r478d · desk 실측 거짓 문장) — 위반 문구 목록(문자열) · 호출자 회귀 0."""
+    return [msg for msg, _ in fact_records(html, summary, prio)]
+
+
+def fact_records(html: str, summary: str, prio: str) -> list[tuple[str, str]]:
+    """(위반 문구, 귀속) — 일하는 팀(지도 «일하는 팀» 칸 = 라이브 좌석 실측) ≥1 인데 «모든 팀 … 멈춤·대기» = 위반 ·
+    각주 «자율 ON|OFF|모름» 이 OFF 가 아닌데 «승인 … 기다림» = 위반(ON 이면 desk 가 병합 · 모름이면 쓰지 않는다).
+    r594: 위반 문구에 갈래·번호와 문장 전문을 싣는다 — «승인을 기다» 조각만으로는 모델 지어냄인지 원장 사실인지 못 가른다.
+    r603: 귀속 = 그 문장이 든 줄·항목(«summary 3»·«important 2») — 그 줄만 빼면 사라진다."""
+    out: list[tuple[str, str]] = []
     segs = _segments(summary, prio)
     said = summary + "\n" + _text(prio)
     working = html.count('<section class="goal work">')  # 일하는 팀 카드 = 라이브 좌석 실측(코드)
     if working and (hit := _first(segs, ALL_STOP)):
-        out.append(f"일하는 팀 {working}개인데 멈춤 단정 문장 [{hit[0]}] «{_quote(hit[1])}»")
+        out.append((f"일하는 팀 {working}개인데 멈춤 단정 문장 [{hit[0]}] «{_quote(hit[1])}»", hit[0]))
     foot = FOOT.search(html)
     auto = re.search(r"자율 (ON|OFF|모름)", foot[0]) if foot else None
     auto_v = auto[1] if auto else "모름"
     if auto_v != "OFF" and (hit := _first(segs, APPROVAL_WAIT)):
-        out.append(f"자율 {auto_v} 인데 승인 대기 문장 [{hit[0]}] «{_quote(hit[1])}»")
-    return out + unknown_problems(html, said)
+        out.append((f"자율 {auto_v} 인데 승인 대기 문장 [{hit[0]}] «{_quote(hit[1])}»", hit[0]))
+    return out + unknown_records(html, said, segs)
 
 
 def _rest_asserted(s: str) -> bool:
@@ -98,16 +112,29 @@ def _rest_asserted(s: str) -> bool:
 
 
 def unknown_problems(html: str, said: str) -> list[str]:
+    """위반 문구 목록(문자열) — 호출자 회귀 0 · 귀속이 필요하면 unknown_records."""
+    return [msg for msg, _ in unknown_records(html, said)]
+
+
+def unknown_records(html: str, said: str, segs: list[tuple[str, str]] | None = None) -> list[tuple[str, str]]:
     """«확인 불가» 블록 팀(turn 시간 초과·실패 = 모름 · r490 · 오빠 «챗봇팀은 왜쉬어?»)을 이름으로 짚은 «절» 에 쉬·멈·정지·대기 단정 = 위반.
-    r588: 판정은 절(CLAUSE_END 로 나눈 조각) 단위 — 한 문장 안에 확인 불가 팀과 «쉬며» 절이 같이 있어도(00:57 판 «지금은 다섯 팀…이 쉬며, 세 팀(feature·graphics·harness)은 상태 확인 불가다») 절이 다르면 위반이 아니다. 보고 문구는 문장 그대로."""
-    out: list[str] = []
+    r588: 판정은 절(CLAUSE_END 로 나눈 조각) 단위 — 한 문장 안에 확인 불가 팀과 «쉬며» 절이 같이 있어도(00:57 판 «지금은 다섯 팀…이 쉬며, 세 팀(feature·graphics·harness)은 상태 확인 불가다») 절이 다르면 위반이 아니다. 보고 문구는 문장 그대로.
+    r603: 귀속 = 그 문장이 든 줄·항목(segs 에서 찾는다 · 없으면 "") — 문장이 여러 줄에 걸치면 ""(굳은 위반)."""
+    out: list[tuple[str, str]] = []
     for team in dict.fromkeys(t.strip() for t in UNKNOWN_TEAM.findall(html)):
         name = re.compile(rf"(?<![\w-]){re.escape(team)}(?![\w-])")
         for s in re.split(r"[.\n]", said):
             if name.search(s) and any(_rest_asserted(cl) for cl in CLAUSE_END.split(s) if name.search(cl)):
-                out.append(f"확인 불가 팀 {team} 에 쉼 단정 «{s.strip()}»")
+                out.append((f"확인 불가 팀 {team} 에 쉼 단정 «{s.strip()}»", _attr(s, segs or [])))
                 break
     return out
+
+
+def _attr(sentence: str, segs: list[tuple[str, str]]) -> str:
+    """그 문장이 든 seg 의 갈래·번호 — 띄어쓰기만 맞춰 본다 · 두 줄 이상에 걸치거나 없으면 ""(귀속 불가)."""
+    want = " ".join(sentence.split())
+    hits = [label for label, sent in segs if want and want in " ".join(sent.split())]
+    return hits[0] if len(hits) == 1 else ""
 
 
 def main(argv: list[str]) -> int:

@@ -1,0 +1,175 @@
+FFFFFFFF.F                                                               [100%]
+=================================== FAILURES ===================================
+___________________ test_r603_a_soft_line_dropped_and_shown ____________________
+
+switch_on = None
+caplog = <_pytest.logging.LogCaptureFixture object at 0x104b63490>
+
+    def test_r603_a_soft_line_dropped_and_shown(switch_on, caplog):
+        """ⓐ 자율 ON 인데 «승인 대기» 줄 — 지금 판 = 발행 0 · 고친 판 = 그 줄 없이 발행 + 각주 + ERROR 1줄."""
+        page, summary = _html(["가", "나"]), "가\n나\n" + APPROVAL
+        assert len(lint.problems(page, summary)) == 1  # 지금 판 = 위반 1건 = 발행 0(FAIL 기준)
+    
+>       new_html, new_sum, dropped = fh.drop_soft(page, summary)
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:54: AttributeError
+_______ test_r603_a_publish_logs_one_error_line_and_writes_dropped_files _______
+
+switch_on = None
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-340/test_r603_a_publish_logs_one_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104b4e290>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x104b4cb50>
+
+    def test_r603_a_publish_logs_one_error_line_and_writes_dropped_files(switch_on, tmp_path, monkeypatch, caplog):
+        """ⓐ(발행 경로) 무른 위반 = ERROR «무른 위반 1건 — 줄 빼고 발행 (…)» 1줄 · 파일에 빠진 줄 반영."""
+        page, summary = _html(["가", "나"]), "가\n나\n" + APPROVAL
+        html_p, sum_p = tmp_path / "n.html", tmp_path / "n.txt"
+        html_p.write_text(page, encoding="utf-8")
+        sum_p.write_text(summary, encoding="utf-8")
+        monkeypatch.setitem(sys.modules, "ft_news_publish", _stub_publish(0, {"permalink": "x"}))
+        caplog.set_level("ERROR")
+        rc, got = fh.publish_files(html_p, sum_p, __import__("datetime").datetime(2026, 10, 21, 6, 0))
+>       assert rc == 0 and got == {"permalink": "x"}
+E       assert (3 == 0)
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:71: AssertionError
+----------------------------- Captured stdout call -----------------------------
+LINT 자율 ON 인데 승인 대기 문장 [summary 3] «1번 골 마감 승인 대기다»
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:203 린트 위반 1건 — 발행 0 (자율 ON 인데 승인 대기 문장 [summary 3] «1번 골 마감 승인 대기다»)
+________ test_r603_b_status_line_kept_and_model_lines_dropped_from_end _________
+
+switch_on = None
+
+    def test_r603_b_status_line_kept_and_model_lines_dropped_from_end(switch_on):
+        """ⓑ 요약 상태 줄 + 모델 2줄 = 640B → 뒤에서부터 통째로 빼 600B 안 · 상태 줄 유지 · 줄 중간 자르기 0 · 꼬리 표시."""
+        c = {**fr.bucket({}, LIVE), "summary": ["가" * 95, "나" * 95]}
+        c["summary"] = [s for s in c["summary"]]
+>       out = fr.add_status_line(dict(c))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:88: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = {'resting': [], 'summary': ['일하는 팀 4개: chatbot, harness, ops, v65', '가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가...s'}, {'note': '설명 없음', 'seats': '일하는 좌석 1/1', 'team': 'ops'}, {'note': '설명 없음', 'seats': '일하는 좌석 1/1', 'team': 'v65'}]}
+
+    def add_status_line(c: dict) -> dict:
+        """summary 첫 줄 = 코드가 만든 팀 상태 줄(원문 그대로 · r588) · 상태 줄 포함 3줄·600B 넘으면 «자르지 않고» ERROR(조용한 자르기 0)."""
+        c["summary"] = [status_line(c), *[s.strip() for s in c["summary"] if s.strip()]]
+        text = "\n".join(c["summary"])
+        if len(c["summary"]) > SUMMARY_LINES or len(text.encode("utf-8")) > SUMMARY_BYTES:
+            left = model_budget(c["summary"][0])
+            chars = max(0, math.floor(left * SUMMARY_MARGIN / SUMMARY_CHAR_BYTES))  # r598 — 다음 넘침 원인 판정용
+>           raise NewsHtmlError(f"요약 {len(c['summary'])}줄·{len(text.encode('utf-8'))}B — 팀 상태 줄 포함 {SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내여야 한다(자르지 않는다) "
+                                f"(모델 몫 {chars}글자 = {left}B)")
+E           ft_news_html_render.NewsHtmlError: 요약 3줄·618B — 팀 상태 줄 포함 3줄·600B 이내여야 한다(자르지 않는다) (모델 몫 147글자 = 552B)
+
+/private/tmp/r603-base/harness/bin/ft_news_html_render.py:462: NewsHtmlError
+______________________ test_r603_c_important_item_dropped ______________________
+
+switch_on = None
+
+    def test_r603_c_important_item_dropped(switch_on):
+        """ⓒ important 4번째 «모든 팀 멈춤»(일하는 팀 ≥1) → 그 항목만 빼고 발행(중요한 일 3개)."""
+        page = _html(["가", "나", "다", "모든 팀 멈춤"])
+>       new_html, new_sum, dropped = fh.drop_soft(page, "가\n나")
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:101: AttributeError
+____________ test_r603_d_zero_important_after_drop_is_publish_zero _____________
+
+switch_on = None
+
+    def test_r603_d_zero_important_after_drop_is_publish_zero(switch_on):
+        """ⓓ 빼고 나니 중요한 일 0개 → 지금과 같이 발행 0(줄 빼기 0)."""
+        page = _html(["모든 팀 멈춤"])
+>       new_html, new_sum, dropped = fh.drop_soft(page, "가\n나")
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:112: AttributeError
+_______________ test_r603_e_hard_violations_publish_zero[secret] _______________
+
+switch_on = None, case = 'secret'
+
+    @pytest.mark.parametrize("case", ["secret", "goal5", "footnum"])
+    def test_r603_e_hard_violations_publish_zero(switch_on, case):
+        """ⓔ 굳은 위반(시크릿 꼴 · 골 5행 · 각주 밖 번호) → 발행 0 유지 · 줄 빼기 0."""
+        page, summary = _html(["가", "나"]), "가\n나"
+        if case == "secret":
+            page = page.replace("자율 ON", "자율 ON sk-" + "a" * 20)
+        elif case == "goal5":
+            page = _html(["가", "나"], goals=5)
+        else:
+            page = _html(["가", "나"]).replace("<h2>일하는 팀</h2>", "<h2>일하는 팀</h2>판정 12")
+>       new_html, new_sum, dropped = fh.drop_soft(page, summary)
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:127: AttributeError
+_______________ test_r603_e_hard_violations_publish_zero[goal5] ________________
+
+switch_on = None, case = 'goal5'
+
+    @pytest.mark.parametrize("case", ["secret", "goal5", "footnum"])
+    def test_r603_e_hard_violations_publish_zero(switch_on, case):
+        """ⓔ 굳은 위반(시크릿 꼴 · 골 5행 · 각주 밖 번호) → 발행 0 유지 · 줄 빼기 0."""
+        page, summary = _html(["가", "나"]), "가\n나"
+        if case == "secret":
+            page = page.replace("자율 ON", "자율 ON sk-" + "a" * 20)
+        elif case == "goal5":
+            page = _html(["가", "나"], goals=5)
+        else:
+            page = _html(["가", "나"]).replace("<h2>일하는 팀</h2>", "<h2>일하는 팀</h2>판정 12")
+>       new_html, new_sum, dropped = fh.drop_soft(page, summary)
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:127: AttributeError
+______________ test_r603_e_hard_violations_publish_zero[footnum] _______________
+
+switch_on = None, case = 'footnum'
+
+    @pytest.mark.parametrize("case", ["secret", "goal5", "footnum"])
+    def test_r603_e_hard_violations_publish_zero(switch_on, case):
+        """ⓔ 굳은 위반(시크릿 꼴 · 골 5행 · 각주 밖 번호) → 발행 0 유지 · 줄 빼기 0."""
+        page, summary = _html(["가", "나"]), "가\n나"
+        if case == "secret":
+            page = page.replace("자율 ON", "자율 ON sk-" + "a" * 20)
+        elif case == "goal5":
+            page = _html(["가", "나"], goals=5)
+        else:
+            page = _html(["가", "나"]).replace("<h2>일하는 팀</h2>", "<h2>일하는 팀</h2>판정 12")
+>       new_html, new_sum, dropped = fh.drop_soft(page, summary)
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:127: AttributeError
+___________________ test_r603_g_tail_keeps_summary_under_600 ___________________
+
+switch_on = None
+
+    def test_r603_g_tail_keeps_summary_under_600(switch_on):
+        """ⓖ «(빠진 줄 N)» 꼬리를 붙여도 요약 600B 이하(린트 통과)."""
+        page, summary = _html(["가", "나"], working=2), "가\n나\n" + APPROVAL
+>       new_html, new_sum, dropped = fh.drop_soft(page, summary)
+                                     ^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'drop_soft'
+
+/private/tmp/r603-base/harness/tests/scripts/test_news_drop_line_r603.py:152: AttributeError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/r603-base)
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_a_soft_line_dropped_and_shown
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_a_publish_logs_one_error_line_and_writes_dropped_files
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_b_status_line_kept_and_model_lines_dropped_from_end
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_c_important_item_dropped
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_d_zero_important_after_drop_is_publish_zero
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_e_hard_violations_publish_zero[secret]
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_e_hard_violations_publish_zero[goal5]
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_e_hard_violations_publish_zero[footnum]
+FAILED harness/tests/scripts/test_news_drop_line_r603.py::test_r603_g_tail_keeps_summary_under_600
+9 failed, 1 passed in 1.10s
