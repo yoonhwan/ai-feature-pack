@@ -7,6 +7,7 @@ LAND="$HERE/../../harness/bin/ft-land.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 fail=0
+. "$HERE/lib/fake_resource_env.sh"; fake_comm_root "$T/root" || { echo "FAIL fake_comm_root"; exit 1; }   # r537: ft-land → ft-sheet-events 가 공용 루트를 푼다(묶음 ③ · 임시 루트)
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 

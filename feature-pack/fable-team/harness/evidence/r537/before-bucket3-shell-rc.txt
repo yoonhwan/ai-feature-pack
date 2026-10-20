@@ -1,0 +1,16 @@
+tests/test_cherry_gate_identical_head.sh rc=1 FAILlines=3
+tests/test_flag_off_scan.sh rc=1 FAILlines=4
+tests/test_ft_land.sh rc=1 FAILlines=11
+tests/test_penalty_spawn_gate.sh rc=6 FAILlines=6
+tests/test_resource_gate.sh rc=1 FAILlines=8
+tests/test_resource_gate_pressure.sh rc=1 FAILlines=5
+tests/test_seat_handover.sh rc=1 FAILlines=3
+tests/test_teamset_gitref.sh rc=3 FAILlines=4
+tests/test_live_install_check_tip.sh rc=1 FAILlines=3
+tests/test_team_scaffold_empty_template.sh rc=1 FAILlines=8
+tests/test_team_move_roundtrip.sh rc=1 FAILlines=3
+tests/test_proposal_card.sh rc=1 FAILlines=7
+tests/test_press_role_bts_gate.sh rc=1 FAILlines=8
+tests/test_sheet_verify.sh rc=1 FAILlines=8
+tests/test_spawn_gate_landing_branch.sh rc=1 FAILlines=3
+tests/test_team_literal_paths.sh rc=1 FAILlines=4

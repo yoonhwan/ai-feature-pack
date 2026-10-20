@@ -53,13 +53,13 @@ printf '%s\n' 'echo cleaned' > "$D/sc#0.sh"; sweep "$D" "$TMP/c1.out"
 chk "ⓑ' 성공 → .done" "$([ -f "$D/sc#0.sh.done" ] && echo yes || echo no)" yes
 chk "ⓑ' 성공 → .tmo 삭제" "$([ -e "$D/sc#0.sh.tmo" ] && echo yes || echo no)" no
 
-# ⓒ 계획 3건 → pass 1회에 1건만 실행 · FT_WT_SWEEP_MAX=5 면 전부 · 좌석 WAIT 는 예산을 쓰지 않는다
+# ⓒ 계획 3건 + FT_WT_SWEEP_MAX=1(명시) → pass 1회에 1건만 · 기본(r535 = 시간 상한)이면 남은 것 전부 · 좌석 WAIT 는 예산을 쓰지 않는다
 D="$TMP/c"; for s in c1 c2 c3; do plan "$D" "$s#0" 'echo cleaned'; done
-sweep "$D" "$TMP/p1.out"; chk "ⓒ pass1 .done=1" "$(nfiles "$D" '*.sh.done')" 1; chk "ⓒ pass1 남은 .sh=2" "$(nfiles "$D" '*.sh')" 2
-sweep "$D" "$TMP/p2.out"; chk "ⓒ pass2 .done=2" "$(nfiles "$D" '*.sh.done')" 2
-sweep "$D" "$TMP/p3.out" FT_WT_SWEEP_MAX=5; chk "ⓒ MAX=5 → .done=3" "$(nfiles "$D" '*.sh.done')" 3
+sweep "$D" "$TMP/p1.out" FT_WT_SWEEP_MAX=1; chk "ⓒ MAX=1 pass1 .done=1" "$(nfiles "$D" '*.sh.done')" 1; chk "ⓒ pass1 남은 .sh=2" "$(nfiles "$D" '*.sh')" 2
+sweep "$D" "$TMP/p2.out" FT_WT_SWEEP_MAX=1; chk "ⓒ MAX=1 pass2 .done=2" "$(nfiles "$D" '*.sh.done')" 2
+sweep "$D" "$TMP/p3.out"; chk "ⓒ 기본(시간 상한) → .done=3" "$(nfiles "$D" '*.sh.done')" 3
 D="$TMP/cw"; plan "$D" 'w1#0' 'echo "skipped:좌석 살아있음"'; plan "$D" 'z1#0' 'echo cleaned'
-sweep "$D" "$TMP/w.out"
+sweep "$D" "$TMP/w.out" FT_WT_SWEEP_MAX=1
 chk "ⓒ WAIT 는 예산 0 → z1 실행" "$([ -f "$D/z1#0.sh.done" ] && echo yes || echo no)" yes
 chk "ⓒ w1 제자리" "$([ -f "$D/w1#0.sh" ] && echo yes || echo no)" yes
 

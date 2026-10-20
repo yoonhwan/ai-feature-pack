@@ -211,7 +211,7 @@ def test_summary_line_is_last_log_line_and_first_stdout_line(w: World) -> None:
     w.cards("t1", ["c1"])
     w.state("t1-master#1", "IDLE", 5)
     r = w.scan()
-    assert r.stdout.startswith("stall=1 a=1 b=0 c=0 d=0 seats=")
+    assert r.stdout.startswith("stall=1 a=1 b=0 c=0 d=0 e=0 seats=")  # r525 — d= 뒤 e= 칸 (뉴스는 앞 5칸만 읽는다)
     assert w.scan_log()[-1].startswith("stall=1 a=1")
 
 

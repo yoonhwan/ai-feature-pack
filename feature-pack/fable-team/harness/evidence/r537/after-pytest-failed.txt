@@ -1,0 +1,4 @@
+FAILED tests/scripts/test_ft_hil_secret_lint.py::test_install_plan_installs_three_files_and_one_entry_once_from_landed_sha
+FAILED tests/scripts/test_press_gate_set_membership.py::test_set_paths_single_source_in_set_check
+FAILED tests/scripts/test_seat_turn_batch.py::test_a_module_matches_old_shell_verdict_40_of_40
+FAILED tests/scripts/test_seat_turn_batch.py::test_e_shell_turn_output_bytes_unchanged

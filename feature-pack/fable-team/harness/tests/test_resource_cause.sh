@@ -14,7 +14,7 @@ hasnt() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «${2}»";; *) ok 
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 R="$T/R"; ST="$R/.fable-team/state"; WT="$T/wt"; S="$T/stub"; mkdir -p "$ST" "$WT/harness-foo" "$WT/other-wt" "$WT/quiet-wt" "$S"
 bash -n "$BIN/ft-resource-cause.sh" && ok "bash -n ft-resource-cause.sh" || bad "bash -n"
-for f in ft-resource-cause.sh ft-resource-watch.sh ft-disk-alarm.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 어긋남 $f"; done
+for f in ft-resource-cause.sh ft-resource-watch.sh ft-resource-du-lib.sh ft-disk-alarm.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 어긋남 $f"; done
 
 # 가짜 tmux — 세션 목록 · pane(세션 cwd · pid)
 cat > "$S/tmux" <<EOF
@@ -42,17 +42,20 @@ printf '%s\t%s\t%s\n' "$REPOP" byz-t-owner-claude#1 "$((NOW-4000))" > "$ST/scrat
   printf '%s\t%s\t%s\n' "$T1" colima.diffdisk 100 "$T2" colima.diffdisk $((100+1048576/2))
   printf '%s\t%s\t%s\n' "$T1" worktrees.count 10 "$T2" worktrees.count 20
 } > "$ST/disk-attrib.tsv"
-touch "$WT/harness-foo" "$WT/other-wt"; touch -t 202001010000 "$WT/quiet-wt"   # 최근 60분: harness-foo · other-wt / quiet-wt 는 오래됨
+touch -t 202001010000 "$WT/harness-foo" "$WT/other-wt" "$WT/quiet-wt"   # r534: 워크트리 증가 = 감시자 폴더별 캐시(du-cache.tsv wt:) 1시간 증가 — harness-foo +2G · other-wt +1G · quiet-wt 는 1시간 밖 측정
+{ printf '%s\twt:harness-foo\t%s\t%s\t%s\t\n' "$((NOW-60))" $((3*1048576)) "$((NOW-9000))" 1048576
+  printf '%s\twt:other-wt\t%s\t%s\t%s\t\n' "$((NOW-60))" $((2*1048576)) "$((NOW-9000))" 1048576
+  printf '%s\twt:quiet-wt\t%s\t%s\t%s\t\n' "$((NOW-7200))" $((9*1048576)) "$((NOW-9000))" 1; } > "$ST/du-cache.tsv"
 
 c() { env FT_RES_ROOT="$R" FT_WORKTREES="$WT" PATH="$S:$PATH" bash "$BIN/ft-resource-cause.sh" "$@" 2>&1; }
 out="$(c disk)"; rc=$?
 [ "$rc" = 0 ] && ok "disk rc0" || bad "disk rc=$rc $out"
 [ "$(printf '%s' "$out" | wc -l | tr -d ' ')" = 0 ] && ok "한 줄(개행 0)" || bad "한 줄이 아님: $out"
 has "$out" "repo-abc12345-1700000000-9 +5.0G ← byz-t-owner-claude#1" "임시 사본(repo-<sha>) → 등록된 주인 좌석"
-has "$out" "worktrees.total +3.0G ← " "워크트리 합계 증가 = 최근 60분 건드린 워크트리로 풀이"
-has "$out" "harness-foo→byz-harness-nano-foo#0" "워크트리 이름 → 나노 좌석 이름 매핑"
-has "$out" "other-wt→byz-t-cwd-claude#1" "워크트리 → 그 안에서 도는 tmux 세션(cwd) 매핑"
-hasnt "$out" "quiet-wt" "60분 안 건드린 워크트리는 제외"
+has "$out" "worktrees.total +3.0G ← " "워크트리 합계 증가 = 폴더별 캐시 1시간 증가로 풀이(r534)"
+has "$out" "harness-foo +2.0G→byz-harness-nano-foo#0" "워크트리 이름 → 나노 좌석 이름 매핑"
+has "$out" "other-wt +1.0G→byz-t-cwd-claude#1" "워크트리 → 그 안에서 도는 tmux 세션(cwd) 매핑"
+hasnt "$out" "quiet-wt" "1시간 밖에 잰 워크트리는 제외"
 has "$out" "/private/tmp/mystery +2.0G ← 주인 미상" "주인 못 찾으면 «주인 미상» (추측 0)"
 hasnt "$out" "colima" "증가 상위 3개만(4위 제외)"
 hasnt "$out" "worktrees.count" "개수 칸은 용량 순위에서 제외"

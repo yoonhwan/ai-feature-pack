@@ -1,0 +1,11 @@
+## test_proxy_decide_r188.sh rc=0 · FAIL 0 · ALL PASS
+## test_proxy_decide_queue_card_resolve.sh rc=0 · FAIL 0 · == ALL PASS
+## test_autonomy_core.sh rc=1 · FAIL 1 · == 192 checks, fail=1
+FAIL 7초+재시도 1회 = external_call.py 값과 같음
+## test_team_literal_paths2.sh rc=0 · FAIL 0 · == fail=0
+## test_decision_count_tables_ref.sh rc=0 · FAIL 0 · == FAIL 0
+## pytest
+/opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+## pytest (BYZ .venv python) tests/scripts/test_decision_count.py test_decision_count_truth.py
+33 passed in 33.61s rc=0
+## test_autonomy_core.sh FAIL 1 = 191행 $ROOT/shared/config/external_call.py(BYZ 리포 파일) 대조 — 팩 체크아웃엔 없음 · 이 변경과 무관(r516 분류표 참조)

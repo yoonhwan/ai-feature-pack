@@ -1,0 +1,72 @@
+== ⓔ 전체 셸 시험 전·후 (harness/tests/test_*.sh 262 · 시험당 timeout 180 · 순차)
+전 = 팩 origin/main 5fb4b134 사본(ft-scratch-repo) · 후 = 나노 가지(같은 바탕 + 이 변경)
+셸 실패(rc≠0): 전 65 → 후 60
+-- rc 가 바뀐 시험 (이름 · 전 rc · 후 rc)
+test_autonomy_hooks_layout.sh	1	0
+test_evidence_inject_scan.sh	1	0
+test_fake_resource_env.sh	1	0
+test_nano_succession_index.sh	1	0
+test_wt_clean_plan_self_check.sh	1	0
+-- «후에만 실패» (전 rc0 · 후 rc≠0)
+  (위 줄이 비면 0건)
+-- 후 남은 실패(다른 묶음 · 범위 밖)
+  test_agent_alive_fg_judge.sh rc=1
+  test_arch_required_gate.sh rc=1
+  test_autonomy_core.sh rc=1
+  test_byz_keys_ledger.sh rc=86
+  test_byz_keys_usage.sh rc=40
+  test_cherry_gate_identical_head.sh rc=1
+  test_da_hold_gate.sh rc=1
+  test_deferral_lint.sh rc=34
+  test_flag_off_scan.sh rc=1
+  test_fp_allow_path.sh rc=1
+  test_ft_land.sh rc=1
+  test_ft_tick_master_seat.sh rc=44
+  test_gh_as_tank.sh rc=1
+  test_gh_tank_label_create.sh rc=1
+  test_goal_hook_adoption_archive.sh rc=7
+  test_goal_hook_merge.sh rc=2
+  test_graphics_690.sh rc=1
+  test_graphics_install.sh rc=1
+  test_hil_ledger.sh rc=1
+  test_hil_run_marker.sh rc=1
+  test_issue_classify.sh rc=1
+  test_issue_close_gate.sh rc=1
+  test_issue_forms.sh rc=4
+  test_key_change_gate.sh rc=41
+  test_kit_exec_modes.sh rc=1
+  test_live_install.sh rc=1
+  test_live_install_check.sh rc=1
+  test_live_install_check_tip.sh rc=1
+  test_live_snapshot_all_rosters.sh rc=1
+  test_loom_tunnel_install.sh rc=1
+  test_mbox_v2_guard.sh rc=1
+  test_nano_spawn_body_press.sh rc=3
+  test_nano_spawn_teamset_cap.sh rc=1
+  test_orch_gate_master.sh rc=1
+  test_orch_gate_top_models.sh rc=1
+  test_pack_relocation.sh rc=1
+  test_penalty_spawn_gate.sh rc=6
+  test_plan_handoff.sh rc=1
+  test_planner_nano_path.sh rc=1
+  test_press_role_bts_gate.sh rc=1
+  test_proposal_card.sh rc=1
+  test_r66_codex_serena_boot.sh rc=2
+  test_regress_pack.sh rc=1
+  test_resource_gate.sh rc=1
+  test_resource_gate_pressure.sh rc=1
+  test_resource_watch.sh rc=124
+  test_seat_handover.sh rc=1
+  test_seat_live.sh rc=1
+  test_seat_retire.sh rc=4
+  test_settings_lint.sh rc=1
+  test_sheet_verify.sh rc=1
+  test_slack_readonly_share.sh rc=1
+  test_spawn_gate_landing_branch.sh rc=1
+  test_team_literal_paths.sh rc=1
+  test_team_move_roundtrip.sh rc=1
+  test_team_scaffold_empty_template.sh rc=1
+  test_team_upgrade.sh rc=1
+  test_teamset_check.sh rc=6
+  test_teamset_gitref.sh rc=4
+  test_tracked_bin_call_gate.sh rc=1

@@ -6,6 +6,7 @@ pgrep 은 `-a -x claude`/`-a -x codex` 만 가짜 수로 답하고 그 밖의 �
 """
 import os
 import stat
+import subprocess
 import time
 from pathlib import Path
 
@@ -46,3 +47,24 @@ def fake_resource_env(tmp: Path, mode: str = "ok", base: dict[str, str] | None =
     env["PATH"] = f"{sensors}{os.pathsep}{env.get('PATH', '')}"
     env["FT_RES_ROOT"] = str(res_root)
     return env
+
+
+LIVE_BIN = Path(__file__).resolve().parents[2] / "bin"  # 팩 harness/bin
+TEAMS = "| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n"
+
+
+def fake_comm_root(root: Path, live_bin: Path = LIVE_BIN) -> Path:
+    """r537 (r516 묶음 ③) — r459·r383·R400 뒤 도구가 «필수»로 찾는 공용 루트를 임시로 만든다(셸 판 = tests/lib/fake_resource_env.sh fake_comm_root).
+    git 리포(이미 리포면 init 0) + .fable-team/comm·state·LIVE_BIN + 명부 .fable-team/seats.json(없을 때 `{}`) + design/TEAMS.md(없을 때 최소 명단). 실 공용 루트 읽기·쓰기 0."""
+    root.mkdir(parents=True, exist_ok=True)
+    if not (root / ".git").exists():
+        clean = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        _ = subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True, env=clean)
+    for sub in ("comm", "state"):
+        (root / ".fable-team" / sub).mkdir(parents=True, exist_ok=True)
+    _ = (root / ".fable-team/LIVE_BIN").write_text(f"{live_bin}\n", encoding="utf-8")
+    for path, body in ((root / ".fable-team/seats.json", "{}\n"), (root / "design/TEAMS.md", TEAMS)):
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _ = path.write_text(body, encoding="utf-8")
+    return root

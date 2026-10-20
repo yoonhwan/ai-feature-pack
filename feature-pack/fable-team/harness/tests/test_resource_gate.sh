@@ -15,6 +15,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 R="$T/R"; mkdir -p "$R/.fable-team/state" "$T/home" "$T/cwd" "$T/stub"
 LOG="$T/stub.log"; : > "$LOG"
+. "$HERE/lib/fake_resource_env.sh"; fake_comm_root "$T/root" || { echo "FAIL fake_comm_root"; exit 1; }   # r537: spawn 3종이 문지기 전에 comm 을 푼다(r459)
 for s in git tmux tmuxc; do printf '#!/bin/sh\necho "%s $*" >> "%s"\nexit 1\n' "$s" "$LOG" > "$T/stub/$s"; chmod 755 "$T/stub/$s"; done
 # pgrep 스텁 — macOS 처럼 `-a` 가 없으면 호출 조상(PG_*_ANC)을 결과에서 뺀다. `-a -x claude` / `-a -x codex` 만 허용, 그 외(옛 `-f` 등 모르는 인자)는 rc 99.
 mkdir -p "$T/pg"; cat > "$T/pg/pgrep" <<'PG'

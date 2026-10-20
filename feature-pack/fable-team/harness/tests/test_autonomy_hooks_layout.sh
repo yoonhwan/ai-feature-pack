@@ -6,7 +6,7 @@
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"; BIN="$ROOT/harness/bin"
+ROOT="$HERE/../.."; HK="$ROOT/harness/kit/fable-team/templates/hooks"
 IG="$HK/autonomy-interview-gate.sh"; MG="$HK/autonomy-merge-guard.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
@@ -19,7 +19,8 @@ git -c init.defaultBranch=main init -q "$MAIN" && git -C "$MAIN" checkout -q -B 
 git -C "$MAIN" worktree add -q -b wt "$WT" main
 mkdir -p "$MAIN/.fable-team/bin-harness" "$LIVE/.fable-team/bin"
 printf '%s\n' '#!/bin/bash' "export FT_BIN=$LIVE/.fable-team/bin" > "$MAIN/.fable-team/bin-harness/harness-env.sh"
-cp "$BIN"/ft-autonomy.sh "$BIN"/ft-autonomy-level.sh "$BIN"/ft-autonomy-start.sh "$LIVE/.fable-team/bin/"   # 도구는 «라이브 루트» 안 — 상태도 거기(= 오빠 `!` 가 쓰는 곳)
+bash "$HERE/lib/kit_bin_copy.sh" "$LIVE/.fable-team/bin" >/dev/null || { echo "FAIL kit_bin_copy"; exit 1; }   # 도구는 «라이브 루트» 안 — 상태도 거기(= 오빠 `!` 가 쓰는 곳) · r536: 키트 bin 통째(ft-harness-root.sh 등 형제 짝)
+printf '%s\n' "$LIVE" > "$MAIN/.fable-team/LIVE_ROOT"; cd "$WT" || exit 1   # r536: cwd = 임시 워크트리 — 부른 곳(BYZ 안)의 LIVE_ROOT 를 따라 실 자율 상태에 쓰지 않게(실 오염 A11~A18)
 H="$(git -C "$MAIN" rev-parse HEAD)"; S="$LIVE/.fable-team/state"
 a() { "$BASH" "$LIVE/.fable-team/bin/ft-autonomy.sh" "$@"; }   # 오빠 `!` 와 같은 호출 — FT_ROOT 없음
 mkbash() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$2"; }

@@ -1,0 +1,68 @@
+PASS bash -n 2종
+== ⓐ 한 pass = 시간 상한 안의 막히지 않은 계획 여러 건
+FAIL ⓐ 막힘 없는 계획 5 → 한 pass 에 .done 5 (got=[1] want=[5])
+FAIL ⓐ 이월 0 — 있으면 안 됨: «이월»
+PASS ⓐ 시간 상한 2s · 계획 1s×4 → 일부만(.done=1)
+PASS ⓐ 상한 넘긴 나머지 = 이월
+PASS ⓐ FT_WT_SWEEP_MAX=2 명시 → 건수 상한 2
+PASS ⓐ 건수 상한 나머지 이월 1
+== ⓑ cwd 보유(WAIT) 계획은 건너뛰고 뒤 계획 계속
+FAIL ⓑ 뒤 계획 3 → .done 3 (got=[1] want=[3])
+PASS ⓑ WAIT 계획 제자리
+PASS ⓑ WAIT 1줄
+FAIL ⓑ 이월 0(머리 막힘 0) — 있으면 안 됨: «이월»
+== ⓒ 옛 판 계획 → 같은 좌석·같은 WT 로 재생성 → 같은 pass 에 실행 · 좌석 살아 있으면 재생성 0
+FAIL ⓒ 좌석 세션 살아 있음 → WAIT — 없음: «WAIT byz-harness-nano-rp#0» ← STALE byz-harness-nano-rp#0 — 옛 생성기 계획 실행 거부(plan-ver=0000000000000000000000000000000000000000 ≠ 라이브 생성기=9a93d62ad20adbcfff4f933cf29a3a870f80b5ed) · 재생성: ft-nano-close.sh byz-harness-nano-rp#0 를 다시 돌려 새 계획을 만든다(옛 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/c/byz-harness-nano-rp#0.sh.stale)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · stale 1
+FAIL ⓒ  └ 계획 제자리(옛 판 그대로) (got=[] want=[1])
+PASS ⓒ  └ .replanned 0
+FAIL ⓒ  └ .stale 0 (got=[yes] want=[no])
+FAIL ⓒ 좌석 없음 → REPLAN 1줄 — 없음: «REPLAN byz-harness-nano-rp#0» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ  └ 옛 계획 .replanned 로 보존 (got=[] want=[1])
+FAIL ⓒ  └ 새 계획이 같은 pass 에 실행 → cleaned — 없음: «OK   byz-harness-nano-rp#0 wt=cleaned» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓒ  └ 옛 몸통 실행 0
+FAIL ⓒ  └ 새 계획 plan-ver = 라이브 생성기 (got=[] want=[1])
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/c/byz-harness-nano-rp#0.sh.done: No such file or directory
+FAIL ⓒ  └ 같은 WT 를 굽힘 — 없음: «WT=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/repo/.worktrees/v65-rp» ← 
+FAIL ⓒ  └ 요약 replanned 1 — 없음: «replanned 1» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ 원래 경로 남음
+PASS ⓒ  └ 가지 nano/rp 보존
+== ⓓ 재생성 불가 → .stale + 사유 1줄 (실작업물 미커밋은 새 계획의 가드가 HIL)
+PASS ⓓ WT 없음 → STALE
+FAIL ⓓ  └ 사유 1줄 — 없음: «WT 없음» ← STALE byz-harness-nano-nw#0 — 옛 생성기 계획 실행 거부(plan-ver=0000000000000000000000000000000000000000 ≠ 라이브 생성기=9a93d62ad20adbcfff4f933cf29a3a870f80b5ed) · 재생성: ft-nano-close.sh byz-harness-nano-nw#0 를 다시 돌려 새 계획을 만든다(옛 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/d1/byz-harness-nano-nw#0.sh.stale)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · stale 1
+PASS ⓓ  └ .stale 이동
+PASS ⓓ 가지 nano/* 아님 → STALE
+FAIL ⓓ  └ 사유 1줄 — 없음: «nano/* 아님» ← STALE byz-harness-nano-ft#0 — 옛 생성기 계획 실행 거부(plan-ver=0000000000000000000000000000000000000000 ≠ 라이브 생성기=9a93d62ad20adbcfff4f933cf29a3a870f80b5ed) · 재생성: ft-nano-close.sh byz-harness-nano-ft#0 를 다시 돌려 새 계획을 만든다(옛 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/d2/byz-harness-nano-ft#0.sh.stale)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · stale 1
+PASS ⓓ  └ 워크트리 그대로
+FAIL ⓓ 미커밋 → 재생성은 됨 — 없음: «REPLAN byz-harness-nano-dt#0» ← STALE byz-harness-nano-dt#0 — 옛 생성기 계획 실행 거부(plan-ver=0000000000000000000000000000000000000000 ≠ 라이브 생성기=9a93d62ad20adbcfff4f933cf29a3a870f80b5ed) · 재생성: ft-nano-close.sh byz-harness-nano-dt#0 를 다시 돌려 새 계획을 만든다(옛 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/d3/byz-harness-nano-dt#0.sh.stale)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · stale 1
+FAIL ⓓ  └ 새 계획 가드가 미커밋을 HIL 로(정리 0) — 없음: «[HIL] seat=byz-harness-nano-dt#0 실작업물 미커밋» ← STALE byz-harness-nano-dt#0 — 옛 생성기 계획 실행 거부(plan-ver=0000000000000000000000000000000000000000 ≠ 라이브 생성기=9a93d62ad20adbcfff4f933cf29a3a870f80b5ed) · 재생성: ft-nano-close.sh byz-harness-nano-dt#0 를 다시 돌려 새 계획을 만든다(옛 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/d3/byz-harness-nano-dt#0.sh.stale)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · stale 1
+PASS ⓓ  └ 워크트리 그대로
+== ⓔ 지운 폴더 크기 — du 상한 · .done·요약·wt-sweep.log freed_kb
+FAIL ⓔ .done 에 freed_kb=1234 (got=[0] want=[1])
+FAIL ⓔ 요약 freed_kb 1234 — 없음: «freed_kb 1234» ← OK   e1#0 wt=cleaned
+sweep 계획 1 · cleaned/none 1 · wait 0 · hil 0
+FAIL ⓔ wt-sweep.log 폴더별 KB 줄 — 없음: «freed seat=e1#0 kb=1234» ← 
+FAIL ⓔ wt-sweep.log pass 줄 끝 freed_kb — 없음: «freed_kb=1234» ← 
+FAIL ⓔ du 상한 넘김 → freed_kb=? (got=[0] want=[1])
+PASS ⓔ  └ 느린 du 를 상한에서 끊음(0s)
+cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GfHI0vyawx/e/wt-sweep.log: No such file or directory
+FAIL ⓔ  └ 로그 kb=? — 없음: «freed seat=e2#0 kb=?» ← 
+FAIL ⓔ --launchd 줄에 freed_kb — 없음: «freed_kb=55» ← 2026-10-20 10:44:17 rc=0 cleaned=1 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=0 archive_skip=0
+FAIL ⓔ --launchd 줄에 replanned — 없음: «replanned=0» ← 2026-10-20 10:44:17 rc=0 cleaned=1 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=0 archive_skip=0
+== ⓕ 등록 없는 폴더 → wt-orphans.tsv 목록만 · 삭제 0
+FAIL ⓕ 목록에 orphan1 1줄(크기 77) (got=[] want=[1])
+FAIL ⓕ 등록 워크트리는 목록 밖 (got=[] want=[0])
+FAIL ⓕ 요약 orphans 1 — 없음: «orphans 1» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓕ  └ 폴더 그대로(삭제 0)
+== ⓖ .hil 계획 → 요약 수만 · 처리 0
+FAIL ⓖ 요약 hil_files 2 — 없음: «hil_files 2» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓖ  └ .hil 그대로 2 · .done 0
+== 위생
+PASS sweep 에 브랜치 삭제 코드 0
+PASS core.bare=false
+
+FAILED 30

@@ -1,0 +1,18 @@
+# r534 실데이터 미리 보기(읽기만) — 실 워크트리·실 HOME 을 실 du 로 · state = 임시 폴더(scratchpad realroot) · 실 감시자·실 동결 0 · FT_RECLAIM_PREVENT_SEC=0 · 2026-10-20 11:1x
+# 틱 3회 걸린 시간: 26s · 32s · 32s (예산 55 · ≤60) · ft-disk-alarm rc3 = 임시 루트라 LIVE_BIN 없음(시험 환경 탓 · 측정과 무관)
+## 셋째 틱 줄(칸·합·known · TIMEOUT 0)
+1792462344	disk.free	259133800
+1792462344	worktrees.count	434
+1792462344	worktrees.recent2h	7
+1792462344	colima.diffdisk	2013080
+1792462344	byz.logs	1129112
+1792462344	claude.projects	PARTIAL 21101460
+1792462344	claude.projects.known	75/2520
+1792462344	caches	PARTIAL 6659140
+1792462344	caches.known	75/100
+1792462344	pytest	373124
+1792462344	pytest.known	18/18
+1792462344	worktrees.total	PARTIAL 80842760
+1792462344	worktrees.known	75/434
+## TIMEOUT 줄 수 = 0
+## 첫 바퀴 길이(틱당 25개 · 10분 틱): worktrees 434 → 18틱 ≈3시간 · claude.projects 2520 → 101틱 ≈17시간 · caches 100 → 4틱 · pytest 18 → 1틱

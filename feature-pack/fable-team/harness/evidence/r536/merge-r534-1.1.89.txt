@@ -1,0 +1,25 @@
+# r536 재번호 1.1.89 — r534 가지(dfffbd68 · origin/main 6e72a9ab 은 그 조상) 병합 뒤 시험 (2026-10-20 · cwd = 팩 작업 폴더 · 시험당 timeout 600)
+병합 커밋 0506cfdc = 60282fa7 + dfffbd68 · 충돌은 CHANGES.md·manifest.json 2개뿐(기계 해소) · 그 밖 충돌 0
+
+## 실 상태 오염 사건(이 재번호 중)
+- 첫 실행을 BYZ 워크트리 cwd 에서 했더니 test_autonomy_hooks_layout 이 cwd 의 .fable-team/LIVE_ROOT(v6-realtime-live)를 따라 실 autonomy.log 에 A11~A18 on/off 8쌍 + approve-merge 7줄(임시 리포 sha) 기록 · 끝이 on A18 → ft-autonomy.sh off 1줄로 복구(mode=off · 13:41)
+- 같은 시험은 병합 전 60282fa7 사본에서도 BYZ cwd 면 ⓛ4 FAIL(승인 파일이 실 상태로 감) — 병합 탓 아님 · 고침 = 시험 안 LIVE_ROOT + cd 임시 워크트리 → BYZ cwd 에서도 ALL PASS · 실 autonomy.log 486→486 줄
+
+## 결과
+merged test_autonomy_hooks_layout.sh rc=0 PASS=17 FAIL=0
+merged test_nano_succession_index.sh rc=0 PASS=23 FAIL=0
+merged test_wt_clean_plan_self_check.sh rc=0 PASS=23 FAIL=0
+merged test_evidence_inject_scan.sh rc=0 PASS=20 FAIL=0
+merged test_fake_resource_env.sh rc=0 PASS=14 FAIL=0
+merged test_resource_watch_incremental_r534.sh rc=0 PASS=55 FAIL=0
+merged test_resource_watch.sh rc=0 PASS=75 FAIL=0
+merged test_resource_cause.sh rc=0 PASS=27 FAIL=0
+merged test_resource_reclaim_preventive.sh rc=0 PASS=87 FAIL=0
+merged test_resource_gate_pressure.sh rc=1 PASS=84 FAIL=4
+  FAIL H3 세션 없음 / 계보 불일치 / N+2 / 다른 팀 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(임시) 가 git 리포 아님
+merged test_resource_cpu_owner.sh rc=0 PASS=28 FAIL=0
+r534tip test_resource_watch.sh rc=0 PASS=75 FAIL=0
+r534tip test_resource_gate_pressure.sh rc=1 PASS=84 FAIL=4 (같은 H3 4줄)
+real autonomy log 486 -> 486
+
+판독: gate_pressure H3 FAIL 4 = r534 가지 사본에서도 같은 4줄(comm 폴더 해석 · r534 existing-tests.txt «팩 origin/main 에서도 같음») — r536 이 만든 실패 아님 · 고칠 단위로 master 에 따로 넘김

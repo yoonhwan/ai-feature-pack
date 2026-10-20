@@ -1,0 +1,5 @@
+변이 1 시간 상한 끔(MAX 기본 1 복귀) → FAILED 4
+변이 2 재생성 끔(replan_one 즉시 실패) → FAILED 14
+변이 3 du 기록 끔(size_kb 빈 값) → FAILED 7
+변이 4 orphan 목록 끔 → FAILED 3
+변이 5 --replan 좌석 생존 검사 제거 → FAILED 4

@@ -106,6 +106,7 @@ bash feature-pack/tmm/uninstall.sh     # ~/.tmm/categories 는 보존
 | 분류 칸에서 ↑↓ 를 눌러도 목록이 안 바뀜 | 목록 fzf 소켓(`$TMPDIR/tmm-<uid>/run-<pid>/fzf.sock`)이 없음 — `tmm doctor` 로 curl 확인. fzf < 0.54 면 `--listen` 불가 |
 | `^]`(창 넓히기)가 안 먹음 · `^D` 뒤 헤더가 그대로 · 갱신 때 키가 잠깐 안 먹음 | 0.7.3~0.8.1 결함(fzf `--id-nth` 가 reload 중 키·뒤 액션을 버림). 0.8.2 — 재설치 후 피커를 `^X` 로 끝내고 다시 연다 |
 | 부하 높을 때 분류 칸 ↑↓ 가 «완전히 밀림» · ↑↓ 가 화면에 `^[[A` 로 찍힘 · 목록 프롬프트에 `dd` | 0.8.1~0.8.3 결함(focus 마다 tmm 스폰 40~120ms 로 줄 섬 · fzf 재시작 틈에 tty 에코). 0.8.4 — focus 인라인·배경·디바운스 + `stty -echo`. 재설치 후 피커 재시작 |
+| 원격(폰)에서만 아무 키가 안 먹음 · 화면은 남아 있는데 ↑↓·⏎·필터가 전부 무반응 · 로컬 창은 정상 | 0.8.4 이하에서 업그레이드 뒤 **옛 버전 피커를 계속 이어받음**(`run-<pid>/fzf.sock` 이 죽어 키·탭 전환·갱신 POST 가 조용히 실패). 0.8.5 — 재설치하면 좀비를 자동으로 죽이고 새로 뜬다. 급하면 `tmux kill-session -t tmm-2; tmux kill-session -t tmm-3` 후 `tmm`. 증상 확인: `tmm doctor` 의 «다른 버전으로 떠 있는 피커» 줄 |
 | 종료 뷰 창을 처음 넓힐 때 느림 | 처음 들어가는 시간대의 대화 파일을 한 번 읽는다. 그 뒤는 캐시(`$TMPDIR/tmm-<uid>/dead-claude.cache.json`) — 지워도 다음에 다시 만든다 |
 | 종료 뷰가 0건 | `tmm doctor` 의 dead-scan 줄 확인. 창이 좁으면 `^]`. 방금 재부팅했는데 0건이면 `TMM_LIVE_GRACE` 안(90초)이라 제외된 것 — 잠시 후 `^R` |
 | 종료 뷰에 스냅샷 없는 세션이 안 보임 | 정상 — 스냅샷 없이도 트랜스크립트로 잡는다. 안 보이면 `~/.claude/projects/*/*.jsonl` 에 그 세션 파일이 있는지, mtime 이 창 안인지 확인 |

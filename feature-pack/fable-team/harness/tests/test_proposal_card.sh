@@ -13,6 +13,8 @@ bash -n "$CARD" && ok "bash -n" || bad "bash -n"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cd "$T" && git init -q . || { echo "FAIL git init"; exit 1; }
 mkdir -p design/fake .fable-team/bin-fake
+# r537: lint 가 카드 종류 판정에 팀 명단(design/TEAMS.md · R383)을 읽는다 — 임시 리포에 최소 명단(harness + 시험 팀 fake)
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| fake | `design/fake/` | f | 현역 |\n' > design/TEAMS.md
 G1='골 첫 줄은 닫는 증거로 쓸 만큼 긴 시험용 문장이다.'
 printf '%s\n' "$G1" '골 둘째 줄 시험용 문장이다.' '골 셋째 줄 시험용 문장이다.' > .fable-team/bin-fake/goal-lines.txt
 # 실제 팀 원장처럼: 머리에 20자+ 인용 줄(닫는 증거로 고르면 안 된다) + 골 줄 + 그 밖의 본문

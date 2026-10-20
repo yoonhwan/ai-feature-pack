@@ -1,0 +1,16 @@
+test_ft_wt_sweep_route_timeout rc=0 · ALL PASS
+test_nano_close_fail_closed rc=0 · ALL PASS
+test_nano_close_named_wt rc=0 · ALL PASS
+test_nano_close_never_started rc=0 · ALL PASS
+test_nano_close_pack_wt rc=0 · ALL PASS
+test_nano_close_rerun_early rc=0 · ALL PASS
+test_nano_close_sha_base rc=0 · ALL PASS
+test_nano_close_superseded_by rc=0 · ALL PASS
+test_nano_close_suspended rc=0 · ALL PASS
+test_nano_close_worktree_list_pipe rc=0 · ALL PASS
+test_nano_close_wt_deletion_only rc=0 · ALL PASS
+test_wt_clean_plan_self_check rc=1 · FAILED 15
+test_wt_clean_two_stage rc=0 · ALL PASS
+test_wt_sweep_budget_replan_r535 rc=0 · ALL PASS
+
+## 기존 RED(origin/main 코드도 같음 — r535 무관): test_wt_clean_plan_self_check FAILED 15

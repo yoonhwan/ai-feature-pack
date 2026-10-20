@@ -4,8 +4,10 @@
 #   tick (기본, launchd 호출): - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
 #     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2) — R357: swap 절대량 단독 동결 폐기) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
 #     - 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
+#     - (r522) 표본 뒤 CPU 폭주 감지 1회(ft-resource-cause.sh cpu · 상한 FT_RES_CPU_CAP_SEC 7초): 주인 줄 → state/runaway-cpu.log 1줄 · 서명(명령·주인·개수)이 바뀌면 planner 명부(FT_SEATS_JSON) _master 에 [CPU 폭주] 쪽지 1통(FT_MBOX_SH) · 프로세스 끄기 0.
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
-#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) · 워크트리 합계는 FT_RES_DU_TTL_SEC(1800초) 캐시(du-cache.tsv) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_DU_TTL_SEC · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
+#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).
+#   r534: 워크트리·claude.projects·caches·pytest 는 통째 du 대신 1단계 폴더별 «증분»(틱당 FT_RES_WT_PER_TICK(25)개 · 폴더별 캐시 du-cache.tsv · 합 = 캐시 합 + «<칸>.known 앎/전체») · 스냅샷 측정 예산 FT_RES_SNAP_BUDGET_SEC(55) · 상한 넘긴 폴더는 1단계 하위로 나눔(깊이 FT_RES_SPLIT_DEPTH(3)).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_WT_PER_TICK · FT_RES_SNAP_BUDGET_SEC · FT_RES_SPLIT_DEPTH · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
 set -uo pipefail
 PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH   # r502: launchd 기본 PATH 에 홈브루 경로를 덧붙인다 — 표본·문지기·선제 회수 하위 호출 전부 같은 tmux·도구를 본다(plist 손 생성물 수정 0)
 
@@ -34,8 +36,9 @@ case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) SLM_WARN=1;; *) [ "$((10#$SWAP_LEVEL_MIN)
 SNAP_SEC="${FT_RES_SNAP_SEC:-590}"
 
 mkdir -p "$STATE" 2>/dev/null || true
-DU_CAP="${FT_RES_DU_CAP_SEC:-7}"; DU_TTL="${FT_RES_DU_TTL_SEC:-1800}"
+DU_CAP="${FT_RES_DU_CAP_SEC:-7}"
 DU_CACHE="$STATE/du-cache.tsv"; DU_LOCK="$STATE/du-scan.lock.d"
+PER_TICK="${FT_RES_WT_PER_TICK:-25}"; SNAP_BUDGET="${FT_RES_SNAP_BUDGET_SEC:-55}"; SPLIT_MAX="${FT_RES_SPLIT_DEPTH:-3}"   # r534 증분 측정
 
 now_epoch() { date +%s; }
 # R320: pressure.tsv 마지막 3줄(5칸 숫자)이 전부 memfree>=20 · level=1 · swap 이 앞 표본보다 늘지 않음 → rc0
@@ -54,27 +57,11 @@ run_capped() {
   done
   wait "$pid"; rc=$?; cat "$out"; rm -f "$out"; return $rc
 }
-# 워크트리 합계 KB — TTL 안이면 캐시, 아니면 1회 스캔(상한 DU_CAP). 상한 초과 = TIMEOUT(옛 캐시를 새 값처럼 쓰지 않는다).
-du_cached() { # key path
-  local key="$1" p="$2" now line ts kb raw rc
-  now=$(now_epoch); line="$(awk -F'\t' -v k="$key" '$2==k{l=$1" "$3} END{print l}' "$DU_CACHE" 2>/dev/null)"; ts="${line% *}"; kb="${line#* }"
-  case "$ts" in ''|*[!0-9]*) ;; *) [ $((now-ts)) -lt "$DU_TTL" ] && { echo "$kb"; return; };; esac
-  raw="$(run_capped du -sk "$p")"; rc=$?
-  [ "$rc" != 124 ] || { echo TIMEOUT; return; }
-  kb="$(printf '%s' "$raw" | awk 'END{print $1+0}')"
-  { grep -v "^[0-9]*	$key	" "$DU_CACHE" 2>/dev/null; printf '%s\t%s\t%s\n' "$now" "$key" "$kb"; } > "$DU_CACHE.tmp.$$" && mv "$DU_CACHE.tmp.$$" "$DU_CACHE"
-  echo "$kb"
-}
-du_line() { # now name path
-  local now="$1" name="$2" p="$3" raw rc
-  if [ ! -e "$p" ]; then printf '%s\t%s\t0\n' "$now" "$name" >> "$DISK_TSV"; return; fi
-  raw=$(run_capped du -sk "$p"); rc=$?
-  if [ "$rc" = 124 ]; then printf '%s\t%s\tTIMEOUT\n' "$now" "$name" >> "$DISK_TSV"; return; fi
-  printf '%s\t%s\t%s\n' "$now" "$name" "$(printf '%s' "$raw" | awk 'END{print $1+0}')" >> "$DISK_TSV"
-}
+. "$HERE/ft-resource-du-lib.sh" || exit 3   # r534 du 함수(du_line · du_lock · 증분 inc_group 등) — 감시자 줄 수 상한(≤245) 때문에 따로 둔다
 
 snapshot_disk() { # now
-  local now="$1" raw rc freek cnt rec logk
+  local now="$1" raw rc freek cnt rec logk end g kn pf dr
+  end=$((SECONDS+SNAP_BUDGET)); [ -f "$DU_CACHE" ] || : > "$DU_CACHE"
   freek=$(df -Pk /System/Volumes/Data 2>/dev/null | awk 'NR==2{print $4+0}')
   printf '%s\tdisk.free\t%s\n' "$now" "${freek:-0}" >> "$DISK_TSV"
   # /private/tmp 1단계 하위 상위 15
@@ -82,20 +69,20 @@ snapshot_disk() { # now
   if [ "$rc" = 124 ]; then printf '%s\t/private/tmp\tTIMEOUT\n' "$now" >> "$DISK_TSV"
   else printf '%s\n' "$raw" | awk '$2!="/private/tmp" && $1 ~ /^[0-9]+$/ {print $1"\t"$2}' \
       | sort -rn | head -15 | awk -v now="$now" -F'\t' '{print now"\t"$2"\t"$1}' >> "$DISK_TSV"; fi
-  # worktrees 총량·개수·최근2시간
+  # worktrees 개수·최근2시간
   if [ -d "$WORKTREES" ]; then
-    printf '%s\tworktrees.total\t%s\n' "$now" "$(du_cached worktrees.total "$WORKTREES")" >> "$DISK_TSV"
     cnt=$(find "$WORKTREES" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
     rec=$(find "$WORKTREES" -mindepth 1 -maxdepth 1 -type d -mmin -120 2>/dev/null | wc -l | tr -d ' ')
     printf '%s\tworktrees.count\t%s\n' "$now" "${cnt:-0}" >> "$DISK_TSV"
     printf '%s\tworktrees.recent2h\t%s\n' "$now" "${rec:-0}" >> "$DISK_TSV"
   fi
   du_line "$now" colima.diffdisk "$HOME/.colima/_lima/colima/diffdisk"
-  du_line "$now" claude.projects "$HOME/.claude/projects"
-  du_line "$now" caches "$HOME/Library/Caches"
-  du_line "$now" pytest "${TMPDIR:-/tmp}/pytest-of-$USER"
   logk=$(run_capped du -sk /tmp/byz-*.log | awk '{s+=$1} END{print s+0}')
   printf '%s\tbyz.logs\t%s\n' "$now" "${logk:-0}" >> "$DISK_TSV"
+  # r534: 큰 폴더 넷 = 1단계 증분(칸 이름 그대로 합 + <칸>.known) · 남은 예산(SNAP_BUDGET)을 남은 칸 수로 나눠 차례로 — 워크트리를 맨 끝에 둬 앞 칸이 남긴 시간까지 받는다
+  set -- "claude.projects|claude.projects.known|claude.projects|$HOME/.claude/projects" "caches|caches.known|caches|$HOME/Library/Caches" \
+    "pytest|pytest.known|pytest|${TMPDIR:-/tmp}/pytest-of-$USER" "worktrees.total|worktrees.known|wt|$WORKTREES"
+  while [ $# -gt 0 ]; do IFS='|' read -r g kn pf dr <<<"$1"; inc_group "$now" "$g" "$kn" "$pf" "$dr" $((SECONDS+(end-SECONDS)/$#)); shift; done
 }
 
 snapshot_mem() { # now
@@ -115,14 +102,6 @@ rotate_tsv() { # file cutoff
   if awk -F'\t' -v c="$cutoff" '($1+0)>=c' "$F" > "$tmp" 2>/dev/null; then mv "$tmp" "$F"; else rm -f "$tmp"; fi
 }
 
-du_lock() { # 스냅샷 전체에 잠금 1개 — rc0 = 잡음 · rc1 = 다른 살아 있는 스캔이 있음. 죽은 pid 의 잠금은 회수.
-  local hp
-  mkdir "$DU_LOCK" 2>/dev/null || {
-    hp="$(cat "$DU_LOCK/pid" 2>/dev/null)"
-    if [ -n "$hp" ] && ! kill -0 "$hp" 2>/dev/null; then rm -r -f "$DU_LOCK"; mkdir "$DU_LOCK" 2>/dev/null || return 1; else return 1; fi
-  }
-  echo $$ > "$DU_LOCK/pid"
-}
 do_snapshot() { # now — 디스크·메모리 스냅샷 + 회전 + 마커
   local now="$1" cutoff
   if du_lock; then snapshot_disk "$now"; rm -r -f "$DU_LOCK"; else logline "du 스캔 진행 중 — 이번 디스크 스냅샷 건너뜀(잠금 $DU_LOCK)"; fi
@@ -193,12 +172,30 @@ scan() {
   mem_top
 }
 
+# r522: CPU 폭주(같은 이름 ≥3 · 각 ≥30% · ≥5분) 주인 한 줄 → runaway-cpu.log + 서명(명령·주인·개수)이 바뀌면 planner _master 에 쪽지 1통. 기록·알림만 · 동결 판정과 독립.
+cpu_watch() {
+  local out rc sig seats route mbox cm sigf="$STATE/.runaway-cpu.sig"
+  out="$(DU_CAP="${FT_RES_CPU_CAP_SEC:-7}" run_capped bash "${FT_RESOURCE_CAUSE_SH:-$HERE/ft-resource-cause.sh}" cpu)"; rc=$?
+  [ "$rc" = 0 ] || { logline "ERROR cpu 원인 rc=$rc$([ "$rc" = 124 ] && echo ' (상한 초과)') — 동결 판정은 계속"; return 0; }
+  [ -n "$out" ] || { rm -f "$sigf"; return 0; }   # 폭주가 끝나면 서명을 지운다 — 다음 폭주는 새 사건으로 알린다
+  printf '%s\t%s\n' "$(now_utc)" "$out" >> "$STATE/runaway-cpu.log"
+  sig="$(printf '%s' "$out" | sed 's/ CPU [0-9]*% [0-9]*분//g')"
+  [ "$sig" != "$(cat "$sigf" 2>/dev/null)" ] || return 0
+  seats="${FT_SEATS_JSON:-$RES_ROOT/.fable-team/seats-planner.json}"
+  route="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("_master",""))' "$seats" 2>/dev/null)"
+  [ -n "$route" ] || { logline "ERROR CPU 폭주 쪽지 수신자 없음(planner _master · $seats) — $out"; return 0; }
+  mbox="${FT_MBOX_SH:-}"; [ -n "$mbox" ] || { . "$HERE/ft-harness-root.sh" && cm="$(ft_comm_dir "$HERE")" && mbox="$cm/mbox.sh"; } || { logline "ERROR CPU 폭주 쪽지 우편함 못 풂"; return 0; }
+  if bash "$mbox" send "$route" ft-resource-watch "[CPU 폭주] $out · 끄기는 사람 판단 · kill 0" >/dev/null 2>>"$LOG"; then printf '%s\n' "$sig" > "$sigf"
+  else logline "ERROR CPU 폭주 쪽지 발신 실패 to=$route"; fi
+}
+
 # ---- tick (launchd) ----
 tick() {
   local gout rc disk swap memfree level rate now trax recov
   FT_RES_ROOT="$RES_ROOT" bash "${FT_PREVENTIVE_SH:-$HERE/ft-resource-preventive.sh}" >/dev/null 2>&1 || logline "ERROR ft-resource-preventive rc=$? (tick 은 계속)"   # R332 선제 회수 · 조기 종료(측정 오류·동결 생성)보다 앞 · 실패가 tick 을 바꾸지 않음
   bash "$HERE/ft-resource-sample.sh" >/dev/null 2>>"$LOG" || logline "ERROR sample rc=$? (표본 끊김 — 문지기 stale 로 이어짐)"
   [ -z "$SLM_WARN" ] || { logline "$SLM_WARN"; echo "$SLM_WARN" >&2; }   # R357: 설정이 바뀐 사실을 숨기지 않는다(조용한 후퇴 금지)
+  cpu_watch   # r522: 표본 뒤 · 문지기·동결 분기보다 앞(측정 오류·동결 생성으로 tick 이 일찍 끝나도 CPU 축은 본다)
   gout="$(bash "$GATE" status 2>&1)"; rc=$?
   printf '%s\n' "$gout" | grep '^WARN ' | grep -v FT_SWAP_LEVEL_MIN | while IFS= read -r _w; do logline "gate $_w"; done   # R357: 문지기 WARN 은 rc0 이어도 버리지 않고 로그로(SWAP_LEVEL_MIN WARN 은 위 줄과 중복이라 제외)
   if [ "$rc" != 0 ]; then logline "ERROR gate status rc=$rc out=$gout"; exit 4; fi

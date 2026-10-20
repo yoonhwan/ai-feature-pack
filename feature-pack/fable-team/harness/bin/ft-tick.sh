@@ -460,6 +460,17 @@ renamed_watch() {   # r468 — 옛 계보 우편 «있음» 을 새 명부 _mast
   echo "$sig" > "$sigf"
 }
 
+# ★r529 오빠 큐 재질문★ — 보여준 지 60분 넘은 «대기» 줄·재확인 시각 지난 «보류» 줄을 그 팀 명부 _master 에 [재질문] 1통
+#   (ft-queue.sh remind · 팀 - = planner _master · 같은 줄 60분 안 반복 0 · 자율 ON = 쪽지 0 · 아침 묶음 줄만 r291). FT_TICK_QUEUE=0 으로 끔 · FT_TICK_QUEUE_MIN(60).
+queue_watch() {
+  local out
+  [ "${FT_TICK_QUEUE:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=queue-reask"; return 0; fi
+  out="$(env ${ROOT:+FT_ROOT="$ROOT"} bash "$HERE/ft-queue.sh" remind --rosters "$(dirname "$SEATS")" --mbox "$MBOX" --min "${FT_TICK_QUEUE_MIN:-60}" 2>&1)" \
+    || echo "$(date '+%F %T') queue_watch: $(printf '%s\n' "$out" | grep -m1 -E '^(ERROR|REJECT)' | cut -c1-200)" >&2
+  return 0
+}
+
 # R125(판정 1437): 뉴스 입력 = 오빠 원장 한 파일 — 지금 커밋 ≠ 기준선이면 바뀐 줄만 발행(R118b 30분 무초안 감시는 초안이 없어져 삭제).
 # 원장 갱신 0 인 새 판정 알림도 같은 스크립트가 보므로 매 루프 부른다(기준선이 같으면 git log 1번). FT_TICK_NEWS_LEDGER=0 으로 끔.
 news_ledger() {
@@ -686,6 +697,7 @@ pass() {
   drift_watch
   raised_watch
   renamed_watch
+  queue_watch
   launchd_watch
   news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }

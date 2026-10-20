@@ -1,0 +1,10 @@
+# r536 고친 뒤 — 나노 가지 · 묶음 ⑥ 5개 각각 실행(rc · PASS/FAIL 수 · 끝 줄)
+test_autonomy_hooks_layout rc=0 PASS=17 FAIL=0 끝=ALL PASS
+test_nano_succession_index rc=0 PASS=23 FAIL=0 끝=ALL PASS
+test_wt_clean_plan_self_check rc=0 PASS=23 FAIL=0 끝=ALL PASS
+test_evidence_inject_scan rc=0 PASS=20 FAIL=0 끝=ALL PASS
+test_fake_resource_env rc=0 PASS=14 FAIL=0 끝=fail=0
+
+## self_check 스텁 줄
+== r536 부작용 도구는 스텁만 불렸다(실제 reap·kill 0)
+PASS 스텁 reap 호출 8회(로그 = 임시 bin/.stub-calls.log · run 이 env -i 라 기본 자리)
