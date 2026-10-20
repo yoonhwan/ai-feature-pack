@@ -150,8 +150,10 @@ mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "probe 일반 agents99 gate rc3" 3
 # H3(r2) — 승계 면제 = NAME==OLD 계보 베이스#(N+1) ∧ OLD 가 명부 역할 키(_master 등) 값 ∧ OLD tmux 생존 (agents 99 로 일반 REJECT 되는 상황)
 mk_tsv 6133 0
 SUC="$REPO/harness/bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
-# R358: ft-successor-open.sh :39 의 arch-live 판정(R342)이 $FT_RES_ROOT/design/TEAMSET.md 를 읽는다 — 리포 정본을 복사해 심는다(가짜 표 손글씨 0).
-mkdir -p "$R/design" && cp "$REPO/design/TEAMSET.md" "$R/design/TEAMSET.md"
+# R358: ft-successor-open.sh :39 의 arch-live 판정(R342)이 $FT_RES_ROOT/design/TEAMSET.md 를 읽는다.
+# r537: 팩엔 BYZ 정본 design/TEAMSET.md 가 없다 — 정본과 같은 두 표 머리줄의 최소 표를 심는다(시험 팀 t·other 는 표 2 밖 = arch 상시 아님 · test_arch_required_gate 와 같은 꼴).
+mkdir -p "$R/design" && printf '# 시험 팀셋\n## 표 1 — 역할 표준\n| 역할 | 수 | 모델 | effort | 명부 키 | 승계 | 닫기 |\n|---|---|---|---|---|---|---|\n| master | 필수 1 | `m` | high | `_master` | a | b |\n| arch | 상시 팀만 1 | `m` | high | `_arch` | a | b |\n- 나노 상한 기본: 3\n- 명부 역할 키(표 1 «명부 키» 열): `_master` `_arch`\n## 표 2 — 팀별 덮어쓰기\n| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| harness | 4 | 0 | 상시 |\n' > "$R/design/TEAMSET.md"
+. "$HERE/lib/fake_resource_env.sh"; fake_comm_root "$T/root" || bad "fake_comm_root"   # r537: spawn-hold 가 comm 을 푼다(r459) — 못 풀면 WARN 이 섞인다
 # R361: R351 이후 --md 기본값은 gitref:origin/main:… 이라 git 저장소가 아닌 임시 루트 $R 에선 못 읽는다 — 복사해 둔 정본 파일을 FT_TEAMSET_MD 로 직접 가리킨다.
 so() { OUT="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HOME="$T/home" FT_RES_ROOT="$R" FT_TEAMSET_MD="$R/design/TEAMSET.md" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=99 FT_RECLAIM=0 "$@" bash "${SUCX:-$SUC}" "$OLDN" "$T/cwd" --name "$NEWN" --agent claude --model m --body-file "$T/body.txt" 2>&1)"; RC=$?; }
 agents_rej() { { [ "$RC" -eq 3 ] && echo "$OUT" | grep -q 'REJECT resource agents=99 limit=65'; }; }

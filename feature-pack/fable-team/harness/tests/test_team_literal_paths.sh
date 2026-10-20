@@ -27,7 +27,7 @@ out="$(bash "$SRC/ft-team-path-lint.sh" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$ou
 # ── 픽스처 리포 ───────────────────────────────────────────────────────────────
 TEAMS13=(harness planner cfo ops graphics issues feature kk v65 loom lecture room concierge)
 mkrepo() {  # <경로> <꼴 1|2>
-  local R="$1" form="$2" t p H P V C I; mkdir -p "$R/design" "$R/.fable-team/state"
+  local R="$1" form="$2" t p H P V C I; mkdir -p "$R/design" "$R/.fable-team/state" "$R/.fable-team/comm"   # r537: comm = r459 공용 루트 필수(hil-ask·answer 가 푼다)
   git -C "$R" init -q -b main
   { printf '# 팀 명단\n| 팀 | 폴더 | 오케 좌석 계열 | 상태 |\n|---|---|---|---|\n'
     for t in "${TEAMS13[@]}"; do case "$form" in 1) p="design/$t/";; 2) p="design/teams/$t/";; esac; printf '| %s | `%s` | byz-%s-master-claude | 현역 |\n' "$t" "$p" "$t"; done; } > "$R/design/TEAMS.md"

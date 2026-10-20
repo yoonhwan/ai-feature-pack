@@ -1,0 +1,34 @@
+# r537 재번호 1.1.90 — r536 가지(6ef127c0 · r534·r522 조상) 병합 뒤 시험 (2026-10-20 · master 84 발주 119921·119930)
+병합 = 79b0aa90 + origin/nano/r536-tests-temp-bin-sibling-copy-bucket6 6ef127c0 · 충돌 CHANGES.md·manifest.json 2개뿐(기계 해소: r537 절을 r536 절 위로 · 양쪽 절 보존 · manifest 1.1.90) · 그 밖 충돌 0
+겹침: r537 과 r536 이 함께 바꾼 시험 파일 0(공통 = CHANGES.md·manifest.json 뿐) · test_autonomy_hooks_layout 은 r536 만 바꿈
+실행 꼴: 시험마다 cwd = 새 임시 git 리포(mktemp + git init) · env -u FT_ROOT -u FT_MBOX_DIR -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE · timeout 600 · 3병렬
+실 autonomy.log(v6-realtime-live/.fable-team/state) 줄 수 486 -> 486
+
+## 결과 (PASSlines·FAILlines = 출력 줄 grep 수)
+tests/test_autonomy_hooks_layout.sh rc=0 PASSlines=18 FAILlines=0
+tests/test_cherry_gate_identical_head.sh rc=0 PASSlines=21 FAILlines=0
+tests/test_evidence_inject_scan.sh rc=0 PASSlines=21 FAILlines=0
+tests/test_fake_resource_env.sh rc=0 PASSlines=14 FAILlines=0
+tests/test_flag_off_scan.sh rc=0 PASSlines=39 FAILlines=0
+tests/test_ft_land.sh rc=0 PASSlines=18 FAILlines=0
+tests/test_live_install_check_tip.sh rc=0 PASSlines=15 FAILlines=0
+tests/test_nano_succession_index.sh rc=0 PASSlines=24 FAILlines=0
+tests/test_penalty_spawn_gate.sh rc=0 PASSlines=9 FAILlines=0
+tests/test_press_role_bts_gate.sh rc=0 PASSlines=26 FAILlines=0
+tests/test_proposal_card.sh rc=0 PASSlines=32 FAILlines=0
+tests/test_resource_gate.sh rc=0 PASSlines=45 FAILlines=0
+tests/test_resource_gate_pressure.sh rc=0 PASSlines=88 FAILlines=0
+tests/test_resource_watch.sh rc=0 PASSlines=75 FAILlines=0
+tests/test_resource_watch_incremental_r534.sh rc=0 PASSlines=55 FAILlines=0
+tests/test_seat_handover.sh rc=1 PASSlines=52 FAILlines=2
+tests/test_sheet_verify.sh rc=1 PASSlines=17 FAILlines=8
+tests/test_spawn_gate_landing_branch.sh rc=0 PASSlines=13 FAILlines=0
+tests/test_team_literal_paths.sh rc=0 PASSlines=119 FAILlines=0
+tests/test_team_move_roundtrip.sh rc=1 PASSlines=103 FAILlines=3
+tests/test_team_scaffold_empty_template.sh rc=1 PASSlines=16 FAILlines=1
+tests/test_teamset_gitref.sh rc=0 PASSlines=22 FAILlines=0
+tests/test_wt_clean_plan_self_check.sh rc=0 PASSlines=24 FAILlines=0
+
+판독: gate_pressure rc0 FAIL 0 — r534 감시자 줄 수가 들어온 뒤 H3(r537) + 감시자 줄 수(r534) 둘 다 풀림. r536 5개 rc0. r537 묶음 ③ 셸 rc0 11 → 12(gate_pressure 추가).
+남은 rc1 4 = 병합 전 79b0aa90 에서도 같은 FAIL 줄 수(after-bucket3-shell-rc.txt: seat_handover 2 · sheet_verify 8 · team_move_roundtrip 3 · team_scaffold_empty_template 1) · CHANGES r537 «범위 밖» 그대로.
+참고: cwd 가 git 리포가 «아닌» 임시 폴더면 flag_off_scan(FAIL 13 · ft-flag-off 루트 풀이)·teamset_gitref(core.bare 단언 = 호출자 리포 검사)가 rc1 — 시험이 호출자 cwd 가 리포라고 전제(병합 무관 · 그 cwd 꼴 기록 merge_out 1차).

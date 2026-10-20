@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — 시험 임시 환경에 «공용 루트» 도우미: 자원 문지기 시험이 다시 회귀를 잡게 (r537 · 1.1.90)
+
+- 사건: `test_resource_gate`(FAIL 9) · `test_resource_gate_pressure`(FAIL 5)가 팩 origin/main 에서도 RED(r522 나노 보고 · master 84 발주 119766). 좌석 여는 도구가 r459 뒤 공용 comm 폴더를 «먼저» 푸는데, 시험 임시 환경엔 공용 루트가 없어 자원 문지기에 닿기 전에 `ERROR comm 폴더를 못 풂` rc=3 으로 끝남 = r516 묶음 ③(공용 루트·comm·팀 명단 전제).
+- `harness/tests/lib/fake_resource_env.sh`: `fake_comm_root <dir> [LIVE_BIN]` = 임시 git 리포 + `.fable-team/comm`·`state`·`LIVE_BIN` + `design/TEAMS.md` 최소 명단 → `FT_ROOT` export(ft_comm_dir·ft_data_root 가 git 을 부르지 않고 풂). 기존 `fake_resource_env` 무변경. pytest 판 = `tests/scripts/fake_resource_env.py` `fake_comm_root` + `conftest.py` 픽스처(명부 `seats.json` 도 심음 — `ft-nano-close.sh` R400).
+- 묶음 ③ 셸 고침: resource_gate · cherry_gate_identical_head · penalty_spawn_gate · teamset_gitref · team_literal_paths · flag_off_scan · ft_land(= `fake_comm_root` 또는 임시 리포에 comm) · proposal_card · press_role_bts_gate(임시 리포 TEAMS.md) · live_install_check_tip · team_scaffold_empty_template(`--kit` 명시 · r426 꼴) · seat_handover(무인자 status 에 FT_ROOT) · spawn_gate_landing_branch(연쇄 통과). `test_resource_gate_pressure` H3 = 팩에 없는 BYZ `design/TEAMSET.md` 복사 → 같은 머리줄 최소 표(test_arch_required_gate 꼴). pytest: weekly_review(cwd = 임시 루트) · disk_census(명부).
+- 시험: 묶음 ③ 셸 16 = 전 rc0 0 → 후 rc0 11(`harness/evidence/r537/before|after-bucket3-shell-rc.txt`) · pytest 2파일 19 failed → 0(47 passed). 전체(같은 바탕 5fb4b134): 셸 실패 53 → 42 · pytest 23 → 4 failed · «후에만 실패» 셸 0 · pytest 0(`compare.txt`). 단언 삭제·완화 0 · 변이 검출 그대로.
+- 남은 묶음 ③ 안 다른 뿌리(범위 밖): `test_resource_gate_pressure` 감시자 줄 수(r534) · `test_seat_handover` guard·`test_team_move_roundtrip` ⓑ'(임시 bin 형제 누락 = ⑥ · r536) · `test_sheet_verify`(`_fake_mbox.sh` 옛 자리 = ⑤) · `test_team_scaffold_empty_template` ⓐ(옛 BYZ 틀 경로 문구 = ⑤) · `test_team_move_roundtrip` ⓒ(env 없이도 자기 위치로 풀림 — 시험 기대 결정 필요).
+- r536(1.1.89 · r534·r522 조상) 병합 뒤 재번호 1.1.90: 충돌 CHANGES·manifest 2개뿐(기계 해소) · 함께 바꾼 시험 파일 0 · cwd = 새 임시 git 리포에서 23개 → `test_resource_gate_pressure` rc0 FAIL 0(r534 감시자 줄 수 + r537 H3) · r536 5개 rc0 · 남은 rc1 4 = 병합 전과 같은 FAIL 수 · 실 autonomy.log 486→486(`harness/evidence/r537/merge-r536-1.1.90.txt`).
+- 설치: 없음(시험 파일만 · 키트 diff 0).
+
 ## 2026-10-20 — 시험 임시 bin 짝 누락(r516 묶음 ⑥) 5개 고침: 키트 bin 통째 복사 도우미 `tests/lib/kit_bin_copy.sh` + 부작용 스텁 (r536 · 1.1.89)
 
 - 사건: r535 나노 보고 — `test_wt_clean_plan_self_check.sh` 가 팩 origin/main 에서도 FAIL 13(`harness/evidence/r535/preexisting-self-check-origin-main.txt`). arch 107 실측 = 시험이 임시 bin 에 생성기 `ft-nano-close.sh` 와 형제 몇 개만 손으로 복사하는데 생성기가 그 뒤 `ft-seat-reap.sh`·`ft-team-lib.sh` 등을 더 부르게 바뀌어 «No such file · CLOSE-FAIL reap left=? rc=127». 같은 꼴 = r516 분류표 묶음 ⑥ 5개.

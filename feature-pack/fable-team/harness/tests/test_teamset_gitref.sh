@@ -35,7 +35,7 @@ mkdir -p "$T/repo/design"; cat > "$T/repo/design/TEAMSET.md" <<'EOF'
 EOF
 G add design/TEAMSET.md; G commit -q -m "표 착지"; C2="$(G rev-parse HEAD)"; SHA10="$(G rev-parse --short=10 "$C2")"
 G update-ref refs/remotes/origin/main "$C2"
-mkdir -p "$T/repo/.fable-team"; echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
+mkdir -p "$T/repo/.fable-team/comm"; echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
 G worktree add -q --detach "$T/wt" "$C1"   # 표 없는 커밋의 워크트리 = 팀 워크트리 상황
 [ ! -f "$T/wt/design/TEAMSET.md" ] && ok "전제: 워크트리에 표 파일 없음" || bad "전제 어긋남"
 mkdir -p "$T/wt/design/alpha/indices/대기"; echo "# 카드" > "$T/wt/design/alpha/indices/대기/x.md"

@@ -21,8 +21,9 @@ def _wt(repo, name, branch, base="main"):
 
 
 @pytest.fixture
-def env(tmp_path):
+def env(tmp_path, fake_comm_root):
     repo = init_repo(tmp_path / "repo", "main")
+    fake_comm_root(repo)  # r537: --plan 의 ft-nano-close 가 명부 <repo>/.fable-team/seats.json 을 필수로 본다(R400 fail-closed) · .fable-team/ 는 아래 .gitignore
     commit(repo, {".gitignore": ".worktrees/\n.fable-team/\n.worktree-info.json\n"}, "ignore")  # main 커밋의 `add -A` 가 워크트리 gitlink 를 쓸어 담지 않게
     # ① squash 착지 나노 — 조상 아님 · cherry 전부 «-» (같은 patch 가 main 에 있다)
     w = _wt(repo, "v65-sq", "nano/sq")

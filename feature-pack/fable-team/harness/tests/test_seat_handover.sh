@@ -124,7 +124,7 @@ reset; done_row "$OLD" "$NEW"; printf 'wrong#7' > "$T/tm/opts/$OLD.handed_over_t
 reset; done_row "$OLD" "$NEW"
 out="$(PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" TMUX_PANE=%1 FT_ROOT="$T/root" FT_HANDOVER_LEDGER="$T/ledger.jsonl" FT_SEATS_JSON="$T/seats.json" bash "$HO" status 2>&1)"
 [ "$out" = "RETIRED $NEW" ] && ok "TMUX_PANE 고정(ambient 세션 무관)" || bad "TMUX_PANE: $out"
-out="$(PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" FT_HANDOVER_LEDGER="$T/ledger.jsonl" FT_SEATS_JSON="$T/seats.json" env -u TMUX_PANE bash "$HO" status 2>&1)"; rc=$?
+out="$(PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" FT_ROOT="$T/root" FT_HANDOVER_LEDGER="$T/ledger.jsonl" FT_SEATS_JSON="$T/seats.json" env -u TMUX_PANE bash "$HO" status 2>&1)"; rc=$?   # r537: 루트 풀이(r385)가 인자 검사보다 먼저 — 다른 호출과 같은 임시 루트
 [ "$rc" -eq 2 ] && ok "세션·TMUX_PANE 둘 다 없으면 rc 2(추측 0)" || bad "무인자: rc=$rc $out"
 # ── guard 훅 ────────────────────────────────────────────────────────────
 guard() { echo '{}' | PATH="$T/bin:$PATH" TMUX_STUB="$T/tm" TMUX_PANE="$1" FT_BIN="${2:-$REPO/harness/bin}" FT_ROOT="$T/root" \

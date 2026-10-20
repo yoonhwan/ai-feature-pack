@@ -56,6 +56,7 @@ gate; chk "⑤mode 만 다름 → REJECT" 1 "REJECT"
 
 # ⑥ spawn --cherry-override — 빈 사유 exit 2 · 사유 있으면 파싱 통과(인덱스 없음 단계까지 감) · 패스스루 줄 존재
 mkdir -p "$T/sp" && git init -q -b main "$T/sp"
+. "$HERE/lib/fake_resource_env.sh"; fake_comm_root "$T/sp" && fake_resource_env "$T/res" ok   # r537: spawn 이 인덱스 판정 전에 comm(r459)·자원 문지기를 푼다 — 임시 공용 루트 + 가짜 센서
 sp() { OUT="$(cd "$T/sp" && bash "$SP" "$T/no-such-index.md" "$@" 2>&1)"; RC=$?; }
 sp --cherry-override "";    chk "⑥빈 사유 → exit 2" 2 "cherry-override"
 sp --cherry-override "   "; chk "⑥공백 사유 → exit 2" 2 "cherry-override"

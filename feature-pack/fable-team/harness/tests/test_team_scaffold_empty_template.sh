@@ -61,20 +61,21 @@ out="$(firstrow fable-team/templates/hooks/x.sh)"; rc=0
 [ "$out" = 'fable-team/templates/*|skip|-' ]; ck "ⓔ'' hooks 틀은 여전히 skip" $?
 
 # ⓕ 착지 검사: 틀 폴더에 VERSION 만 → PENDING + MISSING 14 + HINT / 폴더째 cp 뒤 → OK
+# r537: r385 뒤 키트 경로 기본 = 하네스 루트 → 임시 리포는 --kit 명시(test_live_install_check_tip chk() · r426 과 같은 꼴)
 KR="$T/kit"; mkdir -p "$KR/scripts/harness-install/fable-team/templates"
 cp "$KITMAP" "$KR/scripts/harness-install/LIVE-MAP.tsv"; cp -R "$KIT/templates/team" "$KR/scripts/harness-install/fable-team/templates/team"
 git -C "$KR" init -q -b main . && git -C "$KR" config user.email t@t && git -C "$KR" config user.name t && git -C "$KR" add -A && git -C "$KR" commit -qm kit
 git -C "$KR" update-ref refs/remotes/origin/main HEAD
 export HOME="$T/home" FT_BIN="$T/ftbin"; mkdir -p "$HOME" "$FT_BIN" "$T/templates/team"
 cp "$KIT/templates/team/VERSION" "$T/templates/team/VERSION"
-out="$(bash "$CHK" --all --repo "$KR" 2>&1)"; rc=$?
+out="$(bash "$CHK" --all --repo "$KR" --kit scripts/harness-install 2>&1)"; rc=$?
 n="$(printf '%s\n' "$out" | grep -c '^MISSING scripts/harness-install/fable-team/templates/team/')"
 [ "$rc" = 1 ] && has "PENDING" && [ "$n" = 14 ] && has "HINT fable-team master: cp -pR"; ck "ⓕ VERSION 만 → PENDING + MISSING 14 + HINT (n=$n)" $?
 cp -R "$KIT/templates/team/." "$T/templates/team/"
-out="$(bash "$CHK" --all --repo "$KR" 2>&1)"; rc=$?
+out="$(bash "$CHK" --all --repo "$KR" --kit scripts/harness-install 2>&1)"; rc=$?
 [ "$rc" = 0 ] && has "OK n=15"; ck "ⓕ' 폴더째 cp 뒤 → OK n=15 (중첩 경로 대조)" $?
 echo drift >> "$T/templates/team/indices/inbox/.gitkeep"
-out="$(bash "$CHK" --all --repo "$KR" 2>&1)"; rc=$?
+out="$(bash "$CHK" --all --repo "$KR" --kit scripts/harness-install 2>&1)"; rc=$?
 [ "$rc" = 1 ] && has "DIFF scripts/harness-install/fable-team/templates/team/indices/inbox/.gitkeep -> $T/ftbin/../templates/team/indices/inbox/.gitkeep"; ck "ⓕ'' 중첩 파일 어긋남 → DIFF 가 중첩 라이브 경로로" $?
 
 # ⓖ 같은 git 트리에 한글 파일 + non-UTF8(0xff) 파일 — 검사기 예외 0 · 한글 경로 원형 · 0xff 는 조용한 통과 0 (DA⑥ r1)
@@ -85,7 +86,7 @@ bblob="$(echo bad | git -C "$KR" hash-object -w --stdin)"
 git -C "$KR" update-index --add --cacheinfo "100644,$bblob,scripts/harness-install/fable-team/templates/team/bad-"$'\xff'".txt"
 git -C "$KR" commit -qm utf8 && git -C "$KR" update-ref refs/remotes/origin/main HEAD
 for LC in C en_US.UTF-8; do
-  out="$(LC_ALL=$LC bash "$CHK" --all --repo "$KR" 2>&1)"; rc=$?
+  out="$(LC_ALL=$LC bash "$CHK" --all --repo "$KR" --kit scripts/harness-install 2>&1)"; rc=$?
   [ "$rc" = 1 ] && ! has "Traceback" && ! has "ERROR" && has "MISSING scripts/harness-install/fable-team/templates/team/indices/대기/한글.md -> $T/ftbin/../templates/team/indices/대기/한글.md"; ck "ⓖ[$LC] 한글 경로 MISSING 줄 원형 · 예외 0" $?
   has 'MISSING scripts/harness-install/fable-team/templates/team/bad-\udcff.txt'; ck "ⓖ'[$LC] 0xff 파일은 조용히 지나가지 않고 MISSING 줄로 (\udcff 이스케이프)" $?
 done

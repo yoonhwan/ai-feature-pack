@@ -1,0 +1,749 @@
+=== test_cherry_gate_identical_head rc=0
+PASS ①오탐 재현 → PASS
+PASS ②옛 blob 롤백 → REJECT
+PASS ②사유 토큰 없음
+PASS ③superseded → PASS
+PASS ③동일 토큰 없음
+PASS ④새 내용 → REJECT
+PASS ⑤mode 만 다름 → REJECT
+PASS ⑥빈 사유 → exit 2
+PASS ⑥공백 사유 → exit 2
+PASS ⑥사유 있음 → 파싱 통과
+PASS ⑥인자 없음 → 현행 그대로
+PASS ⑥게이트 호출에 CO_ARGS 패스스루
+PASS ⑥FT_SEAT=$FROM 지정
+PASS ⑥--override 사유 전달
+PASS ⑦squash 시험 rc=0
+PASS ⑧cmp ft-nano-cherry-gate.sh
+PASS ⑧bash -n ft-nano-cherry-gate.sh
+PASS ⑧cmp ft-nano-spawn.sh
+PASS ⑧bash -n ft-nano-spawn.sh
+PASS ⑧게이트      186줄 ≤ 200
+---
+ALL PASS
+=== test_flag_off_scan rc=0
+== ⓐ === '1' 플래그 + ARG 없음 + build-arg 없음 → 1건
+PASS 1건
+PASS 출력 형식
+== ⓑ (override ?? process.env.X) === '1' 꼴도 검출 + === 'true'
+PASS override 꼴
+PASS 'true' 꼴
+== ⓒ ARG 있음 + build-arg 값(true/1) → 0건
+PASS true → 0건
+PASS 1 → 0건
+== ⓓ ARG 있음 + build-arg 없음 → 1건(ARG 있음 · 값 없음)
+PASS ARG 있음 · 값 없음
+== ⓓ' 같은 플래그가 여러 곳 → 1행(첫 위치)
+PASS 플래그당 1행
+== ⓕ __tests__ · *.test.ts(x) · *.spec.ts(x) 안 등장은 무시
+PASS 시험 파일 0건
+== ⓘ git 읽기 실패 → stderr ERROR + rc 4 (숫자 지어내기 0)
+PASS rc 4 + ERROR
+PASS Dockerfile 없음 = 판정 불가 rc 4
+== ⓖ 결정 건수 줄에 (꺼진 플래그 N) 칸 + 결정 인터뷰 N 합산
+PASS rc0
+PASS 합산 2
+PASS 칸
+== ⓗ 결정 기록 파일 없음 = 기록 0 + 메모
+PASS 메모
+== ⓔ 결정 기록 행(켬|끔 · 판정 비지 않음) → 그 플래그 0건 · 판정 비면 계속 1건
+PASS FOO 결정됨 → 1
+PASS 칸 1
+PASS 파일 있으면 메모 없음
+PASS 판정 칸 비면 미결정
+PASS 전부 결정 → 0
+PASS 0이면 메모 생략
+== ⓙ 도구 git 실패 → rc 4
+PASS rc 4
+PASS ERROR 줄
+== ⓚ 랜딩 검사 — --new-between: 새로 생긴 미결정 플래그만 출력 · 기존 플래그는 침묵
+PASS rc0
+PASS 새 플래그 줄
+PASS 문구
+PASS 기존 플래그 침묵
+PASS 변화 없으면 무출력
+== ⓛ 공용 함수 fm_flag_off_new — 실패해도 rc 0 + WARN 1줄 · 성공이면 같은 줄
+PASS 성공 출력
+PASS rc 0
+PASS WARN
+PASS 실패여도 rc 0
+== ⓜ ft-land.sh 랜딩 검사 줄 (rc·후보 불변)
+PASS 랜딩 rc0 불변
+PASS 후보 줄 그대로
+PASS 새 플래그 줄
+PASS ft_flag_off.py 123줄 ≤ 200
+PASS ft_decision_count.py 200줄 ≤ 200
+PASS bash -n
+
+ALL PASS
+=== test_ft_land rc=0
+PASS bash -n
+PASS push 호출 0 (주석 제외)
+PASS --push usage 거부(rc=2)
+PASS ① rc=0
+PASS ① mode=ff
+PASS ① 후보 = feat tip
+PASS ① refs/heads 변경 0
+PASS ② rc=0
+PASS ② mode=merge
+PASS ② 후보 tree == OID
+PASS ② main 의 m.txt 와 feat 의 f.txt 모두 보존
+PASS ② 후보 = 부모 2(T·feat)
+PASS ② refs/heads 변경 0
+PASS ③ S10 주입 → rc=1
+PASS ③ ABORT 사유 = 후보 tree != OID
+PASS ③ 후보 출력 0
+PASS 충돌 → abort(rc=1)
+---
+ALL PASS
+=== test_penalty_spawn_gate rc=0
+PASS 정지 파일 없음 → role PLAN
+PASS 정지 파일 없음 → nano penalty 거절 0
+PASS 정지 중 role 재개 전 팀 REJECT
+PASS 정지 중 role 팀 미상 REJECT
+PASS 정지 중 nano 재개 전 팀 REJECT
+PASS 재개된 팀 role 통과
+PASS 재개 전 t2 는 계속 REJECT
+PASS 재개된 팀 nano penalty 거절 0
+fail=0
+ALL PASS
+=== test_resource_gate rc=0
+PASS bash -n ft-resource-gate.sh
+PASS bash -n ft-resource-watch.sh
+PASS bash -n ft-resource-sample.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-role-spawn.sh
+PASS bash -n ft-successor-open.sh
+PASS ⓖ cmp ft-resource-gate.sh
+PASS ⓖ cmp ft-resource-watch.sh
+PASS ⓖ cmp ft-resource-sample.sh
+PASS ⓖ cmp ft-nano-spawn.sh
+PASS ⓖ cmp ft-role-spawn.sh
+PASS ⓖ cmp ft-successor-open.sh
+PASS default R357 swap 결합 거절·승계 면제 harness
+PASS default ⓐ~ⓔ harness
+PASS default ⓕ spawn 3종 harness
+PASS default ⓗ~ⓛ·ⓝ pgrep 센서 harness
+PASS default ⓜ spawn 3종 pgrep 오류 harness
+PASS default ⓟⓠ 기본 상한 65·env 덮어쓰기 harness
+PASS default R357 swap 결합 거절·승계 면제 fable-team
+PASS default ⓐ~ⓔ fable-team
+PASS default ⓕ spawn 3종 fable-team
+PASS default ⓗ~ⓛ·ⓝ pgrep 센서 fable-team
+PASS default ⓜ spawn 3종 pgrep 오류 fable-team
+PASS default ⓟⓠ 기본 상한 65·env 덮어쓰기 fable-team
+tests/test_resource_gate.sh: 줄 205: 경고: setlocale: LC_ALL: 로캘을 바꿀 수 없음 (C.UTF-8): Bad file descriptor
+PASS C.UTF-8 R357 swap 결합 거절·승계 면제 harness
+PASS C.UTF-8 ⓐ~ⓔ harness
+PASS C.UTF-8 ⓕ spawn 3종 harness
+PASS C.UTF-8 ⓗ~ⓛ·ⓝ pgrep 센서 harness
+PASS C.UTF-8 ⓜ spawn 3종 pgrep 오류 harness
+PASS C.UTF-8 ⓟⓠ 기본 상한 65·env 덮어쓰기 harness
+PASS C.UTF-8 R357 swap 결합 거절·승계 면제 fable-team
+PASS C.UTF-8 ⓐ~ⓔ fable-team
+PASS C.UTF-8 ⓕ spawn 3종 fable-team
+PASS C.UTF-8 ⓗ~ⓛ·ⓝ pgrep 센서 fable-team
+PASS C.UTF-8 ⓜ spawn 3종 pgrep 오류 fable-team
+PASS C.UTF-8 ⓟⓠ 기본 상한 65·env 덮어쓰기 fable-team
+PASS 변이1 ft-nano-spawn.sh 검출
+PASS 변이1 ft-role-spawn.sh 검출
+PASS 변이1 ft-successor-open.sh 검출
+PASS 변이2 검출
+PASS 변이3 검출
+PASS 변이5 검출
+PASS 변이4 검출
+PASS 변이6 검출
+PASS core.bare=false
+fail=0
+=== test_resource_gate_pressure rc=1
+PASS ⓐ level1·memfree51·swap6133·rate0 새 좌석 OK
+PASS ⓐ 승계 OK
+PASS ⓑ level2 새 좌석 OK
+PASS ⓑ level2 승계 OK
+PASS ⓒ level4 새 좌석 REJECT
+PASS ⓒ level4 승계 REJECT
+PASS ⓓ rate400 새 좌석 OK
+PASS ⓓ rate400 승계 OK
+PASS ⓓ rate600 새 좌석 REJECT
+PASS ⓓ rate600 승계 OK
+PASS ⓓ rate1100 새 좌석 REJECT
+PASS ⓓ rate1100 승계 REJECT
+PASS ⓔ R357 swap12289·level1 새 좌석 OK(swap 단독 거절 폐기)
+PASS ⓔ R357 swap12289·level1 승계 OK
+PASS ⓔ R357 swap12289·level2 새 좌석 REJECT
+PASS ⓔ R357 swap12289·level2 승계 OK(swap 축 면제)
+PASS ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)
+PASS ⓕ agents65 새 좌석 OK
+PASS ⓕ agents66 새 좌석 REJECT
+PASS ⓕ agents66 승계 OK
+PASS ⓖ memfree12 새 좌석 REJECT
+PASS ⓖ memfree12 승계 OK
+PASS ⓖ memfree9 새 좌석 REJECT
+PASS ⓖ memfree9 승계 REJECT
+PASS ⓗ 표본 낡음 → 문지기 직접 1회 측정(3줄)
+PASS ⓗ 낡음+샘플러 기록 실패 → rc4
+PASS ⓗ 승계도 rc4
+PASS ⓘ 표본 1줄 rate=na+WARN OK
+PASS ⓘ rate=na 여도 level4 새 좌석 REJECT
+PASS ⓘ 표본 파일 없음 → 문지기 1회 측정 + rate=na
+PASS ⓙ 동결 새 좌석 REJECT
+PASS ⓙ 동결 승계 REJECT
+PASS status 한 줄 level·rate 칸
+PASS level 측정 실패 exit 4
+PASS 옛 FT_SWAP_MAX_MIB 는 읽지 않는다
+PASS 알 수 없는 2번째 인자 exit 2
+PASS H1 gate LEVEL 명령 rc42+유효 출력 → rc4
+PASS H1 gate SWAP 명령 rc42+유효 출력 → rc4
+PASS H1 gate MEM 명령 rc42+유효 출력 → rc4
+PASS H1 gate DF 명령 rc42+유효 출력 → rc4
+PASS H1 swap 칸 oops 두 줄 → rc4 corrupt
+PASS H1 4칸 줄 → rc4 corrupt
+PASS H1 시각 내림차순 → rc4 corrupt
+PASS H1 시각 차 0(두 줄 같은 시각) → rc4 corrupt
+PASS H1 sampler LEVEL 명령 rc42+유효 출력 → rc4·줄 0
+PASS H1 sampler SWAP 명령 rc42+유효 출력 → rc4·줄 0
+PASS H1 sampler MEM 명령 rc42+유효 출력 → rc4·줄 0
+PASS H1 sampler VM 명령 rc42+유효 출력 → rc4·줄 0
+PASS H2 400초 된 1줄 → 직접 재서 2줄·rate 숫자(예외 닫힘)
+PASS H2 파일 없음 첫 호출 → rate=na
+PASS H2 반복 호출(180초 안) → 같은 1줄 rate=na
+PASS H2 부트스트랩 기한 180초 — 지나면 rate 숫자
+PASS H2 ready 표식은 무시(있어도 없어도 같음)
+PASS H2 미래 시각 두 줄 → rc4 clock-skew
+PASS H2 미래 시각 1줄 → rc4 clock-skew
+PASS H1(r2) 1줄 숫자 칸 oops → rc4 corrupt
+PASS H2 시각 역행 → rc4 corrupt
+PASS probe 일반 agents99 gate rc3
+PASS H3 계보 O·역할 키 O·세션 O → agents 면제
+PASS H3 세션 없음 → 일반 기준
+PASS H3 계보 불일치(무관한 새 이름) → 일반 기준
+PASS H3 N+2 건너뜀 → 일반 기준
+PASS H3 역할 키 값이 아닌 일반 좌석 키(other#2) → 일반 기준
+PASS H3 명부에 없는 OLD → 일반 기준
+PASS H3 다른 팀 명부의 OLD + 무관한 새 이름 → 일반 기준(DA 반례)
+PASS H3 변이(TEAMSET 없음) → ERROR TEAMSET 읽기 실패 rc1
+PASS H3 변이(FT_TEAMSET_MD 없음) → gitref 읽기 실패 rc1
+PASS H3 변이(계보 검사 삭제) 검출
+PASS ⓚ 샘플러 1줄 추가(5칸)+3일 넘은 줄 회전
+PASS ⓚ 측정 실패 rc4·줄 안 씀
+PASS ⓚ 표본 파일 없어도 생성
+PASS r3 동시 교차 → 표본 2줄 유지·rc0·잠금 해제
+PASS r3 변이(잠금 제거) 검출 rows=1
+PASS r3 같은 초 표본 추가 0
+PASS r3 다음 초 표본 추가
+PASS r3 시계 역행 rc4·줄 0
+PASS r3 죽은 pid 잠금 → 회수·정상 기록(영구 rc4 0)
+PASS r3 30초 넘은 잠금 → 회수
+PASS r3 살아 있는 신선한 잠금 → 2초 뒤 rc4·남의 잠금 유지·줄 0
+PASS 감시자 tick → pressure.tsv 1줄
+PASS bash -n + 키트 cmp ft-resource-gate.sh
+PASS bash -n + 키트 cmp ft-resource-watch.sh
+PASS bash -n + 키트 cmp ft-resource-sample.sh
+PASS bash -n + 키트 cmp ft-resource-reclaim.sh
+PASS bash -n + 키트 cmp ft-successor-open.sh
+FAIL 감시자 줄 수
+PASS successor-open 이 조건부 --succession
+PASS core.bare=false
+fail=1
+=== test_seat_handover rc=1
+PASS bash -n 3종
+PASS T0 1탭 → move
+RESULT T0-1tab: HANDOVER byz-t-master-claude#2 -> byz-t-master-claude#3 moved=1 skipped=0 ambiguous=0
+PASS @handed_over_to 캐시 설정
+PASS apply 재실행 = already-done
+PASS T0 2탭 → switch 0 + ambiguous 2
+RESULT T0-2tab: switch.log lines=0
+RESULT T0-2tab: HANDOVER byz-t-master-claude#2 -> byz-t-master-claude#3 moved=0 skipped=0 ambiguous=2 (ambiguous tty=/dev/ttys001,/dev/ttys002 전환 보류)
+PASS planner 로그 1통
+PASS ambiguous 통보 질문 문장 0
+PASS T0 0탭 → no-client
+PASS T0 뒤 붙은 조회 탭 → switch 0
+PASS 오빠가 다른 세션으로 → moved-by-user
+PASS tty 재사용 → identity-changed
+PASS 탭 닫힘 → gone
+PASS 후계 세션 없음 rc 1
+PASS 명부 불일치 rc 1
+PASS switch 실패 rc 1 + skipped
+PASS switch 후 부착 미확인 → switch-failed rc 1
+PASS snapshot 없는 apply rc 1
+PASS --client seq 없음 rc 1
+PASS --client seq 비숫자 rc 1
+PASS --client + seq → 그 tty 만 · 장부에 seq
+PASS status 1: 장부 없음·명부 나 → ACTIVE
+PASS status 2: done 나→X·명부 X → RETIRED X
+PASS status 3: done 나→X·명부 Y → MISMATCH
+PASS status 3b: X 세션 없음 → MISMATCH
+PASS status 4: 장부 없음·명부 Z → MISMATCH (이름 추측 0)
+PASS status 5: pending 만·명부 나 → ACTIVE
+PASS 옵션 유실 → RETIRED + 복원
+PASS 엉뚱한 옵션 → 장부·명부가 이김
+PASS TMUX_PANE 고정(ambient 세션 무관)
+PASS 세션·TMUX_PANE 둘 다 없으면 rc 2(추측 0)
+PASS guard: RETIRED 주입
+PASS guard: MISMATCH 주입
+PASS guard: MISMATCH 2회째 → mbox 지시 0
+PASS guard: ACTIVE → 출력 0
+PASS guard: 판정기 없음 → 보이는 오류
+PASS guard: tmux 밖 → 출력 0
+FAIL guard 워크트리: {"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"[retired-seat-guard 오류] status 실패 rc=1: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WOgyQgPsZN/g/repo/.fable-team/bin/ft-seat-handover.sh: 줄 11: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WOgyQgPsZN/g/repo/.fable-team/bin/ft-harness-root.sh: No such file or directory\n/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WOgyQgPsZN/g/repo/.fable-team/bin/ft-seat-handover.sh: 줄 11: ft_data_root: 명령을 찾을 수 없음"}}
+PASS guard: 명부 없는 dir → 출력 0
+PASS guard: git 아닌 dir → 출력 0
+PASS guard: 명부 있는데 도구 없음 → 보이는 오류
+PASS 인용 줄 → 기록(block 0)
+RESULT quote: stdout='' (block 0)
+RESULT quote: falsepos.log: 2026-10-20T02:41:39Z no-attach-to-user quoted n=1 이전 좌석은 "tmux attach -t X 를 실행해 주세요"라고 요청했다
+PASS 코드 펜스 안 ! tmux attach → 기록
+PASS [HIL] 원문 메시지 → 기록
+PASS 감사 문서 메시지 → 기록
+PASS > 인용 줄 → 기록
+PASS 요청 형태 아닌 언급 → 기록
+PASS 패턴 없음 → 기록 0
+PASS 맨 줄 ! tmux attach -t X → block
+PASS 맨 줄 tmux attach … 접속해 주세요 → block
+PASS 맨 줄 attach-session + 실행해 → block
+PASS tmuxc attach + 하세요 → block
+RESULT stop_hook_active: stdout='' log=2026-10-20T02:41:40Z no-attach-to-user stop_hook_active n=1 ! tmux attach -t X
+PASS stop_hook_active=true + block 줄 → block 0 · 기록
+PASS transcript 읽기 실패 → stderr 1줄·block 0
+FAILED 1
+=== test_teamset_gitref rc=0
+PASS 전제: 워크트리에 표 파일 없음
+PASS ⓐ 워크트리(표 없음)에서 check --all → rc0 · 머리줄 md=…@884798e3d7 · 나노 2/2
+PASS ⓑ nano-spawn → origin/main 표로 AT-CAP rc7 (WARN 통과 0)
+PASS ⓒ FT_TEAMSET_MD 주입이 origin/main 보다 우선
+PASS ⓒ 주입 시 머리줄 없음(기존 출력 불변)
+PASS ⓓ arch-live gitref → OK alpha
+PASS ⓓ 기본값 gitref — ft-teamset-check.sh
+PASS ⓓ 기본값 gitref — ft-nano-spawn.sh
+PASS ⓓ 기본값 gitref — ft-successor-open.sh
+PASS ⓓ 기본값 gitref — ft-autonomy.sh
+PASS ⓖ ref 가 읽는 도중 B 로 이동 → 판정(2/2)·머리줄 모두 A(884798e3d7) · B 아님
+PASS ⓔ origin/main 에 표 없음 → check ERROR rc1
+PASS ⓔ nano-spawn → REJECT rc1 · WARN 통과 0
+PASS ⓔ origin/main ref 자체가 없음 → ERROR rc1
+PASS ⓔ nano-spawn WARN 분기 제거
+PASS 키트 사본 cmp 0 ft_teamset.py
+PASS 키트 사본 cmp 0 ft-teamset-check.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-successor-open.sh
+PASS 키트 사본 cmp 0 ft-autonomy.sh
+PASS core.bare=false
+ALL PASS
+=== test_live_install_check_tip rc=0
+PASS ⓐ 라이브=tip(뒤 커밋이 덮음) → OK n=1 rc0
+PASS ⓑ 라이브 낡음 → PENDING + DIFF · live= tip= landed=
+PASS ⓒ B 가 ref 조상 아님 → ERROR 조상 rc3(조용한 통과 0)
+PASS ⓓ --all 같음 → OK n=1
+PASS ⓓ --all 다름 → DIFF 줄 그대로(landed= 0)
+PASS ⓔ 삭제 + 라이브 잔재 있음 → PENDING STALE rc1 (삭제 0)
+PASS ⓔ 삭제 + 라이브 잔재 없음 → REMOVED · OK n=0 rc0
+PASS ⓔ 삭제 + landed 지도로 경로 못 풂 → UNKNOWN rc1(조용한 통과 0)
+PASS ⓗ 로컬 origin/main=M(Q 미반영) 기본 ref → ERROR rc3
+PASS ⓗ --ref Q → OK(ERROR 0)
+PASS ⓗ ft-merge-land.sh 가 착지 직후 검사에 --ref "$Q" 전달
+PASS ⓕ ft-index-move-install --landed B → OK(우회 0)
+PASS ⓕ 통과 시 B 의 install-pending 파일 제거
+PASS core.bare 오염 0
+ALL PASS
+=== test_team_scaffold_empty_template rc=1
+FAIL ⓐ VERSION 만 → dry-run REJECT + 후보 2 경로 rc1 :: rc=1 out=REJECT 틀 파일 0: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6JDHfLfD4w/live/bin/../templates/team (후보: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6JDHfLfD4w/live/bin/../templates/team · <하네스 루트 못 풂>)
+PASS ⓐ' 조용한 통과 문구 0
+PASS ⓑ 실행 모드도 REJECT · design/demo 쓰기 0
+PASS ⓒ 틀 14파일 → OK dry-run would-create=14
+PASS ⓒ' 실행 → OK created=14
+PASS ⓓ 명시 틀 폴더 empty → REJECT (키트로 폴백 0)
+PASS ⓓ 명시 틀 폴더 veronly → REJECT (키트로 폴백 0)
+PASS ⓔ 틀 폴더 파일 → cmp $FT_BIN/../templates/team
+PASS ⓔ' 중첩 틀 파일도 같은 행
+PASS ⓔ'' hooks 틀은 여전히 skip
+PASS ⓕ VERSION 만 → PENDING + MISSING 14 + HINT (n=14)
+PASS ⓕ' 폴더째 cp 뒤 → OK n=15 (중첩 경로 대조)
+PASS ⓕ'' 중첩 파일 어긋남 → DIFF 가 중첩 라이브 경로로
+PASS ⓖ[C] 한글 경로 MISSING 줄 원형 · 예외 0
+PASS ⓖ'[C] 0xff 파일은 조용히 지나가지 않고 MISSING 줄로 (\udcff 이스케이프)
+PASS ⓖ[en_US.UTF-8] 한글 경로 MISSING 줄 원형 · 예외 0
+PASS ⓖ'[en_US.UTF-8] 0xff 파일은 조용히 지나가지 않고 MISSING 줄로 (\udcff 이스케이프)
+fail=1
+=== test_team_move_roundtrip rc=1
+== 0 문법 · 키트 사본 cmp0
+PASS bash -n ft-team-lib.sh
+PASS bash -n ft-team-move.sh
+PASS bash -n ft-team-path-lint.sh
+PASS ast ft_team_move.py
+PASS ast ft_team_move_apply.py
+PASS 키트 사본 cmp0 ft-team-lib.sh
+PASS 키트 사본 cmp0 ft-team-move.sh
+PASS 키트 사본 cmp0 ft_team_move.py
+PASS 키트 사본 cmp0 ft_team_move_apply.py
+PASS 키트 사본 cmp0 ft-team-path-lint.sh
+== ⓒ ft_team_root 세 꼴 13팀 집합 동일
+PASS ⓒ 꼴1 팀 이름 13 == 기준 집합
+PASS ⓒ 꼴2 팀 이름 13 == 기준 집합
+PASS ⓒ 꼴3 팀 이름 13 == 기준 집합
+PASS ⓒ 꼴1 root=design/<t> · --alt=design/teams/<t>
+PASS ⓒ 꼴2 root=design/teams/<t> · --alt=design/<t>
+PASS ⓒ 꼴3 root=$FT_HARNESS_ROOT/design/<t>
+FAIL ⓒ 꼴3 env 없음 = ERROR(옛 경로 후퇴 0) — 없음: «ERROR» ← /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/design/harness
+rc=0
+FAIL   └ rc=1 — 없음: «rc=1» ← /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/design/harness
+rc=0
+PASS ⓒ 명단에 없는 팀 → rc1
+== ⓐ plan → apply → verify → revert (13팀 · 3꼴 · 저장 참조 7종)
+PASS ⓐ plan --all rc0 · blockers=0
+PASS ⓐ 이동 대상 9팀(꼴1)
+PASS ⓐ SKIP 4팀(꼴2·꼴3)
+PASS ⓐ 7종 REF1
+PASS   └ REF2
+PASS   └ REF3
+PASS   └ REF4
+PASS   └ REF5
+PASS   └ REF6
+PASS   └ REF7
+PASS ⓐ 워크트리 wt1 = 미전환 후보로 표시
+PASS ⓐ plan 은 쓰기 0(manifest 동일)
+PASS ⓐ 점유: tmux pane cwd 가 표에 나온다
+PASS   └ lsof 점유도 표에
+PASS   └ blockers>0
+PASS ⓐ 점유 중 apply → REJECT rc1
+PASS   └ 점유 REJECT 는 쓰기 0(HEAD·manifest 동일)
+PASS ⓐ apply --all rc0
+PASS ⓐ 스냅샷 파일 실재
+PASS ⓐ git mv: design/teams/harness 있고 design/harness 없음
+PASS ⓐ 꼴1 9팀 전부 이동
+PASS ⓐ TEAMS.md 꼴2 행 11(기존 2 + 이동 9)
+PASS ⓐ README 본문 경로 재작성
+PASS ⓐ 카드 본문 경로 재작성
+PASS ⓐ .gitignore 재작성
+PASS ⓐ 이동 뒤 작업 트리 깨끗(커밋됨)
+PASS ⓐ 명부: 받은 좌석(ROOT) index 재작성
+PASS ⓐ 명부: 미전환 워크트리(wt1) 좌석 = _move_pending 표식
+PASS ⓐ 명부 _tree 재작성
+PASS ⓐ v65 명부(seats.json) 재작성
+PASS ⓐ nano-card-base card_path 재작성
+PASS ⓐ 미전환 워크트리 worktree-info 는 옛 경로 유지
+PASS ⓐ baton branches.json 재작성
+PASS ⓐ verify --all ERR 0 rc0
+PASS ⓐ revert rc0
+PASS ⓐ revert 뒤 모든 파일 sha256 이 원본과 동일(저장 참조 포함)
+PASS ⓐ revert 뒤 design/harness 복귀
+PASS ⓐ revert 뒤 홈 BOOT/GUIDE(추가 파일)도 원본 sha256
+PASS ⓐ 스냅샷 7종 × 3칸(before_sha·after_sha·revert_match) 실재 · revert 가 대조 결과를 기록(전부 bool True)
+== ⓑ 미전환 워크트리 섞임 · head-sync 뒤 재맞춤
+PASS ⓑ apply planner rc0
+PASS ⓑ 명부: ROOT 좌석 index=teams 꼴 · wt-old 좌석 index=옛 꼴 + _move_pending
+PASS ⓑ 미전환 섞인 상태에서도 verify ERR 0(옛 index 가 wt-old 에 실재)
+PASS ⓑ wt-old 가 이동 커밋을 받음(head-sync 모사)
+PASS ⓑ 같은 팀 --apply 다시 = RESYNC(저장 참조만 · git 변경 0)
+PASS ⓑ 재맞춤 뒤 wt-old 좌석 = teams 꼴 · _move_pending 제거
+PASS ⓑ 받은 뒤 wt-old worktree-info 재작성
+PASS ⓑ 재맞춤 뒤 verify ERR 0
+== ⓗ R391 worktree 칸 없는 행 = 명부 _cards_wt 기준(이동 작업 폴더 ctx.root 아님) · 없으면 프로젝트 루트
+PASS ⓗ 받은 작업 폴더에서 apply · _cards_wt 미전환 → 명부 재작성 0 · 표식 2
+PASS ⓗ worktree 칸 없는 카드 기준선 = 프로젝트 루트 기준(미전환 → 표식)
+PASS ⓗ 역할 좌석 2행 = 옛 index 원문 + _move_pending · _cards 옛 꼴
+PASS ⓗ 미전환 상태 verify ERR 0(옛 index 가 _cards_wt 에 실재)
+PASS ⓗ _cards_wt(cards) 가 이동 커밋을 받음(head-sync 모사)
+PASS ⓗ 같은 팀 --apply 다시 = RESYNC rc0
+PASS   └ RESYNC 명부 재작성 3(_cards + 역할 2) · 표식 0
+PASS ⓗ RESYNC 뒤 역할 좌석 새 경로 · _move_pending 제거 · _cards 새 꼴
+PASS ⓗ RESYNC 뒤 verify ERR 0
+PASS ⓗ 첫 apply 스냅샷 --revert rc0
+PASS ⓗ revert 뒤 명부·카드 기준선 before_sha 복원
+PASS ⓗ _cards_wt 없는 명부 = 프로젝트 루트 기준(못 받음 → 표식 1 · ctx.root 0)
+PASS   └ 옛 index 원문 유지
+PASS ⓗ 프로젝트 루트가 이동 커밋을 받음
+PASS ⓗ 받은 뒤 RESYNC = 프로젝트 루트 기준 재작성 1
+PASS ⓗ 명부·카드 기준선 기준 경로에 ctx.root 후퇴값 0
+== ⓖ 7초 룰 — --sync-worktrees 는 배치 공통 deadline 70초 · 초과/실패 = PARTIAL rc3 (DA⑥ Q5)
+PASS ⓖ 두 팀 모의 주입: rc3 · 호출 상한 [60,10] 합 70 ≤ 70(팀 루프가 잔여 시간을 차감) · pending_teams=[ops] ← {"rc": 3, "calls": [60.0, 10.0], "pending": ["ops"]}
+PASS ⓖ PARTIAL 줄(비정상 반환을 출력만 하지 않는다)
+PASS ⓖ ops 저장 참조는 쓰기 전에 멈춤(옛 경로 그대로)
+PASS ⓖ 먼저 끝난 planner 는 저장 참조 재작성 완료
+PASS ⓖ 완료된 팀 커밋 보존(ops 이동 커밋 실재)
+PASS ⓖ 다음 --apply = RESYNC 로 이어감 rc0
+PASS   └ RESYNC 뒤 ops 명부 새 경로
+PASS ⓖ 첫 팀이 70초를 다 쓰면 둘째 팀은 점유 스냅샷·helper 를 부르지 않고 이동 «전» 에 중단(남은 0) · rc3 · pending=[ops] (R382d: 마감 소진 = 이동 0)
+PASS ⓖ 잔여 0: 이동 전 PARTIAL 줄
+PASS ⓖ 잔여 0: ops 는 옮기지 않음(옛 폴더 그대로)
+PASS ⓖ 기본 helper timeout = 7(기준 단위)
+PASS ⓖ 이동 도구에 600/300 숫자 0
+== ⓑ' ft-nano-close 가 쌍둥이 후보로 카드를 찾는다(lib 빼면 REJECT = 변이 대조)
+PASS ⓑ' 변이: lib 없는 bin 은 옛 index 로 카드를 못 찾아 REJECT
+FAIL ⓑ' 쌍둥이 rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.eOEdPDf80x/bin3
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD 8a0c5429d · 시험 rc=0 · 이슈 0
+OK cherry stub
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.eOEdPDf80x/wtclean3/byz-planner-nano-tw#0.sh.hil — 브랜치가 nano/* 가 아니라 자율 정리 범위 밖 — 사람 ! 실행: ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.eOEdPDf80x/hil/h1 (자동 wt-clea
+== ⓓ LIVE_ROOT 파일 — LIVE_BIN 위치와 무관 · 없음 = ERROR rc1
+PASS ⓓ LIVE_BIN 위치(binA→binB)를 바꿔도 같은 데이터 루트
+PASS ⓓ LIVE_ROOT 없음 = ERROR rc1(LIVE_BIN 에서 유도 0)
+PASS ⓓ 뉴스 원장이 같은 live_root 함수를 쓴다(고정 v6 경로 0)
+PASS ⓓ 뉴스 원장 코드에 v6-realtime-live 고정 접미사 0
+PASS ⓓ ft-tick ROOT 는 env FT_ROOT 우선(코드 위치 유도 0)
+== ⓔ 조립 하드코딩 린트 0
+PASS ⓔ grep 'design/$VAR/' *.sh *.py = 0 (fable-team-bin)
+PASS ⓔ 키트 bin 도 0
+PASS ⓔ ft-team-path-lint.sh rc0
+PASS ⓔ 변이: 조립 한 줄 → ERR rc1
+PASS ⓔ 전환 끝(전 팀 꼴2) + 쌍둥이 호출 잔존 → ERR rc1
+== fail=3
+=== test_proposal_card rc=0
+PASS bash -n
+    CARD design/fake/indices/대기/proposal-ko-line-break.md
+    OK design/fake/indices/대기/proposal-ko-line-break.md (ledger=design/fake/GOAL-fake.md)
+PASS 정상 생성 rc=0
+PASS 카드 파일 생성
+PASS lint OK 줄
+PASS 원문·자료 링크 기재
+PASS 사전검증 면제 줄(arch 서명)
+PASS 같은 slug 두 번 → rc≠0 (1)
+PASS 잘못된 slug 「AB_c」 → rc≠0
+PASS 잘못된 slug 「ab」 → rc≠0
+PASS 잘못된 slug 「has space」 → rc≠0
+PASS 잘못된 slug 「aaaaaaaaaaaa」 → rc≠0
+PASS 팀 env 없음 → rc≠0 (1)
+PASS env 없는 팀 폴더 생성 0
+PASS --origin 없음 → usage rc=2
+PASS arch 아닌 서명 → lint REJECT rc≠0 (1)
+PASS lint 실패 카드는 지우지 않는다
+PASS 골 4줄 팀 → 카드 생성+lint OK
+PASS 제목 「항상 이 4줄」
+PASS 골 4줄 전부 바이트 일치
+PASS 원장 머리 인용 줄이 카드에 안 들어간다
+PASS 기본 픽스처도 머리 인용 줄 0
+PASS 닫는 증거 = 골 1줄(20자+)
+PASS 구현 범위·조사 근거에 팀 골 원장 인용
+PASS 첫 골 줄 <20자 → 다음 줄에서 증거
+PASS 「…」 로 감싼 골 줄 → 조각에서 증거
+PASS 증거 조각이 원장에 없으면 rc≠0·카드 0 (1)
+PASS 골 2줄 → rc≠0 (1)
+PASS 설계·템플릿 파일이 없는 리포에서도 lint OK
+PASS 완료 조건에 실험 절 줄 + 산출물 폴더
+PASS 나노 범위 = evidence 폴더 쓰기 허용 + 코드·설정 수정 0 유지
+PASS Issue 쓰기 0 금지 유지
+ALL PASS
+=== test_press_role_bts_gate rc=0
+PASS bash -n gate
+PASS 1. 역할 tester → 통과 (exit 3)
+PASS 2. 역할 checker → 통과 (exit 3)
+PASS 3. 옛 형식 ft-v65-tester-… → 통과 (exit 3)
+PASS 4. 역할 nano → 막힘 (exit 1)
+PASS 5. ft-v65-temp-x#0 → 막힘 (exit 1)
+PASS 6. 역할 master → 막힘 (exit 1)
+PASS 7. 형식 불일치 → 막힘 (exit 1)
+PASS 8. FT_PRESS_SEAT·TMUX_PANE 둘 다 없음 → 막힘(fail-closed) (exit 1)
+PASS 9. TMUX_PANE 있으나 tmux 조회 실패 → 막힘 (exit 1)
+PASS 10. TMUX_PANE 세션명 tester → 통과 (exit 3)
+PASS 11. 보통 모드 + FT_PRESS_SEAT=tester 이름 → ⑦ 시험 변수 상속 막힘 · 허가 0 (exit 1)
+PASS 12. SELFTEST + FT_PRESS_SEAT → 통과(상속 막힘 문구 없음) (exit 3)
+PASS 13. BYZ_PRESS_HUMAN=1 (좌석 아님) → 통과 + ERROR 배너 (exit 3)
+PASS 14. BYZ_PRESS_HUMAN=1 + 좌석 세션(TMUX_PANE) → 막힘 (exit 1)
+PASS 15. FT_PRESS_EVID 없음 → 막힘 (exit 1)
+PASS 16. 직전 허가 없음 → 통과 + 골격 BTS.md 생성 (exit 3)
+PASS 17. 직전 evid BTS 4행 다 참 → 통과 (exit 3)
+PASS 18. 화면 행 빈칸 → 막힘 (exit 1)
+PASS 19. 시간 칸 '-' → 막힘 (exit 1)
+PASS 20. 로그 행 없음 → 막힘 (exit 1)
+PASS 21. 표 머리 없음 → 막힘 (exit 1)
+PASS 22. 직전 허가의 BTS.md 파일 없음 → 막힘 (exit 1)
+PASS 23. SELFTEST 허가 파일 0개 발급(손으로 둔 것 1개뿐 · permits.log 없음)
+PASS 24. 실제 리포 파일 쓰기 0(시험 전후 git status 동일)
+cases=24 fail=0
+ALL PASS
+=== test_sheet_verify rc=1
+PASS bash -n
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gXVggGMrYa/mb/mailbox.jsonl'
+FAIL 쪽지 rc=0 m_ok=0 Traceback (most recent call last):
+  File "<stdin>", line 35, in <module>
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 555, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1990, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/tests/../../tests/scripts/_fake_mbox.sh'
+FAIL 메모: 
+FAIL 머리: 
+tests/test_sheet_verify.sh: 줄 54: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gXVggGMrYa/ft/.fable-team/state/sheet-verify-sent.jsonl: No such file or directory
+tests/test_sheet_verify.sh: 줄 54: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gXVggGMrYa/ft/.fable-team/state/sheet-verify-sent.jsonl: No such file or directory
+FAIL 원장 행수 0
+FAIL 변경 파일: 
+FAIL 같은 rev rc=0 calls=2
+tests/test_sheet_verify.sh: 줄 54: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gXVggGMrYa/mb/mailbox.jsonl: No such file or directory
+cat: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gXVggGMrYa/ft/.fable-team/state/sheet-verify-head.txt: No such file or directory
+FAIL 같은 칸 rc=0 head=
+PASS 동시 호출 2 → 1개만 실행
+tests/test_sheet_verify.sh: 줄 54: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gXVggGMrYa/mb/mailbox.jsonl: No such file or directory
+FAIL timeout rc=0 el=14 calls=2 err=ft-sheet-verify: 검증 실패(timeout) rev=r4 — 이 발행 검증 skip
+PASS 상한 25회째 → skip(LLM 0 · 로그 1줄)
+PASS ⓘ LIMIT=25 → 24 로 고정(skip · LLM 0 · 원장 24행 유지)
+PASS ⓗ TIMEOUT=9 → 7 로 고정(8초 스텁 timeout · 재시도 1 · 「상한 7 고정」 로그)
+PASS ⓙ TIMEOUT='8.5' → 7 로(8초 스텁 timeout · 재시도 1 · 14s)
+PASS ⓙ TIMEOUT='0' → 7 로(8초 스텁 timeout · 재시도 1 · 14s)
+PASS ⓙ TIMEOUT='07' → 7 로(8초 스텁 timeout · 재시도 1 · 14s)
+PASS ⓙ TIMEOUT='abc' → 7 로(8초 스텁 timeout · 재시도 1 · 15s)
+PASS ⓙ TIMEOUT='' → 7 로(8초 스텁 timeout · 재시도 1 · 14s)
+PASS ⓙ LIMIT='0' → 24(빈 원장 실행 · 24행 skip)
+PASS ⓙ LIMIT='abc' → 24(빈 원장 실행 · 24행 skip)
+PASS ⓙ LIMIT='8.5' → 24(빈 원장 실행 · 24행 skip)
+PASS ⓙ LIMIT='' → 24(빈 원장 실행 · 24행 skip)
+PASS 새 스크립트에 600/300 초 값 0
+PASS publish --sheet: 성공 ∧ FT_SHEET_VERIFY=1 → 검증 1회 · env 없음/발행 rc≠0 → 0회 · 검증 rc=5 여도 발행 rc 0
+PASS seats-lint: _headless=true(bool) 만 ⓒ 0 · 표식 없음/문자열 "false" 는 ⓒ(변이 대조)
+SKIP real(FT_SHEET_VERIFY_REAL=1 일 때만 · 기본 suite 밖)
+fail=8
+=== test_spawn_gate_landing_branch rc=0
+PASS ①sha·FEAT 없음 → feat/x
+PASS ②sha·FEAT=feat/y → feat/y
+PASS ③브랜치 → feat/x
+PASS ④base 없음 → feat/x
+PASS ⑤--override 사유 전달
+PASS ⑤첫 인자도 feat/x
+PASS ⑥실 게이트 «브랜치 없음» 0
+PASS ⑥내용 판정까지 감
+PASS ⑦identical_head rc=0
+PASS ⑦squash rc=0
+PASS ⑧cmp spawn
+PASS ⑧bash -n
+---
+ALL PASS
+=== test_team_literal_paths rc=0
+== 0 문법 · 키트 사본 cmp0 · 린트(실 bin)
+PASS bash -n ft-harness-info
+PASS 키트 사본 cmp0 ft-harness-info.sh
+PASS bash -n ft-hil-ask
+PASS 키트 사본 cmp0 ft-hil-ask.sh
+PASS bash -n ft-hil-answer
+PASS 키트 사본 cmp0 ft-hil-answer.sh
+PASS bash -n ft-goal-check
+PASS 키트 사본 cmp0 ft-goal-check.sh
+PASS bash -n ft-goal-tick
+PASS 키트 사본 cmp0 ft-goal-tick.sh
+PASS bash -n ft-role-spawn
+PASS 키트 사본 cmp0 ft-role-spawn.sh
+PASS bash -n ft-news-tick
+PASS 키트 사본 cmp0 ft-news-tick.sh
+PASS bash -n ft-news-tick-cfo
+PASS 키트 사본 cmp0 ft-news-tick-cfo.sh
+PASS bash -n ft-branch-candidates
+PASS 키트 사본 cmp0 ft-branch-candidates.sh
+PASS bash -n ft-regress-reopen
+PASS 키트 사본 cmp0 ft-regress-reopen.sh
+PASS bash -n ft-press-baseline-check
+PASS 키트 사본 cmp0 ft-press-baseline-check.sh
+PASS bash -n ft-team-path-lint
+PASS 키트 사본 cmp0 ft-team-path-lint.sh
+PASS ast ft_team_lib
+PASS 키트 사본 cmp0 ft_team_lib.py
+PASS ast ft_board_decide
+PASS 키트 사본 cmp0 ft_board_decide.py
+PASS ast ft_decision_count
+PASS 키트 사본 cmp0 ft_decision_count.py
+PASS ast ft_news_publish
+PASS 키트 사본 cmp0 ft_news_publish.py
+PASS ast ft_weekly_review
+PASS 키트 사본 cmp0 ft_weekly_review.py
+PASS ast ft_goal_table
+PASS 키트 사본 cmp0 ft_goal_table.py
+PASS ast ft_goal_ledger
+PASS 키트 사본 cmp0 ft_goal_ledger.py
+PASS ⓑ 실 bin 린트 rc0
+== ⓐ 꼴1 픽스처에서 각 도구가 칸이 가리키는 경로를 읽는다
+PASS ⓐ1 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다
+PASS ⓐ1 ft-hil-ask: harness 팀 폴더 원장에 행 추가
+PASS ⓐ1 ft-hil-answer: 같은 원장 행 applied
+PASS ⓐ1 옛 글자 경로에 원장을 새로 만들지 않았다
+PASS ⓐ1 harness-info rules: 정본 8개 전부 OK
+PASS ⓐ1 harness-info requests: 요청 원장 행
+PASS ⓐ1 ft-goal-check: v65 정본 4개를 칸 경로에서 찾았다
+PASS ⓐ1 ft-goal-check: REJECT 0 ← REREAD-REQUIRED seat=seat-x (좌석 원장 부재 — 신규/승계) · 골원장 sha=33a1de2 정본 sha=33a1de2
+  열어라: design/v65/GOAL-LEDGER-v65.md + 헤더 표의 정본 3 · 갱신: ft-goal-check.sh 'seat-x' --touch "<닫는 증거 복붙 20자+>"
+PASS ⓐ1 ft-goal-tick: 프롬프트·mbox·check 게이트를 통과(칸 경로의 프롬프트)
+PASS ⓐ1 ft-goal-tick 변이: 칸 경로·ref 둘 다 프롬프트가 없으면 멈춘다(r459 ERROR)
+PASS ⓐ1 ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← PLAN seat=byz-v65-da-claude#0 role=da agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RyemXck2fl/r1 inbox=design/v65/indices/inbox/da replaces=[<
+PASS ⓐ1 ft-branch-candidates: issues 칸 아래에 산출
+PASS ⓐ1 ft-regress-reopen: harness 칸의 LANDING-LEDGER 행(card-a)을 찾았다
+PASS ⓐ1 ft-press-baseline-check: FLAGS.md 위치 = v65 칸(없을 때 그 경로를 말한다)
+PASS ⓐ1 ft_board_decide: harness 칸의 HIL-LEDGER 를 읽는다(open 1)
+PASS ⓐ1 ft_board_decide: harness 칸의 MERGE-QUEUE 를 읽는다(대기 1)
+PASS ⓐ1 ft_decision_count.table: planner 칸의 원장(데이터 행 6 · 머리 골)
+PASS ⓐ1 ft_news_publish: 뉴스 폴더 = planner 칸/news
+PASS ⓐ1 ft_weekly_review.p1_queue: planner 칸의 결정 대기열
+PASS ⓐ1 ft_weekly_review.h2_requests: harness 칸의 요청 원장
+PASS ⓐ1 ft_weekly_review.h1_cards: harness 칸의 진행 카드
+PASS ⓐ1 ft-news-tick: 리터럴 팀 경로 0
+PASS ⓐ1 ft-news-tick-cfo: 리터럴 팀 경로 0
+PASS ⓐ1 ft-news-tick: v65 트리 = ft_team_doc_ref(명단 ref · r459)
+PASS ⓐ1 ft-news-tick-cfo: cfo 폴더 = ft_team_in
+== ⓐ 꼴2 픽스처에서 각 도구가 칸이 가리키는 경로를 읽는다
+PASS ⓐ2 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다
+PASS ⓐ2 ft-hil-ask: harness 팀 폴더 원장에 행 추가
+PASS ⓐ2 ft-hil-answer: 같은 원장 행 applied
+PASS ⓐ2 옛 글자 경로에 원장을 새로 만들지 않았다
+PASS ⓐ2 harness-info rules: 정본 8개 전부 OK
+PASS ⓐ2 harness-info requests: 요청 원장 행
+PASS ⓐ2 ft-goal-check: v65 정본 4개를 칸 경로에서 찾았다
+PASS ⓐ2 ft-goal-check: REJECT 0 ← REREAD-REQUIRED seat=seat-x (좌석 원장 부재 — 신규/승계) · 골원장 sha=749e757 정본 sha=749e757
+  열어라: design/teams/v65/GOAL-LEDGER-v65.md + 헤더 표의 정본 3 · 갱신: ft-goal-check.sh 'seat-x' --touch "<닫는 증거 복붙 20자+>"
+PASS ⓐ2 ft-goal-tick: 프롬프트·mbox·check 게이트를 통과(칸 경로의 프롬프트)
+PASS ⓐ2 ft-goal-tick 변이: 칸 경로·ref 둘 다 프롬프트가 없으면 멈춘다(r459 ERROR)
+PASS ⓐ2 ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← PLAN seat=byz-v65-da-claude#0 role=da agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RyemXck2fl/r2 inbox=design/teams/v65/indices/inbox/da repla
+PASS ⓐ2 ft-branch-candidates: issues 칸 아래에 산출
+PASS ⓐ2 ft-regress-reopen: harness 칸의 LANDING-LEDGER 행(card-a)을 찾았다
+PASS ⓐ2 ft-press-baseline-check: FLAGS.md 위치 = v65 칸(없을 때 그 경로를 말한다)
+PASS ⓐ2 ft_board_decide: harness 칸의 HIL-LEDGER 를 읽는다(open 1)
+PASS ⓐ2 ft_board_decide: harness 칸의 MERGE-QUEUE 를 읽는다(대기 1)
+PASS ⓐ2 ft_decision_count.table: planner 칸의 원장(데이터 행 6 · 머리 골)
+PASS ⓐ2 ft_news_publish: 뉴스 폴더 = planner 칸/news
+PASS ⓐ2 ft_weekly_review.p1_queue: planner 칸의 결정 대기열
+PASS ⓐ2 ft_weekly_review.h2_requests: harness 칸의 요청 원장
+PASS ⓐ2 ft_weekly_review.h1_cards: harness 칸의 진행 카드
+PASS ⓐ2 ft-news-tick: 리터럴 팀 경로 0
+PASS ⓐ2 ft-news-tick-cfo: 리터럴 팀 경로 0
+PASS ⓐ2 ft-news-tick: v65 트리 = ft_team_doc_ref(명단 ref · r459)
+PASS ⓐ2 ft-news-tick-cfo: cfo 폴더 = ft_team_in
+PASS ⓐ 꼴1 == 꼴2 정규화 출력 동일(goal)
+PASS ⓐ 꼴1 == 꼴2 정규화 출력 동일(info)
+== ⓑ 린트 — 리터럴 팀 이름 경로 0 (변이 대조)
+PASS ⓑ 깨끗한 bin → rc0
+PASS ⓑ 변이: 셸 리터럴 한 줄 → ERR rc1
+PASS ⓑ 변이: 꼴2(design/teams/<팀>/) 리터럴도 ERR
+PASS ⓑ 주석 줄의 글자는 제외
+PASS ⓑ 변이: 파이썬 쪼갠 꼴 → ERR rc1
+PASS ⓑ 변이: 파이썬 쪼갠 꼴2 → ERR rc1
+PASS ⓑ 변이(Q3): slash 없는 joined "design/planner" → ERR rc1
+PASS ⓑ 변이(Q3): 작은따옴표 분할 → ERR rc1
+PASS ⓑ 변이(Q3): 작은따옴표 joined 꼴2 → ERR rc1
+PASS ⓑ 변이(Q3): 셸 기본값 design/planner} → ERR rc1
+PASS ⓑ 접두 오탐 0 (design/plannerX · design/harness-notes)
+PASS ⓑ 범위 밖 대기 목록 파일은 INFO 로 이름을 찍고 통과
+PASS ⓑ 깨끗해진 대기 파일은 «목록에서 제거» INFO
+== ⓒ 셸 lib ↔ 파이썬 lib 출력 동치 (13팀 × 3꼴 · --alt · 오류)
+PASS ⓒ 꼴1 기본 13팀 출력 동일
+PASS ⓒ 꼴1 --alt 13팀 출력 동일
+PASS ⓒ 꼴2 기본 13팀 출력 동일
+PASS ⓒ 꼴2 --alt 13팀 출력 동일
+PASS ⓒ 꼴3 기본 13팀 출력 동일
+PASS ⓒ 꼴3 --alt 13팀 출력 동일
+PASS ⓒ 팀 이름 목록(칸 첫 일치 순서) 동일
+PASS ⓒ 명단 없음 = TeamPathError(옛 경로로 후퇴 0)
+== ⓔ 꼴3(외부 harness 루트) — 소비자 2곳이 «현재 리포 안» 을 전제하지 않는다 (DA⑥ r1 Q1)
+PASS ⓔ 꼴3 ft-harness-info requests: rc0 + 외부 REQUEST-LEDGER 행
+PASS ⓔ 꼴3 ft-harness-info rules: 외부 실파일 경로로 OK 표기
+PASS ⓔ 변이: 외부 원장이 없으면 rc1 REJECT(옛 경로 읽기 0)
+PASS ⓔ 변이: FT_HARNESS_ROOT 없으면 rc1 ERROR
+PASS ⓔ 꼴3 ft_weekly_review.h1_cards: ValueError 없이 외부 카드 목록(외부 저장소 이력)
+PASS ⓔ 꼴3 h1_cards: 예외 0
+PASS ⓔ 변이: 외부 카드가 저장소 밖이면 명시 TeamPathError(빈 목록 0)
+== fail=0

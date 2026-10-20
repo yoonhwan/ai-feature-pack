@@ -14,7 +14,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; mkdir -p "$REPO" "$FAKE"
 printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; *) exit 0;; esac\n' > "$FAKE/tmux"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"; chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
-git -C "$REPO" init -q
+fake_comm_root "$REPO" || bad "fake_comm_root"   # r537: git init + .fable-team/comm(r459 spawn-hold 가 푼다) · FT_ROOT=REPO
 mkdir -p "$REPO/.fable-team/state" "$REPO/design/v65/indices/inbox/master"; : > "$REPO/design/v65/SEATBELT-README.md"
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$REPO/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 echo '{}' > "$REPO/.fable-team/seats.json"

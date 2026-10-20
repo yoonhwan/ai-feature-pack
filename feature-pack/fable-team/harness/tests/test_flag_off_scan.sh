@@ -114,7 +114,7 @@ O="$T/m.origin"; git init -q --bare -b main "$O"; git clone -q "$O" "$T/m" 2>/de
 mkdir -p "$M/clients/web/src" "$M/docker" "$M/.github/workflows"; printf 'FROM node\n' > "$M/docker/web.Dockerfile"; printf 'build-args: |\n  A=b\n' > "$M/.github/workflows/cd-dev.yml"
 echo base > "$M/base.txt"; commit "$M" base; git -C "$M" push -q origin main
 git -C "$M" checkout -q -b feat/x; echo "x(process.env.NEXT_PUBLIC_LAND === '1');" > "$M/clients/web/src/l.ts"; commit "$M" feat
-o="$(bash "$BIN/ft-land.sh" --repo "$M" --feat feat/x 2>&1)"; rc=$?
+o="$(. "$HERE/lib/fake_resource_env.sh"; fake_comm_root "$T/lroot" && bash "$BIN/ft-land.sh" --repo "$M" --feat feat/x 2>&1)"; rc=$?   # r537: ft-land → ft-sheet-events 가 공용 루트를 푼다(묶음 ③ · 임시 루트)
 [ "$rc" = 0 ] && ok "랜딩 rc0 불변" || bad "rc=$rc: $o"
 has "$o" "LAND-CANDIDATE" "후보 줄 그대로"; has "$o" "FLAG-OFF 새로 생김 NEXT_PUBLIC_LAND" "새 플래그 줄"
 
