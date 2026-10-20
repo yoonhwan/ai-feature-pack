@@ -1,0 +1,57 @@
+F..........FF                                                            [100%]
+=================================== FAILURES ===================================
+_____________________ test_creates_both_tables_with_facts ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_creates_both_tables_with_0')
+
+    def test_creates_both_tables_with_facts(tmp_path):  # 1ⓐ ⓑ
+        make_world(tmp_path)
+        res = run_tool(tmp_path)
+        assert res.returncode == 0, res.stderr
+>       check_facts(tmp_path)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_creates_both_tables_with_0')
+
+    def check_facts(tmp_path):  # 1ⓐ ⓑ
+        pl, hn = (p.read_text(encoding="utf-8") for p in files(tmp_path))
+        p1 = next(r for r in rows(pl) if r.startswith("| P1"))
+>       assert "열린 행 2" in p1 and "A3" in p1 and "B2" in p1 and "A1" not in p1
+E       AssertionError: assert ('열린 행 2' in '| P1 결정 대기열 | 확인 못 함: ERROR ref 못 읽음(origin/main): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_creates_both_tables_with_0/planner fatal: Needed a single revision | |')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:138: AssertionError
+__________________ test_mutant_filled_decision_cell_is_caught __________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_filled_decision_ce0')
+
+    def test_mutant_filled_decision_cell_is_caught(tmp_path):  # 변이 ⓐ → 1ⓒ rc=1
+        make_world(tmp_path)
+>       assert run_tool(tmp_path, bin_dir=_mutant(tmp_path, 'DECISION_CELL = ""', 'DECISION_CELL = "계속"')).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816...module>\n    from ft_goal_ledger import planner_rel_in_ref\nModuleNotFoundError: No module named \'ft_goal_ledger\'\n').returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816...module>\n    from ft_goal_ledger import planner_rel_in_ref\nModuleNotFoundError: No module named \'ft_goal_ledger\'\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_filled_decision_ce0'), bin_dir=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_filled_decision_ce0/mutant-bin'))
+E        +      where PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_filled_decision_ce0/mutant-bin') = _mutant(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_filled_decision_ce0'), 'DECISION_CELL = ""', 'DECISION_CELL = "계속"')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:293: AssertionError
+____________________ test_mutant_remail_on_rerun_is_caught _____________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_remail_on_rerun_is0')
+
+    def test_mutant_remail_on_rerun_is_caught(tmp_path):  # 변이 ⓑ → 1ⓓ rc=1
+        make_world(tmp_path)
+        mutant = _mutant(tmp_path, "MAIL_ON_RERUN = False", "MAIL_ON_RERUN = True")
+>       assert run_tool(tmp_path, bin_dir=mutant).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816...module>\n    from ft_goal_ledger import planner_rel_in_ref\nModuleNotFoundError: No module named \'ft_goal_ledger\'\n').returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816...module>\n    from ft_goal_ledger import planner_rel_in_ref\nModuleNotFoundError: No module named \'ft_goal_ledger\'\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_remail_on_rerun_is0'), bin_dir=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-816/test_mutant_remail_on_rerun_is0/mutant-bin'))
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:304: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_weekly_review.py::test_creates_both_tables_with_facts
+FAILED tests/scripts/test_ft_weekly_review.py::test_mutant_filled_decision_cell_is_caught
+FAILED tests/scripts/test_ft_weekly_review.py::test_mutant_remail_on_rerun_is_caught
+3 failed, 10 passed in 7.56s
