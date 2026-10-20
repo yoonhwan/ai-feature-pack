@@ -524,7 +524,8 @@ tm detach-client -t "$YTTY" 2>/dev/null || true
 # (pk) 피커 재사용 — 붙은 클라이언트가 0 이어도 «좌석에 가 있는 클라이언트의 출발 피커(@tmm_home)·직전 세션»이면 이어받지 않는다(0.8.0).
 #   폰이 좌석에 붙어 있는 동안 피커 클라이언트가 0 이 되고, 그때 데스크탑 tmm 이 같은 피커에 붙어 한 fzf 를 둘이 보던 원인. SSH 가 끊겨 클라이언트가 사라진 피커는 그대로 이어받는다.
 pk() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SESSION=PKTMM bash -c 'source "'"$TMM"'" __lib; pick_picker_name'; }
-tm new-session -d -s PKTMM; tm set -t =PKTMM: @tmm_picker 1; tm new-session -d -s PKSEAT
+# @tmm_ver 를 지금 버전으로 못 박는다 — (pk) 는 «클라이언트 참조» 계약이라 버전 축(0.8.5 (pv))과 섞이면 안 된다
+tm new-session -d -s PKTMM; tm set -t =PKTMM: @tmm_picker 1; tm set -t =PKTMM: @tmm_ver "$(cat "$ROOT/core/VERSION")"; tm new-session -d -s PKSEAT
 [ "$(pk)" = PKTMM ] || { echo "FAIL: (pk) 클라이언트 0·참조 0 인 피커를 이어받지 않음: $(pk)"; exit 1; }
 pty_attach PKSEAT; wait_client; PTTY="$(first_client)"; PKEY="$(printf '%s' "$PTTY" | tr -c 'A-Za-z0-9' '_')"
 tm set -g "@tmm_home_$PKEY" PKTMM
@@ -532,23 +533,46 @@ tm set -g "@tmm_home_$PKEY" PKTMM
 tm set -gu "@tmm_home_$PKEY"
 tm switch-client -c "$PTTY" -t =PKTMM; tm switch-client -c "$PTTY" -t =PKSEAT     # 직전(last)=PKTMM
 [ "$(pk)" = PKTMM-2 ] || { echo "FAIL: (pk) 직전 세션이 피커인 클라이언트가 살아 있는데 재사용: $(pk)"; exit 1; }
-tm new-session -d -s PKTMM-2; tm set -t =PKTMM-2: @tmm_picker 1; tm set -g "@tmm_home_$PKEY" PKTMM-2
+tm new-session -d -s PKTMM-2; tm set -t =PKTMM-2: @tmm_picker 1; tm set -t =PKTMM-2: @tmm_ver "$(cat "$ROOT/core/VERSION")"; tm set -g "@tmm_home_$PKEY" PKTMM-2
 [ "$(pk)" = PKTMM-3 ] || { echo "FAIL: (pk) -2 도 참조 중이면 -3 이어야 함: $(pk)"; exit 1; }
 tm detach-client -t "$PTTY" 2>/dev/null || true; sleep 0.4
 [ "$(pk)" = PKTMM ] || { echo "FAIL: (pk) 클라이언트가 떨어진 피커(SSH 끊김)는 이어받아야 함(낡은 @tmm_home 은 무시): $(pk)"; exit 1; }
 tm set -gu "@tmm_home_$PKEY"; tm kill-session -t =PKTMM-2
 
+# (pv) 업그레이드 뒤 살아남은 «다른 버전» 피커는 이어받지 않는다(0.8.5) — 2026-10-18 실사고: 0.8.4 설치 전에 뜬 0.8.3 피커를
+#   폰이 계속 물어 화면은 남고 키·탭 전환이 전부 사라졌다(그 피커의 RUN 디렉터리 소켓이 죽어 POST 가 실패).
+#   규칙: 버전이 다르면(=@tmm_ver 없음 포함) ①클라이언트가 없으면 죽이고 그 이름을 다시 쓴다 ②붙은 클라이언트가 있으면 건드리지 않고 다음 이름.
+pv() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SESSION="$1" bash -c 'source "'"$TMM"'" __lib; pick_picker_name'; }
+CURV="$(cat "$ROOT/core/VERSION")"
+tm new-session -d -s PKV; tm set -t =PKV: @tmm_picker 1; tm set -t =PKV: @tmm_ver 0.0.1
+[ "$(pv PKV)" = PKV ] || { echo "FAIL: (pv) 다른 버전 피커를 이어받으면 안 됨: $(pv PKV)"; exit 1; }
+tm has-session -t =PKV 2>/dev/null && { echo 'FAIL: (pv) 클라이언트 없는 좀비 피커를 죽이지 않음(이름만 재사용하고 옛 세션이 살아 있음)'; exit 1; }
+tm new-session -d -s PKV2; tm set -t =PKV2: @tmm_picker 1; tm set -t =PKV2: @tmm_ver "$CURV"
+[ "$(pv PKV2)" = PKV2 ] || { echo "FAIL: (pv) 같은 버전 피커는 이어받아야 함: $(pv PKV2)"; exit 1; }
+tm has-session -t =PKV2 2>/dev/null || { echo 'FAIL: (pv) 같은 버전 피커를 죽임'; exit 1; }
+tm set -t =PKV2: @tmm_ver 0.0.1               # 좀비인데 클라이언트가 붙어 있으면 = 남의 화면 → 죽이지 않고 새 이름
+pty_attach PKV2; wait_client
+[ "$(pv PKV2)" = PKV2-2 ] || { echo "FAIL: (pv) 클라이언트가 붙은 다른 버전 피커는 건드리지 않고 새 이름이어야 함: $(pv PKV2)"; exit 1; }
+tm has-session -t =PKV2 2>/dev/null || { echo 'FAIL: (pv) 붙은 클라이언트가 있는 피커를 죽임(남의 화면이 사라짐)'; exit 1; }
+tm detach-client -t "$(first_client)" 2>/dev/null || true; sleep 0.4
+# @tmm_ver 이 아예 없는 0.8.4 이하 피커도 좀비로 본다 — 업그레이드 직후 남는 실제 모양
+tm new-session -d -s PKV3; tm set -t =PKV3: @tmm_picker 1
+tm has-session -t =PKV3 2>/dev/null && [ "$(pv PKV3)" = PKV3 ] || { echo "FAIL: (pv) @tmm_ver 없는 옛 피커를 좀비로 안 봄: $(pv PKV3)"; exit 1; }
+tm kill-session -t =PKV2 2>/dev/null || true
+# 피커가 스스로 기록하는지 — tui_wrap 이 세션 옵션에 현재 버전을 남긴다(grep 은 문자열 회귀만 잡는다)
+grep -q '@tmm_ver "\$TMM_VERSION"' "$TMM" || { echo 'FAIL: (pv) tui_wrap 이 @tmm_ver 를 안 남김'; exit 1; }
+
 # (sp) 분할 화면(0.8.0) — 왼쪽 = 카테고리 칸(별도 fzf, tmux pane), 오른쪽 = 세션 목록. 키는 ↑↓ + Enter(분류→목록) + Esc·⌫(목록→분류). ←/→ 는 별칭. Tab/S-Tab 탭 회전 폐지.
 lib() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" bash -c 'source "'"$TMM"'" __lib; RUN="'"$STATE"'"; '"$1"; }
 [ "$(lib 'split_catw 60')" = 11 ] && [ "$(lib 'split_catw 119')" = 11 ] && [ "$(lib 'split_catw 120')" = 16 ] || { echo "FAIL: (sp) 카테고리 칸 폭 규칙(<120→11, ≥120→16): $(lib 'split_catw 60') $(lib 'split_catw 120')"; exit 1; }
-# 카테고리 행: «키\t라벨». 좁은 칸(11)은 이름 7자 + ⚠N, 넓은 칸(16)은 이름 8자 + 수. 전체(*)는 「전체」.
+# 카테고리 행: «키\t라벨». 좁은 칸(11)은 이름 5자 + 수(회색 2자) + ⚠N, 넓은 칸(16)은 이름 8자 + 수 + ⚠N. 전체(*)는 「전체」.
 printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"
 printf '11' > "$STATE/catw"; cr="$(tmm catrows)"
 [ "$(printf '%s\n' "$cr" | wc -l | tr -d ' ')" = 3 ] || { echo "FAIL: (sp) catrows 행 수≠3"; printf '%s\n' "$cr"; exit 1; }
 printf '%s\n' "$cr" | sed -n 1p | grep -q $'^harness\t' || { echo "FAIL: (sp) catrows 1열이 키가 아님"; printf '%s\n' "$cr"; exit 1; }
-printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness⚠2$' || { echo "FAIL: (sp) 좁은 칸 라벨이 «이름7자⚠N» 이 아님: $(printf '%s\n' "$cr" | sed -n 1p)"; exit 1; }
-printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tgraphic$' || { echo "FAIL: (sp) 좁은 칸은 8자 이름을 7자로 잘라야 함"; exit 1; }
-printf '%s\n' "$cr" | sed -n 3p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^\*\t전체⚠2$' || { echo "FAIL: (sp) 전체(*) 라벨: $(printf '%s\n' "$cr" | sed -n 3p)"; exit 1; }
+printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharne12⚠2$' || { echo "FAIL: (sp) 좁은 칸 라벨이 «이름5자 수 ⚠N» 이 아님: $(printf '%s\n' "$cr" | sed -n 1p)"; exit 1; }
+printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tgraph11$' || { echo "FAIL: (sp) 좁은 칸은 8자 이름을 5자로 자르고 수(11)를 붙여야 함"; exit 1; }
+printf '%s\n' "$cr" | sed -n 3p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^\*\t전체 23⚠2$' || { echo "FAIL: (sp) 전체(*) 라벨: $(printf '%s\n' "$cr" | sed -n 3p)"; exit 1; }
 printf '16' > "$STATE/catw"; tmm catrows | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness  12⚠2$' || { echo "FAIL: (sp) 넓은 칸 라벨이 «이름8자 수⚠N» 이 아님: $(tmm catrows | sed -n 1p)"; exit 1; }
 # (sp) cat_sync — 분류 행이 «바뀐 때만» catrows 를 갱신(바뀜=0, 안 바뀜=1). 핑거가 reload 를 쏠지 여기서 가른다(내용 같으면 reload 0 → 분류 fzf 가 키 입력을 안 버린다)
 printf '11' > "$STATE/catw"; printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"; rm -f "$STATE/catrows" "$STATE/catrows.new"
@@ -699,6 +723,36 @@ for pair in 'FB_CCU#0:ccu' 'CCU_ARCH#3:ccu' 'FB_CFO#33:cfo' 'CFO_F_NANO#17:cfo' 
 done
 [ "$(TMM_CAT_STRIP='X_' _cat 'X_ABC#1')" = abc ] || { echo 'FAIL: (z) TMM_CAT_STRIP 로 접두 변경 안 됨'; exit 1; }
 [ "$(_cat 'ft-')" = 'ft' ] || { echo "FAIL: (z) 접두만 있는 이름(ft-)이 빈 라벨: '$(_cat 'ft-')'"; exit 1; }
+
+# (hd) 프로젝트(1depth) → 팀(2depth) 트리(0.9.0) — 사용자 2026-10-20 «2depth 명으로 팀그룹핑해서 노출하는데 1depth 분리 필요»
+#   cat_of key 모드 = «프로젝트/팀» · 구 접두(ft- FB_)·규칙 라벨·폴백은 «/ 없는 leaf» · 같은 팀 글자를 다른 프로젝트가 써도 프로젝트로 갈려 충돌 접두(b-)가 필요 없다
+for pair in 'byz-harness-master-claude#8:byz/harness' 'byz-ops-arch-claude#1:byz/ops' 'aifp-worker-master-claude#0:aifp/worker' 'acme-harness-master-claude#1:acme/harness' \
+            'ft-v65-master-claude#86:v65' 'FB_CCU#0:ccu' 'KakaoBot#5:kakao' 'plain-shell:plain'; do
+  got="$(TMM_CAT_SESSIONS="" cat_of "${pair%%:*}" key)"; [ "$got" = "${pair#*:}" ] || { echo "FAIL: (hd) cat_of key ${pair%%:*} → '$got' (기대 ${pair#*:})"; exit 1; }
+done
+# tab_rows — 팀이 둘 이상인 프로젝트 = 프로젝트 줄 + 팀 줄 · 팀 하나(aifp)·leaf(kakao) = 한 줄 · 프로젝트 줄을 고르면 그 프로젝트 전체, 팀 줄은 그 팀만(카테고리 열은 프로젝트 줄에서만 남는다)
+HD="$SOCK_DIR/hd.rows"
+printf '%s\n' \
+  "$(printf '● h1 DONE\tbyz-harness-master-claude#1\tbyz/harness')" \
+  "$(printf '● h2 HUMAN \tbyz-harness-arch-claude#1\tbyz/harness')" \
+  "$(printf '● o1 DONE\tbyz-ops-master-claude#1\tbyz/ops')" \
+  "$(printf '● k1 DONE\tKakaoBot#1\tkakao')" \
+  "$(printf '● a1 DONE\taifp-worker-master-claude#0\taifp/worker')" > "$HD"
+rm -f "$STATE/tabsel"
+lib "tab_rows < '$HD' > /dev/null"
+[ "$(cut -f1 "$STATE/tabs" | tr '\n' ' ')" = 'byz byz/harness byz/ops kakao aifp * ' ] || { echo "FAIL: (hd) tabs 키 순서/구조: $(cut -f1 "$STATE/tabs" | tr '\n' ' ')"; exit 1; }
+[ "$(awk -F'\t' '$1=="byz"{print $2":"$3}' "$STATE/tabs")" = '3:1' ] && [ "$(awk -F'\t' '$1=="byz/harness"{print $2":"$3}' "$STATE/tabs")" = '2:1' ] || { echo "FAIL: (hd) 프로젝트/팀 수·대기 합산: $(cat "$STATE/tabs")"; exit 1; }
+printf 'byz\n' > "$STATE/tabsel"; [ "$(lib "tab_rows < '$HD'" | wc -l | tr -d ' ')" = 3 ] || { echo 'FAIL: (hd) 프로젝트 줄 byz 는 3행(그 프로젝트 전체)'; exit 1; }
+printf 'byz/harness\n' > "$STATE/tabsel"; [ "$(lib "tab_rows < '$HD'" | wc -l | tr -d ' ')" = 2 ] || { echo 'FAIL: (hd) 팀 줄 byz/harness 는 2행'; exit 1; }
+printf 'kakao\n' > "$STATE/tabsel"; [ "$(lib "tab_rows < '$HD'" | wc -l | tr -d ' ')" = 1 ] || { echo 'FAIL: (hd) leaf kakao 는 1행'; exit 1; }
+printf 'aifp\n' > "$STATE/tabsel"; [ "$(lib "tab_rows < '$HD'" | wc -l | tr -d ' ')" = 1 ] || { echo 'FAIL: (hd) 팀 하나짜리 프로젝트 aifp 는 한 줄 키로 1행'; exit 1; }
+printf 'gone\n' > "$STATE/tabsel"; [ "$(lib "tab_rows < '$HD'" | wc -l | tr -d ' ')" = 3 ] || { echo 'FAIL: (hd) 사라진 키는 첫 줄(byz 전체 3행)로'; exit 1; }
+# 분류 칸 라벨 — 프로젝트 줄 굵게·팀 줄 들여쓰기(좁은 칸 팀 4자, 넓은 칸 팀 6자)
+printf '11' > "$STATE/catw"; cr="$(tmm catrows)"
+printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^byz\tbyz   3⚠1$' || { echo "FAIL: (hd) 좁은 칸 프로젝트 줄: $(printf '%s\n' "$cr" | sed -n 1p)"; exit 1; }
+printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^byz/harness\t harn 2⚠1$' || { echo "FAIL: (hd) 좁은 칸 팀 줄(한 칸 들여쓰기·4자): $(printf '%s\n' "$cr" | sed -n 2p)"; exit 1; }
+printf '16' > "$STATE/catw"; tmm catrows | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^byz/harness\t  harnes  2⚠1$' || { echo "FAIL: (hd) 넓은 칸 팀 줄(두 칸 들여쓰기·6자): $(tmm catrows | sed -n 2p)"; exit 1; }
+rm -f "$STATE/tabs" "$STATE/tabsel" "$STATE/catw" "$HD"
 
 # ---------- 0.8.2 — 종료 뷰 창 확장·입력 막힘·종료 스캔 속도 ----------
 # (rl) reload 지점은 전부 커서 세션·질의를 넘긴다 — 빠진 곳은 갱신 뒤 커서가 튄다
