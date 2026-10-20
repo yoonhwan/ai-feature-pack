@@ -20,6 +20,10 @@ BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     # 낱말 금지는 문서 줄 아래 — 경로로 지정한 문서 금지만 문서 줄 위(r514)
     ("forbid", "billing", r"billing|credit|payment|pricing|toss|subscription"),
     ("forbid", "key", r"credential"),
+    # 팀 폴더 첫 문서 착지(r559) — 낱말 금지 «아래»(팀 폴더 안이라도 결제 낱말 경로는 금지 유지 · ⓗ)
+    ("code", "pytest", r"^design/teams/[^/]+/(.*/)?(test_[^/]*\.py|[^/]*_test\.py|conftest\.py)$"),   # 시험 도구가 모으는 파일 = 계속 코드
+    ("docs", "team-file", r"^design/teams/[^/]+/(?!.*\.(py|sh)$).+$"),                             # 팀 폴더의 실행 안 되는 파일
+    ("docs", "team-evidence", r"^design/teams/[^/]+/evidence[^/]*/.+\.sh$"),                        # 증거 폴더 .sh 만(pytest 가 안 모은다) — .py 는 code(import 부작용 · H3)
     ("code", "code", r"."),
 ]]
 
@@ -57,14 +61,38 @@ def forbid_text(kind, path):
 
 
 STATUS_KIND = {"D": "delete", "C": "copy", "T": "type"}
+TEAM_CARD = re.compile(r"^(design/teams/[^/]+)/indices/(?:대기|진행|완성|보류)/[^/]+$")   # 팀 카드 폴더 = 같은 팀의 네 상태 폴더(r559)
+
+
+def same_card(table, om, nm, a, b):   # 같은 팀 카드 폴더 사이 같은 이름 이동 = 모드 같음 ∧ 파일 이름 같음 ∧ 양쪽 docs(내용 변화 무관 · r559)
+    ma, mb = TEAM_CARD.match(a), TEAM_CARD.match(b)
+    return bool(ma and mb and ma.group(1) == mb.group(1) and os.path.basename(a) == os.path.basename(b) and om == nm
+                and all(path_class(table, p)[0] == "docs" for p in (a, b)))
+
+
+def pair_card_moves(table, rows):   # D+A 로 잡힌 같은 카드 이동(유사도 낮음) → R100 한 행 · 짝 없는 D 는 그대로(ⓑ·ⓒ)
+    added, used, out = {}, set(), []
+    for r in rows:
+        if r[2] == "A":
+            added.setdefault((r[1], os.path.basename(r[3][0])), r)
+    for r in rows:
+        a = added.get((r[0], os.path.basename(r[3][0]))) if r[2] == "D" else None
+        if a is not None and same_card(table, r[0], a[1], r[3][0], a[3][0]):
+            out.append((r[0], a[1], "R100", [r[3][0], a[3][0]]))
+            used.add(id(a))
+            continue
+        if id(r) not in used:
+            out.append(r)
+    return out
 
 
 def judge_row(table, row, ddl_ok):   # (옛 모드, 새 모드, 상태, [경로…]) → (종류, 키, 사유|None) · ddl_ok(경로) = 적용 기록 있는 새 sql
     om, nm, st, paths = row
     classes = [path_class(table, p) for p in paths]
     bad = next(((k, p) for (c, k), p in zip(classes, paths) if c == "forbid"), None)
-    if st[0] == "R":   # 카드 상태 폴더 이동 = 내용 동일(R100) ∧ 모드 같음 ∧ 파일 이름 같음 ∧ 양쪽 docs
-        if st == "R100" and om == nm and os.path.basename(paths[0]) == os.path.basename(paths[1]) and all(c == "docs" for c, _ in classes):
+    if st[0] == "R":   # 카드 상태 폴더 이동 = 같은 팀 카드 폴더 사이 같은 이름/모드/양쪽 docs(유사도 무관) 또는 내용 동일(R100)
+        same = os.path.basename(paths[0]) == os.path.basename(paths[1])
+        if om == nm and all(c == "docs" for c, _ in classes) and (same_card(table, om, nm, paths[0], paths[1]) or (st == "R100" and same)):
             return "docs", "move", None
         return "forbid", "rename" if st == "R100" else "move-changed", "상태 %s: %s" % (st, " → ".join(paths))
     if st[0] not in "AM":

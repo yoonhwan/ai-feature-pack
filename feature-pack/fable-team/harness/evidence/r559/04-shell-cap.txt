@@ -1,0 +1,15 @@
+== ft-autonomy-scope.sh 상한(scope_alarm_secs) — 파일 수별
+bash -n OK
+  파일   100 → 11s
+  파일   500 → 11s
+  파일   501 → 18s
+  파일   933 → 18s
+  파일  1000 → 18s
+  파일  5000 → 70s
+  파일  6676 → 70s
+  파일 20000 → 70s
+
+== 실제 세트 파일 수(git diff --name-only · BYZ 리포)
+  ad8810719b → 970개
+  1aa037dc9a → 85개
+  87f3b9bc40 → 6676개

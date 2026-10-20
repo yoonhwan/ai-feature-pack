@@ -50,7 +50,7 @@ mk f6 "$BASE" 'echo "{}" > package.json';               cls "$SHA"; want "packag
 mk f7 "$BASE" 'echo "{}" > package-lock.json';          cls "$SHA"; want "lockfile → FORBID" 3 "FORBID kind=deps 의존"
 mk f8 "$BASE" 'mkdir -p .claude/rules; echo r > .claude/rules/x.md'; cls "$SHA"; want ".claude/ → FORBID" 3 "FORBID kind=global-rule 전역 규칙"
 mk f9 "$BASE" 'mkdir -p scripts/harness-install; echo r > scripts/harness-install/x.md'; cls "$SHA"; want "scripts/harness-install/ → FORBID" 3 "FORBID kind=global-rule 전역 규칙"
-mk f10 "$BASE" 'echo "cat secrets/x.cred" > design/leak2.md'; cls "$SHA"; want "문서 속 비밀 조회 명령 줄(ft_secret_judge 재사용) → FORBID" 3 "FORBID"
+mk f10 "$BASE" 'echo "cat secrets/x.cred" > design/leak2.md'; cls "$SHA"; want "문서 산문 속 명령 줄(r559: 실행되지 않음) → CLASS docs" 0 "CLASS docs"
 mk f11 "$BASE" 'echo n > design/block-diagram.md';      cls "$SHA"; want "block 글자는 lockfile 오탐 아님 → docs" 0 "CLASS docs"
 
 # ff — main 이 sha 의 조상(M1 에서 딴 가지)

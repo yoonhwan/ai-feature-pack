@@ -1,0 +1,21 @@
+== 프로파일(고치기 전 분류기 · cfo 세트 ad8810719b · 누적시간)
+(3, 'FORBID kind=billing 과금 경로: design/teams/cfo/eli5-toss-payments-review-20261008.html')
+         42880846 function calls (42880205 primitive calls) in 133.865 seconds
+
+   Ordered by: cumulative time
+   List reduced from 532 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001  133.874  133.874 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/autonomy_scope_classify.py:112(classify)
+        1    0.002    0.002  131.768  131.768 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/autonomy_scope_classify.py:63(secret_reason)
+        1    0.064    0.064  130.415  130.415 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_judge.py:190(plan)
+     4121    0.413    0.000  104.314    0.025 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_judge.py:114(parse)
+     4121   90.917    0.022  102.891    0.025 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_lex.py:73(scan)
+        1    0.085    0.085   52.150   52.150 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_judge.py:158(check)
+     4122    1.129    0.000   20.974    0.005 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_lex.py:43(strip_heredocs)
+    12386   14.052    0.001   14.052    0.001 {method 'search' of 're.Pattern' objects}
+      233    9.075    0.039   12.247    0.053 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_lex.py:57(read_sub)
+        3    3.412    1.137    7.050    2.350 /Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/ft_secret_lex.py:20(body_subs)
+
+
+
