@@ -319,6 +319,12 @@ cmd_restore() {
     argv=$(awk -F'\t' -v n="$name" '$2==n{x=$8} END{print x}' "$led")
     [[ -z "$argv" || "$argv" == "?" ]] && { echo "❌ 대장에 argv 가 없다: $name"; return 1; }
     if tmux has-session -t "=$name" 2>/dev/null; then echo "⚠️ 이미 살아있는 세션: $name — 복원 생략"; return 1; fi
+    # R524: 첫 낱말이 claude(·…/claude) 면 그 낱말만 헤드룸 래퍼로 — 대장 argv 는 래퍼가 exec 한 본체라 그대로 보내면 프록시 미경유 직결
+    local first="${argv%% *}" rest=""; [[ "$argv" == *" "* ]] && rest=" ${argv#* }"
+    if [[ "$first" == claude || "$first" == */claude ]]; then
+        hr_wrapper_ok || return 1
+        argv="$(printf '%q' "$ZC_CLAUDE_HR")$rest"
+    fi
     if $dry; then echo "[dry] session=$name"; echo "[dry] cwd=$cwd"; echo "[dry] argv=$argv"; return 0; fi
     tmux new-session -d -s "$name" -c "${cwd:-$HOME}" || { echo "❌ 세션 생성 실패: $name"; return 1; }
     tmux send-keys -t "=$name:" -l "$argv"; sleep 0.3; tmux send-keys -t "=$name:" Enter
@@ -374,7 +380,7 @@ resume_record_pid_live() {
 
 # resume '<세션명>' [--dry-run] — 검증된 재개 기록으로 같은 대화를 같은 폴더·모델로 다시 연다. 검증 실패·이미 살아 있음 = ❌ rc 1.
 cmd_resume() {
-    local name="" dry=false a why rc f cwd uuid model
+    local name="" dry=false a why rc f cwd uuid model cmd
     for a in "$@"; do case "$a" in --dry-run) dry=true ;; --from-live) ZC_FROM_LIVE=1 ;; *) [[ -z "$name" ]] && name="$a" ;; esac; done
     [[ -z "$name" ]] && { echo "사용법: zombie-clean.sh resume '<세션명>' [--dry-run] [--from-live]"; return 1; }
     why=$(resume_record_check "$name"); rc=$?
@@ -384,13 +390,38 @@ cmd_resume() {
     f=$(resume_record_file "$name")
     IFS=$'\t' read -r uuid cwd model < <(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print("\t".join(d[k] for k in ("uuid","cwd","model")))' "$f")
     [[ -n "$uuid" && -n "$cwd" && -n "$model" ]] || { echo "❌ 재개 기록 읽기 실패: $name"; return 1; }
-    if $dry; then echo "[dry] session=$name"; echo "[dry] cwd=$cwd"; echo "[dry] claude --resume $uuid --model '$model'"; return 0; fi
+    hr_wrapper_ok || return 1
+    cmd="$(printf '%q' "$ZC_CLAUDE_HR") --dangerously-skip-permissions --resume $uuid --model '$model'"
+    if $dry; then echo "[dry] session=$name"; echo "[dry] cwd=$cwd"; echo "[dry] cmd=$cmd"; return 0; fi
     tmux new-session -d -s "$name" -c "$cwd" || { echo "❌ 세션 생성 실패: $name"; return 1; }
     # 전송 실패를 성공으로 보고하지 않는다(DA⑥ H2) — 열린 세션은 자동으로 닫지 않고 사람이 확인한다.
-    tmux send-keys -t "=$name:" -l "claude --resume $uuid --model '$model'" || { echo "❌ 명령 전송 실패(-l): 세션 $name 열린 채 — 확인 뒤 닫기"; return 1; }
+    tmux send-keys -t "=$name:" -l "$cmd" || { echo "❌ 명령 전송 실패(-l): 세션 $name 열린 채 — 확인 뒤 닫기"; return 1; }
     sleep 0.3
     tmux send-keys -t "=$name:" Enter || { echo "❌ Enter 전송 실패: 세션 $name 열린 채 — 확인 뒤 닫기"; return 1; }
     echo "✅ 재개: $name  (uuid=$uuid · cwd=$cwd · 모델=$model)"
+    resume_headroom_check "$name"
+}
+
+# ── 헤드룸 래퍼 (R524, 2026-10-20) ────────────────────────────────────────────
+# 재개·복원은 claude 를 래퍼로만 연다 — 날 claude 는 프록시(8317)를 안 타 세션 한도에 걸린다(10-20 concierge master#6 실사건).
+# 래퍼가 없으면 직결로 대신 열지 않고 실패한다. 전역 ANTHROPIC_BASE_URL export 0(프로젝트 레벨 래퍼로만).
+ZC_CLAUDE_HR="${ZC_CLAUDE_HR:-$HOME/.headroom/claude-hr.sh}"
+hr_wrapper_ok() { [[ -x "$ZC_CLAUDE_HR" ]] || { echo "❌ 헤드룸 래퍼 없음: $ZC_CLAUDE_HR"; return 1; }; }
+
+# $1=세션명 — 열린 pane 의 claude 본체(래퍼가 exec 한 뒤) env 에서 ANTHROPIC_BASE_URL 확인 1줄. kill 0 · 항상 rc 0
+#   (래퍼는 fail-open 이라 프록시 死 때 직결은 정상일 수 있다 — 경고만. 꼴 = tmuxc HEADROOM_BYPASS)
+resume_headroom_check() {
+    local name="$1" wait_s="${ZC_HR_WAIT_S:-7}" i pp pid="" url
+    for ((i = 0; i < wait_s * 2; i++)); do
+        pp=$(tmux list-panes -t "=$name:" -F '#{pane_pid}' 2>/dev/null | head -1)
+        pid=$(pgrep -P "${pp:-0}" 2>/dev/null | head -1)
+        [[ -n "$pid" && "$(basename -- "$(ps -o comm= -p "$pid" 2>/dev/null)")" == claude ]] && break
+        pid=""; sleep 0.5
+    done
+    [[ -z "$pid" ]] && { echo "WARN HEADROOM 확인 불가(${wait_s}s) $name"; return 0; }
+    url=$(ps eww "$pid" 2>/dev/null | tr ' ' '\n' | sed -n 's/^ANTHROPIC_BASE_URL=//p' | head -1)
+    if [[ -n "$url" ]]; then echo "HEADROOM ok $name pid=$pid ANTHROPIC_BASE_URL=$url"
+    else echo "WARN HEADROOM_BYPASS $name pid=$pid — 프록시 미경유 직결(kill 0 · 확인 뒤 래퍼로 다시)"; fi
 }
 
 # ── 메모리 압력 티어 (v3, 2026-09-11) ─────────────────────────────────────────

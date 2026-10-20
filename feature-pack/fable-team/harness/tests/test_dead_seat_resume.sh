@@ -94,8 +94,8 @@ touch -t 203001010000 "$(jsonl_of 1001 uuid-m)"; TICK_X="FT_NOW=3000"; TICK >/de
 [ "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["at"])' "$LIVE/$M.json")" != "$at1" ] && ok "ⓐ jsonl 이 바뀌면 다시 쓴다" || bad "ⓐ jsonl 이 바뀌었는데 안 씀"
 TICK_X=""
 # zombie-clean --from-live: 기록 경로만 seat-live (검사·명령 동작 불변)
-die_seat "$M"
-o="$(env HOME="$H" PATH="$F:$PATH" ZC_LIVE_DIR="$LIVE" bash "$ZC" resume "$M" --from-live --dry-run 2>&1)"; has "$o" "[dry] session=$M" "ⓐ resume --from-live dry-run 세션"; has "$o" "claude --resume uuid-m --model 'claude-sonnet-5-5[1m]'" "ⓐ resume --from-live 명령 불변"
+die_seat "$M"; mkdir -p "$H/.headroom"; printf '#!/bin/bash\nexit 0\n' > "$H/.headroom/claude-hr.sh"; chmod +x "$H/.headroom/claude-hr.sh"   # R524: resume 은 헤드룸 래퍼로만 연다
+o="$(env HOME="$H" PATH="$F:$PATH" ZC_LIVE_DIR="$LIVE" bash "$ZC" resume "$M" --from-live --dry-run 2>&1)"; has "$o" "[dry] session=$M" "ⓐ resume --from-live dry-run 세션"; has "$o" "claude-hr.sh --dangerously-skip-permissions --resume uuid-m --model 'claude-sonnet-5-5[1m]'" "ⓐ resume --from-live 명령 불변(래퍼 경유)"
 o="$(env HOME="$H" PATH="$F:$PATH" ZC_LIVE_DIR="$LIVE" bash "$ZC" resume "$M" --dry-run 2>&1)"; has "$o" "재개 기록 없음" "ⓐ --from-live 없으면 은퇴 기록 경로(스냅샷 안 읽음)"
 
 # ── ⓑⓒ 죽음 판정 + OFF 는 목록 1통(바뀐 때만) · 재개 0 ──
