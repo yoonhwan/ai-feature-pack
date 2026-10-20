@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — 공용 라이브 뿌리 `feat/v6-realtime-live` = «병합하지 않는 줄기»: 뒤처짐 알림·병합 처방이 그 폴더를 더 이상 가리키지 않는다 (r549 · 1.1.104 · 데이터 1줄)
+
+- 사건: main 이 움직일 때마다 planner 앞으로 «`v6-realtime-live`(feat/v6-realtime-live) 가 main 보다 284커밋 뒤 — 받아 오라» 는 알림과 «`ft-head-sync --apply`» 처방이 반복해서 갔다(v65 알림 120284 · master 85 발주 120290). 그 폴더는 여러 팀이 같이 쓰는 라이브 작업 뿌리라 남의 staged·수정이 1500줄 넘게 있고, main 으로 병합하지 않기로 한 줄기다(메모리 10-18 «merge 처방 금지»). 처방을 그대로 따르면 전 팀 라이브가 흔들린다.
+- 원인: 하네스에는 이미 «병합하지 않는 줄기» 목록(`ft-head-skip.txt`)이 있고 `ft_head_lag.py`(알림)와 `ft-head-sync.sh`(병합 표)가 둘 다 그 파일 하나를 읽는데, 그 브랜치 줄만 빠져 있었다. 그래서 두 도구가 같은 폴더를 계속 대상으로 잡았다.
+- 고침(데이터 1줄 + 주석 1줄 · 코드 0 · 새 도구 0): 정본 키트 `kit/fable-team/bin/ft-head-skip.txt` 와 정본 bin 짝 `harness/bin/ft-head-skip.txt` 의 «문서·운영 줄기» 묶음 끝에 `feat/v6-realtime-live` 1줄 + 사유 주석 1줄. 정규식 앵커(`^(…)$`) 그대로 — 다른 기능 브랜치의 뒤처짐 알림은 안 넓어진다.
+- 시험 `tests/test_head_skip_list.sh`(기존 · 새 시험 파일 0)에 칸 3개 추가 — ⓕ 임시 리포에 `feat/v6-realtime-live` 워크트리를 main 뒤로 두면 `ft_head_lag --event` 알림 0 ⓖ 같은 폴더가 `ft-head-sync` 표에도 안 나옴(같은 파일 1줄이 두 도구를 같이 멈춘다) ⓗ 대조 — 다른 기능 브랜치(`nano/r549fn`)는 그대로 알림 1 · 표 1(제외가 넓어지지 않음). 전부 임시 리포·임시 tmux 서버 픽스처(실 리포·실 좌석 0).
+- 전 FAIL → 후 PASS: 고치기 전 3건 FAIL(`evidence/r549/before-fix.txt` — ⓕ · ⓖ · 정적 키트 사본 일치) → 고친 뒤 ALL PASS 21(`evidence/r549/after-fix.txt`). 기존 `tests/test_head_lag.sh` · `tests/test_head_sync.sh` 도 ALL PASS(rc0 · 무변경).
+- 설치: 키트 1(`ft-head-skip.txt`) → `install.sh --apply --project <루트>` → 라이브 사본 cmp0 1 · 데몬 0(두 도구가 부를 때마다 새로 읽음) · 되돌림 = 그 줄 지움(또는 env `FT_HEAD_SYNC_SKIP`).
+- 범위 밖: `v6-realtime-live` 를 main 에 맞추기 · «미커밋≠0 이면 알림 대신 기록» 같은 새 판정 · 다른 공용 뿌리 찾기(지금 LIVE_ROOT 는 이것 하나).
+
 ## 2026-10-20 — 주간 점검표 planner 칸 P1·P2 의 «읽는 출처» = origin/main gitref (r551 · 1.1.102 · r545 꼴 · 쓰는 자리 그대로)
 
 - 사건(r544 착지 뒤 첫 실행 · master 85 kickstart 16:39 · 쪽지 120375 · arch 109 실측 2026-10-20 16:4x): 주간 점검표의 planner 두 칸(결정 대기열·원장↔발주 대조)이 planner 좌석이 앉은 공용 체크아웃(`.worktrees/v6-realtime-live` · main 보다 **290커밋 뒤**)의 **디스크 폴더**를 읽었다. 그 체크아웃에는 새 자리 `design/teams/planner/` 가 없고 옛 자리 `design/planner/`(원장 마지막 커밋 10-19 18:55)만 있어, 점검표가 **어제 저녁 판**으로 채워지고 «문제 없음» 을 보일 수 있었다 — 10-19 뉴스 22시간 정지·r545 골 표와 같은 뿌리(세 번째).
