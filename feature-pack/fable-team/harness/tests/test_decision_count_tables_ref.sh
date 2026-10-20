@@ -3,6 +3,7 @@
 #   ⓐ 체크아웃 명단 없음 → MERGE-QUEUE 를 ref 에서 읽어 rc0 · 대기 행 셈 반영(+ ⓐ2 카드 워크트리 디스크 표가 먼저)  ⓑ FLAG-DECISIONS 같은 꼴
 #   ⓒ ref 에도 표 없음 → «(MERGE-QUEUE 파일 없음)» 메모 + rc0  ⓓ ref 명단 못 읽음(origin 없음) → rc4 + 사유  ⓔ FT_DECISION_MERGE_QUEUE 지정 = 그 파일
 # 격리: 임시 리포 R(체크아웃 = 옛 커밋 · TEAMS.md 없음 · origin/main = 새 꼴 명단 + design/teams/planner 표) + 임시 인박스·대역 — 실 상태·실 mbox·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_TEAMS_REF FT_TEAMS_MD FT_REPO_ROOT FT_PLANNER_DIR \
   FT_DECISION_MERGE_QUEUE FT_DECISION_FLAG_DECISIONS FT_DECISION_AUTONOMY_QUEUE FT_DECISION_BUDGET_S

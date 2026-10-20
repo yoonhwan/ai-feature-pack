@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_resource_watch.sh — R320 ft-resource-watch.sh: 동결 자동 해제 교정 · (R323) du 스캔 상한 · 원인 좌석 표시.
 # 가짜 센서(PATH 앞)·임시 FT_RES_ROOT 만 쓴다 — 실 동결 파일·실 launchd·실 tmux 0. 값은 FAKE_* env 로 준다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

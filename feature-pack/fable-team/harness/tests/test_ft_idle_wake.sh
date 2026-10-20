@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_ft_idle_wake.sh — 유휴 좌석 깨우기 시험 (R241c · DESIGN-r241-desk-never-stall §9 구현 범위 8)
 # 격리: 대역 큐(mailbox.jsonl) · 대역 seat-status(상태 파일) · 대역 mbox(ring 호출 기록) · 테스트 tmux 서버(-L) · 가짜 시계(FT_IDLE_WAKE_NOW).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."; SH="$ROOT/harness/bin/ft-idle-wake.sh"

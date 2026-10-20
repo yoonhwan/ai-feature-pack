@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_hil_run_marker.sh — R186(판정 1720): h<N> 실행 표식 · --supersedes 대체됨 거절 · 목록 칸 · --pending · 틱 hil_watch.
 # 임시 HIL_DIR · 가짜 계획 · 가짜 mbox · 가짜 좌석표만 쓴다 — 실 /tmp/h* · 실 .fable-team/state · 실 mbox 0. 시험에 GIT_* 없음(env -i / env -u).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="${R186_BIN:-$HERE/../../harness/kit/fable-team/bin}"

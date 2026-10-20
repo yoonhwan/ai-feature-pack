@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_fake_resource_env.sh — R218 가짜 센서 헬퍼(lib/fake_resource_env.sh · tests/scripts/fake_resource_env.py)가
 # 문지기를 «무력화하지 않고» 값만 바꾸는지 본다. 실 측정·실 동결 파일·실 tmux 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

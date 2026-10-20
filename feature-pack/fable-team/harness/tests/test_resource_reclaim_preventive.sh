@@ -2,6 +2,7 @@
 # test_resource_reclaim_preventive.sh — R332 ft-resource-reclaim.sh --preventive · 쉬는 역할 좌석(판정 2197) · DA⑥ H1 (+ 변이 3·4). 공용 가짜 세계 = lib/fake_reclaim_world.sh
 # test_resource_reclaim.sh 에서 분할(H5 — 한 파일 5분 상한). 같은 가짜 도구·임시 HOME·임시 명부만 쓴다 — 실 tmux kill 0.
 # 변이: 승인 표 판정 제거(resume_ok 항상 통과) → 범위 밖 좌석 kill 단언 FAIL · 잠금 제거 → 동시 2호출 중복 kill FAIL.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

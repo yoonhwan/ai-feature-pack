@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_spawn_hold.sh — R320 ft-spawn-hold.sh(set|clear|status [--check]) + spawn 3종 연결.
 # 가짜 문지기·가짜 mbox·임시 루트만 쓴다 — 실 tmux·실 좌석·실 정지 파일 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

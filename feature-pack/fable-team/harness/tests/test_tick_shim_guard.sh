@@ -4,6 +4,7 @@
 #   ⓑ LIVE_BIN(형제 = 진짜 도구) 경로 실행 → 자가 검사 통과(exit 3 아님 · shim ERROR 0)
 #   ⓒ ft-tick-install.sh 메인 plist 렌더 = WorkingDirectory 공용 루트 + FT_TICK_MBOX·FT_MBOX_DIR·FT_TICK_AGENT_ALIVE 공용 루트 comm · 공용 루트 comm 없음 = REJECT
 # mktemp 만 — 실 launchd·실 우편함·실 tmux 송신 0 · GIT_* 경로 env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HROOT="$(cd -- "$HERE/.." && pwd -P)"

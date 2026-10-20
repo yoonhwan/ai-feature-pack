@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_request.sh — C19 좌석 요청 생성기(ft-seat-request.sh) 시험.
 # 가짜 tmux(FT_TMUX) · 가짜 gh(FT_GH) · fixture 명부(FT_SEATS_DIR)만 쓴다 — 실제 tmux·gh·seats-*.json 은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 GEN="$HERE/../../harness/bin/ft-seat-request.sh"

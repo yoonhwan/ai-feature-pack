@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_proposal_gate_wiring.sh — 승인 게이트(ft-proposal-gate.sh --card)가 나노 spawn 입구에 걸린 배선 시험(R77 r1 · 판정 826). 가짜 gh·가짜 Tank 만 — 실 gh·실 슬랙·실 tmux 0.
 #   (lint 의 `- 제안서:` 줄 시험은 test_index_lint.sh ⑨ — 카드 새/옛 판별에 git 커밋 날짜가 필요해 그 시험의 임시 리포를 쓴다.)
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 # shellcheck source=_proposal_issue_env.sh

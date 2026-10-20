@@ -3,6 +3,7 @@
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 가짜 HOME(projects 폴더) + 임시 우편함 + 실제 cherry 게이트만 쓴다 — 실제 리포·seats·tmux·opencode.db 는 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 # 축 ⓐ 4값 0 → CLOSED never-started · kill · 정리 계획 · 브랜치 보존 ⓑ assistant 턴 1 → REJECT ⓒ base 위 커밋 1 → REJECT ⓓ 미커밋 1(노이즈 제외) → REJECT
 #    ⓔ 보낸 쪽지 1 → REJECT · base 못 정함 → REJECT(확인 못 함) · usage 2 · 인자 없으면 불변 · opencode/그 밖 agent · 600/300·외부 호출·GIT_* 0 · 키트 짝 cmp0
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_close.sh — R297: ft-seat-close.sh «세션만 닫기» — 명부 stop-ready 표기 · 세션 kill · 거절 · 틱 resume_rows 에서 빠짐.
 # 모든 쓰기는 mktemp scratch 안 — 가짜 tmux(PATH 앞) · 실제 세션·명부 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; CLOSE="${FT_SEAT_CLOSE_BIN:-$BIN/ft-seat-close.sh}"; TICK="$BIN/ft-tick.sh"

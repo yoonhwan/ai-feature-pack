@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_goal_table_gate.sh — R362 골 표(A6) 상시 게재 문: 렌더(ⓐⓑ) · 판정기 check(ⓗ) · 쪽지 가드 문 ③(ⓔⓕⓘⓙ).
 # 가짜 정본·원장 파일(R371: 상태 출처 = planner 원장 «## 메인 골 6줄» 표) + 임시 폴더의 정본 mbox*.py·mbox*.sh 사본 + 격리 큐(FT_MBOX_DIR) — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 TOOL="$REPO/harness/bin/ft-goal-table.sh"; SRC="$REPO/harness/comm"

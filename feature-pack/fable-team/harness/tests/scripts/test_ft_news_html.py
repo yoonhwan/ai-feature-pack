@@ -25,6 +25,7 @@ import ft_news_html as fh  # noqa: E402
 import ft_news_html_lint as lint  # noqa: E402
 import ft_news_html_render as fr  # noqa: E402
 import ft_news_publish as np  # noqa: E402
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 NOW = datetime(2026, 10, 19, 9, 15)
 GOALS = [{"n": i, "goal": f"골 글 {i}", "team": f"t{i} (byz-t{i}-master)", "state": "지금"} for i in range(1, 7)]

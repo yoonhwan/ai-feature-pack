@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_retire.sh — R43: 틱 정지 감시는 _master 아닌 옛 role=master 행을 건너뛴다 · ft-seat-retire.sh · ft-role-spawn.sh 옛 행 닫기.
 # 모든 쓰기는 mktemp scratch 안 — 라이브 좌석표·stamp·tmux 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

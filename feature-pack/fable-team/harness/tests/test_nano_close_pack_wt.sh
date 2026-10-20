@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_close_pack_wt.sh — 카드 r508: ft-nano-close.sh --wt <팩 .worktrees/…> --branch nano/<키> (하네스 «팩 나노» 닫기 · ⑥·⑤·미커밋 = 팩 리포 기준)
 # 임시 리포 2개(BYZ 꼴 R · 팩 꼴 P + P 의 bare 원격) + 가짜 tmux(PATH 앞) + 스크립트 사본(가짜 cherry 게이트) — 실제 리포·seats·tmux 세션·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

@@ -2,6 +2,7 @@
 # test_nano_close_rerun_early.sh — 카드 r520: reap CLOSE-FAIL 뒤 «같은 close 재실행» 이 카드 찾기 «앞»에서 RERUN 으로 판별돼 남은 정리만 하는가 + reap 1회 재시도
 # 픽스처 = test_nano_close_pack_wt.sh 꼴(임시 BYZ 꼴 리포 R · 팩 꼴 리포 P + bare 원격 · 가짜 tmux · 가짜 cherry 게이트) + 가짜 reap(모드 파일 · 호출 횟수 기록)
 # 실제 리포·seats·tmux 세션·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

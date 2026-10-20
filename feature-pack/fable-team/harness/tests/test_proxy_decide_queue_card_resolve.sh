@@ -3,6 +3,7 @@
 #   ⓐ 옛 꼴 체크아웃(데이터 루트 · 이동 전 가지) QUEUE → 공용 루트 state/planner 큐 1행 · 옛 자리 쓰기 0  ⓑ ft-autonomy·ft_decision_count 가 같은 파일(경로 글자 같음)
 #   ⓒ FT_PLANNER_DIR 덮어쓰기 = 그 폴더  ⓓ cwd 에 없고 ref 에 있는 카드 → 읽음 · 판정 줄 검사로 진행  ⓔ 둘 다 없음 → QUEUE 사유에 두 자리  ⓕ 절대경로 = 그 파일만  ⓖ path-lint 키트 5파일
 # 격리: 임시 리포 R(main = 새 꼴 · origin/main ref) + 워크트리 W(옛 꼴 가지 = 데이터 루트) + 임시 상태 — 실 상태·실 mbox·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_PLANNER_DIR FT_TEAMS_REF FT_TEAMS_MD FT_REPO_ROOT FT_DECISION_AUTONOMY_QUEUE
 export FT_AUTONOMY_LEVEL=each   # r466: 레벨 밖 시험 — 실 슬랙 0

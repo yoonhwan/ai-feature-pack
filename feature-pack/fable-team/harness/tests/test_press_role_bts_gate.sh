@@ -2,6 +2,7 @@
 # test_press_role_bts_gate.sh — R15 카드 H: press 게이트 ⑦ 좌석 역할 · ⑧ 직전 회차 BTS 표 · 허가 파일.
 #   SELFTEST(⑥⑦⑧ 만 실제) + FT_PRESS_SEAT + mktemp 의 EVID·PERMIT_DIR 로만 돈다 — 리포 파일 쓰기 0 · 오디오·tmux 0(가짜 tmux 는 PATH 스텁).
 #   전 케이스 «ft-press-gate.sh 최종 exit» 단언: SELFTEST 성공 = 3 · 막힘 = 1.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 GATE="$HERE/../../harness/bin/ft-press-gate.sh"

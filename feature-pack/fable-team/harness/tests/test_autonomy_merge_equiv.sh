@@ -3,6 +3,7 @@
 #   판정기 = ft_approval_equiv.py(R247·r411 과 같은 것). 축 ⓐ~ⓔ: ⓐ A+main 병합 → 통과+로그 ⓑ +가지 새 커밋 → deny(재승인 필요)
 #   ⓒ A 를 조상으로 안 둔 다른 변경 → deny ⓓ H==A → 통과(기존) ⓔ 승인 파일만(log 줄 없음) → deny(EQUIV 도 못 씀).
 # 격리: 임시 FT_ROOT·상태 + 임시 git 저장소(origin/main = 가짜 ref) + 훅 stdin JSON — 실 상태·실 gh·외부 호출 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

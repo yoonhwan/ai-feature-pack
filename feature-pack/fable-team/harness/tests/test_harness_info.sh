@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_harness_info.sh — ft-harness-info.sh 조회 명령 시험: usage·map(없으면 REJECT)·rules·seats(가짜 tmux)·find. 읽기 전용.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 S="$HERE/../../harness/bin/ft-harness-info.sh"

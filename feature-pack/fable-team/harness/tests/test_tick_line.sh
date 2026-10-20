@@ -2,6 +2,7 @@
 # test_tick_line.sh — N1 r-net-tick-line: ft-tick-line.sh · ft-seats-lint.sh · ft-board ⑤ 절 · ft-measure-net.sh (PLAN-harness-networking D2·D8·D9·§9).
 # 전부 mktemp 임시 FT_ROOT + 픽스처(tests/fixtures/tick_line/) — 실 tmux·실 명부·루트 .fable-team 쓰기 0 · gh 호출 0(캐시 파일 픽스처) · press 0.
 # 좌석 턴은 실 ft-seat-status.sh `turn --file <픽스처 jsonl> --json` 을 스텁 경유로 부른다(턴 경계 판정식까지 실물).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; FX="$HERE/../fixtures/tick_line"

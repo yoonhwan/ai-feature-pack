@@ -5,6 +5,7 @@
 #   ⓒ ft-seat-retire(--orphans-only) reap 줄 · CLOSE-FAIL (nano-close 배선 = test_nano_close_fail_closed.sh ⓖ)
 #   ⓓ ft-bg-loop max-sec·stop-file·cmd-exit · ft-bg-loop-lint 파일·--range · ⓔ 600/300 0 · tmuxc -e 상속 · GIT_* 0
 # 실프로세스 픽스처 = 이 시험이 만든 tmux 세션 r448t-<pid>#0·#1 + 표식 r448fx-<pid> 를 argv 에 단 고아 루프만 — trap 이 세션 kill + 표식 프로세스 정리.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

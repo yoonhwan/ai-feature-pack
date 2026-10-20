@@ -2,6 +2,7 @@
 # test_block_destructive_inject_post.sh — 판정 595: INJECT 블록의 «게시 싱크»(--inject 모드). 본문 인용은 통과(F), 같은 글자를 실행하는 경로는 차단(X).
 # 키트 훅에 PreToolUse JSON 만 넣어 종료코드를 본다. 홈 훅·실제 명령 실행 0 (명령은 JSON 문자열일 뿐).
 # 변이(M): 판정기·훅 복사본에서 결과가 뒤집혀야 시험이 «잡는 힘»이 있다. TABLE_OUT=<경로> 면 대조표 행을 그 파일에 쓴다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

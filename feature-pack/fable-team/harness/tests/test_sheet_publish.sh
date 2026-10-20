@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_sheet_publish.sh — ft-board-publish.sh --sheet (S2 r-sheet-publish · PLAN-status-sheet r4 §4-1 회귀 행렬 6 + 상한·실패 줄).
 # 실 Slack·chromium·LLM 호출 0: 가짜 ft-board.py(render --sheet 4꼴·snapshot) · 가짜 byz_thread_post(update·attach 호출 기록) · 가짜 PDF 변환(쪽수 주입).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

@@ -6,6 +6,7 @@
 #   ⓓ ft-team-move 쌍둥이 병합 이동(유일본 2 · 다른 내용 3 · 같은 내용 1 · 본문 치환 · 미커밋 REJECT · revert 원본 복원)
 #   ⓔ ft-merge-land: 가지에 옛 꼴 새 파일 1 → REJECT(착지 0) · 새 꼴이면 착지  ⓕ 600/300 0 · bin/kit 짝 cmp0
 # 임시 리포·가짜 tmux/lsof/gh 만 쓴다 — 실제 팀 가지·seats·tmux 세션은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../harness/kit/fable-team/bin"; BIN="$HERE/../../harness/bin"

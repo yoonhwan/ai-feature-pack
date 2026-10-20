@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_gh_tank_comment_edit.sh — ft-gh-as-tank.sh comment-edit + ft-gh-tank-comment-edit.sh(본체) 시험. 실제 GitHub 호출 0 — PATH 맨 앞 가짜 gh.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

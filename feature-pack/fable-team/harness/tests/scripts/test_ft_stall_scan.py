@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from _stall_world import BIN, NOW, World, counts
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 
 @pytest.fixture

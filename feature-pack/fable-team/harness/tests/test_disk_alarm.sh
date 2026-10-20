@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_disk_alarm.sh — ft-disk-alarm.sh (R246): 여유 문턱별 planner 쪽지 · 반복 억제 · 회복 · 측정 실패.
 # 가짜 df(FT_DISK_FREE_GIB)·가짜 시계(FT_DISK_NOW)·가짜 mbox·임시 루트만 쓴다 — 실 쪽지·실 상태 파일 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"

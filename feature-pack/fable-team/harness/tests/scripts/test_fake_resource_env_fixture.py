@@ -1,6 +1,7 @@
 """R218 — conftest 픽스처 fake_resource_env 가 문지기를 무력화하지 않고 값만 바꾼다."""
 import subprocess
 from pathlib import Path
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 GATE = Path(__file__).resolve().parents[3] / "harness/bin/ft-resource-gate.sh"
 

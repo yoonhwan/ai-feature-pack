@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_press_permit.sh — C7 허가 2종 순차 시나리오 5개 (mktemp 디렉터리만 사용 · 실제 마이크·오디오 실행 없음).
 #   ①mic 1바퀴 ②api 1바퀴 ③멤버 있는 동안 2번째 가입 REJECT ④멤버 남은 채 세트 해제 REJECT ⑤장치 허가 중 두 번째 장치 요청 REJECT
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TOOL="$HERE/../../harness/bin/ft-press-permit.sh"

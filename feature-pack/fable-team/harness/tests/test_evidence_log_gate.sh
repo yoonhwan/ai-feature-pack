@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_evidence_log_gate.sh — r449 증거 로그 게이트: pre-commit(index 단계) · ft-merge-land(가지 diff) · ft-evidence-untrack(이미 tracked) · install.sh(git 훅 복사)
 #   임시 리포만(실 리포·실 gh·실 원격 0) · 시험에 GIT_* 경로 env 0(BOOT 25 — 전부 git -C) · core.hooksPath = 키트 githooks(임시 리포 로컬 config).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 H="$(cd "$HERE/.." && pwd)"; BIN="$H/bin"; KIT="$H/kit/fable-team"; LAND="$BIN/ft-merge-land.sh"; UNT="$BIN/ft-evidence-untrack.sh"

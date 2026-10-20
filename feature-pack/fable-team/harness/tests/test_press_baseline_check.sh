@@ -2,6 +2,7 @@
 # test_press_baseline_check.sh — #834 press 기준선 게이트 ⑥ (설계 DESIGN-834-baseline-gate-arch165.md §7 C2 + «C2 잔여 2»).
 #   고정 입력 임시 git 저장소만 사용 · 실제 press·오디오 0. 전 케이스를 «ft-press-gate.sh 최종 exit» 로 단언:
 #   SELFTEST 성공 = 3 · 막힘 = 1 · 보통 모드에 SELFTEST 상속 = 1 · SELFTEST 출력에 «발화해도 된다» 0건.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"

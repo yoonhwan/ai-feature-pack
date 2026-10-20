@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_baseline_lint.sh — C20 카드 머리줄 «기준값:» 검사 3케이스: ①값 있음 ②없음 → 대체 축 ③빈칸·줄 없음
 # 가짜 seats·임시 카드·가짜 ft-index-lint 만 쓴다 — --dry-run 이라 spawn·gh·카드 수정 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"

@@ -10,6 +10,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import sys as _rsg_sys  # noqa: E402  r541
+_rsg_sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 ROOT = Path(__file__).resolve().parents[2]
 COPIES = [ROOT / "harness/kit/fable-team/bin", ROOT / "harness/bin"]

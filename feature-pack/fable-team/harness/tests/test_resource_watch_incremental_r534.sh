@@ -2,6 +2,7 @@
 # test_resource_watch_incremental_r534.sh — r534 감시자 디스크 기록표: 워크트리·큰 폴더(pytest·caches·claude.projects)를 1단계 폴더별 «증분» 측정.
 #   (워크트리 443개 전체 du 1회가 7초 상한에 매번 걸려 worktrees.total=TIMEOUT 393회 · 10-17 21:22 뒤 숫자 0 — 오빠 «디스크 한 100G 줄었는데?»)
 # 가짜 du(경로별 크기·걸리는 시간 = DUCFG 표)·가짜 센서·임시 FT_RES_ROOT·임시 HOME/TMPDIR 만 쓴다 — 실 du·실 동결·실 launchd·실 tmux 0 · 외부 호출 0 · GIT_* 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

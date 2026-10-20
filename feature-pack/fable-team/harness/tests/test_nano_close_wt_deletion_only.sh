@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_close_wt_deletion_only.sh — 카드 r-wt-clean-deletion-only: wt-clean 계획 ⑤(기본 경로)가 «삭제만 남은 워크트리»(tracked 가 전부 ` D`)를
 # 실작업물로 세지 않는다. 임시 git 리포 + 가짜 tmux + 스텁 baton 만 쓴다 — 실제 리포·워크트리·baton·tmux 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

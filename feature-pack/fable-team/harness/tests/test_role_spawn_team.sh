@@ -4,6 +4,7 @@
 #   ⓑ --team 없음 → v65 동작 불변 ⓒ feat 폴더에 README 없음 → REJECT(v65 대체 0) ⓓ 명단에 없는 팀 → REJECT · _arch 가 남의 좌석 → REJECT(successor-open 안내)
 #   ⓔ successor-open arch-live REJECT 문구 = 죽은 arch → successor-open 명령 / _arch 없음 → role-spawn --team 명령 ⓕ teamset-check ERR 같은 1줄 ⓖ 600/300 0
 # 전부 mktemp 안 — 가짜 tmux/tmuxc(PATH)·가짜 송신·가짜 자원 센서. 실 tmux·실 명부·실 쪽지 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1 FT_TEAMSET=0
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_ROLE_BASE_PREFIX FT_PENALTY_TEAM

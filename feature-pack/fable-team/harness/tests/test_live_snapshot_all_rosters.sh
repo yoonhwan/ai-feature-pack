@@ -2,6 +2,7 @@
 # test_live_snapshot_all_rosters.sh — R324: 틱 데몬이 없는 팀의 현역 좌석도 재개 기록(seat-live)이 남는다.
 # 틱 1개가 자기 명부 + 같은 폴더의 다른 명부(seats.json·seats-*.json)를 훑어 «지금 tmux 에 살아 있는» claude 좌석을 스냅샷한다 · 다른 명부 훑기는 FT_TICK_LIVE_SWEEP_SEC 마다 1번.
 # 가짜 tmux·가짜 ft-resume-attempt.sh 만 쓴다 — 실 tmux·실 ~/.claude/state 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

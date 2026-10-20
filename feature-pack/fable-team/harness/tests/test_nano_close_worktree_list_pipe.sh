@@ -4,6 +4,7 @@
 #   고침 = 목록을 변수로 받은 뒤 here-string 으로 grep. 픽스처 = 임시 리포 + 긴 이름 등록 워크트리 수백 개(porcelain > 64 KB) + 가짜 tmux(PATH 앞).
 #   ⓐ 고치기 전 꼴 재현(rc 141 · RED 모양) ⓑ --plan-only 등록 경로 → PLANNED(목록 앞·뒤 둘 다) ⓒ 미등록 → 기존 REJECT ⓓ --shared-wt ⓑ 검사 등록/미등록.
 #   실제 리포·seats·tmux 세션은 건드리지 않는다 · GIT_* env 0 · 외부 호출 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

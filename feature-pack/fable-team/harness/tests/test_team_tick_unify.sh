@@ -6,6 +6,7 @@
 #   ⓓ팀 명부로 --once --dry-run 에 idle-long·dead-seat 줄 · 깨움 대상 = 그 팀 명부 좌석만 · 명부 파일 불변(후계 이전 쓰기 0 = heir_of/retarget_seat 이식 불요 판정)
 #   ⓔFT_TICK_FIRE_V2=1 은 팀 사본의 busy 감지(스피너 ↓ N tokens)를 켠다 · 미설정은 옛 동작  ⓕ키트 두 사본 동일
 # 모든 쓰기는 mktemp scratch 안 — 실 plist·실 launchctl·실 /tmp 기본 경로 0. tmux·mbox·도구는 가짜.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
