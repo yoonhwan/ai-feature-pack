@@ -1,0 +1,2 @@
+base(8d5be256) rc=1 test_live_install FAIL줄: FAIL ⓐ 일치 — rc=3 기대=0|FAIL ⓐ OK 이미 일치 줄 — 없음: «OK 이미 일치» ← ERR|FAIL ⓑ 3개 설치 — rc=3 기대=0|FAIL ⓑ INSTALLED n=3 — 없음: «INSTALLED n=3 ref=» ← ERROR 
+base(8d5be256) rc=1 test_live_install_check FAIL줄: FAIL ⑥ 구현 범위가 scripts/harness-install/ 언급 + 없음 →|FAILED 1|
