@@ -1,0 +1,9 @@
+live 43 off-roster 8 with-agent 6
+  KakaoBot#24 | None | 명부 밖 | agent
+  byz-concierge-master-claude#6 | byz-chatbot-master-claude#10 | 교대 표시인데 라이브 | agent
+  byz-graphics-arch-claude#19 | byz-graphics-master-claude#22 | 교대 표시인데 라이브 | agent
+  byz-planner-desk-claude#23 | byz-planner-master-claude#82 | 교대 표시인데 라이브 | agent
+  byz-planner-desk-claude#26 | byz-planner-master-claude#82 | 교대 표시인데 라이브 | agent
+  ft-airag-master-claude#8 | None | 명부 밖 | agent
+  tmm | None | 명부 밖 | -
+  tmm-2 | None | 명부 밖 | -

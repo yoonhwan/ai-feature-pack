@@ -15,11 +15,12 @@ FUTURE = re.compile(r"하겠습니다|할게요|진행하겠|착수하겠|진행
 REST = "[완료·휴식]"
 REF = re.compile(r"indices/(대기|진행|완성)/([\w.\-]+)\.md")
 OFF_ROLES = ("stop-ready", "closed")
+AGENT = re.compile(r"(?:^|[\s/])(claude|codex)(?:\s|$)")
 
 
-def run(cmd: list[str], env: dict[str, str] | None = None) -> tuple[int, str]:
+def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) -> tuple[int, str]:
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15, env=env)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     except (OSError, subprocess.TimeoutExpired) as e:
         return 99, str(e)
     return r.returncode, r.stdout
@@ -40,6 +41,74 @@ def load_teams(root: Path) -> list[dict[str, Any]]:
         teams.append({"team": label, "master": d.get("_master"), "cards": cards, "seats": set(seats),
                       "master_stop": isinstance(mrow, dict) and mrow.get("role") == "stop-ready"})  # r428 — ft-seat-close R297 표기
     return teams
+
+
+def _roster_rows(root: Path) -> dict[str, dict[str, Any]]:
+    """좌석 → 그 좌석 행이 있는 명부 전체(현역·교대 표시 행 모두)."""
+    where: dict[str, dict[str, Any]] = {}
+    for f in sorted((root / ".fable-team").glob("seats*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        where.update({k: d for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)})
+    return where
+
+
+def _lineage_master(where: dict[str, dict[str, Any]], seat: str) -> str | None:
+    """`_replaced_by` 사슬 끝 좌석이 있는 명부의 `_master` (끝을 못 찾으면 처음 명부) · 자기 자신이면 None."""
+    end = seat
+    for _ in range(10):
+        nxt = (where.get(end) or {}).get(end, {}).get("_replaced_by")
+        if not nxt:
+            break
+        end = nxt
+    m = (where.get(end) or where[seat]).get("_master")
+    return m if m and m != seat else None
+
+
+def off_roster_live(root: Path, live: Any, teams: list[dict[str, Any]]) -> list[tuple[str, str | None, str]]:
+    """r525 — tmux 라이브 좌석 중 명부 루프(load_teams 현역 행 · 팀 master)가 안 보는 것 → (좌석, 계보 현역 master|None, 교대 표시인데 라이브|명부 밖)."""
+    seen = {s for t in teams for s in t["seats"]} | {t["master"] for t in teams}
+    where = _roster_rows(root)
+    return [(s, _lineage_master(where, s), "교대 표시인데 라이브") if s in where else (s, None, "명부 밖")
+            for s in sorted(set(live) - seen)]
+
+
+def _has_agent(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> bool:
+    todo, seen = [pid], set()
+    while todo:
+        p = todo.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        if AGENT.search(args.get(p, "")):
+            return True
+        todo += kids.get(p, [])
+    return False
+
+
+def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
+    """r525 — pane 프로세스(자신+자손)에 claude|codex 가 도는 tmux 세션 이름 (ps 1회 + list-panes 1회)."""
+    kids: dict[str, list[str]] = {}
+    args: dict[str, str] = {}
+    for line in run([*ps, "-A", "-o", "pid=,ppid=,args="])[1].splitlines():
+        p = line.split(None, 2)
+        if len(p) == 3:
+            args[p[0]] = p[2]
+            kids.setdefault(p[1], []).append(p[0])
+    out: set[str] = set()
+    for line in run([*tmux, "list-panes", "-a", "-F", "#{session_name}|#{pane_pid}"])[1].splitlines():
+        name, _, pid = line.rpartition("|")
+        if name and _has_agent(pid, kids, args):
+            out.add(name)
+    return out
+
+
+def ctx_pct(ctx_cmd: str, seat: str) -> int | None:
+    """ft-claude-context.sh <좌석> → 사용률 % · 7초 상한 · 실패·숫자 아님 = None(추측 0)."""
+    rc, out = run(["bash", ctx_cmd, seat], timeout=7)
+    return int(out.strip()) if rc == 0 and out.strip().isdigit() else None
 
 
 def turn_info(status_cmd: str, seat: str, path: str = "") -> tuple[str, float | None]:
