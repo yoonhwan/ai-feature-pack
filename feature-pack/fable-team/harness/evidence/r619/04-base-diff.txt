@@ -1,0 +1,28 @@
+diff --git a/feature-pack/fable-team/harness/kit/slack-mirror/install-magazine.sh b/feature-pack/fable-team/harness/kit/slack-mirror/install-magazine.sh
+index 10dcec63..be8555c4 100644
+--- a/feature-pack/fable-team/harness/kit/slack-mirror/install-magazine.sh
++++ b/feature-pack/fable-team/harness/kit/slack-mirror/install-magazine.sh
+@@ -68,10 +68,22 @@ PYEOF
+ done
+ 
+ # ops/magazine 전용 워크트리 — 없을 때만 만든다(있으면 그대로 · rebase/merge 0). main 체크아웃 0.
++# r619: 가지(ops/magazine)는 있는데 폴더만 지워진 경우 `-b` 재생성은 rc=255 로 끝난다 — 가지가 있으면 그 가지로 폴더만 붙인다.
++#       그 가지가 다른 워크트리에 이미 붙어 있으면 붙이지 않고 WARN 1줄(경로) + rc0.
+ if [ -e "$WT/.git" ]; then
+   echo "worktree 있음: $WT (그대로)"
+ elif git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+-  git -C "$ROOT" worktree add -b ops/magazine "$WT" origin/main
++  if git -C "$ROOT" show-ref --verify --quiet refs/heads/ops/magazine; then
++    BRANCH_WT="$(git -C "$ROOT" worktree list --porcelain \
++      | awk '/^worktree /{w=substr($0,10)} /^branch /{if ($2=="refs/heads/ops/magazine") print w}')"
++    if [ -n "$BRANCH_WT" ]; then
++      echo "WARN: ops/magazine 가지가 다른 워크트리에 이미 붙어 있음 — 붙이지 않음: $BRANCH_WT" >&2
++    else
++      git -C "$ROOT" worktree add "$WT" ops/magazine
++    fi
++  else
++    git -C "$ROOT" worktree add -b ops/magazine "$WT" origin/main
++  fi
+ else
+   echo "WARN: $ROOT 가 git 리포가 아님 — ops/magazine 워크트리 생성 건너뜀" >&2
+ fi
