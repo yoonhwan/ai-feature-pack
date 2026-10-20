@@ -585,10 +585,50 @@ live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐
   return 0
 }
 
+# ★R615 나노 제외 + 재개 직전 재확인★ — 정상으로 닫힌 나노(ft-nano-close: 명부 pop → 세션 kill)는 «죽은 좌석» 이 아니다(나노는 카드로 새로 연다 · 판정 2219).
+#   죽음 목록을 만들 때 role=nano 는 건너뛰고(같은 좌석 하루 1번 로그), claim 바로 앞에서 명부를 «다시» 읽어 그 줄이 없거나 닫힌 표식이면 재개 0.
+#   이유 = 명부는 루프 첫머리에 한 번 읽는데 좌석마다 pane_of·record·rested 를 도는 사이에 닫기가 끼면 «줄 있음 + 화면 없음» = 죽음 오판(2026-10-21 07:12 실사건).
+nano_skip_note() {   # 같은 좌석은 하루 1번(disabled 경보와 같은 표식 규칙)
+  local f
+  [ "$DRY" = 1 ] && return 0
+  f="$STATE_DIR/nano-skip/$(printf '%s' "$1" | tr '/#' '__').$(date +%Y%m%d)"
+  mkdir -p "$STATE_DIR/nano-skip" 2>/dev/null || return 0
+  [ -e "$f" ] && return 0
+  : > "$f" 2>/dev/null || return 0
+  log "dead_seat_watch: $1 — 재개 대상 아님(nano · spawn 으로 다시 연다)"
+}
+# $1 = 좌석 → active | absent | retired | nano | unreadable (명부 재확인 · 실패는 재개 0 쪽으로 fail-closed)
+resume_target_state() {
+  python3 - "$SEATS" "$1" <<'PY' 2>/dev/null || echo unreadable
+import json, sys
+try: d = json.load(open(sys.argv[1]))
+except Exception: print("unreadable"); raise SystemExit
+v = d.get(sys.argv[2])
+if not isinstance(v, dict): print("absent")
+elif v.get("_replaced_by") or v.get("role") == "stop-ready": print("retired")
+elif v.get("role") == "nano": print("nano")
+else: print("active")
+PY
+}
+
+# $1 = 좌석 → 계보 사유 1줄(출력 있으면 재개 0) · 없으면 통과. ★같은 베이스의 더 큰 번호 세션이 살아 있으면 재개 0(그 이름을 남긴다)★ — 이름에 번호가 없거나 tmux 목록을 못 읽으면 fail-closed.
+lineage_busy() {
+  local seat="$1" base num out n m
+  case "$seat" in *'#'*) base="${seat%#*}"; num="${seat##*#}";; *) echo "이름에 번호 없음"; return 0;; esac
+  case "$num" in ''|*[!0-9]*) echo "이름에 번호 없음"; return 0;; esac
+  out="$(tmux list-panes -a -F '#{session_name}' 2>/dev/null)" || { echo "tmux 목록 못 읽음"; return 0; }   # 명령 실패만 fail-closed — 빈 목록(세션 0)은 계보 충돌 0
+  for n in $out; do
+    case "$n" in "$base"\#*) ;; *) continue;; esac
+    m="${n##*#}"; case "$m" in ''|*[!0-9]*) continue;; esac
+    [ "$m" -gt "$num" ] && { echo "같은 계보 $n 생존"; return 0; }
+  done
+  return 0
+}
+
 # ② 죽음 = 명부 현역 ∧ tmux 세션 없음 ∧ «완료·휴식» 아님. ON 일 때만 한 루프 1석(master→planner→arch→그 밖) 자원 문지기 통과 시 같은 대화로 재개.
 #    시도 = 원장 선점(mkdir lock) → pending → zombie-clean resume --from-live. pending·failed 는 영구 제외 — 풀 수 있는 것은 오빠 allow 토큰 1개뿐. OFF = 재개 0 · 죽음 목록 1통(바뀐 때만).
 dead_seat_watch() {
-  local rows mode seat role agent model uuid jl st dead="" n=0 line key sigf sig shrc tried=0 lines="" can why out rc
+  local rows mode seat role agent model uuid jl st dead="" n=0 line key sigf sig shrc tried=0 lines="" can why out rc tstate lbusy
   [ "${FT_TICK_RESUME:-1}" = 1 ] || return 0
   [ -f "$RESUME_ATTEMPT" ] || { echo "$(date '+%F %T') dead_seat_watch: missing $RESUME_ATTEMPT" >&2; return 0; }
   rows="$(resume_rows 2>/dev/null)" || { echo "$(date '+%F %T') dead_seat_watch: seats.json unreadable ($SEATS)" >&2; return 0; }
@@ -597,6 +637,10 @@ dead_seat_watch() {
   case "$mode" in on) ;; off) ;; *) echo "$(date '+%F %T') dead_seat_watch: ERROR autonomy mode unreadable (${mode:-none}) — OFF 로 취급(재개 0)" >&2; mode=off;; esac
   while IFS=$'\t' read -r seat role agent model; do
     [ -n "$seat" ] && [ -z "$(pane_of "$seat")" ] || continue
+    if [ "$role" = nano ]; then   # 나노는 자동 재개 대상 아님 — 죽음 목록·누적 정지 어디에도 싣지 않는다
+      [ "$DRY" = 1 ] && echo "DRY kind=dead-seat-nano seat=$seat"
+      nano_skip_note "$seat"; continue
+    fi
     jl="$(bash "$RESUME_ATTEMPT" record "$seat" jsonl 2>/dev/null)" && bash "$RESUME_ATTEMPT" rested "$jl" && continue   # 완료·휴식 = 죽은 게 아니라 쉬는 중
     case "$role" in master) key=0;; *) case "$seat" in *-planner-*) key=1;; *-arch-*) key=2;; *) key=3;; esac;; esac
     dead+="$key"$'\t'"$seat"$'\t'"$agent"$'\n'
@@ -604,6 +648,12 @@ dead_seat_watch() {
   dead="$(printf '%s' "$dead" | sort -s -t$'\t' -k1,1n)"
   while IFS=$'\t' read -r key seat agent; do
     [ -n "$seat" ] || continue; n=$(( n + 1 ))
+    tstate="$(resume_target_state "$seat")"; case "$tstate" in
+      active) ;;
+      absent) log "dead_seat_watch: $seat — 명부에 없음(닫힘) — 재개 0"; continue;;
+      *)      log "dead_seat_watch: $seat — 재개 대상 아님($tstate) — 재개 0"; continue;;   # retired·nano·unreadable = fail-closed
+    esac
+    lbusy="$(lineage_busy "$seat")"; [ -z "$lbusy" ] || { log "dead_seat_watch: $seat — 재개 대상 아님($lbusy) — 재개 0"; continue; }
     uuid=""; [ "$agent" = claude ] && uuid="$(bash "$RESUME_ATTEMPT" record "$seat" uuid 2>/dev/null)"
     if [ -z "$uuid" ]; then lines+="$seat(재개 기록 없음 — 사람 판정) "; continue; fi
     can="$(bash "$RESUME_ATTEMPT" can-try "$seat" "$uuid" 2>/dev/null)"
@@ -646,6 +696,7 @@ idle_long_watch() {
   while IFS=$'\t' read -r seat role; do
     [ -n "$seat" ] || continue
     p="$(pane_of "$seat")"; [ -n "$p" ] || { rm -f "$sdir/$seat"; continue; }
+    [ "$role" = nano ] && { rm -f "$sdir/$seat"; continue; }   # R615: 나노는 누적 정지 감지 대상 아님(카드로 새로 연다)
     read -r st end dur rep src <<< "$(turn_line "$seat")"
     [ "$st" = IDLE ] && [ "$src" != pane ] || { rm -f "$sdir/$seat"; continue; }
     ep="$(iso_epoch "$end")"; [ -n "$ep" ] || continue

@@ -100,7 +100,7 @@ o="$(env HOME="$H" PATH="$F:$PATH" ZC_LIVE_DIR="$LIVE" bash "$ZC" resume "$M" --
 o="$(env HOME="$H" PATH="$F:$PATH" ZC_LIVE_DIR="$LIVE" bash "$ZC" resume "$M" --dry-run 2>&1)"; has "$o" "재개 기록 없음" "ⓐ --from-live 없으면 은퇴 기록 경로(스냅샷 안 읽음)"
 
 # ── ⓑⓒ 죽음 판정 + OFF 는 목록 1통(바뀐 때만) · 재개 0 ──
-reset; roster "$M:master:claude" "$P:planner:claude" "$A:arch:claude" "$N:nano:claude" "$C:da:codex" "byz-t-gone#0:stop-ready:claude" "byz-t-old#0:nano:claude:x"
+reset; roster "$M:master:claude" "$P:planner:claude" "$A:arch:claude" "$N:implementer:claude" "$C:da:codex"   # R615: 나노는 재개 대상 아님 — 이 시험의 «죽은 claude 좌석» 은 다른 역할로 본다 "byz-t-gone#0:stop-ready:claude" "byz-t-old#0:nano:claude:x"
 live "$M" %1 100 1001 uuid-m; live "$P" %2 200 1002 uuid-p; live "$A" %3 300 1003 uuid-a; live "$N" %4 400 1004 uuid-n; live "$C" %5 500 1005 uuid-c
 TICK >/dev/null; die_seat "$N"; die_seat "$C"
 TICK >/dev/null
@@ -112,7 +112,7 @@ TICK >/dev/null; eq "$(cnt "$MLOG" "[죽은 좌석")" 1 "ⓒ 같은 목록은 �
 die_seat "$A"; TICK >/dev/null; eq "$(cnt "$MLOG" "[죽은 좌석")" 2 "ⓒ 목록이 바뀌면 다시 보낸다"
 
 # ── ⓓ 한 루프 1석 · 순서 master→planner→arch→그 밖 / ⓔ 같은 좌석+uuid 1회 / ③ 틱 재시작 뒤 유지 ──
-reset; roster "$M:master:claude" "$P:planner:claude" "$A:arch:claude" "$N:nano:claude"
+reset; roster "$M:master:claude" "$P:planner:claude" "$A:arch:claude" "$N:implementer:claude"   # R615: 나노 제외 — 순서 시험은 역할 좌석으로
 live "$M" %1 100 1001 uuid-m; live "$P" %2 200 1002 uuid-p; live "$A" %3 300 1003 uuid-a; live "$N" %4 400 1004 uuid-n
 TICK >/dev/null; echo on > "$T/auto.mode"; for s in "$N" "$A" "$P" "$M"; do die_seat "$s"; done
 TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 1 "ⓓ 한 루프 1석"; has "$(cat "$ZLOG")" "resume $M --from-live" "ⓓ 첫 순번 = master"
@@ -170,13 +170,13 @@ die_seat "$M"; TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 1 "ok 뒤 �
 live "$M" %1 100 1001 uuid-m2; TICK >/dev/null; die_seat "$M"; TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 2 "새 uuid 일 때만 새 원장"
 
 # ── 완료·휴식 좌석은 죽음 대상 아님 ──
-reset; roster "$N:nano:claude"; live "$N" %1 100 1001 uuid-n; TICK >/dev/null; echo on > "$T/auto.mode"
+reset; roster "$N:implementer:claude"; live "$N" %1 100 1001 uuid-n; TICK >/dev/null; echo on > "$T/auto.mode"   # R615: 나노 제외 — 같은 축을 역할 좌석으로 본다
 JL="$(jsonl_of 1001 uuid-n)"; printf '{"type":"assistant","message":"[완료·휴식] 끝"}\n{"type":"system","subtype":"turn_duration"}\n' > "$JL"; TICK >/dev/null; die_seat "$N"
 TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 0 "ⓑ 완료·휴식 좌석은 재개 0"
 printf '{"type":"assistant","message":"일하는 중"}\n{"type":"system","subtype":"turn_duration"}\n' > "$JL"; TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 1 "ⓑ 쪽지가 없으면 같은 좌석을 재개(대조)"
 
 # ── ⓖ 누적 정지: IDLE ≥10분 ∧ 받은 발주 0 · 바뀐 때만 · master 도 대상 ──
-reset; W="byz-t-nano-w#0"; X="byz-t-nano-x2#0"; roster "$M:master:claude" "$P:planner:claude" "$N:nano:claude" "$W:nano:claude" "$X:nano:claude"
+reset; W="byz-t-nano-w#0"; X="byz-t-nano-x2#0"; roster "$M:master:claude" "$P:planner:claude" "$N:implementer:claude" "$W:implementer:claude" "$X:implementer:claude"   # R615: 나노는 누적 정지 대상 아님
 for s in "$M" "$P" "$N" "$W" "$X"; do k="${s//#/_}"; live "$s" "%$RANDOM" 1 "$RANDOM" "u-$k"; done
 ago() { TZ=UTC date -v-"$1"M +%Y-%m-%dT%H:%M:%S; }
 printf 'IDLE %s 5000 yes jsonl\n' "$(ago 15)" > "$T/turn.${N//#/_}"; printf 'IDLE %s 5000 yes jsonl\n' "$(ago 65)" > "$T/turn.${M//#/_}"; printf 'IDLE %s 5000 yes jsonl\n' "$(ago 3)" > "$T/turn.${P//#/_}"

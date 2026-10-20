@@ -1,0 +1,2 @@
+cmp0 ft-tick.sh
+bash -n ok
