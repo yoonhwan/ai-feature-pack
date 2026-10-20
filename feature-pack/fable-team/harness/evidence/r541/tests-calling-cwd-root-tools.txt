@@ -61,6 +61,7 @@ tests/test_hil.sh	ft-wt-sweep.sh	no	no
 tests/test_hil_ledger.sh	ft-hil-answer.sh,ft-hil-ask.sh	no	no
 tests/test_hil_run_marker.sh	ft-tick.sh	no	no
 tests/test_index_move_slack.sh	ft-resume-cmd.sh	no	no
+tests/test_install_launchd_render.sh	ft-wt-sweep.sh	yes	no
 tests/test_install_team_tick_live.sh	ft-tick.sh	no	no
 tests/test_installed_root.sh	ft-hil-ask.sh,ft-tick.sh	yes	no
 tests/test_issue_classify.sh	ft-issue-create-pair.sh	no	no
