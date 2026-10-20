@@ -1,0 +1,4 @@
+# r591 02 — 후(고친 키트 훅) 같은 시험 = ALL PASS · 2026-10-21 02:13:09
+PASS [nr] rc=0 :: printf '| R39 | %s | rm -rf 오탐 |\n' x >> ledger.md
+SUMMARY blocked=76 pass=25 stage=2 sample=5 fail=0
+OK

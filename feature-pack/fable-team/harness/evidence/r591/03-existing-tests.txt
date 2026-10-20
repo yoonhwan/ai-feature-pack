@@ -1,0 +1,19 @@
+# r591 03 — 기존 시험(카드 인접만 · 광역 0) · 2026-10-21 02:13:21
+bash -n rc=0
+=== tests/test_block_destructive_inject.sh
+SUMMARY block=73 pass=75 mutant=19 fail=0
+OK
+=== tests/test_block_destructive_inject_post.sh
+SUMMARY pass=18 block=43 mutant=21 fail=0
+OK
+=== tests/test_block_destructive_hil.sh
+SUMMARY blocked=49 pass=12 fail=0
+OK
+## PATTERN 원문 diff (origin/main → 이 카드)
+15c15
+< -f\b
+---
+> [[:space:]]-f\b
+## 홈 훅 대조(설치는 master 소관 — 지금은 다르다가 정상)
+kit/fable-team/templates/hooks/block-destructive.sh /Users/yoonhwan/.claude/hooks/block-destructive.sh differ: char 995, line 17
+cmp!=0 (미설치 · master cp -p 대상)

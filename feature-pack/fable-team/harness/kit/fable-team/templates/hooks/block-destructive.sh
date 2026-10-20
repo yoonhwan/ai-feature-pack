@@ -14,8 +14,8 @@ except Exception:
 # 파괴/비가역 패턴 (대소문자 무시)
 # 2026-07-11 예외: tmux kill-session은 하드블록에서 제외(사용자 명시 표준승인 —
 # "tmux,tmuxc는 컨트롤해도됨", cmux 메모리 고갈 방지 위한 상시 세션 정리 목적).
-# kill-server(전체 서버 종료, 모든 세션 동시 파괴)는 그대로 차단 유지. R44: push 는 원격 ref 를 덮거나 지우는 꼴(+ref · :ref · --delete/-d · --mirror)도 force 와 같이 차단.
-PATTERN='tmux kill-server|rm -[rf][rf]|rm -[rf] +-[rf]|gcloud [a-z0-9 _-]*(delete|destroy)|DROP +(TABLE|DATABASE|SCHEMA)|TRUNCATE +TABLE|dropdb|terraform +destroy|kubectl +delete|git +push[^&|;]*(--force|-f\b|--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+[^[:space:]]|[[:space:]]:[^[:space:]])|git +worktree +remove|git +branch +-D|supabase [a-z0-9 _-]*delete|kill -9|pkill'
+# kill-server(전체 서버 종료, 모든 세션 동시 파괴)는 그대로 차단 유지. R44: push 는 원격 ref 를 덮거나 지우는 꼴(+ref · :ref · --delete/-d · --mirror)도 force 와 같이 차단. r591: -f 도 옵션 자리(앞 공백)만 — 이름 끝 -f 오탐.
+PATTERN='tmux kill-server|rm -[rf][rf]|rm -[rf] +-[rf]|gcloud [a-z0-9 _-]*(delete|destroy)|DROP +(TABLE|DATABASE|SCHEMA)|TRUNCATE +TABLE|dropdb|terraform +destroy|kubectl +delete|git +push[^&|;]*(--force|[[:space:]]-f\b|--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+[^[:space:]]|[[:space:]]:[^[:space:]])|git +worktree +remove|git +branch +-D|supabase [a-z0-9 _-]*delete|kill -9|pkill'
 
 # ── 판정 466: «글자로만 들어 있는» 파괴 명령은 통과, «실행되는» 파괴 명령만 차단 ──
 # 명령을 구간(; && || | & 개행)으로 나눠 글 싱크(echo·printf·정본 mbox 송신·git commit·grep·대입·cat/tee heredoc
