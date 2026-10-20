@@ -50,8 +50,8 @@ sc --sweep
 git -C "$G" worktree list | grep -q "$D1" && bad "ⓛ worktree 목록에 남음" || ok "ⓛ git worktree 목록에서도 제거"
 sc --sweep; [ -z "$OUT" ] && ok "ⓝ 지울 것 없으면 출력 0" || bad "ⓝ [$OUT]"
 # DA⑥ HOLD3: ①tmux 목록 실패 ≠ 세션 0 ②주인 '-' 등록 거부 · ③(r444) 등록 사본은 나이 문턱 0 — 주인이 죽으면 즉시 후보
-OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 60
-sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+생성 1분 → 즉시 후보(r444)" || bad "ⓞ 주인 없음 1분 후보 아님 $OUT"
+OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 90000
+sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+등록 25시간 → 후보(판정 1920 · r548 이 r444 문턱 0 을 되돌림)" || bad "ⓞ 주인 없음 25시간 후보 아님 $OUT"
 touch "$T/tmuxfail"; sc --report
 { ! echo "$OUT" | grep -q "$Y" && echo "$OUT" | grep -q 'ERROR tmux 목록 실패 — 등록 사본 판정 생략'; } && ok "ⓟ tmux 목록 실패 → 등록 사본 후보 0 + ERROR" || bad "ⓟ $OUT"
 mkdir -p "$TMPD/tmp.old3"; touch -t 202001010000 "$TMPD/tmp.old3"; sc --report; echo "$OUT" | grep -q 'tmp.old3' && ok "ⓟ tmux 실패여도 tmp.* 판정은 계속" || bad "ⓟ tmp.* 판정 중단 $OUT"
