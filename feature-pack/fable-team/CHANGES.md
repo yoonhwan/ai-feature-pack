@@ -1,3 +1,11 @@
+## 2026-10-21 — 나노가 표준 워크트리 경로 그대로 가지만 다른 `nano/` 이름으로 일하면 ft-nano-close 좌석 해석이 0 → 사람 실행 계획(.sh.hil)으로 넘어가 30분 대기 → 표준 경로 + 다른 `nano/` 가지만 «정확히 1개» 이고 남의 살아 있는 좌석 가지가 아니면 그 좌석의 워크트리로 인정해 자동 정리(.sh)로 보낸다 (r599 · 1.1.153 · 동작 변경 · 해석 한 줄기만 · 계획 가드·브랜치 삭제 0 무변경)
+
+- 사건(arch 113 실측 2026-10-21 04:3x 읽기 전용 · master 88 발주 125137 · 이번 건은 사람이 04:25 에 계획을 직접 실행해 rc=0 으로 끝남 · 33분 대기): chatbot 원장 47행 `byz-chatbot-nano-c-org-only-knowledge-option-web` 닫힘이 `mode=named-wt wt=<루트>/.worktrees/chatbot-c-org-only-knowledge-option-web branch=nano/c-canon-org-only (계획만)` — 경로는 표준(`<접두><키>`)인데 가지만 키와 다르다. `_is_seat_branch` 가 `^nano/<키>(-rN)?$` 만 인정해 후보가 0 → 명시 모드 계획 `<좌석>.sh.hil`(sweep 밖 · 사람 `!` 실행) → 그동안 워크트리·목록이 남았다. 표준승인 조건(세션 없음 · 미커밋은 `[wip]` 먼저 · info 가지 `nano/*` · 브랜치 삭제 0)에는 «가지 이름 = 좌석 키» 가 없다.
+- 고침(키트 1 `ft-nano-close.sh` · 1함수 + 3줄): `_resolve_std_wt_other()` — `_resolve_seat_wt` 의 후보 0 · 오류 0(세션 없이 남은 좌석)일 때만, 등록 워크트리 중 경로가 `$ROOT/.worktrees/<WT 접두><키>[-rN]` ∧ 체크아웃 가지 `nano/*` ∧ `.worktree-info.json` 가지 == 그 가지 ∧ 그 가지를 키로 하는 살아 있는 좌석 세션 0(tmux 조회 실패 = 인정 0 · fail-closed) 인 것이 «정확히 1개» 면 `SEAT_WT`/`SEAT_BR` 로 쓴다(여럿이면 인정 0). 살아 있는 세션이 그 가지를 키로 있으면 사유 1줄(`… 남의 좌석 가지 · 추측 금지`)만 남기고 인정 0. 원장 닫힘 행에 `mode=std-wt-other-branch wt=<경로> branch=<가지>` 1줄. 계획은 실행 `.sh`(sweep 대상) — 가드 6 · `[wip]` 커밋 · 브랜치 삭제 0 은 그대로.
+- 시험 `harness/tests/test_nano_close_std_wt_other_branch.sh` ⓐ~ⓔ(mktemp 임시 리포 + 가짜 tmux · 실제 좌석·tmux 세션 0): ⓐ 표준 경로 + 가지 `nano/other-work` · info 동일 · 세션 없음 → **옛 판 = REJECT(세션 없음) · 고친 판 = CLOSED-ABSENT rc0 + 계획 `.sh` + 원장 `mode=std-wt-other-branch`**(`.sh.hil` 0 · sweep 이 집어 감 · 브랜치 보존 · 명부 삭제) ⓑ 같은 경로인데 가지 `feat/x` → 표준 0(계획 0 · tmux 변경 0) ⓒ info 가지 ≠ HEAD → 표준 0 ⓓ 그 다른 가지를 키로 하는 좌석 세션이 살아 있음 → 표준 0 + 사유 «남의 좌석 가지 · 추측 금지» ⓔ 가지 = `nano/<키>` 인 기존 표준 좌석 → origin/main 판과 **rc·원장 행 바이트 동일**. **전(origin/main 판 = ⓐ·ⓓ·ⓔ대조 FAIL 9) → 후 27 PASS**(`harness/evidence/r599/01-before-red.txt`·`02-after-pass.txt`).
+- 기존 시험(이 카드 인접만 · 광역 0 · `evidence/r599/03-existing-tests.txt`): `test_nano_close_*.sh` 13종 + `test_kit_bin_sync.sh` · `test_nano_team_env.sh` = **전부 rc=0 · FAIL 0** · kit/bin 사본 cmp0(`04-kit-bin-cmp.txt`) · base 대조 diff(`05-diff-base.txt`).
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-close.sh` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.153 · `install.sh` REQUIRED 변경 0 · 데몬 0. **LIVE_BIN 설치(cmp0) → 실사건 1(설치 뒤 «표준 경로 + 다른 `nano/` 가지» 좌석 1회 닫기에서 원장에 `mode=std-wt-other-branch` 0 · 계획 `.sh` + `wt=cleaned` 원문)은 master 소관 — 미실행.** 되돌림 = `.bak-r599`. press(라이브 오디오 시험) 아님 — 나노는 쏘지 않는다.
+- 범위 밖: 브랜치 삭제·보관 이동(판정 2354 경로) · 나노가 가지를 바꾸는 것 자체를 막기 · 표준 밖 경로의 워크트리 · `--wt/--branch`·`--shared-wt`·재실행(r566·r572) 판정.
 ## 2026-10-21 — `ft-op-token.sh --init-from-op <op 항목 id> <email>`: 운영 계정 비밀번호를 1Password develop 볼트에서 «프로세스 안에서만» 읽어 cred 등록 (r605 · 1.1.152 · 사람 클립보드 손 0 · 기존 세 갈래 바이트 불변)
 
 - 사건: 운영 계정 토큰은 처음 한 번 비밀번호를 저장해야 하는데(`--init`), 지금은 사람이 1Password 에서 비밀번호를 복사해 클립보드에 두고 `pbpaste | ft_op_token.py --init <email>` 을 쳐야 한다 — 팀 일이 사람 손을 기다려 멈춘다(원장 10-09 오빠 «토큰 안된다 매번 이렇게 멍청하게 해야되냐» · 판정 675 · 골 A6 골 6). 비밀번호는 이미 develop 볼트에 있는데, 좌석이 `op` 를 직접 부르면 비밀 출력 차단 훅이 막는다(값이 화면·파이프로 흐르므로).
@@ -12,6 +20,7 @@
 - press 필요: 없음 — 이 단위는 토큰 파일·HTTP 1콜만 만진다(제품 키·말풍선·음성 경로 무관).
 
 
+=======
 ## 2026-10-21 — 승계 도구가 «좌석 워크트리 안 옛 우편함 사본» 을 리포 루트 것보다 먼저 골라 승계 발주가 SEND_FAILED(rc=5 · 빈 셸 좌석) → 워크트리 단계를 빼고, 고른 폴더에 짝 파일(mbox_doorbell.sh)이 없으면 열기 전에 거절한다 (r607 · 1.1.151 · 동작 변경 · 검증 송신·도달 판정·기동 대기 무변경)
 
 - 사건(arch 113 읽기 전용 실측 2026-10-21 05:5x · master 88 발주 125702 ② · cfo 쪽지 125653): `ft-successor-open.sh` 57~61행의 mbox 순서가 `FT_MBOX_SH` → `$WT/.fable-team/comm/mbox.sh` → `$ROOT/.fable-team/comm/mbox.sh` 였다. 링크 워크트리 안의 `.fable-team/comm` 은 9월에 남은 옛 사본이라 ①`mbox.sh` 가 `source "$DIR/mbox_doorbell.sh"` 에서 죽는다(그 폴더에 짝 파일 없음) = cfo 승계가 rc=5 로 끝나 빈 셸 좌석만 남았다 ②설령 짝이 있어도 큐 파일이 따로(마지막 seq 1613 · 09-09)라 진짜 큐가 아닌 옛 큐로 발주가 갔다.
@@ -66,6 +75,7 @@
 - 기존 뉴스 시험(이 카드 인접만 · 광역 0 · `evidence/r601/03-existing-tests.txt`): `test_news_summary_char_budget_r598.py`·`test_news_summary_byte_budget_r596.py`·`test_news_lint_quote_source_r594.py`·`test_news_team_status_line.py`·`test_news_summary_schema_lines.py`·`test_ft_news_html.py` = **68 passed** · `ruff check` All checks passed(`06-ruff.txt`) · kit/bin 사본 cmp0(`04-kit-bin-cmp.txt`) · base 대조 diff(`05-diff-base.txt`).
 - 설치: 있음 — 키트 1(`kit/fable-team/bin/ft_news_html_render.py` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.145 · `install.sh` REQUIRED 변경 0 · 데몬 0(뉴스 데몬이 루트 bin 심 · 재기동 불요). **LIVE_BIN 설치(cmp0) → 실사건 1(설치 뒤 뉴스 틱 30회 «자율 ON 인데 승인 대기 문장» 0 + 발행 완료 원문)은 master 소관 — 미실행.** 되돌림 = `.bak-r601`. press(라이브 오디오 시험) 아님 — 나노는 쏘지 않는다.
 - 범위 밖: 린트 패턴(`APPROVAL_WAIT`) · 원장 «남은 것» 칸 문구 · 다른 FACT_RULES 줄 · 요약 길이 상한(r588·r590·r596·r598).
+=======
 
 ## 2026-10-21 — 골 표 가드가 «옛 판 골 표 복붙» 을 통과시켜 이슈팀 쪽지 머리 상태가 10-20 판으로 고정 → 마커 판이 지금 ref 첫 부모 12커밋보다 뒤면 «골 표 낡음» 으로 거절 (r600 · 1.1.143 · 동작 변경 · 골 칸·골좌표·render·teams 대조 무변경)
 

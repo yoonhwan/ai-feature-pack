@@ -1,0 +1,47 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 표준 경로 + 다른 nano/ 가지 → 좌석 워크트리로 인정(예전엔 해석 0)
+FAIL ⓐ rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/bin
+OK cherry stub
+REJECT byz-planner-nano-ovr#0
+  - ③세션 없음: byz-planner-nano-ovr#0
+  - ⑥나노 워크트리 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/repo/.worktrees/v65-<key>[-rN] — 증거 줄의 HEAD 를 대조할 수 없다
+PASS   └ «해석 0» 사유 없음
+FAIL ⓐ 계획 없음: ls: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/wtclean: No such file or directory
+PASS   └ .sh.hil(사람 대기) 0
+FAIL   └ 원장 행 mode=std-wt-other-branch wt=<표준경로> branch=<다른 가지> — 없음: «mode=std-wt-other-branch wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/repo/.worktrees/v65-ovr branch=nano/other-work» ← 
+FAIL   └ 닫힘 행 append — 없음: «닫힘(ft-nano-close)» ← 
+FAIL ⓐ 명부에 좌석 남음
+PASS   └ 워크트리 그대로(계획은 sweep 몫)
+PASS   └ 브랜치 삭제 0
+FAIL   └ sweep --dry-run 이 이 계획을 집어 간다 — 없음: «byz-planner-nano-ovr#0» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+== ⓑ 같은 경로인데 nano/ 가지가 아님 → 지금처럼 표준 0(자율 정리 0)
+PASS ⓑ rc=1 · 세션 없음(좌석 해석 0)
+PASS   └ 원장 모드 없음
+PASS   └ 계획 0
+PASS   └ tmux 변경 0
+== ⓒ info branch ≠ HEAD 가지 → 표준 0
+PASS ⓒ rc=1 · 세션 없음(info 불일치)
+PASS   └ 계획 0
+== ⓓ 그 다른 가지를 키로 하는 좌석 세션이 살아 있음 → 인정 0 + 사유 1줄(남의 좌석 가지)
+FAIL ⓓ rc=1 · 사유 «남의 좌석 가지 · 추측 금지» — 없음: «남의 좌석 가지 · 추측 금지» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/bin
+OK cherry stub
+REJECT byz-planner-nano-ovr#0
+  - ③세션 없음: byz-planner-nano-ovr#0
+  - ⑥나노 워크트리 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/repo/.worktrees/v65-<key>[-rN] — 증거 줄의 HEAD 를 대조할 수 없다
+FAIL   └ 사유에 살아 있는 세션 이름 — 없음: «byz-planner-nano-other-work#0» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/bin
+OK cherry stub
+REJECT byz-planner-nano-ovr#0
+  - ③세션 없음: byz-planner-nano-ovr#0
+  - ⑥나노 워크트리 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BQTmii8ysE/repo/.worktrees/v65-<key>[-rN] — 증거 줄의 HEAD 를 대조할 수 없다
+PASS   └ 계획 0
+== ⓔ 가지 = nano/<키> 인 기존 표준 좌석 → 회귀 0(바이트 같은 결과)
+PASS ⓔ rc=0 · CLOSED-ABSENT
+PASS   └ 새 모드 문구 0(표준 경로 그대로)
+PASS   └ 원장 wt=planned(기존 꼴)
+PASS   └ 계획 .sh(기존 꼴)
+SKIP ⓔ 옛 판 대조 — origin/main 사본 없음(대조 불가)
+FAIL ⓔ 옛 판 대조 불가
+
+FAILED 9
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

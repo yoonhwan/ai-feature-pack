@@ -1,0 +1,15 @@
+rc=0 test_nano_close_fail_closed.sh 48 PASS / 0 FAIL
+rc=0 test_nano_close_named_wt.sh 63 PASS / 0 FAIL
+rc=0 test_nano_close_never_started.sh 155 PASS / 0 FAIL
+rc=0 test_nano_close_pack_wt.sh 30 PASS / 0 FAIL
+rc=0 test_nano_close_rerun_early.sh 37 PASS / 0 FAIL
+rc=0 test_nano_close_rerun_named_equal.sh 25 PASS / 0 FAIL
+rc=0 test_nano_close_rerun_wt_clean.sh 32 PASS / 0 FAIL
+rc=0 test_nano_close_sha_base.sh 21 PASS / 0 FAIL
+rc=0 test_nano_close_std_wt_other_branch.sh 27 PASS / 0 FAIL
+rc=0 test_nano_close_superseded_by.sh 140 PASS / 0 FAIL
+rc=0 test_nano_close_suspended.sh 92 PASS / 0 FAIL
+rc=0 test_nano_close_worktree_list_pipe.sh 18 PASS / 0 FAIL
+rc=0 test_nano_close_wt_deletion_only.sh 23 PASS / 0 FAIL
+rc=0 test_kit_bin_sync.sh 7 PASS / 0 FAIL
+rc=0 test_nano_team_env.sh 43 PASS / 0 FAIL
