@@ -1,0 +1,17 @@
+r542 시험 요약 · base=5f13b7b2 · 2026-10-20 15:25:07
+새 시험: bash test_reap_agent_pi_r542.sh → ALL PASS 45 (before: FAIL 21/PASS 25 rc=1)
+기존 회수·닫기 시험 rc0:
+  test_opencode_reap.sh rc=0
+  test_nano_close_fail_closed.sh rc=0
+  test_nano_close_rerun_early.sh rc=0
+  test_nano_close_pack_wt.sh rc=0
+  test_nano_close_never_started.sh rc=0
+  test_nano_close_sha_base.sh rc=0
+  test_seat_reap_left0.sh rc=0
+  test_seat_reap_services.sh rc=0
+  test_nano_close_worktree_list_pipe.sh rc=0
+  test_nano_close_wt_deletion_only.sh rc=0
+  test_nano_close_superseded_by.sh rc=0
+bash -n: ft-opencode-reap.sh·ft-nano-close.sh(bin·kit 4)·opencode-reap-check.sh rc=0
+bin↔kit 짝: ft-opencode-reap.sh cmp0 · ft-nano-close.sh cmp0
+shellcheck -S warning(바뀐 3파일+새 시험): 새 경고 0 (SC1090 = base 와 같은 기존 1건 · SC2034 = 기존 시험과 같은 꼴 1건)

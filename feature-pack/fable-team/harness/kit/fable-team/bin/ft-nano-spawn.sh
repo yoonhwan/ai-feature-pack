@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--research] [--dry-run]
+# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--research] [--dry-run]
 #   --research = 리서치 나노(판정 2282 · R387 · 설계 §3·§7) — «진행/ 부모 카드»(DA 보류가 쌓인 카드)를 옮기지 않고 같은 카드에 읽기 전용 조사 좌석을 연다: 좌석 이름 꼬리 `-research` · 발주 본문에 고정 문단(산출 = RESEARCH 파일 1개 · 코드 0) · 카드에 `- 리서치: <좌석> base=<sha> 허용=…` · opencode 는 ft-opencode-reap.sh(r286) 없으면 REJECT
 #   --raise "<사유>" = 상향 모델(claude-fable-*·*astra* · 판정 1641)을 열 때 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
@@ -9,10 +9,10 @@
 # ★팩 ft-tmux-spawn.sh 미사용★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06 「install.json 부재 = exit 4」) · 오빠 §0-A 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 직접 호출.
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
-IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent A] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; MODEL=""; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
+AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
-  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
+  --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
@@ -88,6 +88,9 @@ esac
 #   zcode 슬러그는 설치마다 다르다 — FT_ZCODE_MODEL 로 준다(없으면 REJECT — 없는 모델을 지어내지 않는다).
 # 2026-09-14 오빠 실측 정정 2회: 「zcode 구독 없네 제외」 → 「cmd 월제한이 18일날 풀린다.. cmd도 넘기자」 ⇒ 지금 순위 = luna > sonnet. cmd 는 FT_CMD_ENABLED=1 일 때만 1순위 복귀(월제한 해제 후 오빠가 켠다).
 _cmd_on="${FT_CMD_ENABLED:-0}"
+# ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
+#   (chatbot #120064: `--agent pi --tier search` 가 pi 가 아니라 opencode 로 열렸다). 티어 이름 검사와 ROLE 은 그대로 한다.
+_A0="$AGENT"; _M0="$MODEL"; _E0="$EFFORT"; _F0="$FAST"
 case "$TIER" in
   checker|tester|checker:1|tester:1)
     if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
@@ -98,13 +101,15 @@ case "$TIER" in
   checker:3|tester:3)                AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high";;
   # impl = 구현 나노. 1순위 sonnet-5.5(기본값 — r286 오빠 하네스 뉴스 «Sonnet 5.5 가 Opus·sol 보다 처리 능력 우위» · 옛 09-28 opus5.5 · fable 은 --model 명시로만), :2 luna (cmd 는 FT_CMD_ENABLED=1 일 때 :2 로 끼어듦)
   impl|impl:1) ;;
-  # search = opencode 나노(r286 · DeepSeek V4.1 Flash Free 1M 무료) — 대용량 로그·코드 분석·정본화 서치 «읽고 모으기» 전용 · 닫기 = ft-nano-close(opencode left=0 확인)
-  search) AGENT="opencode"; MODEL="${FT_OC_MODEL:-opencode/deepseek-v4.1-flash-free}";;
+  # search = 검색 나노 — 대용량 로그·코드 분석·정본화 서치 «읽고 모으기» 전용(코드 수정 0) · 기본 에이전트 = FT_SEARCH_AGENT(기본 pi: deepseek flash — opencode 무료 경로는 이 IP 에서 «abusive traffic» 으로 차단 · 2026-10-20) ·
+  #   FT_SEARCH_AGENT=opencode 로 r286 옛 경로(opencode/deepseek-v4.1-flash-free)로 되돌린다 · 모델은 아래 «에이전트별 기본»(FT_PI_MODEL · FT_OC_MODEL) · 닫기 = ft-nano-close(그 에이전트 프로세스 left=0 확인)
+  search) AGENT="${FT_SEARCH_AGENT:-pi}"; MODEL="";;
   impl:2) if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
           else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
   impl:3) AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";;
   '') ;; *) echo "unknown --tier $TIER (checker|tester[:1-3] · impl[:1-3] · search)" >&2; exit 2;;
 esac
+if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
 # 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
 ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
 # --model 미지정(티어도 안 정함)이면 에이전트별 기본 — claude 는 FT_IMPL_MODEL, 그 밖은 모델을 지어내지 않고 정해진 것만(표에 없는 에이전트는 REJECT)
@@ -410,7 +415,7 @@ if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"   # R40
 else _SBR="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)" || { echo "REJECT v65 팀 폴더를 못 풀었다(명단 ${FT_TEAMS_REF:-origin/main}:design/TEAMS.md · 후보 실재 1개) — SEATBELT-README 경로 없음"; exit 1; }; fi
 BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}$_PKX${_EBN}"
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
-[ "$TIER" != search ] || BODY="$BODY ★검색 나노(opencode · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · opencode 프로세스 left=0 확인)."
+[ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0; }

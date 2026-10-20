@@ -42,6 +42,11 @@ for s in $(tmux list-sessions -F '#S' 2>/dev/null); do
     # (실측: 19좌석 STUCK 중 확인한 2건 모두 과거 프롬프트였다).
     # 살아 있는 입력줄은 «항상 맨 아래 ❯» 이고, 비어 있으면 대기·글자가 있으면 미제출이다.
     state=STUCK
+  elif printf '%s\n' "$now" | LC_ALL=C grep -aqE '[0-9.]+%/[0-9.]+[MK] \(auto\)'; then
+    # ★pi 좌석(0.9.2)★ — pi 는 Claude 의 `⏵⏵ … bypass permissions` 줄이 없어 기본값 BUSY 에서 영영 IDLE 로 못 나왔다.
+    #   pi 의 하단 줄(`↑토큰 … CH99%  3.6%/1.0M (auto)  모델`)이 보이면 pi 로 보고, 점자 스피너 + `Working`(`── ⠦ Working ───`)이
+    #   있을 때만 BUSY, 없으면 IDLE. 점자(U+2800~28FF)는 UTF-8 바이트 e2 a0..a3 xx 라 바이트 매치(LC_ALL=C)로 센다.
+    LC_ALL=C grep -aqE $'\xe2[\xa0-\xa3][\x80-\xbf] Working' <<<"$now" || state=IDLE
   elif printf '%s\n' "$cap" | LC_ALL=C grep -aqE '^\s*(⏵⏵|✻|✽).*(auto mode|bypass permissions)' \
      && ! printf '%s\n' "$cap" | LC_ALL=C grep -aqE '✻ .*(Spinning|Thinking|Working|esc to interrupt)'; then
     state=IDLE

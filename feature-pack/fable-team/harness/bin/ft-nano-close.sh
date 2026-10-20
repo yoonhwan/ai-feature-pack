@@ -348,19 +348,20 @@ _wt_clean_run() {
 OC_BIN="${FT_OC_REAP_BIN:-$HERE/ft-opencode-reap.sh}"; OC_PF="${FT_OC_STATE_DIR:-$HOME/.claude/state/opencode}/$(printf '%s' "$SEAT" | tr -c 'A-Za-z0-9._#-' '_').pids"
 # r286 + R387 §7-3·§9-3 — opencode 좌석 = ft-opencode-reap.sh --apply(세션 kill «뒤» · 부모 잃은 serve 까지) · left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(명부는 삭제됨 → 같은 close 재실행 = pid 파일로 다시 회수)
 #   리서치 좌석이었다면 카드에 `- 리서치 닫힘:` 1줄(opencode = 회수 rc·left · 미설치만 «도구 없음» · 그 밖 = kill rc=0) — 부모 완성 게이트(ft-index-move)가 읽는다. 카드 쓰기 실패는 경고.
-#   OC·OC_WT·RS_LINE·CARD 는 호출 시점 값(아래 명부 삭제 직전에 정한다).
+#   r542: 회수 대상 에이전트 = 명부 agent(opencode · pi) — 같은 판정기에 --agent 로 넘긴다(에이전트 이름 표기는 OC-REAPED / PI-REAPED 한 곳) · opencode 때 넘기는 인자는 그대로.
+#   OC·OC_WT·AGARG·RS_LINE·CARD 는 호출 시점 값(아래 명부 삭제 직전에 정한다).
 _oc_close() {
   local tail="kill rc=0" fail=0 out rc left
   if [ "$OC" = 1 ]; then
     if [ -f "$OC_BIN" ]; then
-      out="$(bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} --apply 2>&1)"; rc=$?; left="$(printf '%s' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
+      out="$(bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} ${AGARG[@]+"${AGARG[@]}"} --apply 2>&1)"; rc=$?; left="$(printf '%s' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
       printf '%s\n' "$out" >&2
       if [ "$rc" -eq 0 ] && [ "$left" = left=0 ]; then tail="reap left=0 rc=0"; else tail="CLOSE-FAIL reap ${left:-left=?} rc=$rc"; fail=1; fi
     else tail="reap 도구 없음(r286 미설치)"; fail=$([ -n "$RS_LINE" ] && echo 0 || echo 1); fi
   fi
   [ -z "$RS_LINE" ] || printf -- '- 리서치 닫힘: %s %s %s\n' "$SEAT" "$(date '+%F %T')" "$tail" >> "$CARD" || echo "WARN 리서치 닫힘 줄 쓰기 실패($CARD)"
-  [ "$fail" -eq 0 ] || { echo "$tail — $SEAT opencode 프로세스가 남았다(명부는 삭제됨 · 같은 close 재실행이 pid 파일로 다시 회수)"; exit 1; }
-  [ "$OC" = 0 ] || echo "OC-REAPED $SEAT $tail"
+  [ "$fail" -eq 0 ] || { echo "$tail — $SEAT ${RC_AG:-opencode} 프로세스가 남았다(명부는 삭제됨 · 같은 close 재실행이 pid 파일로 다시 회수)"; exit 1; }
+  [ "$OC" = 0 ] || echo "$( [ "$RC_AG" != pi ] && echo OC-REAPED || echo PI-REAPED ) $SEAT $tail"
 }
 # r448 + r520: 좌석 백그라운드 루프 reap — left≠0 ∨ rc≠0 이면 FT_REAP_RETRY_SLEEP(기본 3)초 뒤 «1회만» 다시(그 순간 돌던 일시 프로세스 · r519 1차 실사건 = git status 1개). 두 번째 결과로 판정.
 #   _wtarg 는 호출 시점 값 · 결과는 _rp_left·_rp_rc 에 남긴다(호출자가 CLOSE-FAIL 문구를 낸다).
@@ -390,7 +391,7 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
     1:*"no server running"*) PANE="";;
     *) echo "REJECT $SEAT"; echo "  - 재실행: tmux 조회 실패(rc=$_trc: ${_tp:0:60}) — 세션 생존 불명(fail-closed)"; exit 1;;
   esac
-  RS_LINE=""; CARD=""; OC_WT=(); [ -z "$SEAT_WT" ] || OC_WT=(--wt "$SEAT_WT"); OC=0; [ ! -f "$OC_PF" ] || OC=1
+  RS_LINE=""; CARD=""; OC_WT=(); AGARG=(); RC_AG=""; [ -z "$SEAT_WT" ] || OC_WT=(--wt "$SEAT_WT"); OC=0; [ ! -f "$OC_PF" ] || OC=1
   _wtarg=(); [ -z "$SEAT_WT" ] || _wtarg=(--wt "$SEAT_WT")
   _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(재실행 · 명부·원장 그대로 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
   if [ -n "$PANE" ]; then
@@ -810,11 +811,12 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 [ -z "$NS_LAND" ] || _su_tag=" never-started (착지 가지 $NS_LAND · 워크트리 정리 0)"   # 개정 r3 규칙 2b   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
+RC_AG=""; case "$RS_AGENT" in opencode|pi) RC_AG="$RS_AGENT";; esac   # r542: 회수 대상 에이전트(명부 값 그대로 · 그 밖·빈 값 = 판정기 기본 opencode)
 if [ -n "${CARD:-}" ] && [ -f "$CARD" ]; then RS_LINE="$(grep -m1 -F -- "- 리서치: $SEAT base=" "$CARD" 2>/dev/null)"; fi
 # r286: opencode 좌석 = 명부 agent 또는 스폰이 남긴 pid 파일 — 명부를 지우기 «앞»에 지금 나무를 pid 파일에 합친다(세션 kill 뒤 부모 잃은 것까지 회수 · 재실행은 pid 파일로 판정 · OC_BIN·OC_PF 는 위 _oc_close 정의 옆)
-OC_WT=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || OC_WT=(--wt "$SEAT_WT")
-OC=0; { [ "$RS_AGENT" = opencode ] || [ -f "$OC_PF" ]; } && OC=1
-[ "$OC" = 0 ] || [ ! -f "$OC_BIN" ] || bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} --record >&2 || echo "WARN opencode pid 기록 실패($SEAT) — 회수는 세션 kill 뒤 나무·cwd 로 다시 찾는다" >&2
+OC_WT=(); AGARG=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || OC_WT=(--wt "$SEAT_WT"); [ "$RC_AG" != pi ] || AGARG=(--agent pi)
+OC=0; { [ -n "$RC_AG" ] || [ -f "$OC_PF" ]; } && OC=1
+[ "$OC" = 0 ] || [ ! -f "$OC_BIN" ] || bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} ${AGARG[@]+"${AGARG[@]}"} --record >&2 || echo "WARN ${RC_AG:-opencode} pid 기록 실패($SEAT) — 회수는 세션 kill 뒤 나무·cwd 로 다시 찾는다" >&2
 if [ -n "$RS_LINE" ] && [ -n "${SEAT_WT:-}" ]; then
   python3 - "$CARD" "$SEAT" "$SEAT_WT" "$RS_LINE" <<'PY' || echo "WARN 리서치 위반 검사 실패 — 기록 못 함(닫기는 계속)"
 import re, subprocess, sys
