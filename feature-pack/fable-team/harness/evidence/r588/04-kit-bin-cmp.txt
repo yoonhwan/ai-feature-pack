@@ -4,5 +4,8 @@ $ cmp kit/fable-team/bin/ft_news_html_lint.py bin/ft_news_html_lint.py
 cmp rc=0
 $ python3.11 -m py_compile …
 py_compile rc=0
+$ ruff check (kit 2 + 시험 1)
+All checks passed!
+ruff rc=0
 $ git log -1 --format=%h origin/main
-9c06ca1a Merge pull request #197 from yoonhwan/nano/r584-news-tests-ledger-sync-env-isolated
+e8502376 Merge pull request #198 from yoonhwan/nano/r585-slack-reply-to-oppa-must-read-root-
