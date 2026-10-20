@@ -44,3 +44,12 @@ FAIL R323 du 는 nice 19 로 돈다 — 없음: «nice=19» ← /private/var/fol
  4 files changed, 96 insertions(+), 8 deletions(-)
 ## 재실행(러너 nice 0) — 위 [현재]/[base] watch 의 nice=20 FAIL 은 러너 nice -n 15 가 겹친 값(15+19→상한 20) · fake_env FAIL 2 = ModuleNotFoundError fake_resource_env(이 시험은 키트 2파일 참조 0 · 변경 무관)
 [현재·nice0] test_resource_watch.sh rc=0 pass=75 fail=0
+
+## main 병합 뒤 재실행 (cdc9645e = 6143ebaf + origin/main 5fb4b134 · 번호 1.1.87 · nice -n 15 직렬)
+- test_resource_cpu_owner rc=0 (28 PASS · FAIL 0)
+- test_resource_cause rc=0 · test_resource_reclaim rc=0 · _reclaim_pressure rc=0 · _reclaim_preventive rc=0
+- test_resource_watch nice15 rc=1(FAIL 1 = «nice=19» 기대에 nice 15+19 겹침 nice=20 · 러너 탓) → nice 0 재실행 rc=0 FAIL 0
+- test_resource_gate rc=1 FAIL 8 · test_resource_gate_pressure rc=1 FAIL 5 — base 5fb4b134(git archive 사본)와 FAIL 줄 경로 뺀 diff 0
+  (base 쪽만 «FAIL core.bare» 1줄 더 = archive 사본이 git 리포 아님 · 사본 탓)
+- «감시자 줄 수» FAIL: base 판 감시자 246줄도 같은 FAIL · r522 판 265줄 — 이미 깨진 시험(따로 고칠 단위 필요)
+- bash -n 0 · shellcheck -S warning (cause·watch·새 시험) rc=0 · kit↔bin cmp0 2
