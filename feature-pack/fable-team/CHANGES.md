@@ -13,6 +13,15 @@
 - 증거 `harness/evidence/r550/`: `01-before-test_live_install.txt`(6 FAIL · «ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음)» 원문) · `00-before-test_live_install_check.txt`(⑥ 1 FAIL) · `02-before-test_tracked_bin_call_gate.txt`(PASS 47 FAIL 25) · `03/04-after-*` · `07-d-grep.txt`(은퇴 뒤 `git grep ft-live-install.sh` = 0).
 - 설치: 있음 — 키트 bin 에서 1 파일 빠짐 → `install.sh --apply --project <루트>` → 새 판 LIVE_BIN 에 `ft-live-install.sh` 없음 · 옛 판 폴더는 그대로(되돌림) · 루트 shim 은 남아 rc3 «라이브 도구 없음» 으로 멈춤(조용한 통과 0). **설치 집행은 master 소관 — 미실행.**
 - 되돌림 = `git revert` 1~2커밋(지우는 것은 git 추적 파일뿐 · 브랜치 삭제 0). 범위 밖: 루트 `.fable-team/bin/ft-live-install.sh` shim 지우기(설치기 shim 정리 몫 · 지금은 rc3 오류로 멈춤) · 옛 staged 문서 고치기 · 다른 «사전 실패» 찾기(나오면 그때 카드).
+## 2026-10-20 — 주간 점검표 planner 칸 P1·P2 의 «읽는 출처» = origin/main gitref (r551 · 1.1.102 · r545 꼴 · 쓰는 자리 그대로)
+
+- 사건(r544 착지 뒤 첫 실행 · master 85 kickstart 16:39 · 쪽지 120375 · arch 109 실측 2026-10-20 16:4x): 주간 점검표의 planner 두 칸(결정 대기열·원장↔발주 대조)이 planner 좌석이 앉은 공용 체크아웃(`.worktrees/v6-realtime-live` · main 보다 **290커밋 뒤**)의 **디스크 폴더**를 읽었다. 그 체크아웃에는 새 자리 `design/teams/planner/` 가 없고 옛 자리 `design/planner/`(원장 마지막 커밋 10-19 18:55)만 있어, 점검표가 **어제 저녁 판**으로 채워지고 «문제 없음» 을 보일 수 있었다 — 10-19 뉴스 22시간 정지·r545 골 표와 같은 뿌리(세 번째).
+- 고침(키트 1 + 정본 bin 짝): `ft_weekly_review.py` 의 `p1_queue`·`p2_ledger` 가 파일을 `git -C <planner 리포> show <ref>:<planner 폴더>/<파일>` 로 읽고, 대기열 파일 목록은 `git ls-tree --name-only <commit> <폴더>/`. 폴더는 r545 `ft_goal_ledger.planner_rel_in_ref` **재사용**(ref 트리에 있는 후보 정확히 1개 · 디스크 실재 여부 안 봄) · ref = env `FT_TEAMS_REF`(기본 `origin/main`) · ref 는 `rev-parse --verify` 로 1회 commit 확정.
+- 칸 값 끝에 **` · origin/main@<sha10>`** — 점검표가 «어느 판에서 읽었나» 를 스스로 말한다. ref 에 폴더·파일이 없으면 예외 → 기존 `safe()` 가 «확인 못 함» 으로 칸에 남긴다(체크아웃으로 조용히 내려가기 0).
+- 시험 `tests/scripts/test_ft_weekly_review.py` ⓐ~ⓔ: 픽스처에 «뒤처진 체크아웃 + 앞선 origin/main» 2판을 넣었다(옛 꼴 `design/planner` = 문제 0 · ref `design/teams/planner` = 문제 1). 새 코드 전 **6 failed · 11 passed**(red-first · `harness/evidence/r551/before-red-base-code.txt`) → 뒤 **17 passed**(`after-pass-mine.txt`). 기존 시험 13건은 단언 그대로 통과 · 짝 셸 시험 `tests/test_team_literal_paths.sh` `fail=0`(120 PASS).
+- 실측(읽기 전용 · 쪽지 0 · 쓰기 0 · `harness/evidence/r551/real-behind-checkout-readonly.txt`): 고치기 전 P1/P2 = 출처 표기 없는 체크아웃 판 → 고친 뒤 `… · origin/main@b7366fecfc`. 원장 두 판 실제 차이 = origin/main 333줄(10-20 15:59) vs 체크아웃 310줄(10-19 18:55) · diff 64줄.
+- 범위 밖(그대로): 점검표를 쓰는 자리(planner 좌석 체크아웃 · 설계대로) · `v6-realtime-live` 에 생긴 untracked 점검표 파일(planner 팀 몫) · planner 좌석이 뒤처진 공용 체크아웃에 앉는 문제(planner·ops 몫) · H1~H8 칸 · 쪽지 규칙.
+- 설치: 키트 1(`kit/fable-team/bin/ft_weekly_review.py` · `harness/bin` 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 데몬 0(launchd 가 매주 새로 부름) · 되돌림 = `.bak-r551`. press 0(점검 도구 — 제품 키·말풍선·음성 경로 무관).
 
 ## 2026-10-20 — 실행 전 Bash 훅 4 의 «명령 조각내기·env argv 분해» 사본을 공용 모듈 1 로 (r546 · 1.1.101 · 구조 커밋 · 동작 변경 0)
 

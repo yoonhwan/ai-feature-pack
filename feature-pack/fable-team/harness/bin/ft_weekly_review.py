@@ -15,6 +15,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from ft_goal_ledger import planner_rel_in_ref
 from ft_team_lib import TeamPathError, team_in
 from ft_weekly_table import carry, notified_state, render, set_notified, table_rows
 
@@ -42,20 +43,61 @@ def run(cmd: str, *extra: str) -> tuple[int, str]:
 
 
 def p1_queue(repo: Path) -> str:
-    d = team_in(repo, "planner")
-    if not d.is_dir():
-        raise FileNotFoundError(d)
-    queues = sorted(d.glob("DECISIONS-oppa-queue-*.md"))
-    if not queues:
-        return "없음 (대기열 파일 0)"
-    ids = [c[0] for c in table_rows(queues[-1].read_text(encoding="utf-8")) if re.fullmatch(r"[A-Z]?\d+", c[0]) and not c[-1]]
-    return f"열린 행 {len(ids)}건: {', '.join(ids)}" if ids else "없음 (열린 행 0)"
+    """r551: 대기열은 «planner 좌석 체크아웃의 디스크» 가 아니라 ref(기본 origin/main)에 올라간 판에서 읽는다 — 체크아웃이 뒤처져도
+    점검표가 낡은 대기열로 «없음» 을 보이지 않는다. 칸 끝에 어느 판인지 붙인다(`origin/main@<sha10>`)."""
+    name, commit, rel = planner_ref(repo)
+    queues = sorted(n for n in _ls_tree(repo, commit, rel) if n.startswith("DECISIONS-oppa-queue-") and n.endswith(".md"))
+    fact = "없음 (대기열 파일 0)"
+    if queues:
+        text = _show(repo, commit, f"{rel}/{queues[-1]}")
+        if text is None:
+            raise TeamPathError(f"ERROR {name}:{rel}/{queues[-1]} 못 읽음")
+        ids = [c[0] for c in table_rows(text) if re.fullmatch(r"[A-Z]?\d+", c[0]) and not c[-1]]
+        fact = f"열린 행 {len(ids)}건: {', '.join(ids)}" if ids else "없음 (열린 행 0)"
+    return f"{fact} · {name}@{commit[:10]}"
 
 
 def p2_ledger(repo: Path) -> str:
-    rows = table_rows((team_in(repo, "planner") / "PLAN-oppa-ledger.md").read_text(encoding="utf-8"))
+    """r551: 원장↔발주 대조도 ref 판(칸 끝 = `origin/main@<sha10>`) · ref 에 원장이 없으면 예외 → safe() 가 «확인 못 함»(체크아웃으로 조용히 내려가지 않는다)."""
+    name, commit, rel = planner_ref(repo)
+    text = _show(repo, commit, f"{rel}/PLAN-oppa-ledger.md")
+    if text is None:
+        raise TeamPathError(f"ERROR {name}:{rel}/PLAN-oppa-ledger.md 없음")
+    rows = table_rows(text)
     bad = [c[1][:30] for c in rows if len(c) == 5 and c[3].startswith("진행") and not re.search(r"\d", c[4])]
-    return f"진행 줄인데 쪽지 번호 0: {len(bad)}줄 ({' / '.join(bad)})" if bad else "없음 (쪽지 번호 0 진행 줄 0)"
+    fact = f"진행 줄인데 쪽지 번호 0: {len(bad)}줄 ({' / '.join(bad)})" if bad else "없음 (쪽지 번호 0 진행 줄 0)"
+    return f"{fact} · {name}@{commit[:10]}"
+
+
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=7)
+
+
+def planner_ref(repo: Path) -> tuple[str, str, str]:
+    """(ref 이름, 그 ref 의 commit sha, planner 팀 폴더 상대 경로) — 폴더는 ref 트리에서 푼다(r545 `planner_rel_in_ref` 재사용 · 디스크 실재 여부 안 본다)."""
+    name = os.environ.get("FT_TEAMS_REF") or "origin/main"
+    p = _git(repo, "rev-parse", "--verify", name)
+    if p.returncode != 0 or not p.stdout.strip():
+        raise TeamPathError(f"ERROR ref 못 읽음({name}): {repo} {p.stderr.strip()[:120]}")
+    return name, p.stdout.strip(), planner_rel_in_ref(TeamPathError, name, repo)
+
+
+def _ls_tree(repo: Path, commit: str, rel: str) -> list[str]:
+    p = _git(repo, "ls-tree", "--name-only", commit, f"{rel}/")
+    if p.returncode != 0:
+        raise TeamPathError(f"ERROR {commit[:10]}:{rel}/ 목록 못 읽음: {p.stderr.strip()[:120]}")
+    pre = f"{rel.rstrip('/')}/"
+    return [ln[len(pre):] for ln in p.stdout.splitlines() if ln.strip() and ln.startswith(pre)]
+
+
+def _show(repo: Path, commit: str, rel: str) -> str | None:
+    """그 commit 트리에 rel 이 있으면 본문 · 없으면 None(r545 `_ledger_show` 꼴 · git 자체 실패는 예외 = fail-closed)."""
+    if _git(repo, "cat-file", "-e", f"{commit}:{rel}").returncode != 0:
+        return None
+    p = _git(repo, "show", f"{commit}:{rel}")
+    if p.returncode != 0:
+        raise TeamPathError(f"ERROR {commit[:10]}:{rel} 못 읽음: {p.stderr.strip()[:120]}")
+    return p.stdout
 
 
 def dumb_keys(path: Path) -> list[str]:

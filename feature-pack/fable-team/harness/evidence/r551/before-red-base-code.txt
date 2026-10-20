@@ -1,0 +1,106 @@
+F....F.....FFFF..                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_creates_both_tables_with_facts ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_creates_both_tables_with_0')
+
+    def test_creates_both_tables_with_facts(tmp_path):  # 1ⓐ ⓑ
+        make_world(tmp_path)
+        res = run_tool(tmp_path)
+        assert res.returncode == 0, res.stderr
+>       check_facts(tmp_path)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:214: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_creates_both_tables_with_0')
+
+    def check_facts(tmp_path):  # 1ⓐ ⓑ
+        pl, hn = (p.read_text(encoding="utf-8") for p in files(tmp_path))
+        p1 = next(r for r in rows(pl) if r.startswith("| P1"))
+>       assert "열린 행 2" in p1 and "A3" in p1 and "B2" in p1 and "A1" not in p1
+E       AssertionError: assert ('열린 행 2' in '| P1 결정 대기열 | 없음 (열린 행 0) | |')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:175: AssertionError
+__________________ test_unreadable_source_is_said_not_silent ___________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_unreadable_source_is_said0')
+
+    def test_unreadable_source_is_said_not_silent(tmp_path):  # #0 RULE — r551: 출처가 gitref 라 «못 읽는 출처» = 없는 ref(디스크 파일 아님)
+        make_world(tmp_path)
+        res = run_tool(tmp_path, ref="origin/없는가지")
+        assert res.returncode == 0, res.stderr
+        pl = files(tmp_path)[0].read_text(encoding="utf-8")
+>       assert "확인 못 함" in next(r for r in rows(pl) if r.startswith("| P1"))
+E       AssertionError: assert '확인 못 함' in '| P1 결정 대기열 | 없음 (열린 행 0) | |'
+E        +  where '| P1 결정 대기열 | 없음 (열린 행 0) | |' = next(<generator object test_unreadable_source_is_said_not_silent.<locals>.<genexpr> at 0x105b32c00>)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:253: AssertionError
+_______________________ test_p2_ignores_behind_checkout ________________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_p2_ignores_behind_checkou0')
+
+    def test_p2_ignores_behind_checkout(tmp_path):  # r551 ⓐ — 체크아웃의 «문제 0» 판이 아니라 origin/main 판
+        make_world(tmp_path)
+        assert run_tool(tmp_path).returncode == 0
+>       assert "쪽지 번호 0: 1줄" in _cell(tmp_path, "P2")
+E       AssertionError: assert '쪽지 번호 0: 1줄' in '| P2 원장↔발주 대조 | 없음 (쪽지 번호 0 진행 줄 0) | |'
+E        +  where '| P2 원장↔발주 대조 | 없음 (쪽지 번호 0 진행 줄 0) | |' = _cell(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_p2_ignores_behind_checkou0'), 'P2')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:319: AssertionError
+______________________ test_p2_source_is_origin_main_sha _______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_p2_source_is_origin_main_0')
+
+    def test_p2_source_is_origin_main_sha(tmp_path):  # r551 ⓑ — 사실 + 출처 origin/main@<sha10>
+        make_world(tmp_path)
+        assert run_tool(tmp_path).returncode == 0
+        p2 = _cell(tmp_path, "P2")
+        sha = re.search(r"origin/main@([0-9a-f]{10})", p2)
+>       assert sha, p2
+E       AssertionError: | P2 원장↔발주 대조 | 없음 (쪽지 번호 0 진행 줄 0) | |
+E       assert None
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:327: AssertionError
+_______________________ test_p1_reads_origin_main_queue ________________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_p1_reads_origin_main_queu0')
+
+    def test_p1_reads_origin_main_queue(tmp_path):  # r551 ⓒ — 대기열도 origin/main 판(체크아웃 = 열린 행 0)
+        make_world(tmp_path)
+        assert run_tool(tmp_path).returncode == 0
+        p1 = _cell(tmp_path, "P1")
+        sha = _git_out(tmp_path / "planner", "rev-parse", "--verify", "origin/main")[:10]
+>       assert "열린 행 2건" in p1 and "A3" in p1 and f"· origin/main@{sha} |" in p1
+E       AssertionError: assert ('열린 행 2건' in '| P1 결정 대기열 | 없음 (열린 행 0) | |')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:336: AssertionError
+___________ test_planner_folder_missing_on_ref_is_said_not_checkout ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-815/test_planner_folder_missing_on0')
+
+    def test_planner_folder_missing_on_ref_is_said_not_checkout(tmp_path):  # r551 ⓓ — ref 에 폴더 없음 = «확인 못 함»(조용히 체크아웃으로 내려가지 않는다)
+        make_world(tmp_path)
+        pl = tmp_path / "planner"
+        base = _git_out(pl, "rev-parse", "HEAD").strip()
+        _git(pl, "checkout", "-q", "origin/main")
+        shutil.rmtree(pl / "design/teams/planner")
+        _commit(pl, "no-planner")
+        _git(pl, "update-ref", "refs/remotes/origin/main", "HEAD")
+        _git(pl, "checkout", "-q", base)  # 체크아웃은 옛 꼴 그대로(design/planner 실재)
+        res = run_tool(tmp_path)
+        assert res.returncode == 0, res.stderr
+        pl_text = files(tmp_path)[0].read_text(encoding="utf-8")
+>       assert "확인 못 함" in next(r for r in rows(pl_text) if r.startswith("| P1"))
+E       AssertionError: assert '확인 못 함' in '| P1 결정 대기열 | 없음 (열린 행 0) | |'
+E        +  where '| P1 결정 대기열 | 없음 (열린 행 0) | |' = next(<generator object test_planner_folder_missing_on_ref_is_said_not_checkout.<locals>.<genexpr> at 0x105b32c00>)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r551-weekly-review-planner-reads-origin-/feature-pack/fable-team/harness/tests/scripts/test_ft_weekly_review.py:351: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_weekly_review.py::test_creates_both_tables_with_facts
+FAILED tests/scripts/test_ft_weekly_review.py::test_unreadable_source_is_said_not_silent
+FAILED tests/scripts/test_ft_weekly_review.py::test_p2_ignores_behind_checkout
+FAILED tests/scripts/test_ft_weekly_review.py::test_p2_source_is_origin_main_sha
+FAILED tests/scripts/test_ft_weekly_review.py::test_p1_reads_origin_main_queue
+FAILED tests/scripts/test_ft_weekly_review.py::test_planner_folder_missing_on_ref_is_said_not_checkout
+6 failed, 11 passed in 11.16s
