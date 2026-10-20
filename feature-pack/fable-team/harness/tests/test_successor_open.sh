@@ -5,7 +5,7 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SO="$HERE/../../harness/kit/fable-team/bin/ft-successor-open.sh"
+SO="${FT_SO_PATH:-$HERE/../../harness/kit/fable-team/bin/ft-successor-open.sh}"   # r609: FT_SO_PATH = 실패 시험 먼저(base 판)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -16,10 +16,15 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; LOG="$TMP/calls.log"; CNT="$TMP/pgrep.cnt"; BODY="$TMP/body.txt"
 mkdir -p "$REPO" "$FAKE"; git -C "$REPO" init -q
 STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-old-claude#1"; NEW="byz-t-new-claude#2"
+OPENED="$TMP/opened"   # r609: tmuxc open 이 세션을 열었음을 tmux 스텁에게 알리는 표식(열기 전 has-session = 1)
 
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
-mkstub tmux   'case "$1" in has-session) exit 0;; list-panes) echo 4242;; display-message) echo "$PANE_CWD";; esac; exit 0'
-mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; exit "${TMUXC_RC:-0}"'
+mkstub tmux   'case "$1" in
+  has-session) [ -n "${EXISTS:-}" ] && case "$*" in *"=$EXISTS"*) exit 0;; esac; [ -f "$OPENED" ] && exit 0; exit 1;;
+  list-panes) echo 4242;;
+  display-message) echo "${PANE_CWD_OVERRIDE:-$PANE_CWD}";;
+esac; exit 0'
+mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
 mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
 mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
@@ -31,8 +36,11 @@ printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' >
 
 JDIR="$TMP/home/.claude/projects/$(printf '%s' "$TMP/pane" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파일 초기화. 출력은 $TMP/out, rc 는 $RC
-  rm -f "$LOG" "$CNT"; rm -rf "$STATE"; : > "$LOG"
-  env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+  rm -f "$LOG" "$CNT" "$OPENED"; rm -rf "$STATE"; : > "$LOG"
+  # r609 ⓞ: 도달 파일을 미리 심는다(«이미 도달» 갈래) — run 이 STATE 를 비우므로 환경 플래그로 심는다
+  [ -n "${SEED_REACHED:-}" ] && mkdir -p "$STATE" && printf '{"successor":"%s","seq":777,"reached_at":"t","rc":0,"model":"m"}\n' "$NEW" > "$STATE/$OLD.json"
+  env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
+      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
@@ -94,8 +102,9 @@ printf '#!/usr/bin/env bash\necho "mbox-target $1" >> "$LOG"; echo "RING seq=$3 
 : > "$REPO/.fable-team/comm/mbox_doorbell.sh"
 mkstub send   'echo send >> "$LOG"; echo "mboxenv $(cd -- "$(dirname -- "${FT_MBOX_SH:-.}")" && pwd -P)/$(basename -- "${FT_MBOX_SH:-.}")" >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'   # r607: 경로 꼴(/var vs /private) 무관하게 실제 폴더로 비교
 runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT_MBOX_SH 를 걸지 않는다
-  local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT"; rm -rf "$STATE"; : > "$LOG"
-  env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+  local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT" "$OPENED"; rm -rf "$STATE"; : > "$LOG"
+  env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
+      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$sox" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?
@@ -143,5 +152,24 @@ mv "$TMP/doorbell.bak" "$REPO/.fable-team/comm/mbox_doorbell.sh"
 run SEND_RC=0
 { [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ]; } \
   && ok "ⓜ FT_MBOX_SH 명시 → 지금과 같음" || bad "ⓜ rc=$RC log=$(tr '\n' ' ' < "$LOG")"
+
+# ⓝ r609(card ⓐ) — 세션은 이미 있고(같은 구 좌석이 연 것) 도달 파일은 없다 → 다시 돌리면 «이어감» · 열기 건너뜀 · ⓒ~ⓔ 그대로 · 도달 파일 1
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0
+{ [ "$RC" -eq 0 ] && grep -q "이어감: 세션 있음 $NEW — 열기 건너뜀" "$TMP/out" && [ "$(count tmuxc)" = 0 ] \
+  && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ] && grep -q "$NEW" "$STATE/$OLD.json"; } \
+  && ok "ⓝ r609 ⓐ 세션 이미 있음 → 이어감 · 열기 건너뜀 · 송신 1 · 도달 파일" || bad "ⓝ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
+# ⓞ r609(card ⓑ) — 세션도 있고 도달 파일도 이미 이 NAME → «이미 도달» rc0 · 송신 0
+EXISTS="$NEW" SEED_REACHED=1 run SEND_RC=0
+{ [ "$RC" -eq 0 ] && grep -q '이미 도달' "$TMP/out" && [ "$(count send)" = 0 ] && [ "$(count tmuxc)" = 0 ] \
+  && [ "$(jq -r '.seq' "$STATE/$OLD.json")" = 777 ]; } \
+  && ok "ⓞ r609 ⓑ 이미 도달 → rc0 · 송신 0(도달 파일 불변)" || bad "ⓞ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
+# ⓟ r609(card ⓒ) — 같은 이름 세션인데 pane 작업 폴더가 $WT 와 다름(남의 세션) → REJECT · 이어가기·송신 0
+OTHER="$TMP/other_repo"; mkdir -p "$OTHER"; git -C "$OTHER" init -q
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$OTHER" run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q 'REJECT 세션' "$TMP/out" && grep -q '남의 세션' "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
+  && ok "ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 0" || bad "ⓟ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

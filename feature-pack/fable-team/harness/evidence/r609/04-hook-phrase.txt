@@ -1,0 +1,19 @@
+# r609 ⓓ 훅 거절 문구 — base 판(FT_HK_PATH) = FAIL 먼저
+FAIL ⑤-2 r609 승계 30초 초과 → deny 문구에 «승계(ft-successor-open)…= run_in_background: true» :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "desk 는 전경 명령 30초 이하만(R241) — 긴 전경 명령 동안 오빠 슬랙 글을 못 읽습니다. `timeout: 30000` 를 주거나 `run_in_background: true` 로 · 긴 일은 arch/나노에 쪽지
+fail=1
+--- 고친 판
+PASS bash -n
+PASS ① desk·백그라운드 → 허용
+PASS ② desk·timeout 30000 → 허용
+PASS ③ desk·timeout 30001 → deny(사유에 run_in_background 안내)
+PASS ④ desk·timeout 없음(기본 120초) → deny
+PASS ⑤ desk·timeout 600000 → deny
+PASS ⑤-2 r609 승계 30초 초과 → deny 문구에 «승계(ft-successor-open)…= run_in_background: true»
+PASS ⑥ desk·timeout 0 → deny(값이 아니라 기본으로 돈다)
+PASS ⑦ desk·background=false + timeout 30000 → 허용
+PASS ⑧ desk 아닌 좌석 → 허용(변경 0)
+PASS ⑨ 명부 없음 → 허용 + 로그 1줄
+PASS ⑩ 좌석 이름을 못 구함 → 허용 + 로그 1줄
+PASS ⑪ 빈 stdin → 허용
+PASS ⑫ Bash 아닌 도구 → 허용
+fail=0

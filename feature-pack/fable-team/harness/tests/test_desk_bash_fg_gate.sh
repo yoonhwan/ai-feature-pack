@@ -3,7 +3,7 @@
 # 격리: 임시 루트(FT_ROOT) + 테스트 tmux 서버(-L 소켓). 판단 근거 = 도구 입력의 run_in_background·timeout 두 값뿐.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ROOT="$HERE/../.."; HK="$ROOT/harness/kit/hooks/desk-bash-fg-gate.sh"
+ROOT="$HERE/../.."; HK="${FT_HK_PATH:-$ROOT/harness/kit/hooks/desk-bash-fg-gate.sh}"   # r609: FT_HK_PATH = 실패 시험 먼저(base 판)
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
 
@@ -30,6 +30,8 @@ run "$D" '{"command":"ls","timeout":30000}'; allowed; ck "② desk·timeout 3000
 run "$D" '{"command":"ls","timeout":30001}'; denied && grep -q 'R241' <<<"$out" && grep -q 'run_in_background' <<<"$out"; ck "③ desk·timeout 30001 → deny(사유에 run_in_background 안내)" $?
 run "$D" '{"command":"ls"}'; denied; ck "④ desk·timeout 없음(기본 120초) → deny" $?
 run "$D" '{"command":"ls","timeout":600000}'; denied; ck "⑤ desk·timeout 600000 → deny" $?
+# r609 ⓓ — 거절 문구가 승계를 직접 말한다(판정 식 불변 · 문구만)
+run "$D" '{"command":"ft-successor-open.sh old wt --name new","timeout":60000}'; denied && grep -qF '승계(ft-successor-open)·시험처럼 30초 넘는 일 = run_in_background: true' <<<"$out"; ck "⑤-2 r609 승계 30초 초과 → deny 문구에 «승계(ft-successor-open)…= run_in_background: true»" $?
 run "$D" '{"command":"ls","timeout":0}'; denied; ck "⑥ desk·timeout 0 → deny(값이 아니라 기본으로 돈다)" $?
 run "$D" '{"command":"ls","run_in_background":false,"timeout":30000}'; allowed; ck "⑦ desk·background=false + timeout 30000 → 허용" $?
 run 'other-r241t#1' '{"command":"ls"}'; allowed; ck "⑧ desk 아닌 좌석 → 허용(변경 0)" $?

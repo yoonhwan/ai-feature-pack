@@ -17,7 +17,9 @@ FG_MS = int(os.environ.get("FT_DESK_FG_MS") or 30000)
 REASON = (
     "desk 는 전경 명령 %d초 이하만(R241) — 긴 전경 명령 동안 오빠 슬랙 글을 못 읽습니다. "
     "`timeout: %d` 를 주거나 `run_in_background: true` 로 · 긴 일은 arch/나노에 쪽지로 맡기세요. "
-    "(쪽지 mbox.sh·byz_thread_post.py 도 timeout 을 줘야 합니다)" % (FG_MS // 1000, FG_MS)
+    "(쪽지 mbox.sh·byz_thread_post.py 도 timeout 을 줘야 합니다) "
+    "승계(ft-successor-open)·시험처럼 30초 넘는 일 = run_in_background: true"
+    % (FG_MS // 1000, FG_MS)
 )
 
 
