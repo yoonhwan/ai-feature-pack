@@ -1,0 +1,77 @@
+PASS bash -n 훅
+PASS bash -n ft-nano-spawn
+PASS bash -n ft-nano-close
+PASS bash -n ft-role-spawn
+PASS bash -n ft-successor-open
+PASS bash -n ft-resource-gate
+PASS bash -n ft-resource-reclaim
+PASS bash -n ft-live-entry
+PASS ⓕ 추적 사본 spawn 직접 호출 → deny
+PASS ⓕ 안내에 라이브 경로(LIVE_BIN 값)
+PASS ⓕ 안내에 $FT_BIN/<이름>
+PASS ⓕ 새 추적 자리(harness/bin) spawn 직접 호출 → deny
+PASS ⓕ 새 자리 안내에 $FT_BIN/<이름>
+PASS ⓕ ft-nano-close → deny
+PASS ⓕ ft-role-spawn → deny
+PASS ⓕ ft-successor-open → deny
+PASS ⓕ ft-resource-gate → deny
+PASS ⓕ ft-resource-reclaim → deny
+PASS ⓕ 새 추적 자리(상대) + && → deny
+PASS ⓕ 키트 사본 경로(상대) + && → deny
+PASS ⓕ 환경 대입·timeout 래퍼 뒤 → deny
+PASS ⓕ 파이프 뒤 → deny
+PASS ⓕ 경로 직접 실행 → deny
+PASS ⓕ 통과: cat /w/scripts/fable-team-bin/ft-nano-spawn.sh
+PASS ⓕ 통과: grep -n HERE /w/scripts/fable-team-bin/ft-nano-close.sh
+PASS ⓕ 통과: sed -n 1,5p /w/scripts/fable-team-bin/ft-nano-spawn.sh
+PASS ⓕ 통과: git show HEAD:scripts/fable-team-bin/ft-nano-spawn.sh
+PASS ⓕ 통과: bash -n /w/scripts/fable-team-bin/ft-nano-spawn.sh
+PASS ⓕ 통과: bash $FT_BIN/ft-nano-spawn.sh --help
+PASS ⓕ 통과: bash /r/.fable-team/bin/ft-nano-spawn.sh --help
+PASS ⓕ 통과: bash /w/scripts/fable-team-bin/ft-tick.sh --once
+PASS ⓕ 통과: bash /w/scripts/fable-team-bin/ft-index-move.sh a b
+PASS ⓕ 통과: FT_ALLOW_TRACKED_BIN=1 bash /w/scripts/fable-team-bin/ft-nan
+PASS ⓕ 통과: ls scripts/fable-team-bin/
+PASS ⓕ 깨진 입력 → 통과 + stderr 경고
+PASS ⓕ 빈 입력 → 통과
+PASS H3 list → 통과 + 경고 1줄 rc0
+PASS H3 str → 통과 + 경고 1줄 rc0
+PASS H3 toolinput-list → 통과 + 경고 1줄 rc0
+PASS H3 python3 없음 → 통과 + 경고 rc0
+PASS 변이 파일 생성(목록 비움)
+PASS 변이 시 ⓕ deny 단언이 깨진다(시험이 변이를 잡는다)
+PASS ⓖ ft-nano-spawn → 라이브 exec($HERE=라이브 · 인자·done=1)
+PASS ⓖ ft-nano-spawn stdin 그대로
+PASS ⓖ ft-nano-spawn rc 그대로(5)
+PASS ⓖ ft-nano-close → 라이브 exec($HERE=라이브 · 인자·done=1)
+PASS ⓖ ft-nano-close stdin 그대로
+PASS ⓖ ft-nano-close rc 그대로(5)
+PASS ⓖ ft-role-spawn → 라이브 exec($HERE=라이브 · 인자·done=1)
+PASS ⓖ ft-role-spawn stdin 그대로
+PASS ⓖ ft-role-spawn rc 그대로(5)
+PASS ⓖ ft-successor-open → 라이브 exec($HERE=라이브 · 인자·done=1)
+PASS ⓖ ft-successor-open stdin 그대로
+PASS ⓖ ft-successor-open rc 그대로(5)
+PASS ⓖ ft-resource-gate → 라이브 exec($HERE=라이브 · 인자·done=1)
+PASS ⓖ ft-resource-gate stdin 그대로
+PASS ⓖ ft-resource-gate rc 그대로(5)
+PASS ⓖ ft-resource-reclaim → 라이브 exec($HERE=라이브 · 인자·done=1)
+PASS ⓖ ft-resource-reclaim stdin 그대로
+PASS ⓖ ft-resource-reclaim rc 그대로(5)
+PASS ⓖ LIVE_BIN 없음 → ERROR rc≠0(rc=3)
+PASS ⓖ 옛 사본 실행 0(건너뜀 줄 없음)
+PASS ⓖ LIVE_BIN 빈 값 → ERROR rc≠0
+PASS H1 ⓖ 상대 LIVE_BIN → ERROR rc3
+PASS H1 ⓖ 상대 LIVE_BIN → 라이브 실행 0
+PASS ⓖ 대상 도구 없음 → ERROR rc≠0
+PASS ⓖ FT_ALLOW_TRACKED_BIN=1 → 라이브로 안 넘김
+PASS r2·사례1 origin/main 을 품은 HEAD → 라이브로 안 넘김
+PASS r2·사례1 제자리 실행(usage rc=2)
+PASS r2·사례2 뒤처진 HEAD → LIVE_BIN exec
+PASS r2·사례2 rc 그대로(5)
+PASS r2·판단 실패 → ERROR rc3
+PASS ⓖ 설치 꼴 → live-entry 개입 0
+PASS ⓖ 임시 복사본(추적 사본·설치 꼴 아님) → live-entry 개입 0
+PASS ⓖ 임시 복사본 제자리 실행(usage rc=2)
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,2 @@
+# ⓓ git grep -n ft-live-install.sh -- feature-pack/fable-team/harness (evidence·staged 문서 제외)
+rc=1

@@ -1,0 +1,14 @@
+# base = 41143520 (origin/nano/r546-hook-cmd-split-shared-module 1.1.101) — 고치기 전 rc/FAIL (ⓔ 대조)
+base rc=1 test_live_install_check.sh               FAIL=2 PASS=50
+base rc=0 test_live_install_check_plist_env.sh     FAIL=0 PASS=39
+base rc=0 test_live_install_check_shim.sh          FAIL=0 PASS=15
+base rc=0 test_live_install_check_tip.sh           FAIL=0 PASS=14
+base rc=0 test_live_bin_drift_check.sh             FAIL=0 PASS=69
+base rc=0 test_install_check_repo_outside.sh       FAIL=0 PASS=9
+base rc=0 test_install_hook_check.sh               FAIL=0 PASS=44
+base rc=0 test_install_launchd_render.sh           FAIL=0 PASS=23
+base rc=0 test_install_team_tick_live.sh           FAIL=0 PASS=48
+base rc=0 test_install_worktree_shim.sh            FAIL=0 PASS=34
+base rc=0 test_installed_root.sh                   FAIL=0 PASS=22
+base rc=1 test_tracked_bin_call_gate.sh            FAIL=25 PASS=47
+base rc=1 test_live_install.sh                     FAIL=6 PASS=2

@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-10-20 — 죽은 복사 설치기 `ft-live-install.sh` 은퇴 + 옛 설치 레이아웃 시험 2개의 글자·픽스처 자리 고침 (r550 · 1.1.103)
+
+- 사건: 나노가 일을 끝낼 때마다 돌리는 기존 시험이 두 개(나중에 셋) 늘 FAIL 이라 «원래 실패하던 것» 으로 넘어갔다(r457 · r491 · r544 세 번 · master 85 발주 120311 · 판정 1395). 실측하니 셋 다 **10-18 리포 분리(r385) 전 모양**이 시험에 남은 것이다.
+- 원인 ①(도구 은퇴): `ft-live-install.sh`(R215 · 키트 ref → `<x>/.fable-team/bin` 에 «파일 복사» 설치)를 `tests/test_live_install.sh` 가 시험하는데, r385 뒤 설치는 `install.sh --apply --project <루트>`(루트 shim + 판 폴더 LIVE_BIN)로 바뀌었고 `kit/fable-team/bin/ft-live-bin-drift-check.sh:28-40` 이 «옛 설치 사본(shim 아님 · LIVE_BIN 없음)» 을 일부러 거절(rc3) → 이 설치기는 지금 어떤 설치에도 못 쓴다 = **죽은 도구**. 부르는 곳 0 실측(`git grep ft-live-install.sh` = 자기 시험·LIVE-MAP 주석뿐 · 홈 `~/.claude/skills`·`rules`·`CLAUDE.md` 언급 0).
+- 원인 ②(시험 글자): `tests/test_live_install_check.sh` ⑥ 1 FAIL = 린트(`kit/fable-team/bin/ft-index-lint-install.sh:17`)가 보는 키트 경로 글자가 `harness/kit/`·`harness/bin/` 로 바뀌었는데 시험 카드 글은 옛 `scripts/harness-install/`.
+- 원인 ③(같은 꼴 세 번째 · r546 나노 실측 · 발주 120421): `tests/test_tracked_bin_call_gate.sh` FAIL 25(r546 이전부터) = 픽스처가 추적 사본을 옛 자리 `scripts/fable-team-bin/` 에 놓는데 `harness/bin/ft-live-entry.sh` 의 넘김 조건은 `*/harness/bin|*/harness/kit/fable-team/bin`(r385 뒤) → 옛 자리 사본은 LIVE_BIN 으로 안 넘어가고 제자리 실행(«unknown two w» · «usage: role 은 …») = ⓖ 22 FAIL · r2 3 은 같은 자리에 `ft-team-lib.sh` 가 없어 «WARN ft-team-lib.sh 없음». 홈 훅 ⓕ(deny)는 옛·새 자리 둘 다 받아 PASS.
+- 고침 ①: `git rm` 3 — `harness/bin/ft-live-install.sh` · `harness/kit/fable-team/bin/ft-live-install.sh`(같은 판 · cmp0) · `harness/tests/test_live_install.sh`. `kit/LIVE-MAP.tsv:15` 주석의 `ft-live-install.sh` → `install.sh --apply --project <루트>`. 옛 staged 설계 문서는 기록이라 그대로.
+- 고침 ②: `tests/test_live_install_check.sh` l4 카드 글 → `harness/kit/hooks/x.sh`(⑥ REJECT 단언 유지) + `l4b` 칸 추가 — 옛 경로 `scripts/harness-install/hooks/x.sh` 만 = 키트 아님 → 통과(r385 뒤 린트 동작을 시험으로 고정). PASS 50 → 52.
+- 고침 ③: `tests/test_tracked_bin_call_gate.sh` 픽스처 추적 사본 자리 `scripts/fable-team-bin/` → `harness/bin/` + 그 자리에 형제 파일 `ft-team-lib.sh`·`ft-harness-root.sh` 복사(도구가 읽는 형제). ⓕ 칸에 새 자리 deny 사례 2 추가(`bash /w/harness/bin/ft-nano-spawn.sh --help` · `cd /y && bash harness/bin/ft-role-spawn.sh da`) · 옛 자리 deny 사례는 훅이 아직 받으므로 그대로 둠. 도구·훅 코드 변경 0. FAIL 25 → 0 · PASS 47 → 75.
+- 시험: `test_tracked_bin_call_gate.sh` rc0 ALL PASS 75 · `test_live_install_check.sh` rc0 ALL PASS 52 · `test_live_install.sh` 은퇴(파일 0). 기존 시험 묶음 12(base 대조 = `evidence/r550/05-base-compare.txt` · 고친 판 = `06-after-compare.txt`) 전부 rc0 — base 에서 rc1 이던 셋만 0 이 됐고 나머지는 rc·PASS 수 그대로.
+- 증거 `harness/evidence/r550/`: `01-before-test_live_install.txt`(6 FAIL · «ERROR 옛 설치 사본(shim 아님 · LIVE_BIN 없음)» 원문) · `00-before-test_live_install_check.txt`(⑥ 1 FAIL) · `02-before-test_tracked_bin_call_gate.txt`(PASS 47 FAIL 25) · `03/04-after-*` · `07-d-grep.txt`(은퇴 뒤 `git grep ft-live-install.sh` = 0).
+- 설치: 있음 — 키트 bin 에서 1 파일 빠짐 → `install.sh --apply --project <루트>` → 새 판 LIVE_BIN 에 `ft-live-install.sh` 없음 · 옛 판 폴더는 그대로(되돌림) · 루트 shim 은 남아 rc3 «라이브 도구 없음» 으로 멈춤(조용한 통과 0). **설치 집행은 master 소관 — 미실행.**
+- 되돌림 = `git revert` 1~2커밋(지우는 것은 git 추적 파일뿐 · 브랜치 삭제 0). 범위 밖: 루트 `.fable-team/bin/ft-live-install.sh` shim 지우기(설치기 shim 정리 몫 · 지금은 rc3 오류로 멈춤) · 옛 staged 문서 고치기 · 다른 «사전 실패» 찾기(나오면 그때 카드).
 ## 2026-10-20 — 주간 점검표 planner 칸 P1·P2 의 «읽는 출처» = origin/main gitref (r551 · 1.1.102 · r545 꼴 · 쓰는 자리 그대로)
 
 - 사건(r544 착지 뒤 첫 실행 · master 85 kickstart 16:39 · 쪽지 120375 · arch 109 실측 2026-10-20 16:4x): 주간 점검표의 planner 두 칸(결정 대기열·원장↔발주 대조)이 planner 좌석이 앉은 공용 체크아웃(`.worktrees/v6-realtime-live` · main 보다 **290커밋 뒤**)의 **디스크 폴더**를 읽었다. 그 체크아웃에는 새 자리 `design/teams/planner/` 가 없고 옛 자리 `design/planner/`(원장 마지막 커밋 10-19 18:55)만 있어, 점검표가 **어제 저녁 판**으로 채워지고 «문제 없음» 을 보일 수 있었다 — 10-19 뉴스 22시간 정지·r545 골 표와 같은 뿌리(세 번째).
