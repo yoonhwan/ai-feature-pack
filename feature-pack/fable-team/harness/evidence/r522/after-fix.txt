@@ -1,0 +1,30 @@
+PASS 키트 사본 cmp 0 ft-resource-cause.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS ⓐ cpu 모드 rc0
+PASS ⓐ yes×4 각 90% 8분 → 조상 pane 의 세션 한 줄
+PASS ⓐ 같은 이름 3개 미만(mds 1개)은 제외
+PASS ⓐ 각 30% 미만(10%)은 제외
+PASS ⓑ ppid 1 · tty 대조 → 같은 세션(tty)
+PASS ⓒ ppid 1 · tty ?? → 주인 미상
+PASS ⓔ 2개 → 빈 출력 rc0
+PASS ⓔ 가장 오래된 것 4분 → 빈 출력
+PASS ps 자료 0 → rc≠0 (4)
+PASS ⓓ tick 1 → runaway-cpu.log 1줄
+PASS ⓓ 로그 줄 = 주인 줄
+PASS ⓓ planner 쪽지 1통
+PASS ⓓ 수신자 = planner 명부 _master
+PASS ⓓ 쪽지 본문 «끄기는 사람 판단 · kill 0»
+PASS ⓓ 같은 서명(명령·주인·개수 · CPU·분만 바뀜) → 다음 tick 쪽지 0
+PASS ⓓ 개수가 바뀌면(4→5) 쪽지 1통 더
+PASS ⓓ planner _master 없음 → 로그 ERROR
+PASS ⓓ 수신자 없음 → 쪽지 0
+PASS ⓔ 2개 tick → 로그 줄 증가 0
+PASS ⓔ 4분 tick → 로그 줄 증가 0
+PASS ⓔ 조건 미달 → 쪽지 0
+PASS 원인 도구 rc≠0 → 로그 ERROR
+PASS ⓕ 가짜 kill·renice·pkill·killall 호출 0
+PASS ⓕ ft-resource-cause.sh 에 kill 계열 0
+PASS ⓕ watch cpu_watch 본문 있음
+PASS ⓕ cpu_watch 에 kill 계열 0
+---- fail=0
+rc=0

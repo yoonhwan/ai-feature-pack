@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — CPU 폭주 «주인» 한 줄 + 감시자 기록·planner 쪽지 1통 · 끄기 0 (r522 · 1.1.80)
+
+- 사건: 08:4x `/usr/bin/yes` 여러 개가 CPU 100% — 오빠가 손으로 끔 · 누가 띄웠는지 사후 추적 자료 0(desk 26 쪽지 119295 · 자원 감시자는 디스크·메모리·swap 만 봄 · arch 106 실측).
+- `ft-resource-cause.sh cpu`(새 모드): `LC_ALL=C ps -axo pid=,ppid=,tty=,etime=,pcpu=,comm=` 를 명령 이름(경로 뺀 이름 · 공백 든 이름 그대로)별로 묶어 «각 CPU ≥30% 인 것 ≥3개 ∧ 그중 가장 오래 ≥5분» 묶음만 → `cpu <명령>×<개수> CPU <합>% <분>분 · 주인 <세션>` (묶음마다 `; ` · CPU 합 큰 순). 주인 = 조상 pane 의 tmux 세션(mem 과 같은 걸음 · 40단) → 없으면 tty ↔ `#{pane_tty}` «<세션> (tty)» → 없으면 «미상»(추측 0) · 주인이 여럿이면 앞 3개 + «외 N». 해당 0 = 빈 출력 rc0 · ps 자료 0 = stderr ERROR rc4. 읽기 전용(프로세스 끄기·우선순위 변경 0). 시험 env `FT_RES_PS`·`FT_RES_TMUX`(가짜 출력 파일).
+- `ft-resource-watch.sh` tick: 표본 뒤 · 문지기·동결 분기 «앞»에 `cpu_watch` 1회(상한 `FT_RES_CPU_CAP_SEC` 7초 · 넘거나 rc≠0 = 로그 ERROR · 동결 판정 영향 0). 출력 있으면 `state/runaway-cpu.log` 1줄(시각 + 줄) · 서명(명령·주인·개수 = CPU·분 뺀 줄)이 직전과 다르면 planner 명부(`FT_SEATS_JSON` · 기본 `seats-planner.json`) `_master` 에 `[CPU 폭주] <줄> · 끄기는 사람 판단 · kill 0` 1통 · 발신 성공 때만 서명 저장(`state/.runaway-cpu.sig` · 실패 = 다음 tick 재시도) · 폭주가 끝나면(빈 출력) 서명 지움 → 다음 폭주는 새 사건. `_master` 없음·우편함 못 풂·발신 실패 = 로그 ERROR(조용한 통과 0).
+- 시험 `test_resource_cpu_owner.sh`(새 · 가짜 ps·tmux·센서·mbox · 임시 루트 · 외부 호출 0 · GIT_* 0) ⓐ 조상 pane(중간 zsh 경유) ⓑ ppid 1 · tty 대조 «(tty)» ⓒ ppid 1 · tty ?? → 주인 미상 ⓓ tick: 로그 1줄 + 쪽지 1통 · 같은 서명 다음 tick 쪽지 0 · 개수 바뀌면 1통 · `_master` 없음 ERROR · 원인 도구 실패 ERROR ⓔ 2개·4분 → 빈 출력·기록 0 ⓕ 가짜 kill·renice·pkill·killall 호출 0 + 코드(따옴표·주석 뺀)에 호출 0 — 고치기 전 FAIL 18(`harness/evidence/r522/before-fix.txt` · ⓐ usage rc2) · 고친 뒤 ALL PASS 28(`after-fix.txt`) · 기존 시험 base 대조 = `existing-tests.txt`.
+- 설치: 키트 2(`ft-resource-cause.sh` · `ft-resource-watch.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 감시자 launchd 재기동(RESTART 줄) · 홈 0 · plist 0 · 되돌림 = `.bak-r522`.
+- 범위 밖: 자동 끄기·우선순위 변경 · CPU 를 동결·회수 조건에 넣기 · 명령 이름 허용 목록 · 08:4x 사건의 주인 찾기(자료 0).
+
 ## 2026-10-20 — `ft-hil.sh --pending` = 파이썬 한 번의 훑기 · 같은 결과를 1초 안에 · 읽기 실패 rc 3 (r521 · 1.1.79)
 
 - 사건: `--pending` 이 `/tmp/h<N>` 880개를 파일마다 `plan_of`(sed·head)·`done_rc`(grep)·`age_min`/`since_min`(stat·date) 하위 프로세스로 훑어 부하 17 에서 2.8~3.2초 · 부하 26~30 에서 4.35~4.68초 → `ft-decision-count` 1회 예산 5.0초(R303)에 붙어 rc4 «ft-hil.sh TimeoutExpired» 2회(§74 r517 · §77 r337 편차 · arch 106 실측).
