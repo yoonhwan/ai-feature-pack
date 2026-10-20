@@ -1,0 +1,7 @@
+# BYZ origin/main 큐 이력 커밋마다 bulk-check --range <c>^..<c> (읽기 전용 · REJECT 만 표시)
+d575bb1ace 10-19 18:57 [docs] planner 원장·판정·자율 대기열 새 경로 최신화 (뉴스 원천 한 곳) :: REJECT 일괄 보류 23줄(AUTONOMY-QUEUE.md:10,AUTONOMY-QUEUE.md:14,AUTONOMY-QUEUE.md:16,AUTONOMY-QUEUE.md:17,AUTONOMY-QUEUE.md:18,AUTONOMY-QUEUE.md:21,AUTONOMY-QUEUE.md
+c42c9a5d82 10-18 20:44 [structure] 팀 폴더 이동 planner: design/planner/ → design/team :: WARN 큐 표를 못 읽음(센 것 0): design/teams/planner/AUTONOMY-QUEUE.md
+OK 일괄 보류 0줄
+e490dcd61e 10-15 17:47 [feature] v65 → main squash — feat/v6-realtime-live 613327 :: WARN 큐 표를 못 읽음(센 것 0): design/planner/AUTONOMY-QUEUE.md
+OK 일괄 보류 0줄
+OK 커밋 17개
