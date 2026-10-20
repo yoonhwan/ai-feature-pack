@@ -1,0 +1,120 @@
+FFFFFF.                                                                  [100%]
+=================================== FAILURES ===================================
+_______________ test_r611a_unknown_email_appends_row_after_login _______________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611a_...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611a_unknown_email_appen0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x114934290>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611a_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611a_unknown_email_appen0/opstub'), ...}
+
+    def test_r611a_unknown_email_appends_row_after_login(env, stub, opstub):
+        """ⓐ 표에 없는 이메일 + op username == 이메일 → 표 끝 1줄 + cred·token 생성 · stdout «(표 줄 추가)»."""
+        opstub["userbody"].write_text(NEW_EMAIL + "\n")
+        before = table_text(env)
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').returncode
+
+tests/test_ft_op_token.py:378: AssertionError
+____________________ test_r611b_username_not_email_rejects _____________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b_...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b_username_not_email_0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x11493c0d0>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b_username_not_email_0/opstub'), ...}
+
+    def test_r611b_username_not_email_rejects(env, stub, opstub):
+        """ⓑ op username ≠ 이메일 → ERR rc2 · 표·cred 쓰기 0."""
+        before = table_text(env)
+        opstub["userbody"].write_text("someone.else@x\n")
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+>       assert r.returncode == 2 and r.stdout.startswith(f"ERR 항목 사용자 이름 ≠ {NEW_EMAIL}")
+E       AssertionError: assert (2 == 2 and False)
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').returncode
+E        +  and   False = <built-in method startswith of str object at 0x114909d40>('ERR 항목 사용자 이름 ≠ new.user@x')
+E        +    where <built-in method startswith of str object at 0x114909d40> = 'ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n'.startswith
+E        +      where 'ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').stdout
+
+tests/test_ft_op_token.py:397: AssertionError
+_________________ test_r611b2_username_read_failure_fixed_line _________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b2...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b2_username_read_fail0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x11493f8d0>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b2...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611b2_username_read_fail0/opstub'), ...}
+
+    def test_r611b2_username_read_failure_fixed_line(env, stub, opstub):
+        """ⓑ2 username 읽기 실패 → r605 와 같은 고정 문구 · 표 쓰기 0."""
+        before = table_text(env)
+        opstub["rc"].write_text("3")
+        opstub["err"].write_text("denied\n")
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+>       assert r.returncode != 0 and r.stdout.startswith("ERR op 읽기 실패 rc=3 (stderr ")
+E       AssertionError: assert (2 != 0 and False)
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').returncode
+E        +  and   False = <built-in method startswith of str object at 0x11490a3d0>('ERR op 읽기 실패 rc=3 (stderr ')
+E        +    where <built-in method startswith of str object at 0x11490a3d0> = 'ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n'.startswith
+E        +      where 'ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').stdout
+
+tests/test_ft_op_token.py:408: AssertionError
+____________________ test_r611c_login_failure_writes_no_row ____________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611c_...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611c_login_failure_write0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x114994190>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611c_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611c_login_failure_write0/opstub'), ...}
+
+    def test_r611c_login_failure_writes_no_row(env, stub, opstub):
+        """ⓒ 로그인 실패 → 표 줄 추가 0 (표는 로그인 성공 뒤에만)."""
+        opstub["userbody"].write_text(NEW_EMAIL + "\n")
+        before = table_text(env)
+        stub.mode = "400"
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+>       assert r.returncode == 1 and r.stdout.startswith(f"ERR {NEW_EMAIL} http=400")
+E       AssertionError: assert (2 == 1)
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').returncode
+
+tests/test_ft_op_token.py:419: AssertionError
+______________________ test_r611d_name_collision_rejects _______________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611d_...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611d_name_collision_reje0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x11491f150>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611d_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611d_name_collision_reje0/opstub'), ...}
+
+    def test_r611d_name_collision_rejects(env, stub, opstub):
+        """ⓓ 새 이름이 이미 있는 파일·표 줄과 겹침 → ERR · 쓰기 0."""
+        opstub["userbody"].write_text(NEW_EMAIL + "\n")
+        before = table_text(env)
+        p = env["sdir"] / NEW_CRED
+        p.write_text("{}")
+        p.chmod(0o600)
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+>       assert r.returncode == 2 and "이름 겹침" in r.stdout and NEW_CRED in r.stdout
+E       AssertionError: assert (2 == 2 and '이름 겹침' in 'ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n')
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').returncode
+E        +  and   'ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').stdout
+
+tests/test_ft_op_token.py:432: AssertionError
+_______________ test_r611e_table_write_is_atomic_and_keeps_bytes _______________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611e_...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611e_table_write_is_atom0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x111d7e650>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611e_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-379/test_r611e_table_write_is_atom0/opstub'), ...}
+
+    def test_r611e_table_write_is_atomic_and_keeps_bytes(env, stub, opstub):
+        """ⓔ 표 = 원자 쓰기(임시 파일 잔여 0) · 권한 600 유지 · 기존 줄 바이트 불변."""
+        opstub["userbody"].write_text(NEW_EMAIL + "\n")
+        before = table_text(env)
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+>       assert r.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r611-op-token-init-from-op-adds-tab...pitem5r605', 'new.user@x'], returncode=2, stdout='ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)\n', stderr='').returncode
+
+tests/test_ft_op_token.py:448: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ft_op_token.py::test_r611a_unknown_email_appends_row_after_login
+FAILED tests/test_ft_op_token.py::test_r611b_username_not_email_rejects - Ass...
+FAILED tests/test_ft_op_token.py::test_r611b2_username_read_failure_fixed_line
+FAILED tests/test_ft_op_token.py::test_r611c_login_failure_writes_no_row - As...
+FAILED tests/test_ft_op_token.py::test_r611d_name_collision_rejects - Asserti...
+FAILED tests/test_ft_op_token.py::test_r611e_table_write_is_atomic_and_keeps_bytes
+6 failed, 1 passed, 21 deselected in 3.83s

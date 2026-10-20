@@ -164,8 +164,8 @@ def ok_line(email, token, token_name):
     return f"OK {email} exp={datetime.fromtimestamp(exp, KST):%H:%M} ({mins}분) file={token_name}"
 
 
-def op_password(item_id):
-    """1Password develop 볼트에서 비밀번호를 «이 프로세스 안으로만» 읽는다 — stdout·argv·파일·env 사본 밖 0.
+def op_field(item_id, label):
+    """1Password develop 볼트에서 필드 하나를 «이 프로세스 안으로만» 읽는다 — stdout·argv·파일·env 사본 밖 0.
 
     develop 토큰이 없으면 기본(kskill) 토큰으로 대체하지 않고 멈춘다(하드 룰 15). 재시도 0.
     """
@@ -175,7 +175,9 @@ def op_password(item_id):
     env = dict(os.environ)
     env["OP_SERVICE_ACCOUNT_TOKEN"] = develop
     exe = os.environ.get("FT_OP_BIN") or "op"
-    argv = [exe, "item", "get", item_id, "--vault", "develop", "--fields", "label=password", "--reveal"]
+    argv = [exe, "item", "get", item_id, "--vault", "develop", "--fields", f"label={label}"]
+    if label == "password":
+        argv.append("--reveal")
     try:
         p = subprocess.run(argv, capture_output=True, text=True, timeout=OP_TIMEOUT_S, env=env)
     except subprocess.TimeoutExpired:
@@ -186,10 +188,40 @@ def op_password(item_id):
         # op stderr 원문은 밖으로 내지 않는다 — 패턴 없는 bare 비밀번호가 섞여 있으면 마스킹으로는 못 막는다(DA⑥ HOLD).
         nbytes = len((p.stderr or "").encode("utf-8", "replace"))
         raise Fail(f"ERR op 읽기 실패 rc={p.returncode} (stderr {nbytes}바이트 · 원문 숨김)")
-    password = (p.stdout or "").rstrip("\r\n")
-    if not password:
-        raise Fail("ERR op 읽기 빈 값 — 항목·필드(label=password) 확인")
-    return password
+    value = (p.stdout or "").rstrip("\r\n")
+    if not value:
+        raise Fail(f"ERR op 읽기 빈 값 — 항목·필드(label={label}) 확인")
+    return value
+
+
+def op_password(item_id):
+    return op_field(item_id, "password")
+
+
+def op_username(item_id):
+    return op_field(item_id, "username")
+
+
+def new_row_names(email, rows):
+    """표에 없는 계정의 파일 이름 2개 — slug(이메일 로컬 부분) · 겹치면 Fail(쓰기 0)."""
+    slug = re.sub(r"[^a-z0-9]", "_", email.split("@", 1)[0].lower())
+    if not slug:
+        raise Fail(f"ERR {email} 파일 이름을 만들 수 없음 — 표 줄 추가는 사람이", 2)
+    names = (f"byz_{slug}.cred", f"byz_{slug}_token_dev")
+    taken = {n for pair in rows.values() for n in pair}
+    for name in names:
+        if name in taken:
+            raise Fail(f"ERR {email} 이름 겹침: {name} — 표·파일 확인", 2)
+    return names
+
+
+def append_table_row(sdir, email, cred_name, token_name):
+    """표 끝에 1줄 «원자» 추가 — 기존 줄 바이트 불변 · 권한 600."""
+    path = os.path.join(sdir, "op-accounts.tsv")
+    text = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
+    atomic_write(path, text + f"{email}\t{cred_name}\t{token_name}\n")
 
 
 def stdin_password(email):
@@ -199,12 +231,23 @@ def stdin_password(email):
     return password
 
 
-def issue(email, init, get_password):
+def issue(email, init, get_password, get_username=None):
     sdir = secrets_dir()
     rows = read_table(sdir) if os.path.isdir(sdir) else {}
-    if email not in rows:
+    missing = email not in rows
+    if missing and get_username is None:
         raise Fail(f"ERR {email} 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)", 2)
-    cred_name, token_name = rows[email]
+    new_row = False
+    if missing:
+        if get_username() != email:
+            raise Fail(f"ERR 항목 사용자 이름 ≠ {email} — 표 줄 추가 안 함", 2)
+        cred_name, token_name = new_row_names(email, rows)
+        for n in (cred_name, token_name):
+            if os.path.exists(os.path.join(sdir, n)):
+                raise Fail(f"ERR {email} 이름 겹침: {n} — 표·파일 확인", 2)
+        new_row = True
+    else:
+        cred_name, token_name = rows[email]
     cred_path, token_path = (os.path.join(sdir, n) for n in (cred_name, token_name))
     check_perms(sdir, [cred_path, token_path, os.path.join(sdir, "op-auth.conf"), os.path.join(sdir, "op-accounts.tsv")], email)
     url, key = read_conf(sdir, email)
@@ -217,13 +260,16 @@ def issue(email, init, get_password):
         cred = json.load(open(cred_path, encoding="utf-8"))
         password = cred.get("password", "")
     token = login(url, key, email, password)
+    if new_row:
+        append_table_row(sdir, email, cred_name, token_name)
     if init:
         if os.path.exists(cred_path):
             cred = json.load(open(cred_path, encoding="utf-8"))
         cred.update({"email": email, "password": password})
         atomic_write(cred_path, json.dumps(cred, ensure_ascii=False))
     atomic_write(token_path, token)
-    return ok_line(email, token, token_name)
+    line = ok_line(email, token, token_name)
+    return line + " (표 줄 추가)" if new_row else line
 
 
 def list_accounts():
@@ -246,7 +292,7 @@ def main(argv):
             if len(argv) != 3 or not argv[1] or not argv[2]:
                 print("usage: ft-op-token.sh --init-from-op <op 항목 id> <email>", file=sys.stderr)
                 return 2
-            print(issue(argv[2], True, lambda: op_password(argv[1])))
+            print(issue(argv[2], True, lambda: op_password(argv[1]), lambda: op_username(argv[1])))
             return 0
         init = argv[:1] == ["--init"]
         args = argv[1:] if init else argv

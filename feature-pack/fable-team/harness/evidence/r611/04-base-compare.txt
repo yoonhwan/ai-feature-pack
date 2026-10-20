@@ -1,0 +1,10 @@
+# r611 base 대조 원문 — 옛 판(origin/main) ft_op_token.py + 새 시험 6종
+# 출처: evidence/r611/01-before-red.txt (git checkout HEAD -- kit/fable-team/bin/ft_op_token.py 뒤 같은 명령)
+
+## 표에 없는 계정 --init-from-op: 옛 판 = rc2 멈춤(사람이 표 1줄)
+ERR new.user@x 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)
+rc=2
+
+## 새 판 같은 입력: 표 끝 1줄 + cred·token 생성
+OK new.user@x exp=HH:MM (N분) file=byz_new_user_token_dev (표 줄 추가)
+rc=0
