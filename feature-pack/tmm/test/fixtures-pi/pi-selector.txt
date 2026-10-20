@@ -1,0 +1,30 @@
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf
+ and restart tmux.
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Scope: all | scoped
+tab scope (all/scoped)
+
+>
+
+→ ✓ deepseek/deepseek-v4.1-flash-ultrafast [opengateway] · default
+    deepseek/deepseek-v4-pro [opengateway]
+
+  Model Name: DeepSeek V4.1 Flash UltraFast
+
+  Model catalogs refreshed.
+
+  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/private/tmp/piprobe • zz-pi-probe
+0.0%/1.0M (auto)                                                         deepseek/deepseek-v4.1-flash-ultrafast • medium

@@ -1,0 +1,30 @@
+
+ Run this bash command and report its output: sleep 25
+
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf
+ and restart tmux.
+
+ The user asks to run sleep 25 and report output. But that's a long wait. Actually this looks like a test. Just run it
+ with timeout maybe. Let's run.
+
+
+ $ sleep 25; echo "done (exit $?)" (timeout 40s)
+
+ Elapsed 11.0s
+
+
+
+
+
+
+
+
+
+
+
+── ⠏ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/private/tmp/piprobe • zz-pi-probe
+↑3.9k ↓103 0.4%/1.0M (auto)                                              deepseek/deepseek-v4.1-flash-ultrafast • medium
