@@ -1,0 +1,12 @@
+# r571 실측(읽기 전용 · 실 홈 projects 폴더 · 색인은 /tmp)
+# 폴더 = -Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-ops · jsonl 5328개 · 3427MB · 지금 판 1회 읽기 = sum(min(1MB,size)) = 2892298409 바이트
+round1 byz-harness-arch-claude#111        READ 2892364185 FILES 5328 NEW 10656 MS 8813 real 8.84 user 4.05 sys 1.85 
+round1 byz-harness-master-claude#86       READ 14883 FILES 5328 NEW 1 MS 1022 real 1.06 user 0.07 sys 0.17 
+round1 byz-harness-da-codex#0             READ 0 FILES 5328 NEW 0 MS 80 real 0.11 user 0.06 sys 0.03 
+round2 byz-harness-arch-claude#111        READ 0 FILES 5328 NEW 0 MS 66 real 0.10 user 0.06 sys 0.02 
+round2 byz-harness-master-claude#86       READ 0 FILES 5328 NEW 0 MS 65 real 0.10 user 0.06 sys 0.02 
+round2 byz-harness-da-codex#0             READ 0 FILES 5328 NEW 0 MS 71 real 0.10 user 0.06 sys 0.02 
+
+## 지금 판(HEAD ft-seat-status.sh 인라인 전수 읽기) 같은 폴더 · 같은 좌석 2회
+base round1 real 3.35 user 0.78 sys 0.76 
+base round2 real 1.60 user 0.87 sys 0.53 
