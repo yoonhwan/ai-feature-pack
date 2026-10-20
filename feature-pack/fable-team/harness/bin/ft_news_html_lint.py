@@ -23,6 +23,7 @@ APPROVAL_WAIT = re.compile(r"승인[^.\n]{0,15}?(기다|대기)")
 REST_SAID = re.compile(r"쉬|멈|정지|대기")
 NEGATED_TAIL = re.compile(r"[^,，.\n]{0,24}?(지\s*않|지\s*못|아니|아닙|않습니다|않는다|않음)")  # r498: 쉼 글자 «뒤» 같은 절의 부정 꼬리
 CLAUSE_END = re.compile(r"[,，.\n]|며 ")  # «고 » 로는 자르지 않는다 — «멈췄다고 단정하지 않» 의 «다고» 가 잘린다
+QUESTION_TAIL = re.compile(r"는지|ㄴ지|은지|던지|었는지|았는지|했는지|인지")  # r602: «쉬는지 일하는지 확인 불가다» = 물음꼴 = 단정 아님
 UNKNOWN_TEAM = re.compile(r'<div class="team unk"><strong>(.*?)</strong>')
 
 
@@ -88,8 +89,12 @@ def fact_problems(html: str, summary: str, prio: str) -> list[str]:
 
 
 def _rest_asserted(s: str) -> bool:
-    """쉼 글자 하나라도 «뒤» 같은 절 안에 부정 꼬리가 없으면 단정(r498 · «쉰다거나 멈췄다고 단정하지 않습니다» 는 단정 아님)."""
-    return any(not NEGATED_TAIL.match(CLAUSE_END.split(s[m.end():], maxsplit=1)[0]) for m in REST_SAID.finditer(s))
+    """쉼 글자 하나라도 «뒤» 같은 절 안에 부정 꼬리가 없으면 단정(r498 · «쉰다거나 멈췄다고 단정하지 않습니다» 는 단정 아님).
+    r602: 쉼 글자 바로 뒤 6자 안이 물음꼴(는지·ㄴ지·…)이면 «모른다» 는 말이므로 단정 아님 — «쉬고 있다»·«대기 중이다» 는 그대로 단정."""
+    def asserted(m: re.Match) -> bool:
+        tail = CLAUSE_END.split(s[m.end():], maxsplit=1)[0]
+        return not (QUESTION_TAIL.search(tail[:6]) or NEGATED_TAIL.match(tail))
+    return any(asserted(m) for m in REST_SAID.finditer(s))
 
 
 def unknown_problems(html: str, said: str) -> list[str]:
