@@ -28,6 +28,7 @@ HOME = os.path.expanduser("~")
 CLAUDE_GLOB = os.environ.get("TMM_CLAUDE_GLOB", os.path.join(HOME, ".claude/projects/*/*.jsonl"))
 CODEX_GLOB = os.environ.get("TMM_CODEX_GLOB", os.path.join(HOME, ".codex/sessions/*/*/*/rollout-*.jsonl"))
 CMD_GLOB = os.environ.get("TMM_CMD_GLOB", os.path.join(HOME, ".commandcode/projects/*/*.jsonl"))
+PI_GLOB = os.environ.get("TMM_PI_GLOB", os.path.join(HOME, ".pi/agent/sessions/*/*.jsonl"))
 OPENCODE_DB = os.environ.get("TMM_OPENCODE_DB", os.path.join(HOME, ".local/share/opencode/opencode.db"))
 SNAPSHOT = os.environ.get("TMM_SNAPSHOT", os.path.join(HOME, ".tmuxc/snapshots/latest.json"))
 
@@ -145,6 +146,23 @@ def live_sids():
     return out
 
 
+def infer_agent_from_resume(resume):
+    r = (resume or "").strip()
+    first = r.split(None, 1)[0] if r else ""
+    base = os.path.basename(first)
+    if base == "pi":
+        return "pi"
+    if base in ("claude", "claude-hr.sh") or "claude" in base:
+        return "claude"
+    if base == "codex":
+        return "codex"
+    if base == "opencode":
+        return "opencode"
+    if base in ("cmd", "cmdc"):
+        return "cmd"
+    return ""
+
+
 def load_snapshot(path):
     """session_id → (name, resume_cmd, model, effort). 없으면 빈 dict."""
     try:
@@ -156,7 +174,14 @@ def load_snapshot(path):
     for s in doc.get("sessions", []):
         sid = s.get("session_id") or ""
         if sid and s.get("resume_cmd"):
-            out[sid] = (s.get("name") or "", s["resume_cmd"], s.get("model") or "", s.get("effort") or "")
+            out[sid] = (
+                s.get("name") or "",
+                s["resume_cmd"],
+                s.get("model") or "",
+                s.get("effort") or "",
+                s.get("agent") or "",
+                s.get("cwd") or "",
+            )
     return out
 
 
@@ -376,6 +401,23 @@ def scan_cmd(since_epoch, live_names, opened):
     return rows
 
 
+def tail_pi(path, n):
+    msgs = []
+    for line in tail_bytes(path, 2_000_000).splitlines():
+        o = jl(line)
+        if not o or o.get("type") != "message":
+            continue
+        m = o.get("message") or {}
+        role = m.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        text = text_of(m.get("content"))
+        if not text or (role == "user" and is_noise_user(text)):
+            continue
+        msgs.append((role, o.get("timestamp") or m.get("timestamp") or "", text))
+    return msgs[-n:]
+
+
 def tail_cmd(path, n):
     msgs = []
     for line in tail_bytes(path, 600 * 1024).splitlines():
@@ -433,7 +475,7 @@ def gen_filter(rows, all_gen):
 
 # ---------- 파일 찾기 (tail 용) ----------
 def find_transcript(sid):
-    for pat in (CLAUDE_GLOB, CODEX_GLOB, CMD_GLOB):
+    for pat in (CLAUDE_GLOB, CODEX_GLOB, CMD_GLOB, PI_GLOB):
         for p in glob.glob(pat):
             if "/subagents/" in p:
                 continue
@@ -442,6 +484,8 @@ def find_transcript(sid):
                     return "claude", p
                 if "/.codex/" in p:
                     return "codex", p
+                if "/.pi/" in p:
+                    return "pi", p
                 return "cmd", p
     return None, None
 
@@ -630,12 +674,20 @@ def resolve_opencode(name, cwd, sid=""):
     return ("opencode", rows[0][0], OPENCODE_DB, match)
 
 
+def resolve_pi(name, cwd, sid=""):
+    # pi는 tmuxc가 sid를 발급하고 live idx는 tmuxc probe를 쓴다. 여기서는 sid exact만 담당.
+    if sid:
+        return _find_sid(sid, "pi")
+    return None
+
+
 RESOLVE_WINDOW = int(os.environ.get("TMM_RESOLVE_WINDOW", "172800"))  # 48h — 이름/ cwd 해석은 최근 파일만
-RESOLVERS = {"claude": resolve_claude, "codex": resolve_codex, "cmd": resolve_cmd, "opencode": resolve_opencode}
+RESOLVERS = {"claude": resolve_claude, "codex": resolve_codex, "cmd": resolve_cmd,
+             "opencode": resolve_opencode, "pi": resolve_pi}
 
 
 def cmd_resolve(a):
-    agents = [a.agent] if a.agent else ["claude", "codex", "cmd", "opencode"]
+    agents = [a.agent] if a.agent else ["claude", "codex", "cmd", "opencode", "pi"]
     name, cwd = a.name or "", a.cwd or ""
     # 1패스: 이름 정확매치 — 같은 cwd 에 claude·codex 가 섞여 있어도 남의 것을 집지 않는다.
     for ag in agents:
@@ -678,7 +730,7 @@ def cmd_excerpt(a):
     if a.cwd:
         out.append("- cwd: %s" % a.cwd)
     out.append("")
-    fn = {"claude": tail_claude, "codex": tail_codex, "cmd": tail_cmd}.get(agent)
+    fn = {"claude": tail_claude, "codex": tail_codex, "cmd": tail_cmd, "pi": tail_pi}.get(agent)
     if not fn:
         out.append("(이 엔진은 대화 tail 미지원 — 위 transcript 경로를 직접 참조)")
     else:
@@ -728,6 +780,25 @@ def cmd_scan(a):
     snap = load_snapshot(a.snapshot)
     rows = scan_claude(since_epoch, live, opened) + scan_codex(since_epoch, live, opened) \
         + scan_cmd(since_epoch, live, opened) + scan_opencode(since_epoch, live)
+    # Snapshot-only rows: pi is not transcript-scanned yet, but tmuxc save pins its
+    # exact resume argv. Add it so `tmm dead`/`restore` can recover pi seats.
+    seen = {r["sid"] for r in rows}
+    for sid, s in snap.items():
+        if sid in seen:
+            continue
+        name, resume, model, effort, agent, cwd = s
+        agent = agent or infer_agent_from_resume(resume)
+        if not agent:
+            continue
+        nm = safe_name(name or ("%s-%s" % (agent, sid[:8])))
+        m = CHAIN_RE.match(nm)
+        base = m.group(1) if m else nm
+        gen = int(m.group(2)) if m else 0
+        rows.append({
+            "src": "SNAP", "agent": agent, "name": nm, "cwd": cwd, "sid": sid,
+            "model": model or "?", "last_msg": "", "last_alive": 0,
+            "base": base, "gen": gen, "resume": resume,
+        })
     for r in rows:
         s = snap.get(r["sid"])
         if s:
@@ -749,7 +820,7 @@ def cmd_tail(a):
     if not path or not agent:
         print("(트랜스크립트 없음: %s)" % a.sid)
         return 1
-    tailers = {"claude": tail_claude, "codex": tail_codex, "cmd": tail_cmd}
+    tailers = {"claude": tail_claude, "codex": tail_codex, "cmd": tail_cmd, "pi": tail_pi}
     msgs = tailers[agent](path, a.n)
     if not msgs:
         print("(대화 없음)")
