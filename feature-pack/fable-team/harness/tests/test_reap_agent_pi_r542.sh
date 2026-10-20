@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_reap_agent_pi_r542.sh — r542: 회수 판정기 한 곳에 «에이전트별 이름 집합»(--agent opencode|pi) · 나노 닫기가 pi 좌석도 회수 · 훅 이름 집합.
 #   진짜 pi·opencode 실행 0 — 스텁 = 이름이 pi 인 bash 스크립트(sleep 루프) · tmux = 가짜(FT_TMUX_BIN) · 신호는 이 시험이 띄운 스텁에만 · 닫기 픽스처 = test_nano_close_fail_closed.sh 와 같은 꼴.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REAP="${PI_REAP:-$HERE/../bin/ft-opencode-reap.sh}"

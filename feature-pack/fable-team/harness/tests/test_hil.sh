@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_hil.sh — R83 ft-hil.sh(짧은 링크 /tmp/h<N> 등록기) + 출력처 ft-wt-sweep 안내 시험.
 # 임시 HIL_DIR·임시 HOME·pbcopy 셸 스텁만 쓴다 — 실 /tmp·실 클립보드·실 계획 실행 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

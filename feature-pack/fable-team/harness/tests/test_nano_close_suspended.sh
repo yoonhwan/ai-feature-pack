@@ -3,6 +3,7 @@
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 실제 cherry 게이트(원장은 임시 경로)만 쓴다 — 실제 리포·seats·tmux 세션은 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 # 축 ⓐ 빈 사유 usage 2 ⓑ 통과 = ⑥ 면제·⑤ override·CLOSED suspended=1·카드 중단 끝줄·원장 행·브랜치 보존 ⓒ 미커밋 → [wip] 먼저(실패 = REJECT)
 #    ⓓ 다른 우회 인자와 동시 usage 2 ⓔ 중단 줄 멱등 ⓕ 인자 없으면 불변(rc=1 증거 줄 REJECT) ⓖ 600/300·외부 호출·GIT_* 0 + 키트 짝 cmp0
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

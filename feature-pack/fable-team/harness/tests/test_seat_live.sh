@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_live.sh — C2 명부 생성기(ft-seat-live.sh) · test_bundle lint 시험.
 # 가짜 tmux(FT_TMUX) · 임시 명부 디렉터리(FT_SEATS_DIR)만 쓴다 — 실제 tmux 세션·seats-*.json 은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"

@@ -5,6 +5,7 @@
 #  ③ planner 회신 행(받은 쪽지 #seq 인용) → 그 쪽지의 스레드에 요약 한 문장 「planner 처리」 1줄 · 새 글(루트) 0 · 음성 대조 다수
 #  (요약기 시간 초과·HTTP 전송 시험은 test_mirror_summary_http.sh)
 # 실제 슬랙·claude 호출 0 — 스텁 명령 · 스텁 deliver · 임시 스레드 맵.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"

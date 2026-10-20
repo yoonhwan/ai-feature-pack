@@ -3,6 +3,7 @@
 # 키트를 올려도 sweep 이 옛 판으로 돈 사건. 설치기(install.sh)가 `__FT_BIN__` 키트 템플릿을 판 없는 루트 shim(<루트>/.fable-team/bin)으로
 # 렌더해 설치본과 다르면 교체·재적재하고, 설치 검사가 판 붙은 live 경로 plist 를 DRIFT 로 센다.
 # 임시 HOME·임시 루트·임시 키트 리포·가짜 launchctl 만 — 실 LaunchAgents·실 launchd·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_CEILING_DIRECTORIES
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_issue_classify.sh — C16 ft-issue-classify.sh · ft-issue-create-pair.sh 시험
 # fixture JSON 과 --dry-run 만 쓴다 — gh 쓰기·mbox 발신·--apply 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"

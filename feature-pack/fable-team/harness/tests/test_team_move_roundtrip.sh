@@ -4,6 +4,7 @@
 #   ⓑ 미전환 워크트리 섞임: `_move_pending` 표식·옛 index 유지·head-sync 뒤 재맞춤 · ft-nano-close 가 쌍둥이 후보로 카드를 찾음(lib 빼면 REJECT = 변이 대조)
 #   ⓒ ft_team_root 세 꼴 13팀 집합 동일 · ⓓ LIVE_ROOT 파일(LIVE_BIN 위치를 바꿔도 같은 원장 · 없음 = ERROR rc1) · ⓔ 조립 하드코딩 린트 0
 # 임시 폴더·가짜 tmux·가짜 lsof 만 쓴다 — 실제 리포·seats·tmux 세션은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_board_publish_norm.sh — R60 템플릿 WorkingDirectory + R62 ft-board-publish.sh norm() 비교 키 정규화.
 # 실제 슬랙·gh·launchd 호출 0: norm() 함수만 뽑아 고정 문자열 쌍을 비교하고, 본문 불변(ⓜ)은 가짜 보드·가짜 post 도구로 본다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

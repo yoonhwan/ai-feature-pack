@@ -2,6 +2,7 @@
 # test_finished_cleanup_auto.sh — r444 끝난 것 자동 정리: ⓐⓑ wt-sweep --launchd · ⓒ scratch sweep(tmux 주입·즉시) · ⓓ ft-finished-check · ⓔⓚ ft-branch-archive
 #   ⓕ branch -D 0 · ⓖ spawn sparse 패턴 · ⓗ spawn 여유 검사 · ⓘ nano-close ⑥ 팀 폴더 리졸버 · ⓙ 600/300·외부 호출 0 · ⓛ 껍데기 경보 팀 라우팅
 # 픽스처 = 임시 리포 + 가짜 tmux·mbox · 실제 워크트리·세션·우편함 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

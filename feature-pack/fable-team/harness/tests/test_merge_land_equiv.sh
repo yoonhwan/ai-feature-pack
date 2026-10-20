@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_merge_land_equiv.sh — R247 판정 1917: 승인 sha A 뒤 «main 병합만» 한 PR head S 는 같은 승인으로 착지 (임시 origin+clone · gh 는 스텁 · 실 gh·실 원격 0)
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

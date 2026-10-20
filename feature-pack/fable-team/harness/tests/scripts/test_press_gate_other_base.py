@@ -17,6 +17,7 @@ import subprocess
 
 from ft_git_helpers import BIN, commit, git
 from test_press_gate_set_membership import _gate, _nano, _section1, fake  # noqa: F401
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 OTHER = "  ⊘ 다른 줄기"
 WARN = "  ⚠ base 선언 확인 실패"

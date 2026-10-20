@@ -4,6 +4,7 @@
 # ⓓ disabled + 내림 기록 없음 → [급] 1통 · 기록 있음 → 0 + «내림 중» 1줄
 # ⓔ 변이: ft-magazine-check.sh 에서 «오늘 날짜 줄 검사» 를 뺀 복사본 → ⓒ(있음 → 0통) FAIL 이어야 한다
 # 실 launchctl·슬랙·mbox·HOME 0 — 전부 가짜. 시험 입력은 GIT_* 없이.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

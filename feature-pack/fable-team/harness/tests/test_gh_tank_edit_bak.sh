@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_gh_tank_edit_bak.sh — ft-gh-tank-edit-bak.sh(본체) + ft-gh-as-tank.sh edit·pr-edit 위임 시험. 실제 GitHub 호출 0 — PATH 맨 앞 가짜 gh.
 # 분리 전(원장 R236 base_sha) 래퍼와 edit --apply 출력이 «시각 칸 제외» 바이트 같은지도 비교한다(그 커밋이 없으면 SKIP).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$(cd -- "$HERE/../.." && pwd)"

@@ -20,6 +20,7 @@ import ft_news_ledger as nl  # noqa: E402
 import magazine_doc as md  # noqa: E402
 import magazine_doc_md as dm  # noqa: E402
 from test_ft_news_publish import FakeSlack  # noqa: E402
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 REAL = (Path(__file__).parent / "fixtures" / "PLAN-oppa-ledger.md").read_text(encoding="utf-8")
 REL = "design/planner/PLAN-oppa-ledger.md"

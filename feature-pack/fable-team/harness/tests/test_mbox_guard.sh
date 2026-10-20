@@ -2,6 +2,7 @@
 # test_mbox_guard.sh — N3 쪽지 가드: 수신자 판정(D3) + planner 앞 허용 머리(D4) + ft-seat-retire 원자 쓰기.
 # 명부 픽스처 = tests/fixtures/mbox_guard/<variant>/seats*.json · 기대 rc 표 = matrix.tsv (reject 모드).
 # 임시 폴더에 정본 mbox*.py·mbox*.sh 를 복사해 격리 큐(FT_MBOX_DIR)로만 돈다 — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"; FX="$REPO/tests/fixtures/mbox_guard"

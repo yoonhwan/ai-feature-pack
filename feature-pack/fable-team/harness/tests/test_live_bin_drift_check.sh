@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_live_bin_drift_check.sh — 카드 live-bin-drift-check (Issue 816 ②③): 라이브 bin ↔ origin/main 키트 드리프트 검사 + spawn·close 입구 BLOCK + tick 경고.
 # mktemp 만 쓴다(bare 원격 + 클론 + 설치 꼴 <x>/.fable-team/bin) — 실제 리포·라이브 폴더·네트워크 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

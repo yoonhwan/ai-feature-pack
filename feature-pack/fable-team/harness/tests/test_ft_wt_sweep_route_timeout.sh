@@ -2,6 +2,7 @@
 # test_ft_wt_sweep_route_timeout.sh — ft-wt-sweep.sh 상한 처리(rc 124 정직 · 삭제 단계 초과=WAIT · pass 당 1건 · [HIL] seat=) +
 #   ft-tick.sh sweep_wt 팀 라우팅([HIL] 좌석 접두 → seats-<팀>.json 의 _master · 못 찾으면 «[라우팅 실패 <팀>]» 머리).
 # 모든 쓰기는 mktemp scratch 안 — 실 계획 디렉터리·실 mbox·실 baton·라이브 좌석표 0 (스텁 계획 .sh · 스텁 mbox · 스텁 seats-*.json).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

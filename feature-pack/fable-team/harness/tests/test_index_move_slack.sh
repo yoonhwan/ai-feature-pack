@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_index_move_slack.sh — ft-index-move 슬랙 단계(판정 405 §4) 시험. 가짜 byz_thread_post 스텁(rc 지정) + 임시 git 리포 카드 픽스처. 실제 슬랙 호출 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC_MOVE="$HERE/../../harness/kit/fable-team/bin/ft-index-move.sh"

@@ -12,6 +12,7 @@ from _magazine_fakes import FakeMagazineSlack
 from _magazine_ledger import argv, make_env
 
 import magazine_doc as md
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 ROOT = Path(__file__).resolve().parents[3]
 BIN = ROOT / "harness" / "bin"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_board_publish_tick.sh — ft-board-publish.sh FT_BOARD_ONLY_CHANGED=1 (v555 · 판정 555 ② · 558 ③ ⓐ).
 # 실제 슬랙 호출 0: 가짜 슬랙 API(127.0.0.1 임시 포트) + 호출을 세는 가짜 ft-board.py + 임시 FT_ROOT·장부.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

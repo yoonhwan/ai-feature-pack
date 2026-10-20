@@ -3,6 +3,7 @@
 #  ① 답장 요구 문구 출력 0  ② 요약 교정  ③ Q 표기 경계  ④ live_planner 사유 5종·살아 있음  ⑤ _hil_route 무시·멘션 조건
 #  ⑥ 모든 글 첫 줄 머리표  ⑦ 머리표 도입 전 첫 줄도 같은 글로 찾기  ⑧ inbound 전달  ⑨ 옛 원장 이관 fixture 4
 # 슬랙 API·실제 tmux·실제 LLM 0 — 함수 직접 호출 + 가짜 tmux 스텁 + 가짜 요약기 + 가짜 history.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="${SLACK_MIRROR_KIT:-$HERE/../../harness/kit/slack-mirror}"

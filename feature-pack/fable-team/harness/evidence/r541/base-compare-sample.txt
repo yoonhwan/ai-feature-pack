@@ -1,0 +1,48 @@
+# r541 ⓔ base 대조 — 대표 표본 21(셸 16 · pytest 5) · 각 시험 = 새 임시 cwd · base = origin/main 86bd129e 사본(ft-scratch-repo)
+# 열 = 종류 시험 rc 통과 실패 · 실행 2026-10-20 15:09
+--- AFTER(가드 적용 가지)
+SH test_autonomy_hooks_layout.sh rc=0 pass=17 fail=0
+SH test_autonomy_hooks.sh rc=0 pass=184 fail=0
+SH test_resource_gate.sh rc=0 pass=45 fail=0
+SH test_resource_gate_pressure.sh rc=0 pass=88 fail=0
+SH test_wt_clean_plan_self_check.sh rc=0 pass=23 fail=0
+SH test_nano_succession_index.sh rc=0 pass=23 fail=0
+SH test_evidence_inject_scan.sh rc=0 pass=20 fail=0
+SH test_seat_handover.sh rc=1 pass=52 fail=2
+SH test_root_bin_shim.sh rc=0 pass=94 fail=0
+SH test_mbox_guard.sh rc=0 pass=130 fail=0
+SH test_goal_check_ref.sh rc=0 pass=38 fail=0
+SH test_decision_count_tables_ref.sh rc=0 pass=17 fail=0
+SH test_role_spawn_team.sh rc=0 pass=18 fail=0
+SH test_install_team_tick_live.sh rc=0 pass=48 fail=0
+SH test_pi_agent_allow_r540.sh rc=0 pass=50 fail=0
+SH test_ft_tick_master_seat.sh rc=44 pass=18 fail=44
+PY test_ft_news_html.py rc=1 /opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+PY test_ft_weekly_review.py rc=1 /opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+PY test_ft_news_publish.py rc=1 /opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+PY test_ft_penalty.py rc=1 /opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+PY test_disk_census.py rc=1 /opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest
+--- BASE(origin/main 86bd129e)
+SH test_autonomy_hooks_layout.sh rc=0 pass=17 fail=0
+SH test_autonomy_hooks.sh rc=0 pass=184 fail=0
+SH test_resource_gate.sh rc=0 pass=45 fail=0
+SH test_resource_gate_pressure.sh rc=0 pass=88 fail=0
+SH test_wt_clean_plan_self_check.sh rc=0 pass=23 fail=0
+SH test_nano_succession_index.sh rc=0 pass=23 fail=0
+SH test_evidence_inject_scan.sh rc=0 pass=20 fail=0
+SH test_seat_handover.sh rc=1 pass=52 fail=2
+SH test_root_bin_shim.sh rc=0 pass=94 fail=0
+SH test_mbox_guard.sh rc=0 pass=130 fail=0
+SH test_goal_check_ref.sh rc=0 pass=38 fail=0
+SH test_decision_count_tables_ref.sh rc=0 pass=17 fail=0
+SH test_role_spawn_team.sh rc=0 pass=18 fail=0
+SH test_install_team_tick_live.sh rc=0 pass=48 fail=0
+SH test_pi_agent_allow_r540.sh rc=0 pass=50 fail=0
+SH test_ft_tick_master_seat.sh rc=44 pass=18 fail=44
+PY test_ft_news_html.py rc=0 39 passed in 18.54s
+PY test_ft_weekly_review.py rc=0 13 passed in 4.19s
+PY test_ft_news_publish.py rc=0 12 passed in 5.99s
+PY test_ft_penalty.py rc=0 12 passed in 5.41s
+PY test_disk_census.py rc=0 34 passed in 53.88s
+--- PASS/FAIL 줄 대조: 원문 diff 38줄 = 전부 임시폴더·난수 sha 값 · 판정·검사 이름 동일(요약:
+  같은 표본에서 rc·통과·실패 수 전부 같음 · FAIL 2건(test_seat_handover rc1 FAIL2 · test_ft_tick_master_seat rc44 FAIL44)은 base 에서도 같은 FAIL = 가드가 만든 것 아님

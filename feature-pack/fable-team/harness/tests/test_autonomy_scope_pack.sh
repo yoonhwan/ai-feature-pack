@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_scope_pack.sh — r466 ⓙ 팩 저장소 PR 범위 승인: scope-approve --repo pack(승인 줄 repos=byz,pack 일 때만) · 팩 분류표 전달 · code 세트 검사도 팩 리포 · 원장 repo= 칸
 # 격리: 임시 BYZ 루트 + 임시 팩 리포(bare origin + clone · FT_HARNESS_ROOT) + 가짜 분류기·슬랙 — 실 리포·실 슬랙 0 · GIT_* env 0
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset FT_AUTONOMY_LEVEL
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

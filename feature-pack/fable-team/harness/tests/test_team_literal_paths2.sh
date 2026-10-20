@@ -8,6 +8,7 @@
 #      등급 A(15) = 두 꼴 실제 실행 + 그 꼴 산출물 단언 + 명단 없음 fail-closed rc≠0 · B(2 · drift-check·issue-reopen) = 실행 + 결과 원문 + `grep -c 'ft_team\|design/'` 0(경로 미해석 · rc0 허용)
 #      · C(3 · pm-tick·wall-check·wall-read) = bash -n + 팀 폴더 해석 호출 1회 + 사유 «라이브 tmux·슬랙 의존». fail-closed 열 = 행렬 기대값(`any` 0 · rc0 허용 행은 사유 문자열 필수 · autonomy 는 명단 읽는 분기 `on` 1건 rc≠0).
 # 임시 폴더·가짜 도구만 쓴다 — 실제 리포·seats·tmux 세션·mbox 는 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

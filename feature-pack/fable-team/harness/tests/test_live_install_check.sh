@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_live_install_check.sh — R245 병합 ≠ 끝: 키트 → 라이브 설치 대조(ft-live-install-check.sh) · 착지 INSTALL 줄 · 카드 완성 이동 설치 게이트 · 뉴스 줄.
 # 임시 HOME·임시 git 리포·가짜 launchctl/ps 만 — 실 라이브(~/.hermes·~/.claude·FT_BIN)·실 원격·실 gh 0. press 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; KITMAP="$HERE/../../harness/kit/LIVE-MAP.tsv"

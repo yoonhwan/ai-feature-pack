@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_team_env.sh — 카드 nano-spawn-close-team-env: ①팀 env 자동 로드(close·spawn) ②spawn 에이전트별 기본 모델 ③--base · close base 정합 ④--shared-wt 닫기
 # 임시 git 리포 + 가짜 tmux/tmuxc(PATH 앞) + 스크립트 사본(가짜 lint)만 쓴다 — 실제 리포·seats·tmux 세션은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

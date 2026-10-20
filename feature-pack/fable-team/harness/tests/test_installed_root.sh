@@ -6,6 +6,7 @@
 #   ⓓ 실제 BYZ(읽기만 · FT_TEST_BYZ_ROOT · 없으면 SKIP 표기) cwd 에서 설치본 ft-goal-table.sh rc0 + 골 표
 #   ⓔ r385 r4: ft_board_env.ft_root 같은 순서(①FT_ROOT 그 값 그대로) · 설치본 ft-sheet-events.sh(spawn·nano-close 의 prepare 경로) 루트 풀이
 # mktemp 만 쓴다 — 실 HOME·실 리포 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KBIN="$(cd -- "$HERE/../kit/fable-team/bin" && pwd -P)"

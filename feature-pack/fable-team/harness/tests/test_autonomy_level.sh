@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_level.sh — r466 자율 레벨(full|mid|each) · 범위 승인 함께 걸기 · 레벨 재발급 · 자율 인터뷰 쪽지 · 인터뷰 → h 1줄 · 종류 학습
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + FT_NOW 고정 시계 + 가짜 분류기·슬랙 게시·mbox·골 표 — 실 슬랙·실 mbox·외부 호출 0 · GIT_* env 0
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset FT_AUTONOMY_LEVEL   # 이 시험은 «--level 생략 = full» 을 본다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

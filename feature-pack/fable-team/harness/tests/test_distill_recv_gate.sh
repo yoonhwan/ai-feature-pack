@@ -2,6 +2,7 @@
 # test_distill_recv_gate.sh — context-distill-gate.sh hard 모드 «후계 도달 전 recv 차단» (R107).
 # 셔뱅 /bin/bash(macOS 3.2) 로 훅을 실행한다(r6 사고: PATH bash5 시험은 3.2 파서 결함을 못 잡는다).
 # transcript fixture 로 토큰 값을 주고, 가짜 tmux(PATH 앞)로 좌석명을 준다 — 실 세션·홈·명부 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HOOK="$HERE/../../harness/kit/fable-team/templates/hooks/context-distill-gate.sh"

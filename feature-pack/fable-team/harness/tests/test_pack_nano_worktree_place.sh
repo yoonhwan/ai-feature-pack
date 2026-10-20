@@ -4,6 +4,7 @@
 #   ⓒ nano-close --wt <팩 등록 · 표준 자리 밖> → REJECT 그대로 + «git -C <팩> worktree move … 뒤 같은 명령» 덧말
 #   ⓓ worktree move 로 옮긴 뒤 같은 명령 → 지금 팩 모드 그대로 CLOSED
 # 임시 리포 2개(BYZ 꼴 R · 팩 꼴 P + bare 원격) + 가짜 tmux · spawn 은 함수 본문만 추출 — 실제 리포·seats·tmux·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

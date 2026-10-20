@@ -2,6 +2,7 @@
 # test_resource_reclaim_pressure.sh — r500 ft-resource-reclaim.sh 압력 티어(swap ≥85% 면 착지 나노 idle 문턱 30→5분) + «병합 끝 나노» = 가지 착지(ft-landed-check rc0)만.
 # 공용 가짜 세계 = lib/fake_reclaim_world.sh(가짜 tmux·nano-close·seat-status·mbox · 임시 HOME · 가짜 팩 리포) · 진짜 tmux kill 0 · 외부 호출 0 · GIT_* env 0.
 # 변이: 압력 티어 제거 → ⓐ FAIL · 착지 판정 제거(늘 착지) → ⓑ FAIL.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

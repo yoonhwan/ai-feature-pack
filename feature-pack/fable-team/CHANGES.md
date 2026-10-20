@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-20 — 팩 시험이 «실» 하네스 상태를 못 바꾸게: 공용 가드 도우미 + 전수 적용 (r541 · 1.1.97)
+
+- 사건: r536 나노가 `test_autonomy_hooks_layout.sh` 를 BYZ 워크트리 cwd 에서 8회 돌리자, 그 시험이 일부러 `FT_ROOT` 를 비운 채 `ft-autonomy.sh on/approve-merge/off` 를 불러 데이터 루트 풀이(`ft-harness-root.sh` `ft_data_root` ②«cwd git 공용 루트의 `.fable-team/LIVE_ROOT`»)가 «실» 라이브 루트(v6-realtime-live)로 풀려 실 자율 상태에 씀 — 실 자율 ON 약 12분(13:29:46~13:41:54) · 실 자율 사건 번호 8칸 밀림(A10→A18) · 실 `autonomy-merge-approved` 에 가짜 병합 승인 8줄(arch 108 실측 · master 84 발주 119899 · r536 보고).
+- 뿌리: 루트 풀이 3종(`ft_data_root`·`ft_repo_root`·`ft_comm_dir`)이 env 가 없으면 «호출자 cwd» 로 떨어지는데, 시험이 cwd 를 git 밖 임시 폴더로 옮기지 않았다. 도구(운영 경로가 씀)는 그대로 두고 «시험 쪽»에서 막는다.
+- 새 도우미 `harness/tests/lib/real_state_guard.sh`(31줄) + 파이썬 짝 `harness/tests/scripts/real_state_guard.py`(200줄): `guard_begin` = ①시험 시작 전 cwd 기준 실 루트 3종(데이터·리포·우편함) 지문(파일 크기+mtime+sha · 우편함 줄 수+끝 seq) ②`mktemp -d`(git 밖)로 cd + `GIT_CEILING_DIRECTORIES` ③같은 시험을 자식으로 재실행(`RSG_ACTIVE=1` — 시험 본문의 `trap … EXIT` 를 덮지 않는다) ④`guard_end` = 지문 비교 → 시험 rc 는 그대로, 지문이 바뀌면 1 · stderr `REAL-STATE-GUARD PASS|FAIL|WARN` 1~2줄. 실 루트를 못 풀면(픽스처만 도는 시험) 비교 생략 PASS «실 루트 없음». WARN 은 «시험 밖에서 바뀔 수 있는» state 파일(라이브 좌석이 쓰는 것) · 우편함은 «모르는 이름(from/to)이 새 줄로 들어온 경우»만 FAIL.
+- 적용: 목록 `harness/evidence/r541/tests-calling-cwd-root-tools.txt`(루트 풀이 도구 53개 중 하나라도 부르는 팩 시험 151 = 셸 127 · pytest 24 · 열 = 시험·도구·env 주입·최상위 cd) — 각 시험 «맨 위 1줄» 만 추가(셸 `. lib/real_state_guard.sh && guard_begin "$@"` · pytest `from real_state_guard import guard_begin_module`), 시험 본문 변경 0. 정적 목록은 «끼울 대상»만 정하고 안전 판정은 지문 비교가 한다(정적 grep 이 사건 시험을 놓친 실측).
+- 시험 `harness/tests/test_real_state_guard_r541.sh`(새) ⓐ 도우미 없이 = 흉내 실 상태 바뀜(지금 꼴 재현) · ⓑ 도우미 = git 밖 cwd + 루트 풀이 ERROR + 흉내 실 상태 그대로 PASS 줄 3루트 · ⓑ4 시험 rc 전달 · ⓑ5 팩 밖 cwd = «실 루트 없음» · ⓒ/ⓒ2 일부러 바꾸면 FAIL 원문 · ⓓ1 시험 밖 변경 = WARN+PASS · ⓓ2/ⓓ3 우편함 이름 규칙 · ⓑp/ⓒp/ⓒs 파이썬 짝 · ⓕ 전수 목록 린트(목록 시험이 `guard_begin` 0 이면 FAIL · 목록 ≠ 지금 생성 결과면 FAIL — r540 병합 뒤 새 시험 1개를 잡아냄). after-fix ALL PASS(`harness/evidence/r541/after-fix.txt`).
+- ⓔ base 대조: 대표 표본 21(셸 16 · pytest 5)을 «새 임시 cwd» 에서 base(origin/main 86bd129e 사본)와 나란히 — rc·통과·실패 수 전부 같고 PASS/FAIL 줄 diff = 0(남는 차이는 임시폴더·난수 sha 값뿐). 표본 중 FAIL 2건(`test_seat_handover` rc1 FAIL2 · `test_ft_tick_master_seat` rc44 FAIL44)은 base 에서도 같은 FAIL = 가드가 만든 것 아님(`harness/evidence/r541/base-compare-sample.txt`).
+- 실사건 예비 측정(나노 몫): BYZ-Agents 워크트리 cwd 에서 사건 시험 1회 → ALL PASS · 실 `autonomy.log` 486→486 · `autonomy.json` sha 동일(mode=off·A18) · `autonomy-merge-approved/` 402→402 · 가드 PASS 줄 원문(`harness/evidence/r541/byz-cwd-real-state.txt`). 정식 실사건(목록 묶음 1회)은 master.
+- 병합: 팩 main 86bd129e(r540 · 1.1.92) 위로 병합 — 충돌 0(자동). 이어서 r538 가지(PR157 · r527 1.1.93 포함) 위로 쌓고, 다시 r542 가지(PR160 · r543 1.1.95 포함) 위로 쌓음 — 충돌은 매번 CHANGES·manifest 뿐(기계 해소) · 번호는 r527=1.1.93 · r538=1.1.94 · r543=1.1.95 · r542=1.1.96 이 이미 쓰고 있어 **1.1.97** · 앞 네 항목 보존.
+- 설치: 없음 — 시험·증거만(키트·LIVE_BIN·홈·launchd 변경 0 · manifest 는 번호만). 되돌림 = 이 커밋 revert(다음 시험 실행부터 원래대로).
+- 범위 밖: 루트 풀이 도구 3종의 cwd 폴백 자체 · 오늘 밀린 실 사건 번호 A11~A18·가짜 승인 8줄 정리(planner·master 판단) · 팩 밖 BYZ `tests/`.
 ## 2026-10-20 — 회수 판정기에 «에이전트별 이름 집합»: 나노 닫기가 pi 좌석도 회수(쓰고 바로 닫기) (r542 · 1.1.96)
 
 - 사건: 하드 룰 14 «opencode 워커는 쓰고 바로 닫는다» 장치는 프로세스 이름을 opencode 로만 찾아(`ft-opencode-reap.sh` `OC = {"opencode", ".opencode", "opencode-ai"}`) pi 나노를 닫을 때 pi 회수 0 — 오빠 지시 «나노워커 pi 전환»(aifp 팀장 쪽지 119906 · harness master 84 발주 119907)의 닫기 쪽. 오빠 표준승인(desk 인터뷰 119922 · 전역 `~/.claude/CLAUDE.md:65`) = pi 정리 kill 범위 «그 좌석이 띄운 pi 프로세스 나무만 · 남의 pi 0 · 못 끄면 닫기 실패».

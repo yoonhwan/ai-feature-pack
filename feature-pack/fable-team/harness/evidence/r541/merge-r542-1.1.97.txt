@@ -1,0 +1,11 @@
+# r541 쌓기 2 — r542 가지(PR160 · 45fc4f19 · r543 1.1.95·r542 1.1.96 포함)를 r541 가지 위로 병합 · 2026-10-20 16:0x
+병합: origin/nano/r542-pi-nano-close-reap-shared-judge → nano/r541-tests-real-state-cwd-guard
+  · 충돌 = CHANGES.md 1개(수동 해소 · 순서 r541(1.1.97) → r542(1.1.96) → r543(1.1.95) → r538(1.1.94) → r527(1.1.93) → r540(1.1.92) · 앞 다섯 항목 보존) · manifest.json 은 자동 병합(1.1.96) → 1.1.97 로 올림(json.load 통과)
+  · 이 병합이 새로 낸 시험 1개 = tests/test_reap_agent_pi_r542.sh → ⓕ2 린트가 «목록 밖»으로 잡음 → guard_begin 1줄 추가 · 목록 153행 재생성
+
+시험 재실행(cwd = 매번 새 임시 폴더 · 실 상태 실측 autonomy.log 486 · autonomy.json 9a1b8c650fd9 · autonomy-merge-approved 402 불변):
+  · tests/test_real_state_guard_r541.sh ⓐ~ⓕ → ALL PASS 17검사 · ⓕ1 목록 153개 전부 guard_begin · ⓕ2 목록 = 지금 생성 결과 · rc=0
+  · r542 새 시험 test_reap_agent_pi_r542.sh → ALL PASS 45 · REAL-STATE-GUARD PASS · rc=0
+  · r543 시험 test_nano_spawn_tier.sh → ALL PASS 43 · rc=0
+  · r538 새 시험 test_install_launchd_render.sh → ALL PASS 23 · REAL-STATE-GUARD PASS · rc=0
+  · 회귀 표본 6(가드 PASS 줄 각 1): autonomy_hooks_layout 17 · autonomy_hooks 184 · resource_gate 45 · nano_close_fail_closed 48 · nano_close_suspended 92 · mbox_guard 130 — FAIL 0

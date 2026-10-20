@@ -6,6 +6,7 @@
 #   ⓕ키트 두 사본 동일.  변이: R150_TICK=<변이 사본> · R150_MUTANT=team-drift(팀 틱이 drift 를 켠 설치 꼴) · team-raised(팀 틱이 raised 경보를 켠 설치 꼴)
 #   ⓔ 에는 raised 경보(R149)도 포함: 가짜 ft_raised(양성 1행) → 정확히 1통 · 수신 = 메인 틱 master · raised.sig 는 메인 STATE_DIR 에만
 # 모든 쓰기는 mktemp scratch 안 — 실 /tmp 기본 경로·라이브 좌석표 0. tmux·mbox 는 가짜.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."

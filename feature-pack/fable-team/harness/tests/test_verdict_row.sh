@@ -3,6 +3,7 @@
 #   ⓐ fv_row_re 경계 · ⓑ fv_max 두 꼴 최대 · ⓒ 번호 0개 rc≠0 · ⓓ proxy-decide 다음 번호 = 표 최대+1
 #   ⓔ 번호 0개 원장 → proxy-decide 발급 0 · ⓕ lint 가 표 행 «조건부 승인» 으로 HOLD 예외 통과(글머리도 그대로)
 # 격리: 임시 FT_ROOT·상태·원장 + 임시 git 저장소 — 실 원장·실 상태·실 mbox 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

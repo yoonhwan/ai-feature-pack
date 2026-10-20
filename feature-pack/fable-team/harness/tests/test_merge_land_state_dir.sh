@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_merge_land_state_dir.sh — R253: 자율 상태 폴더 해석 = ft-autonomy.sh state-dir 한 곳 (설치 폴더 ≠ repo 픽스처 · FT_ROOT·FT_AUTONOMY_STATE_DIR unset · gh 는 스텁 · 실 원격 0)
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
