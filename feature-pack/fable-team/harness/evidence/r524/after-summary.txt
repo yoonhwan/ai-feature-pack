@@ -1,8 +1,8 @@
-HEAD=944c992a71d45f4ac26ca1e891da9a56f0e1cf75
-test_zc_resume_headroom rc=0 pass=36 fail=0
-test_resume_cmd rc=0 pass=14 fail=0
-test_dead_seat_resume rc=0 pass=85 fail=0
-test_seat_resume_binding rc=0 pass=92 fail=0
-test_team_move_resume rc=0 pass=10 fail=0
-test_zombie_clean_live_guard rc=0 pass=15 fail=0
-test_zombie_clean_tmux_prune rc=0 pass=69 fail=0
+HEAD ea344a32905ef262b2e4074142e5dd48eead4c66 (r537 1424b907 병합 · 1.1.91) · 시험마다 새 임시 git 리포 cwd · FT_ROOT·FT_MBOX_DIR·GIT_* 해제 · nice -n 15 직렬
+test_zc_resume_headroom rc=0 PASS=37 FAIL=0
+test_resume_cmd rc=0 PASS=15 FAIL=0
+test_dead_seat_resume rc=0 PASS=86 FAIL=0
+test_seat_resume_binding rc=0 PASS=93 FAIL=0
+test_team_move_resume rc=0 PASS=10 FAIL=0
+test_zombie_clean_live_guard rc=0 PASS=17 FAIL=0
+test_zombie_clean_tmux_prune rc=0 PASS=71 FAIL=0
