@@ -1,0 +1,25 @@
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-128/test_d_fresh_stamp_skips_fetch0/fetch.log').exists
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r569-news-ref-fetch-cap-cli-fixed-cost-a/feature-pack/fable-team/harness/tests/scripts/test_news_fetch_cap.py:99: AssertionError
+___________________ test_e_attempt_timeout_clamped_to_budget ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c88e090>
+
+    def test_e_attempt_timeout_clamped_to_budget(monkeypatch):
+        monkeypatch.setenv("FT_NEWS_FETCH_TIMEOUT", "55")
+>       assert nl._attempt_timeout(0.0) == 55.0  # 첫 시도 = 시도당 상한
+               ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_ledger' has no attribute '_attempt_timeout'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r569-news-ref-fetch-cap-cli-fixed-cost-a/feature-pack/fable-team/harness/tests/scripts/test_news_fetch_cap.py:105: AttributeError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_fetch_cap.py::test_a_8s_fetch_passes_under_cli_fixed_cost_cap
+FAILED tests/scripts/test_news_fetch_cap.py::test_b_two_timeouts_bounded_and_warn_with_age
+FAILED tests/scripts/test_news_fetch_cap.py::test_c_missing_stamp_says_unknown_time
+FAILED tests/scripts/test_news_fetch_cap.py::test_d_fresh_stamp_skips_fetch
+FAILED tests/scripts/test_news_fetch_cap.py::test_e_attempt_timeout_clamped_to_budget
+5 failed in 29.05s
