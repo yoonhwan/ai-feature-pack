@@ -59,6 +59,15 @@ def _isolated_ft_root(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.
 
 
 @pytest.fixture(autouse=True)
+def _ledger_sync_env_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """r584 — 원장 동기화 «이번 틱에 했다»·«실패 문구» 는 ft_news_ledger 가 프로세스 env 에 적는다(틱 자식에 물려주려는 설계).
+    한 프로세스에서 여러 시험을 돌리면 앞 시험이 남긴 값이 뒤 시험 머리 줄로 새어 순서 의존 FAIL(test_ft_news_html head 문구)이 된다.
+    시험마다 지운다 — 키트의 틱 설계는 그대로."""
+    for var in ("FT_LEDGER_SYNCED", "FT_LEDGER_SYNC_ERROR"):
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _allow_tracked_bin(monkeypatch: pytest.MonkeyPatch) -> None:
     """R201: 시험은 추적 사본 원본을 직접 부른다 — ft-live-entry 가 LIVE_BIN(옛 라이브)으로 넘기지 않게 한다."""
     monkeypatch.setenv("FT_ALLOW_TRACKED_BIN", "1")

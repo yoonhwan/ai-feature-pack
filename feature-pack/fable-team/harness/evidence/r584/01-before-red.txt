@@ -1,0 +1,10 @@
+# r584 ⓐ 전(origin/main 판 = 고침 없음 · r582 까지 병합된 origin/main) — 두 파일 한 번에 = 순서 의존 FAIL 1 (r569 «선행 FAIL 1» 재현)
+# 명령: cd <pack origin/main 판>/feature-pack/fable-team/harness && /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_news_direct_api.py tests/scripts/test_ft_news_html.py -q
+# base=0d3ae97dd706c57be19af65b1479ee42637b5e02
+>       assert np.html_post_text("가\n나\n다\n라", NOW).splitlines() == ["[뉴스 09:15] 팀 지도 — 가", "나", "다"]
+E       assert ['[뉴스 09:15] ... 가', '나', ...] == ['[뉴스 09:15] ... 가', '나', '다']
+E         
+E         At index 0 diff: "[뉴스 09:15] 팀 지도 · 원장 ref fetch 실패 — fatal: 'origin' does not appear to be a git repository" != '[뉴스 09:15] 팀 지도 — 가'
+E         Left contains 4 more items, first extra item: '올바른 접근 권한이 있는지, 그리고 저장소가 있는지'
+E         Use -v to get more diff
+rc=1

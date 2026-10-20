@@ -1,0 +1,8 @@
+# r584 03 — 인접 기존 시험(같은 tests/scripts · 광역 0 · base=0d3ae97dd706c57be19af65b1479ee42637b5e02) — 자동 픽스처가 남의 시험을 깎지 않는가
+# 파일: test_ft_news_ledger.py test_ft_news_io.py test_news_fetch_cap.py test_ft_news_goal_block.py test_ft_news_ledger_notify.py test_ft_news_publish.py test_news_status_section.py test_news_truncated.py
+## 전(origin/main 판)
+..................                                                       [100%]
+90 passed in 63.40s (0:01:03)
+## 후(고침 판)
+..................                                                       [100%]
+90 passed in 62.74s (0:01:02)

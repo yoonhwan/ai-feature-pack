@@ -1,0 +1,11 @@
+# r584 05 — 키트 변경 0 증명(이 커밋이 바꾸는 파일 목록 · base=0d3ae97dd706c57be19af65b1479ee42637b5e02)
+feature-pack/fable-team/CHANGES.md
+feature-pack/fable-team/harness/evidence/r584/01-before-red.txt
+feature-pack/fable-team/harness/evidence/r584/02-after-pass.txt
+feature-pack/fable-team/harness/evidence/r584/03-adjacent-tests.txt
+feature-pack/fable-team/harness/evidence/r584/04-leak-trace-and-minimal-repro.txt
+feature-pack/fable-team/harness/evidence/r584/05-kit-unchanged.txt
+feature-pack/fable-team/harness/tests/scripts/conftest.py
+--- kit/bin/comm/install.sh 경로 줄 수:
+0
+0
