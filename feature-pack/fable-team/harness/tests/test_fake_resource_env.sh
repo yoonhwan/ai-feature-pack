@@ -51,7 +51,7 @@ from pathlib import Path
 from fake_resource_env import fake_resource_env
 e = fake_resource_env(Path(sys.argv[2]), sys.argv[3])
 r = subprocess.run(["bash", sys.argv[4], "check"], env=e, capture_output=True, text=True)
-print(r.returncode, r.stdout.strip())' "$REPO/tests/scripts" "$T/py-$m" "$m" "$GATE" 2>&1)"
+print(r.returncode, r.stdout.strip())' "$HERE/scripts" "$T/py-$m" "$m" "$GATE" 2>&1)"
   case "$m" in
     ok) echo "$OUT" | grep -q '^0 OK .*level=1' && ok "ⓕ 파이썬 판 ok → rc0" || bad "ⓕ ok $OUT";;
     reject) echo "$OUT" | grep -Eq '^[1-9][0-9]* REJECT resource level=4' && ok "ⓕ 파이썬 판 reject → REJECT" || bad "ⓕ reject $OUT";;

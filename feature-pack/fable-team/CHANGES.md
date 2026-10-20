@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — 시험 임시 bin 짝 누락(r516 묶음 ⑥) 5개 고침: 키트 bin 통째 복사 도우미 `tests/lib/kit_bin_copy.sh` + 부작용 스텁 (r536 · 1.1.89)
+
+- 사건: r535 나노 보고 — `test_wt_clean_plan_self_check.sh` 가 팩 origin/main 에서도 FAIL 13(`harness/evidence/r535/preexisting-self-check-origin-main.txt`). arch 107 실측 = 시험이 임시 bin 에 생성기 `ft-nano-close.sh` 와 형제 몇 개만 손으로 복사하는데 생성기가 그 뒤 `ft-seat-reap.sh`·`ft-team-lib.sh` 등을 더 부르게 바뀌어 «No such file · CLOSE-FAIL reap left=? rc=127». 같은 꼴 = r516 분류표 묶음 ⑥ 5개.
+- 새 `harness/tests/lib/kit_bin_copy.sh <임시 bin>`: 키트 `kit/fable-team/bin` 일반 파일 전부(설치와 같은 집합) cp -p → 부작용 도구 9개(`ft-seat-reap` · `ft-opencode-reap` · `ft-leak-reap` · `ft-docker-test-reap` · `ft-seat-retire` · `ft-tmux-kill|spawn|send|distill`)를 새 `harness/tests/stubs/kit-side-effect.sh` 로 덮음(호출 1줄 로그 · `left=0 rc=0` · exit 0 · 실제 kill·tmux·reap 0) · 출력 `KIT-BIN-COPY files=N stubbed=…`.
+- 시험 5: `test_wt_clean_plan_self_check`·`test_nano_succession_index`·`test_autonomy_hooks_layout`·`test_evidence_inject_scan` = 손 복사 줄 → 도우미(각 시험의 기존 가짜 tmux·cherry·lint 스텁은 그대로 · self_check 는 «스텁 reap 호출 ≥1» 단언 추가) · `test_fake_resource_env` = 파이썬 모듈 경로 `$REPO/tests/scripts` → `$HERE/scripts`(모듈은 `harness/tests/scripts/`) · `test_evidence_inject_scan` 8 = BYZ 리포에만 있던 위반 실례(#887 run.py)를 바이트 그대로 사본 `harness/fixtures/inject_scan/run-887.py`(BYZ 554e5a4873 · blob a50d41b0) 로.
+- 시험: 고치기 전 5개 rc=1(FAIL 7·4·13·6·2 · `harness/evidence/r536/before-fix.txt`) → 고친 뒤 5개 rc=0(`after-fix.txt`) · 전체 셸 전·후 비교 `compare.txt`.
+- 설치: 없음 — 시험·픽스처만(키트·LIVE_BIN·홈·launchd 0). 되돌림 = 이 커밋 revert.
+- 격리 고침(r534 위 재번호 때 발견): `test_autonomy_hooks_layout` 이 호출자 cwd 를 물려받아 BYZ 워크트리 안에서 돌리면 `ft_data_root` ②(cwd 공용 루트 `.fable-team/LIVE_ROOT`)를 따라 «실» 자율 상태에 on/off·approve-merge 를 썼다(2026-10-20 13:29~13:39 · A11~A18 · 끝이 on · `ft-autonomy.sh off` 1줄로 복구). 시험이 임시 MAIN 에 `LIVE_ROOT`=임시 라이브를 쓰고 `cd` 임시 워크트리 → BYZ cwd 에서 ALL PASS · 실 autonomy.log 줄 수 변화 0(`harness/evidence/r536/merge-r534-1.1.89.txt`).
+- 범위 밖: 다른 묶음(①~⑤·⑦·⑧) · r535 시험 · 키트 코드.
+
 ## 2026-10-20 — 자원 감시자 디스크 기록표: 워크트리·큰 폴더를 1단계 폴더별 «증분» 측정 · 합 = 캐시 합 + «앎/전체» · 원인 도구 = 워크트리별 1시간 증가 (r534 · 1.1.88)
 
 - 사건: 감시자 `disk-attrib.tsv` 의 `worktrees.total` 이 10-17 21:22 뒤 매회 TIMEOUT(393회 · 워크트리 443개 전체 `du -sk` 1회가 7초 상한에 걸림) · pytest 30·caches 79·claude.projects 50회도 TIMEOUT → 여유 342→238GiB(−104)인데 아는 칸 합 ≈ +6GiB(오빠 «디스크 한 100G 줄었는데?» · desk 27 쪽지 119645 → planner 83 119646 → master 84 발주 119648).

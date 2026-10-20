@@ -1,0 +1,48 @@
+# r536 고치기 전 — 팩 origin/main 5fb4b134 · 묶음 ⑥ 5개 각각 실행 원문(FAIL 줄 + 끝 줄 · 임시 경로는 <T> 로 줄임)
+
+## test_autonomy_hooks_layout
+<T>/live/.fable-team/bin/ft-autonomy.sh: 줄 16: <T>/live/.fable-team/bin/ft-harness-root.sh: No such file or directory
+FAIL ⓛ0 준비: 라이브 상태만 ON · 메인 루트 상태 없음 :: rc=0 out=
+FAIL ⓛ3 ON + 인터뷰 → deny (자율 대리 결정) :: rc=0 out={"systemMessage": "자율 상태(ft-autonomy.sh)를 못 읽어 인터뷰 가드가 꺼진 채 통과했다 — 도구 경로·상태 폴더 확인(R176 · ~/.claude/logs/autonomy-hooks.log)"}
+FAIL ⓛ3b deny 사유에 라이브 상태(자율 ON) :: rc=0 out={"systemMessage": "자율 상태(ft-autonomy.sh)를 못 읽어 인터뷰 가드가 꺼진 채 통과했다 — 도구 경로·상태 폴더 확인(R176 · ~/.claude/logs/autonomy-hooks.log)"}
+FAIL ⓛ4 오빠 승인(라이브 상태) sha → allow :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 상태(ft-autonomy.sh mode)를 못 읽어 병합을 막았다 — 도구 경로·상태 폴더를 고친 뒤 다시 친다(R176). 자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-aut
+FAIL ⓛ6 OFF → allow :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 상태(ft-autonomy.sh mode)를 못 읽어 병합을 막았다 — 도구 경로·상태 폴더를 고친 뒤 다시 친다(R176). 자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-aut
+FAIL ⓛ7 정상 배치에서는 로그에 «못 읽음» 0줄 :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 상태(ft-autonomy.sh mode)를 못 읽어 병합을 막았다 — 도구 경로·상태 폴더를 고친 뒤 다시 친다(R176). 자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-aut
+FAILED 6
+
+## test_nano_succession_index
+FAIL ⓒ rc (got=[1] want=[0])
+FAIL ⓒ 닫힘 — 없음: «CLOSED byz-planner-nano-ovr#1» ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓓ rc (got=[1] want=[0])
+FAILED 3
+
+## test_wt_clean_plan_self_check
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓑ 생성기 1바이트 수정
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓑ 생성기 삭제
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓑ hash 실패
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓑ hash exit 42
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAILED 15
+
+## test_evidence_inject_scan
+FAIL 8: MISSING <팩>/feature-pack/fable-team/design/feature/evidence/multilingual-linebreak-impl-20261008/run.py
+FAIL 10: rc=1 REJECT ft_da_hold_gate.py 없음: <T>/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL 10b: rc=1 REJECT ft_da_hold_gate.py 없음: <T>/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL 12: REJECT ft_da_hold_gate.py 없음: <T>/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL 13: REJECT ft_da_hold_gate.py 없음: <T>/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAILED 5
+
+## test_fake_resource_env
+FAIL ⓕ ok Traceback (most recent call last):
+ModuleNotFoundError: No module named 'fake_resource_env'
+FAIL ⓕ reject Traceback (most recent call last):
+ModuleNotFoundError: No module named 'fake_resource_env'
+fail=2
+rc: autonomy_hooks_layout=1 nano_succession_index=1 wt_clean_plan_self_check=1 evidence_inject_scan=1 fake_resource_env=1
