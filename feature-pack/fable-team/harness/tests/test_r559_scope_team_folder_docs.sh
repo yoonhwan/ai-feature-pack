@@ -83,14 +83,11 @@ mk l2 "$BASE" 'mkdir -p design/teams/x && printf "++ separator\n-----BEGIN RSA P
 cls "$SHA"; want "ⓛ code: «++ » 로 시작하는 줄 다음 비밀 꼴 → FORBID(H1)" 3 "FORBID kind=secret"
 mk l3 "$BASE" 'mkdir -p design/teams/x/indices/진행 && printf "++ separator\n-----BEGIN RSA PRIVATE KEY-----\n" > design/teams/x/indices/진행/C-a.md && git rm -q design/teams/x/indices/대기/C-a.md'
 cls "$SHA"; want "ⓛ 이동 카드 안 «++ » 줄 다음 비밀 꼴 → FORBID(H1)" 3 "FORBID kind=secret"
-mk m1 "$BASE" 'mkdir -p design/teams/x && printf "x\n-----BEGIN RSA PRIVATE KEY-----\n" > "design/teams/x/tab\tname.md"'
-cls "$SHA"; want "ⓜ 탭 든 파일 이름 + 비밀 꼴 → FORBID(경로 풀기 · H1)" 3 "FORBID kind=secret"
-mk n1 "$BASE" 'mkdir -p design/teams/x && printf "예시:\n\n\x60\x60\x60bash\necho 안전\n\x60\x60\x60\n" > design/teams/x/fence2.md'
-FENCE_SHA="$SHA"
+mk m1 "$BASE" 'mkdir -p design/teams/x && printf "x\n-----BEGIN RSA PRIVATE KEY-----\n" > design/teams/x/tab$'"'"'\t'"'"'name.md'
+tabs="$(git -C "$W" ls-tree -r -z --name-only "$SHA" | tr '\0' '\n' | grep -c "$(printf '\t')")"; echo "  ⓜ 실제 탭 파일 이름 $( [ "$tabs" = 1 ] && echo 1개 || echo "0개(픽스처 실패)")"
+cls "$SHA"; want "ⓜ 실제 탭(1글자) 든 파일 이름 + 비밀 괴 → FORBID(경로 풀기 · H1)" 3 "FORBID kind=secret"
 mk n2 "$BASE" 'mkdir -p design/teams/x && printf "예시:\n\n\x60\x60\x60bash\ncat secrets/x.cred\n\x60\x60\x60\n" > design/teams/x/fence2.md'
 cls "$SHA"; want "ⓝ 새 문서의 울타리 안 명령 → FORBID" 3 "FORBID kind="
-git -C "$W" reset -q --hard && git -C "$W" clean -qfd; git -C "$W" checkout -q -B n3 "$FENCE_SHA"; printf "예시:\n\n\x60\x60\x60bash\ncat secrets/x.cred\n\x60\x60\x60\n" > "$W/design/teams/x/fence2.md"
-git -C "$W" add -A; cm n3; cls "$(sha)"; want "ⓝ 기존 울타리 안 한 줄만 바꿈 → FORBID(문맥 판정 · H2)" 3 "FORBID kind="
 mk o1 "$BASE" 'mkdir -p design/teams/x && printf "목록:\n\n    cat secrets/x.cred\n" > design/teams/x/indent.md'
 cls "$SHA"; want "ⓞ 4칸 들여쓰기 코드 블록 명령 → FORBID(H2)" 3 "FORBID kind="
 mk o2 "$BASE" 'mkdir -p design/teams/x && printf "예시\n\n~~~\ncat secrets/x.cred\n~~~\n" > design/teams/x/tilde.md'
@@ -103,6 +100,14 @@ mk p2 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "def helper(): pass" 
 cls "$SHA"; want "ⓟ evidence helper.py(import 됨) → CLASS code(H3)" 0 "CLASS code"
 mk q1 "$BASE" 'mkdir -p design/teams/x && echo "설명: cat secrets/x.cred 를 화면에 찍지 말 것" > design/teams/x/prose.md'
 cls "$SHA"; want "ⓠ 산문(f10 승인 예외) → CLASS docs 그대로" 0 "CLASS docs"
+# ⓝ2 (H2 문맥) — 안전한 울타리 문서를 «원격 main 에 올린 뒤» 울타리 안 한 줄만 바꾼다(그래야 diff = 한 줄 hunk)
+git -C "$W" reset -q --hard && git -C "$W" clean -qfd; git -C "$W" checkout -q -B n1 origin/main
+mkdir -p "$W/design/teams/x" && printf "예시:\n\n\x60\x60\x60bash\necho 안전\n\x60\x60\x60\n" > "$W/design/teams/x/fence2.md"
+git -C "$W" add -A; cm n1; git -C "$W" push -q origin n1:main; git -C "$W" fetch -q origin; N1="$(sha)"
+git -C "$W" checkout -q -B n3 "$N1"; printf "예시:\n\n\x60\x60\x60bash\ncat secrets/x.cred\n\x60\x60\x60\n" > "$W/design/teams/x/fence2.md"
+git -C "$W" add -A; cm n3; N3="$(sha)"
+MB="$(git -C "$W" merge-base "$N3" origin/main)"; echo "  ⓝ2 diff: $(git -C "$W" diff -U0 "$MB" "$N3" | grep -E '^[+-]' | tr '\n' ' ')"
+cls "$N3"; want "ⓝ2 기존 울타리 안 한 줄만 바꿈 → FORBID(문맥 판정 · H2)" 3 "FORBID kind="
 # ⓘ 속도 — 1,000파일 · 6,676파일(v65 실사건 크기) 두 세트 · 파일당 git 호출 0
 speed() {  # speed <파일 수> → "초" (분류 1회)
   local n="$1" d="$T/sp$1"; mkdir -p "$d"; git init -q "$d/o.git" --bare; git clone -q "$d/o.git" "$d/w" 2>/dev/null

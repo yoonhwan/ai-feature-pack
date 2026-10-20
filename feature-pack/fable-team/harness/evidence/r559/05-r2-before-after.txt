@@ -1,0 +1,12 @@
+== 신판 0d00fde1(현 HEAD 코드) — 새 시험 전체
+PASS ⓜ 실제 탭(1글자) 든 파일 이름 + 비밀 괴 → FORBID(경로 풀기 · H1)
+PASS ⓝ 새 문서의 울타리 안 명령 → FORBID
+  ⓝ2 diff: --- a/design/teams/x/fence2.md +++ b/design/teams/x/fence2.md -echo 안전 +cat secrets/x.cred 
+PASS ⓝ2 기존 울타리 안 한 줄만 바꿈 → FORBID(문맥 판정 · H2)
+ALL PASS
+
+== 구판 879b1ed4d9 사본으로 같은 시험 파일 실행(R559_CLS) — ⓜ·ⓝ 만 FAIL 이어야 한다
+FAIL ⓜ 실제 탭(1글자) 든 파일 이름 + 비밀 괴 → FORBID(경로 풀기 · H1) :: rc=0 out=CLASS docs
+PASS ⓝ 새 문서의 울타리 안 명령 → FORBID
+FAIL ⓝ2 기존 울타리 안 한 줄만 바꿈 → FORBID(문맥 판정 · H2) :: rc=0 out=CLASS ff
+FAILED 10
