@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — `ft-nano-close` «재실행» 이 표준 나노 좌석의 워크트리 정리를 통째로 건너뛰던 것 (r566 · 1.1.115 · 동작 변경)
+
+- 사건(arch 111 실측 2026-10-20 22:1x · 두 팀 보고): 재실행 경로(명부에 행 없음 ∧ 원장에 닫힘 행 있음)는 워크트리를 «원장 행의 `wt=/절대경로`» 에서만 찾았다. 표준 나노 행은 `wt=planned`·`wt=skipped:…` 같은 상태 말이라 `SEAT_WT=""` → 계획 생성 0 · 실행 0. 그래서 09-25 표준승인 범위 안의 ops `ta-1` · cfo `1283` 워크트리 2곳이 남았고, 두 팀장이 손으로 `worktree remove` 를 치다 훅에 막혔다(우회 0). 덤: 두 좌석의 첫 계획(10-12)은 baton «워크트리 삭제» 단계가 시간 상한에 죽어(`Terminated: 15`) `.sh.hil` → 생성기 버전이 바뀌어 `.sh.hil.stale` 이 됐는데, sweep 은 `.sh` 만 돌고 재실행은 새 계획을 안 만들어 영영 멈춰 있었다.
+- 고침 ①(`ft-nano-close.sh` 재실행 분기): `--wt`/`--branch`·`--shared-wt` 가 아니면 `_KEY` 를 계산해 `_resolve_seat_wt` 로 `SEAT_WT`·`SEAT_BR` 를 «좌석 이름으로» 다시 잡는다(`wt=<경로>` 유효 시에는 그 값이 이긴다 · 그 밖에는 옛 동작 그대로). 함수 정의 2개(`_is_seat_branch`·`_resolve_seat_wt`)를 재실행 분기 «앞» 으로 옮겼다(동작 불변 · `[structure]` 커밋 분리).
+- 고침 ②(조건 4 · 전부 참일 때만 실행): ⓐ세션 0(기존 tmux 조회 성공 + PANE 없음 또는 kill 성공 뒤) ⓑ`nano/<키>[-rN]` ⓒ`$ROOT/.worktrees/` 아래 `git worktree list --porcelain` 등록 ⓓ`git branch -r --contains HEAD` ≥1줄(그 커밋이 원격에 있다). ⓓ 만 거짓이면 실행 0 · 계획은 `.sh.hil` + `# 실행 보류 — 원격에 없는 커밋 N` 1줄.
+- 고침 ③(통과 시): 옛 계획(`.sh.hil`·`.sh.hil.stale`·`.sh.stale`)을 **지우지 않고** `.superseded-<YYYYmmdd-HHMMSS>` 로 `mv` → `_wt_clean_plan` → `_wt_clean_run`(계획 본문의 가드 6·` D` 처리·보관 tar·가지 보존 **그대로 재사용**) → 출력 `워크트리 정리: <결과>` 1줄. 가지 삭제 0 · 계획 본문 변경 0.
+- 시험 `tests/test_nano_close_rerun_wt_clean.sh` ⓐ~ⓖ(임시 git 리포 + bare 원격 + 가짜 tmux·reap·baton·sweep · 실제 리포·명부·tmux 세션·외부 호출 0 · `GIT_*` env 0): ⓐ옛 `.sh.hil.stale` 잔존 재실행 → 옛 계획 보존 + 새 계획 실행(`sweep --finish` 위임) + `워크트리 정리: cleaned` + 폴더 없음 + 가지 sha 그대로 ⓑ추적 파일 ` D` 다수 → [wip] 커밋 0(가지 sha 그대로) ⓒ가지 HEAD 가 어떤 원격 ref 에도 없음 → 실행 0 · `.sh.hil` + 이유 줄 ⓓ세션 살아 있음 → kill 뒤 실행 · kill 실패면 실행 0 ⓔ`--wt/--branch`·`--shared-wt` 재실행 → 지금 동작 그대로(새 계획 0) ⓕtmux 조회 실패 → REJECT · 실행 0 ⓖ명부 행 있음 = 재실행 분기 0. **전 FAIL 10 failed/17 passed**(`evidence/r566/01-before-red.txt`) → 후 PASS **ALL PASS**(`02-after-pass.txt`).
+- 기존 나노-close 시험 10종 그대로 PASS(648 passed · 0 failed · `evidence/r566/03-existing-tests.txt`) · `bash -n` 2종 OK · 키트↔`harness/bin` 짝 cmp0(`04-kit-bin-cmp.txt`). 실사건 2건 재료는 읽기 전용으로만 확인(`05-real-cases-readonly.txt`: 두 좌석 원장 행 `wt=skipped:…` · 워크트리 등록 · 가지 HEAD = `origin/nano/…` · 잔존 `.sh.hil.stale` 2) — **정리 실행은 master 착지·설치 뒤 두 팀장의 같은 재실행이 한다**.
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-close.sh`) + `harness/bin` 짝 cmp0 + 시험 1 · `install.sh` REQUIRED 목록 변경 0 · 새 스크립트 0 · 데몬 재기동 0. **설치 집행·실사건 2(cleaned · 폴더 없음 · 가지 보존)는 master 소관 — 미실행.** 되돌림 = `.bak-r566`.
+- 범위 밖: 계획 본문(가드·baton 호출) · `ft-wt-sweep.sh` 시간 상한(`r-wt-sweep-route-timeout` 이 이미 처리) · 원장 행 꼴 · 지금 두 폴더의 손 정리 · 브랜치 삭제(HIL 그대로).
+
 ## 2026-10-20 — 뉴스 «지도 만들기» = 모델 HTTP 직접 호출(CLI 기동 0) + 원장·골 = origin/main ref + 자율 = 데이터 루트 (r563 · 1.1.114 · 동작 변경)
 
 - 사건(arch 110 실측 2026-10-20 21:2x · `/tmp/byz-ft-news-planner.log`): 부하 52 에서 매 틱 `opencode run summary 실패(openrouter/anthropic/claude-haiku-5.5): summary 상한 7s 초과(총 마감 70s)` = 발행 0. 원인은 부하가 아니라 구조 — 모델 호출이 매번 `opencode` CLI 를 새로 띄워 «첫 출력까지» 가 한가할 때도 13~41초(`state/news-cli-startup.tsv`) → 7초 룰의 상한 대부분이 기동 시간. 덤: 원장 사본 체크아웃이 매분 fetch+checkout(20초 timeout)으로 실패하며 «낡은 사본» 을 발행하고, 본문 자율 칸은 공용 루트 상태 폴더를 읽어 «off» 로 오독, 골 표가 0줄이어도 «정상» 발행.

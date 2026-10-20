@@ -1,0 +1,6 @@
+== kit <-> harness/bin 짝 cmp (ft-nano-close.sh)
+cmp0 OK
+== bash -n
+bash -n OK
+== 새 시험 bash -n
+bash -n OK
