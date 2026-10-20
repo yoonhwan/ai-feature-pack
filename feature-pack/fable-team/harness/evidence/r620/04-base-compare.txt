@@ -1,0 +1,5 @@
+== base(origin/main) 시험 scripts/test_thread_post_attach.py ==
+---- python3.11 ----
+1 failed, 7 passed (test_attach_uploads_files_into_root_thread_and_prints_first_link — content_types application/octet-stream != text/markdown)
+---- python3.14 ----
+8 passed
