@@ -1,0 +1,118 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+________________ test_a_handed_over_row_live_idle_45_open_work _________________
+
+w = <_stall_world.World object at 0x122bfbe00>
+
+    def test_a_handed_over_row_live_idle_45_open_work(w: World) -> None:  # ⓐ (고치기 전 FAIL)
+        handed_over(w)
+        live(w, "concierge-master#6")
+        w.state("concierge-master#6", "IDLE", 45)
+        r = w.scan()
+        assert r.returncode == 0, r.stderr
+>       assert counts(r.stdout).get("e") == "1", r.stdout
+E       AssertionError: stall=0 a=0 b=0 c=0 d=0 seats=5 u=3 ts=1800000000
+E         
+E       assert None == '1'
+E        +  where None = <built-in method get of dict object at 0x122db0540>('e')
+E        +    where <built-in method get of dict object at 0x122db0540> = {'a': '0', 'b': '0', 'c': '0', 'd': '0', ...}.get
+E        +      where {'a': '0', 'b': '0', 'c': '0', 'd': '0', ...} = counts('stall=0 a=0 b=0 c=0 d=0 seats=5 u=3 ts=1800000000\n')
+E        +        where 'stall=0 a=0 b=0 c=0 d=0 seats=5 u=3 ts=1800000000\n' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-sea...ble-team/bin/ft-stall-scan.sh'], returncode=0, stdout='stall=0 a=0 b=0 c=0 d=0 seats=5 u=3 ts=1800000000\n', stderr='').stdout
+
+tests/scripts/test_ft_stall_scan_off_roster.py:74: AssertionError
+_________ test_b_unregistered_live_claude_ctx_93_goes_to_planner_only __________
+
+w = <_stall_world.World object at 0x122dec690>
+
+    def test_b_unregistered_live_claude_ctx_93_goes_to_planner_only(w: World) -> None:  # ⓑ
+        live(w, "stray#3")
+        w.state("stray#3", "IDLE", 40)
+        ctx(w, "stray#3", 93)
+        r = w.scan()
+>       assert counts(r.stdout)["e"] == "1"
+               ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'e'
+
+tests/scripts/test_ft_stall_scan_off_roster.py:86: KeyError
+_____________ test_c_same_signature_next_run_no_note_but_log_line ______________
+
+w = <_stall_world.World object at 0x122deca50>
+
+    def test_c_same_signature_next_run_no_note_but_log_line(w: World) -> None:  # ⓒ
+        live(w, "stray#3")
+        w.state("stray#3", "IDLE", 40)
+        _ = w.scan()
+        w.advance(660)  # 10분 반복 창 밖 — 막는 것은 서명(좌석·종류·IDLE 시작 시각)이어야 한다
+        r = w.scan()
+>       assert counts(r.stdout)["e"] == "1"
+               ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'e'
+
+tests/scripts/test_ft_stall_scan_off_roster.py:97: KeyError
+____________________________ test_d_idle_25_is_zero ____________________________
+
+w = <_stall_world.World object at 0x122cecc30>
+
+    def test_d_idle_25_is_zero(w: World) -> None:  # ⓓ
+        live(w, "stray#3")
+        w.state("stray#3", "IDLE", 25)
+        r = w.scan()
+>       assert counts(r.stdout)["e"] == "0" and not sends(w)
+               ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'e'
+
+tests/scripts/test_ft_stall_scan_off_roster.py:106: KeyError
+________________ test_e_rest_low_ctx_zero_rest_high_ctx_counts _________________
+
+w = <_stall_world.World object at 0x122cecfc0>
+
+    def test_e_rest_low_ctx_zero_rest_high_ctx_counts(w: World) -> None:  # ⓔ
+        live(w, "rest#1")
+        w.state("rest#1", "IDLE", 50)
+        w.jsonl("rest#1", "[완료·휴식] 끝났습니다")
+        ctx(w, "rest#1", 40)
+>       assert counts(w.scan().stdout)["e"] == "0" and not sends(w)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'e'
+
+tests/scripts/test_ft_stall_scan_off_roster.py:114: KeyError
+__________________ test_f_no_agent_zero_offroster_nano_counts __________________
+
+w = <_stall_world.World object at 0x122d94950>
+
+    def test_f_no_agent_zero_offroster_nano_counts(w: World) -> None:  # ⓕ
+        live(w, "shell#0", agent=None)
+        w.state("shell#0", "IDLE", 60)
+        live(w, "byz-x-nano-y#0", agent="codex")
+        w.state("byz-x-nano-y#0", "IDLE", 40)
+        r = w.scan()
+>       assert counts(r.stdout)["e"] == "1", r.stdout
+               ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'e'
+
+tests/scripts/test_ft_stall_scan_off_roster.py:127: KeyError
+___________ test_g_never_send_keys_or_kill_and_dry_run_sends_nothing ___________
+
+w = <_stall_world.World object at 0x122c779b0>
+
+    def test_g_never_send_keys_or_kill_and_dry_run_sends_nothing(w: World) -> None:  # ⓖ
+        handed_over(w)
+        live(w, "concierge-master#6")
+        w.state("concierge-master#6", "IDLE", 45)
+        live(w, "stray#3")
+        w.state("stray#3", "IDLE", 90)
+        ctx(w, "stray#3", 99)
+>       assert counts(w.scan("--dry-run").stdout)["e"] == "2" and not w.mbox_log()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'e'
+
+tests/scripts/test_ft_stall_scan_off_roster.py:139: KeyError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_a_handed_over_row_live_idle_45_open_work
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_b_unregistered_live_claude_ctx_93_goes_to_planner_only
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_c_same_signature_next_run_no_note_but_log_line
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_d_idle_25_is_zero
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_e_rest_low_ctx_zero_rest_high_ctx_counts
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_f_no_agent_zero_offroster_nano_counts
+FAILED tests/scripts/test_ft_stall_scan_off_roster.py::test_g_never_send_keys_or_kill_and_dry_run_sends_nothing
+7 failed in 1.98s
