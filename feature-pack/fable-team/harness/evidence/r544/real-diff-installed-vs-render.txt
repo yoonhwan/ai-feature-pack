@@ -1,0 +1,10 @@
+== com.byz.ft-secret-scan
+19a20
+>   "WorkingDirectory" => "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents"
+== com.byz.ft-weekly-review
+12c12
+<     1 => "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-weekly-review.sh"
+---
+>     1 => "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin/ft-weekly-review.sh"
+21a22
+>   "WorkingDirectory" => "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents"

@@ -1,0 +1,2 @@
+now test_live_install FAIL줄: FAIL ⓐ 일치 — rc=3 기대=0|FAIL ⓐ OK 이미 일치 줄 — 없음: «OK 이미 일치» ← ERROR 옛 설치 사본(shim 아님 ·|FAIL ⓑ 3개 설치 — rc=3 기대=0|FAIL ⓑ INSTALLED n=3 — 없음: «INSTALLED n=3 ref=» ← ERROR 옛 설치|FAIL ⓑ 재검사 OK — rc=3 기대=0|FAIL ⓑ MODE 원복 실패(c.py 실행 비트 남음)
+now test_live_install_check FAIL줄: FAIL ⑥ 구현 범위가 scripts/harness-install/ 언급 + 없음 → REJECT :: r

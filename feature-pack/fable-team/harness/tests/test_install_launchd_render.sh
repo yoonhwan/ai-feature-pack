@@ -58,8 +58,8 @@ ck "ⓔ --dry-run → PENDING/OK launchd 줄 · LAUNCHD 요약 · 쓰기 0 · la
 
 # ⓐ 템플릿 → 렌더본: __FT_BIN__ = <루트>/.fable-team/bin · __BYZ_ROOT__ = 루트 (실패 시험 먼저 — 고치기 전 설치기는 렌더 0)
 out="$(python3 "$ENV_PY" bin-list "$H/kit" 2>&1)"; rc=$?
-[ "$rc" = 0 ] && [ "$(grep -c . <<< "$out")" = 7 ] && has "$SWEEP	" && has "com.byz.ft-board-publish	" && ! has "com.hermes."
-ck "ⓐ bin-list = __FT_BIN__ 템플릿 7개(launchd 6 + board-publish) · 미러(com.hermes) 0" $?
+[ "$rc" = 0 ] && [ "$(grep -c . <<< "$out")" = 9 ] && has "$SWEEP	" && has "com.byz.ft-board-publish	" && ! has "com.hermes."   # r544: 7 → 9(__BYZ_ROOT__/.fable-team/bin/ 템플릿도 렌더 목록)
+ck "ⓐ bin-list = 루트 bin 템플릿 9개(__FT_BIN__ 7(launchd 6 + board-publish) + r544 루트 bin 꼴 2(secret-scan·weekly-review)) · 미러(com.hermes) 0" $?
 out="$(python3 "$ENV_PY" render-bin "$H/kit/launchd/$SWEEP.plist.template" "$P" 2>&1)"; rc=$?; printf '%s\n' "$out" > "$T/r.plist"
 [ "$rc" = 0 ] && plutil -lint "$T/r.plist" >/dev/null && [ "$(plutil -extract ProgramArguments.1 raw "$T/r.plist")" = "$RB/ft-wt-sweep.sh" ] \
   && [ "$(plutil -extract WorkingDirectory raw "$T/r.plist")" = "$P" ] && [ "$(plutil -extract EnvironmentVariables.FT_ROOT raw "$T/r.plist")" = "$P" ] \

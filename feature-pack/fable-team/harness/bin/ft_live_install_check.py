@@ -6,7 +6,8 @@ r385: --repo 기본 = 하네스 코드 루트(FT_HARNESS_ROOT · <이 폴더>/..
 --project = shim 대조할 프로젝트 루트(기본 = --repo 의 공용 루트).
 r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 = 템플릿 렌더본(FT_ROOT = 프로젝트 루트) 바이트 대조 → 아니면 PENDING plist-env.
 r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 < 스크립트 mtime» 인 라벨의 RESTART 줄만(install.sh --apply 끝 · 실행 0 · rc0).
-r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더)."""
+r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더).
+r544: com.byz.*.plist 실행 경로(ProgramArguments 의 .sh/.py)가 없는 파일 → DRIFT launchd <라벨> missing=<경로> (지운 워크트리를 가리키는 데몬이 매시간 실패 — gce-guard 사건 · 키트 템플릿 밖 plist 도 실재만 검사 · 고치기 0)."""
 import fnmatch
 import os
 import re
@@ -204,6 +205,26 @@ def restart_scan(pdir):
 
 
 PINNED = re.compile(r"/fable-team/live/([^/]+)/bin/")
+SCRIPT_ARG = re.compile(r"\.(?:sh|py)$")
+
+
+def missing_script_drift(pdir):
+    """r544: <pdir>/com.byz.*.plist 의 ProgramArguments 실행 경로(.sh/.py)가 «없는 파일» → DRIFT 줄(gce-guard 가 지운 워크트리 스크립트를 매시간 실행 · 종료 78).
+    키트 템플릿 유무와 무관하게 «실재» 만 본다(키트 밖 plist 포함 · 렌더·고치기 0 · 읽기만 · 외부 호출 0)."""
+    import plistlib
+    out = []
+    for name in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
+        if not (name.startswith("com.byz.") and name.endswith(".plist")):
+            continue
+        try:
+            with open(os.path.join(pdir, name), "rb") as fh:
+                d = plistlib.load(fh)
+        except Exception:  # noqa: BLE001 — 손상 plist 는 이 검사 밖(restart_scan·pinned_drift 와 같음)
+            continue
+        miss = [a for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and SCRIPT_ARG.search(a) and not os.path.isfile(a)]
+        if miss:
+            out.append("DRIFT launchd %s missing=%s" % (d.get("Label") or name[: -len(".plist")], miss[0]))
+    return out
 
 
 def pinned_drift(root):
@@ -359,7 +380,15 @@ def main():
         hints[item.split()[1]] = hint
     drift = pinned_drift(plist_root(repo, o["project"]))  # r538: 판 고정 launchd plist
     bad += drift
-    hints.update({"launchd": "bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"]))} if drift else {})
+    gone = missing_script_drift(os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))  # r544: 실행 경로 스크립트가 없는 plist
+    bad += gone
+    hl = []
+    if drift:
+        hl.append("bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"])))
+    if gone:  # 키트 템플릿 밖 plist 는 install.sh 가 안 고친다 — 경로를 정본으로 돌리거나 스크립트를 복구(사람 단계)
+        hl.append("missing=<경로> plist 의 실행 경로를 정본으로 고치거나 스크립트 복구(키트 밖 plist 는 설치기 손 0)")
+    hints.update({"launchd": " · ".join(hl)} if drift else {})
+    hints.update({"launchd-missing": hl[-1]} if gone else {})  # plist 행 HINT 와 키가 겹치지 않게 따로
     for f in files:
         rel = f[len(KD):]
         row = next((r for r in rows if fnmatch.fnmatch(rel, r[0])), None)
