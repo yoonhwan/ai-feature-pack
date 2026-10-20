@@ -1,0 +1,28 @@
+# r609 ⓐ 실패 시험 먼저 (base = origin/main 8ebf6e98 판 ft-successor-open.sh · FT_SO_PATH)
+PASS bash -n
+PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
+PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
+PASS ⓑ-2 도달 파일 model = --model 값 · successor·seq·rc 불변
+PASS ⓒ 기동 미확인 → 송신 0 · 도달 파일 0 · [HIL]
+PASS ⓓ 5 → ring 1 → 5 → exit 5 · 도달 파일 0 · 닫기 0
+PASS ⓔ 2 → ring 1 → 도달 → 도달 파일 · exit 0
+PASS ⓕ open 실패 → REJECT · 기동 확인·송신 0
+PASS ⓖ SessionStart 레코드 있음 → 관측 후 송신
+PASS ⓖ SessionStart 없음 → 미관측 표시 · 송신 1회
+PASS ⓗ 다른 리포 → 대상 리포 mbox(ring·송신·꼬리 mbox=) · 호출자 0
+PASS ⓘ 같은 리포 → 같은 mbox · 도달 파일
+PASS ⓙ mbox 없는 리포 → REJECT rc2 · open·송신 0 · 호출자 mbox 0
+PASS ⓚ 링크 워크트리 사본 있음 → 리포 루트 mbox 고름 · 사본 0
+PASS ⓛ 짝 파일 없음 → RC2 · open·송신 0
+PASS ⓜ FT_MBOX_SH 명시 → 지금과 같음
+FAIL ⓝ rc=0 log=tmuxc open /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/repo --name byz-t-new-claude#2 --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort high pgrep pgrep pgrep send mboxenv /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/fakebin/mbox  out=SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
+OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/fakebin/mbox
+FAIL ⓞ rc=0 log=tmuxc open /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/repo --name byz-t-new-claude#2 --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort high pgrep pgrep pgrep send mboxenv /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/fakebin/mbox  out=SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
+OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/fakebin/mbox
+FAIL ⓟ rc=0 log=tmuxc open /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/repo --name byz-t-new-claude#2 --agent claude --model claude-opus-5-5[1m] --ctx 1m --effort high pgrep pgrep pgrep send mboxenv /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/fakebin/mbox  out=SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
+OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8KkOVeIAd9/fakebin/mbox
+FAILED 3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

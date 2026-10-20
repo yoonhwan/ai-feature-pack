@@ -4,6 +4,7 @@
 #   exit 0 = 도달(도달 파일 기록) · 1 = REJECT(송신 0) · 2 = usage · 5 = 열렸으나 도달 미확인(도달 파일 0 · 구 좌석 닫기 0)
 #   팀 무관 · 명부(seats*.json) 수정 0 — 명부는 ft-seat-retire.sh 가 후계 부팅 때 한다.
 #   도달 파일 = <리포 루트>/.fable-team/state/successor/<구 좌석>.json — context-distill-gate.sh 가 550k 넘은 좌석의 recv 를 이 파일로 푼다. `model` 칸(R282) = --model 값 — ft-seat-retire.sh 가 후계 행 model 로 쓴다.
+#   재실행(r609) = 같은 이름 세션이 이미 있고 그 pane 작업 폴더가 $WT 면 열기를 건너뛰고 ⓒ~ⓔ 를 잇는다(도달 파일이 이미 있으면 «이미 도달» rc0 · 송신 0). 남의 세션이면 REJECT.
 #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
 #   mbox(R343·r607) = 대상 워크트리의 리포 것($ROOT 의 .fable-team/comm/mbox.sh · 워크트리 안 사본은 보지 않는다) — 없으면 REJECT rc2. 고른 폴더에 짝 파일 mbox_doorbell.sh 가 없으면 열기 «전» REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
 #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
@@ -72,12 +73,31 @@ hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
 case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — 방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>"; exit 1; };; esac
 
+# ⓑ-0 재실행 이어가기 (r609) — desk 전경 30초 상한에 끊긴 판(세션만 열리고 도달 파일 0)을 다시 돌리면 잇는다.
+#   이미 있는 세션이 «내 것»(pane 작업 폴더 toplevel == $WT)이면 열기를 건너뛰고 ⓒ~ⓔ 를 그대로 한다.
+#   도달 파일이 이미 이 NAME 을 담고 있으면 «이미 도달» rc0(두 번 송신 0) · 폴더가 다르면 남의 세션 = REJECT(추측 0).
+RESUMED=0
+if tmux has-session -t "=$NAME" 2>/dev/null; then
+  if [ -f "$STATE/$OLD.json" ] && grep -qE "\"successor\"[[:space:]]*:[[:space:]]*\"$NAME\"" "$STATE/$OLD.json" 2>/dev/null; then
+    echo "이미 도달: successor=$NAME file=$STATE/$OLD.json — 송신 0"; exit 0
+  fi
+  PCWD="$(tmux display-message -p -t "=$NAME" '#{pane_current_path}' 2>/dev/null)"
+  PTOP="$(git -C "${PCWD:-/nonexistent}" rev-parse --path-format=absolute --show-toplevel 2>/dev/null)"
+  WTOP="$(git -C "$WT" rev-parse --path-format=absolute --show-toplevel 2>/dev/null)"
+  [ -n "$PTOP" ] && [ -n "$WTOP" ] && [ "$PTOP" = "$WTOP" ] \
+    || { echo "REJECT 세션 $NAME 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=${PCWD:-?} wt=$WT"; exit 1; }
+  echo "이어감: 세션 있음 $NAME — 열기 건너뜀"
+  RESUMED=1
+fi
+
 # ⓑ 열기 — tmuxc 옵션은 에이전트별로 다르다(ft-role-spawn.sh 와 같은 규칙: --ctx 는 claude 만 · --effort 는 claude·cmd·codex·pi)
+if [ "$RESUMED" = 0 ]; then
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && [ -n "$CTX" ] && OPEN+=(--ctx "$CTX")
 case "$AGENT" in claude|cmd|codex|pi) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
 "${OPEN[@]}" >/dev/null 2>&1 || { echo "REJECT tmuxc open 실패 ($NAME) — 송신 0"; exit 1; }
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME — 송신 0"; exit 1; }
+fi
 
 # ⓒ 에이전트 기동 확인 — pane pid 의 자식이 생길 때까지(BOOT 7 HARD GATE: pgrep 0건이면 send 금지). 상한 넘으면 송신 0.
 PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
