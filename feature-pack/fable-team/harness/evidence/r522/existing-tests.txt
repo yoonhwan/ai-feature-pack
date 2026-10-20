@@ -1,0 +1,55 @@
+[현재] test_resource_cause.sh rc=0 pass=26 fail=0 1s
+[현재] test_resource_cpu_owner.sh rc=0 pass=28 fail=0 4s
+[현재] test_resource_gate.sh rc=1 pass=37 fail=8 16s
+FAIL default ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓕ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 풂 — FT_MBOX_DIR
+FAIL default ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓜ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 풂 — FT_MBOX_DIR
+FAIL default ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓕ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 
+FAIL default ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓜ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 
+FAIL C.UTF-8 ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓕ ft-nano-spawn.sh rc=3 bash: warning: setlocale: LC_ALL
+FAIL C.UTF-8 ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓜ ft-nano-spawn.sh rc=3 bash: warning: setlocale: LC_ALL
+FAIL C.UTF-8 ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓕ ft-nano-spawn.sh rc=3 bash: warning: se
+FAIL C.UTF-8 ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓜ ft-nano-spawn.sh rc=3 bash: warning: se
+[현재] test_resource_gate_pressure.sh rc=1 pass=83 fail=5 34s
+FAIL H3 세션 없음 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GNEcG8kSDC/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/
+FAIL H3 계보 불일치 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GNEcG8kSDC/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users
+FAIL H3 N+2 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GNEcG8kSDC/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/yo
+FAIL H3 다른 팀 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.GNEcG8kSDC/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/y
+FAIL 감시자 줄 수
+[현재] test_resource_reclaim.sh rc=0 pass=107 fail=0 109s
+[현재] test_resource_reclaim_pressure.sh rc=0 pass=28 fail=0 61s
+[현재] test_resource_reclaim_preventive.sh rc=0 pass=87 fail=0 180s
+[현재] test_resource_watch.sh rc=1 pass=74 fail=1 194s
+FAIL R323 du 는 nice 19 로 돈다 — 없음: «nice=19» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ot1zA2cRNH/wt nice=20
+[현재] test_fake_resource_env.sh rc=1 pass=12 fail=2 5s
+FAIL ⓕ ok Traceback (most recent call last):
+FAIL ⓕ reject Traceback (most recent call last):
+orphan 후보: ai-feature-pack/ms1/t1 (execution_ref feat/daily-trend-viewer — 활성 worktree 없음)
+[base] test_resource_gate.sh rc=1 pass=37 fail=8 21s
+FAIL default ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓕ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 풂 — FT_MBOX_DIR
+FAIL default ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓜ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 풂 — FT_MBOX_DIR
+FAIL default ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓕ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 
+FAIL default ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓜ ft-nano-spawn.sh rc=3 ERROR comm 폴더를 못 
+FAIL C.UTF-8 ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓕ ft-nano-spawn.sh rc=3 bash: warning: setlocale: LC_ALL
+FAIL C.UTF-8 ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/bin: ⓜ ft-nano-spawn.sh rc=3 bash: warning: setlocale: LC_ALL
+FAIL C.UTF-8 ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓕ ft-nano-spawn.sh rc=3 bash: warning: se
+FAIL C.UTF-8 ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r522-resource-watch-runaway-cpu-owner-li/feature-pack/fable-team/harness/kit/fable-team/bin: ⓜ ft-nano-spawn.sh rc=3 bash: warning: se
+[base] test_resource_gate_pressure.sh rc=1 pass=83 fail=5 44s
+FAIL H3 세션 없음 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qUM8Y5gqAQ/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/
+FAIL H3 계보 불일치 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qUM8Y5gqAQ/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users
+FAIL H3 N+2 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qUM8Y5gqAQ/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/yo
+FAIL H3 다른 팀 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qUM8Y5gqAQ/cwd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/y
+FAIL 감시자 줄 수
+[base] test_resource_watch.sh rc=1 pass=74 fail=1 188s
+FAIL R323 du 는 nice 19 로 돈다 — 없음: «nice=19» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bO2GGi0Rr4/wt nice=20
+ 4 files changed, 96 insertions(+), 8 deletions(-)
+## 재실행(러너 nice 0) — 위 [현재]/[base] watch 의 nice=20 FAIL 은 러너 nice -n 15 가 겹친 값(15+19→상한 20) · fake_env FAIL 2 = ModuleNotFoundError fake_resource_env(이 시험은 키트 2파일 참조 0 · 변경 무관)
+[현재·nice0] test_resource_watch.sh rc=0 pass=75 fail=0
+
+## main 병합 뒤 재실행 (cdc9645e = 6143ebaf + origin/main 5fb4b134 · 번호 1.1.87 · nice -n 15 직렬)
+- test_resource_cpu_owner rc=0 (28 PASS · FAIL 0)
+- test_resource_cause rc=0 · test_resource_reclaim rc=0 · _reclaim_pressure rc=0 · _reclaim_preventive rc=0
+- test_resource_watch nice15 rc=1(FAIL 1 = «nice=19» 기대에 nice 15+19 겹침 nice=20 · 러너 탓) → nice 0 재실행 rc=0 FAIL 0
+- test_resource_gate rc=1 FAIL 8 · test_resource_gate_pressure rc=1 FAIL 5 — base 5fb4b134(git archive 사본)와 FAIL 줄 경로 뺀 diff 0
+  (base 쪽만 «FAIL core.bare» 1줄 더 = archive 사본이 git 리포 아님 · 사본 탓)
+- «감시자 줄 수» FAIL: base 판 감시자 246줄도 같은 FAIL · r522 판 265줄 — 이미 깨진 시험(따로 고칠 단위 필요)
+- bash -n 0 · shellcheck -S warning (cause·watch·새 시험) rc=0 · kit↔bin cmp0 2
