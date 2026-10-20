@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.81)
+## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.82)
 
 - 사건: desk 26 이 `zombie-clean.sh resume 'byz-concierge-master-claude#6'` 으로 좌석을 다시 열자 날 `claude --resume <uuid> --model …` 로 떠 ANTHROPIC_BASE_URL 없음(프록시 8317 미경유 · 직결) → «session limit · resets 12pm» 정지(desk 26 쪽지 119405 · harness master 83 발주 119409). tmuxc 열기·fork 는 이미 래퍼 경유 — 키트에서 날 claude 를 여는 곳은 재개 3곳뿐(arch 107 실측).
 - `zombie-clean.sh`: 래퍼 경로 1곳 `ZC_CLAUDE_HR`(기본 `$HOME/.headroom/claude-hr.sh`) · resume 열기 = `<래퍼> --dangerously-skip-permissions --resume <uuid> --model '<model>'`(`--dry-run` 은 `[dry] cmd=<같은 문자열>`) · 래퍼 없음·비실행 = `❌ 헤드룸 래퍼 없음: <경로>` rc1 · 세션 생성 0(직결 대체 0) · 연 뒤 ≤7초(`ZC_HR_WAIT_S`) 그 pane 자식 중 본체(comm = claude · 래퍼 bash 단계는 세지 않음)의 `ps eww` 에서 `HEADROOM ok <좌석> pid=<n> ANTHROPIC_BASE_URL=<값>` / `WARN HEADROOM_BYPASS <좌석> pid=<n>` / `WARN HEADROOM 확인 불가(7s)` 1줄 — kill 0 · rc0(래퍼 fail-open). restore: 대장 argv 첫 낱말이 `claude`·`…/claude` 면 그 낱말만 래퍼로(래퍼 없으면 rc1) · 이미 래퍼·codex 등은 그대로.
@@ -8,6 +8,16 @@
 - 시험 `test_zc_resume_headroom.sh`(새 · 가짜 tmux/pgrep/ps · 임시 HOME 가짜 래퍼 · 실 claude·tmux·프록시 0 · GIT_* 0) ⓐ~ⓔ — 고치기 전 FAIL 20(`harness/evidence/r524/before-test_zc_resume_headroom.txt`) · 고친 뒤 ALL PASS 36. 기존 기대값 갱신 3: `test_resume_cmd.sh`(②) · `test_dead_seat_resume.sh`(ⓐ --from-live dry · 가짜 래퍼) · `test_zombie_clean_tmux_prune.sh`(T24c · 가짜 래퍼). 기존 7 시험 rc0 = `harness/evidence/r524/after-summary.txt`.
 - 설치: 키트 2 → zombie-clean = `cp -p <키트>/zombie-clean/*.sh <키트>/zombie-clean/*.py ~/.claude/skills/zombie-clean/scripts/`(홈 사본의 R364 결속 판정기 누락도 이때 맞춰짐) · ft-resume-cmd = `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · launchd 0 · 되돌림 = `.bak-r524`.
 - 범위 밖: 재개 기록에 env·effort 칸 · codex 좌석 재개 · 직결 좌석 자동 재기동·kill · tmuxc(이미 정상) · 전역 ANTHROPIC_BASE_URL export 0.
+
+## 2026-10-20 — 홈 훅 `bg-cpu-burner-gate.sh` = 시간 상한 없는 백그라운드 CPU 소모기 거절 (r523 · 1.1.81)
+
+- 사건: 10-19 23:27Z v65 나노가 부하 재현 스크립트 `loadrep.sh` 안에서 `nice -n 19 yes > /dev/null &` 여러 개를 띄우고 정리는 `trap EXIT` 뿐 → 강제 종료로 trap 이 안 돌아 `yes` 고아 → CPU 100 · 오빠 손 kill(v65 215 쪽지 119303 → desk 119305 → master 83 발주 119306). «burner 0» 은 메모리 글뿐이라 못 막음.
+- 새 홈 훅 `kit/hooks/bg-cpu-burner-gate.sh`(PreToolUse:Bash · 모든 리포 · `op-vault-develop-gate.sh` 꼴 = python3 본문 · fail-open): 명령 글자 + 그 명령이 실행하는 스크립트 파일 1단계(`bash|sh|zsh|dash|source|.` 다음 인자 · 첫 낱말이 경로 · cwd 기준 · ≤256KB · 바이너리 생략)를 따옴표·주석·heredoc 본문을 가린 뒤 조각낸다. 소모기 = 감싸개(env·nohup·nice·stdbuf·command·exec·time) 벗긴 첫 낱말 `yes` · `cat /dev/zero|/dev/urandom` · `dd if=/dev/zero|/dev/urandom`(count= 없음) · `while true|:|[ 1 ]|(( 1 ))` 루프(본문 sleep 이면 아님 — r448 영역). 백그라운드 = 파이프라인 끝 단독 `&`(`done &` 포함 · `2>&1`·`&>` 는 재지정) 또는 `run_in_background: true`. 면제 = burner 바로 앞 `timeout|gtimeout N` · N ≤ 600초 하나뿐(바깥 `timeout … bash x.sh` 는 안의 `&` 고아를 못 끄므로 면제 아님). 거절 = exit 2 + stderr `REJECT bg-cpu-burner <파일:줄|명령> — …` 1줄. 거절만 — kill·renice·실행 0 · 외부 프로세스 0.
+- 등록: `settings-hooks.snippet.json` PreToolUse `Bash` 1항목(`$HOME/.claude/hooks/bg-cpu-burner-gate.sh`). 설치기는 kit/hooks 전부를 복사(r491) — settings 등록은 master.
+- 시험 `test_bg_cpu_burner_gate.sh`(새 · 임시 폴더 · 실제 burner 실행 0 · 가짜 kill/pgrep/ps/pkill · GIT_* 0) ⓐ~ⓙ 65건 — 고치기 전 FAIL(훅 파일 없음 · `harness/evidence/r523/before-fix.txt`) · 고친 뒤 ALL PASS(`after-fix.txt`) · mutation 10종 전부 RED(`mutation.txt`) · 실제 스크립트 745개(kit·bin·tests·홈 훅·BYZ scripts)를 `bash <파일>` 로 넣어 거절 0(`real-scripts-scan.txt`).
+- 기존 시험 1: `test_op_vault_develop_gate.sh` 의 «install.sh HOME_HOOKS 1토큰» 검사가 r491(HOME_HOOKS = kit/hooks find 목록) 뒤 base 에서도 FAIL 1 → 지금 꼴(find 목록 + 훅 파일 실재)로 고침 · rc0(`existing-tests.txt`).
+- 설치: 키트 훅 1 → `install.sh --apply --project <루트>` → 홈 `~/.claude/hooks/bg-cpu-burner-gate.sh` cmp0 · settings.json PreToolUse Bash 등록 1 · LIVE_BIN 0 · launchd 0 · 되돌림 = `.bak-r523`.
+- 범위 밖: 이미 떠 있는 burner 끄기(r522 = 사후 기록 · 끄기는 사람) · CPU 실측 · python/node 안 무한 루프 · 2단계 이상 스크립트 · `( … ) &`·`{ …; } &` 묶음 · `cat /dev/zero | gzip &` 처럼 burner 가 파이프라인 끝이 아닌 꼴.
 
 ## 2026-10-20 — 하네스 시험 «밖 RED» 셸 62 · pytest 104 를 원인 8묶음으로 분류 · 가장 큰 묶음(pytest 79) + 픽스처 미이관 묶음 고침 (r516 · 1.1.80)
 
