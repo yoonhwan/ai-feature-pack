@@ -1,0 +1,8 @@
+PASS ⓐ 연결 파일 → 판 폴더 파일 대조 = OK rc0
+PASS ⓑ 판 폴더 어긋남 = DIFF + via shim → 판 폴더
+PASS ⓒ1 ../LIVE_BIN 없음 = MISSING rc1
+PASS ⓒ2 LIVE_BIN 절대경로 아님 = ERROR rc3
+PASS ⓒ3 판 폴더 파일 없음 = MISSING rc1
+PASS ⓓ 판 폴더 직접 = 동작 불변 rc0
+PASS core.bare 오염 0
+ALL PASS
