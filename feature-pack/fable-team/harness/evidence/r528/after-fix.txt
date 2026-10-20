@@ -1,0 +1,35 @@
+# 고친 뒤 · bash tests/test_queue_state_r528.sh
+PASS 키트 미러 cmp 0: queue-states.tsv
+PASS 키트 미러 cmp 0: ft_queue_state.py
+PASS 키트 미러 cmp 0: ft-proxy-decide.sh
+PASS 키트 미러 cmp 0: ft_decision_count.py
+PASS 판정기 파일 실재: ft_queue_state.py
+PASS py_compile ft_queue_state.py
+PASS ft_queue_state.py ≤ 200줄
+PASS ⓐ 대기 · 진행—누가 · 보류—사유·재확인 · 완료—판정/sha → OK 5 rc0
+  ⓐ 원문: QUEUE-STATE ERR=0 OK=5
+PASS ⓑ 구현중정지·대기중정지·일시정지 → OK 3 rc0
+PASS ⓒ 보류 재확인 시각 없음·사유 없음·틀린 시각 → ERR 줄 번호 6·7·8 rc1
+  ⓒ 원문: ERR 6 보류에 «재확인 YYYY-MM-DD HH:MM» 없음 :: 보류 — 10-18 전팀 정지(판정 2253) 뒤 오빠 대기 아님 · 재개 때 팀별 재확인
+PASS ⓒ 필수 덧말 빠짐(진행 누가·완료 판정/sha·hold 번호·멈춘 단계) · 안 붙는 정지 종류 → ERR 7
+PASS ⓓ 빈 칸·어휘 밖 문장·정지 둘 → ERR 5 · 끝줄 QUEUE-STATE ERR=5 OK=1
+  ⓓ 원문: ERR 5 빈 칸 :: 
+PASS ⓓ 상태 칸보다 짧은 행 → ERR
+PASS ⓓ 머리에 상태·처리됨 칸 없음 → ERR 1
+PASS ⓓ 큐 파일 없음 → ERROR rc2(조용한 0 금지)
+PASS ⓓ parse JSON — 줄 번호·머리 이름별 칸·상태·정지·덧말
+PASS ⓓ parse 재확인 시각 칸
+PASS ⓓ 상태 뒤에 칸이 늘어도 파서 그대로(r529)
+PASS ⓕ 옛 머리 «처리됨» = 같은 칸으로 읽음(이름 바꾸기 0)
+PASS 준비: 자율 ON
+PASS ⓔ 준비: QUEUE rc2
+PASS ⓔ 새 파일 머리 7칸 · 끝 칸 «상태»
+  ⓔ 원문: | 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 |
+  ⓔ 원문: | A1 | 2026-10-20 09:37 | card-start | q1 | c | 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iLUsw5x3GF/none.md | 대기 |
+PASS ⓔ 새 QUEUE 줄 7칸 · 끝 칸 대기
+PASS ⓔ 도구가 쓴 큐 = 린트 OK
+PASS ⓔ 옛 머리(처리됨) 큐에도 새 줄 7칸 · 대기
+PASS ⓕ decision-count 머리 «상태» · 대기 2 = 열린 줄 2
+PASS ⓕ decision-count 옛 머리 «처리됨» · 빈 칸 + 대기 = 열린 줄 2
+ALL PASS
+rc=0
