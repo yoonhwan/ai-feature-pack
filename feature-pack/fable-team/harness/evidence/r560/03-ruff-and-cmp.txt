@@ -1,0 +1,10 @@
+=== ruff check (변경 파이썬)
+All checks passed!
+
+=== kit ↔ harness/bin cmp0
+cmp0 ft_approval_equiv.py
+cmp0 ft-autonomy-scope.sh
+cmp0 ft-autonomy.sh
+
+=== base (rebased onto 636e138d)
+0c3d9f0b [feature] r560 동일승인 판정 기준 main = 세트가 병합한 main + 훅 판정기 자리·후보 순서·이유 + 재승인 셈 0

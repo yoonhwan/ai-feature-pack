@@ -8,7 +8,8 @@
 #   scope-status                       읽기 — `[범위 승인 S3 · A7 · ~03:10까지 · 4/20 · 오늘 2/10 · docs,ff,revert]`
 #   scope-status --audit               읽기 — log grant 줄 ↔ grants.audit(슬랙 ts 포함) 대조 + 승인 파일 수 ≥ scope-use 수 · 어긋나면 `AUDIT-MISMATCH …` rc 3
 # ★한계(판정 2078 ⓐ)★ 같은 uid 의 직접 쓰기(log 에 grant 줄 덧붙이기·scope-use 줄 지우기)는 막지 못한다 — approve-scope 의 슬랙 1줄 + --audit 대조로 «들킨다».
-# 상태 원천 = autonomy.log 한 곳(추가 전용 · 쓰기는 ft-autonomy.sh 의 lock 안 · json 카운터 0) — 건수는 `scope-use` 줄을 센다.
+#   r560: 같은 범위 원장에 이미 센 승인 A 가 새 sha 의 EQUIV(판정기 rc0)면 원장 줄 종류 `equiv` · used·today 증가 0 · 출력 `equiv=<A>`(재승인은 범위 한도 비차감 — 하루 한도 15 중 9 소진 사건)
+# 상태 원천 = autonomy.log 한 곳(추가 전용 · 쓰기는 ft-autonomy.sh 의 lock 안 · json 카운터 0) — 건수는 `scope-use` 줄을 센다(종류 revert·equiv 는 안 센다).
 # 원장 `$STATE/autonomy-scope/S<n>.ledger.tsv` 7칸 = 시각·sha·PR·종류·판정문(빈칸)·착지 sha(빈칸 — r298b 가 6번째 칸을 채운다)·되돌림 명령(빈칸)
 # 외부 호출 0 — 분류기는 로컬 git 뿐 · 7초 상한(넘으면 REJECT · 판정 666).
 SDIR="$STATE/autonomy-scope"
@@ -63,8 +64,24 @@ scope_stop_reason() {  # <S> — log 의 마지막 stop 줄 사유(없으면 .st
   local r; r="$(grep "^scope-stop $1 " "$LOG" 2>/dev/null | tail -1 | cut -d' ' -f4-)"
   [ -n "$r" ] || r="$(head -1 "$SDIR/$1.stopped" 2>/dev/null)"; printf '%s' "$r"
 }
-scope_used() { awk -v s="$1" '$1=="scope-use" && $2==s && $4!="revert" {n++} END{print n+0}' "$LOG" 2>/dev/null; }
-scope_today() { awk -v s="$1" -v c="$(( $(now_epoch) - 86400 ))" '$1=="scope-use" && $2==s && $4!="revert" && $5>c {n++} END{print n+0}' "$LOG" 2>/dev/null; }
+scope_used() { awk -v s="$1" '$1=="scope-use" && $2==s && $4!="revert" && $4!="equiv" {n++} END{print n+0}' "$LOG" 2>/dev/null; }
+scope_today() { awk -v s="$1" -v c="$(( $(now_epoch) - 86400 ))" '$1=="scope-use" && $2==s && $4!="revert" && $4!="equiv" && $5>c {n++} END{print n+0}' "$LOG" 2>/dev/null; }
+
+scope_ledger_shas() {  # <S> → 이 범위 원장에 이미 센 승인 sha(최신순 · 중복 0) — 판정기 대조 후보
+  [ -f "$SDIR/$1.ledger.tsv" ] || return 0
+  awk -F'\t' '$2 ~ /^[0-9a-f]{40}$/ && !seen[$2]++ {a[NR]=$2} END {for (i=NR; i>0; i--) print a[i]}' "$SDIR/$1.ledger.tsv" 2>/dev/null
+}
+
+scope_equiv_sha() {  # <sha> → stdout = 이미 센 승인 A(EQUIV rc0) · 없으면 rc 1 · 판단 못 함 = rc 1(셈 그대로 = 증가 — #0 RULE)
+  local a t0; t0="$(now_epoch)"
+  for a in $(scope_ledger_shas "$G_S"); do
+    [ "$a" = "$1" ] && continue
+    [ $(( $(now_epoch) - t0 )) -lt 21 ] || break   # 판정기 7초 × 3 — 승인 한 건을 오래 붙잡지 않는다(판정 666)
+    scope_code_tool ft-approval-equiv.sh "$a" "$1" --repo "${SCOPE_REPO:-$ROOT}"
+    [ "$RC" = 0 ] && [[ "$FIRST" == EQUIV\ * ]] && { printf '%s' "$a"; return 0; }
+  done
+  return 1
+}
 
 scope_write_stop() {  # <S> <사유> — log 먼저, .stopped 나중. 사유의 탭·개행은 공백으로
   local r="${2//[$'\t\n\r']/ }"; [ -n "${r//[[:space:]]/}" ] || r="사유 없음"
@@ -162,7 +179,7 @@ scope_classify() {  # <sha> → CLS(종류) CLS_LEARNED(학습 키 · 없으면 
 }
 
 cmd_scope_approve() {
-  local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" dir="$STATE/autonomy-merge-approved"
+  local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" eq="" CODE_EQUIV="" dir="$STATE/autonomy-merge-approved"
   [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || scope_err "sha 형식 틀림(40hex 소문자): $sha (usage: scope-approve <40hex> [--pr <N>] [--card <카드.md>] [--repo byz|pack])"
   shift
   while [ $# -gt 0 ]; do case "$1" in
@@ -184,8 +201,10 @@ cmd_scope_approve() {
     cu="$(scope_code_used "$G_S")"
     [ "$cu" -lt "$G_CODEMAX" ] || { scope_write_stop "$G_S" "code 건수 도달($cu/$G_CODEMAX)"; scope_err "$G_S 정지: code 건수 도달($cu/$G_CODEMAX)"; }
     scope_code_check "$sha" "$card"; cu=$((cu + 1)); ev="evidence=$card@$CODE_A"
+  elif eq="$(scope_equiv_sha "$sha")"; then   # r560: 이미 센 승인 A 의 EQUIV = 재승인이 아니다 — 셈 0 · 원장 종류 equiv
+    cls="equiv"; ev="equiv=$eq"
   fi
-  if [ "$cls" != revert ]; then
+  if [ "$cls" != revert ] && [ "$cls" != equiv ]; then   # r560: 종류 equiv(이미 센 승인의 EQUIV)만 셈 0 — code 의 CODE_EQUIV 는 종전대로 셈(code 건수 = 별도 칸)
     [ "$used" -lt "$G_MAX" ] || { scope_write_stop "$G_S" "건수 도달($used/$G_MAX)"; scope_err "$G_S 정지: 건수 도달($used/$G_MAX)"; }
     [ "$today" -lt "$G_DAILY" ] || scope_err "하루 건수 도달(오늘 $today/$G_DAILY)"
     used=$((used + 1)); today=$((today + 1))
@@ -197,7 +216,7 @@ cmd_scope_approve() {
   { printf '%s\n' "$line" > "$dir/$sha.tmp" && mv "$dir/$sha.tmp" "$dir/$sha"; } || scope_wfail "$dir/$sha"
   ev="$ev$tail"; ev="${ev# }"
   printf '%s\t%s\t%s\t%s\t%s\t\t\n' "$now" "$sha" "$pr" "$cls" "$ev" >> "$SDIR/$G_S.ledger.tsv" || scope_wfail "$SDIR/$G_S.ledger.tsv"
-  echo "SCOPE-OK $sha class=$cls${cu:+ code=$cu/$G_CODEMAX} used=$used/$G_MAX today=$today/$G_DAILY${CODE_EQUIV:+ equiv=$CODE_EQUIV}$tail"
+  echo "SCOPE-OK $sha class=$cls${cu:+ code=$cu/$G_CODEMAX} used=$used/$G_MAX today=$today/$G_DAILY${CODE_EQUIV:+ equiv=$CODE_EQUIV}${eq:+ equiv=$eq}$tail"
 }
 
 cmd_scope_stop() {

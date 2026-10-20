@@ -1,0 +1,36 @@
+
+=== test_autonomy_merge_equiv.sh
+rc=0 · PASS=13 · FAIL=0
+fail=0
+
+=== test_merge_land_equiv.sh
+rc=0 · PASS=42 · FAIL=0
+ALL PASS
+
+=== test_autonomy_scope.sh
+rc=0 · PASS=134 · FAIL=0
+fail=0
+
+=== test_autonomy_hooks_layout.sh
+rc=0 · PASS=17 · FAIL=0
+ALL PASS
+
+=== test_autonomy_hooks.sh
+rc=0 · PASS=184 · FAIL=0
+ALL PASS
+
+=== test_autonomy_core.sh
+rc=1 · PASS=192 · FAIL=3
+== suite /opt/homebrew/bin/bash
+FAIL H3 큐 쓰기 실패 → rc≠0·stderr (rc 2)
+== expire suite /bin/bash
+FAIL 7초+재시도 1회 = external_call.py 값과 같음
+== 192 checks, fail=3
+
+=== test_autonomy_scope_classify.sh
+rc=0 · PASS=72 · FAIL=0
+ALL PASS
+
+=== test_autonomy_scope_pack.sh
+rc=0 · PASS=13 · FAIL=0
+fail=0
