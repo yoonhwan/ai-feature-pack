@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-20 — 고장 데몬 3개: 렌더가 템플릿의 `WorkingDirectory` 도 옮기고 · 설치 검사가 «실행 경로 스크립트 없음» 을 DRIFT 로 (r544 · 1.1.99)
+
+- 사건(r532 점검표 · arch 108 실측 2026-10-20 15:0x): launchd 주기 작업 셋이 매번 실패 — ① `com.byz.gce-guard-check` 종료 78 = **지운 워크트리**(`.worktrees/ops-guard`)의 스크립트를 실행 ② `com.byz.ft-secret-scan` 종료 3 · `com.byz.ft-weekly-review` 종료 1 = 설치본에 `WorkingDirectory` 가 없어 launchd cwd=`/` → 로그 `ERROR 리포 공용 루트를 못 풂`.
+- 원인(실측): 키트 템플릿은 `kit/fable-team/com.byz.ft-secret-scan.plist.template:20` 처럼 `<key>WorkingDirectory</key><string>__BYZ_ROOT__</string>` 를 갖고 있는데, r538 렌더(`ft_plist_env.py render-bin`)는 ① `bin-list` 가 `__FT_BIN__` 템플릿만 골라 이 두 라벨이 **렌더 목록에도 안 들어갔고** ② 설치 plist 를 줬을 때 `sync_args` 가 **ProgramArguments 만** 옮겨 `WorkingDirectory` 를 두었다. 설치 검사(`ft_live_install_check.py`)는 판 고정(`pinned`)만 보고 **«실행 경로 파일이 실재하는가»** 를 안 봤다.
+- `ft_plist_env.py`(키트 + `harness/bin` 짝 cmp0): ① `bin-list` = **루트 bin 을 부르는 템플릿 전부** — `__FT_BIN__` 템플릿 7 + `__BYZ_ROOT__/.fable-team/bin/` 실행 경로 템플릿 2(secret-scan·weekly-review) = **9**. `__HOME__`·`__REPO__` 를 쓰는 magazine 류는 실행 경로가 루트 bin 이 아니라 제외(렌더하면 자리표시 잔재 ERROR). ② `sync_args` = 옮기는 키가 `ProgramArguments` + **템플릿에 있는 `WorkingDirectory`** 로 늘었다 — 템플릿에 그 키가 없으면 설치본 값을 **지어내지 않고 그대로** 둔다(머신별 env·주기·로그 경로·손 값 보존 그대로).
+- `ft_live_install_check.py`: `missing_script_drift(pdir)` — `~/Library/LaunchAgents/com.byz.*.plist` 의 ProgramArguments 실행 경로(`.sh`/`.py`)가 없는 파일이면 `DRIFT launchd <라벨> missing=<경로>` + `HINT launchd-missing …`(PENDING rc1). 키트 템플릿이 없는 plist(gce-guard 꼴)도 «실재» 만 본다 — 렌더·고치기 0 · 읽기만 · 외부 호출 0.
+- 시험 `tests/test_plist_workdir_exist_r544.sh`(새 · 임시 HOME·루트·키트 리포·가짜 launchctl · 실 launchd 0) ⓐ~ⓖ **ALL PASS 18** — 고치기 전 **FAIL 4**(ⓐ 사건본 → 렌더본에 WorkingDirectory 없음 · ⓑ 멱등 · ⓓ bin-list 7 · ⓔ 지운 경로 DRIFT 0 · `harness/evidence/r544/before-test_plist_workdir_exist_r544.txt`) → 고친 뒤 `after-test_plist_workdir_exist_r544.txt`.
+- 기존 시험: install·install-check 계열 11 중 rc0 9 · rc1 2(`test_live_install` 6 FAIL · `test_live_install_check` ⑥ 1 FAIL)는 **base 와 같은 기존 FAIL**(`harness/evidence/r538/base-origin-main-preexisting.txt` · `evidence/r544/after-two-preexisting-fails.txt`). `test_install_launchd_render.sh` 는 ⓐ bin-list 개수 기대 **7 → 9** 한 줄만 고쳤다(이 카드가 목록을 늘린 사실 반영 · 나머지 22 PASS 그대로).
+- 실측(읽기만 · press 0): 실제 루트 `--dry-run` = `LAUNCHD rendered=7 changed=2`(r538 때 rendered=5 — secret-scan·weekly-review 가 이제 목록에 들어온다) · 설치본↔렌더본 차이 = **`WorkingDirectory` 추가 1 + weekly-review 실행 경로가 워크트리 심(`.worktrees/v6-realtime-live/.fable-team/bin/…`) → 루트 심**(`evidence/r544/real-diff-installed-vs-render.txt`). gce-guard 는 이 카드 전에 **이미 루트 정본(`<루트>/scripts/ops/gce-guard-check.sh`)으로 고쳐져 있었다**(ops 손 단계 선행 · `launchctl list` 종료 91 = 15:29 실행 `FAIL=0 BLIND=1` 의 종료값).
+- 설치: 키트 2(`ft_plist_env.py` · `ft_live_install_check.py`) → `install.sh --apply --project <루트>` = LIVE_BIN cmp0 2 + plist 2 재렌더·재적재(LAUNCHD 줄) → 시각 03:17 이후 `/tmp/ft-secret-scan.log` 에 «리포 공용 루트 못 풂» 0 · 종료 0. 되돌림 = 키트 2 `.bak-r544` + 각 plist `.bak-<version>`.
+- 범위 밖: 훅 합치기·조각내기 · 키트 밖 plist(gce-guard 내용·launchd env) · `ft-tick` KakaoBot 옛 사본 · planner-decisions·board-publish 실패(원인 미확인) · 새 도구·새 훅 0.
+
 ## 2026-10-20 — 골 표 도구 기본 출처 = `gitref:origin/main`: 공용 체크아웃이 main 에 뒤처져도 planner 앞 발신이 안 막힌다 (r545 · 1.1.98)
 
 - 사건: 모든 팀이 planner 에 쪽지를 보낼 때 붙는 «오빠 골 표» 가 ERROR 로 비었고, 그 탓에 planner 앞 발신 게이트가 전 팀에서 REJECT(1.1.92~95 전부 · 설치 무관 · harness master 85 발주 120203). master 가 공용 체크아웃(`LIVE_ROOT` = `.worktrees/v6-realtime-live`)의 `design/teams/planner/` 에 origin/main 파일 2개를 임시 복사(untracked)해 막아 둔 상태였다.

@@ -1,0 +1,19 @@
+PASS py_compile 2 · bash -n install.sh
+PASS bin/kit 짝 cmp0 (ft_plist_env · ft_live_install_check)
+PASS ⓐ 사건본(WorkingDirectory 0) → 렌더본 WorkingDirectory=<루트> · 실행 경로 루트 shim · plutil rc0
+PASS ⓑ 머신별 env(FT_MACHINE_ONLY)·손 값(주기 41)·PATH·로그 경로 보존
+PASS ⓑ 렌더 두 번 = 같은 결론(멱등 · WorkingDirectory=<루트>)
+PASS ⓒ WorkingDirectory 없는 템플릿 → 그 키 안 만짐(손 값 /tmp/hand-set 유지 · 쓰기 0)
+PASS ⓓ bin-list = 9(__FT_BIN__ 7 + 루트 bin 꼴 2 · magazine·미러 0)
+PASS ⓓ weekly-review 렌더(--need-exist) → 루트 shim 실행 경로 · WorkingDirectory=<루트> · 자리표시·판 경로 0
+PASS ⓔ install-check: 지운 경로를 가리키는 plist → DRIFT missing · HINT(사람 단계) · rc1
+PASS ⓔ 같은 plist · 스크립트 실재 → DRIFT 0 · rc0
+PASS ⓕ 설치기 렌더 목록에 키트 밖 plist 0(고치기 0)
+PASS ⓕ install.sh --apply 뒤에도 키트 밖 plist 불변(cmp0 · 백업 0)
+PASS ⓖ 기존 test_install_launchd_render → rc0 (23 PASS)
+PASS ⓖ 기존 test_live_install_check_plist_env → rc0 (39 PASS)
+PASS ⓖ 기존 test_live_install_check_shim → rc0 (15 PASS)
+PASS ⓖ 기존 test_installed_root → rc0 (21 PASS)
+PASS 600/300 초 상한 0
+PASS 시험 시간 < 10분 (186s)
+ALL PASS
