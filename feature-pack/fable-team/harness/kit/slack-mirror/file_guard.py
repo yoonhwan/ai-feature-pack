@@ -12,6 +12,15 @@ from pathlib import Path
 from post_guard import PostGuardError, check, human_channels
 
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".log"}
+# 확장자로 정하는 내용 형식(magazine_attach 와 같은 꼴) — `mimetypes.guess_type` 표가 파이썬 판마다 달라
+# (3.11 은 `.md` 를 모름 → application/octet-stream) 같은 파일이 다른 형식으로 올라가는 것을 막는다.
+CONTENT_TYPES = {
+    ".md": "text/markdown",
+    ".html": "text/html",
+    ".pdf": "application/pdf",
+    ".txt": "text/plain",
+    ".json": "application/json",
+}
 MAX_BYTES = 1 << 20
 
 
@@ -24,6 +33,11 @@ class Checked:
 
 def _reject(name: str, why: str) -> None:
     raise PostGuardError(f"첨부 거부(file_guard) — {name}: {why} · 게시 0")
+
+
+def _content_type(name: str) -> str:
+    """표에 있는 확장자는 표 값 · 없으면 지금처럼 추측하고, 추측도 없으면 octet-stream."""
+    return CONTENT_TYPES.get(Path(name).suffix.lower()) or mimetypes.guess_type(name)[0] or "application/octet-stream"
 
 
 def _decode(data: bytes, name: str) -> str:
@@ -64,5 +78,5 @@ def check_files(paths: list[str], channel: str, *, human: bool = False) -> list[
                 check(f"{p.name}\n{real.name}\n{body}", channel, human=human)
             except PostGuardError as e:
                 _reject(p.name, str(e))
-        out.append(Checked(p.name, data, mimetypes.guess_type(p.name)[0] or "application/octet-stream"))
+        out.append(Checked(p.name, data, _content_type(p.name)))
     return out
