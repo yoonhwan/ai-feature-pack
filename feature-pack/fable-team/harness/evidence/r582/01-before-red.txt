@@ -1,0 +1,56 @@
+FF.F.                                                                    [100%]
+=================================== FAILURES ===================================
+_____________ test_r582_a_truncated_answer_is_named_not_json_error _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-144/test_r582_a_truncated_answer_i0')
+llm = <test_news_truncated.FakeSSE object at 0x1067f6290>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1067f56d0>
+
+    def test_r582_a_truncated_answer_is_named_not_json_error(tmp_path, llm, monkeypatch):
+        monkeypatch.setenv("FT_OPENCODE", str(tmp_path / "없는-opencode"))
+        llm.mode = "truncated"
+        with pytest.raises(fr.NewsHtmlError) as e:
+            fh.run_files(DATA, tmp_path / "o", NOW)
+        msg = str(e.value)
+>       assert "답이 잘림" in msg and "finish_reason=length" in msg and f"생각 {len('생각' * 600)}자" in msg
+E       assert ('답이 잘림' in "important 응답이 JSON 아님: Expecting ',' delimiter: line 1 column 62 (char 61)")
+
+tests/scripts/test_news_truncated.py:98: AssertionError
+_______________ test_r582_b_reasoning_only_reports_thought_size ________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-144/test_r582_b_reasoning_only_rep0')
+llm = <test_news_truncated.FakeSSE object at 0x106778c50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106773350>
+
+    def test_r582_b_reasoning_only_reports_thought_size(tmp_path, llm, monkeypatch):
+        monkeypatch.setenv("FT_OPENCODE", str(tmp_path / "없는-opencode"))
+        llm.mode = "reasoning_only"
+        with pytest.raises(fr.NewsHtmlError) as e:
+            fh.run_files(DATA, tmp_path / "o", NOW)
+        msg = str(e.value)
+>       assert "답 0자" in msg and f"생각 {len('생각' * 700)}자" in msg and "끝난 이유=length" in msg
+E       AssertionError: assert ('답 0자' in 'http important 실패(openrouter/anthropic/claude-haiku-5.5): rc=1 답 글 0자 · important 답 글 0자')
+
+tests/scripts/test_news_truncated.py:110: AssertionError
+_______ test_r582_d_request_body_carries_reasoning_off_and_400_is_named ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-144/test_r582_d_request_body_carri0')
+llm = <test_news_truncated.FakeSSE object at 0x1064bf790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106772210>
+
+    def test_r582_d_request_body_carries_reasoning_off_and_400_is_named(tmp_path, llm, monkeypatch):
+        monkeypatch.setenv("FT_OPENCODE", str(tmp_path / "없는-opencode"))
+        fh.run_files(DATA, tmp_path / "o", NOW)
+>       assert llm.reqs and all(r.get("reasoning_effort") == "none" for r in llm.reqs)
+E       assert ([{'max_tokens': 2048, 'messages': [{'content': '너는 BYZ 팀 뉴스 편집자다. 아래 «입력» JSON 만 근거로 «팀 지도» 의 한 부분을 JSON 객체 하나로만 답한다 —...working": 2,\n   "unknown": 0\n  }\n ]\n}\n', 'role': 'user'}], 'model': 'anthropic/claude-haiku-5.5', 'stream': True}] and False)
+E        +  where [{'max_tokens': 2048, 'messages': [{'content': '너는 BYZ 팀 뉴스 편집자다. 아래 «입력» JSON 만 근거로 «팀 지도» 의 한 부분을 JSON 객체 하나로만 답한다 —...working": 2,\n   "unknown": 0\n  }\n ]\n}\n', 'role': 'user'}], 'model': 'anthropic/claude-haiku-5.5', 'stream': True}] = <test_news_truncated.FakeSSE object at 0x1064bf790>.reqs
+E        +  and   False = all(<generator object test_r582_d_request_body_carries_reasoning_off_and_400_is_named.<locals>.<genexpr> at 0x1064b99a0>)
+
+tests/scripts/test_news_truncated.py:125: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=0.0(summary=0.0 important=0.0 goals=0.0 teams=0.0) fixed=3.5s model=openrouter/anthropic/claude-haiku-5.5 important=2 summary=64B
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_truncated.py::test_r582_a_truncated_answer_is_named_not_json_error
+FAILED tests/scripts/test_news_truncated.py::test_r582_b_reasoning_only_reports_thought_size
+FAILED tests/scripts/test_news_truncated.py::test_r582_d_request_body_carries_reasoning_off_and_400_is_named
+3 failed, 2 passed in 2.78s

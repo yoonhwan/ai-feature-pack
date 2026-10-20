@@ -1,0 +1,25 @@
+......................................................F                  [100%]
+=================================== FAILURES ===================================
+_________________ test_h_head_phrase_one_place_and_deadline_70 _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109f9f7d0>
+
+    def test_h_head_phrase_one_place_and_deadline_70(monkeypatch):
+>       assert np.html_post_text("가\n나\n다\n라", NOW).splitlines() == ["[뉴스 09:15] 팀 지도 — 가", "나", "다"]
+E       assert ['[뉴스 09:15] ... 가', '나', ...] == ['[뉴스 09:15] ... 가', '나', '다']
+E         
+E         At index 0 diff: "[뉴스 09:15] 팀 지도 · 원장 ref fetch 실패 — fatal: 'origin' does not appear to be a git repository" != '[뉴스 09:15] 팀 지도 — 가'
+E         Left contains 4 more items, first extra item: '올바른 접근 권한이 있는지, 그리고 저장소가 있는지'
+E         Use -v to get more diff
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r582-news-http-truncated-answer-names-ca/feature-pack/fable-team/harness/tests/scripts/test_ft_news_html.py:602: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_news_html.py::test_h_head_phrase_one_place_and_deadline_70
+1 failed, 54 passed in 28.49s
+
+# 위 1 FAIL 은 이 카드와 무관한 «이미 있던 것» — 같은 두 파일을 origin/main 판 render 로 돌린 03b 도 «1 failed, 54 passed» 로 같다.
+#   원인(읽기만): ft_news_ledger.py 가 실패 줄을 os.environ["FT_LEDGER_SYNC_ERROR"] 에 쓰고 지우지 않아, 앞 파일이 남긴 값이
+#   test_ft_news_html.py::test_h_head_phrase_one_place_and_deadline_70 에 새어 들어간다(단독 실행 = 통과).
+#   손대지 않았다 — 이 카드 범위 밖(다른 카드 몫).
