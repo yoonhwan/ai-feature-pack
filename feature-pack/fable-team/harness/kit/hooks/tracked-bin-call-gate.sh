@@ -7,15 +7,21 @@
 #       읽기(cat·grep·sed -n·git show·bash -n)와 `$FT_BIN/…`·`.fable-team/bin/…` 호출·입구 도구 밖 이름·`FT_ALLOW_TRACKED_BIN=1`(시험 하네스) 은 통과.
 # ★못 읽음★: 입력 JSON 을 못 읽거나 파싱 실패 = 통과 + stderr 경고(fail-open · 다른 홈 훅과 같은 꼴 · 파괴 아님). 외부 호출 0(git rev-parse 1회만).
 # 환경: FT_ROOT(루트 고정) · FT_BIN(안내용 라이브 위치 보조). ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse Bash 등록)는 master — 이 파일 범위 밖★
+# ★r546★ 명령 조각내기는 공용 모듈 merge_cmd.segments 하나 — 같은 폴더의 merge_cmd.py 가 없으면 rc2(막음). 사본 0.
 set +e
 INPUT=$(cat 2>/dev/null)
 [ -n "$INPUT" ] || exit 0
 export INPUT
 command -v python3 >/dev/null 2>&1 || { echo "WARN tracked-bin-call-gate: python3 없음 — 통과" >&2; exit 0; }
+TBC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; export TBC_DIR
+[ -f "$TBC_DIR/merge_cmd.py" ] || { echo "REJECT tracked-bin-call-gate: merge_cmd 없음 — 같은 폴더 공용 모듈(r546)이 필요하다: $TBC_DIR/merge_cmd.py" >&2; exit 2; }
 ENTRY_TOOLS="ft-nano-spawn ft-nano-close ft-role-spawn ft-successor-open ft-resource-gate ft-resource-reclaim"
 export ENTRY_TOOLS
 python3 - <<'PYEOF'
 import json, os, re, subprocess, sys
+
+sys.path.insert(0, os.environ["TBC_DIR"])
+from merge_cmd import segments  # r546: 사본 삭제 전 tracked-bin-call-gate 안에 있던 그 함수(글자 그대로 옮겼다)
 
 ENTRY = os.environ.get("ENTRY_TOOLS", "").split()
 
@@ -23,28 +29,6 @@ ENTRY = os.environ.get("ENTRY_TOOLS", "").split()
 def warn(msg):
     print(f"WARN tracked-bin-call-gate: {msg} — 통과", file=sys.stderr)
     sys.exit(0)
-
-
-def segments(cmd):
-    """따옴표 밖의 구분자로 명령을 조각낸다(따옴표 안은 한 덩어리)."""
-    out, cur, q, i = [], [], None, 0
-    while i < len(cmd):
-        c = cmd[i]
-        if q:
-            cur.append(c)
-            if c == q and (q == "'" or cmd[i - 1] != "\\"):
-                q = None
-        elif c in "'\"":
-            q = c; cur.append(c)
-        elif c == "$" and cmd[i:i + 2] == "$(":
-            out.append("".join(cur)); cur = []; i += 1
-        elif c in ";&|\n()`":
-            out.append("".join(cur)); cur = []
-        else:
-            cur.append(c)
-        i += 1
-    out.append("".join(cur))
-    return [s.strip() for s in out if s.strip()]
 
 
 WRAP = {"env", "nohup", "time", "exec", "command", "sudo", "nice", "timeout", "stdbuf"}
