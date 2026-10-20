@@ -1,4 +1,4 @@
-# r609 ⓔ 기존 인접 시험 (재실행 · 1.1.155)
+# r609 ⓔ 기존 인접 시험 (rebase 3e5b3404 · 1.1.155)
 ## tests/test_kit_bin_sync.sh
 PASS dirs exist
 PASS tracked bin ⊂ kit bin (bytes+mode)
@@ -8,7 +8,7 @@ PASS control: missing detected
 PASS control: byte diff detected
 PASS control: mode diff detected
 ALL PASS
-## tests/test_seat_retire.sh (기존 실패 = origin/main 판과 같음)
+## tests/test_seat_retire.sh (기존 실패 = main 판과 같음)
 PASS bash -n ft-tick.sh
 PASS bash -n ft-seat-retire.sh
 PASS bash -n ft-role-spawn.sh
@@ -209,3 +209,5 @@ fail=4
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
 ## kit/bin cmp0
 cmp0 ft-successor-open.sh
+## base
+based on 3e5b3404 (origin/main)

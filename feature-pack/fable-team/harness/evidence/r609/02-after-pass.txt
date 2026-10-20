@@ -1,4 +1,4 @@
-# r609 ⓑ 고친 판 (재실행 · 1.1.155)
+# r609 ⓑ 고친 판 (rebase 3e5b3404 · 1.1.155)
 PASS bash -n
 PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
 PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
