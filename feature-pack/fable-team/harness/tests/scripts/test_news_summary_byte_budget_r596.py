@@ -1,10 +1,11 @@
 """r596 — 뉴스 요약 바이트 예산: 모델 몫 = 600 − 이번 틱 «팀 상태 줄» 바이트 − 줄바꿈(2).
-ⓐ 팀 13개(이름 실제 꼴) 프롬프트 숫자 + 상태 줄 + 줄바꿈 > 600 이면 FAIL(고치기 전 = 500 고정이라 FAIL)
-ⓑ 팀 0개(상태 줄 «팀 상태 원천 없음») → 숫자 = 600 − 그 줄 바이트 − 2
+ⓐ 팀 13개(이름 실제 꼴) 프롬프트 숫자 + 상태 줄 + 줄바꿈 > 600 이면 FAIL(고치기 전 = 500 고정이라 FAIL) · r598 부터 숫자 = floor(모델 몫 × 0.8 ÷ 3) 글자
+ⓑ 팀 0개(상태 줄 «팀 상태 원천 없음») → 몫 = 600 − 그 줄 바이트 − 2 · 프롬프트 숫자 = floor(몫 × 0.8 ÷ 3)(r598)
 ⓒ 모델이 받은 숫자를 넘겨 쓰면 ERROR(발행 0 · 자르기 0) — 판정 불변
 ⓓ 모델이 받은 숫자 안으로 쓰면 통과
 실행: python3 -m pytest tests/scripts/test_news_summary_byte_budget_r596.py -q
 """
+import math
 import os
 import sys
 from pathlib import Path
@@ -32,17 +33,16 @@ def prompt_number(prompt: str) -> int:
     head = prompt.split("출력 스키마:")[0]
     mark = "합쳐 "
     i = head.index(mark) + len(mark)
-    return int(head[i:head.index("바이트", i)])
+    return int(head[i:head.index("글자", i)])
 
 
 def test_r596_a_summary_budget_subtracts_this_ticks_status_line():
-    """ⓐ 팀 13개 — 모델 몫 + 상태 줄 + 줄바꿈 2 = 600 이내(고치기 전 = 500 고정이라 600 초과)."""
+    """ⓐ 팀 13개 — 프롬프트 글자 수 = floor(모델 몫 × 0.8 ÷ 3) · 글자수×3 + 상태 줄 + 줄바꿈 2 ≤ 600(고치기 전 = 500 고정 바이트라 600 초과)."""
     line = fr.status_line(fr.bucket({}, LIVE13))
     assert 500 + status_bytes(DATA13) + 2 > fr.SUMMARY_BYTES, "이 픽스처가 600 초과를 재현하지 못한다"
-    prompt = fr.build_prompt(DATA13, "summary")
-    got = prompt_number(prompt)
-    assert got == fr.SUMMARY_BYTES - status_bytes(DATA13) - 2
-    assert got + len(line.encode("utf-8")) + 2 <= fr.SUMMARY_BYTES
+    got = prompt_number(fr.build_prompt(DATA13, "summary"))
+    assert got == fr.summary_chars(line) == math.floor(fr.summary_budget(line) * fr.SUMMARY_MARGIN / fr.SUMMARY_CHAR_BYTES)
+    assert got * fr.SUMMARY_CHAR_BYTES + len(line.encode("utf-8")) + 2 <= fr.SUMMARY_BYTES
 
 
 def test_r596_b_no_teams_budget_is_upper_bound_minus_status_only():

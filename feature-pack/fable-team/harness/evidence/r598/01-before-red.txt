@@ -1,0 +1,49 @@
+F..FF                                                                    [100%]
+=================================== FAILURES ===================================
+_____________ test_r598_a_prompt_gives_chars_with_margin_not_bytes _____________
+
+    def test_r598_a_prompt_gives_chars_with_margin_not_bytes():
+        """ⓐ 지금 판 = «455바이트» → FAIL · 고친 판 = «N글자(띄어쓰기 포함)» 이고 N = floor(모델 몫 × 0.8 ÷ 3)."""
+        n, unit = prompt_number(fr.build_prompt(DATA13, "summary"))
+>       assert unit.startswith("글자(띄어"), f"단위가 글자가 아니다: {unit!r}"
+E       AssertionError: 단위가 글자가 아니다: '바이트 이하 ·'
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x110641d10>('글자(띄어')
+E        +    where <built-in method startswith of str object at 0x110641d10> = '바이트 이하 ·'.startswith
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r598-news-summary-budget-in-chars-with-m/feature-pack/fable-team/harness/tests/scripts/test_news_summary_char_budget_r598.py:53: AssertionError
+_____________ test_r598_d_overflow_is_error_naming_chars_and_bytes _____________
+
+    def test_r598_d_overflow_is_error_naming_chars_and_bytes():
+        """ⓓ 그래도 넘기면 ERROR(발행 0 · 자르기 0) · 문구에 «모델 몫 N글자 = MB»."""
+        chars = want_chars(STATUS13)
+        c = {**fr.bucket({}, LIVE13), "summary": ["가" * 200, "나" * 200]}
+        with pytest.raises(fr.NewsHtmlError) as e:
+            fr.add_status_line(c)
+        msg = str(e.value)
+        assert "이내여야 한다" in msg and "자르지 않는다" in msg
+>       assert f"모델 몫 {chars}글자 = {model_bytes(STATUS13)}B" in msg
+E       AssertionError: assert '모델 몫 122글자 = 461B' in '요약 3줄·1339B — 팀 상태 줄 포함 3줄·600B 이내여야 한다(자르지 않는다)'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r598-news-summary-budget-in-chars-with-m/feature-pack/fable-team/harness/tests/scripts/test_news_summary_char_budget_r598.py:86: AssertionError
+_______________ test_r598_e_zero_chars_raises_before_model_call ________________
+
+    def test_r598_e_zero_chars_raises_before_model_call():
+        """ⓔ 상태 줄이 길어 모델 몫 글자 수가 0 이하 = 모델 호출 전 ERROR(«글자» 를 말한다)."""
+        live = [{"team": "t" * 580, "live": 1, "working": 1, "unknown": 0}]
+        assert want_chars(fr.status_line(fr.bucket({}, live))) <= 0
+        with pytest.raises(fr.NewsHtmlError) as e:
+            fr.build_prompt({"live": live}, "summary")
+>       assert "글자" in str(e.value)
+E       AssertionError: assert '글자' in '상태 줄만 600B — 모델 몫 -2B(상한 600B) 발행 0'
+E        +  where '상태 줄만 600B — 모델 몫 -2B(상한 600B) 발행 0' = str(NewsHtmlError('상태 줄만 600B — 모델 몫 -2B(상한 600B) 발행 0'))
+E        +    where NewsHtmlError('상태 줄만 600B — 모델 몫 -2B(상한 600B) 발행 0') = <ExceptionInfo NewsHtmlError('상태 줄만 600B — 모델 몫 -2B(상한 600B) 발행 0') tblen=3>.value
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r598-news-summary-budget-in-chars-with-m/feature-pack/fable-team/harness/tests/scripts/test_news_summary_char_budget_r598.py:96: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_summary_char_budget_r598.py::test_r598_a_prompt_gives_chars_with_margin_not_bytes
+FAILED tests/scripts/test_news_summary_char_budget_r598.py::test_r598_d_overflow_is_error_naming_chars_and_bytes
+FAILED tests/scripts/test_news_summary_char_budget_r598.py::test_r598_e_zero_chars_raises_before_model_call
+3 failed, 2 passed in 0.40s
