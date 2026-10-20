@@ -1,0 +1,17 @@
+== 고친 판(작업본) — 나노 spawn 시험 전수 ==
+tests/test_nano_spawn_body_press.sh → rc=2 FAILED=2
+tests/test_nano_spawn_body_search_roster.sh → rc=0 ALL PASS
+tests/test_nano_spawn_pi_effort_serena.sh → rc=0 ALL PASS
+tests/test_nano_spawn_recheck_cited.sh → rc=0 ALL PASS
+tests/test_nano_spawn_reuse_info.sh → rc=0 ALL PASS
+tests/test_nano_spawn_teamset_cap.sh → rc=1 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+tests/test_nano_spawn_tier.sh → rc=0 ALL PASS
+
+== 선행 FAIL 2종 — 고치기 전(origin/main kit 사본)에서도 같은 칸 ==
+-- test_nano_spawn_body_press.sh FAIL 칸:
+FAIL ⓒ status 에 node_modules 보임
+FAIL ⓒ 전체 스테이징이 node_modules 를 담음
+FAILED=2
+-- test_nano_spawn_teamset_cap.sh FAIL 칸:
+FAIL core.bare != false
+FAILED 1

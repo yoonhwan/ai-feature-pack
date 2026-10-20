@@ -1,0 +1,10 @@
+카드: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-close-1879/design/teams/feature/indices/진행/F-toolbar-caption-controls-red.md
+구간: 9b410eb61d..248f1f4236 (바뀐 파일 18개)
+
+[옛 판] 인용 8개: __tests__/unit/components/mobile-toolbar-overflow.test.tsx, __tests__/unit/components/toolbar/caption-window-controls.test.tsx, clients/web, clients/web/__tests__/unit/components/toolbar/caption-window-controls.test.tsx, clients/web/src/, corner-controls-v5.ts, ft-scratch-repo.sh, origin/main
+[옛 판] HIT 18/18 → REJECT
+
+[고친 판] 인용 5개: __tests__/unit/components/mobile-toolbar-overflow.test.tsx, __tests__/unit/components/toolbar/caption-window-controls.test.tsx, clients/web/__tests__/unit/components/toolbar/caption-window-controls.test.tsx, corner-controls-v5.tsx, ft-scratch-repo.sh
+[고친 판] HIT 0/18 → 통과(겹침 0) + BASE-RENEW
+
+HIT 목록(고친 판): 없음

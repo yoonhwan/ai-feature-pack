@@ -1,0 +1,21 @@
+PASS bash -n ft-nano-spawn.sh
+PASS ①b 블록 추출
+== ⓐ 툴바 꼴: 폴더 토큰 + 인용 .tsx 3개 · 변경은 인용 밖 → 통과 + 카드 base_sha = 지금 HEAD
+FAIL ⓐ rc=1 sha=ab6c2a884af9377c09d9f0071c875769aafbc0cf ← REJECT 카드 base_sha ab6c2a884 이후 feat HEAD 35c6cbd83 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 1개 · 바뀐 파일: clients/web/src/components/credit/x.tsx clients/web/src/components/toolbar/corner-controls-v5.tsx
+FAIL   └ 인용 개수 3(폴더 2개 제외) — 없음: «인용 3개 겹침 0» ← REJECT 카드 base_sha ab6c2a884 이후 feat HEAD 35c6cbd83 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 1개 · 바뀐 파일: clients/web/src/components/credit/x.tsx clients/web/src/components/toolbar/corner-controls-v5.tsx
+FAIL   └ REJECT 0 — 있으면 안 됨: «REJECT» ← REJECT 카드 base_sha ab6c2a884 이후 feat HEAD 35c6cbd83 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 1개 · 바뀐 파일: clients/web/src/components/credit/x.tsx clients/web/src/components/toolbar/corner-controls-v5.tsx
+== ⓑ 맨 이름 .tsx 인용 · 그 파일이 바뀜 → REJECT (옛 판은 .ts 로 잘려 거짓 통과)
+FAIL ⓑ rc=0 ← 
+== ⓒ .json 인용 · 그 파일이 바뀜 → REJECT (.js 로 잘림 0)
+FAIL ⓒ rc=0 ← 
+== ⓓ «관련 파일:» 줄에 명시된 폴더는 접두로 유지 → 그 아래 변경 = REJECT
+PASS ⓓ 관련 파일 폴더 = 접두 대조 → REJECT
+== ⓔ 인용 0(확장자 토큰 없음) → 기본 세트 경로 그대로 (worker/ 변경 = REJECT)
+FAIL ⓔ rc=1 ← REJECT 카드 base_sha ab6c2a884 이후 feat HEAD 35c6cbd83 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 1개 · 바뀐 파일: clients/web/src/components/credit/x.tsx clients/web/src/components/toolbar/corner-controls-v5.tsx
+== ⓕ 겹침 있음 + --recheck 판정문에 지금 HEAD → 통과(RECHECK 줄) · base_sha 그대로
+FAIL ⓕ rc=0 ← 
+== ⓖ 리서치 좌석(RESEARCH=1) 면제 → 대조·갱신 0
+PASS ⓖ 리서치 면제 그대로(출력 0 · base_sha 그대로)
+INFO 고치기 전 판(/tmp/r580-old)에서 실행 — 위 FAIL 이 red 증거다
+
+FAILED 7

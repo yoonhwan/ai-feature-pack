@@ -1,0 +1,3 @@
+kit : 3f58027765cdaa0760ab5bdf6ae650225e95e231633ba5e0a167be9a053ddcf4  kit/fable-team/bin/ft-nano-spawn.sh
+bin : 3f58027765cdaa0760ab5bdf6ae650225e95e231633ba5e0a167be9a053ddcf4  bin/ft-nano-spawn.sh
+cmp rc=0 (두 사본 동일)
