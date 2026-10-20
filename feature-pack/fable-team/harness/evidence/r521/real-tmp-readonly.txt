@@ -1,0 +1,10 @@
+ 8:25  up 2 days, 17:53, 3 users, load averages: 11.25 9.92 12.15
+h 파일 수: 363
+--pending (요약): 옛 1줄 · 새 1줄 · diff=0 · 새 stderr 0B
+--pending --each: 옛 7줄 · 새 7줄 · diff=0 · 새 stderr 0B
+새 요약:미실행 h 7개 · 가장 오래된 1778분
+real 0.10
+real 0.10
+real 0.08
+옛 판:
+real 1.54

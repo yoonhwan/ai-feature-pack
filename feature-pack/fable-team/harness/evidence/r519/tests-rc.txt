@@ -1,0 +1,17 @@
+# r519 시험 rc (나노 브랜치 · 2026-10-20)
+test_pack_nano_worktree_place.sh ALL PASS
+test_nano_close_fail_closed.sh ALL PASS
+test_nano_close_named_wt.sh ALL PASS
+test_nano_close_never_started.sh ALL PASS
+test_nano_close_pack_wt.sh ALL PASS
+test_nano_close_sha_base.sh ALL PASS
+test_nano_close_superseded_by.sh ALL PASS
+test_nano_close_suspended.sh ALL PASS
+test_nano_close_worktree_list_pipe.sh ALL PASS
+test_nano_close_wt_deletion_only.sh ALL PASS
+test_nano_spawn_reuse_info.sh ALL PASS
+test_nano_spawn_teamset_cap.sh ALL PASS
+test_nano_spawn_tier.sh ALL PASS
+test_nano_spawn_body_press.sh FAILED=2
+test_nano_spawn_body_press.sh FAILED=2 = origin/main 1af0f63a 와 같은 RED(base-body-press-red.txt) · 새 FAIL 0
+bash -n 2 OK · 짝 bin cmp0 2 · shellcheck -S warning = 기존 줄 2(spawn:51 · close:88) · 새 경고 0

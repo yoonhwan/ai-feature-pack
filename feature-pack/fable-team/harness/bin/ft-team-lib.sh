@@ -100,6 +100,15 @@ ft_team_in_ref() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" 
     2) echo "WARN TWIN-BOTH ${hits[0]} ${hits[1]} (ref 에 둘 다 · 명단 꼴 ${hits[0]})" >&2; printf '%s\n' "${hits[0]}";;
     *) echo "ERROR $t 폴더 실재 후보 2개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 ${cands//$'\n'/ }) (ref 에 둘 다 없음)" >&2; return 1;;
   esac; }
+#   ft_planner_queue <루트>         : 오빠 큐(AUTONOMY-QUEUE.md) 경로 1줄(r515 · 대리·자율 상태·결정 셈이 같이 쓰는 단일 출처 · 파이썬 planner_queue 와 같은 규칙) — FT_PLANNER_DIR 있으면 그 폴더 ·
+#                                    없으면 ref(FT_TEAMS_REF · 기본 origin/main) 명단 꼴 planner 폴더가 루트에 실재하면 그 폴더 · 실재 0(이동 전 가지 체크아웃)이면 공용 루트 .fable-team/state/planner ·
+#                                    ref 명단 못 읽음·공용 루트 못 풂 = stderr ERROR rc1(옛 체크아웃 꼴 후퇴 0) · 쓰기 0(폴더는 쓰는 쪽이 만든다)
+ft_planner_queue() { local c g
+  if [ -n "${FT_PLANNER_DIR:-}" ]; then printf '%s\n' "${FT_PLANNER_DIR%/}/AUTONOMY-QUEUE.md"; return 0; fi
+  c="$(ft_team_cands_ref "$1" planner "${FT_TEAMS_REF:-origin/main}")" || return 1; c="${c%%$'\n'*}"
+  if [ -d "$c" ]; then printf '%s\n' "$c/AUTONOMY-QUEUE.md"; return 0; fi
+  g="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$g" ] || { echo "ERROR planner 큐 자리를 못 풂 — 명단 꼴 폴더 없음($c) · 공용 루트(git common dir) 못 읽음: $1" >&2; return 1; }
+  printf '%s\n' "${g%/.git}/.fable-team/state/planner/AUTONOMY-QUEUE.md"; }
 #   ft_team_file_ref <루트> <팀> <파일> [<ref>] : ft_team_cands_ref 후보 폴더 중 <파일> 이 «실재하는 정확히 1개» 의 절대경로(R406 · 기본 ref = FT_TEAMS_REF 또는 origin/main) — 명단 못 읽음·팀 없음·실재 0·2+ = stderr ERROR(ref·후보 경로) rc1 · 추측·옛 경로 후퇴 0
 ft_team_file_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c hits=()
   cands="$(ft_team_cands_ref "$r" "$t" "$ref")" || return 1

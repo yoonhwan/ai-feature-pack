@@ -1,9 +1,9 @@
 """ft_decision_count.py — planner 가 오빠께 알려야 할 «결정 대기열» 을 한 줄로 센다 (R214 · 오빠 판정 1804).
 
 출력 1줄: `결정 인터뷰 N건 · 스크립트 N건 · 팀 대기 N건(가장 오래 <팀 좌석> N분)`
-  결정 인터뷰 = 인박스 ②[HIL]·③판정 요청 미닫힘(obligation_closed 그대로) + MERGE-QUEUE 상태 «대기» 행 + AUTONOMY-QUEUE 행
-  스크립트 = ft-hil.sh --pending (R186 표식) · 팀 대기 = 인박스 ①~④·미상 미닫힘 중 다른 팀 좌석('#' 있는 이름)이 보낸 것
---detail 항목별 목록 · --alarm 30분(FT_DECISION_WAIT_MIN) 넘은 팀 대기 seq 마다 planner 에 쪽지 1통(상태 파일로 seq 당 1회).
+  결정 인터뷰 = 인박스 미닫힘 중 머리 질문 표식(ft_decision_kind · R337) + MERGE-QUEUE 상태 «대기» 행 + AUTONOMY-QUEUE 행(파일 없음 = 0)
+  스크립트 = ft-hil.sh --pending (R186 표식) · 팀 대기 = 그 질문 중 다른 팀 현역 좌석('#' 있는 이름)이 보낸 것 · 24시간 넘은 질문 = « · 묵은 M건»
+--detail 현역 다른 팀 좌석 미닫힘 + 이유 낱말(질문표식/묵음/통보) · --alarm 30분(FT_DECISION_WAIT_MIN) 넘은 팀 대기 seq 마다 planner 에 쪽지 1통(상태 파일로 seq 당 1회).
 읽기 실패 = stderr ERROR + rc 4 (숫자 지어내기 0). 시험 env: FT_ROOT · FT_DECISION_{NOW,MBOX,FROM,MERGE_QUEUE,AUTONOMY_QUEUE} · HIL_DIR.
 """
 import json
@@ -13,12 +13,14 @@ import subprocess
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
 from ft_flag_off import open_flags, scan  # noqa: E402
-from ft_inbox_core import MUST_REPORT, R, lineage, obligation_closed, qpath, read_q  # noqa: E402
-from ft_team_lib import TeamPathError, team_in  # noqa: E402
+from ft_decision_kind import ORDER, open_rows  # noqa: E402
+from ft_inbox_core import R, answered_seqs, lineage, qpath, read_q  # noqa: E402
+from ft_team_lib import TeamPathError, data_root, planner_queue, team_doc_ref, team_in  # noqa: E402
 
 T0 = time.monotonic()
 # 도구 1회 전체 예산 — 외부 조회(tmux·ft-hil.sh)는 남은 예산만큼만 기다린다. 2.0 → 5.0 (R303 · 판정 1395): 실측 중앙 1.47 s · 최대 1.59 s(CPU 28개 부하) · 실사용 rc4 62건 전부 ft-hil.sh 시간 초과(swap) · 호출자 ft_news_ledger 가 timeout=7 이라 그 밑(7초 룰)
@@ -52,25 +54,24 @@ def planner():
         raise ReadError(f"planner 좌석표 {type(e).__name__} {e}")
 
 
-def table(env, name, wt):
-    """(데이터 행 목록, 머리 칸 목록) — 파일이 없으면 None."""
-    try:  # R382b: planner 폴더는 TEAMS.md 폴더 칸으로 — 루트는 필수, 카드 워크트리 후보는 그 워크트리에 명단이 있을 때만
-        cand = [os.environ[env]] if os.environ.get(env) else [str(team_in(R, "planner") / name)]
-        if not os.environ.get(env) and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
+def table(env, name, wt, at=None):
+    """(데이터 행 목록, 머리 칸 목록) — 표가 없으면 None. 자리 = env 파일 → at(r515 큐 고정 자리) → 카드 워크트리 디스크(명단 있을 때 · 미착지 최신 행) → ref 정본 본문(r517)."""
+    try:  # r517: 루트 자리 = ref(FT_TEAMS_REF·origin/main) 명단 + ref 본문 — 공용 루트 체크아웃이 옛 main(명단 없음)이어도 읽힌다 · 체크아웃 명단 0
+        cand = [os.environ[env]] if os.environ.get(env) else [str(at())] if at else []
+        if not cand and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
             cand.append(str(team_in(f"{R}/.worktrees/{wt}", "planner") / name))
+        path = next((c for c in cand if os.path.isfile(c)), None)
+        text = Path(path).read_text(encoding="utf-8") if path else None if os.environ.get(env) or at else team_doc_ref(R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main")
     except TeamPathError as e:
         raise ReadError(f"{name} 위치를 못 풀었다: {e}")
-    path = next((c for c in cand if os.path.isfile(c)), None)
-    if path is None:
-        return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in f if ln.lstrip().startswith("|")]
     except (OSError, ValueError) as e:
         raise ReadError(f"{name} 읽기 실패: {type(e).__name__} {e}")
+    if text is None:
+        return None
+    rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in text.splitlines() if ln.lstrip().startswith("|")]
     rows = [r for r in rows if not all(re.fullmatch(r":?-+:?", c) for c in r)]
     if not rows:
-        raise ReadError(f"{name} 에 표가 없다(원천 손상): {path}")  # 헤더만 있는 빈 표(=0)와 구분
+        raise ReadError(f"{name} 에 표가 없다(원천 손상): {path or 'ref:' + name}")  # 헤더만 있는 빈 표(=0)와 구분
     return rows[1:], rows[0]
 
 
@@ -97,23 +98,21 @@ def autonomy_open(t):
     return sum(1 for r in t[0] if not r[i]), ""
 
 
-def minutes(ts, now):
-    t = datetime.fromisoformat(ts)
-    return int((now - (t.astimezone().replace(tzinfo=None) if t.tzinfo else t)).total_seconds() // 60)
-
-
 def inbox(me, now):
     if not os.path.exists(qpath(me)):
         raise ReadError(f"인박스 큐 없음: {qpath(me)}")
     try:
-        rows = [x for x in read_q(qpath(me)) if not obligation_closed(x)]
+        rows = open_rows(read_q(qpath(me)), answered_seqs(me), now)
     except (OSError, ValueError, KeyError) as e:
         raise ReadError(f"인박스 {type(e).__name__} {e}")
-    decide = sum(1 for x in rows if x["cls"] in ("②", "③"))
-    other = [x for x in rows if x["cls"] in MUST_REPORT and "#" in x["from"] and lineage(x["from"]) != lineage(me)]
-    sessions = live_sessions() if other else set()  # tmux 조회는 실행당 1회
-    team = [x for x in other if x["from"] in sessions]  # 은퇴·죽은 좌석의 쪽지는 팀 대기가 아니다(메모로만)
-    return decide, sorted(((x["seq"], x["from"], minutes(x["ts"], now), x["body_path"]) for x in team), key=lambda t: -t[2]), len(other) - len(team)
+    sessions = live_sessions() if any("#" in t[0]["from"] for t in rows) else set()  # tmux 조회는 실행당 1회
+    asks = [x["from"] for x, k, _ in rows if k == "질문표식"]
+    dead = sum(1 for f in asks if "#" in f and f not in sessions)  # 은퇴·죽은 좌석의 질문은 N·팀 대기가 아니다(메모로만)
+    live = [t for t in rows if "#" in t[0]["from"] and t[0]["from"] in sessions and lineage(t[0]["from"]) != lineage(me)]
+    return {"n": len(asks) - dead, "stale": sum(1 for t in rows if t[1] == "묵음"),
+            "team": sorted(((x["seq"], x["from"], m, x["body_path"]) for x, k, m in live if k == "질문표식"), key=lambda t: -t[2]),
+            "detail": sorted(((x["seq"], x["from"], m, k, x["body_path"]) for x, k, m in live), key=lambda t: (ORDER[t[3]], -t[2])),
+            "old": dead}
 
 
 def left():
@@ -159,16 +158,16 @@ def flag_off(wt):
 
 def summary(now):
     me, wt = planner()
-    decide, team, old = inbox(me, now)
-    mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt)
-    a, note = autonomy_open(aq) if aq else (0, "(AUTONOMY-QUEUE 파일 없음)")
+    box = inbox(me, now)
+    mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt, lambda: planner_queue(data_root(R)))
+    a, note = autonomy_open(aq) if aq else (0, "")  # 리졸버가 낸 자리에 파일 없음 = 큐 0행(메모 0 · r2 ㉡) — 리졸버 실패만 ReadError
     f, fnote = flag_off(wt)
-    notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {old})" if old else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)
-    return {"me": me, "n": decide + (merge_waiting(mq) if mq else 0) + a + f, "m": scripts(), "team": team, "notes": notes}
+    notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {box['old']})" if box["old"] else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)
+    return {**box, "me": me, "n": box["n"] + (merge_waiting(mq) if mq else 0) + a + f, "m": scripts(), "notes": notes}
 
 
 def line(s):
-    wait = f"팀 대기 {len(s['team'])}건" + (f"(가장 오래 {s['team'][0][1]} {s['team'][0][2]}분)" if s["team"] else "")
+    wait = f"팀 대기 {len(s['team'])}건" + (f"(가장 오래 {s['team'][0][1]} {s['team'][0][2]}분)" if s["team"] else "") + (f" · 묵은 {s['stale']}건" if s["stale"] else "")
     return f"결정 인터뷰 {s['n']}건 · 스크립트 {s['m']}건 · {wait}" + (" " + s["notes"] if s["notes"] else "")
 
 
@@ -191,8 +190,8 @@ def main(argv):
         print(f"ERROR ft-decision-count: {e}", file=sys.stderr)
         return 4
     print(line(s))
-    for seq, frm, mins, bp in s["team"] if argv else []:
-        print(f"  #{seq} {frm} {mins}분 {first_line(bp)}")
+    for seq, frm, mins, why, bp in s["detail"] if argv else []:
+        print(f"  #{seq} {frm} {mins}분 {why} {first_line(bp)}")
     return 0
 
 

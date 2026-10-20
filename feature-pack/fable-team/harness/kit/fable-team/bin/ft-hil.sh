@@ -133,15 +133,8 @@ list() {
 }
 
 pending() {  # 진입 파일만 센다(옛 링크는 실행 여부를 모른다) · 미실행 + 중단/실행 중(.ran 에 rc 행 없음) · $1=--each 면 `h<N> <분>` 줄만
-  local f n k=0 old=0 a r=0
-  for f in "$D"/h[0-9]*; do
-    n="${f##*/h}"; [[ "$n" =~ ^[0-9]+$ ]] || continue
-    [ -f "$f" ] && [ ! -L "$f" ] && [ -n "$(plan_of "$f")" ] && [ ! -e "$f.superseded" ] || continue
-    if [ -e "$f.ran" ]; then done_rc "$f" && continue; a="$(since_min "$f")"; r=$((r + 1)); else a="$(age_min "$f")"; fi
-    k=$((k + 1)); [ "$a" -le "$old" ] || old="$a"
-    [ "${1:-}" != --each ] || echo "h$n $a"
-  done
-  [ "${1:-}" = --each ] || [ "$k" -eq 0 ] || echo "미실행 h ${k}개${r:+$([ "$r" -gt 0 ] && echo " (중단/실행 중 ${r}개 포함)")} · 가장 오래된 ${old}분"
+  # r521: 파일마다 sed·grep·stat 를 띄우던 훑기를 파이썬 1회로(같은 규칙·같은 출력) · 읽기 실패 = stderr 1줄 + rc 3
+  python3 "$(dirname "${BASH_SOURCE[0]}")/ft_hil_pending.py" "$D" "${1:-}"
 }
 
 case "${1:-}" in

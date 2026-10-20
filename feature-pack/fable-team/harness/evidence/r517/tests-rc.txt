@@ -1,0 +1,11 @@
+test_decision_count_tables_ref.sh rc=0 PASS=17 FAIL=0
+test_flag_off_scan.sh rc=1 PASS=35 FAIL=4
+test_team_literal_paths.sh rc=1 PASS=113 FAIL=6
+test_team_literal_paths2.sh rc=0 PASS=326 FAIL=0
+test_proxy_decide_queue_card_resolve.sh rc=0 PASS=31 FAIL=0
+test_planner_decision_line_hook.sh rc=0 PASS=12 FAIL=0
+tests/scripts/test_decision_count.py 26 passed in 30.90s
+tests/test_team_lib_twin.py 8 passed in 0.91s
+tests/test_team_lib_sparse.py 13 passed in 0.71s
+BASE(origin/main 87108e97) test_flag_off_scan.sh rc=1 FAIL=4 — 같은 FAIL 줄(ⓜ ft-land ft-sheet-events 루트 · ⓐ1/ⓐ2 골 표·hil-ask·hil-answer) = 이 단위 밖
+BASE(origin/main 87108e97) test_team_literal_paths.sh rc=1 FAIL=6 — 같은 FAIL 줄(ⓜ ft-land ft-sheet-events 루트 · ⓐ1/ⓐ2 골 표·hil-ask·hil-answer) = 이 단위 밖

@@ -22,22 +22,34 @@ def run(env, *args, extra=None):
     e.update(FT_ROOT=str(env["root"]), FT_DECISION_NOW=NOW.isoformat(), HIL_DIR=str(env["hil"]), HIL_CLIP="0",
              FT_SECRET_JUDGE=str(env["root"] / "none.py"), FT_DECISION_MBOX=str(env["mbox"]), FT_DECISION_TMUX=str(env["root"] / "tmux-stub.sh"),
              FT_DECISION_AUTONOMY_QUEUE=str(env["root"] / "AQ.md"), FT_DECISION_MERGE_QUEUE=str(env["root"] / "MQ.md"),
+             FT_DECISION_FLAG_DECISIONS=str(env["root"] / "FD.md"),  # r517: 루트 자리는 ref 본문 — git 밖 임시 루트라 표 자리를 env 로 고정
              FT_FLAG_OFF_REPO=str(env["root"] / "flagrepo"), FT_FLAG_OFF_REF="HEAD")  # R239: 꺼진 플래그 검사는 플래그 0 인 임시 git 저장소만 본다
     return subprocess.run(["bash", str(BIN / "ft-decision-count.sh"), *args], capture_output=True, text=True, env=e, timeout=30)
 
 
-def row(seq, cls, frm="byz-cfo-master-claude#1", ago=5, closed=False):
+def row(seq, cls, frm="byz-cfo-master-claude#1", ago=5, closed=False, body="[결정] 값 필요? ①예 ②아니오"):
     return {"seq": seq, "ts": (NOW - timedelta(minutes=ago)).isoformat(), "from": frm, "cls": cls, "prio": 2.0, "group": f"g{seq}",
-            "body_path": "", "mark": {"kind": "처리"} if closed else None, "reported": closed}
+            "body_path": "", "mark": {"kind": "처리"} if closed else None, "reported": closed, "body": body}
 
 
 def put(env, rows):
+    """큐 + 본문 파일(R337: 결정 인터뷰는 본문 첫 줄 머리의 질문 표식으로 센다 — 기본 본문 = [결정] 질문)."""
+    bodies = env["root"] / ".fable-team/comm/bodies"
+    bodies.mkdir(parents=True, exist_ok=True)
     (env["root"] / ".fable-team/state/inbox").mkdir(parents=True, exist_ok=True)
+    for r in rows:
+        (bodies / f"{r['seq']}.txt").write_text(f"[{r['from']}->{ME}] " + r.pop("body", "") + "\n", encoding="utf-8")
+        r["body_path"] = str(bodies / f"{r['seq']}.txt")
     (env["root"] / ".fable-team/state/inbox" / QNAME).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
 
 
 @pytest.fixture
 def env(tmp_path):
+    return make_env(tmp_path)
+
+
+def make_env(tmp_path):
+    """임시 FT_ROOT 한 벌 — test_decision_count_truth(R337)도 같은 것을 쓴다."""
     (tmp_path / ".fable-team").mkdir()
     (tmp_path / "design").mkdir()  # R382b: planner 폴더는 TEAMS.md 폴더 칸으로 풀린다
     (tmp_path / "design/TEAMS.md").write_text("| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n", encoding="utf-8")

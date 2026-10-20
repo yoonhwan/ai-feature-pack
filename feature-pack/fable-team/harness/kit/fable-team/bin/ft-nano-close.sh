@@ -313,6 +313,65 @@ _wt_clean_run() {
   case "$res" in cleaned*|none) mv "$PLAN" "$PLAN.done";; skipped:좌석*|skipped:cwd*) ;; *) mv "$PLAN" "$PLAN.hil"; echo "[HIL] ${res#skipped:} · 스크립트 $PLAN.hil";; esac
   echo "워크트리 정리: $res (로그 $PLAN.log)"
 }
+OC_BIN="${FT_OC_REAP_BIN:-$HERE/ft-opencode-reap.sh}"; OC_PF="${FT_OC_STATE_DIR:-$HOME/.claude/state/opencode}/$(printf '%s' "$SEAT" | tr -c 'A-Za-z0-9._#-' '_').pids"
+# r286 + R387 §7-3·§9-3 — opencode 좌석 = ft-opencode-reap.sh --apply(세션 kill «뒤» · 부모 잃은 serve 까지) · left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(명부는 삭제됨 → 같은 close 재실행 = pid 파일로 다시 회수)
+#   리서치 좌석이었다면 카드에 `- 리서치 닫힘:` 1줄(opencode = 회수 rc·left · 미설치만 «도구 없음» · 그 밖 = kill rc=0) — 부모 완성 게이트(ft-index-move)가 읽는다. 카드 쓰기 실패는 경고.
+#   OC·OC_WT·RS_LINE·CARD 는 호출 시점 값(아래 명부 삭제 직전에 정한다).
+_oc_close() {
+  local tail="kill rc=0" fail=0 out rc left
+  if [ "$OC" = 1 ]; then
+    if [ -f "$OC_BIN" ]; then
+      out="$(bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} --apply 2>&1)"; rc=$?; left="$(printf '%s' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
+      printf '%s\n' "$out" >&2
+      if [ "$rc" -eq 0 ] && [ "$left" = left=0 ]; then tail="reap left=0 rc=0"; else tail="CLOSE-FAIL reap ${left:-left=?} rc=$rc"; fail=1; fi
+    else tail="reap 도구 없음(r286 미설치)"; fail=$([ -n "$RS_LINE" ] && echo 0 || echo 1); fi
+  fi
+  [ -z "$RS_LINE" ] || printf -- '- 리서치 닫힘: %s %s %s\n' "$SEAT" "$(date '+%F %T')" "$tail" >> "$CARD" || echo "WARN 리서치 닫힘 줄 쓰기 실패($CARD)"
+  [ "$fail" -eq 0 ] || { echo "$tail — $SEAT opencode 프로세스가 남았다(명부는 삭제됨 · 같은 close 재실행이 pid 파일로 다시 회수)"; exit 1; }
+  [ "$OC" = 0 ] || echo "OC-REAPED $SEAT $tail"
+}
+# r448 + r520: 좌석 백그라운드 루프 reap — left≠0 ∨ rc≠0 이면 FT_REAP_RETRY_SLEEP(기본 3)초 뒤 «1회만» 다시(그 순간 돌던 일시 프로세스 · r519 1차 실사건 = git status 1개). 두 번째 결과로 판정.
+#   _wtarg 는 호출 시점 값 · 결과는 _rp_left·_rp_rc 에 남긴다(호출자가 CLOSE-FAIL 문구를 낸다).
+_seat_reap() {
+  local out i
+  for i in 1 2; do
+    if [ "$i" = 2 ]; then echo "reap 재시도 1 — 1회째 ${_rp_left:-left=?} rc=$_rp_rc · ${FT_REAP_RETRY_SLEEP:-3}초 뒤"; sleep "${FT_REAP_RETRY_SLEEP:-3}"; fi
+    out="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" ${_wtarg[@]+"${_wtarg[@]}"} 2>&1)"; _rp_rc=$?; _rp_left="$(printf '%s\n' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
+    printf '%s\n' "$out" >&2
+    [ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] && return 0
+  done
+  return 1
+}
+# ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.
+#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
+#   원장 행이 없으면(처음 보는 좌석) 이 길로 오지 않는다 — 아래 기존 검사 그대로. --plan-only 는 대상 아님. 워크트리 = --wt › 원장 행 wt=<절대경로>(pack-wt·named-wt 꼴) › 없음(reap 은 세션 경로).
+_lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null | tail -1)"
+jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
+if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
+  echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
+  SEAT_WT=""
+  if [ "$NAMED" = 1 ]; then SEAT_WT="$(cd "$NWT" 2>/dev/null && pwd -P)"
+  elif [ "$SHARED" != 1 ]; then _w="$(printf '%s' "$_lrow" | grep -oE 'wt=/[^ ]+' | tail -1)"; _w="${_w#wt=}"; [ -z "$_w" ] || [ ! -d "$_w" ] || SEAT_WT="$_w"; fi
+  _tp="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; _trc=$?
+  case "$_trc:$_tp" in
+    0:*) PANE="$(printf '%s\n' "$_tp" | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')";;
+    1:*"no server running"*) PANE="";;
+    *) echo "REJECT $SEAT"; echo "  - 재실행: tmux 조회 실패(rc=$_trc: ${_tp:0:60}) — 세션 생존 불명(fail-closed)"; exit 1;;
+  esac
+  RS_LINE=""; CARD=""; OC_WT=(); [ -z "$SEAT_WT" ] || OC_WT=(--wt "$SEAT_WT"); OC=0; [ ! -f "$OC_PF" ] || OC=1
+  _wtarg=(); [ -z "$SEAT_WT" ] || _wtarg=(--wt "$SEAT_WT")
+  _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(재실행 · 명부·원장 그대로 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
+  if [ -n "$PANE" ]; then
+    tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(재실행 · 세션 잔존)"; exit 1; }
+    tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(재실행 · 세션 잔존 · 태그는 해제됨)"; exit 1; }
+    echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
+  fi
+  _oc_close
+  [ ! -f "$WT_CLEAN_DIR/$SEAT.sh" ] || echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"
+  _ses="세션 없음"; [ -z "$PANE" ] || _ses="세션 kill"
+  echo "CLOSED $SEAT (재실행 · $_ses · 원장 행 그대로 · append 0) — reap left=0 rc=0"
+  exit 0
+fi
 bad=()
 # ① 결과 보존 · ② master 회수 — --never-started(r506)는 회수할 산출·seq 가 없다: 면제(대신 ⑥ 자리에서 «한 일 0» 4값 검사)
 if [ "$NEVER" = 1 ]; then :
@@ -436,13 +495,22 @@ _pack_wt() {
   grep -qxF "worktree $1" <<<"$pporc" || return 1
   PACK_WT=1; SEAT_REPO="$pk"; _porc="$pporc"
 }
+# r519: 팩 등록 워크트리인데 표준 자리(팩 .worktrees/) 밖(세션 스크래치 등)이면 «옮기는 한 줄» — 판정(REJECT)은 그대로 · 출력만
+_pack_move_hint() {
+  local pk
+  pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 0
+  [[ "$1" == "$pk/.worktrees/"?* ]] && return 0
+  git -C "$pk" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $1" || return 0
+  printf ' · 표준 자리 밖 — mkdir -p %s/.worktrees && git -C %s worktree move %s %s/.worktrees/%s 뒤 같은 명령(--wt %s/.worktrees/%s)' \
+    "$pk" "$pk" "$1" "$pk" "${NBR#nano/}" "$pk" "${NBR#nano/}"
+}
 if [ "$NAMED" = 1 ]; then
   _std_wt="$SEAT_WT"; SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""   # 표준 해석 결과·«추측 금지» 에러는 이 모드에서 명시 인자가 대신한다(표준 후보가 따로 있으면 아래서 REJECT)
   _nw="$(cd "$NWT" 2>/dev/null && pwd -P)"
   _porc="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)"
   if [ -z "$_nw" ]; then bad+=("ⓐ--wt 경로가 없다: $NWT")
   elif { [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! grep -qxF "worktree $_nw" <<<"$_porc"; } && ! _pack_wt "$_nw"; then
-    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만")
+    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만$(_pack_move_hint "$_nw")")
   else
     _nb="$(printf '%s\n' "$_porc" | awk -v t="$_nw" '/^worktree /{p=substr($0,10)} /^branch /{if(p==t){b=substr($0,8); sub("^refs/heads/","",b); print b}}')"
     if [ "$_nb" != "$NBR" ]; then bad+=("ⓑ--wt($_nw)에 체크아웃된 브랜치(${_nb:-detached})가 --branch($NBR)와 다르다")
@@ -711,8 +779,7 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 if [ -n "${CARD:-}" ] && [ -f "$CARD" ]; then RS_LINE="$(grep -m1 -F -- "- 리서치: $SEAT base=" "$CARD" 2>/dev/null)"; fi
-# r286: opencode 좌석 = 명부 agent 또는 스폰이 남긴 pid 파일 — 명부를 지우기 «앞»에 지금 나무를 pid 파일에 합친다(세션 kill 뒤 부모 잃은 것까지 회수 · 재실행은 pid 파일로 판정)
-OC_BIN="${FT_OC_REAP_BIN:-$HERE/ft-opencode-reap.sh}"; OC_PF="${FT_OC_STATE_DIR:-$HOME/.claude/state/opencode}/$(printf '%s' "$SEAT" | tr -c 'A-Za-z0-9._#-' '_').pids"
+# r286: opencode 좌석 = 명부 agent 또는 스폰이 남긴 pid 파일 — 명부를 지우기 «앞»에 지금 나무를 pid 파일에 합친다(세션 kill 뒤 부모 잃은 것까지 회수 · 재실행은 pid 파일로 판정 · OC_BIN·OC_PF 는 위 _oc_close 정의 옆)
 OC_WT=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || OC_WT=(--wt "$SEAT_WT")
 OC=0; { [ "$RS_AGENT" = opencode ] || [ -f "$OC_PF" ]; } && OC=1
 [ "$OC" = 0 ] || [ ! -f "$OC_BIN" ] || bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} --record >&2 || echo "WARN opencode pid 기록 실패($SEAT) — 회수는 세션 kill 뒤 나무·cwd 로 다시 찾는다" >&2
@@ -802,24 +869,7 @@ _sp_tag=""; [ "$SUPER" -eq 0 ] || _sp_tag=" superseded-by=$SUPERSEDED"   # R171
 _sp_tag+="$_su_tag"   # r450
 # r448: 세션 kill «앞»(세션이 이미 없어도) 그 좌석이 띄운 백그라운드 루프 정지 — left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(세션 보존 · 명부는 삭제됨 → 같은 close 재실행이 RERUN 으로 이어간다)
 _wtarg=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || _wtarg=(--wt "$SEAT_WT")
-_rp_out="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" ${_wtarg[@]+"${_wtarg[@]}"} 2>&1)"; _rp_rc=$?; _rp_left="$(printf '%s\n' "$_rp_out" | grep -oE 'left=[0-9?]+' | tail -1)"
-printf '%s\n' "$_rp_out" >&2
-[ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
-# r286 + R387 §7-3·§9-3 — opencode 좌석 = ft-opencode-reap.sh --apply(세션 kill «뒤» · 부모 잃은 serve 까지) · left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(명부는 삭제됨 → 같은 close 재실행 = pid 파일로 다시 회수)
-#   리서치 좌석이었다면 카드에 `- 리서치 닫힘:` 1줄(opencode = 회수 rc·left · 미설치만 «도구 없음» · 그 밖 = kill rc=0) — 부모 완성 게이트(ft-index-move)가 읽는다. 카드 쓰기 실패는 경고.
-_oc_close() {
-  local tail="kill rc=0" fail=0 out rc left
-  if [ "$OC" = 1 ]; then
-    if [ -f "$OC_BIN" ]; then
-      out="$(bash "$OC_BIN" "$SEAT" ${OC_WT[@]+"${OC_WT[@]}"} --apply 2>&1)"; rc=$?; left="$(printf '%s' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
-      printf '%s\n' "$out" >&2
-      if [ "$rc" -eq 0 ] && [ "$left" = left=0 ]; then tail="reap left=0 rc=0"; else tail="CLOSE-FAIL reap ${left:-left=?} rc=$rc"; fail=1; fi
-    else tail="reap 도구 없음(r286 미설치)"; fail=$([ -n "$RS_LINE" ] && echo 0 || echo 1); fi
-  fi
-  [ -z "$RS_LINE" ] || printf -- '- 리서치 닫힘: %s %s %s\n' "$SEAT" "$(date '+%F %T')" "$tail" >> "$CARD" || echo "WARN 리서치 닫힘 줄 쓰기 실패($CARD)"
-  [ "$fail" -eq 0 ] || { echo "$tail — $SEAT opencode 프로세스가 남았다(명부는 삭제됨 · 같은 close 재실행이 pid 파일로 다시 회수)"; exit 1; }
-  [ "$OC" = 0 ] || echo "OC-REAPED $SEAT $tail"
-}
+_seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
 if [ "$ABSENT" = 1 ]; then _oc_close; echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
 echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0"
 # 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.

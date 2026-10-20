@@ -76,7 +76,7 @@ for t in main ops cfo feature loom; do
   printf '{"_master":"%s-M#1","%s-M#1":{"role":"master","tick":"ft-master-tick"},"%s-N#1":{"role":"nano","tick":null}}' "$t" "$t" "$t" > "$s"
 done
 # R186 hil_watch: 메인 틱만 돈다 — h 폴더는 팀 공통. 45분 묵은 미실행 h 1개 + 가짜 ft-hil 기록 대신 실물 ft-hil.sh(HIL_DIR=scratch)
-mkdir -p "$TMP/hil"; cp "$REPO/harness/bin/ft-hil.sh" "$TMP/repo/.fable-team/bin/ft-hil.sh"
+mkdir -p "$TMP/hil"; cp "$REPO/harness/bin/ft-hil.sh" "$REPO/harness/bin/ft_hil_pending.py" "$TMP/repo/.fable-team/bin/"  # r521: --pending 본체 = 같은 폴더 파이썬
 printf '#!/usr/bin/env bash\ntrue\n' > "$TMP/hil-plan.sh.hil"
 HIL_DIR="$TMP/hil" HIL_CLIP=0 FT_SECRET_JUDGE="$TMP/none.py" bash "$TMP/repo/.fable-team/bin/ft-hil.sh" --add "$TMP/hil-plan.sh.hil" >/dev/null 2>&1
 touch -t "$(date -v-45M +%Y%m%d%H%M 2>/dev/null || date -d '45 minutes ago' +%Y%m%d%H%M)" "$TMP/hil/h1"

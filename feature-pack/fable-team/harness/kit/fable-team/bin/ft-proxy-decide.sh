@@ -7,17 +7,20 @@
 #       [--plan <상태>/wt-clean/<좌석>.sh.hil]        wt-clean 근거(R410 · 판정 2326): ft-nano-close 계획 · plan-ver = 라이브 생성기 blob · «브랜치는 지우지 않는다» · 좌석 tmux 세션 0 · 실행 줄 제외 어휘(계획 실행은 PROXY 뒤 호출자 몫)
 #   push-merge(main 병합·main push)는 오빠 값(판정 1675) — 항상 QUEUE, ok 파일 쓰기 0. 병합 승인 = ft-autonomy.sh approve-merge(오빠 `!`)뿐.
 # rc 0 = 대리(PROXY): 판정 원장에 «대리» 1줄 · rc 2 = 대리 불가(QUEUE): 오빠 큐 1행 · rc 3 = 모드 OFF/위변조(인터뷰로) · rc 4 = 인자 오류
-# 환경: FT_ROOT · FT_AUTONOMY_STATE_DIR · FT_PLANNER_DIR(원장 VERDICTS-*.md · 큐 AUTONOMY-QUEUE.md) · FT_PROXY_LEDGER(쓸 원장, 기본 최신 planner 번호)
+# 환경: FT_ROOT · FT_AUTONOMY_STATE_DIR · FT_PLANNER_DIR(원장 VERDICTS-*.md · 큐 AUTONOMY-QUEUE.md) · FT_PROXY_LEDGER(쓸 원장, 기본 최신 planner 번호) · FT_TEAMS_REF(큐 자리 명단·카드 읽기 ref, 기본 origin/main · r515)
 #       FT_SEAT_RESUME_DIR(재개 기록, 기본 ~/.claude/state/seat-resume) · FT_RESOURCE_GATE(자원 문지기, 기본 같은 폴더 ft-resource-gate.sh) · FT_DEPLOY_BRANCHES(공백·쉼표 구분, glob 허용 · 없으면 <상태>/deploy-branches.txt 한 줄 한 패턴) · FT_PUSH_REMOTE(기본 origin) · FT_TMUX_BIN(기본 PATH 의 tmux)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR rc3(=모드 못 읽음 → 인터뷰로)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 3
 STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
-# R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
+# R383: planner 팀 폴더(판정 원장)는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
+. "$HERE/ft-team-lib.sh" || { echo "ERROR 팀 경로 공용 함수(ft-team-lib.sh)를 못 읽음" >&2; exit 4; }
 if [ -n "${FT_PLANNER_DIR:-}" ]; then PLANNER="$FT_PLANNER_DIR"
-else . "$HERE/ft-team-lib.sh" && PLANNER="$(ft_team_in "$ROOT" planner)" || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; exit 4; }; fi
-QUEUE="$PLANNER/AUTONOMY-QUEUE.md"
+else PLANNER="$(ft_team_in "$ROOT" planner)" || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; exit 4; }; fi
+# r515: 오빠 큐 자리는 ft_planner_queue 하나(ft-autonomy·ft_decision_count 와 같은 리졸버 · 이동 전 가지의 옛 자리 후퇴 0)
+QUEUE="$(ft_planner_queue "$ROOT")" || { echo "ERROR 오빠 큐 자리를 못 풀었다(ft_planner_queue · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 ref 명단을 고친다" >&2; exit 4; }
+CARD_REF="${FT_TEAMS_REF:-origin/main}"   # r515: card-start 카드 상대경로 = cwd → 이 ref 순
 AUT="$HERE/ft-autonomy.sh"; CLS="$HERE/autonomy_classify.py"
 . "$HERE/ft-verdict-row.sh" || { echo "REJECT 판정 줄 공용 함수(ft-verdict-row.sh)를 못 읽음 — 같은 폴더에 있어야 한다" >&2; exit 4; }   # 원장 두 꼴(글머리·표 행) 읽기 정본
 CALL_TIMEOUT_S=7   # 외부 호출 한 시도 상한 + 재시도 1회 = shared/config/external_call.py 값 (판정 666)
@@ -54,7 +57,7 @@ queue_exit() {  # <사유> — 큐 1행 + 같은 질문 기록, rc 2 (쓰기 실
   local why_q="$1"
   lock
   if [ ! -f "$QUEUE" ]; then
-    mkdir -p "$PLANNER" || fail "큐 폴더 생성 실패: $PLANNER"
+    mkdir -p "$(dirname "$QUEUE")" || fail "큐 폴더 생성 실패: $(dirname "$QUEUE")"
     printf '%s\n\n%s\n%s\n' '# AUTONOMY-QUEUE — 자율 대리 결정 모드가 대리하지 않은 질문 (오빠 큐)' \
       '| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 |' '|---|---|---|---|---|---|' > "$QUEUE" || fail "큐 파일 생성 실패: $QUEUE"
   fi
@@ -92,10 +95,12 @@ bounded() {
 }
 
 card_check() {  # card-start — 판정 줄 결속 + 카드 본문(배경·구현 범위·쓰기 허용·금지 절)을 CARD_TEXT 로
-  local slug line
+  local slug line body
   [ -n "$card" ] && [ -n "$verdict" ] || queue_exit "card-start 에는 --card·--verdict 필요 — 예) ft-proxy-decide.sh --kind card-start --card design/<팀>/indices/대기/<카드>.md --verdict <판정 번호> --q <질문> --choice <추천안> --why <근거> --undo <되돌림>"
   case "$verdict" in *[!0-9]*) queue_exit "판정 번호가 숫자 아님" ;; esac
-  [ -r "$card" ] || queue_exit "카드를 못 읽음: $card"
+  if [ -r "$card" ]; then body="$(cat "$card")"   # 절대경로 = 그 파일만 · 상대경로 = cwd 다음 ref(r515)
+  else case "$card" in /*) queue_exit "카드를 못 읽음: $card" ;; esac
+    body="$(git -C "$ROOT" show "$CARD_REF:$card" 2>/dev/null)" && [ -n "$body" ] || queue_exit "카드를 못 읽음: $PWD/$card · $CARD_REF:$card"; fi
   slug="$(basename "$card" .md)"
   line="$(cat "$PLANNER"/VERDICTS-*.md 2>/dev/null | grep -E "$(fv_row_re "$verdict")" | head -1)"   # 글머리 `- **N**` 꼴 · 표 행 `| N |` 꼴 둘 다(번호 경계 엄격 — ft-verdict-row.sh)
   [ -n "$line" ] || queue_exit "원장에 판정 $verdict 줄 없음"
@@ -104,7 +109,7 @@ card_check() {  # card-start — 판정 줄 결속 + 카드 본문(배경·구�
   ! grep -qE '설계만|제안서만' <<<"$line" || queue_exit "판정 $verdict 은 설계·제안서까지만 승인"
   ! grep -qE '보류|금지|중단|취소|대기|철회|불가|않|(^|[[:space:]])안([[:space:]]|$)|하지[[:space:]]*마|말[것고]' <<<"$line" || queue_exit "판정 $verdict 줄에 부정·보류 낱말 — 허락을 확인 못 함"
   grep -qE '착수|발주|구현|진행' <<<"$line" || queue_exit "판정 $verdict 줄에 착수 낱말 없음"
-  CARD_TEXT="$(awk '/^## /{p=($0 ~ /^## (배경|구현 범위|쓰기 허용|금지)/)} p' "$card")"
+  CARD_TEXT="$(awk '/^## /{p=($0 ~ /^## (배경|구현 범위|쓰기 허용|금지)/)} p' <<<"$body")"
 }
 
 jget() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$1" "$2" 2>/dev/null; }  # <json 파일> <키> — 못 읽으면 빈 값

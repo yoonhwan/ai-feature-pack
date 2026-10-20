@@ -1,0 +1,26 @@
+ 8:13  up 2 days, 17:40, 3 users, load averages: 9.98 13.70 16.37
+== ⓐ h 900개 → 1초 안
+PASS 900개 --pending 0.139초 < 1초
+== ⓑ 6종 섞음 · 가장자리 꼴 · 900개 — 옛 판과 바이트 같음
+PASS mix --pending (요약) — 옛 판과 바이트 같음(1줄 · rc=0)
+PASS mix --pending --each — 옛 판과 바이트 같음(24줄 · rc=0)
+PASS mix --pending --bogus — 옛 판과 바이트 같음(1줄 · rc=0)
+PASS 요약 1줄 꼴 = 미실행 h 24개 (중단/실행 중 11개 포함) · 가장 오래된 60분
+PASS big --pending (요약) — 옛 판과 바이트 같음(1줄 · rc=0)
+PASS big --pending --each — 옛 판과 바이트 같음(18줄 · rc=0)
+== ⓒ 0개 · 폴더 없음 → 출력 0 rc0
+PASS empty (요약) = 출력 0 rc0
+PASS empty --each = 출력 0 rc0
+PASS zero (요약) = 출력 0 rc0
+PASS zero --each = 출력 0 rc0
+PASS missing (요약) = 출력 0 rc0
+PASS missing --each = 출력 0 rc0
+== ⓓ 읽기 실패 → 조용한 0 아님(stdout 0 · stderr 1줄 · rc≠0)
+PASS h 파일 권한 0 (요약) → rc=3 · ERROR ft-hil --pending 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SWjYT9YKDP/r1/h2: Permission denied
+PASS h 파일 권한 0 --each → rc=3 · ERROR ft-hil --pending 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SWjYT9YKDP/r1/h2: Permission denied
+PASS .ran 권한 0 (요약) → rc=3 · ERROR ft-hil --pending 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SWjYT9YKDP/r2/h3.ran: Permission denied
+PASS .ran 권한 0 --each → rc=3 · ERROR ft-hil --pending 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SWjYT9YKDP/r2/h3.ran: Permission denied
+PASS 폴더 권한 0 (요약) → rc=3 · ERROR ft-hil --pending 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SWjYT9YKDP/r3: Permission denied
+PASS 폴더 권한 0 --each → rc=3 · ERROR ft-hil --pending 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SWjYT9YKDP/r3: Permission denied
+== 결과: FAIL 0
+rc=0

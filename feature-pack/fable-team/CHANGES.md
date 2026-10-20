@@ -1,5 +1,74 @@
 # Changes
 
+## 2026-10-20 — `ft-hil.sh --pending` = 파이썬 한 번의 훑기 · 같은 결과를 1초 안에 · 읽기 실패 rc 3 (r521 · 1.1.79)
+
+- 사건: `--pending` 이 `/tmp/h<N>` 880개를 파일마다 `plan_of`(sed·head)·`done_rc`(grep)·`age_min`/`since_min`(stat·date) 하위 프로세스로 훑어 부하 17 에서 2.8~3.2초 · 부하 26~30 에서 4.35~4.68초 → `ft-decision-count` 1회 예산 5.0초(R303)에 붙어 rc4 «ft-hil.sh TimeoutExpired» 2회(§74 r517 · §77 r337 편차 · arch 106 실측).
+- 새 `ft_hil_pending.py <HIL_DIR> [--each]`: 옛 pending() 과 같은 규칙 — 이름 h<숫자> · 일반 파일(링크 0) · 첫 `# ft-hil-entry plan=` 줄 값 있음 · `.superseded` 없음 · `.ran` 에 `^rc=[0-9]* ` 행 = 끝 · 없으면 중단/실행 중(1행 epoch · 숫자 아니면 `.ran` mtime) · `.ran` 없음 = 미실행(mtime) · 분 = 0 쪽으로 버림(셸 산술과 같음) · 이름순. 출력 꼴 바이트 같음(요약 1줄 · `--each` = `h<N> <분>` · 0개·폴더 없음 = 출력 0 rc 0).
+- `ft-hil.sh` pending() 본문 → 같은 폴더 `ft_hil_pending.py` 호출 1줄. `plan_of`·`age_min`·`since_min`·`done_rc` 셸 함수는 목록·`--add` 가 그대로 쓴다.
+- 바뀐 것 1: 읽기 실패(폴더·h 파일·`.ran` 권한 등) = stdout 0 · stderr `ERROR ft-hil --pending 읽기 실패: <경로>: <이유>` 1줄 · rc 3(옛 판은 그 파일을 건너뛰거나 0개로 조용히 rc 0). 결정 셈은 rc≠0 을 ReadError 로 드러낸다.
+- 시험 `test_hil_pending_single_pass.sh`(새 · 임시 HIL_DIR · 외부 호출 0 · GIT_* 0) ⓐ 900개 1초 안 ⓑ 6종(미실행·실행 끝·실행 중·대체됨·옛 링크·표식 없음) + 가장자리 꼴 9종(1행 숫자 아님·`rc= `·`rc=0` 공백 없음·미래 시작 -2분·빈 표식·끝 개행 없음·폴더 h<N>·깨진 대체 링크·숫자 아닌 꼬리/0 앞자리) 과 900개에서 요약·`--each`·다른 인자가 옛 판(시험 안 복사본)과 바이트 같음 ⓒ 0개·폴더 없음 = 출력 0 rc0 ⓓ 권한 0(h 파일·`.ran`·폴더) = stdout 0 · stderr 1줄 · rc 3 — 고치기 전 FAIL 7(ⓐ 3.54초 · ⓓ 6건 조용한 0 · `harness/evidence/r521/before-fix.txt`) · 고친 뒤 ALL PASS(ⓐ 0.139초 · `after-fix.txt`) · 실 `/tmp`(h 363개) 읽기 전용 옛 판 대비 diff 0 · 1.54초 → 0.08~0.10초(`real-tmp-readonly.txt`).
+- 기존 시험 픽스처 1: `test_tick_team_msg.sh` 가 가짜 bin 에 `ft-hil.sh` 만 복사 → 짝 `ft_hil_pending.py` 도 복사(고치기 전 ⓔ FAIL 2 → rc0). 운영 루트 shim 은 LIVE_BIN 사본을 `exec` 하므로 짝을 찾는다. 기존 시험 결과·base 대조 = `existing-tests.txt`.
+- 설치: 키트 2(`ft-hil.sh` · 새 `ft_hil_pending.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r521`.
+- 범위 밖: 오래된 h 파일 지우기·옮기기(삭제 = 사람 판단) · 결정 셈 예산 5.0초(R303) · 7초 룰 변경 0.
+
+## 2026-10-20 — nano-close reap 실패 뒤 «같은 close 재실행» 이 실제로 이어지게 + reap 1회 재시도 (r520 · 1.1.78)
+
+- 사건: r519 나노 닫기 1차에서 reap 이 left=1(그 순간 돌던 `git status` 1개)로 CLOSE-FAIL — 안내는 «명부는 삭제됨 · 같은 close 재실행» 인데, 재실행은 RERUN 판별(명부에 좌석 없음 · 원장 닫힘 행 있음)에 닿기 «전» 카드 찾기(명부 index)에서 «카드 못 찾음»(팩 경로는 ⓐ 문구) REJECT → 그 좌석을 닫을 도구 경로 0(harness master 83 발주 119095 ① · arch 106 실측).
+- `ft-nano-close.sh` 조기 재실행: 인자·명부·원장 결정 직후, 카드 찾기 «앞» — 명부에 행 없음(`jq has` rc 1 만) ∧ 원장에 «`<좌석>` 닫힘(ft-nano-close)» 행 1개 이상이면 «재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만» → 카드·증거·cherry 검사 0 · reap(재시도 포함) → 세션 있으면 태그 해제 + kill → opencode 회수 → `CLOSED <좌석> (재실행 · 세션 kill|세션 없음 · 원장 행 그대로 · append 0)`. 명부·원장 쓰기 0 · 워크트리·브랜치 손대기 0. 워크트리 인자 = `--wt` › 원장 행 `wt=<절대경로>`(pack-wt·named-wt 꼴) › 없음(--shared-wt 는 늘 없음). tmux 조회 실패(서버 없음 외) = REJECT(fail-closed). 원장 행이 없는 좌석(처음 보는 좌석)은 이 길로 오지 않는다 — 기존 검사 그대로. `--plan-only` 대상 아님.
+- reap 1회 재시도(`_seat_reap`): left≠0 ∨ rc≠0 이면 `FT_REAP_RETRY_SLEEP`(기본 3)초 뒤 1회만 다시 · 두 번째 결과로 판정 · 출력 «reap 재시도 1 — 1회째 left=… rc=…». 그래도 남으면 지금처럼 CLOSE-FAIL(무한 재시도 0). 정상 경로·재실행 경로 공용.
+- 구조 이동(별 커밋): `_oc_close`·`OC_BIN`/`OC_PF` 정의를 위로(본문 그대로). 아래 옛 RERUN 분기(`RERUN=1 ∧ 원장 행` → append 생략)는 조기 재실행이 먼저 잡아 사실상 닿지 않지만 방어로 남김.
+- 시험 `test_nano_close_rerun_early.sh`(새 · test_nano_close_pack_wt 꼴 픽스처 + 가짜 reap 모드 파일 · 외부 호출 0 · GIT_* env 0) ⓐ 1차 CLOSE-FAIL → 2차 재실행 CLOSED(원장 행 1 그대로 · 태그 해제·kill) · ⓐ' 세션도 없음 → CLOSED kill 0 · ⓑ 1회째 left=1·2회째 left=0 → 1차 CLOSED(reap 2회) · ⓒ 늘 left=1 → reap 정확히 2회 뒤 CLOSE-FAIL · ⓓ 명부·원장 행 둘 다 없음 → REJECT(재실행 0 · reap 0) · ⓔ 명부 행 있음 = 기존 경로(증거 검사 · reap 1회 · append 1) — 고치기 전 FAIL 14(`harness/evidence/r520/before-fix.txt` · ⓐ 2차 «카드 못 찾음» REJECT 재현) · 고친 뒤 ALL PASS(`after-fix.txt`) · 기존 nano-close 시험 9 + seat_reap_left0·opencode_reap·nano_team_env·pack_nano_worktree_place rc0(`existing-tests.txt`).
+- 설치: 키트 1(`ft-nano-close.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0 · plist 0 · 되돌림 = `.bak-r520`.
+- 범위 밖: 명부 삭제와 reap 의 순서 바꾸기 · `ft-seat-close.sh` NOROW 동작 · 손 tmux kill.
+
+## 2026-10-20 — 결정 인터뷰 N = 현역 좌석·도구가 보낸 «질문 표식» 미닫힘만 · 통보 0 · planner 답장 자동 닫힘 · 묵은 칸 (r337 · 1.1.77)
+
+- 사건: planner 보고 첫 줄 「결정 인터뷰 N건」(판정 1804)의 분모가 «인박스 ②③ 분류 미닫힘» 이라 [완료]·[정지 레디]·[수령]·[회신] 통보가 섞이고, planner 가 쪽지로 답해도(`ft-inbox mark` 안 함) 원쪽지가 안 닫혀 하루 종일 28~31(10-17 22:1x · 실제 질문 [결정] 4). 팀 대기도 같은 꼴 — 07:33 라이브 1.1.75 「팀 대기 43건(가장 오래 byz-planner-arch-claude#7 1071분)」 의 가장 오래 = [완료·휴식] 통보(r2 ㉠) · 「(AUTONOMY-QUEUE 파일 없음)」 메모 매번(r2 ㉡).
+- `ft_decision_kind.py`(새 · 분류 1곳): 본문 첫 줄 «머리»(앞 대괄호 묶음) → 질문표식 = `[결정]`·`[HIL]`·`[인터뷰 요청]`(«·» 변형 포함 · `[결정 대기 경보]` 같은 이름 겹침 제외) 또는 `[긴급]` + 첫 줄 «?»·«예/아니오»·«①…②» / 통보 = 통보 머리(`[완료…]`·`[정지 레디]`·`[수령]`·`[회신…]`·`[보고]` — 물음표가 있어도 0) 또는 표식 없음 / 묵음 = 24시간 넘은 질문. 본문 못 읽음 = ReadError rc4(분류 지어내기 0).
+- `ft_inbox_core.obligation_closed(line, answered=frozenset())` 정본 술어 확장 + `answered_seqs(seat)`: 큐 주인 계보가 보낸 쪽지(mail_files 전부 · 계보 글자 선거름)의 «#N 확인/회신/수령/적용/답» 참조 seq = 닫힘 · 남의 좌석(desk·팀장) 참조 0(R326 «자기 큐만» 과 같은 방향) · 인자 없이 부르면 옛 식 그대로(test_inbox_waive ⓕ 전 조합 0). «답» 은 카드 4낱말 밖 — 실 planner 발신 «#117757 답» 꼴 실측으로 넣음.
+- `ft_decision_count.py`: N = 질문표식 중 죽은 '#' 좌석이 아닌 것(죽은 좌석 질문 = «옛 좌석 미닫힘» 메모 · 실측 07:4x 37건 중 32건이 tmux 없는 좌석) · 팀 대기 = 현역 다른 팀 좌석 질문만 · ` · 묵은 M건`(M>0 일 때만 · 첫 줄 머리 «결정 인터뷰 N건 · 스크립트 M건» 불변 = planner-decision-line 훅·ft_news_ledger 그대로) · `--detail` = 현역 다른 팀 미닫힘 전부 + 이유 낱말(질문표식 → 묵음 → 통보 순) · AUTONOMY-QUEUE 자리에 파일 없음 = 0행 메모 0(리졸버 실패만 rc4). 199줄.
+- 시험 `tests/scripts/test_decision_count_truth.py`(새 · 7) — 표본 10건(새 질문 3 · planner 옛 세대 회신 닫힘 1 · 25시간 질문 1 · 통보 5) 「결정 인터뷰 3건 · … · 묵은 1건」 · desk 회신 = 닫힘 아님 · [완료·휴식] 팀 대기 0 · 죽은 좌석 질문 메모 · 큐 파일 없음 메모 0 · 본문 없음 rc4 · 로그 3만 줄 + 900행 ≤ 2.5 s. 고치기 전 7 FAIL(`harness/evidence/r337/before.txt`). 기존 `test_decision_count.py` 고정물: row() 기본 본문 = [결정] 질문 · put() 이 본문 파일을 씀 · make_env 분리 — 단언 변경 0.
+- 실 공용 루트 읽기 전용(`real-root-smoke.txt`): 라이브 1.1.76 「팀 대기 1건(가장 오래 byz-planner-desk-claude#26 0분) (옛 좌석 미닫힘 37) (AUTONOMY-QUEUE 파일 없음)」 → 이 판 「팀 대기 0건 · 묵은 8건 (옛 좌석 미닫힘 1)」 (desk [틱] 통보) · 2.6~3.4 s(예산 5 s).
+- 설치: 키트 3(`ft_decision_count.py` · `ft_inbox_core.py` · `ft_decision_kind.py` 새) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 3 · 홈 0 · plist 0 · 되돌림 = `.bak-r337`.
+- 범위 밖(따로 단위): `test_flag_off_scan.sh` ⓜ(ft-land → ft-sheet-events 루트 풀이 · 팩 체크아웃에 `.fable-team/LIVE_BIN` 없음) FAIL 3 — origin/main 77efe21b 판 파일로도 같음(`flag-off-scan-base-origin-main.txt`).
+
+## 2026-10-20 — 상향 좌석 «▶내릴 것» 카드 상태 = 데이터 루트 · 공용 루트 · ref origin/main 세 자리 중 가장 앞선 것 (r518 · 1.1.76)
+
+- 사건: 틱 `raised_watch` 의 판정기 `ft_raised.py card_state` 가 카드 실재를 `--root`(= 공용 루트 · 체크아웃 main 51881ba2e4 · 2026-09-23 · `design/teams/` 없음) 한 곳에서만 찾아, v6 라이브 워크트리 «진행» 에만 있는 v65 카드 2장의 상향 좌석을 «(카드 없음)» → master 에 «▶내릴 것» 오탐(v65 master 쪽지 119019 · 틱 쪽지 119017 · harness master 83 발주 119026 ② · arch 106 실측). r515·r517 과 같은 뿌리(공용 루트 체크아웃 옛 판을 정본처럼 읽음).
+- `ft_raised.py card_state(root, card, data)`: 자리 3 = 데이터 루트(`ft_team_lib.data_root` · r515 — FT_ROOT → 공용 루트 LIVE_ROOT 1행 → 공용 루트) 체크아웃 · `root` 체크아웃 · ref `origin/main`(`git -C root cat-file --batch-check` 1회 · 7초 상한) · «완성 > 진행 > 대기» 중 처음 맞는 것 · 셋 다 0 = «없음». «내릴 것» 기준(완성·없음) 변경 0 · `ft-tick.sh` 호출 인자·출력 꼴 변경 0.
+- 못 읽음 = rc2(조용한 «없음» 0): ref 못 읽음(리포 아님·origin 없음·7초 초과·batch-check 실패) · LIVE_ROOT 가 절대경로 폴더 아님 · `ft_team_lib` import 실패. LIVE_ROOT 파일 없음(FT_ROOT 도 없음) = 데이터 루트 = 공용 루트(r515 규칙)로 판정하고 «▶내릴 것» 줄 끝에 « · 못 본 자리: 데이터 루트(LIVE_ROOT 없음 <경로>)» — 카드 시험 입력 ⓓ 의 «경고 1줄» 을 stderr 가 아니라 줄 꼬리로 낸 편차: 틱이 `2>&1` 로 받고 rc0 이면 출력 전체를 목록으로 세므로(rc0 stderr 경고 = 가짜 좌석 1건 · 서명 흔들림) 목록이 없을 때는 표기도 0.
+- `ft_team_lib` import 는 `check` 경로 안(지연) — `is-raised` 만 부르는 spawn 시험들의 임시 bin(ft_raised.py 만 복사)은 그대로 동작.
+- 시험 `test_raised_card_state_three_places.sh`(새 · 임시 공용 루트 C(카드 폴더 없음) + LIVE_ROOT = 임시 데이터 루트 D + 임시 bare origin · 외부 호출 0 · GIT_* env 0) ⓐ~ⓕ 38 PASS(ⓕ = 틱 실경로 쪽지 0 · 진짜 완성 경보 1) · 고치기 전 FAIL 16(`harness/evidence/r518/before-fix.txt` · ⓐ 오탐·틱 쪽지 1 재현) · 변이(데이터 루트 자리 제거) FAIL 2(`mutation-no-data-root.txt`). 기존 시험 보정 1: `test_raised_seat.sh` — 판정 폴더 3곳(ck·dup·td)에 빈 커밋 + origin/main ref(ref 트리 0 → 판정은 디스크 그대로) · 임시 bin 에 `ft_team_lib.py` 복사 · 단언 변경 0. 실 공용 루트 읽기 전용: 라이브 1.1.74 «▶내릴 것 ft-v65-temp-m5-1943-r7a-fix3-r8-ghost-verdict-notice#0 … (카드 없음)» 1줄 → 이 판 0줄(`real-root-smoke.txt`).
+- 설치: 키트 1(`ft_raised.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 홈 0 · plist 0(틱은 다음 실행부터 새 판) · 되돌림 = `.bak-r518`.
+- 범위 밖: 공용 루트 체크아웃 갱신 · 명부 «카드 워크트리» 칸 · 같은 꼴(공용 루트 체크아웃을 정본처럼 읽는) 도구 전수 스캔(arch 제안 후보).
+
+## 2026-10-20 — 하네스 팩 나노 작업 폴더 자리 = <팩>/.worktrees/<키> (r519 · 1.1.75)
+
+- 사건: 팩 작업 폴더 자리를 정한 곳이 없어 r517 나노가 세션 스크래치(`/private/tmp/…/scratchpad/afp`)에 팩 워크트리를 만들었고, `ft-nano-close.sh` 팩 모드(r508 · `--wt` = 팩 `.worktrees/` 아래만)가 2회 REJECT(harness master 83 발주 119026 ①). 닫기 기준을 넓히지 않고 «만드는 자리» 를 정한다(arch 106).
+- `ft-nano-spawn.sh`: `pack_wt_line <카드> <키> <브랜치>`(새) — 카드에 `- 설치: 있음`(하네스 카드)이면 첫 발주문 끝에 «★팩 작업 폴더 = `${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}/.worktrees/<키>` (`git -C <팩> worktree add … -b <브랜치> origin/main` · 세션 스크래치 0 — 닫기 = `nano-close --wt … --branch …`)★» 1줄 · dry-run 에도 `BODY+` 로 출력 · 그 밖 카드 = 출력 0.
+- `ft-nano-close.sh`: `_pack_move_hint`(새) — ⓐ REJECT 대상 `--wt` 가 팩 «등록» 워크트리인데 표준 자리 밖이면 같은 REJECT 줄 끝에 « · 표준 자리 밖 — `mkdir -p <팩>/.worktrees && git -C <팩> worktree move <옛> <팩>/.worktrees/<키>` 뒤 같은 명령(--wt …)» (키 = `--branch` 의 `nano/` 뒤) · 판정(REJECT)·닫기 기준 변경 0 · 팩 미등록 폴더는 덧말 0. `mkdir -p` 는 팩 `.worktrees/` 가 없으면 `worktree move` 가 실패해서(시험 ⓓ 실측).
+- 시험 `test_pack_nano_worktree_place.sh`(새 · 임시 리포 2개 + 가짜 tmux · spawn 은 함수 추출 · 외부 호출 0 · GIT_* env 0) ⓐ 하네스 카드 줄·기본 팩 경로 ⓑ 제품 카드 0줄 ⓒ 스크래치 꼴 등록 워크트리 REJECT 그대로 + 덧말 · 미등록 폴더 덧말 0 ⓓ 덧말 명령 «그대로» 실행 → 같은 명령 CLOSED(mode=pack-wt) = ALL PASS · 고치기 전 FAIL 10(`harness/evidence/r519/before.txt` · ⓓ CLOSED 는 그때도 PASS = 팩 모드 그대로).
+- 설치: 키트 2(`ft-nano-spawn.sh` · `ft-nano-close.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r519`.
+
+## 2026-10-20 — 결정 셈 planner 표(MERGE-QUEUE·FLAG-DECISIONS) = ref origin/main 명단 + ref 본문 (r517 · 1.1.74)
+
+- 사건: `ft-decision-count.sh` 가 planner 표 자리를 «루트(공용 루트) 체크아웃의 `design/TEAMS.md`» 로 풀어, 공용 루트 체크아웃(main 51881ba2e4 · 2026-09-23 · 명단 없음)·v6 어느 cwd 에서 불러도 `ERROR … 팀 명단 없음 … design/TEAMS.md` rc4(planner 쪽지 118922 · harness master 83 발주 118925 · arch 106 실측). 발주의 «실패인데 rc 0» 은 재현 0 — 도구 rc = 4 · 0 은 `| tail` 파이프 끝 rc.
+- `ft_team_lib.team_doc_ref(root, team, name, ref)` (새 · 셸 `ft_team_doc_ref` 의 ref 쪽 · 임시 파일 0): ref 명단 후보(`_cands_ref` · 명단 꼴 먼저)마다 `<ref>:<후보>/<name>` 이 ref 트리(`ls-tree`)에 있으면 `git show` 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0 · 체크아웃 명단·옛 경로 후퇴 0).
+- `ft_decision_count.table()`: 자리 = env 파일(그대로) → `at`(AUTONOMY-QUEUE · r515 `planner_queue` 그대로) → 카드 워크트리 디스크(그 워크트리에 명단이 있을 때 · 미착지 최신 행 · 먼저) → ref 본문(`FT_TEAMS_REF` · 기본 origin/main). 표 «내용» 판정 규칙(칸·대기 셈·손상 rc4) 변경 0 · 못 읽음 = ReadError rc4 그대로. 파일 200줄 그대로(test_flag_off_scan 상한).
+- 시험 `test_decision_count_tables_ref.sh`(새 · 임시 리포 체크아웃 = 옛 커밋(명단 없음) · origin/main = 새 꼴 명단 + `design/teams/planner` 표 · 외부 호출 0 · GIT_* env 0) ⓐ 공용 루트·다른 리포 cwd rc0 + 대기 1 · ⓐ2 카드 워크트리 표 먼저 ⓑ FLAG-DECISIONS ref 본문 · 머리 손상 변이 rc4 ⓒ ref 에 표 없음 = 메모 + rc0 ⓓ origin 없음 = rc4 «명단 ref 못 읽음» ⓔ env 지정 = 그 파일 = 17 PASS · 고치기 전 FAIL 12(`harness/evidence/r517/before-fix.txt`). 기존 시험 2개 보정(git 밖 임시 루트 → 표 자리 env 고정): `tests/scripts/test_decision_count.py` run() `FT_DECISION_FLAG_DECISIONS` · `test_flag_off_scan.sh` count() `FT_DECISION_MERGE_QUEUE`·`FT_DECISION_FLAG_DECISIONS`. 실 공용 루트·v6 cwd 읽기 전용 실행: 라이브 1.1.73 rc4 → 이 판 rc0(`harness/evidence/r517/real-root-smoke.txt`).
+- 설치: 키트 2(`ft_decision_count.py` · `ft_team_lib.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 홈 0 · plist 0 · 되돌림 = `.bak-r517`.
+- 범위 밖: 셈 분모(r337 — 실 MERGE-QUEUE 27행 중 «대기» 로 시작하는 행 0 · 상태값 «⏳ 아침 큐» 등) · 공용 루트 체크아웃 갱신 · `seats-planner.json` 위치 · 원장 VERDICTS 읽기.
+
+## 2026-10-20 — 오빠 큐 자리 리졸버 1개 + card-start 카드 상대경로 cwd → ref 읽기 (r515 · 1.1.73)
+
+- 사건: `ft-proxy-decide.sh` 가 오빠 큐(AUTONOMY-QUEUE) 줄을 «데이터 루트(LIVE_ROOT = v6-realtime-live 워크트리) 체크아웃의 옛 명단» 으로 푼 `design/planner/AUTONOMY-QUEUE.md` 에 씀(정본 = main `design/teams/planner/` · v6 가지엔 새 폴더 없음) · `--card` 상대경로를 cwd 에서만 찾아 «카드를 못 읽음» 으로 QUEUE(planner 쪽지 118583 · 05:55 loom l3c card-start 2회 · `v6-realtime-live/design/planner/AUTONOMY-QUEUE.md:63`) · 같은 큐를 읽는 `ft-autonomy.sh`·`ft_decision_count.py` 도 같은 옛 자리.
+- `ft-team-lib.sh` `ft_planner_queue <루트>` (새 · 파이썬 짝 `ft_team_lib.planner_queue`): `FT_PLANNER_DIR` 있으면 그 폴더 · 없으면 ref(`FT_TEAMS_REF` · 기본 origin/main) 명단 꼴 planner 폴더가 루트에 실재하면 그 폴더 · 실재 0(이동 전 가지 체크아웃)이면 공용 루트 `.fable-team/state/planner/AUTONOMY-QUEUE.md` · ref 명단 못 읽음·공용 루트 못 풂 = ERROR rc1(옛 체크아웃 꼴·쌍둥이 후퇴 0 — `ft_team_in_ref` 는 실재 쌍둥이 1개면 옛 꼴을 돌려주므로 쓰지 않고 «명단 꼴 후보 1번» 만 본다). 파이썬 `ft_team_lib.data_root`(새 · 셸 `ft_data_root` 짝: FT_ROOT → 공용 루트 LIVE_ROOT 1행(절대경로 폴더 아니면 ERROR) → 공용 루트).
+- 사용처 3: `ft-proxy-decide.sh` QUEUE = 리졸버(폴더는 쓸 때 만든다 · 판정 원장 VERDICTS 읽기는 그대로) · `ft-autonomy.sh` `queue_file` = 리졸버(status·off 의 큐 수·경로) · `ft_decision_count.py` AUTONOMY-QUEUE = `planner_queue(data_root(R))`(env `FT_DECISION_AUTONOMY_QUEUE` 우선 그대로 · 카드 워크트리 후보 0 · MERGE-QUEUE·FLAG-DECISIONS 그대로).
+- card-start 카드: 절대경로 = 그 파일만(지금과 같음) · 상대경로 = cwd 에 있으면 그 파일 · 없으면 `git -C <루트> show <ref>:<경로>` 본문(임시 파일 0 · 변수) · 둘 다 없으면 QUEUE «카드를 못 읽음: <cwd 경로> · <ref>:<경로>».
+- 시험 `test_proxy_decide_queue_card_resolve.sh`(새 · 임시 리포 main 새 꼴 + 옛 꼴 가지 워크트리 = 데이터 루트 · 외부 호출 0 · GIT_* env 0) ⓐ~ⓖ 31 PASS · 고치기 전 FAIL 10(`harness/evidence/r515/before-fix.txt` · ⓐ 옛 자리 쓰기 재현). 기존 시험 2개 보정: `test_team_literal_paths2.sh` 자율 3종(FT_TEAMS_REF=HEAD — 픽스처 origin/main ref 0) · `test_flag_off_scan.sh` 결정 셈(FT_DECISION_AUTONOMY_QUEUE — git 밖 루트).
+- 설치: 키트 5(`ft-team-lib.sh` · `ft-proxy-decide.sh` · `ft-autonomy.sh` · `ft_decision_count.py` · `ft_team_lib.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 5 · 홈 0 · plist 0 · 되돌림 = `.bak-r515`.
+- 범위 밖: v6 라이브 가지에 main 병합 · 옛 `design/planner/AUTONOMY-QUEUE.md` 기존 줄 이관(planner 손) · 큐 묶음 질문(r165) · 자율 중 질문 0(r291) · 셈 분모(r337) · nano-reopen 카드 읽기(cwd 그대로).
+
 ## 2026-10-20 — 하네스 시험 RED 8개를 «기존 RED» 로 두지 않고 원인 분류 → 시험 7 + 도구 1줄 (r509 · 1.1.72)
 
 - 사건: 팩 origin/main 에서 RED 인 시험 8개(셸 6 · pytest 2)가 나노 증거마다 «기존 RED 제외» 로 밀려 왔다(harness master 82 발주 117070 · arch 105 분류 · 판정 1395). 분류 실측: 픽스처 누락 1 · 리포 분리·ref 명단 뒤 환경·배치 전제 5 · 낡은 대조 1 · 도구 결함 1.

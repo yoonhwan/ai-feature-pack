@@ -1,0 +1,39 @@
+PASS 키트 사본 cmp 0 ft_raised.py
+PASS 키트 사본 cmp 0 ft_team_lib.py
+PASS py_compile ft_raised.py
+PASS ⓐ rc (rc=0)
+PASS ⓐ 데이터 루트 진행/ 에만 → ▶내릴 것 0 (고치기 전: «(카드 없음)» 오탐)
+PASS ⓐ stderr 0
+PASS ⓐ2 rc (rc=0)
+PASS ⓐ2 공용 루트 진행/ → 0
+PASS ⓐ3 rc (rc=0)
+PASS ⓐ3 ref origin/main 진행/ → 0
+PASS ⓑ rc (rc=0)
+PASS ⓑ 1줄
+PASS ⓑ ref 완성 > 데이터 루트 진행
+PASS ⓑ2 대기 < 진행 → 진행 = 0줄
+PASS ⓑ3 공용 루트 완성 > 데이터 루트 진행
+PASS ⓒ rc (rc=0)
+PASS ⓒ 1줄
+PASS ⓒ 세 자리 없음 → 카드 없음
+PASS ⓒ 세 자리 다 봄 → 표기 0
+PASS ⓓ rc (rc=0)
+PASS ⓓ 데이터 루트를 못 봄 → 공용 루트·ref 판정 1줄
+PASS ⓓ 못 본 자리 표기(조용한 통과 0)
+PASS ⓓ2 rc (rc=0)
+PASS ⓓ2 LIVE_ROOT 없음 + ref 진행/ → 0
+PASS ⓓ3 LIVE_ROOT 가 없는 폴더 → rc2 (rc=2)
+PASS ⓓ3 사유 줄
+PASS ⓓ3 목록 0
+PASS ⓔ origin 없음 → rc2 (rc=2)
+PASS ⓔ stderr 사유
+PASS ⓔ 사유에 ref 이름
+PASS ⓔ 목록 0(조용한 «없음» 0)
+PASS ⓔ2 리포 아님 → rc2 (rc=2)
+PASS ⓔ2 사유
+PASS ⓔ2 목록 0
+PASS ⓕ 틱: 데이터 루트 진행/ 카드 → ▶내릴 것 쪽지 0
+PASS ⓕ 틱 raised_watch ERROR 0
+PASS ⓕ2 틱: ref 완성 → 쪽지 1(진짜 경보는 그대로)
+PASS ⓕ2 틱 ERROR 0
+ALL PASS

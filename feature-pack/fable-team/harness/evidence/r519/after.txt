@@ -1,0 +1,26 @@
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-nano-close.sh
+== ⓐⓑ spawn 발주문 «팩 작업 폴더» 줄 (함수 추출 · 스크립트 전체 실행 0)
+PASS pack_wt_line 함수 추출
+PASS BODY 가 $_PKX 를 붙인다
+PASS _PKX = pack_wt_line IDX SLUG BRANCH
+PASS ⓐ 하네스 카드 → 팩 작업 폴더 줄
+PASS   └ 만드는 명령 1줄
+PASS   └ 스크래치 금지
+PASS   └ 닫기 경로
+PASS ⓐ FT_PACK_ROOT 없음 → 기본 $HOME/Project/ai-feature-pack
+PASS ⓑ 제품 카드 → 줄 0
+== ⓒⓓ nano-close 팩 모드 · 표준 자리 밖 → 덧말 · move 뒤 CLOSED
+PASS ⓒ 표준 자리 밖 → REJECT 그대로
+PASS   └ 지금 ⓐ 문구 그대로
+PASS   └ 덧말 «worktree move … 뒤 같은 명령»
+PASS   └ kill 0
+PASS   └ 워크트리 그대로(이동 0 · 닫기는 옮기지 않는다)
+PASS ⓒ 대조: 팩 미등록 폴더 → 덧말 0
+PASS ⓓ 덧말 명령 그대로 실행 rc=0
+PASS ⓓ move 뒤 같은 명령 → CLOSED(rc=0)
+PASS   └ 원장 행 mode=pack-wt
+PASS   └ 팩 브랜치 그대로
+PASS core.bare=false
+
+ALL PASS

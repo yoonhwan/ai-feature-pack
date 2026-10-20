@@ -315,8 +315,8 @@ p_auto() {
   local F="$1" R="$T/xa$F" b a o rc s0 A D st PD; b="$(bf "$F")"; a="$(af "$F")"; efix "$R" "$F"; PD="$R/$b/planner"; st="$T/xas$F"; mkdir -p "$st" "$T/xag$F"
   printf '%s\n' '- **100** (오빠) foo 착수 승인' > "$PD/VERDICTS-planner-1-20261018.md"; printf '%s\n' '- **100** [대리 · 자율 ON A1] decoy' '- **101** [대리 · 자율 ON A1] decoy' '- **102** [대리 · 자율 ON A1] decoy' > "$R/$a/planner/VERDICTS-planner-1-20261018.md"
   exe "$T/xag$F/gcloud" 'exit 1'; s0="$(snap "$R" "$a/planner" "$a/v65")"
-  A() { (cd "$R" && env -u FT_PLANNER_DIR PATH="$T/xag$F:$PATH" FT_ROOT="$R" FT_AUTONOMY_STATE_DIR="$st" timeout 60 bash "$SRC/ft-autonomy.sh" "$@" 2>&1); }
-  D() { (cd "$R" && env -u FT_PLANNER_DIR PATH="$T/xag$F:$PATH" FT_ROOT="$R" FT_AUTONOMY_STATE_DIR="$st" timeout 60 bash "$SRC/ft-proxy-decide.sh" "$@" 2>&1); }
+  A() { (cd "$R" && env -u FT_PLANNER_DIR PATH="$T/xag$F:$PATH" FT_ROOT="$R" FT_AUTONOMY_STATE_DIR="$st" FT_TEAMS_REF=HEAD timeout 60 bash "$SRC/ft-autonomy.sh" "$@" 2>&1); }   # r515: 큐 자리 = ref 명단 — 픽스처는 origin/main ref 0 · 명단은 HEAD 커밋
+  D() { (cd "$R" && env -u FT_PLANNER_DIR PATH="$T/xag$F:$PATH" FT_ROOT="$R" FT_AUTONOMY_STATE_DIR="$st" FT_TEAMS_REF=HEAD timeout 60 bash "$SRC/ft-proxy-decide.sh" "$@" 2>&1); }
   o="$(A on)"; rc=$?; [ -f "$PD/AUTONOMY-START-A1.md" ] && ok "ⓔ$F ft-autonomy-start(on 이 부름): 시작 장부 = ${F}꼴 planner 폴더에 씀" || bad "ⓔ$F 시작 장부 위치 ← ${o:0:200}"
   erec ft-autonomy-start "$F" "$rc" "$b/planner/AUTONOMY-START-A1.md"
   o="$(D --kind press-order --q "순서?" --choice "A 다음 B" --why w --undo u)"; rc=$?
