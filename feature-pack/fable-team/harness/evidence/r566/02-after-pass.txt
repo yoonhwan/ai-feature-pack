@@ -1,0 +1,41 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 표준 나노 재실행(명부 행 0 · 원장 wt=planned · 세션 0 · HEAD=원격 · 옛 계획 .hil.stale) → 옛 계획 보존 + 새 계획 실행 + cleaned + 폴더 없음 + 가지 보존
+PASS ⓐ rc=0 · CLOSED
+PASS   └ «워크트리 정리: cleaned»
+PASS   └ 옛 계획 .superseded-<시각> 보존
+PASS   └ 옛 .hil.stale 자리 비움
+PASS   └ 분리 정리 위임 기록(계획 실제 실행)
+PASS   └ 워크트리 폴더 없음
+PASS   └ 가지 보존 · sha 그대로
+PASS   └ 원장 행 1개 그대로(append 0)
+== ⓑ 추적 파일 다수 ' D' 상태에서도 재실행 정리 → [wip] 커밋 0 · 가지 sha 그대로
+PASS ⓑ rc=0 · cleaned
+PASS   └ [wip] 커밋 0(가지 sha 그대로)
+PASS   └ 워크트리 폴더 없음
+== ⓒ 가지 HEAD 가 어떤 원격 ref 에도 없음 → 실행 0 · 계획 .sh.hil + 이유 줄 «원격에 없는 커밋 N»
+PASS ⓒ HIL · 이유 줄
+PASS   └ 실행 0
+PASS   └ 계획 .sh.hil + 이유 줄
+PASS   └ 워크트리 그대로
+PASS   └ baton 호출 0
+== ⓓ 세션 살아 있음 → kill 뒤 실행 · kill 실패면 실행 0
+PASS ⓓ 세션 kill 뒤 정리 실행
+PASS   └ 세션 kill
+PASS   └ kill 실패 = FAIL
+PASS   └ 실행 0(계획 0 · baton 0)
+== ⓔ --wt/--branch(명시) · --shared-wt 재실행 → 지금 동작 그대로(새 계획 0 · 실행 0)
+PASS ⓔ named 재실행 → CLOSED
+PASS   └ named = 실행 0
+PASS   └ 새 계획 0
+PASS   └ 워크트리 그대로
+PASS ⓔ --shared-wt 재실행 → CLOSED · 실행 0
+PASS   └ 계획·실행 0
+== ⓕ tmux 조회 실패 → REJECT(fail-closed) · 실행 0
+PASS ⓕ REJECT
+PASS   └ 실행 0
+== ⓖ 재실행이 아니면(명부 행 있음) 새 정리 동작을 타지 않는다 — 기존 경로 그대로
+PASS ⓖ 재실행 판별 0
+PASS   └ 재실행 분기 0
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

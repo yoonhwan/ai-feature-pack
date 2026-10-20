@@ -1,0 +1,11 @@
+== test_nano_close_rerun_early.sh: rc=0 37 passed · 0 failed
+== test_nano_close_named_wt.sh: rc=0 63 passed · 0 failed
+== test_nano_close_fail_closed.sh: rc=0 48 passed · 0 failed
+== test_nano_close_pack_wt.sh: rc=0 30 passed · 0 failed
+== test_nano_close_never_started.sh: rc=0 155 passed · 0 failed
+== test_nano_close_superseded_by.sh: rc=0 140 passed · 0 failed
+== test_nano_close_suspended.sh: rc=0 92 passed · 0 failed
+== test_nano_close_wt_deletion_only.sh: rc=0 23 passed · 0 failed
+== test_nano_close_sha_base.sh: rc=0 21 passed · 0 failed
+== test_nano_close_worktree_list_pipe.sh: rc=0 18 passed · 0 failed
+합계 627 passed

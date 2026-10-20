@@ -345,6 +345,65 @@ _wt_clean_run() {
   case "$res" in cleaned*|none) mv "$PLAN" "$PLAN.done";; skipped:좌석*|skipped:cwd*) ;; *) mv "$PLAN" "$PLAN.hil"; echo "[HIL] ${res#skipped:} · 스크립트 $PLAN.hil";; esac
   echo "워크트리 정리: $res (로그 $PLAN.log)"
 }
+# 좌석 워크트리 해석 «한 곳» (M7 · 재착수 -rN) — spawn 은 옛 브랜치가 있으면 <접두><key>-r2·-r3… 로 만든다. 아래 ③·⑥·⑤ 와 wt-clean 계획이 전부 이 값(SEAT_WT·SEAT_BR)만 쓴다.
+#   «등록된 후보» = 현재 리포 `git worktree list --porcelain` 에 있고 ∧ $ROOT/.worktrees/ 아래 ∧ 좌석 브랜치(nano/<key>[-rN])를 체크아웃한 워크트리 (DA607 H2 — 외부 리포·경계 밖 경로는 후보가 아니다).
+#   ①살아 있는 pane cwd 의 toplevel 이 등록된 후보면 그것(아니면 ②로 후퇴) ②후보 중 이름이 <접두><key>[-rN] (접두 = FT_NANO_WT_PREFIX, 기본 v65-) 인 것이 «정확히 1개»일 때만.
+#   SEAT_WT_ERR(후보 2개 이상 · pane 살아 있는데 후보 0) = cwd 유무·역할과 무관하게 아래에서 REJECT(DA607 H1 · 추측 금지 · fail-closed) · 세션 없음 ∧ 후보 0 = 빈 값(기존 «워크트리 없음» 판정).
+#   r566: 정의를 재실행 분기(:381) «앞» 으로 옮겼다 — 재실행도 같은 해석을 써야 한다(동작 불변).
+_is_seat_branch() { [[ "$1" =~ ^nano/${_KEY}(-r[0-9]+)?$ ]]; }
+_resolve_seat_wt() {
+  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0
+  local top="" p br rel i hits=() brs=() lp=() lb=() base="$ROOT/.worktrees/"
+  while IFS=$'\t' read -r p br; do
+    rel="${p#"$base"}"; [ "$rel" != "$p" ] || continue
+    _is_seat_branch "$br" || continue
+    lp+=("$p"); lb+=("$br")
+  done < <(git -C "$ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}')
+  if [ -n "$cwd" ]; then
+    top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
+    for ((i=0; i<${#lp[@]}; i++)); do
+      if [ -n "$top" ] && [ "${lp[$i]}" = "$top" ]; then SEAT_WT="$top"; SEAT_BR="${lb[$i]}"; return 0; fi
+    done
+  fi
+  for ((i=0; i<${#lp[@]}; i++)); do
+    rel="${lp[$i]#"$base"}"
+    [[ "$rel" =~ ^${WT_PREFIX}${_KEY}(-r[0-9]+)?$ ]] || continue
+    hits+=("${lp[$i]}"); brs+=("${lb[$i]}")
+  done
+  if [ "${#hits[@]}" -eq 1 ]; then SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"
+  elif [ "${#hits[@]}" -gt 1 ]; then SEAT_WT_ERR="좌석 워크트리 후보 ${#hits[@]}개(${hits[*]}) — 추측 금지, 어느 것인지 사람 판정"
+  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1; fi
+}
+# ★r566 재실행 워크트리 정리★ — 재실행 분기(:414)가 워크트리를 «원장 wt=» 에서만 찾아 정리를 통째로 건너뛰던 자리(표준 나노 행은 wt=planned·wt=skipped:… 같은 상태 말).
+#   표준 나노 좌석만: 워크트리를 좌석 이름으로 재해석(_resolve_seat_wt) · 조건 4(세션 0 · nano/<키> · $ROOT/.worktrees/ 등록 · HEAD 가 어떤 원격 ref 에 포함) 전부 참일 때만 실행.
+#   옛 계획(.sh.hil · .sh.hil.stale · .sh.stale)은 지우지 않고 `.superseded-<시각>` 으로 옮긴다(삭제 0) · 가지는 지우지 않는다 · 계획 본문(가드·baton 호출)은 그대로 재사용.
+WT_RERUN=0
+_wt_clean_rerun() {
+  WT_RERUN=0
+  [ -n "$SEAT_WT" ] && [ -d "$SEAT_WT" ] || { echo "INFO 재실행 — 좌석 워크트리 못 찾음(정리 계획 0)"; return 0; }      # ⓒ
+  [ -n "${SEAT_BR:-}" ] && _is_seat_branch "$SEAT_BR" || { echo "INFO 재실행 — 가지(${SEAT_BR:-?})가 nano/${_KEY}[-rN] 아님(정리 계획 0)"; return 0; }   # ⓑ
+  local wl nrem n_off ts ext
+  wl="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)" || wl=""
+  grep -qxF "worktree $SEAT_WT" <<<"$wl" || { echo "INFO 재실행 — $SEAT_WT 가 이 리포 등록 워크트리 아님(정리 계획 0)"; return 0; }   # ⓒ
+  nrem="$(git -C "$SEAT_WT" branch -r --contains HEAD 2>/dev/null | grep -c . || true)"       # ⓓ 원격에 있는 커밋
+  ts="$(date +%Y%m%d-%H%M%S)"
+  for ext in .sh.hil.stale .sh.hil .sh.stale; do
+    [ -e "$WT_CLEAN_DIR/$SEAT$ext" ] || continue
+    mv "$WT_CLEAN_DIR/$SEAT$ext" "$WT_CLEAN_DIR/$SEAT.superseded-$ts$ext" || { echo "INFO 재실행 — 옛 계획 보존 이동 실패($SEAT$ext) — 정리 계획 0"; return 0; }
+    echo "INFO 재실행 — 옛 계획 보존: $SEAT.superseded-$ts$ext"
+  done
+  if [ "${nrem:-0}" -eq 0 ]; then   # ⓓ 만 거짓 = 계획은 만들되 실행하지 않는다(.sh.hil + 이유 줄 · 사람 판정)
+    n_off="$(git -C "$SEAT_WT" rev-list --count HEAD --not --remotes 2>/dev/null || echo '?')"
+    _wt_clean_plan
+    [ -n "$PLAN" ] && [ -f "$PLAN" ] || { echo "INFO 재실행 — 계획 생성 실패(정리 계획 0)"; return 0; }
+    { mv "$PLAN" "$PLAN.hil" && printf '# 실행 보류 — 원격에 없는 커밋 %s\n' "$n_off" >> "$PLAN.hil"; } || { echo "INFO 재실행 — .sh.hil 이동 실패(정리 계획 0)"; return 0; }
+    echo "[HIL] 재실행 — 원격에 없는 커밋 $n_off · 계획 $PLAN.hil(사람 판정)"; WT_RERUN=1; return 0
+  fi
+  _wt_clean_plan
+  [ -n "$PLAN" ] && [ -f "$PLAN" ] || { echo "INFO 재실행 — 계획 생성 실패(정리 계획 0)"; return 0; }
+  WT_RERUN=1
+  _wt_clean_run
+}
 OC_BIN="${FT_OC_REAP_BIN:-$HERE/ft-opencode-reap.sh}"; OC_PF="${FT_OC_STATE_DIR:-$HOME/.claude/state/opencode}/$(printf '%s' "$SEAT" | tr -c 'A-Za-z0-9._#-' '_').pids"
 # r286 + R387 §7-3·§9-3 — opencode 좌석 = ft-opencode-reap.sh --apply(세션 kill «뒤» · 부모 잃은 serve 까지) · left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(명부는 삭제됨 → 같은 close 재실행 = pid 파일로 다시 회수)
 #   리서치 좌석이었다면 카드에 `- 리서치 닫힘:` 1줄(opencode = 회수 rc·left · 미설치만 «도구 없음» · 그 밖 = kill rc=0) — 부모 완성 게이트(ft-index-move)가 읽는다. 카드 쓰기 실패는 경고.
@@ -382,9 +441,15 @@ _lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-clo
 jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
 if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
-  SEAT_WT=""
-  if [ "$NAMED" = 1 ]; then SEAT_WT="$(cd "$NWT" 2>/dev/null && pwd -P)"
-  elif [ "$SHARED" != 1 ]; then _w="$(printf '%s' "$_lrow" | grep -oE 'wt=/[^ ]+' | tail -1)"; _w="${_w#wt=}"; [ -z "$_w" ] || [ ! -d "$_w" ] || SEAT_WT="$_w"; fi
+  SEAT_WT=""; SEAT_BR=""; _RERUN_STD=0
+  if [ "$NAMED" = 1 ]; then SEAT_WT="$(cd "$NWT" 2>/dev/null && pwd -P)"; SEAT_BR="$NBR"
+  elif [ "$SHARED" != 1 ]; then
+    # r566: 표준 나노 좌석 — 원장 wt= 는 대개 «planned»·«skipped:…» 같은 상태 말이라 경로가 없다. 좌석 이름으로 다시 해석한다(세션이 죽었으면 cwd 없음).
+    _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"; cwd=""
+    _resolve_seat_wt; _RERUN_STD=1
+    if [ -z "$SEAT_WT" ]; then _w="$(printf '%s' "$_lrow" | grep -oE 'wt=/[^ ]+' | tail -1)"; _w="${_w#wt=}"; [ -z "$_w" ] || [ ! -d "$_w" ] || { SEAT_WT="$_w"; SEAT_BR=""; }; fi
+    [ -z "$SEAT_WT_ERR" ] || echo "INFO 재실행 — 워크트리 후보 판정 불가($SEAT_WT_ERR) — 정리 계획 0"
+  fi
   _tp="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; _trc=$?
   case "$_trc:$_tp" in
     0:*) PANE="$(printf '%s\n' "$_tp" | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')";;
@@ -400,7 +465,8 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
     echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
   fi
   _oc_close
-  [ ! -f "$WT_CLEAN_DIR/$SEAT.sh" ] || echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"
+  if [ "$_RERUN_STD" = 1 ]; then _wt_clean_rerun
+  else [ ! -f "$WT_CLEAN_DIR/$SEAT.sh" ] || echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"; fi
   _ses="세션 없음"; [ -z "$PANE" ] || _ses="세션 kill"
   echo "CLOSED $SEAT (재실행 · $_ses · 원장 행 그대로 · append 0) — reap left=0 rc=0"
   exit 0
@@ -453,34 +519,7 @@ fi
 # 하네스 0.5 행 2 r5(오빠 판정 #30467): 세션이 먼저 죽은 좌석 — 세션 없음 + 워크트리 실재는 REJECT 대신 「세션 없음 자체가 충족」(유휴 검사 불요).
 # 워크트리 부재(닫을 것 없음)는 기존 REJECT 유지. ABSENT 는 아래 명부/원장 처리 분기에서만 쓴다. tmux_ok=0 이면 이 블록 전체를 건너뛴다(위에서 이미 REJECT 사유 기록).
 _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"
-# 좌석 워크트리 해석 «한 곳» (M7 · 재착수 -rN) — spawn 은 옛 브랜치가 있으면 <접두><key>-r2·-r3… 로 만든다. 아래 ③·⑥·⑤ 와 wt-clean 계획이 전부 이 값(SEAT_WT·SEAT_BR)만 쓴다.
-#   «등록된 후보» = 현재 리포 `git worktree list --porcelain` 에 있고 ∧ $ROOT/.worktrees/ 아래 ∧ 좌석 브랜치(nano/<key>[-rN])를 체크아웃한 워크트리 (DA607 H2 — 외부 리포·경계 밖 경로는 후보가 아니다).
-#   ①살아 있는 pane cwd 의 toplevel 이 등록된 후보면 그것(아니면 ②로 후퇴) ②후보 중 이름이 <접두><key>[-rN] (접두 = FT_NANO_WT_PREFIX, 기본 v65-) 인 것이 «정확히 1개»일 때만.
-#   SEAT_WT_ERR(후보 2개 이상 · pane 살아 있는데 후보 0) = cwd 유무·역할과 무관하게 아래에서 REJECT(DA607 H1 · 추측 금지 · fail-closed) · 세션 없음 ∧ 후보 0 = 빈 값(기존 «워크트리 없음» 판정).
-_is_seat_branch() { [[ "$1" =~ ^nano/${_KEY}(-r[0-9]+)?$ ]]; }
-_resolve_seat_wt() {
-  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0
-  local top="" p br rel i hits=() brs=() lp=() lb=() base="$ROOT/.worktrees/"
-  while IFS=$'\t' read -r p br; do
-    rel="${p#"$base"}"; [ "$rel" != "$p" ] || continue
-    _is_seat_branch "$br" || continue
-    lp+=("$p"); lb+=("$br")
-  done < <(git -C "$ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}')
-  if [ -n "$cwd" ]; then
-    top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
-    for ((i=0; i<${#lp[@]}; i++)); do
-      if [ -n "$top" ] && [ "${lp[$i]}" = "$top" ]; then SEAT_WT="$top"; SEAT_BR="${lb[$i]}"; return 0; fi
-    done
-  fi
-  for ((i=0; i<${#lp[@]}; i++)); do
-    rel="${lp[$i]#"$base"}"
-    [[ "$rel" =~ ^${WT_PREFIX}${_KEY}(-r[0-9]+)?$ ]] || continue
-    hits+=("${lp[$i]}"); brs+=("${lb[$i]}")
-  done
-  if [ "${#hits[@]}" -eq 1 ]; then SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"
-  elif [ "${#hits[@]}" -gt 1 ]; then SEAT_WT_ERR="좌석 워크트리 후보 ${#hits[@]}개(${hits[*]}) — 추측 금지, 어느 것인지 사람 판정"
-  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1; fi
-}
+# 좌석 워크트리 해석(_is_seat_branch·_resolve_seat_wt)은 r566 에서 위(재실행 분기 앞)로 옮겼다 — 여기서는 계산된 _KEY 로 부르기만 한다.
 _resolve_seat_wt
 # ★--plan-only (r-disk-drop-worktree-scratch-census)★ 좌석 세션 0 · 등록 워크트리 · 가지=nano/<키> 를 확인하고 «계획 생성만». 아래 종료조건·원장·명부·kill 경로는 타지 않는다.
 if [ "$PLAN_ONLY" = 1 ]; then

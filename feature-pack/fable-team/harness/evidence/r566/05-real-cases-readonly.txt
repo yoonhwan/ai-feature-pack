@@ -1,0 +1,16 @@
+== 실사건 2건 재료(읽기 전용 · 이 워크트리에서 실행 0) — 2026-10-20
+[원장 행]
+- **[2026-10-12 19:33 KST, `date` 실측] `byz-ops-nano-ta-1-tree-read#0` 닫힘(ft-nano-close)**: ①결과 `design/teams/ops/indices/완성/ta-1-tree-read.md` ②회수 seq 79937 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 2개
+- **[2026-10-12 22:29 KST, `date` 실측] `byz-cfo-nano-cfo-insight-billing-flashlite-peg-1283#0` 닫힘(ft-nano-close)**: ①결과 `/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning/design/teams/cfo/indices/진행/cfo-insight-billing-flashlite-peg-1283.md` ②회수 seq 81098 ③유휴 jsonl 기록/mtime(codex) ≥3분. kill=1 · wt=skipped:cwd 보유 프로세스 1개
+[워크트리·가지·원격]
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-insight-billing-flashlite-peg-1283                                                       4b60f115f5 [nano/cfo-insight-billing-flashlite-peg-1283]
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ta-1-tree-read                                                                          f9167ab78a [nano/ta-1-tree-read]
+  nano/ta-1-tree-read HEAD=f9167ab78a remote_contains=origin/nano/ta-1-tree-read,
+  nano/cfo-insight-billing-flashlite-peg-1283 HEAD=4b60f115f5 remote_contains=origin/nano/cfo-insight-billing-flashlite-peg-1283,
+[잔존 계획]
+byz-cfo-nano-cfo-insight-billing-flashlite-peg-1283#0.sh.hil.stale
+byz-cfo-nano-cfo-insight-billing-flashlite-peg-1283#0.sh.log
+byz-ops-nano-ta-1-tree-read#0.sh.hil.stale
+byz-ops-nano-ta-1-tree-read#0.sh.ignored.list
+byz-ops-nano-ta-1-tree-read#0.sh.ignored.tar.gz
+byz-ops-nano-ta-1-tree-read#0.sh.log
