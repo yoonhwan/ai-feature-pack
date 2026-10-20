@@ -1,4 +1,4 @@
-# r609 ⓔ 기존 인접 시험(광역 0)
+# r609 ⓔ 기존 인접 시험 (재실행 · 1.1.155)
 ## tests/test_kit_bin_sync.sh
 PASS dirs exist
 PASS tracked bin ⊂ kit bin (bytes+mode)
@@ -8,7 +8,7 @@ PASS control: missing detected
 PASS control: byte diff detected
 PASS control: mode diff detected
 ALL PASS
-## tests/test_seat_retire.sh (기존 실패 = origin/main 판과 같음 · r607 evidence 03 참조)
+## tests/test_seat_retire.sh (기존 실패 = origin/main 판과 같음)
 PASS bash -n ft-tick.sh
 PASS bash -n ft-seat-retire.sh
 PASS bash -n ft-role-spawn.sh
@@ -209,11 +209,3 @@ fail=4
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
 ## kit/bin cmp0
 cmp0 ft-successor-open.sh
-## diff vs base
- .../fable-team/harness/bin/ft-successor-open.sh    | 20 +++++++++++
- .../kit/fable-team/bin/ft-successor-open.sh        | 20 +++++++++++
- .../harness/kit/hooks/desk-bash-fg-gate.sh         |  4 ++-
- .../harness/tests/test_desk_bash_fg_gate.sh        |  4 ++-
- .../harness/tests/test_successor_open.sh           | 42 ++++++++++++++++++----
- feature-pack/fable-team/manifest.json              |  2 +-
- 6 files changed, 82 insertions(+), 10 deletions(-)
