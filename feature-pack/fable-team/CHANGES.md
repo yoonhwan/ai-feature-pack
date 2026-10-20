@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — 좌석 턴 판정기가 쉬는 동안 자동 압축된 좌석을 WORKING 으로 읽던 것 고침: 압축 요약 user 는 턴 시작 0 (r527 · 1.1.92)
+
+- 사건: `ft-seat-status.sh turn 'byz-graphics-arch-claude#19'` = `WORKING 2026-10-19T20:42:30.877Z` — 마지막 턴 끝 뒤 기록 39개가 붙임·제목·모드 + `system/compact_boundary` 1 + `user`(isCompactSummary=true · 21:37Z) 1 뿐인데 판정식이 «turn_duration 뒤 user/assistant 1개 = WORKING» 이라 압축 요약 1줄을 새 턴으로 셈(arch 107 실측 · master 83 쪽지 119445 공통 원인 ② · tester 0·chatbot N1 같은 꼴). 뉴스·stall-scan·회수가 같은 판정기라 그 좌석을 깨우기·닫기·정지 감시에서 건너뜀.
+- `ft_seat_turn.py`: `_opens_turn(r)` = user/assistant 중 `type=="user" and isCompactSummary` 제외 · 판정 자리 3곳 전부(`_window` 상태 전용 조기 반환 · 창 안 턴 끝 0 분기 · 턴 끝 뒤 훑기)에 같은 제외(DA② HOLD 1 반영) · compact_boundary 는 system 이라 원래 0 · 턴 끝 시각·REPORTED·PENDING 규칙 그대로 · `harness/bin` 사본 cmp0.
+- 시험 새 `tests/scripts/test_seat_turn_compact.py` ⓐ IDLE+턴 끝 시각 ⓑ 요약 뒤 진짜 user = WORKING ⓒ 요약 뒤 assistant = WORKING ⓓ enqueue+요약 = PENDING ⓕ 첫 창 192B 에 요약만(상태 전용 조기 반환) → 창 넓혀 IDLE · 창 안 턴 끝 0 + 요약만 = UNKNOWN(두 모드) — 고치기 전 FAIL 4(`harness/evidence/r527/before-test_seat_turn_compact.txt`) → 후 6 passed. 기존 `test_seat_turn_batch.py` 옛 판 대조 기준 = origin/main → r504 착지 직전 `855d2797`(origin/main 이 이미 r504 판이라 ⓐ·ⓔ 가 «이미 고친 판» 단언으로 FAIL 2 · 고친 뒤 6 passed). 관련 시험 rc0 = `harness/evidence/r527/after-tests.txt`.
+- 설치: 키트 1 → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · launchd 0 · 홈 0 · 되돌림 = `.bak-r527`.
+- 범위 밖: pane 스피너 판정 · jsonl 고르기(newest_jsonl_of) · 압축 자체 막기 · isMeta 처리.
+
 ## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.91)
 
 - 사건: desk 26 이 `zombie-clean.sh resume 'byz-concierge-master-claude#6'` 으로 좌석을 다시 열자 날 `claude --resume <uuid> --model …` 로 떠 ANTHROPIC_BASE_URL 없음(프록시 8317 미경유 · 직결) → «session limit · resets 12pm» 정지(desk 26 쪽지 119405 · harness master 83 발주 119409). tmuxc 열기·fork 는 이미 래퍼 경유 — 키트에서 날 claude 를 여는 곳은 재개 3곳뿐(arch 107 실측).

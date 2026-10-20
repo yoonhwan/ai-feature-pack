@@ -1,0 +1,65 @@
+$ /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python -m pytest tests/scripts/test_seat_turn_compact.py -q (고치기 전 = bin/ft_seat_turn.py 를 origin/main 8d5be256 판으로 · ⓕ 추가 뒤 재실행)
+F..FFF                                                                   [100%]
+=================================== FAILURES ===================================
+____________ test_a_idle_compact_summary_is_idle_with_last_turn_end ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-729/test_a_idle_compact_summary_is0')
+
+    def test_a_idle_compact_summary_is_idle_with_last_turn_end(tmp_path):
+        f = _file(tmp_path, [*_head(), *_side(), BOUNDARY, SUMMARY])
+>       assert st.turn_of_file(f)[:3] == ("IDLE", END_TS, "4242")
+E       AssertionError: assert ('WORKING', '...877Z', '4242') == ('IDLE', '202...877Z', '4242')
+E         
+E         At index 0 diff: 'WORKING' != 'IDLE'
+E         Use -v to get more diff
+
+tests/scripts/test_seat_turn_compact.py:45: AssertionError
+____________________ test_d_enqueue_then_summary_is_pending ____________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-729/test_d_enqueue_then_summary_is0')
+
+    def test_d_enqueue_then_summary_is_pending(tmp_path):
+        f = _file(tmp_path, [*_head(), ENQUEUE, BOUNDARY, SUMMARY])
+>       assert st.turn_of_file(f)[0] == "PENDING"
+E       AssertionError: assert 'WORKING' == 'PENDING'
+E         
+E         - PENDING
+E         + WORKING
+
+tests/scripts/test_seat_turn_compact.py:60: AssertionError
+_____ test_f_status_only_early_return_skips_summary_and_widens_to_turn_end _____
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-729/test_f_status_only_early_retur0')
+
+    def test_f_status_only_early_return_skips_summary_and_widens_to_turn_end(tmp_path):
+        """DA② HOLD 1 — 첫 창(192B)에 turn_duration 이 없고 압축 요약만 보여도 조기 WORKING 0 · 창을 넓혀 IDLE."""
+        attach = {"type": "attachment", "data": "a" * 700}
+        f = _file(tmp_path, [*_head(), attach, BOUNDARY, SUMMARY])
+>       assert st.turn_of_file(f, tail_bytes=4096, tail_start=192, status_only=True)[:2] == ("IDLE", END_TS)
+E       AssertionError: assert ('WORKING', '-') == ('IDLE', '202...0:42:30.877Z')
+E         
+E         At index 0 diff: 'WORKING' != 'IDLE'
+E         Use -v to get more diff
+
+tests/scripts/test_seat_turn_compact.py:67: AssertionError
+__________ test_a2_no_turn_end_in_window_summary_only_is_not_working ___________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-729/test_a2_no_turn_end_in_window_0')
+
+    def test_a2_no_turn_end_in_window_summary_only_is_not_working(tmp_path):
+        """창 안에 turn_duration 이 없는 분기(두 모드) — 압축 요약만 있으면 WORKING 아님."""
+        f = _file(tmp_path, [{"type": "custom-title"}, BOUNDARY, SUMMARY])
+>       assert st.turn_of_file(f)[0] == "UNKNOWN"
+E       AssertionError: assert 'WORKING' == 'UNKNOWN'
+E         
+E         - UNKNOWN
+E         + WORKING
+
+tests/scripts/test_seat_turn_compact.py:73: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_seat_turn_compact.py::test_a_idle_compact_summary_is_idle_with_last_turn_end
+FAILED tests/scripts/test_seat_turn_compact.py::test_d_enqueue_then_summary_is_pending
+FAILED tests/scripts/test_seat_turn_compact.py::test_f_status_only_early_return_skips_summary_and_widens_to_turn_end
+FAILED tests/scripts/test_seat_turn_compact.py::test_a2_no_turn_end_in_window_summary_only_is_not_working
+4 failed, 2 passed in 0.27s
+rc=1
