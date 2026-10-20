@@ -78,7 +78,9 @@ def pair_card_moves(table, rows):   # D+A 로 잡힌 같은 카드 이동(유사
     for r in rows:
         a = added.get((r[0], os.path.basename(r[3][0]))) if r[2] == "D" else None
         if a is not None and same_card(table, r[0], a[1], r[3][0], a[3][0]):
-            out.append((r[0], a[1], "R100", [r[3][0], a[3][0]])); used.add(id(a)); continue
+            out.append((r[0], a[1], "R100", [r[3][0], a[3][0]]))
+            used.add(id(a))
+            continue
         if id(r) not in used:
             out.append(r)
     return out

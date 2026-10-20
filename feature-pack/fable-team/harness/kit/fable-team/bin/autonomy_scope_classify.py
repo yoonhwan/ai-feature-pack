@@ -121,7 +121,7 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
     table = table or rules.BYZ_TABLE   # D+A 짝 맞추기(카드 이동)를 먼저 · 판정은 행마다
     judged = [rules.judge_row(table, r, ddl_ok) for r in rules.pair_card_moves(table, rows)]
-    secret = secret_lines.reason(blocks)   # 줄 술어 + 400줄 덩어리(r559 속도) · 이유 글자 꼴 종전 그대로
+    secret = secret_lines.reason(blocks, lambda p: rules.path_class(table, p))   # code 파일 전문만 plan(r559 속도) · 이유 글자 종전 그대로
     if secret:
         judged.append(("forbid", "secret", secret))
     used = rules.apply_learned(judged, learned)

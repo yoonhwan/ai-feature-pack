@@ -1,5 +1,3 @@
-== 새 시험을 «고치기 전 분류기»(라이브 1.1.109)로 실행 = 빨강
-R559_CLS=/Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/autonomy_scope_classify.py
 PASS py_compile
 PASS classify ≤ 200줄
 FAIL ⓐ 카드 대기→진행 + 상태 줄 수정 → CLASS docs :: rc=3 out=FORBID kind=delete 상태 D: design/teams/x/indices/대기/C-a.md
@@ -20,9 +18,15 @@ PASS ⓖ evidence 밖 팀 폴더 .py → CLASS code
 PASS ⓗ toss-payments.html → FORBID billing 그대로
 PASS ⓗ toss-payments.md → CLASS docs(.md 는 낱말 금지 줄 위 · r514 그대로)
 PASS ⓗ 학습 키 billing 주면 CLASS docs kind=billing learned
-  ⓘ 1000파일 시간=0.40s rc=0 out=CLASS ff
-  ⓘ 6676파일 시간=7.36s rc=0 out=CLASS ff
-FAIL ⓘ 1000·6676 파일 세트 각 7초 안 :: rc=0 out=1000=0.40s 6676=7.36s CLASS ff / CLASS ff
-PASS ⓙ 기존 시험 파일 base 대조 diff 0
+PASS ⓚ code 파일 · 읽는 줄과 내보내는 줄이 떨어짐 → FORBID(잡힘)
+PASS ⓚ 문서(.md) 산문 속 명령 줄 → CLASS docs(f10 과 같은 칸)
+PASS ⓚ f10b 코드 울타리 안 명령 줄 → FORBID(잡힘)
+PASS ⓚ 한 줄 코드 표기(\x60…\x60) 안 명령 → FORBID(잡힘)
+FAIL ⓚ 줄머리 «\x24 » 명령 → FORBID(잡힘) :: rc=0 out=CLASS docs
+PASS ⓚ 문서라도 키 원문 모양은 FORBID secret
+  ⓘ 1000파일 시간=0.32s rc=0 out=CLASS ff
+  ⓘ 6676파일 시간=1.73s rc=0 out=CLASS ff
+PASS ⓘ 1000·6676 파일 세트 각 7초 안
+PASS ⓙ 기존 시험 파일 base 대조 diff = 승인된 f10 1칸만(2줄)
 PASS ⓙ 기존 분류기 시험 rc0(ALL PASS)
 FAILED 6

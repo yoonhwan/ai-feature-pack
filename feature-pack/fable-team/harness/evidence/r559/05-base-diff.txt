@@ -1,31 +1,33 @@
- feature-pack/fable-team/CHANGES.md                 |  11 -
- .../harness/bin/autonomy_scope_classify.py         |  35 ++-
- .../fable-team/harness/bin/autonomy_scope_rules.py |  30 +-
- .../fable-team/harness/bin/ft-autonomy-scope.sh    |  16 +-
- .../harness/evidence/r558/01-before-red.txt        | 309 ---------------------
- .../harness/evidence/r558/02-after-pass.txt        |   2 -
- .../harness/evidence/r558/03-existing-tests.txt    |   4 -
- .../fable-team/harness/evidence/r558/04-ruff.txt   |   1 -
- .../harness/evidence/r558/05-base-diff.txt         |   8 -
- .../kit/fable-team/bin/autonomy_scope_classify.py  |  35 ++-
- .../kit/fable-team/bin/autonomy_scope_rules.py     |  30 +-
- .../kit/fable-team/bin/ft-autonomy-scope.sh        |  16 +-
- .../harness/kit/slack-mirror/install-magazine.sh   |   2 +-
- .../harness/kit/slack-mirror/mirror_inbound.py     |   2 +-
- .../harness/kit/slack-mirror/mirror_share.py       |   8 -
- .../harness/kit/slack-mirror/thread_post_args.py   |  12 +-
- .../harness/kit/slack-mirror/thread_post_update.py |  17 +-
- .../harness/kit/slack-mirror/thread_reply_slack.py | 132 ---------
- .../tests/scripts/test_thread_reply_to_slack.py    | 143 ----------
- feature-pack/fable-team/manifest.json              |   2 +-
- 20 files changed, 123 insertions(+), 692 deletions(-)
+== 내 변경만(merge-base 대조 · HEAD=77f3f953)
+ .../harness/bin/autonomy_scope_classify.py         | 35 ++++----
+ .../fable-team/harness/bin/autonomy_scope_rules.py | 30 ++++++-
+ .../harness/bin/autonomy_scope_secret.py           | 48 +++++++++++
+ .../fable-team/harness/bin/ft-autonomy-scope.sh    | 16 +++-
+ .../harness/evidence/r559/00-before-red.txt        | 28 +++++++
+ .../evidence/r559/01-real-sets-before-after.txt    | 33 ++++++++
+ .../harness/evidence/r559/02-after-pass.txt        | 28 +++++++
+ .../harness/evidence/r559/03-profile-before.txt    | 21 +++++
+ .../harness/evidence/r559/04-shell-cap.txt         | 15 ++++
+ .../harness/evidence/r559/05-base-diff.txt         | 31 +++++++
+ .../kit/fable-team/bin/autonomy_scope_classify.py  | 35 ++++----
+ .../kit/fable-team/bin/autonomy_scope_rules.py     | 30 ++++++-
+ .../kit/fable-team/bin/autonomy_scope_secret.py    | 48 +++++++++++
+ .../kit/fable-team/bin/ft-autonomy-scope.sh        | 16 +++-
+ .../tests/test_r559_scope_team_folder_docs.sh      | 97 ++++++++++++++++++++++
+ 15 files changed, 463 insertions(+), 48 deletions(-)
+
+== 작업 트리
+ M feature-pack/fable-team/CHANGES.md
  M feature-pack/fable-team/harness/bin/autonomy_scope_classify.py
  M feature-pack/fable-team/harness/bin/autonomy_scope_rules.py
- M feature-pack/fable-team/harness/bin/ft-autonomy-scope.sh
+ M feature-pack/fable-team/harness/bin/autonomy_scope_secret.py
+ M feature-pack/fable-team/harness/evidence/r559/00-before-red.txt
+ M feature-pack/fable-team/harness/evidence/r559/01-real-sets-before-after.txt
+ M feature-pack/fable-team/harness/evidence/r559/02-after-pass.txt
+ M feature-pack/fable-team/harness/evidence/r559/05-base-diff.txt
  M feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_classify.py
  M feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_rules.py
- M feature-pack/fable-team/harness/kit/fable-team/bin/ft-autonomy-scope.sh
-?? feature-pack/fable-team/harness/bin/autonomy_scope_secret.py
-?? feature-pack/fable-team/harness/evidence/r559/
-?? feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_secret.py
-?? feature-pack/fable-team/harness/tests/test_r559_scope_team_folder_docs.sh
+ M feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_secret.py
+ M feature-pack/fable-team/harness/tests/test_autonomy_scope_classify.sh
+ M feature-pack/fable-team/harness/tests/test_r559_scope_team_folder_docs.sh
+ M feature-pack/fable-team/manifest.json

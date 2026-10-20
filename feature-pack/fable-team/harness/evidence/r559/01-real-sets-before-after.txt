@@ -1,33 +1,55 @@
-== cfo ad8810719b6021d3a9f546aa1cb0947e36927ea4
+== cfo ad8810719b 변경 970개
 -- before
 FORBID kind=billing 과금 경로: design/teams/cfo/eli5-toss-payments-review-20261008.html
-real 122.77
-user 36.94
-sys 32.05
+real 72.14
+user 33.44
+sys 28.39
 -- after
 FORBID kind=billing 과금 경로: design/teams/cfo/eli5-toss-payments-review-20261008.html
-real 2.51
-user 1.35
-sys 0.51
-== chatbot 1aa037dc9af54b5f1e5453dc8f33e94119763487
+real 2.19
+user 1.25
+sys 0.35
+== chatbot 1aa037dc9a 변경 85개
 -- before
 FORBID kind=delete 상태 D: design/teams/chatbot/indices/대기/C-k3c-answer-language-vs-knowledge-quote.md
-real 1.82
-user 1.24
-sys 0.22
+real 1.37
+user 1.17
+sys 0.17
 -- after
 CLASS docs
-real 0.95
-user 0.27
-sys 0.15
-== v65 87f3b9bc40eb63556de5111d2c2fee51b38205ad
+real 0.30
+user 0.21
+sys 0.08
+== v65 87f3b9bc40 변경 6676개
 -- before
 FORBID kind=delete 상태 D: design/teams/v65/indices/대기/M5-release-fatal-pulse-entry-no-ack.md
-real 278.69
-user 112.09
-sys 103.40
+real 252.36
+user 104.36
+sys 97.31
 -- after
 FORBID kind=secret 추가 줄: env 전체 출력(실행할 명령 없음) 출력이 화면·파이프로 감
-real 6.16
-user 3.27
-sys 1.15
+real 6.79
+user 3.63
+sys 1.67
+== lecture 5ef99a2634 변경 0개
+-- before
+ERROR 빈 diff(승인할 변경 없음)
+real 0.12
+user 0.06
+sys 0.05
+-- after
+ERROR 빈 diff(승인할 변경 없음)
+real 0.11
+user 0.06
+sys 0.04
+== ops d1df8c06cf 변경 0개
+-- before
+ERROR 빈 diff(승인할 변경 없음)
+real 0.12
+user 0.06
+sys 0.04
+-- after
+ERROR 빈 diff(승인할 변경 없음)
+real 0.11
+user 0.06
+sys 0.04

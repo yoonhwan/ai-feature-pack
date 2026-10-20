@@ -61,6 +61,19 @@ mk h1 "$BASE" 'mkdir -p design/teams/cfo && echo n > design/teams/cfo/toss-payme
 mk h2 "$BASE" 'mkdir -p design/teams/cfo && echo n > design/teams/cfo/toss-payments.md'; cls "$SHA"; want "ⓗ toss-payments.md → CLASS docs(.md 는 낱말 금지 줄 위 · r514 그대로)" 0 "CLASS docs"
 out="$(python3 "$CLS" classify "$H1" --repo "$W" --scope S1 --learned billing 2>&1)"; rc=$?
 want "ⓗ 학습 키 billing 주면 CLASS docs kind=billing learned" 0 "CLASS docs kind=billing learned"
+# ⓚ 비밀 판정 범위 — code 파일은 «읽는 줄» 과 «내보내는 줄» 이 떨어져도 잡힌다 · 문서는 SECRET_SHAPE 만
+mk k1 "$BASE" 'mkdir -p design/teams/x && printf "#!/bin/sh\nV=\x24(cat secrets/db.cred)\necho 시작\n echo \x24V\n" > design/teams/x/run.sh'
+cls "$SHA"; want "ⓚ code 파일 · 읽는 줄과 내보내는 줄이 떨어짐 → FORBID(잡힘)" 3 "FORBID kind="
+mk k2 "$BASE" 'mkdir -p design/teams/x && echo "설명: cat secrets/db.cred 를 화면에 찍지 말 것" > design/teams/x/note.md'
+cls "$SHA"; want "ⓚ 문서(.md) 산문 속 명령 줄 → CLASS docs(f10 과 같은 칸)" 0 "CLASS docs"
+mk k2b "$BASE" 'mkdir -p design/teams/x && printf "예시:\n\n\x60\x60\x60bash\ncat secrets/db.cred\n\x60\x60\x60\n" > design/teams/x/fence.md'
+cls "$SHA"; want "ⓚ f10b 코드 울타리 안 명령 줄 → FORBID(잡힘)" 3 "FORBID kind="
+mk k2c "$BASE" 'mkdir -p design/teams/x && printf "\x60cat secrets/db.cred\x60 를 쓰지 말 것\n" > design/teams/x/inline.md'
+cls "$SHA"; want "ⓚ 한 줄 코드 표기(\x60…\x60) 안 명령 → FORBID(잡힘)" 3 "FORBID kind="
+mk k2d "$BASE" 'mkdir -p design/teams/x && printf "\x24 cat secrets/db.cred\n" > design/teams/x/dollar.md'
+cls "$SHA"; want "ⓚ 줄머리 «\x24 » 명령 → FORBID(잡힘)" 3 "FORBID kind="
+mk k3 "$BASE" 'mkdir -p design/teams/x && echo "-----BEGIN RSA PRIVATE KEY-----" > design/teams/x/leak.md'
+cls "$SHA"; want "ⓚ 문서라도 키 원문 모양은 FORBID secret" 3 "FORBID kind=secret"
 # ⓘ 속도 — 1,000파일 · 6,676파일(v65 실사건 크기) 두 세트 · 파일당 git 호출 0
 speed() {  # speed <파일 수> → "초" (분류 1회)
   local n="$1" d="$T/sp$1"; mkdir -p "$d"; git init -q "$d/o.git" --bare; git clone -q "$d/o.git" "$d/w" 2>/dev/null
@@ -90,8 +103,10 @@ read -r t2 rc2 o2 <<<"$(speed 6676)"; echo "  ⓘ 6676파일 시간=${t2}s rc=$r
 out="1000=${t1}s 6676=${t2}s $o1 / $o2"; rc=0
 python3 -c "import sys; sys.exit(0 if float('$t1')<=7 and float('$t2')<=7 else 1)"; ck "ⓘ 1000·6676 파일 세트 각 7초 안" $?
 # ⓙ 기존 분류기 시험 무변경 + rc0 (base 대조)
-if git -C "$HERE" rev-parse --git-dir >/dev/null 2>&1; then
-  git -C "$HERE" diff --quiet origin/main -- test_autonomy_scope_classify.sh; ck "ⓙ 기존 시험 파일 base 대조 diff 0" $?
+if git -C "$HERE" rev-parse --git-dir >/dev/null 2>&1; then   # 승인된 1칸(f10 산문 = docs)만 바뀌고 나머지 칸은 그대로
+  d="$(git -C "$HERE" diff -U0 origin/main -- test_autonomy_scope_classify.sh | grep -cE '^[+-][^+-]')"
+  dc="$(git -C "$HERE" diff -U0 origin/main -- test_autonomy_scope_classify.sh | grep -E '^[+-][^+-]' | grep -c 'f10')"
+  [ "$d" = 2 ] && [ "$dc" = 2 ]; ck "ⓙ 기존 시험 파일 base 대조 diff = 승인된 f10 1칸만(2줄)" $?
 fi
 bash "$HERE/test_autonomy_scope_classify.sh" >"$T/existing.log" 2>&1; ck "ⓙ 기존 분류기 시험 rc0(ALL PASS)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
