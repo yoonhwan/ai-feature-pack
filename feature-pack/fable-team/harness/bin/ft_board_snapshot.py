@@ -41,11 +41,12 @@ def diff(prev: dict, cur: dict) -> list[str]:
         if t["key"] not in ptm:
             out.append(f"팀 추가 {t['key']}")
             continue
-        old = ptm[t["key"]]["states"]
-        for name, st in sorted(t["states"].items()):
+        old = ptm[t["key"]].get("states") or {}
+        new = t.get("states") or {}
+        for name, st in sorted(new.items()):
             if old.get(name) != st:
                 out.append(f"카드 {t['key']}/{name} {old.get(name, '신규')}→{st}")
-        out += [f"카드 {t['key']}/{n} {old[n]}→삭제" for n in sorted(set(old) - set(t["states"]))]
+        out += [f"카드 {t['key']}/{n} {old[n]}→삭제" for n in sorted(set(old) - set(new))]
     pis = {i["number"]: i["state"] for i in prev["issues"]}
     for i in cur["issues"]:
         if pis.get(i["number"], "신규") != i["state"]:

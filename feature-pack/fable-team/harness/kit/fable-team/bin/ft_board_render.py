@@ -32,6 +32,9 @@ def _seats_text(p: dict) -> str:
 def summary_lines(d: dict, slack: bool) -> list[str]:
     out = []
     for t in d["teams"]:
+        if t.get("error"):  # 그 팀만 확인 못 함 — 숫자 칸 대신 원인 한 줄(다른 팀 그리기 불변)
+            out.append(f"- {t['label']} | 확인 못 함: {t['error']}")
+            continue
         if not t["cards_dir"]:
             now_s, queue_s = "카드 폴더 미지정", "-"
         else:
@@ -47,6 +50,9 @@ def summary_lines(d: dict, slack: bool) -> list[str]:
 def session_lines(d: dict, full: bool) -> list[str]:
     out = []
     for t in d["teams"]:
+        if t.get("error"):
+            out += [t["label"], f"└─ 확인 못 함: {t['error']}"]
+            continue
         items = [f"{x['role']} {x['name']} {x['state']}" for x in t["leads"]]
         for idx, p in t["progress"].items():
             items.append(f"🔄 {p['title']} ← {_seats_text(p)}")
@@ -71,7 +77,7 @@ def queue_lines(d: dict, full: bool, now: datetime) -> list[str]:
     opened = [i for i in d["issues"] if i["state"] == "open"]
     opened.sort(key=lambda i: ("hil:needed" not in i["labels"], -i["number"]))
     issues = [f"- #{i['number']} {i['title']}" + (" [hil:needed]" if "hil:needed" in i["labels"] else "") for i in opened]
-    waits = [f"- {t['label']}: " + " · ".join(q["title"] for q in t["queue"]) for t in d["teams"] if t["queue"]]
+    waits = [f"- {t['label']}: " + " · ".join(q["title"] for q in t["queue"]) for t in d["teams"] if t.get("queue")]
     inbox = [f"- {t['label']}: 수신 대기 {t['pending']} · 미보고 {t['unreported']}"
              + (f" · 가장 오래된 {_minutes(t['oldest_ts'], now) if t['oldest_ts'] else '시각 확인 불가'}" if t["unreported"] else "")
              for t in d["teams"] if t.get("pending") is not None]

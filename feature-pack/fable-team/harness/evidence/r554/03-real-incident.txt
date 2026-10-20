@@ -1,0 +1,32 @@
+### 실사건 재현 — 임시 루트(make_root 픽스처) · 실 gh·tmux·슬랙·LLM 호출 0 · 실 .fable-team 쓰기 0
+comm
+seats-cfo.json
+seats-harness.json
+seats-loom.json
+seats-planner.json
+state
+=== 정상: collect rc + teams keys
+rc=0 stderr=
+=== 정상: render --sheet --text (앞 4줄)
+확인 중 0 · 소유자 미확인 4칸
+❓ 오빠가 정할 것 (0건) — 사람 판단 대기 확인 불가 · 합치기 줄 대기 확인 불가
+🔄 지금 진행 중 (끝나면 멈춤)
+  · 시안 3개 → 고르기 → 수정 — ✅ 방금 완성 · 오빠 확인 대기
+BROKE seats-cfo.json
+=== 사건 재현: collect rc + stderr
+rc=0
+ERROR seats-cfo.json: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+=== 사건 재현: render --sheet --text (앞 4줄)
+rc=0
+확인 중 0 · 소유자 미확인 4칸
+❓ 오빠가 정할 것 (0건) — 사람 판단 대기 확인 불가 · 합치기 줄 대기 확인 불가
+🔄 지금 진행 중 (끝나면 멈춤)
+⚠ 확인 못 함 cfo: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+stderr=ERROR seats-cfo.json: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+=== render --term ⓪ 팀 요약 확인 못 함 줄
+4:- cfo | 확인 못 함: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+10:cfo — 확인 못 함: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+26:└─ 확인 못 함: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+=== snapshot
+ERROR seats-cfo.json: 카드 폴더 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.re7LI0U6Vn/root1/.worktrees/없는워크트리/design/cfo/indices
+{"snap": "-→1b75ee06", "prev": null, "changes": [], "prev_day_last": null}

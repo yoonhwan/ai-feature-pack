@@ -1,0 +1,22 @@
+### 고친 뒤 — pytest
+.......................                                                  [100%]
+23 passed in 2.69s
+### 고친 뒤 — test_board.sh
+72
+ALL PASS
+### 고친 뒤 — test_sheet_publish.sh
+PASS ⓔ 한 팀 «확인 못 함» → 나머지 팀 발행 + rc 2
+PASS ⓔ 같은 발행 rev 여도 rc 2 (조용한 성공 0)
+PASS ⓕ 전 팀 실패 → 발행 0 · rc 1
+fail=0
+### 고친 뒤 — 관련 셸 시험
+tests/test_sheet_render.sh rc=0
+tests/test_sheet_events.sh rc=0
+tests/test_board_seat_cell.sh rc=0
+tests/test_satellite_rosters.sh rc=0
+tests/test_board_publish.sh rc=0
+tests/test_board_publish_norm.sh rc=0
+tests/test_board_publish_tick.sh rc=0
+tests/test_tick_line.sh rc=0
+### ruff
+All checks passed!

@@ -1,0 +1,10 @@
+### 정본 키트 ↔ 정본 bin 짝 cmp (0 = 같음)
+cmp=0 ft_board_collect.py
+cmp=0 ft_board_render.py
+cmp=0 ft_board_render_tree.py
+cmp=0 ft_board_snapshot.py
+cmp=0 ft_board_sheet.py
+cmp=0 ft_board_sheet_tree.py
+cmp=0 ft_board_teams.py
+cmp=0 ft_board_seat.py
+cmp=0 ft-sheet-publish.sh

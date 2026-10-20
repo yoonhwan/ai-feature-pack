@@ -128,6 +128,31 @@ def team_block(root: Path, path: Path, alive: set, date: str, vds: list, mail: M
     return block
 
 
+def _key_label(path: Path) -> tuple[str, str]:
+    """실패 칸의 이름표 — 명부 JSON 이 깨져도 팀 키는 파일 이름에서 나온다(라벨만 키로 떨어진다)."""
+    key = "v65" if path.stem == "seats" else path.stem.removeprefix("seats-")
+    try:
+        return key, json.loads(path.read_text(encoding="utf-8")).get("_label") or key
+    except Exception:  # noqa: BLE001 — 못 읽는 것이 바로 이 칸의 사유다(team_block 이 그 사유를 낸다)
+        return key, key
+
+
+def team_or_error(root: Path, path: Path, alive: set, date: str, vds: list, mail: Mail) -> dict:
+    """한 팀 수집 실패를 «그 팀 칸»에 격리한다 — `{"key","label","error"}` 만(숫자 칸 0).
+
+    없는 팀 값을 0·빈 값·옛 값으로 채우지 않는다(#0 RULE) — 그 팀 칸은 «확인 못 함» 이고, 원인은 stderr `ERROR <명부 이름>: <원인>` 에도 남는다.
+    rc 는 부르는 쪽이 정한다(ft-sheet-publish = 부분 발행 2 · 전원 실패 1).
+    """
+    try:
+        return team_block(root, path, alive, date, vds, mail)
+    except Exception as e:  # noqa: BLE001 — 한 팀 예외가 전 팀 발행을 멈추지 않게(판정 r554)
+        key, label = _key_label(path)
+        why = str(e).removeprefix(f"{path.name}: ")  # 명부 이름은 stderr 줄이 이미 말한다
+        msg = why if isinstance(e, RuntimeError) else f"{path.name} {type(e).__name__}: {why}"
+        print(f"ERROR {path.name}: {msg}", file=sys.stderr)
+        return {"key": key, "label": label, "error": msg}
+
+
 def decision(root: Path, alive: set) -> str:
     p = root / ".fable-team" / "seats-planner.json"
     if not p.exists():
@@ -146,4 +171,4 @@ def collect(files: list[Path] | None = None) -> dict:
     files = files or sorted((root / ".fable-team").glob("seats*.json"))
     mail = Mail(root)
     return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root),
-            "teams": [team_block(root, f, alive, date, vds, mail) for f in files]}
+            "teams": [team_or_error(root, f, alive, date, vds, mail) for f in files]}
