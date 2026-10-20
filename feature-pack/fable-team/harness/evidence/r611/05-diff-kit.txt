@@ -1,0 +1,258 @@
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
+index b235c9d2..a7d083ad 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
+@@ -164,8 +164,8 @@ def ok_line(email, token, token_name):
+     return f"OK {email} exp={datetime.fromtimestamp(exp, KST):%H:%M} ({mins}분) file={token_name}"
+ 
+ 
+-def op_password(item_id):
+-    """1Password develop 볼트에서 비밀번호를 «이 프로세스 안으로만» 읽는다 — stdout·argv·파일·env 사본 밖 0.
++def op_field(item_id, label):
++    """1Password develop 볼트에서 필드 하나를 «이 프로세스 안으로만» 읽는다 — stdout·argv·파일·env 사본 밖 0.
+ 
+     develop 토큰이 없으면 기본(kskill) 토큰으로 대체하지 않고 멈춘다(하드 룰 15). 재시도 0.
+     """
+@@ -175,7 +175,9 @@ def op_password(item_id):
+     env = dict(os.environ)
+     env["OP_SERVICE_ACCOUNT_TOKEN"] = develop
+     exe = os.environ.get("FT_OP_BIN") or "op"
+-    argv = [exe, "item", "get", item_id, "--vault", "develop", "--fields", "label=password", "--reveal"]
++    argv = [exe, "item", "get", item_id, "--vault", "develop", "--fields", f"label={label}"]
++    if label == "password":
++        argv.append("--reveal")
+     try:
+         p = subprocess.run(argv, capture_output=True, text=True, timeout=OP_TIMEOUT_S, env=env)
+     except subprocess.TimeoutExpired:
+@@ -186,10 +188,40 @@ def op_password(item_id):
+         # op stderr 원문은 밖으로 내지 않는다 — 패턴 없는 bare 비밀번호가 섞여 있으면 마스킹으로는 못 막는다(DA⑥ HOLD).
+         nbytes = len((p.stderr or "").encode("utf-8", "replace"))
+         raise Fail(f"ERR op 읽기 실패 rc={p.returncode} (stderr {nbytes}바이트 · 원문 숨김)")
+-    password = (p.stdout or "").rstrip("\r\n")
+-    if not password:
+-        raise Fail("ERR op 읽기 빈 값 — 항목·필드(label=password) 확인")
+-    return password
++    value = (p.stdout or "").rstrip("\r\n")
++    if not value:
++        raise Fail(f"ERR op 읽기 빈 값 — 항목·필드(label={label}) 확인")
++    return value
++
++
++def op_password(item_id):
++    return op_field(item_id, "password")
++
++
++def op_username(item_id):
++    return op_field(item_id, "username")
++
++
++def new_row_names(email, rows):
++    """표에 없는 계정의 파일 이름 2개 — slug(이메일 로컬 부분) · 겹치면 Fail(쓰기 0)."""
++    slug = re.sub(r"[^a-z0-9]", "_", email.split("@", 1)[0].lower())
++    if not slug:
++        raise Fail(f"ERR {email} 파일 이름을 만들 수 없음 — 표 줄 추가는 사람이", 2)
++    names = (f"byz_{slug}.cred", f"byz_{slug}_token_dev")
++    taken = {n for pair in rows.values() for n in pair}
++    for name in names:
++        if name in taken:
++            raise Fail(f"ERR {email} 이름 겹침: {name} — 표·파일 확인", 2)
++    return names
++
++
++def append_table_row(sdir, email, cred_name, token_name):
++    """표 끝에 1줄 «원자» 추가 — 기존 줄 바이트 불변 · 권한 600."""
++    path = os.path.join(sdir, "op-accounts.tsv")
++    text = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
++    if text and not text.endswith("\n"):
++        text += "\n"
++    atomic_write(path, text + f"{email}\t{cred_name}\t{token_name}\n")
+ 
+ 
+ def stdin_password(email):
+@@ -199,12 +231,23 @@ def stdin_password(email):
+     return password
+ 
+ 
+-def issue(email, init, get_password):
++def issue(email, init, get_password, get_username=None):
+     sdir = secrets_dir()
+     rows = read_table(sdir) if os.path.isdir(sdir) else {}
+-    if email not in rows:
++    missing = email not in rows
++    if missing and get_username is None:
+         raise Fail(f"ERR {email} 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)", 2)
+-    cred_name, token_name = rows[email]
++    new_row = False
++    if missing:
++        if get_username() != email:
++            raise Fail(f"ERR 항목 사용자 이름 ≠ {email} — 표 줄 추가 안 함", 2)
++        cred_name, token_name = new_row_names(email, rows)
++        for n in (cred_name, token_name):
++            if os.path.exists(os.path.join(sdir, n)):
++                raise Fail(f"ERR {email} 이름 겹침: {n} — 표·파일 확인", 2)
++        new_row = True
++    else:
++        cred_name, token_name = rows[email]
+     cred_path, token_path = (os.path.join(sdir, n) for n in (cred_name, token_name))
+     check_perms(sdir, [cred_path, token_path, os.path.join(sdir, "op-auth.conf"), os.path.join(sdir, "op-accounts.tsv")], email)
+     url, key = read_conf(sdir, email)
+@@ -217,13 +260,16 @@ def issue(email, init, get_password):
+         cred = json.load(open(cred_path, encoding="utf-8"))
+         password = cred.get("password", "")
+     token = login(url, key, email, password)
++    if new_row:
++        append_table_row(sdir, email, cred_name, token_name)
+     if init:
+         if os.path.exists(cred_path):
+             cred = json.load(open(cred_path, encoding="utf-8"))
+         cred.update({"email": email, "password": password})
+         atomic_write(cred_path, json.dumps(cred, ensure_ascii=False))
+     atomic_write(token_path, token)
+-    return ok_line(email, token, token_name)
++    line = ok_line(email, token, token_name)
++    return line + " (표 줄 추가)" if new_row else line
+ 
+ 
+ def list_accounts():
+@@ -246,7 +292,7 @@ def main(argv):
+             if len(argv) != 3 or not argv[1] or not argv[2]:
+                 print("usage: ft-op-token.sh --init-from-op <op 항목 id> <email>", file=sys.stderr)
+                 return 2
+-            print(issue(argv[2], True, lambda: op_password(argv[1])))
++            print(issue(argv[2], True, lambda: op_password(argv[1]), lambda: op_username(argv[1])))
+             return 0
+         init = argv[:1] == ["--init"]
+         args = argv[1:] if init else argv
+diff --git a/feature-pack/fable-team/harness/tests/test_ft_op_token.py b/feature-pack/fable-team/harness/tests/test_ft_op_token.py
+index 73120e4a..96c3a5f8 100644
+--- a/feature-pack/fable-team/harness/tests/test_ft_op_token.py
++++ b/feature-pack/fable-team/harness/tests/test_ft_op_token.py
+@@ -257,18 +257,19 @@ def opstub(tmp_path, env):
+         f'printf "%s\\n" "$@" > "{argv}"\n'
+         f'printf "%s" "${{OP_SERVICE_ACCOUNT_TOKEN:-}}" > "{envtok}"\n'
+         f'[ -f "{d}/sleep" ] && sleep 30\n'
+-        f'cat "{body}" 2>/dev/null\n'
++        f'case "$*" in *label=username*) cat "{d}/username" 2>/dev/null ;; *) cat "{body}" 2>/dev/null ;; esac\n'
+         f'[ -f "{err}" ] && cat "{err}" >&2\n'
+         f'[ -f "{rc}" ] && exit $(cat "{rc}")\n'
+         "exit 0\n"
+     )
+     script.chmod(0o755)
+     body.write_text(OP_PASSWORD + "\n")
++    (d / "username").write_text(EMAIL + "\n")
+     env["env"]["FT_OP_BIN"] = str(script)
+     env["env"]["OP_SERVICE_ACCOUNT_TOKEN"] = "kskill-default-token"
+     env["env"]["OP_SERVICE_ACCOUNT_TOKEN_DEVELOP"] = OP_DEVELOP_TOKEN
+     return {"argv": argv, "envtoken": envtok, "body": body, "rc": rc, "err": err, "calls": calls,
+-            "sleep": d / "sleep", "dir": d}
++            "sleep": d / "sleep", "dir": d, "userbody": d / "username"}
+ 
+ 
+ def _texts(path, skip):
+@@ -357,3 +358,106 @@ def test_o7_login_fail_writes_no_cred(env, stub, opstub):
+     assert r.returncode == 1 and r.stdout.startswith(f"ERR {EMAIL} http=400")
+     assert OP_PASSWORD not in r.stdout + r.stderr
+     assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()
++
++
++# ── r611 --init-from-op: 표에 없는 계정이면 도구가 표 줄까지 추가 (사용자 이름 = 이메일일 때만) ──
++NEW_EMAIL = "new.user@x"
++NEW_CRED = "byz_new_user.cred"
++NEW_TOKEN = "byz_new_user_token_dev"
++
++
++def table_text(env):
++    return (env["sdir"] / "op-accounts.tsv").read_text()
++
++
++def test_r611a_unknown_email_appends_row_after_login(env, stub, opstub):
++    """ⓐ 표에 없는 이메일 + op username == 이메일 → 표 끝 1줄 + cred·token 생성 · stdout «(표 줄 추가)»."""
++    opstub["userbody"].write_text(NEW_EMAIL + "\n")
++    before = table_text(env)
++    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert r.stdout.startswith(f"OK {NEW_EMAIL} exp=") and f"file={NEW_TOKEN}" in r.stdout
++    assert r.stdout.rstrip("\n").endswith("(표 줄 추가)")
++    assert table_text(env) == before + f"{NEW_EMAIL}\t{NEW_CRED}\t{NEW_TOKEN}\n"
++    cred, tok = env["sdir"] / NEW_CRED, env["sdir"] / NEW_TOKEN
++    assert json.loads(cred.read_text())["password"] == OP_PASSWORD
++    assert tok.read_text() == stub.token and mode(cred) == 0o600 and mode(tok) == 0o600
++    calls = opstub["calls"].read_text().count("run")
++    assert calls == 2  # 표 줄용 username + 비밀번호, develop 고정 env 고정 argv('--reveal' 은 비밀번호만)
++    assert opstub["argv"].read_text().splitlines() == [
++        "item", "get", OP_ITEM, "--vault", "develop", "--fields", "label=password", "--reveal"]
++    assert stub.calls == 1 and OP_PASSWORD not in r.stdout + r.stderr
++
++
++def test_r611b_username_not_email_rejects(env, stub, opstub):
++    """ⓑ op username ≠ 이메일 → ERR rc2 · 표·cred 쓰기 0."""
++    before = table_text(env)
++    opstub["userbody"].write_text("someone.else@x\n")
++    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r.returncode == 2 and r.stdout.startswith(f"ERR 항목 사용자 이름 ≠ {NEW_EMAIL}")
++    assert table_text(env) == before and stub.calls == 0
++    assert not (env["sdir"] / NEW_CRED).exists() and not (env["sdir"] / NEW_TOKEN).exists()
++
++
++def test_r611b2_username_read_failure_fixed_line(env, stub, opstub):
++    """ⓑ2 username 읽기 실패 → r605 와 같은 고정 문구 · 표 쓰기 0."""
++    before = table_text(env)
++    opstub["rc"].write_text("3")
++    opstub["err"].write_text("denied\n")
++    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r.returncode != 0 and r.stdout.startswith("ERR op 읽기 실패 rc=3 (stderr ")
++    assert "denied" not in r.stdout + r.stderr
++    assert table_text(env) == before and not (env["sdir"] / NEW_CRED).exists()
++
++
++def test_r611c_login_failure_writes_no_row(env, stub, opstub):
++    """ⓒ 로그인 실패 → 표 줄 추가 0 (표는 로그인 성공 뒤에만)."""
++    opstub["userbody"].write_text(NEW_EMAIL + "\n")
++    before = table_text(env)
++    stub.mode = "400"
++    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r.returncode == 1 and r.stdout.startswith(f"ERR {NEW_EMAIL} http=400")
++    assert table_text(env) == before
++    assert not (env["sdir"] / NEW_CRED).exists() and not (env["sdir"] / NEW_TOKEN).exists()
++
++
++def test_r611d_name_collision_rejects(env, stub, opstub):
++    """ⓓ 새 이름이 이미 있는 파일·표 줄과 겹침 → ERR · 쓰기 0."""
++    opstub["userbody"].write_text(NEW_EMAIL + "\n")
++    before = table_text(env)
++    p = env["sdir"] / NEW_CRED
++    p.write_text("{}")
++    p.chmod(0o600)
++    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r.returncode == 2 and "이름 겹침" in r.stdout and NEW_CRED in r.stdout
++    assert table_text(env) == before and stub.calls == 0
++    p.unlink()
++    tsv = env["sdir"] / "op-accounts.tsv"
++    tsv.write_text(before + f"third@example.test\t{NEW_TOKEN}\tother.token\n")
++    tsv.chmod(0o600)
++    r2 = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r2.returncode == 2 and "이름 겹침" in r2.stdout and NEW_TOKEN in r2.stdout
++    assert table_text(env).endswith(f"third@example.test\t{NEW_TOKEN}\tother.token\n")
++
++
++def test_r611e_table_write_is_atomic_and_keeps_bytes(env, stub, opstub):
++    """ⓔ 표 = 원자 쓰기(임시 파일 잔여 0) · 권한 600 유지 · 기존 줄 바이트 불변."""
++    opstub["userbody"].write_text(NEW_EMAIL + "\n")
++    before = table_text(env)
++    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
++    assert r.returncode == 0
++    tsv = env["sdir"] / "op-accounts.tsv"
++    assert mode(tsv) == 0o600
++    assert table_text(env).startswith(before) and table_text(env).count("\n") == before.count("\n") + 1
++    assert not [p for p in env["sdir"].iterdir() if p.name.startswith(".tmp-")]
++
++
++def test_r611f_known_account_unchanged(env, stub, opstub):
++    """ⓕ 이미 표에 있는 계정 → r605 동작 그대로(표 바이트 불변 · username 호출 0 · 꼬리 없음)."""
++    before = table_text(env)
++    (env["sdir"] / "acct.cred").unlink()
++    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
++    assert r.returncode == 0 and "(표 줄 추가)" not in r.stdout
++    assert table_text(env) == before
++    assert opstub["argv"].read_text().splitlines()[-1] == "--reveal"
++    assert opstub["calls"].read_text().count("run") == 1

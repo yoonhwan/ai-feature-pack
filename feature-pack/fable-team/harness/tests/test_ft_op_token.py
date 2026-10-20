@@ -257,18 +257,19 @@ def opstub(tmp_path, env):
         f'printf "%s\\n" "$@" > "{argv}"\n'
         f'printf "%s" "${{OP_SERVICE_ACCOUNT_TOKEN:-}}" > "{envtok}"\n'
         f'[ -f "{d}/sleep" ] && sleep 30\n'
-        f'cat "{body}" 2>/dev/null\n'
+        f'case "$*" in *label=username*) cat "{d}/username" 2>/dev/null ;; *) cat "{body}" 2>/dev/null ;; esac\n'
         f'[ -f "{err}" ] && cat "{err}" >&2\n'
         f'[ -f "{rc}" ] && exit $(cat "{rc}")\n'
         "exit 0\n"
     )
     script.chmod(0o755)
     body.write_text(OP_PASSWORD + "\n")
+    (d / "username").write_text(EMAIL + "\n")
     env["env"]["FT_OP_BIN"] = str(script)
     env["env"]["OP_SERVICE_ACCOUNT_TOKEN"] = "kskill-default-token"
     env["env"]["OP_SERVICE_ACCOUNT_TOKEN_DEVELOP"] = OP_DEVELOP_TOKEN
     return {"argv": argv, "envtoken": envtok, "body": body, "rc": rc, "err": err, "calls": calls,
-            "sleep": d / "sleep", "dir": d}
+            "sleep": d / "sleep", "dir": d, "userbody": d / "username"}
 
 
 def _texts(path, skip):
@@ -357,3 +358,106 @@ def test_o7_login_fail_writes_no_cred(env, stub, opstub):
     assert r.returncode == 1 and r.stdout.startswith(f"ERR {EMAIL} http=400")
     assert OP_PASSWORD not in r.stdout + r.stderr
     assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()
+
+
+# ── r611 --init-from-op: 표에 없는 계정이면 도구가 표 줄까지 추가 (사용자 이름 = 이메일일 때만) ──
+NEW_EMAIL = "new.user@x"
+NEW_CRED = "byz_new_user.cred"
+NEW_TOKEN = "byz_new_user_token_dev"
+
+
+def table_text(env):
+    return (env["sdir"] / "op-accounts.tsv").read_text()
+
+
+def test_r611a_unknown_email_appends_row_after_login(env, stub, opstub):
+    """ⓐ 표에 없는 이메일 + op username == 이메일 → 표 끝 1줄 + cred·token 생성 · stdout «(표 줄 추가)»."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    before = table_text(env)
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.startswith(f"OK {NEW_EMAIL} exp=") and f"file={NEW_TOKEN}" in r.stdout
+    assert r.stdout.rstrip("\n").endswith("(표 줄 추가)")
+    assert table_text(env) == before + f"{NEW_EMAIL}\t{NEW_CRED}\t{NEW_TOKEN}\n"
+    cred, tok = env["sdir"] / NEW_CRED, env["sdir"] / NEW_TOKEN
+    assert json.loads(cred.read_text())["password"] == OP_PASSWORD
+    assert tok.read_text() == stub.token and mode(cred) == 0o600 and mode(tok) == 0o600
+    calls = opstub["calls"].read_text().count("run")
+    assert calls == 2  # 표 줄용 username + 비밀번호, develop 고정 env 고정 argv('--reveal' 은 비밀번호만)
+    assert opstub["argv"].read_text().splitlines() == [
+        "item", "get", OP_ITEM, "--vault", "develop", "--fields", "label=password", "--reveal"]
+    assert stub.calls == 1 and OP_PASSWORD not in r.stdout + r.stderr
+
+
+def test_r611b_username_not_email_rejects(env, stub, opstub):
+    """ⓑ op username ≠ 이메일 → ERR rc2 · 표·cred 쓰기 0."""
+    before = table_text(env)
+    opstub["userbody"].write_text("someone.else@x\n")
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 2 and r.stdout.startswith(f"ERR 항목 사용자 이름 ≠ {NEW_EMAIL}")
+    assert table_text(env) == before and stub.calls == 0
+    assert not (env["sdir"] / NEW_CRED).exists() and not (env["sdir"] / NEW_TOKEN).exists()
+
+
+def test_r611b2_username_read_failure_fixed_line(env, stub, opstub):
+    """ⓑ2 username 읽기 실패 → r605 와 같은 고정 문구 · 표 쓰기 0."""
+    before = table_text(env)
+    opstub["rc"].write_text("3")
+    opstub["err"].write_text("denied\n")
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode != 0 and r.stdout.startswith("ERR op 읽기 실패 rc=3 (stderr ")
+    assert "denied" not in r.stdout + r.stderr
+    assert table_text(env) == before and not (env["sdir"] / NEW_CRED).exists()
+
+
+def test_r611c_login_failure_writes_no_row(env, stub, opstub):
+    """ⓒ 로그인 실패 → 표 줄 추가 0 (표는 로그인 성공 뒤에만)."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    before = table_text(env)
+    stub.mode = "400"
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 1 and r.stdout.startswith(f"ERR {NEW_EMAIL} http=400")
+    assert table_text(env) == before
+    assert not (env["sdir"] / NEW_CRED).exists() and not (env["sdir"] / NEW_TOKEN).exists()
+
+
+def test_r611d_name_collision_rejects(env, stub, opstub):
+    """ⓓ 새 이름이 이미 있는 파일·표 줄과 겹침 → ERR · 쓰기 0."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    before = table_text(env)
+    p = env["sdir"] / NEW_CRED
+    p.write_text("{}")
+    p.chmod(0o600)
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 2 and "이름 겹침" in r.stdout and NEW_CRED in r.stdout
+    assert table_text(env) == before and stub.calls == 0
+    p.unlink()
+    tsv = env["sdir"] / "op-accounts.tsv"
+    tsv.write_text(before + f"third@example.test\t{NEW_TOKEN}\tother.token\n")
+    tsv.chmod(0o600)
+    r2 = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r2.returncode == 2 and "이름 겹침" in r2.stdout and NEW_TOKEN in r2.stdout
+    assert table_text(env).endswith(f"third@example.test\t{NEW_TOKEN}\tother.token\n")
+
+
+def test_r611e_table_write_is_atomic_and_keeps_bytes(env, stub, opstub):
+    """ⓔ 표 = 원자 쓰기(임시 파일 잔여 0) · 권한 600 유지 · 기존 줄 바이트 불변."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    before = table_text(env)
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 0
+    tsv = env["sdir"] / "op-accounts.tsv"
+    assert mode(tsv) == 0o600
+    assert table_text(env).startswith(before) and table_text(env).count("\n") == before.count("\n") + 1
+    assert not [p for p in env["sdir"].iterdir() if p.name.startswith(".tmp-")]
+
+
+def test_r611f_known_account_unchanged(env, stub, opstub):
+    """ⓕ 이미 표에 있는 계정 → r605 동작 그대로(표 바이트 불변 · username 호출 0 · 꼬리 없음)."""
+    before = table_text(env)
+    (env["sdir"] / "acct.cred").unlink()
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode == 0 and "(표 줄 추가)" not in r.stdout
+    assert table_text(env) == before
+    assert opstub["argv"].read_text().splitlines()[-1] == "--reveal"
+    assert opstub["calls"].read_text().count("run") == 1
