@@ -1,0 +1,20 @@
+=== test_team_tick_unify.sh
+PASS ⓔ FIRE_V2=1: 같은 창을 busy 로 건너뜀(발사 0)
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=== test_tick_line.sh
+PASS M5 로그 없음 → 실패(0 아님)
+---
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=== test_dead_seat_resume.sh
+PASS 변이 3(문지기 검사 삭제) → ④ 실패 검출
+PASS 변이 4(좌석·uuid 대조 제거) → ③① 실패 검출
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=== test_kit_bin_sync.sh
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS

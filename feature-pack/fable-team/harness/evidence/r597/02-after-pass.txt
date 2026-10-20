@@ -1,0 +1,17 @@
+PASS bash -n kit
+PASS 키트 두 사본 동일 ft-tick.sh
+PASS ⓐ DRY: «나노 회신 대기» 줄 1 (알림 0)
+PASS ⓐ DRY 문구
+PASS ⓐ 실전: master 정지 쪽지 0(나노 회신 대기)
+PASS ⓐ 로그 1줄
+PASS ⓑ 알림 1
+PASS ⓑ 문구
+PASS ⓑ 같은 turn_end 재실행 = 알림 0
+PASS ⓒ 알림 1
+PASS ⓒ 문구 = 없음
+PASS ⓓ 알림 1
+PASS ⓓ 문구 = base 바이트
+PASS ⓓ DRY 줄 = base 줄(나노 키 0)
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

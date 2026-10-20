@@ -250,6 +250,16 @@ for k, v in d.items():
     print(f"{k}\t{v.get('role','')}")
 PY
 }
+# R597: 살아 있는 나노 좌석 = 명부($1 = "seat<TAB>role" 줄) role=nano ∧ pane 실재. 팀장 정지가 «나노 회신 대기» 인지 판정한다.
+live_nano_seats() {
+  local pan seat role
+  pan="$(tmux list-panes -a -F '#{session_name} #{pane_id}' 2>/dev/null)" || return 0
+  while IFS=$'\t' read -r seat role; do
+    [ "$role" = nano ] || continue
+    [ -n "$(awk -v s="$seat" '$1==s{print $2; exit}' <<< "$pan")" ] || continue
+    printf '%s\n' "$seat"
+  done <<< "$1"
+}
 iso_epoch() { TZ=UTC date -j -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null; }
 turn_line() {  # $1 seat → "STATE TURN_END DURATION_MS REPORTED SOURCE" (픽스처가 있으면 그 파일로)
   if [ -n "$FIXTURE_DIR" ] && [ -f "$FIXTURE_DIR/$1.jsonl" ]; then bash "$SEAT_STATUS" turn --file "$FIXTURE_DIR/$1.jsonl" 2>/dev/null
@@ -626,7 +636,8 @@ dead_seat_watch() {
 
 # ③ 누적 정지 — IDLE 지속 ≥ IDLE_STALL_MIN 분 ∧ 받은 발주 0 ∧ 완료·휴식 아님. master 도 대상(master 정지 → planner · 그 밖 → master). 같은 정지(turn_end 같음)는 1회만.
 idle_long_watch() {
-  local rows master route seat role p st end dur rep src ep mins pend jl to sdir
+  local rows master route seat role p st end dur rep src ep mins pend jl to sdir body nn lists nanotag
+  local nanos="" nanos_read=0
   [ "${FT_TICK_IDLE_LONG:-1}" = 1 ] || return 0
   [ -f "$SEAT_STATUS" ] || return 0
   rows="$(all_seats 2>/dev/null)" || return 0
@@ -642,10 +653,27 @@ idle_long_watch() {
     [ "$(cat "$sdir/$seat" 2>/dev/null)" = "$end" ] && continue
     pend="$(bash "$MBOX" peek "$seat" 2>/dev/null | sed -n 's/.*pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$pend" = 0 ] || continue
     jl="$(bash "$SEAT_STATUS" jsonl "$seat" 2>/dev/null)"; [ -n "$jl" ] && [ -f "$RESUME_ATTEMPT" ] && bash "$RESUME_ATTEMPT" rested "$jl" && continue
+    # R597: 팀장 정지인데 같은 명부에 살아 있는 나노가 있으면 «나노 회신 대기»(정상) — 문턱(6×) 전엔 알림 0 · 로그만.
+    nn=0; lists=""; nanotag=""
+    if [ "$role" = master ]; then
+      [ "$nanos_read" = 1 ] || { nanos="$(live_nano_seats "$rows")"; nanos_read=1; }
+      if [ -n "$nanos" ]; then
+        nn="$(printf '%s\n' "$nanos" | wc -l | tr -d ' ')"; lists="$(printf '%s\n' "$nanos" | paste -sd',' - | sed 's/,/, /g')"; nanotag=" nanos=$nn"
+        if [ "$mins" -lt "$(( IDLE_STALL_MIN * 6 ))" ]; then
+          if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long-nano-wait seat=$seat nanos=$nn"; else log "idle_long_watch: $seat 정지 ${mins}분 — 나노 ${nn} 회신 대기($lists)"; fi
+          continue
+        fi
+      fi
+    fi
     to="$master"; [ "$seat" = "$master" ] && to="$route"
     [ -n "$to" ] && [ "$to" != "$seat" ] || { echo "$(date '+%F %T') idle_long_watch: $seat 정지 ${mins}분 — 알릴 상위 좌석 없음" >&2; continue; }
-    if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long seat=$seat mins=$mins to=$to"; continue; fi
-    bash "$MBOX" send "$to" ft-tick "[정지 ${mins}분] $seat role=$role — IDLE 지속 · 받은 발주 0 · 기다리는 것 = 없음(할 일을 못 받았다). 다음 발주·닫기·깨우기 중 하나" >/dev/null 2>&1 \
+    if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long seat=$seat mins=$mins to=$to$nanotag"; continue; fi
+    if [ "$nn" -gt 0 ]; then   # 문턱(6×)을 넘겨도 나노가 살아 있으면 사유를 «나노 회신 대기» 로 적는다
+      body="[정지 ${mins}분] $seat role=$role — 기다리는 것 = 나노 ${nn} 회신(${lists}) · 나노 대기 ${mins}분 · 나노 pane 확인·깨우기·닫기 중 하나"
+    else
+      body="[정지 ${mins}분] $seat role=$role — IDLE 지속 · 받은 발주 0 · 기다리는 것 = 없음(할 일을 못 받았다). 다음 발주·닫기·깨우기 중 하나"
+    fi
+    bash "$MBOX" send "$to" ft-tick "$body" >/dev/null 2>&1 \
       && echo "$end" > "$sdir/$seat" || echo "$(date '+%F %T') idle_long_watch: mbox failed seat=$seat" >&2
   done <<< "$rows"
 }
