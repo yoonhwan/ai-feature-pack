@@ -1,0 +1,17 @@
+== 기존 큐 시험 4종(고친 뒤) ==
+--- test_queue_reask_r529.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+--- test_queue_state_r528.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+--- test_queue_bulk_r530.sh
+PASS ⓖ 기존 test_harness_freeze_gate.sh rc=0
+== ALL PASS ==
+rc=0
+--- test_proxy_decide_queue_card_resolve.sh
+== ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
