@@ -1,0 +1,41 @@
+== ⓕ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (fable-team-bin == harness-install)
+PASS bash -n ft-nano-close.sh
+== ⓐ 일치 계획 = 기존 결과 그대로
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+== ⓑ 생성기가 달라지면 STALE 1줄 · exit 3 · 파일/워크트리/원장/브랜치 손 0
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+FAIL ⓑ 생성기 1바이트 수정
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+FAIL ⓑ 생성기 삭제
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+FAIL ⓑ hash 실패
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+FAIL ⓑ hash exit 42
+== ⓔ 다른 cwd · 심링크 /tmp/h<N> 형태로 실행해도 같은 결과
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+== ⓓ sweep 경로 — 기존 plan_ver_check 가 먼저 막는다(.stale 이동 · STALE 문구 불변 · 계획 미실행)
+FAIL 계획 생성 실패 rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nasVLqXW6Z/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_
+== 변이 2 — 자기검사를 망가뜨리면 위 ⓑ 시험이 실패해야 한다
+PASS 변이 자기검사 블록 제거(1바이트 수정 경우) — ⓑ 시험이 실패를 검출
+PASS 변이 비교를 «비었으면 통과» 로(생성기 삭제 경우) — ⓑ 시험이 실패를 검출
+PASS 변이 종료 코드 무시(|| _lv="" 제거) — ⓑ 시험이 실패를 검출
+
+FAILED 15
