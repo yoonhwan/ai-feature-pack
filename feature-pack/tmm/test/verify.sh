@@ -565,14 +565,14 @@ grep -q '@tmm_ver "\$TMM_VERSION"' "$TMM" || { echo 'FAIL: (pv) tui_wrap 이 @tm
 # (sp) 분할 화면(0.8.0) — 왼쪽 = 카테고리 칸(별도 fzf, tmux pane), 오른쪽 = 세션 목록. 키는 ↑↓ + Enter(분류→목록) + Esc·⌫(목록→분류). ←/→ 는 별칭. Tab/S-Tab 탭 회전 폐지.
 lib() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" bash -c 'source "'"$TMM"'" __lib; RUN="'"$STATE"'"; '"$1"; }
 [ "$(lib 'split_catw 60')" = 11 ] && [ "$(lib 'split_catw 119')" = 11 ] && [ "$(lib 'split_catw 120')" = 16 ] || { echo "FAIL: (sp) 카테고리 칸 폭 규칙(<120→11, ≥120→16): $(lib 'split_catw 60') $(lib 'split_catw 120')"; exit 1; }
-# 카테고리 행: «키\t라벨». 좁은 칸(11)은 이름 7자 + ⚠N, 넓은 칸(16)은 이름 8자 + 수. 전체(*)는 「전체」.
+# 카테고리 행: «키\t라벨». 좁은 칸(11)은 이름 5자 + 수(회색 2자) + ⚠N, 넓은 칸(16)은 이름 8자 + 수 + ⚠N. 전체(*)는 「전체」.
 printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"
 printf '11' > "$STATE/catw"; cr="$(tmm catrows)"
 [ "$(printf '%s\n' "$cr" | wc -l | tr -d ' ')" = 3 ] || { echo "FAIL: (sp) catrows 행 수≠3"; printf '%s\n' "$cr"; exit 1; }
 printf '%s\n' "$cr" | sed -n 1p | grep -q $'^harness\t' || { echo "FAIL: (sp) catrows 1열이 키가 아님"; printf '%s\n' "$cr"; exit 1; }
-printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness⚠2$' || { echo "FAIL: (sp) 좁은 칸 라벨이 «이름7자⚠N» 이 아님: $(printf '%s\n' "$cr" | sed -n 1p)"; exit 1; }
-printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tgraphic$' || { echo "FAIL: (sp) 좁은 칸은 8자 이름을 7자로 잘라야 함"; exit 1; }
-printf '%s\n' "$cr" | sed -n 3p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^\*\t전체⚠2$' || { echo "FAIL: (sp) 전체(*) 라벨: $(printf '%s\n' "$cr" | sed -n 3p)"; exit 1; }
+printf '%s\n' "$cr" | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharne12⚠2$' || { echo "FAIL: (sp) 좁은 칸 라벨이 «이름5자 수 ⚠N» 이 아님: $(printf '%s\n' "$cr" | sed -n 1p)"; exit 1; }
+printf '%s\n' "$cr" | sed -n 2p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tgraph11$' || { echo "FAIL: (sp) 좁은 칸은 8자 이름을 5자로 자르고 수(11)를 붙여야 함"; exit 1; }
+printf '%s\n' "$cr" | sed -n 3p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'^\*\t전체 23⚠2$' || { echo "FAIL: (sp) 전체(*) 라벨: $(printf '%s\n' "$cr" | sed -n 3p)"; exit 1; }
 printf '16' > "$STATE/catw"; tmm catrows | sed -n 1p | sed 's/\x1b\[[0-9;]*m//g' | grep -q $'\tharness  12⚠2$' || { echo "FAIL: (sp) 넓은 칸 라벨이 «이름8자 수⚠N» 이 아님: $(tmm catrows | sed -n 1p)"; exit 1; }
 # (sp) cat_sync — 분류 행이 «바뀐 때만» catrows 를 갱신(바뀜=0, 안 바뀜=1). 핑거가 reload 를 쏠지 여기서 가른다(내용 같으면 reload 0 → 분류 fzf 가 키 입력을 안 버린다)
 printf '11' > "$STATE/catw"; printf 'harness\t12\t2\ngraphics\t11\t0\n*\t23\t2\n' > "$STATE/tabs"; rm -f "$STATE/catrows" "$STATE/catrows.new"

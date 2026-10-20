@@ -576,9 +576,11 @@ cmd_catrows() {  # $RUN/tabs(카테고리\t수\t대기수) → «키\t라벨» �
   local catw cat cnt wt lab; catw="$(cat "$RUN/catw" 2>/dev/null || echo 11)"
   [ -s "$RUN/tabs" ] || return 0
   while IFS=$'\t' read -r cat cnt wt; do
-    if [ "$cat" = '*' ]; then lab='전체'; [ "$catw" -ge 16 ] && lab="$(printf '%-6s %2s' "$lab" "$cnt")"
+    # 좁은 칸(폰 60열 = catw 11 → 보이는 폭 9)도 수를 뺀다 — 이름 5자 + 수 2자(회색) + ⚠N. 수는 «폭이 모자라서» 숨기지 않는다(0.8.6 · 사용자 2026-10-20)
+    if [ "$cat" = '*' ]; then lab='전체'
+      if [ "$catw" -ge 16 ]; then lab="$(printf '%-6s %2s' "$lab" "$cnt")"; else lab+="$(printf '\033[90m %2s\033[0m' "$cnt")"; fi
     elif [ "$catw" -ge 16 ]; then lab="$(printf '%-8.8s %2s' "$cat" "$cnt")"
-    else lab="$(printf '%-7.7s' "$cat")"; fi
+    else lab="$(printf '%-5.5s\033[90m%2s\033[0m' "$cat" "$cnt")"; fi
     [ "${wt:-0}" -gt 0 ] && lab+=$'\033[31m⚠'"$wt"$'\033[0m'
     printf '%s\t%s\n' "$cat" "$lab"
   done < "$RUN/tabs"
