@@ -22,3 +22,14 @@ fake_resource_env() {
   unset $FAKE_RES_THRESHOLD_VARS
   export FT_RES_ROOT PATH="$s:$PATH"
 }
+# fake_comm_root <임시 폴더> [LIVE_BIN 폴더] — r459·r383 뒤 도구가 «필수»로 찾는 공용 루트를 임시로 만든다 (r537 · r516 묶음 ③).
+#   git init 리포 + .fable-team/comm · .fable-team/state · .fable-team/LIVE_BIN(기본 = 팩 harness/bin) · design/TEAMS.md 최소 명단(harness·planner·v65)
+#   → FT_ROOT export(ft_comm_dir·ft_data_root 가 git 을 부르지 않고 이 루트로 푼다). 실 공용 루트·우편함 읽기·쓰기 0.
+fake_comm_root() {
+  local dir="$1" lb="${2:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../bin" && pwd)}"
+  mkdir -p "$dir/.fable-team/comm" "$dir/.fable-team/state" "$dir/design"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY git init -q "$dir" || return 1
+  printf '%s\n' "$lb" > "$dir/.fable-team/LIVE_BIN"
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$dir/design/TEAMS.md"
+  FT_ROOT="$(cd -- "$dir" && pwd -P)"; export FT_ROOT
+}
