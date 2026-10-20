@@ -1,0 +1,3 @@
+MINE tests/test_head_skip_list.sh rc=0 | PASS=21 FAIL=0
+MINE tests/test_head_lag.sh rc=0 | PASS=22 FAIL=0
+MINE tests/test_head_sync.sh rc=0 | PASS=25 FAIL=0

@@ -53,6 +53,16 @@ for mode in missing empty comments; do
   sync_tab; [ "$rc" != 0 ] && [[ "$out" == *ERROR* ]]; ck "ⓓ $mode → ft-head-sync ERROR rc≠0" $?
 done
 cp "$SRC_BIN/ft-head-skip.txt" "$SKIPF"
+# ── r549: 공용 라이브 뿌리 feat/v6-realtime-live = «병합하지 않는 줄기»(남의 staged·수정 1526개 · 메모리 10-18) → 두 도구 모두 제외
+#    ⓕ 그 브랜치만 알림 0 ⓖ 같은 파일이라 ft-head-sync 표에서도 0 ⓗ 다른 기능 브랜치는 그대로 대상(제외가 넓어지지 않음)
+T2="$T/t2"; mkrepo "$T2"; mkdir -p "$T2/.fable-team/state"
+git -C "$W" worktree add -q -b feat/v6-realtime-live "$T2/wt-v6" "$M0"; TM new-session -d -s 'byz-teama-nano-claude#9' -c "$T2/wt-v6"
+echo c1 >> "$W/m.txt"; cm "$W" "main c1"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
+lag; [ "$rc" = 0 ] && [ "$(alerted feat/v6-realtime-live)" = 0 ]; ck "ⓕ feat/v6-realtime-live 뒤처짐 → ft_head_lag 알림 0(공용 라이브 뿌리 제외)" $?
+sync_tab; [ "$(synced feat/v6-realtime-live)" = 0 ]; ck "ⓖ feat/v6-realtime-live → ft-head-sync 표에서 제외(같은 파일 1줄)" $?
+git -C "$W" worktree add -q -b nano/r549fn "$T2/wt-n549" "$M0"; TM new-session -d -s 'byz-teama-nano-claude#10' -c "$T2/wt-n549"
+lag; n="$(alerted nano/r549fn)"; sync_tab; m="$(synced nano/r549fn)"
+[ "$n" = 1 ] && [ "$m" = 1 ]; ck "ⓗ 다른 기능 브랜치 nano/r549fn → 알림 1 · 표 1(제외 안 넓어짐 · 앵커 ^(…)$)" $?
 # ── 정적: 기본값 4개(main·master·release·deploy) 보존 · 하드코딩 정규식 2곳 삭제 · 키트 사본 일치
 n=0; for k in 'main' 'master' 'release/.*' 'deploy/.*'; do grep -qxF "$k" "$SRC_BIN/ft-head-skip.txt" || n=1; done; [ "$n" = 0 ]; ck "정적: 기본값 4개 줄 보존" $?
 ! grep -qE 'release/\.\*' "$SRC_BIN/ft_head_lag.py" "$SRC_BIN/ft-head-sync.sh"; ck "정적: 하드코딩 기본 정규식 2곳 삭제" $?

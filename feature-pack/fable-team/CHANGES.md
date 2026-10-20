@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 공용 라이브 뿌리 `feat/v6-realtime-live` = «병합하지 않는 줄기»: 뒤처짐 알림·병합 처방이 그 폴더를 더 이상 가리키지 않는다 (r549 · 1.1.104 · 데이터 1줄)
+
+- 사건: main 이 움직일 때마다 planner 앞으로 «`v6-realtime-live`(feat/v6-realtime-live) 가 main 보다 284커밋 뒤 — 받아 오라» 는 알림과 «`ft-head-sync --apply`» 처방이 반복해서 갔다(v65 알림 120284 · master 85 발주 120290). 그 폴더는 여러 팀이 같이 쓰는 라이브 작업 뿌리라 남의 staged·수정이 1500줄 넘게 있고, main 으로 병합하지 않기로 한 줄기다(메모리 10-18 «merge 처방 금지»). 처방을 그대로 따르면 전 팀 라이브가 흔들린다.
+- 원인: 하네스에는 이미 «병합하지 않는 줄기» 목록(`ft-head-skip.txt`)이 있고 `ft_head_lag.py`(알림)와 `ft-head-sync.sh`(병합 표)가 둘 다 그 파일 하나를 읽는데, 그 브랜치 줄만 빠져 있었다. 그래서 두 도구가 같은 폴더를 계속 대상으로 잡았다.
+- 고침(데이터 1줄 + 주석 1줄 · 코드 0 · 새 도구 0): 정본 키트 `kit/fable-team/bin/ft-head-skip.txt` 와 정본 bin 짝 `harness/bin/ft-head-skip.txt` 의 «문서·운영 줄기» 묶음 끝에 `feat/v6-realtime-live` 1줄 + 사유 주석 1줄. 정규식 앵커(`^(…)$`) 그대로 — 다른 기능 브랜치의 뒤처짐 알림은 안 넓어진다.
+- 시험 `tests/test_head_skip_list.sh`(기존 · 새 시험 파일 0)에 칸 3개 추가 — ⓕ 임시 리포에 `feat/v6-realtime-live` 워크트리를 main 뒤로 두면 `ft_head_lag --event` 알림 0 ⓖ 같은 폴더가 `ft-head-sync` 표에도 안 나옴(같은 파일 1줄이 두 도구를 같이 멈춘다) ⓗ 대조 — 다른 기능 브랜치(`nano/r549fn`)는 그대로 알림 1 · 표 1(제외가 넓어지지 않음). 전부 임시 리포·임시 tmux 서버 픽스처(실 리포·실 좌석 0).
+- 전 FAIL → 후 PASS: 고치기 전 3건 FAIL(`evidence/r549/before-fix.txt` — ⓕ · ⓖ · 정적 키트 사본 일치) → 고친 뒤 ALL PASS 21(`evidence/r549/after-fix.txt`). 기존 `tests/test_head_lag.sh` · `tests/test_head_sync.sh` 도 ALL PASS(rc0 · 무변경).
+- 설치: 키트 1(`ft-head-skip.txt`) → `install.sh --apply --project <루트>` → 라이브 사본 cmp0 1 · 데몬 0(두 도구가 부를 때마다 새로 읽음) · 되돌림 = 그 줄 지움(또는 env `FT_HEAD_SYNC_SKIP`).
+- 병합: 팩 main f3710109(r551 · 1.1.102) 위에 쌓고, 이어 r550 가지(b2225587 · 1.1.103)를 병합 — 충돌은 CHANGES·manifest 뿐(기계 해소) · 번호는 r551=1.1.102 · r550=1.1.103 이 이미 쓰고 있어 **1.1.104** · 앞 두 항목 보존.
+- 범위 밖: `v6-realtime-live` 를 main 에 맞추기 · «미커밋≠0 이면 알림 대신 기록» 같은 새 판정 · 다른 공용 뿌리 찾기(지금 LIVE_ROOT 는 이것 하나).
+
 ## 2026-10-20 — 죽은 복사 설치기 `ft-live-install.sh` 은퇴 + 옛 설치 레이아웃 시험 2개의 글자·픽스처 자리 고침 (r550 · 1.1.103)
 
 - 사건: 나노가 일을 끝낼 때마다 돌리는 기존 시험이 두 개(나중에 셋) 늘 FAIL 이라 «원래 실패하던 것» 으로 넘어갔다(r457 · r491 · r544 세 번 · master 85 발주 120311 · 판정 1395). 실측하니 셋 다 **10-18 리포 분리(r385) 전 모양**이 시험에 남은 것이다.

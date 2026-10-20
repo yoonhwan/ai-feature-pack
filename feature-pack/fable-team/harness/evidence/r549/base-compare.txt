@@ -1,0 +1,11 @@
+r549 base 대조 — base = origin/main f3710109 (1.1.102) git archive 사본(/tmp/r549-base) · 후 = r549 가지
+명령: bash feature-pack/fable-team/harness/tests/<시험>.sh  (양쪽 같은 셸·같은 픽스처 꼴)
+
+시험                                base(origin/main)              후(r549)
+tests/test_head_skip_list.sh        rc=0  PASS=18  FAIL=0          rc=0  PASS=21  FAIL=0   ← +3 = 새 칸 ⓕⓖⓗ
+tests/test_head_lag.sh              rc=0  PASS=22  FAIL=0          rc=0  PASS=22  FAIL=0   ← diff 0
+tests/test_head_sync.sh             rc=0  PASS=25  FAIL=0          rc=0  PASS=25  FAIL=0   ← diff 0
+
+전 FAIL → 후 PASS (실패 시험 먼저):
+  고치기 전 = 새 시험 + base 목록(제외 줄 없음) → rc=1 FAILED 3 (ⓕ · ⓖ · 정적 키트 사본 일치)  [before-fix.txt]
+  고친 뒤   = 새 시험 + 고친 목록            → rc=0 ALL PASS 21                                  [after-fix.txt]

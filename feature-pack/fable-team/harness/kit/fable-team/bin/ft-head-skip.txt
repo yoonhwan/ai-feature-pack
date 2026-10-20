@@ -12,3 +12,5 @@ docs/ops-main-r2
 ops/main-base
 feat/ops-main
 feat/issue-manager
+# 공용 라이브 뿌리 — 여러 팀이 같이 쓰는 라이브 작업 폴더(남의 staged·수정 1526개 · main 으로 병합하지 않는 줄기 · 메모리 10-18 «merge 처방 금지» · r549)
+feat/v6-realtime-live
