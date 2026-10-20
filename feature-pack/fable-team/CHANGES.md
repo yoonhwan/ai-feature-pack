@@ -1,3 +1,13 @@
+## 2026-10-21 — 부팅 보고 lint 의 «발동 조건» 이 첫 줄 정확히 `[부팅 보고]` 일 때만 돌던 것 → 머리(`[<보낸이>-><받는이>]`)를 떼고 보되 머리 안에 «부팅 보고» 가 있으면 검사 (r577 · 1.1.125 · 동작 변경 · 검사 규칙 무변경 · origin/main ca1c277f(r580) 위로 rebase)
+
+- 사건(planner arch 8 제안 ③ · master 87 발주 123168 · 카드 r577 · arch 111 실측 2026-10-20 23:5x): 쪽지 가드는 `mbox_guard.sh` `_guard_boot_lint` 가 **첫 줄이 정확히 `[부팅 보고]` 로 시작할 때만** 돌았다. 그런데 통신 표준(BOOT 5)은 `[<보낸이>-><받는이>]` 머리를 앞에 붙이라고 하고, 승계 좌석들은 `[feature master#35 부팅 보고]` 처럼도 쓴다 — 그래서 **검사가 한 번도 돌지 않았고**, 교대 뒤 명부 누락 2건(planner 84→85 · feature 34→35 «retire=… 후계 보고로 대체»)이 그대로 전송됐다. arch 111 자기 부팅 보고(`[…->…] 부팅 보고: …`)도 같은 이유로 검사 0 이었다.
+- 고침(1곳 · `harness/comm/mbox_guard.sh` `_guard_boot_lint` 첫 줄 판정): 첫 줄 → 앞 공백 제거 → 앞의 `[<x>-><y>]`(또는 `→`) 머리 **1개** 제거 → 남은 줄이 `[` 로 시작해 첫 `]` 안에 «부팅 보고» 이거나 «부팅 보고» 로 시작(`:`·공백)이면 lint 실행 · 그 밖은 지금처럼 건너뜀. **lint 호출·rc 처리·REJECT/WARN 문구·검사 규칙(`ft-boot-report-lint.py`)은 글자 그대로 무변경** · 줄 수 200 유지(≤200 계약).
+- 시험 `harness/tests/test_boot_report_gate.sh` R577-ⓐ~ⓕ + 변이5: ⓐ(머리 붙은 꼴 + retire 칸 꼴 아님 → REJECT rc3·큐 0) ⓑ(`[팀 master N번 부팅 보고] … 후계 보고로 대체` → REJECT) ⓒ(`[a->b] 부팅 보고:` + 올바른 retire 칸 + 명부 반영 → OK)·ⓒ'(머리 화살표가 `→` 여도 같은 판정) ⓓ(머리 없는 `[부팅 보고]` 꼴 = 종전과 같은 판정) ⓔ(첫 줄에 «부팅 보고» 없고 본문 아래에만 → 검사 0 · 오탐 0) ⓕ(`[부팅]` 등 다른 머리 → 검사 0) ⓓ'/ⓓ''(머리 없는 `[부팅 보고]` 본문에 화살표 `->` 가 있어도 머리로 오인해 떼지 않는다 — 칸 없으면 REJECT · 칸 맞으면 OK) · 변이5(발동 조건을 옛 판으로 되돌리면 ⓐ·ⓑ 빨강). **전(origin/main 판 = ⓐ·ⓑ FAIL rc=0) → 후 ALL PASS**(`evidence/r577/01-before-red.txt`·`02-after-pass.txt`).
+- 기존 시험(이 카드 인접만 · 광역 0): `test_mbox_guard.sh` ALL PASS(`03-existing-mbox-guard.txt` — 명부 8종×머리 8종 표 · planner 머리 · relay · drift · 정지 쪽지) · `bash -n` OK · 기존 ⓐ~ⓗ 칸 판정 무변경.
+- 실사건 읽기 전용(`04-real-cases-readonly.txt` · 발신 0 · 쓰기 0): 실제 우편함 본문 3건을 새 발동 조건으로 돌리면 planner#85(`[…->…] [부팅 보고] … retire rc=0`) · feature#35(`[feature master#35 부팅 보고] … retire=#34 후계 보고로 대체`) · arch#111(`[…->…] 부팅 보고: …`) 모두 **예전 = 검사 0, 지금 = REJECT «retire 칸 없음: …»** — 누락 2건이 실제로 잡힌다.
+- 설치: 있음 — 팩 `harness/comm/mbox_guard.sh` 1파일(comm 설치 경로 r459 = 루트 `.fable-team/comm` · kit 사본 0 · `check-drift.sh` MAP 행 그대로) + 시험 1파일 · manifest 1.1.124 · 데몬 재기동 0. **LIVE 사본 설치(cmp0 1) + 실사건 1(다음 승계 좌석의 머리 붙은 부팅 보고가 retire 칸 없으면 REJECT)은 master 소관 — 미실행.** 되돌림 = `.bak-r577`.
+- 범위 밖: lint 검사 규칙 · 명부 누락 2건 손 복구(그 팀 몫) · planner 머리 규칙(`_guard_planner_head`) · 부팅 보고를 머리 없이 쓰게 하는 안내 · press(나노는 쏘지 않는다).
+
 # Changes
 
 ## 2026-10-21 — 나노 spawn 재대조(①b) «인용 파일 뽑기» 정밀화 — 폴더 토큰은 인용 아님 · 확장자 긴 것 먼저 · 통과면 카드 base_sha 갱신 (r580 · 1.1.124 · 동작 변경)

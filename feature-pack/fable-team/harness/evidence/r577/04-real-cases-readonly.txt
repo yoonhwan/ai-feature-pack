@@ -1,0 +1,18 @@
+# 실사건 읽기 전용(발신 0 · 쓰기 0) — 실제 우편함 본문 3건(bodies/<seq>.txt)에 «새 발동 조건» + lint 를 그대로 돌린 값
+# 옛 판 = 첫 줄이 정확히 '[부팅 보고]' 로 시작할 때만 검사 → 세 건 전부 검사 0 으로 통과(arch 111 2026-10-20 실측)
+# from = 본문이 밝힌 발신 좌석 이름(쪽지 본문 안 값)
+
+seq=121019 첫 줄 = [byz-planner-master-claude#85->byz-planner-desk-claude#29] [부팅 보고] planner#85 승계 끝(retire rc=0 · RESUME ok) · 모델 claude-opus-5-5[1m] · Serena 미사용(다른 워크트리 활성) · cron=acb4a
+  옛 판 발동 = 아니오(검사 0) · 새 판 발동 = 예
+  lint(from=byz-planner-master-claude#85) rc=1 out=REJECT 부팅 보고 반송 — retire 칸 없음: retire=byz-planner-master-claude#84->byz-planner-master-claude#85 rc=0 (ft-seat-retire.sh <구> <후계> 를 먼저 실행해 출력 복붙)
+  stderr=-
+
+seq=123092 첫 줄 = [feature master#35 부팅 보고] 세션=byz-feature-master-claude#35 / 모델=claude-sonnet-5-5[1m] 1m창 / Serena=가(BYZ-Agents 활성) / cron=197ea7a7(10분) / retire=#34 후계 보고로 대체(재개 기록은 #33 
+  옛 판 발동 = 아니오(검사 0) · 새 판 발동 = 예
+  lint(from=byz-feature-master-claude#35) rc=1 out=REJECT 부팅 보고 반송 — retire 칸 없음: retire=byz-feature-master-claude#34->byz-feature-master-claude#35 rc=0 (ft-seat-retire.sh <구> <후계> 를 먼저 실행해 출력 복붙)
+  stderr=-
+
+seq=121829 첫 줄 = [byz-harness-arch-claude#111->byz-harness-master-claude#86] 부팅 보고: 세션 byz-harness-arch-claude#111 / claude-opus-5-5 [1m] / Serena O(harness-ops 활성) / i-have-adhd 미로드(arch
+  옛 판 발동 = 아니오(검사 0) · 새 판 발동 = 예
+  lint(from=byz-harness-arch-claude#111) rc=1 out=REJECT 부팅 보고 반송 — retire 칸 없음: retire=byz-harness-arch-claude#110->byz-harness-arch-claude#111 rc=0 (ft-seat-retire.sh <구> <후계> 를 먼저 실행해 출력 복붙)
+  stderr=-

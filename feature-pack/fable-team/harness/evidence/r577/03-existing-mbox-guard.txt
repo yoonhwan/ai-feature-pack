@@ -1,0 +1,134 @@
+PASS matrix ok × DECIDE_OK rc=0
+PASS matrix ok × DECIDE_BAD rc=3
+PASS matrix ok × HIL rc=0
+PASS matrix ok × URGENT rc=0
+PASS matrix ok × MERGE rc=0
+PASS matrix ok × DONE rc=0
+PASS matrix ok × BOOT rc=0
+PASS matrix ok × PROGRESS rc=3
+PASS matrix stopready × DECIDE_OK rc=0
+PASS matrix stopready × DECIDE_BAD rc=3
+PASS matrix stopready × HIL rc=0
+PASS matrix stopready × URGENT rc=0
+PASS matrix stopready × MERGE rc=0
+PASS matrix stopready × DONE rc=0
+PASS matrix stopready × BOOT rc=0
+PASS matrix stopready × PROGRESS rc=3
+PASS matrix unreg × DECIDE_OK rc=0
+PASS matrix unreg × DECIDE_BAD rc=3
+PASS matrix unreg × HIL rc=0
+PASS matrix unreg × URGENT rc=0
+PASS matrix unreg × MERGE rc=0
+PASS matrix unreg × DONE rc=0
+PASS matrix unreg × BOOT rc=0
+PASS matrix unreg × PROGRESS rc=3
+PASS matrix retired × DECIDE_OK rc=3
+PASS matrix retired × DECIDE_BAD rc=3
+PASS matrix retired × HIL rc=0
+PASS matrix retired × URGENT rc=0
+PASS matrix retired × MERGE rc=3
+PASS matrix retired × DONE rc=3
+PASS matrix retired × BOOT rc=3
+PASS matrix retired × PROGRESS rc=3
+PASS matrix closed × DECIDE_OK rc=3
+PASS matrix closed × DECIDE_BAD rc=3
+PASS matrix closed × HIL rc=0
+PASS matrix closed × URGENT rc=0
+PASS matrix closed × MERGE rc=3
+PASS matrix closed × DONE rc=3
+PASS matrix closed × BOOT rc=3
+PASS matrix closed × PROGRESS rc=3
+PASS matrix dup × DECIDE_OK rc=3
+PASS matrix dup × DECIDE_BAD rc=3
+PASS matrix dup × HIL rc=0
+PASS matrix dup × URGENT rc=0
+PASS matrix dup × MERGE rc=3
+PASS matrix dup × DONE rc=3
+PASS matrix dup × BOOT rc=3
+PASS matrix dup × PROGRESS rc=3
+PASS matrix broken × DECIDE_OK rc=3
+PASS matrix broken × DECIDE_BAD rc=3
+PASS matrix broken × HIL rc=0
+PASS matrix broken × URGENT rc=0
+PASS matrix broken × MERGE rc=3
+PASS matrix broken × DONE rc=3
+PASS matrix broken × BOOT rc=3
+PASS matrix broken × PROGRESS rc=3
+PASS matrix other_broken × DECIDE_OK rc=0
+PASS matrix other_broken × DECIDE_BAD rc=3
+PASS matrix other_broken × HIL rc=0
+PASS matrix other_broken × URGENT rc=0
+PASS matrix other_broken × MERGE rc=0
+PASS matrix other_broken × DONE rc=0
+PASS matrix other_broken × BOOT rc=0
+PASS matrix other_broken × PROGRESS rc=3
+PASS 은퇴 REJECT 에 후계 체인 끝 이름
+PASS REJECT 는 큐 적재 0
+PASS 은퇴 수신자 + [HIL] → 후계로 전달
+PASS 깨진 명부 + [HIL] → WARN 명부 미확인 + 전송
+PASS mbox-guard.log 1줄 이상
+PASS 깨진 명부 REJECT 문구
+PASS 중복 키 REJECT 문구
+PASS 타 팀 명부 깨짐 = WARN 만 + 전송
+PASS stop-ready(은퇴 표시 없음) = WARN + 전송
+PASS 행 없음 = WARN 미등록 + 전송
+PASS 닫힌 팀 보존 좌석(stopped+_kept) = REJECT 닫힌 좌석
+PASS byz-v65-* 는 seats.json 이 authoritative · 현역 전송
+PASS warn 모드: 진행 쪽지 전송 + planner-head.log 1줄
+PASS 모드 값 없음 = 기본 warn(전송)
+PASS queues.conf planner_head_mode=reject 가 env 없이 적용
+PASS [HIL·merge] → [합치기] 별칭 치환 로그
+PASS [HIL] ①②④ 줄 없음 = WARN 만 전송
+PASS [완료] 증거 줄 없음 = WARN 만 전송
+PASS reject 문구에 허용 머리 목록
+PASS relay 도 은퇴 수신자 REJECT rc=3
+PASS 쓰기 중 kill 흉내 rc=137
+PASS 쓰기 중 죽어도 원본 무손상(cmp 동일·JSON 유효)
+PASS 정상 은퇴 출력 무변경
+PASS 은퇴 결과(_replaced_by·_master 전환)
+PASS tmp 파일 잔류 0
+PASS tmp 파일 잔류 0(glob)
+PASS G1(a) 타 팀 파일의 closed 행만 있음 → 미등록 WARN + 전송
+PASS G1(b) 타 팀 파일의 _replaced_by 로 후계 전환 0 · 원 이름 적재
+PASS G1(c) 후계가 속한 팀 파일의 closed 상태 판정 → REJECT + 후계 파일의 _closed 문구
+PASS V6 변이 사본 생성(원본 무변경)
+PASS V6 변이 사본 = (c) 문구 빨강 확인(rc 3 이어도 c_ok 거짓)
+PASS G1(d) 전역 키 검색은 충돌 검사로 유지(dup rc 3)
+PASS drift: mbox_guard.sh MAP 행 · 동일 = SAME
+PASS drift: 라이브 1바이트 변경 = DRIFT
+PASS drift: 원복 = SAME
+PASS R106: planner 앞 [HIL] 위반 = REJECT rc=3 + 안내 + 위반 줄 앞부분 + 큐 0
+PASS R106: 다른 좌석 앞 위반도 REJECT
+PASS R106: ①막힌 명령 원문 + ! bash /tmp/h7 = 전송
+PASS R320: [spawn 정지] + 유효 정지 파일(번호 일치) = 전송
+PASS R320: hold 번호 불일치 = REJECT + 안내(ft-spawn-hold.sh set)
+PASS R320: [spawn 정지] + hold= 없음 = REJECT
+PASS R320: 기한 지난 정지 = REJECT
+PASS R320: 가드는 정지 파일을 지우지 않음(부작용 0)
+PASS R320: 해제 조건 참인 정지 = REJECT
+PASS R320: 정지 파일 없음 = REJECT · 큐 0
+PASS R320: 머리 없는 문장 = 가드 대상 아님(전송) «spawn 정지 해제 완료 · 현재 정상 운영»
+PASS R320: 머리 없는 문장 = 가드 대상 아님(전송) «spawn 0 유지 중 아님»
+PASS R320: 머리 없는 문장 = 가드 대상 아님(전송) «spawn 0 · 커밋 abc»
+PASS R320: 머리 없는 문장 = 가드 대상 아님(전송) «spawn 은 planner GO 뒤»
+PASS R320: 머리 없는 문장 = 가드 대상 아님(전송) «신규 좌석 생성 중단»
+PASS R320: 머리 없는 문장 = 가드 대상 아님(전송) «일반 보고»
+PASS R320c ⓓ 판정기 파일 없음 = REJECT rc3 · 큐 0
+PASS R320c ⓓ 판정기 없음 — REJECT 이유 출력
+PASS R320c ⓓ 판정기 rc=4 = REJECT rc3 · 큐 0
+PASS R320c ⓓ 판정기 rc=1 = REJECT rc3 · 큐 0
+PASS R320c ⓓ 판정기 rc=2 = REJECT rc3 · 큐 0
+PASS R320c ⓓ 판정기 rc=127 = REJECT rc3 · 큐 0
+PASS R320c ⓓ 판정기 rc0 = 통과
+PASS R320c ⓓ 판정기 rc3 = REJECT
+PASS R320c ⓔ 판정기 없어도 머리 없는 쪽지 전송 «일반 보고 — 진행 중»
+PASS R320c ⓔ 판정기 rc4 여도 머리 없는 쪽지 전송 «일반 보고 — 진행 중»
+PASS R320c ⓔ 판정기 없어도 머리 없는 쪽지 전송 «[완료] 끝»
+PASS R320c ⓔ 판정기 rc4 여도 머리 없는 쪽지 전송 «[완료] 끝»
+PASS bash -n mbox.sh
+PASS bash -n mbox_guard.sh
+PASS bash -n ft-seat-retire.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+bash -n comm/mbox_guard.sh OK
+     200 ../comm/mbox_guard.sh

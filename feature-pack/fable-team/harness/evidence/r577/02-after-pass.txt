@@ -1,0 +1,34 @@
+PASS ⓐ 승계 좌석 retire 칸 없음 → REJECT rc=3 · 큐 0 · 기대 칸 문구
+PASS ⓑ retire 칸 있음(->) → OK 큐 1행
+PASS ⓑ' retire 칸 있음(→) → OK
+PASS ⓒ 구 이름 불일치 → REJECT 불일치
+PASS ⓒ' 후계가 발신 좌석 아님 → REJECT
+PASS ⓓ _replaces 없는 좌석(나노) → 칸 없어도 OK
+PASS ⓔ master 승계 cron= 없음 → REJECT
+PASS ⓔ' master 승계 cron= 있음 → OK
+PASS ⓕ planner 앞 [부팅 보고] + 맞는 본문 → OK
+PASS ⓖ 명부 깨짐 → 전송 + WARN 1줄
+PASS 다른 머리는 검사 0
+PASS ⓗ1 후계 행 없음 + #N-1 행 있음 + 칸 없음 → REJECT 칸 없음
+PASS ⓗ2 칸은 있는데 구 행 _replaced_by 미반영 → REJECT 명부 미반영
+PASS ⓗ3 retire 실행 뒤(명부 갱신) + 칸 → OK
+PASS 변이1(lint 호출 제거) → ⓐ 빨강 확인(rc=0)
+PASS 변이2(구 이름 대조 제거) → ⓒ 빨강 확인(불일치 문구 소멸 rc=3)
+PASS 변이3(이름 판별 제거) → ⓗ1 빨강 확인(rc=0)
+PASS 변이4(명부 미반영 대조 제거) → ⓗ2 빨강 확인(rc=0)
+PASS R577-ⓐ 머리 붙은 부팅 보고 + retire 칸 아님 → REJECT rc=3·큐 0
+PASS R577-ⓑ [팀 master N번 부팅 보고] 산문 retire → REJECT
+PASS R577-ⓒ '[a->b] 부팅 보고:' + 올바른 칸 → OK
+PASS R577-ⓒ' 화살표가 → 인 머리도 같은 판정
+PASS R577-ⓓ 머리 없는 꼴 = 종전과 같은 판정
+PASS R577-ⓔ 첫 줄에 부팅 보고 없음 → 검사 0
+PASS R577-ⓕ [부팅] 등 다른 머리 → 검사 0
+PASS R577-ⓓ' 머리 없는 꼴 + 본문 화살표 → 여전히 검사함(REJECT)
+PASS R577-ⓓ'' 머리 없는 꼴 + 올바른 칸 → OK
+PASS 변이5(옛 발동 조건) → R577-ⓐ 빨강 확인(rc=0)
+PASS 변이5 → R577-ⓑ 빨강 확인(rc=0)
+PASS bash -n mbox_guard.sh
+PASS py_compile lint
+PASS lint ≤80줄(      65)
+PASS mbox_guard.sh ≤200줄(     200)
+ALL PASS
