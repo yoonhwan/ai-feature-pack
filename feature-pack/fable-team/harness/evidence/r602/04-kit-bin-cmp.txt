@@ -1,0 +1,2 @@
+harness/kit/fable-team/bin/ft_news_html_lint.py vs harness/bin/ft_news_html_lint.py
+cmp rc=0
