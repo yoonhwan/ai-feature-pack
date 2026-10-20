@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_resume_cmd.sh — ft-resume-cmd.sh (이어가기 블록 «재개» 칸 · 설계 §2 · DA HOLD-I3). 가짜 tmux(PATH 맨 앞 스텁) · 가짜 jsonl · 가짜 좌석표 — 실제 tmux/claude 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 CMD="$HERE/../../harness/bin/ft-resume-cmd.sh"

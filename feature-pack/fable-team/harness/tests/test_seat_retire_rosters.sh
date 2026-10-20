@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_retire_rosters.sh — r429: ft-seat-retire.sh 가 같은 폴더(루트 .fable-team) 명부 전부의 «라우팅 칸»(_hil_route…)을 후계로 바꾼다 ·
 #   r465 부터 역할 칸(_master·_arch)도 남의 명부까지(공유 arch) · 명부 1개 손상 = ERROR rc 1 · 쓰기 0. 모든 쓰기는 mktemp scratch 리포 — 실 명부 0 · 가짜 tmux(세션 없음).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

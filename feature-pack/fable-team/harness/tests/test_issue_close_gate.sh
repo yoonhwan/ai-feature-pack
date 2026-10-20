@@ -2,6 +2,7 @@
 # test_issue_close_gate.sh — R102 이슈 닫기 게이트 시험 (PLAN-r102-close-gate §4 · 판정 1059·1060)
 #   ft-issue-close-gate.sh + ft-issue-close-check.sh --gate + ft-gh-as-tank.sh close 1줄.
 # 임시 git 리포 + --from-json 상태 파일 + 가짜 Tank 래퍼(stubs/fake-tank.sh)만 쓴다 — 실 gh 호출·Issue 쓰기·루트 .fable-team/ 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"

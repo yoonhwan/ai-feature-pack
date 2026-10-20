@@ -2,6 +2,7 @@
 # test_goal_check_ref.sh — r479: 골 읽기 판정기(ft-goal-check.sh)·골 틱(ft-goal-tick.sh)·골 표 원장(ft_goal_table.py)의 명단 = ref origin/main · 폴더 = 그 루트에 실재하는 후보.
 # 픽스처 = mktemp 임시 리포 2(①«공유 루트» main 체크아웃에 TEAMS.md 없음 + 로컬 ref origin/main 에 새 꼴 명단·v65 정본 ②«LIVE_ROOT» 워크트리 = 옛 꼴 planner 폴더 · design/teams 0)
 # 가짜 tmux(export -f · 틱이 PATH 앞에 homebrew 를 붙여도 함수가 먼저) · 가짜 mbox · 외부 호출 0 · GIT_* env 0 · 실 큐·루트 .fable-team 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; BIN="$HERE/../bin"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT

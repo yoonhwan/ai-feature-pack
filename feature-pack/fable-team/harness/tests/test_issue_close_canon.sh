@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_issue_close_canon.sh — ft-issue-close-check.sh 6항 「정본」 시험 (판정 440 설계 r2 · 444)
 # 임시 git 리포 + --from-json 픽스처만 쓴다 — 실제 gh 호출·Issue 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"

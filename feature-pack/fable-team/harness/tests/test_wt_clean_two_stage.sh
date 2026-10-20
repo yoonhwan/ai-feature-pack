@@ -4,6 +4,7 @@
 #   ⓒ작업 트리에서만 지워진 줄만 남은 껍데기 = 가드 5번 건너뛰고 정리만 · 진짜 미커밋 = 기존 그대로 HIL ⓓ계획 머리 plan-ver ≠ 라이브 생성기 = 실행 거부
 #   ⓔ껍데기 경보는 바뀐 때만 ⓕ브랜치 삭제 0 · 변이 2: move 단계 제거 → ⓐ 실패 · plan-ver 대조 제거 → ⓓ 실패.
 # 임시 git 리포 + 임시 워크트리(파일 천 개대 픽스처) + 가짜 tmux·baton(지연·실패 주입) 만 쓴다 — 실 리포·워크트리·baton·tmux·mbox 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

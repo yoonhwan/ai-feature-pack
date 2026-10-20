@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_close_fail_closed.sh — R400 r3(판정 2307 ①②): ft-nano-close 기본 원장 = «명단은 ref(origin/main) · 폴더는 원장 워크트리» + fail-closed(명부·원장 입구 · 명부 쓰기 실패)
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 스크립트 사본만 쓴다 — 실제 리포·명부·tmux 세션·라이브 0. 픽스처 꼴 = test_nano_close_named_wt.sh.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

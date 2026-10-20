@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_handover.sh — R30: ft-seat-handover.sh(snapshot·apply·status) + retired-seat-guard + no-attach-to-user
 # 가짜 tmux 스텁(PATH 앞) + 가짜 명부·장부·mbox 만 쓴다 — 실제 tmux switch·kill·mbox 발신·홈 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."

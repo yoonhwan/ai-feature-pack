@@ -15,6 +15,7 @@ import subprocess
 
 import pytest
 from ft_git_helpers import BIN, commit, copy_py_helpers, git, init_repo
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 CARD = "# 카드\n\n## 골 원문\nx\n\n## 구현 범위\n- `worker/w.py` 를 고친다\n\n## 상태\n- 대기\n"
 TEAMS_V65 = "| 팀 | 폴더 | 팀장 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | v65#1 | 현역 |\n"

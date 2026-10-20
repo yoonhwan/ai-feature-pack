@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_graphics_690.sh — 그래픽스 팀장 체제 정본화(판정 690) 시험.
 # 임시 git 저장소(가짜 .fable-team/seats-*.json) · 임시 ROOT 만 쓴다. 루트 .fable-team·홈 쓰기 0 · tmux 는 has-session/ls 읽기만.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 W="$(cd "$HERE/../.." && pwd)"

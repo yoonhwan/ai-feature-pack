@@ -4,6 +4,7 @@
 #   ⓑ 린트 ft-team-path-lint.sh 가 «리터럴 팀 이름 경로» 도 0 으로 요구(셸 글자 · 파이썬 쪼갠 꼴 · 주석 제외 · 변이 1줄 → ERR)
 #   ⓒ 셸 lib 와 파이썬 lib 의 출력 동치(13팀 × 3꼴 · --alt · 오류) · 키트 사본 cmp0 · FT_TLP_RUN_EXISTING=1 이면 기존 시험(골 표·이동 왕복) rc0
 # 임시 폴더·가짜 도구만 쓴다 — 실제 리포·seats·tmux 세션·mbox 는 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"; FIX="$HERE/../../tests/fixtures/goal_table"   # r516: 팩 자리 = fable-team/tests/fixtures(test_goal_table_gate 와 같은 사본)

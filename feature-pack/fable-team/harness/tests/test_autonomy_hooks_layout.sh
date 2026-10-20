@@ -3,6 +3,7 @@
 # test_autonomy_hooks.sh 는 FT_ROOT·FT_AUTONOMY_SH·FT_AUTONOMY_STATE_DIR 를 전부 주입해 이 배치를 한 번도 안 돈다.
 # 여기선 셋 다 주입 0 — 임시 «메인 루트»(git + bin-harness/harness-env.sh 가 임시 «라이브 워크트리» bin 을 가리킴) + 그 워크트리 cwd.
 # 격리: HOME·루트·라이브·상태 전부 임시 — 실 ~/.claude·실 상태·실 gh 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

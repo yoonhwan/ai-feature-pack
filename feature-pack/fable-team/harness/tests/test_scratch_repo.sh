@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_scratch_repo.sh — ft-scratch-repo.sh (R246): 등록형 저장소 사본(git worktree --detach) · --done 정리 · --report 주인 없는 사본.
 # 임시 git 저장소·가짜 tmux·임시 TMPDIR 만 쓴다 — 실 저장소·실 세션·실 TMPDIR 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"

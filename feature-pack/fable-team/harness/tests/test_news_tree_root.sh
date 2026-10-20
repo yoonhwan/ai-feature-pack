@@ -2,6 +2,7 @@
 # test_news_tree_root.sh — r489: ft-news-tree.py 루트·팀 폴더를 «부르는 쪽이 넘긴다»(--root · --team-dir) · 축 ⓐ~ⓓ + 틱 ⑥ 실사건 재현.
 # 픽스처 = mktemp 임시 리포(design/TEAMS.md v65 행 · design/v65/NEWS-TREE.md 3행 · indices/진행/x.md · 가짜 origin/main ref)
 #          + 리포 밖 임시 트리 사본(ref 임시본 자리) · 가짜 tmux(좌석 0) — 실 루트·외부 호출 0 · GIT_* env 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_NEWS_ROOT FT_NEWS_TEAM_DIR FT_NEWS_TREE FT_TEAMS_REF; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

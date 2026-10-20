@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_hooks.sh — 자율 대리 결정 모드 «강제 장치» 훅 3종 + ft-proxy-decide ok 파일 시험 (r-autonomy-hooks · 판정 1322·1355)
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR·FT_PLANNER_DIR) + 훅에 stdin JSON 만 먹인다 — 실 ~/.claude·실 상태 파일·실 gh 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

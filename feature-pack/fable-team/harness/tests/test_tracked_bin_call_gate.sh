@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_tracked_bin_call_gate.sh — R201 범위 추가: 축 ⓕ(홈 훅 tracked-bin-call-gate) + 축 ⓖ(입구 도구 6개의 비설치 위치 실행 = LIVE_BIN 으로 exec) + 변이.
 # mktemp 만 쓴다(임시 루트 리포 + 임시 라이브 bin — 가짜 도구가 자기 $HERE·인자를 찍는다). 진짜 루트·라이브 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

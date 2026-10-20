@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply]  |  --pid-file <F> [--apply] — opencode 는 쓰면 매번 완전히 닫는다 (r286 · 판정 2035 · 하드 룰 14)
+# ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] [--agent opencode|pi]  |  --pid-file <F> [--apply] — opencode·pi 는 쓰면 매번 완전히 닫는다 (r286 · 판정 2035 · 하드 룰 14 · r542 pi)
+#   --agent = 어느 에이전트의 프로세스를 찾을지(기본 opencode = 지금 동작 그대로) · 이름 집합 표 1개(opencode = 지금 셋 그대로 · pi = `pi` 와 node 본문 경로 `pi-coding-agent/dist`)
+#     ★pi 대상 = ①좌석 pane 나무 + pid 파일 기록분만 — 기록 없이 cwd 로만 찾은 부모 잃은 pi 는 «주인 미확인» 조사 줄만(kill 0 · 오빠 승인 범위 «그 좌석이 띄운 것»)★
 #   대상(내 uid 만 · 이 명령 자신과 조상 제외 · 다른 tmux 세션 pane 나무 제외):
 #     ①tmux 세션 =<좌석> pane 나무(pane pid 포함) 안의 opencode   ③ppid 1(부모 잃음) ∧ opencode ∧ cwd ⊂ --wt(안쪽 다른 워크트리 제외)
 #     기록=pid 파일(<상태>/<좌석>.pids · 탭 3칸 pid·lstart·via) 의 pid 중 시작 시각(lstart)이 같은 것만(pid 재사용 오살 0)
@@ -9,29 +11,32 @@
 #   출력 끝 줄: `REAPED <좌석> n=<멈춘 수> left=<남은 수> rc=<n>` · rc 0 = left 0 · 1 = left>0 · 2 = usage · 20 = 조사 실패(ps·lsof·tmux 못 읽음 · left=?)
 #   상태 폴더 = FT_OC_STATE_DIR(기본 ~/.claude/state/opencode) · 가짜 tmux = FT_TMUX_BIN(시험) · 외부 호출 각 7 s 상한 · 남의 opencode(다른 부모·다른 cwd) 0.
 set -uo pipefail
-USAGE="usage: $0 <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]"
-SEAT=""; PF=""; WT=""; MODE=survey; SINCE=""
-case "${1:-}" in ""|--wt|--record|--since|--apply) echo "$USAGE" >&2; exit 2;; --pid-file) PF="${2:-}"; [ -n "$PF" ] || { echo "$USAGE" >&2; exit 2; }; shift 2;; *) SEAT="$1"; shift;; esac
+USAGE="usage: $0 <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] [--agent opencode|pi] | --pid-file <F> [--apply]"
+SEAT=""; PF=""; WT=""; MODE=survey; SINCE=""; AGENT=opencode
+case "${1:-}" in ""|--wt|--record|--since|--apply|--agent) echo "$USAGE" >&2; exit 2;; --pid-file) PF="${2:-}"; [ -n "$PF" ] || { echo "$USAGE" >&2; exit 2; }; shift 2;; *) SEAT="$1"; shift;; esac
 while [ $# -gt 0 ]; do case "$1" in
   --wt) WT="${2:-}"; [ -n "$WT" ] || { echo "$USAGE" >&2; exit 2; }; shift 2;; --since) SINCE="${2:-}"; [[ "$SINCE" =~ ^[0-9]+$ ]] || { echo "$USAGE" >&2; exit 2; }; shift 2;;
+  --agent) AGENT="${2:-}"; case "$AGENT" in opencode|pi) ;; *) echo "$USAGE" >&2; exit 2;; esac; shift 2;;
   --record) MODE=record; shift;; --apply) MODE=apply; shift;; *) echo "$USAGE" >&2; exit 2;; esac; done
 [ -z "$PF" ] || [ "$MODE" != record ] || { echo "$USAGE (--pid-file 는 --record 불가)" >&2; exit 2; }
 STATE="${FT_OC_STATE_DIR:-$HOME/.claude/state/opencode}"
 [ -n "$PF" ] || PF="$STATE/$(printf '%s' "$SEAT" | tr -c 'A-Za-z0-9._#-' '_').pids"
-exec python3 - "$SEAT" "$PF" "$WT" "$MODE" "$SINCE" "${FT_TMUX_BIN:-tmux}" <<'PY'
+exec python3 - "$SEAT" "$PF" "$WT" "$MODE" "$SINCE" "${FT_TMUX_BIN:-tmux}" "$AGENT" <<'PY'
 import os, signal, subprocess, sys, time
-seat, pf, wt_arg, mode, since, tmux = sys.argv[1:7]
+seat, pf, wt_arg, mode, since, tmux, agent = sys.argv[1:8]
 LINUX, ME, LBL = sys.platform.startswith("linux"), os.getuid(), seat or os.path.basename(pf)
-OC = {"opencode", ".opencode", "opencode-ai"}; SH = {"bash", "sh", "zsh", "node", "bun", "env"}
+AGENTS = {"opencode": ({"opencode", ".opencode", "opencode-ai"}, ()), "pi": ({"pi"}, ("pi-coding-agent/dist",))}   # r542: 에이전트별 이름 집합
+NAMES, MARKS = AGENTS[agent]; SH = {"bash", "sh", "zsh", "node", "bun", "env"}
+UNOWNED, UP = {}, set()   # pi: 기록 없이 cwd 로만 찾은 부모 잃은 것 = «주인 미확인» 조사 줄만(kill 0)
 def die(msg): print(f"ft-opencode-reap: ERROR {msg}", file=sys.stderr); print(f"REAPED {LBL} n=0 left=? rc=20"); sys.exit(20)
 def run(cmd, ok_err=()):
     try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
     except (OSError, subprocess.SubprocessError) as e: die(f"{cmd[0]} 실행 실패: {e}")
     if r.returncode != 0 and not any(s in r.stderr + r.stdout for s in ok_err): die(f"{cmd[0]} rc={r.returncode}: {r.stderr.strip()[:80]}")
     return r.stdout if r.returncode == 0 else ""
-def is_oc(cmd):   # argv[0] 이 opencode · 또는 셸·node 가 opencode 스크립트를 돌림(시험 스텁 꼴)
+def is_agent(cmd):   # argv[0] 이 그 에이전트 · 또는 셸·node 가 그 스크립트를 돌림(시험 스텁 꼴 · pi = node 본문 경로)
     w = cmd.split()[:2]; b = os.path.basename(w[0]) if w else ""
-    return b in OC or (b in SH and len(w) > 1 and os.path.basename(w[1]) in OC)
+    return b in NAMES or (b in SH and len(w) > 1 and (os.path.basename(w[1]) in NAMES or any(m in w[1] for m in MARKS)))
 def ps():   # pid → [ppid, uid, lstart, cmd]
     t = {int(f[0]): [int(f[1]), int(f[2]), " ".join(f[3:8]), f[8]] for f in (l.split(None, 8) for l in run(["ps", "-axww", "-o", "pid=,ppid=,uid=,lstart=,command="]).splitlines()) if len(f) >= 9 and f[0].isdigit()}
     return t or die("ps 표가 비어 있음")
@@ -80,17 +85,21 @@ def survey():
     mine, oth = [q for s, q in pl if s == seat], [q for s, q in pl if s != seat]
     tree, other = desc(t, mine) | set(mine), desc(t, oth) | set(oth)
     wt = os.path.realpath(wt_arg) if wt_arg and os.path.exists(os.path.join(wt_arg, ".git")) else ""
-    cw = cwd_of([q for q, r in t.items() if r[0] == 1 and r[1] == ME and is_oc(r[3]) and q not in other]) if wt else {}
+    cw = cwd_of([q for q, r in t.items() if r[0] == 1 and r[1] == ME and is_agent(r[3]) and q not in other]) if wt else {}
     cand = {}
     for q, (pp, uid, lst, cmd) in t.items():
         if uid != ME or q in anc: continue
         if q in REC and REC[q][0] == lst: cand[q] = (REC[q][1], lst, cmd); continue
-        if not seat or not is_oc(cmd) or q in other: continue
+        if not seat or not is_agent(cmd) or q in other: continue
         via = ("①" if q in tree else "③" if q in cw and own_wt(os.path.realpath(cw[q]), wt) else
                "new" if mode == "record" and SINCE and pp == 1 and started(lst) >= SINCE else "")
+        if via and agent == "pi" and via != "①":   # pi = pane 나무만 대상 · 기록 없는 ③·new 는 주인 미확인(승인 범위 밖 = kill 0)
+            UNOWNED[q] = (lst, cmd); via = ""
         if via: cand[q] = (via, lst, cmd)
     sub = desc(t, list(cand))   # 공유 판정은 자손을 붙이기 «전» — 건너뛴 serve 의 자손(MCP 등)도 같이 남긴다
-    rest = [q for q, r in t.items() if r[1] == ME and is_oc(r[3]) and q not in cand and q not in sub and q not in anc]
+    rest = [q for q, r in t.items() if r[1] == ME and is_agent(r[3]) and q not in cand and q not in sub and q not in anc]
+    for q in sorted(UNOWNED):
+        if q not in UP: print(f"oc-cand pid={q} via=미확인 owner=주인 미확인 agent={agent} cmd={UNOWNED[q][1][:100]}"); UP.add(q)
     for q in [q for q, c in cand.items() if c[0] == "new" and rest and mode == "apply"]:
         print(f"oc-skip pid={q} reason=다른 opencode 살아 있음(공유 serve 가능 · {len(rest)}개) cmd={cand.pop(q)[2][:80]}")
     for q in desc(t, list(cand)) - set(cand) - anc:
@@ -98,7 +107,7 @@ def survey():
     return cand
 cand = survey()
 if mode == "survey":
-    for q, (v, _, c) in sorted(cand.items()): print(f"oc-cand pid={q} via={v} cmd={c[:100]}")
+    for q, (v, _, c) in sorted(cand.items()): print(f"oc-cand pid={q} via={v} agent={agent} cmd={c[:100]}")
     print(f"REAPED {LBL} n=0 left={sum(1 for x in cand.values() if x[0] != '자손')} dry-run rc=0"); sys.exit(0)
 if mode == "record":
     os.makedirs(os.path.dirname(pf), exist_ok=True); tmp = f"{pf}.tmp-{os.getpid()}"

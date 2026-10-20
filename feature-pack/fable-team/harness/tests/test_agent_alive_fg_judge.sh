@@ -4,6 +4,7 @@
 #   표본 4: ①전경 claude(R+)=ALIVE ②전경 zsh + claude T(정지)=NOAGENT ③전경 zsh + claude-hr 래퍼만=NOAGENT ④전경 zsh + 자식 0=NOAGENT
 #   ⓐ판정기 CLI rc·출력 ⓑdoorbell(noagent·주입 0) ⓒ틱 fire(NOAGENT 발사 0 + alert 1회 · 회복 뒤 재경보) ⓓseat-live 칸 2 ⓔ판정기 한 벌 ⓕ키트 두 사본
 # 가짜 tmux(export -f 함수 · FT_TMUX 스크립트) + 가짜 ps(FT_PS_CMD) — 실 tmux·실 claude 0 · GIT_DIR 류 0(R121). 모든 쓰기는 mktemp scratch.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."

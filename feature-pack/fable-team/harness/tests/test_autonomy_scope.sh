@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_scope.sh — 범위 사전 승인 4명령(approve-scope·scope-approve·scope-stop·scope-status) + 위변조 판정 + 상태 폴더 훅 시험 (R298 1/3 · 판정 2055)
 # 격리: 임시 루트(FT_ROOT·FT_AUTONOMY_STATE_DIR) + FT_NOW 고정 시계 + 가짜 분류기(FT_SCOPE_CLASSIFY) — 실 state·실 git 분류 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 손 approve-scope 경로라 each(레벨 시험 = test_autonomy_level.sh)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

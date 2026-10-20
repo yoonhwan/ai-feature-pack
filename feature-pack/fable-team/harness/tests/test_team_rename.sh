@@ -5,6 +5,7 @@
 #   ⓔ 새 이름 명단에 있음 / 옛 이름 없음 / 작업 트리 더러움 / pane cwd 점유 → REJECT 쓰기 0   ⓕ 쌍둥이·옛 꼴 → REJECT 먼저 ft-team-move
 #   ⓖ 옛 계보 우편 감시(watch · 7일 · peek 만) + ft-tick 배선 · 600/300 0
 # 임시 폴더·가짜 tmux·가짜 lsof·가짜 mbox 만 쓴다 — 실제 리포·명부·tmux·우편함은 건드리지 않는다 · 외부 호출 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"

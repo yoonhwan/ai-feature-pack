@@ -2,6 +2,7 @@
 # test_teamset_gitref.sh — R351: 팀셋 표(design/TEAMSET.md)는 «호출한 워크트리 파일»이 아니라 `git show origin/main:design/TEAMSET.md` 로 읽는다.
 # 가짜 리포(커밋 2개: 표 없는 커밋 → 표 있는 커밋 = origin/main) + 표 없는 커밋의 워크트리 + 가짜 tmux(PATH). 실 좌석·실 tmux·실 kill 0.
 # ★GIT_DIR 류 금지(R121) — 다른 리포 객체는 `git -C`.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_TEAMSET_MD FT_TEAMSET_ROOT

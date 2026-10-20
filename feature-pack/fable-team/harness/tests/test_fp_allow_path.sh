@@ -2,6 +2,7 @@
 # test_fp_allow_path.sh — R105-a: 훅 오탐 «기록 + 허용» 경로 시험.
 # ①판정기 mbox_ok 가 «루트 정본 mbox» 를 워크트리 cwd 에서도 인정(realpath 일치만) ②래퍼 ft-fp-run.sh.
 # 명령은 전부 PreToolUse JSON 문자열(실행 0) · 래퍼 시험만 임시 폴더의 무해한 echo 를 실제 실행 · 홈 훅·실 로그 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

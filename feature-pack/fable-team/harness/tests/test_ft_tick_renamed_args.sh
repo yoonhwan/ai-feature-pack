@@ -2,6 +2,7 @@
 # test_ft_tick_renamed_args.sh — r507: ft-tick renamed_watch 가 명부 폴더의 seats-*.json 을 배열+glob 으로 넘긴다(ls 파싱 0).
 # ⓒ 공백 이름 포함 2개 → 인자 = 파일 2개 정확히 · 0개 → 인자 0개(glob 글자가 그대로 넘어가지 않음).
 # 함수만 떼어 가짜 RENAMED(받은 argv 를 JSON 으로 적음)로 돌린다 — 외부 호출 0 · 쓰기는 mktemp 안. bash 와 /bin/bash(3.2) 둘 다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

@@ -2,6 +2,7 @@
 # test_sheet_verify.sh — ft-sheet-verify.sh (S3 r-sheet-verify-session · PLAN-status-sheet r4 §5).
 # 실 LLM·실 좌석 쪽지 0: 스텁 claude(FT_SHEET_VERIFY_CMD) + 가짜 mbox(tests/scripts/_fake_mbox.sh) + 임시 FT_ROOT.
 # FT_SHEET_VERIFY_REAL=1 일 때만 실제 launch 인자 1회(7초+1) — 기본 suite 밖.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

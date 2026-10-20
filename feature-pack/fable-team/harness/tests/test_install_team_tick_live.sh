@@ -2,6 +2,7 @@
 # test_install_team_tick_live.sh — R150: install-team-tick-live.sh 를 격리 시험(임시 plist 폴더·가짜 launchctl).
 #   설치 → 3키·경로·백업·재기동 / 재실행 멱등 / 되돌림 뒤 ProgramArguments 가 옛 경로(파일 실재) · 팀 사본 불변 / 라이브가 R150 판이 아니면 거부.
 # 실제 launchctl·~/Library/LaunchAgents 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."

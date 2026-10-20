@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from ft_git_helpers import copy_py_helpers
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 BIN =Path(__file__).resolve().parents[3] / "harness" / "bin"
 REAL_GIT: str = shutil.which("git") or "git"

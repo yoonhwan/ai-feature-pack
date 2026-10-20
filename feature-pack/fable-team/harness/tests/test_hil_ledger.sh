@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_hil_ledger.sh — C3 질문 원장 1바퀴 시험: ask → answer → applied (+ 거부·실패 경로)
 # 임시 원장·FT_SEND_DRY=1·가짜 mbox 만 쓴다 — 실제 _hil_route 좌석·라이브 mbox 파일은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
