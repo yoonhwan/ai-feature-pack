@@ -1,0 +1,74 @@
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py
+index b6a50540..19dd81be 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py
+@@ -46,6 +46,7 @@ IDLE_S = 7.0  # r592 — 스트림 «조각 사이 무진행» 상한(하드 룰
+ REASONING_OFF = {"reasoning_effort": "none"}  # 생각 끄기 — 0단계 원문이 정한 한 곳. 공급자가 거부(4xx)하면 그 사실을 ERROR 로 남긴다(조용히 빼기 0)
+ FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  # 7초 룰 기준량 · CLI 기동 고정비 · 한글 섞인 글 ≈ 3 B/토큰(추정)
+ SUMMARY_LINES, SUMMARY_BYTES = 3, 600  # r588 — 린트와 같은 상한(ft_news_html_lint) · 팀 상태 줄 포함해 넘으면 «자르지 않고» ERROR
++SUMMARY_MARGIN, SUMMARY_CHAR_BYTES = 0.8, 3  # r598 — 모델에게는 «글자 수» 로 준다(모델은 한글 3B 를 못 센다) · 여유 20% ÷ 글자당 최대 바이트(한글)
+ STARTUP_KEEP, STARTUP_MIN = 20, 3  # r510 — 기동 기록 최근 20줄 · 3개 미만 = 잠정 FIXED_S
+ _STARTUP_LOCK = threading.Lock()  # 갈래 4개가 병렬로 기록한다
+ HOT = ' class="hot"'
+@@ -61,7 +62,7 @@ FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실»
+               '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
+ PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
+     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
+-                f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 @SUM_BYTES@바이트 이하 · 첫 줄은 코드가 넣는다.\n'  # r590·r596 — 숫자는 그 틱 상태 줄 길이를 뺀 값(SUMMARY_BYTES − 상태 줄 − 줄바꿈)
++                f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 @SUM_CHARS@글자(띄어쓰기 포함) 이하 · 첫 줄은 코드가 넣는다.\n'  # r590·r596·r598 — 숫자 = floor((SUMMARY_BYTES − 상태 줄 − 줄바꿈) × 여유 ÷ 글자당 최대 바이트)
+                 '- 팀 상태(일함·쉼·정지·확인 불가·몇 팀)는 쓰지 말 것 — 첫 줄 «팀 상태» 는 코드가 좌석 실측으로 넣는다(r588).\n'
+                 '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만(10개 이하).\n' + FACT_RULES, 700),
+     "important": (("important",), ("now", "facts", "goals", "ledger", "urgent"),
+@@ -163,7 +164,7 @@ def build_prompt(data: dict, part: str) -> str:
+     sub = {k: data[k] for k in inputs if k in data}
+     return (PROMPT.replace("@RULES@", rules).replace("@DEPTH@", os.environ.get("FT_NEWS_DEPTH", "")).replace("@SCHEMA@", schema)
+             .replace("@DATA@", json.dumps(sub, ensure_ascii=False, indent=1))
+-            .replace("@SUM_BYTES@", str(summary_budget(prompt_status_line(data)) if part == "summary" else SUMMARY_BYTES)))
++            .replace("@SUM_CHARS@", str(summary_chars(prompt_status_line(data))) if part == "summary" else ""))
+ 
+ 
+ def prompt_status_line(data: dict) -> str:
+@@ -171,15 +172,28 @@ def prompt_status_line(data: dict) -> str:
+     return status_line(bucket({}, data.get("live")))
+ 
+ 
++def model_budget(status: str) -> int:
++    """모델 몫 바이트 = SUMMARY_BYTES − 그 틱 상태 줄 바이트 − 줄바꿈(SUMMARY_LINES − 1) — 0 이하일 수 있다(r598 판정 문구용)."""
++    return SUMMARY_BYTES - len(status.encode("utf-8")) - (SUMMARY_LINES - 1)
++
++
+ def summary_budget(status: str) -> int:
+-    """모델 몫 바이트 = SUMMARY_BYTES − 그 틱 상태 줄 바이트 − 줄바꿈(SUMMARY_LINES − 1).
+-    0 이하면 모델 호출 전에 ERROR(발행 0 · 조용한 자르기 0) — r596."""
+-    left = SUMMARY_BYTES - len(status.encode("utf-8")) - (SUMMARY_LINES - 1)
++    """모델 몫 바이트 — 0 이하면 모델 호출 전에 ERROR(발행 0 · 조용한 자르기 0) — r596."""
++    left = model_budget(status)
+     if left <= 0:
+         raise NewsHtmlError(f"상태 줄만 {len(status.encode('utf-8'))}B — 모델 몫 {left}B(상한 {SUMMARY_BYTES}B) 발행 0")
+     return left
+ 
+ 
++def summary_chars(status: str) -> int:
++    """모델에게 주는 «글자 수» = floor(모델 몫 바이트 × 여유 비율 ÷ 글자당 최대 바이트) — r598.
++    한글만 꽉 채워도(3B/자) 600B 를 넘지 않는다 · 0 이하 = 모델 호출 전 ERROR(r596 과 같은 꼴)."""
++    chars = math.floor(model_budget(status) * SUMMARY_MARGIN / SUMMARY_CHAR_BYTES)
++    if chars <= 0:
++        raise NewsHtmlError(f"모델 몫 {model_budget(status)}B = {chars}글자(여유 {SUMMARY_MARGIN:g} · 글자당 최대 {SUMMARY_CHAR_BYTES}B) — 발행 0")
++    return chars
++
++
+ def cap_s(prompt: str, part: str, fixed: float = FIXED_S) -> float:
+     """시도당 상한(7초 룰 «크기 아는 배치») · fixed = CLI 기동 고정비(fixed_s)."""
+     units = max(len(prompt.encode("utf-8")) / BYTES_PER_TOKEN / IN_TOKENS, PARTS[part][3] / OUT_CHARS)
+@@ -443,7 +457,10 @@ def add_status_line(c: dict) -> dict:
+     c["summary"] = [status_line(c), *[s.strip() for s in c["summary"] if s.strip()]]
+     text = "\n".join(c["summary"])
+     if len(c["summary"]) > SUMMARY_LINES or len(text.encode("utf-8")) > SUMMARY_BYTES:
+-        raise NewsHtmlError(f"요약 {len(c['summary'])}줄·{len(text.encode('utf-8'))}B — 팀 상태 줄 포함 {SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내여야 한다(자르지 않는다)")
++        left = model_budget(c["summary"][0])
++        chars = max(0, math.floor(left * SUMMARY_MARGIN / SUMMARY_CHAR_BYTES))  # r598 — 다음 넘침 원인 판정용
++        raise NewsHtmlError(f"요약 {len(c['summary'])}줄·{len(text.encode('utf-8'))}B — 팀 상태 줄 포함 {SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내여야 한다(자르지 않는다) "
++                            f"(모델 몫 {chars}글자 = {left}B)")
+     return c
+ 
+ 
