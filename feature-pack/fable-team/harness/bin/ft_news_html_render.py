@@ -43,6 +43,7 @@ DEADLINE_S = 70
 # 5회 중 2회가 finish_reason=length(답 0자 또는 끝 근처에서 잘림)로 실패했다. 같은 프롬프트로 필드 3종을 재어 «생각 0자 · JSON OK» 3/3 이 나온 필드 = reasoning_effort.
 REASONING_OFF = {"reasoning_effort": "none"}  # 생각 끄기 — 0단계 원문이 정한 한 곳. 공급자가 거부(4xx)하면 그 사실을 ERROR 로 남긴다(조용히 빼기 0)
 FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  # 7초 룰 기준량 · CLI 기동 고정비 · 한글 섞인 글 ≈ 3 B/토큰(추정)
+SUMMARY_LINES, SUMMARY_BYTES = 3, 600  # r588 — 린트와 같은 상한(ft_news_html_lint) · 팀 상태 줄 포함해 넘으면 «자르지 않고» ERROR
 STARTUP_KEEP, STARTUP_MIN = 20, 3  # r510 — 기동 기록 최근 20줄 · 3개 미만 = 잠정 FIXED_S
 _STARTUP_LOCK = threading.Lock()  # 갈래 4개가 병렬로 기록한다
 HOT = ' class="hot"'
@@ -58,7 +59,8 @@ FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» 
               '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
-                '- "summary" = 1~3줄 · 합쳐 600바이트 이하 · 첫 줄 = 지금 가장 중요한 한 가지.\n'
+                '- "summary" = 1~2줄 · 네가 쓴 줄은 합쳐 500바이트 이하 · 첫 줄은 코드가 넣는다.\n'
+                '- 팀 상태(일함·쉼·정지·확인 불가·몇 팀)는 쓰지 말 것 — 첫 줄 «팀 상태» 는 코드가 좌석 실측으로 넣는다(r588).\n'
                 '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만(10개 이하).\n' + FACT_RULES, 700),
     "important": (("important",), ("now", "facts", "goals", "ledger", "urgent"),
                   '- "important" = 지금 제일 중요한 일 순서대로 1~7개 · title 한 마디 · detail 한 문장 · who = 팀 · 급한 불이면 "hot": true.\n' + FACT_RULES, 1000),
@@ -369,7 +371,7 @@ def call_model(data: dict) -> tuple[dict, dict[str, float], float]:
     for p, f in futs.items():
         got, secs[p] = f.result()
         content |= got
-    return check_content(content | bucket(content.pop("team_notes"), data.get("live"))), secs, fixed
+    return add_status_line(check_content(content | bucket(content.pop("team_notes"), data.get("live")))), secs, fixed
 
 
 def bucket(notes: object, live: object) -> dict[str, list[dict]]:
@@ -387,6 +389,23 @@ def bucket(notes: object, live: object) -> dict[str, list[dict]]:
                         for t in live if not t["working"] and t.get("unknown")],
             "resting": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 일하는 좌석 0 · {text.get(t['team']) or '설명 없음'}"}
                         for t in live if not t["working"] and not t.get("unknown")]}
+
+
+def status_line(c: dict) -> str:
+    """팀 상태 1~3문장 — 코드가 live(좌석·jsonl)로 정한 셋(일하는/쉬는/확인 불가)에서 «0개 칸은 생략»(r588).
+    모델에게 이 문장을 쓰게 하지 않는다 — 00:57 판은 확인 불가 팀(feature·graphics·harness)을 «쉬며» 절에 넣어 린트 3건으로 발행 0."""
+    rows = (("일하는 팀", c["working"]), ("쉬는 팀", c["resting"]), ("상태 확인 불가", c["unknown"]))
+    said = [f"{label} {len(group)}개: {', '.join(t['team'] for t in group)}" for label, group in rows if group]
+    return ". ".join(said) or "팀 상태 원천 없음"
+
+
+def add_status_line(c: dict) -> dict:
+    """summary 첫 줄 = 코드가 만든 팀 상태 줄(원문 그대로 · r588) · 상태 줄 포함 3줄·600B 넘으면 «자르지 않고» ERROR(조용한 자르기 0)."""
+    c["summary"] = [status_line(c), *[s.strip() for s in c["summary"] if s.strip()]]
+    text = "\n".join(c["summary"])
+    if len(c["summary"]) > SUMMARY_LINES or len(text.encode("utf-8")) > SUMMARY_BYTES:
+        raise NewsHtmlError(f"요약 {len(c['summary'])}줄·{len(text.encode('utf-8'))}B — 팀 상태 줄 포함 {SUMMARY_LINES}줄·{SUMMARY_BYTES}B 이내여야 한다(자르지 않는다)")
+    return c
 
 
 def check_content(c: dict) -> dict:

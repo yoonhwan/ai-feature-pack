@@ -1,0 +1,73 @@
+F...FF.F                                                                 [100%]
+=================================== FAILURES ===================================
+________ test_r588_a_unknown_team_in_its_own_clause_is_not_a_rest_claim ________
+
+unknown_page = '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,...p class="foot">근거: #113248 · a608fea5a0 · 자율 모름 · 정리 opencode/deepseek-v4.1-flash-free</p>\n</div>\n</body>\n</html>\n'
+
+    def test_r588_a_unknown_team_in_its_own_clause_is_not_a_rest_claim(unknown_page):
+>       assert [p for p in lint.problems(unknown_page, "가\n" + REAL) if "확인 불가 팀" in p] == []
+E       AssertionError: assert ['확인 불가 팀 fea...은 상태 확인 불가다»'] == []
+E         
+E         Left contains 3 more items, first extra item: '확인 불가 팀 feature 에 쉼 단정 «지금은 다섯 팀(chatbot·loom·planner·ops·v65)이 일하고, 다섯 팀(cfo·issues·kk·lecture·room)이 쉬며, 세 팀(feature·graphics·harness)은 상태 확인 불가다»'
+E         Use -v to get more diff
+
+tests/scripts/test_news_team_status_line.py:51: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=0.2(summary=0.2 important=0.2 goals=0.2 teams=0.2) fixed=3.5s model=opencode/deepseek-v4.1-flash-free important=2 summary=46B
+______ test_r588_c_status_line_is_the_first_summary_line_and_lints_clean _______
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-236/test_r588_c_status_line_is_the0')
+oc = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-236/test_r588_c_status_line_is_the0/reply.txt')
+
+    def test_r588_c_status_line_is_the_first_summary_line_and_lints_clean(tmp_path, oc):
+        html_p, sum_p = fh.run_files({**DATA, "live": LIVE_UNK}, tmp_path / "o", NOW)
+        page, summary = html_p.read_text(encoding="utf-8"), sum_p.read_text(encoding="utf-8")
+        lines = summary.splitlines()
+>       assert lines[0] == "일하는 팀 1개: chatbot. 상태 확인 불가 3개: feature, graphics, harness"
+E       AssertionError: assert '통역 고침 시험 중' == '일하는 팀 1개: ch...hics, harness'
+E         
+E         - 일하는 팀 1개: chatbot. 상태 확인 불가 3개: feature, graphics, harness
+E         + 통역 고침 시험 중
+
+tests/scripts/test_news_team_status_line.py:65: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=0.1(summary=0.1 important=0.1 goals=0.1 teams=0.1) fixed=3.5s model=opencode/deepseek-v4.1-flash-free important=2 summary=46B
+_________ test_r588_c2_summary_over_limit_is_an_error_not_a_silent_cut _________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-236/test_r588_c2_summary_over_limi0')
+oc = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-236/test_r588_c2_summary_over_limi0/reply.txt')
+
+    def test_r588_c2_summary_over_limit_is_an_error_not_a_silent_cut(tmp_path, oc):
+        oc.write_text(json.dumps({**CONTENT, "summary": ["가" * 300, "나" * 300, "다"]}, ensure_ascii=False), encoding="utf-8")
+>       with pytest.raises(fr.NewsHtmlError, match="자르지 않는다"):
+E       Failed: DID NOT RAISE <class 'ft_news_html_render.NewsHtmlError'>
+
+tests/scripts/test_news_team_status_line.py:73: Failed
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=0.1(summary=0.1 important=0.1 goals=0.1 teams=0.1) fixed=3.5s model=opencode/deepseek-v4.1-flash-free important=2 summary=1806B
+__________________ test_r588_e_status_line_counts_match_facts __________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-236/test_r588_e_status_line_counts0')
+oc = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-236/test_r588_e_status_line_counts0/reply.txt')
+
+    def test_r588_e_status_line_counts_match_facts(tmp_path, oc):
+        live = [{"team": f"t{i}", "live": 1, "working": 1, "unknown": 0, "unknown_reason": ""} for i in range(6)]
+        live += [{"team": "rest", "live": 1, "working": 0, "unknown": 0, "unknown_reason": ""}]
+        sum_p = fh.run_files({**DATA, "live": live}, tmp_path / "e", NOW)[1]
+        first = sum_p.read_text(encoding="utf-8").splitlines()[0]
+        facts = fh.facts(live, "모름")
+>       assert first.startswith(f"일하는 팀 {len(facts['일하는 팀'])}개: {', '.join(facts['일하는 팀'])}.") and "일하는 팀 6개" in first
+E       AssertionError: assert (False)
+E        +  where False = <built-in method startswith of str object at 0x1123ac3f0>('일하는 팀 6개: t0, t1, t2, t3, t4, t5.')
+E        +    where <built-in method startswith of str object at 0x1123ac3f0> = '통역 고침 시험 중'.startswith
+
+tests/scripts/test_news_team_status_line.py:95: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=0.2(summary=0.2 important=0.2 goals=0.2 teams=0.2) fixed=3.5s model=opencode/deepseek-v4.1-flash-free important=2 summary=46B
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_team_status_line.py::test_r588_a_unknown_team_in_its_own_clause_is_not_a_rest_claim
+FAILED tests/scripts/test_news_team_status_line.py::test_r588_c_status_line_is_the_first_summary_line_and_lints_clean
+FAILED tests/scripts/test_news_team_status_line.py::test_r588_c2_summary_over_limit_is_an_error_not_a_silent_cut
+FAILED tests/scripts/test_news_team_status_line.py::test_r588_e_status_line_counts_match_facts
+4 failed, 4 passed in 1.73s
+rc=1

@@ -1,3 +1,14 @@
+## 2026-10-21 — 뉴스 요약의 «팀 상태» 문장 때문에 발행 0(2판: 린트 오판 + 모델 지어냄) → 팀 상태 줄은 코드가 만들어 요약 첫 줄로 넣고, 린트는 «확인 불가 팀이 든 절» 안에서만 쉼 단정을 본다 (r588 · 1.1.131 · 동작 변경 · ALL_STOP·APPROVAL_WAIT 규칙 무변경)
+
+- 사건(master 87 발주 123789 · arch 112 실측 2026-10-21 01:3x · `/tmp/byz-ft-news-planner.log`): ①00:57 판 요약 «지금은 다섯 팀(chatbot·loom·planner·ops·v65)이 일하고, 다섯 팀(cfo·issues·kk·lecture·room)이 쉬며, 세 팀(feature·graphics·harness)은 상태 확인 불가다» — 문장은 확인 불가 3팀을 «확인 불가» 로 맞게 썼는데 린트가 위반 3건으로 발행 0(문장 단위로 «팀 이름 ∧ 쉼 글자» 를 봤다 · `ft_news_html_lint.py:78-85`) ②01:02 판 «일하는 팀 6개인데 «모든 팀 정지» 문장» = 모델 오류 — 프롬프트 `FACT_RULES`(:55-57)에 이미 «확인 불가 팀은 쉬는 팀이 아니다» 가 있는데도 났다 = 프롬프트 보강만으로는 이미 실패한 꼴.
+- 고침 1(`ft_news_html_render.py` · 상태 줄 코드화): 새 함수 `status_line()` 이 `bucket()`(좌석·jsonl 실측)이 정한 셋에서 «일하는 팀 N개: … · 쉬는 팀 M개: … · 상태 확인 불가 K개: …» 1~3문장을 만들고(0개 칸 생략), `add_status_line()` 이 그 줄을 요약 **첫 줄**로 넣는다. summary 갈래 프롬프트 = «1~2줄 · 첫 줄은 코드가 넣는다 · 팀 상태(일함·쉼·정지·확인 불가·몇 팀)는 쓰지 말 것» 2줄로 교체. 상태 줄 포함 3줄·600B 를 넘으면 **모델 줄을 자르지 않고 `NewsHtmlError`(발행 0)** — 조용한 자르기 0.
+- 고침 2(`ft_news_html_lint.py` · `unknown_problems`): 판정 단위를 «문장» → «절»(CLAUSE_END 로 나눈 조각)로 좁혔다 — 팀 이름이 든 절에만 `_rest_asserted` 를 적용하고, 같은 문장의 다른 절(«…이 쉬며»)은 보지 않는다. **보고 문구는 문장 그대로**(기존 시험 문구 불변) · 진짜 단정(«feature 는 쉬고 있다»)은 그대로 잡는다 · ALL_STOP·APPROVAL_WAIT·important/goals/teams 갈래·공급자·재시도 무변경.
+- 시험 `harness/tests/scripts/test_news_team_status_line.py` ⓐ~ⓔ(가짜 opencode · 실 모델·슬랙·좌석 0): ⓐ 00:57 문장 그대로 → 위반 0 ⓑ «feature 는 쉬고 있다»·«graphics 는 멈춘 상태다»·«harness 는 대기 중이다» 는 그대로 위반 ⓒ 코드가 만든 상태 줄 = 요약 첫 줄(0개 칸 생략 · 모델 줄은 그 뒤) 이고 `lint.problems == []` ⓒ2 3줄·600B 초과 = `NewsHtmlError`(«자르지 않는다» · html 0) ⓓ 모델 «모든 팀이 멈췄다» = «일하는 팀 1개인데» 위반 + `publish_files` rc3(발행 0) ⓔ `facts` 팀 수·이름 = 상태 줄 수·이름(일하는 6 = 줄의 6). **전(origin/main 판 = ⓐ·ⓒ·ⓒ2·ⓔ FAIL 4)·후 8 passed**(`evidence/r588/01-before-red.txt`·`02-after-pass.txt`).
+- 기존 시험(이 카드 인접만 · 광역 0 · `evidence/r588/03-existing-tests.txt`): `test_ft_news_html.py`·`test_news_truncated.py`·`test_news_direct_api.py`·`test_news_html_cli_startup.py` = 69 passed rc0. 요약이 «상태 줄 + 모델 2줄» 로 바뀌므로 그 꼴을 박아 둔 3칸(`CONTENT["summary"]` 3→2줄 · 요약 첫 줄 단언 · 슬랙 본문 첫 줄 단언)만 새 꼴로 맞췄다 — 판정 규칙 변경 0.
+- 설치: 있음 — 키트 2(`kit/fable-team/bin/ft_news_html_render.py`·`ft_news_html_lint.py` · `harness/bin` 짝 cmp0 2) + 시험 1 · manifest 1.1.131 · `install.sh` REQUIRED 변경 0 · **LIVE_BIN 설치·뉴스 데몬 재기동·실사건 1(틱 10회 린트 위반 0)은 master 소관 — 미실행.** 되돌림 = `.bak-r588`. press(라이브 오디오 시험) 아님 — 나노는 쏘지 않는다. `press 필요: 설치 뒤 뉴스 틱 10회 요약 첫 줄이 코드 상태 줄 원문인지 + «LINT» 0` (master·tester 소관).
+- 범위 밖: ALL_STOP·APPROVAL_WAIT 규칙 · important·goals·teams 갈래 · 공급자·요청 필드(r582) · 재시도 · 402 크레딧 · 뉴스 발행 간격.
+
+
 ## 2026-10-21 — desk 의 오빠 글 답이 그 글 스레드 뿌리를 안 읽고 번호 3줄로 나가던 것 → 게시 «전» 뿌리 원문을 읽어 보여 주고 본문 3검사 (r585 · 1.1.130 · 동작 변경 · 답 자리 판정·--thread 거절 무변경)
 
 - 사건(오빠 슬랙 1792511760 질책 · desk 123741 · master 87 발주 123772 ① · arch 112 실측 2026-10-21 01:2x): `thread_reply_slack.py` 의 `reply_to_slack` 은 오빠 글 ts 로 «답 자리» 만 정하고 그 글·스레드 뿌리 원문은 읽지 않았다 — 답하는 좌석이 «무엇을 물었는지» 를 도구에서 못 보고, 실제로 제안서 스레드 질문을 다른 스레드로 착각한 번호·약어 3줄 답이 나갔다.
@@ -17,6 +28,8 @@
 - 설치: 없음 — 시험 파일 1(`tests/scripts/conftest.py`) + 증거 5 · 키트 파일 변경 0(설치 대조 대상 0) · 데몬 재기동 0. **실사건 1(팩 origin/main 두 파일 한 번에 «0 failed» 원문)은 master 소관 — 미실행.** 되돌림 = 이 커밋 revert. (r582 착지 뒤 origin/main `0d3ae97d` 위로 rebase — CHANGES 는 r582 절 보존 후 r584 절을 위에)
 - 범위 밖: 원장 동기화 설계(env 로 자식에 물려주는 방식) · `ft_news_html.py` 머리 줄 규칙 · 다른 시험 폴더 · r569 내용 · press(나노는 쏘지 않는다).
 ## 2026-10-21 — 뉴스 important 갈래가 «잘린 답» 으로 발행 0 을 반복 → 끝난 이유·생각 글자수 기록 + 잘림을 «답이 잘림» 으로 이름 붙임 + 요청에 생각 끄기 1필드 (r582 · 1.1.129 · 동작 변경 · 재시도 규칙 무변경)
+
+
 
 - 사건(master 87 발주 123497 ① · arch 112 실측 2026-10-21 00:4x · 오빠 슬랙 1792509798): deepseek 교체(r575) 뒤 뉴스 «중요한 일» 갈래가 가끔 «important 응답이 JSON 아님: Expecting ',' delimiter: line 1 column 686·324·702» 또는 «답 글 0자» 로 죽어 그 판 발행 0. 깨진 열이 매번 답 끝 근처 = 답이 중간에 잘린 모양인데, 코드는 답 글만 모으고 **끝난 이유(finish_reason)·생각(reasoning_content) 양·usage 를 버려** 로그로 원인을 가를 수 없었다(`_json` 은 첫 `{` ~ 마지막 `}` 를 잘라 읽으므로 잘림이 «JSON 문법 오류» 로 둔갑).
 - 0단계 측정(`evidence/r582/00-measure.txt` · 실설치본과 같은 요청 · 프롬프트 14,302B · 실 공급자): **같은 요청 5회 중 2회 실패 = 둘 다 `finish_reason=length`** — 1회는 답 0자(생각 13.5K자) · 1회는 답 472자에서 끊김. 정상 3회도 생각 8.7K~13.5K자(≈2.9K~4.5K 토큰)로 `max_tokens 4096` 을 생각이 먼저 먹었다(usage 확인: completion 3,325 · 생각 8,690자). 갈래 = ⓐ(length + 생각 큼).
