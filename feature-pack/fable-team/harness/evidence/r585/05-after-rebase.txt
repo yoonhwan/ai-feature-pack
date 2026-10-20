@@ -1,0 +1,4 @@
+== r584(origin/main 9c06ca1a) 위로 rebase 뒤 재실행 (r585 · 7c7658a9) ==
+rebase 충돌 1 = CHANGES.md 머리 절 추가충돌 → r585 절 위 · r584 절 보존 (manifest 1.1.130 그대로)
+...............                                                          [100%]
+15 passed in 0.60s

@@ -45,6 +45,7 @@ class FakeSlack:
         self.upload_bodies: list[bytes] = []
         self.drop_next_post = False
         self.fail_complete = False
+        self.fail_replies = False  # r585: 뿌리 읽기(conversations.replies) HTTP 실패 주입
         self.complete_faults: dict[int, str] = {}  # n번째 complete → "applied"(공유됐는데 응답 유실) · "dropped"(공유 안 됐고 응답 유실) · "rejected"(ok=false 거절)
         self._completes = 0
         self._seq = 0
@@ -85,6 +86,9 @@ class FakeSlack:
                     roots = [m for m in outer.msgs if not m["thread_ts"] and float(m["ts"]) > float(q["oldest"])]
                     return self._reply({"ok": True, "messages": list(reversed(roots))})
                 if u.path.endswith("conversations.replies"):
+                    if outer.fail_replies:
+                        self.connection.shutdown(socket.SHUT_RDWR)
+                        return
                     thread = [m for m in outer.msgs if m["ts"] == q["ts"] or m["thread_ts"] == q["ts"]]
                     return self._reply({"ok": True, "messages": thread})
                 if u.path.endswith("files.getUploadURLExternal"):
