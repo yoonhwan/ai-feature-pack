@@ -15,7 +15,7 @@ INPUT=$(cat 2>/dev/null)
 # 커밋 명령마다 «대상 디렉터리<TAB>작업 트리 포함 1/0» 한 줄씩(커밋 아니면 무출력). 따옴표 안 글자(커밋 메시지)는 한 토큰이라 커밋으로 안 본다.
 TARGETS=$(python3 -c 'import json,os,shlex,sys
 try: d=json.loads(sys.argv[1])
-except Exception: sys.exit(0)
+except Exception: print("!json"); sys.exit(0)
 if d.get("tool_name")!="Bash": sys.exit(0)
 cmd=(d.get("tool_input") or {}).get("command") or ""
 cwd=d.get("cwd") or "."
@@ -57,6 +57,33 @@ while i<len(toks):
         print("%s\t%d" % (g if g is not None else "!cd", 1 if worktree_too(args) else 0))
 ' "$INPUT" 2>/dev/null)
 [ -z "$TARGETS" ] && exit 0
+[ "$TARGETS" = "!json" ] && { echo "WARN [harness-freeze-gate] 입력 JSON 을 못 읽음 — 통과(fail-open)" >&2; exit 0; }
+
+# r530 일괄 보류 규칙(freeze 표식과 무관 · 규칙별 독립): 커밋 대상에 큐·indices 카드가 있으면 ft_queue_bulk.py bulk-check --staged.
+#   판정기 = env FT_QUEUE_BULK · 아니면 대상 저장소 공용 루트 → JSON cwd 공용 루트의 .fable-team/LIVE_BIN. rc1 = REJECT · 못 찾음·rc2 = 통과 + WARN.
+WARN=""
+bulk_rule() { # <DIR> <WT> <공용 루트>
+  local QB="${FT_QUEUE_BULK:-}" base lb out rc cwd
+  if [ -z "$QB" ]; then
+    cwd=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("cwd") or ".")' "$INPUT" 2>/dev/null)
+    for base in "$3" "$(dirname "$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")"; do
+      lb=$(head -1 "$base/.fable-team/LIVE_BIN" 2>/dev/null)
+      [ -n "$lb" ] && [ -f "$lb/ft_queue_bulk.py" ] && { QB="$lb/ft_queue_bulk.py"; break; }
+    done
+  fi
+  if [ -z "$QB" ] || [ ! -f "$QB" ]; then
+    WARN="$WARN
+WARN [harness-freeze-gate] 일괄 보류 판정기(ft_queue_bulk.py)를 못 찾음 — 통과(fail-open): $1"; return
+  fi
+  out=$(python3 "$QB" bulk-check --staged $([ "$2" = 1 ] && echo --worktree) --repo "$1" 2>&1); rc=$?
+  case $rc in
+    0) ;;
+    1) BLOCK="$BLOCK
+🚫 [harness-freeze-gate] $(printf '%s\n' "$out" | grep -m1 '^REJECT')" ;;
+    *) WARN="$WARN
+WARN [harness-freeze-gate] 일괄 보류 판정 못 함(rc=$rc) — 통과(fail-open): $(printf '%s' "$out" | head -1)" ;;
+  esac
+}
 
 FROZEN='^(scripts/fable-team-bin|scripts/harness-install|tools/comm-canonical|tests/harness)/'
 BLOCK=""
@@ -72,11 +99,12 @@ while IFS=$'\t' read -r DIR WT; do
 🚫 [harness-freeze-gate] 검사 불가 대상: $DIR (git 저장소 아님)"
     continue
   fi
-  MARK="$(dirname "$COMMON")/.fable-team/state/harness-freeze"
-  [ -f "$MARK" ] || continue
   FILES=$(git -C "$DIR" diff --cached --name-only 2>/dev/null)
   [ "$WT" = 1 ] && FILES="$FILES
 $(git -C "$DIR" diff --name-only 2>/dev/null)"
+  printf '%s\n' "$FILES" | grep -qE 'AUTONOMY-QUEUE\.md|/indices/' && bulk_rule "$DIR" "$WT" "$(dirname "$COMMON")"
+  MARK="$(dirname "$COMMON")/.fable-team/state/harness-freeze"
+  [ -f "$MARK" ] || continue
   HIT=$(printf '%s\n' "$FILES" | grep -E "$FROZEN" | LC_ALL=C sort -u)
   [ -z "$HIT" ] && continue
   # r407: 병합 중(MERGE_HEAD 있음)이면 staged 상태가 MERGE_HEAD 와 같은 경로(같은 블롭 · 둘 다 없음 = main 의 삭제 그대로)는 «병합이 가져온 그대로 = 손 0» 이라 제외.
@@ -120,6 +148,7 @@ for h in hit:
    하네스 코드는 팩 feature-pack/fable-team/harness 에서 고친다(경로 표 = 설계 §9-2 역매핑 5행). freeze 해제는 복귀 절차 뒤 master 가 표식을 지운다.$NOTE"
 done <<< "$TARGETS"
 
+[ -n "$WARN" ] && printf '%s\n' "${WARN#?}" >&2
 [ -z "$BLOCK" ] && exit 0
 printf '%s\n' "${BLOCK#?}" >&2
 exit 2
