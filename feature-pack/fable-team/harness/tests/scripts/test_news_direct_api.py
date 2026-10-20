@@ -277,3 +277,66 @@ def test_i_html_mode_tick_receives_ref_issue(tmp_path, monkeypatch):
     state.mkdir()
     assert nl._run(root, state) == (0, "지도 발행")
     assert len(seen) == 1 and seen[0][6] == new  # (root, state, repo, rel, news, base, cur) 의 cur = ref 판
+
+
+# ── r575 — opengateway(pi 딥식) 공급자 1줄 + 키 = pi 설정 · ⓐ~ⓓ 가짜 서버 · ⓔ 실 1회는 evidence/r575 ──
+
+OG_MODEL = "opengateway/deepseek/deepseek-v4.1-flash-ultrafast"
+
+
+def _og(tmp_path, monkeypatch, srv, pi_body: str | None) -> Path:
+    """opengateway 시험판 — 가짜 서버 주소 · pi 설정 대역(FT_NEWS_PI_MODELS) · env 키·모델 초기화."""
+    pi = tmp_path / "models.json"
+    if pi_body is not None:
+        pi.write_text(pi_body, encoding="utf-8")
+    for k in ("OPENROUTER_API_KEY", "OPENGATEWAY_API_KEY", "FT_NEWS_VIA", "FT_NEWS_EFFORT"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in {"FT_NEWS_HTTP_BASE": srv.base, "FT_NEWS_PI_MODELS": str(pi), "FT_NEWS_STARTUP_LOG": str(tmp_path / "startup.tsv"),
+                 "FT_OPENCODE": str(tmp_path / "없는-opencode"), "FT_NEWS_MODEL": OG_MODEL}.items():
+        monkeypatch.setenv(k, v)
+    return pi
+
+
+def test_r575_a_opengateway_provider_row_routes_to_pi_key(tmp_path, llm, monkeypatch):
+    """ⓐ 고친 판 = 접두 opengateway → 주소 /chat/completions · 모델 = 접두 뒤 · Authorization = pi 설정 키(글자 그대로 꼴)."""
+    _og(tmp_path, monkeypatch, llm, '{"providers":{"opengateway":{"apiKey":"apik-pi-literal"}}}')
+    fh.run_files(DATA, tmp_path / "out", NOW)
+    first = llm.reqs[0]
+    assert first["path"].endswith("/chat/completions") and first["auth"] == "Bearer apik-pi-literal"
+    assert first["body"]["model"] == "deepseek/deepseek-v4.1-flash-ultrafast"  # 접두(fh_news) 뒤 = 모델
+    assert sorted(_part(p) for p in llm.prompts()) == sorted(fr.PARTS)
+
+
+def test_r575_a2_pi_key_command_form_runs_and_env_form_reads(tmp_path, llm, monkeypatch):
+    """ⓐ₂ pi 설정 꼴 3가지 — `!명령` = 그 stdout · `$NAME` = 그 env · 값은 로그 0."""
+    _og(tmp_path, monkeypatch, llm, '{"providers":{"opengateway":{"apiKey":"!echo apik-from-command"}}}')
+    assert fr.api_key("OPENGATEWAY_API_KEY") == "apik-from-command"
+    _og(tmp_path, monkeypatch, llm, '{"providers":{"opengateway":{"apiKey":"${OG_TEST_KEY}"}}}')
+    monkeypatch.setenv("OG_TEST_KEY", "apik-from-env-name")
+    assert fr.api_key("OPENGATEWAY_API_KEY") == "apik-from-env-name"
+
+
+def test_r575_b_missing_pi_key_or_file_fails_loud_and_prints_no_key(tmp_path, llm, monkeypatch, capsys):
+    """ⓑ pi 설정에 키 없음·파일 없음 = «키 없음» ERROR(조용한 대체 0) · 키 값 글자 0."""
+    for body in (None, '{"providers":{"opengateway":{"apiKey":"   "}}}', '{"providers":{"other":{"apiKey":"x"}}}'):
+        _og(tmp_path, monkeypatch, llm, body)
+        with pytest.raises(fr.NewsHtmlError, match="키 없음: OPENGATEWAY_API_KEY"):
+            fh.run_files(DATA, tmp_path / f"o{len(llm.reqs)}", NOW)
+        assert llm.reqs == []  # 서버에 닿기 전에 실패
+        assert "apik-pi" not in capsys.readouterr().err
+
+
+def test_r575_c_env_key_wins_over_pi_file(tmp_path, llm, monkeypatch):
+    """ⓒ env OPENGATEWAY_API_KEY 가 pi 설정보다 이김(시험 대역 손잡이)."""
+    _og(tmp_path, monkeypatch, llm, '{"providers":{"opengateway":{"apiKey":"apik-pi-literal"}}}')
+    monkeypatch.setenv("OPENGATEWAY_API_KEY", "apik-env-wins")
+    assert fr.api_key("OPENGATEWAY_API_KEY") == "apik-env-wins"
+
+
+def test_r575_d_openrouter_path_unchanged(tmp_path, llm, monkeypatch):
+    """ⓓ openrouter 경로 그대로 — 공급자 표 1줄 추가가 옛 길을 건드리지 않는다(키 = zshrc 마지막 활성 줄)."""
+    monkeypatch.setenv("FT_NEWS_MODEL", "openrouter/anthropic/claude-haiku-5.5")
+    monkeypatch.setenv("FT_NEWS_PI_MODELS", str(tmp_path / "없는-models.json"))  # pi 설정 없어도 openrouter 는 돈다
+    fh.run_files(DATA, tmp_path / "o", NOW)
+    assert llm.reqs[0]["auth"] == "Bearer sk-or-fake-r563"
+    assert fr.HTTP_BASE["openrouter"] == "https://openrouter.ai/api/v1" and len(fr.HTTP_BASE) == 2

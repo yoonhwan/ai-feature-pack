@@ -1,0 +1,23 @@
+# rebase 후 재실행(origin/main c8267ed0 위 · r575 7dbc338f)
+## r575 5칸
+.....                                                                    [100%]
+5 passed, 11 deselected in 3.17s
+## r563 파일 전체
+................                                                         [100%]
+16 passed in 10.14s
+## 인접 뉴스 시험
+..................................................................       [100%]
+66 passed in 52.39s
+## ruff
+All checks passed!
+## kit/bin cmp
+cmp rc=0
+## manifest
+1.1.123
+## r574 시험(같은 디렉터리 인접)
+
+1959 deselected in 2.64s
+## r574 인접 시험
+test_nano_close_rerun_named_equal.sh rc=0
+test_nano_close_rerun_wt_clean.sh rc=0
+test_wt_clean_plan_rn_sibling.sh rc=0

@@ -1,0 +1,5 @@
+http_target https://apis.opengateway.ai/v1/chat/completions | model deepseek/deepseek-v4.1-flash-ultrafast | key_name OPENGATEWAY_API_KEY
+key_len 37 key_printed=0
+summary: OK secs=5.19 keys=['refs', 'summary'] body={"summary": ["뉴스 요약이 크레딧 부족으로 멈춰 공급자를 바꾸는 중입니다.", "하네스팀은 요약 기능을 고치는 중이고, 일부 작업 공간은 시험 중입니다.", "긴급 안건과 새로 반영된 변경은 없습니다."], "refs": ["1", "2", "3", "4", "5", "6"]}
+goals: OK secs=31.88 keys=['goals'] body={"goals": [{"done": "끝난 일은 원천 없음", "now": "뉴스 요약이 사용 한도 부족으로 멈춰 외부 서비스를 바꾸는 중", "left": "남은 일은 원천 없음", "hot": true}, {"done": "끝난 일은 원천 없음", "now": "뉴스 요약이 사용 한도 부족으로 멈춰 외부 서비스를 바꾸
+startup_log_tail: ['2026-10-20 23:42:04\tsummary\t0.5', '2026-10-20 23:42:36\tgoals\t15.0']
