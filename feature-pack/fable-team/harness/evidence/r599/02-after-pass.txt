@@ -1,0 +1,36 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 표준 경로 + 다른 nano/ 가지 → 좌석 워크트리로 인정(예전엔 해석 0)
+PASS ⓐ rc=0 · CLOSED-ABSENT
+PASS   └ «해석 0» 사유 없음
+PASS   └ 실행 계획(.sh — sweep 순회 대상)
+PASS   └ .sh.hil(사람 대기) 0
+PASS   └ 원장 행 mode=std-wt-other-branch wt=<표준경로> branch=<다른 가지>
+PASS   └ 닫힘 행 append
+PASS   └ 명부 삭제
+PASS   └ 워크트리 그대로(계획은 sweep 몫)
+PASS   └ 브랜치 삭제 0
+PASS   └ sweep --dry-run 이 이 계획을 집어 간다
+== ⓑ 같은 경로인데 nano/ 가지가 아님 → 지금처럼 표준 0(자율 정리 0)
+PASS ⓑ rc=1 · 세션 없음(좌석 해석 0)
+PASS   └ 원장 모드 없음
+PASS   └ 계획 0
+PASS   └ tmux 변경 0
+== ⓒ info branch ≠ HEAD 가지 → 표준 0
+PASS ⓒ rc=1 · 세션 없음(info 불일치)
+PASS   └ 계획 0
+== ⓓ 그 다른 가지를 키로 하는 좌석 세션이 살아 있음 → 인정 0 + 사유 1줄(남의 좌석 가지)
+PASS ⓓ rc=1 · 사유 «남의 좌석 가지 · 추측 금지»
+PASS   └ 사유에 살아 있는 세션 이름
+PASS   └ 계획 0
+== ⓔ 가지 = nano/<키> 인 기존 표준 좌석 → 회귀 0(바이트 같은 결과)
+PASS ⓔ rc=0 · CLOSED-ABSENT
+PASS   └ 새 모드 문구 0(표준 경로 그대로)
+PASS   └ 원장 wt=planned(기존 꼴)
+PASS   └ 계획 .sh(기존 꼴)
+PASS   └ rc 동일(0)
+PASS   └ 원장 행 바이트 동일
+PASS   └ 옛 판도 같은 계획(.sh)
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

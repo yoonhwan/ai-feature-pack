@@ -1,0 +1,76 @@
+== git diff origin/main --stat (내 커밋)
+ feature-pack/fable-team/CHANGES.md                 |  10 ++
+ .../fable-team/harness/bin/ft-nano-close.sh        |  30 ++++-
+ .../harness/evidence/r599/01-before-red.txt        |  47 ++++++++
+ .../harness/evidence/r599/02-after-pass.txt        |  36 ++++++
+ .../harness/evidence/r599/03-existing-tests.txt    |  15 +++
+ .../harness/evidence/r599/04-kit-bin-cmp.txt       |   1 +
+ .../harness/evidence/r599/05-diff-base.txt         |  71 ++++++++++++
+ .../harness/kit/fable-team/bin/ft-nano-close.sh    |  30 ++++-
+ .../tests/test_nano_close_std_wt_other_branch.sh   | 122 +++++++++++++++++++++
+ feature-pack/fable-team/manifest.json              |   2 +-
+ 10 files changed, 357 insertions(+), 7 deletions(-)
+
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+index 70015449..3c944159 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+@@ -359,8 +359,30 @@ _wt_clean_run() {
+ #   SEAT_WT_ERR(후보 2개 이상 · pane 살아 있는데 후보 0) = cwd 유무·역할과 무관하게 아래에서 REJECT(DA607 H1 · 추측 금지 · fail-closed) · 세션 없음 ∧ 후보 0 = 빈 값(기존 «워크트리 없음» 판정).
+ #   r566: 정의를 재실행 분기(:381) «앞» 으로 옮겼다 — 재실행도 같은 해석을 써야 한다(동작 불변).
+ _is_seat_branch() { [[ "$1" =~ ^nano/${_KEY}(-r[0-9]+)?$ ]]; }
++# ★r599★ 표준 워크트리 경로($ROOT/.worktrees/<WT 접두><키>[-rN])인데 «가지만 다른 nano/ 이름» 인 좌석 — 후보 0 · 오류 0 일 때만 부른다.
++#   인정 조건: 체크아웃 가지 nano/* ∧ .worktree-info.json 가지 == 그 가지 ∧ 그 가지를 키로 하는 살아 있는 좌석 세션 0(조회 실패 = 인정 0 · fail-closed) ∧ «정확히 1개».
++#   남의 좌석 가지를 빌려 닫지 않는다 — 살아 있는 세션이 그 가지를 키로 있으면 사유 1줄만 남기고 인정 0.
++_resolve_std_wt_other() {
++  local p br rel txt hits=() brs=() tb to trc live okey
++  while IFS=$'\t' read -r p br; do
++    rel="${p#"$ROOT/.worktrees/"}"; [ "$rel" != "$p" ] || continue
++    [[ "$rel" =~ ^${WT_PREFIX}${_KEY}(-r[0-9]+)?$ ]] || continue
++    case "$br" in nano/*) ;; *) continue;; esac
++    txt="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$p/.worktree-info.json" 2>/dev/null)"
++    [ "$txt" = "$br" ] || continue
++    hits+=("$p"); brs+=("$br")
++  done < <(git -C "$ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}')
++  [ "${#hits[@]}" -eq 1 ] || return 0
++  tb="${FT_TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
++  to="$("$tb" ls -F '#{session_name}' 2>&1)"; trc=$?
++  if [ "$trc" -ne 0 ]; then case "$trc:$to" in 1:*"no server running"*) to="";; *) echo "INFO 표준+다른 가지 — tmux 조회 실패(rc=$trc) · 인정 0(fail-closed)"; return 0;; esac; fi
++  okey="${brs[0]#nano/}"; okey="${okey%-r[0-9]*}"
++  live="$(printf '%s\n' "$to" | grep -x "${NANO_PREFIX}${okey}#[0-9]*" | tr '\n' ' ')"
++  [ -z "$live" ] || { SEAT_WT_ERR="표준 경로 워크트리 ${hits[0]} 의 가지(${brs[0]})를 키로 하는 좌석 세션이 살아 있다(${live% }) — 남의 좌석 가지 · 추측 금지"; return 0; }
++  SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"; SEAT_WT_OTHER=1
++}
+ _resolve_seat_wt() {
+-  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0
++  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0; SEAT_WT_OTHER=0
+   local top="" p br rel i hits=() brs=() lp=() lb=() base="$ROOT/.worktrees/"
+   while IFS=$'\t' read -r p br; do
+     rel="${p#"$base"}"; [ "$rel" != "$p" ] || continue
+@@ -380,7 +402,8 @@ _resolve_seat_wt() {
+   done
+   if [ "${#hits[@]}" -eq 1 ]; then SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"
+   elif [ "${#hits[@]}" -gt 1 ]; then SEAT_WT_ERR="좌석 워크트리 후보 ${#hits[@]}개(${hits[*]}) — 추측 금지, 어느 것인지 사람 판정"
+-  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1; fi
++  elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1
++  else _resolve_std_wt_other; fi   # r599: 후보 0 · 오류 0 = 세션 없이 남은 좌석 — 표준 경로 + 다른 nano/ 가지만 인정
+ }
+ # ★r566 재실행 워크트리 정리★ — 재실행 분기(:414)가 워크트리를 «원장 wt=» 에서만 찾아 정리를 통째로 건너뛰던 자리(표준 나노 행은 wt=planned·wt=skipped:… 같은 상태 말).
+ #   표준 나노 좌석만: 워크트리를 좌석 이름으로 재해석(_resolve_seat_wt) · 조건 4(세션 0 · nano/<키> · $ROOT/.worktrees/ 등록 · HEAD 가 어떤 원격 ref 에 포함) 전부 참일 때만 실행.
+@@ -919,6 +942,7 @@ elif [ "$PACK_WT" = 1 ]; then PLAN=""   # r508: 팩 워크트리 정리는 이 
+ else _wt_clean_plan; fi
+ [ "$SHARED" != 1 ] || WT_MARK="mode=shared-wt wt=$SH_TOP (정리 0 · 브랜치 0)"   # 계획·정리 0 — 원장 행에 모드를 남긴다
+ [ "$NAMED" != 1 ] || WT_MARK="mode=named-wt wt=$SEAT_WT branch=$NBR (계획만 · 정리 0 · 브랜치 0)"
++[ "${SEAT_WT_OTHER:-0}" != 1 ] || WT_MARK="mode=std-wt-other-branch wt=$SEAT_WT branch=$SEAT_BR (표준 경로 · 가지 이름만 다름 · 계획 .sh · 브랜치 0)"
+ [ "$PACK_WT" != 1 ] || WT_MARK="mode=pack-wt wt=$SEAT_WT branch=$NBR repo=$SEAT_REPO (계획 0 · 정리 0 · 브랜치 0)"
+ # 원장 append 도 계획의 mark() 와 «같은» mkdir 락(<원장>.lock) 아래 — 락 밖 >> 와 mark 의 read→replace 가 겹치면 행이 소실된다(DA r3 실측 204/8000). 락 실패는 REJECT 가 아니라 append 강행(닫힘 행이 없는 것이 더 나쁘다) + 경고.
+ _lock="$LEDGER.lock"; _i=0
+@@ -947,7 +971,7 @@ elif [ "$RERUN" = 1 ] && [ "$_rowexists" = 1 ]; then
+   [ -z "$_lock" ] || rmdir "$_lock"
+ else
+   printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③%s. kill=%s%s · %s\n' \
+-    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$([ "$ABSENT" = 1 ] && echo "세션 없음(백필)" || echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분")" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")${_su_tag:+ ·$_su_tag}" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
++    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$([ "$ABSENT" = 1 ] && echo "세션 없음(백필)" || echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분")" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")${_su_tag:+ ·$_su_tag}" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] || [ "${SEAT_WT_OTHER:-0}" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
+   _arc=$?; [ -z "$_lock" ] || rmdir "$_lock"
+   [ "$_arc" -eq 0 ] || { echo "FAIL $SEAT — 원장 append 실패(rc=$_arc · 명부는 삭제됨 · 같은 close 재실행이 RERUN 으로 이어간다): $LEDGER"; exit 1; }   # R400 r3 ④ — CLOSED 0
+ fi
