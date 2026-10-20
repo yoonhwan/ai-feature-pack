@@ -1,0 +1,20 @@
+PASS bash -n ft-nano-spawn.sh
+PASS ①b 블록 추출
+== ⓐ 툴바 꼴: 폴더 토큰 + 인용 .tsx 3개 · 변경은 인용 밖 → 통과 + 카드 base_sha = 지금 HEAD
+PASS ⓐ 폴더 토큰은 인용 아님 → 겹침 0 통과 · BASE-RENEW · base_sha 갱신
+PASS   └ 인용 개수 3(폴더 2개 제외)
+PASS   └ REJECT 0
+== ⓑ 맨 이름 .tsx 인용 · 그 파일이 바뀜 → REJECT (옛 판은 .ts 로 잘려 거짓 통과)
+PASS ⓑ 맨 이름 basename 대조 → REJECT · base_sha 그대로
+== ⓒ .json 인용 · 그 파일이 바뀜 → REJECT (.js 로 잘림 0)
+PASS ⓒ .json 온전히 인용 → REJECT
+== ⓓ «관련 파일:» 줄에 명시된 폴더는 접두로 유지 → 그 아래 변경 = REJECT
+PASS ⓓ 관련 파일 폴더 = 접두 대조 → REJECT
+== ⓔ 인용 0(확장자 토큰 없음) → 기본 세트 경로 그대로 (worker/ 변경 = REJECT)
+PASS ⓔ 인용 0 → 기본 세트(worker/ 포함) → REJECT
+== ⓕ 겹침 있음 + --recheck 판정문에 지금 HEAD → 통과(RECHECK 줄) · base_sha 그대로
+PASS ⓕ --recheck 경로 그대로
+== ⓖ 리서치 좌석(RESEARCH=1) 면제 → 대조·갱신 0
+PASS ⓖ 리서치 면제 그대로(출력 0 · base_sha 그대로)
+
+ALL PASS

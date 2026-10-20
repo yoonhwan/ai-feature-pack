@@ -167,6 +167,8 @@ awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:spa
 #   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).
 #   있으면 재개·재spawn = base_sha..HEAD 사이에 카드 «## 구현 범위» 가 인용한 파일(경로 토큰 · `관련 파일:` 줄 포함 · 인용 0 이면 세트 경로 전체 worker/ gateway/ shared/ clients/web/src/ tests/e2e/ scripts/server/)이 바뀌었으면 REJECT.
 #   통과 = `--recheck <판정문>` 이 실재하고 그 판정문이 «현재 HEAD sha»(7자 이상 접두)를 적고 있을 때만.
+#   r580: 인용 = «확장자 있는 파일 토큰» 만(폴더·ref 토큰은 버린다 · `관련 파일:` 줄의 폴더만 접두) · 확장자 교대는 긴 것 먼저(`tsx|ts` · `json|js` 잘림 방지) · 맨 이름은 basename 대조.
+#         겹침 0 통과면 카드 `base_sha:` 를 지금 HEAD 로 갱신한다(다음 재spawn 은 거기서부터 · 출력 `BASE-RENEW …`).
 CUR_HEAD="$(git -C "$WT" rev-parse "${BASE_REF:-HEAD}^{commit}")" || { echo "REJECT 기준 ${BASE_REF:+ref(--base) }HEAD 조회 실패: ${BASE_REF:-HEAD}"; exit 1; }
 CARD_BASE="$(grep -E '^[[:space:]-]*base_sha:[[:space:]]*[0-9a-f]{40}' "$IDX" | head -1 | grep -oE '[0-9a-f]{40}' | head -1)"
 if [ "$RESEARCH" = 1 ]; then
@@ -176,35 +178,62 @@ elif [ -z "$CARD_BASE" ]; then
 else
   STAMP_BASE=0
   _chg="$(python3 - "$IDX" "$WT" "$CARD_BASE" "$CUR_HEAD" <<'PY'
-import re, subprocess, sys
+import os, re, subprocess, sys
 card, repo, base, head = sys.argv[1:5]
 txt = open(card, encoding="utf-8").read()
 m = re.search(r"^##\s*구현 범위.*?(?=^##\s|\Z)", txt, re.S | re.M)
 scope = m.group(0) if m else ""
-cited = set(re.findall(r"[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)+/?|[A-Za-z0-9_\-]+\.(?:sh|py|ts|tsx|js|json|md|yaml|yml)", scope))
+# r580: 인용 파일 뽑기 — «확장자 있는 파일 토큰» 만. 확장자 교대는 긴 것 먼저(짧은 것이 먼저 맞으면 `.tsx`→`.ts` 로 잘려 진짜 인용 파일 변경을 놓친다).
+#   구현 범위 본문의 폴더 토큰(`clients/web`·`clients/web/src/`)·ref(`origin/main`)는 «인용»이 아니다(그 폴더 아무 변경이나 겹침으로 잡히던 원인) — `관련 파일:` 줄에 명시된 폴더만 접두로 본다.
+FILE_RE = re.compile(r"[A-Za-z0-9_.\-]*(?:/[A-Za-z0-9_.\-]+)*\.(?:tsx|ts|json|js|yaml|yml|sh|py|md)(?![A-Za-z0-9_])")
+cited = set(FILE_RE.findall(scope))
 for ln in txt.splitlines():
     if ln.strip().startswith("관련 파일:"):
         cited |= {t.strip() for t in re.split(r"[,\s]+", ln.split(":", 1)[1]) if t.strip()}
 if not cited:
     cited = {"worker/", "gateway/", "shared/", "clients/web/src/", "tests/e2e/", "scripts/server/"}
+def hit(p, c):
+    if c.endswith("/"):
+        return p == c[:-1] or p.startswith(c) or p.endswith("/" + c[:-1])
+    if "/" in c:
+        return p == c or p.endswith("/" + c)
+    return os.path.basename(p) == c
 out = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", "diff", "--name-only", base, head], capture_output=True, text=True)
 if out.returncode != 0:
     print("DIFFFAIL " + out.stderr.strip()[:120]); sys.exit(3)
-hit = [p for p in out.stdout.splitlines() if any(p == c or p.startswith(c if c.endswith("/") else c + "/") or p.endswith("/" + c) for c in cited)]
-if hit:
+hits = [p for p in out.stdout.splitlines() if any(hit(p, c) for c in cited)]
+if hits:
     n = subprocess.run(["git", "-C", repo, "rev-list", "--count", f"{base}..{head}"], capture_output=True, text=True).stdout.strip()
-    print(f"CHANGED {n} " + " ".join(hit[:20]) + (f" … 외 {len(hit) - 20}개" if len(hit) > 20 else ""))
+    print(f"CHANGED {n} " + " ".join(hits[:20]) + (f" … 외 {len(hits) - 20}개" if len(hits) > 20 else ""))
+else:
+    print(f"CLEAN {len(cited)}")
 PY
 )"; _crc=$?
   [ "$_crc" -eq 0 ] || { echo "REJECT 카드 base_sha 대조 실패(rc=$_crc): ${_chg:0:160}"; exit 1; }
-  if [ -n "$_chg" ]; then
-    _ok=0
-    if [ -n "$RECHECK" ] && [ -f "$RECHECK" ]; then
-      while read -r _t; do case "$CUR_HEAD" in "$_t"*) _ok=1; break;; esac; done < <(grep -oE '[0-9a-f]{7,40}' "$RECHECK" | sort -u)
-    fi
-    [ "$_ok" = 1 ] || { echo "REJECT 카드 base_sha ${CARD_BASE:0:9} 이후 feat HEAD ${CUR_HEAD:0:9} 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 $(printf '%s' "$_chg" | cut -d' ' -f2)개 · 바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-)"; exit 1; }
-    echo "RECHECK 통과 — 판정문 $RECHECK 가 현재 HEAD ${CUR_HEAD:0:9} 를 적음(바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-))"
-  fi
+  case "$_chg" in
+    CLEAN*)
+      # 겹침 0 통과 = 카드 기준 시점을 지금으로 옮긴다(다음 재spawn 은 여기서부터 · RECHECK 없이 통과).
+      python3 - "$IDX" "$CUR_HEAD" <<'PY' || { echo "REJECT 카드 base_sha 갱신 실패($IDX)"; exit 1; }
+import re, sys, datetime
+p, head = sys.argv[1:3]
+txt = open(p, encoding="utf-8").read()
+m = re.search(r"^([ \t]*-[ \t]*base_sha:[ \t]*)[0-9a-f]{40}[^\n]*$", txt, re.M)
+if not m:
+    sys.exit(3)
+txt = txt[:m.start()] + m.group(1) + head + f" (recheck-auto {datetime.date.today()} · 겹침 0)" + txt[m.end():]
+open(p, "w", encoding="utf-8").write(txt)
+PY
+      echo "BASE-RENEW ${CARD_BASE:0:9} → ${CUR_HEAD:0:9} · 인용 ${_chg#CLEAN }개 겹침 0"
+      ;;
+    ?*)
+      _ok=0
+      if [ -n "$RECHECK" ] && [ -f "$RECHECK" ]; then
+        while read -r _t; do case "$CUR_HEAD" in "$_t"*) _ok=1; break;; esac; done < <(grep -oE '[0-9a-f]{7,40}' "$RECHECK" | sort -u)
+      fi
+      [ "$_ok" = 1 ] || { echo "REJECT 카드 base_sha ${CARD_BASE:0:9} 이후 feat HEAD ${CUR_HEAD:0:9} 사이에 카드가 인용한 파일이 바뀜 — 재대조 필요(arch 판정 뒤 --recheck <판정문>; 판정문에 현재 HEAD sha 를 적는다). 커밋 $(printf '%s' "$_chg" | cut -d' ' -f2)개 · 바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-)"; exit 1; }
+      echo "RECHECK 통과 — 판정문 $RECHECK 가 현재 HEAD ${CUR_HEAD:0:9} 를 적음(바뀐 파일: $(printf '%s' "$_chg" | cut -d' ' -f3-))"
+      ;;
+  esac
 fi
 
 SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"

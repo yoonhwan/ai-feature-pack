@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-21 — 나노 spawn 재대조(①b) «인용 파일 뽑기» 정밀화 — 폴더 토큰은 인용 아님 · 확장자 긴 것 먼저 · 통과면 카드 base_sha 갱신 (r580 · 1.1.124 · 동작 변경)
+
+- 사건(feature arch 47 쪽지 123204 · planner 86 승인 123206 · master 87 발주 123223 · arch 111 재현 2026-10-21 00:0x): feature 팀 카드 `F-toolbar-caption-controls-red` 가 `base_sha` 재대조에 3회 연속 REJECT(base 11bc→8ce7→9b41→248f · 인용 3파일 blob 매번 동일)됐다. 원인은 판정식이 아니라 **«인용 파일 뽑기»** 두 결함 — ①구현 범위 본문의 폴더 토큰(`clients/web` · `clients/web/src/`)을 접두로 써서 그 아래 아무 변경(credits 18파일)이나 «겹침» ②확장자 교대가 `ts|tsx`·`js|json` 순서라 `corner-controls-v5.tsx` → `corner-controls-v5.ts` 로 잘려 **진짜 인용 파일이 바뀌어도 못 잡는 거짓 통과** 구멍.
+- 고침 ①(인용 뽑기): 확장자 교대를 긴 것 먼저(`tsx|ts|json|js|yaml|yml|sh|py|md`)로 바꾸고, «구현 범위» 본문에서는 **확장자 있는 파일 토큰만** 인용으로 본다(경로·맨 이름 모두). 확장자 없는 토큰(폴더·`origin/main` 같은 ref)은 버린다. `관련 파일:` 줄은 지금처럼 전부 인정(폴더 = 접두) — 명시한 폴더만 넓게 본다.
+- 고침 ②(대조): 경로 있는 파일 토큰 = 정확 일치 또는 `endswith("/"+토큰)` · **맨 이름 = basename 일치** · `관련 파일:` 폴더 = 접두. 인용 0 이면 기본 세트 경로 6개 그대로.
+- 고침 ③(통과 시 카드 기준 시점 갱신): 겹침 0 통과 ∧ 카드 `base_sha` 있음 ∧ 리서치 아님 → 카드 `base_sha:` 줄을 지금 HEAD 로 바꾸고 `(recheck-auto <날짜> · 겹침 0)` 를 붙인다. 출력 1줄 `BASE-RENEW <옛 9자> → <새 9자> · 인용 <N>개 겹침 0`. 카드 쓰기 실패 = REJECT(첫 개설 STAMP 실패와 같은 처리). 다음 재spawn 은 갱신된 시점부터 본다(main 이 빨리 움직여도 같은 카드가 반복 REJECT 되지 않는다).
+- 시험 `harness/tests/test_nano_spawn_recheck_cited.sh` ⓐ~ⓖ(임시 리포 + 임시 카드 · ①b 블록만 잘라 실행 · 실 tmux·실 워크트리·실 좌석 0): ⓐ툴바 꼴(폴더 토큰 2 + 인용 `.tsx` 3 · 변경은 인용 밖) → 통과 + `BASE-RENEW` + 카드 base_sha = HEAD ⓑ맨 이름 `.tsx` 인용 · 그 파일 변경 → REJECT(옛 판은 `.ts` 잘림으로 거짓 통과) ⓒ`.json` 인용 · 그 파일 변경 → REJECT ⓓ`관련 파일: clients/web/src/components/toolbar/` 명시 폴더 아래 변경 → REJECT ⓔ인용 0 → 기본 세트(`worker/` 변경 = REJECT) ⓕ겹침 있음 + `--recheck` 판정문에 지금 HEAD → `RECHECK 통과` · base_sha 그대로 ⓖ리서치 좌석 면제 그대로(출력 0 · 갱신 0). 고치기 전 판 red = `evidence/r580/01-before-red.txt`(FAILED 7) → 고친 판 `02-after-pass.txt` ALL PASS.
+- 툴바 카드 재현(읽기 전용 · `evidence/r580/05-toolbar-card-repro.txt`): 구간 `9b410eb61d..248f1f4236`(변경 18파일) · 옛 판 인용 8개(`clients/web`·`clients/web/src/`·`corner-controls-v5.ts`·`origin/main` 포함) → **HIT 18/18 REJECT** · 고친 판 인용 5개 → **HIT 0/18 통과 + BASE-RENEW**. arch 111 실측값과 일치.
+- 기존 시험(`evidence/r580/03-existing-tests.txt`): 나노 spawn 6종 중 4종 ALL PASS · 선행 FAIL 2종은 **origin/main 판에서도 같은 칸**(`body_press` ⓒ node_modules 스테이징 2칸 · `teamset_cap` `core.bare` 칸 = 팩 루트 cwd 탓) — 이 카드 무관. `bash -n` OK · kit/bin 두 사본 cmp0(`04-kit-bin-cmp.txt`).
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-spawn.sh` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.124 · `install.sh` REQUIRED 목록 변경 0 · 데몬 재기동 0. **LIVE_BIN 설치(cmp0 1) · 실사건 1(main 전진 뒤 재spawn 1건이 RECHECK 없이 통과 + `BASE-RENEW` 줄)은 master 소관 — 미실행.**
+- 범위 밖: 병합 줄 게이트(R243) · 판정문 꼴 · 기본 세트 경로 목록 · 카드 쪽 안내(폴더 대신 파일 이름) · press(나노는 쏘지 않는다).
+
 ## 2026-10-20 — 뉴스 «지도 만들기» 공급자 표에 opengateway 1줄 + 키 = pi 설정 (r575 · 1.1.123 · 동작 변경)
 
 - 사건(오빠 결정 «pi 딥식으로 변경 교체» · 슬랙 1792506609 · desk 쪽지 122981 · master 87 발주 122998 ① · arch 111 실측 2026-10-20 23:3x): 뉴스 틱의 요약 호출(`ft_news_html_render.py` HTTP 직접 경로)이 OpenRouter 의 haiku 계정 잔액 −0.19달러로 HTTP 402 → 발행 0(`/tmp/byz-ft-news-planner.log` 180·182·186·191행 `rc=402`). 나노가 쓰는 pi 의 deepseek 는 OpenRouter 가 아니라 **OpenGateway**(`https://apis.opengateway.ai/v1` · OpenAI 호환)라 402 와 무관 — 다만 공급자 표에 그 이름이 없어 지금 판은 `모델 id 접두 opengateway — HTTP 주소 없음` 으로 실패한다.
