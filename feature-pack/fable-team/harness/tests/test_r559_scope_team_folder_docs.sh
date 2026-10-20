@@ -46,8 +46,10 @@ cls "$SHA"; want "ⓓ 다른 팀 폴더로 이동(같은 이름·같은 내용) 
 mk e1 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo t > design/teams/x/evidence-t1/a.txt && echo "{}" > design/teams/x/evidence-t1/b.json && echo r > design/teams/x/evidence-t1/c.raw && echo s > design/teams/x/evidence-t1/sampdone && echo p > design/teams/x/evidence-t1/d.png'
 cls "$SHA"; want "ⓔ 팀 증거 비실행 파일 → CLASS docs" 0 "CLASS docs"
 # ⓕ 증거 폴더의 run.py·run.sh → docs · pytest 가 모으는 test_*.py·a_test.py·conftest.py → code · 100755 → forbid mode
-mk f1 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "print(1)" > design/teams/x/evidence-t1/run.py && echo "echo 1" > design/teams/x/evidence-t1/run.sh'
-cls "$SHA"; want "ⓕ evidence run.py·run.sh → CLASS docs" 0 "CLASS docs"
+mk f1 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "print(1)" > design/teams/x/evidence-t1/run.py'
+cls "$SHA"; want "ⓕ evidence run.py → CLASS code(pytest import 실행 · H3)" 0 "CLASS code"
+mk f1b "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "echo 1" > design/teams/x/evidence-t1/run.sh'
+cls "$SHA"; want "ⓕ evidence run.sh → CLASS docs(pytest 가 안 모은다)" 0 "CLASS docs"
 mk f2 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "def test_a(): pass" > design/teams/x/evidence-t1/test_a.py'; cls "$SHA"; want "ⓕ test_a.py → CLASS code" 0 "CLASS code"
 mk f3 "$BASE" 'mkdir -p design/teams/x && echo "def test_a(): pass" > design/teams/x/a_test.py'; cls "$SHA"; want "ⓕ a_test.py → CLASS code" 0 "CLASS code"
 mk f4 "$BASE" 'mkdir -p design/teams/x && echo "" > design/teams/x/conftest.py'; cls "$SHA"; want "ⓕ conftest.py → CLASS code" 0 "CLASS code"
@@ -74,6 +76,33 @@ mk k2d "$BASE" 'mkdir -p design/teams/x && printf "\x24 cat secrets/db.cred\n" >
 cls "$SHA"; want "ⓚ 줄머리 «\x24 » 명령 → FORBID(잡힘)" 3 "FORBID kind="
 mk k3 "$BASE" 'mkdir -p design/teams/x && echo "-----BEGIN RSA PRIVATE KEY-----" > design/teams/x/leak.md'
 cls "$SHA"; want "ⓚ 문서라도 키 원문 모양은 FORBID secret" 3 "FORBID kind=secret"
+# ⓛ~ⓠ DA⑥ r1 반례 — 추가 줄 추출 상태 기계(H1) · 문서 문맥(H2) · pytest import 코드(H3)
+mk l1 "$BASE" 'mkdir -p design/teams/x && printf "++ separator\n-----BEGIN RSA PRIVATE KEY-----\n" > design/teams/x/a.md'
+cls "$SHA"; want "ⓛ 문서: «++ » 로 시작하는 줄 다음 비밀 꼴 → FORBID(H1)" 3 "FORBID kind=secret"
+mk l2 "$BASE" 'mkdir -p design/teams/x && printf "++ separator\n-----BEGIN RSA PRIVATE KEY-----\n" > design/teams/x/run.py'
+cls "$SHA"; want "ⓛ code: «++ » 로 시작하는 줄 다음 비밀 꼴 → FORBID(H1)" 3 "FORBID kind=secret"
+mk l3 "$BASE" 'mkdir -p design/teams/x/indices/진행 && printf "++ separator\n-----BEGIN RSA PRIVATE KEY-----\n" > design/teams/x/indices/진행/C-a.md && git rm -q design/teams/x/indices/대기/C-a.md'
+cls "$SHA"; want "ⓛ 이동 카드 안 «++ » 줄 다음 비밀 꼴 → FORBID(H1)" 3 "FORBID kind=secret"
+mk m1 "$BASE" 'mkdir -p design/teams/x && printf "x\n-----BEGIN RSA PRIVATE KEY-----\n" > "design/teams/x/tab\tname.md"'
+cls "$SHA"; want "ⓜ 탭 든 파일 이름 + 비밀 꼴 → FORBID(경로 풀기 · H1)" 3 "FORBID kind=secret"
+mk n1 "$BASE" 'mkdir -p design/teams/x && printf "예시:\n\n\x60\x60\x60bash\necho 안전\n\x60\x60\x60\n" > design/teams/x/fence2.md'
+FENCE_SHA="$SHA"
+mk n2 "$BASE" 'mkdir -p design/teams/x && printf "예시:\n\n\x60\x60\x60bash\ncat secrets/x.cred\n\x60\x60\x60\n" > design/teams/x/fence2.md'
+cls "$SHA"; want "ⓝ 새 문서의 울타리 안 명령 → FORBID" 3 "FORBID kind="
+git -C "$W" reset -q --hard && git -C "$W" clean -qfd; git -C "$W" checkout -q -B n3 "$FENCE_SHA"; printf "예시:\n\n\x60\x60\x60bash\ncat secrets/x.cred\n\x60\x60\x60\n" > "$W/design/teams/x/fence2.md"
+git -C "$W" add -A; cm n3; cls "$(sha)"; want "ⓝ 기존 울타리 안 한 줄만 바꿈 → FORBID(문맥 판정 · H2)" 3 "FORBID kind="
+mk o1 "$BASE" 'mkdir -p design/teams/x && printf "목록:\n\n    cat secrets/x.cred\n" > design/teams/x/indent.md'
+cls "$SHA"; want "ⓞ 4칸 들여쓰기 코드 블록 명령 → FORBID(H2)" 3 "FORBID kind="
+mk o2 "$BASE" 'mkdir -p design/teams/x && printf "예시\n\n~~~\ncat secrets/x.cred\n~~~\n" > design/teams/x/tilde.md'
+cls "$SHA"; want "ⓞ ~~~ 울타리 안 명령 → FORBID(H2)" 3 "FORBID kind="
+mk o3 "$BASE" 'mkdir -p design/teams/x && printf "| 방법 | 값 |\n|---|---|\n| 확인 | \x60cat secrets/x.cred\x60 |\n" > design/teams/x/table.md'
+cls "$SHA"; want "ⓞ 표 칸 안 백틱 명령 → FORBID(H2)" 3 "FORBID kind="
+mk p1 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "" > design/teams/x/evidence-t1/__init__.py'
+cls "$SHA"; want "ⓟ evidence __init__.py → CLASS code(H3)" 0 "CLASS code"
+mk p2 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "def helper(): pass" > design/teams/x/evidence-t1/helper.py'
+cls "$SHA"; want "ⓟ evidence helper.py(import 됨) → CLASS code(H3)" 0 "CLASS code"
+mk q1 "$BASE" 'mkdir -p design/teams/x && echo "설명: cat secrets/x.cred 를 화면에 찍지 말 것" > design/teams/x/prose.md'
+cls "$SHA"; want "ⓠ 산문(f10 승인 예외) → CLASS docs 그대로" 0 "CLASS docs"
 # ⓘ 속도 — 1,000파일 · 6,676파일(v65 실사건 크기) 두 세트 · 파일당 git 호출 0
 speed() {  # speed <파일 수> → "초" (분류 1회)
   local n="$1" d="$T/sp$1"; mkdir -p "$d"; git init -q "$d/o.git" --bare; git clone -q "$d/o.git" "$d/w" 2>/dev/null

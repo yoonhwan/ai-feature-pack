@@ -8,7 +8,8 @@ PASS ⓓ 다른 팀 폴더로 이동(내용 바뀜) → FORBID(delete·move-chan
 PASS ⓓ indices 밖으로 이동(내용 바뀜) → FORBID
 PASS ⓓ 다른 팀 폴더로 이동(같은 이름·같은 내용) → 지금과 같이 CLASS docs(R100)
 FAIL ⓔ 팀 증거 비실행 파일 → CLASS docs :: rc=0 out=CLASS code
-FAIL ⓕ evidence run.py·run.sh → CLASS docs :: rc=0 out=CLASS code
+PASS ⓕ evidence run.py → CLASS code(pytest import 실행 · H3)
+FAIL ⓕ evidence run.sh → CLASS docs(pytest 가 안 모은다) :: rc=0 out=CLASS code
 PASS ⓕ test_a.py → CLASS code
 PASS ⓕ a_test.py → CLASS code
 PASS ⓕ conftest.py → CLASS code
@@ -24,9 +25,21 @@ PASS ⓚ f10b 코드 울타리 안 명령 줄 → FORBID(잡힘)
 PASS ⓚ 한 줄 코드 표기(\x60…\x60) 안 명령 → FORBID(잡힘)
 FAIL ⓚ 줄머리 «\x24 » 명령 → FORBID(잡힘) :: rc=0 out=CLASS docs
 PASS ⓚ 문서라도 키 원문 모양은 FORBID secret
-  ⓘ 1000파일 시간=0.32s rc=0 out=CLASS ff
-  ⓘ 6676파일 시간=1.73s rc=0 out=CLASS ff
+PASS ⓛ 문서: «++ » 로 시작하는 줄 다음 비밀 꼴 → FORBID(H1)
+PASS ⓛ code: «++ » 로 시작하는 줄 다음 비밀 꼴 → FORBID(H1)
+FAIL ⓛ 이동 카드 안 «++ » 줄 다음 비밀 꼴 → FORBID(H1) :: rc=3 out=FORBID kind=delete 상태 D: design/teams/x/indices/대기/C-a.md
+PASS ⓜ 탭 든 파일 이름 + 비밀 꼴 → FORBID(경로 풀기 · H1)
+PASS ⓝ 새 문서의 울타리 안 명령 → FORBID
+PASS ⓝ 기존 울타리 안 한 줄만 바꿈 → FORBID(문맥 판정 · H2)
+PASS ⓞ 4칸 들여쓰기 코드 블록 명령 → FORBID(H2)
+PASS ⓞ ~~~ 울타리 안 명령 → FORBID(H2)
+PASS ⓞ 표 칸 안 백틱 명령 → FORBID(H2)
+PASS ⓟ evidence __init__.py → CLASS code(H3)
+PASS ⓟ evidence helper.py(import 됨) → CLASS code(H3)
+PASS ⓠ 산문(f10 승인 예외) → CLASS docs 그대로
+  ⓘ 1000파일 시간=0.43s rc=0 out=CLASS ff
+  ⓘ 6676파일 시간=3.24s rc=0 out=CLASS ff
 PASS ⓘ 1000·6676 파일 세트 각 7초 안
 PASS ⓙ 기존 시험 파일 base 대조 diff = 승인된 f10 1칸만(2줄)
 PASS ⓙ 기존 분류기 시험 rc0(ALL PASS)
-FAILED 6
+FAILED 7

@@ -1,4 +1,4 @@
-== 내 변경만(merge-base 대조 · HEAD=e83a1cb2cb5eb37e2dbb40f61ef54f2d803a9310)
+== 내 변경만(merge-base 대조 · HEAD=879b1ed4d9ab31f33ccb5c5af8bf45f6ea06da75)
  feature-pack/fable-team/CHANGES.md                 |  12 +++
  .../harness/bin/autonomy_scope_classify.py         |  35 ++++---
  .../fable-team/harness/bin/autonomy_scope_rules.py |  32 +++++-
@@ -9,7 +9,7 @@
  .../harness/evidence/r559/02-after-pass.txt        |  34 +++++++
  .../harness/evidence/r559/03-profile-before.txt    |  21 ++++
  .../harness/evidence/r559/04-shell-cap.txt         |  15 +++
- .../harness/evidence/r559/05-base-diff.txt         |  33 ++++++
+ .../harness/evidence/r559/05-base-diff.txt         |  23 +++++
  .../kit/fable-team/bin/autonomy_scope_classify.py  |  35 ++++---
  .../kit/fable-team/bin/autonomy_scope_rules.py     |  32 +++++-
  .../kit/fable-team/bin/autonomy_scope_secret.py    |  51 ++++++++++
@@ -17,7 +17,18 @@
  .../harness/tests/test_autonomy_scope_classify.sh  |   2 +-
  .../tests/test_r559_scope_team_folder_docs.sh      | 112 +++++++++++++++++++++
  feature-pack/fable-team/manifest.json              |   2 +-
- 18 files changed, 536 insertions(+), 50 deletions(-)
+ 18 files changed, 526 insertions(+), 50 deletions(-)
 
 == 작업 트리
+ M feature-pack/fable-team/CHANGES.md
+ M feature-pack/fable-team/harness/bin/autonomy_scope_classify.py
+ M feature-pack/fable-team/harness/bin/autonomy_scope_rules.py
+ M feature-pack/fable-team/harness/bin/autonomy_scope_secret.py
+ M feature-pack/fable-team/harness/evidence/r559/00-before-red.txt
+ M feature-pack/fable-team/harness/evidence/r559/01-real-sets-before-after.txt
+ M feature-pack/fable-team/harness/evidence/r559/02-after-pass.txt
  M feature-pack/fable-team/harness/evidence/r559/05-base-diff.txt
+ M feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_classify.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_rules.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/autonomy_scope_secret.py
+ M feature-pack/fable-team/harness/tests/test_r559_scope_team_folder_docs.sh

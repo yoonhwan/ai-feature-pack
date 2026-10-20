@@ -23,7 +23,7 @@ BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     # 팀 폴더 첫 문서 착지(r559) — 낱말 금지 «아래»(팀 폴더 안이라도 결제 낱말 경로는 금지 유지 · ⓗ)
     ("code", "pytest", r"^design/teams/[^/]+/(.*/)?(test_[^/]*\.py|[^/]*_test\.py|conftest\.py)$"),   # 시험 도구가 모으는 파일 = 계속 코드
     ("docs", "team-file", r"^design/teams/[^/]+/(?!.*\.(py|sh)$).+$"),                             # 팀 폴더의 실행 안 되는 파일
-    ("docs", "team-evidence", r"^design/teams/[^/]+/evidence[^/]*/.+\.(py|sh)$"),                   # 증거 폴더의 도구도 실행 대상 아님
+    ("docs", "team-evidence", r"^design/teams/[^/]+/evidence[^/]*/.+\.sh$"),                        # 증거 폴더 .sh 만(pytest 가 안 모은다) — .py 는 code(import 부작용 · H3)
     ("code", "code", r"."),
 ]]
 

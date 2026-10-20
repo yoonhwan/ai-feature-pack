@@ -55,19 +55,6 @@ def parse_raw(out):   # `git diff --raw -z -M` → [(옛 모드, 새 모드, 상
     return rows
 
 
-def added_blocks(repo, base, sha):   # [(경로, [추가 줄…])] — diff 1회(파일마다 git 호출 0 · r559)
-    out, blocks, cur = git(repo, "diff", "--no-color", "--no-renames", "-U0", base, sha), [], None
-    for ln in out.split("\n"):
-        if ln.startswith("+++ "):
-            cur = [] if ln.startswith("+++ b/") else None
-            if cur is not None:
-                blocks.append((ln[6:], cur))
-        elif ln.startswith("+") and cur is not None:
-            cur.append(ln[1:])
-    return blocks
-
-
-
 def patch_id(repo, a, b):
     diff = git(repo, "diff", "--no-color", "--no-renames", "-U0", a, b)
     if not diff.strip():
@@ -116,12 +103,12 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     rows = parse_raw(git(repo, "diff", "--raw", "-z", "-M", base, sha))
     if not rows:
         raise Err("빈 diff(승인할 변경 없음)")
-    blocks = added_blocks(repo, base, sha)   # diff 1회(파일마다 git 호출 0) · added = ddl 기록 대조용 전문
-    added = "\n".join(ln for _p, lines in blocks for ln in lines)
+    blocks = secret_lines.parse_added(git, repo, base, sha)   # diff 상태 기계(파일마다 git 호출 0) · added = ddl 기록 대조용 전문
+    added = "\n".join(t for _p, items, _n in blocks for _no, t in items)
     ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
     table = table or rules.BYZ_TABLE   # D+A 짝 맞추기(카드 이동)를 먼저 · 판정은 행마다
     judged = [rules.judge_row(table, r, ddl_ok) for r in rules.pair_card_moves(table, rows)]
-    secret = secret_lines.reason(blocks, lambda p: rules.path_class(table, p))   # code 파일 전문만 plan(r559 속도) · 이유 글자 종전 그대로
+    secret = secret_lines.reason(blocks, lambda p: rules.path_class(table, p), repo, sha)   # code 전문 · 문서는 실행 줄만(r559)
     if secret:
         judged.append(("forbid", "secret", secret))
     used = rules.apply_learned(judged, learned)
