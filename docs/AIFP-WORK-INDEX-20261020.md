@@ -1,4 +1,4 @@
-# ai-feature-pack 작업 인덱스 (2026-10-20 · 기준 origin/main `ccfa775d` = PR #148 · 작성 시점 `0b9e3618`=PR #145)
+# ai-feature-pack 작업 인덱스 (2026-10-20 · 기준 origin/main `6231d988` = PR #151 Pi parity · 이전 `ccfa775d` = PR #148 · 작성 시점 `0b9e3618`=PR #145)
 
 > 골(원문): 「팀 구성·작업 우선순위를 팀장이 알아서 판단」의 입력 = 이 저장소의 작업 인덱스(무엇이 열려 있고 무엇이 막혔는지)
 > 닫는 증거 = 인덱스 파일 경로 + 우선순위 1~3 + 근거 sha/PR 번호
@@ -49,3 +49,10 @@ squash 머지라 `--no-merged` 가 착지된 가지를 미착지로 셉니다 �
 ## 이 리포의 운영 함정
 - 같은 파일을 건드리면 충돌 — 착지 전 항상 최신 origin/main 위에서. 로컬 main 직접 커밋 금지(`.worktrees/<브랜치>`).
 - 파괴(브랜치 삭제·force push·kill)는 HIL.
+
+## 갱신 (2026-10-20 저녁)
+- ✅ PR #146(tmm 0.8.5) · #148(tmm 0.9.0) · #151(Pi parity: agent-cli 2.2.0 · tmuxc 0.4.2 · tmm 0.9.1) 머지 · main `6231d988` · tmm 0.9.1 설치 완료(오빠 `! bash /tmp/h9002`)
+- ✅ main 작업 트리 미커밋 23파일 정리(오빠 `! bash /tmp/h9003`) — 전부 origin/main 에 흡수·대체 확인 · 백업 `/tmp/main-dirty-20261020.patch` · 로컬 main = origin/main · `.bak-r386` 3개 삭제(main 과 동일)
+- 하네스 직렬 대기: r534(1.1.88, PR #150) · r536(1.1.89, PR #152) · … · r540(pi 꼬리 허용)·r542(나노워커 pi 전환) 1.1.92 이후 — 속도 측정(pi 3.5~7배 빠름 · opencode 무료 경로 이 IP 차단) 전달 완료
+- 좌석: aifp-pi-master#1(pi · 읽기 전용 · `.worktrees/pi-parity`) · 이름 lint 는 r540 대기
+- 정정: 속도 측정이 main 트리 루트에 `count_files.sh` 를 만들었던 것(제 실수) 삭제함 — 측정은 임시 폴더에서 돌릴 것
