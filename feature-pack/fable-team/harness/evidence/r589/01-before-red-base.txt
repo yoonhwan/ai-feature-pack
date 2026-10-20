@@ -1,0 +1,29 @@
+PASS bash -n watch
+PASS 키트 사본 cmp 0 watch
+FAIL ⓐ 자기 링크 → 로그 WARN 1줄 — «0» ≠ «1»
+FAIL ⓐ 로그 줄 = 경로 → 대상 — 없음: «WARN node_modules 자기 링크 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aYSxCqw9aH/R/clients/web/node_modules/node_modules → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aYSxCqw9aH/R/clients/web/node_modules» ← 2026-10-20T16:44:02Z	gate WARN resource rate=na pressure.tsv 표본 1줄 — 속도 칸만 건너뛰고 판정
+2026-10-20T16:44:02Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+FAIL ⓐ planner 쪽지 1통 — «0» ≠ «1»
+FAIL ⓐ 수신자 = planner 명부 _master — 없음: «send byz-t-planner-claude#9 » ← 
+FAIL ⓐ 쪽지 제목 «[장비 정리]» — 없음: «[장비 정리]» ← 
+FAIL ⓐ 쪽지에 원인 한 줄 — 없음: «루트 FE 500 원인» ← 
+FAIL ⓐ 쪽지에 «지우기: unlink <경로>» — 없음: «지우기: unlink /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aYSxCqw9aH/R/clients/web/node_modules/node_modules» ← 
+PASS ⓐ 링크는 그대로(삭제 0)
+FAIL ⓑ 같은 서명 다음 틱 → 쪽지 0(누적 1) — «0» ≠ «1»
+FAIL ⓑ 같은 서명 다음 틱 → 로그 WARN 중복 0 — «0» ≠ «1»
+FAIL ⓑ 대상이 바뀌면(서명 변경) 쪽지 1통 더 — «0» ≠ «2»
+FAIL ⓑ 서명이 바뀌면 로그 WARN 1줄 더 — «0» ≠ «2»
+FAIL ⓒ 일반 폴더 node_modules → 쪽지 0 — «0» ≠ «2»
+FAIL ⓒ 일반 폴더 node_modules → 로그 WARN 0 — «0» ≠ «2»
+FAIL ⓓ 폴더 없음 → 쪽지 0 — «0» ≠ «2»
+FAIL ⓓ 폴더 없음 → 로그 WARN 0 — «0» ≠ «2»
+FAIL ⓔ planner _master 없음 → 로그 ERROR — 없음: «ERROR 자기 링크 쪽지 수신자 없음» ← 2026-10-20T16:44:02Z	gate WARN resource rate=na pressure.tsv 표본 1줄 — 속도 칸만 건너뛰고 판정
+2026-10-20T16:44:02Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T16:44:03Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T16:44:03Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T16:44:04Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T16:44:04Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-20T16:44:05Z	ERROR 
+FAIL ⓔ 명부 없음 → 쪽지 0(발신 안 함) — «0» ≠ «2»
+---- fail=17
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
