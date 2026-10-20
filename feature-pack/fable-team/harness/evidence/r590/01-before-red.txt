@@ -1,0 +1,11 @@
+$ git rev-parse --short origin/main
+1a5e310b
+$ git checkout origin/main -- harness/kit/fable-team/bin/ft_news_html_render.py harness/bin/ft_news_html_render.py
+$ python3.11 -m pytest tests/scripts/test_news_summary_schema_lines.py -q
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_summary_schema_lines.py::test_r590_a_summary_prompt_speaks_one_line_number
+FAILED tests/scripts/test_news_summary_schema_lines.py::test_r590_b_both_numbers_follow_the_constant
+2 failed, 2 passed in 0.49s
+$ git show origin/main:…/kit/fable-team/bin/ft_news_html_render.py | grep -n "3줄 이하\|1~2줄"
+54:SCHEMAS = {"summary": '["3줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
+62:                '- "summary" = 1~2줄 · 네가 쓴 줄은 합쳐 500바이트 이하 · 첫 줄은 코드가 넣는다.\n'

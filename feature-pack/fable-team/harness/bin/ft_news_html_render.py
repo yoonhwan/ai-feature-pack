@@ -51,7 +51,7 @@ WORK_ICON = ('<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx=
              '<circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/>'
              '<path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>')
 TEMPLATES = (HERE.parent / "templates", HERE.parent / "kit" / "fable-team" / "templates")  # 설치본·키트 bin 옆 → 팩 harness/bin 옆
-SCHEMAS = {"summary": '["3줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
+SCHEMAS = {"summary": f'["{SUMMARY_LINES - 1}줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
            "goals": '[{"done":"","now":"","left":"","hot":false}]', "team_notes": '[{"team":"live 의 team 그대로","text":""}]'}
 FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
               '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
@@ -59,7 +59,7 @@ FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» 
               '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
-                '- "summary" = 1~2줄 · 네가 쓴 줄은 합쳐 500바이트 이하 · 첫 줄은 코드가 넣는다.\n'
+                f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 500바이트 이하 · 첫 줄은 코드가 넣는다.\n'  # r590 — 견본과 같은 상한에서 만든다
                 '- 팀 상태(일함·쉼·정지·확인 불가·몇 팀)는 쓰지 말 것 — 첫 줄 «팀 상태» 는 코드가 좌석 실측으로 넣는다(r588).\n'
                 '- 근거 번호(#숫자 · 판정 번호 · 커밋 sha · 카드 번호)는 "refs" 에만(10개 이하).\n' + FACT_RULES, 700),
     "important": (("important",), ("now", "facts", "goals", "ledger", "urgent"),

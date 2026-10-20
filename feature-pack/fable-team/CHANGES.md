@@ -1,3 +1,12 @@
+## 2026-10-21 — 뉴스 요약 프롬프트 안 줄 수 지시 둘이 어긋남(견본 «3줄 이하» ↔ 규칙 «1~2줄») → 견본·규칙 줄을 상한 상수 한 곳(SUMMARY_LINES - 1)에서 만든다 (r590 · 1.1.133 · 동작 변경 · ERROR 판정·자르기 규칙 무변경)
+
+- 사건(master 87 발주 124059 · arch 112 실측 2026-10-21 01:5x · `/tmp/byz-ft-news-planner.log` 293행): r588 이 요약 첫 줄을 코드가 넣게 바꾸면서 규칙 줄은 «1~2줄» 로 고쳤는데, 같은 프롬프트의 «응답 꼴 견본» 은 옛 값 `["3줄 이하"]` 그대로였다 — 모델이 3줄을 내면 상태 줄까지 4줄이 되어 «요약 4줄·536B — 팀 상태 줄 포함 3줄·600B 이내여야 한다(자르지 않는다)» 로 발행 0.
+- 고침(`ft_news_html_render.py` 2곳): `SCHEMAS["summary"]` 견본과 summary 갈래 규칙 줄의 줄 수를 둘 다 `SUMMARY_LINES - 1` f-string 으로 만든다 — 글자 숫자 하드코딩 0 · 상한을 바꾸면 둘 다 따라간다. `add_status_line` 의 ERROR 판정·문구, 바이트 상한(500/600)·상태 줄 내용(r588)·린트·다른 갈래 견본은 글자 그대로 무변경.
+- 시험 `harness/tests/scripts/test_news_summary_schema_lines.py` ⓐ~ⓓ(가짜 opencode · 실 모델·슬랙·좌석 0): ⓐ summary 프롬프트 안 줄 수 숫자가 한 값(견본 «2줄 이하» · 규칙 «1~2줄») ⓑ 상한을 4로 바꾼 사본은 견본·규칙 줄이 «3» 으로 따라감(하드코딩 0) ⓒ 모델 3줄 = 상태 줄 포함 4줄 → `NewsHtmlError`(«자르지 않는다» · html 0) ⓓ 모델 2줄 + 상태 줄 = 3줄 → 통과(린트 0 · 상태 줄이 첫 줄). **전(origin/main 판 = ⓐ·ⓑ FAIL 2) → 후 4 passed**(`evidence/r590/01-before-red.txt`·`02-after-pass.txt`).
+- 기존 시험(이 카드 인접만 · 광역 0 · `evidence/r590/03-existing-tests.txt`): `test_ft_news_html.py`·`test_news_team_status_line.py`·`test_news_summary_schema_lines.py` = 51 passed rc0. kit/bin 두 사본 cmp0 · `py_compile` rc=0 · ruff rc=0(`04-kit-bin-cmp.txt`).
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft_news_html_render.py` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.132 · `install.sh` REQUIRED 변경 0 · **LIVE_BIN 설치(cmp0 1)·뉴스 데몬 재기동·실사건 1(틱 10회)은 master 소관 — 미실행.** 되돌림 = `.bak-r590`. press(라이브 오디오 시험) 아님 — 나노는 쏘지 않는다. `press 필요: 설치 뒤 뉴스 틱 10회 «요약 N줄 … 이내여야 한다» ERROR 0 + 발행 완료 원문` (master·tester 소관).
+- 범위 밖: 상태 줄 내용(r588) · 바이트 상한 값 · 린트 · 다른 갈래 견본 · 공급자·재시도.
+
 ## 2026-10-21 — 팀 폴더 이동 확인(--verify)이 팀 폴더 «안» 파일만 봐 코드·시험에 박힌 옛 경로를 놓치던 것 → 코드·시험 옛 경로를 ERR 로 짚고 --plan 은 BEFORE code-ref 줄 + blockers (r587 · 1.1.132 · 동작 변경 · 적용/되돌림·자동 재작성 무변경)
 
 - 사건(ops 쪽지 123753 · master 87 발주 123772 ③ · arch 112 실측 2026-10-21 01:2x): `design/cfo→teams/cfo`(ad7253b141)·`design/ops→teams/ops`(edbd9d2300) 이동 뒤 main 시험 6 FAIL — 이동 도구는 카드·명부·지도 같은 «저장 참조» 만 고치고, 코드·시험 안에 박힌 `design/<팀>/` 문자열은 보지 않았다. `--verify` 의 잔여 옛 경로 검사는 `folder.rglob("*")` = 팀 폴더 «안» 만 WARN. 남은 rag·sql 이동 때 시험 9파일 재발 예상(BYZ origin/main `git grep -l 'design/(cfo|ops|rag|sql)/' -- tests scripts` = 12파일).

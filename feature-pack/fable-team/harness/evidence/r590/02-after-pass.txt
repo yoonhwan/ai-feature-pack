@@ -1,0 +1,7 @@
+$ python3.11 -m pytest tests/scripts/test_news_summary_schema_lines.py -q
+....                                                                     [100%]
+4 passed in 0.60s
+$ summary 프롬프트 글(견본·규칙 줄) — 한 값 2만
+- "summary" = 1~2줄 · 네가 쓴 줄은 합쳐 500바이트 이하 · 첫 줄은 코드가 넣는다.
+{"summary":["2줄 이하"],"refs":["근거 번호"]}
+SUMMARY_LINES = 3 · 모델 줄 상한 = 2
