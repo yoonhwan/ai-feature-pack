@@ -1,0 +1,12 @@
+== test_team_move_occupancy rc=0
+PASS ⓒ  └ 둘째 팀(planner) 미이동
+== fail=0
+== test_team_move_resume rc=0
+PASS ⓔ 이어하기 끝난 뒤 --verify --all ERR=0
+== fail=0
+== test_team_path_oldpath_md rc=0
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_team_move_roundtrip rc=1
+== fail=3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

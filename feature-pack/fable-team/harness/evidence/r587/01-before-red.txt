@@ -1,0 +1,62 @@
+== ⓒ 이동 전 --plan: BEFORE code-ref 2 + blockers 에 셈
+PASS ⓒ plan rc0
+FAIL ⓒ BEFORE x code-ref 2(tests/test_x.py · scripts/y.sh) — 없음: «BEFORE x code-ref 2» ← PLAN x design/x/ → design/teams/x/
+  REF1 팀 폴더 파일 2개 design/x/
+  REF2 TEAMS.md design/x/
+  REF3 명부 seats-x.json 없음(건너뜀)
+  REF4 nano-card-base 파일 0개
+  REF5 worktree-info 파일 0개
+  REF6 baton branches.json 참조 0곳
+  REF7 텍스트 카드·README 등 1파일 · .gitignore 0곳 · 추가 0파일
+PLAN-END blockers=0
+FAIL ⓒ blockers 에 code-ref 2 가 들어간다 — 없음: «PLAN-END blockers=2» ← PLAN x design/x/ → design/teams/x/
+  REF1 팀 폴더 파일 2개 design/x/
+  REF2 TEAMS.md design/x/
+  REF3 명부 seats-x.json 없음(건너뜀)
+  REF4 nano-card-base 파일 0개
+  REF5 worktree-info 파일 0개
+  REF6 baton branches.json 참조 0곳
+  REF7 텍스트 카드·README 등 1파일 · .gitignore 0곳 · 추가 0파일
+PLAN-END blockers=0
+== ⓐ 이동 뒤 --verify: 코드·시험 옛 경로 = ERR(기록은 셈 밖)
+PASS ⓐ apply x rc0
+FAIL ⓐ verify rc1(ERR>0) — 기대 «1» 실제 «0»
+FAIL ⓐ ERR tests/test_x.py:1 — 없음: «ERR x 코드 옛 경로 design/x/ : tests/test_x.py:1» ← WARN x 잔여 옛 경로 design/x/ : design/teams/x/CLOSEOUT.md
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/evidence/old.txt
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/archive/old.md
+VERIFY ERR=0 WARN=3
+FAIL ⓐ ERR scripts/y.sh:2 — 없음: «ERR x 코드 옛 경로 design/x/ : scripts/y.sh:2» ← WARN x 잔여 옛 경로 design/x/ : design/teams/x/CLOSEOUT.md
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/evidence/old.txt
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/archive/old.md
+VERIFY ERR=0 WARN=3
+FAIL ⓐ VERIFY ERR=2(코드·시험 2파일) — 없음: «VERIFY ERR=2» ← WARN x 잔여 옛 경로 design/x/ : design/teams/x/CLOSEOUT.md
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/evidence/old.txt
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/archive/old.md
+VERIFY ERR=0 WARN=3
+FAIL ⓑ archive 기록은 셈 밖(ERR·WARN 0) — 있으면 안 됨: «archive/old.md» ← WARN x 잔여 옛 경로 design/x/ : design/teams/x/CLOSEOUT.md
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/evidence/old.txt
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/archive/old.md
+VERIFY ERR=0 WARN=3
+FAIL ⓑ evidence 기록은 셈 밖 — 있으면 안 됨: «evidence/old.txt» ← WARN x 잔여 옛 경로 design/x/ : design/teams/x/CLOSEOUT.md
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/evidence/old.txt
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/archive/old.md
+VERIFY ERR=0 WARN=3
+FAIL ⓑ CLOSEOUT 기록은 셈 밖 — 있으면 안 됨: «CLOSEOUT.md» ← WARN x 잔여 옛 경로 design/x/ : design/teams/x/CLOSEOUT.md
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/evidence/old.txt
+WARN x 잔여 옛 경로 design/x/ : design/teams/x/archive/old.md
+VERIFY ERR=0 WARN=3
+== ⓑ code_refs 직접 호출 — 기록 폴더 제외 · 히트 = (경로, 줄)
+FAIL ⓑ code_refs = 코드·시험 2건(기록 3종 제외) · 경로 정렬 — 기대 «[["scripts/y.sh", 2], ["tests/test_x.py", 1]]» 실제 «Traceback (most recent call last):
+  File "<string>", line 5, in <module>
+    print(json.dumps(m.code_refs(m.make_ctx(), "x")))
+                     ^^^^^^^^^^^
+AttributeError: module 'ft_team_move' has no attribute 'code_refs'»
+== ⓓ 옛 경로 0 이면 VERIFY ERR=0 그대로
+PASS ⓓ verify rc0
+PASS ⓓ 코드·시험에 옛 경로 0 + 기록만 있음 → ERR=0(기록은 셈 밖)
+== 0 문법 · 키트 사본 cmp0
+PASS ast ft_team_move.py
+PASS ast ft_team_move_apply.py
+PASS 키트 사본 cmp0 ft_team_move.py
+PASS 키트 사본 cmp0 ft-team-move.sh
+== fail=10
