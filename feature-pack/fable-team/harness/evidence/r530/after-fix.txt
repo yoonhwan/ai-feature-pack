@@ -1,0 +1,37 @@
+PASS 판정기 파일 있음
+PASS ⓐ 큐 2줄 보류 --staged rc=1
+PASS ⓐ REJECT 머리
+PASS ⓐ q3 줄 번호(7)
+PASS ⓐ q9 줄 번호(13)
+PASS ⓐ 사유 문구
+PASS ⓑ 큐 1줄 보류 rc=0
+PASS ⓑ OK 줄
+PASS ⓒ 새 줄 2개 처음부터 보류 rc=1
+PASS ⓓ 카드 2장 보류 rc=1
+PASS ⓓ 카드 이름 c1
+PASS ⓓ 카드 이름 c2
+PASS ⓓ 카드 1장 보류 rc=0
+PASS ⓓ' 큐 1줄 + 카드 1장 합계 2 rc=1
+PASS ⓔ 보류 3줄·카드 2장 풀기 rc=0
+PASS ⓔ OK 0줄
+PASS ⓔ 이미 보류인 카드 2장 폴더 이동(git mv) = 새 보류 아님 rc=0
+PASS ⓖ --range 2줄 보류 커밋 rc=1
+PASS ⓖ range REJECT 머리
+PASS ⓖ --range 1줄 보류 커밋 rc=0
+PASS ⓖ 없는 rev = git 실패 rc2 rc=2
+PASS ⓖ 인자 없음 rc2 rc=2
+PASS ⓕ git commit + 큐 2줄 보류 = exit 2 rc=2
+PASS ⓕ stderr REJECT
+PASS ⓕ REJECT 1줄
+PASS ⓕ cd 따라감 = exit 2 rc=2
+PASS ⓕ git commit 아닌 명령 = 통과 rc=0
+PASS ⓕ 따옴표 안 글자 = 통과 rc=0
+PASS ⓕ 판정기 없음 = 통과(fail-open) rc=0
+PASS ⓕ 판정기 없음 WARN
+PASS ⓕ JSON 깨짐 = 통과 rc=0
+PASS ⓕ JSON 깨짐 WARN
+PASS ⓕ -a(작업 트리만 2줄 보류) = exit 2 rc=2
+PASS ⓕ 스테이징 0 + 평범한 커밋 = 통과 rc=0
+PASS ⓕ 1줄 보류 커밋 = 통과 rc=0
+PASS ⓖ 기존 test_harness_freeze_gate.sh rc=0
+== ALL PASS ==

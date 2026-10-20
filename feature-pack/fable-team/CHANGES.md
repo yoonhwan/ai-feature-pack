@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 오빠 큐 줄 = 번호·팀·보여준 시각 칸 + `ft-queue.sh shown|due|take|remind` · 틱이 보여준 지 1시간 넘은 대기 줄을 그 팀 master 에 [재질문] (r529 · 1.1.84)
+## 2026-10-20 — 오빠 큐 줄 = 번호·팀·보여준 시각 칸 + `ft-queue.sh shown|due|take|remind` · 틱이 보여준 지 1시간 넘은 대기 줄을 그 팀 master 에 [재질문] (r529 · 1.1.85)
 
 - 사건: 오빠 큐 줄이 «언제 오빠께 보였는지» 기록이 없어 한 번 묻고 나면 아무도 다시 안 묻고, 오빠 값이 와도 그 팀이 줄을 꺼내 재개하는 길이 없다(오빠 09:2x «각팀 마스터 팀장이 큐를 보게하고 내결정 노출시간이 한시간 이상 지나면 다시 물어보고 팀장이 꺼내서 다시 진행가능해야함» · desk 26 쪽지 119482 → master 83 발주 119484 카드 ②).
 - 큐 칸 셋 = 상태 칸 «뒤» `번호 | 팀 | 보여준 시각`(머리 이름으로 찾음 · 옛 7칸 줄은 셋 다 `-` 로 읽음 · 옛 줄 고쳐 쓰기 0 · 옛 머리 큐에 새 줄을 쓰면 머리·구분 행만 10칸으로). 파서 `ft_queue_state.py` 무변경(r528 시험 «상태 뒤 칸이 늘어도 그대로»).
@@ -10,6 +10,15 @@
 - 시험 새 `test_queue_reask_r529.sh`(임시 큐·명부·가짜 mbox · `FT_NOW` · 외부 호출 0 · GIT_* 0) ⓐ~ⓗ — 고치기 전 FAIL 43(`harness/evidence/r529/before-fix.txt` · 같은 최종 시험을 팩 origin/main 코드에) · 고친 뒤 ALL PASS 52(`after-fix.txt`). `test_queue_state_r528.sh` ⓔ 기대 꼴 = 10칸 · 상태 칸 대기(7칸 단정을 r529 꼴로). 기존 시험 9개 rc0 · pytest decision_count 2파일 33 passed · ruff·shellcheck 0(`existing-tests.txt`). 정본 큐 사본 읽기 전용 미리 보기 `QUEUE-DUE n=0 old=30`(`real-queue-due-preview.txt` — 열린 옛 줄 30 은 번호가 없어 재질문 대상 밖 · 새 줄부터 적용).
 - 설치: 키트 5(`ft-queue.sh` · `ft_queue.py` · `ft_queue_remind.py` · `ft-proxy-decide.sh` · `ft-tick.sh` · harness/bin 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 5 · 틱 launchd kickstart 1회(plist 0) · 홈 0 · 되돌림 = `.bak-r529`.
 - 범위 밖: desk 질문 도구가 `shown` 을 부르는 연결(desk 쪽 1줄 · master 가 설치 때 알림) · 묶음 질문(r165 — «답 반영» = `take`) · 열린 옛 줄 30 에 번호 붙이기·일괄 정리(r530 · 인터뷰 때 줄마다).
+## 2026-10-20 — 일괄 보류 금지: 한 커밋에서 큐 줄·카드 상태를 2개 이상 «보류» 로 바꾸면 커밋 REJECT (r530 · 1.1.84)
+
+- 사건: 10-18 전팀 정지 뒤 오빠 큐(`AUTONOMY-QUEUE.md`) 23줄에 같은 문장 «보류 — 10-18 전팀 정지(판정 2253) 뒤 오빠 대기 아님 · 재개 때 팀별 재확인» 이 한 커밋(BYZ d575bb1ace)으로 붙고 아무도 다시 안 꺼냄. 오빠 결정(desk 쪽지 119482) «일괄 보류 절대금지» → master 83 발주 119484 · 카드 r530.
+- 새 `kit/fable-team/bin/ft_queue_bulk.py bulk-check --staged [--worktree] | --range A..B [--repo <dir>]`(harness/bin 짝 cmp0): 대상 = 큐(이름 `AUTONOMY-QUEUE.md`) 상태 칸(옛 «처리됨») + `design/**/indices/**/*.md` 카드 «- 상태:» 줄. 옛 값(없으면 새 줄) → 새 값이 «보류» 인 것만 셈 · ≥2 = rc1 `REJECT 일괄 보류 N줄(<큐>:<줄>,<카드>.md…) — 보류는 한 번에 한 줄 · 줄마다 사유·재확인 시각 · 전팀 정지는 줄 대신 ft-spawn-hold.sh 정지 파일(«일시정지»)` · 아니면 rc0 `OK 일괄 보류 <n>줄` · git 실패·인자 오류 = stderr ERROR rc2. 큐 칸 판정 = r528 `ft_queue_state.parse` 그대로(import) · 줄 짝 = 상태 칸 밖 칸 묶음 · 카드 이동(git mv · `-M`)은 옛 경로와 비교 · 풀기(보류 → 대기·진행·완료)는 안 셈. 읽기만.
+- `kit/hooks/harness-freeze-gate.sh` 규칙 1 추가(새 홈 훅 0 · settings 등록 변경 0): 이미 잡은 «git commit 대상 저장소 + 대상 파일(스테이징 · -a 꼴이면 작업 트리도)» 에 큐·`/indices/` 가 있으면 `bulk-check --staged [--worktree]` → rc1 = exit 2 + stderr `🚫 [harness-freeze-gate] REJECT 일괄 보류 …` 1줄 · freeze 표식 유무와 무관(규칙별 독립). 판정기 = env `FT_QUEUE_BULK` · 아니면 대상 저장소 → JSON cwd 저장소 공용 루트 `.fable-team/LIVE_BIN`. 못 찾음·rc2 = 통과 + stderr WARN(fail-open) · 입력 JSON 깨짐 = 통과 + WARN(전엔 조용한 통과).
+- BOOT 조항 43 1줄(스테이징 `harness/design/harness/staged-r530/COMM-GUIDE-BOOT.md` = 홈 BOOT + 1줄 · diff 1): 큐 상태 4 + 정지 종류 3 · 보류는 한 줄씩 · 일괄 보류 = 훅 REJECT · 대기 줄 1시간 재질문 `ft-queue.sh take`(r529).
+- 시험 `test_queue_bulk_r530.sh`(새 · 임시 git 리포 · 큐 md + 카드 2장 · PreToolUse JSON · 외부 호출 0 · GIT_* 0) ⓐ 큐 2줄 → REJECT(줄 번호) ⓑ 1줄 → OK ⓒ 새 줄 2개 처음부터 보류 → REJECT ⓓ 카드 2장 → REJECT · 1장 → OK · 큐 1 + 카드 1 → REJECT ⓔ 풀기 3줄·카드 2장 → OK · 보류 카드 2장 git mv → OK ⓕ 훅 commit/cd/-a → exit 2 · 비커밋·따옴표 글자·1줄 → 0 · 판정기 없음·JSON 깨짐 → 0 + WARN ⓖ `--range` 같은 판정 · 없는 rev rc2 · 기존 `test_harness_freeze_gate.sh` rc0. 고치기 전 FAIL 27(`harness/evidence/r530/before-fix.txt`) · 고친 뒤 ALL PASS(`after-fix.txt`) · 뮤테이션 5종 전부 RED(`mutation.txt`) · 기존 5파일 rc0(`existing-tests.txt`) · BYZ 큐 이력 읽기 전용 재생: 사건 커밋 d575bb1ace = `REJECT 일괄 보류 23줄` · 나머지 OK(`real-queue-history.txt`).
+- 설치: 키트 1(`ft_queue_bulk.py`) + 홈 훅 1(`harness-freeze-gate.sh`) → `install.sh --apply --project <루트>` → HOOKS bad=0 · 홈 훅 cmp0 · LIVE_BIN cmp0 1 · settings 변경 0 · BOOT = staged-r530 을 홈 `~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md` 로 cp+cmp(master) · 되돌림 = `.bak-r530`.
+- 범위 밖: 지금 큐 23줄 풀기(desk 인터뷰 때 줄마다) · Edit/Write 단계 차단 · 정지 파일 자동 생성 · 훅 이름 바꾸기(r532).
 
 ## 2026-10-20 — 오빠 큐 상태 칸 = 대기·진행·보류·완료 넷 + 정지 종류 셋 · 어휘 정본 1장 + 린트 + 새 줄 «대기» (r528 · 1.1.83)
 

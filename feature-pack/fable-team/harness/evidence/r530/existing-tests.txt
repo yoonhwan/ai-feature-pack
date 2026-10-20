@@ -1,0 +1,5 @@
+test_harness_freeze_gate.sh rc=0 :: == ALL PASS ==
+test_queue_state_r528.sh rc=0 :: ALL PASS
+test_install_hook_check.sh rc=0 :: ALL PASS
+test_proxy_decide_queue_card_resolve.sh rc=0 :: == ALL PASS
+test_kit_bin_sync.sh rc=0 :: ALL PASS

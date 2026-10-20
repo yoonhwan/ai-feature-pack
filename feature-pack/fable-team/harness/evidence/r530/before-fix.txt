@@ -1,0 +1,37 @@
+FAIL 판정기 파일 없음: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py
+FAIL ⓐ 큐 2줄 보류 --staged — rc=2 기대 1 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓐ REJECT 머리 — 'REJECT 일괄 보류 2줄(' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓐ q3 줄 번호(7) — 'AUTONOMY-QUEUE.md:7' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓐ q9 줄 번호(13) — 'AUTONOMY-QUEUE.md:13' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓐ 사유 문구 — '보류는 한 번에 한 줄 · 줄마다 사유·재확인 시각' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓑ 큐 1줄 보류 — rc=2 기대 0 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓑ OK 줄 — 'OK 일괄 보류 1줄' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓒ 새 줄 2개 처음부터 보류 — rc=2 기대 1 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓓ 카드 2장 보류 — rc=2 기대 1 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓓ 카드 이름 c1 — 'c1.md' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓓ 카드 이름 c2 — 'c2.md' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓓ 카드 1장 보류 — rc=2 기대 0 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓓ' 큐 1줄 + 카드 1장 합계 2 — rc=2 기대 1 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓔ 보류 3줄·카드 2장 풀기 — rc=2 기대 0 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓔ OK 0줄 — 'OK 일괄 보류 0줄' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓔ 이미 보류인 카드 2장 폴더 이동(git mv) = 새 보류 아님 — rc=2 기대 0 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓖ --range 2줄 보류 커밋 — rc=2 기대 1 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓖ range REJECT 머리 — 'REJECT 일괄 보류 2줄(' 없음 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+FAIL ⓖ --range 1줄 보류 커밋 — rc=2 기대 0 · /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r530-bulk-hold-reject-gate/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft_queue_bulk.py': 
+PASS ⓖ 없는 rev = git 실패 rc2 rc=2
+PASS ⓖ 인자 없음 rc2 rc=2
+FAIL ⓕ git commit + 큐 2줄 보류 = exit 2 — rc=0 기대 2 · 
+FAIL ⓕ stderr REJECT — 'REJECT 일괄 보류 2줄(' 없음 · 
+FAIL ⓕ REJECT 줄 수 0
+FAIL ⓕ cd 따라감 = exit 2 — rc=0 기대 2 · 
+PASS ⓕ git commit 아닌 명령 = 통과 rc=0
+PASS ⓕ 따옴표 안 글자 = 통과 rc=0
+PASS ⓕ 판정기 없음 = 통과(fail-open) rc=0
+FAIL ⓕ 판정기 없음 WARN — 'WARN' 없음 · 
+PASS ⓕ JSON 깨짐 = 통과 rc=0
+FAIL ⓕ JSON 깨짐 WARN — 'WARN' 없음 · 
+FAIL ⓕ -a(작업 트리만 2줄 보류) = exit 2 — rc=0 기대 2 · 
+PASS ⓕ 스테이징 0 + 평범한 커밋 = 통과 rc=0
+PASS ⓕ 1줄 보류 커밋 = 통과 rc=0
+PASS ⓖ 기존 test_harness_freeze_gate.sh rc=0
+== FAIL 27 ==
