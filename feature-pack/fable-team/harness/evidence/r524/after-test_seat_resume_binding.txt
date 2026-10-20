@@ -1,0 +1,136 @@
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓐ(u) 정상 꼴 RESUME ok
+PASS ⓐ(u) 기록 pid=7001 · binding.source=tmux-col · session_name 칸 없음
+PASS ⓐ binding 5칸(session·window·pane·pid·lstart)+source
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓓ(d) raw 꼴 은퇴 → RESUME ok (세션 이름 wt-18 ≠ 좌석)
+PASS ⓓ(d) 기록 pid=100 · uuid · model(명부 m1) · session_name=wt-18
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓜ 칸 부재 + name==좌석 → RESUME ok
+PASS ⓜ binding.source = legacy-name
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓒ 칸 부재 + name≠좌석 → NORECORD
+PASS ⓒ 칸 부재 + name≠좌석 사유 «소유 불일치»
+PASS ⓒ 칸 부재 + name≠좌석 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓛ 칸 형식 깨짐(name==좌석) → NORECORD
+PASS ⓛ 칸 형식 깨짐(name==좌석) 사유 «형식 깨짐»
+PASS ⓛ 칸 형식 깨짐(name==좌석) 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓛ 칸에 window·pane 없음 → NORECORD
+PASS ⓛ 칸에 window·pane 없음 사유 «형식 깨짐»
+PASS ⓛ 칸에 window·pane 없음 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓑ 후보 2개 → NORECORD
+PASS ⓑ 후보 2개 사유 «세션 파일 2개»
+PASS ⓑ 후보 2개 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓑ 후보 0개 → NORECORD
+PASS ⓑ 후보 0개 사유 «세션 파일 0개»
+PASS ⓑ 후보 0개 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓑ tmux 세션 없음 → NORECORD
+PASS ⓑ tmux 세션 없음 사유 «tmux 세션 없음»
+PASS ⓑ tmux 세션 없음 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓔ 셸 밑 자식 칸=남의 세션 → NORECORD
+PASS ⓔ 셸 밑 자식 칸=남의 세션 사유 «소유 불일치»
+PASS ⓔ 셸 밑 자식 칸=남의 세션 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓔ pane pid 자신 칸=남의 세션 → NORECORD
+PASS ⓔ pane pid 자신 칸=남의 세션 사유 «소유 불일치»
+PASS ⓔ pane pid 자신 칸=남의 세션 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓔ 파일 pid ≠ 후보 pid → NORECORD
+PASS ⓔ 파일 pid ≠ 후보 pid 사유 «소유 불일치»
+PASS ⓔ 파일 pid ≠ 후보 pid 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓘ 같은 세션 다른 pane → NORECORD
+PASS ⓘ 같은 세션 다른 pane 사유 «소유 불일치»
+PASS ⓘ 같은 세션 다른 pane 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓙ 같은 이름 재생성(pane id 다름) → NORECORD
+PASS ⓙ 같은 이름 재생성(pane id 다름) 사유 «소유 불일치»
+PASS ⓙ 같은 이름 재생성(pane id 다름) 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓚ lstart > mtime → NORECORD
+PASS ⓚ lstart > mtime 사유 «시간 모순»
+PASS ⓚ lstart > mtime 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓚ 실행 주체 claude 아님 → NORECORD
+PASS ⓚ 실행 주체 claude 아님 사유 «claude 아님»
+PASS ⓚ 실행 주체 claude 아님 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS 재확인: 기록 직전 pane 교체 → NORECORD
+PASS 재확인: 기록 직전 pane 교체 사유 «재확인 불일치»
+PASS 재확인: 기록 직전 pane 교체 기록 파일 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS ⓞ 공백 cwd 은퇴 → RESUME ok
+PASS ⓞ 기록 cwd·jsonl 공백 보존
+PASS ⓞ 판정기 CLI rc 0 · JSON 1줄 · cwd
+PASS ⓞ 판정기 CLI tmux 없음 rc 1
+PASS ⓞ 판정기 CLI usage rc 2
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS --expect 같은 pane·pid·lstart → rc 0
+PASS --expect pane 교체 → rc 1
+PASS --expect pid 재사용(lstart 다름) → rc 1
+PASS --expect binding 없는 옛 기록 → rc 1
+PASS --expect 후보에 pid 없음(자식 다른 pid) → rc 1
+PASS zombie-clean pid_live 같은 결속 → 살아 있음(rc 0)
+PASS zombie-clean pid_live pane 교체 → rc≠0
+PASS zombie-clean pid_live 판정기 없음 → rc 2 (옛 판정 후퇴 0)
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS H1 pgrep rc2 · 빈 출력(pane 자신 유효) → bind rc 2
+PASS H1 pgrep rc2 · 빈 출력(pane 자신 유효) → binding 0
+PASS H1 pgrep rc2 · 빈 출력(pane 자신 유효) → expect rc 2 (성공 0)
+PASS H1 pgrep rc2 · 부분 출력 → bind rc 2
+PASS H1 pgrep rc2 · 부분 출력 → binding 0
+PASS H1 pgrep rc2 · 부분 출력 → expect rc 2 (성공 0)
+PASS H1 pgrep rc0 · 숫자 아닌 토큰 → bind rc 2
+PASS H1 pgrep rc0 · 숫자 아닌 토큰 → binding 0
+PASS H1 pgrep rc0 · 숫자 아닌 토큰 → expect rc 2 (성공 0)
+PASS H1 ps comm rc≠0 → bind rc 2
+PASS H1 ps comm rc≠0 → binding 0
+PASS H1 ps comm rc≠0 → expect rc 2 (성공 0)
+PASS H1 ps lstart rc≠0 → bind rc 2
+PASS H1 ps lstart rc≠0 → binding 0
+PASS H1 ps lstart rc≠0 → expect rc 2 (성공 0)
+PASS H1 pgrep rc1(정상 무일치) + pane 자신 후보 → 정상 결속 rc 0
+ft-seat-reap: ERROR ps rc=1: 
+reap M#1 stopped=0 left=? rc=20
+PASS H1 retire: pgrep 오류 → NORECORD «조회 불가» (기록 0)
+PASS retire 판정기 없음 → rc 2 · ERROR 1줄(ImportError 아님)
+PASS ⓟ 명부 0 · record-only → REJECT rc 1
+PASS ⓟ 기록 파일 0
+PASS ⓕ ft-seat-retire.sh 에 pgrep -P 0
+PASS ⓕ ft-seat-retire.sh 가 ft_seat_bind 를 부른다
+PASS ⓕ zombie-clean resume_record_pid_live 에 pgrep -P 0
+PASS ⓝ 번들 사본 cmp0 bin
+PASS ⓝ 번들 사본 cmp0 comm
+PASS ⓝ 번들 사본 cmp0 zombie-clean
+PASS ⓝ ft-seat-retire.sh 키트 사본 cmp0
+PASS ⓝ 판정기 bash 아님 · python3 문법 OK
+PASS ⓗ ft_seat_bind.py 큰 timeout 0 (7초 룰)
+PASS ⓗ ft_seat_bind.py ≤ 200줄
+---
+ALL PASS

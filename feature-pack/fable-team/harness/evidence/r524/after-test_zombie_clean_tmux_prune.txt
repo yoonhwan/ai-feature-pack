@@ -1,0 +1,71 @@
+PASS T1 attached 가 순번을 차지
+PASS T2 preserve 가 순번을 차지
+PASS T3 멤버=keep 보호
+PASS T4 idle 가드
+PASS T5 attached 3번째
+PASS T6 라이브 서버 가드
+PASS T7 RED 최신 2세대 보존
+PASS T7b RED keep 밖 회수
+PASS T8 #N 내림차순 정렬
+PASS T9 KEEP=1 → 하한 2
+PASS T10 RED 유일 세대 보호
+PASS T11 keep 밖 출력 무시(입력만)
+PASS T12 preserve 는 출력 포함 idle 유지
+PASS T12b preserve ABANDON 넘으면 회수
+PASS T13 keep 안 보호 불변
+PASS T13b attached 보호 불변
+PASS T14 입력 최근이면 보호
+PASS T15 두 멤버 계보 · 기록 있는 직전 세대 kill
+PASS T16 기록 없으면 둘 다 보존
+PASS T16b 기록 없음 출력(#0 RULE)
+PASS T17 순번 2 기록 → 2·3 kill
+PASS T18 불일치(name) 보존
+PASS T18 불일치(name) 사유 출력
+PASS T18 불일치(engine) 보존
+PASS T18 불일치(engine) 사유 출력
+PASS T18 불일치(jsonl) 보존
+PASS T18 불일치(jsonl) 사유 출력
+PASS T18 불일치(jsonlname) 보존
+PASS T18 불일치(jsonlname) 사유 출력
+PASS T18 불일치(cwd) 보존
+PASS T18 불일치(cwd) 사유 출력
+PASS T18 불일치(model) 보존
+PASS T18 불일치(model) 사유 출력
+PASS T19a attached 보호
+PASS T19b 라이브 서버 보호
+PASS T19c active V65 task 보호
+PASS T19d idle 미달 보호
+PASS T20 KEEP=4 순번 2·5 만 kill
+PASS T21 멤버 1개 계보 불변
+PASS T22 KEEP=1 → 하한 2 · 순번 2 기록 → 2·3 kill
+PASS T23a 대장 RI#2 restore 열 = resume
+PASS T23b 대장 RI#1 restore 열 = 기존 restore
+PASS T24a resume 검증 통과 rc 0
+PASS T24b new-session -d -s 이름 -c cwd (첫 호출)
+PASS T24c 래퍼 --resume <uuid> --model (send-keys -l)
+PASS T24d Enter 는 별도 호출
+PASS T24e --dry-run rc 0 · 호출 0
+PASS T24e2 --dry-run 출력
+PASS T24f 이미 살아 있음 rc 1 · 호출 0
+PASS T24g 기록 없음 rc 1 · 호출 0
+PASS T24h 불일치(name) rc 1 · 호출 0
+PASS T24h 불일치(engine) rc 1 · 호출 0
+PASS T24h 불일치(jsonl) rc 1 · 호출 0
+PASS T24h 불일치(cwd) rc 1 · 호출 0
+PASS T24h 불일치(model) rc 1 · 호출 0
+PASS T24i 인자 없음 rc 1
+PASS T25 stale 기록은 근거 아님
+PASS T25b 재개 기록 없음 출력
+PASS T26a -l 실패 rc 1 · new-session·send-keys -l 2호출(Enter 0)
+PASS T26a ✅ 0
+PASS T26a 열린 세션 안내
+PASS T26b Enter 실패 rc 1 · 3호출
+PASS T26b ✅ 0
+PASS T26b 열린 세션 안내
+PASS T26 자동 kill 0
+PASS T27a 기록 pid ≠ pane 자식 pid → 후보 0
+PASS T27a 사유 출력(pid)
+PASS T27b 기록 pid 일치 → 후보(기존대로)
+PASS T27c resume 은 pid 검사 0
+69/69 PASS
+ALL PASS

@@ -2,7 +2,7 @@
 # ft-resume-cmd.sh <좌석> — 슬랙 이어가기 블록의 «재개» 칸 값 1줄 (설계 DESIGN-resume-index-20261008 §2 · 판정 404)
 #   ① 그 이름의 tmux 세션이 «정확히» 살아 있음  → bash <루트>/.fable-team/comm/mbox.sh ring <좌석>
 #   ② 좌석표 행에 session_uuid·cwd·agent=claude + ~/.claude/projects/<cwd 인코딩>/<uuid>.jsonl 의 sessionId·cwd 일치
-#        → cd <cwd> && claude --resume <uuid>   (printf %q 인용)
+#        → cd <cwd> && ~/.headroom/claude-hr.sh --resume <uuid>   (printf %q 인용 · R524: 헤드룸 래퍼 — 날 claude 는 프록시 미경유 직결)
 #   ③ 그 밖 → stdout `없음(좌석 종료 · 확인된 세션 매핑 없음 — 카드 정본으로 새로 연다)` + rc 3
 # ★jsonl 본문에서 좌석 이름을 검색하지 않는다★(이름 언급 ≠ 소유권). 환경: FT_ROOT(루트) · CLAUDE_PROJECTS_DIR(시험용).
 set -uo pipefail
@@ -55,7 +55,7 @@ PY
 )"
 if [ -n "$MAP" ]; then
   CWD="$(printf '%s\n' "$MAP" | sed -n 1p)"; UUID="$(printf '%s\n' "$MAP" | sed -n 2p)"
-  printf 'cd %q && claude --resume %q\n' "$CWD" "$UUID"
+  printf 'cd %q && ~/.headroom/claude-hr.sh --resume %q\n' "$CWD" "$UUID"
   exit 0
 fi
 printf '%s\n' "$NONE"

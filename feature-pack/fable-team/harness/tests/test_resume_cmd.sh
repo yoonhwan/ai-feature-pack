@@ -41,12 +41,13 @@ FAKE_TMUX_LIVE="$A"; run "$A"
 FAKE_TMUX_LIVE="${A}9"; seats '{}'; expect_none "$A" "prefix-only tmux session is not live"
 FAKE_TMUX_LIVE=""
 
-# ② 행 매핑 정확 1건 + jsonl 일치 + claude → cd … && claude --resume … (공백 경로 인용)
+# ② 행 매핑 정확 1건 + jsonl 일치 + claude → cd … && ~/.headroom/claude-hr.sh --resume … (공백 경로 인용 · R524 헤드룸 래퍼)
 seats "{\"$A\":{\"agent\":\"claude\",\"session_uuid\":\"$U\",\"cwd\":\"$CWD\"}}"
 jsonl "$CWD" "$U" "$U" "$CWD"
 run "$A"
-want="$(printf 'cd %q && claude --resume %q' "$CWD" "$U")"
-[ "$RC" = 0 ] && [ "$OUT" = "$want" ] && ok "exact mapping → cd && claude --resume (quoted)" || bad "mapping (rc=$RC out=$OUT want=$want)"
+want="$(printf 'cd %q && ~/.headroom/claude-hr.sh --resume %q' "$CWD" "$U")"
+[ "$RC" = 0 ] && [ "$OUT" = "$want" ] && ok "exact mapping → cd && ~/.headroom/claude-hr.sh --resume (quoted)" || bad "mapping (rc=$RC out=$OUT want=$want)"
+case "$OUT" in *"&& claude "*) bad "R524 날 claude 직결 명령이 남음";; *) ok "R524 날 claude 직결 명령 0";; esac
 [ "$(bash -c "set -- ${OUT#cd }; echo \"\$1\"" 2>/dev/null)" = "$CWD" ] && ok "quoted cwd round-trips through the shell" || bad "quoting round-trip"
 
 # ③ 전부 «없음» 으로 떨어지는 경우들

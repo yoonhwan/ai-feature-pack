@@ -198,14 +198,15 @@ LED="$(ls "$TMP/home/.claude/logs"/zc-reclaim-*.tsv 2>/dev/null | head -1)"
 expect "T23a 대장 RI#2 restore 열 = resume" "zombie-clean.sh resume 'RI#2'" "$(awk -F'\t' '$2=="RI#2"{print $7}' "$LED" 2>/dev/null)"
 expect "T23b 대장 RI#1 restore 열 = 기존 restore" "zombie-clean.sh restore RI#1" "$(awk -F'\t' '$2=="RI#1"{print $7}' "$LED" 2>/dev/null)"
 
-# T24 — resume 명령: 검증 통과 → new-session cwd + claude --resume <uuid> --model (send-keys -l 와 Enter 별도) · 실패·살아 있음 rc 1 · 호출 0
+# T24 — resume 명령: 검증 통과 → new-session cwd + 헤드룸 래퍼 --resume <uuid> --model (send-keys -l 와 Enter 별도 · R524) · 실패·살아 있음 rc 1 · 호출 0
+mkdir -p "$TMP/home/.headroom"; printf '#!/bin/bash\nexit 0\n' > "$TMP/home/.headroom/claude-hr.sh"; chmod +x "$TMP/home/.headroom/claude-hr.sh"
 resume() { local fx="$1"; shift; : > "$TMP/calls"; printf '%s\n' "$fx" > "$FIX"
   env HOME="$TMP/home" PATH="$FAKE:$PATH" FIXTURE="$FIX" TMP_CALLLOG="$TMP/calls" TMP_KILLLOG="$TMP/kill.log" ZC_RESUME_DIR="$RECD" bash "$ZC" resume "$@" > "$TMP/rout" 2>&1; }
 rm -f "$RECD"/*; mkrec 'RJ#1'
 resume '' 'RJ#1'; rc=$?
 expect "T24a resume 검증 통과 rc 0" "0" "$rc"
 expect "T24b new-session -d -s 이름 -c cwd (첫 호출)" "new-session -d -s RJ#1 -c $TMP/cwd" "$(sed -n 1p "$TMP/calls")"
-expect "T24c claude --resume <uuid> --model (send-keys -l)" "send-keys -t =RJ#1: -l claude --resume u-RJ-1 --model 'm1'" "$(sed -n 2p "$TMP/calls")"
+expect "T24c 래퍼 --resume <uuid> --model (send-keys -l)" "send-keys -t =RJ#1: -l $TMP/home/.headroom/claude-hr.sh --dangerously-skip-permissions --resume u-RJ-1 --model 'm1'" "$(sed -n 2p "$TMP/calls")"
 expect "T24d Enter 는 별도 호출" "send-keys -t =RJ#1: Enter" "$(sed -n 3p "$TMP/calls")"
 resume '' 'RJ#1' --dry-run; rc=$?
 expect "T24e --dry-run rc 0 · 호출 0" "0 0" "$rc $(wc -l < "$TMP/calls" | tr -d ' ')"

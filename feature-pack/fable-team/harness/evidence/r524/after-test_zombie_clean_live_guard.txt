@@ -1,0 +1,17 @@
+PASS T0 대조군(세션 파일 없음) 크롬 좀비
+PASS T1ⓐ 살아 있는 세션 크롬 보호
+PASS T2ⓑ sock 없음 → 좀비
+PASS T3ⓒ mtime 문턱 밖 → 좀비
+PASS T4ⓓ 데몬 죽음 → 좀비
+PASS T4ⓓ' pid 비숫자 → 좀비
+PASS T4ⓒ' 문턱 안 보호(ZC_AB_IDLE_MIN=60)
+PASS T5ⓔ 루프 아래 sleep 보호
+PASS T5ⓔ' 루프 아래 tail 보호
+PASS T6ⓕ ppid 1 sleep → 좀비
+PASS T6ⓕ' 부모 없는 sleep → 좀비
+PASS T7ⓖ 변이1 적용됨
+PASS T7ⓖ 변이2 적용됨
+PASS T7ⓖ 변이1(보호선 제거) → ⓐ 단언 FAIL 확인
+PASS T7ⓖ 변이2(판정 제거) → ⓔ 단언 FAIL 확인
+15/15 PASS
+ALL PASS

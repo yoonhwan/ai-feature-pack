@@ -1,0 +1,12 @@
+== ⓔ 이어하기 — 13팀 · refs() 팀당 25 s · 공유 마감 70 s
+PASS ⓔ 1회차: PARTIAL rc3 + PARTIAL 줄(남은 팀 목록 · 다음 --apply 가 이어간다)
+PASS ⓔ 1회차 스냅샷 pending_teams=11(처리 못 한 팀 기록 · 2팀 MOVED)
+PASS ⓔ rc 순서 3→3→3→3→3→3→0(같은 --apply --all 재호출 7회로 끝까지)
+PASS ⓔ MOVED 합 13(팀마다 정확히 1번)
+PASS ⓔ 같은 팀 두 번 이동 0(옮긴 팀은 RESYNC)
+PASS ⓔ 마지막 스냅샷 pending_teams=[](소진)
+PASS ⓔ 스냅샷 7개 따로 · 1회차 스냅샷 바이트 불변(덮어쓰기 0)
+PASS ⓔ 이동 커밋 13개(팀마다 1 · 중복 0)
+PASS ⓔ design/<팀>/ 0 · design/teams/<팀>/ 13
+PASS ⓔ 이어하기 끝난 뒤 --verify --all ERR=0
+== fail=0
