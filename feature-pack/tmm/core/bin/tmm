@@ -248,6 +248,9 @@ cat_of() {
     if [ -n "$t1" ] && [ -n "$t2" ] && [[ "$roles" == *" $t3 "* ]]; then
       local legacy=0 s b p1 p2 p3 list x
       for pfx in ${TMM_CAT_STRIP:-FB_ ft-}; do pl="${pfx,,}"; { [ "$pl" = "$t1-" ] || [ "$pl" = "${t1}_" ]; } && legacy=1; done
+      # ★key 모드(0.9.0)★ — `cat_of <세션> key` 는 «프로젝트/팀»을 낸다(분류 칸이 프로젝트(1depth) 아래에 팀(2depth)을 들여써 보인다). 프로젝트가 아닌 구 접두(ft- FB_)·규칙 파일 라벨·
+      #   일반화 폴백은 «/ 없는 한 단계(leaf)» 그대로. 같은 팀 글자를 다른 프로젝트가 써도 프로젝트로 갈리므로 key 모드엔 충돌 접두(`b-`)가 필요 없다.
+      if [ "$legacy" = 0 ] && [ "${2:-}" = key ]; then printf '%s/%s' "${t1:0:8}" "${t2:0:8}"; return; fi
       if [ "$legacy" = 0 ]; then
         # ★세션 목록은 «프로세스당 한 번» 받아 `팀:프로젝트` 표(CAT_TEAMS)로 만든다★ — 세션마다 list-sessions 를 다시 받고 목록을 다시 돌던 것(113 fork · O(N²) · 2.5초)을 없앤다.
         #   cmd_rows/cmd_dead_rows 는 시작할 때 cat_prep 으로 CAT_LIST 를 정해 부모 셸에서 표를 만들어 둔다($(cat_of …) 서브셸이 표를 물려받는다). 목록 글자가 바뀌면 다시 만든다.
@@ -401,7 +404,7 @@ clip_name() {  # <이름> <폭>
 # rows [time|wait|cat] [h] [fresh]  →  "표시줄\t세션명\t카테고리"
 # tmux 호출 2회(list-panes -a + seat-scan) + 좌석당 capture 1회(시각). 좌석별 display/list-panes 루프 금지.
 cmd_rows() {
-  local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat pcmd live act ep src now mid nw cw
+  local mode="${1:-time}" only="${2:-}" fresh="${3:-}" s st cwd cat tl pcmd live act ep src now mid nw cw
   read -r nw cw <<<"$(col_widths)"
   cat_prep
   declare -A ST
@@ -443,10 +446,10 @@ cmd_rows() {
     st="${ST[$s]:-?}"
     [ "$only" = "h" ] && ! [[ "$st" =~ ^(HUMAN|BLOCK|STUCK)$ ]] && continue
     case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○";; *) live="●";; esac
-    cwd="${cwd##*/}"; cat="$(cat_of "$s")"; read -r ep src <<<"${EP[$s]:-$act ~}"
+    cwd="${cwd##*/}"; cat="$(cat_of "$s" key)"; tl="${cat#*/}"; read -r ep src <<<"${EP[$s]:-$act ~}"   # cat = «프로젝트/팀»(key 모드) · 열에는 팀(tl)만
     printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$(wait_rank "$st")" "$ep" "$cat" \
-      "${cat:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
+      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
       "$s" "$cat"
   done < <(tmux list-panes -a -F $'#{session_name}\t#{pane_current_command}\t#{window_activity}\t#{pane_current_path}' 2>/dev/null | awk -F'\t' '!seen[$1]++') \
   | { case "$mode" in
@@ -576,9 +579,15 @@ cmd_catrows() {  # $RUN/tabs(카테고리\t수\t대기수) → «키\t라벨» �
   local catw cat cnt wt lab; catw="$(cat "$RUN/catw" 2>/dev/null || echo 11)"
   [ -s "$RUN/tabs" ] || return 0
   while IFS=$'\t' read -r cat cnt wt; do
-    if [ "$cat" = '*' ]; then lab='전체'; [ "$catw" -ge 16 ] && lab="$(printf '%-6s %2s' "$lab" "$cnt")"
-    elif [ "$catw" -ge 16 ]; then lab="$(printf '%-8.8s %2s' "$cat" "$cnt")"
-    else lab="$(printf '%-7.7s' "$cat")"; fi
+    # 좁은 칸(폰 60열 = catw 11 → 보이는 폭 9)도 수를 뺀다 — 이름 5자 + 수 2자(회색) + ⚠N. 수는 «폭이 모자라서» 숨기지 않는다(0.8.6 · 사용자 2026-10-20)
+    # ★트리(0.9.0)★ — 키가 `프로젝트/팀` 이면 팀 줄: 한 칸 들여쓰고(넓은 칸 2칸) 이름을 줄인다(좁은 칸 4자 · 넓은 칸 6자). 프로젝트 줄은 굵게.
+    if [ "$cat" = '*' ]; then lab='전체'
+      if [ "$catw" -ge 16 ]; then lab="$(printf '%-6s %2s' "$lab" "$cnt")"; else lab+="$(printf '\033[90m %2s\033[0m' "$cnt")"; fi
+    elif [ "${cat#*/}" != "$cat" ]; then
+      if [ "$catw" -ge 16 ]; then lab="$(printf '  %-6.6s\033[90m %2s\033[0m' "${cat#*/}" "$cnt")"
+      else lab="$(printf ' %-4.4s\033[90m%2s\033[0m' "${cat#*/}" "$cnt")"; fi
+    elif [ "$catw" -ge 16 ]; then lab="$(printf '\033[1m%-8.8s\033[0m\033[90m %2s\033[0m' "$cat" "$cnt")"
+    else lab="$(printf '\033[1m%-5.5s\033[0m\033[90m%2s\033[0m' "$cat" "$cnt")"; fi
     [ "${wt:-0}" -gt 0 ] && lab+=$'\033[31m⚠'"$wt"$'\033[0m'
     printf '%s\t%s\n' "$cat" "$lab"
   done < "$RUN/tabs"
@@ -668,17 +677,29 @@ cmd_tabgo() {  # <탭> [커서 세션명] [요청 번호] — 분류 칸이 고�
 tab_on() { [ "$(view_now)" = live ] && [ -f "$RUN/tab" ]; }
 tab_rows() {
   local sel; sel="$(cat "$RUN/tabsel" 2>/dev/null)"
+  # ★프로젝트(1depth) → 팀(2depth) 트리(0.9.0)★ — 행의 3열 = `프로젝트/팀`(cat_of key 모드) 또는 «/ 없는 한 단계»(leaf: 구 접두·규칙 라벨·폴백).
+  #   tabs 행의 키: 팀이 2개 이상인 프로젝트 = 프로젝트 줄 `byz`(그 프로젝트 전체) + 팀 줄 `byz/harness` · 팀이 1개뿐이거나 leaf 는 «한 줄»(`aifp`·`kakao`).
+  #   고르는 규칙: 키가 3열과 같거나, 3열이 `키/` 로 시작하면 그 행. 옛 평면 키(`harness`)는 그대로 leaf 로 통한다(호환).
   awk -F'\t' -v sel="$sel" -v out="$RUN/tabs" '
-    { n++; c[n] = $3; L[n] = $0; if (!($3 in cnt)) ord[++G] = $3; cnt[$3]++
-      if ($1 ~ / (HUMAN|BLOCK|STUCK) /) { wt[$3]++; tw++ } }
+    { n++; c[n] = $3; L[n] = $0; w = ($1 ~ / (HUMAN|BLOCK|STUCK) /)
+      s = index($3, "/"); p = (s > 0) ? substr($3, 1, s - 1) : $3
+      if (!(p in pc)) { ord[++G] = p; nt[p] = 0 }
+      pc[p]++; if (w) { pw[p]++; tw++ }
+      if (s > 0) { if (!($3 in tc)) { tord[p, ++nt[p]] = $3 }; tc[$3]++; if (w) tw2[$3]++ } }
     END {
-      if (sel != "*" && !(sel in cnt)) sel = (G > 0) ? ord[1] : "*"   # 선택 없음·사라진 카테고리 → 첫 카테고리(전체는 가장 무겁다)
       printf "" > out
-      for (g = 1; g <= G; g++) printf "%s\t%d\t%d\n", ord[g], cnt[ord[g]], wt[ord[g]] >> out
+      for (g = 1; g <= G; g++) {
+        p = ord[g]; known[p] = 1
+        printf "%s\t%d\t%d\n", p, pc[p], pw[p] >> out
+        if (nt[p] >= 2) for (t = 1; t <= nt[p]; t++) { k = tord[p, t]; known[k] = 1; printf "%s\t%d\t%d\n", k, tc[k], tw2[k] >> out }
+      }
       printf "*\t%d\t%d\n", n, tw >> out                                # 전체는 마지막
+      if (sel != "*" && !(sel in known)) sel = (G > 0) ? ord[1] : "*"   # 선택 없음·사라진 카테고리 → 첫 카테고리(전체는 가장 무겁다)
+      multi = (index(sel, "/") == 0 && nt[sel] >= 2)                   # 팀이 여럿인 «프로젝트 줄» 이면 카테고리 열(팀)을 남긴다 — 어느 팀인지 보여야 한다
       for (i = 1; i <= n; i++) {
         if (sel == "*") { print L[i]; continue }
-        if (c[i] != sel) continue
+        if (c[i] != sel && index(c[i], sel "/") != 1) continue
+        if (multi) { print L[i]; continue }
         split(L[i], f, "\t"); s = f[1]; a = index(s, "●"); b = index(s, "○")
         p = (a > 0 && (b == 0 || a < b)) ? a : b
         if (p > 0) s = substr(s, p)
@@ -699,7 +720,7 @@ tab_bar() {
   avail=$(( $(term_cols) - 4 ))
   while IFS=$'\t' read -r cat cnt wt; do
     n=$((n+1)); cats[n]="$cat"; wts[n]="${wt:-0}"
-    if [ "$cat" = '*' ]; then lab="전체 $cnt"; else lab="$cat $cnt"; fi
+    if [ "$cat" = '*' ]; then lab="전체 $cnt"; elif [ "${cat#*/}" != "$cat" ]; then lab="·${cat#*/} $cnt"; else lab="$cat $cnt"; fi   # 팀 줄은 «·팀» (0.9.0)
     [ "${wt:-0}" -gt 0 ] && lab+="⚠$wt"
     labs[n]="$lab"; wids[n]=$(dwidth " $lab ")
     [ "$cat" = "$sel" ] && act=$n
