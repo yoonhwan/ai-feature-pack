@@ -1,0 +1,31 @@
+diff --git a/feature-pack/fable-team/harness/tests/scripts/test_ft_hil_secret_lint.py b/feature-pack/fable-team/harness/tests/scripts/test_ft_hil_secret_lint.py
+index fee201a6..77e063fc 100644
+--- a/feature-pack/fable-team/harness/tests/scripts/test_ft_hil_secret_lint.py
++++ b/feature-pack/fable-team/harness/tests/scripts/test_ft_hil_secret_lint.py
+@@ -1,6 +1,7 @@
+ """R135a ft-hil.sh --add 계획 파일 비밀 출력 경로 검사 — 걸리면 등록 0·계획 파일 수정 0. 값은 전부 가짜."""
+ import json
+ import os
++import re
+ import subprocess
+ from pathlib import Path
+ 
+@@ -89,8 +90,16 @@ def test_cmd_form_goes_through_same_check(tmp_path):
+ 
+ 
+ PLAN = ROOT / "harness/design/harness/PLAN-r135a-install-20261013.sh.hil"
+-TPL_REL = "harness/kit/fable-team/templates/hooks"
+-HOOKS = ROOT / TPL_REL
++HOOKS = ROOT / "harness/kit/fable-team/templates/hooks"  # 훅 «원본 바이트» 는 팩 템플릿에서 읽는다
++
++
++def _plan_tpl_rel():  # 가짜 리포는 «계획이 실제로 읽는» 훅 경로를 따라야 한다 — 정본은 계획 파일의 TPL= 줄(못 읽으면 실패)
++    m = re.search(r'^TPL="([^"]+)"', PLAN.read_text(), re.M)
++    assert m, f"{PLAN.name} 에 TPL= 줄이 없다"
++    return m.group(1)
++
++
++TPL_REL = _plan_tpl_rel()
+ 
+ 
+ def test_install_plan_passes_its_own_lint(tmp_path):
