@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — ft-nano-spawn 일반화: 티어는 «기본값 공급자» · 검색 나노 기본 에이전트 pi (r543 · 1.1.95)
+
+- 사건: chatbot master#10 이 `ft-nano-spawn.sh <카드> --agent pi --tier search` 로 리서치 나노를 열었는데 pi 가 아니라 opencode 좌석이 열렸고(#120064) opencode 무료 경로가 이 IP 에서 «abusive traffic» 으로 막혀 처리 0 · `--never-started` 로 닫음. 오빠 지시 «ft-nano-spawn.sh 일반화 업그레이드».
+- 원인(실측): 티어 `case` 가 `--agent`/`--model` 을 무시하고 에이전트·모델·effort·fast 를 통째로 덮어쓴다 — `search) AGENT="opencode"` · `checker|tester` 는 codex/cmd/claude · `impl:2|3` 은 codex/cmd. `--agent pi --tier checker:1` 도 codex 로 열렸다.
+- 고침 2가지(키트 `ft-nano-spawn.sh` · 추적본 `harness/bin` 같은 글자): ①`--agent` 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다(`AGENT_SET` · 티어 이름 검사와 ROLE 은 그대로) ②`--tier search` 기본 에이전트 = `FT_SEARCH_AGENT`(기본 `pi` → 모델은 에이전트별 기본 `FT_PI_MODEL`) · `FT_SEARCH_AGENT=opencode` 로 r286 옛 경로 복귀. 검색 나노 발주 문단·머리 usage 도 에이전트 이름·`pi` 포함으로.
+- 시험: `test_nano_spawn_tier.sh` 43건 ALL PASS(신규 9: search 기본 pi · env 로 opencode 복귀 · 명시 agent 가 search/checker/impl 티어를 이김 · 명시 model 우선 · 모르는 티어는 명시 agent 여도 거절) — 고치기 전 FAIL 17(`harness/evidence/r543/before-fix.txt`) · 기존 spawn 시험 37(py)+2(sh) PASS · `test_nano_spawn_body_press.sh` 는 기준판과 같은 기존 FAIL 2(ⓒ node_modules · 이 변경 무관).
+- 범위 밖: pi 닫기 회수(r542) · `skill/scripts/ft-nano-spawn.sh` 사본은 추적본과 319줄 갈라진 옛 판이라 이번에 안 건드림(별 정리) · 설치(키트 1 `ft-nano-spawn.sh`)는 하네스 master 가 `install.sh --apply`.
+
 ## 2026-10-20 — pi 를 하네스 에이전트로 허용: 이름 꼬리 · 열기 도구 · 준비 확인 · 승계 시작·도달 확인 (r540 · 1.1.92)
 
 - 사건: 오빠 지시로 aifp 팀이 pi 좌석(deepseek-v4.1-flash-ultrafast)을 넣었는데 하네스가 세 곳에서 거절 — 이름 lint 꼬리(claude codex opencode cmd) · 열기 도구 `--agent` 검사·모델 표·`--effort` 분기 · `ft-tmux-spawn.sh` 준비 확인이 claude 글자(`ctx:`)만 봐 pi 좌석을 90초 뒤 kill(aifp 쪽지 119886·119914 · harness master 84 발주 119888·119912·119915). 오빠 확정(119940·119944): 후계 `aifp-pi-master-pi` 를 `ft-successor-open.sh --agent pi` 로 열고 기동·도달 확인까지 → 도달 확인이 claude 대화 기록만 읽어 pi 분기 추가.

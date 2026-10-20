@@ -1,0 +1,4 @@
+37 passed in 39.26s
+test_nano_spawn_reuse_info: ALL PASS
+test_nano_spawn_teamset_cap: ALL PASS
+test_nano_spawn_body_press: 기준판(origin/main)과 동일하게 FAIL 2 — ⓒ status 에 node_modules 보임(이 변경과 무관한 기존 실패)
