@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 실행 전 Bash 훅 4 의 «명령 조각내기·env argv 분해» 사본을 공용 모듈 1 로 (r546 · 1.1.101 · 구조 커밋 · 동작 변경 0)
+
+- 사건(r532 점검표 `design/harness/AUDIT-hooks-devices-20261020.md:26` · arch 109 실측 2026-10-20 16:0x): Bash 한 번에 훅 16개가 먼저 도는데, 그중 4개가 «명령을 `;`·`|`·`&&` 로 쪼개 보는» 함수를 **각자 사본으로** 들고 있었다 — `op-vault-develop-gate.sh:38-57` ↔ `tracked-bin-call-gate.sh:28-48` `segments(cmd)` = 본문 diff 0(독스트링 1줄만) · `autonomy-merge-guard.sh:108-121` ↔ `autonomy-state-guard.sh:118-131` `env_split` md5 같음 · 이미 있는 공용 `merge_cmd.py:42-55` 와도 독스트링 1줄 차이. 한 곳을 고치면 나머지 사본은 옛 판으로 남는다.
+- 고침(구조만): ① `kit/hooks/merge_cmd.py` 에 `segments(cmd)` 추가 — 본문 = `op-vault-develop-gate.sh:38-57` **글자 그대로**(글자 변경 0). ② 훅 4 의 사본 함수 삭제 + import(`sys.path.insert(0, <훅 폴더>)` → `from merge_cmd import segments` / `env_split` — `merge-head-gate.sh:15` 꼴). 사본 4 → 0, 모듈 1.
+- ★막는 기준은 하나도 안 바꿨다★: 4훅 × 30명령(따옴표·`$(`·백틱·`;&|`·줄바꿈·`env -S` 섞음) × 자율 off/on = **240판정**(rc·종류·stderr 첫 줄)이 바꾸기 전 판과 **바이트 동일**(`harness/tests/fixtures/r546_hook_cmd_split/base_verdicts.tsv` · ⓑ). `merge_cmd.segments` 는 옛 사본과 30/30, `merge_cmd.env_split` 는 옛 사본 2와 90/90 출력 동일(ⓒⓓ).
+- 모듈 없음 = **막음**(조용히 통과 0 · 0번 규칙 no silent fallback): 훅 4 는 같은 폴더에 `merge_cmd.py` 가 없으면 stderr `REJECT … merge_cmd 없음 …` + **rc2**(ⓔ). autonomy 2 는 종전 마지막 줄 `exit 0` 이 파이썬 종료코드를 삼켰으므로 `exit $?` 로 바꿔 rc2 가 전달되게 했다.
+- 시험 `tests/test_hook_cmd_split_shared_r546.sh`(새 · 임시 HOME·임시 루트·«설치 꼴» 임시 훅 폴더 · 외부 호출 0 · 실 settings·실 상태 쓰기 0) ⓐ~ⓕ **ALL PASS 19**(61초). 기록기 = `tests/lib/r546_verdicts.py`(픽스처 = 진짜 git 리포 + `byz-agents` origin + `.claude/skills/byz-keys` · 자율 모드 = 임시 스텁). 변이 2종(모듈 숨김 · `segments` 구분자 1개 제거)에서 ⓑⓒ 가 실제로 빨개지는 것 확인.
+- 기존 시험 5종 base 대조: `test_op_vault_develop_gate` 48 PASS · `test_autonomy_hooks` ALL PASS · `test_autonomy_merge_equiv` ALL PASS · `test_merge_head_gate` ALL PASS · `test_tracked_bin_call_gate` **FAIL 25 = base 와 같은 값**(ⓖ live-entry 계열 · r546 이전부터 빨강 · 이 카드와 무관). 키트 templates 폴더에는 `merge_cmd.py` 가 없어(홈 설치 뒤엔 한 폴더) autonomy 시험 5종이 «설치 꼴 임시 폴더 복사» 2줄을 쓰도록 고쳤다 — 단언·PASS/FAIL 줄은 그대로.
+- 범위 밖(2단계 r547 몫): 규칙이 다른 조각내기 3벌(`press-runner`·`block-destructive-judge`·`context-distill-gate`) · `gh-issue-author-guard` 의 `segments(text)` · 훅 진입점 1개(프로세스 16 → 1 · 기준값 실측 먼저) · 키트 훅 폴더 둘 합치기 · `merge_cmd.py` 의 `simple_commands`/`resolve` 와 autonomy 사본의 차이(동작 동일하나 글자가 달라 이 카드 경계 밖).
+- 설치: 키트 5(`kit/hooks/{op-vault-develop-gate.sh,tracked-bin-call-gate.sh,merge_cmd.py}` · `kit/fable-team/templates/hooks/{autonomy-merge-guard.sh,autonomy-state-guard.sh}`) → `install.sh --apply --project <루트>` → 홈 `~/.claude/hooks/` cmp0 5 · 데몬 0(훅은 매번 새로 읽음) · settings 변경 0 · 되돌림 = `.bak-r546`.
+
 ## 2026-10-20 — 고장 데몬 3개: 렌더가 템플릿의 `WorkingDirectory` 도 옮기고 · 설치 검사가 «실행 경로 스크립트 없음» 을 DRIFT 로 (r544 · 1.1.99)
 
 - 사건(r532 점검표 · arch 108 실측 2026-10-20 15:0x): launchd 주기 작업 셋이 매번 실패 — ① `com.byz.gce-guard-check` 종료 78 = **지운 워크트리**(`.worktrees/ops-guard`)의 스크립트를 실행 ② `com.byz.ft-secret-scan` 종료 3 · `com.byz.ft-weekly-review` 종료 1 = 설치본에 `WorkingDirectory` 가 없어 launchd cwd=`/` → 로그 `ERROR 리포 공용 루트를 못 풂`.

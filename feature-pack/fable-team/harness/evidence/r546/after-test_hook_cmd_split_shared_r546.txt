@@ -1,0 +1,23 @@
+PASS ⓐ base 판정 원문 240줄(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r546-hook-cmd-split-shared-module/feature-pack/fable-team/harness/tests/fixtures/r546_hook_cmd_split/base_verdicts.tsv)
+PASS ⓐ 명령 묶음 30개(따옴표·$(·백틱·;&|·줄바꿈·env -S 섞음)
+PASS ⓐ op-vault-develop-gate.sh 원문 60줄 + 막는 판정 1개 이상
+PASS ⓐ tracked-bin-call-gate.sh 원문 60줄 + 막는 판정 1개 이상
+PASS ⓐ autonomy-merge-guard.sh 원문 60줄 + 막는 판정 1개 이상
+PASS ⓐ autonomy-state-guard.sh 원문 60줄 + 막는 판정 1개 이상
+PASS ⓑ 기록기 실행(설치 꼴 임시 폴더 · 훅4+모듈1)
+PASS ⓑ 지금 판정 240줄
+PASS ⓑ 4훅×30명령×off/on 판정 base 대조 diff 0(rc·종류·stderr 첫 줄)
+ⓒ segments 불일치 0/30 []
+ⓓ env_split 불일치 0/90 []
+PASS ⓒ segments 30개 · ⓓ env_split 90개 출력 동일
+PASS ⓔ op-vault-develop-gate.sh 모듈 없음 → rc2 + stderr «merge_cmd 없음»
+PASS ⓔ tracked-bin-call-gate.sh 모듈 없음 → rc2 + stderr «merge_cmd 없음»
+PASS ⓔ autonomy-merge-guard.sh 모듈 없음 → rc2 + stderr «merge_cmd 없음»
+PASS ⓔ autonomy-state-guard.sh 모듈 없음 → rc2 + stderr «merge_cmd 없음»
+PASS ⓕ test_op_vault_develop_gate FAIL 0 ≤ base 0
+PASS ⓕ test_tracked_bin_call_gate FAIL 25 ≤ base 25
+PASS ⓕ test_autonomy_hooks FAIL 0 ≤ base 0
+PASS ⓕ test_autonomy_merge_equiv FAIL 0 ≤ base 0
+PASS ⓕ test_merge_head_gate FAIL 0 ≤ base 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

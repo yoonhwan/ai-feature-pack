@@ -1,0 +1,23 @@
+# 변이 2종 — 이 시험이 «실제로» 빨개지는지(음성 대조 · 2026-10-20)
+
+===== 변이 A: 훅 폴더에서 merge_cmd.py 를 숨긴다(설치 누락 재현) =====
+FAIL ⓑ 기록기 실행(설치 꼴 임시 폴더 · 훅4+모듈1) :: rc=1 out=
+FAIL ⓑ 지금 판정 240줄 :: rc=1 out=
+FAIL ⓑ 4훅×30명령×off/on 판정 base 대조 diff 0(rc·종류·stderr 첫 줄) :: rc=1 out=
+FAIL ⓒ segments 30개 · ⓓ env_split 90개 출력 동일 :: rc=1 out=
+FAIL ⓕ test_op_vault_develop_gate FAIL 22 ≤ base 0 :: rc=1 out=
+FAIL ⓕ test_tracked_bin_call_gate FAIL 52 ≤ base 25 :: rc=1 out=
+FAIL ⓕ test_autonomy_hooks FAIL 156 ≤ base 0 :: rc=1 out=
+FAIL ⓕ test_autonomy_merge_equiv FAIL 9 ≤ base 0 :: rc=1 out=
+FAIL ⓕ test_merge_head_gate FAIL 21 ≤ base 0 :: rc=1 out=
+FAILED 9
+
+===== 변이 B: merge_cmd.segments 구분자에서 괄호 '(' 하나를 뺀다(규칙이 달라진 사본) =====
+FAIL ⓑ 4훅×30명령×off/on 판정 base 대조 diff 0(rc·종류·stderr 첫 줄) :: rc=0 out=
+ⓒ segments 불일치 1/30 [6]
+ⓓ env_split 불일치 0/90 []
+FAIL ⓒ segments 30개 · ⓓ env_split 90개 출력 동일 :: rc=1 out=
+FAILED 2
+
+===== 되돌림 확인 =====
+cmp0 복원

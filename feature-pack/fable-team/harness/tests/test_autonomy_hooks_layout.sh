@@ -13,6 +13,8 @@ fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
 
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+IH="$T/hooks"; mkdir -p "$IH"; cp "$ROOT/harness/kit/fable-team/templates/hooks/autonomy-"*.sh "$ROOT/harness/kit/hooks/merge_cmd.py" "$IH"/   # r546: 설치 꼴(한 폴더) 재현 — 공용 모듈 merge_cmd.py 를 훅 옆에 둔다
+MG="$IH/autonomy-merge-guard.sh"
 export HOME="$T/home"; mkdir -p "$HOME"
 unset FT_ROOT FT_AUTONOMY_SH FT_AUTONOMY_STATE_DIR CLAUDE_PROJECT_DIR FT_PLANNER_DIR FT_AUTONOMY_HOOK_LOG GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 MAIN="$T/main"; LIVE="$T/live"; WT="$T/main-wt"; LOG="$HOME/.claude/logs/autonomy-hooks.log"
