@@ -1,0 +1,12 @@
+# r523 mutation — 훅 한 곳씩 되돌리면 시험이 RED 인가 (FAIL 수 · 0 이면 빈틈)
+MUT [timeout 상한 무력화] FAIL=3
+MUT [run_in_background 무시] FAIL=1
+MUT [스크립트 파일 읽기 0] FAIL=11
+MUT [sleep 면제 제거] FAIL=2
+MUT [주석 가리기 0] FAIL=3
+MUT [>& 재지정 구분 0] FAIL=1
+MUT [heredoc 본문 가리기 0] FAIL=1
+MUT [yes 탐지 0] FAIL=21
+MUT [while 루프 탐지 0] FAIL=6
+MUT [dd count= 면제 제거] FAIL=1
+restored cmp0

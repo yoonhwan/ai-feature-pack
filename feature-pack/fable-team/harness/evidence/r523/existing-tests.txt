@@ -1,0 +1,58 @@
+== ⓐ kskill 생성 = REJECT + 안내
+PASS ⓐ BYZ 안 op item create --vault kskill rc=2
+PASS ⓐ stderr 안내 원문
+PASS ⓐ develop 토큰이어도 --vault kskill = REJECT rc=2
+== ⓑ --vault develop 인데 develop 토큰 참조 0 = REJECT
+PASS ⓑ 토큰 없음 rc=2
+PASS ⓑ 사유 = develop 토큰
+PASS ⓑ 기본 토큰 대입 = REJECT rc=2
+== ⓒ 올바른 꼴 = 통과
+PASS ⓒ --vault develop + develop 토큰 rc=0
+PASS ⓒ --vault=develop 꼴 rc=0
+PASS ⓒ export 대입 뒤 rc=0
+PASS ⓒ env 래퍼 rc=0
+PASS ⓒ op read op://develop rc=0
+PASS ⓒ' op read op://kskill = REJECT rc=2
+PASS ⓒ' op document --vault kskill = REJECT rc=2
+== ⓓ 볼트 인자 0 = REJECT · 볼트 선택 아닌 명령 = 통과
+PASS ⓓ op item list(볼트 0) rc=2
+PASS ⓓ 안내 같음
+PASS ⓓ op item delete(볼트 0) rc=2
+PASS ⓓ 통과: op vault list rc=0
+PASS ⓓ 통과: op whoami rc=0
+PASS ⓓ 통과: op --version rc=0
+PASS ⓓ 통과: op signin rc=0
+PASS ⓓ 통과: op account list rc=0
+PASS ⓓ 통과: op --help rc=0
+PASS ⓓ 통과: op item --help rc=0
+== ⓔ BYZ 밖 = 통과 · FT_ROOT 가 BYZ 면 검사
+PASS ⓔ 표식 없어도 origin …/byz-agents.git 이면 BYZ = REJECT rc=2
+PASS ⓔ BYZ 밖 cwd(.fable-team 만 있는 팩 꼴 리포) rc=0
+PASS ⓔ git 밖 cwd rc=0
+PASS ⓔ FT_ROOT=BYZ 면 cwd 밖이어도 REJECT
+== ⓕ 구분자 뒤 낱말 · 못 읽음
+PASS ⓕ && 뒤 rc=2
+PASS ⓕ ; 뒤 rc=2
+PASS ⓕ | 뒤 rc=2
+PASS ⓕ $( ) 안 rc=2
+PASS ⓕ bash -c 문자열 안 rc=2
+PASS ⓕ 절대경로 op rc=2
+PASS ⓕ 따옴표 안 글자 = 실행 아님 rc=0
+PASS ⓕ grep 인자 = 실행 아님 rc=0
+PASS ⓕ 커밋 메시지 = 실행 아님 rc=0
+PASS ⓕ' tool_name≠Bash = 통과 rc=0
+PASS ⓕ JSON 못 읽음 = 통과 + 경고
+PASS ⓕ 빈 입력 = 통과
+== ⓖ 600/300 0 · 외부 호출 0 · 토큰 값 출력 0
+PASS ⓖ 600/300 0
+PASS ⓖ 외부 호출 글자 0
+PASS ⓖ 실제 op 호출 0
+PASS ⓖ OP_ 환경값 접근 0
+PASS ⓖ 토큰 값 stdout/stderr 0 (17줄 검사)
+== 설치 목록 · 스니펫
+PASS install.sh HOME_HOOKS = kit/hooks 목록 · 훅 파일 있음
+PASS 스니펫 PreToolUse Bash 1항(JSON 유효)
+PASS 훅 실행 권한
+PASS bash -n
+== 결과: FAIL=0
+test_op_vault_develop_gate rc=0

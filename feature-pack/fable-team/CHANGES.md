@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — 홈 훅 `bg-cpu-burner-gate.sh` = 시간 상한 없는 백그라운드 CPU 소모기 거절 (r523 · 1.1.80)
+
+- 사건: 10-19 23:27Z v65 나노가 부하 재현 스크립트 `loadrep.sh` 안에서 `nice -n 19 yes > /dev/null &` 여러 개를 띄우고 정리는 `trap EXIT` 뿐 → 강제 종료로 trap 이 안 돌아 `yes` 고아 → CPU 100 · 오빠 손 kill(v65 215 쪽지 119303 → desk 119305 → master 83 발주 119306). «burner 0» 은 메모리 글뿐이라 못 막음.
+- 새 홈 훅 `kit/hooks/bg-cpu-burner-gate.sh`(PreToolUse:Bash · 모든 리포 · `op-vault-develop-gate.sh` 꼴 = python3 본문 · fail-open): 명령 글자 + 그 명령이 실행하는 스크립트 파일 1단계(`bash|sh|zsh|dash|source|.` 다음 인자 · 첫 낱말이 경로 · cwd 기준 · ≤256KB · 바이너리 생략)를 따옴표·주석·heredoc 본문을 가린 뒤 조각낸다. 소모기 = 감싸개(env·nohup·nice·stdbuf·command·exec·time) 벗긴 첫 낱말 `yes` · `cat /dev/zero|/dev/urandom` · `dd if=/dev/zero|/dev/urandom`(count= 없음) · `while true|:|[ 1 ]|(( 1 ))` 루프(본문 sleep 이면 아님 — r448 영역). 백그라운드 = 파이프라인 끝 단독 `&`(`done &` 포함 · `2>&1`·`&>` 는 재지정) 또는 `run_in_background: true`. 면제 = burner 바로 앞 `timeout|gtimeout N` · N ≤ 600초 하나뿐(바깥 `timeout … bash x.sh` 는 안의 `&` 고아를 못 끄므로 면제 아님). 거절 = exit 2 + stderr `REJECT bg-cpu-burner <파일:줄|명령> — …` 1줄. 거절만 — kill·renice·실행 0 · 외부 프로세스 0.
+- 등록: `settings-hooks.snippet.json` PreToolUse `Bash` 1항목(`$HOME/.claude/hooks/bg-cpu-burner-gate.sh`). 설치기는 kit/hooks 전부를 복사(r491) — settings 등록은 master.
+- 시험 `test_bg_cpu_burner_gate.sh`(새 · 임시 폴더 · 실제 burner 실행 0 · 가짜 kill/pgrep/ps/pkill · GIT_* 0) ⓐ~ⓙ 65건 — 고치기 전 FAIL(훅 파일 없음 · `harness/evidence/r523/before-fix.txt`) · 고친 뒤 ALL PASS(`after-fix.txt`) · mutation 10종 전부 RED(`mutation.txt`) · 실제 스크립트 745개(kit·bin·tests·홈 훅·BYZ scripts)를 `bash <파일>` 로 넣어 거절 0(`real-scripts-scan.txt`).
+- 기존 시험 1: `test_op_vault_develop_gate.sh` 의 «install.sh HOME_HOOKS 1토큰» 검사가 r491(HOME_HOOKS = kit/hooks find 목록) 뒤 base 에서도 FAIL 1 → 지금 꼴(find 목록 + 훅 파일 실재)로 고침 · rc0(`existing-tests.txt`).
+- 설치: 키트 훅 1 → `install.sh --apply --project <루트>` → 홈 `~/.claude/hooks/bg-cpu-burner-gate.sh` cmp0 · settings.json PreToolUse Bash 등록 1 · LIVE_BIN 0 · launchd 0 · 되돌림 = `.bak-r523`.
+- 범위 밖: 이미 떠 있는 burner 끄기(r522 = 사후 기록 · 끄기는 사람) · CPU 실측 · python/node 안 무한 루프 · 2단계 이상 스크립트 · `( … ) &`·`{ …; } &` 묶음 · `cat /dev/zero | gzip &` 처럼 burner 가 파이프라인 끝이 아닌 꼴.
+
 ## 2026-10-20 — `ft-hil.sh --pending` = 파이썬 한 번의 훑기 · 같은 결과를 1초 안에 · 읽기 실패 rc 3 (r521 · 1.1.79)
 
 - 사건: `--pending` 이 `/tmp/h<N>` 880개를 파일마다 `plan_of`(sed·head)·`done_rc`(grep)·`age_min`/`since_min`(stat·date) 하위 프로세스로 훑어 부하 17 에서 2.8~3.2초 · 부하 26~30 에서 4.35~4.68초 → `ft-decision-count` 1회 예산 5.0초(R303)에 붙어 rc4 «ft-hil.sh TimeoutExpired» 2회(§74 r517 · §77 r337 편차 · arch 106 실측).
