@@ -1,0 +1,2 @@
+stall=1 a=0 b=0 c=0 d=0 e=1 seats=43 u=0 ts=1792456291
+e byz-planner-desk-claude#23 768 교대 표시인데 라이브 · 열린 일 · ctx 14%

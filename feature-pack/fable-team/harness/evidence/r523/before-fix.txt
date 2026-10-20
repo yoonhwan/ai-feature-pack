@@ -1,0 +1,3 @@
+FAIL 훅 파일 없음: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r523-bash-bg-cpu-burner-reject-hook/feature-pack/fable-team/harness/tests/../kit/hooks/bg-cpu-burner-gate.sh
+== 결과: FAIL=1
+rc=1

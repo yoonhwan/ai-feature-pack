@@ -6,7 +6,11 @@
 #   결과: cleaned|none → <seat>.sh.done · skipped:좌석/cwd → WAIT(제자리 · 다음 sweep) · 그 외 skipped → ★<seat>.sh.hil 로 이동 + [HIL] 1줄 «1회»★(호출자가 mbox 로 올린다 ·
 #   사람이 .hil 을 .sh 로 되돌리면 재시도). 계획 1건당 FT_WT_PLAN_TIMEOUT(기본 120s) — 초과는 skipped:timeout 으로 .hil(MINOR b).
 #   ★r-wt-sweep-route-timeout★ ①초과는 rc 124 정직(perl 이 자기 TERM 을 무시) ②baton 머리줄이 로그에 있는 «삭제 단계» 초과는 WAIT + <계획>.tmo 연속 카운트(FT_WT_SWEEP_TMO_MAX=3 회면 HIL)
-#   ③pass 1회에 계획 FT_WT_SWEEP_MAX(기본 1)건만(좌석·cwd WAIT 는 안 센다) ④[HIL] 줄은 «seat=<좌석>» 을 담는다(호출자가 팀 master 로 라우팅).
+#   ③(r535 개정) pass 1회 = 시간 상한 FT_WT_SWEEP_BUDGET_SEC(기본 90 · 계획 1건 상한은 그대로) 안에서 막히지 않은 계획을 차례로 · FT_WT_SWEEP_MAX 는 명시할 때만 건수 상한(기본 0 = 없음 · 좌석·cwd WAIT 는 안 센다)
+#   ④[HIL] 줄은 «seat=<좌석>» 을 담는다(호출자가 팀 master 로 라우팅).
+#   ★r535★ ⓐ옛 판 계획 = 거부 전에 옆 생성기 `--replan` 으로 같은 좌석·같은 WT 계획 재생성(옛 파일 .replanned · REPLAN 1줄) → 같은 pass 에 실행 · 계보 세션 살아 있음 = WAIT(제자리) · 불가 = 지금처럼 .stale + 사유
+#     ⓑ실행 직전 WT 크기 `du -sk`(FT_WT_DU_SEC 기본 5 상한 · 넘으면 ? · <계획>.kb 캐시) → cleaned 면 .done 끝 `# freed_kb=` · <state>/wt-sweep.log 폴더별 `freed seat= kb=` + pass 줄 끝 `freed_kb=<합>`
+#     ⓒ등록 없는 폴더(<SCAN_ROOT>/.worktrees/* 인데 git worktree list 에 없음) → <state>/wt-orphans.tsv(이름·mtime·크기) 목록만(FT_WT_ORPHAN_SCAN_SEC 기본 3600 간격 · 삭제 0) ⓓ.sh.hil 수 → 요약 `hil_files N`(처리 0).
 #   ★r166 2단 정리★ 생성기 계획은 «이름 바꾸기(즉시) → 분리 프로세스 정리» 로 끝난다(상한 TERM 이 삭제 도중 걸려도 원래 경로엔 껍데기 0).
 #   ⓐ분리 정리 = `--finish <계획>.deleting`(포인터: 1행 이름 바뀐 경로 · 2행 리포 루트) — baton 보관+삭제 → prune. 끝나지 않은 포인터는 매 pass 가 이어서 다시 건다(⓶ 이어정리 · 실패 FT_WT_FINISH_MAX=3 회면 HIL).
 #   ⓑ계획 머리 `# plan-ver:` ≠ 옆의 라이브 생성기(ft-nano-close.sh blob sha) = 실행 거부(.stale 로 이동 + STALE 1줄). 머리 표식이 없어도 생성기 계획(`# wt-clean 계획 — ft-nano-close.sh`)이면 옛 판으로 거부. 생성기 계획이 아닌 것(수동·스텁)은 대상 아님.
@@ -71,7 +75,7 @@ if [ "${1:-}" = "--launchd" ]; then
   [ -n "${FT_ROOT:-}" ] && [ -d "$FT_ROOT" ] || { echo "ERROR --launchd 는 FT_ROOT(리포 루트) 필수: ${FT_ROOT:-<없음>}" >&2; exit 2; }
   cd "$FT_ROOT" || exit 2
   LST="$FT_ROOT/.fable-team/state"; mkdir -p "$LST"
-  out="$(FT_WT_SWEEP_MAX="${FT_WT_SWEEP_MAX:-20}" bash "$SELF" 2>&1)"; rc=$?
+  out="$(FT_WT_SWEEP_BUDGET_SEC="${FT_WT_SWEEP_BUDGET_SEC:-300}" bash "$SELF" 2>&1)"; rc=$?
   printf '%s\n' "$out"
   sm="$(printf '%s\n' "$out" | grep '^sweep 계획 ' | tail -1)"
   num() { local v; v="$(printf '%s' "$sm" | sed -nE "s#.*$1 ([0-9]+).*#\\1#p")"; echo "${v:-0}"; }
@@ -97,8 +101,9 @@ print(m if isinstance(v,dict) and not v.get("_replaced_by") else "")' "$1" 2>/de
       if bash "$AR" "$b" --repo "$FT_ROOT" >/dev/null 2>&1; then ar=$((ar+1)); else ask=$((ask+1)); fi
     done < <(git -C "$FT_ROOT" for-each-ref --sort=-committerdate --count="${FT_WT_ARCHIVE_MAX:-200}" --format='%(refname:short)' 'refs/heads/nano/')
   fi
-  printf '%s rc=%s cleaned=%s wait=%s hil=%s stale=%s carry=%s resume=%s routed=%s route_fail=%s archived=%s archive_skip=%s\n' "$(date '+%F %T')" "$rc" \
-    "$(num 'cleaned/none')" "$(num wait)" "$(num hil)" "$(num stale)" "$(num 이월)" "$(num 이어정리)" "$routed" "$rfail" "$ar" "$ask" >> "$LST/wt-sweep.log"
+  printf '%s rc=%s cleaned=%s wait=%s hil=%s stale=%s carry=%s resume=%s routed=%s route_fail=%s archived=%s archive_skip=%s replanned=%s hil_files=%s orphans=%s freed_kb=%s\n' "$(date '+%F %T')" "$rc" \
+    "$(num 'cleaned/none')" "$(num wait)" "$(num hil)" "$(num stale)" "$(num 이월)" "$(num 이어정리)" "$routed" "$rfail" "$ar" "$ask" \
+    "$(num replanned)" "$(num hil_files)" "$(num orphans)" "$(num freed_kb)" >> "$LST/wt-sweep.log"
   tail -1 "$LST/wt-sweep.log"; exit "$rc"
 fi
 
@@ -108,7 +113,10 @@ WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 DIR="${FT_WT_CLEAN_DIR:-${ROOT:-$WT}/.fable-team/state/wt-clean}"
 TMO="${FT_WT_PLAN_TIMEOUT:-120}"
-MAX="${FT_WT_SWEEP_MAX:-1}"          # pass 1회에 실행하는 계획 수(좌석 WAIT 는 세지 않는다) — 틱 pass 를 계획 N×상한 동안 붙잡지 않는다
+MAX="${FT_WT_SWEEP_MAX:-0}"          # 명시할 때만 pass 1회 계획 수 상한(0 = 없음 · 좌석 WAIT 는 세지 않는다)
+BUDGET="${FT_WT_SWEEP_BUDGET_SEC:-90}"  # r535: pass 1회 시간 상한 — 넘으면 남은 계획은 이월(계획 1건 상한 TMO 는 그대로) · 틱 pass 를 계획 N×상한 동안 붙잡지 않는다
+DU="${FT_DU_BIN:-du}"; DU_SEC="${FT_WT_DU_SEC:-5}"
+SLOG="${FT_WT_SWEEP_LOG:-$(dirname "$DIR")/wt-sweep.log}"; ORPH="${FT_WT_ORPHANS_TSV:-$(dirname "$DIR")/wt-orphans.tsv}"
 TMO_MAX="${FT_WT_SWEEP_TMO_MAX:-3}"  # 삭제 단계 초과가 «연속» 이 횟수가 되면 사람 판정(HIL)
 FIN_MAX="${FT_WT_FINISH_MAX:-3}"     # 이름 바뀐 워크트리의 분리 정리가 «연속 실패» 한 횟수가 되면 사람 판정(HIL)
 GRACE="${FT_WT_RESUME_GRACE:-20}"    # 막 만든 포인터는 이 초 동안 이어정리 대상이 아니다(계획이 방금 건 분리 정리와 겹치지 않게)
@@ -132,14 +140,43 @@ plan_ver_check() {
   [ -n "$pv" ] && [ "$pv" = "$lv" ] && return 0
   echo "plan-ver=${pv:-없음} ≠ 라이브 생성기=${lv:-없음}"; return 1
 }
-n=0; c=0; w=0; h=0; d=0; ran=0; st=0; rs=0
+# r535 옛 판 재생성 — 옛 계획을 .replanned 로 비켜 두고 옆 생성기 --replan 으로 같은 자리(<seat>.sh)에 새 계획. rc 0 = 새 계획 · 4 = WAIT(옛 계획 제자리) · 그 밖 = 실패(옛 계획 제자리 · 호출자가 .stale).
+replan_one() {
+  local out rc
+  [ -f "$GEN" ] || { echo "생성기 없음($GEN)"; return 1; }
+  mv "$1" "$1.replanned" || { echo "옛 계획 비키기 실패"; return 1; }
+  out="$(FT_WT_CLEAN_DIR="$DIR" bash "$GEN" "$2" --replan "$1.replanned" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ -f "$1" ] && plan_ver_check "$1" >/dev/null; then return 0; fi
+  rm -f "$1"; mv "$1.replanned" "$1"
+  echo "$(printf '%s\n' "$out" | grep -E '^(REJECT|WAIT|ERROR|usage)' | tail -1 | cut -c1-200)"; [ "$rc" -eq 4 ] && return 4; return 1
+}
+# 실행 직전 WT 크기(KB) — du 상한(DU_SEC · perl alarm) · 넘김·실패 = ? · <계획>.kb 캐시(WAIT 로 매 pass 다시 재지 않게)
+size_kb() {
+  local wt v
+  [ -f "$1.kb" ] && { cat "$1.kb"; return; }
+  wt="$( (eval "$(grep -m1 '^SEAT=' "$1")" 2>/dev/null; printf '%s' "${WT:-}") 2>/dev/null)"   # 굽힌 값 줄만 서브셸에서 읽는다(신뢰 경계 = 실행할 계획 파일 자체)
+  [ -n "$wt" ] && [ -d "$wt" ] || return 0
+  # 그룹째 TERM(run_plan 과 같은 꼴) — 자식이 출력 파이프를 쥔 채 남아 $(…) 가 안 돌아오는 일 0
+  v="$(perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; exit(system(@ARGV)>>8)' "$DU_SEC" "$DU" -sk "$wt" 2>/dev/null | awk 'NR==1{print $1}')"
+  case "$v" in ''|*[!0-9]*) v='?';; esac
+  echo "$v" > "$1.kb"; echo "$v"
+}
+n=0; c=0; w=0; h=0; d=0; ran=0; st=0; rs=0; rp=0; freed=0; T0="$(date +%s)"
 for plan in "$DIR"/*.sh; do
   [ -f "$plan" ] || continue
   seat="$(basename "$plan" .sh)"
   if [ "$DRY" = 1 ]; then n=$((n+1)); echo "DRY $seat — $plan"; continue; fi
-  why="$(plan_ver_check "$plan")" || { st=$((st+1)); mv "$plan" "$plan.stale"; echo "STALE $seat — 옛 생성기 계획 실행 거부($why) · 재생성: ft-nano-close.sh $seat 를 다시 돌려 새 계획을 만든다(옛 계획 $plan.stale)"; continue; }
-  if [ "$ran" -ge "$MAX" ]; then d=$((d+1)); continue; fi
+  if [ $(( $(date +%s) - T0 )) -ge "$BUDGET" ] || { [ "$MAX" -gt 0 ] && [ "$ran" -ge "$MAX" ]; }; then d=$((d+1)); continue; fi
+  if ! why="$(plan_ver_check "$plan")"; then
+    rwhy="$(replan_one "$plan" "$seat")"; rrc=$?
+    case "$rrc" in
+      0) rp=$((rp+1)); echo "REPLAN $seat — $why → 같은 좌석·같은 WT 새 계획(옛 계획 $plan.replanned)";;
+      4) w=$((w+1)); echo "WAIT $seat 옛 판 계획 — 재생성 보류(${rwhy#WAIT --replan: })"; continue;;
+      *) st=$((st+1)); mv "$plan" "$plan.stale"; echo "STALE $seat — 옛 생성기 계획 실행 거부($why) · 재생성 불가: ${rwhy:-사유 없음} (옛 계획 $plan.stale)"; continue;;
+    esac
+  fi
   n=$((n+1))
+  kb="$(size_kb "$plan")"
   run_plan "$plan" > "$plan.log" 2>&1; rc=$?; res="$(tail -1 "$plan.log")"   # 파일로 받는다 — 파이프 캡처는 고아 자식이 잡고 있으면 타임아웃 뒤에도 안 돌아온다
   [ "$rc" -ne 124 ] || res="skipped:timeout ${TMO}s"
   case "$res" in skipped:좌석*|skipped:cwd*) ;; *) ran=$((ran+1));; esac
@@ -153,7 +190,11 @@ for plan in "$DIR"/*.sh; do
   fi
   rm -f "$tmo"   # 초과 외의 결과는 «연속» 을 끊는다
   case "$res" in
-    cleaned*|none) c=$((c+1)); mv "$plan" "$plan.done"; echo "OK   $seat wt=$res";;
+    cleaned*|none) c=$((c+1)); mv "$plan" "$plan.done"; rm -f "$plan.kb"; echo "OK   $seat wt=$res"
+      if [ -n "$kb" ] && [ "$res" != none ]; then   # r535 지운 폴더 크기 — .done 끝 1줄 + 폴더별 로그 1줄
+        echo "# freed_kb=$kb" >> "$plan.done"; case "$kb" in *[!0-9]*) ;; *) freed=$((freed+kb));; esac
+        echo "$(date '+%F %T') freed seat=$seat kb=$kb wt=$(sed -n 's/^SEAT=.*; WT=\([^;]*\).*/\1/p' "$plan.done" | head -1)" >> "$SLOG" 2>/dev/null
+      fi;;
     skipped:좌석*|skipped:cwd*) w=$((w+1)); echo "WAIT $seat ${res#skipped:}";;
     skipped:*) h=$((h+1)); mv "$plan" "$plan.hil"; echo "[HIL] seat=$seat ${res#skipped:} · $(hilmsg "$plan.hil")";;
     *) h=$((h+1)); mv "$plan" "$plan.hil"; echo "[HIL] seat=$seat 실행 실패(rc=$rc: ${res:-출력 없음}) · $(hilmsg "$plan.hil") (로그 $plan.log)";;
@@ -202,4 +243,36 @@ shell_scan() {
   done
 }
 shell_scan
-echo "sweep 계획 $n · cleaned/none $c · wait $w · hil $h$([ "$d" -gt 0 ] && echo " · 이월 $d")$([ "$st" -gt 0 ] && echo " · stale $st")$([ "$rs" -gt 0 ] && echo " · 이어정리 $rs")"
+# r535 등록 없는 폴더 목록 — <SCAN_ROOT>/.worktrees/* 중 git worktree list 에 없는 실폴더(링크 제외) → TSV(이름·mtime·KB). 읽기·목록만(삭제 0) · 간격 ORPH_SEC · du 폴더당 DU_SEC · 합계 60s 넘으면 나머지 크기 ?
+orphan_scan() {
+  local stamp="$DIR/.orphan-scan.stamp" now
+  [ "$DRY" != 1 ] && [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT/.worktrees" ] && [ -d "$DIR" ] || return 0
+  now="$(date +%s)"; [ $(( now - $(cat "$stamp" 2>/dev/null || echo 0) )) -ge "${FT_WT_ORPHAN_SCAN_SEC:-3600}" ] || return 0
+  echo "$now" > "$stamp"
+  python3 - "$SCAN_ROOT" "$ORPH" "$DU" "$DU_SEC" <<'PY' || echo "ERROR 등록 없는 폴더 목록 실패(목록 갱신 0)" >&2
+import os, subprocess, sys, time
+root, out, du, dusec = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
+wl = subprocess.run(["git", "-C", root, "worktree", "list", "--porcelain"], capture_output=True, text=True, timeout=30)
+if wl.returncode != 0: raise SystemExit("git worktree list rc=%d" % wl.returncode)
+reg = {os.path.realpath(l[9:]) for l in wl.stdout.splitlines() if l.startswith("worktree ")}
+base = os.path.join(root, ".worktrees"); rows = []; t0 = time.time()
+for n in sorted(os.listdir(base)):
+    p = os.path.join(base, n)
+    if os.path.islink(p) or not os.path.isdir(p) or os.path.realpath(p) in reg: continue
+    kb = "?"
+    if time.time() - t0 < 60:
+        try:
+            r = subprocess.run([du, "-sk", p], capture_output=True, text=True, timeout=dusec)
+            v = (r.stdout.split() or ["?"])[0]; kb = v if v.isdigit() else "?"
+        except subprocess.TimeoutExpired: pass
+    rows.append("%s\t%s\t%s" % (n, time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(p))), kb))
+tmp = out + ".tmp.%d" % os.getpid()
+with open(tmp, "w", encoding="utf-8") as f: f.write("name\tmtime\tsize_kb\n" + "".join(r + "\n" for r in rows))
+os.replace(tmp, out)
+PY
+}
+orphan_scan
+no=0; [ -f "$ORPH" ] && no=$(( $(wc -l < "$ORPH") - 1 )); [ "$no" -ge 0 ] || no=0
+nh="$(ls "$DIR"/*.sh.hil 2>/dev/null | wc -l | tr -d ' ')"
+[ "$DRY" = 1 ] || [ $((c + rp)) -eq 0 ] || echo "$(date '+%F %T') pass cleaned=$c replanned=$rp stale=$st wait=$w carry=$d freed_kb=$freed" >> "$SLOG" 2>/dev/null
+echo "sweep 계획 $n · cleaned/none $c · wait $w · hil $h$([ "$c" -gt 0 ] && echo " · freed_kb $freed")$([ "$d" -gt 0 ] && echo " · 이월 $d")$([ "$st" -gt 0 ] && echo " · stale $st")$([ "$rp" -gt 0 ] && echo " · replanned $rp")$([ "$rs" -gt 0 ] && echo " · 이어정리 $rs")$([ "$nh" -gt 0 ] && echo " · hil_files $nh")$([ "$no" -gt 0 ] && echo " · orphans $no(목록 $ORPH)")"

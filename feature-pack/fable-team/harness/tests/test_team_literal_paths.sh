@@ -6,7 +6,7 @@
 # 임시 폴더·가짜 도구만 쓴다 — 실제 리포·seats·tmux 세션·mbox 는 건드리지 않는다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SRC="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"; FIX="$HERE/../fixtures/goal_table"
+SRC="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"; FIX="$HERE/../../tests/fixtures/goal_table"   # r516: 팩 자리 = fable-team/tests/fixtures(test_goal_table_gate 와 같은 사본)
 _T0="$(mktemp -d)"; T="$(cd "$_T0" && pwd -P)"; trap 'rm -rf "$_T0"' EXIT
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 fail=0

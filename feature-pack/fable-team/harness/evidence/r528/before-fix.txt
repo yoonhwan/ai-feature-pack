@@ -1,0 +1,76 @@
+# 고치기 전 (바탕 cd358c0d76a94925546eb97c3dd4249c084c9830) · bash tests/test_queue_state_r528.sh
+FAIL 키트 미러 cmp 0: queue-states.tsv :: rc=0 out=
+FAIL 키트 미러 cmp 0: ft_queue_state.py :: rc=0 out=
+PASS 키트 미러 cmp 0: ft-proxy-decide.sh
+PASS 키트 미러 cmp 0: ft_decision_count.py
+FAIL 판정기 파일 실재: ft_queue_state.py :: rc=0 out=
+FAIL py_compile ft_queue_state.py :: rc=0 out=
+tests/test_queue_state_r528.sh: 줄 19: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue_state.py: No such file or directory
+FAIL ft_queue_state.py ≤ 200줄 :: rc=0 out=
+FAIL ⓐ 대기 · 진행—누가 · 보류—사유·재확인 · 완료—판정/sha → OK 5 rc0 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+  ⓐ 원문: /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue_state.py': [Errno 2] No such file or directory
+FAIL ⓑ 구현중정지·대기중정지·일시정지 → OK 3 rc0 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓒ 보류 재확인 시각 없음·사유 없음·틀린 시각 → ERR 줄 번호 6·7·8 rc1 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+  ⓒ 원문: 
+FAIL ⓒ 필수 덧말 빠짐(진행 누가·완료 판정/sha·hold 번호·멈춘 단계) · 안 붙는 정지 종류 → ERR 7 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓓ 빈 칸·어휘 밖 문장·정지 둘 → ERR 5 · 끝줄 QUEUE-STATE ERR=5 OK=1 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+  ⓓ 원문: 
+FAIL ⓓ 상태 칸보다 짧은 행 → ERR :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓓ 머리에 상태·처리됨 칸 없음 → ERR 1 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓓ 큐 파일 없음 → ERROR rc2(조용한 0 금지) :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue_state.py': [Errno 2] No such file or directory
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+FAIL ⓓ parse JSON — 줄 번호·머리 이름별 칸·상태·정지·덧말 :: rc=2 out=
+/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue_state.py': [Errno 2] No such file or directory
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;r=json.loads(sys.argv[1])[0];assert r["recheck"]=="2026-10-21 09:00",r
+                      ~~~~~~~~~~^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+FAIL ⓓ parse 재확인 시각 칸 :: rc=2 out=
+/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue_state.py': [Errno 2] No such file or directory
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;r=json.loads(sys.argv[1])[0];assert r["cells"]["새칸"]=="값" and r["state"]=="대기",r
+                      ~~~~~~~~~~^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+FAIL ⓓ 상태 뒤에 칸이 늘어도 파서 그대로(r529) :: rc=2 out=
+FAIL ⓕ 옛 머리 «처리됨» = 같은 칸으로 읽음(이름 바꾸기 0) :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+PASS 준비: 자율 ON
+PASS ⓔ 준비: QUEUE rc2
+FAIL ⓔ 새 파일 머리 7칸 · 끝 칸 «상태» :: rc=2 out=QUEUE 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BMMTKuPzZu/none.md · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BMMTKuPzZu/planner/AUTONOMY-QUEUE.md
+  ⓔ 원문: | 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 |
+  ⓔ 원문: | A1 | 2026-10-20 09:36 | card-start | q1 | c | 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BMMTKuPzZu/none.md |
+FAIL ⓔ 새 QUEUE 줄 7칸 · 끝 칸 대기 :: rc=2 out=QUEUE 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BMMTKuPzZu/none.md · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BMMTKuPzZu/planner/AUTONOMY-QUEUE.md
+FAIL ⓔ 도구가 쓴 큐 = 린트 OK :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓔ 옛 머리(처리됨) 큐에도 새 줄 7칸 · 대기 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓕ decision-count 머리 «상태» · 대기 2 = 열린 줄 2 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAIL ⓕ decision-count 옛 머리 «처리됨» · 빈 칸 + 대기 = 열린 줄 2 :: rc=2 out=/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r528-queue-state-column-four-states-stop/featu
+FAILED 23
+rc=1

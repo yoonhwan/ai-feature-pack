@@ -5,6 +5,7 @@
 #       [--card <진행/카드.md> --seat <좌석>]          nano-reopen 근거(설계 r1-1 ①~④ + r1-9 H2 ⑤): 진행 폴더 카드 · nano/* 브랜치 · 재개 기록 · 자원 문지기 rc 0 · spawn 기준선과 같음
 #       [--branch <가지> --sha <40hex>]               docs-push 근거: diff 전부 *.md|design/** · 가지 ∉ {main}∪FT_DEPLOY_BRANCHES(미설정=QUEUE) · fast-forward
 #       [--plan <상태>/wt-clean/<좌석>.sh.hil]        wt-clean 근거(R410 · 판정 2326): ft-nano-close 계획 · plan-ver = 라이브 생성기 blob · «브랜치는 지우지 않는다» · 좌석 tmux 세션 0 · 실행 줄 제외 어휘(계획 실행은 PROXY 뒤 호출자 몫)
+#       [--team <팀>]                               r529 큐 줄 팀 칸(없으면 --card 경로의 팀 · 둘 다 없으면 -)
 #   push-merge(main 병합·main push)는 오빠 값(판정 1675) — 항상 QUEUE, ok 파일 쓰기 0. 병합 승인 = ft-autonomy.sh approve-merge(오빠 `!`)뿐.
 # rc 0 = 대리(PROXY): 판정 원장에 «대리» 1줄 · rc 2 = 대리 불가(QUEUE): 오빠 큐 1행 · rc 3 = 모드 OFF/위변조(인터뷰로) · rc 4 = 인자 오류
 # 환경: FT_ROOT · FT_AUTONOMY_STATE_DIR · FT_PLANNER_DIR(원장 VERDICTS-*.md · 큐 AUTONOMY-QUEUE.md) · FT_PROXY_LEDGER(쓸 원장, 기본 최신 planner 번호) · FT_TEAMS_REF(큐 자리 명단·카드 읽기 ref, 기본 origin/main · r515)
@@ -29,18 +30,21 @@ CALL_RETRIES=1
 usage() { echo "REJECT $*" >&2; echo "usage: ft-proxy-decide.sh --kind K --q Q --choice C --why W --undo U [--card F --verdict N | --card F --seat S | --branch B --sha S | --plan P]" >&2; exit 4; }
 san() { printf '%s' "$1" | tr '\n|' ' /'; }
 
-kind=""; q=""; choice=""; why=""; undo=""; sha=""; card=""; verdict=""; seat=""; branch=""; plan=""
+kind=""; q=""; choice=""; why=""; undo=""; sha=""; card=""; verdict=""; seat=""; branch=""; plan=""; team=""
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || usage "값 없는 인자: $1"
   case "$1" in
     --kind) kind="$2" ;; --q) q="$2" ;; --choice) choice="$2" ;; --why) why="$2" ;; --undo) undo="$2" ;;
-    --sha) sha="$2" ;; --card) card="$2" ;; --verdict) verdict="$2" ;; --seat) seat="$2" ;; --branch) branch="$2" ;; --plan) plan="$2" ;;
+    --sha) sha="$2" ;; --card) card="$2" ;; --verdict) verdict="$2" ;; --seat) seat="$2" ;; --branch) branch="$2" ;; --plan) plan="$2" ;; --team) team="$2" ;;
     --da|--pr) ;;   # push-merge 옛 인자 — 이제 QUEUE 고정이라 읽지 않는다(호출 습관이 rc 4 로 깨지지 않게 받기만)
     *) usage "알 수 없는 인자: $1" ;;
   esac
   shift 2
 done
 for v in kind q choice why undo; do [ -n "${!v}" ] || usage "--$v 필수"; done
+# r529: 큐 줄 팀 칸 = --team → --card 경로의 design/[teams/]<팀>/indices/ → -
+qteam="${team:--}"; case "$qteam" in *[!a-z0-9_-]*) usage "--team 형식 틀림: $team" ;; esac
+if [ -z "$team" ] && [[ "$card" =~ (^|/)design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/ ]]; then qteam="${BASH_REMATCH[3]}"; fi
 
 mode="$("$AUT" mode)"
 [ "$mode" = on ] || { echo "REJECT 자율 모드 $mode — 대리 불가, 인터뷰로"; exit 3; }
@@ -54,17 +58,14 @@ unlock() { rmdir "$STATE/.proxy.lock" 2>/dev/null; trap - EXIT; }
 fail() { echo "ERROR $* — 기록 실패, 결정 아님" >&2; exit 5; }  # #0 RULE: 기록 실패에 PROXY·QUEUE 성공을 말하지 않는다
 
 queue_exit() {  # <사유> — 큐 1행 + 같은 질문 기록, rc 2 (쓰기 실패 = rc 5 + stderr)
-  local why_q="$1"
+  local why_q="$1" added
+  # r528: 상태 칸(어휘 정본 queue-states.tsv · 새 줄 «대기») · r529: 상태 뒤 번호·팀·보여준 시각 — 줄 쓰기 = ft-queue.sh add 하나(락 · 옛 머리 칸 셋 붙임)
+  added="$(FT_QUEUE_FILE="$QUEUE" FT_AUTONOMY_STATE_DIR="$STATE" bash "$HERE/ft-queue.sh" add --ev "$EV" --kind "$kind" --q "$q" --choice "$choice" --why "$why_q" --team "$qteam" 2>&1)" \
+    || fail "큐 행 쓰기 실패: $QUEUE (${added//$'\n'/ })"
   lock
-  if [ ! -f "$QUEUE" ]; then
-    mkdir -p "$(dirname "$QUEUE")" || fail "큐 폴더 생성 실패: $(dirname "$QUEUE")"
-    printf '%s\n\n%s\n%s\n' '# AUTONOMY-QUEUE — 자율 대리 결정 모드가 대리하지 않은 질문 (오빠 큐)' \
-      '| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 |' '|---|---|---|---|---|---|' > "$QUEUE" || fail "큐 파일 생성 실패: $QUEUE"
-  fi
-  printf '| %s | %s | %s | %s | %s | %s |\n' "$EV" "$(date '+%Y-%m-%d %H:%M')" "$(san "$kind")" "$(san "$q")" "$(san "$choice")" "$(san "$why_q")" >> "$QUEUE" || fail "큐 행 쓰기 실패: $QUEUE"
   printf '%s %s\n' "$EV" "$qhash" >> "$SEEN" || fail "재시도 기록 쓰기 실패: $SEEN"
   unlock
-  echo "QUEUE $why_q · 큐 파일 $QUEUE"
+  echo "QUEUE $why_q · 큐 줄 ${added#ADD } · 큐 파일 $QUEUE"
   exit 2
 }
 

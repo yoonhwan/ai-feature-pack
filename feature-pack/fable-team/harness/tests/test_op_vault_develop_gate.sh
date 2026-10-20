@@ -84,7 +84,9 @@ grep -nE 'environ[^#]*OP_|getenv[^#]*OP_' "$GATE" && bad "ⓖ 훅이 OP_ 환경�
 grep -qE 'FAKEKSKILLVAL7731|FAKEDEVELOPVAL9942' "$T/all.out" && bad "ⓖ 토큰 값이 출력에 나옴" || ok "ⓖ 토큰 값 stdout/stderr 0 ($(wc -l < "$T/all.out" | tr -d ' ')줄 검사)"
 
 echo "== 설치 목록 · 스니펫"
-grep -qE '^HOME_HOOKS=".*\bop-vault-develop-gate\.sh\b' "$HERE/../install.sh" && ok "install.sh HOME_HOOKS 1토큰" || bad "install.sh HOME_HOOKS 없음"
+# r491 뒤 HOME_HOOKS = kit/hooks 폴더 목록(find) — 훅 파일이 그 폴더에 있으면 설치 목록에 든다
+grep -qF 'HOME_HOOKS="$(cd "$HARNESS/kit/hooks" && find . -maxdepth 1 -type f' "$HERE/../install.sh" && [ -f "$GATE" ] \
+  && ok "install.sh HOME_HOOKS = kit/hooks 목록 · 훅 파일 있음" || bad "install.sh HOME_HOOKS 꼴 다름 또는 훅 파일 없음"
 python3 - "$HERE/../kit/fable-team/templates/settings-hooks.snippet.json" <<'PY' && ok "스니펫 PreToolUse Bash 1항(JSON 유효)" || bad "스니펫 항 없음"
 import json, sys
 d = json.load(open(sys.argv[1]))

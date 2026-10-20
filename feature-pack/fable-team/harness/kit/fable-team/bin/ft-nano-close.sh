@@ -26,6 +26,9 @@
 #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
+#   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·KEY·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
+#     몸통·가드는 지금 생성기 그대로 — 종료조건·팀 env·드리프트·원장 해석·명부·kill 전부 건너뜀. 새 계획 = <옛 계획 폴더>/<seat>.sh(FT_WT_CLEAN_DIR 가 이긴다).
+#     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · WT 없음 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
@@ -40,8 +43,10 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
-RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""; NS_LAND=""
-while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; --plan-only) [ $# -ge 2 ] || { echo "usage: --plan-only <워크트리 경로> (경로 인자 누락)" >&2; exit 2; }; PLAN_ONLY=1; PO_WT="$2"; shift 2;; --shared-wt) SHARED=1; shift;;
+RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""; NS_LAND=""; REPLAN=0; RP_OLD=""
+while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;;
+  --replan) [ $# -ge 2 ] && [ -f "$2" ] || { echo "usage: --replan <옛 계획 파일> (인자 누락·파일 없음)" >&2; exit 2; }; REPLAN=1; RP_OLD="$2"; shift 2;;
+  --plan-only) [ $# -ge 2 ] || { echo "usage: --plan-only <워크트리 경로> (경로 인자 누락)" >&2; exit 2; }; PLAN_ONLY=1; PO_WT="$2"; shift 2;; --shared-wt) SHARED=1; shift;;
   --wt) [ $# -ge 2 ] || { echo "usage: --wt <경로> (경로 인자 누락)" >&2; exit 2; }; HAVE_NWT=1; NWT="$2"; shift 2;;
   --branch) [ $# -ge 2 ] || { echo "usage: --branch <이름> (이름 인자 누락)" >&2; exit 2; }; HAVE_NBR=1; NBR="$2"; shift 2;;
   --cherry-override) [ $# -ge 2 ] || { echo "usage: --cherry-override <사유> (사유 인자 누락)" >&2; exit 2; }; HAVE_CHERRY_OVERRIDE=1; CHERRY_OVERRIDE="$2"; shift 2;;
@@ -76,6 +81,7 @@ if [ "$HAVE_NWT" -eq 1 ]; then
 fi
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; else echo "WARN ft-team-lib.sh 없음($HERE) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)" >&2; fi
+if [ "$REPLAN" -eq 0 ]; then   # r535 --replan 은 아래 입구(팀 env·드리프트·원장 해석·명부)를 건너뛴다 — 값은 옛 계획에 구워져 있다
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
@@ -126,6 +132,7 @@ case "$LEDGER" in /*) ;; *) LEDGER="$LEDGER_WT/$LEDGER";; esac
 [ -f "$SEATS" ] || { echo "REJECT 명부 없음: $SEATS — FT_SEATS_JSON 으로 지정(워크트리 .fable-team/seats.json 이면 그 절대경로)"; exit 1; }
 { [ -f "$LEDGER" ] && [ -w "$LEDGER" ]; } || { echo "REJECT 원장 없음/쓰기 불가: $LEDGER"; exit 1; }
 WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
+fi
 
 # 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/<WT 접두(기본 v65-)><seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
 # key 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
@@ -305,6 +312,31 @@ SH
   } > "$PLAN"
   chmod 755 "$PLAN"
 }
+# ★r535 --replan★ 옛 판 계획 → 같은 좌석·같은 WT 의 새 계획(지금 생성기 몸통). 실행 가드는 새 계획이 다시 건다 — 여기선 «만들어도 되나» 만 본다.
+if [ "$REPLAN" -eq 1 ]; then
+  _rs="$SEAT"; _vl="$(grep -m1 '^SEAT=' "$RP_OLD")"
+  [ -n "$_vl" ] || { echo "REJECT --replan: 굽힌 값 줄(SEAT=…) 없음: $RP_OLD"; exit 1; }
+  NAMED_BR=""; PLAN_ONLY=0; MAINREF=""; PREFIX=""; KEY=""; LEDGER=""; FT_NANO_WIP=0
+  eval "$_vl" || { echo "REJECT --replan: 굽힌 값 줄을 못 읽음: $RP_OLD"; exit 1; }   # 신뢰 경계 = 계획 파일 자체(sweep 이 어차피 실행하는 파일)
+  [ "$SEAT" = "$_rs" ] || { echo "REJECT --replan: 좌석 불일치(인자 $_rs ≠ 계획 $SEAT)"; exit 1; }
+  [ -z "$NAMED_BR" ] || { echo "REJECT --replan: --wt/--branch 계획(사람 경로 · 자율 재생성 대상 아님)"; exit 1; }
+  { [ -n "$KEY" ] && [ -n "$PREFIX" ] && [ -n "$LEDGER" ]; } || { echo "REJECT --replan: 원장 값 없음(KEY·PREFIX·LEDGER)"; exit 1; }
+  [ -d "$WT" ] || { echo "REJECT --replan: WT 없음($WT)"; exit 1; }
+  _rb="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
+  [ -n "$_rb" ] || _rb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
+  case "$_rb" in nano/*) ;; *) echo "REJECT --replan: 가지=${_rb:-?} (nano/* 아님)"; exit 1;; esac
+  _tb="${FT_TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
+  _to="$("$_tb" ls -F '#{session_name}' 2>&1)"; _trc=$?
+  if [ "$_trc" -ne 0 ]; then case "$_trc:$_to" in 1:*"no server running"*) _to="";; *) echo "WAIT --replan: tmux 조회 실패(rc=$_trc: ${_to:0:60}) — 좌석 생존 불명"; exit 4;; esac; fi
+  _lv="$(printf '%s\n' "$_to" | grep -x "${PREFIX}${KEY}#[0-9]*" | tr '\n' ' ')"
+  [ -z "$_lv" ] || { echo "WAIT --replan: 계보 세션 살아 있음(${_lv% })"; exit 4; }
+  _KEY="$KEY"; SEAT_WT="$WT"; NANO_PREFIX="$PREFIX"; PO_MAINREF="$MAINREF"; NAMED=0
+  ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+  [ -n "$ROOT" ] || { echo "REJECT --replan: 리포 루트 판별 실패($WT)"; exit 1; }
+  WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$(cd "$(dirname "$RP_OLD")" && pwd)}"
+  _wt_clean_plan; [ -n "$PLAN" ] && [ -f "$PLAN" ] || { echo "REJECT --replan: 계획 생성 실패"; exit 1; }
+  echo "PLANNED $PLAN"; exit 0
+fi
 # 세션이 사라진 뒤(--kill KILLED 직후)의 실행 — 결과는 계획이 원장에 직접 표식. skipped 는 사람 판정 분기 → stdout [HIL](호출자가 mbox 로 올린다).
 _wt_clean_run() {
   local res

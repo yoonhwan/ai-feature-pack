@@ -37,6 +37,12 @@
         "hooks": [
           { "type": "command", "command": "$HOME/.claude/hooks/op-vault-develop-gate.sh" }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "$HOME/.claude/hooks/bg-cpu-burner-gate.sh" }
+        ]
       }
     ],
     "PreCompact": [

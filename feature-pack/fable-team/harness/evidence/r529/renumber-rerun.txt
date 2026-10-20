@@ -1,0 +1,13 @@
+# 재번호 뒤(팩 main 008c4516 병합 · 1.1.85) 직렬 재실행 · 세트 6287ce682806f703622e7f2387d5e926eb55b78e
+test_queue_reask_r529.sh rc=0 PASS=52 FAIL=0 · ALL PASS
+test_queue_bulk_r530.sh rc=0 PASS=36 FAIL=0 · == ALL PASS ==
+test_queue_state_r528.sh rc=0 PASS=27 FAIL=0 · ALL PASS
+test_proxy_decide_r188.sh rc=0 PASS=61 FAIL=0 · ALL PASS
+test_proxy_decide_queue_card_resolve.sh rc=0 PASS=31 FAIL=0 · == ALL PASS
+test_ft_tick_master_seat.sh rc=0 PASS=62 FAIL=0 · ALL PASS
+test_ft_tick_renamed_args.sh rc=0 PASS=6 FAIL=0 · ---- fail=0
+test_team_tick_unify.sh rc=0 PASS=56 FAIL=0 · ALL PASS
+test_tick_shim_guard.sh rc=0 PASS=26 FAIL=0 · ALL PASS
+test_decision_count_tables_ref.sh rc=0 PASS=17 FAIL=0 · == FAIL 0
+test_planner_decision_line_hook.sh rc=0 PASS=12 FAIL=0 · ALL PASS
+pytest decision_count 2파일: 33 passed in 34.63s

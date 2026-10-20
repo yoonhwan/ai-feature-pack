@@ -1,0 +1,51 @@
+== fable-team harness 설치 (dry-run · 쓰기 0) ==
+version=1.1.80 machine=MacBook-Pro live=/Users/yoonhwan/.claude/fable-team/live/1.1.80/ files=359
+HARNESS_ROOT /Users/yoonhwan/.claude/fable-team/live/1.1.80/HARNESS_ROOT <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness
+LIVE_BIN  /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_BIN  <- /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+LIVE_ROOT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_ROOT <- /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live (있으면 보존)
+HOOK /Users/yoonhwan/.claude/hooks/desk-bash-fg-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/desk-bash-fg-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/desk-self-interview-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/desk-self-interview-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge-head-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/merge-head-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge_cmd.py <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/merge_cmd.py (exec)
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/op-vault-develop-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/op-vault-develop-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/opencode-reap-check.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/opencode-reap-check.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/planner-decision-line.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/planner-decision-line.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/tracked-bin-call-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/hooks/tracked-bin-call-gate.sh (exec)
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/pre-commit <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-commit
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/pre-push <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r525-stall-scan-off-roster-live-seats/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-push
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-k3c-answer-language-vs-knowl-research /Users/yoonhwan/.claude/fable-team/live/1.1.81/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-n1-rename-code-identifiers-wire-keys /Users/yoonhwan/.claude/fable-team/live/1.1.81/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-n5-rename-docs-old-name-grep-zero /Users/yoonhwan/.claude/fable-team/live/1.1.81/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-plan-c5-tour-sheet-per-org /Users/yoonhwan/.claude/fable-team/live/1.1.81/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-main /Users/yoonhwan/.claude/fable-team/live/1.1.81/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r337-decision-count-truth /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r508-nano-close-pack-nano-evidence-again /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r509-harness-tests-red-batch-2-classifie /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r512-install-refreshes-worktree-shim-liv /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r513-codex-da-headroom-bypass-no-ccr-fol /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r514-scope-classify-keyword-forbid-after /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r515-proxy-decide-queue-state-and-card-r /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r516-harness-tests-red-batch-3-classify- /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r517-decision-count-planner-tables-from- /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r518-raised-watch-card-state-data-root-a /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r519-harness-pack-nano-worktree-standard /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r520-nano-close-rerun-before-card-checks /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r522-resource-watch-runaway-cpu-owner-li /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r523-bash-bg-cpu-burner-reject-hook /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r524-seat-resume-via-headroom-wrapper /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r525-stall-scan-off-roster-live-seats /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r528-queue-state-column-four-states-stop /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-nano-loom-canon-g5a-g5b-architecture-docs /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-nano-loom-plan-l3c-search-summary-words-follo /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-dash-1202-c-ops-metrics-api /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-plan-o4-request-flow /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.80/bin
+WT-SHIM plan=28 skip=0 (dry-run · 쓰기 0)
+OK plist-env com.hermes.byz-mbox-slack-mirror
+COMM copied=0 same=32 dest=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm
+RESTART 0
+HOOKS registered=29 ok=29 bad=0
+(dry-run: 쓰지 않았다 — 설치하려면 --apply)

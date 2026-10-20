@@ -1,0 +1,9 @@
+# variant  to  rc×8 (reject 모드) — 머리 순서: DECIDE_OK DECIDE_BAD HIL URGENT MERGE DONE BOOT PROGRESS
+ok	byz-planner-master-claude#9	0 3 0 0 0 0 0 3
+stopready	byz-planner-master-claude#9	0 3 0 0 0 0 0 3
+unreg	byz-planner-master-claude#9	0 3 0 0 0 0 0 3
+retired	byz-planner-master-claude#8	3 3 0 0 3 3 3 3
+closed	byz-planner-master-claude#9	3 3 0 0 3 3 3 3
+dup	byz-planner-master-claude#9	3 3 0 0 3 3 3 3
+broken	byz-planner-master-claude#9	3 3 0 0 3 3 3 3
+other_broken	byz-planner-master-claude#9	0 3 0 0 0 0 0 3

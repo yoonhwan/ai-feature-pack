@@ -1,0 +1,28 @@
+[
+ {
+  "number": 104,
+  "title": "[bug] 사내 멤버 확인 요청",
+  "labels": [
+   {
+    "name": "type:bug"
+   },
+   {
+    "name": "status:needs-triage"
+   },
+   {
+    "name": "from:member"
+   }
+  ],
+  "body": "### 발생 위치 넷 가르기\ny\n",
+  "createdAt": "2026-10-04T00:00:00Z",
+  "comments": [
+   {
+    "author": {
+     "login": "yoonhwan"
+    },
+    "createdAt": "2026-10-04T05:30:00Z",
+    "body": "[issue-manager] 접수 검사 완료"
+   }
+  ]
+ }
+]

@@ -1,0 +1,64 @@
+PASS 키트 미러 cmp 0: ft-queue.sh
+PASS 키트 미러 cmp 0: ft_queue.py
+PASS 키트 미러 cmp 0: ft_queue_remind.py
+PASS 키트 미러 cmp 0: ft-proxy-decide.sh
+PASS 키트 미러 cmp 0: ft-tick.sh
+PASS 도구 파일 실재: ft-queue.sh
+PASS bash -n ft-queue.sh
+PASS ft-queue.sh ≤ 200줄
+PASS ft_queue.py ≤ 200줄
+PASS ft_queue_remind.py ≤ 200줄
+PASS py_compile ft_queue.py · ft_queue_remind.py
+PASS 준비: 자율 ON
+PASS ⓐ 준비: QUEUE rc2
+  ⓐ 원문: | 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 | 번호 | 팀 | 보여준 시각 |
+  ⓐ 원문: | A1 | 2026-10-20 10:08 | card-start | q-a1 | c | 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QcUI3ZPZBP/design/teams/graphics/indices/대기/g1.md | 대기 | q1 | graphics | - |
+PASS ⓐ 새 파일 머리 10칸 · 상태 뒤 번호·팀·보여준 시각
+PASS ⓐ 첫 줄 = q1 · 팀(카드 경로) graphics · 보여준 시각 - · 대기
+PASS ⓐ 둘째 줄 = q2(최대+1) · --team room
+PASS ⓐ --team·팀 카드 둘 다 없음 → 팀 -
+PASS ⓐ 도구가 쓴 큐 = 상태 린트 OK
+PASS ⓐ 옛 머리(처리됨) → 머리·구분 행만 10칸 · 옛 줄 2개 바이트 0 변경
+PASS ⓐ 옛 줄 번호·보여준 시각 = - 로 읽음 · 새 줄 q1
+PASS ⓑ shown q3 --at → 그 칸만 바뀜
+PASS ⓑ diff = 그 줄 1개(다른 줄 바이트 0 변경)
+PASS ⓑ 없는 번호 → ERROR rc≠0(조용한 통과 0)
+PASS ⓑ --at 없음 = 지금(FT_NOW)
+  ⓒ 원문:
+    DUE q1 team=graphics kind=card-start shown=2026-10-20T08:48 age=72 tag=재질문 q=graphics 다음 일감을 무엇으로 할지 오빠 선택이 필요합니다 — 후보 셋 중 하나를 고르는 질문입니다
+    DUE q3 team=graphics kind=press-order shown=- age=- tag=재질문 q=g 안보임
+    DUE q5 team=graphics kind=card-start shown=2026-10-20T07:00 age=180 tag=재확인 q=g 보류지남
+    QUEUE-DUE n=3 old=1
+PASS ⓒ graphics due = q1(72분)·q3(안 보임)·q5(보류 재확인 지남) — q2 최근·q4 남의 팀·q6 재확인 전·q7 진행·옛 줄 제외
+PASS ⓒ 줄 꼴 age·tag(재질문|재확인)
+PASS ⓒ 끝줄 n=3 · 번호 없는 옛 줄 old=1(대상 밖)
+PASS ⓒ --team 없음 = 전 팀 5 · 상태 칸보다 짧은 옛 줄도 old 로 셈(정본 큐 실측 꼴 · 터짐 0)
+PASS 준비: 자율 OFF
+  ⓓ 원문: REMIND q1 to=byz-graphics-master-claude#22 via=mbox tag=재질문 REMIND q3 to=byz-graphics-master-claude#22 via=mbox tag=재질문 REMIND q4 to=byz-room-master-claude#4 via=mbox tag=재질문 
+PASS ⓓ graphics master 에 3통(q1·q3·q5)
+PASS ⓓ 쪽지 꼴 = [재질문] q1 · 보여준 지 72분 · <질문 첫 60자> · desk [인터뷰 요청] 로 다시
+  ⓓ 쪽지 원문: [재질문] q1 · 보여준 지 72분 · graphics 다음 일감을 무엇으로 할지 오빠 선택이 필요합니다 — 후보 셋 중 하나를 고르는 질문입니다 · desk [인터뷰 요청] 로 다시 · 물은 턴에 ft-queue.sh shown q1 · 값 오면 ft-queue.sh take q1 --value <값> --by <나> --verdict <N>
+PASS ⓓ 전체 5통(graphics 3 · room 1 · planner 1)
+PASS ⓓ 같은 줄 같은 보여준 시각 → 60분 안 다시 0통
+PASS ⓓ 61분 뒤 → 다시 감
+PASS ⓖ 팀 - 줄(q8) → planner _master
+PASS ⓖ room 줄(q4) → room _master
+PASS ⓔ 자율 ON → mbox 0통
+PASS ⓔ 아침 묶음 줄 5(q1·q3·q4·q5·q8)
+  ⓔ 원문: - 2026-10-20 10:00 [재질문] q1 · 보여준 지 72분 · graphics 다음 일감을 무엇으로 할지 오빠 선택이 필요합니다 — 후보 셋 중 하나를 고르는 질문입니다 · desk [인터뷰 요청] 로 다시 · 물은 턴에 ft-queue.sh shown q1 · 값 오면 ft-queue.sh take q1 --value <값> --by <나> --verdict <N> → byz-graphics-master-claude#22
+PASS ⓔ 다시 돌려도 아침 묶음 줄 늘지 않음(60분 안)
+  ⓕ 원문: RESUME q1 team=graphics kind=card-start → byz-graphics-master-claude#22 가 «graphics 다음 일감을 무엇으로 할지 오빠 선택이 필요합니다 — 후» 를 오빠 값으로 이어 한다 · 끝나면 상태 칸 «완료 — 판정 2501»
+PASS ⓕ take → 상태 «진행 — <master>»
+PASS ⓕ 사유 칸 끝 «오빠 값: … (판정 N)»
+PASS ⓕ 출력 1줄 RESUME q1 team=graphics kind=card-start → …
+PASS ⓕ 다른 줄 바이트 0 변경
+PASS ⓕ take 뒤 상태 린트 OK
+PASS ⓕ 이미 진행 줄 take → REJECT rc≠0
+PASS ⓕ 판정 번호 숫자 아님 → rc≠0
+PASS ⓕ 보류 줄도 take 로 꺼냄
+PASS ⓗ ft-tick pass() 에 queue_watch 1줄
+PASS ⓗ queue_watch 함수 추출
+PASS ⓗ queue_watch = 명부 폴더로 remind · 5통
+PASS ⓗ --dry-run = 쪽지 0 · DRY 1줄
+PASS ⓗ FT_TICK_QUEUE=0 = 끔
+ALL PASS
