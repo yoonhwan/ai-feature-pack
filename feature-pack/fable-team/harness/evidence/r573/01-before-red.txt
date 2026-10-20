@@ -1,0 +1,21 @@
+PASS bash -n
+PASS ft-seat-retire.sh ≤ 200줄
+PASS ⓐ전제: 옛 이름 lint REJECT
+PASS ⓐ전제: 후계 lint PASS
+FAIL ⓐrc 0 · RETIRED 줄 1개 (got=[1 0] want=[0 1])
+FAIL ⓐINFO 줄 — 후계 이름으로 팀·역할·에이전트 (got=[0] want=[1])
+FAIL ⓐ은퇴 행 = 후계 팀 명부(seats-aifp) role·agent = 후계 칸 (got=[,,,] want=[master,pi,retire,old-aifp-master-pi#0])
+jq: error (at /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.stSo61wqAD/r-a/.fable-team/seats-aifp.json:0): Cannot iterate over null (null)
+FAIL ⓐ후계 행 role master · _replaces 옛 이름 (got=[] want=[master,old-aifp-master#1])
+FAIL ⓐ재개 기록 결과 1줄(RESUME|NORECORD) (got=[0] want=[1])
+PASS ⓐold-aifp-master-pi#0 가 아닌 명부에 옛 이름 칸 0
+reap byz-planner-master-claude#9 stopped=0 left=0 rc=0
+PASS ⓑrc 0 · RETIRED · INFO 0
+PASS ⓑ은퇴 행 = 옛 이름 팀 명부(seats-planner) role·agent 옛 칸
+FAIL ⓒrc 1 · REJECT · 후계도 lint 실패 문구 (got=[1 REJECT 0] want=[1 REJECT 1])
+PASS ⓒ명부 3개 바이트 불변 · .bak 0
+FAIL ⓓrc 1 · REJECT · 다른 명부 _* 칸의 현역 (got=[1 REJECT 0] want=[1 REJECT 1])
+PASS ⓓ명부 3개 바이트 불변 · .bak 0 · INFO 0
+FAIL 짝 cmp0 (got=[diff] want=[same])
+fail=8
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
