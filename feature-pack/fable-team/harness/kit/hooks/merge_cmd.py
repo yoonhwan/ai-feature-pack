@@ -39,6 +39,28 @@ def simple_commands(cmd):
     return segs + [words]
 
 
+def segments(cmd):
+    """따옴표 밖의 구분자로 명령을 조각낸다(따옴표 안은 한 덩어리 · tracked-bin-call-gate 꼴)."""
+    out, cur, q, i = [], [], None, 0
+    while i < len(cmd):
+        c = cmd[i]
+        if q:
+            cur.append(c)
+            if c == q and (q == "'" or cmd[i - 1] != "\\"):
+                q = None
+        elif c in "'\"":
+            q = c; cur.append(c)
+        elif c == "$" and cmd[i:i + 2] == "$(":
+            out.append("".join(cur)); cur = []; i += 1
+        elif c in ";&|\n()`":
+            out.append("".join(cur)); cur = []
+        else:
+            cur.append(c)
+        i += 1
+    out.append("".join(cur))
+    return [s.strip() for s in out if s.strip()]
+
+
 def env_split(prog, a):
     if prog != "env":
         return None

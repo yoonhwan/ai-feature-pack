@@ -11,13 +11,19 @@
 # ★못 읽음★: 입력 JSON 을 못 읽음 = 통과 + stderr 경고(fail-open · 다른 홈 훅과 같은 꼴 · 거절만 하는 훅). 외부 호출 0(op 위반 후보일 때만 로컬 git 2회).
 # ★토큰 값은 읽지도 찍지도 않는다★(명령 «글자» 만 본다 · 환경변수 OP_* 접근 0).
 # ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse Bash 등록)는 master — 이 파일 범위 밖★
+# ★r546★ 명령 조각내기는 공용 모듈 merge_cmd.segments 하나 — 같은 폴더의 merge_cmd.py 가 없으면 rc2(막음). 사본 0.
 set +e
 INPUT=$(cat 2>/dev/null)
 [ -n "$INPUT" ] || exit 0
 export INPUT
 command -v python3 >/dev/null 2>&1 || { echo "WARN op-vault-develop-gate: python3 없음 — 통과" >&2; exit 0; }
+OVG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; export OVG_DIR
+[ -f "$OVG_DIR/merge_cmd.py" ] || { echo "REJECT op-vault-develop-gate: merge_cmd 없음 — 같은 폴더 공용 모듈(r546)이 필요하다: $OVG_DIR/merge_cmd.py" >&2; exit 2; }
 python3 - <<'PYEOF'
 import json, os, re, shlex, subprocess, sys
+
+sys.path.insert(0, os.environ["OVG_DIR"])
+from merge_cmd import segments  # r546: 사본 삭제 전 op-vault 안에 있던 그 함수(글자 그대로 옮겼다)
 
 MSG = ('REJECT op 볼트 = develop 만 — kskill 은 슬랙 자동화 전용(오빠 10-19) · '
        '꼴: OP_SERVICE_ACCOUNT_TOKEN="$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP" op … --vault develop')
@@ -32,28 +38,6 @@ SHELLS = {"bash", "sh", "zsh", "dash"}
 def warn(msg):
     print(f"WARN op-vault-develop-gate: {msg} — 통과", file=sys.stderr)
     sys.exit(0)
-
-
-def segments(cmd):
-    """따옴표 밖의 구분자로 명령을 조각낸다(따옴표 안은 한 덩어리 · tracked-bin-call-gate 꼴)."""
-    out, cur, q, i = [], [], None, 0
-    while i < len(cmd):
-        c = cmd[i]
-        if q:
-            cur.append(c)
-            if c == q and (q == "'" or cmd[i - 1] != "\\"):
-                q = None
-        elif c in "'\"":
-            q = c; cur.append(c)
-        elif c == "$" and cmd[i:i + 2] == "$(":
-            out.append("".join(cur)); cur = []; i += 1
-        elif c in ";&|\n()`":
-            out.append("".join(cur)); cur = []
-        else:
-            cur.append(c)
-        i += 1
-    out.append("".join(cur))
-    return [s.strip() for s in out if s.strip()]
 
 
 def exec_tokens(tokens):

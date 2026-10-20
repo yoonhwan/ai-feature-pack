@@ -1,0 +1,12 @@
+# ruff (ruff 0.15.12 · 2026-10-20)
+--- kit/hooks/merge_cmd.py
+
+Found 6 errors.
+--- tests/lib/r546_verdicts.py
+All checks passed!
+--- tests/fixtures/r546_hook_cmd_split/base_functions.py
+All checks passed!
+
+# 기준: 바꾸기 전 판 merge_cmd.py (origin/main f2d53cfd)
+
+Found 2 errors.

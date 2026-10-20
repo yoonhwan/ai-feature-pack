@@ -10,12 +10,17 @@
 # 한계(설계 §1): bypass 좌석의 적대적 우회(python -c 로 쓰기 등)까지는 못 막는다 — 그건 ft-autonomy.sh 의 위변조 표시가 잡는다.
 # ★FAIL-OPEN★: 파싱 불가 = 허용 + 로그(FT_AUTONOMY_HOOK_LOG · 기본 ~/.claude/logs/autonomy-hooks.log). 외부 호출 0 — 로컬 git rev-parse 뿐.
 # ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse 등록)는 이 파일 범위 밖 — 설치 카드★
+# ★r546★ env -S 분해는 공용 모듈 merge_cmd.env_split 하나 — 같은 폴더의 merge_cmd.py 가 없으면 rc2(막음). 사본 0.
 set +e
 INPUT=$(cat 2>/dev/null)
 [ -n "$INPUT" ] || exit 0
-export INPUT
+export INPUT ASG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f "$ASG_DIR/merge_cmd.py" ] || { echo "REJECT autonomy-state-guard: merge_cmd 없음 — 같은 폴더 공용 모듈(r546)이 필요하다: $ASG_DIR/merge_cmd.py" >&2; exit 2; }
 python3 - <<'PYEOF'
 import json, os, re, shlex, subprocess, sys, time
+
+sys.path.insert(0, os.environ["ASG_DIR"])
+from merge_cmd import env_split  # r546: 사본 삭제 전 이 훅 안에 있던 그 함수(글자 그대로 옮겼다)
 
 LOG = os.environ.get("FT_AUTONOMY_HOOK_LOG") or os.path.expanduser("~/.claude/logs/autonomy-hooks.log")
 PROT = re.compile(r"(^|/)(autonomy\.(json|log)(\.tmp)?|(autonomy-merge-ok|autonomy-merge-approved|autonomy-scope|autonomy-digest|seat-resume-attempts)(/|$))")
@@ -115,21 +120,6 @@ def simple_commands(cmd):
     return segs + [(words, reds)]
 
 
-def env_split(prog, a):
-    """`env -S/--split-string '<명령>'` 의 문자열 → env 가 실제로 하듯 셸 코드가 아닌 argv(없으면 None). 뒤 남은 인자는 끝에 붙는다."""
-    if prog != "env":
-        return None
-    if a[0] in ("-S", "--split-string") and len(a) > 1:
-        s, rest = a[1], a[2:]
-    elif a[0].startswith("--split-string="):
-        s, rest = a[0][len("--split-string="):], a[1:]
-    elif re.match(r"^-S.", a[0]):
-        s, rest = a[0][2:], a[1:]
-    else:
-        return None
-    return shlex.split(s) + rest
-
-
 def resolve(words):
     """환경 대입·래퍼·셸 인터프리터를 벗겨 (프로그램 basename, 인자들) — `bash -c 'x'` 는 ('-c', [x])."""
     w = list(words)
@@ -216,4 +206,4 @@ except (ValueError, OSError, AttributeError, subprocess.SubprocessError) as e:
 if hit:
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": REASON + tail}}, ensure_ascii=False))
 PYEOF
-exit 0
+exit $?  # r546: 종전 `exit 0` 은 모듈 없음·모듈 오류까지 삼켰다 — 이제 rc2(막음)가 전달된다

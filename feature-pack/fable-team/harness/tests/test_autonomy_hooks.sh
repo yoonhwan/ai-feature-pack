@@ -11,6 +11,8 @@ fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+IH="$T/hooks"; mkdir -p "$IH"; cp "$ROOT/harness/kit/fable-team/templates/hooks/autonomy-"*.sh "$ROOT/harness/kit/hooks/merge_cmd.py" "$IH"/   # r546: 설치 꼴(한 폴더) 재현 — 공용 모듈 merge_cmd.py 를 훅 옆에 둔다
+SG="$IH/autonomy-state-guard.sh"; MG="$IH/autonomy-merge-guard.sh"   # r546: 키트 templates 폴더에는 모듈이 없다(설치 후 홈은 한 폴더)
 export FT_ROOT="$T" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/planner" FT_AUTONOMY_SH="$BIN/ft-autonomy.sh" FT_AUTONOMY_HOOK_LOG="$T/hook.log"
 S="$T/state"; OK="$S/autonomy-merge-ok"; mkdir -p "$T/.fable-team" "$S" "$T/planner" "$T/outside" "$T/stubs"
 
