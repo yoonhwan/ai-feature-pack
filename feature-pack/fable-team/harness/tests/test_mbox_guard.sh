@@ -157,7 +157,7 @@ new_env ok; send_as 'byz-planner-master-claude#9' "$(printf '[HIL] 막힌 명령
 HOLD_SH="$REPO/harness/bin/ft-spawn-hold.sh"
 printf '#!/bin/bash\ncat "%s/hold-gate.status"\n' "$T" > "$T/stub/hold-gate.sh"; chmod +x "$T/stub/hold-gate.sh"
 hgate() { echo "disk=105 swap=$1 memfree=39 level=2 rate=96 agents=49 freeze=0" > "$T/hold-gate.status"; }
-hold_env() { new_env ok; mkdir -p "$ENVROOT/.fable-team/bin"; cp "$HOLD_SH" "$ENVROOT/.fable-team/bin/"; }
+hold_env() { new_env ok; mkdir -p "$ENVROOT/.fable-team/bin"; cp "$HOLD_SH" "$REPO/harness/bin/ft-harness-root.sh" "$ENVROOT/.fable-team/bin/"; }   # r516: ft-spawn-hold.sh 가 형제 ft-harness-root.sh 를 source(r385)
 hold_set() { ( cd "$ENVROOT" && env FT_HOLD_GATE="$T/stub/hold-gate.sh" FT_MBOX_SH=/bin/true bash "$ENVROOT/.fable-team/bin/ft-spawn-hold.sh" set --verdict "$1" \
   --until "$(python3 -c 'import datetime;print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ"))')" --release "swap<8192" --reason "쪽지 가드 시험용 정지" >/dev/null 2>&1 ); }
 send_h() {   # send_h <본문> — 정지 판정기를 같은 임시 루트의 ft-spawn-hold.sh 로. 추가 env 는 앞에 `FT_HOLD_NOW=… send_h`

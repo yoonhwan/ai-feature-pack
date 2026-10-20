@@ -1,0 +1,78 @@
+== ⓐ 고치기 전 — 묶음 ①② 시험의 FAIL 원문(바탕 9af3b78a · 기준선 실행 로그에서)
+-- test_boot_report_gate rc=1 PASS=16 FAIL=7
+FAIL ⓐ rc=0 q=1 :: WARN 미등록 byz-harness-pm-claude#1 — 전송
+FAIL ⓒ rc=0 :: WARN 미등록 byz-harness-pm-claude#1 — 전송
+FAIL ⓒ' rc=0 :: WARN 미등록 byz-harness-pm-claude#1 — 전송
+FAIL ⓔ rc=0 :: WARN 미등록 byz-harness-pm-claude#1 — 전송
+-- test_deferral_lint rc=65 PASS=3 FAIL=66
+FAIL 유예 주석 + 경로 없음 → REJECT(파일:행·줄 복사) → rc=2 usage: git diff A...B | ft-deferral-lint.sh | ft-deferral-lint.sh <diff> | --files <파일…>
+FAIL + → 카드 <실재 경로> → OK → rc=2 usage: git diff A...B | ft-deferral-lint.sh | ft-deferral-lint.sh <diff> | --files <파일…>
+FAIL + #1234 → OK → rc=2 usage: git diff A...B | ft-deferral-lint.sh | ft-deferral-lint.sh <diff> | --files <파일…>
+FAIL 카드 경로가 실재하지 않음 → REJECT → rc=2 usage: git diff A...B | ft-deferral-lint.sh | ft-deferral-lint.sh <diff> | --files <파일…>
+-- test_ft_wt_sweep_route_timeout rc=1 PASS=37 FAIL=1
+FAIL ⓕ 대조: 머리 순서 뒤집으면 가드 rc3 (got=[0] want=[3])
+-- test_issue_classify rc=1 PASS=20 FAIL=8
+FAIL 분류기 rc=2 입력 JSON 이 Issue 배열이 아니다
+FAIL 경로① 
+FAIL 경로② 
+FAIL 경로③ 
+-- test_issue_close_canon rc=1 PASS=4 FAIL=21
+FAIL ① rc=1 Issue #9000 state= title=
+FAIL #9000 미비 — 소유 오케에 1통(보완 또는 ft-issue-reopen.sh)
+FAIL ② rc=1 Issue #9000 state= title=
+FAIL #9000 미비 — 소유 오케에 1통(보완 또는 ft-issue-reopen.sh)
+-- test_mbox_guard rc=1 PASS=42 FAIL=25
+FAIL 후계 이름 없음 :: WARN 미등록 byz-planner-master-claude#8 — 전송
+FAIL REJECT 인데 큐에 들어감
+FAIL HIL 후계 전달 rc=0 :: WARN 미등록 byz-planner-master-claude#8 — 전송
+FAIL 깨진 명부 HIL rc=0 :: WARN 미등록 byz-planner-master-claude#9 — 전송
+-- test_mbox_lineage rc=1 PASS=7 FAIL=10
+FAIL ⓐ 3단 체인 합류
+FAIL ⓑ peek :: pending=0 scanned=1 lineage=0
+FAIL 변이② 잠금 분리가 ⓒ 에 안 잡힘
+FAIL ⓓ 닫힌 행
+-- test_seat_request rc=1 PASS=8 FAIL=17
+FAIL rc=1 REJECT 명부 디렉터리 없음: <S>/feature-pack/fable-team/harness/tests/../fixtures/seat_request/seats
+FAIL cfo 행: 
+FAIL kk 행: 
+FAIL planner 행: 
+-- test_team_literal_paths rc=1 PASS=113 FAIL=6
+FAIL ⓐ1 골 표 rc=1 ← ERROR 골 표 정본 읽기 실패 <T>/r1/design/planner/AUTONOMY-GOAL-A6-20261018.md: No such file or directory
+FAIL ⓐ1 hil-ask rc=1 ← ERROR comm 폴더 없음: <T>/r1/.fable-team/comm (공용 루트 · LIVE_ROOT 는 보지 않는다)
+FAIL ⓐ1 hil-answer rc=1 ← ERROR comm 폴더 없음: <T>/r1/.fable-team/comm (공용 루트 · LIVE_ROOT 는 보지 않는다)
+FAIL ⓐ2 골 표 rc=1 ← ERROR 골 표 정본 읽기 실패 <T>/r2/design/teams/planner/AUTONOMY-GOAL-A6-20261018.md: No such file or directory
+-- pytest ① 단독 실행(수집 오류 원문)
+ImportError while importing test module '<S>/feature-pack/fable-team/harness/tests/scripts/test_byz_slack_mbox_inbound.py'.
+E   ModuleNotFoundError: No module named 'mirror_questions'
+ImportError while importing test module '<S>/feature-pack/fable-team/harness/tests/scripts/test_inbound_humans_and_install.py'.
+E   ModuleNotFoundError: No module named 'mirror_questions'
+-- pytest magazine
+E   FileNotFoundError: [Errno 2] No such file or directory: '<S>/feature-pack/fable-team/harness/tests/fixtures/magazine/PLAN-oppa-ledger-20261014.md'
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: FileNotFoundError: [Errno 2] No such file or directory: '<S>/feature-pack/fable-team/harness/tests/fixtures/magazine/PLAN-oppa-ledger-20261014.md'
+
+== ⓑ 고친 뒤 (가지 6fe4906a·a8ac85d5 · 바탕 9af3b78a)
+tests/test_boot_report_gate.sh rc=0 PASS=22 FAIL=0
+tests/test_deferral_lint.sh rc=34 PASS=34 FAIL=35
+tests/test_ft_wt_sweep_route_timeout.sh rc=0 PASS=38 FAIL=0
+tests/test_issue_classify.sh rc=0 PASS=27 FAIL=0
+tests/test_issue_close_canon.sh rc=0 PASS=14 FAIL=0
+tests/test_mbox_guard.sh rc=0 PASS=130 FAIL=0
+tests/test_mbox_guard_live_bin.sh rc=0 PASS=1 FAIL=0
+tests/test_mbox_lineage.sh rc=0 PASS=16 FAIL=0
+tests/test_seat_request.sh rc=0 PASS=25 FAIL=0
+tests/test_team_literal_paths.sh rc=1 PASS=115 FAIL=4
+pytest ① 두 파일 단독: 93 passed, 1 skipped in 62.84s (0:01:02)
+
+== 합친 판(origin/main 1.1.79 병합 b1b53f05) 재확인
+tests/test_boot_report_gate.sh rc=0 PASS=22 FAIL=0
+tests/test_deferral_lint.sh rc=34 PASS=34 FAIL=35
+tests/test_ft_wt_sweep_route_timeout.sh rc=0 PASS=38 FAIL=0
+tests/test_issue_classify.sh rc=0 PASS=27 FAIL=0
+tests/test_issue_close_canon.sh rc=0 PASS=14 FAIL=0
+tests/test_mbox_guard.sh rc=0 PASS=130 FAIL=0
+tests/test_mbox_lineage.sh rc=0 PASS=16 FAIL=0
+tests/test_seat_request.sh rc=0 PASS=25 FAIL=0
+tests/test_team_literal_paths.sh rc=1 PASS=115 FAIL=4
+pytest ①+magazine+mirror_team_inbound: 109 passed, 1 skipped in 56.03s
+deferral_lint 남은 35 줄(FAILED 요약 1 포함) = 전부 «gate» — BYZ .claude/hooks/deferral-lint-gate.sh 전제(④): 1 줄이 gate 아님(FAILED 요약)
+team_literal_paths 남은 4 = hil-ask/answer comm 폴더 없음(③)
