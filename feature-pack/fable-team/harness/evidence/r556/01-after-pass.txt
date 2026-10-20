@@ -1,0 +1,55 @@
+# r556 ⓐ~ⓗ 후(PASS) — 고친 코드(ee7b2f60 위 rebase 뒤) · 50 PASS
+$ bash tests/test_nano_spawn_pi_effort_serena.sh
+PASS fable-team: 블록 A 추출
+PASS fable-team: ⓐ --agent pi 기본 effort=low
+PASS fable-team: ⓑ --agent pi --effort high = high
+PASS fable-team: ⓒ --tier search(pi) effort=low
+PASS fable-team: ⓗ FT_PI_EFFORT=high → high
+PASS fable-team: claude 기본 effort=high 불변
+PASS fable-team: codex checker:1 effort=high 불변
+PASS fable-team: --tier impl effort=high 불변
+PASS fable-team: 블록 B 추출
+PASS fable-team: ⓔ pi 코드 나노 --serena
+PASS fable-team: ⓔ PLAN 줄 effort+serena
+PASS fable-team: ⓓ --research pi = serena 없음
+PASS fable-team: ⓓ research OPEN 에 --serena 없음
+PASS fable-team: ⓒ --tier search pi = serena 없음
+PASS fable-team: ⓕ --serena 모르는 tmuxc → REJECT
+PASS fable-team: ⓕ REJECT 는 OPEN 전에 끝남
+PASS fable-team: FT_PI_SERENA=0 stderr WARN
+PASS fable-team: FT_PI_SERENA=0 = serena 없이 연다(사유 표시)
+PASS fable-team: ⓖ claude PLANX 빈칸
+PASS fable-team: ⓖ claude --serena 없음
+PASS fable-team: ⓖ codex PLANX 빈칸
+PASS fable-team: ⓖ codex --serena 없음
+PASS fable-team: ⓖ cmd PLANX 빈칸
+PASS fable-team: ⓖ cmd --serena 없음
+PASS kit: 블록 A 추출
+PASS kit: ⓐ --agent pi 기본 effort=low
+PASS kit: ⓑ --agent pi --effort high = high
+PASS kit: ⓒ --tier search(pi) effort=low
+PASS kit: ⓗ FT_PI_EFFORT=high → high
+PASS kit: claude 기본 effort=high 불변
+PASS kit: codex checker:1 effort=high 불변
+PASS kit: --tier impl effort=high 불변
+PASS kit: 블록 B 추출
+PASS kit: ⓔ pi 코드 나노 --serena
+PASS kit: ⓔ PLAN 줄 effort+serena
+PASS kit: ⓓ --research pi = serena 없음
+PASS kit: ⓓ research OPEN 에 --serena 없음
+PASS kit: ⓒ --tier search pi = serena 없음
+PASS kit: ⓕ --serena 모르는 tmuxc → REJECT
+PASS kit: ⓕ REJECT 는 OPEN 전에 끝남
+PASS kit: FT_PI_SERENA=0 stderr WARN
+PASS kit: FT_PI_SERENA=0 = serena 없이 연다(사유 표시)
+PASS kit: ⓖ claude PLANX 빈칸
+PASS kit: ⓖ claude --serena 없음
+PASS kit: ⓖ codex PLANX 빈칸
+PASS kit: ⓖ codex --serena 없음
+PASS kit: ⓖ cmd PLANX 빈칸
+PASS kit: ⓖ cmd --serena 없음
+PASS ⓖ PLAN echo 줄 = base 글자 + $_PLANX 1개
+PASS 추적본 = 키트(cmp)
+
+ALL PASS
+rc=0

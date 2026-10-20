@@ -1,0 +1,50 @@
+# r556 키트 = 추적본 cmp0 · base(ee7b2f60) 대비 변경
+cmp rc=0
+
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
+index 815f6ef9..95bc3f7e 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
+@@ -10,9 +10,9 @@
+ set -uo pipefail
+ [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+ IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
+-AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
++AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-dispatch}"; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+ while [ $# -gt 0 ]; do case "$1" in
+-  --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
++  --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
+   --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
+   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
+ CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
+@@ -110,6 +110,8 @@ case "$TIER" in
+   '') ;; *) echo "unknown --tier $TIER (checker|tester[:1-3] · impl[:1-3] · search)" >&2; exit 2;;
+ esac
+ if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
++# ★r556(오빠 인터뷰 «pi 나노만 low»)★ pi 나노 기본 effort = low — 13행 high·티어 기본값은 pi 에서 덮는다(직접 적은 --effort 만 이긴다 · 되돌림 = FT_PI_EFFORT=high)
++[ "$AGENT" != pi ] || [ "$EFFORT_SET" = 1 ] || EFFORT="${FT_PI_EFFORT:-low}"
+ # 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
+ ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
+ # --model 미지정(티어도 안 정함)이면 에이전트별 기본 — claude 는 FT_IMPL_MODEL, 그 밖은 모델을 지어내지 않고 정해진 것만(표에 없는 에이전트는 REJECT)
+@@ -248,9 +250,20 @@ OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
+ [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
+ case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
+ [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
++# ★r556(오빠 «기동때 serena에 경로를 지정해두고»)★ pi «코드» 나노에만 tmuxc --serena(0.4.3) — 읽고 모으기만 하는 검색·리서치 나노엔 안 붙인다.
++#   설치 tmuxc 가 --serena 를 모르면 조용히 빼고 열지 않는다(REJECT) · 끄기는 FT_PI_SERENA=0 + stderr WARN + PLAN 표시.
++SERENA="off(tier=search)"
++if [ "$AGENT" = pi ]; then
++  if [ "$RESEARCH" = 1 ]; then SERENA="off(research)"
++  elif [ "$TIER" = search ]; then SERENA="off(tier=search)"
++  elif [ "${FT_PI_SERENA:-1}" = 0 ]; then SERENA="off(FT_PI_SERENA=0)"; echo "WARN pi 나노 --serena 를 껐다(FT_PI_SERENA=0) — 코드 탐색 도구 없이 연다" >&2
++  elif tmuxc help 2>/dev/null | grep -q -- '--serena'; then SERENA="on"; OPEN+=(--serena)
++  else echo "REJECT 설치 tmuxc 가 --serena 모름(0.4.3+ 필요) — FT_PI_SERENA=0 으로 끄면 serena 없이 연다"; exit 1; fi
++fi
++_PLANX=""; [ "$AGENT" != pi ] || _PLANX=" effort=$EFFORT serena=$SERENA"
+ # r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
+ _VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"
+-echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"
++echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL$_PLANX"
+ # r486: 나노 워크트리 = sparse(r444 ⑤ · 남의 팀 design 없음) → 광역·다른 팀 자료 시험은 «평범한 실패» 로 보인다 — 발주문 1줄(BODY) · dry-run 에도 같은 글자
+ _SPX=" ★광역 pytest 금지 — 이 워크트리는 sparse(다른 팀 design 없음 · r444) · 자기 카드 시험만 · 광역·다른 팀 자료 시험은 ft-scratch-repo.sh <base> 사본에서 · 도구는 SPARSE-HIDDEN <경로> 로 말한다(r486)★"
+ echo "BODY+${_SPX}"
