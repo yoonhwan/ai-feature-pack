@@ -179,12 +179,12 @@ printf '{"type":"assistant","message":"일하는 중"}\n{"type":"system","subtyp
 reset; W="byz-t-nano-w#0"; X="byz-t-nano-x2#0"; roster "$M:master:claude" "$P:planner:claude" "$N:nano:claude" "$W:nano:claude" "$X:nano:claude"
 for s in "$M" "$P" "$N" "$W" "$X"; do k="${s//#/_}"; live "$s" "%$RANDOM" 1 "$RANDOM" "u-$k"; done
 ago() { TZ=UTC date -v-"$1"M +%Y-%m-%dT%H:%M:%S; }
-printf 'IDLE %s 5000 yes jsonl\n' "$(ago 15)" > "$T/turn.${N//#/_}"; printf 'IDLE %s 5000 yes jsonl\n' "$(ago 12)" > "$T/turn.${M//#/_}"; printf 'IDLE %s 5000 yes jsonl\n' "$(ago 3)" > "$T/turn.${P//#/_}"
+printf 'IDLE %s 5000 yes jsonl\n' "$(ago 15)" > "$T/turn.${N//#/_}"; printf 'IDLE %s 5000 yes jsonl\n' "$(ago 65)" > "$T/turn.${M//#/_}"; printf 'IDLE %s 5000 yes jsonl\n' "$(ago 3)" > "$T/turn.${P//#/_}"
 printf 'IDLE %s 5000 yes jsonl\n' "$(ago 20)" > "$T/turn.${W//#/_}"; echo 1 > "$T/pend.${W//#/_}"
 printf 'IDLE %s 5000 yes jsonl\n' "$(ago 20)" > "$T/turn.${X//#/_}"; printf '{"type":"assistant","message":"[완료·휴식] x"}\n{"type":"system","subtype":"turn_duration"}\n' > "$T/rest.jsonl"; echo "$T/rest.jsonl" > "$T/jl.${X//#/_}"
 TICK >/dev/null; L="$(grep '정지' "$MLOG")"
-has "$L" "send $M ft-tick [정지 15분] $N" "ⓖ 일반 좌석 정지는 master 에게"; has "$L" "send $P ft-tick [정지 12분] $M" "ⓖ master 정지는 planner 에게(master 도 대상)"
-hasnt "$L" "$P role" "ⓖ 10분 미만은 알리지 않는다"; hasnt "$L" "$W" "ⓖ 받은 발주가 있으면(pending=1) 정지 아님"; hasnt "$L" "$X" "ⓖ 완료·휴식 좌석은 정지 아님"
+has "$L" "send $M ft-tick [정지 15분] $N" "ⓖ 일반 좌석 정지는 master 에게"; has "$L" "send $P ft-tick [정지 65분] $M" "ⓖ master 정지는 planner 에게(master 도 대상)"
+hasnt "$L" "$P role" "ⓖ 10분 미만은 알리지 않는다"; hasnt "$L" "$W role=" "ⓖ 받은 발주가 있으면(pending=1) 정지 아님"; hasnt "$L" "$X role=" "ⓖ 완료·휴식 좌석은 정지 아님"   # R597: 이름은 팀장 쪽지의 «나노 회신» 목록에 실릴 수 있다 — 그 좌석 «자신» 의 정지 알림이 없어야 한다
 TICK >/dev/null; eq "$(grep -c '정지' "$MLOG")" 2 "ⓖ 같은 정지는 반복 알림 0"
 printf 'IDLE %s 5000 yes jsonl\n' "$(ago 11)" > "$T/turn.${N//#/_}"; TICK >/dev/null; eq "$(grep -c '정지' "$MLOG")" 3 "ⓖ 새 정지(turn_end 변화)는 다시 알린다"
 
