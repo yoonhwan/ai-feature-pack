@@ -1,0 +1,19 @@
+............F                                                            [100%]
+=================================== FAILURES ===================================
+__ test_install_plan_installs_three_files_and_one_entry_once_from_landed_sha ___
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-349/test_install_plan_installs_thr0')
+
+    def test_install_plan_installs_three_files_and_one_entry_once_from_landed_sha(tmp_path):
+        repo, sha = _fake_repo(tmp_path)
+        s = _fake_home(tmp_path)
+        (repo / TPL_REL / "ft_secret_lex.py").write_text("# 랜딩 뒤 루트 체크아웃에서 바뀐 파일\n")  # 루트의 «현재 파일» 은 설치본이 아니다
+>       assert _install(tmp_path, repo, sha).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r604-hil-secret-lint/feature-pack/f...guard.sh' does not exist in '10e6a6d4cac3e9e8aaccdb9927e99e087bb94edd'\nSTOP 그 커밋에 훅 파일이 없다: secret-output-guard.sh\n").returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r604-hil-secret-lint/feature-pack/f...guard.sh' does not exist in '10e6a6d4cac3e9e8aaccdb9927e99e087bb94edd'\nSTOP 그 커밋에 훅 파일이 없다: secret-output-guard.sh\n") = _install(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-349/test_install_plan_installs_thr0'), PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-349/test_install_plan_installs_thr0/repo'), '10e6a6d4cac3e9e8aaccdb9927e99e087bb94edd')
+
+tests/scripts/test_ft_hil_secret_lint.py:145: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_hil_secret_lint.py::test_install_plan_installs_three_files_and_one_entry_once_from_landed_sha
+1 failed, 12 passed in 1.41s
