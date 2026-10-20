@@ -1,0 +1,254 @@
+PASS bash -n watch
+PASS 키트 사본 cmp 0 watch
+PASS R320 level1·memfree40·swap 9000(비증가) 3표본 → 해제
+PASS R320 해제 로그 1줄
+PASS R320 swap 11500(옛 조건 <4096 밖)도 해제 — 절대량은 조건 아님
+PASS R320 level=2 → 유지
+PASS R320 표본 2개뿐 → 유지
+PASS R320 과거 표본 memfree 19 → 유지
+PASS R320 swap 증가(8000→9000) → 유지
+PASS R320 disk 34G(<35) → 유지
+PASS R357 동결 트리거 swap>12288 & level 2 → 동결
+PASS R357 ⓖ swap13500·level1 ×3틱 → FREEZE created 0
+PASS R357 ⓖ THAW 0
+PASS R357 ⓖ 동결 파일 없음
+PASS R357 ⓗ swap13500·level2 → FREEZE created 1
+PASS R357 ⓗ 동결 사유 줄에 swap·level
+PASS R357 ⓗ level 1 · rate≤512 → THAW 1
+PASS R357 ⓗ 해제 뒤 2틱 → 새 FREEZE 0(총 1 그대로)
+PASS R357 ⓘ 해제·트리거 동시 참 → 동결 유지
+PASS R357 ⓘ THAW removed 0
+PASS R357 ⓘ 로그 THAW held trig=memfree
+PASS R357 ⓙ memfree 9 → 동결(level 1)
+PASS R357 ⓙ disk 24G → 동결(level 1)
+PASS R357 ⓚ FT_SWAP_LEVEL_MIN=abc → 로그 WARN 1줄(중복 0)
+PASS R357 ⓚ abc → 기본 2 적용(swap13500·level2 동결)
+PASS R357 ⓚ FT_SWAP_LEVEL_MIN=0 → 로그 WARN 1줄(중복 0)
+PASS R357 ⓚ 0 → 기본 2 적용(swap13500·level2 동결)
+PASS R357 ⓚ FT_SWAP_LEVEL_MIN=-1 → 로그 WARN 1줄(중복 0)
+PASS R357 ⓚ -1 → 기본 2 적용(swap13500·level2 동결)
+PASS R357 ⓚ 미설정 → WARN 0
+PASS R357 ⓛ4 원 사고 입력 → FREEZE created trig=disk
+PASS R357 ⓛ5 disk 86G·level4·swap13500 → trig=swap(결합)
+PASS R320c ⓐ swap 8000→11000 뒤 평평 3표본(rate≈600>512) → 유지
+PASS R320c ⓐ 막은 이유를 로그 1줄(THAW held rate=…)
+PASS R320c ⓑ 평평 6표본(rate 0) → 해제
+PASS R320c ⓑ 해제 로그에 rate=0
+PASS R320c ⓒ rate≈200(≤512) 완만한 상승 뒤 평평 → 해제(문지기도 통과시키는 표본)
+PASS R320c ⓒ 감시 해제 로그 rate=200 == 문지기 status rate=200
+PASS R320c 기존 조건(disk 34G<35)은 그대로 유지
+PASS R323 du 상한 기본 7초
+PASS R323 du 가 멈춰도 tick 은 상한 안에 끝남(3s ≤ 15)
+PASS R323 상한 초과 → worktrees.total 숫자 아님(r534: PARTIAL · 그 폴더만 TIMEOUT)
+PASS R323 끝난 뒤 잠금 해제
+PASS R323 상한 초과 du 프로세스 정리(잔존 0)
+PASS R323 정상 du → worktrees.total 기록
+PASS R323 du 는 nice 19 로 돈다
+PASS R323 첫 스냅샷 = 워크트리 폴더 du 1회
+PASS r534 틱당 0개 → du 재호출 0
+PASS r534 폴더별 캐시 합이 기록됨
+PASS r534 다음 틱 = 다시 잼(돌아가며)
+PASS R323 다른 스캔이 잠금 중(살아 있는 pid) → 두 번째 스캔 시작 0
+PASS R323 남의 잠금은 건드리지 않음
+PASS R323 건너뛴 사실을 로그 1줄
+PASS R323 죽은 pid 잠금 = 회수 후 스캔
+PASS bash -n preventive
+PASS 키트 사본 cmp 0 preventive
+PASS R332 감시자가 선제 호출을 부름
+PASS R332 ⓔ 정상 tick → 예방 호출 1
+PASS R332 ⓔ 완료 stamp 기록
+PASS R332 ⓔ gate 측정 오류(tick rc=4)에서도 예방 호출 1
+PASS R332 ⓔ 새 freeze 생성 tick 에서도 예방 호출 1 · 동결은 그대로 생성
+PASS R332 ⓑ 동시 두 tick → 예방 호출 1
+PASS R332 ⓒ 후보 0 정상 완료 뒤 600초 안 tick 호출 0
+PASS R332 ⓒ 기한(1초) 지나면 다시 호출
+PASS R332 ⓓ 경합 skipped=lock = stamp 0 · 다음 tick 재시도(호출 2)
+PASS R332 ⓓ 경합 tick 두 번 15초 안 종료
+PASS R332 ⓓ 회수 실패(rc1) = stamp 0·재시도 · 측정·동결은 정상
+PASS R332 살아 있는 실행권 = 호출 0 · 남의 잠금 보존
+PASS R332 죽은 pid 실행권 = 회수 후 호출 1
+PASS R332 끝난 뒤 실행권 해제
+PASS R332 ⓕ FT_RECLAIM_PREVENT_SEC=0 → 호출 0
+PASS R332 H2 죽은 잠금 + 동시 두 호출 ×3 → 호출 1
+PASS R332 H4 stdin 을 열어 둔 freeze 생성 tick(top1_disk awk) → 8초 안 종료
+PASS R332 H4 freeze 파일 생성
+PASS R332 H4 stdin 을 열어 둔 scan(disk_top·floor_line awk) → 8초 안 종료
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+PASS bash -n watch
+PASS bash -n du-lib
+PASS 감시자 줄 수 ≤245(증분 함수는 du-lib)
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-du-lib.sh
+PASS 키트 사본 cmp 0 ft-resource-cause.sh
+PASS ⓐ 1틱 = 8개만 잼 → worktrees.known 8/20
+PASS ⓐ 1틱 합 = PARTIAL(모르는 폴더 있음 — 부분 합을 숫자처럼 쓰지 않음)
+PASS ⓐ 워크트리 폴더 전체 du 0회
+PASS ⓐ 폴더별 du = 틱당 8회
+PASS ⓐ 2틱 → 16/20
+PASS ⓐ 3틱 → 20/20
+PASS ⓐ 20/20 → worktrees.total = 캐시 합 숫자(10+…+200=2100)
+PASS ⓐ TIMEOUT 줄 0
+PASS ⓐ 한 바퀴 끝 → wt.top 1위 w20 200
+PASS ⓐ wt.top 상위 5줄
+PASS ⓐ 캐시 du-cache.tsv 에 wt:<이름> 줄
+PASS ⓑ 순번 = 새 폴더(wnew) → 바뀐 폴더(w03)
+PASS ⓑ 잰 뒤 안 바뀐 폴더는 다음 틱 맨 앞 아님
+PASS ⓑ 새 폴더 포함 21/21
+PASS ⓑ 합 = 2100 + 새 폴더 7
+PASS ⓒ 사라진 폴더 캐시 줄 제거
+PASS ⓒ 전체 20
+PASS ⓒ 합에서 50 빠짐(2107−50)
+PASS ⓓ 넘긴 폴더만 TIMEOUT 표기
+PASS ⓓ TIMEOUT 은 그 폴더 1줄
+PASS ⓓ 합 줄 known 19/20
+PASS ⓓ 옛 값(70)을 새 값처럼 안 씀 — PARTIAL 합 = 나머지 19개(2057−70)
+PASS ⓓ 넘긴 폴더 = 나눔 표식(split)
+PASS ⓓ 다음 틱 하위 a·b 측정 → 20/20
+PASS ⓓ 합 = 1987 + 30 + 45
+PASS ⓓ 나눈 폴더 통째 du 는 다시 안 함
+PASS ⓓ 나눌 수 없음 → 캐시 표기 stale
+PASS ⓓ stale 은 known 에서 빠짐
+PASS ⓓ stale 값은 합에 0
+PASS ⓔ claude.projects = 하위 합 600
+PASS ⓔ claude.projects.known 3/3
+PASS ⓔ caches = 100
+PASS ⓔ caches.known 2/2
+PASS ⓔ pytest = 11
+PASS ⓔ pytest.known 2/2
+PASS ⓔ 큰 폴더 통째 du 0회
+PASS ⓔ TIMEOUT 0
+PASS ⓖ 기본 예산 55초(≤60)
+PASS ⓖ 가짜 du 합 15초 · 예산 5초 → tick 5s ≤ 8
+PASS ⓖ 예산으로 끊은 du 는 TIMEOUT 표기 0
+PASS ⓖ 예산으로 끊은 du 는 나눔 표식 0
+PASS ⓖ du 잔존 0
+PASS ⓕ cause disk rc0
+PASS ⓕ 1위 harness-grow +2.0G → 나노 좌석
+PASS ⓕ 1시간 안 생긴 폴더 통째 증가 · 주인 못 찾음 → «주인 미상»
+PASS ⓕ 옛 폴더의 처음 잰 하위는 증가 아님
+PASS ⓕ stale 값은 증가 아님
+PASS ⓕ 1시간 밖 측정은 제외
+PASS ⓕ 캐시에 증가 없음 → 추측 0 한 줄
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+PASS 키트 사본 cmp 0 ft-resource-cause.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS ⓐ cpu 모드 rc0
+PASS ⓐ yes×4 각 90% 8분 → 조상 pane 의 세션 한 줄
+PASS ⓐ 같은 이름 3개 미만(mds 1개)은 제외
+PASS ⓐ 각 30% 미만(10%)은 제외
+PASS ⓑ ppid 1 · tty 대조 → 같은 세션(tty)
+PASS ⓒ ppid 1 · tty ?? → 주인 미상
+PASS ⓔ 2개 → 빈 출력 rc0
+PASS ⓔ 가장 오래된 것 4분 → 빈 출력
+PASS ps 자료 0 → rc≠0 (4)
+PASS ⓓ tick 1 → runaway-cpu.log 1줄
+PASS ⓓ 로그 줄 = 주인 줄
+PASS ⓓ planner 쪽지 1통
+PASS ⓓ 수신자 = planner 명부 _master
+PASS ⓓ 쪽지 본문 «끄기는 사람 판단 · kill 0»
+PASS ⓓ 같은 서명(명령·주인·개수 · CPU·분만 바뀜) → 다음 tick 쪽지 0
+PASS ⓓ 개수가 바뀌면(4→5) 쪽지 1통 더
+PASS ⓓ planner _master 없음 → 로그 ERROR
+PASS ⓓ 수신자 없음 → 쪽지 0
+PASS ⓔ 2개 tick → 로그 줄 증가 0
+PASS ⓔ 4분 tick → 로그 줄 증가 0
+PASS ⓔ 조건 미달 → 쪽지 0
+PASS 원인 도구 rc≠0 → 로그 ERROR
+PASS ⓕ 가짜 kill·renice·pkill·killall 호출 0
+PASS ⓕ ft-resource-cause.sh 에 kill 계열 0
+PASS ⓕ watch cpu_watch 본문 있음
+PASS ⓕ cpu_watch 에 kill 계열 0
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+PASS ⓐ level1·memfree51·swap6133·rate0 새 좌석 OK
+PASS ⓐ 승계 OK
+PASS ⓑ level2 새 좌석 OK
+PASS ⓑ level2 승계 OK
+PASS ⓒ level4 새 좌석 REJECT
+PASS ⓒ level4 승계 REJECT
+PASS ⓓ rate400 새 좌석 OK
+PASS ⓓ rate400 승계 OK
+PASS ⓓ rate600 새 좌석 REJECT
+PASS ⓓ rate600 승계 OK
+PASS ⓓ rate1100 새 좌석 REJECT
+PASS ⓓ rate1100 승계 REJECT
+PASS ⓔ R357 swap12289·level1 새 좌석 OK(swap 단독 거절 폐기)
+PASS ⓔ R357 swap12289·level1 승계 OK
+PASS ⓔ R357 swap12289·level2 새 좌석 REJECT
+PASS ⓔ R357 swap12289·level2 승계 OK(swap 축 면제)
+PASS ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)
+PASS ⓕ agents65 새 좌석 OK
+PASS ⓕ agents66 새 좌석 REJECT
+PASS ⓕ agents66 승계 OK
+PASS ⓖ memfree12 새 좌석 REJECT
+PASS ⓖ memfree12 승계 OK
+PASS ⓖ memfree9 새 좌석 REJECT
+PASS ⓖ memfree9 승계 REJECT
+PASS ⓗ 표본 낡음 → 문지기 직접 1회 측정(3줄)
+PASS ⓗ 낡음+샘플러 기록 실패 → rc4
+PASS ⓗ 승계도 rc4
+PASS ⓘ 표본 1줄 rate=na+WARN OK
+PASS ⓘ rate=na 여도 level4 새 좌석 REJECT
+PASS ⓘ 표본 파일 없음 → 문지기 1회 측정 + rate=na
+PASS ⓙ 동결 새 좌석 REJECT
+PASS ⓙ 동결 승계 REJECT
+PASS status 한 줄 level·rate 칸
+PASS level 측정 실패 exit 4
+PASS 옛 FT_SWAP_MAX_MIB 는 읽지 않는다
+PASS 알 수 없는 2번째 인자 exit 2
+PASS H1 gate LEVEL 명령 rc42+유효 출력 → rc4
+PASS H1 gate SWAP 명령 rc42+유효 출력 → rc4
+PASS H1 gate MEM 명령 rc42+유효 출력 → rc4
+PASS H1 gate DF 명령 rc42+유효 출력 → rc4
+PASS H1 swap 칸 oops 두 줄 → rc4 corrupt
+PASS H1 4칸 줄 → rc4 corrupt
+PASS H1 시각 내림차순 → rc4 corrupt
+PASS H1 시각 차 0(두 줄 같은 시각) → rc4 corrupt
+PASS H1 sampler LEVEL 명령 rc42+유효 출력 → rc4·줄 0
+PASS H1 sampler SWAP 명령 rc42+유효 출력 → rc4·줄 0
+PASS H1 sampler MEM 명령 rc42+유효 출력 → rc4·줄 0
+PASS H1 sampler VM 명령 rc42+유효 출력 → rc4·줄 0
+PASS H2 400초 된 1줄 → 직접 재서 2줄·rate 숫자(예외 닫힘)
+PASS H2 파일 없음 첫 호출 → rate=na
+PASS H2 반복 호출(180초 안) → 같은 1줄 rate=na
+PASS H2 부트스트랩 기한 180초 — 지나면 rate 숫자
+PASS H2 ready 표식은 무시(있어도 없어도 같음)
+PASS H2 미래 시각 두 줄 → rc4 clock-skew
+PASS H2 미래 시각 1줄 → rc4 clock-skew
+PASS H1(r2) 1줄 숫자 칸 oops → rc4 corrupt
+PASS H2 시각 역행 → rc4 corrupt
+PASS probe 일반 agents99 gate rc3
+PASS H3 계보 O·역할 키 O·세션 O → agents 면제
+PASS H3 세션 없음 → 일반 기준
+PASS H3 계보 불일치(무관한 새 이름) → 일반 기준
+PASS H3 N+2 건너뜀 → 일반 기준
+PASS H3 역할 키 값이 아닌 일반 좌석 키(other#2) → 일반 기준
+PASS H3 명부에 없는 OLD → 일반 기준
+PASS H3 다른 팀 명부의 OLD + 무관한 새 이름 → 일반 기준(DA 반례)
+PASS H3 변이(TEAMSET 없음) → ERROR TEAMSET 읽기 실패 rc1
+PASS H3 변이(FT_TEAMSET_MD 없음) → gitref 읽기 실패 rc1
+PASS H3 변이(계보 검사 삭제) 검출
+PASS ⓚ 샘플러 1줄 추가(5칸)+3일 넘은 줄 회전
+PASS ⓚ 측정 실패 rc4·줄 안 씀
+PASS ⓚ 표본 파일 없어도 생성
+PASS r3 동시 교차 → 표본 2줄 유지·rc0·잠금 해제
+PASS r3 변이(잠금 제거) 검출 rows=1
+PASS r3 같은 초 표본 추가 0
+PASS r3 다음 초 표본 추가
+PASS r3 시계 역행 rc4·줄 0
+PASS r3 죽은 pid 잠금 → 회수·정상 기록(영구 rc4 0)
+PASS r3 30초 넘은 잠금 → 회수
+PASS r3 살아 있는 신선한 잠금 → 2초 뒤 rc4·남의 잠금 유지·줄 0
+PASS 감시자 tick → pressure.tsv 1줄
+PASS bash -n + 키트 cmp ft-resource-gate.sh
+PASS bash -n + 키트 cmp ft-resource-watch.sh
+PASS bash -n + 키트 cmp ft-resource-sample.sh
+PASS bash -n + 키트 cmp ft-resource-reclaim.sh
+PASS bash -n + 키트 cmp ft-successor-open.sh
+PASS 감시자 줄 수 ≤245
+PASS successor-open 이 조건부 --succession
+PASS core.bare=false
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

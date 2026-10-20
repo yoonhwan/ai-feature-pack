@@ -1,0 +1,5 @@
+bash -n watch rc=0
+bash -n lib rc=0
+cmp watch rc=0
+cmp lib rc=0
+     245 bin/ft-resource-watch.sh

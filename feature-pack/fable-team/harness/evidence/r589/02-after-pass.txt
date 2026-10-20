@@ -1,0 +1,22 @@
+PASS bash -n watch
+PASS 키트 사본 cmp 0 watch
+PASS ⓐ 자기 링크 → 로그 WARN 1줄
+PASS ⓐ 로그 줄 = 경로 → 대상
+PASS ⓐ planner 쪽지 1통
+PASS ⓐ 수신자 = planner 명부 _master
+PASS ⓐ 쪽지 제목 «[장비 정리]»
+PASS ⓐ 쪽지에 원인 한 줄
+PASS ⓐ 쪽지에 «지우기: unlink <경로>»
+PASS ⓐ 링크는 그대로(삭제 0)
+PASS ⓑ 같은 서명 다음 틱 → 쪽지 0(누적 1)
+PASS ⓑ 같은 서명 다음 틱 → 로그 WARN 중복 0
+PASS ⓑ 대상이 바뀌면(서명 변경) 쪽지 1통 더
+PASS ⓑ 서명이 바뀌면 로그 WARN 1줄 더
+PASS ⓒ 일반 폴더 node_modules → 쪽지 0
+PASS ⓒ 일반 폴더 node_modules → 로그 WARN 0
+PASS ⓓ 폴더 없음 → 쪽지 0
+PASS ⓓ 폴더 없음 → 로그 WARN 0
+PASS ⓔ planner _master 없음 → 로그 ERROR
+PASS ⓔ 명부 없음 → 쪽지 0(발신 안 함)
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

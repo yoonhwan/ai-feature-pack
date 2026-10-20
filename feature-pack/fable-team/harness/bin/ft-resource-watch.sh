@@ -58,6 +58,7 @@ run_capped() {
   wait "$pid"; rc=$?; cat "$out"; rm -f "$out"; return $rc
 }
 . "$HERE/ft-resource-du-lib.sh" || exit 3   # r534 du 함수(du_line · du_lock · 증분 inc_group 등) — 감시자 줄 수 상한(≤245) 때문에 따로 둔다
+. "$HERE/ft-resource-selflink-lib.sh" || exit 3   # r589 루트 clients/web/node_modules 자기 링크 감시(지우기 0 · 쪽지 1통) — 같은 이유로 lib
 
 snapshot_disk() { # now
   local now="$1" raw rc freek cnt rec logk end g kn pf dr
@@ -196,6 +197,7 @@ tick() {
   bash "$HERE/ft-resource-sample.sh" >/dev/null 2>>"$LOG" || logline "ERROR sample rc=$? (표본 끊김 — 문지기 stale 로 이어짐)"
   [ -z "$SLM_WARN" ] || { logline "$SLM_WARN"; echo "$SLM_WARN" >&2; }   # R357: 설정이 바뀐 사실을 숨기지 않는다(조용한 후퇴 금지)
   cpu_watch   # r522: 표본 뒤 · 문지기·동결 분기보다 앞(측정 오류·동결 생성으로 tick 이 일찍 끝나도 CPU 축은 본다)
+  selflink_watch   # r589: 동결 분기보다 앞(이른 return 에도 돈다) · test -L 1회 · 삭제 0 · 쪽지 1통
   gout="$(bash "$GATE" status 2>&1)"; rc=$?
   printf '%s\n' "$gout" | grep '^WARN ' | grep -v FT_SWAP_LEVEL_MIN | while IFS= read -r _w; do logline "gate $_w"; done   # R357: 문지기 WARN 은 rc0 이어도 버리지 않고 로그로(SWAP_LEVEL_MIN WARN 은 위 줄과 중복이라 제외)
   if [ "$rc" != 0 ]; then logline "ERROR gate status rc=$rc out=$gout"; exit 4; fi
