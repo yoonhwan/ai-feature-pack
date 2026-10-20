@@ -1,0 +1,4 @@
+# 읽기 전용 대조(실 jsonl 쓰기 0) · byz-graphics-arch-claude#19 · 2026-10-20
+file=/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-graphics-arch-main/34e335dc-423e-4edb-8358-c81711d71532.jsonl
+old(origin/main 8d5be256 ft_seat_turn.py): WORKING	2026-10-19T20:42:30.877Z	221561	-	131072
+new(this branch):                          IDLE	2026-10-19T20:42:30.877Z	221561	-	131072
