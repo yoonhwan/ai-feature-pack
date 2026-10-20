@@ -1,0 +1,11 @@
+# r541 쌓기 — r538 가지(PR157 · 601424b5 · r527 1.1.93 포함)를 r541 가지 위로 병합 · 2026-10-20 15:1x
+병합: origin/nano/r538-installer-renders-launchd-templates → nano/r541-tests-real-state-cwd-guard · 충돌 = CHANGES.md · manifest.json 2개(기계 해소)
+  · CHANGES 순서 = r541(1.1.96) → r538(1.1.94) → r527(1.1.93) → r540(1.1.92) · 앞 두 항목 보존 · r541 «병합» 줄에 「r538 가지 위로 쌓음」 추가
+  · manifest version = 1.1.96 유지(중복 키 1.1.94 제거 · json.load 통과)
+  · 이 병합이 새로 낸 시험 1개 = tests/test_install_launchd_render.sh(r538) → ⓕ2 린트가 «목록 밖»으로 잡음 → guard_begin 1줄 추가 · 목록 152행 재생성(ft-wt-sweep.sh 부름)
+
+시험 재실행(cwd = 매번 새 임시 폴더 · 실 상태 실측 autonomy.log 486 · autonomy.json 9a1b8c650fd9 · merge-approved 402 불변):
+  · tests/test_real_state_guard_r541.sh ⓐ~ⓕ → ALL PASS 17검사 · ⓕ1 목록 152개 전부 guard_begin · ⓕ2 목록 = 지금 생성 결과 · rc=0
+  · tests/test_install_launchd_render.sh(r538 새 시험) → ALL PASS 23 · REAL-STATE-GUARD PASS 실 루트 없음 · rc=0
+  · tests/scripts/test_seat_turn_compact.py(r527 새 시험) → 6 passed · rc=0
+  · 회귀 표본: test_autonomy_hooks_layout.sh 17 PASS · test_autonomy_hooks.sh 184 PASS · test_resource_gate.sh 45 PASS (셋 다 가드 PASS 줄 1) · tests/scripts/test_ft_news_html.py 39 passed · FAIL 0

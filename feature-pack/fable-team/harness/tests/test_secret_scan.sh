@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_secret_scan.sh — ft-secret-scan.sh 세션 기록 사후 스캔 (R135b ③ · 판정 1585 «위치만»)
 # 격리: 임시 HOME(가짜 ~/.claude/projects·~/.codex/sessions) + 가짜 mbox · 실 세션 기록 읽기 0 · 실 /tmp/h* 읽기 0(--plans 명시). 값은 전부 가짜.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SC="$HERE/../../harness/bin/ft-secret-scan.sh"

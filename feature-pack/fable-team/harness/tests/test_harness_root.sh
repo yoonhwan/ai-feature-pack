@@ -5,6 +5,7 @@
 #   ⓘ env 명시(FT_ROOT·FT_RES_ROOT) → 그 값 · ⓙ 옛 설치 꼴(<리포>/.fable-team/bin) → 옛 식 값(회귀 0) · ⓚ LIVE_ROOT 값 오류 → ERROR
 #   ⓛ 새 설치본 drift-check(--repo 생략) = 하네스 코드 루트(FT_HARNESS_ROOT)의 키트로 대조.
 # mktemp 만 쓴다 — 실 HOME·실 리포 상태·쪽지 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HROOT="$(cd -- "$HERE/.." && pwd -P)"

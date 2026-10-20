@@ -20,6 +20,7 @@ sys.path.insert(0, str(BIN))
 sys.path.insert(0, str(KIT))
 
 import ft_news_publish as np  # noqa: E402
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 DAY = "2026-10-13"
 PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"  # ft-tick.sh 와 같은 순서 — /usr/bin/python3 는 3.9 라 이 키트가 못 돈다

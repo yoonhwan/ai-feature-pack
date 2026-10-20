@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_merge_land_off_approval.sh — R336: 자율 OFF 에서도 착지 = 오빠 approve-merge 승인 파일 + log 한 줄 (임시 origin+clone · gh 스텁 · 가짜 state-dir · 실 PR·실 main 0)
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

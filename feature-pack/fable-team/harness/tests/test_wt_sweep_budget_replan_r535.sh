@@ -4,6 +4,7 @@
 #   ⓒ옛 판 계획 → 같은 좌석·같은 WT 로 재생성(.replanned) 뒤 실행 · 좌석 세션이 살아 있으면 재생성 0(WAIT) ⓓ재생성 불가 → .stale + 사유
 #   ⓔ지운 폴더 크기(du 상한) → .done·요약·wt-sweep.log freed_kb ⓕ등록 없는 폴더 → wt-orphans.tsv 목록만 ⓖ.hil 계획 수 → 요약만
 # 임시 git 리포 + 임시 워크트리 + 가짜 tmux·lsof·du·baton 만 — 실 리포·워크트리·baton·tmux·mbox 0 · 외부 호출 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

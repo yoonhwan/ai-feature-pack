@@ -2,6 +2,7 @@
 # test_ft_tick_master_seat.sh — R27: 틱의 master 뉴스 대상 = 좌석표 _master 하나(role 첫 행·tick 행 순서 금지).
 # 두 틱(키트 ft-tick.sh · 팀 ft-tick-team.sh)을 픽스처 좌석표로 --dry-run + 팀 판 자동 후계(heir_of·retarget_seat) 5경우(가짜 tmux 스텁).
 # 모든 쓰기는 mktemp scratch 안 — 라이브 좌석표·stamp·알림 파일 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."

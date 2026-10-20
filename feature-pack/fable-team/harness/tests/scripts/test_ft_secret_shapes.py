@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import pytest
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 ROOT = Path(__file__).resolve().parents[3]
 SHAPES = ROOT / "harness/bin/ft_secret_shapes.py"

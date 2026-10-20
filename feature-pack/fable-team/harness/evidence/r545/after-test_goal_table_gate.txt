@@ -1,0 +1,101 @@
+PASS ⓐ 렌더 rc0
+PASS ⓐ 머리 마커 줄(출처 file: + 원장:<갱신> · r545)
+PASS ⓐ 꼬리 마커 줄
+PASS ⓐ 표 7줄(제목 1 + 골 6)
+PASS ⓐ 상태 칸 = 원장 2열 값(행 3)
+PASS ⓐ 상태 칸 24자 + «…»
+PASS ⓐ 골 칸은 정본 글자(원장 글자 0)
+PASS ⓐ 첫 표만 읽음(뒤쪽 절 표 0)
+PASS ⓐ ≤1600B
+PASS ⓐ 원장 파일 없음 = «상태 없음» 6칸 + WARN 1줄 rc0
+PASS ⓑ 정본 없음 ERROR rc1
+PASS ⓑ 표 5행 ERROR rc1
+PASS ⓑ 원장 표 5행 ERROR rc1
+PASS ⓑ 원장 표 7행 ERROR rc1
+PASS ⓒ 절 없음 = «상태 없음» 6칸 + WARN 1줄 rc0
+PASS ⓓ gitref 원장 = 파일 원장과 같은 블록
+PASS ⓔ 24h 초과 머리에 «상태 낡음» + 원장:<갱신>
+PASS ⓔ 신선한 원장은 «상태 낡음» 0
+PASS ⓕ 상태칸·낡음 달라도 check rc 동일(0)
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r545-goal-table-reads-origin-main-gitref/feature-pack/fable-team/harness/tests/test_goal_table_gate.sh: 줄 98: 진행|검증: 명령을 찾을 수 없음
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r545-goal-table-reads-origin-main-gitref/feature-pack/fable-team/harness/tests/test_goal_table_gate.sh: 줄 98: |: 명령을 찾을 수 없음
+PASS ⓜ1 상태 셀  → 전체 보존(절단 0) · 골·남은것 칸의  도 열 수 유지
+PASS ⓜ2 열 수 부족 ERROR rc1(행 수 6 이어도)
+PASS ⓜ2 열 수 초과(이스케이프 없는 |) ERROR rc1
+PASS ⓜ3 진짜 빈 셀 = 그 행만 «상태 없음»(나머지 행 보존)
+PASS ⓝ1 LIVE_ROOT 파일 → 새 LIVE 원장만(옛 v6 원장 OLD 0)
+PASS ⓓ LIVE_BIN 위치를 바꿔도 같은 원장(코드 위치 유도 0)
+PASS ⓝ2 LIVE_ROOT 없음 = ERROR rc1(LIVE_BIN 에서 유도 0 · 옛 원장 선택 0)
+PASS ⓝ2 LIVE_ROOT 값 무효(없는 폴더) = ERROR rc1
+PASS ⓝ2 LIVE_ROOT 상대경로 = ERROR rc1
+PASS ⓝ FT_GOAL_A6_LEDGER 가 LIVE_ROOT 보다 우선
+PASS ⓣ1 설치본 위치 + FT_ROOT 없음 → 조상 탐색으로 정본·원장 기본 경로 해석 · 6칸 채움(OLD 0)
+PASS ⓣ2 FT_ROOT=LIVE_BIN 없는 폴더 → ERROR 사유에 그 경로
+PASS ⓣ3 LIVE_BIN 삭제 → ERROR(정본·원장 둘 다 고정 v6 경로 0)
+PASS ⓣ3 정본만 env 로 줘도 원장 기본 경로는 LIVE_BIN 없으면 ERROR
+PASS 후퇴 0: FT_GOAL_A6_STATE·GOAL-A6-STATE·--state 참조 0
+PASS ⓗ 블록+좌표 → GOAL-OK n=3
+PASS ⓗ 블록만 → REJECT
+PASS ⓗ 좌표만(블록 없음) → REJECT
+PASS ⓗ 번호 7(범위 밖) → REJECT
+PASS ⓗ 번호와 원문 불일치 → REJECT
+PASS ⓗ 번호만(원문 없음) → REJECT
+PASS ⓗ 블록 안 행 6 아님 → REJECT
+PASS ⓕ 꼬리 마커만 → REJECT
+PASS ⓔ [발주 #1] 블록 없음 → REJECT·큐 0
+PASS ⓔ [발주 #1] 블록+좌표 → 통과
+PASS ⓔ [팀 발주] 블록 없음 → REJECT·큐 0
+PASS ⓔ [팀 발주] 블록+좌표 → 통과
+PASS ⓔ [착지 차례] 블록 없음 → REJECT·큐 0
+PASS ⓔ [착지 차례] 블록+좌표 → 통과
+PASS ⓔ [A6 점검] 블록 없음 → REJECT·큐 0
+PASS ⓔ [A6 점검] 블록+좌표 → 통과
+PASS ⓙ [HIL] 막힘 블록 없음 → 통과(안전 보고 우선)
+PASS ⓙ [긴급] 중단 블록 없음 → 통과(안전 보고 우선)
+PASS ⓙ [반송 · 골] 다시 블록 없음 → 통과(안전 보고 우선)
+PASS ⓘ harness master [틱] 블록 없음 → REJECT
+PASS ⓘ harness master [부팅 보고] 블록 없음 → REJECT
+PASS ⓘ harness master [완료·휴식] 블록 없음 → REJECT
+PASS ⓘ 나노 발신 [틱] 블록 없음 → 통과(검사 0)
+PASS ⓘ planner desk 도 대상
+PASS ⓔ 블록만(좌표 줄 없음) 발주 → REJECT
+PASS ⓚ 실물 정본 ≤1600B
+PASS ⓚ 골 원문 6칸 전문 보존(절단 0)
+PASS ⓛ 비무장: 큐 적재 + WOULD-REJECT 로그
+PASS ⓛ 무장: REJECT 로그 1줄
+PASS ⓝ relay 첨부에 블록 + 요약에 좌표 → 통과
+PASS ⓝ relay 첨부에 블록 없음 → REJECT·큐 0
+PASS ⓝ relay 검사 사본 폴더 정리
+PASS ⓞ [회신] 확인 블록 없음 → 통과
+PASS ⓞ [착지] 끝 블록 없음 → 통과
+PASS ⓞ [정지] 멈춤 블록 없음 → 통과
+PASS ⓟ 정본과 다른 6행 + 진짜 마커 → REJECT
+PASS ⓟ 모르는 마커 sha10 → REJECT
+PASS ⓠ 무장 + 문 본체 없음 → REJECT
+PASS ⓠ 비무장 + 문 본체 없음 → WOULD-REJECT 로그 + 통과
+PASS ⓠ 문 본체 없음 + 나노 발신 → 통과(대상 아님)
+PASS ⓠ 문 본체 없음 + [HIL] → 통과(안전 보고)
+PASS ⓡ 무장 + 명부 깨짐 + 역할 미확인 → REJECT(판정 불가)
+PASS ⓡ 비무장 + 명부 깨짐 → WOULD-REJECT 로그 + 통과
+PASS ⓡ 다른 명부가 깨져도 발신자 역할이 확인되면 정상 판정
+PASS ⓢ 첨부 사본 복사 실패 → REJECT(원본 후퇴 0)
+PASS ⓢ 검사 뒤 원본이 바뀌어도 전달본 = 검사한 사본
+PASS ⓢ 요약에 골좌표 없음(첨부 안에만 있음) → REJECT
+PASS ⓐ r458 루트 명단 없음 → 원장 리포 명단으로 뉴스 폴더 풀림 rc0
+PASS ⓐ r458 폴더 실재 0 → ERROR 뉴스 폴더 없음(폴백 0 · 발행 0)
+PASS ⓑ r458 FT_NEWS_DIR 우선
+PASS ⓒ r458 teams 마커 2줄(원장 sha10)
+PASS ⓒ r458 teams 12행·칸(팀|끝선|착지|지금) · ≤1600B(1314B)
+PASS ⓒ r458 «## 팀별 완성 진행» 절 표만 읽음
+PASS ⓒ r458 표 없음 = 빈 출력 + WARN rc0(거절 0)
+PASS ⓒ r458 check 불변(골 표 + teams 블록 → GOAL-OK)
+PASS ⓓ r458 첫 판 순서 머리→골 표→팀별 진행
+PASS ⓓ r458 판 9개 · 최대 3385B ≤3500 · 팀별 진행 첫 판만(lead 앞) · 빈 값 = 줄 0
+PASS ⓔ r458 매거진 뿌리 글(첫 줄 그대로 → 골 표 → 팀별 진행)·HTML 절 · 표 없음/도구 없음 = 빈 글(무장 거절 0)
+PASS ⓕ r458 기준선 옛 경로 ≠ 정본 새 경로 → 명확한 ERROR(발행 0 · git show 날 오류 0)
+PASS ⓕ r458 원장 리포에 없는 기준선 sha(다른 리포 판) → ERROR(발행 0)
+PASS ⓕ r458 기준선·지금 둘 다 정본 경로 → 발행 rc0 · 뉴스 폴더·골 표 원장 = 같은 정본(기본값)
+PASS ⓕ r458 FT_LEDGER_PATH 한 값 → 원장·뉴스 폴더·팀별 진행 출처 모두 그 경로(TEAMS.md 무관)
+PASS ⓕ r458 600/300 0
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -7,6 +7,7 @@ import subprocess
 
 import pytest
 from ft_git_helpers import BIN, commit, git, init_repo
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 OLD = "2020-01-01T00:00:00"
 

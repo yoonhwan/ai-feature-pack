@@ -2,6 +2,7 @@
 # test_wt_clean_plan_self_check.sh — R173: wt-clean 계획 파일이 «실행 맨 앞에서» 스스로 plan-ver 를 라이브 생성기와 대조해 다르면 멈춘다
 # 임시 git 리포 + 가짜 tmux/baton(PATH 앞) + 스크립트 사본만 쓴다 — 실제 리포·seats·tmux·.fable-team/state/wt-clean 은 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 # 축 ⓐ 일치 계획 = 기존 결과 그대로 ⓑ 생성기 1바이트 수정·삭제·hash 실패 = STALE 1줄 exit 3 + 손 0 ⓓ sweep 경로 STALE 불변 ⓔ 다른 cwd·심링크 실행도 같은 결과 ⓕ 키트 2곳 cmp 0 · 변이 2
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

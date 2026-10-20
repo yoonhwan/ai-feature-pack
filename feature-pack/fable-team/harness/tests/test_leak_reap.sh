@@ -2,6 +2,7 @@
 # test_leak_reap.sh — R347: 유출 부하 리퍼(ft-leak-reap.sh) + 틱 경보(ft-leak-watch.sh · ft-tick · ft-tick-team).
 # 입력은 FT_PS_SNAPSHOT(가짜 ps 표) · 조사 실패는 FT_PS_CMD 대역 — 실 프로세스 종료 0(--kill 시험은 «내가 띄운 합성 고아 1건» 만 담은 스냅샷).
 # mktemp 만 쓴다 · 시험에 GIT_DIR 류를 걸지 않는다(R121). 변이 시험은 R347_BIN=<변이 복사본 폴더>.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

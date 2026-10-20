@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_resource_cause.sh — 디스크·메모리 경보 → «원인 좌석» 한 줄 (ft-resource-cause.sh) + 경보·동결 연결.
 # 가짜 tmux·ps·임시 루트만 쓴다 — 실 tmux·실 du·실 좌석 0. (60분 증가분 상위 폴더 3개 + 만든 좌석 매핑)
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

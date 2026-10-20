@@ -2,6 +2,7 @@
 # test_nano_close_superseded_by.sh — R171: ft-nano-close.sh --superseded-by <대체 카드> (다른 카드로 대체돼 세트를 랜딩하지 않은 나노 닫기)
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 실제 cherry 게이트(원장은 임시 경로)만 쓴다 — 실제 리포·seats·tmux 세션은 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 # 축 ⓐ 인자 없으면 불변 ⓑ REJECT 6종 ⓒ --cherry-override 동시 = exit 2 ⓓ cherry 원장 1행 사유 ⓔ 브랜치 삭제 0 · 명부 손 편집 없이 CLOSED ⓕ 키트 2곳 cmp 0 · 변이 2
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

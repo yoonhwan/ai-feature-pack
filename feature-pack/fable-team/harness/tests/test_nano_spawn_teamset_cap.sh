@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_spawn_teamset_cap.sh — r-teamset-standard(판정 2170): ft-nano-spawn.sh 팀셋 나노 상한 칸 + ft-resource-reclaim.sh --only-prefix.
 # 전부 mktemp — 임시 저장소·가짜 tmux(PATH)·가짜 TEAMSET·가짜 회수(FT_RECLAIM_SH)·가짜 센서. 실 좌석·실 워크트리·실 kill 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

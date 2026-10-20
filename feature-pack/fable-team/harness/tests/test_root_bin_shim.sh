@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_root_bin_shim.sh — R201: 루트 .fable-team/bin 옛 사본 → 라이브 bin 연결 파일 (ft-root-bin-shim.sh) · 축 ⓐ~ⓔ + 변이.
 # mktemp 만 쓴다(임시 «루트» 리포 + 임시 «라이브 bin»(자기 $HERE·인자를 찍는 가짜 도구)) — 진짜 루트 .fable-team/bin 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

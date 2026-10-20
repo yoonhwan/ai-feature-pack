@@ -1,0 +1,71 @@
+PASS bash -n ft-opencode-reap.sh
+PASS bash -n opencode-reap-check.sh
+PASS bin ↔ kit 짝 cmp0
+PASS --agent bogus → rc 2(usage)
+== ⓐ 이름 집합이 opencode 고정이면 pi 는 조사 줄 0 (기본값 = opencode = 지금 동작 그대로)
+PASS ⓐ 기본 opencode → 후보 0
+PASS ⓐ pi 는 기본값에서 후보 0(이름 고정)
+== ⓑ --agent pi → 좌석 pane 나무의 pi 가 대상 · --apply → REAPED left=0 rc=0
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓑ rc=2 ← 
+FAIL ⓑ 조사: 좌석 나무 serve(① · 이름 표기 pi) — 없음: «pid=41201 via=① agent=pi» ← 
+PASS ⓑ 조사는 kill 0
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓑ rc=2 ← 
+FAIL ⓑ oc-kill 줄(pi) — 없음: «oc-kill pid=41200 via=①» ← 
+FAIL ⓑ seat-run 살아 있음
+FAIL ⓑ seat-serve 살아 있음
+PASS ⓑ pane 셸(pi 아님) 은 kill-session 몫 — 신호 0
+== ⓒ 다른 tmux 세션(aifp 좌석 흉내) 나무의 pi → 대상 0 · 생존 (남의 pi 0)
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓒ rc=2 ← 
+PASS ⓒ 남의 pi other-run 생존
+PASS ⓒ 남의 pi other-serve 생존
+== ⓓ pid 파일 기록(시작 시각 일치) → 대상 · 기록 없이 cwd 로만 찾은 부모 잃은 pi → kill 0 + «주인 미확인» 줄
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓓ 기록 n=2(pi) — 없음: «oc-record seat4#0 n=2» ← 
+PASS ⓓ pane 셸 소멸 → pi 부모 잃음(ppid 1)
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓓ 기록분 = 대상(pid 파일 · 기록 때의 via) — 없음: «pid=45767 via=① agent=pi» ← 
+FAIL ⓓ 기록 없는 cwd 부모 잃은 pi = «주인 미확인» 조사 줄 — 없음: «pid=46288 via=미확인 owner=주인 미확인 agent=pi» ← 
+PASS ⓓ 기록 없는 pi 는 ③ 대상 아님(cwd 로만 찾은 것)
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓓ rc=2 ← 
+FAIL ⓓ 기록된 pi 살아 있음
+PASS ⓓ 주인 미확인 pi 생존(kill 0 · 승인 범위 밖)
+PASS ⓓ 주인 미확인 pi 에 신호 0
+== ⓔ 못 멈추면 REAPED left=<n> rc=1 · 나노 닫기는 CLOSE-FAIL(승인 조건 «못 끄면 닫기 실패»)
+usage: /tmp/r542-base/feature-pack/fable-team/harness/tests/../bin/ft-opencode-reap.sh <좌석> [--wt <워크트리>] [--record [--since <epoch>]] [--apply] | --pid-file <F> [--apply]
+FAIL ⓔ rc=2 ← 
+FAIL ⓔ oc-left 줄 — 없음: «oc-left pid=47200» ← 
+== ⓕ 나노 닫기: 명부 agent=pi → 회수 단계 --agent pi · agent=claude → 회수 호출 0 (픽스처 = fail_closed 꼴)
+FAIL ⓕ pi 좌석 → PI-REAPED left=0 (rc 0) — 없음: «PI-REAPED byz-planner-nano-pi#0 reap left=0 rc=0» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/bin
+INFO 카드 위치(팀 폴더) ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/repo/design/planner/indices/진행/ovr.md
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD e40785e0d · 시험 rc=0 · 이슈 0
+OK cherry stub
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/wtclean/byz-planner-nano-pi#0.sh.hil — 브랜치가 nano/
+FAIL ⓕ 1번째 = --record(--agent pi · 같은 자리) — 없음: «byz-planner-nano-pi#0 --wt /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/repo/.worktrees/pi-ovr --agent pi --record» ← 
+FAIL ⓕ 2번째 = --apply(--agent pi) — 없음: «byz-planner-nano-pi#0 --wt /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/repo/.worktrees/pi-ovr --agent pi --apply» ← 
+PASS ⓕ 회수는 세션 kill 뒤(kill-session 실행됨)
+PASS ⓕ claude 좌석(pid 파일 없음) → 회수 호출 0
+PASS ⓕ claude 좌석 → PI-REAPED 0
+FAIL ⓕ left=1 rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/bin
+INFO 카드 위치(팀 폴더) ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/repo/design/planner/indices/진행/ovr.md
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD e40785e0d · 시험 rc=0 · 이슈 0
+OK cherry stub
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TIZ18Ejfio/wtclean/byz-planner-nano-pi#0.sh.hil — 브랜치가 nano/* 가 아니라 자율 정리 범위 밖 — 사람 ! 실행: ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TI
+PASS ⓕ CLOSE-FAIL 이면 PI-REAPED 0
+== ⓖ 기존 opencode 시험 base 대조 diff 0 (시험 파일 손대지 않음 + rc0)
+PASS ⓖ test_opencode_reap.sh rc=0
+PASS ⓖ test_nano_close_fail_closed.sh rc=0
+PASS ⓖ 기존 시험 파일 변경 0(base 대조 = HEAD)
+FAIL ⓖ 훅: pi 실행 뒤 고아 → pi 분기 알림(kill 0) — 없음: «[pi-reap-check] pi 고아» ← 
+FAIL ⓖ 훅 회수 명령에 --agent pi — 없음: «--agent pi --apply» ← 
+PASS ⓖ 훅은 kill 0
+PASS ⓖ 훅 출력 0: echo pi
+PASS ⓖ 훅 출력 0: pip install x
+PASS ⓖ 훅 출력 0: grep -n api notes.txt
+
+FAILED 20

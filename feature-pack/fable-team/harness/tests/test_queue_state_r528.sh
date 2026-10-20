@@ -3,6 +3,7 @@
 #   ⓐ 4 상태 꼴 OK ⓑ 정지 종류 붙임 OK ⓒ 보류 재확인 시각 없음 → ERR(줄 번호) ⓓ 어휘 밖·빈 칸 → ERR · 끝줄 QUEUE-STATE
 #   ⓔ ft-proxy-decide QUEUE 새 줄 · 상태 칸 대기 · 새 파일 머리 7칸(상태) + r529 칸 셋(번호·팀·보여준 시각 · 상태 뒤) ⓕ 옛 머리 «처리됨» 도 같은 칸 · decision-count 가 «대기» 를 열린 줄로 셈
 # 격리: 임시 큐·FT_ROOT·상태 — 실 큐·실 mbox 쓰기 0 · 외부 호출 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

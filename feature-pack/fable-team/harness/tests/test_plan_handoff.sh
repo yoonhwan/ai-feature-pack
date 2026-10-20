@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_plan_handoff.sh — C17 ft-plan-handoff.sh 시험: 정상 정리본 / 머리줄 누락 정리본 (+ 수신자 없음 · 단위 0)
 # --dry-run 과 임시 seats 파일만 쓴다 — 실제 mbox 발신·Issue 생성 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 CMD="$HERE/../../harness/bin/ft-plan-handoff.sh"

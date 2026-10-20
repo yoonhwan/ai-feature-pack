@@ -3,6 +3,7 @@
 #   ⓐ골 3줄 txt(FT_GOAL_LINES_FILE) 로 판정 1151 꼴 카드 lint OK · 옛 env(GOAL-planner.md 전체)는 REJECT
 #   ⓑspawn --dry-run: 접두·명부·카드 경로·골 3줄 lint OK  ⓒ빈 카드 템플릿(planner 한정) + 변이 2종  ⓓ발주 BODY 팀 구조 1문장(전 팀)  ⓔ기존 시험 rc=0
 # 임시 git 리포 + 가짜 tmux/tmuxc/sleep(PATH 앞) + 스크립트 사본만 쓴다 — 실 리포·seats·tmux·Redis 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../harness/kit/fable-team"; SRC="$KIT/bin"; TXT="$KIT/bin-planner/goal-lines-planner.txt"; ENVSRC="$KIT/bin-planner/planner-env.sh"

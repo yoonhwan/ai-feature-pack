@@ -1,0 +1,23 @@
+# r541 실사건(나노 예비 측정) — BYZ-Agents 워크트리 cwd(harness-r541-…-r2)에서 사건 시험 test_autonomy_hooks_layout.sh 1회 · 2026-10-20 15:08
+# 실 상태: <v6-realtime-live>/.fable-team/state/autonomy.log 486→486 · autonomy.json sha 동일(mode=off event=A18) · autonomy-merge-approved/ 402→402 · 우편함 361→360(라이브 좌석 회전 = WARN)
+# 가드 PASS 줄 원문: REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:<…>/v6-realtime-live,repo:<…>/BYZ-Agents,comm:<…>/BYZ-Agents/.fable-team/comm
+PASS ⓛ0 준비: 라이브 상태만 ON · 메인 루트 상태 없음
+PASS ⓛ1 ON + 워크트리 cwd + 미승인 pr merge → deny
+PASS ⓛ2 ON + 승인 없는 sha → deny
+PASS ⓛ3 ON + 인터뷰 → deny (자율 대리 결정)
+PASS ⓛ3b deny 사유에 라이브 상태(자율 ON)
+PASS ⓛ4 오빠 승인(라이브 상태) sha → allow
+PASS ⓛ5 병합 아닌 명령 → allow
+PASS ⓛ6 OFF → allow
+PASS ⓛ7 정상 배치에서는 로그에 «못 읽음» 0줄
+PASS ⓛ8 도구 없음 → 병합 deny
+PASS ⓛ8b 사유 + 로그에 못 읽음
+PASS ⓛ8c 도구 없음 + 병합 아닌 명령 → allow
+PASS ⓛ9 도구 없음 → 인터뷰 allow + 화면 경고
+PASS ⓛ10 BYZ 밖 cwd → allow
+PASS ⓛ10b BYZ 밖 cwd 인터뷰 → allow
+PASS ⓛ11 두 훅의 R176 해석 블록 바이트 일치
+PASS ⓛ12 core.bare = false
+ALL PASS
+REAL-STATE-GUARD WARN 우편함 줄어듦/없음(회전?): /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mailbox.jsonl
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live,repo:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents,comm:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm files=426

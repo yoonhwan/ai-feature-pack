@@ -4,6 +4,7 @@
 #   ⓒ due = 대기 ∧ (보여준 시각 ≤ 지금−60분 ∨ -) · 보류 재확인 지남 = «재확인» ⓓ remind = 그 팀 _master 에 [재질문] 1통 · 60분 안 반복 0
 #   ⓔ 자율 ON = 쪽지 0 · 아침 묶음 줄만 ⓕ take = 진행 — <master> · 사유 끝 오빠 값 · RESUME 1줄 ⓖ 팀 - 줄 = planner _master ⓗ 틱 호출 1줄
 # 격리: 임시 큐·FT_ROOT·상태·가짜 mbox(받은 argv 기록) · 시각 FT_NOW — 실 큐·실 mbox 쓰기 0 · 외부 호출 0 · GIT_* 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

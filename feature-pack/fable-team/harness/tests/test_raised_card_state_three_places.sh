@@ -5,6 +5,7 @@
 #   ⓔ ref 못 읽음(origin 없음 · 리포 아님) → rc2 + 사유 · 목록 0   ⓕ 틱 raised_watch 실경로: 데이터 루트 진행/ 카드 → 쪽지 0 · ERROR 0
 # 격리: 임시 공용 루트 C(체크아웃에 카드 폴더 없음) + C/.fable-team/LIVE_ROOT = 임시 데이터 루트 D + 임시 bare origin O — 외부 호출 0 · GIT_* env 0 · 실 명부·mbox 0.
 # 변이·전후 비교는 R518_BIN=<다른 bin 폴더> 로 같은 시험을 돌린다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_ROOT
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

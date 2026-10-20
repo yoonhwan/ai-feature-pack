@@ -4,6 +4,7 @@
 #   ⓓ env 우선 · ⓔ 배포 가지 이름이면 QUEUE · ⓕ 인자 부족 문구 예시 · 변이 1(표 행 패턴 제거 → ⓐ 실패)
 #   R410(판정 2326): wt-clean 종류 ⓐ PROXY · ⓑ STALE·세션 실재·경로·글자 → QUEUE · ⓒ 실행 줄 제외 어휘 · ⓓ 쪽지 가드 [아침 묶음 «결정 N:» 대리= 칸
 # 격리: 임시 FT_ROOT·상태·원장 + 임시 git 저장소 — 실 상태·실 mbox·실 /tmp/h* 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY

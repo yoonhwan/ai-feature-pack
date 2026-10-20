@@ -6,7 +6,7 @@ check   : 본문에 ⓐ마커 블록(6행 = 마커 sha10 의 정본 골 칸과 �
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
           표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
-정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = LIVE_BIN→LIVE_ROOT 의 planner 팀 폴더(TEAMS.md 폴더 칸)/AUTONOMY-GOAL-A6-20261018.md) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 라이브 planner 원장) · 저장소 = FT_GOAL_REPO(기본 FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha.
+정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/AUTONOMY-GOAL-A6-20261018.md` — r545: 체크아웃(LIVE_ROOT) 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 같은 꼴) · 저장소 = FT_GOAL_REPO(기본 FT_LEDGER_REPO · FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha. 머리에는 출처 종류(`origin/main@` | `file:`)를 sha10 앞에 붙인다(r545 · 옛 꼴 `(<sha10> · …)` 도 읽는다).
 원장: 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
 from __future__ import annotations
@@ -19,12 +19,12 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from ft_goal_ledger import NO_STATE, find_root, ledger_spec, ledger_state, planner_dir, read_spec, table_rows
+from ft_goal_ledger import NO_STATE, default_spec, find_root, ledger_repo, ledger_spec, ledger_state, read_spec, table_rows
 
 DEFAULT_NAME = "AUTONOMY-GOAL-A6-20261018.md"  # planner 팀 폴더 안(폴더는 ft_team_lib 가 푼다)
 BUDGET = 1600
 CELL = 24
-HEAD = re.compile(r"^★골 표 A6 \(([0-9a-f]{10}) · [^)]*\)★$")
+HEAD = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) · [^)]*\)★$")  # r545: 출처 표지(`origin/main@`|`file:`) 붙은 새 꼴 + 표지 없는 옛 꼴 둘 다
 TAIL = "★/골 표★"
 COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
 TEAMS_SECTION = re.compile(r"^##\s+팀별 완성 진행")
@@ -51,26 +51,31 @@ def _git(repo: Path, *a: str) -> str:
     return done.stdout
 
 
+def _git_ok(repo: Path, *a: str) -> bool:
+    return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, encoding="utf-8", check=False).returncode == 0
+
+
 def _repo() -> Path:
-    return Path(os.environ.get("FT_GOAL_REPO") or _root())
+    """gitref 읽기 리포 = FT_GOAL_REPO › 원장 리포(FT_LEDGER_REPO · LIVE_ROOT — r545: planner 파일이 사는 리포가 기본. 루트는 데이터 루트일 뿐 git 이 아닐 수 있다)."""
+    return Path(os.environ.get("FT_GOAL_REPO") or ledger_repo(GoalError))
 
 
 def _spec() -> str:
-    return os.environ.get("FT_GOAL_A6_MD") or str(planner_dir(GoalError) / DEFAULT_NAME)
+    return os.environ.get("FT_GOAL_A6_MD") or default_spec(GoalError, DEFAULT_NAME)
 
 
 def load_canon() -> tuple[str, str, str]:
-    """(본문, sha10, gitref 경로 또는 '') — gitref 는 commit 으로 1회 확정."""
+    """(본문, sha10, 출처 표지) — gitref = `origin/main@` · 파일 = `file:` · gitref 는 commit 으로 1회 확정(r545: 머리가 «어느 판에서 읽었나» 를 보여준다)."""
     spec = _spec()
     if spec.startswith("gitref:"):
         _, ref, rel = spec.split(":", 2)
         commit = _git(_repo(), "rev-parse", "--verify", ref).strip()
-        return _git(_repo(), "show", f"{commit}:{rel}"), commit[:10], rel
+        return _git(_repo(), "show", f"{commit}:{rel}"), commit[:10], f"{ref}@"
     try:
         raw = Path(spec).read_bytes()
     except OSError as e:
         raise GoalError(f"ERROR 골 표 정본 읽기 실패 {spec}: {e.strerror}") from e
-    return raw.decode("utf-8"), hashlib.sha256(raw).hexdigest()[:10], ""
+    return raw.decode("utf-8"), hashlib.sha256(raw).hexdigest()[:10], "file:"
 
 
 def parse_rows(text: str) -> list[list[str]]:
@@ -83,10 +88,11 @@ def parse_rows(text: str) -> list[list[str]]:
     return rows
 
 
-def _ledger_show(spec: str) -> str:
-    """`gitref:<ref>:<경로>` 원장 → 그 ref 의 commit 으로 1회 확정해 읽는다."""
+def _ledger_show(spec: str) -> str | None:
+    """`gitref:<ref>:<경로>` 원장 → 그 ref 의 commit 으로 1회 확정해 읽는다 · 그 ref 에 경로가 없으면 None(«상태 없음» WARN 경로 · r545)."""
     _, ref, rel = spec.split(":", 2)
-    return _git(_repo(), "show", f"{_git(_repo(), 'rev-parse', '--verify', ref).strip()}:{rel}")
+    commit = _git(_repo(), "rev-parse", "--verify", ref).strip()
+    return _git(_repo(), "show", f"{commit}:{rel}") if _git_ok(_repo(), "cat-file", "-e", f"{commit}:{rel}") else None
 
 
 def _cut(s: str, keep_all: bool = False) -> str:
@@ -95,11 +101,11 @@ def _cut(s: str, keep_all: bool = False) -> str:
 
 
 def render() -> str:
-    text, sha, _ = load_canon()
+    text, sha, src = load_canon()
     rows = parse_rows(text)
     head, states = ledger_state(_ledger_show, GoalError)
     body = [f"| {_cut(g, True)} | {_cut(t)} | {_cut(states.get(i, NO_STATE))} | {_cut(e)} |" for i, (g, t, e) in enumerate(rows, 1)]
-    out = "\n".join([f"★골 표 A6 ({sha} · {head})★", "| 골 | 팀 | 지금 상태 | 닫는 증거 |", "|---|---|---|---|", *body, TAIL])
+    out = "\n".join([f"★골 표 A6 ({src}{sha} · {head})★", "| 골 | 팀 | 지금 상태 | 닫는 증거 |", "|---|---|---|---|", *body, TAIL])
     if len(out.encode("utf-8")) > BUDGET:
         raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
     return out + "\n"

@@ -19,6 +19,7 @@ from test_ft_news_ledger import BIN, REAL, ROW_NEW, ROW_OLD, baseline, commit, e
 import ft_news_ledger as nl
 import ft_news_status as ns
 import ft_news_watch as nw
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 KIT = BIN.parent / "kit" / "fable-team" / "bin"  # 팩 배치(r509 · 옛 harness-install 꼴 0)
 NOW = "2026-10-13 15:00"

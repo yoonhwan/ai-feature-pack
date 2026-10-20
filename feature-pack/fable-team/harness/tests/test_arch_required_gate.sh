@@ -2,6 +2,7 @@
 # test_arch_required_gate.sh — R342: «arch 상시» 팀(TEAMSET 표)의 `_arch` 좌석이 없거나 죽어 있으면
 #   ①ft-teamset-check ERR ②ft-successor-open(master·desk 교대) REJECT ③ft-autonomy on(planner) REJECT — 판정기 하나 = ft_teamset.py arch-live.
 # 전부 mktemp 안 — 가짜 TEAMSET·가짜 명부·가짜 tmux/tmuxc(PATH)·임시 재개 기록·임시 상태 폴더. 실 tmux·실 자율 전환 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 export FT_ALLOW_TRACKED_BIN=1

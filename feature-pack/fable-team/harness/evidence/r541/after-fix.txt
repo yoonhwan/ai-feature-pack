@@ -1,0 +1,20 @@
+# r541 after-fix — 가드 시험 ⓐ~ⓕ (cwd = 임시 폴더 · 2026-10-20 15:09:34 · 팩 가지 2c5dd3f9)
+PASS ⓐ 도우미 없음 = 흉내 실 자율 상태 바뀜(rc=1 · autonomy.json autonomy.log other.tsv )
+PASS ⓑ 도우미 = 흉내 실 상태 그대로 + PASS 줄(3 루트)
+PASS ⓑ2 자식 cwd = git 밖(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4CcaNUWuq2)
+PASS ⓑ3 루트 풀이 ERROR rc2 (실 루트로 안 풀림)
+PASS ⓑ4 시험 rc 그대로 전달(3)
+PASS ⓑ5 BYZ 밖 cwd = «실 루트 없음» PASS
+PASS ⓒ 실 상태 바꿈 → FAIL 원문
+PASS ⓒ2 가짜 병합 승인 파일 → FAIL
+PASS ⓓ1 다른 state 파일 = WARN + PASS
+PASS ⓓ2 우편함 새 줄(이전 이름 + 명부 이름) = PASS
+PASS ⓓ3 우편함 가짜 이름 새 줄 = FAIL
+PASS ⓑp pytest 픽스처 = git 밖 cwd · PASS
+PASS ⓒp pytest 픽스처 = 실 상태 바꿈 FAIL
+PASS ⓒs 파이썬 스크립트 guard_begin() = FAIL
+PASS ⓕ0 목록 파일 있음(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r541-tests-real-state-cwd-guard/feature-pack/fable-team/harness/evidence/r541/tests-calling-cwd-root-tools.txt)
+PASS ⓕ1 목록 151개 전부 guard_begin
+PASS ⓕ2 목록 = 지금 생성 결과(새 시험은 목록에 + guard_begin)
+ALL PASS
+REAL-STATE-GUARD PASS 실 루트 없음(cwd=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5xoVoNEoo9)

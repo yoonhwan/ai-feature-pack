@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_close_named_wt.sh — 카드 nano-close-named-wt: ft-nano-close.sh --wt <경로> --branch <이름> (표준이 아닌 이름의 전용 워크트리 좌석 닫기 · 원장 R8 보강)
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 스크립트 사본(가짜 cherry 게이트)만 쓴다 — 실제 리포·seats·tmux 세션은 건드리지 않는다.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"

@@ -3,6 +3,7 @@
 #   ⓐ 공유 루트 꼴(명단 없는 옛 워크트리 · 카드 꼴1) cwd spawn --dry-run → PLAN · lint OK ledger=꼴1 + SEATBELT·planner 판정도 ref 명단
 #   ⓑ ref 못 읽음 → REJECT  ⓒ 후보 0 → REJECT  ⓓ 후보 2 → REJECT  ⓔ 명단 있는 보통 워크트리(꼴2) → 그대로 OK · 명시 env 가 이긴다
 # 임시 bare origin + 클론 + 워크트리 · 가짜 tmux/tmuxc/sleep · 스크립트 사본만 — 실 리포·홈·seats·tmux 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_TEAMS_REF FT_GOAL_LEDGER FT_SEATBELT_README
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

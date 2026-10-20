@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_pi_agent_allow_r540.sh — r540: pi 를 하네스 에이전트로 허용(이름 lint · 열기 도구 --agent/모델/--effort · 준비 확인 · 승계 열기 · 도달 확인).
 #   가짜 tmux·tmuxc·pgrep·mbox + 임시 HOME·git 리포 + fixtures/r540 화면 글자만 쓴다 — 실 세션·실 pi·외부 호출·명부 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

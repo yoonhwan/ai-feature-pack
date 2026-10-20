@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_thread_reply_named.sh — r414: `byz_thread_post.py reply --thread <이름>` 뿌리 ts 를 도구가 소유(등록부 slack-threads.json)
 # + ft-successor-open.sh desk·planner 본문 `--ts <슬랙 ts>` 손 복사 REJECT. 가짜 슬랙(--slack-base 로컬 서버) + 임시 폴더만 — 실제 슬랙·홈·명부 쓰기 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 추적 사본 원본을 직접 부른다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

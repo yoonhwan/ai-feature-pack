@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_resource_cpu_owner.sh — r522 CPU 폭주 «주인» 한 줄(ft-resource-cause.sh cpu) + 감시자 tick 기록·planner 쪽지 1통.
 # 가짜 ps(FT_RES_PS)·가짜 tmux(FT_RES_TMUX)·가짜 센서·임시 루트·가짜 mbox 만 쓴다 — 실 프로세스·실 tmux·실 쪽지·kill 0.
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1 FT_RECLAIM_PREVENT_SEC=0
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
