@@ -1,0 +1,11 @@
+PASS bash -n
+PASS ⓐ 워크트리 명단 폴더 카드 = 후보 (rc0)
+PASS ⓐ 옛 쌍둥이 카드 후보 0
+PASS ⓐ stderr 0(명단 폴더 채택 · WARN 없음)
+PASS ⓑ1 _cards_wt 없음 → cwd 기준(옛 폴더) 회귀
+PASS ⓑ2 쌍둥이 폴더 카드 = 후보
+PASS ⓑ2 WARN 1줄(명단 경로·쌍둥이 경로)
+PASS ⓒ 워크트리 실재 0 → ERROR rc1 · cwd 후퇴 0
+PASS ⓓ FT_INDEX_DIR 명시 → 그 폴더 · rc0
+
+ALL PASS

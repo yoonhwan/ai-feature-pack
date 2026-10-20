@@ -1,0 +1,5 @@
+$ cmp harness/bin/ft-nano-slots.sh harness/kit/fable-team/bin/ft-nano-slots.sh
+rc=0 (바이트 동일 · 출력 0)
+
+$ bash -n harness/bin/ft-nano-slots.sh
+rc=0

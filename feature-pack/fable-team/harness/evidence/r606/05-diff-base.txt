@@ -1,0 +1,38 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft-nano-slots.sh b/feature-pack/fable-team/harness/bin/ft-nano-slots.sh
+index fd1106aa..510e3707 100755
+--- a/feature-pack/fable-team/harness/bin/ft-nano-slots.sh
++++ b/feature-pack/fable-team/harness/bin/ft-nano-slots.sh
+@@ -9,6 +9,7 @@
+ #     분모 = `for-each-ref --no-merged=<feat> refs/heads/nano/`(조상 미포함) − 랜딩 원장(FT_NANO_LANDING_LEDGER jsonl {branch,tip,squash_sha}) 중 tip 이 현재 tip 과 같은 것.
+ #     squash 는 조상 관계를 안 만들어 원장 없이는 랜딩된 브랜치가 영원히 «미랜딩» 으로 남는다. 행: 브랜치\t마지막 커밋 날짜\t미랜딩 커밋 수\t카드 상태(대기|진행|완성|없음).
+ #   출력만 한다(판정·spawn 은 master). ft-nano-close.sh 가 CLOSED 직후 부른다 · ft-news-tick 에서도 부를 수 있다.
++#   r606: 카드 폴더를 찾는 «체크아웃» = 명부 `_cards_wt` 워크트리(있으면) — 낡은 루트 체크아웃에서 닫아도 옛 쌍둥이 폴더로 조용히 안 내려간다(내려가면 WARN 1줄).
+ WT="$(git rev-parse --show-toplevel)"
+ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
+ SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+@@ -17,9 +18,23 @@ if [ -n "${FT_INDEX_DIR:-}" ]; then IDX_DIR="$FT_INDEX_DIR"
+ else   # R416: «명단 = ref · 폴더 = WT 실재»(R400 r3·R406 과 같은 함수) — 공유 루트의 옛 TEAMS.md 사본을 믿지 않는다 · ref 못 읽음 = ERROR(cwd 명단 후퇴 0)
+   . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다" >&2; exit 1; }
+   _ref="${FT_TEAMS_REF:-origin/main}"
+-  _cands="$(ft_team_cands_ref "$WT" v65 "$_ref")" || { echo "ERROR v65 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $WT)" >&2; exit 1; }
+-  IDX_DIR="$(printf '%s\n' "$_cands" | head -1)/indices"
++  # r606: 기준 체크아웃 = 명부 `_cards_wt` 워크트리(있으면) · 없으면 지금처럼 실행 cwd(WT). 워크트리 이름은 있는데 실재하지 않으면 cwd 로 후퇴하지 않고 ERROR
++  _cwt="$(python3 -c 'import json, sys
++try: d = json.load(open(sys.argv[1], encoding="utf-8"))
++except Exception: sys.exit(0)
++v = d.get("_cards_wt") if isinstance(d, dict) else None
++print(v if isinstance(v, str) else "")' "$SEATS" 2>/dev/null)"
++  _base="$WT"
++  if [ -n "$_cwt" ]; then
++    _base="$ROOT/.worktrees/$_cwt"
++    [ -d "$_base" ] || { echo "ERROR 카드 워크트리 없음: $_cwt ($_base)" >&2; exit 1; }
++  fi
++  _cands="$(ft_team_cands_ref "$_base" v65 "$_ref")" || { echo "ERROR v65 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $_base)" >&2; exit 1; }
++  _first="$(printf '%s\n' "$_cands" | head -1)"
++  IDX_DIR="$_first/indices"
+   for _c in $_cands; do [ -d "$_c/indices" ] && { IDX_DIR="$_c/indices"; break; }; done
++  # r606: 명단 꼴 폴더가 없어 쌍둥이로 내려가면 조용한 후퇴 0 — 경로를 밝힌 WARN 1줄
++  [ "$IDX_DIR" = "$_first/indices" ] || echo "WARN 명단 폴더($_first/indices) 없음 — 쌍둥이 $(dirname "$IDX_DIR") 로 셈" >&2
+ fi
+ if [ "${1:-}" = "--inventory" ]; then
+   FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"; LANDING="${FT_NANO_LANDING_LEDGER:-$ROOT/.fable-team/state/nano-landing.jsonl}"
