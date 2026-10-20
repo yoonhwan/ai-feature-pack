@@ -1,0 +1,17 @@
+$ bash tests/test_magazine_install_list.sh
+PASS 변이 복사본: magazine_doc_md 제거됨
+PASS 변이 → rc=1 · magazine_doc_md.py 출력
+ALL PASS
+rc=0
+$ bash tests/test_magazine_plist.sh
+PASS ⓑ disabled + --load → rc 1 + ERROR
+PASS ⓑ enable·bootstrap 호출 0
+ALL PASS
+rc=0
+$ bash tests/test_magazine_check.sh
+PASS ⓖf 원본·설치 키트 ft-tick.sh cmp 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+$ bash -n kit/slack-mirror/install-magazine.sh
+rc=0

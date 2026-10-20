@@ -1,0 +1,8 @@
+# r619 ⓐ~ⓓ 고친 뒤
+$ bash tests/test_magazine_install_worktree_existing.sh
+PASS ⓐ 가지 있음+폴더 없음 → 그 가지로 붙음 · sha 불변
+PASS ⓑ 가지 없음 → -b 로 생성 rc0
+PASS ⓒ 폴더 있음 → 그대로 rc0 · sha 불변
+PASS ⓓ 다른 워크트리에 붙음 → 붙이기 0 · WARN 경로 · rc0
+ALL PASS
+rc=0

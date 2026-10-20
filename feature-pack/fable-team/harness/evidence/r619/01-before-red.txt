@@ -1,0 +1,8 @@
+# r619 ⓐ~ⓓ 실패 시험 먼저 (base install-magazine.sh = HEAD)
+$ bash tests/test_magazine_install_worktree_existing.sh
+FAIL ⓐ rc≠0 (고치기 전 동작): 작업 트리 준비 중 (새 브랜치 'ops/magazine')|fatal: a branch named 'ops/magazine' already exists|
+PASS ⓑ 가지 없음 → -b 로 생성 rc0
+PASS ⓒ 폴더 있음 → 그대로 rc0 · sha 불변
+FAIL ⓓ 중복 붙이기 갈래 어긋남: 작업 트리 준비 중 (새 브랜치 'ops/magazine')|fatal: a branch named 'ops/magazine' already exists|
+FAILED 2
+rc=1
