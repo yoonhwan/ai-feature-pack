@@ -1,3 +1,12 @@
+## 2026-10-21 — 파괴 명령 훅이 이름이 «-f» 로 끝나는 새 가지 올리기를 강제 올리기로 오판해 차단 → `-f` 도 다른 옵션처럼 «앞 공백» 자리만 강제 올리기로 본다 (r591 · 1.1.136 · 동작 변경 · 판정기·다른 절·예외 무변경)
+
+- 사건(v65 쪽지 124272 · planner 124285 · master 88 발주 124292 · arch 112 실측 2026-10-21 02:0x): 키트 `templates/hooks/block-destructive.sh:18` PATTERN 의 올리기 절이 `(-f\b|--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+…|[[:space:]]:…)` 이다 — 다른 옵션(`-d`)은 «앞 공백이 있는 -d» 만 보는데 `-f` 만 공백 조건이 없어, 가지 이름이 `-f` 로 끝나면(예: `nano/c-tour-f`) 강제 올리기로 오판해 `git push -u origin nano/x-f` 가 rc2 로 막혔다(팀 착지 정지). 옵션은 늘 공백 뒤에 오고 가지 이름은 `-` 로 시작할 수 없으므로, `-f` 에도 앞 공백을 요구하면 진짜 강제 올리기는 그대로 막고 이름 끝 글자만 풀린다.
+- 고침(키트 PATTERN 1토큰): 올리기 절의 `-f\b` → `[[:space:]]-f\b` + 주석 1줄 «r591: -f 도 옵션 자리(앞 공백)만 — 이름 끝 -f 오탐». 판정기(`block-destructive-judge.py`)·다른 절·예외(kill-session) 변경 0.
+- 시험 `harness/tests/test_block_destructive.sh` 에 r591 칸 4줄 추가: ⓐ `git push -u origin nano/x-f` 통과 ⓑ `git push -f origin x` 차단 ⓒ `git push origin x -f` 차단 ⓔ `git push origin nano/a-f:nano/a-f` 통과 (ⓓ = 기존 `--force`·`--force-with-lease`·`--mirror`·`--delete`·`␣-d`·`␣+ref`·`␣:ref` 차단 줄 그대로 rc2 — r44 꼴 불변). **전(origin/main 판 훅 = ⓐ·ⓔ FAIL 2) → 후 SUMMARY blocked=76 pass=25 stage=2 sample=5 fail=0** (`harness/evidence/r591/01-before-red-base.txt`·`02-after-pass.txt`). 훅 직접 실행 rc 대조: base=2 new=0 ⓐ / base=2 new=2 나머지 9꼴 / base=2 new=0 ⓔ.
+- 기존 시험(이 카드 인접만 · 광역 0 · `evidence/r591/03-existing-tests.txt`): `test_block_destructive_inject.sh`·`test_block_destructive_inject_post.sh`·`test_block_destructive_hil.sh` = fail=0 3/3 · `bash -n` rc=0 · PATTERN 원문 diff = 한 토큰 1줄.
+- 설치: 있음 — 키트 1(`kit/fable-team/templates/hooks/block-destructive.sh`) + 시험 1 · manifest 1.1.136 · `install.sh` REQUIRED 변경 0 · 데몬 0. **홈 `~/.claude/hooks/block-destructive.sh` cp -p · cmp0 · 실행 비트 확인 · 실사건 1(이름 끝 `-f` 가지 올리기 통과 원문 + `-f` 옵션 차단 원문)은 master 소관 — 미실행**(현재 cmp≠0 = 미설치). 되돌림 = `.bak-r591`. press 아님 — 나노는 쏘지 않는다.
+- 범위 밖: 짧은 옵션 묶음(`-uf` 꼴) 새로 잡기 · 다른 훅 · 오탐 기록 파일 형식.
+
 ## 2026-10-21 — 하위 좌석의 사람 질문(HIL)이 늘 «하네스 명부» 의 `_hil_route`(planner)로 가 팀별 분산이 안 되던 것 → 질문 도구가 «보내는 좌석의 팀 명부» 를 읽는다 (r578 · 1.1.135 · 동작 변경 · 원장·답 회신·lint 판정 규칙 무변경)
 
 - 사건(master 87 발주 123168 ① · planner arch 8 제안 · arch 111 실측 2026-10-20 23:5x): 팀 명부마다 `_hil_route` 칸은 이미 있고(11개 = `byz-planner-master-claude#86` · cfo·kk = 칸 없음) 틱·handover 는 «그 팀 명부» 값을 읽는다. 그러나 HIL 질문 도구 `ft-hil-ask.sh` 는 명부 기본값이 `seats-harness.json`(`FT_SEATS` 없으면)이라 ★어느 팀이 물어도 하네스 명부의 `_hil_route` 로 갔다★ — 팀 명부 값을 desk 로 바꿔도 소용이 없었다(10팀 질문이 planner 한 곳에 묶여 정지 · 오빠 «플랜팀 집중보다 분산가능한건 분산»).

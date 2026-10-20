@@ -119,6 +119,11 @@ pas $'cat <<\'EOF\'\nrm -rf zz\nEOF'
 pas "echo 'dropdb x' >> /dev/null"
 pas 'git push origin main'
 pas 'git push -u origin feat/x'
+# ── r591: 가지 이름 끝 «-f» 오탐 (옵션 자리 = 앞 공백) ⓐ~ⓔ ─────────────
+pas 'git push -u origin nano/x-f'                      # ⓐ
+blk 'git push -f origin x'                             # ⓑ
+blk 'git push origin x -f'                             # ⓒ
+pas 'git push origin nano/a-f:nano/a-f'                # ⓔ
 pas 'git push origin HEAD:refs/heads/x'
 pas 'git push --dry-run origin x'
 pas 'git commit -m "git push origin +main 금지 기록"'
