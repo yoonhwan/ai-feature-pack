@@ -1,0 +1,4 @@
+# ⓖ base(origin/main 8d5be256 git archive) vs new — claude·codex·opencode·cmd 열기 도구 출력·도달 판정
+cmd: bash base-compare.sh <base fable-team> > base.txt; bash base-compare.sh <new fable-team> > new.txt; diff base.txt new.txt
+lines base=     127 new=     127
+diff rc=0

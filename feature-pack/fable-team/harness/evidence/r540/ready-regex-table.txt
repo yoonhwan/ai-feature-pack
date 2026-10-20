@@ -1,0 +1,10 @@
+# 준비 확인 식 판정표 (r540 ⓕ) — aifp 식 vs 넓힌 식
+aifp=[A-Za-z0-9._/-]+ • (minimal|low|medium|high|xhigh)
+new=[A-Za-z0-9._/-]+ • (minimal|low|medium|high|xhigh)|(\?|[0-9]+(\.[0-9]+)?%)/[0-9.]+[kM]
+claude-tail-live.txt             aifp=no new=no
+codex-tail-live.txt              aifp=no new=no
+pi-w149-live.txt                 aifp=MATCH new=MATCH
+pi-w80-start-unknown-ctx.txt     aifp=MATCH new=MATCH
+pi-w80-start.txt                 aifp=MATCH new=MATCH
+pi-w80-thinking-off.txt          aifp=no new=MATCH
+pi-w80-truncated.txt             aifp=no new=MATCH

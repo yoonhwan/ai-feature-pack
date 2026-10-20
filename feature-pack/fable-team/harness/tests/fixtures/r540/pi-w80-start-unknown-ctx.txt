@@ -1,0 +1,3 @@
+────────────────────────────────────────────────────────────────────────────────
+~/Project/pi-agent-ops/.worktrees/pi-master (main) • aifp-pi-master-pi#0
+?/1.0M (auto)                      deepseek/deepseek-v4.1-flash-ultrafast • high

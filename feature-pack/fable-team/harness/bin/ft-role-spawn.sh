@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-role-spawn.sh <master|da|pm|arch|tester> [--team <팀>] [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
+# ft-role-spawn.sh <master|da|pm|arch|tester> [--team <팀>] [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
 #   --team(R437 · 기본 v65): 명부 = v65 는 seats.json · 그 외 seats-<팀>.json · 인박스·README = TEAMS.md 의 그 팀 폴더 · 이름 byz-<팀>-<역할>-<에이전트>#N
 #     팀 폴더·README·인박스·명부가 없으면 REJECT(v65 로 조용히 대체 0) · 명부 `_<역할>` 이 교체 대상 밖 좌석을 가리키면 REJECT(그 좌석은 ft-successor-open 교대)
@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 # 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
-case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
+case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode|pi (받은 값: $AGENT)" >&2; exit 2;; esac
 [[ "$TEAM" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "usage: --team 은 팀 이름 [a-z0-9_-] (받은 값: $TEAM)" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
@@ -99,7 +99,7 @@ fi
 # tmuxc 가 거부한다(실측 dry-run 2026-09-14: `--ctx 는 --agent claude 에서만 사용 (agent=codex)`). 받는 것만 넘긴다.
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
-case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
+case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 
 # 첫 발주 = README §2 → inbox 정렬. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 BODY="[Seatbelt 역할 교체] 너는 $ROLE 후계 좌석($NAME). 먼저 $README §2 부팅 5단계(첫 보고까지), 그 다음 $INBOX/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 ${OLD:-없음} 은 정지 레디(kill 금지). 보고는 mbox 로 $FROM 에."
