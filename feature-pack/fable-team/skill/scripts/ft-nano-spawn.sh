@@ -116,7 +116,7 @@ fi
 # tmuxc 옵션은 에이전트별로 다르다 — `--ctx` 는 claude 만, `--effort` 는 claude·cmd·codex, `--fast` 는 codex 만 (ft-role-spawn 과 같은 분기)
 OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
-case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
+case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
 echo "PLAN seat=$NAME agent=$AGENT model=$MODEL${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"
 if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit 0; fi
