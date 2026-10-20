@@ -1,0 +1,12 @@
+FAIL ⓐ rc=0 calls=0: 
+FAIL ⓑ 중복 calls=0
+PASS ⓒ PID 있음(0·255·-9) → 0줄 · 0통
+FAIL ⓓ rc=0 calls=0: 
+FAIL ⓓ 중복 calls=0
+FAIL ⓔ calls=0: 
+PASS ⓔ2 disabled + 기록 없음 → [급] 1통(기존 규칙 그대로)
+PASS ⓔ2 기록 있음 → 0통 + «내림 중»
+PASS ⓔ3 FT_LDC_DEAD=0 → 0줄 · 0통
+FAIL ⓔ4 rc=0 calls=0: 
+FAIL=6
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

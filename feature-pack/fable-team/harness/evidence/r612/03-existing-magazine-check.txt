@@ -1,0 +1,40 @@
+PASS bash -n 2종
+PASS ⓒ 오늘 줄 없음 → [긴급] 1통(상태·마지막 게시 포함)
+PASS ⓒ 같은 날 두 번 → 1통 유지
+PASS ⓒ 08:15 전 → 0통
+PASS ⓒ 오늘 published 줄 있음 → 0통
+PASS ⓒ 예약 상태 칸 = disabled
+PASS ⓔ 변이(날짜 비교 제거) → ⓒ «있음 → 0통» FAIL 을 시험이 잡음
+PASS ⓓ disabled + 기록 없음 → [급] 1통
+PASS ⓓ 같은 날 두 번 → 1통 유지
+PASS ⓓ 기록 불완전(조건 줄 없음) → [급] 1통
+PASS ⓓ 기록 있음 → 0통 + «내림 중(사유)» 1줄
+PASS ⓓ 전부 enabled → 출력 0 · 0통
+PASS ⓕ1 로그 없음 → [긴급] 1통(본문 «로그 없음») · rc 0
+PASS ⓕ1 로그 없음 같은 날 두 번 → 1통 유지
+PASS ⓕ1 로그 없음 + 08:15 전 → 0통
+PASS ⓕ2 빈 판정 → [급] 1통 · «내림 중» 0
+PASS ⓕ2 빈 다시 올릴 조건 → [급] 1통 · «내림 중» 0
+PASS ⓕ2 빈 사유 → [급] 1통 · «내림 중» 0
+PASS ⓕ2 누가 줄 없음 → [급] 1통
+PASS ⓕ2 네 줄 모두 값 → 0통 + «내림 중(사유A)»
+PASS ⓕ3 변이(비공백 검사 제거) → ⓕ2 «빈 판정 → [급] 1통» FAIL 을 시험이 잡음
+PASS ⓕ 틱 기본 = 두 점검 모두 부름
+PASS ⓕ FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 → 0회
+PASS ⓕ FT_TICK_MAGAZINE=0 → 매거진 경보만 끔
+PASS ⓕ test_dead_seat_resume 가 끄기 스위치를 명시 설정
+PASS ⓕ test_live_bin_drift_check 가 끄기 스위치를 명시 설정
+PASS ⓕ test_raised_seat 가 끄기 스위치를 명시 설정
+PASS ⓕ test_ft_tick_master_seat 가 끄기 스위치를 명시 설정
+PASS ⓕ test_seat_retire 가 끄기 스위치를 명시 설정
+PASS ⓕ test_tick_team_msg 가 끄기 스위치를 명시 설정
+PASS ⓖa FT_TICK_MAG_SEATS 미설정 · 명부에 _hil_route 없음 → 호출 0
+PASS ⓖa 미설정 · _hil_route 있는 틱 명부 → 호출 1(틱 명부 전달)
+PASS ⓖb FT_TICK_MAG_SEATS 지정 → 호출 1 · 수신 명부 = 지정 명부
+PASS ⓖc FT_TICK_MAGAZINE=0 → 지정해도 0
+PASS ⓖc 지정 명부에 _hil_route 없음 → 0(틱 명부 것은 안 봄)
+PASS ⓖd 꺼짐 탐지는 틱 명부 그대로(MAG_SEATS 영향 0)
+PASS ⓖe 변이($mseats→$SEATS) → ⓖb «호출 1» FAIL 을 시험이 잡음
+PASS ⓖf 원본·설치 키트 ft-tick.sh cmp 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
