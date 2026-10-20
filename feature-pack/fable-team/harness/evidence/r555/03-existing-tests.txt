@@ -1,0 +1,7 @@
+## 기존 시험 (r554 338d50ac 위 rebase 뒤 재실행)
+### test_serena_guard_bash32.sh rc=0
+ALL PASS
+### test_r66_codex_serena_boot.sh rc=2 — 실패 2 는 내 변경 파일 아님(①홈 BOOT sha ②docs/rules/serena-mcp-usage.md 팩에 없음)
+FAIL ① 홈 BOOT sha=9573c463baa968a2 — 기준 329582414d727dd5 도 스테이징(aa31a07120bb41ac)도 아님(그사이 다른 판정이 바꿈)
+FAIL ④ serena-mcp-usage.md 에 codex·activate_project 줄 없음
+FAILED=2

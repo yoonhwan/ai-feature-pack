@@ -1,0 +1,5 @@
+DRY same /Users/yoonhwan/.claude/skills/zombie-clean/scripts/serena-guard.sh
+DRY same /Users/yoonhwan/.claude/scripts/serena-mcp.sh
+DRY ensure project=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live port=9493 (출처 claude.json url port=9493 → bridges/9493.json)
+DRY plist /Users/yoonhwan/Library/LaunchAgents/com.byz.serena-ensure.plist (ensure project=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live)
+DRY launchctl bootstrap gui/501 /Users/yoonhwan/Library/LaunchAgents/com.byz.serena-ensure.plist
