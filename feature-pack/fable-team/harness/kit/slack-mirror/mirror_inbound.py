@@ -180,7 +180,7 @@ def attempt_send(e: dict, role: str, to: str, n: int, tok: str, a: argparse.Name
         e["attempt"][role] = [*(prev or []), to] if role == ms.PLANNER_ROLE else n + 1
         save()
         try:
-            return to, send(a.mbox, to, f"[{FROM}->{to}] {e['text']}\n({tok})", spool)
+            return to, send(a.mbox, to, f"[{FROM}->{to}] {e['text']}\n({tok})\n{ms.answer_hint(tok)}".rstrip(), spool)
         except MboxError as err:
             if err.rc != REJECT_RC or not (a.to_key or role == ms.PLANNER_ROLE):
                 raise

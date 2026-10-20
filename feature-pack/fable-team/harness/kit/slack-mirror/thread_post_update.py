@@ -6,6 +6,9 @@
   update 성공 · 답글 실패 = rc 3 + 장부 `reply_pending` 에 그 답글 문구를 남긴다(다음 update 가 «직전 답글 누락 …» 으로 함께 낸다).
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
 `reply --thread <이름>`(r414): 뿌리 ts 를 도구가 소유 — 등록부(slack-threads.json)에 없거나 날짜(KST)·채널이 바뀌면 채널에 뿌리 글을 새로 올려 등록.
+`reply --to-slack <오빠 글 ts>`(r558): 뿌리 = 수신 원장(byz_slack_mbox_inbound.<ch>.json)의 그 글 `thread` 값(빈 값 = 그 글) — 오빠 새 글 밑에 답한다.
+  답 기록(byz_slack_answered.json) 밖에 «그 이름 스레드 계보 좌석에 이미 전달 · 창(7일) 안 · 답 기록 없음» 오빠 글이 있으면 `--thread` 는 REJECT(`--force-thread` 면 경고 후 전송) — 인계서·메모리 규칙에 기대지 않는다.
+  상태 폴더 = env FT_SLACK_STATE_DIR(기본 ~/.hermes/state) · 원장 파일 = env FT_SLACK_INBOUND_LEDGER · 답 기록 = env FT_SLACK_ANSWERED. 원장은 «읽기만» 한다.
 """
 import argparse
 import json
@@ -18,6 +21,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import thread_ledger as lg
+import thread_reply_slack as trs
 from file_guard import check_files
 from magazine_slack import Target, upload_file
 from mirror_lib import MirrorError, api_call, esc
@@ -70,17 +74,24 @@ def named_root(t: Target, name: str, channel: str | None) -> tuple[str, str]:
 
 
 def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
-    """`reply (--ts <뿌리 ts> | --thread <이름>) --text-file <파일> [--channel <ID>]` — 스레드에 답글 1개(카드·장부 불요 · 첨부 0). 사람 채널 입구라 1·2묶음 검사를 «항상» 건다."""
+    """`reply (--ts <뿌리 ts> | --thread <이름> | --to-slack <오빠 글 ts>) (--text|--text-file) [--channel <ID>]` — 스레드에 답글 1개(카드·장부 불요 · 첨부 0). 사람 채널 입구라 1·2묶음 검사를 «항상» 건다."""
     if a.ts is not None and not TS.fullmatch(a.ts):
         raise MirrorError(f"--ts 는 슬랙 ts 꼴(예 1700000000.000100): {a.ts}")
+    if a.to_slack is not None and not TS.fullmatch(a.to_slack):
+        raise MirrorError(f"--to-slack 는 오빠 글 ts 꼴(예 1700000000.000100): {a.to_slack}")
     if a.thread is not None and not NAME.fullmatch(a.thread):
         raise MirrorError(f"--thread 는 소문자 이름(예 desk): {a.thread}")
-    body = Path(a.text_file).read_text(encoding="utf-8").strip()
+    body = (a.text if a.text is not None else Path(a.text_file).read_text(encoding="utf-8")).strip()
     if not body:
-        raise MirrorError(f"본문 파일이 비었다: {a.text_file}")
+        raise MirrorError(f"본문이 비었다: {a.text_file or '--text'}")
     text = esc(body)
     check(text, a.channel or "", human=True)  # 뿌리 글 «전» — 본문이 걸리면 뿌리·등록부 불변
     t = target(a)
+    if a.to_slack is not None:
+        return trs.reply_to_slack(a, t, text)
+    if a.thread is not None:
+        ch = a.channel or str((_load_threads(threads_path()).get(a.thread) or {}).get("channel") or "")
+        trs.refuse_unanswered(a.thread, ch, a.force_thread)  # 뿌리 글·등록부를 건드리기 «전» 에 거절
     ch, root = (a.channel, a.ts) if a.ts is not None else named_root(t, a.thread, a.channel)
     ts = post(t.base, t.token, ch, text, root, human=True)
     print(f"reply ts={ts}")
