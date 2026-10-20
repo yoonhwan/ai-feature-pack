@@ -1,0 +1,63 @@
+PASS bash -n
+PASS ⓐ rc0 (rc=0)
+FAIL ⓐ 남김 줄(의존 1 · 이름 2개) — 없음: «남김(추적 0 · 예약 대상 1 · 의존 1): team-x.sh, team-dep.sh» ← 남김(추적 0 · 예약 대상 1): team-x.sh
+UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-dep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gIe9XAnyAo (새로 씀)
+SHIM 2 · MOVED 3 · UNKNOWN 2
+FAIL ⓐ SHIM 2 · MOVED 2(옛 사본·old.sh) · UNKNOWN 1(old.sh) — 없음: «SHIM 2 · MOVED 2 · UNKNOWN 1» ← 남김(추적 0 · 예약 대상 1): team-x.sh
+UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-dep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gIe9XAnyAo (새로 씀)
+SHIM 2 · MOVED 3 · UNKNOWN 2
+PASS ⓐ team-dep.sh 옮김 계획 0
+FAIL ⓐ 의존 team-dep.sh 가 옮겨졌다
+PASS ⓐ 범위 밖 old.sh 는 옮김
+FAIL ⓐ stale 내용 :: ft-a.sh
+old.sh
+team-dep.sh
+PASS ⓐ 두 번째 실행 (rc=0)
+PASS ⓐ 두 번째 MOVED 0(멱등)
+FAIL ⓐ 두 번째도 남김 줄 그대로 — 없음: «남김(추적 0 · 예약 대상 1 · 의존 1): team-x.sh, team-dep.sh» ← 남김(추적 0 · 예약 대상 1): team-x.sh
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+SHIM 2 · MOVED 0 · UNKNOWN 0
+FAIL ⓑ «bash team-dep.sh» → 의존 1 — 없음: «남김(추적 0 · 예약 대상 1 · 의존 1): team-x.sh, team-dep.sh» ← 남김(추적 0 · 예약 대상 1): team-x.sh
+UNKNOWN team-dep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gIe9XAnyAo (새로 씀)
+SHIM 2 · MOVED 2 · UNKNOWN 1
+FAIL ⓑ «bash team-dep.sh» team-dep.sh 옮겨짐
+FAIL ⓑ «./team-dep.sh» → 의존 1 — 없음: «남김(추적 0 · 예약 대상 1 · 의존 1): team-x.sh, team-dep.sh» ← 남김(추적 0 · 예약 대상 1): team-x.sh
+UNKNOWN team-dep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gIe9XAnyAo (새로 씀)
+SHIM 2 · MOVED 2 · UNKNOWN 1
+FAIL ⓑ «./team-dep.sh» team-dep.sh 옮겨짐
+FAIL ⓑ «bin/team-dep.sh» → 의존 1 — 없음: «남김(추적 0 · 예약 대상 1 · 의존 1): team-x.sh, team-dep.sh» ← 남김(추적 0 · 예약 대상 1): team-x.sh
+UNKNOWN team-dep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gIe9XAnyAo (새로 씀)
+SHIM 2 · MOVED 2 · UNKNOWN 1
+FAIL ⓑ «bin/team-dep.sh» team-dep.sh 옮겨짐
+PASS ⓑ 의존 0 → 옛 꼴 그대로(의존 칸 없음)
+PASS ⓑ 의존 0 칸 안 붙임
+PASS ⓒ rc0 (rc=0)
+FAIL ⓒ 추적 tour 는 의존 검사 대상 아님(의존 1 = team-dep.sh 뿐) — 없음: «남김(추적 1 · 예약 대상 1 · 의존 1)» ← 남김(추적 1 · 예약 대상 1): team-x.sh, tour
+UNKNOWN blob.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN dep-binary.bin (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-deep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-dep.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)
+UNKNOWN tour (키트 밖 — 연결 0 · 남김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gIe9XAnyAo (새로 씀)
+SHIM 2 · MOVED 5 ·
+PASS ⓒ 1단계만 — 의존의 의존(team-deep.sh)은 옮김
+PASS ⓒ 바이너리 본문 검사 생략(blob.sh 옮김)
+PASS ⓓ test_root_bin_shim_r613.sh (rc=0)
+PASS ⓓ r613 fail=0
+PASS ⓓ 기존 test_root_bin_shim.sh (rc=0)
+PASS ⓓ 기존 시험 fail=0
+== fail=12
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

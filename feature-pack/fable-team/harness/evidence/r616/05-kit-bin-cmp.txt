@@ -1,0 +1,4 @@
+# kit ↔ harness/bin cmp
+cmp0 OK
+94c442f27836fb787006c646922bd25eb2124124e15bd933e9d3eda26d2fb482  feature-pack/fable-team/harness/bin/ft-root-bin-shim.sh
+94c442f27836fb787006c646922bd25eb2124124e15bd933e9d3eda26d2fb482  feature-pack/fable-team/harness/kit/fable-team/bin/ft-root-bin-shim.sh

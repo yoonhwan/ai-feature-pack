@@ -1,0 +1,60 @@
+# base(origin/main) 대조
+--- /tmp/base-r616-shim.sh	2026-10-21 07:33:09
++++ feature-pack/fable-team/harness/bin/ft-root-bin-shim.sh	2026-10-21 07:31:37
+@@ -5,6 +5,7 @@
+ #   ① `<루트>/.fable-team/LIVE_BIN` 에 라이브 경로 1줄 (+ R382: `<루트>/.fable-team/LIVE_ROOT` 데이터 루트 절대경로 1줄 — 없을 때만 만든다 · `--live-root <경로>` 없으면 라이브 bin/../.. 를 «설치 때 한 번» 풀어 적고 읽는 쪽은 유도 0 · 있으면 보존·다르면 NOTE)  ② 키트(--ref 의 --path 트리)의 *.sh·*.py 이름 중 라이브 bin 에 실재하는 것마다 연결 파일
+ #   ③ 연결 파일이 아닌 기존 항목(옛 사본·.bak-*·__pycache__·키트 밖 이름)은 `<루트>/.fable-team/bin.stale-<시각>/` 로 «옮긴다»(삭제 0 · 되돌리기 = 그 폴더를 bin 으로)
+ #     r613: 단 «git 이 추적하는 파일» 과 «로드된 LaunchAgent 의 인자 경로» 는 옮기지 않고 `남김(추적 N · 예약 대상 N): …` 1줄로 보고한다(팀 감시 데몬이 조용히 죽지 않게).
++#     r616: 남긴 «예약 대상» 스크립트 본문이 부르는 같은 bin 의 키트 밖 이름도 1단계 남긴다 → `남김(추적 N · 예약 대상 N · 의존 N): …`(의존 0 이면 의존 칸 없음).
+ #           launchctl 목록을 못 읽으면 키트 밖 이름은 옮기지 않는다(fail-closed · 판정 불가 = 옮기기 0). git 밖 루트면 추적 판정만 생략 + WARN 1줄.
+ #   키트 밖 이름은 연결하지 않고 `UNKNOWN <이름>` 목록으로 보고. 멱등: 두 번째 실행 = 쓰기 0 · MOVED 0.
+ #   출력 끝줄 `SHIM n · MOVED m · UNKNOWN k` (--dry-run 은 쓰기 0 · 같은 숫자 · `PLAN …` 줄).  종료: 0 · 2 usage · 3 ERROR(조용한 통과 0)
+@@ -120,7 +121,7 @@
+   fi
+ fi
+ 
+-nkeep=0; ntracked=0; nresv=0; kept=""; unk_kept=""
++nkeep=0; ntracked=0; nresv=0; kept=""; unk_kept=""; keptresv=""; unkcand=""
+ while IFS= read -r n; do
+   [ -n "$n" ] || continue
+   isunk=0
+@@ -132,14 +133,36 @@
+   if [ "$trk" = 1 ] || [ "$resv" = 1 ] || { [ "$isunk" = 1 ] && [ "$lctl_ok" = 0 ]; }; then
+     nkeep=$((nkeep + 1)); [ "$trk" = 1 ] && ntracked=$((ntracked + 1)); [ "$resv" = 1 ] && nresv=$((nresv + 1))
+     kept="$kept$n"$'\n'; [ "$isunk" = 1 ] && unk_kept="$unk_kept$n"$'\n'
++    [ "$resv" = 1 ] && keptresv="$keptresv$n"$'\n'
+     continue
+   fi
+   tomove="$tomove$n"$'\n'
+-  if [ "$isunk" = 1 ]; then unknown="$unknown$n"$'\n'; nunk=$((nunk + 1)); fi
++  if [ "$isunk" = 1 ]; then unknown="$unknown$n"$'\n'; nunk=$((nunk + 1)); unkcand="$unkcand$n"$'\n'; fi
+ done <<< "$cand"
++# r616: «의존 1단계» — 예약 대상으로 남긴 스크립트 본문이 부르는 «같은 bin 의 키트 밖 이름» 도 남긴다(의존의 의존은 범위 밖 · 폴더·바이너리 본문 검사 생략)
++ndep=0
++if [ -n "$keptresv" ] && [ -n "$unkcand" ]; then
++  while IFS= read -r s; do
++    [ -n "$s" ] || continue
++    [ -f "$RBIN/$s" ] || continue
++    LC_ALL=C grep -Iq . "$RBIN/$s" 2>/dev/null || continue   # 바이너리·빈 파일 = 검사 생략
++    toks="$(LC_ALL=C tr -cs 'A-Za-z0-9._-' '\n' < "$RBIN/$s")"
++    while IFS= read -r d; do
++      [ -n "$d" ] || continue
++      grep -qxF -- "$d" <<< "$toks" || continue             # 본문에 그 이름이 낱말로 나와야 한다
++      grep -qxF -- "$d" <<< "$kept" && continue             # 이미 남긴 이름
++      nkeep=$((nkeep + 1)); ndep=$((ndep + 1)); kept="$kept$d"$'\n'
++      tomove="$(printf '%s' "$tomove" | grep -vxF -- "$d")"$'\n'
++      if grep -qxF -- "$d" <<< "$unknown"; then
++        unknown="$(printf '%s' "$unknown" | grep -vxF -- "$d")"$'\n'; nunk=$((nunk - 1))
++      fi
++    done <<< "$unkcand"
++  done <<< "$keptresv"
++fi
+ if [ "$nkeep" -gt 0 ]; then
+   fmt="$(printf '%s' "$kept" | grep . | head -5 | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+-  echo "남김(추적 $ntracked · 예약 대상 $nresv): $fmt"
++  if [ "$ndep" -gt 0 ]; then echo "남김(추적 $ntracked · 예약 대상 $nresv · 의존 $ndep): $fmt"
++  else echo "남김(추적 $ntracked · 예약 대상 $nresv): $fmt"; fi
+ fi
+ nmoved=$(printf '%s' "$tomove" | grep -c .)
+ 
+# diff rc=1
