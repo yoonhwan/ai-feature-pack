@@ -115,7 +115,9 @@ G checkout -q -B pr34 origin/main; echo a > "$W/own34a.txt"; echo b > "$W/own34b
 rb 34; G rm -qf own34b.txt; cm "$W" drop34b; setpr 34; M="$(omain)"; land 34 --approve-sha "$A"
 refused; ck "ⓜ 파일 하나 빠진 rebase → NOT-EQUIV · 착지 0" $?
 own 35; adv b.txt r5; OLD="$(omain)"; adv b.txt r6; rb 35 "$OLD"; S="$(sha "$W" HEAD)"; eqv
-[ "$rc" = 1 ] && [[ "$out" == "NOT-EQUIV"* ]] && [[ "$out" == *"지금 main 위가 아님"* ]]; ck "ⓜ rebase 대상이 지금 main 이 아님(옛 main) → NOT-EQUIV rc1" $?
+[ "$rc" = 0 ] && [[ "$out" == EQUIV* ]] && [[ "$out" == *"mode=rebase"* ]] && [[ "$out" == *"base=${OLD:0:10}"* ]]; ck "ⓜ r560: 옛 main 위 rebase 도 기준 main = merge-base(S,main)=옛 main → EQUIV(옛 판 = 지금 main 요구라 NOT-EQUIV)" $?
+setpr 35; M="$(omain)"; : > "$STUB_LOG"; land 35 --approve-sha "$A"
+[ "$rc" = 1 ] && [[ "$out" == *"현재 main"*"포함하지 않음"* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; ck "ⓜ r560: 옛 main 위 head 는 착지 게이트가 막는다(«현재 main 을 포함하지 않음») — 판정 완화가 착지 틈이 아니다" $?
 setf c36.txt 'base\n'; G checkout -q -B pr36 origin/main; echo OWN36 > "$W/c36.txt"; cm "$W" own36; A="$(sha "$W" HEAD)"; setf c36.txt 'MAIN\n'
 G checkout -q -B pr36r origin/main; G cherry-pick "$A" >/dev/null 2>&1; echo EVIL > "$W/c36.txt"; G add -A; GIT_EDITOR=true G cherry-pick --continue >/dev/null 2>&1; S="$(sha "$W" HEAD)"; eqv
 [ "$rc" = 1 ] && [[ "$out" == "NOT-EQUIV"* ]]; ck "ⓜ 충돌을 손으로 푼 rebase → NOT-EQUIV rc1" $?

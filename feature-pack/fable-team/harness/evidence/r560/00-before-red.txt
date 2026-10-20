@@ -1,0 +1,21 @@
+PASS bash -n autonomy-merge-guard.sh
+PASS py_compile ft_approval_equiv.py
+FAIL ⓐ main 이 한 칸 더 갔어도 EQUIV · base=병합한 main(275723aa) :: rc=1 out=NOT-EQUIV S 트리가 «승인 세트 + main 의 깨끗한 병합»과 다름(병합 커밋이 그 밖의 변경을 담음)
+PASS ⓑ 병합 커밋이 그 밖의 변경을 담음 → NOT-EQUIV(거짓 통과 0)
+PASS ⓒ main 아닌 가지 병합 → NOT-EQUIV
+FAIL ⓓ 병합 2번 = 마지막 병합의 main 쪽 부모(b51b108d) 기준 · EQUIV :: rc=0 out=EQUIV approve=801dd56adb2ed72da47fdc9fa9492b5bc56b51a3 head=1d17b780ee80cd990e2c8f8e1c3db46da108de3f merges=2 files=1 mode=merge overlap=0
+FAIL ⓔ 옛 main 위 rebase → EQUIV mode=rebase base=merge-base(S,main) :: rc=1 out=NOT-EQUIV 승인 sha 801dd56adb 가 PR head c94febddaf 의 조상이 아니고 PR head 도 지금 main 위가 아님(옛 main 으로 rebase·force-push)
+FAIL ⓕ 남의 세트 400개(최신순) + 자기 승인(가장 옛날) → EQUIV 통과 (22s) :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐. 
+FAIL ⓖ 판정기 rc≠0 → 거절 이유에 rc=1·stderr :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐. 
+FAIL ⓖ 판정기 7초 초과 → 거절 이유에 «판정기 7초 초과» :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐. 
+FAIL ⓖ 마감 21초 소진 → 거절 이유에 «후보 N 중 M 대조 · 마감 21초» :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐. 
+FAIL ⓗ 도구 자리가 루트 shim 폴더여도 LIVE_BIN 의 진짜 판정기로 EQUIV :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐. 
+FAIL ⓗ LIVE_BIN·도구 폴더 모두 판정기 없음 → 거절 + «라이브 판정기 없음» :: rc=0 out={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "자율 ON 중 병합·main push 는 오빠가 `! bash /tmp/h<N>`(ft-autonomy.sh approve-merge <sha>)로 승인한 sha 만 — pr merge 는 --match-head-commit <sha> 로, main push 는 승인된 sha 를 보낼 때만(판정 1675). 승인 전이면 오빠 큐. 
+PASS ⓗ autonomy.log 를 여는 자리 1곳(후보 순회 안에서 다시 읽지 않음)
+PASS ⓘ 픽스처: A 승인 = used=1/5
+FAIL ⓘ A 의 EQUIV(승인 위 main 병합만) = class=equiv · used 그대로 1/5 :: rc=0 out=SCOPE-OK d748b509f0c129fce0c6ab8c1b8b4f4fb38c7a78 class=docs used=2/5 today=2/5
+FAIL ⓘ 하루 셈도 그대로(오늘 1) :: rc=0 out=[범위 승인 S1 · A1 · ~06:31까지 · 2/5 · 오늘 2/5 · docs]
+FAIL ⓘ 원장 줄 종류 = equiv :: rc=0 out=[범위 승인 S1 · A1 · ~06:31까지 · 2/5 · 오늘 2/5 · docs]
+PASS ⓙ 정본 미러 cmp0(harness/bin ↔ kit)
+fail=12
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

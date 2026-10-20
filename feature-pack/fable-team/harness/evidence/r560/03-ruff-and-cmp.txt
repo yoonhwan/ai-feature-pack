@@ -1,0 +1,10 @@
+=== ruff check (변경 파이썬)
+All checks passed!
+
+=== kit ↔ harness/bin cmp0
+cmp0 ft_approval_equiv.py
+cmp0 ft-autonomy-scope.sh
+cmp0 ft-autonomy.sh
+
+=== base
+2f1df742 [test] r560 DA⑥ r2 — ⓚ·ⓛ·ⓞ 를 DA 원본 두 그래프(commit-tree)로 재현 · 훅 라이브 판정기 사본 = $EQP · manifest 1.1.115
