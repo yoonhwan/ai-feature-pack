@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 오빠 큐 줄 = 번호·팀·보여준 시각 칸 + `ft-queue.sh shown|due|take|remind` · 틱이 보여준 지 1시간 넘은 대기 줄을 그 팀 master 에 [재질문] (r529 · 1.1.84)
+
+- 사건: 오빠 큐 줄이 «언제 오빠께 보였는지» 기록이 없어 한 번 묻고 나면 아무도 다시 안 묻고, 오빠 값이 와도 그 팀이 줄을 꺼내 재개하는 길이 없다(오빠 09:2x «각팀 마스터 팀장이 큐를 보게하고 내결정 노출시간이 한시간 이상 지나면 다시 물어보고 팀장이 꺼내서 다시 진행가능해야함» · desk 26 쪽지 119482 → master 83 발주 119484 카드 ②).
+- 큐 칸 셋 = 상태 칸 «뒤» `번호 | 팀 | 보여준 시각`(머리 이름으로 찾음 · 옛 7칸 줄은 셋 다 `-` 로 읽음 · 옛 줄 고쳐 쓰기 0 · 옛 머리 큐에 새 줄을 쓰면 머리·구분 행만 10칸으로). 파서 `ft_queue_state.py` 무변경(r528 시험 «상태 뒤 칸이 늘어도 그대로»).
+- 새 `ft-queue.sh`(본체 `ft_queue.py` · `ft_queue_remind.py` — 200줄 한도로 나눔): `shown <qN> [--at]` 그 줄 «보여준 시각» 칸만 · `due [--team] [--min 60]` = 대기 ∧ (보여준 시각 ≤ 지금−60분 ∨ -) · 보류 ∧ 재확인 시각 지남(tag=재확인) · 끝줄 `QUEUE-DUE n= old=`(번호 없는 열린 옛 줄은 대상 밖 · 셈만) · `take <qN> --value --by --verdict` = 상태 `진행 — <master>` · 사유 끝 `오빠 값: … (판정 N)` · 출력 `RESUME <qN> team= kind= → …` · 대기·보류 줄만(이미 진행·완료 = REJECT) · `remind --rosters --mbox` = due 줄마다 그 팀 명부(`seats-<팀>.json` · `seats.json` 은 `_master` 의 `byz-<팀>-`) `_master` 에 `[재질문] qN · 보여준 지 N분 · <질문 첫 60자> · desk [인터뷰 요청] 로 다시` 1통 · 팀 `-`·명부 없는 팀 = planner `_master` · 같은 줄(번호·보여준 시각·tag) 60분 안 다시 0(`<상태>/queue-reask.json`) · 자율 ON = 쪽지 0 · `<상태>/queue-reask-morning.md` 아침 묶음 1줄(r291). 쓰기 줄 = ft-proxy-decide 와 같은 락(`<상태>/.proxy.lock`) · 한 번에 한 줄 · 같은 폴더 임시 파일 → rename · 실패 = ERROR rc≠0(조용한 통과 0) · mbox send 7초 + 재시도 1회.
+- `ft-proxy-decide.sh`: QUEUE 줄 쓰기 = `ft-queue.sh add` 하나(번호 q<최대+1> · 팀 = `--team`(새 인자) → `--card` 경로 `design/[teams/]<팀>/indices/` → `-` · 보여준 시각 `-`) · 출력 `QUEUE … · 큐 줄 qN · 큐 파일 …`.
+- `ft-tick.sh`: `queue_watch`(매 루프 `ft-queue.sh remind --rosters <명부 폴더> --mbox <MBOX>`) + `pass()` 호출 1줄 · `FT_TICK_QUEUE=0` 끔 · `FT_TICK_QUEUE_MIN`(60) · --dry-run = `DRY kind=queue-reask` 1줄.
+- 시험 새 `test_queue_reask_r529.sh`(임시 큐·명부·가짜 mbox · `FT_NOW` · 외부 호출 0 · GIT_* 0) ⓐ~ⓗ — 고치기 전 FAIL 43(`harness/evidence/r529/before-fix.txt` · 같은 최종 시험을 팩 origin/main 코드에) · 고친 뒤 ALL PASS 52(`after-fix.txt`). `test_queue_state_r528.sh` ⓔ 기대 꼴 = 10칸 · 상태 칸 대기(7칸 단정을 r529 꼴로). 기존 시험 9개 rc0 · pytest decision_count 2파일 33 passed · ruff·shellcheck 0(`existing-tests.txt`). 정본 큐 사본 읽기 전용 미리 보기 `QUEUE-DUE n=0 old=30`(`real-queue-due-preview.txt` — 열린 옛 줄 30 은 번호가 없어 재질문 대상 밖 · 새 줄부터 적용).
+- 설치: 키트 5(`ft-queue.sh` · `ft_queue.py` · `ft_queue_remind.py` · `ft-proxy-decide.sh` · `ft-tick.sh` · harness/bin 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 5 · 틱 launchd kickstart 1회(plist 0) · 홈 0 · 되돌림 = `.bak-r529`.
+- 범위 밖: desk 질문 도구가 `shown` 을 부르는 연결(desk 쪽 1줄 · master 가 설치 때 알림) · 묶음 질문(r165 — «답 반영» = `take`) · 열린 옛 줄 30 에 번호 붙이기·일괄 정리(r530 · 인터뷰 때 줄마다).
+
 ## 2026-10-20 — 오빠 큐 상태 칸 = 대기·진행·보류·완료 넷 + 정지 종류 셋 · 어휘 정본 1장 + 린트 + 새 줄 «대기» (r528 · 1.1.83)
 
 - 사건: 오빠 큐(`AUTONOMY-QUEUE.md`) 끝 칸 «처리됨» 이 손글 자유 문장 — 91줄 중 빈 칸 30 · «보류 — 10-18 전팀 정지(판정 2253) 뒤 … 재확인» 23줄 등 보류·대기·진행·완료가 섞여 읽힘(arch 107 실측). 오빠 결정(desk 쪽지 119482) «보류와 대기 진행 완료를 명확히 구분 … 일시정지·구현중정지·대기중정지» → master 83 발주 119484.

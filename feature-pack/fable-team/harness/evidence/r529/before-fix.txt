@@ -1,0 +1,77 @@
+# base = 팩 origin/main 9d9a97baa1187f111d18b3367224c1b76a572a10 · 같은 시험(최종판)을 고치기 전 코드에
+FAIL 키트 미러 cmp 0: ft-queue.sh :: rc=0 out=
+FAIL 키트 미러 cmp 0: ft_queue.py :: rc=0 out=
+FAIL 키트 미러 cmp 0: ft_queue_remind.py :: rc=0 out=
+PASS 키트 미러 cmp 0: ft-proxy-decide.sh
+PASS 키트 미러 cmp 0: ft-tick.sh
+FAIL 도구 파일 실재: ft-queue.sh :: rc=0 out=
+FAIL bash -n ft-queue.sh :: rc=0 out=
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/test_queue_reask_r529.sh: 줄 20: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft-queue.sh: No such file or directory
+FAIL ft-queue.sh ≤ 200줄 :: rc=0 out=
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/test_queue_reask_r529.sh: 줄 20: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue.py: No such file or directory
+FAIL ft_queue.py ≤ 200줄 :: rc=0 out=
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/test_queue_reask_r529.sh: 줄 20: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft_queue_remind.py: No such file or directory
+FAIL ft_queue_remind.py ≤ 200줄 :: rc=0 out=
+FAIL py_compile ft_queue.py · ft_queue_remind.py :: rc=0 out=
+PASS 준비: 자율 ON
+PASS ⓐ 준비: QUEUE rc2
+  ⓐ 원문: | 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 |
+  ⓐ 원문: | A1 | 2026-10-20 10:08 | card-start | q-a1 | c | 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/design/teams/graphics/indices/대기/g1.md | 대기 |
+FAIL ⓐ 새 파일 머리 10칸 · 상태 뒤 번호·팀·보여준 시각 :: rc=2 out=QUEUE 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/design/teams/graphics/indices/대기/g1.md · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/planner/AUTONOMY-QUEUE.md
+FAIL ⓐ 첫 줄 = q1 · 팀(카드 경로) graphics · 보여준 시각 - · 대기 :: rc=2 out=QUEUE 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/design/teams/graphics/indices/대기/g1.md · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/planner/AUTONOMY-QUEUE.md
+FAIL ⓐ 둘째 줄 = q2(최대+1) · --team room :: rc=4 out=REJECT 알 수 없는 인자: --team
+usage: ft-proxy-decide.sh --kind K --q Q --choice C --why W --undo U [--card F --verdict N | --card F --seat S | --branch B --sha S | --plan P]
+FAIL ⓐ --team·팀 카드 둘 다 없음 → 팀 - :: rc=2 out=QUEUE 카드를 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/none.md · 큐 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/planner/AUTONOMY-QUEUE.md
+PASS ⓐ 도구가 쓴 큐 = 상태 린트 OK
+FAIL ⓐ 옛 머리(처리됨) → 머리·구분 행만 10칸 · 옛 줄 2개 바이트 0 변경 :: rc=4 out=REJECT 알 수 없는 인자: --team
+usage: ft-proxy-decide.sh --kind K --q Q --choice C --why W --undo U [--card F --verdict N | --card F --seat S | --branch B --sha S | --plan P]
+FAIL ⓐ 옛 줄 번호·보여준 시각 = - 로 읽음 · 새 줄 q1 :: rc=4 out=REJECT 알 수 없는 인자: --team
+usage: ft-proxy-decide.sh --kind K --q Q --choice C --why W --undo U [--card F --verdict N | --card F --seat S | --branch B --sha S | --plan P]
+FAIL ⓑ shown q3 --at → 그 칸만 바뀜 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓑ diff = 그 줄 1개(다른 줄 바이트 0 변경) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓑ 없는 번호 → ERROR rc≠0(조용한 통과 0) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓑ --at 없음 = 지금(FT_NOW) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+  ⓒ 원문:
+    /opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft-queue.sh: No such file or directory
+FAIL ⓒ graphics due = q1(72분)·q3(안 보임)·q5(보류 재확인 지남) — q2 최근·q4 남의 팀·q6 재확인 전·q7 진행·옛 줄 제외 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓒ 줄 꼴 age·tag(재질문|재확인) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓒ 끝줄 n=3 · 번호 없는 옛 줄 old=1(대상 밖) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+PASS 준비: 자율 OFF
+  ⓓ 원문: /opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft-queue.sh: No such file or directory 
+FAIL ⓓ graphics master 에 3통(q1·q3·q5) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+FAIL ⓓ 쪽지 꼴 = [재질문] q1 · 보여준 지 72분 · <질문 첫 60자> · desk [인터뷰 요청] 로 다시 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+  ⓓ 쪽지 원문: 
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+FAIL ⓓ 전체 5통(graphics 3 · room 1 · planner 1) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/test_queue_reask_r529.sh: 줄 95: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+FAIL ⓓ 같은 줄 같은 보여준 시각 → 60분 안 다시 0통 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/test_queue_reask_r529.sh: 줄 99: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/test_queue_reask_r529.sh: 행 99번: [: : 정수 값이 필요함
+FAIL ⓓ 61분 뒤 → 다시 감 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+FAIL ⓖ 팀 - 줄(q8) → planner _master :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PwTDtIVrCZ/mbox.log: No such file or directory
+FAIL ⓖ room 줄(q4) → room _master :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓔ 자율 ON → mbox 0통 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓔ 아침 묶음 줄 5(q1·q3·q4·q5·q8) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+  ⓔ 원문: 
+FAIL ⓔ 다시 돌려도 아침 묶음 줄 늘지 않음(60분 안) :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+  ⓕ 원문: /opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft-queue.sh: No such file or directory
+FAIL ⓕ take → 상태 «진행 — <master>» :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓕ 사유 칸 끝 «오빠 값: … (판정 N)» :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓕ 출력 1줄 RESUME q1 team=graphics kind=card-start → … :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓕ 다른 줄 바이트 0 변경 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+PASS ⓕ take 뒤 상태 린트 OK
+FAIL ⓕ 이미 진행 줄 take → REJECT rc≠0 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+PASS ⓕ 판정 번호 숫자 아님 → rc≠0
+FAIL ⓕ 보류 줄도 take 로 꺼냄 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓗ ft-tick pass() 에 queue_watch 1줄 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓗ queue_watch 함수 추출 :: rc=127 out=/opt/homebrew/bin/bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r529-queue-shown-at-hourly-reask-take-re/70b3c88d-d3d3-410e-a4cd-2b67f24b50fc/scratchpad/base/feature-pack/fable-team/harne
+FAIL ⓗ queue_watch = 명부 폴더로 remind · 5통 :: rc=127 out=_: 줄 1: queue_watch: 명령을 찾을 수 없음
+FAIL ⓗ --dry-run = 쪽지 0 · DRY 1줄 :: rc=127 out=_: 줄 1: queue_watch: 명령을 찾을 수 없음
+FAIL ⓗ FT_TICK_QUEUE=0 = 끔 :: rc=127 out=_: 줄 1: queue_watch: 명령을 찾을 수 없음
+rc=127
+FAILED 43
+rc=1
