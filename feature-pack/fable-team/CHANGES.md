@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-20 — ft-nano-spawn 일반화: 티어는 «기본값 공급자» · 검색 나노 기본 에이전트 pi (r543 · 1.1.95)
+
+- 사건: chatbot master#10 이 `ft-nano-spawn.sh <카드> --agent pi --tier search` 로 리서치 나노를 열었는데 pi 가 아니라 opencode 좌석이 열렸고(#120064) opencode 무료 경로가 이 IP 에서 «abusive traffic» 으로 막혀 처리 0 · `--never-started` 로 닫음. 오빠 지시 «ft-nano-spawn.sh 일반화 업그레이드».
+- 원인(실측): 티어 `case` 가 `--agent`/`--model` 을 무시하고 에이전트·모델·effort·fast 를 통째로 덮어쓴다 — `search) AGENT="opencode"` · `checker|tester` 는 codex/cmd/claude · `impl:2|3` 은 codex/cmd. `--agent pi --tier checker:1` 도 codex 로 열렸다.
+- 고침 2가지(키트 `ft-nano-spawn.sh` · 추적본 `harness/bin` 같은 글자): ①`--agent` 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다(`AGENT_SET` · 티어 이름 검사와 ROLE 은 그대로) ②`--tier search` 기본 에이전트 = `FT_SEARCH_AGENT`(기본 `pi` → 모델은 에이전트별 기본 `FT_PI_MODEL`) · `FT_SEARCH_AGENT=opencode` 로 r286 옛 경로 복귀. 검색 나노 발주 문단·머리 usage 도 에이전트 이름·`pi` 포함으로.
+- 시험: `test_nano_spawn_tier.sh` 43건 ALL PASS(신규 9: search 기본 pi · env 로 opencode 복귀 · 명시 agent 가 search/checker/impl 티어를 이김 · 명시 model 우선 · 모르는 티어는 명시 agent 여도 거절) — 고치기 전 FAIL 17(`harness/evidence/r543/before-fix.txt`) · 기존 spawn 시험 37(py)+2(sh) PASS · `test_nano_spawn_body_press.sh` 는 기준판과 같은 기존 FAIL 2(ⓒ node_modules · 이 변경 무관).
+- 범위 밖: pi 닫기 회수(r542) · `skill/scripts/ft-nano-spawn.sh` 사본은 추적본과 319줄 갈라진 옛 판이라 이번에 안 건드림(별 정리) · 설치(키트 1 `ft-nano-spawn.sh`)는 하네스 master 가 `install.sh --apply`.
+
 ## 2026-10-20 — 설치기가 launchd 키트 템플릿의 실행 경로를 판 없는 루트 shim 으로 렌더 · 설치 검사가 판 고정 plist 를 DRIFT 로 (r538 · 1.1.94)
 
 - 사건: `com.byz.ft-wt-sweep` plist 가 손 sed 렌더(`harness/evidence/r444/master-steps.md:11` «s|__FT_BIN__|<LIVE_BIN>|g»)로 판 붙은 라이브 경로(`live/1.1.16/bin`)에 고정돼 키트를 올려도 sweep 이 옛 판으로 돌았다(r535 고침이 launchd 경로로 안 돎 · master 84 손 재작성 뒤에도 `live/1.1.86` 고정 · 발주 119766 ②). `install.sh` 에 `__FT_BIN__` 치환 0 · 설치 검사에 판 고정 검사 0(arch 107 실측).

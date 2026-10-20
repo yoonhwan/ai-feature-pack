@@ -1,0 +1,45 @@
+PASS ..: 선택 블록 추출
+PASS ..: 기본 impl = sonnet-5-5
+PASS ..: --tier impl = sonnet-5-5
+PASS ..: checker:2 = sonnet-5-5
+PASS ..: tester:3 = sonnet-5-5
+FAIL ..: search 기본 → opencode|opencode/deepseek-v4.1-flash-free|search
+PASS ..: FT_SEARCH_AGENT=opencode 로 되돌림
+FAIL ..: agent pi + search → opencode|opencode/deepseek-v4.1-flash-free|search
+PASS ..: --agent opencode --tier search = opencode(명시 우선)
+FAIL ..: agent claude + search → opencode|opencode/deepseek-v4.1-flash-free|search
+FAIL ..: pi 명시 모델 → opencode|opencode/deepseek-v4.1-flash-free|search
+FAIL ..: agent pi + checker:1 → codex|gpt-6-luna|checker
+FAIL ..: agent pi + impl:3 → codex|gpt-6-luna|impl
+PASS ..: 명시 에이전트여도 모르는 티어는 거절
+PASS ..: --agent opencode 모델 없음 → 기본(REJECT 0)
+PASS ..: --agent opencode --model 명시 우선
+PASS ..: 표에 없는 에이전트 → REJECT
+PASS ..: 모르는 티어 → 안내에 search
+PASS ..: opencode 좌석 pid 기록 줄
+FAIL ..: 검색 나노 문단 없음
+FAIL ..: 머리 usage 에 pi 없음
+PASS fable-team: 선택 블록 추출
+PASS fable-team: 기본 impl = sonnet-5-5
+PASS fable-team: --tier impl = sonnet-5-5
+PASS fable-team: checker:2 = sonnet-5-5
+PASS fable-team: tester:3 = sonnet-5-5
+FAIL fable-team: search 기본 → opencode|opencode/deepseek-v4.1-flash-free|search
+PASS fable-team: FT_SEARCH_AGENT=opencode 로 되돌림
+FAIL fable-team: agent pi + search → opencode|opencode/deepseek-v4.1-flash-free|search
+PASS fable-team: --agent opencode --tier search = opencode(명시 우선)
+FAIL fable-team: agent claude + search → opencode|opencode/deepseek-v4.1-flash-free|search
+FAIL fable-team: pi 명시 모델 → opencode|opencode/deepseek-v4.1-flash-free|search
+FAIL fable-team: agent pi + checker:1 → codex|gpt-6-luna|checker
+FAIL fable-team: agent pi + impl:3 → codex|gpt-6-luna|impl
+PASS fable-team: 명시 에이전트여도 모르는 티어는 거절
+PASS fable-team: --agent opencode 모델 없음 → 기본(REJECT 0)
+PASS fable-team: --agent opencode --model 명시 우선
+PASS fable-team: 표에 없는 에이전트 → REJECT
+PASS fable-team: 모르는 티어 → 안내에 search
+PASS fable-team: opencode 좌석 pid 기록 줄
+FAIL fable-team: 검색 나노 문단 없음
+FAIL fable-team: 머리 usage 에 pi 없음
+PASS 추적본 = 키트(cmp)
+
+FAILED 16
