@@ -145,24 +145,31 @@ fresh && { rm -rf "$NW"/d0 "$NW"/d1 "$NW/.worktree-info.json"; echo new > "$NW/u
   c4="$(swp)"; has "$c4" "[HIL] seat=$SEAT" "ⓒ ' D' + 새 파일('??') + info 없음 → HIL"
   [ -d "$NW" ] && ok "  └ 워크트리 그대로" || bad "워크트리가 사라짐"; }
 
-# ⓓ 축 검사 함수 — 생성기가 계획 생성 뒤 달라졌으면 실행 거부. 0 = 충족.
+# ⓓ 축 검사 함수 — 생성기가 계획 생성 뒤 달라졌으면 옛 계획은 실행 거부(r535: 같은 좌석·WT 로 재생성 → 새 계획만 실행 · 옛 계획 .replanned). 0 = 충족.
 axis_d() {
   printf '\n# drift\n' >> "$T/bin/ft-nano-close.sh"
+  local lv; lv="$(git hash-object "$T/bin/ft-nano-close.sh")"
+  printf 'echo "OLD BODY RAN"\n' >> "$PLAN"
   d_out="$(swp)"
+  case "$d_out" in *"REPLAN $SEAT"*) ;; *) cp "$SRC/ft-nano-close.sh" "$T/bin/ft-nano-close.sh"; d_why="REPLAN 줄 없음 ← ${d_out:0:300}"; return 1;; esac
   cp "$SRC/ft-nano-close.sh" "$T/bin/ft-nano-close.sh"
-  case "$d_out" in *"STALE $SEAT"*) ;; *) d_why="STALE 줄 없음 ← ${d_out:0:300}"; return 1;; esac
-  [ -d "$NW" ] || { d_why="거부했는데 워크트리가 사라짐"; return 1; }
-  [ -f "$PLAN.stale" ] && [ ! -f "$PLAN" ] || { d_why="계획이 .stale 로 안 옮겨짐"; return 1; }
+  [ -f "$PLAN.replanned" ] && grep -q 'OLD BODY RAN' "$PLAN.replanned" || { d_why="옛 계획이 .replanned 로 안 옮겨짐"; return 1; }
+  grep -q 'OLD BODY RAN' "$PLAN.log" 2>/dev/null && { d_why="옛 몸통이 실행됨"; return 1; }
+  grep -qx "# plan-ver: $lv" "$PLAN.done" 2>/dev/null || { d_why="새 계획(plan-ver=라이브)이 실행되지 않음"; return 1; }
   return 0
 }
-echo "== ⓓ 계획 plan-ver ≠ 라이브 생성기 = 실행 거부 + 1줄"
+echo "== ⓓ 계획 plan-ver ≠ 라이브 생성기 = 옛 계획 실행 거부 → 재생성(r535)"
 fresh && {
-  if axis_d; then ok "ⓓ 생성기가 달라진 뒤 sweep → STALE 1줄 · 계획 .stale · 워크트리 그대로"; else bad "ⓓ $d_why"; fi
-  has "$d_out" "재생성: ft-nano-close.sh $SEAT" "  └ 재생성 안내 문구"
-  has "$d_out" "stale 1" "  └ 요약 줄에 stale 1"
+  if axis_d; then ok "ⓓ 생성기가 달라진 뒤 sweep → REPLAN 1줄 · 옛 계획 .replanned · 새 계획만 실행"; else bad "ⓓ $d_why"; fi
+  has "$d_out" "replanned 1" "  └ 요약 줄에 replanned 1"
+  gone "$PTR"
 }
 fresh && { grep -v '^# plan-ver: ' "$PLAN" > "$PLAN.tmp" && mv "$PLAN.tmp" "$PLAN"
-  e1="$(swp)"; has "$e1" "STALE $SEAT" "ⓓ plan-ver 표식 없는 옛 생성기 계획도 거부"; [ -d "$NW" ] && ok "  └ 워크트리 그대로" || bad "워크트리가 사라짐"; }
+  e1="$(swp)"; has "$e1" "REPLAN $SEAT" "ⓓ plan-ver 표식 없는 옛 생성기 계획도 옛 판 → 재생성"; gone "$PTR"; }
+fresh && { printf '{"branch":"feat/x"}\n' > "$NW/.worktree-info.json"; printf '\n# drift\n' >> "$T/bin/ft-nano-close.sh"
+  e0="$(swp)"; cp "$SRC/ft-nano-close.sh" "$T/bin/ft-nano-close.sh"
+  has "$e0" "STALE $SEAT" "ⓓ 재생성 불가(가지 nano/* 아님) → 지금처럼 STALE"; has "$e0" "stale 1" "  └ 요약 줄에 stale 1"
+  [ -f "$PLAN.stale" ] && [ ! -f "$PLAN" ] && ok "  └ 계획 .stale" || bad "계획이 .stale 로 안 옮겨짐"; [ -d "$NW" ] && ok "  └ 워크트리 그대로" || bad "워크트리가 사라짐"; }
 fresh && { e2="$(swp)"; has "$e2" "OK   $SEAT wt=cleaned" "ⓓ 생성기 그대로면 정상 실행"; gone "$PTR"; hasnt "$e2" "STALE" "  └ STALE 0"; }
 mkdir -p "$T/stub"; printf 'echo cleaned\n' > "$T/stub/x#0.sh"
 e3="$(DIRX="$T/stub" swp)"; has "$e3" "OK   x#0 wt=cleaned" "ⓓ 생성기 계획이 아닌 스텁 계획은 plan-ver 대상 아님(기존 시험 호환)"

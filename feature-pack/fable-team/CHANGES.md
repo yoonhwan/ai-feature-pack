@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 닫힌 나노 정리 계획이 밀리지 않게: sweep 시간 상한 안 여러 건 · 옛 판 계획 재생성 · 지운 크기·등록 없는 폴더 목록 (r535 · 1.1.86)
+
+- 사건: 10-19 12:09~10-20 09:53 새 `.worktrees` 88개 ≈83GiB(planner 83 쪽지 119683). arch 107 읽기 전용 실측 — 대기 계획 18(막는 프로세스 0 이 17) · sweep 이 pass 당 1건(`FT_WT_SWEEP_MAX` 기본 1)이라 «이월 18~21» 상주 · 하네스 재설치마다 생성기 판이 바뀌어 옛 판 계획이 `.stale` 로 빠지고 다시 안 만들어짐(177) · `.hil` 57 · 등록 없는 폴더 59.
+- `ft-wt-sweep.sh`: ①pass 1회 = 시간 상한 `FT_WT_SWEEP_BUDGET_SEC`(기본 90 · launchd 300 · 계획 1건 상한 120s 그대로) 안에서 막히지 않은 계획을 차례로 · 넘으면 «이월» · `FT_WT_SWEEP_MAX` 는 명시할 때만 건수 상한(기본 0 = 없음 · WAIT 는 안 셈) ②옛 판 계획 = 거부 전에 옆 생성기 `ft-nano-close.sh <seat> --replan <옛 계획>` 로 같은 좌석·같은 WT 새 계획 → 옛 파일 `.replanned` · `REPLAN` 1줄 · 같은 pass 에 실행(가드는 새 계획이 다시 건다) · 계보 세션 살아 있음·tmux 조회 실패 = WAIT(제자리) · 불가(WT 없음 · 가지 nano/* 아님 · --wt/--branch 계획) = 지금처럼 `.stale` + 사유 1줄 ③실행 직전 WT `du -sk`(`FT_WT_DU_SEC` 5 상한 · 그룹째 TERM · 넘김 = `?` · `<계획>.kb` 캐시) → cleaned 면 `.done` 끝 `# freed_kb=` · `<state>/wt-sweep.log` 폴더별 `freed seat= kb= wt=` + pass 줄 `… freed_kb=<합>` ④등록 없는 폴더(`<SCAN_ROOT>/.worktrees/*` 실폴더 중 `git worktree list` 에 없음) → `<state>/wt-orphans.tsv`(이름·mtime·KB · `FT_WT_ORPHAN_SCAN_SEC` 3600 간격 · du 합계 60s) 목록만 · 삭제 0 ⑤`.sh.hil` 수 → 요약 `hil_files N` · 처리 0. 요약 줄 꼬리 `freed_kb · replanned · hil_files · orphans`(값 있을 때만) · `--launchd` 로그 줄에 `replanned= hil_files= orphans= freed_kb=` 추가.
+- `ft-nano-close.sh`: `--replan <옛 계획>` 진입점 — 굽힌 값 줄(SEAT·KEY·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 읽고 몸통은 지금 생성기 · 팀 env·드리프트·원장 해석·명부·종료조건·kill 전부 건너뜀 · rc 0 `PLANNED` · 4 WAIT · 1 REJECT 사유 1줄. 다른 경로 동작 0 변경.
+- 시험 새 `test_wt_sweep_budget_replan_r535.sh`(임시 리포·워크트리 · 가짜 tmux·lsof·du·baton · 외부 호출 0 · GIT_* 0) ⓐ~ⓖ — 고치기 전 FAIL 30(`harness/evidence/r535/before-fix.txt`) · 고친 뒤 ALL PASS 50(`after-fix.txt`). `test_ft_wt_sweep_route_timeout.sh` ⓒ = MAX=1 명시 때 1건 · 기본 = 전부 · `test_wt_clean_two_stage.sh` ⓓ = 옛 판 → REPLAN(옛 몸통 실행 0 · 새 plan-ver 실행) + 재생성 불가 → STALE(변이 2 여전히 검출). 기존 시험 13개 rc0(`existing-tests.txt`) · `test_wt_clean_plan_self_check.sh` 는 팩 origin/main 코드에서도 FAILED 15(기존 RED · `preexisting-self-check-origin-main.txt` · 별도 단위 요청).
+- 설치: 키트 2(`ft-wt-sweep.sh` · `ft-nano-close.sh` · harness/bin 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · launchd 0 변경(`com.byz.ft-wt-sweep` 그대로) · 홈 0 · 되돌림 = `.bak-r535`.
+- 범위 밖: 등록 없는 폴더·`.hil` 지우기(사람 경로) · 부모 잃은 시험 셸 끄기(kill = HIL) · 브랜치 삭제(HIL) · 보관본 크기 규칙(r443) · 디스크 측정(r534).
+
 ## 2026-10-20 — 오빠 큐 줄 = 번호·팀·보여준 시각 칸 + `ft-queue.sh shown|due|take|remind` · 틱이 보여준 지 1시간 넘은 대기 줄을 그 팀 master 에 [재질문] (r529 · 1.1.85)
 
 - 사건: 오빠 큐 줄이 «언제 오빠께 보였는지» 기록이 없어 한 번 묻고 나면 아무도 다시 안 묻고, 오빠 값이 와도 그 팀이 줄을 꺼내 재개하는 길이 없다(오빠 09:2x «각팀 마스터 팀장이 큐를 보게하고 내결정 노출시간이 한시간 이상 지나면 다시 물어보고 팀장이 꺼내서 다시 진행가능해야함» · desk 26 쪽지 119482 → master 83 발주 119484 카드 ②).
