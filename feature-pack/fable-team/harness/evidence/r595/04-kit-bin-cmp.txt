@@ -1,0 +1,30 @@
+cmp0 ft-merge-land.sh
+
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh
+index a7c0e846..e74c83b2 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh
+@@ -25,6 +25,8 @@ printf '%s' "$AP" | grep -Eq '^[0-9a-f]{40}$' || { echo "REJECT 오빠 병합 
+ G() { git -C "$REPO" "$@"; }
+ rej() { echo "REJECT $* (착지 0)"; exit 1; }
+ ROOT="${FT_ROOT:-$(dirname "$(G rev-parse --path-format=absolute --git-common-dir)")}"; STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
++pushsave() { local f; mkdir -p -- "$STATE/push-out" 2>/dev/null && f="$STATE/push-out/push-$PR-$(date +%Y%m%dT%H%M%S)-$$.log" && printf '%s\n' "$POUT" >"$f" 2>/dev/null && printf '%s' "$f"; }   # r595: push 출력 전문을 상태 폴더에 남긴다 — 경로 출력, 쓰기 실패면 rc≠0(삼키기 0)
++pushwhy() { local f; f="$(pushsave)" || f=""; printf '사유 %s · 마지막 줄 %s · 전문=%s' "$(printf '%s\n' "$POUT" | grep -E '^(remote:|PUSH_DENIED|! \[)' | head -n 3 | cut -c1-200 | tr '\n' '|' | sed 's/|$//;s/|/ · /g')" "$(printf '%s' "$POUT" | tail -n1)" "${f:-저장 실패}"; }   # r595: 거부 사유 줄(앞 3개) + 마지막 줄 + 전문 파일 경로
+ LIM="${FT_LAND_TOTAL_S:-70}"; { [ "$LIM" -le 70 ] && [ "$LIM" -ge 1 ]; } 2>/dev/null || LIM=70   # 총 마감 — 시험 주입은 줄이기만 가능(70 s 초과 불가)
+ deadline() { [ $((SECONDS - T0)) -lt "$LIM" ] || rej "총 마감 $LIM s 초과"; }
+ 
+@@ -76,12 +78,12 @@ for i in 1 2; do
+   AB=$((PB < REM ? PB : REM)); PS=$SECONDS
+   POUT="$("$TB" "$AB" git -C "$REPO" push "$REMOTE" "$Q:refs/heads/$TARGET" 2>&1)"; PRC=$?
+   [ "$PRC" -eq 0 ] && break
+-  printf '%s' "$POUT" | grep -qE 'rejected|non-fast-forward|fetch first|stale info' && rej "서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): $(printf '%s' "$POUT" | tail -n1)"
++  printf '%s' "$POUT" | grep -qE 'rejected|non-fast-forward|fetch first|stale info' && rej "서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): $(pushwhy)"
+   # R354 DA⑥ H1: 재시도 = «서버 응답 전» 이 보이는 실패뿐(remote 출력 0 + 연결 실패 문자열 + timeout 아님). timeout·reset·remote 출력이 있는 실패는 «불명» — 자동 재시도 0, 원격 ref 를 1회 읽어 가른다
+   RESP=0; printf '%s' "$POUT" | grep -qE '^remote:|^To ' && RESP=1
+   if [ "$i" -eq 1 ] && [ "$PRC" -ne 124 ] && [ "$PRC" -ne 143 ] && [ "$RESP" = 0 ] && printf '%s' "$POUT" | grep -qiE 'could not resolve host|connection (timed out|refused)|ssh: connect to host|network is unreachable'; then continue; fi
+   { [ "$PRC" -eq 124 ] || [ "$PRC" -eq 143 ] || [ "$RESP" = 1 ] || printf '%s' "$POUT" | grep -qiE 'connection (reset|closed)|hung up unexpectedly|early eof'; } \
+-    || rej "push 실패(rc=$PRC · 재시도 조건 = 서버 응답 전 연결 실패 1회뿐): $(printf '%s' "$POUT" | tail -n1)"
++    || rej "push 실패(rc=$PRC · 재시도 조건 = 서버 응답 전 연결 실패 1회뿐): $(pushwhy)"
+   LSO="$("$TB" 7 git -C "$REPO" ls-remote "$REMOTE" "refs/heads/$TARGET" 2>&1)"; lrc=$?; LSV="${LSO%%[[:space:]]*}"   # 실패 경로 진단 1회(읽기 전용 · 7 s)
+   if [ "$lrc" -eq 0 ] && [ "$LSV" = "$Q" ]; then LANDVIA="ls-remote"; break
+   elif [ "$lrc" -eq 0 ] && [ "$LSV" = "$M" ]; then rej "착지 0 확정(원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 재시도 0 — 총 마감 안에 끝내지 못함 · 다음 틱에 다시"

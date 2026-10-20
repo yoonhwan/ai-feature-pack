@@ -1,0 +1,17 @@
+PASS bash -n land
+PASS ft-merge-land.sh ≤ 120줄
+FAIL ⓐ1 훅 거부 → REJECT 줄에 PUSH_DENIED 원문 :: rc=1 out=REJECT push 실패(rc=1 · 재시도 조건 = 서버 응답 전 연결 실패 1회뿐): error: 레퍼런스를 '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEqVW8NCtU/origin.git'에 푸시하는데 실패했습니다 (착지 0)
+FAIL ⓐ2 REJECT 줄에 전문=<파일> 1개(그 경로 실재) :: rc=1 out=REJECT push 실패(rc=1 · 재시도 조건 = 서버 응답 전 연결 실패 1회뿐): error: 레퍼런스를 '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEqVW8NCtU/origin.git'에 푸시하는데 실패했습니다 (착지 0)
+grep: : No such file or directory
+FAIL ⓐ3 전문 파일에 훅 stderr 전 줄 :: rc=1 out=REJECT push 실패(rc=1 · 재시도 조건 = 서버 응답 전 연결 실패 1회뿐): error: 레퍼런스를 '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEqVW8NCtU/origin.git'에 푸시하는데 실패했습니다 (착지 0)
+PASS ⓐ4 main 불변(착지 0)
+FAIL ⓑ1 REJECT 에 remote: 사유 줄 최대 3줄(앞에서부터) :: rc=1 out=REJECT 서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): error: 레퍼런스를 '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEqVW8NCtU/origin.git'에 푸시하는데 실패했습니다 (착지 0)
+FAIL ⓑ2 앞 3줄만(1~4번째 줄 0) :: rc=1 out=REJECT 서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): error: 레퍼런스를 '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEqVW8NCtU/origin.git'에 푸시하는데 실패했습니다 (착지 0)
+FAIL ⓑ3 전문 파일에 5줄 전부 :: rc=1 out=REJECT 서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): error: 레퍼런스를 '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEqVW8NCtU/origin.git'에 푸시하는데 실패했습니다 (착지 0)
+PASS ⓑ4 main 불변
+PASS ⓒ1 연결 실패 → 재시도 1회(2시도) 그대로 · 착지 rc0
+PASS ⓒ2 성공 경로는 전문 파일 0
+PASS ⓓ1 성공 착지 LANDED + push ok 줄 불변
+PASS ⓓ2 성공 시 전문 파일 0
+FAILED 6
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

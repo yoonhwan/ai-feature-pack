@@ -1,0 +1,135 @@
+== test_merge_land.sh
+PASS bash -n land
+PASS ft-merge-land.sh ≤ 120줄
+PASS 승인 값 없음 → rc2 · main 불변 · PR 쓰기 0(실행 0)
+PASS 승인 sha != PR head → REJECT · main 불변
+PASS PR 가 OPEN 아님 → REJECT
+PASS main 미포함 옛 세트 PR → 게이트 REJECT · main 불변
+PASS 검사 뒤 main 이 움직임 → 서버 non-FF 거절 → REJECT
+PASS 착지 0 — origin main 은 경주 커밋 그대로(트리 어긋남 없음)
+PASS 거절이면 PR 코멘트·닫기 0
+PASS 정상 착지 rc=0
+PASS 출력 착지 sha == origin main
+PASS 착지 트리 == 검사한 PR head 트리
+PASS squash 1커밋(부모 = 검사 때 main 1개)
+PASS 메시지 = PR 제목·본문 + PR #11
+PASS PR 11 에 착지 sha 코멘트 + 닫기(ft-gh-as-tank 하이픈 동사 pr-close --comment <파일> --apply · R261)
+PASS 결속 기록 1줄(main·head·방법·트리·착지)
+PASS fetch 에 -c gc.auto=0 — gc 실패 rc≠0 이어도 착지(R271)
+PASS 자율 ON · 승인 파일 없음 → rc2 · 실행 0
+PASS 자율 ON · approve-merge 승인 뒤 착지
+PASS ⓐ 객체 1 → bound 11 (4.5+7) · push ok 줄(bound=PB attempt=AB)
+PASS ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 32
+PASS ⓒ 객체 5,000 → 4.5+350 → 70 클램프 · 900 → 67(fm_push_calc)
+PASS ⓓ 객체 수 조회 실패 → F+7=11 호환값 + stderr WARN 1줄(조용한 통과 0)
+PASS ⓗ1 응답 후 timeout(remote: 줄 뒤 rc124 · 원격 ref=Q) → 재시도 0 · ls-remote==Q → 착지됨 정상 종료
+PASS ⓗ2 응답 후 reset(remote: 줄 뒤) → 불명 · ls-remote==M → rej «착지 0 · 불명» · 재시도 0
+PASS ⓗ2b remote 출력 0 인 rc124 도 불명 → 재시도 0(옛 ⓔ1 대체) · ls-remote==M → rej
+PASS ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 11
+PASS ⓗ4 불명 + ls-remote 실패 → rej «원격 상태 불명» · «착지 0 확정» 문구 0(조용한 통과 0)
+PASS ⓔ3 PB=AB=8 · 1차 conn 실패 뒤 남은 < 8 → 시도 1 · 재시도 0 · main 불변(호출 전 캡처)
+PASS ⓘ1 PB 70 > REM → 1차 timeout 인자 == REM(=AB 30) · 절단 성공 → 착지 · bound=70 attempt=AB
+PASS ⓘ2 절단된 1차(AB 29) timeout → 재시도 조건 REM ≥ PB 거짓 → 시도 1 · rej «다음 틱» · main 불변
+PASS ⓕ1 서버 거절(fetch first) → 재시도 0
+PASS ⓕ2 pre-receive 거절 → 재시도 0
+PASS ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT
+PASS ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN
+PASS ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 25) + WARN
+PASS ⓘff① 정상 → LANDED sha=HEAD mode=ff · origin main == PR head
+PASS ⓘff① commit-tree 호출 0 · push refspec <HEAD>:refs/heads/main(non-force)
+PASS ⓘff① 커밋 수 보존(2) · squash 커밋 0
+PASS ⓘff① merge-gate.log method=ft-merge-land-ff · landed=HEAD
+PASS ⓘff① base-head · install 검사 Q=HEAD(--range M..HEAD)
+PASS ⓘff④ 전송 객체 0 → push ok objects=0 bound=11
+PASS ⓘff② 검사 뒤 main 전진(head 조상 아님) → push 전 REJECT · origin main = 경주 커밋 그대로
+PASS ⓘff② 서버 non-FF 거절 스텁 → REJECT · 재시도 0 · main 불변
+PASS ⓘff③ 승인 sha != PR head → REJECT(equiv 경로 0) · push 0 · main 불변
+PASS 600·300 글자 0
+PASS 키트 사본 2 cmp0
+PASS core.bare 오염 0
+PASS 정적: land 에 force·reset·rebase·+refspec 0
+ALL PASS
+rc=0
+== test_merge_land_equiv.sh
+PASS bash -n equiv
+PASS ft-approval-equiv.sh ≤ 80줄
+PASS ft_approval_equiv.py ≤ 200줄(R281 rebase 경로 추가로 120 → 200)
+PASS 정적: equiv 쓰기·네트워크 동사 0(읽기 전용 · merge-tree·merge-base 만)
+PASS usage → rc2
+PASS 저장소 못 읽음 → ERROR rc3(통과 0)
+PASS ⓐ main 병합 1번 → EQUIV 착지
+PASS ⓐ 결속 기록에 approve=A head=S 둘 다
+PASS ⓐ PR 코멘트에 «동일승인 대조 EQUIV»
+PASS ⓑ main 병합 2번 → EQUIV 착지
+PASS ⓒ A 뒤 일반 커밋 → NOT-EQUIV · 착지 0
+PASS ⓓ 충돌 해소가 자기 변경을 바꿈 → 착지 0(줄 계약 게이트가 먼저 막음)
+PASS ⓓ 같은 입력을 equiv 에 직접 → NOT-EQUIV rc1
+PASS ⓓ 병합 커밋에 새 파일 끼워넣기 → NOT-EQUIV
+PASS ⓓ 같은 줄을 위치만 옮김(+/- 목록 같음) → NOT-EQUIV
+PASS ⓔ main 아닌 브랜치 병합 → NOT-EQUIV
+PASS ⓕ A 가 조상 아님 + 내용이 다름(force-push) → NOT-EQUIV  (R281: 내용 같은 rebase 는 ⓜ 에서 EQUIV)
+PASS ⓖ 같은 파일 다른 곳만 변경 → EQUIV 착지
+PASS ⓗ head==A → 대조 줄 0 · 착지 · approve=A
+PASS ⓙ git(--merges) 실패 주입 → ERROR · 착지 0
+PASS ⓙ git(merge-tree) 실패 주입 → ERROR · 착지 0
+PASS ⓙ 주입 뒤 정상 환경 → 같은 PR EQUIV 착지(주입이 원인)
+PASS ⓚ 게이트 뒤 main 전진(M1) → REJECT · 착지 0 · M1 새 파일 main 에 보존
+PASS ⓚ 최신화한 세트는 착지 · M1 보존
+PASS ⓛ 남은 시간 < 7 s → push 시작 0 · REJECT
+PASS ⓛ 총 마감 주입은 줄이기만(999 → 70 s 로 간주) · 정상 착지
+PASS ⓜ rebase 동일(손 편집 0) → EQUIV mode=rebase 착지
+PASS ⓜ 결속 기록에 equiv=rebase overlap=0
+PASS ⓜ PR 코멘트에 equiv=rebase
+PASS ⓜ main 이 같은 파일 다른 곳을 바꾼 rebase → EQUIV overlap=1(막지 않음)
+PASS ⓜ rebase 하며 한 줄(파일) 추가 → NOT-EQUIV · 착지 0
+PASS ⓜ 들여쓰기(공백)만 바꾼 rebase → NOT-EQUIV · 착지 0
+PASS ⓜ 파일 하나 빠진 rebase → NOT-EQUIV · 착지 0
+PASS ⓜ r560: 옛 main 위 rebase 도 기준 main = merge-base(S,main)=옛 main → EQUIV(옛 판 = 지금 main 요구라 NOT-EQUIV)
+PASS ⓜ r560: 옛 main 위 head 는 착지 게이트가 막는다(«현재 main 을 포함하지 않음») — 판정 완화가 착지 틈이 아니다
+PASS ⓜ 충돌을 손으로 푼 rebase → NOT-EQUIV rc1
+PASS ⓜ A 와 전혀 다른 변경을 가진 S(main 위) → NOT-EQUIV rc1
+PASS ⓜ A 객체가 로컬에 없음 → ERROR rc3(통과 0)
+PASS ⓘ 자율 ON · A 승인 파일 없음 → rc2
+PASS ⓘ S 만 승인(A 아님) → 여전히 rc2
+PASS ⓘ A 승인 파일 → EQUIV 착지
+PASS core.bare 오염 0
+ALL PASS
+rc=0
+== test_merge_land_off_approval.sh
+PASS bash -n land·autonomy
+PASS 전제: 자율 OFF
+PASS ① OFF · 승인 파일 없음 → REJECT rc2 · main 불변 · 실행 0
+PASS ④ OFF · approve-merge 기록 성공(APPROVED … OFF)
+PASS ④ 승인 파일 1줄 == autonomy.log 한 줄(이벤트 OFF)
+PASS ④ 승인 뒤에도 mode=off(위변조 아님)
+PASS ④ 형식 틀린 sha → 여전히 REJECT rc2
+PASS ② OFF · 승인 파일 있음 → 착지
+PASS ② merge-gate.log 줄에 approve-file=<승인 epoch>
+PASS OFF · 파일만 있고 log 줄 없음 → REJECT rc2
+PASS 전제: 위변조 상태
+PASS ③ 위변조 · 승인 파일 없음 → REJECT rc2
+PASS ③ 위변조 · approve-merge → REJECT rc2 · 파일 0
+PASS core.bare 오염 0
+ALL PASS
+rc=0
+== test_merge_land_state_dir.sh
+PASS ⓐ state-dir = 설치 폴더 기준 state (repo 아님)
+PASS ⓑ FT_AUTONOMY_STATE_DIR 지정이면 그 값
+PASS ⓒ 자율 ON · approve-merge 뒤 env 없이 착지(LANDED)
+PASS ⓓ 자율 ON · 승인 없음 → 같은 REJECT rc2 · main 불변
+PASS ⓔ state-dir 실패 → REJECT 자율 상태 폴더 해석 실패 · 착지 0
+PASS ⓕ merge-gate.log = <git 공용 루트>/.fable-team/state 에 1줄
+PASS ⓕ 설치 폴더 state 에는 merge-gate.log 0
+PASS core.bare 오염 0
+ALL PASS
+rc=0
+== test_kit_bin_sync.sh
+PASS dirs exist
+PASS tracked bin ⊂ kit bin (bytes+mode)
+PASS shim-exec lint: OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+rc=0
