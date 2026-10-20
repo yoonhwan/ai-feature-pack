@@ -1,0 +1,33 @@
+# r574 kit/bin 두 사본 cmp + bash -n (origin/main b44ecf8e 위 rebase 뒤)
+cmp0 kit/fable-team/bin/ft-nano-close.sh == bin/ft-nano-close.sh
+bash -n OK
+--- diff(base=origin/main) ---
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+index d601e854..70015449 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+@@ -227,7 +227,15 @@ fi
+ case "$br" in nano/*) ;; *) fail "branch=${br:-?} (nano/* 아님)";; esac
+ fi
+ # ④ 도달성 — HEAD 브랜치 = info branch(detached 금지) 이고 HEAD 가 refs/heads/<br> 에 포함 (DA r1 R1②)
++SIB=""
+ hb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
++# r574: 같은 좌석 키의 -rN 형제 가지로 갈아탄 워크트리(착지 게이트 때문에 재착수)는 info 가지와 HEAD 가지가 다르다 — 둘 다 nano/<KEY>[-rN] 이면 HEAD 가지로 판정한다(가지 이름은 리포 안에서 유일 → 다른 좌석·다른 팀 가지는 이 꼴에 들 수 없다). 그 밖은 아래 fail 그대로.
++if [ "$hb" != "$br" ] && [ -z "$NAMED_BR" ] \
++   && [[ "$hb" =~ ^nano/${KEY}(-r[0-9]+)?$ ]] && [[ "$br" =~ ^nano/${KEY}(-r[0-9]+)?$ ]]; then
++  echo "INFO ④ 형제 가지 — info $br · HEAD $hb (같은 키) · HEAD 가지로 판정"
++  SIB=" · 형제=$hb"
++  br="$hb"
++fi
+ [ "$hb" = "$br" ] || fail "HEAD=${hb:-detached} ≠ info $br"
+ git -C "$WT" merge-base --is-ancestor HEAD "refs/heads/$br" || fail "HEAD 가 $br 에 미포함"
+ # ④b 착지 재검증(--plan-only 계획 한정 · r-disk-drop-worktree-scratch-census DA⑥ HOLD 2) — 계획 «실행 시점» 에도 가지가 main 에 착지했는가(생성 뒤 커밋이 붙었으면 거부). 일반 close 계획은 ⑤ cherry 게이트가 이미 닫았다(동작 불변).
+@@ -306,7 +314,7 @@ if [ "${ndel:-0}" -gt 0 ]; then
+   res="cleaned(삭제만 ${ndel}파일 · 복원 = git worktree add $WT $br)"
+   [ ! -f "$PLAN.ignored.tar.gz" ] || res="cleaned(삭제만 ${ndel}파일 · ignored ${nkeep}파일 보관 · 복원 = git worktree add $WT $br)"
+ fi
+-res="$res · 이름 바꿈 → ${DEL##*/} (파일 정리는 분리 진행)"
++res="$res · 이름 바꿈 → ${DEL##*/} (파일 정리는 분리 진행)${SIB:-}"
+ mark "$res"; echo "$res"
+ SH
+   } > "$PLAN"
