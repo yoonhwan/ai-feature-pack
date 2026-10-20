@@ -4,6 +4,7 @@
 #   ⓓ 병합 2번 → base = 마지막 병합의 main 쪽 부모 ⓔ 옛 main 위 rebase → EQUIV(base=merge-base(S,main)) ⓕ 훅: 남의 세트 400개 + 자기 승인 1개(가장 옛날) → EQUIV
 #   ⓖ 훅: 판정기 rc≠0·stderr 이유 · 7초 초과 이유 · 마감 21초 이유 ⓗ 훅: 도구 자리가 루트 shim 폴더여도 LIVE_BIN 판정기로 EQUIV · 라이브 판정기 없음 = 거절+이유 · 로그 읽기 1곳
 #   ⓘ 범위: 원장에 이미 센 승인 A 의 EQUIV = 원장 종류 equiv · used·today 증가 0 · SCOPE-OK equiv=<A>
+#   ⓚ~ⓞ DA⑥ r1: ⓚ 역행 그래프(main 이 지운 파일 부활) → NOT-EQUIV ⓛ 그 꼴 + 훅 deny ⓜ 판정기 출력 잘못된 UTF-8 = deny(예외 fail-open 0) ⓝ 옛 main 위 head 직접 main push → deny ⓞ ⓚ 꼴 세트 scope-approve = class=equiv 못 받음
 # 격리: 임시 git 리포(refs/remotes/origin/main 가짜 ref) + 임시 루트/상태/훅 폴더 — 실 상태·실 gh·실 슬랙·외부 호출 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -123,6 +124,47 @@ sr scope-approve "$SA"; [ "$rc" = 0 ] && has 'SCOPE-OK .* used=1/5'; ck "ⓘ 픽
 sr scope-approve "$SS"; [ "$rc" = 0 ] && has 'class=equiv' && has "equiv=$SA" && has 'used=1/5'; ck "ⓘ A 의 EQUIV(승인 위 main 병합만) = class=equiv · used 그대로 1/5" $?
 sr scope-status; has '1/5' && has '오늘 1/'; ck "ⓘ 하루 셈도 그대로(오늘 1)" $?
 tail -1 "$S/autonomy-scope/S1.ledger.tsv" 2>/dev/null | awk -F'\t' '{exit !($4=="equiv")}'; ck "ⓘ 원장 줄 종류 = equiv" $?
+
+# ===== DA⑥ r1 (2026-10-20 HOLD 재검토) ⓚ~ⓞ =====
+# ⓚ DA 그래프 꼴: main B─M1─M2(M2 가 gone.txt 삭제) · A = gone.txt 수정 · U = A↔M2 병합(삭제된 파일을 A 판으로 되살림) · S = U 에 «옛 main(M1)» 병합 = 역행 그래프
+#    기준 main = merge-base(S, origin/main) = M2 이므로 merge-tree(A,M2) 의 modify/delete 충돌이 드러난다(옛 판 mx=M1 이면 되살림이 통과).
+W2="$T/w2"; g2() { git -C "$W2" -c user.email=t@t -c user.name=t "$@"; }
+p2() { printf '%s\n' "$2" > "$W2/$1"; g2 add "$1"; g2 commit -qm "$1"; }
+git -c init.defaultBranch=main init -q "$W2"; p2 keep.txt k; p2 gone.txt gone; B2="$(g2 rev-parse HEAD)"
+g2 checkout -qb feat2; printf 'own-gone\n' > "$W2/gone.txt"; g2 add gone.txt; g2 commit -qm own2; A2="$(g2 rev-parse HEAD)"
+g2 checkout -q main; p2 m1.txt m1; M1B="$(g2 rev-parse HEAD)"; g2 rm -q gone.txt; g2 commit -qm "main deletes gone.txt"; M2B="$(g2 rev-parse HEAD)"
+g2 update-ref refs/remotes/origin/main "$M2B"
+g2 checkout -qb u "$A2"; g2 merge -q --no-commit "$M2B" >/dev/null 2>&1; printf 'own-gone\n' > "$W2/gone.txt"; g2 add gone.txt; g2 commit -qm U >/dev/null 2>&1
+g2 checkout -q -B s HEAD; g2 merge -q --no-edit "$M1B" >/dev/null 2>&1; S6="$(g2 rev-parse HEAD)"
+j2() { out="$(python3 -I "$EQP" "$W2" "$1" "$2" origin main 2>&1)"; rc=$?; }
+j2 "$A2" "$S6"; [ "$rc" = 1 ] && has '^NOT-EQUIV'; ck "ⓚ 역행 그래프(main 이 지운 gone.txt 를 되살린 S) → NOT-EQUIV(거짓 EQUIV 0)" $?
+
+a approve-merge "$A2" >/dev/null 2>&1; : > "$T/hook.log"
+runh3() { out="$(cd "$W2" && printf '%s' "$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$W2")" | "$BASH" "$MG" 2>"$T/err")"; rc=$?; }
+runh3 "gh pr merge 8 --squash --match-head-commit $S6"; denied && has '재승인 필요'; ck "ⓛ 역행 그래프 head(남의 승인 A2 만 등록) → 훅 deny" $?
+: > "$T/hook.log"; runh3() { out="$(cd "$W2" && printf '%s' "$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$W2")" | "$BASH" "$MG" 2>"$T/err")"; rc=$?; }
+a approve-merge "$A2" >/dev/null 2>&1; rm -f "$AP/$A"
+runh3 "gh pr merge 8 --squash --match-head-commit $S6"; denied && has '재승인 필요'; ck "ⓛ 역행 그래프 세트(남의 승인만 등록) → 훅 deny" $?
+
+mkj bad8 "#!/usr/bin/env python3
+import sys
+sys.stdout.buffer.write(b'EQUIV \xff\xfe broken\\n'); sys.exit(3)"
+: > "$T/hook.log"; runh "$S1"; denied && has 'rc=3'; ck "ⓜ 판정기 출력이 잘못된 UTF-8 + rc3 → 훅 deny(예외로 새서 허용 0)" $?
+mkj real2 "#!/usr/bin/env python3
+raise RuntimeError('판정기 내부 오류')"
+: > "$T/hook.log"; runh "$S1"; denied && has 'rc=1' && has 'Traceback'; ck "ⓜ 판정기 내부 예외(트레이스백) → 훅 deny + 이유에 stderr 첫 줄" $?
+cp "$BIN/ft_approval_equiv.py" "$LIVE/ft_approval_equiv.py"
+
+cd "$W2" && git checkout -q s 2>/dev/null
+g checkout -q -B oldmain "$A"; echo own-old > "$W/ownold.txt"; g add -A; g commit -qm oldmain; g2 checkout -q main 2>/dev/null
+runh5() { out="$(cd "$W" && printf '%s' "$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$W")" | "$BASH" "$MG" 2>"$T/err")"; rc=$?; }
+a approve-merge "$A" >/dev/null 2>&1; g checkout -q s5; OLDH="$(g rev-parse HEAD)"
+runh5 "git push origin HEAD:main"; denied && has 'main 이 head 의 조상이 아님'; ck "ⓝ 옛 main 위 head 직접 main push → deny" $?
+g checkout -q -B s5ok refs/remotes/origin/main; echo ok > "$W/okpush.txt"; g add -A; g commit -qm okpush
+a approve-merge "$(g rev-parse HEAD)" >/dev/null 2>&1; runh5 "git push origin HEAD:main"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓝ 최신 main 을 품은 승인 head 직접 push 는 통과(막지 않음)" $?
+
+cd "$SR" && sg checkout -q -B reg "$SA" && sg merge -q --no-commit "refs/remotes/origin/main" >/dev/null 2>&1 && { printf 'own\n' > "$SR/own.txt"; sg add -A; sg commit -qm U; }; SREG="$(sg rev-parse HEAD)"
+sr scope-approve "$SREG"; [ "$rc" = 0 ] && ! has 'class=equiv' && has 'used=2/5'; ck "ⓞ 역행 꼴 세트는 class=equiv 비차감을 못 받음(일반 셈 used=2/5)" $?
 
 # ✅ 마무리 — 남의 파일 손대지 않았나(정본 미러 cmp0) + 기존 시험은 따로(ⓙ = evidence)
 cmp -s "$BIN/ft_approval_equiv.py" "$ROOT/harness/kit/fable-team/bin/ft_approval_equiv.py" && cmp -s "$BIN/ft-autonomy-scope.sh" "$ROOT/harness/kit/fable-team/bin/ft-autonomy-scope.sh"; ck "ⓙ 정본 미러 cmp0(harness/bin ↔ kit)" $?

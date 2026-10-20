@@ -173,12 +173,17 @@ class Guard:
         self.why = "" if self.judge else "라이브 판정기 없음: %s" % (os.path.join(root, ".fable-team/LIVE_BIN") if root else "<루트 미상>")
 
     def cands(self, sha):  # r560: 후보 = exact 승인들 · ⓐ S 줄기 안의 승인(rev-list <S> ^origin/main) 먼저 ⓑ 그다음 mtime 최신순
+        """★DA⑥ r1★ 이미 origin/main 의 조상인 승인(=착지한 세트)은 새 head 의 근거에서 뺀다 — 착지 뒤 다른 트리를 같은 승인으로 통과시키던 구멍."""
         try:
             names = [a for a in os.listdir(self.approved) if SHA.match(a)]
         except OSError:
             return []
         names = sorted((a for a in names if self.exact(a)), key=lambda a: os.path.getmtime(os.path.join(self.approved, a)), reverse=True)
         trunk = dict.fromkeys(self.git("rev-list", sha, "^origin/main").split())
+        landed = set(self.git("rev-list", "origin/main").split())
+        if any(a in landed for a in names):
+            self.why = "착지한 승인은 근거 아님(이미 origin/main 의 조상)"
+        names = [a for a in names if a not in landed]
         return [a for a in trunk if a in names] + [a for a in names if a not in trunk]
 
     def ok(self, sha):
@@ -188,6 +193,14 @@ class Guard:
             return True
         if not SHA.match(sha) or not self.approved or not self.judge:
             return False
+        try:   # ★DA⑥ r1 H2★ EQUIV 경로(판정기 찾기·실행·해독·파싱)의 예외는 deny — 훅 바깥 fail-open 으로 새면 안 된다
+            return self.equiv(sha)
+        except Exception as e:
+            self.why = "판정기 예외: %s" % type(e).__name__
+            note(f"EQUIV 경로 예외 {type(e).__name__} {e} — deny(fail-open 금지 · DA⑥ r1)")
+            return False
+
+    def equiv(self, sha):   # 후보를 하나씩 판정기에 넣는다 — 출력은 bytes 로 받아 errors="replace" 로 해독(C 로케일에서 UnicodeDecodeError 로 새던 자리)
         cands = self.cands(sha)
         deadline = time.time() + 21  # 7초 × 3 — 훅 하나가 세션을 오래 붙잡지 않게(판정 666)
         tried, why = 0, []
@@ -197,13 +210,12 @@ class Guard:
                 break
             tried += 1
             try:
-                p = subprocess.run(["python3", "-I", self.judge, self.cwd, a, sha, "origin", "main"], capture_output=True, text=True, timeout=7)
+                p = subprocess.run(["python3", "-I", self.judge, self.cwd, a, sha, "origin", "main"], capture_output=True, timeout=7)
             except subprocess.TimeoutExpired:
                 why.append("판정기 7초 초과")
                 continue
-            except (OSError, subprocess.SubprocessError) as e:
-                why.append("판정기 실행 실패(후보 %s): %s" % (a[:10], str(e)[:80]))
-                continue
+            p.stdout = p.stdout.decode("utf-8", "replace")   # ★DA⑥ r1 H2★ 해독 실패 = 예외 0(errors="replace")
+            p.stderr = p.stderr.decode("utf-8", "replace")
             if p.returncode == 0 and p.stdout.startswith("EQUIV "):
                 note(f"EQUIV {a} -> {sha} ({p.stdout.strip()[:200]})")
                 return True
@@ -236,6 +248,9 @@ class Guard:
         p = subprocess.run(["git", "-C", self.cwd, *a], capture_output=True, text=True, timeout=5)
         return p.stdout.strip() if p.returncode == 0 else ""
 
+    def anc(self, a, b):   # r560 DA⑥ ⓝ: main push 는 «최신 main 을 품은 head» 만 — 옛 main 위 head 를 직접 밀면 main 이 지운 것을 되돌린다(초록 지우기)
+        return subprocess.run(["git", "-C", self.cwd, "merge-base", "--is-ancestor", a, b], capture_output=True, timeout=5).returncode == 0
+
     def push_denied(self, args):
         flags = [a for a in args if a.startswith("-")]
         if "--dry-run" in flags or "-n" in flags:
@@ -260,7 +275,11 @@ class Guard:
             src, dst = r.split(":", 1) if ":" in r else (r, r)
             if "*" not in r and dst.replace("refs/heads/", "", 1) != "main":
                 continue
-            if "*" in r or not src or not self.ok(self.git("rev-parse", "--verify", "-q", src + "^{commit}")):
+            sha = "" if ("*" in r or not src) else self.git("rev-parse", "--verify", "-q", src + "^{commit}")
+            if not sha or not self.ok(sha):
+                return True
+            if self.git("rev-parse", "--verify", "-q", "origin/main^{commit}") and not self.anc("origin/main", sha):
+                self.why = self.why or "main 이 head 의 조상이 아님 — main push 는 최신 main 을 품은 head 만(옛 main 위 head 직접 push 는 지운 것을 되살린다)"
                 return True
         return False
 

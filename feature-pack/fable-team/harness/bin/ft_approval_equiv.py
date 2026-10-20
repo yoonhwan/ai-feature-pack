@@ -4,7 +4,7 @@ A = 오빠가 승인한 PR head, S = 지금 PR head. 아래 넷이 «전부 참�
  1 A 가 S 의 조상  2 A..S 는 main 병합 커밋뿐(main 밖 일반 커밋 0 · 병합마다 첫 부모 = 승인 줄기, 나머지 부모 = main 의 조상)
  3 자기 변경 동일: diff(merge-base(A,main), A) 와 diff(merge-base(S,main), S) 의 «파일별 순서 있는 +/- 줄» 이 같음(문맥·hunk 줄 번호 무시)
  4 S 트리 == merge-tree(A, mx) 의 깨끗한 병합 트리 — 3 이 못 잡는 «같은 줄을 다른 위치로 옮긴» 병합 커밋을 막는다(객체만 쓰고 ref·작업트리 0)
- ★r560 기준 main★ mx = 세트가 «실제로 병합한» main = 마지막(가장 새) 병합 커밋의 main 쪽 부모. mx 는 merge-base(A,main) 의 자손이어야 한다(승인 이후 main · 아니면 NOT-EQUIV). 옛 규칙은 «지금 origin/main» 과 비교해 main 이 한 칸만 더 가도 NOT-EQUIV 였다(같은 세트 재승인 폭주 · 판정 1917 의 뜻 = 세트가 병합한 main 기준).
+ ★r560 기준 main★ mx = merge-base(S, origin/main) = «세트가 이미 품은 가장 새 main». 병합 커밋들의 main 쪽 부모는 전부 mx 의 조상이어야 하고(아니면 «main 부모 역행» = NOT-EQUIV), mx 는 merge-base(A,main) 의 자손이어야 한다(승인 이후 main). 옛 규칙은 «지금 origin/main» 과 비교해 main 이 한 칸만 더 가도 NOT-EQUIV 였다(같은 세트 재승인 폭주 · 판정 1917 의 뜻 = 세트가 병합한 main 기준). ★DA⑥ r1★ «마지막 병합의 main 쪽 부모» 만 쓰면 뒤 병합이 더 옛 main 을 병합한 그래프에서 main 이 지운 파일 부활이 EQUIV 로 샌다 — merge-base 가 그 구멍을 닫는다.
  ★R281(rebase)★ A 가 S 의 조상이 아니면 위 1·2 대신: (a) mx = merge-base(S, main) 가 승인 이후 main(merge-base(A,main) 의 자손) (b) merge-base(A,main) 존재 (c) 3 과 같되 A 쪽 base = merge-base(A,main) · S 쪽 base = mx (d) merge-tree(A, mx) 와 같음 → `mode=rebase` (옛 main 위 rebase 도 EQUIV — 착지 단계 ft-merge-land 의 «main ⊂ S» 가 옛 main 착지를 막는다)
 출력 끝 칸: mode=merge|rebase · overlap=<n>(main 이 바꾼 파일 ∩ 자기 변경 파일 — 막지 않는 표지) · base=<mx 10자>)
 exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가·승인 객체 로컬에 없음 = 통과 0)"""
@@ -90,9 +90,11 @@ def check(repo, a, s, remote, target):
     for c, first, *rest in merges:
         if first not in trunk or not rest or not all(anc(repo, p, m, shallow) for p in rest):
             raise No("병합 %s 가 «승인 줄기 + main» 병합이 아님(다른 브랜치·거꾸로 병합)" % c[:10])
-    mx = merges[0][-1]   # r560: 가장 새 병합 커밋의 main 쪽 부모 = 세트가 «실제로 병합한» main (옛 판 = 지금 origin/main)
+    mx = out(repo, "merge-base", sc, m).strip()   # r560 DA⑥: «S 가 이미 품은 가장 새 main» (뒤 병합이 옛 main 을 병합해도 여기서 드러난다)
     if not mx or not anc(repo, out(repo, "merge-base", ac, m).strip(), mx, shallow):
-        raise No("세트가 병합한 main(%s)이 승인 이후 main 이 아님 — 기준 삼을 수 없음" % (mx[:10] or "없음"))
+        raise No("세트가 품은 main(%s)이 승인 이후 main 이 아님 — 기준 삼을 수 없음" % (mx[:10] or "없음"))
+    if [p for c, first, *rest in merges for p in (rest or [mx]) if not anc(repo, p, mx, shallow)]:
+        raise No("병합 커밋의 main 쪽 부모가 기준 main(%s)보다 앞섬(역행 그래프) — 같은 승인으로 볼 수 없음" % mx[:10])
     mb = out(repo, "merge-base", ac, mx).strip()
     da = norm(repo, mb, ac)
     ds = norm(repo, out(repo, "merge-base", sc, mx).strip(), sc)

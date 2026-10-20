@@ -21,7 +21,6 @@ ALL PASS
 
 === test_autonomy_core.sh
 rc=1 · PASS=192 · FAIL=3
-== suite /opt/homebrew/bin/bash
 FAIL H3 큐 쓰기 실패 → rc≠0·stderr (rc 2)
 == expire suite /bin/bash
 FAIL 7초+재시도 1회 = external_call.py 값과 같음
