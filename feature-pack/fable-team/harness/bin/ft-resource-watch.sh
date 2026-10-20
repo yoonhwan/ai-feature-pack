@@ -5,7 +5,8 @@
 #     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2) — R357: swap 절대량 단독 동결 폐기) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
 #     - 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
-#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) · 워크트리 합계는 FT_RES_DU_TTL_SEC(1800초) 캐시(du-cache.tsv) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_DU_TTL_SEC · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
+#   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).
+#   r534: 워크트리·claude.projects·caches·pytest 는 통째 du 대신 1단계 폴더별 «증분»(틱당 FT_RES_WT_PER_TICK(25)개 · 폴더별 캐시 du-cache.tsv · 합 = 캐시 합 + «<칸>.known 앎/전체») · 스냅샷 측정 예산 FT_RES_SNAP_BUDGET_SEC(55) · 상한 넘긴 폴더는 1단계 하위로 나눔(깊이 FT_RES_SPLIT_DEPTH(3)).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_WT_PER_TICK · FT_RES_SNAP_BUDGET_SEC · FT_RES_SPLIT_DEPTH · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
 set -uo pipefail
 PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH   # r502: launchd 기본 PATH 에 홈브루 경로를 덧붙인다 — 표본·문지기·선제 회수 하위 호출 전부 같은 tmux·도구를 본다(plist 손 생성물 수정 0)
 
@@ -34,8 +35,9 @@ case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) SLM_WARN=1;; *) [ "$((10#$SWAP_LEVEL_MIN)
 SNAP_SEC="${FT_RES_SNAP_SEC:-590}"
 
 mkdir -p "$STATE" 2>/dev/null || true
-DU_CAP="${FT_RES_DU_CAP_SEC:-7}"; DU_TTL="${FT_RES_DU_TTL_SEC:-1800}"
+DU_CAP="${FT_RES_DU_CAP_SEC:-7}"
 DU_CACHE="$STATE/du-cache.tsv"; DU_LOCK="$STATE/du-scan.lock.d"
+PER_TICK="${FT_RES_WT_PER_TICK:-25}"; SNAP_BUDGET="${FT_RES_SNAP_BUDGET_SEC:-55}"; SPLIT_MAX="${FT_RES_SPLIT_DEPTH:-3}"   # r534 증분 측정
 
 now_epoch() { date +%s; }
 # R320: pressure.tsv 마지막 3줄(5칸 숫자)이 전부 memfree>=20 · level=1 · swap 이 앞 표본보다 늘지 않음 → rc0
@@ -54,17 +56,7 @@ run_capped() {
   done
   wait "$pid"; rc=$?; cat "$out"; rm -f "$out"; return $rc
 }
-# 워크트리 합계 KB — TTL 안이면 캐시, 아니면 1회 스캔(상한 DU_CAP). 상한 초과 = TIMEOUT(옛 캐시를 새 값처럼 쓰지 않는다).
-du_cached() { # key path
-  local key="$1" p="$2" now line ts kb raw rc
-  now=$(now_epoch); line="$(awk -F'\t' -v k="$key" '$2==k{l=$1" "$3} END{print l}' "$DU_CACHE" 2>/dev/null)"; ts="${line% *}"; kb="${line#* }"
-  case "$ts" in ''|*[!0-9]*) ;; *) [ $((now-ts)) -lt "$DU_TTL" ] && { echo "$kb"; return; };; esac
-  raw="$(run_capped du -sk "$p")"; rc=$?
-  [ "$rc" != 124 ] || { echo TIMEOUT; return; }
-  kb="$(printf '%s' "$raw" | awk 'END{print $1+0}')"
-  { grep -v "^[0-9]*	$key	" "$DU_CACHE" 2>/dev/null; printf '%s\t%s\t%s\n' "$now" "$key" "$kb"; } > "$DU_CACHE.tmp.$$" && mv "$DU_CACHE.tmp.$$" "$DU_CACHE"
-  echo "$kb"
-}
+. "$HERE/ft-resource-du-lib.sh" || exit 3   # r534 증분 측정 함수(inc_group 등) — 감시자 줄 수 상한 때문에 따로 둔다
 du_line() { # now name path
   local now="$1" name="$2" p="$3" raw rc
   if [ ! -e "$p" ]; then printf '%s\t%s\t0\n' "$now" "$name" >> "$DISK_TSV"; return; fi
@@ -74,7 +66,8 @@ du_line() { # now name path
 }
 
 snapshot_disk() { # now
-  local now="$1" raw rc freek cnt rec logk
+  local now="$1" raw rc freek cnt rec logk end g kn pf dr
+  end=$((SECONDS+SNAP_BUDGET)); [ -f "$DU_CACHE" ] || : > "$DU_CACHE"
   freek=$(df -Pk /System/Volumes/Data 2>/dev/null | awk 'NR==2{print $4+0}')
   printf '%s\tdisk.free\t%s\n' "$now" "${freek:-0}" >> "$DISK_TSV"
   # /private/tmp 1단계 하위 상위 15
@@ -82,20 +75,25 @@ snapshot_disk() { # now
   if [ "$rc" = 124 ]; then printf '%s\t/private/tmp\tTIMEOUT\n' "$now" >> "$DISK_TSV"
   else printf '%s\n' "$raw" | awk '$2!="/private/tmp" && $1 ~ /^[0-9]+$/ {print $1"\t"$2}' \
       | sort -rn | head -15 | awk -v now="$now" -F'\t' '{print now"\t"$2"\t"$1}' >> "$DISK_TSV"; fi
-  # worktrees 총량·개수·최근2시간
+  # worktrees 개수·최근2시간
   if [ -d "$WORKTREES" ]; then
-    printf '%s\tworktrees.total\t%s\n' "$now" "$(du_cached worktrees.total "$WORKTREES")" >> "$DISK_TSV"
     cnt=$(find "$WORKTREES" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
     rec=$(find "$WORKTREES" -mindepth 1 -maxdepth 1 -type d -mmin -120 2>/dev/null | wc -l | tr -d ' ')
     printf '%s\tworktrees.count\t%s\n' "$now" "${cnt:-0}" >> "$DISK_TSV"
     printf '%s\tworktrees.recent2h\t%s\n' "$now" "${rec:-0}" >> "$DISK_TSV"
   fi
   du_line "$now" colima.diffdisk "$HOME/.colima/_lima/colima/diffdisk"
-  du_line "$now" claude.projects "$HOME/.claude/projects"
-  du_line "$now" caches "$HOME/Library/Caches"
-  du_line "$now" pytest "${TMPDIR:-/tmp}/pytest-of-$USER"
   logk=$(run_capped du -sk /tmp/byz-*.log | awk '{s+=$1} END{print s+0}')
   printf '%s\tbyz.logs\t%s\n' "$now" "${logk:-0}" >> "$DISK_TSV"
+  # r534: 큰 폴더 넷 = 1단계 증분(칸 이름 그대로 합 + <칸>.known) · 남은 예산(SNAP_BUDGET)을 남은 칸 수로 나눠 차례로 — 워크트리를 맨 끝에 둬 앞 칸이 남긴 시간까지 받는다
+  set -- "claude.projects|claude.projects.known|claude.projects|$HOME/.claude/projects" "caches|caches.known|caches|$HOME/Library/Caches" \
+    "pytest|pytest.known|pytest|${TMPDIR:-/tmp}/pytest-of-$USER" "worktrees.total|worktrees.known|wt|$WORKTREES"
+  while [ $# -gt 0 ]; do
+    IFS='|' read -r g kn pf dr <<EOF
+$1
+EOF
+    inc_group "$now" "$g" "$kn" "$pf" "$dr" $((SECONDS+(end-SECONDS)/$#)); shift
+  done
 }
 
 snapshot_mem() { # now
