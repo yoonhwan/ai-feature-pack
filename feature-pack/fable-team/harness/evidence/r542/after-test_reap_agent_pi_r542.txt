@@ -1,0 +1,54 @@
+PASS bash -n ft-opencode-reap.sh
+PASS bash -n opencode-reap-check.sh
+PASS bin ↔ kit 짝 cmp0
+PASS --agent bogus → rc 2(usage)
+== ⓐ 이름 집합이 opencode 고정이면 pi 는 조사 줄 0 (기본값 = opencode = 지금 동작 그대로)
+PASS ⓐ 기본 opencode → 후보 0
+PASS ⓐ pi 는 기본값에서 후보 0(이름 고정)
+== ⓑ --agent pi → 좌석 pane 나무의 pi 가 대상 · --apply → REAPED left=0 rc=0
+PASS ⓑ 조사: 좌석 나무 run(① · 이름 표기 pi)
+PASS ⓑ 조사: 좌석 나무 serve(① · 이름 표기 pi)
+PASS ⓑ 조사는 kill 0
+PASS ⓑ REAPED n=2 left=0 rc=0
+PASS ⓑ oc-kill 줄(pi)
+PASS ⓑ seat-run 소멸
+PASS ⓑ seat-serve 소멸
+PASS ⓑ pane 셸(pi 아님) 은 kill-session 몫 — 신호 0
+== ⓒ 다른 tmux 세션(aifp 좌석 흉내) 나무의 pi → 대상 0 · 생존 (남의 pi 0)
+PASS ⓒ 남의 것만 있으면 left=0
+PASS ⓒ 남의 pi other-run 생존
+PASS ⓒ 남의 pi other-serve 생존
+== ⓓ pid 파일 기록(시작 시각 일치) → 대상 · 기록 없이 cwd 로만 찾은 부모 잃은 pi → kill 0 + «주인 미확인» 줄
+PASS ⓓ 기록 n=2(pi)
+PASS ⓓ pane 셸 소멸 → pi 부모 잃음(ppid 1)
+PASS ⓓ 기록분 = 대상(pid 파일 · 기록 때의 via)
+PASS ⓓ 기록 없는 cwd 부모 잃은 pi = «주인 미확인» 조사 줄
+PASS ⓓ 기록 없는 pi 는 ③ 대상 아님(cwd 로만 찾은 것)
+PASS ⓓ 기록분 회수 left=0
+PASS ⓓ 기록된 pi 소멸
+PASS ⓓ 주인 미확인 pi 생존(kill 0 · 승인 범위 밖)
+PASS ⓓ 주인 미확인 pi 에 신호 0
+== ⓔ 못 멈추면 REAPED left=<n> rc=1 · 나노 닫기는 CLOSE-FAIL(승인 조건 «못 끄면 닫기 실패»)
+PASS ⓔ left=2 rc 1
+PASS ⓔ oc-left 줄
+== ⓕ 나노 닫기: 명부 agent=pi → 회수 단계 --agent pi · agent=claude → 회수 호출 0 (픽스처 = fail_closed 꼴)
+PASS ⓕ pi 좌석 → PI-REAPED left=0 (rc 0)
+PASS ⓕ 1번째 = --record(--agent pi · 같은 자리)
+PASS ⓕ 2번째 = --apply(--agent pi)
+PASS ⓕ 회수는 세션 kill 뒤(kill-session 실행됨)
+PASS ⓕ claude 좌석(pid 파일 없음) → 회수 호출 0
+PASS ⓕ claude 좌석 → PI-REAPED 0
+PASS ⓔⓕ pi left=1 → CLOSE-FAIL rc 1(못 끄면 닫기 실패)
+PASS ⓕ CLOSE-FAIL 이면 PI-REAPED 0
+== ⓖ 기존 opencode 시험 base 대조 diff 0 (시험 파일 손대지 않음 + rc0)
+PASS ⓖ test_opencode_reap.sh rc=0
+PASS ⓖ test_nano_close_fail_closed.sh rc=0
+PASS ⓖ 기존 시험 파일 변경 0(base 대조 = HEAD)
+PASS ⓖ 훅: pi 실행 뒤 고아 → pi 분기 알림(kill 0)
+PASS ⓖ 훅 회수 명령에 --agent pi
+PASS ⓖ 훅은 kill 0
+PASS ⓖ 훅 출력 0: echo pi
+PASS ⓖ 훅 출력 0: pip install x
+PASS ⓖ 훅 출력 0: grep -n api notes.txt
+
+ALL PASS

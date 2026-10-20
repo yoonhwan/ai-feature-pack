@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-20 — 회수 판정기에 «에이전트별 이름 집합»: 나노 닫기가 pi 좌석도 회수(쓰고 바로 닫기) (r542 · 1.1.96)
+
+- 사건: 하드 룰 14 «opencode 워커는 쓰고 바로 닫는다» 장치는 프로세스 이름을 opencode 로만 찾아(`ft-opencode-reap.sh` `OC = {"opencode", ".opencode", "opencode-ai"}`) pi 나노를 닫을 때 pi 회수 0 — 오빠 지시 «나노워커 pi 전환»(aifp 팀장 쪽지 119906 · harness master 84 발주 119907)의 닫기 쪽. 오빠 표준승인(desk 인터뷰 119922 · 전역 `~/.claude/CLAUDE.md:65`) = pi 정리 kill 범위 «그 좌석이 띄운 pi 프로세스 나무만 · 남의 pi 0 · 못 끄면 닫기 실패».
+- `ft-opencode-reap.sh`: `--agent opencode|pi`(기본 opencode = 지금 동작 그대로 · 인자 없이도 동작) · 이름 집합 표 1개(opencode = 지금 셋 그대로 · pi = `pi` 와 node 본문 경로 `pi-coding-agent/dist`) · 판정기 1곳 재사용(새 도구 0 · 파일 이름 그대로) · pid 파일·`REAPED … left=/rc=` 끝 줄 꼴 변경 0 · 조사 줄에 `agent=<에이전트>` 1칸 추가.
+- ★pi 대상 = ①좌석 pane 나무 + pid 파일 기록분만 — 기록 없이 cwd 로만 찾은 부모 잃은 pi 는 `oc-cand … via=미확인 owner=주인 미확인` 조사 줄만(신호 0 · 승인 범위 «그 좌석이 띄운 것» 밖)★ · opencode 대상 규칙 변경 0(③·new 그대로).
+- `ft-nano-close.sh`: 명부 `agent ∈ {opencode, pi}` 또는 pid 파일 → 회수 단계(:348-362 · :812-817 같은 자리)에 `--agent <그 값>` · 표기만 갈림(`OC-REAPED` / `PI-REAPED` · 실패 문구도 에이전트 값) · opencode 때 넘기는 인자 0 변경(`--agent` 는 pi 일 때만 붙는다 — 기존 기대값 그대로) · `- 리서치 닫힘:` 줄 꼴 그대로.
+- 홈 훅 `opencode-reap-check.sh`: 같은 훅 하나가 두 에이전트(이름 집합) — 명령이 실제 실행한 에이전트만 보고(`[<agent>-reap-check] <agent> 고아 …` · 회수 명령에 `--agent <agent>`) · kill 0 그대로 · 글자로만 든 pi(`pip`·`api` 등) 대상 아님.
+- 시험 `harness/tests/test_reap_agent_pi_r542.sh`(새 · 가짜 tmux·pi 스텁·임시 상태 폴더·실 프로세스는 이 시험이 띄운 스텁만) ⓐ~ⓖ — 고치기 전 FAIL 21(`harness/evidence/r542/before-test_reap_agent_pi_r542.txt`) → 고친 뒤 ALL PASS 45(`after-test_reap_agent_pi_r542.txt`). ⓖ = 기존 opencode 회수·닫기 시험 rc0 + 시험 폴더 base 대조 diff 0.
+- 설치: 키트 2(`ft-opencode-reap.sh` · `ft-nano-close.sh` — 짝 bin cmp0) + 홈 훅 1(`opencode-reap-check.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 데몬 0 · 되돌림 = `.bak-r542`.
+- 범위 밖: 나노 열기 쪽(r543) · 판정기 파일 이름 바꾸기 · pi 말고 다른 에이전트 · 기록 없는 부모 잃은 pi kill(승인 범위 밖 — 필요하면 새 결정).
+
+
 ## 2026-10-20 — ft-nano-spawn 일반화: 티어는 «기본값 공급자» · 검색 나노 기본 에이전트 pi (r543 · 1.1.95)
 
 - 사건: chatbot master#10 이 `ft-nano-spawn.sh <카드> --agent pi --tier search` 로 리서치 나노를 열었는데 pi 가 아니라 opencode 좌석이 열렸고(#120064) opencode 무료 경로가 이 IP 에서 «abusive traffic» 으로 막혀 처리 0 · `--never-started` 로 닫음. 오빠 지시 «ft-nano-spawn.sh 일반화 업그레이드».
