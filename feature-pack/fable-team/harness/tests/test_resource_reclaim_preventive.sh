@@ -165,7 +165,7 @@ r502_suite() {   # $1=시험할 회수 도구
 }
 r502_suite "$BIN/$SCRIPT_NAME"
 # ⓓ 감시자 머리 PATH — env -i PATH=/usr/bin:/bin 로 tick → 하위(선제 회수·표본)가 받은 PATH 끝 = FT_RECLAIM_EXTRA_PATH(기본 /opt/homebrew/bin:/usr/local/bin)
-WB="$T/wbin"; mkdir -p "$WB"; cp "$BIN/ft-resource-watch.sh" "$WB/"
+WB="$T/wbin"; mkdir -p "$WB"; cp "$BIN/ft-resource-watch.sh" "$BIN/ft-resource-du-lib.sh" "$WB/"   # r534: 감시자가 형제 du-lib 를 source
 printf '#!/bin/bash\nprintf "%%s\\n" "$PATH" > "%s/sample.path"\n' "$T" > "$WB/ft-resource-sample.sh"
 printf '#!/bin/bash\necho "ERROR gate 대역(측정 0 · 동결·알림 0)"; exit 4\n' > "$WB/ft-resource-gate.sh"
 printf '#!/bin/bash\nprintf "%%s\\n" "$PATH" > "%s/pv.path"\n' "$T" > "$T/pvpath.sh"; chmod +x "$WB"/*.sh "$T/pvpath.sh"
