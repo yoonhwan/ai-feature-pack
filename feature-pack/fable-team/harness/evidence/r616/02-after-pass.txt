@@ -1,0 +1,29 @@
+PASS bash -n
+PASS ⓐ rc0 (rc=0)
+PASS ⓐ 남김 줄(의존 1 · 이름 2개)
+PASS ⓐ SHIM 2 · MOVED 2(옛 사본·old.sh) · UNKNOWN 1(old.sh)
+PASS ⓐ team-dep.sh 옮김 계획 0
+PASS ⓐ 의존 team-dep.sh = bin 에 남음
+PASS ⓐ 범위 밖 old.sh 는 옮김
+PASS ⓐ stale 에 의존 파일 0
+PASS ⓐ 두 번째 실행 (rc=0)
+PASS ⓐ 두 번째 MOVED 0(멱등)
+PASS ⓐ 두 번째도 남김 줄 그대로
+PASS ⓑ «bash team-dep.sh» → 의존 1
+PASS ⓑ «bash team-dep.sh» team-dep.sh 남음
+PASS ⓑ «./team-dep.sh» → 의존 1
+PASS ⓑ «./team-dep.sh» team-dep.sh 남음
+PASS ⓑ «bin/team-dep.sh» → 의존 1
+PASS ⓑ «bin/team-dep.sh» team-dep.sh 남음
+PASS ⓑ 의존 0 → 옛 꼴 그대로(의존 칸 없음)
+PASS ⓑ 의존 0 칸 안 붙임
+PASS ⓒ rc0 (rc=0)
+PASS ⓒ 추적 tour 는 의존 검사 대상 아님(의존 1 = team-dep.sh 뿐)
+PASS ⓒ 1단계만 — 의존의 의존(team-deep.sh)은 옮김
+PASS ⓒ 바이너리 본문 검사 생략(blob.sh 옮김)
+PASS ⓓ test_root_bin_shim_r613.sh (rc=0)
+PASS ⓓ r613 fail=0
+PASS ⓓ 기존 test_root_bin_shim.sh (rc=0)
+PASS ⓓ 기존 시험 fail=0
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
