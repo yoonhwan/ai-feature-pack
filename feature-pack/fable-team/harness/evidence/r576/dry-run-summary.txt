@@ -1,0 +1,6 @@
+# r576 실 목록 dry-run 요약 (2026-10-20T14:43Z UTC)
+목록 = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/folder-cleanup-20261020.noise-only.tsv
+명령 = plans/folder-cleanup-20261020-noise.sh --dry-run (재확인만 · 지우기 0 · tar 0)
+WOULD-REMOVE 96
+   2 SKIP [폴더 없음]
+RESULT removed=96 skip=2 fail=0 tar=0 log=/tmp/r576-dry.log
