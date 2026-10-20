@@ -91,6 +91,7 @@ tests/test_nano_spawn_teamset_cap.sh	ft-resource-reclaim.sh	yes	no
 tests/test_nano_team_env.sh	ft-resource-gate.sh	yes	no
 tests/test_news_tree_root.sh	ft-news-tick.sh	no	no
 tests/test_pack_nano_worktree_place.sh	ft-wt-sweep.sh	no	no
+tests/test_pi_agent_allow_r540.sh	ft-successor-open.sh	yes	no
 tests/test_plan_handoff.sh	ft-plan-handoff.sh	no	no
 tests/test_planner_nano_path.sh	ft-resource-gate.sh	yes	no
 tests/test_press_baseline_check.sh	ft-press-gate.sh	no	no
