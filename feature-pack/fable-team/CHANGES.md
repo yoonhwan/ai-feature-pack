@@ -33,6 +33,17 @@
 - 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-spawn.sh` · 정본 bin 짝 `harness/bin/ft-nano-spawn.sh` cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 1 · 데몬 0(spawn 은 부를 때마다 새로 읽음) · 되돌림 = env `FT_PI_EFFORT=high` · `FT_PI_SERENA=0` 또는 `.bak-r556`. **설치 집행은 master 소관 — 미실행.**
 - 범위 밖: tmuxc 쪽 변경 · pi 모델 기본값 · claude·codex·cmd effort · pi 닫기 회수 판정기(r542 — 실사건 ⓘ 에서 serena 프로세스가 남으면 그때 이 카드 안에서 고침) · 좌석당 serena 메모리 상한(실사건 ⓘ 에서 RSS 1줄만 기록).
 
+## 2026-10-20 — 오빠 큐 재질문이 매 틱 «큐 읽기 실패» 로 죽던 것: 읽기만 하는 remind·due 는 큐를 origin/main 판에서 읽는다 (r557 · 1.1.109 · 동작 변경)
+
+- 사건(arch 110 실측 2026-10-20 19:3x): `/tmp/ft-tick.log` 에 `2026-10-20 19:16:02 queue_watch: ERROR 큐 읽기 실패: …/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory` **37회**. 자율 ON 중엔 쪽지를 안 보내 손실이 ERROR 줄뿐이지만, 자율이 꺼지면 재질문이 **조용히 0** 이 된다.
+- 원인: 틱이 서 있는 맨 위 작업 폴더(공용 루트 체크아웃)엔 큐의 새 자리 `design/teams/planner/` 가 없다(main 과 246커밋 갈라짐). `ft_planner_queue` 가 옛 자리 `.fable-team/state/planner` 로 후퇴하는데 그 파일은 이제 없다 — 큐 정본 = `origin/main` `design/teams/planner/AUTONOMY-QUEUE.md`.
+- 고침(키트 1파일 · 1곳 · 새 도구 0 · 새 데몬 0 · plist 변경 0): `ft-queue.sh` 에서 `cmd` 가 `remind`·`due` 이고 `FT_QUEUE_FILE`·`FT_PLANNER_DIR` **둘 다 없으면** `ft_queue_ref()` 가 `FT_TEAMS_REF`(기본 `origin/main`)의 명단 꼴 planner 폴더 `AUTONOMY-QUEUE.md` 를 `git show` 로 임시 파일에 써서 그 경로를 쓴다(리포 = `FT_LEDGER_REPO` › `ROOT` · r545 꼴 · 정리 = trap). 못 읽으면 `ERROR 오빠 큐 origin/main 판을 못 읽음: <ref>:<경로>` rc 2 — 옛 자리·체크아웃·뉴스 사본으로 **후퇴 0**(조용한 0건 통과 0). **쓰는 명령(shown·take·add) 의 자리 고르기·`ft_planner_queue` 규칙·틱 순서·상태 폴더 자리(ROOT 기준) 변경 0.**
+- 왜 plist 하드코딩·사본 읽기가 아닌가: `FT_PLANNER_DIR` 를 plist 에 박으면 틱 env 전체에 걸려 같은 틱이 부르는 쓰는 명령까지 그 폴더를 쓰게 되고, 값이 읽기 전용 사본(news-ledger-main)이면 미커밋 변경이 생겨 `ft-ledger-repo-sync.sh` 가 영영 전진 0 → 뉴스·매거진까지 낡는다. 사본을 읽는 안은 사본이 몇 시간 낡는다. `origin/main` 판은 모든 체크아웃이 같이 보므로 어느 쪽도 안 건드린다.
+- 시험: `tests/test_queue_remind_origin_main_r557.sh` ⓐ~ⓖ — **전 FAIL 9 · PASS 17 → 후 ALL PASS 25**(`evidence/r557/01-before-red.txt` · `02-after-pass.txt`). 기존 큐 시험 4종(`test_queue_reask_r529` · `test_queue_state_r528` · `test_queue_bulk_r530` · `test_proxy_decide_queue_card_resolve`) rc0(`03-existing-tests.txt`) · `bash -n` · `shellcheck` rc0 · py_compile 0.
+- 실사건 재현(읽기만 · 격리 상태·가짜 mbox · 제품 쓰기 0 · `evidence/r557/04-real-incident.txt`): FT_ROOT = BYZ 공용 루트에서 옛 판(라이브 1.1.106) `due`·`remind` = rc **2** «큐 읽기 실패» → 새 판 `due` rc **0** `QUEUE-DUE n=0 old=1` · `remind` rc **0** `QUEUE-REMIND sent=0 skip=0 err=0`.
+- 설치: 있음 — 키트 1(`ft-queue.sh` · 정본 bin 짝 cmp0 · `05-kit-cmp-and-diff.txt`) → `install.sh --apply --project <루트>`. 틱은 매 회 새로 부르므로 데몬 재기동 0 · plist 렌더 0. **설치 집행·실사건(설치 뒤 첫 틱 `/tmp/ft-tick.log` `queue_watch: ERROR` 0)은 master 소관 — 미실행.** 되돌림 = env `FT_QUEUE_FILE`/`FT_PLANNER_DIR` 명시(지금도 있는 손잡이 · 옛 경로) 또는 `.bak-1.1.109`.
+- 범위 밖: 틱 plist 6장·템플릿(변경 0) · `ft_planner_queue`/`planner_queue` 의 공용 루트 후퇴 꼴(쓰는 쪽 · 이동 전 체크아웃 — 그 자리 파일이 없어 ERROR 가 보이는 것이 맞다) · 쓰는 명령이 어디에 쓰고 언제 main 에 올라가는가(planner·desk 몫) · 틱 6장이 같은 줄을 중복 재질문하는가 · 공용 루트 체크아웃 뒤처짐(병합 처방 금지).
+
 ## 2026-10-20 — 보낸 쪽지 사본을 `.1` 한 벌이 아니라 `.1`~`.3` 으로 밀어 보관 — 매거진 24시간 창이 창 앞을 덮게 (r553 · 1.1.105 · 하네스 내부 장치 · 새 장치 0)
 
 - 사건(2026-10-20 08:00 매거진 발행 실패 · `~/.hermes/logs/byz_magazine_model.err:220` 원문 «MagazineError: mbox 사본이 회전본을 이어도 창 앞부분을 덮지 못해요(창 시작 2026-10-19T08:00:00)»): 쪽지가 바쁜 날 하루 약 12.5MB 라 `mailbox.log.jsonl` 이 5MB 를 약 10시간 만에 채우고 회전했다. 회전본은 `.1` 한 벌뿐이라 10-19 18:04 보다 앞은 지워졌고, 매거진의 24시간 창(10-19 08:00 시작) 앞부분을 아무도 못 덮어 발행이 매일 위험했다.

@@ -1,0 +1,14 @@
+== 실사건 재현(읽기만 · 격리 상태·가짜 mbox · 제품 상태 쓰기 0) · FT_ROOT=BYZ 공용 루트 ==
+--- 옛 판(라이브 1.1.106) due
+ERROR 큐 읽기 실패: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/planner/AUTONOMY-QUEUE.md'
+rc=2
+--- 새 판 due
+QUEUE-DUE n=0 old=1
+rc=0
+--- 옛 판 remind
+ERROR 큐 읽기 실패: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/planner/AUTONOMY-QUEUE.md'
+rc=2
+--- 새 판 remind(FT_AUTONOMY_STATE_DIR=격리 · 가짜 mbox)
+QUEUE-REMIND sent=0 skip=0 err=0
+rc=0
+queue-reask.json

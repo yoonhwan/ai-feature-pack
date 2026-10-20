@@ -1,0 +1,36 @@
+PASS 키트 미러 cmp 0: ft-queue.sh
+PASS 키트 미러 cmp 0: ft_queue.py
+PASS 키트 미러 cmp 0: ft_queue_remind.py
+PASS bash -n ft-queue.sh
+PASS ft-queue.sh ≤ 200줄
+PASS ft_queue.py ≤ 200줄
+PASS ft_queue_remind.py ≤ 200줄
+PASS 준비: 자율 OFF
+  ⓐ 원문: ERROR 큐 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md' 
+FAIL ⓐ 체크아웃에 새 자리 없음 → origin/main 판에서 remind rc0 · err=0 (전 FAIL = «큐 읽기 실패» rc2) :: rc=2 out=ERROR 큐 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZ
+  ⓐ 쪽지: 
+FAIL ⓐ 쪽지 = origin/main 판 due 줄(q1 · 72분) · q2(30분) 쪽지 0 :: rc=2 out=ERROR 큐 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZ
+FAIL ⓐ 상태 기록 = ROOT 기준 $S(임시 큐 dirname 아님) · 임시 파일 정리(trap) :: rc=2 out=ERROR 큐 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZ
+  ⓐ due: ERROR 큐 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md' 
+FAIL ⓐ due 도 origin/main 판(rc0 · n=1) :: rc=2 out=ERROR 큐 읽기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZg09SW/r-a/.fable-team/state/planner/AUTONOMY-QUEUE.md: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tcSvZ
+FAIL ⓑ remind = origin/main 내용 · 낡은 체크아웃 큐로 내려가기 0 :: rc=0 out=REMIND q1 to=byz-graphics-master-claude#22 via=mbox tag=재질문
+QUEUE-REMIND sent=1 skip=0 err=0
+FAIL ⓑ due = origin/main 내용(낡은 파일 질문 0) :: rc=0 out=DUE q1 team=graphics kind=card-start shown=2026-10-20T08:48 age=72 tag=재질문 q=낡은-체크아웃 하나
+QUEUE-DUE n=1 old=0
+PASS ⓑ 읽기 명령은 낡은 체크아웃 큐를 안 건드림(바이트 0 변경)
+  ⓒ 원문: REMIND q1 to=byz-graphics-master-claude#22 via=mbox tag=재질문
+QUEUE-REMIND sent=1 skip=0 err=0
+FAIL ⓒ origin/main 에 큐 없음 → ERROR rc2 · 문구에 origin/main:<경로> :: rc=0 out=REMIND q1 to=byz-graphics-master-claude#22 via=mbox tag=재질문
+QUEUE-REMIND sent=1 skip=0 err=0
+FAIL ⓒ 조용한 0건 통과 0(쪽지 0 · rc2) · 임시 파일 정리 :: rc=0 out=REMIND q1 to=byz-graphics-master-claude#22 via=mbox tag=재질문
+QUEUE-REMIND sent=1 skip=0 err=0
+PASS ⓓ FT_QUEUE_FILE 명시 → 그 파일(지금과 같음)
+PASS ⓔ FT_PLANNER_DIR 명시 → 그 폴더(지금과 같음)
+PASS ⓕ shown q1 = 쓰기 자리(ft_planner_queue 경로 · rc0)
+PASS ⓕ take q2 = 쓰기 자리(rc0)
+PASS ⓕ add = 쓰기 자리(rc0)
+PASS ⓕ origin/main 판에 쓰기 0(커밋·blob 불변)
+PASS ⓖ 기존 큐 시험 파일 base 대조 diff 0(새 칸만)
+PASS ⓖ ft_queue.py·ft_queue_remind.py·ft_queue_state.py base 대조 diff 0(본체 변경 0)
+FAILED 8
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
