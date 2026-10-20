@@ -118,7 +118,9 @@ def test_notice_ends_with_answer_then_room_post_line(env, slack, tmp_path, monke
 
 def test_existing_paths_unchanged(env, slack, capsys):  # ⓖ  # noqa: F811
     inbound(env, {T: entry()})
-    assert run(env, slack, "reply", "--to-slack", T, "--text", "확인했어요.") == 0
+    # r585: 답 도구가 게시 전에 오빠 글 뿌리를 읽는다 — 가짜 Slack 에 뿌리 글 1개를 심고 선언 줄을 달아 보낸다
+    slack.msgs.append({"ts": T, "text": "오빠 글 뿌리 — 3개 확인 부탁", "bot_id": "B1", "thread_ts": "", "channel": DESK_CH})
+    assert run(env, slack, "reply", "--to-slack", T, "--text", "요청 3개 중 3개 답함\n확인했어요.") == 0
     assert slack.replies[-1]["thread_ts"] == T
     assert run(env, slack, "reply", "--ts", "1700000000.000100", "--text", "옛 길") == 0
     assert slack.replies[-1]["thread_ts"] == "1700000000.000100"

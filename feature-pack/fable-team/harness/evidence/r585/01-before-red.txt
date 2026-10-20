@@ -1,0 +1,40 @@
+tests/scripts/test_thread_reply_to_slack.py:160: AssertionError
+----------------------------- Captured stdout call -----------------------------
+reply ts=1792512995.631385 to_slack=1792492349.071989 thread=1792492349.071989
+________________ test_r585_partial_answer_needs_remaining_line _________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-217/test_r585_partial_answer_needs0')
+slack = <_proposal_fakes.FakeSlack object at 0x1142c9110>
+capsys = <_pytest.capture.CaptureFixture object at 0x1142c8990>
+
+    def test_r585_partial_answer_needs_remaining_line(env, slack, capsys):  # ⓒ  # noqa: F811
+        inbound(env, {T: entry()})
+>       assert run(env, slack, "--to-slack", T, "--text", "요청 3개 중 1개 답함\n번역 창만 확인했어요.") == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = run(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-217/test_r585_partial_answer_needs0'), <_proposal_fakes.FakeSlack object at 0x1142c9110>, '--to-slack', '1792492349.071989', '--text', '요청 3개 중 1개 답함\n번역 창만 확인했어요.')
+
+tests/scripts/test_thread_reply_to_slack.py:167: AssertionError
+----------------------------- Captured stdout call -----------------------------
+reply ts=1792512995.667613 to_slack=1792492349.071989 thread=1792492349.071989
+___________________ test_r585_root_read_failure_is_rejected ____________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-217/test_r585_root_read_failure_is0')
+slack = <_proposal_fakes.FakeSlack object at 0x1141f0850>
+capsys = <_pytest.capture.CaptureFixture object at 0x114077450>
+
+    def test_r585_root_read_failure_is_rejected(env, slack, capsys):  # ⓔ  # noqa: F811
+        inbound(env, {T: entry()})
+        slack.fail_replies = True
+>       assert run(env, slack, "--to-slack", T, "--text", DECL + "\n확인했어요.") == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = run(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-217/test_r585_root_read_failure_is0'), <_proposal_fakes.FakeSlack object at 0x1141f0850>, '--to-slack', '1792492349.071989', '--text', ('요청 3개 중 3개 답함' + '\n확인했어요.'))
+
+tests/scripts/test_thread_reply_to_slack.py:182: AssertionError
+----------------------------- Captured stdout call -----------------------------
+reply ts=1792512995.743316 to_slack=1792492349.071989 thread=1792492349.071989
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_r585_no_declaration_line_is_rejected_with_root_text
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_r585_numbered_abbrev_lines_are_rejected
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_r585_partial_answer_needs_remaining_line
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_r585_root_read_failure_is_rejected
+4 failed, 11 passed in 1.11s

@@ -1,0 +1,4 @@
+diff_rc=1
+PY_COMPILE_OK
+== kit ↔ ~/.hermes/scripts (설치 전 · 읽기만) ==
+diff -u full: +/- 42 줄 · diff_rc=1 → 라이브는 아직 옛 판(설치 = master 소관 · cmp0 은 착지 뒤)

@@ -1,0 +1,13 @@
+E         
+E         - 1792422462.316339
+E         + 1792513004.765649)
+
+tests/scripts/test_thread_room_post.py:91: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_room_post.py::test_thread_desk_force_sends_with_warning
+1 failed, 80 passed in 56.55s
+== named.sh ==
+PASS ⓔ 다른 역할 → 통과
+PASS 600/300 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

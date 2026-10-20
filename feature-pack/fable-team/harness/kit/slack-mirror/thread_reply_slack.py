@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from magazine_slack import Target
-from mirror_lib import MirrorError
+from mirror_lib import MirrorError, thread_texts
 from post_guard import guarded_post as post
 
 STATE_ENV = "FT_SLACK_STATE_DIR"  # 수신 원장·답 기록이 사는 폴더(기본 ~/.hermes/state)
@@ -25,6 +25,10 @@ WINDOW = 7 * 86400  # 수신 데몬이 원장에 기억하는 창과 같다(R242
 SHOW = 3  # 거절 문구에 싣는 최신 글 수 — 답 기록이 비어 처음 켜도 한 줄이 감당하게
 TOPIC_ENV = "FT_SLACK_TOPIC_ONLY"  # 주제 전용(이름 스레드 답 금지) 이름들 · 쉼표 · 빈 값 = 거절 끔(r561)
 TOPIC_DEFAULT = "desk"
+ROOT_HEAD = 400  # 거절 문구에 싣는 뿌리 원문 길이 — 답하는 사람이 «그 글을 읽게»(r585)
+DECL = re.compile(r"요청\s*(\d+)\s*개\s*중\s*(\d+)\s*개\s*답함")  # 본문 첫 줄의 선언(r585)
+BARE = re.compile(r"r\d+|#\d+|\b[A-Z][A-Za-z]*\d+[A-Za-z]*")  # 번호·약어 꼴(r558·#123·K4b · 줄 단위 검사)
+USAGE = "쓰는 법: 첫 줄 «요청 N개 중 M개 답함» · 남으면 «남은 것: …» · 번호 대신 쉬운 말"
 
 
 def state_dir() -> Path:
@@ -142,11 +146,41 @@ def refuse_unanswered(name: str, channel: str | None, force: bool) -> None:
     raise MirrorError(f"REJECT --thread {name} 는 옛 뿌리 밑으로 간다 — {msg}")
 
 
+def root_text(base: str, token: str, channel: str, root: str) -> str:
+    """오빠 글 스레드 첫 글(뿌리) 원문 — 7초 상한·재시도 1, 실패는 REJECT(조용히 게시 0)."""
+    try:
+        texts = thread_texts(base, token, channel, root, limit=1)
+    except MirrorError as e:
+        raise MirrorError(f"REJECT 뿌리 글 읽기 실패 ts={root} — 답 0 ({e})") from e
+    body = texts[0].strip() if texts else ""
+    if not body:
+        raise MirrorError(f"REJECT 뿌리 글 비었음 ts={root} — 답 0")
+    return body
+
+
+def check_body(text: str, root: str) -> None:
+    """게시 전 본문 검사 — 선언 줄 · 번호만 · 남은 것(ⓐⓑⓒ) · 걸리면 뿌리 원문 + 쓰는 법을 붙여 REJECT."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    m, bare = DECL.search(text), sum(1 for ln in lines if BARE.search(ln))
+    if not m:
+        why = "첫 줄에 «요청 N개 중 M개 답함» 이 없어요"
+    elif bare >= 3 and bare * 2 > len(lines):
+        why = "번호·약어만 늘어놓았어요 — 쉬운 말로"
+    elif int(m.group(2)) < int(m.group(1)) and not re.search(r"남은\s*것\s*:", text):
+        why = f"요청 {m.group(1)}개 중 {m.group(2)}개만 답했는데 «남은 것: …» 줄이 없어요"
+    else:
+        return
+    head = re.sub(r"\s+", " ", root).strip()[:ROOT_HEAD]
+    raise MirrorError(f"REJECT 답 — {why}\n--- 오빠 글(뿌리) 앞 {ROOT_HEAD}자 ---\n{head}\n--- {USAGE}")
+
+
 def reply_to_slack(a: argparse.Namespace, t: Target, text: str) -> int:
-    """오빠 글 ts 의 «그 글/그 스레드» 밑에 답하고 답 기록에 남긴다(보낸 뒤에만 기록)."""
+    """오빠 글 ts 의 «그 글/그 스레드» 밑에 답한다 — 게시 «전» 뿌리 원문을 읽어 본문을 검사한다(r585)."""
     ch, e = inbound_find(a.to_slack)
     root = str(e.get("thread") or a.to_slack)
-    ts = post(t.base, t.token, a.channel or ch, text, root, human=True)
+    channel = a.channel or ch
+    check_body(text, root_text(t.base, t.token, channel, root))
+    ts = post(t.base, t.token, channel, text, root, human=True)
     mark_answered(a.to_slack, ts)
     print(f"reply ts={ts} to_slack={a.to_slack} thread={root}")
     return 0
