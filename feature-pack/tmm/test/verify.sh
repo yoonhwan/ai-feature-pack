@@ -819,4 +819,12 @@ python3 - "$DC" "$CCF" <<'PYC' || { echo 'FAIL: (dc) 창을 줄였더니 창 밖
 import json,sys; p,f=sys.argv[1:3]; sys.exit(0 if f in json.load(open(p))["files"] else 1)
 PYC
 
+# (pi) Pi 에이전트 지원(0.9.1) — 복구 커맨드·미지원 에이전트 가드. 순수 함수만 잰다(좌석 프로세스 판정 live_agent_of 는 tmux 가 필요해 건너뛴다)
+eval "$(sed -n '/^restore_cmd_for()/,/^}/p;/^with_1m()/p' "$TMM")"
+[ "$(restore_cmd_for pi '' SIDX NAMEX '')" = 'pi --name NAMEX --session SIDX' ] || { echo "FAIL: (pi) pi 복구 커맨드: $(restore_cmd_for pi '' SIDX NAMEX '')"; exit 1; }
+[ "$(restore_cmd_for pi '' SIDX NAMEX 'pi --custom')" = 'pi --custom' ] || { echo 'FAIL: (pi) 스냅샷 resume 커맨드를 존중하지 않음'; exit 1; }
+restore_cmd_for nosuch '' S N '' >/dev/null 2>&1 && { echo 'FAIL: (pi) 미지원 에이전트가 통과함'; exit 1; }
+grep -q '^  *case "\$agent" in claude|codex|opencode|cmd|pi)' "$TMM" || { echo 'FAIL: (pi) fork 지원 에이전트 목록에 pi 없음'; exit 1; }
+grep -q 'pi|\*/pi|pi\\ \*|\*pi-coding-agent\*) echo pi' "$TMM" || { echo 'FAIL: (pi) live_agent_of 에 pi 분기 없음'; exit 1; }
+
 echo "✅ tmm verify OK"

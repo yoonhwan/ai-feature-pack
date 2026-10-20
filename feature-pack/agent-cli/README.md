@@ -2,7 +2,7 @@
 
 **AI 코딩 에이전트 CLI 툴킷 — 설치·비교 + 비대화 위임 하네스**
 
-AI 코딩 에이전트 CLI(Claude Code · Codex · Gemini · OpenCode · Cursor Agent)의 **설치·인증·비교**부터, 현재 세션 안에서 **다른 모델을 비대화로 소환→자율주행→resume**으로 이어가는 **위임 하네스**까지 한 팩으로 제공한다. 페르소나(**DA**·designer·architect)를 주입해 즉시 역할을 부여한다.
+AI 코딩 에이전트 CLI(Claude Code · Codex · Gemini · OpenCode · Cursor Agent · Pi)의 **설치·인증·비교**부터, 현재 세션 안에서 **다른 모델을 비대화로 소환→자율주행→resume**으로 이어가는 **위임 하네스**까지 한 팩으로 제공한다. 페르소나(**DA**·designer·architect)를 주입해 즉시 역할을 부여한다.
 
 > v2.0 — 기존 `agent-cli`(설치·비교 가이드)에 `cross-cli`의 실행 하네스(스크립트·페르소나·안전·oh-my/baton/tmuxc 연계)를 통합하고, 2026-06 실증으로 4건 오류를 정정.
 
@@ -14,7 +14,7 @@ AI 코딩 에이전트 CLI(Claude Code · Codex · Gemini · OpenCode · Cursor 
 - **설치·비교·Trust 가이드** — 어떤 CLI를 어떻게 깔고 래핑할지
 - **상위 하네스**(선택, 로컬 설치 시) — oh-my-\*(ulw/ultraplan), baton, tmuxc. **미설치면 무시** — 핵심 기능(비대화 위임·페르소나·resume)은 이들 없이도 동작
 
-## 5종 지원 (2026-06 실증 보정)
+## 6종 지원 (2026-06 실증 + Pi 추가)
 
 | CLI | 비대화 | 자동주행 | resume |
 |-----|--------|---------|--------|
@@ -23,8 +23,9 @@ AI 코딩 에이전트 CLI(Claude Code · Codex · Gemini · OpenCode · Cursor 
 | Gemini | `gemini -p` | `--approval-mode yolo` | `--resume <session_id>` |
 | OpenCode | `opencode run` | 기본 무승인 | `-s <sid>` / `-c` |
 | Cursor Agent | `cursor-agent -p` | `-f` / `--force` | `--resume <chatId>` |
+| Pi | `pi -p` | `--tools <allowlist>` (승인 프롬프트 없음) | `--session-id <sid>` / `--session <sid>` |
 
-(+ Aider/Amp/Pi 참고 — `references/install-and-compare.md`)
+(+ Aider/Amp 참고 — `references/install-and-compare.md`)
 
 ## 구성
 
@@ -36,7 +37,7 @@ agent-cli/
 │   ├── install-and-compare.md     ← 설치·인증·Trust·래핑 비교·함정
 │   └── personas.md                ← DA/designer/architect system-prompt
 ├── scripts/
-│   ├── selftest.sh                ← 5종 비대화·자율·resume 일괄 점검(타임아웃·로그)
+│   ├── selftest.sh                ← 6종 비대화·자율·resume 일괄 점검(타임아웃·로그)
 │   ├── test_opencode.sh           ← opencode 단독(모델 자동탐색)
 │   └── resume_chain.sh            ← 페르소나+다회 resume 체인
 ├── cli/install.md                 ← 에이전트 CLI 설치 안내
@@ -58,7 +59,7 @@ bash scripts/detect-env.sh   # OS 구분 + 지금 쓸 수 있는 CLI + 설치 �
 ## 의존성
 
 - `perl`, `python3` — macOS 내장 / **WSL·Ubuntu**: `sudo apt install -y perl python3`
-- 5종 중 **최소 1개** 에이전트 CLI가 PATH + 자체 인증 (본 팩은 자격증명 미주입)
+- 6종 중 **최소 1개** 에이전트 CLI가 PATH + 자체 인증 (본 팩은 자격증명 미주입). Pi는 OpenGateway/Keychain 설정을 사용한다.
 - WSL 주의: OAuth는 Windows 브라우저로 열림(URL 수동 복붙 가능) · cursor-agent는 없을 수 있음(자동 SKIP) · 작업은 `~/` 안에서
 
 ## 안전

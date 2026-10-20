@@ -1,5 +1,29 @@
 # agent-cli — Changelog
 
+## v2.2.0 (2026-10-20) — Pi lane
+
+Pi coding agent를 6번째 지원 CLI로 추가. OpenGateway/DeepSeek 기반 fast lane과
+`--session-id`/`--session`/`--fork` continuation을 기존 위임 하네스에 연결.
+
+### ✨ Added
+- `SKILL.md` / `README.md` / `INSTALL.md` / `cli/install.md`에 Pi lane 추가.
+- `scripts/selftest.sh pi` — R1 (`--session-id`) + R2 (`--session`) 코드워드 회상.
+- `scripts/resume_chain.sh pi` — 페르소나(`--append-system-prompt`) + 다회 resume.
+- `scripts/detect-env.sh` — `pi` 감지 + 설치 힌트.
+- `references/per-cli.md` / `install-and-compare.md` — Pi 비대화/JSON/resume/fork/도구 제한.
+- `manifest.json` `agent_clis_any_of`에 `pi`.
+
+### 🧭 Pi continuation 규칙
+- `--session-id <id>` = exact project ID (없으면 생성)
+- `--session <path|id>` = exact/partial ID
+- `--fork <path|id>` = 새 세션. `--fork` + `--session-id <new>` 허용
+- `--fork` + `--session/--continue/--resume/--no-session` 금지
+- `--continue`는 현재 project 최신 — 자동화 부적합
+
+### ✅ Verified (2026-10-20)
+- `selftest.sh pi`: R1 ✅ / R2 ✅
+- `resume_chain.sh pi`: `READY` → `KIWI` 회상 ✅
+
 ## Unreleased (2026-07-07) — Claude review lane pinning
 
 기획/구현 검토를 `resume_chain.sh` 기반 DA 루프로 돌릴 때 Claude 브레인 고정을 명시적으로 제어할 수 있게 보강.

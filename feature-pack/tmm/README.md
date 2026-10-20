@@ -1,9 +1,9 @@
 # tmm — 모바일(SSH) tmux 좌석 TUI
 
-`tmm`은 폰(Termius 등 SSH 클라이언트)에서 수십 개의 tmux 에이전트 세션("좌석")을 **커서로 고르고, 붙지 않고 미리보고, 메시지를 보내는** 한 화면짜리 TUI입니다. `tmuxc`로 띄운 Claude Code·Codex·OMX 좌석 운영을 전제로 만들었지만 일반 tmux 세션에도 그대로 씁니다.
+`tmm`은 폰(Termius 등 SSH 클라이언트)에서 수십 개의 tmux 에이전트 세션("좌석")을 **커서로 고르고, 붙지 않고 미리보고, 메시지를 보내는** 한 화면짜리 TUI입니다. `tmuxc`로 띄운 Claude Code·Codex·OMX·OpenCode·Command Code·Pi 좌석 운영을 전제로 만들었지만 일반 tmux 세션에도 그대로 씁니다.
 
 ```
-─────────────────────────────────────────────────────────────── tmm 0.7.3 ──
+─────────────────────────────────────────────────────────────── tmm 0.9.1 ──
   이동 ⏎ attach  ^S 메시지  ^K 닫기  ^F fork  ^D 종료  ^X 끝
   정렬 ^T 최근  ^W 대기  ^G 분류  ^H 대기만  ^A 전체
   화면 ^P/^O 미리보기  ^U 자동  ^R 갱신  ^Y 경로  ^/ 도움
@@ -24,6 +24,15 @@
 - 좌석이 60개를 넘으면 `tmux ls`는 읽을 수 없고, 세션명을 폰 키보드로 치는 건 고통입니다.
 - 진짜 급한 건 **사람 입력을 기다리는 좌석**(인터뷰·승인 프롬프트)인데 tmux는 그걸 표시하지 않습니다.
 - "어느 좌석이 가장 최근에 뭔가 말했나"가 폰에서 제일 먼저 보고 싶은 정보입니다.
+
+## Pi 좌석
+
+`tmuxc open ... --agent pi`로 띄운 Pi 세션도 같은 좌석으로 보입니다.
+
+- `live_agent_of`가 `pi` 프로세스를 인식한다.
+- `tmuxc probe`가 `--session-id`/model/thinking을 회수하므로 `tmm idx`와 `tmm fork`가 동작한다.
+- `tmm fork --agent pi`는 `tmuxc fork`로 네이티브 분기한다.
+- 종료 뷰(`^D`)의 pi 복구는 스냅샷(`tmuxc save`)이 있을 때 `restore_cmd_for`로 처리한다. `--scan` 포렌식은 claude/codex만 지원.
 
 ## 한 줄 = 한 좌석
 

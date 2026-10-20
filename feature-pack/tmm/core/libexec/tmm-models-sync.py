@@ -9,7 +9,8 @@
 
 - opencode: `opencode models` (provider/model 목록)
 - cmd     : `cmd --list-models`
-- claude/codex: CLI 에 목록 명령이 없어 알려진 목록을 정적으로 쓴다(모델 추가 시 여기 갱신).
+- pi      : OpenGateway provider의 알려진 DeepSeek 2종을 정적으로 쓴다.
+- claude/codex/pi: CLI 에 목록 명령이 없어 알려진 목록을 정적으로 쓴다(모델 추가 시 여기 갱신).
 별칭은 «마지막 경로 조각»(provider 접두 제거, @suffix 제거). 같은 에이전트 안에서 충돌하면
 상위 provider 조각을 붙여 유일하게 만든다. 사용자 파일이 먼저 읽히므로 사용자 별칭이 우선한다.
 """
@@ -28,6 +29,8 @@ STATIC = {
     "codex": [("astra", "gpt-6-astra"), ("sol", "gpt-5.6-sol"), ("terra", "gpt-5.6-terra"),
               ("luna", "gpt-5.6-luna"), ("gpt55", "gpt-5.5"), ("gpt54", "gpt-5.4"),
               ("gpt53codex", "gpt-5.3-codex")],
+    "pi": [("dsfast", "opengateway/deepseek/deepseek-v4.1-flash-ultrafast"),
+           ("dspro", "opengateway/deepseek/deepseek-v4-pro")],
 }
 
 
@@ -97,7 +100,7 @@ def emit(agent, ids, static=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
-    ap.add_argument("--agents", default="claude,codex,opencode,cmd")
+    ap.add_argument("--agents", default="claude,codex,opencode,cmd,pi")
     ap.add_argument("--provider", default=os.environ.get("TMM_MODELS_PROVIDER", "openrouter"))
     a = ap.parse_args()
     agents = [x.strip() for x in a.agents.split(",") if x.strip()]

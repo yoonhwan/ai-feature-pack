@@ -20,7 +20,7 @@
 #   tmm restore-all [--since H] [--dry-run] [--yes]   창 안 종료 세션 «전부» 복구 — 5개씩 배치 병렬(TMM_RESTORE_BATCH), 결과 $RUN/restore-<ts>.log(ok|fail) — tmuxc restore --scan --loose 의 폰판
 #   tmm idx NAME|SID [--json|--path]     세션의 대화 기록(트랜스크립트) 인덱스 경로 — 라이브·종료 공통. 에이전트가 이전 대화를 바로 찾게
 #   tmm fork SRC --agent AG --model M [--name N] [--cwd C] [--effort E] [--ctx 1m] [--prompt P] [--dry-run] [--attach]
-#                                        소스 대화를 «새 에이전트 세션»으로 이어받기. 동일 엔진=네이티브 tmuxc fork(전체 히스토리·부모 불변),
+#                                        AG = claude|codex|opencode|cmd|pi. 소스 대화를 «새 에이전트 세션»으로 이어받기. 동일 엔진=네이티브 tmuxc fork(전체 히스토리·부모 불변),
 #                                        크로스 엔진=tmuxc open 새 세션 + 트랜스크립트 경로·발췌 주입(~/.tmm/forks). 이름 기본=소스 #N+1
 #   tmm models [AG] | refresh [AG...] | find QUERY   fork 모델 별칭 — refresh 는 라이브 목록(opencode 프로바이더 접두사)에서 생성
 #                                        opencode 의 --model 접두사가 곧 프로바이더다: opencode/=zen, openrouter/=OpenRouter (TMM_MODELS_PROVIDER)
@@ -852,7 +852,7 @@ cmd_dead_preview() {  # NAME|SID [N]
 
 # 라이브 좌석의 엔진 판별 — pane 자식 프로세스 argv(+cmd 는 pane title). resolve 가 이 힌트로 해당 엔진만 훑게 한다
 # (힌트 없이 4엔진을 다 훑으면 codex/cmd 글롭 전수 head-read 로 opencode 좌석이 7~11초 걸렸다 — 2026-09-19 실측).
-live_agent_of() {  # session → claude|codex|opencode|cmd|""
+live_agent_of() {  # session → claude|codex|opencode|cmd|pi|""
   local ppid pid args title
   ppid="$(tmux display -p -t "=$1:" '#{pane_pid}' 2>/dev/null)"
   [ -n "$ppid" ] || return 0
@@ -862,6 +862,7 @@ live_agent_of() {  # session → claude|codex|opencode|cmd|""
       *claude*)   echo claude; return 0;;
       *codex*)    echo codex; return 0;;
       *opencode*) echo opencode; return 0;;
+      pi|*/pi|pi\ *|*pi-coding-agent*) echo pi; return 0;;
       *command-code*|*"cmd "*) echo cmd; return 0;;
     esac
   done
@@ -878,6 +879,16 @@ idx_row() {  # NAME|SID
   if tmux has-session -t "=$n" 2>/dev/null; then
     cwd="$(tmux display -p -t "=$n:" '#{pane_current_path}' 2>/dev/null)"
     ag="$(live_agent_of "$n")"
+    # pi 는 tmuxc 가 --session-id 를 발급한다 — probe 로 sid/path 를 바로 만들 수 있다.
+    if [ "$ag" = pi ]; then
+      local probe psid ppath
+      probe="$(tmuxc probe "$n" 2>/dev/null || true)"
+      psid="$(printf '%s\n' "$probe" | sed -n 's/^sid=//p' | head -1)"
+      [ -n "$psid" ] || return 1
+      ppath="$(find "$HOME/.pi/agent/sessions" -type f -name "*${psid}*.jsonl" 2>/dev/null | head -1)"
+      printf 'pi\t%s\t%s\t%s\tprobe\n' "$psid" "$ppath" "$cwd"
+      return 0
+    fi
     local -a rargs=(--name "$n" --cwd "$cwd"); [ -n "$ag" ] && rargs+=(--agent "$ag")
     python3 "$DEAD_SCAN" resolve "${rargs[@]}" 2>/dev/null
     return
@@ -991,7 +1002,7 @@ cmd_fork() {  # SRC [--agent AG] [--model M] [--name N] [--cwd C] [--effort E] [
   [ -n "$cwd" ] || cwd="$scwd"
   [ -d "$cwd" ] || { echo "⚠ cwd 없음 ($cwd) → \$HOME"; cwd="$HOME"; }
   [ -n "$agent" ] || agent="$sagent"
-  case "$agent" in claude|codex|opencode|cmd) ;; *) echo "❌ 미지원 에이전트: $agent (claude|codex|opencode|cmd)"; return 1;; esac
+  case "$agent" in claude|codex|opencode|cmd|pi) ;; *) echo "❌ 미지원 에이전트: $agent (claude|codex|opencode|cmd|pi)"; return 1;; esac
   local same=0; [ "$agent" = "$sagent" ] && same=1
   # 모델: 별칭→id 매핑(별칭일 때만). 미지정이면 동일 엔진일 때만 소스 모델 승계.
   local alias="$model" mid extra=""
@@ -1058,10 +1069,10 @@ cmd_forkp() {  # SRC
   case "$name" in q|Q|취소) { _fcancel; return 0; };; esac
   [ -n "$name" ] || name="$def"
 
-  printf '에이전트: 1 claude  2 codex  3 opencode  4 cmd\n'
+  printf '에이전트: 1 claude  2 codex  3 opencode  4 cmd  5 pi\n'
   read -r -p "선택 [1]: " ag || cancelled=1
   [ "$cancelled" = 1 ] && { _fcancel; return 0; }
-  case "$ag" in q|Q|취소) { _fcancel; return 0; };; 2) agent=codex;; 3) agent=opencode;; 4) agent=cmd;; *) agent=claude;; esac
+  case "$ag" in q|Q|취소) { _fcancel; return 0; };; 2) agent=codex;; 3) agent=opencode;; 4) agent=cmd;; 5) agent=pi;; *) agent=claude;; esac
 
   list="$(models_of "$agent")"
   if [ -n "$list" ] && command -v fzf >/dev/null; then
@@ -1132,7 +1143,7 @@ cmd_models() {  # [agent] | refresh [agent...] | find QUERY
         | awk -F'\t' -v q="$q" '!/^#/ && $2!="" && (index(tolower($2),tolower(q)) || index(tolower($3),tolower(q))) {print $1"\t"$2"\t"$3}' | sort -u
       ;;
     "")
-      local a; for a in claude codex opencode cmd; do printf '# %s\n' "$a"; models_of "$a"; done;;
+      local a; for a in claude codex opencode cmd pi; do printf '# %s\n' "$a"; models_of "$a"; done;;
     *) models_of "$sub";;
   esac
 }
@@ -1149,6 +1160,7 @@ restore_cmd_for() {  # agent model sid name resume
     codex)  printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high" resume %s' "$sid";;
     cmd)    printf 'cmd --yolo --trust --skip-onboarding --name %s --resume %s' "$name" "$sid";;
     opencode) printf 'opencode --session %s' "$sid";;
+    pi)    printf 'pi --name %s --session %s' "$name" "$sid";;
     *) return 1;;
   esac
 }

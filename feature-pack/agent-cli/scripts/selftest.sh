@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # selftest.sh — cross-cli 비대화·자율·resume 점검 하네스 (로그 영속 + 강제 타임아웃)
-# Usage: bash selftest.sh [cli ...]      (기본: claude codex gemini opencode cursor-agent)
+# Usage: bash selftest.sh [cli ...]      (기본: claude codex gemini opencode cursor-agent agy pi)
 # 각 CLI: ① PATH 존재 ② 비대화+자율 R1(코드워드 주입) ③ resume R2(코드워드 회상)
 # 로그: <skill>/logs/ 를 매 실행 삭제·재생성 → selftest.log + <cli>.r1/.r2/.err 원문 보존.
 # 환경: OPENCODE_MODEL(기본 opencode/deepseek-v4-flash-free) · CROSS_CLI_LOGDIR · CROSS_CLI_TIMEOUT(초, 기본 150)
@@ -12,7 +12,7 @@ SDIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOGDIR="${CROSS_CLI_LOGDIR:-$SDIR/logs}"; LOG="$LOGDIR/selftest.log"
 rm -rf "$LOGDIR"; mkdir -p "$LOGDIR"
 
-CLIS=("$@"); [ ${#CLIS[@]} -eq 0 ] && CLIS=(claude codex gemini opencode cursor-agent agy)
+CLIS=("$@"); [ ${#CLIS[@]} -eq 0 ] && CLIS=(claude codex gemini opencode cursor-agent agy pi)
 
 # 로컬 프록시 래퍼 우선 (SKILL.md §2 스텝 0) — bare claude는 구독 프록시 우회. CLAUDE_BIN으로 오버라이드.
 CLAUDE_BIN="${CLAUDE_BIN:-}"
@@ -83,6 +83,16 @@ run_one(){
       has "$o1" && r1="✅" || r1="⚠️ R1불일치"; log "[agy] R1 verdict=$r1"
       o2=$(run_to agy -c -p "$R2" --print-timeout 60s --dangerously-skip-permissions 2>>"$base.err"); echo "$o2">"$base.r2"
       has "$o2" && r2="✅" || r2="❌ 미회상"; log "[agy] R2(-c continue) verdict=$r2" ;;
+    pi)
+      local pi_sid pi_model pi_tools
+      pi_sid="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+      pi_model="${PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}"
+      pi_tools="${PI_TOOLS:-read}"
+      o1=$(run_to pi -p --session-id "$pi_sid" --model "$pi_model" --tools "$pi_tools" "$R1" 2>"$base.err"); echo "$o1">"$base.r1"
+      has "$o1" && r1="✅" || r1="⚠️ R1불일치"
+      log "[pi] R1 sid=$pi_sid model=$pi_model verdict=$r1"
+      o2=$(run_to pi -p --session "$pi_sid" --model "$pi_model" --tools "$pi_tools" "$R2" 2>>"$base.err"); echo "$o2">"$base.r2"
+      has "$o2" && r2="✅" || r2="❌ 미회상"; log "[pi] R2(session resume) verdict=$r2" ;;
     *) log "[$cli] 미지원"; ROWS+=("| $cli | ❓ 미지원 | — | — |"); return ;;
   esac
   ROWS+=("| $cli | ✅ | $r1 | $r2 |")

@@ -2,7 +2,7 @@
 name: agent-cli
 description: >-
   AI 코딩 에이전트 CLI 툴킷 — 설치·비교·**비대화 실행·자율주행·resume 체인·페르소나 위임**.
-  지원: Claude Code · Codex · Gemini · OpenCode · Cursor Agent · Command Code (+ Aider/Amp/Pi 참고).
+  지원: Claude Code · Codex · Gemini · OpenCode · Cursor Agent · Command Code · Pi (+ Aider/Amp 참고).
   현재 코딩/채팅 세션 안에서 OTHER 프로바이더 CLI를 비대화로 띄워 자율 주행시키고(dangerous/full-auto/yolo/force),
   페르소나(DA/designer/architect)를 주입하고, resume으로 이어간다. 판별 신호는 "현재 세션과 다른 모델/에이전트에
   작업·판단을 위임". 다음에서 발동: 다른 모델의 second opinion·적대검증(DA)·설계/아키텍처 패스·cross-check,
@@ -25,9 +25,12 @@ triggers:
   - "gemini 설치"
   - "claude 설치"
   - "opencode 설치"
+  - "pi 설치"
+  - "pi로 검증"
+  - "pi한테 시켜"
   - "CLI 비교"
   - "래핑 가이드"
-compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu는 `apt install perl python3`). 5종 중 최소 1개 에이전트 CLI가 PATH에 설치·인증돼 있을 것. 환경/가용 CLI는 `scripts/detect-env.sh`로 자동 파악.
+compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu는 `apt install perl python3`). 6종 중 최소 1개 에이전트 CLI가 PATH에 설치·인증돼 있을 것. 환경/가용 CLI는 `scripts/detect-env.sh`로 자동 파악.
 ---
 
 # agent-cli — AI 코딩 에이전트 CLI 툴킷 (설치·비교·비대화 위임)
@@ -48,7 +51,7 @@ compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu
 
 핵심 가치: **author ↔ review 분리**(내가 짠 걸 다른 모델이 적대검증), **프로바이더 무관 위임**, **세션 영속성**.
 
-## 1. CLI 자동주행 + 영속성 매트릭스 (✅ 2026-06 5종 실증 · 2026-08 Command Code 추가)
+## 1. CLI 자동주행 + 영속성 매트릭스 (✅ 2026-06 5종 실증 · 2026-08 Command Code · 2026-10 Pi 추가)
 
 | CLI | 비대화 | 자동주행(자율) | resume | JSON | 비고 |
 |-----|--------|---------------|--------|------|------|
@@ -58,6 +61,7 @@ compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu
 | **OpenCode** | `opencode run` | 기본 무승인 | `-s <sid>` / `-c` | `--format json` | **유효 provider/model 필수** |
 | **Cursor Agent** | `cursor-agent -p` | `-f` / `--force` | `--resume <chatId>` | `--output-format json` | **`cursor` IDE 아님 — 비대화 작동** |
 | **Command Code** | `cmd -p` | `--yolo` | `-r <sid>` ⎮ `--session <id>` ⎮ `-c` | `--output-format json` | sid는 최종 `result` 라인 `sessionId`(**stdout**) · **크레딧 구독 필수**(잔액 0이면 exit 10) |
+| **Pi** | `pi -p` | `--tools <allowlist>` (승인 프롬프트 없음) ⎮ `--approve` | `--session-id <sid>` (fresh) / `--session <sid>` (resume) | `--mode json` (JSONL events) | `provider/model` 참조는 **이중 slash** 가능 (`opengateway/deepseek/...`) · `--skill`로 스킬 주입 |
 
 \* Codex `--full-auto`(무승인+workspace-write) vs `--yolo`(=`--dangerously-bypass-approvals-and-sandbox`)는 택1.
 \*\* Codex는 session id를 **stderr**로만 노출 → stdout 파싱 대신 `resume --last`(직전 세션).
@@ -90,10 +94,40 @@ codex exec --full-auto --skip-git-repo-check \
 출력: APPROVED | CHANGES_REQUESTED + 근거 목록." < /dev/null
 ```
 
+### 예시 — Pi로 read-only scout / DA
+
+```bash
+SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+
+pi -p --session-id "$SID" \
+  --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast \
+  --tools read,grep,find,bash \
+  --append-system-prompt "$(sed -n '/^## DA/,/^## /p' references/personas.md)" \
+  "미션: 아래 변경을 적대검증하라. 대상: $(git diff --stat). 출력: APPROVED | CHANGES_REQUESTED + 근거." \
+  < /dev/null
+
+# 후속 라운드 — 같은 세션
+pi -p --session "$SID" \
+  --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast \
+  --tools read,grep,find,bash \
+  "지적 사항의 우선순위만 다시 정리해줘." < /dev/null
+```
+
+Pi는 `--mode json`으로 JSONL 이벤트를 낸다(첫 줄 `session`, 마지막 `agent_settled`). 세션 ID는 `--session-id`로 **미리 발급**하면 파싱 없이 resume할 수 있다.
+
+**Pi continuation 제약 (공식):**
+- `--fork` + `--session-id <new>` = 허용 (child ID 고정)
+- `--fork` + `--session` / `--continue` / `--resume` / `--no-session` = **금지**
+- `--session-id` + `--session` / `--continue` / `--resume` = **금지**
+- `--session <path|id>`는 exact/partial ID. cross-project match는 fork를 제안하므로 자동화에서는 exact ID/path 사용
+- `--continue`는 현재 project 최신 세션 — 자동화에 부적합
+- `--no-session`은 ephemeral, resume 불가
+
 ## 3. 페르소나 프리셋
 
 `references/personas.md` — **DA**(적대검증), **designer**(UI/UX·토큰), **architect**(읽기전용 설계). 주입:
 - Claude: `--append-system-prompt "$(persona)"` / `--system-prompt`
+- Pi: `--append-system-prompt "$(persona)"` (첫 라운드)
 - Codex / Cursor / Gemini: 프롬프트 본문 맨 앞 prepend
 
 ## 4. 자동주행 안전 규칙 (반드시)

@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - `perl`, `python3` — macOS 기본 내장. **WSL/Ubuntu에 없으면**: `sudo apt update && sudo apt install -y perl python3`
-- 5종 중 **최소 1개**의 에이전트 CLI 설치·인증: `claude` / `codex` / `gemini` / `opencode` / `cursor-agent`
+- 6종 중 **최소 1개**의 에이전트 CLI 설치·인증: `claude` / `codex` / `gemini` / `opencode` / `cursor-agent` / `pi`
   (미설치는 자동 SKIP. 설치는 `cli/install.md` 또는 `references/install-and-compare.md`)
 
 ## Step 0: 환경 파악 (권장 — macOS / Linux / **WSL** 자동 구분)
@@ -32,9 +32,11 @@ chmod +x ~/.claude/skills/agent-cli/scripts/*.sh
 
 `config/tools-section.md` 내용을 에이전트 TOOLS.md(또는 동급 카탈로그)에 추가.
 
-## Step 3: (선택) OpenCode 기본 모델
+## Step 3: (선택) OpenCode / Pi 기본 모델
 
-기본값 `opencode/deepseek-v4-flash-free`. 다르면 `export OPENCODE_MODEL=<provider/model>` (목록: `opencode models`).
+- OpenCode 기본값 `opencode/deepseek-v4-flash-free`. 다르면 `export OPENCODE_MODEL=<provider/model>` (목록: `opencode models`).
+- Pi 기본값 `opengateway/deepseek/deepseek-v4.1-flash-ultrafast`. 다르면 `export PI_MODEL=<provider/model>`.
+- Pi는 `pi auth check --provider opengateway --json`로 인증을 먼저 확인한다. 스킬 주입은 `--skill`, 툴 제한은 `--tools`.
 
 ## Step 4: 검증
 

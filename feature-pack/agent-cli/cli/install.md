@@ -18,6 +18,7 @@ agent-cli는 **기존에 설치·인증된** 에이전트 CLI를 호출한다. �
 | **gemini** | `brew install gemini-cli` 또는 npm | `npm i -g @google/gemini-cli` | Google 로그인 / API 키 | `gemini -p` |
 | **opencode** | `brew install opencode` | `curl -fsSL https://opencode.ai/install \| bash` (또는 npm) | provider별 키/OAuth | `opencode run` |
 | **cursor-agent** | `curl https://cursor.com/install \| bash` | 동일(Linux 빌드) | Cursor 로그인 | `cursor-agent -p` |
+| **pi** | `npm i -g --ignore-scripts @earendil-works/pi-coding-agent` | 동일(npm) | `pi auth check` / OpenGateway Keychain·env | `pi -p` |
 
 > 버전·설치법은 빠르게 바뀌니 각 공식 문서 우선. 설치 후 `command -v <cli>`로 PATH 확인.
 
@@ -36,6 +37,8 @@ codex exec --skip-git-repo-check "ping" </dev/null
 gemini -p "ping" --approval-mode yolo -o json </dev/null
 opencode run -m "<provider/model>" "ping"
 cursor-agent -p -f --output-format json "ping" </dev/null
+pi auth check --provider opengateway --json
+pi -p --tools read "ping" </dev/null
 ```
 
 미인증/미설치면 selftest에서 ⚠️/SKIP으로 표시된다(스크립트는 정상).
