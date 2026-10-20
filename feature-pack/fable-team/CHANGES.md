@@ -9,6 +9,18 @@
 - 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-spawn.sh` · 정본 bin 짝 cmp0) + 시험 1 · manifest 1.1.118 · `install.sh` REQUIRED 목록 변경 0 · 데몬 재기동 0. **LIVE_BIN 설치 집행·실사건(다음 spawn dry-run BODY 에 그 줄 · pi·claude)은 master 소관 — 미실행.** 되돌림 = `.bak-r570`.
 - 범위 밖: 검색·명부 쓰기를 «막는» 훅(별도 카드 후보 · 지금은 문장) · 역할 좌석(master·arch·DA) 부팅 문장 · 이미 열린 나노.
 
+## 2026-10-20 — 좌석 상태 조회가 폴더의 jsonl «전부» 를 매번 읽던 것 → 폴더별 색인 1개 (r571 · 1.1.119 · 동작 변경·답 불변)
+
+- 사건(planner 85 요청 · CPU 폭주 경보 쪽지 122491 «Python×5 210% · 누적 251분» · arch 111 실측 2026-10-20 22:4x): `ft-seat-status.sh` `newest_jsonl_of` 가 좌석 1석 조회마다 그 cwd 의 `*.jsonl` «전부» 를 앞 1MB 씩 읽고 `agentName`/`customTitle` 을 찾는다. 폴더당 jsonl 203~10,003개 — v6-realtime-live 8석이면 좌석당 5.7GB · 45석 한 바퀴 61GB · 따뜻한 캐시에서도 6.9초/석. 부르는 곳 = `ft-tick.sh` 3 · `ft-idle-wake` 2 · `ft-news-tick` 2 · `ft-nano-slots` · `ft-resource-reclaim` · `ft-blocked-on-master`. 그 부하가 press·뉴스 fetch·나노 시험을 함께 늦췄다.
+- 고침 ①(신규 `ft_seat_jsonl_index.py` 165줄): `newest <폴더> <좌석>` — 색인 `<FT_SEAT_INDEX_DIR 기본 $HOME/.claude/state/seat-jsonl-index>/<폴더 이름>.json` = 경로 → {size · mtime · read · names[]}. 갱신 = `os.scandir` 1회 + «색인에 없거나 크기·시각이 바뀐 파일» 의 «아직 안 읽은 앞부분» 만 더 읽음(경계 이름 레코드 = 1KB 겹쳐 읽기) · 사라진 경로 삭제 · 1MB 상한(FT_SEAT_HEAD_BYTES)에 닿은 파일은 stat 만 · 쓰기 = 임시 파일 + `os.replace` · 폴더당 잠금 `fcntl.flock`(대기 상한 7초 — 넘으면 마지막 색인으로 답 + stderr WARN) · 깨진 색인 = stderr `ERROR r571-index` + 처음부터(조용한 빈 답 0) · 답 = names 에 좌석이 든 항목 중 mtime 최대 경로.
+- 고침 ②(`ft-seat-status.sh` `newest_jsonl_of`): 인라인 python 대신 `python3 "$(dirname "$0")/ft_seat_jsonl_index.py" newest "$dir" "$1"` — 출력 꼴·빈 답 뜻·호출처는 그대로(판정 결과 변경 0).
+- 계측: `FT_SEAT_INDEX_STATS=1` 이면 stderr `READ <바이트> FILES <개수> NEW <개수> MS <밀리초>` 1줄 · 기본 출력 0.
+- 시험 `tests/test_seat_jsonl_index.sh` ⓐ~ⓖ(임시 HOME `.claude/projects/<인코딩>/` jsonl 301개 · 가짜 tmux · 실 홈 쓰기 0 · 답은 HEAD 판 인라인 판정기와 대조): ⓐ같은 좌석 2회 → 1회째 READ = 전 파일 합 · 2회째 READ 0(지금 판은 2회째도 전 파일 재읽기) ⓑ좌석 21개 답 == 지금 판(차이 0) ⓒ새 jsonl 1개 = 그 파일이 최신 · READ = 그 파일 크기 ⓓ작았던 파일이 자라 이름 레코드 생김 → 다음 조회에 잡힘(전체 재읽기 0) ⓔ삭제 파일 = 색인에서 빠짐 · 잔재 0 ⓕ동시 5개 조회 = 답 동일 · 읽기 합 = 전 파일 합(한 번만 읽음) · 예외 0 ⓖ색인 깨짐 = ERROR + 처음부터(답 동일). 전 FAIL 12칸(`evidence/r571/01-before-red.txt` · base 판정기) → 후 PASS(`02-after-pass.txt`).
+- 기존 시험(좌석상태 인접만 · 광역 금지): `test_tick_line.sh`·`test_team_tick_unify.sh`·`test_nano_slots.sh` ALL PASS(`03-existing-tests.txt`) · `ruff check` PASS · `bash -n` OK · 정본/키트 cmp0 2(`04-…`).
+- 실측(읽기 전용 · 실 홈 projects · 색인은 /tmp · `06-live-readonly-measure.txt`): harness-ops 폴더(jsonl 5,328 · 3,427MB · 지금 판 1회 = 2,892,298,409 바이트) — 1회째 `READ 2892364185 FILES 5328 MS 8813` → 2회째 `READ 0 MS 66` · 같은 폴더 2번째 좌석 = `NEW 1 READ 14883 MS 1022` · base 판정기 같은 좌석 2회 = real 3.35s·1.60s(색인 판 0.10s).
+- 설치: 있음 — 키트 2(`ft_seat_jsonl_index.py` 신규 · `ft-seat-status.sh`) + 시험 1 · `harness/bin` 짝 cmp0 2 · `install.sh` 는 kit 트리 전체를 복사하므로 목록 변경 0 · LIVE_BIN cmp0 · 틱·감시 데몬 재기동은 master 소관(미실행). 되돌림 = `.bak-r571`(색인 파일을 지우면 처음 판으로 다시 만든다).
+- 범위 밖(후속 카드 후보 · 같은 부하 갈래): 같은 «좌석→jsonl» 찾기를 따로 가진 8곳(`ft-reach-check.sh` grep 전문 · `ft-nano-close` · `ft-nano-spawn-undo` · `ft-nano-never-started-check` · `ft-seat-retire` · `ft-successor-open` · `ft_tick_line_io.py` · `ft_api_outage_util.py`)을 이 색인으로 옮기기 · 옛 jsonl 정리(삭제 = HIL) · 틱 안 호출 횟수 줄이기 · r539 경보 판정식.
+
 ## 2026-10-20 — 뉴스 «지도 만들기» = 모델 HTTP 직접 호출(CLI 기동 0) + 원장·골 = origin/main ref + 자율 = 데이터 루트 (r563 · 1.1.114 · 동작 변경)
 
 - 사건(arch 110 실측 2026-10-20 21:2x · `/tmp/byz-ft-news-planner.log`): 부하 52 에서 매 틱 `opencode run summary 실패(openrouter/anthropic/claude-haiku-5.5): summary 상한 7s 초과(총 마감 70s)` = 발행 0. 원인은 부하가 아니라 구조 — 모델 호출이 매번 `opencode` CLI 를 새로 띄워 «첫 출력까지» 가 한가할 때도 13~41초(`state/news-cli-startup.tsv`) → 7초 룰의 상한 대부분이 기동 시간. 덤: 원장 사본 체크아웃이 매분 fetch+checkout(20초 timeout)으로 실패하며 «낡은 사본» 을 발행하고, 본문 자율 칸은 공용 루트 상태 폴더를 읽어 «off» 로 오독, 골 표가 0줄이어도 «정상» 발행.

@@ -1,0 +1,27 @@
+PASS bash -n · py 문법
+PASS 새 파일 ≤200줄
+PASS 정본/키트 cmp0
+PASS seat-status 정본/키트 cmp0
+PASS base 판정기 확보
+PASS ⓐ 1회째 READ = 전 파일 합(아직 색인 없음)
+PASS ⓐ 2회째 READ 0 (고친 판)
+PASS ⓐ 지금 판은 2회째도 전 파일 재읽기(= 첫 READ 와 같음)
+PASS ⓑ 좌석 21개 답 == 지금 판
+PASS ⓑ 답 차이 0
+PASS ⓒ 새 파일 READ = 새 파일 크기
+PASS ⓒ 답 = new.jsonl
+PASS ⓓ 자란 파일의 새 이름 레코드 잡힘
+PASS ⓓ READ = 자란 만큼만(전체 재읽기 0)
+PASS ⓔ 삭제 파일 색인에서 빠짐
+PASS ⓔ 색인에 삭제 경로 0
+PASS ⓕ 5개 동시 조회 답 동일
+PASS ⓕ 읽기 합 = 전 파일 합(한 번만 읽음)
+PASS ⓕ 예외 0
+PASS ⓖ rc=0
+PASS ⓖ ERROR 줄
+PASS ⓖ 답 == 지금 판
+PASS 색인 폴더는 FT_SEAT_INDEX_DIR
+PASS 실 기본 경로 쓰기 0
+--- fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
