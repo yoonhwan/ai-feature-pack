@@ -1,0 +1,4 @@
+== bash -n · 두 사본(kit/bin) cmp
+bash -n OK
+kit/bin cmp0
+tests bash -n OK

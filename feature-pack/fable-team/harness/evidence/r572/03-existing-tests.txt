@@ -1,0 +1,12 @@
+== 기존 나노-close 인접 시험(광역 pytest 대신 이 카드 인접만)
+--- test_nano_close_fail_closed.sh rc=0 FAIL=0 PASS=48
+--- test_nano_close_named_wt.sh rc=0 FAIL=0 PASS=63
+--- test_nano_close_never_started.sh rc=0 FAIL=0 PASS=155
+--- test_nano_close_pack_wt.sh rc=0 FAIL=0 PASS=30
+--- test_nano_close_rerun_early.sh rc=0 FAIL=0 PASS=37
+--- test_nano_close_rerun_wt_clean.sh rc=0 FAIL=0 PASS=32
+--- test_nano_close_sha_base.sh rc=0 FAIL=0 PASS=21
+--- test_nano_close_superseded_by.sh rc=0 FAIL=0 PASS=140
+--- test_nano_close_suspended.sh rc=0 FAIL=0 PASS=92
+--- test_nano_close_worktree_list_pipe.sh rc=0 FAIL=0 PASS=18
+--- test_nano_close_wt_deletion_only.sh rc=0 FAIL=0 PASS=23
