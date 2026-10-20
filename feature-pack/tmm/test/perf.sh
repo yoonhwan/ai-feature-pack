@@ -88,7 +88,7 @@ make_sessions() {  # <N>
 for N in $SIZES; do
   echo "== N=$N =="
   make_sessions "$N"
-  RUNDIR="$SOCK_DIR/run-$N"; mkdir -p "$RUNDIR"; rm -f "$SOCK_DIR"/tmm-scan-*.cache "$SOCK_DIR"/tmm-*/ep.cache 2>/dev/null
+  RUNDIR="$SOCK_DIR/run-$N"; mkdir -p "$RUNDIR"; rm -f "$SOCK_DIR"/tmm-scan-*.cache "$SOCK_DIR"/tmm-*/ep*.cache 2>/dev/null
 
   # (a) 카테고리 결과 = 골든(0.9.0 — 3열이 «프로젝트/팀»으로 바뀐 의도된 갱신, 세션 집합은 0.8.0 과 동일). 첫 호출은 스캔·좌석별 캐시를 채우고, 둘째가 «캐시 적중» 시각이다.
   tmm rows time > /dev/null
