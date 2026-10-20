@@ -11,7 +11,7 @@
 #   r560: 같은 범위 원장에 이미 센 승인 A 가 새 sha 의 EQUIV(판정기 rc0)면 원장 줄 종류 `equiv` · used·today 증가 0 · 출력 `equiv=<A>`(재승인은 범위 한도 비차감 — 하루 한도 15 중 9 소진 사건)
 # 상태 원천 = autonomy.log 한 곳(추가 전용 · 쓰기는 ft-autonomy.sh 의 lock 안 · json 카운터 0) — 건수는 `scope-use` 줄을 센다(종류 revert·equiv 는 안 센다).
 # 원장 `$STATE/autonomy-scope/S<n>.ledger.tsv` 7칸 = 시각·sha·PR·종류·판정문(빈칸)·착지 sha(빈칸 — r298b 가 6번째 칸을 채운다)·되돌림 명령(빈칸)
-# 외부 호출 0 — 분류기는 로컬 git 뿐 · 7초 상한(넘으면 REJECT · 판정 666).
+# 외부 호출 0 — 분류기는 로컬 git 뿐 · 상한 = 500파일 이하 7초 · 그 위 min(3.5 + 7 × ceil(파일 수/500), 70)초(r559 · 넘으면 REJECT · 판정 666).
 SDIR="$STATE/autonomy-scope"
 . "$HERE/ft-autonomy-scope-code.sh"
 
@@ -133,11 +133,19 @@ cmd_approve_scope() {
   unlock; scope_load; echo "SCOPE-GRANTED $G_S $G_A until=$(hhmm "$G_UNTIL") max=$G_MAX daily=$G_DAILY classes=$G_CLASSES${GR_LINE#*classes="$G_CLASSES"}"
 }
 
-scope_run_cls() {  # <하위명령> <sha|""> [분류 인자…] → OUT·RC·FIRST (분류기 r298b · 로컬 git 뿐 · 7초 상한 — 넘으면 rc≠0 = REJECT 쪽)
-  local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" runner a=("$1"); [ -n "$2" ] && a+=("$2"); shift 2
+scope_alarm_secs() {  # <sha> → 크기 비례 상한(초) = min(3.5 + 7 × ceil(파일 수/500), 70) · 파일 수 = git diff --name-only 줄 수(하드 룰 12 «크기 아는 배치» · r559)
+  local base n
+  base="$(git -C "${SCOPE_REPO:-$ROOT}" merge-base refs/remotes/origin/main "$1" 2>/dev/null)" || { echo 7; return; }
+  n="$(git -C "${SCOPE_REPO:-$ROOT}" diff --name-only "$base" "$1" 2>/dev/null | wc -l | tr -d ' ')"
+  [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -gt 500 ] || { echo 7; return; }
+  perl -e 'my $s = 3.5 + 7 * int(($ARGV[0] + 499) / 500); $s = 70 if $s > 70; print int($s + 0.999)' "$n"
+}
+
+scope_run_cls() {  # <하위명령> <sha|""> [분류 인자…] → OUT·RC·FIRST (분류기 r298b · 로컬 git 뿐 · 상한 = 작은 세트 7초 · 큰 세트 크기 비례(scope_alarm_secs) — 넘으면 rc≠0 = REJECT 쪽)
+  local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" runner a=("$1") lim=7; [ -n "$2" ] && a+=("$2") && lim="$(scope_alarm_secs "$2")"; shift 2
   [ -f "$cls" ] || scope_err "분류기 없음: $cls"
   if [[ "$cls" == *.py ]]; then runner=(python3 "$cls"); else runner=("$BASH" "$cls"); fi
-  OUT="$(perl -e 'alarm 7; exec @ARGV' -- "${runner[@]}" "${a[@]}" --repo "${SCOPE_REPO:-$ROOT}" --remote origin --target main --scope "$G_S" "$@" 2>&1)"; RC=$?
+  OUT="$(perl -e 'alarm shift; exec @ARGV' -- "$lim" "${runner[@]}" "${a[@]}" --repo "${SCOPE_REPO:-$ROOT}" --remote origin --target main --scope "$G_S" "$@" 2>&1)"; RC=$?
   FIRST="${OUT%%$'\n'*}"
 }
 

@@ -16,12 +16,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import autonomy_scope_rules as rules  # noqa: E402
+import autonomy_scope_secret as secret_lines  # noqa: E402
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SCOPE_RE = re.compile(r"^S[0-9]+$")
 GIT_TIMEOUT_S = 7
 LEDGER_LANDED_COL = 5   # 0 기준 — 승인 시각·sha·PR·종류·판정문·착지 sha·되돌림 명령
-SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}")
 
 
 class Err(Exception):
@@ -55,20 +55,17 @@ def parse_raw(out):   # `git diff --raw -z -M` → [(옛 모드, 새 모드, 상
     return rows
 
 
-def added_text(repo, base, sha):
-    out = git(repo, "diff", "--no-color", "--no-renames", "-U0", base, sha)
-    return "\n".join(ln[1:] for ln in out.split("\n") if ln.startswith("+") and not re.match(r"^\+\+\+ (b/|/dev/null)", ln))
+def added_blocks(repo, base, sha):   # [(경로, [추가 줄…])] — diff 1회(파일마다 git 호출 0 · r559)
+    out, blocks, cur = git(repo, "diff", "--no-color", "--no-renames", "-U0", base, sha), [], None
+    for ln in out.split("\n"):
+        if ln.startswith("+++ "):
+            cur = [] if ln.startswith("+++ b/") else None
+            if cur is not None:
+                blocks.append((ln[6:], cur))
+        elif ln.startswith("+") and cur is not None:
+            cur.append(ln[1:])
+    return blocks
 
-
-def secret_reason(text):
-    if SECRET_SHAPE.search(text):
-        return "추가 줄에 비밀 꼴"
-    try:
-        import ft_secret_judge
-    except SystemExit:
-        raise Err("ft_secret_judge 를 불러오지 못함")
-    found = ft_secret_judge.plan(text)
-    return "추가 줄: " + found[0][1] if found else None
 
 
 def patch_id(repo, a, b):
@@ -119,10 +116,12 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     rows = parse_raw(git(repo, "diff", "--raw", "-z", "-M", base, sha))
     if not rows:
         raise Err("빈 diff(승인할 변경 없음)")
-    added = added_text(repo, base, sha)
+    blocks = added_blocks(repo, base, sha)   # diff 1회(파일마다 git 호출 0) · added = ddl 기록 대조용 전문
+    added = "\n".join(ln for _p, lines in blocks for ln in lines)
     ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
-    judged = [rules.judge_row(table or rules.BYZ_TABLE, r, ddl_ok) for r in rows]
-    secret = secret_reason(added)
+    table = table or rules.BYZ_TABLE   # D+A 짝 맞추기(카드 이동)를 먼저 · 판정은 행마다
+    judged = [rules.judge_row(table, r, ddl_ok) for r in rules.pair_card_moves(table, rows)]
+    secret = secret_lines.reason(blocks)   # 줄 술어 + 400줄 덩어리(r559 속도) · 이유 글자 꼴 종전 그대로
     if secret:
         judged.append(("forbid", "secret", secret))
     used = rules.apply_learned(judged, learned)
@@ -188,7 +187,7 @@ def main(argv):
             rc, line = classify(repo, remote, target, scope, sha, table, records, learned)
         else:
             rc, line = check_revert(repo, remote, target, scope)
-    except (Err, rules.TableErr, OSError) as e:
+    except (Err, rules.TableErr, secret_lines.ImportErr, OSError) as e:
         rc, line = 1, "ERROR %s" % e
     except Exception as e:   # 판정기 내부 오류도 닫힌 쪽(#0 RULE) — 이유는 형 이름뿐
         rc, line = 1, "ERROR 내부 오류 %s" % type(e).__name__

@@ -1,0 +1,28 @@
+== 새 시험을 «고치기 전 분류기»(라이브 1.1.109)로 실행 = 빨강
+R559_CLS=/Users/yoonhwan/.claude/fable-team/live/1.1.109/bin/autonomy_scope_classify.py
+PASS py_compile
+PASS classify ≤ 200줄
+FAIL ⓐ 카드 대기→진행 + 상태 줄 수정 → CLASS docs :: rc=3 out=FORBID kind=delete 상태 D: design/teams/x/indices/대기/C-a.md
+FAIL ⓑ D+A 로 잡힌 같은 카드 이동 → CLASS docs :: rc=3 out=FORBID kind=delete 상태 D: design/teams/x/indices/대기/C-a.md
+FAIL ⓐ2 카드 이동 + 내용 일부 변경(R0xx) → CLASS docs :: rc=3 out=FORBID kind=delete 상태 D: design/teams/x/indices/대기/C-a.md
+PASS ⓒ 짝 없는 D → FORBID delete
+PASS ⓓ 다른 팀 폴더로 이동(내용 바뀜) → FORBID(delete·move-changed 중 하나 · 짝 아님)
+PASS ⓓ indices 밖으로 이동(내용 바뀜) → FORBID
+PASS ⓓ 다른 팀 폴더로 이동(같은 이름·같은 내용) → 지금과 같이 CLASS docs(R100)
+FAIL ⓔ 팀 증거 비실행 파일 → CLASS docs :: rc=0 out=CLASS code
+FAIL ⓕ evidence run.py·run.sh → CLASS docs :: rc=0 out=CLASS code
+PASS ⓕ test_a.py → CLASS code
+PASS ⓕ a_test.py → CLASS code
+PASS ⓕ conftest.py → CLASS code
+PASS ⓕ 100755 실행 비트 → FORBID mode 그대로
+PASS ⓖ 팀 폴더 밖 design/foo/b.txt → CLASS code
+PASS ⓖ evidence 밖 팀 폴더 .py → CLASS code
+PASS ⓗ toss-payments.html → FORBID billing 그대로
+PASS ⓗ toss-payments.md → CLASS docs(.md 는 낱말 금지 줄 위 · r514 그대로)
+PASS ⓗ 학습 키 billing 주면 CLASS docs kind=billing learned
+  ⓘ 1000파일 시간=0.40s rc=0 out=CLASS ff
+  ⓘ 6676파일 시간=7.36s rc=0 out=CLASS ff
+FAIL ⓘ 1000·6676 파일 세트 각 7초 안 :: rc=0 out=1000=0.40s 6676=7.36s CLASS ff / CLASS ff
+PASS ⓙ 기존 시험 파일 base 대조 diff 0
+PASS ⓙ 기존 분류기 시험 rc0(ALL PASS)
+FAILED 6
