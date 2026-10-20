@@ -1,0 +1,39 @@
+PASS bash -n zombie-clean.sh
+PASS ⓐ dry-run rc0
+FAIL ⓐ [dry] cmd= 래퍼 명령 — 없음: «[dry] cmd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh --dangerously-skip-permissions --resume u-1 --model 'claude-sonnet-5-5[1m]'» ← [dry] session=byz-t-master-claude#1
+[dry] cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd
+[dry] claude --resume u-1 --model 'claude-sonnet-5-5[1m]'
+FAIL ⓐ 날 claude 명령 0 — 있으면 안 됨: «] claude --resume»
+PASS ⓐ dry-run tmux 호출 0
+PASS ⓑ resume rc0
+PASS ⓑ new-session cwd
+FAIL ⓑ send-keys -l = 래퍼 명령 — «send-keys -t =byz-t-master-claude#1: -l claude --resume u-1 --model 'claude-sonnet-5-5[1m]'» ≠ «send-keys -t =byz-t-master-claude#1: -l /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh --dangerously-skip-permissions --resume u-1 --model 'claude-sonnet-5-5[1m]'»
+PASS ⓑ Enter 별도
+FAIL ⓓ 프록시 경유 = HEADROOM ok 줄 — 없음: «HEADROOM ok byz-t-master-claude#1 pid=4242 ANTHROPIC_BASE_URL=http://127.0.0.1:8317» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+PASS ⓓ ok 일 때 WARN 0
+PASS ⓓ 직결이어도 rc0(래퍼 fail-open)
+FAIL ⓓ 직결 = WARN HEADROOM_BYPASS 줄 — 없음: «WARN HEADROOM_BYPASS byz-t-master-claude#1 pid=4242» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+PASS ⓓ kill 0
+PASS ⓓ 래퍼 단계만 보임 rc0
+FAIL ⓓ 래퍼(bash) pid 는 본체 아님 → 확인 불가 — 없음: «WARN HEADROOM 확인 불가(1s)» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+PASS ⓓ pid 없음 rc0
+FAIL ⓓ 7초 안에 pid 없음 = 확인 불가 줄 — 없음: «WARN HEADROOM 확인 불가(7s)» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+FAIL ⓒ 비실행 래퍼 rc1 · tmux 호출 0 — «0 3» ≠ «1 0»
+FAIL ⓒ 비실행 래퍼 안내 — 없음: «❌ 헤드룸 래퍼 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+FAIL ⓒ 래퍼 없음 rc1 · tmux 호출 0 — «0 3» ≠ «1 0»
+FAIL ⓒ 래퍼 없음 안내 — 없음: «❌ 헤드룸 래퍼 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+FAIL ⓒ 성공 표기 0 — 있으면 안 됨: «✅»
+FAIL ⓒ 래퍼 없음이면 dry-run 도 rc1 — «0» ≠ «1»
+FAIL ⓒ 경로는 ZC_CLAUDE_HR 한 곳 — 없음: «❌ 헤드룸 래퍼 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/other-hr.sh» ← ✅ 재개: byz-t-master-claude#1  (uuid=u-1 · cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 모델=claude-sonnet-5-5[1m])
+FAIL ⓔ …/claude → 래퍼(나머지 인자 그대로) — «/x/.local/bin/claude --dangerously-skip-permissions --resume u9 --model m» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh --dangerously-skip-permissions --resume u9 --model m»
+FAIL ⓔ claude → 래퍼 — «claude --resume u9» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh --resume u9»
+PASS ⓔ 이미 래퍼면 그대로
+PASS ⓔ codex argv 그대로
+PASS ⓔ claude 가 아닌 낱말(claudex) 그대로
+FAIL ⓔ 인자 없는 claude → 래퍼 — «claude» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh»
+PASS ⓔ restore 실제 rc0
+FAIL ⓔ restore send-keys -l = 래퍼 argv — «send-keys -t =R2: -l claude --resume u9» ≠ «send-keys -t =R2: -l /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.headroom/claude-hr.sh --resume u9»
+FAIL ⓔ 래퍼 없음 + claude argv → rc1 · 호출 0 — «0 3» ≠ «1 0»
+FAIL ⓔ 래퍼 없음 안내 — 없음: «❌ 헤드룸 래퍼 없음» ← ✅ 복원: R2  (cwd=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/cwd · 대장=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vaf0odhztz/home/.claude/logs/zc-reclaim-test.tsv)
+PASS ⓔ 래퍼 없어도 codex argv 는 그대로 복원
+FAILED=20
