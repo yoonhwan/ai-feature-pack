@@ -9,6 +9,7 @@ fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 teams_md() { mkdir -p "$1/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | x | 현역 |\n' > "$1/design/TEAMS.md"   # R382b: planner 폴더는 TEAMS.md 칸으로 풀린다
   # r479: 명단 = ref origin/main(체크아웃 파일 아님) — 그 폴더를 리포로 만들고 명단 커밋을 origin/main 에 둔다
   [ -d "$1/.git" ] || git -C "$1" init -q; git -C "$1" add design/TEAMS.md && git -C "$1" -c user.name=t -c user.email=t@t commit -qm teams && git -C "$1" update-ref refs/remotes/origin/main HEAD; }
+ref_commit() { git -C "$1" add -A && git -C "$1" -c user.name=t -c user.email=t@t commit -qm ref && git -C "$1" update-ref refs/remotes/origin/main HEAD; }  # r545: 기본 출처 = origin/main 판 — 픽스처 파일을 그 ref 에 올린다
 CANON="$T/AUTONOMY-GOAL-A6.md"; LEDGER="$T/PLAN-oppa-ledger.md"
 cat > "$CANON" <<'EOF'
 # 자율 골 A6 (시험 픽스처 — 실 정본 표 6행 복사)
@@ -45,7 +46,7 @@ check_body() { OUT="$(printf '%s' "$1" | render check - 2>&1)"; RC=$?; }
 # ── ⓐ 렌더: 머리·6행·꼬리·1600B·상태 칸(원장 2열 · 행 순번 결속)
 mkledger "$NOWSTAMP"; BLOCK="$(render 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "ⓐ 렌더 rc0" || bad "ⓐ 렌더 rc=$RC :: $BLOCK"
-printf '%s\n' "$BLOCK" | head -1 | grep -qxF "★골 표 A6 ($SHA · 원장:${NOWSTAMP:5})★" && ok "ⓐ 머리 마커 줄(원장:<갱신>)" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
+printf '%s\n' "$BLOCK" | head -1 | grep -qxF "★골 표 A6 (file:$SHA · 원장:${NOWSTAMP:5})★" && ok "ⓐ 머리 마커 줄(출처 file: + 원장:<갱신> · r545)" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
 printf '%s\n' "$BLOCK" | tail -1 | grep -qx '★/골 표★' && ok "ⓐ 꼬리 마커 줄" || bad "ⓐ 꼬리"
 [ "$(printf '%s\n' "$BLOCK" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓐ 표 7줄(제목 1 + 골 6)" || bad "ⓐ 표 행 수"
 printf '%s' "$BLOCK" | grep -q '상태3 진행' && ok "ⓐ 상태 칸 = 원장 2열 값(행 3)" || bad "ⓐ 상태 칸 값 없음"
@@ -107,7 +108,8 @@ OUT="$(render 2>&1)"; RC=$?
 # ── ⓝ DA⑥ r1 H2 + R382 — 기본 출처 = `.fable-team/LIVE_ROOT` 파일 1행(코드 위치 LIVE_BIN/../.. 유도 폐지) → 그 폴더의 원장 · 옛 v6 원장·고정 접미사 후퇴 0 (표본 2)
 mkledger "$NOWSTAMP"; BASE="$LEDGER"
 LR="$(mktemp -d "$T/lr.XXXXXX")"; mkdir -p "$LR/live/.fable-team/bin" "$LR/live/design/planner" "$LR/root/.fable-team" "$LR/root/.worktrees/v6-realtime-live/design/planner"
-teams_md "$LR/live"; sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$BASE" > "$LR/live/design/planner/PLAN-oppa-ledger.md"
+teams_md "$LR/live"; sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$BASE" > "$LR/live/design/planner/PLAN-oppa-ledger.md"; ref_commit "$LR/live"
+sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$BASE" > "$LR/live/design/planner/PLAN-oppa-ledger.md"   # r545: 체크아웃(disk)에 낡은 사본이 남아 있어도 ref 판을 쓴다
 sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$BASE" > "$LR/root/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
 default_render() { env -u FT_GOAL_A6_LEDGER FT_ROOT="$LR/root" FT_GOAL_A6_MD="$CANON" python3 "$REPO/harness/bin/ft_goal_table.py" 2>&1; }
 printf '%s\n' "$LR/live/.fable-team/bin" > "$LR/root/.fable-team/LIVE_BIN"; printf '%s\n' "$LR/live" > "$LR/root/.fable-team/LIVE_ROOT"
@@ -131,6 +133,7 @@ TR="$(mktemp -d "$T/tr.XXXXXX")"; LV="$TR/.worktrees/live"; mkdir -p "$LV/.fable
 cp "$REPO/harness/bin/ft_goal_table.py" "$REPO/harness/bin/ft_goal_ledger.py" "$REPO/harness/bin/ft_team_lib.py" "$LV/.fable-team/bin/"; teams_md "$LV"
 cp "$CANON" "$LV/design/planner/AUTONOMY-GOAL-A6-20261018.md"; cp "$CANON" "$TR/.worktrees/v6-realtime-live/design/planner/AUTONOMY-GOAL-A6-20261018.md"
 sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$LEDGER" > "$LV/design/planner/PLAN-oppa-ledger.md"; sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$LEDGER" > "$TR/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
+ref_commit "$LV"   # r545: 기본 출처 = origin/main 판(체크아웃 파일이 아니다)
 printf '%s\n' "$LV/.fable-team/bin" > "$TR/.fable-team/LIVE_BIN"; printf '%s\n' "$LV" > "$TR/.fable-team/LIVE_ROOT"
 inst_render() { env -u FT_ROOT -u FT_GOAL_A6_MD -u FT_GOAL_A6_LEDGER "$@" python3 "$LV/.fable-team/bin/ft_goal_table.py" 2>&1; }
 OUT="$(inst_render)"; RC=$?
@@ -238,7 +241,7 @@ done
 # ⓟ 마커 sha10 ≠ 본문 6행 · 모르는 sha10 → REJECT
 check_body "$(printf '%s' "$BLOCK" | sed 's/^| v65 마이크 넘기기 완성/| 바꾼 골 원문/')"$'\n골좌표: 3 — m.lecture 멀티'
 [ "$RC" = 3 ] && ok "ⓟ 정본과 다른 6행 + 진짜 마커 → REJECT" || bad "ⓟ 변조 rc=$RC :: $OUT"
-check_body "$(printf '%s' "$BLOCK" | sed "1s/($SHA/(ffffffffff/")"$'\n골좌표: 3 — m.lecture 멀티'
+check_body "$(printf '%s' "$BLOCK" | sed -E '1s/[0-9a-f]{10}/ffffffffff/')"$'\n골좌표: 3 — m.lecture 멀티'
 [ "$RC" = 3 ] && ok "ⓟ 모르는 마커 sha10 → REJECT" || bad "ⓟ sha rc=$RC :: $OUT"
 
 # ⓠ H1① 문 본체 파일 없음 — 무장 = REJECT · 비무장 = WOULD-REJECT 로그 + 통과 · 비대상(나노·안전 보고)은 통과
@@ -281,6 +284,7 @@ teams_md "$NREPO"; mkledger "$NOWSTAMP"; TLED="$NR/ledger-teams.md"
 cp "$TLED" "$NREPO/design/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" init -q && git -C "$NREPO" add -A && git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qm base
 BASE_SHA="$(git -C "$NREPO" rev-parse HEAD)"; printf '\n## 3. 팀 작업\n\n- 새 줄 r458\n' >> "$NREPO/design/planner/PLAN-oppa-ledger.md"; git -C "$NREPO" -c user.name=t -c user.email=t@t commit -qam cur
 news_run() {  # [env…] → OUT(ERROR 로그·news=·parts) · RC — 발행 도구·알림·요약 송신은 시험 대역(실 슬랙·실 mbox 0)
+  git -C "$NREPO" update-ref refs/remotes/origin/main HEAD  # r545: 골 표 기본 출처 = origin/main 판(픽스처도 그 ref 를 따라간다)
   OUT="$(env -u FT_NEWS_DIR -u FT_LEDGER_PATH FT_ROOT="$NROOT" FT_LEDGER_REPO="$NREPO" FT_LEDGER_SYNCED=1 FT_NEWS_STATUS_INTERVAL=0 FT_NEWS_NOW="2026-10-19 18:00" FT_GOAL_A6_MD="$CANON" FT_GOAL_A6_LEDGER="$TLED" "$@" python3 - "$REPO/harness/bin" "$NROOT" <<'PY' 2>&1
 import logging, sys
 from pathlib import Path

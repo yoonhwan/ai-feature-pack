@@ -62,7 +62,7 @@ for F in 1 2; do
   # 골 표 6칸 (ft_goal_table · ft_goal_ledger)
   o="$(env -i HOME="$HOME" PATH="$PATH" FT_ROOT="$R" python3 "$SRC/ft_goal_table.py" 2>&1)"; rc=$?
   [ "$rc" = 0 ] && has "$o" "상태6진행" "ⓐ$F 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다" || bad "ⓐ$F 골 표 rc=$rc ← ${o:0:300}"
-  OUTS[goal$F]="$(printf '%s' "$o" | norm "$R")"
+  OUTS[goal$F]="$(printf '%s' "$o" | norm "$R" | sed -E 's/(origin\/main@|file:)[0-9a-f]{10}/\1<sha10>/')"   # r545: 머리 sha10 = ref commit — 픽스처 트리가 달라 값이 다른 것은 정상(표 내용이 같아야 한다)
 
   # HIL 원장 ask → answer
   o="$(env -i HOME="$HOME" PATH="$PATH" FT_ROOT="$R" FT_ME=seat-x FT_HIL_ROUTE=route FT_SEND_DRY=1 bash "$SRC/ft-hil-ask.sh" "질문?" --options "예|아니오" 2>&1)"; rc=$?
