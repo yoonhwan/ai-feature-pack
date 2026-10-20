@@ -2,12 +2,14 @@
 # pyright: basic
 """ft_stall_scan.py [--dry-run] — 멈춘 좌석 4종을 세고(판정 = ft_stall_detect) 그 실행에서 처리한다 (R320b · 오빠 판정 2170 · 사전 DA r1 반영).
 
-출력 1줄째 `stall=N a=.. b=.. c=.. d=.. seats=.. u=.. ts=..`(u = 판정 불가: UNKNOWN·TURN_END `-` · 처리 0) + 좌석별 1줄 `<종류> <좌석> <나이분> <근거>`.
+출력 1줄째 `stall=N a=.. b=.. c=.. d=.. e=.. seats=.. u=.. ts=..`(u = 판정 불가: UNKNOWN·TURN_END `-` · 처리 0) + 좌석별 1줄 `<종류> <좌석> <나이분> <근거>`.
 나이 = 지금 − TURN_END(DURATION_MS 아님). a = 그 팀이 «지금 spawn 가능» 일 때만(팀 상한 미만 ∧ 정지 파일 없음 ∧ 페널티 아님).
 처리(--dry-run 이면 0): a→master urgent · b→Escape+ring+쪽지 · c→planner [긴급] · d→받는이의 «가장 오래된 pending seq» ring.
 ★처리 단위 = 좌석(종류 무관) 10분에 1번(상태파일 + stall-scan.log 이중) · 직전 IDLE·attached 재확인 · attached 는 표시만★.
 a·b·d 를 «처리한 뒤 다음 실행에도» 또 보면 ft-penalty.sh on (c 제외 · FT_STALL_PENALTY_AUTO=0 으로 끔 · 복구 팀 harness·planner 는 정지 대상 아님).
-env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR.
+r525 e = 명부 루프가 안 본 tmux 라이브 좌석(교대 표시·명부 밖) ∧ claude|codex ∧ IDLE ≥ FT_STALL_E_IDLE_MIN(30) ∧ (ctx ≥ 90 ∨ [완료·휴식] 없음)
+→ planner + 계보 현역 master 에 [정지] 1통 · 같은 서명(좌석·IDLE 시작 시각) 재알림 0 · 깨우기·kill 0 · 요약 줄 d= 뒤 e= 칸.
+env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD.
 """
 import json
 import os
@@ -16,7 +18,7 @@ import time
 from pathlib import Path
 
 import ft_penalty
-from ft_stall_detect import IDLE_MIN, load_teams, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
+from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
 from ft_stall_seats import Seats
 import ft_stall_state as stm
 
@@ -37,6 +39,9 @@ class Scan:
         self.comm = Path(os.environ.get("FT_MBOX_DIR") or self.root / ".fable-team/comm")
         self.live = self.sessions()
         self.cap_cmd = os.environ.get("FT_SEAT_CAP_PY") or str(HERE / "ft_seat_cap.py")
+        self.ps = ["bash", os.environ["FT_PS"]] if os.environ.get("FT_PS") else ["ps"]
+        self.ctx_cmd = os.environ.get("FT_CTX_CMD") or str(HERE / "ft-claude-context.sh")
+        self.e_min = float(os.environ.get("FT_STALL_E_IDLE_MIN") or 30)
         self.notes: list[str] = []
         self.st = stm.load(self.state_dir)
         self.seats = Seats(self.status, self.now, self.st.setdefault("seats", {}))
@@ -76,7 +81,8 @@ class Scan:
         def held(team: str) -> bool:  # 정지 중이고 재개 전인 팀 — 처리 0 (복구 팀은 대상 아님)
             return penalty is not None and team not in resumed and team not in exempt
 
-        for t in load_teams(self.root):
+        teams = load_teams(self.root)
+        for t in teams:
             m = t["master"]
             if m in self.live and not stop and t["master_stop"]:  # r428 — 정지 레디 팀은 노는 게 맞다: a 대신 c(정지 파일 0 알림)
                 out.append(dict(kind="c", seat=m, team=t["team"], age=0.0, why="정지 레디(명부 role=stop-ready)인데 정지 파일 0 — `ft-spawn-hold.sh set` 필요 · 독촉 0", stopready=True))
@@ -116,11 +122,48 @@ class Scan:
                     out.append(dict(kind="d", seat=s, team=t["team"], age=age, why=f"미읽음 쪽지 seq={mail[s][0]} {mail[s][1]:.0f}분", seq=mail[s][0]))
         if stop:
             out.append(dict(kind="c", seat="harness", team="-", age=0.0, why=stop))
+        out += self.find_e(teams)
         for f in out:
             f["attached"] = self.live.get(f["seat"], 0) > 0
             f["held"] = held(f["team"])
         self.notes = notes
         return out, unknown
+
+    def find_e(self, teams: list[dict]) -> list[dict]:
+        """r525 e — 판정만. ctx 는 IDLE 문턱을 넘은 후보만 잰다(못 재면 «ctx ?» · 판정은 [완료·휴식] 유무로만)."""
+        cands = off_roster_live(self.root, self.live, teams)
+        agents = agent_sessions(self.tmux, self.ps) if cands else set()
+        out: list[dict] = []
+        for s, lineage, tag in cands:
+            age = self.idle_age(s) if s in agents else None
+            if age is None or age < self.e_min:
+                continue
+            pct, rest = ctx_pct(self.ctx_cmd, s), self.flags(s)["rest"]
+            if rest and (pct is None or pct < 90):
+                continue
+            why = tag + ("" if rest else " · 열린 일") + (f" · ctx {pct}%" if pct is not None else " · ctx ?")
+            out.append(dict(kind="e", seat=s, team="-", age=age, why=why, lineage=lineage, sig=str(self.turn(s)[1])))
+        return out
+
+    def act_e(self, found: list[dict], stamp: str) -> list[str]:
+        """e 알림 — planner + 계보 현역 master · 서명(좌석 → IDLE 시작 시각)이 같으면 0 · 서명 파일 = state/stall-scan.e.json."""
+        path = self.state_dir / "stall-scan.e.json"
+        try:
+            sigs = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sigs = {}
+        planner = next((t["master"] for t in load_teams(self.root) if t["team"] == "planner"), None)
+        log: list[str] = []
+        for f in found:
+            if f["kind"] != "e" or sigs.get(f["seat"]) == f["sig"]:
+                continue
+            to = [x for x in dict.fromkeys([planner, f["lineage"]]) if x]
+            for x in to:
+                self.send(x, f"[정지] {f['seat']} 쉬는 {f['age']:.0f}분 · {f['why']} · 깨우기/닫기/인계는 받는 쪽 판단 (ft-stall-scan e)")
+            sigs[f["seat"]] = f["sig"]
+            log.append(f"{stamp} act=e seat={f['seat']} notify={','.join(to) or '-'} {f['why']}")
+        _ = path.write_text(json.dumps({s: v for s, v in sigs.items() if s in self.live}), encoding="utf-8")
+        return log
 
     def send(self, to: str, body: str, urgent: bool = True) -> None:
         run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))
@@ -172,10 +215,10 @@ class Scan:
         found, unknown = self.find(pen)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found}
-        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcd"}
+        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcde"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found)} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} seats={len(self.live)} u={unknown} ts={int(self.now)}"]
-        lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + (" (attached·처리 0)" if f["attached"] else " (정지 중 처리 0)" if f["held"] else "") for f in found]
+        lines = [f"stall={len(found)} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)}"]
+        lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] == "e" else " (attached·처리 0)" if f["attached"] else " (정지 중 처리 0)" if f["held"] else "") for f in found]
         lines += self.notes
         print("\n".join(lines))
         if dry:
@@ -183,8 +226,9 @@ class Scan:
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.now))
         log: list[str] = []
         d_seats = {f["seat"] for f in found if f["kind"] == "d"}
+        log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
         for f in found:
-            if f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
+            if f["kind"] == "e" or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
             if f["attached"] or f["held"] or self.now - float(handled.get(f["seat"], 0)) < REPEAT_S or stm.recent_in_log(self.state_dir, f["seat"], self.now):
                 continue
