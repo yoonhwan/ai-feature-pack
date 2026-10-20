@@ -1,0 +1,26 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft_news_html_render.py b/feature-pack/fable-team/harness/bin/ft_news_html_render.py
+index 19dd81be..39471acc 100644
+--- a/feature-pack/fable-team/harness/bin/ft_news_html_render.py
++++ b/feature-pack/fable-team/harness/bin/ft_news_html_render.py
+@@ -59,7 +59,7 @@ SCHEMAS = {"summary": f'["{SUMMARY_LINES - 1}줄 이하"]', "important": '[{"tit
+ FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
+               '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
+               '- facts.확인 불가 팀은 쉬는 팀이 아니다 — 그 팀이 쉰다·멈췄다·대기 중이라고 상태를 단정하지 말 것(쓰려면 «상태 확인 불가»).\n'
+-              '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
++              '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «승인 대기»·«승인을 기다» 꼴(누구 승인이든) 금지(린트가 «승인 … 기다|대기» 를 거절 · 예외 0) · 남은 승인 단계는 «<무엇> 승인 단계 남음» 으로 쓴다 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')  # r601: 린트 APPROVAL_WAIT 와 같은 범위
+ PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
+     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
+                 f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 @SUM_CHARS@글자(띄어쓰기 포함) 이하 · 첫 줄은 코드가 넣는다.\n'  # r590·r596·r598 — 숫자 = floor((SUMMARY_BYTES − 상태 줄 − 줄바꿈) × 여유 ÷ 글자당 최대 바이트)
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py
+index 19dd81be..39471acc 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_render.py
+@@ -59,7 +59,7 @@ SCHEMAS = {"summary": f'["{SUMMARY_LINES - 1}줄 이하"]', "important": '[{"tit
+ FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
+               '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
+               '- facts.확인 불가 팀은 쉬는 팀이 아니다 — 그 팀이 쉰다·멈췄다·대기 중이라고 상태를 단정하지 말 것(쓰려면 «상태 확인 불가»).\n'
+-              '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')
++              '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «승인 대기»·«승인을 기다» 꼴(누구 승인이든) 금지(린트가 «승인 … 기다|대기» 를 거절 · 예외 0) · 남은 승인 단계는 «<무엇> 승인 단계 남음» 으로 쓴다 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')  # r601: 린트 APPROVAL_WAIT 와 같은 범위
+ PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
+     "summary": (("summary", "refs"), ("now", "facts", "goals", "ledger", "urgent", "commits"),
+                 f'- "summary" = 1~{SUMMARY_LINES - 1}줄 · 네가 쓴 줄은 합쳐 @SUM_CHARS@글자(띄어쓰기 포함) 이하 · 첫 줄은 코드가 넣는다.\n'  # r590·r596·r598 — 숫자 = floor((SUMMARY_BYTES − 상태 줄 − 줄바꿈) × 여유 ÷ 글자당 최대 바이트)

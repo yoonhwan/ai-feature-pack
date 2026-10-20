@@ -1,0 +1,45 @@
+FF.F                                                                     [100%]
+=================================== FAILURES ===================================
+_________ test_r601_a_prompt_bans_both_forms_for_summary_and_important _________
+
+    def test_r601_a_prompt_bans_both_forms_for_summary_and_important():
+        """ⓐ 자율 ON 금지 글에 «승인 대기» 와 «승인을 기다» 두 꼴이 적혀 있지 않으면 FAIL(지금 판 = «사장님 승인을 기다린다» 1개)."""
+        for part in ("summary", "important"):
+            head = rules_head(part)
+>           assert "«승인 대기»" in head, f"{part}: «승인 대기» 꼴 금지 없음"
+E           AssertionError: summary: «승인 대기» 꼴 금지 없음
+E           assert '«승인 대기»' in '너는 BYZ 팀 뉴스 편집자다. 아래 «입력» JSON 만 근거로 «팀 지도» 의 한 부분을 JSON 객체 하나로만 답한다 — 설명·코드 펜스 0.\n규칙:\n- 쉬운 말(바쁜 사장님이 1분에 읽는 말) · 내...이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.\n- 입력에 없는 것은 지어내지 않는다 — 모르면 "원천 없음".\n\n'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r601-news-prompt-approval-ban-from-lint-/feature-pack/fable-team/harness/tests/scripts/test_news_prompt_approval_ban_r601.py:44: AssertionError
+_________________ test_r601_b_prompt_gives_usable_alternative __________________
+
+    def test_r601_b_prompt_gives_usable_alternative():
+        """ⓑ 금지 문장 대신 «<무엇> 승인 단계 남음» 으로 쓰라는 대안 꼴을 함께 준다."""
+        for part in ("summary", "important"):
+>           assert "승인 단계 남음" in rules_head(part), f"{part}: 대안 꼴 없음"
+E           AssertionError: summary: 대안 꼴 없음
+E           assert '승인 단계 남음' in '너는 BYZ 팀 뉴스 편집자다. 아래 «입력» JSON 만 근거로 «팀 지도» 의 한 부분을 JSON 객체 하나로만 답한다 — 설명·코드 펜스 0.\n규칙:\n- 쉬운 말(바쁜 사장님이 1분에 읽는 말) · 내...이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.\n- 입력에 없는 것은 지어내지 않는다 — 모르면 "원천 없음".\n\n'
+E            +  where '너는 BYZ 팀 뉴스 편집자다. 아래 «입력» JSON 만 근거로 «팀 지도» 의 한 부분을 JSON 객체 하나로만 답한다 — 설명·코드 펜스 0.\n규칙:\n- 쉬운 말(바쁜 사장님이 1분에 읽는 말) · 내...이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.\n- 입력에 없는 것은 지어내지 않는다 — 모르면 "원천 없음".\n\n' = rules_head('summary')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r601-news-prompt-approval-ban-from-lint-/feature-pack/fable-team/harness/tests/scripts/test_news_prompt_approval_ban_r601.py:52: AssertionError
+_______________ test_r601_d_off_and_unknown_path_bytes_unchanged _______________
+
+    def test_r601_d_off_and_unknown_path_bytes_unchanged():
+        """ⓓ 바뀐 곳 = ON 문장 하나 · FACT_RULES 앞 2줄·«모름» 꼬리는 base 와 바이트 같음(OFF·모름 회귀 0)."""
+        assert fr.FACT_RULES.startswith(BASE_HEAD)
+        assert fr.FACT_RULES.endswith(MOKRUM_TAIL)
+>       assert BASE_AUTO not in fr.FACT_RULES
+E       assert '- facts.자율 ...이야기를 쓰지 않는다.' not in '- 입력 facts ...이야기를 쓰지 않는다.'
+E         
+E         '- facts.자율 이 "ON" ... 승인·자율 이야기를 쓰지 않는다.' is contained here:
+E           태 확인 불가»).
+E           - facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r601-news-prompt-approval-ban-from-lint-/feature-pack/fable-team/harness/tests/scripts/test_news_prompt_approval_ban_r601.py:68: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_prompt_approval_ban_r601.py::test_r601_a_prompt_bans_both_forms_for_summary_and_important
+FAILED tests/scripts/test_news_prompt_approval_ban_r601.py::test_r601_b_prompt_gives_usable_alternative
+FAILED tests/scripts/test_news_prompt_approval_ban_r601.py::test_r601_d_off_and_unknown_path_bytes_unchanged
+3 failed, 1 passed in 0.31s
