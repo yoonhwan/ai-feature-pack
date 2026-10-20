@@ -59,7 +59,7 @@ def env(tmp_path, monkeypatch):
     mbox.write_text('#!/usr/bin/env bash\necho "$@" >> "$FT_MBOX_LOG"\n', encoding="utf-8")
     for k, v in {"FT_ROOT": root, "FT_LEDGER_REPO": repo, "FT_NEWS_DIR": root / "news", "FT_NEWS_PUBLISH": f"bash {stub}",
                  "FT_STUB_LOG": tmp_path / "stub.log", "FT_MBOX_LOG": tmp_path / "mbox.log", "FT_NEWS_NOW": "2026-10-13 15:00",
-                 "FT_LEDGER_SYNCED": "1"}.items():  # r503 사본 전진은 test_ledger_repo_sync.sh 몫 — 여기 원장 리포는 가지 위 임시 리포
+                 "FT_LEDGER_SYNCED": "1", "FT_LEDGER_SYNC_MIN": "0"}.items():  # r503 사본 전진은 test_ledger_repo_sync.sh 몫(2분 건너뜀 = r563 시험이 봄 — 여기선 매번)
         monkeypatch.setenv(k, str(v))
     monkeypatch.delenv("FT_STUB_RC", raising=False)
     monkeypatch.setenv("FT_NEWS_STATUS_INTERVAL", "0")  # R209 상태 절·주기·경보 끔 = 옛 동작(새 시험은 test_news_status_section.py)

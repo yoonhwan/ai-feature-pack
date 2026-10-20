@@ -1,0 +1,668 @@
+FFFF.FFFFFF                                                              [100%]
+=================================== FAILURES ===================================
+______ test_a_live_path_never_touches_http_server_and_fixed_edition_does _______
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_a_live_path_never_touches0')
+llm = <test_news_direct_api.FakeLLM object at 0x114b258d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114b24cd0>
+
+    def test_a_live_path_never_touches_http_server_and_fixed_edition_does(tmp_path, llm, monkeypatch):
+        monkeypatch.setenv("FT_OPENCODE", str(tmp_path / "없는-opencode"))  # 옛 경로로 내려가면 즉시 실패
+>       html_p, sum_p = fh.run_files(DATA, tmp_path / "out", NOW)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+harness/tests/scripts/test_news_direct_api.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+harness/bin/ft_news_html.py:177: in run_files
+    c, secs, fixed = call_model(data)
+                     ^^^^^^^^^^^^^^^^
+harness/bin/ft_news_html_render.py:224: in call_model
+    got, secs[p] = f.result()
+                   ^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+harness/bin/ft_news_html_render.py:203: in call_part
+    rc, out, err, first = _once(cmd, left, part)
+                          ^^^^^^^^^^^^^^^^^^^^^^
+harness/bin/ft_news_html_render.py:154: in _once
+    p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: 255 args: ['/private/var/folders/vm/j7_jw8050t553wj5wqlv...>
+args = ['/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_a_live_path_never_touches0/없는-opencode', 'run', '--standalone', '--model', 'openrouter/anthropic/claude-haiku-5.5', '--format', ...]
+executable = b'/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_a_live_path_never_touches0/\xec\x97\x86\xeb\x8a\x94-opencode'
+preexec_fn = None, close_fds = True, pass_fds = (), cwd = None, env = None
+startupinfo = None, creationflags = 0, shell = False, p2cread = 12
+p2cwrite = -1, c2pread = 15, c2pwrite = 16, errread = 24, errwrite = 25
+restore_signals = True, gid = None, gids = None, uid = None, umask = -1
+start_new_session = True, process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       restore_signals,
+                       gid, gids, uid, umask,
+                       start_new_session, process_group):
+        """Execute program (POSIX version)"""
+    
+        if isinstance(args, (str, bytes)):
+            args = [args]
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = [args]
+        else:
+            args = list(args)
+    
+        if shell:
+            # On Android the default shell is at '/system/bin/sh'.
+            unix_shell = ('/system/bin/sh' if
+                      hasattr(sys, 'getandroidapilevel') else '/bin/sh')
+            args = [unix_shell, "-c"] + args
+            if executable:
+                args[0] = executable
+    
+        if executable is None:
+            executable = args[0]
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        if (_USE_POSIX_SPAWN
+                and os.path.dirname(executable)
+                and preexec_fn is None
+                and not close_fds
+                and not pass_fds
+                and cwd is None
+                and (p2cread == -1 or p2cread > 2)
+                and (c2pwrite == -1 or c2pwrite > 2)
+                and (errwrite == -1 or errwrite > 2)
+                and not start_new_session
+                and process_group == -1
+                and gid is None
+                and gids is None
+                and uid is None
+                and umask < 0):
+            self._posix_spawn(args, executable, env, restore_signals,
+                              p2cread, p2cwrite,
+                              c2pread, c2pwrite,
+                              errread, errwrite)
+            return
+    
+        orig_executable = executable
+    
+        # For transferring possible exec failure from child to parent.
+        # Data format: "exception name:hex errno:description"
+        # Pickle is not used; it is complex and involves memory allocation.
+        errpipe_read, errpipe_write = os.pipe()
+        # errpipe_write must not be in the standard io 0, 1, or 2 fd range.
+        low_fds_to_close = []
+        while errpipe_write < 3:
+            low_fds_to_close.append(errpipe_write)
+            errpipe_write = os.dup(errpipe_write)
+        for low_fd in low_fds_to_close:
+            os.close(low_fd)
+        try:
+            try:
+                # We must avoid complex work that could involve
+                # malloc or free in the child process to avoid
+                # potential deadlocks, thus we do all this here.
+                # and pass it to fork_exec()
+    
+                if env is not None:
+                    env_list = []
+                    for k, v in env.items():
+                        k = os.fsencode(k)
+                        if b'=' in k:
+                            raise ValueError("illegal environment variable name")
+                        env_list.append(k + b'=' + os.fsencode(v))
+                else:
+                    env_list = None  # Use execv instead of execve.
+                executable = os.fsencode(executable)
+                if os.path.dirname(executable):
+                    executable_list = (executable,)
+                else:
+                    # This matches the behavior of os._execvpe().
+                    executable_list = tuple(
+                        os.path.join(os.fsencode(dir), executable)
+                        for dir in os.get_exec_path(env))
+                fds_to_keep = set(pass_fds)
+                fds_to_keep.add(errpipe_write)
+                self.pid = _fork_exec(
+                        args, executable_list,
+                        close_fds, tuple(sorted(map(int, fds_to_keep))),
+                        cwd, env_list,
+                        p2cread, p2cwrite, c2pread, c2pwrite,
+                        errread, errwrite,
+                        errpipe_read, errpipe_write,
+                        restore_signals, start_new_session,
+                        process_group, gid, gids, uid, umask,
+                        preexec_fn, _USE_VFORK)
+                self._child_created = True
+            finally:
+                # be sure the FD is closed no matter what
+                os.close(errpipe_write)
+    
+            self._close_pipe_fds(p2cread, p2cwrite,
+                                 c2pread, c2pwrite,
+                                 errread, errwrite)
+    
+            # Wait for exec to fail or succeed; possibly raising an
+            # exception (limited in size)
+            errpipe_data = bytearray()
+            while True:
+                part = os.read(errpipe_read, 50000)
+                errpipe_data += part
+                if not part or len(errpipe_data) > 50000:
+                    break
+        finally:
+            # be sure the FD is closed no matter what
+            os.close(errpipe_read)
+    
+        if errpipe_data:
+            try:
+                pid, sts = os.waitpid(self.pid, 0)
+                if pid == self.pid:
+                    self._handle_exitstatus(sts)
+                else:
+                    self.returncode = sys.maxsize
+            except ChildProcessError:
+                pass
+    
+            try:
+                exception_name, hex_errno, err_msg = (
+                        errpipe_data.split(b':', 2))
+                # The encoding here should match the encoding
+                # written in by the subprocess implementations
+                # like _posixsubprocess
+                err_msg = err_msg.decode()
+            except ValueError:
+                exception_name = b'SubprocessError'
+                hex_errno = b'0'
+                err_msg = 'Bad exception data from child: {!r}'.format(
+                              bytes(errpipe_data))
+            child_exception_type = getattr(
+                    builtins, exception_name.decode('ascii'),
+                    SubprocessError)
+            if issubclass(child_exception_type, OSError) and hex_errno:
+                errno_num = int(hex_errno, 16)
+                if err_msg == "noexec:chdir":
+                    err_msg = ""
+                    # The error must be from chdir(cwd).
+                    err_filename = cwd
+                elif err_msg == "noexec":
+                    err_msg = ""
+                    err_filename = None
+                else:
+                    err_filename = orig_executable
+                if errno_num != 0:
+                    err_msg = os.strerror(errno_num)
+                if err_filename is not None:
+>                   raise child_exception_type(errno_num, err_msg, err_filename)
+E                   FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_a_live_path_never_touches0/없는-opencode'
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1955: FileNotFoundError
+____________ test_b_first_byte_over_cap_retries_once_then_map_fails ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_b_first_byte_over_cap_ret0')
+llm = <test_news_direct_api.FakeLLM object at 0x114d252d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114b24350>
+
+    def test_b_first_byte_over_cap_retries_once_then_map_fails(tmp_path, llm, monkeypatch):
+        monkeypatch.setenv("FT_OPENCODE", str(tmp_path / "없는-opencode"))
+        monkeypatch.setattr(fr, "UNIT_S", 0.5)  # teams 상한 = 2초(다른 갈래는 그보다 짧다)
+        llm.slow_match, llm.slow = '"team_notes":', 3.0
+        with pytest.raises(fr.NewsHtmlError, match="teams 상한"):
+>           fh.run_files(DATA, tmp_path / "o", NOW)
+
+harness/tests/scripts/test_news_direct_api.py:103: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+harness/bin/ft_news_html.py:177: in run_files
+    c, secs, fixed = call_model(data)
+                     ^^^^^^^^^^^^^^^^
+harness/bin/ft_news_html_render.py:224: in call_model
+    got, secs[p] = f.result()
+                   ^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+harness/bin/ft_news_html_render.py:203: in call_part
+    rc, out, err, first = _once(cmd, left, part)
+                          ^^^^^^^^^^^^^^^^^^^^^^
+harness/bin/ft_news_html_render.py:154: in _once
+    p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: 255 args: ['/private/var/folders/vm/j7_jw8050t553wj5wqlv...>
+args = ['/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_b_first_byte_over_cap_ret0/없는-opencode', 'run', '--standalone', '--model', 'openrouter/anthropic/claude-haiku-5.5', '--format', ...]
+executable = b'/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_b_first_byte_over_cap_ret0/\xec\x97\x86\xeb\x8a\x94-opencode'
+preexec_fn = None, close_fds = True, pass_fds = (), cwd = None, env = None
+startupinfo = None, creationflags = 0, shell = False, p2cread = 14
+p2cwrite = -1, c2pread = 15, c2pwrite = 16, errread = 18, errwrite = 19
+restore_signals = True, gid = None, gids = None, uid = None, umask = -1
+start_new_session = True, process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       restore_signals,
+                       gid, gids, uid, umask,
+                       start_new_session, process_group):
+        """Execute program (POSIX version)"""
+    
+        if isinstance(args, (str, bytes)):
+            args = [args]
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = [args]
+        else:
+            args = list(args)
+    
+        if shell:
+            # On Android the default shell is at '/system/bin/sh'.
+            unix_shell = ('/system/bin/sh' if
+                      hasattr(sys, 'getandroidapilevel') else '/bin/sh')
+            args = [unix_shell, "-c"] + args
+            if executable:
+                args[0] = executable
+    
+        if executable is None:
+            executable = args[0]
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        if (_USE_POSIX_SPAWN
+                and os.path.dirname(executable)
+                and preexec_fn is None
+                and not close_fds
+                and not pass_fds
+                and cwd is None
+                and (p2cread == -1 or p2cread > 2)
+                and (c2pwrite == -1 or c2pwrite > 2)
+                and (errwrite == -1 or errwrite > 2)
+                and not start_new_session
+                and process_group == -1
+                and gid is None
+                and gids is None
+                and uid is None
+                and umask < 0):
+            self._posix_spawn(args, executable, env, restore_signals,
+                              p2cread, p2cwrite,
+                              c2pread, c2pwrite,
+                              errread, errwrite)
+            return
+    
+        orig_executable = executable
+    
+        # For transferring possible exec failure from child to parent.
+        # Data format: "exception name:hex errno:description"
+        # Pickle is not used; it is complex and involves memory allocation.
+        errpipe_read, errpipe_write = os.pipe()
+        # errpipe_write must not be in the standard io 0, 1, or 2 fd range.
+        low_fds_to_close = []
+        while errpipe_write < 3:
+            low_fds_to_close.append(errpipe_write)
+            errpipe_write = os.dup(errpipe_write)
+        for low_fd in low_fds_to_close:
+            os.close(low_fd)
+        try:
+            try:
+                # We must avoid complex work that could involve
+                # malloc or free in the child process to avoid
+                # potential deadlocks, thus we do all this here.
+                # and pass it to fork_exec()
+    
+                if env is not None:
+                    env_list = []
+                    for k, v in env.items():
+                        k = os.fsencode(k)
+                        if b'=' in k:
+                            raise ValueError("illegal environment variable name")
+                        env_list.append(k + b'=' + os.fsencode(v))
+                else:
+                    env_list = None  # Use execv instead of execve.
+                executable = os.fsencode(executable)
+                if os.path.dirname(executable):
+                    executable_list = (executable,)
+                else:
+                    # This matches the behavior of os._execvpe().
+                    executable_list = tuple(
+                        os.path.join(os.fsencode(dir), executable)
+                        for dir in os.get_exec_path(env))
+                fds_to_keep = set(pass_fds)
+                fds_to_keep.add(errpipe_write)
+                self.pid = _fork_exec(
+                        args, executable_list,
+                        close_fds, tuple(sorted(map(int, fds_to_keep))),
+                        cwd, env_list,
+                        p2cread, p2cwrite, c2pread, c2pwrite,
+                        errread, errwrite,
+                        errpipe_read, errpipe_write,
+                        restore_signals, start_new_session,
+                        process_group, gid, gids, uid, umask,
+                        preexec_fn, _USE_VFORK)
+                self._child_created = True
+            finally:
+                # be sure the FD is closed no matter what
+                os.close(errpipe_write)
+    
+            self._close_pipe_fds(p2cread, p2cwrite,
+                                 c2pread, c2pwrite,
+                                 errread, errwrite)
+    
+            # Wait for exec to fail or succeed; possibly raising an
+            # exception (limited in size)
+            errpipe_data = bytearray()
+            while True:
+                part = os.read(errpipe_read, 50000)
+                errpipe_data += part
+                if not part or len(errpipe_data) > 50000:
+                    break
+        finally:
+            # be sure the FD is closed no matter what
+            os.close(errpipe_read)
+    
+        if errpipe_data:
+            try:
+                pid, sts = os.waitpid(self.pid, 0)
+                if pid == self.pid:
+                    self._handle_exitstatus(sts)
+                else:
+                    self.returncode = sys.maxsize
+            except ChildProcessError:
+                pass
+    
+            try:
+                exception_name, hex_errno, err_msg = (
+                        errpipe_data.split(b':', 2))
+                # The encoding here should match the encoding
+                # written in by the subprocess implementations
+                # like _posixsubprocess
+                err_msg = err_msg.decode()
+            except ValueError:
+                exception_name = b'SubprocessError'
+                hex_errno = b'0'
+                err_msg = 'Bad exception data from child: {!r}'.format(
+                              bytes(errpipe_data))
+            child_exception_type = getattr(
+                    builtins, exception_name.decode('ascii'),
+                    SubprocessError)
+            if issubclass(child_exception_type, OSError) and hex_errno:
+                errno_num = int(hex_errno, 16)
+                if err_msg == "noexec:chdir":
+                    err_msg = ""
+                    # The error must be from chdir(cwd).
+                    err_filename = cwd
+                elif err_msg == "noexec":
+                    err_msg = ""
+                    err_filename = None
+                else:
+                    err_filename = orig_executable
+                if errno_num != 0:
+                    err_msg = os.strerror(errno_num)
+                if err_filename is not None:
+>                   raise child_exception_type(errno_num, err_msg, err_filename)
+E                   FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_b_first_byte_over_cap_ret0/없는-opencode'
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1955: FileNotFoundError
+____________________ test_c_http_cap_has_no_cli_fixed_cost _____________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_c_http_cap_has_no_cli_fix0')
+llm = <test_news_direct_api.FakeLLM object at 0x114d3d8d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114d3e050>
+
+    def test_c_http_cap_has_no_cli_fixed_cost(tmp_path, llm, monkeypatch):
+        small = fr.build_prompt({"teams": ["팀"]}, "teams")
+        assert fr.cap_s(small, "teams", fixed=0) == 7 * 4 and fr.cap_s(small, "teams") == 3.5 + 7 * 4
+        seen = []
+        real = fr.cap_s
+        monkeypatch.setattr(fr, "cap_s", lambda prompt, part, fixed=3.5: (seen.append(fixed), real(prompt, part, fixed))[1])
+        fh.run_files(DATA, tmp_path / "o", NOW)
+>       assert seen and set(seen) == {0.0}  # HTTP 경로는 CLI 기동 고정비 0
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert ([3.5, 3.5, 3.5, 3.5] and {3.5} == {0.0}
+E         
+E         Extra items in the left set:
+E         3.5
+E         Extra items in the right set:
+E         0.0
+E         Use -v to get more diff)
+
+harness/tests/scripts/test_news_direct_api.py:117: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=9.9(summary=8.4 important=9.9 goals=6.6 teams=5.1) fixed=3.5s model=openrouter/anthropic/claude-haiku-5.5 important=6 summary=328B
+______________ test_d_missing_key_and_unknown_provider_fail_loud _______________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_d_missing_key_and_unknown0')
+llm = <test_news_direct_api.FakeLLM object at 0x114b248d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11499b4d0>
+capsys = <_pytest.capture.CaptureFixture object at 0x114c2d750>
+
+    def test_d_missing_key_and_unknown_provider_fail_loud(tmp_path, llm, monkeypatch, capsys):
+        (tmp_path / "zshrc").write_text("export OTHER=1\n", encoding="utf-8")
+>       with pytest.raises(fr.NewsHtmlError, match="OPENROUTER_API_KEY 없음"):
+E       Failed: DID NOT RAISE <class 'ft_news_html_render.NewsHtmlError'>
+
+harness/tests/scripts/test_news_direct_api.py:125: Failed
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261019-0915.html secs=9.9(summary=7.7 important=9.9 goals=4.9 teams=5.6) fixed=3.5s model=openrouter/anthropic/claude-haiku-5.5 important=6 summary=341B
+_______________________ test_f_sync_skipped_within_120s ________________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_f_sync_skipped_within_1200')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114eafad0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x114eaea90>
+
+    def test_f_sync_skipped_within_120s(tmp_path, monkeypatch, caplog):
+        script = tmp_path / "sync.sh"
+        script.write_text(f'#!/usr/bin/env bash\necho "$1" >> "{tmp_path}/calls"\necho "SYNC up-to-date"\n', encoding="utf-8")
+        (tmp_path / "root" / ".fable-team").mkdir(parents=True)
+        monkeypatch.setenv("FT_ROOT", str(tmp_path / "root"))
+        monkeypatch.setenv("FT_LEDGER_REPO", str(tmp_path / "repo"))
+        monkeypatch.setenv("FT_LEDGER_SYNC", str(script))
+        monkeypatch.setenv("FT_LEDGER_SYNC_STAMP", str(tmp_path / "stamp"))
+        monkeypatch.setenv("FT_LEDGER_SYNC_MIN", "120")
+        caplog.set_level("INFO", logger="ft_news_ledger")
+        assert nl.sync_repo() == ""  # 틱 1 = 실행
+        monkeypatch.setenv("FT_LEDGER_SYNCED", "0")  # 다음 틱(새 프로세스)
+        assert nl.sync_repo() == ""  # 2분 안 → 건너뜀
+>       assert (tmp_path / "calls").read_text(encoding="utf-8").splitlines() == [str(tmp_path / "repo")]
+E       AssertionError: assert ['/private/va...in_1200/repo'] == ['/private/va...in_1200/repo']
+E         
+E         Left contains one more item: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_f_sync_skipped_within_1200/repo'
+E         Use -v to get more diff
+
+harness/tests/scripts/test_news_direct_api.py:159: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     ft_news_ledger:ft_news_ledger.py:196 SYNC up-to-date
+INFO     ft_news_ledger:ft_news_ledger.py:196 SYNC up-to-date
+_________________ test_g_failed_tick_logs_keep_previous_issue __________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_g_failed_tick_logs_keep_p0')
+oc = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_g_failed_tick_l.../var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_g_failed_tick_logs_keep_p0/oc.log'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11499b190>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1137b9c10>
+
+    def test_g_failed_tick_logs_keep_previous_issue(tmp_path, oc, monkeypatch, caplog):  # noqa: F811
+        oc[0].write_text("JSON 아님", encoding="utf-8")
+        monkeypatch.setattr(fh, "build", lambda *a: DATA)
+        state = tmp_path / "state"
+        state.mkdir()
+        (state / "html.json").write_text(json.dumps({"map_at": "2026-10-19 08:55", "link": "https://x/prior"}), encoding="utf-8")
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:15")
+        monkeypatch.setenv("FT_ROOT", str(tmp_path))
+        monkeypatch.setenv("FT_NEWS_DIR", str(tmp_path / "news"))
+        caplog.set_level("INFO", logger="ft_news_html")
+        assert fh.tick(tmp_path, state, tmp_path, "x.md", tmp_path / "news", "a", "b")[0] == 1
+        keep = [r.message for r in caplog.records if "직전 판 유지" in r.message]
+>       assert keep == ["직전 판 유지 2026-10-19 08:55(https://x/prior)"]
+E       AssertionError: assert [] == ['직전 판 유지 202...s://x/prior)']
+E         
+E         Right contains one more item: '직전 판 유지 2026-10-19 08:55(https://x/prior)'
+E         Use -v to get more diff
+
+harness/tests/scripts/test_news_direct_api.py:181: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:252 지도 만들기 실패 — 발행 0: summary 응답이 JSON 객체 아님
+____________ test_i_ledger_read_from_origin_main_not_checkout_head _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_i_ledger_read_from_origin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1137b8fd0>
+
+    def test_i_ledger_read_from_origin_main_not_checkout_head(tmp_path, monkeypatch):
+        repo, root, rel, old, new = _stale_copy(tmp_path)
+        for k, v in {"FT_ROOT": root, "FT_LEDGER_REPO": repo, "FT_LEDGER_PATH": rel, "FT_NEWS_FETCH_MIN": "0"}.items():
+            monkeypatch.setenv(k, str(v))
+        monkeypatch.setattr(fh, "live_teams", lambda r: [{"team": "t", "live": 0, "working": 0, "unknown": 0}])
+        monkeypatch.setattr(fh, "goals", lambda: [{"n": i, "goal": f"골 {i}", "team": f"t{i}", "state": "지금"} for i in range(1, 7)])
+        monkeypatch.setattr(fh, "autonomy", lambda r: "ON")
+        monkeypatch.setattr(fh, "teams", lambda r: [])
+        monkeypatch.setattr(fh, "urgent", lambda r, n: [])
+        monkeypatch.setattr(fh, "commits", lambda r, b: [])
+        _root, _repo, got_rel, base, cur = fh._ledger_args()
+        assert _git(repo, "log", "-1", "--format=%H", "--", rel) == old  # 지금 판이 보던 자리 = 옛 판(재현)
+>       assert cur == new and base == ""  # 고친 판 = origin/main ref
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ('a744dba94f7f...55b1e8c39f6cc' == '7b8c6e19b433...bad8caa680681'
+E         
+E         - 7b8c6e19b4333f6323cce3162f1bad8caa680681
+E         + a744dba94f7f7e75f080c55756355b1e8c39f6cc)
+
+harness/tests/scripts/test_news_direct_api.py:229: AssertionError
+_______________ test_j_autonomy_reads_data_root_not_common_root ________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_j_autonomy_reads_data_roo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114ed6050>
+
+    def test_j_autonomy_reads_data_root_not_common_root(tmp_path, monkeypatch):
+        common, data = tmp_path / "common", tmp_path / "data"
+        (common / ".fable-team").mkdir(parents=True)
+        data.mkdir()
+        (common / ".fable-team" / "LIVE_ROOT").write_text(f"{data}\n", encoding="utf-8")
+        (data / "auto.txt").write_text("on\n", encoding="utf-8")
+        here = tmp_path / "bin"
+        here.mkdir()
+        (here / "ft-autonomy.sh").write_text('#!/usr/bin/env bash\ncat "$FT_ROOT/auto.txt" 2>/dev/null || echo off\n', encoding="utf-8")
+        monkeypatch.setattr(fh, "HERE", here)
+        assert fh.autonomy(data) == "ON"  # 데이터 루트 직접 = ON
+>       assert fh.autonomy(common) == "ON"  # 공용 루트로 불러도 LIVE_ROOT 를 넘긴다(지금 판 = OFF)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'OFF' == 'ON'
+E         
+E         - ON
+E         + OFF
+
+harness/tests/scripts/test_news_direct_api.py:246: AssertionError
+________________ test_k_zero_goals_fails_instead_of_publishing _________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fails_instea0')
+oc = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fa.../var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fails_instea0/oc.log'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114b74350>
+
+    def test_k_zero_goals_fails_instead_of_publishing(tmp_path, oc, monkeypatch):  # noqa: F811
+        monkeypatch.setattr(fh, "goals", lambda: [])
+        monkeypatch.setattr(fh, "live_teams", lambda r: [{"team": "t", "live": 0, "working": 0, "unknown": 0}])
+        monkeypatch.setattr(fh, "autonomy", lambda r: "ON")
+        with pytest.raises(RuntimeError, match="골 표 0줄"):
+>           fh.build(tmp_path, tmp_path, "x.md", "", "a", NOW)
+
+harness/tests/scripts/test_news_direct_api.py:256: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+harness/bin/ft_news_html.py:170: in build
+    data = {"now": f"{now:%Y-%m-%d %H:%M}", "facts": facts(live, autonomy(root)), "goals": goals(), "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
+                                                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fails_instea0')
+a = ('show', 'a:x.md')
+done = CompletedProcess(args=['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytes...ils_instea0', 'show', 'a:x.md'], returncode=128, stdout='', stderr='fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git\n')
+
+    def _git(repo: Path, *a: str) -> str:
+        done = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, encoding="utf-8", check=False)
+        if done.returncode != 0:
+>           raise RuntimeError(f"git {a[0]} 실패: {done.stderr.strip()[:200]}")
+E           RuntimeError: git show 실패: fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git
+
+harness/bin/ft_news_html.py:38: RuntimeError
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fails_instea0')
+oc = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fa.../var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_k_zero_goals_fails_instea0/oc.log'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114b74350>
+
+    def test_k_zero_goals_fails_instead_of_publishing(tmp_path, oc, monkeypatch):  # noqa: F811
+        monkeypatch.setattr(fh, "goals", lambda: [])
+        monkeypatch.setattr(fh, "live_teams", lambda r: [{"team": "t", "live": 0, "working": 0, "unknown": 0}])
+        monkeypatch.setattr(fh, "autonomy", lambda r: "ON")
+>       with pytest.raises(RuntimeError, match="골 표 0줄"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: '골 표 0줄'
+E         Actual message: 'git show 실패: fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git'
+
+harness/tests/scripts/test_news_direct_api.py:255: AssertionError
+___________________ test_i_html_mode_tick_receives_ref_issue ___________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_i_html_mode_tick_receives0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114f800d0>
+
+    def test_i_html_mode_tick_receives_ref_issue(tmp_path, monkeypatch):
+        """FT_NEWS_MODE=html = ft_news_ledger 가 ft_news_html.tick 을 실제로 부르고 그 판이 origin/main ref."""
+        repo, root, rel, old, new = _stale_copy(tmp_path)
+        noop = tmp_path / "fetch.sh"
+        noop.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        for k, v in {"FT_ROOT": root, "FT_LEDGER_REPO": repo, "FT_LEDGER_PATH": rel, "FT_NEWS_FETCH_MIN": "0", "FT_NEWS_MODE": "html",
+                     "FT_LEDGER_FETCH": str(noop), "FT_NEWS_DIR": str(tmp_path / "news")}.items():
+            monkeypatch.setenv(k, str(v))
+        seen = []
+        monkeypatch.setattr(fh, "tick", lambda *a: (seen.append(a), (0, "지도 발행"))[1])
+        state = tmp_path / "state"
+        state.mkdir()
+        assert nl._run(root, state) == (0, "지도 발행")
+>       assert len(seen) == 1 and seen[0][6] == new  # (root, state, repo, rel, news, base, cur) 의 cur = ref 판
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert (1 == 1 and 'a744dba94f7f...55b1e8c39f6cc' == 'fd0b1cf7b396...0758f11b63577'
+E        +  where 1 = len([(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_i_html_mode_ti...ders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_i_html_mode_tick_receives0/news'), '', ...)])
+E         
+E         - fd0b1cf7b396460a9a679b8f5f10758f11b63577
+E         + a744dba94f7f7e75f080c55756355b1e8c39f6cc)
+
+harness/tests/scripts/test_news_direct_api.py:278: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_ledger:ft_news_ledger.py:221 알림 건너뜀: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-67/test_i_html_mode_tick_receives0/root/.fable-team/seats-planner.json'
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_news_direct_api.py::test_a_live_path_never_touches_http_server_and_fixed_edition_does
+FAILED harness/tests/scripts/test_news_direct_api.py::test_b_first_byte_over_cap_retries_once_then_map_fails
+FAILED harness/tests/scripts/test_news_direct_api.py::test_c_http_cap_has_no_cli_fixed_cost
+FAILED harness/tests/scripts/test_news_direct_api.py::test_d_missing_key_and_unknown_provider_fail_loud
+FAILED harness/tests/scripts/test_news_direct_api.py::test_f_sync_skipped_within_120s
+FAILED harness/tests/scripts/test_news_direct_api.py::test_g_failed_tick_logs_keep_previous_issue
+FAILED harness/tests/scripts/test_news_direct_api.py::test_i_ledger_read_from_origin_main_not_checkout_head
+FAILED harness/tests/scripts/test_news_direct_api.py::test_j_autonomy_reads_data_root_not_common_root
+FAILED harness/tests/scripts/test_news_direct_api.py::test_k_zero_goals_fails_instead_of_publishing
+FAILED harness/tests/scripts/test_news_direct_api.py::test_i_html_mode_tick_receives_ref_issue
+10 failed, 1 passed in 23.69s

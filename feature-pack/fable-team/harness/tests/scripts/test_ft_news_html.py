@@ -66,7 +66,9 @@ def oc(tmp_path, monkeypatch):
     exe.write_text(FAKE_OC, encoding="utf-8")
     exe.chmod(0o755)
     reply.write_text("```json\n" + json.dumps(CONTENT, ensure_ascii=False) + "\n```", encoding="utf-8")
-    for k, v in {"FT_OPENCODE": str(exe), "FAKE_OC_REPLY": str(reply), "FAKE_OC_LOG": str(log), "FT_NEWS_STARTUP_LOG": str(tmp_path / "startup.tsv")}.items():
+    # r563: 모델 호출 기본 = HTTP 직접 — 이 시험은 가짜 opencode(CLI) 경로를 본다(되돌림 손잡이와 같은 env)
+    for k, v in {"FT_OPENCODE": str(exe), "FAKE_OC_REPLY": str(reply), "FAKE_OC_LOG": str(log), "FT_NEWS_VIA": "opencode",
+                 "FT_NEWS_STARTUP_LOG": str(tmp_path / "startup.tsv")}.items():
         monkeypatch.setenv(k, v)
     for k in ("FT_NEWS_EFFORT", "FT_NEWS_MODEL", "FT_NEWS_DEPTH", "FT_NEWS_HEAD", "FT_NEWS_FIXED_S"):
         monkeypatch.delenv(k, raising=False)
