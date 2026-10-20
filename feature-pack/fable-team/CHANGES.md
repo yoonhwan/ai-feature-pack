@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 시험 임시 bin 짝 누락(r516 묶음 ⑥) 5개 고침: 키트 bin 통째 복사 도우미 `tests/lib/kit_bin_copy.sh` + 부작용 스텁 (r536 · 1.1.87)
+
+- 사건: r535 나노 보고 — `test_wt_clean_plan_self_check.sh` 가 팩 origin/main 에서도 FAIL 13(`harness/evidence/r535/preexisting-self-check-origin-main.txt`). arch 107 실측 = 시험이 임시 bin 에 생성기 `ft-nano-close.sh` 와 형제 몇 개만 손으로 복사하는데 생성기가 그 뒤 `ft-seat-reap.sh`·`ft-team-lib.sh` 등을 더 부르게 바뀌어 «No such file · CLOSE-FAIL reap left=? rc=127». 같은 꼴 = r516 분류표 묶음 ⑥ 5개.
+- 새 `harness/tests/lib/kit_bin_copy.sh <임시 bin>`: 키트 `kit/fable-team/bin` 일반 파일 전부(설치와 같은 집합) cp -p → 부작용 도구 9개(`ft-seat-reap` · `ft-opencode-reap` · `ft-leak-reap` · `ft-docker-test-reap` · `ft-seat-retire` · `ft-tmux-kill|spawn|send|distill`)를 새 `harness/tests/stubs/kit-side-effect.sh` 로 덮음(호출 1줄 로그 · `left=0 rc=0` · exit 0 · 실제 kill·tmux·reap 0) · 출력 `KIT-BIN-COPY files=N stubbed=…`.
+- 시험 5: `test_wt_clean_plan_self_check`·`test_nano_succession_index`·`test_autonomy_hooks_layout`·`test_evidence_inject_scan` = 손 복사 줄 → 도우미(각 시험의 기존 가짜 tmux·cherry·lint 스텁은 그대로 · self_check 는 «스텁 reap 호출 ≥1» 단언 추가) · `test_fake_resource_env` = 파이썬 모듈 경로 `$REPO/tests/scripts` → `$HERE/scripts`(모듈은 `harness/tests/scripts/`) · `test_evidence_inject_scan` 8 = BYZ 리포에만 있던 위반 실례(#887 run.py)를 바이트 그대로 사본 `harness/fixtures/inject_scan/run-887.py`(BYZ 554e5a4873 · blob a50d41b0) 로.
+- 시험: 고치기 전 5개 rc=1(FAIL 7·4·13·6·2 · `harness/evidence/r536/before-fix.txt`) → 고친 뒤 5개 rc=0(`after-fix.txt`) · 전체 셸 전·후 비교 `compare.txt`.
+- 설치: 없음 — 시험·픽스처만(키트·LIVE_BIN·홈·launchd 0). 되돌림 = 이 커밋 revert.
+- 범위 밖: 다른 묶음(①~⑤·⑦·⑧) · r535 시험 · 키트 코드.
+
 ## 2026-10-20 — 닫힌 나노 정리 계획이 밀리지 않게: sweep 시간 상한 안 여러 건 · 옛 판 계획 재생성 · 지운 크기·등록 없는 폴더 목록 (r535 · 1.1.86)
 
 - 사건: 10-19 12:09~10-20 09:53 새 `.worktrees` 88개 ≈83GiB(planner 83 쪽지 119683). arch 107 읽기 전용 실측 — 대기 계획 18(막는 프로세스 0 이 17) · sweep 이 pass 당 1건(`FT_WT_SWEEP_MAX` 기본 1)이라 «이월 18~21» 상주 · 하네스 재설치마다 생성기 판이 바뀌어 옛 판 계획이 `.stale` 로 빠지고 다시 안 만들어짐(177) · `.hil` 57 · 등록 없는 폴더 59.

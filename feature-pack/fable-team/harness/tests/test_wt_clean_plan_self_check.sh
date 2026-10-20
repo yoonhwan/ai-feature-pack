@@ -16,8 +16,7 @@ cmp -s "$HERE/../../harness/bin/ft-nano-close.sh" "$SRC/ft-nano-close.sh" && ok 
 bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n ft-nano-close.sh"
 
 mkdir -p "$T/bin" "$T/fake" "$T/failgit" "$T/lnk"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$T/bin/"
-cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
+bash "$HERE/lib/kit_bin_copy.sh" "$T/bin" >/dev/null || { echo "FAIL kit_bin_copy"; exit 1; }   # r536: 키트 bin 통째 + 부작용 스텁(손 복사 목록이 생성기 형제를 못 따라감)
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 printf '#!/usr/bin/env bash\necho "OK cherry stub"; exit 0\n' > "$T/bin/ft-nano-cherry-gate.sh"
 cat > "$T/fake/tmux" <<'EOF'
@@ -134,6 +133,9 @@ mutate() {  # mutate <이름> <perl -pi 식> <how> — 변이 생성기로 만�
 mutate "자기검사 블록 제거(1바이트 수정 경우)" 's/\n_lv="\$\(git hash-object[^\n]*\n\[ -n "\$_lv" \][^\n]*\n/\n/' byte
 mutate "비교를 «비었으면 통과» 로(생성기 삭제 경우)" 's/\[ -n "\$_lv" \] && \[ "\$_lv" = "\$PLANVER" \]/[ -z "\$_lv" ] || [ "\$_lv" = "\$PLANVER" ]/' delete
 mutate "종료 코드 무시(|| _lv=\"\" 제거)" 's/ \|\| _lv=""//' hashexit42
+
+echo "== r536 부작용 도구는 스텁만 불렸다(실제 reap·kill 0)"
+nreap="$(grep -c '^ft-seat-reap.sh ' "$T/bin/.stub-calls.log" 2>/dev/null)"; [ "${nreap:-0}" -ge 1 ] && ok "스텁 reap 호출 ${nreap}회(로그 = 임시 bin/.stub-calls.log · run 이 env -i 라 기본 자리)" || bad "스텁 reap 호출 0 — 생성기가 reap 을 안 불렀거나 스텁이 안 덮임"
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -46,9 +46,7 @@ chk "ⓑ 후계 행 있고 index 없음 → 복사" "$(J "$S" '.["O#1"].index')"
 
 # ── nano-close 하네스(test_nano_close_named_wt.sh 와 같은 틀) ──
 mkdir -p "$T/bin" "$T/fake"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
-cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
-cp "$SRC/ft-hil.sh" "$T/bin/"
+bash "$HERE/lib/kit_bin_copy.sh" "$T/bin" >/dev/null || { echo "FAIL kit_bin_copy"; exit 1; }   # r536: 키트 bin 통째 + 부작용 스텁(손 복사 목록이 생성기 형제를 못 따라감)
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 printf '#!/usr/bin/env bash\necho "OK cherry stub"; exit 0\n' > "$T/bin/ft-nano-cherry-gate.sh"
 cat > "$T/fake/tmux" <<'EOF'
