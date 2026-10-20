@@ -1,0 +1,7 @@
+# r556 기존 시험 — 고친 코드 vs base(ee7b2f60) 동일 결과(이 카드가 만든 RED 0)
+test_nano_spawn_tier.sh              NEW=rc=0 ALL PASS | BASE=rc=0 ALL PASS
+test_nano_spawn_reuse_info.sh        NEW=rc=0 ALL PASS | BASE=rc=0 ALL PASS
+test_nano_spawn_body_press.sh        NEW=rc=2 FAILED=2 | BASE=rc=2 FAILED=2
+test_nano_spawn_teamset_cap.sh       NEW=rc=1 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0 | BASE=rc=1 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+※ body_press(ⓒ node_modules 2칸)·teamset(core.bare 1칸)은 base 에서도 같은 FAIL = 원래 실패하던 환경 결함(이 카드 무관)

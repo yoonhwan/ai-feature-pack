@@ -1,0 +1,25 @@
+# r556 ⓐ~ⓗ 전(FAIL) — 새 시험 × base 코드(ee7b2f60 = r555 위 · 이 카드 적용 전) · 실제 tmux·워크트리·pi 실행 0
+$ bash tests/test_nano_spawn_pi_effort_serena.sh   # base 코드 사본
+PASS fable-team: 블록 A 추출
+FAIL fable-team: ⓐ --agent pi → pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high
+PASS fable-team: ⓑ --agent pi --effort high = high
+FAIL fable-team: ⓒ search → pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|search|high
+PASS fable-team: ⓗ FT_PI_EFFORT=high → high
+PASS fable-team: claude 기본 effort=high 불변
+PASS fable-team: codex checker:1 effort=high 불변
+PASS fable-team: --tier impl effort=high 불변
+FAIL fable-team: 블록 B 추출 실패
+PASS kit: 블록 A 추출
+FAIL kit: ⓐ --agent pi → pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high
+PASS kit: ⓑ --agent pi --effort high = high
+FAIL kit: ⓒ search → pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|search|high
+PASS kit: ⓗ FT_PI_EFFORT=high → high
+PASS kit: claude 기본 effort=high 불변
+PASS kit: codex checker:1 effort=high 불변
+PASS kit: --tier impl effort=high 불변
+FAIL kit: 블록 B 추출 실패
+FAIL ⓖ PLAN echo 줄이 base 와 다르다 (want=[echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL$_PLANX"] new=[echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL"])
+PASS 추적본 = 키트(cmp)
+
+FAILED 7
+rc=1
