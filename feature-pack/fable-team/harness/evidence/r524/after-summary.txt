@@ -1,4 +1,4 @@
-HEAD=7d7a1ac94246ef08dbbd70a83df94c3be5f88825
+HEAD=944c992a71d45f4ac26ca1e891da9a56f0e1cf75
 test_zc_resume_headroom rc=0 pass=36 fail=0
 test_resume_cmd rc=0 pass=14 fail=0
 test_dead_seat_resume rc=0 pass=85 fail=0
