@@ -1,0 +1,3 @@
+# ⓔ 사고 필드 결정용 실측 — deepseek reasoning 이 붙는 공급자 · 같은 프롬프트(goals 갈래 길이) · 실 1회씩
+# 필드 후보 = reasoning_effort(low) — 결과: 첫 내용 0자 · total 6.48s · reasoning 7,293자 (base = 내용 575자 · total 4.89s · reasoning 3,906자)
+# 판정 = 필드 «넣지 않는다» — 넣은 쪽이 더 느리고 내용이 비었다(생각 끔/낮음은 이 모델에서 역효과). 첫 출력 상한은 7초 룰 그대로.

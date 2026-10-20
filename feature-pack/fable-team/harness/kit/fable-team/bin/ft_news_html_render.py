@@ -6,10 +6,10 @@ LLM 은 «내용(JSON)» 만 낸다 — 틀(CSS·절 머리·골 그림)은 temp
 시도당 상한 = min(고정비 + 7 × ceil(max(입력 토큰 ÷ IN_TOKENS, 예상 출력 글자 ÷ OUT_CHARS)), 총 마감) · 재시도는 «첫 출력 전 실패» 1회만 · 갈래 전부 합친 총 마감 70초 · 실패 = NewsHtmlError(발행 0 · #0 RULE).
 고정비(r510) = CLI 기동부터 stdout 첫 바이트까지 «실측» 의 p90 — 기록 state/news-cli-startup.tsv(최근 20 · 시간 초과 = «>상한» 하한값) · 기록 3개 미만 = 잠정 3.5 · FT_NEWS_FIXED_S 가 있으면 그 값(되돌림 = 3.5).
 호출 수단(r563) = FT_NEWS_VIA · `http`(기본) = 같은 모델을 OpenAI 호환 chat completions(스트림)로 «직접» 부른다 — CLI 기동 0 이라 시도당 상한 = 7초 룰 그대로(고정비 0) · `opencode` = 옛 경로(되돌림 손잡이).
-  http: 모델 id 의 공급자 접두(`openrouter/…`) → 주소(openrouter = https://openrouter.ai/api/v1) · 모델 = 접두 뒤 · 키 = OPENROUTER_API_KEY(env › zshrc 마지막 활성 줄 · 값 출력 0) · 접두가 모르는 것·키 없음 = NewsHtmlError(조용히 CLI 로 내려가기 0).
+  http: 모델 id 의 공급자 접두(`openrouter/…`) → 주소(openrouter = https://openrouter.ai/api/v1 · r575 opengateway = https://apis.opengateway.ai/v1) · 모델 = 접두 뒤 · 키 = openrouter = OPENROUTER_API_KEY(env › zshrc 마지막 활성 줄) · opengateway = OPENGATEWAY_API_KEY(env › pi 설정 `~/.pi/agent/models.json` providers.opengateway.apiKey — `$NAME` 이면 그 env · `!명령` 이면 그 명령 stdout) · 값 출력 0 · 접두가 모르는 것·키 없음 = NewsHtmlError(조용히 CLI 로 내려가기 0).
 opencode run --standalone = 비대화 1회 · stdin 은 /dev/null(물려받은 stdin 이면 240초 동안 시작 0 실측) · 시간 초과면 프로세스 묶음째 kill.
 env: FT_NEWS_MODEL(기본 opencode/deepseek-v4.1-flash-free) · FT_NEWS_EFFORT(변형 → --model <ID>#<변형> · 비거나 base = 변형 없음 · http 는 변형 접미를 뗀다) · FT_NEWS_DEPTH(프롬프트 «깊이» 문장 · 변형이 없을 때 대체) · FT_OPENCODE(기본 opencode)
-     · FT_NEWS_VIA(http|opencode) · FT_NEWS_HTTP_BASE(http 주소 앞자리 · 기본 공급자 표) · FT_NEWS_KEY_FILE(키 파일 · 기본 ~/.zshrc)
+     · FT_NEWS_VIA(http|opencode) · FT_NEWS_HTTP_BASE(http 주소 앞자리 · 기본 공급자 표) · FT_NEWS_KEY_FILE(키 파일 · 기본 ~/.zshrc) · FT_NEWS_PI_MODELS(pi 설정 · 기본 ~/.pi/agent/models.json · opengateway 키 출처)
      · FT_NEWS_FIXED_S(기동 고정비 고정) · FT_NEWS_STARTUP_LOG(기동 기록 · 기본 <루트>/.fable-team/state/news-cli-startup.tsv)
 """
 import html
@@ -35,8 +35,9 @@ from ft_key_rotate_lines import parse_line  # noqa: E402  키 읽기 꼴 재사�
 HERE = Path(__file__).resolve().parent
 MODEL = "opencode/deepseek-v4.1-flash-free"
 VIA_HTTP, VIA_OPENCODE = "http", "opencode"
-HTTP_BASE = {"openrouter": "https://openrouter.ai/api/v1"}  # 공급자 접두 → OpenAI 호환 주소 앞자리
-HTTP_KEY = {"openrouter": "OPENROUTER_API_KEY"}
+HTTP_BASE = {"openrouter": "https://openrouter.ai/api/v1",
+             "opengateway": "https://apis.opengateway.ai/v1"}  # 공급자 접두 → OpenAI 호환 주소 앞자리(r575 opengateway = pi 딥식)
+HTTP_KEY = {"openrouter": "OPENROUTER_API_KEY", "opengateway": "OPENGATEWAY_API_KEY"}
 DEADLINE_S = 70
 FIXED_S, UNIT_S, IN_TOKENS, OUT_CHARS, BYTES_PER_TOKEN = 3.5, 7, 2000, 300, 3  # 7초 룰 기준량 · CLI 기동 고정비 · 한글 섞인 글 ≈ 3 B/토큰(추정)
 STARTUP_KEEP, STARTUP_MIN = 20, 3  # r510 — 기동 기록 최근 20줄 · 3개 미만 = 잠정 FIXED_S
@@ -99,10 +100,39 @@ def http_target() -> tuple[str, str, str]:
     return (os.environ.get("FT_NEWS_HTTP_BASE") or HTTP_BASE[provider]).rstrip("/") + "/chat/completions", model, HTTP_KEY[provider]
 
 
+def pi_models_path() -> Path:
+    """pi 설정 자리 — opengateway 키 출처(r575 · 시험은 FT_NEWS_PI_MODELS 로 대역)."""
+    return Path(os.environ.get("FT_NEWS_PI_MODELS") or Path.home() / ".pi" / "agent" / "models.json").expanduser()
+
+
+def pi_key() -> str:
+    """pi 설정 providers.opengateway.apiKey → 키(pi models.md 꼴 3가지: 글자 그대로 · `$NAME`/`${NAME}` = 그 env · `!명령` = 그 명령 stdout).
+    없거나 빈 값 = "" (호출부가 «키 없음») · 값은 반환만 하고 어디에도 출력하지 않는다."""
+    try:
+        cfg = json.loads(pi_models_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    prov = cfg.get("providers") if isinstance(cfg, dict) else None
+    raw = (prov.get("opengateway") or {}).get("apiKey") if isinstance(prov, dict) else None
+    raw = raw.strip() if isinstance(raw, str) else ""
+    if raw.startswith("!"):  # pi = 요청 때마다 명령을 돌린다(예: `!security find-generic-password -ws opengateway`)
+        try:
+            return subprocess.run(raw[1:], shell=True, capture_output=True, text=True, timeout=10).stdout.strip()  # noqa: S602
+        except (OSError, subprocess.SubprocessError):
+            return ""
+    if raw.startswith("$"):  # $NAME · ${NAME}
+        return (os.environ.get(raw.lstrip("$").strip("{}")) or "").strip()
+    return raw
+
+
 def api_key(name: str) -> str:
-    """키 = env › 키 파일(기본 ~/.zshrc) «마지막 활성 줄» · 없으면 NewsHtmlError · 값은 어디에도 출력하지 않는다."""
+    """키 = env › (opengateway 면) pi 설정 › 키 파일(기본 ~/.zshrc) «마지막 활성 줄» · 없으면 NewsHtmlError · 값은 어디에도 출력하지 않는다."""
     if value := (os.environ.get(name) or "").strip():
         return value
+    if name == HTTP_KEY["opengateway"]:  # r575 — opengateway 키 출처 = pi 설정 1곳(값 출력 0)
+        if key := pi_key():
+            return key
+        raise NewsHtmlError(f"키 없음: {name} · pi 설정 opengateway({pi_models_path()})")
     file = Path(os.environ.get("FT_NEWS_KEY_FILE") or Path.home() / ".zshrc")
     try:
         lines = file.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)

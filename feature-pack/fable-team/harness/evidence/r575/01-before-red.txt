@@ -1,0 +1,1 @@
+base 판 FAIL: NewsHtmlError | 모델 id 접두 opengateway — HTTP 주소 없음(FT_NEWS_VIA=opencode 로 옛 경로 · 모델 id = <공급자>/<모델>)

@@ -1,0 +1,7 @@
+# after — 고친 판 http_target + ⓐ~ⓓ 시험
+after http_target = ('https://apis.opengateway.ai/v1/chat/completions', 'deepseek/deepseek-v4.1-flash-ultrafast', 'OPENGATEWAY_API_KEY')
+.....                                                                    [100%]
+5 passed, 11 deselected in 3.02s
+--- 기존 r563 시험(ⓓ 포함)
+................                                                         [100%]
+16 passed in 10.70s
