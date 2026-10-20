@@ -23,6 +23,7 @@ mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; exit "${TMUXC_RC:-0}"'
 mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
 mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
+: > "$FAKE/mbox_doorbell.sh"   # r607: 고른 mbox 폴더의 짝 파일 검사 — 열기 전 REJECT 를 피하려면 있어야 한다
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
 # 자원 문지기 격리(R218) — 실 머신 압력·실 pressure.tsv 를 재지 않는다: 공통 가짜 센서 헬퍼(압력 1·에이전트 35 · 임시 FT_RES_ROOT).
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
@@ -87,9 +88,11 @@ rm -f "$JDIR/s.jsonl"; run SEND_RC=0
 # R343 — mbox 는 «호출한 설치 폴더» 가 아니라 «대상 워크트리의 리포» 것이다(FT_MBOX_SH 없을 때). 설치 사본 A(호출자) · 대상 리포 B(REPO).
 CALLER="$TMP/callerA"; mkdir -p "$CALLER/comm"; cp -R "$(dirname -- "$SO")" "$CALLER/bin"
 printf '#!/usr/bin/env bash\necho "mbox-caller $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"\n' > "$CALLER/comm/mbox.sh"
+: > "$CALLER/comm/mbox_doorbell.sh"
 mkdir -p "$REPO/.fable-team/comm"
 printf '#!/usr/bin/env bash\necho "mbox-target $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"\n' > "$REPO/.fable-team/comm/mbox.sh"
-mkstub send   'echo send >> "$LOG"; echo "mboxenv ${FT_MBOX_SH:-}" >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
+: > "$REPO/.fable-team/comm/mbox_doorbell.sh"
+mkstub send   'echo send >> "$LOG"; echo "mboxenv $(cd -- "$(dirname -- "${FT_MBOX_SH:-.}")" && pwd -P)/$(basename -- "${FT_MBOX_SH:-.}")" >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'   # r607: 경로 꼴(/var vs /private) 무관하게 실제 폴더로 비교
 runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT_MBOX_SH 를 걸지 않는다
   local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT"; rm -rf "$STATE"; : > "$LOG"
   env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
@@ -97,7 +100,7 @@ runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT
       bash "$sox" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?
 }
-TMBOX="$REPO/.fable-team/comm/mbox.sh"
+TMBOX="$(cd -- "$REPO" && pwd -P)/.fable-team/comm/mbox.sh"   # r607: ROOT = git --git-common-dir 물리 경로(/private/var…)
 
 # ⓗ 다른 리포 WT → ring·송신 환경·꼬리 모두 대상 리포 mbox · 호출자 mbox 0
 runx "$CALLER/bin/ft-successor-open.sh" "$REPO" SEND_RC=2 REACH_RC=0
@@ -112,19 +115,33 @@ runx "$REPO/.fable-team/bin/ft-successor-open.sh" "$REPO" SEND_RC=2 REACH_RC=0
   && ok "ⓘ 같은 리포 → 같은 mbox · 도달 파일" || bad "ⓘ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
 rm -rf "$REPO/.fable-team/bin"
 
-# ⓙ 대상 리포에 mbox 없음 → REJECT rc2 · 두 경로 표시 · open·송신·호출자 mbox 0
+# ⓙ 대상 리포에 mbox 없음 → REJECT rc2 · 루트 경로 표시 · open·송신·호출자 mbox 0
 NOM="$TMP/nombox"; mkdir -p "$NOM"; git -C "$NOM" init -q
 runx "$CALLER/bin/ft-successor-open.sh" "$NOM" SEND_RC=0
 { [ "$RC" -eq 2 ] && grep -q '대상 리포 mbox 없음' "$TMP/out" && grep -q "$NOM/.fable-team/comm/mbox.sh" "$TMP/out" \
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ "$(count 'mbox-caller')" = 0 ]; } \
   && ok "ⓙ mbox 없는 리포 → REJECT rc2 · open·송신 0 · 호출자 mbox 0" || bad "ⓙ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
 
-# ⓚ 워크트리 자체 mbox 가 루트 mbox 보다 먼저
+# ⓚ r607 — 링크 워크트리 안에 옛 mbox 사본이 있어도 «리포 루트» mbox 를 고른다(옛 판 = 사본을 먼저 골랐다 = 승계 SEND_FAILED 원인)
 git -C "$REPO" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
 git -C "$REPO" worktree add -q "$TMP/wt" -b wtb 2>/dev/null
 mkdir -p "$TMP/wt/.fable-team/comm"; printf '#!/usr/bin/env bash\necho "mbox-wt $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"\n' > "$TMP/wt/.fable-team/comm/mbox.sh"
 runx "$CALLER/bin/ft-successor-open.sh" "$TMP/wt" SEND_RC=2 REACH_RC=0
-{ [ "$RC" -eq 0 ] && [ "$(count 'mbox-wt ring')" = 1 ] && [ "$(count 'mbox-target')" = 0 ]; } \
-  && ok "ⓚ 워크트리 mbox 가 루트 mbox 보다 먼저" || bad "ⓚ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+{ [ "$RC" -eq 0 ] && [ "$(count 'mbox-target ring')" = 1 ] && [ "$(count 'mbox-wt')" = 0 ] && grep -q "mbox=$TMBOX" "$TMP/out"; } \
+  && ok "ⓚ 링크 워크트리 사본 있음 → 리포 루트 mbox 고름 · 사본 0" || bad "ⓚ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
+# ⓛ r607 — 고른 mbox 폴더에 mbox_doorbell.sh 없음 → 열기(tmuxc) «전» REJECT rc2 · 송신 0
+TMBOXDIR="$(cd -- "$REPO/.fable-team/comm" && pwd -P)"
+mv "$REPO/.fable-team/comm/mbox_doorbell.sh" "$TMP/doorbell.bak"
+runx "$CALLER/bin/ft-successor-open.sh" "$TMP/wt" SEND_RC=0
+{ [ "$RC" -eq 2 ] && grep -q "mbox 짝 파일 없음: $TMBOXDIR/mbox_doorbell.sh" "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
+  && ok "ⓛ 짝 파일 없음 → RC2 · open·송신 0" || bad "ⓛ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+mv "$TMP/doorbell.bak" "$REPO/.fable-team/comm/mbox_doorbell.sh"
+
+# ⓜ r607 — FT_MBOX_SH 명시는 지금과 같다(회귀 0)
+run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ]; } \
+  && ok "ⓜ FT_MBOX_SH 명시 → 지금과 같음" || bad "ⓜ rc=$RC log=$(tr '\n' ' ' < "$LOG")"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -1,0 +1,2 @@
+cmp kit/fable-team/bin/ft-successor-open.sh bin/ft-successor-open.sh
+cmp rc=0 (사본 동일)
