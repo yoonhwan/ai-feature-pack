@@ -1,0 +1,1 @@
+cmp kit/bin rc=0
