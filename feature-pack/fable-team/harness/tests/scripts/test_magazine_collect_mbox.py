@@ -258,3 +258,74 @@ def test_rotated_rows_are_ts_sorted_so_seats_do_not_drop_in_window_rows(tmp_path
     out = mm.collect_mbox(p, START, end)
     assert out["mbox"]["total"] == 2
     assert "byz-harness-nano-late#0" in out["seats"]["new"]
+
+
+# ── 회전본 `.1`~`.N` (r553 · 쓰는 쪽이 밀어 보관) ──
+def keep(tmp_path: Path, cur: list[str], olds: dict[int, list[str]]) -> Path:
+    """현재판 + `.1`·`.2`… 회전본(없는 번호는 파일도 없다 — 중간 빠짐 시험용)."""
+    p = write(tmp_path, cur)
+    for n, lines in olds.items():
+        (tmp_path / f"mailbox.log.jsonl.{n}").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return p
+
+
+def test_second_rotation_covers_window_start(tmp_path, monkeypatch):
+    """ⓔ 창 시작이 `.2` 안에만 있다 — 옛 판은 `.1` 만 읽어 MagazineError."""
+    monkeypatch.delenv("FT_MBOX_LOG_KEEP", raising=False)
+    p = keep(
+        tmp_path,
+        cur=[row(5, "2026-10-07T12:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        olds={
+            1: [row(3, "2026-10-07T10:00:00", "byz-cfo-master-claude#3", "x", ".1")],
+            2: [HEAD, row(2, "2026-10-07T09:00:00", "byz-cfo-master-claude#3", "x", ".2")],
+        },
+    )
+    mb = mm.collect_mbox(p, START, END)["mbox"]
+    assert mb["total"] == 3  # .2 + .1 + 현재판 (HEAD 은 창 전)
+    assert mb["bad_lines"] == 0
+
+
+def test_all_rotations_read_but_still_short_raises_with_every_file(tmp_path, monkeypatch):
+    """ⓕ `.1`~`.3` 다 이어도 못 덮으면 raise — 이어 읽은 파일·첫 ts 를 숨기지 않는다."""
+    monkeypatch.delenv("FT_MBOX_LOG_KEEP", raising=False)
+    p = keep(
+        tmp_path,
+        cur=[row(9, "2026-10-07T12:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        olds={n: [row(n, f"2026-10-07T{8 + n}:00:00", "byz-cfo-master-claude#3", "x", f".{n}")] for n in (1, 2, 3)},
+    )
+    with pytest.raises(MagazineError) as ei:
+        mm.collect_mbox(p, START, END)
+    msg = str(ei.value)
+    for n in (1, 2, 3):
+        assert f"mailbox.log.jsonl.{n}" in msg and f"2026-10-07T{8 + n}:00:00" in msg
+    assert "mailbox.log.jsonl.4" not in msg  # KEEP 밖은 안 읽는다
+
+
+def test_missing_middle_rotation_stops_instead_of_skipping(tmp_path, monkeypatch):
+    """ⓖ 중간 벌(`.2`)이 빠지면 거기서 멈춘다 — `.3` 이 덮어도 건너뛰지 않는다."""
+    monkeypatch.delenv("FT_MBOX_LOG_KEEP", raising=False)
+    p = keep(
+        tmp_path,
+        cur=[row(9, "2026-10-07T12:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        olds={1: [row(3, "2026-10-07T10:00:00", "byz-cfo-master-claude#3", "x", ".1")], 3: [HEAD]},
+    )
+    with pytest.raises(MagazineError) as ei:
+        mm.collect_mbox(p, START, END)
+    msg = str(ei.value)
+    assert "mailbox.log.jsonl.1" in msg and "mailbox.log.jsonl.3" not in msg
+
+
+def test_keep_one_reads_only_first_rotation(tmp_path, monkeypatch):
+    """`FT_MBOX_LOG_KEEP=1` = 되돌림 손잡이 — `.1` 만 읽고 `.2` 는 안 읽는다."""
+    monkeypatch.setenv("FT_MBOX_LOG_KEEP", "1")
+    p = keep(
+        tmp_path,
+        cur=[row(5, "2026-10-07T12:00:00", "byz-cfo-master-claude#3", "x", "현재")],
+        olds={
+            1: [row(3, "2026-10-07T10:00:00", "byz-cfo-master-claude#3", "x", ".1")],
+            2: [HEAD, row(2, "2026-10-07T09:00:00", "byz-cfo-master-claude#3", "x", ".2")],
+        },
+    )
+    with pytest.raises(MagazineError) as ei:
+        mm.collect_mbox(p, START, END)
+    assert "mailbox.log.jsonl.2" not in str(ei.value)

@@ -1,0 +1,7 @@
+# r553 base 대조 — 시험 파일은 «칸 추가만»(삭제 줄 0)
+## tests/scripts/test_mbox_sent_log.py
+삭제줄: 0  추가줄: 34
+## tests/scripts/test_magazine_collect_mbox.py
+삭제줄: 0  추가줄: 61
+## tests/test_ft_mbox_sent_log.sh
+삭제줄: 0  추가줄: 10

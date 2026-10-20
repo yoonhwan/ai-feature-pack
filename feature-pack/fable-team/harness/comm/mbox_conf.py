@@ -39,3 +39,7 @@ BODIES_PRUNE_EVERY = 3600   # 청소 주기(초) — 매 send 마다 listdir 하
 #   큐 동작은 건드리지 않는다. 한도 초과 시 .1 로 한 번 회전해 최대 2×한도로 묶는다(무한 증가 0).
 SENT_LOG = "mailbox.log.jsonl"
 SENT_LOG_MAX_BYTES = int(os.environ.get("FT_MBOX_LOG_MAX_BYTES") or 5 * 1024 * 1024)
+# ★회전본 «벌 수» (r553)★ — 한 벌만 남기면 바쁜 날 보관이 약 10시간이라 매거진 24시간 창의
+#   앞부분이 사라진다(10-20 08:00 MagazineError 실측: 실 하루 12.5MB). 밀어 보관하면 파일
+#   하나의 크기는 그대로라 send 비용은 안 늘고 «더 오래된 벌이 남는» 것만 달라진다.
+SENT_LOG_KEEP = max(1, int(os.environ.get("FT_MBOX_LOG_KEEP") or 3))

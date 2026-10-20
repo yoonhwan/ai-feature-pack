@@ -55,9 +55,11 @@ BODIES_PRUNE_EVERY = 3600  # 청소 주기(초) — 매 send 마다 listdir 하�
 # ★보낸 행의 «추가 전용» 사본 (r488 · 출처 = 루트 mbox_conf.py:40-41 그대로)★
 #   mailbox.jsonl 은 consume-on-read 라 recv 하면 행이 사라진다. 이 사본이 없으면 소비된 쪽지의
 #   레코드가 어디에도 없어 가드(ft_da_hold_gate)·보드·미러가 «쪽지 없음»으로 판정한다.
-#   한도 초과 시 .1 로 한 번 회전해 최대 2×한도로 묶는다(무한 증가 0).
+#   한도 초과 시 `.1`~`.<SENT_LOG_KEEP>` 로 «밀어» 보관한다(r553) — 한 벌만 남기면 바쁜 날 보관이
+#   약 10시간이라 매거진 24시간 창을 못 덮는다. 파일 하나의 크기는 그대로다(무한 증가 0).
 SENT_LOG = "mailbox.log.jsonl"
 SENT_LOG_MAX_BYTES = int(os.environ.get("FT_MBOX_LOG_MAX_BYTES") or 5 * 1024 * 1024)
+SENT_LOG_KEEP = max(1, int(os.environ.get("FT_MBOX_LOG_KEEP") or 3))
 
 
 def _repo_root(start):
@@ -321,14 +323,26 @@ def _locked(d, fn):
         lf.close()
 
 
+def _rotate_sent_log(p):
+    """`.<KEEP-1>`→`.<KEEP>` … `.1`→`.2` 로 밀어 보관하고 빈 `.1` 자리를 만든다(있는 것만).
+
+    가장 오래된 벌(`.<KEEP>`)은 덮여 사라진다 — 그 밖으로 밀린 것만 잃는다(루트 모듈판과 같은 꼴).
+    """
+    for n in range(SENT_LOG_KEEP - 1, 0, -1):
+        src = "%s.%d" % (p, n)
+        if os.path.exists(src):
+            os.replace(src, "%s.%d" % (p, n + 1))
+
+
 def _log_sent(d, row):
-    """보낸 행을 추가 전용 사본에 1줄 쓴다(r488 · 출처 = 루트 mbox_guard.py `_log_sent` 그대로).
+    """보낸 행을 추가 전용 사본에 1줄 쓴다(r488 · r553 밀어 보관).
 
     실패해도 send 는 산다 — 단 «조용히» 삼키지 않고 stderr WARN 으로 드러낸다. 우편함 잠금 안에서 부른다.
     """
     p = os.path.join(d, SENT_LOG)
     try:
         if os.path.exists(p) and os.path.getsize(p) > SENT_LOG_MAX_BYTES:
+            _rotate_sent_log(p)
             os.replace(p, p + ".1")
         with open(p, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")

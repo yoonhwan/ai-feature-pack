@@ -141,15 +141,29 @@ def _guard_verdict(to, frm, body, exempt=()):
     return None
 
 
+def _rotate_sent_log(p):
+    """`.<KEEP-1>`→`.<KEEP>` … `.1`→`.2` 로 «밀어» 보관하고 빈 `.1` 자리를 만든다(있는 것만).
+
+    r553 — 한 벌(`.1`)만 남기면 바쁜 날 보관이 약 10시간이라 매거진 24시간 창을 못 덮는다.
+    가장 오래된 벌(`.<KEEP>`)은 `os.replace` 로 덮여 사라진다 — 그 밖으로 밀린 것만 잃는다.
+    """
+    for n in range(SENT_LOG_KEEP - 1, 0, -1):
+        src = "%s.%d" % (p, n)
+        if os.path.exists(src):
+            os.replace(src, "%s.%d" % (p, n + 1))
+
+
 def _log_sent(d, row):
     """보낸 행을 추가 전용 사본에 1줄 쓴다. 실패해도 send 는 산다 — 단 «조용히» 삼키지 않는다.
 
     통신이 사본 때문에 끊기는 쪽이 더 크므로 raise 하지 않고, 대신 stderr WARN 으로 드러낸다
     (미러는 이 사본이 비면 보고를 못 올리므로 «보이는 실패» 여야 한다). 우편함 잠금 안에서 부른다.
+    한도 초과 시 `.1`~`.<SENT_LOG_KEEP>` 로 밀어 보관한다 — 회전본은 1개가 아니다.
     """
     p = os.path.join(d, SENT_LOG)
     try:
         if os.path.exists(p) and os.path.getsize(p) > SENT_LOG_MAX_BYTES:
+            _rotate_sent_log(p)
             os.replace(p, p + ".1")
         with open(p, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")

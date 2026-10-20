@@ -1,0 +1,8 @@
+# r553 키트 경로 셸 시험
+PASS ⓖ .2 산다
+PASS ⓖ .3 산다
+PASS ⓖ .4 없음
+PASS ⓖ seq 오름차순·빈틈 0
+---
+ALL PASS
+rc=0

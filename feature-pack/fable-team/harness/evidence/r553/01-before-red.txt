@@ -1,0 +1,13 @@
+# r553 고치기 전 (base 코드 + 새 시험) — 실패 시험 먼저
+        msg = str(ei.value)
+        for n in (1, 2, 3):
+>           assert f"mailbox.log.jsonl.{n}" in msg and f"2026-10-07T{8 + n}:00:00" in msg
+E           AssertionError: assert ('mailbox.log.jsonl.2' in 'mbox 사본이 회전본을 이어도 창 앞부분을 덮지 못해요(창 시작 2026-10-07T08:00:00): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/p...qlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-4/test_all_rotations_read_but_st0/mailbox.log.jsonl 첫 ts=2026-10-07T12:00:00')
+
+tests/scripts/test_magazine_collect_mbox.py:300: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mbox_sent_log.py::test_log_keep_three_rotations_survive_rotation
+FAILED tests/scripts/test_mbox_sent_log.py::test_log_keep_defaults_to_three
+FAILED tests/scripts/test_magazine_collect_mbox.py::test_second_rotation_covers_window_start
+FAILED tests/scripts/test_magazine_collect_mbox.py::test_all_rotations_read_but_still_short_raises_with_every_file
+4 failed, 30 passed in 6.45s
