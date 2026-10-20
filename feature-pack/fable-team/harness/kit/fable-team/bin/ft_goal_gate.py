@@ -25,7 +25,7 @@ from ft_goal_receipt import first as _first
 LOG = logging.getLogger("ft_goal_gate")
 MSG_CHARS = 280  # 쪽지에 싣는 사유 글자 수(시간 상한 아님)
 DEDUP_S = 10 * 60  # 같은 거절 통지 억제 창
-SHA = re.compile(r"^★골 표 A6 \(([0-9a-f]{10}) ", re.M)
+SHA = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) ", re.M)  # r545: 출처 표지(`origin/main@`|`file:`) 붙은 새 꼴 + 옛 꼴
 
 
 def armed(state_dir: Path) -> bool:

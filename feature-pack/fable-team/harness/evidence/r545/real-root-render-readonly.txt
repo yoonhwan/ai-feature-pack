@@ -1,0 +1,16 @@
+# 실 루트 읽기전용 render — 고치기 전(base origin/main 9a7e608e 의 bin) vs 고친 판(이 가지)
+# 명령: env -u FT_GOAL_A6_MD -u FT_GOAL_A6_LEDGER FT_ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents python3 <bin>/ft_goal_table.py
+# 쓰기 0 · press 0 · Redis 0 · 실 원장 파일은 읽기만
+
+=== BASE(고치기 전) — 체크아웃(283커밋 뒤) 디스크를 읽는다 + TWIN-STALE/명단 WARN
+WARN TWIN-STALE /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/planner (ref 에 없음 · 체크아웃 ref 뒤 283커밋)
+WARN 체크아웃 명단 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/TEAMS.md 의 planner 칸이 origin/main 와 다르다 — 판정은 origin/main 명단 + 실재 폴더 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/teams/planner
+WARN TWIN-STALE /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/planner (ref 에 없음 · 체크아웃 ref 뒤 283커밋)
+WARN 체크아웃 명단 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/TEAMS.md 의 planner 칸이 origin/main 와 다르다 — 판정은 origin/main 명단 + 실재 폴더 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/teams/planner
+
+=== 고친 판 — 머리 «origin/main@<sha10>» · 표 = origin/main 판 · WARN 0
+rc=0
+★골 표 A6 (origin/main@63fd1b57dc · 원장:10-20 10:1x)★
+| 골 | 팀 | 지금 상태 | 닫는 증거 |
+stderr: []
+(전문 = 6행 + 꼬리, 상태 칸 = origin/main 원장 값)

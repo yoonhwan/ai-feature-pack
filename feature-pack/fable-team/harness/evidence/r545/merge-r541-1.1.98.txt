@@ -1,0 +1,11 @@
+r545 = 1.1.98 재번호 — 팩 origin/main 0a0844b4(r541 1.1.97 병합 끝) 위로 병합
+- 충돌 = CHANGES.md · manifest.json 둘뿐(기계 해소 · 앞 항목 r541 1.1.97 · r542 1.1.96 · r543 1.1.95 보존 · r545 = 1.1.98)
+- 병합 자동 해소 = tests/test_goal_check_ref.sh · tests/test_goal_table_gate.sh · tests/test_team_literal_paths.sh (r541 실-상태 가드 적용분과 내 단언 변경이 같은 파일에서 같이 남음)
+- 병합 HEAD 위 재실행(원문 = 같은 폴더 after-*.txt)
+test_goal_table_gitref_r545.sh rc=0 fails=0
+test_goal_table_gate.sh rc=0 fails=0
+test_goal_check_ref.sh rc=0 fails=0
+test_team_literal_paths.sh rc=0 fails=0
+test_real_state_guard_r541.sh rc=0 fails=0
+pytest test_ft_news_goal_block + test_magazine_goal + test_ft_news_ledger = 49 passed
+ruff = All checks passed

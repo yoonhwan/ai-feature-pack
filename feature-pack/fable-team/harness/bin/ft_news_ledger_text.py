@@ -16,7 +16,7 @@ def _head(now: datetime, n: int | str, total: int | str, rel: str, tag: str = ""
     return f"*뉴스 {stamp}* — 기준: 오빠 원장({rel}) · 지난 발행 뒤 바뀐 것만" + (tag if total != 1 and n != 1 else "")
 
 
-_SHA = re.compile(r"^★골 표 A6 \(([0-9a-f]{10}) ", re.M)
+_SHA = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) ", re.M)  # r545: 출처 표지(`origin/main@`|`file:`) 붙은 새 꼴 + 옛 꼴
 
 
 def _tag(goal: str, now: datetime) -> str:

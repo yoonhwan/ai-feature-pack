@@ -1,0 +1,13 @@
+PASS ⓐ0 픽스처: 체크아웃엔 새 폴더 없음(뒤처진 가지)
+PASS ⓐ1 rc0(체크아웃 파일 없음 = ERROR 아님)
+PASS ⓐ2 표 = origin/main 판(체크아웃 옛 원장 OLD 0)
+PASS ⓐ3 표 7줄(제목 1 + 골 6)
+PASS ⓑ 머리 = origin/main@<sha10>
+PASS ⓒ 낡은 복사본 있어도 origin/main 판(복사본 무시)
+PASS ⓓ ref 에 정본 없음 = ERROR rc1(후퇴 0)
+PASS ⓔ env 파일 출처 = file:<sha10> · 그 파일 내용
+PASS ⓕ gitref 원장도 24h 초과 = «상태 낡음»
+PASS ⓖ1 new 꼴 마커 → check rc0(읽기 하위 호환)
+PASS ⓖ1 old 꼴 마커 → check rc0(읽기 하위 호환)
+PASS ⓖ2 게이트·뉴스 정규식이 새 머리에서 sha10 = 0fc616420a
+ALL PASS

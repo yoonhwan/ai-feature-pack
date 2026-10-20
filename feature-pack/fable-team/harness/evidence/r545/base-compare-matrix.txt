@@ -1,0 +1,28 @@
+r545 base 대조 4분면 (실 리포 · 워크트리 = nano/r545-goal-table-reads-origin-main-gitref · base = origin/main 9a7e608e 의 bin·tests)
+바뀐 파일 = bin 4(ft_goal_table·ft_goal_ledger·ft_goal_gate·ft_news_ledger_text) + kit 짝 4 + 시험 4(test_goal_table_gate.sh · test_goal_check_ref.sh · test_team_literal_paths.sh · scripts/test_ft_news_goal_block.py)
+
+### base code + base tests
+test_goal_table_gate.sh rc=0 fails=0
+test_goal_check_ref.sh rc=0 fails=0
+test_team_literal_paths.sh rc=0 fails=0
+test_ft_news_goal_block.py 20 passed
+
+### base code + my tests   ← 새 계약 단언이 base 에서 빨강(red-first)
+test_goal_table_gate.sh rc=1 fails=3
+test_goal_check_ref.sh rc=1 fails=4
+test_team_literal_paths.sh rc=0 fails=0
+test_ft_news_goal_block.py 20 passed
+
+### my code + base tests   ← 옛 계약 단언(출처=체크아웃 파일 · 옛 머리 꼴)이 새 코드에서 빨강
+test_goal_table_gate.sh rc=1 fails=6
+test_goal_check_ref.sh rc=1 fails=2
+test_team_literal_paths.sh rc=1 fails=1
+test_ft_news_goal_block.py 1 failed, 19 passed
+
+### my code + my tests
+test_goal_table_gate.sh rc=0 fails=0
+test_goal_check_ref.sh rc=0 fails=0
+test_team_literal_paths.sh rc=0 fails=0
+test_ft_news_goal_block.py 20 passed
+
+판정: 기존 시험 4개의 «단언·픽스처» 를 새 계약(출처 = ref · 머리에 출처 표지)에 맞춰 고쳤다 — 고친 자리는 ①골 표 머리 꼴 단언 ②픽스처 파일을 origin/main 에 커밋 ③ⓔ3/ⓔ4 = «디스크 실재 후보» 대신 «ref 판» 시나리오 ④뉴스 묶음 표지 헬퍼 _sha 의 sha10 추출 ⑤리터럴 경로 시험의 머리 sha 정규화(픽스처 트리가 달라 commit sha 가 다른 것은 정상).

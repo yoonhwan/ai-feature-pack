@@ -102,17 +102,23 @@ printf '#!/bin/bash\necho "REJECT seat=$1 cited 문구가 골 원장에 없다 (
 tick "$T/rej.sh"; [ "$TRC" = 0 ] && printf '%s' "$TOUT" | grep -q 'tick sent target=seat-t rc=4' && grep -q 'rc=4 · REJECT seat=seat-t cited' "$MLOG" && ok "ⓓ3 판정기 rc=4 → relay 에 REJECT 문구(지금과 같음)" || bad "ⓓ3 trc=$TRC :: $TOUT :: $(cat "$MLOG")"
 unset -f tmux
 
-# ⓔ 골 표 원장(쪽지 가드 경로 ft_goal_table.py render) — LIVE_ROOT 명단을 origin/main 판으로 갈아도 planner = 실재 후보 · 쌍둥이·0 = ERROR
+# ⓔ 골 표 원장(쪽지 가드 경로 ft_goal_table.py render) — r545: 출처 = ref(origin/main) 트리 · 체크아웃 디스크 실재 여부는 안 본다
 LR="$T/live"; g "$R" worktree add -q -b v6 "$LR" main
 printf "$HEADROW"'| planner | `design/planner/` | x | 현역 |\n' > "$LR/design/TEAMS.md"; planner_tree "$LR/design/planner"
 mkdir -p "$R/.fable-team/livebin"; printf '%s\n' "$R/.fable-team/livebin" > "$R/.fable-team/LIVE_BIN"; printf '%s\n' "$LR" > "$R/.fable-team/LIVE_ROOT"
 render() { OUT="$(cd "$T" && env -u FT_GOAL_A6_MD -u FT_GOAL_A6_LEDGER -u FT_LEDGER_REPO -u FT_LEDGER_PATH FT_ROOT="$R" python3 "$BIN/ft_goal_table.py" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"; }
 render; [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '상태3 진행' && [ "$(printf '%s' "$OUT" | grep -c '진행')" = 6 ] && ok "ⓔ1 옛 명단 그대로 → 골 표 6행 + 원장 상태" || bad "ⓔ1 rc=$RC :: $OUT :: $ERR"
 FIRST="$OUT"; cp "$S/design/TEAMS.md" "$LR/design/TEAMS.md"
-render; [ "$RC" = 0 ] && [ "$OUT" = "$FIRST" ] && [ -z "$ERR" ] && ok "ⓔ2 LIVE_ROOT 명단을 origin/main 판으로 갈아도 같은 골 표(planner = 실재 design/planner) · WARN 0" || bad "ⓔ2 rc=$RC :: $OUT :: $ERR"
-mkdir -p "$LR/design/teams/planner"; render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q "^WARN TWIN-STALE $LR/design/planner (ref 에 없음" && printf '%s' "$ERR" | grep -q "^ERROR .*$LR/design/teams/planner/" && ok "ⓔ3 쌍둥이 → ref 쪽(teams) + WARN TWIN-STALE · 빈 새 꼴 = ERROR rc1(옛 꼴 후퇴 0 · r495)" || bad "ⓔ3 rc=$RC :: $OUT :: $ERR"
-rmdir "$LR/design/teams/planner"; mv "$LR/design/planner" "$T/planner.off"
-render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더 실재 후보 0개' && ok "ⓔ4 둘 다 없음 → ERROR(원장 없음 · 추측 0) rc1" || bad "ⓔ4 rc=$RC :: $OUT :: $ERR"
+render; [ "$RC" = 0 ] && [ "$OUT" = "$FIRST" ] && [ -z "$ERR" ] && ok "ⓔ2 LIVE_ROOT 명단을 origin/main 판으로 갈아도 같은 골 표(planner = ref 판 1개) · WARN 0" || bad "ⓔ2 rc=$RC :: $OUT :: $ERR"
+mkdir -p "$LR/design/teams/planner"; render
+[ "$RC" = 0 ] && [ "$OUT" = "$FIRST" ] && ok "ⓔ3 체크아웃 디스크 쌍둥이(빈 새 꼴) 있어도 ref 판 1개로 rc0 · 표 동일(r545 — 디스크 실재 후보로 고르지 않는다)" || bad "ⓔ3 rc=$RC :: $OUT :: $ERR"
+REFSHA_E="$(g "$R" rev-parse refs/remotes/origin/main)"; planner_tree "$S/design/planner"; g "$S" add -A; g "$S" commit -qm twin; g "$R" fetch -q "$S" main:refs/remotes/origin/main
+render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더가 origin/main 에 2개' && ok "ⓔ3b ref 에 쌍둥이 둘 다 → ERROR 2개 rc1(추측 0)" || bad "ⓔ3b rc=$RC :: $OUT :: $ERR"
+g "$R" update-ref refs/remotes/origin/main "$REFSHA_E"; rmdir "$LR/design/teams/planner"; mv "$LR/design/planner" "$T/planner.off"
+render; [ "$RC" = 0 ] && [ "$OUT" = "$FIRST" ] && ok "ⓔ4 체크아웃에 planner 폴더가 없어도 ref 판으로 rc0 · 표 동일(r545 — 공용 체크아웃이 뒤처져도 안 멈춘다)" || bad "ⓔ4 rc=$RC :: $OUT :: $ERR"
+g "$S" rm -rq design/teams/planner design/planner; g "$S" commit -qm nogoal; g "$R" fetch -q "$S" main:refs/remotes/origin/main
+render; [ "$RC" = 1 ] && printf '%s' "$ERR" | grep -q 'planner 폴더가 origin/main 에 0개' && ok "ⓔ4b ref 에도 없음 → ERROR 0개 rc1(추측·옛 글자 경로 후퇴 0)" || bad "ⓔ4b rc=$RC :: $OUT :: $ERR"
+g "$R" update-ref refs/remotes/origin/main "$REFSHA_E"
 
 # ── r485: 원장 키 = ref sha · 상태 = 공용 루트 1개 · 경과 = ref 기준
 # 픽스처: P = origin 판 · Q = 공용 루트(clone · main 이 ref 보다 원장 1커밋 뒤) · W = Q 의 워크트리(원장 한 줄 더 커밋 = 체크아웃 sha ≠ ref sha) · 세 루트의 원장 sha 가 전부 다르다(실측 꼴)

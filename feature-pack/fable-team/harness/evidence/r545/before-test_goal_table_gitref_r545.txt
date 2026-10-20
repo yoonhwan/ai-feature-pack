@@ -1,0 +1,13 @@
+PASS ⓐ0 픽스처: 체크아웃엔 새 폴더 없음(뒤처진 가지)
+PASS ⓐ1 rc0(체크아웃 파일 없음 = ERROR 아님)
+FAIL ⓐ2 :: WARN 체크아웃 명단 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tyBsBPxT3C/root/.worktrees/v6-realtime-live/design/TEAMS.md 의 planner 칸이 origin/mai
+PASS ⓐ3 표 7줄(제목 1 + 골 6)
+FAIL ⓑ 머리 :: WARN 체크아웃 명단 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tyBsBPxT3C/root/.worktrees/v6-realtime-live/design/TEAMS.md 의 planner 칸이 origin/m
+FAIL ⓒ rc=0 :: WARN TWIN-STALE /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tyBsBPxT3C/root/.worktrees/v6-realtime-live/design/planner (ref 에 없음 · 체크아웃 
+FAIL ⓓ rc=0 :: WARN 체크아웃 명단 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tyBsBPxT3C/root/.worktrees/v6-realtime-live/design/TEAMS.md 의 planner 칸이 origin
+FAIL ⓔ rc=0 :: ★골 표 A6 (0fc616420a · 원장:10-20 15:52)★
+FAIL ⓕ rc=0 :: WARN 체크아웃 명단 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tyBsBPxT3C/root/.worktrees/v6-realtime-live/design/TEAMS.md 의 planner 칸이 origin
+PASS ⓖ1 new 꼴 마커 → check rc0(읽기 하위 호환)
+PASS ⓖ1 old 꼴 마커 → check rc0(읽기 하위 호환)
+PASS ⓖ2 게이트·뉴스 정규식이 새 머리에서 sha10 = 0fc616420a
+FAIL 6
