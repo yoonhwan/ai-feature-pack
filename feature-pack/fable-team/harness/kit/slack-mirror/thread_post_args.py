@@ -56,6 +56,10 @@ def parse(argv: list[str]) -> argparse.Namespace:
     rpl.add_argument("--text-file")
     rpl.add_argument("--text", help="본문 1개 — 쪽지 끝 «답 = …» 줄 그대로(r558)")
     rpl.add_argument("--force-thread", action="store_true", help="--thread 로 보내되 «답 안 된 오빠 글» 검사를 건너뛴다(명시 · stderr WARN · r558)")
+    po = sub.add_parser("post", parents=[common, chan_reply], help="방에 새 글 1개(스레드 아님) — 승인·뉴스·알림(r561)")
+    po.add_argument("--to", help="등록부(slack-threads.json) 이름 예 desk — 그 채널 «방» 에 올린다")
+    po.add_argument("--text")
+    po.add_argument("--text-file")
     t = sub.add_parser("attach", parents=[common, chan], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)
@@ -66,6 +70,11 @@ def parse(argv: list[str]) -> argparse.Namespace:
             p.error("reply 는 --text 또는 --text-file 중 하나가 필요하다")
         if a.ts is not None and a.channel is None:
             a.channel = CHANNEL  # 기존 --ts 호출 불변 — --to-slack 의 채널은 수신 원장이 정한다
-    if a.cmd not in ("update", "attach", "reply") and not (a.card or getattr(a, "unit_id", None)):
+    if a.cmd == "post":
+        if (a.to is None) == (a.channel is None):
+            p.error("post 는 --to <등록부 이름> 또는 --channel <ID> 중 하나가 필요하다")
+        if (a.text is None) == (a.text_file is None):
+            p.error("post 는 --text 또는 --text-file 중 하나가 필요하다")
+    if a.cmd not in ("update", "attach", "reply", "post") and not (a.card or getattr(a, "unit_id", None)):
         p.error("--card 가 필요하다")
     return a

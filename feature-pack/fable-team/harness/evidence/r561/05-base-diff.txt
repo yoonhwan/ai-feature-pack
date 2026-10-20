@@ -1,0 +1,8 @@
+base=4066f4d4 (r558 merge) · scratch=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-4066f4d4-1792495844-47209
+시험: test_thread_post_attach/test_thread_post/test_thread_reply_to_slack/test_thread_post_args/test_post_guard
+E         Use -v to get more diff)
+
+harness/tests/scripts/test_thread_post_attach.py:29: AssertionError
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_thread_post_attach.py::test_attach_uploads_files_into_root_thread_and_prints_first_link
+1 failed, 90 passed in 4.89s

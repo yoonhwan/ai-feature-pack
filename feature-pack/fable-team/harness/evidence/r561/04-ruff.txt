@@ -1,0 +1,4 @@
+ruff check — 이 카드가 바꾼 파일만
+All checks passed!
+rc=0
+--- 참고: tests/scripts 전체 광역 ruff = 선행 7건(이 카드 무관 · base 동일)

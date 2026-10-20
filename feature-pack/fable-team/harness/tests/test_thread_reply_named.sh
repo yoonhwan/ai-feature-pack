@@ -35,7 +35,7 @@ for _ in $(seq 50); do [ -s "$TMP/port" ] && break; sleep 0.1; done
 BASE="http://127.0.0.1:$(cat "$TMP/port")"
 
 reply() { # reply <인자…> — 출력 $TMP/out · rc $RC
-  env FT_SLACK_THREADS="$REG" FT_ROOT="$TMP" python3 "$KIT/byz_thread_post.py" reply --token-file "$TMP/tok" --slack-base "$BASE" \
+  env FT_SLACK_THREADS="$REG" FT_ROOT="$TMP" FT_SLACK_TOPIC_ONLY= python3 "$KIT/byz_thread_post.py" reply --token-file "$TMP/tok" --slack-base "$BASE" \
       --text-file "$TMP/body.txt" "$@" > "$TMP/out" 2>&1; RC=$?
 }
 posts() { wc -l < "$POSTS" | tr -d ' '; }

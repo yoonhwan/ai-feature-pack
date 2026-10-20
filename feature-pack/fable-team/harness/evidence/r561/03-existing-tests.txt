@@ -1,0 +1,8 @@
+인접 시험(base 대조) — 카드 변경 후
+........................................................................ [ 55%]
+...........................s..............................               [100%]
+129 passed, 1 skipped in 37.21s
+--- 첨부 시험(base 선행 실패 1건 · 05-base-diff.txt 와 같은 rc)
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_thread_post_attach.py::test_attach_uploads_files_into_root_thread_and_prints_first_link
+1 failed, 7 passed in 0.93s

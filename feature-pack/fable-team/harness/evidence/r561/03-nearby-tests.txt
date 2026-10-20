@@ -1,0 +1,28 @@
+....................................F.......                             [100%]
+=================================== FAILURES ===================================
+_______ test_attach_uploads_files_into_root_thread_and_prints_first_link _______
+
+env = (<_magazine_fakes.FakeMagazineSlack object at 0x1105b1490>, ['--channel', 'C1', '--ledger', '/private/var/folders/vm/j...private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-41/test_attach_uploads_files_into0'))
+capsys = <_pytest.capture.CaptureFixture object at 0x1105b2dd0>
+
+    def test_attach_uploads_files_into_root_thread_and_prints_first_link(env, capsys):
+        slack, common, tmp = env
+        assert tp.main(["update", "--key", KEY, "--text-file", str(tmp / "root.txt"), *common]) == 0
+        (tmp / "a.pdf").write_bytes(b"%PDF-x")
+        (tmp / "a.md").write_text("# 시트\n", encoding="utf-8")
+        capsys.readouterr()
+        assert tp.main(["attach", "--key", KEY, "--file", str(tmp / "a.pdf"), "--file", str(tmp / "a.md"), "--title", "시트 rev R", *common]) == 0
+        assert capsys.readouterr().out.strip() == "link=https://slack.test/files/F1 ts=F1"
+        root_ts = slack.roots[0]["ts"]
+>       assert slack.titles(root_ts) == ["시트 rev R", "시트 rev R (a.md)"] and slack.content_types == ["application/pdf", "text/markdown"]
+E       AssertionError: assert (['시트 rev R', ...rev R (a.md)'] == ['시트 rev R', ...rev R (a.md)']
+E         
+E         Use -v to get more diff and ['application...octet-stream'] == ['application...ext/markdown']
+E         
+E         At index 1 diff: 'application/octet-stream' != 'text/markdown'
+E         Use -v to get more diff)
+
+harness/tests/scripts/test_thread_post_attach.py:29: AssertionError
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_thread_post_attach.py::test_attach_uploads_files_into_root_thread_and_prints_first_link
+1 failed, 43 passed in 3.39s

@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-20 — 스레드는 주제 대화 전용: 방 글 `post --to <이름>` + `--thread desk` 거절 + 쪽지 방 글 안내 (r561 · 1.1.111 · 동작 변경)
+
+- 오빠 원문(슬랙 10-20 20:2x): «대화스레드는 주제에 대한 대화만 남기게 하거 지금 발행하는 요청이나 뉴스나 세션에서 스레드와 관련없는 메시지는 방에 바로 보내줘서 스레드는 주제별 대화로 사용하도록 개선해줘라». 지금 desk 는 승인 요청·뉴스·세션 알림을 `reply --thread desk`(아침 뿌리 글) 밑에 쌓아 주제 대화와 섞였다 — r558 이 «오빠 글 답» 반쪽을 만들었고 이 카드가 나머지 반쪽이다.
+- 고침 ①(`thread_post_args.py` `post` 하위 명령 + `thread_post_update.cmd_post` · `byz_thread_post` 배선): `post (--to <등록부 이름> | --channel <ID>) (--text|--text-file)` = 방에 최상위 글 1개(`thread_ts` 없음) · stdout `POSTED <ts>` · 등록부·장부·답 기록 쓰기 0 · 첨부 0. 이름은 `.fable-team/state/slack-threads.json` 의 채널을 쓰고, 등록부에 없는 이름·꼴 위반은 추측 없이 REJECT(게시 0). 본문은 `post_guard` 사람 채널 검사를 «글 전» 에 건다.
+- 고침 ②(`thread_reply_slack.refuse_topic` ← `refuse_unanswered` 첫줄): 이름이 주제 전용 목록(env `FT_SLACK_TOPIC_ONLY` · 기본 `desk` · 쉼표)이면 «답 안 된 오빠 글» 유무와 무관하게 REJECT — 문구 = `REJECT --thread desk — desk 스레드는 주제 대화 전용 — 방 글은 post --to desk · 오빠 글 답은 reply --to-slack <ts>` · `--force-thread` 면 보내고 stderr WARN(명시). env 를 **빈 값**으로 두면 r558 규칙만 남는다(되돌림).
+- 고침 ③(`mirror_share.answer_hint`): 좌석 쪽지 끝이 2줄 — r558 `답 = … reply --to-slack <ts>` 아래 `방 글(승인·뉴스·알림) = … post --to desk --text "…"`. 출처 토큰 줄 `(slack:<ts>:<role>)` 은 그대로(중복 판정 `marker_seen`/`queue_has` 가 줄 끝 일치를 읽는다).
+- 고침 ④(`ft-successor-open.sh` ⓐ' 거절 문구): «`reply --thread <이름>` 으로(r414)» → «방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>». 판정 규칙(본문 `--ts <10자리>.<6자리>` = 열기 0)은 불변.
+- 시험 `tests/scripts/test_thread_room_post.py` ⓐ~ⓖ 8칸(가짜 Slack `_proposal_fakes.slack` · 임시 등록부·원장·답 기록 · 실제 Slack·실제 `~/.hermes/state` 쓰기 0): ⓐ`post --to desk` → `thread_ts` 없음·등록부 채널·`POSTED <ts>`·답 기록/등록부 불변 ⓑ`--channel` 직접 + 모르는 이름 REJECT + 인자 택1 강제(rc2) ⓒ답 안 된 글 0 인데 `--thread desk` REJECT(전 FAIL 자리) ⓓ`--force-thread` → 보냄 + WARN ⓔ`FT_SLACK_TOPIC_ONLY=` 빈 값 = r558 거절만 · `desk,ops` = 두 이름 ⓕ쪽지 끝 2줄 + 토큰 줄 불변 ⓖ`--to-slack`·`--ts` 기존 길 불변 · `post` 는 장부 미기록. 전 FAIL 8 failed(`evidence/r561/01-before-red.txt`) → 후 PASS 8 passed(`02-after-pass.txt`).
+- 기존 시험(카드·slack-mirror 인접만 · 광역 금지): `test_thread_reply_to_slack.py`·`test_thread_post.py`·`test_thread_post_args.py`·`test_post_guard.py` = 83 passed · `tests/test_thread_reply_named.sh` ALL PASS(`06-…txt`). r558 시험은 `FT_SLACK_TOPIC_ONLY=`(빈 값)을 env fixture 에 넣어 r558 규칙만 보게 했고, 쪽지 끝 시험은 `답` 줄이 `lines[-2]` 로 한 칸 밀린 것을 반영 — r414 셸 시험도 같은 env 1개 추가. base 대조(`05-base-diff.txt`): `test_thread_post_attach.py` 1건이 base(4066f4d4)에서도 같은 rc = 이 카드 무관(이 머신 `.md` mimetypes). `ruff check`(바꾼 8파일) PASS(`04-ruff.txt`).
+- 설치: 있음 — 새 파일 0 · `install.sh` REQUIRED 목록 변경 0(기존 `thread_post_update.py`·`thread_reply_slack.py`·`mirror_share.py`·`thread_post_args.py`·`byz_thread_post.py` 경로 그대로) + 키트 `ft-successor-open.sh` 문구 1 → `~/.hermes/scripts` cmp0·LIVE_BIN cmp0·수신 데몬 재기동은 master 소관(미실행). 되돌림 = `FT_SLACK_TOPIC_ONLY=`(빈 값) 또는 `.bak-r561`.
+- 범위 밖: 등록부 desk 뿌리 글 정리·삭제(보고용 옛 글 · 남김) · 다른 채널(대화 수신 r238·보드) · desk 인계서·메모리 문구(장치가 막으니 desk 몫) · 범위 승인 알림(`autonomy_scope_post` 는 이미 최상위) · 실제 사건 확인(방 글 1건 + 거절 1건)은 master press 소관.
+
 ## 2026-10-20 — desk 답이 «오빠 글 밑»으로 간다: `reply --to-slack` + `--thread` 거절 + 쪽지 답 명령 1줄 (r558 · 1.1.110 · 동작 변경)
 
 - 사건(desk 29 실측 · arch 110 2026-10-20 19:5x): 오빠 새 최상위 글 ts=1792492349.071989(19:32) 수신은 정상인데 desk 답 5건이 전부 등록부 `.fable-team/state/slack-threads.json` 의 옛 뿌리(1792422462.316339 · 그날 아침) 밑으로 갔다 — 오빠 글 밑 답 0. 원인 = 답장 도구에 「오빠 글이 온 스레드로 답한다」 길이 없음(`reply` = `--ts`(손으로 아는 스레드) | `--thread <이름>`(등록부 뿌리) 둘뿐) · 규칙·메모리로만 적어 둔 것이라 desk 승계마다 새 desk 가 인계서의 같은 명령을 써서 재발.
