@@ -1,0 +1,14 @@
+PASS ⓐ mark rc
+FAIL ⓐ STILL-OPEN 줄 (출력: OK planner-x.jsonl seq=124233|MARKED seq=124233 file=없음(큐만)|)
+PASS ⓐ MARKED 줄 그대로
+PASS ⓐ CLOSED 오출력 0
+PASS ⓑ mark rc
+FAIL ⓑ CLOSED 줄 (출력: OK planner-x.jsonl seq=124234|MARKED seq=124234 file=없음(큐만)|)
+PASS ⓑ STILL-OPEN 안내 0
+PASS ⓒ 전 = 결정 인터뷰 1건
+PASS ⓒ report rc
+PASS ⓒ 후 = 결정 인터뷰 0건
+   ⓒ 원문: 전 «결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)» · 후 «결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)»
+FAIL ⓓ origin/main 판 못 읽음
+SUMMARY fail=3
+※ 전(01)은 origin/main 판 bin 을 임시 사본(mktemp)에 넣어 돌린 것 — 그 사본은 git 저장소가 아니라 ⓓ(origin/main 대조)는 «못 읽음» FAIL 로 찍힌다(의도된 잡음 · 판정은 02 · ⓐⓑ 가 전 FAIL → 후 PASS).
