@@ -7,6 +7,7 @@
 - 시험 5: `test_wt_clean_plan_self_check`·`test_nano_succession_index`·`test_autonomy_hooks_layout`·`test_evidence_inject_scan` = 손 복사 줄 → 도우미(각 시험의 기존 가짜 tmux·cherry·lint 스텁은 그대로 · self_check 는 «스텁 reap 호출 ≥1» 단언 추가) · `test_fake_resource_env` = 파이썬 모듈 경로 `$REPO/tests/scripts` → `$HERE/scripts`(모듈은 `harness/tests/scripts/`) · `test_evidence_inject_scan` 8 = BYZ 리포에만 있던 위반 실례(#887 run.py)를 바이트 그대로 사본 `harness/fixtures/inject_scan/run-887.py`(BYZ 554e5a4873 · blob a50d41b0) 로.
 - 시험: 고치기 전 5개 rc=1(FAIL 7·4·13·6·2 · `harness/evidence/r536/before-fix.txt`) → 고친 뒤 5개 rc=0(`after-fix.txt`) · 전체 셸 전·후 비교 `compare.txt`.
 - 설치: 없음 — 시험·픽스처만(키트·LIVE_BIN·홈·launchd 0). 되돌림 = 이 커밋 revert.
+- 격리 고침(r534 위 재번호 때 발견): `test_autonomy_hooks_layout` 이 호출자 cwd 를 물려받아 BYZ 워크트리 안에서 돌리면 `ft_data_root` ②(cwd 공용 루트 `.fable-team/LIVE_ROOT`)를 따라 «실» 자율 상태에 on/off·approve-merge 를 썼다(2026-10-20 13:29~13:39 · A11~A18 · 끝이 on · `ft-autonomy.sh off` 1줄로 복구). 시험이 임시 MAIN 에 `LIVE_ROOT`=임시 라이브를 쓰고 `cd` 임시 워크트리 → BYZ cwd 에서 ALL PASS · 실 autonomy.log 줄 수 변화 0(`harness/evidence/r536/merge-r534-1.1.89.txt`).
 - 범위 밖: 다른 묶음(①~⑤·⑦·⑧) · r535 시험 · 키트 코드.
 
 ## 2026-10-20 — 자원 감시자 디스크 기록표: 워크트리·큰 폴더를 1단계 폴더별 «증분» 측정 · 합 = 캐시 합 + «앎/전체» · 원인 도구 = 워크트리별 1시간 증가 (r534 · 1.1.88)

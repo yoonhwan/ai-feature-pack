@@ -20,6 +20,7 @@ git -C "$MAIN" worktree add -q -b wt "$WT" main
 mkdir -p "$MAIN/.fable-team/bin-harness" "$LIVE/.fable-team/bin"
 printf '%s\n' '#!/bin/bash' "export FT_BIN=$LIVE/.fable-team/bin" > "$MAIN/.fable-team/bin-harness/harness-env.sh"
 bash "$HERE/lib/kit_bin_copy.sh" "$LIVE/.fable-team/bin" >/dev/null || { echo "FAIL kit_bin_copy"; exit 1; }   # 도구는 «라이브 루트» 안 — 상태도 거기(= 오빠 `!` 가 쓰는 곳) · r536: 키트 bin 통째(ft-harness-root.sh 등 형제 짝)
+printf '%s\n' "$LIVE" > "$MAIN/.fable-team/LIVE_ROOT"; cd "$WT" || exit 1   # r536: cwd = 임시 워크트리 — 부른 곳(BYZ 안)의 LIVE_ROOT 를 따라 실 자율 상태에 쓰지 않게(실 오염 A11~A18)
 H="$(git -C "$MAIN" rev-parse HEAD)"; S="$LIVE/.fable-team/state"
 a() { "$BASH" "$LIVE/.fable-team/bin/ft-autonomy.sh" "$@"; }   # 오빠 `!` 와 같은 호출 — FT_ROOT 없음
 mkbash() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$2"; }
