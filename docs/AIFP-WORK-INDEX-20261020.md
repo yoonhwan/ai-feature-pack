@@ -56,3 +56,9 @@ squash 머지라 `--no-merged` 가 착지된 가지를 미착지로 셉니다 �
 - 하네스 직렬 대기: r534(1.1.88, PR #150) · r536(1.1.89, PR #152) · … · r540(pi 꼬리 허용)·r542(나노워커 pi 전환) 1.1.92 이후 — 속도 측정(pi 3.5~7배 빠름 · opencode 무료 경로 이 IP 차단) 전달 완료
 - 좌석: aifp-pi-master#1(pi · 읽기 전용 · `.worktrees/pi-parity`) · 이름 lint 는 r540 대기
 - 정정: 속도 측정이 main 트리 루트에 `count_files.sh` 를 만들었던 것(제 실수) 삭제함 — 측정은 임시 폴더에서 돌릴 것
+
+## 갱신 (pi 팀장 교대 · 2026-10-20)
+- r540(pi 꼬리 허용)이 PR #155 로 머지(`86bd129e` · fable-team 1.1.92 · `AGENTS="claude codex opencode cmd pi"`). `aifp-pi-master-pi#0` 이름 검사 PASS(main 판) — 하네스 설치 반영은 하네스 몫.
+- 새 pi 팀장 `aifp-pi-master-pi#0` = pi · cwd `~/Project/pi-agent-ops/.worktrees/pi-master`(브랜치 pi/master · pi 프로젝트 git init `ccf8605`). 증류 도구가 pi 를 아직 못 받아 «열기→기동 확인→검증 송신»을 같은 순서로 직접 집행(인계 쪽지 seq=2928 도달 = 화면 `Steering` 관측). 도달 파일·부팅 보고는 미수신.
+- 옛 pi 세션 `aifp-pi-master#1` 닫음(오빠 지시 «구형은 닫고»). 이 리포엔 좌석 명부가 없어 ft-seat-close/retire 가 거절 → `tmux kill-session` 로 닫음. 재개: `pi --name 'aifp-pi-master#1' --session 634e8250-2ff8-4a62-ad6d-0e59734a78a6` (cwd `.worktrees/pi-parity` · 기록 `~/.pi/agent/sessions/--Users-yoonhwan-Project-ai-feature-pack-.worktrees-pi-parity--/…634e8250….jsonl`).
+- 남은 정리 후보(삭제는 HIL): `.worktrees/pi-parity`(브랜치 feat/pi-parity-1.3.0 은 PR #151 로 머지됨).
