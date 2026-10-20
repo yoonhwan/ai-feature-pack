@@ -1,0 +1,5 @@
+2026년 10월 21일 수요일 08시 25분 31초 KST
+== 인접 slack-mirror·thread 시험 (이 카드 인접만 · 광역 0) ==
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_post_attach.py::test_attach_uploads_files_into_root_thread_and_prints_first_link
+1 failed, 74 passed in 5.35s
