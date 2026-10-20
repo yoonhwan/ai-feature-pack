@@ -1,0 +1,6 @@
+# develop 토큰 없는 환경(기본 OP_SERVICE_ACCOUNT_TOKEN 만) — 실 op 호출 0 · cred 쓰기 0
+$ env -u OP_SERVICE_ACCOUNT_TOKEN_DEVELOP OP_SERVICE_ACCOUNT_TOKEN=kskill-default FT_OP_SECRETS_DIR=/tmp/r605sec bash kit/fable-team/bin/ft-op-token.sh --init-from-op itemx demo@example.test
+ERR develop 토큰 없음 — OP_SERVICE_ACCOUNT_TOKEN_DEVELOP 필요 (기본 토큰 대체 0)
+rc=2
+op-accounts.tsv
+op-auth.conf

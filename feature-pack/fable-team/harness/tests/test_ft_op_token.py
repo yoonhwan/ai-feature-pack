@@ -236,3 +236,124 @@ def test_t13_non_https_url_is_err(env, stub):
     env["env"]["FT_OP_TOKEN_ALLOW_HTTP_LOOPBACK"] = "1"
     r = run(env, EMAIL)  # 변수 + 루프백 = 통과
     assert r.returncode == 0 and r.stdout.startswith("OK ") and stub.calls == 1
+
+
+# ── r605 --init-from-op: 비밀번호를 1Password develop 볼트에서 프로세스 안으로만 ──
+OP_ITEM = "opitem5r605"
+OP_PASSWORD = "Op-Pw-fake-67890"
+OP_DEVELOP_TOKEN = "develop-token-value"
+
+
+@pytest.fixture
+def opstub(tmp_path, env):
+    """가짜 op 실행 파일 — argv·env·calls 를 파일로 남기고 body/rc/err/sleep 을 흉내낸다."""
+    d = tmp_path / "opstub"
+    d.mkdir()
+    argv, envtok, body, rc, err, calls = (d / n for n in ("argv", "envtoken", "body", "rc", "err", "calls"))
+    script = d / "op"
+    script.write_text(
+        "#!/bin/sh\n"
+        f'echo run >> "{calls}"\n'
+        f'printf "%s\\n" "$@" > "{argv}"\n'
+        f'printf "%s" "${{OP_SERVICE_ACCOUNT_TOKEN:-}}" > "{envtok}"\n'
+        f'[ -f "{d}/sleep" ] && sleep 30\n'
+        f'cat "{body}" 2>/dev/null\n'
+        f'[ -f "{err}" ] && cat "{err}" >&2\n'
+        f'[ -f "{rc}" ] && exit $(cat "{rc}")\n'
+        "exit 0\n"
+    )
+    script.chmod(0o755)
+    body.write_text(OP_PASSWORD + "\n")
+    env["env"]["FT_OP_BIN"] = str(script)
+    env["env"]["OP_SERVICE_ACCOUNT_TOKEN"] = "kskill-default-token"
+    env["env"]["OP_SERVICE_ACCOUNT_TOKEN_DEVELOP"] = OP_DEVELOP_TOKEN
+    return {"argv": argv, "envtoken": envtok, "body": body, "rc": rc, "err": err, "calls": calls,
+            "sleep": d / "sleep", "dir": d}
+
+
+def _texts(path, skip):
+    for p in sorted(Path(path).rglob("*")):
+        if p.is_file() and p not in skip:
+            yield p, p.read_text(errors="replace")
+
+
+def test_o1_init_from_op_success(env, stub, opstub):
+    """ⓐ op argv·env 고정 · 로그인 OK → cred 저장 · stdout 1줄 OK."""
+    (env["sdir"] / "acct.cred").unlink()
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.startswith(f"OK {EMAIL} exp=") and "file=acct.token" in r.stdout
+    assert opstub["argv"].read_text().splitlines() == [
+        "item", "get", OP_ITEM, "--vault", "develop", "--fields", "label=password", "--reveal"]
+    assert opstub["envtoken"].read_text() == OP_DEVELOP_TOKEN
+    cred, tok = env["sdir"] / "acct.cred", env["sdir"] / "acct.token"
+    assert json.loads(cred.read_text())["password"] == OP_PASSWORD
+    assert mode(cred) == 0o600 and tok.read_text() == stub.token and mode(tok) == 0o600
+    assert env["clip"].read_text() == PASSWORD + "\n"  # 클립보드 손 0 — pbpaste/pbcopy 안 부름
+
+
+def test_o2_missing_develop_token(env, stub, opstub):
+    """ⓑ develop 토큰 없음 → rc≠0 · 가짜 op 호출 0 (기본 kskill 토큰 대체 0)."""
+    (env["sdir"] / "acct.cred").unlink()
+    env["env"].pop("OP_SERVICE_ACCOUNT_TOKEN_DEVELOP")
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode != 0 and "develop 토큰 없음" in r.stdout
+    assert not opstub["calls"].exists()
+    assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()
+
+
+def test_o3_password_never_leaves_process(env, stub, opstub):
+    """ⓒ 값이 stdout·stderr·cred 밖 파일 어디에도 0."""
+    (env["sdir"] / "acct.cred").unlink()
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode == 0
+    assert OP_PASSWORD not in r.stdout + r.stderr
+    skip = {env["sdir"] / "acct.cred", opstub["body"]}
+    leaks = [str(p) for p, t in _texts(env["sdir"].parent, skip) if OP_PASSWORD in t]
+    assert leaks == []
+
+
+def test_o4_op_failure_prints_no_stderr(env, stub, opstub):
+    """ⓓ op rc≠0 + stderr 에 bare 비밀번호(패턴 없음)·토큰 꼴 → stdout 은 고정 문구만 · cred 쓰기 0."""
+    (env["sdir"] / "acct.cred").unlink()
+    bare_token = "optok-bare-1234567890"
+    opstub["rc"].write_text("3")
+    opstub["err"].write_text(f"read failed: {OP_PASSWORD}\nAuthorization: Bearer {bare_token}\n")
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode != 0
+    nbytes = len(opstub["err"].read_text().encode("utf-8"))
+    assert r.stdout == f"ERR op 읽기 실패 rc=3 (stderr {nbytes}바이트 · 원문 숨김)\n"
+    assert OP_PASSWORD not in r.stdout + r.stderr and bare_token not in r.stdout + r.stderr
+    assert "read failed" not in r.stdout + r.stderr and "Traceback" not in r.stderr
+    assert opstub["calls"].read_text().count("run") == 1  # 재시도 0
+    assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()
+
+
+def test_o5_op_empty_value(env, stub, opstub):
+    """ⓔ op 빈 값 → ERR 빈 값 · cred 쓰기 0."""
+    (env["sdir"] / "acct.cred").unlink()
+    opstub["body"].write_text("\n")
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode != 0 and "빈 값" in r.stdout
+    assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()
+
+
+def test_o6_op_timeout_no_retry(env, stub, opstub):
+    """ⓕ op 가 10.5s 넘게 멈춤 → 시간 초과 ERR · 재시도 0 · cred 쓰기 0."""
+    (env["sdir"] / "acct.cred").unlink()
+    opstub["sleep"].write_text("")
+    t0 = time.time()
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL, timeout=40)
+    assert r.returncode != 0 and "시간 초과" in r.stdout and time.time() - t0 < 20
+    assert opstub["calls"].read_text().count("run") == 1
+    assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()
+
+
+def test_o7_login_fail_writes_no_cred(env, stub, opstub):
+    """ⓖ 로그인 실패 → cred 쓰기 0 (값도 0)."""
+    (env["sdir"] / "acct.cred").unlink()
+    stub.mode = "400"
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode == 1 and r.stdout.startswith(f"ERR {EMAIL} http=400")
+    assert OP_PASSWORD not in r.stdout + r.stderr
+    assert not (env["sdir"] / "acct.cred").exists() and not (env["sdir"] / "acct.token").exists()

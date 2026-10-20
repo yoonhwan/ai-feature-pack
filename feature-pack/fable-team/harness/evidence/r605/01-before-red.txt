@@ -1,0 +1,131 @@
+..............FFFFFFF                                                    [100%]
+=================================== FAILURES ===================================
+_________________________ test_o1_init_from_op_success _________________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o1_ini.../var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o1_init_from_op_success0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a12d190>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o1_ini.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o1_init_from_op_success0/opstub'), ...}
+
+    def test_o1_init_from_op_success(env, stub, opstub):
+        """ⓐ op argv·env 고정 · 로그인 OK → cred 저장 · stdout 1줄 OK."""
+        (env["sdir"] / "acct.cred").unlink()
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: usage: ft-op-token.sh <email> | --init <email> | --list
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+
+tests/test_ft_op_token.py:284: AssertionError
+________________________ test_o2_missing_develop_token _________________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o2_mis...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o2_missing_develop_token0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a12f810>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o2_mis...folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o2_missing_develop_token0/opstub'), ...}
+
+    def test_o2_missing_develop_token(env, stub, opstub):
+        """ⓑ develop 토큰 없음 → rc≠0 · 가짜 op 호출 0 (기본 kskill 토큰 대체 0)."""
+        (env["sdir"] / "acct.cred").unlink()
+        env["env"].pop("OP_SERVICE_ACCOUNT_TOKEN_DEVELOP")
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+>       assert r.returncode != 0 and "develop 토큰 없음" in r.stdout
+E       AssertionError: assert (2 != 0 and 'develop 토큰 없음' in '')
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+E        +  and   '' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').stdout
+
+tests/test_ft_op_token.py:300: AssertionError
+____________________ test_o3_password_never_leaves_process _____________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o3_pas...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o3_password_never_leaves_0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a142e50>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o3_pas...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o3_password_never_leaves_0/opstub'), ...}
+
+    def test_o3_password_never_leaves_process(env, stub, opstub):
+        """ⓒ 값이 stdout·stderr·cred 밖 파일 어디에도 0."""
+        (env["sdir"] / "acct.cred").unlink()
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+>       assert r.returncode == 0
+E       AssertionError: assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+
+tests/test_ft_op_token.py:309: AssertionError
+_________________ test_o4_op_failure_masks_and_writes_nothing __________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o4_op_...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o4_op_failure_masks_and_w0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a17e390>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o4_op_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o4_op_failure_masks_and_w0/opstub'), ...}
+
+    def test_o4_op_failure_masks_and_writes_nothing(env, stub, opstub):
+        """ⓓ op rc≠0 + stderr 에 비밀 꼴 → mask 한 1줄 · cred 쓰기 0."""
+        (env["sdir"] / "acct.cred").unlink()
+        opstub["rc"].write_text("3")
+        opstub["err"].write_text(f"vault locked password={OP_PASSWORD}\n")
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+>       assert r.returncode != 0 and r.stdout.startswith("ERR op 읽기 실패 rc=3: ")
+E       AssertionError: assert (2 != 0 and False)
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+E        +  and   False = <built-in method startswith of str object at 0x10348c918>('ERR op 읽기 실패 rc=3: ')
+E        +    where <built-in method startswith of str object at 0x10348c918> = ''.startswith
+E        +      where '' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').stdout
+
+tests/test_ft_op_token.py:322: AssertionError
+____________________________ test_o5_op_empty_value ____________________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o5_op_...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o5_op_empty_value0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a11be90>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o5_op_...te/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o5_op_empty_value0/opstub'), ...}
+
+    def test_o5_op_empty_value(env, stub, opstub):
+        """ⓔ op 빈 값 → ERR 빈 값 · cred 쓰기 0."""
+        (env["sdir"] / "acct.cred").unlink()
+        opstub["body"].write_text("\n")
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+>       assert r.returncode != 0 and "빈 값" in r.stdout
+E       AssertionError: assert (2 != 0 and '빈 값' in '')
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+E        +  and   '' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').stdout
+
+tests/test_ft_op_token.py:333: AssertionError
+_________________________ test_o6_op_timeout_no_retry __________________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o6_op_...e/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o6_op_timeout_no_retry0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a1f05d0>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o6_op_...r/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o6_op_timeout_no_retry0/opstub'), ...}
+
+    def test_o6_op_timeout_no_retry(env, stub, opstub):
+        """ⓕ op 가 10.5s 넘게 멈춤 → 시간 초과 ERR · 재시도 0 · cred 쓰기 0."""
+        (env["sdir"] / "acct.cred").unlink()
+        opstub["sleep"].write_text("")
+        t0 = time.time()
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL, timeout=40)
+>       assert r.returncode != 0 and "시간 초과" in r.stdout and time.time() - t0 < 20
+E       AssertionError: assert (2 != 0 and '시간 초과' in '')
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+E        +  and   '' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').stdout
+
+tests/test_ft_op_token.py:343: AssertionError
+______________________ test_o7_login_fail_writes_no_cred _______________________
+
+env = {'clip': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o7_log...ar/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o7_login_fail_writes_no_c0/secrets')}
+stub = <test_ft_op_token.Stub object at 0x10a23bb10>
+opstub = {'argv': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o7_log...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-355/test_o7_login_fail_writes_no_c0/opstub'), ...}
+
+    def test_o7_login_fail_writes_no_cred(env, stub, opstub):
+        """ⓖ 로그인 실패 → cred 쓰기 0 (값도 0)."""
+        (env["sdir"] / "acct.cred").unlink()
+        stub.mode = "400"
+        r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+>       assert r.returncode == 1 and r.stdout.startswith(f"ERR {EMAIL} http=400")
+E       AssertionError: assert (2 == 1)
+E        +  where 2 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r605-op-token-init-from-op-vault-de...', 'tester@example.test'], returncode=2, stdout='', stderr='usage: ft-op-token.sh <email> | --init <email> | --list\n').returncode
+
+tests/test_ft_op_token.py:353: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ft_op_token.py::test_o1_init_from_op_success - AssertionErr...
+FAILED tests/test_ft_op_token.py::test_o2_missing_develop_token - AssertionEr...
+FAILED tests/test_ft_op_token.py::test_o3_password_never_leaves_process - Ass...
+FAILED tests/test_ft_op_token.py::test_o4_op_failure_masks_and_writes_nothing
+FAILED tests/test_ft_op_token.py::test_o5_op_empty_value - AssertionError: as...
+FAILED tests/test_ft_op_token.py::test_o6_op_timeout_no_retry - AssertionErro...
+FAILED tests/test_ft_op_token.py::test_o7_login_fail_writes_no_cred - Asserti...
+7 failed, 14 passed in 26.11s

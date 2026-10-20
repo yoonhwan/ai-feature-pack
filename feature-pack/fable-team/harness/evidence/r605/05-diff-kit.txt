@@ -1,0 +1,159 @@
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-slots.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-slots.sh
+index 510e3707..fd1106aa 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-slots.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-slots.sh
+@@ -9,7 +9,6 @@
+ #     분모 = `for-each-ref --no-merged=<feat> refs/heads/nano/`(조상 미포함) − 랜딩 원장(FT_NANO_LANDING_LEDGER jsonl {branch,tip,squash_sha}) 중 tip 이 현재 tip 과 같은 것.
+ #     squash 는 조상 관계를 안 만들어 원장 없이는 랜딩된 브랜치가 영원히 «미랜딩» 으로 남는다. 행: 브랜치\t마지막 커밋 날짜\t미랜딩 커밋 수\t카드 상태(대기|진행|완성|없음).
+ #   출력만 한다(판정·spawn 은 master). ft-nano-close.sh 가 CLOSED 직후 부른다 · ft-news-tick 에서도 부를 수 있다.
+-#   r606: 카드 폴더를 찾는 «체크아웃» = 명부 `_cards_wt` 워크트리(있으면) — 낡은 루트 체크아웃에서 닫아도 옛 쌍둥이 폴더로 조용히 안 내려간다(내려가면 WARN 1줄).
+ WT="$(git rev-parse --show-toplevel)"
+ ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
+ SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+@@ -18,23 +17,9 @@ if [ -n "${FT_INDEX_DIR:-}" ]; then IDX_DIR="$FT_INDEX_DIR"
+ else   # R416: «명단 = ref · 폴더 = WT 실재»(R400 r3·R406 과 같은 함수) — 공유 루트의 옛 TEAMS.md 사본을 믿지 않는다 · ref 못 읽음 = ERROR(cwd 명단 후퇴 0)
+   . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다" >&2; exit 1; }
+   _ref="${FT_TEAMS_REF:-origin/main}"
+-  # r606: 기준 체크아웃 = 명부 `_cards_wt` 워크트리(있으면) · 없으면 지금처럼 실행 cwd(WT). 워크트리 이름은 있는데 실재하지 않으면 cwd 로 후퇴하지 않고 ERROR
+-  _cwt="$(python3 -c 'import json, sys
+-try: d = json.load(open(sys.argv[1], encoding="utf-8"))
+-except Exception: sys.exit(0)
+-v = d.get("_cards_wt") if isinstance(d, dict) else None
+-print(v if isinstance(v, str) else "")' "$SEATS" 2>/dev/null)"
+-  _base="$WT"
+-  if [ -n "$_cwt" ]; then
+-    _base="$ROOT/.worktrees/$_cwt"
+-    [ -d "$_base" ] || { echo "ERROR 카드 워크트리 없음: $_cwt ($_base)" >&2; exit 1; }
+-  fi
+-  _cands="$(ft_team_cands_ref "$_base" v65 "$_ref")" || { echo "ERROR v65 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $_base)" >&2; exit 1; }
+-  _first="$(printf '%s\n' "$_cands" | head -1)"
+-  IDX_DIR="$_first/indices"
++  _cands="$(ft_team_cands_ref "$WT" v65 "$_ref")" || { echo "ERROR v65 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $WT)" >&2; exit 1; }
++  IDX_DIR="$(printf '%s\n' "$_cands" | head -1)/indices"
+   for _c in $_cands; do [ -d "$_c/indices" ] && { IDX_DIR="$_c/indices"; break; }; done
+-  # r606: 명단 꼴 폴더가 없어 쌍둥이로 내려가면 조용한 후퇴 0 — 경로를 밝힌 WARN 1줄
+-  [ "$IDX_DIR" = "$_first/indices" ] || echo "WARN 명단 폴더($_first/indices) 없음 — 쌍둥이 $(dirname "$IDX_DIR") 로 셈" >&2
+ fi
+ if [ "${1:-}" = "--inventory" ]; then
+   FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"; LANDING="${FT_NANO_LANDING_LEDGER:-$ROOT/.fable-team/state/nano-landing.jsonl}"
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-op-token.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-op-token.sh
+index c19e0f66..de754376 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-op-token.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-op-token.sh
+@@ -1,11 +1,17 @@
+ #!/usr/bin/env bash
+ # ft-op-token.sh — 운영 계정 access_token 을 저장된 cred 로 매번 새로 발급한다 (판정 675).
+-# 사용: ft-op-token.sh <email> | --init <email> (클립보드 비밀번호 1회) | --list
+-# 비밀번호는 argv·환경변수로 가지 않는다 — pbpaste 출력을 파이썬 stdin 으로만 넘긴다.
++# 사용: ft-op-token.sh <email> | --init <email> (클립보드 비밀번호 1회) | --init-from-op <op 항목 id> <email> | --list
++# 비밀번호는 argv·환경변수로 가지 않는다 — pbpaste 출력은 파이썬 stdin 으로만, op 는 파이썬 안에서만 부른다.
+ set -uo pipefail
+ HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ PY="${FT_OP_TOKEN_PYTHON:-python3}"
+ 
++if [ "${1:-}" = "--init-from-op" ]; then
++  # 1Password develop 볼트에서 직접 읽는다 — 클립보드(pbpaste·pbcopy) 손 0
++  { [ -n "${2:-}" ] && [ -n "${3:-}" ]; } || { echo "usage: ft-op-token.sh --init-from-op <op 항목 id> <email>" >&2; exit 2; }
++  exec "$PY" "$HERE/ft_op_token.py" --init-from-op "$2" "$3"
++fi
++
+ if [ "${1:-}" = "--init" ]; then
+   [ -n "${2:-}" ] || { echo "usage: ft-op-token.sh --init <email>" >&2; exit 2; }
+   pbpaste | "$PY" "$HERE/ft_op_token.py" --init "$2"
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
+index 818587a0..b235c9d2 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+ """ft_op_token.py — 운영 계정 access_token 을 저장된 cred 로 발급·교체한다 (판정 675).
+ 
+-사용: ft_op_token.py <email> | --init <email> (비밀번호는 stdin 1줄) | --list
++사용: ft_op_token.py <email> | --init <email> (비밀번호는 stdin 1줄) | --init-from-op <op 항목 id> <email> | --list
+ 설정(추적 밖): <secrets>/op-auth.conf · op-accounts.tsv · <계정>.cred(JSON {"email","password"})
+ 외부 호출 1곳(Supabase password grant) — 7초 룰(판정 666): 1회 7 s(소켓 연산 기준) · 재시도 1(네트워크·5xx 만).
+ 비밀번호·토큰 원문은 stdout·stderr·argv 어디에도 내지 않는다.
+@@ -22,6 +22,7 @@ import urllib.request
+ from datetime import datetime, timedelta, timezone
+ 
+ TIMEOUT_S = 7.0
++OP_TIMEOUT_S = 10.5  # CLI 기동 고정비 3.5 + 7 (하드 룰 12)
+ MAX_RETRIES = 1
+ RETRY_WAIT_S = 0.5
+ KST = timezone(timedelta(hours=9))
+@@ -163,7 +164,42 @@ def ok_line(email, token, token_name):
+     return f"OK {email} exp={datetime.fromtimestamp(exp, KST):%H:%M} ({mins}분) file={token_name}"
+ 
+ 
+-def issue(email, init):
++def op_password(item_id):
++    """1Password develop 볼트에서 비밀번호를 «이 프로세스 안으로만» 읽는다 — stdout·argv·파일·env 사본 밖 0.
++
++    develop 토큰이 없으면 기본(kskill) 토큰으로 대체하지 않고 멈춘다(하드 룰 15). 재시도 0.
++    """
++    develop = os.environ.get("OP_SERVICE_ACCOUNT_TOKEN_DEVELOP", "").strip()
++    if not develop:
++        raise Fail("ERR develop 토큰 없음 — OP_SERVICE_ACCOUNT_TOKEN_DEVELOP 필요 (기본 토큰 대체 0)", 2)
++    env = dict(os.environ)
++    env["OP_SERVICE_ACCOUNT_TOKEN"] = develop
++    exe = os.environ.get("FT_OP_BIN") or "op"
++    argv = [exe, "item", "get", item_id, "--vault", "develop", "--fields", "label=password", "--reveal"]
++    try:
++        p = subprocess.run(argv, capture_output=True, text=True, timeout=OP_TIMEOUT_S, env=env)
++    except subprocess.TimeoutExpired:
++        raise Fail(f"ERR op 읽기 시간 초과 ({OP_TIMEOUT_S}s) — 재시도 0")
++    except OSError:
++        raise Fail("ERR op 실행 파일 없음 — op 설치·PATH 확인")
++    if p.returncode != 0:
++        # op stderr 원문은 밖으로 내지 않는다 — 패턴 없는 bare 비밀번호가 섞여 있으면 마스킹으로는 못 막는다(DA⑥ HOLD).
++        nbytes = len((p.stderr or "").encode("utf-8", "replace"))
++        raise Fail(f"ERR op 읽기 실패 rc={p.returncode} (stderr {nbytes}바이트 · 원문 숨김)")
++    password = (p.stdout or "").rstrip("\r\n")
++    if not password:
++        raise Fail("ERR op 읽기 빈 값 — 항목·필드(label=password) 확인")
++    return password
++
++
++def stdin_password(email):
++    password = sys.stdin.readline().rstrip("\r\n")
++    if not password:
++        raise Fail(f"ERR {email} 비밀번호 입력 없음 (클립보드가 비었다)")
++    return password
++
++
++def issue(email, init, get_password):
+     sdir = secrets_dir()
+     rows = read_table(sdir) if os.path.isdir(sdir) else {}
+     if email not in rows:
+@@ -173,9 +209,7 @@ def issue(email, init):
+     check_perms(sdir, [cred_path, token_path, os.path.join(sdir, "op-auth.conf"), os.path.join(sdir, "op-accounts.tsv")], email)
+     url, key = read_conf(sdir, email)
+     if init:
+-        password = sys.stdin.readline().rstrip("\r\n")
+-        if not password:
+-            raise Fail(f"ERR {email} 비밀번호 입력 없음 (클립보드가 비었다)")
++        password = get_password()
+         cred = {}
+     else:
+         if not os.path.exists(cred_path):
+@@ -208,12 +242,18 @@ def main(argv):
+     try:
+         if argv[:1] == ["--list"]:
+             return list_accounts() or 0
++        if argv[:1] == ["--init-from-op"]:
++            if len(argv) != 3 or not argv[1] or not argv[2]:
++                print("usage: ft-op-token.sh --init-from-op <op 항목 id> <email>", file=sys.stderr)
++                return 2
++            print(issue(argv[2], True, lambda: op_password(argv[1])))
++            return 0
+         init = argv[:1] == ["--init"]
+         args = argv[1:] if init else argv
+         if len(args) != 1:
+-            print("usage: ft-op-token.sh <email> | --init <email> | --list", file=sys.stderr)
++            print("usage: ft-op-token.sh <email> | --init <email> | --init-from-op <op 항목 id> <email> | --list", file=sys.stderr)
+             return 2
+-        print(issue(args[0], init))
++        print(issue(args[0], init, lambda: stdin_password(args[0])))
+         return 0
+     except Fail as e:
+         print(e.line)

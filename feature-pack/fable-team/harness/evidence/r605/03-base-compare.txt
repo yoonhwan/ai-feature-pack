@@ -1,0 +1,4 @@
+# base = origin/main(HEAD 0b2b068f) 그대로 — --init-from-op 갈래 없음
+$ bash /tmp/r605base/ft-op-token.sh --init-from-op itemx a@b.c
+usage: ft-op-token.sh <email> | --init <email> | --list
+rc=2

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft_op_token.py — 운영 계정 access_token 을 저장된 cred 로 발급·교체한다 (판정 675).
 
-사용: ft_op_token.py <email> | --init <email> (비밀번호는 stdin 1줄) | --list
+사용: ft_op_token.py <email> | --init <email> (비밀번호는 stdin 1줄) | --init-from-op <op 항목 id> <email> | --list
 설정(추적 밖): <secrets>/op-auth.conf · op-accounts.tsv · <계정>.cred(JSON {"email","password"})
 외부 호출 1곳(Supabase password grant) — 7초 룰(판정 666): 1회 7 s(소켓 연산 기준) · 재시도 1(네트워크·5xx 만).
 비밀번호·토큰 원문은 stdout·stderr·argv 어디에도 내지 않는다.
@@ -22,6 +22,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 TIMEOUT_S = 7.0
+OP_TIMEOUT_S = 10.5  # CLI 기동 고정비 3.5 + 7 (하드 룰 12)
 MAX_RETRIES = 1
 RETRY_WAIT_S = 0.5
 KST = timezone(timedelta(hours=9))
@@ -163,7 +164,42 @@ def ok_line(email, token, token_name):
     return f"OK {email} exp={datetime.fromtimestamp(exp, KST):%H:%M} ({mins}분) file={token_name}"
 
 
-def issue(email, init):
+def op_password(item_id):
+    """1Password develop 볼트에서 비밀번호를 «이 프로세스 안으로만» 읽는다 — stdout·argv·파일·env 사본 밖 0.
+
+    develop 토큰이 없으면 기본(kskill) 토큰으로 대체하지 않고 멈춘다(하드 룰 15). 재시도 0.
+    """
+    develop = os.environ.get("OP_SERVICE_ACCOUNT_TOKEN_DEVELOP", "").strip()
+    if not develop:
+        raise Fail("ERR develop 토큰 없음 — OP_SERVICE_ACCOUNT_TOKEN_DEVELOP 필요 (기본 토큰 대체 0)", 2)
+    env = dict(os.environ)
+    env["OP_SERVICE_ACCOUNT_TOKEN"] = develop
+    exe = os.environ.get("FT_OP_BIN") or "op"
+    argv = [exe, "item", "get", item_id, "--vault", "develop", "--fields", "label=password", "--reveal"]
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=OP_TIMEOUT_S, env=env)
+    except subprocess.TimeoutExpired:
+        raise Fail(f"ERR op 읽기 시간 초과 ({OP_TIMEOUT_S}s) — 재시도 0")
+    except OSError:
+        raise Fail("ERR op 실행 파일 없음 — op 설치·PATH 확인")
+    if p.returncode != 0:
+        # op stderr 원문은 밖으로 내지 않는다 — 패턴 없는 bare 비밀번호가 섞여 있으면 마스킹으로는 못 막는다(DA⑥ HOLD).
+        nbytes = len((p.stderr or "").encode("utf-8", "replace"))
+        raise Fail(f"ERR op 읽기 실패 rc={p.returncode} (stderr {nbytes}바이트 · 원문 숨김)")
+    password = (p.stdout or "").rstrip("\r\n")
+    if not password:
+        raise Fail("ERR op 읽기 빈 값 — 항목·필드(label=password) 확인")
+    return password
+
+
+def stdin_password(email):
+    password = sys.stdin.readline().rstrip("\r\n")
+    if not password:
+        raise Fail(f"ERR {email} 비밀번호 입력 없음 (클립보드가 비었다)")
+    return password
+
+
+def issue(email, init, get_password):
     sdir = secrets_dir()
     rows = read_table(sdir) if os.path.isdir(sdir) else {}
     if email not in rows:
@@ -173,9 +209,7 @@ def issue(email, init):
     check_perms(sdir, [cred_path, token_path, os.path.join(sdir, "op-auth.conf"), os.path.join(sdir, "op-accounts.tsv")], email)
     url, key = read_conf(sdir, email)
     if init:
-        password = sys.stdin.readline().rstrip("\r\n")
-        if not password:
-            raise Fail(f"ERR {email} 비밀번호 입력 없음 (클립보드가 비었다)")
+        password = get_password()
         cred = {}
     else:
         if not os.path.exists(cred_path):
@@ -208,12 +242,18 @@ def main(argv):
     try:
         if argv[:1] == ["--list"]:
             return list_accounts() or 0
+        if argv[:1] == ["--init-from-op"]:
+            if len(argv) != 3 or not argv[1] or not argv[2]:
+                print("usage: ft-op-token.sh --init-from-op <op 항목 id> <email>", file=sys.stderr)
+                return 2
+            print(issue(argv[2], True, lambda: op_password(argv[1])))
+            return 0
         init = argv[:1] == ["--init"]
         args = argv[1:] if init else argv
         if len(args) != 1:
-            print("usage: ft-op-token.sh <email> | --init <email> | --list", file=sys.stderr)
+            print("usage: ft-op-token.sh <email> | --init <email> | --init-from-op <op 항목 id> <email> | --list", file=sys.stderr)
             return 2
-        print(issue(args[0], init))
+        print(issue(args[0], init, lambda: stdin_password(args[0])))
         return 0
     except Fail as e:
         print(e.line)
