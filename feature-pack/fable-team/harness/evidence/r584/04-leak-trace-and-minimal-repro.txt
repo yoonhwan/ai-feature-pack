@@ -1,0 +1,19 @@
+# r584 04 — 누수 자국 + 최소 재현 (base=0d3ae97dd706c57be19af65b1479ee42637b5e02)
+# 명령: PYTHONPATH=/tmp python -m pytest tests/scripts/test_news_direct_api.py -q -s -p r584plug  (첫 누수 = test_f, 첫 «실패 문구» = test_i)
+LEAK after tests/scripts/test_news_direct_api.py::test_f_sync_skipped_within_120s: SYNCED='1' ERR=''
+LEAK after tests/scripts/test_news_direct_api.py::test_g_failed_tick_logs_keep_previous_issue: SYNCED='1' ERR=''
+LEAK after tests/scripts/test_news_direct_api.py::test_i_ledger_read_from_origin_main_not_checkout_head: SYNCED='1' ERR="원장 ref fetch 실패 — fatal: 'origin' does not appear to be a gi"
+LEAK after tests/scripts/test_news_direct_api.py::test_j_autonomy_reads_data_root_not_common_root: SYNCED='1' ERR="원장 ref fetch 실패 — fatal: 'origin' does not appear to be a gi"
+LEAK after tests/scripts/test_news_direct_api.py::test_k_zero_goals_fails_instead_of_publishing: SYNCED='1' ERR="원장 ref fetch 실패 — fatal: 'origin' does not appear to be a gi"
+LEAK after tests/scripts/test_news_direct_api.py::test_i_html_mode_tick_receives_ref_issue: SYNCED='1' ERR=''
+# 최소 재현(앞 파일 전체 + 뒤 시험 1개)
+## 전(origin/main 판)
+FAILED tests/scripts/test_ft_news_html.py::test_h_head_phrase_one_place_and_deadline_70
+1 failed, 16 passed in 10.19s
+## 후(고침 판)
+.................                                                        [100%]
+17 passed in 10.90s
+# 원인 자리(키트 변경 0 · 그대로) — ft_news_html.py:249-251 이 틱 안에서 FT_NEWS_HEAD 에 실패 문구를 붙이고 그것이 프로세스 env 에 남는다
+    warn = os.environ.get("FT_LEDGER_SYNC_ERROR", "")  # r503 — 원장 사본 갱신 실패면 «변화 없음» 줄·지도 글 머리에 그 사유를 싣는다(낡은 판을 «변화 없음» 으로 읽지 않게)
+    if warn and warn not in os.environ.get("FT_NEWS_HEAD", ""):
+        os.environ["FT_NEWS_HEAD"] = f"{os.environ.get('FT_NEWS_HEAD') or '팀 지도'} · {warn}"
