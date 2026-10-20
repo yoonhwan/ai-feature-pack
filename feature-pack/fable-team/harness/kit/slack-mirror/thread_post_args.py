@@ -52,14 +52,20 @@ def parse(argv: list[str]) -> argparse.Namespace:
     root = rpl.add_mutually_exclusive_group(required=True)
     root.add_argument("--ts", help="뿌리 글 ts(손으로 아는 스레드)")
     root.add_argument("--thread", help="이름 스레드(예 desk) — 뿌리는 등록부 slack-threads.json 이 소유(r414)")
-    rpl.add_argument("--text-file", required=True)
+    root.add_argument("--to-slack", help="오빠 글 ts — 수신 원장에서 그 글의 스레드 뿌리를 찾아 그 밑에 단다(r558)")
+    rpl.add_argument("--text-file")
+    rpl.add_argument("--text", help="본문 1개 — 쪽지 끝 «답 = …» 줄 그대로(r558)")
+    rpl.add_argument("--force-thread", action="store_true", help="--thread 로 보내되 «답 안 된 오빠 글» 검사를 건너뛴다(명시 · stderr WARN · r558)")
     t = sub.add_parser("attach", parents=[common, chan], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)
     t.add_argument("--title", required=True)
     a = p.parse_args(argv)
-    if a.cmd == "reply" and a.ts is not None and a.channel is None:
-        a.channel = CHANNEL  # 기존 --ts 호출 불변
+    if a.cmd == "reply":
+        if (a.text is None) == (a.text_file is None):
+            p.error("reply 는 --text 또는 --text-file 중 하나가 필요하다")
+        if a.ts is not None and a.channel is None:
+            a.channel = CHANNEL  # 기존 --ts 호출 불변 — --to-slack 의 채널은 수신 원장이 정한다
     if a.cmd not in ("update", "attach", "reply") and not (a.card or getattr(a, "unit_id", None)):
         p.error("--card 가 필요하다")
     return a

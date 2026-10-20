@@ -1,0 +1,309 @@
+FFFF.F..FF                                                               [100%]
+=================================== FAILURES ===================================
+_______________ test_to_slack_top_level_replies_under_that_post ________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_to_slack_top_level_replie0')
+slack = <_proposal_fakes.FakeSlack object at 0x111408e10>
+
+    def test_to_slack_top_level_replies_under_that_post(env, slack):  # ⓐ  # noqa: F811
+        started = time.time()
+        inbound(env, {T: entry()})
+>       assert run(env, slack, "--to-slack", T, "--text", "확인했어요.") == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_thread_reply_to_slack.py:69: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_thread_reply_to_slack.py:57: in run
+    return tp.main(argv)
+           ^^^^^^^^^^^^^
+kit/slack-mirror/byz_thread_post.py:189: in main
+    a = parse(argv)
+        ^^^^^^^^^^^
+kit/slack-mirror/thread_post_args.py:60: in parse
+    a = p.parse_args(argv)
+        ^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1874: in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1907: in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2110: in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2087: in consume_positionals
+    take_action(action, args)
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1983: in take_action
+    action(self, namespace, argument_values, option_string)
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1246: in __call__
+    subnamespace, arg_strings = parser.parse_known_args(arg_strings, None)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1907: in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2172: in _parse_known_args
+    self.error(msg % ' '.join(names))
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2640: in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ArgumentParser(prog='pytest reply', usage=None, description=None, formatter_class=<class 'argparse.HelpFormatter'>, conflict_handler='error', add_help=True)
+status = 2
+message = 'pytest reply: error: one of the arguments --ts --thread is required\n'
+
+    def exit(self, status=0, message=None):
+        if message:
+            self._print_message(message, _sys.stderr)
+>       _sys.exit(status)
+E       SystemExit: 2
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2627: SystemExit
+----------------------------- Captured stderr call -----------------------------
+usage: pytest reply [-h] [--card CARD] [--team TEAM] [--ledger LEDGER]
+                    [--token-file TOKEN_FILE] [--hermes-env HERMES_ENV]
+                    [--slack-base SLACK_BASE] [--channel CHANNEL]
+                    (--ts TS | --thread THREAD) --text-file TEXT_FILE
+pytest reply: error: one of the arguments --ts --thread is required
+______________ test_to_slack_thread_reply_answers_in_same_thread _______________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_to_slack_thread_reply_ans0')
+slack = <_proposal_fakes.FakeSlack object at 0x111525310>
+
+    def test_to_slack_thread_reply_answers_in_same_thread(env, slack):  # ⓑ  # noqa: F811
+        inbound(env, {T: entry(thread=P)})
+>       assert run(env, slack, "--to-slack", T, "--text", "네, 반영했어요.") == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_thread_reply_to_slack.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_thread_reply_to_slack.py:57: in run
+    return tp.main(argv)
+           ^^^^^^^^^^^^^
+kit/slack-mirror/byz_thread_post.py:189: in main
+    a = parse(argv)
+        ^^^^^^^^^^^
+kit/slack-mirror/thread_post_args.py:60: in parse
+    a = p.parse_args(argv)
+        ^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1874: in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1907: in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2110: in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2087: in consume_positionals
+    take_action(action, args)
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1983: in take_action
+    action(self, namespace, argument_values, option_string)
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1246: in __call__
+    subnamespace, arg_strings = parser.parse_known_args(arg_strings, None)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1907: in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2172: in _parse_known_args
+    self.error(msg % ' '.join(names))
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2640: in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ArgumentParser(prog='pytest reply', usage=None, description=None, formatter_class=<class 'argparse.HelpFormatter'>, conflict_handler='error', add_help=True)
+status = 2
+message = 'pytest reply: error: one of the arguments --ts --thread is required\n'
+
+    def exit(self, status=0, message=None):
+        if message:
+            self._print_message(message, _sys.stderr)
+>       _sys.exit(status)
+E       SystemExit: 2
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2627: SystemExit
+----------------------------- Captured stderr call -----------------------------
+usage: pytest reply [-h] [--card CARD] [--team TEAM] [--ledger LEDGER]
+                    [--token-file TOKEN_FILE] [--hermes-env HERMES_ENV]
+                    [--slack-base SLACK_BASE] [--channel CHANNEL]
+                    (--ts TS | --thread THREAD) --text-file TEXT_FILE
+pytest reply: error: one of the arguments --ts --thread is required
+_____________________ test_to_slack_unknown_ts_is_rejected _____________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_to_slack_unknown_ts_is_re0')
+slack = <_proposal_fakes.FakeSlack object at 0x11152b210>
+capsys = <_pytest.capture.CaptureFixture object at 0x11152ab10>
+
+    def test_to_slack_unknown_ts_is_rejected(env, slack, capsys):  # ⓒ  # noqa: F811
+        inbound(env, {T: entry()})
+>       assert run(env, slack, "--to-slack", "1700000000.000100", "--text", "x") == 1
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_thread_reply_to_slack.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_thread_reply_to_slack.py:57: in run
+    return tp.main(argv)
+           ^^^^^^^^^^^^^
+kit/slack-mirror/byz_thread_post.py:189: in main
+    a = parse(argv)
+        ^^^^^^^^^^^
+kit/slack-mirror/thread_post_args.py:60: in parse
+    a = p.parse_args(argv)
+        ^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1874: in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1907: in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2110: in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2087: in consume_positionals
+    take_action(action, args)
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1983: in take_action
+    action(self, namespace, argument_values, option_string)
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1246: in __call__
+    subnamespace, arg_strings = parser.parse_known_args(arg_strings, None)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1907: in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2172: in _parse_known_args
+    self.error(msg % ' '.join(names))
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2640: in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ArgumentParser(prog='pytest reply', usage=None, description=None, formatter_class=<class 'argparse.HelpFormatter'>, conflict_handler='error', add_help=True)
+status = 2
+message = 'pytest reply: error: one of the arguments --ts --thread is required\n'
+
+    def exit(self, status=0, message=None):
+        if message:
+            self._print_message(message, _sys.stderr)
+>       _sys.exit(status)
+E       SystemExit: 2
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2627: SystemExit
+----------------------------- Captured stderr call -----------------------------
+usage: pytest reply [-h] [--card CARD] [--team TEAM] [--ledger LEDGER]
+                    [--token-file TOKEN_FILE] [--hermes-env HERMES_ENV]
+                    [--slack-base SLACK_BASE] [--channel CHANNEL]
+                    (--ts TS | --thread THREAD) --text-file TEXT_FILE
+pytest reply: error: one of the arguments --ts --thread is required
+_______________ test_thread_refuses_when_oppa_post_is_unanswered _______________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_thread_refuses_when_oppa_0')
+slack = <_proposal_fakes.FakeSlack object at 0x11141f050>
+capsys = <_pytest.capture.CaptureFixture object at 0x11141ead0>
+
+    def test_thread_refuses_when_oppa_post_is_unanswered(env, slack, capsys):  # ⓓ  # noqa: F811
+        inbound(env, {T: entry(seat=DESK)})
+>       assert run(env, slack, "--thread", "desk", "--text-file", text_file(env)) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = run(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_thread_refuses_when_oppa_0'), <_proposal_fakes.FakeSlack object at 0x11141f050>, '--thread', 'desk', '--text-file', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_thread_refuses_when_oppa_0/reply.txt')
+E        +    where '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_thread_refuses_when_oppa_0/reply.txt' = text_file(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_thread_refuses_when_oppa_0'))
+
+tests/scripts/test_thread_reply_to_slack.py:91: AssertionError
+----------------------------- Captured stdout call -----------------------------
+root desk ts=1792493672.498477
+reply ts=1792493672.500902
+_____________________ test_thread_force_sends_with_warning _____________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_thread_force_sends_with_w0')
+slack = <_proposal_fakes.FakeSlack object at 0x11141fa10>
+capsys = <_pytest.capture.CaptureFixture object at 0x1114bcb10>
+
+    def test_thread_force_sends_with_warning(env, slack, capsys):  # ⓕ  # noqa: F811
+        inbound(env, {T: entry(seat=DESK)})
+>       assert run(env, slack, "--thread", "desk", "--force-thread", "--text-file", text_file(env)) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_thread_reply_to_slack.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_thread_reply_to_slack.py:57: in run
+    return tp.main(argv)
+           ^^^^^^^^^^^^^
+kit/slack-mirror/byz_thread_post.py:189: in main
+    a = parse(argv)
+        ^^^^^^^^^^^
+kit/slack-mirror/thread_post_args.py:60: in parse
+    a = p.parse_args(argv)
+        ^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:1877: in parse_args
+    self.error(msg % ' '.join(argv))
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2640: in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ArgumentParser(prog='pytest', usage=None, description='thread_post_args — byz_thread_post CLI 인자 (분리 · 200줄 한도). 6칸 블록... 필수 — 값이 없으면 호출자가 문자 `없음`.', formatter_class=<class 'argparse.HelpFormatter'>, conflict_handler='error', add_help=True)
+status = 2, message = 'pytest: error: unrecognized arguments: --force-thread\n'
+
+    def exit(self, status=0, message=None):
+        if message:
+            self._print_message(message, _sys.stderr)
+>       _sys.exit(status)
+E       SystemExit: 2
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2627: SystemExit
+----------------------------- Captured stderr call -----------------------------
+usage: pytest [-h]
+              {start,progress,result,check,repair,update,reply,attach} ...
+pytest: error: unrecognized arguments: --force-thread
+___________________ test_notice_ends_with_the_answer_command ___________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_notice_ends_with_the_answ0')
+slack = <_proposal_fakes.FakeSlack object at 0x1114fcb90>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-23/test_notice_ends_with_the_answ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1114fc890>
+
+    def test_notice_ends_with_the_answer_command(env, slack, tmp_path, monkeypatch):  # ⓖ  # noqa: F811
+        comm = tmp_path / "comm"
+        comm.mkdir()
+        mbox = comm / "mbox.sh"
+        mbox.write_text((Path(__file__).parent / "_fake_mbox.sh").read_text(encoding="utf-8"), encoding="utf-8")
+        monkeypatch.setenv("FAKE_MBOX", str(mbox))
+        saved: list[int] = []
+        e = {"text": "오빠 새 글 (Slack) — 원문:\n안녕", "done": {}, "attempt": {}}
+        ib.attempt_send(e, "byz-planner-desk-claude#29", "byz-planner-desk-claude#29", 0, f"slack:{T}:byz-planner-desk-claude#29",
+                        type("A", (), {"mbox": str(mbox), "to_key": ""})(), comm / "spool", str(tmp_path / "seats.json"), lambda: saved.append(1))
+        body = json.loads((comm / "mailbox.jsonl").read_text(encoding="utf-8").splitlines()[0])["body"]
+        lines = body.splitlines()
+>       assert lines[-1] == f'답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack {T} --text "…"'
+E       assert '(slack:17924...sk-claude#29)' == '답 = python3 ...89 --text "…"'
+E         
+E         - 답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack 1792492349.071989 --text "…"
+E         + (slack:1792492349.071989:byz-planner-desk-claude#29)
+
+tests/scripts/test_thread_reply_to_slack.py:132: AssertionError
+______________ test_reply_requires_exactly_one_root_and_one_body _______________
+
+    def test_reply_requires_exactly_one_root_and_one_body():
+        with pytest.raises(SystemExit):
+            pa.parse(["reply", "--thread", "desk"])
+        with pytest.raises(SystemExit):
+            pa.parse(["reply", "--thread", "desk", "--ts", "1.2", "--text", "x"])
+>       with pytest.raises(SystemExit):
+E       Failed: DID NOT RAISE <class 'SystemExit'>
+
+tests/scripts/test_thread_reply_to_slack.py:141: Failed
+----------------------------- Captured stderr call -----------------------------
+usage: pytest reply [-h] [--card CARD] [--team TEAM] [--ledger LEDGER]
+                    [--token-file TOKEN_FILE] [--hermes-env HERMES_ENV]
+                    [--slack-base SLACK_BASE] [--channel CHANNEL]
+                    (--ts TS | --thread THREAD) --text-file TEXT_FILE
+pytest reply: error: the following arguments are required: --text-file
+usage: pytest reply [-h] [--card CARD] [--team TEAM] [--ledger LEDGER]
+                    [--token-file TOKEN_FILE] [--hermes-env HERMES_ENV]
+                    [--slack-base SLACK_BASE] [--channel CHANNEL]
+                    (--ts TS | --thread THREAD) --text-file TEXT_FILE
+pytest reply: error: argument --ts: not allowed with argument --thread
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_to_slack_top_level_replies_under_that_post
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_to_slack_thread_reply_answers_in_same_thread
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_to_slack_unknown_ts_is_rejected
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_thread_refuses_when_oppa_post_is_unanswered
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_thread_force_sends_with_warning
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_notice_ends_with_the_answer_command
+FAILED tests/scripts/test_thread_reply_to_slack.py::test_reply_requires_exactly_one_root_and_one_body
+7 failed, 3 passed in 1.66s

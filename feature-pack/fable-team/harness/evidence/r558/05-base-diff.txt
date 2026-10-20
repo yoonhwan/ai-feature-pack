@@ -1,0 +1,8 @@
+ feature-pack/fable-team/CHANGES.md                      | 11 +++++++++++
+ .../harness/kit/slack-mirror/install-magazine.sh        |  2 +-
+ .../harness/kit/slack-mirror/mirror_inbound.py          |  2 +-
+ .../fable-team/harness/kit/slack-mirror/mirror_share.py |  8 ++++++++
+ .../harness/kit/slack-mirror/thread_post_args.py        | 12 +++++++++---
+ .../harness/kit/slack-mirror/thread_post_update.py      | 17 ++++++++++++++---
+ feature-pack/fable-team/manifest.json                   |  2 +-
+ 7 files changed, 45 insertions(+), 9 deletions(-)

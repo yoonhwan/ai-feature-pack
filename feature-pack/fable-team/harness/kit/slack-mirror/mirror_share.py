@@ -35,6 +35,14 @@ def fix_line(s: str | None, fallback: str) -> tuple[str, bool]:
     return (ok, False) if ok is not None else (fallback, True)
 
 
+def answer_hint(tok: str) -> str:
+    """쪽지 끝 «이렇게 답하세요» 1줄(r558) — 오빠 글 ts 로 그 글(스레드) 밑에 답한다. 출처 토큰 줄은 그대로 둔다."""
+    parts = tok.split(":")
+    if len(parts) < 3 or parts[0] != "slack" or not parts[1]:
+        return ""
+    return f'답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack {parts[1]} --text "…"'
+
+
 def tag(kind: str, text: str) -> str:
     if kind not in HEADS:
         raise ValueError(f"머리표는 {HEADS} 중 하나: {kind}")
