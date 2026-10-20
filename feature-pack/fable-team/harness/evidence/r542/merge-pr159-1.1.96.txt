@@ -1,0 +1,18 @@
+r542 병합 · PR 159(8bbb3357 · 1.1.95) 위 재번호 1.1.96 · 2026-10-20 15:31:21
+merge HEAD 352deb63 (부모 542db394 내 r542 + 8bbb3357 PR159) · origin/main a785f82c(1.1.94) 포함
+충돌: CHANGES.md · manifest.json 2개뿐(기계 해소) · 다른 파일 자동 병합 · r542 키트/훅/시험 diff 보존(bin↔kit cmp0)
+번호: manifest 1.1.96 · CHANGES r542 절 1.1.93→1.1.96 · 앞 항목 r540 1.1.92 / r527 1.1.93 / r538 1.1.94 / r543 1.1.95 보존
+시험(병합 HEAD 위): bash test_reap_agent_pi_r542.sh → ALL PASS 45 rc=0 (after-merge-1.1.96-…txt)
+기존 회수·닫기 11 시험(병합 HEAD 위) rc0:
+  test_opencode_reap.sh rc=0
+  test_nano_close_fail_closed.sh rc=0
+  test_nano_close_rerun_early.sh rc=0
+  test_nano_close_pack_wt.sh rc=0
+  test_nano_close_never_started.sh rc=0
+  test_nano_close_sha_base.sh rc=0
+  test_seat_reap_left0.sh rc=0
+  test_seat_reap_services.sh rc=0
+  test_nano_close_worktree_list_pipe.sh rc=0
+  test_nano_close_wt_deletion_only.sh rc=0
+  test_nano_close_superseded_by.sh rc=0
+push 0(나노 몫 아님)
