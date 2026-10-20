@@ -27,6 +27,7 @@ def env(slack, tmp_path, monkeypatch):  # noqa: F811
     (tmp_path / "tok.env").write_text("YOONHWAN_BOT_TOKEN=xoxp-secret-1\n", encoding="utf-8")
     (tmp_path / "hermes.env").write_text("SLACK_BOT_TOKEN=xoxb-secret-2\n", encoding="utf-8")
     monkeypatch.setenv("FT_SLACK_STATE_DIR", str(tmp_path / "st"))
+    monkeypatch.setenv("FT_SLACK_TOPIC_ONLY", "")  # r561: 이 시험은 r558 규칙(답 안 된 글 거절)만 본다 — 주제 전용 거절은 test_thread_room_post.py
     monkeypatch.setenv("FT_SLACK_THREADS", str(tmp_path / "threads.json"))
     monkeypatch.delenv("FT_SLACK_INBOUND_LEDGER", raising=False)
     monkeypatch.delenv("FT_SLACK_ANSWERED", raising=False)
@@ -129,8 +130,8 @@ def test_notice_ends_with_the_answer_command(env, slack, tmp_path, monkeypatch):
                     type("A", (), {"mbox": str(mbox), "to_key": ""})(), comm / "spool", str(tmp_path / "seats.json"), lambda: saved.append(1))
     body = json.loads((comm / "mailbox.jsonl").read_text(encoding="utf-8").splitlines()[0])["body"]
     lines = body.splitlines()
-    assert lines[-1] == f'답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack {T} --text "…"'
-    assert lines[-2] == f"(slack:{T}:byz-planner-desk-claude#29)"  # 기존 출처 토큰 줄 불변 · 중복 판정 근거
+    assert lines[-2] == f'답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack {T} --text "…"'
+    assert lines[-3] == f"(slack:{T}:byz-planner-desk-claude#29)"  # 기존 출처 토큰 줄 불변 · 중복 판정 근거
 
 
 def test_reply_requires_exactly_one_root_and_one_body():

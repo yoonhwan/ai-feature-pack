@@ -23,6 +23,8 @@ INBOUND_PREFIX = "byz_slack_mbox_inbound."
 ANSWERED_NAME = "byz_slack_answered.json"
 WINDOW = 7 * 86400  # 수신 데몬이 원장에 기억하는 창과 같다(R242) — 그 밖의 글은 답 자리를 따지지 않는다
 SHOW = 3  # 거절 문구에 싣는 최신 글 수 — 답 기록이 비어 처음 켜도 한 줄이 감당하게
+TOPIC_ENV = "FT_SLACK_TOPIC_ONLY"  # 주제 전용(이름 스레드 답 금지) 이름들 · 쉼표 · 빈 값 = 거절 끔(r561)
+TOPIC_DEFAULT = "desk"
 
 
 def state_dir() -> Path:
@@ -105,8 +107,26 @@ def unanswered(channel: str, name: str) -> list[str]:
     return sorted(out)
 
 
+def topic_only() -> set[str]:
+    """주제 전용 이름들 — env 미설정 = 기본 `desk` · 빈 값 = 거절 끔(r561)."""
+    raw = os.environ.get(TOPIC_ENV)
+    return {x.strip() for x in (TOPIC_DEFAULT if raw is None else raw).split(",") if x.strip()}
+
+
+def refuse_topic(name: str, force: bool) -> None:
+    """주제 전용 이름이면 답 안 된 글 유무와 무관하게 거절 — 스레드 = 주제 대화 전용 · 방 글 = post(r561)."""
+    if name not in topic_only():
+        return
+    msg = f"{name} 스레드는 주제 대화 전용 — 방 글은 post --to {name} · 오빠 글 답은 reply --to-slack <ts>"
+    if force:
+        print(f"WARN --thread {name} 강제 전송 — {msg}", file=sys.stderr)
+        return
+    raise MirrorError(f"REJECT --thread {name} — {msg}")
+
+
 def refuse_unanswered(name: str, channel: str | None, force: bool) -> None:
     """`--thread <name>` 이 «오빠 새 글» 을 건너뛰는지 검사한다 — 채널을 모르면 원장을 못 읽으니 통과(named_root 가 «--channel 필요» 로 거절)."""
+    refuse_topic(name, force)  # 주제 전용(기본 desk) = 답 안 된 글 유무와 무관하게 거절(r561)
     if not channel:
         return
     pending = unanswered(channel, name)

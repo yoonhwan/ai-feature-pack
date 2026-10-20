@@ -36,11 +36,14 @@ def fix_line(s: str | None, fallback: str) -> tuple[str, bool]:
 
 
 def answer_hint(tok: str) -> str:
-    """쪽지 끝 «이렇게 답하세요» 1줄(r558) — 오빠 글 ts 로 그 글(스레드) 밑에 답한다. 출처 토큰 줄은 그대로 둔다."""
+    """쪽지 끝 «이렇게 답하세요» 2줄 — 답은 오빠 글 ts 밑으로(r558), 승인·뉴스·알림 같은 방 글은 `post`(r561). 출처 토큰 줄은 그대로 둔다."""
     parts = tok.split(":")
     if len(parts) < 3 or parts[0] != "slack" or not parts[1]:
         return ""
-    return f'답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack {parts[1]} --text "…"'
+    return "\n".join((
+        f'답 = python3 ~/.hermes/scripts/byz_thread_post.py reply --to-slack {parts[1]} --text "…"',
+        '방 글(승인·뉴스·알림) = python3 ~/.hermes/scripts/byz_thread_post.py post --to desk --text "…"',
+    ))
 
 
 def tag(kind: str, text: str) -> str:

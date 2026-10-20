@@ -71,7 +71,7 @@ class FakeSlack:
                 req = json.loads(data)
                 outer._seq += 1
                 ts = f"{time.time() + outer._seq * 0.001:.6f}"
-                outer.msgs.append({"ts": ts, "text": req["text"], "bot_id": "B1", "thread_ts": req.get("thread_ts", "")})
+                outer.msgs.append({"ts": ts, "text": req["text"], "bot_id": "B1", "thread_ts": req.get("thread_ts", ""), "channel": req.get("channel", "")})
                 if outer.drop_next_post:
                     outer.drop_next_post = False
                     self.connection.shutdown(socket.SHUT_RDWR)

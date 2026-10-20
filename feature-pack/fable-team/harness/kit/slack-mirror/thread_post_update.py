@@ -7,6 +7,7 @@
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
 `reply --thread <이름>`(r414): 뿌리 ts 를 도구가 소유 — 등록부(slack-threads.json)에 없거나 날짜(KST)·채널이 바뀌면 채널에 뿌리 글을 새로 올려 등록.
 `reply --to-slack <오빠 글 ts>`(r558): 뿌리 = 수신 원장(byz_slack_mbox_inbound.<ch>.json)의 그 글 `thread` 값(빈 값 = 그 글) — 오빠 새 글 밑에 답한다.
+`post (--to <등록부 이름> | --channel <ID>) (--text|--text-file)`(r561): 방에 «최상위 글 1개» — thread_ts 없음 · 등록부·답 기록 쓰기 0 · 첨부 0. 승인·뉴스·알림은 스레드가 아니라 방 글이고, 스레드는 주제 대화 전용이다.
   답 기록(byz_slack_answered.json) 밖에 «그 이름 스레드 계보 좌석에 이미 전달 · 창(7일) 안 · 답 기록 없음» 오빠 글이 있으면 `--thread` 는 REJECT(`--force-thread` 면 경고 후 전송) — 인계서·메모리 규칙에 기대지 않는다.
   상태 폴더 = env FT_SLACK_STATE_DIR(기본 ~/.hermes/state) · 원장 파일 = env FT_SLACK_INBOUND_LEDGER · 답 기록 = env FT_SLACK_ANSWERED. 원장은 «읽기만» 한다.
 """
@@ -95,6 +96,32 @@ def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targ
     ch, root = (a.channel, a.ts) if a.ts is not None else named_root(t, a.thread, a.channel)
     ts = post(t.base, t.token, ch, text, root, human=True)
     print(f"reply ts={ts}")
+    return 0
+
+
+def topic_channel(a: argparse.Namespace) -> str:
+    """`--channel <ID>` 직접 또는 `--to <등록부 이름>` → 등록부 채널. 모르는 이름은 추측하지 않고 거절."""
+    if a.channel is not None:
+        return str(a.channel)
+    if not NAME.fullmatch(str(a.to)):
+        raise MirrorError(f"--to 는 소문자 이름(예 desk): {a.to}")
+    ch = str((_load_threads(threads_path()).get(a.to) or {}).get("channel") or "")
+    if not ch:
+        raise MirrorError(f"등록부에 없는 이름: {a.to} — {threads_path()} (방 채널을 모른다 · 게시 0)")
+    return ch
+
+
+def cmd_post(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
+    """`post (--to <등록부 이름> | --channel <ID>) (--text|--text-file)` — 방에 새 글 1개(thread_ts 없음). 장부·등록부·답 기록 쓰기 0."""
+    body = (a.text if a.text is not None else Path(a.text_file).read_text(encoding="utf-8")).strip()
+    if not body:
+        raise MirrorError(f"본문이 비었다: {a.text_file or '--text'}")
+    ch = topic_channel(a)
+    text = esc(body)
+    check(text, ch, human=True)  # 사람 채널 — 글 «전» 거절(게시 0)
+    t = target(a)
+    ts = post(t.base, t.token, ch, text, None, human=True)
+    print(f"POSTED {ts}")
     return 0
 
 

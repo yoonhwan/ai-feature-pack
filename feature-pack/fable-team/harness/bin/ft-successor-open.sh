@@ -67,7 +67,7 @@ hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$
 [ -f "$BODY" ] || { echo "REJECT 본문 파일 없음: $BODY"; exit 1; }
 [ "$(sed -n '1,3p' "$BODY" | grep -c '[^[:space:]]')" = 3 ] || { echo "REJECT 본문 첫 3줄(골 원문)이 비었다: $BODY"; exit 1; }
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
-case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — byz_thread_post.py reply --thread <이름> 으로(r414)"; exit 1; };; esac
+case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — 방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>"; exit 1; };; esac
 
 # ⓑ 열기 — tmuxc 옵션은 에이전트별로 다르다(ft-role-spawn.sh 와 같은 규칙: --ctx 는 claude 만 · --effort 는 claude·cmd·codex·pi)
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
