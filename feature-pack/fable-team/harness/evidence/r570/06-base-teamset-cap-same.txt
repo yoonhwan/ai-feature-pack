@@ -1,0 +1,21 @@
+PASS bash -n ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS bash -n ft-resource-reclaim.sh
+PASS 키트 사본 cmp 0 ft-resource-reclaim.sh
+PASS bash -n ft-nano-close.sh
+PASS 키트 사본 cmp 0 ft-nano-close.sh
+PASS ⓐ 상한 미만 → CAP 줄 · 회수 0 · QUEUED 0
+PASS ⓑ 상한 도달 → --team 으로 회수 1회 → 통과
+PASS ⓒ 회수 0 → QUEUED 순번=1 rc7 · 부작용 0
+PASS ⓒ 같은 카드 재시도 → 순번 그대로 · 중복 0
+PASS ⓓ 다른 팀(beta) 통과 — 일괄 정지 0
+PASS ⓔ dry-run 상한 도달 → rc7 · 큐·회수 0
+PASS ⓕ 표 파일 없음 → REJECT rc1(WARN 통과 0)
+PASS ⓕ 표 깨짐 → REJECT rc1
+PASS ⓖ FT_TEAMSET=0 → 상한 칸 건너뜀
+PASS ⓗ reclaim 에 --team 실재
+PASS ⓗ --team dry-run rc0 · 후보 0(가짜 tmux 에 활동 시각 없음)
+FAIL core.bare != false
+FAILED 1
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

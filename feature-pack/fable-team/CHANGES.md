@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 나노 첫 발주문에 «저장소 전체 검색 금지 · 명부 손대지 않음 » 고정 줄 1개 (r570 · 1.1.118 · 동작 변경)
+
+- 사건(arch 111 실측 2026-10-20 22:3x · 카드 r570 · master 86 발주 122355): ① r566 pi 나노가 BYZ 루트에서 `grep -r` 를 4분+ 돌려 load 40 → v65 M6 press 첫 원문이 5.8~13.3초 지연(planner 85 규칙 상기 요청 · 메모리 규칙 117521 계열 «repo-wide git log -S 금지»). ② r561·r566 나노가 공용 `seats.json` 에 자기 행을 손으로 넣어 쪽지 반송 REJECT 2회(spawn 이 이미 명부 등록). 두 사고 모두 첫 발주문 고정 줄(`_SPX` 광역 pytest · `_PKX` 팩 폴더)에 «금지 문장» 이 없어서 반복됐다.
+- 고침(`ft-nano-spawn.sh` `_SPX` 줄 바로 뒤 1줄 + BODY): `_SRX` = «★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심벌 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★» — `echo "BODY+${_SRX}"`(dry-run 같은 글자) + `BODY=` 끝에 `${_SRX}`(실 발주문에도 붙는다) · 에이전트 분기 0(claude·pi·opencode·codex 같은 줄).
+- 시험 `tests/test_nano_spawn_body_search_roster.sh` (정적 · 실행·네트워크·tmux 0 · PASS 26칸): `_SRX` 줄 1개 · 광역 명령 3종 · serena 먼저 · 명부 금지 문장 · `BODY+` echo 1개 · `BODY=` 반영 · ⓑ 에이전트 분기 0(고정 줄·echo·BODY 줄에 AGENT 조건 0 + pi·claude emit 동일) · ⓓ 음성 대조 2종(줄 삭제·명부 문장 삭제 → FAIL) · 기존 `_SPX`·press 금지 불변. 전 FAIL 9칸(`evidence/r570/01-before-red.txt`) → 후 PASS 26칸(`02-after-pass.txt`).
+- 기존 시험: `test_nano_spawn_pi_effort_serena`·`test_nano_spawn_reuse_info`·`test_nano_spawn_tier` ALL PASS · `test_nano_spawn_body_press.sh` = ⓒ 2칸 FAIL · `test_nano_spawn_teamset_cap.sh` = 1칸 FAIL — 둘 다 base(origin/main `ab9d3b7a`)에서 같은 값(`04-base-press-same.txt`·`06-base-teamset-cap-same.txt`) = 이 카드 무관 선행 실패. `bash -n` OK · 두 사본 cmp0(`07-kit-bin-cmp-and-diff.txt`).
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-spawn.sh` · 정본 bin 짝 cmp0) + 시험 1 · manifest 1.1.118 · `install.sh` REQUIRED 목록 변경 0 · 데몬 재기동 0. **LIVE_BIN 설치 집행·실사건(다음 spawn dry-run BODY 에 그 줄 · pi·claude)은 master 소관 — 미실행.** 되돌림 = `.bak-r570`.
+- 범위 밖: 검색·명부 쓰기를 «막는» 훅(별도 카드 후보 · 지금은 문장) · 역할 좌석(master·arch·DA) 부팅 문장 · 이미 열린 나노.
+
 ## 2026-10-20 — 뉴스 «지도 만들기» = 모델 HTTP 직접 호출(CLI 기동 0) + 원장·골 = origin/main ref + 자율 = 데이터 루트 (r563 · 1.1.114 · 동작 변경)
 
 - 사건(arch 110 실측 2026-10-20 21:2x · `/tmp/byz-ft-news-planner.log`): 부하 52 에서 매 틱 `opencode run summary 실패(openrouter/anthropic/claude-haiku-5.5): summary 상한 7s 초과(총 마감 70s)` = 발행 0. 원인은 부하가 아니라 구조 — 모델 호출이 매번 `opencode` CLI 를 새로 띄워 «첫 출력까지» 가 한가할 때도 13~41초(`state/news-cli-startup.tsv`) → 7초 룰의 상한 대부분이 기동 시간. 덤: 원장 사본 체크아웃이 매분 fetch+checkout(20초 timeout)으로 실패하며 «낡은 사본» 을 발행하고, 본문 자율 칸은 공용 루트 상태 폴더를 읽어 «off» 로 오독, 골 표가 0줄이어도 «정상» 발행.

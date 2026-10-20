@@ -1,0 +1,20 @@
+cmp tracked/kit:
+cmp0
+
+diff vs origin/main:
+ feature-pack/fable-team/harness/bin/ft-nano-spawn.sh                | 5 ++++-
+ feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh | 5 ++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/feature-pack/fable-team/harness/bin/ft-nano-spawn.sh b/feature-pack/fable-team/harness/bin/ft-nano-spawn.sh
+index 95bc3f7e..ec5c0124 100755
+--- a/feature-pack/fable-team/harness/bin/ft-nano-spawn.sh
++++ b/feature-pack/fable-team/harness/bin/ft-nano-spawn.sh
+@@ -267,6 +267,9 @@ echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+
+ # r486: 나노 워크트리 = sparse(r444 ⑤ · 남의 팀 design 없음) → 광역·다른 팀 자료 시험은 «평범한 실패» 로 보인다 — 발주문 1줄(BODY) · dry-run 에도 같은 글자
+ _SPX=" ★광역 pytest 금지 — 이 워크트리는 sparse(다른 팀 design 없음 · r444) · 자기 카드 시험만 · 광역·다른 팀 자료 시험은 ft-scratch-repo.sh <base> 사본에서 · 도구는 SPARSE-HIDDEN <경로> 로 말한다(r486)★"
+ echo "BODY+${_SPX}"
++# r570: 나노가 리포 전체를 grep -r 로 훑어 부하를 올리고(v65 press 첫 원문 오염) 공용 명부에 자기 행을 손으로 넣던 사고(쪽지 반송) — 첫 발주문 고정 줄 1개. 에이전트 분기 0(claude·pi·opencode·codex 같은 줄).
++_SRX=" ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★"
++echo "BODY+${_SRX}"
+ # r519: 하네스 카드(머리 `- 설치: 있음`) 나노는 팩 리포에 따로 작업 폴더를 만든다 — 자리를 발주문 1줄로 정한다.
