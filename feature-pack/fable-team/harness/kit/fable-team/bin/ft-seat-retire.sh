@@ -8,7 +8,7 @@
 #   RETIRED 줄 다음에 재개 기록 결과 1줄 — `RESUME ok <~/.claude/state/seat-resume/<구>.json>` 또는 `NORECORD <구> <이유>` (rc 에 섞지 않음 · 판정 1344). 부팅 보고 retire 칸 옆에 복붙.
 #   `<구> --record-only [--seats <파일>]` (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다. 명부 쓰기·.bak 0 · 구 행에 _replaced_by 없으면 REJECT rc 1(현역 좌석에 닫기 근거를 만들지 않는다) · retired_by = 그 _replaced_by. <후계> 와 같이 주면 usage rc 2.
 #   R282 ① 재개 기록 model 우선순위(r2) = 실행 프로세스 argv `--model` → 명부(바탕이 jsonl 과 같으면 `[1m]` 접미사 유지) → 대화 기록(jsonl) 마지막 assistant 의 message.model → 명부 · 모두 없으면 NORECORD · 명부와 «바탕이» 다를 때만 기록에 roster_model + 출력 끝 `(명부 model 다름: <값>)`.
-#   R282 ② 은퇴인데 옛 행이 어느 명부에도 없으면(--seats 없음) 이름(ft-name-lint 통과)의 팀 명부(seats.json=v65 · seats-<팀>.json)에 은퇴 행을 만든 뒤 은퇴 — 옛 이름이 «다른» 명부 `_*` 칸에 현역이면 REJECT.
+#   R282 ② 은퇴인데 옛 행이 어느 명부에도 없으면(--seats 없음) 이름(ft-name-lint 통과)의 팀 명부(seats.json=v65 · seats-<팀>.json)에 은퇴 행을 만든 뒤 은퇴 — 옛 이름이 «다른» 명부 `_*` 칸에 현역이면 REJECT. 옛 이름이 lint 를 못 넘으면 «후계» 이름(r573 · 후계도 lint 실패 = REJECT)에서 팀·역할·에이전트를 뽑는다.
 #   R282 ③ 후계 행 model = 도달 파일(<루트>/.fable-team/state/successor/<구>.json · env FT_SUCCESSOR_DIR)의 model → 없으면 옛 값.
 #   R296 ④ `--record-only` + 행 없음 — ⓐ 옛 이름이 어느 명부 `_*` 칸의 값도 아님 ⓑ 같은 계보로 더 큰 번호가 `_*` 칸에 현역 ⓒ 그 tmux 세션 생존 — 셋 다 참일 때만 기록(retired_by = 그 현역 이름) · 명부 쓰기 0.
 #   R400 `<구> --record-only --verdict <번호>` (판정 2304) — 승계가 아닌 «판정에 의한 닫기»(ft-seat-close --verdict 가 부른다): _replaced_by·R296 ⓑⓒ 없이 결속만으로 기록(retired_by = `verdict <번호>`) · 행 없음(다른 리포 좌석)은 ⓐ 만 · 명부 쓰기 0.
@@ -118,8 +118,7 @@ def alive(name):
 def arrival_model():   # ft-successor-open.sh 가 쓴 도달 파일의 model(R282 ③)
     a = load(f"{os.environ.get('FT_SUCCESSOR_DIR') or root + '/.fable-team/state/successor'}/{old}.json"); m = a.get("model") if isinstance(a, dict) else None
     return m if isinstance(m, str) and m else None
-if arg: cand = [arg]
-else: cand = [f for f in rosters if isinstance(load(f), dict) and old in load(f)]
+mkrow = False; cand = [arg] if arg else [f for f in rosters if isinstance(load(f), dict) and old in load(f)]
 if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번호가 승인) · 행 없음 = R296 ⓐ 만 · 명부 쓰기 0
     if len(cand) > 1: reject(f"명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정")
     o = load(cand[0]).get(old) if cand and isinstance(load(cand[0]), dict) else None
@@ -130,7 +129,6 @@ if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번
     rec = record((o or {}).get("model"), f"verdict {verdict}")
     if o is None and not rec: print("  - 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")   # R400 r3 §D — 행 없음 NORECORD 에도 같은 안내(첫 줄 꼴 그대로)
     sys.exit(0)
-mkrow = False
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
     base, _, gen = old.rpartition("#"); later = []
     for f in rosters:
@@ -145,9 +143,11 @@ if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 
     if not alive(rb): reject(f"현역 {rb} 의 tmux 세션이 없음 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
     record(None, rb); sys.exit(0)
 if not cand and not arg and reconly != "1":   # R282 ② — 옛 행이 어느 명부에도 없는 «지금 승계 중»: 팀 명부에 은퇴 행을 만든다
-    lint = subprocess.run(["bash", f"{here}/ft-name-lint.sh", old], capture_output=True, text=True)
-    if lint.returncode != 0: reject(f"명부 후보 0개 (키 {old}) · 이름 lint 실패 — --seats 로 지정")
-    parts = old.rpartition("#")[0].split("-"); tf = root + "/.fable-team/" + ("seats.json" if parts[1] == "v65" else f"seats-{parts[1]}.json")
+    lint = lambda n: subprocess.run(["bash", f"{here}/ft-name-lint.sh", n], capture_output=True, text=True).returncode; ok, okn = lint(old) == 0, bool(new) and lint(new) == 0   # R573 — 옛 이름 lint 실패 = «칸 뽑을 이름» 만 후계로 후퇴(새 이름 lint 규칙 불변)
+    if not ok and not (okn and not any(active_in(f) for f in rosters)): reject(f"명부 후보 0개 (키 {old}) · 이름 lint 실패" + (" · 후계도 이름 lint 실패" if not okn else " · 다른 명부 `_*` 칸의 현역 — --seats 로 지정"))
+    src = old if ok else new
+    if not ok: print(f"INFO 옛 이름 lint 실패 — 후계 {new} 이름으로 팀·역할·에이전트")
+    parts = src.rpartition("#")[0].split("-"); tf = root + "/.fable-team/" + ("seats.json" if parts[1] == "v65" else f"seats-{parts[1]}.json")
     if not isinstance(load(tf), dict): reject(f"명부 후보 0개 (키 {old}) · 팀 명부 없음 {tf} — --seats 로 지정")
     cand, mkrow = [tf], True
 if len(cand) != 1: print(f"REJECT 명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정"); sys.exit(1)
