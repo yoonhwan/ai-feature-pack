@@ -1,13 +1,46 @@
 # Changes
 
-## 2026-10-20 — 시험 임시 환경에 «공용 루트» 도우미: 자원 문지기 시험이 다시 회귀를 잡게 (r537 · 1.1.87)
+## 2026-10-20 — 시험 임시 환경에 «공용 루트» 도우미: 자원 문지기 시험이 다시 회귀를 잡게 (r537 · 1.1.90)
 
 - 사건: `test_resource_gate`(FAIL 9) · `test_resource_gate_pressure`(FAIL 5)가 팩 origin/main 에서도 RED(r522 나노 보고 · master 84 발주 119766). 좌석 여는 도구가 r459 뒤 공용 comm 폴더를 «먼저» 푸는데, 시험 임시 환경엔 공용 루트가 없어 자원 문지기에 닿기 전에 `ERROR comm 폴더를 못 풂` rc=3 으로 끝남 = r516 묶음 ③(공용 루트·comm·팀 명단 전제).
 - `harness/tests/lib/fake_resource_env.sh`: `fake_comm_root <dir> [LIVE_BIN]` = 임시 git 리포 + `.fable-team/comm`·`state`·`LIVE_BIN` + `design/TEAMS.md` 최소 명단 → `FT_ROOT` export(ft_comm_dir·ft_data_root 가 git 을 부르지 않고 풂). 기존 `fake_resource_env` 무변경. pytest 판 = `tests/scripts/fake_resource_env.py` `fake_comm_root` + `conftest.py` 픽스처(명부 `seats.json` 도 심음 — `ft-nano-close.sh` R400).
 - 묶음 ③ 셸 고침: resource_gate · cherry_gate_identical_head · penalty_spawn_gate · teamset_gitref · team_literal_paths · flag_off_scan · ft_land(= `fake_comm_root` 또는 임시 리포에 comm) · proposal_card · press_role_bts_gate(임시 리포 TEAMS.md) · live_install_check_tip · team_scaffold_empty_template(`--kit` 명시 · r426 꼴) · seat_handover(무인자 status 에 FT_ROOT) · spawn_gate_landing_branch(연쇄 통과). `test_resource_gate_pressure` H3 = 팩에 없는 BYZ `design/TEAMSET.md` 복사 → 같은 머리줄 최소 표(test_arch_required_gate 꼴). pytest: weekly_review(cwd = 임시 루트) · disk_census(명부).
 - 시험: 묶음 ③ 셸 16 = 전 rc0 0 → 후 rc0 11(`harness/evidence/r537/before|after-bucket3-shell-rc.txt`) · pytest 2파일 19 failed → 0(47 passed). 전체(같은 바탕 5fb4b134): 셸 실패 53 → 42 · pytest 23 → 4 failed · «후에만 실패» 셸 0 · pytest 0(`compare.txt`). 단언 삭제·완화 0 · 변이 검출 그대로.
 - 남은 묶음 ③ 안 다른 뿌리(범위 밖): `test_resource_gate_pressure` 감시자 줄 수(r534) · `test_seat_handover` guard·`test_team_move_roundtrip` ⓑ'(임시 bin 형제 누락 = ⑥ · r536) · `test_sheet_verify`(`_fake_mbox.sh` 옛 자리 = ⑤) · `test_team_scaffold_empty_template` ⓐ(옛 BYZ 틀 경로 문구 = ⑤) · `test_team_move_roundtrip` ⓒ(env 없이도 자기 위치로 풀림 — 시험 기대 결정 필요).
+- r536(1.1.89 · r534·r522 조상) 병합 뒤 재번호 1.1.90: 충돌 CHANGES·manifest 2개뿐(기계 해소) · 함께 바꾼 시험 파일 0 · cwd = 새 임시 git 리포에서 23개 → `test_resource_gate_pressure` rc0 FAIL 0(r534 감시자 줄 수 + r537 H3) · r536 5개 rc0 · 남은 rc1 4 = 병합 전과 같은 FAIL 수 · 실 autonomy.log 486→486(`harness/evidence/r537/merge-r536-1.1.90.txt`).
 - 설치: 없음(시험 파일만 · 키트 diff 0).
+
+## 2026-10-20 — 시험 임시 bin 짝 누락(r516 묶음 ⑥) 5개 고침: 키트 bin 통째 복사 도우미 `tests/lib/kit_bin_copy.sh` + 부작용 스텁 (r536 · 1.1.89)
+
+- 사건: r535 나노 보고 — `test_wt_clean_plan_self_check.sh` 가 팩 origin/main 에서도 FAIL 13(`harness/evidence/r535/preexisting-self-check-origin-main.txt`). arch 107 실측 = 시험이 임시 bin 에 생성기 `ft-nano-close.sh` 와 형제 몇 개만 손으로 복사하는데 생성기가 그 뒤 `ft-seat-reap.sh`·`ft-team-lib.sh` 등을 더 부르게 바뀌어 «No such file · CLOSE-FAIL reap left=? rc=127». 같은 꼴 = r516 분류표 묶음 ⑥ 5개.
+- 새 `harness/tests/lib/kit_bin_copy.sh <임시 bin>`: 키트 `kit/fable-team/bin` 일반 파일 전부(설치와 같은 집합) cp -p → 부작용 도구 9개(`ft-seat-reap` · `ft-opencode-reap` · `ft-leak-reap` · `ft-docker-test-reap` · `ft-seat-retire` · `ft-tmux-kill|spawn|send|distill`)를 새 `harness/tests/stubs/kit-side-effect.sh` 로 덮음(호출 1줄 로그 · `left=0 rc=0` · exit 0 · 실제 kill·tmux·reap 0) · 출력 `KIT-BIN-COPY files=N stubbed=…`.
+- 시험 5: `test_wt_clean_plan_self_check`·`test_nano_succession_index`·`test_autonomy_hooks_layout`·`test_evidence_inject_scan` = 손 복사 줄 → 도우미(각 시험의 기존 가짜 tmux·cherry·lint 스텁은 그대로 · self_check 는 «스텁 reap 호출 ≥1» 단언 추가) · `test_fake_resource_env` = 파이썬 모듈 경로 `$REPO/tests/scripts` → `$HERE/scripts`(모듈은 `harness/tests/scripts/`) · `test_evidence_inject_scan` 8 = BYZ 리포에만 있던 위반 실례(#887 run.py)를 바이트 그대로 사본 `harness/fixtures/inject_scan/run-887.py`(BYZ 554e5a4873 · blob a50d41b0) 로.
+- 시험: 고치기 전 5개 rc=1(FAIL 7·4·13·6·2 · `harness/evidence/r536/before-fix.txt`) → 고친 뒤 5개 rc=0(`after-fix.txt`) · 전체 셸 전·후 비교 `compare.txt`.
+- 설치: 없음 — 시험·픽스처만(키트·LIVE_BIN·홈·launchd 0). 되돌림 = 이 커밋 revert.
+- 격리 고침(r534 위 재번호 때 발견): `test_autonomy_hooks_layout` 이 호출자 cwd 를 물려받아 BYZ 워크트리 안에서 돌리면 `ft_data_root` ②(cwd 공용 루트 `.fable-team/LIVE_ROOT`)를 따라 «실» 자율 상태에 on/off·approve-merge 를 썼다(2026-10-20 13:29~13:39 · A11~A18 · 끝이 on · `ft-autonomy.sh off` 1줄로 복구). 시험이 임시 MAIN 에 `LIVE_ROOT`=임시 라이브를 쓰고 `cd` 임시 워크트리 → BYZ cwd 에서 ALL PASS · 실 autonomy.log 줄 수 변화 0(`harness/evidence/r536/merge-r534-1.1.89.txt`).
+- 범위 밖: 다른 묶음(①~⑤·⑦·⑧) · r535 시험 · 키트 코드.
+
+## 2026-10-20 — 자원 감시자 디스크 기록표: 워크트리·큰 폴더를 1단계 폴더별 «증분» 측정 · 합 = 캐시 합 + «앎/전체» · 원인 도구 = 워크트리별 1시간 증가 (r534 · 1.1.88)
+
+- 사건: 감시자 `disk-attrib.tsv` 의 `worktrees.total` 이 10-17 21:22 뒤 매회 TIMEOUT(393회 · 워크트리 443개 전체 `du -sk` 1회가 7초 상한에 걸림) · pytest 30·caches 79·claude.projects 50회도 TIMEOUT → 여유 342→238GiB(−104)인데 아는 칸 합 ≈ +6GiB(오빠 «디스크 한 100G 줄었는데?» · desk 27 쪽지 119645 → planner 83 119646 → master 84 발주 119648).
+- 새 `ft-resource-du-lib.sh`(감시자가 source · 단독 실행 0 · 감시자 줄 수 ≤245 단정 때문에 형제 파일 — master 84 발주 119773): `inc_group` = 폴더 하나를 1단계 단위로 증분 측정. 한 틱 `FT_RES_WT_PER_TICK`(25)개 · 각 `run_capped du -sk`(7초 · nice 19 · 기존 잠금 그대로) · 순번 = 캐시 없음 → 잰 뒤 바뀜(2시간 안 mtime) → 캐시 오래된 순. 캐시 `du-cache.tsv` 줄 = `ts · <pfx>:<rel> · kb · 직전 ts · 직전 kb · 표식` + 바퀴 시작 `<pfx>#round`. 사라진 폴더 줄 제거 · 옛 통째 `worktrees.total` 캐시 줄 버림.
+- 기록: 전부 알면 `<칸> <합KB>` · 모르는 폴더가 있으면 `<칸> PARTIAL <앎 합>`(숫자 칸이 아니라 증가 순위·경보에 안 섞임 — 부분 합을 새 숫자처럼 쓰지 않음) + `<칸>.known <앎>/<전체>`. 상한 넘긴 단위 = 그 단위만 `<pfx>:<rel> TIMEOUT` 1줄 + 폴더면 다음 틱부터 1단계 하위로 나눔(split · 깊이 `FT_RES_SPLIT_DEPTH` 3) · 못 나누면 `stale`(옛 값 보존 · 합·known 제외). 워크트리는 한 바퀴(모든 단위를 바퀴 시작 뒤 한 번씩) 끝난 틱에 `wt.top <이름> <KB>` 상위 5.
+- `ft-resource-watch.sh` snapshot_disk: claude.projects · caches · pytest · worktrees(맨 끝 — 앞 칸이 남긴 시간까지 받음) = `inc_group` · 스냅샷 측정 예산 `FT_RES_SNAP_BUDGET_SEC`(55 · 남은 예산을 남은 칸 수로 나눔 · 예산으로 끊긴 du 는 TIMEOUT·split 표기 0 · 다음 틱 다시) · `FT_RES_DU_TTL_SEC`·`du_cached` 제거(통째 측정이 없어져 고아). 칸 이름(`worktrees.total`·`claude.projects`·`caches`·`pytest`)·count·recent2h·나머지 칸 그대로.
+- `ft-resource-cause.sh disk`: `worktrees.total` 증가 때 «최근 60분 건드린 워크트리» 대신 `du-cache.tsv` `wt:` 줄의 1시간 증가 상위 3(잰 값 − 직전 값 · 직전 값 없는 단위는 그 워크트리가 1시간 안에 생겼을 때만 통째 · stale·split 제외) + 주인 좌석(기존 풀이 규칙 · 못 찾으면 «주인 미상») · 증가 없으면 `워크트리별 1시간 증가 없음(du-cache)`.
+- 시험 새 `test_resource_watch_incremental_r534.sh`(가짜 du = 경로별 크기·시간 표 · 임시 HOME/TMPDIR/state · 외부 호출 0 · GIT_* 0) ⓐ~ⓖ — 고치기 전 FAIL 39(`harness/evidence/r534/before-fix.txt` · ⓐ worktrees.total=TIMEOUT) · 고친 뒤 PASS 55 · rc0(`after-fix.txt`). 기존: `test_resource_watch`(R323 단정을 폴더별 의미로 · 실 HOME 격리) · `test_resource_cause`(워크트리 풀이 = 캐시) · `test_resource_reclaim_preventive`(감시자 복사 때 du-lib 같이) · disk_alarm·reclaim·reclaim_pressure rc0 · `test_resource_gate_pressure` «감시자 줄 수 ≤245» PASS(origin/main 246줄 FAIL 해소) · gate 8·gate_pressure 4·fake_env 2 FAIL = 팩 origin/main 에서도 같음(comm 폴더 해석·python 추적 · 이 단위 밖)(`existing-tests.txt`). 실데이터 미리 보기(읽기만 · 임시 state): 틱 26~32초 · TIMEOUT 0 · 워크트리 75/434(`real-dryrun.txt`).
+- 첫 바퀴 길이(틱당 25 · 10분 틱): 워크트리 434 ≈ 18틱(3시간) · claude.projects 2520 ≈ 101틱(17시간 — 그동안 `claude.projects PARTIAL`) · caches 100 ≈ 4틱 · pytest 1틱. 그 뒤는 새·바뀐 폴더가 다음 틱 맨 앞.
+- r522(1.1.87) 병합 뒤: 감시자 263줄 → `du_line`·`du_lock` 을 `ft-resource-du-lib.sh` 로 옮기고(동작 변경 0) 증분 칸 순회를 1줄로 → 243줄 · `test_resource_gate_pressure.sh` «감시자 줄 수 ≤245» PASS(origin/main 6e72a9ab 은 265줄 FAIL) · r522 `test_resource_cpu_owner` ALL PASS 28 · 기록 `harness/evidence/r534/merge-r522-1.1.88.txt`.
+- 설치: 키트 3(`ft-resource-watch.sh` · `ft-resource-du-lib.sh` · `ft-resource-cause.sh` · harness/bin 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 3 · 감시자 launchd `com.byz.ft-resource-watch` 재기동(plist 0) · 홈 0 · 되돌림 = `.bak-r534`.
+- 범위 밖: 워크트리 정리·삭제 · 디스크 경보 문턱 · −104GiB 원인 찾기(planner 읽기 전용) · 감시 주기 변경.
+
+## 2026-10-20 — CPU 폭주 «주인» 한 줄 + 감시자 기록·planner 쪽지 1통 · 끄기 0 (r522 · 1.1.87)
+
+- 사건: 08:4x `/usr/bin/yes` 여러 개가 CPU 100% — 오빠가 손으로 끔 · 누가 띄웠는지 사후 추적 자료 0(desk 26 쪽지 119295 · 자원 감시자는 디스크·메모리·swap 만 봄 · arch 106 실측).
+- `ft-resource-cause.sh cpu`(새 모드): `LC_ALL=C ps -axo pid=,ppid=,tty=,etime=,pcpu=,comm=` 를 명령 이름(경로 뺀 이름 · 공백 든 이름 그대로)별로 묶어 «각 CPU ≥30% 인 것 ≥3개 ∧ 그중 가장 오래 ≥5분» 묶음만 → `cpu <명령>×<개수> CPU <합>% <분>분 · 주인 <세션>` (묶음마다 `; ` · CPU 합 큰 순). 주인 = 조상 pane 의 tmux 세션(mem 과 같은 걸음 · 40단) → 없으면 tty ↔ `#{pane_tty}` «<세션> (tty)» → 없으면 «미상»(추측 0) · 주인이 여럿이면 앞 3개 + «외 N». 해당 0 = 빈 출력 rc0 · ps 자료 0 = stderr ERROR rc4. 읽기 전용(프로세스 끄기·우선순위 변경 0). 시험 env `FT_RES_PS`·`FT_RES_TMUX`(가짜 출력 파일).
+- `ft-resource-watch.sh` tick: 표본 뒤 · 문지기·동결 분기 «앞»에 `cpu_watch` 1회(상한 `FT_RES_CPU_CAP_SEC` 7초 · 넘거나 rc≠0 = 로그 ERROR · 동결 판정 영향 0). 출력 있으면 `state/runaway-cpu.log` 1줄(시각 + 줄) · 서명(명령·주인·개수 = CPU·분 뺀 줄)이 직전과 다르면 planner 명부(`FT_SEATS_JSON` · 기본 `seats-planner.json`) `_master` 에 `[CPU 폭주] <줄> · 끄기는 사람 판단 · kill 0` 1통 · 발신 성공 때만 서명 저장(`state/.runaway-cpu.sig` · 실패 = 다음 tick 재시도) · 폭주가 끝나면(빈 출력) 서명 지움 → 다음 폭주는 새 사건. `_master` 없음·우편함 못 풂·발신 실패 = 로그 ERROR(조용한 통과 0).
+- 시험 `test_resource_cpu_owner.sh`(새 · 가짜 ps·tmux·센서·mbox · 임시 루트 · 외부 호출 0 · GIT_* 0) ⓐ 조상 pane(중간 zsh 경유) ⓑ ppid 1 · tty 대조 «(tty)» ⓒ ppid 1 · tty ?? → 주인 미상 ⓓ tick: 로그 1줄 + 쪽지 1통 · 같은 서명 다음 tick 쪽지 0 · 개수 바뀌면 1통 · `_master` 없음 ERROR · 원인 도구 실패 ERROR ⓔ 2개·4분 → 빈 출력·기록 0 ⓕ 가짜 kill·renice·pkill·killall 호출 0 + 코드(따옴표·주석 뺀)에 호출 0 — 고치기 전 FAIL 18(`harness/evidence/r522/before-fix.txt` · ⓐ usage rc2) · 고친 뒤 ALL PASS 28(`after-fix.txt`) · 기존 시험 base 대조 = `existing-tests.txt`.
+- 설치: 키트 2(`ft-resource-cause.sh` · `ft-resource-watch.sh`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · 감시자 launchd 재기동(RESTART 줄) · 홈 0 · plist 0 · 되돌림 = `.bak-r522`.
+- 범위 밖: 자동 끄기·우선순위 변경 · CPU 를 동결·회수 조건에 넣기 · 명령 이름 허용 목록 · 08:4x 사건의 주인 찾기(자료 0).
 
 ## 2026-10-20 — 닫힌 나노 정리 계획이 밀리지 않게: sweep 시간 상한 안 여러 건 · 옛 판 계획 재생성 · 지운 크기·등록 없는 폴더 목록 (r535 · 1.1.86)
 

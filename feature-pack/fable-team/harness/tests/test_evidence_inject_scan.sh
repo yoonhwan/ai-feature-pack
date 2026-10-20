@@ -54,7 +54,8 @@ out="$(sc "$FX/p6.py")"; [ "$(cnt "$out" note)" = 1 ] && [ "$(cnt "$out" suspect
 out="$(sc "$ROOT/tests/e2e/realtime_multi_e2e.py")"; [ "$(cnt "$out" suspect)" = 0 ] && ok "7 기존 러너 SUSPECT 0" || bad "7: $out"
 
 # 8 실파일: 위반 실례(#887)는 ⓒ 로 잡힌다 — 원본이 이 브랜치에 있어야 한다(없으면 FAIL: 시험이 자기 근거를 잃었다)
-V="$ROOT/design/feature/evidence/multilingual-linebreak-impl-20261008/run.py"
+#   r536: 원본은 BYZ 리포 파일이라 팩엔 없다 → 바이트 그대로 사본(BYZ 554e5a4873:design/feature/evidence/multilingual-linebreak-impl-20261008/run.py)
+V="$ROOT/harness/fixtures/inject_scan/run-887.py"
 out="$(sc "$V")"; [ "$(cnt "$out" suspect)" -ge 1 ] 2>/dev/null && echo "$out" | grep -q ' ⓒ ' && ok "8 #887 run.py SUSPECT ≥ 1 (ⓒ)" || bad "8: $out"
 
 # 9 없는 경로 → rc=1 · MISSING / 인자 0 → rc=2
@@ -66,7 +67,7 @@ n1="$(wc -l < "$FT_INDEX_STATE_DIR/inject-scan.log" 2>/dev/null | tr -d ' ')"; s
 [ -n "$n1" ] && [ "$n1" -ge 1 ] && [ "$n1" = "$n2" ] && grep -q 'INJECT-SCAN files=' "$FT_INDEX_STATE_DIR/inject-scan.log" && ok "9c SUSPECT 시 log append · 0건이면 무기록" || bad "9c: n1=$n1 n2=$n2"
 
 # 10 진행→완성 이동: SUSPECT 줄 출력 · rc=0 · 카드 완성/ 이동
-BIN="$T/bin"; mkdir -p "$BIN"; cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft-team-lib.sh" "$SCAN" "$BIN/"
+BIN="$T/bin"; bash "$HERE/lib/kit_bin_copy.sh" "$BIN" >/dev/null || bad "kit_bin_copy"   # r536: 키트 bin 통째(ft_da_hold_gate.py 등 형제 짝) + 부작용 스텁
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true
 REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/design/x/evidence/e1"

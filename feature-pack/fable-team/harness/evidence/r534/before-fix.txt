@@ -1,0 +1,74 @@
+# r534 고치기 전 — 팩 0b9e3618 코드에 새 시험 · 2026-10-20 10:45:59
+PASS bash -n watch
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-cause.sh
+FAIL ⓐ 1틱 = 8개만 잼 → worktrees.known 8/20 — «» ≠ «8/20»
+FAIL ⓐ 1틱 합이 PARTIAL 아님 — «TIMEOUT»
+FAIL ⓐ 워크트리 폴더 전체 du 0회 — «1» ≠ «0»
+FAIL ⓐ 폴더별 du = 틱당 8회 — «0» ≠ «8»
+FAIL ⓐ 2틱 → 16/20 — «» ≠ «16/20»
+FAIL ⓐ 3틱 → 20/20 — «» ≠ «20/20»
+FAIL ⓐ 20/20 → worktrees.total = 캐시 합 숫자(10+…+200=2100) — «TIMEOUT» ≠ «2100»
+FAIL ⓐ TIMEOUT 줄 0 — 있으면 안 됨: «TIMEOUT»
+FAIL ⓐ 한 바퀴 끝 → wt.top 1위 w20 200 — 없음: «wt.top	w20 200» ← 1792460767	disk.free	104857600
+1792460767	worktrees.total	TIMEOUT
+1792460767	worktrees.count	20
+1792460767	worktrees.recent2h	20
+1792460767	colima.diffdisk	0
+1792460767	claude.projects	0
+1792460767	caches	0
+1792460767	pytest	0
+1792460767	byz.logs	1
+FAIL ⓐ wt.top 상위 5줄 — «0» ≠ «5»
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9LTOqhtMMY/R/.fable-team/state/du-cache.tsv: No such file or directory
+FAIL ⓐ 캐시 du-cache.tsv 에 wt:<이름> 줄 — 없음: «	200» ← 
+FAIL ⓑ 순번 = 새 폴더(wnew) → 바뀐 폴더(w03) — «» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9LTOqhtMMY/wt/wnew /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9LTOqhtMMY/wt/w03 »
+PASS ⓑ 잰 뒤 안 바뀐 폴더는 다음 틱 맨 앞 아님
+FAIL ⓑ 새 폴더 포함 21/21 — «» ≠ «21/21»
+FAIL ⓑ 합 = 2100 + 새 폴더 7 — «TIMEOUT» ≠ «2107»
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9LTOqhtMMY/R/.fable-team/state/du-cache.tsv: No such file or directory
+FAIL ⓒ 사라진 폴더 캐시 줄 제거 — «» ≠ «0»
+FAIL ⓒ 전체 20 — «» ≠ «20/20»
+FAIL ⓒ 합에서 50 빠짐(2107−50) — «TIMEOUT» ≠ «2057»
+FAIL ⓓ 넘긴 폴더만 TIMEOUT 표기 — 없음: «wt:w07	TIMEOUT» ← 1792460779	disk.free	104857600
+1792460779	worktrees.total	TIMEOUT
+1792460779	worktrees.count	20
+1792460779	worktrees.recent2h	20
+1792460779	colima.diffdisk	0
+1792460779	claude.projects	0
+1792460779	caches	0
+1792460779	pytest	0
+1792460779	byz.logs	1
+PASS ⓓ TIMEOUT 은 그 폴더 1줄
+FAIL ⓓ 합 줄 known 19/20 — «» ≠ «19/20»
+FAIL ⓓ 옛 값(70)을 새 값처럼 안 씀 — PARTIAL 합 = 나머지 19개(2057−70) — «TIMEOUT» ≠ «PARTIAL 1987»
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9LTOqhtMMY/R/.fable-team/state/du-cache.tsv: No such file or directory
+FAIL ⓓ 넘긴 폴더 = 나눔 표식(split) — 없음: «split» ← 
+FAIL ⓓ 다음 틱 하위 a·b 측정 → 20/20 — «» ≠ «20/20»
+FAIL ⓓ 합 = 1987 + 30 + 45 — «TIMEOUT» ≠ «2062»
+FAIL ⓓ 나눈 폴더 통째 du 는 다시 안 함 — «0» ≠ «1»
+FAIL ⓓ 나눌 수 없음 → 캐시 표기 stale — 없음: «stale» ← 
+FAIL ⓓ stale 은 known 에서 빠짐 — «» ≠ «1/2»
+FAIL ⓓ stale 값은 합에 0 — «1» ≠ «PARTIAL 22»
+FAIL ⓔ claude.projects = 하위 합 600 — «TIMEOUT» ≠ «600»
+FAIL ⓔ claude.projects.known 3/3 — «» ≠ «3/3»
+FAIL ⓔ caches = 100 — «TIMEOUT» ≠ «100»
+FAIL ⓔ caches.known 2/2 — «» ≠ «2/2»
+FAIL ⓔ pytest = 11 — «TIMEOUT» ≠ «11»
+FAIL ⓔ pytest.known 2/2 — «» ≠ «2/2»
+FAIL ⓔ 큰 폴더 통째 du 0회 — «6» ≠ «0»
+FAIL ⓔ TIMEOUT 0 — 있으면 안 됨: «TIMEOUT»
+FAIL ⓖ 기본 예산 55초 아님
+PASS ⓖ 가짜 du 합 15초 · 예산 5초 → tick 1s ≤ 8
+PASS ⓖ 예산으로 끊은 du 는 TIMEOUT 표기 0
+PASS ⓖ 예산으로 끊은 du 는 나눔 표식 0
+PASS ⓖ du 잔존 0
+PASS ⓕ cause disk rc0
+FAIL ⓕ 1위 harness-grow +2.0G → 나노 좌석 — 없음: «worktrees.total +4.0G ← harness-grow +2.0G→byz-harness-nano-grow#0» ← worktrees.total +4.0G ← w07(좌석 미상), w03(좌석 미상), newone(좌석 미상)
+FAIL ⓕ 1시간 안 생긴 폴더 통째 증가 · 주인 못 찾음 → «주인 미상» — 없음: «newone +1.0G(주인 미상)» ← worktrees.total +4.0G ← w07(좌석 미상), w03(좌석 미상), newone(좌석 미상)
+PASS ⓕ 옛 폴더의 처음 잰 하위는 증가 아님
+PASS ⓕ stale 값은 증가 아님
+PASS ⓕ 1시간 밖 측정은 제외
+FAIL ⓕ 캐시에 증가 없음 → 추측 0 한 줄 — 없음: «worktrees.total +4.0G ← 워크트리별 1시간 증가 없음» ← worktrees.total +4.0G ← w07(좌석 미상), w03(좌석 미상), newone(좌석 미상)
+---- fail=39
+rc=1

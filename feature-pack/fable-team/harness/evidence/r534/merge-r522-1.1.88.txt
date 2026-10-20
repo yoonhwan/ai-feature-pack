@@ -1,0 +1,13 @@
+# r534 · r522 병합 뒤 재실행 (1.1.88) · 2026-10-20T04:21:55Z
+감시자 줄 수: 243 (≤245) · origin/main 6e72a9ab = 265
+du_line·du_lock → ft-resource-du-lib.sh 이동(동작 변경 0) · 증분 칸 순회 1줄화
+test_resource_watch_incremental_r534: ---- fail=0 · FAIL=0
+test_resource_cpu_owner: ---- fail=0 · FAIL=0
+test_resource_watch: ---- fail=0 · FAIL=0
+test_resource_cause: ---- fail=0 · FAIL=0
+test_resource_reclaim_preventive: ---- fail=0 · FAIL=0
+test_resource_gate: fail=8 · FAIL=9
+test_resource_gate_pressure: fail=4 · FAIL=5
+test_fake_resource_env: fail=2 · FAIL=3
+줄 수 단정(test_resource_gate_pressure.sh:259): PASS 감시자 줄 수 ≤245 · main: FAIL 감시자 줄 수
+남은 FAIL 은 origin/main 6e72a9ab 과 같은 항목(gate ⓕⓜ ft-n… 8 · gate_pressure H3 comm 폴더 4 · fake_resource_env ⓕ Traceback 2) — 이 단위 밖

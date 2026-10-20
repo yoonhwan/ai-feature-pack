@@ -117,33 +117,33 @@ GR="$(gate_rate FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40)"; WR="$(tail -1 "$W
 frz; seedseq 9000 9000 9000 9000 9000; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40 FAKE_DISK_KIB=$((34*1048576))
 [ -f "$FREEZE" ] && ok "R320c 기존 조건(disk 34G<35)은 그대로 유지" || bad "R320c disk 조건 회귀"
 
-# ── R323. 디스크 스냅샷의 du: 상한 7초(시험은 FT_RES_DU_CAP_SEC 로 단축) · nice 19 · 잠금 1개 · 워크트리 합계는 결과 캐시 ──
+# ── R323. 디스크 스냅샷의 du: 상한 7초(시험은 FT_RES_DU_CAP_SEC 로 단축) · nice 19 · 잠금 1개 · (r534) 워크트리 합계 = 폴더별 증분 캐시 합 ──
 grep -q 'FT_RES_DU_CAP_SEC:-7' "$BIN/ft-resource-watch.sh" && ok "R323 du 상한 기본 7초" || bad "R323 du 상한 기본값이 7초가 아님"
-D2="$T/du2"; mkdir -p "$D2" "$T/wt"; DULOG="$T/du.log"
+D2="$T/du2"; mkdir -p "$D2" "$T/wt/a"; DULOG="$T/du.log"
 cat > "$D2/du" <<EOF
 #!/bin/bash
 p="\${@: -1}"; echo "\$p nice=\$(ps -o nice= -p \$\$ | tr -d ' ')" >> "$DULOG"
-if [ "\$p" = "$T/wt" ] && [ -n "\${FAKE_DU_SLEEP:-}" ]; then trap 'kill \$! 2>/dev/null; exit 143' TERM; sleep "\$FAKE_DU_SLEEP" & wait; fi
+if [ "\${p#$T/wt/}" != "\$p" ] && [ -n "\${FAKE_DU_SLEEP:-}" ]; then trap 'kill \$! 2>/dev/null; exit 143' TERM; sleep "\$FAKE_DU_SLEEP" & wait; fi
 printf '12345\t%s\n' "\$p"
 EOF
 chmod +x "$D2/du"
 snap() { # snap <env…> — 스냅샷을 강제(FT_RES_SNAP_SEC=0)해 tick 1회 · 걸린 초는 SECS
-  local t0; t0="$(date +%s)"; env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" FT_RES_SNAP_SEC=0 FT_WORKTREES="$T/wt" FAKE_SWAP=6000 FAKE_LEVEL=1 FAKE_MEMFREE=50 "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1
+  local t0; t0="$(date +%s)"; env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" HOME="$T/home" TMPDIR="$T/home" FT_RES_SNAP_SEC=0 FT_WORKTREES="$T/wt" FAKE_SWAP=6000 FAKE_LEVEL=1 FAKE_MEMFREE=50 "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1
   SECS=$(( $(date +%s) - t0 )); }
-wcalls() { grep -c "^$T/wt " "$DULOG" 2>/dev/null || true; }
+wcalls() { grep -c "^$T/wt/" "$DULOG" 2>/dev/null || true; }
 wtotal() { awk -F'\t' '$2=="worktrees.total"{v=$3} END{print v}' "$ST/disk-attrib.tsv"; }
 reset_du() { rm -f "$DULOG" "$ST/disk-attrib.tsv" "$ST/du-cache.tsv" "$ST/.disk-attrib-last"; rm -rf "$ST/du-scan.lock.d"; : > "$DULOG"; }
 reset_du; snap FAKE_DU_SLEEP=30 FT_RES_DU_CAP_SEC=1
 [ "$SECS" -le 15 ] && ok "R323 du 가 멈춰도 tick 은 상한 안에 끝남(${SECS}s ≤ 15)" || bad "R323 tick 이 ${SECS}s 걸림"
-eq "$(wtotal)" TIMEOUT "R323 상한 초과 → worktrees.total=TIMEOUT(캐시 없음)"
+eq "$(wtotal)" "PARTIAL 0" "R323 상한 초과 → worktrees.total 숫자 아님(r534: PARTIAL · 그 폴더만 TIMEOUT)"
 [ ! -d "$ST/du-scan.lock.d" ] && ok "R323 끝난 뒤 잠금 해제" || bad "R323 잠금이 남음"
 sleep 1; [ -z "$(pgrep -f "$D2/du" 2>/dev/null)" ] && ok "R323 상한 초과 du 프로세스 정리(잔존 0)" || bad "R323 du 프로세스 잔존"
 reset_du; snap
 eq "$(wtotal)" 12345 "R323 정상 du → worktrees.total 기록"
-has "$(grep "^$T/wt " "$DULOG")" "nice=19" "R323 du 는 nice 19 로 돈다"
-eq "$(wcalls)" 1 "R323 첫 스냅샷 = 워크트리 du 1회"
-snap; eq "$(wcalls)" 1 "R323 TTL 안 두 번째 스냅샷 = 캐시 사용(du 재호출 0)"; eq "$(wtotal)" 12345 "R323 캐시 값이 기록됨"
-snap FT_RES_DU_TTL_SEC=0; eq "$(wcalls)" 2 "R323 TTL 0 → 다시 스캔"
+has "$(grep "^$T/wt/a " "$DULOG")" "nice=19" "R323 du 는 nice 19 로 돈다"
+eq "$(wcalls)" 1 "R323 첫 스냅샷 = 워크트리 폴더 du 1회"
+snap FT_RES_WT_PER_TICK=0; eq "$(wcalls)" 1 "r534 틱당 0개 → du 재호출 0"; eq "$(wtotal)" 12345 "r534 폴더별 캐시 합이 기록됨"
+snap; eq "$(wcalls)" 2 "r534 다음 틱 = 다시 잼(돌아가며)"
 reset_du; mkdir "$ST/du-scan.lock.d"; echo "$$ $(date +%s)" > "$ST/du-scan.lock.d/owner"; echo "$$" > "$ST/du-scan.lock.d/pid"
 snap
 eq "$(wcalls)" 0 "R323 다른 스캔이 잠금 중(살아 있는 pid) → 두 번째 스캔 시작 0"
@@ -212,10 +212,11 @@ rm -rf "$ST/preventive.lock.d" "$ST/preventive.lock.d.rc"
 mkfifo "$T/hold"; exec 7<>"$T/hold"
 held() { # held <상한초> <watch 인자…> — stdin=열린 fifo · 제한 안에 안 끝나면 정리하고 rc 1
   local lim="$1" i wp; shift
-  ( env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40 FT_RECLAIM_PREVENT_SEC=0 bash "$BIN/ft-resource-watch.sh" "$@" <&7 >/dev/null 2>&1 ) & wp=$!
+  ( env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" HOME="$T/home" TMPDIR="$T/home" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40 FT_RECLAIM_PREVENT_SEC=0 bash "$BIN/ft-resource-watch.sh" "$@" <&7 >/dev/null 2>&1 ) & wp=$!
   for i in $(seq 1 $((lim*10))); do kill -0 "$wp" 2>/dev/null || { wait "$wp"; return 0; }; sleep 0.1; done
   kill $(pgrep -P "$wp") "$wp" 2>/dev/null; return 1
 }
+mkdir -p "$T/home"   # r534: 실 HOME(claude.projects·caches) 을 증분으로 훑지 않게 격리
 rm -f "$FREEZE"; printf '%s\tdisk.free\t100000000\n%s\tworktrees.total\t100\n' "$((NOW-900))" "$((NOW-900))" > "$ST/disk-attrib.tsv"; seed 13000 40 2 2
 held 8 tick && ok "R332 H4 stdin 을 열어 둔 freeze 생성 tick(top1_disk awk) → 8초 안 종료" || bad "R332 H4 top1_disk awk 가 stdin 에서 멈춤"
 [ -f "$FREEZE" ] && ok "R332 H4 freeze 파일 생성" || bad "R332 H4 freeze 미생성"

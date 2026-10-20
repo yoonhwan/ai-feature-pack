@@ -1,0 +1,44 @@
+# r534 기존 시험 — 팩 69bf51a8+작업트리 · 2026-10-20 11:30:30 · 사전 FAIL 은 팩 origin/main(5fb4b134 · r534 전) 같은 시험과 대조
+test_resource_watch rc=0 PASS=75 FAIL=0
+test_resource_cause rc=0 PASS=27 FAIL=0
+test_disk_alarm rc=0 PASS=33 FAIL=0
+test_resource_reclaim rc=0 PASS=107 FAIL=0
+test_resource_reclaim_preventive rc=0 PASS=87 FAIL=0
+test_resource_reclaim_pressure rc=0 PASS=28 FAIL=0
+test_resource_gate rc=1 PASS=37 FAIL=8
+    FAIL default ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL default ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL default ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL default ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL C.UTF-8 ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL C.UTF-8 ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL C.UTF-8 ⓕ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+    FAIL C.UTF-8 ⓜ /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r534-disk-attrib-worktrees-incremental-s/fea
+test_resource_gate_pressure rc=1 PASS=84 FAIL=4
+    FAIL H3 세션 없음 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folde
+    FAIL H3 계보 불일치 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/fold
+    FAIL H3 N+2 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folders
+    FAIL H3 다른 팀 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/var/folder
+    PASS 감시자 줄 수 ≤245
+test_fake_resource_env rc=1 PASS=12 FAIL=2
+    FAIL ⓕ ok Traceback (most recent call last):
+    FAIL ⓕ reject Traceback (most recent call last):
+## 같은 시험을 팩 origin/main(5fb4b134 · r534 전)에 — 사전 FAIL(이 단위가 만든 것 아님 · comm 폴더 해석·python 추적)
+test_resource_gate FAIL=8
+    FAIL default ⓕ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL default ⓜ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL default ⓕ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL default ⓜ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL C.UTF-8 ⓕ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL C.UTF-8 ⓜ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL C.UTF-8 ⓕ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+    FAIL C.UTF-8 ⓜ /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--
+test_resource_gate_pressure FAIL=5
+    FAIL H3 세션 없음 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT
+    FAIL H3 계보 불일치 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROO
+    FAIL H3 N+2 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없
+    FAIL H3 다른 팀 rc=1 WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 
+    FAIL 감시자 줄 수
+test_fake_resource_env FAIL=2
+    FAIL ⓕ ok Traceback (most recent call last):
+    FAIL ⓕ reject Traceback (most recent call last):
