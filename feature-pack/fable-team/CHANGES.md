@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 오빠 큐 상태 칸 = 대기·진행·보류·완료 넷 + 정지 종류 셋 · 어휘 정본 1장 + 린트 + 새 줄 «대기» (r528 · 1.1.83)
+
+- 사건: 오빠 큐(`AUTONOMY-QUEUE.md`) 끝 칸 «처리됨» 이 손글 자유 문장 — 91줄 중 빈 칸 30 · «보류 — 10-18 전팀 정지(판정 2253) 뒤 … 재확인» 23줄 등 보류·대기·진행·완료가 섞여 읽힘(arch 107 실측). 오빠 결정(desk 쪽지 119482) «보류와 대기 진행 완료를 명확히 구분 … 일시정지·구현중정지·대기중정지» → master 83 발주 119484.
+- 새 `kit/fable-team/bin/queue-states.tsv`(어휘 정본): 상태 4(대기 · 진행 — 누가 · 보류 — 사유 + «재확인 YYYY-MM-DD HH:MM» · 완료 — «판정 N» 또는 착지 sha) + 정지 종류 3(일시정지 — hold 번호 · 진행·대기에 · 구현중정지 — 멈춘 단계 · 진행에 · 대기중정지 · 대기에). 칸 꼴 `<상태>[ · <정지>][ — <덧말>]`.
+- 새 `ft_queue_state.py parse|lint <큐>`: 판정기 하나 · parse = 행마다 JSON(줄 번호 · 머리 이름별 칸 · 상태 · 정지 · 덧말 · 재확인) — 칸이 늘어도 수정 0 · lint = 어휘 밖 줄 `ERR <줄> <사유> :: <칸>` + 끝줄 `QUEUE-STATE ERR=<n> OK=<m>` · rc 0/1 · 큐·어휘 읽기 실패 = stderr ERROR rc 2. 머리 «상태»·옛 «처리됨» 둘 다 같은 칸(이름 바꾸기 0). 읽기만.
+- `ft-proxy-decide.sh`: QUEUE 새 줄 7칸 · 끝 칸 `대기` · 새 큐 파일 머리 7칸(`상태`).
+- `ft_decision_count.py` autonomy_open: 상태 칸(옛 처리됨) 의 «열린 줄» = 빈 칸(옛) 또는 상태 «대기» — 안 고치면 새 줄의 `대기` 가 «처리됨 값 있음 = 닫힘» 으로 세여 결정 수가 줄어든다(카드 Issue ③ 같은 큐 읽는 도구).
+- 시험 `test_queue_state_r528.sh`(새 · 임시 큐·FT_ROOT · 외부 호출 0 · GIT_* 0) ⓐ~ⓕ — 고치기 전 FAIL 23(판정기 파일 없음 · `harness/evidence/r528/before-fix.txt`) · 고친 뒤 ALL PASS(`after-fix.txt`). 기존: proxy-decide r188·queue_card_resolve·team_literal_paths2·decision_count_tables_ref rc0 · pytest decision_count 2파일 33 passed · `test_autonomy_core` FAIL 1 = BYZ `shared/config/external_call.py` 대조(r516 분류 ④ · 바탕 같음)(`existing-tests.txt`). 정본 큐 읽기 전용 미리 보기 `QUEUE-STATE ERR=89 OK=0`(`real-queue-lint-preview.txt`).
+- 설치: 키트 4(`queue-states.tsv` · `ft_queue_state.py` · `ft-proxy-decide.sh` · `ft_decision_count.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 4 · launchd 0 · 홈 0 · 되돌림 = `.bak-r528`.
+- 범위 밖: 지금 큐 줄 고쳐 쓰기(desk 인터뷰 때 줄마다) · 하네스 카드 «- 상태:» 어휘 · 시각·재질문(r529) · 일괄 보류 차단(r530).
+
 ## 2026-10-20 — 정지 스캔 종류 e = 명부 루프가 안 보는 tmux 라이브 좌석(교대 표시·명부 밖)의 조용한 정지 알림 (r525 · 1.1.82)
 
 - 사건: 팀 개명(concierge→chatbot) 뒤 concierge master 6 행이 `role=stop-ready`·`_replaced_by` 로 표시됐는데 세션은 tmux 에 살아 이관 일을 쥔 채 컨텍스트 100% 로 멈춤 → 12시간+ 아무 틱도 못 봄(desk 26 쪽지 119421 · 오빠 «왜 자꾸 조용한 침묵 정지를 하냐고»). 원인 = `ft_stall_scan` 이 `load_teams` 현역 행만 훑음.
