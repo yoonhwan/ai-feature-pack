@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-10-20 — 나노 닫기 «재실행» 의 --wt/--branch 가 표준 좌석 해석과 «같은 값»이면 정리한다 + 조용한 건너뜀 0 (r572 · 1.1.120 · 동작 변경)
+
+- 사건(arch 111 실측 2026-10-20 23:0x · 카드 r572 · master 87 발주 122624 · desk 쪽지 122574): 팀장 2명(cfo · ops)이 나노 닫기를 다시 돌리면서 `--wt <워크트리> --branch nano/<키>` 를 직접 적어 넣었다. 이름 지정 모드(NAMED=1)는 본래 «표준 이름이 아닌 폴더» 용이라 재실행 분기가 `SEAT_WT=$NWT` 만 넣고 `_RERUN_STD=0` → r566 의 `_wt_clean_rerun` 을 안 탔다. 두 폴더는 실제로 표준 이름(`cfo-<키>` · `ops-nano-<키>`)이었고 `_resolve_seat_wt` 로도 같은 경로가 나왔다. 결과 = `CLOSED … 재실행` 만 남고 정리 줄 0 · INFO 0(조용한 건너뜀) — r566 시험 ⓔ(«named 재실행 = 지금 동작 그대로»)가 그 길을 고정하고 있었다.
+- 고침 ①(`ft-nano-close.sh` 재실행 분기 NAMED 갈래): `_KEY`·`cwd=""` 로 `_resolve_seat_wt` 를 한 번 부른 뒤, `pwd -P` 로 맞춘 받은 `--wt` == 해석 `SEAT_WT` ∧ 받은 `--branch` == 해석 `SEAT_BR` 이면 `_RERUN_STD=1`(SEAT_WT·SEAT_BR = 해석 값) + `INFO 재실행 — --wt/--branch 가 표준 좌석 해석과 같은 값(<경로> · <가지>) — 정리는 조건 4 그대로` 1줄 · 다르면 지금 값 그대로(`SEAT_WT=$NWT` · 정리 0) + `INFO 재실행 — --wt/--branch 명시가 표준 해석과 다름(해석=<경로|없음> 받은=<경로>) · 정리 계획 0` 1줄.
+- 고침 ②(조용한 건너뜀 0): `_RERUN_STD=0` 이고 기존 `.sh` 계획도 없을 때 `INFO 재실행 — 정리 계획 0(<사유>)` 1줄(사유 = 표준 좌석 해석 밖 · 공유 워크트리(--shared-wt) · 이미 낸 사유 INFO 는 중복 0).
+- 고침 ③(`_wt_clean_plan` 1조건): 같은-값 named 재실행(`_RERUN_STD=1`)은 표준 좌석이므로 계획을 `.sh.hil`(사람 실행)이 아니라 `.sh`(sweep 순회/즉시 실행)로 만든다 — `X.sh.hil.hil` 이중 꼬리 방지.
+- 조건 4(세션 0 · `nano/<키>[-rN]` · `$ROOT/.worktrees/` 등록 · HEAD 가 어떤 원격 ref 에 포함)·계획 본문·처음 닫기의 named 경로(`.sh.hil` 사람 실행)는 변경 0.
+- 시험 `tests/test_nano_close_rerun_named_equal.sh` ⓐ~ⓔ(임시 리포·가짜 tmux·가짜 reap/baton/sweep · 실제 삭제 0): ⓐ표준 좌석 · 같은 값 named 재실행 → 옛 계획 `.superseded-<시각>` 보존 + `워크트리 정리: cleaned` + 폴더 없음 + 가지 보존 + 원장 행 1개 그대로 ⓑ팀 접두 `cfo-`(`FT_NANO_WT_PREFIX=cfo-` · 워크트리 `cfo-<키>`) → cleaned ⓒ`--wt` 가 표준 해석과 다른 경로 → 정리 0 + `해석=… 받은=…` INFO + 워크트리 둘 다 그대로 ⓓ`--branch main`(nano/* 아님) → 정리 0 + 같은 INFO ⓔ같은 값이라도 HEAD 가 원격에 없음 → `.sh.hil` + `[HIL] 재실행 — 원격에 없는 커밋 N` + 폴더 그대로. 전 FAIL 13칸(`evidence/r572/01-before-red.txt`) → 후 ALL PASS(`02-after-pass.txt`) · r566 시험 ⓔ 칸은 «다른 값 named» 로 바꿔 유지.
+- 기존 시험(이 카드 인접만 · 광역 0): 나노-close 11종 ALL PASS(`03-existing-tests.txt` — fail_closed 48 · named_wt 63 · never_started 155 · pack_wt 30 · rerun_early 37 · rerun_wt_clean 32 · sha_base 21 · superseded_by 140 · suspended 92 · worktree_list_pipe 18 · wt_deletion_only 23) · `bash -n` OK · kit/bin 두 사본 cmp0(`04-kit-bin-cmp.txt`).
+- 실사건 2 읽기 전용 실측(`05-real-cases-readonly.txt`): 가지 `nano/cfo-insight-billing-flashlite-peg-1283`·`nano/ta-1-tree-read` 는 보존 · 등록 워크트리 0(이 시점 폴더 이미 없음 — arch 111 23:0x 등록 실측과 다름) · 팀 접두 cfo `byz-cfo-nano-`/`cfo-` · ops `byz-ops-nano-`/`ops-nano-` = 받은 `--wt` 와 같은 경로가 표준 해석 값. **실사건 2(같은 인자로 재실행 → cleaned·폴더 없음·보관 tar)는 master 집행 — 미실행.**
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-close.sh` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.120 · `install.sh` REQUIRED 목록 변경 0 · 데몬 재기동 0. **LIVE_BIN 설치·실사건은 master 소관 — 미실행.** 되돌림 = `.bak-r572`.
+- 범위 밖(큐): 재실행이 «아닌» 처음 닫기의 같은-값 named 처리(지금은 `.sh.hil` 사람 실행) · 팀장 발주문에서 `--wt/--branch` 를 안 쓰게 하는 안내.
+
 ## 2026-10-20 — 나노 첫 발주문에 «저장소 전체 검색 금지 · 명부 손대지 않음 » 고정 줄 1개 (r570 · 1.1.118 · 동작 변경)
 
 - 사건(arch 111 실측 2026-10-20 22:3x · 카드 r570 · master 86 발주 122355): ① r566 pi 나노가 BYZ 루트에서 `grep -r` 를 4분+ 돌려 load 40 → v65 M6 press 첫 원문이 5.8~13.3초 지연(planner 85 규칙 상기 요청 · 메모리 규칙 117521 계열 «repo-wide git log -S 금지»). ② r561·r566 나노가 공용 `seats.json` 에 자기 행을 손으로 넣어 쪽지 반송 REJECT 2회(spawn 이 이미 명부 등록). 두 사고 모두 첫 발주문 고정 줄(`_SPX` 광역 pytest · `_PKX` 팩 폴더)에 «금지 문장» 이 없어서 반복됐다.

@@ -1,0 +1,69 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 표준 좌석 재실행 · --wt/--branch = 해석과 같은 값 → 옛 계획 보존 + cleaned + 폴더 없음 + 가지 보존
+PASS ⓐ rc=0 · CLOSED
+FAIL   └ 같은 값 INFO 1줄 — 없음: «같은 값» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+FAIL   └ «워크트리 정리: cleaned» — 없음: «워크트리 정리: cleaned» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+FAIL   └ 옛 계획 보존 0: byz-harness-nano-k#0.sh.hil.stale
+FAIL   └ 워크트리 남음
+PASS   └ 가지 보존 · sha 그대로
+PASS   └ 원장 행 1개 그대로(append 0)
+== ⓑ 팀 접두가 v65- 가 아님(cfo-) → 같은 값 named 재실행 = cleaned
+FAIL ⓑ rc=0 · cleaned(접두 cfo-) — 없음: «워크트리 정리: cleaned» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-cfo-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-cfo-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+FAIL   └ 워크트리 남음
+== ⓒ --wt 가 표준 해석과 다른 경로 → 정리 0 + INFO «명시가 표준 해석과 다름(해석=… 받은=…)»
+FAIL ⓒ INFO 사유 줄 — 없음: «명시가 표준 해석과 다름» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+FAIL   └ 해석= 표준 해석 경로 — 없음: «해석=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/repo/.worktrees/harness-k» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+FAIL   └ 받은= 넘긴 경로 — 없음: «받은=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/repo/.worktrees/harness-other» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+PASS   └ 실행 0
+PASS   └ 새 계획 0
+PASS   └ 워크트리 둘 다 그대로
+== ⓓ --branch 가 nano/* 아님 → 정리 0 + 같은 INFO
+FAIL ⓓ INFO 사유 줄 — 없음: «명시가 표준 해석과 다름» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+FAIL   └ 받은= 넘긴 경로 — 없음: «받은=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/repo/.worktrees/harness-k» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+PASS   └ 실행 0
+PASS   └ 워크트리 그대로
+== ⓔ 같은-값 named 라도 가지 HEAD 가 원격에 없음 → 실행 0 · 계획 .sh.hil + 이유 줄 «원격에 없는 커밋 N»
+FAIL ⓔ HIL · 이유 줄 — 없음: «[HIL] 재실행 — 원격에 없는 커밋» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y93gmNS9ew/bin
+재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만
+reap byz-harness-nano-k#0 stopped=0 left=0 rc=0
+CLOSED byz-harness-nano-k#0 (재실행 · 세션 없음 · 원장 행 그대로 · append 0) — reap left=0 rc=0
+PASS   └ 실행 0
+FAIL   └ .sh.hil/이유 줄 없음: byz-harness-nano-k#0.sh.hil.stale
+PASS   └ 워크트리 그대로
+PASS   └ baton 호출 0
+
+FAILED 13
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

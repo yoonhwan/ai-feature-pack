@@ -1,0 +1,33 @@
+PASS bash -n ft-nano-close.sh
+== ⓐ 표준 좌석 재실행 · --wt/--branch = 해석과 같은 값 → 옛 계획 보존 + cleaned + 폴더 없음 + 가지 보존
+PASS ⓐ rc=0 · CLOSED
+PASS   └ 같은 값 INFO 1줄
+PASS   └ «워크트리 정리: cleaned»
+PASS   └ 옛 계획 .superseded-<시각> 보존
+PASS   └ 워크트리 폴더 없음
+PASS   └ 가지 보존 · sha 그대로
+PASS   └ 원장 행 1개 그대로(append 0)
+== ⓑ 팀 접두가 v65- 가 아님(cfo-) → 같은 값 named 재실행 = cleaned
+PASS ⓑ rc=0 · cleaned(접두 cfo-)
+PASS   └ 워크트리 폴더 없음
+== ⓒ --wt 가 표준 해석과 다른 경로 → 정리 0 + INFO «명시가 표준 해석과 다름(해석=… 받은=…)»
+PASS ⓒ INFO 사유 줄
+PASS   └ 해석= 표준 해석 경로
+PASS   └ 받은= 넘긴 경로
+PASS   └ 실행 0
+PASS   └ 새 계획 0
+PASS   └ 워크트리 둘 다 그대로
+== ⓓ --branch 가 nano/* 아님 → 정리 0 + 같은 INFO
+PASS ⓓ INFO 사유 줄
+PASS   └ 받은= 넘긴 경로
+PASS   └ 실행 0
+PASS   └ 워크트리 그대로
+== ⓔ 같은-값 named 라도 가지 HEAD 가 원격에 없음 → 실행 0 · 계획 .sh.hil + 이유 줄 «원격에 없는 커밋 N»
+PASS ⓔ HIL · 이유 줄
+PASS   └ 실행 0
+PASS   └ 계획 .sh.hil + 이유 줄
+PASS   └ 워크트리 그대로
+PASS   └ baton 호출 0
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

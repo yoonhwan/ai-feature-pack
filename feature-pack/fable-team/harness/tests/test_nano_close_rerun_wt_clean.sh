@@ -3,7 +3,7 @@
 # 픽스처 = test_nano_close_rerun_early.sh 꼴(임시 git 리포 R + bare 원격 · 가짜 tmux · 가짜 reap · 가짜 baton) — 실제 리포·명부·tmux 세션·외부 호출 0 · GIT_* env 0.
 # 축 ⓐ 옛 계획(.sh.hil.stale) 잔존 재실행 → 옛 계획 보존 이동 + 새 계획 생성·실행 + «워크트리 정리: cleaned» + 폴더 없음 + 가지 보존
 #   ⓑ 추적 파일 다수 ' D' → [wip] 커밋 0(가지 sha 그대로) ⓒ 가지 HEAD 가 원격에 없음 → 실행 0 · 계획 .sh.hil + 이유 줄
-#   ⓓ 세션 살아 있음 → kill 뒤 실행 · kill 실패면 실행 0 ⓔ --wt/--branch·--shared-wt 재실행 → 지금 동작 그대로(새 계획 0) ⓕ tmux 조회 실패 → REJECT · 실행 0
+#   ⓓ 세션 살아 있음 → kill 뒤 실행 · kill 실패면 실행 0 ⓔ --wt/--branch(표준 해석과 «다른 값»)·--shared-wt 재실행 → 지금 동작 그대로(새 계획 0) ⓕ tmux 조회 실패 → REJECT · 실행 0
 # 되돌림 = .bak-r566
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -113,11 +113,12 @@ out="$(close)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "FAIL $SEAT" "  └ kill 실패 = FAIL" || bad "  └ kill 실패 rc=$rc ← ${out:0:500}"
 [ ! -e "$T/wtclean/$SEAT.sh" ] && [ "$(grep -c . "$T/baton.calls")" = 0 ] && ok "  └ 실행 0(계획 0 · baton 0)" || bad "  └ 실행됨: $(ls "$T/wtclean")"
 
-echo "== ⓔ --wt/--branch(명시) · --shared-wt 재실행 → 지금 동작 그대로(새 계획 0 · 실행 0)"
+echo "== ⓔ --wt/--branch(명시 · 표준 해석과 «다른 값») · --shared-wt 재실행 → 지금 동작 그대로(새 계획 0 · 실행 0) — r572: «같은 값» named 는 표준 좌석으로 보아 정리한다(test_nano_close_rerun_named_equal ⓐ)"
 setup; echo kit > "$RW/kit.sh"; push_head
-out="$(close --wt "$RW" --branch "$BR")"; rc=$?
-[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓔ named 재실행 → CLOSED" || bad "ⓔ named rc=$rc ← ${out:0:900}"
-hasnt "$out" "워크트리 정리: cleaned" "  └ named = 실행 0"
+out="$(close --wt "$RW" --branch nano/other)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓔ 다른 값 named 재실행 → CLOSED" || bad "ⓔ named rc=$rc ← ${out:0:900}"
+has "$out" "명시가 표준 해석과 다름" "  └ 사유 INFO 1줄"
+hasnt "$out" "워크트리 정리: cleaned" "  └ 다른 값 named = 실행 0"
 [ ! -e "$T/wtclean/$SEAT.sh" ] && ok "  └ 새 계획 0" || bad "  └ 새 계획 생김"
 [ -d "$RW" ] && ok "  └ 워크트리 그대로" || bad "  └ 워크트리 사라짐"
 setup; out="$(close --shared-wt)"; rc=$?

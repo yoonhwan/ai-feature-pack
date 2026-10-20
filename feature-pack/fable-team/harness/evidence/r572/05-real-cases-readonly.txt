@@ -1,0 +1,16 @@
+== 실사건 2 read-only(이 카드 시점 실측 · 정리·삭제·close 실행 0 — 재실행 close 는 master 집행)
+--- 가지는 있다(보존)
+  nano/cfo-insight-billing-flashlite-peg-1283
+  nano/ta-1-tree-read
+--- 등록 워크트리 = 0(2026-10-20 나노 실측 시점 · arch 111 23:0x 등록 실측과 다름)
+0
+  ls: .worktrees/cfo-cfo-insight-billing-flashlite-peg-1283: No such file or directory
+  ls: .worktrees/ops-nano-ta-1-tree-read: No such file or directory
+--- 팀 env 접두(표준 해석 입력)
+.fable-team/bin-cfo/cfo-env.sh:export FT_NANO_PREFIX=byz-cfo-nano-
+.fable-team/bin-cfo/cfo-env.sh:export FT_NANO_WT_PREFIX=cfo-
+.fable-team/bin-ops/ops-env.sh:export FT_NANO_PREFIX=byz-ops-nano-
+.fable-team/bin-ops/ops-env.sh:export FT_NANO_WT_PREFIX=ops-nano-
+--- 표준 해석(_resolve_seat_wt 규칙)이면 후보 = .worktrees/<WT_PREFIX><키> = 받은 --wt 와 같은 경로였음(arch 111 ④) — 고친 판은 이 등식일 때 조건 4 로 정리한다
+  cfo: .worktrees/cfo-cfo-insight-billing-flashlite-peg-1283 · 가지 nano/cfo-insight-billing-flashlite-peg-1283
+  ops: .worktrees/ops-nano-ta-1-tree-read · 가지 nano/ta-1-tree-read

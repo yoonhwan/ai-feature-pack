@@ -143,7 +143,7 @@ _wt_clean_plan() {
   [ -n "$wt" ] && [ -d "$wt" ] || return 0
   mkdir -p "$WT_CLEAN_DIR"; PLAN="$WT_CLEAN_DIR/$SEAT.sh"; WT_MARK=planned
   # --wt/--branch: 자율 정리 범위 밖(브랜치 nano/* 아님) — sweep(*.sh 순회) 밖인 .sh.hil 로만 생성한다. 실행은 사람(! bash <계획>).
-  [ "$NAMED" != 1 ] || PLAN="$WT_CLEAN_DIR/$SEAT.sh.hil"
+  [ "$NAMED" != 1 ] || [ "${_RERUN_STD:-0}" = 1 ] || PLAN="$WT_CLEAN_DIR/$SEAT.sh.hil"   # r572: 같은-값 named 재실행(_RERUN_STD=1)은 표준 좌석이므로 실행 계획(.sh)
   [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || WT_MARK="planned(autoclean=0)"
   # r166 계획 버전 표식 — 이 생성기 파일의 blob sha. ft-wt-sweep.sh 가 «옆의 라이브 생성기» 와 대조해 다르면 실행을 거부한다(옛 생성기 계획 = 옛 가드).
   local planver; planver="$(git hash-object -- "$HERE/ft-nano-close.sh" 2>/dev/null)"
@@ -441,14 +441,26 @@ _lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-clo
 jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
 if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
-  SEAT_WT=""; SEAT_BR=""; _RERUN_STD=0
-  if [ "$NAMED" = 1 ]; then SEAT_WT="$(cd "$NWT" 2>/dev/null && pwd -P)"; SEAT_BR="$NBR"
+  SEAT_WT=""; SEAT_BR=""; _RERUN_STD=0; _RERUN_INFOED=0; _RERUN_ZERO_WHY="표준 좌석 해석 밖"
+  if [ "$NAMED" = 1 ]; then
+    # ★r572★ --wt/--branch 도 «값이 같으면» 표준 좌석이다 — 같은 경로·같은 가지를 적어 넣은 재실행에서 r566 정리를 조용히 건너뛰던 자리(팀장 2건 실사건). 다를 때만 지금처럼 정리 0 + 사유 1줄.
+    _nwt="$(cd "$NWT" 2>/dev/null && pwd -P)"; _nbr="$NBR"
+    _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"; cwd=""
+    _resolve_seat_wt; _rwt="$SEAT_WT"; _rbr="$SEAT_BR"
+    if [ -n "$_nwt" ] && [ -n "$_rwt" ] && [ "$_rwt" = "$_nwt" ] && [ "$_rbr" = "$_nbr" ]; then
+      SEAT_WT="$_rwt"; SEAT_BR="$_rbr"; _RERUN_STD=1
+      echo "INFO 재실행 — --wt/--branch 가 표준 좌석 해석과 같은 값($SEAT_WT · $SEAT_BR) — 정리는 조건 4 그대로"
+    else
+      SEAT_WT="$_nwt"; SEAT_BR="$_nbr"; _RERUN_STD=0; _RERUN_INFOED=1
+      echo "INFO 재실행 — --wt/--branch 명시가 표준 해석과 다름(해석=${_rwt:-없음} 받은=${_nwt:-없음}) · 정리 계획 0"
+    fi
   elif [ "$SHARED" != 1 ]; then
     # r566: 표준 나노 좌석 — 원장 wt= 는 대개 «planned»·«skipped:…» 같은 상태 말이라 경로가 없다. 좌석 이름으로 다시 해석한다(세션이 죽었으면 cwd 없음).
     _KEY="${SEAT#"$NANO_PREFIX"}"; _KEY="${_KEY%#*}"; cwd=""
     _resolve_seat_wt; _RERUN_STD=1
     if [ -z "$SEAT_WT" ]; then _w="$(printf '%s' "$_lrow" | grep -oE 'wt=/[^ ]+' | tail -1)"; _w="${_w#wt=}"; [ -z "$_w" ] || [ ! -d "$_w" ] || { SEAT_WT="$_w"; SEAT_BR=""; }; fi
     [ -z "$SEAT_WT_ERR" ] || echo "INFO 재실행 — 워크트리 후보 판정 불가($SEAT_WT_ERR) — 정리 계획 0"
+  else _RERUN_ZERO_WHY="공유 워크트리(--shared-wt)"
   fi
   _tp="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; _trc=$?
   case "$_trc:$_tp" in
@@ -466,7 +478,9 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   fi
   _oc_close
   if [ "$_RERUN_STD" = 1 ]; then _wt_clean_rerun
-  else [ ! -f "$WT_CLEAN_DIR/$SEAT.sh" ] || echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"; fi
+  elif [ "$_RERUN_INFOED" = 1 ]; then :   # 사유 INFO 는 위에서 이미 냈다(중복 0)
+  elif [ -f "$WT_CLEAN_DIR/$SEAT.sh" ]; then echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"
+  else echo "INFO 재실행 — 정리 계획 0(${_RERUN_ZERO_WHY})"; fi   # r572: 조용한 건너뜀 0
   _ses="세션 없음"; [ -z "$PANE" ] || _ses="세션 kill"
   echo "CLOSED $SEAT (재실행 · $_ses · 원장 행 그대로 · append 0) — reap left=0 rc=0"
   exit 0
