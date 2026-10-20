@@ -678,6 +678,13 @@ cmd_open() {
     "TMUXC_PI_MODEL=${model:-}"
     "TMUXC_PI_THINKING=${effort:-medium}"
   )
+  # 비 claude 좌석: git 이 화면 없는 편집기(vi)·자격증명 프롬프트를 열고 멈추지 않게 한다
+  # (r610 — pi 좌석이 rebase --continue 의 vi 에서 54분 정지 · r599). claude 셸은 이미 넣어 준다.
+  [[ "$agent" != "claude" ]] && seat_env+=(
+    "GIT_EDITOR=true"
+    "GIT_SEQUENCE_EDITOR=true"
+    "GIT_TERMINAL_PROMPT=0"
+  )
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
@@ -860,6 +867,12 @@ cmd_fork() {
     "TMUXC_PI_SESSION_ID=$pi_sid"
     "TMUXC_PI_MODEL=${model:-}"
     "TMUXC_PI_THINKING=${effort:-medium}"
+  )
+  # 비 claude 좌석: git 비대화 3종 — open 과 같은 이유(r610).
+  [[ "$agent" != "claude" ]] && seat_env+=(
+    "GIT_EDITOR=true"
+    "GIT_SEQUENCE_EDITOR=true"
+    "GIT_TERMINAL_PROMPT=0"
   )
 
   if [[ "$dry_run" -eq 1 ]]; then
