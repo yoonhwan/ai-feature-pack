@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 오빠 큐 상태 칸 = 대기·진행·보류·완료 넷 + 정지 종류 셋 · 어휘 정본 1장 + 린트 + 새 줄 «대기» (r528 · 1.1.82)
+## 2026-10-20 — 오빠 큐 상태 칸 = 대기·진행·보류·완료 넷 + 정지 종류 셋 · 어휘 정본 1장 + 린트 + 새 줄 «대기» (r528 · 1.1.83)
 
 - 사건: 오빠 큐(`AUTONOMY-QUEUE.md`) 끝 칸 «처리됨» 이 손글 자유 문장 — 91줄 중 빈 칸 30 · «보류 — 10-18 전팀 정지(판정 2253) 뒤 … 재확인» 23줄 등 보류·대기·진행·완료가 섞여 읽힘(arch 107 실측). 오빠 결정(desk 쪽지 119482) «보류와 대기 진행 완료를 명확히 구분 … 일시정지·구현중정지·대기중정지» → master 83 발주 119484.
 - 새 `kit/fable-team/bin/queue-states.tsv`(어휘 정본): 상태 4(대기 · 진행 — 누가 · 보류 — 사유 + «재확인 YYYY-MM-DD HH:MM» · 완료 — «판정 N» 또는 착지 sha) + 정지 종류 3(일시정지 — hold 번호 · 진행·대기에 · 구현중정지 — 멈춘 단계 · 진행에 · 대기중정지 · 대기에). 칸 꼴 `<상태>[ · <정지>][ — <덧말>]`.
@@ -10,6 +10,16 @@
 - 시험 `test_queue_state_r528.sh`(새 · 임시 큐·FT_ROOT · 외부 호출 0 · GIT_* 0) ⓐ~ⓕ — 고치기 전 FAIL 23(판정기 파일 없음 · `harness/evidence/r528/before-fix.txt`) · 고친 뒤 ALL PASS(`after-fix.txt`). 기존: proxy-decide r188·queue_card_resolve·team_literal_paths2·decision_count_tables_ref rc0 · pytest decision_count 2파일 33 passed · `test_autonomy_core` FAIL 1 = BYZ `shared/config/external_call.py` 대조(r516 분류 ④ · 바탕 같음)(`existing-tests.txt`). 정본 큐 읽기 전용 미리 보기 `QUEUE-STATE ERR=89 OK=0`(`real-queue-lint-preview.txt`).
 - 설치: 키트 4(`queue-states.tsv` · `ft_queue_state.py` · `ft-proxy-decide.sh` · `ft_decision_count.py`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 4 · launchd 0 · 홈 0 · 되돌림 = `.bak-r528`.
 - 범위 밖: 지금 큐 줄 고쳐 쓰기(desk 인터뷰 때 줄마다) · 하네스 카드 «- 상태:» 어휘 · 시각·재질문(r529) · 일괄 보류 차단(r530).
+
+## 2026-10-20 — 정지 스캔 종류 e = 명부 루프가 안 보는 tmux 라이브 좌석(교대 표시·명부 밖)의 조용한 정지 알림 (r525 · 1.1.82)
+
+- 사건: 팀 개명(concierge→chatbot) 뒤 concierge master 6 행이 `role=stop-ready`·`_replaced_by` 로 표시됐는데 세션은 tmux 에 살아 이관 일을 쥔 채 컨텍스트 100% 로 멈춤 → 12시간+ 아무 틱도 못 봄(desk 26 쪽지 119421 · 오빠 «왜 자꾸 조용한 침묵 정지를 하냐고»). 원인 = `ft_stall_scan` 이 `load_teams` 현역 행만 훑음.
+- `ft_stall_detect.py`: `off_roster_live(root, live, teams)` = tmux 라이브 − (현역 행 ∪ 팀 master) → (좌석, 계보 현역 master, `교대 표시인데 라이브`|`명부 밖`) · 계보 = `_replaced_by` 사슬 끝 좌석이 있는 명부의 `_master`(못 찾으면 처음 명부 · 자기 자신이면 None) · `agent_sessions(tmux, ps)` = ps 1회 + list-panes 1회로 pane 자신+자손에 claude|codex 가 도는 세션 · `ctx_pct` = `ft-claude-context.sh <좌석>` 7초 상한(실패·숫자 아님 = None · 추측 0) · `run(..., timeout=)` 인자.
+- `ft_stall_scan.py`: 종류 e = 위 후보 ∧ agent 실행 중 ∧ IDLE ≥ `FT_STALL_E_IDLE_MIN`(기본 30) ∧ (ctx ≥ 90 ∨ [완료·휴식] 없음) → planner `_master` + 계보 현역 master(같으면 1통)에 `[정지] <좌석> 쉬는 <N>분 · <꼬리표> · 열린 일 · ctx <p>%|ctx ? · 깨우기/닫기/인계는 받는 쪽 판단` · 서명(좌석 → IDLE 시작 시각 · `state/stall-scan.e.json`)이 같으면 다음 실행 쪽지 0 · 로그 `act=e seat=… notify=…`(`to=` 꼴 아님 — 10분 가드가 받는 이 좌석을 막지 않게) · 요약 줄 `d=` 뒤 `e=` 칸(뉴스 `stall_cell` 은 앞 5칸만 — 무변경) · `stall=N` 에 e 포함. env 시험용 `FT_PS` · `FT_CTX_CMD`.
+- 경계: 깨우기(Escape·ring)·kill·명부 쓰기·페널티(ft-penalty) 대상에 e 넣기 0 · attached·페널티 정지 중에도 알림은 감(알림만이라).
+- 시험 새 `tests/scripts/test_ft_stall_scan_off_roster.py`(가짜 명부·tmux(pane_pid)·ps·ctx 스텁 · 외부 호출 0 · GIT_* 0) ⓐ 교대 표시 라이브 IDLE 45 → e 1 · planner+계보 master 2통 ⓑ 명부 밖 ctx 93 → planner 만 ⓒ 같은 서명 다음 실행(11분 뒤) 쪽지 0 · 요약 줄 e=1 ⓓ IDLE 25 → 0 ⓔ [완료·휴식] ∧ ctx 40 → 0 · ctx 95 → e 1 ⓕ 빈 셸 0 · 명부 밖 나노(codex) → e 1 «ctx ?» ⓖ send-keys·kill 0 · ring 0 · dry-run 쪽지 0. 고치기 전 7 FAIL → 7 passed · stall 관련 기존 6파일 72 passed(`test_summary_line…` 기대 꼴에 `e=0` 칸). 증거 `harness/evidence/r525/`(red-before · green-after · live-dry-run · live-candidates · install-dry-run · master-steps).
+- 라이브 dry-run(쓰기·쪽지 0): `stall=1 … e=1 seats=43` · `e byz-planner-desk-claude#23 768 교대 표시인데 라이브 · 열린 일 · ctx 14%` · 후보 8(agent 6) — concierge 6·airag 8 은 [완료·휴식] ∧ ctx < 90 이라 0.
+- 설치: 키트 2(`ft_stall_scan.py` · `ft_stall_detect.py` · harness/bin 짝 cmp0) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 2 · launchd `com.byz.ft-stall-scan` kickstart 1회(plist 0) · 홈 0 · 되돌림 = `.bak-r525`.
 
 ## 2026-10-20 — 홈 훅 `bg-cpu-burner-gate.sh` = 시간 상한 없는 백그라운드 CPU 소모기 거절 (r523 · 1.1.81)
 
