@@ -1,0 +1,6 @@
+== 날짜 고정 문자열 «2026-10-» 가 시험 파일에 남았나(0 이어야 함) ==
+0
+rc=1
+== 픽스처 오늘 식 ==
+33:    today = datetime.now(tpu.KST).date().isoformat()  # 도구와 같은 «오늘» 식(thread_post_update.named_root)
+34:    (tmp_path / "threads.json").write_text(json.dumps({"desk": {"channel": DESK_CH, "root_ts": "1792422462.316339", "date": today}}), encoding="utf-8")

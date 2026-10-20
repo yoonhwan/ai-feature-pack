@@ -6,6 +6,7 @@
 실행: PYTHONPATH=kit/slack-mirror:tests/scripts python3 -m pytest tests/scripts/test_thread_room_post.py -q
 """
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from _proposal_fakes import slack  # noqa: F401 — 가짜 Slack fixture(키트 
 import byz_thread_post as tp
 import mirror_inbound as ib
 import thread_post_args as pa
+import thread_post_update as tpu
 
 DESK_CH = "C9DESK"
 T = "1792492349.071989"  # 오빠 새 최상위 글
@@ -28,7 +30,8 @@ def env(slack, tmp_path, monkeypatch):  # noqa: F811
     monkeypatch.setenv("FT_SLACK_STATE_DIR", str(tmp_path / "st"))
     monkeypatch.setenv("FT_SLACK_THREADS", str(tmp_path / "threads.json"))
     monkeypatch.delenv("FT_SLACK_TOPIC_ONLY", raising=False)
-    (tmp_path / "threads.json").write_text(json.dumps({"desk": {"channel": DESK_CH, "root_ts": "1792422462.316339", "date": "2026-10-20"}}), encoding="utf-8")
+    today = datetime.now(tpu.KST).date().isoformat()  # 도구와 같은 «오늘» 식(thread_post_update.named_root)
+    (tmp_path / "threads.json").write_text(json.dumps({"desk": {"channel": DESK_CH, "root_ts": "1792422462.316339", "date": today}}), encoding="utf-8")
     return tmp_path
 
 

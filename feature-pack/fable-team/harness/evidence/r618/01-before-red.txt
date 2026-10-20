@@ -1,0 +1,24 @@
+2026년 10월 21일 수요일 08시 25분 24초 KST
+...F....                                                                 [100%]
+=================================== FAILURES ===================================
+__________________ test_thread_desk_force_sends_with_warning ___________________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-430/test_thread_desk_force_sends_w0')
+slack = <_proposal_fakes.FakeSlack object at 0x1044f63d0>
+capsys = <_pytest.capture.CaptureFixture object at 0x1044f7950>
+
+    def test_thread_desk_force_sends_with_warning(env, slack, capsys):  # ⓓ  # noqa: F811
+        inbound(env, {})
+        assert run(env, slack, "reply", "--thread", "desk", "--channel", DESK_CH, "--force-thread", "--text-file", body(env)) == 0
+        out = capsys.readouterr()
+>       assert slack.replies and slack.replies[-1]["thread_ts"] == "1792422462.316339"
+E       AssertionError: assert ([{'bot_id': 'B1', 'channel': 'C9DESK', 'text': '승인 알림: r561 설치 승인 요청', 'thread_ts': '1792538726.342517', ...}] and '1792538726.342517' == '1792422462.316339'
+E        +  where [{'bot_id': 'B1', 'channel': 'C9DESK', 'text': '승인 알림: r561 설치 승인 요청', 'thread_ts': '1792538726.342517', ...}] = <_proposal_fakes.FakeSlack object at 0x1044f63d0>.replies
+E         
+E         - 1792422462.316339
+E         + 1792538726.342517)
+
+tests/scripts/test_thread_room_post.py:91: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_thread_room_post.py::test_thread_desk_force_sends_with_warning
+1 failed, 7 passed in 0.84s
