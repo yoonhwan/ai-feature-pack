@@ -15,7 +15,7 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 
 | 명령 | 설명 |
 |------|------|
-| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx\|opencode\|cmd] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--ctx 1m] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선. 플래그 적용 범위: `--model`=claude·opencode·cmd·**codex** / `--effort`=claude·**cmd** / `--ctx`=claude 전용 / `--like`=claude 전용 |
+| `tmuxc open {path} [--name N] [--agent claude\|codex\|omx\|opencode\|cmd\|pi] [--role worker\|analysis\|orchestrator\|implementer\|planner\|crew] [--model ID] [--ctx 1m] [--effort E] [--like SESSION] [--prompt P]` | 프로젝트에 세션 생성. **`--role crew`(=plugin)**: claude 플러그인 크루(agent-cli·omo·gstack 등) 전용 — zshrc alias 무의존 `claude-sonnet-4-6`+`medium` 직접 합성(2026-07-13 신설: 크루가 ccd 폴백으로 opus-4-8 high에 열리던 이슈 해소). codex crew=worker(medium) 동일. `--model`/`--effort` 명시가 항상 우선. 플래그 적용 범위: `--model`=claude·opencode·cmd·**codex**·pi / `--effort`=claude·**cmd**·pi / `--ctx`=claude 전용 / `--like`=claude 전용 |
 | `tmuxc model {name}` | 세션의 **라이브 `--model`/`--effort` 조회** (프로세스 argv 기준 — `[1m]` 창 선택자 포함). 증류 모델 승계용 |
 | `tmuxc list` | 활성 세션 목록 + Claude 상태 |
 | `tmuxc attach {name}` | 세션 접속 안내 |
@@ -28,8 +28,8 @@ description: tmux + Claude/Codex/OMX session control. "tmux 세션 열어", "cla
 | `tmuxc wt {worktree-path} [--prompt P]` | 워크트리 연계 세션 생성 |
 | `tmuxc distill {name} [--to {newbase}]` | **세션 증류** — `{base}#{N+1}` 신규 세션에 컨텍스트 이전 후 구세션 정리 |
 | `tmuxc recover [--all]` | cmux에서 디스커넥트된 tmux 세션 자동 재연결 |
-| `tmuxc save [--keep N] [--dry-run]` | ★**종료 전 전역 세션 스냅샷** (UC13) — 모든 tmux 세션의 모델(**`[1m]` 포함**)·effort·session_id·작업 힌트를 라이브 argv 기준으로 파일에 굳힌다. `~/.tmuxc/snapshots/` + `latest.json`, 최근 N개 롤링(기본 20, `TMUXC_SNAPSHOT_KEEP`). claude·codex·opencode·cmd 4종 지원 |
-| `tmuxc restore [--from latest\|PATH] [--scan] [--select 1,3\|all\|claude\|codex\|opencode\|cmd] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** (UC11/UC13). **스냅샷이 있으면 자동으로 스냅샷 경로**(나이 표시) — `[1m]`/effort/opencode/cmd가 보존된다. `--scan`=스냅샷 무시하고 로그 포렌식 강제. 로그 스캔 상태 `synth`=alias 없이 모델로 명령 합성해 복구(effort 기본 high, `TMUXC_SYNTH_EFFORT`로 조정) / `no-alias`=모델까지 미상이라 수동. 진행 로그에 프로젝트·작업 표시. 종료 시 결과 표(#번호/세션명/이전 대화 요약). `--select` 인덱스는 **필터 적용 후 목록 기준** |
+| `tmuxc save [--keep N] [--dry-run]` | ★**종료 전 전역 세션 스냅샷** (UC13) — 모든 tmux 세션의 모델(**`[1m]` 포함**)·effort·session_id·작업 힌트를 라이브 argv 기준으로 파일에 굳힌다. `~/.tmuxc/snapshots/` + `latest.json`, 최근 N개 롤링(기본 20, `TMUXC_SNAPSHOT_KEEP`). claude·codex·opencode·cmd·pi 5종 지원 |
+| `tmuxc restore [--from latest\|PATH] [--scan] [--select 1,3\|all\|claude\|codex\|opencode\|cmd\|pi] [--since H] [--baton] [--loose] [--go]` | **tmux 서버 사망(재부팅) 복원** (UC11/UC13). **스냅샷이 있으면 자동으로 스냅샷 경로**(나이 표시) — `[1m]`/effort/opencode/cmd/pi가 보존된다. `--scan`=스냅샷 무시하고 로그 포렌식 강제. 로그 스캔 상태 `synth`=alias 없이 모델로 명령 합성해 복구(effort 기본 high, `TMUXC_SYNTH_EFFORT`로 조정) / `no-alias`=모델까지 미상이라 수동. 진행 로그에 프로젝트·작업 표시. 종료 시 결과 표(#번호/세션명/이전 대화 요약). `--select` 인덱스는 **필터 적용 후 목록 기준** |
 
 ---
 
@@ -49,6 +49,18 @@ commandcode.ai의 코딩 에이전트(바이너리 `cmd`, macOS/Linux/WSL. 네�
 - 모델 미지정 시 Command Code 기본값(`deepseek/deepseek-v4-flash`)을 따른다. 목록은 `cmd --list-models`(55종: `claude-*`, `gpt-5.6-*`, `google/gemini-*`, 오픈모델 30종).
 - ★**크레딧 잔액 0이면 무료 모델(`poolside/laguna-s-2.1-free`)조차 거부하고 `exit 10`으로 죽는다.** 세션이 열리자마자 조용히 빈 pane이 되면 권한·경로를 의심하기 전에 **크레딧부터 확인**한다(`cmd status`, https://commandcode.ai/billing). 구독 최소 플랜은 Go $1/mo.
 - 인증: `cmd login`(브라우저 OAuth) → `~/.commandcode/auth.json`. 세션 스폰 전에 `cmd status`가 `Authentication verified`인지 확인.
+
+### `--agent pi` (Pi coding agent) — 2026-10-20 신설
+
+합성 커맨드: `pi --name {세션명} --session-id {uuid} --tools {role별 allowlist} --thinking {effort|medium} [--model ID]`
+
+- **tmuxc가 `--session-id`를 직접 발급**하고 세션 env(`TMUXC_PI_SESSION_ID`, `TMUXC_PI_MODEL`, `TMUXC_PI_THINKING`)에 심는다. Pi의 process.title이 argv를 숨겨도 `probe`/`model`/`save`/`restore`/`fork`가 exact session으로 동작한다.
+- role별 tools: `worker`/`implementer` = `read,bash,edit,write,grep,find,ls`; `orchestrator`/`planner`/`analysis` = `read,grep,find,bash`.
+- `--effort`는 Pi의 `--thinking`으로 매핑된다(`low|medium|high|xhigh|max`). `--like <pi-session>`으로 live pi의 model/thinking을 상속한다.
+- `--model`은 `provider/model` (예: `opengateway/deepseek/deepseek-v4.1-flash-ultrafast`). 미지정 시 Pi 설정 기본값.
+- Pi에는 Claude의 `--dangerously-skip-permissions`가 없다. 대신 tools allowlist로 권한을 줄인다.
+- 스킬: `~/.agents/skills/pi-ops` / `/skill:pi-ops`. 통신 가이드는 `~/.agents/skills/tmuxc/COMM-GUIDE-BOOT.md`.
+- `--scan` 복원은 claude/codex만 지원 — pi는 **스냅샷 경로**를 사용한다.
 
 **동작:**
 1. 프로젝트 경로 존재 확인
@@ -242,9 +254,9 @@ role→alias 매핑(`role_alias`)에 없는 모델(예: `claude-sonnet-5[1m]`)�
 
 | 플래그 | 동작 |
 |--------|------|
-| `--model <ID>` | role alias 체인을 **우회**하고 headroom 기동 커맨드를 직접 합성. `ID`의 `[1m]` 창 선택자는 큰따옴표로 보존(글롭 방지). claude·opencode·cmd·codex |
+| `--model <ID>` | role alias 체인을 **우회**하고 headroom 기동 커맨드를 직접 합성. `ID`의 `[1m]` 창 선택자는 큰따옴표로 보존(글롭 방지). claude·opencode·cmd·codex·pi |
 | `--ctx <창>` | ★모델 ID에 `[창]` 컨텍스트 선택자를 부착(`--ctx 1m` → `claude-opus-5[1m]`). **멱등** — 이미 `[..]`가 있으면 덧붙이지 않는다. **claude 전용** |
-| `--effort <E>` | 위 오버라이드에 `--effort E` 부가 (미지정 시 생략). claude·cmd |
+| `--effort <E>` | 위 오버라이드에 `--effort E` 부가 (미지정 시 생략). claude·cmd·pi(`--thinking`) |
 | `--like <SESSION>` | 지정한 **라이브 세션**의 `--model`/`--effort`를 상속(= `tmuxc model`이 회수한 값). 명시 `--model`/`--effort`가 우선. claude 전용 |
 
 ```bash

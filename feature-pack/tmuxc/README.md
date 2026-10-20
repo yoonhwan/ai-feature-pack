@@ -1,6 +1,6 @@
-# tmuxc — tmux session launcher for Claude, Codex, and OMX
+# tmuxc — tmux session launcher for Claude, Codex, OMX, Pi
 
-`tmuxc`는 프로젝트 폴더나 git worktree에 Claude Code, Codex CLI, OMX 세션을 빠르게 열고, 세션 간 메시지·상태 확인·verified send/capture를 표준화하는 운영용 CLI입니다.
+`tmuxc`는 프로젝트 폴더나 git worktree에 Claude Code, Codex CLI, OMX, OpenCode, Command Code, Pi 세션을 빠르게 열고, 세션 간 메시지·상태 확인·verified send/capture를 표준화하는 운영용 CLI입니다.
 
 BYZ식 운영에서는 다음 3개를 한 세트로 둡니다.
 
@@ -19,7 +19,7 @@ BYZ식 운영에서는 다음 3개를 한 세트로 둡니다.
 ## 주요 명령
 
 ```bash
-tmuxc open <path> --name NAME --agent claude|codex|omx --role worker|orchestrator|designer
+tmuxc open <path> --name NAME --agent claude|codex|omx|opencode|cmd|pi --role worker|orchestrator|designer
 tmuxc wt <worktree-path> --name NAME --prompt "NEXT.md 읽고 시작"
 tmuxc list
 tmuxc ask <name> [lines]
@@ -29,7 +29,7 @@ tmuxc kill <name>
 tmuxc clean
 tmuxc save [--keep N]                 # 종료 전 전역 세션 스냅샷 ([1m]/effort/session_id 보존)
 tmuxc restore [--from latest] [--go]  # 재부팅 후 복원 (스냅샷 우선, --scan 으로 로그 스캔 강제)
-tmuxc fork <path> --name NEW (--from LIVE_SESSION | --source ID --agent claude|codex|opencode|cmd) [--model ID] [--ctx 1m] [--effort E] [--prompt TEXT]
+tmuxc fork <path> --name NEW (--from LIVE_SESSION | --source ID --agent claude|codex|opencode|cmd|pi) [--model ID] [--ctx 1m] [--effort E] [--prompt TEXT]
                                       # 네이티브 conversation fork — 부모 대화 불변, 자식은 새 세션ID로 분기
 ```
 
@@ -44,10 +44,24 @@ tmuxc fork <path> --name NEW (--from LIVE_SESSION | --source ID --agent claude|c
 | codex | `codex fork <ID>` | `-c model=`/`-c model_reasoning_effort=` 통과 |
 | opencode | `--session <ID> --fork` | 모델 = 세션 env `OPENCODE_CONFIG_CONTENT` (아래) |
 | cmd | `--resume <ID> --fork-session` | `--model`/`--effort` |
+| pi | `--fork <ID> --session-id <NEW>` | `--model`/`--thinking` |
 
 - `--from <라이브세션>`: 엔진·모델·conversation id를 라이브 프로세스/트랜스크립트에서 해석. **교차엔진 불가**(같은 엔진만).
 - `--source <ID> --agent <엔진>`: id 직접 지정. 엔진 저장소 실재 여부를 best-effort 확인.
 - `omx`는 네이티브 fork가 없어 대상에서 제외.
+
+### pi 좌석 (2026-10-20)
+
+```bash
+tmuxc open . --name PI_WORKER --agent pi --role worker --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast
+tmuxc open . --name PI_REVIEW --agent pi --role orchestrator --effort high
+```
+
+- tmuxc가 `--session-id <uuid>`를 발급하고 세션 env(`TMUXC_PI_SESSION_ID`, `TMUXC_PI_MODEL`, `TMUXC_PI_THINKING`)에 심는다. process.title이 argv를 숨겨도 `probe`/`model`/`save`/`restore`가 exact session으로 복구된다.
+- `worker`/`implementer` = `read,bash,edit,write,grep,find,ls`; `orchestrator`/`planner`/`analysis` = read-only.
+- `--effort`는 Pi `--thinking`으로 매핑된다.
+- `--like <pi-session>`으로 live pi의 model/thinking을 상속할 수 있다.
+- Pi 자체 스킬은 `~/.agents/skills/pi-ops` 및 `/skill:pi-ops` 참고.
 
 ### opencode 좌석 모델 (0.4.1 · r476)
 
