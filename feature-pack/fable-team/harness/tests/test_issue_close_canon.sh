@@ -13,7 +13,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 bash -n "$BIN/ft-issue-close-check.sh" && ok "bash -n" || bad "bash -n"
 
 # ── 임시 리포: main 흉내 ──
-R="$T/repo"; mkdir -p "$R/design/harness"; cd "$R" || exit 2
+R="$T/repo"; mkdir -p "$R/design/harness" "$R/.fable-team"; cd "$R" || exit 2   # r516: .fable-team = ⑧ close-reason-check 가 --repo 없이 cwd 리포를 공용 루트로 푼다(ft_repo_root)
 git init -q -b main; git config user.email t@t; git config user.name t
 X=design/harness/ISSUE-TRANSITIONS.md
 echo base > a.txt; echo v0 > "$X"; git add -A; git commit -qm base; B="$(git rev-parse HEAD)"

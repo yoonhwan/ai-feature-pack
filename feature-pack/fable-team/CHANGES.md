@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 홈 훅 `bg-cpu-burner-gate.sh` = 시간 상한 없는 백그라운드 CPU 소모기 거절 (r523 · 1.1.80)
+## 2026-10-20 — 홈 훅 `bg-cpu-burner-gate.sh` = 시간 상한 없는 백그라운드 CPU 소모기 거절 (r523 · 1.1.81)
 
 - 사건: 10-19 23:27Z v65 나노가 부하 재현 스크립트 `loadrep.sh` 안에서 `nice -n 19 yes > /dev/null &` 여러 개를 띄우고 정리는 `trap EXIT` 뿐 → 강제 종료로 trap 이 안 돌아 `yes` 고아 → CPU 100 · 오빠 손 kill(v65 215 쪽지 119303 → desk 119305 → master 83 발주 119306). «burner 0» 은 메모리 글뿐이라 못 막음.
 - 새 홈 훅 `kit/hooks/bg-cpu-burner-gate.sh`(PreToolUse:Bash · 모든 리포 · `op-vault-develop-gate.sh` 꼴 = python3 본문 · fail-open): 명령 글자 + 그 명령이 실행하는 스크립트 파일 1단계(`bash|sh|zsh|dash|source|.` 다음 인자 · 첫 낱말이 경로 · cwd 기준 · ≤256KB · 바이너리 생략)를 따옴표·주석·heredoc 본문을 가린 뒤 조각낸다. 소모기 = 감싸개(env·nohup·nice·stdbuf·command·exec·time) 벗긴 첫 낱말 `yes` · `cat /dev/zero|/dev/urandom` · `dd if=/dev/zero|/dev/urandom`(count= 없음) · `while true|:|[ 1 ]|(( 1 ))` 루프(본문 sleep 이면 아님 — r448 영역). 백그라운드 = 파이프라인 끝 단독 `&`(`done &` 포함 · `2>&1`·`&>` 는 재지정) 또는 `run_in_background: true`. 면제 = burner 바로 앞 `timeout|gtimeout N` · N ≤ 600초 하나뿐(바깥 `timeout … bash x.sh` 는 안의 `&` 고아를 못 끄므로 면제 아님). 거절 = exit 2 + stderr `REJECT bg-cpu-burner <파일:줄|명령> — …` 1줄. 거절만 — kill·renice·실행 0 · 외부 프로세스 0.
@@ -9,6 +9,14 @@
 - 기존 시험 1: `test_op_vault_develop_gate.sh` 의 «install.sh HOME_HOOKS 1토큰» 검사가 r491(HOME_HOOKS = kit/hooks find 목록) 뒤 base 에서도 FAIL 1 → 지금 꼴(find 목록 + 훅 파일 실재)로 고침 · rc0(`existing-tests.txt`).
 - 설치: 키트 훅 1 → `install.sh --apply --project <루트>` → 홈 `~/.claude/hooks/bg-cpu-burner-gate.sh` cmp0 · settings.json PreToolUse Bash 등록 1 · LIVE_BIN 0 · launchd 0 · 되돌림 = `.bak-r523`.
 - 범위 밖: 이미 떠 있는 burner 끄기(r522 = 사후 기록 · 끄기는 사람) · CPU 실측 · python/node 안 무한 루프 · 2단계 이상 스크립트 · `( … ) &`·`{ …; } &` 묶음 · `cat /dev/zero | gzip &` 처럼 burner 가 파이프라인 끝이 아닌 꼴.
+
+## 2026-10-20 — 하네스 시험 «밖 RED» 셸 62 · pytest 104 를 원인 8묶음으로 분류 · 가장 큰 묶음(pytest 79) + 픽스처 미이관 묶음 고침 (r516 · 1.1.80)
+
+- 사건: r509 끝선 «기존 시험 전체 rc0» 이관분 — 팩 main 에도 있는 밖 RED(셸 62 · pytest 104)가 나노 증거마다 «기존 RED 제외» 로 깔려 새 실패를 가렸다(harness master 83 발주 118693 · arch 106 카드화 · 판정 1395).
+- 분류(바탕 9af3b78a · 셸 253 · pytest tests/scripts 직렬): ① slack 수신 시험 KIT 경로 이중 pytest 79 ② BYZ `tests/fixtures` 미이관 10 ③ 공용 루트·comm·팀 명단 전제 34 ④ BYZ 리포 전용 파일 전제 16(시험 자리 결정 = arch) ⑤ 옛 BYZ 배치 경로 6 ⑥ 시험 임시 bin 짝 누락 5(2개 r515 가 닿음) ⑦ 홈·라이브 실물 대조 7 ⑧ 낡은 대조·환경·개별 9 — 표 `harness/evidence/r516/red-buckets.md`.
+- 시험(4 · 도구 0): ①`test_byz_slack_mbox_inbound.py`·`test_inbound_humans_and_install.py` `KIT = HERE.parents[1]/"harness"/kit` → `parents[1]/kit`(r386 이전 글자 치환이 harness/ 를 한 번 더 붙임) ②`test_team_literal_paths` goal_table = `fable-team/tests/fixtures`(test_goal_table_gate 와 같은 사본) · 가려 있던 2건: `test_mbox_guard` hold_env 에 `ft-harness-root.sh` 짝 · `test_issue_close_canon` 임시 리포 `.fable-team`(⑧ close-reason-check 가 cwd 리포를 공용 루트로).
+- 픽스처(89 · 내용 0 변경): BYZ origin/main `6c22cefe01` 의 `tests/fixtures/{deferral,issue_classify,issue_close,seat_request,magazine}` → `harness/fixtures/`·`harness/tests/fixtures/magazine` · `mbox_guard` → `fable-team/tests/fixtures/`(시험이 읽는 자리 그대로).
+- 시험: 같은 바탕 전·후 셸 실패 62→55 · pytest 104→23 failed · 후에만 실패 pytest 0 · 셸 «후에만» 1(`test_inbox_watch` = 두 판 단독 재실행 같은 RED · 팩 공용 루트 실물) · 흔들림 `test_cherry_gate_identical_head` ④ 1건(두 판 단독 재실행 없음) — 원문 `harness/evidence/r516/compare.txt`·`bucket-before-after.txt` · 합친 판(1.1.79 병합)에서 고친 시험 재확인 ② 7개 rc0 · pytest 4파일 109 passed. `test_deferral_lint` 남은 34 = ④(BYZ `.claude/hooks/deferral-lint-gate.sh`) · `test_team_literal_paths` 남은 4 = ③. 설치: 키트 diff 0(시험·픽스처·증거만) · 홈 0 · plist 0 · 되돌림 = 이 PR revert.
 
 ## 2026-10-20 — `ft-hil.sh --pending` = 파이썬 한 번의 훑기 · 같은 결과를 1초 안에 · 읽기 실패 rc 3 (r521 · 1.1.79)
 

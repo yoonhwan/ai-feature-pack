@@ -1,0 +1,13 @@
+[
+ {"number":101,"title":"cfo a","labels":[{"name":"team:cfo"},{"name":"bug"}]},
+ {"number":102,"title":"cfo b","labels":[{"name":"team:cfo"}]},
+ {"number":103,"title":"cfo c","labels":[{"name":"team:cfo"}]},
+ {"number":201,"title":"v65 a","labels":[{"name":"team:v65"}]},
+ {"number":202,"title":"v65 b","labels":[{"name":"team:v65"}]},
+ {"number":301,"title":"kk a","labels":[{"name":"team:kk"}]},
+ {"number":401,"title":"ccu a","labels":[{"name":"team:ccu"}]},
+ {"number":501,"title":"planner nano-only","labels":[{"name":"team:planner"}]},
+ {"number":601,"title":"shared a","labels":[{"name":"team:shared-harness"}]},
+ {"number":602,"title":"shared+cfo","labels":[{"name":"team:shared-harness"},{"name":"team:cfo"}]},
+ {"number":999,"title":"no team","labels":[{"name":"bug"}]}
+]

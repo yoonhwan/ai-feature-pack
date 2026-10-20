@@ -1,0 +1,22 @@
+[
+ {
+  "number": 101,
+  "title": "[v65] 기획 정리본 단위 1",
+  "labels": [
+   {
+    "name": "status:needs-triage"
+   }
+  ],
+  "body": "### 골좌표 + 닫는 증거 원문(복붙)\nM7 / ...\n",
+  "createdAt": "2026-10-04T00:00:00Z",
+  "comments": [
+   {
+    "author": {
+     "login": "yoonhwan"
+    },
+    "createdAt": "2026-10-04T01:00:00Z",
+    "body": "일반 코멘트"
+   }
+  ]
+ }
+]
