@@ -1,0 +1,4 @@
+test_news_direct_api.py      16 passed in 9.72s
+test_ft_news_ledger.py       24 passed in 7.60s
+test_ft_news_html.py         39 passed in 19.33s
+test_ft_news_io.py           1 passed in 0.07s

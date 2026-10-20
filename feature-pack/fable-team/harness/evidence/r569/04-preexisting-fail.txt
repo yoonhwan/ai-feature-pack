@@ -1,0 +1,5 @@
+선행 FAIL(내 변경 무관 · origin/main 판에서도 같은 칸): 같은 명령으로 두 파일을 «한 번에» 돌리면 test_news_direct_api 가 남긴 env FT_LEDGER_SYNC_ERROR 가 test_ft_news_html::test_h 로 새어 머리 줄이 달라진다.
+
+$ git stash push bin·kit ft_news_ledger.py (origin/main 판) && pytest tests/scripts/test_news_direct_api.py tests/scripts/test_ft_news_html.py -q
+FAILED tests/scripts/test_ft_news_html.py::test_h_head_phrase_one_place_and_deadline_70
+1 failed, 54 passed in 28.45s

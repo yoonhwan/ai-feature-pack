@@ -232,9 +232,30 @@ def sync_repo() -> str:
     return os.environ["FT_LEDGER_SYNC_ERROR"]
 
 
+FETCH_TIMEOUT_S = 10.5  # r569 — 시도당 상한 = CLI 기동 고정비 3.5초 + 7초 룰(git fetch = 서브프로세스)
+FETCH_BUDGET_S = 70.0  # r569 — 재시도까지 합친 마감(전역 하드 룰 12 · env 로 크게 줘도 여기서 자름)
+
+
+def _attempt_timeout(spent: float) -> float:
+    """r569 — 이번 시도 상한 = 시도당 상한과 남은 마감 중 작은 쪽."""
+    per = float(os.environ.get("FT_NEWS_FETCH_TIMEOUT", str(FETCH_TIMEOUT_S)))
+    return min(per, float(os.environ.get("FT_NEWS_FETCH_BUDGET", str(FETCH_BUDGET_S))) - spent)
+
+
+def _fetch_age(stamp: Path | None) -> str:
+    """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(FETCH_HEAD mtime 기준 · 모르면 «받은 시각 모름»)."""
+    try:
+        if stamp is None:
+            raise OSError("stamp 없음")
+        return f"{int((time.time() - stamp.stat().st_mtime) // 60)}분 전 받은 판"
+    except OSError:
+        return "받은 시각 모름"
+
+
 def fetch_if_stale(repo: Path) -> str:
     """r563 — 뉴스(HTML) 경로: 사본 «체크아웃 전진» 대신 origin/main ref 만 최신으로. 마지막 fetch 가 FT_NEWS_FETCH_MIN(300초) 안이면 건너뜀 ·
-    필요하면 `git fetch origin main`(7초 + 재시도 1 · FT_LEDGER_FETCH 로 대역). 실패 = ERROR 로그 + 머리 줄(발행은 지금 ref 로 계속 · 조용한 낡음 0)."""
+    필요하면 `git fetch origin main`(r569: 시도당 10.5초 = CLI 기동 고정비 3.5 + 7 · 재시도 1 · 총 마감 70초 · FT_LEDGER_FETCH 로 대역).
+    실패 = ERROR 로그 + 머리 줄에 «N분 전 받은 판»(발행은 지금 ref 로 계속 · 조용한 낡음 0)."""
     min_s = float(os.environ.get("FT_NEWS_FETCH_MIN", "300"))
     stamp = _fetch_stamp(repo)
     try:
@@ -244,18 +265,25 @@ def fetch_if_stale(repo: Path) -> str:
         pass
     script = os.environ.get("FT_LEDGER_FETCH")
     cmd = ["bash", script, str(repo)] if script else ["git", "-C", str(repo), "fetch", "--quiet", "origin", "main"]
-    line, rc = "", 1
+    line, rc, spent = "", 1, 0.0
     for _ in range(2):
+        left = _attempt_timeout(spent)
+        if left <= 0:
+            line = f"fetch 실행 실패: 총 마감 {FETCH_BUDGET_S:.0f}초 초과"
+            break
+        t0 = time.monotonic()
         try:
-            done = subprocess.run(cmd, capture_output=True, text=True, timeout=7)
+            done = subprocess.run(cmd, capture_output=True, text=True, timeout=left)
             line, rc = (done.stderr.strip() or done.stdout.strip() or "fetch ok"), done.returncode
         except (OSError, subprocess.TimeoutExpired) as e:
             line, rc = f"fetch 실행 실패: {e}", 1
+        spent += time.monotonic() - t0
         if rc == 0:
             return os.environ.pop("FT_LEDGER_SYNC_ERROR", "")
-    LOG.error("원장 ref fetch 실패 rc=%s: %s", rc, line[:160])
-    os.environ["FT_LEDGER_SYNC_ERROR"] = f"원장 ref fetch 실패 — {line[:160]}"
-    return os.environ["FT_LEDGER_SYNC_ERROR"]
+    why = f"원장 ref fetch 실패 — {line[:160]} · origin/main = {_fetch_age(stamp)}"
+    LOG.error("%s", why)
+    os.environ["FT_LEDGER_SYNC_ERROR"] = why
+    return why
 
 
 def _fetch_stamp(repo: Path) -> Path | None:
