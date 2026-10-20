@@ -27,28 +27,28 @@ RET="retire=$ARCH_OLD->$ARCH rc=0"
 # ⓐ 승계 좌석 + retire 칸 없음 → REJECT · 큐 0 · 기대 칸 문구
 new_env succ_boot; send_from "$ARCH" "$PM" "$BASE cron=abc12345"
 [ "$RC" = 3 ] && [ "$(queued_to "$PM")" = 0 ] && case "$OUT" in *"retire=$ARCH_OLD->$ARCH rc=0"*) true;; *) false;; esac \
-  && ok "ⓐ 승계 좌석 retire 칸 없음 → REJECT rc=3 · 큐 0 · 기대 칸 문구" || bad "ⓐ rc=$RC q=$(queued_to "$PM") :: $OUT"
+  && ok "ⓐ 승계 좌석 retire 칸 없음 → REJECT rc=3 · 큐 0 · 기대 칸 문구" || bad "R577-ⓐ rc=$RC q=$(queued_to "$PM") :: $OUT"
 # ⓑ 같은 본문 + retire 칸 → OK 큐 1행 ( -> 와 → 둘 다)
 new_env succ_boot; send_from "$ARCH" "$PM" "$BASE $RET cron=abc12345"
-[ "$RC" = 0 ] && [ "$(queued_to "$PM")" = 1 ] && ok "ⓑ retire 칸 있음(->) → OK 큐 1행" || bad "ⓑ rc=$RC :: $OUT"
+[ "$RC" = 0 ] && [ "$(queued_to "$PM")" = 1 ] && ok "ⓑ retire 칸 있음(->) → OK 큐 1행" || bad "R577-ⓑ rc=$RC :: $OUT"
 new_env succ_boot; send_from "$ARCH" "$PM" "$BASE retire=${ARCH_OLD}→${ARCH} rc=0 cron=abc12345"
 [ "$RC" = 0 ] && [ "$(queued_to "$PM")" = 1 ] && ok "ⓑ' retire 칸 있음(→) → OK" || bad "ⓑ' rc=$RC :: $OUT"
 # ⓒ 구 이름이 _replaces 밖 · 후계가 발신자 아님 → REJECT 불일치
 new_env succ_boot; send_from "$ARCH" "$PM" "$BASE retire=byz-harness-arch-claude#31->$ARCH rc=0 cron=abc12345"
-[ "$RC" = 3 ] && case "$OUT" in *'불일치'*) true;; *) false;; esac && ok "ⓒ 구 이름 불일치 → REJECT 불일치" || bad "ⓒ rc=$RC :: $OUT"
+[ "$RC" = 3 ] && case "$OUT" in *'불일치'*) true;; *) false;; esac && ok "ⓒ 구 이름 불일치 → REJECT 불일치" || bad "R577-ⓒ rc=$RC :: $OUT"
 new_env succ_boot; send_from "$ARCH" "$PM" "$BASE retire=$ARCH_OLD->byz-harness-arch-claude#34 rc=0 cron=abc12345"
-[ "$RC" = 3 ] && ok "ⓒ' 후계가 발신 좌석 아님 → REJECT" || bad "ⓒ' rc=$RC :: $OUT"
+[ "$RC" = 3 ] && ok "ⓒ' 후계가 발신 좌석 아님 → REJECT" || bad "R577-ⓒ' rc=$RC :: $OUT"
 # ⓓ _replaces 없는 좌석(나노·첫 개설) → 칸 없어도 OK
 new_env succ_boot; send_from "$NANO" "$PM" "$BASE"
-[ "$RC" = 0 ] && ok "ⓓ _replaces 없는 좌석(나노) → 칸 없어도 OK" || bad "ⓓ rc=$RC :: $OUT"
+[ "$RC" = 0 ] && ok "ⓓ _replaces 없는 좌석(나노) → 칸 없어도 OK" || bad "R577-ⓓ rc=$RC :: $OUT"
 # ⓔ master/arch 는 cron= 칸 필수
 new_env succ_boot; send_from "$MASTER" "$PM" "$BASE retire=byz-harness-master-claude#32->$MASTER rc=0"
-[ "$RC" = 3 ] && case "$OUT" in *'cron='*) true;; *) false;; esac && ok "ⓔ master 승계 cron= 없음 → REJECT" || bad "ⓔ rc=$RC :: $OUT"
+[ "$RC" = 3 ] && case "$OUT" in *'cron='*) true;; *) false;; esac && ok "ⓔ master 승계 cron= 없음 → REJECT" || bad "R577-ⓔ rc=$RC :: $OUT"
 new_env succ_boot; send_from "$MASTER" "$PM" "$BASE retire=byz-harness-master-claude#32->$MASTER rc=0 cron=9f8e7d6c"
 [ "$RC" = 0 ] && ok "ⓔ' master 승계 cron= 있음 → OK" || bad "ⓔ' rc=$RC :: $OUT"
 # ⓕ planner 앞 [부팅 보고] 허용(D4 변경 0) — 본문이 맞으면 통과
 new_env succ_boot; send_from "$ARCH" "$PLANNER" "$BASE $RET cron=abc12345"
-[ "$RC" = 0 ] && [ "$(queued_to "$PLANNER")" = 1 ] && ok "ⓕ planner 앞 [부팅 보고] + 맞는 본문 → OK" || bad "ⓕ rc=$RC :: $OUT"
+[ "$RC" = 0 ] && [ "$(queued_to "$PLANNER")" = 1 ] && ok "ⓕ planner 앞 [부팅 보고] + 맞는 본문 → OK" || bad "R577-ⓕ rc=$RC :: $OUT"
 # ⓖ 발신 좌석 명부 파싱 실패 → 전송 + stderr WARN 1줄
 new_env succ_boot_broken; send_from "$ARCH" "$PLANNER" "$BASE"
 [ "$RC" = 0 ] && [ "$(printf '%s\n' "$OUT" | grep -c 'WARN 부팅 보고 lint')" = 1 ] && ok "ⓖ 명부 깨짐 → 전송 + WARN 1줄" || bad "ⓖ rc=$RC :: $OUT"
@@ -83,6 +83,52 @@ send_from "$ARCH" "$PM" "$BASE cron=abc12345"
 new_env succ_boot_noretire; sed -i '' 's/ or old_row.get("_replaced_by") != a.me//' "$ENVROOT/.fable-team/comm/ft-boot-report-lint.py"
 send_from "$ARCH" "$PM" "$BASE $RET cron=abc12345"
 [ "$RC" = 0 ] && ok "변이4(명부 미반영 대조 제거) → ⓗ2 빨강 확인(rc=0)" || bad "변이4 가 ⓗ2 에 안 잡힘 rc=$RC :: $OUT"
+
+# ── R577 발동 조건 — 앞의 발신 머리 `[<x>-><y>]` 를 떼고 첫 줄 머리에 «부팅 보고» 가 있으면 검사(검사 규칙 무변경)
+LEAD='[byz-harness-arch-claude#33->byz-planner-pm-claude#1]'
+# ⓐ (실패 시험 먼저) 머리 붙은 꼴 + retire 칸 꼴 아님 → REJECT «retire 칸 없음» · 큐 0
+new_env succ_boot; send_from "$ARCH" "$PM" "$LEAD [부팅 보고] 세션=x 모델=y retire rc=0 cron=abc12345"
+[ "$RC" = 3 ] && [ "$(queued_to "$PM")" = 0 ] && case "$OUT" in *'retire 칸 없음'*) true;; *) false;; esac \
+  && ok "R577-ⓐ 머리 붙은 부팅 보고 + retire 칸 아님 → REJECT rc=3·큐 0" || bad "R577-ⓐ rc=$RC q=$(queued_to "$PM") :: $OUT"
+# ⓑ 대괄호 머리 안에 «부팅 보고» 만 있고 retire 는 산문 → REJECT(옛 판 = 검사 0 으로 통과)
+new_env succ_boot; send_from "$ARCH" "$PM" "[harness master 33번 부팅 보고] 세션=x retire=$ARCH_OLD->$ARCH 후계 보고로 대체"
+[ "$RC" = 3 ] && case "$OUT" in *'retire 칸 없음'*) true;; *) false;; esac \
+  && ok "R577-ⓑ [팀 master N번 부팅 보고] 산문 retire → REJECT" || bad "R577-ⓑ rc=$RC :: $OUT"
+# ⓒ 머리 떼고 «부팅 보고:» + retire 칸 + 명부 반영 → OK 큐 1행
+new_env succ_boot; send_from "$ARCH" "$PM" "$LEAD 부팅 보고: 세션=x $RET cron=abc12345"
+[ "$RC" = 0 ] && [ "$(queued_to "$PM")" = 1 ] && ok "R577-ⓒ '[a->b] 부팅 보고:' + 올바른 칸 → OK" || bad "R577-ⓒ rc=$RC :: $OUT"
+new_env succ_boot; send_from "$ARCH" "$PM" "[byz-a→byz-b] [부팅 보고] 세션=x $RET cron=abc12345"
+[ "$RC" = 0 ] && [ "$(queued_to "$PM")" = 1 ] && ok "R577-ⓒ' 화살표가 → 인 머리도 같은 판정" || bad "R577-ⓒ' rc=$RC :: $OUT"
+# ⓓ 머리 없는 `[부팅 보고]` 꼴 → 종전과 같은 판정(칸 없으면 REJECT)
+new_env succ_boot; send_from "$ARCH" "$PM" "[부팅 보고] 세션=x retire rc=0 cron=abc12345"
+[ "$RC" = 3 ] && case "$OUT" in *'retire 칸 없음'*) true;; *) false;; esac \
+  && ok "R577-ⓓ 머리 없는 꼴 = 종전과 같은 판정" || bad "R577-ⓓ rc=$RC :: $OUT"
+# ⓔ 첫 줄에 «부팅 보고» 가 없고 본문 아래에만 있음 → 검사 0(오탐 0)
+new_env succ_boot; send_from "$ARCH" "$PM" "일반 쪽지
+[부팅 보고] 는 본문 아래 · retire 없음"
+[ "$RC" = 0 ] && ok "R577-ⓔ 첫 줄에 부팅 보고 없음 → 검사 0" || bad "R577-ⓔ rc=$RC :: $OUT"
+# ⓕ 다른 머리(`[부팅]`) → 검사 0
+new_env succ_boot; send_from "$ARCH" "$PM" "[부팅] 세션=x retire rc=0"
+[ "$RC" = 0 ] && ok "R577-ⓕ [부팅] 등 다른 머리 → 검사 0" || bad "R577-ⓕ rc=$RC :: $OUT"
+# R577-ⓓ' 머리 없는 `[부팅 보고]` 본문에 화살표(->)가 있어도 «발신 머리» 로 오인해 떼지 않는다
+new_env succ_boot; send_from "$ARCH" "$PM" "[부팅 보고] 세션=x 지난 은퇴 $ARCH_OLD->$ARCH 확인"
+[ "$RC" = 3 ] && case "$OUT" in *'retire 칸 없음'*) true;; *) false;; esac \
+  && ok "R577-ⓓ' 머리 없는 꼴 + 본문 화살표 → 여전히 검사함(REJECT)" || bad "R577-ⓓ' rc=$RC :: $OUT"
+new_env succ_boot; send_from "$ARCH" "$PM" "[부팅 보고] 세션=x $RET cron=abc12345"
+[ "$RC" = 0 ] && [ "$(queued_to "$PM")" = 1 ] && ok "R577-ⓓ'' 머리 없는 꼴 + 올바른 칸 → OK" || bad "R577-ⓓ'' rc=$RC :: $OUT"
+# 변이 5(대조) — 발동 조건을 옛 판(정확히 '[부팅 보고]' 로 시작)으로 되돌리면 R577-ⓐ·ⓑ 가 빨강(rc=0)
+new_env succ_boot; python3 - "$ENVROOT/.fable-team/comm/mbox_guard.sh" <<'PY'
+import sys
+p = sys.argv[1]; lines = open(p, encoding="utf-8").read().split("\n")
+for i, l in enumerate(lines):
+    if 'case "${first%%]*}" in' in l:
+        lines[i] = "  case \"$first\" in '[부팅 보고]'*) ;; *) return 0;; esac"
+open(p, "w", encoding="utf-8").write("\n".join(lines))
+PY
+send_from "$ARCH" "$PM" "$LEAD [부팅 보고] 세션=x retire rc=0 cron=abc12345"
+[ "$RC" = 0 ] && ok "변이5(옛 발동 조건) → R577-ⓐ 빨강 확인(rc=0)" || bad "변이5 가 R577-ⓐ 에 안 잡힘 rc=$RC :: $OUT"
+send_from "$ARCH" "$PM" "[harness master 33번 부팅 보고] 세션=x retire=$ARCH_OLD->$ARCH 후계 보고로 대체"
+[ "$RC" = 0 ] && ok "변이5 → R577-ⓑ 빨강 확인(rc=0)" || bad "변이5 가 R577-ⓑ 에 안 잡힘 rc=$RC :: $OUT"
 
 # 문법·크기
 bash -n "$SRC/mbox_guard.sh" 2>/dev/null && ok "bash -n mbox_guard.sh" || bad "bash -n mbox_guard.sh"
