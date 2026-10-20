@@ -1,0 +1,23 @@
+PASS ⓐ rc=0 (좌석 포트 기록 있음)
+PASS ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UFlnd1EYR4/proj/.worktrees/v6-realtime-live)
+PASS ⓐ ensure 인자에 ROOT 가 아님
+PASS ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»
+PASS ⓑ 기록 없음 rc=2
+PASS ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»
+PASS ⓑ die 문구에 처방(ensure <경로>)
+PASS ⓒ 맞는 경로 명시 rc=0
+PASS ⓒ 명시 경로가 그대로 렌더
+PASS ⓒ 포트 불일치(other=9879) rc=2
+PASS ⓒ die 문구에 계산 포트
+PASS ⓓ url 없음 rc=0
+PASS ⓓ 맞출 대상 없음 = ROOT 그대로
+PASS ⓓ stderr WARN 1줄
+PASS ⓔ plutil -lint OK
+PASS ⓔ AbandonProcessGroup true
+PASS ⓔ 템플릿에 옛 자리표 __ROOT__ 없음
+PASS ⓕ BOOT 줄 수 불변
+PASS ⓕ diff 한 덩이(매핑표 무변경)
+PASS ⓕ 1번 줄 인자 이름 = session
+PASS ⓕ 1번 줄에 «session 없이» 문구
+PASS ⓕ 1번 줄에 옛 인자 «session_id=…» 없음
+ALL PASS

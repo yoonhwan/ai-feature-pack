@@ -8,7 +8,7 @@
     <string>/bin/bash</string>
     <string>__SERENA_MCP__</string>
     <string>ensure</string>
-    <string>__ROOT__</string>
+    <string>__ENSURE_PROJECT__</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -17,6 +17,7 @@
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><false/>
+  <key>AbandonProcessGroup</key><true/>
   <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>__HOME__/.claude/logs/serena-ensure.launchd.log</string>
   <key>StandardErrorPath</key><string>__HOME__/.claude/logs/serena-ensure.launchd.log</string>

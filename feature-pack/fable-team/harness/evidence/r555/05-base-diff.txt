@@ -1,0 +1,377 @@
+diff --git a/feature-pack/fable-team/CHANGES.md b/feature-pack/fable-team/CHANGES.md
+index 925af698..ae9d2802 100644
+--- a/feature-pack/fable-team/CHANGES.md
++++ b/feature-pack/fable-team/CHANGES.md
+@@ -11,6 +11,16 @@
+ - 실사건 재현(임시 픽스처 루트 · 실 gh/tmux/슬랙/LLM 호출 0 · 실 `.fable-team` 쓰기 0 · `03-real-incident.txt`): 명부 한 장의 `_cards_wt` 를 없는 워크트리로 → collect **rc 0** + stderr `ERROR seats-cfo.json: 카드 폴더 없음 — …` · `render --sheet --text` 에 `⚠ 확인 못 함 cfo: …` · `render --term` ⓪·①·② 세 자리에 «확인 못 함» 줄 · `snapshot` 정상.
+ - 설치: 있음 — 키트 8(`ft_board_{collect,render,render_tree,sheet,sheet_tree,teams,seat,snapshot}.py` 중 이번 변경분) + `ft-sheet-publish.sh`(`harness/bin` 짝 cmp0 9 · `02-kit-bin-cmp.txt`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 9 · 데몬 재기동 0(launchd 가 5분마다 새로 부름) · 되돌림 = `.bak-r554`. **설치 집행·명부 2칸 고침은 master 소관 — 미실행.**
+ - 범위 밖: `seats-graphics.json` 2칸(`_cards_wt`·`_tree`) 고침 = master 즉시(이 카드의 ①) · `_tree` 가 남의 임시 워크트리를 가리키는 명부 5장 · `ft_board_sheet_cards:team_cards` 의 같은 칸 읽기(폴더 없으면 조용히 0장 — 이 카드 뒤에도 남는 결) · 이동 도구가 `_cards_wt` 를 안 바꾼 문제 · harness-ops 가지 뒤처짐.
++## 2026-10-20 — 부팅 ensure 가 좌석이 «실제로 쓰는 포트» 의 프로젝트를 띄운다 + ensure 자식이 안 끊긴다 (r555 · 1.1.107 · 하네스 내부 장치 · 새 장치 0)
++
++- 사건(재부팅 뒤 좌석 다수가 «Serena 미사용» · arch 110 실측 2026-10-20 19:0x): ①좌석은 전부 `~/.claude.json` 의 `http://127.0.0.1:9493/mcp`(v6-realtime-live 해시 포트)에 붙는데 부팅 ensure(`com.byz.serena-ensure`)는 루트 경로로 렌더돼 해시 포트 9228 을 띄웠다 ②그 9228 조차 `~/.claude/logs/serena-ensure.launchd.log` «READY (port=9228, pid=25526)» 1초 뒤 `serena-http-9228.log:76` «Shutting down» · 오류 줄 0 = 밖에서 내린 꼴(plist 에 `AbandonProcessGroup` 이 없어 ensure 스크립트 종료 시 launchd 가 nohup 자식까지 정리 — 시각 근거).
++- 고침(설치기 렌더 1곳 + 템플릿 키 1 + BOOT 문구 1줄): ①`install.sh` `resolve_ensure_project` — ensure 프로젝트 = ⓐ`--ensure-project <경로>` ⓑ없으면 `$HOME/.claude.json` `projects[ROOT].mcpServers.serena.url` 의 포트 → `~/.serena/bridges/<포트>.json` 의 `project` ⓒserena url 자체가 없으면 ROOT + stderr WARN 1줄. 고른 경로의 `port_for`(serena-mcp.sh:33 과 같은 식)가 url 포트와 다르면 die 2 — «맞출 기록이 없으면 조용히 루트로 내려가기 0». dry-run·apply 줄에 `ensure project=<경로> port=<n> (출처 …)` ②템플릿 자리표 `__ROOT__` → `__ENSURE_PROJECT__` + `<key>AbandonProcessGroup</key><true/>` ③tmuxc `COMM-GUIDE-BOOT.md` 1번 항목 인자 이름 `session_id=…` → `session=…`(«session 없이 부르면 `Field required`») — 줄 수 46 불변 · 매핑표 무변경.
++- 시험 `tests/test_r555_serena_ensure_port.sh`(가짜 HOME `.claude.json`·`bridges/` · 가짜 launchctl · 임시 루트 — 실 launchd·uvx·9493 호출 0 · 실 홈 쓰기 0): 고치기 전 **FAILED=16** → 고친 뒤 **ALL PASS 22 rc0**. ⓐ좌석 포트 기록으로 렌더 → ensure 인자 = 그 프로젝트(옛 판 = ROOT) ⓑurl 포트 기록 없음 → rc2 «좌석 포트 <n> 의 프로젝트 기록 없음» ⓒ`--ensure-project` 명시 = 그 경로 · 포트 불일치 rc2 ⓓurl 없음 → ROOT + WARN 1줄 ⓔ`plutil -lint` OK · `AbandonProcessGroup true` · 템플릿에 옛 자리표 0 ⓕBOOT 줄 수 불변 · diff 한 덩이 · 1번 줄 `session=`·«session 없이» 있고 옛 `session_id=…` 0.
++- 실 구성 dry-run(쓰기 0): `ensure project=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live port=9493 (출처 claude.json url port=9493 → bridges/9493.json)` rc0 — 사건 ①이 렌더 단계에서 닫힌다.
++- 증거 `harness/evidence/r555/`: `01-before-red.txt`(FAILED=16) · `02-after-pass.txt`(ALL PASS 22) · `03-existing-tests.txt` · `04-real-dryrun.txt` · `05-base-diff.txt`.
++- 기존 시험: `test_serena_guard_bash32.sh` rc0 ALL PASS(무변경). `test_r66_codex_serena_boot.sh` FAIL 2 는 내 변경 파일이 아니다 — ①홈 BOOT sha 가 r66 기준·staged-r66 어느 쪽도 아님(그 사이 판이 바뀜) ④`docs/rules/serena-mcp-usage.md` 가 이 팩에 없음.
++- 설치: 있음 — `harness/install.sh --apply --project <루트>` 로 키트 2 + tmuxc 문서 1줄, 그리고 `kit/zombie-clean/install.sh --apply --root <BYZ 루트>` → 새 렌더 plist(cmp0) + bootout/bootstrap. **설치 집행은 master 소관 — 미실행.** 되돌림 = plist `.bak-r555` + BOOT `.bak-r555` + `launchctl bootout/bootstrap`.
++- 범위 밖: `~/.claude.json` 좌석 url 바꾸기(오빠 설정) · `serena-mcp.sh` 포트 계산식 · serena-guard 메모리 재시작 규칙 · pyright 반복 종료(미확인) · 옛 bridges 기록 정리 · `AbandonProcessGroup` 추정이 실사건에서 틀리면(kickstart 뒤 30초 안에 또 꺼짐) 이 카드 안에서 재측정.
+ 
+ ## 2026-10-20 — 보낸 쪽지 사본을 `.1` 한 벌이 아니라 `.1`~`.3` 으로 밀어 보관 — 매거진 24시간 창이 창 앞을 덮게 (r553 · 1.1.105 · 하네스 내부 장치 · 새 장치 0)
+ 
+diff --git a/feature-pack/fable-team/harness/evidence/r555/01-before-red.txt b/feature-pack/fable-team/harness/evidence/r555/01-before-red.txt
+new file mode 100644
+index 00000000..c37ff158
+--- /dev/null
++++ b/feature-pack/fable-team/harness/evidence/r555/01-before-red.txt
+@@ -0,0 +1,26 @@
++PASS ⓐ rc=0 (좌석 포트 기록 있음)
++FAIL ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/proj/.worktrees/v6-realtime-live) — «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/root» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/proj/.worktrees/v6-realtime-live»
++FAIL ⓐ ensure 인자에 ROOT 가 아님 — 있으면 안 됨: «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/root»
++FAIL ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>» — 없음: «ensure project=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/proj/.worktrees/v6-realtime-live port=9726» ← APPLY cp -p /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r555-serena-boot-ensure-right-port-survi/feature-pack/fable-team/harness/kit/zombie-clean/serena-guard.sh → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we
++FAIL ⓑ 기록 없음 rc=2 — «0» ≠ «2»
++FAIL ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음» — 없음: «좌석 포트 9726 의 프로젝트 기록 없음» ← 
++FAIL ⓑ die 문구에 처방(ensure <경로>) — 없음: «serena-mcp.sh ensure <경로>» ← 
++FAIL ⓒ 맞는 경로 명시 rc=0 — «2» ≠ «0»
++FAIL ⓒ 명시 경로가 그대로 렌더 — «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/root» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hO8Ik2we5J/proj/.worktrees/v6-realtime-live»
++PASS ⓒ 포트 불일치(other=9849) rc=2
++FAIL ⓒ die 문구에 계산 포트 — 없음: «port_for=9849» ← 사용: install.sh [--apply] [--root <메인 루트>]
++PASS ⓓ url 없음 rc=0
++PASS ⓓ 맞출 대상 없음 = ROOT 그대로
++FAIL ⓓ stderr WARN 1줄 — «0» ≠ «1»
++PASS ⓔ plutil -lint OK
++FAIL ⓔ AbandonProcessGroup true — «None» ≠ «True»
++FAIL ⓔ 템플릿에 옛 자리표 __ROOT__ 없음 — 있으면 안 됨: «__ROOT__»
++test_r555_serena_ensure_port.sh: 줄 107: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r555-serena-boot-ensure-right-port-survi/feature-pack/fable-team/harness/tests/../../tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md: No such file or directory
++FAIL ⓕ BOOT 줄 수 불변 — «» ≠ «      46»
++diff: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r555-serena-boot-ensure-right-port-survi/feature-pack/fable-team/harness/tests/../../tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md: No such file or directory
++FAIL ⓕ diff 한 덩이(매핑표 무변경) — «0» ≠ «1»
++grep: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r555-serena-boot-ensure-right-port-survi/feature-pack/fable-team/harness/tests/../../tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md: No such file or directory
++FAIL ⓕ 1번 줄 인자 이름 = session — 없음: «session=» ← 
++FAIL ⓕ 1번 줄에 «session 없이» 문구 — 없음: «session 없이» ← 
++PASS ⓕ 1번 줄에 옛 인자 «session_id=…» 없음
++FAILED=16
+diff --git a/feature-pack/fable-team/harness/evidence/r555/02-after-pass.txt b/feature-pack/fable-team/harness/evidence/r555/02-after-pass.txt
+new file mode 100644
+index 00000000..b050cc0a
+--- /dev/null
++++ b/feature-pack/fable-team/harness/evidence/r555/02-after-pass.txt
+@@ -0,0 +1,23 @@
++PASS ⓐ rc=0 (좌석 포트 기록 있음)
++PASS ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UFlnd1EYR4/proj/.worktrees/v6-realtime-live)
++PASS ⓐ ensure 인자에 ROOT 가 아님
++PASS ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»
++PASS ⓑ 기록 없음 rc=2
++PASS ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»
++PASS ⓑ die 문구에 처방(ensure <경로>)
++PASS ⓒ 맞는 경로 명시 rc=0
++PASS ⓒ 명시 경로가 그대로 렌더
++PASS ⓒ 포트 불일치(other=9879) rc=2
++PASS ⓒ die 문구에 계산 포트
++PASS ⓓ url 없음 rc=0
++PASS ⓓ 맞출 대상 없음 = ROOT 그대로
++PASS ⓓ stderr WARN 1줄
++PASS ⓔ plutil -lint OK
++PASS ⓔ AbandonProcessGroup true
++PASS ⓔ 템플릿에 옛 자리표 __ROOT__ 없음
++PASS ⓕ BOOT 줄 수 불변
++PASS ⓕ diff 한 덩이(매핑표 무변경)
++PASS ⓕ 1번 줄 인자 이름 = session
++PASS ⓕ 1번 줄에 «session 없이» 문구
++PASS ⓕ 1번 줄에 옛 인자 «session_id=…» 없음
++ALL PASS
+diff --git a/feature-pack/fable-team/harness/evidence/r555/03-existing-tests.txt b/feature-pack/fable-team/harness/evidence/r555/03-existing-tests.txt
+new file mode 100644
+index 00000000..cee06cea
+--- /dev/null
++++ b/feature-pack/fable-team/harness/evidence/r555/03-existing-tests.txt
+@@ -0,0 +1,7 @@
++## 기존 시험 (r554 338d50ac 위 rebase 뒤 재실행)
++### test_serena_guard_bash32.sh rc=0
++ALL PASS
++### test_r66_codex_serena_boot.sh rc=2 — 실패 2 는 내 변경 파일 아님(①홈 BOOT sha ②docs/rules/serena-mcp-usage.md 팩에 없음)
++FAIL ① 홈 BOOT sha=9573c463baa968a2 — 기준 329582414d727dd5 도 스테이징(aa31a07120bb41ac)도 아님(그사이 다른 판정이 바꿈)
++FAIL ④ serena-mcp-usage.md 에 codex·activate_project 줄 없음
++FAILED=2
+diff --git a/feature-pack/fable-team/harness/evidence/r555/04-real-dryrun.txt b/feature-pack/fable-team/harness/evidence/r555/04-real-dryrun.txt
+new file mode 100644
+index 00000000..45fc66d0
+--- /dev/null
++++ b/feature-pack/fable-team/harness/evidence/r555/04-real-dryrun.txt
+@@ -0,0 +1,5 @@
++DRY same /Users/yoonhwan/.claude/skills/zombie-clean/scripts/serena-guard.sh
++DRY same /Users/yoonhwan/.claude/scripts/serena-mcp.sh
++DRY ensure project=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live port=9493 (출처 claude.json url port=9493 → bridges/9493.json)
++DRY plist /Users/yoonhwan/Library/LaunchAgents/com.byz.serena-ensure.plist (ensure project=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live)
++DRY launchctl bootstrap gui/501 /Users/yoonhwan/Library/LaunchAgents/com.byz.serena-ensure.plist
+diff --git a/feature-pack/fable-team/harness/kit/zombie-clean/com.byz.serena-ensure.plist.template b/feature-pack/fable-team/harness/kit/zombie-clean/com.byz.serena-ensure.plist.template
+index bcd05cf7..14f48a68 100644
+--- a/feature-pack/fable-team/harness/kit/zombie-clean/com.byz.serena-ensure.plist.template
++++ b/feature-pack/fable-team/harness/kit/zombie-clean/com.byz.serena-ensure.plist.template
+@@ -8,7 +8,7 @@
+     <string>/bin/bash</string>
+     <string>__SERENA_MCP__</string>
+     <string>ensure</string>
+-    <string>__ROOT__</string>
++    <string>__ENSURE_PROJECT__</string>
+   </array>
+   <key>EnvironmentVariables</key>
+   <dict>
+@@ -17,6 +17,7 @@
+   </dict>
+   <key>RunAtLoad</key><true/>
+   <key>KeepAlive</key><false/>
++  <key>AbandonProcessGroup</key><true/>
+   <key>ProcessType</key><string>Background</string>
+   <key>StandardOutPath</key><string>__HOME__/.claude/logs/serena-ensure.launchd.log</string>
+   <key>StandardErrorPath</key><string>__HOME__/.claude/logs/serena-ensure.launchd.log</string>
+diff --git a/feature-pack/fable-team/harness/kit/zombie-clean/install.sh b/feature-pack/fable-team/harness/kit/zombie-clean/install.sh
+index 23e7c944..1492e805 100755
+--- a/feature-pack/fable-team/harness/kit/zombie-clean/install.sh
++++ b/feature-pack/fable-team/harness/kit/zombie-clean/install.sh
+@@ -1,8 +1,9 @@
+ #!/usr/bin/env bash
+ # serena-guard·serena-mcp 설치 + 부팅 ensure launchd (R327 · 재부팅 뒤 Serena 공유 서버 자동 기동)
+-# 사용: bash install.sh [--apply] [--root <메인 루트>]      (기본 dry-run = 할 일만 출력 · 변경 0)
++# 사용: bash install.sh [--apply] [--root <메인 루트>] [--ensure-project <경로>]      (기본 dry-run = 할 일만 출력 · 변경 0)
+ #   --apply : ①serena-guard.sh → ~/.claude/skills/zombie-clean/scripts/ ②serena-mcp.sh → ~/.claude/scripts/ (cp -p)
+ #             ③com.byz.serena-ensure.plist 렌더(절대경로) → ~/Library/LaunchAgents/ ④launchctl bootstrap (RunAtLoad = 부팅·로그인 때 ensure 1회)
++# ensure 프로젝트 = 좌석이 «실제로 붙는 포트» 의 프로젝트 (R555): --ensure-project > ~/.claude.json serena url 포트의 bridges 기록 > ROOT
+ # 멱등: 파일이 이미 같으면 cp 생략 · plist 가 같고 적재돼 있으면 ALREADY. 실 Serena 서버는 건드리지 않는다(기동은 launchd 가 부팅 때).
+ # 시험 주입: SERENA_INSTALL_HOME(홈 대체) · SERENA_INSTALL_LAUNCHCTL(launchctl 대체) — 실 launchctl·실 홈 0 으로 돌릴 때만 쓴다.
+ # 종료코드: 0 완료(또는 dry-run) · 2 사용/환경
+@@ -16,7 +17,7 @@ PLIST="$AGENTS_DIR/$LABEL.plist"
+ GUARD_DST="$HOME_DIR/.claude/skills/zombie-clean/scripts/serena-guard.sh"
+ MCP_DST="$HOME_DIR/.claude/scripts/serena-mcp.sh"
+ DOMAIN="gui/$(id -u)"
+-APPLY=0; ROOT=""
++APPLY=0; ROOT=""; ENSURE_PROJECT_ARG=""
+ 
+ die() { local rc="$1"; shift; echo "$*" >&2; exit "$rc"; }
+ say() { if [ "$APPLY" = 1 ]; then echo "APPLY $*"; else echo "DRY $*"; fi; }
+@@ -25,7 +26,8 @@ while [ $# -gt 0 ]; do
+   case "$1" in
+     --apply) APPLY=1; shift ;;
+     --root) ROOT="${2:?--root 값 필요}"; shift 2 ;;
+-    *) die 2 "사용: install.sh [--apply] [--root <메인 루트>]" ;;
++    --ensure-project) ENSURE_PROJECT_ARG="${2:?--ensure-project 값 필요}"; shift 2 ;;
++    *) die 2 "사용: install.sh [--apply] [--root <메인 루트>] [--ensure-project <경로>]" ;;
+   esac
+ done
+ 
+@@ -44,21 +46,61 @@ place() {  # $1=키트 파일 $2=목적지 — 같으면 생략
+ }
+ 
+ render_plist() {  # $1=출력 경로
+-  sed -e "s|__SERENA_MCP__|$MCP_DST|g" -e "s|__ROOT__|$ROOT|g" -e "s|__HOME__|$HOME_DIR|g" \
++  sed -e "s|__SERENA_MCP__|$MCP_DST|g" -e "s|__ENSURE_PROJECT__|$ENSURE_PROJECT|g" -e "s|__HOME__|$HOME_DIR|g" \
+       "$HERE/com.byz.serena-ensure.plist.template" > "$1"
+ }
+ 
++port_for() {  # serena-mcp.sh:33 port_for 와 같은 식 (프로젝트 경로 해시 포트)
++  echo $((9200 + $(printf '%s' "$1" | cksum | awk '{print $1}') % 700))
++}
++
++claude_json_serena_url() {  # $1=.claude.json → projects[ROOT].mcpServers.serena.url (없으면 빈값)
++  [ -f "$1" ] || return 0
++  python3 - "$1" "$ROOT" <<'PY' 2>/dev/null
++import json, sys
++try:
++    d = json.load(open(sys.argv[1]))
++except Exception:
++    sys.exit(0)
++print((((d.get("projects") or {}).get(sys.argv[2]) or {}).get("mcpServers") or {}).get("serena", {}).get("url", ""))
++PY
++}
++
++resolve_ensure_project() {  # 좌석이 붙는 포트의 프로젝트를 골라 ENSURE_PROJECT·ENSURE_SRC 를 채운다
++  local url url_port rec project
++  url="$(claude_json_serena_url "$HOME_DIR/.claude.json")"
++  url_port="$(printf '%s' "$url" | sed -n 's|.*127\.0\.0\.1:\([0-9][0-9]*\).*|\1|p')"
++  if [ -n "$ENSURE_PROJECT_ARG" ]; then
++    ENSURE_PROJECT="$ENSURE_PROJECT_ARG"; ENSURE_SRC="--ensure-project"
++  elif [ -z "$url" ]; then
++    ENSURE_PROJECT="$ROOT"; ENSURE_SRC="기본값 root(좌석 설정 없음)"
++    echo "WARN $HOME_DIR/.claude.json projects[$ROOT] 에 mcpServers.serena url 이 없음 — 맞출 대상이 없어 root 로 렌더한다" >&2
++  else
++    [ -n "$url_port" ] || die 2 "serena url 에서 포트를 못 읽음: $url"
++    rec="$HOME_DIR/.serena/bridges/$url_port.json"
++    [ -f "$rec" ] || die 2 "좌석 포트 $url_port 의 프로젝트 기록 없음 — `serena-mcp.sh ensure <경로>` 로 한 번 띄우거나 --ensure-project 로 지정"
++    project="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("project",""))' "$rec" 2>/dev/null)"
++    [ -n "$project" ] || die 2 "기록에 project 없음: $rec"
++    ENSURE_PROJECT="$project"; ENSURE_SRC="claude.json url port=$url_port → bridges/$url_port.json"
++  fi
++  ENSURE_PORT="$(port_for "$ENSURE_PROJECT")"
++  [ -z "$url_port" ] || [ "$url_port" = "$ENSURE_PORT" ] \
++    || die 2 "ensure project=$ENSURE_PROJECT 의 port_for=$ENSURE_PORT 가 좌석 포트 $url_port 와 다름 (출처 $ENSURE_SRC)"
++}
++
++resolve_ensure_project
+ place "$HERE/serena-guard.sh" "$GUARD_DST"
+ place "$HERE/serena-mcp.sh" "$MCP_DST"
+ 
+ tmp="$(mktemp)"; trap 'rm -rf "$tmp"' EXIT
+ render_plist "$tmp"
++say "ensure project=$ENSURE_PROJECT port=$ENSURE_PORT (출처 $ENSURE_SRC)"
+ if command -v plutil >/dev/null 2>&1; then plutil -lint "$tmp" >/dev/null || die 2 "plist lint 실패"; fi
+ loaded=0; "$LAUNCHCTL" print "$DOMAIN/$LABEL" >/dev/null 2>&1 && loaded=1
+-if cmp -s "$tmp" "$PLIST" 2>/dev/null && [ "$loaded" = 1 ]; then say "ALREADY $LABEL 적재됨 (ensure root=$ROOT)"; exit 0; fi
+-say "plist $PLIST (ensure root=$ROOT)"
++if cmp -s "$tmp" "$PLIST" 2>/dev/null && [ "$loaded" = 1 ]; then say "ALREADY $LABEL 적재됨 (ensure project=$ENSURE_PROJECT)"; exit 0; fi
++say "plist $PLIST (ensure project=$ENSURE_PROJECT)"
+ [ "$APPLY" = 1 ] || { say "launchctl bootstrap $DOMAIN $PLIST"; exit 0; }
+ mkdir -p "$AGENTS_DIR" "$HOME_DIR/.claude/logs" && cp "$tmp" "$PLIST" || die 2 "plist 쓰기 실패"
+ [ "$loaded" = 1 ] && "$LAUNCHCTL" bootout "$DOMAIN/$LABEL" >/dev/null 2>&1
+ "$LAUNCHCTL" bootstrap "$DOMAIN" "$PLIST" || die 2 "launchctl bootstrap 실패: $PLIST"
+-echo "INSTALLED $LABEL plist=$PLIST root=$ROOT"
++echo "INSTALLED $LABEL plist=$PLIST ensure_project=$ENSURE_PROJECT"
+diff --git a/feature-pack/fable-team/harness/tests/test_r555_serena_ensure_port.sh b/feature-pack/fable-team/harness/tests/test_r555_serena_ensure_port.sh
+new file mode 100644
+index 00000000..3e706e5d
+--- /dev/null
++++ b/feature-pack/fable-team/harness/tests/test_r555_serena_ensure_port.sh
+@@ -0,0 +1,119 @@
++#!/usr/bin/env bash
++# test_r555_serena_ensure_port.sh — R555: 부팅 ensure plist 의 프로젝트 = «좌석이 실제로 쓰는 포트» 의 프로젝트 (+ 자식 정리 0 · BOOT 인자 이름)
++# 가짜 HOME(.claude.json · .serena/bridges) · 가짜 launchctl · 임시 루트 — 실 launchd·uvx·9493 호출 0 · 실 홈 쓰기 0.
++set -uo pipefail
++unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
++HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
++REPO="$HERE/../.."
++ZC="$REPO/harness/kit/zombie-clean"
++INSTALL="$ZC/install.sh"
++TPL="$ZC/com.byz.serena-ensure.plist.template"
++BOOT="$REPO/../tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md"
++T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
++fail=0
++ok()  { echo "PASS $1"; }
++bad() { echo "FAIL $1"; fail=$((fail+1)); }
++eq()  { [ "$1" = "$2" ] && ok "$3" || bad "$3 — «${1}» ≠ «${2}»"; }
++has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «${2}» ← ${1:0:240}";; esac; }
++hasnt(){ case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «${2}»";; *) ok "$3";; esac; }
++
++# serena-mcp.sh:33 port_for 와 같은 식 (시험 쪽 독립 계산)
++port_for() { echo $((9200 + $(printf '%s' "$1" | cksum | awk '{print $1}') % 700)); }
++
++H="$T/home"; ROOT="$T/root"; PROJ="$T/proj/.worktrees/v6-realtime-live"; OTHER="$T/other"
++mkdir -p "$H/Library/LaunchAgents" "$H/.serena/bridges" "$ROOT" "$PROJ" "$OTHER" "$T/fake"
++P="$(port_for "$PROJ")"; P_OTHER="$(port_for "$OTHER")"
++[ "$P" != "$(port_for "$ROOT")" ] || { echo "FAIL 준비 — 픽스처 포트 충돌"; exit 1; }
++[ "$P" != "$P_OTHER" ] || { echo "FAIL 준비 — 픽스처 포트 충돌(other)"; exit 1; }
++
++cat > "$T/fake/launchctl" <<EOF
++#!/bin/bash
++echo "\$*" >> "$T/launchctl.log"
++[ "\${1:-}" = print ] && exit 1
++exit 0
++EOF
++chmod +x "$T/fake/launchctl"
++
++write_claude_json() {  # $1 = serena url (빈값 = serena 키 없음)
++  if [ -z "$1" ]; then
++    printf '{"projects": {"%s": {"mcpServers": {}}}}\n' "$ROOT" > "$H/.claude.json"
++  else
++    printf '{"projects": {"%s": {"mcpServers": {"serena": {"type": "http", "url": "%s"}}}}}\n' \
++      "$ROOT" "$1" > "$H/.claude.json"
++  fi
++}
++write_bridge() {  # $1 = 포트 · $2 = project
++  printf '{"project": "%s", "port": %s, "started": "2026-10-20 18:31:39"}\n' "$2" "$1" \
++    > "$H/.serena/bridges/$1.json"
++}
++PLIST="$H/Library/LaunchAgents/com.byz.serena-ensure.plist"
++run_install() {  # 남는 인자 = install.sh 추가 인자 → rc 를 돌려준다 (stderr = $T/err)
++  : > "$T/err"
++  SERENA_INSTALL_HOME="$H" SERENA_INSTALL_LAUNCHCTL="$T/fake/launchctl" \
++    bash "$INSTALL" --apply --root "$ROOT" "$@" >"$T/out" 2>"$T/err"
++  echo $?
++}
++ensure_arg() {  # 렌더된 plist 의 ProgramArguments 중 ensure 뒤 인자
++  python3 - "$PLIST" <<'PY' 2>/dev/null
++import plistlib, sys
++d = plistlib.load(open(sys.argv[1], 'rb'))
++a = d.get('ProgramArguments', [])
++print(a[a.index('ensure') + 1] if 'ensure' in a else '')
++PY
++}
++
++# ── ⓐ 좌석 포트(bridges 기록)로 렌더 — 고치기 전 판은 ROOT 를 쓴다 (FAIL 지점)
++write_claude_json "http://127.0.0.1:$P/mcp"; write_bridge "$P" "$PROJ"
++eq "$(run_install)" 0 "ⓐ rc=0 (좌석 포트 기록 있음)"
++eq "$(ensure_arg)" "$PROJ" "ⓐ ensure 인자 = 좌석 포트의 프로젝트($PROJ)"
++hasnt "$(ensure_arg)" "$ROOT" "ⓐ ensure 인자에 ROOT 가 아님"
++has "$(cat "$T/out")" "ensure project=$PROJ port=$P" "ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»"
++
++# ── ⓑ url 포트의 bridges 기록 없음 → die 2 (루트로 조용히 내려가기 0)
++rm -f "$H/.serena/bridges/$P.json"
++eq "$(run_install)" 2 "ⓑ 기록 없음 rc=2"
++has "$(cat "$T/err")" "좌석 포트 $P 의 프로젝트 기록 없음" "ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»"
++has "$(cat "$T/err")" "serena-mcp.sh ensure <경로>" "ⓑ die 문구에 처방(ensure <경로>)"
++
++# ── ⓒ --ensure-project 명시 → 그 경로 · 포트 불일치면 die 2
++write_bridge "$P" "$PROJ"
++eq "$(run_install --ensure-project "$PROJ")" 0 "ⓒ 맞는 경로 명시 rc=0"
++eq "$(ensure_arg)" "$PROJ" "ⓒ 명시 경로가 그대로 렌더"
++eq "$(run_install --ensure-project "$OTHER")" 2 "ⓒ 포트 불일치(other=$P_OTHER) rc=2"
++has "$(cat "$T/err")" "port_for=$P_OTHER" "ⓒ die 문구에 계산 포트"
++
++# ── ⓓ .claude.json 에 serena url 없음 → ROOT 렌더 + stderr WARN 1줄
++write_claude_json ""
++eq "$(run_install)" 0 "ⓓ url 없음 rc=0"
++eq "$(ensure_arg)" "$ROOT" "ⓓ 맞출 대상 없음 = ROOT 그대로"
++eq "$(grep -c 'WARN' "$T/err")" 1 "ⓓ stderr WARN 1줄"
++
++# ── ⓔ 렌더 plist plutil 통과 + AbandonProcessGroup true (자식 정리 0)
++if command -v plutil >/dev/null 2>&1; then
++  plutil -lint "$PLIST" >/dev/null 2>&1 && ok "ⓔ plutil -lint OK" || bad "ⓔ plutil -lint 실패"
++else
++  echo "SKIP ⓔ plutil 없음"
++fi
++eq "$(python3 - "$PLIST" <<'PY' 2>/dev/null
++import plistlib, sys
++print(plistlib.load(open(sys.argv[1], 'rb')).get('AbandonProcessGroup'))
++PY
++)" "True" "ⓔ AbandonProcessGroup true"
++hasnt "$(cat "$TPL")" "__ROOT__" "ⓔ 템플릿에 옛 자리표 __ROOT__ 없음"
++
++# ── ⓕ BOOT 1번 줄 = session (줄 수 불변 · 매핑표 무변경)
++BASE_BOOT="$T/base-boot.md"
++if git -C "$REPO" show origin/main:feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md > "$BASE_BOOT" 2>/dev/null; then
++  eq "$(wc -l < "$BOOT")" "$(wc -l < "$BASE_BOOT")" "ⓕ BOOT 줄 수 불변"
++  d="$(diff "$BASE_BOOT" "$BOOT")"
++  eq "$(printf '%s\n' "$d" | grep -c '^[0-9]')" 1 "ⓕ diff 한 덩이(매핑표 무변경)"
++  line1="$(grep -m1 '^1\. \*\*Serena\*\*' "$BOOT")"
++  has "$line1" "session=" "ⓕ 1번 줄 인자 이름 = session"
++  has "$line1" "session 없이" "ⓕ 1번 줄에 «session 없이» 문구"
++  hasnt "$line1" "session_id=…" "ⓕ 1번 줄에 옛 인자 «session_id=…» 없음"
++else
++  bad "ⓕ base BOOT 를 git show 로 못 읽음"
++fi
++
++[ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
++exit "$fail"
+diff --git a/feature-pack/fable-team/manifest.json b/feature-pack/fable-team/manifest.json
+index cf797c62..c2d0ea97 100644
+--- a/feature-pack/fable-team/manifest.json
++++ b/feature-pack/fable-team/manifest.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "fable-team",
+-  "version": "1.1.106",
++  "version": "1.1.107",
+   "title": "fable-team — 일반화된 팀 오케스트레이션 하네스 (ultracode 오케스트레이터 + architect 브레인 분리)",
+   "description": "오케스트레이터(ultracode 지원 최상위 모델)는 전달·조율·모니터링만, 기획·문제해결은 architect 브레인(기본 fable5 high — max 금지)이 전담하는 Claude Code 팀 하네스. 설치 인터뷰로 워커(checker/implementer/tester/DA) 브레인·effort를 커스텀하고, codex/cursor 미가용 시 대응 모델을 추천한다. 서브의 서브 스폰은 도구 화이트리스트로 차단.",
+   "category": "workflow",
+diff --git a/feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md b/feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md
+index 7dce7d94..06d69efb 100644
+--- a/feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md
++++ b/feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md
+@@ -4,7 +4,7 @@
+ > 전문 Read·cat·큰 limit 은 PreToolUse 훅(`boot-read-gate.sh`)이 막는다. (하네스 0.4 단위 5 · GOAL-harness-v2 축 A)
+ > 매핑표 기준 전문: COMM-GUIDE.md sha256 앞16 = `d64777274c4b371a` (2026-09-23). 전문이 바뀌면 이 값과 줄 범위를 같이 갱신한다 — 대조는 `ft-version.sh check`(단위 2).
+ 
+-1. **Serena**: `initial_instructions` 를 먼저 1회 호출해 `session_id` 를 받은 뒤 `activate_project(project="<현재 워크트리 절대경로>", session_id=…)` (이름 아님 · `get_current_config` 먼저 부르지 말 것 · session_id 없이 부르면 `Field required` 로 실패한다 — 2026-09-23 두 좌석 실측). 미노출이면 재시작 말고 grep 진행 + 보고에 「Serena 미사용」 명시.
++1. **Serena**: `initial_instructions` 를 먼저 1회 호출해 `session_id` 를 받은 뒤 `activate_project(project="<현재 워크트리 절대경로>", session=…)` (이름 아님 · `get_current_config` 먼저 부르지 말 것 · session 없이 부르면 `Field required` 로 실패한다 — 2026-09-23 두 좌석 실측). 미노출이면 재시작 말고 grep 진행 + 보고에 「Serena 미사용」 명시.
+ 2. **부팅 첫 보고 3항(+1)**: 세션명 / 모델+창 크기(`[1m]` 여부) / Serena 가부 (+ master·architect·DA·pm 은 i-have-adhd 로드 여부) — mbox 로 오케에 발신 전엔 착수하지 않는다. ★오빠에게 가는 글(pane·슬랙·인터뷰)은 GUIDE-human-report 틀(결론→할 일→바뀐 것→근거) · mbox 는 예외.★
+ 3. **발주(오케→좌석)** = 본문은 mbox 파일 큐 + 창엔 `[발주 #seq] … recv …` 지시문 한 줄. **보고(좌석→오케)** = mbox. 도달 판정은 pane capture 가 아니라 jsonl 층(`ft-reach-check.sh`). ★재발주는 `{mbox} ring <좌석> <최초 seq>` — 다시 send 하면 좌석이 같은 발주를 2건 본다(pending=2 실측). 발주 뒤 3초에 busy 확인, 안 돌면 ring.★
+ 4. **mbox**: `{mbox} send {to} {me} "본문"`(3~5줄 · 700자 넘으면 수신측 절단+전문경로) · `{mbox} recv {me}`(READ 라인을 화면에 인용) · `{mbox} peek {me}` · 긴 내용은 `{mbox} relay {to} {me} <파일> "요약"`. `{mbox}` 경로는 주입문의 것을 쓴다. 알림 여부는 seats.json 의 tick 유무가 정한다(`--no-notify` 는 무시·경고만, 급하면 `--urgent`). 진행보고는 mbox 가 아니라 파일에. **master 로는 두 가지만**: 집행 요청(커밋·push·좌석 개설) · 사람 판정이 필요한 것. fan-out 금지(한 값은 한 좌석) · 답 안 받은 상대에게 겹쳐 보내지 않는다.
