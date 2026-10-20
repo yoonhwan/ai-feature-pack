@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-20 — 보낸 쪽지 사본을 `.1` 한 벌이 아니라 `.1`~`.3` 으로 밀어 보관 — 매거진 24시간 창이 창 앞을 덮게 (r553 · 1.1.105 · 하네스 내부 장치 · 새 장치 0)
+
+- 사건(2026-10-20 08:00 매거진 발행 실패 · `~/.hermes/logs/byz_magazine_model.err:220` 원문 «MagazineError: mbox 사본이 회전본을 이어도 창 앞부분을 덮지 못해요(창 시작 2026-10-19T08:00:00)»): 쪽지가 바쁜 날 하루 약 12.5MB 라 `mailbox.log.jsonl` 이 5MB 를 약 10시간 만에 채우고 회전했다. 회전본은 `.1` 한 벌뿐이라 10-19 18:04 보다 앞은 지워졌고, 매거진의 24시간 창(10-19 08:00 시작) 앞부분을 아무도 못 덮어 발행이 매일 위험했다.
+- 고침(쓰는 쪽 2 + 읽는 쪽 1 · 한도 5MB 그대로): ① `comm/mbox_conf.py` 에 `SENT_LOG_KEEP = max(1, FT_MBOX_LOG_KEEP or 3)` ② `comm/mbox_guard.py` `_log_sent` 가 한도 초과 시 `.{K-1}`→`.{K}` … `.1`→`.2` 로 밀어 보관한 뒤 현재판→`.1`(새 함수 `_rotate_sent_log`) ③ 같은 꼴을 키트 `kit/fable-team/bin/ft-mbox.py` 에도(`skill/scripts/ft-mbox.py` 정본 bin 짝 cmp0) ④ `kit/slack-mirror/magazine_collect_mbox.py` `read_window` 가 현재판이 창을 못 덮으면 `.1`~`.N`(최대 `FT_MBOX_LOG_KEEP` · 기본 3)을 하나씩 이어 읽고, **빠진 벌에서 멈추며**, 다 이어도 못 덮으면 이어 읽은 파일·첫 ts 를 전부 메시지에 적고 raise(숨기기 0). docstring «회전본은 1개뿐» 고침.
+- 왜 한도를 안 키우나: `_received_seqs` 가 send 마다 `.1`+현재판을 통째로 읽으므로 파일이 커지면 쪽지 보내기가 느려진다. 벌 수를 늘리면 파일 하나의 크기는 그대로다.
+- 시험(ⓐ~ⓗ · 실 우편함·`~/.hermes` 쓰기 0 · tmp_path 만): ⓐ `FT_MBOX_LOG_KEEP=3`·한도 600B·60건 send → `.1`·`.2`·`.3` 실재 `.4` 없음 · 네 벌 seq 이어 붙이면 오름차순·빈틈 0(r553 전 FAIL) ⓑ 기본값 = 3벌(전 FAIL) ⓒ `=1` = 옛 동작 `.1` 하나 ⓓ 같은 계약을 키트 경로 `tests/test_ft_mbox_sent_log.sh` ⓖ 칸으로 ⓔ 창 시작이 `.2` 안에만 → 전 FAIL·후 PASS ⓕ `.1`~`.3` 다 이어도 못 덮으면 raise(파일 3개·첫 ts 전부 · `.4` 는 안 읽음) ⓖ 중간 벌(`.2`) 빠짐 → `.3` 이 덮어도 건너뛰지 않고 멈춤 ⓗ 기존 시험 파일은 칸 추가만(삭제 0).
+- 증거 `harness/evidence/r553/`: `01-before-red.txt`(고치기 전 ⓐ·ⓑ·ⓔ·ⓕ 4 FAIL) · `02-after-pass.txt` · `03-kit-sh-test.txt` · `04-base-diff.txt`.
+- 설치: 있음 — 루트 `.fable-team/comm/{mbox_conf,mbox_guard}.py` cmp0 2 · LIVE_BIN `ft-mbox.py` cmp0 1 · `~/.hermes/scripts/magazine_collect_mbox.py` cmp0 1 → `harness/install.sh --apply --project <루트>` + `kit/slack-mirror/install-magazine.sh`. **설치 집행은 master 소관 — 미실행.** 데몬 재기동 0(매거진은 launchd 가 매일 새로 부름). 되돌림 = env `FT_MBOX_LOG_KEEP=1`(옛 동작) 또는 `.bak-<버전>`.
+- 범위 밖: 한도 5MB 변경 · `.1` 만 읽는 다른 5곳(`_received_seqs`·`ft_board_mail.py`·`ft-measure-net.sh`·`ft-nano-never-started-check.sh`·`ft_da_hold_gate.py` — 그들은 «최근 2벌» 로 충분한 짧은 창 · 이 카드는 «더 오래된 벌이 지워지지 않고 남음» 만 바꾼다) · 날짜별 보관 · `bodies/` TTL · 매거진 창 길이 · 이미 지워진 10-19 08:00~18:04 기록 복구(불가).
+
 ## 2026-10-20 — 공용 라이브 뿌리 `feat/v6-realtime-live` = «병합하지 않는 줄기»: 뒤처짐 알림·병합 처방이 그 폴더를 더 이상 가리키지 않는다 (r549 · 1.1.104 · 데이터 1줄)
 
 - 사건: main 이 움직일 때마다 planner 앞으로 «`v6-realtime-live`(feat/v6-realtime-live) 가 main 보다 284커밋 뒤 — 받아 오라» 는 알림과 «`ft-head-sync --apply`» 처방이 반복해서 갔다(v65 알림 120284 · master 85 발주 120290). 그 폴더는 여러 팀이 같이 쓰는 라이브 작업 뿌리라 남의 staged·수정이 1500줄 넘게 있고, main 으로 병합하지 않기로 한 줄기다(메모리 10-18 «merge 처방 금지»). 처방을 그대로 따르면 전 팀 라이브가 흔들린다.
