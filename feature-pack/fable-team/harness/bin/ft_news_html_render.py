@@ -11,6 +11,7 @@ opencode run --standalone = 비대화 1회 · stdin 은 /dev/null(물려받은 s
 env: FT_NEWS_MODEL(기본 opencode/deepseek-v4.1-flash-free) · FT_NEWS_EFFORT(변형 → --model <ID>#<변형> · 비거나 base = 변형 없음 · http 는 변형 접미를 뗀다) · FT_NEWS_DEPTH(프롬프트 «깊이» 문장 · 변형이 없을 때 대체) · FT_OPENCODE(기본 opencode)
      · FT_NEWS_VIA(http|opencode) · FT_NEWS_HTTP_BASE(http 주소 앞자리 · 기본 공급자 표) · FT_NEWS_KEY_FILE(키 파일 · 기본 ~/.zshrc) · FT_NEWS_PI_MODELS(pi 설정 · 기본 ~/.pi/agent/models.json · opengateway 키 출처)
      · FT_NEWS_FIXED_S(기동 고정비 고정) · FT_NEWS_STARTUP_LOG(기동 기록 · 기본 <루트>/.fable-team/state/news-cli-startup.tsv)
+     · FT_NEWS_IDLE_S(스트림 조각 사이 무진행 상한 · 기본 7.0 · r592 — 총 마감 DEADLINE_S 는 별개로 그대로)
 """
 import html
 import json
@@ -39,6 +40,7 @@ HTTP_BASE = {"openrouter": "https://openrouter.ai/api/v1",
              "opengateway": "https://apis.opengateway.ai/v1"}  # 공급자 접두 → OpenAI 호환 주소 앞자리(r575 opengateway = pi 딥식)
 HTTP_KEY = {"openrouter": "OPENROUTER_API_KEY", "opengateway": "OPENGATEWAY_API_KEY"}
 DEADLINE_S = 70
+IDLE_S = 7.0  # r592 — 스트림 «조각 사이 무진행» 상한(하드 룰 12) · 총 마감(DEADLINE_S)과 별개 · env FT_NEWS_IDLE_S
 # r582 — 0단계 측정(harness/evidence/r582/00-measure.txt): deepseek v4.1 은 답 전에 생각을 8.7K~13.5K 자 쓰고, 그 토큰이 max_tokens 4096 을 먼저 먹어
 # 5회 중 2회가 finish_reason=length(답 0자 또는 끝 근처에서 잘림)로 실패했다. 같은 프롬프트로 필드 3종을 재어 «생각 0자 · JSON OK» 3/3 이 나온 필드 = reasoning_effort.
 REASONING_OFF = {"reasoning_effort": "none"}  # 생각 끄기 — 0단계 원문이 정한 한 곳. 공급자가 거부(4xx)하면 그 사실을 ERROR 로 남긴다(조용히 빼기 0)
@@ -260,13 +262,32 @@ def _once(cmd: list[str], left: float, part: str) -> tuple[int | None, str, str,
     return (None, out, f"{part} 상한 {left:.0f}s 초과(총 마감 {DEADLINE_S}s)", at) if over else (p.returncode, out, err, at)
 
 
-def _sse_text(lines) -> tuple[str, list, dict]:
+def idle_s() -> float:
+    """조각 사이 무진행 상한 — FT_NEWS_IDLE_S(기본 IDLE_S)."""
+    try:
+        return float(os.environ.get("FT_NEWS_IDLE_S") or IDLE_S)
+    except ValueError:
+        return IDLE_S
+
+
+def _sse_text(lines, deadline: float, idle_s: float) -> tuple[str, list, dict]:
     """OpenAI 호환 스트림 줄 → (이어 붙인 글, 첫 글 시각 목록, 끝난 이유 묶음) — data: 줄만 · 깨진 줄·[DONE] 무시.
-    묶음 = {finish_reason: 마지막 값 · usage: 마지막 값 · reasoning: 생각(reasoning_content) 글자 수} — 답 글은 지금처럼 content 만(r582)."""
-    out, first, meta = [], [], {"finish_reason": None, "usage": {}, "reasoning": 0}
+    묶음 = {finish_reason: 마지막 값 · usage: 마지막 값 · reasoning: 생각(reasoning_content) 글자 수 · stop: 끊은 이유 | None}
+    — 답 글은 지금처럼 content 만(r582). r592: 줄마다 시각을 본다 — 총 마감(deadline) 넘음 = «총 마감» · 직전 줄 뒤 idle_s 넘음 = «무진행».
+    소켓 timeout 은 «한 번 읽기» 상한이라 조각이 그보다 짧은 간격으로 계속 오면 끝까지 돌던 자리다(실측 115.5초)."""
+    out, first, meta = [], [], {"finish_reason": None, "usage": {}, "reasoning": 0, "stop": None}
+    start = last = time.monotonic()
     for raw in lines:
+        now = time.monotonic()
+        if now > deadline:
+            meta["stop"] = ("총 마감", now - start)
+            break
+        if now - last > idle_s:
+            meta["stop"] = ("무진행", now - last)
+            break
+        last = now
         if not first:
-            first.append(time.monotonic())
+            first.append(now)
         line = raw.decode("utf-8", "replace").strip()
         if not line.startswith("data:"):
             continue
@@ -302,7 +323,7 @@ def _http_once(prompt: str, part: str, left: float) -> tuple[int | None, str, st
     t0 = time.monotonic()
     try:
         with urllib.request.urlopen(req, timeout=left) as r:  # noqa: S310 — 주소 = 공급자 표(시험은 로컬 서버)
-            text, first, meta = _sse_text(r)
+            text, first, meta = _sse_text(r, t0 + left, idle_s())
     except urllib.error.HTTPError as e:
         if e.code == 400 and REASONING_OFF:  # r582 — 생각 끄기 필드를 공급자가 거부 = 조용히 빼고 보내지 않고 ERROR 로 남긴다
             detail = e.read()[:160].decode("utf-8", "replace").replace("\n", " ")
@@ -316,6 +337,9 @@ def _http_once(prompt: str, part: str, left: float) -> tuple[int | None, str, st
     diag = f"끝난 이유={meta['finish_reason'] or '없음'} · 답 {len(text)}자 · 생각 {meta['reasoning']}자"
     if meta["usage"]:  # usage 를 보내는 공급자(stream_options)면 토큰까지 남긴다 — 잘림 계산 근거
         diag += f" · 토큰 입{meta['usage'].get('prompt_tokens', '?')}/출{meta['usage'].get('completion_tokens', '?')}"
+    if stop := meta["stop"]:  # r592 — 총 마감·무진행으로 끊었다 = rc 1 + 사유(받은 답 글자 남김 · 출력 시작 뒤라 재시도 0)
+        why = f"총 마감 {stop[1]:.0f}초 초과" if stop[0] == "총 마감" else f"무진행 {stop[1]:.0f}초"
+        return 1, text, f"{part} {why} · {diag}", at
     if not text.strip():
         return 1, "", f"{part} 답 0자 · {diag}", at
     if meta["finish_reason"] == "length":  # 잘린 답 — JSON 파싱 실패로 오해하지 않게 이름 붙인다(발행 0)

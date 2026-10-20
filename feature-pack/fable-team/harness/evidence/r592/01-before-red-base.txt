@@ -1,0 +1,8 @@
+
+tests/scripts/test_news_stream_deadline_r592.py:126: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_stream_deadline_r592.py::test_a_total_deadline_stops_endless_chunks
+FAILED tests/scripts/test_news_stream_deadline_r592.py::test_b_idle_gap_stops_reading
+FAILED tests/scripts/test_news_stream_deadline_r592.py::test_d_no_retry_after_output_started
+FAILED tests/scripts/test_news_stream_deadline_r592.py::test_e_socket_closed_after_stop
+4 failed, 1 passed in 12.54s
