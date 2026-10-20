@@ -1,0 +1,38 @@
+PASS bash -n 계획
+PASS ⓐ 지금 판(h34 틀) = SKIP 미커밋
+PASS ⓐ 지금 판 = 폴더 그대로
+PASS ⓐ 새 계획 rc
+PASS ⓐ REMOVED
+PASS ⓐ 보관 tar 1
+PASS ⓐ tar 에 흔적 패치
+PASS ⓐ tar 에 삭제 목록
+PASS ⓐ tar 에 정보
+PASS ⓐ tar 안 패치에 serena 1줄
+PASS ⓐ RESULT removed=1
+PASS ⓐ RESULT tar=1
+PASS ⓐ df 줄
+PASS ⓐ 폴더 없음
+PASS ⓐ 가지 그대로
+PASS ⓑ rc
+PASS ⓑ REMOVED
+PASS ⓑ 삭제 목록 2줄
+PASS ⓑ 폴더 없음
+PASS ⓒ SKIP 추적 안 된 파일
+PASS ⓒ 폴더 그대로
+PASS ⓒ tar 0
+PASS ⓓ SKIP 흔적 아닌 변경
+PASS ⓓ 폴더 그대로
+PASS ⓔ SKIP 원격 보관 없음
+PASS ⓔ 폴더 그대로
+PASS ⓕ SKIP cwd 사용 중
+PASS ⓕ 폴더 그대로
+PASS ⓖ SKIP 좌석 cwd
+PASS ⓖ 폴더 그대로
+PASS dry-run rc
+PASS dry-run WOULD-REMOVE
+PASS dry-run 폴더 그대로
+PASS dry-run tar 0
+PASS ⓖ 가지 수 변화 0
+PASS 계획 본문 강제 옵션 0
+== rc=0
+ALL PASS
