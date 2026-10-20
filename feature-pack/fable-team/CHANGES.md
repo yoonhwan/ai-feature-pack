@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 시험 임시 환경에 «공용 루트» 도우미: 자원 문지기 시험이 다시 회귀를 잡게 (r537 · 1.1.87)
+
+- 사건: `test_resource_gate`(FAIL 9) · `test_resource_gate_pressure`(FAIL 5)가 팩 origin/main 에서도 RED(r522 나노 보고 · master 84 발주 119766). 좌석 여는 도구가 r459 뒤 공용 comm 폴더를 «먼저» 푸는데, 시험 임시 환경엔 공용 루트가 없어 자원 문지기에 닿기 전에 `ERROR comm 폴더를 못 풂` rc=3 으로 끝남 = r516 묶음 ③(공용 루트·comm·팀 명단 전제).
+- `harness/tests/lib/fake_resource_env.sh`: `fake_comm_root <dir> [LIVE_BIN]` = 임시 git 리포 + `.fable-team/comm`·`state`·`LIVE_BIN` + `design/TEAMS.md` 최소 명단 → `FT_ROOT` export(ft_comm_dir·ft_data_root 가 git 을 부르지 않고 풂). 기존 `fake_resource_env` 무변경. pytest 판 = `tests/scripts/fake_resource_env.py` `fake_comm_root` + `conftest.py` 픽스처(명부 `seats.json` 도 심음 — `ft-nano-close.sh` R400).
+- 묶음 ③ 셸 고침: resource_gate · cherry_gate_identical_head · penalty_spawn_gate · teamset_gitref · team_literal_paths · flag_off_scan · ft_land(= `fake_comm_root` 또는 임시 리포에 comm) · proposal_card · press_role_bts_gate(임시 리포 TEAMS.md) · live_install_check_tip · team_scaffold_empty_template(`--kit` 명시 · r426 꼴) · seat_handover(무인자 status 에 FT_ROOT) · spawn_gate_landing_branch(연쇄 통과). `test_resource_gate_pressure` H3 = 팩에 없는 BYZ `design/TEAMSET.md` 복사 → 같은 머리줄 최소 표(test_arch_required_gate 꼴). pytest: weekly_review(cwd = 임시 루트) · disk_census(명부).
+- 시험: 묶음 ③ 셸 16 = 전 rc0 0 → 후 rc0 11(`harness/evidence/r537/before|after-bucket3-shell-rc.txt`) · pytest 2파일 19 failed → 0(47 passed). 전체(같은 바탕 5fb4b134): 셸 실패 53 → 42 · pytest 23 → 4 failed · «후에만 실패» 셸 0 · pytest 0(`compare.txt`). 단언 삭제·완화 0 · 변이 검출 그대로.
+- 남은 묶음 ③ 안 다른 뿌리(범위 밖): `test_resource_gate_pressure` 감시자 줄 수(r534) · `test_seat_handover` guard·`test_team_move_roundtrip` ⓑ'(임시 bin 형제 누락 = ⑥ · r536) · `test_sheet_verify`(`_fake_mbox.sh` 옛 자리 = ⑤) · `test_team_scaffold_empty_template` ⓐ(옛 BYZ 틀 경로 문구 = ⑤) · `test_team_move_roundtrip` ⓒ(env 없이도 자기 위치로 풀림 — 시험 기대 결정 필요).
+- 설치: 없음(시험 파일만 · 키트 diff 0).
+
 ## 2026-10-20 — 닫힌 나노 정리 계획이 밀리지 않게: sweep 시간 상한 안 여러 건 · 옛 판 계획 재생성 · 지운 크기·등록 없는 폴더 목록 (r535 · 1.1.86)
 
 - 사건: 10-19 12:09~10-20 09:53 새 `.worktrees` 88개 ≈83GiB(planner 83 쪽지 119683). arch 107 읽기 전용 실측 — 대기 계획 18(막는 프로세스 0 이 17) · sweep 이 pass 당 1건(`FT_WT_SWEEP_MAX` 기본 1)이라 «이월 18~21» 상주 · 하네스 재설치마다 생성기 판이 바뀌어 옛 판 계획이 `.stale` 로 빠지고 다시 안 만들어짐(177) · `.hil` 57 · 등록 없는 폴더 59.

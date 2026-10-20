@@ -1,0 +1,25 @@
+# r537 전체 전·후 — 전 = 팩 origin/main 5fb4b134 사본 · 후 = 나노 638f63d3 · 셸 3병렬 nice15 시험당 300s · pytest = BYZ .venv python3.13 · FT_ROOT·FT_MBOX_DIR unset
+셸: 전 264개 실패 53 → 후 실패 42
+pytest 전: 23 failed, 1878 passed, 2 skipped in 609.37s (0:10:09)
+pytest 후: 4 failed, 1897 passed, 2 skipped in 598.17s (0:09:58)
+## 셸 후에만 실패
+(위 빈칸 = 0)
+## 셸 고쳐짐(전 RED → 후 rc0)
+tests/test_cherry_gate_identical_head.sh
+tests/test_flag_off_scan.sh
+tests/test_ft_land.sh
+tests/test_live_install_check_tip.sh
+tests/test_penalty_spawn_gate.sh
+tests/test_press_role_bts_gate.sh
+tests/test_proposal_card.sh
+tests/test_resource_gate.sh
+tests/test_spawn_gate_landing_branch.sh
+tests/test_team_literal_paths.sh
+tests/test_teamset_gitref.sh
+## pytest 후에만 실패
+(위 빈칸 = 0)
+## pytest 남은 실패(전에도 실패)
+FAILED tests/scripts/test_ft_hil_secret_lint.py::test_install_plan_installs_three_files_and_one_entry_once_from_landed_sha
+FAILED tests/scripts/test_press_gate_set_membership.py::test_set_paths_single_source_in_set_check
+FAILED tests/scripts/test_seat_turn_batch.py::test_a_module_matches_old_shell_verdict_40_of_40
+FAILED tests/scripts/test_seat_turn_batch.py::test_e_shell_turn_output_bytes_unchanged

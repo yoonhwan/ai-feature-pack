@@ -1,0 +1,364 @@
+# python: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python
+FFFFFFFFFFFFF...............F.FF..F........F.F.                          [100%]
+=================================== FAILURES ===================================
+_____________________ test_creates_both_tables_with_facts ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_creates_both_tables_with_0')
+
+    def test_creates_both_tables_with_facts(tmp_path):  # 1ⓐ ⓑ
+        make_world(tmp_path)
+        res = run_tool(tmp_path)
+>       assert res.returncode == 0, res.stderr
+E       AssertionError: ERROR 리포 공용 루트를 못 풂 — cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_creates_both_tables_with_0) 가 .fable-team/ 있는 git 리포 아님 · 옛 설치 꼴 아님(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+
+tests/scripts/test_ft_weekly_review.py:173: AssertionError
+________________________ test_decision_cells_all_empty _________________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_decision_cells_all_empty0')
+
+    def test_decision_cells_all_empty(tmp_path):  # 1ⓒ
+        make_world(tmp_path)
+>       assert run_tool(tmp_path).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_decision_cells_all_empty0'))
+
+tests/scripts/test_ft_weekly_review.py:179: AssertionError
+_________ test_rerun_same_week_adds_one_remeasure_section_and_no_mail __________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_rerun_same_week_adds_one_0')
+
+    def test_rerun_same_week_adds_one_remeasure_section_and_no_mail(tmp_path):  # 1ⓓ
+        make_world(tmp_path)
+>       assert run_tool(tmp_path).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_rerun_same_week_adds_one_0'))
+
+tests/scripts/test_ft_weekly_review.py:185: AssertionError
+________________________ test_carry_over_from_last_week ________________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_carry_over_from_last_week0')
+
+    def test_carry_over_from_last_week(tmp_path):  # 1ⓔ
+        make_world(tmp_path)
+>       assert run_tool(tmp_path).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_carry_over_from_last_week0'))
+
+tests/scripts/test_ft_weekly_review.py:191: AssertionError
+___________________ test_sends_two_mails_to_current_masters ____________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_sends_two_mails_to_curren0')
+
+    def test_sends_two_mails_to_current_masters(tmp_path):  # 1ⓕ
+        make_world(tmp_path)
+>       assert run_tool(tmp_path).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_sends_two_mails_to_curren0'))
+
+tests/scripts/test_ft_weekly_review.py:201: AssertionError
+__________________ test_unreadable_source_is_said_not_silent ___________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_unreadable_source_is_said0')
+
+    def test_unreadable_source_is_said_not_silent(tmp_path):  # #0 RULE
+        make_world(tmp_path)
+        queue = tmp_path / "planner/design/planner/DECISIONS-oppa-queue-20261013.md"
+        queue.chmod(0)
+        try:
+            res = run_tool(tmp_path)
+        finally:
+            queue.chmod(0o644)
+>       assert res.returncode == 0, res.stderr
+E       AssertionError: ERROR 리포 공용 루트를 못 풂 — cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_unreadable_source_is_said0) 가 .fable-team/ 있는 git 리포 아님 · 옛 설치 꼴 아님(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+
+tests/scripts/test_ft_weekly_review.py:216: AssertionError
+____________ test_pipe_in_fact_stays_in_fact_column_and_is_carried _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_pipe_in_fact_stays_in_fac0')
+
+    def test_pipe_in_fact_stays_in_fact_column_and_is_carried(tmp_path):  # C1
+        make_world(tmp_path)
+>       assert run_tool(tmp_path).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_pipe_in_fact_stays_in_fac0'))
+
+tests/scripts/test_ft_weekly_review.py:223: AssertionError
+_______________ test_seats_stderr_noise_is_not_counted_as_a_seat _______________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_seats_stderr_noise_is_not0')
+
+    def test_seats_stderr_noise_is_not_counted_as_a_seat(tmp_path):  # P5 — 로케일 경고 같은 stderr 줄이 «현역 좌석 N줄» 에 섞이지 않는다
+        make_world(tmp_path)
+        _put(tmp_path / "seats.sh", f"#!/usr/bin/env bash\necho 'bash: warning: setlocale: LC_ALL: cannot change locale' >&2\ncat <<'EOF'\n{SEATS}EOF\n")
+        res = run_tool(tmp_path)
+>       assert res.returncode == 0, res.stderr
+E       AssertionError: ERROR 리포 공용 루트를 못 풂 — cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_seats_stderr_noise_is_not0) 가 .fable-team/ 있는 git 리포 아님 · 옛 설치 꼴 아님(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+
+tests/scripts/test_ft_weekly_review.py:235: AssertionError
+__________________ test_malformed_prior_row_raises_not_silent __________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_malformed_prior_row_raise0')
+
+    def test_malformed_prior_row_raises_not_silent(tmp_path):  # C1
+        make_world(tmp_path)
+        _put(tmp_path / "planner/design/planner/weekly/REVIEW-planner-20261005.md",
+             "| 항목 | 사실 | 결정 |\n|---|---|---|\n| P1 결정 대기열 | a | b | c |\n")
+        res = run_tool(tmp_path)
+>       assert res.returncode != 0 and "3열" in res.stderr
+E       AssertionError: assert (1 != 0 and '3열' in 'ERROR 리포 공용 루트를 못 풂 — cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test...s/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n')
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +  and   'ERROR 리포 공용 루트를 못 풂 — cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test...s/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').stderr
+
+tests/scripts/test_ft_weekly_review.py:245: AssertionError
+_______ test_failed_mail_is_loud_recorded_and_retried_only_for_failures ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_failed_mail_is_loud_recor0')
+
+    def test_failed_mail_is_loud_recorded_and_retried_only_for_failures(tmp_path):  # C2
+        make_world(tmp_path)
+        broken_mbox(tmp_path)
+        res = run_tool(tmp_path)
+        assert res.returncode != 0 and "ERROR" in res.stderr
+>       assert [notified(p) for p in files(tmp_path)] == [["fail"], ["fail"]] and not mbox_calls(tmp_path)
+                ^^^^^^^^^^^
+
+tests/scripts/test_ft_weekly_review.py:258: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_ft_weekly_review.py:250: in notified
+    return re.findall(r"<!-- notified: \S+=(ok|fail) -->", path.read_text(encoding="utf-8"))
+                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_failed_mail_is_loud_recor0/planner/design/planner/weekly/REVIEW-planner-20261012.md')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_failed_mail_is_loud_recor0/planner/design/planner/weekly/REVIEW-planner-20261012.md'
+
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+_______________________ test_only_failed_seat_is_retried _______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_only_failed_seat_is_retri0')
+
+    def test_only_failed_seat_is_retried(tmp_path):  # C2
+        make_world(tmp_path)
+        p, h = files(tmp_path)
+>       assert run_tool(tmp_path).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f.../yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/feature-pack/fable-team/harness/bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_only_failed_seat_is_retri0'))
+
+tests/scripts/test_ft_weekly_review.py:269: AssertionError
+__________________ test_mutant_filled_decision_cell_is_caught __________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0')
+
+    def test_mutant_filled_decision_cell_is_caught(tmp_path):  # 변이 ⓐ → 1ⓒ rc=1
+        make_world(tmp_path)
+>       assert run_tool(tmp_path, bin_dir=_mutant(tmp_path, 'DECISION_CELL = ""', 'DECISION_CELL = "계속"')).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690...lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0/mutant-bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690...lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0/mutant-bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0'), bin_dir=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0/mutant-bin'))
+E        +      where PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0/mutant-bin') = _mutant(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_filled_decision_ce0'), 'DECISION_CELL = ""', 'DECISION_CELL = "계속"')
+
+tests/scripts/test_ft_weekly_review.py:290: AssertionError
+____________________ test_mutant_remail_on_rerun_is_caught _____________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_remail_on_rerun_is0')
+
+    def test_mutant_remail_on_rerun_is_caught(tmp_path):  # 변이 ⓑ → 1ⓓ rc=1
+        make_world(tmp_path)
+        mutant = _mutant(tmp_path, "MAIL_ON_RERUN = False", "MAIL_ON_RERUN = True")
+>       assert run_tool(tmp_path, bin_dir=mutant).returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690...lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_remail_on_rerun_is0/mutant-bin)\n').returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690...lders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_remail_on_rerun_is0/mutant-bin)\n') = run_tool(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_remail_on_rerun_is0'), bin_dir=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_mutant_remail_on_rerun_is0/mutant-bin'))
+
+tests/scripts/test_ft_weekly_review.py:301: AssertionError
+___________ test_plan_generates_only_for_landed_seatless_clean_nanos ___________
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_g...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_generates_only_for_l0')}
+
+    def test_plan_generates_only_for_landed_seatless_clean_nanos(env):
+        r = _run_plan(env)
+        assert r.returncode == 0, r.stdout + r.stderr
+>       assert _plans(env) == ["ft-v65-temp-card#0.sh", "ft-v65-temp-shell#0.sh", "ft-v65-temp-sq#0.sh"]
+E       AssertionError: assert [] == ['ft-v65-temp...temp-sq#0.sh']
+E         
+E         Right contains 3 more items, first extra item: 'ft-v65-temp-card#0.sh'
+E         Use -v to get more diff
+
+tests/scripts/test_disk_census.py:209: AssertionError
+_____________ test_plan_is_not_overwritten_when_it_already_exists ______________
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_i...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_is_not_overwritten_w0')}
+
+    def test_plan_is_not_overwritten_when_it_already_exists(env):
+        _run_plan(env)
+        p = env["tmp"] / "wtc" / "ft-v65-temp-sq#0.sh"
+>       p.write_text("# 사람이 손댄 계획\n")
+
+tests/scripts/test_disk_census.py:222: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:555: in write_text
+    return PathBase.write_text(self, data, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:651: in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_is_not_overwritten_w0/wtc/ft-v65-temp-sq#0.sh')
+mode = 'w', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_is_not_overwritten_w0/wtc/ft-v65-temp-sq#0.sh'
+
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+___ test_plan_header_is_close_generator_plan_so_sweep_version_check_applies ____
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_h...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_header_is_close_gene0')}
+
+    def test_plan_header_is_close_generator_plan_so_sweep_version_check_applies(env):
+        _run_plan(env)
+>       body = (env["tmp"] / "wtc" / "ft-v65-temp-sq#0.sh").read_text()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_disk_census.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_header_is_close_gene0/wtc/ft-v65-temp-sq#0.sh')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_header_is_close_gene0/wtc/ft-v65-temp-sq#0.sh'
+
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+_____________ test_plan_runs_past_missing_ledger_row_marks_nothing _____________
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_r...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_runs_past_missing_le0')}
+
+    def test_plan_runs_past_missing_ledger_row_marks_nothing(env):
+        """원장에 닫힘 행이 없는(close 를 거친 적 없는) 좌석의 계획이 «원장 표식 실패» 로 멈추지 않는다."""
+        _run_plan(env)
+        plan = env["tmp"] / "wtc" / "ft-v65-temp-sq#0.sh"
+        baton = env["tmp"] / "baton-stub"
+        baton.write_text("#!/bin/bash\nexit 0\n")
+        baton.chmod(baton.stat().st_mode | stat.S_IEXEC)
+        e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "BATON_BIN": str(baton), **_plan_env(env)}
+        r = subprocess.run(["bash", str(plan)], capture_output=True, text=True, cwd=env["repo"], env=e)
+>       assert r.stdout.strip().splitlines()[-1].startswith("cleaned"), r.stdout + r.stderr
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests/scripts/test_disk_census.py:257: IndexError
+_______ test_plan_only_rejects_unlanded_branch_even_when_called_directly _______
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_o...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_only_rejects_unlande0')}
+
+    def test_plan_only_rejects_unlanded_branch_even_when_called_directly(env):
+        wt = env["repo"] / ".worktrees" / "v65-un"
+        e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", **_plan_env(env)}
+        r = subprocess.run(["bash", str(BIN / "ft-nano-close.sh"), "ft-v65-temp-un#0", "--plan-only", str(wt)], capture_output=True, text=True, cwd=env["repo"], env=e)
+>       assert r.returncode == 1 and "착지" in r.stdout and _plans(env) == []
+E       AssertionError: assert (1 == 1 and '착지' in 'ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwa..._plan_only_rejects_unlande0/repo/.fable-team/seats.json — FT_SEATS_JSON 으로 지정(워크트리 .fable-team/seats.json 이면 그 절대경로)\n')
+E        +  where 1 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f...ejects_unlande0/repo/.fable-team/seats.json — FT_SEATS_JSON 으로 지정(워크트리 .fable-team/seats.json 이면 그 절대경로)\n', stderr='').returncode
+E        +  and   'ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwa..._plan_only_rejects_unlande0/repo/.fable-team/seats.json — FT_SEATS_JSON 으로 지정(워크트리 .fable-team/seats.json 이면 그 절대경로)\n' = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r537-tests-temp-root-comm-bucket3/f...ejects_unlande0/repo/.fable-team/seats.json — FT_SEATS_JSON 으로 지정(워크트리 .fable-team/seats.json 이면 그 절대경로)\n', stderr='').stdout
+
+tests/scripts/test_disk_census.py:355: AssertionError
+_______________ test_plan_revalidates_landing_at_execution_time ________________
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_r...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-690/test_plan_revalidates_landing_0')}
+
+    def test_plan_revalidates_landing_at_execution_time(env):
+        """계획 생성 뒤 가지에 미착지 커밋이 붙으면 실행 시점에 거부 — 워크트리·가지 그대로."""
+        _run_plan(env)
+        plan = env["tmp"] / "wtc" / "ft-v65-temp-sq#0.sh"
+        w = env["repo"] / ".worktrees" / "v65-sq"
+        commit(w, {"late.txt": "unlanded after plan"}, "late commit after plan generation")
+        baton = env["tmp"] / "baton-stub"
+        baton.write_text("#!/bin/bash\nexit 0\n")
+        baton.chmod(baton.stat().st_mode | stat.S_IEXEC)
+        e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "BATON_BIN": str(baton), **_plan_env(env)}
+        r = subprocess.run(["bash", str(plan)], capture_output=True, text=True, cwd=env["repo"], env=e)
+>       assert r.stdout.strip().splitlines()[-1].startswith("skipped:착지"), r.stdout + r.stderr
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests/scripts/test_disk_census.py:376: IndexError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_weekly_review.py::test_creates_both_tables_with_facts
+FAILED tests/scripts/test_ft_weekly_review.py::test_decision_cells_all_empty
+FAILED tests/scripts/test_ft_weekly_review.py::test_rerun_same_week_adds_one_remeasure_section_and_no_mail
+FAILED tests/scripts/test_ft_weekly_review.py::test_carry_over_from_last_week
+FAILED tests/scripts/test_ft_weekly_review.py::test_sends_two_mails_to_current_masters
+FAILED tests/scripts/test_ft_weekly_review.py::test_unreadable_source_is_said_not_silent
+FAILED tests/scripts/test_ft_weekly_review.py::test_pipe_in_fact_stays_in_fact_column_and_is_carried
+FAILED tests/scripts/test_ft_weekly_review.py::test_seats_stderr_noise_is_not_counted_as_a_seat
+FAILED tests/scripts/test_ft_weekly_review.py::test_malformed_prior_row_raises_not_silent
+FAILED tests/scripts/test_ft_weekly_review.py::test_failed_mail_is_loud_recorded_and_retried_only_for_failures
+FAILED tests/scripts/test_ft_weekly_review.py::test_only_failed_seat_is_retried
+FAILED tests/scripts/test_ft_weekly_review.py::test_mutant_filled_decision_cell_is_caught
+FAILED tests/scripts/test_ft_weekly_review.py::test_mutant_remail_on_rerun_is_caught
+FAILED tests/scripts/test_disk_census.py::test_plan_generates_only_for_landed_seatless_clean_nanos
+FAILED tests/scripts/test_disk_census.py::test_plan_is_not_overwritten_when_it_already_exists
+FAILED tests/scripts/test_disk_census.py::test_plan_header_is_close_generator_plan_so_sweep_version_check_applies
+FAILED tests/scripts/test_disk_census.py::test_plan_runs_past_missing_ledger_row_marks_nothing
+FAILED tests/scripts/test_disk_census.py::test_plan_only_rejects_unlanded_branch_even_when_called_directly
+FAILED tests/scripts/test_disk_census.py::test_plan_revalidates_landing_at_execution_time
+19 failed, 28 passed in 69.43s (0:01:09)
+rc=1
