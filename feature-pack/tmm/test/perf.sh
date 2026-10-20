@@ -90,7 +90,7 @@ for N in $SIZES; do
   make_sessions "$N"
   RUNDIR="$SOCK_DIR/run-$N"; mkdir -p "$RUNDIR"; rm -f "$SOCK_DIR"/tmm-scan-*.cache "$SOCK_DIR"/tmm-*/ep.cache 2>/dev/null
 
-  # (a) 카테고리 결과 = 골든(0.8.0 출력). 첫 호출은 스캔·좌석별 캐시를 채우고, 둘째가 «캐시 적중» 시각이다.
+  # (a) 카테고리 결과 = 골든(0.9.0 — 3열이 «프로젝트/팀»으로 바뀐 의도된 갱신, 세션 집합은 0.8.0 과 동일). 첫 호출은 스캔·좌석별 캐시를 채우고, 둘째가 «캐시 적중» 시각이다.
   tmm rows time > /dev/null
   t0=$(ms); got="$(tmm rows time | cut -f2,3 | sort)"; t1=$(ms)
   echo "TIME N=$N rows(캐시 적중) $((t1-t0)) ms"
@@ -111,7 +111,7 @@ for N in $SIZES; do
   [ "$(wc -l < "$CALLS" | tr -d ' ')" = 0 ] || { fail "(b) N=$N 탭 전환에 tmux 호출 $(wc -l < "$CALLS" | tr -d ' ')회: $(head -3 "$CALLS" | tr '\n' '|')"; }
   [ "$(cat "$RUNDIR/tabsel")" = "${cats[1]}" ] || fail "(b) N=$N tabgo 뒤 tabsel≠${cats[1]}"
   # 전환 뒤 목록 = 그 카테고리만(골든의 같은 카테고리 세션 집합과 일치)
-  want="$(awk -F'\t' -v c="${cats[1]}" '$2==c{print $1}' "$GOLD/cat-N$N.tsv" 2>/dev/null | sort)"
+  want="$(awk -F'\t' -v c="${cats[1]}" '$2==c || index($2, c "/")==1{print $1}' "$GOLD/cat-N$N.tsv" 2>/dev/null | sort)"
   have="$(cut -f2 "$RUNDIR/tabrows" | sort)"
   [ "$want" = "$have" ] || fail "(b) N=$N tabrows 의 세션 집합이 카테고리 ${cats[1]} 와 다름"
 
