@@ -29,7 +29,7 @@ from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 �
 
 NOW = datetime(2026, 10, 19, 9, 15)
 GOALS = [{"n": i, "goal": f"골 글 {i}", "team": f"t{i} (byz-t{i}-master)", "state": "지금"} for i in range(1, 7)]
-CONTENT = {"summary": ["통역 고침 시험 중", "방은 쉬는 중", "하네스 설치 끝"],
+CONTENT = {"summary": ["통역 고침 시험 중", "하네스 설치 끝"],
            "important": [{"title": "환각 고치기", "detail": "말끝 잡음", "who": "v65", "hot": True}, {"title": "합치기", "detail": "차례", "who": "room"}],
            "goals": [{"done": "끝난 것", "now": "하는 것", "left": "남은 것", "hot": i == 0} for i in range(6)],
            "team_notes": [{"team": "kk", "text": "닫힘"}, {"team": "chatbot", "text": "이름 바꾸기"}, {"team": "ops", "text": "메뉴 만드는 중"}],
@@ -137,7 +137,8 @@ def test_b_run_calls_opencode_standalone_json_with_variant_and_fills_template(tm
     assert _style(page) == _style(tpl.read_text(encoding="utf-8"))
     assert "{{" not in page and page.count('<section class="goal">') == 6 and "골 1 · t1" in page
     assert 'class="step s-hot"' in page and "var(--hot-bg)" in page  # 급한 불 골
-    assert sum_p.read_text(encoding="utf-8").splitlines() == CONTENT["summary"]
+    # r588: 요약 첫 줄 = 코드가 만든 팀 상태 줄(모델 줄은 그 뒤) — DATA 의 LIVE 그대로
+    assert sum_p.read_text(encoding="utf-8").splitlines() == ["일하는 팀 2개: chatbot, ops. 쉬는 팀 1개: kk", *CONTENT["summary"]]
     assert lint.problems(page, sum_p.read_text(encoding="utf-8")) == []
 
 
@@ -502,7 +503,7 @@ def test_e_publish_one_root_post_with_html_and_rerun_adopts(tmp_path, oc, slack)
     assert rc == 0 and len(slack.msgs) == 1 and slack.uploads == [html_p.read_bytes()]
     m = slack.msgs[0]
     assert m["thread_ts"] == "" and m["files"][0]["title"] == html_p.name
-    assert m["text"].splitlines() == ["[뉴스 09:15] 팀 지도 — 통역 고침 시험 중", "방은 쉬는 중", "하네스 설치 끝"]
+    assert m["text"].splitlines() == ["[뉴스 09:15] 팀 지도 — 일하는 팀 2개: chatbot, ops. 쉬는 팀 1개: kk", "통역 고침 시험 중", "하네스 설치 끝"]
     assert got["ts"] == m["ts"] and got["permalink"].startswith("https://x.slack.com/archives/C1/p")
     assert fh.publish_files(html_p, sum_p, NOW)[0] == 0 and len(slack.msgs) == 1 and len(slack.uploads) == 1  # 같은 글 채택 · 다시 안 올림
 

@@ -76,12 +76,15 @@ def _rest_asserted(s: str) -> bool:
 
 
 def unknown_problems(html: str, said: str) -> list[str]:
-    """«확인 불가» 블록 팀(turn 시간 초과·실패 = 모름 · r490 · 오빠 «챗봇팀은 왜쉬어?»)을 이름으로 짚은 문장에 쉬·멈·정지·대기 단정 = 위반."""
+    """«확인 불가» 블록 팀(turn 시간 초과·실패 = 모름 · r490 · 오빠 «챗봇팀은 왜쉬어?»)을 이름으로 짚은 «절» 에 쉬·멈·정지·대기 단정 = 위반.
+    r588: 판정은 절(CLAUSE_END 로 나눈 조각) 단위 — 한 문장 안에 확인 불가 팀과 «쉬며» 절이 같이 있어도(00:57 판 «지금은 다섯 팀…이 쉬며, 세 팀(feature·graphics·harness)은 상태 확인 불가다») 절이 다르면 위반이 아니다. 보고 문구는 문장 그대로."""
     out: list[str] = []
     for team in dict.fromkeys(t.strip() for t in UNKNOWN_TEAM.findall(html)):
         name = re.compile(rf"(?<![\w-]){re.escape(team)}(?![\w-])")
-        if bad := next((s.strip() for s in re.split(r"[.\n]", said) if name.search(s) and _rest_asserted(s)), None):
-            out.append(f"확인 불가 팀 {team} 에 쉼 단정 «{bad}»")
+        for s in re.split(r"[.\n]", said):
+            if name.search(s) and any(_rest_asserted(cl) for cl in CLAUSE_END.split(s) if name.search(cl)):
+                out.append(f"확인 불가 팀 {team} 에 쉼 단정 «{s.strip()}»")
+                break
     return out
 
 
