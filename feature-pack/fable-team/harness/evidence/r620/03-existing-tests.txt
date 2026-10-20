@@ -1,0 +1,15 @@
+== python3.11 ==
+........................................................................ [ 86%]
+...........                                                              [100%]
+83 passed in 2.65s
+== python3.14 ==
+........................................................................ [ 86%]
+...........                                                              [100%]
+83 passed in 2.65s
+== sh ==
+test_slack_post_guard.sh rc=0
+PASS allow: JSON 오류 fail-open
+fail=0
+test_secret_scan.sh rc=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
