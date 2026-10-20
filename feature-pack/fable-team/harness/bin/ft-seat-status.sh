@@ -93,22 +93,8 @@ seat_projects_dir() {
 newest_jsonl_of() {
   local dir
   dir="$(seat_projects_dir "$1")" || return 0
-  SEAT="$1" DIR="$dir" HEAD_BYTES="${FT_SEAT_HEAD_BYTES:-1048576}" python3 -c '
-import glob, os
-seat = os.environ["SEAT"].encode(); d = os.environ["DIR"]; cap = int(os.environ["HEAD_BYTES"])
-needles = (b"\"agentName\":\"" + seat + b"\"", b"\"customTitle\":\"" + seat + b"\"")
-newest = (0, "")
-for p in glob.glob(os.path.join(d, "*.jsonl")):
-    try:
-        with open(p, "rb") as fh:
-            head = fh.read(cap)
-    except OSError:
-        continue
-    if any(n in head for n in needles):
-        m = int(os.stat(p).st_mtime)
-        if m > newest[0]: newest = (m, p)
-print(newest[1])
-'
+  # r571 — 폴더별 색인(ft_seat_jsonl_index.py). 답은 그대로, 읽는 양만 «새 파일·자란 파일의 앞부분» 으로.
+  python3 "$(dirname "$0")/ft_seat_jsonl_index.py" newest "$dir" "$1"
 }
 
 # 그 파일의 age(초). 매칭 0 → '-'

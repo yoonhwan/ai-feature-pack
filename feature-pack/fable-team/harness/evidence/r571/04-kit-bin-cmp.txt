@@ -1,0 +1,5 @@
+cmp0 ft-seat-status.sh
+cmp0 ft_seat_jsonl_index.py
+All checks passed!
+bash -n OK
+     165 bin/ft_seat_jsonl_index.py
