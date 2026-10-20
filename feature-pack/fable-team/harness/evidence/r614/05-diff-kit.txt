@@ -1,0 +1,169 @@
+# diff — kit fable-team/bin/ft_op_token.py (base → 고친 판) · 2026-10-21 07:07
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
+index a7d083ad..3666923d 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_op_token.py
+@@ -7,6 +7,7 @@
+ 비밀번호·토큰 원문은 stdout·stderr·argv 어디에도 내지 않는다.
+ """
+ import base64
++import fcntl
+ import json
+ import os
+ import re
+@@ -23,10 +24,12 @@ from datetime import datetime, timedelta, timezone
+ 
+ TIMEOUT_S = 7.0
+ OP_TIMEOUT_S = 10.5  # CLI 기동 고정비 3.5 + 7 (하드 룰 12)
++LOCK_WAIT_S = 20.0  # 표 줄 추가 잠금 대기 상한 — 로그인 7 + 재시도 1 + 여유 (r614)
+ MAX_RETRIES = 1
+ RETRY_WAIT_S = 0.5
+ KST = timezone(timedelta(hours=9))
+ MASKS = [re.compile(p) for p in (r"eyJ[\w.\-]+", r"sb_[\w\-]+", r'"password"\s*:\s*"[^"]*"')]
++CTRL_CHARS = re.compile(r"[\x00-\x1f]")
+ 
+ 
+ class Fail(Exception):
+@@ -216,12 +219,50 @@ def new_row_names(email, rows):
+ 
+ 
+ def append_table_row(sdir, email, cred_name, token_name):
+-    """표 끝에 1줄 «원자» 추가 — 기존 줄 바이트 불변 · 권한 600."""
++    """표 끝에 1줄 «원자» 추가 — 기존 바이트 불변(r614) · 새 줄 끝 = 기존 마지막 줄 끝 · 권한 600."""
+     path = os.path.join(sdir, "op-accounts.tsv")
+-    text = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+-    if text and not text.endswith("\n"):
+-        text += "\n"
+-    atomic_write(path, text + f"{email}\t{cred_name}\t{token_name}\n")
++    data = open(path, "rb").read() if os.path.exists(path) else b""
++    eol = b"\r\n" if data.endswith(b"\r\n") else b"\n"
++    if data and not data.endswith(b"\n"):
++        data += eol
++    row = f"{email}\t{cred_name}\t{token_name}".encode("utf-8") + eol
++    fd, tmp = tempfile.mkstemp(dir=sdir, prefix=".tmp-")
++    with os.fdopen(fd, "wb") as f:
++        f.write(data + row)
++    os.chmod(tmp, 0o600)
++    os.replace(tmp, path)
++
++
++def reject_control_chars(value, what):
++    """표를 다른 계정으로 읽히게 하는 바이트(TAB·CR·LF·0x00–0x1f)는 표 줄 추가 «전» 거절 (r614)."""
++    if CTRL_CHARS.search(value):
++        raise Fail(f"ERR {what}에 제어문자 — 표 줄 추가 안 함", 2)
++
++
++def acquire_lock(sdir):
++    """새 줄 갈래 전용 잠금 — 동시 등록이 같은 표를 읽고 덮어쓰지 않게 (r614). 반환 = fd."""
++    path = os.path.join(sdir, "op-accounts.tsv.lock")
++    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
++    os.fchmod(fd, 0o600)
++    deadline = time.monotonic() + LOCK_WAIT_S
++    while True:
++        try:
++            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++            return fd
++        except BlockingIOError:
++            if time.monotonic() >= deadline:
++                os.close(fd)
++                raise Fail("ERR 잠금 대기 초과 — 다른 등록이 진행 중", 2)
++            time.sleep(0.05)
++
++
++def release_lock(fd):
++    if fd is None:
++        return
++    try:
++        fcntl.flock(fd, fcntl.LOCK_UN)
++    finally:
++        os.close(fd)
+ 
+ 
+ def stdin_password(email):
+@@ -232,44 +273,56 @@ def stdin_password(email):
+ 
+ 
+ def issue(email, init, get_password, get_username=None):
++    reject_control_chars(email, "이메일")
+     sdir = secrets_dir()
+     rows = read_table(sdir) if os.path.isdir(sdir) else {}
+     missing = email not in rows
+     if missing and get_username is None:
+         raise Fail(f"ERR {email} 계정 표에 없음 (op-accounts.tsv 에 1줄 추가는 사람이)", 2)
+-    new_row = False
+     if missing:
+-        if get_username() != email:
++        username = get_username()
++        reject_control_chars(username, "op 사용자 이름")
++        if username != email:
+             raise Fail(f"ERR 항목 사용자 이름 ≠ {email} — 표 줄 추가 안 함", 2)
+-        cred_name, token_name = new_row_names(email, rows)
+-        for n in (cred_name, token_name):
+-            if os.path.exists(os.path.join(sdir, n)):
+-                raise Fail(f"ERR {email} 이름 겹침: {n} — 표·파일 확인", 2)
+-        new_row = True
+-    else:
+-        cred_name, token_name = rows[email]
+-    cred_path, token_path = (os.path.join(sdir, n) for n in (cred_name, token_name))
+-    check_perms(sdir, [cred_path, token_path, os.path.join(sdir, "op-auth.conf"), os.path.join(sdir, "op-accounts.tsv")], email)
+-    url, key = read_conf(sdir, email)
+-    if init:
+-        password = get_password()
+-        cred = {}
+-    else:
+-        if not os.path.exists(cred_path):
+-            raise Fail(f"ERR {email} 설정 없음: {cred_name} — ft-op-token.sh --init {email} 1회", 2)
+-        cred = json.load(open(cred_path, encoding="utf-8"))
+-        password = cred.get("password", "")
+-    token = login(url, key, email, password)
+-    if new_row:
+-        append_table_row(sdir, email, cred_name, token_name)
+-    if init:
+-        if os.path.exists(cred_path):
++    lock_fd = acquire_lock(sdir) if missing and os.path.isdir(sdir) else None
++    try:
++        new_row = False
++        if missing:
++            rows = read_table(sdir)  # 잠금 안에서 최신 표를 다시 읽는다 (r614)
++            if email in rows:
++                cred_name, token_name = rows[email]  # 그새 다른 등록이 넣었다 = 기존 계정 길
++            else:
++                cred_name, token_name = new_row_names(email, rows)
++                for n in (cred_name, token_name):
++                    if os.path.exists(os.path.join(sdir, n)):
++                        raise Fail(f"ERR {email} 이름 겹침: {n} — 표·파일 확인", 2)
++                new_row = True
++        else:
++            cred_name, token_name = rows[email]
++        cred_path, token_path = (os.path.join(sdir, n) for n in (cred_name, token_name))
++        check_perms(sdir, [cred_path, token_path, os.path.join(sdir, "op-auth.conf"), os.path.join(sdir, "op-accounts.tsv")], email)
++        url, key = read_conf(sdir, email)
++        if init:
++            password = get_password()
++            cred = {}
++        else:
++            if not os.path.exists(cred_path):
++                raise Fail(f"ERR {email} 설정 없음: {cred_name} — ft-op-token.sh --init {email} 1회", 2)
+             cred = json.load(open(cred_path, encoding="utf-8"))
+-        cred.update({"email": email, "password": password})
+-        atomic_write(cred_path, json.dumps(cred, ensure_ascii=False))
+-    atomic_write(token_path, token)
+-    line = ok_line(email, token, token_name)
+-    return line + " (표 줄 추가)" if new_row else line
++            password = cred.get("password", "")
++        token = login(url, key, email, password)
++        if new_row:
++            append_table_row(sdir, email, cred_name, token_name)
++        if init:
++            if os.path.exists(cred_path):
++                cred = json.load(open(cred_path, encoding="utf-8"))
++            cred.update({"email": email, "password": password})
++            atomic_write(cred_path, json.dumps(cred, ensure_ascii=False))
++        atomic_write(token_path, token)
++        line = ok_line(email, token, token_name)
++        return line + " (표 줄 추가)" if new_row else line
++    finally:
++        release_lock(lock_fd)
+ 
+ 
+ def list_accounts():

@@ -1,0 +1,31 @@
+# r614 base(origin/main) 판 — 새 시험(r614) 실행 결과 · a2ebd5d4
+        holder = subprocess.Popen(
+            ["python3", "-c", "import fcntl,time\n"
+                              f"f=open({str(lock)!r},'w')\nfcntl.flock(f,fcntl.LOCK_EX)\n"
+                              "time.sleep(30)\n"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        time.sleep(0.3)
+        try:
+            r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL, timeout=40)
+        finally:
+            holder.kill()
+            holder.communicate(timeout=30)
+>       assert r.returncode == 2 and "잠금 대기 초과" in r.stdout, r.stdout
+E       AssertionError: OK new.user@x exp=08:05 (59분) file=byz_new_user_token_dev (표 줄 추가)
+E         
+E       assert (0 == 2)
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r614-op-token-table-row-lock-tsv-ct... 'new.user@x'], returncode=0, stdout='OK new.user@x exp=08:05 (59분) file=byz_new_user_token_dev (표 줄 추가)\n', stderr='').returncode
+
+tests/test_ft_op_token.py:621: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ft_op_token.py::test_r614a_concurrent_distinct_emails_keep_all_rows
+FAILED tests/test_ft_op_token.py::test_r614b_same_email_twice_one_row - Asser...
+FAILED tests/test_ft_op_token.py::test_r614c_same_slug_other_email_one_row_and_collision
+FAILED tests/test_ft_op_token.py::test_r614d_email_control_chars_rejected[bad\tmail@x]
+FAILED tests/test_ft_op_token.py::test_r614d_email_control_chars_rejected[bad\nmail@x]
+FAILED tests/test_ft_op_token.py::test_r614d_email_control_chars_rejected[bad\rmail@x]
+FAILED tests/test_ft_op_token.py::test_r614d2_username_control_chars_rejected
+FAILED tests/test_ft_op_token.py::test_r614e_crlf_table_bytes_preserved - Ass...
+FAILED tests/test_ft_op_token.py::test_r614_lock_waits_for_holder - Assertion...
+FAILED tests/test_ft_op_token.py::test_r614_lock_timeout_err - AssertionError...
+10 failed, 2 passed, 28 deselected in 9.77s

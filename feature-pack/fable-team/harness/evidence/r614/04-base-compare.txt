@@ -1,0 +1,15 @@
+# r614 base 대조 — 옛 판(origin/main) 에서 ⓓ(제어문자)·ⓔ(CRLF 바이트) 원문 · 2026-10-21 07:07
+E       AssertionError: OK bad	mail@x exp=08:07 (59분) file=byz_bad_mail_token_dev (표 줄 추가)
+E       assert (0 == 2)
+E       AssertionError: OK bad
+E       assert (0 == 2)
+E       AssertionError: ERR 항목 사용자 이름 ≠ bad
+E       assert (2 == 2 and '제어문자' in 'ERR 항목 사용자 이름 ≠ bad\nmail@x — 표 줄 추가 안 함\n')
+E       AssertionError: ERR 항목 사용자 이름 ≠ new.user@x — 표 줄 추가 안 함
+E       assert (2 == 2 and '제어문자' in 'ERR 항목 사용자 이름 ≠ new.user@x — 표 줄 추가 안 함\n')
+E       AssertionError: assert False
+5 failed, 2 passed, 33 deselected in 5.04s
+
+## 고친 판 같은 시험 — 전부 PASS
+.......                                                                  [100%]
+7 passed, 33 deselected in 4.47s

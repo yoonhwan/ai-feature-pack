@@ -1,0 +1,3 @@
+# ruff check (kit ft_op_token.py · tests/test_ft_op_token.py) · origin/main 0254d381 위
+All checks passed!
+rc=0
