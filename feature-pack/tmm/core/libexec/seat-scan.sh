@@ -46,7 +46,16 @@ for s in $(tmux list-sessions -F '#S' 2>/dev/null); do
     # ★pi 좌석(0.9.2)★ — pi 는 Claude 의 `⏵⏵ … bypass permissions` 줄이 없어 기본값 BUSY 에서 영영 IDLE 로 못 나왔다.
     #   pi 의 하단 줄(`↑토큰 … CH99%  3.6%/1.0M (auto)  모델`)이 보이면 pi 로 보고, 점자 스피너 + `Working`(`── ⠦ Working ───`)이
     #   있을 때만 BUSY, 없으면 IDLE. 점자(U+2800~28FF)는 UTF-8 바이트 e2 a0..a3 xx 라 바이트 매치(LC_ALL=C)로 센다.
-    LC_ALL=C grep -aqE $'\xe2[\xa0-\xa3][\x80-\xbf] Working' <<<"$now" || state=IDLE
+    if printf '%s\n' "$now" | LC_ALL=C grep -aqE '^ ?Error: [0-9]{3}:|Retrying \([0-9]+/[0-9]+\) in' \
+       || printf '%s\n' "$hist" | tail -40 | LC_ALL=C grep -aqE '^ ?Error: [0-9]{3}:'; then
+      # ★pi 오류 = BLOCK(0.9.3)★ pi TUI 는 실패를 ` Error: <3자리>: {…}` 한 줄로 찍는다(실측 400 model_not_found).
+      #   재시도 대기는 `Retrying (n/m) in Ns... (esc to cancel)` (status-indicator.js 의 RetryStatusIndicator).
+      #   ★줄 시작 앵커(`^ ?`)를 쓴다★ — 도구 출력 안에 인용된 «Error: 400: …»(남의 로그)를 좌석 정지로 오판하지 않기 위해서다.
+      #   Claude 쪽이 «오류 이름» 으로 매치했다가 멀쩡한 좌석을 BLOCK 으로 잡은 실측(7건 중 3건)과 같은 함정을 피한다.
+      state=BLOCK
+    else
+      LC_ALL=C grep -aqE $'\xe2[\xa0-\xa3][\x80-\xbf] Working' <<<"$now" || state=IDLE
+    fi
   elif printf '%s\n' "$cap" | LC_ALL=C grep -aqE '^\s*(⏵⏵|✻|✽).*(auto mode|bypass permissions)' \
      && ! printf '%s\n' "$cap" | LC_ALL=C grep -aqE '✻ .*(Spinning|Thinking|Working|esc to interrupt)'; then
     state=IDLE

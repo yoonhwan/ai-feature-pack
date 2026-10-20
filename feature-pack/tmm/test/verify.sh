@@ -847,4 +847,29 @@ printf '%s\n' "$SCANOUT" | awk '$1=="PIBUSY"{print $2}' | grep -qx BUSY || { ech
 printf '%s\n' "$SCANOUT" | awk '$1=="PIIDLE"{print $2}' | grep -qx IDLE || { echo "FAIL: (pi2) 스피너 없는 pi 좌석이 IDLE 이 아님: $(printf '%s\n' "$SCANOUT" | grep PIIDLE)"; exit 1; }
 tm kill-session -t =PIBUSY 2>/dev/null; tm kill-session -t =PIIDLE 2>/dev/null
 
+# (pi3) pi HUMAN·BLOCK 판독(0.9.3) — 2026-10-20 오빠 «pi 좌석이 인터뷰·오류 화면에서 tmm 에 멀쩡한 좌석처럼 보인다»
+#   원인: 0.9.2 pi 분기는 «점자 스피너 + Working 이 있으면 BUSY, 없으면 IDLE» 두 갈래뿐이라
+#         pi TUI 오류 화면(` Error: <3자리>: {…}`)과 사람이 고르는 화면(`Enter to select`)이 둘 다 IDLE 로 떨어졌다.
+#   픽스처 = 2026-10-20 실제 pi 1.3.0 pane 캡처 4종(test/fixtures-pi/*.txt · `tmux capture-pane -p` 원문).
+FXP="$ROOT/test/fixtures-pi"
+for f in pi-error400.txt pi-selector.txt pi-working.txt pi-idle.txt; do
+  [ -s "$FXP/$f" ] || { echo "FAIL: (pi3) 픽스처 없음: $FXP/$f"; exit 1; }
+done
+tm new-session -d -y 40 -s PIERR "cat '$FXP/pi-error400.txt'; sleep 600"
+tm new-session -d -y 40 -s PISEL "cat '$FXP/pi-selector.txt'; sleep 600"
+tm new-session -d -y 40 -s PIWORK2 "cat '$FXP/pi-working.txt'; sleep 600"
+tm new-session -d -y 40 -s PIIDLE2 "cat '$FXP/pi-idle.txt'; sleep 600"
+sleep 0.6
+SCANOUT3="$(env -u TMUX TMUX_TMPDIR="$SOCK_DIR" bash "$SCAN" 2>/dev/null)"
+pi3_want() { # $1=세션 $2=기대상태
+  local got; got="$(printf '%s\n' "$SCANOUT3" | awk -v s="$1" '$1==s{print $2}')"
+  [ "$got" = "$2" ] || { echo "FAIL: (pi3) $1 기대=$2 실제='${got:-없음}'"; exit 1; }
+}
+pi3_want PIERR   BLOCK
+pi3_want PISEL   HUMAN
+pi3_want PIWORK2 BUSY
+pi3_want PIIDLE2 IDLE
+tm kill-session -t =PIERR 2>/dev/null; tm kill-session -t =PISEL 2>/dev/null
+tm kill-session -t =PIWORK2 2>/dev/null; tm kill-session -t =PIIDLE2 2>/dev/null
+
 echo "✅ tmm verify OK"

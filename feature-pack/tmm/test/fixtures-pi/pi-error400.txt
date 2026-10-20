@@ -1,0 +1,30 @@
+
+ Warning: Model "does-not-exist" not found for provider "opengateway". Using custom model id.
+
+
+ hi
+
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf
+ and restart tmux.
+
+ Error: 400: {"message":"The model `does-not-exist` does not exist or you do not have access to
+ it.","type":"invalid_request_error","code":"model_not_found"}
+ If this looks like a pi bug, /bug sends a report to the developers.
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/private/tmp/piprobe • zz-pi-probe
+0.3%/1.0M (auto)                                                                                 does-not-exist • medium
