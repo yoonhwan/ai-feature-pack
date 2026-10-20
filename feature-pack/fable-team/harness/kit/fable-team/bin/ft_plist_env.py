@@ -5,6 +5,9 @@ __MAILBOX__ = <루트>/.fable-team/comm/mailbox.log.jsonl · __HOME__ · 나머�
 설치된 plist 에서 그대로 옮긴다(머신별 설정 보존 — 처음 설치는 slack-mirror/install.sh 소관).
 사용: ft_plist_env.py list                                              → «라벨<TAB>템플릿» 줄
       ft_plist_env.py render <라벨> <템플릿> <설치 plist> <루트> <LIVE_BIN> <HOME> → stdout 렌더본
+r538: ft_plist_env.py bin-list <키트 harness/kit>                       → __FT_BIN__ 템플릿 «라벨<TAB>템플릿» 줄
+      ft_plist_env.py render-bin <템플릿> <루트> [<설치 plist>] [--need-exist] → stdout 렌더본(__FT_BIN__ = <루트>/.fable-team/bin · 판 붙은 live 경로 0)
+            · 설치 plist 를 주면 그 plist 에 ProgramArguments 만 렌더본 것으로 바꾼 본문(머신별 env·주기 보존 · 같으면 원문 그대로)
 종료: 0 · 2 usage · 3 ERROR(루트·LIVE_BIN·설치값 없음 · 자리표시 잔재 · plist 해석 실패 — 조용한 통과 0 · #0 RULE). 쓰기 0."""
 import os
 import plistlib
@@ -75,12 +78,81 @@ def render(template, installed, root, live_bin, home):
     return out
 
 
+def bin_list(kit):
+    """r538: <키트>/*/*.plist.template 중 __FT_BIN__ 를 담은 것 → [(라벨, 템플릿 경로)] (라벨 = 파일 이름 · 템플릿 Label 과 다르면 RenderError)."""
+    out = []
+    for sub in sorted(os.listdir(kit)):
+        d = os.path.join(kit, sub)
+        for name in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            if not name.endswith(".plist.template"):
+                continue
+            with open(os.path.join(d, name), encoding="utf-8") as fh:
+                body = fh.read()
+            if "__FT_BIN__" not in body:
+                continue
+            label = name[: -len(".plist.template")]
+            m = re.search(r"<key>Label</key>\s*<string>([^<]+)</string>", body)
+            if not m or m.group(1) != label:
+                raise RenderError("템플릿 Label(%s) ≠ 파일 이름(%s)" % (m and m.group(1), label))
+            out.append((label, os.path.join(d, name)))
+    return out
+
+
+def render_bin(template, root, need_exist=False):
+    """r538: __FT_BIN__ 템플릿 → 렌더본. __FT_BIN__ = <루트>/.fable-team/bin(판 없는 루트 shim · LIVE_BIN 을 따라감) · __BYZ_ROOT__ = 루트.
+    need_exist = 렌더본이 부르는 루트 bin 도구가 실재해야 한다(apply · shim 단계 뒤)."""
+    if not os.path.isdir(os.path.join(root, ".git")):
+        raise RenderError("루트가 git 공용 루트 아님: %s" % root)
+    rbin = os.path.join(root, ".fable-team", "bin")
+    out = template.replace("__FT_BIN__", escape(rbin)).replace("__BYZ_ROOT__", escape(root))
+    left = sorted(set(re.findall(r"__[A-Z_]+__", out)))
+    if left:
+        raise RenderError("자리표시 잔재: %s" % " ".join(left))
+    try:
+        args = [a for a in plistlib.loads(out.encode("utf-8")).get("ProgramArguments") or [] if isinstance(a, str)]
+    except (ValueError, ExpatError) as e:
+        raise RenderError("렌더본 plist 해석 실패: %s" % e)
+    tools = [a for a in args if a.startswith(rbin + "/")]
+    if not tools:
+        raise RenderError("렌더본 ProgramArguments 에 루트 bin 경로 없음: %s" % rbin)
+    miss = [a for a in tools if need_exist and not os.path.isfile(a)]
+    if miss:
+        raise RenderError("루트 bin 도구 없음: %s" % " ".join(miss))
+    return out
+
+
+def sync_args(rendered, installed):
+    """r538: 설치 plist 의 ProgramArguments 만 렌더본 것으로 — 나머지(머신별 env·주기)는 설치본 그대로(손으로 둔 FT_STALL_PENALTY_AUTO=0 등 보존).
+    이미 같으면 설치본 원문 그대로 돌려준다(쓰기 0)."""
+    want = plistlib.loads(rendered.encode("utf-8"))["ProgramArguments"]
+    d = load(installed)
+    if d.get("ProgramArguments") == want:
+        with open(installed, encoding="utf-8") as fh:
+            return fh.read()
+    d["ProgramArguments"] = want
+    return plistlib.dumps(d, sort_keys=False).decode("utf-8")
+
+
 def main(argv):
     if argv == ["list"]:
         print("\n".join("%s\t%s" % kv for kv in sorted(MANAGED.items())))
         return 0
+    try:
+        if len(argv) == 2 and argv[0] == "bin-list":
+            print("\n".join("%s\t%s" % kv for kv in bin_list(argv[1])))
+            return 0
+        pos = [a for a in argv[1:] if a != "--need-exist"]
+        if argv[:1] == ["render-bin"] and len(pos) in (2, 3) and argv.count("--need-exist") <= 1:
+            with open(pos[0], encoding="utf-8") as fh:
+                out = render_bin(fh.read(), pos[1], "--need-exist" in argv)
+            sys.stdout.write(sync_args(out, pos[2]) if len(pos) == 3 else out)
+            return 0
+    except (RenderError, OSError) as e:
+        print("ERROR %s" % e)
+        return 3
     if len(argv) != 7 or argv[0] != "render":
-        print("usage: ft_plist_env.py list | render <라벨> <템플릿> <설치 plist> <루트> <LIVE_BIN> <HOME>", file=sys.stderr)
+        print("usage: ft_plist_env.py list | bin-list <키트> | render-bin <템플릿> <루트> [<설치 plist>] [--need-exist]"
+              " | render <라벨> <템플릿> <설치 plist> <루트> <LIVE_BIN> <HOME>", file=sys.stderr)
         return 2
     label, tpl, installed, root, live_bin, home = argv[1:]
     try:

@@ -99,11 +99,14 @@ def _log(world, name: str) -> list[str]:
     return (world["tmp"] / f"{name}.log").read_text(encoding="utf-8").splitlines()
 
 
+OLD_REV = "855d2797b56d099508fd78afc09da0ef6cadf053"  # r504 착지(302c2b7c) 직전 — origin/main 은 r504 뒤 이미 고친 판(r527)
+
+
 def _old_status(tmp: Path) -> Path:
-    """고치기 전 셸 도구(heredoc 판정 본문) — origin/main 판을 임시 파일로(리포 쓰기 0)."""
+    """고치기 전 셸 도구(heredoc 판정 본문) — OLD_REV 판을 임시 파일로(리포 쓰기 0)."""
     rel = "feature-pack/fable-team/harness/bin/ft-seat-status.sh"
-    out = subprocess.run(["git", "-C", str(PACK), "show", f"origin/main:{rel}"], capture_output=True, text=True, check=True).stdout
-    assert "python3 - <<'PY'" in out.split("turn_of_file()", 1)[1][:400], "origin/main 판이 이미 고친 판 — 대조 기준 아님"
+    out = subprocess.run(["git", "-C", str(PACK), "show", f"{OLD_REV}:{rel}"], capture_output=True, text=True, check=True).stdout
+    assert "python3 - <<'PY'" in out.split("turn_of_file()", 1)[1][:400], "OLD_REV 판이 이미 고친 판 — 대조 기준 아님"
     old = tmp / "old-bin" / "ft-seat-status.sh"
     old.parent.mkdir()
     old.write_text(out, encoding="utf-8")

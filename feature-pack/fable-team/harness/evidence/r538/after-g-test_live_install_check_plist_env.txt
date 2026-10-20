@@ -1,0 +1,40 @@
+PASS py_compile 2 · bash -n install.sh
+PASS bin/kit 짝 cmp0 (ft_plist_env · ft_live_install_check)
+PASS 미러 템플릿에 FT_ROOT=__ROOT__ 키
+PASS ⓐ 렌더본 FT_ROOT=<루트> · inbox=<LIVE_BIN>/ft-inbox.sh · 채널 보존 · plutil rc0
+PASS ⓑ install-check: FT_ROOT 없는 설치본 → PENDING plist-env rc1 + HINT
+PASS ⓑ install.sh --dry-run(설치본 bin 전) → PLIST 줄 · rc0 · 쓰기 0 · kickstart 0
+PASS ⓑ install.sh --apply → 교체 + .bak-r426 + bootstrap·kickstart 각 1
+PASS ⓑ .bak-r426 = 옛 설치본 · 설치본 FT_ROOT=<루트> · plutil rc0
+PASS ⓑ inbox 경로 = 설치본 LIVE_BIN(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2GWmsrCRp4/home/.claude/fable-team/live/1.1.91/bin)
+PASS ⓑ apply 뒤 install-check → OK rc0
+PASS ⓒ 같음 → OK plist-env · 쓰기 0 · kickstart 0
+PASS ⓒ dry-run(설치 뒤) → OK plist-env
+PASS ⓒ' 설치 뒤 FT_ROOT 빠짐 → dry-run PENDING plist-env · 쓰기 0
+PASS ⓒ' 재apply → .bak-r426 는 첫 원본 보존 · 렌더본 복구
+PASS r457ⓐ --project <공용 루트> → 기존 그대로(OK plist-env · SKIP 0)
+PASS r457ⓑ 워크트리 dry-run → SKIP plist-env 1줄 · plist 불변
+PASS r457ⓑ 워크트리 apply → SKIP 1줄 · plist cmp 불변 · launchctl 0 · shim 설치(LIVE_BIN)는 그대로
+PASS r457ⓒ 렌더기 직접 · 워크트리 루트 → RenderError rc3
+PASS r457ⓒ 렌더기 직접 · 공용 루트 → rc0
+PASS r457ⓓ install-check 워크트리 --project → plist-env 대조·HINT 는 공용 루트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2GWmsrCRp4/proj)
+PASS r457ⓔ git 밖 --project → install.sh ERROR rc1 · plist 불변(새 통과 0)
+PASS r457ⓔ git 밖 --project → install-check ERROR rc3
+PASS r464ⓐ bootstrap 1회 실패 뒤 성공 → PLIST applied (retry=1) · kickstart 1 · 렌더본 · LIVE_BIN 전환 · rc0
+PASS r464ⓑ bootstrap 3회 실패 → 직전 plist 원복(cmp0) + 원복본 bootstrap · RESTORED · rc1 · LIVE_BIN 은 이미 새 버전
+PASS r464ⓑ .bak-r426(첫 원본) 보존
+PASS r464ⓑ' 원복본 bootstrap 도 실패 → ERROR + 손 복구 1줄 · plist 는 원복본 · rc1
+PASS r464ⓒ 렌더본 같음 → 쓰기 0 · bootstrap·kickstart 0
+PASS r464ⓓ 되돌림 기준 = 직전 plist(.bak-1.1.91) · .bak-r426 보존
+PASS r464ⓔ 재시도 첫~마지막 bootstrap 2s ≤ 7초
+PASS ⓓ 렌더: 루트 없음 → ERROR rc3
+PASS ⓓ install-check --project 없는 루트 → ERROR rc3
+PASS ⓓ install-check LIVE_BIN 없음 → ERROR rc3
+PASS ⓓ 설치본에 --channel 값 없음 → install.sh ERROR rc1 · 쓰기 0 · kickstart 0
+PASS ⓓ 관리 밖 라벨 → ERROR rc3
+PASS usage → rc2
+PASS 미설치 → SKIP(새로 깔지 않음 · 처음 설치는 slack-mirror/install.sh)
+PASS ⓔ 600/300 초 상한 0
+PASS ⓔ 시험 시간 < 10분 (118s)
+PASS core.bare 오염 0
+ALL PASS

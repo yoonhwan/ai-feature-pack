@@ -1,0 +1,12 @@
+rc=1 test_live_install FAIL harness/tests/test_live_install.sh: 줄 
+rc=1 test_live_install_check 2FAIL FAILED 1
+rc=0 test_live_install_check_plist_env 0FAIL ALL PASS
+rc=0 test_live_install_check_shim 0FAIL ALL PASS
+rc=0 test_live_install_check_tip 0FAIL ALL PASS
+rc=0 test_install_check_repo_outside 0FAIL == ALL PASS ==
+rc=0 test_install_hook_check 0FAIL ALL PASS
+rc=0 test_install_launchd_render 0FAIL ALL PASS
+rc=0 test_install_team_tick_live 0FAIL ALL PASS
+rc=0 test_install_worktree_shim 0FAIL fail=0
+rc=0 test_installed_root 0FAIL == ALL PASS · skip=0 ==
+rc=0 test_installed_root 0FAIL == ALL PASS · skip=0 ==

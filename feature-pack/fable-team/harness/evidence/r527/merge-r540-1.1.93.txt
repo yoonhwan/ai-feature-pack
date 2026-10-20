@@ -1,0 +1,23 @@
+# r540(f0c37166) 병합 뒤 1.1.93 · 시험마다 새 임시 git 리포 cwd · FT_ROOT·FT_MBOX_DIR·GIT_* unset
+test_seat_turn_compact.py rc=0 6 passed in 0.18s
+test_seat_turn_batch.py rc=0 6 passed in 25.16s
+test_ft_seat_turn_window.py rc=0 8 passed in 0.86s
+test_ft_seat_codex.py rc=0 10 passed in 0.75s
+test_ft_news_html.py rc=0 39 passed in 19.05s
+test_tick_line.sh rc=0 ALL PASS
+test_pi_agent_allow_r540.sh rc=0 ALL PASS
+test_name_lint.sh rc=0 fail=0
+test_successor_open.sh rc=0 ALL PASS
+test_role_spawn_name.sh rc=0 ALL PASS
+test_role_spawn_team.sh rc=0 ALL PASS
+test_nano_spawn_tier.sh rc=0 ALL PASS
+test_nano_spawn_reuse_info.sh rc=0 ALL PASS
+test_nano_spawn_teamset_cap.sh rc=0 ALL PASS
+test_spawn_hold.sh rc=0 ---- fail=0
+test_distill_recv_gate.sh rc=0 ALL PASS
+test_nano_spawn_body_press.sh rc=2 FAILED=2
+test_nano_spawn_body_press FAILED=2 = r540 evidence/r540/after-summary.txt 13행과 같은 실패(origin/main 에도 FAIL 2 · 이 병합 무관 · 고침 단위 필요)
+PASS 음성 대조: 문장 제거 시 FAIL 발생
+PASS 음성 대조 2: 문장 제거 시 FAIL 발생
+PASS 음성 대조 3: 문장 제거 시 FAIL 발생
+FAIL ⓒ status 에 node_modules 보임
