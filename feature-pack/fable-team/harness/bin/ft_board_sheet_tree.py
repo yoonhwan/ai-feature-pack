@@ -16,6 +16,7 @@ def tree_lines(m: dict) -> list[str]:
     p = m["pending"]
     out = [f"확인 중 {p['prepared']}" + (f"(오래됨 {p['old']})" if p["old"] else "") + f" · 소유자 미확인 {m['unconfirmed']}칸",
            f"❓ 오빠가 정할 것 ({m['ask']['n']}건) — {m['ask']['text']}", "🔄 지금 진행 중 (끝나면 멈춤)"]
+    out += [f"⚠ 확인 못 함 {e['team']}: {e['why']}" for e in m.get("errors") or []]  # 한 팀을 못 읽어도 나머지는 발행된다(판정 r554)
     prog = m["progress"]
     keep = SHOWN if len(prog) <= SHOWN else SHOWN - 1  # 넘치면 «외 N건» 줄도 5줄 안에 든다
     out += [f"  · {x['say']} — {x['where']}" for x in prog[:keep]] or ["  · (지금 진행 중인 일 없음)"]

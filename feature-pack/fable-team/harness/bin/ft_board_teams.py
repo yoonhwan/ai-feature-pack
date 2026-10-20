@@ -19,6 +19,8 @@ def _wait(t: dict) -> str:
 
 
 def team_line(t: dict) -> str:
+    if t.get("error"):  # 명부 수집 실패 — 이 팀만 «확인 못 함»(팀 목록에서 빼지 않는다 · 판정 r554)
+        return f"{t['label']} | 확인 못 함: {t['error']}"
     cells = t["seats"]
     working = sorted(n for n, c in cells.items() if c.get("working"))
     idle = [c["idle_min"] for c in cells.values() if c.get("idle_min") is not None]

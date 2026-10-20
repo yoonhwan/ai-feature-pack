@@ -123,3 +123,82 @@ def test_stalled_lists_pointer_seat_whose_turn_is_unknown(board) -> None:
     assert board.run("stalled", "--min", "3").stdout.splitlines() == want
     assert board.run("stalled", "--min", "99").stdout.splitlines() == want
     assert board.run("teams").stdout.strip().endswith("· 확인 불가 1")
+
+
+# ── r554 — 한 팀 수집 실패는 «그 팀 칸»에 보이게 싣고 나머지 팀은 그대로 (ⓐ~ⓔ) ──
+def _cards(root: Path, team: str, folder: str = "진행", name: str = "c1") -> None:
+    d = root / "t" / team / folder
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{name}.md").write_text(f"# 인덱스: {team}카드\n본문\n", encoding="utf-8")
+
+
+def _team(d: dict, key: str) -> dict:
+    return next(t for t in d["teams"] if t["key"] == key)
+
+
+def test_collect_missing_cards_folder_marks_only_that_team(board) -> None:
+    """ⓐ 카드 폴더 없음 — 그 팀 = error 한 칸(숫자 칸 자체가 없다: 0 으로 채우지 않는다) · 다른 팀 값은 그대로."""
+    _cards(board.root, "ok")
+    board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+    board.seats("bad", {"_label": "사라진팀", "_master": "bad-m#1", "_cards": "t/nope", "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+    r = board.run("collect")
+    assert r.returncode == 0, r.stderr
+    d = json.loads(r.stdout)
+    assert _team(d, "ok")["counts"]["진행"] == 1
+    bad = _team(d, "bad")
+    assert (bad["key"], bad["label"]) == ("bad", "사라진팀")
+    assert bad["error"] == f"카드 폴더 없음 — {board.root / 't' / 'nope'}"
+    for k in ("counts", "queue", "states", "progress", "axes", "done_today"):
+        assert k not in bad
+
+
+def test_collect_missing_tree_file_marks_only_that_team(board) -> None:
+    """ⓑ `_tree` 만 없음 — 같은 꼴(그 팀 error · 다른 팀 정상)."""
+    _cards(board.root, "ok")
+    board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+    _cards(board.root, "bad")
+    board.seats("bad", {"_label": "트리팀", "_master": "bad-m#1", "_cards": "t/bad", "_tree": "t/bad/NEWS-TREE.md",
+                        "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+    r = board.run("collect")
+    assert r.returncode == 0, r.stderr
+    d = json.loads(r.stdout)
+    assert _team(d, "bad")["error"] == f"_tree 파일 없음 — {board.root / 't' / 'bad' / 'NEWS-TREE.md'}"
+    assert _team(d, "ok")["counts"]["진행"] == 1
+
+
+def test_collect_broken_roster_json_marks_that_team_with_exception_name(board) -> None:
+    """ⓒ 명부 JSON 깨짐 — 그 팀 error(파일 이름 + 예외 이름) · 나머지 정상 (한 장 깨졌다고 전 팀 0 이 아니다)."""
+    _cards(board.root, "ok")
+    board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+    (board.root / ".fable-team" / "seats-broken.json").write_text("{ 깨짐", encoding="utf-8")
+    r = board.run("collect")
+    assert r.returncode == 0, r.stderr
+    d = json.loads(r.stdout)
+    err = _team(d, "broken")["error"]
+    assert err.startswith("seats-broken.json JSONDecodeError: "), err
+    assert _team(d, "ok")["counts"]["진행"] == 1
+
+
+def test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged(board) -> None:
+    """ⓓ 그리는 쪽 — error 팀 = «확인 못 함: <원인>» 한 줄 · 다른 팀 줄은 error 팀이 늘기 전과 같은 글자."""
+    _cards(board.root, "ok")
+    board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+    only = board.run("render", "--term")
+    assert only.returncode == 0, only.stderr
+    board.seats("bad", {"_label": "사라진팀", "_master": "bad-m#1", "_cards": "t/nope", "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+    both = board.run("render", "--term")
+    assert both.returncode == 0, both.stderr
+    ok_row = next(ln for ln in only.stdout.splitlines() if "정상팀" in ln)
+    assert ok_row in both.stdout.splitlines()
+    assert f"- 사라진팀 | 확인 못 함: 카드 폴더 없음 — {board.root / 't' / 'nope'}" in both.stdout.splitlines()
+    assert "확인 못 함" in board.run("render", "--slack").stdout
+
+
+def test_collect_error_team_prints_error_line_on_stderr(board) -> None:
+    """ⓔ stderr `ERROR <명부 이름>: <원인>` — 실패가 화면(로그)에 남는다(조용한 폴백 0)."""
+    _cards(board.root, "ok")
+    board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+    board.seats("bad", {"_label": "사라진팀", "_master": "bad-m#1", "_cards": "t/nope", "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+    r = board.run("collect")
+    assert r.returncode == 0, r.stderr
+    assert f"ERROR seats-bad.json: 카드 폴더 없음 — {board.root / 't' / 'nope'}" in r.stderr

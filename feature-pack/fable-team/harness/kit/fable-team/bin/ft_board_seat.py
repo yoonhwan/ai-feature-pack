@@ -141,6 +141,9 @@ class SeatCells:
 def stalled_lines(d: dict, min_n: int) -> list[str]:
     out = []
     for t in d["teams"]:
+        if t.get("error"):  # 좌석 칸을 못 만든 팀은 «확인 불가» 행으로 남긴다(빠짐 0 · 판정 r554)
+            out.append("|".join(["확인 불가", t["label"], "-", f"명부 수집 실패: {t['error']}"]))
+            continue
         for r in t["stalled"]:
             m = re.fullmatch(r"(\d+)분", r[0])
             if m is None or int(m.group(1)) >= min_n:

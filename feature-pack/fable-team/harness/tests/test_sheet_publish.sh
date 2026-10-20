@@ -19,7 +19,7 @@ cat > "$S/fake-board" <<'EOF'
 D="$(dirname "$0")"; args=(); from=""; out=""
 while [ $# -gt 0 ]; do case "$1" in --from) from="$2"; shift 2;; --out) out="$2"; shift 2;; --refresh-gh) shift;; *) args+=("$1"); shift;; esac; done
 set -- "${args[@]}"
-if [ "$1" = collect ]; then echo x >> "$D/collects"; echo '{"stub":"collect"}' > "$out"; exit 0; fi
+if [ "$1" = collect ]; then echo x >> "$D/collects"; [ -f "$D/collect.json" ] && cp "$D/collect.json" "$out" || echo '{"teams":[{"key":"stub","label":"스텁","cards_dir":null}]}' > "$out"; exit 0; fi
 if [ -n "$from" ]; then [ -s "$from" ] || exit 1; else echo x >> "$D/collects"; fi
 [ "$1" = snapshot ] && { cat "$D/snap.json"; exit 0; }
 [ "$1" = render ] && [ "$2" = --sheet ] || exit 2
@@ -175,5 +175,19 @@ grep -q '<string>--emit-model</string><string>__BYZ_ROOT__/.fable-team/state/she
 ! grep -q 'model-latest.json' "$TPL/com.byz.ft-magazine-model.plist.template" && ok "옛 model-latest.json 경로 잔존 0" || bad "옛 model-latest.json 잔존"
 # 600/300 잔존 0
 ! grep -rnE '\b(600|300)\b' "$ROOT/harness/bin/ft-sheet-publish.sh" "$ROOT/harness/bin/ft_sheet_publish.py" 2>/dev/null | grep -v '^#' | grep -q . && ok "새 스크립트에 600/300 초 값 0" || bad "600/300 잔존"
+
+# ── r554 — 한 팀 «확인 못 함» 도 발행은 된다(rc 2) · 전 팀 실패만 발행 0(rc 1) ──
+export FT_BOARD_NOW="2026-10-18T09:00:00"; rm -f "$S/collect.json"
+tree 일R; setrev "r$S1" "9$P4"; pub >/dev/null   # 기준선: 정상 1회 발행
+u0="$(n_of '^update|')"; a0="$(n_of '^attach|')"
+printf '{"teams":[{"key":"ok","label":"정상팀","cards_dir":"t","counts":{"진행":1},"queue":[],"states":{}},{"key":"bad","label":"사라진팀","error":"카드 폴더 없음 — /x/t/nope"}]}' > "$S/collect.json"
+tree 일R2; setrev "r2$S1" "$P2"; rc="$(pub)"
+[ "$rc" = 2 ] && [ "$(n_of '^update|')" -gt "$u0" ] && [ "$(n_of '^attach|')" -gt "$a0" ] && ok "ⓔ 한 팀 «확인 못 함» → 나머지 팀 발행 + rc 2" || bad "ⓔ rc=$rc: $(cat "$S/tp.log" | tail -3) / $(cat "$T/err.txt")"
+rc="$(pub)"
+[ "$rc" = 2 ] && ok "ⓔ 같은 발행 rev 여도 rc 2 (조용한 성공 0)" || bad "ⓔ 같은 rev 재실행 rc=$rc"
+printf '{"teams":[{"key":"a","label":"에이","error":"카드 폴더 없음 — /x/a"},{"key":"b","label":"비","error":"_tree 파일 없음 — /x/b"}]}' > "$S/collect.json"
+u1="$(n_of '^update|')"; rc="$(pub)"
+[ "$rc" = 1 ] && [ "$(n_of '^update|')" = "$u1" ] && grep -q '모든 팀' "$T/err.txt" && ok "ⓕ 전 팀 실패 → 발행 0 · rc 1" || bad "ⓕ rc=$rc: $(cat "$T/err.txt")"
+rm -f "$S/collect.json"
 
 echo "fail=$fail"; [ "$fail" = 0 ]

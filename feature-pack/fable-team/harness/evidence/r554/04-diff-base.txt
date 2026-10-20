@@ -1,0 +1,30 @@
+### ⓖ 기존 시험 파일 base 대조
+ .../harness/tests/scripts/test_ft_board_teams.py   | 79 ++++++++++++++++++++++
+ 1 file changed, 79 insertions(+)
+--- test_ft_board_roster.py = 위 목록에 없으면 diff 0
+--- test_ft_board_teams.py 삭제 줄 수(0 = 추가만)
+79	0	feature-pack/fable-team/harness/tests/scripts/test_ft_board_teams.py
+
+### 전체 변경 파일
+ M feature-pack/fable-team/harness/bin/ft-sheet-publish.sh
+ M feature-pack/fable-team/harness/bin/ft_board_collect.py
+ M feature-pack/fable-team/harness/bin/ft_board_render.py
+ M feature-pack/fable-team/harness/bin/ft_board_render_tree.py
+ M feature-pack/fable-team/harness/bin/ft_board_seat.py
+ M feature-pack/fable-team/harness/bin/ft_board_sheet.py
+ M feature-pack/fable-team/harness/bin/ft_board_sheet_tree.py
+ M feature-pack/fable-team/harness/bin/ft_board_snapshot.py
+ M feature-pack/fable-team/harness/bin/ft_board_teams.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft-sheet-publish.sh
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_collect.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_render.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_render_tree.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_seat.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_sheet.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_sheet_tree.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_snapshot.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_board_teams.py
+ M feature-pack/fable-team/harness/tests/scripts/test_ft_board_teams.py
+ M feature-pack/fable-team/harness/tests/test_board.sh
+ M feature-pack/fable-team/harness/tests/test_sheet_publish.sh
+?? feature-pack/fable-team/harness/evidence/r554/

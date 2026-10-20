@@ -55,6 +55,9 @@ def _cells(d: dict, root: Path, events: list[dict], now: datetime) -> list[dict]
     base = lambda s: re.sub(r"#\d+$", "", s)  # noqa: E731
     owner = {base(n): t["key"] for t in d["teams"] for n in json.loads((root / ".fable-team" / ("seats.json" if t["key"] == "v65" else f"seats-{t['key']}.json")).read_text(encoding="utf-8")) if not n.startswith("_")}
     for t in d["teams"]:
+        if t.get("error"):  # 명부 수집 실패 — 숫자·상태 글자 대신 «확인 못 함» 한 칸(조용한 누락 0 · 판정 r554)
+            out.append({"cell": "③", "team": t["label"], "text": f"확인 못 함: {t['error']}", "unconfirmed": True})
+            continue
         if t["key"] == "planner" or not t.get("master"):
             continue
         evs = [e for e in events if e["ev"] in ("stop-ready", "done") and (e.get("team") or owner.get(base(str(e.get("seat"))))) == t["key"]]
@@ -71,7 +74,7 @@ def _cells(d: dict, root: Path, events: list[dict], now: datetime) -> list[dict]
 def build(d: dict, root: Path, now: datetime) -> dict:
     files = sorted((root / ".fable-team").glob("seats*.json"))
     allc = [c for f in files for c in cards.team_cards(root, f)]
-    seats = {(t["key"], s): [x["name"] for x in blk["seats"]] for t in d["teams"] for s, blk in t["progress"].items()}
+    seats = {(t["key"], s): [x["name"] for x in blk["seats"]] for t in d["teams"] for s, blk in (t.get("progress") or {}).items()}
     running = [{**c, "say": cards.plain(c["say"]), "seats": seats.get((c["team"], c["slug"]), [])} for c in allc if c["folder"] == "진행"]
     prog = sorted((c for c in running if c["seats"]), key=lambda c: (not c["where"].startswith("✅"), c["slug"]))  # 🔄 = 진행 카드 ∧ 좌석 실재(§2-3)
     waiting = [c for c in allc if c["folder"] == "대기"] + [c for c in running if not c["seats"]]  # 좌석 없는 진행 카드는 «지금 도는 일»이 아니다 → 완성 전
@@ -84,7 +87,8 @@ def build(d: dict, root: Path, now: datetime) -> dict:
     events = notes.tail_rows(ft_sheet_events.state_dir(root) / "sheet-events.jsonl", (now - timedelta(hours=WINDOW_H)).isoformat(timespec="seconds"))
     cells = _cells(d, root, events, now)
     lint = notes.lint_notes(root, Path(os.environ.get("FT_SHEET_NOTES") or root / ".fable-team" / "state" / "sheet-notes.md"))
-    return {"date": d["date"], "pending": ft_sheet_events.pending_counts(root), "ask": _ask(d, now), "progress": prog, "before": before,
+    return {"date": d["date"], "errors": [{"team": t["label"], "why": t["error"]} for t in d["teams"] if t.get("error")],
+            "pending": ft_sheet_events.pending_counts(root), "ask": _ask(d, now), "progress": prog, "before": before,
             "after": [{**c, "say": cards.plain(c["say"])} for c in waiting if c["after"]], "waiting": waiting, "unmapped": unmapped,
             "cells": cells, "unconfirmed": sum(c["unconfirmed"] for c in cells),
             "notes": {"ok": [x[1] for x in lint if x[0]], "rejected": sum(1 for x in lint if not x[0])}, "story": _story(root)}

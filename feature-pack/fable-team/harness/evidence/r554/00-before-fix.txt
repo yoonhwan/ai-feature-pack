@@ -1,0 +1,19 @@
+### 고침 전 코드 + 새 시험 (red) — pytest
+E        +  where 1 = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-11/test_collect_error_team_prints0/root/t/nope\n').returncode
+
+tests/scripts/test_ft_board_teams.py:203: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_board_teams.py::test_collect_missing_cards_folder_marks_only_that_team
+FAILED tests/scripts/test_ft_board_teams.py::test_collect_missing_tree_file_marks_only_that_team
+FAILED tests/scripts/test_ft_board_teams.py::test_collect_broken_roster_json_marks_that_team_with_exception_name
+FAILED tests/scripts/test_ft_board_teams.py::test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged
+FAILED tests/scripts/test_ft_board_teams.py::test_collect_error_team_prints_error_line_on_stderr
+5 failed, 6 passed in 2.58s
+### 고침 전 코드 + 새 시험 — test_sheet_publish.sh
+FAIL ⓔ rc=0: update|321|변화 · snap=x→y
+FAIL ⓔ 같은 rev 재실행 rc=0
+FAIL ⓕ rc=0: 
+fail=3
+### 고침 전 코드 + 옛 test_board.sh 셀(raise 기대) — base 동작
+FAIL _tree 없음 격리 실패 rc=1: ft-board: RuntimeError: seats-delta.json: _tree 파일 없음 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.16eNG9Sdcr/root/delta/NEWS.md
+FAILED 1

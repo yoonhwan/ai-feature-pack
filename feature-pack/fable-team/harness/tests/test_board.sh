@@ -169,9 +169,11 @@ assert re.fullmatch(r"문구 생략 \d+곳", out.splitlines()[-1]) and "- #7 〔
 assert "- 판정 501 · 〔문구 생략〕세요 → 〔문구 생략〕세요 〔문구 생략〕" in out and "reply-cleanup" not in out
 assert render(d, "term").count("Q9팀") >= 1  # term 은 원문
 PY
-# 설정된 파일이 없으면 raise
-mv "$FT_ROOT/delta/NEWS.md" "$T/NEWS.bak"; board render --term >/dev/null 2>"$T/e.err"; rc=$?
-[ "$rc" -ne 0 ] && has "_tree 파일 없음 = raise" "$(cat "$T/e.err")" "_tree 파일 없음" || bad "_tree 없음이 통과"; mv "$T/NEWS.bak" "$FT_ROOT/delta/NEWS.md"
+# 설정된 파일이 없으면 그 팀만 «확인 못 함»(r554 — 전 팀 중단 0 · 원인은 stderr ERROR + 그 팀 줄)
+mv "$FT_ROOT/delta/NEWS.md" "$T/NEWS.bak"; board render --term >"$T/e.out" 2>"$T/e.err"; rc=$?
+[ "$rc" -eq 0 ] && has "_tree 없음 = 그 팀 확인 못 함(stderr)" "$(cat "$T/e.err")" "ERROR seats-delta.json: _tree 파일 없음" \
+  && has "_tree 없음 = 그 팀 확인 못 함(본문)" "$(cat "$T/e.out")" "확인 못 함: _tree 파일 없음" \
+  || bad "_tree 없음 격리 실패 rc=$rc: $(cat "$T/e.err")"; mv "$T/NEWS.bak" "$FT_ROOT/delta/NEWS.md"
 
 # snapshot: 1회 → 카드 1장 진행→완성 → 2회
 S1="$(board snapshot)"; eq "snapshot 1 rc" "$?" 0; eq "첫 스냅샷 changes 빈 배열" "$(printf '%s' "$S1" | jq -c .changes)" "[]"
