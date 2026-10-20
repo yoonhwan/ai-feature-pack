@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from _team_fixture import write_teams
+from fake_resource_env import fake_comm_root
 
 ROOT = Path(__file__).resolve().parents[3]
 BIN = ROOT / "harness" / "bin"
@@ -108,7 +109,8 @@ def run_tool(tmp_path, bin_dir=BIN, now=NOW, planner=None, harness=None):
         FT_DRIFT_CMD=f"bash {tmp_path / 'drift.sh'}", FT_SECRET_SCAN_CMD=f"bash {tmp_path / 'secretscan.sh'}", FT_DUMB_LEDGER=str(tmp_path / "dumb.md"), FT_LIVE_BIN=str(tmp_path / "livebin"),
         FT_REVIEW_NOW=now.strftime("%Y-%m-%dT%H:%M"),
     )
-    return subprocess.run(["bash", str(bin_dir / "ft-weekly-review.sh")], capture_output=True, text=True, env=env, cwd=tmp_path)
+    cwd = fake_comm_root(tmp_path / "root")  # r537: 도구가 cwd 의 git 공용 루트(.fable-team/ 있는)를 필수로 푼다(r385 _repo_root)
+    return subprocess.run(["bash", str(bin_dir / "ft-weekly-review.sh")], capture_output=True, text=True, env=env, cwd=cwd)
 
 
 def files(tmp_path):

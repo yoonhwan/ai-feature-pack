@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from fake_resource_env import fake_comm_root as _fake_comm_root
 from fake_resource_env import fake_resource_env as _fake_resource_env
 
 GIT_ENV_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY")
@@ -73,3 +74,9 @@ def _teamset_off(monkeypatch: pytest.MonkeyPatch) -> None:
 def fake_resource_env(tmp_path: Path) -> Callable[[str], dict[str, str]]:
     """R218 — 자원 문지기 가짜 센서가 걸린 env dict 를 돌려주는 함수(mode = ok|reject). 실 머신 부하·압력과 무관하게 같은 결과."""
     return lambda mode="ok": _fake_resource_env(tmp_path, mode)
+
+
+@pytest.fixture
+def fake_comm_root() -> Callable[[Path], Path]:
+    """r537 — 임시 공용 루트(git 리포 + .fable-team/comm·state·LIVE_BIN·seats.json + design/TEAMS.md)를 만드는 함수. 실 공용 루트 0."""
+    return _fake_comm_root

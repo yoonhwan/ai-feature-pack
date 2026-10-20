@@ -17,6 +17,8 @@ echo '{}' > "$T/root/.fable-team/seats.json"
 git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t
 echo 'x = 1' > "$R/worker/a.py"
 printf '| key | 기본값 | OFF 값 | 읽는 자리 |\n|---|---|---|---|\n| `V65_TOGGLE_A` | `1` | `0` | worker/a.py:1 |\n' > "$R/design/v65/baselines/FLAGS.md"
+# r537: ⑥ 기준선 검사가 팀 명단(design/TEAMS.md · R383)으로 v65 폴더를 푼다 — 임시 리포에 최소 명단
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | v | 현역 |\n' > "$R/design/TEAMS.md"
 git -C "$R" add -A && git -C "$R" commit -qm base
 SHA="$(git -C "$R" rev-parse HEAD)"
 printf '{"set_sha":"%s","side_lang_at_press":{"right":"ko","left":"en"},"session_id":"run-1","failed":true}\n' "$SHA" > "$R/design/v65/baselines/ev/RESULT-ok.json"
