@@ -1,0 +1,8 @@
+HEAD=7d7a1ac94246ef08dbbd70a83df94c3be5f88825
+test_zc_resume_headroom rc=0 pass=36 fail=0
+test_resume_cmd rc=0 pass=14 fail=0
+test_dead_seat_resume rc=0 pass=85 fail=0
+test_seat_resume_binding rc=0 pass=92 fail=0
+test_team_move_resume rc=0 pass=10 fail=0
+test_zombie_clean_live_guard rc=0 pass=15 fail=0
+test_zombie_clean_tmux_prune rc=0 pass=69 fail=0

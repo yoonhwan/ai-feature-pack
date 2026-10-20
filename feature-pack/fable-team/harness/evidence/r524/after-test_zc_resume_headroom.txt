@@ -1,0 +1,37 @@
+PASS bash -n zombie-clean.sh
+PASS ⓐ dry-run rc0
+PASS ⓐ [dry] cmd= 래퍼 명령
+PASS ⓐ 날 claude 명령 0
+PASS ⓐ dry-run tmux 호출 0
+PASS ⓑ resume rc0
+PASS ⓑ new-session cwd
+PASS ⓑ send-keys -l = 래퍼 명령
+PASS ⓑ Enter 별도
+PASS ⓓ 프록시 경유 = HEADROOM ok 줄
+PASS ⓓ ok 일 때 WARN 0
+PASS ⓓ 직결이어도 rc0(래퍼 fail-open)
+PASS ⓓ 직결 = WARN HEADROOM_BYPASS 줄
+PASS ⓓ kill 0
+PASS ⓓ 래퍼 단계만 보임 rc0
+PASS ⓓ 래퍼(bash) pid 는 본체 아님 → 확인 불가
+PASS ⓓ pid 없음 rc0
+PASS ⓓ 7초 안에 pid 없음 = 확인 불가 줄
+PASS ⓒ 비실행 래퍼 rc1 · tmux 호출 0
+PASS ⓒ 비실행 래퍼 안내
+PASS ⓒ 래퍼 없음 rc1 · tmux 호출 0
+PASS ⓒ 래퍼 없음 안내
+PASS ⓒ 성공 표기 0
+PASS ⓒ 래퍼 없음이면 dry-run 도 rc1
+PASS ⓒ 경로는 ZC_CLAUDE_HR 한 곳
+PASS ⓔ …/claude → 래퍼(나머지 인자 그대로)
+PASS ⓔ claude → 래퍼
+PASS ⓔ 이미 래퍼면 그대로
+PASS ⓔ codex argv 그대로
+PASS ⓔ claude 가 아닌 낱말(claudex) 그대로
+PASS ⓔ 인자 없는 claude → 래퍼
+PASS ⓔ restore 실제 rc0
+PASS ⓔ restore send-keys -l = 래퍼 argv
+PASS ⓔ 래퍼 없음 + claude argv → rc1 · 호출 0
+PASS ⓔ 래퍼 없음 안내
+PASS ⓔ 래퍼 없어도 codex argv 는 그대로 복원
+ALL PASS

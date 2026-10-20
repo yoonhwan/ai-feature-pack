@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.81)
+
+- 사건: desk 26 이 `zombie-clean.sh resume 'byz-concierge-master-claude#6'` 으로 좌석을 다시 열자 날 `claude --resume <uuid> --model …` 로 떠 ANTHROPIC_BASE_URL 없음(프록시 8317 미경유 · 직결) → «session limit · resets 12pm» 정지(desk 26 쪽지 119405 · harness master 83 발주 119409). tmuxc 열기·fork 는 이미 래퍼 경유 — 키트에서 날 claude 를 여는 곳은 재개 3곳뿐(arch 107 실측).
+- `zombie-clean.sh`: 래퍼 경로 1곳 `ZC_CLAUDE_HR`(기본 `$HOME/.headroom/claude-hr.sh`) · resume 열기 = `<래퍼> --dangerously-skip-permissions --resume <uuid> --model '<model>'`(`--dry-run` 은 `[dry] cmd=<같은 문자열>`) · 래퍼 없음·비실행 = `❌ 헤드룸 래퍼 없음: <경로>` rc1 · 세션 생성 0(직결 대체 0) · 연 뒤 ≤7초(`ZC_HR_WAIT_S`) 그 pane 자식 중 본체(comm = claude · 래퍼 bash 단계는 세지 않음)의 `ps eww` 에서 `HEADROOM ok <좌석> pid=<n> ANTHROPIC_BASE_URL=<값>` / `WARN HEADROOM_BYPASS <좌석> pid=<n>` / `WARN HEADROOM 확인 불가(7s)` 1줄 — kill 0 · rc0(래퍼 fail-open). restore: 대장 argv 첫 낱말이 `claude`·`…/claude` 면 그 낱말만 래퍼로(래퍼 없으면 rc1) · 이미 래퍼·codex 등은 그대로.
+- `ft-resume-cmd.sh` ② 슬랙 «재개» 칸 = `cd <cwd> && ~/.headroom/claude-hr.sh --resume <uuid>`(`printf %q` 인용 유지 · 사람이 복사하는 줄이라 `~` 그대로) · `harness/bin` 사본 cmp0.
+- 시험 `test_zc_resume_headroom.sh`(새 · 가짜 tmux/pgrep/ps · 임시 HOME 가짜 래퍼 · 실 claude·tmux·프록시 0 · GIT_* 0) ⓐ~ⓔ — 고치기 전 FAIL 20(`harness/evidence/r524/before-test_zc_resume_headroom.txt`) · 고친 뒤 ALL PASS 36. 기존 기대값 갱신 3: `test_resume_cmd.sh`(②) · `test_dead_seat_resume.sh`(ⓐ --from-live dry · 가짜 래퍼) · `test_zombie_clean_tmux_prune.sh`(T24c · 가짜 래퍼). 기존 7 시험 rc0 = `harness/evidence/r524/after-summary.txt`.
+- 설치: 키트 2 → zombie-clean = `cp -p <키트>/zombie-clean/*.sh <키트>/zombie-clean/*.py ~/.claude/skills/zombie-clean/scripts/`(홈 사본의 R364 결속 판정기 누락도 이때 맞춰짐) · ft-resume-cmd = `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · launchd 0 · 되돌림 = `.bak-r524`.
+- 범위 밖: 재개 기록에 env·effort 칸 · codex 좌석 재개 · 직결 좌석 자동 재기동·kill · tmuxc(이미 정상) · 전역 ANTHROPIC_BASE_URL export 0.
+
 ## 2026-10-20 — 하네스 시험 «밖 RED» 셸 62 · pytest 104 를 원인 8묶음으로 분류 · 가장 큰 묶음(pytest 79) + 픽스처 미이관 묶음 고침 (r516 · 1.1.80)
 
 - 사건: r509 끝선 «기존 시험 전체 rc0» 이관분 — 팩 main 에도 있는 밖 RED(셸 62 · pytest 104)가 나노 증거마다 «기존 RED 제외» 로 깔려 새 실패를 가렸다(harness master 83 발주 118693 · arch 106 카드화 · 판정 1395).

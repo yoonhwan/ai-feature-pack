@@ -1,0 +1,15 @@
+PASS live tmux → mbox ring
+PASS prefix-only tmux session is not live
+PASS exact mapping → cd && ~/.headroom/claude-hr.sh --resume (quoted)
+PASS R524 날 claude 직결 명령 0
+PASS quoted cwd round-trips through the shell
+PASS jsonl sessionId differs from row
+PASS jsonl cwd differs from row
+PASS row has mapping but jsonl missing
+PASS backend mismatch (agent=codex)
+PASS row without session_uuid/cwd
+PASS seat not in any roster
+PASS name mentioned in someone else's jsonl is not ownership
+PASS same seat in two rosters is ambiguous
+PASS no argument → rc 2
+ALL PASS
