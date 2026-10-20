@@ -20,6 +20,7 @@
 #         · 끝줄 `WT-SHIM refreshed=N skip=M fail=K` · K>0 = 끝 rc1 · dry-run = `PLAN wt-shim <wt> <옛> -> <새>` · 워크트리 --project = 순회 0.
 #   r538: `__FT_BIN__` 키트 launchd 템플릿(kit/*/*.plist.template)은 «설치된 것만» 실행 경로(ProgramArguments)를 판 없는 루트 shim(<루트>/.fable-team/bin)으로 렌더 → 다를 때만
 #         .bak-r538 + 교체 + bootout·bootstrap · 끝줄 `LAUNCHD rendered=N changed=M restarted=K` · 워크트리 --project = SKIP launchd.
+#   r544: 렌더 목록 = 루트 bin 을 부르는 템플릿 전부(__BYZ_ROOT__/.fable-team/bin/ 꼴 포함) · 바꾸는 키 = ProgramArguments + 템플릿의 WorkingDirectory(설치본에 없어 launchd cwd=/ 로 돌던 사건).
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 

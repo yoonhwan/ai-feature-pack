@@ -1,0 +1,19 @@
+PENDING n=10
+MISSING feature-pack/fable-team/harness/kit/fable-team/templates/scope-classes-pack.tsv -> /Users/yoonhwan/.claude/fable-team/live/1.1.97/bin/../templates/classes-pack.tsv
+MISSING feature-pack/fable-team/harness/kit/fable-team/templates/scope-ddl-record.tsv -> /Users/yoonhwan/.claude/fable-team/live/1.1.97/bin/../templates/ddl-record.tsv
+NOTLOADED com.byz.ft-head-lag
+NOTLOADED com.byz.ft-idle-wake
+NOTLOADED com.byz.iap-tunnel
+STALE-COPY /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning/.fable-team/bin files=4
+STALE-COPY /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-ops/.fable-team/bin files=3
+STALE-COPY /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pg/.fable-team/bin files=3
+STALE-COPY /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pgvec/.fable-team/bin files=3
+STALE-COPY /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-domain-hierarchy/.fable-team/bin files=19
+HINT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning/.fable-team/bin bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r544-broken-daemons-plist-root-and-exist/feature-pack/fable-team/harness/install.sh --apply --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning
+HINT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-ops/.fable-team/bin bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r544-broken-daemons-plist-root-and-exist/feature-pack/fable-team/harness/install.sh --apply --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-ops
+HINT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pg/.fable-team/bin bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r544-broken-daemons-plist-root-and-exist/feature-pack/fable-team/harness/install.sh --apply --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pg
+HINT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pgvec/.fable-team/bin bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r544-broken-daemons-plist-root-and-exist/feature-pack/fable-team/harness/install.sh --apply --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pgvec
+HINT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-domain-hierarchy/.fable-team/bin bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r544-broken-daemons-plist-root-and-exist/feature-pack/fable-team/harness/install.sh --apply --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-domain-hierarchy
+HINT fable-team master: harness/install.sh --apply → cmp0 (r466 · 범위 승인 분류기의 팩 분류표·DDL 적용 기록표 — ft-autonomy-scope.sh 가 <LIVE_BIN>/../templates 에서 읽는다)
+HINT iap-tunnels 해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · iap-tunnels/install.sh · zombie-clean/install.sh(serena-ensure) · fable-team/install.sh (후 launchctl bootstrap·kickstart)
+HINT launchd 해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · iap-tunnels/install.sh · zombie-clean/install.sh(serena-ensure) · fable-team/install.sh (후 launchctl bootstrap·kickstart)

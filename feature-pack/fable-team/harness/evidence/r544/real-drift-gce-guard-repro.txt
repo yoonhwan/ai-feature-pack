@@ -1,0 +1,5 @@
+# r544 ⓒ — 설치 검사가 «지운 워크트리를 가리키는 plist» 를 DRIFT 로 찍은 원문
+# 조건: 실 ~/Library/LaunchAgents/com.byz.gce-guard-check.plist 사본의 ProgramArguments[1] 만 r532 점검표 실측값(<루트>/.worktrees/ops-guard/scripts/ops/gce-guard-check.sh)으로 되돌린 temp HOME · 실 launchd·쓰기 0
+PENDING n=110
+DRIFT launchd com.byz.gce-guard-check missing=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-guard/scripts/ops/gce-guard-check.sh
+HINT launchd-missing missing=<경로> plist 의 실행 경로를 정본으로 고치거나 스크립트 복구(키트 밖 plist 는 설치기 손 0)

@@ -7,7 +7,9 @@ __MAILBOX__ = <루트>/.fable-team/comm/mailbox.log.jsonl · __HOME__ · 나머�
       ft_plist_env.py render <라벨> <템플릿> <설치 plist> <루트> <LIVE_BIN> <HOME> → stdout 렌더본
 r538: ft_plist_env.py bin-list <키트 harness/kit>                       → __FT_BIN__ 템플릿 «라벨<TAB>템플릿» 줄
       ft_plist_env.py render-bin <템플릿> <루트> [<설치 plist>] [--need-exist] → stdout 렌더본(__FT_BIN__ = <루트>/.fable-team/bin · 판 붙은 live 경로 0)
-            · 설치 plist 를 주면 그 plist 에 ProgramArguments 만 렌더본 것으로 바꾼 본문(머신별 env·주기 보존 · 같으면 원문 그대로)
+            · 설치 plist 를 주면 그 plist 에 ProgramArguments + 템플릿의 WorkingDirectory 만 렌더본 것으로 바꾼 본문(머신별 env·주기 보존 · 같으면 원문 그대로)
+r544: bin-list 는 «루트 bin 을 부르는» 템플릿 전부 — __FT_BIN__ 템플릿 + __BYZ_ROOT__/.fable-team/bin/ 템플릿(secret-scan·weekly-review 꼴 · 실행 경로만 루트 · 주기·로그는 템플릿 값)
+      render-bin 은 템플릿에 WorkingDirectory 가 있으면 그것도 옮긴다 — 설치본에 그 키가 없어 launchd cwd=/ 에서 돌던 사건(리포 공용 루트 못 풂)
 종료: 0 · 2 usage · 3 ERROR(루트·LIVE_BIN·설치값 없음 · 자리표시 잔재 · plist 해석 실패 — 조용한 통과 0 · #0 RULE). 쓰기 0."""
 import os
 import plistlib
@@ -78,8 +80,12 @@ def render(template, installed, root, live_bin, home):
     return out
 
 
+ROOTBIN = "__BYZ_ROOT__/.fable-team/bin/"  # r544: 루트 bin 을 직접 부르는 템플릿 표식(__FT_BIN__ 없이 실행 경로만 루트인 꼴 — secret-scan·weekly-review)
+
+
 def bin_list(kit):
-    """r538: <키트>/*/*.plist.template 중 __FT_BIN__ 를 담은 것 → [(라벨, 템플릿 경로)] (라벨 = 파일 이름 · 템플릿 Label 과 다르면 RenderError)."""
+    """r538: <키트>/*/*.plist.template 중 루트 bin 을 부르는 것 → [(라벨, 템플릿 경로)] (라벨 = 파일 이름 · 템플릿 Label 과 다르면 RenderError).
+    r544: __FT_BIN__ 뿐 아니라 __BYZ_ROOT__/.fable-team/bin/ 실행 경로 템플릿도 포함(__HOME__·__REPO__ 를 쓰는 magazine 류는 실행 경로가 루트 bin 이 아니라 제외)."""
     out = []
     for sub in sorted(os.listdir(kit)):
         d = os.path.join(kit, sub)
@@ -88,7 +94,7 @@ def bin_list(kit):
                 continue
             with open(os.path.join(d, name), encoding="utf-8") as fh:
                 body = fh.read()
-            if "__FT_BIN__" not in body:
+            if "__FT_BIN__" not in body and ROOTBIN not in body:
                 continue
             label = name[: -len(".plist.template")]
             m = re.search(r"<key>Label</key>\s*<string>([^<]+)</string>", body)
@@ -123,13 +129,17 @@ def render_bin(template, root, need_exist=False):
 
 def sync_args(rendered, installed):
     """r538: 설치 plist 의 ProgramArguments 만 렌더본 것으로 — 나머지(머신별 env·주기)는 설치본 그대로(손으로 둔 FT_STALL_PENALTY_AUTO=0 등 보존).
+    r544: 템플릿에 WorkingDirectory 가 있으면 그것도 옮긴다(설치본에 없어 launchd cwd=/ 로 돌던 사건) — 템플릿에 없으면 설치본 값 그대로(지어내지 않음).
     이미 같으면 설치본 원문 그대로 돌려준다(쓰기 0)."""
-    want = plistlib.loads(rendered.encode("utf-8"))["ProgramArguments"]
+    want = plistlib.loads(rendered.encode("utf-8"))
     d = load(installed)
-    if d.get("ProgramArguments") == want:
+    keep_wd = "WorkingDirectory" in want
+    if d.get("ProgramArguments") == want["ProgramArguments"] and (not keep_wd or d.get("WorkingDirectory") == want["WorkingDirectory"]):
         with open(installed, encoding="utf-8") as fh:
             return fh.read()
-    d["ProgramArguments"] = want
+    d["ProgramArguments"] = want["ProgramArguments"]
+    if keep_wd:
+        d["WorkingDirectory"] = want["WorkingDirectory"]
     return plistlib.dumps(d, sort_keys=False).decode("utf-8")
 
 

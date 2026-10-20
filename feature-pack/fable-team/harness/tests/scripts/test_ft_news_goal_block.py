@@ -4,6 +4,7 @@
 게이트 = <루트>/.fable-team/state/goal-gate.armed 가 있을 때만 REJECT rc3(발행 0 · 처리 기록 0 · planner [긴급] 1통) · 없으면 WOULD-REJECT 로그만. 후속 판 단독 publisher 는 «검증 영수증»(같은 run 의 묶음 검증)이 있어야 통과.
 실행: .venv/bin/python -m pytest tests/scripts/test_ft_news_goal_block.py -q
 """
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -67,7 +68,7 @@ def _new(teams: int) -> dict:
 
 
 def _sha(block: str) -> str:
-    return block.splitlines()[0].split("(")[1][:10]
+    return re.search(r"[0-9a-f]{10}", block.splitlines()[0].split("(")[1]).group(0)  # r545: 머리에 출처 표지(`origin/main@`|`file:`)가 붙어도 sha10 만
 
 
 # ── render_parts ─────────────────────────────────────────────────
