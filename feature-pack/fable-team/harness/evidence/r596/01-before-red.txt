@@ -1,0 +1,6 @@
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_summary_byte_budget_r596.py::test_r596_a_summary_budget_subtracts_this_ticks_status_line
+FAILED tests/scripts/test_news_summary_byte_budget_r596.py::test_r596_b_no_teams_budget_is_upper_bound_minus_status_only
+FAILED tests/scripts/test_news_summary_byte_budget_r596.py::test_r596_c_model_over_budget_is_error_publish_zero
+FAILED tests/scripts/test_news_summary_byte_budget_r596.py::test_r596_d_model_within_budget_passes
+4 failed in 0.19s
