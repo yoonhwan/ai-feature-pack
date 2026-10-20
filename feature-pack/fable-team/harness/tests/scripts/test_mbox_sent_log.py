@@ -66,6 +66,48 @@ def test_log_failure_warns_loudly_and_send_still_succeeds(tmp_path: Path):
     assert "사본이 안 써져도 통신은 산다" in (tmp_path / "mailbox.jsonl").read_text(encoding="utf-8")
 
 
+def _logs(box: Path) -> dict[str, list[int]]:
+    """현재판 + `.N` 회전본의 seq — 없는 벌은 키가 없다."""
+    out = {}
+    for p in [box / "mailbox.log.jsonl"] + sorted(box.glob("mailbox.log.jsonl.[0-9]*")):
+        if p.is_file():
+            out[p.name.rsplit(".", 1)[1] if p.name.endswith(tuple("0123456789")) else "active"] = [
+                json.loads(ln)["seq"] for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()
+            ]
+    return out
+
+
+def test_log_keep_three_rotations_survive_rotation(tmp_path: Path, monkeypatch):
+    """ⓐ r553 — 회전본이 `.1` 한 벌로만 남으면 보관이 짧아 매거진 24시간 창 앞이 사라진다."""
+    monkeypatch.delenv("FT_MBOX_LOG_KEEP", raising=False)
+    env = {"FT_MBOX_LOG_MAX_BYTES": "600", "FT_MBOX_LOG_KEEP": "3"}
+    for i in range(60):
+        _send(tmp_path, "dst#1", f"밀어 보관 시험 {i} " + "x" * 40, frm=f"s{i}#1", extra_env=env)
+    per = _logs(tmp_path)
+    assert set(per) == {"active", "1", "2", "3"}  # `.2`·`.3` 이 산다 · `.4` 는 없다
+    seqs = per["3"] + per["2"] + per["1"] + per["active"]  # 가장 오래된 벌 → 현재판
+    assert seqs == list(range(seqs[0], seqs[0] + len(seqs)))  # 오름차순 · 빈틈 0
+    assert seqs[-1] == max(q["seq"] for q in _log(tmp_path))  # 최신 행 보존
+
+
+def test_log_keep_defaults_to_three(tmp_path: Path, monkeypatch):
+    """ⓑ env 없음 = 3벌."""
+    monkeypatch.delenv("FT_MBOX_LOG_KEEP", raising=False)
+    for i in range(60):
+        _send(tmp_path, "dst#1", f"기본값 시험 {i} " + "x" * 40, frm=f"s{i}#1",
+              extra_env={"FT_MBOX_LOG_MAX_BYTES": "600"})
+    assert set(_logs(tmp_path)) == {"active", "1", "2", "3"}
+
+
+def test_log_keep_one_matches_old_single_rotation(tmp_path: Path, monkeypatch):
+    """ⓒ `FT_MBOX_LOG_KEEP=1` = 옛 동작(`.1` 하나 · 되돌림 손잡이)."""
+    monkeypatch.delenv("FT_MBOX_LOG_KEEP", raising=False)
+    for i in range(30):
+        _send(tmp_path, "dst#1", f"한 벌 시험 {i} " + "x" * 40, frm=f"s{i}#1",
+              extra_env={"FT_MBOX_LOG_MAX_BYTES": "600", "FT_MBOX_LOG_KEEP": "1"})
+    assert set(_logs(tmp_path)) == {"active", "1"}
+
+
 def test_log_rotation_bounds_the_file(tmp_path: Path):
     env = {"FT_MBOX_LOG_MAX_BYTES": "600"}
     for i in range(30):

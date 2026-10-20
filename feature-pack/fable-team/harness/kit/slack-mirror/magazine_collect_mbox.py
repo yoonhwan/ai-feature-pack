@@ -4,6 +4,7 @@ mbox 본문은 다른 에이전트가 쓴 «미검증 데이터» — 여기서�
 ts 는 tz 없는 KST 문자열이라 같은 형식 문자열로 비교한다. 창 = [start, end).
 """
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -69,25 +70,47 @@ def _dedupe_seq(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return out
 
 
-def read_window(path: Path, s: str) -> tuple[list[dict[str, str]], int]:
-    """(유효 줄 목록, 깨진 줄 수). 현재 파일이 창 시작 `s` 를 덮지 못하면 회전본 `<이름>.1` 을 앞에 이어 읽는다.
+def _rotated(path: Path, n: int) -> Path:
+    return path.with_name(f"{path.name}.{n}")
 
-    회전본은 1개(.1)뿐 — mbox 회전 설계가 1개다. 이어도 못 덮으면 raise (창 앞부분 누락을 숨기지 않는다).
+
+def _log_keep() -> int:
+    """회전본 «벌 수» — 쓰는 쪽(mbox_conf.SENT_LOG_KEEP)과 같은 env·같은 기본값 3."""
+    try:
+        return max(1, int(os.environ.get("FT_MBOX_LOG_KEEP") or 3))
+    except ValueError:
+        return 3
+
+
+def read_window(path: Path, s: str) -> tuple[list[dict[str, str]], int]:
+    """(유효 줄 목록, 깨진 줄 수). 현재 파일이 창 시작 `s` 를 덮지 못하면 회전본 `.1`~`.N` 을 하나씩 앞에 이어 읽는다.
+
+    회전본은 `.<SENT_LOG_KEEP>` 벌(기본 3)까지 있다 — 쓰는 쪽이 밀어 보관한다(r553).
+    빠진 벌을 만나면 거기서 멈춘다(건너뛰어 «덮었다» 고 하지 않는다). 다 이어도 못 덮으면 raise
+    (창 앞부분 누락을 숨기지 않는다 — 이어 읽은 파일과 첫 ts 를 전부 메시지에 쓴다).
     """
     rows, bad = _read(path)
     if rows and rows[0]["ts"] <= s:
         return rows, bad
-    rotated = path.with_name(path.name + ".1")
-    if not rotated.is_file():
+    merged = rows
+    read: list[tuple[Path, list[dict[str, str]]]] = []
+    for n in range(1, _log_keep() + 1):
+        rotated = _rotated(path, n)
+        if not rotated.is_file():
+            break
+        old, old_bad = _read(rotated)
+        bad += old_bad
+        merged = sorted(_dedupe_seq([*old, *merged]), key=lambda r: r["ts"])  # 안정 정렬 — _seats 가 ts 순서를 가정한다
+        read.append((rotated, old))
+        if merged and merged[0]["ts"] <= s:
+            return merged, bad
+    if not read:
         raise MagazineError(f"mbox 사본이 창 앞부분을 덮지 못해요(첫 정상 기록 ts={rows[0]['ts'] if rows else '없음'} > 창 시작 {s}): {path}")
-    old, old_bad = _read(rotated)
-    merged = sorted(_dedupe_seq([*old, *rows]), key=lambda r: r["ts"])  # 안정 정렬 — _seats 가 ts 순서를 가정한다
-    if not merged or merged[0]["ts"] > s:
-        raise MagazineError(
-            f"mbox 사본이 회전본을 이어도 창 앞부분을 덮지 못해요(창 시작 {s}): "
-            f"{rotated} 첫 ts={old[0]['ts'] if old else '없음'} · {path} 첫 ts={rows[0]['ts'] if rows else '없음'}"
-        )
-    return merged, bad + old_bad
+    raise MagazineError(
+        f"mbox 사본이 회전본을 이어도 창 앞부분을 덮지 못해요(창 시작 {s}): "
+        + " · ".join(f"{p} 첫 ts={rs[0]['ts'] if rs else '없음'}" for p, rs in read)
+        + f" · {path} 첫 ts={rows[0]['ts'] if rows else '없음'}"
+    )
 
 
 def lineage(seat: str) -> str:

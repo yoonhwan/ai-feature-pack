@@ -3,6 +3,7 @@
 #  ⓐ send 뒤 mailbox.jsonl 1행 + mailbox.log.jsonl 같은 seq 1행(키 seq·ts·to·from·body 동일)
 #  ⓑ recv 소비 뒤 mailbox.jsonl 0 · log 1 유지  ⓒ relay 도 log 1
 #  ⓓ log 가 FT_MBOX_LOG_MAX_BYTES 넘으면 .1 회전 + 새 파일 1행(ft_inbox_core.mail_files 가 읽는 꼴)
+#  ⓖ r553: `FT_MBOX_LOG_KEEP=3` 이면 `.1`·`.2`·`.3` 로 밀어 보관(`.4` 없음 · seq 오름차순·빈틈 0) · 기본값도 3벌
 #  ⓔ 자가 점검: log 를 읽기 전용으로 막으면 stdout QUEUED 그대로 · rc 0 · stderr `WARN sent-log 0`
 #  ⓕ 변이: py 의 _log_sent 호출을 빼면 ⓐ 가 FAIL + WARN sent-log 0
 # 임시 FT_ROOT(키트 bin 사본) + FT_MBOX_DIR 임시 comm + 가짜 tmux(doorbell 0) + 가짜 Haiku — 실 우편함·외부 호출 0 · GIT_* 0.
@@ -95,4 +96,13 @@ out="$(FT_MBOX_DIR="$MC" bash "$MB/ft-mbox.sh" send a#1 f#1 "변이" 2>"$T/err")
 eq "ⓕ 변이 → 로그 0 (ⓐ FAIL)" "$(rows "$MC/mailbox.log.jsonl" "$S")" 0
 grep -q "WARN sent-log 0 seq=$S " "$T/err" && ok "ⓕ 변이 → WARN sent-log 0" || bad "ⓕ 변이 → WARN sent-log 0"
 
+# ⓖ r553: 밀어 보관 — `.1`~`.3` 살고 `.4` 없음 · seq 오름차순·빈틈 0
+for i in $(seq 1 40); do
+  FT_MBOX_LOG_MAX_BYTES=40 FT_MBOX_LOG_KEEP=3 bash "$BIN/ft-mbox.sh" send a#1 b#1 "밀어 보관 시험 $i xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" >/dev/null 2>&1
+done
+for n in 1 2 3; do [ -f "$C/mailbox.log.jsonl.$n" ] && ok "ⓖ .$n 산다" || bad "ⓖ .$n 산다"; done
+[ -f "$C/mailbox.log.jsonl.4" ] && bad "ⓖ .4 없음" || ok "ⓖ .4 없음"
+seqs="$(for n in 3 2 1; do python3 -c 'import json,sys;print("\n".join(str(json.loads(l)["seq"]) for l in open(sys.argv[1],encoding="utf-8") if l.strip()))' "$C/mailbox.log.jsonl.$n"; done; python3 -c 'import json,sys;print("\n".join(str(json.loads(l)["seq"]) for l in open(sys.argv[1],encoding="utf-8") if l.strip()))' "$C/mailbox.log.jsonl")"
+echo "$seqs" | python3 -c 'import sys;s=[int(x) for x in sys.stdin.read().split()];print("gap0" if s==list(range(s[0],s[0]+len(s))) else "gap")' > "$T/gap"
+eq "ⓖ seq 오름차순·빈틈 0" "$(cat "$T/gap")" gap0
 echo "---"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL $fail"; exit 1; }
