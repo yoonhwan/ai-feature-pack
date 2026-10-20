@@ -1,0 +1,13 @@
+PASS ⓐ mark rc
+PASS ⓐ STILL-OPEN 원문 1줄
+PASS ⓐ MARKED 줄 그대로
+PASS ⓐ CLOSED 오출력 0
+PASS ⓑ mark rc
+PASS ⓑ CLOSED 1줄
+PASS ⓑ STILL-OPEN 안내 0
+PASS ⓒ 전 = 결정 인터뷰 1건
+PASS ⓒ report rc
+PASS ⓒ 후 = 결정 인터뷰 0건
+   ⓒ 원문: 전 «결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)» · 후 «결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)»
+PASS ⓓ obligation_closed 바이트 불변
+SUMMARY fail=0
