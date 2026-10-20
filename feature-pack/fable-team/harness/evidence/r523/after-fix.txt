@@ -1,0 +1,78 @@
+== ⓐ 명령 글자 yes & = REJECT + 안내 1줄
+PASS ⓐ yes > /dev/null & rc=2
+PASS ⓐ stderr REJECT 1줄
+PASS ⓐ 안내 원문
+== ⓑ 감싸개 nice · 여러 개
+PASS ⓑ nice -n 19 yes & yes & rc=2
+PASS ⓑ nohup yes 2>&1 & rc=2
+PASS ⓑ env X=1 /usr/bin/yes & rc=2
+PASS ⓑ for … do yes & done rc=2
+== ⓒ 실행되는 스크립트 파일 속(trap 은 면제 아님)
+PASS ⓒ bash <절대경로>/loadrep.sh rc=2
+PASS ⓒ 파일:줄 = loadrep.sh:4
+PASS ⓒ cwd 기준 bash loadrep.sh rc=2
+PASS ⓒ ./loadrep.sh rc=2
+PASS ⓒ sh -x loadrep.sh rc=2
+PASS ⓒ source loadrep.sh rc=2
+PASS ⓒ timeout 60 bash loadrep.sh(바깥 timeout 은 안의 & 고아를 못 끈다) rc=2
+PASS ⓒ 주석 속 따옴표가 뒤 줄을 삼키지 않음 rc=2
+PASS ⓒ 파일:줄 = quote.sh:2
+PASS ⓒ 파일 속 여러 줄 while true … done & rc=2
+PASS ⓒ 파일:줄 = loop.sh:1
+== ⓓ cat /dev/zero · dd · while true · while :
+PASS ⓓ cat /dev/zero & rc=2
+PASS ⓓ cat /dev/urandom & rc=2
+PASS ⓓ dd if=/dev/zero & rc=2
+PASS ⓓ while true … done & rc=2
+PASS ⓓ while : … done & rc=2
+PASS ⓓ while [ 1 ] … done & rc=2
+PASS ⓓ bash -c 문자열 안 yes & rc=2
+== ⓔ run_in_background: true
+PASS ⓔ bg=true + yes > /dev/null rc=2
+PASS ⓔ bg=true + while true; do :; done rc=2
+PASS ⓔ bg=true + while true; do sleep 5; done(sleep = r448 영역) rc=0
+PASS ⓔ bg=true + sleep 30 rc=0
+PASS ⓔ bg=false + yes | head rc=0
+== ⓕ 통과
+PASS ⓕ timeout 60 yes > /dev/null & rc=0
+PASS ⓕ yes | head -5 rc=0
+PASS ⓕ yes y | apt-get install x rc=0
+PASS ⓕ cmd && other rc=0
+PASS ⓕ echo "yes &" rc=0
+PASS ⓕ # yes > /dev/null & rc=0
+PASS ⓕ git commit -m "yes > /dev/null & 막음" rc=0
+PASS ⓕ while true; do sleep 1; done & rc=0
+PASS ⓕ dd if=/dev/zero of=/tmp/x bs=1k count=10 & rc=0
+PASS ⓕ make &> build.log & rc=0
+PASS ⓕ yes > /dev/null && echo ok rc=0
+PASS ⓕ yes 2>&1 | head -5 rc=0
+PASS ⓕ # while true; do :; done & rc=0
+PASS ⓕ cat <<EOF > x.sh yes > /dev/null & EOF rc=0
+PASS ⓕ sleep 30 & rc=0
+PASS ⓕ tool_name≠Bash = 통과 rc=0
+PASS ⓕ 이 시험 파일 자체 실행 = 통과 rc=0
+== ⓖ 없는 파일 · 256KB 넘는 파일 = 읽기 생략 · 경고 0
+PASS ⓖ bash <없는 파일> rc=0
+PASS ⓖ 없는 파일 stderr 0
+PASS ⓖ 256KB 넘는 파일 rc=0
+PASS ⓖ 큰 파일 stderr 0
+== ⓗ 입력 깨짐 = 통과 + 경고(fail-open)
+PASS ⓗ JSON 못 읽음 = rc0 + WARN
+PASS ⓗ 빈 입력 = 통과
+== ⓘ timeout 상한 600초
+PASS ⓘ timeout 2h yes & rc=2
+PASS ⓘ 상한 문구
+PASS ⓘ timeout 601 yes & rc=2
+PASS ⓘ timeout 600 yes & rc=0
+PASS ⓘ timeout -k 5 10m yes & rc=0
+PASS ⓘ gtimeout 30s nice yes & rc=0
+== ⓙ 1초 안 · 외부 프로세스 0
+PASS ⓙ 훅 1회 0.032s < 1s
+PASS ⓙ kill·pgrep·ps·pkill 호출 0
+PASS ⓙ 훅 본문 프로세스 호출 글자 0
+== 설치 목록 · 스니펫
+PASS 스니펫 PreToolUse Bash 1항(JSON 유효)
+PASS 훅 실행 권한
+PASS bash -n
+== 결과: FAIL=0
+rc=0
