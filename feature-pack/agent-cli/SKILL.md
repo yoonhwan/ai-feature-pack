@@ -53,15 +53,17 @@ compatibility: macOS · Linux · WSL. perl + python3 (macOS 내장 / WSL·Ubuntu
 
 ## 1. CLI 자동주행 + 영속성 매트릭스 (✅ 2026-06 5종 실증 · 2026-08 Command Code · 2026-10 Pi 추가)
 
-| CLI | 비대화 | 자동주행(자율) | resume | JSON | 비고 |
-|-----|--------|---------------|--------|------|------|
-| **Claude Code** | `claude -p`* | `--dangerously-skip-permissions` | `--resume <sid>` | `--output-format json` | sid는 JSON `session_id` · *로컬 래퍼 있으면 그 경유(§2 스텝 0) |
-| **Codex** | `codex exec` | `--full-auto` ⎮ `--yolo`* | `codex exec resume --last`** | `--output-schema` | full-auto/yolo **택1** |
-| **Gemini** | `gemini -p` | `--approval-mode yolo`*** | `--resume <session_id>`**** | `-o json` | sid resume(‘latest’는 hang 사례) |
-| **OpenCode** | `opencode run` | 기본 무승인 | `-s <sid>` / `-c` | `--format json` | **유효 provider/model 필수** |
-| **Cursor Agent** | `cursor-agent -p` | `-f` / `--force` | `--resume <chatId>` | `--output-format json` | **`cursor` IDE 아님 — 비대화 작동** |
-| **Command Code** | `cmd -p` | `--yolo` | `-r <sid>` ⎮ `--session <id>` ⎮ `-c` | `--output-format json` | sid는 최종 `result` 라인 `sessionId`(**stdout**) · **크레딧 구독 필수**(잔액 0이면 exit 10) |
-| **Pi** | `pi -p` | `--tools <allowlist>` (승인 프롬프트 없음) ⎮ `--approve` | `--session-id <sid>` (fresh) / `--session <sid>` (resume) | `--mode json` (JSONL events) | `provider/model` 참조는 **이중 slash** 가능 (`opengateway/deepseek/...`) · `--skill`로 스킬 주입 |
+| CLI | 비대화 | 자동주행(자율) | resume | JSON | effort/thinking | 비고 |
+|-----|--------|---------------|--------|------|------|------|
+| **Claude Code** | `claude -p`* | `--dangerously-skip-permissions` | `--resume <sid>` | `--output-format json` | `--effort low⎮medium⎮high` | sid는 JSON `session_id` · *로컬 래퍼 있으면 그 경유(§2 스텝 0) |
+| **Codex** | `codex exec` | `--full-auto` ⎮ `--yolo`* | `codex exec resume --last`** | `--output-schema` | `-c model_reasoning_effort=<low⎮medium⎮high>` | full-auto/yolo **택1** |
+| **Gemini** | `gemini -p` | `--approval-mode yolo`*** | `--resume <session_id>`**** | `-o json` | — (모델 고정) | sid resume(‘latest’는 hang 사례) |
+| **OpenCode** | `opencode run` | 기본 무승인 | `-s <sid>` / `-c` | `--format json` | — (effort 개념 없음 · 모델이 유일 등급) | **유효 provider/model 필수** |
+| **Cursor Agent** | `cursor-agent -p` | `-f` / `--force` | `--resume <chatId>` | `--output-format json` | `--model 'x[effort=high]'` (파라미터형만) | **`cursor` IDE 아님 — 비대화 작동** |
+| **Command Code** | `cmd -p` | `--yolo` | `-r <sid>` ⎮ `--session <id>` ⎮ `-c` | `--output-format json` | `--effort low⎮medium⎮high` | sid는 최종 `result` 라인 `sessionId`(**stdout**) · **크레딧 구독 필수**(잔액 0이면 exit 10) |
+| **Pi** | `pi -p` | `--tools <allowlist>` (승인 프롬프트 없음) ⎮ `--approve` | `--session-id <sid>` (fresh) / `--session <sid>` (resume) | `--mode json` (JSONL events) | `--thinking off⎮minimal⎮low⎮medium⎮high⎮xhigh⎮max` · tmuxc `--effort`→`--thinking` | `provider/model` 참조는 **이중 slash** 가능 (`opengateway/deepseek/...`) · `--skill`로 스킬 주입 |
+
+effort 열은 «비대화 호출에서 레벨을 어떻게 넘기나» 다. 레벨이 없는 엔진(Gemini·OpenCode)은 모델이 유일한 등급 축이다. Pi 는 7단계이며 `--model <id>:<level>` 로도 준다.
 
 \* Codex `--full-auto`(무승인+workspace-write) vs `--yolo`(=`--dangerously-bypass-approvals-and-sandbox`)는 택1.
 \*\* Codex는 session id를 **stderr**로만 노출 → stdout 파싱 대신 `resume --last`(직전 세션).
