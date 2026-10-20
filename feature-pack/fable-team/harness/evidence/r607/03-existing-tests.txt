@@ -1,0 +1,9 @@
+== test_kit_bin_sync.sh
+PASS control: mode diff detected
+ALL PASS
+== test_seat_retire.sh (기존 실패 = ft-tick·seat-status 축 · 이 카드 파일 무변경)
+FAIL ①stall: 옛 M#1 제외 · M#2·N#0 포함 (got=[] want=[M#2 N#0])
+FAIL ②_master 없음 → 무변경(M#1 M#2 N#0) (got=[] want=[M#1 M#2 N#0])
+FAIL ②_master 문자열 아님 → 무변경 (got=[] want=[M#1 M#2])
+FAIL ⑧test_ft_tick_master_seat.sh rc=0 (got=[44] want=[0])
+fail=4
