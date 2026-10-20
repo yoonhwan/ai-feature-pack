@@ -1,0 +1,37 @@
+PASS bash -n ft-tick.sh
+FAIL ⓐ 죽은 나노 → 재개 호출 0 — «1» ≠ «0»
+FAIL ⓐ 나노 제외 로그 1줄 — 없음: «dead_seat_watch: byz-t-nano-x#0 — 재개 대상 아님(nano · spawn 으로 다시 연다)» ← 2026-10-21 08:30:06 ft-tick started pid=88234 seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4kb51F975c/seats.json loop=60s master=300s pm=600s goal=240s
+2026-10-21 08:30:06 leak_watch: missing /tmp/r615-base/ft-leak-watch.sh
+2026-10-21 08:30:06 dead_seat_watch: resume byz-t-nano
+PASS ⓐ 나노는 죽음 목록 알림에 안 실린다
+PASS ⓐ 나노만 죽었으면 죽음 목록 알림 자체가 없다
+PASS ⓐ 같은 좌석은 같은 날 다시 안 찍는다(하루 1번)
+FAIL ⓐ 대조 — 역할 좌석은 여전히 재개(나노 제외가 전체를 죽이지 않는다) — «2» ≠ «1»
+FAIL ⓑ 명부에서 사라진 줄 → 재개 호출 0 — «1» ≠ «0»
+FAIL ⓑ «명부에 없음(닫힘)» 로그 1줄 — 없음: «dead_seat_watch: byz-t-arch-claude#1 — 명부에 없음(닫힘) — 재개 0» ← 2026-10-21 08:30:09 ft-tick started pid=92068 seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4kb51F975c/seats.json loop=60s master=300s pm=600s goal=240s
+2026-10-21 08:30:09 leak_watch: missing /tmp/r615-base/ft-leak-watch.sh
+2026-10-21 08:30:09 dead_seat_watch: resume byz-t-arch
+FAIL ⓑ 원장 선점 0(claim 안 함) — «2» ≠ «0»
+FAIL ⓒ retired 로 바뀐 줄 → 재개 호출 0 — «1» ≠ «0»
+FAIL ⓒ retired 로그 1줄 — 없음: «dead_seat_watch: byz-t-arch-claude#1 — 재개 대상 아님» ← 2026-10-21 08:30:10 ft-tick started pid=94106 seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4kb51F975c/seats.json loop=60s master=300s pm=600s goal=240s
+2026-10-21 08:30:10 leak_watch: missing /tmp/r615-base/ft-leak-watch.sh
+2026-10-21 08:30:11 dead_seat_watch: resume byz-t-arch
+FAIL ⓒ stopready 로 바뀐 줄 → 재개 호출 0 — «1» ≠ «0»
+FAIL ⓒ stopready 로그 1줄 — 없음: «dead_seat_watch: byz-t-arch-claude#1 — 재개 대상 아님» ← 2026-10-21 08:30:11 ft-tick started pid=96437 seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4kb51F975c/seats.json loop=60s master=300s pm=600s goal=240s
+2026-10-21 08:30:11 leak_watch: missing /tmp/r615-base/ft-leak-watch.sh
+2026-10-21 08:30:12 dead_seat_watch: resume byz-t-arch
+PASS ⓓ 역할 좌석 그대로 → 재개 호출 1
+PASS ⓓ 재개 대상 = arch
+FAIL ⓕ 같은 계보 byz-x-arch-claude#6 생존 → 재개 호출 0 — «1» ≠ «0»
+FAIL ⓕ 로그에 살아 있는 이름 — 없음: «dead_seat_watch: byz-x-arch-claude#5 — 재개 대상 아님(같은 계보 byz-x-arch-claude#6 생존) — 재개 0» ← 2026-10-21 08:30:14 ft-tick started pid=3234 seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4kb51F975c/seats.json loop=60s master=300s pm=600s goal=240s
+2026-10-21 08:30:14 leak_watch: missing /tmp/r615-base/ft-leak-watch.sh
+2026-10-21 08:30:14 dead_seat_watch: resume byz-x-arch-
+FAIL ⓕ 원장 선점 0(claim 안 함) — «2» ≠ «0»
+FAIL ⓕ tmux 목록 못 읽음 → 재개 0(fail-closed) — «1» ≠ «0»
+FAIL ⓕ 못 읽음 로그 1줄 — 없음: «재개 대상 아님(tmux 목록 못 읽음) — 재개 0» ← 2026-10-21 08:30:15 ft-tick started pid=4088 seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4kb51F975c/seats.json loop=60s master=300s pm=600s goal=240s
+2026-10-21 08:30:15 leak_watch: missing /tmp/r615-base/ft-leak-watch.sh
+2026-10-21 08:30:15 idle_watch disabled (FT_TICK_IDLE_E
+PASS ⓖ 더 작은 번호·다른 계보만 생존 → 재개 호출 1
+PASS ⓖ 재개 대상 = byz-x-arch-claude#5
+FAILED=15
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

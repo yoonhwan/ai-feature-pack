@@ -1,0 +1,27 @@
+PASS bash -n ft-tick.sh
+PASS 키트 사본 cmp 0 ft-tick.sh
+PASS ⓐ 죽은 나노 → 재개 호출 0
+PASS ⓐ 나노 제외 로그 1줄
+PASS ⓐ 나노는 죽음 목록 알림에 안 실린다
+PASS ⓐ 나노만 죽었으면 죽음 목록 알림 자체가 없다
+PASS ⓐ 같은 좌석은 같은 날 다시 안 찍는다(하루 1번)
+PASS ⓐ 대조 — 역할 좌석은 여전히 재개(나노 제외가 전체를 죽이지 않는다)
+PASS ⓑ 명부에서 사라진 줄 → 재개 호출 0
+PASS ⓑ «명부에 없음(닫힘)» 로그 1줄
+PASS ⓑ 원장 선점 0(claim 안 함)
+PASS ⓒ retired 로 바뀐 줄 → 재개 호출 0
+PASS ⓒ retired 로그 1줄
+PASS ⓒ stopready 로 바뀐 줄 → 재개 호출 0
+PASS ⓒ stopready 로그 1줄
+PASS ⓓ 역할 좌석 그대로 → 재개 호출 1
+PASS ⓓ 재개 대상 = arch
+PASS ⓕ 같은 계보 byz-x-arch-claude#6 생존 → 재개 호출 0
+PASS ⓕ 로그에 살아 있는 이름
+PASS ⓕ 원장 선점 0(claim 안 함)
+PASS ⓕ tmux 목록 못 읽음 → 재개 0(fail-closed)
+PASS ⓕ 못 읽음 로그 1줄
+PASS ⓖ 더 작은 번호·다른 계보만 생존 → 재개 호출 1
+PASS ⓖ 재개 대상 = byz-x-arch-claude#5
+PASS ⓔ test_dead_seat_resume.sh(dead_seat_watch·live_snapshot·idle_long_watch) ALL PASS
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
