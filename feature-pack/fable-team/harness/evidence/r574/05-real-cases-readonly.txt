@@ -1,0 +1,10 @@
+# r574 실사건 읽기 전용 실측(쓰기 0 · 지우기 0 · tmux 조작 0) — /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-1810-credit-topup-dialog
+info.branch = nano/ops-1810-credit-topup-dialog
+HEAD branch  = nano/ops-1810-credit-topup-dialog-r2
+HEAD sha     = 78c81060b06dae580914034c7a5d1f41c9a64c83
+미커밋 줄    = 0
+원격 포함    =   origin/nano/ops-1810-credit-topup-dialog-r2 
+HEAD⊂origin/nano/ops-1810-credit-topup-dialog-r2 = yes
+--- 가지 목록
+  nano/ops-1810-credit-topup-dialog
++ nano/ops-1810-credit-topup-dialog-r2

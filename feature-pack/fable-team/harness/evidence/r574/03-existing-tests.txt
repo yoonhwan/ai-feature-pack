@@ -1,0 +1,15 @@
+# r574 기존 시험(rebase 뒤 재실행 · 이 카드 인접만 · 광역 0)
+test_nano_close_fail_closed.sh :: ALL PASS
+test_nano_close_named_wt.sh :: ALL PASS
+test_nano_close_never_started.sh :: ALL PASS
+test_nano_close_pack_wt.sh :: ALL PASS
+test_nano_close_rerun_early.sh :: ALL PASS
+test_nano_close_rerun_named_equal.sh :: ALL PASS
+test_nano_close_rerun_wt_clean.sh :: ALL PASS
+test_nano_close_sha_base.sh :: ALL PASS
+test_nano_close_superseded_by.sh :: ALL PASS
+test_nano_close_suspended.sh :: ALL PASS
+test_nano_close_worktree_list_pipe.sh :: ALL PASS
+test_nano_close_wt_deletion_only.sh :: ALL PASS
+test_wt_clean_plan_self_check.sh :: ALL PASS
+test_wt_clean_two_stage.sh :: ALL PASS

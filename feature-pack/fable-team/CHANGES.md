@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — 나노 워크트리 정리 계획 본문 ④ 가 «같은 좌석 키의 -rN 형제 가지» 를 인정 (r574 · 1.1.122 · 동작 변경 · origin/main b44ecf8e 위로 rebase)
+
+- 사건(arch 111 실측 2026-10-20 23:1x · 카드 r574 · master 87 발주 122828 · desk 쪽지 122778 · ops-nano-ops-1810-credit-topup-dialog): 나노는 착지 게이트(줄 계약) 때문에 같은 작업을 `-rN` 형제 가지로 갈아타 다시 올린다(작업 폴더는 그대로 · 가지만 새로). 그러면 워크트리는 `.worktree-info.json` branch = `nano/ops-1810-credit-topup-dialog` · `git branch --show-current` = `nano/ops-1810-credit-topup-dialog-r2` 가 된다. wt-clean 계획 본문 ④ 는 «HEAD 가지 = info branch» 를 요구해 이 껍데기를 `HEAD=… ≠ info …` 로 거절 — 미커밋 0 · 원격 밖 0 · 세션 0 인데도 폴더가 사람 손 대기로 남았다.
+- 고침(계획 본문 ④ 1곳): `hb != br` ∧ `NAMED_BR` 비어 있음 ∧ `hb`·`br` 둘 다 `^nano/${KEY}(-r[0-9]+)?$` 이면 `INFO ④ 형제 가지 — info <info> · HEAD <HEAD> (같은 키) · HEAD 가지로 판정` 1줄 + `br="$hb"` 로 판정. 그 밖(다른 키 `nano/other-r2` · 꼴 밖 `nano/k-rx` · detached)은 지금 fail 문구 그대로. 좌석 키는 계획 생성 때 이미 박혀 있고 한 리포 안에서 가지 이름은 유일하므로 다른 좌석·다른 팀 가지는 이 꼴에 들 수 없다.
+- 그 뒤 `merge-base --is-ancestor HEAD refs/heads/$br` · ⑤ 이하(가드 6 · ignored 보관 · WIP · worktree move · baton wt-clean)는 바뀐 `br`(HEAD 가지) 로 그대로 · 원장 표식 문구에 ` · 형제=<HEAD 가지>` 1조각 · **가지 삭제 0** · named(`--wt/--branch`) 계획·`.worktree-info.json` 갱신 쪽은 범위 밖(변경 0).
+- 시험 `tests/test_wt_clean_plan_rn_sibling.sh` ⓐ~ⓔ(임시 리포·가짜 tmux/sweep/baton/landed-check · 실제 삭제 0 · press 0): ⓐinfo=`nano/k` · HEAD=`nano/k-r2` · 미커밋 0 → cleaned + 두 가지 그대로 + 원장 `형제=nano/k-r2` ⓑ반대(info=`-r2` · HEAD=본 가지) → cleaned ⓒHEAD=`nano/other-r2` → fail 그대로 ⓓHEAD=`nano/k-rx`·detached → fail 그대로 ⓔ형제 HEAD + 실작업물 1(`FT_NANO_WIP=1`) → [wip] 커밋이 HEAD 가지에 붙고 cleaned · 정보 가지 tip 그대로. 전(고치기 전 판) FAIL 12칸(`evidence/r574/01-before-red.txt`) → 후 ALL PASS(`02-after-pass.txt`).
+- 기존 시험(이 카드 인접만 · 광역 0): 나노-close·wt-clean 14종 ALL PASS(`03-existing-tests.txt`) · `bash -n` OK · kit/bin 두 사본 cmp0(`04-kit-bin-cmp.txt`).
+- 실사건 읽기 전용 실측(`05-real-cases-readonly.txt`): ops-1810 워크트리 = info `nano/ops-1810-credit-topup-dialog` · HEAD `nano/ops-1810-credit-topup-dialog-r2`(78c81060b0) · 미커밋 0 · HEAD ⊂ `origin/…-r2` · 두 가지 존재 = 이 카드가 고치는 바로 그 꼴. **실사건 1(ops 팀장이 ops-1810 좌석 nano-close 표준 재실행 → cleaned · 폴더 없음 · 두 가지 유지)은 master 집행 — 미실행.**
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft-nano-close.sh` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.121 · `install.sh` REQUIRED 목록 변경 0 · 데몬 재기동 0. **LIVE_BIN 설치·실사건은 master 소관 — 미실행.** 되돌림 = `.bak-r574`.
+- 범위 밖(후속 후보): `.worktree-info.json` 을 가지 전환 때 갱신하기(spawn·재착수 쪽) · named(`--wt/--branch`) 계획도 같은 인정을 할지 · 가지 정리(refs/archive 이동 = 판정 2354 경로).
+
 ## 2026-10-20 — 나노 닫기 «재실행» 의 --wt/--branch 가 표준 좌석 해석과 «같은 값»이면 정리한다 + 조용한 건너뜀 0 (r572 · 1.1.120 · 동작 변경)
 
 - 사건(arch 111 실측 2026-10-20 23:0x · 카드 r572 · master 87 발주 122624 · desk 쪽지 122574): 팀장 2명(cfo · ops)이 나노 닫기를 다시 돌리면서 `--wt <워크트리> --branch nano/<키>` 를 직접 적어 넣었다. 이름 지정 모드(NAMED=1)는 본래 «표준 이름이 아닌 폴더» 용이라 재실행 분기가 `SEAT_WT=$NWT` 만 넣고 `_RERUN_STD=0` → r566 의 `_wt_clean_rerun` 을 안 탔다. 두 폴더는 실제로 표준 이름(`cfo-<키>` · `ops-nano-<키>`)이었고 `_resolve_seat_wt` 로도 같은 경로가 나왔다. 결과 = `CLOSED … 재실행` 만 남고 정리 줄 0 · INFO 0(조용한 건너뜀) — r566 시험 ⓔ(«named 재실행 = 지금 동작 그대로»)가 그 길을 고정하고 있었다.

@@ -1,0 +1,33 @@
+# r574 시험 ⓐ~ⓔ — 고친 판 (origin/main b44ecf8e 위로 rebase 뒤 재실행)
+$ bash tests/test_wt_clean_plan_rn_sibling.sh
+PASS bash -n ft-nano-close.sh
+== ⓐ info=nano/k · HEAD=nano/k-r2 · 미커밋 0 → cleaned + 두 가지 그대로
+PASS ⓐ 계획 생성(--plan-only rc=0)
+PASS ⓐ 실행 → cleaned
+PASS   └ ④ 형제 인정 INFO 1줄
+PASS   └ «HEAD≠info» 거절 0
+PASS   └ 워크트리 폴더 없음
+PASS   └ 두 가지(nano/k · nano/k-r2) 그대로
+PASS   └ 원장 표식에 형제=<HEAD 가지> 1조각
+== ⓑ info=nano/k-r2 · HEAD=nano/k → cleaned(대칭)
+PASS ⓑ 계획 생성
+PASS ⓑ 실행 → cleaned
+PASS   └ INFO 줄(info=-r2 · HEAD=본 가지)
+PASS   └ 워크트리 폴더 없음
+== ⓒ HEAD=nano/other-r2(키가 다름) → fail 그대로 · 워크트리 그대로
+PASS ⓒ → skipped(HEAD≠info)
+PASS   └ 형제 인정 0
+PASS   └ 워크트리 그대로
+== ⓓ HEAD=nano/k-rx(꼴 아님) → fail 그대로
+PASS ⓓ rx → skipped
+PASS   └ 형제 인정 0
+PASS ⓓ detached → skipped
+PASS   └ 워크트리 그대로
+== ⓔ 형제 HEAD + 실작업물 1(FT_NANO_WIP=1) → [wip] 커밋 경로 · 가지 = HEAD 가지
+PASS ⓔ 실행 → cleaned
+PASS   └ 워크트리 폴더 없음
+PASS   └ [wip] 커밋이 HEAD 가지(nano/k-r2)에 붙음
+PASS   └ info 가지(nano/k) tip 그대로
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

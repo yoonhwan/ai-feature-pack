@@ -1,0 +1,33 @@
+# r574 시험 ⓐ~ⓔ — 고치기 «전» 판(origin/main b44ecf8e 의 kit ft-nano-close.sh)
+$ FT_TEST_SRC=/tmp/r574-before bash tests/test_wt_clean_plan_rn_sibling.sh
+PASS bash -n ft-nano-close.sh
+== ⓐ info=nano/k · HEAD=nano/k-r2 · 미커밋 0 → cleaned + 두 가지 그대로
+PASS ⓐ 계획 생성(--plan-only rc=0)
+FAIL ⓐ rc=1 ← skipped:HEAD=nano/k-r2 ≠ info nano/k
+FAIL   └ ④ 형제 인정 INFO 1줄 — 없음: «형제 가지 — info nano/k · HEAD nano/k-r2» ← skipped:HEAD=nano/k-r2 ≠ info nano/k
+FAIL   └ «HEAD≠info» 거절 0 — 있으면 안 됨: «≠ info»
+FAIL   └ 워크트리 남음
+PASS   └ 두 가지(nano/k · nano/k-r2) 그대로
+FAIL   └ 원장 표식에 형제=<HEAD 가지> 1조각 — 없음: «형제=nano/k-r2» ← - `byz-harness-nano-k#0` 닫힘(ft-nano-close) 2026-10-20 · wt=skipped:HEAD=nano/k-r2 ≠ info nano/k
+== ⓑ info=nano/k-r2 · HEAD=nano/k → cleaned(대칭)
+PASS ⓑ 계획 생성
+FAIL ⓑ rc=1 ← skipped:HEAD=nano/k ≠ info nano/k-r2
+FAIL   └ INFO 줄(info=-r2 · HEAD=본 가지) — 없음: «형제 가지 — info nano/k-r2 · HEAD nano/k» ← skipped:HEAD=nano/k ≠ info nano/k-r2
+FAIL   └ 워크트리 남음
+== ⓒ HEAD=nano/other-r2(키가 다름) → fail 그대로 · 워크트리 그대로
+PASS ⓒ → skipped(HEAD≠info)
+PASS   └ 형제 인정 0
+PASS   └ 워크트리 그대로
+== ⓓ HEAD=nano/k-rx(꼴 아님) → fail 그대로
+PASS ⓓ rx → skipped
+PASS   └ 형제 인정 0
+PASS ⓓ detached → skipped
+PASS   └ 워크트리 그대로
+== ⓔ 형제 HEAD + 실작업물 1(FT_NANO_WIP=1) → [wip] 커밋 경로 · 가지 = HEAD 가지
+FAIL ⓔ rc=1 ← skipped:HEAD=nano/k-r2 ≠ info nano/k
+FAIL   └ 워크트리 남음
+FAIL   └ HEAD 가지에 [wip] 커밋 0
+PASS   └ info 가지(nano/k) tip 그대로
+
+FAILED 11
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
