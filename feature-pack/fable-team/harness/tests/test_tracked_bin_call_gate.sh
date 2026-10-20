@@ -18,10 +18,12 @@ TOOLS="ft-nano-spawn ft-nano-close ft-role-spawn ft-successor-open ft-resource-g
 bash -n "$HK" && ok "bash -n 훅" || bad "bash -n 훅"
 for t in $TOOLS ft-live-entry; do bash -n "$SRC/$t.sh" && ok "bash -n $t" || bad "bash -n $t"; done
 
-# ── 임시 루트: 리포 + 추적 사본(scripts/fable-team-bin) + 라이브 bin(.fable-team/live-bin 아님 — 임의 폴더) ──
-R="$T/root"; LIVE="$T/live"; mkdir -p "$R/scripts/fable-team-bin" "$R/.fable-team" "$LIVE"
+# ── 임시 루트: 리포 + 추적 사본(harness/bin — r385 뒤 추적 자리) + 라이브 bin(.fable-team/live-bin 아님 — 임의 폴더) ──
+R="$T/root"; LIVE="$T/live"; mkdir -p "$R/harness/bin" "$R/.fable-team" "$LIVE"
 git init -q -b main "$R"
-for t in $TOOLS ft-live-entry; do cp -p "$SRC/$t.sh" "$R/scripts/fable-team-bin/$t.sh"; done
+for t in $TOOLS ft-live-entry; do cp -p "$SRC/$t.sh" "$R/harness/bin/$t.sh"; done
+# 입구 도구가 읽는 형제 파일도 같이 둔다(없으면 도구가 옛 INFO/WARN 경로로 빠져 단언이 흔들린다)
+for f in ft-team-lib.sh ft-harness-root.sh; do cp -p "$SRC/$f" "$R/harness/bin/$f"; done
 git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m kit
 # r2: origin/main 이 HEAD 보다 «앞선» 뒤처진 워크트리 꼴(HEAD 가 origin/main 을 안 품음) — 넘김 조건
 git -C "$R" -c user.email=t@t -c user.name=t commit -q --allow-empty -m newer; NEWER="$(git -C "$R" rev-parse HEAD)"
@@ -40,9 +42,11 @@ chk() { if "$1"; then ok "$2"; else bad "$2 :: rc=$rc out=${out:0:200}"; fi; }
 
 hook 'bash /x/.worktrees/loom-main/scripts/fable-team-bin/ft-nano-spawn.sh --help'
 chk denied "ⓕ 추적 사본 spawn 직접 호출 → deny"; has "$out" "$LIVE" "ⓕ 안내에 라이브 경로(LIVE_BIN 값)"; has "$out" 'FT_BIN/ft-nano-spawn.sh' "ⓕ 안내에 \$FT_BIN/<이름>"
+hook 'bash /w/harness/bin/ft-nano-spawn.sh --help'; chk denied "ⓕ 새 추적 자리(harness/bin) spawn 직접 호출 → deny"; has "$out" 'FT_BIN/ft-nano-spawn.sh' "ⓕ 새 자리 안내에 \$FT_BIN/<이름>"
 for t in ft-nano-close ft-role-spawn ft-successor-open ft-resource-gate ft-resource-reclaim; do
   hook "bash /w/scripts/fable-team-bin/$t.sh a b"; chk denied "ⓕ $t → deny"
 done
+hook 'cd /y && bash harness/bin/ft-role-spawn.sh da'; chk denied "ⓕ 새 추적 자리(상대) + && → deny"
 hook 'cd /y && bash scripts/harness-install/fable-team/bin/ft-role-spawn.sh da'; chk denied "ⓕ 키트 사본 경로(상대) + && → deny"
 hook 'FOO=1 timeout 60 bash /w/scripts/fable-team-bin/ft-nano-close.sh s'; chk denied "ⓕ 환경 대입·timeout 래퍼 뒤 → deny"
 hook 'echo hi | bash /w/scripts/fable-team-bin/ft-resource-gate.sh check'; chk denied "ⓕ 파이프 뒤 → deny"
@@ -72,12 +76,12 @@ denied && bad "변이 훅이 여전히 deny — 시험이 이빨이 없다" || o
 
 # ── 축 ⓖ: 입구 도구의 비설치 위치 실행 = LIVE_BIN 으로 exec ──
 for t in $TOOLS; do
-  out="$(printf 'IN\n' | env -u FT_ALLOW_TRACKED_BIN bash "$R/scripts/fable-team-bin/$t.sh" one "two w" 2>&1)"; rc=$?
+  out="$(printf 'IN\n' | env -u FT_ALLOW_TRACKED_BIN bash "$R/harness/bin/$t.sh" one "two w" 2>&1)"; rc=$?
   has "$out" "LIVE $t HERE=$LIVE args=one two w done=1" "ⓖ $t → 라이브 exec(\$HERE=라이브 · 인자·done=1)"; has "$out" "IN" "ⓖ $t stdin 그대로"
   [ "$rc" = 5 ] && ok "ⓖ $t rc 그대로(5)" || bad "ⓖ $t rc=$rc 기대=5"
 done
 # LIVE_BIN 없음·빈 값·대상 없음 → ERROR rc≠0 · 옛 사본 실행 0
-S="$R/scripts/fable-team-bin/ft-nano-spawn.sh"
+S="$R/harness/bin/ft-nano-spawn.sh"
 mv "$R/.fable-team/LIVE_BIN" "$T/lb"; out="$(env -u FT_ALLOW_TRACKED_BIN bash "$S" --dry-run 2>&1)"; rc=$?
 [ "$rc" != 0 ] && has "$out" "ERROR" "ⓖ LIVE_BIN 없음 → ERROR rc≠0(rc=$rc)" || bad "ⓖ LIVE_BIN 없음인데 rc=0"; hasnt "$out" "INFO drift-check" "ⓖ 옛 사본 실행 0(건너뜀 줄 없음)"
 : > "$R/.fable-team/LIVE_BIN"; out="$(env -u FT_ALLOW_TRACKED_BIN bash "$S" --dry-run 2>&1)"; rc=$?
@@ -92,7 +96,7 @@ out="$(env -u FT_ALLOW_TRACKED_BIN bash "$S" --dry-run 2>&1)"; rc=$?
 # FT_ALLOW_TRACKED_BIN=1 → 넘기지 않는다(옛 INFO 건너뜀 경로 · 가짜 라이브가 안 불린다)
 out="$(FT_ALLOW_TRACKED_BIN=1 FT_RESOURCE_SENSORS_DIR=/nonexistent bash "$S" 2>&1 </dev/null)"; hasnt "$out" "LIVE ft-nano-spawn" "ⓖ FT_ALLOW_TRACKED_BIN=1 → 라이브로 안 넘김"
 # r2 새 사례 1: origin/main 을 «품은» 워크트리(HEAD ⊇ origin/main) 의 추적 사본 → 제자리 실행(라이브로 안 넘김 · close 무인자 = usage rc2)
-C="$R/scripts/fable-team-bin/ft-nano-close.sh"
+C="$R/harness/bin/ft-nano-close.sh"
 git -C "$R" update-ref refs/remotes/origin/main HEAD
 out="$(env -u FT_ALLOW_TRACKED_BIN bash "$C" 2>&1 </dev/null)"; rc=$?
 hasnt "$out" "LIVE ft-nano-close" "r2·사례1 origin/main 을 품은 HEAD → 라이브로 안 넘김"; [ "$rc" = 2 ] && ok "r2·사례1 제자리 실행(usage rc=2)" || bad "r2·사례1 rc=$rc 기대=2 :: ${out:0:160}"

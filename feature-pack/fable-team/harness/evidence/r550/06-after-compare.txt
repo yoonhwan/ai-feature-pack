@@ -1,0 +1,13 @@
+# after(고침 후) rc/FAIL — ⓔ 같은 시험 묶음
+after rc=0 test_live_install_check.sh               FAIL=0 PASS=52
+after rc=0 test_live_install_check_plist_env.sh     FAIL=0 PASS=39
+after rc=0 test_live_install_check_shim.sh          FAIL=0 PASS=15
+after rc=0 test_live_install_check_tip.sh           FAIL=0 PASS=14
+after rc=0 test_live_bin_drift_check.sh             FAIL=0 PASS=69
+after rc=0 test_install_check_repo_outside.sh       FAIL=0 PASS=9
+after rc=0 test_install_hook_check.sh               FAIL=0 PASS=44
+after rc=0 test_install_launchd_render.sh           FAIL=0 PASS=23
+after rc=0 test_install_team_tick_live.sh           FAIL=0 PASS=48
+after rc=0 test_install_worktree_shim.sh            FAIL=0 PASS=34
+after rc=0 test_installed_root.sh                   FAIL=0 PASS=22
+after rc=0 test_tracked_bin_call_gate.sh            FAIL=0 PASS=75

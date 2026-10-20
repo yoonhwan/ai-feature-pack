@@ -174,7 +174,8 @@ lint() { out="$(cd "$LR" && FT_GOAL_LINES_FILE="$LR/goal.txt" FT_GOAL_LEDGER=LED
 lint "$(lcard design/harness l1 - '1. src/t.sh')"; [ "$rc" = 1 ] && has "설치"; ck "⑥ 하네스 카드 「- 설치:」 줄 없음 → REJECT" $?
 lint "$(lcard design/harness l2 있음 '1. src/t.sh')"; [ "$rc" = 0 ]; ck "⑥ 설치: 있음 → 통과" $?
 lint "$(lcard design/harness l3 없음 '1. src/t.sh')"; [ "$rc" = 0 ]; ck "⑥ 설치: 없음 + 키트 언급 없음 → 통과" $?
-lint "$(lcard design/harness l4 없음 '1. src/t.sh 와 scripts/harness-install/hooks/x.sh')"; [ "$rc" = 1 ] && has "설치"; ck "⑥ 구현 범위가 scripts/harness-install/ 언급 + 없음 → REJECT" $?
+lint "$(lcard design/harness l4 없음 '1. src/t.sh 와 harness/kit/hooks/x.sh')"; [ "$rc" = 1 ] && has "설치"; ck "⑥ 구현 범위가 harness/kit/ 언급 + 없음 → REJECT" $?
+lint "$(lcard design/harness l4b 없음 '1. src/t.sh 와 scripts/harness-install/hooks/x.sh')"; [ "$rc" = 0 ]; ck "⑥ 옛 키트 경로(scripts/harness-install/)만 = 키트 아님 → 통과(r385 뒤 린트 동작 고정)" $?
 lint "$(lcard design/other o1 - '1. src/t.sh')"; [ "$rc" = 0 ]; ck "⑥ 다른 폴더 카드는 줄 없음 = 통과(범위 밖)" $?
 
 [ "$(git -C "$R" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
