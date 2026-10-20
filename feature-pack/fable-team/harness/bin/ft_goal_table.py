@@ -3,6 +3,7 @@
 render  : 정본 표(골 → 팀 → 닫는 증거 6행) + planner 원장 `## 메인 골 6줄` 표(행 순번 결속 · ft_goal_ledger) → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
           골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/6행 아님 = `ERROR 골 표 정본 …` rc1.
 check   : 본문에 ⓐ마커 블록(6행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~6> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
+          r600: gitref 정본이면 마커 sha 신선도도 본다 — 지금 ref 첫 부모 줄기에서 STALE_FP_MAX(12) 넘게 뒤 = `REJECT 골 표 낡음 — …` rc3 · 줄기에 없음 = rc3 · git 실패 = `REJECT 골 표 신선도 확인 실패` rc3(fail-closed · 파일 정본은 검사 생략).
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
           표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
@@ -27,6 +28,7 @@ CELL = 24
 HEAD = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) · [^)]*\)★$")  # r545: 출처 표지(`origin/main@`|`file:`) 붙은 새 꼴 + 표지 없는 옛 꼴 둘 다
 TAIL = "★/골 표★"
 COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
+STALE_FP_MAX = 12  # r600: 마커 판이 지금 ref 첫 부모 줄기에서 이만큼(약 2시간 · 시간당 약 6커밋) 넘게 뒤면 «골 표 낡음»
 TEAMS_SECTION = re.compile(r"^##\s+팀별 완성 진행")
 TEAMS_TAIL = "★/팀별 완성 진행★"
 TEAMS_NOW_CELLS = (24, 16, 8)  # «지금 하는 것» 칸 — 예산(1600B)에 들 때까지 줄인다 · 팀·끝선·착지 칸은 12자
@@ -149,6 +151,25 @@ def _canon_for(sha: str) -> list[list[str]]:
     raise GoalError(f"마커 sha10 {sha} 이 정본({cur})과 다르다")
 
 
+def _stale_reason(sha: str) -> str:
+    """r600: 마커 sha 신선도 — 지금 ref 첫 부모 줄기에서 STALE_FP_MAX 넘게 뒤거나 줄기에 없으면 REJECT 문구(파일 정본 = 검사 생략 · git 실패 = fail-closed)."""
+    spec = _spec()
+    if not spec.startswith("gitref:"):
+        return ""
+    ref = spec.split(":", 2)[1]
+    try:
+        tip = _git(_repo(), "rev-parse", "--verify", ref).strip()
+        chain = _git(_repo(), "rev-list", "--first-parent", ref).split()
+    except GoalError as e:
+        return f"REJECT 골 표 신선도 확인 실패 — 마커 {sha} 신선도: {e}"
+    dist = next((i for i, c in enumerate(chain) if c.startswith(sha)), None)
+    if dist is None:
+        return f"REJECT 골 표 낡음 — 마커 sha 가 {ref} 첫 부모 줄기에 없다"
+    if dist > STALE_FP_MAX:
+        return f"REJECT 골 표 낡음 — 마커 {sha} 은 지금 {ref}({tip[:10]})보다 첫 부모 {dist}커밋 앞(상한 {STALE_FP_MAX}) · ft-goal-table.sh 를 다시 돌려 붙인다"
+    return ""
+
+
 def check(body: str, block_only: bool = False) -> tuple[int, str]:
     lines = body.splitlines()
     heads = [i for i, ln in enumerate(lines) if HEAD.match(ln.strip())]
@@ -158,6 +179,9 @@ def check(body: str, block_only: bool = False) -> tuple[int, str]:
     block = lines[heads[0]:tails[-1] + 1]
     m0 = HEAD.match(block[0].strip())
     sha = m0[1] if m0 else ""
+    stale = _stale_reason(sha) if sha else ""
+    if stale:
+        return 3, stale
     try:
         canon = _canon_for(sha)
     except GoalError as e:

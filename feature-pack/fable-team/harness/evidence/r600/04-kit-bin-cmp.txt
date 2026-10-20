@@ -1,0 +1,1 @@
+kit/bin cmp rc=0 (cmp0 = 같은 파일)

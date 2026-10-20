@@ -1,0 +1,12 @@
+# r600 기존 골 시험 4종 + 인접 골 표 셸 시험(자기 카드만 · 광역 0)
+$ pytest -q harness/tests/scripts/test_ft_news_goal_block.py test_goal_gate_armed_contract.py test_goal_receipt_lifecycle.py test_magazine_goal.py
+....................................                                     [100%]
+36 passed in 9.27s
+
+$ bash harness/tests/test_goal_table_gitref_r545.sh
+PASS ⓖ2 게이트·뉴스 정규식이 새 머리에서 sha10 = 0fc616420a
+ALL PASS
+
+$ bash harness/tests/test_goal_table_gate.sh  (96 PASS · 1 FAIL)
+(FAIL ⓕ «600/300 상한 등장» = origin/main 판 그대로 재현되는 기존 실패 — ft_news_ledger.py:256,259 FT_NEWS_FETCH_MIN 300(r563) · 이 카드 변경 파일 무관 · base 대조 grep -c = 2)
+FAIL ⓕ r458 600/300 상한 등장

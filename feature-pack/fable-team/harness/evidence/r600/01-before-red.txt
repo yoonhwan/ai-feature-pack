@@ -1,0 +1,12 @@
+PASS ⓪ 픽스처: c3 13커밋 앞 · c4 12커밋 앞
+PASS ⓪ 픽스처: 다른 가지 = 첫 부모 줄기에 없음(969fa8bad0)
+PASS ⓪ 렌더: 마커 = 그 판 sha10(c5249f4da4)
+FAIL ⓐ rc=0 :: GOAL-OK n=1
+PASS ⓑ 지금 판 → GOAL-OK n=1
+PASS ⓒ 12커밋 앞(경계) → GOAL-OK
+FAIL ⓓ rc=0 :: GOAL-OK n=1
+FAIL ⓔ1 rc=0 :: GOAL-OK block-only
+PASS ⓔ2 block_only 새 판 → GOAL-OK(회귀 0)
+PASS ⓔ3 파일 정본 = 신선도 검사 생략(변경 0)
+FAIL ⓔ4 rc=3 :: REJECT 골 없음 — 정본 대조 실패: ERROR 골 표 정본 git rev-parse 실패: fatal: Needed a single revision
+== test_goal_table_stale_r600: fail=4

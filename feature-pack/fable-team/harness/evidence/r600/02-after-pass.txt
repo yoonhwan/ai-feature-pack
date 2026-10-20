@@ -1,0 +1,12 @@
+PASS ⓪ 픽스처: c3 13커밋 앞 · c4 12커밋 앞
+PASS ⓪ 픽스처: 다른 가지 = 첫 부모 줄기에 없음(191c669ef9)
+PASS ⓪ 렌더: 마커 = 그 판 sha10(0877bdf8b7)
+PASS ⓐ 13커밋 앞 옛 표 복붙 → rc3 낡음(도구 다시 돌려 붙이라)
+PASS ⓑ 지금 판 → GOAL-OK n=1
+PASS ⓒ 12커밋 앞(경계) → GOAL-OK
+PASS ⓓ 다른 가지 판 → rc3 첫 부모 줄기에 없다
+PASS ⓔ1 block_only 옛 판 → rc3 낡음
+PASS ⓔ2 block_only 새 판 → GOAL-OK(회귀 0)
+PASS ⓔ3 파일 정본 = 신선도 검사 생략(변경 0)
+PASS ⓔ4 git 실패 → rc3 신선도 확인 실패(통과 0)
+== test_goal_table_stale_r600: fail=0
