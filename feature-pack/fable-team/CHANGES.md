@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — pi 를 하네스 에이전트로 허용: 이름 꼬리 · 열기 도구 · 준비 확인 · 승계 시작·도달 확인 (r540 · 1.1.92)
+
+- 사건: 오빠 지시로 aifp 팀이 pi 좌석(deepseek-v4.1-flash-ultrafast)을 넣었는데 하네스가 세 곳에서 거절 — 이름 lint 꼬리(claude codex opencode cmd) · 열기 도구 `--agent` 검사·모델 표·`--effort` 분기 · `ft-tmux-spawn.sh` 준비 확인이 claude 글자(`ctx:`)만 봐 pi 좌석을 90초 뒤 kill(aifp 쪽지 119886·119914 · harness master 84 발주 119888·119912·119915). 오빠 확정(119940·119944): 후계 `aifp-pi-master-pi` 를 `ft-successor-open.sh --agent pi` 로 열고 기동·도달 확인까지 → 도달 확인이 claude 대화 기록만 읽어 pi 분기 추가.
+- aifp 패치 14파일(기준 6e72a9ab · 지금 판에 `git apply` 그대로 OK): `ft-name-lint.sh` AGENTS 에 pi · `ft-role-spawn.sh`·`ft-successor-open.sh` `--agent` 에 pi · `ft-nano-spawn.sh` 모델 표 `pi) FT_PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast` · 세 도구 `--effort` 분기에 pi(tmuxc 가 `--thinking` 으로 바꿈) · `ft-tmux-spawn.sh` 열기 인자 `claude|cmd|pi` + 준비 확인 pi 분기 `FT_PI_READY_REGEX` · 정본 문서 2(SPEC-session-naming §2-A · main-team-governance §1) 에이전트 목록에 pi.
+- 준비 확인 식 넓힘(나노 실측): aifp 식 `<모델> • <effort>` 는 pi 가 폭이 모자랄 때 오른쪽부터 자르고(pi `footer.js:231-237`) effort 없이 뜨면 `• thinking off` 라 정상 좌석을 kill → 둘째 갈래 = 왼쪽 통계 문맥 칸 `(\?|N%)/N[kM]`(`0.0%/1.0M`) 추가. 판정표 `harness/evidence/r540/ready-regex-table.txt`(라이브 149 · 폭 80 시작·잘림·thinking off MATCH · 라이브 claude·codex 화면 오탐 0).
+- 도달 확인 pi 분기(`ft-reach-check.sh` 키트·`harness/comm` 짝 같은 블록): pi 좌석(= `FT_REACH_AGENT=pi` 또는 pane 자식 본체 `pi`)이면 `~/.pi/agent/sessions/--<cwd 앞 '/' 빼고 '/'·'\'·':'→'-'>--/*.jsonl`(pi session-manager 규칙 · 실측 폴더 5개 일치 · `FT_PI_SESSIONS_DIR` 로 바꿈) 중 `session_info.name == 좌석` 파일의 `message.role==user` 마커로 판정 · 좌석 파일 못 고르면 전수로 넓히지 않고 0 + 사유 · pi 기록 뿌리 없음 = UNVERIFIABLE 5. pi 는 첫 user 입력 전엔 파일을 안 만든다(session-manager `_persist`) — 폴더·파일 없음 = «아직 0» + 사유. claude 경로 출력 base 대조 diff 0.
+- `ft-successor-open.sh`: 시작 확인이 pi 면 같은 폴더의 `session_info.name` 관측(tmuxc 부팅 문장 제출 뒤 파일이 생김) · 송신·ring 재확인에 `FT_REACH_AGENT=<agent>` 전달.
+- 시험 `test_pi_agent_allow_r540.sh`(새 · 가짜 tmux/tmuxc/pgrep/mbox · 임시 HOME · `fixtures/r540` 화면 글자 · 실 좌석·실 pi·외부 호출 0) — 고치기 전 FAIL 25(`harness/evidence/r540/before-test_pi_agent_allow_r540.txt`) · 고친 뒤 ALL PASS 50. 승계 열기 ⓙ 는 실 `ft-send-verified.sh`·`ft-reach-check.sh` 로 돈다(OK + 도달 파일 · ring 0 / 기록 못 읽음 rc5 + [HIL] + 도달 파일 0). claude·codex·opencode·cmd 열기 출력 base 대조 127줄 diff 0(`base-compare-diff.txt`).
+- 설치: 키트 6(`ft-name-lint.sh` · `ft-role-spawn.sh` · `ft-nano-spawn.sh` · `ft-successor-open.sh` · `ft-tmux-spawn.sh` · `ft-reach-check.sh`) + 홈 문서 1(`main-team-governance.md`) → `install.sh --apply --project <루트>` → LIVE_BIN cmp0 · 데몬 0 · 되돌림 = `.bak-r540`.
+- 범위 밖: pi 닫기 회수(r542) · 검색 나노 기본 pi(r543) · pi 좌석 틱 · `ft-agent-ready.sh` pi 맞춤 · `ft_stall_detect.py:18` 정지 스캔 claude|codex(pi 정지 감지 별 요청) · `harness/comm/ft-reach-check.sh` 옛 드리프트(queue-operation 블록 없음 · 이 카드 전부터) · skill/scripts 옛 사본 드리프트(pi 줄만 같이 넣음).
+
 ## 2026-10-20 — 좌석 재개 명령 3곳 = 헤드룸 래퍼(`claude-hr.sh`) · resume 뒤 env 확인 1줄 · 래퍼 없으면 rc1 (r524 · 1.1.91)
 
 - 사건: desk 26 이 `zombie-clean.sh resume 'byz-concierge-master-claude#6'` 으로 좌석을 다시 열자 날 `claude --resume <uuid> --model …` 로 떠 ANTHROPIC_BASE_URL 없음(프록시 8317 미경유 · 직결) → «session limit · resets 12pm» 정지(desk 26 쪽지 119405 · harness master 83 발주 119409). tmuxc 열기·fork 는 이미 래퍼 경유 — 키트에서 날 claude 를 여는 곳은 재개 3곳뿐(arch 107 실측).

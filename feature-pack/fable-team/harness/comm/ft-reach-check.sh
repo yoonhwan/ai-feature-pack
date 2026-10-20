@@ -62,6 +62,7 @@ BASELINE="${4:-}"
 # ─ 좌석의 jsonl 디렉터리 ────────────────────────────────────────────────────
 seat_projects_dir() {
     local cwd enc
+    [ "${PI:-0}" = 1 ] && { pi_seat_dir; return; }
     cwd="$(tmux display-message -p -t "$SESSION" '#{pane_current_path}' 2>/dev/null)"
     [ -n "$cwd" ] || return 1
     # LC_ALL=C 로 고정한다. 로케일에 따라 [^A-Za-z0-9] 가 비-ASCII 를 포함/제외해
@@ -84,6 +85,7 @@ seat_files() {
 count_submitted() {
     local dir="$1"
     local cands
+    [ "${PI:-0}" = 1 ] && { pi_count_submitted "$dir"; return; }
     # 1단계: 후보 좁히기. ★좌석 파일이 특정되면 거기서만 센다★ — 안 그러면 다른
     #        좌석이 받은 브로드캐스트가 내 도달로 계산된다(위 헤더 실측 20/291).
     local mine
@@ -134,11 +136,79 @@ print(n)
 '
 }
 
+# ─ pi 좌석 (r540) ─────────────────────────────────────────────────────────────
+# pi 는 대화 기록을 `~/.pi/agent/sessions/--<cwd 앞 '/' 하나 빼고 '/'·'\'·':' → '-'>--/*.jsonl` 에 쓴다
+# (pi session-manager 의 폴더 규칙 그대로 · 2026-10-20 실측 폴더 5개 일치). 좌석 특정 = `{"type":"session_info","name":"<좌석>"}` ·
+# 제출 = `{"type":"message","message":{"role":"user","content":[{"type":"text","text":…}]}}`.
+# ★첫 user 입력 전엔 파일 자체가 없다★(pi _persist: 대화가 생겨야 쓴다) — 좌석 폴더·파일이 없으면 «0 건 + 사유» 로 세고
+# 뿌리 폴더가 없을 때만 UNVERIFIABLE. 좌석 파일을 못 고르면 전수로 넓히지 않는다(남의 좌석 수신을 내 도달로 세지 않는다).
+# pi 판정 = FT_REACH_AGENT(호출자가 아는 에이전트)가 있으면 그 값 · 없으면 pane 자식 본체 이름이 pi.
+seat_is_pi() {
+    [ -n "${FT_REACH_AGENT:-}" ] && { [ "$FT_REACH_AGENT" = pi ]; return; }
+    local pid
+    pid="$(tmux display-message -p -t "$SESSION" '#{pane_pid}' 2>/dev/null)"
+    [ -n "$pid" ] && pgrep -P "$pid" -x pi >/dev/null 2>&1
+}
+pi_root() { printf '%s' "${FT_PI_SESSIONS_DIR:-$HOME/.pi/agent/sessions}"; }
+pi_seat_dir() {
+    local cwd
+    cwd="$(tmux display-message -p -t "$SESSION" '#{pane_current_path}' 2>/dev/null)"
+    [ -n "$cwd" ] || return 1
+    printf '%s/--%s--' "$(pi_root)" "$(printf '%s' "$cwd" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g')"
+}
+pi_count_submitted() {
+    local dir="$1" mine
+    [ -d "$dir" ] || { echo "  pi: 좌석 대화 기록 아직 없음: $dir (pi 는 첫 제출 뒤에 파일을 만든다)" >&2; echo 0; return 0; }
+    mine="$(grep -lF -- "\"name\":\"$SESSION\"" "$dir"/*.jsonl 2>/dev/null)"
+    [ -n "$mine" ] || { echo "  pi: 좌석 파일 없음($SESSION) — session_info.name 일치 0 · 전수로 넓히지 않는다" >&2; echo 0; return 0; }
+    printf '%s\n' "$mine" | SEAT="$SESSION" MARKER="$MARKER" python3 -c '
+import json, os, sys
+seat, marker = os.environ["SEAT"], os.environ["MARKER"]
+n = 0
+for path in sys.stdin.read().split("\n"):
+    if not path:
+        continue
+    try:
+        fh = open(path, encoding="utf-8")
+    except OSError:
+        continue
+    named, hits = False, 0
+    with fh:
+        for line in fh:
+            if "\"session_info\"" not in line and marker not in line:
+                continue
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("type") == "session_info":
+                named = named or rec.get("name") == seat
+                continue
+            msg = rec.get("message") or {}
+            if rec.get("type") != "message" or msg.get("role") != "user":
+                continue
+            content = msg.get("content")
+            if isinstance(content, list):
+                content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
+            if isinstance(content, str) and marker in content:
+                hits += 1
+    if named:
+        n += hits
+print(n)
+'
+}
+PI=0; seat_is_pi && PI=1
+if [ "$PI" = 1 ] && [ ! -d "$(pi_root)" ]; then
+    echo "UNVERIFIABLE session=$SESSION — pi 대화 기록 뿌리 없음: $(pi_root)" >&2
+    exit 5
+fi
+# ─ pi 좌석 끝 ─────────────────────────────────────────────────────────────────
+
 DIR="$(seat_projects_dir)" || {
     echo "UNVERIFIABLE session=$SESSION — pane cwd 를 못 읽었다(세션 없음?)" >&2
     exit 5
 }
-if [ ! -d "$DIR" ]; then
+if [ "$PI" = 0 ] && [ ! -d "$DIR" ]; then
     echo "UNVERIFIABLE session=$SESSION — jsonl 디렉터리 없음: $DIR" >&2
     echo "  (비-ASCII 경로이거나 아직 첫 프롬프트 전이다. 화면으로 폴백하지 않는다.)" >&2
     exit 5

@@ -113,6 +113,7 @@ if [ -z "$MODEL" ]; then case "$AGENT" in
   codex)  MODEL="${FT_LUNA_MODEL:-gpt-6-luna}";;
   cmd)    MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}";;
   opencode) MODEL="${FT_OC_MODEL:-opencode/deepseek-v4.1-flash-free}";;   # r286
+  pi)     MODEL="${FT_PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}";;   # Pi 1.3.0 · OpenGateway fast lane
   *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
 fi
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
@@ -240,7 +241,7 @@ fi
 # tmuxc 옵션은 에이전트별로 다르다 — `--ctx` 는 claude 만, `--effort` 는 claude·cmd·codex, `--fast` 는 codex 만 (ft-role-spawn 과 같은 분기)
 OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
-case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
+case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
 # r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
 _VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"

@@ -9,7 +9,7 @@
 #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
-usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode --model M [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
+usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
 NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""
@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
   --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;; *) usage;; esac; done
 [ -n "$NAME" ] && [ -n "$AGENT" ] && [ -n "$MODEL" ] && [ -n "$BODY" ] || usage
-case "$AGENT" in claude|codex|cmd|opencode) ;; *) usage;; esac
+case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) usage;; esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★spawn 정지 파일 (R320)★: 승계는 1석 교대(순증 0)라 정지 중이어도 막지 않고 WARN 1줄만(문지기 --succession 과 같은 원칙).
@@ -69,10 +69,10 @@ hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
 case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — byz_thread_post.py reply --thread <이름> 으로(r414)"; exit 1; };; esac
 
-# ⓑ 열기 — tmuxc 옵션은 에이전트별로 다르다(ft-role-spawn.sh 와 같은 규칙: --ctx 는 claude 만 · --effort 는 claude·cmd·codex)
+# ⓑ 열기 — tmuxc 옵션은 에이전트별로 다르다(ft-role-spawn.sh 와 같은 규칙: --ctx 는 claude 만 · --effort 는 claude·cmd·codex·pi)
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && [ -n "$CTX" ] && OPEN+=(--ctx "$CTX")
-case "$AGENT" in claude|cmd|codex) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
+case "$AGENT" in claude|cmd|codex|pi) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
 "${OPEN[@]}" >/dev/null 2>&1 || { echo "REJECT tmuxc open 실패 ($NAME) — 송신 0"; exit 1; }
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME — 송신 0"; exit 1; }
 
@@ -85,19 +85,22 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 &
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
 CWD="$(tmux display-message -p -t "=$NAME" '#{pane_current_path}' 2>/dev/null)"
 JDIR="$HOME/.claude/projects/$(printf '%s' "$CWD" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
+SKEYS=(-e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\""); SMARK=SessionStart
+# r540: pi 좌석 = pi 대화 기록 폴더(ft-reach-check 와 같은 규칙)의 session_info.name — pi 는 tmuxc 부팅 문장이 제출된 뒤에야 파일을 쓴다
+[ "$AGENT" = pi ] && { JDIR="${FT_PI_SESSIONS_DIR:-$HOME/.pi/agent/sessions}/--$(printf '%s' "$CWD" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g')--"; SKEYS=(-e "\"name\":\"$NAME\""); SMARK='"type":"session_info"'; }
 seen=0; i=0
 while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
-  f="$(grep -lF -e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\"" "$JDIR"/*.jsonl 2>/dev/null)"
-  [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF SessionStart >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
+  f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
+  [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
 
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
-OUT="$(FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$(cat "$BODY")" 2>&1)"; RC=$?
+OUT="$(FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$(cat "$BODY")" 2>&1)"; RC=$?
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
 # ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
 if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ]; } && [ -n "$SEQ" ]; then
-  bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
+  bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
 fi
 [ "$RC" -eq 0 ] || { hil "send-verified rc=$RC"; exit 5; }
 

@@ -1,0 +1,41 @@
+FAIL ..: aifp-worker-master-pi#0 → REJECT aifp-worker-master-pi#0: 역할 좌석 꼬리는 에이전트여야 한다 (claude codex opencode cmd) — 'pi'
+FAIL ..: aifp-pi-master-pi#0 → REJECT aifp-pi-master-pi#0: 역할 좌석 꼬리는 에이전트여야 한다 (claude codex opencode cmd) — 'pi'
+PASS ..: aifp-pi-master#0 REJECT 꼬리 필수
+PASS ..: byz-x-master-pii#0 REJECT(오타 0)
+FAIL fable-team: aifp-worker-master-pi#0 → REJECT aifp-worker-master-pi#0: 역할 좌석 꼬리는 에이전트여야 한다 (claude codex opencode cmd) — 'pi'
+FAIL fable-team: aifp-pi-master-pi#0 → REJECT aifp-pi-master-pi#0: 역할 좌석 꼬리는 에이전트여야 한다 (claude codex opencode cmd) — 'pi'
+PASS fable-team: aifp-pi-master#0 REJECT 꼬리 필수
+PASS fable-team: byz-x-master-pii#0 REJECT(오타 0)
+PASS 기존 test_name_lint.sh rc0
+FAIL ..: role-spawn pi → usage: --agent 는 claude|codex|cmd|opencode (받은 값: pi)
+FAIL fable-team: role-spawn pi → usage: --agent 는 claude|codex|cmd|opencode (받은 값: pi)
+FAIL skill: role-spawn pi 줄 없음
+FAIL ..: nano 모델 → REJECT --model 필수 (--agent pi 는 기본 모델이 없다)
+FAIL ..: FT_PI_MODEL → REJECT --model 필수 (--agent pi 는 기본 모델이 없다)
+FAIL ..: nano OPEN → tmuxc open /w --name n --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast
+FAIL fable-team: nano 모델 → REJECT --model 필수 (--agent pi 는 기본 모델이 없다)
+FAIL fable-team: FT_PI_MODEL → REJECT --model 필수 (--agent pi 는 기본 모델이 없다)
+FAIL fable-team: nano OPEN → tmuxc open /w --name n --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast
+FAIL skill: nano-spawn pi effort 줄 없음
+FAIL bin: PI_READY_RE 줄 없음
+FAIL scripts: PI_READY_RE 줄 없음
+PASS cmp0 bin=kit ft-name-lint.sh
+PASS cmp0 bin=kit ft-role-spawn.sh
+PASS cmp0 bin=kit ft-nano-spawn.sh
+PASS cmp0 bin=kit ft-successor-open.sh
+PASS tmux-spawn kit↔skill 차이 = base 의 BOOT 줄 1쌍뿐
+FAIL reach-check pi 블록 없음·불일치
+FAIL ⓙ env → UNVERIFIABLE session=aifp-pi-master-pi#0 — jsonl 디렉터리 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.avXGSwGby9/rhome/.claude/projects/-Users-x-Project-pi-agent-ops--worktrees-pi-master
+  (비-ASCII 경로이거나 아직 첫 프롬프트 전이다. 화면으로 폴백하지 않는다.)
+FAIL ⓙ pane 감지 → UNVERIFIABLE session=aifp-pi-master-pi#0 — jsonl 디렉터리 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.avXGSwGby9/rhome/.claude/projects/-Users-x-Project-pi-agent-ops--worktrees-pi-master
+  (비-ASCII 경로이거나 아직 첫 프롬프트 전이다. 화면으로 폴백하지 않는다.)
+FAIL ⓙ 남의 좌석 → UNVERIFIABLE session=aifp-pi-master-pi#0 — jsonl 디렉터리 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.avXGSwGby9/rhome/.claude/projects/-Users-x-Project-pi-agent-ops--worktrees-pi-master
+  (비-ASCII 경로이거나 아직 첫 프롬프트 전이다. 화면으로 폴백하지 않는다.)
+FAIL ⓙ 폴더 없음 → UNVERIFIABLE session=aifp-pi-master-pi#0 — jsonl 디렉터리 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.avXGSwGby9/rhome/.claude/projects/-Users-x-Project-pi-agent-ops--worktrees-pi-master
+  (비-ASCII 경로이거나 아직 첫 프롬프트 전이다. 화면으로 폴백하지 않는다.)
+PASS ⓙ pi 기록 뿌리 없음 → UNVERIFIABLE 5
+PASS ⓙ claude 좌석 도달 그대로(pi 감지 0)
+FAIL ⓙ 승계 pi rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r540-name-lint-allow-pi-agent-tail/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-successor-open.sh <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode --model M [--ctx C] [--effort E] --body-file F| log=
+FAIL ⓙ 못 읽음 rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r540-name-lint-allow-pi-agent-tail/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-successor-open.sh <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode --model M [--ctx C] [--effort E] --body-file F|
+FAIL ⓙ 미관측 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r540-name-lint-allow-pi-agent-tail/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-successor-open.sh <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode --model M [--ctx C] [--effort E] --body-file F|
+FAILED 24
