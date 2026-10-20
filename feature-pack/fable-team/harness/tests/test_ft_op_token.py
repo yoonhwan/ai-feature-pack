@@ -33,6 +33,7 @@ class Stub(ThreadingHTTPServer):
     mode = "200"
     calls = 0
     token = ""
+    delay = 0.0  # r614: 동시 두 등록 시험이 로그인 응답을 겹치게 한다
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -40,6 +41,8 @@ class Handler(BaseHTTPRequestHandler):
         srv = self.server
         srv.calls += 1
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if srv.delay:
+            time.sleep(srv.delay)
         if srv.mode == "400":
             code, body = 400, json.dumps({"error": "bad", "password": PASSWORD, "hint": fake_jwt(1)})
         elif srv.mode == "nonjson":
@@ -257,7 +260,8 @@ def opstub(tmp_path, env):
         f'printf "%s\\n" "$@" > "{argv}"\n'
         f'printf "%s" "${{OP_SERVICE_ACCOUNT_TOKEN:-}}" > "{envtok}"\n'
         f'[ -f "{d}/sleep" ] && sleep 30\n'
-        f'case "$*" in *label=username*) cat "{d}/username" 2>/dev/null ;; *) cat "{body}" 2>/dev/null ;; esac\n'
+        f'case "$*" in *label=username*) if [ -n "${{STUB_USERNAME:-}}" ]; then printf "%s\\n" "$STUB_USERNAME"; '
+        f'else cat "{d}/username" 2>/dev/null; fi ;; *) cat "{body}" 2>/dev/null ;; esac\n'
         f'[ -f "{err}" ] && cat "{err}" >&2\n'
         f'[ -f "{rc}" ] && exit $(cat "{rc}")\n'
         "exit 0\n"
@@ -461,3 +465,163 @@ def test_r611f_known_account_unchanged(env, stub, opstub):
     assert table_text(env) == before
     assert opstub["argv"].read_text().splitlines()[-1] == "--reveal"
     assert opstub["calls"].read_text().count("run") == 1
+
+
+# ── r614 --init-from-op 표 줄 추가: 동시 등록 잠금 · 제어문자 거절 · 기존 줄바꿈 바이트 보존 ──
+def run_with(env, extra_env, *args):
+    e = dict(env["env"], **extra_env)
+    return subprocess.run(["bash", str(TOOL), *args], env=e, capture_output=True, text=True, timeout=120)
+
+
+def spawn(env, extra_env, *args):
+    e = dict(env["env"], **extra_env)
+    return subprocess.Popen(["bash", str(TOOL), *args], env=e, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+
+def alpha_beta_table(env):
+    return [ln for ln in table_text(env).splitlines() if not ln.startswith("#")]
+
+
+def test_r614a_concurrent_distinct_emails_keep_all_rows(env, stub, opstub):
+    """ⓐ 다른 두 이메일 동시 등록 — 표에 셋 다 남고 둘 다 rc0 (r611 판은 한 줄 잃는다)."""
+    stub.delay = 0.4
+    before = alpha_beta_table(env)
+    a, b = "alpha@x", "beta@x"
+    p1 = spawn(env, {"STUB_USERNAME": a}, "--init-from-op", OP_ITEM, a)
+    p2 = spawn(env, {"STUB_USERNAME": b}, "--init-from-op", OP_ITEM, b)
+    o1, o2 = p1.communicate(timeout=120), p2.communicate(timeout=120)
+    assert (p1.returncode, p2.returncode) == (0, 0), (o1, o2)
+    rows = alpha_beta_table(env)
+    assert rows[:2] == before
+    assert sorted(rows[2:]) == sorted([f"{a}\tbyz_alpha.cred\tbyz_alpha_token_dev",
+                                       f"{b}\tbyz_beta.cred\tbyz_beta_token_dev"])
+
+
+def test_r614b_same_email_twice_one_row(env, stub, opstub):
+    """ⓑ 같은 이메일 동시 두 번 — 표에 1줄 · 둘 다 rc0(늦은 쪽 = 이미 표에 있음 길)."""
+    stub.delay = 0.4
+    p1 = spawn(env, {"STUB_USERNAME": NEW_EMAIL}, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    p2 = spawn(env, {"STUB_USERNAME": NEW_EMAIL}, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    p1.communicate(timeout=120)
+    p2.communicate(timeout=120)
+    assert (p1.returncode, p2.returncode) == (0, 0)
+    rows = [ln for ln in alpha_beta_table(env) if ln.startswith(NEW_EMAIL + "\t")]
+    assert rows == [f"{NEW_EMAIL}\t{NEW_CRED}\t{NEW_TOKEN}"]
+    assert json.loads((env["sdir"] / NEW_CRED).read_text())["password"] == OP_PASSWORD
+
+
+def test_r614c_same_slug_other_email_one_row_and_collision(env, stub, opstub):
+    """ⓒ slug 가 같은 다른 이메일 동시 — 한 줄만 · 다른 쪽 rc2 «이름 겹침» · cred 소유자 = 줄 가진 email."""
+    stub.delay = 0.4
+    a, b = "same@a", "same@b"
+    p1 = spawn(env, {"STUB_USERNAME": a}, "--init-from-op", OP_ITEM, a)
+    p2 = spawn(env, {"STUB_USERNAME": b}, "--init-from-op", OP_ITEM, b)
+    o1, o2 = p1.communicate(timeout=120), p2.communicate(timeout=120)
+    rcs = sorted([p1.returncode, p2.returncode])
+    assert rcs == [0, 2], (o1, o2)
+    rows = [ln for ln in alpha_beta_table(env) if ln.startswith("same@")]
+    assert len(rows) == 1
+    owner = rows[0].split("\t")[0]
+    loser = o1 if owner == b else o2
+    assert "이름 겹침" in loser[0] or "이름 겹침" in loser[1], (o1, o2)
+    assert table_text(env).count("byz_same.cred") == 1
+
+
+@pytest.mark.parametrize("bad", ["bad\tmail@x", "bad\nmail@x", "bad\rmail@x"])
+def test_r614d_email_control_chars_rejected(env, stub, opstub, bad):
+    """ⓓ-1 이메일에 TAB·LF·CR → rc2 «제어문자» · op 호출 0 · 표 쓰기 0."""
+    before = table_text(env)
+    r = run_with(env, {"STUB_USERNAME": bad}, "--init-from-op", OP_ITEM, bad)  # op 사용자 이름도 같은 값
+    assert r.returncode == 2 and "제어문자" in r.stdout, r.stdout
+    assert table_text(env) == before
+    assert not opstub["calls"].exists() and stub.calls == 0
+
+
+def test_r614d2_username_control_chars_rejected(env, stub, opstub):
+    """ⓓ-2 op 사용자 이름에 TAB → rc2 «제어문자» · 비밀번호 조회 전 거절(calls=1) · 표 쓰기 0."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\t\n")
+    before = table_text(env)
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 2 and "제어문자" in r.stdout, r.stdout
+    assert table_text(env) == before and stub.calls == 0
+    assert opstub["calls"].read_text().count("run") == 1
+
+
+def test_r614e_crlf_table_bytes_preserved(env, stub, opstub):
+    """ⓔ-1 기존 표가 CRLF → 성공 뒤 기존 바이트 전부 그대로 · 새 줄도 CRLF."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    tsv = env["sdir"] / "op-accounts.tsv"
+    crlf = table_text(env).replace("\n", "\r\n").encode()
+    tsv.write_bytes(crlf)
+    tsv.chmod(0o600)
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    after = tsv.read_bytes()
+    assert after.startswith(crlf)
+    assert after == crlf + f"{NEW_EMAIL}\t{NEW_CRED}\t{NEW_TOKEN}\r\n".encode()
+
+
+def test_r614e2_no_trailing_newline_gets_lf(env, stub, opstub):
+    """ⓔ-2 마지막 줄에 개행 없음 → 기존 바이트 + LF 1개 + 새 줄(LF) — 지금처럼."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    tsv = env["sdir"] / "op-accounts.tsv"
+    head = f"{EMAIL}\tacct.cred\tacct.token".encode()
+    tsv.write_bytes(head)
+    tsv.chmod(0o600)
+    r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert tsv.read_bytes() == head + b"\n" + f"{NEW_EMAIL}\t{NEW_CRED}\t{NEW_TOKEN}\n".encode()
+
+
+def test_r614e3_crlf_table_existing_account_reads_and_stays(env, stub, opstub):
+    """ⓔ-3 CRLF 표를 read_table 이 지금처럼 읽는다(표에 있는 계정 → 표 줄 추가 0 · 바이트 불변)."""
+    tsv = env["sdir"] / "op-accounts.tsv"
+    crlf = table_text(env).replace("\n", "\r\n").encode()
+    tsv.write_bytes(crlf)
+    tsv.chmod(0o600)
+    (env["sdir"] / "acct.cred").unlink()
+    r = run(env, "--init-from-op", OP_ITEM, EMAIL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "(표 줄 추가)" not in r.stdout
+    assert tsv.read_bytes() == crlf
+
+
+def test_r614_lock_waits_for_holder(env, stub, opstub):
+    """ⓐ-2 다른 등록이 잠금을 쥐고 있으면 기다렸다가 성공(잠금 실재)."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    lock = env["sdir"] / "op-accounts.tsv.lock"
+    holder = subprocess.Popen(
+        ["python3", "-c", "import fcntl,time,sys\n"
+                          f"f=open({str(lock)!r},'w')\nfcntl.flock(f,fcntl.LOCK_EX)\n"
+                          "time.sleep(1.5)\n"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    time.sleep(0.3)
+    t0 = time.time()
+    try:
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL)
+    finally:
+        holder.communicate(timeout=30)
+    waited = time.time() - t0
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert waited >= 1.0, waited
+    assert mode(lock) == 0o600 and lock.read_text() == ""
+
+
+def test_r614_lock_timeout_err(env, stub, opstub):
+    """ⓐ-3 잠금을 20초 넘게 못 얻으면 rc2 «잠금 대기 초과» — op 호출 0 · 표 쓰기 0."""
+    opstub["userbody"].write_text(NEW_EMAIL + "\n")
+    before = table_text(env)
+    lock = env["sdir"] / "op-accounts.tsv.lock"
+    holder = subprocess.Popen(
+        ["python3", "-c", "import fcntl,time\n"
+                          f"f=open({str(lock)!r},'w')\nfcntl.flock(f,fcntl.LOCK_EX)\n"
+                          "time.sleep(30)\n"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    time.sleep(0.3)
+    try:
+        r = run(env, "--init-from-op", OP_ITEM, NEW_EMAIL, timeout=40)
+    finally:
+        holder.kill()
+        holder.communicate(timeout=30)
+    assert r.returncode == 2 and "잠금 대기 초과" in r.stdout, r.stdout
+    assert table_text(env) == before and stub.calls == 0
