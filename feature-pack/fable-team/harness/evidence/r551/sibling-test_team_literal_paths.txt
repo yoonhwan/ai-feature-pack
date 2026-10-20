@@ -1,0 +1,129 @@
+== 0 문법 · 키트 사본 cmp0 · 린트(실 bin)
+PASS bash -n ft-harness-info
+PASS 키트 사본 cmp0 ft-harness-info.sh
+PASS bash -n ft-hil-ask
+PASS 키트 사본 cmp0 ft-hil-ask.sh
+PASS bash -n ft-hil-answer
+PASS 키트 사본 cmp0 ft-hil-answer.sh
+PASS bash -n ft-goal-check
+PASS 키트 사본 cmp0 ft-goal-check.sh
+PASS bash -n ft-goal-tick
+PASS 키트 사본 cmp0 ft-goal-tick.sh
+PASS bash -n ft-role-spawn
+PASS 키트 사본 cmp0 ft-role-spawn.sh
+PASS bash -n ft-news-tick
+PASS 키트 사본 cmp0 ft-news-tick.sh
+PASS bash -n ft-news-tick-cfo
+PASS 키트 사본 cmp0 ft-news-tick-cfo.sh
+PASS bash -n ft-branch-candidates
+PASS 키트 사본 cmp0 ft-branch-candidates.sh
+PASS bash -n ft-regress-reopen
+PASS 키트 사본 cmp0 ft-regress-reopen.sh
+PASS bash -n ft-press-baseline-check
+PASS 키트 사본 cmp0 ft-press-baseline-check.sh
+PASS bash -n ft-team-path-lint
+PASS 키트 사본 cmp0 ft-team-path-lint.sh
+PASS ast ft_team_lib
+PASS 키트 사본 cmp0 ft_team_lib.py
+PASS ast ft_board_decide
+PASS 키트 사본 cmp0 ft_board_decide.py
+PASS ast ft_decision_count
+PASS 키트 사본 cmp0 ft_decision_count.py
+PASS ast ft_news_publish
+PASS 키트 사본 cmp0 ft_news_publish.py
+PASS ast ft_weekly_review
+PASS 키트 사본 cmp0 ft_weekly_review.py
+PASS ast ft_goal_table
+PASS 키트 사본 cmp0 ft_goal_table.py
+PASS ast ft_goal_ledger
+PASS 키트 사본 cmp0 ft_goal_ledger.py
+PASS ⓑ 실 bin 린트 rc0
+== ⓐ 꼴1 픽스처에서 각 도구가 칸이 가리키는 경로를 읽는다
+PASS ⓐ1 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다
+PASS ⓐ1 ft-hil-ask: harness 팀 폴더 원장에 행 추가
+PASS ⓐ1 ft-hil-answer: 같은 원장 행 applied
+PASS ⓐ1 옛 글자 경로에 원장을 새로 만들지 않았다
+PASS ⓐ1 harness-info rules: 정본 8개 전부 OK
+PASS ⓐ1 harness-info requests: 요청 원장 행
+PASS ⓐ1 ft-goal-check: v65 정본 4개를 칸 경로에서 찾았다
+PASS ⓐ1 ft-goal-check: REJECT 0 ← REREAD-REQUIRED seat=seat-x (좌석 원장 부재 — 신규/승계) · 골원장 sha=3eb9931 정본 sha=3eb9931
+  열어라: design/v65/GOAL-LEDGER-v65.md + 헤더 표의 정본 3 · 갱신: ft-goal-check.sh 'seat-x' --touch "<닫는 증거 복붙 20자+>"
+PASS ⓐ1 ft-goal-tick: 프롬프트·mbox·check 게이트를 통과(칸 경로의 프롬프트)
+PASS ⓐ1 ft-goal-tick 변이: 칸 경로·ref 둘 다 프롬프트가 없으면 멈춘다(r459 ERROR)
+PASS ⓐ1 ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← PLAN seat=byz-v65-da-claude#0 role=da agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5gO0iF8pkQ/r1 inbox=design/v65/indices/inbox/da replaces=[<
+PASS ⓐ1 ft-branch-candidates: issues 칸 아래에 산출
+PASS ⓐ1 ft-regress-reopen: harness 칸의 LANDING-LEDGER 행(card-a)을 찾았다
+PASS ⓐ1 ft-press-baseline-check: FLAGS.md 위치 = v65 칸(없을 때 그 경로를 말한다)
+PASS ⓐ1 ft_board_decide: harness 칸의 HIL-LEDGER 를 읽는다(open 1)
+PASS ⓐ1 ft_board_decide: harness 칸의 MERGE-QUEUE 를 읽는다(대기 1)
+PASS ⓐ1 ft_decision_count.table: planner 칸의 원장(데이터 행 6 · 머리 골)
+PASS ⓐ1 ft_news_publish: 뉴스 폴더 = planner 칸/news
+PASS ⓐ1 ft_weekly_review.p1_queue: planner 칸의 결정 대기열
+PASS ⓐ1 ft_weekly_review.h2_requests: harness 칸의 요청 원장
+PASS ⓐ1 ft_weekly_review.h1_cards: harness 칸의 진행 카드
+PASS ⓐ1 ft-news-tick: 리터럴 팀 경로 0
+PASS ⓐ1 ft-news-tick-cfo: 리터럴 팀 경로 0
+PASS ⓐ1 ft-news-tick: v65 트리 = ft_team_doc_ref(명단 ref · r459)
+PASS ⓐ1 ft-news-tick-cfo: cfo 폴더 = ft_team_in
+== ⓐ 꼴2 픽스처에서 각 도구가 칸이 가리키는 경로를 읽는다
+PASS ⓐ2 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다
+PASS ⓐ2 ft-hil-ask: harness 팀 폴더 원장에 행 추가
+PASS ⓐ2 ft-hil-answer: 같은 원장 행 applied
+PASS ⓐ2 옛 글자 경로에 원장을 새로 만들지 않았다
+PASS ⓐ2 harness-info rules: 정본 8개 전부 OK
+PASS ⓐ2 harness-info requests: 요청 원장 행
+PASS ⓐ2 ft-goal-check: v65 정본 4개를 칸 경로에서 찾았다
+PASS ⓐ2 ft-goal-check: REJECT 0 ← REREAD-REQUIRED seat=seat-x (좌석 원장 부재 — 신규/승계) · 골원장 sha=ec39607 정본 sha=ec39607
+  열어라: design/teams/v65/GOAL-LEDGER-v65.md + 헤더 표의 정본 3 · 갱신: ft-goal-check.sh 'seat-x' --touch "<닫는 증거 복붙 20자+>"
+PASS ⓐ2 ft-goal-tick: 프롬프트·mbox·check 게이트를 통과(칸 경로의 프롬프트)
+PASS ⓐ2 ft-goal-tick 변이: 칸 경로·ref 둘 다 프롬프트가 없으면 멈춘다(r459 ERROR)
+PASS ⓐ2 ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← PLAN seat=byz-v65-da-claude#0 role=da agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5gO0iF8pkQ/r2 inbox=design/teams/v65/indices/inbox/da repla
+PASS ⓐ2 ft-branch-candidates: issues 칸 아래에 산출
+PASS ⓐ2 ft-regress-reopen: harness 칸의 LANDING-LEDGER 행(card-a)을 찾았다
+PASS ⓐ2 ft-press-baseline-check: FLAGS.md 위치 = v65 칸(없을 때 그 경로를 말한다)
+PASS ⓐ2 ft_board_decide: harness 칸의 HIL-LEDGER 를 읽는다(open 1)
+PASS ⓐ2 ft_board_decide: harness 칸의 MERGE-QUEUE 를 읽는다(대기 1)
+PASS ⓐ2 ft_decision_count.table: planner 칸의 원장(데이터 행 6 · 머리 골)
+PASS ⓐ2 ft_news_publish: 뉴스 폴더 = planner 칸/news
+PASS ⓐ2 ft_weekly_review.p1_queue: planner 칸의 결정 대기열
+PASS ⓐ2 ft_weekly_review.h2_requests: harness 칸의 요청 원장
+PASS ⓐ2 ft_weekly_review.h1_cards: harness 칸의 진행 카드
+PASS ⓐ2 ft-news-tick: 리터럴 팀 경로 0
+PASS ⓐ2 ft-news-tick-cfo: 리터럴 팀 경로 0
+PASS ⓐ2 ft-news-tick: v65 트리 = ft_team_doc_ref(명단 ref · r459)
+PASS ⓐ2 ft-news-tick-cfo: cfo 폴더 = ft_team_in
+PASS ⓐ 꼴1 == 꼴2 정규화 출력 동일(goal)
+PASS ⓐ 꼴1 == 꼴2 정규화 출력 동일(info)
+== ⓑ 린트 — 리터럴 팀 이름 경로 0 (변이 대조)
+PASS ⓑ 깨끗한 bin → rc0
+PASS ⓑ 변이: 셸 리터럴 한 줄 → ERR rc1
+PASS ⓑ 변이: 꼴2(design/teams/<팀>/) 리터럴도 ERR
+PASS ⓑ 주석 줄의 글자는 제외
+PASS ⓑ 변이: 파이썬 쪼갠 꼴 → ERR rc1
+PASS ⓑ 변이: 파이썬 쪼갠 꼴2 → ERR rc1
+PASS ⓑ 변이(Q3): slash 없는 joined "design/planner" → ERR rc1
+PASS ⓑ 변이(Q3): 작은따옴표 분할 → ERR rc1
+PASS ⓑ 변이(Q3): 작은따옴표 joined 꼴2 → ERR rc1
+PASS ⓑ 변이(Q3): 셸 기본값 design/planner} → ERR rc1
+PASS ⓑ 접두 오탐 0 (design/plannerX · design/harness-notes)
+PASS ⓑ 범위 밖 대기 목록 파일은 INFO 로 이름을 찍고 통과
+PASS ⓑ 깨끗해진 대기 파일은 «목록에서 제거» INFO
+== ⓒ 셸 lib ↔ 파이썬 lib 출력 동치 (13팀 × 3꼴 · --alt · 오류)
+PASS ⓒ 꼴1 기본 13팀 출력 동일
+PASS ⓒ 꼴1 --alt 13팀 출력 동일
+PASS ⓒ 꼴2 기본 13팀 출력 동일
+PASS ⓒ 꼴2 --alt 13팀 출력 동일
+PASS ⓒ 꼴3 기본 13팀 출력 동일
+PASS ⓒ 꼴3 --alt 13팀 출력 동일
+PASS ⓒ 팀 이름 목록(칸 첫 일치 순서) 동일
+PASS ⓒ 명단 없음 = TeamPathError(옛 경로로 후퇴 0)
+== ⓔ 꼴3(외부 harness 루트) — 소비자 2곳이 «현재 리포 안» 을 전제하지 않는다 (DA⑥ r1 Q1)
+PASS ⓔ 꼴3 ft-harness-info requests: rc0 + 외부 REQUEST-LEDGER 행
+PASS ⓔ 꼴3 ft-harness-info rules: 외부 실파일 경로로 OK 표기
+PASS ⓔ 변이: 외부 원장이 없으면 rc1 REJECT(옛 경로 읽기 0)
+PASS ⓔ 변이: FT_HARNESS_ROOT 없으면 rc1 ERROR
+PASS ⓔ 꼴3 ft_weekly_review.h1_cards: ValueError 없이 외부 카드 목록(외부 저장소 이력)
+PASS ⓔ 꼴3 h1_cards: 예외 0
+PASS ⓔ 변이: 외부 카드가 저장소 밖이면 명시 TeamPathError(빈 목록 0)
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

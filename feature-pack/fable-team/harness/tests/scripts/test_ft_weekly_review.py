@@ -33,6 +33,15 @@ OPLEDGER = (
     + "| 2 | 약관 | 문서 | 진행 — 웹 반영 | 83713 |\n"
     + "| 3 | 메일 | 코드 | 완료 | |\n"
 )
+# r551 — 체크아웃(뒤처진 공용 폴더)에만 있는 «옛 판»: 대기열 열린 행 0 · 원장 문제 0(점검표가 조용히 «없음» 이 된다)
+OLD_QUEUE = (
+    "# 대기열\n| # | 일 | 근거 | 결정 |\n|---|---|---|---|\n| A9 | 옛 것 | 1200 | **지금** |\n"
+)
+OLD_OPLEDGER = (
+    "# 오빠 원장\n" + LEDGER_HEAD
+    + "| 1 | 폰 물결 | 코드 | 진행 — 코드 고침 | 83713 |\n"
+    + "| 2 | 메일 | 코드 | 완료 | |\n"
+)
 DUMB = "# 원장\n| # | 일시 | 타입 |\n|---|---|---|\n| 0 | 10-12 | 가 |\n| 1 | 10-09 | 나 |\n| 2 | 10-08 | 다 |\n"
 REQ = (
     "# REQUEST-LEDGER\n\n| # | 접수 | 요청자 | 증상 1줄 | Issue | 오빠 값 | 반영 sha |\n|---|---|---|---|---|---|---|\n"
@@ -69,12 +78,38 @@ def _put(path, text):
     path.write_text(text, encoding="utf-8")
 
 
+def _git_out(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, env=_env()).stdout
+
+
+def _commit(repo, msg):
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", msg)
+
+
+def make_planner(planner):
+    """r551 픽스처: 체크아웃(HEAD) = 뒤처진 옛 꼴 `design/planner/`(문제 0) · origin/main = 새 꼴 `design/teams/planner/`(문제 1).
+    체크아웃이 main 보다 뒤처진 실제 공용 폴더(v6-realtime-live) 꼴 — 새 폴더는 디스크에 없다(디스크로 내려가면 시험이 잡는다)."""
+    _put(planner / "design/planner/DECISIONS-oppa-queue-20261013.md", OLD_QUEUE)
+    _put(planner / "design/planner/PLAN-oppa-ledger.md", OLD_OPLEDGER)
+    _put(planner / "design/planner/weekly/REVIEW-planner-20261005.md", PRIOR_PLANNER)
+    planner.mkdir(exist_ok=True)
+    _git(planner, "init", "-q")
+    write_teams(planner)  # 뒤처진 체크아웃의 명단 = 옛 꼴 design/planner/
+    _commit(planner, "checkout-behind")
+    shutil.rmtree(planner / "design/planner")  # origin/main 에서는 옛 자리가 지워졌다(실 리포 꼴)
+    _put(planner / "design/teams/planner/DECISIONS-oppa-queue-20261013.md", QUEUE)
+    _put(planner / "design/teams/planner/PLAN-oppa-ledger.md", OPLEDGER)
+    write_teams(planner, form="design/teams/{t}/")  # origin/main 명단 = 새 꼴
+    _commit(planner, "origin-main")
+    _git(planner, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _git(planner, "reset", "-q", "--hard", "HEAD~1")  # 체크아웃을 main 에서 뒤처지게(새 폴더는 디스크에서 사라진다)
+
+
 def make_world(tmp_path):
     planner, harness = tmp_path / "planner", tmp_path / "harness"
-    _put(planner / "design/planner/DECISIONS-oppa-queue-20261013.md", QUEUE)
-    _put(planner / "design/planner/PLAN-oppa-ledger.md", OPLEDGER)
-    _put(planner / "design/planner/weekly/REVIEW-planner-20261005.md", PRIOR_PLANNER)
-    for repo in (planner, harness):
+    make_planner(planner)
+    for repo in (harness,):
         repo.mkdir(exist_ok=True)
         _git(repo, "init", "-q")
         write_teams(repo)  # R382b: 팀 폴더는 각 리포의 TEAMS.md 폴더 칸으로 풀린다
@@ -102,8 +137,10 @@ def broken_mbox(tmp_path):
     _put(tmp_path / "mbox.sh", "#!/usr/bin/env bash\necho 'ERROR doorbell down'\nexit 9\n")
 
 
-def run_tool(tmp_path, bin_dir=BIN, now=NOW, planner=None, harness=None):
+def run_tool(tmp_path, bin_dir=BIN, now=NOW, planner=None, harness=None, ref=None):
     env = _env()
+    if ref:
+        env["FT_TEAMS_REF"] = ref
     env.update(
         FT_PLANNER_REPO=str(planner or tmp_path / "planner"), FT_HARNESS_REPO=str(harness or tmp_path / "harness"),
         FT_MBOX=f"bash {tmp_path / 'mbox.sh'}", FT_HARNESS_INFO=f"bash {tmp_path / 'seats.sh'}",
@@ -208,17 +245,13 @@ def test_sends_two_mails_to_current_masters(tmp_path):  # 1ⓕ
         assert c[0] == "send" and c[3] == f"[주간 점검] {p}"
 
 
-def test_unreadable_source_is_said_not_silent(tmp_path):  # #0 RULE
+def test_unreadable_source_is_said_not_silent(tmp_path):  # #0 RULE — r551: 출처가 gitref 라 «못 읽는 출처» = 없는 ref(디스크 파일 아님)
     make_world(tmp_path)
-    queue = tmp_path / "planner/design/planner/DECISIONS-oppa-queue-20261013.md"
-    queue.chmod(0)
-    try:
-        res = run_tool(tmp_path)
-    finally:
-        queue.chmod(0o644)
+    res = run_tool(tmp_path, ref="origin/없는가지")
     assert res.returncode == 0, res.stderr
     pl = files(tmp_path)[0].read_text(encoding="utf-8")
     assert "확인 못 함" in next(r for r in rows(pl) if r.startswith("| P1"))
+    assert "확인 못 함" in next(r for r in rows(pl) if r.startswith("| P2"))
 
 
 def test_pipe_in_fact_stays_in_fact_column_and_is_carried(tmp_path):  # C1
@@ -276,10 +309,54 @@ def test_only_failed_seat_is_retried(tmp_path):  # C2
     assert len(calls) == 3 and calls[-1][1] == "byz-harness-master-claude#40" and notified(h) == ["ok"]
 
 
+def _cell(tmp_path, key):
+    return next(r for r in rows(files(tmp_path)[0].read_text(encoding="utf-8")) if r.startswith(f"| {key}"))
+
+
+def test_p2_ignores_behind_checkout(tmp_path):  # r551 ⓐ — 체크아웃의 «문제 0» 판이 아니라 origin/main 판
+    make_world(tmp_path)
+    assert run_tool(tmp_path).returncode == 0
+    assert "쪽지 번호 0: 1줄" in _cell(tmp_path, "P2")
+
+
+def test_p2_source_is_origin_main_sha(tmp_path):  # r551 ⓑ — 사실 + 출처 origin/main@<sha10>
+    make_world(tmp_path)
+    assert run_tool(tmp_path).returncode == 0
+    p2 = _cell(tmp_path, "P2")
+    sha = re.search(r"origin/main@([0-9a-f]{10})", p2)
+    assert sha, p2
+    assert sha.group(1) == _git_out(tmp_path / "planner", "rev-parse", "--verify", "origin/main")[:10]
+
+
+def test_p1_reads_origin_main_queue(tmp_path):  # r551 ⓒ — 대기열도 origin/main 판(체크아웃 = 열린 행 0)
+    make_world(tmp_path)
+    assert run_tool(tmp_path).returncode == 0
+    p1 = _cell(tmp_path, "P1")
+    sha = _git_out(tmp_path / "planner", "rev-parse", "--verify", "origin/main")[:10]
+    assert "열린 행 2건" in p1 and "A3" in p1 and f"· origin/main@{sha} |" in p1
+
+
+def test_planner_folder_missing_on_ref_is_said_not_checkout(tmp_path):  # r551 ⓓ — ref 에 폴더 없음 = «확인 못 함»(조용히 체크아웃으로 내려가지 않는다)
+    make_world(tmp_path)
+    pl = tmp_path / "planner"
+    base = _git_out(pl, "rev-parse", "HEAD").strip()
+    _git(pl, "checkout", "-q", "origin/main")
+    shutil.rmtree(pl / "design/teams/planner")
+    _commit(pl, "no-planner")
+    _git(pl, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _git(pl, "checkout", "-q", base)  # 체크아웃은 옛 꼴 그대로(design/planner 실재)
+    res = run_tool(tmp_path)
+    assert res.returncode == 0, res.stderr
+    pl_text = files(tmp_path)[0].read_text(encoding="utf-8")
+    assert "확인 못 함" in next(r for r in rows(pl_text) if r.startswith("| P1"))
+    assert "확인 못 함" in next(r for r in rows(pl_text) if r.startswith("| P2"))
+    assert "열린 행" not in pl_text and "쪽지 번호 0" not in pl_text
+
+
 def _mutant(tmp_path, old, new):
     bin_dir = tmp_path / "mutant-bin"
     bin_dir.mkdir()
-    for name in ("ft-weekly-review.sh", "ft_weekly_review.py", "ft_weekly_table.py", "ft_team_lib.py"):
+    for name in ("ft-weekly-review.sh", "ft_weekly_review.py", "ft_weekly_table.py", "ft_team_lib.py", "ft_goal_ledger.py"):
         shutil.copy(BIN / name, bin_dir / name)
     hit = [n for n in ("ft_weekly_review.py", "ft_weekly_table.py") if old in (bin_dir / n).read_text(encoding="utf-8")]
     assert len(hit) == 1, f"변이 표지 {old!r} 가 도구에 정확히 한 곳 있어야 한다: {hit}"

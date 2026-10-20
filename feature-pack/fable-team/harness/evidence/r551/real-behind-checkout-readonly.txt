@@ -1,0 +1,21 @@
+r551 실측(읽기 전용 · 쪽지 0 · 쓰기 0) = 2026-10-20 · planner 공용 체크아웃
+리포 = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live
+뒤처짐 = `git rev-list --count HEAD..origin/main` = 290커밋
+
+## 고치기 전(origin/main 판 도구 = base 1.1.103)
+P1(base): 없음 (대기열 파일 0)
+P2(base): 진행 줄인데 쪽지 번호 0: 22줄 (…)          ← 체크아웃 디스크 판(design/planner)을 읽었다 · 출처 표기 없음
+
+## 고친 뒤(r551 키트)
+P1: 없음 (대기열 파일 0) · origin/main@b7366fecfc
+P2: 진행 줄인데 쪽지 번호 0: 22줄 (…) · origin/main@b7366fecfc   ← origin/main 판 · 어느 판인지 칸에 남는다
+
+## 왜 이게 사건인가(원장 두 판의 실제 차이)
+- origin/main:design/teams/planner/PLAN-oppa-ledger.md 마지막 커밋 = 2026-10-20 15:59:18 +0900 (63fd1b57dc) · 333줄
+- 체크아웃 HEAD:design/planner/PLAN-oppa-ledger.md      마지막 커밋 = 2026-10-19 18:55:16 +0900 (48f75dab49) · 310줄
+- 두 판 diff = 64줄(23줄이 뒤처진 체크아웃에 아예 없다) → 점검표 P2 칸이 «어제 저녁 판» 으로 채워지고 있었다.
+- P1 은 두 판 모두 `DECISIONS-oppa-queue-*.md` 0개(정직한 «없음») — 이 카드 뒤에는 «어느 판인지» 가 붙는다.
+- P1/P2 만 바꿨다 · 점검표를 쓰는 자리(체크아웃 design/planner/weekly)·H1~H8·쪽지 규칙 = 그대로(쓰기 0).
+
+재측정 명령:
+  cd <워크트리>/feature-pack/fable-team/harness/bin && env -i HOME="$HOME" PATH="$PATH" python3.11 -I -c 'import sys;sys.path.insert(0,".");from pathlib import Path;import ft_weekly_review as w;r=Path("<v6-realtime-live>");print(w.p1_queue(r));print(w.p2_ledger(r))'
