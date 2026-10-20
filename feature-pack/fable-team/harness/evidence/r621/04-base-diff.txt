@@ -1,0 +1,172 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft-nano-close.sh b/feature-pack/fable-team/harness/bin/ft-nano-close.sh
+index dfc4bef2..44d537b3 100755
+--- a/feature-pack/fable-team/harness/bin/ft-nano-close.sh
++++ b/feature-pack/fable-team/harness/bin/ft-nano-close.sh
+@@ -16,9 +16,9 @@
+ #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
+ #     확인 ⓐ등록된 .worktrees/ 아래 워크트리 ⓑ그 워크트리 체크아웃 브랜치 == --branch ⓒ세션이 살아 있으면 pane cwd toplevel == --wt ⓓ다른 pane 이 --wt 안 cwd 0 ⓔ미커밋 0 ⓕ기존 종료조건 3·증거 줄 ⓖcherry 는 --branch 기준(우회는 기존 --cherry-override 뿐).
+ #     통과해도 WIP 자동 커밋·wt-clean 실행·브랜치 삭제 0 — 정리 계획만 <wt-clean>/<seat>.sh.hil 로 생성(sweep 순회 밖 · 사람 ! 실행).
+-#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드 머리 `- 설치: 있음`(하네스 카드)이면 ⓐ 통과 —
++#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드가 하네스 카드(r621: 첫 5줄 원장 줄 `<!-- ledger: design/harness/GOAL-harness.md -->` · 머리 `- 설치:` 줄 무관)이면 ⓐ 통과 —
+ #       ⓑ브랜치·ⓔ미커밋·⑥증거 줄·⑤cherry(·feat fetch)를 팩 리포 기준으로(feat 기본 origin/main) · ⓒ pane cwd 는 --wt 또는 같은 좌석의 BYZ 쪽 표준 워크트리 · 정리 계획 0(INFO 1줄 · 원장 mode=pack-wt).
+-#       제품 카드·미등록 폴더 = 지금 ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
++#       제품 카드(원장 줄이 하네스 아님)·카드 못 찾음·미등록 폴더 = ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
+ #   --shared-wt = 전용 워크트리가 없는 «공유 워크트리 좌석»(예: pane cwd = 공유 c-level-planning) 닫기 — 명시 인자로만(자동 판별 0). 확인 ⓐ~ⓔ 전부 통과해야 하고, 통과해도 cherry·wt-clean 은 건너뛰고 세션 kill·명부·원장만(워크트리·파일·브랜치 손대지 않음).
+ #   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
+ #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
+@@ -767,9 +767,9 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
+     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
+   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
+ fi
+-# r508 ⓐ 카드: 팩 경로는 하네스 카드(머리 `- 설치: 있음`)만 — 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
+-if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && grep -qE '^- 설치: 있음' "$CARD"; }; then
+-  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 ${CARD:-못 찾음})")
++# r508 ⓐ 카드 · r621: 판별 = 카드 첫 5줄의 원장 줄(하네스 카드는 둘째 줄 `<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 막혀 --suspended 로 우회하게 된다(r604·r618). 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
++if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then
++  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(원장 GOAL-harness)만 (카드 ${CARD:-못 찾음})")
+ fi
+ # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
+ _cp_pressed=1
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+index dfc4bef2..44d537b3 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+@@ -16,9 +16,9 @@
+ #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
+ #     확인 ⓐ등록된 .worktrees/ 아래 워크트리 ⓑ그 워크트리 체크아웃 브랜치 == --branch ⓒ세션이 살아 있으면 pane cwd toplevel == --wt ⓓ다른 pane 이 --wt 안 cwd 0 ⓔ미커밋 0 ⓕ기존 종료조건 3·증거 줄 ⓖcherry 는 --branch 기준(우회는 기존 --cherry-override 뿐).
+ #     통과해도 WIP 자동 커밋·wt-clean 실행·브랜치 삭제 0 — 정리 계획만 <wt-clean>/<seat>.sh.hil 로 생성(sweep 순회 밖 · 사람 ! 실행).
+-#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드 머리 `- 설치: 있음`(하네스 카드)이면 ⓐ 통과 —
++#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드가 하네스 카드(r621: 첫 5줄 원장 줄 `<!-- ledger: design/harness/GOAL-harness.md -->` · 머리 `- 설치:` 줄 무관)이면 ⓐ 통과 —
+ #       ⓑ브랜치·ⓔ미커밋·⑥증거 줄·⑤cherry(·feat fetch)를 팩 리포 기준으로(feat 기본 origin/main) · ⓒ pane cwd 는 --wt 또는 같은 좌석의 BYZ 쪽 표준 워크트리 · 정리 계획 0(INFO 1줄 · 원장 mode=pack-wt).
+-#       제품 카드·미등록 폴더 = 지금 ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
++#       제품 카드(원장 줄이 하네스 아님)·카드 못 찾음·미등록 폴더 = ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
+ #   --shared-wt = 전용 워크트리가 없는 «공유 워크트리 좌석»(예: pane cwd = 공유 c-level-planning) 닫기 — 명시 인자로만(자동 판별 0). 확인 ⓐ~ⓔ 전부 통과해야 하고, 통과해도 cherry·wt-clean 은 건너뛰고 세션 kill·명부·원장만(워크트리·파일·브랜치 손대지 않음).
+ #   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
+ #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
+@@ -767,9 +767,9 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
+     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
+   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
+ fi
+-# r508 ⓐ 카드: 팩 경로는 하네스 카드(머리 `- 설치: 있음`)만 — 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
+-if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && grep -qE '^- 설치: 있음' "$CARD"; }; then
+-  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 ${CARD:-못 찾음})")
++# r508 ⓐ 카드 · r621: 판별 = 카드 첫 5줄의 원장 줄(하네스 카드는 둘째 줄 `<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 막혀 --suspended 로 우회하게 된다(r604·r618). 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
++if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then
++  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(원장 GOAL-harness)만 (카드 ${CARD:-못 찾음})")
+ fi
+ # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
+ _cp_pressed=1
+diff --git a/feature-pack/fable-team/harness/tests/test_nano_close_pack_wt.sh b/feature-pack/fable-team/harness/tests/test_nano_close_pack_wt.sh
+index 99bd7beb..cb6fbb0c 100644
+--- a/feature-pack/fable-team/harness/tests/test_nano_close_pack_wt.sh
++++ b/feature-pack/fable-team/harness/tests/test_nano_close_pack_wt.sh
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env bash
+ # test_nano_close_pack_wt.sh — 카드 r508: ft-nano-close.sh --wt <팩 .worktrees/…> --branch nano/<키> (하네스 «팩 나노» 닫기 · ⑥·⑤·미커밋 = 팩 리포 기준)
++# r621: 하네스 카드 판별 = 카드 첫 5줄의 원장 줄(`<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄 무관(시험만 고치는 하네스 카드도 팩 워크트리로 닫힌다)
+ # 임시 리포 2개(BYZ 꼴 R · 팩 꼴 P + P 의 bare 원격) + 가짜 tmux(PATH 앞) + 스크립트 사본(가짜 cherry 게이트) — 실제 리포·seats·tmux 세션·외부 호출 0 · GIT_* env 0.
+ . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
+ set -uo pipefail
+@@ -59,11 +60,12 @@ echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
+ SEAT='byz-harness-nano-k#0'; CARD="$R/design/harness/indices/진행/k.md"
+ 
+ run() { ( cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="$T/hil" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+-setup() {  # setup [설치 칸] — 명부·pane(cwd = BYZ 쪽 워크트리 · 실사건 꼴)·카드를 «정상» 으로 리셋
++setup() {  # setup [설치 칸] [원장 줄] — 명부·pane(cwd = BYZ 쪽 워크트리 · 실사건 꼴)·카드를 «정상» 으로 리셋 · 기본 둘째 줄 = 하네스 원장(r621: 하네스 카드 판별 = 설치 줄이 아니라 이 원장 줄)
+   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$R/.fable-team/seats-harness.json"
+   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
+   : > "$T/tlog"; : > "$T/ledger.md"; rm -rf "$T/wtclean" "$T/cherry.args"
+-  printf '# 인덱스: k\n- 설치: %s\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "${1:-있음 — 팩 키트 1}" "$SHA" > "$CARD"
++  printf '# 인덱스: k\n%s\n- 설치: %s\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' \
++    "${2-<!-- ledger: design/harness/GOAL-harness.md -->}" "${1:-있음 — 팩 키트 1}" "$SHA" > "$CARD"
+ }
+ close() { run FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" \
+   FT_SEATS_JSON="$R/.fable-team/seats-harness.json" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" \
+@@ -74,9 +76,9 @@ untouched() {  # REJECT 뒤 kill·명부·팩 워크트리 변경 0
+   [ "$(git -C "$PW" rev-parse HEAD)" = "$SHA" ] && ok "  └ 팩 HEAD 그대로(WIP 커밋 0)" || bad "팩 HEAD 가 움직임"
+ }
+ 
+-echo "== ⓐ --wt 팩 등록 워크트리 + 하네스 카드(- 설치: 있음) → ⑥ 팩 HEAD 대조 PASS · CLOSED"
+-setup; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+-[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓐ 팩 경로 → CLOSED(rc=0)" || bad "ⓐ rc=$rc ← ${out:0:900}"
++echo "== ⓐ --wt 팩 등록 워크트리 + 하네스 카드(- 설치: 없음 — 시험만 · 원장 하네스) → ⑥ 팩 HEAD 대조 PASS · CLOSED(r621: 설치 줄 무관)"
++setup "없음 — 시험만"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
++[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓐ 설치: 없음 하네스 카드 → CLOSED(rc=0)" || bad "ⓐ rc=$rc ← ${out:0:900}"
+ has "$out" "OK 증거 줄" "  └ ⑥ 증거 줄 = 팩 워크트리 HEAD 대조 통과"
+ [ "$(cat "$T/cherry.args" 2>/dev/null)" = "origin/main nano/k repo=$P" ] && ok "  └ ⑤ cherry = --repo 팩 리포 · origin/main · --branch" || bad "  └ cherry 인자: $(cat "$T/cherry.args" 2>/dev/null)"
+ has "$out" "INFO 팩 워크트리 정리 = 별 경로" "  └ 정리 계획 0 · INFO 1줄"
+@@ -87,27 +89,38 @@ has "$(cat "$T/tlog")" "kill-session" "  └ 세션 kill(표준승인 경로)"
+ [ -d "$PW" ] && [ -d "$RW" ] && ok "  └ 팩·BYZ 워크트리 그대로" || bad "  └ 워크트리가 사라짐"
+ git -C "$P" rev-parse --verify -q refs/heads/nano/k >/dev/null && ok "  └ 팩 브랜치 그대로" || bad "  └ 팩 브랜치 삭제됨"
+ 
+-echo "== ⓑ 같은 입력 · 카드 «- 설치: 없음»(제품 카드) → ⓐ REJECT(팩 경로는 하네스 카드만)"
+-setup "없음"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+-[ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓑ 제품 카드 → REJECT" || bad "ⓑ rc=$rc ← ${out:0:600}"
++echo "== ⓑ --wt 팩 등록 워크트리 + 카드 «- 설치: 있음» + 원장 하네스 → 지금처럼 CLOSED"
++setup "있음 — 팩 키트 1"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
++[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓑ 설치: 있음 하네스 카드 → CLOSED" || bad "ⓑ rc=$rc ← ${out:0:600}"
++has "$(cat "$T/ledger.md")" "mode=pack-wt" "  └ 원장 행 mode=pack-wt"
++
++echo "== ⓒ 제품 카드(원장 줄이 하네스 아님) + 팩 경로 → ⓐ REJECT(팩 경로는 하네스 카드만)"
++setup "있음 — 팩 키트 1" '<!-- ledger: design/product/GOAL-product.md -->'; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
++[ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓒ 제품 카드 → REJECT" || bad "ⓒ rc=$rc ← ${out:0:600}"
+ has "$out" "ⓐ--wt($PW)가 이 리포($R)에 등록된 .worktrees/ 아래 워크트리가 아니다" "  └ 지금 ⓐ 문구 그대로"
+-has "$out" "팩 경로는 하네스 카드(- 설치: 있음)만" "  └ 덧말"
++has "$out" "팩 경로는 하네스 카드(원장 GOAL-harness)만" "  └ 덧말(원장 기준)"
++untouched
++
++echo "== ⓓ 카드 못 찾음 → REJECT(원장 줄 판정 불가)"
++setup "없음 — 시험만"; rm -f "$CARD"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
++[ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓓ 카드 없음 → REJECT" || bad "ⓓ rc=$rc ← ${out:0:600}"
++has "$out" "(카드 못 찾음)" "  └ 카드 못 찾음 표시"
+ untouched
+ 
+-echo "== ⓒ --wt 가 팩 .worktrees/ 아래 미등록 폴더 → REJECT"
++echo "== ⓔ --wt 팩 .worktrees/ 아래 미등록 폴더 → REJECT"
+ setup; out="$(close --wt "$P/.worktrees/plain-dir" --branch nano/k)"; rc=$?
+-[ "$rc" -eq 1 ] && has "$out" "ⓐ--wt(" "ⓒ 미등록 폴더 → ⓐ REJECT" || bad "ⓒ rc=$rc ← ${out:0:600}"
++[ "$rc" -eq 1 ] && has "$out" "ⓐ--wt(" "ⓔ 미등록 폴더 → ⓐ REJECT" || bad "ⓔ rc=$rc ← ${out:0:600}"
+ untouched
+ 
+-echo "== ⓓ 팩 워크트리 미커밋 1 → REJECT(팩 리포 기준 ⓔ)"
++echo "== ⓕ 팩 워크트리 미커밋 1 → REJECT(팩 리포 기준 미커밋 검사)"
+ setup; echo dirty > "$PW/dirty.txt"
+ out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+-[ "$rc" -eq 1 ] && has "$out" "ⓔ--wt 미커밋 변경 1건" "ⓓ 팩 미커밋 → ⓔ REJECT" || bad "ⓓ rc=$rc ← ${out:0:600}"
++[ "$rc" -eq 1 ] && has "$out" "ⓔ--wt 미커밋 변경 1건" "ⓕ 팩 미커밋 → REJECT" || bad "ⓕ rc=$rc ← ${out:0:600}"
+ untouched; rm -f "$PW/dirty.txt"
+ 
+-echo "== ⓔ --wt 없이(표준 해석) 팩 나노 → 지금처럼 BYZ 워크트리 대조(동작 변경 0)"
++echo "== ⓖ --wt 없이(표준 해석) 팩 나노 → 지금처럼 BYZ 워크트리 대조(동작 변경 0)"
+ setup; out="$(close)"; rc=$?
+-[ "$rc" -eq 1 ] && has "$out" "세트 HEAD ${SHA:0:9} != 현재 나노 HEAD $(git -C "$RW" rev-parse --short=9 HEAD)" "ⓔ 표준 해석 → BYZ HEAD 대조 REJECT(지금 그대로)" || bad "ⓔ rc=$rc ← ${out:0:600}"
++[ "$rc" -eq 1 ] && has "$out" "세트 HEAD ${SHA:0:9} != 현재 나노 HEAD $(git -C "$RW" rev-parse --short=9 HEAD)" "ⓖ 표준 해석 → BYZ HEAD 대조 REJECT(지금 그대로)" || bad "ⓖ rc=$rc ← ${out:0:600}"
+ hasnt "$out" "팩 워크트리" "  └ 팩 경로 분기 0"
+ untouched
+ 
+diff --git a/feature-pack/fable-team/harness/tests/test_nano_close_rerun_early.sh b/feature-pack/fable-team/harness/tests/test_nano_close_rerun_early.sh
+index 223e6d47..0dfc0c22 100755
+--- a/feature-pack/fable-team/harness/tests/test_nano_close_rerun_early.sh
++++ b/feature-pack/fable-team/harness/tests/test_nano_close_rerun_early.sh
+@@ -69,7 +69,7 @@ setup() {  # setup <reap 모드> — 명부·pane·카드·원장을 «처음 
+   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$SEATS"
+   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
+   : > "$T/tlog"; : > "$T/ledger.md"; : > "$T/reap.calls"; rm -rf "$T/wtclean"; echo "$1" > "$T/reap.mode"
+-  printf '# 인덱스: k\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
++  printf '# 인덱스: k\n<!-- ledger: design/harness/GOAL-harness.md -->\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
+ }
+ close() { run FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" FT_REAP_RETRY_SLEEP=0 \
+   FT_SEATS_JSON="$SEATS" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" \
+diff --git a/feature-pack/fable-team/harness/tests/test_pack_nano_worktree_place.sh b/feature-pack/fable-team/harness/tests/test_pack_nano_worktree_place.sh
+index 88454511..2b0970dc 100644
+--- a/feature-pack/fable-team/harness/tests/test_pack_nano_worktree_place.sh
++++ b/feature-pack/fable-team/harness/tests/test_pack_nano_worktree_place.sh
+@@ -76,7 +76,7 @@ setup() {
+   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$R/.fable-team/seats-harness.json"
+   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
+   : > "$T/tlog"; : > "$T/ledger.md"; rm -rf "$T/wtclean"
+-  printf '# 인덱스: k\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
++  printf '# 인덱스: k\n<!-- ledger: design/harness/GOAL-harness.md -->\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
+ }
+ close() { run FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" \
+   FT_SEATS_JSON="$R/.fable-team/seats-harness.json" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" \

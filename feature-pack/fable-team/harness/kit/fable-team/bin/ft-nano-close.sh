@@ -16,9 +16,9 @@
 #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
 #     확인 ⓐ등록된 .worktrees/ 아래 워크트리 ⓑ그 워크트리 체크아웃 브랜치 == --branch ⓒ세션이 살아 있으면 pane cwd toplevel == --wt ⓓ다른 pane 이 --wt 안 cwd 0 ⓔ미커밋 0 ⓕ기존 종료조건 3·증거 줄 ⓖcherry 는 --branch 기준(우회는 기존 --cherry-override 뿐).
 #     통과해도 WIP 자동 커밋·wt-clean 실행·브랜치 삭제 0 — 정리 계획만 <wt-clean>/<seat>.sh.hil 로 생성(sweep 순회 밖 · 사람 ! 실행).
-#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드 머리 `- 설치: 있음`(하네스 카드)이면 ⓐ 통과 —
+#     r508 팩 나노: --wt 가 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 등록 .worktrees/ 이고 카드가 하네스 카드(r621: 첫 5줄 원장 줄 `<!-- ledger: design/harness/GOAL-harness.md -->` · 머리 `- 설치:` 줄 무관)이면 ⓐ 통과 —
 #       ⓑ브랜치·ⓔ미커밋·⑥증거 줄·⑤cherry(·feat fetch)를 팩 리포 기준으로(feat 기본 origin/main) · ⓒ pane cwd 는 --wt 또는 같은 좌석의 BYZ 쪽 표준 워크트리 · 정리 계획 0(INFO 1줄 · 원장 mode=pack-wt).
-#       제품 카드·미등록 폴더 = 지금 ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
+#       제품 카드(원장 줄이 하네스 아님)·카드 못 찾음·미등록 폴더 = ⓐ REJECT 그대로 · 인자 없음(표준 해석) = 동작 변경 0(자동 팩 판별 0).
 #   --shared-wt = 전용 워크트리가 없는 «공유 워크트리 좌석»(예: pane cwd = 공유 c-level-planning) 닫기 — 명시 인자로만(자동 판별 0). 확인 ⓐ~ⓔ 전부 통과해야 하고, 통과해도 cherry·wt-clean 은 건너뛰고 세션 kill·명부·원장만(워크트리·파일·브랜치 손대지 않음).
 #   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
 #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
@@ -767,9 +767,9 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
 fi
-# r508 ⓐ 카드: 팩 경로는 하네스 카드(머리 `- 설치: 있음`)만 — 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
-if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && grep -qE '^- 설치: 있음' "$CARD"; }; then
-  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만 (카드 ${CARD:-못 찾음})")
+# r508 ⓐ 카드 · r621: 판별 = 카드 첫 5줄의 원장 줄(하네스 카드는 둘째 줄 `<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 막혀 --suspended 로 우회하게 된다(r604·r618). 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
+if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then
+  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(원장 GOAL-harness)만 (카드 ${CARD:-못 찾음})")
 fi
 # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
 _cp_pressed=1
