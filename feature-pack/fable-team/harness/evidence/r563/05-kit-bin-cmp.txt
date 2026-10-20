@@ -1,0 +1,4 @@
+cmp0 ft_news_html_render.py
+cmp0 ft_news_ledger.py
+cmp0 ft_news_html.py
+cmp0 ft-news-effort-test.sh

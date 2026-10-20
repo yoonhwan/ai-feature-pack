@@ -1,0 +1,7 @@
+r563 실 HTTP 스모크 (2026-10-20 22:0x · 실 openrouter · 갈래 1개만 · 25초 상한)
+$ FT_NEWS_MODEL=openrouter/anthropic/claude-haiku-5.5 _http_once(teams 프롬프트)
+rc= 0 first= 2.3 elapsed= 2.9 text={"team_notes":[{"team":"v65","text":"원천 없음"}]}
+
+- 대조(같은 모델 · CLI 경로 기동 기록): 13.3~41.5초(부하 낮을 때) · 21:23 부하 52 에서 전부 >52초 → HTTP 직접 = 첫 바이트 2.3초
+- 주의: max_tokens 미지정(모델 최대 65536 요구)이면 이 계정 크레딧에서 402 «requires more credits … can only afford 2527» — 본 변경은 max_tokens=2048(FT_NEWS_HTTP_MAX_TOKENS)로 출력 여유만 요구한다
+- 실사건(발행 완료 + 갈래 4개 첫 출력 ≤7초 + uptime)은 master press 소관 — 나노 미실행(press 금지)

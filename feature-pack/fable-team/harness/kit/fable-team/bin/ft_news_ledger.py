@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -179,13 +180,42 @@ def check_base(repo: Path, sha: str, rel: str) -> None:
                            "원장을 이 경로 판으로 커밋한 뒤 기준선(state/news-ledger/last.sha)을 그 판으로 다시 잡아야 발행된다(옛 경로 후퇴 0)")
 
 
+def _stamp_file() -> Path:
+    """동기화 성공 기록 1줄(에포크 초) — 기본 <루트>/.fable-team/state/news-ledger/last-sync.ts."""
+    if os.environ.get("FT_LEDGER_SYNC_STAMP"):
+        return Path(os.environ["FT_LEDGER_SYNC_STAMP"])
+    return env.ft_root() / ".fable-team" / "state" / "news-ledger" / "last-sync.ts"
+
+
+def _recent_sync(now: float, max_s: float) -> bool:
+    """마지막 성공이 max_s 안인가 — 기록 없음·깨짐 = False(지금 실행)."""
+    try:
+        return now - float(_stamp_file().read_text(encoding="utf-8").strip()) < max_s
+    except (OSError, ValueError):
+        return False
+
+
+def _mark_sync(now: float) -> None:
+    try:
+        f = _stamp_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"{now:.0f}\n", encoding="utf-8")
+    except OSError as e:
+        LOG.warning("동기화 시각 기록 못 씀 — 다음 틱에 또 시도: %s", e)
+
+
 def sync_repo() -> str:
     """r503 — env FT_LEDGER_REPO 로 «명시된» 원장 사본만 ft-ledger-repo-sync.sh(FT_LEDGER_SYNC 로 대역)로 origin/main 전진 · 기본 LIVE_ROOT(공용 루트 체크아웃)는 옮기지 않는다.
+    r563 — 마지막 성공(FT_LEDGER_SYNC_MIN 기본 120초) 안이면 건너뜀 + INFO 1줄(매분 fetch 가 부하를 더하던 것).
     같은 틱 1회(FT_LEDGER_SYNCED=1 · 자식 프로세스도 물려받음). 반환 = 뉴스 머리 줄(정상·건너뜀 = "") — 실패면 ERROR 로그 + FT_LEDGER_SYNC_ERROR 에 같은 줄 · 발행은 지금 판으로 계속(조용한 낡음 0)."""
     repo = os.environ.get("FT_LEDGER_REPO")
     if not repo or os.environ.get("FT_LEDGER_SYNCED") == "1":
         return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
     os.environ["FT_LEDGER_SYNCED"] = "1"
+    now = time.time()
+    if _recent_sync(now, float(os.environ.get("FT_LEDGER_SYNC_MIN", "120"))):
+        LOG.info("원장 사본 동기화 건너뜀 — 마지막 성공 2분 안(%s)", _stamp_file())
+        return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
     try:
         done = subprocess.run(["bash", os.environ.get("FT_LEDGER_SYNC") or str(HERE / "ft-ledger-repo-sync.sh"), repo], capture_output=True, text=True, timeout=20)
         lines = (done.stdout.strip() or done.stderr.strip()).splitlines()
@@ -194,6 +224,7 @@ def sync_repo() -> str:
         line, rc = f"ERROR ledger 사본 sync 실행 실패: {e}", 1
     if rc == 0:
         LOG.info("%s", line)
+        _mark_sync(now)
         os.environ.pop("FT_LEDGER_SYNC_ERROR", None)
         return ""
     LOG.error("원장 사본 갱신 안 됨 rc=%s: %s", rc, line)
@@ -201,14 +232,66 @@ def sync_repo() -> str:
     return os.environ["FT_LEDGER_SYNC_ERROR"]
 
 
+def fetch_if_stale(repo: Path) -> str:
+    """r563 — 뉴스(HTML) 경로: 사본 «체크아웃 전진» 대신 origin/main ref 만 최신으로. 마지막 fetch 가 FT_NEWS_FETCH_MIN(300초) 안이면 건너뜀 ·
+    필요하면 `git fetch origin main`(7초 + 재시도 1 · FT_LEDGER_FETCH 로 대역). 실패 = ERROR 로그 + 머리 줄(발행은 지금 ref 로 계속 · 조용한 낡음 0)."""
+    min_s = float(os.environ.get("FT_NEWS_FETCH_MIN", "300"))
+    stamp = _fetch_stamp(repo)
+    try:
+        if stamp is not None and time.time() - float(stamp.read_text(encoding="utf-8").strip()) < min_s:
+            return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
+    except (OSError, ValueError):
+        pass
+    script = os.environ.get("FT_LEDGER_FETCH")
+    cmd = ["bash", script, str(repo)] if script else ["git", "-C", str(repo), "fetch", "--quiet", "origin", "main"]
+    line, rc = "", 1
+    for _ in range(2):
+        try:
+            done = subprocess.run(cmd, capture_output=True, text=True, timeout=7)
+            line, rc = (done.stderr.strip() or done.stdout.strip() or "fetch ok"), done.returncode
+        except (OSError, subprocess.TimeoutExpired) as e:
+            line, rc = f"fetch 실행 실패: {e}", 1
+        if rc == 0:
+            return os.environ.pop("FT_LEDGER_SYNC_ERROR", "")
+    LOG.error("원장 ref fetch 실패 rc=%s: %s", rc, line[:160])
+    os.environ["FT_LEDGER_SYNC_ERROR"] = f"원장 ref fetch 실패 — {line[:160]}"
+    return os.environ["FT_LEDGER_SYNC_ERROR"]
+
+
+def _fetch_stamp(repo: Path) -> Path | None:
+    """그 리포의 FETCH_HEAD 경로(git 공용 폴더 기준) — 모르면 None(지금 fetch)."""
+    try:
+        common = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                                capture_output=True, text=True, timeout=7)
+        return Path(common.stdout.strip()) / "FETCH_HEAD" if common.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def news_ref() -> str:
+    """뉴스가 읽는 ref — 사본 체크아웃 HEAD 가 아니라 origin/main(다른 도구 fetch 로 이미 최신 · r563)."""
+    return os.environ.get("FT_NEWS_MAIN_REF") or "origin/main"
+
+
+def news_cur(repo: Path, rel: str, ref_mode: bool | None = None) -> str:
+    """뉴스 판 = ref_mode(기본 = FT_NEWS_MODE=html)면 ref 커밋(사본 체크아웃 전진 0) · 아니면 옛 꼴(그 경로 마지막 커밋)."""
+    if ref_mode is None:
+        ref_mode = os.environ.get("FT_NEWS_MODE") == "html"
+    if not ref_mode:
+        return _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
+    ref = news_ref()
+    return _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}").strip()
+
+
 def _run(root: Path, state: Path) -> tuple[int, str]:
-    sync_note = sync_repo()
+    html = os.environ.get("FT_NEWS_MODE") == "html"
+    sync_note = fetch_if_stale(Path(os.environ["FT_LEDGER_REPO"])) if html and os.environ.get("FT_LEDGER_REPO") else sync_repo()
     repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
     try:
         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
         rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
         news = Path(os.environ["FT_NEWS_DIR"]) if os.environ.get("FT_NEWS_DIR") else news_dir(root, rel)
-        cur = _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
+        cur = news_cur(repo, rel)
         if not cur:
             raise RuntimeError(f"{rel} 가 커밋되지 않았다(뉴스는 커밋된 판만)")
         base_f = state / "last.sha"

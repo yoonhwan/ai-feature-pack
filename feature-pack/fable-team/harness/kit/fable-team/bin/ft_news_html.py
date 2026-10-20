@@ -149,10 +149,17 @@ def commits(repo: Path, base: str) -> list[str]:
 
 
 def autonomy(root: Path) -> str:
-    """자율 모드 실측 — ft-autonomy.sh mode(on|off) → ON·OFF · 위변조·실패·시간 초과 = «모름»(요약에 승인·자율 문장 금지 · r478d)."""
+    """자율 모드 실측 — 데이터 루트(`<root>/.fable-team/LIVE_ROOT` 1행 · 없으면 root)의 ft-autonomy.sh mode(on|off) → ON·OFF · 위변조·실패·시간 초과 = «모름».
+    r563: FT_ROOT 로 공용 루트를 그대로 넘기면 상태 폴더가 달라 «off» 로 오독했다(자율 ON 인데 본문이 «승인을 기다린다»)."""
+    try:
+        data_root = (root / ".fable-team" / "LIVE_ROOT").read_text(encoding="utf-8").splitlines()[0].strip()
+    except (OSError, IndexError):
+        data_root = ""
+    if not data_root.startswith("/") or not Path(data_root).is_dir():
+        data_root = str(root)
     try:
         done = subprocess.run(["bash", str(HERE / "ft-autonomy.sh"), "mode"], capture_output=True, text=True, timeout=SEAT_S, check=False,
-                              env={**os.environ, "FT_ROOT": str(root)})
+                              env={**os.environ, "FT_ROOT": data_root})
     except (OSError, subprocess.TimeoutExpired):
         return "모름"
     return {"on": "ON", "off": "OFF"}.get(done.stdout.strip() if done.returncode == 0 else "", "모름")
@@ -166,8 +173,11 @@ def facts(live: list[dict], auto: str) -> dict:
 
 
 def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) -> dict:
-    live = live_teams(root)
-    data = {"now": f"{now:%Y-%m-%d %H:%M}", "facts": facts(live, autonomy(root)), "goals": goals(), "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
+    live, goal_rows = live_teams(root), goals()
+    if not goal_rows:  # r563 — 골 없는 뉴스를 «정상» 으로 내지 않는다(조용한 0 줄 금지)
+        raise RuntimeError("골 표 0줄 — 지도 발행 0(정본·원장 상태 칸을 읽지 못했다)")
+    data = {"now": f"{now:%Y-%m-%d %H:%M}", "facts": facts(live, autonomy(root)), "goals": goal_rows,
+            "ledger": ledger_parts(_git(repo, "show", f"{cur}:{rel}")),
             "urgent": urgent(root, now), "teams": teams(root), "live": live, "commits": commits(repo, base)}
     return _scrub(data)
 
@@ -250,6 +260,7 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
         html_p, sum_p = run_files(build(root, repo, rel, base, cur, now), news, now)
     except (NewsHtmlError, RuntimeError, OSError, ValueError, KeyError) as e:
         LOG.error("지도 만들기 실패 — 발행 0: %s", e)
+        LOG.info("직전 판 유지 %s(%s)", last.get("map_at") or "없음", last.get("link") or "링크 없음")  # r563 — 실패 틱마다 1줄(r510 지연 글은 3틱 연속)
         _save(hs, {**last, "fail_at": stamp})
         _delay_fail(state, now, f"지도 만들기 실패 — 발행 0: {e}", last)
         return 1, "지도 만들기 실패"
@@ -265,16 +276,16 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
 
 
 def _ledger_args() -> tuple[Path, Path, str, str, str]:
-    """(루트, 원장 리포, 원장 경로, 기준선, 지금 커밋) — 뉴스 틱(ft_news_ledger._run)과 같은 풀이."""
+    """(루트, 원장 리포, 원장 경로, 기준선, 지금 커밋) — 뉴스 틱과 같은 풀이 · r563: 판은 사본 체크아웃 HEAD 아니라 origin/main ref(fetch 만 5분 지나면 1회)."""
     import ft_board_env as env
     from ft_goal_ledger import live_root
-    from ft_news_ledger import planner_ledger_rel, sync_repo
-    sync_repo()  # r503 — 명시된 원장 사본만 origin/main 전진 · 실패는 ERROR 로그(지금 판으로 계속)
+    from ft_news_ledger import fetch_if_stale, news_cur, planner_ledger_rel
     root = env.ft_root()
     repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
+    fetch_if_stale(repo)  # r563 — 체크아웃 전진 0 · ref 만 최신(실패는 ERROR 로그 · 지금 ref 로 계속)
     rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
     base_f = root / ".fable-team" / "state" / "news-ledger" / "last.sha"
-    return root, repo, rel, base_f.read_text(encoding="utf-8").strip() if base_f.exists() else "", _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
+    return root, repo, rel, base_f.read_text(encoding="utf-8").strip() if base_f.exists() else "", news_cur(repo, rel, ref_mode=True)
 
 
 def main(argv: list[str]) -> int:
