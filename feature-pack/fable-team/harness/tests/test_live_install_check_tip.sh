@@ -57,8 +57,8 @@ G update-ref refs/remotes/origin/main "$E"
 mkdir -p "$R/design/harness/indices/진행"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| cfo | `design/cfo/` | c | 현역 |\n' > "$R/design/TEAMS.md"   # R383: 하네스 카드 판정이 팀 폴더 명단을 읽는다
 PD="$T/pending"; mkdir -p "$PD"; : > "$PD/$B.txt"
 CARD="$R/design/harness/indices/진행/t.md"; printf '# 인덱스: t\n- 설치: 있음\n- 실사건: 뒤 커밋 덮은 카드 · 증거 mbox #107707\n## 상태\n- x\n' > "$CARD"
-printf '#!/bin/bash\nexec bash "%s" "$@" --kit "%s"\n' "$CHK" "$KD" > "$T/chk-kit.sh"   # r537: 게이트는 --kit 을 안 넘긴다 — 임시 리포 키트 자리는 chk() 와 같이 시험이 준다(r426 꼴)
-out="$(FT_INSTALL_PENDING_DIR="$PD" FT_INSTALL_CHECK="$T/chk-kit.sh" bash "$GATE" "$CARD" --landed "$B" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "OK 설치 확인"; ck "ⓕ ft-index-move-install --landed B → OK(우회 0)" $?
+printf '#!/bin/bash\nexec bash "%s" "$@" --repo "%s" --kit "%s"\n' "$CHK" "$R" "$KD" > "$T/chk-kit.sh"   # r537: 게이트는 --kit 을 안 넘긴다 — 임시 리포 키트 자리는 chk() 와 같이 시험이 준다(r426 꼴) · r581: --repo 도 안 넘긴다(임시 리포가 HARNESS_ROOT 꼴이 아니라 시험이 준다)
+out="$(FT_INSTALL_PENDING_DIR="$PD" FT_INSTALL_CHECK="$T/chk-kit.sh" bash "$GATE" "$CARD" --landed "$B" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "OK 설치 확인"; ck "ⓕ ft-index-move-install --landed B → OK(우회 0)" $?   # r581: 게이트는 --repo 를 안 넘긴다 — 대조 리포 = 하네스 루트 리포(임시 리포 R)
 [ ! -e "$PD/$B.txt" ]; ck "ⓕ 통과 시 B 의 install-pending 파일 제거" $?
 # ⓖ 오염·상한
 [ "$(git -C "$R" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?

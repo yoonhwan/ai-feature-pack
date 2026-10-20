@@ -1,0 +1,9 @@
+FAIL ⓐ …got «--range 52b9d6fc480906c4d2ac6135067e1e79ab999ceb..ea5a181b8fd100562c7e31a429e673c2e727f1b8 --repo /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QYDmYESTmt/cardrepo» :: rc=0 out=OK 설치 확인 — 
+PASS ⓐ 통과 시 install-pending 파일 제거 그대로
+FAIL ⓑ 하네스 루트 리포로 대조 → OK n=1 rc0 :: rc=1 out=ERROR 하네스 루트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QYDmYESTmt/hrepo/feature-pack/fable-team/harness)가 --repo(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QYDmYESTmt/cardrepo) 밖 — --kit 를 준다 · 범위에 하네스 파일 1: feature-pack/fable-team/harness/kit/fable-team/bin/x.sh
+REJECT 라이브 설치 어긋남(rc=3) — master 설치 뒤 다시 이동 (이동 0)
+PASS ⓑ 변이: 카드 리포를 --repo 로 넘기면 ERROR rc3(옛 판 재현 · fail-closed 그대로)
+PASS ⓒ 설치: 없음 → 대조 호출 0 · 통과 rc0
+PASS ⓓ 하네스 루트 못 풂 → REJECT rc1(후퇴 0)
+PASS core.bare 오염 0 · 카드 리포 무변경
+FAILED 2

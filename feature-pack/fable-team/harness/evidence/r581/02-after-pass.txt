@@ -1,0 +1,8 @@
+PASS ⓐ 검사 도구에 --repo 를 넘기지 않는다(도구 기본값 = 하네스 루트 리포) — got «--range c3b97e592ba26b4960c5f1016891dacd77ebffa4..573560853ecd57f5c8485295f06aa9afbc96a97c»
+PASS ⓐ 통과 시 install-pending 파일 제거 그대로
+PASS ⓑ 하네스 루트 리포로 대조 → OK n=1 rc0
+PASS ⓑ 변이: 카드 리포를 --repo 로 넘기면 ERROR rc3(옛 판 재현 · fail-closed 그대로)
+PASS ⓒ 설치: 없음 → 대조 호출 0 · 통과 rc0
+PASS ⓓ 하네스 루트 못 풂 → REJECT rc1(후퇴 0)
+PASS core.bare 오염 0 · 카드 리포 무변경
+ALL PASS

@@ -1,0 +1,7 @@
+## r545 범위 0a0844b4..4355379f 를 두 리포로 (읽기 전용 · 쓰기 0)
+--- 옛 판 꼴: --repo <카드 워크트리 BYZ>
+ERROR 하네스 루트(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/harness-live/feature-pack/fable-team/harness)가 --repo(/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops) 밖 — --kit 를 준다 · 범위에 하네스 파일 4: feature-pack/fable-team/harness/kit/fable-team/bin/ft_goal_gate.py feature-pack/fable-team/harness/kit/fable-team/bin/ft_goal_ledger.py feature-pack/fable-team/harness/kit/fable-team/bin/ft_goal_table.py feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_ledger_text.py
+rc=3
+--- 고친 판 꼴: --repo 없음(도구 기본값 = 하네스 루트)
+OK n=4 skip=0
+rc=0

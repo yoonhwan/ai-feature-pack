@@ -23,7 +23,8 @@ case "$LINE" in *"설치: 없음"*) echo "INFO 설치: 없음 — 라이브 대�
 WT="$(git -C "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null || dirname "$CARD")"
 case "$LANDED" in *..*) RANGE="$LANDED";; *) RANGE="${LANDED}^..$LANDED";; esac
 CHK="${FT_INSTALL_CHECK:-$HERE/ft-live-install-check.sh}"
-COUT="$(bash "$CHK" --range "$RANGE" --repo "$WT" 2>&1)"; crc=$?
+# r581: 하네스 파일 대조는 하네스 루트 리포 — 카드 워크트리 아님(도구 기본값 · 카드 리포에 팩 객체가 있으면 outside_repo 가 막는다)
+COUT="$(bash "$CHK" --range "$RANGE" 2>&1)"; crc=$?
 [ "$crc" -eq 0 ] || { printf '%s\n' "$COUT"; rej "라이브 설치 어긋남(rc=$crc) — master 설치 뒤 다시 이동"; }
 EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
 [ -n "$EV" ] || rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
