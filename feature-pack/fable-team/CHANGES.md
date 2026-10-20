@@ -1,6 +1,6 @@
 # Changes
 
-## 2026-10-20 — 주간 점검표 planner 칸 P1·P2 의 «읽는 출처» = origin/main gitref (r551 · 1.1.104 · r545 꼴 · 쓰는 자리 그대로)
+## 2026-10-20 — 주간 점검표 planner 칸 P1·P2 의 «읽는 출처» = origin/main gitref (r551 · 1.1.102 · r545 꼴 · 쓰는 자리 그대로)
 
 - 사건(r544 착지 뒤 첫 실행 · master 85 kickstart 16:39 · 쪽지 120375 · arch 109 실측 2026-10-20 16:4x): 주간 점검표의 planner 두 칸(결정 대기열·원장↔발주 대조)이 planner 좌석이 앉은 공용 체크아웃(`.worktrees/v6-realtime-live` · main 보다 **290커밋 뒤**)의 **디스크 폴더**를 읽었다. 그 체크아웃에는 새 자리 `design/teams/planner/` 가 없고 옛 자리 `design/planner/`(원장 마지막 커밋 10-19 18:55)만 있어, 점검표가 **어제 저녁 판**으로 채워지고 «문제 없음» 을 보일 수 있었다 — 10-19 뉴스 22시간 정지·r545 골 표와 같은 뿌리(세 번째).
 - 고침(키트 1 + 정본 bin 짝): `ft_weekly_review.py` 의 `p1_queue`·`p2_ledger` 가 파일을 `git -C <planner 리포> show <ref>:<planner 폴더>/<파일>` 로 읽고, 대기열 파일 목록은 `git ls-tree --name-only <commit> <폴더>/`. 폴더는 r545 `ft_goal_ledger.planner_rel_in_ref` **재사용**(ref 트리에 있는 후보 정확히 1개 · 디스크 실재 여부 안 봄) · ref = env `FT_TEAMS_REF`(기본 `origin/main`) · ref 는 `rev-parse --verify` 로 1회 commit 확정.

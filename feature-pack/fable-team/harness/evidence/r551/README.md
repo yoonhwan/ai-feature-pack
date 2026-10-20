@@ -1,6 +1,6 @@
 # r551 증거 — 주간 점검표 planner 칸 P1·P2 의 «읽는 출처» = origin/main gitref (r545 꼴 · 쓰는 자리 그대로)
 
-카드: `design/harness/indices/진행/r551-weekly-review-planner-reads-origin-main.md` · 팩 브랜치 `nano/r551-weekly-review-planner-reads-origin-` · 1.1.104 · base = origin/main `c2d4a24b`(r546 병합 뒤)
+카드: `design/harness/indices/진행/r551-weekly-review-planner-reads-origin-main.md` · 팩 브랜치 `nano/r551-weekly-review-planner-reads-origin-` · 1.1.102 · base = origin/main `c2d4a24b`(r546 병합 뒤)
 
 | 파일 | 무엇 |
 |---|---|
