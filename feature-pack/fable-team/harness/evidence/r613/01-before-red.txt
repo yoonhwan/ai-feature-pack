@@ -1,0 +1,52 @@
+PASS bash -n
+PASS ⓐ rc0 (rc=0)
+FAIL ⓐ 남김 줄(추적 1 · 예약 대상 1 · 이름 5개) — 없음: «남김(추적 1 · 예약 대상 1): team-x.sh, tour» ← UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN tour (키트 밖 — 연결 0 · stale 로 옮김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx (새로 씀)
+SHIM 2 · MOVED 6 · UNKNOWN 3
+FAIL ⓐ SHIM 2 · MOVED 4 · UNKNOWN 1(옮긴 것만 셈) — 없음: «SHIM 2 · MOVED 4 · UNKNOWN 1» ← UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN tour (키트 밖 — 연결 0 · stale 로 옮김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx (새로 씀)
+SHIM 2 · MOVED 6 · UNKNOWN 3
+FAIL ⓐ 예약 대상 team-x.sh 가 옮겨졌다
+FAIL ⓐ 추적 tour/a.py 가 옮겨졌다
+PASS ⓐ 옛 사본·.bak·__pycache__·키트 밖 old.sh 는 옮김
+PASS ⓐ stale 폴더에 옮긴 것 4개(삭제 0)
+FAIL ⓐ stale 에 남겨야 할 것이 들어감
+FAIL ⓐ 키트 밖 남긴 이름 = «남김» 으로 보고 — 없음: «UNKNOWN team-x.sh (키트 밖 — 연결 0 · 남김)» ← UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN tour (키트 밖 — 연결 0 · stale 로 옮김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx (새로 씀)
+SHIM 2 · MOVED 6 · UNKNOWN 3
+PASS ⓐ 연결 파일 생성(라이브 도구 호출 = A)
+PASS ⓐ 두 번째 실행 (rc=0)
+PASS ⓐ 두 번째 MOVED 0
+FAIL ⓐ 두 번째도 남김 줄 1 — 없음: «남김(추적 1 · 예약 대상 1): team-x.sh, tour» ← SHIM 2 · MOVED 0 · UNKNOWN 0
+PASS ⓑ git 밖 rc0 (rc=0)
+FAIL ⓑ WARN 1줄(추적 판정 생략) — 없음: «WARN git 밖 — 추적 판정 생략: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx/b/root» ← UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN tour (키트 밖 — 연결 0 · stale 로 옮김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx (새로 씀)
+SHIM 2 · MOVED 6 · UNKNOWN 3
+FAIL ⓑ 추적 0 · 예약 대상 1 — 없음: «남김(추적 0 · 예약 대상 1): team-x.sh» ← UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN tour (키트 밖 — 연결 0 · stale 로 옮김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx (새로 씀)
+SHIM 2 · MOVED 6 · UNKNOWN 3
+PASS ⓑ git 밖에서는 추적 판정 0 → tour 도 옮김(추적 아님)
+FAIL ⓑ 예약 대상이 옮겨졌다
+PASS ⓒ rc0 (rc=0)
+FAIL ⓒ 판정 불가 1줄 — 없음: «남김 판정 불가 — 키트 밖 이름 옮기기 0 (launchctl 목록 못 읽음)» ← UNKNOWN old.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN team-x.sh (키트 밖 — 연결 0 · stale 로 옮김)
+UNKNOWN tour (키트 밖 — 연결 0 · stale 로 옮김)
+LIVE_ROOT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LCCNvDBVBx (새로 씀)
+SHIM 2 · MOVED 6 · UNKNOWN 3
+FAIL ⓒ 키트 밖 이름이 옮겨졌다
+PASS ⓒ .bak·__pycache__ 는 그대로 옮김(키트 밖 이름만 멈춤)
+FAIL ⓒ 추적 파일이 옮겨졌다
+PASS ⓓ 기존 test_root_bin_shim.sh (rc=0)
+PASS ⓓ 기존 시험 fail=0
+== fail=13
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

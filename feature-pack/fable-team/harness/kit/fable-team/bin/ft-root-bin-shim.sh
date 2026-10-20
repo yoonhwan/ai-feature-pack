@@ -4,6 +4,8 @@
 #   루트 `<루트>/.fable-team/bin` 의 옛 부분 사본을 «라이브 bin 으로 넘기는 연결 파일» 로 바꾼다.
 #   ① `<루트>/.fable-team/LIVE_BIN` 에 라이브 경로 1줄 (+ R382: `<루트>/.fable-team/LIVE_ROOT` 데이터 루트 절대경로 1줄 — 없을 때만 만든다 · `--live-root <경로>` 없으면 라이브 bin/../.. 를 «설치 때 한 번» 풀어 적고 읽는 쪽은 유도 0 · 있으면 보존·다르면 NOTE)  ② 키트(--ref 의 --path 트리)의 *.sh·*.py 이름 중 라이브 bin 에 실재하는 것마다 연결 파일
 #   ③ 연결 파일이 아닌 기존 항목(옛 사본·.bak-*·__pycache__·키트 밖 이름)은 `<루트>/.fable-team/bin.stale-<시각>/` 로 «옮긴다»(삭제 0 · 되돌리기 = 그 폴더를 bin 으로)
+#     r613: 단 «git 이 추적하는 파일» 과 «로드된 LaunchAgent 의 인자 경로» 는 옮기지 않고 `남김(추적 N · 예약 대상 N): …` 1줄로 보고한다(팀 감시 데몬이 조용히 죽지 않게).
+#           launchctl 목록을 못 읽으면 키트 밖 이름은 옮기지 않는다(fail-closed · 판정 불가 = 옮기기 0). git 밖 루트면 추적 판정만 생략 + WARN 1줄.
 #   키트 밖 이름은 연결하지 않고 `UNKNOWN <이름>` 목록으로 보고. 멱등: 두 번째 실행 = 쓰기 0 · MOVED 0.
 #   출력 끝줄 `SHIM n · MOVED m · UNKNOWN k` (--dry-run 은 쓰기 0 · 같은 숫자 · `PLAN …` 줄).  종료: 0 · 2 usage · 3 ERROR(조용한 통과 0)
 #   r494 --init: 루트 bin 이 없을 때 루트가 «설치된 리포(공용 루트 .fable-team/LIVE_BIN 실재)의 git 워크트리 최상위» 면 bin 을 만들고 위 흐름 그대로
@@ -89,17 +91,56 @@ while IFS= read -r n; do
   want="$want$n"$'\n'
 done <<< "$kitnames"
 
-# 기존 항목 분류: 연결 파일(그대로 두거나 갱신) / 옮길 것
+# 기존 항목 분류: 연결 파일(그대로 두거나 갱신) / 옮길 것 / 남길 것(r613)
 shopt -s nullglob dotglob
+cand=""
 for p in "$RBIN"/*; do
   n="${p##*/}"
   if [ -f "$p" ] && [ ! -L "$p" ] && head -3 "$p" | grep -qF "$MARK" && grep -qxF -- "$n" <<< "$want"; then continue; fi
-  tomove="$tomove$n"$'\n'
-  if ! grep -qxF -- "$n" <<< "$kitnames" && ! case "$n" in *.bak*|__pycache__) true;; *) false;; esac; then
-    unknown="$unknown$n"$'\n'; nunk=$((nunk + 1))
-  fi
+  cand="$cand$n"$'\n'
 done
 shopt -u nullglob dotglob
+
+# r613 남김 판정 준비 — ⓐ git 추적(`ls-files`) ⓑ 예약 대상(`launchctl print` 인자 안의 그 bin 아래 경로)
+gitok=1; git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || gitok=0
+if [ -n "$cand" ] && [ "$gitok" = 0 ]; then echo "WARN git 밖 — 추적 판정 생략: $ROOT"; fi
+refs=""; lctl_ok=0
+if [ -n "$cand" ]; then   # launchctl 은 1회만 읽는다(Label 전수 · print 출력을 한 덩어리로 · FT_SHIM_LAUNCHCTL 주입점)
+  lctl="${FT_SHIM_LAUNCHCTL:-launchctl}"
+  if list="$("$lctl" list 2>/dev/null)" && [ -n "$list" ]; then
+    while IFS= read -r lbl; do
+      [ -n "$lbl" ] || continue
+      one=""
+      for dom in "gui/$(id -u)" system; do one="$("$lctl" print "$dom/$lbl" 2>/dev/null)" && [ -n "$one" ] && break; done
+      refs="$refs$one"$'\n'
+    done <<< "$(printf '%s\n' "$list" | awk 'NR>1 && NF>=3 {print $3}')"
+    lctl_ok=1
+  else
+    echo "남김 판정 불가 — 키트 밖 이름 옮기기 0 (launchctl 목록 못 읽음)"
+  fi
+fi
+
+nkeep=0; ntracked=0; nresv=0; kept=""; unk_kept=""
+while IFS= read -r n; do
+  [ -n "$n" ] || continue
+  isunk=0
+  if ! grep -qxF -- "$n" <<< "$kitnames" && ! case "$n" in *.bak*|__pycache__) true;; *) false;; esac; then isunk=1; fi
+  trk=0
+  if [ "$gitok" = 1 ] && [ -n "$(git -C "$ROOT" ls-files -- ".fable-team/bin/$n" 2>/dev/null)" ]; then trk=1; fi
+  resv=0
+  if [ "$lctl_ok" = 1 ]; then case "$refs" in *"$RBIN/$n"*) resv=1;; esac; fi
+  if [ "$trk" = 1 ] || [ "$resv" = 1 ] || { [ "$isunk" = 1 ] && [ "$lctl_ok" = 0 ]; }; then
+    nkeep=$((nkeep + 1)); [ "$trk" = 1 ] && ntracked=$((ntracked + 1)); [ "$resv" = 1 ] && nresv=$((nresv + 1))
+    kept="$kept$n"$'\n'; [ "$isunk" = 1 ] && unk_kept="$unk_kept$n"$'\n'
+    continue
+  fi
+  tomove="$tomove$n"$'\n'
+  if [ "$isunk" = 1 ]; then unknown="$unknown$n"$'\n'; nunk=$((nunk + 1)); fi
+done <<< "$cand"
+if [ "$nkeep" -gt 0 ]; then
+  fmt="$(printf '%s' "$kept" | grep . | head -5 | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+  echo "남김(추적 $ntracked · 예약 대상 $nresv): $fmt"
+fi
 nmoved=$(printf '%s' "$tomove" | grep -c .)
 
 STALE="$ROOT/.fable-team/bin.stale-$(date +%Y%m%d-%H%M%S)"
@@ -112,6 +153,7 @@ if [ "$nmoved" -gt 0 ]; then
   done <<< "$tomove"
 fi
 [ -z "$unknown" ] || while IFS= read -r n; do [ -n "$n" ] && echo "UNKNOWN $n (키트 밖 — 연결 0 · stale 로 옮김)"; done <<< "$unknown"
+[ -z "$unk_kept" ] || while IFS= read -r n; do [ -n "$n" ] && echo "UNKNOWN $n (키트 밖 — 연결 0 · 남김)"; done <<< "$unk_kept"
 
 lr_cur=""; [ -f "$ROOT/.fable-team/LIVE_ROOT" ] && lr_cur="$(sed -n '1p' "$ROOT/.fable-team/LIVE_ROOT")"
 if [ "$DRY" = 1 ]; then echo "PLAN LIVE_BIN=$LIVE → $ROOT/.fable-team/LIVE_BIN"; [ -n "$lr_cur" ] && echo "PLAN LIVE_ROOT 보존 $lr_cur" || echo "PLAN LIVE_ROOT=$LROOT → $ROOT/.fable-team/LIVE_ROOT"
