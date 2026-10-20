@@ -11,7 +11,7 @@ import pytest
 from _slack_fakes import FakeSlack
 
 HERE = Path(__file__).resolve().parent
-KIT = HERE.parents[1] / "harness" / "kit" / "slack-mirror"
+KIT = HERE.parents[1] / "kit" / "slack-mirror"  # r516: parents[1] = 팩 harness/ (r386 이전 글자 치환이 harness/ 를 한 번 더 붙였다)
 SCRIPT = KIT / "byz_slack_mbox_inbound.py"
 HUMAN = "U0AC2JF0M7D"
 PLANNER = "byz-planner-arch#3"

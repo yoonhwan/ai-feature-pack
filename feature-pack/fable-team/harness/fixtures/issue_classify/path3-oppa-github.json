@@ -1,0 +1,17 @@
+[
+ {
+  "number": 103,
+  "title": "[bug] 오빠 직접 등록",
+  "labels": [
+   {
+    "name": "type:bug"
+   },
+   {
+    "name": "status:needs-triage"
+   }
+  ],
+  "body": "### 증상\nx\n### 발생 위치 넷 가르기\ny\n",
+  "createdAt": "2026-10-04T00:00:00Z",
+  "comments": []
+ }
+]

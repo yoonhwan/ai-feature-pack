@@ -1,0 +1,8 @@
+{
+  "byz-harness-arch-claude#32": {"role": "stop-ready", "_retired_role": "arch", "_replaced_by": "byz-harness-arch-claude#33"},
+  "byz-harness-arch-claude#33": {"role": "arch", "_replaces": ["byz-harness-arch-claude#32"]},
+  "byz-harness-master-claude#32": {"role": "stop-ready", "_retired_role": "master", "_replaced_by": "byz-harness-master-claude#33"},
+  "byz-harness-master-claude#33": {"role": "master", "_replaces": ["byz-harness-master-claude#32"]},
+  "byz-harness-nano-x#0": {"role": "nano"},
+  "byz-harness-pm-claude#1": {"role": "pm"}
+}

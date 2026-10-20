@@ -1,0 +1,45 @@
+== ⓒ 전체 재실행 전·후 (같은 바탕 9af3b78a · 셸 253 · pytest tests/scripts)
+셸 실패: 전 62 → 후 55
+-- 이름·rc·FAIL diff (< 전 · > 후)
+4d3
+< tests/test_boot_report_gate.sh rc=1 FAIL=7
+7c6
+< tests/test_cherry_gate_identical_head.sh rc=1 FAIL=3
+---
+> tests/test_cherry_gate_identical_head.sh rc=1 FAIL=4
+9c8
+< tests/test_deferral_lint.sh rc=65 FAIL=66
+---
+> tests/test_deferral_lint.sh rc=34 FAIL=35
+14d12
+< tests/test_ft_wt_sweep_route_timeout.sh rc=1 FAIL=1
+20,21c18
+< tests/test_issue_classify.sh rc=1 FAIL=8
+< tests/test_issue_close_canon.sh rc=1 FAIL=21
+---
+> tests/test_inbox_watch.sh rc=1 FAIL=3
+30,31d26
+< tests/test_mbox_guard.sh rc=1 FAIL=25
+< tests/test_mbox_lineage.sh rc=1 FAIL=10
+49d43
+< tests/test_seat_request.sh rc=1 FAIL=17
+54c48
+< tests/test_team_literal_paths.sh rc=1 FAIL=6
+---
+> tests/test_team_literal_paths.sh rc=1 FAIL=4
+62d55
+< tests/test_wt_clean_two_stage.sh rc=1 FAIL=3
+-- 흔들림 재확인
+RERUN tests/test_cherry_gate_identical_head.sh — 전체 재실행 FAIL=4(④ 추가) → 단독 재실행 고친 판 2회·바탕 9af3b78a 2회 모두 FAIL=2(⑥ 2건 = ③ comm 폴더) · ④ = 부하 흔들림(전체 실행 동시 진행 중)
+RERUN tests/test_inbox_watch.sh — 기준선 rc0 · 전체 재실행 FAIL=3 → 단독 재실행 고친 판 2회·바탕 9af3b78a 2회 모두 rc=1 FAIL=3(ⓔ-1·ⓔ-2 = 팩 공용 루트 ~/Project/ai-feature-pack/.fable-team/LIVE_BIN 없음 · 시험 밖 실물 환경) · r509 도 RED · 두 판 같음 = 이 단위 무관(⑦ 실물 환경)
+test_wt_clean_two_stage: 전 RED(부하 timeout 4s) → 후 rc0 · r509 도 재실행 rc0 — 흔들림(⑧)
+
+pytest: 전 «104 failed, 1748 passed, 2 skipped in 811.50s (0:13:31)» → 후 «23 failed, 1829 passed, 2 skipped in 738.95s (0:12:18)»
+-- 후에만 실패: 0건
+-- 고쳐진 것(파일별)
+  44 tests/scripts/test_byz_slack_mbox_inbound.py
+  35 tests/scripts/test_inbound_humans_and_install.py
+   1 tests/scripts/test_magazine_doc_three.py
+   1 tests/scripts/test_mirror_team_inbound.py
+
+새 FAIL 0 = 셸 «후에만» 이름 1개(inbox_watch)는 두 판 단독 재실행 같은 RED · cherry ④ 는 단독 재실행 두 판 모두 없음 · pytest 후에만 0
