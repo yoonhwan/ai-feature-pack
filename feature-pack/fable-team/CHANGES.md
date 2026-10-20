@@ -1,3 +1,12 @@
+## 2026-10-21 — 뉴스 린트 거절 문구가 «승인을 기다» 조각만 남겨 모델 지어냄인지 원장 사실인지 못 가름 → 위반 문구에 갈래·번호와 문장 전문을 싣는다 (r594 · 1.1.138 · 문구만 · 판정 규칙·프롬프트·원장 무변경)
+
+- 사건(arch 112 틱 실측 2026-10-21 02:4x 읽기 전용 · `/tmp/byz-ft-news-planner.log` 299행 뒤): «ERROR 린트 위반 1건 — 발행 0 (자율 ON 인데 «승인을 기다» 문장)» 2회 · 같은 구간 «만듦» 9회. 문구 조각만으로는 프롬프트·코드가 지어낸 문장인지 원장에 실재하는 «오빠 승인 대기» 항목을 옮긴 것인지 못 가른다 — 어느 쪽이냐에 따라 고칠 곳(`FACT_RULES`/코드 줄 vs 린트 예외)이 달라진다.
+- 고침(키트 1 `ft_news_html_lint.py` · `fact_problems`): `said` 한 덩어리 대신 `_segments()` 로 요약 줄(`summary N`)·중요한 일 항목(`important N`)을 따로 검사하고 `_first()` 로 첫 위반 갈래를 잡아 문구를 `일하는 팀 N개인데 멈춤 단정 문장 [<갈래> <번호>] «<문장 전문 ≤200자>»` / `자율 X 인데 승인 대기 문장 [<갈래> <번호>] «<문장 전문 ≤200자>»` 로 바꾼다. 정규식(`ALL_STOP`·`APPROVAL_WAIT`)·`unknown_problems`·판정(위반 = rc3 발행 0)은 글자 그대로.
+- 시험 `harness/tests/scripts/test_news_lint_quote_source_r594.py` ⓐ~ⓓ(HTML 문자열 픽스처만 · 실 모델·슬랙·좌석·press 0): ⓐ 중요한 일 3번째 detail «사장님 승인을 기다리는 중» → 옛 판 «자율 ON 인데 «승인을 기다» 문장»(갈래 0) · 고친 판 `[important 3] «…전문…»` ⓑ 요약 2번째 줄 → `[summary 2]` ⓒ 자율 OFF → 위반 0(불변) ⓓ ALL_STOP 같은 꼴 `[summary 2]` + `main()` rc3(발행 0 불변). **전(origin/main 판 = ⓐⓑⓓ FAIL 3 · ⓒ PASS) → 후 4 passed**(`harness/evidence/r594/01-before-red.txt`·`02-after-pass.txt`).
+- 기존 시험(이 카드 인접만 · 광역 0 · `evidence/r594/03-existing-tests.txt`): `test_ft_news_html.py`·`test_news_team_status_line.py`·`test_news_summary_schema_lines.py`·`test_ft_news_publish.py` = **63 passed** · `ruff check` All checks passed · kit/bin 사본 cmp0.
+- 설치: 있음 — 키트 1(`kit/fable-team/bin/ft_news_html_lint.py` · `harness/bin` 짝 cmp0) + 시험 1 · manifest 1.1.138 · `install.sh` REQUIRED 변경 0 · 데몬 0. **LIVE_BIN 설치(cmp0) · 뉴스 데몬 재기동 · 실사건 1(다음 위반 로그의 문장 전문·갈래 원문 → arch 판정 1줄)은 master 소관 — 미실행.** 되돌림 = `.bak-r594`. press(라이브 오디오 시험) 아님 — 나노는 쏘지 않는다.
+- 범위 밖: 판정 규칙 · 프롬프트(`FACT_RULES`) · 원장 · 린트 예외(원문 판정 뒤 별 카드) · `unknown_problems` 문구.
+
 ## 2026-10-21 — 뉴스 갈래 HTTP 스트림 읽기가 «한 번 읽기» 상한만 봐 조각이 계속 오면 총 마감 70초를 넘겨 115.5초 → 조각마다 시각을 보고 총 마감·조각 사이 무진행에서 끊는다 (r592 · 1.1.137 · 동작 변경 · 재시도 규칙·요청 필드·opencode 길·총 마감 값 무변경)
 
 - 사건(arch 112 틱 실측 2026-10-21 02:2x · `/tmp/byz-ft-news-planner.log`): «만듦 NEWS-20261021-0216.html secs=115.5(summary=4.0 important=115.5 goals=5.9 teams=16.2)» — 갈래 하나가 총 마감 `DEADLINE_S = 70` 을 넘어 뉴스 데몬이 2분 가까이 묶였다(하드 룰 12 «첫 출력·청크 간 무진행 각 7초 + 같은 총 마감» 위반). 원인 = `_http_once` 의 `urlopen(req, timeout=left)` 는 **소켓 한 번 읽기** 상한이고 `_sse_text` 는 `for raw in lines` 를 시각 검사 없이 끝까지 돈다 — 조각이 그 상한보다 짧은 간격으로 계속 오면 얼마든 길어진다. opencode 길(`t.join(max(0, t0 + left - now))`)은 이미 총 시간을 봐서 HTTP 길만 빠져 있었다.

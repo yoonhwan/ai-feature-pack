@@ -54,19 +54,36 @@ def problems(html: str, summary: str) -> list[str]:
     return out + fact_problems(html, summary, prio[1] if prio else "")
 
 
+def _segments(summary: str, prio: str) -> list[tuple[str, str]]:
+    """위반 문구에 «갈래 + 번호 + 문장 전문» 을 남기려고 요약 줄·중요한 일 항목을 따로 센다(r594 · 지어냄/원장 사실 판정용)."""
+    segs = [(f"summary {i}", ln.strip()) for i, ln in enumerate((x for x in summary.splitlines() if x.strip()), 1)]
+    items = re.findall(r"<li[ >].*?</li>", prio, re.S)
+    return segs + [(f"important {i}", _text(li).strip()) for i, li in enumerate(items, 1)]
+
+
+def _quote(sent: str) -> str:
+    return " ".join(sent.split())[:200]
+
+
+def _first(segs: list[tuple[str, str]], rx: re.Pattern) -> tuple[str, str] | None:
+    return next(((label, sent) for label, sent in segs if rx.search(sent)), None)
+
+
 def fact_problems(html: str, summary: str, prio: str) -> list[str]:
     """요약·중요한 일 문장 ↔ 코드 판정(r478d · desk 실측 거짓 문장): 일하는 팀(지도 «일하는 팀» 칸 = 라이브 좌석 실측) ≥1 인데
-    «모든 팀 … 멈춤·대기» = 위반 · 각주 «자율 ON|OFF|모름» 이 OFF 가 아닌데 «승인 … 기다림» = 위반(ON 이면 desk 가 병합 · 모름이면 쓰지 않는다)."""
+    «모든 팀 … 멈춤·대기» = 위반 · 각주 «자율 ON|OFF|모름» 이 OFF 가 아닌데 «승인 … 기다림» = 위반(ON 이면 desk 가 병합 · 모름이면 쓰지 않는다).
+    r594: 위반 문구에 갈래·번호와 문장 전문을 싣는다 — «승인을 기다» 조각만으로는 모델 지어냄인지 원장 사실인지 못 가른다."""
     out: list[str] = []
+    segs = _segments(summary, prio)
     said = summary + "\n" + _text(prio)
     working = html.count('<section class="goal work">')  # 일하는 팀 카드 = 라이브 좌석 실측(코드)
-    if working and (m := ALL_STOP.search(said)):
-        out.append(f"일하는 팀 {working}개인데 «{m[0].strip()}» 문장")
+    if working and (hit := _first(segs, ALL_STOP)):
+        out.append(f"일하는 팀 {working}개인데 멈춤 단정 문장 [{hit[0]}] «{_quote(hit[1])}»")
     foot = FOOT.search(html)
     auto = re.search(r"자율 (ON|OFF|모름)", foot[0]) if foot else None
     auto_v = auto[1] if auto else "모름"
-    if auto_v != "OFF" and (m := APPROVAL_WAIT.search(said)):
-        out.append(f"자율 {auto_v} 인데 «{m[0].strip()}» 문장")
+    if auto_v != "OFF" and (hit := _first(segs, APPROVAL_WAIT)):
+        out.append(f"자율 {auto_v} 인데 승인 대기 문장 [{hit[0]}] «{_quote(hit[1])}»")
     return out + unknown_problems(html, said)
 
 
