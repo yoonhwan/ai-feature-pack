@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # resume_chain.sh — 한 CLI로 페르소나 주입 + 다회 비대화 resume 체인
 # Usage: resume_chain.sh <cli> <persona|-> "<round1>" ["<round2>" ...]
-#   cli:     claude | codex | gemini | opencode | cursor-agent
+#   cli:     claude | codex | gemini | opencode | cursor-agent | pi
 #   persona: DA | designer | architect | -(없음)   (references/personas.md에서 로드)
-# 환경: OPENCODE_MODEL(기본 opencode/deepseek-v4-flash-free) · CLAUDE_MODEL · CLAUDE_EFFORT · CROSS_CLI_TIMEOUT(초, 기본 150)
+# 환경: OPENCODE_MODEL(기본 opencode/deepseek-v4-flash-free) · CLAUDE_MODEL · CLAUDE_EFFORT · PI_MODEL · PI_TOOLS · PI_THINKING · CROSS_CLI_TIMEOUT(초, 기본 150)
 # 주의: 자동주행 플래그 사용 — 격리/신뢰 워크스페이스에서만 실행.
 set -uo pipefail
 exec </dev/null
@@ -16,6 +16,9 @@ PERSONA="${2:?persona name or -}"; shift 2
 OPENCODE_MODEL="${OPENCODE_MODEL:-opencode/deepseek-v4-flash-free}"
 CLAUDE_MODEL="${CLAUDE_MODEL:-}"
 CLAUDE_EFFORT="${CLAUDE_EFFORT:-}"
+PI_MODEL="${PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}"
+PI_TOOLS="${PI_TOOLS:-read,bash}"
+PI_THINKING="${PI_THINKING:-}"
 TIMEOUT_S="${CROSS_CLI_TIMEOUT:-150}"
 
 # 로컬 프록시 래퍼 우선 (SKILL.md §2 스텝 0) — bare claude는 구독 프록시 우회. CLAUDE_BIN으로 오버라이드.
@@ -94,6 +97,19 @@ $PROMPT"; else FULL="$PROMPT"; fi
     agy)
       if [ -z "$SID" ]; then run_to agy -p "$FULL" --print-timeout 120s --dangerously-skip-permissions; SID=cont
       else run_to agy -c -p "$PROMPT" --print-timeout 120s --dangerously-skip-permissions; fi ;;
+    pi)
+      piargs=(--model "$PI_MODEL" --tools "$PI_TOOLS")
+      [ -n "$PI_THINKING" ] && piargs+=(--thinking "$PI_THINKING")
+      if [ -z "$SID" ]; then
+        SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+        if [ -n "$P" ]; then
+          run_to pi -p --session-id "$SID" "${piargs[@]}" --append-system-prompt "$P" "$PROMPT"
+        else
+          run_to pi -p --session-id "$SID" "${piargs[@]}" "$PROMPT"
+        fi
+      else
+        run_to pi -p --session "$SID" "${piargs[@]}" "$PROMPT"
+      fi ;;
     *) echo "미지원 cli: $CLI" >&2; exit 2 ;;
   esac
 done

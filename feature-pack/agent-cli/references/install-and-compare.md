@@ -13,7 +13,7 @@
 | **cursor-agent** | Cursor 공식 CLI 설치(IDE와 별개 바이너리) | Cursor 로그인 | `cursor-agent -p` |
 | Aider | `pipx install aider-chat` | provider 키 | `aider --message` |
 | Amp | `brew install ampcode/tap/amp` | — | `amp -x` |
-| Pi | `npm i -g @mariozechner/pi-coding-agent` | — | `pi --mode rpc` |
+| **pi** | `npm i -g --ignore-scripts @earendil-works/pi-coding-agent` | `pi auth check` (OpenGateway Keychain/env) 또는 provider `/login` | `pi -p` / `pi --mode json` |
 
 ⚠️ **정정 (이전 가이드 오류)**
 - **Gemini 설치는 Google 패키지** — `@anthropic-ai/gemini-cli` 아님.
@@ -28,6 +28,7 @@
 | Gemini | `gemini -p "q"` | `-o json` / `-o stream-json` |
 | OpenCode | `opencode run "q"` | `--format json` |
 | Cursor Agent | `cursor-agent -p -f "q"` | `--output-format json` |
+| Pi | `pi -p "q"` | `--mode json` (JSONL events) |
 
 ## Resume (세션 영속성) — 실증 보정본
 
@@ -58,7 +59,8 @@
 3. **Gemini** — stream-json + Policy Engine
 4. **OpenCode** — json + 서버모드(attach). 도구 제한 부재가 약점
 5. **Cursor Agent** — 비대화·resume 작동(`-f` 필수). IDE(`cursor`)와 구분
-6. **Amp**(내부 라우팅) / **Aider**(Git 자동화 최강, JSON 약함) / **Pi**(미니멀)
+6. **Pi** — 미니멀·provider 자유도·RPC/SDK·skills. `--tools`로 권한 최소화, `--session-id`로 resume. 단 기본 sandbox/plan mode 없음
+7. **Amp**(내부 라우팅) / **Aider**(Git 자동화 최강, JSON 약함)
 
 ## 컨텍스트 주입
 
@@ -67,7 +69,36 @@ claude -p "task" --append-system-prompt "ctx"          # 인라인
 claude -p "task" --append-system-prompt-file ./ctx.md  # ARG_MAX 우회
 claude -p "task" --system-prompt "custom"              # 교체
 codex exec "task" -c 'instructions="ctx"'
+pi -p --append-system-prompt "ctx" --tools read,bash "task" </dev/null
 ```
+
+## Pi (pi-coding-agent)
+
+```bash
+# 1) 인증/모델 확인
+pi auth check --provider opengateway --json
+pi --list-models deepseek
+
+# 2) 비대화 1회
+SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+pi -p --session-id "$SID" \
+  --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast \
+  --tools read,grep,find,bash \
+  "task" < /dev/null
+
+# 3) resume
+pi -p --session "$SID" \
+  --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast \
+  --tools read,grep,find,bash \
+  "follow-up" < /dev/null
+```
+
+- Pi에는 Claude의 `--dangerously-skip-permissions` 같은 **승인 프롬프트 자체가 없다**. 대신 `--tools` allowlist로 권한을 줄인다.
+- `--approve`/`--no-approve`는 **project trust** 결정용. headless에서는 prompt가 없으므로 명시한다.
+- `--skill <path>`로 스킬을 주입하고, `--append-system-prompt`로 페르소나를 넣는다.
+- `--mode json`은 JSONL 이벤트를 낸다(첫 `session`, 마지막 `agent_settled`). 모델 오류도 exit 0일 수 있으니 `stopReason`을 확인한다.
+- `--session-id`는 없으면 새로 만들고, `--session`은 exact/partial ID로 기존 세션을 찾는다. `--continue`는 현재 project 최신 세션에 의존하므로 자동화에 쓰지 않는다.
+- `--fork` + `--session-id <new>`는 허용. `--fork` + `--session`/`--continue`/`--resume`/`--no-session`은 금지. `--session-id` + `--session`/`--continue`/`--resume`도 금지.
 
 ## 함정
 

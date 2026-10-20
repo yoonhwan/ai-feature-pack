@@ -30,7 +30,7 @@ echo
 # ── 에이전트 CLI ──
 echo "🤖 에이전트 CLI"
 have=(); miss=()
-for c in claude codex gemini opencode cursor-agent; do
+for c in claude codex gemini opencode cursor-agent pi; do
   if command -v "$c" >/dev/null 2>&1; then echo "   ✅ $c"; have+=("$c"); else echo "   ⬜ $c (미설치)"; miss+=("$c"); fi
 done
 echo
@@ -54,6 +54,7 @@ case "$OS" in
     echo "   gemini: brew install gemini-cli  (또는 npm i -g @google/gemini-cli)"
     echo "   opencode: brew install opencode"
     echo "   cursor-agent: Cursor 설치 시 동봉 (curl https://cursor.com/install | bash)"
+    echo "   pi    : npm i -g --ignore-scripts @earendil-works/pi-coding-agent"
     ;;
   WSL|Linux)
     echo "   공통: Node(nvm 또는 apt) + npm 먼저. brew 대신 npm/curl 사용."
@@ -62,6 +63,7 @@ case "$OS" in
     echo "   gemini: npm i -g @google/gemini-cli"
     echo "   opencode: curl -fsSL https://opencode.ai/install | bash  (또는 npm)"
     echo "   cursor-agent: curl https://cursor.com/install | bash  (Linux 빌드)"
+    echo "   pi    : npm i -g --ignore-scripts @earendil-works/pi-coding-agent"
     if [ "$OS" = "WSL" ]; then
       echo "   ⚠️ WSL 주의:"
       echo "      · 로그인(OAuth)이 Windows 브라우저로 열림 — 안 열리면 출력된 URL 수동 복붙"

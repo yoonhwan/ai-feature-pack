@@ -26,7 +26,7 @@ command -v perl >/dev/null && echo "✅ perl" || echo "❌ perl"
 command -v python3 >/dev/null && echo "✅ python3" || echo "❌ python3"
 
 # 6. 에이전트 CLI 최소 1개 존재
-n=0; for c in claude codex gemini opencode cursor-agent; do command -v "$c" >/dev/null 2>&1 && { echo "  · $c ✅"; n=$((n+1)); }; done
+n=0; for c in claude codex gemini opencode cursor-agent pi; do command -v "$c" >/dev/null 2>&1 && { echo "  · $c ✅"; n=$((n+1)); }; done
 [ "$n" -ge 1 ] && echo "✅ 에이전트 CLI ${n}개 감지" || echo "❌ 에이전트 CLI 0개 — 최소 1개 필요"
 
 # 7. perl 강제 타임아웃 동작(2초 제한으로 5초 sleep 종료)

@@ -56,6 +56,28 @@ opencode run -s "$SID" -m "$PROVIDER/$MODEL" "$P2"  # 또는 -c (최근 세션)
 - 미설정 모델은 `ProviderModelNotFoundError`. antigravity Google 모델은 GCP 프로젝트 API enable 필요.
 - 설정 파일은 **하나만**(opencode.json) 두기 — `.json`+`.jsonc` 공존 시 플러그인 중복 로드.
 
+## Pi (pi-coding-agent)
+
+```bash
+SID="$(python3 -c 'import uuid;print(uuid.uuid4())')"
+pi -p --session-id "$SID" --model "$PI_MODEL" --tools read,bash "$P" < /dev/null
+pi -p --session "$SID" --model "$PI_MODEL" --tools read,bash "$P2" < /dev/null
+```
+- `PI_MODEL` 기본 `opengateway/deepseek/deepseek-v4.1-flash-ultrafast`. model ID에 slash가 있으면 **provider/model 참조가 이중 slash**가 된다.
+- 승인 프롬프트가 없다. `--tools`로 허용 툴을 제한하고, project trust는 `--approve`/`--no-approve`.
+- 페르소나: `--append-system-prompt "$(persona)"` (첫 라운드).
+- JSON: `--mode json` → 첫 `session` 레코드, 마지막 `agent_settled`. `session_id`는 미리 발급한 `$SID`.
+- resume: `--session-id <sid>`(fresh) / `--session <sid>`. `--continue`는 자동화에 부적합.
+- **continuation 규칙**:
+  - `--session <path|id>`: exact/partial ID, 현재 project 우선. cross-project match는 fork를 제안하므로 자동화에서는 exact ID/path 사용.
+  - `--session-id <id>`: exact project ID, 없으면 생성. letter/number로 시작·끝, `.` `_` `-` 허용.
+  - `--fork <path|id>`: 새 세션으로 분기. `--fork` + `--session`/`--continue`/`--resume`/`--no-session`은 **금지**.
+  - `--fork` + `--session-id <new>`는 **허용** — child ID를 고정하는 공식 방법.
+  - `--no-session`: ephemeral, resume 불가.
+  - `--name`: 표시 이름 (ID 아님).
+- 스킬: `--skill ~/.agents/skills/pi-ops` 또는 자동 발견. `--no-skills`로 차단.
+- `--thinking off|low|medium|high|xhigh|max`로 effort 조절. `--effort`는 Pi에서 thinking으로 매핑.
+
 ## Cursor Agent (≠ `cursor` IDE)
 
 ```bash
