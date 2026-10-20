@@ -1,0 +1,27 @@
+PASS bash -n sweep·close
+FAIL 닫기 판에 plan_lock 없음(base 판 = 정상)
+== ⓐ 같은 계획을 닫기 경로와 sweep 이 동시에 → 한쪽만 실행 · 다른 쪽 «다른 실행자가 돌리는 중» · .done 1 · [HIL] 0
+PASS ⓐ [HIL] 0(오알림 없음)
+PASS ⓐ «실행 실패» 0
+FAIL ⓐ 다른 쪽 «다른 실행자가 돌리는 중» 1줄 — 없음: «다른 실행자가 돌리는 중» ← mv: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cc0TAE1s9O/a/ra#0.sh: No such file or directory
+워크트리 정리: cleaned(보관 288파일 보관) · 이름 바꿈 → ra#0 (로그 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cc0TAE1s9O/a/ra#0.sh.log)
+OK   ra#0 wt=none
+sweep 계획 1 · cleaned/none 1 · wait 0 · hil 0 · freed_kb 0
+PASS ⓐ 결과 .sh.done 1
+FAIL ⓐ 로그 마지막 줄 깨짐: «파일 보관) · 이름 바꿈 → ra#0»
+PASS ⓐ «ed(ignored…» 잔재 0
+PASS ⓐ 끝난 뒤 잠금 없음
+== ⓑ 잠금을 쥔 실행자가 죽고 pid 만 남음 → 다음 sweep 이 낡은 잠금으로 보고 걷어낸 뒤 실행(사유 1줄)
+FAIL ⓑ 낡은 잠금 사유 1줄 — 없음: «낡은 잠금 걷음» ← OK   bb#0 wt=cleaned
+sweep 계획 1 · cleaned/none 1 · wait 0 · hil 0 · freed_kb 24
+PASS ⓑ 걷어낸 뒤 실제 실행(로그 cleaned)
+PASS ⓑ .sh.done
+PASS ⓑ [HIL] 0
+FAIL ⓑ 낡은 잠금 남음
+== ⓒ 진짜 실패 계획(skipped:원장 락 실패) → 지금처럼 [HIL] 1(회귀 0)
+PASS ⓒ [HIL] 1
+PASS ⓒ 계획 .sh.hil 이동
+PASS ⓒ 잠금 없음(실패 판정 뒤 정리)
+
+FAILED 5
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

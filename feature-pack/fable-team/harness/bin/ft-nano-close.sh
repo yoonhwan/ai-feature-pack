@@ -345,10 +345,29 @@ if [ "$REPLAN" -eq 1 ]; then
   _wt_clean_plan; [ -n "$PLAN" ] && [ -f "$PLAN" ] || { echo "REJECT --replan: 계획 생성 실패"; exit 1; }
   echo "PLANNED $PLAN"; exit 0
 fi
+# ★r608★ 계획 실행 잠금 — 계획 1개(<plan>.run.lock 디렉터리 · 안에 pid)를 «한 실행자만» 잡는다.
+#   잡음 = 0 · 다른 실행자가 살아서 돌리는 중 = 1 · 잡고 있던 pid 가 죽었으면(낡은 잠금) mv 로 원자적으로 걷어내고 잡는다(사유 1줄).
+#   닫기(이 스크립트)와 주기 정리(ft-wt-sweep)가 같은 계획을 동시에 돌려 같은 .log 를 잘라 쓰던 사건(r608)의 고침 — 판정 꼴·계획 본문 불변.
+plan_lock() {
+  local lock="$1.run.lock" pid
+  if mkdir "$lock" 2>/dev/null; then printf '%s\n' $$ > "$lock/pid"; return 0; fi
+  pid="$(cat "$lock/pid" 2>/dev/null)"
+  if [ -n "$pid" ] && [ "$pid" != "$$" ] && kill -0 "$pid" 2>/dev/null; then return 1; fi
+  mv "$lock" "$lock.stale.$$" 2>/dev/null || return 1   # 원자 이동 — 동시에 걷어내는 쪽이 둘이면 한 쪽만 성공한다
+  rm -rf "$lock.stale.$$"
+  mkdir "$lock" 2>/dev/null || return 1
+  printf '%s\n' $$ > "$lock/pid"
+  echo "낡은 잠금 걷음(pid=${pid:-없음} · 살아 있는 실행자 없음): $1" >&2
+  return 0
+}
+plan_unlock() { rm -rf "$1.run.lock"; }
 # 세션이 사라진 뒤(--kill KILLED 직후)의 실행 — 결과는 계획이 원장에 직접 표식. skipped 는 사람 판정 분기 → stdout [HIL](호출자가 mbox 로 올린다).
 _wt_clean_run() {
   local res
+  # r608: 다른 실행자(sweep)가 같은 계획을 돌리는 중이면 «실행 0» — 로그를 건드리지 않고 계획도 그대로 둔다(sweep 이 판정·이동).
+  plan_lock "$PLAN" || { echo "워크트리 정리: 다른 실행자가 돌리는 중(sweep) — 실행 0 (로그 $PLAN.log)"; return 0; }
   res="$(/bin/bash "$PLAN" 2>&1 | tee "$PLAN.log" | tail -1)"
+  plan_unlock "$PLAN"
   # [HIL] 은 1회만 — 계획을 <seat>.sh.hil 로 옮겨 sweep 순회에서 뺀다(사람이 .sh 로 되돌리면 재시도 · DA r3 MAJOR N1)
   case "$res" in cleaned*|none) mv "$PLAN" "$PLAN.done";; skipped:좌석*|skipped:cwd*) ;; *) mv "$PLAN" "$PLAN.hil"; echo "[HIL] ${res#skipped:} · 스크립트 $PLAN.hil";; esac
   echo "워크트리 정리: $res (로그 $PLAN.log)"

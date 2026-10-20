@@ -126,6 +126,22 @@ GEN="$(dirname "$0")/ft-nano-close.sh"
 BATON_HDR='워크트리 정리 — Archive'   # baton wt-clean 머리줄 — 이게 로그에 있으면 계획이 가드를 지나 «삭제 단계» 까지 갔다
 # 계획 1건을 타임아웃 아래 실행 — perl alarm(macOS 기본엔 timeout(1) 이 없다). 새 프로세스 그룹으로 띄워 초과 시 «그룹 전체»(bash·tar·baton 자식) TERM. rc 는 계획의 것 · 초과 = 124.
 #   perl 자신이 그 그룹의 리더라 TERM 을 무시해야 exit 124 까지 간다(안 그러면 자기도 죽어 rc 143 = «실행 실패» 오분류).
+# ★r608★ 계획 실행 잠금 — 계획 1개(<plan>.run.lock 디렉터리 · 안에 pid)를 «한 실행자만» 잡는다.
+#   잡음 = 0 · 다른 실행자가 살아서 돌리는 중 = 1 · 잡고 있던 pid 가 죽었으면(낡은 잠금) mv 로 원자적으로 걷어내고 잡는다(사유 1줄).
+#   닫기(ft-nano-close)와 이 주기 정리(sweep)가 같은 계획을 동시에 돌려 같은 .log 를 잘라 쓰던 사건(r608)의 고침 — 판정 꼴·계획 본문 불변.
+plan_lock() {
+  local lock="$1.run.lock" pid
+  if mkdir "$lock" 2>/dev/null; then printf '%s\n' $$ > "$lock/pid"; return 0; fi
+  pid="$(cat "$lock/pid" 2>/dev/null)"
+  if [ -n "$pid" ] && [ "$pid" != "$$" ] && kill -0 "$pid" 2>/dev/null; then return 1; fi
+  mv "$lock" "$lock.stale.$$" 2>/dev/null || return 1   # 원자 이동 — 동시에 걷어내는 쪽이 둘이면 한 쪽만 성공한다
+  rm -rf "$lock.stale.$$"
+  mkdir "$lock" 2>/dev/null || return 1
+  printf '%s\n' $$ > "$lock/pid"
+  echo "낡은 잠금 걷음(pid=${pid:-없음} · 살아 있는 실행자 없음): $1"
+  return 0
+}
+plan_unlock() { rm -rf "$1.run.lock"; }
 run_plan() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "$TMO" /bin/bash "$1"; }
 HB="$(dirname "$0")/ft-hil.sh"  # R83: 사람 ! 실행 안내 = 짧은 링크(`! bash /tmp/h<N>`) — 옆의 ft-hil.sh 가 없거나 실패면 지금 문구 그대로 + WARN
 hilmsg() { local m=""; command -v "$HB" >/dev/null 2>&1 && m="$("$HB" --add "$1" 2>/dev/null | tail -1)"; [ -n "$m" ] && echo "$m" || { echo "WARN ft-hil 실패 — 경로 안내로 후퇴" >&2; echo "스크립트 $1"; }; }
@@ -176,8 +192,11 @@ for plan in "$DIR"/*.sh; do
     esac
   fi
   n=$((n+1))
+  # r608: 같은 계획을 다른 실행자(닫기 경로)가 돌리는 중이면 실행 0 — 로그·계획을 건드리지 않고 다음 계획으로(사람 판정 0).
+  if ! plan_lock "$plan"; then w=$((w+1)); echo "WAIT $seat 다른 실행자가 돌리는 중"; continue; fi
   kb="$(size_kb "$plan")"
   run_plan "$plan" > "$plan.log" 2>&1; rc=$?; res="$(tail -1 "$plan.log")"   # 파일로 받는다 — 파이프 캡처는 고아 자식이 잡고 있으면 타임아웃 뒤에도 안 돌아온다
+  plan_unlock "$plan"
   [ "$rc" -ne 124 ] || res="skipped:timeout ${TMO}s"
   case "$res" in skipped:좌석*|skipped:cwd*) ;; *) ran=$((ran+1));; esac
   tmo="$plan.tmo"
