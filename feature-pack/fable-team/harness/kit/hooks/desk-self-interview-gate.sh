@@ -3,7 +3,7 @@
 # 왜: desk 가 자기 화면에 질문 창을 열면 닫힐 때까지 desk 가 멈추고, 그 사이 슬랙 글은 큐에만 쌓인다(오빠 10-15 «인터뷰 떠 있으면 슬랙도 다 멈춰»).
 # 동작: 좌석 이름(tmux 세션) = 명부 seats-planner.json `_desk` 일 때만 본다.
 #   desk 세션에 붙은 tmux 클라이언트 중 «attach 뒤 실제 키 사건이 있고»(client_activity > client_created) now − client_activity ≤ FT_DESK_DIRECT_SEC(기본 600)가 있으면 허용 — 오빠가 desk 화면에서 직접 치는 중.
-#   client_created 를 못 읽거나 attach 시각과 같으면(키 0) 예외 불성립 = deny — attach 자체를 직접 키로 읽지 않는다(DA⑥ H1). 질문은 슬랙 #byz-desk 스레드 묶음 글로.
+#   client_created 를 못 읽거나 attach 시각과 같으면(키 0) 예외 불성립 = deny — attach 자체를 직접 키로 읽지 않는다(DA⑥ H1). 질문은 슬랙 #byz-desk 방 글(post)로. (r617: 스레드는 주제 대화만 — 묶음 글은 방)
 #   (기계 입력 send-keys 는 client_activity 값에 반영되지 않는다 — 시험 ③ 이 실측하고, ②b 가 send-keys 만으로는 예외가 성립하지 않음을 확인한다.)
 # ★못 읽음★: 명부·tmux 조회 실패 = 허용 + FT_DESK_LOG(기본 ~/.claude/logs/desk-route.log) 1줄 + stderr — 조용히 막지 않는다(인터뷰는 되돌릴 수 있다).
 # 외부 호출 0 — tmux 2회 + 파일 1회. 환경: FT_ROOT(루트 고정) · FT_DESK_DIRECT_SEC · FT_DESK_LOG.
@@ -19,7 +19,8 @@ LOG = os.environ.get("FT_DESK_LOG") or os.path.expanduser("~/.claude/logs/desk-r
 DIRECT_SEC = int(os.environ.get("FT_DESK_DIRECT_SEC") or 600)
 REASON = (
     "desk 화면 인터뷰 금지(R241) — 질문 창이 열려 있으면 desk 가 멈추고 슬랙 글이 쌓입니다. "
-    "슬랙 #byz-desk 스레드에 질문 묶음 글 1개로: `byz_thread_post.py reply --ts <오빠 글 ts> --text-file <파일>` "
+    "슬랙 #byz-desk 방에 글 1개로: `byz_thread_post.py post --to desk --text-file <파일>` "
+    "(질문·승인 묶음 = `post --to desk` · 오빠 질문에 대한 «주제 답» 만 `reply --to-slack <오빠 글 ts>`) "
     "(R235 형식: 질문 전부 한 글 · `<i>-<j>` 번호 선택지 · 추천 `<i>-1` · 끝줄 «답 예: 1-1 2-1 · 모두 추천»). "
     "창을 열지 말고 다음 일을 하세요 — 답은 수신 데몬이 쪽지로 가져옵니다. "
     "(오빠가 desk 화면에서 직접 친 지 %d초 안이면 이 훅은 통과시킵니다)" % DIRECT_SEC

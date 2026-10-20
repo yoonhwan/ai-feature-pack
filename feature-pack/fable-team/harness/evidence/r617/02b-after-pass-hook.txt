@@ -1,0 +1,13 @@
+PASS bash -n
+PASS ① desk·클라이언트 없음 → deny(사유에 post --to desk · reply --ts 단독 지시 0)
+PASS ②a attach 직후·키 0 → deny(client_activity == client_created)
+PASS ②b attach 뒤 send-keys 만 → deny(기계 입력은 직접 키가 아니다)
+PASS ②c attach 뒤 pty 키 입력 직후(600초 안) → 허용
+PASS ②d client_created 를 못 읽음 → deny(예외 불성립)
+PASS ③ send-keys 전후 client_activity 불변(1792537677)
+PASS ④ 입력이 예외 창 밖(1초 창·2초 경과) → deny
+PASS ⑤ desk 아닌 좌석 → 허용(변경 0)
+PASS ⑥ 명부 없음 → 허용 + 로그 1줄
+PASS ⑦ 좌석 이름을 못 구함 → 허용 + 로그 1줄
+PASS ⑧ 빈 stdin → 허용
+fail=0

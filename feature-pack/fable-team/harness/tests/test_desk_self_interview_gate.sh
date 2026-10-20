@@ -29,8 +29,8 @@ allowed() { [ "$rc" = 0 ] && [ -z "$out" ]; }
 
 bash -n "$HK" 2>/dev/null; ck "bash -n" $?
 
-# ① desk + 클라이언트 없음 → deny, 사유에 슬랙 스레드 안내
-run 'desk-r241t#1'; denied && grep -q 'byz_thread_post.py reply' <<<"$out" && grep -q 'R241' <<<"$out"; ck "① desk·클라이언트 없음 → deny(사유에 byz_thread_post.py reply)" $?
+# ① desk + 클라이언트 없음 → deny, 사유에 «방 글(post)» 안내 · «reply --ts» 단독 지시 0 (r617)
+run 'desk-r241t#1'; denied && grep -q 'post --to desk' <<<"$out" && grep -q 'R241' <<<"$out" && ! grep -q -- 'reply --ts' <<<"$out"; ck "① desk·클라이언트 없음 → deny(사유에 post --to desk · reply --ts 단독 지시 0)" $?
 
 # ②a 클라이언트가 방금 붙었고 키 입력은 0(자동 attach) → deny — attach 시각이 «직접 키» 로 읽히면 안 된다(DA⑥ H1)
 python3 -I "$HERE/pty_client.py" "$SOCK" 'desk-r241t#1' "$CTL" >/dev/null 2>&1 &

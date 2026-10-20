@@ -7,6 +7,7 @@
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
 `reply --thread <이름>`(r414): 뿌리 ts 를 도구가 소유 — 등록부(slack-threads.json)에 없거나 날짜(KST)·채널이 바뀌면 채널에 뿌리 글을 새로 올려 등록.
 `reply --to-slack <오빠 글 ts>`(r558): 뿌리 = 수신 원장(byz_slack_mbox_inbound.<ch>.json)의 그 글 `thread` 값(빈 값 = 그 글) — 오빠 새 글 밑에 답한다.
+`reply (--ts|--to-slack)` 방 글 꼴 거절(r617): 본문이 승인 묶음·상태 알림·뉴스 꼴이면 rc2 + «방 글은 post --to desk» 1줄 — 스레드 = 주제 대화 전용(`--force-thread` 면 경고 후 게시 · env `FT_SLACK_TOPIC_ONLY` 빈 값이면 끔).
 `post (--to <등록부 이름> | --channel <ID>) (--text|--text-file)`(r561): 방에 «최상위 글 1개» — thread_ts 없음 · 등록부·답 기록 쓰기 0 · 첨부 0. 승인·뉴스·알림은 스레드가 아니라 방 글이고, 스레드는 주제 대화 전용이다.
   답 기록(byz_slack_answered.json) 밖에 «그 이름 스레드 계보 좌석에 이미 전달 · 창(7일) 안 · 답 기록 없음» 오빠 글이 있으면 `--thread` 는 REJECT(`--force-thread` 면 경고 후 전송) — 인계서·메모리 규칙에 기대지 않는다.
   상태 폴더 = env FT_SLACK_STATE_DIR(기본 ~/.hermes/state) · 원장 파일 = env FT_SLACK_INBOUND_LEDGER · 답 기록 = env FT_SLACK_ANSWERED. 원장은 «읽기만» 한다.
@@ -87,6 +88,9 @@ def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targ
         raise MirrorError(f"본문이 비었다: {a.text_file or '--text'}")
     text = esc(body)
     check(text, a.channel or "", human=True)  # 뿌리 글 «전» — 본문이 걸리면 뿌리·등록부 불변
+    if a.ts is not None or a.to_slack is not None:  # 답글 길도 스레드 = 주제 대화 전용(r617)
+        if trs.refuse_room_post(body, a.force_thread):
+            return 2  # 게시 0 — 방 글은 post --to desk
     t = target(a)
     if a.to_slack is not None:
         return trs.reply_to_slack(a, t, text)
