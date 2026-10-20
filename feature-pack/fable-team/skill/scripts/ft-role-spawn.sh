@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ★런타임 사본은 git 추적 밖이다 — 실전은 <워크트리>/.fable-team/bin/ 의 사본으로 돌린다. 이 파일이 팩 SSOT(Seatbelt 1.0.0).★
-# ft-role-spawn.sh <master|da|pm> [--agent claude|codex|cmd|opencode] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
+# ft-role-spawn.sh <master|da|pm> [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run]
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 # ft-nano-spawn.sh 를 본떴다. 차이 셋:
@@ -18,7 +18,7 @@ AGENT="claude"; MODEL="claude-fable-5-1[1m]"; EFFORT="high"; FROM="${FT_SEND_FRO
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
-case "$AGENT" in claude|codex|cmd|opencode) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode (받은 값: $AGENT)" >&2; exit 2;; esac
+case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode|pi (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
@@ -47,7 +47,7 @@ PY
 # tmuxc 가 거부한다(실측 dry-run 2026-09-14: `--ctx 는 --agent claude 에서만 사용 (agent=codex)`). 받는 것만 넘긴다.
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
-case "$AGENT" in claude|cmd|codex) OPEN+=(--effort "$EFFORT");; esac
+case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 
 echo "PLAN seat=$NAME role=$ROLE agent=$AGENT model=$MODEL wt=$WT inbox=$INBOX_REL replaces=[${OLD:-<없음>}] (구 좌석 kill 안 함)"
 if [ "$DRY" = 1 ]; then "${OPEN[@]}" --dry-run; exit $?; fi

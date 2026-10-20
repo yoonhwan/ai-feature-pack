@@ -120,7 +120,7 @@ else
   #     --effort 는 claude·cmd 만(codex 는 role→effort 고정). 2026-09-09 실측 — 옛 가드(«codex 에 --model 넘기면 die»)는
   #     tmuxc 가 codex --model 을 받기 전 얘기라 codex 좌석이 전부 config.toml 기본 모델로 뜨던 원인(luna↔astra 분리 불가).
   case "$AGENT" in
-    claude|cmd)      [ -n "$MODEL" ] && set -- "$@" --model "$MODEL"; [ -n "$EFFORT" ] && set -- "$@" --effort "$EFFORT" ;;
+    claude|cmd|pi)   [ -n "$MODEL" ] && set -- "$@" --model "$MODEL"; [ -n "$EFFORT" ] && set -- "$@" --effort "$EFFORT" ;;
     codex|opencode)  [ -n "$MODEL" ] && set -- "$@" --model "$MODEL" ;;
   esac
   "$@" >/dev/null 2>&1 && launch_ok=1
@@ -135,11 +135,16 @@ CLAUDE_READY_RE="${FT_CLAUDE_READY_REGEX:-ctx:|\? for shortcuts|esc to interrupt
 CODEX_READY_RE="$(ft_ijson "$ROOT" probe.codex_ready_regex)"
 # 문자클래스에 '/' 필수 — OpenRouter 모델 ID는 provider/model 형태(stealth/ox-alpha)이고,
 # 없으면 statusline을 못 읽어 정상 부팅 좌석을 readiness timeout으로 kill한다(2026-08-23 실측).
+# pi 둘째 갈래 = 왼쪽 통계의 문맥 칸 `0.0%/1.0M`·`?/1.0M` — 폭이 모자라면 pi 는 오른쪽 `<모델> • <effort>` 부터 자르고(footer.js:231-237) effort 없이 뜨면 `• thinking off` 라 첫 갈래만으론 정상 좌석을 kill 한다(r540 · fixtures/r540).
+PI_READY_RE="${FT_PI_READY_REGEX:-[A-Za-z0-9._/-]+ • (minimal|low|medium|high|xhigh)|(\?|[0-9]+(\.[0-9]+)?%)/[0-9.]+[kM]}"
 [ -z "$CODEX_READY_RE" ] && CODEX_READY_RE='^[[:space:]]*[A-Za-z0-9._/-]+[[:space:]]+(minimal|low|medium|high|xhigh)[[:space:]]+·'
 ready=0; waited=0
 while [ "$waited" -lt 90 ]; do
   cap="$(tmux capture-pane -p -t "$NAME" 2>/dev/null)"
-  if [ "$AGENT" = "codex" ]; then
+  if [ "$AGENT" = "pi" ]; then
+    # pi 1.3.0 상태줄은 `ctx:` 가 없다 — 마지막 줄 `<모델ID> • <effort>` 푸터로 판정(2026-10-20 실측: ↑188k ↓22k … deepseek/… • medium).
+    printf '%s\n' "$cap" | grep -qE "$PI_READY_RE" && { ready=1; break; }
+  elif [ "$AGENT" = "codex" ]; then
     printf '%s\n' "$cap" | grep -qE "$CODEX_READY_RE" && { ready=1; break; }
   else
     printf '%s\n' "$cap" | grep -qE "$CLAUDE_READY_RE" && { ready=1; break; }

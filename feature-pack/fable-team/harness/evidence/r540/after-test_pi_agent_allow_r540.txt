@@ -1,0 +1,51 @@
+PASS bin/ft-name-lint.sh: aifp-worker-master-pi#0 PASS
+PASS bin/ft-name-lint.sh: aifp-pi-master-pi#0 PASS
+PASS bin/ft-name-lint.sh: aifp-pi-master#0 REJECT 꼬리 필수
+PASS bin/ft-name-lint.sh: byz-x-master-pii#0 REJECT(오타 0)
+PASS kit/fable-team/bin/ft-name-lint.sh: aifp-worker-master-pi#0 PASS
+PASS kit/fable-team/bin/ft-name-lint.sh: aifp-pi-master-pi#0 PASS
+PASS kit/fable-team/bin/ft-name-lint.sh: aifp-pi-master#0 REJECT 꼬리 필수
+PASS kit/fable-team/bin/ft-name-lint.sh: byz-x-master-pii#0 REJECT(오타 0)
+PASS 기존 test_name_lint.sh rc0
+PASS ..: role-spawn pi dry-run 인자
+PASS fable-team: role-spawn pi dry-run 인자
+PASS skill: role-spawn pi 허용·effort
+PASS ..: nano-spawn --agent pi 기본 모델
+PASS ..: FT_PI_MODEL 우선
+PASS ..: nano-spawn pi OPEN 인자
+PASS fable-team: nano-spawn --agent pi 기본 모델
+PASS fable-team: FT_PI_MODEL 우선
+PASS fable-team: nano-spawn pi OPEN 인자
+PASS skill: nano-spawn pi effort
+PASS bin: 준비 MATCH pi-w149-live
+PASS bin: 준비 MATCH pi-w80-start
+PASS bin: 준비 MATCH pi-w80-start-unknown-ctx
+PASS bin: 준비 MATCH pi-w80-thinking-off
+PASS bin: 준비 MATCH pi-w80-truncated
+PASS bin: 오탐 0 claude-tail-live
+PASS bin: 오탐 0 codex-tail-live
+PASS bin: pi 준비 분기·--effort 전달
+PASS scripts: 준비 MATCH pi-w149-live
+PASS scripts: 준비 MATCH pi-w80-start
+PASS scripts: 준비 MATCH pi-w80-start-unknown-ctx
+PASS scripts: 준비 MATCH pi-w80-thinking-off
+PASS scripts: 준비 MATCH pi-w80-truncated
+PASS scripts: 오탐 0 claude-tail-live
+PASS scripts: 오탐 0 codex-tail-live
+PASS scripts: pi 준비 분기·--effort 전달
+PASS cmp0 bin=kit ft-name-lint.sh
+PASS cmp0 bin=kit ft-role-spawn.sh
+PASS cmp0 bin=kit ft-nano-spawn.sh
+PASS cmp0 bin=kit ft-successor-open.sh
+PASS tmux-spawn kit↔skill 차이 = base 의 BOOT 줄 1쌍뿐
+PASS reach-check pi 블록 kit=comm
+PASS ⓙ pi user 레코드 마커 → REACHED(env)
+PASS ⓙ pane 본체 pi 감지 → REACHED
+PASS ⓙ 내 파일에 user 레코드 없음(남의 좌석엔 있음) → NOT_REACHED 4
+PASS ⓙ 좌석 폴더 아직 없음 → 4 · 사유 출력
+PASS ⓙ pi 기록 뿌리 없음 → UNVERIFIABLE 5
+PASS ⓙ claude 좌석 도달 그대로(pi 감지 0)
+PASS ⓙ 승계 pi → 시작 확인(session_info) · 도달 · OK · 도달 파일 · ring 0
+PASS ⓙ pi 기록 못 읽음 → rc5 · [HIL] · 도달 파일 0(조용한 통과 0)
+PASS ⓙ pi 시작 기록 없음 → 미관측 표시
+ALL PASS
