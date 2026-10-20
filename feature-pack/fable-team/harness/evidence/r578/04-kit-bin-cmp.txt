@@ -1,0 +1,4 @@
+== kit/bin cmp
+cmp0 ft-hil-ask.sh
+== bash -n
+bash -n rc=0

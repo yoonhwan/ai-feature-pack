@@ -1,0 +1,39 @@
+$ FT_MBOX_CMD=/bin/true bash harness/tests/test_hil_ledger.sh   # 기존 시험(ask→answer→applied) — 이 카드 인접
+PASS bash -n
+PASS ask rc=0 (ASKED row=1 seat=seat-x seq=dry route=route-seat ledger=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.sikx5b25YK/HIL-LEDGER.md)
+PASS 행 8칸
+PASS 행1 open·좌석·선택지
+PASS mbox [HIL] → _hil_route
+PASS 행2 번호·파이프 치환
+PASS answer rc=0 (APPLIED row=1 seat=seat-x seq=dry value=예)
+PASS 행1 applied:예
+PASS 행2 open 유지
+PASS 회신 = 질문 좌석
+PASS applied 행 재답 REJECT
+PASS 없는 행 REJECT
+PASS 빈 질문 REJECT
+PASS 선택지 밖 추천 REJECT
+PASS route 없음 REJECT
+PASS mbox 실패 → ask exit≠0
+PASS mbox 실패 → 행 추가 0
+PASS mbox seq 파싱 → 행3 seq=777
+PASS mbox 실패 → answer exit≠0
+PASS 행2 answered 에서 멈춤
+PASS 재시도 → applied
+PASS 원장 잠금 잔류 0
+---- ledger ----
+# HIL 질문 원장
+
+> 질문 1건 = 1행. 상태: open → answered:<값> → applied:<값>. 쓰는 도구 = ft-hil-ask.sh · ft-hil-answer.sh (손으로 고치지 않는다).
+> 칸 안의 `|` 는 `¦` 로 바뀐다.
+
+| # | 일시 | 좌석 | 좌석seq | 질문 | 선택지 | 추천 | 상태 |
+|---|---|---|---|---|---|---|---|
+| 1 | 2026-10-21T02:01:41 | seat-x | dry | 배포를 지금 할까요? | 예¦아니오¦보류 | 예 | applied:예 |
+| 2 | 2026-10-21T02:01:41 | seat-x | dry | a¦b 중 뭐? |  |  | applied:b |
+| 3 | 2026-10-21T02:01:42 | seat-x | 777 | 가짜 mbox seq |  |  | open |
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+
+# ft-seats-lint.sh 전용 시험 파일은 팩·BYZ 어디에도 없다(2026-10-21 확인) — _hil_route 판정 시험은 새 시험 ⓔ 가 맡는다
