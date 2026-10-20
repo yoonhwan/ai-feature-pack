@@ -350,9 +350,12 @@ fmt_hm()   { date -r "$1" "+%H$2%M" 2>/dev/null || date -d "@$1" "+%H$2%M" 2>/de
 # 폰 60열에 맞춰 8자 안으로: claude-opus-5[1m]→opus5·1m · claude-opus-5-5[1m]→op55·1m · claude-sonnet-5→sonn5 · claude-sonnet-5-5[1m]→sn55·1m · claude-fable-5-1→fabl51 · gpt-5.6-luna→luna
 # gpt-6-astra→astra · gpt-5.6-terra→terra. 알 수 없으면 뒤 7자.
 model_short() {
-  local m="$1" ctx=""
+  local m="$1" ctx="" rest ver fl t ini
   case "$m" in *\[1m\]*) ctx="·1m"; m="${m%%\[*}";; esac
+  case "$m" in */*) m="${m##*/}";; esac   # 프로바이더 경로(opengateway/deepseek/…·openrouter/…)는 뗀다(0.9.2)
   case "$m" in
+    deepseek-v*)     rest="${m#deepseek-v}"; ver="${rest%%-*}"; fl="${rest#"$ver"}"; ini=""   # deepseek-v4.1-flash-ultrafast → ds41fu · v4-pro → ds4p
+                     for t in ${fl//-/ }; do ini+="${t:0:1}"; done; m="ds${ver//./}${ini}";;
     claude-opus-*-*) m="op${m#claude-opus-}";;   # 5-5 처럼 두 마디면 op55 — opus55·1m 은 5칸 절단에 opus5·1m 이 되어 opus-5 와 겹친다
     claude-opus-*)   m="opus${m#claude-opus-}";;
     claude-sonnet-*-*) m="sn${m#claude-sonnet-}";;   # 5-5 처럼 두 마디면 sn55 — sonn55·1m 은 5칸 절단에 sonn5·1m 이 되어 sonnet-5 와 겹친다
@@ -367,9 +370,20 @@ model_short() {
   if [ -n "$ctx" ]; then printf '%s%s' "${m:0:5}" "$ctx"; else printf '%s' "${m:0:8}"; fi
 }
 # 라이브 좌석의 모델: pane 자식 프로세스 argv 의 --model / -c model= (tmuxc model 과 같은 정본). codex 에 -c model 이 없으면 config 기본.
+pi_footer_model() {  # stdin = pane 화면 → pi 하단 줄 `… 3.6%/1.0M (auto)  deepseek/deepseek-v4.1-flash-ultrafast • high` 의 모델 토큰(없으면 빈 출력)
+  sed -nE 's/.*[0-9.]+%\/[0-9.]+[MK] \(auto\) +([A-Za-z0-9._\/:-]+).*/\1/p' | tail -1
+}
 live_model_of() {  # pane_pid [session]
   local c m; c="$(pgrep -P "$1" 2>/dev/null | head -1)"; [ -n "$c" ] || { printf ''; return; }
   m="$(ps -o args= -p "$c" 2>/dev/null | sed -nE 's/.*(--model[ =]|-c model=)"?([^" ]+)"?.*/\2/p' | head -1)"
+  # pi 는 프로세스 이름이 `pi` 로 바뀌어 argv 에 --model 이 없다(0.9.2) → tmuxc 가 심은 세션 환경 TMUXC_PI_MODEL(정확) → 없으면 하단 줄(폭에 잘릴 수 있음)
+  if [ -z "$m" ] && [ -n "${2:-}" ]; then
+    case "$(ps -o args= -p "$c" 2>/dev/null)" in
+      pi|pi\ *|*/pi|*/pi\ *)
+        m="$(tmux show-environment -t "=$2" TMUXC_PI_MODEL 2>/dev/null | sed -n 's/^TMUXC_PI_MODEL=//p')"
+        [ -n "$m" ] || m="$(tmux capture-pane -t "=$2:" -p 2>/dev/null | pi_footer_model)";;
+    esac
+  fi
   # codex 가 config 기본 모델로 떴으면 argv 에 없다 → pane 하단 «gpt-6-astra medium fast» 에서 읽는다
   [ -z "$m" ] && [ -n "${2:-}" ] && m="$(tmux capture-pane -t "=$2:" -p 2>/dev/null | grep -oE '\bgpt-[0-9.]+-[a-z]+\b' | tail -1)"
   printf '%s' "$m"
@@ -417,9 +431,9 @@ cmd_rows() {
   now=$(date +%s); mid=$(midnight)
   # 시각 추출은 좌석당 capture 1회 — 직렬이면 부하 시 1~2초라 8병렬로 (순서 무관, 뒤에서 sort)
   # ★좌석별 결과 캐시★ — (window_activity, pane_pid) 가 직전과 같으면 그 좌석의 «완료 시각·모델»은 그대로다(출력이 없었으니 done 마커도,
-  #   프로세스 argv 도 안 바뀜). 64좌석 중 움직인 것만 다시 캡처한다: 병렬 구간 1.3초 → 활동 좌석 수에 비례. 캐시는 $STATE/ep.cache(원자적 교체).
+  #   프로세스 argv 도 안 바뀜). 64좌석 중 움직인 것만 다시 캡처한다: 병렬 구간 1.3초 → 활동 좌석 수에 비례. 캐시는 $STATE/ep-<버전>.cache(원자적 교체 · 버전이 바뀌면 새로 — 0.9.2: 표시 규칙이 바뀐 뒤에도 옛 «?» 가 안 남게).
   declare -A EP MD CA CE CM KEY
-  local ecache="$STATE/ep.cache" todo="" a2 p2
+  local ecache="$STATE/ep-${TMM_VERSION:-dev}.cache" todo="" a2 p2
   if [ -f "$ecache" ]; then
     while IFS=$'\t' read -r s a2 p2 ep src md; do CA["$s"]="$a2:$p2"; CE["$s"]="$ep $src"; CM["$s"]="$md"; done < "$ecache"
   fi

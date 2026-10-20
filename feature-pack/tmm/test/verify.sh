@@ -22,6 +22,7 @@ tm()  { env -u TMUX TMUX_TMPDIR="$SOCK_DIR" tmux "$@"; }
 # (f) 가 «mode 파일 없음» 으로 실패한다 (2026-09-09 복원 세션 실측). 코드 결함이 아니라 환경 오염.
 tmm() { env -u TMUX -u TMM_RUN TMUX_TMPDIR="$SOCK_DIR" TMPDIR="$SOCK_DIR" TMM_SCAN="${TMM_SCAN_OVERRIDE:-$SCAN}" TMM_CACHE_TTL=0 TMM_CATEGORIES=/dev/null "$TMM" "$@"; }
 STATE="$SOCK_DIR/tmm-$(id -u)"
+EPC="$STATE/ep-$(cat "$ROOT/core/VERSION").cache"   # 0.9.2 — 좌석별 캐시는 버전별 파일(표시 규칙이 바뀐 뒤 옛 «?» 가 안 남게)
 cleanup() {
   env -u TMUX TMUX_TMPDIR="$SOCK_DIR" tmux kill-server 2>/dev/null || true
   rm -rf "$SOCK_DIR"
@@ -650,15 +651,15 @@ tmm split-close; sleep 0.3
 tm kill-session -t =SPLITW; rm -f "$STATE/mainpane" "$STATE/catw" "$STATE/tab" "$STATE/tabs" "$STATE/tabsel"
 
 # (zz) 부팅 속도 — 좌석별 캐시 · 직전 화면 즉시 부팅 · 종료 스캔의 lsof 범위 축소
-tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$STATE/ep.cache" "$STATE/rows.snap" "$STATE/bootstale"
+tmm view live >/dev/null; tmm mode time; rm -f "$STATE/tab" "$EPC" "$STATE/rows.snap" "$STATE/bootstale"
 r1="$(tmm rows-cur | cut -f2 | sort)"
-[ -s "$STATE/ep.cache" ] || { echo 'FAIL: (zz) ep.cache 가 안 만들어짐'; exit 1; }
-awk -F'\t' '$1=="TMM_VERIFY_A" && NF>=5' "$STATE/ep.cache" | grep -q . || { echo 'FAIL: (zz) ep.cache 에 좌석 행(세션·활동·pid·시각·표식)이 없음'; cat "$STATE/ep.cache"; exit 1; }
+[ -s "$EPC" ] || { echo 'FAIL: (zz) ep.cache 가 안 만들어짐'; exit 1; }
+awk -F'\t' '$1=="TMM_VERIFY_A" && NF>=5' "$EPC" | grep -q . || { echo 'FAIL: (zz) ep.cache 에 좌석 행(세션·활동·pid·시각·표식)이 없음'; cat "$EPC"; exit 1; }
 r2="$(tmm rows-cur | cut -f2 | sort)"
 [ "$r1" = "$r2" ] || { echo 'FAIL: (zz) 캐시 적중 후 목록이 달라짐'; exit 1; }
 # 캐시 적중이면 좌석별 캡처를 안 한다 — 캐시 행을 위조하면 그 값이 그대로 나와야 한다(재계산했다면 진짜 값)
-cp "$STATE/ep.cache" "$STATE/ep.cache.bak"
-awk -F'\t' 'BEGIN{OFS="\t"} $1=="TMM_VERIFY_A"{$4=1700000000; $5=":"} {print}' "$STATE/ep.cache.bak" > "$STATE/ep.cache"
+cp "$EPC" "$EPC.bak"
+awk -F'\t' 'BEGIN{OFS="\t"} $1=="TMM_VERIFY_A"{$4=1700000000; $5=":"} {print}' "$EPC.bak" > "$EPC"
 tmm rows time | awk -F'\t' '$2=="TMM_VERIFY_A"{print $1}' | grep -q '[0-9][0-9]:[0-9][0-9]' && tmm rows time | awk -F'\t' '$2=="TMM_VERIFY_A"{print $1}' | grep -qE '[0-9]+d *[^ ]*$' \
   || { echo 'FAIL: (zz) 캐시 값이 쓰이지 않음(매번 재계산)'; tmm rows time | grep VERIFY_A; exit 1; }
 # 활동이 바뀌면(캐시 키 불일치) 다시 계산한다
@@ -678,7 +679,7 @@ tmm boot-reload | grep -q 'reload(' || { echo 'FAIL: (zz) boot-reload 가 reload
 [ -z "$(tmm boot-reload)" ] || { echo 'FAIL: (zz) 스냅샷 부팅이 아니면 boot-reload 는 빈 출력이어야 함'; exit 1; }
 touch -t 202001010000 "$STATE/rows.snap"; tmm rows-boot | cut -f2 | grep -q 'FAKE_SNAP_SESSION' && { echo 'FAIL: (zz) 30분 넘은 스냅샷을 씀'; exit 1; }
 tmm mode wait h; printf 'FAKE\tFAKE_SNAP_SESSION\tFAKE\n' > "$STATE/rows.snap"; tmm rows-boot | grep -q 'FAKE_SNAP_SESSION' && { echo 'FAIL: (zz) 시간순이 아닌 모드에서 스냅샷을 씀'; exit 1; }
-tmm mode time; rm -f "$STATE/rows.snap" "$STATE/bootstale" "$STATE/ep.cache" "$STATE/ep.cache.bak"
+tmm mode time; rm -f "$STATE/rows.snap" "$STATE/bootstale" "$EPC" "$EPC.bak"
 grep -q '"lsof", "-Fn", "-c", "claude"' "$ROOT/core/libexec/tmm-dead-scan.py" || { echo 'FAIL: (zz) dead-scan lsof 가 전체 스캔으로 되돌아감(5초)'; exit 1; }
 
 # (zc) 탭별 커서 기억 · 세션명 추적 — 탭을 옮겼다 돌아오면 그 탭에서 마지막으로 있던 세션에 커서가 간다(전엔 늘 맨 위 · 줄 전체로 추적해 갱신마다 튐)
@@ -826,5 +827,24 @@ eval "$(sed -n '/^restore_cmd_for()/,/^}/p;/^with_1m()/p' "$TMM")"
 restore_cmd_for nosuch '' S N '' >/dev/null 2>&1 && { echo 'FAIL: (pi) 미지원 에이전트가 통과함'; exit 1; }
 grep -q '^  *case "\$agent" in claude|codex|opencode|cmd|pi)' "$TMM" || { echo 'FAIL: (pi) fork 지원 에이전트 목록에 pi 없음'; exit 1; }
 grep -q 'pi|\*/pi|pi\\ \*|\*pi-coding-agent\*) echo pi' "$TMM" || { echo 'FAIL: (pi) live_agent_of 에 pi 분기 없음'; exit 1; }
+
+# (pi2) pi 좌석 표시(0.9.2) — 모델 칸·상태. 2026-10-20 오빠 «파이가 첫 투입됐는데 tmm에 도구 이름이 노출이 안된다 · 상태도 정상 표시되는지»
+#   원인: ①pi 는 프로세스 이름이 `pi` 로 바뀌어 argv 에 --model 이 없다(모델 칸 `?`) ②seat-scan 은 Claude 하단 줄이 있어야 IDLE 이라 pi 는 영영 BUSY.
+eval "$(sed -n '/^pi_footer_model()/,/^}/p;/^model_short()/,/^}/p' "$TMM")"
+for pair in 'opengateway/deepseek/deepseek-v4.1-flash-ultrafast:ds41fu' 'openrouter/deepseek/deepseek-v4-pro:ds4p' 'openrouter/deepseek/deepseek-v4-flash:ds4f' 'opencode/deepseek-v4.1-flash-free:ds41ff' 'claude-opus-5-5[1m]:op55·1m' 'gpt-6.1-sol:sol'; do
+  got="$(model_short "${pair%:*}")"; [ "$got" = "${pair##*:}" ] || { echo "FAIL: (pi2) model_short ${pair%:*} → '$got' (기대 ${pair##*:})"; exit 1; }
+done
+[ "$(model_short '')" = '?' ] || { echo 'FAIL: (pi2) 빈 모델은 ?'; exit 1; }
+[ "$(printf '%s\n' '~/p (pi/master) • aifp-pi-master-pi#0' '↑171k ↓42k R6.6M CH99.8% 10.0%/1.0M (auto)  deepseek/deepseek-v4.1-flash-ultrafast • high' | pi_footer_model)" = 'deepseek/deepseek-v4.1-flash-ultrafast' ] || { echo 'FAIL: (pi2) pi_footer_model'; exit 1; }
+[ -z "$(printf '%s\n' 'ctx:44% | Sonnet 5.5 high | x' | pi_footer_model)" ] || { echo 'FAIL: (pi2) claude 하단 줄에서 pi 모델이 나옴'; exit 1; }
+# seat-scan — pi 하단 줄 + 점자 스피너 Working = BUSY · 스피너 없음 = IDLE (격리 tmux · 가짜 화면)
+PIFOOT='↑1k ↓1 R2k CH90.0% 1.0%/1.0M (auto)  deepseek/deepseek-v4.1-flash-ultrafast'
+tm new-session -d -s PIBUSY "printf '%s\n' 'x' '── ⠦ Working ───────' '~/p (b) • PIBUSY' '$PIFOOT'; sleep 600"
+tm new-session -d -s PIIDLE "printf '%s\n' 'x' '────────────────' '~/p (b) • PIIDLE' '$PIFOOT'; sleep 600"
+sleep 0.6
+SCANOUT="$(env -u TMUX TMUX_TMPDIR="$SOCK_DIR" bash "$SCAN" 2>/dev/null)"
+printf '%s\n' "$SCANOUT" | awk '$1=="PIBUSY"{print $2}' | grep -qx BUSY || { echo "FAIL: (pi2) Working 스피너가 있는 pi 좌석이 BUSY 가 아님: $(printf '%s\n' "$SCANOUT" | grep PIBUSY)"; exit 1; }
+printf '%s\n' "$SCANOUT" | awk '$1=="PIIDLE"{print $2}' | grep -qx IDLE || { echo "FAIL: (pi2) 스피너 없는 pi 좌석이 IDLE 이 아님: $(printf '%s\n' "$SCANOUT" | grep PIIDLE)"; exit 1; }
+tm kill-session -t =PIBUSY 2>/dev/null; tm kill-session -t =PIIDLE 2>/dev/null
 
 echo "✅ tmm verify OK"
