@@ -106,6 +106,7 @@ tests/test_queue_state_r528.sh	ft-autonomy.sh,ft-proxy-decide.sh	yes	no
 tests/test_raised_card_state_three_places.sh	ft-tick.sh,ft_team_lib.py	no	no
 tests/test_raised_seat.sh	ft-resource-gate.sh,ft-tick.sh,ft_team_lib.py	no	no
 tests/test_real_state_guard_r541.sh	ft-autonomy.sh	no	no
+tests/test_reap_agent_pi_r542.sh	ft-wt-sweep.sh	no	no
 tests/test_resource_cause.sh	ft-disk-alarm.sh,ft-resource-cause.sh,ft-resource-watch.sh	yes	no
 tests/test_resource_cpu_owner.sh	ft-resource-cause.sh,ft-resource-watch.sh	yes	no
 tests/test_resource_gate.sh	ft-resource-gate.sh,ft-resource-sample.sh,ft-resource-watch.sh,ft-successor-open.sh	yes	no
