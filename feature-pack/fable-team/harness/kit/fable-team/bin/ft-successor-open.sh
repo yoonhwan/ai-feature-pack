@@ -75,7 +75,7 @@ hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$
 [ "$(sed -n '1,3p' "$BODY" | grep -c '[^[:space:]]')" = 3 ] || { echo "REJECT 본문 첫 3줄(골 원문)이 비었다: $BODY"; exit 1; }
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
 case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — 방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>"; exit 1; };; esac
-# ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 27줄 원문 구절 없으면 열지 않는다 ② 팀 직발 예시(send byz-<planner 아닌 팀>-…) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
+# ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 27줄 원문 구절 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
 #   원문은 «origin/main» 에서 읽는다(못 읽으면 REJECT · fail-closed) · 판정기 하나 = python 인라인 · planner·다른 역할 승계는 이 문 밖.
 if [ "${NAME#*-desk-}" != "$NAME" ]; then
   _gref="${FT_GUIDE_REF:-origin/main}"; _gpath="${FT_GUIDE_PATH:-design/teams/planner/GUIDE-planner.md}"; _gline="${FT_GUIDE_LINE:-27}"
@@ -91,7 +91,7 @@ if not m:
 core = " ".join(m.group(0).split())
 if core not in " ".join(" ".join(lines[:10]).split()):
     print("REJECT desk 승계 본문 첫 10줄에 planner 안내서 %s줄 원문 구절이 없다 — 이 줄을 그대로 옮겨 적어라: 「%s」" % (ln, core)); sys.exit(3)
-bad = sorted({x.group(1) for x in re.finditer(r"send\s+((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
+bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"`]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
 if bad:
     print("REJECT desk 승계 본문에 팀 직발 예시가 있다(%s) — desk 는 planner 에게만 보낸다: 그 줄을 지우고 planner 주소로 바꿔라" % ", ".join(bad)); sys.exit(3)
 sys.exit(0)

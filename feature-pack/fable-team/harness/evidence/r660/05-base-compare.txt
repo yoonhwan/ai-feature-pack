@@ -1,14 +1,14 @@
-# r660 base(origin/main) 대조 — 내가 안 고친 시험은 base 에서도 같은 빨강인가
+# r660 base(e79a4128) 대조 — 내가 안 고친 시험은 base 에서도 같은 빨강인가
 
 == base test_mbox_v2_guard.sh rc=1 PASS=0 FAIL=12
-FAIL bash -n /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.r1qdcQvQJg/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh
-FAIL bash -n /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.r1qdcQvQJg/base/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh
+FAIL bash -n /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WaCW5G5PZQ/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh
+FAIL bash -n /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WaCW5G5PZQ/base/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh
 FAIL 두 사본 cmp 동일
-FAIL mbox.py 없음 → exit 2, rc=127 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.r1qdcQvQJg/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL mbox.py 없음 → exit 2, rc=127 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WaCW5G5PZQ/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
 FAIL 안내문 '설치용 사본'
 FAIL 안내문 '.fable-team/comm/mbox.sh'
-FAIL 가짜 mbox.py → rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Z8pjh6mr61/scripts-stub/mbox-v2.sh: No such file or directory (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.r1qdcQvQJg/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
-FAIL mbox.py 없음 → exit 2, rc=127 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.r1qdcQvQJg/base/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh)
+FAIL 가짜 mbox.py → rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.7L8wLmVerp/scripts-stub/mbox-v2.sh: No such file or directory (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WaCW5G5PZQ/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL mbox.py 없음 → exit 2, rc=127 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WaCW5G5PZQ/base/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh)
 FAIL 안내문 '설치용 사본'
 FAIL 안내문 '.fable-team/comm/mbox.sh'
 -- 고친 판 test_mbox_v2_guard.sh rc=1 PASS=0 FAIL=12
@@ -18,7 +18,7 @@ FAIL 두 사본 cmp 동일
 FAIL mbox.py 없음 → exit 2, rc=127 (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
 FAIL 안내문 '설치용 사본'
 FAIL 안내문 '.fable-team/comm/mbox.sh'
-FAIL 가짜 mbox.py → rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HJ1upYig82/scripts-stub/mbox-v2.sh: No such file or directory (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL 가짜 mbox.py → rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x5yljWGYFt/scripts-stub/mbox-v2.sh: No such file or directory (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
 FAIL mbox.py 없음 → exit 2, rc=127 (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh)
 FAIL 안내문 '설치용 사본'
 FAIL 안내문 '.fable-team/comm/mbox.sh'

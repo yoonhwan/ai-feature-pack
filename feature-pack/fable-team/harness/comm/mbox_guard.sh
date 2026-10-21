@@ -32,7 +32,7 @@ else guard_tmp_clean() { :; }; _guard_goal_lint() { local f="${1%%$'\n'*}"; prin
 if [ -f "$DIR/mbox_guard_lib.sh" ]; then source "$DIR/mbox_guard_lib.sh"; fi   # _ft_live_bin(R372) — 없으면 판정기 해석 실패 = fail-closed(REJECT)
 # 문 ④ DA 보류 2회(R387 · 판정 2282) · 문 ⑤ 아침 묶음 «결정» 줄 대리 시도 칸(R410 · 판정 2326) — 본체가 없으면(설치 순서) 그 머리는 fail-closed REJECT
 if [ -f "$DIR/mbox_guard_da.sh" ]; then source "$DIR/mbox_guard_da.sh"; else _guard_da_lint() { case "$1" in *-da-*) ;; *) return 0;; esac; printf '%s' "${2%%$'\n'*}" | grep -qE '^[[:space:]]*\[DA(②|⑥)' || return 0; echo "REJECT DA 보류 가드 본체 없음($DIR/mbox_guard_da.sh) — 설치 순서" >&2; return 3; }; fi
-if [ -f "$DIR/mbox_guard_morning.sh" ]; then source "$DIR/mbox_guard_morning.sh"; else _guard_morning_lint() { printf '%s' "${1%%$'\n'*}" | grep -qE '^[[:space:]]*\[아침 묶음' || return 0; echo "REJECT 아침 묶음 가드 본체 없음($DIR/mbox_guard_morning.sh) — 설치 순서" >&2; return 3; }; fi; if [ -f "$DIR/mbox_guard_desk.sh" ]; then source "$DIR/mbox_guard_desk.sh"; else _guard_desk_lint() { case "$1${3:-}" in *-desk-*) echo "REJECT desk 경로 가드 본체 없음($DIR/mbox_guard_desk.sh) — 설치 순서" >&2; return 3;; esac; return 0; }; fi   # 문 ⑥ desk 창구 고정(r660 · 판정 1125) · 200줄 상한 때문에 source 를 이 줄에 붙인다(본체 = mbox_guard_desk.sh)
+if [ -f "$DIR/mbox_guard_morning.sh" ]; then source "$DIR/mbox_guard_morning.sh"; else _guard_morning_lint() { printf '%s' "${1%%$'\n'*}" | grep -qE '^[[:space:]]*\[아침 묶음' || return 0; echo "REJECT 아침 묶음 가드 본체 없음($DIR/mbox_guard_morning.sh) — 설치 순서" >&2; return 3; }; fi
 guard_log() { mkdir -p "$GUARD_STATE" 2>/dev/null; printf '%s %s\n' "$(date -u +%FT%TZ)" "$2" >> "$GUARD_STATE/$1" 2>/dev/null || true; }
 
 # warn | reject — env FT_PLANNER_HEAD_MODE > queues.conf 의 planner_head_mode= > warn. 모르는 값은 warn.
@@ -193,7 +193,7 @@ guard_check() {
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
   _guard_bang_lint "$2" || return $?
   _guard_boot_lint "$2" || return $?
-  _guard_hold_lint "$2" || return $?; _guard_morning_lint "$2" "${4:-}" || return $?; _guard_desk_lint "$GUARD_TO" "$2" "${3:-}" "${4:-}" || return $?
+  _guard_hold_lint "$2" || return $?; _guard_morning_lint "$2" "${4:-}" || return $?
   _guard_da_lint "$GUARD_TO" "$2" "${4:-}" || return $?
   _guard_goal_lint "$2" "${3:-}" "${4:-}" || return $?
   return 0

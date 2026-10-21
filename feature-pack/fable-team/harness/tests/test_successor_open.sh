@@ -217,6 +217,11 @@ BODY_USE="$TMP/desk_direct.txt"; run SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '팀 직발 예시가 있다' "$TMP/out" && grep -q 'byz-harness-master-claude#92' "$TMP/out" \
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0" || bad "ⓣ 직발 rc=$RC out=$(cat "$TMP/out")"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: relay '\''byz-harness-master-claude#92'\'' /tmp/x "[발주] 이거 해라"\n' "$GUIDE_LINE" > "$TMP/desk_direct_q.txt"
+BODY_USE="$TMP/desk_direct_q.txt"; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '팀 직발 예시가 있다' "$TMP/out" && grep -q 'byz-harness-master-claude#92' "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓣ r660 따옴표 주소(relay + 작은따옴표) 직발 예시 → 열기 전 REJECT" || bad "ⓣ 따옴표 rc=$RC out=$(cat "$TMP/out")"
 BODY_USE="$TMP/desk_ok.txt"; run SEND_RC=0
 { [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q "successor=$DESK_NEW" "$TMP/out"; } \
   && ok "ⓣ r660 desk 본문 = 27줄 원문 포함 → 통과 · 송신 1" || bad "ⓣ ok rc=$RC out=$(cat "$TMP/out")"

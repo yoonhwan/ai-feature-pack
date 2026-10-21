@@ -1,65 +1,125 @@
-# r660 시험 — 고친 판 (고치기 전 = 01-before-base-test.txt)
+# r660 시험 — 고친 판 (고치기 전 = 01-before-base-test.txt · base e79a4128)
 
-## ⓑ~ⓖ tests/test_r660_desk_route.sh
+## ⓑ~ⓘ tests/test_r660_desk_route.sh (세 길: 키트·우편함·python 직접)
 PASS desk→팀장 보통 [kit] rc=3 큐증감=0
 PASS desk→팀장 보통 [comm] rc=3 큐증감=0
+PASS desk→팀장 보통 [py] rc=3 큐증감=0
+PASS desk→팀장 [HIL] [kit] rc=3 큐증감=0
+PASS desk→팀장 [HIL] [comm] rc=3 큐증감=0
+PASS desk→팀장 [HIL] [py] rc=3 큐증감=0
+PASS desk→팀장 [긴급] [kit] rc=3 큐증감=0
+PASS desk→팀장 [긴급] [comm] rc=3 큐증감=0
+PASS desk→팀장 [긴급] [py] rc=3 큐증감=0
 PASS desk→팀 좌석 [kit] rc=3 큐증감=0
 PASS desk→팀 좌석 [comm] rc=3 큐증감=0
+PASS desk→팀 좌석 [py] rc=3 큐증감=0
+PASS 옛 desk 다른 베이스→팀장 [kit] rc=3 큐증감=0
+PASS 옛 desk 다른 베이스→팀장 [comm] rc=3 큐증감=0
+PASS 옛 desk 다른 베이스→팀장 [py] rc=3 큐증감=0
 PASS desk→planner master [kit] rc=0 큐증감=1
 PASS desk→planner master [comm] rc=0 큐증감=1
-PASS desk→[HIL] 팀장 [kit] rc=0 큐증감=1
-PASS desk→[HIL] 팀장 [comm] rc=0 큐증감=1
+PASS desk→planner master [py] rc=0 큐증감=1
+PASS desk→planner master [HIL] [kit] rc=0 큐증감=1
+PASS desk→planner master [HIL] [comm] rc=0 큐증감=1
+PASS desk→planner master [HIL] [py] rc=0 큐증감=1
 PASS 팀장→desk 보통 [kit] rc=3 큐증감=0
 PASS 팀장→desk 보통 [comm] rc=3 큐증감=0
-PASS 팀장→desk [HIL] [kit] rc=0 큐증감=1
-PASS 팀장→desk [HIL] [comm] rc=0 큐증감=1
-PASS 팀장→desk [h7 결과] 기록 있음 [kit] rc=0 큐증감=1
-PASS 팀장→desk [h7 결과] 기록 있음 [comm] rc=0 큐증감=1
-PASS 팀장→desk [h8 결과] 기록 없음 [kit] rc=3 큐증감=0
-PASS 팀장→desk [h8 결과] 기록 없음 [comm] rc=3 큐증감=0
-PASS 팀장→desk [h7 결과] 2줄 [kit] rc=3 큐증감=0
-PASS 팀장→desk [h7 결과] 2줄 [comm] rc=3 큐증감=0
+PASS 팀장→desk 보통 [py] rc=3 큐증감=0
 PASS 팀장→desk [긴급] [kit] rc=3 큐증감=0
 PASS 팀장→desk [긴급] [comm] rc=3 큐증감=0
+PASS 팀장→desk [긴급] [py] rc=3 큐증감=0
+PASS 팀장→desk [HIL] [kit] rc=0 큐증감=1
+PASS 팀장→desk [HIL] [comm] rc=0 큐증감=1
+PASS 팀장→desk [HIL] [py] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 지정 있음 [kit] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 지정 있음 [comm] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 지정 있음 [py] rc=0 큐증감=1
+PASS 팀장→desk [h9 결과] .2 회전본 지정 [kit] rc=0 큐증감=1
+PASS 팀장→desk [h9 결과] .2 회전본 지정 [comm] rc=0 큐증감=1
+PASS 팀장→desk [h9 결과] .2 회전본 지정 [py] rc=0 큐증감=1
+PASS 팀장→desk [h5 결과] planner arch 발신 = 지정 아님 [kit] rc=3 큐증감=0
+PASS 팀장→desk [h5 결과] planner arch 발신 = 지정 아님 [comm] rc=3 큐증감=0
+PASS 팀장→desk [h5 결과] planner arch 발신 = 지정 아님 [py] rc=3 큐증감=0
+PASS 팀장→desk [h8 결과] 지정 없음 [kit] rc=3 큐증감=0
+PASS 팀장→desk [h8 결과] 지정 없음 [comm] rc=3 큐증감=0
+PASS 팀장→desk [h8 결과] 지정 없음 [py] rc=3 큐증감=0
+PASS 팀장→desk [h7abc 결과] 경계 [kit] rc=3 큐증감=0
+PASS 팀장→desk [h7abc 결과] 경계 [comm] rc=3 큐증감=0
+PASS 팀장→desk [h7abc 결과] 경계 [py] rc=3 큐증감=0
+PASS 팀장→desk [h7 결과] 2줄 [kit] rc=3 큐증감=0
+PASS 팀장→desk [h7 결과] 2줄 [comm] rc=3 큐증감=0
+PASS 팀장→desk [h7 결과] 2줄 [py] rc=3 큐증감=0
 PASS desk 계보 인계 [kit] rc=0 큐증감=1
 PASS desk 계보 인계 [comm] rc=0 큐증감=1
+PASS desk 계보 인계 [py] rc=0 큐증감=1
+PASS planner→desk [kit] rc=0 큐증감=1
+PASS planner→desk [comm] rc=0 큐증감=1
+PASS planner→desk [py] rc=0 큐증감=1
 PASS 도구 발신→desk [kit] rc=0 큐증감=1
 PASS 도구 발신→desk [comm] rc=0 큐증감=1
+PASS 도구 발신→desk [py] rc=0 큐증감=1
 PASS slack→desk [kit] rc=0 큐증감=1
 PASS slack→desk [comm] rc=0 큐증감=1
+PASS slack→desk [py] rc=0 큐증감=1
 PASS planner→팀 [kit] rc=0 큐증감=1
 PASS planner→팀 [comm] rc=0 큐증감=1
+PASS planner→팀 [py] rc=0 큐증감=1
 PASS 팀끼리 [kit] rc=0 큐증감=1
 PASS 팀끼리 [comm] rc=0 큐증감=1
-케이스                              kit(rc/큐)  comm(rc/큐) 같음
-desk→팀장 보통                   rc=3/d=0     rc=3/d=0     O
-desk→팀 좌석                      rc=3/d=0     rc=3/d=0     O
-desk→planner master                  rc=0/d=1     rc=0/d=1     O
-desk→[HIL] 팀장                    rc=0/d=1     rc=0/d=1     O
-팀장→desk 보통                   rc=3/d=0     rc=3/d=0     O
-팀장→desk [HIL]                    rc=0/d=1     rc=0/d=1     O
-팀장→desk [h7 결과] 기록 있음 rc=0/d=1     rc=0/d=1     O
-팀장→desk [h8 결과] 기록 없음 rc=3/d=0     rc=3/d=0     O
-팀장→desk [h7 결과] 2줄         rc=3/d=0     rc=3/d=0     O
-팀장→desk [긴급]                 rc=3/d=0     rc=3/d=0     O
-desk 계보 인계                     rc=0/d=1     rc=0/d=1     O
-도구 발신→desk                   rc=0/d=1     rc=0/d=1     O
-slack→desk                           rc=0/d=1     rc=0/d=1     O
-planner→팀                          rc=0/d=1     rc=0/d=1     O
-팀끼리                              rc=0/d=1     rc=0/d=1     O
-PASS ⓖ 두 길 결과 표 동일(rc·큐 증감·판정 전부)
-PASS ⓖ 판정기 1개(ft_desk_route_gate.py)를 두 길이 부름
+PASS 팀끼리 [py] rc=0 큐증감=1
+케이스                                    kit(rc/큐)  comm(rc/큐) python(rc/큐) 같음
+desk→팀장 보통                         rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→팀장 [HIL]                          rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→팀장 [긴급]                       rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→팀 좌석                            rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+옛 desk 다른 베이스→팀장           rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→planner master                        rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→planner master [HIL]                  rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk 보통                         rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [긴급]                       rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [HIL]                          rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7 결과] 지정 있음      rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h9 결과] .2 회전본 지정 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h5 결과] planner arch 발신 = 지정 아님 rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [h8 결과] 지정 없음      rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [h7abc 결과] 경계          rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [h7 결과] 2줄               rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk 계보 인계                           rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+planner→desk                               rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+도구 발신→desk                         rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+slack→desk                                 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+planner→팀                                rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀끼리                                    rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+PASS ⓖ 세 길 결과 표 동일(rc·큐 증감·판정 전부)
+PASS ⓖ 판정기 1개(ft_desk_route_gate.py)를 키트·우편함 두 python 이 부름
 PASS ⓖ 사람 말 사유 문구 = 판정기 1곳에만(호출부 0)
-PASS relay desk→팀장 REJECT · 큐 적재 0
-PASS relay 팀장→desk [h7 결과] 기록 있음 = 통과
-PASS ⓕ seats-planner.json 없음 → 판정 0 · 통과 · WARN
+PASS ⓘ 지정 기록이 h7abc 뿐 → [h7 결과] REJECT(경계 = 비단어 문자)
+PASS ⓘ 여러 줄 전문 relay + [h7 결과] → comm REJECT · 큐 0
+PASS ⓘ 여러 줄 전문 relay + [h7 결과] → kit REJECT · 큐 0
+PASS ⓘ relay 는 요약 1줄 + 전문 1줄 = 2줄 → h 예외 불가 REJECT(전문까지 «1줄» 이어야 통과 · DA⑥ r1 ⓑ③)
+PASS ⓘ relay desk→팀장 REJECT · 큐 0
+PASS ⓗ 판정기 예외 주입 → kit REJECT · 큐 0 · 사유 DESK_ROUTE_GATE_ERROR
+PASS ⓗ 판정기 예외 주입 → comm REJECT · 큐 0 · 사유 DESK_ROUTE_GATE_ERROR
+PASS ⓗ 판정기 예외 주입 → py REJECT · 큐 0 · 사유 DESK_ROUTE_GATE_ERROR
+PASS ⓗ 판정기 파일 없음 → comm desk 쪽지 REJECT(설치 순서 · fail-closed)
+PASS ⓗ 판정기 파일 없음 → py desk 쪽지 REJECT(설치 순서 · fail-closed)
+PASS ⓕ seats-planner.json 없음 → kit 판정 0 · 통과 · WARN
+PASS ⓕ seats-planner.json 없음 → comm 판정 0 · 통과 · WARN
+PASS ⓕ seats-planner.json 없음 → py 판정 0 · 통과 · WARN
 PASS ⓕ _desk 칸 없음 → 판정 0 · 통과 · WARN
-PASS ⓕ 깨진 명부 → 판정기 rc0 · 판정 0 WARN(막지 않음)
+PASS ⓕ 깨진 명부 → kit 판정기 WARN(판정 0 문구 확인 · 수신자 판정 D3 는 별개)
+PASS ⓕ 깨진 명부 → comm 판정기 WARN(판정 0 문구 확인 · 수신자 판정 D3 는 별개)
+PASS ⓕ 깨진 명부 → py 판정기 WARN(판정 0 문구 확인 · 수신자 판정 D3 는 별개)
+PASS ⓕ 받는 쪽 desk + 깨진 명부 → kit = desk 문 판정 0 · 통과(카드 ⓕ 정책)
+PASS ⓕ 받는 쪽 desk + 깨진 명부 → comm = 수신자 판정 D3 가 거절(R97 · base 와 동일 동작 · 이 카드 무변경 — desk 문은 판정 0)
+깨진 명부[comm] rc=0 판정0=yes — WARN 명부 seats-planner.json 읽기 실패 · 이 판정에는 미사용
+깨진 명부[kit] rc=0 판정0=yes — WARN desk 경로 판정 0 — seats-planner.json 없음/깨짐(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zarYVkIoQ8/root.broken/.fable-team) · 이 문은 통과시킨다
+깨진 명부[py] rc=0 판정0=yes — WARN desk 경로 판정 0 — seats-planner.json 없음/깨짐(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zarYVkIoQ8/root.broken/.fable-team) · 이 문은 통과시킨다
 ALL PASS
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
 rc=0
 
-## ⓗ tests/test_successor_open.sh (기존 ⓐ~ⓢ + 새 ⓣ)
+## ⓗ tests/test_successor_open.sh (기존 ⓐ~ⓢ + r660 ⓣ 6건)
 PASS bash -n
 PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
 PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
@@ -85,6 +145,7 @@ PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
 PASS ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0
+PASS ⓣ r660 따옴표 주소(relay + 작은따옴표) 직발 예시 → 열기 전 REJECT
 PASS ⓣ r660 desk 본문 = 27줄 원문 포함 → 통과 · 송신 1
 PASS ⓣ planner 역할 승계 = 이 문 밖(판정 불변 · GUIDE 줄 없어도 송신 1)
 PASS ⓣ r660 GUIDE 원문을 못 읽음 → REJECT · open·송신 0(fail-closed)

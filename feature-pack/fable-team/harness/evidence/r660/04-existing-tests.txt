@@ -1,4 +1,4 @@
-# r660 인접 시험(광역 0) — 고친 판
+# r660 인접 시험(광역 0 · 이 카드가 건드린 파일을 부르는 시험만) — 고친 판
 
 == test_mbox_guard.sh rc=0 PASS=130 FAIL=0
 == test_mbox_guard_live_bin.sh rc=0 PASS=1 FAIL=0

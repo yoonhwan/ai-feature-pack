@@ -447,29 +447,38 @@ def _guard_verdict(to, frm, body, dispatch=False):
     return None
 
 
-def _desk_verdict(to, frm, body):
-    """desk 판정기(ft_desk_route_gate.py) 호출 — 통과면 None, 막으면 (reason, hint). desk 무관이면 부르지 않는다."""
-    if "-desk-" not in to and "-desk-" not in frm:
-        return None
-    gate = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ft_desk_route_gate.py")
+def _desk_verdict(to, frm, body, attach=""):
+    """desk 판정기(ft_desk_route_gate.py) 호출 — 통과면 None, 막으면 (reason, hint).
+    ★판정 자리 = python send 층 하나★(r660 · DA⑥ r1 ⓒ) — 셸·python 직접·relay 전부 여기를 지난다. 판정기 고장 = REJECT(fail-closed).
+    유일한 예외 = 판정기 «파일 없음»(설치 순서)일 때 이름에 -desk- 가 걸린 쪽지만 막는 것."""
+    gate = os.environ.get("FT_DESK_GATE") or os.path.join(os.path.dirname(os.path.realpath(__file__)), "ft_desk_route_gate.py")
     hint = "desk 는 planner 에게만 보내고, desk 에는 planner 가 보냅니다(planner 안내서 27줄) — 그 밖 길은 planner 를 거치세요."
     if not os.path.isfile(gate):
-        return ("DESK_ROUTE_GATE_MISSING 판정기 없음(%s) — 설치 순서 · desk 쪽지 통과 0" % gate, hint)
-    tmp = os.path.join(RELAY_DIR, ".desk-route-%d-%d.txt" % (os.getpid(), int(time.time() * 1000) % 100000))
+        if "-desk-" in to or "-desk-" in frm:
+            return ("DESK_ROUTE_GATE_MISSING 판정기 없음(%s) — 설치 순서 · desk 쪽지 통과 0" % gate, hint)
+        sys.stderr.write("WARN desk 경로 판정기 없음(%s) — 설치 순서 · desk 무관 쪽지 통과\n" % gate)
+        return None
+    os.makedirs(RELAY_DIR, exist_ok=True)
+    stamp = "%d-%d" % (os.getpid(), int(time.time() * 1000) % 100000)
+    bf = os.path.join(RELAY_DIR, ".desk-route-%s.txt" % stamp)
+    af = os.path.join(RELAY_DIR, ".desk-route-%s-attach.txt" % stamp) if attach else ""
     try:
-        os.makedirs(RELAY_DIR, exist_ok=True)
-        with open(tmp, "w", encoding="utf-8") as f:
+        with open(bf, "w", encoding="utf-8") as f:
             f.write(body)
-        r = subprocess.run(
-            [sys.executable, gate, "--to", to, "--from", frm, "--body-file", tmp,
-             "--seats-dir", os.path.dirname(CANON), "--comm", CANON],
-            capture_output=True, text=True, timeout=20,
-        )
+        cmd = [sys.executable, gate, "--to", to, "--from", frm, "--body-file", bf,
+               "--seats-dir", os.path.dirname(CANON), "--comm", CANON]
+        if af:
+            with open(af, "w", encoding="utf-8") as f:
+                f.write(attach)
+            cmd += ["--attach", af]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
     finally:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+        for x in (bf, af):
+            if x:
+                try:
+                    os.unlink(x)
+                except OSError:
+                    pass
     for line in (r.stderr or "").splitlines():
         if line.startswith("WARN "):
             sys.stderr.write(line + "\n")
@@ -481,15 +490,16 @@ def _desk_verdict(to, frm, body):
     return ("DESK_ROUTE_GATE_ERROR rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]), hint)
 
 
-def send(to, frm, body, force=False, dispatch=False):
+def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
     _check_name(to)
     _check_name(frm)
     # ★desk 창구 고정(r660 · 판정 1125)★ — 규칙은 「판정기 하나」(ft_desk_route_gate.py)다. 우편함 길(comm/mbox.sh)도 같은 파일을 부른다(두 벌 금지 · 카드 ⓖ).
     #   ★--force 로 안 풀린다★ — desk 방향은 재전송 규율이 아니라 길 자체의 문제다. 잠금 밖에서 판정(큐 무관).
     try:
-        desk = _desk_verdict(to, frm, body)
-    except Exception:
-        desk = None   # 판정기 고장 = 통과(fail-open · 기존 가드와 같은 원칙)
+        desk = _desk_verdict(to, frm, body, desk_attach)
+    except Exception as e:      # ★판정기 고장 = 통과가 아니다★(DA⑥ r1 ⓒ fail-closed · 두 길 같은 결론)
+        desk = ("DESK_ROUTE_GATE_ERROR %s — desk 경로 판정 실패" % type(e).__name__,
+                "desk 는 planner 에게만 보내고, desk 에는 planner 가 보냅니다(planner 안내서 27줄).")
 
     def op():
         if desk:
@@ -603,12 +613,19 @@ def relay(to, frm, path, summary, force=False):
         n += 1
         dest = "%s%d-%s" % (base, n, safe)
     shutil.copyfile(path, dest)
+    # 판정 재료에 «전문» 을 넣는다(r660 · DA⑥ r1 ⓑ③) — 요약 1줄에 여러 줄 전문을 붙여 h 결과 예외를 통과하는 길 0.
+    try:
+        with open(dest, encoding="utf-8", errors="replace") as f:
+            _full = f.read()
+    except OSError:
+        _full = ""
     # ★F3: relay 도 재발신 탈출구를 send 로 전달 — 힌트대로 --force 를 붙이면 실제로 풀리게.
     send(
         to,
         frm,
         "%s\n상세(전문): %s (%d B)" % (summary.strip(), dest, os.path.getsize(dest)),
         force=force,
+        desk_attach=_full,
     )
 
 

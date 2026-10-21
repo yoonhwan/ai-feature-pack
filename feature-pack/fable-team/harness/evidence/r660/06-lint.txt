@@ -1,22 +1,24 @@
 # r660 lint — 새 판 vs base
 
-## ruff check (새·고친 py 2)
-All checks passed!
-rc=0
-
-## ruff check base ft-mbox.py (대조)
+## ruff check (새·고친 py)
 All checks passed!
 
-## bash -n (고친 sh 5)
+## ruff comm/mbox_ops.py — 새 판 vs base 동수(기존 스타일 41 = 무변경)
+새 판: 41 errors · base: 41 errors (같음 = 이 카드가 새 오류 0 · 기존 스타일 41 그대로)
+
+## bash -n (고친 sh)
 ok comm/mbox_guard.sh
-ok comm/mbox_guard_desk.sh
 ok kit/fable-team/bin/ft-successor-open.sh
 ok tests/test_r660_desk_route.sh
 ok tests/test_successor_open.sh
 
 ## 줄 수(200줄 상한)
      200 comm/mbox_guard.sh
-      32 comm/mbox_guard_desk.sh
+     176 comm/mbox_ops.py
+      80 comm/mbox_desk_gate.py
      162 kit/fable-team/bin/ft-successor-open.sh
-     177 kit/fable-team/bin/ft_desk_route_gate.py
-     571 total
+     170 kit/fable-team/bin/ft_desk_route_gate.py
+     788 total
+
+## mbox_guard.sh = base 무변경(git diff 0)
+diff 줄 수:        0
