@@ -1,0 +1,25 @@
+FAIL ⓐ1 rc=1 :: 
+FAIL ⓐ2 :: 
+FAIL ⓐ3 :: 
+FAIL ⓐ4 :: ERROR 골 표 정본 git show 실패: fatal: path 'design/teams/planner/AUTONOMY-GOAL-A6-20261018.md' does not exist in 'c750bff380a5d97418b901d8d00a0483c6461
+FAIL ⓐ5 :: 
+FAIL ⓑ :: 
+FAIL ⓒ1 :: 
+FAIL ⓒ2 ::  / ERROR 골 표 정본 git show 실패: fatal: path 'design/teams/planner/AUTONOMY-GOAL-A6-20261018.md' does not exist in '2ffafba841f2927ad9524bd74e98b9a1553fb
+FAIL ⓓ :: 
+PASS ⓓ2 FT_GOAL_PROC_STALE_H 로 문턱을 바꾼다(24h 기본)
+FAIL ⓔ1 :: 
+FAIL ⓔ2 :: 
+FAIL ⓔ3 :: 
+FAIL ⓕ :: 
+FAIL ⓕ2 :: 
+FAIL ⓖ1        0B :: 
+FAIL ⓖ2 rc=1 :: ERROR 골 표 정본 표가 6행(칸 3개)이 아니다: 0행
+PASS ⓖ3 planner 폴더 못 풂(ref 없음) = rc1
+PASS ⓗ1 render 바이트 동일(메인 6줄 블록 무변경)
+PASS ⓗ2 teams 바이트 동일
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AttributeError: module 'ft_goal_table' has no attribute 'render_procs'. Did you mean: 'render_teams'?
+FAIL ⓗ3 순서 
+FAIL 17

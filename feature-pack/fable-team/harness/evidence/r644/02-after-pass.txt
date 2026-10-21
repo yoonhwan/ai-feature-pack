@@ -1,0 +1,22 @@
+PASS ⓐ1 rc0 · 머리 = ★표준절차 골 (<원장 sha10>)★
+PASS ⓐ2 a = «골 이름 · 담당 · 지금 단계(원장 행)»
+PASS ⓐ3 b = «… · 진행표 행 없음»
+PASS ⓐ4 stderr WARN 1줄(행 없는 골 파일 지목)
+PASS ⓐ5 꼬리 마커
+PASS ⓑ 새 골 파일 = 다음 렌더에 1줄 자동 추가(손 등록 0)
+PASS ⓒ1 «지금 단계» = 완료 + 실재 sha10 → «완성 1: 골-B» 1줄로 위로
+PASS ⓒ2 sha 가 저장소에 없음 = 완성 아님 + WARN
+PASS ⓓ 24시간 넘게 안 바뀐 행 = «⚠ N시간 정지» + «정지 골 N: …» 1줄
+PASS ⓓ2 FT_GOAL_PROC_STALE_H 로 문턱을 바꾼다(24h 기본)
+PASS ⓔ1 진행표 «담당» 칸이 있으면 그 칸
+PASS ⓔ2 «담당» 칸이 없으면 골 파일 «담당:» 줄
+PASS ⓔ3 둘 다 없으면 «—»(조용히 빈칸 0)
+PASS ⓕ GOAL-*-<8자리>.md 만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없음 제외)
+PASS ⓕ2 골 파일 0개 = «표준절차 골 0» 1줄
+PASS ⓖ1 예산 1600B 안 — «지금 단계» 칸부터 줄임
+PASS ⓖ2 원장 못 읽음 = ERROR rc1(조용히 빈 블록 0)
+PASS ⓖ3 planner 폴더 못 풂(ref 없음) = rc1
+PASS ⓗ1 render 바이트 동일(메인 6줄 블록 무변경)
+PASS ⓗ2 teams 바이트 동일
+PASS ⓗ3 뉴스 첫 판 순서 = 골 표 → 팀별 완성 진행 → 표준절차 골(66 372 491)
+ALL PASS

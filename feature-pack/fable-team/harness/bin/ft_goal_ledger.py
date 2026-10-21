@@ -134,12 +134,14 @@ def _cells(line: str) -> list[str]:
     return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", body)]
 
 
-def table_rows(text: str, error: type[Exception], section: re.Pattern[str] = SECTION) -> list[list[str]] | None:
-    """절(기본 `## 메인 골 6줄` · R458 `## 팀별 완성 진행`) 아래 첫 표의 데이터 행(칸 분리) — 절이 없으면 None · 열 수가 머리 줄과 다른 행 = error."""
-    rows: list[list[str]] = []
+def table_with_header(text: str, error: type[Exception], section: re.Pattern[str] = SECTION) -> tuple[list[str], list[tuple[int, list[str]]]] | tuple[None, None]:
+    """절(기본 `## 메인 골 6줄` · R458 `## 팀별 완성 진행` · r644 `## 표준절차 골 진행표`) 아래 첫 표 = (머리 줄 칸, [(줄번호, 데이터 칸)]) — 절이 없으면 (None, None) · 열 수가 머리 줄과 다른 행 = error.
+    줄번호 = 1부터 센 파일 줄(r644: git blame 으로 «그 행 마지막 변경» 을 잰다)."""
+    rows: list[tuple[int, list[str]]] = []
+    head: list[str] = []
     inside = False
     width = 0
-    for ln in text.splitlines():
+    for lineno, ln in enumerate(text.splitlines(), 1):
         if section.match(ln):
             inside = True
         elif inside and ln.startswith("## "):
@@ -147,14 +149,20 @@ def table_rows(text: str, error: type[Exception], section: re.Pattern[str] = SEC
         elif inside and ln.startswith("|"):
             cells = _cells(ln)
             if not width:
-                width = len(cells)  # 첫 표 줄 = 머리 줄 → 열 수 기준
+                width, head = len(cells), cells  # 첫 표 줄 = 머리 줄 → 열 수 기준
             elif len(cells) != width:
                 raise error(f"ERROR 골 표 원장 열 수 {len(cells)}≠{width} (표 {len(rows) + 1}번째 데이터 줄 · `|` 글자는 `\\|` 로 적는다): {ln.strip()[:60]}")
             elif not set(cells[0]) <= set("-: "):
-                rows.append(cells)
+                rows.append((lineno, cells))
         elif inside and width:
             break
-    return rows if inside else None
+    return (head, rows) if inside else (None, None)
+
+
+def table_rows(text: str, error: type[Exception], section: re.Pattern[str] = SECTION) -> list[list[str]] | None:
+    """절 아래 첫 표의 데이터 행(칸 분리) — 절이 없으면 None · 열 수가 머리 줄과 다른 행 = error."""
+    head, rows = table_with_header(text, error, section)
+    return [cells for _line, cells in rows] if head is not None else None
 
 
 def _stale(text: str, now: datetime) -> tuple[str, bool]:

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# ft-goal-table.sh [render] | check <본문 파일|-> [--block-only] | teams — 자율 골 표(A6) 렌더 + 판정기 (R362). 실행은 ft_goal_table.py.
+# ft-goal-table.sh [render] | check <본문 파일|-> [--block-only] | teams | procs — 자율 골 표(A6) 렌더 + 판정기 (R362). 실행은 ft_goal_table.py.
 # teams = 원장 `## 팀별 완성 진행` 표 → 마커 2줄 블록(R458 · 표 없음 = 빈 출력 + stderr WARN rc0 · 거절 0).
+# procs = planner 팀 폴더의 날짜 붙은 골 파일 마다 1줄 → 마커 2줄 블록(r644 · «메인 골 6줄» 만 읽어 안 보이던 표준절차 골 · 원장·폴더 못 읽음 = ERROR rc1).
 # 상태 칸 = planner 원장 `## 메인 골 6줄` 표를 행 순번으로 자동 읽음(env FT_GOAL_A6_LEDGER · R371).
 # render 출력 = 마커 2줄 사이 표 1개(≤1600B) · check rc 0 = GOAL-OK · rc 3 = REJECT 골 없음 · 정본 이상 = ERROR rc 1.
 set -euo pipefail

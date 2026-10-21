@@ -20,7 +20,7 @@ from ft_goal_ledger import live_root  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
 from ft_news_digest import maybe_send  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
-from ft_news_post import goal_gate, is_draft, news_now, pending_now, publish, teams_block  # noqa: E402
+from ft_news_post import goal_gate, is_draft, news_now, pending_now, procs_block, publish, teams_block  # noqa: E402
 from ft_news_status import interval_s, last_status, mark_status, status_or_none  # noqa: E402
 from ft_news_watch import check_stale, locked  # noqa: E402
 from ft_team_lib import TeamPathError, team_rel  # noqa: E402
@@ -343,7 +343,7 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
             return 1, why
         extra, new = (status[0],) if status else (), parse_ledger(new_text) if diff else {}
         lead = " · ".join(x for x in (sync_note, decision_line(root)) if x)
-        parts = render_parts(now, new, diff, rel, extra, lead, goal_gate.goal_block(state.parent), teams_block()) if diff else []
+        parts = render_parts(now, new, diff, rel, extra, lead, goal_gate.goal_block(state.parent), teams_block() + procs_block()) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
         LOG.error("원장 뉴스 실패: %s", e)
         return 1, "원장 읽기 실패"
@@ -364,7 +364,7 @@ def _status_only(news: Path, state: Path, rel: str, cur: str, status, why: str) 
     if last and (last[0] == digest or (news_now() - last[1]).total_seconds() < interval_s()):
         return 0, why
     now = pending_now(state, "status", digest)
-    rc, posts = publish(news, state, render_parts(now, {}, [], rel, (block,), goal=goal_gate.goal_block(state.parent), teams=teams_block()), now, cur)
+    rc, posts = publish(news, state, render_parts(now, {}, [], rel, (block,), goal=goal_gate.goal_block(state.parent), teams=teams_block() + procs_block()), now, cur)
     if rc == 0 and not is_draft():
         mark_status(state, digest, now)
         maybe_send(env.ft_root(), state, now, [], build_blocks({}, [], (block,)), status, 1, posts)
