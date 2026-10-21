@@ -1,0 +1,14 @@
+r689 — ft-nano-spawn.sh 이름 규칙 읽기 «전» ft_teamset.py 존재·안내 검사 (base 팩 main 7db078e1)
+
+고침: bin/ft-nano-spawn.sh · kit/fable-team/bin/ft-nano-spawn.sh (두 사본 cmp 0) — :57 앞 1줄
+  [ -f "$HERE/ft_teamset.py" ] || REJECT «ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)» — :102 와 같은 글자
+  ft_teamset.py 만 본다 — :57 이 읽는 것은 그 하나. ft_spawn_queue.py 는 :102(FT_TEAMSET≠0 경로)가 그대로 본다 → FT_TEAMSET=0 동작 변경 0.
+
+ⓐ 실패 시험 먼저: 01-before-red.txt — [ft_teamset.py] FAILED (안내 없는 «나노 이름 규칙 … 못 읽음»)
+ⓑ 후판: 02-after-green.txt — missing_teamset_helper[ft_teamset.py·ft_spawn_queue.py] + ⓒ 3 passed rc=0 (시험 단언 변경 0)
+ⓒ 회귀 칸 추가: test_nano_spawn_teamset_present_but_unreadable_keeps_rule_reject — 가짜 ft_teamset.py exit 1 → 기존 «못 읽음» 문구 · 안내/«없음:» 0 · 부작용 0 · tmuxc 0
+ⓓ 인접: test_nano_team_env rc=0 · test_planner_nano_path rc=1 · test_spawn_hold rc=1
+   → 두 빨강은 base 7db078e1 에서도 같은 FAIL 줄(05-base-*.txt · spawn_hold 는 시각 값만 다름) — 이 변경과 무관, 별 고침 카드 후보
+test_ft_sibling_reject 전체: base 2 failed(03 비교 05-base-sibling-full) → 후판 1 failed
+   남은 1 = test_siblings_present_keeps_existing_path[ft-successor-open.sh] «REJECT mbox 짝 파일 없음 … mbox_doorbell.sh» — base 에도 있음, 별 고침 카드 후보
+press 필요: 없음

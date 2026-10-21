@@ -1,3 +1,7 @@
+## 2026-10-22 — `ft-nano-spawn.sh` 가 팀셋 도우미(`ft_teamset.py`)를 선행 읽기에서 못 읽으면 «런타임 `.fable-team/bin/` 에서 실행하라» 설치 안내 없이 그냥 REJECT 해서 원인을 못 찾았다 → 읽기 실패 REJECT 에도 설치 안내 한 줄을 붙임 (r689 · 1.1.198 · 결함 고침 · 판정 규칙 무변경)
+
+- 판정문 §177 · 증거 `harness/evidence/r689/` · 설치: 있음(키트 1파일 `ft-nano-spawn.sh` → LIVE_BIN 새 판 `cmp0` · 추적 짝 `harness/bin/` 같음) · 되돌림 = 이전 판.
+
 ## 2026-10-22 — 팀 경로 린트(`test_team_literal_paths2`)가 닫기 원장 표지를 경로로 오인해 빨강이었다 + 전팀 정지 통지가 명단 밖 팀에서 죽던 것 → `ft-nano-close.sh` 표지는 정규식 변수로 · `ft-successor-open.sh` 안내서 폴더와 `ft_all_stop.py` 팀 경로는 명단(`TEAMS.md`) ref 칸에서 · 명단 밖 팀은 팀 단위로 잡아 그 팀장만 `notify_failed` 로 기록하고 다음 팀 통지 계속 (r688 · 1.1.197 · 결함 고침) + 시험 픽스처 5곳이 착지된 r655 접두·r607 mbox 짝을 따라가도록 시험만 고침 (r687 · 시험만 · 설치 0)
 
 - 판정문 §175(r687)·§176(r688) · 증거 `harness/evidence/r687/`·`r688/` · 설치: 있음(키트 3파일 → LIVE_BIN 새 판 `cmp0` · 추적 짝 `harness/bin/` 같음) · 되돌림 = 이전 판.

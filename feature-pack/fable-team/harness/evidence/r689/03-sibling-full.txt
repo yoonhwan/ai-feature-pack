@@ -1,0 +1,28 @@
+...........F..................                                           [100%]
+=================================== FAILURES ===================================
+_______ test_siblings_present_keeps_existing_path[ft-successor-open.sh] ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-714/test_siblings_present_keeps_ex0')
+fakebin = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-714/test_siblings_present_keeps_ex0/fakebin')
+tool = 'ft-successor-open.sh'
+
+    @pytest.mark.parametrize("tool", CASES)
+    def test_siblings_present_keeps_existing_path(tmp_path: Path, fakebin: Path, tool: str) -> None:
+        args, cwd, env, _ = _prepare(tmp_path, tool, with_siblings=True)
+        (tmp_path / "bin" / "mbox.py").write_text(
+            'import sys\nprint("STUB", *sys.argv[1:])\n', encoding="utf-8"
+        ) if tool == "mbox-v2.sh" else None
+        r = _run(args, cwd, env)
+        out = r.stdout + r.stderr
+        assert HINT not in out, out
+        expected = CASES[tool][2]
+        if expected:
+>           assert expected in out, out
+E           AssertionError: REJECT mbox 짝 파일 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-714/test_siblings_present_keeps_ex0/repo/.fable-team/comm/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+E             
+E           assert 'REJECT tmuxc open 실패' in 'REJECT mbox 짝 파일 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-714/test_siblings_present_keeps_ex0/repo/.fable-team/comm/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)\n'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r689-nano-spawn-teamset-read-reject-miss/feature-pack/fable-team/harness/tests/scripts/test_ft_sibling_reject.py:202: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_sibling_reject.py::test_siblings_present_keeps_existing_path[ft-successor-open.sh]
+1 failed, 29 passed in 6.53s

@@ -230,6 +230,23 @@ def test_nano_spawn_missing_teamset_helper_rejects_before_side_effects(
     assert _calls(tmp_path) == "", "거절 전에 tmuxc 가 불렸다"
 
 
+def test_nano_spawn_teamset_present_but_unreadable_keeps_rule_reject(
+    tmp_path: Path, fakebin: Path
+) -> None:
+    """r689 ⓒ — ft_teamset.py 가 «있는데» 이름 규칙 읽기가 실패하면 설치 안내가 아니라 기존 «못 읽음» 문구로 REJECT."""
+    args, cwd, env, bindir = _prepare(tmp_path, "ft-nano-spawn.sh", with_siblings=True)
+    (bindir / "ft_teamset.py").write_text("import sys\nsys.exit(1)\n", encoding="utf-8")
+    env.pop("FT_TEAMSET")
+    before = _snapshot(bindir, cwd)
+    r = _run(args, cwd, env)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, (r.returncode, out)
+    assert "REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음:" in out, out
+    assert "없음:" not in out and HINT not in out, out
+    assert _snapshot(bindir, cwd) == before, "거절 뒤 새 파일이 생겼다"
+    assert _calls(tmp_path) == "", "거절 전에 tmuxc 가 불렸다"
+
+
 def test_successor_open_env_override_is_checked(tmp_path: Path, fakebin: Path) -> None:
     """env 로 바꾼 최종 경로가 없으면 기본 형제가 있어도 거절한다."""
     args, cwd, env, _ = _prepare(tmp_path, "ft-successor-open.sh", with_siblings=True)
