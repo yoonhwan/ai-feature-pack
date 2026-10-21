@@ -1,0 +1,33 @@
+== r668 설치 메모 (master 집행 몫)
+※ DA⑥ r1 고침(2026-10-22) 뒤 다시 잰 diffstat — 코드 변경은 `ft_goal_table.py`·`ft_goal_ledger.py` 2파일(공지 잠금·상한, 표 끝 멈춤, 번호표 대조, 절 경계, 빈 칸 ERROR) + 시험 2파일. 나머지는 c3c3ef91 그대로.
+
+1) 변경 파일 (키트 = 설치 원본 · 추적 짝 harness/bin/ 은 cmp0):
+  feature-pack/fable-team/CHANGES.md                 |  19 ++
+  .../fable-team/harness/bin/ft_goal_ledger.py       |  46 +++-
+  .../fable-team/harness/bin/ft_goal_table.py        | 183 ++++++++++++++--
+  .../fable-team/harness/bin/ft_news_html_lint.py    |  26 ++-
+  .../fable-team/harness/bin/ft_news_html_render.py  |  33 ++-
+  .../harness/kit/fable-team/bin/ft_goal_ledger.py   |  46 +++-
+  .../harness/kit/fable-team/bin/ft_goal_table.py    | 183 ++++++++++++++--
+  .../kit/fable-team/bin/ft_news_html_lint.py        |  26 ++-
+  .../kit/fable-team/bin/ft_news_html_render.py      |  33 ++-
+  .../kit/fable-team/templates/news-team-map.html    |  68 +-----
+  .../tests/scripts/test_news_drop_line_r603.py      |   4 +-
+  .../scripts/test_news_lint_quote_source_r594.py    |   6 +-
+  ...s_lint_rest_question_form_not_assertion_r602.py |   6 +-
+  .../tests/test_goal_count_follows_canon_r668.sh    | 238 +++++++++++++++++++++
+  .../harness/tests/test_goal_table_gate.sh          |  25 ++-
+  feature-pack/fable-team/manifest.json              |   2 +-
+  16 files changed, 774 insertions(+), 170 deletions(-)
+
+2) LIVE_BIN 반영: feature-pack/fable-team/harness/install.sh --apply (LIVE-MAP.tsv 의 bin 행 = 같음 blob 대조)
+   확인: ft-live-install-check.sh → 4파일 OK · cmp0
+   templates/news-team-map.html 은 LIVE 설치 대상 경로가 따로 있으면 그 자리도 같이(cmp0).
+
+3) 뉴스 데몬 RESTART (뉴스 HTML 렌더가 새 틀·새 lint 를 쓰게) — master 지시 사항, 이 카드는 데몬을 건드리지 않았다.
+
+4) 실사건 1(설치 뒤): planner 정본을 5행 판으로 교체 커밋 → ① ft-goal-table.sh rc0(5행) ② 발주 글에 골좌표: <1~5> GOAL-OK ③ 뉴스 1회 발행 rc0(«골 5개») ④ 전 팀장에게 «골 번호 바뀜 · 새 번호표 5줄» 쪽지 1통(좌석마다 1회).
+
+5) 되돌림: git revert 이 커밋 · LIVE_BIN 은 .bak-r668 판으로 되돌리고 뉴스 데몬 RESTART.
+
+세트: (커밋 sha — master 가 착지 뒤 채움)

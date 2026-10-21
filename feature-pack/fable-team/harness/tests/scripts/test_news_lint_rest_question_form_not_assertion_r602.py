@@ -14,15 +14,17 @@ os.environ.setdefault("FT_HERMES_SCRIPTS", str(KIT))
 
 import ft_news_html_lint as lint  # noqa: E402
 
+GOAL_N = 6  # r668 — 시험 견본의 골 수(린트는 상수 6 을 안 쓴다 · h2_titles(GOAL_N) 과 짝)
+
 
 def _html(unknown: list[str], working: int = 2) -> str:
     """확인 불가 블록(team unk) + 일하는 팀 카드 + 절 6 뼈대 — 다른 규칙에 안 걸리는 최소 HTML."""
     lis = "\n".join(f'      <li><div class="what"><strong>일 {i}</strong><span>가</span></div>'
                     f'<span class="who">t</span></li>' for i in (1, 2))
     work = '  <section class="goal work">\n    <p class="say">팀</p>\n  </section>\n' * working
-    goals = '  <section class="goal">\n    골\n  </section>\n' * lint.GOALS
+    goals = '  <section class="goal">\n    골\n  </section>\n' * GOAL_N
     unk = "".join(f'<div class="team unk"><strong>{t}</strong></div>' for t in unknown)
-    h2 = "".join(f"<h2>{h}</h2>" for h in lint.H2)
+    h2 = "".join(f"<h2>{h}</h2>" for h in lint.h2_titles(GOAL_N))
     return (f"<h1>{lint.H1}</h1>{h2}<section class=\"prio\">\n    <ol>\n{lis}\n    </ol>\n  </section>\n"
             f"{goals}{work}{unk}<p class=\"foot\">근거: 원장 · 자율 ON</p>")
 

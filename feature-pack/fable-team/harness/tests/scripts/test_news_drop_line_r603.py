@@ -18,6 +18,8 @@ os.environ.setdefault("FT_HERMES_SCRIPTS", str(ROOT / "harness" / "kit" / "slack
 
 import ft_news_html as fh  # noqa: E402
 import ft_news_html_lint as lint  # noqa: E402
+
+GOAL_N = 6  # r668 — 시험 견본의 골 수(린트는 상수 6 을 안 쓴다 · h2_titles(GOAL_N) 과 짝)
 import ft_news_html_render as fr  # noqa: E402
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
@@ -31,7 +33,7 @@ def _html(important: list[str], auto: str = "ON", working: int = 2, goals: int =
                     f'<span class="who">t</span></li>' for i, d in enumerate(important, 1))
     work = '  <section class="goal work">\n    <p class="say">팀</p>\n  </section>\n' * working
     goals_html = '  <section class="goal">\n    골\n  </section>\n' * goals
-    h2 = "".join(f"<h2>{h}</h2>" for h in lint.H2)
+    h2 = "".join(f"<h2>{h}</h2>" for h in lint.h2_titles(GOAL_N))
     return (f"<h1>{lint.H1}</h1>{h2}<section class=\"prio\">\n    <ol>\n{lis}\n    </ol>\n  </section>\n"
             f"{goals_html}{work}<p class=\"foot\">근거: 원장 · 자율 {auto}</p>")
 

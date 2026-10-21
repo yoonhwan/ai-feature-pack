@@ -13,6 +13,8 @@ os.environ.setdefault("FT_HERMES_SCRIPTS", str(KIT))
 
 import ft_news_html_lint as lint  # noqa: E402
 
+GOAL_N = 6  # r668 — 시험 견본의 골 수(린트는 상수 6 을 안 쓴다 · h2_titles(GOAL_N) 과 짝)
+
 APPROVAL = "사장님 승인을 기다리는 중"
 
 
@@ -20,8 +22,8 @@ def _html(important: list[str], auto: str = "ON", working: int = 2) -> str:
     lis = "\n".join(f'      <li><div class="what"><strong>일 {i}</strong><span>{d}</span></div>'
                     f'<span class="who">t</span></li>' for i, d in enumerate(important, 1))
     work = '  <section class="goal work">\n    <p class="say">팀</p>\n  </section>\n' * working
-    goals = '  <section class="goal">\n    골\n  </section>\n' * lint.GOALS
-    h2 = "".join(f"<h2>{h}</h2>" for h in lint.H2)
+    goals = '  <section class="goal">\n    골\n  </section>\n' * GOAL_N
+    h2 = "".join(f"<h2>{h}</h2>" for h in lint.h2_titles(GOAL_N))
     return (f"<h1>{lint.H1}</h1>{h2}<section class=\"prio\">\n    <ol>\n{lis}\n    </ol>\n  </section>\n"
             f"{goals}{work}<p class=\"foot\">근거: 원장 · 자율 {auto}</p>")
 

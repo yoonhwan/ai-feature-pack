@@ -1,0 +1,38 @@
+== ⓑ «후» 판(r668) — 같은 5행 정본이 rc0 · 새 번호표 · 뉴스 N행 · 번호 바뀜 공지 1통
+
+$ python3 harness/bin/ft_goal_table.py            # 골 표 렌더(5행 정본 = 방·강의 2줄 내리고 새 골 1줄 올린 판)
+★골 표 A6 (origin/main@77016cb536 · 원장:10-21 23:38)★
+| 골 | 팀 | 지금 상태 | 닫는 증거 |
+|---|---|---|---|
+| goal-1-test | 팀1 | 상태1 진행 | 착지 sha |
+| goal-2-test | 팀2 | 상태2 진행 | 착지 sha |
+| goal-3-test | 팀3 | 상태3 진행 | 착지 sha |
+| goal-4-test | 팀4 | 상태4 진행 | 착지 sha |
+| goal-5-test | 팀5 | 상태5 진행 | 착지 sha |
+★/골 표★
+rc=0
+
+$ ... check -  (골좌표: 1 / 5 / 6 — 5행 판)
+GOAL-OK n=1
+rc=0
+GOAL-OK n=5
+rc=0
+REJECT 골 없음 — 골좌표 번호와 골 원문이 안 맞는다(번호 1~5 · 원문 앞 12자 복붙) · 새 번호표 5줄: 1 — goal-1-test · 2 — goal-2-test · 3 — goal-3-test · 4 — goal-4-test · 5 — goal-5-test — 골좌표: 6 — goal-6-test
+rc=3
+
+$ 원장 5행 = ledger_state(N = 정본 행 수)
+('원장:10-21 23:38', {1: '상태1 진행', 2: '상태2 진행', 3: '상태3 진행', 4: '상태4 진행', 5: '상태5 진행'})
+
+$ ft_news_html_render.render(goals 5) + ft_news_html_lint.problems
+cards= 5 · 절 머리 «골 5개» = True · lint = []
+
+$ 정본·원장 6행 → 5행(번호표 바뀜) 첫 렌더 = 전 팀장 1통 · 같은 정본 sha 재렌더 = 추가 0
+(기준선 6행 렌더 = 공지 0 · mbox.log 없음: 예)
+mbox.log:
+send master-a#1 ft-goal-table [골 번호 바뀜] 정본 babc109c43 · 새 번호표 5줄: 1 — goal-1-test · 2 — goal-2-test · 3 — goal-3-test · 4 — goal-4-test · 5 — goal-5-test
+send master-b#2 ft-goal-table [골 번호 바뀜] 정본 babc109c43 · 새 번호표 5줄: 1 — goal-1-test · 2 — goal-2-test · 3 — goal-3-test · 4 — goal-4-test · 5 — goal-5-test
+같은 정본 sha 재렌더 뒤 줄 수: 2
+
+$ 증거 시험 1회
+PASS ⓗ2 린트 = 카드 수 ↔ «골 N개» 일치 · 불일치·상한 초과는 위반 문구
+== test_goal_count_follows_canon_r668: fail=0

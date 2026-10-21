@@ -1,0 +1,22 @@
+== ⓐ «전» 판(origin/main 03ae64a7) — 5행 정본(방·강의 2줄 내리고 새 골 1줄 올린 판)에서 멈추던 원문 (r668)
+※ 2026-10-22 정정(DA⑥ r1 H5③): 원장 줄의 오류 문구를 실제 출력(«원장 행 수 5≠6»)으로 바꾸고, 골 5개 HTML 의 base 린트 위반을 2종 전부 적는다.
+
+$ python3 <전판>/ft_goal_table.py                 # 골 표 렌더
+ERROR 골 표 정본 표가 6행(칸 3개)이 아니다: 5행
+rc=1
+
+$ python3 <전판>/ft_goal_table.py check -          # 골좌표 검사(5행 정본 · 마커 sha = 그 판 sha10)
+REJECT 골 없음 — 정본 대조 실패: ERROR 골 표 정본 표가 6행(칸 3개)이 아니다: 5행
+rc=3
+
+$ <전판> ft_goal_ledger.ledger_state(원장 5행)     # 원장 상태 칸 = 행 수 ≠6 이면 ERROR
+GoalError: ERROR 골 표 원장 행 수 5≠6 (gitref:origin/main:design/planner/PLAN-oppa-ledger.md 절 `## 메인 골 6줄` 첫 표)
+
+$ <전판> ft_news_html_render.check_content(goals 5개)
+NewsHtmlError: 응답 goals 5개 — 6개·done/now/left 글이어야
+
+$ <전판> ft_news_html_render.render(goals 5개)     # 틀 카드도 6장 고정 — G6 자리가 안 채워진다
+NewsHtmlError: 틀 값 못 채움: ['{{G6_TONE}}', '{{G6_HEAD}}', '{{G6_SAY}}']
+
+$ <전판> ft_news_html_lint.problems(카드 5장 html · «골 5개» 머리)   # 위반 2종
+['절 6 아님 — h1=['우리 팀들, 지금 어디쯤?'] h2=['골 5개', '지금 하는 일', '막힌 일', '쉬는 팀', '근거']', '골 5행 (6행이어야)']

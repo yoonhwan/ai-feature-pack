@@ -1,0 +1,19 @@
+== ⓘ 기존 시험 PASS (r668 변경 뒤 · base 대조는 04)
+
+--- test_goal_table_gate.sh : PASS=97 FAIL=1
+FAIL ⓕ r458 600/300 상한 등장
+--- test_goal_table_stale_r600.sh : PASS=11 FAIL=0
+== test_goal_table_stale_r600: fail=0
+--- test_goal_table_procs_r644.sh : PASS=21 FAIL=0
+--- test_goal_table_gitref_r545.sh : PASS=12 FAIL=0
+--- test_goal_check_ref.sh : PASS=40 FAIL=0
+== test_goal_check_ref: fail=0
+--- test_kit_bin_sync.sh : PASS=7 FAIL=0
+--- test_goal_count_follows_canon_r668.sh : PASS=22 FAIL=0
+== test_goal_count_follows_canon_r668: fail=0
+
+--- pytest (뉴스 HTML·린트)
+=========================== short test summary info ============================
+ERROR tests/scripts/test_ft_news_html.py::test_h_head_phrase_one_place_and_deadline_70
+57 passed in 24.11s
+(같은 묶음 2회 재실행 57 passed · 1회차 teardown ERROR = real_state_guard 지문 비교가 «다른 팀의 동시 커밋» 을 잡은 것 — 재실행에서 재현 0)

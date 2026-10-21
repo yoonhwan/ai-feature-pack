@@ -1,13 +1,17 @@
 """ft_goal_table — 자율 골 표(A6) 렌더 + 판정기 하나 (R362 · 쓰는 쪽 ft-goal-table.sh · 뉴스·매거진·쪽지 가드가 같은 함수를 부른다).
 
-render  : 정본 표(골 → 팀 → 닫는 증거 6행) + planner 원장 `## 메인 골 6줄` 표(행 순번 결속 · ft_goal_ledger) → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
-          골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/6행 아님 = `ERROR 골 표 정본 …` rc1.
-check   : 본문에 ⓐ마커 블록(6행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~6> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
+render  : 정본 표(골 → 팀 → 닫는 증거 N행 · N = 정본 표 행 수 · 1~FT_GOAL_MAX 기본 12 · r668) + planner 원장 `## 메인 골 …줄` 표(행 순번 결속 · ft_goal_ledger) → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
+          골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/N행 아님 = `ERROR 골 표 정본 …` rc1.
+          r668: 정본 sha 가 바뀌고 **골 번호표(행 수·순서)가 바뀐** 첫 렌더에서 전 팀장(명부 `_master` 전부)에게 «골 번호 바뀜 · 새 번호표» 1통(표식 `<루트>/.fable-team/state/goal-numbering.tsv` — 같은 정본 sha 로는 1회 · 실패 = WARN 1줄 · 렌더는 계속).
+          r668 H4: 표식 없는 첫 렌더에서도 정본이 6행(옛 고정)이 아니면 1통 · 읽기→송신→쓰기에 파일 잠금(동시 렌더 중복 0) · 깨진 명부 = WARN + 표식 전진 0 · 송신 1통 7초 상한.
+check   : 본문에 ⓐ마커 블록(N행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~N> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
+          r668: 거절 문구에 «새 번호표 N줄(번호 — 골 앞 12자)» 를 싣는다 — 번호가 바뀐 판을 만난 좌석이 그 자리에서 고친다.
+          r668 H2: 옛 마커 sha10 을 허용하는 것은 «현재 정본과 번호표(행 수·각 행 골 앞 12자)가 같을 때» 뿐이다(6→5행 바뀜 직후 옛 6행 블록이 통과하던 구멍).
           r600: gitref 정본이면 마커 sha 신선도도 본다 — 지금 ref 첫 부모 줄기에서 STALE_FP_MAX(12) 넘게 뒤 = `REJECT 골 표 낡음 — …` rc3 · 줄기에 없음 = rc3 · git 실패 = `REJECT 골 표 신선도 확인 실패` rc3(fail-closed · 파일 정본은 검사 생략).
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
           표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
-procs   : 원장 «메인 골 6줄» 만 읽어 안 보이던 오늘 등록 표준절차 골(r644) — planner 팀 폴더(ref 트리) 의 `GOAL-*-<8자리 날짜>.md` 마다 1줄(골 이름 = 파일 머리 `# 골 — …` · 담당 = 진행표 «담당» 칸 → 골 파일 `담당:` 줄 → `—`) · «지금 단계» = 원장 `## 표준절차 골 진행표` 의 «골 파일» 칸이 그 파일인 행(없으면 «진행표 행 없음» + stderr WARN) → 마커 2줄(`★표준절차 골 (<원장 sha10>)★` … `★/표준절차 골★`).
+procs   : 원장 «메인 골 …줄» 만 읽어 안 보이던 오늘 등록 표준절차 골(r644) — planner 팀 폴더(ref 트리) 의 `GOAL-*-<8자리 날짜>.md` 마다 1줄(골 이름 = 파일 머리 `# 골 — …` · 담당 = 진행표 «담당» 칸 → 골 파일 `담당:` 줄 → `—`) · «지금 단계» = 원장 `## 표준절차 골 진행표` 의 «골 파일» 칸이 그 파일인 행(없으면 «진행표 행 없음» + stderr WARN) → 마커 2줄(`★표준절차 골 (<원장 sha10>)★` … `★/표준절차 골★`).
           «지금 단계» 칸이 `완료` 로 시작하고 그 행에 저장소에 실재하는 sha10 이 있으면 그 골은 목록에서 빼 «완성 N: 이름들» 1줄로 위에 묶는다(sha 없음 = 완성 아님 + WARN). 행 `git blame` 시각이 `FT_GOAL_PROC_STALE_H`(24)시간을 넘으면 그 줄 끝 `⚠ N시간 정지` + 블록 끝 `정지 골 N: …` 1줄. 시계 = `FT_NOW`("YYYY-MM-DD HH:MM").
           예산 1600B 넘으면 «지금 단계» 칸부터 줄임(teams 와 같은 꼴) · 골 파일 0개 = `표준절차 골 0` 1줄 · 원장·폴더 못 읽음 = `ERROR` rc1(조용히 빈 블록 0) — 소비처는 실패를 WARN + 빈 글로 받는다(뉴스·매거진을 멈추지 않는다).
 정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/AUTONOMY-GOAL-A6-20261018.md` — r545: 체크아웃(LIVE_ROOT) 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 같은 꼴) · 저장소 = FT_GOAL_REPO(기본 FT_LEDGER_REPO · FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha. 머리에는 출처 종류(`origin/main@` | `file:`)를 sha10 앞에 붙인다(r545 · 옛 꼴 `(<sha10> · …)` 도 읽는다).
@@ -15,7 +19,9 @@ procs   : 원장 «메인 골 6줄» 만 읽어 안 보이던 오늘 등록 표�
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -24,7 +30,7 @@ import unicodedata
 from datetime import datetime
 from pathlib import Path
 
-from ft_goal_ledger import NO_STATE, default_spec, find_root, ledger_repo, ledger_spec, ledger_state, planner_ref, read_spec, table_rows, table_with_header
+from ft_goal_ledger import NO_STATE, default_spec, find_root, goal_max, ledger_repo, ledger_spec, ledger_state, planner_ref, read_spec, table_rows, table_with_header
 
 DEFAULT_NAME = "AUTONOMY-GOAL-A6-20261018.md"  # planner 팀 폴더 안(폴더는 ft_team_lib 가 푼다)
 BUDGET = 1600
@@ -44,6 +50,9 @@ PROCS_TITLE = re.compile(r"^#\s*골\s*[—–-]\s*(.+?)\s*$")
 PROCS_OWNER = re.compile(r"^[>\s]*담당\s*[:：]\s*(\S.*)$")
 SHORT_SHA = re.compile(r"(?<![0-9a-f])[0-9a-f]{10}(?![0-9a-f])")
 PROCS_STALE_H = 24
+RENUMBER_STATE = "goal-numbering.tsv"  # r668 — «골 번호 공지» 표식(같은 정본 sha 로 두 번 보내지 않는다)
+LEGACY_N = 6  # r668 H4: 예전 코드가 박아 둔 골 개수 — 표식 없는 첫 렌더에서 «바뀐 판인가» 의 기준
+NOTIFY_TIMEOUT = 7  # r668 H4: 송신 1통 상한(초) — mbox 가 멈춰도 렌더는 계속
 
 
 class GoalError(RuntimeError):  # RuntimeError — 뉴스 원장 실행의 기존 except(RuntimeError) 가 «발행 0» 으로 받는다
@@ -93,13 +102,30 @@ def load_canon() -> tuple[str, str, str]:
 
 
 def parse_rows(text: str) -> list[list[str]]:
-    """정본 표 «## 골 → 팀 → 닫는 증거» 의 6행 → 각 행의 칸 3개 `|`-분리 (골·팀·증거)."""
+    """정본 표 «## 골 → 팀 → 닫는 증거» 의 N행 → 각 행의 칸 3개 `|`-분리 (골·팀·증거) — N = 표의 데이터 행 수(1~FT_GOAL_MAX · r668).
+    r668 H1: 절 아래 «첫 표의 연속 행» 만 센다 — 빈 줄이나 다음 `##` 에서 멈춘다(뒤쪽 다른 절의 표가 N 을 부풀리지 않는다)."""
     sect = re.split(r"^##\s+골\s*→\s*팀\s*→\s*닫는 증거\s*$", text, maxsplit=1, flags=re.M)
-    rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in (sect[1].splitlines() if len(sect) > 1 else []) if ln.startswith("| ")]
-    rows = [r for r in rows if not r[0].startswith("골(")]
-    if len(rows) != 6 or any(len(r) != 3 or not all(r) for r in rows):
-        raise GoalError(f"ERROR 골 표 정본 표가 6행(칸 3개)이 아니다: {len(rows)}행")
+    rows: list[list[str]] = []
+    started = False
+    for ln in sect[1].splitlines() if len(sect) > 1 else []:
+        if not ln.startswith("|"):
+            if started:
+                break
+            continue
+        started = True
+        cells = [c.strip() for c in ln.strip().strip("|").split("|")]
+        if cells[0].startswith("골(") or all(set(c) <= set("-: ") for c in cells):
+            continue  # 머리 줄·구분선
+        rows.append(cells)
+    n, cap = len(rows), goal_max()
+    if not 1 <= n <= cap or any(len(r) != 3 or not all(r) for r in rows):
+        raise GoalError(f"ERROR 골 표 정본 표가 {n}행(칸 3개)이 아니다 — 1~{cap}행(FT_GOAL_MAX)이어야 한다: {n}행")
     return rows
+
+
+def numbering(rows: list[list[str]]) -> str:
+    """새 번호표 N줄 — «1 — <골 앞 12자> · 2 — …» (r668 · 번호가 바뀐 판을 만난 좌석이 그 자리에서 고친다)."""
+    return " · ".join(f"{i} — {_norm(r[0])[:12]}" for i, r in enumerate(rows, 1))
 
 
 def _ledger_show(spec: str) -> str | None:
@@ -114,14 +140,125 @@ def _cut(s: str, keep_all: bool = False) -> str:
     return s if keep_all or len(s) <= CELL else s[:CELL] + "…"
 
 
+def _root_state(root: Path, name: str) -> Path:
+    """표식 파일 = `<루트>/.fable-team/state/<name>` — 뉴스 기동 기록과 같은 자리(r510)."""
+    return root / ".fable-team" / "state" / name
+
+
+def _notify_root() -> Path | None:
+    """공지에 쓸 루트 = env FT_ROOT › find_root() · 없으면 None. ★렌더는 출처 env 만으로도 돈다★(예: 뉴스 시험 픽스처) — 공지 때문에 렌더를 죽이지 않는다(r668)."""
+    if env := os.environ.get("FT_ROOT"):
+        return Path(env)
+    try:
+        return _root()
+    except GoalError:
+        return None
+
+
+def _masters(root: Path) -> tuple[list[str], list[str]]:
+    """(전 팀장 이름들, 깨진 명부 파일 이름들) — 명부 `_master`(백업 `.bak*` 제외 · 중복 0).
+    r668 H4: 깨진 명부는 조용히 빼지 않고 둘째 값으로 돌려준다(부르는 쪽이 WARN + 표식 전진 0)."""
+    out: list[str] = []
+    bad: list[str] = []
+    for f in sorted((root / ".fable-team").glob("seats*.json")):
+        if ".bak" in f.name:
+            continue
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            bad.append(f.name)
+            continue
+        if not isinstance(data, dict):
+            bad.append(f.name)
+            continue
+        name = str(data.get("_master") or "").strip()
+        if name and name not in out:
+            out.append(name)
+    return out, bad
+
+
+def _renumber_sig(sha: str, rows: list[list[str]]) -> str:
+    """표식 한 줄 = «정본 sha10<TAB>번호표 지문» — 번호표 = 행 수·각 행 골 앞 12자(numbering)."""
+    return f"{sha}\t{hashlib.sha256(numbering(rows).encode('utf-8')).hexdigest()[:12]}"
+
+
+def _advance(mark: Path, sig: str) -> None:
+    try:
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        mark.write_text(sig + "\n", encoding="utf-8")
+    except OSError as e:
+        print(f"WARN 골 번호 공지 표식 못 씀 {mark}: {e}", file=sys.stderr)
+
+
+def _notify_once(root: Path, mark: Path, sha: str, rows: list[list[str]]) -> None:
+    """잠금 안에서 읽기 → (필요하면) 송신 → 표식 쓰기. 깨진 명부·송신 실패 = WARN · 표식 전진 0(다음 렌더가 다시 시도 · r668 H4③④)."""
+    sig = _renumber_sig(sha, rows)
+    try:
+        prev = mark.read_text(encoding="utf-8").strip()
+    except OSError:
+        prev = ""
+    if prev == sig:
+        return
+    old_sig = prev.partition("\t")[2]
+    # 표식 없음 = 설치 직후 첫 렌더 — 옛 고정(6행)과 다르면 바뀐 판으로 본다(r668 H4①)
+    changed = old_sig != sig.partition("\t")[2] if prev else len(rows) != LEGACY_N
+    if not changed:
+        _advance(mark, sig)
+        return
+    masters, bad = _masters(root)
+    for name in bad:
+        print(f"WARN 골 번호 공지 — 깨진 명부(조용히 빼지 않는다): {name}", file=sys.stderr)
+    mbox = os.environ.get("FT_MBOX") or str(root / ".fable-team" / "comm" / "mbox.sh")
+    sent = True
+    if not Path(mbox).is_file():
+        print(f"WARN 골 번호 공지 못 함 — mbox 없음: {mbox}", file=sys.stderr)
+        sent = False
+    else:
+        body = f"[골 번호 바뀜] 정본 {sha} · 새 번호표 {len(rows)}줄: {numbering(rows)}"
+        for to in masters:
+            try:
+                done = subprocess.run(["bash", mbox, "send", to, "ft-goal-table", body], capture_output=True, text=True, check=False, timeout=NOTIFY_TIMEOUT)
+            except (OSError, subprocess.SubprocessError) as e:
+                print(f"WARN 골 번호 공지 실패 {to}: {e}", file=sys.stderr)
+                sent = False
+                continue
+            if done.returncode != 0:
+                print(f"WARN 골 번호 공지 실패 {to}: {done.stderr.strip()[:120]}", file=sys.stderr)
+                sent = False
+    if bad or not sent:
+        return  # 표식 전진 0 — 굳히지 않고 다음 렌더가 다시 시도한다
+    _advance(mark, sig)
+
+
+def notify_renumber(sha: str, rows: list[list[str]]) -> None:
+    """r668 ⓖ — 정본 sha 가 바뀌고 골 번호표(행 수·순서)가 바뀐 첫 렌더에 전 팀장에게 1통. 같은 정본 sha 로는 1회(표식).
+    읽기→송신→쓰기에 파일 잠금 — 동시 렌더가 겹쳐도 1통(r668 H4②). 공지 실패 = WARN 1줄(렌더는 계속 — 공지가 뉴스를 멈추지 않는다).
+    루트를 못 풀면 조용히 건너뛴다(명부·표식 자리가 없다)."""
+    root = _notify_root()
+    if root is None:
+        return
+    mark = _root_state(root, RENUMBER_STATE)
+    try:
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        with open(mark.with_name(RENUMBER_STATE + ".lock"), "a+", encoding="utf-8") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            try:
+                _notify_once(root, mark, sha, rows)
+            finally:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    except OSError as e:
+        print(f"WARN 골 번호 공지 표식 못 씀 {mark}: {e}", file=sys.stderr)
+
+
 def render() -> str:
     text, sha, src = load_canon()
     rows = parse_rows(text)
-    head, states = ledger_state(_ledger_show, GoalError)
+    head, states = ledger_state(_ledger_show, GoalError, n=len(rows))
     body = [f"| {_cut(g, True)} | {_cut(t)} | {_cut(states.get(i, NO_STATE))} | {_cut(e)} |" for i, (g, t, e) in enumerate(rows, 1)]
     out = "\n".join([f"★골 표 A6 ({src}{sha} · {head})★", "| 골 | 팀 | 지금 상태 | 닫는 증거 |", "|---|---|---|---|", *body, TAIL])
     if len(out.encode("utf-8")) > BUDGET:
         raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
+    notify_renumber(sha, rows)
     return out + "\n"
 
 
@@ -262,12 +399,18 @@ def render_procs() -> str:
 
 
 def _canon_for(sha: str) -> list[list[str]]:
+    """마커 sha10 의 정본 행 — sha 가 지금 정본과 같으면 그대로 · 옛 sha 면 «번호표(행 수·각 행 골 앞 12자)가 같을 때»만 인정한다(r668 H2 — 6→5행 바뀜 직후 옛 6행 블록 + «골좌표: 6» 이 통과하던 구멍)."""
     text, cur, _ = load_canon()
+    rows = parse_rows(text)
     if cur == sha:
-        return parse_rows(text)
+        return rows
     spec = _spec()
     if spec.startswith("gitref:"):
-        return parse_rows(_git(_repo(), "show", f"{sha}:{spec.split(':', 2)[2]}"))
+        old = parse_rows(_git(_repo(), "show", f"{sha}:{spec.split(':', 2)[2]}"))
+        if numbering(old) != numbering(rows):
+            raise GoalError(f"마커 sha10 {sha} 의 번호표({len(old)}줄)가 지금 정본 {cur}({len(rows)}줄)과 다르다 — 옛 번호표로는 판정하지 않는다"
+                            f" · 새 번호표 {len(rows)}줄: {numbering(rows)} · ft-goal-table.sh 를 다시 돌려 붙인다")
+        return old
     raise GoalError(f"마커 sha10 {sha} 이 정본({cur})과 다르다")
 
 
@@ -307,17 +450,19 @@ def check(body: str, block_only: bool = False) -> tuple[int, str]:
     except GoalError as e:
         return 3, f"REJECT 골 없음 — 정본 대조 실패: {e}"
     got = [[_norm(c) for c in ln.strip().strip("|").split("|")] for ln in block if ln.startswith("| ") and not ln.startswith("| 골 |")]
-    if len(got) != 6 or any(g[0] != _norm(c[0]) for g, c in zip(got, canon)):
-        return 3, "REJECT 골 없음 — 블록의 6행이 정본(마커 sha10) 골 칸과 다르다"
+    n = len(canon)
+    if len(got) != n or any(g[0] != _norm(c[0]) for g, c in zip(got, canon)):
+        return 3, f"REJECT 골 없음 — 블록의 {len(got)}행이 정본(마커 sha10) {n}행과 다르다 · 새 번호표 {n}줄: {numbering(canon)}"
     if block_only:
         return 0, "GOAL-OK block-only"
     for ln in lines:
         if m := COORD.match(ln.strip()):
-            n, want = int(m[1]), _norm(canon[int(m[1]) - 1][0]) if 1 <= int(m[1]) <= 6 else ""
+            num, want = int(m[1]), _norm(canon[int(m[1]) - 1][0]) if 1 <= int(m[1]) <= n else ""
             if want and _norm(m[2]) == want[:12].rstrip():
-                return 0, f"GOAL-OK n={n}"
-            return 3, f"REJECT 골 없음 — 골좌표 번호와 골 원문이 안 맞는다(번호 1~6 · 원문 앞 {min(12, len(want))}자 복붙): {ln.strip()[:40]}"
-    return 3, "REJECT 골 없음 — `골좌표: <1~6> — <골 원문 앞 12자>` 줄이 없다"
+                return 0, f"GOAL-OK n={num}"
+            return 3, (f"REJECT 골 없음 — 골좌표 번호와 골 원문이 안 맞는다(번호 1~{n} · 원문 앞 {min(12, len(want)) or 12}자 복붙)"
+                       f" · 새 번호표 {n}줄: {numbering(canon)} — {ln.strip()[:40]}")
+    return 3, f"REJECT 골 없음 — `골좌표: <1~{n}> — <골 원문 앞 12자>` 줄이 없다 · 새 번호표 {n}줄: {numbering(canon)}"
 
 
 def main(argv: list[str]) -> int:

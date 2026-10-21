@@ -12,6 +12,7 @@ teams_md() { mkdir -p "$1/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|
   [ -d "$1/.git" ] || git -C "$1" init -q; git -C "$1" add design/TEAMS.md && git -C "$1" -c user.name=t -c user.email=t@t commit -qm teams && git -C "$1" update-ref refs/remotes/origin/main HEAD; }
 ref_commit() { git -C "$1" add -A && git -C "$1" -c user.name=t -c user.email=t@t commit -qm ref && git -C "$1" update-ref refs/remotes/origin/main HEAD; }  # r545: 기본 출처 = origin/main 판 — 픽스처 파일을 그 ref 에 올린다
 CANON="$T/AUTONOMY-GOAL-A6.md"; LEDGER="$T/PLAN-oppa-ledger.md"
+SANDBOX="$T/sandbox"; mkdir -p "$SANDBOX/.fable-team/state"; : > "$SANDBOX/.fable-team/LIVE_BIN"; printf '%s\n' "$SANDBOX" > "$SANDBOX/.fable-team/LIVE_ROOT"
 cat > "$CANON" <<'EOF'
 # 자율 골 A6 (시험 픽스처 — 실 정본 표 6행 복사)
 
@@ -40,7 +41,7 @@ for i in range(1, n + 1):
 print("\n## 다른 절\n\n| a | 읽히면 안 됨 | c |\n|---|---|---|\n| x | 새는상태 | z |")
 PY
 }
-render() { FT_GOAL_A6_MD="${CANON_OVERRIDE:-$CANON}" FT_GOAL_A6_LEDGER="${LEDGER_OVERRIDE:-$LEDGER}" bash "$TOOL" "$@"; }
+render() { FT_ROOT="$SANDBOX" FT_MBOX="$SANDBOX/.fable-team/comm/mbox.sh" FT_GOAL_A6_MD="${CANON_OVERRIDE:-$CANON}" FT_GOAL_A6_LEDGER="${LEDGER_OVERRIDE:-$LEDGER}" bash "$TOOL" "$@"; }   # r668 H5(DA⑥ r1): 번호 바뀜 공지가 실 루트 표식·실 우편함에 쓰지 않도록 FT_ROOT·FT_MBOX 를 임시 폴더로 고정
 # check_body <본문> → RC·OUT
 check_body() { OUT="$(printf '%s' "$1" | render check - 2>&1)"; RC=$?; }
 
@@ -62,8 +63,24 @@ OUT="$(LEDGER_OVERRIDE="$T/없는원장.md" render 2>"$T/err")"; RC=$?
 OUT="$(CANON_OVERRIDE="$T/없는정본.md" render 2>&1)"; RC=$?
 [ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 정본'*) true;; *) false;; esac && ok "ⓑ 정본 없음 ERROR rc1" || bad "ⓑ 정본 없음 rc=$RC :: $OUT"
 grep -v 'harness(장치)' "$CANON" > "$T/canon5.md"
+mkledger "$NOWSTAMP" 5
 OUT="$(CANON_OVERRIDE="$T/canon5.md" render 2>&1)"; RC=$?
-[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 정본'*) true;; *) false;; esac && ok "ⓑ 표 5행 ERROR rc1" || bad "ⓑ 5행 rc=$RC :: $OUT"
+[ "$RC" = 0 ] && [ "$(printf '%s\n' "$OUT" | grep -c '^| .* | .* | .* | .* |$')" = 6 ] && ok "ⓑ 표 5행 = 정본 행 수 N → rc0(6 상수 0 · r668)" || bad "ⓑ 5행 rc=$RC :: $OUT"
+mkledger "$NOWSTAMP"
+edit_max="$(python3 - "$CANON" <<'PY'
+import sys
+src = open(sys.argv[1], encoding="utf-8").read().splitlines()
+out = []
+for ln in src:
+    out.append(ln)
+    if ln.startswith("| 메모리 세션"):
+        out += [f"| 넘치는 골 {i} | harness | 착지 sha |" for i in range(7, 14)]  # 6 + 7 = 13행 > FT_GOAL_MAX(12)
+print("\n".join(out))
+PY
+)"
+printf '%s\n' "$edit_max" > "$T/canon13.md"
+OUT="$(CANON_OVERRIDE="$T/canon13.md" render 2>&1)"; RC=$?
+[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 정본'*'13행'*) true;; *) false;; esac && ok "ⓑ 표 13행 > FT_GOAL_MAX(12) → ERROR rc1" || bad "ⓑ 13행 rc=$RC :: $OUT"
 
 # ── ⓑ 원장 행 수 ≠ 6 = ERROR rc1 (조용한 «상태 없음» 0)
 for n in 5 7; do
@@ -103,8 +120,8 @@ mkledger "$NOWSTAMP"; sed -i.bak 's/^| 원장 글자 4 | 상태4 진행 | 남은
 OUT="$(render 2>&1)"; RC=$?
 [ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 원장 열 수 4≠3'*) true;; *) false;; esac && ok "ⓜ2 열 수 초과(이스케이프 없는 |) ERROR rc1" || bad "ⓜ2 초과 rc=$RC :: $OUT"
 mkledger "$NOWSTAMP"; sed -i.bak 's/^| 원장 글자 5 | 상태5 진행 | 남은5 |$/| 원장 글자 5 |  | 남은5 |/' "$LEDGER"; rm -f "$LEDGER.bak"
-OUT="$(render 2>&1)"; RC=$?
-[ "$RC" = 0 ] && [ "$(printf '%s' "$OUT" | grep -o '상태 없음' | wc -l | tr -d ' ')" = 1 ] && printf '%s' "$OUT" | grep -q '상태6 진행' && ok "ⓜ3 진짜 빈 셀 = 그 행만 «상태 없음»(나머지 행 보존)" || bad "ⓜ3 빈 셀 rc=$RC :: $OUT"
+OUT="$(render 2>&1)"; RC=$?   # r668 H1(DA⑥ r1): 빈 칸 행을 구분선처럼 빼던 것 → ERROR(행이 조용히 줄어들지 않는다)
+[ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 원장 빈 칸'*) true;; *) false;; esac && ok "ⓜ3 빈 셀 행 = ERROR rc1(조용한 행 감소 0)" || bad "ⓜ3 빈 셀 rc=$RC :: $OUT"
 
 # ── ⓝ DA⑥ r1 H2 + R382 — 기본 출처 = `.fable-team/LIVE_ROOT` 파일 1행(코드 위치 LIVE_BIN/../.. 유도 폐지) → 그 폴더의 원장 · 옛 v6 원장·고정 접미사 후퇴 0 (표본 2)
 mkledger "$NOWSTAMP"; BASE="$LEDGER"
