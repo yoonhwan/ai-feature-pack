@@ -1,0 +1,96 @@
+# 후판 — test_hil_run_marker.sh rc=0
+== ⓐ 진입 파일 실행 → .ran(시작 시각 · rc) 기록 + 계획 그대로 실행(인자·종료코드 전달)
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS --add → h1
+PASS 실행 전 목록 = 미실행 칸
+PASS   └ 실행 전 h1.ran 없음
+PASS 종료코드 3 전달
+PASS 인자 전달 · 계획 출력 그대로
+PASS 계획 본문 실행됨
+PASS h1.ran 1행 = 시작 epoch
+PASS h1.ran 2행 = rc=3 <epoch>
+PASS 계획 파일 불변
+PASS 실행 뒤 목록 = 실행 HH:MM rc=3
+== ⓑ --supersedes — 옛 h 실행은 REJECT 대체됨 · 계획 실행 0
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS E --supersedes h2 → h3
+PASS h2.superseded = h3
+PASS h2 실행 = rc 1 + REJECT 대체됨 → h3
+PASS   └ 계획 실행 0 · .ran 0
+PASS 새 장 h3 은 정상 실행
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 대체된 계획 재등록 = 되살리지 않고 새 번호 h4
+PASS 없는 h99 대체 = REJECT
+PASS 이미 대체된 h2 재대체 = REJECT
+PASS 자기 대체 = REJECT
+PASS 옛 링크 h20 대체 표시 = REJECT(거절 장치 없음)
+PASS --supersedes 값 형식 오류 = REJECT
+PASS --supersedes 값 없음 = usage rc 2
+== ⓒ 목록 칸
+PASS h1 = 실행 HH:MM rc=3
+PASS h2 = 대체됨 → h3
+PASS 미실행 N분 칸
+PASS 옛 링크 = 표식 없음 칸
+== ⓓ --pending 요약 · 0개면 줄 없음 · 옛 링크·대체·실행된 것 제외
+PASS 요약 = 미실행 h 1개(h4 만 — h1 실행·h2 대체·h3 실행·옛 링크 h20·손 파일 제외)
+PASS 가장 오래된 ≈125분
+PASS --each = h<N> <분> 줄
+PASS 0개면 출력 없음
+PASS 빈 폴더 = 출력 없음
+== ⓔ 기존 금지: 덮기·지우기·eval 0 · R135a 비밀 검사 그대로
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 손 h40 불변
+PASS eval·rm·mv 0
+PASS 비밀 출력 계획 = REJECT(R135a)
+== ⓕ 틱 hil_watch — 개수 바뀔 때만 로그 · 30분 넘은 h 는 하루 h 당 1통 · FT_TICK_HIL=0 으로 끔 · 0개면 줄 없음
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 1개 → 로그 1줄
+PASS   └ 30분 미만 = 쪽지 0
+PASS 같은 개수 = 로그 0
+PASS 45분 → planner(_hil_route) 앞 쪽지 1통
+PASS   └ 칠 줄 = ! bash <HIL_DIR>/h1
+PASS 같은 날 같은 h = 쪽지 1통만
+rm: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SKXA6vA6G0/z/state/hil-notified/h1.20261022: is a directory
+PASS FT_TICK_HIL=0 = 감시·쪽지 0
+PASS 실행됨 → 0개 = 줄 없음
+PASS   └ 서명 파일 정리
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS --dry-run → DRY kind=hil 줄
+== ⓖ DA⑥ H1 — rc 행 없는 .ran = 중단/실행 중(완료로 안 셈 · --pending 에 포함)
+PASS 목록 = 중단/실행 중 10분
+PASS --pending 에 포함
+PASS --each 에도 포함
+PASS rc 행이 생기면 완료 → pending 0
+PASS   └ 목록 = 실행 HH:MM rc=0
+== ⓗ DA⑥ H2 — 개행·CR·제어문자 경로 REJECT · 공백·따옴표 경로는 왕복 + 계획 밖 명령 0
+PASS 제어문자 경로 REJECT
+PASS 제어문자 경로 REJECT
+PASS 제어문자 경로 REJECT
+PASS   └ 등록 0 · 계획 밖 명령 0
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 공백·따옴표·$·백틱 경로 등록
+PASS   └ 실행 = 계획 본문만(SAFE)
+PASS   └ 표식 줄 왕복 = 원래 경로
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS   └ 재등록 = 같은 h1 재사용(왕복)
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS h02 별칭 자기 대체 REJECT(0 채움 정규화)
+== ⓘ DA⑥ H3 — 팀 좌석표 틱은 건너뜀 · 같은 h/날 알림 원자적 1통 · 송신 실패면 재시도
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS ft-tick.sh 에서 실제 hil_watch 함수 추출
+PASS 팀 좌석표(seats-ops.json) = 건너뜀(쪽지 0)
+PASS 송신 실패 = 선점 해제(다음 틱 재시도 가능)
+PASS 재시도 성공 = 1통
+PASS 같은 날 재감시 = 0통
+PASS 동시 2틱 = 정확히 1통(mkdir 원자 선점)
+== 변이 1: 표식 기록 제거 → ⓐ 가 FAIL(검출)
+PASS 변이 사본이 원본과 다르다
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 변이: 시작 표식이 사라져 ⓐ 의 «h1.ran 1행 = 시작 epoch» 가 FAIL 한다
+== 키트 두 벌 cmp · core.bare
+PASS ft-hil.sh cmp 0
+PASS ft-tick.sh cmp 0
+PASS core.bare = false
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

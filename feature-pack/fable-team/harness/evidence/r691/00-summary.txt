@@ -1,0 +1,53 @@
+# r691 — ft-tick 을 부르는 시험이 comm 폴더를 안 줘서 rc1 (r459 ft_comm_dir) · 시험 파일만
+base: origin/main 06f26aec (팩)
+
+## 고친 시험 4 (같은 원인 = 틱 호출에 FT_MBOX_DIR·FT_ROOT·FT_TICK_MBOX 셋 다 없음 → ft_comm_dir ERROR rc1)
+| 시험 | 전판 | 후판 | 픽스처에 더한 것 |
+|---|---|---|---|
+| test_seat_retire.sh | FAIL 4 (rc=4) | rc=0 | stall_seats() 의 dry-run 호출에 FT_MBOX_DIR=$TMP/comm (mkdir -p) |
+| test_ft_tick_master_seat.sh | fail 44 (rc=44) | rc=0 | dry()·heir() 틱 호출에 FT_MBOX_DIR=$TMP/comm (TMP 만든 직후 mkdir -p) |
+| test_hil_run_marker.sh | FAIL 1 (DRY kind=hil 줄 없음) | rc=0 | ⓕ 끝 --dry-run 호출에 FT_TICK_MBOX=$Z/mbox-stub.sh (같은 파일 tick() 이 이미 쓰는 스텁) |
+| test_live_snapshot_all_rosters.sh | FAIL 1 (dry-run DRY 줄 0) | rc=0 | 끝 --dry-run 호출에 FT_TICK_MBOX=$T/noop.sh (같은 파일 runtick() 이 이미 쓰는 스텁) |
+단언 삭제·skip 0 · 실 루트 comm 쓰기 0 (REAL-STATE-GUARD PASS · 임시 폴더만).
+재현(원인 확인): git 밖 cwd 에서 env 없이 ft-tick.sh --once --dry-run → «ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/private/tmp) 가 git 리포 아님» rc=1.
+
+## 같은 꼴 전수 (tests/ 중 ft-tick(-team).sh 를 부르는 30개 · 각 timeout 300)
+test_agent_alive_fg_judge.sh rc=1 comm_err=0
+test_autonomy_core.sh rc=1 comm_err=0
+test_autonomy_level.sh rc=0 comm_err=0
+test_dead_seat_resume.sh rc=124 comm_err=0
+test_dead_seat_resume_r615.sh rc=124 comm_err=0
+test_ft_tick_renamed_args.sh rc=0 comm_err=0
+test_install_team_tick_live.sh rc=0 comm_err=0
+test_ft_wt_sweep_route_timeout.sh rc=0 comm_err=0
+test_ft_tick_master_seat.sh rc=0 comm_err=0
+test_harness_root.sh rc=0 comm_err=0
+test_hil_run_marker.sh rc=1 comm_err=0
+test_live_snapshot_all_rosters.sh rc=1 comm_err=0
+test_live_bin_drift_check.sh rc=0 comm_err=0
+test_magazine_check.sh rc=0 comm_err=0
+test_r655_nano_name_prefix.sh rc=1 comm_err=0
+test_installed_root.sh rc=0 comm_err=0
+test_raised_seat.sh rc=1 comm_err=0
+test_leak_reap.sh rc=0 comm_err=0
+test_seat_close.sh rc=0 comm_err=0
+test_queue_reask_r529.sh rc=0 comm_err=0
+test_seat_retire.sh rc=0 comm_err=0
+test_raised_card_state_three_places.sh rc=0 comm_err=0
+test_tick_line.sh rc=0 comm_err=0
+test_team_rename.sh rc=0 comm_err=0
+test_team_tick_unify.sh rc=0 comm_err=0
+test_tick_team_msg.sh rc=0 comm_err=0
+test_team_move_roundtrip.sh rc=1 comm_err=0
+test_tick_idle_long_nano_wait.sh rc=0 comm_err=0
+test_tick_shim_guard.sh rc=0 comm_err=0
+test_tracked_bin_call_gate.sh rc=0 comm_err=0
+(위 rc 는 고치기 «중» 돌린 값 — test_ft_tick_master_seat·test_seat_retire 는 고친 판, hil_run_marker·live_snapshot 은 전판. comm_err 는 시험이 틱 출력을 삼키면 0 으로 나와 판정에 안 씀 — 실패 시험은 전부 FAIL 원문을 열어 원인 대조)
+
+## 남은 빨강 = 다른 원인 (이 카드 범위 밖 · 고침 0)
+- test_agent_alive_fg_judge.sh rc=1: ⓔ 판별 함수 정의 파일 목록(scripts/fable-team-bin/… BYZ 경로) got=[] — 팩 단독 사본엔 BYZ 파일 없음
+- test_autonomy_core.sh rc=1: «H3 큐 쓰기 실패 → rc≠0» · «7초+재시도 1회 = external_call.py 값» (BYZ 파일 대조)
+- test_r655_nano_name_prefix.sh rc=1: ⓖ kit/ft-nano-spawn.sh 에 기본 접두사 ft-v65-temp- 남음
+- test_raised_seat.sh rc=1: 시험 사본 bin 에 ft-resource-swap-lib.sh 미복사 → ft-resource-gate.sh 줄 30 No such file
+- test_team_move_roundtrip.sh rc=1: ⓒ 꼴3 env 없음 ERROR 기대 · ⓑ' drift-check 설치 폴더 아님
+- test_dead_seat_resume.sh · test_dead_seat_resume_r615.sh rc=124: 300초 상한 절단(그때까지 FAIL·ERROR 0 · comm 원인 아님 — FT_ROOT·FT_TICK_MBOX 이미 줌)

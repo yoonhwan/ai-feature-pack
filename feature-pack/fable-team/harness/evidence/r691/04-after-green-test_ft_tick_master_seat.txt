@@ -1,0 +1,72 @@
+# 후판 — test_ft_tick_master_seat.sh rc=0
+PASS ft-tick bash -n
+PASS ft-tick-normal rc
+PASS ft-tick-normal master 줄 = T#2 만
+PASS ft-tick-normal WARN 0 · ERROR 0
+PASS ft-tick-r21 rc
+PASS ft-tick-r21 master 줄 = T#2 만
+PASS ft-tick-r21 WARN 1줄(T#1)
+PASS ft-tick-r21 ERROR 0
+--- R21 ft-tick ---
+2026-10-22 07:40:04 WARN master-tick row T#1 ≠ _master T#2 — skipped
+DRY seat=T#2 kind=master interval=300s gap=1792622404s msg=[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tic
+PASS ft-tick-nomaster rc
+PASS ft-tick-nomaster master 줄 0
+PASS ft-tick-nomaster ERROR 1줄
+PASS ft-tick-nomaster 알림 1줄
+PASS ft-tick-mid rc
+PASS ft-tick-mid master 줄 0
+PASS ft-tick-mid ERROR 1줄
+PASS ft-tick-mid 알림 1줄
+PASS ft-tick-mid 같은 서명 2회째 ERROR 0
+PASS ft-tick-mid 같은 서명 2회째 알림 유지 1줄
+PASS ft-tick-mid 서명 바뀌면 ERROR 1줄
+PASS ft-tick-mid 서명 바뀌면 알림 2줄
+PASS ft-tick-nonews rc
+PASS ft-tick-nonews master 줄 0 · ERROR 0 · WARN 0
+PASS ft-tick-nonews 알림 파일 없음
+PASS ft-tick-team bash -n
+PASS ft-tick-team-normal rc
+PASS ft-tick-team-normal master 줄 = T#2 만
+PASS ft-tick-team-normal WARN 0 · ERROR 0
+PASS ft-tick-team-r21 rc
+PASS ft-tick-team-r21 master 줄 = T#2 만
+PASS ft-tick-team-r21 WARN 1줄(T#1)
+PASS ft-tick-team-r21 ERROR 0
+--- R21 ft-tick-team ---
+2026-10-22 07:40:06 WARN master-tick row T#1 ≠ _master T#2 — skipped
+DRY seat=T#2 kind=master interval=900s gap=1792622406s msg=[cron-tick · 뉴스] 제품(M0–M7·K1–K5)만. ★인덱스 파일명·슬러그·경로·좌석명을 뉴스 본문에 쓰지 않는다★ — 「M5-own
+PASS ft-tick-team-nomaster rc
+PASS ft-tick-team-nomaster master 줄 0
+PASS ft-tick-team-nomaster ERROR 1줄
+PASS ft-tick-team-nomaster 알림 1줄
+PASS ft-tick-team-mid rc
+PASS ft-tick-team-mid master 줄 0
+PASS ft-tick-team-mid ERROR 1줄
+PASS ft-tick-team-mid 알림 1줄
+PASS ft-tick-team-mid 같은 서명 2회째 ERROR 0
+PASS ft-tick-team-mid 같은 서명 2회째 알림 유지 1줄
+PASS ft-tick-team-mid 서명 바뀌면 ERROR 1줄
+PASS ft-tick-team-mid 서명 바뀌면 알림 2줄
+PASS ft-tick-team-nonews rc
+PASS ft-tick-team-nonews master 줄 0 · ERROR 0 · WARN 0
+PASS ft-tick-team-nonews 알림 파일 없음
+PASS ①후계 X#5 → _master
+PASS ①X#5 tick
+PASS ①X#3 _replaced_by
+PASS ①알림 0
+PASS ②X#2(낮은 N) → 명부 불변
+PASS ②DEAD 알림 1줄
+PASS ③X#4 은퇴 행 → 명부 불변
+PASS ③DEAD 알림 1줄
+PASS ④다른 base·낮은 N → 명부 불변(#2 회귀 0)
+PASS ④DEAD 알림 1줄
+PASS ⑤retarget_seat rc
+PASS ⑤_master 불변(Y#9)
+PASS ⑤X#3 _replaced_by=X#5
+PASS ⑤X#5 tick 상속
+PASS ⑤b 은퇴 행 rc=3
+PASS ⑤b 명부 불변
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

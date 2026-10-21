@@ -97,7 +97,7 @@ rm -f "$Z/mb.log" "$Z/state/hil-notified"/*; tickx env FT_TICK_HIL=0 >/dev/null;
 bash "$ZD/h1" >/dev/null 2>&1
 o="$(tickx)"; case "$o" in *hil_watch*) bad "0개인데 로그: $o";; *) ok "실행됨 → 0개 = 줄 없음";; esac
 [ ! -e "$Z/state/hil.sig" ] && ok "  └ 서명 파일 정리" || bad "서명 잔류"
-plan H; zh --add "$T/H.sh.hil" >/dev/null; d="$(tickx 2>&1; cd "$Z" && env HIL_DIR="$ZD" FT_TICK_SEATS="$Z/seats.json" FT_TICK_STATE_DIR="$Z/state-dry" FT_TICK_HIL_BIN="$SRC/ft-hil.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_API_OUTAGE=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_AUTONOMY=0 FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 /bin/bash "$SRC/ft-tick.sh" --once --dry-run 2>&1)"
+plan H; zh --add "$T/H.sh.hil" >/dev/null; d="$(tickx 2>&1; cd "$Z" && env HIL_DIR="$ZD" FT_TICK_SEATS="$Z/seats.json" FT_TICK_STATE_DIR="$Z/state-dry" FT_TICK_MBOX="$Z/mbox-stub.sh" FT_TICK_HIL_BIN="$SRC/ft-hil.sh" FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_API_OUTAGE=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_LONG=0 FT_TICK_AUTONOMY=0 FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 /bin/bash "$SRC/ft-tick.sh" --once --dry-run 2>&1)"
 has "$d" "DRY kind=hil pending=미실행 h 1개" "--dry-run → DRY kind=hil 줄"
 
 echo "== ⓖ DA⑥ H1 — rc 행 없는 .ran = 중단/실행 중(완료로 안 셈 · --pending 에 포함)"
