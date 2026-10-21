@@ -1,0 +1,19 @@
+# 실 데이터 읽기 전용 렌더 (origin/main · BYZ-Agents) — r644 설치 뒤 첫 뉴스·매거진에 나올 블록 원문
+## ft-goal-table.sh procs
+```
+WARN 표준절차 골 진행표 행 없음: GOAL-all-teams-restart-20261019.md
+WARN 표준절차 골 진행표 행 없음: GOAL-concierge-guide-tours-5-20261021.md
+WARN 표준절차 골 진행표 행 없음: GOAL-knowledge-brain-domain-issues-20261021.md
+WARN 표준절차 골 진행표 행 없음: GOAL-lecture-main-transcript-screen-20261021.md
+★표준절차 골 (6775d5b1ed)★
+- GOAL-all-teams-restart-20261019 · — · 진행표 행 없음
+- 챗봇 브레인 (컨텍스트 윈도우 · 오토 컴팩트 · 세션/도메인 기억 DB) · — · ② 제안서 6d91de2995 · ③ 발주서 121fc19af3 · ④ …
+- 컨시어지 가이드 투어 5개 완성 (금요일 바이즈 이사회·멤버 시연) · — · 진행표 행 없음
+- 지식·브레인·도메인 이슈 정리·진행 · — · 진행표 행 없음
+- 지식·지침 구조 (시스템 베이스 위에 개인 B2C · 업체 B2B 를 얹는 한 가지 연결 구조) · — · ① 골 등록 끝 · ② 제안서 main 96b45209b7(DA astr…
+- 강의 전사 메인 화면 완성 · — · 진행표 행 없음
+- 마이크 소리 처리 (사일로 VAD → 노캔·음성 분리·증폭/축소) · — · 1단계 완료(황금값 표 3ca0407bb4 · 정본 44bf29f277)…
+★/표준절차 골★
+rc=0
+```
+(stderr WARN = 진행표에 행 없는 골 파일 4개 — planner 몫 · 블록이 «행 없음» 으로 드러낸다)

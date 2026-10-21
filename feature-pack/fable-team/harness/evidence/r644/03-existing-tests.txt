@@ -1,0 +1,14 @@
+# 기존 시험(인접만 · 광역 0) — r644
+## bash
+tests/test_goal_table_gitref_r545.sh          rc=0 fails=0
+tests/test_goal_table_stale_r600.sh           rc=0 fails=0
+tests/test_goal_table_gate.sh                 rc=1 fails=1
+tests/test_goal_check_ref.sh                  rc=0 fails=0
+tests/test_kit_bin_sync.sh                    rc=0 fails=0
+
+## pytest (python3.11)
+..........................................                               [100%]
+113 passed, 1 skipped in 110.40s (0:01:50)
+
+## 빨강 1 = base 에서도 같은 줄 (r563 이 이 검사 뒤에 착지)
+test_goal_table_gate.sh :: FAIL ⓕ r458 600/300 상한 등장 — origin/main 판 ft_news_ledger.py:256,259 의 FT_NEWS_FETCH_MIN 300
