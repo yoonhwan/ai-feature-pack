@@ -1,15 +1,11 @@
-# DA⑥ r2 재현 명령 Q4 — 고친 판에서 격리 실행한 원문
+# DA⑥ r2 재현 명령 Q4 — 고친 판(rebase 52264ef1 위)에서 격리 실행한 원문
 
-## (a) DA 명령 그대로 (sed '117s@bash @FT_GH=/bin/false bash @')
-123 줄 이동으로 117 줄은 더는 «전판 실행 줄» 이 아니다(현재 117 줄 = [ "$rc" = 1 ] && [[ "$out" == *"승인 sha"* ]] && [ "$(omain "$). 그대로 돌린 결과:
-PASS ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효)
-PASS ⓕ3 CROSS=0 원장 줄 = 전판과 바이트 동일(repo= 칸 포함 · 시각·sha·PR번호만 가림)
+## 전판 실행 줄 = 현재 127 번째
+## (a) DA 명령 그대로(sed '117s@bash @FT_GH=/bin/false bash @') — 117 줄은 [ "$rc" = 1 ] && [[ "$out" == *"승인 sha"* … 이라 주입이 안 됨:
 ALL PASS
-(위 실행은 주입이 없어 정상 통과 — 줄 이동 탓)
 
-## (b) 같은 뜻의 주입(전판 실행 줄에 FT_GH=/bin/false) — 거짓 PASS 가드 확인
+## (b) 같은 뜻의 주입(127 줄 = 전판 실행 줄):
 probe rc=1
 FAIL ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효) :: rc=1 out=timeout: failed to run command ‘/bin/false’: No such file or directory
 FAILED 1
-FAIL ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효) 
-0
+ⓕ3(원장 줄 비교) 거짓 PASS 수 = 0

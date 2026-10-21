@@ -1,5 +1,5 @@
-# r648 인접 시험 (키트 2파일 변경 · 시험 10종) — 고친 판 기준
-# REAL-STATE-GUARD 만 FAIL 하는 경우의 원인: 이 팩 리포의 «실» 우편함(.fable-team/comm/mailbox.jsonl)에 그 사이 다른 팀(aifp-*)이 쪽지를 씀(동시 실행 잡음) — 시험은 실 우편함을 쓰지 않는다(단독 재실행 PASS · 파일 끝 참조)
+# r648 인접 시험 (키트 2파일 변경 · 시험 10종) — rebase(52264ef1 · r661 포함) 뒤 고친 판 기준
+# REAL-STATE-GUARD 만 FAIL 하는 경우의 원인: 이 팩 리포의 «실» 우편함(.fable-team/comm/mailbox.jsonl)에 그 사이 다른 팀(aifp-*)이 쪽지를 씀(동시 실행 잡음) — 시험은 실 우편함을 쓰지 않는다(단독 재실행은 파일 끝)
 === test_merge_land
 ALL PASS
 REAL-STATE-GUARD PASS
@@ -39,8 +39,10 @@ ALL PASS
 REAL-STATE-GUARD PASS
 rc=0
 
-# 단독 재실행(앞서 GUARD 만 FAIL 했던 2건):
+# GUARD 만 FAIL 했던 건 단독 재실행:
+test_merge_land_pack_repo run1 rc=0 REAL-STATE-GUARD PASS
 test_merge_land_equiv run1 rc=0 REAL-STATE-GUARD PASS
 test_evidence_log_gate run1 rc=0 REAL-STATE-GUARD PASS
+test_merge_land_pack_repo run2 rc=0 REAL-STATE-GUARD PASS
 test_merge_land_equiv run2 rc=0 REAL-STATE-GUARD PASS
 test_evidence_log_gate run2 rc=0 REAL-STATE-GUARD PASS

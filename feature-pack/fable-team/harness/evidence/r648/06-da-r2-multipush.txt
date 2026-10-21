@@ -1,16 +1,14 @@
-# DA⑥ r2 재현 명령 Q3④ — 고친 판(1af80c55+고침)에서 격리 실행한 원문
-# 명령:
-
---- 실행(그대로)
+# DA⑥ r2 재현 명령 Q3④ — 고친 판(rebase 52264ef1 위)에서 격리 실행한 원문
+--- 실행(DA 명령 그대로)
 fm_land_ctx rc=1
 push URL 목록:
 git@github.com:fake/pack.git
 git@github.com:fake/other.git
 
 --- 대조(정상: push 목적지 1개)
-/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yRDx5tJV0n/byz|1|fake/pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yRDx5tJV0n/byz/.fable-team/state/base-head-fake-pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yRDx5tJV0n/pack
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CHak91uVVo/byz|1|fake/pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CHak91uVVo/byz/.fable-team/state/base-head-fake-pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CHak91uVVo/pack
 fm_land_ctx rc=0
 
---- 대조2(목적지 2개지만 값이 같음: pack + pack)
-/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6talddVtkE/byz|1|fake/pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6talddVtkE/byz/.fable-team/state/base-head-fake-pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6talddVtkE/pack
+--- 대조2(목적지 2개지만 값이 같음)
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Daerw0kOlN/byz|1|fake/pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Daerw0kOlN/byz/.fable-team/state/base-head-fake-pack|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Daerw0kOlN/pack
 fm_land_ctx rc=0

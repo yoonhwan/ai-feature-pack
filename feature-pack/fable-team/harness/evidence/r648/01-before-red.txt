@@ -10,7 +10,7 @@ PASS ⓒ 승인 파일·로그 = BYZ 자율 상태 폴더 그대로
 PASS ⓒ2 팩 리포에 상태 폴더 생성 0
 FAIL ⓓ 게이트·착지 = 팩 origin/main 위(부모 = 착지 전 팩 main) :: rc=1 out=REJECT PR #5 가 OPEN 아님(CLOSED) (착지 0)
 FAIL ⓓ2 기준 헤드 리포별(base-head-fake-pack ← Q · BYZ base-head 그대로) :: rc=1 out=REJECT PR #5 가 OPEN 아님(CLOSED) (착지 0)
-grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2KvLFbk6SL/byz/.fable-team/state/merge-gate.log: No such file or directory
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LWBfmc0gRM/byz/.fable-team/state/merge-gate.log: No such file or directory
 FAIL ⓔ 원장 = BYZ 한 곳 · 줄에 repo=pack :: rc=1 out=REJECT PR #5 가 OPEN 아님(CLOSED) (착지 0)
 FAIL ⓖ raw URL ≠ 실제 전송 URL(insteadOf) → REJECT 1줄 · 착지 0 · gh 조회 0 :: rc=1 out=REJECT PR #9 가 OPEN 아님(CLOSED) (착지 0)
 FAIL ⓖ4 push 목적지 2개(팩 + 다른 리포) → REJECT · 착지 0 · gh 조회 0 :: rc=1 out=REJECT PR #31 가 OPEN 아님(CLOSED) (착지 0)
@@ -21,7 +21,7 @@ PASS ⓕ2 같은 리포는 기준 헤드도 지금 그대로(base-head)
 PASS ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효)
 PASS ⓕ3 CROSS=0 원장 줄 = 전판과 바이트 동일(repo= 칸 포함 · 시각·sha·PR번호만 가림)
 PASS ⓐ7 env 없음 · 승인이 공용 루트에만 → REJECT(공용 루트를 승인 폴더로 쓰지 않는다)
-FAIL ⓐ8 대조 · 정식 상태 폴더(LIVE_ROOT)에 승인 → LANDED(리졸버 하나만 쓴다) :: rc=1 out=REJECT fetch 한 head(412c502f92d59dc9d1da66fa86977172c86c030e) != PR head(aedd0c409a5fb1f5ac69b2d31c622a5a50154eea) (착지 0)
+FAIL ⓐ8 대조 · 정식 상태 폴더(LIVE_ROOT)에 승인 → LANDED(리졸버 하나만 쓴다) :: rc=1 out=REJECT fetch 한 head(32f8b899b84a16b61da3cfbe24e0dccea0d13f9b) != PR head(d5c62ba1cb344e5046c2505bfedbc4cf4a50aea3) (착지 0)
 PASS 키트 사본 2 cmp0
 PASS ft-merge-land.sh ≤ 120줄
 PASS bash -n ft-merge-lib.sh
@@ -32,5 +32,4 @@ PASS ⓗ test_merge_land_equiv rc=0 (42 PASS)
 PASS ⓗ test_merge_land_push_reason rc=0 (14 PASS)
 PASS ⓗ test_merge_head_gate rc=0 (32 PASS)
 FAILED 11
-REAL-STATE-GUARD WARN 우편함 줄어듦/없음(회전?): /Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm/mailbox.jsonl
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
