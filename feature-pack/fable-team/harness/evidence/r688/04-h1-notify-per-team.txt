@@ -1,0 +1,19 @@
+# r688 H1 (arch 격리 대조 r1 HOLD · ARCH-CHECK-r688-168f9728-HOLD.txt) 고침 — ft_all_stop.py notify·status 팀 단위 TeamPathError 잡기
+## 후판 test_all_stop_r626.sh rc=1 fail=1 pass=114 (남은 FAIL 1 = r4 연동 spawn 사본 bin · 전판 같은 줄 = r686 미착지 몫)
+PASS r688 team_rel = 명단 칸(꼴2 · 꼴3 리포 안 자리) · 명단에 없는 팀 = TeamPathError
+PASS r688 on: 명단 밖 팀 = 실패 1 rc3 · 나머지 3팀(뒤 planner 포함) 통지
+PASS r688 on: notify_failed = 명단 밖 팀장
+PASS r688 status: 명단 밖 팀 줄 = 사유 · rc0 · 다른 팀 줄 계속
+PASS r688 재실행 on = 그 팀만 재시도(아직 명단 밖 → 다시 실패 rc3)
+PASS r688 off: 명단 밖 팀 = 실패 rc3 · 나머지 «재개» 통지
+PASS r688 명단에 실린 뒤 off 재실행 = 그 팀만 «재개» rc0
+FAIL r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT :: rc=4 out=<TMP> 줄 30: <TMP> No such file or directory
+## 변이(두 except 삭제 · 스크래치 사본) test_all_stop_r626.sh rc=7 fail=7 — r688 칸 6 전부 FAIL
+FAIL r688 on: 명단 밖 팀 = 실패 1 rc3 · 나머지 3팀(뒤 planner 포함) 통지 :: rc=1 out=Traceback (most recent call last):
+FAIL r688 on: notify_failed = 명단 밖 팀장 :: rc=1 out=Traceback (most recent call last):
+FAIL r688 status: 명단 밖 팀 줄 = 사유 · rc0 · 다른 팀 줄 계속 :: rc=1 out=all_stop=on since=2026-10-22T06:30:32 by=unknown reason=명단 밖 팀 notify_failed=-
+FAIL r688 재실행 on = 그 팀만 재시도(아직 명단 밖 → 다시 실패 rc3) :: rc=0 out=all_stop=on (이미 켜짐 · since 2026-10-22T06:30:32 · 사유: 명단 밖 팀) — 변경 0
+FAIL r688 off: 명단 밖 팀 = 실패 rc3 · 나머지 «재개» 통지 :: rc=1 out=Traceback (most recent call last):
+FAIL r688 명단에 실린 뒤 off 재실행 = 그 팀만 «재개» rc0 :: rc=0 out=all_stop=off (이미 꺼짐) — 변경 0
+FAIL r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT :: rc=4 out=<TMP> 줄 30: <TMP> No such file or directory
+## ruff ft_all_stop.py = F541 185→191행 전판 그대로 1건 · 팀 경로 린트 ft_all_stop 줄 0

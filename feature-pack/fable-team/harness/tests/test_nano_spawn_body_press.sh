@@ -54,7 +54,10 @@ echo "$neg3" | grep -q '^FAIL 음성복사본3 BODY 에 .증거 줄' && ok "음�
 
 # ── R181 · link_web_node_modules (임시 git 저장소 + 워크트리 · 라이브 bin·실 node_modules 0) ──
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
-REPO_GI="$HERE/../../.gitignore"
+# r687: 팩 이전(3b25f81d) 뒤 «$HERE/../../.gitignore» 는 BYZ 루트가 아니다(파일 없음 → ⓒ 빨강). spawn 대상 리포(BYZ) .gitignore 의 두 줄(R181 · origin/main 108~109행)을 픽스처로 둔다.
+REPO_GI="$TMP/byz.gitignore"; printf 'node_modules/\nclients/web/node_modules\n' > "$REPO_GI"
+BYZ_ROOT="${FT_BYZ_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"   # 정본 대조 — 리포가 보이는 머신에서만(없으면 SKIP)
+if _gi="$(git -C "$BYZ_ROOT" show origin/main:.gitignore 2>/dev/null)"; then printf '%s\n' "$_gi" | grep -qx 'clients/web/node_modules' && ok "BYZ origin/main .gitignore 에 clients/web/node_modules 줄 실재" || bad "BYZ origin/main .gitignore 에 clients/web/node_modules 줄 없음"; else echo "SKIP BYZ .gitignore 정본 대조 — $BYZ_ROOT 없음"; fi
 # mk_repo <디렉터리> <.gitignore 원본> <루트 node_modules 0|1> <워크트리 lock 내용> — 루트 + .worktrees/wt 생성
 mk_repo() {
   local d="$1" gi="$2" nm="$3" wtlock="$4"
@@ -107,7 +110,8 @@ mk_repo "$TMP/f" "$TMP/gi_mut" 1 '{"lock":"root"}'
 link_web_node_modules "$TMP/f" "$TMP/f/.worktrees/wt" >/dev/null
 git -C "$TMP/f/.worktrees/wt" status --porcelain | grep -q node_modules && ok "ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임)" || bad "ⓕ 변이인데도 status 에 안 보임"
 
-[ "$(git config --get core.bare)" = "false" ] && ok "core.bare=false" || bad "core.bare 가 false 아님"
+# r687: 이 시험이 든 리포 — r541 guard 가 cwd 를 git 밖으로 옮기면 cwd 기준 값은 빈 값
+[ "$(git -C "$HERE" config --get core.bare)" = "false" ] && ok "core.bare=false" || bad "core.bare 가 false 아님"
 
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"

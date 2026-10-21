@@ -132,7 +132,10 @@ def test_undo_rejects_when_one_condition_breaks_and_kills_nothing(tmp_path, name
 
 def test_undo_rejects_foreign_prefix_pane_and_created(tmp_path):
     e = make_env(tmp_path)
-    assert undo(e, "--owned", owned(e), "--card", str(e["card"]), FT_NANO_PREFIX="other-").returncode == 1
+    # r687: r655 뒤 명시 FT_NANO_PREFIX 는 규칙 접두에 «더해질» 뿐 — 남의 접두는 좌석 이름으로 준다(pane 은 보이게 · 거절 사유 = ⓑ 접두)
+    foreign = "other-slug#0"
+    r = undo(e, "--owned", owned(e), "--card", str(e["card"]), seat=foreign, R81_SEAT=foreign)
+    assert r.returncode == 1 and "ⓑ" in r.stdout, r.stdout
     assert undo(e, "--owned", "%9:" + owned(e).split(":")[1], "--card", str(e["card"])).returncode == 1
     assert undo(e, "--owned", "%1:1", "--card", str(e["card"])).returncode == 1
     assert not killed(e)

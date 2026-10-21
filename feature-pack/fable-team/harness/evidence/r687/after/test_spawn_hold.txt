@@ -1,0 +1,58 @@
+PASS bash -n ft-spawn-hold.sh
+PASS 키트 사본 cmp 0 ft-spawn-hold.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-role-spawn.sh
+PASS 키트 사본 cmp 0 ft-successor-open.sh
+PASS 실행 권한
+PASS set REJECT: until 5시간 뒤
+PASS set REJECT: release 비문법(8G)
+PASS set REJECT: release «foo<3»
+PASS set REJECT: release «swap<5;ls»
+PASS set REJECT: release «swap<5&»
+PASS set REJECT: release «swap=5»
+PASS set REJECT: release «$(id)<1»
+PASS set REJECT: reason 9자
+PASS set REJECT: verdict 비숫자
+PASS set REJECT: until 과거
+PASS set REJECT: until 형식 오류
+PASS set 성공 → SPAWN_HOLD 생성
+PASS 한 번에 1개 — 둘째 set REJECT
+PASS 정지 유효 → status rc3
+PASS status REJECT hold 판정 번호
+PASS status 에 해제 조건
+PASS 유효 정지는 status 가 지우지 않음
+PASS --check 일치 번호 rc0
+PASS --check OK
+PASS --check 다른 번호 rc3
+PASS --check 불일치 사유
+PASS --check = 해제 조건 참이어도 삭제·쪽지 0(부작용 0)·rc3
+PASS 해제 조건 참 → rc0(spawn 통과)
+PASS RELEASED 출력
+PASS 해제 조건 참 → 파일 삭제
+PASS planner 쪽지 1통 «정지 자동 해제»
+PASS 정지 없음 → hold=none
+PASS 기한 지남 → rc0
+PASS EXPIRED 출력
+PASS 기한 지남 → 파일 삭제
+PASS planner 쪽지 1통 «정지 기한 만료»
+PASS --check 만료 → rc3 · 파일 유지(부작용 0)
+PASS 문지기 측정 실패 → rc4 · 정지 유지(통과 0)
+PASS clear → 파일 삭제
+PASS 손상 파일 → rc4(통과 0)
+PASS 교차: 워크트리에서 건 정지 = 리포 루트 파일 하나
+PASS 교차: 루트 사본이 워크트리의 정지를 봄
+PASS ft-nano-spawn: 정지 파일 없음 → 출력에 hold=none
+PASS ft-nano-spawn.sh: 정지 유효 → REJECT hold (문지기 도달 전)
+PASS ft-nano-spawn.sh: 정지가 문지기보다 앞
+PASS ft-role-spawn.sh: 정지 유효 → REJECT hold (문지기 도달 전)
+PASS ft-role-spawn.sh: 정지가 문지기보다 앞
+PASS ft-successor-open: 정지 중에도 WARN 1줄만
+PASS ft-successor-open: 정지에 막히지 않고 문지기 단계까지 진행
+PASS ft-successor-open: WARN 뒤 REJECT resource 순서
+PASS ft-successor-open: 정지 + 문지기 REJECT → rc = 문지기 rc 3
+PASS ⓒ 정지 유효 + 문지기 통과 → WARN
+PASS ⓒ 정지 유효 + 문지기 통과 → open 단계 도달
+PASS ⓓ 정지 없음 → WARN 0
+PASS ⓓ 정지 없음 → 문지기 REJECT rc3 (동작 불변)
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -7,9 +7,10 @@ import stat
 import subprocess
 import time
 
-from ft_git_helpers import BIN, commit, git, init_repo
+from ft_git_helpers import BIN, commit, git, init_repo, nano_prefix
 
-SEAT = "ft-v65-temp-slug#0"
+PREFIX = nano_prefix()  # r687: 도구 기본 접두(r655 byz-v65-nano-) — spawn 이 찾는 좌석 이름과 같은 값
+SEAT = f"{PREFIX}slug#0"
 TMUX = """#!/bin/bash
 echo "$*" >> "$R81_DIR/tmux.log"
 case "$1" in
@@ -72,14 +73,14 @@ def undo_env(env, **extra):
     hil = env["tmp"] / "hil"
     hil.mkdir(exist_ok=True)
     return {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "HOME": str(env["home"]), "R81_DIR": str(env["tmp"]),
-            "R81_SEAT": SEAT, "R81_WT": str(env["wt"]), "FT_SEATS_JSON": str(env["seats"]), "FT_NANO_PREFIX": "ft-v65-temp-",
+            "R81_SEAT": SEAT, "R81_WT": str(env["wt"]), "FT_SEATS_JSON": str(env["seats"]), "FT_NANO_PREFIX": PREFIX,
             "FT_UNDO_STATE": str(env["state"]), "FT_MBOX_DIR": str(env["comm"]), "FT_NANO_LEDGER": str(env["ledger"]),
             "HIL_DIR": str(hil), **extra}
 
 
-def undo(env, *args, **extra):
+def undo(env, *args, seat=SEAT, **extra):
     e = undo_env(env, **extra)
-    return subprocess.run(["bash", str(BIN / "ft-nano-spawn-undo.sh"), SEAT, *args], capture_output=True, text=True, cwd=env["repo"], env=e)
+    return subprocess.run(["bash", str(BIN / "ft-nano-spawn-undo.sh"), seat, *args], capture_output=True, text=True, cwd=env["repo"], env=e)
 
 
 def owned(env):

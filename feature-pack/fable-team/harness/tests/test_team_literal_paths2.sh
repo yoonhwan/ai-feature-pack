@@ -41,6 +41,13 @@ echo "== ⓐ 린트 · 문법 · 키트 사본 cmp0 · lib 모드"
 mkteams "$T/a" 1; export FT_TEAMS_MD="$T/a/design/TEAMS.md"   # 린트 명단 = 시험이 만든 «전환 중»(옛 꼴) 명단 — 팩 리포엔 design/TEAMS.md 가 없다(r509)
 out="$(bash "$SRC/ft-team-path-lint.sh" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$out" "INFO 리터럴 대기 0" "ⓐ 실 bin 린트: INFO 리터럴 대기 0" && has "$out" "OK 하드코딩 0" "  └ OK 하드코딩 0" || bad "ⓐ 실 bin 린트 rc=$rc ← $out"
 out="$(bash "$SRC/ft-team-path-lint.sh" "$KIT" 2>&1)"; rc=$?; [ "$rc" = 0 ] && has "$out" "INFO 리터럴 대기 0" "ⓐ 키트 bin 린트(키트 전용 5 포함): INFO 대기 0 · rc0" || bad "ⓐ 키트 bin 린트 rc=$rc ← $out"
+# r688 반례: nano-close 표지 고침이 린트를 약하게 만들지 않았다 — 진짜 팀 경로 글자(카드 폴더 · 옛 표지 글자)는 여전히 ERR · 새 표지 꼴(팀 폴더 글자 0)은 통과
+for case in "real|ls design/harness/indices/대기|1" "oldmark|grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->' c|1" "newmark|$(grep -m1 '^HARNESS_LEDGER_MARK_RE=' "$SRC/ft-nano-close.sh")|0"; do
+  IFS='|' read -r nm line want <<< "$case"; lb="$T/lint_$nm"; mkdir -p "$lb"; cp "$SRC/ft-team-lib.sh" "$SRC/ft-team-path-lint.sh" "$lb/"; printf '#!/usr/bin/env bash\n%s\n' "$line" > "$lb/ft-fake.sh"
+  out="$(bash "$lb/ft-team-path-lint.sh" "$lb" 2>&1)"; rc=$?
+  [ "$rc" = "$want" ] && ok "ⓒ r688 린트 반례 $nm: rc=$rc(기대 $want)" || bad "ⓒ r688 린트 반례 $nm rc=$rc(기대 $want) ← $out"
+done
+grep -q '^HARNESS_LEDGER_MARK_RE=' "$SRC/ft-nano-close.sh" && ok "ⓒ r688 표지 변수 실재" || bad "ⓒ r688 표지 변수 없음"
 unset FT_TEAMS_MD
 for f in "${CHANGED_SH[@]}"; do bash -n "$SRC/$f.sh" && ok "bash -n $f" || bad "bash -n $f"; cmp -s "$SRC/$f.sh" "$KIT/$f.sh" && ok "키트 사본 cmp0 $f" || bad "키트 사본 cmp $f"; done
 for f in "${CHANGED_PY[@]}"; do python3 -I -c "import ast,sys;ast.parse(open(sys.argv[1],encoding='utf-8').read())" "$SRC/$f.py" && ok "ast $f" || bad "ast $f"; cmp -s "$SRC/$f.py" "$KIT/$f.py" && ok "키트 사본 cmp0 $f.py" || bad "키트 사본 cmp $f.py"; done

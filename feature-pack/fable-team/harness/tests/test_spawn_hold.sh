@@ -16,6 +16,7 @@ T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 R="$T/R"; ST="$R/.fable-team/state"; HF="$ST/SPAWN_HOLD"; mkdir -p "$ST" "$T/fake"
 printf '#!/bin/bash\n[ -f "%s/gate.rc" ] && { echo "ERROR resource measure x"; exit 4; }\ncat "%s/gate.status"\n' "$T" "$T" > "$T/fake/gate.sh"
 printf '#!/bin/bash\n[ "$1" = send ] && echo "$*" >> "%s/mbox.log"\necho QUEUED\n' "$T" > "$T/fake/mbox.sh"
+printf '#!/bin/bash\nexit 0\n' > "$T/fake/mbox_doorbell.sh"   # r687: r607 이후 successor-open 은 mbox.sh 가 source 하는 짝도 요구
 chmod +x "$T/fake"/*
 echo '{"_hil_route": "byz-t-planner-claude#1"}' > "$T/seats-planner.json"
 : > "$T/mbox.log"

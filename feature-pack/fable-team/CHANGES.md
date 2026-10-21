@@ -1,3 +1,7 @@
+## 2026-10-22 — 팀 경로 린트(`test_team_literal_paths2`)가 닫기 원장 표지를 경로로 오인해 빨강이었다 + 전팀 정지 통지가 명단 밖 팀에서 죽던 것 → `ft-nano-close.sh` 표지는 정규식 변수로 · `ft-successor-open.sh` 안내서 폴더와 `ft_all_stop.py` 팀 경로는 명단(`TEAMS.md`) ref 칸에서 · 명단 밖 팀은 팀 단위로 잡아 그 팀장만 `notify_failed` 로 기록하고 다음 팀 통지 계속 (r688 · 1.1.197 · 결함 고침) + 시험 픽스처 5곳이 착지된 r655 접두·r607 mbox 짝을 따라가도록 시험만 고침 (r687 · 시험만 · 설치 0)
+
+- 판정문 §175(r687)·§176(r688) · 증거 `harness/evidence/r687/`·`r688/` · 설치: 있음(키트 3파일 → LIVE_BIN 새 판 `cmp0` · 추적 짝 `harness/bin/` 같음) · 되돌림 = 이전 판.
+
 ## 2026-10-22 — press 게이트 dev 갈래(r634)가 dev web 루트의 «정상» 화면(200 + `<!DOCTYPE html>`)을 «오류 페이지» 로 보고 늘 막아 dev press 가 전부 멈췄다 → 본문 판별을 서비스별로: web = 앱 표지 있고 오류 표지 없어야 · gateway = `status=ok` JSON 객체여야 (r685 · 1.1.196 · 결함 고침 · 이미지 sha 칸·허가 파일·로컬 갈래·러너 칸 무변경)
 
 - 사건(room dev 회차 → planner 98 결정 135914 → master 93 발주 135930 [급] → arch 119 실측 2026-10-22 03:4x · 팩 origin/main 30b4d8ba · `ft-press-gate.sh` = r634 착지판 bf51b3e2): `_dev_health`(:48-60) 하나가 web(`$DEV_WEB/`)·gateway(`$DEV_GATEWAY/api/v1/health/`) 둘 다 판별 · `grep -qiE '^[[:space:]]*<(!doctype|html)'` 이면 «본문이 HTML — 오류 페이지» BLOCK. r634 DA⑥ r1 H3(«gateway 200 HTML 통과») 고침이 web 에도 같은 판별을 걸어 web 정상 응답이 늘 BLOCK. 같은 판별은 **web 빈 본문·web JSON 본문은 통과**시키는 구멍도 있었다(전 판 시험 ⓝ4·ⓝ5 exit 0).

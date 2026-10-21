@@ -25,6 +25,14 @@ echo '{"_label":"m.bb","_master":"byz-bb-master-claude#2","byz-bb-master-claude#
 echo '{"_label":"planner","_master":"byz-planner-master-claude#9","byz-planner-master-claude#9":{"role":"master"}}' > "$REPO/.fable-team/seats-planner.json"
 echo '{}' > "$REPO/.fable-team/seats.json"
 printf '# aa 상태\n' > "$REPO/design/teams/aa/STATE.md"
+# r688: STATE.md 자리 = 명단(origin/main:design/TEAMS.md) 칸 — 시험 팀 aa·bb 행 + 꼴3 harness 행을 명단에 싣고 origin/main 으로 고정
+printf '| aa | `design/teams/aa/` | a | 현역 |\n| bb | `design/teams/bb/` | b | 현역 |\n' >> "$REPO/design/TEAMS.md"
+sed -i '' 's#| harness | `design/harness/`#| harness | `$FT_HARNESS_ROOT/design/harness/`#' "$REPO/design/TEAMS.md"
+git -C "$REPO" add design/TEAMS.md && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m teams && git -C "$REPO" update-ref refs/remotes/origin/main HEAD || bad "r688 명단 고정"
+rc=0; out=""; o="$(cd "$REPO" && python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import ft_all_stop as a; print(a.team_rel("m.bb"), a.team_rel("harness"))
+try: a.team_rel("zz"); print("NO-RAISE")
+except a.TeamPathError as e: print("RAISE", e)' "$BIN" 2>&1)"
+[ "$(printf '%s\n' "$o" | head -1)" = "design/teams/bb/STATE.md design/harness/STATE.md" ] && printf '%s\n' "$o" | grep -q '^RAISE ERROR zz' && ok "r688 team_rel = 명단 칸(꼴2 · 꼴3 리포 안 자리) · 명단에 없는 팀 = TeamPathError" || bad "r688 team_rel ← $o"
 ST="$REPO/.fable-team/state"; AS="$ST/ALL_STOP.json"
 as()   { out="$(cd "$REPO" && bash "$BIN/ft-all-stop.sh" "$@" 2>&1)"; rc=$?; }
 nano() { out="$(cd "$REPO" && bash "$BIN/ft-nano-spawn.sh" "design/teams/aa/indices/대기/x.md" --dry-run 2>&1)"; rc=$?; }
@@ -174,6 +182,18 @@ as off; [ "$rc" = 3 ] && echo "$out" | grep -q '통지 실패 1: byz-bb-master-c
 rm -f "$TMP/bbfail"; : > "$MAIL"
 as off; [ "$rc" = 0 ] && [ "$(grep -c . "$MAIL")" = 1 ] && grep 'byz-bb-master-claude#2' "$MAIL" | grep -q '재개'; ck "Q4 재실행 off = 실패분만 «재개» 재통지" $?
 : > "$MAIL"; as off; [ "$rc" = 0 ] && [ ! -s "$MAIL" ]; ck "Q4 실패분 없으면 off 재실행 통지 0" $?
+
+# ── r688 H1: 명단(TEAMS.md) 밖 팀 1개가 통지 루프를 끊지 않는다 — 그 팀장 = 실패(rc3 · notify_failed · 재통지) · 뒤 팀(planner) 통지 O ──
+echo '{"_label":"cc","_master":"byz-cc-master-claude#3","byz-cc-master-claude#3":{"role":"master"}}' > "$REPO/.fable-team/seats-cc.json"
+: > "$MAIL"; as on "명단 밖 팀"
+[ "$rc" = 3 ] && echo "$out" | grep -q '통지 실패 1: byz-cc-master-claude#3' && [ "$(grep -c . "$MAIL")" = 3 ] && grep -q 'byz-planner-master-claude#9' "$MAIL" && ! grep -q 'byz-cc-master' "$MAIL"; ck "r688 on: 명단 밖 팀 = 실패 1 rc3 · 나머지 3팀(뒤 planner 포함) 통지" $?
+python3 -c 'import json,sys;assert json.load(open(sys.argv[1]))["notify_failed"]==["byz-cc-master-claude#3"]' "$AS" 2>/dev/null; ck "r688 on: notify_failed = 명단 밖 팀장" $?
+as status; [ "$rc" = 0 ] && echo "$out" | grep -q 'team=cc state=X file=명단 못 풂' && echo "$out" | grep -q 'team=planner state='; ck "r688 status: 명단 밖 팀 줄 = 사유 · rc0 · 다른 팀 줄 계속" $?
+: > "$MAIL"; as on "명단 밖 팀"; [ "$rc" = 3 ] && [ ! -s "$MAIL" ] && echo "$out" | grep -q '실패분 재통지 1'; ck "r688 재실행 on = 그 팀만 재시도(아직 명단 밖 → 다시 실패 rc3)" $?
+: > "$MAIL"; as off; [ "$rc" = 3 ] && echo "$out" | grep -q '통지 실패 1: byz-cc-master-claude#3' && [ "$(grep -c . "$MAIL")" = 3 ] && grep 'byz-planner-master-claude#9' "$MAIL" | grep -q '재개'; ck "r688 off: 명단 밖 팀 = 실패 rc3 · 나머지 «재개» 통지" $?
+printf '| cc | `design/teams/cc/` | c | 현역 |\n' >> "$REPO/design/TEAMS.md"; git -C "$REPO" add design/TEAMS.md && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m cc && git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+: > "$MAIL"; as off; [ "$rc" = 0 ] && [ "$(grep -c . "$MAIL")" = 1 ] && grep 'byz-cc-master-claude#3' "$MAIL" | grep -q '재개'; ck "r688 명단에 실린 뒤 off 재실행 = 그 팀만 «재개» rc0" $?
+rm -f "$REPO/.fable-team/seats-cc.json"
 
 # ── DA⑥ r2 재설계: «없음 = 꺼짐» 가정 제거 · 꺼짐 증거 = 원장(all-stop.log) 마지막 off 줄 ──
 LOG="$ST/all-stop.log"
