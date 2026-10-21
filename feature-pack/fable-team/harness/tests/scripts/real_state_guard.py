@@ -3,9 +3,11 @@
 FT_ROOT 없이 BYZ cwd 에서 돈 시험이 ft_data_root ②(cwd 공용 루트 LIVE_ROOT)를 따라 실 자율 상태에 씀).
 CLI(셸 짝 tests/lib/real_state_guard.sh): `snap --out <파일> --cwd <폴더>` = cwd 기준 실 루트 3종(데이터·리포·우편함)
 지문 저장 · `compare <파일>` = 다시 떠 비교 → stderr PASS/WARN/FAIL · FAIL rc1.
+r684 r2: h<N> 축은 «계획 경로» 로 가른다 — 시험 사본(mktemp 아래) 계획이면 FAIL, 동시 실행 좌석의 실 계획이면 WARN 만
+(번호표 폴더 /tmp 는 전역이라 좌석의 approve-merge 만으로도 늘어난다 · master#93 2026-10-22 03:34 h259 사건).
 파이썬 스크립트 시험: 맨 위 `guard_begin()` = 지문 → git 밖 임시 폴더에서 같은 시험을 자식으로 다시 돌림 → 비교.
 pytest 시험: `from real_state_guard import guard_begin_module  # noqa: F401` = 모듈 autouse 픽스처(같은 일 · FAIL = pytest.fail)."""
-import hashlib, json, os, subprocess, sys, tempfile  # noqa: E401
+import hashlib, json, os, re, subprocess, sys, tempfile  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT_SH = os.path.join(HERE, "..", "..", "bin", "ft-harness-root.sh")
@@ -70,6 +72,34 @@ def _listdir(d):
     return sorted(os.listdir(d)) if os.path.isdir(d) else []
 
 
+def _hil_dir():  # r684: 사람 `!` 실행 번호표 폴더 = ft-hil.sh 의 $D 와 같은 규칙
+    return os.path.realpath(os.environ.get("HIL_DIR") or "/tmp")
+
+
+def _hil_snap(d):  # r684: h<숫자> 최대 번호·개수·이름 — 시험이 실 폴더에 번호표를 쓰면 «늘어난다»
+    names = sorted(f for f in _listdir(d) if re.fullmatch(r"h(\d+)", f)
+                   and (os.path.exists(os.path.join(d, f)) or os.path.islink(os.path.join(d, f))))
+    nums = [int(f[1:]) for f in names]
+    return {"dir": d, "max": max(nums, default=0), "count": len(nums), "names": names}
+
+
+def _hil_plan(p):  # 번호표 본문 첫 줄들 `# ft-hil-entry plan=<계획 파일>`
+    try:
+        with open(p, "rb") as f:
+            m = re.search(r"ft-hil-entry plan=(\S+)", f.read(600).decode("utf-8", "replace"))
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def _simulated(plan):  # r684 r2: 계획이 임시 폴더(mktemp) 아래면 «시험 사본» = 누수 · 실 좌석 계획은 <repo>/.fable-team/…
+    if not plan:
+        return True
+    p = os.path.realpath(plan)
+    temps = {os.path.realpath(t) for t in ("/tmp", "/var/folders", tempfile.gettempdir())}
+    return any(p == t or p.startswith(t + "/") for t in temps)
+
+
 def _seat_names(path):
     try:
         with open(path) as f:
@@ -80,7 +110,7 @@ def _seat_names(path):
 
 
 def fingerprint(rs):
-    fp = {"fail": {}, "warn": {}, "mailbox": {}}
+    fp = {"fail": {}, "warn": {}, "mailbox": {}, "hil": _hil_snap(_hil_dir())}
     for kind, p in rs:
         if kind == "data":
             st = os.path.join(p, ".fable-team", "state")
@@ -118,6 +148,17 @@ def check(before):  # (FAIL 줄들, WARN 줄들, 요약)
     after = fingerprint(rs)
     fails = [f"실 상태 바뀜: {q}" for q in sorted(set(fp["fail"]) | set(after["fail"])) if fp["fail"].get(q) != after["fail"].get(q)]
     warns = [f"시험 밖 변경일 수 있음: {q}" for q in sorted(set(fp["warn"]) | set(after["warn"])) if fp["warn"].get(q) != after["warn"].get(q)]
+    hb, ha = fp.get("hil"), after.get("hil")
+    if isinstance(hb, dict) and isinstance(ha, dict):
+        # r684 r2: 번호표 폴더는 «전역»(/tmp)이라 동시 실행 좌석의 실 approve-merge 계획도 늘린다
+        #   → 계획 경로로 가른다. 시험 사본(tmp 아래) = 누수 FAIL · 실 좌석 계획(<repo>/.fable-team) = WARN 만.
+        for name in sorted(set(ha.get("names") or ()) - set(hb.get("names") or ())):
+            q = os.path.join(ha["dir"], name)
+            plan = _hil_plan(q)
+            if _simulated(plan):
+                fails.append(f"실 상태 바뀜: {q}")
+            else:
+                warns.append(f"번호표 늘었으나 실 좌석 계획(동시 실행): {q} ← {plan}")  # 줄어듦(사람 정리)은 FAIL 아님
     known = _known_names(fp, rs)
     for mb, snap in fp["mailbox"].items():
         new = _new_mail(mb, snap)
@@ -150,7 +191,9 @@ def _isolate():  # (지문 파일, git 밖 임시 cwd, 자식 env)
     tmp = os.path.realpath(tempfile.mkdtemp(prefix="rsg-"))
     snap_file = os.path.join(tempfile.mkdtemp(prefix="rsg-snap-"), "snap.json")
     snap(snap_file, os.getcwd())
-    return snap_file, tmp, dict(os.environ, RSG_ACTIVE="1", GIT_CEILING_DIRECTORIES=os.path.dirname(tmp))
+    hil = os.path.join(tmp, "hil")
+    os.makedirs(hil, exist_ok=True)  # r684: 기본으로 막는다 — 시험이 진짜 ${HIL_DIR:-/tmp}/h<N> 을 안 쓰게
+    return snap_file, tmp, dict(os.environ, RSG_ACTIVE="1", GIT_CEILING_DIRECTORIES=os.path.dirname(tmp), HIL_DIR=hil)
 
 
 def guard_begin():

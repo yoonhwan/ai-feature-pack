@@ -6,6 +6,8 @@
 #   guard_begin = ①시험 시작 전 cwd 기준 실 루트 3종(데이터·리포·우편함) 지문 ②git 밖 mktemp -d 로 cd + GIT_CEILING_DIRECTORIES
 #   ③같은 시험을 자식으로 다시 돌림(RSG_ACTIVE=1 · 자식의 guard_begin 은 통과) ④guard_end = 지문 비교 → exit.
 #   trap 대신 재실행 — 시험 본문의 `trap … EXIT` 를 덮지 않는다. 시험 rc 가 0 이 아니면 그 rc · 지문 FAIL 이면 1.
+#   r684: 자식 env 에 HIL_DIR=<임시>/hil 을 넣는다(사람 `!` 실행 번호표 /tmp/h<N> 를 시험이 안 쓰게) · 지문이 h<N> 를 본다.
+#   r684 r2: /tmp 는 전역이라 동시 좌석 approve-merge 계획도 늘린다 — 시험 사본(mktemp 아래) 계획만 FAIL · 실 좌석 계획은 WARN.
 #   stderr 1줄: `REAL-STATE-GUARD PASS …` / `REAL-STATE-GUARD FAIL 실 상태 바뀜: <파일>` · 실 루트를 못 풀면 PASS «실 루트 없음».
 RSG_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../scripts" && pwd)/real_state_guard.py"
 
@@ -14,8 +16,9 @@ guard_begin() {
   local self tmp snapd rc=0
   self="$(cd -- "$(dirname -- "$0")" && pwd)/$(basename -- "$0")"
   tmp="$(cd "$(mktemp -d)" && pwd -P)"; snapd="$(mktemp -d)"
+  mkdir -p "$tmp/hil"   # r684: 자식 env HIL_DIR — 시험이 진짜 /tmp/h<N> 을 쓰지 않게(py _isolate 와 같은 규칙)
   python3 "$RSG_PY" snap --out "$snapd/snap.json" --cwd "$PWD" || { echo "REAL-STATE-GUARD ERROR 지문 못 뜸" >&2; rm -rf "$tmp" "$snapd"; exit 2; }
-  ( cd "$tmp" && RSG_ACTIVE=1 GIT_CEILING_DIRECTORIES="$(dirname -- "$tmp")" exec "$BASH" "$self" "$@" ) || rc=$?
+  ( cd "$tmp" && RSG_ACTIVE=1 GIT_CEILING_DIRECTORIES="$(dirname -- "$tmp")" HIL_DIR="$tmp/hil" exec "$BASH" "$self" "$@" ) || rc=$?
   guard_end "$snapd/snap.json" "$rc"
   local grc=$?
   rm -rf "$tmp" "$snapd"

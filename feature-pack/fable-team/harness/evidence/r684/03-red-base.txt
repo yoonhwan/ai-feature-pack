@@ -1,0 +1,18 @@
+# r684 ⓐ 실패 시험 먼저 — base(origin/main 30b4d8ba) 상태에서 새 시험·새 축이 «실제로 실패» 하는지
+## date: 2026-10-22 03:18:35 · /tmp h<N>: 254 장 · 최대 h254
+
+== ⓐ base 새 시험 수집 실패 — undo_env(격리 HIL_DIR) 함수 자체가 없다
+    from _nano_rollback_env import jsonl, make_env, roster, undo, undo_env
+E   ImportError: cannot import name 'undo_env' from '_nano_rollback_env' (/Users/yoonhwan/Project/ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/_nano_rollback_env.py)
+=========================== short test summary info ============================
+ERROR scripts/test_r684_hil_entries_guard.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.11s
+
+== ⓒ base 지문 — /tmp h<N> 축 없음
+fp 키: ['fail', 'mailbox', 'warn']
+
+== ⓓ base 공용 가드 — 자식 env 에 HIL_DIR 없음(가드가 지키는 시험이 그대로 실패)
+NO_HIL_DIR — 자식 env 에 HIL_DIR 이 없어 ft-hil.sh 가 실제 /tmp/h<N> 에 쓴다
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+inner rc=1

@@ -1,0 +1,11 @@
+# r684 후판 green — 새 시험 + 고친 시험 (python3.11 pytest)
+## date: 2026-10-22 03:20:54 · branch nano/r684-tests-leak-real-hil-entries-hil-dir · HEAD 30b4d8ba
+
+.......................................                                  [100%]
+39 passed in 86.77s (0:01:26)
+
+== undo 계열(공용 _nano_rollback_env 사용) — 단독 모드 포함
+/Users/yoonhwan/Project/ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:72: AssertionError
+=========================== short test summary info ============================
+FAILED test_nano_spawn_rollback.py::test_spawn_tag_failure_rolls_back_via_undo_with_owned_values
+1 failed, 18 passed, 6 deselected in 16.96s

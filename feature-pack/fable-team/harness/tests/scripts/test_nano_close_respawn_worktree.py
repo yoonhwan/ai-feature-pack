@@ -11,6 +11,7 @@ import time
 
 import pytest
 from ft_git_helpers import BIN, git, init_repo
+from real_state_guard import guard_begin_module  # noqa: E402,F401  r684: 실 상태 지문 + 자식 HIL_DIR(실 /tmp/h<N> 쓰기 0)
 
 SEAT = "ft-v65-temp-k#0"
 FEAT = "feat/v6-realtime-live"

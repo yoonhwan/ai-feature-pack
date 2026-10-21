@@ -1,0 +1,62 @@
+r684 r2 — master#93 반송 135884 답: «unset HIL_DIR 로 돌리면 never_started +2 누수» 는 오귀속 · 진짜 원인은 지문의
+/tmp/h<N> 축이 «전역» 이라 동시 실행 좌석의 실 approve-merge 계획까지 시험 누수로 세던 것. (2026-10-22 03:35~03:55 · 팩 워크트리 a45aaf85 위)
+
+① 왜 test_nano_close_never_started.sh 가 실 번호표를 쓰나 → 쓰지 않는다.
+  근거 1 (구조): 이 시험은 $T/bin 에 8개 스크립트만 복사한다 — ft-nano-close.sh ft-nano-never-started-check.sh
+    ft-landed-check.sh ft-nano-suspended-check.sh ft-nano-superseded-check.sh ft-nano-evidence-check.sh
+    ft-nano-cherry-gate.sh ft-wt-sweep.sh. ft-hil.sh 는 목록에 «없다»(tests/test_nano_close_never_started.sh:26).
+    ft-nano-close.sh:999 · ft-wt-sweep.sh:146 의 HIL 안내는 HB="$(dirname "$0")/ft-hil.sh" = $T/bin/ft-hil.sh → 부재 → 기록 0.
+    (대조: 같은 계열 test_nano_close_pack_wt.sh:19 는 ft-hil.sh 를 복사하고 :62 의 run() 이 HIL_DIR="$T/hil" 을 넘긴다.)
+  근거 2 (실측): unset HIL_DIR 로 2회 연속 — rc=0 · /tmp/h[0-9]* 개수 539→539 (delta 0) · REAL-STATE-GUARD PASS.
+    직전에도 2회(530→530, 531→531) delta 0.
+
+② 가드 주입(guard_begin 자식 env HIL_DIR)이 이 시험에서 왜 안 먹나 → 먹는다. FAIL 은 «남의 번호표» 였다.
+  master 가 본 /tmp/h259 의 본문:
+    # ft-hil-entry plan=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-lecture-L18-bf97a7fb0f-20261022.sh.hil
+  = BYZ-Agents «실 좌석» 의 approve-merge HIL. 같은 시각대의 같은 부류 실측(전부 실 좌석 계획 · .ran 표식 있음):
+    h258 03:33:01 plan=…/state/approve-merge-feature-2484-ed92634228-20261022.sh.hil
+    h259 03:33:04 plan=…/state/approve-merge-lecture-L18-bf97a7fb0f-20261022.sh.hil   ← master FAIL 이 지목한 파일
+    h260 03:40:13 plan=…/state/approve-merge-cfo-2488-0e5e5f9a95-20261022.sh.hil
+    h261 03:42:08 plan=…/state/approve-merge-room-2489-ac0a268c82-20261022.sh.hil
+    h262 03:44:31 plan=…/state/approve-merge-feature-2490-912f92e615-20261022.sh.hil
+    h263 03:45:52 plan=…/state/approve-merge-planner-2492-c13d2c90e5-20261022.sh.hil
+  배경 증가 실측: 시험을 한 번도 돌리지 않은 구간에서도 530→531 (약 1장/7분). 즉 /tmp/h<N> 는 좌석들이 상시 늘린다.
+  ⇒ 지문(real_state_guard.py)의 h 축이 «무엇이 늘었나» 를 안 보고 «늘었나» 만 봤기 때문에, 아무 시험이나 동시 좌석
+    approve-merge 와 겹치면 REAL-STATE-GUARD FAIL 이 뜬다(가드 쓰는 시험 188개 전부 해당 = 하루 종일 오경보).
+
+③ 고침 (시험 파일만 · 키트 bin 0)
+  tests/scripts/real_state_guard.py — h 축을 «계획 경로로 귀속»:
+    _hil_snap = dir·max·count + names(번호표 이름 목록)  ← 새 이름만 본다(줄어듦은 그대로 PASS)
+    _hil_plan(hN) = 본문 «# ft-hil-entry plan=<경로>»
+    _simulated(plan) = plan 이 임시 뿌리(/tmp · /var/folders · tempfile.gettempdir()) 아래면 «시험 사본» → FAIL
+                       plan 이 $HOME 등 그 밖(<repo>/.fable-team/…)이면 «실 좌석» → WARN 1줄 · rc 0
+                       계획 줄이 없는 번호표는 판단 불가 → FAIL(잡기 유지)
+  tests/lib/real_state_guard.sh — 머리 주석에 r2 규칙 1줄(동작 동일 · 로직은 py 한 곳).
+  tests/scripts/test_r684_hil_entries_guard.py — 새 시험 3:
+    test_simulated_plan_classification (실 좌석 $HOME 경로 False · mktemp 경로 True · /tmp True · 계획줄 없음 True)
+    test_py_check_warns_when_new_entry_is_real_seat_plan (compare 가 FAIL 아닌 WARN)
+    test_py_fingerprint_fails_when_new_entry_is_temp_copy_plan (시험 사본 계획은 계속 FAIL)
+    + test_nano_close_never_started_leaves_real_hil_count_unchanged 를 «개수 비교» → «새 번호표의 계획이 시험 사본인가» 로 바꿈(같은 경합 제거)
+  고침 전/후 같은 입력: h2 에 plan=<repo>/.fable-team/state/approve-merge-… (실 좌석) → 前 FAIL · 後 WARN rc0
+                          h3 에 plan=<mktemp>/undo-repo/.fable-team/state/… → 前 FAIL · 後 FAIL (유지)
+
+④ 다른 시험 전수 훑기 (unset HIL_DIR 로 실제 실행 · /tmp/h* 델타 · 계획 경로로 귀속)
+  A. ft-hil.sh 를 복사하고 env -i 를 쓰는 시험: 18개. 그중 run() 이 HIL_DIR 을 넘기지 않는 «구멍» 6개 파일
+     (test_hil_run_marker · test_nano_close_fail_closed · test_nano_close_named_wt · test_nano_close_wt_deletion_only ·
+      test_team_literal_paths2 ×6 · test_team_move_roundtrip)
+     → 구멍이 부르는 것은 계획 스크립트·python 모듈·주석뿐이고 ft-hil.sh 호출 경로가 아니다(줄 단위 대조) = 누수 0.
+     test_resource_reclaim_preventive.sh 는 ft-hil.sh 를 «대역»(echo "! bash /tmp/h999")으로 둔다 = 누수 0.
+  B. 실측 델타 (18개 중 실행 완료분):
+     delta 0 : test_hil.sh · test_hil_pending_single_pass.sh · test_hil_run_marker.sh(rc1 기존결함) ·
+               test_nano_close_fail_closed · named_wt · rerun_early · rerun_named_equal · rerun_wt_clean · wt_deletion_only ·
+               test_reap_agent_pi_r542 · test_team_literal_paths2(rc1 기존) · test_team_move_roundtrip(rc1 기존) ·
+               test_wt_clean_two_stage · test_wt_sweep_budget_replan_r535 · test_nano_close_never_started ×4
+     델타 있음(전부 실 좌석 approve-merge · 시험 산출 아님): pack_wt 03:40 h260(cfo) · pack_nano_worktree_place 03:42 h261(room) ·
+               resource_reclaim(내 timeout 124 로 중단) 03:44/03:45 h262(feature)·h263(planner)
+     ⇒ 「시험이 쓴 실 번호표」 = 0건 (a45aaf85 이전 r684 ①·② 고침이 이미 덮음 · 이번 r2 는 오경보 제거).
+
+검증 rc
+  python3.11 -m pytest tests/scripts/test_r684_hil_entries_guard.py … (39→42 passed)  rc=0
+  bash tests/test_nano_close_never_started.sh  (unset HIL_DIR ×2 · 539→539 delta 0 · ALL PASS)  rc=0
+  ruff check real_state_guard.py test_r684_hil_entries_guard.py → All checks passed  rc=0
+press 필요 없음(시험·지문만 · 키트 bin 변경 0).
