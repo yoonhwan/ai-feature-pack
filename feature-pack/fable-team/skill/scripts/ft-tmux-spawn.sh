@@ -32,6 +32,9 @@ ROOT="$(ft_resolve_root "$ROOT")"
 [ -n "$NAME" ] && [ -n "$ROLE" ] || { echo "ft-tmux-spawn: --name·--role 필수" >&2; exit 1; }
 # 세션명 allowlist(mbox NAME_RE와 동일) — 생성·송신 경계 규약 통일(세션명이 doorbell 명령에 삽입).
 case "$NAME" in *[!A-Za-z0-9._#-]*|'') echo "BAD_SESSION_NAME $NAME" >&2; exit 1;; esac
+# ★전팀 정지 게이트 (r626 DA⑥ r1 Q1)★: 늘 check(«파일 없음 = 꺼짐» 가정 0 · DA⑥ r2) · 정지면 세션 개설 0(부작용 전 · 신호 폴더도 안 만든다) · 루트 = FT_ROOT 또는 --root 의 git 공용 루트
+_asr="${FT_ROOT:-$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"; _asr="${_asr:-$ROOT}"
+[ -e "$_asr/.fable-team" ] && { _aout="$(FT_ROOT="$_asr" bash "$(dirname "$LIB")/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 
 # ── ② spawn_backend 분기 (agent-v2 → 롤백 디스패처로) ──────
 BACKEND="$(ft_ijson "$ROOT" spawn_backend.default)"; [ -z "$BACKEND" ] && BACKEND="tmux"

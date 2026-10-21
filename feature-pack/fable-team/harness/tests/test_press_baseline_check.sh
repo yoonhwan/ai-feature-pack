@@ -16,6 +16,8 @@ bash -n "$BIN/ft-press-baseline-check.sh" && ok "bash -n baseline-check" || bad 
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 R="$T/repo"; mkdir -p "$R/worker" "$R/design/v65/baselines/ev" "$R/cards" "$T/root/.fable-team"
+mkdir -p "$T/root/.fable-team/state"   # r626 DA⑥ r2: 상태 폴더 없음 = 전팀 정지 — 픽스처 루트에 빈 상태 폴더(원장·상태 파일 없음 = 꺼짐)
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/root/.fable-team/state"/all-stop.log   # r626 r4: 원장 없음 = 전팀 정지 — 설치가 남기는 init 줄(꺼짐)
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$R/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 echo '{}' > "$T/root/.fable-team/seats.json"
 git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t
@@ -74,7 +76,7 @@ base noev evidence "$P/ev/RESULT-missing.json"
 base evother evidence "$P/ev/RESULT-other.json"
 echo '[]' > "$R/$P/ev/RESULT-array.json"; base evarr evidence "$P/ev/RESULT-array.json"
 # 검사기 비정상 종료 재현: BLOCK 줄 없이 비0 으로 죽는 python3 를 PATH 앞에 둔다(DA⑥ r1 — 줄 부재를 통과로 읽으면 안 된다)
-mkdir -p "$T/fakebin" && printf '#!/bin/sh\nexit 9\n' > "$T/fakebin/python3" && chmod +x "$T/fakebin/python3"
+mkdir -p "$T/fakebin" && printf '#!/bin/sh\ncase "$1" in *ft_all_stop.py) exec %s "$@";; esac\nexit 9\n' "$(command -v python3)" > "$T/fakebin/python3" && chmod +x "$T/fakebin/python3"   # r626: ⓪ 전팀 정지 판정기(ft_all_stop.py)만 진짜 python — 이 시험은 기준선 검사기의 비정상 종료를 본다
 
 expect 1 '⑥ 카드 미지정' "카드 미지정 → 막힘" "" "$ST"
 expect 1 'BLOCK 카드 기준선: 없음' "카드 기준선: 없음 → 막힘" "$(card none '기준선: 없음' '실험: 없음')" "$ST"

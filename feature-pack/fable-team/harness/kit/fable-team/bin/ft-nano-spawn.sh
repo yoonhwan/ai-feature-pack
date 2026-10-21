@@ -41,6 +41,8 @@ if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   _pout="$(FT_ROOT="$ROOT" bash "$HERE/ft-penalty.sh" check "$_ptm" 2>&1)"; _prc=$?
   [ "$_prc" != 0 ] && { printf '%s\n' "$_pout"; exit "$_prc"; }
 fi
+# ★전팀 정지 게이트 (r626)★: 늘 check — 판정(상태 파일·원장 all-stop.log·상태 폴더)은 ft_all_stop.py 하나 · «파일 없음 = 꺼짐» 가정 0(DA⑥ r2) · 정지면 끄기 전 spawn 0(팀 구분·우회 플래그 없음 · 부작용 전) · 판정기가 없으면 그 오류로 REJECT(조용한 통과 0).
+[ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 는 default)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. 파일이 없으면 추측 없이 REJECT.
 if [ -z "${FT_NANO_PREFIX:-}" ]; then

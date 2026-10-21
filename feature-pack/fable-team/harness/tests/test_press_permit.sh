@@ -14,7 +14,9 @@ bash -n "$TOOL" && ok "bash -n" || bad "bash -n"
 
 LIVE_BEFORE="$(ls -la "$LIVE" 2>&1)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-export FT_PERMIT_DIR="$T"
+export FT_PERMIT_DIR="$T" FT_ROOT="$T"   # r626: device-acquire 가 ft-all-stop.sh check 로 리포 루트를 푼다 — 임시 루트(ALL_STOP 없음)
+mkdir -p "$T/.fable-team/state"   # r626 DA⑥ r2: 상태 폴더 없음 = 정지 — 임시 루트에 빈 상태 폴더(원장·상태 파일 없음 = 처음 설치 = 꺼짐)
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/.fable-team/state"/all-stop.log   # r626 r4: 원장 없음 = 전팀 정지 — 설치가 남기는 init 줄(꺼짐)
 run() { bash "$TOOL" "$@" 2>&1; }
 # exp <rc> <출력 패턴> <설명> <명령…>
 exp() { local rc="$1" pat="$2" desc="$3"; shift 3; local out; out="$(run "$@")"; local got=$?

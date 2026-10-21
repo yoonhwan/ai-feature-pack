@@ -1,0 +1,3 @@
+tests/test_successor_open.sh rc=0 fail=0 :: (ⓘ 설치 꼴 루트에 원장 init 줄 넣은 뒤 재실행)
+tests/test_plist_workdir_exist_r544.sh base(1c580b42) rc=124 = 가지와 같은 시간 초과(load 55~65) — 이 카드 무관
+남은 빨강 = r1 목록(12-da6-existing) 과 같음 · 새 빨강 0

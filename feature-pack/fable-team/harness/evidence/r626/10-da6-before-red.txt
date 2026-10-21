@@ -1,0 +1,106 @@
+PASS ⓕ 꺼짐 check rc0
+PASS ⓑ0 꺼짐 nano 정지 거절 0
+PASS ⓑ0 꺼짐 role PLAN
+PASS ⓒ0 꺼짐 device-acquire OK
+PASS ⓐ on rc0
+PASS ⓐ ALL_STOP.json {since,by,reason}
+PASS ⓐ 두 팀 _master 통지 1통씩
+PASS ⓐ 통지 본문(답만·spawn·press 0·STATE.md 정지 직전)
+PASS ⓐ STATE.md 없는 팀 = 틀로 만들기 구절 (m.bb → bb)
+PASS ⓐ STATE.md 있는 팀 = 틀 구절 0
+PASS ⓗ 이미 켜짐 on = rc0 변경 0 통지 0
+PASS ⓗ on 이 PENALTY_STOP 무변경
+PASS ⓕ 켜짐 check rc1 사유 1줄
+PASS ⓑ 켜짐 nano-spawn REJECT rc1
+PASS ⓑ 켜짐 role-spawn REJECT rc1
+PASS ⓒ 켜짐 device-release 통과
+PASS ⓒ 켜짐 device-acquire REJECT rc1
+PASS ⓒ 켜짐 status 통과
+PASS ⓒ 켜짐 leave 통과
+PASS ⓓ status on · 두 팀 X
+PASS ⓓ STATE.md «정지 직전» 적은 팀 O
+PASS ⓔ off = ALL_STOP.released-<시각> 로 옮김
+PASS ⓔ 두 팀장 «재개» 통지
+PASS ⓗ off 가 PENALTY_STOP 무변경
+PASS ⓕ 끈 뒤 check rc0
+PASS ⓔ 꺼진 데 off = 이미 꺼짐 rc0
+PASS usage rc2
+PASS ⓖ 좌석 on 직접 = deny
+PASS ⓖ 좌석 off 직접 = deny
+PASS ⓖ 좌석 이름 못 읽음 on = deny
+PASS ⓖ planner _master on = 통과
+PASS ⓖ 좌석 status·check = 통과
+PASS ⓖ 좌석 ALL_STOP.json 쓰기 = deny
+PASS ⓖ planner 도 ALL_STOP.json 직접 Write = deny(도구로만)
+PASS ⓖ 읽기 = 통과
+PASS ⓖ 좌석이 bash /tmp/hN(정지 켜기) 실행 = deny
+PASS ⓖ planner _master 가 hN 실행 = 통과
+PASS ⓖ 기존 자율 막기 문구 그대로
+FAIL Q2 python3 ft_all_stop.py off = deny :: rc=0 out=
+PASS Q2 sh ft-all-stop.sh on = deny
+PASS Q2 직접 경로 off = deny
+FAIL Q2 python3 ft_all_stop.py on = deny :: rc=0 out=
+PASS Q2 rm ALL_STOP.json = deny
+FAIL Q2 mv .fable-team/state 폴더 = deny :: rc=0 out=
+FAIL Q2 rm -rf .fable-team/state/ = deny :: rc=0 out=
+FAIL Q2 python -c os.remove 문자열 = deny :: rc=0 out=
+FAIL Q2 python heredoc unlink = deny :: rc=0 out=
+FAIL Q2 planner 도 python shutil 옮기기 = deny(도구로만) :: rc=0 out=
+PASS Q2 planner _master python 꼴 off = 통과
+PASS Q2 좌석 python 꼴 status = 통과
+PASS Q2 상태 폴더 안 다른 파일 mv = 통과
+PASS 변이 ft-nano-spawn.sh 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)
+PASS 변이 ft-role-spawn.sh 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)
+PASS 변이 ft-press-permit.sh 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)
+FAIL Q1 successor-open 새 이름 = REJECT rc1 :: rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YN13bLqmSs/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+FAIL Q1 successor-open 계보 건너뜀(#1→#3) = REJECT :: rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YN13bLqmSs/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+FAIL Q1 successor-open 명부에 없는 구 좌석 = REJECT :: rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YN13bLqmSs/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+FAIL Q1 successor-open 진짜 승계(#1→#2 · 명부 있음) = 통과 :: rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YN13bLqmSs/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+FAIL Q1 tmux-spawn = REJECT rc1 :: rc=1 out=ft-tmux-spawn: readiness timeout(90s) byz-aa-worker-claude#0 — bootfail.log 저장
+FAIL Q1 press-gate = 막힘 rc1(첫 검사) :: rc=1 out=✓ 미랜딩 제품 커밋 0
+✗ worker pid=66925 기동이 최신 커밋보다 «앞»선다 — 재기동 필요
+✗ gateway pid=60305 기동이 최신 커밋보다 «앞»선다 — 재기동 필요
+✗ 화면 pid=56786 기동이 최신 커밋보다 «앞»선다 — 재기동 필요
+✓ [C2c-ACT] activation bundle established
+✓ worker health 200
+✓ Caddy 8443 health 200
+✓ worker consumer_ready=true
+✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음
+FAIL Q3 상태 «null» = check rc1 사유 1줄(traceback 0) :: rc=0 out=
+FAIL Q3 상태 «[]» = check rc1 사유 1줄(traceback 0) :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q3 상태 «7» = check rc1 사유 1줄(traceback 0) :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q3 상태 «» = check rc1 사유 1줄(traceback 0) :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q3 상태 «{bad» = check rc1 사유 1줄(traceback 0) :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q3 깨진 상태 status = on(읽기 이상) :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q3 깨진 상태도 off 로 치움 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+mkdir: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YN13bLqmSs/repo/.fable-team/state/ALL_STOP.json: File exists
+FAIL Q3 상태 경로가 폴더 = nano-spawn REJECT :: rc=1 out=hold=none
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", l
+FAIL Q3 상태 경로가 폴더 = role-spawn REJECT :: rc=1 out=hold=none
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", l
+rmdir: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YN13bLqmSs/repo/.fable-team/state/ALL_STOP.json: Not a directory
+FAIL Q4 on 통지 실패 = rc3 · 상태는 켜짐 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q4 notify_failed 기록 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q4 재실행 on = 실패분만 재통지 rc0 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q4 재통지 뒤 notify_failed 비움 · since 그대로 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q4 off 통지 실패 = rc3 · 상태는 꺼짐 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q4 재실행 off = 실패분만 «재개» 재통지 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+FAIL Q4 실패분 없으면 off 재실행 통지 0 :: rc=1 out=Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_all_stop.py", line 146, i
+fail=29
+REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/base/feature-pack/fable-team/harness)
+rc=29

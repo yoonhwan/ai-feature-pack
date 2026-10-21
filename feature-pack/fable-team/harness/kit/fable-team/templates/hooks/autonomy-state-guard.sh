@@ -6,6 +6,8 @@
 #   r466 5c: 인자에 오빠 진입 파일(`/tmp/h<N>`·$HIL_DIR/h<N>)·계획 파일(`*.sh.hil`)이 있으면 그 본문(진입 파일의 `plan=` 이 가리키는 계획 파일까지 1단)에 같은 판정 —
 #     단 approve-merge 는 자율 ON(ft-autonomy.sh mode = on)이면 허용 + 로그 `hN-approve seat=<tmux 세션|unknown> file=<경로>`(자율 중 병합 승인 = desk 실행) · OFF·못 읽음 = deny · on|off|forget-kind|approve-scope = 늘 deny · 파일 못 읽음 = 허용 + 로그.
 #   Write/Edit/NotebookEdit 는 file_path·notebook_path. Bash 는 «양성 일치»만: 리다이렉트 `>`/`>>`/`>|` 대상 · tee · cp(마지막 인자=대상) · mv/rm/ln/install/touch/truncate 인자 · dd of= · sed/perl -i.
+#   r626: `ALL_STOP.json`·`ALL_STOP.released-*` 쓰기(누구든) · `ft-all-stop.sh`/`ft_all_stop.py` on|off 실행(어느 꼴이든 · planner 명부 `_master` 좌석만 예외 · hN 본문도 같다) ·
+#     `all-stop.log`(원장 · DA⑥ r2) 쓰기 · `.fable-team`·`.fable-team/state` 폴더 자체 mv·rm · 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 포함) — 사유 문구는 r626 것. 변수 간접·glob 은 위협 모델 밖(카드 DA⑥ r1).
 #   읽기 목록 밖을 전부 막는 방향은 오탐 폭발(r106c 실측)이라 금지 — cat·jq·grep·tail·ft-autonomy.sh status|mode|event·따옴표 안 글자·heredoc 본문은 allow.
 # 한계(설계 §1): bypass 좌석의 적대적 우회(python -c 로 쓰기 등)까지는 못 막는다 — 그건 ft-autonomy.sh 의 위변조 표시가 잡는다.
 # ★FAIL-OPEN★: 파싱 불가 = 허용 + 로그(FT_AUTONOMY_HOOK_LOG · 기본 ~/.claude/logs/autonomy-hooks.log). 외부 호출 0 — 로컬 git rev-parse 뿐.
@@ -33,6 +35,14 @@ ANY_ARG = {"tee", "touch", "rm", "truncate", "ln", "install", "shred", "unlink",
 REASON = ("자율 모드 상태 파일(autonomy.json·autonomy.log)·병합 승인(autonomy-merge-approved/·옛 autonomy-merge-ok/)·범위 승인 폴더(autonomy-scope/)·묶음 발급(autonomy-digest/)·재개 원장(seat-resume-attempts/) 쓰기와 "
           "ft-autonomy.sh on|off|approve-merge|approve-scope · ft-queue-digest.sh issue · ft-resume-attempt.sh allow 는 오빠 `!` 한 줄만 — 좌석 경로 0(판정 1322·1675·2055). "
           "읽기(cat·jq·tail·ft-autonomy.sh status)와 좌석 도구 scope-approve·scope-stop·scope-status 는 허용.")
+AS_PROT = re.compile(r"(^|/)(ALL_STOP\.(json(\.tmp)?$|released-)|all-stop\.log$)")   # r626 전팀 정지 상태 파일 — 쓰기는 planner 도 0(도구로만)
+AS_REASON = ("전팀 정지 스위치(ft-all-stop.sh·ft_all_stop.py on|off)는 오빠 `!` 한 줄 또는 planner 팀장(명부 seats-planner.json `_master` 좌석)만 — 좌석 경로 0(r626). "
+             "ALL_STOP.json·ALL_STOP.released-* 직접 쓰기·지우기·옮기기(파이썬 코드 포함)와 상태 폴더 mv·rm 은 planner 도 0(도구로만). status·check·읽기는 허용.")
+AS_EXE = re.compile(r"^ft[-_]all[-_]stop(\.sh|\.py)?$")   # r626 DA⑥ r1 Q2: 실행 꼴 무관(bash·sh·python3·직접 경로) — 이름 글자로 잡는다
+AS_DIR = re.compile(r"(^|/)\.fable-team(/state)?/?$")   # 상태 폴더 자체 mv·rm
+AS_PYW = re.compile(r"\b(python3?|perl|ruby|node)\b")
+AS_PYOP = re.compile(r"\.unlink\(|os\.(remove|unlink|rename|replace)\(|shutil\.|\.rename\(|\.replace\(|open\([^)]*['\"][wax+]|write_(text|bytes)\(|rmtree")
+AS_HIT, ROOT = [], [""]
 
 
 def note(msg):
@@ -146,9 +156,28 @@ def resolve(words):
     return "", []
 
 
+def prot(t):   # 보호 경로인가 — 전팀 정지 파일이면 사유를 r626 으로
+    if AS_PROT.search(t):
+        AS_HIT.append(t)
+        return True
+    return bool(PROT.search(t))
+
+
+def planner_seat():   # r626: 지금 좌석이 planner 명부 `_master` 인가(tmux 세션 이름 · 못 읽음 = 아님)
+    try:
+        with open(os.path.join(ROOT[0], ".fable-team/seats-planner.json"), encoding="utf-8") as f:
+            m = json.load(f).get("_master") or ""
+    except (OSError, ValueError):
+        return False
+    return bool(m) and seat_name() == m
+
+
 def violates(cmd, depth=0, merge_ok=False, merges=None):   # merge_ok = 계획 파일 안 approve-merge 허용(자율 ON) · merges = 허용한 approve-merge 를 모은다
+    if ("ALL_STOP" in cmd or "all-stop.log" in cmd) and AS_PYW.search(cmd) and AS_PYOP.search(cmd):   # r626: 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 본문 포함 · 누구든)
+        AS_HIT.append("py")
+        return True
     for words, reds in simple_commands(cmd):
-        if any(PROT.search(t) for t in reds):
+        if any(prot(t) for t in reds):
             return True
         prog, args = resolve(words)
         if prog == "-c" and depth < 3 and args and violates(args[0], depth + 1, merge_ok, merges):
@@ -158,13 +187,22 @@ def violates(cmd, depth=0, merge_ok=False, merges=None):   # merge_ok = 계획 �
             merges.append(" ".join(plain[:2]))
         elif plain[:1] and plain[0] in DENY_EXEC.get(prog, ()):
             return True
-        if prog in ANY_ARG and any(PROT.search(a) for a in plain):
+        exe = [i for i, a in enumerate([prog] + args) if AS_EXE.match(os.path.basename(a))]
+        if exe:
+            after = [a for a in ([prog] + args)[exe[0] + 1:] if not a.startswith("-")]
+            if after[:1] in (["on"], ["off"], ["init"]) and not planner_seat():   # r4: init(설치 전용)도 좌석 직접 실행 0
+                AS_HIT.append(prog)
+                return True
+        if prog in ("mv", "rm", "rmdir") and any(AS_DIR.search(a) for a in plain):
+            AS_HIT.append(prog)
             return True
-        if prog == "cp" and plain and PROT.search(plain[-1]):
+        if prog in ANY_ARG and any(prot(a) for a in plain):
             return True
-        if prog == "dd" and any(a.startswith("of=") and PROT.search(a[3:]) for a in args):
+        if prog == "cp" and plain and prot(plain[-1]):
             return True
-        if prog in ("sed", "perl") and any(re.match(r"^-[A-Za-z]*i", a) for a in args) and any(PROT.search(a) for a in plain):
+        if prog == "dd" and any(a.startswith("of=") and prot(a[3:]) for a in args):
+            return True
+        if prog in ("sed", "perl") and any(re.match(r"^-[A-Za-z]*i", a) for a in args) and any(prot(a) for a in plain):
             return True
     return False
 
@@ -197,13 +235,14 @@ try:
     root = byz_root(d.get("cwd")) if tool in ("Bash", "Write", "Edit", "NotebookEdit") else ""
     if not root:
         sys.exit(0)
-    hit, tail = (violates(ti.get("command") or ""), "") if tool == "Bash" else (bool(PROT.search(str(ti.get("file_path") or ti.get("notebook_path") or ""))), "")
+    ROOT[0] = root
+    hit, tail = (violates(ti.get("command") or ""), "") if tool == "Bash" else (prot(str(ti.get("file_path") or ti.get("notebook_path") or "")), "")
     if tool == "Bash" and not hit:
         hit, tail = hil_violates(ti.get("command") or "", root)
 except (ValueError, OSError, AttributeError, subprocess.SubprocessError) as e:
     note(f"{type(e).__name__} {e} — 허용(fail-open)")
     sys.exit(0)
 if hit:
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": REASON + tail}}, ensure_ascii=False))
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": (AS_REASON if AS_HIT else REASON) + tail}}, ensure_ascii=False))
 PYEOF
 exit $?  # r546: 종전 `exit 0` 은 모듈 없음·모듈 오류까지 삼켰다 — 이제 rc2(막음)가 전달된다

@@ -63,6 +63,8 @@ case "$cmd" in
     write "$(setfile "$s")" "$(jq -c --arg m "$m" '.members -= [$m]' "$(setfile "$s")")"
     echo "OK leave $s $m" ;;
   device-acquire)
+    # r626: 전팀 정지 중엔 소리 시험 장치 허가 0 — 정리(device-release·leave·status)는 막지 않는다 · 리포 루트 못 풂 = 그 오류로 REJECT
+    _as="$(bash "$HERE/ft-all-stop.sh" check 2>&1)" || reject "${_as#REJECT }"
     need $# 1; m="$1"
     any_set_has "$m" || reject "멤버 $m 은 어느 세트에도 가입 안 됨 — join 먼저"
     [ -e "$(devfile)" ] && reject "장치 허가 이미 held (member=$(jq -r .member "$(devfile)")) — 두 번째 장치 요청 거부"

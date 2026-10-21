@@ -179,6 +179,7 @@ p_spawn() {  # ft-nano-spawn(등급 A · §10-4) — 카드 이동은 «실파�
   printf '# 카드\n\n## 구현 범위\n- `worker/w.py` 를 고친다\n\n## 상태\n- 대기\n' > "$R/$b/v65/indices/대기/slug.md"; mkdir -p "$R/worker"; echo w > "$R/worker/w.py"; echo '{}' > "$R/.fable-team/seats.json"; echo sb > "$R/$b/v65/SEATBELT-README.md"   # R406: README = 그 꼴 v65 폴더에 실재 1개
   GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m card
   hb="$T/xhb$F"; sh="$T/xsh$F"; mkdir -p "$hb" "$sh"; cp "$SRC/ft-nano-spawn.sh" "$SRC/ft-index-move.sh" "$SRC/ft-team-lib.sh" "$SRC"/ft_*.py "$hb/"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$hb"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
   for s in ft-index-lint ft-proposal-gate ft-resource-gate ft-agent-ready; do exe "$hb/$s.sh" 'exit 0'; done   # 카드 형식 린트·게이트만 대역 — 이동 자체는 실파일
   exe "$hb/ft-send-verified.sh" "echo \"SEND \$*\" >> $T/xcalls$F.log; exit 0"
   exe "$hb/ft-sheet-events.sh" 'case "$1" in key) echo k;; esac; exit 0'

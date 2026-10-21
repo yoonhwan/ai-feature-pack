@@ -1,0 +1,46 @@
+== 재현 1: mv state x && mkdir state 뒤 check (DA: rc0 예상 → 막혀야 rc≠0)
+$ env FT_MBOX_SH=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/mbox.sh bash .fable-team/bin/ft-all-stop.sh init
+ALL-STOP init off — 원장 첫 줄(/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/fx1/.fable-team/state/all-stop.log)
+→ rc=0
+$ env FT_MBOX_SH=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/mbox.sh bash .fable-team/bin/ft-all-stop.sh on 라이브 재현
+all_stop=on since=1792570814 notified=-
+→ rc=0
+$ bash .fable-team/bin/ft-all-stop.sh check
+REJECT 전팀 정지 중(since 2026-10-21T17:20:14) — 끄기 전 spawn·press 0 · 사유: 라이브 재현 (ft-all-stop.sh status)
+→ rc=1
+$ cd /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/fx1/.fable-team && mv state state.saved && mkdir state && bash bin/ft-all-stop.sh check
+REJECT 전팀 정지 중(원장 없음(all-stop.log) — 설치(install.sh --apply)가 init 줄을 남겨야 한다 · 사람 확인) — 끄기 전 spawn·press 0 · 사람 확인
+→ 재현1 rc=1
+
+== 재현 2: 명부 밖 tmux 이름으로 승계 예외 (DA: rc0 예상 → 막혀야 rc≠0) · tmux = 격리 소켓 TMUX_TMPDIR
+$ env FT_MBOX_SH=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/mbox.sh bash .fable-team/bin/ft-all-stop.sh on 라이브 재현2
+all_stop=on since=1792570814 notified=-
+→ rc=0
+$ env -u TMUX tmux new-session -d -s r626-probe#0
+→ rc=0
+$ env -u TMUX tmux has-session -t =r626-probe#0
+→ rc=0
+$ tmux new-session -d -s 'r626-probe#0' && bash .fable-team/bin/ft-all-stop.sh check --succession 'r626-probe#0' 'r626-probe#1'
+REJECT 전팀 정지 중(since 2026-10-21T17:20:14 · 승계 예외 아님(구 좌석이 어느 명부에도 현역 행으로 없음(r626-probe#0) · r626-probe#0 → r626-probe#1)) — 끄기 전 spawn·press 0 · 사유: 라이브 재현2 (ft-all-stop.sh status)
+→ 재현2 rc=1
+(대조) 명부에 현역 행을 넣으면 같은 세션으로 통과해야 한다:
+INFO 전팀 정지 중이나 진짜 승계(r626-probe#0 → r626-probe#1 · 구 좌석 세션 살아 있음)라 통과 — 같은 자리 교대(순증 0)
+→ 대조 rc=0
+$ env -u TMUX tmux kill-session -t =r626-probe#0
+→ rc=0
+
+== 재현 3: 새 설치(state 없음) → install.sh --apply → check (DA: rc1 예상 → 설치가 원장 init 을 남겨 rc0)
+$ ls /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/fresh/.fable-team/state
+ls: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/fresh/.fable-team/state: No such file or directory
+→ (설치 전 state 없음)
+$ install.sh --apply --project /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/fresh --home /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/home (HOME·FT_LAUNCHCTL·FT_PS 격리)
+ALL-STOP init off — 원장 첫 줄(/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r626-all-teams-stop-switch-core/6b32d76b-d047-4e67-ac71-87e89d4aedae/scratchpad/live/fresh/.fable-team/state/all-stop.log)
+INSTALLED 1.1.178 · PLIST ok
+→ install rc=0
+$ bash .fable-team/bin/ft-all-stop.sh check
+→ rc=0
+$ cat .fable-team/state/all-stop.log
+2026-10-21T17:20:27	off	install	init
+(대조) 설치 뒤 mv state x && mkdir state → 다시 정지여야 한다:
+REJECT 전팀 정지 중(원장 없음(all-stop.log) — 설치(install.sh --apply)가 init 줄을 남겨야 한다 · 사람 확인) — 끄기 전 spawn·press 0 · 사람 확인
+→ 대조 rc=1

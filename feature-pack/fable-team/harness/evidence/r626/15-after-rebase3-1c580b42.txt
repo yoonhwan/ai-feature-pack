@@ -1,0 +1,10 @@
+tests/test_all_stop_r626.sh rc=0 pass=76 fail=0
+tests/test_kit_bin_sync.sh rc=0 pass=7 fail=0
+tests/test_pi_agent_allow_r540.sh rc=1 pass=47 fail=4
+tests/test_penalty_spawn_gate.sh rc=0 pass=8 fail=0
+tests/test_press_permit.sh rc=0 pass=35 fail=0
+tests/test_autonomy_hooks.sh rc=0 pass=184 fail=0
+tests/test_successor_open.sh rc=0 pass=23 fail=0
+tests/test_press_role_bts_gate.sh rc=0 pass=25 fail=0
+tests/test_nano_spawn_pi_effort_kind_r631.sh rc=0 pass=65 fail=0
+HEAD=3be3e0099f980718a3ff7e6e7a5e7b80d7051360 base=origin/main@1c580b42
