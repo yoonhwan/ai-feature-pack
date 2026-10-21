@@ -1,0 +1,25 @@
+# r633 DA⑥ r1 뒤 인접 resource 시험 — 가지 · rc≠0 이면 base origin/main 1c580b42 사본 대조
+test_resource_gate rc=0 FAIL=0
+test_resource_gate_pressure rc=0 FAIL=0
+test_resource_watch rc=0 FAIL=0
+test_resource_selflink_r589 rc=0 FAIL=0
+test_resource_watch_incremental_r534 rc=1 FAIL=2
+  가지: FAIL ⓖ 예산으로 끊은 du 는 TIMEOUT 표기 0 — 있으면 안 됨: «TIMEOUT»
+  가지: FAIL ⓖ 예산으로 끊은 du 는 나눔 표식 0 — 있으면 안 됨: «split»
+  base rc=0
+test_resource_cpu_owner rc=0 FAIL=0
+test_resource_reclaim_preventive rc=1 FAIL=3
+  가지: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CXB3BhR
+  가지: FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CXB3BhRVgA/xp»
+  가지: FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin»
+  base rc=1
+  base: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3Nrs4eW
+  base: FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3Nrs4eWBtc/xp»
+  base: FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin»
+  base: FAIL core.bare 이상
+
+# 해석
+- test_resource_watch_incremental_r534 ⓖ(시간 예산 5초 · tick ≤8초) 1차 가지 빨강은 load avg 50.6(다른 나노 시험 동시) 아래 — 가지 단독 재실행 2회 rc=0 FAIL=0 · 이 카드가 바꾼 경로(swap 경고·hard 동결 순서)는 이 시험 입력(swap 6000)에서 안 탐 → 부하 흔들림 · 이 카드 무관
+  재실행1: rc=0 FAIL=0
+  재실행2: rc=0 FAIL=0
+- test_resource_reclaim_preventive r502 ⓓ PATH 3줄 = base 사본도 같은 줄(위) → 이 카드 무관(앞 회차 03 과 같음)

@@ -11,7 +11,7 @@
 #   rate=na(+stderr WARN 1줄 · 속도 칸만 건너뜀) = 검증 통과한 «1줄뿐»(180초 안)일 때만 — 지나면 다시 재서 2줄이 되므로 영구 예외 아님.
 #   측정 실패(명령 없음·파싱 실패)는 통과시키지 않고 `ERROR resource measure <무엇>` + exit 4 (BYZ #0 NO SILENT FALLBACK).
 #   동결 파일(.fable-team/state/RESOURCE_FREEZE)이 있으면 check 는 무조건 REJECT.
-#   R357·r633: «swap>FT_SWAP_HARD_MIB AND level>=FT_SWAP_LEVEL_MIN(2)» 는 거절하지 않고 OK 뒤 stderr `WARN swap=<N>MiB level=<L> — 닫기 목록 보냄` 1줄(목록 쪽지는 감시자 ft-resource-swapwarn-lib.sh) · 옛 거절(`REJECT resource swap=<N>MiB level=<L> limit=<M>MiB@level>=<K>`) = FT_RES_SWAP_FREEZE=1
+#   R357·r633: «swap>FT_SWAP_HARD_MIB AND level>=FT_SWAP_LEVEL_MIN(2)» 는 거절하지 않고 OK 뒤 stderr `WARN swap=<N>MiB level=<L> — 막지 않음(닫기 목록은 감시자가 보냄)` 1줄(목록 쪽지는 감시자 ft-resource-swapwarn-lib.sh) · FT_RES_SWAP_FREEZE=1 = swap 축만 옛 거절(`REJECT resource swap=<N>MiB level=<L> limit=<M>MiB@level>=<K>`)
 #            · 승계(--succession)는 swap 축 면제 — level 4·memfree·rate·disk·동결 파일 거절은 그대로. FT_SWAP_LEVEL_MIN 은 양의 정수(아니면 기본 2 + WARN).
 #   문턱(env 덮어쓰기): FT_DISK_MIN_GIB=30 · FT_SWAP_HARD_MIB=12288 · FT_SWAP_RATE_MAX=512(승계 FT_SWAP_RATE_MAX_SUCC=1024) · FT_PRESSURE_MAX=2(= level 4 만 거절 · 승계 FT_PRESSURE_MAX_SUCC=3)
 #            · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=65 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md → 오빠 판정 1883 ②·1885 로 65)
@@ -148,7 +148,7 @@ if [ "$LEVEL" -gt "$LEVEL_MAX" ]; then echo "REJECT resource level=$LEVEL limit=
 # R357: swap 절대량은 커널이 경고(level>=SWAP_LEVEL_MIN)라 말할 때만 거절 · 승계(순증 0)는 swap 축 면제 — level·memfree·rate 는 그대로
 SWAP_WARN=""; if [ "$SUCC" != 1 ] && [ "$SWAP_MIB" -gt "$SWAP_HARD" ] && [ "$LEVEL" -ge "$SWAP_LEVEL_MIN" ]; then
   [ "${FT_RES_SWAP_FREEZE:-0}" = 1 ] && { echo "REJECT resource swap=${SWAP_MIB}MiB level=${LEVEL} limit=${SWAP_HARD}MiB@level>=${SWAP_LEVEL_MIN}"; exit 3; }
-  SWAP_WARN="WARN swap=${SWAP_MIB}MiB level=${LEVEL} — 닫기 목록 보냄"   # r633: 막지 않음 · 감시자가 유휴 좌석 닫기 목록을 팀장에게
+  SWAP_WARN="WARN swap=${SWAP_MIB}MiB level=${LEVEL} — 막지 않음(닫기 목록은 감시자가 보냄)"   # r633: 발신 결과를 주장하지 않는다(DA⑥ r1 ④)
 fi
 if [ "$MEMFREE" -lt "$MEM_MIN" ]; then echo "REJECT resource memfree=${MEMFREE}% limit=${MEM_MIN}%"; exit 3; fi
 if [ "$RATE" != na ] && [ "$RATE" -gt "$RATE_MAX" ]; then echo "REJECT resource rate=${RATE}MiB/min limit=${RATE_MAX}MiB/min"; exit 3; fi

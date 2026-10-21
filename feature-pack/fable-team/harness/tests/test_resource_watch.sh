@@ -6,7 +6,7 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 export FT_RECLAIM_PREVENT_SEC=0   # R332 3b: 기존 시험은 선제 회수 호출 0 (예방 시험만 아래 ptick 이 켠다 · 실 tmux 0)
-export FT_RES_SWAP_FREEZE=1   # r633: 이 파일의 R357·R332 시험은 옛 swap∧level2 동결 동작 기준(새 동작 = 닫기 목록 쪽지 → test_resource_swap_closelist_r633.sh)
+unset FT_RES_SWAP_FREEZE   # r633 DA⑥ r1 ⑥: 전역 env 0 — swap 동결을 보는 단언만 호출마다 FT_RES_SWAP_FREEZE=1(env 모드) · 같은 입력의 기본 모드 단언은 아래 «r633 기본 모드» 블록
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
 fail=0
@@ -30,8 +30,10 @@ chmod 755 "$S"/*
 NOW="$(date +%s)"
 seed() { # 표본줄 N개(이전 시각순) — 인자: swap memfree level 개수 · NOW 는 호출마다 갱신(R357: 동결 틱이 길어져도 표본이 낡지 않게)
   local i; NOW="$(date +%s)"; : > "$PTSV"; for i in $(seq "$4" -1 1); do printf '%s\t%s\t%s\t%s\t2303978\n' "$((NOW-60*i))" "$1" "$2" "$3" >> "$PTSV"; done; }
-tick() { # tick <env…> — 임시 루트에서 감시자 tick 1회
-  env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
+printf '#!/bin/bash\necho "$*" >> "%s/wrc.calls"\necho "후보 | 종류 | 승인 근거 | 결과"\necho "PREVENTIVE reclaimed=0 candidates=0 skipped=0 pressure=0 swap=0%%"\n' "$T" > "$T/wrc.sh"; chmod 755 "$T/wrc.sh"   # r633: 기본 모드 swap 경고 틱의 회수 도구(가짜 · 실 tmux 0)
+printf '#!/bin/bash\n[ "$1" = send ] && printf "%%s\\n" "$*" >> "%s/wmbox.log"\nexit 0\n' "$T" > "$T/wmbox.sh"; chmod 755 "$T/wmbox.sh"   # r633: 가짜 mbox(실 쪽지 0)
+tick() { # tick <env…> — 임시 루트에서 감시자 tick 1회 (r633: 회수 도구·mbox 는 가짜 기본값 · 인자로 덮어쓸 수 있음)
+  env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FT_RECLAIM_SH="$T/wrc.sh" FT_MBOX_SH="$T/wmbox.sh" "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
 bash -n "$BIN/ft-resource-watch.sh" && ok "bash -n watch" || bad "bash -n watch"
 cmp -s "$BIN/ft-resource-watch.sh" "$KIT/ft-resource-watch.sh" && ok "키트 사본 cmp 0 watch" || bad "키트 사본 어긋남 watch"
 
@@ -54,7 +56,7 @@ frz; seed 8000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40
 frz; seed 9000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=40 FAKE_DISK_KIB=$((34*1048576))
 [ -f "$FREEZE" ] && ok "R320 disk 34G(<35) → 유지" || bad "R320 disk 34G 인데 해제됨"
 # R357: 옛 단언 «swap>12288 단독 동결(level 1)» 은 플래핑의 원인이라 교체 — swap 트리거는 level≥2 와 결합(카드 r357 §시험 입력 ⓗ)
-rm -f "$FREEZE"; seed 13000 40 2 2; tick FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40
+rm -f "$FREEZE"; seed 13000 40 2 2; tick FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40 FT_RES_SWAP_FREEZE=1
 [ -f "$FREEZE" ] && ok "R357 동결 트리거 swap>12288 & level 2 → 동결" || bad "R357 swap 13000·level 2 동결 안 걸림"
 
 # ── R357. swap 절대량 단독 동결·해제 플래핑 폐기 ──
@@ -66,7 +68,7 @@ eq "$(cnt 'FREEZE created')" 0 "R357 ⓖ swap13500·level1 ×3틱 → FREEZE cre
 eq "$(cnt 'THAW removed')" 0 "R357 ⓖ THAW 0"
 [ ! -f "$FREEZE" ] && ok "R357 ⓖ 동결 파일 없음" || bad "R357 ⓖ 동결 파일이 생김"
 # ⓗ swap 13500 level 2 → 동결 1(사유 줄에 swap·level) → level 1 로 내려가고 rate≤512 → 해제 1 → 이어 2틱 동결 0
-rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55
+rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55 FT_RES_SWAP_FREEZE=1
 eq "$(cnt 'FREEZE created')" 1 "R357 ⓗ swap13500·level2 → FREEZE created 1"
 has "$(cat "$FREEZE" 2>/dev/null)" "swap=13500M level=2" "R357 ⓗ 동결 사유 줄에 swap·level"
 seed 13500 55 1 3; tick FAKE_SWAP=13500 FAKE_LEVEL=1 FAKE_MEMFREE=55
@@ -85,17 +87,26 @@ rm -f "$FREEZE"; seed 9000 40 1 2; tick FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE
 [ -f "$FREEZE" ] && ok "R357 ⓙ disk 24G → 동결(level 1)" || bad "R357 ⓙ disk 24G 동결 안 걸림"
 # ⓚ 무효 FT_SWAP_LEVEL_MIN(abc·0·-1) → 로그 WARN 1줄(중복 0) + 기본 2 로 동작(swap13500·level2 동결) · 미설정 → WARN 0
 for v in abc 0 -1; do
-  rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55 FT_SWAP_LEVEL_MIN="$v"
+  rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55 FT_SWAP_LEVEL_MIN="$v" FT_RES_SWAP_FREEZE=1
   eq "$(cnt "WARN FT_SWAP_LEVEL_MIN=${v} ")" 1 "R357 ⓚ FT_SWAP_LEVEL_MIN=${v} → 로그 WARN 1줄(중복 0)"
   [ -f "$FREEZE" ] && ok "R357 ⓚ ${v} → 기본 2 적용(swap13500·level2 동결)" || bad "R357 ⓚ ${v} 인데 기본 2 로 동작 안 함"
 done
-rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55
+rm -f "$FREEZE" "$WLOG"; seed 13500 55 2 2; tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55 FT_RES_SWAP_FREEZE=1
 eq "$(cnt 'WARN')" 0 "R357 ⓚ 미설정 → WARN 0"
 # ⓛ 10-14 03:31 원 사고 입력 보존 — disk 748MiB(=0GiB) · level 4 · swap 13500 · memfree 30 → 동결 trig=disk(swap 파일 23개는 센서 아님 — 환산 0)
 rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FAKE_MEMFREE=30 FAKE_DISK_KIB=$((748*1024))
 has "$(cat "$WLOG" 2>/dev/null)" "trig=disk" "R357 ⓛ4 원 사고 입력 → FREEZE created trig=disk"
+rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FAKE_MEMFREE=30 FT_RES_SWAP_FREEZE=1
+has "$(cat "$WLOG" 2>/dev/null)" "trig=swap" "R357 ⓛ5 (env 모드) disk 86G·level4·swap13500 → trig=swap(결합)"
+# ── r633 기본 모드(env 없음) — 같은 입력에서 swap∧level2 는 동결 0 · level 4 는 단독 동결 ──
+rm -f "$FREEZE" "$WLOG" "$T/wrc.calls"; seed 13500 55 2 3; for _i in 1 2; do tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55; done
+eq "$(cnt 'FREEZE created')" 0 "r633 기본 ⓗ swap13500·level2 ×2틱 → FREEZE created 0"
+[ ! -f "$FREEZE" ] && ok "r633 기본 ⓗ 동결 파일 없음" || bad "r633 기본 ⓗ 동결 파일이 생김"
+has "$(cat "$T/wrc.calls" 2>/dev/null)" "--dry-run --preventive" "r633 기본 ⓗ 닫기 목록 경로(가짜 회수 도구 --dry-run --preventive)"
 rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FAKE_MEMFREE=30
-has "$(cat "$WLOG" 2>/dev/null)" "trig=swap" "R357 ⓛ5 disk 86G·level4·swap13500 → trig=swap(결합)"
+has "$(cat "$WLOG" 2>/dev/null)" "trig=level" "r633 기본 ⓛ5 level4·swap13500 → trig=level(swap 결합 아님)"
+rm -f "$FREEZE" "$WLOG"; seed 6000 30 4 2; tick FAKE_SWAP=6000 FAKE_LEVEL=4 FAKE_MEMFREE=30
+[ -f "$FREEZE" ] && ok "r633 기본 level4·swap6000 → 동결(옛 판 구멍)" || bad "r633 기본 level4 동결 0"
 rm -f "$FREEZE" "$WLOG"
 
 # ── R320c. 해제의 swap 축 = 문지기(ft-resource-gate.sh)와 «같은 rate 정의» — 마지막 6표본 (s1−s0)×60/(t1−t0) ≤ 허용치(512) ──
@@ -177,7 +188,7 @@ pstate; ptick; eq "$(rcalls)" 1 "R332 ⓔ 정상 tick → 예방 호출 1"
 [ -f "$ST/.preventive-last" ] && ok "R332 ⓔ 완료 stamp 기록" || bad "R332 ⓔ 완료 stamp 없음"
 pstate; ptick PATH="$T/badsys:$S:$PATH"; prc=$?
 { [ "$prc" -ne 0 ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ gate 측정 오류(tick rc=$prc)에서도 예방 호출 1" || bad "R332 ⓔ 측정 오류 경로 rc=$prc 호출=$(rcalls)"
-pstate; ptick FAKE_SWAP=13000 FAKE_LEVEL=2
+pstate; ptick FAKE_SWAP=13000 FAKE_LEVEL=2 FT_RES_SWAP_FREEZE=1
 { [ -f "$FREEZE" ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ 새 freeze 생성 tick 에서도 예방 호출 1 · 동결은 그대로 생성" || bad "R332 ⓔ freeze 경로 호출=$(rcalls) freeze=$([ -f "$FREEZE" ] && echo 있음 || echo 없음)"
 # ⓑ stamp 오래됨 + 동시 두 tick → 호출 1 (실행권 mkdir 1회 · 경합이면 즉시 포기)
 pstate; echo 2 > "$RC/sleep"; ( ptick & ptick & wait )
@@ -189,7 +200,7 @@ sleep 2; ptick FT_RECLAIM_PREVENT_SEC=1; eq "$(rcalls)" 2 "R332 ⓒ 기한(1초)
 pstate; echo "PREVENTIVE skipped=lock" > "$RC/out"; t0=$(date +%s); ptick; ptick
 { [ "$(rcalls)" = 2 ] && [ ! -e "$ST/.preventive-last" ]; } && ok "R332 ⓓ 경합 skipped=lock = stamp 0 · 다음 tick 재시도(호출 2)" || bad "R332 ⓓ 경합 호출=$(rcalls) stamp=$([ -e "$ST/.preventive-last" ] && echo 있음 || echo 없음)"
 [ $(( $(date +%s) - t0 )) -le 15 ] && ok "R332 ⓓ 경합 tick 두 번 15초 안 종료" || bad "R332 ⓓ 경합 tick 이 느림"
-pstate; echo 1 > "$RC/rc"; echo "boom" > "$RC/out"; ptick FAKE_SWAP=13000 FAKE_LEVEL=2; ptick FAKE_SWAP=13000 FAKE_LEVEL=2
+pstate; echo 1 > "$RC/rc"; echo "boom" > "$RC/out"; ptick FAKE_SWAP=13000 FAKE_LEVEL=2 FT_RES_SWAP_FREEZE=1; ptick FAKE_SWAP=13000 FAKE_LEVEL=2 FT_RES_SWAP_FREEZE=1
 { [ "$(rcalls)" = 2 ] && [ ! -e "$ST/.preventive-last" ] && [ -f "$FREEZE" ]; } && ok "R332 ⓓ 회수 실패(rc1) = stamp 0·재시도 · 측정·동결은 정상" || bad "R332 ⓓ 실패 경로 호출=$(rcalls)"
 # 잠금 점유: 살아 있는 pid = 호출 0 · 남의 잠금 보존 / 죽은 pid = 회수 후 호출 1
 pstate; mkdir "$ST/preventive.lock.d"; echo $$ > "$ST/preventive.lock.d/pid"; ptick
@@ -214,7 +225,7 @@ rm -rf "$ST/preventive.lock.d" "$ST/preventive.lock.d.rc"
 mkfifo "$T/hold"; exec 7<>"$T/hold"
 held() { # held <상한초> <watch 인자…> — stdin=열린 fifo · 제한 안에 안 끝나면 정리하고 rc 1
   local lim="$1" i wp; shift
-  ( env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" HOME="$T/home" TMPDIR="$T/home" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40 FT_RECLAIM_PREVENT_SEC=0 bash "$BIN/ft-resource-watch.sh" "$@" <&7 >/dev/null 2>&1 ) & wp=$!
+  ( env FT_RES_ROOT="$R" PATH="$D2:$S:$PATH" HOME="$T/home" TMPDIR="$T/home" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=40 FT_RECLAIM_PREVENT_SEC=0 FT_RES_SWAP_FREEZE=1 bash "$BIN/ft-resource-watch.sh" "$@" <&7 >/dev/null 2>&1 ) & wp=$!
   for i in $(seq 1 $((lim*10))); do kill -0 "$wp" 2>/dev/null || { wait "$wp"; return 0; }; sleep 0.1; done
   kill $(pgrep -P "$wp") "$wp" 2>/dev/null; return 1
 }

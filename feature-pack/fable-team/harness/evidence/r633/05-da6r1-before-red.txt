@@ -1,0 +1,96 @@
+# r633 DA⑥ r1 고침 — 실패 시험 먼저: HOLD 판 cf37ffbeb87dfade491400468f48b7782b0feeb6(커밋된 판 · git archive) 에서 새 시험(ⓘ~ⓜ 포함) 실행
+PASS bash -n ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS bash -n ft-resource-gate.sh
+PASS 키트 사본 cmp 0 ft-resource-gate.sh
+PASS bash -n ft-resource-swapwarn-lib.sh
+PASS 키트 사본 cmp 0 ft-resource-swapwarn-lib.sh
+PASS 감시자 줄 수 ≤245
+PASS ⓐ swap14288·level2·memfree31 → 동결 0
+PASS ⓐ check rc=0(REJECT 아님)
+PASS ⓐ check 첫 줄 OK
+FAIL ⓐ check 뒤 WARN 1줄(발신 결과 주장 0) — 없음: «WARN swap=14288MiB level=2 — 막지 않음(닫기 목록은 감시자가 보냄)» ← OK disk=418GiB swap=14288MiB memfree=31% level=2 rate=0 agents=20
+WARN swap=14288MiB level=2 — 닫기 목록 보냄
+PASS ⓐ check REJECT 0
+PASS ⓐ 감시 로그 WARN … close-list sent n=3
+PASS ⓐ 감시 로그 FREEZE created 0
+PASS ⓐ 회수 도구는 --dry-run --preventive 로만(닫기 0)
+PASS ⓑ 후보 있는 팀 2개 → 쪽지 2통
+PASS ⓑ v65 팀장 쪽지 원문(옛 세대 포함)
+PASS ⓑ harness 팀장 쪽지 = 자기 팀 좌석만
+PASS ⓑ 승인 범위 밖(HIL) 행은 목록 0
+PASS ⓑ SKIP 행은 목록 0
+PASS ⓑ 후보 0 팀(v65)엔 안 보냄 — 1통
+PASS ⓑ v65 팀장 쪽지 0
+PASS ⓒ 같은 서명(같은 4 GiB 구간·같은 목록) 다음 틱 2번 → 추가 0
+PASS ⓒ 후보 목록이 바뀌면 1통 더
+PASS ⓒ 같은 서명도 반복 간격(시험 0초)이 지나면 다시
+PASS ⓒ swap 구간이 바뀌면(4 GiB 구간 3→4) 1통 더
+PASS ⓓ level 4 → 동결 생성
+PASS ⓓ 로그 trig=level
+PASS ⓓ check REJECT
+PASS ⓓ swap14288·level 4 → 동결 생성
+PASS ⓔ disk 24G → FREEZE trig=disk
+PASS ⓔ disk 24G → REJECT
+PASS ⓔ memfree 9 → FREEZE trig=memfree
+PASS ⓔ memfree 9 → REJECT
+PASS ⓕ 해제 조건 3표본 → THAW
+PASS ⓕ 로그 THAW removed
+PASS ⓕ 트리거 아직 참 → 유지
+PASS ⓕ 로그 THAW held
+PASS ⓖ FT_RES_SWAP_FREEZE=1 → 동결
+PASS ⓖ 로그 trig=swap
+PASS ⓖ 옛 동작 → 목록 쪽지 0
+PASS ⓖ check 옛 REJECT 줄
+PASS ⓗ 회수 도구 rc4 → 동결 0
+PASS ⓗ 회수 도구 실패 → 로그 ERROR 1줄
+PASS ⓗ 회수 도구 실패 → 쪽지 0
+PASS ⓗ 쪽지 실패 → 동결 0
+PASS ⓗ 쪽지 실패 → 로그 ERROR 1줄
+FAIL ⓗ 쪽지 실패(재시도 1 포함 2회)는 서명 기록 0 → 다음 틱 재시도 1회 성공 — «2» ≠ «3»
+PASS ⓗ 명부에 없는 좌석 → 로그 ERROR(조용한 통과 0)
+FAIL ⓗ 명부 이상 → 하네스 팀장 앞 묶음 1통 — 없음: «send byz-harness-master-claude#90 ft-resource-watch [자원 경고·명부 이상]» ← 
+PASS swap 경고 아님 → 회수 도구 호출 0
+PASS swap 경고 아님 → 쪽지 0
+PASS ⓘ hard(disk 24G)∧swap 경고 → 동결 생성
+FAIL ⓘ 틱이 13s 걸림(쪽지가 동결을 늦춤)
+FAIL ⓘ hard 조건 틱 → 목록 쪽지 0 — «1» ≠ «0»
+FAIL ⓘ hard 조건인데 회수 도구 호출
+PASS ⓘ' 쪽지 상한 1초×2 → 틱 7s
+FAIL ⓘ' 상한 초과 → 로그 ERROR 1줄 — «0» ≠ «1»
+FAIL ⓘ' 상한 초과 → 서명 기록 0 — 있으면 안 됨: «byz-harness-master-claude#90»
+PASS ⓘ' 상한 초과 → 동결 0
+FAIL ⓙ 요약 줄 없음인데 rc=0
+FAIL ⓙ 요약 줄 없음 → ERROR — 없음: «ERROR swap 닫기 목록 회수 출력 형식 깨짐 — 요약 줄(PREVENTIVE reclaimed=… candidates=…) 없음» ← WARN swap=14288M level=2 close-list sent n=1 — 동결 0(r633 · 옛 동작 FT_RES_SWAP_FREEZE=1)
+FAIL ⓙ 요약 줄 없음 → 쪽지 0 — «1» ≠ «0»
+FAIL ⓙ 불일치인데 rc=0
+FAIL ⓙ 불일치 → ERROR 원문 — 없음: «요약 reclaimed=5 ≠ WOULD-CLOSE 행 1» ← WARN swap=14288M level=2 close-list sent n=1 — 동결 0(r633 · 옛 동작 FT_RES_SWAP_FREEZE=1)
+FAIL ⓙ 불일치 → 쪽지 0 — «1» ≠ «0»
+PASS ⓙ 후보 0(형식 정상) → rc=0
+cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.7cOhLZCNtg/R/.fable-team/state/resource-watch.log: No such file or directory
+FAIL ⓙ 후보 0 → «후보 0» WARN(형식 깨짐과 다른 글) — 없음: «close-list 후보 0(닫아도 되는 유휴 좌석 없음)» ← 
+cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.7cOhLZCNtg/R/.fable-team/state/resource-watch.log: No such file or directory
+PASS ⓙ 후보 0 → 형식 깨짐 글 0
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.7cOhLZCNtg/R/.fable-team/state/resource-watch.log: No such file or directory
+FAIL ⓙ 후보 0 WARN 도 같은 서명 30분 안 반복 0 — «» ≠ «1»
+FAIL ⓚ _master 갈림 → ORPHAN — 없음: «ERROR swap 닫기 목록 수신자 없음 byz-split-x#0 — _master 갈림(byz-harness-master-claude#90,byz-v65-master-claude#9)» ← 2026-10-21T05:55:56Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T05:55:57Z	WARN swap=14288M level=2 close-list sent n=2 — 동결 0(r633 · 옛 동작 FT_RES_SWAP_FREEZE=1)
+FAIL ⓚ 끊긴 사슬 → ORPHAN — 없음: «ERROR swap 닫기 목록 수신자 없음 byz-v65-old#1 — _replaced_by 사슬 끊김(byz-v65-old#1 → byz-v65-gone#2 명부에 없음)» ← 2026-10-21T05:55:56Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T05:55:57Z	WARN swap=14288M level=2 close-list sent n=2 — 동결 0(r633 · 옛 동작 FT_RES_SWAP_FREEZE=1)
+FAIL ⓚ 옛 _master(v65) 로 되돌아가 보내기 0 — «1» ≠ «0»
+FAIL ⓚ ORPHAN 만 → 팀장 목록 쪽지 0 — «2» ≠ «0»
+FAIL ⓚ 하네스 팀장 앞 묶음 1통 — «0» ≠ «1»
+FAIL ⓚ 묶음에 좌석·사유 — 없음: «byz-split-x#0(_master 갈림» ← 
+FAIL ⓚ 같은 ORPHAN 서명 다음 틱 → 묶음 반복 0 — «0» ≠ «1»
+FAIL ⓛ 깨진 상태 파일 → ERROR — 없음: «ERROR swap 닫기 목록 상태 파일 깨짐» ← 2026-10-21T05:56:01Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T05:56:03Z	WARN swap=14288M level=2 close-list sent n=1 — 동결 0(r633 · 옛 동작 FT_RES_SWAP_FREEZE=1)
+FAIL ⓛ 깨진 상태 파일 → 발신 0 — «1» ≠ «0»
+FAIL ⓛ 깨진 상태 파일 덮어쓰기 0 — «{"byz-harness-master-claude#90": {"sig": "3|byz-harness-nano-b#0", "ts": 1792562162}}» ≠ «{broken»
+FAIL ⓛ 형식 아닌 상태 파일(배열) → ERROR — 없음: «ERROR swap 닫기 목록 상태 파일 깨짐» ← 2026-10-21T05:56:05Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T05:56:05Z	ERROR swap 닫기 목록 계산 실패 rc=1 — 동결 0 · 쪽지 0
+PASS ⓛ 형식 아닌 상태 파일 → 발신 0
+PASS ⓜ env 모드 level 4·swap 6000 → 동결
+PASS ⓜ env 모드 trig=level
+---- fail=27
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1
