@@ -1,4 +1,0 @@
-# r623 훅 변경 0 확인 — base(origin/main) 대조
-kit 훅 diff 줄수 =        0
-kit 훅 = origin/main blob cmp = 0
-시험 파일도 변경 0(inject 시험) =        0

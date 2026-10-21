@@ -1,0 +1,14 @@
+# r623 r4 — 인접 시험(광역 0) · 훅 변경 0
+test_block_destructive.sh rc=0 OK
+test_block_destructive_inject.sh rc=0 OK
+test_block_destructive_inject_post.sh rc=0 OK
+test_block_destructive_hil.sh rc=0 OK
+test_evidence_inject_scan.sh rc=0 ALL PASS
+test_kit_bin_sync.sh rc=0 ALL PASS
+bash -n kit/fable-team/bin/ft-redis-read.sh rc=0
+bash -n kit/fable-team/bin/ft-redis-readonly-user.sh rc=0
+bash -n evidence/r623/PLAN-h-ensure-readonly-user.sh rc=0
+bash -n tests/test_ft_redis_read.sh rc=0
+py_compile(3.9 /usr/bin/python3) ft_redis_read.py rc=0
+훅 kit 판 vs origin/main diff rc=0 (0=변경 0)
+설치 훅 vs kit 훅 cmp rc=0
