@@ -54,6 +54,7 @@ fi
 [ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 포함)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. ★v65 도 예외 없이 읽다(r655)★ — 파일이 없는 다른 팀은 지금처럼 REJECT, v65 는 파일이 없으면 기본값(아래 공용 규칙 = byz-v65-nano-)으로 간다.
+[ -f "$HERE/ft_teamset.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }   # r689: 이름 규칙 읽기 «전» 존재·안내 검사(:102 와 같은 글자) — 있는데 못 읽으면 아래 문구
 DEF_NANO_PREFIX="$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)"
 [ -n "$DEF_NANO_PREFIX" ] || { echo "REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: $HERE"; exit 1; }
 if [ -z "${FT_NANO_PREFIX:-}" ]; then

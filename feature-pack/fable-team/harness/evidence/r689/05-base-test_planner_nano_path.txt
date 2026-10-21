@@ -1,0 +1,40 @@
+PASS goal-lines-planner.txt 3줄
+PASS planner-env.sh 추적 사본 실재
+== ⓐ 골 3줄 파일 · 판정 1151 꼴 카드 lint
+PASS 골 3줄 txt 로 lint OK
+PASS 옛 env(GOAL-planner.md 전체) 는 REJECT(재현)
+PASS   └ 사유 = 제목줄이 골 1줄로 읽힘
+PASS planner-env.sh 의 FT_GOAL_LINES_FILE = goal-lines-planner.txt
+PASS txt 3줄 = GOAL-planner.md 원문 줄("> " 제거) 바이트 일치
+== ⓑ spawn --dry-run 4값
+PASS 접두 byz-planner-nano- · 명부 seats-planner.json
+PASS 골 3줄 txt 로 lint OK(카드 경로 design/planner/indices/대기/)
+PASS PLAN 좌석 접두
+== ⓒ 빈 카드 템플릿
+PASS 템플릿 줄 + planner → lint OK (empty-body allowed)
+PASS   └ PLAN 까지 도달
+PASS 템플릿 카드 실 spawn(가짜 도구) 통과
+PASS 발주 BODY 에 「먼저 채우고 arch 확인」 문장
+PASS 같은 카드를 하네스 팀 경로로 → REJECT(⑤ 그대로)
+PASS   └ 하네스 팀은 empty-body 허용 표시 0
+PASS 템플릿 줄 없이 빈 본문 → planner 도 REJECT
+PASS   └ 사유 = 구현 범위·완료 조건 비어 있음
+PASS 상속 env=1 + 하네스 팀 빈 카드 → ⑤ REJECT(spawn 이 명시 초기화)
+PASS   └ 하네스 팀 empty-body 허용 표시 0
+PASS 상속 env=1 + 템플릿 줄 없는 planner 빈 카드 → REJECT(lint 독립 확인)
+PASS lint 단독: env=1 이어도 템플릿 줄 없으면 REJECT
+PASS 일반(채워진) 카드 BODY 에는 템플릿 문장 0
+PASS 변이1 FAIL 확인 — lint 의 FT_INDEX_ALLOW_EMPTY_BODY 분기 제거 → 템플릿 시험 빨강
+PASS 변이2 FAIL 확인 — 템플릿 줄 검사 제거(env 무조건) → «줄 없이 빈 본문 REJECT» 시험 빨강
+PASS 변이3 FAIL 확인 — spawn 의 unset 제거 → 상속 env 회귀 시험 빨강
+== ⓓ 발주 BODY 팀 구조 1문장 (전 팀)
+PASS planner 팀 BODY 에 팀 구조 1문장
+FAIL v65(default) 팀 BODY 에도 팀 구조 1문장 — 없음: «각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다» ← 
+FAIL   └ 기존 BODY 첫 문장 그대로 — 없음: «[Seatbelt 발주] 네 인덱스:» ← 
+== ⓔ 기존 시험 rc=0
+PASS 기존 test_nano_team_env.sh rc=0
+FAIL 기존 test_nano_spawn_body_press.sh rc≠0 ← PASS ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임) FAIL core.bare 가 false 아님 FAILED=3 
+PASS 기존 test_role_spawn_name.sh rc=0
+
+FAILED 3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

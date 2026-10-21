@@ -1,0 +1,51 @@
+PASS bash -n 3종
+== close · 팀 env 자동 로드
+PASS close planner → 팀 env 로드
+PASS close 없는 팀 → REJECT
+PASS close 옛 이름 → v65(규칙이 팀을 안다 · r655) — 접두는 그 좌석이 실제로 쓰는 접두
+PASS close 접두 명시 → 자동 로드 안 함
+PASS close 접두 명시 → env 파일 안 찾음
+PASS close 역할 좌석 → 이름 게이트 REJECT(r655: 나노 이름 규칙 밖)
+== spawn · 팀 env · 기본 모델 · --base
+PASS spawn planner 카드 → team=planner
+PASS spawn 팀 env 의 FT_IMPL_MODEL 이 기본 모델에 반영
+PASS spawn v65 카드 → 기본 접두 byz-v65-nano-(r655)
+PASS spawn v65 PLAN 줄 — 이름 접두만 새 규칙(r655) · 모델 기본 불변(claude sonnet-5-5)
+PASS spawn codex 모델 미지정 → luna
+PASS spawn cmd 모델 미지정 → deepseek
+PASS spawn --model 명시가 이긴다
+PASS spawn opencode 모델 미지정 → 기본 deepseek-v4.1-flash-free(r286)
+PASS spawn --base → PLAN base
+PASS spawn --base 없음 → 현재 HEAD 브랜치
+PASS spawn --base 없는 ref → REJECT
+== close · --shared-wt
+PASS --shared-wt 없이 공유 cwd 좌석 → 지금처럼 REJECT
+PASS   └ 사유 = 추측 금지(기존 fail-closed)
+PASS 전용 워크트리 있는 좌석 + --shared-wt → REJECT(전용 경로로)
+PASS 공유 cwd 가 nano/* 브랜치 → REJECT
+PASS result 경로 미추적 → REJECT
+PASS result 경로 미커밋 → REJECT
+PASS 증거 sha 가 공유 HEAD 의 조상 아님 → REJECT
+PASS 다른 파일 미커밋만 + 증거 sha 조상 → 통과
+PASS   └ 증거 줄 통과(조상 모드)
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ cherry 호출 0
+PASS   └ wt-clean 계획 파일 0
+PASS   └ 원장 행에 mode=shared-wt
+PASS   └ 워크트리·파일·브랜치 그대로
+== close · base 정합 (FT_NANO_FEAT 미설정 → 워크트리 info base)
+PASS FT_NANO_FEAT 미설정 → cherry base = info base(basefeat)
+PASS FT_NANO_FEAT 명시 → 그 값이 이긴다
+== close · 좌석 워크트리 접두 = FT_NANO_WT_PREFIX (세션 없음 ABSENT · cwd 없음 → ② 이름 규칙으로만 해석)
+PASS feature 팀 · feature-k 워크트리 → ⑥ REJECT 아님(후보 1개로 해석)
+PASS   └ 0-후보 에러 없음
+PASS   └ 워크트리 해석을 지나 증거 줄 검사까지 도달(카드에 증거 줄 없음 = 이 시험의 기대 REJECT)
+PASS feature 팀 · 이름이 v65-k 면 0 후보(다른 팀 워크트리를 집지 않음) · 문구는 접두 반영
+PASS feature 팀 · 재착수 feature-k-r2 → 해석됨
+PASS   └ 증거 줄 검사까지 도달
+PASS 접두에 정규식 문자 → REJECT(추측 0)
+PASS env 없는 옛 좌석 · v65-k → 지금처럼 해석
+PASS env 없는 옛 좌석 · 에러 문구 바이트 그대로(v65-<key>[-rN])
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
