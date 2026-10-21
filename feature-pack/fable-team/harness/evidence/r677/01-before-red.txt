@@ -1,0 +1,26 @@
+# r677 전(고치기 전 판 = 팩 origin/main 42a08106) — 새 시험을 «전판» 에 돌린 원문
+#   ft-inbox.py · ft_board_env.py · ft_board_collect.py · ft_sheet_publish.py 를 base 판으로 바꾼 사본
+$ bash tests/test_inbox_show_linear_r677.sh
+PASS bash -n ft-inbox.sh
+PASS bash -n ft-sheet-publish.sh
+fixture: rows=5000
+ⓐ 전판 show 경과 = 3340ms · 줄 3895
+ⓑ 후판 show 경과 = 2648ms · 줄 3895
+PASS ⓑ 출력 바이트 = 전판과 동일(골든)
+PASS ⓑ 출력이 비지 않음(EMPTY 아님)
+FAIL ⓑ 5000행 show 1초 이하 (2648 > 1000)
+PASS ⓑ 전판보다 빠름 (2648ms < 3340ms)
+PASS ⓒ obligation_closed·group_closed 바이트 동일(전판 그대로)
+view calls: ['group_closed', 'obligation_closed', 'open', 'sorted', 'str']
+FAIL ⓒ view 가 아직 group_closed 를 부른다
+FAIL ⓔ 쪽지함 늦은 팀 = stderr ERROR 1줄 (없음: ft-inbox.sh show 실패(7초 초과)
+FAIL ⓔ collect 가 그 팀을 inbox_fail 로 표시 (없음: "inbox_fail": true)
+PASS ⓔ 다른 팀은 error 0
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError: {'error': "ft-inbox.sh show 실패(7초 상한 · 재시도 1회): Command '['bash', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.P1HlLDKOzi/inbox.sh', 's-master#1']' timed out after 7 seconds", 'key': 'slow', 'label': '느린팀'}
+FAIL ⓔ 칸 글자가 확인 불가가 아님
+PASS ⓔ 시트 트리에 «확인 못 함 느린팀»
+PASS ⓔ «미보고 0» 위장 없음
+fail=5
+rc=1

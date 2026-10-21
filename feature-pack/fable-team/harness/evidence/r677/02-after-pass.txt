@@ -1,0 +1,46 @@
+# r677 후 — 새 시험 + 시트 발행 시험(부분 발행) 원문
+
+$ bash tests/test_inbox_show_linear_r677.sh
+PASS bash -n ft-inbox.sh
+PASS bash -n ft-sheet-publish.sh
+fixture: rows=5000
+ⓐ 전판 show 경과 = 2804ms · 줄 3895
+ⓑ 후판 show 경과 = 432ms · 줄 3895
+PASS ⓑ 출력 바이트 = 전판과 동일(골든)
+PASS ⓑ 출력이 비지 않음(EMPTY 아님)
+PASS ⓑ 5000행 show 1초 이하 (432 ≤ 1000)
+PASS ⓑ 전판보다 빠름 (432ms < 2804ms)
+PASS ⓒ obligation_closed·group_closed 바이트 동일(전판 그대로)
+view calls: ['all', 'obligation_closed', 'open', 'sorted', 'str']
+PASS ⓒ view 가 group_closed(전체 훑기)를 부르지 않는다
+PASS ⓔ 쪽지함 늦은 팀 = stderr ERROR 1줄
+PASS ⓔ collect 가 그 팀을 inbox_fail 로 표시
+PASS ⓔ 다른 팀은 error 0
+PASS ⓔ 느린팀 칸 글자 = «확인 불가» 이고 미보고 0 이 아니다
+PASS ⓑ 슬랙 본문에 팀별 쉬운 말 한 줄(느린팀)
+PASS ⓑ 빠른팀은 정상으로 그려진다
+PASS ⓐ 실패 팀 줄을 찾았다(빈 대조 아님)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (Command[)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (timed out)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (TimeoutExpired)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (ft-inbox.sh)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (s-master)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (/var/)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (.json)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (inbox.sh)
+PASS ⓐ 실패 팀 줄에 원문·명령·경로·파일 이름 0 (7초 초과 · 재시도)
+PASS ⓓ «미보고 0» 위장 없음
+PASS ⓓ «0건» 으로 채우지 않는다
+PASS ⓒ 칸 글자 = «확인 불가»
+PASS ⓐ 원문은 로그(stderr)에만 남는다
+fail=0
+rc=0
+
+$ bash tests/test_sheet_publish.sh
+PASS ⓖⓐ 쪽지함만 늦은 팀 → rc 0 · 끝줄 PARTIAL inbox-fail=느린팀
+PASS ⓖⓑ 같은 rev 여도 rc 0(발행 성공 — 데몬이 고장으로 보이지 않는다)
+PASS ⓖⓒ 쪽지함 말고 다른 원인 → rc 2 그대로 · PARTIAL 줄 0
+PASS ⓖⓓ 늦은 팀 둘 → rc 0 · PARTIAL 에 둘 다
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

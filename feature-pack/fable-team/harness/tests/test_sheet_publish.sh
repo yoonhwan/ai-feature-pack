@@ -190,4 +190,20 @@ u1="$(n_of '^update|')"; rc="$(pub)"
 [ "$rc" = 1 ] && [ "$(n_of '^update|')" = "$u1" ] && grep -q '모든 팀' "$T/err.txt" && ok "ⓕ 전 팀 실패 → 발행 0 · rc 1" || bad "ⓕ rc=$rc: $(cat "$T/err.txt")"
 rm -f "$S/collect.json"
 
+# ── r677 — 쪽지함 조회만 늦은 팀 = 발행 성공 rc 0 + 끝줄 «PARTIAL inbox-fail=<팀들>» (다른 원인은 rc 2 그대로) ──
+export FT_BOARD_NOW="2026-10-19T09:00:00"
+printf '{"teams":[{"key":"ok","label":"정상팀","cards_dir":"t","counts":{"진행":1},"queue":[],"states":{}},{"key":"slow","label":"느린팀","error":"ft-inbox.sh show 실패(7초 초과 · 재시도 1회): TimeoutExpired","inbox_fail":true}]}' > "$S/collect.json"
+tree 일L; setrev "L$S1" "$P3"; a0="$(n_of '^attach|')"; rc="$(pub)"
+[ "$rc" = 0 ] && root_last | grep -q ' · PARTIAL inbox-fail=느린팀$' && [ "$(n_of '^attach|')" -gt "$a0" ] \
+  && ok "ⓖⓐ 쪽지함만 늦은 팀 → rc 0 · 끝줄 PARTIAL inbox-fail=느린팀" || bad "ⓖⓐ rc=$rc: $(root_last)"
+rc="$(pub)"
+[ "$rc" = 0 ] && ok "ⓖⓑ 같은 rev 여도 rc 0(발행 성공 — 데몬이 고장으로 보이지 않는다)" || bad "ⓖⓑ rc=$rc"
+printf '{"teams":[{"key":"ok","label":"정상팀","cards_dir":"t","counts":{"진행":1},"queue":[],"states":{}},{"key":"slow","label":"느린팀","error":"카드 폴더 없음 — /x/nope"}]}' > "$S/collect.json"
+tree 일L2; setrev "L2$S1" "$P2"; rc="$(pub)"
+[ "$rc" = 2 ] && ! root_last | grep -q 'PARTIAL inbox-fail' && ok "ⓖⓒ 쪽지함 말고 다른 원인 → rc 2 그대로 · PARTIAL 줄 0" || bad "ⓖⓒ rc=$rc: $(root_last)"
+printf '{"teams":[{"key":"ok","label":"정상팀","cards_dir":"t","counts":{"진행":1},"queue":[],"states":{}},{"key":"s1","label":"느린가","error":"ft-inbox.sh show 실패(7초 초과)","inbox_fail":true},{"key":"s2","label":"느린나","error":"ft-inbox.sh show 실패(7초 초과)","inbox_fail":true}]}' > "$S/collect.json"
+tree 일L3; setrev "L3$S1" "$P4"; rc="$(pub)"
+[ "$rc" = 0 ] && root_last | grep -q ' · PARTIAL inbox-fail=느린가,느린나$' && ok "ⓖⓓ 늦은 팀 둘 → rc 0 · PARTIAL 에 둘 다" || bad "ⓖⓓ rc=$rc: $(root_last)"
+rm -f "$S/collect.json"
+
 echo "fail=$fail"; [ "$fail" = 0 ]

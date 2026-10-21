@@ -150,7 +150,9 @@ def team_or_error(root: Path, path: Path, alive: set, date: str, vds: list, mail
         why = str(e).removeprefix(f"{path.name}: ")  # 명부 이름은 stderr 줄이 이미 말한다
         msg = why if isinstance(e, RuntimeError) else f"{path.name} {type(e).__name__}: {why}"
         print(f"ERROR {path.name}: {msg}", file=sys.stderr)
-        return {"key": key, "label": label, "error": msg}
+        out = {"key": key, "label": label, "error": msg}
+        # r677: 쪽지함만 늦은 팀 = 그 칸 «확인 불가» + 끝줄 PARTIAL
+        return {**out, "inbox_fail": True} if isinstance(e, env.InboxTimeout) else out
 
 
 def decision(root: Path, alive: set) -> str:

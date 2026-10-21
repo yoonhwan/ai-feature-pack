@@ -1,0 +1,157 @@
+# r677 인접 기존 시험 — 후판(이 카드) vs 전판(팩 origin/main 42a08106) 동수·동줄 대조 (광역 아님 · 이 카드 인접만)
+
+## 후판
+test_inbox.sh PASS=78 FAIL=0
+test_inbox_ingest_root_rotate.sh PASS=14 FAIL=0
+test_inbox_mark_rotated.sh PASS=23 FAIL=1
+test_inbox_mark_scope.sh PASS=28 FAIL=1
+test_inbox_mark_still_open.sh PASS=11 FAIL=0
+test_inbox_waive.sh PASS=42 FAIL=0
+test_inbox_watch.sh PASS=46 FAIL=0
+test_ft_mbox_inbox_ingest.sh PASS=36 FAIL=0
+test_board.sh PASS=72 FAIL=0
+test_board_publish.sh PASS=14 FAIL=0
+test_board_publish_norm.sh PASS=15 FAIL=0
+test_board_publish_tick.sh PASS=14 FAIL=0
+test_board_seat_cell.sh PASS=74 FAIL=0
+test_sheet_publish.sh PASS=40 FAIL=0
+test_sheet_render.sh PASS=70 FAIL=0
+test_sheet_events.sh PASS=136 FAIL=0
+test_sheet_verify.sh PASS=17 FAIL=8
+test_question_board.sh PASS=54 FAIL=1
+test_mbox_inbox_notify_reply_rate.sh PASS=46 FAIL=0
+test_kit_bin_sync.sh PASS=7 FAIL=0
+test_baseline_lint.sh PASS=7 FAIL=0
+
+## 전판(base)
+BASE test_inbox.sh PASS=78 FAIL=0
+BASE test_inbox_mark_rotated.sh PASS=23 FAIL=1
+BASE test_inbox_mark_scope.sh PASS=28 FAIL=1
+BASE test_board.sh PASS=72 FAIL=0
+BASE test_board_publish.sh PASS=14 FAIL=0
+BASE test_sheet_publish.sh PASS=36 FAIL=0
+BASE test_sheet_render.sh PASS=70 FAIL=0
+BASE test_sheet_events.sh PASS=136 FAIL=0
+BASE test_sheet_verify.sh PASS=17 FAIL=8
+BASE test_question_board.sh PASS=54 FAIL=1
+BASE test_kit_bin_sync.sh PASS=7 FAIL=0
+BASE test_baseline_lint.sh PASS=7 FAIL=0
+
+# 차이 = test_sheet_publish.sh 36→40 PASS (이 카드가 넣은 ⓖⓐ~ⓓ 4칸) 뿐
+# FAIL 4건(mark_rotated 1 · mark_scope 1 · sheet_verify 8 · question_board 1)은 전판도 같은 수·같은 줄 = 환경 요인
+
+## FAIL 줄 대조 (전판 vs 후판 — 같은 줄인지)
+SAME-LINES test_inbox_mark_rotated.sh (1건)
+SAME-LINES test_inbox_mark_scope.sh (1건)
+DIFF-LINES test_sheet_verify.sh
+1c1
+< FAIL timeout rc=0 el=15 calls=2 err=ft-sheet-verify: 검증 실패(timeout) rev=r4 — 이 발행 검증 skip
+---
+> FAIL timeout rc=0 el=14 calls=2 err=ft-sheet-verify: 검증 실패(timeout) rev=r4 — 이 발행 검증 skip
+SAME-LINES test_question_board.sh (1건)
+# r677 인접 기존 시험 — 후판(이 카드) vs 전판(팩 origin/main 42a08106) 동수·동줄 대조 (광역 아님 · 이 카드 인접만)
+
+## 후판
+test_inbox_show_linear_r677.sh PASS=28 FAIL=0
+test_sheet_publish.sh PASS=40 FAIL=0
+test_board.sh PASS=72 FAIL=0
+test_inbox.sh PASS=78 FAIL=0
+test_sheet_render.sh PASS=70 FAIL=0
+test_sheet_events.sh PASS=136 FAIL=0
+test_board_seat_cell.sh PASS=74 FAIL=0
+test_board_publish.sh PASS=14 FAIL=0
+test_board_publish_norm.sh PASS=15 FAIL=0
+test_board_publish_tick.sh PASS=14 FAIL=0
+test_kit_bin_sync.sh PASS=7 FAIL=0
+test_baseline_lint.sh PASS=7 FAIL=0
+test_question_board.sh PASS=54 FAIL=1
+test_mbox_inbox_notify_reply_rate.sh PASS=46 FAIL=0
+test_ft_mbox_inbox_ingest.sh PASS=36 FAIL=0
+test_inbox_watch.sh PASS=44 FAIL=3
+test_sheet_verify.sh PASS=17 FAIL=8
+test_inbox_mark_rotated.sh PASS=23 FAIL=1
+test_inbox_mark_scope.sh PASS=28 FAIL=1
+
+## 전판(base · 같은 시험)
+BASE test_sheet_publish.sh PASS=36 FAIL=0
+BASE test_board.sh PASS=72 FAIL=0
+BASE test_inbox.sh PASS=78 FAIL=0
+BASE test_sheet_render.sh PASS=70 FAIL=0
+BASE test_sheet_events.sh PASS=136 FAIL=0
+BASE test_board_seat_cell.sh PASS=74 FAIL=0
+BASE test_board_publish.sh PASS=14 FAIL=0
+BASE test_board_publish_norm.sh PASS=14 FAIL=0
+BASE test_board_publish_tick.sh PASS=14 FAIL=0
+BASE test_kit_bin_sync.sh PASS=7 FAIL=0
+BASE test_baseline_lint.sh PASS=7 FAIL=0
+BASE test_question_board.sh PASS=54 FAIL=1
+BASE test_mbox_inbox_notify_reply_rate.sh PASS=46 FAIL=0
+BASE test_ft_mbox_inbox_ingest.sh PASS=36 FAIL=0
+BASE test_inbox_watch.sh PASS=43 FAIL=4
+BASE test_sheet_verify.sh PASS=17 FAIL=8
+BASE test_inbox_mark_rotated.sh PASS=23 FAIL=1
+BASE test_inbox_mark_scope.sh PASS=28 FAIL=1
+# r677 인접 기존 시험 — 후판(이 카드) vs 전판(팩 origin/main 42a08106) 동수·동줄 대조 (광역 아님 · 이 카드 인접만)
+
+## 후판
+test_inbox_show_linear_r677.sh PASS=28 FAIL=0
+test_sheet_publish.sh PASS=40 FAIL=0
+test_board.sh PASS=72 FAIL=0
+test_inbox.sh PASS=78 FAIL=0
+test_sheet_render.sh PASS=70 FAIL=0
+test_sheet_events.sh PASS=136 FAIL=0
+test_board_seat_cell.sh PASS=74 FAIL=0
+test_board_publish.sh PASS=14 FAIL=0
+test_board_publish_norm.sh PASS=15 FAIL=0
+test_board_publish_tick.sh PASS=14 FAIL=0
+test_kit_bin_sync.sh PASS=7 FAIL=0
+test_baseline_lint.sh PASS=7 FAIL=0
+test_question_board.sh PASS=54 FAIL=1
+test_mbox_inbox_notify_reply_rate.sh PASS=46 FAIL=0
+test_ft_mbox_inbox_ingest.sh PASS=36 FAIL=0
+test_inbox_watch.sh PASS=44 FAIL=3
+test_sheet_verify.sh PASS=17 FAIL=8
+test_inbox_mark_rotated.sh PASS=23 FAIL=1
+test_inbox_mark_scope.sh PASS=28 FAIL=1
+
+## 전판(base · 같은 시험)
+BASE test_sheet_publish.sh PASS=36 FAIL=0
+BASE test_board.sh PASS=72 FAIL=0
+BASE test_inbox.sh PASS=77 FAIL=1
+BASE test_sheet_render.sh PASS=70 FAIL=0
+BASE test_sheet_events.sh PASS=136 FAIL=0
+BASE test_board_seat_cell.sh PASS=74 FAIL=0
+BASE test_board_publish.sh PASS=14 FAIL=0
+BASE test_board_publish_norm.sh PASS=14 FAIL=0
+BASE test_board_publish_tick.sh PASS=14 FAIL=0
+BASE test_kit_bin_sync.sh PASS=7 FAIL=0
+BASE test_baseline_lint.sh PASS=7 FAIL=0
+BASE test_question_board.sh PASS=54 FAIL=1
+BASE test_mbox_inbox_notify_reply_rate.sh PASS=46 FAIL=0
+BASE test_ft_mbox_inbox_ingest.sh PASS=36 FAIL=0
+BASE test_inbox_watch.sh PASS=43 FAIL=4
+BASE test_sheet_verify.sh PASS=17 FAIL=8
+BASE test_inbox_mark_rotated.sh PASS=23 FAIL=1
+BASE test_inbox_mark_scope.sh PASS=28 FAIL=1
+
+## 흔들린 칸 재측정(시각·환경 의존) — 같은 판을 두 번 돌린 값
+BASE test_inbox.sh run1 PASS=78 FAIL=0
+BASE test_inbox.sh run2 PASS=78 FAIL=0
+BASE test_board_publish_norm.sh run1 PASS=14 FAIL=0
+BASE test_board_publish_norm.sh run2 PASS=14 FAIL=0
+BASE test_inbox_watch.sh run1 PASS=43 FAIL=4
+BASE test_inbox_watch.sh run2 PASS=43 FAIL=4
+NEW  test_inbox.sh run1 PASS=78 FAIL=0
+NEW  test_inbox.sh run2 PASS=78 FAIL=0
+NEW  test_board_publish_norm.sh run1 PASS=15 FAIL=0
+NEW  test_board_publish_norm.sh run2 PASS=15 FAIL=0
+NEW  test_inbox_watch.sh run1 PASS=44 FAIL=3
+NEW  test_inbox_watch.sh run2 PASS=44 FAIL=3
+
+# 결론: 위 표의 차이는 이 카드가 만든 것이 아니다 — test_inbox_watch 의 FAIL 은 LIVE_BIN 미설치(환경) · 나머지는 시각 경계 의존 칸이 한 번씩 흔들린 것(재측정에서 후판·전판 같은 값).
+
+## 차이의 정체(줄 단위 대조) — 코드 때문이 아니라 «git 실재 여부» 때문
+- test_board_publish_norm: 후판에만 있는 한 줄 = 'ⓜ 발행 본문(published.txt) 옛·새 스크립트 바이트 동일' PASS.
+  이 칸은 옛 판을 git 에서 꺼내 비교한다 — /tmp 사본(비 git)에서는 칸 자체가 안 돈다. 즉 후판 슬랙 본문이 옛 판과 바이트 동일하다는 증거가 하나 더 붙은 것.
+- test_inbox_watch: 전판만 FAIL 3 + 1 = LIVE_BIN 풀이 실패(/tmp 사본이 git 밖) + '짝 불일치 ft-mbox.sh'. 후판은 git 안이라 그 3+1 이 PASS 로 바뀐다. 남은 FAIL 은 이 카드 무관.
+- test_inbox.sh(78/0) · test_board_sh 외 전부 = 전판·후판 동수·동줄.

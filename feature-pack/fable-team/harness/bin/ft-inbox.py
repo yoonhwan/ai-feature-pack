@@ -70,15 +70,15 @@ def cmd_classify(seq, to):
 
 
 def view(rows):
+    mem = {}
+    for x in sorted(rows, key=lambda x: (x["prio"], x["seq"])):
+        mem.setdefault(x["group"], []).append(x)  # 묶음 사전 — 행은 한 바퀴만(r677)
     out = []
-    for gid in dict.fromkeys(x["group"] for x in sorted(rows, key=lambda x: (x["prio"], x["seq"]))):
-        mem = [x for x in rows if x["group"] == gid]
-        if group_closed(rows, gid):
-            continue
-        open_seqs = [str(x["seq"]) for x in mem if not obligation_closed(x)]
-        first = open(mem[0]["body_path"], encoding="utf-8").readline().strip()[:80] if os.path.exists(mem[0]["body_path"]) else ""
-        out.append(f"[{mem[0]['cls']}] {gid} seq={','.join(str(x['seq']) for x in mem)} 미닫힘={','.join(open_seqs)} "
-                   f"from={mem[0]['from']} 원문={mem[0]['body_path']} | {first}")
+    for g, ms in mem.items():
+        if not all(obligation_closed(x) for x in ms):  # 닫힌 묶음 = 그 묶음 행만 본다(전체 훑기 0)
+            first = open(ms[0]["body_path"], encoding="utf-8").readline().strip()[:80] if os.path.exists(ms[0]["body_path"]) else ""
+            out.append(f"[{ms[0]['cls']}] {g} seq={','.join(str(x['seq']) for x in ms)} 미닫힘={','.join(str(x['seq']) for x in ms if not obligation_closed(x))} "
+                       f"from={ms[0]['from']} 원문={ms[0]['body_path']} | {first}")
     return out
 
 

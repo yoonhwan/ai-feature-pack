@@ -1,0 +1,24 @@
+# r677 lint — 키트 변경 8파일: 새 E501 0(전판 동수) · F 0 · bash -n · py 파싱
+
+ft-inbox.py              E501 36 -> 36
+ft_board_env.py          E501 24 -> 24
+ft_board_collect.py      E501 29 -> 29
+ft_sheet_publish.py      E501 15 -> 15
+ft_board_sheet.py        E501 32 -> 32
+ft_board_sheet_tree.py   E501 23 -> 23
+ft_board_render.py       E501 27 -> 27
+ft_board_render_tree.py  E501 5 -> 5
+
+--- F(문법·미정의) 전수 ---
+All checks passed!
+
+--- bash -n ---
+OK bin/ft-sheet-publish.sh
+OK tests/test_inbox_show_linear_r677.sh
+OK tests/test_sheet_publish.sh
+OK tests/test_board.sh
+
+--- ft-inbox.py 줄수(200줄 한도) ---
+     200 bin/ft-inbox.py
+     200 /tmp/r677/base/feature-pack/fable-team/harness/bin/ft-inbox.py
+     400 total

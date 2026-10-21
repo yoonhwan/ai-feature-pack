@@ -1,0 +1,15 @@
+# r677 골든·경과 — 임시 큐 5000행(묶음 5000 · 본문 일부 없음 · 닫힌 묶음 섞음 · 열린 줄 3895)
+#   전판 = fixtures/r677/ft-inbox-base.py (팩 origin/main 42a08106 원문) · 후판 = harness/bin/ft-inbox.py
+
+rows=5000
+전판 run1 = 3142ms
+전판 run2 = 2542ms
+전판 run3 = 2912ms
+후판 run1 = 915ms
+후판 run2 = 496ms
+후판 run3 = 554ms
+
+출력 줄수: base=3895 new=3895
+GOLDEN-BYTES-SAME (cmp rc=0)
+
+# 실 큐 형태 참고(설치 뒤 실사건 측정은 master 소관): arch 118 실측 = show 9.5초(user 2.65 · load 40대) · 큐 harness 5510행

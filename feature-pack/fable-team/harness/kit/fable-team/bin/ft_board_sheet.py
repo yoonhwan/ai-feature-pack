@@ -56,7 +56,7 @@ def _cells(d: dict, root: Path, events: list[dict], now: datetime) -> list[dict]
     owner = {base(n): t["key"] for t in d["teams"] for n in json.loads((root / ".fable-team" / ("seats.json" if t["key"] == "v65" else f"seats-{t['key']}.json")).read_text(encoding="utf-8")) if not n.startswith("_")}
     for t in d["teams"]:
         if t.get("error"):  # 명부 수집 실패 — 숫자·상태 글자 대신 «확인 못 함» 한 칸(조용한 누락 0 · 판정 r554)
-            out.append({"cell": "③", "team": t["label"], "text": f"확인 못 함: {t['error']}", "unconfirmed": True})
+            out.append({"cell": "③", "team": t["label"], "text": f"확인 불가({env.plain_error(t)})", "unconfirmed": True})
             continue
         if t["key"] == "planner" or not t.get("master"):
             continue
@@ -87,7 +87,7 @@ def build(d: dict, root: Path, now: datetime) -> dict:
     events = notes.tail_rows(ft_sheet_events.state_dir(root) / "sheet-events.jsonl", (now - timedelta(hours=WINDOW_H)).isoformat(timespec="seconds"))
     cells = _cells(d, root, events, now)
     lint = notes.lint_notes(root, Path(os.environ.get("FT_SHEET_NOTES") or root / ".fable-team" / "state" / "sheet-notes.md"))
-    return {"date": d["date"], "errors": [{"team": t["label"], "why": t["error"]} for t in d["teams"] if t.get("error")],
+    return {"date": d["date"], "errors": [{"team": t["label"]} for t in d["teams"] if t.get("error")],
             "pending": ft_sheet_events.pending_counts(root), "ask": _ask(d, now), "progress": prog, "before": before,
             "after": [{**c, "say": cards.plain(c["say"])} for c in waiting if c["after"]], "waiting": waiting, "unmapped": unmapped,
             "cells": cells, "unconfirmed": sum(c["unconfirmed"] for c in cells),

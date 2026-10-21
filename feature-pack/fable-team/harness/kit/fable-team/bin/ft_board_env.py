@@ -122,6 +122,15 @@ def mail_ts(root: Path, seq: int) -> str | None:
     return None
 
 
+def plain_error(team: dict) -> str:
+    """팀 수집 실패를 «사람 말» 로 — 원문(명령·경로)은 stderr 로그에만(r677)."""
+    return "쪽지함 7초 초과" if team.get("inbox_fail") else "명부 읽기 실패"
+
+
+class InboxTimeout(RuntimeError):
+    """쪽지함 조회가 상한을 넘겼다(r677) — 그 팀만 «확인 불가» 로 드러낸다."""
+
+
 def inbox(root: Path, master: str) -> dict:
     # 미보고 = ft-inbox.sh show 의 줄 수(정본 술어 obligation_closed 가 거짓인 줄만 나온다 — 술어 재작성 0)
     cmd = shlex.split(os.environ.get("FT_BOARD_INBOX", f"bash {HERE / 'ft-inbox.sh'} show")) + [master]
@@ -133,7 +142,7 @@ def inbox(root: Path, master: str) -> dict:
         except (RuntimeError, subprocess.TimeoutExpired) as e:
             err = e
     else:  # r649 — 늦는 쪽지함 하나가 수집 전체를 붙잡지 않는다 = 그 팀만 error
-        raise RuntimeError(f"ft-inbox.sh show 실패({INBOX_TIMEOUT_S}초 상한"
+        raise InboxTimeout(f"ft-inbox.sh show 실패({INBOX_TIMEOUT_S}초 초과"
                            f" · 재시도 {INBOX_RETRIES}회): {err}")
     lines = [x for x in out.splitlines() if x.strip() and x.strip() != "EMPTY"]
     seqs = [int(s) for x in lines for grp in re.findall(r"미닫힘=([\d,]+)", x) for s in grp.split(",") if s]
