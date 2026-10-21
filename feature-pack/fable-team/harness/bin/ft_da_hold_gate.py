@@ -11,7 +11,7 @@
     budget_left = 사건<2 ? 2−사건 : 미소진 유효 해제 수 · rc3 ⇔ budget_left ≤ 0.
 출력 첫 줄 `HOLD events=<n> reviews=<m> releases=<유효>/<소진> budget_left=<b>` | `UNPARSED <줄>` | `NO-ORDER-LINE <단계> r<N>` | `DUP-ENTRY <단계>r<N>` | `ENTRY-WRITE-FAIL …` (+ 해제 줄들 RELEASE-OK·INVALID·DUP).
 rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ 2 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
-  착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 origin/main 조상 ∧ --da 판정문(§N 절)에
+  착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 착지 ref 조상(env FT_LAND_REF · 기본 origin/main) ∧ --da 판정문(§N 절)에
     «닫힘 — <카드 stem> — main `<같은 sha>`» 행 → 첫 줄 `LANDED-CLOSE sha=<sha> da=<--da>` rc0. 하나라도 빠지면 기존 판정 불변 + `LANDED-INVALID <사유>` 줄.
 """
 from __future__ import annotations
@@ -162,7 +162,7 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
         return "", "LANDED-INVALID unknown-sha " + (landed or claims[0])
     if landed and claims and sha not in {full(c) for c in claims}:
         return "", "LANDED-INVALID mismatch 카드 착지 줄 ≠ --landed"
-    if subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", sha, "origin/main"], capture_output=True).returncode != 0:
+    if subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", sha, os.environ.get("FT_LAND_REF") or "origin/main"], capture_output=True).returncode != 0:
         return "", "LANDED-INVALID not-ancestor " + sha
     if not da:
         return "", "LANDED-INVALID no-da (--da <판정문#§N> 없음)"

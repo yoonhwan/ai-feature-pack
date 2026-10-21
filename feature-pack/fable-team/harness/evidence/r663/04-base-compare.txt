@@ -1,0 +1,8 @@
+== base(origin/main) 같은 시험 = 이 카드 무관 선존 FAIL 대조 ==
+base: test_da_hold_gate.sh fail=7 · test_spawn_hold.sh fail=2 (2026-10-21 · 판정기 base 판으로 되돌려 실측 · git show HEAD: 로 복원)
+후판: test_da_hold_gate.sh fail=7 · test_spawn_hold.sh fail=2 (동수 · 위 03-existing.txt)
+=> 이 카드가 만든 FAIL 0 · 시험 파일 test_da_hold_gate_landed.sh 는 전/후 rc 1→0 (01/02)
+
+== 원인(arch 118 실측 그대로) ==
+merge-base --is-ancestor <sha> origin/main 고정 → BYZ origin/main 에 팩 커밋 0 → r648 완성 이동이 LANDED-INVALID not-ancestor 로 영원히 막힘
+다른 닫기 게이트는 이미 env 를 따름: ft-index-move-canon.sh:91 · ft-issue-close-check.sh:48·:155 (FT_LAND_REF 기본 origin/main)

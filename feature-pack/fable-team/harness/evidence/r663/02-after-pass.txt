@@ -1,0 +1,55 @@
+PASS 짝 cmp0 ft_da_hold_gate.py
+PASS 짝 cmp0 ft-index-move.sh
+PASS 짝 cmp0 ft-index-close-landed.sh
+PASS bash -n ft-index-move.sh
+PASS bash -n ft-index-close-landed.sh
+PASS ruff ft_da_hold_gate.py
+PASS 600/300 값 0
+PASS ⓐ UNPARSED + 착지(조상) + 판정문 행 → LANDED-CLOSE rc0
+  ⓐ 원문: LANDED-CLOSE sha=82cd6d6186e781526d20b9dd42b3e3175c731a2c da=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dEpqZzF9vg/repo/design/teams/alpha/DA-CLOSE-batch.md#§1
+PASS ⓐ 첫 줄 = LANDED-CLOSE
+PASS ⓐ' 카드 줄 + --landed 일치 → rc0
+PASS ⓑ 전제: 착지 증거 없으면 HOLD events=2 rc3
+PASS ⓑ events=2 + --landed + 판정문 행 → LANDED-CLOSE rc0
+  ⓑ 원문: LANDED-CLOSE sha=50baddf491d26778b83444447004b1fab4f5a06f da=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dEpqZzF9vg/repo/design/teams/alpha/DA-CLOSE-batch.md#§2
+PASS ⓒ 착지 줄만(--da 없음) → UNPARSED 그대로 rc3
+PASS ⓒ 첫 줄 UNPARSED 불변
+PASS ⓒ 다른 카드 절(§2) → 행 없음 → UNPARSED rc3 + LANDED-INVALID no-da-row
+PASS ⓒ 행 없음 첫 줄 UNPARSED
+PASS ⓒ sha 불일치(카드 S1 · 판정문 S2) → HOLD … budget_left=0 rc3
+PASS ⓒ 불일치 첫 줄 HOLD
+PASS ⓒ 카드 줄 ≠ --landed → rc3 LANDED-INVALID mismatch
+PASS ⓓ 조상 아닌 sha → rc3 + LANDED-INVALID not-ancestor
+  ⓓ 원문: UNPARSED - 2026-10-13 — r2 사전 DA r1 HOLD 2(옛 표기) HOLD events=0 reviews=0 releases=0/0 budget_left=2 LANDED-INVALID not-ancestor 29432fd54f56fd5eb0aec4b6689392eeaeada171
+PASS ⓖⓐ FT_LAND_REF=refs/pack-landing/x → LANDED-CLOSE rc0
+  ⓖⓐ 원문: LANDED-CLOSE sha=29432fd54f56fd5eb0aec4b6689392eeaeada171 da=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dEpqZzF9vg/repo/design/teams/alpha/DA-CLOSE-batch.md#§4
+PASS ⓖⓑ FT_LAND_REF 미설정 → 기본 origin/main · not-ancestor rc3(기본값 불변)
+PASS ⓖⓒ FT_LAND_REF=없는 ref → not-ancestor rc3(통과 0)
+PASS ⓔ --entry: 착지 증거 있어도 판정 동일 rc3 («HOLD events=2 reviews=3 releases=0/0 budget_left=0»)
+PASS ⓔ --entry 출력에 LANDED 0
+PASS ⓕ index-move: UNPARSED 거절 = 판정기 첫 줄 + 옛 표기 안내(«보류 2회» 0)
+  ⓕ 원문(UNPARSED): REJECT DA 보류 가드: UNPARSED - 2026-10-13 — r2 사전 DA r1 HOLD 2(옛 표기) — 해제 = 옛 표기 → DA②·DA⑥ 단계 기호로 교정 또는 착지 증거(카드 «- 착지: <sha>» + DA 닫힘 판정문 «닫힘 — <카드> — main `<sha>`» 행) (이동 0)
+PASS ⓕ index-move: HOLD 거절 = «HOLD events=2 …» + 재설계 해제 안내
+PASS ⓕ index-move: --landed + 판정문 행 → 보류 가드 통과(rc=0 · WARN ft-branch-archive.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dEpqZzF9vg/bin) — 끝난 가지 보관 이동 0)
+PASS ⓕ index-move 착지 → 완성/ + 착지 줄 1개
+  dry: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+  dry: |---|---|---|---|---|---|
+  dry: | §1 | c-unp | 진행 | ok | 무 | LANDED-CLOSE sha=82cd6d6186e781526d20b9dd42b3e3175c731a2c da=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dEpqZzF9vg/repo/design/teams/alpha/DA-CLOSE-batch.md#§1 |
+  dry: | §2 | c-hold | 완성 | ok | 무 | SKIP 이미 완성 |
+  dry: | §3 | c-gone | 없음 | ok | 무 | SKIP 카드 없음 |
+  dry: | §4 | c-side | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+  dry: | §5 | c-other | 대기 | ok | 무 | LANDED-CLOSE sha=50baddf491d26778b83444447004b1fab4f5a06f da=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dEpqZzF9vg/repo/design/teams/alpha/DA-CLOSE-batch.md#§5 |
+  dry: DRY rows=5 (쓰기 0)
+PASS ⓕ --dry-run: 행마다 카드·위치·조상·착지 줄·예상 표 · 쓰기 0
+  run: MOVED c-unp
+  run: SKIP c-hold 이미 완성
+  run: SKIP c-gone 카드 없음
+  run: REJECT c-side LANDED-INVALID not-ancestor 29432fd54f56fd5eb0aec4b6689392eeaeada171 (쓰기 0)
+  run: MOVED c-other
+  run: TOTAL rows=5 MOVED=2 REJECT=1 SKIP=2
+PASS ⓕ 실행: MOVED 2 · SKIP 2 · REJECT 1(조상 아님) · 집계 줄 · rc1
+PASS ⓕ c-unp 완성/ + 착지 줄 1개(판정문#§ 출처)
+PASS ⓕ c-other 완성/ + 착지 줄 1개(판정문#§ 출처)
+PASS ⓕ 조상 아닌 카드: 이동 0 · 쓰기 0
+PASS ⓕ 판정문 없음 → rc2
+fail=0

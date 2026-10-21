@@ -3,7 +3,7 @@
 #   판정기 --closing 의 LANDED-CLOSE(착지 sha 조상 ∧ 판정문 행) · ft-index-move 거절 문구 = 판정기 첫 줄 · 일괄 도구 ft-index-close-landed.sh.
 #   전부 mktemp 임시 리포(origin/main = 같은 리포 ref) · 가짜 mbox · 실 명부·실 큐·외부 호출 0 · GIT_* env 0.
 set -uo pipefail
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_LAND_REF
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../bin"; KIT="$HERE/../kit/fable-team/bin"
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -25,6 +25,7 @@ echo base > "$R/f.txt"; G add -A; G commit -qm base; S1="$(G rev-parse HEAD)"
 echo two >> "$R/f.txt"; G commit -qam two; S2="$(G rev-parse HEAD)"
 G update-ref refs/remotes/origin/main "$S2"
 G checkout -q -b side "$S1"; echo side >> "$R/f.txt"; G commit -qam side; SX="$(G rev-parse HEAD)"; G checkout -q main
+G update-ref refs/pack-landing/x "$SX"   # r663: origin/main 과 다른 착지 ref(팩 카드 자리)
 DAF="$TD/DA-CLOSE-batch.md"
 { echo '# 닫힘 판정문'; echo '## §1 c-unp'; echo "닫힘 — c-unp — main \`$S1\` / PR #0"
   echo '## §2 c-hold'; echo "닫힘 — c-hold — main \`$S2\` / PR #0"
@@ -56,6 +57,16 @@ o="$(gate --closing --da "$DAF#§2" --landed "$S2")"; chk "ⓒ 카드 줄 ≠ --
 # ⓓ sha 가 origin/main 조상 아님 → rc3 + LANDED-INVALID not-ancestor
 card c-side 진행 "$UNP" "- 착지: $SX"; o="$(gate --closing --da "$DAF#§4")"; rc=$?
 chk "ⓓ 조상 아닌 sha → rc3 + LANDED-INVALID not-ancestor" 3 "LANDED-INVALID not-ancestor $SX" "$o" $rc; echo "  ⓓ 원문: $(printf '%s' "$o" | tr '\n' ' ')"
+# ── r663: 착지 기준 ref = env FT_LAND_REF(기본 origin/main) ──
+# ⓖⓐ 다른 ref(refs/pack-landing/x)에만 있는 sha + FT_LAND_REF=<그 ref> → LANDED-CLOSE rc0
+card c-side 진행 "$UNP" "- 착지: $SX"; o="$(FT_LAND_REF=refs/pack-landing/x gate --closing --da "$DAF#§4")"; rc=$?
+chk "ⓖⓐ FT_LAND_REF=refs/pack-landing/x → LANDED-CLOSE rc0" 0 "LANDED-CLOSE sha=$SX da=$DAF#§4" "$o" $rc; echo "  ⓖⓐ 원문: ${o%%$'\n'*}"
+# ⓖⓑ FT_LAND_REF 없으면 기본값 불변 = origin/main 조상 검사(기존 ⓓ 그대로)
+card c-side 진행 "$UNP" "- 착지: $SX"; o="$(gate --closing --da "$DAF#§4")"; rc=$?
+chk "ⓖⓑ FT_LAND_REF 미설정 → 기본 origin/main · not-ancestor rc3(기본값 불변)" 3 "LANDED-INVALID not-ancestor $SX" "$o" $rc
+# ⓖⓒ 없는 ref → not-ancestor(조용한 통과 0)
+card c-side 진행 "$UNP" "- 착지: $SX"; o="$(FT_LAND_REF=refs/pack-landing/nope gate --closing --da "$DAF#§4")"; rc=$?
+chk "ⓖⓒ FT_LAND_REF=없는 ref → not-ancestor rc3(통과 0)" 3 "LANDED-INVALID not-ancestor $SX" "$o" $rc
 # ⓔ --entry 는 착지 줄과 무관(입장 우회 0)
 card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주'; e0="$(gate --entry ⑥ r3)"; r0=$?
 card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주' "- 착지: $S2"; e1="$(gate --entry ⑥ r3 --da "$DAF#§2" --landed "$S2")"; r1=$?
