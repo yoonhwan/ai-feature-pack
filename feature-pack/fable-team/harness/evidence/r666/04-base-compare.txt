@@ -1,0 +1,30 @@
+# base(03ae64a7) 대조 — 위 03 과 같은 시험·같은 줄
+=== test_satellite_rosters.sh rc=0 PASS=31 FAIL=0
+=== test_nano_spawn_teamset_cap.sh rc=7 PASS=11 FAIL=8
+    FAIL ⓐ hold=none
+    FAIL ⓑ calls=«» hold=none
+    FAIL ⓒ rc=1 hold=none
+    FAIL ⓒ-2 hold=none
+    FAIL ⓓ hold=none
+    FAIL ⓔ rc=1 hold=none
+    FAIL core.bare != false
+    FAILED 7
+=== test_teamset_check.sh rc=5 PASS=33 FAIL=6
+    FAIL design/TEAMSET.md 없음
+    FAIL ⓚ harness → ERROR TEAMSET 읽기 실패 /tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAIL ⓚ ops → ERROR TEAMSET 읽기 실패 /tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAIL ⓚ v65 → ERROR TEAMSET 읽기 실패 /tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAIL ⓚ cfo → ERROR TEAMSET 읽기 실패 /tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/tmp/r666-base/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAILED 5
+=== test_teamset_gitref.sh rc=3 PASS=18 FAIL=4
+    FAIL ⓑ rc=1 hold=none
+    FAIL ⓒ-1 hold=none
+    FAIL core.bare != false
+    FAILED 3
+=== test_resource_reclaim.sh rc=1 PASS=107 FAIL=0
+=== test_resource_reclaim_pressure.sh rc=0 PASS=28 FAIL=0
+=== test_spawn_hold.sh rc=1 PASS=54 FAIL=2
+    FAIL ⓒ rc=2 WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:50:37Z release=swap<8192&memfree>=15
+    FAIL ⓒ 정지 유효 + 문지기 통과 → open 단계 도달 — 없음: «REJECT tmuxc open 실패 (old-claude#2)» ← WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:50:37Z release=swap<8192&memfree>=15
+# 새 시험은 base 에서 01-before-red.txt(=FAIL 8) — base 에 없는 시험이다
+# base 1회차 test_resource_reclaim rc=1 은 잠금 경합(FAIL 0) — 같은 base 에서 재실행 rc=0(flaky · 이 카드 무관)

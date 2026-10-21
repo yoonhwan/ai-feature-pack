@@ -1,0 +1,35 @@
+# 인접 시험(광역 0) — 이 카드가 건드린 도구를 쓰는 시험만
+=== test_satellite_rosters.sh rc=0 PASS=31 FAIL=0
+=== test_nano_spawn_teamset_cap.sh rc=7 PASS=11 FAIL=8
+    FAIL ⓐ hold=none
+    FAIL ⓑ calls=«» hold=none
+    FAIL ⓒ rc=1 hold=none
+    FAIL ⓒ-2 hold=none
+    FAIL ⓓ hold=none
+    FAIL ⓔ rc=1 hold=none
+    FAIL core.bare != false
+    FAILED 7
+=== test_teamset_check.sh rc=5 PASS=33 FAIL=6
+    FAIL design/TEAMSET.md 없음
+    FAIL ⓚ harness → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAIL ⓚ ops → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAIL ⓚ v65 → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAIL ⓚ cfo → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r666-satellite-seat-cap-counts-nano-only/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+    FAILED 5
+=== test_teamset_gitref.sh rc=3 PASS=18 FAIL=4
+    FAIL ⓑ rc=1 hold=none
+    FAIL ⓒ-1 hold=none
+    FAIL core.bare != false
+    FAILED 3
+=== test_resource_reclaim.sh rc=0 PASS=107 FAIL=0
+=== test_resource_reclaim_pressure.sh rc=0 PASS=28 FAIL=0
+=== test_spawn_hold.sh rc=1 PASS=54 FAIL=2
+    FAIL ⓒ rc=2 WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:46:01Z release=swap<8192&memfree>=15
+    FAIL ⓒ 정지 유효 + 문지기 통과 → open 단계 도달 — 없음: «REJECT tmuxc open 실패 (old-claude#2)» ← WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:46:01Z release=swap<8192&memfree>=15
+=== ruff
+All checks passed!
+=== bash -n
+rc=0
+=== 짝 cmp0
+cmp0 ft_seat_cap.py
+cmp0 ft-nano-spawn.sh

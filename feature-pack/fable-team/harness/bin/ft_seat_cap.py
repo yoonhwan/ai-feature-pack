@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft_seat_cap.py --root <ROOT> — 좌석 상한 검사 (R252 · 판정 1949 · ft-nano-spawn.sh 가 세션 열기 «전» 부른다 · 읽기 전용).
 
-env: FT_NANO_PREFIX(`byz-<팀>-nano-`) · FT_TEAM_SEAT_CAP(그 팀 tmux 세션 수 상한 · 팀장 포함) · FT_GROUP_SEAT_CAP(명부 `_parent` 가 같은 팀들의 합) · FT_SEATS_JSON.
+env: FT_NANO_PREFIX(`byz-<팀>-nano-`) · FT_TEAM_SEAT_CAP(그 팀 나노 tmux 세션 수 상한 · r666: 나노만 센다 — 팀장·은퇴 팀장 화면은 안 센다) · FT_GROUP_SEAT_CAP(명부 `_parent` 가 같은 팀들의 나노 합) · FT_SEATS_JSON.
 두 상한 env 가 다 없으면 검사 0(다른 팀) · rc0 · 출력 0. 통과 rc0 · 거절 `REJECT …` rc1 · 못 세면 `ERROR …` rc1 (조용한 통과 0).
 """
 import argparse
@@ -41,7 +41,8 @@ def sessions():
 
 
 def count(names, team):
-    return sum(1 for s in names if s.startswith(f"byz-{team}-"))
+    # r666: 나노만 센다(팀장·은퇴 팀장 화면·tester etc 제외) — 팀셋 ft_teamset.py 와 같은 접두 기준
+    return sum(1 for s in names if s.startswith(f"byz-{team}-nano-"))
 
 
 def group_teams(root, parent):
