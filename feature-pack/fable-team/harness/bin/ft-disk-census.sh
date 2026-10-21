@@ -5,7 +5,7 @@
 #   착지 4단(앞이 참이면 멈춤): ①cherry 이전 «조상» = ancestor · ②`git cherry main <가지>` 가 «+» 0 = cherry · ③main 의 완성 카드 «세트: <40hex>» == 가지 tip(카드 뒤 미착지 커밋이 붙으면 아님) = card — 판정은 ft-landed-check.sh 한 곳 · ④main 커밋 메시지에 카드 ID(<키>) = grep(★약한 증거 — 계획 대상 아님★)
 #   정리 경로: plan:nano-close(나노 · 좌석 없음 · 착지 ①~③ · 미커밋 0) · keep:live-seat · keep:dirty · HIL:unlanded · HIL:weak-landed · HIL:other-branch · HIL:detached · HIL:no-info(.worktree-info.json 의 branch 가 nano/* 아님) · HIL:tmux-unknown(tmux 목록 실패 = fail-closed) · owner:done-note(등록 사본) · HIL:unregistered(repo-* 인데 등록 안 됨) · register(scratchpad 직접 사본) · HIL:tmp-other
 #   --plan = 표를 만든 뒤 route=plan:nano-close 인 나노마다 `ft-nano-close.sh <좌석> --plan-only <워크트리>` 로 정리 계획(<wt-clean>/<좌석>.sh)만 만든다(이미 .sh/.sh.hil 이 있으면 건드리지 않음 · 새 삭제 권한 0 — 실행은 기존 ft-wt-sweep.sh 몫).
-#     좌석 이름은 워크트리 접두로 정한다: v65-<키> → ft-v65-temp-<키>#0 · <팀>-<키> → byz-<팀>-nano-<키>#0(`.fable-team/bin-<팀>/<팀>-env.sh` 가 있을 때만 — 없으면 PLAN_SKIP). env FT_WT_CLEAN_DIR 로 계획 폴더 지정.
+#     좌석 이름은 워크트리 접두로 정한다: v65-<키> → <v65 새 접두>byz-v65-nano-<키>#0 · <팀>-<키> → byz-<팀>-nano-<키>#0(`.fable-team/bin-<팀>/<팀>-env.sh` 가 있을 때만 — 없으면 PLAN_SKIP). env FT_WT_CLEAN_DIR 로 계획 폴더 지정. ★접두 목록 = 공용 규칙(ft_teamset.py) — 전환기에 열린 옛 접두 좌석도 같은 키로 센다(r655)★
 #     --plan 은 같은 턴에 둘을 더 한다 ⓐscratchpad 직접 사본(등록 안 됨)을 `.fable-team/state/scratch-repos.tsv` 에 «사후 등록»(주인 = 세션 폴더가 가리키는 살아 있는 좌석 · 없으면 `scratchpad-of:<폴더>` · 시각 = 디렉터리 생성 시각 — 그 뒤 기존 ft-scratch-repo --sweep 규칙(주인 세션 없음 ∧ 24h)이 처리 · cwd 를 쥔 프로세스가 있으면 등록 안 함)
 #       ⓑ주인 세션이 살아 있는 등록 사본 중 `ft-scratch-repo.sh --judged` rc 0(판정 끝남)인 것은 주인에게 쪽지 «--done 하라» 1통(사본마다 1회 · 중복 방지 `.fable-team/state/census-notified.tsv` · 자동 삭제 0). env FT_MBOX · FT_CENSUS_FROM(발신 이름)
 #   --hil = 읽기 전용 묶음 표 — ⓐ사람 확인 대기(.sh.hil) 정리 계획을 사유(`<계획>.log` 마지막 줄)별로 묶음 ⓑ표준 경로 밖 목록(다른 가지 워크트리 · detached · ~/.claude/projects 크기). planner [HIL] 1통의 본문 재료 — 삭제 0.
@@ -18,6 +18,25 @@ ROOT="${FT_RES_ROOT:-}"   # r385b: 리포 공용 루트 = env → ft_repo_root(�
 [ -n "$ROOT" ] && [ -d "$ROOT" ] || { echo "ERROR 리포 루트를 못 찾음(FT_RES_ROOT)" >&2; exit 4; }
 case "${1:-}" in ""|--json|--plan|--hil) ;; *) echo "usage: $0 [--json | --plan | --hil]" >&2; exit 2;; esac
 export FT_ROOT="$ROOT" FT_MODE="${1:-text}" FT_SELF="$HERE/ft-disk-census.sh"
+# ★v65 나노 접두 목록 = 공용 이름 규칙(ft_teamset.py) 한 곳(r655)★ — 옛·새 이름을 둘 다 센다. 못 읽으면 «주인 없음» 오판을 막기 위해 중단(fail-closed).
+FT_NANO_PFX_V65="$(python3 "$HERE/ft_teamset.py" prefixes --team v65 2>/dev/null)" || FT_NANO_PFX_V65=""
+[ -n "$FT_NANO_PFX_V65" ] || { echo "ERROR 나노 이름 규칙(ft_teamset.py prefixes --team v65) 못 읽음: $HERE" >&2; exit 4; }
+export FT_NANO_PFX_V65
+# 팀별 나노 접두 전부(H3 팀 경계) — 워크트리 `v65-x` 를 byz-alpha-nano-x 좌석이 지키는 오판을 막는다. 팀 목록 = v65 + `.fable-team/bin-<팀>/`.
+FT_NANO_PFX_ALL="$(python3 - "$HERE/ft_teamset.py" "$ROOT" <<'PY'
+import glob, json, os, subprocess, sys
+tool, root = sys.argv[1], sys.argv[2]
+teams = ["v65"] + sorted(os.path.basename(d)[4:] for d in glob.glob(os.path.join(root, ".fable-team", "bin-*")) if os.path.isdir(d))
+out = {}
+for t in teams:
+    r = subprocess.run([sys.executable, tool, "prefixes", "--team", t], capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip():
+        out[t] = r.stdout.split()
+print(json.dumps(out))
+PY
+)" || FT_NANO_PFX_ALL=""
+[ -n "$FT_NANO_PFX_ALL" ] || FT_NANO_PFX_ALL="$(python3 -c 'import json,sys;print(json.dumps({"v65":sys.argv[1:]}))' $FT_NANO_PFX_V65)"
+export FT_NANO_PFX_ALL
 exec nice -n 10 python3 -I - <<'PY'
 import json, os, re, subprocess, sys
 
@@ -113,10 +132,30 @@ def du_gb(path):
         return None
 
 
-def live_for(key):
+PFX_V65 = [p for p in os.environ.get("FT_NANO_PFX_V65", "").split() if p]
+V65_PREFIX = PFX_V65[0]   # 새 이름(계획을 만들 때 쓰는 이름)
+PFX_ALL = json.loads(os.environ.get("FT_NANO_PFX_ALL") or "{}")   # {팀: [접두…]} — 이름 규칙(ft_teamset.py prefixes) 전 팀. 팀 경계 판정용(r655)
+
+
+def wt_team(path):
+    """워크트리 이름의 팀 — `v65-<키>` = v65 · `<팀>-<키>` = 그 팀(접두 목록에 있는 팀만). 없으면 None."""
+    base = os.path.basename(path)
+    head = base.split("-", 1)[0]
+    return head if head in PFX_ALL else None
+
+
+def live_for(key, team=None):
+    """그 키의 워크트리 주인이 살아 있나 — ★팀까지 맞는 좌석만★(r655 DA⑥ r1 H3: byz-alpha-nano-x#0 이 v65-x 워크트리를 지키면 안 된다).
+    team 이 None(워크트리 이름 앞이 팀이 아님 — concierge-·land-·set-·repo- …)이면 옛 패턴 그대로: 모든 팀의 `-nano-<키>` 좌석을 주인으로 본다(arch 119 H3)."""
     if SESS is None:
         return None
-    pat = re.compile(rf"(^|-)nano-{re.escape(key)}(-r\d+)?#\d+$|^ft-v65-temp-{re.escape(key)}(-r\d+)?#\d+$")
+    if team is None:
+        alts = "|".join(re.escape(p) for p in PFX_V65)
+        pat = re.compile(rf"(^|-)nano-{re.escape(key)}(-r\d+)?#\d+$|^(?:{alts}){re.escape(key)}(-r\d+)?#\d+$")
+        return any(pat.search(s) for s in SESS)
+    pfx = PFX_ALL.get(team)
+    alts = "|".join(re.escape(p) for p in (pfx or PFX_V65))
+    pat = re.compile(rf"^(?:{alts}){re.escape(key)}(-r\d+)?#\d+$")
     return any(pat.search(s) for s in SESS)
 
 
@@ -154,7 +193,7 @@ def fill(row, reg):
     if k == "nano":
         key = re.sub(r"-r\d+$", "", br[len("nano/"):])
         row["creator"] = f"nano-{key}"
-        row["live"] = live_for(key)
+        row["live"] = live_for(key, wt_team(p))
         row["landed"] = landed(br, key)
         weak = row["landed"] == "grep"
         strong = row["landed"] in ("ancestor", "cherry", "card")
@@ -214,7 +253,7 @@ def seat_for(row):
     base = os.path.basename(row["path"])
     key = re.sub(r"-r\d+$", "", row["branch"][len("nano/"):])
     if base.startswith("v65-"):
-        return f"ft-v65-temp-{key}#0", ""
+        return f"{V65_PREFIX}{key}#0", ""
     team = base.split("-", 1)[0]
     if os.path.isfile(os.path.join(ROOT, ".fable-team", f"bin-{team}", f"{team}-env.sh")):
         return f"byz-{team}-nano-{key}#0", ""

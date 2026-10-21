@@ -17,6 +17,7 @@ bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n
 
 mkdir -p "$T/bin" "$T/fake"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 # 가짜 reap — 모드 파일: ok = left=0 · always1 = 늘 left=1 · once1 = 1회째 left=1 뒤 left=0. 호출마다 $T/reap.calls 에 1줄.

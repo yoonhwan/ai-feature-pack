@@ -1,0 +1,9 @@
+# r655 H3 재대조 — «후» 2026-10-22 03:40
+# 명령: HIL_DIR=임시폴더 bash feature-pack/fable-team/harness/tests/test_r655_nano_name_prefix.sh
+# 고침: ft-disk-census.sh live_for(team=None) = 옛 패턴((^|-)nano-<키> + v65 접두) 복원 — 팀을 못 읽는 워크트리는 모든 팀 좌석을 주인으로 센다
+
+PASS H3 남의 팀 좌석(alpha)은 v65-z 주인이 아니다(live=false · False/HIL:no-info) · 같은 팀 옛 이름은 주인(True/keep:live-seat)
+PASS H3b 팀을 못 읽는 워크트리(concierge-w)도 옛 패턴으로 주인을 센다(live=true · True/keep:live-seat)
+ALL PASS
+
+칸 수 = 48 (전 47 → 48) · rc=0 · /tmp/h2* 전후 144=144(내 시험 유출 0 — 03:40 h260 은 다른 좌석 approve-merge HIL 진입점)

@@ -1,0 +1,51 @@
+# DA⑥ r1 H1~H5 — 고친 «뒤» 원문 · 2026-10-22 03:04:45
+# 실행: bash feature-pack/fable-team/harness/tests/test_r655_nano_name_prefix.sh
+
+PASS ⓐ v65 카드 spawn → byz-v65-nano-x#0 (옛 접두 0)
+PASS ⓑ 워크트리 v65-x · 브랜치 nano/x 불변
+PASS ⓒ wt-v65 = 옛·새 이름 둘 다(v65-newone v65-oldone) · stop-ready·다른 팀 0
+PASS ⓒ 옛 이름만 살아 있어도 LIVE_WT 에 남는다
+PASS ⓒ 명부 없음 → rc1(조용한 통과 0)
+PASS ⓓ 닫기 이름 게이트 통과(ENV team=v65 까지) — ft-v65-temp-oldone#0
+PASS ⓓ 닫기 이름 게이트 통과(ENV team=v65 까지) — byz-v65-nano-newone#0
+PASS ⓓ 남의 역할 좌석(byz-alpha-master-…)은 이름 게이트에서 REJECT
+PASS ⓓ 규칙기 없음 → ERROR(미등록 이름으로 삼키지 않음)
+PASS ⓓ-undo 접두 게이트(ⓑ) 통과 → PLANNED — ft-v65-temp-u#0
+PASS ⓓ-undo 접두 게이트(ⓑ) 통과 → PLANNED — byz-v65-nano-u#0
+PASS ⓓ-undo 접두 게이트 — 규칙 밖 이름(ft-v65-oldx#0)은 ⓑ REJECT
+PASS ⓔ 옛·새 이름 → 같은 팀(v65)·같은 키(newone)
+PASS ⓔ 다른 팀 접두 판정 불변(alpha)
+PASS ⓔ 회수 --team v65 후보 = 옛·새 이름 둘 다(소속 인정) · 다른 팀 좌석은 후보 0
+PASS ⓕ 옛 이름 좌석(ft-v65-temp-y#0) 살아 있음 → 워크트리 v65-y «live» 판정
+PASS ⓕ 디스크 조사가 공용 규칙(접두 목록)을 읽는다
+PASS ⓕ 규칙기 없음 → rc4 중단(주인 없음 오판 0)
+PASS ⓖ 키트 판정·이름 만드는 곳의 옛 접두 글자 = 0(정본 ft_teamset.py 밖)
+PASS ⓖ 틱 문구는 두 이름 다 적는다
+PASS ⓖ 접두 목록 정본 = byz-v65-nano- 먼저 · 옛 이름 뒤
+PASS ⓗ skill/scripts/ft_teamset.py = 키트와 cmp 0
+PASS ⓗ ft-nano-spawn.sh 가 공용 규칙을 부른다
+PASS ⓗ ft-nano-close.sh 가 공용 규칙을 부른다
+PASS ⓗ ft-press-gate.sh 가 공용 규칙을 부른다
+PASS ⓗ 사본 3종에 옛 접두 글자 0
+PASS H1 옛1+새1 · 상한 2 → AT-CAP live=2 rc4(우회 0)
+PASS H1 새 이름 1 · 상한 2 → CAP live=1 rc0(음성대조)
+PASS H2 회수 분류 — 옛·새 이름 둘 다 «나노»(미병합 나노 / 미병합 나노)
+PASS H2 규칙 조회 실패 → rc=4 ERROR(«남의 팀» 으로 삼키지 않음)
+PASS H3 남의 팀 좌석(alpha)은 v65-z 주인이 아니다(live=false · False/HIL:no-info) · 같은 팀 옛 이름은 주인(True/keep:live-seat)
+PASS H4⑦ tmux 오류(other) → rc1 ERROR(빈 결과 통과 0)
+PASS H4⑦ 서버 없음(정상 rc0)은 그대로
+PASS H5③ press ① 이 새 이름 좌석의 워크트리를 막는다(✗ 미랜딩 제품 커밋 1 — v65-g · BLOCK)
+PASS H4⑤ 다른 가지 보호가 접두 목록 전부를 본다(_resolve_std_wt_other)
+PASS H4 규칙 단일화 — ft-news-tick-cfo.sh
+PASS H4 규칙 단일화 — ft-news-tick.sh
+PASS H4 규칙 단일화 — ft-blocked-on-master.sh
+PASS H4 규칙 단일화 — ft-context-monitor.sh
+PASS H4⑧ skill 사본 실행 — HERE unbound 0(판정까지 감)
+PASS 짝 cmp 0 ft-nano-spawn.sh
+PASS 짝 cmp 0 ft-nano-close.sh
+PASS 짝 cmp 0 ft-nano-spawn-undo.sh
+PASS 짝 cmp 0 ft-press-gate.sh
+PASS 짝 cmp 0 ft-resource-reclaim.sh
+PASS 짝 cmp 0 ft-disk-census.sh
+PASS 짝 cmp 0 ft_teamset.py
+ALL PASS

@@ -1,0 +1,42 @@
+# r655 H3 재대조 — 인접 시험·정적 검사 2026-10-22 03:41 (HIL_DIR=임시폴더)
+
+## bash -n
+bash -n ft-disk-census.sh rc=0
+
+## 키트↔harness/bin 짝
+cmp 0
+
+## 인접 시험 2종
+test_kit_bin_sync.sh rc=0 PASS=7 FAIL=0
+test_live_bin_drift_check.sh rc=0 PASS=69 FAIL=0
+
+## 범위(바뀐 파일)
+ M feature-pack/fable-team/harness/bin/ft-disk-census.sh
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh
+ M feature-pack/fable-team/harness/tests/test_r655_nano_name_prefix.sh
+?? feature-pack/fable-team/harness/evidence/r655/10-h3-red.txt
+?? feature-pack/fable-team/harness/evidence/r655/11-h3-green.txt
+?? feature-pack/fable-team/harness/evidence/r655/12-h3-existing-tests.txt
+
+## diff
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh
+index 995bae54..77ce48f2 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh
+@@ -146,10 +146,14 @@ def wt_team(path):
+ 
+ def live_for(key, team=None):
+     """그 키의 워크트리 주인이 살아 있나 — ★팀까지 맞는 좌석만★(r655 DA⑥ r1 H3: byz-alpha-nano-x#0 이 v65-x 워크트리를 지키면 안 된다).
+-    team 이 None 이면 예전처럼 키만 본다(팀을 못 읽는 종류의 워크트리)."""
++    team 이 None(워크트리 이름 앞이 팀이 아님 — concierge-·land-·set-·repo- …)이면 옛 패턴 그대로: 모든 팀의 `-nano-<키>` 좌석을 주인으로 본다(arch 119 H3)."""
+     if SESS is None:
+         return None
+-    pfx = PFX_ALL.get(team) if team else None
++    if team is None:
++        alts = "|".join(re.escape(p) for p in PFX_V65)
++        pat = re.compile(rf"(^|-)nano-{re.escape(key)}(-r\d+)?#\d+$|^(?:{alts}){re.escape(key)}(-r\d+)?#\d+$")
++        return any(pat.search(s) for s in SESS)
++    pfx = PFX_ALL.get(team)
+     alts = "|".join(re.escape(p) for p in (pfx or PFX_V65))
+     pat = re.compile(rf"^(?:{alts}){re.escape(key)}(-r\d+)?#\d+$")
+     return any(pat.search(s) for s in SESS)

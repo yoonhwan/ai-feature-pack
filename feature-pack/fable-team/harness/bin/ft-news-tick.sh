@@ -29,8 +29,8 @@ echo; echo "════ ② 좌석 적체 ════"
 bash "$HERE/ft-mbox-census.sh" 3
 echo; echo "════ ③ 좌석 상태 ════"
 python3 -c "
-import json;d=json.load(open('$ROOT/.fable-team/seats.json'))
-print('\n'.join(k for k,v in d.items() if isinstance(v,dict) and v.get('role') not in ('stop-ready',) and k.startswith('ft-v65')))" 2>/dev/null | while read -r S; do
+import json,sys;d=json.load(open('$ROOT/.fable-team/seats.json'));pre=tuple(sys.argv[1:])
+print('\n'.join(k for k,v in d.items() if isinstance(v,dict) and v.get('role') not in ('stop-ready',) and k.startswith(pre)))" $(python3 "$HERE/ft_teamset.py" team-prefixes --team v65 2>/dev/null) 2>/dev/null | while read -r S; do
   T=$(bash "$HERE/ft-seat-status.sh" turn "$S" 2>/dev/null | awk '{print $1}')
   A=$(bash "$HERE/ft-seat-status.sh" one "$S" 2>/dev/null | awk '{print $3}')
   [ -n "$T" ] && [ "$T" != "UNKNOWN" -o "$A" != "-" ] && printf "%-50s %-8s age=%s\n" "${S:0:50}" "$T" "$A"

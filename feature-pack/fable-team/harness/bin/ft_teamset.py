@@ -80,15 +80,50 @@ def load(md, root):
     return spec
 
 
+# ★나노 이름 규칙 정본(r655)★ — v65 도 다른 팀과 같은 꼴 `byz-<팀>-nano-` 다(오빠 «왜 나노워커가 ft-v65 인거야? byz-v65 여야지»).
+#   옛 접두는 «인식만» 한다 — 전환기에 이미 열려 있는 좌석을 같은 팀 나노로 세기 위해서지 새로 만들지 않는다.
+LEGACY_PREFIXES = {"v65": ("ft-v65-temp-",)}
+LEGACY_TEAM_PREFIXES = {"v65": ("ft-v65-",)}   # 「팀 좌석 전부」(나노+역할) 옛 이름 — 예전엔 ft-v65-master-… 처럼 팀 접두가 ft- 였다
+KNOWN_HINT = " | ".join(["byz-<팀>-nano-"] + list(LEGACY_PREFIXES.get("v65", ())))   # 오류 문구용 견본 — 목록 자체는 LEGACY_PREFIXES 한 곳
+
+
 def prefix_of(team):
-    return "ft-v65-temp-" if team == "v65" else f"byz-{team}-nano-"
+    """그 팀 나노의 «새» 이름 접두 — 모든 팀이 byz-<팀>-nano- 한 꼴."""
+    return f"byz-{team}-nano-"
+
+
+def prefixes_of(team):
+    """그 팀 나노로 «세야 하는» 접두 전부 — 새 접두 먼저, 옛 접두 뒤(전환기)."""
+    return (prefix_of(team),) + LEGACY_PREFIXES.get(team, ())
+
+
+def team_prefixes_of(team):
+    """그 팀 좌석 «전부»(나노·역할 무관)의 접두 — 셸이 팀 좌석을 고를 때 쓰는 목록(두 벌 규칙 0)."""
+    return (f"byz-{team}-",) + LEGACY_TEAM_PREFIXES.get(team, ())
 
 
 def team_of(prefix, strict=True):
+    for t, legacies in LEGACY_PREFIXES.items():
+        if prefix in legacies:
+            return t
     m = re.fullmatch(r"byz-([a-z0-9]+)-nano-", prefix)
-    if prefix == "ft-v65-temp-" or m:
-        return "v65" if prefix == "ft-v65-temp-" else m.group(1)
-    return die(f"나노 접두 {prefix!r} 에서 팀을 못 읽는다 (byz-<팀>-nano- | ft-v65-temp-)") if strict else None
+    if m:
+        return m.group(1)
+    return die(f"나노 접두 {prefix!r} 에서 팀을 못 읽는다 ({KNOWN_HINT})") if strict else None
+
+
+def seat_info(seat):
+    """좌석 이름 → (팀, 접두, 옛이름인가, 키) · 나노 이름이 아니면 None. 이름 만드는 곳과 세는 곳이 같은 규칙을 쓰게 하는 판정기(한 곳)."""
+    if not re.fullmatch(r".+#\d+", seat):
+        return None
+    for t, legacies in LEGACY_PREFIXES.items():
+        for p in legacies:
+            if seat.startswith(p):
+                return t, p, True, seat[len(p):].rsplit("#", 1)[0]
+    m = re.fullmatch(r"byz-([a-z0-9]+)-nano-(.+)#\d+", seat)
+    if m:
+        return m.group(1), prefix_of(m.group(1)), False, m.group(2)
+    return None
 
 
 def sessions():
@@ -97,7 +132,7 @@ def sessions():
     except (OSError, subprocess.TimeoutExpired) as e:
         die(f"tmux 세션 목록 실패({e}) — 셀 수 없다")
     if r.returncode:
-        if re.search(r"no server|error connecting", r.stderr):
+        if re.search(r"no server running", r.stderr):   # r655(DA⑥ r1 H4⑦): «서버 없음» 만 빈 목록 — 그 밖은 ERROR(빈 목록이면 wt-v65 가 0을 내 press ① 검사가 통째로 사라진다)
             return []
         die(f"tmux list-sessions 실패: {r.stderr.strip()[:80]}")
     return r.stdout.split()
@@ -110,9 +145,11 @@ def cap_of(spec, team):
 def cmd_cap(a):
     spec, team = load(a.md, a.root), team_of(a.prefix, strict=False)
     if team is None:  # 표 대상 아닌 접두(시험·외부 env) — 막지 않되 눈에 보이게
-        print(f"SKIP 접두 {a.prefix!r} 는 팀셋 표 대상 아님(byz-<팀>-nano- | ft-v65-temp-) — 상한 검사 0")
+        print(f"SKIP 접두 {a.prefix!r} 는 팀셋 표 대상 아님({KNOWN_HINT}) — 상한 검사 0")
         sys.exit(0)
-    live, cap = sum(1 for s in sessions() if s.startswith(a.prefix)), cap_of(spec, team)
+    # r655(DA⑥ r1 H1): 상한은 «그 팀의 접두 전부»(옛 이름 + 새 이름)를 센다 — 접두 하나만 세면 옛 1 + 새 N 이 상한을 통과한다.
+    pf = prefixes_of(team)
+    live, cap = sum(1 for s in sessions() if any(s.startswith(p) for p in pf)), cap_of(spec, team)
     print(f"{'AT-CAP' if live >= cap else 'CAP'} {team} live={live} cap={cap}")
     sys.exit(4 if live >= cap else 0)
 
@@ -216,9 +253,9 @@ def check_team(spec, root, team, live):
         d = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         die(f"명부 읽기 실패 {p.name}: {e}")
-    pre = ("byz-v65-", "ft-v65-temp-") if team == "v65" else (f"byz-{team}-",)
+    pre = (f"byz-{team}-",) + tuple(p for p in LEGACY_PREFIXES.get(team, ()))
     mine = [s for s in live if s.startswith(pre)]
-    nano = [s for s in mine if s.startswith(prefix_of(team))]
+    nano = [s for s in mine if any(s.startswith(p) for p in prefixes_of(team))]
     cap, err, warn, info = cap_of(spec, team), [], [], []
     if not mine:
         return "OK", f"휴면(라이브 좌석 0 · 나노 0/{cap})"
@@ -280,7 +317,61 @@ def cmd_check(a):
     sys.exit(rc)
 
 
+def cmd_wt_v65(a):
+    """v65 나노로 «세야 하는» 현역 좌석의 워크트리 이름(`v65-<키>`) — 새 이름·옛 이름 둘 다, stop-ready 제외. press 게이트가 이 한 곳을 부른다."""
+    p = Path(a.seats or "")
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        die(f"명부 읽기 실패 {p}: {e}")
+    live = set(sessions())
+    out = set()
+    for k, v in d.items():
+        if not isinstance(v, dict) or v.get("role") == "stop-ready" or k not in live:
+            continue
+        t = re.fullmatch(r"ft-v65-(mr|le)-track#\d+$", k)
+        if t:
+            out.add("v65-" + t.group(1))
+            continue
+        info = seat_info(k)
+        if info and info[0] == "v65":
+            out.add("v65-" + info[3])
+    print(" ".join(sorted(out)))
+
+
+def cmd_name_rule(argv):
+    """이름 규칙 조회만 하는 하위명령(`prefix`·`prefixes`·`seat-info`·`wt-v65`) — 셸이 목록을 «복사»하지 않고 여기서 읽는다(두 벌 규칙 0)."""
+    ap = argparse.ArgumentParser(prog="ft_teamset.py")
+    ap.add_argument("cmd", choices=["prefix", "prefixes", "seat-info", "team-prefixes", "wt-v65"])
+    ap.add_argument("--team")
+    ap.add_argument("--seats")
+    ap.add_argument("seat", nargs="?")
+    a = ap.parse_args(argv)
+    if a.cmd == "wt-v65":
+        if not a.seats:
+            die("--seats 필수")
+        return cmd_wt_v65(a)
+    if a.cmd in ("prefix", "prefixes", "team-prefixes"):
+        if not a.team:
+            die("--team 필수")
+        if a.cmd == "prefix":
+            print(prefix_of(a.team))
+        elif a.cmd == "team-prefixes":
+            print(" ".join(team_prefixes_of(a.team)))
+        else:
+            print(" ".join(prefixes_of(a.team)))
+        sys.exit(0)
+    if not a.seat:
+        die("좌석 이름 필요")
+    info = seat_info(a.seat)
+    if not info:
+        die(f"나노 좌석 이름이 아니다 — {a.seat} (규칙 byz-<팀>-nano-<키>#N · 옛 이름 {LEGACY_PREFIXES['v65'][0]}<키>#N)")
+    print(f"team={info[0]} prefix={info[1]} legacy={int(info[2])} key={info[3]} prefixes={','.join(prefixes_of(info[0]))}")
+
+
 def main():
+    if sys.argv[1:2] and sys.argv[1] in ("prefix", "prefixes", "seat-info", "team-prefixes", "wt-v65"):
+        return cmd_name_rule(sys.argv[1:])
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["check", "cap", "arch-live"])
     ap.add_argument("--root", required=True)

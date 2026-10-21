@@ -1,0 +1,17 @@
+== 설치 메모 (r655 · 재기반 42a08106 위 · master 집행)
+1) 키트 → LIVE_BIN(새 판) cmp0 대상 10:
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft_teamset.py
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn-undo.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-press-gate.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-resource-reclaim.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick-team.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-pm-tick.sh
+   - feature-pack/fable-team/harness/kit/fable-team/bin/ft-news-tick-cfo.sh
+2) 추적 짝 harness/bin/ 9(위 중 ft-pm-tick.sh 제외) — test_kit_bin_sync ALL PASS
+3) skill/scripts 사본 5: ft_teamset.py(새 파일) · ft-nano-spawn.sh · ft-nano-close.sh · ft-press-gate.sh · ft-tick.sh
+4) 루트 새 파일: <루트>/.fable-team/bin-v65/v65-env.sh ← 견본 harness/kit/fable-team/templates/bin-v65/v65-env.sh (<루트> 치환)
+5) manifest 1.1.187→1.1.190 · 되돌림 = .bak-r655
+6) 설치 뒤 실사건 1: v65 다음 nano spawn 1회 이름 byz-v65-nano- 원문 · 그 좌석이 열려 있는 동안 press 게이트 BLOCK 원문 · 닫기 rc0 원문

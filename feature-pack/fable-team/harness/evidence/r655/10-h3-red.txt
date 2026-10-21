@@ -1,0 +1,6 @@
+# r655 H3 재대조 — «전»(고침 없는 ft-disk-census.sh 두 벌 = HEAD dd83d155 · 시험 칸 H3b 추가 판) 2026-10-22 03:40
+# 명령: HIL_DIR=임시폴더 bash feature-pack/fable-team/harness/tests/test_r655_nano_name_prefix.sh
+
+FAIL H3b rc=0 w=«False/HIL:no-info»
+FAILED 1
+rc=1 — H3b FAIL: live_for(team=None) 이 v65 접두만 봐서 팀을 못 읽는 워크트리(concierge-w)의 주인을 놓친다

@@ -1,0 +1,64 @@
+== 인접 시험 41종 (이 카드 브랜치 · 재기반 뒤 origin/main 42a08106 위 · 광역 0)
+test_nano_close_fail_closed.sh rc=0 fails=0
+test_nano_close_named_wt.sh rc=0 fails=0
+test_nano_close_never_started.sh rc=0 fails=0
+test_nano_close_pack_wt.sh rc=0 fails=0
+test_nano_close_rerun_early.sh rc=0 fails=0
+test_nano_close_rerun_named_equal.sh rc=0 fails=0
+test_nano_close_rerun_wt_clean.sh rc=0 fails=0
+test_nano_close_sha_base.sh rc=0 fails=0
+test_nano_close_std_wt_other_branch.sh rc=0 fails=0
+test_nano_close_superseded_by.sh rc=0 fails=0
+test_nano_close_suspended.sh rc=0 fails=0
+test_nano_close_worktree_list_pipe.sh rc=0 fails=0
+test_nano_close_wt_deletion_only.sh rc=0 fails=0
+test_nano_team_env.sh rc=0 fails=0
+test_nano_spawn_teamset_cap.sh rc=7 fails=8
+test_nano_spawn_body_press.sh rc=2 fails=3
+test_nano_spawn_recheck_cited.sh rc=0 fails=0
+test_nano_spawn_tier.sh rc=0 fails=0
+test_nano_spawn_pi_effort_kind_r631.sh rc=0 fails=0
+test_teamset_check.sh rc=5 fails=6
+test_teamset_gitref.sh rc=3 fails=4
+test_resource_reclaim.sh rc=0 fails=0
+test_resource_reclaim_preventive.sh rc=124 fails=3
+test_resource_reclaim_pressure.sh rc=0 fails=0
+test_kit_bin_sync.sh rc=0 fails=0
+test_live_bin_drift_check.sh rc=0 fails=0
+test_planner_nano_path.sh rc=1 fails=17
+test_pack_nano_worktree_place.sh rc=0 fails=0
+test_wt_clean_two_stage.sh rc=0 fails=0
+test_wt_clean_plan_rn_sibling.sh rc=0 fails=0
+test_wt_sweep_budget_replan_r535.sh rc=0 fails=0
+test_disk_alarm.sh rc=0 fails=0
+test_spawn_hold.sh rc=1 fails=2
+test_tracked_bin_call_gate.sh rc=0 fails=0
+test_team_literal_paths2.sh rc=1 fails=3
+test_team_move_roundtrip.sh rc=1 fails=4
+test_team_path_oldpath_md.sh rc=0 fails=0
+test_all_stop_r626.sh rc=0 fails=0
+test_baseline_lint.sh rc=0 fails=0
+test_da_hold_gate_landed.sh rc=0 fails=0
+test_autonomy_scope_plain3_r658.sh rc=0 fails=0
+
+== 같은 시험 base(origin/main 42a08106) 판
+test_nano_spawn_teamset_cap.sh rc=7 fails=8
+test_nano_spawn_body_press.sh rc=2 fails=3
+test_teamset_check.sh rc=5 fails=6
+test_teamset_gitref.sh rc=3 fails=4
+test_resource_reclaim_preventive.sh rc=1 fails=3
+test_planner_nano_path.sh rc=1 fails=17
+test_spawn_hold.sh rc=1 fails=2
+test_team_literal_paths2.sh rc=1 fails=3
+test_team_move_roundtrip.sh rc=1 fails=4
+
+== 남은 빨강 9종 = base 와 동수·동줄(아래 표가 그 대조):
+test_nano_spawn_teamset_cap.sh rc=7 fails=8   ||  base: test_nano_spawn_teamset_cap.sh rc=7 fails=8
+test_nano_spawn_body_press.sh rc=2 fails=3   ||  base: test_nano_spawn_body_press.sh rc=2 fails=3
+test_teamset_check.sh rc=5 fails=6   ||  base: test_teamset_check.sh rc=5 fails=6
+test_teamset_gitref.sh rc=3 fails=4   ||  base: test_teamset_gitref.sh rc=3 fails=4
+test_resource_reclaim_preventive.sh rc=124 fails=3   ||  base: test_resource_reclaim_preventive.sh rc=1 fails=3
+test_planner_nano_path.sh rc=1 fails=17   ||  base: test_planner_nano_path.sh rc=1 fails=17
+test_spawn_hold.sh rc=1 fails=2   ||  base: test_spawn_hold.sh rc=1 fails=2
+test_team_literal_paths2.sh rc=1 fails=3   ||  base: test_team_literal_paths2.sh rc=1 fails=3
+test_team_move_roundtrip.sh rc=1 fails=4   ||  base: test_team_move_roundtrip.sh rc=1 fails=4

@@ -15,15 +15,21 @@ while [ $# -gt 0 ]; do case "$1" in
 [ "$CONFIRM" = 0 ] || [ -n "$OWNED" ] || usage
 MODE=PLAN; [ -z "$OWNED" ] || MODE=ROLL; [ "$CONFIRM" = 0 ] || MODE=EXEC
 [ "$MODE" != ROLL ] || [ -n "$CARD" ] || rej "롤백 모드는 --card 가 필요하다"
-SELF="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/$(basename -- "${BASH_SOURCE[0]:-$0}")"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SELF="$HERE/$(basename -- "${BASH_SOURCE[0]:-$0}")"
 WT0="$(git rev-parse --show-toplevel 2>/dev/null)" || rej "git 저장소 밖에서 불렸다"
 ROOT="$(git -C "$WT0" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
-# ① 팀 env — spawn 과 같은 규약(FT_NANO_PREFIX 가 이미 있으면 명시가 이긴다)
+# ① 팀 env — spawn 과 같은 규약(FT_NANO_PREFIX 가 이미 있으면 명시가 이긴다) · ★v65 는 env 파일이 없어도 된다(r655)★
+_team=""; [[ "$SEAT" =~ ^byz-([a-z0-9]+)-nano- ]] && _team="${BASH_REMATCH[1]}"
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$CARD" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[2]}" != v65 ] && _team="${BASH_REMATCH[2]}"
-  if [ -n "$_team" ]; then _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"; [ -f "$_tenv" ] || rej "팀 env 없음: $_tenv"; . "$_tenv"; fi
+  if [ -n "$_team" ] && [ "$_team" != v65 ]; then _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"; [ -f "$_tenv" ] || rej "팀 env 없음: $_tenv"; . "$_tenv"; fi
+  [ "${_team:-v65}" != v65 ] || { _tenv="$ROOT/.fable-team/bin-v65/v65-env.sh"; [ -f "$_tenv" ] && . "$_tenv"; }
 fi
-PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"; SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; TAG="${FT_ACTIVE_TAG:-@zc_v65_active}"
+# ★옛·새 이름 둘 다 «v65 나노» 로 센다(r655) — 접두 목록은 공용 규칙(ft_teamset.py) 하나에서 읽는다★
+_NANO_PREFIXES="$(python3 "$HERE/ft_teamset.py" prefixes --team "${_team:-v65}" 2>/dev/null)" || _NANO_PREFIXES=""
+[ -n "$_NANO_PREFIXES" ] || { echo "REJECT 나노 이름 규칙(ft_teamset.py prefixes) 못 읽음: $HERE"; exit 1; }
+[ -z "${FT_NANO_PREFIX:-}" ] || _NANO_PREFIXES="${FT_NANO_PREFIX} ${_NANO_PREFIXES}"   # 명시 접두 = 규칙에 더한다(시험·외부 env 꼴)
+PREFIX="${FT_NANO_PREFIX:-${_NANO_PREFIXES%% *}}"; SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; TAG="${FT_ACTIVE_TAG:-@zc_v65_active}"
 STATE="${FT_UNDO_STATE:-$ROOT/.fable-team/state}"; MBOX_DIR="${FT_MBOX_DIR:-$ROOT/.fable-team/comm}"
 if [ -n "${FT_NANO_LEDGER:-}" ]; then LEDGER="$FT_NANO_LEDGER"
 else   # R383: v65 팀 폴더는 운영 정본 워크트리의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 «원장 못 씀» WARN 경로(끝의 >> 실패)로 간다
@@ -122,7 +128,8 @@ gate() {  # $1=full|dyn — 첫 실패 사유를 REJECT 로 낸다
   if [ -n "$OWNED" ]; then r="$(c_owned)" || rej "$r"; fi
   r="$(c_roster)" || rej "$r"; r="$(c_mail)" || rej "$r"; r="$(c_turns)" || rej "$r"
   [ "$1" = dyn ] && return 0
-  [[ "$SEAT" == "$PREFIX"* ]] || rej "ⓑ 좌석명이 접두 $PREFIX 로 시작하지 않는다"
+  _m=0; for _p in $_NANO_PREFIXES; do case "$SEAT" in "$_p"*) _m=1; PREFIX="$_p"; break;; esac; done
+  [ "$_m" = 1 ] || rej "ⓑ 좌석명이 나노 접두(${_NANO_PREFIXES// /|}) 로 시작하지 않는다: $SEAT"
   r="$(c_card)" || rej "$r"; r="$(c_branch)" || rej "$r"; r="$(c_dirty)" || rej "$r"
 }
 

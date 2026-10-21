@@ -1,0 +1,57 @@
+FAIL ⓐ rc=0 BODY+ ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★
+PLAN shim-init /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qgfUDbrGfS/repo/.worktrees/v65-x (워크트리 생성 직후 ft-root-bin-shim.sh --init)
+tmuxc: path does not exist: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qgfUDbrGfS/repo/.worktrees/v65-x
+PASS ⓑ 워크트리 v65-x · 브랜치 nano/x 불변
+FAIL ⓒ «usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'wt-v65' (choose from 'check', 'cap', 'arch-live')»
+FAIL ⓒ-2 «usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'wt-v65' (choose from 'check', 'cap', 'arch-live')»
+FAIL ⓒ-3 rc=2 «usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'wt-v65' (choose from 'check', 'cap', 'arch-live')»
+PASS ⓓ 닫기 이름 게이트 통과 — ft-v65-temp-oldone#0
+PASS ⓓ 닫기 이름 게이트 통과 — byz-v65-nano-newone#0
+FAIL ⓓ-3 «ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qgfUDbrGfS/seats-mixed.json INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /tmp/r655-base2/feature-pack/fable-team/harness/kit/fable-team/bin »
+PASS ⓓ 되돌리기 접두 게이트 통과 — ft-v65-temp-oldone#0
+PASS ⓓ 되돌리기 접두 게이트 통과 — byz-v65-nano-newone#0
+FAIL ⓔ «usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'seat-info' (choose from 'check', 'cap', 'arch-live')» / «usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'seat-info' (choose from 'check', 'cap', 'arch-live')»
+FAIL ⓔ-2 «usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'seat-info' (choose from 'check', 'cap', 'arch-live')»
+FAIL ⓔ-3 후보 | 종류 | 승인 근거 | 결과 ft-v65-temp-oldone#0 | 현역 역할/기타 | - | HIL(승인 범위 밖: 현역 역할 좌석·재개 기록 없는 직전 세대·codex DA·미병합 나노) RECLAIMED 0 pressure=1 swap=87%
+PASS ⓕ 옛 이름 좌석(ft-v65-temp-y#0) 살아 있음 → 워크트리 v65-y «live» 판정
+FAIL ⓕ 접두 목록 참조 없음
+FAIL ⓕ-2 rc=0 «{"main": "origin/main", "rows": [{"path": "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qgfUDbrGfS/repo/.worktrees/v65-y", "kind": "nano", "branch": "nano/y", "creator": "nano-y", "live": true, "landed": "no", "dirty": 0, "route": "keep:live-seat"}], "summary": [{"kind": "nano", "route": "keep:live-seat", "count": 1, "gb": 1.5}]}»
+FAIL ⓖ 남은 곳: /tmp/r655-base2/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh:8:#     좌석 이름은 워크트리 접두로 정한다: v65-<키> → ft-v65-temp-<키>#0 · <팀>-<키> → byz-<팀>-nano-<키>#0(`.fable-team/bin-<팀>/<팀>-env.sh` 가 있을 때만 — 없으면 PLAN_SKIP). env FT_WT_CLEAN_DIR 로 계획 폴더 지정. /tmp/r655-base2/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh:119:    pat = re.compile(rf"(^|-)nano-{re.escape(key)}(-r\d+)?#\d+$|^ft-v65-temp-{re.escape(key)}(-r\d+)?#\d+$") /tmp/r655-base2/feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh:217:        return f"ft-v65-temp-{key}#0", "" 
+FAIL ⓖ 틱 문구
+usage: ft_teamset.py [-h] --root ROOT [--md MD] [--team TEAM] [--all]
+                     [--prefix PREFIX] [--seat SEAT]
+                     {check,cap,arch-live}
+ft_teamset.py: error: argument cmd: invalid choice: 'prefixes' (choose from 'check', 'cap', 'arch-live')
+FAIL ⓖ 접두 목록
+FAIL ⓗ 규칙 사본 불일치
+PASS ⓗ ft-nano-spawn.sh 가 공용 규칙을 부른다
+PASS ⓗ ft-nano-close.sh 가 공용 규칙을 부른다
+PASS ⓗ ft-press-gate.sh 가 공용 규칙을 부른다
+PASS ⓗ 사본 3종에 옛 접두 글자 0
+FAIL 짝 불일치 ft-nano-spawn.sh
+FAIL 짝 불일치 ft-nano-close.sh
+FAIL 짝 불일치 ft-nano-spawn-undo.sh
+FAIL 짝 불일치 ft-press-gate.sh
+FAIL 짝 불일치 ft-resource-reclaim.sh
+FAIL 짝 불일치 ft-disk-census.sh
+FAIL 짝 불일치 ft_teamset.py
+FAILED 21
+rc=1

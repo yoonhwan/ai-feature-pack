@@ -44,16 +44,23 @@ fi
 # ★전팀 정지 게이트 (r626)★: 늘 check — 판정(상태 파일·원장 all-stop.log·상태 폴더)은 ft_all_stop.py 하나 · «파일 없음 = 꺼짐» 가정 0(DA⑥ r2) · 정지면 끄기 전 spawn 0(팀 구분·우회 플래그 없음 · 부작용 전) · 판정기가 없으면 그 오류로 REJECT(조용한 통과 0).
 [ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
-#   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 는 default)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. 파일이 없으면 추측 없이 REJECT.
+#   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 포함)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. ★v65 도 예외 없이 읽다(r655)★ — 파일이 없는 다른 팀은 지금처럼 REJECT, v65 는 파일이 없으면 기본값(아래 공용 규칙 = byz-v65-nano-)으로 간다.
+DEF_NANO_PREFIX="$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)"
+[ -n "$DEF_NANO_PREFIX" ] || { echo "REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: $HERE"; exit 1; }
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && [ "${BASH_REMATCH[2]}" != v65 ] && _team="${BASH_REMATCH[2]}"
-  if [ -n "$_team" ]; then
+  _team=""; [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && _team="${BASH_REMATCH[2]}"
+  if [ -n "$_team" ] && [ "$_team" != v65 ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
     [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
     . "$_tenv"
+  else
+    _tenv="$ROOT/.fable-team/bin-v65/v65-env.sh"   # 있으면 읽는다(팀별 설정) — 없으면 기본값
+    [ -f "$_tenv" ] && . "$_tenv"
   fi
-  echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-ft-v65-temp-} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+  echo "ENV team=${_team:-v65} prefix=${FT_NANO_PREFIX:-$DEF_NANO_PREFIX} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
+# ★v65 기본 접두 = 공용 규칙(ft_teamset.py)★ — 이름 규칙을 스크립트마다 복사하지 않는다(두 벌 규칙 0). 규칙을 못 읽으면 추측 없이 REJECT.
+[ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
 # ★좌석 상한 (R252 · 판정 1949)★: 팀 env 에 FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP 가 있는 팀(위성)만 — 부작용 0 지점(워크트리·세션·명부 «전»)에서 센다. env 가 없는 팀은 검사 0.
 #   r666: 한도면 «끝난·유휴 나노 회수 1회 → 다시 셈 → 그래도 차면 순번 큐(exit 7)» — 팀셋 나노 상한과 같은 꼴(조용한 rc1 0). --dry-run 은 회수·큐 0(옛 rc1 그대로).
 if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
@@ -84,7 +91,7 @@ fi
 # ★팀셋 나노 상한 (r-teamset-standard · 판정 2170)★: design/TEAMSET.md 표의 팀 상한 — 부작용 0 지점. 넘으면 «전 팀 정지» 대신 그 팀 끝난 나노 회수 1회(--team 필수) → 그래도 넘으면 순번 큐(QUEUED · rc 7). FT_TEAMSET=0 으로 끔.
 if [ "${FT_TEAMSET:-1}" != 0 ]; then
   [ -f "$HERE/ft_teamset.py" ] && [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _tsp="${FT_NANO_PREFIX:-ft-v65-temp-}"; _tsmd="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main · 못 읽으면 REJECT(조용한 통과 0)
+  _tsp="$FT_NANO_PREFIX"; _tsmd="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main · 못 읽으면 REJECT(조용한 통과 0)
   _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
   _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
   if [ "$_tsrc" = 4 ] && [ "$DRY" != 1 ]; then
@@ -274,7 +281,7 @@ fi
 
 SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
 [ "$RESEARCH" != 1 ] || SLUG="$(printf '%s' "$SLUG" | cut -c1-30)-research"   # R387: 좌석 이름·브랜치·워크트리 꼬리 -research
-BASE_NAME="${FT_NANO_PREFIX:-ft-v65-temp-}$SLUG"
+BASE_NAME="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}$SLUG"
 N=0; while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
@@ -448,7 +455,7 @@ fi
 # ③ 열기 — 모델 인자에 대괄호가 있어 zsh 글롭 즉사 함정(글로벌 규칙) → 이 스크립트는 bash 라 그대로 통과
 # R81 판정 847 — ③④(세션 열기·태그) 실패 = 이 실행이 연 세션만 undo 가 kill(소유권·착수 0 검사) · ⑤⑥ 실패 = kill 0 + 사람 판정
 fail_rb() { echo "$1"; [ -n "${OWNED:-}" ] || { echo "롤백 불가 — 고아: $NAME (소유권 값 못 읽음)"; exit 1; }
-  _o="$(FT_NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}" FT_SEATS_JSON="$SEATS" FT_ACTIVE_TAG="${FT_ACTIVE_TAG:-@zc_v65_active}" bash "$HERE/ft-nano-spawn-undo.sh" "$NAME" --owned "$OWNED" --card "$IDX")" && { printf '%s\n' "$_o"; exit 1; }; echo "롤백 실패 — 고아: $NAME ($_o)"; exit 1; }
+  _o="$(FT_NANO_PREFIX="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}" FT_SEATS_JSON="$SEATS" FT_ACTIVE_TAG="${FT_ACTIVE_TAG:-@zc_v65_active}" bash "$HERE/ft-nano-spawn-undo.sh" "$NAME" --owned "$OWNED" --card "$IDX")" && { printf '%s\n' "$_o"; exit 1; }; echo "롤백 실패 — 고아: $NAME ($_o)"; exit 1; }
 human() { echo "REJECT $1 실패 — 세션 $NAME 떠 있음·명부 등록됨 — 사람 판정(ft-nano-spawn-undo.sh $NAME 단독 모드로 계획 생성 가능)"; exit 1; }
 _OC_SINCE="$(date +%s)"   # r286: opencode 좌석이 띄운 serve(부모 잃음) 귀속 기준 시각
 "${OPEN[@]}" >/dev/null 2>&1; _orc=$?

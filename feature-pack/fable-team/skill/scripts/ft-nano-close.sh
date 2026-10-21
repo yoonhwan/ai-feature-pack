@@ -13,6 +13,7 @@
 #   원장 표식(wt=… · 좌석명 행 · mkdir 락)을 맡는다. ★가드 도구(lsof·tmux) 실패 = skipped(fail-closed · DA r2 R12)★. 브랜치는 절대 지우지 않는다.
 #   FT_WT_AUTOCLEAN=0 = 실행 경로 전부 끔(계획만 남김). 원장 경로는 리포 고정(ROOT 기준 · DA r2 MINOR C) — FT_NANO_LEDGER 로 override.
 set -uo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"   # r655(DA⑥ r1 H4⑧): set -u 에서 아래(이름 판정)가 먼저 쓰는데 정의가 뒤에 있었다 — 모든 호출이 «HERE: unbound variable» 로 죽었다
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
 RESULT=""; RECV=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0
 while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;;
@@ -20,9 +21,12 @@ while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) REC
   *) echo "unknown $1" >&2; exit 2;; esac; done
 # ⑤ cherry 게이트 사람 우회 — 사유 빈 문자열은 cherry-gate 의 REJECT 에 기대지 않고 close 입구에서 usage(2) (M7 · arch#141 #53675)
 if [ "$HAVE_CHERRY_OVERRIDE" -eq 1 ] && [ -z "${CHERRY_OVERRIDE//[[:space:]]/}" ]; then echo "usage: --cherry-override 사유가 비어 있음(사유 없는 우회 거부)" >&2; exit 2; fi
-NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"
-case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 temp- 접두)
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★이름 판정 = 공용 규칙(ft_teamset.py seat-info · r655)★ — 옛 이름(전환기 잔여 좌석)도 그 팀 나노로 센다.
+_SEATINFO="$(python3 "$HERE/ft_teamset.py" seat-info "$SEAT" 2>&1)" || { echo "REJECT 나노 좌석 이름이 아니다(${SEAT}) — ${_SEATINFO}"; exit 1; }
+_TEAM="${_SEATINFO#*team=}"; _TEAM="${_TEAM%% *}"
+NANO_PREFIX="${_SEATINFO#*prefix=}"; NANO_PREFIX="${NANO_PREFIX%% *}"
+_NANO_PREFIXES="${_SEATINFO#*prefixes=}"; _NANO_PREFIXES="${_NANO_PREFIXES%% *}"
+case ",${_NANO_PREFIXES}," in *",${FT_NANO_PREFIX:-$NANO_PREFIX},"*) ;; *) echo "REJECT 좌석 ${SEAT} 접두(${NANO_PREFIX}) 와 FT_NANO_PREFIX(${FT_NANO_PREFIX}) 가 어긋난다 — 팀 규칙 ${_NANO_PREFIXES}"; exit 1;; esac
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"

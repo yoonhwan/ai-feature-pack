@@ -10,7 +10,9 @@ CLAUDE_CONTEXT="${FT_CTX_CLAUDE_CONTEXT:-$SCRIPT_DIR/ft-claude-context.sh}"
 REPORT_TO="${1:-ft-v65-master#10}"
 FROM_SESSION="${2:-ft-v65-pm-codex#0}"
 FABLE_ORCH="${FT_CTX_FABLE_ORCH:-ft-v65-fable-orch#9}"
-SESSION_PREFIX="${FT_CTX_SESSION_PREFIX:-ft-v65-}"
+# r655(DA⑥ r1 H4④): 좌석 접두 = «목록»(공백 구분) — 옛 이름 ft-v65- 와 새 이름 byz-v65- 를 둘 다 본다. 정본은 공용 규칙(ft_teamset.py team-prefixes).
+SESSION_PREFIX="${FT_CTX_SESSION_PREFIX:-$(python3 "$SCRIPT_DIR/ft_teamset.py" team-prefixes --team v65 2>/dev/null)}"
+[ -n "$SESSION_PREFIX" ] || { echo "ERROR 나노 이름 규칙(ft_teamset.py team-prefixes --team v65) 못 읽음: $SCRIPT_DIR" >&2; exit 4; }
 EXCLUDE_SESSIONS="${FT_CTX_EXCLUDE_SESSIONS:-ft-v65-master#7,ft-v65-master#8,ft-v65-master#9,ft-v65-architect#4,ft-v65-architect#6,ft-v65-arch-fable#1,ft-v65-arch-fable#5,ft-v65-arch-fable#9,ft-v65-arch-judge#0,ft-v65-fable-orch#1,ft-v65-fable-orch#2,ft-v65-fable-orch#3,ft-v65-fable-orch#4,ft-v65-fable-orch#5,ft-v65-fable-orch#6,ft-v65-fable-orch#7,ft-v65-fable-orch#8}"
 STATE_FILE="${FT_CTX_STATE_FILE:-/tmp/ft-v65-context-monitor.state}"
 WARN_PCT="${FT_CTX_WARN_PCT:-70}"
@@ -93,8 +95,9 @@ cleanup() {
 trap cleanup EXIT
 
 tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>/dev/null \
-  | awk -F'|' -v prefix="$SESSION_PREFIX" -v excluded=",$EXCLUDE_SESSIONS," \
-      'index($1, prefix) == 1 && index(excluded, "," $1 ",") == 0 {print $1 "|" $2}' \
+  | awk -F'|' -v prefixes="$SESSION_PREFIX" -v excluded=",$EXCLUDE_SESSIONS," \
+      'BEGIN{n=split(prefixes,p," ")} {hit=0; for(i=1;i<=n;i++) if(index($1, p[i])==1) hit=1} \
+       hit && index(excluded, "," $1 ",") == 0 {print $1 "|" $2}' \
   | sort -u > "$ROWS_FILE"
 
 SUMMARY=""

@@ -89,7 +89,10 @@ PY
 fi
 
 SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
-BASE_NAME="${FT_NANO_PREFIX:-ft-v65-temp-}$SLUG"
+# ★v65 나노 이름 접두 = 공용 규칙(ft_teamset.py prefix --team v65 · r655)★ — 스크립트마다 목록 복사 0. 못 읽으면 추측 없이 REJECT.
+DEF_NANO_PREFIX="$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)"
+[ -n "$DEF_NANO_PREFIX" ] || { echo "REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: $HERE"; exit 1; }
+BASE_NAME="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}$SLUG"
 N=0; while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
