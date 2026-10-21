@@ -2,6 +2,11 @@
 
 - 판정문 §178(DA⑥ 0 판정 · 격리 슬랙 시험 96 passed · svg·heic·x.jpg.exe 거절 · html·WAVE·빈 본문 저장 0 · 폴더 탈출 0) · 증거 `harness/evidence/r692/` · 설계 r231 §2·§5 갱신 · 설치: 있음(1파일 `byz_slack_file_fetch.py` → `~/.hermes/scripts` cmp0) · 되돌림 = 이전 판.
 
+## 2026-10-22 — 승계(`ft-seat-retire.sh`)의 고아 정리가 press(라이브 오디오 시험) 중인 옛 좌석의 화면 관측기(layout_watch)를 «주인 잃은 루프» 로 보고 죽여 시험 증거 뒷부분이 잘렸다 → 승계 정리는 `--defer-press`: press 진행 중이면 신호 0 으로 «미룸» 파일에 적고, press 가 끝난 뒤 다음 `ft-seat-reap.sh`(아무 좌석·아무 모드 · dry-run 제외)가 «시작 시각이 같은» pid 만 정리하고 파일을 지운다(닫는 사건) (r690 · 1.1.200 · 결함 고침 · 닫기 2종(`ft-seat-close`·`ft-nano-close`)·서비스 나무 규칙 무변경)
+
+- 사건: v65 tester 85→86 승계 07:04 · layout_watch pid 72661 kill(via=② cwd=shared). press 진행 = 내 uid 의 python*(대소문자 무시 — macOS 프레임워크 빌드 «Python») 프로세스의 «실행 스크립트»(옵션 뒤 첫 비옵션 토큰 · -c/-m = 없음)가 `FT_PRESS_RUNNER_RE`(기본 `tests/e2e/\S*press\S*\.py|realtime_multi_e2e\.py`)에 맞음 ∨ 장치 허가 `device.json` held=true. 명령줄 «글자» 매칭은 셸·grep 줄을 잡는 오탐이 실측돼(이 좌석 zsh) 실행 파일+실행 스크립트로 좁힘. DA⑥ r1 HOLD 반영(r2): 깨진 미룸 줄은 버리지 않고 `<파일>.broken-<시각>` 원문 보존 + `reap-deferred-broken` 줄 · 읽기 오류 rc 20 · 미룸 소화도 일반 조사와 같은 제외(자신·조상·보호 exe·서비스 나무) · 파일마다 ps 표 새로 · lstart 는 TZ=UTC. 미룸 파일 = `FT_REAP_DEFER_DIR`(없으면 `<데이터 루트>/.fable-team/state/reap-deferred/<좌석>.jsonl`) · 못 풀면 rc 20(조용히 지우지 않음).
+- 증거 `harness/evidence/r690/` · 시험 `tests/test_seat_retire_defer_press_r690.sh`(ⓐ~ⓔ · ⓖ 변이 FAIL) · 설치: 있음(키트 2파일 `ft-seat-reap.sh`·`ft-seat-retire.sh` → LIVE_BIN 새 판 `cmp0` · 추적 짝 `harness/bin/` 같음) · 되돌림 = 이전 판.
+
 ## 2026-10-22 — `ft-nano-spawn.sh` 가 팀셋 도우미(`ft_teamset.py`)를 선행 읽기에서 못 읽으면 «런타임 `.fable-team/bin/` 에서 실행하라» 설치 안내 없이 그냥 REJECT 해서 원인을 못 찾았다 → 읽기 실패 REJECT 에도 설치 안내 한 줄을 붙임 (r689 · 1.1.198 · 결함 고침 · 판정 규칙 무변경)
 
 - 판정문 §177 · 증거 `harness/evidence/r689/` · 설치: 있음(키트 1파일 `ft-nano-spawn.sh` → LIVE_BIN 새 판 `cmp0` · 추적 짝 `harness/bin/` 같음) · 되돌림 = 이전 판.

@@ -192,9 +192,9 @@ print(f"RETIRED {old} -> {new} file={p} {tail}")
 write_record(rec, why)
 PY
 prc=$?
-# r448: 은퇴 뒤 옛 좌석의 «고아(ppid 1)» 백그라운드 루프만 정지(--orphans-only — 살아 있는 에이전트·pane 나무는 zombie-clean 이 재개 기록으로 닫는다) · 기록 모드·실패는 0
+# r448: 은퇴 뒤 옛 좌석의 «고아(ppid 1)» 백그라운드 루프만 정지(--orphans-only — 살아 있는 에이전트·pane 나무는 zombie-clean 이 재개 기록으로 닫는다) · 기록 모드·실패는 0 · r690 --defer-press: press 중이면 «미룸»(관측기 보존 · 다음 reap 이 소화 · CLOSE-FAIL 아님)
 [ "$prc" -eq 0 ] && [ "$RECONLY" = 0 ] || exit "$prc"
-RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-reap.sh}" "$OLD" --orphans-only 2>&1)"; rrc=$?; RL="$(printf '%s\n' "$RO" | grep -oE 'left=[0-9?]+' | tail -1)"
-printf '%s\n' "$RO" >&2
+RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-reap.sh}" "$OLD" --orphans-only --defer-press 2>&1)"; rrc=$?; RL="$(printf '%s\n' "$RO" | grep -oE 'left=[0-9?]+' | tail -1)"; printf '%s\n' "$RO" >&2
 [ "$rrc" -eq 0 ] && [ "$RL" = left=0 ] || { echo "CLOSE-FAIL reap ${RL:-left=?} rc=$rrc — $OLD 은퇴 기록은 끝남 · 고아 루프 잔존(사람 판단)"; exit 1; }
+RD="$(printf '%s\n' "$RO" | tail -1 | grep -oE 'deferred=[0-9]+' | cut -d= -f2)"; [ "${RD:-0}" -gt 0 ] && echo "reap deferred=$RD (press 중 · 끝난 뒤 다음 정리에서)"
 echo "reap left=0 rc=0"
