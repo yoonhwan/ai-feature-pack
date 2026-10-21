@@ -1,0 +1,21 @@
+# r684 ⓕ 기존 hil·가드 시험 — base(origin/main 30b4d8ba) ↔ 고친 판 «같은 값» 대조
+## date: 2026-10-22 03:26:28
+## base 수치는 같은 명령을 base 로 되돌려(git stash) 잰 값 — 고침이 깬 것이 없음을 보인다.
+
+시험                              고친판(rc/PASS/FAIL)      base(rc/PASS/FAIL)
+test_hil.sh                       rc=0 P=32  F=0     rc=0 P=32  F=0  
+test_hil_pending_single_pass.sh   rc=0 P=19  F=0     rc=0 P=19  F=0  
+test_hil_route_team.sh            rc=0 P=19  F=0     rc=0 P=19  F=0  
+test_hil_ledger.sh                rc=1 P=9   F=14    rc=1 P=9   F=14 
+test_hil_run_marker.sh            rc=1 P=68  F=2     rc=1 P=68  F=2  
+test_real_state_guard_r541.sh     rc=1 P=16  F=2     rc=1 P=16  F=2  
+
+## 차이 0 — test_hil_ledger.sh(14 FAIL)·test_hil_run_marker.sh(2)·test_real_state_guard_r541.sh(2) 는 base 부터의 기존 결함(이 카드 범위 밖 · 고침 전후 동일).
+
+== test_nano_spawn_rollback.py (공용 _nano_rollback_env 사용 · 고침ⓐ 대상)
+base    : 7 failed, 18 passed in 13.72s
+고친판  : 7 failed, 18 passed in 14.45s   ← 동일(실패 7은 base 부터: 픽스처에 ft-all-stop.sh 없음)
+
+== scripts/test_ft_hil_secret_lint.py
+.............                                                            [100%]
+13 passed in 2.35s

@@ -1,0 +1,19 @@
+# r684 ⓐ 실측 원문 — 시험이 만든 «진짜» 사람 실행 번호표
+## date: 2026-10-22 03:20:42
+## ls -d /tmp/h[0-9]* | wc -l = 522 (h<N>.ran 포함) · h<숫자> 본체 = 254 · 최대 h254
+## 최근 3장: h252 h253 h254 
+
+== /tmp/h236 (arch 119 지목 · undo 사본 계획) 앞 4줄
+#!/usr/bin/env bash
+# ft-hil-entry plan=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RDySNUuLGc/undo-repo/.fable-team/state/spawn-undo/byz-v65-nano-u#0.sh.hil
+P=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RDySNUuLGc/undo-repo/.fable-team/state/spawn-undo/byz-v65-nano-u#0.sh.hil; M=/tmp/h236
+[ ! -f "$M.superseded" ] || { echo "REJECT 대체됨 → $(cat "$M.superseded")" >&2; exit 1; }
+
+== 등록기 — bin/ft-hil.sh:13 (도구 변경 0 · 시험만 고친다)
+13:D="${HIL_DIR:-/tmp}"
+
+== 누수 진입점 ft-hil.sh --add 를 부르는 키트 5개
+bin/ft-nano-spawn-undo.sh:137:  _hb="$(dirname "$0")/ft-hil.sh"; _hm=""; command -v "$_hb" >/dev/null 2>&1 && _hm="$("$_hb" --add "$PLAN" 2>/dev/null | tail -1)
+bin/ft-nano-close.sh:1000:  [ -z "$PLAN" ] || { command -v "$_hb" >/dev/null 2>&1 && _hm="$("$_hb" --add "$PLAN" 2>/dev/null | tail -1)"; [ -n "$_hm" ] || echo 
+bin/ft-wt-sweep.sh:147:hilmsg() { local m=""; command -v "$HB" >/dev/null 2>&1 && m="$("$HB" --add "$1" 2>/dev/null | tail -1)"; [ -n "$m" ] && echo "$m" || { e
+bin/ft-autonomy-interview.sh:29:line="$(bash "$HERE/ft-hil.sh" --add "$plan")" || die "ft-hil.sh --add 실패" 1

@@ -67,10 +67,18 @@ def jsonl(env, *recs):
     (d / "s.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in rows) + "\n")
 
 
+def undo_env(env, **extra):
+    """undo 실행 env — HIL_DIR 은 언제나 임시 폴더(r684: 시험이 진짜 /tmp/h<N> 번호표를 쓰지 않게)."""
+    hil = env["tmp"] / "hil"
+    hil.mkdir(exist_ok=True)
+    return {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "HOME": str(env["home"]), "R81_DIR": str(env["tmp"]),
+            "R81_SEAT": SEAT, "R81_WT": str(env["wt"]), "FT_SEATS_JSON": str(env["seats"]), "FT_NANO_PREFIX": "ft-v65-temp-",
+            "FT_UNDO_STATE": str(env["state"]), "FT_MBOX_DIR": str(env["comm"]), "FT_NANO_LEDGER": str(env["ledger"]),
+            "HIL_DIR": str(hil), **extra}
+
+
 def undo(env, *args, **extra):
-    e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "HOME": str(env["home"]), "R81_DIR": str(env["tmp"]),
-         "R81_SEAT": SEAT, "R81_WT": str(env["wt"]), "FT_SEATS_JSON": str(env["seats"]), "FT_NANO_PREFIX": "ft-v65-temp-",
-         "FT_UNDO_STATE": str(env["state"]), "FT_MBOX_DIR": str(env["comm"]), "FT_NANO_LEDGER": str(env["ledger"]), **extra}
+    e = undo_env(env, **extra)
     return subprocess.run(["bash", str(BIN / "ft-nano-spawn-undo.sh"), SEAT, *args], capture_output=True, text=True, cwd=env["repo"], env=e)
 
 

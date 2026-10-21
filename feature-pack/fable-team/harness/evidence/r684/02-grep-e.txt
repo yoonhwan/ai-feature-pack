@@ -1,0 +1,39 @@
+# r684 ⓔ 전수 grep — ft-hil.sh 를 부르는 키트 5개(ft-nano-spawn-undo · ft-nano-close · ft-wt-sweep · ft-resource-reclaim · ft-autonomy-interview)를 «실행하는» 시험 중 공용 가드(real_state_guard) 미사용 + HIL_DIR 미고정
+## date: 2026-10-22 03:19:53 · base origin/main 30b4d8ba
+## 등록기 정본: bin/ft-hil.sh:13  D="${HIL_DIR:-/tmp}" — HIL_DIR 을 안 주면 «진짜 /tmp» 에 h<N>
+## 사고 원문(/tmp/h236): # ft-hil-entry plan=/private/var/folders/…/T/tmp.RDySNUuLGc/undo-repo/.fable-team/state/spawn-undo/byz-v65-nano-u#0.sh.hil
+
+== 5개 이름을 «언급» 하는 파일 중 guard=0 && HIL_DIR=0 (base 시점) 전수와 판정
+./fixtures/r546_hook_cmd_split/commands.json         guard=0 HIL_DIR=0 → 문자열/이름 대조만 — 실행 0 → 고침 불요
+./lib/fake_reclaim_world.sh                          guard=0 HIL_DIR=0 → 공용 «가짜 세계»(lib) — 쓰는 시험(test_resource_reclaim*.sh)이 전부 guard 사용 → 고침 불요
+./lib/r546_verdicts.py                               guard=0 HIL_DIR=0 → 문자열/이름 대조만 — 실행 0 → 고침 불요
+./scripts/_magazine_fakes.py                         guard=0 HIL_DIR=0 → 문자열/이름 대조만 — 실행 0 → 고침 불요
+./scripts/test_magazine_collect_detail.py            guard=0 HIL_DIR=0 → 문자열/이름 대조만 — 실행 0 → 고침 불요
+./scripts/test_nano_evidence_check.py                guard=0 HIL_DIR=0 → 문자열/이름 대조만 — 실행 0 → 고침 불요
+./test_da_hold_gate.sh                               guard=0 HIL_DIR=0 → 스크립트 문장만 추출·실행(grep/sed) — ft-hil 도달 0 → 고침 불요
+./test_install_worktree_shim.sh                      guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+./test_jsonl_last_ts.sh                              guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+./test_nano_close_sha_base.sh                        guard=0 HIL_DIR=0 → 사본 폴더에 ft-hil.sh 를 «안» 복사 → 등록기 도달 0(누수 0) → 고침 불요
+./test_nano_feat_remote_ref.sh                       guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+./test_nano_spawn_reuse_info.sh                      guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+./test_plist_workdir_exist_r544.sh                   guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+./test_seat_cap_nano_only_r666.sh                    guard=0 HIL_DIR=0 → 주석의 이름 언급만(실행 0 · resource-reclaim 은 가짜 세계) → 고침 불요
+./test_sheet_events.sh                               guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+./test_teamset_check.sh                              guard=0 HIL_DIR=0 → bash -n·cmp·grep·경로 대조만 — 실행 0 → 고침 불요
+
+== ★고침 적용 목록 (base 에서 guard=0 이었는데 키트 bin 을 직접 실행하던 4개 — ft-hil 도달 가능)
+scripts/test_nano_close_cherry_origin_main.py        → guard=1  from real_state_guard import guard_begin_module  # noqa: E402,F401  r684: 실 상태 지문 + 자식 HIL
+scripts/test_nano_close_cherry_override.py           → guard=1  from real_state_guard import guard_begin_module  # noqa: E402,F401  r684: 실 상태 지문 + 자식 HIL
+scripts/test_nano_close_evidence_wiring.py           → guard=1  from real_state_guard import guard_begin_module  # noqa: E402,F401  r684: 실 상태 지문 + 자식 HIL
+scripts/test_nano_close_respawn_worktree.py          → guard=1  from real_state_guard import guard_begin_module  # noqa: E402,F401  r684: 실 상태 지문 + 자식 HIL
+
+== 공용 파일 2~3 (고침 본체)
+tests/lib/real_state_guard.sh            hil축=2 자식HIL_DIR=1
+tests/scripts/real_state_guard.py        hil축=2 자식HIL_DIR=1
+tests/scripts/_nano_rollback_env.py      HIL_DIR=2
+
+== 가드 사용 시험 수 (공용 가드가 자식 env HIL_DIR 을 주입 → 기본으로 막힘)
+guard 사용 파일:      193 / 시험 파일(*.sh·*.py):      323
+
+== 실행 확인 — never_started 시험 앞뒤 /tmp h<N> 개수 (master 발주 135683 · r680 나노 «+2장/회» 보고)
+before=254 after=254 delta=0 rc=0 PASS=155 FAIL=0
