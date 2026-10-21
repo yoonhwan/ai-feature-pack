@@ -1,0 +1,5 @@
+# r645 04-real-cost — 실제 저장소(팩 워크트리 · design/ 트리)에서 새 검색 1회 표본 (2026-10-21 · rebase 뒤 fd24ae4d)
+# 명령: git grep -F -l 208d8415 origin/main -- design
+        0.01 real         0.00 user         0.00 sys
+             7405568  maximum resident set size
+# base 판의 전 히스토리 pickaxe 는 보고된 값 RSS 1~1.7GB·1분+ 라 이 좌석에서 재측정하지 않는다(부하 오염 · 오빠 절대지침)

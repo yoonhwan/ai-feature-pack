@@ -1,0 +1,25 @@
+# r645 01-sweep — 팩 키트 bin 전체에서 «전 히스토리 git 검색»·«상한 없는 git grep» 목록 (2026-10-21)
+# 대상: harness/kit/fable-team/bin (파일 302개)
+# 패턴1 git log … -S|-G (pickaxe)  패턴2 git log --all  패턴3 git grep (ref 전체·경로 한정 없음)
+
+== 패턴1: git log … -S / -G
+kit/fable-team/bin//ft-scratch-repo.sh:43:  ct="$(git -C "$ROOT" log "$m" --format=%ct -S"$h8" -n1 -- design 2>/dev/null)"
+kit/fable-team/bin//ft-nano-spawn.sh:315:_SRX=" ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★"
+
+== 패턴2: git log --all
+kit/fable-team/bin//ft-nano-spawn.sh:315:_SRX=" ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★"
+
+== 패턴3: git grep
+kit/fable-team/bin//ft-verdict-row.sh:4:#   fv_row_re <n>  → 그 번호의 줄 머리를 잡는 ERE 출력(grep -E · git grep -E 공용). n 이 숫자가 아니면 rc 2.
+kit/fable-team/bin//ft_flag_off.py:5:읽기는 `git grep`/`git show <ref>` 만(로컬 · 네트워크 0 · 읽기 실패 = stderr ERROR + rc 4 — 숫자 지어내기 0).
+kit/fable-team/bin//ft_flag_off.py:46:    p = git(repo, per_call(timeout, deadline), "grep", "-n", "-E", GREP_ERE, ref, "--", *CODE_PATHS)
+kit/fable-team/bin//ft_flag_off.py:50:        raise ReadError(f"git grep {ref} rc={p.returncode} {p.stderr.strip()[:120]}")
+kit/fable-team/bin//ft-index-lint.sh:47:  local _ps=() _c; while IFS= read -r _c; do [ -n "$_c" ] && _ps+=("${_c#"$ROOT"/}/VERDICTS-planner-*.md"); done < <( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_team_cands_ref "$ROOT" planner "${FT_TEAMS_REF:-origin/main}" 2>/dev/null ); [ "${#_ps[@]}" -ge 1 ] || { HOLD_WHY="원장 확인 불가 (planner 팀 폴더를 못 풀었다 · 명단 ${FT_TEAMS_REF:-origin/main}:design/TEAMS.md)"; return 1; }; git -C "$ROOT" grep -qE -e "$(fv_row_re "$n").*조건부 승인" origin/main -- "${_ps[@]}" >/dev/null 2>&1; rc=$?   # R406: 판정 원장 pathspec = 명단 ref 의 planner 팀 폴더(꼴 + 쌍둥이 · 루트 상대 · 팀 이름 글자 0)
+kit/fable-team/bin//ft-index-lint.sh:48:  [ $rc -le 1 ] || { HOLD_WHY="원장 확인 불가 (git grep rc=$rc)"; return 1; }
+kit/fable-team/bin//ft-landed-check.sh:4:#   출력 1단어 = 근거: ancestor(가지 tip 이 main 조상) · cherry(`git cherry <main> <가지>` 에 «+» 0) · card(main 의 design/*/indices/완성/<키>.md «세트: <40hex>» == 가지 tip) · grep(main 커밋 메시지에 키 — ★약한 증거★) · no
+kit/fable-team/bin//ft-landed-check.sh:18:if [ -n "$(git -C "$ROOT" log "$MAIN" --fixed-strings "--grep=$KEY" -n1 --format=%H 2>/dev/null)" ]; then echo grep; exit 1; fi
+kit/fable-team/bin//ft_team_move.py:111:    git grep 1회(7초 룰) · CODE_GLOBS 만 · 기록(archive·evidence·closeout·.claude/archives)은 셈 밖."""
+kit/fable-team/bin//ft_team_move.py:112:    g = run("git", "grep", "-n", "-F", "-e", f"design/{team}/", "--", *CODE_GLOBS, cwd=ctx.root)
+kit/fable-team/bin//ft-nano-spawn.sh:476:BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}$_PKX${_EBN}"
+kit/fable-team/bin//ft-disk-census.sh:5:#   착지 4단(앞이 참이면 멈춤): ①cherry 이전 «조상» = ancestor · ②`git cherry main <가지>` 가 «+» 0 = cherry · ③main 의 완성 카드 «세트: <40hex>» == 가지 tip(카드 뒤 미착지 커밋이 붙으면 아님) = card — 판정은 ft-landed-check.sh 한 곳 · ④main 커밋 메시지에 카드 ID(<키>) = grep(★약한 증거 — 계획 대상 아님★)
+kit/fable-team/bin//ft_team_rename.py:346:    others = run("git", "grep", "-l", "-E", rx.pattern.replace("(?<![A-Za-z0-9_])", ""), "--", "design", cwd=ctx.root).stdout.split()

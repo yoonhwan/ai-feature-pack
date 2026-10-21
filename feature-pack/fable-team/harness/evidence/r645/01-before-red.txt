@@ -1,0 +1,12 @@
+FAIL ⓐ pickaxe 잔존: 43:  ct="$(git -C "$ROOT" log "$m" --format=%ct -S"$h8" -n1 -- design 2>/dev/null)"
+PASS ⓑ 판정문에 sha8 + 1시간 전 커밋(AGE 1분) → rc0
+PASS ⓒ 판정문에 없는 sha → rc1 · WARN 0(정상 «안 끝남»)
+PASS ⓓ 사본 HEAD 가 main 조상 → rc0(검색 경로 안 돎 · 판정문 없음)
+FAIL ⓔ rc=0 1s [][]
+FAIL ⓔ WARN 줄 수 []
+FAIL ⓕ rc=0 [][]
+PASS ⓖ 느린 grep 이어도 사본 생성 rc0 · 전체 0s ≤ 예산 20초(+worktree add)
+FAIL ⓖ 예산 WARN 없음 [WARN 주인 live-owner 의 등록 사본이 5개 — 가장 오래된 «판정 끝난» 사본: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hH7bxJ0bnq/scratch/copy-a (삭제는 좌석 손: ft-scratch-repo.sh --done /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hH7bxJ0bnq/scratch/copy-a)]
+FAIL ⓖ 예산 WARN 줄 수 [WARN 주인 live-owner 의 등록 사본이 5개 — 가장 오래된 «판정 끝난» 사본: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hH7bxJ0bnq/scratch/copy-a (삭제는 좌석 손: ft-scratch-repo.sh --done /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hH7bxJ0bnq/scratch/copy-a)]
+(6 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
