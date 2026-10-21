@@ -1,0 +1,39 @@
+== ⓐ 5초 지연 프록시 — 옛 판은 두 번 다 실패(3초 상한) 했다
+FAIL ⓐ rc=1 ← REJECT 프록시 http://127.0.0.1:59091/v1/models 2회 실패 — 직결로 바꾸지 않는다(부작용 0) INFO 프록시 확인 시도 1/2 실패 http://127.0.0.1:59091/v1/models
+INFO 프록시 확인 시도 2/2 실패 http://127.0.0.1:59091/v1/models
+FAIL ⓐ 재시도 2회
+PASS ⓐ 경과 ≤ 16 s (8 s)
+FAIL ⓐ 정상 경로가 stderr 에 줄을 남김: INFO 프록시 확인 시도 1/2 실패 http://127.0.0.1:59091/v1/models
+== ⓑ 시도당 상한 = FT_PROXY_PROBE_MAX (기본 7 · 7 초과 = 7 로 제한 · WARN)
+FAIL ⓑ rc=1 ← REJECT 프록시 http://127.0.0.1:59091/v1/models 2회 실패 — 직결로 바꾸지 않는다(부작용 0) INFO 프록시 확인 시도 1/2 실패 http://127.0.0.1:59091/v1/models
+INFO 프록시 확인 시도 2/2 실패 http://127.0.0.1:59091/v1/models
+FAIL ⓑ WARN 없음 ← INFO 프록시 확인 시도 1/2 실패 http://127.0.0.1:59091/v1/models
+INFO 프록시 확인 시도 2/2 실패 http://127.0.0.1:59091/v1/models
+PASS ⓑ 상한 3(옛 값) → 같은 프록시가 REJECT = 숫자가 실제 문턱
+PASS ⓑ 상한 3 경과 ≤ 9 s (9 s — 3+2+3)
+== ⓒ HTTP 응답이 왔는데 비정상(500) = 재시도 0 즉시 실패
+FAIL ⓒ 500 → 즉시 실패(재시도 0) — 없음: «HTTP 응답 비정상» ← REJECT 프록시 http://127.0.0.1:59699/v1/models 2회 실패 — 직결로 바꾸지 않는다(부작용 0)
+FAIL ⓒ 재시도 2회
+PASS ⓒ 경과 ≤ 2 s (2 s — 사이 대기 2초도 안 씀)
+== ⓓ 총 마감 = 7 + 2 + 7 = 16초 이하 (응답 없는 프록시 · 첫 바이트 전 실패 2회)
+PASS ⓓ 2회 실패 → REJECT 프록시
+PASS ⓓ 실패 시도 2회
+FAIL ⓓ 경과 8 s
+== ⓔ 둘 다 실패 = 진짜 장애 → spawn exit 7 · 순번 큐 1줄(사유 proxy) · 좌석 0
+FAIL ⓔ exit=1 (옛 판 1) ← INFO 프록시 확인 시도 2/2 실패 http://127.0.0.1:59781/v1/models|REJECT 프록시 http://127.0.0.1:59781/v1/models 2회 실패 — 직결로 바꾸지 않는다(부작용 0)
+FAIL ⓔ 순번 큐에 남는다(QUEUED) — 없음: «QUEUED» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.A3BSwxD34j/bin
+INFO 제안서 승인 확인 OK
+WARN 후보 제외 — 카드 머리줄 없음: Issue 상태 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.A3BSwxD34j/repo/design/harness/indices/대기/x.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 
+FAIL ⓔ 출력에 사유 proxy 1줄 — 없음: «사유 proxy» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.A3BSwxD34j/bin
+INFO 제안서 승인 확인 OK
+WARN 후보 제외 — 카드 머리줄 없음: Issue 상태 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.A3BSwxD34j/repo/design/harness/indices/대기/x.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 
+FAIL ⓔ 큐 파일=
+PASS ⓔ 워크트리 0 (프록시 확인은 부작용 전 지점)
+PASS ⓔ 경과 ≤ 20 s (8 s)
+== ⓕ 키트↔추적 짝 (설치 cmp0 의 근거)
+PASS cmp0 ft-agent-ready.sh
+PASS cmp0 ft-nano-spawn.sh
+
+FAILED (12)

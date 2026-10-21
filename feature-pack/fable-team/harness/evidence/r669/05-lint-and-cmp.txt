@@ -1,0 +1,25 @@
+== bash -n
+rc=0 feature-pack/fable-team/harness/kit/fable-team/bin/ft-agent-ready.sh
+rc=0 feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
+rc=0 feature-pack/fable-team/harness/tests/test_spawn_proxy_probe_r669.sh
+== cmp0 키트↔추적 짝
+rc=0 ft-agent-ready.sh
+rc=0 ft-nano-spawn.sh
+== python 변경 0 (이 카드 키트 .py 무변경)
+   M feature-pack/fable-team/harness/bin/ft-agent-ready.sh
+   M feature-pack/fable-team/harness/bin/ft-nano-spawn.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-agent-ready.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
+  ?? feature-pack/fable-team/harness/evidence/r669/
+  ?? feature-pack/fable-team/harness/tests/test_spawn_proxy_probe_r669.sh
+== shellcheck (있으면)
+
+In feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh line 53:
+    . "$_tenv"
+      ^------^ SC1090 (warning): ShellCheck can't follow non-constant source. Use a directive to specify location.
+
+For more information:
+  https://www.shellcheck.net/wiki/SC1090 -- ShellCheck can't follow non-const...
+shellcheck rc=1
+== base shellcheck 대조 (같은 SC1090 1건 = 이 카드가 만든 경고 0)
+      ^------^ SC1090 (warning): ShellCheck can't follow non-constant source. Use a directive to specify location.

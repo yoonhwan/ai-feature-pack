@@ -1,0 +1,7 @@
+PASS ⓑ plutil -lint 렌더본
+PASS ⓑ 미치환 토큰 0
+PASS ⓐ ProcessType=Interactive
+PASS ⓐ Adaptive/Background 아님
+PASS ⓐ 템플릿 ProcessType 키 정확히 1개
+PASS ⓑ 기존 8키 · 값 전수 일치(키 추가 1개 외 무변경)
+fail=0

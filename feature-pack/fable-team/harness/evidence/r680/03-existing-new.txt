@@ -1,0 +1,21 @@
+# 03-existing — ft-nano-close.sh 를 쓰는 기존 시험 전건(고친 판 · 키트↔추적 짝 cmp0 · HIL_DIR 임시 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lQCS4bZmiF) · 2026-10-22 03:00
+
+test_nano_close_cwd_holders_skip_self_r680.sh        rc=0  0 FAIL lines
+test_nano_close_fail_closed.sh                       rc=0  0 FAIL lines
+test_nano_close_named_wt.sh                          rc=0  0 FAIL lines
+test_nano_close_never_started.sh                     rc=0  0 FAIL lines
+test_nano_close_pack_wt.sh                           rc=0  0 FAIL lines
+test_nano_close_rerun_early.sh                       rc=0  0 FAIL lines
+test_nano_close_rerun_named_equal.sh                 rc=0  0 FAIL lines
+test_nano_close_rerun_wt_clean.sh                    rc=0  0 FAIL lines
+test_nano_close_sha_base.sh                          rc=0  0 FAIL lines
+test_nano_close_std_wt_other_branch.sh               rc=0  0 FAIL lines
+test_nano_close_superseded_by.sh                     rc=0  0 FAIL lines
+test_nano_close_suspended.sh                         rc=0  0 FAIL lines
+test_nano_close_worktree_list_pipe.sh                rc=0  0 FAIL lines
+test_nano_close_wt_deletion_only.sh                  rc=0  0 FAIL lines
+test_wt_sweep_budget_replan_r535.sh                  rc=0  0 FAIL lines
+test_kit_bin_sync.sh                                 rc=0  0 FAIL lines
+# HIL 격리(발주 135524): 위 전건은 HIL_DIR=임시폴더 로 돌렸다. 전후 /tmp/h[0-9]* 개수 = 501 → 512 (+11).
+#   시험별 계수 결과 누수는 test_nano_close_never_started.sh 1개(+2/회 · 이 카드 이전부터 있던 그 시험의 몫 · 내 변경 0)뿐이고
+#   이 카드의 새 시험 test_nano_close_cwd_holders_skip_self_r680.sh 는 +0(자기 HIL_DIR 을 env -i 로 넘긴다).

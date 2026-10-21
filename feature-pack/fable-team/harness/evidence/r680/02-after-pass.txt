@@ -1,0 +1,35 @@
+# 02-after-pass — 고친 판(작업 트리 HEAD)으로 같은 시험 · 2026-10-22 02:11
+
+PASS bash -n ft-nano-close.sh
+== ⓐ 전 판 원문(FT_TEST_BASE_SUT) — 워크트리 «안» 에서 계획 실행 → «cwd 보유 프로세스» 로 skipped (정리 0 · 폴더 그대로)
+PASS ⓐ 생략 — FT_TEST_BASE_SUT 미지정(전 판 대조는 증거 01-before-red)
+== ⓑ 고친 판 — 같은 호출 → 이 명령 자신·조상은 안 세고 «남의 보유자 0» 이므로 가드 통과 → cleaned
+PASS ⓑ 계획 생성
+PASS ⓑ 계획 rc=0
+PASS   └ skipped:cwd 0
+PASS   └ cleaned(정리 진행)
+PASS   └ 워크트리 폴더 없음
+PASS   └ 가지 보존
+== ⓒ 워크트리 안에 cwd 를 둔 «다른» 프로세스(sleep) → 실패 그대로 + pid·cmd 1줄(내 셸은 그대로 제외)
+PASS ⓒ 계획 생성
+PASS ⓒ 다른 보유자 = 실패
+PASS   └ 남은 보유자 pid=<sleep> 1줄
+PASS   └ 같은 줄에 명령(sleep 60)
+PASS   └ 워크트리 그대로(정리 0)
+== ⓓ lsof 실패 = 실패 그대로(fail-closed)
+PASS ⓓ 계획 생성
+PASS ⓓ lsof 실패 = skipped
+PASS   └ 워크트리 그대로
+== ⓔ 조상 계산(ps) 실패 = 제외 «없이» 센다(자기 자신도 보유자 = 조용한 통과 0)
+PASS ⓔ 계획 생성
+PASS ⓔ ps 실패 = 실패(통과 0)
+PASS   └ cleaned 0
+PASS   └ 워크트리 그대로
+== ⓕ 기존 nano_close 시험 PASS
+PASS ⓕ test_nano_close_fail_closed.sh rc=0
+PASS ⓕ test_nano_close_rerun_wt_clean.sh rc=0
+PASS ⓕ test_nano_close_worktree_list_pipe.sh rc=0
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

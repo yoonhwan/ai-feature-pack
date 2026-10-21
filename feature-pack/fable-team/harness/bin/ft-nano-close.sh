@@ -208,11 +208,29 @@ fi
 live="$(printf '%s\n' "$out" | grep -x "${PREFIX}${KEY}#[0-9]*" | tr '\n' ' ')"
 [ -z "$live" ] || fail "좌석 ${live% }"
 # ② 워크트리를 cwd 로 쥔 프로세스 0 (tmux 밖 node·mcp·zsh 포함). lsof 절대경로 + 실행 가능 + 종료코드를 grep 과 분리(fail-closed · DA r2 R12)
+#   r680: «이 명령 자신과 그 조상» 은 세지 않는다 — 닫기를 그 워크트리 «안» 에서 부르면 부른 셸이 늘 cwd 를 쥐고 있어 «cwd 보유 프로세스 1개» 로 정리가 영영 건너뛰어졌다
+#     (같은 키트 ft-seat-reap.sh:9 와 같은 규칙). lsof 는 «자기 자신과 그 캡처 셸» 도 보유자로 내놓으므로 cwd / 에서 띄운다(그 둘은 보유자가 아니다).
+#     조상 계산(ps)이 실패하면 «제외 없이» 센다(조용한 통과 0) · lsof 실패는 그대로 실패.
 [ -x "$LSOF" ] || fail "lsof 실행 불가($LSOF)"
-lsout="$("$LSOF" -Fn -d cwd 2>/dev/null)"; rc=$?
+lsout="$( cd / && "$LSOF" -Fn -d cwd 2>/dev/null )"; rc=$?
 [ "$rc" -eq 0 ] || fail "lsof 실패(rc=$rc)"
-holders="$(printf '%s\n' "$lsout" | grep -cE "^n${WT}(/|$)")"
-[ "$holders" -eq 0 ] || fail "cwd 보유 프로세스 ${holders}개"
+holders="$(printf '%s\n' "$lsout" | awk -v wt="$WT" '/^p/{pid=substr($0,2); next} /^n/{p=substr($0,2); if (p==wt || index(p, wt "/")==1) print pid}' | sort -u)"
+anc=" $$ "
+if [ -n "$holders" ]; then
+  psout="$(ps -axww -o pid=,ppid= 2>/dev/null)"
+  _p=$$; _i=0
+  while [ "$_i" -lt 64 ]; do
+    _pp="$(printf '%s\n' "$psout" | awk -v p="$_p" '$1==p{print $2; exit}')"
+    case "${_pp:-}" in ""|0|1) break;; esac
+    anc="$anc$_pp "; _p="$_pp"; _i=$((_i+1))
+  done
+fi
+left=""; n=0
+for h in $holders; do
+  case "$anc" in *" $h "*) continue;; esac
+  n=$((n+1)); [ "$n" -le 3 ] && left="${left:+$left }pid=$h cmd=$(ps -p "$h" -o command= 2>/dev/null | cut -c1-60)"
+done
+[ "$n" -eq 0 ] || fail "cwd 보유 프로세스 ${n}개${left:+ — $left}"
 # ③ .worktree-info.json 의 branch 가 nano/*  (--wt/--branch 계획: 브랜치는 close 가 확인해 구워 둔 값 — 사람이 실행하는 계획이라 nano/* 를 요구하지 않는다)
 #   r166 껍데기 인식: 상한 TERM 으로 «지우다 만» 워크트리는 .worktree-info.json 도 이미 사라졌을 수 있다. tracked 가 전부 ' D'(작업 트리에서만 지워짐)뿐이면 info 대신 HEAD 브랜치로 판정(그 외 미커밋이 한 줄이라도 있으면 기존 그대로).
 if [ -n "$NAMED_BR" ]; then br="$NAMED_BR"

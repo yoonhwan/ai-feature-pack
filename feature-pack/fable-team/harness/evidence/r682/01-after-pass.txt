@@ -1,0 +1,43 @@
+# ⓑ 후판 — rc0 · FAIL 5 → 0 (r682)
+# 실행: bash feature-pack/fable-team/harness/tests/test_teamset_check.sh
+
+PASS bash -n ft-teamset-check.sh
+PASS py_compile ft_teamset.py
+PASS ⓐ 표대로 → OK rc0 · 팀당 1줄: alpha OK 나노 2/3
+PASS ⓑ master 없음 → ERR rc1: alpha ERR master 없음 · 명부 _master byz-alpha-master-claude#1 라이브 아님 · 나노 1/3
+PASS ⓒ 명부 _master 라이브 아님 → ERR
+PASS ⓓ 나노 3/상한 2 → WARN rc0: beta WARN 나노 상한 초과 · 나노 3/2
+PASS ⓔ 직전 1세대(재개 기록 없음) → 정상 OK
+PASS ⓔ 3세대 동시 → keep-last-2 밖 WARN: alpha WARN byz-alpha-master-claude 3세대 동시 라이브(keep-last-2 밖 1) · 나노 0/3
+PASS ⓔ 2세대 둘 다 WORKING → WARN
+PASS ⓕ 모르는 _키 → WARN: alpha WARN 표에 없는 키 _weird · 나노 0/3
+PASS ⓖ 모델 어긋남은 정보만(OK 유지): beta OK 나노 1/2 · 모델≠표 1
+PASS ⓗ 라이브 0 → OK 휴면
+PASS ⓘ --all 2팀 2줄 · beta ERR → rc1
+PASS ⓙ 명부 없는 팀 → ERROR
+PASS ⓙ 표 없는 TEAMSET → ERROR
+PASS ⓚ 픽스처 표 harness 상한 4
+PASS ⓚ 픽스처 표 ops 상한 5
+PASS ⓚ 픽스처 표 v65 상한 5
+PASS ⓚ 픽스처 표 cfo 상한 3
+INFO 실 표 대조 생략 — FT_TEAMSET_REAL_MD 없음
+PASS ⓛ 큐 추가 순번 1·2 · 같은 카드 중복 0
+PASS ⓛ 카드만 사라짐(명부 행 없음) → 큐 유지 · 확인 필요 1
+PASS ⓛ 진행/ 로 옮겨졌으면 명부 행 없어도 완료(r681)
+PASS ⓛ 진행/ + 명부 index 일치(spawn 성공) → c2 만 완료로 지운다
+PASS ⓝ 빈 석 0(3/3) → 쪽지 0
+PASS ⓝ 쪽지 실패 → 표식 0 · 큐 유지
+PASS ⓝ 빈 석 ∧ 큐 → 현역 _master 에 쪽지 1통
+PASS ⓝ 같은 카드 10분 안 재실행 → 재발신 0(멱등)
+PASS ⓝ 10분 지난 표식 → 다시 알림(승계·쪽지 유실 대비)
+PASS ⓝ 카드가 사라진 항목 → 쪽지 0 · 큐 유지 · WARN 확인 필요
+PASS ⓝ 다른 팀 라이브 master 를 _master 로 → ERR rc1 · 쪽지 0
+PASS ⓝ _master 칸 없음 → ERR · 쪽지 0
+PASS ⓝ 이름 형식 위반 _master(라이브여도) → ERR · 쪽지 0
+PASS ⓝ ft-nano-close.sh 는 큐를 모른다(알림은 teamset-check 한 곳)
+PASS 키트 사본 cmp 0 ft-teamset-check.sh
+PASS 키트 사본 cmp 0 ft_teamset.py
+PASS 키트 사본 cmp 0 ft_spawn_queue.py
+PASS core.bare=false
+ALL PASS
+rc=0

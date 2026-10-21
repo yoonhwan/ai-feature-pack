@@ -1,0 +1,12 @@
+diff --git a/feature-pack/fable-team/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template b/feature-pack/fable-team/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template
+index e88aabf4..3c8a78e0 100644
+--- a/feature-pack/fable-team/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template
++++ b/feature-pack/fable-team/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template
+@@ -12,6 +12,7 @@
+   <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
+   <key>StartInterval</key><integer>300</integer>
+   <key>RunAtLoad</key><false/>
++  <key>ProcessType</key><string>Interactive</string>
+   <key>EnvironmentVariables</key>
+   <dict>
+     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>

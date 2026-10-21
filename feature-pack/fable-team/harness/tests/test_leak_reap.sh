@@ -91,7 +91,7 @@ o="$(FT_PS_SNAPSHOT_MAX_AGE=999999999 FT_PS_SNAPSHOT="$T/oldloop.txt" bash "$REA
 o="$(env -u FT_PS_SNAPSHOT FT_PS_CMD="cat $T/ps4.txt" bash "$REAP" --snapshot="$T/nodir/x.out" 2>&1)"; rc=$?
 rc_is "$rc" 20 "H1-4 쓰기 실패(없는 폴더) → rc 20"; has "$o" "스냅샷 쓰기 실패" "H1-4 사유 줄"; [ ! -e "$T/nodir/x.out" ] && ok "H1-4 파일 없음" || bad "H1-4 파일 있음"
 s0=$SECONDS; o="$(env -u FT_PS_SNAPSHOT FT_PS_CMD='sleep 30' FT_PS_TIMEOUT=60 bash "$REAP" --dry-run --quiet 2>&1)"; rc=$?
-rc_is "$rc" 20 "H1-6 FT_PS_TIMEOUT=60 주입 → 7 로 제한돼 timeout rc 20"; [ $((SECONDS-s0)) -lt 12 ] && ok "H1-6 12초 안(60초 아님)" || bad "H1-6 12초 초과"; has "$o" "WARN FT_PS_TIMEOUT=60" "H1-6 WARN 1줄"
+rc_is "$rc" 20 "H1-6 FT_PS_TIMEOUT=60 주입 → 7 로 제한돼 timeout rc 20"; [ $((SECONDS-s0)) -lt 16 ] && ok "H1-6 16초 안(60초 아님 · r670 재시도 1회 포함 7+7)" || bad "H1-6 16초 초과"; has "$o" "WARN FT_PS_TIMEOUT=60" "H1-6 WARN 1줄"
 o="$(env -u FT_PS_SNAPSHOT FT_PS_CMD='cat /nonexistent-ps' bash "$REAP" --min-cpu=abc --dry-run --quiet 2>&1)"; rc=$?; rc_is "$rc" 20 "H1 잘못된 수치 인자 → rc 20"; hasnt "$o" "Traceback" "H1 traceback 0"
 
 # ── ③ 실제 ps: 합성 고아 1건 검출 + --kill(내 표식 스냅샷만) · 데이터 셸 비검출 ──

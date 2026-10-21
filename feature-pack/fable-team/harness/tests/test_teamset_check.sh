@@ -38,7 +38,6 @@ chk() { FT_TEAMSET_MBOX="$FM" FT_SEAT_STATUS="$FS" PATH="$FAKE:$PATH" FT_TEAMSET
 
 [ -f "$BIN/ft-teamset-check.sh" ] && bash -n "$BIN/ft-teamset-check.sh" && ok "bash -n ft-teamset-check.sh" || bad "ft-teamset-check.sh 없음/문법"
 [ -f "$BIN/ft_teamset.py" ] && python3 -m py_compile "$BIN/ft_teamset.py" && ok "py_compile ft_teamset.py" || bad "ft_teamset.py 없음/문법"
-[ -f "$REPO/design/TEAMSET.md" ] && ok "design/TEAMSET.md 존재" || bad "design/TEAMSET.md 없음"
 
 # ⓐ 표대로인 팀 → OK
 roster alpha "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1"
@@ -100,13 +99,45 @@ o="$(chk --all)"; rc=$?; { [ "$rc" = 1 ] && [ "$(grep -c . <<<"$o")" = 2 ]; } &&
 o="$(chk nope)"; rc=$?; { [ "$rc" != 0 ] && [[ "$o" == *ERROR* ]]; } && ok "ⓙ 명부 없는 팀 → ERROR" || bad "ⓙ rc=$rc $o"
 printf '# 표 없음\n' > "$T/bad.md"; o="$(MDX="$T/bad.md" chk alpha)"; rc=$?; { [ "$rc" != 0 ] && [[ "$o" == *ERROR* ]]; } && ok "ⓙ 표 없는 TEAMSET → ERROR" || bad "ⓙ-2 rc=$rc $o"
 
-# ⓚ 실 표 — design/TEAMSET.md 가 도구로 읽히고 harness=5(39477d0d01 임시 4→5) · ops=5 · 기본 3(v65 5)
-for spec in harness:5 ops:5 v65:5 cfo:3; do
+# ⓚ 표 형식 — 팩에는 design/TEAMSET.md 가 없다(정상). 시험 안 픽스처 표로 상한 읽기를 본다.
+# 픽스처 = BYZ 리포 origin/main design/TEAMSET.md 사본(2026-10-22 · blob 05b6221f661473ad021f881aa0877fd156948e1c · 표 1·표 2·기본값 줄만).
+# 실 표 값 대조(ⓤ)는 FT_TEAMSET_REAL_MD(파일 경로 | gitref:<ref>:<경로>)를 줄 때만 — 없으면 INFO 1줄(조용한 PASS 0).
+TSMD="$T/TEAMSET-fixture.md"
+cat > "$TSMD" <<'EOF'
+# 팀셋 — 픽스처(BYZ origin/main design/TEAMSET.md 사본 · 표 형식)
+## 표 1 — 역할 표준
+| 역할 | 수 | 모델 | effort | 명부 키 | 승계 | 닫기 |
+|---|---|---|---|---|---|---|
+| master | 필수 1 | `sonnet-5-5` | high | `_master` | ft-successor-open | 단위 마감 때만 |
+| arch | 상시 팀만 1 | `opus-5-5` | high | `_arch` | ft-successor-open | 팀 마감 때 |
+| nano | 상한 N | `sonnet-5-5` | high | — | 승계 0 | ft-nano-close (keep-last 면제) |
+- 나노 상한 기본: 3
+## 표 2 — 팀별 덮어쓰기
+| 팀 | 나노 상한 | tester | arch 상시 |
+|---|---|---|---|
+| v65 | 5 | 1 | 상시 |
+| harness | 4 | 0 | 상시 |
+| ops | 5 | 2 | 상시 |
+| cfo | 3 | 1 | 상시 |
+EOF
+capof() { PATH="$FAKE:$PATH" python3 "$BIN/ft_teamset.py" cap --root "${2:-$ROOT}" --md "$1" --prefix "$3" 2>&1; }
+for spec in harness:4 ops:5 v65:5 cfo:3; do
   t="${spec%:*}"; n="${spec#*:}"
   pfx="byz-$t-nano-"; [ "$t" = v65 ] && pfx="ft-v65-temp-"
-  o="$(PATH="$FAKE:$PATH" python3 "$BIN/ft_teamset.py" cap --root "$ROOT" --md "$REPO/design/TEAMSET.md" --prefix "$pfx" 2>&1)"
-  [[ "$o" == *"cap=$n"* ]] && ok "ⓚ 실 표 $t 상한 $n" || bad "ⓚ $t → $o"
+  o="$(capof "$TSMD" "" "$pfx")"
+  [[ "$o" == *"cap=$n"* ]] && ok "ⓚ 픽스처 표 $t 상한 $n" || bad "ⓚ $t → $o"
 done
+# ⓤ 실 표(env 있을 때만) — 같은 4칸을 실제 BYZ 표로 한 번 더. gitref 면 FT_TEAMSET_REAL_ROOT(BYZ 리포)에서 읽는다.
+if [ -n "${FT_TEAMSET_REAL_MD:-}" ]; then
+  for spec in harness:4 ops:5 v65:5 cfo:3; do
+    t="${spec%:*}"; n="${spec#*:}"
+    pfx="byz-$t-nano-"; [ "$t" = v65 ] && pfx="ft-v65-temp-"
+    o="$(capof "$FT_TEAMSET_REAL_MD" "${FT_TEAMSET_REAL_ROOT:-$ROOT}" "$pfx")"
+    [[ "$o" == *"cap=$n"* ]] && ok "ⓤ 실 표 $t 상한 $n" || bad "ⓤ 실 표 $t 값이 픽스처와 다름(표가 바뀌면 픽스처 갱신) → $o"
+  done
+else
+  echo "INFO 실 표 대조 생략 — FT_TEAMSET_REAL_MD 없음"
+fi
 
 # ⓛ 큐(DA r1 ⑦) — 카드 경로 절대 · 순번 · 중복 0 · 카드가 대기 자리에서 사라지면(= spawn 성공) 항목 완료
 Q="$ROOT/.fable-team/state/spawn-queue-alpha.tsv"; rm -f "$Q" "${Q%.tsv}.notified"; mkdir -p "$T/cards/대기" "$T/cards/진행"; : > "$T/cards/대기/c1.md"; : > "$T/cards/대기/c2.md"

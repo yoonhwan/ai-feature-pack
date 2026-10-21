@@ -1,0 +1,14 @@
+# ⓓ env 를 주고 실제 BYZ 표로 돌린 원문 (r682)
+# FT_TEAMSET_REAL_MD=gitref:origin/main:design/TEAMSET.md · FT_TEAMSET_REAL_ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
+# 원본 blob = 05b6221f661473ad021f881aa0877fd156948e1c
+
+PASS ⓚ 픽스처 표 harness 상한 4
+PASS ⓚ 픽스처 표 ops 상한 5
+PASS ⓚ 픽스처 표 v65 상한 5
+PASS ⓚ 픽스처 표 cfo 상한 3
+PASS ⓤ 실 표 harness 상한 4
+PASS ⓤ 실 표 ops 상한 5
+PASS ⓤ 실 표 v65 상한 5
+PASS ⓤ 실 표 cfo 상한 3
+ALL PASS
+rc(pipe)=0

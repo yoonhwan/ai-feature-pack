@@ -1,0 +1,30 @@
+== ⓐ 5초 지연 프록시 — 옛 판은 두 번 다 실패(3초 상한) 했다
+PASS ⓐ 첫 응답 5초 프록시 → rc0 (옛 판: REJECT 프록시 2회 실패)
+PASS ⓐ 첫 시도에서 성공 — 재시도 0
+PASS ⓐ 경과 ≤ 16 s (6 s)
+PASS ⓐ 정상 경로 = stderr 0줄
+== ⓑ 시도당 상한 = FT_PROXY_PROBE_MAX (기본 7 · 7 초과 = 7 로 제한 · WARN)
+PASS ⓑ 상한 99 주입 → 7 로 제한돼 rc0
+PASS ⓑ 7 초과 주입 = WARN «7 로 제한»
+PASS ⓑ 상한 3(옛 값) → 같은 프록시가 REJECT = 숫자가 실제 문턱
+PASS ⓑ 상한 3 경과 ≤ 9 s (8 s — 3+2+3)
+== ⓒ HTTP 응답이 왔는데 비정상(500) = 재시도 0 즉시 실패
+PASS ⓒ 500 → 즉시 실패(재시도 0)
+PASS ⓒ 재시도 줄 0 (첫 바이트 전 실패만 재시도)
+PASS ⓒ 경과 ≤ 2 s (0 s — 사이 대기 2초도 안 씀)
+== ⓓ 총 마감 = 7 + 2 + 7 = 16초 이하 (응답 없는 프록시 · 첫 바이트 전 실패 2회)
+PASS ⓓ 2회 실패 → REJECT 프록시
+PASS ⓓ 실패 시도 2회
+PASS ⓓ 경과 14~17 s (16 s = 7+2+7)
+== ⓔ 둘 다 실패 = 진짜 장애 → spawn exit 7 · 순번 큐 1줄(사유 proxy) · 좌석 0
+PASS ⓔ 진짜 장애 → exit 7 (옛 판: exit 1 · 큐 0)
+PASS ⓔ 순번 큐에 남는다(QUEUED)
+PASS ⓔ 출력에 사유 proxy 1줄
+PASS ⓔ 큐 파일 1줄(카드 경로): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FldTWSedlY/repo/design/harness/indices/대기/x.md
+PASS ⓔ 워크트리 0 (프록시 확인은 부작용 전 지점)
+PASS ⓔ 경과 ≤ 20 s (16 s)
+== ⓕ 키트↔추적 짝 (설치 cmp0 의 근거)
+PASS cmp0 ft-agent-ready.sh
+PASS cmp0 ft-nano-spawn.sh
+
+ALL PASS

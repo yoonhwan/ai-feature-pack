@@ -1,0 +1,34 @@
+$ man launchd.plist | sed -n "/ProcessType/,/AbandonProcessGroup/p"
+     ProcessType <string>
+     This optional key describes, at a high level, the intended purpose of the
+     job.  The system will apply resource limits based on what kind of job it
+     is. If left unspecified, the system will apply light resource limits to
+     the job, throttling its CPU usage and I/O bandwidth. This classification
+     is preferable to using the HardResourceLimits, SoftResourceLimits and
+     Nice keys. The following are valid values:
+
+	   Background
+	   Background jobs are generally processes that do work that was not
+	   directly requested by the user. The resource limits applied to
+	   Background jobs are intended to prevent them from disrupting the
+	   user experience.
+
+	   Standard
+	   Standard jobs are equivalent to no ProcessType being set.
+
+	   Adaptive
+	   Adaptive jobs move between the Background and Interactive
+	   classifications based on activity over XPC connections. See
+	   xpc_transaction_begin(3) for details.
+
+	   Interactive
+	   Interactive jobs run with the same resource limitations as apps,
+	   that is to say, none. Interactive jobs are critical to maintaining
+	   a responsive user experience, and this key should only be used if
+	   an app's ability to be responsive depends on it, and cannot be made
+	   Adaptive.
+
+     AbandonProcessGroup <boolean>
+설치본 = ~/Library/LaunchAgents/com.byz.ft-board-publish.plist (arch 119 실측 2026-10-22 02:5x · LIVE_BIN 1.1.190 · load 63~72)
+  · ProcessType 키 없음 · Nice 키 없음 · StartInterval 300 · launchctl print «spawn type = daemon (3)»
+  · 같은 명령 셸 실행 4.81초 rc=0 vs taskpolicy -b(백그라운드 정책) 40초+ timeout rc124

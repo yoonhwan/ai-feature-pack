@@ -1,0 +1,8 @@
+### test_leak_reap.sh
+rc=0 PASS=121 FAIL=0
+### test_seat_reap_left0.sh
+rc=1 PASS=54 FAIL=2
+### test_seat_reap_services.sh
+rc=0 PASS=16 FAIL=0
+### test_agent_alive_fg_judge.sh
+rc=1 PASS=124 FAIL=2

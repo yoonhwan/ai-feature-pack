@@ -1,0 +1,15 @@
+# r680 설치 메모 (master 집행 · 나노는 설치하지 않는다) — manifest 1.1.190
+
+1) LIVE_BIN(키트 bin → 설치 폴더) 새 판 — 파일 1개
+   - ft-nano-close.sh   (고침 · 워크트리 정리 계획의 가드 ②가 «이 명령 자신과 조상» 을 빼고 센다 · 남은 보유자는 pid·cmd 1줄)
+   확인: cmp <설치 폴더>/ft-nano-close.sh feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh → rc0
+   추적 짝: harness/bin/ft-nano-close.sh 와 kit 판이 바이트 같다(cmp0) — 설치기에 두 자리 다 있다.
+
+2) 되돌림 = 이전 판 그대로 복사(팩 origin/main blob 44d537b3 · 증거에 쓴 사본 /tmp/r680-base-sut.sh 는 임시).
+   계획 파일(.fable-team/state/wt-clean/<좌석>.sh)은 «생성 시점에 굽힌 plan-ver» 로 실행을 막으므로,
+   설치 뒤 옛 계획은 STALE 로 멈춘다 → 닫기를 다시 돌려 계획을 새로 만들어야 한다(기존 r173 규칙 그대로 · 이 카드가 만든 규칙 아님).
+
+3) 설치 뒤 실사건 1(master 소관): 나노 워크트리 안에서 부른 닫기가 워크트리 정리까지 rc0 인 원문
+   (또는 남의 보유자가 남아 있으면 `cwd 보유 프로세스 N개 — pid=<n> cmd=<앞 60자>` 1줄 원문) — 나노는 press·설치 0.
+
+4) 이 카드가 바꾸지 않은 것: kill 0 · ft-wt-sweep.sh · ft-seat-reap.sh · 계획의 다른 가드(①③④⑤⑥) · 문구 앞머리 `cwd 보유 프로세스`(skipped:cwd* 판정 유지).
