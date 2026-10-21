@@ -4,14 +4,14 @@
 
 # 멀티 호스트 운영·UX 계층 (r1, 2026-10-21)
 
-코어가 «어떻게 맞게 동작하나»라면 이 문서는 «사람이 무엇을 보고 무엇을 누르나»다. 코어 문서는 DA 심사 중이라 건드리지 않고, 코어의 상태(hosts.json `state`, `hold/`·`quarantine/`·`exported/`·`outbound/`, probe 결과)를 **읽어서 보여 주고, 승인이 필요한 조작은 h 한 줄로 만들어 주는 것**만 한다. 코드·원격·설치 0.
+코어가 «어떻게 맞게 동작하나»라면 이 문서는 «사람이 무엇을 보고 무엇을 누르나»다. 코어 문서는 DA 심사 중이라 건드리지 않고, 코어의 상태(hosts.json `state`, `quarantine/`·`outbound/`·스풀, probe 결과)를 **읽어서 보여 주고, 승인이 필요한 조작은 h 한 줄로 만들어 주는 것**만 한다. 코드·원격·설치 0.
 
 ## 0. 가벼움 원칙 (먼저 못 박는다)
 
 1. **새 상주 서버 0** — 주기 작업은 기존 `ft-tick`(launchd/systemd 타이머)에 한 줄 붙인다. 감시 데몬·웹 대시보드·DB 없음.
 2. **새 의존 0** — bash·python3 표준 라이브러리·tmux·fzf(tmm 이 이미 씀)·ssh 만.
 3. **호스트 1개면 아무것도 안 보인다** — hosts.json 이 없거나 `local` 하나면: tmm 화면 바이트 동일, `ft-host` 는 `단일 호스트 모드` 한 줄 + rc 0, 틱 훅은 즉시 종료, 슬랙 알림 0.
-4. **읽기는 자유, 바꾸기는 h 한 줄** — evict·readmit·hold 처분·설치·잔재 삭제는 전부 `/tmp/h<N>` 계획 파일로 만들어 사람에게 넘긴다. 도구가 직접 실행하는 «쓰기»는 코어가 자율로 허용한 것(배달·재전송·probe)뿐.
+4. **읽기는 자유, 바꾸기는 h 한 줄** — evict·readmit·보관함(quarantine) 처분·설치·잔재 삭제는 전부 `/tmp/h<N>` 계획 파일로 만들어 사람에게 넘긴다. 도구가 직접 실행하는 «쓰기»는 코어가 자율로 허용한 것(배달·재전송·probe)뿐.
 5. **외울 명령 = 1개** — `ft-host`. 나머지는 tmm 키 하나(`^B`)와 슬랙 알림 안의 한 줄.
 
 ## 1. 진입점 — `ft-host` 하나 + tmm 콕핏
@@ -22,16 +22,16 @@
 |---|---|---|
 | `ft-host` | **상태 한 줄 + 호스트 표**(아래 §1.1). 사람·틱·슬랙이 모두 이것을 본다 | 0 |
 | `ft-host doctor` | 일일 점검 6항목(§4.1) · 이상만 출력 · rc 0/3 | 0 |
-| `ft-host why <host>` | 그 호스트가 왜 노랑/빨강인지: 마지막 probe 결과·hold 목록·미확인 export·boot-id 변화·메모리 | 0 |
-| `ft-host plan <동작> <host>` | 동작 ∈ {evict, readmit, reconcile, retire, hold-release, install-<항목>} → 코어 절차대로 계획 파일을 만들고 **`! bash /tmp/h<N>` 한 줄만** 출력(BYZ `ft-hil.sh --add` 경유 · 하드 룰 13) | 계획 파일만 |
+| `ft-host why <host>` | 그 호스트가 왜 노랑/빨강인지: 마지막 probe 결과·보관함 목록(사유별)·boot-id 변화·메모리 | 0 |
+| `ft-host plan <동작> <host>` | 동작 ∈ {evict, readmit, retire, dispose, install-<항목>} → 코어 절차대로 계획 파일을 만들고 **`! bash /tmp/h<N>` 한 줄만** 출력(BYZ `ft-hil.sh --add` 경유 · 하드 룰 13) | 계획 파일만 |
 
 ### 1.1 상태 한 줄 (틱·슬랙·tmm 헤더가 같은 줄을 쓴다)
 ```
-멀티호스트 🟡 3대 · book✅ oci✅ mini🔴불통 14분 · hold 2 · 미확인 export 0 · 대기 evict 1 · 메모리 book 1.1G/oci 22G
+멀티호스트 🟡 3대 · book✅ oci✅ mini🔴불통 14분 · 보관함 2 · 대기 evict 1 · 메모리 book 1.1G/oci 22G
 ```
-- 색: 🟢 전부 정상 · 🟡 조치 필요 없음이지만 볼 것(재부팅 감지·hold>0·메모리 경고) · 🔴 사람 결정 필요(불통 15분+·evict 대기·미확인 export>0·hold 적체).
-- 숫자에는 뜻이 붙는다(«hold 2» = 결과를 몰라 자동으로 안 보낸 쪽지 2통). 약어는 tmm 도움말(`^/`)에 풀이 1줄씩.
-- 호스트 표(`ft-host` 둘째 줄부터): `이름 · 상태(state) · 접속(OK/UNREACHABLE/PENDING) · 마지막 확인 · 좌석 수 · hold · outbound 대기 · 미확인 export · 메모리 여유/swap · caps(browser·audio·infer)`. 값은 전부 코어 파일·probe TSV 에서 읽는다 — 이 계층이 따로 상태를 저장하지 않는다(정본 하나).
+- 색: 🟢 전부 정상 · 🟡 조치 필요 없음이지만 볼 것(재부팅 감지·메모리 경고) · 🔴 사람 결정 필요(불통 15분+·evict 대기·보관함 적체).
+- 숫자에는 뜻이 붙는다(«보관함 2» = 자동으로 안 보내고 사람 처분을 기다리는 쪽지 2통 · 코어 `quarantine/`). 약어는 tmm 도움말(`^/`)에 풀이 1줄씩.
+- 호스트 표(`ft-host` 둘째 줄부터): `이름 · 상태(state) · 접속(OK/UNREACHABLE/PENDING) · 마지막 확인 · 좌석 수 · 보관함 · outbound 대기 · 메모리 여유/swap · caps(browser·audio·infer)`. 값은 전부 코어 파일·probe TSV 에서 읽는다 — 이 계층이 따로 상태를 저장하지 않는다(정본 하나).
 
 ## 2. tmm UX — 키 하나 더(`^B`), 나머지는 기존 화면에 섞는다
 
@@ -39,14 +39,14 @@
 
 | 자리 | 멀티 모드에서 보이는 것 | 단일 모드 |
 |---|---|---|
-| 헤더 «상태» 줄 | 끝에 §1.1 한 줄의 압축판 `🟡 mini불통 · hold2` (폭 ≤58 넘으면 색 점 + 숫자만) | 불변 |
+| 헤더 «상태» 줄 | 끝에 §1.1 한 줄의 압축판 `🔴 mini불통 · 보관2` (폭 ≤58 넘으면 색 점 + 숫자만) | 불변 |
 | 좌석 행 | 맨 앞 2~3자 호스트 약칭(코어 §6) · 그 호스트가 UNREACHABLE 이면 행 전체 회색 + 상태 칸 `불통` (죽음 아님) | 불변 |
 | 분류 칸(`^V` 분할 화면 왼쪽) | 맨 위에 호스트 묶음 `@book 21 · @oci 4 · @mini ✖` — 고르면 그 호스트 좌석만(기존 분류 고르기와 같은 동작) | 불변 |
-| **`^B` 호스트 판** | 좌석 목록 자리에 호스트 표(§1.1)를 띄운다. 커서로 호스트 고르고: `⏎` = `ft-host why` 상세 · `e` = evict 계획 · `r` = reconcile 계획 · `h` = hold 목록(건별 «포기/재배달» 계획) · `p` = probe 지금 다시 · `Esc`/`^B` = 좌석 뷰로 | 키 무반응(단일 모드 안내 1줄) |
+| **`^B` 호스트 판** | 좌석 목록 자리에 호스트 표(§1.1)를 띄운다. 커서로 호스트 고르고: `⏎` = `ft-host why` 상세 · `e` = evict 계획 · `h` = 보관함 목록(건별 «버림 / 새로 다시 보내기» 계획) · `p` = probe 지금 다시 · `Esc`/`^B` = 좌석 뷰로 | 키 무반응(단일 모드 안내 1줄) |
 | 원격 좌석 위 기존 키 | `⏎` attach = 새 창에서 `ssh -t … attach`(코어 §6) · `^S` 메시지·`^K` 닫기·`^F` fork = `tmuxc --host` 위임 · 미리보기 = `pane-capture` | 불변 |
 
 - **계획 키(`e`·`r`·`h`)는 실행하지 않는다** — 화면 하단에 `! bash /tmp/h<N>` 한 줄과 «이 줄을 프롬프트에 붙여 넣으세요»만 보이고, 같은 줄을 슬랙 승인 안내(§3)로도 보낸다. 폰에서도 한 줄 복사로 끝난다.
-- 흐름 예 «mini 불통 → evict»: tmm 에서 헤더 🔴 확인 → `^B` → `mini` 에 커서 → `⏎`(why: 불통 16분·좌석 3·hold 0) → `e` → 한 줄 복사·실행. **키 4번 + 붙여넣기 1번**.
+- 흐름 예 «mini 불통 → evict»: tmm 에서 헤더 🔴 확인 → `^B` → `mini` 에 커서 → `⏎`(why: 불통 16분·좌석 3·보관함 0) → `e` → 한 줄 복사·실행. **키 4번 + 붙여넣기 1번**.
 
 ## 3. 슬랙 — 알림과 승인 «안내»만 (제어 채널 아님)
 
@@ -60,9 +60,9 @@
 | kind | 언제 | severity | 승인 줄 |
 |---|---|---|---|
 | `host_unreachable` | probe 연속 실패 15분 이상 | 🔴 | evict 계획 줄 |
-| `host_rebooted` | boot-id 바뀜(코어 §3.6 — 전송 멈춤·재조정 필요) | 🟡 → 재조정 끝나면 해제 | reconcile 계획 줄 |
-| `hold_backlog` | `hold/` 1건 이상이 30분 넘게 남음 | 🔴 | hold 처분 계획 줄 |
-| `export_unacked` | 원격 `exported/` 미확인 1건 이상이 30분 넘게 남음 | 🔴 | 재export 계획 줄 |
+| `host_rebooted` | boot-id 바뀜(코어 §3.6 — 시도했던 전송은 보관함으로) | 🟡 | 없음(보관함 알림이 따로 감) |
+| `quarantine_backlog` | 보관함(`quarantine/`) 1건 이상이 30분 넘게 미처분 | 🔴 | 처분 계획 줄 |
+| `other_gen_letters` | 어느 좌석 recv 에 «다른 세대 쪽지 N통» 이 30분 넘게 남음(코어 §3.3) | 🟡 | 없음(잔재 정리 때 함께) |
 | `mem_pressure` | 어느 호스트든 swap 여유 < 1GB 또는 메모리 여유 < 10% | 🟡 | 없음(배치 조정 안내) |
 
 - **같은 알림 반복 금지**: `(kind, host)` 별로 처음 1회 + 상태가 나빠질 때 1회 + 해제될 때 1회(«✅ mini 복구 · 불통 42분»). 30분 안 재발은 묶는다.
@@ -72,7 +72,7 @@
 
 ### 4.1 일일 점검 = `ft-host doctor` (틱이 하루 1회 부르고, 사람은 아침에 상태 한 줄만 본다)
 1. 모든 `active` 호스트 probe OK(접속·tmux·게이트 버전이 허브와 같음)
-2. `hold/`·`quarantine/`·원격 `exported/` 미확인 = 0 (아니면 건수·가장 오래된 것의 나이)
+2. 보관함(`quarantine/`) 미처분 = 0 (아니면 사유별 건수·가장 오래된 것의 나이)
 3. `outbound/` 가장 오래된 것 < 1시간 · 스풀 `expired/` = 0
 4. boot-id 변화 없음(있으면 재조정 끝났는지)
 5. 메모리: 호스트별 여유·swap + 상위 좌석 3개 RSS(원격은 `rows` 결과에 RSS 칸 추가 · 비용 가시화)
@@ -82,9 +82,8 @@
 | 증상(어디서 보이나) | 첫 명령 | 자동으로 일어나는 것 | 사람 결정 |
 |---|---|---|---|
 | 호스트 불통(tmm 회색 행·🔴) | `ft-host why <h>` | 그 호스트 앞 쪽지는 `outbound/` 에 쌓임 · 원격 발신은 스풀 | 15분+면 evict 할지(`e`) — 기다리면 복구 후 자동 정상 |
-| 재부팅 감지(🟡) | `ft-host why <h>` | 그 호스트 전송 멈춤 | reconcile 실행(`r`) |
-| hold 적체(🔴) | `tmm ^B → h` | 없음(자동 재배달 0) | 건별 «포기» 또는 «중복 감수 재배달» |
-| export 미확인(🔴) | `ft-host why <h>` | 없음 | 재export 실행 — 원격 `exported/` 는 시간이 지나도 안 지워진다 |
+| 재부팅 감지(🟡) | `ft-host why <h>` | 시도했던 전송은 보관함으로, 나머지는 계속 | 보관함 처분 |
+| 보관함 적체(🔴) | `tmm ^B → h` | 없음(자동 재배달 0) | 건별 «버림» 또는 «새로 다시 보내기»(코어 §11-3 · D12) |
 | 메모리 압박(🟡) | `ft-host` (메모리 칸) | 없음 | 무거운 좌석을 oci 로 보낼지(D6 범위 안) |
 | 허브 다운(전체 원격 행 «모름») | 허브 기계 확인 | 원격 좌석은 자기 받은 쪽지를 계속 읽음 · 발신은 스풀 | 허브 복구 — 복구 뒤 스풀 자동 flush |
 
@@ -98,7 +97,7 @@
 | 운영 단계 | 붙는 코어 단계 | 내용 | 닫는 명령(1줄) |
 |---|---|---|---|
 | O1 | P0 | `ft-host`·`ft-host why`(읽기 전용, probe TSV 를 읽어 상태 한 줄·표) · 단일 모드 한 줄 | `bash feature-pack/fable-team/test/ft-host-status.sh --out docs/multihost/o1-status.txt; echo "rc=$?"` — 단일 모드 출력 = `단일 호스트 모드` 1줄 · 픽스처 3호스트에서 색·숫자 기대값 일치 |
-| O2 | P3 | hold·quarantine·미확인 export·outbound 나이 집계 · `events.jsonl` + `[멀티호스트·알림]` 쪽지 · 반복 억제 · `ft-host plan` | `bash feature-pack/fable-team/test/ft-host-events.sh --out docs/multihost/o2-events.tsv; echo "rc=$?"` — 격리 픽스처로 5종 알림 각 1회·재발 묶음·해제 1회 · 비밀값 패턴 0 · plan 출력이 `! bash /tmp/h<N>` 60자 이하 1줄 |
+| O2 | P3 | 보관함(사유별)·outbound 나이 집계 · `events.jsonl` + `[멀티호스트·알림]` 쪽지 · 반복 억제 · `ft-host plan` | `bash feature-pack/fable-team/test/ft-host-events.sh --out docs/multihost/o2-events.tsv; echo "rc=$?"` — 격리 픽스처로 5종 알림 각 1회·재발 묶음·해제 1회 · 비밀값 패턴 0 · plan 출력이 `! bash /tmp/h<N>` 60자 이하 1줄 |
 | O3 | P4 | tmm 헤더 한 줄 · 호스트 약칭·회색 행 · 분류 칸 호스트 묶음 · `^B` 호스트 판 | `bash feature-pack/tmm/test/host-board.sh --out docs/multihost/o3-tmm.tsv; echo "rc=$?"` — 단일 모드 화면 `cmp` 동일 · 2호스트 픽스처에서 `^B`→`e` 가 h 줄만 출력(실행 0) |
 | O4 | P5a·P5b | doctor 6항목 · 메모리/RSS 칸 · 추론 스택·hermes health · `ft-tick` 훅 1줄 | `bash feature-pack/fable-team/test/ft-host-doctor.sh --out docs/multihost/o4-doctor.txt; echo "rc=$?"` — 정상 픽스처 rc 0 · 항목별 고장 픽스처 각각 rc 3 + 그 항목 1줄 |
 | O5 | P6 | caps(browser·audio·mic 상태) 표시 · 마이크 확정 회차 결과 반영 | `bash feature-pack/fable-team/test/ft-host-caps.sh --out docs/multihost/o5-caps.txt; echo "rc=$?"` — MIC_UNVERIFIED→MIC_OK 전환이 표·한 줄에 반영 |

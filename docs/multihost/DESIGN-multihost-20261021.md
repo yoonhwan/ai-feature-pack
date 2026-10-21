@@ -2,17 +2,18 @@
 「우리 tmm, tmuxc, tmux, fable-team을 멀티 pc,맥 지원 환경구성으로 업그레이드 계획 기획팀 발주. 우선 byz mac mini와 jarvis가 돌아가는 oci 클라우드 인스턴스가 있는데 두곳에 모두 tailscale 설치와 계정 연동으로 연결해 cli  레벨로 환경을 운용하고 브라우저가 가능한 환경은 테스트도 이관해 작업하고 팀이나 나노 작업등을 분산 분해해서 운영하는 tmm, tmuxc, fable-team에 멀티 인스턴스(네트워크) 기능을 구축하는 기획, da 팀 발주. 필요 나노워커도 선투입」 (오빠 2026-10-21)
 골의 어느 축: 멀티 호스트 운용 기획 — 닫는 증거 = 이 문서 + DA 판정 + 오빠 결정 목록(§14) 커밋 sha.
 
-# 멀티 호스트 설계 — tmuxc · tmm · fable-team (r5, 2026-10-21)
+# 멀티 호스트 설계 — tmuxc · tmm · fable-team (r6, 2026-10-21)
 
 작성 근거: `00-BRIEF.md` + 조사표 4건(`scout-*.md`) + `hosts-facts.md` + `research-nano-1.md`(우편함 잠금 지도·sshd·tailscale) + `research-nano-2.md`(tmux/pgrep/ps/lsof 호출 전수 124+14건) + 소스 직접 확인. 코드·원격·설치 0. 표시: **[실측]** 확인함 / **[가정]** 설치 후 확인 필요.
 r4 변경(하드 룰 14 — HOLD 2회 연속이라 재설계): r3 의 «원격이 허브 큐 행을 네트워크 너머로 임대·소비»를 버리고 **«소비는 언제나 로컬, 네트워크는 배달만»** 으로 바꿨다(§3). 원격 조작도 tmux 호출 단위가 아니라 **tmuxc 명령 단위**로 넘긴다(§7). 오빠 추가 요구 2건 반영: 두 맥의 브라우저·BlackHole·마이크 점검(발주 #2998 → §1·§9·§13 P0·P6) · OCI 에 headroom·cliproxy 를 claude 보다 먼저 + hermes 업데이트 경로(발주 #3009 → §8.1·§13 P5a). DA r3-1 H1~H6 대조표는 §15.
 r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»): 이전 선형화 = 옛 호스트 fence(§11) · 결과 모르는 것은 `hold/`(자동 재배달 0) · export 두 단계 확인(§12) · 장애 범위 = 프로세스 종료까지(§3.6) · 순서 = 큐 커밋 번호(§3.5, 벽시계 0) · K1/K2 동사표·PTY 거절 구분(§10) · 마이크 확정 회차(P6). 대조표 §15.
+r6 변경(DA r5-1 — 프로세스 종료 범위·모름=사람 처분은 유지): **evict 때 미처리분 자동 이관을 뺐다** — 그 호스트 앞 미처리는 전부 `quarantine/`, 새 좌석은 빈 큐, 처분은 사람(§3.8·§11·D12). fence·재조정·export 2단계·`hold/`·`recovered/` 삭제, 대신 recv 세대 필터(§3.3). P1 포워딩 시험은 실제 연결 1회. 대조표 §15.
 
 ## 0. 한 줄 결론과 원칙
 
 - **결론**: «허브 1대 = 명부·라우팅·세대 차단의 단일 지점» + «각 호스트 = 자기 좌석 앞 우편함의 주인». 메시지는 **받는 좌석이 사는 호스트에 단 한 벌** 존재하고, 소비(recv)는 그 호스트 안에서 기존처럼 로컬로 일어난다. 네트워크를 건너는 것은 «배달(deliver)» 하나뿐이고, 배달은 «한 파일의 원자적 생성»이라 mid 중복 판정과 저장이 같은 동작이다.
 - **스위치**: `.fable-team/hosts.json` 이 **없거나 `local` 한 줄뿐이면** 모든 코드 경로가 지금과 같다. 새 디렉터리(`inbound/`·`outbound/`)·새 필드(`host`·`gen`·`mid`)·새 잠금(`seats.lock`)은 멀티 모드에서만 생긴다. 단일 모드에서는 `mailbox.jsonl` 의 send/recv/peek 코드 경로와 출력이 바이트 동일.
-- **7초 룰**: 배경 호출(route·deliver·export·probe)은 `ConnectTimeout=5` + 시도당 `timeout 7` + 재시도 1회. **화면 경로(tmm 스캔·preview)는 재시도 0 · 7초 불변**(하드 룰 12) — 실패는 `UNREACHABLE` 행, 다음 새로고침이 다음 시도. 크기를 아는 배치(git clone/fetch)만 `min(고정비+7×크기비,70초)`. **잠금 안에서는 네트워크 호출을 하지 않는다**(잠금 보유 시간 = 로컬 파일 작업뿐).
+- **7초 룰**: 배경 호출(route·deliver·probe)은 `ConnectTimeout=5` + 시도당 `timeout 7` + 재시도 1회. **화면 경로(tmm 스캔·preview)는 재시도 0 · 7초 불변**(하드 룰 12) — 실패는 `UNREACHABLE` 행, 다음 새로고침이 다음 시도. 크기를 아는 배치(git clone/fetch)만 `min(고정비+7×크기비,70초)`. **잠금 안에서는 네트워크 호출을 하지 않는다**(잠금 보유 시간 = 로컬 파일 작업뿐).
 - **금지**: 임의 설치·원격 쓰기. 설치는 `/tmp/h<N>` 한 줄 스크립트로 오빠께 드린다. 헤드룸 프록시 주소(`ANTHROPIC_BASE_URL`)는 OCI 에서도 전역 export 금지(하드 룰 4 · 프로젝트 레벨 fail-open 래퍼만).
 
 ## 1. 호스트 모델 (①)
@@ -59,32 +60,31 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 - 그래서 r4 는: **소비는 그 메시지의 주인 호스트 안에서만**, 네트워크는 «주인 호스트에 파일 하나를 만들어 주는 배달»만 한다.
 
 ### 3.1 저장 단위 — «메시지 = 파일 하나, 상태 = 디렉터리»
-- 멀티 모드에서 **호스트를 건너온 메시지**는 받는 호스트의 `<FT_MBOX_DIR>/inbound/<mid>.msg` 파일 하나(JSON: `mid·seq·to·from·from_host·from_gen·to_gen·spool_seq·out_seq·ts_origin·body`)로 존재한다. 같은 호스트 안의 메시지(로컬→로컬)는 지금처럼 `mailbox.jsonl` 에 그대로 간다(ring 축출 포함 기존 동작 불변).
-- 한 메시지는 언제나 **정확히 한 디렉터리**에 있고, 상태 이동은 같은 파일시스템 안의 `rename` 하나다. 디렉터리와 뜻:
+- 멀티 모드에서 **호스트를 건너온 메시지**는 받는 호스트의 `<FT_MBOX_DIR>/inbound/<mid>.msg` 파일 하나(JSON: `mid·seq·to·to_gen·from·from_host·from_gen·spool_seq·out_seq·ts_origin·body`)로 존재한다. 같은 호스트 안의 메시지(로컬→로컬)는 지금처럼 `mailbox.jsonl` 에 그대로 간다(ring 축출 포함 기존 동작 불변).
+- 한 메시지는 언제나 **정확히 한 디렉터리**에 있고, 상태 이동은 같은 파일시스템 안의 `rename` 하나다.
 
 | 위치 | 디렉터리 | 뜻 | 시간 청소 |
 |---|---|---|---|
 | 발신 원격 | `spool/` → `spool-done/` | 보낼 것 → 허브가 `QUEUED`/`DUP` 확인함 | `spool-done/` 만 |
 | 허브 | `outbound/<host>/` → `routed-done/` | 배달할 것 → 받는 호스트가 `QUEUED`/`DUP` 확인함 | `routed-done/` 만 |
-| 허브 | `hold/` | 결과를 모르는 것(§11) — 자동 재배달 금지 | **안 함**(사람 판단) |
-| 허브 | `recovered/` | 철수 회수본(§12) — 처리 결정 기록 포함 | 결정 실행 뒤에만 |
+| 허브 | `quarantine/` → `disposed/` | 자동으로 보내지 않는 것(사유 기록: `evicted`·`delivery_unknown`·`late_delivered`·`reboot_unknown`) → 사람이 처분함 | `disposed/` 만 |
 | 받는 호스트 | `inbound/` → `consumed/` | 미소비 → 소비됨 | `consumed/` 만 |
-| 받는 호스트 | `exported/` → `exported-done/` | 회수 중(허브 수령 미확인) → 허브 수령 확인됨 | `exported-done/` 만 |
-- **«-done/» 묘비와 `consumed/` 만 시간으로 지운다**(14일, `BODIES_TTL_DAYS`). `spool/`·`outbound/`·`hold/`·`exported/`·`recovered/` 처럼 **«아직 상대 확인을 못 받은» 상태는 시간으로 지우지 않는다** — 만료되면 보고만 하고 남긴다(유일한 본문을 시간 때문에 잃지 않는다).
+- **청소는 «-done/»·`disposed/`·`consumed/` 묘비만, 14일**(`BODIES_TTL_DAYS`). `spool/`·`outbound/`·`quarantine/` 처럼 «아직 끝나지 않은» 상태는 시간으로 지우지 않는다 — 만료되면 보고만 한다.
 - `mid = <발신 host>-<발신 gen>-<uuid4>` 는 발신 쪽이 스풀에 쓰기 «전»에 만든다(재전송해도 같은 mid).
+- **r6 에서 없앤 것**: r5 의 `hold/`·`recovered/`·`exported/`·`exported-done/`·`fenced/` — 전부 «옛 호스트 미소비분을 새 세대로 자동 이관»하기 위한 상태였다(§3.8).
 
 ### 3.2 deliver — 받는 호스트에 파일 하나 만들기
 받는 호스트의 `aifp-gate inbox deliver`(stdin = 메시지 JSON)가 **우편함 잠금(`mailbox.lock`, 기존 `_locked` 와 같은 파일) 안에서**:
-1. `fenced/<to 좌석>` 표식이 있으면 `FENCED` 반환(§11 소유권 이전 뒤 늦게 도착한 배달 차단).
-2. `inbound/`·`consumed/`·`exported/`·`exported-done/` 중 하나에 `<mid>.msg` 가 있으면 `DUP` 반환(성공 취급). 가드보다 먼저.
-3. 받는 좌석 앞 `inbound/` 미소비 건수가 `MAX_PER_TO`(10) 이상이면 `RING_FULL` — **버리지 않는다**.
-4. 그 호스트의 `.seq` 카운터에서 seq 를 받아 본문에 넣고 `inbound/.tmp/<mid>` 쓰기 → **`link(.tmp/<mid>, inbound/<mid>.msg)`**(대상이 있으면 실패 = DUP) → `.tmp` 삭제 → `QUEUED seq=<s>` → 잠금 해제 → 로컬 doorbell(non-fatal).
-- **중단 지점별 결과(프로세스 종료 범위 · §3.6)**: link 전 = 아무것도 안 보임 → 발신 쪽 재전송 → 정상. link 후 응답 전 = 재전송이 2에서 `DUP`. 카운터만 오른 중단 = seq 하나 빔(무해). `.tmp` 잔재는 다음 deliver 가 지운다. **파일 존재 자체가 mid 기록**이라 «행은 있는데 mid 기록은 없다» 상태가 없다.
-- **재전송 기한과 묘비 창**: 같은 호스트로의 재전송은 «그 호스트 앞 `outbound/` 에 들어간 시각 + 7일» 안에서만 일어난다. 그 호스트의 묘비(`consumed/`)는 소비 시각(= link 뒤) + 14일까지 있다. link 는 outbound 진입 뒤이므로 «재전송 마감 < 묘비 만료»가 같은 호스트 안에서 성립한다. 호스트가 바뀌는 재배달은 이 창에 기대지 않는다 — §11 의 재조정을 거친 것만 새 호스트로 간다.
+1. `inbound/`·`consumed/` 에 `<mid>.msg` 가 있으면 `DUP` 반환(성공 취급). 가드보다 먼저.
+2. 받는 좌석·세대(`to`+`to_gen`) 앞 `inbound/` 미소비 건수가 `MAX_PER_TO`(10) 이상이면 `RING_FULL` — **버리지 않는다**.
+3. 그 호스트의 `.seq` 카운터에서 seq 를 받아 본문에 넣고 `inbound/.tmp/<mid>` 쓰기 → **`link(.tmp/<mid>, inbound/<mid>.msg)`**(대상이 있으면 실패 = DUP) → `.tmp` 삭제 → `QUEUED seq=<s>` → 잠금 해제 → 로컬 doorbell(non-fatal).
+- **중단 지점별 결과(프로세스 종료 범위 · §3.6)**: link 전 = 아무것도 안 보임 → 재전송 → 정상. link 후 응답 전 = 재전송이 1에서 `DUP`. 카운터만 오른 중단 = seq 하나 빔(무해). `.tmp` 잔재는 다음 deliver 가 지운다. **파일 존재 자체가 mid 기록**.
+- **재전송 기한 < 묘비 수명 (같은 호스트 안에서만 필요하고, 같은 호스트 안에서만 성립)**: 허브는 한 메시지를 «처음 `outbound/<host>/` 에 들어간 그 호스트»로만 보낸다(다른 호스트로 옮기지 않는다 · §3.8). 재전송은 진입 + 7일 안에서만, 그 호스트의 `consumed/` 묘비는 소비(≥ link ≥ 진입) + 14일까지 → 마감이 언제나 먼저 온다. 7일이 지나도 확인을 못 받은 것은 `quarantine/`(사유 `delivery_unknown`)으로 옮기고 다시 보내지 않는다.
 
-### 3.3 recv — 언제나 로컬
-- 멀티 모드 recv 는 기존 `mailbox.jsonl` 경로(코드 그대로) **+** `inbound/` 경로를 합쳐 seq 내림차순(LIFO)으로 보인다. `inbound/` 경로는 **우편함 잠금 안에서** `to==me` 파일을 하나씩 `rename(inbound/<mid>.msg → consumed/<mid>.msg)` 하고, 성공한 것만 잠금 해제 뒤 출력한다. 같은 좌석을 두 recv 가 동시에 불러도 잠금과 rename 이 «한 쪽만 성공»을 보장한다.
-- **보장 범위(명시)**: 정상 배달·재전송·프로세스 종료에 대해 «한 메시지는 한 호스트에서 한 번만 소비된다». 호스트 간 소유권 이전(§11)은 재조정을 마친 메시지만 옮기므로 같은 범위에 든다. **결과를 모르는 것(`hold/`)은 자동으로 옮기지 않는다** — 사람이 «재배달»을 고르면 그 메시지는 중복 가능으로 표시된다. 터미널 표시의 exactly-once 는 약속하지 않는다(rename 뒤 출력 전 종료 시 `recv <me> --replay [<mid>|--since N분]` 으로 `consumed/` 에서 다시 본다, 14일). 이 범위는 지금 단일 호스트의 consume-on-read(L607→L608)와 같고 다시 보기만큼 더 강하다.
+### 3.3 recv — 언제나 로컬, 자기 세대 것만
+- 멀티 모드 recv 는 기존 `mailbox.jsonl` 경로(코드 그대로) **+** `inbound/` 경로를 합쳐 seq 내림차순(LIFO)으로 보인다. `inbound/` 경로는 **우편함 잠금 안에서** `to == me ∧ to_gen == $FT_SEAT_GEN` 인 파일만 하나씩 `rename(inbound/<mid>.msg → consumed/<mid>.msg)` 하고, 성공한 것만 잠금 해제 뒤 출력한다. 같은 좌석을 두 recv 가 동시에 불러도 잠금과 rename 이 «한 쪽만 성공».
+- **다른 세대 파일은 소비하지 않는다**: `to_gen` 이 자기 세대와 다르면 건너뛰고 끝에 `다른 세대 쪽지 N통 — ft-host why <host>` 한 줄만 붙인다. 같은 이름 좌석을 같은 호스트에 다시 만들어도(세대 +1) 옛 세대 앞으로 왔던 파일·늦게 도착한 옛 배달이 새 세대에 섞이지 않는다(r5 N2 의 ABA 를 표식 없이 막는다). `FT_SEAT_GEN` 이 없는 recv(사람이 손으로 부름)는 `inbound/` 를 소비하지 않고 목록만 보인다.
+- **보장 범위(명시)**: 정상 배달·재전송·프로세스 종료에 대해 «한 메시지는 한 호스트에서 한 좌석 세대가 한 번만 소비한다». **`quarantine/` 에 들어간 것은 이 보장 밖**이고, 사람이 «다시 보내기»를 고르면 **새 mid 의 새 메시지**(`resent_from=<옛 mid>` 표시)로 나간다 — 옛 것과 같은 메시지로 취급하지 않는다. 터미널 표시의 exactly-once 는 약속하지 않는다(rename 뒤 출력 전 종료 시 `recv <me> --replay [<mid>|--since N분]`, 14일). 이 범위는 지금 단일 호스트의 consume-on-read(L607→L608)와 같고 다시 보기만큼 더 강하다.
 - **로컬 경합 없음**: 허브 로컬 send 의 ring 축출(L485–490)과 `_consume`(L575–582)은 `mailbox.jsonl` 만 다룬다. 기존 로컬 recv 의 «조회 L592 / 삭제 L607 분리» 결함은 `mailbox.jsonl` 에만 있는 기존 결함 → 별도 카드(선행 의존 아님).
 - relay 전문: 호스트 간 메시지는 본문 전체가 파일 안. 표시는 700자에서 자르고 `consumed/<mid>.msg` 경로를 준다.
 
@@ -92,26 +92,38 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 | 발신 위치 → 수신 좌석 위치 | 경로 |
 |---|---|
 | 허브 → 허브 | 기존 `mailbox.jsonl`(불변) |
-| 원격 X → 어디든 | X 의 `spool/` → K1 `aifp-gate route`(허브) → 허브가 판정: 수신 좌석이 허브면 허브 `inbound/` 에 deliver(§3.2 규칙 그대로), 원격 Y 면 허브 `outbound/Y/<mid>.msg` 에 link |
-| 허브 → 원격 Y | 허브 `outbound/Y/<mid>.msg` 에 link |
-| 허브 `outbound/Y/` → Y | forwarder 가 K2 `aifp-gate inbox deliver` → `QUEUED`/`DUP` 면 `rename(outbound/Y/<mid> → routed-done/<mid>)` · `FENCED` 면 `hold/` |
-- **route 중복 판정(허브)**: 허브 우편함 잠금 안에서 `inbound/`·`consumed/`·`outbound/*/`·`routed-done/`·`hold/`·`recovered/` 에 `<mid>` 가 있으면 `DUP`. 스풀 재전송이 «이미 배달 끝난 메시지»를 다시 만들지 않는다(받는 좌석이 그 사이 호스트를 옮겨도). 원격 쪽은 `DUP`/`QUEUED` 를 받으면 `spool/<mid> → spool-done/<mid>`.
-- 원격 X 의 좌석끼리 보내는 쪽지도 허브를 거친다(«누구에게·지금 권한이 있나»는 허브 한 곳이 정한다).
-- 허브 다운 때: 원격 좌석은 이미 배달된 자기 `inbound/` 를 계속 읽는다. 발신은 `spool/` 에 쌓인다.
+| 원격 X → 어디든 | X 의 `spool/` → K1 `aifp-gate route`(허브) → 허브가 판정: 수신 좌석이 허브면 허브 `inbound/` 에 deliver(§3.2), 원격 Y 면 허브 `outbound/Y/<mid>.msg` 에 link(그 시점 `seats[to].gen` 을 `to_gen` 으로 고정) |
+| 허브 → 원격 Y | 허브 `outbound/Y/<mid>.msg` 에 link(같은 방식) |
+| 허브 `outbound/Y/` → Y | forwarder 가 K2 `aifp-gate inbox deliver` → `QUEUED`/`DUP` 면 `rename(outbound/Y/<mid> → routed-done/<mid>)`. 그 rename 이 실패하면(그 사이 §11 evict 가 `quarantine/` 로 옮김) `quarantine/<mid>` 에 `late_delivered` 표시를 덧붙인다 |
+- **route 중복 판정(허브)**: 허브 우편함 잠금 안에서 `inbound/`·`consumed/`·`outbound/*/`·`routed-done/`·`quarantine/`·`disposed/` 에 `<mid>` 가 있으면 `DUP`. 발신 스풀 재전송(커밋 + 7일 안)은 언제나 허브 묘비(route 이후 생성 + 14일) 안에 든다.
+- 원격 X 의 좌석끼리 보내는 쪽지도 허브를 거친다. 허브 다운 때 원격 좌석은 이미 배달된 자기 `inbound/` 를 계속 읽고, 발신은 `spool/` 에 쌓인다.
 
-### 3.5 순서 보장 범위 — «큐 커밋 순서»로 좁힌다 (벽시계 0)
-- **보장**: 같은 (발신 좌석 → 수신 좌석) 쌍에서, 수신 호스트의 seq 는 **발신 호스트에서 스풀에 커밋된 순서**(허브발이면 허브 `outbound/` 에 커밋된 순서)와 같은 순서로 증가한다. «생성 순서»나 시계 순서는 약속하지 않는다. 서로 다른 발신자 사이 순서는 보장하지 않는다. 표시는 지금과 같은 LIFO(seq 내림차순, L593).
-- **번호**: 발신 호스트는 `spool/` 커밋 때 그 호스트의 `spool.seq` 카운터(잠금 안 `os.replace`)로 `spool_seq` 를, 허브는 `outbound/<Y>/` 커밋 때 `out.seq` 카운터로 `out_seq` 를 붙인다. **정렬은 이 번호로만** 한다 — `ts_origin` 은 «(지연 N초)» 표시에만 쓴다(같은 시각·시계 역행이 순서에 영향 0).
-- **보내는 쪽은 하나뿐**: 원격 flusher 와 허브 forwarder(받는 호스트별)는 각각 `flush.lock`·`fwd-<Y>.lock` 를 **잠그지 못하면 바로 끝나는**(non-blocking) 방식으로 1개만 돈다. 즉시 전송·틱·재시작이 모두 같은 잠금을 거치므로 동시에 두 개가 같은 큐를 보내지 않는다. 잠금을 놓은 뒤 큐가 비지 않았으면 다시 잡고 이어간다(새로 들어온 것이 남겨지지 않게). 이 잠금들은 우편함·명부 잠금이 아니므로 네트워크 시간 동안 잡아도 §0 의 «잠금 안 네트워크 0» 대상이 아니다.
-- **멈춤 규칙**: 같은 수신 좌석 앞에서 첫 실패(`RING_FULL`·`BLOCKED`·불통)가 나면 그 좌석 앞 나머지는 멈춘다(다른 좌석은 계속). `STALE_GEN`/`HOST_REVOKED` 면 원격 `stale/`, `FENCED` 면 허브 `hold/`.
+### 3.5 순서 보장 범위 — «같은 세대 쌍 · 큐 커밋 순서» (벽시계 0)
+- **보장**: 같은 (발신 좌석·세대 → 수신 좌석·세대) 쌍에서, 수신 호스트의 seq 는 발신 스풀(허브발이면 허브 `outbound/`)의 **커밋 순서**와 같은 순서로 증가한다. 세대가 바뀌면(evict·재생성) 새 쌍이다. `quarantine/` 에 들어간 메시지는 배달되지 않았으므로 순서에 끼지 않고, 사람이 다시 보내면 그때 커밋된 새 메시지로 순서에 든다. 서로 다른 발신자 사이 순서·«생성 순서»·시계 순서는 약속하지 않는다. 표시는 지금과 같은 LIFO(L593).
+- **번호**: 발신 호스트 `spool.seq`·허브 `out.seq` 카운터(잠금 안 `os.replace`)로 `spool_seq`·`out_seq`. 정렬은 이 번호로만 — `ts_origin` 은 «(지연 N초)» 표시에만.
+- **보내는 쪽은 하나뿐**: 원격 flusher·허브 forwarder(받는 호스트별)는 `flush.lock`·`fwd-<Y>.lock` 을 non-blocking 으로 잡아 1개만 돈다. 즉시 전송·틱·재시작이 같은 잠금을 거친다. 놓은 뒤 큐가 비지 않았으면 다시 잡고 이어간다. 이 잠금들은 우편함·명부 잠금이 아니라 §0 «잠금 안 네트워크 0» 대상이 아니다.
+- **멈춤 규칙**: 같은 수신 좌석 앞에서 첫 실패(`RING_FULL`·`BLOCKED`·불통)가 나면 그 좌석 앞 나머지는 멈춘다(다른 좌석은 계속). `STALE_GEN`/`HOST_REVOKED` 면 원격 `stale/`.
 
-### 3.6 장애 범위 — «프로세스 종료까지»로 좁힌다
-- 이 설계의 원자성·중복 0 약속은 **프로세스 종료(크래시·kill·ssh 끊김)** 에 대한 것이다. 같은 파일시스템 안 `link`·`rename` 의 원자적 가시성(POSIX)에 기댄다.
-- **머신 장애(전원·커널 패닉) 뒤의 내구성은 약속하지 않는다**. 기존 `_next_seq` 도 `fsync` 없이 `os.replace` 만 한다(`ft-mbox.py` L274–286) — 이 성질을 그대로 이어받는다. `link` 전 파일 `fsync` 는 비용이 작아 넣지만 «보장»이 아니라 손실을 줄이는 장치다.
-- 대신 **머신 장애가 있었던 호스트는 «재조정 대상»** 으로 다룬다: 그 호스트가 재부팅되면(부팅 시각이 마지막 probe 와 다르면) 허브가 `UNKNOWN` 표시 → 그 호스트 앞 `outbound/` 전송을 멈추고 §11 의 재조정(`inbox status`)을 돌린 뒤에 재개한다. 재조정으로 못 가린 것은 `hold/`.
+### 3.6 장애 범위 — «프로세스 종료까지» (r5 에서 DA 수용)
+- 원자성·중복 0 약속은 **프로세스 종료(크래시·kill·ssh 끊김)** 에 대한 것이다. 같은 파일시스템 안 `link`·`rename` 의 원자적 가시성에 기댄다. **머신 장애(전원·커널 패닉) 뒤의 내구성은 약속하지 않는다**(기존 `_next_seq` 도 `fsync` 없음, `ft-mbox.py` L274–286).
+- 머신 장애가 있었던 호스트(probe 의 boot-id 가 바뀜)는: 허브가 그 호스트 앞 `outbound/` 중 **한 번이라도 전송을 시도한 것**을 `quarantine/`(사유 `reboot_unknown`)으로 옮기고, 시도 0 인 것만 계속 보낸다(시도 횟수는 전송 «전»에 outbound 파일에 기록).
 
 ### 3.7 doorbell
 - 배달이 끝난 호스트가 **자기 로컬에서** 울린다(deliver 의 마지막 단계). 허브가 원격 pane 에 send-keys 를 직접 보내지 않는다. `ring`(재발주, `ft-mbox.sh` L337–339, 큐·잠금 0)은 수신 좌석 호스트의 `aifp-gate inbox ring <seat> [seq]` 로 보낸다.
+
+### 3.8 왜 «자동 이관»을 뺐나 (r6 결정)
+- DA r5-1 의 N1(묘비 만료 뒤 부재를 «배달 안 됨»으로 오판)·N2(fence 해제 ABA)·N3(hold 복귀 뒤 순서)·N4(예약 전 export 결정)는 전부 «evict 된 호스트의 미소비분을 재조정·fence·export 로 새 세대에 자동으로 넘기는» 한 기능에서 나왔다.
+- evict 는 원래 사람 승인(HIL)이 필요한 드문 사건이다. 그 드문 사건 하나를 자동화하려고 fence 표식·묘비 수명 계약·export 2단계·recovered 결정·hold 복귀 순서가 생겼다.
+- r6: **evict 하면 그 호스트 앞 미처리 쪽지는 전부 `quarantine/`, 새 좌석은 빈 큐로 시작**. 처분(버림 / 새 메시지로 다시 보내기)은 사람(master 또는 오빠 · §14 D12). 없어지는 것과 남는 것:
+
+| 항목 | r5 | r6 |
+|---|---|---|
+| fence 표식·`inbox fence/status` | 필요 | **없음** (세대 필터 §3.3 가 대신) |
+| 재조정(«목록에 없음 = 배달 안 됨») | 필요 → N1 | **없음** |
+| export 2단계·`recovered/`·`exported*/`·ACK | 필요 → N1·N4 | **없음** (옛 호스트 미소비분은 잔재 목록에만 · §12) |
+| `hold/` 복귀 → 새 세대 배달 | 있음 → N3 | **없음** (`quarantine/` 는 배달하지 않음) |
+| 묘비 수명 계약 | 호스트 간 체인 | **같은 호스트 안**만(§3.2) |
+| 사람 비용 | evict 때 hold 만 처분 | evict 때 그 호스트 앞 미처리 전부 처분(드문 사건 · 대개 수 통) |
 
 ## 4. 명부와 라우팅 (④)
 
@@ -216,7 +228,7 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 | K2 | `attach` | 좌석 이름 1개(NAME_RE) · PTY | 〃 · `tmux attach-session -t =<seat>` 고정 |
 | K2 | `pane-capture` | 좌석 이름 + 줄 수(정수 ≤2000) | 〃 · `tmux capture-pane -p -t =<seat> -S -<n>` 고정 |
 | K2 | `rows` | 없음 | 〃 · 원격 `tmm rows --tsv` |
-| K2 | `inbox` | {deliver(stdin 메시지) · ring <seat> [seq] · count <seat> · **fence <seat>** · **status <mid…>** · **export <seat> <transfer_id>** · **export-ack <transfer_id> <mid…>**} | 〃 · deliver §3.2 · fence/status §11 · export/export-ack §12 |
+| K2 | `inbox` | {deliver(stdin 메시지) · ring <seat> [seq] · count <seat> · list <seat\|--spool>(읽기 전용 · 잔재 목록용)} | 〃 · deliver §3.2 · list §12 |
 | K2 | `git` | {clone, fetch, worktree-add <branch>, worktree-list, rev-parse <worktree>, status <worktree>, push <worktree> <branch>} — 경로는 원격 게이트가 자기 `root` 기준으로 정함 | 〃 |
 | K2 | `probe` | {--caps, --scan, --residue, --boot-id} (전부 읽기 전용) | 〃 |
 | K2 | `e2e` | (P6) 원격 설정 파일에 등록된 러너 진입점 1개 + 인자 | 〃 |
@@ -246,19 +258,15 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 | 원격 작업 유실 | 원격 나노는 중간 push 정례화(push 확인 못 하면 닫기 실패) | §5 |
 | OCI 추론 스택 다운 | `infer` caps 꺼짐 → OCI 좌석의 claude 래퍼가 직결로 fail-open · 새 OCI 좌석 배치 보류 | systemd 가 재기동 · 반복 실패면 [HIL] |
 
-**두 개의 선형화 지점을 따로 둔다**:
-- (가) **허브 enqueue 선형화** = `host-evict` 의 `seats.lock` EX 커밋. 그 전에 검사를 통과한 route 는 enqueue 까지 끝났고(SH 가 enqueue 끝까지 유지 · 잠금 구간 안 네트워크 0), 그 뒤의 route 는 `HOST_REVOKED`.
-- (나) **수신 소유권 이전 선형화** = 옛 수신 호스트의 `inbox fence <seat>` 커밋(그 호스트 우편함 잠금 안에서 `fenced/<seat>` 표식 생성). 그 뒤 그 좌석 앞 deliver 는 `FENCED`(§3.2-1)라 **늦게 도착한 배달도 옛 호스트에 새 파일을 만들 수 없다**. 허브는 (나)가 확인되기 전에는 그 좌석 앞 메시지를 새 호스트로 옮기지 않는다.
+**선형화 지점은 하나 — 허브 enqueue**: `host-evict` 의 `seats.lock` EX 커밋. 그 전에 검사를 통과한 route 는 enqueue 까지 끝났고(SH 가 enqueue 끝까지 유지 · 잠금 구간 안 네트워크 0), 그 뒤의 route 는 `HOST_REVOKED`. r5 의 «수신 소유권 이전 선형화(fence)»는 소유권을 옮기지 않으므로 필요 없다(§3.8).
 
-**evict → 재조정 → 새 세대** (허브 · 순서 고정):
-1. `host-evict <host>`(HIL): `seats.lock` EX 안에서 `hosts[host].state = revoked`, 그 호스트 좌석 전부 `status = evicted`. forwarder 는 매 전송 직전에 SH 로 상태를 다시 보므로 이 뒤로 `outbound/<host>/` 의 새 전송은 시작되지 않는다(이미 시작된 전송은 계속될 수 있다 — 그래서 2가 필요).
-2. **fence**(접속될 때): 그 호스트의 좌석마다 K2 `inbox fence <seat>` → 응답 = 그 좌석 앞 `inbound/`·`consumed/`·`exported/` mid 목록. fence 뒤라 이 목록은 더 늘지 않는다.
-3. **재조정**: 허브 `outbound/<host>/` 의 그 좌석 앞 메시지마다 2의 목록과 대조 — `consumed` 에 있음 = 이미 소비됨 → `routed-done/` 로(새 호스트로 안 감) · `inbound` 에 있음 = 그 호스트에 이미 있음 → §12 export 로 회수(옛 세대 recv 와 export 는 같은 파일 rename 이라 한 쪽만 성공) · `exported` 에 있음 = 회수 진행 중 → §12 규칙 · **목록에 없음** = 배달된 적 없음이 확정 → 새 세대 앞으로 옮김(`out_seq` 순서 유지, `to_gen` 갱신).
-4. **접속 안 됨**(fence 불가): 그 호스트 앞 `outbound/` 전부와 «그 호스트 `inbound/` 에 있을지 모르는 것»은 **`hold/` 로 옮기고 자동 재배달하지 않는다**(결과를 모름 = UNKNOWN). 호스트가 돌아오면 2·3 을 돌려 정리. 끝내 안 돌아오면 사람이 건별로 «포기» 또는 «중복 감수 재배달»을 고른다(HIL · 재배달분은 `dup_risk:1` 표시로 받는 쪽에 보인다).
-5. `seat-reserve <name> --host <new>`: `seats.lock` EX 안에서 `gen = 옛 gen + 1`, `status = reserved` → spawn 이 `--seat-env FT_SEAT_GEN=<gen>` 으로 열고 `live`. 같은 이름을 두 곳이 동시에 예약할 수 없다. 3 에서 옮긴 메시지는 새 세대가 `live` 가 된 뒤 전송된다.
-6. **옛 세대가 돌아오면**: K1 `route`·`ping` 이 `HOST_REVOKED`(rc 6) — 스풀은 원격 `stale/`. 옛 세대는 K2 키가 없어 새 호스트를 만질 수 없다. 옛 호스트 `inbound/` 에 남은 것은 옛 세대가 소비할 수도 있고 export 될 수도 있으나 **한 쪽만**이다.
-7. 옛 tmux 세션·프로세스는 «권한 없는 잔재» → §12 잔재 조사 → HIL. `ft-name-lint` 중복 검사는 보고용.
-8. 같은 호스트 재사용: `host-readmit <host>`(HIL) → `state = active` + 그 호스트 `fenced/` 표식은 좌석별로 새 세대가 그 호스트에 reserve 될 때만 지운다.
+**evict → 새 세대** (허브 · 순서 고정):
+1. `host-evict <host>`(HIL): `seats.lock` EX 안에서 `hosts[host].state = revoked`, 그 호스트 좌석 전부 `status = evicted`. 같은 EX 안에서(그 다음 우편함 잠금) 허브 `outbound/<host>/` 전부를 `quarantine/` 로 rename — 사유 `evicted`, 전송 시도가 있었던 것은 `delivery_unknown` 도 함께 표시. forwarder 는 매 전송 직전에 SH 로 상태를 다시 보므로 이 뒤로 그 호스트 앞 새 전송은 시작되지 않는다. 이미 시작된 전송이 뒤늦게 성공하면 §3.4 대로 그 quarantine 항목에 `late_delivered` 가 붙는다(어느 쪽이든 새 호스트로는 가지 않는다).
+2. `seat-reserve <name> --host <new>`: `seats.lock` EX 안에서 `gen = 옛 gen + 1`, `status = reserved` → spawn 이 `--seat-env FT_SEAT_GEN=<gen>` 으로 열고 `live`. **새 세대는 빈 큐로 시작**한다. 같은 이름을 두 곳이 동시에 예약할 수 없다. 같은 호스트에 다시 만들어도 recv 의 세대 필터(§3.3)가 옛 세대 파일을 소비하지 않는다.
+3. **quarantine 처분**(사람 · §14 D12): 건별 «버림» 또는 «다시 보내기». 다시 보내기 = 처분하는 사람이 **새 mid 의 새 메시지**로 현 세대에게 보냄(`resent_from=<옛 mid>`, `late_delivered`/`delivery_unknown` 이 붙은 것은 받는 쪽 표시에 «옛 기계에 이미 갔을 수 있음»). 처분하면 `quarantine/<mid> → disposed/<mid>`(14일 묘비 · route 중복 판정에 계속 쓰임).
+4. **옛 세대가 돌아오면**: K1 `route`·`ping` 이 `HOST_REVOKED`(rc 6) — 원격 스풀은 `stale/`. 옛 세대는 K2 키가 없어 다른 호스트를 만질 수 없다. 옛 호스트 `inbound/` 의 옛 세대 앞 파일은 옛 세대가 소비할 수도 있으나 그 호스트 안의 일이고 새 세대와 섞이지 않는다.
+5. 옛 tmux 세션·프로세스와 옛 호스트 `inbound/`·`spool/` 은 «권한 없는 잔재» → §12 잔재 목록 → HIL. `ft-name-lint` 중복 검사는 보고용.
+6. 같은 호스트 재사용: `host-readmit <host>`(HIL) → `state = active`. 옛 좌석은 `evicted` 그대로(새로 reserve).
 
 **의존 한 점 (Tailscale)**: 코디네이터 장애 시 기존 연결은 대체로 유지, 신규 연결·키 갱신은 막힘 **[가정 · 설치 후 장애 시험]**. 최소 저하 = 단일 호스트로 후퇴(§12). r4 에선 허브가 끊겨도 각 원격 좌석은 이미 배달된 자기 쪽지를 계속 읽는다. oci 공인 IP 우회는 K1·K2 의 `from=` 이 tailnet IP 라 별도 줄 필요 **[가정]**. 맥은 NAT 뒤라 불가.
 
@@ -268,16 +276,11 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 1. **보존**: `ft-host-retire.sh <host> --record` → `.fable-team/state/host-retire/<host>-<ts>.json` 에 hosts.json 항목 전체, 그 호스트 좌석(name·gen·status), 허브 `outbound/<host>/` 건수·mid, 접속되면 원격 쪽(tmux 세션·`.worktrees/*`·가지·systemd/launchd 유닛(추론 스택·hermes 포함)·스풀·`inbound/` 미소비 건수·`FT_HUB` 설정 위치·authorized_keys 의 aifp 줄). 불통이면 원격 칸 `UNKNOWN`.
 2. **신규 작업 차단**: `state = draining`.
 3. **옛 세대 권한 차단**: §11 `host-evict`(`state = revoked`).
-4. **미처리 메시지 인계/격리**: §11 의 fence·재조정(2·3·4)을 먼저 한다. 그다음 원격 `inbound/` 미소비분은 **export 두 단계**로 회수:
-   - ⓐ 허브가 `transfer_id` 를 만들어 기록(`.fable-team/state/host-retire/<host>-<ts>.json` 에 «요청함») → K2 `inbox export <seat> <transfer_id>`: 원격이 우편함 잠금 안에서 `inbound/<mid> → exported/<mid>`(파일에 transfer_id 기록) 후 **`exported/` 에 있는 그 좌석 것 전부**(이번 것 + 전에 확인 못 받은 것)를 돌려준다.
-   - ⓑ 허브는 받은 것마다 우편함 잠금 안에서 `recovered/<mid>.msg` 를 link(이미 있으면 DUP) 하고, 같은 파일에 **처리 결정**(`reroute:<새 host>` 또는 `quarantine`)을 적는다 — 새 세대가 reserve 돼 있으면 reroute, 아니면 quarantine.
-   - ⓒ 그 뒤 K2 `inbox export-ack <transfer_id> <mid…>` → 원격이 `exported/<mid> → exported-done/<mid>`. ack 응답이 끊기면 다음 export 가 같은 것을 또 돌려주고 ⓑ 에서 DUP → 다시 ack(멱등).
-   - 원격 `exported/`(허브 확인 전)는 **시간으로 지우지 않는다**(§3.1 표). 허브 `recovered/` 는 결정을 실행(새 세대 앞 outbound 진입 또는 quarantine 이동)한 뒤에만 `routed-done/` 으로 간다. 회수분의 재전송 기한은 «새 호스트 앞 outbound 진입 시각 + 7일»로 **새로 시작**한다.
-   - 원격 `spool/`(그 호스트발 미전송)은 같은 방식(`spool-export`)으로 받아 quarantine(발신 세대가 revoked 이므로 route 하지 않음). 불통이면 1의 기록에 `UNKNOWN` — 돌아오면 그 호스트발 요청은 거절되고, 회수는 그때.
+4. **미처리 메시지 격리**: §11-1 에서 허브 `outbound/<host>/` 는 이미 `quarantine/` 로 갔다. 원격 쪽(`inbound/` 미소비분·`spool/` 미전송분)은 **옮기지 않는다** — 접속되면 K2 `inbox list <seat>`·`inbox list --spool`(읽기 전용)로 목록·본문 요약만 1의 기록에 넣고, 필요한 것은 사람이 quarantine 처분과 같은 방식(새 메시지로 다시 보내기)으로 처리. 불통이면 1의 기록에 `UNKNOWN`.
 5. **잔재 조사**: `aifp-gate probe --residue`(읽기 전용). 삭제(유닛 중지·auth 파일 삭제 포함)는 목록을 오빠께 보이고 기존 HIL(`/tmp/h<N>`).
 6. **라우팅 제거**: `state = retired`(줄은 남김). 줄 삭제는 5가 끝난 뒤에만.
 
-**완료 선언 조건**: 기록 파일 존재 ∧ `state == retired` ∧ 보고 4가지 — quarantine 건수 · `hold/` 건수(결과 모름) · **원격 `exported/` 에 남은 미확인 건수(0 이 아니면 그 목록)** · 잔재 목록(또는 `UNKNOWN` 사유). 불통 호스트는 «retired(UNKNOWN)» 으로 선언하고 hold·미확인 목록을 함께 남긴다.
+**완료 선언 조건**: 기록 파일 존재 ∧ `state == retired` ∧ 보고 3가지 — `quarantine/` 미처분 건수(사유별) · 원격 미소비/미전송 목록(또는 `UNKNOWN`) · 잔재 목록. 불통 호스트는 «retired(UNKNOWN)» 으로 선언하고 목록을 함께 남긴다.
 **전체 철수**: 모든 원격에 1~6 → `hosts.json` 삭제 + 허브 `FT_HUB` 미설정 → 단일 모드. 허브 `inbound/` 는 단일 모드 recv 가 읽지 않으므로(멀티 모드에서만 합침) 철수 완료 조건에 «허브 `inbound/` 미소비 0» 을 넣는다.
 
 ## 13. 단계와 닫는 증거 (⑫)
@@ -287,9 +290,9 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 | 단계 | 내용 | 사람 손 | 닫는 명령 (1줄) | 실패 기준 |
 |---|---|---|---|---|
 | **P0 읽기 전용** | `ft-host-probe.sh`(신규, 허브에서 실행): 각 호스트에 지금 있는 ssh 로 읽기 명령만 — 공통: `uname -m; tmux -V; git --version; bash --version; free/vm_stat; command -v node python3`. **darwin 추가 5항목**: ①Chrome `test -d "/Applications/Google Chrome.app"` + 버전 ②CDP `lsof -nP -iTCP:9222 -sTCP:LISTEN`(없으면 `CDP_IDLE`=정상 · 있으면 pid·cwd) ③BlackHole `system_profiler SPAudioDataType` 장치 이름·채널 + `/Library/Audio/Plug-Ins/HAL` 드라이버 ④`command -v SwitchAudioSource` + `SwitchAudioSource -a -t input`·`-t output`(읽기만 · `-s` 전환 0) ⑤마이크: TCC 읽기 거부가 정상 → `MIC_UNVERIFIED`(실패 아님). **linux(oci) 추가**: 8790·8317 리스너 유무 · hermes(8644) 프로세스의 실행 파일·인자·cwd·설치 방식·버전(환경변수 0). 호스트별 1행 TSV | 없음 | `bash feature-pack/fable-team/skill/scripts/ft-host-probe.sh --all --expect 'book=OK oci=OK mini=PENDING_NOAUTH' --expect-caps 'book=chrome:OK,blackhole:OK,sas:OK,mic:MIC_UNVERIFIED' --out docs/multihost/probe-p0.tsv; echo "rc=$?"` | rc≠0 (0 = 기대와 전부 일치 · 3 = 하나라도 다름 · 4 = hosts.json 없음/형식 오류). 필수 = book·oci. mini 는 P1② 전까지 `PENDING_NOAUTH` 가 정답(OK·UNREACHABLE 둘 다 실패)이고 caps 검사 생략. oci 의 hermes 기록 칸이 비면 실패 |
-| P1 망·접속 | ① OCI 에만 Tailscale(§10.4 단계 ①②③) ② mini 에 이 맥 공개키 1줄 ③ K1·K2 생성·등록, 원격에 `aifp-gate` 설치 ④ ACL·키 만료 | **오빠: ①승인 ②mini 에서 `! bash /tmp/h<N>` ③설치 h ④ACL 콘솔** | `bash feature-pack/fable-team/skill/scripts/ft-host-probe.sh --all --via tailnet --keys --expect 'book=OK oci=OK mini=OK' --out docs/multihost/probe-p1.tsv; echo "rc=$?"` | rc≠0. `--keys` 7항목(키×동사×결과) 전부 기대와 같음: **K1** ①`ping` 에 여러 줄·따옴표·`$'…'` JSON → 바이트 동일 왕복 ②`aifp-gate tmuxc` → **동사 거절**(stdout `REJECT verb=tmuxc`, rc 2) ③`ssh -tt … aifp-gate ping` → **PTY 거절**(stderr `PTY allocation request failed`) **이면서** 왕복은 성공(동사 거절 아님) · **K2** ④`ping` 바이트 동일 왕복 ⑤`ssh -tt … aifp-gate pty-check` → `/dev/pts/*` 또는 `/dev/ttys*` ⑥`aifp-gate shell` 같은 표 밖 동사 → 동사 거절 ⑦`ssh -N -L 9999:127.0.0.1:22` → 포워딩 거절(stderr `administratively prohibited`). 그리고 `tailscale status --json` 에 세 노드 online |
+| P1 망·접속 | ① OCI 에만 Tailscale(§10.4 단계 ①②③) ② mini 에 이 맥 공개키 1줄 ③ K1·K2 생성·등록, 원격에 `aifp-gate` 설치 ④ ACL·키 만료 | **오빠: ①승인 ②mini 에서 `! bash /tmp/h<N>` ③설치 h ④ACL 콘솔** | `bash feature-pack/fable-team/skill/scripts/ft-host-probe.sh --all --via tailnet --keys --expect 'book=OK oci=OK mini=OK' --out docs/multihost/probe-p1.tsv; echo "rc=$?"` | rc≠0. `--keys` 7항목(키×동사×결과) 전부 기대와 같음: **K1** ①`ping` 에 여러 줄·따옴표·`$'…'` JSON → 바이트 동일 왕복 ②`aifp-gate tmuxc` → **동사 거절**(stdout `REJECT verb=tmuxc`, rc 2) ③`ssh -tt … aifp-gate ping` → **PTY 거절**(stderr `PTY allocation request failed`) **이면서** 왕복은 성공(동사 거절 아님) · **K2** ④`ping` 바이트 동일 왕복 ⑤`ssh -tt … aifp-gate pty-check` → `/dev/pts/*` 또는 `/dev/ttys*` ⑥`aifp-gate shell` 같은 표 밖 동사 → 동사 거절 ⑦포워딩 거절 — `timeout 7` 안에서: 빈 로컬 포트 P 를 고른 뒤 `ssh -N -o ExitOnForwardFailure=no -L 127.0.0.1:P:127.0.0.1:22 aifp-<h>-op` 를 이 시험이 백그라운드로 띄우고, 1초 뒤 **로컬 P 로 실제 TCP 연결 1회**(python `socket.create_connection`, 3초 상한)를 만들어 원격 direct-tcpip 요청을 일으킨다 → 그 ssh 의 stderr 에 `open failed: administratively prohibited` 가 찍히고 연결은 즉시 닫힘(데이터 0)이면 통과 → 이 시험이 띄운 ssh 프로세스만 종료. 그리고 `tailscale status --json` 에 세 노드 online |
 | P2 tmuxc 디스패치 | `main()` 앞단 `--host`/`TMUXC_HOST` 분기 + `open --seat-env` (§7) | 없음 | `bash feature-pack/tmuxc/test/host-dispatch-golden.sh; echo "rc=$?"` | rc≠0. ①단일 모드: 가짜 tmux/pgrep/ps(기존 `test_tmuxc_opencode_model.sh` 방식)로 대표 명령(open·send·kill·list·capture·attach·save/restore)을 분기 «전»·«후» 커밋에서 실행해 호출 순서·argv·종료코드·stdout/stderr·스냅샷 경로/`latest.json` 5가지 동일 ②`--host` 모드: ssh 를 가짜로 바꿔 stdin JSON argv 가 원래 argv 와 같고(여러 줄 본문 포함) rc 가 전달되며 ssh 255 → rc 7 |
-| P3 우편함 멀티 모드 | `inbound/`·`outbound/`·`hold/`·`recovered/`·deliver·route·forwarder·fence·status·export(2단계)·recv 합침·`--replay`·`seats.lock`·스풀 | **오빠: oci 에 ft-mbox·게이트 설치 h** | `bash feature-pack/fable-team/test/mbox-multihost-fault.sh --n 200 --transport shim,ssh:oci --out docs/multihost/p3-mbox.tsv; echo "rc=$?"` | rc≠0. **격리 우편함**(임시 `FT_MBOX_DIR` · 제품 우편함·제품 Redis 쓰기 0). **장애 범위 = 프로세스 종료**(§3.6 · 전원 차단 시험 없음). 정상 왕복 N=200 + 장애 15종 — 배달: F1 deliver 의 link 직전·직후·응답 전 프로세스 종료 → 재전송 후 파일 1개 · F2 같은 mid 3회 재전송 → 1개 · F3 같은 좌석 recv 2개 동시 → 각 mid 한 쪽만 · F4 rename 뒤 출력 전 종료 → `--replay` 복원 · F5 로컬 ring 포화가 `inbound/` 불변 · F6 `RING_FULL` → 버림 0·그 좌석만 정지 · 순서: F7 같은 쌍 A·B·C 를 **같은 ts_origin**·**시계 역행(B 의 ts < A)**·**동시 발신 2프로세스**·**forwarder 실행 중 강제 종료 후 재시작** 4변형으로 → 수신 seq 순 = 스풀/outbound 커밋 번호 순, 표시 = 역순 · 세대: F8 route 가 SH 를 잡은 채 evict → evict 는 그 enqueue 뒤 커밋 · F9 evict 뒤 옛 gen route·ping·flush → 전부 거절 · 소유권 이전(H1): F11 **deliver 성공 + 응답 유실 + 옛 세대가 소비 + evict** → 재조정이 `consumed` 를 보고 새 호스트로 안 보냄(새 호스트 소비 0 · DA 반례 `one_mid_consumed_hosts=2` 가 1) · F12 같은 순서에서 옛 세대 미소비 → export 로 회수 → 새 세대 1회 소비 · F13 fence 뒤 늦게 도착한 deliver → `FENCED` → `hold/` · F14 옛 호스트 불통 중 evict → 그 호스트 앞 전부 `hold/`, 새 호스트 배달 0 · 회수(H2): F15 export 응답 유실 → 재export 가 같은 것 반환 → 허브 `recovered/` DUP → ack → `exported-done/` · F16 ack 응답 유실 → 재ack 멱등 · F17 시간 청소기를 14일 앞당겨 돌려도 `exported/`·`hold/`·`outbound/`·`spool/`·`recovered/` 파일 수 불변 · F18 route 재전송이 수신 좌석 이관 뒤 와도 `routed-done/` 로 DUP · 그리고 단일 모드(hosts.json 없음) send/recv/peek 출력 바이트 동일 |
+| P3 우편함 멀티 모드 | `inbound/`·`outbound/`·`quarantine/`·deliver·route·forwarder·recv 합침(세대 필터)·`--replay`·`seats.lock`·스풀 | **오빠: oci 에 ft-mbox·게이트 설치 h** | `bash feature-pack/fable-team/test/mbox-multihost-fault.sh --n 200 --transport shim,ssh:oci --out docs/multihost/p3-mbox.tsv; echo "rc=$?"` | rc≠0. **격리 우편함**(임시 `FT_MBOX_DIR` · 제품 우편함·제품 Redis 쓰기 0). **장애 범위 = 프로세스 종료**(§3.6 · 전원 차단 시험 없음). 정상 왕복 N=200 + 장애 16종 — 배달: F1 deliver 의 link 직전·직후·응답 전 프로세스 종료 → 재전송 후 파일 1개 · F2 같은 mid 3회 재전송 → 1개 · F3 같은 좌석 recv 2개 동시 → 각 mid 한 쪽만 · F4 rename 뒤 출력 전 종료 → `--replay` 복원 · F5 로컬 ring 포화가 `inbound/` 불변 · F6 `RING_FULL` → 버림 0·그 좌석만 정지 · F7 7일 넘게 확인 못 받은 outbound → `quarantine/`(delivery_unknown)·재전송 0 · 순서: F8 같은 쌍 A·B·C 를 같은 ts_origin·시계 역행·동시 발신 2프로세스·forwarder 강제 종료 후 재시작 4변형으로 → 수신 seq 순 = 커밋 번호 순, 표시 = 역순 · 세대: F9 route 가 SH 를 잡은 채 evict → evict 는 그 enqueue 뒤 커밋 · F10 evict 뒤 옛 gen route·ping·flush → 전부 거절 · evict(r6): F11 evict 시 그 호스트 앞 outbound(시도 0 / 시도 ≥1) → 전부 `quarantine/`(사유 표시) · 새 세대 큐 0 · 새 호스트 배달 0 · F12 evict 직전 시작한 deliver 가 뒤늦게 성공 → quarantine 항목에 `late_delivered` · 새 호스트 배달 0 · F13 같은 호스트에 같은 이름 새 세대 → 옛 세대 앞 파일·늦게 온 옛 배달을 새 세대 recv 가 소비 0, `다른 세대 쪽지 N통` 표시 · F14 evict 뒤 발신 스풀 재전송 → `quarantine/`·`disposed/` 로 DUP · F15 «다시 보내기» → 새 mid·`resent_from` 표시로 새 세대가 1회 소비, 옛 mid 는 `disposed/` · F16 boot-id 변경 → 시도 ≥1 outbound 만 `quarantine/`(reboot_unknown), 시도 0 은 계속 · 청소: F17 시간 청소기를 14일 앞당겨 돌려도 `spool/`·`outbound/`·`quarantine/` 파일 수 불변 · 그리고 단일 모드(hosts.json 없음) send/recv/peek 출력 바이트 동일 |
 | P4 tmm HOST 열 | `tmm rows --tsv`, K2 `rows`·`pane-capture`, 합치기·UNREACHABLE·dead 오판 방지 | 없음 (P3 설치에 포함) | `bash feature-pack/tmm/test/host-col.sh --out docs/multihost/p4-tmm.tsv; echo "rc=$?"` | rc≠0. ①호스트 1개: 행 출력이 기존 골든(`feature-pack/tmm/test/golden`)과 `cmp` 동일 ②호스트 2개 중 하나를 응답 없는 스텁으로 두고 첫 화면까지 **7초 이내**(재시도 0) · 그 호스트는 `UNREACHABLE` 행 · dead 뷰에 그 호스트 좌석 0 |
 | **P5a OCI 추론 스택 + hermes** (§8.1) | headroom(8790)·cliproxy(8317) systemd user unit · 127.0.0.1 바인드 · 버전 고정 · hermes 를 유닛으로 옮기고 업데이트 h | **오빠: D10(auth 귀속) · D11(hermes 재기동) · 설치 h** | `bash feature-pack/fable-team/test/oci-infer-health.sh --host oci --out docs/multihost/p5a-infer.tsv; echo "rc=$?"` | rc≠0. ①`systemctl --user is-active` 세 유닛 전부 `active` ∧ `loginctl show-user` linger=yes ②8790·8317·8644 health 각 7초 이내 응답 ③8790·8317 이 `127.0.0.1` 에만 바인드(tailnet·공인 IP 리스너 0) ④작은 요청 1회가 cliproxy 경유로 성공(본문·키 출력 0) ⑤OCI 전역 셸 설정에 `ANTHROPIC_BASE_URL` 0 ⑥hermes 업데이트 h 를 «같은 버전 재설치»로 1회 돌려 재기동 뒤 8644 health 복귀 |
 | **P5b 원격 나노·Linux** | `ft-nano-spawn/close --host`(reserve→K2 git/tmuxc→live), §8 수정, systemd tick, 원격 tmuxc·tmm·CLI 설치(P5a 뒤) | **오빠: OCI 설치 h · D6** | `bash feature-pack/fable-team/test/nano-remote-roundtrip.sh --host oci --out docs/multihost/p5b-nano.tsv; echo "rc=$?"` | rc≠0. 착수 조건 P5a rc=0. 원격 나노 1개 spawn(`FT_SEAT_GEN` 확인 · claude 가 OCI 로컬 headroom 경유 — `ps eww` 또는 `/proc/<pid>/environ` 로 확인) → K2 `attach` 로 PTY 접속 확인 → 빈 커밋 push → close. 허브 `git ls-remote` sha = 원격 HEAD · close 뒤 `probe --residue oci` 의 그 좌석 tmux 세션 0 · 원격 스냅샷이 원격 `~/.tmuxc/snapshots` 에 생기고 허브 `SNAP_DIR` 변화 0 · 맥 §8 불변 스냅샷 동일 |
@@ -311,21 +314,26 @@ r5 변경(DA r4-1 — 구조 유지, «소유권 이전·회수 경계 완성»)
 | D9 | 마이크 권한 확인 방식 (두 맥) | ①맥은 마이크 권한 목록을 프로그램이 못 읽게 막아 둡니다. ②그래서 정식 시험 전에 «마이크 확인용 녹음»을 한 번 돌려 소리가 들어오면 확인된 것으로 칩니다. ③추천: 이 방식(오빠 손 0) — 두 번 연속 소리가 안 들어올 때만 오빠께 각 맥 설정 화면 확인을 부탁드립니다. |
 | D10 | OCI 추론 스택의 구독 인증 파일 | ①OCI 에 헤드룸·cliproxy 를 두려면 구독 로그인 파일을 OCI 에도 놓아야 해서, 비밀이 놓이는 기계가 하나 늘어납니다. ②이 맥과 같은 계정을 쓰면 사용 한도를 나눠 써서 한쪽이 많이 쓰면 둘 다 막힐 수 있습니다. ③어느 계정을 OCI 에 둘지(같은 계정/별도 계정) 골라 주세요 — 추천: 별도 계정, 파일은 op develop 볼트에서만 내려받기. |
 | D11 | OCI hermes 를 관리 서비스로 옮기기 | ①OCI 의 hermes 는 지금 «그냥 켜 둔 프로그램»이라 업데이트·재시작 방법이 없습니다. ②관리 서비스로 옮기려면 한 번 껐다가 다시 켜야 해서 잠깐 끊깁니다. ③옮겨도 될까요? 추천: 예(끊김은 몇 초, 옮긴 뒤엔 업데이트 한 줄로 가능). |
+| D12 | 기계를 내보낼 때 남은 쪽지 처리 | ①기계 하나를 내보내면(드문 일, 오빠 승인) 그 기계 앞으로 가던 쪽지는 자동으로 옮기지 않고 «보관함»에 모읍니다. ②새로 연 좌석은 빈 우편함으로 시작하고, 보관함 쪽지는 «버림» 또는 «새로 다시 보내기»로 처리합니다. ③처리를 누가 할지 골라 주세요 — 추천: 팀 master 가 처리하고 «옛 기계에 이미 갔을 수 있음» 표시가 붙은 것만 오빠께 묻기. |
 
-## 15. r5 — DA r4-1 대조표 (H1~H6)
+## 15. r6 — DA r5-1 대조표 (N1~N4 + 소수정 2)
 
-r5 줄 지도: §3.1 표 L61–75 · §3.2 deliver(fence·DUP) L76 · §3.3 보장 범위 L85 · §3.4 route 중복 판정 L91 · §3.5 순서 L102 · §3.6 장애 범위 L108 · §10.2 거절 2종 L202 · §10.3 동사표 L208 · §11 선형화 2개 L249 · evict→재조정 L253 · §12-4 export 2단계 L271 · 완료 조건 L280 · P1 L290 · P3 L292 · P6 L296 · D9 L311.
+r6 줄 지도: §3.1 상태 표 L62 · §3.2 deliver·같은 호스트 기한 L76 · §3.3 세대 필터·보장 범위 L84 · §3.4 route 중복·late_delivered L91 · §3.5 순서(같은 세대 쌍) L101 · §3.6 장애 범위 L107 · §3.8 자동 이관 제거 근거·표 L114 · §10.3 inbox 행 L231 · §11 선형화 L261 · evict 절차 L263 · §12-4 L279 · 완료 조건 L283 · P1 L293 · P3 L295 · D12 L317.
 
-| 지적 (r4-1) | r4 의 빈칸 | r5 해소 · 위치 | 좁힌 보장 범위 | 시험 |
-|---|---|---|---|---|
-| H1 배달 응답 유실 + failover 시 같은 mid 이중 소비 (`one_mid_consumed_hosts=2`) | 허브에 남은 `outbound/` 를 같은 mid 로 새 호스트에 옮김 · 새 호스트에 옛 묘비 없음 | 선형화 2개 분리(허브 enqueue = evict EX / 수신 이전 = 옛 호스트 `inbox fence`) · deliver 가 `fenced/` 를 먼저 봄 · 재조정 = fence 응답 목록과 대조해 «없음 확정»만 새 호스트로 · 불통이면 `hold/`(자동 재배달 0) · 허브 route 중복 판정에 `routed-done/`·`hold/`·`recovered/` 포함 (§3.2-1 · §3.4 · §11 «두 개의 선형화 지점» · evict 1–4) | 결과를 모르는 메시지는 «한 번 소비» 보장 밖 — 사람이 재배달을 고르면 `dup_risk:1` 표시 (§3.3) | P3 F11·F12·F13·F14·F18 |
-| H2 export 내구 수령 확인·재전송·묘비 청소 경계 | inbound→exported rename 뒤 응답 유실 시 완료 기준 없음 · exported 를 14일 청소 | export 2단계(ⓐ transfer_id 요청 → 원격 `exported/` · ⓑ 허브 `recovered/` link + 처리 결정 기록 · ⓒ `export-ack` → `exported-done/`) · 재export 가 미확인분을 다시 돌려줌 · «상대 확인 전 상태»는 시간 청소 0 · 회수분 재전송 기한은 새 outbound 진입부터 새로 시작 · 완료 선언에 미확인 목록 (§3.1 표 · §12-4 · 완료 조건) | 청소는 `-done/` 묘비와 `consumed/` 만 | P3 F15·F16·F17 |
-| H3 rename 머신 장애 내구성 · `_next_seq` fsync 없음 | 보장 범위 미정 | **장애 범위를 프로세스 종료까지로 좁힘** · 머신 장애 내구성 비약속(기존 `_next_seq` L274–286 성질 승계) · 재부팅 감지(`probe --boot-id`) 시 그 호스트 전송 멈춤 → fence·재조정 → 못 가린 것 `hold/` (§3.6) | 프로세스 종료 | P3 전 항목(전원 차단 시험 없음 명시) |
-| H4 같은 쌍 순서가 `ts_origin` 벽시계 의존 | 정렬 키 = 시계 | 정렬 키 = 커밋 번호(`spool_seq`·`out_seq`, 잠금 안 카운터) · `ts_origin` 은 표시 전용 · flusher/forwarder 는 non-blocking 잠금으로 큐당 1개 · 잠금 해제 뒤 큐 재확인 · 보장 문장을 «생성 순서» → «큐 커밋 순서»로 좁힘 (§3.5) | 같은 쌍 · 큐 커밋 순서 · 다른 발신자 간 순서 비보장 | P3 F7 4변형(같은 시각·시계 역행·동시 발신·forwarder 재시작) |
-| H5 K1/K2 ping 모순 · PTY 거절 vs REJECT 구분 · pty-check 인자 | K2 표에 ping 없음 · K1 pty-check 를 동사로 시험 · 세 번째 토큰 불일치 | K2 표에 `ping`·`pty-check` 추가 · `pty-check` 는 인자 0(세 번째 토큰은 `attach` 만) · 거절 2종 정의(동사 거절 = `REJECT verb=` rc 2 / PTY 거절 = sshd stderr `PTY allocation request failed` + 명령은 실행) · P1 `--keys` 7항목을 키×동사×결과로 (§10.2 · §10.3 · P1) | — | P1 `--keys` ①~⑦ |
-| H6 `MIC_UNVERIFIED` 에서 첫 녹음 진입 경로 없음 | 착수 조건이 MIC_OK/사람 확인만 허용 | 착수 조건에 `MIC_UNVERIFIED` 허용 → **① 마이크 확정 회차**(trusted 클릭 기존 러너 1회 → 소리 있으면 `MIC_OK` 기록) → **② 정식 판정** · 2회 실패 시에만 D9 사람 확인 (P6 · D9) | 확정 회차 결과는 정식 판정에 안 씀 | P6 ①② |
-| Q1·Q6 (PASS) | — | 변경 없음 | — | P2 · §11 마지막 문단 |
+**결정**: «evict 때 미처리분 자동 이관»을 **뺐다**(§3.8). 근거 — ①N1~N4 가 전부 그 한 기능에서 나왔다 ②evict 는 이미 사람 승인이 필요한 드문 사건이다 ③자동 이관의 이득(새 좌석이 옛 쪽지를 바로 받음)은 «사람이 보관함에서 다시 보내기»로 대신할 수 있고, 그 비용은 evict 1회당 그 호스트 앞 미처리 수 통이다(D12). 유지한 전제: 장애 범위 = 프로세스 종료 · 결과 모름 = 사람 처분(DA r5-1 수용).
 
-이전 판정 대조(요약): r2-1 의 6건은 r3 에서, r3-1 의 H1~H6 은 r4 구조(수신 호스트 소유·tmuxc 명령 단위·stdin JSON·seats.lock)로 해소됐고 r4-1 은 그 구조를 유지한 채 위 경계를 요구했다. 오빠 추가 요구: #2998(두 맥 브라우저·BlackHole·마이크) → §1·§9·P0·P6·D9 / #3009(OCI headroom·cliproxy 먼저·hermes) → §8.1·P5a·D10·D11.
+| 지적 (r5-1) | 원인 기능 | r6 해소 · 위치 | 시험 |
+|---|---|---|---|
+| N1 묘비 만료 뒤 «목록에 없음 = 배달 안 됨» 오판 · 늦은 재export 재처리 (`consumed_hosts=2`·`late_reexport_consumptions=2`) | 재조정·export | 재조정·export 자체를 없앰. 메시지는 «처음 들어간 호스트»로만 가고 다른 호스트로 옮기지 않음 → 묘비는 같은 호스트 안 재전송(진입+7일)만 덮으면 되고 그 부등식은 §3.2 에서 성립 · 7일 넘게 미확인이면 `quarantine/`(delivery_unknown) · 허브 route 중복 판정은 `quarantine/`·`disposed/` 포함(§3.4) | P3 F7·F11·F14·F17 |
+| N2 fence 해제 ABA · 옛 fence 재시도가 새 세대 차단 (`fence_clear_ABA: consumed_hosts=2`) | fence 표식 | fence 를 없앰. 대신 **recv 세대 필터**: `to_gen == $FT_SEAT_GEN` 인 파일만 소비, 다른 세대는 «다른 세대 쪽지 N통» 표시만(§3.3) · `to_gen` 은 route 시점 명부 값으로 고정(§3.4) — 지울 표식이 없으니 ABA 가 없다 | P3 F12·F13 |
+| N3 hold 복귀 뒤 같은 쌍 순서 B→A (`hold_reconcile_order=B,A`) | hold→새 세대 배달 | `quarantine/` 는 배달하지 않음 · 다시 보내기는 새 mid 의 새 메시지 · 순서 보장을 «같은 세대 쌍 · 커밋 순서»로 명시(§3.5) — A 는 배달되지 않았으므로 순서 위반이 아님 | P3 F8·F15 |
+| N4 예약 전 export 결정이 quarantine 으로 고정 (`normal_export_before_reserve_decision=quarantine`) | export→reroute | export·reroute 없음 · evict 절차는 «quarantine 이동 → 새 세대 빈 큐 reserve → 사람 처분» 순서이고 처분 결정은 reserve 뒤 사람이 내림(§11 1–3) | P3 F11·F15 |
+| 소수정 spool-export 허용 표 누락 | — | 원격 스풀 회수 자체를 없애고 읽기 전용 `inbox list --spool` 로 바꿈 · 표(§10.3 inbox 행)와 §12-4 가 같은 동사를 씀 | P1 동사 표 시험 |
+| 소수정 P1 포워딩 시험이 실제 요청을 안 만듦 | — | 로컬 리스너로 **실제 TCP 연결 1회**를 만들어 원격 direct-tcpip 거절(`administratively prohibited`)을 확인 · `timeout 7` 안 · 시험이 띄운 ssh 만 종료(P1 ⑦) | P1 ⑦ |
+| Q1·Q6 (PASS) | — | 변경 없음 | P2 · §11 마지막 문단 |
+
+**사람 쪽 비용(D12 후보 근거)**: evict 는 «호스트 불통 15분 이상 + 사람 승인»일 때만 일어난다. 한 번 일어나면 그 호스트 앞 미처리 쪽지(받는 좌석당 최대 `MAX_PER_TO`=10 · 대개 수 통)가 보관함에 모인다. 운영 계층(`DESIGN-multihost-ops-ux-20261021.md`)의 `quarantine_backlog` 알림과 tmm `^B` → `h` 로 건별 처분한다.
+
+이전 판정 대조(요약): r2-1 6건 → r3 · r3-1 H1~H6 → r4 구조(수신 호스트 소유·tmuxc 명령 단위·stdin JSON·seats.lock) · r4-1 H1~H6 → r5(장애 범위·커밋 번호 순서·동사표·PTY 거절 구분·마이크 확정 회차 — r6 에서도 유지) · r5-1 N1~N4 → r6(자동 이관 제거). 오빠 추가 요구: #2998 → §1·§9·P0·P6·D9 / #3009 → §8.1·P5a·D10·D11.
 
 남은 [가정] (설치 후 확인): Tailscale 코디네이터 장애 시 기존 연결 유지 · 서버 노드 키 만료 비활성 · Linux `lsof -c`·`ps eww` · `restrict,pty,command=` 의 Ubuntu 22.04(OpenSSH 8.9) 동작 — P1 `--keys` 가 실측 · 같은 파일시스템 안 `link`·`rename` 의 APFS/ext4 원자적 가시성 — P3 F1 이 실측(머신 장애 내구성은 범위 밖) · headroom/cliproxy linux/arm64 빌드 존재 — P5a 착수 전 확인.
