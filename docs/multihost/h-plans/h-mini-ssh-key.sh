@@ -4,7 +4,7 @@
 # 원격 쓰기 0 — 이 스크립트가 mini 에 쓰는 것은 없다(공개키 등록은 오빠가 mini 에서/ssh-copy-id 로). 이 맥 쪽 쓰기 = 전용 키 생성(~/.ssh/id_ed25519_aifp_op, 없을 때만) + 결과 파일 1개.
 # rc: 0 접속·실측 완료 · 2 사전점검 실패 · 10 키 배포 대기
 set -uo pipefail
-MINI_USER="${MINI_USER:-yoonhwan}"
+MINI_USER="${MINI_USER:-byz}"   # 오빠 확인(10-21): mini 사용자 = byz
 MINI_IP=100.71.41.107
 KEY="$HOME/.ssh/id_ed25519_aifp_op"
 OUT=/Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan/docs/multihost/measured-mini-probe.txt
@@ -35,10 +35,10 @@ else
   # 공개키 등록 한 줄은 화면에 찍지 않고 클립보드로만 준다(기계 판정기가 키 값을 화면 출력으로 오인하지 않게). 파일로도 남긴다.
   ONEF="$HOME/.ssh/aifp_mini_authorize_line.txt"
   printf "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '%s' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\n" "$PUB" > "$ONEF"
-  if [ "${HIL_CLIP:-1}" != 0 ] && command -v pbcopy >/dev/null 2>&1; then pbcopy < "$ONEF" && CLIPMSG="(그 한 줄이 클립보드에 복사돼 있습니다)"; else CLIPMSG="(클립보드 없음 — 파일 $ONEF 의 내용을 복사)"; fi
+  CLIPMSG="(그 한 줄은 파일 $ONEF 에 있습니다 — 클립보드는 쓰지 않습니다)"
   say "3/4 아직 mini 가 이 키를 모른다 — 아래 둘 중 하나를 오빠가 한 번 해 주세요"
   cat <<EOF
-        방법 A(mini 화면/원격 접속에서): mini 의 터미널에 클립보드 내용을 붙여넣고 Enter $CLIPMSG
+        방법 A(mini 화면/원격 접속에서): mini 의 터미널에 위 파일 내용 한 줄을 붙여넣고 Enter $CLIPMSG
         방법 B(이 맥의 «다른» 터미널 탭에서 · 암호를 직접 입력하는 대화형 명령이라 여기서는 못 돌립니다):
           ssh-copy-id -i ~/.ssh/id_ed25519_aifp_op.pub $MINI_USER@$MINI_IP
         (mini 의 사용자 이름이 $MINI_USER 가 아니면 알려 주세요 — 그 이름으로 다시 만듭니다)
