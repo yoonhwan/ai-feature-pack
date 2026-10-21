@@ -1,4 +1,4 @@
-# r633 고친 판 — 가지 nano/r633-resource-freeze-to-idle-close-list- (커밋 전 작업본)
+# r633 고친 판 — rebase 뒤 가지 nano/r633-resource-freeze-to-idle-close-list- (origin/main 1c580b42 위)
 PASS bash -n ft-resource-watch.sh
 PASS 키트 사본 cmp 0 ft-resource-watch.sh
 PASS bash -n ft-resource-gate.sh

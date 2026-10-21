@@ -52,3 +52,13 @@ FAIL core.bare 이상
 
 [exited with code 0]
 → 가지와 같은 r502 ⓓ 3줄(core.bare 1줄은 git archive 사본이라 git 밖) · 이 카드 무관
+
+# 4차 — rebase 뒤 새 base origin/main 1c580b42 위 (master 반송 129352 · 번호 1.1.175 = 129438)
+new-base r633 rc=1 FAIL=26
+branch r633 rc=0 PASS=51
+branch test_resource_gate rc=0 FAIL=0
+branch test_resource_gate_pressure rc=0 FAIL=0
+branch test_resource_watch rc=0 FAIL=0
+
+[exited with code 0]
+→ 인접 셋 가지 rc=0 · 빨강 0 이라 새 base 대조 대상 없음
