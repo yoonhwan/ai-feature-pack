@@ -12,4 +12,8 @@
 #
 # 쓰는 법: ft-redis-read.sh [-h H] [-p P] [-n N] <묶음 파일>
 # rc: 0 통과 · 2 REJECT(호출 0) · 3 서버 오류 줄 · 4 읽기 전용 계정 없음
-exec /usr/bin/python3 -I "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/ft_redis_read.py" "$@"
+#
+# 래퍼는 외부 명령 0(dirname·cd 0) · PATH 고정 · 본체는 이 파일 옆 ft_redis_read.py 를 /usr/bin/python3 -I 절대경로로만 (r5).
+PATH=/usr/bin:/bin
+d="${BASH_SOURCE[0]%/*}"; [ "$d" = "${BASH_SOURCE[0]}" ] && d=.
+exec /usr/bin/python3 -I "$d/ft_redis_read.py" "$@"

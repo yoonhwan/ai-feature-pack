@@ -24,7 +24,7 @@ CLI_CANDIDATES = ("/opt/homebrew/bin/redis-cli", "/usr/local/bin/redis-cli")
 MAX_BYTES = 1024 * 1024
 MAX_LINES = 10000
 HOST = re.compile(r"^[A-Za-z0-9_.:-]+$")
-ERR_LINE = re.compile(r"^(\(error\)|NOPERM|ERR |WRONGTYPE|NOAUTH|WRONGPASS)")
+ERR_ANY = re.compile(r"\(error\)|NOPERM|NOAUTH|WRONGPASS|WRONGTYPE|failed: ERR")   # 줄 어디든 + 줄 시작 «ERR »
 AUTH_FAIL = re.compile(r"WRONGPASS|NOAUTH|AUTH failed")
 NO_ACCOUNT = ("읽기 전용 계정 없음(redis 재기동 뒤?) · "
               "준비 h `ft-redis-readonly-user.sh ensure` 실행 필요")
@@ -59,7 +59,7 @@ def acl_rule(hook=HOOK):
     one, two = read_verbs(hook)
     allow = sorted("+" + v.lower() for v in one)
     allow += sorted("+%s|%s" % (a.lower(), b.lower()) for a, b in two)
-    return ["reset", "on", "~*", "-@all"] + allow + ["+select"]
+    return ["reset", "on", "~*", "-@all"] + allow + ["+select", "+acl|whoami"]
 
 
 def parse_args(argv):
@@ -145,6 +145,22 @@ def read_pass(passfile):
     return pw
 
 
+def run_cli(args, data, env):
+    """redis-cli 1회 · 출력에 인증 실패 줄 = rc4 · 오류 줄 = rc3(redis-cli 는 오류에도 rc0)."""
+    try:
+        p = subprocess.run(args, input=data, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as e:
+        raise Reject(2, "redis-cli 실행 실패: %s" % type(e).__name__)
+    lines = (p.stdout + b"\n" + p.stderr).decode("utf-8", "replace").splitlines()
+    if any(AUTH_FAIL.search(x) for x in lines):
+        raise Reject(4, NO_ACCOUNT)
+    err = next((x for x in lines if ERR_ANY.search(x) or x.startswith("ERR ")), None)
+    if err is not None:
+        sys.stdout.buffer.write(p.stdout)
+        raise Reject(3, "서버 오류 줄: %s" % err.strip()[:200])
+    return p.stdout, p.stderr, p.returncode
+
+
 def main(argv, hook=HOOK, log=LOG, passfile=PASSFILE, cli_candidates=CLI_CANDIDATES):
     try:
         opts, path = parse_args(argv)
@@ -160,22 +176,18 @@ def main(argv, hook=HOOK, log=LOG, passfile=PASSFILE, cli_candidates=CLI_CANDIDA
                 f.write("%s path=%s lines=%d sha256=%s\n" % (time.strftime("%Y-%m-%dT%H:%M:%S"), path, n, sha))
         except OSError as e:
             raise Reject(2, "원장 기록 실패(실행 0): %s" % type(e).__name__)
+        args = [cli, "--user", USER, "--no-raw"] + opts
         env = {"PATH": "/usr/bin:/bin", "HOME": HOME, "LANG": "C", "REDISCLI_AUTH": pw}
+        # 확인 호출 1회: 같은 고정 인자로 ACL WHOAMI — 인증이 실패해도 redis-cli 는 기본 사용자로 이어 가므로(r4 HOLD)
+        # 접속 이름이 정확히 ft-readonly 이고 오류 줄(SELECT 실패 포함) 0 일 때만 묶음으로 간다.
+        out, _, _ = run_cli(args, b"ACL WHOAMI\n", env)
+        if out.strip() != b'"%s"' % USER.encode():
+            raise Reject(4, NO_ACCOUNT + " (확인 호출 접속 이름: %s)" % out.decode("utf-8", "replace").strip()[:40])
         sys.stderr.write("OK ft-redis-read — %s lines=%d sha256=%s\n" % (path, n, sha))
-        try:
-            p = subprocess.run([cli, "--user", USER, "--no-raw"] + opts, input=data,
-                               env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except OSError as e:
-            raise Reject(2, "redis-cli 실행 실패: %s" % type(e).__name__)
-        sys.stdout.buffer.write(p.stdout)
-        sys.stderr.buffer.write(p.stderr)
-        out = (p.stdout + b"\n" + p.stderr).decode("utf-8", "replace").splitlines()
-        if any(AUTH_FAIL.search(x) for x in out):
-            raise Reject(4, NO_ACCOUNT)
-        err = next((x for x in out if ERR_LINE.match(x.strip())), None)
-        if err is not None:
-            raise Reject(3, "서버 오류 줄: %s" % err.strip()[:200])
-        return p.returncode
+        out, errout, rc = run_cli(args, data, env)
+        sys.stdout.buffer.write(out)
+        sys.stderr.buffer.write(errout)
+        return rc
     except Reject as r:
         sys.stderr.write("REJECT ft-redis-read — %s\n" % r.msg)
         return r.rc

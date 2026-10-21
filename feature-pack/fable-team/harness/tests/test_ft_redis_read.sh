@@ -24,9 +24,23 @@ mkfake() {  # <경로> [먼저 할 셸 줄]
 ${2:-}
 printf '%s\n' "\$*" > "$ARGS"
 env > "$ENVF"
-cat > "$CAP"
-case "\$(cat "$T/mode" 2>/dev/null)" in
+in="\$(cat; echo .)"; in="\${in%.}"
+mode="\$(cat "$T/mode" 2>/dev/null)"
+if [ "\$in" = "ACL WHOAMI"$'\n' ]; then          # 확인 호출(r5) — 묶음이 아님
+  echo probe >> "$T/calls"
+  case "\$mode" in
+    wrongpass) echo "AUTH failed: WRONGPASS invalid username-password pair or user is disabled." >&2; echo '"default"' ;;
+    whoami-default) echo '"default"' ;;
+    selectfail) echo "SELECT 999 failed: ERR DB index is out of range" >&2; echo '"ft-readonly"' ;;
+    *) echo '"ft-readonly"' ;;
+  esac
+  exit 0
+fi
+echo batch >> "$T/calls"
+printf '%s' "\$in" > "$CAP"
+case "\$mode" in
   noperm) echo "(error) NOPERM User ft-readonly has no permissions to run the 'set' command" ;;
+  errline) echo "ERR unknown command 'X'" ;;
   wrongpass) echo "AUTH failed: WRONGPASS invalid username-password pair or user is disabled." >&2
              echo "(error) NOAUTH Authentication required." ;;
   *) echo "(integer) 3" ;;
@@ -42,8 +56,8 @@ import ft_redis_read as m
 hook, log, pw, cli = sys.argv[1:5]
 sys.exit(m.main(sys.argv[5:], hook=hook, log=log, passfile=pw, cli_candidates=tuple(c for c in cli.split(",") if c)))
 EOS
-run()  { rm -f "$CAP" "$ARGS" "$ENVF"; /usr/bin/python3 "$T/drv.py" "$KHOOK" "$LOG" "$PW" "$FAKE" "$@" >"$T/out.txt" 2>"$T/err.txt"; echo $? > "$T/rc"; }
-runw() { rm -f "$CAP" "$ARGS" "$ENVF"; /usr/bin/python3 "$T/drv.py" "$@" >"$T/out.txt" 2>"$T/err.txt"; echo $? > "$T/rc"; }
+run()  { rm -f "$CAP" "$ARGS" "$ENVF" "$T/calls"; /usr/bin/python3 "$T/drv.py" "$KHOOK" "$LOG" "$PW" "$FAKE" "$@" >"$T/out.txt" 2>"$T/err.txt"; echo $? > "$T/rc"; }
+runw() { rm -f "$CAP" "$ARGS" "$ENVF" "$T/calls"; /usr/bin/python3 "$T/drv.py" "$@" >"$T/out.txt" 2>"$T/err.txt"; echo $? > "$T/rc"; }
 rc()   { cat "$T/rc"; }
 sha()  { /usr/bin/python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
 nocall='[ ! -f "$CAP" ]'
@@ -101,6 +115,14 @@ chk r4-noperm '[ "$(rc)" = 3 ] && grep -q "서버 오류 줄: (error) NOPERM" "$
 echo wrongpass > "$T/mode"; run -p 6379 "$GRP"
 chk r4-wrongpass '[ "$(rc)" = 4 ] && grep -q "읽기 전용 계정 없음(redis 재기동 뒤?)" "$T/err.txt" && grep -q "ft-redis-readonly-user.sh ensure" "$T/err.txt"' "WRONGPASS → rc4 + 준비 h 안내" nb
 chk r4-wrongpass-once '[ "$(cat "$ARGS")" = "--user ft-readonly --no-raw -p 6379" ]' "재시도·기본 사용자 접속 0(인자 1회분 = ft-readonly)" nb
+batch0='! grep -q batch "$T/calls" 2>/dev/null'
+chk r5-probe-wrongpass '[ "$(cat "$T/calls")" = probe ]' "ⓐ 확인 호출 WRONGPASS(기본 사용자로 이어 감) → 묶음 호출 0(가짜 호출 = probe 1회뿐)" nb
+echo whoami-default > "$T/mode"; run -p 6379 "$GRP"
+chk r5-probe-default '[ "$(rc)" = 4 ] && '"$batch0"' && grep -q "접속 이름: \"default\"" "$T/err.txt"' "확인 호출 이름 = default(오류 줄 없음) → rc4 · 묶음 0" nb
+echo selectfail > "$T/mode"; run -n 999 "$GRP"
+chk r5-select-fail '[ "$(rc)" = 3 ] && '"$batch0"' && grep -q "SELECT 999 failed: ERR" "$T/err.txt"' "ⓒ SELECT 999 failed: ERR → rc3 · 묶음 0" nb
+echo errline > "$T/mode"; run -p 6379 "$GRP"
+chk r5-err-start '[ "$(rc)" = 3 ] && grep -q "서버 오류 줄: ERR unknown" "$T/err.txt"' "줄 시작 ERR (괄호 없음) → rc3" nb
 : > "$T/mode"
 runw "$KHOOK" "$LOG" "$T/no-pass" "$FAKE" -p 6379 "$GRP"
 chk r4-nopass '[ "$(rc)" = 4 ] && '"$nocall"' && grep -q "준비 h" "$T/err.txt"' "비번 파일 없음 → rc4 · 호출 0" nb
@@ -125,12 +147,24 @@ FT_REDIS_READ_HOOK="$T/evil-hook.sh" FT_REDIS_CLI="$FAKE" FT_REDIS_READ_LOG="$T/
   bash "$TOOL" -p 1 "$WR" >/dev/null 2>"$T/err.txt"; e=$?
 chk r4-env-ignored '[ "$e" = 2 ] && '"$nocall"' && [ ! -e "$T/env-log" ] && grep -q HSET "$T/err.txt"' "FT_REDIS_* 환경변수 = 효과 0(가짜 목록·실행 파일·원장 무시)" nb
 chk r4-env-static '! grep -nE "environ|getenv" "$MOD"' "본체에 환경변수 읽기 0" nb
+# ⓑ 래퍼: PATH 없는 셸 + 가짜 dirname·python3 가 PATH 앞 → 본체 교체 0(진짜 본체가 HSET 을 거절) · 상대 경로 호출도 같은 본체
+FX="$T/fx"; mkdir -p "$FX"
+for b in dirname python3 cd pwd; do printf '#!/bin/sh\ntouch %s/hit-%s\nexit 0\n' "$T" "$b" > "$FX/$b"; chmod +x "$FX/$b"; done
+env -i /bin/bash -c "PATH='$FX' /bin/bash '$TOOL' -p 1 '$WR'" >/dev/null 2>"$T/err.txt"; e=$?
+chk r5-wrapper-path '[ "$e" = 2 ] && grep -q "읽기 목록 밖 동사: HSET" "$T/err.txt" && ! ls "$T"/hit-* >/dev/null 2>&1' "ⓑ env -i · 가짜 dirname/python3 PATH 앞 → 진짜 본체(rc2 HSET) · 가짜 호출 0" nb
+(cd "$KIT" && env -i /bin/bash -c "PATH='$FX' /bin/bash ft-redis-read.sh -p 1 '$WR'") >/dev/null 2>"$T/err.txt"; e=$?
+chk r5-wrapper-rel '[ "$e" = 2 ] && grep -q "읽기 목록 밖 동사: HSET" "$T/err.txt" && ! ls "$T"/hit-* >/dev/null 2>&1' "상대 경로 호출(ft-redis-read.sh) → 같은 본체" nb
+wrapper_ok() {
+  local code; code="$(grep -vE '^[[:space:]]*#' "$TOOL")"
+  ! grep -qE 'dirname|\$\(|`' <<<"$code" && grep -q '^PATH=/usr/bin:/bin$' <<<"$code" && grep -q '^exec /usr/bin/python3 -I ' <<<"$code"
+}
+chk r5-wrapper-static wrapper_ok "래퍼 외부 명령·명령 치환 0 · PATH 고정 · python3 절대경로만" nb
 
 # ── ACL 규칙 = -@all + 훅 읽기 목록과 같은 명령만 ─────────────────────────────────
 rule="$(/usr/bin/python3 -I "$MOD" --acl-rule "$KHOOK")"
 has() { tr ' ' '\n' <<<"$rule" | grep -qxF -- "$1"; }
-chk r4-acl-rule '[ "${rule%% +*}" = "reset on ~* -@all" ] && has +hstrlen && has "+memory|usage" && has "+object|encoding" && has +select' "규칙 = reset on ~* -@all + … +hstrlen · +memory|usage · +object|encoding · +select" np
-chk r4-acl-narrow 'n="$(tr " " "\n" <<<"$rule" | grep -c "^+")"; [ "$n" = 36 ] && ! grep -qE "\+@|\+set( |$)|\+eval|\+touch|\+object( |$)|\+memory( |$)" <<<"$rule"' "허용 = 목록 35 + select · @범주·SET·EVAL·TOUCH·OBJECT/MEMORY 통째 0" nb
+chk r4-acl-rule '[ "${rule%% +*}" = "reset on ~* -@all" ] && has +hstrlen && has "+memory|usage" && has "+object|encoding" && has +select && has "+acl|whoami"' "규칙 = reset on ~* -@all + … +hstrlen · +memory|usage · +object|encoding · +select · +acl|whoami" np
+chk r4-acl-narrow 'n="$(tr " " "\n" <<<"$rule" | grep -c "^+")"; [ "$n" = 37 ] && ! grep -qE "\+@|\+set( |$)|\+eval|\+touch|\+object( |$)|\+memory( |$)|\+acl( |$)" <<<"$rule"' "허용 = 목록 35 + select + acl|whoami · @범주·SET·EVAL·TOUCH·OBJECT/MEMORY/ACL 통째 0" nb
 
 # ── 준비 h 스크립트(가짜 docker·op) ─────────────────────────────────────────────
 FB="$T/fb"; mkdir -p "$FB"; DLOG="$T/docker.log"; OLOG="$T/op.log"
@@ -170,6 +204,10 @@ echo "User ft-readonly has no permissions" > "$T/dry-read"; urun check
 chk r4-check-fail '[ "$(rc)" = 2 ]' "check: 읽기가 거절되면 rc2" nb
 rm -f "$T/dry-read"; urun revert
 chk r4-revert '[ "$(rc)" = 0 ] && grep -q "STDIN ACL DELUSER ft-readonly" "$DLOG" && [ ! -e "$UP" ]' "revert = ACL DELUSER + 비번 파일 삭제" np
+# ⓕ xtrace 로 돌려도 비번 글자 0 (물려받은 SHELLOPTS=xtrace · bash -x 둘 다)
+env SHELLOPTS=xtrace PATH="$FB:$PATH" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok bash "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/x1.txt" 2>&1; e1=$?
+PATH="$FB:$PATH" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok bash -x "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/x2.txt" 2>&1; e2=$?
+chk r5-xtrace '[ "$e1" = 0 ] && [ "$e2" = 0 ] && ! grep -q Abcdefgh "$T/x1.txt" "$T/x2.txt" && grep -q "^+ set +o xtrace" "$T/x1.txt" && grep -q "^+ set +o xtrace" "$T/x2.txt"' "ⓕ SHELLOPTS=xtrace · bash -x 실행 로그에 비번 0(xtrace 가 켜진 채 시작함을 확인)" nb
 
 # ── 훅 변경 0 · 쌍둥이 · 기존 inject 시험 · 원장 1줄 ─────────────────────────────
 if git -C "$ROOT/../.." rev-parse --verify -q origin/main >/dev/null 2>&1; then

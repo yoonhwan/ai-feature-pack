@@ -1,14 +1,13 @@
-# r623 r4 — 변이 시험: 본체 ft_redis_read.py 한 곳씩 망가뜨려 새 시험이 잡는지(잡힘 = rc1 · 하네스 폴더 통째 사본에서)
-MUTANT child-env-inherit rc=1 잡은 칸: [r4-env-child] [r4-env-auth] [r4-inject] 
-MUTANT auth-fail-ignored rc=1 잡은 칸: [r4-wrongpass] [r4-inject] 
-MUTANT error-line-ignored rc=1 잡은 칸: [r4-noperm] [r4-inject] 
-MUTANT ctrl-chars-allowed rc=1 잡은 칸: [r4-ctrl-CR] [r4-ctrl-NAK] [r4-ctrl-TAB] [r4-ctrl-NUL] [r4-inject] 
-MUTANT log-fail-warn-only rc=1 잡은 칸: [r4-log-ro] [r4-inject] 
-MUTANT default-user rc=1 잡은 칸: [r4-789-args] [r4-wrongpass-once] [r4-inject] 
-MUTANT acl-at-read rc=1 잡은 칸: [r4-acl-rule] [r4-acl-narrow] [r4-inject] 
-MUTANT pass-missing-ok rc=1 잡은 칸: [r4-nopass] [r4-inject] 
-MUTANT cli-any-count rc=1 잡은 칸: [r4-cli2] [r4-inject] 
-MUTANT verb-check-off rc=1 잡은 칸: [r4-hset] [r4-del] [r4-env-ignored] [r4-inject] 
-CONTROL(원본) rc=1 FAIL [r4-inject] 기존 inject 시험 PASS (SUMMARY block=0 pass=0 mutant=0 fail=177) :: 
-SUMMARY block=37 pass=14 fail=1
-# 주: 사본에서는 [r4-inject](기존 inject 시험)·[r4-hook-unchanged](git 없음 SKIP) 가 원본 대조군에서도 실패/생략 = 사본 위치 탓(변이와 무관) · 각 변이는 자기 칸으로 잡힘 · 원본 워크트리 결과 = 02-after-pass.txt
+# r623 r5 — 변이 시험: 한 곳씩 망가뜨려 새 시험이 잡는지(잡힘 = rc1 · 하네스 통째 사본 · 사본에선 [r4-inject] 가 원본 대조군에서도 실패 = 사본 위치 탓)
+MUTANT probe-removed rc=1 잡은 칸: [r5-probe-wrongpass] [r5-probe-default] [r5-select-fail] 
+MUTANT probe-name-unchecked rc=1 잡은 칸: [r5-probe-default] 
+MUTANT auth-line-ignored rc=1 잡은 칸: [r4-wrongpass] 
+MUTANT err-anywhere-off rc=1 잡은 칸: [r5-select-fail] [r5-err-start] 
+MUTANT err-start-off rc=1 잡은 칸: [r5-err-start] 
+MUTANT acl-no-whoami rc=1 잡은 칸: [r4-acl-rule] [r4-acl-narrow] 
+MUTANT child-env-inherit rc=1 잡은 칸: [r4-env-child] [r4-env-auth] 
+MUTANT wrapper-dirname rc=1 잡은 칸: [r5-wrapper-static] 
+MUTANT wrapper-path-free rc=1 잡은 칸: [r5-wrapper-static] 
+MUTANT wrapper-python-path rc=1 잡은 칸: [r5-wrapper-static] 
+MUTANT prep-xtrace-kept rc=1 잡은 칸: [r5-xtrace] 
+CONTROL(원본) rc=1 실패 칸: [r4-inject] 

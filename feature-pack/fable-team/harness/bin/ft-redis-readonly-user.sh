@@ -10,6 +10,7 @@
 #   rule   : 규칙 낱말만 출력(비밀번호 0)
 # 운영 redis 0 · 컨테이너 설정 변경 0 → redis 재기동 때 계정이 사라지면 ensure 를 다시 돌린다(planner 결정 129140).
 # 쓰는 법: ft-redis-readonly-user.sh <ensure|check|revert|rule> [--container 이름] [--pass-file 경로] [--hook 경로]
+set +o xtrace +o verbose; unset BASH_ENV ENV   # 비번 노출 0(r5): 물려받은 xtrace(SHELLOPTS)를 끄고 자식에도 안 물림 · 비번은 docker exec 표준입력만
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PY=/usr/bin/python3
