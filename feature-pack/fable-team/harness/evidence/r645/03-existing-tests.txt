@@ -1,0 +1,26 @@
+# r645 03-existing-tests — 인접 시험만(광역 0) · rebase 뒤(fd24ae4d) 재실행 2026-10-21
+=== test_scratch_repo.sh
+ALL PASS
+=== test_scratch_sweep_live_cwd_r548.sh
+PASS ⓖ 기존 test_scratch_repo.sh = ALL PASS
+ALL PASS
+=== test_kit_bin_sync.sh
+ALL PASS
+=== test_finished_cleanup_auto.sh
+FAIL ⓒ swept [] 2026-10-21 ERROR tmux unreadable — 삭제 0 (tmux=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oIRDdWC2Lw/bin/tmux)
+PASS ⓚ update-ref 실패 → 폴더 제거 0 · 있던 보관 ref 덮기 0 · 로그 SKIP update-ref-failed
+(1 failed)
+=== test_disk_alarm.sh
+ALL PASS
+=== test_baseline_lint.sh
+ALL PASS
+=== python3 tests/scripts/test_scratch_repo_census.py
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+rc=0
+=== python3 tests/test_team_lib_sparse.py
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+rc=0
+
+# test_finished_cleanup_auto.sh ⓒ «tmux unreadable» 1 FAIL 은 base(origin/main fd24ae4d) 판에서도 같은 줄·같은 문구 — 이 카드 무관(가짜 tmux 환경)
