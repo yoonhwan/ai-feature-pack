@@ -1,9 +1,9 @@
-# r660 lint — 새 판 vs base(fd24ae4d)
+# r660 lint — 새 판 vs base(5d1555bc)
 
 ## ruff check (새·고친 py)
 All checks passed!
 
-## ruff comm/mbox_ops.py — 새 판 vs base 동수(기존 스타일 = 무변경)
+## ruff comm/mbox_ops.py — 새 판 vs base
 새 판: 41 errors · base: 41 errors
 
 ## bash -n (고친 sh)
@@ -20,5 +20,5 @@ ok tests/test_successor_open.sh
      170 kit/fable-team/bin/ft_desk_route_gate.py
      788 total
 
-## mbox_guard.sh = base 무변경(git diff 줄수 0)
+## mbox_guard.sh = base 무변경(git diff 줄수)
 diff 줄 수: 0

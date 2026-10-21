@@ -1,4 +1,4 @@
-# r660 인접 시험(광역 0 · rebase fd24ae4d 위) — 고친 판
+# r660 인접 시험(광역 0 · rebase 5d1555bc 위) — 고친 판
 
 == test_mbox_guard.sh rc=0 PASS=130 FAIL=0
 == test_mbox_guard_live_bin.sh rc=0 PASS=1 FAIL=0
@@ -14,3 +14,4 @@
 == test_da_hold_gate.sh rc=1 PASS=91 FAIL=7
 == test_kit_bin_sync.sh rc=0 PASS=7 FAIL=0
 == test_all_stop_r626.sh rc=0 PASS=108 FAIL=0
+== test_scratch_judged_r645.sh rc=0 PASS=10 FAIL=0

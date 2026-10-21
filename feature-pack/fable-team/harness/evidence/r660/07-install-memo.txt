@@ -1,4 +1,4 @@
-# r660 설치 메모 (master 집행 · 나노는 설치하지 않는다) — DA⑥ r1 고침 반영 · rebase fd24ae4d · manifest 1.1.185
+# r660 설치 메모 (master 집행 · 나노는 설치하지 않는다) — DA⑥ r1 고침 반영 · rebase 5d1555bc · manifest 1.1.185
 
 1) LIVE_BIN(키트 bin → 설치 폴더) 새 판
    - ft_desk_route_gate.py   (새 파일 · 판정기 · DA⑥ r1 고침)
