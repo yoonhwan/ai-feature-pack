@@ -6,6 +6,7 @@
 #         FORBID kind=<키> = 거절 원장 denied.tsv 1행 · 레벨 full 이면 학습표(learned-kinds.tsv)의 종류는 분류기가 docs 로 통과(`learned=<키>`)
 #   scope-stop S<n> "<사유>"            좌석 허용 — 누구나 멈춘다 · 다시 켜기 = 오빠의 새 approve-scope 뿐
 #   scope-status                       읽기 — `[범위 승인 S3 · A7 · ~03:10까지 · 4/20 · 오늘 2/10 · docs,ff,revert]`
+#   r658: 슬랙에 나가는 «켜짐 알림» 글 = 사람 말 3줄(켜짐/혼자 해도 되는 것/언제까지) · 내부 번호(S·A·max·daily·classes·level·epoch) 0 — 기계 줄(GR_LINE·grants.audit·log)은 그대로
 #   scope-status --audit               읽기 — log grant 줄 ↔ grants.audit(슬랙 ts 포함) 대조 + 승인 파일 수 ≥ scope-use 수 · 어긋나면 `AUDIT-MISMATCH …` rc 3
 # ★한계(판정 2078 ⓐ)★ 같은 uid 의 직접 쓰기(log 에 grant 줄 덧붙이기·scope-use 줄 지우기)는 막지 못한다 — approve-scope 의 슬랙 1줄 + --audit 대조로 «들킨다».
 #   r560: 같은 범위 원장에 이미 센 승인 A 가 새 sha 의 EQUIV(판정기 rc0)면 원장 줄 종류 `equiv` · used·today 증가 0 · 출력 `equiv=<A>`(재승인은 범위 한도 비차감 — 하루 한도 15 중 9 소진 사건)
@@ -46,11 +47,39 @@ scope_validate() {  # <max> <daily|""> <classes> <codemax|""> <repos> → SV_MX 
   SV_MX="$mx"; SV_DL="$dl"; SV_CL="$cl"; SV_CM="$cm"; SV_REPOS="$5"
 }
 
-scope_grant_post() {  # <A> <부여 epoch> <until> <max> <daily> <classes> <codemax> <repos> <level|""> — 잠금 안 · 슬랙 게시 «먼저»(실패 = rc 1 · 쓰기 0) → GR_N GR_LINE GR_TS
-  local n tail=""; n="$(grep -c '^approve-scope ' "$LOG" 2>/dev/null)"; GR_N="S$(( ${n:-0} + 1 ))"
+# 사람 말 대응표(1곳) — classes 종류 → 오빠가 읽는 말. 표에 없는 종류는 게시 «전» 거절(r658)
+scope_class_plain() {  # <종류> → 사람 말 · 표에 없으면 rc 1
+  case "$1" in
+    docs) echo "문서 병합" ;;
+    ff) echo "빨리 감기 병합" ;;
+    revert) echo "되돌림" ;;
+    code) echo "코드 병합" ;;
+    *) return 1 ;;
+  esac
+}
+
+scope_slack_body() {  # <until> <max> <daily> <classes> <codemax> <level|""> <endless|""> → 슬랙 글 3줄(켜짐 · 혼자 해도 되는 것 · 언제까지) · 내부 번호 0
+  local u="$1" mx="$2" dl="$3" cl="$4" cm="${5:-0}" lv="$6" endl="$7" c w kinds="" sep="" rest="" l1 l3
+  for c in ${cl//,/ }; do
+    [ "$c" = code ] && continue
+    w="$(scope_class_plain "$c")" || { echo "SCOPE-REJECT 모르는 종류: $c — 쉬운 말 대응표에 없음(게시 0)" >&2; return 1; }
+    kinds="$kinds$sep$w"; sep=" · "
+  done
+  case "$lv" in mid) l1="자율 켜짐(중간)" ;; each) l1="자율 켜짐(건마다 확인)" ;; *) l1="자율 켜짐(풀자동)" ;; esac   # each = 켜기 경로가 범위 승인을 안 건다(손 approve-scope 만)
+  [ -z "$kinds" ] || { rest="$kinds ${mx}건까지"; sep=" · "; }
+  if [ "$cm" -gt 0 ]; then rest="$rest$sep$(scope_class_plain code) ${cm}건까지"; sep=" · "; fi
+  rest="$rest${sep}하루 ${dl}건"
+  if [ -n "$endl" ]; then l3="언제까지: 다음 범위 승인까지 · 24시간"; else l3="언제까지: $(hhmm "$u") 까지"; fi
+  printf '%s\n%s\n%s\n' "$l1" "혼자 해도 되는 것: $rest" "$l3"
+}
+
+scope_grant_post() {  # <A> <부여 epoch> <until> <max> <daily> <classes> <codemax> <repos> <level|""> [endless] — 잠금 안 · 슬랙 게시 «먼저»(실패 = rc 1 · 쓰기 0) → GR_N GR_LINE GR_TS
+  local n tail="" lv body; n="$(grep -c '^approve-scope ' "$LOG" 2>/dev/null)"; GR_N="S$(( ${n:-0} + 1 ))"
   [ "$7" -gt 0 ] && tail=" codemax=$7"; [ "$8" = byz ] || tail="$tail repos=$8"; [ -z "$9" ] || tail="$tail level=$9"
-  GR_LINE="approve-scope $GR_N $1 $2 until=$3 max=$4 daily=$5 classes=$6$tail"
-  GR_TS="$(scope_slack_post "[범위 승인] $GR_N · $1 · ~$(hhmm "$3")까지 · max $4 · 하루 $5 · $6$([ "$7" -gt 0 ] && echo " · code $7")$([ "$8" = byz ] || echo " · 저장소 $8")$([ -z "$9" ] || echo " · 레벨 $9") · 부여 $2")" || exit $?
+  GR_LINE="approve-scope $GR_N $1 $2 until=$3 max=$4 daily=$5 classes=$6$tail"   # 기계 줄 = 이전 판과 바이트 그대로
+  lv="$9"; [ -n "$lv" ] || lv="$(type -t jfield >/dev/null && jfield level)"   # 손 범위 승인 = 지금 ON 의 레벨(못 읽으면 풀자동)
+  body="$(scope_slack_body "$3" "$4" "$5" "$6" "$7" "$lv" "${10:-}")" || exit 2
+  GR_TS="$(scope_slack_post "$body")" || exit $?
 }
 
 scope_grant_write() {  # scope_grant_post 뒤 — grants.audit(같은 칸 + 슬랙 ts) 먼저, log 나중

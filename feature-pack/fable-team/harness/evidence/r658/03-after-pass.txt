@@ -1,0 +1,31 @@
+=== 새 시험(r658) — 고친 뒤
+PASS bash -n ft-autonomy-scope.sh
+PASS 키트 짝 cmp0 ft-autonomy-scope.sh
+PASS bash -n ft-autonomy-level.sh
+PASS 키트 짝 cmp0 ft-autonomy-level.sh
+PASS ⓐ 켜기 알림 = 정확히 3줄
+PASS ⓐ 본문에 내부 번호·영어 칸 이름·10자리 숫자 0
+PASS ⓐ 옛 머리말 «[범위 승인] S… 부여 <epoch>» 0
+PASS ⓑ 풀자동 3줄 원문 일치(기본표 classes·code-max·하루)
+PASS ⓑ 중간 3줄 원문 일치(code 종류 없음 → 코드 병합 칸 0)
+PASS ⓑ 끝 없는 ON → «다음 범위 승인까지 · 24시간»
+PASS ⓑ 손 범위 승인(approve-scope)도 같은 3줄(레벨 = 지금 ON)
+PASS ⓒ 내부 번호 0 (on --level full --for 12h)
+PASS ⓒ 내부 번호 0 (on --level mid --for 6h)
+PASS ⓒ 내부 번호 0 (on)
+PASS ⓒ 내부 번호 0 (손 범위 승인)
+PASS ⓓ 대응표 4종(docs·ff·revert·code)
+PASS ⓓ 표에 없는 종류 → rc 1(조용히 키 그대로 0)
+PASS ⓓ 본문 만들기 = 모르는 종류 REJECT(본문 0)
+PASS ⓓ 게시 «전» REJECT — 슬랙 0
+PASS ⓔ approve-scope 줄 바이트 그대로(내부 칸 이름 유지)
+PASS ⓔ grants.audit 줄 바이트 그대로(슬랙 ts 칸 포함)
+PASS ⓔ scope-use 줄 바이트 그대로
+PASS ⓔ --audit OK(게시 본문을 바꿔도 대조 그대로)
+PASS ⓔ 게시 실패 → grant 쓰기 0 그대로(rc 1)
+PASS ⓕ each → 슬랙 0 · 범위 승인 줄 0 그대로
+PASS ⓕ 재발급도 사람 말 3줄(SCOPE-RENEWED 경로)
+PASS ⓕ 재발급 본문 원문 = 같은 값·같은 3줄
+fail=0
+
+rc=0

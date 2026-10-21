@@ -25,8 +25,8 @@ level_prepare() {  # ON_LEVEL ON_MAX ON_DAILY ON_CM(parse_end 가 채움) → �
 
 level_grant_post() {  # <사건> — 잠금 안 · 모드 줄 «전» 게시(실패 = rc 1 · 쓰기 0)
   [ "$ON_LEVEL" = each ] && return 0
-  local now u; now="$(now_epoch)"; u="$UNTIL"; [ "$u" = null ] && u=$(( now + 86400 ))   # 끝 없는 ON 의 범위 = 24h(그 뒤 재발급은 scope-approve)
-  scope_grant_post "$1" "$now" "$u" "$SV_MX" "$SV_DL" "$SV_CL" "$SV_CM" "$SV_REPOS" "$ON_LEVEL"
+  local now u endl=""; now="$(now_epoch)"; u="$UNTIL"; [ "$u" = null ] && { u=$(( now + 86400 )); endl=1; }   # 끝 없는 ON 의 범위 = 24h(그 뒤 재발급은 scope-approve) — 슬랙 3줄은 «끝 없음» 을 그대로 말한다(r658)
+  scope_grant_post "$1" "$now" "$u" "$SV_MX" "$SV_DL" "$SV_CL" "$SV_CM" "$SV_REPOS" "$ON_LEVEL" "$endl"
 }
 level_grant_write() { [ "$ON_LEVEL" = each ] || scope_grant_write; }
 

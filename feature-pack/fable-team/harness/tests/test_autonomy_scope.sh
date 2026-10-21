@@ -167,7 +167,10 @@ run a scope-status; rm -rf "$S"; mkdir -p "$S"; run a scope-status; has '^\[범�
 AU="$S/autonomy-scope/grants.audit"; : > "$STUB_POST_LOG"
 fresh; grant --for 10h --max 5 --daily 2 --classes docs,ff
 [ $rc = 0 ] && [ "$(wc -l < "$AU" | tr -d ' ')" = 1 ] && printf 'S1\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - "$AU"; ck "게시 성공 → grant + grants.audit 1줄(슬랙 ts 포함)" $?
-grep -qE "^\[범위 승인\] S1 · A1 · ~[0-9]{2}:[0-9]{2}까지 · max 5 · 하루 2 · docs,ff · 부여 $T0\$" "$STUB_POST_LOG" && [ "$(wc -l < "$STUB_POST_LOG" | tr -d ' ')" = 1 ]; ck "슬랙 본문 1줄 꼴([범위 승인] S·A·~HH:MM·max·하루·classes·부여)" $?
+[ "$(wc -l < "$STUB_POST_LOG" | tr -d ' ')" = 3 ] && grep -qE '^자율 켜짐\([^)]+\)$' <(sed -n 1p "$STUB_POST_LOG") \
+  && [ "$(sed -n 2p "$STUB_POST_LOG")" = "혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 5건까지 · 하루 2건" ] \
+  && grep -qE '^언제까지: [0-9]{2}:[0-9]{2} 까지$' <(sed -n 3p "$STUB_POST_LOG") \
+  && ! grep -Eqi 'max|daily|classes|level|부여|[0-9]{10}' "$STUB_POST_LOG"; ck "슬랙 본문 3줄 꼴(켜짐·혼자 해도 되는 것·언제까지 · 내부 번호 0 · r658)" $?
 n0="$(lines)"; rm -f "$AU"
 STUB_POST_RC=1 grant --for 10h --max 5 --classes docs; [ $rc = 1 ] && has '슬랙 게시 실패 rc=1'; ck "게시 실패 → REJECT rc 1" $?
 [ "$(lines)" = "$n0" ] && [ ! -e "$AU" ] && ! grep -q '^approve-scope S2' "$LOG"; ck "게시 실패 → grant·audit 쓰기 0" $?
@@ -210,7 +213,7 @@ fresh; grant --for 2h --max 5 --classes docs,ff,revert,code --code-max 2
 [ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=5 classes=docs,ff,revert,code codemax=2$'; ck "ⓐ code grant → SCOPE-GRANTED … codemax=2" $?
 grep -qxF "approve-scope S1 A1 $T0 until=$((T0+7200)) max=5 daily=5 classes=docs,ff,revert,code codemax=2" "$LOG" && [ "$(a mode)" = on ]; ck "ⓐ log grant 줄 꼴 · SCOPE_GRANT_RE 통과(mode=on)" $?
 run a scope-status; has '^\[범위 승인 S1 · A1 · .* 0/5 · 오늘 0/5 · docs,ff,revert,code · code 0/2\]$'; ck "ⓐ scope-status code 0/2" $?
-grep -q 'docs,ff,revert,code · code 2 · 부여' "$STUB_POST_LOG" && run a scope-status --audit && [ $rc = 0 ]; ck "ⓐ 슬랙 1줄 code 2 · --audit AUDIT-OK(codemax 칸)" $?
+grep -qxF "혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 · 되돌림 5건까지 · 코드 병합 2건까지 · 하루 5건" "$STUB_POST_LOG" && run a scope-status --audit && [ $rc = 0 ]; ck "ⓐ 슬랙 2줄에 코드 병합 2건까지(r658) · --audit AUDIT-OK(codemax 칸)" $?
 # ⓓ 거절 — 쓰기 0
 n0="$(lines)"; card "$A"
 run ar scope-approve "$A"; [ $rc = 2 ] && has '--card <카드.md> 필요'; ck "ⓓ --card 없음 → REJECT" $?
