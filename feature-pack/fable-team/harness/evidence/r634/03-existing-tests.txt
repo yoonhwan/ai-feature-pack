@@ -1,0 +1,25 @@
+# 인접 시험(광역 pytest 0 · 이 카드 시험과 별개) — 2026-10-22 r634 H1~H5 재검토
+$ bash tests/test_press_role_bts_gate.sh
+  cases=24 fail=0
+  ALL PASS
+  REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+$ bash tests/test_press_permit.sh
+  fail=0
+  ALL PASS
+  REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+$ bash tests/test_press_baseline_check.sh
+  cases=19 fail=0
+  ALL PASS
+  REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+$ bash tests/test_kit_bin_sync.sh
+  PASS control: byte diff detected
+  PASS control: mode diff detected
+  ALL PASS
+
+$ cmp kit/fable-team/bin/ft-press-gate.sh bin/ft-press-gate.sh   # 키트↔추적 짝
+  cmp0 (차이 0)
+$ bash -n kit/fable-team/bin/ft-press-gate.sh
+  rc0

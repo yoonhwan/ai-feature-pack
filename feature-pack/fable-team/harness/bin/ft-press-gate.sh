@@ -14,8 +14,122 @@ HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
+# r634: press 대상 갈래 — FT_PRESS_TARGET=dev 로 «선언한 회차만» ②~⑤ 를 dev 세트 검사로 바꾼다(기본 local = 지금과 같음 · 조용히 건너뛰기 0 · ①⑥⑦⑧·허가 파일은 그대로)
+TARGET="${FT_PRESS_TARGET:-local}"
+DEV_WEB="${FT_PRESS_DEV_WEB:-https://byz-agents-web-dev-a3yix5apcq-du.a.run.app}"
+DEV_GATEWAY="${FT_PRESS_DEV_GATEWAY:-https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app}"
+DEV_WANT="${FT_PRESS_DEV_WANT:-}"
+DEV_REGION="${FT_PRESS_DEV_REGION:-asia-northeast3}"
+DEV_SVCS="${FT_PRESS_DEV_SVCS:-web=byz-agents-web-dev,gateway=byz-agents-gateway-dev,worker=byz-agents-worker-dev}"
+DEV_WAIT=7   # dev 호출 1회 상한(초) — 콜드스타트로 늘어지면 막는다(fail-closed)
+DEV_BUDGET="${FT_PRESS_DEV_BUDGET:-70}"   # dev 검사 «전체» 마감(초 · r634 DA⑥ r1 H4) — 넘기면 그 자리에서 막는다
+DEV_END=0
 # ⓪ 전팀 정지(r626 DA⑥ r1 Q1) — 첫 검사 · 켜짐·깨짐이면 다른 검사 없이 막힘 1 (장치 허가 검사는 그대로)
 [ -e "$ROOT/.fable-team" ] && { _as="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { say "✗" "⓪ $_as"; exit 1; }; }
+# ★갈래를 «분명히 적은» 회차만 dev 검사 — 오타·미지 값은 막는다(선언 없이 로컬 칸을 건너뛰는 길 0)★
+case "$TARGET" in
+  local|dev) ;;
+  *) say "✗" "FT_PRESS_TARGET=$TARGET — 대상은 local(기본)·dev 만"; echo "PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라"; exit 1 ;;
+esac
+_bounded(){ # 초 명령… — timeout/gtimeout 은 -k(TERM 뒤 KILL) · 없으면 자식을 TERM→2초 뒤 KILL(r634 H4: TERM 무시 자식)
+  local secs=$1; shift
+  local t p w rc
+  for t in timeout gtimeout; do
+    if command -v "$t" >/dev/null 2>&1; then "$t" -k 2 "$secs" "$@"; return $?; fi
+  done
+  "$@" & p=$!
+  ( sleep "$secs"; kill -TERM "$p" 2>/dev/null; sleep 2; kill -KILL "$p" 2>/dev/null ) & w=$!
+  wait "$p"; rc=$?
+  kill -TERM "$w" 2>/dev/null; wait "$w" 2>/dev/null
+  return "$rc"
+}
+_dev_left(){ local l=$(( DEV_END - $(date +%s) )); [ "$l" -gt 0 ] || l=0; printf '%s' "$l"; }
+_dev_cap(){ local l; l="$(_dev_left)"; [ "$l" -gt "$DEV_WAIT" ] && l="$DEV_WAIT"; printf '%s' "$l"; }
+_dev_health(){ # 이름 url → 종료코드 0 ∧ 200 ∧ 본문 HTML 아님(r634 H3: 200 이어도 오류 페이지면 막힘)
+  local name=$1 url=$2 cap code rc tmp
+  cap="$(_dev_cap)"
+  if [ "$cap" = "0" ]; then say "✗" "dev $name — dev 검사 시간 마감(${DEV_BUDGET}초)"; return 1; fi
+  tmp="$(mktemp)" || { say "✗" "dev $name — 임시파일 실패"; return 1; }
+  code=$(_bounded "$cap" curl -s -m "$cap" -o "$tmp" -w '%{http_code}' "$url" 2>/dev/null); rc=$?
+  if [ "$rc" != "0" ] || [ "$code" != "200" ]; then
+    rm -f "$tmp"; say "✗" "dev $name health=${code:-000} rc=$rc — $url"; return 1
+  fi
+  if grep -qiE '^[[:space:]]*<(!doctype|html)' "$tmp" 2>/dev/null; then
+    rm -f "$tmp"; say "✗" "dev $name health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: $url"; return 1
+  fi
+  rm -f "$tmp"; say "✓" "dev $name health 200 — $url"; return 0
+}
+_dev_image(){ # 서비스 → 배포 이미지 40자 hex sha · rc0 아님·형식 불명·시간 초과면 실패(빈 값 · fail-closed)
+  local svc=$1 out rc img sha cap
+  cap="$(_dev_cap)"
+  if [ "$cap" = "0" ]; then say "✗" "dev $svc — dev 검사 시간 마감(${DEV_BUDGET}초)"; return 1; fi
+  out=$(_bounded "$cap" gcloud run services describe "$svc" --region="$DEV_REGION" \
+        --format='value(spec.template.spec.containers[0].image)' 2>/dev/null); rc=$?   # r634 H2①: 종료코드를 잃지 않는다
+  [ "$rc" = "0" ] || return 1
+  img="$(printf '%s' "$out" | tr -d '\r' | tail -1)"
+  [ -n "$img" ] || return 1
+  sha="${img##*[:@]}"   # 이미지 참조의 «맨 끝» = 태그(커밋 sha) — registry:tag · digest(@sha256:) 둘 다
+  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || return 1   # r634 H2②: 40자 hex 만(축약·latest 불가)
+  printf '%s' "$sha"
+}
+_dev_svcs(){ # r634 H3: web·gateway·worker 세 키 «필수» · 빠짐·중복·모르는 이름 = 막힘(빈 값으로 루프 0회 통과 0)
+  local pair name seen=""
+  for pair in ${DEV_SVCS//,/ }; do
+    case "$pair" in *=*) ;; *) say "✗" "FT_PRESS_DEV_SVCS 항목이 «이름=서비스» 꼴이 아니다: $pair"; return 1 ;; esac
+    name="${pair%%=*}"
+    case " web gateway worker " in *" $name "*) ;; *) say "✗" "FT_PRESS_DEV_SVCS 모르는 서비스 이름: $name — web·gateway·worker 만"; return 1 ;; esac
+    case " $seen " in *" $name "*) say "✗" "FT_PRESS_DEV_SVCS 중복: $name"; return 1 ;; esac
+    seen="$seen $name"
+  done
+  for name in web gateway worker; do
+    case " $seen " in *" $name "*) ;; *) say "✗" "FT_PRESS_DEV_SVCS 에 $name 가 없다 — 세 서비스(web·gateway·worker)를 모두 지정해야 한다"; return 1 ;; esac
+  done
+  return 0
+}
+_norm_url(){ local u="$1"; while [ "${u%/}" != "$u" ]; do u="${u%/}"; done; printf '%s' "$u"; }
+_dev_runner(){ # r634 H1: 게이트가 검사한 주소 = 러너가 실제로 쏠 주소. 다르면 dev 시험이 아니다
+  local vname want got ok=0
+  for vname in BYZ_WEB_BASE BYZ_GATEWAY_BASE; do
+    case "$vname" in BYZ_WEB_BASE) want="$DEV_WEB" ;; *) want="$DEV_GATEWAY" ;; esac
+    got="${!vname:-}"
+    if [ -z "$got" ]; then
+      say "✗" "dev 대상인데 러너 env $vname 이 비었다 — 러너는 기본 localhost 로 쏜다(게이트가 본 주소 ≠ 러너가 쏠 주소)"; ok=1; continue
+    fi
+    if [ "$(_norm_url "$got")" != "$(_norm_url "$want")" ]; then
+      say "✗" "러너 env $vname=$got ≠ 게이트 검사 주소 $want — 같은 주소여야 한다"; ok=1; continue
+    fi
+    say "✓" "dev 러너 대상 일치 — $vname=$want"
+  done
+  return "$ok"
+}
+_dev_gate(){ # ②~⑤ 대신 — dev 세트가 살아 있고(health 200) 배포된 판이 «이 워크트리 HEAD» 를 포함하는가
+  local pair name svc sha bad=0 head
+  if [ -z "$DEV_WANT" ]; then
+    say "✗" "dev 대상인데 원하는 커밋 미지정 — FT_PRESS_DEV_WANT=<커밋 sha> 를 줘야 «반영 0 회차» 를 막는다"; FAIL=1; return
+  fi
+  [[ "$DEV_WANT" =~ ^[0-9a-f]{40}$ ]] || { say "✗" "FT_PRESS_DEV_WANT=${DEV_WANT:0:12} — 40자 hex 커밋 sha 만(가지 이름·HEAD~1·축약 sha 금지)"; FAIL=1; return; }
+  head="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
+  if [ "$DEV_WANT" != "$head" ]; then
+    say "✗" "FT_PRESS_DEV_WANT=${DEV_WANT:0:10} ≠ press 워크트리 HEAD=${head:0:10} — 시험하려는 판이 이 워크트리의 판이 아니다(오래된 조상으로 통과 0)"; FAIL=1; return
+  fi
+  _dev_svcs || { FAIL=1; return; }
+  DEV_END=$(( $(date +%s) + DEV_BUDGET ))
+  say "·" "dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ ${DEV_WANT:0:10}) · $DEV_WEB · $DEV_GATEWAY"
+  _dev_runner || bad=1
+  _dev_health web "$DEV_WEB/" || bad=1
+  _dev_health gateway "$DEV_GATEWAY/api/v1/health/" || bad=1
+  for pair in ${DEV_SVCS//,/ }; do
+    name="${pair%%=*}"; svc="${pair#*=}"
+    sha="$(_dev_image "$svc")"
+    if [ -z "$sha" ]; then say "✗" "dev $name 이미지 sha 못 읽음($svc · region=$DEV_REGION) — fail-closed"; bad=1; continue; fi
+    if git -C "$WT" merge-base --is-ancestor "$DEV_WANT" "$sha" 2>/dev/null; then
+      say "✓" "dev 이미지 $name ⊇ ${DEV_WANT:0:10}($svc ${sha:0:10})"
+    else
+      say "✗" "$svc 이미지 ${sha:0:10} 에 ${DEV_WANT:0:10} 없음"; bad=1
+    fi
+  done
+  [ "$bad" = "0" ] || FAIL=1
+}
 # ⑥ 기준선(Issue #834 · DESIGN-834-baseline-gate-arch165.md §7 r2) — 카드가 가리키는 v65 기본 동작 기준선 없이는 발사 0. 값 검사 본체는 ft-press-baseline-check.sh.
 _baseline_gate(){
   local out rc
@@ -91,11 +205,12 @@ _issue_permit(){
   local pf="$PERMIT_DIR/$SEAT.json" tmp ts head
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; head="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
   mkdir -p "$PERMIT_DIR" && tmp="$(mktemp "$PERMIT_DIR/.tmp.XXXXXX")" || return 1
-  python3 -c 'import json,sys; k=["seat","role","runner_head","card","evid","ts"]; print(json.dumps(dict(zip(k,sys.argv[1:7])),ensure_ascii=False))' \
-    "$SEAT" "$ROLE" "$head" "${FT_PRESS_CARD:-}" "$FT_PRESS_EVID" "$ts" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
-  printf '%s\t%s\t%s\t%s\t%s\n' "$ts" "$SEAT" "$ROLE" "${FT_PRESS_CARD:-}" "$FT_PRESS_EVID" >> "$PERMIT_DIR/permits.log" || return 1
+  python3 -c 'import json,sys; k=["seat","role","runner_head","card","evid","ts","target"]; print(json.dumps(dict(zip(k,sys.argv[1:8])),ensure_ascii=False))' \
+    "$SEAT" "$ROLE" "$head" "${FT_PRESS_CARD:-}" "$FT_PRESS_EVID" "$ts" "$TARGET" > "$tmp" && mv "$tmp" "$pf" || { rm -f "$tmp"; return 1; }
+  # r634: 대상 칸은 «끝에 덧붙인다» — 옛 줄(5칸)을 읽는 쪽이 있어도 하위 호환
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$ts" "$SEAT" "$ROLE" "${FT_PRESS_CARD:-}" "$FT_PRESS_EVID" "$TARGET" >> "$PERMIT_DIR/permits.log" || return 1
   [ "$SEAT" = "human" ] && { mkdir -p "$FT_PRESS_EVID" && printf 'human press %s by %s card=%s\n' "$ts" "$(whoami)" "${FT_PRESS_CARD:-}" > "$FT_PRESS_EVID/human.txt" || return 1; }
-  say "✓" "허가 파일 발급 — $pf"
+  say "✓" "허가 파일 발급 — $pf (target=$TARGET)"
 }
 # 자체시험(FT_PRESS_GATE_SELFTEST=1): ①~⑤ 는 stub · ⑥⑦⑧ 은 진짜(허가 파일은 쓰지 않는다). 성공 = exit 3(GO 아님 — `gate && launch` 는 여기서 멈춘다) · 막힘 = 1. 「발화해도 된다」는 찍지 않는다.
 if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ]; then
@@ -177,6 +292,10 @@ for W in $LIVE_WT; do
 done
 [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
 
+# r634: ②~⑤ 는 로컬 스택 전제 — dev 로 선언한 회차만 dev 칸으로 바꾼다(로컬 갈래는 문자 그대로)
+if [ "$TARGET" = "dev" ]; then
+  _dev_gate
+else
 # ② 워커·관문·화면 기동시각 > 각자의 최신 제품 커밋
 chk(){ # 이름 포트 경로들
   local name=$1 port=$2; shift 2
@@ -259,6 +378,7 @@ else
       --worker-start "$(_start_of "$wpid")" --gateway-start "$(_start_of "$gpid")" || FAIL=1
   fi
 fi
+fi   # r634: TARGET=local 갈래 끝(dev 면 _dev_gate 만)
 
 # ⑥ 기준선 — 보통 모드에 시험 환경 변수가 «있기만 해도» 막는다(상속된 SELFTEST 로 실발사 0 · §7 C2 잔여 2)
 [ -n "${FT_PRESS_GATE_SELFTEST+x}" ] && { say "✗" "⑥ 시험 모드 상속 — 발사 금지(FT_PRESS_GATE_SELFTEST=${FT_PRESS_GATE_SELFTEST} 를 unset)"; FAIL=1; }

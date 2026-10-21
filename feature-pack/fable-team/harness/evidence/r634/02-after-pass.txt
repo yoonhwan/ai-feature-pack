@@ -1,0 +1,41 @@
+# r634 고친 판(HEAD) — ALL PASS 31 · rc=0
+# 실행: bash feature-pack/fable-team/harness/tests/test_press_gate_dev_target_r634.sh
+# 새 칸(DA⑥ r1 반영): ⓘ1·ⓘ2(H1 러너 대상 결합) ⓙ1~ⓙ4(H2 종료코드·40자 sha·WANT 출처) ⓚ1~ⓚ4(H3 세 서비스·HTML 본문) ⓛ1·ⓛ1b·ⓛ2(H4 TERM 무시·전체 마감) ⓜ(H5④ 변이 대조)
+# 칸마다 «새 임시 루트»(H5①) · curl 모르는 URL=404 · gcloud 정확 인자만(H5②) · lsof 스텁 = 이 머신의 실제 :8080/:8081/:3001 무관(hermetic)
+
+PASS bash -n gate
+PASS 가짜 tmux·curl·gcloud·lsof 스텁 설치(엄격)
+PASS 1. ⓐ dev 선언 + 로컬 리스너 0 + web·gateway 200 + 세 이미지 ⊇ WANT → 통과 (exit 0)
+PASS 2. ⓐ 허가 파일 target=dev(json) · permits.log 끝칸 dev · ⑥⑦⑧ 그대로 판정
+PASS 3. ⓑ dev gateway 503 → 막힘 (exit 1)
+PASS 4. ⓒ worker 이미지에 WANT 없음 → 막힘 (exit 1)
+PASS 5. ⓓ1 이미지 못 읽음(빈 값) → 막힘 (exit 1)
+PASS 6. ⓓ2 이미지 형식 불명(:latest) → 막힘 (exit 1)
+PASS 7. ⓓ3 이미지 태그 39자(축약 sha) → 막힘 (exit 1)
+PASS 8. ⓔ FT_PRESS_DEV_WANT 없음 → 막힘 (exit 1)
+PASS 9. ⓕ 대상=prod → 막힘 (exit 1)
+PASS 10. ⓖ 선언 없음 → 로컬 칸 그대로(막힘) (exit 1)
+PASS 11. ⓖ 선언 없음 → dev 갈래 출력 0 (exit 1)
+PASS 12. ⓗ1 dev 선언 + ⑥ 카드 미지정 → 막힘(dev 칸 통과했는데 ⑥ 이 막는다) (exit 1)
+PASS 13. ⓗ2 dev 선언이어도 ⑦ 역할 nano → 막힘 (exit 1)
+PASS 14. ⓗ3 dev 선언이어도 ⑧ 직전 BTS 빈칸 → 막힘 (exit 1)
+PASS 15. ⓗ4 옛 허가(target 칸 없음)도 ⑧ 이 읽는다(하위 호환) (exit 1)
+PASS 16. ⓘ1 러너 env BYZ_WEB_BASE 없음 → 막힘 (exit 1)
+PASS 17. ⓘ2 러너가 localhost 로 쏘면 → 막힘 (exit 1)
+PASS 18. ⓙ1 gcloud rc≠0 + 유효 태그 출력 → 막힘(종료코드 유실 금지) (exit 1)
+PASS 19. ⓙ2 WANT=가지 이름 → 막힘 (exit 1)
+PASS 20. ⓙ3 WANT=HEAD~1 → 막힘 (exit 1)
+PASS 21. ⓙ4 WANT=오래된 조상(≠HEAD) → 막힘 (exit 1)
+PASS 22. ⓚ1 SVCS 에 web·gateway 만 → 막힘 (exit 1)
+PASS 23. ⓚ2 SVCS 빈 값(루프 0회 통과 0) → 막힘 (exit 1)
+PASS 24. ⓚ3 SVCS 중복 → 막힘 (exit 1)
+PASS 25. ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘 (exit 1)
+PASS 26. ⓛ1 TERM 무시 스텁(gcloud 30초) → 11초 만에 막힘(timeout -k 강제종료 · exit 1)
+PASS 27. ⓛ1b _bounded(timeout 없는 PATH) = TERM 무시 자식을 5초에 KILL(rc=137)
+PASS 28. ⓛ2 전체 마감(FT_PRESS_DEV_BUDGET=5) 넘기면 막힘 — 8초(exit 1)
+PASS 29. ⓜ 변이(최종 FAIL 판정 삭제) 사본에서 ⓑ 가 exit 0 = 부정 칸이 그 변이를 죽인다
+PASS 30. 허가 줄 = 끝 칸 1개 덧붙임(옛 5칸 호환)
+PASS 31. 실제 리포 파일 쓰기 0(시험 전후 git status 동일)
+cases=31 fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,9 @@
+# 변이 대조 — dev 칸 최종 판정 줄을 지운 사본에서 ⓑ 가 통과하면 시험이 그 변이를 못 죽인 것
+$ sed 's/FAIL=1/:/'
+131:  : # MUTANT
+exit=0 (기대 0 = 변이 생존 = 이 시험이 죽인다)
+· dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 66d3085c03) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+✗ dev gateway health=503 rc=0 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+✓ dev 이미지 gateway ⊇ 66d3085c03(byz-agents-gateway-dev 66d3085c03)
+PRESS-GATE PASS — 발화해도 된다

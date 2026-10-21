@@ -1,0 +1,51 @@
+# r634 DA⑥ r1 H1~H5 대조 — 어떤 판에서 어떤 시험이 RED 인가(같은 시험 파일 · R634_SUT 로 판만 바꿈)
+#  판                        시험 결과
+#  base(origin/main 42a08106)  rc=1 fail=24/31  — dev 갈래 자체가 없다(grep -c FT_PRESS_TARGET=0)
+#  r1(HOLD 판 84cb54fc)        rc=1 fail=15/31  — H1~H5 구멍이 그대로 남아 있다(07-r1-gate-red.txt)
+#  고친 판(HEAD)               rc=0 fail=0/31   — ALL PASS(02-after-pass.txt)
+#
+# 사건 3줄 중 «base 에서 이미 FAIL 이던 칸» = ⓖ/ⓗ2/ⓗ3/ⓗ4(선언 없는 로컬 갈래는 base 가 정상) — 새로 막은 칸은 전부 r1 에서 GREEN 이던 구멍이다.
+# base 판 지문: 게이트 sha256 앞16 = 8dc0dc0507d1affc (origin/main 42a08106 == merge-base 03ae64a7 파일 동일)
+
+## r1(84cb54fc) FAIL 15줄
+FAIL 1. ⓐ dev 통과 (exit 0)
+FAIL 7. ⓓ3 이미지 태그 39자(축약 sha) → 막힘 (exit 1 want 1 · pat=dev web 이미지 sha 못 읽음)
+FAIL 16. ⓘ1 러너 env BYZ_WEB_BASE 없음 → 막힘 (exit 0 want 1 · pat=BYZ_WEB_BASE 이 비었다)
+FAIL 17. ⓘ2 러너가 localhost 로 쏘면 → 막힘 (exit 0 want 1 · pat=BYZ_GATEWAY_BASE=http://localhost:8080 ≠)
+FAIL 18. ⓙ1 gcloud rc≠0 + 유효 태그 출력 → 막힘(종료코드 유실 금지) (exit 0 want 1 · pat=dev web 이미지 sha 못 읽음)
+FAIL 19. ⓙ2 WANT=가지 이름 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_WANT=main — 40자 hex)
+FAIL 20. ⓙ3 WANT=HEAD~1 → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_WANT=HEAD~1 — 40자 hex)
+FAIL 21. ⓙ4 WANT=오래된 조상(≠HEAD) → 막힘 (exit 0 want 1 · pat=≠ press 워크트리 HEAD)
+FAIL 22. ⓚ1 SVCS 에 web·gateway 만 → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_SVCS 에 worker 가 없다)
+FAIL 23. ⓚ2 SVCS 빈 값(루프 0회 통과 0) → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_SVCS 에 web 가 없다)
+FAIL 24. ⓚ3 SVCS 중복 → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_SVCS 중복: web)
+FAIL 25. ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘 (exit 0 want 1 · pat=본문이 HTML)
+FAIL 26. ⓛ1 TERM 무시 (el=31s exit 0)
+FAIL 27. ⓛ1b _bounded 대체 경로 (rc=0 el=30)
+FAIL 28. ⓛ2 전체 마감 (el=62s exit 0)
+
+## base(origin/main) FAIL 24줄
+FAIL 1. ⓐ dev 통과 (exit 1)
+FAIL 2. ⓐ 허가 target 칸
+FAIL 3. ⓑ dev gateway 503 → 막힘 (exit 1 want 1 · pat=dev gateway health=503)
+FAIL 4. ⓒ worker 이미지에 WANT 없음 → 막힘 (exit 1 want 1 · pat=byz-agents-worker-dev 이미지 0c8e9f55c6 에 7f18f215e1 없음)
+FAIL 5. ⓓ1 이미지 못 읽음(빈 값) → 막힘 (exit 1 want 1 · pat=dev worker 이미지 sha 못 읽음)
+FAIL 6. ⓓ2 이미지 형식 불명(:latest) → 막힘 (exit 1 want 1 · pat=dev gateway 이미지 sha 못 읽음)
+FAIL 7. ⓓ3 이미지 태그 39자(축약 sha) → 막힘 (exit 1 want 1 · pat=dev web 이미지 sha 못 읽음)
+FAIL 8. ⓔ FT_PRESS_DEV_WANT 없음 → 막힘 (exit 1 want 1 · pat=원하는 커밋 미지정)
+FAIL 9. ⓕ 대상=prod → 막힘 (exit 1 want 1 · pat=FT_PRESS_TARGET=prod — 대상은 local(기본)·dev 만)
+FAIL 12. ⓗ1 ⑥ 카드 미지정 (exit 1)
+FAIL 16. ⓘ1 러너 env BYZ_WEB_BASE 없음 → 막힘 (exit 1 want 1 · pat=BYZ_WEB_BASE 이 비었다)
+FAIL 17. ⓘ2 러너가 localhost 로 쏘면 → 막힘 (exit 1 want 1 · pat=BYZ_GATEWAY_BASE=http://localhost:8080 ≠)
+FAIL 18. ⓙ1 gcloud rc≠0 + 유효 태그 출력 → 막힘(종료코드 유실 금지) (exit 1 want 1 · pat=dev web 이미지 sha 못 읽음)
+FAIL 19. ⓙ2 WANT=가지 이름 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_WANT=main — 40자 hex)
+FAIL 20. ⓙ3 WANT=HEAD~1 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_WANT=HEAD~1 — 40자 hex)
+FAIL 21. ⓙ4 WANT=오래된 조상(≠HEAD) → 막힘 (exit 1 want 1 · pat=≠ press 워크트리 HEAD)
+FAIL 22. ⓚ1 SVCS 에 web·gateway 만 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_SVCS 에 worker 가 없다)
+FAIL 23. ⓚ2 SVCS 빈 값(루프 0회 통과 0) → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_SVCS 에 web 가 없다)
+FAIL 24. ⓚ3 SVCS 중복 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_SVCS 중복: web)
+FAIL 25. ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘 (exit 1 want 1 · pat=본문이 HTML)
+FAIL 26. ⓛ1 TERM 무시 (el=4s exit 1)
+FAIL 28. ⓛ2 전체 마감 (el=94s exit 1)
+FAIL 29. ⓜ 변이 사본 생성 실패(패턴 불일치)
+FAIL 30. 허가 줄 칸

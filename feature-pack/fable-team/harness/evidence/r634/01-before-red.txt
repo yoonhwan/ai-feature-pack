@@ -1,0 +1,416 @@
+# r634 DA⑥ r1 H1~H5 고침 — 「전」: base 판(origin/main 42a08106 · merge-base 03ae64a7 · 게이트 sha256 앞16 = 8dc0dc0507d1affc)에서 이 시험 전부
+# 실행: R634_SUT=<base 판 ft-press-gate.sh> bash feature-pack/fable-team/harness/tests/test_press_gate_dev_target_r634.sh → rc=1 (fail=24 / cases=31)
+# base 판에는 FT_PRESS_TARGET 갈래가 «없다»(grep -c FT_PRESS_TARGET = 0) — dev 선언 자체가 없으니 dev 칸 칸들이 전부 RED.
+# fail=24 는 «독립 결함 24개» 가 아니다 — 상위 칸(ⓐ)이 막히면 그 루트를 재사용하던 칸이 연쇄로 RED 다(DA⑥ r1 지적 반영).
+
+PASS bash -n gate
+PASS 가짜 tmux·curl·gcloud·lsof 스텁 설치(엄격)
+FAIL 1. ⓐ dev 통과 (exit 1)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha cef534f817c4 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-a/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-a/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 2. ⓐ 허가 target 칸
+FAIL 3. ⓑ dev gateway 503 → 막힘 (exit 1 want 1 · pat=dev gateway health=503)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha cd07c766ed75 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-b/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-b/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 4. ⓒ worker 이미지에 WANT 없음 → 막힘 (exit 1 want 1 · pat=byz-agents-worker-dev 이미지 0c8e9f55c6 에 7f18f215e1 없음)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 90e2b46b3c56 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-c/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-c/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 5. ⓓ1 이미지 못 읽음(빈 값) → 막힘 (exit 1 want 1 · pat=dev worker 이미지 sha 못 읽음)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha be9aba980d98 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-d1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-d1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 6. ⓓ2 이미지 형식 불명(:latest) → 막힘 (exit 1 want 1 · pat=dev gateway 이미지 sha 못 읽음)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha e3b08edcadbc · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-d2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-d2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 7. ⓓ3 이미지 태그 39자(축약 sha) → 막힘 (exit 1 want 1 · pat=dev web 이미지 sha 못 읽음)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha ae559b223666 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-d3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-d3/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 8. ⓔ FT_PRESS_DEV_WANT 없음 → 막힘 (exit 1 want 1 · pat=원하는 커밋 미지정)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha c0cfdb55c542 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-e/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-e/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 9. ⓕ 대상=prod → 막힘 (exit 1 want 1 · pat=FT_PRESS_TARGET=prod — 대상은 local(기본)·dev 만)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 5b6c375465c7 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-f/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-f/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+PASS 10. ⓖ 선언 없음 → 로컬 칸 그대로(막힘) (exit 1)
+PASS 11. ⓖ 선언 없음 → dev 갈래 출력 0 (exit 1)
+FAIL 12. ⓗ1 ⑥ 카드 미지정 (exit 1)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+    ✗ ⑥ 카드 미지정 — FT_PRESS_CARD=<카드> ft-press-gate.sh 로 발사(기준선 없는 발사 차단 · #834)
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-h1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+PASS 13. ⓗ2 dev 선언이어도 ⑦ 역할 nano → 막힘 (exit 1)
+PASS 14. ⓗ3 dev 선언이어도 ⑧ 직전 BTS 빈칸 → 막힘 (exit 1)
+PASS 15. ⓗ4 옛 허가(target 칸 없음)도 ⑧ 이 읽는다(하위 호환) (exit 1)
+FAIL 16. ⓘ1 러너 env BYZ_WEB_BASE 없음 → 막힘 (exit 1 want 1 · pat=BYZ_WEB_BASE 이 비었다)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 46af62a1a6d5 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-i1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-i1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 17. ⓘ2 러너가 localhost 로 쏘면 → 막힘 (exit 1 want 1 · pat=BYZ_GATEWAY_BASE=http://localhost:8080 ≠)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 3fbcca37ad9f · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-i2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-i2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 18. ⓙ1 gcloud rc≠0 + 유효 태그 출력 → 막힘(종료코드 유실 금지) (exit 1 want 1 · pat=dev web 이미지 sha 못 읽음)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha f66a58a99d86 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 19. ⓙ2 WANT=가지 이름 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_WANT=main — 40자 hex)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 1da4c319f51a · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 20. ⓙ3 WANT=HEAD~1 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_WANT=HEAD~1 — 40자 hex)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 1c66112f7c34 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j3/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 21. ⓙ4 WANT=오래된 조상(≠HEAD) → 막힘 (exit 1 want 1 · pat=≠ press 워크트리 HEAD)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha a02fb9c5714d · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j4/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-j4/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 22. ⓚ1 SVCS 에 web·gateway 만 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_SVCS 에 worker 가 없다)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 163dbcf4947c · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 23. ⓚ2 SVCS 빈 값(루프 0회 통과 0) → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_SVCS 에 web 가 없다)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 08109d580ad2 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 24. ⓚ3 SVCS 중복 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_SVCS 중복: web)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha baceea718533 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k3/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 25. ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘 (exit 1 want 1 · pat=본문이 HTML)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 9f733be9f789 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k4/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-k4/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 26. ⓛ1 TERM 무시 (el=4s exit 1)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 5b4bdb94c51f · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-l1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-l1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+PASS 27. ⓛ1b _bounded(timeout 없는 PATH) = TERM 무시 자식을 0초에 KILL(rc=127)
+FAIL 28. ⓛ2 전체 마감 (el=94s exit 1)
+    ✓ 미랜딩 제품 커밋 0
+    ✗ worker 리스너 없음(:8081)
+    ✗ gateway 리스너 없음(:8080)
+    ✗ 화면 리스너 없음(:3001)
+    ✓ [C2c-ACT] activation bundle established
+    ✗ worker health=404
+    ✗ Caddy 8443 health=404 — 리스너 없으면 run.command 로 기동
+    ✗ worker unparsed — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)
+    ✓ LOOM prewarm SUMMARY 가 이번 기동 뒤에 있음(SUMMARY: 2 ok / 0 FAILED)
+    ✗ 세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha f2e18accbb8b · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-l2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FW32gzyihG/case-l2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 29. ⓜ 변이 사본 생성 실패(패턴 불일치)
+FAIL 30. 허가 줄 칸
+PASS 31. 실제 리포 파일 쓰기 0(시험 전후 git status 동일)
+cases=31 fail=24
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

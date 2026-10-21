@@ -1,0 +1,259 @@
+# r634 재검토용 — 「HOLD 판(r1 · 84cb54fc)」에서 새 시험을 돌린 원문 · rc=1 fail=15
+# 실행: R634_SUT=<84cb54fc 판 ft-press-gate.sh> bash tests/test_press_gate_dev_target_r634.sh
+# 읽는 법: 아래 FAIL 15줄이 곧 DA⑥ r1 이 지적한 구멍이다 — H1(ⓘ1·ⓘ2) · H2(ⓓ3 축약sha·ⓙ1 종료코드·ⓙ3 HEAD~1·ⓙ4 WANT≠HEAD) · H3(ⓚ1~ⓚ4) · H4(ⓛ1·ⓛ1b·ⓛ2) · ⓐ 의 러너 일치 줄.
+# 즉 이 시험은 «고치기 전 판» 에서 RED · «고친 판» 에서 ALL PASS = 회귀를 실제로 잡는다.
+
+PASS bash -n gate
+PASS 가짜 tmux·curl·gcloud·lsof 스텁 설치(엄격)
+FAIL 1. ⓐ dev 통과 (exit 0)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 0fc6e2f5ee) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 0fc6e2f5ee(byz-agents-web-dev 0fc6e2f5ee)
+    ✓ dev 이미지 gateway ⊇ 0fc6e2f5ee(byz-agents-gateway-dev 0fc6e2f5ee)
+    ✓ dev 이미지 worker ⊇ 0fc6e2f5ee(byz-agents-worker-dev 0fc6e2f5ee)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha bd33cbdb58b5 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-a/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-a/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-a/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+PASS 2. ⓐ 허가 파일 target=dev(json) · permits.log 끝칸 dev · ⑥⑦⑧ 그대로 판정
+PASS 3. ⓑ dev gateway 503 → 막힘 (exit 1)
+PASS 4. ⓒ worker 이미지에 WANT 없음 → 막힘 (exit 1)
+PASS 5. ⓓ1 이미지 못 읽음(빈 값) → 막힘 (exit 1)
+PASS 6. ⓓ2 이미지 형식 불명(:latest) → 막힘 (exit 1)
+FAIL 7. ⓓ3 이미지 태그 39자(축약 sha) → 막힘 (exit 1 want 1 · pat=dev web 이미지 sha 못 읽음)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 25b7f9d7a1) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✗ byz-agents-web-dev 이미지 5b7f9d7a10 에 25b7f9d7a1 없음
+    ✓ dev 이미지 gateway ⊇ 25b7f9d7a1(byz-agents-gateway-dev 25b7f9d7a1)
+    ✓ dev 이미지 worker ⊇ 25b7f9d7a1(byz-agents-worker-dev 25b7f9d7a1)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha c553d3836c16 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-d3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-d3/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+PASS 8. ⓔ FT_PRESS_DEV_WANT 없음 → 막힘 (exit 1)
+PASS 9. ⓕ 대상=prod → 막힘 (exit 1)
+PASS 10. ⓖ 선언 없음 → 로컬 칸 그대로(막힘) (exit 1)
+PASS 11. ⓖ 선언 없음 → dev 갈래 출력 0 (exit 1)
+PASS 12. ⓗ1 dev 선언 + ⑥ 카드 미지정 → 막힘(dev 칸 통과했는데 ⑥ 이 막는다) (exit 1)
+PASS 13. ⓗ2 dev 선언이어도 ⑦ 역할 nano → 막힘 (exit 1)
+PASS 14. ⓗ3 dev 선언이어도 ⑧ 직전 BTS 빈칸 → 막힘 (exit 1)
+PASS 15. ⓗ4 옛 허가(target 칸 없음)도 ⑧ 이 읽는다(하위 호환) (exit 1)
+FAIL 16. ⓘ1 러너 env BYZ_WEB_BASE 없음 → 막힘 (exit 0 want 1 · pat=BYZ_WEB_BASE 이 비었다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ cb99635f06) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ cb99635f06(byz-agents-web-dev cb99635f06)
+    ✓ dev 이미지 gateway ⊇ cb99635f06(byz-agents-gateway-dev cb99635f06)
+    ✓ dev 이미지 worker ⊇ cb99635f06(byz-agents-worker-dev cb99635f06)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 3cac0cc04ac5 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-i1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-i1/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-i1/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 17. ⓘ2 러너가 localhost 로 쏘면 → 막힘 (exit 0 want 1 · pat=BYZ_GATEWAY_BASE=http://localhost:8080 ≠)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 4a966af1c5) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 4a966af1c5(byz-agents-web-dev 4a966af1c5)
+    ✓ dev 이미지 gateway ⊇ 4a966af1c5(byz-agents-gateway-dev 4a966af1c5)
+    ✓ dev 이미지 worker ⊇ 4a966af1c5(byz-agents-worker-dev 4a966af1c5)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha f91c878a9e73 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-i2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-i2/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-i2/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 18. ⓙ1 gcloud rc≠0 + 유효 태그 출력 → 막힘(종료코드 유실 금지) (exit 0 want 1 · pat=dev web 이미지 sha 못 읽음)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ a67f875a53) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ a67f875a53(byz-agents-web-dev a67f875a53)
+    ✓ dev 이미지 gateway ⊇ a67f875a53(byz-agents-gateway-dev a67f875a53)
+    ✓ dev 이미지 worker ⊇ a67f875a53(byz-agents-worker-dev a67f875a53)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 118bb3021100 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j1/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j1/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 19. ⓙ2 WANT=가지 이름 → 막힘 (exit 1 want 1 · pat=FT_PRESS_DEV_WANT=main — 40자 hex)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ main) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✗ byz-agents-web-dev 이미지 dd489daf9c 에 main 없음
+    ✗ byz-agents-gateway-dev 이미지 dd489daf9c 에 main 없음
+    ✗ byz-agents-worker-dev 이미지 dd489daf9c 에 main 없음
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 7b5882913313 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 20. ⓙ3 WANT=HEAD~1 → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_WANT=HEAD~1 — 40자 hex)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ HEAD~1) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ HEAD~1(byz-agents-web-dev 9758e1025f)
+    ✓ dev 이미지 gateway ⊇ HEAD~1(byz-agents-gateway-dev 9758e1025f)
+    ✓ dev 이미지 worker ⊇ HEAD~1(byz-agents-worker-dev 9758e1025f)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 1aa910e505dd · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j3/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j3/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 21. ⓙ4 WANT=오래된 조상(≠HEAD) → 막힘 (exit 0 want 1 · pat=≠ press 워크트리 HEAD)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 14755bc01a) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 14755bc01a(byz-agents-web-dev 14755bc01a)
+    ✓ dev 이미지 gateway ⊇ 14755bc01a(byz-agents-gateway-dev 14755bc01a)
+    ✓ dev 이미지 worker ⊇ 14755bc01a(byz-agents-worker-dev 14755bc01a)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 14755bc01a8a · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j4/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j4/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-j4/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 22. ⓚ1 SVCS 에 web·gateway 만 → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_SVCS 에 worker 가 없다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 0975ac20bf) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 0975ac20bf(byz-agents-web-dev 0975ac20bf)
+    ✓ dev 이미지 gateway ⊇ 0975ac20bf(byz-agents-gateway-dev 0975ac20bf)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha db175340bd8f · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k1/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k1/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 23. ⓚ2 SVCS 빈 값(루프 0회 통과 0) → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_SVCS 에 web 가 없다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 96a8871c88) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha a0f180e06778 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k2/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k2/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 24. ⓚ3 SVCS 중복 → 막힘 (exit 0 want 1 · pat=FT_PRESS_DEV_SVCS 중복: web)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 1c68af0143) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 1c68af0143(byz-agents-web-dev 1c68af0143)
+    ✓ dev 이미지 web ⊇ 1c68af0143(byz-agents-web-dev 1c68af0143)
+    ✓ dev 이미지 gateway ⊇ 1c68af0143(byz-agents-gateway-dev 1c68af0143)
+    ✓ dev 이미지 worker ⊇ 1c68af0143(byz-agents-worker-dev 1c68af0143)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 027c03f693fb · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k3/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k3/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 25. ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘 (exit 0 want 1 · pat=본문이 HTML)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ baf32d19bc) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ baf32d19bc(byz-agents-web-dev baf32d19bc)
+    ✓ dev 이미지 gateway ⊇ baf32d19bc(byz-agents-gateway-dev baf32d19bc)
+    ✓ dev 이미지 worker ⊇ baf32d19bc(byz-agents-worker-dev baf32d19bc)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 369305d61d06 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k4/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k4/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-k4/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 26. ⓛ1 TERM 무시 (el=31s exit 0)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 7383c94915) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 7383c94915(byz-agents-web-dev 7383c94915)
+    ✓ dev 이미지 gateway ⊇ 7383c94915(byz-agents-gateway-dev 7383c94915)
+    ✓ dev 이미지 worker ⊇ 7383c94915(byz-agents-worker-dev 7383c94915)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha ba79693bba57 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-l1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-l1/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-l1/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 27. ⓛ1b _bounded 대체 경로 (rc=0 el=30)
+FAIL 28. ⓛ2 전체 마감 (el=62s exit 0)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ b058800c22) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ b058800c22(byz-agents-web-dev b058800c22)
+    ✓ dev 이미지 gateway ⊇ b058800c22(byz-agents-gateway-dev b058800c22)
+    ✓ dev 이미지 worker ⊇ b058800c22(byz-agents-worker-dev b058800c22)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 9bb80386e6a3 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-l2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-l2/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DCqa6k7Syh/case-l2/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+PASS 29. ⓜ 변이(최종 FAIL 판정 삭제) 사본에서 ⓑ 가 exit 0 = 부정 칸이 그 변이를 죽인다
+PASS 30. 허가 줄 = 끝 칸 1개 덧붙임(옛 5칸 호환)
+PASS 31. 실제 리포 파일 쓰기 0(시험 전후 git status 동일)
+cases=31 fail=15
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
