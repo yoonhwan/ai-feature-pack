@@ -69,7 +69,7 @@ setup() {  # setup <reap 모드> — 명부·pane·카드·원장을 «처음 �
   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$SEATS"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
   : > "$T/tlog"; : > "$T/ledger.md"; : > "$T/reap.calls"; rm -rf "$T/wtclean"; echo "$1" > "$T/reap.mode"
-  printf '# 인덱스: k\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
+  printf '# 인덱스: k\n<!-- ledger: design/harness/GOAL-harness.md -->\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
 }
 close() { run FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" FT_REAP_RETRY_SLEEP=0 \
   FT_SEATS_JSON="$SEATS" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" \

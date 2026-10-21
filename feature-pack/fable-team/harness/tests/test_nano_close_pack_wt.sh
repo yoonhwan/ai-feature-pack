@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_nano_close_pack_wt.sh — 카드 r508: ft-nano-close.sh --wt <팩 .worktrees/…> --branch nano/<키> (하네스 «팩 나노» 닫기 · ⑥·⑤·미커밋 = 팩 리포 기준)
+# r621: 하네스 카드 판별 = 카드 첫 5줄의 원장 줄(`<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄 무관(시험만 고치는 하네스 카드도 팩 워크트리로 닫힌다)
 # 임시 리포 2개(BYZ 꼴 R · 팩 꼴 P + P 의 bare 원격) + 가짜 tmux(PATH 앞) + 스크립트 사본(가짜 cherry 게이트) — 실제 리포·seats·tmux 세션·외부 호출 0 · GIT_* env 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -59,11 +60,12 @@ echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
 SEAT='byz-harness-nano-k#0'; CARD="$R/design/harness/indices/진행/k.md"
 
 run() { ( cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="$T/hil" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
-setup() {  # setup [설치 칸] — 명부·pane(cwd = BYZ 쪽 워크트리 · 실사건 꼴)·카드를 «정상» 으로 리셋
+setup() {  # setup [설치 칸] [원장 줄] — 명부·pane(cwd = BYZ 쪽 워크트리 · 실사건 꼴)·카드를 «정상» 으로 리셋 · 기본 둘째 줄 = 하네스 원장(r621: 하네스 카드 판별 = 설치 줄이 아니라 이 원장 줄)
   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$R/.fable-team/seats-harness.json"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
   : > "$T/tlog"; : > "$T/ledger.md"; rm -rf "$T/wtclean" "$T/cherry.args"
-  printf '# 인덱스: k\n- 설치: %s\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "${1:-있음 — 팩 키트 1}" "$SHA" > "$CARD"
+  printf '# 인덱스: k\n%s\n- 설치: %s\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' \
+    "${2-<!-- ledger: design/harness/GOAL-harness.md -->}" "${1:-있음 — 팩 키트 1}" "$SHA" > "$CARD"
 }
 close() { run FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" \
   FT_SEATS_JSON="$R/.fable-team/seats-harness.json" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" \
@@ -74,9 +76,9 @@ untouched() {  # REJECT 뒤 kill·명부·팩 워크트리 변경 0
   [ "$(git -C "$PW" rev-parse HEAD)" = "$SHA" ] && ok "  └ 팩 HEAD 그대로(WIP 커밋 0)" || bad "팩 HEAD 가 움직임"
 }
 
-echo "== ⓐ --wt 팩 등록 워크트리 + 하네스 카드(- 설치: 있음) → ⑥ 팩 HEAD 대조 PASS · CLOSED"
-setup; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
-[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓐ 팩 경로 → CLOSED(rc=0)" || bad "ⓐ rc=$rc ← ${out:0:900}"
+echo "== ⓐ --wt 팩 등록 워크트리 + 하네스 카드(- 설치: 없음 — 시험만 · 원장 하네스) → ⑥ 팩 HEAD 대조 PASS · CLOSED(r621: 설치 줄 무관)"
+setup "없음 — 시험만"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓐ 설치: 없음 하네스 카드 → CLOSED(rc=0)" || bad "ⓐ rc=$rc ← ${out:0:900}"
 has "$out" "OK 증거 줄" "  └ ⑥ 증거 줄 = 팩 워크트리 HEAD 대조 통과"
 [ "$(cat "$T/cherry.args" 2>/dev/null)" = "origin/main nano/k repo=$P" ] && ok "  └ ⑤ cherry = --repo 팩 리포 · origin/main · --branch" || bad "  └ cherry 인자: $(cat "$T/cherry.args" 2>/dev/null)"
 has "$out" "INFO 팩 워크트리 정리 = 별 경로" "  └ 정리 계획 0 · INFO 1줄"
@@ -87,27 +89,38 @@ has "$(cat "$T/tlog")" "kill-session" "  └ 세션 kill(표준승인 경로)"
 [ -d "$PW" ] && [ -d "$RW" ] && ok "  └ 팩·BYZ 워크트리 그대로" || bad "  └ 워크트리가 사라짐"
 git -C "$P" rev-parse --verify -q refs/heads/nano/k >/dev/null && ok "  └ 팩 브랜치 그대로" || bad "  └ 팩 브랜치 삭제됨"
 
-echo "== ⓑ 같은 입력 · 카드 «- 설치: 없음»(제품 카드) → ⓐ REJECT(팩 경로는 하네스 카드만)"
-setup "없음"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
-[ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓑ 제품 카드 → REJECT" || bad "ⓑ rc=$rc ← ${out:0:600}"
+echo "== ⓑ --wt 팩 등록 워크트리 + 카드 «- 설치: 있음» + 원장 하네스 → 지금처럼 CLOSED"
+setup "있음 — 팩 키트 1"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "ⓑ 설치: 있음 하네스 카드 → CLOSED" || bad "ⓑ rc=$rc ← ${out:0:600}"
+has "$(cat "$T/ledger.md")" "mode=pack-wt" "  └ 원장 행 mode=pack-wt"
+
+echo "== ⓒ 제품 카드(원장 줄이 하네스 아님) + 팩 경로 → ⓐ REJECT(팩 경로는 하네스 카드만)"
+setup "있음 — 팩 키트 1" '<!-- ledger: design/product/GOAL-product.md -->'; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓒ 제품 카드 → REJECT" || bad "ⓒ rc=$rc ← ${out:0:600}"
 has "$out" "ⓐ--wt($PW)가 이 리포($R)에 등록된 .worktrees/ 아래 워크트리가 아니다" "  └ 지금 ⓐ 문구 그대로"
-has "$out" "팩 경로는 하네스 카드(- 설치: 있음)만" "  └ 덧말"
+has "$out" "팩 경로는 하네스 카드(원장 GOAL-harness)만" "  └ 덧말(원장 기준)"
 untouched
 
-echo "== ⓒ --wt 가 팩 .worktrees/ 아래 미등록 폴더 → REJECT"
+echo "== ⓓ 카드 못 찾음 → REJECT(원장 줄 판정 불가)"
+setup "없음 — 시험만"; rm -f "$CARD"; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓓ 카드 없음 → REJECT" || bad "ⓓ rc=$rc ← ${out:0:600}"
+has "$out" "(카드 못 찾음)" "  └ 카드 못 찾음 표시"
+untouched
+
+echo "== ⓔ --wt 팩 .worktrees/ 아래 미등록 폴더 → REJECT"
 setup; out="$(close --wt "$P/.worktrees/plain-dir" --branch nano/k)"; rc=$?
-[ "$rc" -eq 1 ] && has "$out" "ⓐ--wt(" "ⓒ 미등록 폴더 → ⓐ REJECT" || bad "ⓒ rc=$rc ← ${out:0:600}"
+[ "$rc" -eq 1 ] && has "$out" "ⓐ--wt(" "ⓔ 미등록 폴더 → ⓐ REJECT" || bad "ⓔ rc=$rc ← ${out:0:600}"
 untouched
 
-echo "== ⓓ 팩 워크트리 미커밋 1 → REJECT(팩 리포 기준 ⓔ)"
+echo "== ⓕ 팩 워크트리 미커밋 1 → REJECT(팩 리포 기준 미커밋 검사)"
 setup; echo dirty > "$PW/dirty.txt"
 out="$(close --wt "$PW" --branch nano/k)"; rc=$?
-[ "$rc" -eq 1 ] && has "$out" "ⓔ--wt 미커밋 변경 1건" "ⓓ 팩 미커밋 → ⓔ REJECT" || bad "ⓓ rc=$rc ← ${out:0:600}"
+[ "$rc" -eq 1 ] && has "$out" "ⓔ--wt 미커밋 변경 1건" "ⓕ 팩 미커밋 → REJECT" || bad "ⓕ rc=$rc ← ${out:0:600}"
 untouched; rm -f "$PW/dirty.txt"
 
-echo "== ⓔ --wt 없이(표준 해석) 팩 나노 → 지금처럼 BYZ 워크트리 대조(동작 변경 0)"
+echo "== ⓖ --wt 없이(표준 해석) 팩 나노 → 지금처럼 BYZ 워크트리 대조(동작 변경 0)"
 setup; out="$(close)"; rc=$?
-[ "$rc" -eq 1 ] && has "$out" "세트 HEAD ${SHA:0:9} != 현재 나노 HEAD $(git -C "$RW" rev-parse --short=9 HEAD)" "ⓔ 표준 해석 → BYZ HEAD 대조 REJECT(지금 그대로)" || bad "ⓔ rc=$rc ← ${out:0:600}"
+[ "$rc" -eq 1 ] && has "$out" "세트 HEAD ${SHA:0:9} != 현재 나노 HEAD $(git -C "$RW" rev-parse --short=9 HEAD)" "ⓖ 표준 해석 → BYZ HEAD 대조 REJECT(지금 그대로)" || bad "ⓖ rc=$rc ← ${out:0:600}"
 hasnt "$out" "팩 워크트리" "  └ 팩 경로 분기 0"
 untouched
 
