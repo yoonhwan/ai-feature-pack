@@ -1,0 +1,26 @@
+r690 — 승계 고아 정리가 press 관측기를 죽임 → --defer-press 미룸 + 미룸 소화(닫는 사건)
+base: 팩 origin/main 06f26aec (1.1.198) · 가지 nano/r690-seat-retire-reap-kills-live-press-o · 판 1.1.199
+
+01-before-red.txt   ⓐ 실패 시험(현 판): press 러너 살아 있는데 retire 가 고아(FT_SEAT=OLD) reap-kill via=② → FAILED 14 (rc 1)
+02-after-green.txt  고친 판: ⓐ ⓑ ⓒ ⓓ ⓔ 전부 PASS — ALL PASS rc 0
+04-mutation-press-judgment-removed.txt  ⓖ 변이(press() 가 늘 "" 반환) 사본 bin → FAILED 11 (ⓐ·ⓑ·ⓓ·ⓔ 미룸 경로) rc 1
+03-*.txt / 05-adj-*.txt  ⓕ 기존·인접 시험:
+  test_seat_reap_left0 55/0 (05 첫 회 54/2·1칸 = ⓔ tmuxc 상속 sleep 1 타이밍 · load 40 · 변경 밖 블록 · 재실행 .rerun.txt 55/0)
+  test_seat_reap_services 16/0 · test_seat_retire_keep 13/0 · test_seat_retire_old_name_lint 17/0 · test_seat_retire_rosters 46/0
+  test_kit_bin_sync 7/0 · test_leak_reap 121/0 · test_nano_close_fail_closed 48/0 · test_seat_close 81/0
+  test_seat_retire 168/4 — 4건(①② ft-tick stall · ⑧ test_ft_tick_master_seat rc 44)은 base(origin/main archive)에서도 같은 4건 FAIL
+    원인 실측: ft-tick.sh --once --dry-run 이 git 밖 cwd(real_state_guard)에서 «comm 폴더를 못 풂» rc 1 → stall 줄 0 · 이 카드 밖 → 별도 수정 단위로 master 에 보고
+
+실측 오탐(구현 중 발견): 기본 패턴을 명령줄 «글자» 에 걸면 이 좌석의 zsh -c 명령줄이 press 로 잡힘 → 실행 파일 python*(대소문자 무시 · macOS 프레임워크 «Python») + 인자 토큰 매칭으로 좁힘 · 시험 ⓔ «셸 명령줄 글자 오탐 0»
+범위 밖 그대로: ft-seat-close·ft-nano-close reap(--defer-press 안 줌) · 서비스 나무 규칙 · press 러너
+── r2 (DA⑥ r1 HOLD 반송 · master 94 #137940 · 원문 BYZ harness-ops design/harness/evidence/r690-da6/) ──
+H1 깨진 미룸 줄: 버리지 않고 <파일>.broken-<시각>-<pid> 원문 보존 + stdout reap-deferred-broken file=… lines=<n> + stderr ERROR · 읽기 OSError = rc 20 · 미룸 폴더 못 풂 = 소화 생략 + stderr WARN
+H2 press 판정: python 옵션 뒤 «첫 비옵션 토큰 = 실행 스크립트» 하나만(-c·-m·- = 없음 · -W/-X 값 건너뜀)
+H3 미룸 소화: 파일마다 ps 표 새로 · 일반 조사와 같은 제외(자신·조상 → why=self · PROTECT_EXE → protect-exe · 서비스 나무 → service-*) · lstart 는 LC_ALL=C TZ=UTC
+H4 시험 칸: H1 깨진 줄 · H2 -c 인자/감시기 인자(press 아님) + -u 옵션 뒤 러너(press) · H3 LISTEN·보호 exe 신호 0 · H4 uid 0 python 러너(FT_PRESS_PS_SNAPSHOT 시험 표)→미룸 0 + 내 uid 대조
+06-r2-after-green.txt  ALL PASS 35/0 (첫 회 ⓓ 5 FAIL = 기본 패턴이 그 순간 실 press 를 잡음 → ⓓ부터 시험 전용 패턴 고정 · 재실행 ALL PASS)
+07-mut-*.txt  변이 4종 전부 FAIL: H1-drop-bad-lines 3 · H2-any-token 2 · H3-no-exclusion 3 · H4-no-uid-filter 2 · 04 ⓖ(press 판정 삭제) 재실행 FAIL 14
+08-r2-adj-*.txt  인접 10: reap_services 16/0 · retire_keep 13/0 · old_name_lint 17/0 · rosters 46/0 · kit_bin_sync 7/0 · leak_reap 121/0 · nano_close_fail_closed 48/0 · seat_close 81/0
+  · reap_left0 54/2(ⓔ tmuxc 상속 칸 · load 46) → 단독 재실행 .rerun 55/0 · test_seat_retire 168/4 = base 같은 4(r691)
+
+press 필요: 착지·설치 뒤 press 중 tester 승계 1회 — 옛 좌석 layout_watch 생존 + retire 출력 «reap deferred=N» + press 끝난 뒤 다음 reap 의 «reap-deferred-done … stopped=N kept=0» 원문(실사건 1 · master 소관)

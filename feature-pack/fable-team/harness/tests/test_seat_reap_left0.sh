@@ -32,6 +32,7 @@ orphan() {  # orphan <cwd> <FT_SEAT|-> <실행 파일> <루프 본문> — ppid 
 seat_procs() { ps -axEww -o pid=,command= | grep -E "FT_SEAT=$1( |$)" | grep -vc grep; }
 mkdir -p "$TMP/wtA" "$TMP/else" "$TMP/pbin" "$TMP/resume"; git -C "$TMP/wtA" init -q
 export ZC_RESUME_DIR="$TMP/resume" FT_SUCCESSOR_DIR="$TMP/succ"
+export FT_PRESS_RUNNER_RE="r448-never-$$" FT_PERMIT_DIR="$TMP/permits" FT_REAP_DEFER_DIR="$TMP/defer"   # r690: 이 머신의 실 press 가 retire 미룸 판정에 섞이지 않게(미룸 자체 = test_seat_retire_defer_press_r690.sh)
 BASH_X="$(command -v bash)"; ln -s "$BASH_X" "$TMP/pbin/headroom"   # 보호 exe(ft-leak-reap PROTECT_EXE «headroom») 꼴
 
 for f in "$REAP" "$LOOP" "$LINT" "$CLOSE" "$RETIRE" "$BIN/ft-nano-close.sh" "$BIN/ft-merge-land.sh" "$TMUXC"; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done

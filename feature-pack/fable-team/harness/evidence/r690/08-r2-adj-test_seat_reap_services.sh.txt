@@ -1,0 +1,24 @@
+PASS bash -n ft-seat-reap.sh
+PASS 짝 cmp0 ft-seat-reap.sh
+== 픽스처 — ⓐ LISTEN 서비스(+ⓓ 자식) · ⓑ worker 명령 꼴 · ⓒ 감시 루프 (전부 ppid 1 · FT_SEAT=r505t-7864#1)
+PASS 픽스처 4(ⓐ·ⓑ·ⓒ 고아 · ⓓ 자식)
+PASS ⓐ LISTEN 실재
+PASS ⓓ 자식 ppid = 서비스
+== ⓐⓑⓒ 은퇴 경로(--orphans-only) — 서비스 생존 · 루프만 정지
+PASS ⓐⓑ dry-run 후보에 서비스 0
+PASS ⓒ dry-run 루프 후보
+ft-seat-reap: WARN 미룸 폴더를 못 풂(FT_REAP_DEFER_DIR 없음 · 데이터 루트 못 풂) — 미룸 소화 생략
+PASS ⓐ reap-skip why=service-listen
+PASS ⓑ reap-skip why=service-cmd
+PASS ⓐⓑ 서비스 생존 · ⓒ 루프 정지
+PASS ⓒ 끝 줄 stopped=1 left=0 rc=0
+== ⓓ 닫기 경로(--orphans-only 없음) — 서비스 자식도 생존(서비스 나무째 제외)
+ft-seat-reap: WARN 미룸 폴더를 못 풂(FT_REAP_DEFER_DIR 없음 · 데이터 루트 못 풂) — 미룸 소화 생략
+PASS ⓓ 자식 reap-skip why=service-listen
+PASS ⓓ 서비스·자식 생존 · 끝 줄 stopped=0 left=0 rc=0
+== ⓔ FT_REAP_SERVICE_RE 덮기(서비스 명령 꼴 끔) → ⓑ 가 다시 후보 · lsof 실패 = rc 20
+PASS ⓔ덮기 → ⓑ 후보(via=②)
+PASS ⓔlsof 실패 → rc 20 · left=? · 아무것도 안 죽임
+PASS ⓔ 600/300 0
+
+ALL PASS
