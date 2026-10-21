@@ -1,0 +1,6 @@
+# r633 판정 2531 판 — origin/main effdd1ee(r639 1.1.174 병합) 위로 rebase 뒤 재실행 · load 62
+test_resource_swap_closelist_r633 rc=0 PASS=46 FAIL=0
+test_resource_gate_pressure 단독1 rc=0 FAIL=0
+test_resource_gate_pressure 단독2 rc=0 FAIL=0
+→ 13 의 gate_pressure «r3 변이: 잠금 제거가 검출되지 않음» 1줄 = 이 카드가 안 바꾼 ft-resource-sample.sh 잠금의 sleep 타이밍(1.1초·0.3초) 변이 시험 · load 37~57 아래 1회 · 단독 2회 rc=0 → 부하 흔들림
+→ rebase 충돌 = CHANGES.md·manifest.json 만(r639 절 아래에 r633 절 · 1.1.175) · r639 파일(ft_queue_watch.py 등) diff 0
