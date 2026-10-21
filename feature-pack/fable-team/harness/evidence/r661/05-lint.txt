@@ -1,0 +1,3 @@
+[lint — ruff check (변경 키트·시험 7파일 · rebase 뒤)]
+All checks passed!
+rc=0

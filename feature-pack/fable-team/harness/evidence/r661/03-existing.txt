@@ -1,0 +1,6 @@
+[ⓖ — rebase(e79a4128) 뒤 재실행 · 기존 3파일 + r661 새 시험]
+실행: PYTHONPATH=kit/slack-mirror:tests/scripts python3.11 -m pytest tests/scripts/test_thread_reply_to_slack.py tests/scripts/test_thread_room_post.py tests/scripts/test_thread_topic_only_replies.py tests/scripts/test_r661_slack_reply_no_n_of_m.py -q
+
+.......................................                                  [100%]
+39 passed in 3.85s
+rc=0

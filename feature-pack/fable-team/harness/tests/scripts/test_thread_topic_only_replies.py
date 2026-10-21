@@ -16,7 +16,8 @@ import thread_reply_slack as trs
 
 T = "1792492349.071989"  # 오빠 새 최상위 글
 ROOM = "승인 묶음 (h12 · h13) — 아래를 그대로 실행\n! bash /tmp/h12"  # 방 글 꼴(승인 + h<숫자> + ! bash /tmp/h)
-TOPIC = "요청 3개 중 3개 답함\n검색 결과는 어제와 같아요."  # 주제 답(방 글 꼴 아님)
+TOPIC = "검색 결과는 어제와 같아요."  # 주제 답(방 글 꼴 아님 · r661: 본문에 머리말을 쓰지 않는다)
+CNT = ("--asked", "3", "--answered", "3")  # r661: 셈은 인자
 
 
 @pytest.fixture
@@ -56,7 +57,7 @@ def test_to_slack_room_shape_is_refused(env, slack, capsys):  # ⓑ  # noqa: F81
 
 
 def test_topic_answer_still_posts(env, slack, capsys):  # ⓒ  # noqa: F811
-    assert run(env, slack, "--to-slack", T, "--text", TOPIC) == 0
+    assert run(env, slack, "--to-slack", T, *CNT, "--text", TOPIC) == 0
     assert slack.replies[-1]["thread_ts"] == T and "reply ts=" in capsys.readouterr().out
 
 

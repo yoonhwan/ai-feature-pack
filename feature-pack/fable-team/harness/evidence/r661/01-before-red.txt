@@ -1,0 +1,35 @@
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2640: in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = ArgumentParser(prog='__main__.py', usage=None, description='thread_post_args — byz_thread_post CLI 인자 (분리 · 200줄 한도). ... 필수 — 값이 없으면 호출자가 문자 `없음`.', formatter_class=<class 'argparse.HelpFormatter'>, conflict_handler='error', add_help=True)
+status = 2
+message = '__main__.py: error: unrecognized arguments: --asked 1 --answered 1\n'
+
+    def exit(self, status=0, message=None):
+        if message:
+            self._print_message(message, _sys.stderr)
+>       _sys.exit(status)
+E       SystemExit: 2
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/argparse.py:2627: SystemExit
+----------------------------- Captured stderr call -----------------------------
+usage: __main__.py [-h]
+                   {start,progress,result,check,repair,update,reply,post,attach}
+                   ...
+__main__.py: error: unrecognized arguments: --asked 1 --answered 1
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_a_plain_answer_with_counts_is_posted_as_is
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_b_input_text_gets_no_added_characters
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_c_partial_answer_appends_one_left_line
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_d_partial_answer_without_left_is_rejected_before_posting
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_e_counts_missing_is_rejected_with_root_text
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_e2_old_header_in_body_is_rejected
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_f_numbered_abbrev_only_lines_still_rejected
+FAILED tests/scripts/test_r661_slack_reply_no_n_of_m.py::test_f2_topic_thread_only_verdict_is_unchanged
+8 failed in 1.16s
+rc1 REJECT 원문(base 판):
+REJECT 답 — 첫 줄에 «요청 N개 중 M개 답함» 이 없어요
+--- 오빠 글(뿌리) 앞 400자 ---
+오빠 글 뿌리: 폰 상단 줄 확인 부탁
+--- 쓰는 법: 첫 줄 «요청 N개 중 M개 답함» · 남으면 «남은 것: …» · 번호 대신 쉬운 말

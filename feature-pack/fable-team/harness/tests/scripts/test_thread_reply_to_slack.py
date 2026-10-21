@@ -1,5 +1,7 @@
 """r558 — desk 답이 «오빠 글 밑»으로 간다: reply --to-slack(ⓐⓑⓒ) · --thread 거절(ⓓⓔⓕ) · 쪽지 답 명령 1줄(ⓖ).
 
+r661 — 답 본문의 «요청 N개 중 M개 답함» 머리말 제거: 셈은 --asked·--answered 인자 · 덜 답했으면 --left 1줄(아래 r661/r585 칸).
+
 정본 = design/harness/indices/진행/r558-desk-slack-reply-goes-to-oppa-post-thread.md §시험 입력.
 가짜 Slack(`_proposal_fakes.slack`) · 임시 원장·등록부·답 기록 · 실제 Slack·실제 ~/.hermes/state 쓰기 0.
 
@@ -22,7 +24,8 @@ P = "1792422462.316339"  # 오빠 아침 최상위 글 = 스레드 뿌리
 OLD = f"{time.time() - 9 * 86400:.6f}"  # 창(7일) 밖
 # r585: 오빠 글 뿌리(스레드 첫 글) 원문 — 답 도구가 게시 전에 읽어 보여 준다
 ROOT = "오빠 글 뿌리: r558 답 자리 · desk 슬랙 · 번역 창 크기 — 3개 확인 부탁"
-DECL = "요청 3개 중 3개 답함"
+ANSWER = "확인했어요. 반영했어요."  # r661: 답 본문에 «요청 N개 중 M개» 머리말을 쓰지 않는다
+CNT = ("--asked", "3", "--answered", "3")  # r661: 셈은 글 아니라 인자
 
 
 @pytest.fixture
@@ -68,7 +71,7 @@ def run(env: Path, slack, *extra: str, channel: str = "C1"):  # noqa: F811
     return tp.main(argv)
 
 
-def text_file(env: Path, body: str = DECL + "\n확인했어요. 팀에 전달했어요.") -> str:
+def text_file(env: Path, body: str = "확인했어요. 팀에 전달했어요.") -> str:
     p = env / "reply.txt"
     p.write_text(body, encoding="utf-8")
     return str(p)
@@ -77,9 +80,9 @@ def text_file(env: Path, body: str = DECL + "\n확인했어요. 팀에 전달했
 def test_to_slack_top_level_replies_under_that_post(env, slack):  # ⓐ  # noqa: F811
     started = time.time()
     inbound(env, {T: entry()})
-    assert run(env, slack, "--to-slack", T, "--text", DECL + "\n확인했어요.") == 0
+    assert run(env, slack, "--to-slack", T, *CNT, "--text", ANSWER) == 0
     (r,) = slack.replies
-    assert r["thread_ts"] == T and r["text"] == DECL + "\n확인했어요."
+    assert r["thread_ts"] == T and r["text"] == ANSWER
     rec = json.loads((env / "st" / "byz_slack_answered.json").read_text())["answered"]
     assert rec[T] == r["ts"] and started > 0
 
@@ -88,14 +91,14 @@ def test_to_slack_thread_reply_answers_in_same_thread(env, slack):  # ⓑ  # noq
     inbound(env, {T: entry(thread=P)})
     seed(slack, T, P)
     before = len(slack.roots)
-    assert run(env, slack, "--to-slack", T, "--text", DECL + "\n네, 반영했어요.") == 0
+    assert run(env, slack, "--to-slack", T, *CNT, "--text", ANSWER) == 0
     (r,) = slack.replies
     assert r["thread_ts"] == P and len(slack.roots) == before  # 새 스레드 0
 
 
 def test_to_slack_unknown_ts_is_rejected(env, slack, capsys):  # ⓒ  # noqa: F811
     inbound(env, {T: entry()})
-    assert run(env, slack, "--to-slack", "1700000000.000100", "--text", DECL + "\nx") == 1
+    assert run(env, slack, "--to-slack", "1700000000.000100", *CNT, "--text", ANSWER) == 1
     assert not slack.replies and "수신 원장에 없는 오빠 글 ts" in capsys.readouterr().err
 
 
@@ -146,42 +149,50 @@ def test_notice_ends_with_the_answer_command(env, slack, tmp_path, monkeypatch):
     assert lines[-3] == f"(slack:{T}:byz-planner-desk-claude#29)"  # 기존 출처 토큰 줄 불변 · 중복 판정 근거
 
 
-def test_r585_no_declaration_line_is_rejected_with_root_text(env, slack, capsys):  # ⓐ  # noqa: F811
+def test_r661_old_header_in_body_is_rejected_with_root_text(env, slack, capsys):  # ⓐ (r585 자리 — 이제 옛 머리말은 금지)  # noqa: F811
     inbound(env, {T: entry()})
-    assert run(env, slack, "--to-slack", T, "--text", "확인했어요. 반영할게요.") == 1
+    assert run(env, slack, "--to-slack", T, *CNT, "--text", "요청 3개 중 3개 답함\n확인했어요.") == 1
     err = capsys.readouterr().err
     assert not slack.replies  # 게시 0
-    assert ROOT in err and "요청 N개 중 M개 답함" in err  # 뿌리 원문 + 쓰는 법
+    assert ROOT in err and "오빠가 빼라고 했어요" in err  # 뿌리 원문 + 사람 말
 
 
 def test_r585_numbered_abbrev_lines_are_rejected(env, slack, capsys):  # ⓑ  # noqa: F811
     inbound(env, {T: entry()})
-    body = DECL + "\nr558 반영\n#123 확인\nK4b 진행"
-    assert run(env, slack, "--to-slack", T, "--text", body) == 1
+    body = "r558 반영\n#123 확인\nK4b 진행"
+    assert run(env, slack, "--to-slack", T, *CNT, "--text", body) == 1
     err = capsys.readouterr().err
     assert not slack.replies and "쉬운 말로" in err and ROOT in err
 
 
-def test_r585_partial_answer_needs_remaining_line(env, slack, capsys):  # ⓒ  # noqa: F811
+def test_r661_partial_answer_needs_left_line(env, slack, capsys):  # ⓒ (r585 자리 — --left 필수)  # noqa: F811
     inbound(env, {T: entry()})
-    assert run(env, slack, "--to-slack", T, "--text", "요청 3개 중 1개 답함\n번역 창만 확인했어요.") == 1
-    assert not slack.replies and "남은 것" in capsys.readouterr().err
+    assert run(env, slack, "--to-slack", T, "--asked", "3", "--answered", "1", "--text", "번역 창만 확인했어요.") == 1
+    err = capsys.readouterr().err
+    assert not slack.replies and "물어본 게 3개인데 1개만 답했어요" in err and "--left" in err
 
 
-def test_r585_good_answer_posts_under_root(env, slack, capsys):  # ⓓ  # noqa: F811
+def test_r661_good_answer_posts_under_root_with_one_left_line(env, slack, capsys):  # ⓓ (r585 자리)  # noqa: F811
     inbound(env, {T: entry()})
-    text = "요청 3개 중 2개 답함\n번역 창은 확인했어요.\n남은 것: r558 답 자리 — 오늘 안에 볼게요."
-    assert run(env, slack, "--to-slack", T, "--text", text) == 0
+    text = "번역 창은 확인했어요."
+    assert run(env, slack, "--to-slack", T, "--asked", "3", "--answered", "2", "--left", "r558 답 자리 — 오늘 안에 볼게요.",
+               "--text", text) == 0
     (r,) = slack.replies
-    assert r["thread_ts"] == T and r["text"] == text and "reply ts=" in capsys.readouterr().out
+    assert r["thread_ts"] == T and r["text"] == text + "\n아직 못 한 것: r558 답 자리 — 오늘 안에 볼게요."
+    assert "reply ts=" in capsys.readouterr().out
 
 
 def test_r585_root_read_failure_is_rejected(env, slack, capsys):  # ⓔ  # noqa: F811
     inbound(env, {T: entry()})
     slack.fail_replies = True
-    assert run(env, slack, "--to-slack", T, "--text", DECL + "\n확인했어요.") == 1
+    assert run(env, slack, "--to-slack", T, *CNT, "--text", ANSWER) == 1
     assert not slack.replies and "뿌리 글 읽기 실패" in capsys.readouterr().err
     slack.fail_replies = False
+
+
+def test_reply_parses_counts_as_arguments():
+    a = pa.parse(["reply", "--to-slack", T, "--asked", "3", "--answered", "2", "--left", "x", "--text", "y"])
+    assert (a.asked, a.answered, a.left) == (3, 2, "x")
 
 
 def test_reply_requires_exactly_one_root_and_one_body():

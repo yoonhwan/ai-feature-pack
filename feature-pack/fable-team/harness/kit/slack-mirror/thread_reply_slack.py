@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from magazine_slack import Target
-from mirror_lib import MirrorError, thread_texts
+from mirror_lib import MirrorError, esc, thread_texts
 from post_guard import guarded_post as post
 from thread_room_shape import ROOM_HINT, refuse_room_post, room_shaped, topic_only  # noqa: F401 — 판정 정본은 한 파일(r617)
 
@@ -27,9 +27,10 @@ SHOW = 3  # 거절 문구에 싣는 최신 글 수 — 답 기록이 비어 처�
 TOPIC_ENV = "FT_SLACK_TOPIC_ONLY"  # 주제 전용 이름들 — 판정 정본 = thread_room_shape(r617)
 TOPIC_DEFAULT = "desk"
 ROOT_HEAD = 400  # 거절 문구에 싣는 뿌리 원문 길이 — 답하는 사람이 «그 글을 읽게»(r585)
-DECL = re.compile(r"요청\s*(\d+)\s*개\s*중\s*(\d+)\s*개\s*답함")  # 본문 첫 줄의 선언(r585)
+OLD_DECL = re.compile(r"요청\s*\d+\s*개\s*중\s*\d+\s*개\s*답함")  # 오빠가 빼라고 한 옛 머리말(r661) — 이제 글에 쓰지 않는다
 BARE = re.compile(r"r\d+|#\d+|\b[A-Z][A-Za-z]*\d+[A-Za-z]*")  # 번호·약어 꼴(r558·#123·K4b · 줄 단위 검사)
-USAGE = "쓰는 법: 첫 줄 «요청 N개 중 M개 답함» · 남으면 «남은 것: …» · 번호 대신 쉬운 말"
+LEFT_LINE = "아직 못 한 것: "  # 덜 답했을 때만 글 끝 1줄(r661) — 그 밖에는 본문에 아무것도 안 붙는다
+USAGE = "쓰는 법: 물어본 수·답한 수는 --asked·--answered · 덜 답했으면 --left \"<한 줄>\" · 번호 대신 쉬운 말"
 
 
 def state_dir() -> Path:
@@ -154,28 +155,41 @@ def root_text(base: str, token: str, channel: str, root: str) -> str:
     return body
 
 
-def check_body(text: str, root: str) -> None:
-    """게시 전 본문 검사 — 선언 줄 · 번호만 · 남은 것(ⓐⓑⓒ) · 걸리면 뿌리 원문 + 쓰는 법을 붙여 REJECT."""
+def _complaint(text: str, lines: list[str], asked: int | None, answered: int | None, left: str | None) -> str:
+    """본문이 걸리는 이유 1줄(사람 말) — 안 걸리면 빈 문자열. 번호·약어만 3줄+ 판정은 r558 그대로."""
+    bare = sum(1 for ln in lines if BARE.search(ln))
+    if OLD_DECL.search(text):
+        return "«요청 N개 중 M개 답함» 머리말은 오빠가 빼라고 했어요 — 셈은 --asked·--answered 로 주세요"
+    if asked is None or answered is None:
+        return "오빠 글에 물어본 개수·답한 개수를 --asked·--answered 로 알려 주세요(예 --asked 3 --answered 3)"
+    if bare >= 3 and bare * 2 > len(lines):
+        return "번호·약어만 늘어놓았어요 — 쉬운 말로"
+    if answered < asked and not (left or "").strip():
+        return f"오빠 글에 물어본 게 {asked}개인데 {answered}개만 답했어요. 못 한 {asked - answered}개를 --left 에 한 줄로 적어 주세요"
+    return ""
+
+
+def check_body(text: str, root: str, asked: int | None, answered: int | None, left: str | None) -> str:
+    """게시 전 본문 검사(r661: 셈은 인자) — 옛 머리말 · 셈 · 번호만 · 걸리면 뿌리 원문 + 쓰는 법을 붙여 REJECT.
+    통과하면 게시할 본문 — 덜 답했으면 끝에 «아직 못 한 것: <left>» 1줄만 붙고, 그 밖에는 입력 그대로."""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    m, bare = DECL.search(text), sum(1 for ln in lines if BARE.search(ln))
-    if not m:
-        why = "첫 줄에 «요청 N개 중 M개 답함» 이 없어요"
-    elif bare >= 3 and bare * 2 > len(lines):
-        why = "번호·약어만 늘어놓았어요 — 쉬운 말로"
-    elif int(m.group(2)) < int(m.group(1)) and not re.search(r"남은\s*것\s*:", text):
-        why = f"요청 {m.group(1)}개 중 {m.group(2)}개만 답했는데 «남은 것: …» 줄이 없어요"
-    else:
-        return
-    head = re.sub(r"\s+", " ", root).strip()[:ROOT_HEAD]
-    raise MirrorError(f"REJECT 답 — {why}\n--- 오빠 글(뿌리) 앞 {ROOT_HEAD}자 ---\n{head}\n--- {USAGE}")
+    why = _complaint(text, lines, asked, answered, left)
+    if why:
+        head = re.sub(r"\s+", " ", root).strip()[:ROOT_HEAD]
+        raise MirrorError(f"REJECT 답 — {why}\n--- 오빠 글(뿌리) 앞 {ROOT_HEAD}자 ---\n{head}\n--- {USAGE}")
+    if asked is None or answered is None or answered >= asked:
+        return text
+    return text.rstrip() + "\n" + LEFT_LINE + re.sub(r"\s+", " ", left or "").strip()
 
 
 def reply_to_slack(a: argparse.Namespace, t: Target, text: str) -> int:
-    """오빠 글 ts 의 «그 글/그 스레드» 밑에 답한다 — 게시 «전» 뿌리 원문을 읽어 본문을 검사한다(r585)."""
+    """오빠 글 ts 의 «그 글/그 스레드» 밑에 답한다 — 게시 «전» 뿌리 원문을 읽어 본문을 검사한다(r585 · r661 셈은 인자)."""
     ch, e = inbound_find(a.to_slack)
     root = str(e.get("thread") or a.to_slack)
     channel = a.channel or ch
-    check_body(text, root_text(t.base, t.token, channel, root))
+    left = getattr(a, "left", None)
+    text = check_body(text, root_text(t.base, t.token, channel, root), getattr(a, "asked", None),
+                      getattr(a, "answered", None), esc(left) if left else None)
     ts = post(t.base, t.token, channel, text, root, human=True)
     mark_answered(a.to_slack, ts)
     print(f"reply ts={ts} to_slack={a.to_slack} thread={root}")

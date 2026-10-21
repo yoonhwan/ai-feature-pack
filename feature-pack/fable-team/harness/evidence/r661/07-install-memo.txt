@@ -1,0 +1,9 @@
+[r661 설치 메모 — master 소관 · 나노는 설치하지 않았다]
+팩 착지 뒤:
+  1) cp feature-pack/fable-team/harness/kit/slack-mirror/thread_reply_slack.py ~/.hermes/scripts/thread_reply_slack.py      (사본 cmp0)
+  2) cp feature-pack/fable-team/harness/kit/slack-mirror/thread_post_args.py    ~/.hermes/scripts/thread_post_args.py        (사본 cmp0)
+  3) cp feature-pack/fable-team/harness/kit/slack-mirror/thread_post_update.py  ~/.hermes/scripts/thread_post_update.py      (사본 cmp0)
+  되돌림 = .bak-r661 3개 복원 · 데몬 0(파일 교체만 · 재기동 불필요)
+실사건 1(설치 뒤): desk 의 오빠 슬랙 답 1건 원문 — 머리말 «요청 N개 중 M개 답함» 0 · 덜 답했으면 끝줄 «아직 못 한 것: …» 1줄
+정정 1: ~/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents/memory/feedback_slack_reply_declare_n_of_m.md + MEMORY.md:52
+press 필요: 없음 — 슬랙 답 본문 글자 규칙(제품 키·말풍선·음성 경로 무관)
