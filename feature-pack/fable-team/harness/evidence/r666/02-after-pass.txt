@@ -1,4 +1,4 @@
-# r666 후판 — 새 시험 전량
+# r666 후판 — 재기반 뒤 재실행(merge c007f3ad · origin/main 42a08106 1.1.187 → manifest 1.1.188)
 PASS ⓐ 팀장 2 + 나노 1 → 통과(나노 기준 1/3) rc0
 PASS ⓐ' 나노 1 = 한도 1 → REJECT(나노는 그대로 센다): REJECT 좌석 상한 lecture 1/1
 PASS ⓑ 나노 3/3 → REJECT: REJECT 좌석 상한 lecture 3/3

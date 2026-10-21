@@ -28,3 +28,4 @@
     FAIL ⓒ 정지 유효 + 문지기 통과 → open 단계 도달 — 없음: «REJECT tmuxc open 실패 (old-claude#2)» ← WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:50:37Z release=swap<8192&memfree>=15
 # 새 시험은 base 에서 01-before-red.txt(=FAIL 8) — base 에 없는 시험이다
 # base 1회차 test_resource_reclaim rc=1 은 잠금 경합(FAIL 0) — 같은 base 에서 재실행 rc=0(flaky · 이 카드 무관)
+# 재기반 뒤 재실행 = 03-existing.txt (같은 FAIL 줄 · 새 sha c007f3ad)

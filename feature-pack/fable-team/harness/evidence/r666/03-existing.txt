@@ -1,4 +1,4 @@
-# 인접 시험(광역 0) — 이 카드가 건드린 도구를 쓰는 시험만
+# 인접 시험 재실행(재기반 뒤) — 이 카드가 건드린 도구를 쓰는 시험만 · merge c007f3ad82dc01ef9f5949363031bb425d10cc02
 === test_satellite_rosters.sh rc=0 PASS=31 FAIL=0
 === test_nano_spawn_teamset_cap.sh rc=7 PASS=11 FAIL=8
     FAIL ⓐ hold=none
@@ -24,12 +24,15 @@
 === test_resource_reclaim.sh rc=0 PASS=107 FAIL=0
 === test_resource_reclaim_pressure.sh rc=0 PASS=28 FAIL=0
 === test_spawn_hold.sh rc=1 PASS=54 FAIL=2
-    FAIL ⓒ rc=2 WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:46:01Z release=swap<8192&memfree>=15
-    FAIL ⓒ 정지 유효 + 문지기 통과 → open 단계 도달 — 없음: «REJECT tmuxc open 실패 (old-claude#2)» ← WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T17:46:01Z release=swap<8192&memfree>=15
-=== ruff
+    FAIL ⓒ rc=2 WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T18:04:40Z release=swap<8192&memfree>=15
+    FAIL ⓒ 정지 유효 + 문지기 통과 → open 단계 도달 — 없음: «REJECT tmuxc open 실패 (old-claude#2)» ← WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T18:04:40Z release=swap<8192&memfree>=15
+=== 러프
 All checks passed!
 === bash -n
 rc=0
-=== 짝 cmp0
+=== 키트↔추적 짝 cmp0
 cmp0 ft_seat_cap.py
 cmp0 ft-nano-spawn.sh
+=== CHANGES 절 순서(위 2절 — r658 위 · r666 아래)
+1:## 2026-10-21 — 자율 모드를 켜면 desk 슬랙 방에 올라가던 «범위 승인» 글이 내부 기록 줄을 거의 그대로
+12:## 2026-10-21 — 위성팀 좌석 한도가 팀장·은퇴한 팀장 화면까지 세어 나노 자리가 1개뿐이었고, 거절은 rc1
