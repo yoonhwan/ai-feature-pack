@@ -1,0 +1,23 @@
+# r657 설치 메모 (master 용) — 연결 파일이 -p 를 이어 준다
+
+0) 라이브 bin 갱신 (키트 추적 짝 → LIVE_BIN, cmp0)
+   cp -p feature-pack/fable-team/harness/kit/fable-team/bin/ft-root-bin-shim.sh \
+         "$(sed -n '1p' /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_BIN)/ft-root-bin-shim.sh"
+   cmp "$(sed -n '1p' /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_BIN)/ft-root-bin-shim.sh" \
+       feature-pack/fable-team/harness/kit/fable-team/bin/ft-root-bin-shim.sh && echo CMP0
+
+1) 루트 4곳 연결 파일 재생성 (한 줄씩 · 끝줄 `SHIM n · MOVED 0 · UNKNOWN k` 확인)
+   bash "$LIVE/ft-root-bin-shim.sh" --root /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents          --live "$LIVE"
+   bash "$LIVE/ft-root-bin-shim.sh" --root /Users/yoonhwan/Project/KakaoBot                            --live "$LIVE"
+   bash "$LIVE/ft-root-bin-shim.sh" --root /Users/yoonhwan/Project/kakao-agent-bot-planning          --live "$LIVE"
+   bash "$LIVE/ft-root-bin-shim.sh" --root /Users/yoonhwan/Project/ai-feature-pack                   --live "$LIVE"
+   (LIVE = `sed -n '1p' <루트>/.fable-team/LIVE_BIN` · 같은 값을 쓰면 1) 의 경로 하나 · MOVED 0 이어야 한다 — MOVED > 0 이면 멈추고 확인)
+
+2) 생성 결과 확인 (루트 4곳 × ft-redis-readonly-user.sh · `case "$-" in *p*) exec "${BASH:-bash}" -p` 1줄 실재)
+   grep -n 'bash" -p' <루트>/.fable-team/bin/ft-redis-readonly-user.sh
+
+3) 실사건 1 (오빠 · h38 재실행 · master 는 명령만 전달)
+   /bin/bash -p <루트>/.fable-team/bin/ft-redis-readonly-user.sh ensure
+   기대 = rc0 + ACL DRYRUN 원문(SET 거절 · HSTRLEN OK)
+
+되돌림: 키트 이전 판(949cc998) 재설치 + 1) 재실행 · `.bak-r657`

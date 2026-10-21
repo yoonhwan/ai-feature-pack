@@ -1,0 +1,48 @@
+PASS bash -n (추적 짝)
+PASS bash -n (키트)
+PASS 추적 짝 = 키트(cmp0)
+PASS base 판 생성기 추출(949cc998)
+PASS base 판 = -p 이어주기 없음(사건 재현 전제)
+PASS ⓐ base 판 생성 (rc=0)
+PASS ⓐ base 판 숫자(SHIM 3 · MOVED 1 · UNKNOWN 0)
+PASS ⓐ base 판 연결 파일에 -p 이어주기 0
+PASS ⓐ base 판: /bin/bash -p <shim> → 도구 rc2(고치기 전 FAIL 지점) (rc=2)
+PASS ⓐ base 판: REJECT 원문
+PASS ⓑ 고친 판 생성 (rc=0)
+PASS ⓑ 고친 판 숫자(base 와 같음)
+PASS ⓑ 연결 파일에 -p 이어주기 1줄
+PASS ⓑ 고친 판: /bin/bash -p <shim> ensure → rc0 (rc=0)
+PASS ⓑ 도구 안 $- 에 p · 인자 그대로
+PASS ⓑ -p 없을 때 줄 = 이전 판 그대로(맨 bash)
+PASS ⓒ -p 없이 연결 파일 실행 → 도구 rc2 그대로 (rc=2)
+PASS ⓒ -p 없음 REJECT 원문
+PASS ⓒ BASH_ENV 를 둔 채 -p 실행 → 도구 rc2 그대로 (rc=2)
+PASS ⓒ BASH_ENV REJECT 원문
+PASS ⓒ BASH_ENV 를 읽지 않는다(특권 모드 유지)
+PASS ⓓ 보통 .sh: $HERE=라이브 · 인자 그대로
+PASS ⓓ 보통 .sh: stdin 그대로
+PASS ⓓ 보통 .sh: rc 그대로 (rc=7)
+PASS ⓓ 보통 .sh: 출력·rc 이전 판과 같음(HERE 경로만 워크트리 차이)
+PASS ⓓ .py: rc0 (rc=0)
+PASS ⓓ .py: $HERE=라이브 · 인자 그대로
+PASS ⓓ .py 연결 파일 본문 바이트 동일(변경 0)
+PASS ⓓ .sh 연결 파일 차이 = 1줄 추가(-p 이어주기)뿐
+PASS ⓔ 두 번째 실행 (rc=0)
+PASS ⓔ 두 번째 = MOVED 0 · 숫자 같음
+PASS ⓔ 멱등(바이트·stale 폴더 수 불변)
+PASS ⓔ base 판 shim 이 있는 루트에 --dry-run (rc=0)
+PASS ⓔ base 판 shim 은 «연결 파일» 로 인정(옮기기 0)
+PASS ⓔ --dry-run 쓰기 0(base 판 본문 그대로)
+PASS ⓔ base 판 shim 이 있는 루트에 새 판 실행 (rc=0)
+PASS ⓔ 본문만 다시 씀(MOVED 0 · 숫자 같음)
+PASS ⓔ base 판 shim → 새 판 본문으로 갱신
+PASS ⓔ 갱신된(base 판 자리) shim 도 -p 를 이어 줌 (rc=0)
+PASS ⓕ test_root_bin_shim.sh (rc=0 · 94 PASS)
+PASS ⓕ test_root_bin_shim_r613.sh (rc=0 · 26 PASS)
+PASS ⓕ test_root_bin_shim_r616.sh (rc=0 · 27 PASS)
+PASS ⓕ test_install_worktree_shim.sh (rc=0 · 34 PASS)
+PASS ⓕ test_live_install_check_shim.sh (rc=0 · 15 PASS)
+PASS ⓕ test_live_install_check_bin_row_shim.sh (rc=0 · 7 PASS)
+PASS ⓕ test_tick_shim_guard.sh (rc=0 · 26 PASS)
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

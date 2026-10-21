@@ -8,6 +8,7 @@
 #     r616: 남긴 «예약 대상» 스크립트 본문이 부르는 같은 bin 의 키트 밖 이름도 1단계 남긴다 → `남김(추적 N · 예약 대상 N · 의존 N): …`(의존 0 이면 의존 칸 없음).
 #           launchctl 목록을 못 읽으면 키트 밖 이름은 옮기지 않는다(fail-closed · 판정 불가 = 옮기기 0). git 밖 루트면 추적 판정만 생략 + WARN 1줄.
 #   키트 밖 이름은 연결하지 않고 `UNKNOWN <이름>` 목록으로 보고. 멱등: 두 번째 실행 = 쓰기 0 · MOVED 0.
+#   r657: 부른 쪽 셸이 -p(특권 모드)로 돌고 있으면 연결 파일도 «다음 bash 를 -p 로» 띄운다(.py 는 그대로 · 도구 쪽 -p 검사는 약화 0).
 #   출력 끝줄 `SHIM n · MOVED m · UNKNOWN k` (--dry-run 은 쓰기 0 · 같은 숫자 · `PLAN …` 줄).  종료: 0 · 2 usage · 3 ERROR(조용한 통과 0)
 #   r494 --init: 루트 bin 이 없을 때 루트가 «설치된 리포(공용 루트 .fable-team/LIVE_BIN 실재)의 git 워크트리 최상위» 면 bin 을 만들고 위 흐름 그대로
 #     (LIVE_ROOT 기본 = 공용 루트 경로 그 자체 · 공용 루트 LIVE_ROOT 파일 값 복사 0) · 공용 루트 자체·git 밖·설치 안 된 리포 = ERROR rc3 + 사유
@@ -68,8 +69,14 @@ fi
 
 MARK="# ft-root-bin-shim:"
 shim_body() {  # $1 = 도구 이름
-  local name="$1" runner="bash"
+  local name="$1" runner="bash" runline
   case "$name" in *.py) runner="python3";; esac
+  # r657: 부른 쪽 셸에 p(특권 모드)가 있으면 «같은 해석기로 -p» 를 붙여 넘긴다.
+  #       -p 없이 불렀으면 지금과 같은 맨 bash — 도구 쪽 «-p 아니면 거절» 검사는 그대로(약화 0).
+  runline="exec $runner \"\$_l/$name\" \"\$@\""
+  if [ "$runner" = bash ]; then
+    runline="case \"\$-\" in *p*) exec \"\${BASH:-bash}\" -p \"\$_l/$name\" \"\$@\";; esac"$'\n'"$runline"
+  fi
   cat <<EOF
 #!/usr/bin/env bash
 $MARK $name → LIVE_BIN (루트 옛 사본이 아니다 — ft-root-bin-shim.sh 생성 · 수정하지 말 것)
@@ -79,7 +86,7 @@ _l=""; [ -f "\$_f" ] && _l="\$(sed -n '1p' "\$_f" | tr -d '\\r' | sed 's/^[[:spa
 [ -n "\$_l" ] || { echo "ERROR LIVE_BIN 이 없거나 비었다: \$_f"; exit 3; }
 case "\$_l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: \$_l (\$_f)"; exit 3;; esac
 [ -f "\$_l/$name" ] || { echo "ERROR 라이브 도구 없음: \$_l/$name"; exit 3; }
-exec $runner "\$_l/$name" "\$@"
+$runline
 EOF
 }
 
