@@ -1,0 +1,52 @@
+.......................................                                  [100%]
+39 passed in 21.34s
+rc=0
+PASS 대조: 인자 없이 임시본 = CalledProcessError 재현(rc=1)
+PASS ⓐ 임시본 + 두 인자 (rc=0)
+PASS ⓐ 카드 상태 = 체크아웃 indices/진행
+PASS ⓐ 트리 줄 ≥1
+PASS ⓐ ⚠카드없음 0
+PASS ⓐ Traceback 0
+PASS ⓑ indices 없음 → ref (rc=0)
+PASS ⓑ ref 읽기 = ⓐ 와 같은 출력
+PASS ⓑ env 동치 (rc=0)
+PASS ⓑ env(FT_NEWS_ROOT·FT_NEWS_TEAM_DIR) = 인자와 같은 출력
+PASS ⓒ 폴더 없음 (rc=0)
+PASS ⓒ 줄에 ?(폴더 없음)
+PASS ⓒ Traceback 0
+PASS ⓒ 카드 없는 줄은 그대로
+PASS ⓓ 인자 없이 체크아웃 트리 (rc=0)
+PASS ⓓ 옛 스크립트와 출력 바이트 같음
+PASS 틱 ⑥ 호출 줄에 --root · --team-dir 실림
+PASS 틱 ⑥ 트리 줄(카드 상태 = ref)
+PASS 틱 ⑥ Traceback 0
+PASS 틱 ⑥ SyntaxError 0
+PASS 틱 ⑥ ref 임시본 삭제(trap 그대로)
+PASS 대조: 옛 틱 ⑥ = CalledProcessError 재현
+PASS cfo ⑥ 호출 줄에 --root · --team-dir
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+........................................................................ [ 40%]
+............Exception occurred during processing of request from ('127.0.0.1', 58528)
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py", line 755, in __init__
+    self.handle()
+  File "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_news_direct_api.py", line 50, in do_POST
+    self.wfile.write(f"data: {json.dumps(ev, ensure_ascii=False)}\n\n".encode())
+  File "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py", line 834, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+............................................................ [ 81%]
+.................................                                        [100%]
+177 passed in 144.74s (0:02:24)
+rc=0

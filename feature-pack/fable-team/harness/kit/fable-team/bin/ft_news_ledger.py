@@ -302,13 +302,19 @@ def news_ref() -> str:
 
 
 def news_cur(repo: Path, rel: str, ref_mode: bool | None = None) -> str:
-    """뉴스 판 = ref_mode(기본 = FT_NEWS_MODE=html)면 ref 커밋(사본 체크아웃 전진 0) · 아니면 옛 꼴(그 경로 마지막 커밋)."""
+    """뉴스 판 = ref_mode(기본 = FT_NEWS_MODE=html)면 ref 커밋(사본 체크아웃 전진 0) · 아니면 옛 꼴(그 경로 마지막 커밋).
+    «바뀌었나» 판정은 이 커밋이 아니라 원장 블롭(ledger_blob)이다(html 모드 · r656)."""
     if ref_mode is None:
         ref_mode = os.environ.get("FT_NEWS_MODE") == "html"
     if not ref_mode:
         return _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
     ref = news_ref()
     return _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}").strip()
+
+
+def ledger_blob(repo: Path, rel: str, cur: str) -> str:
+    """`<cur>:<원장>` 블롭 해시 — html 모드 «변화 판정» 의 기준(r656: 어느 팀 커밋만 와도 지도를 내던 결함). 없으면 RuntimeError."""
+    return _git(repo, "rev-parse", "--verify", f"{cur}:{rel}").strip()
 
 
 def _run(root: Path, state: Path) -> tuple[int, str]:

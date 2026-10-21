@@ -1,0 +1,5 @@
+All checks passed!
+rc=0
+    |
+
+Found 4 errors.

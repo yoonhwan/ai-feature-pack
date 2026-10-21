@@ -1,0 +1,214 @@
+FFFF.FF.FE                                                               [100%]
+==================================== ERRORS ====================================
+_ ERROR at teardown of test_g_html_branch_calls_tick_once_and_state_is_two_cells _
+
+    @pytest.fixture(scope="module", autouse=True)
+    def guard_begin_module():
+        """pytest 모듈 하나 = 지문 → git 밖 임시 cwd·RSG_ACTIVE·GIT_CEILING_DIRECTORIES → 끝나면 비교(FAIL = pytest.fail)."""
+        if os.environ.get("RSG_ACTIVE"):
+            yield
+            return
+        old_cwd, old_env = os.getcwd(), dict(os.environ)
+        snap_file, tmp, env = _isolate()
+        os.environ.update(env)
+        os.chdir(tmp)
+        try:
+            yield
+        finally:
+            os.chdir(old_cwd)
+            os.environ.clear(), os.environ.update(old_env)
+        rc = compare(snap_file)
+        subprocess.call(["rm", "-rf", tmp, os.path.dirname(snap_file)])
+        if rc:
+>           pytest.fail(f"{TAG} FAIL — 시험이 실 상태를 바꿈(위 stderr 줄)")
+E           Failed: REAL-STATE-GUARD FAIL — 시험이 실 상태를 바꿈(위 stderr 줄)
+
+tests/scripts/real_state_guard.py:187: Failed
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['aifp-multihost-arch-claude#1', 'aifp-multihost-master-claude#0'] :: {"seq": 3038, "ts": "2026-10-21T20:02:49", "to": "aifp-multihost-arch-claude#1", "from": "aifp-multihost-master-claude#0", "body": "[정지] DA r8-1 = 최종 AP
+REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['aifp-multihost-master-claude#0', 'aifp-multihost-nano-pi#2'] :: {"seq": 3039, "ts": "2026-10-21T20:02:50", "to": "aifp-multihost-nano-pi#2", "from": "aifp-multihost-master-claude#0", "body": "[정지] 설계가 DA APPROVE(r8
+=================================== FAILURES ===================================
+________________ test_a_unrelated_main_commits_make_no_new_map _________________
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_a_unrelated_ma...tetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 0)], [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b1cc810>
+
+    def test_a_unrelated_main_commits_make_no_new_map(env, monkeypatch):
+        """ⓐ 설치 직후 지도 1(ⓕ) · 그 뒤 원장 안 바뀐 main 커밋 3개 = 지도 0 · «원장 커밋 0» 만."""
+        _at(monkeypatch, "2026-10-21 09:00")
+        made = env[4]
+        c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장")
+        assert _tick(env, c1, base="") == (0, "지도 발행") and len(made) == 1
+        got = [_tick(env, _commit(env[1], f"other/f{i}.txt", "x\n", f"[docs] 다른 경로 {i}")) for i in range(3)]
+>       assert len(made) == 1  # 전 판 = 지도 3장(원장 커밋 0 · LLM 12회)
+        ^^^^^^^^^^^^^^^^^^^^^
+E       assert 4 == 1
+E        +  where 4 = len([datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 0)])
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:99: AssertionError
+__________________ test_b_change_zero_keeps_repeat_line_rule ___________________
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_b_change_zero_...nge_zero_keeps_repea0/root/news'), [datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 40)], [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2a4e90>
+
+    def test_b_change_zero_keeps_repeat_line_rule(env, monkeypatch):
+        """ⓑ 변화 0 = FT_NEWS_REPEAT_MIN 안 «0줄» · 넘으면 «변화 없음» 1줄 · 지도·LLM 0."""
+        _at(monkeypatch, "2026-10-21 09:00")
+        made, lines = env[4], env[5]
+        c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장")
+        assert _tick(env, c1, base="")[0] == 0
+        monkeypatch.setenv("FT_NEWS_REPEAT_MIN", "30")
+        cur = _commit(env[1], "other/x.txt", "x\n", "[docs] 다른 경로")
+        _at(monkeypatch, "2026-10-21 09:40")
+>       assert _tick(env, cur) == (0, "원장 커밋 0") and lines == [] and len(made) == 1  # 30분 안 = 줄 0
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ((0, '지도 발행') == (0, '원장 커밋 0')
+E         
+E         At index 1 diff: '지도 발행' != '원장 커밋 0'
+E         Use -v to get more diff)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:115: AssertionError
+__ test_c_ledger_content_commit_makes_one_map_and_commits_span_from_last_map ___
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_c_ledger_conte...ger_content_commit_m0/root/news'), [datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 10)], [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b1ccc90>
+
+    def test_c_ledger_content_commit_makes_one_map_and_commits_span_from_last_map(env, monkeypatch):
+        """ⓒ 원장 내용 커밋 1 → 지도 1 · 최근 커밋 칸 = 직전 지도 기준선 이후 main 커밋 전부(다른 경로 포함)."""
+        _at(monkeypatch, "2026-10-21 09:00")
+        made = env[4]
+        c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A")
+        assert _tick(env, c1, base="")[0] == 0
+        for i in range(3):
+            _commit(env[1], f"other/f{i}.txt", "x\n", f"[docs] 다른 경로 {i}")
+        before = _base(env[2])
+        c5 = _commit(env[1], REL, "원장 B — 새 지시\n", "[docs] 원장 B")
+        _at(monkeypatch, "2026-10-21 09:10")
+        assert _tick(env, c5) == (0, "지도 발행") and len(made) == 2
+        rows = fh.commits(env[1], before)  # 지도 «최근 커밋» 칸이 쓰는 그 함수
+        assert len(rows) == 4 and rows[0].endswith("[docs] 원장 B") and sum("다른 경로" in r for r in rows) == 3
+>       assert _base(env[2]) == c5 and (env[2] / "last.blob").read_text().strip() == _git(env[1], "rev-parse", f"{c5}:{REL}")
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:1058: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_c_ledger_content_commit_m0/root/.fable-team/state/news-ledger/last.blob')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_c_ledger_content_commit_m0/root/.fable-team/state/news-ledger/last.blob'
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:1044: FileNotFoundError
+_______________ test_d_ledger_commit_with_same_blob_makes_no_map _______________
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_d_ledger_commi...ger_commit_with_same0/root/news'), [datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 20)], [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2d5b50>
+
+    def test_d_ledger_commit_with_same_blob_makes_no_map(env, monkeypatch):
+        """ⓓ 되돌림 두 번(A→B→A) = 발행 0 — 판정이 커밋이 아니라 내용이라는 증거."""
+        _at(monkeypatch, "2026-10-21 09:00")
+        made = env[4]
+        c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A")
+        assert _tick(env, c1, base="")[0] == 0 and len(made) == 1
+        _commit(env[1], REL, "원장 B\n", "[docs] 원장 B")
+        back = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A 되돌림")
+        _at(monkeypatch, "2026-10-21 09:20")
+>       assert _tick(env, back) == (0, "원장 커밋 0") and len(made) == 1
+E       AssertionError: assert ((0, '지도 발행') == (0, '원장 커밋 0')
+E         
+E         At index 1 diff: '지도 발행' != '원장 커밋 0'
+E         Use -v to get more diff)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:152: AssertionError
+_______ test_f_missing_or_broken_blob_state_publishes_and_rewrites_state _______
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_f_missing_or_b...pytest-of-yoonhwan/pytest-171/test_f_missing_or_broken_blob_0/root/news'), [datetime.datetime(2026, 10, 21, 9, 0)], [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b06ac10>
+
+    def test_f_missing_or_broken_blob_state_publishes_and_rewrites_state(env, monkeypatch):
+        """ⓕ 블롭 상태 파일 없음·깨짐 = 지도 1 + 상태 새로 씀(조용한 0 발행 0)."""
+        _at(monkeypatch, "2026-10-21 09:00")
+        made = env[4]
+        c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A")
+        assert _tick(env, c1, base="")[0] == 0 and len(made) == 1
+        cur = _commit(env[1], "other/x.txt", "x\n", "[docs] 다른 경로")
+>       blob = (env[2] / "last.blob").read_text()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:1058: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_f_missing_or_broken_blob_0/root/.fable-team/state/news-ledger/last.blob')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_f_missing_or_broken_blob_0/root/.fable-team/state/news-ledger/last.blob'
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:1044: FileNotFoundError
+_____________ test_f_ledger_missing_in_cur_is_rc1_without_publish ______________
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_f_ledger_missi...ger_missing_in_cur_i0/root/news'), [datetime.datetime(2026, 10, 21, 9, 0), datetime.datetime(2026, 10, 21, 9, 30)], [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2b84d0>
+
+    def test_f_ledger_missing_in_cur_is_rc1_without_publish(env, monkeypatch):
+        """ⓕ 원장 파일이 cur 에 없음 = 지금처럼 rc1(발행 0 · 기준선 그대로)."""
+        _at(monkeypatch, "2026-10-21 09:00")
+        made = env[4]
+        c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A")
+        assert _tick(env, c1, base="")[0] == 0
+        gone = _del(env[1], REL, "[docs] 원장 지움")
+        _at(monkeypatch, "2026-10-21 09:30")
+>       assert _tick(env, gone)[0] == 1 and len(made) == 1 and _base(env[2]) == c1
+E       assert (0 == 1)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:193: AssertionError
+__________ test_g_html_branch_calls_tick_once_and_state_is_two_cells ___________
+
+env = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_g_html_branch_.../vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-171/test_g_html_branch_calls_tick_0/root/news'), [], [])
+
+    def test_g_html_branch_calls_tick_once_and_state_is_two_cells(env):
+        """ⓖ html 분기 1곳 그대로 · 기준선 = 두 칸(last.sha · last.blob) 이름이 코드에 있다."""
+        src = (BIN / "ft_news_ledger.py").read_text(encoding="utf-8")
+        assert src.count('if os.environ.get("FT_NEWS_MODE") == "html":') == 1 and src.count("return tick(") == 1
+        html_src = (BIN / "ft_news_html.py").read_text(encoding="utf-8")
+>       assert '"last.blob"' in html_src and '"last.sha"' in html_src
+E       assert ('"last.blob"' in '"""ft_news_html — 뉴스 HTML 모드(r478 · 오빠 확정 10-19 19:3x): 원장·좌석 상태·main 커밋·[긴급] 쪽지 머리를 한 묶음(input.json)으로 모아\nopencode ...ogging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")\n    raise SystemExit(main(sys.argv[1:]))\n')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r656-news-change-judged-by-ledger-blob-n/feature-pack/fable-team/harness/tests/scripts/test_r656_news_change_by_ledger_blob.py:212: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_a_unrelated_main_commits_make_no_new_map
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_b_change_zero_keeps_repeat_line_rule
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_c_ledger_content_commit_makes_one_map_and_commits_span_from_last_map
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_d_ledger_commit_with_same_blob_makes_no_map
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_f_missing_or_broken_blob_state_publishes_and_rewrites_state
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_f_ledger_missing_in_cur_is_rc1_without_publish
+FAILED tests/scripts/test_r656_news_change_by_ledger_blob.py::test_g_html_branch_calls_tick_once_and_state_is_two_cells
+ERROR tests/scripts/test_r656_news_change_by_ledger_blob.py::test_g_html_branch_calls_tick_once_and_state_is_two_cells
+7 failed, 2 passed, 1 error in 2.79s

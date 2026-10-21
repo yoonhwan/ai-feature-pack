@@ -1,0 +1,10 @@
+== 새 판 =
+E501 Line too long (234 > 200)
+E501 Line too long (416 > 200)
+E501 Line too long (308 > 200)
+E501 Line too long (202 > 200)
+== base(origin/main) =
+E501 Line too long (234 > 200)
+E501 Line too long (416 > 200)
+E501 Line too long (308 > 200)
+E501 Line too long (202 > 200)
