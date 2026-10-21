@@ -42,3 +42,13 @@ test_resource_reclaim_preventive 빨강 3줄(가지):
 - test_resource_gate: 가지만 빨강 = R357ⓑ swap13500·level2 REJECT 기대 → 이 카드 의도 변경 → 2차에서 env 로 묶고 새 동작(OK+WARN) 단언 1줄 추가 → rc=0
 - test_resource_watch·test_resource_reclaim_preventive·test_dead_seat_resume: 280초 상한(rc=124) 가지·base 같음 → 2차 상한 없이 watch rc=0 · preventive r502 ⓓ 3줄(base 도 같은 줄)
 - test_planner_nano_path(ⓒ hold 2104 실 정지 파일)·test_spawn_hold(ft-nano-close 리터럴 린트)·test_team_literal_paths2: base 사본도 같은 FAIL 줄 → 이 카드 무관
+
+# 3차 base 사본 test_resource_reclaim_preventive 상한 없이
+base rc=1
+FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private
+FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t
+FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/l
+FAIL core.bare 이상
+
+[exited with code 0]
+→ 가지와 같은 r502 ⓓ 3줄(core.bare 1줄은 git archive 사본이라 git 밖) · 이 카드 무관
