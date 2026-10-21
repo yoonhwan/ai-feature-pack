@@ -1,0 +1,51 @@
+# r660 ⓖ 두 쪽지 «세 길»(키트 ft-mbox.sh · 우편함 comm/mbox.sh · python 직접 comm/mbox.py) 결과 표 — 같은 입력 → 같은 판정
+
+케이스                                    kit(rc/큐)  comm(rc/큐) python(rc/큐) 같음
+desk→팀장 보통                         rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→팀장 [HIL]                          rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→팀장 [긴급]                       rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→팀 좌석                            rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+옛 desk 다른 베이스→팀장           rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk→planner master                        rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→planner master [HIL]                  rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk 보통                         rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [긴급]                       rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [HIL]                          rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7 결과] 지정 있음      rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h9 결과] .2 회전본 지정 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h5 결과] planner arch 발신 = 지정 아님 rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [h8 결과] 지정 없음      rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [h7abc 결과] 경계          rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+팀장→desk [h7 결과] 2줄               rc=3/d=0     rc=3/d=0     rc=3/d=0     O
+desk 계보 인계                           rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+planner→desk                               rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+도구 발신→desk                         rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+slack→desk                                 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+planner→팀                                rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀끼리                                    rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+
+PASS ⓖ 세 길 결과 표 동일(rc·큐 증감·판정 전부)
+PASS ⓖ 판정기 1개(ft_desk_route_gate.py)를 키트·우편함 두 python 이 부름
+PASS ⓖ 사람 말 사유 문구 = 판정기 1곳에만(호출부 0)
+
+# DA⑥ r1 구멍 재현(고친 판에서 닫힘)
+PASS ⓘ 지정 기록이 h7abc 뿐 → [h7 결과] REJECT(경계 = 비단어 문자)
+PASS ⓘ 여러 줄 전문 relay + [h7 결과] → comm REJECT · 큐 0
+PASS ⓘ 여러 줄 전문 relay + [h7 결과] → kit REJECT · 큐 0
+PASS ⓘ relay 는 요약 1줄 + 전문 1줄 = 2줄 → h 예외 불가 REJECT(전문까지 «1줄» 이어야 통과 · DA⑥ r1 ⓑ③)
+PASS ⓘ relay desk→팀장 REJECT · 큐 0
+PASS ⓗ 판정기 예외 주입 → kit REJECT · 큐 0 · 사유 DESK_ROUTE_GATE_ERROR
+PASS ⓗ 판정기 예외 주입 → comm REJECT · 큐 0 · 사유 DESK_ROUTE_GATE_ERROR
+PASS ⓗ 판정기 예외 주입 → py REJECT · 큐 0 · 사유 DESK_ROUTE_GATE_ERROR
+PASS ⓗ 판정기 파일 없음 → comm desk 쪽지 REJECT(설치 순서 · fail-closed)
+PASS ⓗ 판정기 파일 없음 → py desk 쪽지 REJECT(설치 순서 · fail-closed)
+PASS ⓕ seats-planner.json 없음 → kit 판정 0 · 통과 · WARN
+PASS ⓕ seats-planner.json 없음 → comm 판정 0 · 통과 · WARN
+PASS ⓕ seats-planner.json 없음 → py 판정 0 · 통과 · WARN
+PASS ⓕ _desk 칸 없음 → 판정 0 · 통과 · WARN
+PASS ⓕ 깨진 명부 → kit 판정기 WARN(판정 0 문구 확인 · 수신자 판정 D3 는 별개)
+PASS ⓕ 깨진 명부 → comm 판정기 WARN(판정 0 문구 확인 · 수신자 판정 D3 는 별개)
+PASS ⓕ 깨진 명부 → py 판정기 WARN(판정 0 문구 확인 · 수신자 판정 D3 는 별개)
+PASS ⓕ 받는 쪽 desk + 깨진 명부 → kit = desk 문 판정 0 · 통과(카드 ⓕ 정책)
+PASS ⓕ 받는 쪽 desk + 깨진 명부 → comm = 수신자 판정 D3 가 거절(R97 · base 와 동일 동작 · 이 카드 무변경 — desk 문은 판정 0)
+PASS bash -n

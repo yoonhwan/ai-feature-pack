@@ -1,0 +1,20 @@
+# r660 설치 메모 (master 집행 · 나노는 설치하지 않는다) — DA⑥ r1 고침 반영 · rebase 5d1555bc · manifest 1.1.185
+
+1) LIVE_BIN(키트 bin → 설치 폴더) 새 판
+   - ft_desk_route_gate.py   (새 파일 · 판정기 · DA⑥ r1 고침)
+   - ft-mbox.py              (고침 · send/relay 앞 desk 판정 · attach(전문)도 판정 재료)
+   - ft-successor-open.sh    (고침 · desk 승계 본문 검사 · 따옴표 주소 직발도 잡음)
+   확인: cmp <설치 폴더>/<파일> feature-pack/fable-team/harness/kit/fable-team/bin/<파일> → rc0 (3개)
+
+2) 우편함 정본 comm 사본(루트 .fable-team/comm · cmp0)
+   - mbox_ops.py             (고침 · python send 층이 판정기 호출 = 셸·python 직접·relay 전부 한 자리)
+   - mbox_desk_gate.py       (새 파일 · 판정기 호출 + LIVE_BIN 해석 + fail-closed)
+   ※ mbox_guard.sh 는 **무변경**(base 그대로 200줄) — DA⑥ r1 ⓒ 로 판정 자리를 python send 층으로 옮겼다.
+   ※ mbox_guard_desk.sh 는 **없다**(r1 이전 판에만 있었음 · 설치 때 넣지 말 것).
+
+3) 되돌림 = .bak-r660 (위 5개) · 명부·LIVE_BIN 연결 파일 무변경.
+
+4) 설치 뒤 실사건 1(master 소관): desk 38→39 증류를 desk 가 열고, 새 검사가 GUIDE-planner.md:27 원문을 요구해 통과 → 그 뒤 60분 desk↔팀 직송 0
+   (판정 로그 = stderr 사유 · 큐 행 0 확인 · 우편함 `mailbox.log.jsonl` 에 REJECT 흔적은 없다(적재 전 거절))
+
+5) 설치 순서 주의: mbox_desk_gate.py(또는 판정기)가 없으면 desk 가 걸린 쪽지는 fail-closed REJECT 되고, desk 무관 쪽지는 WARN 만 남기고 통과한다(통신 전체 정지 0).

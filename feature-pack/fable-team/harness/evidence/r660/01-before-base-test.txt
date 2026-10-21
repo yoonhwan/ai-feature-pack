@@ -1,0 +1,187 @@
+# r660 ⓐ «고치기 전» 판 — 새 시험은 FAIL 이어야 한다
+#   실행 base sha: 5d1555bc (origin/main · 팩 · rebase 후 새 베이스 · manifest 1.1.184 · PR 247/r645 병합)
+#   실행: FT_R660_COMM=<base>/comm FT_R660_KIT=<base>/kit/fable-team/bin · FT_SO_PATH=<base>/kit/fable-team/bin/ft-successor-open.sh
+
+## base 판 tests/test_r660_desk_route.sh
+FAIL desk→팀장 보통 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t0/.fable-team/comm/mailbox.jsonl bytes=30 doorbell=absent
+FAIL desk→팀장 보통 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t0/.fable-team/comm/mailbo
+FAIL desk→팀장 보통 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t0/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL desk→팀장 [HIL] [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t1/.fable-team/comm/mailbox.jsonl bytes=85 doorbell=absent
+FAIL desk→팀장 [HIL] [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t1/.fable-team/comm/mailbo
+FAIL desk→팀장 [HIL] [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t1/.fable-team/comm/mailbox.jsonl bytes=85
+FAIL desk→팀장 [긴급] [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t2/.fable-team/comm/mailbox.jsonl bytes=30 doorbell=absent
+FAIL desk→팀장 [긴급] [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t2/.fable-team/comm/mailbo
+FAIL desk→팀장 [긴급] [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t2/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL desk→팀 좌석 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-harness-nano-x#0 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t3/.fable-team/comm/mailbox.jsonl bytes=30 doorbell=absent
+FAIL desk→팀 좌석 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-nano-x#0 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t3/.fable-team/comm/mailbox.jsonl 
+FAIL desk→팀 좌석 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-harness-nano-x#0 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t3/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL 옛 desk 다른 베이스→팀장 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t4/.fable-team/comm/mailbox.jsonl bytes=34 doorbell=absent
+FAIL 옛 desk 다른 베이스→팀장 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t4/.fable-team/comm/mailbo
+FAIL 옛 desk 다른 베이스→팀장 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t4/.fable-team/comm/mailbox.jsonl bytes=34
+PASS desk→planner master [kit] rc=0 큐증감=1
+PASS desk→planner master [comm] rc=0 큐증감=1
+PASS desk→planner master [py] rc=0 큐증감=1
+PASS desk→planner master [HIL] [kit] rc=0 큐증감=1
+PASS desk→planner master [HIL] [comm] rc=0 큐증감=1
+PASS desk→planner master [HIL] [py] rc=0 큐증감=1
+FAIL 팀장→desk 보통 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t7/.fable-team/comm/mailbox.jsonl bytes=30 doorbell=absent
+FAIL 팀장→desk 보통 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t7/.fable-team/comm/mailbox.
+FAIL 팀장→desk 보통 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t7/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL 팀장→desk [긴급] [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t8/.fable-team/comm/mailbox.jsonl bytes=30 doorbell=absent
+FAIL 팀장→desk [긴급] [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t8/.fable-team/comm/mailbox.
+FAIL 팀장→desk [긴급] [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t8/.fable-team/comm/mailbox.jsonl bytes=30
+PASS 팀장→desk [HIL] [kit] rc=0 큐증감=1
+PASS 팀장→desk [HIL] [comm] rc=0 큐증감=1
+PASS 팀장→desk [HIL] [py] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 지정 있음 [kit] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 지정 있음 [comm] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 지정 있음 [py] rc=0 큐증감=1
+PASS 팀장→desk [h9 결과] .2 회전본 지정 [kit] rc=0 큐증감=1
+PASS 팀장→desk [h9 결과] .2 회전본 지정 [comm] rc=0 큐증감=1
+PASS 팀장→desk [h9 결과] .2 회전본 지정 [py] rc=0 큐증감=1
+FAIL 팀장→desk [h5 결과] planner arch 발신 = 지정 아님 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t12/.fable-team/comm/mailbox.jsonl bytes=31 doorbell=absent
+FAIL 팀장→desk [h5 결과] planner arch 발신 = 지정 아님 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t12/.fable-team/comm/mailbox
+FAIL 팀장→desk [h5 결과] planner arch 발신 = 지정 아님 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t12/.fable-team/comm/mailbox.jsonl bytes=31
+FAIL 팀장→desk [h8 결과] 지정 없음 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t13/.fable-team/comm/mailbox.jsonl bytes=31 doorbell=absent
+FAIL 팀장→desk [h8 결과] 지정 없음 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t13/.fable-team/comm/mailbox
+FAIL 팀장→desk [h8 결과] 지정 없음 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t13/.fable-team/comm/mailbox.jsonl bytes=31
+FAIL 팀장→desk [h7abc 결과] 경계 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t14/.fable-team/comm/mailbox.jsonl bytes=34 doorbell=absent
+FAIL 팀장→desk [h7abc 결과] 경계 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t14/.fable-team/comm/mailbox
+FAIL 팀장→desk [h7abc 결과] 경계 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t14/.fable-team/comm/mailbox.jsonl bytes=34
+FAIL 팀장→desk [h7 결과] 2줄 [kit] FAIL(rc=0 d=1) :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t15/.fable-team/comm/mailbox.jsonl bytes=42 doorbell=absent
+FAIL 팀장→desk [h7 결과] 2줄 [comm] FAIL(rc=0 d=1) :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t15/.fable-team/comm/mailbox
+FAIL 팀장→desk [h7 결과] 2줄 [py] FAIL(rc=0 d=1) :: QUEUED seq=1604 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.t15/.fable-team/comm/mailbox.jsonl bytes=42
+PASS desk 계보 인계 [kit] rc=0 큐증감=1
+PASS desk 계보 인계 [comm] rc=0 큐증감=1
+PASS desk 계보 인계 [py] rc=0 큐증감=1
+PASS planner→desk [kit] rc=0 큐증감=1
+PASS planner→desk [comm] rc=0 큐증감=1
+PASS planner→desk [py] rc=0 큐증감=1
+PASS 도구 발신→desk [kit] rc=0 큐증감=1
+PASS 도구 발신→desk [comm] rc=0 큐증감=1
+PASS 도구 발신→desk [py] rc=0 큐증감=1
+PASS slack→desk [kit] rc=0 큐증감=1
+PASS slack→desk [comm] rc=0 큐증감=1
+PASS slack→desk [py] rc=0 큐증감=1
+PASS planner→팀 [kit] rc=0 큐증감=1
+PASS planner→팀 [comm] rc=0 큐증감=1
+PASS planner→팀 [py] rc=0 큐증감=1
+PASS 팀끼리 [kit] rc=0 큐증감=1
+PASS 팀끼리 [comm] rc=0 큐증감=1
+PASS 팀끼리 [py] rc=0 큐증감=1
+케이스                                    kit(rc/큐)  comm(rc/큐) python(rc/큐) 같음
+desk→팀장 보통                         rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→팀장 [HIL]                          rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→팀장 [긴급]                       rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→팀 좌석                            rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+옛 desk 다른 베이스→팀장           rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→planner master                        rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk→planner master [HIL]                  rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk 보통                         rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [긴급]                       rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [HIL]                          rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7 결과] 지정 있음      rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h9 결과] .2 회전본 지정 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h5 결과] planner arch 발신 = 지정 아님 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h8 결과] 지정 없음      rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7abc 결과] 경계          rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7 결과] 2줄               rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+desk 계보 인계                           rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+planner→desk                               rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+도구 발신→desk                         rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+slack→desk                                 rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+planner→팀                                rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+팀끼리                                    rc=0/d=1     rc=0/d=1     rc=0/d=1     O
+PASS ⓖ 세 길 결과 표 동일(rc·큐 증감·판정 전부)
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/harness/comm/mbox_desk_gate.py: No such file or directory
+FAIL ⓖ 판정기를 두 길이 안 부른다
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/harness/comm/mbox_desk_gate.py: No such file or directory
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/harness/kit/fable-team/bin/ft_desk_route_gate.py: No such file or directory
+FAIL ⓖ 사유 문구가 두 벌
+FAIL ⓘ 로그 경계 rc=0 :: WARN inbox ingest 실패 seq=1601 (쪽지 전송은 완료)
+QUEUED seq=1601 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.logbound/.fable-team/comm/ma
+FAIL ⓘ comm relay rc=0 :: WARN inbox ingest 실패 seq=1601 (쪽지 전송은 완료)
+QUEUED seq=1601 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.relay/.fable-team/comm/mailb
+FAIL ⓘ kit relay rc=0 :: QUEUED seq=1602 to=byz-planner-desk-claude#38 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.relay/.fable-team/comm/mailbox.jsonl bytes=147 doorbell=absent
+FAIL ⓘ relay 1줄 rc=0 :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-planner-desk-claude#38 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.relay/.fable-team/comm/mailb
+FAIL ⓘ relay 직발 rc=0
+FAIL ⓗ kit rc=0 :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken_gate/.fable-team/comm/mailbox.jsonl bytes=30 doorbell=absent
+FAIL ⓗ comm rc=0 :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken_gate/.fable-team/co
+FAIL ⓗ py rc=0 :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken_gate/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL ⓗ 게이트 없음[comm] rc=0 :: WARN inbox ingest 실패 seq=1601 (쪽지 전송은 완료)
+QUEUED seq=1601 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.nogate/.fable-team/comm/ma
+FAIL ⓗ 게이트 없음[py] rc=0 :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.nogate/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL ⓕ 없음[kit] rc=0 :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.nofile/.fable-team/comm/mail
+FAIL ⓕ 없음[comm] rc=0 :: WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nA
+FAIL ⓕ 없음[py] rc=0 :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.nofile/.fable-team/comm/mail
+FAIL ⓕ _desk rc=0 :: WARN inbox ingest 실패 seq=1601 (쪽지 전송은 완료)
+QUEUED seq=1601 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nA
+FAIL ⓕ 깨짐[kit] rc=0 :: QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken/.fable-team/comm/mailbox.jsonl bytes=31 doorbell=absent
+FAIL ⓕ 깨짐[comm] rc=0 :: WARN 명부 seats-planner.json 읽기 실패 · 이 판정에는 미사용
+WARN inbox ingest 실패 seq=1603 (쪽지 전송은 완료)
+QUEUED seq=1603 to=byz-harness-master-claude#92 pending=2 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/
+FAIL ⓕ 깨짐[py] rc=0 :: QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken/.fable-team/comm/mailbox.jsonl bytes=30
+FAIL ⓕ desk-len kit rc=0 :: QUEUED seq=1605 to=byz-planner-desk-claude#38 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken/.fable-team/comm/mailbo
+PASS ⓕ 받는 쪽 desk + 깨진 명부 → comm = 수신자 판정 D3 가 거절(R97 · base 와 동일 동작 · 이 카드 무변경 — desk 문은 판정 0)
+깨진 명부[comm] rc=0 판정0=no — WARN 명부 seats-planner.json 읽기 실패 · 이 판정에는 미사용
+깨진 명부[kit] rc=0 판정0=no — QUEUED seq=1602 to=byz-harness-master-claude#92 pending=1 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken/.fable-team/comm/mailbox.jsonl bytes=31 doorbell=absent
+깨진 명부[py] rc=0 판정0=no — QUEUED seq=1604 to=byz-harness-master-claude#92 pending=3 file=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nAJVjfO38z/root.broken/.fable-team/comm/mailbox.jsonl bytes=30
+FAILED 53
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1
+
+## base 판 tests/test_successor_open.sh
+PASS bash -n
+PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
+PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
+PASS ⓑ-2 도달 파일 model = --model 값 · successor·seq·rc 불변
+PASS ⓒ 기동 미확인 → 송신 0 · 도달 파일 0 · [HIL]
+PASS ⓓ 5 → ring 1 → 5 → exit 5 · 도달 파일 0 · 닫기 0
+PASS ⓔ 2 → ring 1 → 도달 → 도달 파일 · exit 0
+PASS ⓕ open 실패 → REJECT · 기동 확인·송신 0
+PASS ⓖ SessionStart 레코드 있음 → 관측 후 송신
+PASS ⓖ SessionStart 없음 → 미관측 표시 · 송신 1회
+PASS ⓗ 다른 리포 → 대상 리포 mbox(ring·송신·꼬리 mbox=) · 호출자 0
+PASS ⓘ 같은 리포 → 같은 mbox · 도달 파일
+PASS ⓙ mbox 없는 리포 → REJECT rc2 · open·송신 0 · 호출자 mbox 0
+PASS ⓚ 링크 워크트리 사본 있음 → 리포 루트 mbox 고름 · 사본 0
+PASS ⓛ 짝 파일 없음 → RC2 · open·송신 0
+PASS ⓜ FT_MBOX_SH 명시 → 지금과 같음
+PASS ⓝ r609 ⓐ 세션 이미 있음 → 이어감 · 열기 건너뜀 · 송신 1 · 도달 파일
+PASS ⓞ r609 ⓑ 이미 도달 → rc0 · 송신 0(도달 파일 불변)
+PASS ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 0
+PASS ⓠ r622 같은 폴더 → 이어감 · 열기 건너뜀 · 송신 1
+PASS ⓠ' r622 다른 폴더 → REJECT · 실제 경로(pane=) 찍힘
+PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
+PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
+FAIL ⓣ rc=0 out=SessionStart 미관측 byz-planner-desk-claude#39 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-planner-desk-claude#39 pending=1 doorbell=sent
+OK successor=byz-planner-desk-claude#39 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/repo/.fable-team/state/successor/byz-planner-desk-claude#38.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/fakebin/mbox
+FAIL ⓣ 직발 rc=0 out=SessionStart 미관측 byz-planner-desk-claude#39 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-planner-desk-claude#39 pending=1 doorbell=sent
+OK successor=byz-planner-desk-claude#39 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/repo/.fable-team/state/successor/byz-planner-desk-claude#38.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/fakebin/mbox
+FAIL ⓣ 따옴표 rc=0 out=SessionStart 미관측 byz-planner-desk-claude#39 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-planner-desk-claude#39 pending=1 doorbell=sent
+OK successor=byz-planner-desk-claude#39 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/repo/.fable-team/state/successor/byz-planner-desk-claude#38.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/fakebin/mbox
+PASS ⓣ r660 desk 본문 = 27줄 원문 포함 → 통과 · 송신 1
+PASS ⓣ planner 역할 승계 = 이 문 밖(판정 불변 · GUIDE 줄 없어도 송신 1)
+FAIL ⓣ guide없음 rc=0 out=SessionStart 미관측 byz-planner-desk-claude#39 (5회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-planner-desk-claude#39 pending=1 doorbell=sent
+OK successor=byz-planner-desk-claude#39 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/repo/.fable-team/state/successor/byz-planner-desk-claude#38.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.4JFI0QAwEk/fakebin/mbox
+FAILED 4
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

@@ -3,12 +3,18 @@ from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 from mbox_lineage import claim, eligible
+from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
 CANON = None   # mbox.py 가 묶는다
 
 
-def send(to, frm, body, force=False):
+def send(to, frm, body, force=False, desk_attach=""):
     _check_name(to); _check_name(frm)
+    # ★desk 창구 고정(r660 · 판정 1125)★ — 잠금 «밖»에서 판정(큐 무관) · --force 로 안 풀린다 · 판정기 고장 = REJECT(fail-closed).
+    desk = _desk_verdict(to, frm, body, desk_attach, CANON or "")
+
     def op():
+        if desk:
+            return ("__BLOCKED__", desk)
         rows = _load(CANON)
         # ★F6: 가드 판정을 잠금 «안»에서(load 직후) — 밖이면 동시 send 가 서로의 큐를 못 봐 둘 다 통과.
         # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
@@ -61,8 +67,8 @@ def send(to, frm, body, force=False):
         #   ★`tail -3` 으로도 이유가 밀려나 안 잡힌다★. 그러면 받는 사람은 «왜 막혔는지
         #   모른 채» 본문만 줄여 재발송한다 — 실제로 그 일이 났고 당사자는 어느
         #   가드였는지 사후에도 확정하지 못했다. 잘리는 쪽을 정할 수 없으니 양 끝에 둔다.
-        sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n"
-                         % (reason, hint, reason))
+        tail = " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force"
+        sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
     seq, pend, dropped, oldest = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
@@ -114,8 +120,14 @@ def relay(to, frm, path, summary):
         n += 1
         dest = "%s%d-%s" % (base, n, safe)
     shutil.copyfile(path, dest)
+    # 판정 재료에 «전문» 을 넣는다(r660 · DA⑥ r1 ⓑ③) — 요약 1줄에 여러 줄 전문을 붙여 h 결과 예외를 통과하는 길 0.
+    try:
+        with open(dest, encoding="utf-8", errors="replace") as f:
+            full = f.read()
+    except OSError:
+        full = ""
     send(to, frm, "%s\n상세(전문): %s (%d B)"
-         % (summary.strip(), dest, os.path.getsize(dest)))
+         % (summary.strip(), dest, os.path.getsize(dest)), desk_attach=full)
 
 
 def _lineage(me):

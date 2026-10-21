@@ -1,0 +1,40 @@
+# r660 base(5d1555bc) 대조 — 내가 안 고친 시험은 base 에서도 같은 빨강인가
+
+== base test_mbox_v2_guard.sh rc=1 PASS=0 FAIL=12
+FAIL bash -n /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh
+FAIL bash -n /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh
+FAIL 두 사본 cmp 동일
+FAIL mbox.py 없음 → exit 2, rc=127 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL 안내문 '설치용 사본'
+FAIL 안내문 '.fable-team/comm/mbox.sh'
+FAIL 가짜 mbox.py → rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2paIhpuk3P/scripts-stub/mbox-v2.sh: No such file or directory (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL mbox.py 없음 → exit 2, rc=127 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.unStDJEd0N/base/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh)
+FAIL 안내문 '설치용 사본'
+FAIL 안내문 '.fable-team/comm/mbox.sh'
+-- 고친 판 test_mbox_v2_guard.sh rc=1 PASS=0 FAIL=12
+FAIL bash -n /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh
+FAIL bash -n /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh
+FAIL 두 사본 cmp 동일
+FAIL mbox.py 없음 → exit 2, rc=127 (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL 안내문 '설치용 사본'
+FAIL 안내문 '.fable-team/comm/mbox.sh'
+FAIL 가짜 mbox.py → rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3GB3x30aZa/scripts-stub/mbox-v2.sh: No such file or directory (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/fable-team-bin/mbox-v2.sh)
+FAIL mbox.py 없음 → exit 2, rc=127 (/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r660-desk-route-planner-only-guard/feature-pack/fable-team/scripts/harness-install/fable-team/bin/mbox-v2.sh)
+FAIL 안내문 '설치용 사본'
+FAIL 안내문 '.fable-team/comm/mbox.sh'
+== base test_da_hold_gate.sh rc=1 PASS=91 FAIL=7
+FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 8 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL staged main-team-governance.md: 홈 대비 삭제 5 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL spawn dry-run rc=1 hold=none
+FAIL spawn opencode 무reap rc=1 hold=none
+FAIL spawn opencode reap rc=1 hold=none
+FAIL spawn 대기카드 rc=1 hold=none
+FAIL spawn 기본 동작 변함 hold=none
+-- 고친 판 test_da_hold_gate.sh rc=1 PASS=91 FAIL=7
+FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 8 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL staged main-team-governance.md: 홈 대비 삭제 5 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL spawn dry-run rc=1 hold=none
+FAIL spawn opencode 무reap rc=1 hold=none
+FAIL spawn opencode reap rc=1 hold=none
+FAIL spawn 대기카드 rc=1 hold=none
+FAIL spawn 기본 동작 변함 hold=none
