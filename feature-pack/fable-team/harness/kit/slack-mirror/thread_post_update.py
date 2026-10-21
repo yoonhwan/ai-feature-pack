@@ -7,6 +7,7 @@
   update(또는 뿌리 글 생성) 실패 = raise → rc 1 · 장부 불변(#0 RULE).
 `reply --thread <이름>`(r414): 뿌리 ts 를 도구가 소유 — 등록부(slack-threads.json)에 없거나 날짜(KST)·채널이 바뀌면 채널에 뿌리 글을 새로 올려 등록.
 `reply --to-slack <오빠 글 ts>`(r558): 뿌리 = 수신 원장(byz_slack_mbox_inbound.<ch>.json)의 그 글 `thread` 값(빈 값 = 그 글) — 오빠 새 글 밑에 답한다.
+  셈 = 인자(r661): `--asked N --answered M [--left "<한 줄>"]` — 답 본문에 머리말을 쓰지 않는다. `--asked`・`--answered` 는 필수 · `M<N` 이면 `--left` 필수로 본문 끝에 «아직 못 한 것: …» 1줄 · 본문에 옛 머리말 «요청 N개 중 M개 답함» 이 있으면 REJECT.
 `reply (--ts|--to-slack)` 방 글 꼴 거절(r617): 본문이 승인 묶음·상태 알림·뉴스 꼴이면 rc2 + «방 글은 post --to desk» 1줄 — 스레드 = 주제 대화 전용(`--force-thread` 면 경고 후 게시 · env `FT_SLACK_TOPIC_ONLY` 빈 값이면 끔).
 `post (--to <등록부 이름> | --channel <ID>) (--text|--text-file)`(r561): 방에 «최상위 글 1개» — thread_ts 없음 · 등록부·답 기록 쓰기 0 · 첨부 0. 승인·뉴스·알림은 스레드가 아니라 방 글이고, 스레드는 주제 대화 전용이다.
   답 기록(byz_slack_answered.json) 밖에 «그 이름 스레드 계보 좌석에 이미 전달 · 창(7일) 안 · 답 기록 없음» 오빠 글이 있으면 `--thread` 는 REJECT(`--force-thread` 면 경고 후 전송) — 인계서·메모리 규칙에 기대지 않는다.

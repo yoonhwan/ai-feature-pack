@@ -1,0 +1,10 @@
+[test_thread_reply_named.sh — 이 카드 무관(r414 --thread 길) · base 대조]
+실행: bash tests/test_thread_reply_named.sh
+FAIL ⓔ planner rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DFlsQjlPfD/fakebin/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+FAIL ⓔ thread rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DFlsQjlPfD/fakebin/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+FAIL ⓔ other rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DFlsQjlPfD/fakebin/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+PASS 600/300 0
+FAILED 4
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+base(360d3398) 격리 대조: 같은 4건 FAIL("mbox 짝 파일 없음: …/fakebin/mbox_doorbell.sh") — 이 카드 변경 전에도 같은 실패(스태시 대조 실측).
