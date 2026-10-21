@@ -1,0 +1,55 @@
+# r622 base(origin/main 235bb568) 대조 — rebase 뒤
+## base 판 시험 (evidence/r622/01-before-red.txt · origin/main 판 ft-successor-open.sh)
+FAIL ⓖ rc=0 out=SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
+FAIL ⓝ rc=1 log= out=REJECT 세션 byz-t-new-claude#2 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=? wt=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2vKiajE8jk/repo
+FAIL ⓠ rc=1 log= out=REJECT 세션 byz-t-new-claude#2 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=? wt=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2vKiajE8jk/repo
+FAIL ⓠ' rc=1 out=REJECT 세션 byz-t-new-claude#2 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=? wt=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2vKiajE8jk/repo
+FAIL ⓡ rc=1 out=REJECT 세션 byz-t-new-claude#2 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=? wt=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2vKiajE8jk/repo
+FAIL ⓢ rc=0 out=SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
+FAILED 6
+
+## 고친 판 시험 (02-after-pass.txt)
+ALL PASS
+
+## 스크립트 diff (origin/main 235bb568 → 고친 판)
+diff --git abase(origin/main) b/fixed(kit)
+old mode 100644
+new mode 100755
+index 83c6e30d..4eb1fb78
+--- abase(origin/main)
++++ b/fixed(kit)
+@@ -4,7 +4,7 @@
+ #   exit 0 = 도달(도달 파일 기록) · 1 = REJECT(송신 0) · 2 = usage · 5 = 열렸으나 도달 미확인(도달 파일 0 · 구 좌석 닫기 0)
+ #   팀 무관 · 명부(seats*.json) 수정 0 — 명부는 ft-seat-retire.sh 가 후계 부팅 때 한다.
+ #   도달 파일 = <리포 루트>/.fable-team/state/successor/<구 좌석>.json — context-distill-gate.sh 가 550k 넘은 좌석의 recv 를 이 파일로 푼다. `model` 칸(R282) = --model 값 — ft-seat-retire.sh 가 후계 행 model 로 쓴다.
+-#   재실행(r609) = 같은 이름 세션이 이미 있고 그 pane 작업 폴더가 $WT 면 열기를 건너뛰고 ⓒ~ⓔ 를 잇는다(도달 파일이 이미 있으면 «이미 도달» rc0 · 송신 0). 남의 세션이면 REJECT.
++#   재실행(r609) = 같은 이름 세션이 이미 있고 그 pane 작업 폴더가 $WT 면 열기를 건너뛰고 ⓒ~ⓔ 를 잇는다(도달 파일이 이미 있으면 «이미 도달» rc0 · 송신 0). 남의 세션이면 REJECT. 판 폴더를 못 읽으면 «다르다» 가 아니라 «못 읽음(판정 불가)» 로 REJECT(r622 — 창·판 대상은 «=이름:» 꼴만 pane 을 고른다).
+ #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
+ #   mbox(R343·r607) = 대상 워크트리의 리포 것($ROOT 의 .fable-team/comm/mbox.sh · 워크트리 안 사본은 보지 않는다) — 없으면 REJECT rc2. 고른 폴더에 짝 파일 mbox_doorbell.sh 가 없으면 열기 «전» REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
+ #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
+@@ -81,11 +81,13 @@ if tmux has-session -t "=$NAME" 2>/dev/null; then
+   if [ -f "$STATE/$OLD.json" ] && grep -qE "\"successor\"[[:space:]]*:[[:space:]]*\"$NAME\"" "$STATE/$OLD.json" 2>/dev/null; then
+     echo "이미 도달: successor=$NAME file=$STATE/$OLD.json — 송신 0"; exit 0
+   fi
+-  PCWD="$(tmux display-message -p -t "=$NAME" '#{pane_current_path}' 2>/dev/null)"
+-  PTOP="$(git -C "${PCWD:-/nonexistent}" rev-parse --path-format=absolute --show-toplevel 2>/dev/null)"
++  # r622: 창·판 대상 명령은 «=이름» 만으로는 빈 값이다(세션 정확 일치는 세션 명령 전용) — «=이름:» 꼴이어야 pane 을 고른다.
++  PCWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"
++  [ -n "$PCWD" ] || { echo "REJECT 세션 $NAME 의 작업 폴더를 못 읽음(판정 불가 · 이어가기 0 · 남의 세션 판정 0) — wt=$WT"; exit 1; }
++  PTOP="$(git -C "$PCWD" rev-parse --path-format=absolute --show-toplevel 2>/dev/null)"
+   WTOP="$(git -C "$WT" rev-parse --path-format=absolute --show-toplevel 2>/dev/null)"
+   [ -n "$PTOP" ] && [ -n "$WTOP" ] && [ "$PTOP" = "$WTOP" ] \
+-    || { echo "REJECT 세션 $NAME 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=${PCWD:-?} wt=$WT"; exit 1; }
++    || { echo "REJECT 세션 $NAME 이 이미 있으나 작업 폴더가 다르다(남의 세션 · 이어가기 0 · 추측 0) — pane=$PCWD wt=$WT"; exit 1; }
+   echo "이어감: 세션 있음 $NAME — 열기 건너뜀"
+   RESUMED=1
+ fi
+@@ -106,7 +108,7 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 &
+ [ "$up" = 1 ] || { echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1; }
+ 
+ # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
+-CWD="$(tmux display-message -p -t "=$NAME" '#{pane_current_path}' 2>/dev/null)"
++CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)
+ JDIR="$HOME/.claude/projects/$(printf '%s' "$CWD" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
+ SKEYS=(-e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\""); SMARK=SessionStart
+ # r540: pi 좌석 = pi 대화 기록 폴더(ft-reach-check 와 같은 규칙)의 session_info.name — pi 는 tmuxc 부팅 문장이 제출된 뒤에야 파일을 쓴다
