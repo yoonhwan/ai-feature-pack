@@ -222,17 +222,8 @@ fi
 
 # ① 현역 나노 브랜치 미랜딩 0
 UNLANDED=0
-# ★현역 좌석이 붙어 있는 워크트리만 본다★ — 죽은 좌석 워크트리의 옛 커밋은 press 와 무관하다
-LIVE_WT=$(python3 -c "
-import json,subprocess,re
-d=json.load(open('$ROOT/.fable-team/seats.json'))
-live=set(subprocess.run(['tmux','list-sessions','-F','#{session_name}'],capture_output=True,text=True).stdout.split())
-out=set()
-for k,v in d.items():
-    if not isinstance(v,dict) or v.get('role')=='stop-ready' or k not in live: continue
-    m=re.match(r'ft-v65-temp-(.+?)#\\d+$',k) or re.match(r'ft-v65-(mr|le)-track#\\d+$',k)
-    if m: out.add('v65-'+m.group(1))
-print(' '.join(sorted(out)))" 2>/dev/null)
+# ★v65 나노 접두·이름 판정은 공용 규칙(ft_teamset.py) 한 곳(r655)★ — 옛 이름과 새 이름을 둘 다 세는 판정을 스크립트마다 복사하지 않는다. 판정기를 못 부르면 조용한 통과 없이 막는다.
+LIVE_WT="$(python3 "$HERE/ft_teamset.py" wt-v65 --seats "$ROOT/.fable-team/seats.json" 2>/dev/null)" || { say "✗" "① 나노 이름 규칙(ft_teamset.py wt-v65) 못 읽음: $HERE — 막힘(조용한 통과 0)"; exit 1; }
 # ★세트 소속 표시(M7 · 표시만 — 차단 판정·FAIL 코드 불변)★ press 가 시험하는 세트 경로의 정의는 ft-press-set-check.sh 한 곳 — 여기서 복사하지 않고 읽는다.
 SETP=()
 while IFS= read -r p; do [ -n "$p" ] && SETP+=("$p"); done < <("$HERE/ft-press-set-check.sh" --print-set-paths 2>/dev/null)

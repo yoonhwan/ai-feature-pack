@@ -19,6 +19,7 @@ bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n
 
 mkdir -p "$T/bin" "$T/fake" "$T/home"
 cp "$SRC/ft-nano-close.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 printf '#!/bin/sh\necho "LANDED ok"; exit 0\n' > "$T/bin/ft-landed-check.sh"   # 착지 재검증은 이 카드 범위 밖 — 고정 통과
 printf '#!/bin/sh\necho "$*" >> "%s"\n' "$T/sweep.calls" > "$T/bin/ft-wt-sweep.sh"
 printf '#!/bin/sh\necho "$*" >> "%s"\necho "baton-stub $*"\n' "$T/baton.calls" > "$T/bin/baton"

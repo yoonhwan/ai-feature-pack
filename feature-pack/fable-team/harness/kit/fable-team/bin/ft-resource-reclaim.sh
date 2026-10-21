@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ft-resource-reclaim.sh [--dry-run] --caller <세션명> --need <n> [--team <팀>]
-#   --team = 그 팀 나노만 후보(이름 접두 `byz-<팀>-nano-`(v65 = `ft-v65-temp-`) ∧ 그 팀 명부 `seats-<팀>.json`(v65 = 기본 명부)에 행) — 팀셋 나노 상한(ft-nano-spawn.sh)이 부른다 · 닫기 직전 fresh_ok 가 소속을 다시 확인(DA r1 ⑤)
+#   --team = 그 팀 나노만 후보(이름 접두 `byz-<팀>-nano-` — ★v65 도 같다(r655)★ · 전환기에 열려 있는 옛 접두(공용 규칙의 LEGACY)도 v65 로 센다 ∧ 그 팀 명부 `seats-<팀>.json`(v65 = 기본 명부)에 행) — 팀셋 나노 상한(ft-nano-spawn.sh)이 부른다 · 닫기 직전 fresh_ok 가 소속을 다시 확인(DA r1 ⑤)
 # ft-resource-reclaim.sh [--dry-run] --preventive
 #   R332 · 선제 모드 — 문지기 상태와 무관하게 승인 두 행의 후보를 «전부» 닫는다(감시자 ft-resource-preventive.sh 가 600초마다 부름 · 새 파괴 권한 0).
 #     문지기 호출·재검 0 · [HIL]·재부팅 줄 0 · 닫기 직전 fresh_ok 재검증은 그대로 · 잠금 경합이면 대기 0 → `PREVENTIVE skipped=lock`(rc0 · 다음 틱 재시도).
@@ -114,12 +114,20 @@ in_roster() {   # $1=세션명 → rc0 = BYZ 명부(seats*.json)에 행이 있�
   done < <(printf '%s\n' "$ROSTERS")
   return 1
 }
-team_ok() {   # $1=세션명 → rc0 = --team 팀의 나노(이름 접두 ∧ 그 팀 명부 행). TEAM 이 비면 항상 rc0
+team_ok() {   # $1=세션명 → rc0 = --team 팀의 나노(이름 접두(새·옛) ∧ 그 팀 명부 행) · rc1 = 그 팀 나노 아님 · ★rc4 = 이름 규칙 조회 실패(회수 전체 ERROR)★. TEAM 이 비면 항상 rc0
   [ -n "$TEAM" ] || return 0
-  local pfx="byz-$TEAM-nano-" ros="$(dirname -- "$SEATS")/seats-$TEAM.json"
-  [ "$TEAM" != v65 ] || { pfx="ft-v65-temp-"; ros="$SEATS"; }
-  case "$1" in "$pfx"*) ;; *) return 1;; esac
+  local pfx ros="$(dirname -- "$SEATS")/seats-$TEAM.json" hit=0
+  [ "$TEAM" != v65 ] || ros="$SEATS"
+  pfx="$(python3 "$HERE/ft_teamset.py" prefixes --team "$TEAM" 2>/dev/null)"   # ★공용 이름 규칙(r655) — 옛·새 접두. 못 읽으면 세지 않는다(조용한 통과 0)★
+  [ -n "$pfx" ] || { echo "ERROR 나노 이름 규칙(ft_teamset.py prefixes --team $TEAM) 못 읽음: $HERE" >&2; return 4; }
+  for p in $pfx; do case "$1" in "$p"*) hit=1; break;; esac; done
+  [ "$hit" = 1 ] || return 1
   [ -f "$ros" ] && python3 -c 'import json,sys;sys.exit(0 if isinstance(json.load(open(sys.argv[1])).get(sys.argv[2]),dict) else 1)' "$ros" "$1" 2>/dev/null
+}
+# r655(DA⑥ r1 H2): 나노 세션인가 — 이름 규칙(ft_teamset.py seat-info) 정본. 전환기에 열린 옛 이름 좌석도 나노다(글롭 *-nano-* 만 보면 «현역 역할/기타» 로 샜다).
+is_nano() {
+  case "$1" in byz-[a-z0-9]*-nano-*'#'[0-9]*|*-nano-*'#'[0-9]*) return 0;; esac   # 빠른 길 — 공용 규칙과 같은 꼴
+  python3 "$HERE/ft_teamset.py" seat-info "$1" >/dev/null 2>&1
 }
 # R332·판정 2197: «쉬는 역할 좌석» 판별 — rc0 + stdout=그 팀 «대기» 카드 폴더. 팀 명부(planner 명부 제외)의 `_master`·`_arch` 현역 ∧ 명부 행 role master|arch ∧ `_hil_route`·`_desk` 아님 ∧ `_cards`·`_cards_wt` 로 읽는 대기 폴더가 실재(못 읽으면 «0장» 을 증명할 수 없으니 후보 아님)
 role_seat_table() {   # 쉬는 역할 좌석 후보 표 `이름<TAB>대기 폴더` — python 1회(명부 전체). 호출할 때마다 «지금» 의 명부·폴더를 읽는다
@@ -189,7 +197,7 @@ landed_nano() {   # $1=세션명 → LN_RC(0 = 착지 강한 근거) · LN_WHY(�
   local n="$1" key card repo br out rc found=0 hit
   hit="$(printf '%s' "$LN_CACHE" | awk -F'\t' -v n="$n" '$1==n{print $2"\t"$3; exit}')"
   if [ -n "$hit" ]; then LN_RC="${hit%%	*}"; LN_WHY="${hit#*	}"; return 0; fi
-  key="${n%#0}"; case "$key" in ft-v65-temp-*) key="${key#ft-v65-temp-}";; *) key="${key#*-nano-}";; esac
+  key="${n%#0}"; for _p in $(python3 "$HERE/ft_teamset.py" prefixes --team v65 2>/dev/null); do case "$key" in "$_p"*) key="${key#"$_p"}"; break;; esac; done; case "$key" in *-nano-*) key="${key#*-nano-}";; esac
   card="$(roster_field "$n" index)"; card="${card##*/}"; card="${card%.md}"
   LN_RC=0; LN_WHY=""
   for repo in "$ROOT" "$PACK_ROOT"; do
@@ -293,17 +301,19 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
   fi
   while IFS='|' read -r name act att; do
     [ -n "$name" ] || continue
-    [ -z "$TEAM" ] || team_ok "$name" || continue   # r-teamset-standard: 그 팀 나노 밖은 후보도 «승인 범위 밖» 표도 아니다
+    if [ -n "$TEAM" ]; then   # r-teamset-standard: 그 팀 나노 밖은 후보도 «승인 범위 밖» 표도 아니다 · 단 규칙 조회 실패는 «남의 팀» 이 아니라 ERROR
+      team_ok "$name"; _tok=$?
+      [ "$_tok" = 0 ] || { [ "$_tok" = 4 ] && return 4; continue; }
+    fi
     idle=$(( (now - act) / 60 ))
     kind=""
     [ -n "$roletab" ] && printf '%s\n' "$roletab" | awk -F'\t' -v n="$name" '$1==n{f=1} END{exit !f}' && kind="쉬는 역할 좌석"   # R332·판정 2197: 선제 모드만 · --on-reject 는 역할 좌석을 닫지 않는다
-    [ -n "$kind" ] || case "$name" in
-      *-nano-*'#0') kind="나노";;   # r500: 착지 판정 전 — 1차 거르기(idle·attached·보호) 뒤 «병합 끝 나노»|«미병합 나노» 로 가른다
-      *) base="${name%#*}"; gen="${name##*#}"
+    [ -n "$kind" ] || if is_nano "$name"; then kind="나노"; else   # r655: 옛 이름도 나노 — 글롭 *-nano-* 만 보면 샜다(DA⑥ r1 H2)
+         base="${name%#*}"; gen="${name##*#}"
          case "$gen" in ''|*[!0-9]*) ;; *)
            newer="$(printf '%s\n' "$sess" | awk -F'|' -v b="$base" -v g="$gen" '{n=$1; if(index(n,b"#")==1){x=substr(n,length(b)+2); if(x ~ /^[0-9]+$/ && x+0>g+0) print n}}' | head -1)"
-           [ -z "$newer" ] || kind="직전 세대 좌석";; esac;;
-    esac
+           [ -z "$newer" ] || kind="직전 세대 좌석";; esac
+    fi
     if [ -z "$kind" ]; then
       # 에이전트 좌석(명부 행 있거나 claude/codex 이름)만 «승인 범위 밖» 으로 올린다 — 서버·셸 세션은 표에 안 쓴다
       if [ -n "$(roster_field "$name" role)" ] || case "$name" in *-claude'#'*|*-codex'#'*) true;; *) false;; esac; then

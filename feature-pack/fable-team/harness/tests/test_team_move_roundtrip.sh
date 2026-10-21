@@ -277,6 +277,7 @@ git -C "$R3" init -q -b main; GITC "$R3" commit -q --allow-empty -m init
 echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"; : > "$T/ledger.md"
 for b in "$T/bin3" "$T/bin3b"; do
   cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$b/"
+  cp "$SRC/ft_teamset.py" "$b/"
   printf '#!/usr/bin/env bash\necho "OK cherry stub"; exit 0\n' > "$b/ft-nano-cherry-gate.sh"; chmod +x "$b/"*
 done
 cp "$SRC/ft-team-lib.sh" "$T/bin3/"

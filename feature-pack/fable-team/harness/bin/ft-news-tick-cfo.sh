@@ -17,7 +17,10 @@ echo "ME=$ME  $(date '+%F %T')"
 echo "════ ① 내 큐 ════"
 bash "$ROOT/.fable-team/comm/mbox.sh" recv "$ME" --all 2>&1 | grep -vE '^SCANNED' | head -40
 echo; echo "════ ② CFO 좌석 (tmux 실재 · 턴 · 큐) ════"
-for S in $(tmux ls -F '#{session_name}' 2>/dev/null | grep -E '^(FB_CFO|CFO_HARNESS|CFO_SINBO|ft-v65-temp-sb-harness-0-5-row[0-9]+)' | sort); do
+# r655(DA⑥ r1 H4①): v65 나노 좌석 이름 = 공용 규칙(ft_teamset.py prefixes --team v65) — 접두를 여기 또 박지 않는다.
+V65PFX="$(python3 "$HERE/ft_teamset.py" prefixes --team v65 2>/dev/null)"
+v65row() { local p; for p in $V65PFX; do case "$1" in "$p"sb-harness-0-5-row[0-9]*) return 0;; esac; done; return 1; }
+for S in $( { tmux ls -F '#{session_name}' 2>/dev/null | grep -E '^(FB_CFO|CFO_HARNESS|CFO_SINBO)'; tmux ls -F '#{session_name}' 2>/dev/null | while read -r _s; do v65row "$_s" && echo "$_s"; done; } | sort -u ); do
   T=$(bash "$HERE/ft-seat-status.sh" turn "$S" 2>/dev/null | awk '{print $1}')
   Q=$(bash "$ROOT/.fable-team/comm/mbox.sh" peek "$S" 2>/dev/null | grep -oE 'pending=[0-9]+' | head -1)
   printf "%-56s %-8s %s\n" "$S" "${T:-?}" "${Q:-}"

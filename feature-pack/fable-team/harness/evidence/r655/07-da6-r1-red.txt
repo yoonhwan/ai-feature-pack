@@ -1,0 +1,56 @@
+# DA⑥ r1 H1~H5 — 고치기 «전»(f0fdebf7 키트) 원문 · 2026-10-22 03:04:29
+# 실행: R655_SUT_KIT=/tmp/r655-oldkit bash feature-pack/fable-team/harness/tests/test_r655_nano_name_prefix.sh
+# 픽스처: mktemp 저장소·가짜 tmux·가짜 TEAMSET/명부/카드 — 실 좌석·실 tmux·리포 상태 쓰기 0 · HIL_DIR=$T/hil(실 /tmp/h* 쓰기 0)
+
+PASS ⓐ v65 카드 spawn → byz-v65-nano-x#0 (옛 접두 0)
+PASS ⓑ 워크트리 v65-x · 브랜치 nano/x 불변
+PASS ⓒ wt-v65 = 옛·새 이름 둘 다(v65-newone v65-oldone) · stop-ready·다른 팀 0
+PASS ⓒ 옛 이름만 살아 있어도 LIVE_WT 에 남는다
+PASS ⓒ 명부 없음 → rc1(조용한 통과 0)
+PASS ⓓ 닫기 이름 게이트 통과(ENV team=v65 까지) — ft-v65-temp-oldone#0
+PASS ⓓ 닫기 이름 게이트 통과(ENV team=v65 까지) — byz-v65-nano-newone#0
+PASS ⓓ 남의 역할 좌석(byz-alpha-master-…)은 이름 게이트에서 REJECT
+FAIL ⓓ-4 rc=1 «WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NDGhZbvbH4/norule-close) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐) ENV team=default prefix= seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NDGhZbvbH4/seats-mixed.json »
+PASS ⓓ-undo 접두 게이트(ⓑ) 통과 → PLANNED — ft-v65-temp-u#0
+PASS ⓓ-undo 접두 게이트(ⓑ) 통과 → PLANNED — byz-v65-nano-u#0
+PASS ⓓ-undo 접두 게이트 — 규칙 밖 이름(ft-v65-oldx#0)은 ⓑ REJECT
+PASS ⓔ 옛·새 이름 → 같은 팀(v65)·같은 키(newone)
+PASS ⓔ 다른 팀 접두 판정 불변(alpha)
+PASS ⓔ 회수 --team v65 후보 = 옛·새 이름 둘 다(소속 인정) · 다른 팀 좌석은 후보 0
+PASS ⓕ 옛 이름 좌석(ft-v65-temp-y#0) 살아 있음 → 워크트리 v65-y «live» 판정
+PASS ⓕ 디스크 조사가 공용 규칙(접두 목록)을 읽는다
+PASS ⓕ 규칙기 없음 → rc4 중단(주인 없음 오판 0)
+PASS ⓖ 키트 판정·이름 만드는 곳의 옛 접두 글자 = 0(정본 ft_teamset.py 밖)
+PASS ⓖ 틱 문구는 두 이름 다 적는다
+PASS ⓖ 접두 목록 정본 = byz-v65-nano- 먼저 · 옛 이름 뒤
+FAIL ⓗ 규칙 사본 불일치
+PASS ⓗ ft-nano-spawn.sh 가 공용 규칙을 부른다
+PASS ⓗ ft-nano-close.sh 가 공용 규칙을 부른다
+PASS ⓗ ft-press-gate.sh 가 공용 규칙을 부른다
+PASS ⓗ 사본 3종에 옛 접두 글자 0
+FAIL H1 rc=0 «CAP v65 live=1 cap=2»
+PASS H1 새 이름 1 · 상한 2 → CAP live=1 rc0(음성대조)
+FAIL H2 분류 old=«현역 역할/기타» new=«미병합 나노»
+FAIL H2-2 rc=0 «ERROR 나노 이름 규칙(ft_teamset.py prefixes --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NDGhZbvbH4/norule-reclaim ERROR 나노 이름 규칙(ft_teamset.py prefixes --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NDGhZbvbH4/norule-reclaim ERROR 나노 이름 규칙(ft_teamset.py prefixes --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NDGhZbvbH4/norule-reclaim »
+FAIL H3 rc=0 z=«True/keep:live-seat» y=«True/keep:live-seat»
+FAIL H4⑦ rc=0 «»
+PASS H4⑦ 서버 없음(정상 rc0)은 그대로
+PASS H5③ press ① 이 새 이름 좌석의 워크트리를 막는다(✗ 미랜딩 제품 커밋 1 — v65-g · BLOCK)
+FAIL H4⑤ 접두 하나만 본다
+FAIL H4 ft-news-tick-cfo.sh rule=0 lit=«»
+FAIL H4 ft-news-tick.sh rule=0 lit=«33:print('\n'.join(k for k,v in d.items() if isinstance(v,dict) and v.get('role') not in ('stop-ready',) and k.startswith('ft-v65')))" 2>/dev/null | while read -r S; do»
+FAIL H4 ft-blocked-on-master.sh rule=0 lit=«8:for s in $(tmux list-sessions -F '#S' 2>/dev/null | grep '^ft-v65' | grep -v 'master-claude#3'); do»
+FAIL H4 ft-context-monitor.sh rule=0 lit=«96:  | awk -F'|' -v prefix="$SESSION_PREFIX" -v excluded=",$EXCLUDE_SESSIONS," \»
+PASS H4⑧ skill 사본 실행 — HERE unbound 0(판정까지 감)
+PASS 짝 cmp 0 ft-nano-spawn.sh
+FAIL 짝 불일치 ft-nano-close.sh
+PASS 짝 cmp 0 ft-nano-spawn-undo.sh
+PASS 짝 cmp 0 ft-press-gate.sh
+FAIL 짝 불일치 ft-resource-reclaim.sh
+FAIL 짝 불일치 ft-disk-census.sh
+FAIL 짝 불일치 ft_teamset.py
+FAILED 16
+
+# 노이즈(동작 회귀 아님 — «전 코드 vs 이 카드의 추적 짝/skill 사본» 비교라서 나오는 줄):
+#  - 짝 불일치 4종 · ⓗ 규칙 사본 불일치 = 현재 harness/bin·skill 사본과 f0fdebf7 키트를 맞댄 것
+#  - H1·H2·H2-2·H3·H4⑦·H4⑤·H4①②③④·ⓓ-4(H4⑥) = DA⑥ r1 이 지목한 «동작» 구멍, 고친 판에서 초록

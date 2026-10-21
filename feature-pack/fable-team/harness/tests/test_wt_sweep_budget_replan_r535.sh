@@ -21,6 +21,7 @@ isf() { [ -f "$1" ] && echo yes || echo no; }
 
 mkdir -p "$T/bin" "$T/fake" "$T/hil"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 bash -n "$T/bin/ft-wt-sweep.sh" && bash -n "$T/bin/ft-nano-close.sh" && ok "bash -n 2종" || bad "bash -n"
 : > "$T/sessions"
 cat > "$T/fake/tmux" <<'EOF'

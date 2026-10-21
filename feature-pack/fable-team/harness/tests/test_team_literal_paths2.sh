@@ -184,7 +184,7 @@ p_spawn() {  # ft-nano-spawn(등급 A · §10-4) — 카드 이동은 «실파�
   exe "$hb/ft-send-verified.sh" "echo \"SEND \$*\" >> $T/xcalls$F.log; exit 0"
   exe "$hb/ft-sheet-events.sh" 'case "$1" in key) echo k;; esac; exit 0'
   exe "$sh/sleep" 'exit 0'; exe "$sh/tmuxc" "touch $T/xopened$F; exit 0"
-  exe "$sh/tmux" "case \"\$1\" in has-session) [ -e $T/xopened$F ] && [[ \"\$*\" == *\"#0\"* ]]; exit \$? ;; list-panes) echo \"ft-v65-temp-slug#0|%1|123\" ;; show-option) echo 1 ;; esac; exit 0"
+  exe "$sh/tmux" "case \"\$1\" in has-session) [ -e $T/xopened$F ] && [[ \"\$*\" == *\"#0\"* ]]; exit \$? ;; list-panes) echo \"byz-v65-nano-slug#0|%1|123\" ;; show-option) echo 1 ;; esac; exit 0"
   s0="$(snap "$R" "$a/v65" "$a/planner")"
   o="$(cd "$R" && PATH="$sh:$PATH" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_TEAMSET=0 FT_TEAMS_REF=HEAD timeout 20 bash "$hb/ft-nano-spawn.sh" "$R/$b/v65/indices/대기/slug.md" --from me#1 2>&1)"; rc=$?   # R406: 명단 = ref — 픽스처는 origin/main ref 0 · 명단은 HEAD 커밋
   [ "$rc" = 0 ] && ok "ⓔ$F ft-nano-spawn: rc0" || bad "ⓔ$F ft-nano-spawn rc=$rc ← $(printf "%s" "$o" | grep -E "REJECT|ERROR|WARN 중복|이미" | head -3 | cut -c1-300)"
@@ -200,6 +200,7 @@ p_close() {  # ft-nano-close — 명부 index 는 «다른 꼴» 경로(쌍둥�
   NW="$R/.worktrees/v65-ovr"; GITC "$R" worktree add -q "$NW" -b nano/ovr; git -C "$NW" -c user.email=t@t -c user.name=t commit -q --allow-empty -m work; SHA="$(git -C "$NW" rev-parse HEAD)"
   bin="$T/xcb$F"; fake="$T/xcf$F"; mkdir -p "$bin" "$fake" "$T/xcm$F/bodies"
   cp "$KIT/ft-nano-slots.sh" "$KIT/ft-nano-close.sh" "$KIT/ft-nano-evidence-check.sh" "$KIT/ft-wt-sweep.sh" "$KIT/ft-team-lib.sh" "$KIT/ft-hil.sh" "$KIT/ft-sheet-events.sh" "$KIT"/ft_sheet_events.py "$KIT"/ft_sheet_confirm.py "$KIT"/ft_sheet_key.py "$KIT"/ft_board_env.py "$KIT"/ft_board_mail.py "$bin/"
+  cp "$KIT/ft_teamset.py" "$bin/"
   exe "$bin/ft-nano-cherry-gate.sh" 'echo "OK cherry stub"; exit 0'
   exe "$bin/ft-seat-reap.sh" 'echo "REAP stub left=0"; exit 0'   # r448: close 가 좌석 프로세스 회수를 부른다 — 시험은 실 프로세스 kill 0(대역)
   exe "$fake/tmux" 'case "$1" in list-panes) case "$*" in *pane_current_path*) cat "$FAKE_PANE_CWDS";; *) cat "$FAKE_PANES";; esac;; display-message) cat "$FAKE_CWD";; has-session) exit 1;; set-option|kill-session) echo "$*" >> "$FAKE_LOG";; esac'

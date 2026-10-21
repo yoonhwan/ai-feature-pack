@@ -20,6 +20,7 @@ bash -n "$SRC/ft-nano-close.sh" && bash -n "$SRC/ft-wt-sweep.sh" && ok "bash -n 
 
 mkdir -p "$T/bin" "$T/fake" "$T/hil"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-hil.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 printf '#!/usr/bin/env bash\necho "OK cherry stub"; exit 0\n' > "$T/bin/ft-nano-cherry-gate.sh"

@@ -85,15 +85,39 @@ if [ "$REPLAN" -eq 0 ]; then   # r535 --replan 은 아래 입구(팀 env·드리
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
-#   없으면 좌석명 byz-<팀>-nano-… 의 팀으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source(파일 없으면 추측 없이 REJECT). 옛 이름(ft-v65-temp-*)은 기본값 그대로.
+#   없으면 좌석 이름의 팀(공용 규칙 ft_teamset.py seat-info — 새 이름 byz-<팀>-nano-·옛 이름 둘 다 그 팀)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source.
+#   ★v65 는 env 파일이 없어도 된다(r655)★ — 없으면 기본값(공용 규칙)으로 간다. 다른 팀은 지금처럼 REJECT.
+[ -f "$HERE/ft_teamset.py" ] || { echo "ERROR 나노 이름 규칙 없음: $HERE/ft_teamset.py — 규칙 없이는 닫지 않는다"; exit 1; }   # r655(DA⑥ r1 H4⑥): 규칙 «조회 실패» 와 «미등록 이름» 을 가른다
+_SEATINFO="$(python3 "$HERE/ft_teamset.py" seat-info "$SEAT" 2>&1)"; _SIRC=$?
+_BADSEAT=0; _team=""; NANO_PREFIX=""; _NANO_PREFIXES=""
+case "$_SIRC" in
+  0) ;;
+  1) case "$_SEATINFO" in "ERROR 나노 좌석 이름이 아니다"*) ;;   # 규칙에 없는 이름 = 미등록(아래 드리프트 검사 뒤 REJECT)
+       *) echo "ERROR 나노 이름 규칙 조회 실패(rc=$_SIRC): ${_SEATINFO:0:120}"; exit 1;; esac;;
+  *) echo "ERROR 나노 이름 규칙 실행 실패(rc=$_SIRC): ${_SEATINFO:0:120}"; exit 1;;
+esac
+if [ "$_SIRC" = 0 ]; then
+  _team="${_SEATINFO#*team=}"; _team="${_team%% *}"
+  NANO_PREFIX="${_SEATINFO#*prefix=}"; NANO_PREFIX="${NANO_PREFIX%% *}"
+  _NANO_PREFIXES="${_SEATINFO#*prefixes=}"; _NANO_PREFIXES="${_NANO_PREFIXES%% *}"
+else   # 규칙에 없는 이름 = 「명시 접두(FT_NANO_PREFIX)」만 믿는다(시험·외부 env 꼴 · 추측 0) — 이름 REJECT 는 아래 드리프트 검사 뒤(입구 순서 보존)
+  case "$SEAT" in "${FT_NANO_PREFIX:-@none@}"*) NANO_PREFIX="$FT_NANO_PREFIX"; _NANO_PREFIXES="$FT_NANO_PREFIX";;
+    *) _BADSEAT=1;; esac
+fi
+if [ -n "${FT_NANO_PREFIX:-}" ] && [ -n "$_team" ] && [ "$_team" != v65 ]; then   # 남의 팀 좌석을 내 접두로 닫는 길 0(DA⑥ r655)
+  case " ${_NANO_PREFIXES} " in *" ${FT_NANO_PREFIX} "*) ;; *) echo "REJECT 좌석 ${SEAT} 는 ${_team} 팀인데 FT_NANO_PREFIX(${FT_NANO_PREFIX}) 가 그 팀 규칙(${_NANO_PREFIXES}) 밖이다"; exit 1;; esac
+fi
+[ -z "${FT_NANO_PREFIX:-}" ] || _NANO_PREFIXES="${FT_NANO_PREFIX} ${_NANO_PREFIXES}"   # 명시 접두 = 그 팀 규칙에 더한다(전환기 옛 이름도 계속 닫힌다)
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$SEAT" =~ ^byz-([a-z0-9]+)-nano- ]] && _team="${BASH_REMATCH[1]}"
-  if [ -n "$_team" ]; then
+  if [ -n "$_team" ] && [ "$_team" != v65 ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
     [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
     . "$_tenv"
+  else
+    _tenv="$ROOT/.fable-team/bin-v65/v65-env.sh"
+    [ -f "$_tenv" ] && . "$_tenv"
   fi
-  echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-ft-v65-temp-} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+  echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-${NANO_PREFIX:-$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)}} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 닫지 않는다(bad=() 에 안 넣고 입구에서 종료).
 #   검사 스크립트가 없는 것도 드리프트(설치 누락). 우회 스위치 없음 — 해결은 master 라이브 cp.
@@ -104,11 +128,12 @@ case "$HERE" in
     printf '%s\n' "$_dout";;
   *) echo "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $HERE";;
 esac
-NANO_PREFIX="${FT_NANO_PREFIX:-ft-v65-temp-}"
+[ "$_BADSEAT" = 0 ] || { echo "REJECT 나노 좌석 이름이 아니다(${SEAT}) — ${_SEATINFO}"; exit 1; }
+# NANO_PREFIX = 이 좌석이 «실제로 쓰는» 접두(seat-info 가 정했다) — 아래 ${SEAT#"$NANO_PREFIX"} 키 추출이 옛·새 이름 둘 다 맞는다.
 # 좌석 워크트리 접두(spawn 123행과 같은 env) — 정규식에 들어가므로 소문자·숫자·'-' 만 허용(그 밖은 추측 없이 REJECT).
 WT_PREFIX="${FT_NANO_WT_PREFIX:-v65-}"
 [[ "$WT_PREFIX" =~ ^[a-z0-9-]+$ ]] || { echo "REJECT FT_NANO_WT_PREFIX(${WT_PREFIX}) 는 소문자·숫자·'-' 만 허용"; exit 1; }
-case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${NANO_PREFIX}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 temp- 접두)
+case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${_NANO_PREFIXES//,/|}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 같은 접두)
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
 LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"
@@ -414,7 +439,10 @@ _resolve_std_wt_other() {
   to="$("$tb" ls -F '#{session_name}' 2>&1)"; trc=$?
   if [ "$trc" -ne 0 ]; then case "$trc:$to" in 1:*"no server running"*) to="";; *) echo "INFO 표준+다른 가지 — tmux 조회 실패(rc=$trc) · 인정 0(fail-closed)"; return 0;; esac; fi
   okey="${brs[0]#nano/}"; okey="${okey%-r[0-9]*}"
-  live="$(printf '%s\n' "$to" | grep -x "${NANO_PREFIX}${okey}#[0-9]*" | tr '\n' ' ')"
+  live=""; local _p _l
+  for _p in $_NANO_PREFIXES; do   # r655(DA⑥ r1 H4⑤): 접두 «하나» 가 아니라 목록 전체 — 옛 이름 좌석도 그 가지의 주인이다
+    _l="$(printf '%s\n' "$to" | grep -x "${_p}${okey}#[0-9]*" | tr '\n' ' ')"; [ -z "$_l" ] || live="$live$_l"
+  done
   [ -z "$live" ] || { SEAT_WT_ERR="표준 경로 워크트리 ${hits[0]} 의 가지(${brs[0]})를 키로 하는 좌석 세션이 살아 있다(${live% }) — 남의 좌석 가지 · 추측 금지"; return 0; }
   SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"; SEAT_WT_OTHER=1
 }

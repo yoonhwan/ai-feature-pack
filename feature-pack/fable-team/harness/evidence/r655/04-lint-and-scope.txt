@@ -1,0 +1,59 @@
+== ruff (변경 파이썬)
+All checks passed!
+
+== bash -n (변경 셸 13종) — 위 절 참조
+
+== 옛 접두 글자 = 정본 2곳(키트·사본) + 틱 문구만
+harness/kit/fable-team/bin/ft_teamset.py:85:LEGACY_PREFIXES = {"v65": ("ft-v65-temp-",)}
+skill/scripts/ft_teamset.py:85:LEGACY_PREFIXES = {"v65": ("ft-v65-temp-",)}
+
+== 변경 파일 목록
+   M feature-pack/fable-team/harness/bin/ft-disk-census.sh
+   M feature-pack/fable-team/harness/bin/ft-nano-close.sh
+   M feature-pack/fable-team/harness/bin/ft-nano-spawn-undo.sh
+   M feature-pack/fable-team/harness/bin/ft-nano-spawn.sh
+   M feature-pack/fable-team/harness/bin/ft-news-tick-cfo.sh
+   M feature-pack/fable-team/harness/bin/ft-press-gate.sh
+   M feature-pack/fable-team/harness/bin/ft-resource-reclaim.sh
+   M feature-pack/fable-team/harness/bin/ft-tick-team.sh
+   M feature-pack/fable-team/harness/bin/ft_teamset.py
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-disk-census.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn-undo.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-news-tick-cfo.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-pm-tick.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-press-gate.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-resource-reclaim.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick-team.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft_teamset.py
+   M feature-pack/fable-team/harness/tests/test_live_bin_drift_check.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_fail_closed.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_named_wt.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_never_started.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_pack_wt.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_rerun_early.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_rerun_named_equal.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_rerun_wt_clean.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_sha_base.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_std_wt_other_branch.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_superseded_by.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_suspended.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_worktree_list_pipe.sh
+   M feature-pack/fable-team/harness/tests/test_nano_close_wt_deletion_only.sh
+   M feature-pack/fable-team/harness/tests/test_nano_team_env.sh
+   M feature-pack/fable-team/harness/tests/test_pack_nano_worktree_place.sh
+   M feature-pack/fable-team/harness/tests/test_reap_agent_pi_r542.sh
+   M feature-pack/fable-team/harness/tests/test_team_literal_paths2.sh
+   M feature-pack/fable-team/harness/tests/test_team_move_roundtrip.sh
+   M feature-pack/fable-team/harness/tests/test_wt_clean_plan_rn_sibling.sh
+   M feature-pack/fable-team/harness/tests/test_wt_clean_two_stage.sh
+   M feature-pack/fable-team/harness/tests/test_wt_sweep_budget_replan_r535.sh
+   M feature-pack/fable-team/skill/scripts/ft-nano-close.sh
+   M feature-pack/fable-team/skill/scripts/ft-nano-spawn.sh
+   M feature-pack/fable-team/skill/scripts/ft-press-gate.sh
+   M feature-pack/fable-team/skill/scripts/ft-tick.sh
+  ?? feature-pack/fable-team/harness/evidence/r655/
+  ?? feature-pack/fable-team/harness/kit/fable-team/templates/bin-v65/
+  ?? feature-pack/fable-team/harness/tests/test_r655_nano_name_prefix.sh
+  ?? feature-pack/fable-team/skill/scripts/ft_teamset.py

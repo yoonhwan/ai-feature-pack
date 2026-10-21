@@ -20,6 +20,7 @@ done
 
 mkdir -p "$T/bin" "$T/fake"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 

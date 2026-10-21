@@ -88,6 +88,7 @@ fresh_live; echo "# a" >> "$LIVE/a.sh"
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$LIVE/ft-nano-close.sh" zz-seat --result x --recv 1 2>&1)"; rc=$?
 rc_is "$rc" 1 "close 어긋남 → BLOCK"; has "$out" "REJECT 라이브 도구가" "close REJECT 줄"
 cp "$SRC/ft-nano-close.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$T/bin/ft-nano-close.sh" other-seat --result x --recv 1 2>&1)"
 has "$out" "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $T/bin" "close 설치 꼴 아님 → 건너뜀"; hasnt "$out" "REJECT 라이브 도구가" "close 설치 꼴 아님 → 라이브 REJECT 없음"
 

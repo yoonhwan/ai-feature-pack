@@ -18,6 +18,7 @@ ok "bash -n 3종"
 
 mkdir -p "$T/bin" "$T/fake"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-team-lib.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-resource-gate.sh" "$SRC/ft_raised.py" "$SRC/ft_teamset.py" "$SRC/ft_spawn_queue.py" "$T/bin/"   # spawn 이 부르는 자원 문지기(R161)·상향 판정기 — 임시 bin 에도 있어야 한다
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
@@ -67,11 +68,11 @@ has "$out" "ENV team=planner prefix=byz-planner-nano- seats=$REPO/.fable-team/se
 out="$(run bash "$T/bin/ft-nano-close.sh" 'byz-zzz-nano-x#0')"
 has "$out" "REJECT 팀 env 없음: $REPO/.fable-team/bin-zzz/zzz-env.sh" "close 없는 팀 → REJECT"
 out="$(run bash "$T/bin/ft-nano-close.sh" 'ft-v65-temp-x#0')"
-has "$out" "ENV team=default prefix=ft-v65-temp- seats=$REPO/.fable-team/seats.json" "close 옛 이름 → default"
+has "$out" "ENV team=v65 prefix=ft-v65-temp- seats=$REPO/.fable-team/seats.json" "close 옛 이름 → v65(규칙이 팀을 안다 · r655) — 접두는 그 좌석이 실제로 쓰는 접두"
 out="$(run FT_NANO_PREFIX=byz-planner-nano- bash "$T/bin/ft-nano-close.sh" 'byz-planner-nano-x#0')"
 hasnt "$out" "ENV team=" "close 접두 명시 → 자동 로드 안 함"; hasnt "$out" "팀 env 없음" "close 접두 명시 → env 파일 안 찾음"
 out="$(run bash "$T/bin/ft-nano-close.sh" 'byz-harness-arch-claude#5')"
-has "$out" "REJECT 나노(ft-v65-temp-*)만 닫는다" "close 역할 좌석 → 접두 게이트 REJECT"
+has "$out" "REJECT 나노 좌석 이름이 아니다(byz-harness-arch-claude#5)" "close 역할 좌석 → 이름 게이트 REJECT(r655: 나노 이름 규칙 밖)"
 
 echo "== spawn · 팀 env · 기본 모델 · --base"
 sp() { run bash "$T/bin/ft-nano-spawn.sh" "$@" --dry-run; }
@@ -79,8 +80,8 @@ out="$(sp design/planner/indices/대기/c.md)"
 has "$out" "ENV team=planner prefix=byz-planner-nano-" "spawn planner 카드 → team=planner"
 has "$out" "PLAN seat=byz-planner-nano-c#0 agent=claude model=claude-sonnet-5-5[1m]" "spawn 팀 env 의 FT_IMPL_MODEL 이 기본 모델에 반영"
 out="$(sp design/v65/indices/대기/c.md)"
-has "$out" "ENV team=default prefix=ft-v65-temp-" "spawn v65 카드 → default"
-has "$out" "PLAN seat=ft-v65-temp-c#0 agent=claude model=claude-sonnet-5-5[1m]" "spawn v65 PLAN 줄 무변화(claude 기본 모델 · r286 sonnet-5-5)"
+has "$out" "ENV team=v65 prefix=byz-v65-nano-" "spawn v65 카드 → 기본 접두 byz-v65-nano-(r655)"
+has "$out" "PLAN seat=byz-v65-nano-c#0 agent=claude model=claude-sonnet-5-5[1m]" "spawn v65 PLAN 줄 — 이름 접두만 새 규칙(r655) · 모델 기본 불변(claude sonnet-5-5)"
 out="$(sp design/v65/indices/대기/c.md --agent codex)"
 has "$out" "agent=codex model=gpt-6-luna" "spawn codex 모델 미지정 → luna"
 out="$(sp design/v65/indices/대기/c.md --agent cmd)"

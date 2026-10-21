@@ -1,0 +1,34 @@
+# DA⑥ r1 — 인접 시험 rc 대조(고치기 전 f0fdebf7 워크트리 /tmp/r655-prev vs 이 카드 판) · 2026-10-22 03:05:07
+# 광역 0 · 자기 카드 인접만 · 같은 명령·같은 순서
+# rc 목록: nano_close 13종 + nano_spawn 8종
+
+rc  f0fdebf7  이 카드  시험
+0   0         0        test_nano_close_fail_closed.sh
+0   0         0        test_nano_close_named_wt.sh
+0   0         0        test_nano_close_never_started.sh
+0   0         0        test_nano_close_pack_wt.sh
+0   0         0        test_nano_close_rerun_early.sh
+0   0         0        test_nano_close_rerun_named_equal.sh
+0   0         0        test_nano_close_rerun_wt_clean.sh
+0   0         0        test_nano_close_sha_base.sh
+0   0         0        test_nano_close_std_wt_other_branch.sh
+0   0         0        test_nano_close_superseded_by.sh
+0   0         0        test_nano_close_suspended.sh
+0   0         0        test_nano_close_worktree_list_pipe.sh
+0   0         0        test_nano_close_wt_deletion_only.sh
+2   2         2        test_nano_spawn_body_press.sh
+0   0         0        test_nano_spawn_body_search_roster.sh
+0   0         0        test_nano_spawn_pi_effort_kind_r631.sh
+0   0         0        test_nano_spawn_pi_effort_serena.sh
+0   0         0        test_nano_spawn_recheck_cited.sh
+0   0         0        test_nano_spawn_reuse_info.sh
+7   7         7        test_nano_spawn_teamset_cap.sh
+0   0         0        test_nano_spawn_tier.sh
+
+# 21/21 rc 동일 — 이 카드가 인접 시험에 새 빨강을 만들지 않았다.
+# 이미 빨강인 것(양쪽 동일 · base 대조 기록 03/05 와 같은 계열): nano_spawn_teamset_cap=7 · nano_spawn_body_press=2 (base 판에서도 같은 값)
+
+# 추가 확인(양쪽 동일 rc):
+#  test_teamset_check=5 · test_teamset_gitref=3 · test_resource_reclaim_pressure=0 · test_nano_close_std_wt_other_branch=0
+#  test_press_role_bts_gate=1 (f0fdebf7 에서도 1 — 가짜 tmux 스텁이 «stderr 없는 rc1» 이라 sessions() 가 ERROR 로 보는 자리. r655 이전 base 는 press 게이트가 자체 python 이라 0 이었다 = 이 카드 이전 라운드에서 생긴 것 · 이 카드가 만든 것 아님)
+#  test_resource_reclaim=0 (3m12s — 앞선 124 는 내 180s 타임아웃이었고 시험 자체는 PASS)
