@@ -1,0 +1,70 @@
+# r631 ⓐ 실패 시험 먼저 — 고치기 전 키트(HEAD 398d8f8ce22d650620b90996795322c25730781b) · 2026-10-21 12:00:49
+$ bash tests/test_nano_spawn_pi_effort_kind_r631.sh
+PASS fable-team: 블록 A+B 추출
+FAIL fable-team: ⓐ --agent pi --tier impl effort=high → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓐ PLAN effort=high(impl:tier=impl) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓐ tmuxc --effort high → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓑ --agent pi 코드 나노 PLAN effort=high(impl:code-nano) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓒ --agent pi --tier search = low(short:tier=search) → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL fable-team: ⓒ --tier search(기본 pi) = low(short:tier=search) → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL fable-team: ⓒ --agent pi --research = low(short:research) → EFFORT=low PLANX=[ effort=low serena=off(research)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL fable-team: ⓒ --agent pi --tier checker = low(short:tier=checker) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓒ --agent pi --tier tester:2 = low(short:tier=tester) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+PASS fable-team: ⓒ checker·tester pi serena 판별 불변(on)
+FAIL fable-team: ⓓ --tier impl --effort low = low(explicit) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓓ --tier search --effort high = high(explicit) → EFFORT=high PLANX=[ effort=high serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort high
+FAIL fable-team: ⓔ FT_PI_EFFORT_SHORT=medium → short 갈래 → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL fable-team: ⓔ FT_PI_EFFORT_SHORT 는 impl 갈래 불변 → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓔ FT_PI_EFFORT_IMPL=low → impl 갈래 → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL fable-team: ⓔ FT_PI_EFFORT_IMPL 은 short 갈래 불변 → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL fable-team: ⓔ 옛 FT_PI_EFFORT → impl 갈래 → EFFORT=medium PLANX=[ effort=medium serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium --serena
+FAIL fable-team: ⓔ 옛 FT_PI_EFFORT stderr WARN → EFFORT=medium PLANX=[ effort=medium serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium --serena
+FAIL fable-team: ⓔ WARN 줄 수 ≠ 1
+FAIL fable-team: ⓔ 옛 FT_PI_EFFORT → short 갈래 → EFFORT=medium PLANX=[ effort=medium serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium
+FAIL fable-team: ⓔ 새 이름이 옛 이름보다 이긴다 → EFFORT=medium PLANX=[ effort=medium serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium
+PASS fable-team: ⓔ --effort 직접이면 옛 이름 WARN 0
+PASS fable-team: ⓔ env 없으면 WARN 0
+PASS fable-team: ⓕ claude effort=high
+PASS fable-team: ⓕ claude PLANX 빈칸
+PASS fable-team: ⓕ claude --effort low 그대로
+PASS fable-team: ⓕ codex checker:1 effort=high
+PASS fable-team: ⓕ codex PLANX 빈칸
+PASS fable-team: ⓕ claude --tier impl 은 pi env 무시
+PASS fable-team: ⓕ cmd 는 옛 pi env 무시
+PASS fable-team: ⓕ cmd WARN 0
+PASS kit: 블록 A+B 추출
+FAIL kit: ⓐ --agent pi --tier impl effort=high → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓐ PLAN effort=high(impl:tier=impl) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓐ tmuxc --effort high → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓑ --agent pi 코드 나노 PLAN effort=high(impl:code-nano) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓒ --agent pi --tier search = low(short:tier=search) → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL kit: ⓒ --tier search(기본 pi) = low(short:tier=search) → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL kit: ⓒ --agent pi --research = low(short:research) → EFFORT=low PLANX=[ effort=low serena=off(research)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL kit: ⓒ --agent pi --tier checker = low(short:tier=checker) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓒ --agent pi --tier tester:2 = low(short:tier=tester) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+PASS kit: ⓒ checker·tester pi serena 판별 불변(on)
+FAIL kit: ⓓ --tier impl --effort low = low(explicit) → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓓ --tier search --effort high = high(explicit) → EFFORT=high PLANX=[ effort=high serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort high
+FAIL kit: ⓔ FT_PI_EFFORT_SHORT=medium → short 갈래 → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL kit: ⓔ FT_PI_EFFORT_SHORT 는 impl 갈래 불변 → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓔ FT_PI_EFFORT_IMPL=low → impl 갈래 → EFFORT=low PLANX=[ effort=low serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low --serena
+FAIL kit: ⓔ FT_PI_EFFORT_IMPL 은 short 갈래 불변 → EFFORT=low PLANX=[ effort=low serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort low
+FAIL kit: ⓔ 옛 FT_PI_EFFORT → impl 갈래 → EFFORT=medium PLANX=[ effort=medium serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium --serena
+FAIL kit: ⓔ 옛 FT_PI_EFFORT stderr WARN → EFFORT=medium PLANX=[ effort=medium serena=on] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium --serena
+FAIL kit: ⓔ WARN 줄 수 ≠ 1
+FAIL kit: ⓔ 옛 FT_PI_EFFORT → short 갈래 → EFFORT=medium PLANX=[ effort=medium serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium
+FAIL kit: ⓔ 새 이름이 옛 이름보다 이긴다 → EFFORT=medium PLANX=[ effort=medium serena=off(tier=search)] OPEN=tmuxc open /tmp/wt --name n#0 --agent pi --model opengateway/deepseek/deepseek-v4.1-flash-ultrafast --effort medium
+PASS kit: ⓔ --effort 직접이면 옛 이름 WARN 0
+PASS kit: ⓔ env 없으면 WARN 0
+PASS kit: ⓕ claude effort=high
+PASS kit: ⓕ claude PLANX 빈칸
+PASS kit: ⓕ claude --effort low 그대로
+PASS kit: ⓕ codex checker:1 effort=high
+PASS kit: ⓕ codex PLANX 빈칸
+PASS kit: ⓕ claude --tier impl 은 pi env 무시
+PASS kit: ⓕ cmd 는 옛 pi env 무시
+PASS kit: ⓕ cmd WARN 0
+PASS 추적본 = 키트(cmp)
+
+FAILED 40
+rc=1

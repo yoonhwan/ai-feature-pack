@@ -1,0 +1,40 @@
+# r631 기존 시험 — ft-nano-spawn.sh 를 부르는 시험 전부(광역 0) · 가지 vs base(origin/main 398d8f8ce22d650620b90996795322c25730781b 분리 사본) · 2026-10-21 12:04:34
+== test_nano_spawn_pi_effort_kind_r631  branch rc=0  base rc=-  (branch: 65 pass · 0 FAIL)
+== test_nano_spawn_pi_effort_serena  branch rc=0  base rc=0  (branch: 50 pass · 0 FAIL)
+== test_nano_spawn_tier  branch rc=0  base rc=0  (branch: 43 pass · 0 FAIL)
+== test_pi_agent_allow_r540  branch rc=1  base rc=1  (branch: 47 pass · 4 FAIL)
+  branch FAIL ⓙ 승계 pi rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MZKEIKOjxp/sfake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)| log=
+  branch FAIL ⓙ 못 읽음 rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MZKEIKOjxp/sfake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)|
+  branch FAIL ⓙ 미관측 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MZKEIKOjxp/sfake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)|
+  branch FAILED 3
+  base   FAIL ⓙ 승계 pi rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.k4D8qGiIKX/sfake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)| log=
+  base   FAIL ⓙ 못 읽음 rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.k4D8qGiIKX/sfake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)|
+  base   FAIL ⓙ 미관측 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.k4D8qGiIKX/sfake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)|
+  base   FAILED 3
+== test_da_hold_gate  branch rc=1  base rc=1  (branch: 96 pass · 2 FAIL)
+  branch FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 8 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+  branch FAIL staged main-team-governance.md: 홈 대비 삭제 5 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+  base   FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 8 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+  base   FAIL staged main-team-governance.md: 홈 대비 삭제 5 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+== test_graphics_install  branch rc=1  base rc=1  (branch: 15 pass · 5 FAIL)
+  branch FAIL ⑦ 라이브 정본에 «판정 649» 없음
+  branch FAIL ⑦ 라이브 정본에 «graphics 팀장 = `byz-graphics-master-claude#N`» 없음
+  branch FAIL ⑦ 라이브 정본에 «^| graphics | `byz-graphics-`» 없음
+  branch FAIL ⑦ 라이브 정본에 «graphics 는 팀장(`seats-graphics.json` `_master`)이» 없음
+  branch FAILED
+  base   FAIL ⑦ 라이브 정본에 «판정 649» 없음
+  base   FAIL ⑦ 라이브 정본에 «graphics 팀장 = `byz-graphics-master-claude#N`» 없음
+  base   FAIL ⑦ 라이브 정본에 «^| graphics | `byz-graphics-`» 없음
+  base   FAIL ⑦ 라이브 정본에 «graphics 는 팀장(`seats-graphics.json` `_master`)이» 없음
+  base   FAILED
+== test_installed_root  branch rc=0  base rc=0  (branch: 22 pass · 0 FAIL)
+== test_planner_nano_path  branch rc=1  base rc=1  (branch: 31 pass · 2 FAIL)
+  branch FAIL 기존 test_nano_spawn_body_press.sh rc≠0 ← PASS ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임) FAIL core.bare 가 false 아님 FAILED=3 
+  branch FAILED 1
+  base   FAIL 기존 test_nano_spawn_body_press.sh rc≠0 ← PASS ⓕ 변이 시 ⓒ FAIL(심링크가 status 에 보임) FAIL core.bare 가 false 아님 FAILED=3 
+  base   FAILED 1
+== test_spawn_gate_landing_branch  branch rc=0  base rc=0  (branch: 12 pass · 0 FAIL)
+== test_team_path_oldpath_md  branch rc=0  base rc=0  (branch: 63 pass · 0 FAIL)
+== test_tracked_bin_call_gate  branch rc=0  base rc=0  (branch: 75 pass · 0 FAIL)
+== test_spawn_agent_ready  branch rc=0  base rc=0  (branch: 55 pass · 0 FAIL)
+결론: 가지·base FAIL 줄 집합 동일(임시 경로 제거 후 diff 0) — 빨강 4개 시험은 이 카드 무관(base 그대로 빨강)

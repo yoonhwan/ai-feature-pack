@@ -25,14 +25,14 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
   # AGENT_SET=1 이면 호출자가 이미 --agent/--effort 로 넣은 값(스크립트 13·15행 뒤 상태)을 흉내낸다
   pick() { env -i PATH="$PATH" TIER="${1:-}" AGENT="${2:-claude}" AGENT_SET="${3:-0}" MODEL="${4:-}" EFFORT="${5:-high}" EFFORT_SET="${6:-0}" FT_CMD_ENABLED=0 ${7:+FT_PI_EFFORT="$7"} bash "$T/a.sh" 2>&1; }
 
-  # ⓐ(실패 시험 먼저) --agent pi 기본 → low (고치기 전 코드 = high 라 FAIL)
-  r="$(pick '' pi 1)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|low" ] && ok "$tag: ⓐ --agent pi 기본 effort=low" || bad "$tag: ⓐ --agent pi → $r"
+  # ⓐ --agent pi 티어 없음 = 코드 나노 → high (r631 개정: 짧은 나노만 low · 종류별 전수 = test_nano_spawn_pi_effort_kind_r631.sh)
+  r="$(pick '' pi 1)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high" ] && ok "$tag: ⓐ --agent pi 코드 나노 effort=high(r631)" || bad "$tag: ⓐ --agent pi → $r"
   # ⓑ --effort high 를 직접 적으면 이긴다
   r="$(pick '' pi 1 '' high 1)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high" ] && ok "$tag: ⓑ --agent pi --effort high = high" || bad "$tag: ⓑ → $r"
   # ⓒ --tier search(pi 기본 에이전트) 도 low — 티어가 넣은 high 를 pi 가 덮는다
   r="$(pick search pi 0)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|search|low" ] && ok "$tag: ⓒ --tier search(pi) effort=low" || bad "$tag: ⓒ search → $r"
   # ⓗ 되돌림 손잡이 = FT_PI_EFFORT=high
-  r="$(pick '' pi 1 '' high 0 high)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high" ] && ok "$tag: ⓗ FT_PI_EFFORT=high → high" || bad "$tag: ⓗ → $r"
+  r="$(pick '' pi 1 '' high 0 high 2>/dev/null | tail -1)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high" ] && ok "$tag: ⓗ FT_PI_EFFORT=high → high" || bad "$tag: ⓗ → $r"
   # 다른 에이전트 effort 불변(회귀 0)
   r="$(pick '')"; case "$r" in claude\|*'|high') ok "$tag: claude 기본 effort=high 불변";; *) bad "$tag: claude → $r";; esac
   r="$(pick checker:1 claude 0)"; case "$r" in codex\|*'|high') ok "$tag: codex checker:1 effort=high 불변";; *) bad "$tag: codex → $r";; esac
@@ -41,14 +41,14 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
   # ── 블록 B: OPEN 배열 + pi --serena + PLAN 덧붙임 ──
   _bs="$(grep -n '^OPEN=(tmuxc open' "$SP" | head -1 | cut -d: -f1)"
   _be="$(awk -v s="${_bs:-0}" 'NR>=s && /^_PLANX=/{print NR; exit}' "$SP")"
-  { [ -n "$_bs" ] && [ -n "$_be" ] && sed -n "${_bs},${_be}p" "$SP" && echo 'echo "SERENA=$SERENA"; echo "PLANX=[$_PLANX]"; echo "OPEN=${OPEN[*]}"'; } > "$T/b.sh"
+  { [ -n "$_bs" ] && [ -n "$_be" ] && grep '^pi_kind() ' "$SP" && sed -n "${_bs},${_be}p" "$SP" && echo 'echo "SERENA=$SERENA"; echo "PLANX=[$_PLANX]"; echo "OPEN=${OPEN[*]}"'; } > "$T/b.sh"
   [ -s "$T/b.sh" ] && ok "$tag: 블록 B 추출" || { bad "$tag: 블록 B 추출 실패"; continue; }
-  op() { env -i PATH="$1:$ORIG_PATH" WTDIR=/tmp/wt NAME=n#0 AGENT="${2:-claude}" MODEL=m EFFORT="${3:-high}" TIER="${4:-}" RESEARCH="${5:-0}" ${6:+FT_PI_SERENA="$6"} bash "$T/b.sh" 2>&1; }
+  op() { env -i PATH="$1:$ORIG_PATH" WTDIR=/tmp/wt NAME=n#0 AGENT="${2:-claude}" MODEL=m EFFORT="${3:-high}" EFFORT_WHY=impl:code-nano TIER="${4:-}" RESEARCH="${5:-0}" ${6:+FT_PI_SERENA="$6"} bash "$T/b.sh" 2>&1; }
   ORIG_PATH="$PATH"
 
   # ⓔ pi 코드 나노 → --serena 붙음 · PLAN serena=on
   r="$(op "$T/new" pi)"; case "$r" in *"SERENA=on"*"--serena"*) ok "$tag: ⓔ pi 코드 나노 --serena";; *) bad "$tag: ⓔ → $r";; esac
-  case "$r" in *"PLANX=[ effort=high serena=on]"*) ok "$tag: ⓔ PLAN 줄 effort+serena";; *) bad "$tag: ⓔ PLANX → $r";; esac
+  case "$r" in *"PLANX=[ effort=high(impl:code-nano) serena=on]"*) ok "$tag: ⓔ PLAN 줄 effort+serena";; *) bad "$tag: ⓔ PLANX → $r";; esac
   # ⓓ --research(pi) 는 코드를 안 만든다 → --serena 없음
   r="$(op "$T/new" pi high '' 1)"; case "$r" in *"SERENA=off(research)"*) ok "$tag: ⓓ --research pi = serena 없음";; *) bad "$tag: ⓓ → $r";; esac
   case "$r" in *"--serena"*) bad "$tag: ⓓ research 인데 --serena 붙음";; *) ok "$tag: ⓓ research OPEN 에 --serena 없음";; esac
