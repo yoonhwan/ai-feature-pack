@@ -21,6 +21,31 @@ DEV_GATEWAY="${FT_PRESS_DEV_GATEWAY:-https://byz-agents-gateway-dev-a3yix5apcq-d
 DEV_WANT="${FT_PRESS_DEV_WANT:-}"
 DEV_REGION="${FT_PRESS_DEV_REGION:-asia-northeast3}"
 DEV_SVCS="${FT_PRESS_DEV_SVCS:-web=byz-agents-web-dev,gateway=byz-agents-gateway-dev,worker=byz-agents-worker-dev}"
+DEV_WEB_MARK_DEFAULT='<title>하우투 톡'   # r685 DA⑥ H1: 이 앱만의 표지(실측 dev 루트 «<title>하우투 톡 — 실시간 AI 음성 통역 · 강의 자막</title>») — /_next/static/ 는 모든 Next 화면에 있어 고유하지 않다
+DEV_WEB_MARK="${FT_PRESS_DEV_WEB_MARK:-$DEV_WEB_MARK_DEFAULT}"   # env 로 이것만 바꾼다(6글자 미만이면 경고 + 기본값 · _dev_gate)
+DEV_ERR_MARKS=('Service Unavailable' 'Application failed to start' '502 Bad Gateway' '503 Service' 'Error: Server Error' 'That’s an error' "That's an error" 'Internal Server Error' 'Application error:' 'Failed to compile' 'This page could not be found' '페이지를 찾을 수 없')   # r685: 오류 화면 표지 — 대소문자 무시 · script·style 을 뺀 «보이는 글자»에만 대조(정상 화면 RSC 데이터에 «This page could not be found» 2회)
+# r685: 본문 판별 1곳(web·json) — _bounded 안에서 돈다(DA⑥ H2) · 출력 = 막을 이유(rc 1) · 빈 출력 rc 0 = 정상. 표식 «r685-dev-body» 는 시험 감싸개가 이 호출만 고른다
+_DEV_BODY_PY='# r685-dev-body · argv = 종류 파일 앱표지 오류표지…
+import json,re,sys
+k,f,mark=sys.argv[1:4]; errs=sys.argv[4:]
+b=open(f,"rb").read().decode("utf-8","replace")
+def bad(s): print(s); sys.exit(1)
+def text(s): return re.sub(r"\s+"," ",re.sub(r"(?s)<[^>]+>"," ",re.sub(r"(?is)<(script|style|noscript)\b.*?</\1\s*>"," ",s))).strip()
+if not b.strip(): bad("본문이 비었다")
+if k=="json":
+    try: d=json.loads(b)
+    except Exception: d=None
+    if not (isinstance(d,dict) and d.get("status")=="ok"): bad("본문이 status=ok JSON 객체가 아니다")
+    sys.exit(0)
+vis=text(b).lower(); lb=b.lower()
+for e in errs:
+    if e.lower() in vis: bad("본문에 오류 표지 «%s»" % e)
+for need in (mark,"/_next/static/"):
+    if need.lower() not in lb: bad("본문에 앱 표지 «%s» 없음" % need)
+if "</html>" not in lb: bad("본문에 «</html>» 없음 — 잘린 본문")
+m=re.search(r"(?is)<body\b[^>]*>(.*)</body\s*>",b)
+n=len(text(m.group(1))) if m else 0
+if n<20: bad("본문 <body> 의 보이는 글자 %d자(20 미만) — 빈 껍데기" % n)'
 DEV_WAIT=7   # dev 호출 1회 상한(초) — 콜드스타트로 늘어지면 막는다(fail-closed)
 DEV_BUDGET="${FT_PRESS_DEV_BUDGET:-70}"   # dev 검사 «전체» 마감(초 · r634 DA⑥ r1 H4) — 넘기면 그 자리에서 막는다
 DEV_END=0
@@ -45,8 +70,18 @@ _bounded(){ # 초 명령… — timeout/gtimeout 은 -k(TERM 뒤 KILL) · 없으
 }
 _dev_left(){ local l=$(( DEV_END - $(date +%s) )); [ "$l" -gt 0 ] || l=0; printf '%s' "$l"; }
 _dev_cap(){ local l; l="$(_dev_left)"; [ "$l" -gt "$DEV_WAIT" ] && l="$DEV_WAIT"; printf '%s' "$l"; }
-_dev_health(){ # 이름 url → 종료코드 0 ∧ 200 ∧ 본문 HTML 아님(r634 H3: 200 이어도 오류 페이지면 막힘)
-  local name=$1 url=$2 cap code rc tmp
+_dev_body_bad(){ # 종류(web|json) 파일 → 막을 이유 · 빈 출력 = 그 서비스의 정상 모습(r685) · 판별도 dev 마감 안(DA⑥ H2)
+  local kind=$1 f=$2 cap out rc
+  case "$kind" in web|json) ;; *) printf '모르는 본문 종류 %s' "$kind"; return ;; esac
+  cap="$(_dev_cap)"
+  [ "$cap" = "0" ] && { printf '본문 판별 전 dev 검사 시간 마감(%s초)' "$DEV_BUDGET"; return; }
+  out="$(_bounded "$cap" python3 -c "$_DEV_BODY_PY" "$kind" "$f" "$DEV_WEB_MARK" "${DEV_ERR_MARKS[@]}" 2>/dev/null)"; rc=$?
+  if [ "$rc" = "1" ] && [ -n "$out" ]; then printf '%s' "$out"; return; fi
+  [ "$rc" = "0" ] || { printf '본문 판별 실패(rc=%s · 시간 초과·python 오류) — fail-closed' "$rc"; return; }
+  [ "$(_dev_left)" = "0" ] && printf '본문 판별이 dev 검사 시간 마감(%s초)을 넘김' "$DEV_BUDGET"
+}
+_dev_health(){ # 이름 url 종류(web|json) → 종료코드 0 ∧ 200 ∧ 본문이 그 서비스의 정상 모습(r634 H3 → r685: 서비스별 판별)
+  local name=$1 url=$2 kind=$3 cap code rc tmp why
   cap="$(_dev_cap)"
   if [ "$cap" = "0" ]; then say "✗" "dev $name — dev 검사 시간 마감(${DEV_BUDGET}초)"; return 1; fi
   tmp="$(mktemp)" || { say "✗" "dev $name — 임시파일 실패"; return 1; }
@@ -54,10 +89,9 @@ _dev_health(){ # 이름 url → 종료코드 0 ∧ 200 ∧ 본문 HTML 아님(r6
   if [ "$rc" != "0" ] || [ "$code" != "200" ]; then
     rm -f "$tmp"; say "✗" "dev $name health=${code:-000} rc=$rc — $url"; return 1
   fi
-  if grep -qiE '^[[:space:]]*<(!doctype|html)' "$tmp" 2>/dev/null; then
-    rm -f "$tmp"; say "✗" "dev $name health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: $url"; return 1
-  fi
-  rm -f "$tmp"; say "✓" "dev $name health 200 — $url"; return 0
+  why="$(_dev_body_bad "$kind" "$tmp")"; rm -f "$tmp"
+  if [ -n "$why" ]; then say "✗" "dev $name health 200 이지만 $why — 서비스가 아니라 오류 페이지다: $url"; return 1; fi
+  say "✓" "dev $name health 200 — $url"; return 0
 }
 _dev_image(){ # 서비스 → 배포 이미지 40자 hex sha · rc0 아님·형식 불명·시간 초과면 실패(빈 값 · fail-closed)
   local svc=$1 out rc img sha cap
@@ -116,8 +150,12 @@ _dev_gate(){ # ②~⑤ 대신 — dev 세트가 살아 있고(health 200) 배포
   DEV_END=$(( $(date +%s) + DEV_BUDGET ))
   say "·" "dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ ${DEV_WANT:0:10}) · $DEV_WEB · $DEV_GATEWAY"
   _dev_runner || bad=1
-  _dev_health web "$DEV_WEB/" || bad=1
-  _dev_health gateway "$DEV_GATEWAY/api/v1/health/" || bad=1
+  if [ "${#DEV_WEB_MARK}" -lt 6 ]; then   # r685 DA⑥ H1: «<» 같은 짧은 표지는 아무 화면에나 있다
+    say "⚠" "FT_PRESS_DEV_WEB_MARK=«${DEV_WEB_MARK}» ${#DEV_WEB_MARK}글자 — 6글자 미만은 표지로 못 쓴다 · 기본값 «${DEV_WEB_MARK_DEFAULT}» 로 본다"
+    DEV_WEB_MARK="$DEV_WEB_MARK_DEFAULT"
+  fi
+  _dev_health web "$DEV_WEB/" web || bad=1
+  _dev_health gateway "$DEV_GATEWAY/api/v1/health/" json || bad=1
   for pair in ${DEV_SVCS//,/ }; do
     name="${pair%%=*}"; svc="${pair#*=}"
     sha="$(_dev_image "$svc")"

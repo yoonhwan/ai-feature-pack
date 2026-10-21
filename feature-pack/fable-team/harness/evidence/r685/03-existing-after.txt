@@ -1,0 +1,7 @@
+# r685 ⓕ 인접 시험 — ft-press-gate.sh 를 쓰는 시험 전건(광역 0) · 새 판(main 53b0a75a 위)
+test_all_stop_r626.sh rc=1 |  | FAIL줄: FAIL r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT :: rc=4 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.woRCfrDkBp/copybin/ft-resource-gate.sh: 줄 30: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.woRCfrDkBp/copybin/ft-resource-swap-lib.sh: No such file or directory
+test_nano_spawn_body_press.sh rc=2 | FAILED=2 | FAIL줄: FAIL ⓒ status 에 node_modules 보임|FAIL ⓒ 전체 스테이징이 node_modules 를 담음|FAILED=2
+test_press_role_bts_gate.sh rc=0 | ALL PASS | FAIL줄: 
+test_press_baseline_check.sh rc=0 | ALL PASS | FAIL줄: 
+test_root_bin_shim.sh rc=0 |  | FAIL줄: 
+test_press_gate_dev_target_r634.sh rc=0 | ALL PASS | FAIL줄: 

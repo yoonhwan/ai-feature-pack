@@ -1,0 +1,10 @@
+# r685 base 대조 — 팩 main 53b0a75a(고치기 전 · r655 착지 뒤) git archive 사본(.git 없음 → root_bin_shim r494 ⓓ·nano_spawn core.bare 는 사본 환경 요인)에서 같은 시험 · 시험 파일도 main 판
+test_all_stop_r626.sh rc=1 |  | FAIL줄: FAIL r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT :: rc=4 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.W8dI13ExGl/copybin/ft-resource-gate.sh: 줄 30: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.W8dI13ExGl/copybin/ft-resource-swap-lib.sh: No such file or directory
+test_nano_spawn_body_press.sh rc=3 | FAILED=3 | FAIL줄: FAIL ⓒ status 에 node_modules 보임|FAIL ⓒ 전체 스테이징이 node_modules 를 담음|FAIL core.bare 가 false 아님
+test_press_role_bts_gate.sh rc=1 | cases=24 fail=1 | FAIL줄: FAIL 11. 보통 모드 FT_PRESS_SEAT (exit 1)
+test_press_baseline_check.sh rc=0 | ALL PASS | FAIL줄: 
+test_root_bin_shim.sh rc=1 |  | FAIL줄: FAIL r494 ⓓ install --apply 워크트리 — rc=128 기대=0|FAIL r494 ⓓ apply INIT 줄 — 없음: «INIT /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2ZpiKQLrIh/r494/repo/.worktrees/w4/.fable-team/bin» ← == fable-team harness 설치 (apply) ==|FAIL r494 ⓓ apply 뒤 bin 없음 :: HOOK /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2ZpiKQLrIh/r494/home/.claude/hooks/desk-self-interview-gate.sh chmod +x
+test_press_gate_dev_target_r634.sh rc=1 | cases=31 fail=26 | FAIL줄: FAIL 1. ⓐ dev 통과 (exit 1)|FAIL 2. ⓐ 허가 target 칸|FAIL 3. ⓑ dev gateway 503 → 막힘 (exit 1 want 1 · pat=dev gateway health=503)
+
+## main 판 r634·role_bts 시험 실패 원인 원문(r655 판정기 · 가짜 tmux list-sessions exit 1)
+    ✗ ① 나노 이름 규칙(ft_teamset.py wt-v65) 못 읽음: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r685-press-gate-dev-health-per-service-b/01925122-5472-49bd-8985-2880bfcfdf5a/scratchpad/basefinal.hT0W/feature-pack/fable-team/harness/bin — 막힘(조용한 통과 0)

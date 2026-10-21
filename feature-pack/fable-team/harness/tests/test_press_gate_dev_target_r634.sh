@@ -26,7 +26,7 @@ cat > "$GBIN/tmux" <<'TMUX'
 #!/bin/sh
 case "$1" in
   display-message) [ -n "${FAKE_TMUX_SESSION:-}" ] || exit 1; echo "$FAKE_TMUX_SESSION" ;;
-  list-sessions) exit 1 ;;
+  list-sessions) exit 0 ;;   # 살아 있는 세션 0개(성공) — r655 판정기(ft_teamset.py wt-v65)는 목록 «실패» 를 ① 막힘으로 본다
 esac
 TMUX
 cat > "$GBIN/curl" <<'CURL'
@@ -43,8 +43,12 @@ while [ $# -gt 0 ]; do
 done
 [ "${FAKE_SLOW_HEALTH:-0}" = "1" ] && { trap '' TERM; sleep 30; }   # TERM 무시하는 느린 응답
 case "$url" in
-  "${EXP_WEB}/") body="${FAKE_BODY_WEB:-{\"ok\":true}}"; code="${FAKE_CURL_WEB:-200}" ;;
-  "${EXP_GATEWAY}/api/v1/health/") body="${FAKE_BODY_GW:-{\"status\":\"ok\",\"consumer_ready\":true}}"; code="${FAKE_CURL_GW:-200}" ;;
+  # r685: 기본 본문 = 서비스별 «정상 모습»(web = 앱 HTML · gateway = status ok JSON) · 빈 값을 주면 빈 본문(«-» = 미설정만 기본값)
+  #       기본값을 변수로 뺀다 — ${X-{…}} 꼴은 첫 «}» 에서 끝나 준 본문 뒤에 «}» 가 붙는다(r634 판 함정)
+  "${EXP_WEB}/") dw='<!DOCTYPE html><html lang="ko"><head><title>하우투 톡 — 실시간 AI 음성 통역</title><script src="/_next/static/chunks/main.js"></script></head><body><main>하우투 톡 실시간 AI 통역 — 병원 진료 설명도 바로 통역합니다</main></body></html>'
+    body="${FAKE_BODY_WEB-$dw}"; code="${FAKE_CURL_WEB:-200}" ;;
+  "${EXP_GATEWAY}/api/v1/health/") dg='{"status":"ok","consumer_ready":true}'
+    body="${FAKE_BODY_GW-$dg}"; code="${FAKE_CURL_GW:-200}" ;;
   *) body="not found"; code=404 ;;   # 모르는 URL 은 성공하지 않는다(과다 성공 제거)
 esac
 [ -n "$of" ] && printf '%s' "$body" > "$of"
@@ -71,6 +75,16 @@ cat > "$GBIN/lsof" <<'LSOF'
 #!/bin/sh
 exit 1   # 리스너 0 — 시험이 이 머신의 실제 :8080·:8081·:3001 에 좌우되지 않게(hermetic)
 LSOF
+# r685 DA⑥ H2·H3: 본문 판별 python 만 느리게/실패시키는 감싸개(그 밖의 python3 호출은 진짜로 넘긴다 · 표식 = 판별 스크립트 안 «r685-dev-body»)
+REALPY="$(command -v python3)"
+cat > "$GBIN/python3" <<PYW
+#!/bin/sh
+case "\$*" in *r685-dev-body*)
+  [ "\${FAKE_PY:-}" = slow ] && { trap '' TERM; sleep 30; exit 0; }
+  [ "\${FAKE_PY:-}" = fail ] && exit 1 ;;
+esac
+exec "$REALPY" "\$@"
+PYW
 chmod +x "$GBIN"/*
 grep -q FAKE_IMG_WORKER "$GBIN/gcloud" && grep -q 'not found' "$GBIN/curl" && [ -x "$GBIN/lsof" ] && ok "가짜 tmux·curl·gcloud·lsof 스텁 설치(엄격)" || bad "스텁 생성 실패"
 
@@ -103,7 +117,7 @@ gate(){ # [env…] → 최종 exit · 출력 $OUT
   OUT="$(env -u FT_PRESS_GATE_SELFTEST -u FT_PRESS_SEAT -u BYZ_PRESS_HUMAN \
     -u FT_PRESS_TARGET -u FT_PRESS_DEV_WANT -u FT_PRESS_DEV_SVCS -u FT_PRESS_DEV_BUDGET -u BYZ_WEB_BASE -u BYZ_GATEWAY_BASE \
     -u FAKE_SLOW -u FAKE_SLOW_SVC -u FAKE_SLOW_HEALTH -u FAKE_GCLOUD_RC -u FAKE_CURL_RC -u FAKE_CURL_WEB -u FAKE_CURL_GW \
-    -u FAKE_BODY_WEB -u FAKE_BODY_GW -u FAKE_IMG_WEB -u FAKE_IMG_GATEWAY -u FAKE_IMG_WORKER \
+    -u FAKE_BODY_WEB -u FAKE_BODY_GW -u FT_PRESS_DEV_WEB_MARK -u FAKE_PY -u FAKE_IMG_WEB -u FAKE_IMG_GATEWAY -u FAKE_IMG_WORKER \
     FT_PRESS_WT="$R" FT_PRESS_ROOT="$CASE/root" FT_PRESS_CARD="$R/card.md" FT_PRESS_PERMIT_DIR="$CASE/permits" \
     FT_PRESS_EVID="$CASE/ev" TMUX_PANE=%1 FAKE_TMUX_SESSION='byz-v65-tester-claude#0' \
     SVC_WEB="$SVC_WEB" SVC_GW="$SVC_GW" SVC_WK="$SVC_WK" EXP_WEB="$EXP_WEB" EXP_GATEWAY="$EXP_GW" \
@@ -207,7 +221,69 @@ expect 1 'FT_PRESS_DEV_SVCS 에 web 가 없다' "ⓚ2 SVCS 빈 값(루프 0회 �
 mkroot k3; dev_env
 expect 1 'FT_PRESS_DEV_SVCS 중복: web' "ⓚ3 SVCS 중복 → 막힘" "${DEV[@]}" FT_PRESS_DEV_SVCS=web="$SVC_WEB",web="$SVC_WEB",gateway="$SVC_GW",worker="$SVC_WK"
 mkroot k4; dev_env
-expect 1 '본문이 HTML' "ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘" "${DEV[@]}" FAKE_BODY_GW='<!DOCTYPE html><html><body>error</body></html>'
+expect 1 'dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다' "ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘(r685: JSON 판별)" "${DEV[@]}" FAKE_BODY_GW='<!DOCTYPE html><html><body>error</body></html>'
+
+# ══ ⓝ r685 서비스별 본문 판별 — web = 앱 표지 ∧ 오류 표지 없음 · gateway = status ok JSON 객체
+APP_HTML='<!DOCTYPE html><html lang="ko"><head><title>하우투 톡 — 실시간 AI 음성 통역</title><script src="/_next/static/chunks/main.js"></script></head><body><main>하우투 톡 실시간 AI 통역 — 병원 진료 설명도 바로 통역합니다</main></body></html>'
+err_page(){ # 오류 문구 → 앱 표지(제목·/_next/static/·</html>·보이는 글자)를 «다 갖춘» 오류 화면 — 표지가 있어도 오류 문구로 막혀야 한다
+  printf '<!DOCTYPE html><html><head><title>하우투 톡</title><script src="/_next/static/x.js"></script></head><body><h1>%s</h1><p>잠시 후 다시 시도해 주세요 — 하우투 톡 실시간 통역</p></body></html>' "$1"; }
+mkroot n1; dev_env
+expect 0 'dev web health 200 —' "ⓝ1 web 200 + 정상 앱 HTML(<title>하우투 톡 · /_next/static/ · </html>) → 통과" "${DEV[@]}" FAKE_BODY_WEB="$APP_HTML"
+for em in 'Service Unavailable' 'Application failed to start' '502 Bad Gateway' '503 Service Temporarily Unavailable' 'Error: Server Error' 'That’s an error.' 'Internal Server Error' 'Application error: a client-side exception has occurred'; do
+  mkroot n2; dev_env
+  expect 1 "dev web health 200 이지만 본문에 오류 표지" "ⓝ2 web 200 + 앱 표지 있는 오류 HTML «${em}» → 막힘" "${DEV[@]}" FAKE_BODY_WEB="$(err_page "$em")"
+done
+mkroot n3; dev_env
+expect 1 'dev web health 200 이지만 본문에 앱 표지' "ⓝ3 web 200 + 앱 표지 없는 HTML(다른 서비스·빈 페이지) → 막힘" "${DEV[@]}" FAKE_BODY_WEB='<!DOCTYPE html><html><body>hello</body></html>'
+mkroot n4; dev_env
+expect 1 'dev web health 200 이지만 본문이 비었다' "ⓝ4 web 200 + 빈 본문 → 막힘" "${DEV[@]}" FAKE_BODY_WEB=
+mkroot n5; dev_env
+expect 1 'dev web health 200 이지만 본문에 앱 표지' "ⓝ5 web 200 + JSON 본문(옛 픽스처 기본값) → 막힘" "${DEV[@]}" FAKE_BODY_WEB='{"ok":true}'
+mkroot n6; dev_env
+expect 0 'dev web health 200 —' "ⓝ6 FT_PRESS_DEV_WEB_MARK 로 앱 표지만 바꾼다(표지 있으면 통과)" "${DEV[@]}" FT_PRESS_DEV_WEB_MARK='data-app="byz"' \
+  FAKE_BODY_WEB='<html><head><script src="/_next/static/a.js"></script></head><body data-app="byz"><main>다른 이름으로 배포한 우리 앱 화면입니다 — 표지만 다르다</main></body></html>'
+mkroot n7; dev_env
+expect 1 '앱 표지 «data-app="byz"» 없음' "ⓝ7 표지를 바꾸면 기본 표지(<title>하우투 톡)만으론 막힘" "${DEV[@]}" FT_PRESS_DEV_WEB_MARK='data-app="byz"' FAKE_BODY_WEB="$APP_HTML"
+mkroot n8; dev_env
+expect 1 'dev web health=302' "ⓝ8 web 302(리다이렉트 뒤 다른 서비스) → 막힘(따라가지 않는다)" "${DEV[@]}" FAKE_CURL_WEB=302
+mkroot n9; dev_env
+expect 1 'dev web health=200 rc=7' "ⓝ9 curl 실패(rc≠0) → 막힘" "${DEV[@]}" FAKE_CURL_RC=7
+for gb in '' 'ok' '{"error":"boom"}' '{"status":"degraded"}' '[{"status":"ok"}]' '{"status":"ok"'; do
+  mkroot n10; dev_env; gw_why='본문이 status=ok JSON 객체가 아니다'; [ -z "$gb" ] && gw_why='본문이 비었다'
+  expect 1 "dev gateway health 200 이지만 ${gw_why}" "ⓝ10 gateway 200 + 본문 «${gb:-빈 본문}» → 막힘" "${DEV[@]}" FAKE_BODY_GW="$gb"
+done
+mkroot n11; dev_env
+expect 0 'dev gateway health 200 —' "ⓝ11 gateway 200 + {\"status\":\"ok\",…} JSON → 통과" "${DEV[@]}" FAKE_BODY_GW='{"status":"ok","service":"gateway"}'
+n=$((n+1)); grep -c '^DEV_ERR_MARKS=' "$GATE" | grep -qx 1 && grep -q '^DEV_WEB_MARK="\${FT_PRESS_DEV_WEB_MARK:-' "$GATE" \
+  && ok "$n. ⓝ12 오류 표지 목록·앱 표지 기본값 = 파일 맨 위 1곳" || bad "$n. ⓝ12 표지 정의 위치"
+
+# ══ ⓞ r685 DA⑥ r1 반례(H1 앱 표지 고유성 · H2 본문 판별 마감 · H3) — 오류 문구는 구현 목록과 «다른» 철자·대소문자로도
+for em in 'Application error: a server-side exception has occurred (see the server logs for more information).' 'Failed to compile' 'service unavailable' '404 — 페이지를 찾을 수 없습니다' '404: This page could not be found.'; do
+  mkroot o1; dev_env
+  expect 1 "dev web health 200 이지만 본문에 오류 표지" "ⓞ1 앱 표지 다 갖춘 Next 오류 화면 «${em}» → 막힘" "${DEV[@]}" FAKE_BODY_WEB="$(err_page "$em")"
+done
+mkroot o2; dev_env
+expect 1 'dev web health 200 이지만 본문에 앱 표지' "ⓞ2 200 로그인 화면(Sign in · /_next/static/ 있음 · 우리 제목 없음) → 막힘" "${DEV[@]}" \
+  FAKE_BODY_WEB='<!DOCTYPE html><html><head><title>Sign in - Google Accounts</title><script src="/_next/static/s.js"></script></head><body><h1>Sign in</h1><p>to continue to Cloud Run — use your Google Account</p></body></html>'
+mkroot o3; dev_env
+expect 1 'dev web health 200 이지만 본문 <body> 의 보이는 글자' "ⓞ3 빈 body + 앱 표지만(정적 껍데기) → 막힘" "${DEV[@]}" \
+  FAKE_BODY_WEB='<!DOCTYPE html><html><head><title>하우투 톡</title><script src="/_next/static/a.js"></script></head><body><div id="root"></div><script>self.__next_f.push([1,"하우투 톡 실시간 AI 통역 화면 데이터 조각"])</script></body></html>'
+mkroot o4; dev_env
+expect 1 'dev web health 200 이지만 본문에 «</html>» 없음' "ⓞ4 앱 표지만 있는 잘린 본문(</html> 없음) → 막힘" "${DEV[@]}" FAKE_BODY_WEB="${APP_HTML%</body></html>}"
+mkroot o5; dev_env
+expect 0 'dev web health 200 —' "ⓞ5 정상 화면의 스크립트(RSC 데이터) 안 «This page could not be found» 는 통과(실측 dev 루트 2회 · 보이는 글자만 대조)" "${DEV[@]}" \
+  FAKE_BODY_WEB="${APP_HTML%</body></html>}<script>self.__next_f.push([1,\"404: This page could not be found.\"])</script></body></html>"
+mkroot o6; dev_env
+expect 1 'FT_PRESS_DEV_WEB_MARK=«<» 1글자 — 6글자 미만' "ⓞ6 약한 env 표지 «<» → 경고 + 기본값으로 판별(제목 없는 화면 막힘)" "${DEV[@]}" FT_PRESS_DEV_WEB_MARK='<' \
+  FAKE_BODY_WEB='<!DOCTYPE html><html><head><script src="/_next/static/x.js"></script></head><body><main>아무 Next 앱 화면 — 우리 제목은 없다 아무 글자</main></body></html>'
+printf '%s' "$OUT" | grep -q '본문에 앱 표지 «<title>하우투 톡» 없음' && ok "  ⓞ6b 기본값 «<title>하우투 톡» 으로 막았다" || bad "  ⓞ6b 기본값 판별 아님"
+mkroot o7; dev_env
+expect 1 'dev web health 200 이지만 본문 판별 실패' "ⓞ7 본문 판별 python 실패(rc=1·출력 0) → 막힘(fail-closed)" "${DEV[@]}" FAKE_PY=fail
+mkroot o8; dev_env
+n=$((n+1)); s0=$SECONDS; gate "${DEV[@]}" FT_PRESS_DEV_BUDGET=4 FAKE_PY=slow; got=$?; el=$((SECONDS-s0))
+[ "$got" -eq 1 ] && [ "$el" -lt 20 ] && printf '%s' "$OUT" | grep -q 'dev web health 200 이지만 본문 판별' && ! printf '%s' "$OUT" | grep -q 'dev gateway health 200 —' \
+  && ok "$n. ⓞ8 느린 본문 판별(30초·TERM 무시) + 마감 4초 → ${el}초 만에 web·gateway 막힘(판별도 마감 안 · exit $got)" \
+  || { bad "$n. ⓞ8 느린 본문 판별 (el=${el}s exit $got)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 
 # ══ ⓛ H4 시간 상한(TERM 무시 자식 · 전체 마감)
 mkroot l1; dev_env

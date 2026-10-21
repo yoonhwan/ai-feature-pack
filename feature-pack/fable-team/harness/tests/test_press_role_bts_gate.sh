@@ -30,7 +30,7 @@ printf '{"set_sha":"%s","side_lang_at_press":{"right":"ko","left":"en"},"session
   echo "evidence: design/v65/baselines/ev/RESULT-ok.json"; echo "run_id: run-1"; printf '\n| 칸 | 값 |\n|---|---|\n| 빈 칸 | 0 |\n'; } > "$R/design/v65/baselines/ok.md"
 printf '# 카드 c-ok\n기준선: design/v65/baselines/ok.md\n실험: 없음\n' > "$R/card.md"
 mkdir -p "$T/fakebin"   # 가짜 tmux: 세션명 = $FAKE_TMUX_SESSION
-printf '#!/bin/sh\n[ -n "$FAKE_TMUX_SESSION" ] || exit 1\necho "$FAKE_TMUX_SESSION"\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
+printf '#!/bin/sh\n[ "$1" = list-sessions ] && exit 0\n[ -n "$FAKE_TMUX_SESSION" ] || exit 1\necho "$FAKE_TMUX_SESSION"\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"   # list-sessions = 세션 0개(성공 · r655 판정기는 목록 실패를 ① 막힘으로 본다)
 
 gate() { # [env…] → 최종 exit · 출력 $OUT (FT_PRESS_SEAT·TMUX_PANE·HUMAN 은 기본 제거)
   OUT="$(env -u FT_PRESS_SEAT -u TMUX_PANE -u BYZ_PRESS_HUMAN -u FT_PRESS_EVID -u FT_PRESS_GATE_SELFTEST \
