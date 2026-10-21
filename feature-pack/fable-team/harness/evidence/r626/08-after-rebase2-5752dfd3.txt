@@ -1,0 +1,7 @@
+tests/test_all_stop_r626.sh rc=0 pass=41 fail=0
+tests/test_nano_spawn_pi_effort_kind_r631.sh rc=0 pass=65 fail=0
+tests/test_penalty_spawn_gate.sh rc=0 pass=8 fail=0
+tests/test_press_permit.sh rc=0 pass=35 fail=0
+tests/test_kit_bin_sync.sh rc=0 pass=7 fail=0
+tests/test_autonomy_hooks.sh rc=0 pass=184 fail=0
+HEAD=08709745578626962f615a7a0823def5009966ba

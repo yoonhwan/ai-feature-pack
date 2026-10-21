@@ -1,0 +1,2 @@
+run1 HEAD=08709745 tests/test_resource_reclaim.sh rc=0 pass=107 fail=0 load=60.83 66.89 66.11
+run2 HEAD=08709745 tests/test_resource_reclaim.sh rc=0 pass=107 fail=0 load=63.62 64.91 65.38

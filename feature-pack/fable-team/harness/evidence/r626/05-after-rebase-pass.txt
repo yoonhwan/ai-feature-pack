@@ -1,0 +1,45 @@
+PASS ⓕ 꺼짐 check rc0
+PASS ⓑ0 꺼짐 nano 정지 거절 0
+PASS ⓑ0 꺼짐 role PLAN
+PASS ⓒ0 꺼짐 device-acquire OK
+PASS ⓐ on rc0
+PASS ⓐ ALL_STOP.json {since,by,reason}
+PASS ⓐ 두 팀 _master 통지 1통씩
+PASS ⓐ 통지 본문(답만·spawn·press 0·STATE.md 정지 직전)
+PASS ⓐ STATE.md 없는 팀 = 틀로 만들기 구절 (m.bb → bb)
+PASS ⓐ STATE.md 있는 팀 = 틀 구절 0
+PASS ⓗ 이미 켜짐 on = rc0 변경 0 통지 0
+PASS ⓗ on 이 PENALTY_STOP 무변경
+PASS ⓕ 켜짐 check rc1 사유 1줄
+PASS ⓑ 켜짐 nano-spawn REJECT rc1
+PASS ⓑ 켜짐 role-spawn REJECT rc1
+PASS ⓒ 켜짐 device-release 통과
+PASS ⓒ 켜짐 device-acquire REJECT rc1
+PASS ⓒ 켜짐 status 통과
+PASS ⓒ 켜짐 leave 통과
+PASS ⓓ status on · 두 팀 X
+PASS ⓓ STATE.md «정지 직전» 적은 팀 O
+PASS ⓔ off = ALL_STOP.released-<시각> 로 옮김
+PASS ⓔ 두 팀장 «재개» 통지
+PASS ⓗ off 가 PENALTY_STOP 무변경
+PASS ⓕ 끈 뒤 check rc0
+PASS ⓔ 꺼진 데 off = 이미 꺼짐 rc0
+PASS usage rc2
+PASS ⓖ 좌석 on 직접 = deny
+PASS ⓖ 좌석 off 직접 = deny
+PASS ⓖ 좌석 이름 못 읽음 on = deny
+PASS ⓖ planner _master on = 통과
+PASS ⓖ 좌석 status·check = 통과
+PASS ⓖ 좌석 ALL_STOP.json 쓰기 = deny
+PASS ⓖ planner 도 ALL_STOP.json 직접 Write = deny(도구로만)
+PASS ⓖ 읽기 = 통과
+PASS ⓖ 좌석이 bash /tmp/hN(정지 켜기) 실행 = deny
+PASS ⓖ planner _master 가 hN 실행 = 통과
+PASS ⓖ 기존 자율 막기 문구 그대로
+PASS 변이 ft-nano-spawn.sh 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)
+PASS 변이 ft-role-spawn.sh 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)
+PASS 변이 ft-press-permit.sh 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
