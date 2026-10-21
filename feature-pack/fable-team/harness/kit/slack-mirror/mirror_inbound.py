@@ -108,20 +108,34 @@ def migrate_planner(e: dict) -> None:
     e["recips"].insert(i, role)
 
 
-def _rows(comm_dir: Path, names: tuple[str, ...]) -> list[dict[str, object]]:
-    out: list[dict[str, object]] = []
-    for name in names:
-        p = comm_dir / name
-        if not p.exists():
+_ROWS_CACHE: dict[Path, tuple[tuple[int, int, int], list[dict[str, object]]]] = {}  # r624 — 경로 → ((mtime_ns, 크기, inode), 파싱된 줄) · 10초 패스마다 미완료 건 × 수신자 × 3파일 재파싱(CPU 평균 11.5%)을 «바뀐 파일만» 으로
+
+
+def _parsed(p: Path) -> list[dict[str, object]]:
+    """stat 이 지난번과 같으면 지난 파싱 결과 · 다르면 다시 읽는다(stat 을 읽기 «전» 에 떠서 읽는 중 덧붙은 줄은 다음 호출에 잡힌다). 없는 파일 = 캐시에서 빼고 빈 목록."""
+    try:
+        st = p.stat()
+    except FileNotFoundError:
+        _ROWS_CACHE.pop(p, None)
+        return []
+    key = (st.st_mtime_ns, st.st_size, st.st_ino)
+    hit = _ROWS_CACHE.get(p)
+    if hit and hit[0] == key:
+        return hit[1]
+    rows: list[dict[str, object]] = []
+    for ln in p.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(ln)
+        except ValueError:
             continue
-        for ln in p.read_text(encoding="utf-8").splitlines():
-            try:
-                r = json.loads(ln)
-            except ValueError:
-                continue
-            if isinstance(r, dict):
-                out.append(r)
-    return out
+        if isinstance(r, dict):
+            rows.append(r)
+    _ROWS_CACHE[p] = (key, rows)
+    return rows
+
+
+def _rows(comm_dir: Path, names: tuple[str, ...]) -> list[dict[str, object]]:
+    return [r for name in names for r in _parsed(comm_dir / name)]  # 새 목록 — 호출자가 캐시 목록을 건드릴 길 0(호출자 3곳은 읽기만)
 
 
 def marker_seen(comm_dir: Path, token: str, to: str) -> bool:

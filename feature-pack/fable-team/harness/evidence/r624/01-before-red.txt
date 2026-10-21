@@ -1,0 +1,67 @@
+# r624 ⓐ~ⓒ 고치기 전(base origin/main 306e2740 · 키트 무변경) — python3.11
+$ python3.11 -m pytest -q tests/scripts/test_inbound_rows_cache.py
+FFF..                                                                    [100%]
+=================================== FAILURES ===================================
+_______________________ test_a_same_files_read_once_each _______________________
+
+comm = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-508/test_a_same_files_read_once_ea0')
+reads = ['mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', ...]
+
+    def test_a_same_files_read_once_each(comm: Path, reads: list[str]):
+        """ⓐ 같은 파일로 marker_seen 10번 — 파일 읽기는 파일당 1번(옛 판 = 30번)."""
+        for _ in range(10):
+            assert mi.marker_seen(comm, "slack:9.9:none", TO) is False
+>       assert sorted(reads) == sorted(NAMES), f"읽기 {len(reads)}번: {reads}"
+E       AssertionError: 읽기 30번: ['mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1']
+E       assert ['mailbox.jso...x.jsonl', ...] == ['mailbox.jso....log.jsonl.1']
+E         
+E         At index 1 diff: 'mailbox.jsonl' != 'mailbox.log.jsonl'
+E         Left contains 27 more items, first extra item: 'mailbox.jsonl'
+E         Use -v to get more diff
+
+test_inbound_rows_cache.py:50: AssertionError
+_______________________ test_a2_hit_returns_same_answers _______________________
+
+comm = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-508/test_a2_hit_returns_same_answe0')
+reads = ['mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.jsonl', 'mailbox.jsonl', ...]
+
+    def test_a2_hit_returns_same_answers(comm: Path, reads: list[str]):
+        """ⓐ' 캐시로 답한 판정이 처음 판정과 같다 — marker_seen·queue_has·queue_len."""
+        first = (mi.marker_seen(comm, f"slack:1.2b:{TO}", TO), mi.queue_has(comm, f"slack:1.0a:{TO}", TO), mi.queue_len(comm, TO))
+        again = (mi.marker_seen(comm, f"slack:1.2b:{TO}", TO), mi.queue_has(comm, f"slack:1.0a:{TO}", TO), mi.queue_len(comm, TO))
+        assert first == again == (True, True, 2)
+        assert mi.queue_has(comm, f"slack:1.1a:{TO}", TO) is False  # 사본 로그의 흔적은 큐가 아니다
+>       assert sorted(reads) == sorted(NAMES)
+E       AssertionError: assert ['mailbox.jso...x.jsonl', ...] == ['mailbox.jso....log.jsonl.1']
+E         
+E         At index 1 diff: 'mailbox.jsonl' != 'mailbox.log.jsonl'
+E         Left contains 8 more items, first extra item: 'mailbox.jsonl'
+E         Use -v to get more diff
+
+test_inbound_rows_cache.py:59: AssertionError
+_________________________ test_b_appended_line_is_seen _________________________
+
+comm = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-508/test_b_appended_line_is_seen0')
+reads = ['mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1']
+
+    def test_b_appended_line_is_seen(comm: Path, reads: list[str]):
+        """ⓑ 줄 덧붙임(mtime·크기 바뀜) → 다음 호출이 새 토큰을 찾는다(낡은 값 0)."""
+        tok = f"slack:2.0:{TO}"
+        assert mi.marker_seen(comm, tok, TO) is False
+        with (comm / "mailbox.log.jsonl").open("a", encoding="utf-8") as f:
+            f.write(_row(tok) + "\n")
+        assert mi.marker_seen(comm, tok, TO) is True
+>       assert reads.count("mailbox.log.jsonl") == 2 and reads.count("mailbox.jsonl") == 1
+E       AssertionError: assert (2 == 2 and 2 == 1)
+E        +  where 2 = <built-in method count of list object at 0x105577d00>('mailbox.log.jsonl')
+E        +    where <built-in method count of list object at 0x105577d00> = ['mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1'].count
+E        +  and   2 = <built-in method count of list object at 0x105577d00>('mailbox.jsonl')
+E        +    where <built-in method count of list object at 0x105577d00> = ['mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1', 'mailbox.jsonl', 'mailbox.log.jsonl', 'mailbox.log.jsonl.1'].count
+
+test_inbound_rows_cache.py:69: AssertionError
+=========================== short test summary info ============================
+FAILED test_inbound_rows_cache.py::test_a_same_files_read_once_each - Asserti...
+FAILED test_inbound_rows_cache.py::test_a2_hit_returns_same_answers - Asserti...
+FAILED test_inbound_rows_cache.py::test_b_appended_line_is_seen - AssertionEr...
+3 failed, 2 passed in 0.62s
+rc=1

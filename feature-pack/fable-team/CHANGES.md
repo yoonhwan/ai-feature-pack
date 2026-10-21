@@ -1,3 +1,13 @@
+## 2026-10-21 — 슬랙 수신 데몬이 «전달 확인» 안 된 원장 건마다 10초 패스에서 우편함 파일 3개를 매번 통째로 읽고 JSON 파싱(캐시 0) → CPU 평균 11.5% → `_rows` 에 파일별 파싱 캐시(mtime_ns·크기·inode 가 같으면 지난 결과) (r624 · 1.1.168 · 성능 변경 · `marker_seen`·`queue_has`·`queue_len` 판정식·토큰 꼴·수신자 해석·stuck/full 알림·원장 형식 무변경)
+
+- 사건(harness master 90 쪽지 127602 측정: 파싱 1회 0.073초 · 누적 8:16/71분 · 원장 미완료 12건 = stuck 11 · full 1 · arch 114 실측 읽기 전용): `slack-mirror/mirror_inbound.py` `_rows` 가 이름마다 `read_text` + 줄마다 `json.loads` · `marker_seen` 은 부를 때마다 세 파일 전량 · `byz_slack_mbox_inbound.py:100` `_deliver` 가 수신자마다 `marker_seen` 두 번 · 미완료 건마다 매 패스.
+- 고침(키트 1 `mirror_inbound.py`): ① 모듈 캐시 `_ROWS_CACHE` = 경로 → ((st_mtime_ns, st_size, st_ino), 파싱된 줄) ② `_parsed(p)` — stat 을 읽기 «전» 에 떠서 같으면 지난 결과 · 다르면 다시 읽어 바꿈 · 없는 파일은 캐시에서 빼고 빈 목록(지금처럼 건너뜀) ③ `_rows` 는 새 목록을 돌려줌(호출자 3곳은 읽기만 · 수정 0). 처방 후보 중 «stuck 건 스캔 생략» 은 기각(늦게 들어온 흔적으로 스스로 풀리는 길이 끊긴다) · «오래된 stuck 원장 정리» 는 desk 판단(범위 밖).
+- 시험 `harness/tests/scripts/test_inbound_rows_cache.py`(새 5 · 임시 comm 폴더 · 실 슬랙·mbox 0): ⓐ 같은 파일로 `marker_seen` 10번 → 파일 읽기 파일당 1번(옛 판 30번) ⓐ' 캐시 답 = 처음 답(`marker_seen`·`queue_has`·`queue_len`) ⓑ 줄 덧붙임 → 새 토큰 찾음 · ⓑ' 크기 같은 다시 쓰기 + mtime 변경 → 새 내용 ⓒ 회전(`mailbox.log.jsonl` → `.1` · 새 빈 파일) → 두 이름 모두 새 내용 · 없어진 파일 건너뜀. **전(`evidence/r624/01-before-red.txt` = 3 failed: ⓐ ⓐ' ⓑ) → 후(`02-after-pass.txt` = 5 passed · rc=0 · python3.11)**
+- 기존 시험(이 키트를 부르는 시험만 · 광역 0 · `evidence/r624/03-existing-tests.txt`): pytest 7파일 130 passed 1 skipped rc=0 · `test_question_board.sh` ALL PASS · `test_slack_readonly_share.sh` rc=1 = `mirror_plan.py:22` `AttributeError: 'Namespace' object has no attribute 'state_dir'` — base 키트(306e2740)로 바꿔도 같은 줄로 빨강(`04-base-compare.txt`) → 이 카드 무관 · 고침 단위는 master 에 보고.
+- 비용(`evidence/r624/05-local-cost.txt` · 실 우편함 읽기 전용 사본 8.9MB · 1패스 = `marker_seen` 24회): base CPU 1.996초 → 가지 첫 패스 0.098초 · 이후 0.015초. 메모리 맞교환 = 파싱 결과 상주 +99MB(파일 크기 비례 · 회전 규칙 범위 밖).
+- 설치: 있음 — 키트 1(`harness/kit/slack-mirror/mirror_inbound.py` → `~/.hermes/scripts/mirror_inbound.py` cmp0) → `com.hermes.byz-slack-mbox-inbound` 재기동 · manifest 1.1.168 · REQUIRED 변경 0. **설치·재기동·실사건 1(재기동 뒤 30분 이상 데몬 `ps -o time,%cpu,rss` 원문이 설치 전 1/5 이하)은 master 소관 — 미실행.** 되돌림 = `.bak-r624`.
+- press 필요: 없음 — 이 단위는 수신 데몬의 파일 파싱 캐시(제품 키·말풍선·음성 경로 무관).
+
 ## 2026-10-21 — planner 팀장·desk 가 i-have-adhd 없이 부팅해도 막히지 않았다(desk 34 좌석 로드 0) → 부팅 보고 가드에 `adhd=O` 칸 검사 추가 + COMM-GUIDE-BOOT 2·9항에 desk (r625 · 1.1.167 · 동작 변경 · retire·cron 검사·다른 팀 좌석 판정·승계 도구 무변경)
 
 - 사건(오빠 원문 desk → harness master 90 쪽지 127713 «플랜팀장이랑 데스크 두 세션은 /i-have-adhd 이거 기본 로드해서 대화해야하는데 이게 빠졌네» · arch 114 실측): 가드 `ft-boot-report-lint.py` 는 retire·cron 둘만 보고, BOOT 2·9항은 master·architect·DA·pm 만 적어 desk(role=desk)는 어느 규칙에도 안 걸렸다.
