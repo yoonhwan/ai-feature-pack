@@ -1,0 +1,11 @@
+# DA⑥ r2 재현 명령 Q4 — 고친 판(rebase 52264ef1 위)에서 격리 실행한 원문
+
+## 전판 실행 줄 = 현재 127 번째
+## (a) DA 명령 그대로(sed '117s@bash @FT_GH=/bin/false bash @') — 117 줄은 [ "$rc" = 1 ] && [[ "$out" == *"승인 sha"* … 이라 주입이 안 됨:
+ALL PASS
+
+## (b) 같은 뜻의 주입(127 줄 = 전판 실행 줄):
+probe rc=1
+FAIL ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효) :: rc=1 out=timeout: failed to run command ‘/bin/false’: No such file or directory
+FAILED 1
+ⓕ3(원장 줄 비교) 거짓 PASS 수 = 0

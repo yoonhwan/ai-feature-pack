@@ -1,0 +1,29 @@
+=== git diff --stat origin/main (도구·시험·키트)
+ .../fable-team/harness/bin/ft-merge-land.sh        |  17 ++-
+ .../fable-team/harness/bin/ft-merge-lib.sh         |  37 +++++
+ .../harness/kit/fable-team/bin/ft-merge-land.sh    |  17 ++-
+ .../harness/kit/fable-team/bin/ft-merge-lib.sh     |  37 +++++
+ .../harness/tests/test_merge_land_pack_repo.sh     | 156 +++++++++++++++++++++
+ 5 files changed, 250 insertions(+), 14 deletions(-)
+
+=== 키트 사본 cmp
+cmp0 ft-merge-land.sh
+cmp0 ft-merge-lib.sh
+
+=== bash -n
+bash -n OK bin/ft-merge-land.sh
+bash -n OK bin/ft-merge-lib.sh
+bash -n OK kit/fable-team/bin/ft-merge-lib.sh
+bash -n OK tests/test_merge_land_pack_repo.sh
+
+=== 줄 수
+     120 bin/ft-merge-land.sh
+      73 bin/ft-merge-lib.sh
+     156 tests/test_merge_land_pack_repo.sh
+     349 total
+
+=== baseline lint
+ALL PASS
+
+=== manifest
+1.1.183
