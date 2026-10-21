@@ -33,7 +33,7 @@ def summary_lines(d: dict, slack: bool) -> list[str]:
     out = []
     for t in d["teams"]:
         if t.get("error"):  # 그 팀만 확인 못 함 — 숫자 칸 대신 원인 한 줄(다른 팀 그리기 불변)
-            out.append(f"- {t['label']} | 확인 못 함: {t['error']}")
+            out.append(f"- {t['label']} | 확인 불가({env.plain_error(t)})")
             continue
         if not t["cards_dir"]:
             now_s, queue_s = "카드 폴더 미지정", "-"
@@ -51,7 +51,7 @@ def session_lines(d: dict, full: bool) -> list[str]:
     out = []
     for t in d["teams"]:
         if t.get("error"):
-            out += [t["label"], f"└─ 확인 못 함: {t['error']}"]
+            out += [t["label"], f"└─ 확인 불가({env.plain_error(t)})"]
             continue
         items = [f"{x['role']} {x['name']} {x['state']}" for x in t["leads"]]
         for idx, p in t["progress"].items():

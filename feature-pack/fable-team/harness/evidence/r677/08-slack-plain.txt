@@ -1,0 +1,27 @@
+# r677 추가범위 — 슬랙 본문(루트 글)이 «사람 말» 인가 (오빠 슬랙 1792597673 «사람이 읽지도 못하는 이걸 왜 발급하냐»)
+#   임시 루트 = 팀 2(빠른팀 정상 · 느린팀 = 쪽지함 조회 7초 초과) · 전판 = 팩 origin/main 사본 · 후판 = 이 카드
+
+===== 전판 — render --sheet --text (슬랙 루트 글 본문) =====
+확인 중 0 · 소유자 미확인 3칸
+❓ 오빠가 정할 것 (0건) — 사람 판단 대기 확인 불가 · 급한 쪽지 확인 불가 · 합치기 줄 대기 확인 불가
+🔄 지금 진행 중 (끝나면 멈춤)
+⚠ 확인 못 함 느린팀: ft-inbox.sh show 실패(7초 상한 · 재시도 1회): Command '['bash', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Cuv08cA8ri/inbox.sh', 's-master#1']' timed out after 7 seconds
+
+===== 전판 — render --term 실패 팀 줄 =====
+- 느린팀 | 확인 못 함: ft-inbox.sh show 실패(7초 상한 · 재시도 1회): Command '['bash', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Cuv08cA8ri/inbox.sh', 's-master#1']' timed out after 7 seconds
+느린팀 — 확인 못 함: ft-inbox.sh show 실패(7초 상한 · 재시도 1회): Command '['bash', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Cuv08cA8ri/inbox.sh', 's-master#1']' timed out after 7 seconds
+느린팀
+
+===== 후판 — render --sheet --text (슬랙 루트 글 본문) =====
+확인 중 0 · 소유자 미확인 3칸
+❓ 오빠가 정할 것 (0건) — 사람 판단 대기 확인 불가 · 급한 쪽지 확인 불가 · 합치기 줄 대기 확인 불가
+🔄 지금 진행 중 (끝나면 멈춤)
+⚠ 느린팀 지금 확인 못 함
+
+===== 후판 — render --term 실패 팀 줄 =====
+- 느린팀 | 확인 불가(쪽지함 7초 초과)
+느린팀 — 확인 불가(쪽지함 7초 초과)
+느린팀
+
+# 원문(timed out·명령·경로)은 stderr 로그에만 남는다 — 후판 stderr:
+ERROR seats-slow.json: ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Cuv08cA8ri/inbox.sh', 's-master#1']' timed out after 7 seconds

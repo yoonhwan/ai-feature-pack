@@ -1,0 +1,22 @@
+# r677 설치 메모 — 설치·착지·데몬 RESTART 는 master 소관(나노는 목록만 낸다)
+
+## LIVE_BIN 에 새로 넣을 파일 8 (kit/fable-team/bin → <루트>/.fable-team/bin)
+ft-inbox.py             view() 한 번 훑기 — show 5000행 2.5~3.1초 → 0.5~0.9초 · 출력 바이트 동일
+ft_board_env.py         InboxTimeout(쪽지함 상한 초과) + plain_error() 사람 말 한 조각
+ft_board_collect.py     team_or_error 가 그 팀을 inbox_fail 로 표시
+ft_sheet_publish.py     footer(--partial) — 끝줄 «PARTIAL inbox-fail=<팀들>»
+ft-sheet-publish.sh     쪽지함만 늦은 팀 = 발행 성공 rc 0 · 그 밖의 원인은 rc 2 그대로
+ft_board_sheet.py       ③ 칸 = «확인 불가(쪽지함 7초 초과)» · errors 에서 원문 제거
+ft_board_sheet_tree.py  시트 트리 = «⚠ <팀> 지금 확인 못 함» (원문 0)
+ft_board_render.py      뉴스 요약·세션 줄 = «<팀> — 확인 불가(…)» (원문 0)
+ft_board_render_tree.py 뉴스 ① 트리 = «<팀> — 확인 불가(…)» (원문 0)
+
+## 무변경(참조만)
+ft_inbox_core.py        obligation_closed·group_closed 그대로 — cmp0 로 확인(fixtures/r677/ft_inbox_core.py)
+
+## 설치 뒤(master)
+- 상태판 발행 데몬 RESTART (launchd com.byz.ft-board-publish · --sheet) — 지금 내려 둔 상태면 여기서 재개
+- 실사건 1: 설치 뒤 load ≥ 60 구간 발행 로그에 «ft-inbox.sh show 실패(7초 초과)» ERROR 0 · rc 0 원문
+  + harness·planner 큐 show 경과 시간 원문(설치 전/후)
+- 눈 확인 1: 다음 발행 루트 글 실패 팀 줄이 «⚠ <팀> 지금 확인 못 함» 인지(원문·명령·경로 0)
+- 되돌림 = 설치 전 LIVE_BIN 사본(.bak-r677)

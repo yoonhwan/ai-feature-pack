@@ -2,6 +2,8 @@
 
 기본 = 축마다 `완성(누적) n(최근: 제목)` 한 줄로 접고 🔄⏳·경보 줄만 행 상한 안에서. `--full` = 접기·상한 해제(✅ 펼침).
 """
+import ft_board_env as env
+
 AXIS_CAP = 5
 GLYPH = {"완성": "✅", "진행": "🔄", "대기": "⏳", "중복": "⚠", "카드 없음": "❌"}
 
@@ -44,8 +46,8 @@ def axis_lines(ax: dict, team: dict, full: bool) -> list[str]:
 def tree_lines(d: dict, full: bool) -> list[str]:
     out = []
     for t in d["teams"]:
-        if t.get("error"):  # 명부 수집 실패 = 이 팀 칸에 «확인 못 함»(축·카드 수를 만들지 않는다)
-            out.append(f"{t['label']} — 확인 못 함: {t['error']}")
+        if t.get("error"):  # 명부 수집 실패 = 이 팀 칸 «확인 불가»(축·카드 수 없음 · 원문 0 · r677)
+            out.append(f"{t['label']} — 확인 불가({env.plain_error(t)})")
             continue
         if not t["cards_dir"]:
             out.append(f"{t['label']} — 카드 폴더 미지정")

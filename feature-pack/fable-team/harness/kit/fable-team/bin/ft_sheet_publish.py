@@ -48,10 +48,11 @@ def state(ledger: Path, day: str) -> dict:
     return {"OK_REV": last.get("rev", ""), "OK_HM": str(last.get("ts", ""))[11:16], "OK_URL": last.get("pdf_url") or "", "TODAY_OK": len(oks), "FAILS": tail}
 
 
-def footer(st: dict, rev: str, cap: int) -> str:
+def footer(st: dict, rev: str, cap: int, partial: str = "") -> str:
+    note = f" · PARTIAL inbox-fail={partial}" if partial else ""  # r677
     if not st["OK_REV"]:
-        return f"📄 PDF 아직 없음 · 지금 rev {rev} 미갱신(재시도 중)"
-    base = f"📄 최신 PDF rev {st['OK_REV']} {st['OK_HM']} {st['OK_URL']}"
+        return f"📄 PDF 아직 없음 · 지금 rev {rev} 미갱신(재시도 중)" + note
+    base = f"📄 최신 PDF rev {st['OK_REV']} {st['OK_HM']} {st['OK_URL']}" + note
     if st["OK_REV"] == rev:
         return base
     return base + (f" · rev {rev} 미발행(상한)" if st["TODAY_OK"] >= cap else f" · 지금 rev {rev} 미갱신(재시도 중)")
@@ -90,6 +91,7 @@ def main(argv: list[str]) -> int:
     for n in ("ledger", "day", "rev", "now", "root-ts", "pdf-ts", "pdf-url", "md-ts"):
         p.add_argument(f"--{n}")
     p.add_argument("--ok", type=int, default=0)
+    p.add_argument("--partial", default="")  # 늦은 팀들(쉼표) — 끝줄에 붙는다
     p.add_argument("--cap", type=int, default=DAY_CAP)
     a = p.parse_args(argv)
     if a.cmd == "plan":
@@ -101,7 +103,8 @@ def main(argv: list[str]) -> int:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     elif a.cmd == "root":
         st = state(Path(a.ledger), a.day)
-        sys.stdout.buffer.write(root(sys.stdin.read(), footer(st, a.rev, a.cap), st["FAILS"]).encode("utf-8"))
+        foot = footer(st, a.rev, a.cap, a.partial)  # r677: 늦은 팀들 → 끝줄에 PARTIAL
+        sys.stdout.buffer.write(root(sys.stdin.read(), foot, st["FAILS"]).encode("utf-8"))
     elif a.cmd == "fold":
         sys.stdout.write(fold(sys.stdin.read()))
     else:

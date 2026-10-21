@@ -1,0 +1,17 @@
+# r677 키트↔추적 짝 cmp0 + kit_bin_sync 시험
+
+cmp0 ft-inbox.py
+cmp0 ft_board_env.py
+cmp0 ft_board_collect.py
+cmp0 ft-sheet-publish.sh
+cmp0 ft_sheet_publish.py
+cmp0 ft_inbox_core.py
+cmp0 ft_board_sheet.py
+cmp0 ft_board_sheet_tree.py
+cmp0 ft_board_render.py
+cmp0 ft_board_render_tree.py
+
+$ bash tests/test_kit_bin_sync.sh
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS

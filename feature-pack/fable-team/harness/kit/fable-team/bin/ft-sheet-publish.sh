@@ -3,7 +3,8 @@
 #   뿌리 글 = render --sheet 트리(≤3500B) + 끝줄 «📄 최신 PDF rev <발행 rev> <HH:MM> <PDF 첨부 링크>»
 #   발행 rev(렌더 md 전체의 정규화 해시)가 마지막 «업로드 성공» rev 와 다를 때만 PDF → 같은 스레드 첨부. 같은 rev 재실행 = 슬랙 호출 0.
 #   순서: plan(원장 admission) → 로컬 준비(root·html·md·PDF) 전부 → update → attach → append → 끝줄 update → 기록. 준비·admission 실패 = 슬랙 호출 0.
-#   rc: 0 | 2 부분 발행(일부 팀 «확인 못 함» — 나머지 팀은 발행됨 · 판정 r554) | 3 PDF 첨부 실패(끝줄에 «미갱신» · 다음 틱 재시도 · 원장 ok=false) | 그 밖 = 도구 rc 그대로(발행 0)
+#   rc: 0 | 2 부분 발행(쪽지함 말고 다른 원인의 일부 팀 «확인 못 함» — 나머지 팀은 발행됨 · 판정 r554) | 3 PDF 첨부 실패(끝줄에 «미갱신» · 다음 틱 재시도 · 원장 ok=false) | 그 밖 = 도구 rc 그대로(발행 0)
+#       쪽지함 조회만 늦은 팀 = 발행 성공 rc 0 + 끝줄 «PARTIAL inbox-fail=<팀들>»(r677 · 보이는 경고 + ERROR 로그 + 명시 표시)
 #       전 팀 수집 실패 = 지금과 같은 발행 0 · rc 1(한 팀 실패를 «건너뛰고 경고만» 으로 안 삼키는 자리)
 # env: FT_ROOT · FT_BOARD_BIN · FT_THREAD_POST · FT_BOARD_POST_ARGS · FT_BOARD_LEDGER · FT_BOARD_NOW(시험) ·
 #      FT_SHEET_MIRROR_DIR(magazine_pdf 폴더 · 기본 = TP 폴더 · 항상 export) · FT_SHEET_LEDGER(발행 원장) · FT_SHEET_PDF_BIN(`<html> <pdf>` → 쪽수 stdout · 시험은 스텁)
@@ -26,10 +27,11 @@ tp() { python3 "$TP" "$1" ${POST_ARGS[@]+"${POST_ARGS[@]}"} "${@:2}"; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 "$BOARD" collect --out "$TMP/collect.json" --refresh-gh || die "collect 실패 — 발행 0" 1  # 수집은 한 틱에 1회 — 아래 render·snapshot 은 전부 이 파일을 읽는다(--from)
-# r554: 한 팀 수집 실패 = 그 팀 칸 «확인 못 함»(collect 가 stderr ERROR 줄을 낸다) — 나머지 팀은 발행하고 rc 2 로 남긴다
-read -r NTEAM NERR < <(python3 -c 'import json,sys; t=json.load(open(sys.argv[1], encoding="utf-8"))["teams"]; print(len(t), sum(1 for x in t if x.get("error")))' "$TMP/collect.json") || die "collect 결과 해석 실패 — 발행 0" 1
+# r554: 한 팀 수집 실패 = 그 팀 칸 «확인 못 함»(collect 가 stderr ERROR 줄을 낸다) — 나머지 팀은 발행한다. rc 는 원인으로 가른다(r677)
+read -r NTEAM NERR NINBOX INBOXFAIL < <(python3 -c 'import json,sys; t=json.load(open(sys.argv[1], encoding="utf-8"))["teams"]; b=[x for x in t if x.get("error")]; print(len(t), len(b), sum(1 for x in b if x.get("inbox_fail")), ",".join(x["label"] for x in b if x.get("inbox_fail")))' "$TMP/collect.json") || die "collect 결과 해석 실패 — 발행 0" 1
 [ "$NTEAM" -eq 0 ] || [ "$NERR" -lt "$NTEAM" ] || die "모든 팀($NERR/$NTEAM) 수집 실패 — 발행 0" 1
-PARTIAL=$([ "$NERR" -gt 0 ] && echo 1 || echo 0)
+# r677: 쪽지함 조회만 늦은 팀(NINBOX)은 발행 성공으로 본다 — 그 팀 칸은 «확인 불가»(collect) · 끝줄에 PARTIAL · stderr ERROR 1줄
+PARTIAL=$([ "$NERR" -gt "$NINBOX" ] && echo 1 || echo 0)  # 그 밖의 원인 = 지금처럼 rc 2(부분 발행)
 exitv() { local c="$1"; [ "$PARTIAL" = 1 ] && [ "$c" -eq 0 ] && c=2; exit "$c"; }  # 부분 발행 = rc 2(조용한 성공 0)
 FROM=(--from "$TMP/collect.json")
 REVS="$("$BOARD" render --sheet --rev "${FROM[@]}")" || die "render --sheet --rev 실패 — 발행 0" 1
@@ -38,7 +40,7 @@ TREE="$("$BOARD" render --sheet --text "${FROM[@]}")" && [ -n "$TREE" ] || die "
 PLAN="$($SP plan --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV")" || die "발행 원장 admission 실패 — 슬랙 호출 0" 1  # 원장 쓰기 불가면 맨 앞에서 중단
 eval "$PLAN"
 mkdir -p "$SD"
-mkroot() { printf '%s' "$TREE" | $SP root --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV" > "$TMP/root.txt" || die "뿌리 글 본문 만들기 실패 — 발행 0" 1; }
+mkroot() { printf '%s' "$TREE" | $SP root --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV" --partial "$INBOXFAIL" > "$TMP/root.txt" || die "뿌리 글 본문 만들기 실패 — 발행 0" 1; }
 mkroot
 same() { cmp -s <(sed -E 's/[0-9]{2}:[0-9]{2}//g; s/멈춤 [0-9]+분/멈춤 N분/g' "$TMP/root.txt") <(sed -E 's/[0-9]{2}:[0-9]{2}//g; s/멈춤 [0-9]+분/멈춤 N분/g' "$SD/sheet-published.txt" 2>/dev/null); }  # 발행 rev 와 같은 정규화
 if [ "$OK_REV" = "$PUBREV" ]; then  # 같은 rev — 슬랙 끝줄까지 맞아 있으면 발행 0 · 끝줄 update 만 실패했던 틱이면 update 1회 + 기록(PDF·원장 0)
