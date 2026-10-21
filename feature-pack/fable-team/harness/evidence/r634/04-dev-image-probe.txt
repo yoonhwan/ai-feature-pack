@@ -1,0 +1,16 @@
+# r634 dev 이미지 sha 읽기 — 실 dev 서비스 실측(읽기 전용 · 2026-10-21)
+
+$ gcloud run services describe <svc> --region=asia-northeast3 --format="value(spec.template.spec.containers[0].image)"
+byz-agents-web-dev       asia-northeast3-docker.pkg.dev/byz-agents-484214/byz-agents-docker-dev/web:602d6403fb7f0b7f231ebeec24f8efc113f80ea2
+byz-agents-gateway-dev   asia-northeast3-docker.pkg.dev/byz-agents-484214/byz-agents-docker-dev/gateway:97f2b476ca14314209d628fe40d06f15b9f11e26
+byz-agents-worker-dev    asia-northeast3-docker.pkg.dev/byz-agents-484214/byz-agents-docker-dev/worker:97f2b476ca14314209d628fe40d06f15b9f11e26
+
+# 이미지 태그 = 커밋 sha 40자(registry:tag 꼴) — 게이트는 «맨 끝»(: 또는 @ 뒤)을 sha 로 읽는다
+# health:
+web  $FT_PRESS_DEV_WEB/ = 200
+gateway $FT_PRESS_DEV_GATEWAY/api/v1/health/ = 200
+gateway /health(참고) = 307
+
+# r634 H2 판정 강화(DA⑥ r1): 위 태그는 40자 hex(registry:tag) — 게이트는 40자 hex 만 받는다(축약 sha·latest 불가).
+# FT_PRESS_DEV_WANT 도 40자 hex 이고 «press 워크트리 HEAD 와 같아야» 한다(오래된 조상으로 통과 0).
+# health 는 curl 종료코드 0 ∧ 200 ∧ 본문이 HTML 아님 — 위 gateway /api/v1/health/ 200 은 JSON 본문.
