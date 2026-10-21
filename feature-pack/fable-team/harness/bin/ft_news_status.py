@@ -21,6 +21,7 @@ SNAP = re.compile(r"^(\d{6})-[0-9a-f]+\.json$")
 WAIT = re.compile(r"추정: (\S+) 에 마지막 발신 .*?기록상 (이후 \S+ 회신 없음|회신 있음)")
 TITLE = "*팀·세션 상태 + 해야 할 일*"
 MAX_CARDS, TITLE_CHARS = 3, 40
+ERROR_CHARS = 80  # error 팀 사유는 한 줄 80자까지만 — 뉴스 줄이 사유문에 먹히지 않게
 DEFAULT_INTERVAL_S = 1800
 
 
@@ -69,8 +70,20 @@ def _todo(team: dict) -> str:
     return " · ".join([*(titles or ["진행 카드 없음"]), nxt])
 
 
+def _team_line(team: dict, minutes: bool) -> str:
+    """한 팀 한 줄 — 그 팀만 수집 실패했으면 사유 한 줄(team_or_error 꼴).
+
+    error 팀에서 `t['seats']` 를 읽으면 KeyError 로 절 전체가 «원천 없음» 이 된다(r649).
+    """
+    if team.get("error"):  # 그 팀만 못 읽음 — 다른 팀 줄은 불변
+        return f"• {team['label']} — 못 읽음: {str(team['error'])[:ERROR_CHARS]}"
+    worked = sum(1 for s in team["seats"].values() if s.get("working"))
+    stalls, todo = _stalls(team, minutes), _todo(team)
+    return f"• {team['label']} — 일함 {worked} · 정지 {stalls} / 해야 할 일: {todo}"
+
+
 def _lines(data: dict, minutes: bool) -> list[str]:
-    return [f"• {t['label']} — 일함 {sum(1 for s in t['seats'].values() if s.get('working'))} · 정지 {_stalls(t, minutes)} / 해야 할 일: {_todo(t)}" for t in data["teams"]]
+    return [_team_line(t, minutes) for t in data["teams"]]
 
 
 def status_block(root: Path, now: datetime) -> tuple[Block, str]:

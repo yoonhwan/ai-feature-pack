@@ -1,0 +1,106 @@
+PASS render --term rc
+PASS render --slack rc
+PASS FT_NEWS_FULL=1 = --full
+PASS ⓪ 팀 수 = 명부 수
+PASS ⓪ 베타(_cards 없음) = 카드 폴더 미지정
+PASS ⓪ 알파 진행·큐·오빠 할 일
+PASS 렌더 순서 ⓪→④
+PASS 옛 좌석 alpha-dead 어느 칸에도 없음(term full)
+PASS 옛 좌석 alpha-dead 없음(slack)
+PASS 옛 좌석 alpha-old 어느 칸에도 없음(term full)
+PASS 옛 좌석 alpha-old 없음(slack)
+PASS 현역 좌석은 보임
+PASS 세션 트리 오늘 완성(마지막 1개 제목)
+PASS 오늘 done 판정 표시
+PASS 옛 열린 판정은 오늘 판정표가 아님
+PASS 496-① 기본: 축 완성(누적) 1(최근: 완성A)
+PASS 496-① 기본: 축 미연결 완성(누적) 1(최근: 완성B)
+PASS 496-① full: ✅ 줄 A
+PASS 496-① full: ✅ 줄 B
+PASS 496-① 기본: ✅ 카드 줄은 접힘
+--- 496 반례(델타) 기본 render --term ---
+델타
+■ 축
+  ✅ 완성(누적) 1(최근: 완성A) · 🔄 진행 0 · ⏳ 대기 0
+■ 축 미연결
+  ✅ 완성(누적) 1(최근: 완성B) · 🔄 진행 0 · ⏳ 대기 0
+엡실론 — 완성 트리 미지정(전부 축 미연결로 보임)
+델타
+└─ 대기 0 · 오늘 완성 1(마지막: 완성A)
+엡실론
+--- 496 반례(델타) --full render --term ---
+델타
+■ 축
+  ✅ 완성(누적) 1(최근: 완성A) · 🔄 진행 0 · ⏳ 대기 0
+    ✅ 완성A
+■ 축 미연결
+  ✅ 완성(누적) 1(최근: 완성B) · 🔄 진행 0 · ⏳ 대기 0
+    ✅ 완성B
+엡실론 — 완성 트리 미지정(전부 축 미연결로 보임)
+델타
+└─ 대기 0 · 오늘 완성 1(마지막: 완성A)
+엡실론
+PASS 496-② 중복 링크 표시
+PASS 496-③ 폴더 중복 1장 + 경고
+PASS 손 상태 글자 제거 + (카드 미연결)
+PASS 손 상태 글자 [✅] 안 읽음
+PASS T−C = 카드 없음
+PASS 496-④ _tree 없음 표시
+PASS 496-④ 카드 전부 축 미연결
+PASS 496-⑤ 알파 미연결 최근 = mtime 최대
+PASS 불변식 종료코드
+INVARIANT alpha: 완성 Σ축+미연결=3/|C|=3 진행 Σ축+미연결=1/|C|=1 대기 Σ축+미연결=2/|C|=2 중복 Σ축+미연결=1/|C|=1
+INVARIANT beta: 완성 Σ축+미연결=0/|C|=0 진행 Σ축+미연결=0/|C|=0 대기 Σ축+미연결=0/|C|=0 중복 Σ축+미연결=0/|C|=0
+INVARIANT delta: 완성 Σ축+미연결=2/|C|=2 진행 Σ축+미연결=0/|C|=0 대기 Σ축+미연결=0/|C|=0 중복 Σ축+미연결=0/|C|=0
+INVARIANT eps: 완성 Σ축+미연결=2/|C|=2 진행 Σ축+미연결=1/|C|=1 대기 Σ축+미연결=1/|C|=1 중복 Σ축+미연결=0/|C|=0
+INVARIANT planner: 완성 Σ축+미연결=0/|C|=0 진행 Σ축+미연결=0/|C|=0 대기 Σ축+미연결=0/|C|=0 중복 Σ축+미연결=0/|C|=0
+PASS 불변식 단언(알파)
+PASS tmux 호출 수 (collect 1회 = 1, render 2종 뒤 증가 0)
+PASS 슬랙 첫 줄
+PASS 슬랙 결정 자리 줄 1개
+PASS 슬랙 답장 요구 정규식 0
+PASS 496-⓪ planner 없음 → 확인 불가
+PASS 대체 이름 0
+PASS 수신 대기 2 · 미보고 1 따로 + 가장 오래된 30분
+PASS Issue hil:needed 먼저
+PASS 슬랙: 대기 카드 제목 Q3 → 부분 치환
+PASS 슬랙: 완성 카드 제목 답장 → 축 최근 부분 치환 · 계수 그대로
+PASS 슬랙: 끝 줄 문구 생략 n곳
+PASS 슬랙: 원문 Q3 제목 없음
+PASS 슬랙: 원문 답장 제목 없음
+PASS term: 원문 Q3 제목 그대로
+PASS term: 원문 답장 제목 그대로
+PASS term 에는 생략 표시 0
+PASS 필드 전부(결정 자리·좌석·팀·Issue·oppa_todo·라벨) 금지어 → rc 0 · REPLY_ASK 0 · 끝 줄 n곳
+PASS _tree 없음 = 그 팀 확인 못 함(stderr)
+PASS _tree 없음 = 그 팀 확인 못 함(본문)
+PASS snapshot 1 rc
+PASS 첫 스냅샷 changes 빈 배열
+PASS 스냅샷 파일명 HHMMSS-hash8
+PASS snapshot 2 rc
+SNAPSHOT-2 {"snap": "0c2e148b→024c72e6", "prev": "0c2e148b", "changes": ["카드 alpha/c-prog 진행→완성"], "prev_day_last": null}
+PASS 카드만 바뀐 changes 1건
+PASS snap 전→후 id
+PASS 판정 변화 0 인데 changes 비지 않음
+PASS Issue 만 바뀜 changes 1건
+PASS 같은 입력 rc
+PASS 같은 입력 changes 빈 배열
+PASS 같은 입력 같은 hash8
+PASS 쓰기 불가 rc≠0 · stdout 빈 값
+PASS 날짜 바뀜 prev_day_last
+PASS prune 30일 안 = 삭제 0
+PASS prune 0일 = 전날 폴더 삭제
+--- 시험 ①~④ 픽스처 렌더 제목 ---
+z1-comment-first	진짜 제목
+z2-blank-comment	제목
+z3-section-first	X
+z4-no-h1	z4-no-h1 (제목 없음)
+PASS 제목 ① 주석 첫 줄 → 둘째 줄 H1
+PASS 제목 ② 빈 줄+주석 → H1
+PASS 제목 ③ ## 절 건너뛰고 H1
+PASS 제목 ④ 첫 5줄 H1 없음 → (제목 없음)
+PASS 제목 ⑤ 기존 첫 줄 형식 그대로
+PASS 제목 ⑥ 슬랙 렌더에 <!-- 0
+PASS 제목 ⑥ term full 렌더에 <!-- 0
+PASS 팀 추가 = 명부 1개만으로 나타남
+ALL PASS

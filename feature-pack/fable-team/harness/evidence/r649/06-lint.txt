@@ -1,0 +1,8 @@
+# r649 lint — 키트 2파일 새 E501 0 (기존 꼴 유지) · 새 시험 F,E,W 새 오류 0
+ft_news_status.py now E501=14 base E501=15
+ft_board_env.py now E501=24 base E501=24
+--- 새 시험 비-E501 오류 (0 이어야 한다) ---
+(끝)
+--- 키트·추적본 cmp ---
+cmp0 ft_news_status.py
+cmp0 ft_board_env.py

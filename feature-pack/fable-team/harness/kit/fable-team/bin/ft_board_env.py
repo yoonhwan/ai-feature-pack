@@ -9,6 +9,8 @@
                        (없으면 빈 목록) ⑤ 절이 «(캐시 … · 미확인)» 으로 드러낸다. 갱신 호출은 launchd ft-board-publish.sh 가 명시적으로 붙인다.
   gh 갱신은 외부 호출 7초 + 재시도 1(하드 룰 12 · shared/config/external_call.py 와 같은 값) — 실패하면 캐시가 있을 때 캐시 유지, 없으면 raise
   FT_VERDICT_BIN     ft-verdict.sh 경로 · FT_BOARD_INBOX 인박스 show 명령 접두 · FT_BOARD_SEAT_STATUS `ft-seat-status.sh turn <좌석> --json` 스텁/경로(ft_board_seat.py)
+  쪽지함 조회 상한 = 7초 + 재시도 1(r649 · 하드 룰 12)
+                       늦는 팀 하나가 전체를 붙잡지 않는다 · 실패 = 그 팀만 error.
 """
 import datetime as dt
 import json
@@ -51,6 +53,8 @@ def now() -> dt.datetime:
 
 
 GH_TIMEOUT_S, GH_RETRIES = 7, 1
+# r649 — 쪽지함 조회도 하드 룰 12(7초 + 재시도 1) · 60초가 뉴스·보드를 붙잡던 자리
+INBOX_TIMEOUT_S, INBOX_RETRIES = 7, 1
 GH_CACHE_TTL_S = 600  # gh 캐시 «수명»(초) — 호출 timeout 이 아니다(호출은 위 7+1)  # 하드 룰 12 — 외부 호출 1회 7초 + 재시도 1
 
 
@@ -121,7 +125,16 @@ def mail_ts(root: Path, seq: int) -> str | None:
 def inbox(root: Path, master: str) -> dict:
     # 미보고 = ft-inbox.sh show 의 줄 수(정본 술어 obligation_closed 가 거짓인 줄만 나온다 — 술어 재작성 0)
     cmd = shlex.split(os.environ.get("FT_BOARD_INBOX", f"bash {HERE / 'ft-inbox.sh'} show")) + [master]
-    out = run(cmd, "ft-inbox.sh show", {**os.environ, "FT_ROOT": str(root)})
+    env = {**os.environ, "FT_ROOT": str(root)}
+    for _ in range(INBOX_RETRIES + 1):
+        try:
+            out = run(cmd, "ft-inbox.sh show", env, INBOX_TIMEOUT_S)
+            break
+        except (RuntimeError, subprocess.TimeoutExpired) as e:
+            err = e
+    else:  # r649 — 늦는 쪽지함 하나가 수집 전체를 붙잡지 않는다 = 그 팀만 error
+        raise RuntimeError(f"ft-inbox.sh show 실패({INBOX_TIMEOUT_S}초 상한"
+                           f" · 재시도 {INBOX_RETRIES}회): {err}")
     lines = [x for x in out.splitlines() if x.strip() and x.strip() != "EMPTY"]
     seqs = [int(s) for x in lines for grp in re.findall(r"미닫힘=([\d,]+)", x) for s in grp.split(",") if s]
     return {"unreported": len(lines), "oldest_ts": mail_ts(root, min(seqs)) if seqs else None}
