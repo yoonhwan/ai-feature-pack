@@ -1,0 +1,158 @@
+FFFF.FFF                                                                 [100%]
+=================================== FAILURES ===================================
+___________ test_error_team_keeps_other_team_lines_and_shows_reason ____________
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_error_team_keeps_other_te0/root')
+
+    def test_error_team_keeps_other_team_lines_and_shows_reason(root: Path) -> None:
+        """ⓐ 정상 팀 2줄은 글자 그대로 · error 팀은 «못 읽음: <사유>» 1줄 — 절 전체 교체(«원천 없음») 0."""
+        snap(root, [_team("정상하나", 1), _team("정상둘"), _err("못읽팀")])
+        lines = nh.teams(root)
+>       assert isinstance(lines, list), f"절 통째 교체됨: {lines!r}"
+E       AssertionError: 절 통째 교체됨: "원천 없음: 'seats'"
+E       assert False
+E        +  where False = isinstance("원천 없음: 'seats'", list)
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:66: AssertionError
+_________________ test_error_line_truncates_reason_to_80_chars _________________
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_error_line_truncates_reas0/root')
+
+    def test_error_line_truncates_reason_to_80_chars(root: Path) -> None:
+        """사유가 길어도 한 줄 80자까지만 — 뉴스 줄이 사유문에 먹히지 않게."""
+        long_why = "쪽지함 조회 실패 " + "가" * 200
+        snap(root, [_team("정상"), _err("못읽팀", long_why)])
+        line = nh.teams(root)[-1]
+>       assert line == "• 못읽팀 — 못 읽음: " + long_why[:80], line
+E       AssertionError: '
+E       assert "'" == '• 못읽팀 — 못 읽음...가가가가가가가가가가가가가'
+E         
+E         - • 못읽팀 — 못 읽음: 쪽지함 조회 실패 가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가
+E         + '
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:78: AssertionError
+_________ test_status_block_same_result_and_digest_includes_error_team _________
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_status_block_same_result_0/root')
+now = datetime.datetime(2026, 10, 13, 15, 0)
+
+    def status_block(root: Path, now: datetime) -> tuple[Block, str]:
+        """(절 블록, digest). 스냅샷 없음·깨짐 = raise."""
+        path, taken = latest_snapshot(root)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+>           lines, plain = _lines(data, True), _lines(data, False)
+                           ^^^^^^^^^^^^^^^^^^
+
+bin/ft_news_status.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+bin/ft_news_status.py:73: in _lines
+    return [f"• {t['label']} — 일함 {sum(1 for s in t['seats'].values() if s.get('working'))} · 정지 {_stalls(t, minutes)} / 해야 할 일: {_todo(t)}" for t in data["teams"]]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <list_iterator object at 0x10566fd60>
+
+>   return [f"• {t['label']} — 일함 {sum(1 for s in t['seats'].values() if s.get('working'))} · 정지 {_stalls(t, minutes)} / 해야 할 일: {_todo(t)}" for t in data["teams"]]
+                                                  ^^^^^^^^^^
+E   KeyError: 'seats'
+
+bin/ft_news_status.py:73: KeyError
+
+The above exception was the direct cause of the following exception:
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_status_block_same_result_0/root')
+
+    def test_status_block_same_result_and_digest_includes_error_team(root: Path) -> None:
+        """ⓑ status_block 도 예외 0 · 같은 «못 읽음» 줄 · digest 는 그 팀 사유에 반응한다."""
+        snap(root, [_team("정상하나", 1), _err("못읽팀")])
+>       block, digest = ns.status_block(root, NOW)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_status_block_same_result_0/root')
+now = datetime.datetime(2026, 10, 13, 15, 0)
+
+    def status_block(root: Path, now: datetime) -> tuple[Block, str]:
+        """(절 블록, digest). 스냅샷 없음·깨짐 = raise."""
+        path, taken = latest_snapshot(root)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            lines, plain = _lines(data, True), _lines(data, False)
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+>           raise RuntimeError(f"board 스냅샷 해석 실패 {path.name}: {e!r}") from e
+E           RuntimeError: board 스냅샷 해석 실패 145500-abc12345.json: KeyError('seats')
+
+bin/ft_news_status.py:83: RuntimeError
+___________________ test_all_teams_error_get_their_own_lines ___________________
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_all_teams_error_get_their0/root')
+
+    def test_all_teams_error_get_their_own_lines(root: Path) -> None:
+        """ⓒ 전 팀 error — 팀마다 «못 읽음» 줄(절 통째 교체 0)."""
+        snap(root, [_err("팀가", "사유가"), _err("팀나", "사유나")])
+        lines = nh.teams(root)
+>       assert isinstance(lines, list), f"절 통째 교체됨: {lines!r}"
+E       AssertionError: 절 통째 교체됨: "원천 없음: 'seats'"
+E       assert False
+E        +  where False = isinstance("원천 없음: 'seats'", list)
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:98: AssertionError
+_____________ test_slow_inbox_is_bounded_and_only_that_team_errors _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_slow_inbox_is_bounded_and0')
+
+    def test_slow_inbox_is_bounded_and_only_that_team_errors(tmp_path: Path) -> None:
+        """ⓔ 20초 느린 쪽지함 = 7초 상한 + 재시도 1(2회 호출) → 그 팀만 error · 정상 팀 숫자 그대로 · 수집 전체 < 20초."""
+        b = _board(tmp_path, "slow")
+        r, elapsed = _collect(b)
+        assert r.returncode == 0, r.stderr
+        d = json.loads(r.stdout)
+        assert _team_of(d, "ok")["counts"]["진행"] == 1
+        slow = _team_of(d, "slow")
+>       assert "ft-inbox.sh show 실패" in slow["error"], slow
+                                        ^^^^^^^^^^^^^
+E       KeyError: 'error'
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:164: KeyError
+__________________ test_inbox_rc_nonzero_marks_only_that_team __________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_inbox_rc_nonzero_marks_on0')
+
+    def test_inbox_rc_nonzero_marks_only_that_team(tmp_path: Path) -> None:
+        """ⓕ 가짜 ft-inbox rc≠0 → 그 팀만 error(정상 팀 불변) · 재시도 1회 = 호출 2회."""
+        b = _board(tmp_path, "fail")
+        r, _elapsed = _collect(b)
+        assert r.returncode == 0, r.stderr
+        d = json.loads(r.stdout)
+        slow = _team_of(d, "slow")
+        assert "ft-inbox.sh show" in slow["error"] and "rc=1" in slow["error"], slow
+        assert _team_of(d, "ok")["counts"]["진행"] == 1
+>       assert b["calls"].read_text(encoding="utf-8").count("call") == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = <built-in method count of str object at 0x1057c1e30>('call')
+E        +    where <built-in method count of str object at 0x1057c1e30> = 'call\n'.count
+E        +      where 'call\n' = read_text(encoding='utf-8')
+E        +        where read_text = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-44/test_inbox_rc_nonzero_marks_on0/inbox.calls').read_text
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:179: AssertionError
+_________________ test_inbox_default_timeout_is_seven_seconds __________________
+
+    def test_inbox_default_timeout_is_seven_seconds() -> None:
+        """기본 상한이 60초가 아니라 7초(하드 룰 12) · 재시도 1 — 소스 상수로 고정한다."""
+>       assert be.INBOX_TIMEOUT_S == 7
+               ^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ft_board_env' has no attribute 'INBOX_TIMEOUT_S'
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:184: AttributeError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_error_team_keeps_other_team_lines_and_shows_reason
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_error_line_truncates_reason_to_80_chars
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_status_block_same_result_and_digest_includes_error_team
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_all_teams_error_get_their_own_lines
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_inbox_rc_nonzero_marks_only_that_team
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_inbox_default_timeout_is_seven_seconds
+7 failed, 1 passed in 22.99s
