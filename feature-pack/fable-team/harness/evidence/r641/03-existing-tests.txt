@@ -1,0 +1,21 @@
+== verify.sh rc=124 · 0 PASS 줄 · 0 FAIL 줄
+== test_tmuxc_agent_seat_git_editor.sh rc=0 · 13 PASS 줄 · 0 FAIL 줄
+== test_tmuxc_opencode_model.sh rc=0 · 21 PASS 줄 · 0 FAIL 줄
+== test_dead_seat_resume.sh rc=124 · 84 PASS 줄 · 2 FAIL 줄
+PASS ⓔ 재개했으나 세션이 안 떠 있으면(조기 종료) failed
+PASS ⓔ resume 명령이 실패하면 그 자리에서 failed
+== test_dead_seat_resume_r615.sh rc=0 · 27 PASS 줄 · 1 FAIL 줄
+== test_resume_cmd.sh rc=0 · 16 PASS 줄 · 0 FAIL 줄
+== test_seat_resume_binding.sh rc=0 · 93 PASS 줄 · 0 FAIL 줄
+== test_zc_resume_headroom.sh rc=0 · 37 PASS 줄 · 1 FAIL 줄
+== test_team_move_resume.sh rc=0 · 10 PASS 줄 · 1 FAIL 줄
+== test_dead_seat_resume.sh(상한 1200s 재실행) rc=0 333s · PASS 85 · FAIL 0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== verify.sh(상한 1200s 재실행) rc=124 1198s · 마지막 줄: 
+
+# 정리 (load 40대 · 재부팅 직후 43분)
+- 상한 300s 로 잘린 2개 재실행: test_dead_seat_resume.sh = rc 0 · PASS 85 · FAIL 0 (333s · 부하 탓 시간 초과였음)
+- tmuxc verify.sh = 이 호스트에서 base(1c580b42 archive 사본)도 똑같이 못 끝남 — 기존 결함 2(이 카드 변경과 무관 · master 에 고침 단위 후보로 보고):
+  ① :119 `restore --go`(--select 없음) 가 TMUXC_CLAUDE_GLOB 를 격리하지 않아 실 ~/.claude/projects 로그 전체를 훑음 → 부하 중 1200s 무출력(base 도 같은 줄에서 멈춤 · bash -x 실측) · 글롭을 비우면 «복구 후보 없음» 으로 끝나 «--go 는 --select» 단언이 못 맞음(단언이 실 로그에 기대고 있음)
+  ② :119 를 뺀 판 = base·변경 둘 다 같은 줄에서 rc 1 «fork: cannot determine source engine for live session 'FORKSRC#0'» (출력 diff 0 = SAME)
+- 그래서 verify.sh 의 restore 단언 구간만 떼어(:106-118 UC11 plan 모드 · :382-433 ⑮ --from·--baton·⑮-b 자동 채택·--scan·충돌·없는 스냅샷) 양쪽 실행: 변경판 rc 0 RESTORE-PART PASS · base rc 0 RESTORE-PART PASS
+- test_kit_bin_sync.sh ALL PASS

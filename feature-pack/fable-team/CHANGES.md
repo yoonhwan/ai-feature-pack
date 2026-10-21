@@ -5,7 +5,7 @@
 - tmuxc(`tmuxc/core/bin/tmuxc` cmd_restore): `--go` 없고 대화형 선택 프롬프트가 아닐 때 출력 맨 위 1줄 «(계획 모드 — 실행은 `tmuxc restore --select all --go` · 많으면 `ft-reboot-restore.sh`)» · 끝의 기존 안내·동작 그대로.
 - 전팀 정지 스위치(r626)와 겹침: r626 이 팩에 아직 없어(base 1c580b42) 정지 검사 0 — r626 착지 뒤 그 검사 함수를 이 도구 맨 앞에 붙인다(카드 꼬리 기록).
 - 시험 `harness/tests/test_reboot_restore_r641.sh`(새 45 · 임시 HOME·FT_ROOT · 가짜 claude-hr.sh(인자·cwd 기록 후 `ANTHROPIC_BASE_URL` 붙인 python 자식) · ★tmux 는 격리 소켓 `-L ftrr-test-<pid>` 셔임 — 사용자 tmux 서버 접근 0★ · 세션 이름 `ftrr-test-*`): ⓐ~ⓗ. 실측 함정: macOS 는 시스템 바이너리(`/bin/sleep`)의 환경을 `ps eww` 로 안 보여 준다 — 가짜 자식은 python(사용자 바이너리 · 실 claude 와 같은 조건). **전(`evidence/r641/01-before-red.txt` = FAIL 38 · PASS 7 rc=1) → 후(`02-after-pass.txt` = ALL PASS 45 rc=0)**
-- 기존 시험: `evidence/r641/03-existing-tests.txt`.
+- 기존 시험(`evidence/r641/03-existing-tests.txt` · 인접만 · 광역 0): 재개 시험 6종(`test_dead_seat_resume`·`_r615`·`test_resume_cmd`·`test_seat_resume_binding`·`test_zc_resume_headroom`·`test_team_move_resume`) rc 0 · tmuxc `test_tmuxc_*` 2종 rc 0 · `test_kit_bin_sync` ALL PASS · tmuxc `verify.sh` 는 이 호스트에서 base 도 못 끝남(기존 결함 2 — :119 `restore --go` 가 실 로그 전체를 훑음 · `FORKSRC#0` fork 엔진 판별 · 고침 단위 후보로 master 보고) → restore 단언 구간(:106-118 · :382-433)만 떼어 변경판·base 둘 다 rc 0. 실 스냅샷 `--dry-run`(`04-real-dry-run.txt` · 읽기만) = 계획 열기 2 · SKIP 살아 있음 36 · FAIL 엔진 밖(pi) 1 · rc 0.
 - 설치: 있음 — 키트 1(`ft-reboot-restore.sh` → LIVE_BIN 새 판 cmp0) · `tmuxc/core/bin/tmuxc` → `~/.tmuxc/current/core/bin/tmuxc` cmp0 · manifest 1.1.174 · tmuxc 0.4.5. **설치·실사건 1(다음 재부팅 또는 오빠 승인 1회 시험 때 이 도구 1줄 복구 확인표 원문)은 master 소관 — 미실행.** 되돌림 = 새 도구 삭제 + tmuxc 안내 줄 원복.
 - press 필요: 없음 — 하네스 좌석 복구(제품 키·말풍선·음성 경로 무관).
 
