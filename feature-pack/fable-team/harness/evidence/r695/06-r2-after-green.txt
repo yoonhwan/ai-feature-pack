@@ -1,0 +1,46 @@
+ok   bash -n (셔뱅 /bin/bash) → 0
+--- ⓑ 허용 꼴 (명령 1개 · cp [-p] · 절대 kit 원본 cmp0 · 절대 목적지 파일) ---
+ok   r692 file_fetch 설치 복사(픽스처) → 0
+ok   cp -p kit → 코드 경로 → 0
+ok   목적지 = 있는 일반 파일 → 0
+--- ⓒ 막아야 하는 칸 (2) ---
+ok   원본 kit 밖(/tmp) → 2
+ok   원본 팩 안 kit 밖(scripts/) → 2
+ok   원본 kit 안 · origin/main 과 다름 → 2
+ok   원본 kit 안 심링크 → 밖 → 2
+ok   H2① 원본 kit 안 상대 심링크(같은 바이트) → 2
+ok   H2① cp -P kit 상대 심링크 → 2
+ok   H2② cd X && cp (상대 원본) → 2
+ok   H2③ 앞 명령 && cp kit → 2
+ok   H2④ cp -t 폴더 kit → 2
+ok   H2④ --target-directory= kit → 2
+ok   cp kit ; 뒤 명령 → 2
+ok   cp kit && cmp (명령 2개) → 2
+ok   목적지 안 $(…) 치환 → 2
+ok   원본 $HOME 변수 → 2
+ok   상대 원본(cwd 기준) → 2
+ok   목적지 = 심링크 → 2
+ok   목적지 = 끝 / 폴더(kit 1개) → 2
+ok   목적지 = 있는 폴더(kit 1개) → 2
+ok   cp kit 2개 → 폴더/ → 2
+ok   여러 원본 중 하나 kit 밖 → 폴더/ → 2
+ok   단일 kit 밖 원본 → 있는 폴더 → 2
+ok   H1 cp -R 폴더 → 있는 폴더.py → 2
+ok   install -m 0755 kit(허용 꼴 밖) → 2
+ok   없는 원본(glob 미전개) → 2
+ok   git 실패(팩 루트가 git 아님) → 2
+ok   mv kit → 코드 경로 → 2
+ok   rsync kit → 코드 경로 → 2
+ok   sed -i 코드 → 2
+ok   > 리다이렉트 코드 → 2
+ok   tee 코드 → 2
+ok   dd of= 코드(회귀) → 2
+--- ⓓ 워커 모델·문서 경로 그대로 ---
+ok   Sonnet 5.5 kit 밖 cp (워커 면제) → 0
+ok   Opus 5.5 kit 밖 cp (워커 면제) → 0
+ok   TOP 문서 경로 cp(.md) → 0
+ok   TOP 단일 비코드 원본 → 폴더 → 0
+--- ⓔ Sonnet 5 대조 (TOP) ---
+ok   Sonnet 5 허용 꼴 → 0
+ok   Sonnet 5 kit 밖 cp → 2
+pass=41 fail=0

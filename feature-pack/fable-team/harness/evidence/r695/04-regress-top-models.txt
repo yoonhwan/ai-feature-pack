@@ -1,0 +1,36 @@
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r695-orchestration-gate-allows-kit-cmp0-/feature-pack/fable-team/.claude/hooks/orchestration-gate.sh: No such file or directory
+FAIL PROJ bash -n → 기대 0 · 실제 1
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+FAIL PROJ Sonnet 5 3번째 Edit → 기대 2 · 실제 127
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+FAIL PROJ Sonnet 5.5 3번째 Edit → 기대 0 · 실제 127
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+FAIL PROJ Fable 3번째 Edit → 기대 2 · 실제 127
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+FAIL PROJ agent_id 있음 3번째 Edit → 기대 0 · 실제 127
+pass=5 fail=5
