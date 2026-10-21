@@ -61,10 +61,14 @@ cands() { # cands <이름:종류…> → 회수 도구 dry-run 출력(WOULD-CLOS
     echo "RECLAIMED $# pressure=2 swap=88%"
     echo "PREVENTIVE reclaimed=$# candidates=$(( $# + 2 )) skipped=1 pressure=2 swap=88%"; } > "$T/rc.out"; }
 seed() { local i n; n="$(date +%s)"; : > "$PTSV"; for i in 2 1; do printf '%s\t%s\t%s\t%s\t2303978\n' "$((n-60*i))" "$1" "$2" "$3" >> "$PTSV"; done; }
-fresh() { rm -f "$FREEZE" "$WLOG" "$WSTATE" "$T/mbox.log" "$T/rc.calls" "$T/rc.rc" "$T/mb.rc" "$T/mb.sleep"; : > "$T/mbox.log"; }
-tick() { env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" HOME="$T/home" \
+fresh() { rm -f "$FREEZE" "$WLOG" "$WSTATE" "$T/mbox.log" "$T/rc.calls" "$T/rc.rc" "$T/mb.rc" "$T/mb.sleep" "$PEND"; unlock; : > "$T/mbox.log"; }
+tick_nowait() { env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" HOME="$T/home" \
   FT_MBOX_SH="$MB" FT_RECLAIM_SH="$RC" FT_PREVENTIVE_SH="$T/noop.sh" FT_SEATS_JSON="$T/none.json" "$@" \
   bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
+LOCK="$ST/swap-warn-send.lock.d"; PEND="$ST/swap-warn-pending.json"
+unlock() { rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null; true; }
+settle() { local i; sleep 0.3; for i in $(seq 1 100); do ! pgrep -f "send-bg $R " >/dev/null 2>&1 && [ ! -d "$LOCK" ] && return 0; sleep 0.2; done; echo "  (settle: 분리 발신 쪽이 20초 넘게 안 끝남)"; }   # r3: 발신 쪽은 분리 실행 — 그 틱의 발신이 끝나길 기다린 뒤 단언
+tick() { tick_nowait "$@"; settle; }
 gate() { env FT_RES_ROOT="$R" PATH="$S:$PATH" "$@" bash "$BIN/ft-resource-gate.sh" check 2>&1; }
 printf '#!/bin/sh\nexit 0\n' > "$T/noop.sh"; chmod 755 "$T/noop.sh"; mkdir -p "$T/home"
 notes() { grep -c '\[자원 경고\]' "$T/mbox.log" 2>/dev/null || true; }
@@ -159,24 +163,27 @@ eq "$(notes)" 0 "swap 경고 아님 → 쪽지 0"
 # ── DA⑥ r1 HOLD 고침 ⓘ~ⓜ ──
 # ⓘ hard 조건(disk 24G) ∧ swap 경고 틱 + 느린 가짜 mbox(sleep 10) → 동결이 먼저 · 회수 도구·쪽지 0 · 틱이 쪽지에 안 묶임
 fresh; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; echo 10 > "$T/mb.sleep"; t0=$(date +%s)
-tick $SW FAKE_DISK_KIB=$((24*1048576)); dt=$(( $(date +%s) - t0 ))
+tick_nowait $SW FAKE_DISK_KIB=$((24*1048576)); dt=$(( $(date +%s) - t0 )); settle
 [ -f "$FREEZE" ] && ok "ⓘ hard(disk 24G)∧swap 경고 → 동결 생성" || bad "ⓘ hard 조건인데 동결 0"
 [ "$dt" -lt 8 ] && ok "ⓘ 느린 mbox(10초)에 틱이 안 묶임(${dt}s)" || bad "ⓘ 틱이 ${dt}s 걸림(쪽지가 동결을 늦춤)"
 eq "$(notes)" 0 "ⓘ hard 조건 틱 → 목록 쪽지 0"
 [ ! -f "$T/rc.calls" ] && ok "ⓘ hard 조건 틱 → 회수 도구 호출 0" || bad "ⓘ hard 조건인데 회수 도구 호출"
+[ ! -f "$PEND" ] && ok "ⓘ hard 조건 틱 → 기록(pending) 0" || bad "ⓘ hard 조건인데 pending 기록"
 # ⓘ' hard 아님 + mbox 가 상한(시험 1초)보다 느림 → 재시도 1 포함 2회 시도 · ERROR 1줄(상한 초과) · 서명 기록 0
 fresh; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; echo 5 > "$T/mb.sleep"; t0=$(date +%s)
-tick $SW FT_RES_SWAPWARN_SEND_CAP_SEC=1; dt=$(( $(date +%s) - t0 ))
-[ "$dt" -lt 9 ] && ok "ⓘ' 쪽지 상한 1초×2 → 틱 ${dt}s" || bad "ⓘ' 쪽지 상한이 안 걸림(${dt}s)"
-eq "$(grep -c 'ERROR swap 닫기 목록 쪽지 발신 실패 to=byz-harness-master-claude#90 rc=124 (상한 1초 초과) (재시도 1 포함)' "$WLOG" 2>/dev/null || true)" 1 "ⓘ' 상한 초과 → 로그 ERROR 1줄"
+tick $SW FT_RES_SWAPWARN_CALL_CAP_SEC=1; dt=$(( $(date +%s) - t0 ))
+[ "$dt" -lt 9 ] && ok "ⓘ' 쪽지 상한 1초×2 → 발신 쪽 끝까지 ${dt}s" || bad "ⓘ' 쪽지 상한이 안 걸림(${dt}s)"
+eq "$(grep -c 'ERROR swap 닫기 목록 쪽지 발신 실패 to=byz-harness-master-claude#90 rc=124 (상한 1초 초과 · 프로세스 무리 종료) (재시도 1 포함)' "$WLOG" 2>/dev/null || true)" 1 "ⓘ' 상한 초과 → 로그 ERROR 1줄"
+[ -f "$PEND" ] && ok "ⓘ' 상한 초과 → pending 그대로(다음 경고 틱 재시도)" || bad "ⓘ' 상한 초과인데 pending 지움"
 hasnt "$(cat "$WSTATE" 2>/dev/null)" "byz-harness-master-claude#90" "ⓘ' 상한 초과 → 서명 기록 0"
 [ ! -f "$FREEZE" ] && ok "ⓘ' 상한 초과 → 동결 0" || bad "ⓘ' 상한 초과가 동결로 폴백"
 rm -f "$T/mb.sleep"; sleep 6   # 상한으로 끊긴 가짜 mbox 의 sleep 자식이 끝나길 기다린다(다음 시험 집계 오염 0)
 
 # ⓙ 회수 출력 요약 줄 없음 · 후보 수 불일치 → ERROR(«후보 0» 과 다른 글) · rc≠0 · 쪽지 0
-lib() { ( STATE="$ST"; RES_ROOT="$R"; HERE="$KIT"; LOG="$WLOG"; export FT_RECLAIM_SH="$RC" FT_MBOX_SH="$MB"
-  logline() { printf '%s\n' "$1" >> "$LOG"; }; now_epoch() { date +%s; }; run_capped() { "$@"; }
-  . "$BIN/ft-resource-swapwarn-lib.sh"; swapwarn_send 14288 2 ); }
+lib() { printf '{"swap": 14288, "level": 2, "memfree": 31, "ts": %s}\n' "$(date +%s)" > "$PEND"
+  ( STATE="$ST"; RES_ROOT="$R"; HERE="$KIT"; LOG="$WLOG"; export FT_RECLAIM_SH="$RC" FT_MBOX_SH="$MB"
+  logline() { printf '%s\n' "$1" >> "$LOG"; }; now_epoch() { date +%s; }
+  . "$BIN/ft-resource-swapwarn-lib.sh"; swapwarn_send_now ); }   # r3: 발신 쪽을 이 셸에서 바로(rc 확인용)
 fresh; cands "byz-harness-nano-b#0:병합 끝 나노"; grep -v '^PREVENTIVE' "$T/rc.out" > "$T/rc.tmp"; mv "$T/rc.tmp" "$T/rc.out"; lib; lrc=$?
 [ "$lrc" != 0 ] && ok "ⓙ 요약 줄 없음 → rc=$lrc(≠0)" || bad "ⓙ 요약 줄 없음인데 rc=0"
 has "$(cat "$WLOG")" "ERROR swap 닫기 목록 회수 출력 형식 깨짐 — 요약 줄(PREVENTIVE reclaimed=… candidates=…) 없음" "ⓙ 요약 줄 없음 → ERROR"
@@ -191,15 +198,19 @@ has "$(cat "$WLOG")" "close-list 후보 0(닫아도 되는 유휴 좌석 없음)
 hasnt "$(cat "$WLOG")" "형식 깨짐" "ⓙ 후보 0 → 형식 깨짐 글 0"
 lib; eq "$(grep -c '후보 0' "$WLOG")" 1 "ⓙ 후보 0 WARN 도 같은 서명 30분 안 반복 0"
 
-# ⓚ 명부 _master 갈림 · _replaced_by 사슬 끊김 → ORPHAN · 옛 팀장 발신 0 · 하네스 팀장 묶음 1통
-fresh; seed 14288 31 2; cands "byz-split-x#0:병합 끝 나노" "byz-v65-old#1:직전 세대 좌석"; tick $SW
-has "$(cat "$WLOG")" "ERROR swap 닫기 목록 수신자 없음 byz-split-x#0 — _master 갈림(byz-harness-master-claude#90,byz-v65-master-claude#9)" "ⓚ _master 갈림 → ORPHAN"
-has "$(cat "$WLOG")" "ERROR swap 닫기 목록 수신자 없음 byz-v65-old#1 — _replaced_by 사슬 끊김(byz-v65-old#1 → byz-v65-gone#2 명부에 없음)" "ⓚ 끊긴 사슬 → ORPHAN"
-eq "$(warnmail | grep -c 'send byz-v65-master')" 0 "ⓚ 옛 _master(v65) 로 되돌아가 보내기 0"
-eq "$(notes)" 0 "ⓚ ORPHAN 만 → 팀장 목록 쪽지 0"
-eq "$(grep -c '명부 이상' "$T/mbox.log")" 1 "ⓚ 하네스 팀장 앞 묶음 1통"
-has "$(grep '명부 이상' "$T/mbox.log")" "byz-split-x#0(_master 갈림" "ⓚ 묶음에 좌석·사유"
-tick $SW; eq "$(grep -c '명부 이상' "$T/mbox.log")" 1 "ⓚ 같은 ORPHAN 서명 다음 틱 → 묶음 반복 0"
+# ⓞ (DA r2 재현 꼴) 같은 좌석이 두 명부에 · _master 다름 → ORPHAN · SEND 0 · 하네스 팀장 묶음 1통
+fresh; seed 14288 31 2; cands "byz-split-x#0:병합 끝 나노"; tick $SW
+has "$(cat "$WLOG")" "ERROR swap 닫기 목록 수신자 없음 byz-split-x#0 — _master 갈림(byz-harness-master-claude#90,byz-v65-master-claude#9)" "ⓞ _master 갈림 → ORPHAN"
+eq "$(notes)" 0 "ⓞ ORPHAN → 팀장 목록 쪽지(SEND) 0"
+eq "$(grep -c '명부 이상' "$T/mbox.log")" 1 "ⓞ 하네스 팀장 앞 묶음 1통"
+has "$(grep '명부 이상' "$T/mbox.log")" "byz-split-x#0(_master 갈림" "ⓞ 묶음에 좌석·사유"
+tick $SW; eq "$(grep -c '명부 이상' "$T/mbox.log")" 1 "ⓞ 같은 ORPHAN 서명 다음 틱 → 묶음 반복 0"
+# ⓟ 명부 _master 1개 + _replaced_by 끊김(명부에 없는 이름) → 그 _master 로 SEND (사슬 걷기 0 · 계보 수신은 mbox 몫)
+fresh; seed 14288 31 2; cands "byz-v65-old#1:직전 세대 좌석"; tick $SW
+eq "$(warnmail | grep -c 'send byz-v65-master-claude#9 ')" 1 "ⓟ 끊긴 사슬이어도 명부 _master 로 SEND 1"
+has "$(warnmail)" "닫아도 되는 유휴 좌석: byz-v65-old#1 ·" "ⓟ SEND 본문에 그 좌석"
+hasnt "$(cat "$WLOG")" "수신자 없음 byz-v65-old#1" "ⓟ ORPHAN 0"
+[ "$(grep -v '^#' "$KIT/ft-resource-swapwarn-lib.sh" | grep -c '_replaced_by')" = 0 ] && ok "ⓟ lib 코드가 _replaced_by 를 읽지 않음(주석만)" || bad "ⓟ lib 코드가 _replaced_by 를 읽음"
 
 # ⓛ 깨진 swap-warn.json → ERROR · 발신 0 · 파일 그대로
 fresh; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; printf '{broken' > "$WSTATE"; tick $SW
@@ -214,5 +225,32 @@ eq "$(notes)" 0 "ⓛ 형식 아닌 상태 파일 → 발신 0"
 fresh; seed 6000 31 4; tick FAKE_SWAP=6000 FAKE_LEVEL=4 FAKE_MEMFREE=31 FT_RES_SWAP_FREEZE=1
 [ -f "$FREEZE" ] && ok "ⓜ env 모드 level 4·swap 6000 → 동결" || bad "ⓜ env 모드 level 4 동결 0"
 has "$(cat "$WLOG")" "trig=level" "ⓜ env 모드 trig=level"
+
+# ⓝ 느린 발신(가짜 mbox 가 sleep 4 뒤 기록) · 상한 1초 → 감시자 기록 함수 1초 안 반환 · 틱은 발신을 안 기다림 · 시간 초과 뒤 그 자식의 기록 0(프로세스 무리 종료)
+fresh; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; echo 4 > "$T/mb.sleep"
+rec_ms() { ( STATE="$ST"; RES_ROOT="$R"; HERE="$KIT"; LOG="$WLOG"; export FT_RECLAIM_SH="$RC" FT_MBOX_SH="$MB" FT_RES_SWAPWARN_CALL_CAP_SEC=1
+  logline() { printf '%s\n' "$1" >> "$LOG"; }; now_epoch() { date +%s; }
+  . "$BIN/ft-resource-swapwarn-lib.sh"; t0=$(python3 -c 'import time;print(int(time.time()*1000))'); swapwarn_record 14288 2 31
+  echo $(( $(python3 -c 'import time;print(int(time.time()*1000))') - t0 )) ); }
+MS="$(rec_ms)"
+[ "${MS:-9999}" -lt 1000 ] && ok "ⓝ 감시자 기록 함수 ${MS}ms(<1초) 안 반환" || bad "ⓝ 기록 함수가 ${MS}ms 걸림"
+sleep 0.5; { pgrep -f "send-bg $R " >/dev/null 2>&1 || [ -d "$LOCK" ]; } && ok "ⓝ 반환 시점에 발신 쪽은 따로 살아 있음(분리)" || bad "ⓝ 발신 쪽이 분리 실행되지 않음"
+settle; sleep 5
+eq "$(warnmail | wc -l | tr -d ' ')" 0 "ⓝ 시간 초과로 끊긴 자식(sleep 4 뒤 기록)의 기록 0 — 프로세스 무리 종료"
+has "$(cat "$WLOG")" "rc=124 (상한 1초 초과 · 프로세스 무리 종료)" "ⓝ 발신 쪽 상한 초과 ERROR"
+fresh; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; echo 4 > "$T/mb.sleep"; t0=$(date +%s)
+tick_nowait $SW FT_RES_SWAPWARN_CALL_CAP_SEC=1; dt=$(( $(date +%s) - t0 ))
+tick_nowait FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=31; t1=$(date +%s); tick_nowait FAKE_SWAP=9000 FAKE_LEVEL=1 FAKE_MEMFREE=31; base=$(( $(date +%s) - t1 ))
+[ "$dt" -le $(( base + 1 )) ] && ok "ⓝ swap 경고 틱 ${dt}s ≤ 보통 틱 ${base}s + 1 — 발신(최소 2초)을 안 기다림" || bad "ⓝ swap 경고 틱 ${dt}s > 보통 틱 ${base}s + 1"
+settle; sleep 5; rm -f "$T/mb.sleep"
+
+# ⓠ 분리 실행 잠금: 연속 2틱(발신 쪽이 느린 동안) → 발신 쪽 1개만(회수 도구 호출 1)
+fresh; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; echo 3 > "$T/mb.sleep"
+tick_nowait $SW; tick_nowait $SW; settle
+eq "$(wc -l < "$T/rc.calls" | tr -d ' ')" 1 "ⓠ 연속 2틱 → 회수 도구 호출 1(발신 쪽 1개)"
+eq "$(notes)" 1 "ⓠ 연속 2틱 → 쪽지 1통"
+[ ! -d "$LOCK" ] && ok "ⓠ 끝난 뒤 잠금 해제" || bad "ⓠ 잠금이 남음"
+rm -f "$T/mb.sleep"; fresh; mkdir "$LOCK"; true & dq=$!; wait $dq; echo "$dq" > "$LOCK/pid"; seed 14288 31 2; cands "byz-harness-nano-b#0:병합 끝 나노"; tick $SW
+eq "$(notes)" 1 "ⓠ 죽은 pid 잠금 = 회수 후 발신 1"
 
 echo "---- fail=$fail"; [ "$fail" -eq 0 ]

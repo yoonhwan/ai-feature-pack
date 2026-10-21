@@ -100,6 +100,7 @@ rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FA
 has "$(cat "$WLOG" 2>/dev/null)" "trig=swap" "R357 ⓛ5 (env 모드) disk 86G·level4·swap13500 → trig=swap(결합)"
 # ── r633 기본 모드(env 없음) — 같은 입력에서 swap∧level2 는 동결 0 · level 4 는 단독 동결 ──
 rm -f "$FREEZE" "$WLOG" "$T/wrc.calls"; seed 13500 55 2 3; for _i in 1 2; do tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55; done
+for _i in $(seq 1 100); do [ -f "$T/wrc.calls" ] && [ ! -d "$ST/swap-warn-send.lock.d" ] && break; sleep 0.2; done   # r633 r3: 발신 쪽은 분리 실행 — 끝날 때까지 기다려 다음 시험 로그에 섞이지 않게
 eq "$(cnt 'FREEZE created')" 0 "r633 기본 ⓗ swap13500·level2 ×2틱 → FREEZE created 0"
 [ ! -f "$FREEZE" ] && ok "r633 기본 ⓗ 동결 파일 없음" || bad "r633 기본 ⓗ 동결 파일이 생김"
 has "$(cat "$T/wrc.calls" 2>/dev/null)" "--dry-run --preventive" "r633 기본 ⓗ 닫기 목록 경로(가짜 회수 도구 --dry-run --preventive)"

@@ -2,7 +2,7 @@
 # ft-resource-watch.sh [tick|scan] — Res-1014 · launchd 가 60초마다 부르는 1회 실행형 감시자 + 원인 귀속 스냅샷.
 #   계기: 2026-10-14 03:31 watchdog 패닉. ★파일 삭제·prune 기능 없음 — 오빠 승인 별건★. 좌석 회수는 tick 진입 직후 ft-resource-preventive.sh(600초 · 승인 두 행 안 · ft-resource-reclaim --preventive 경유 · 측정·동결과 독립 · R332). 나머지는 «감시·귀속·동결». deferral-lint: ok 기능 부재 설명이며 연기 아님
 #   tick (기본, launchd 호출): - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
-#     - 동결 «생성» 근거(r633 · 이 한 곳이 정본): disk<FT_RES_DISK_MIN(25GiB) | memfree<FT_RES_MEM_MIN(10%) | level>=FT_RES_LEVEL_FREEZE(4 · 커널 «위험») — 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄. swap>12288MiB & level>=2 는 동결 0 → 유휴 좌석 닫기 목록 쪽지(ft-resource-swapwarn-lib.sh) — hard 동결 판정·생성 «뒤», hard 조건이 참인 틱엔 쪽지 0(DA⑥ r1 ①) · FT_RES_SWAP_FREEZE=1 = swap 축만 옛 동작(swap∧level2 도 동결 · level 4 단독 동결은 env 무관) · R357 swap 단독 동결 폐기는 그대로.
+#     - 동결 «생성» 근거(r633 · 이 한 곳이 정본): disk<FT_RES_DISK_MIN(25GiB) | memfree<FT_RES_MEM_MIN(10%) | level>=FT_RES_LEVEL_FREEZE(4 · 커널 «위험») — 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄. swap>12288MiB & level>=2 는 동결 0 → 유휴 좌석 닫기 목록 쪽지(ft-resource-swapwarn-lib.sh) — hard 동결 판정·생성 «뒤», hard 조건이 참인 틱엔 기록 0 · 감시자는 기록 + 발신 쪽 분리 실행만(r3) · FT_RES_SWAP_FREEZE=1 = swap 축만 옛 동작(swap∧level2 도 동결 · level 4 단독 동결은 env 무관) · R357 swap 단독 동결 폐기는 그대로.
 #     - 동결 «해제» 근거 = 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
 #     - (r522) 표본 뒤 CPU 폭주 감지 1회(ft-resource-cause.sh cpu · 상한 FT_RES_CPU_CAP_SEC 7초): 주인 줄 → state/runaway-cpu.log 1줄 · 서명(명령·주인·개수)이 바뀌면 planner 명부(FT_SEATS_JSON) _master 에 [CPU 폭주] 쪽지 1통(FT_MBOX_SH) · 프로세스 끄기 0.
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
@@ -223,7 +223,7 @@ tick() {
     logline "FREEZE created disk=${disk}G swap=${swap}M level=${level:-?} memfree=${memfree}% trig=$trax cause=$cause"
     return 0
   fi
-  recov=0; [ -z "$swarn" ] || [ -n "$trax" ] || swapwarn_send "$swap" "${level:-0}"   # r633 DA⑥ r1 ①: hard 동결(위)이 먼저 · hard 조건 참인 틱은 쪽지 0 · 실패는 lib 가 ERROR 1줄(동결 판정 영향 0)
+  recov=0; [ -z "$swarn" ] || [ -n "$trax" ] || swapwarn_record "$swap" "${level:-0}" "$memfree"   # r633 r3: hard 동결(위)이 먼저 · hard 참 틱은 기록 0 · 감시자는 기록 + 발신 쪽 분리 실행만(기다림 0)
   if [ "$disk" -ge 35 ] && [ "$memfree" -ge 20 ] && [ "${level:-0}" = 1 ] && calm3; then recov=1; fi
   [ "$recov" = 0 ] || { case "$rate" in ''|na|*[!0-9-]*) false;; *) [ "$rate" -le "${FT_SWAP_RATE_MAX:-512}" ];; esac; } || { recov=0; [ ! -f "$FREEZE" ] || logline "THAW held rate=${rate:-?} (허용 ${FT_SWAP_RATE_MAX:-512} 초과·판정 불가)"; }
   if [ "$recov" = 1 ] && [ -f "$FREEZE" ] && [ -n "$trax" ]; then logline "THAW held trig=$trax"   # R357 불변식: 닫는 사건(THAW)이 여는 사건(트리거)을 바로 되살리지 않는다

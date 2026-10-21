@@ -1,0 +1,17 @@
+# r633 r3 뒤 인접 resource 시험 — 가지 · rc≠0 이면 base origin/main 1c580b42 사본 대조 · 시작 load: load averages: 48.41 39.77 39.99
+test_resource_gate rc=0 FAIL=0
+test_resource_gate_pressure rc=0 FAIL=0
+test_resource_watch rc=0 FAIL=0
+test_resource_selflink_r589 rc=0 FAIL=0
+test_resource_watch_incremental_r534 rc=0 FAIL=0
+test_resource_cpu_owner rc=0 FAIL=0
+test_resource_reclaim_preventive rc=1 FAIL=3
+  가지: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MsQFq6a
+  가지: FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MsQFq6aA2f/xp»
+  가지: FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin»
+  base rc=1
+  base: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.wAE67zj
+  base: FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.wAE67zjQRH/xp»
+  base: FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin»
+  base: FAIL core.bare 이상
+남은 분리 발신 프로세스: 0
