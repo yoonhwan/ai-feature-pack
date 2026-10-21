@@ -1,8 +1,9 @@
-r"""ft_goal_ledger — 골 표 «지금 상태» 6칸의 출처 = planner 원장 `## 메인 골 6줄` 표 (R371 · ft_goal_table.render 가 부른다).
+r"""ft_goal_ledger — 골 표 «지금 상태» N칸의 출처 = planner 원장 `## 메인 골 N줄` 표 (R371 · ft_goal_table.render 가 부른다 · r668: N = 정본 표 행 수).
 
 루트 = env FT_ROOT(그 안에 .fable-team/LIVE_BIN 필수) · 없으면 cwd 의 git 공용 루트(.fable-team/LIVE_BIN 실재) · 옛 설치 꼴이면 이 파일 위치 조상 중 `.fable-team/LIVE_BIN` 이 있는 첫 폴더 · LIVE_ROOT = `<루트>/.fable-team/LIVE_ROOT` 1행(절대경로 · 실재 폴더 · R382: 코드 위치 LIVE_BIN/../.. 유도 폐지 — 하네스 코드가 팩으로 가도 데이터 루트가 안 틀어진다) (정본·원장·뉴스 셋이 이 함수 하나).
-원장 = env FT_GOAL_A6_LEDGER(파일 경로 | `gitref:<ref>:<경로>`) 우선 · 없으면 ★기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/PLAN-oppa-ledger.md`(r545 — 공용 체크아웃(LIVE_ROOT)의 디스크 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다 · 체크아웃이 main 에서 뒤처져도 안 멈춘다)★. LIVE_BIN 없음/무효 = ERROR rc1(옛 v6 고정 경로 후퇴 0). 절 `## 메인 골 6줄…` 의 첫 표 «데이터 행 6개» 를 행 순번(1~6)으로 정본 골에 묶는다(원장 골 글자는 정본과 달라 글자 대조 0) · 2열 = 지금 상태.
-셀 = `\|` 를 글자 `|` 로 복원해 분리 · 열 수가 머리 줄과 다르면 ERROR(조용한 절단 0) · 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN 1줄 ·
+원장 = env FT_GOAL_A6_LEDGER(파일 경로 | `gitref:<ref>:<경로>`) 우선 · 없으면 ★기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/PLAN-oppa-ledger.md`(r545 — 공용 체크아웃(LIVE_ROOT)의 디스크 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다 · 체크아웃이 main 에서 뒤처져도 안 멈춘다)★. LIVE_BIN 없음/무효 = ERROR rc1(옛 v6 고정 경로 후퇴 0). 절 `## 메인 골 …줄`(숫자 없는 꼴·다른 숫자 꼴도 읽는다 · r668 · ★끝 경계: 뒤에는 줄 끝·«N줄»·« —» 만★) 의 첫 표 «데이터 행 N개» 를 행 순번(1~N)으로 정본 골에 묶는다(원장 골 글자는 정본과 달라 글자 대조 0) · 2열 = 지금 상태.
+★N = 정본 표 행 수★(1 ≤ N ≤ FT_GOAL_MAX 기본 12 · `canon_count` — r668: 골 개수를 코드에 박지 않는다).
+셀 = `\|` 를 글자 `|` 로 복원해 분리 · 열 수가 머리 줄과 다르면 ERROR(조용한 절단 0) · ★구분선(`---`)만 빼고 빈 칸 행은 ERROR★(r668 H1 — 빈 칸을 구분선처럼 빼면 행이 조용히 줄어든다) · 행 수 ≠ N = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN 1줄 ·
 머리 `원장:<MM-DD HH:mm>` · 마지막 갱신 24h 초과 또는 갱신 시각 없음 = «· 상태 낡음»(파일 mtime 으로 되돌아가지 않는다).
 """
 from __future__ import annotations
@@ -18,9 +19,10 @@ from typing import Callable
 from ft_team_lib import TeamPathError, team_rows_ref
 
 NO_STATE = "상태 없음"
-SECTION = re.compile(r"^##\s+메인 골 6줄")
+SECTION = re.compile(r"^##\s+메인 골(?:\s*\d+\s*줄)?\s*(?:$|—)")  # r668: «메인 골 6줄»·«메인 골 5줄»·«메인 골»(숫자 없는 꼴) 모두 — 옛 원장 호환. ★끝 경계(r668 H3)★: 뒤에는 줄 끝·«N줄»·« —» 만 («## 메인 골 참고» 는 안 잡힌다)
 STAMP = re.compile(r"마지막 갱신:\s*(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d[\dx])")
 STALE_AFTER = timedelta(hours=24)
+GOAL_MAX = 12  # r668 — 골 수 상한(env FT_GOAL_MAX 로 바꾼다 · 0 이하·글자 = 기본값)
 
 
 def _no_live_bin(file: Path, value: str = "") -> str:
@@ -126,6 +128,22 @@ def read_spec(spec: str, git_show: Callable[[str], str | None]) -> str | None:
         return None
 
 
+def goal_max() -> int:
+    """골 수 상한 = env FT_GOAL_MAX(기본 12) — 못 읽는 값은 기본값(조용한 0 행 0)."""
+    try:
+        value = int(os.environ.get("FT_GOAL_MAX") or GOAL_MAX)
+    except ValueError:
+        return GOAL_MAX
+    return value if value > 0 else GOAL_MAX
+
+
+def canon_count(error: type[Exception]) -> int:
+    """정본 표 행 수 N — ft_goal_table 을 «부를 때» import 한다(그쪽이 이 모듈을 먼저 import · 순환 0 · r668).
+    정본을 못 읽으면 ft_goal_table 의 GoalError(= error 와 같은 부류)가 그대로 올라간다(조용한 통과 0)."""
+    import ft_goal_table as gt  # noqa: PLC0415 — 순환 import 회피(이 모듈이 아래 층)
+    return len(gt.parse_rows(gt.load_canon()[0]))
+
+
 def _cells(line: str) -> list[str]:
     r"""표 한 줄 → 칸 — 칸 안의 `\|` 는 글자 `|` 로 복원(단순 split 0)."""
     body = line.strip()
@@ -135,7 +153,8 @@ def _cells(line: str) -> list[str]:
 
 
 def table_with_header(text: str, error: type[Exception], section: re.Pattern[str] = SECTION) -> tuple[list[str], list[tuple[int, list[str]]]] | tuple[None, None]:
-    """절(기본 `## 메인 골 6줄` · R458 `## 팀별 완성 진행` · r644 `## 표준절차 골 진행표`) 아래 첫 표 = (머리 줄 칸, [(줄번호, 데이터 칸)]) — 절이 없으면 (None, None) · 열 수가 머리 줄과 다른 행 = error.
+    """절(기본 `## 메인 골 …줄`(r668 — 숫자 없는/다른 숫자 꼴도 읽는다 · 끝 경계 포함) · R458 `## 팀별 완성 진행` · r644 `## 표준절차 골 진행표`) 아래 첫 표 = (머리 줄 칸, [(줄번호, 데이터 칸)]) — 절이 없으면 (None, None) · 열 수가 머리 줄과 다른 행 = error.
+    r668 H1: 구분선(`---` 만 있는 줄)만 뺀다 — 기본 절(골 표 상태)에서 빈 칸이 있는 데이터 행은 error(구분선처럼 빠져 행이 조용히 줄어들지 않는다).
     줄번호 = 1부터 센 파일 줄(r644: git blame 으로 «그 행 마지막 변경» 을 잰다)."""
     rows: list[tuple[int, list[str]]] = []
     head: list[str] = []
@@ -152,7 +171,11 @@ def table_with_header(text: str, error: type[Exception], section: re.Pattern[str
                 width, head = len(cells), cells  # 첫 표 줄 = 머리 줄 → 열 수 기준
             elif len(cells) != width:
                 raise error(f"ERROR 골 표 원장 열 수 {len(cells)}≠{width} (표 {len(rows) + 1}번째 데이터 줄 · `|` 글자는 `\\|` 로 적는다): {ln.strip()[:60]}")
-            elif not set(cells[0]) <= set("-: "):
+            elif all(set(c) <= set("-: ") for c in cells):
+                continue  # 구분선(---)만 뺀다 — r668 H1: 첫 칸만 빈 데이터 행을 구분선처럼 빼지 않는다
+            elif not all(cells) and section is SECTION:
+                raise error(f"ERROR 골 표 원장 빈 칸 (표 {len(rows) + 1}번째 데이터 줄 · 빈 칸을 두면 행이 조용히 줄어든다): {ln.strip()[:60]}")
+            else:
                 rows.append((lineno, cells))
         elif inside and width:
             break
@@ -175,15 +198,16 @@ def _stale(text: str, now: datetime) -> tuple[str, bool]:
     return f"{m[1][5:]} {m[2]}:{m[3]}", now - stamp > STALE_AFTER
 
 
-def ledger_state(git_show: Callable[[str], str | None], error: type[Exception], now: datetime | None = None) -> tuple[str, dict[int, str]]:
-    """(머리 글자, {행번호: 지금 상태}) — error = 호출자의 GoalError."""
+def ledger_state(git_show: Callable[[str], str | None], error: type[Exception], now: datetime | None = None, n: int | None = None) -> tuple[str, dict[int, str]]:
+    """(머리 글자, {행번호: 지금 상태}) — error = 호출자의 GoalError · n = 골 수 N(정본 표 행 수 · 없으면 canon_count 로 잰다)."""
     spec = ledger_spec(error)
     text = read_spec(spec, git_show)
     rows = table_rows(text, error) if text is not None else None
+    n = canon_count(error) if n is None else n
     if rows is None:
-        print(f"WARN 골 표 원장 상태 칸 없음({'파일' if text is None else '절'}): {spec} — «{NO_STATE}» 6칸으로 발행", file=sys.stderr)
+        print(f"WARN 골 표 원장 상태 칸 없음({'파일' if text is None else '절'}): {spec} — «{NO_STATE}» {n}칸으로 발행", file=sys.stderr)
         return NO_STATE, {}
-    if len(rows) != 6:
-        raise error(f"ERROR 골 표 원장 행 수 {len(rows)}≠6 ({spec} 절 `## 메인 골 6줄` 첫 표)")
+    if len(rows) != n:
+        raise error(f"ERROR 골 표 원장 행 수 {len(rows)}≠{n} ({spec} 절 `## 메인 골 …줄` 첫 표 · N = 정본 표 행 수)")
     when, old = _stale(text or "", now or datetime.now())
     return f"원장:{when}{' · 상태 낡음' if old else ''}", {i: (r[1] or NO_STATE) for i, r in enumerate(rows, 1)}

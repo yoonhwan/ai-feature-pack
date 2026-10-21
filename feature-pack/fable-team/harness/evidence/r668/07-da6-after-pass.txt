@@ -1,0 +1,58 @@
+== ⓔ DA⑥ r1(HOLD 5건) «후 초록» — 고친 코드에서 같은 시험이 전부 초록 (r668)
+
+### ① harness/tests/test_goal_count_follows_canon_r668.sh — 39 PASS · fail=0 · rc=0
+PASS ⓐ 5행 정본 → rc0 · 표 6줄(제목+골 5)
+PASS ⓐ 6행 정본 → rc0 · 표 7줄(제목+골 6)
+PASS ⓐ 7행 정본 → rc0 · 표 8줄(제목+골 7)
+PASS ⓑ 골좌표 1 → GOAL-OK n=1
+PASS ⓑ 골좌표 5 → GOAL-OK n=5
+PASS ⓑ 골좌표 6(>N) → REJECT · 문구에 새 번호표 5줄
+PASS ⓑ 골좌표 줄 없음 → REJECT 문구에 <1~5> + 새 번호표
+PASS ⓒ 정본 5 · 원장 6 → ERROR rc1(조용한 절단 0)
+PASS ⓓ 0행 → ERROR rc1
+PASS ⓓ 13행 > FT_GOAL_MAX(12) → ERROR rc1
+PASS ⓓ FT_GOAL_MAX=5 면 6행 → ERROR rc1(상한이 env 를 따른다)
+PASS ⓔ 절 «## 메인 골 6줄 — 지금 상태» → 읽힘(rc0)
+PASS ⓔ 절 «## 메인 골» → 읽힘(rc0)
+PASS ⓔ 절 «## 메인 골 5줄» → 읽힘(rc0)
+PASS ⓕ 옛 번호(6) 골좌표 → REJECT + 새 번호표 5줄
+PASS ⓖ1 첫 렌더(기준선) = 공지 0
+PASS ⓖ2 정본 sha·번호표 바뀐 첫 렌더 = 팀장마다 1통(2명 → 2통 · 백업 명부 제외)
+PASS ⓖ3 공지 본문에 새 번호표 5줄
+PASS ⓖ4 같은 정본 sha 재렌더 = 추가 공지 0(표식 state/)
+PASS ⓖ5 mbox 없음 = WARN 1줄 · 렌더는 rc0
+PASS ⓗ 뉴스 렌더 = 카드 5장 · 절 머리 «골 5개» · 린트 위반 0
+PASS ⓗ2 린트 = 카드 수 ↔ «골 N개» 일치 · 불일치·상한 초과는 위반 문구
+PASS ⓘ1 정본 표 뒤 다른 표 → N=5(뒤 표를 세지 않는다)
+PASS ⓘ2 원장 빈 칸 행 = ERROR rc1(구분선 --- 만 뺀다)
+PASS ⓘ3a 옛 마커 sha — 번호표가 같으면 통과(파일 내용만 바뀐 판)
+PASS ⓘ3b 옛 마커 sha — 번호표가 바뀌면 REJECT + 새 번호표
+PASS ⓘ4 «## 메인 골 참고» → 그 절 아님(«상태 없음» 5칸 + WARN 1줄 rc0)
+PASS ⓘ5a 표식 없음 + 정본 6행 = 공지 0(설치 직후 첫 렌더)
+PASS ⓘ5b 같은 N 재배열 = 공지 1통(팀장 2명 → 2통)
+PASS ⓘ5c 표식 없음 + 정본 5행(≠6) = 첫 렌더에서 공지 1통
+PASS ⓘ6 동시 렌더 2건 = 공지 1통(잠금 · 2명 → 2통)
+PASS ⓘ6b 송신 상한 7초 — 멈춘 mbox 에도 렌더 rc0(경과 8s) · WARN 1줄
+PASS ⓘ7a 깨진 명부 = WARN 1줄 · 읽히는 팀장에게는 보냄 · 렌더 rc0
+PASS ⓘ7b 깨진 명부 = 표식 전진 0(다음 렌더가 다시 시도)
+PASS ⓘ7c 명부 고침 → 1통 더 보낸 뒤 표식 전진
+PASS ⓘ7d 표식 전진 뒤 추가 공지 0
+PASS ⓘ8a 1행 정본 → rc0(N=1 경계)
+PASS ⓘ8b 12행 정본 = FT_GOAL_MAX 경계 rc0
+PASS ⓘ9 정본 N=7 → 뉴스 카드 7장 · «골 7개» · 린트 위반 0
+== test_goal_count_follows_canon_r668: fail=0
+
+### ② harness/tests/test_goal_table_gate.sh — 97 PASS / FAIL 1(ⓕ = base 와 같은 줄 · 이 카드 무변경 파일)
+FAIL ⓕ r458 600/300 상한 등장
+
+### ③ 인접 시험(광역 0 · 이 워크트리 자기 카드만)
+test_goal_table_stale_r600 rc=0 PASS=11 FAIL=0
+test_goal_table_procs_r644 rc=0 PASS=21 FAIL=0
+test_goal_table_gitref_r545 rc=0 PASS=12 FAIL=0
+test_goal_check_ref rc=0 PASS=40 FAIL=0
+test_kit_bin_sync rc=0 PASS=7 FAIL=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+### ④ 뉴스 HTML·린트 pytest (이 카드 변경 파일이 부르는 것)
+...................................................                      [100%]
+51 passed in 24.99s

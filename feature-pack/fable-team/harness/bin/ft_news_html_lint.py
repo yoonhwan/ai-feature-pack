@@ -1,6 +1,6 @@
 """ft_news_html_lint — 뉴스 HTML 모드(r478) 게시 «전» 검사: 팀 지도 HTML + 요약. 통과 = `OK` rc0 · 위반 = `LINT <무엇>` 줄들 rc3(발행 0).
 
-규칙: 절 6(h1 «우리 팀들, 지금 어디쯤?» + h2 5개 · r490 «확인 불가») · 중요한 일 1~7 · 골 6행 · 본문 번호(#숫자·판정 N·sha 꼴)는 맨 아래 각주(<p class="foot">)에만 ·
+규칙: 절 6(h1 «우리 팀들, 지금 어디쯤?» + h2 5개 · r490 «확인 불가») · 중요한 일 1~7 · 골 N행(r668: N = 절 머리 «골 N개» = 골 카드 수 · 1~FT_GOAL_MAX 기본 12 — 숫자 6 상수 0 · «행이어야»가 6 이 아니다) · 본문 번호(#숫자·판정 N·sha 꼴)는 맨 아래 각주(<p class="foot">)에만 ·
 요약 1~3줄·≤600 B · 시크릿 꼴 0(HTML·요약 둘 다) · 요약·중요한 일이 코드 판정과 어긋남 0(fact_problems · r478d · r490 확인 불가 팀 쉼 단정).
 쓰는 쪽 = ft_news_html.py publish · ft-news-effort-test.sh.
   ft_news_html_lint.py <html> <summary>
@@ -9,9 +9,17 @@ import re
 import sys
 from pathlib import Path
 
+from ft_goal_ledger import goal_max
+
 H1 = "우리 팀들, 지금 어디쯤?"
-H2 = ("지금 제일 중요한 일 (순서대로)", "일하는 팀", "확인 불가", "골 6개", "쉬는 팀")  # r478d: 일하는 팀 = 골 카드 위 그림 카드 · r490: 확인 불가 ≠ 쉬는 팀
-MAX_IMPORTANT, GOALS = 7, 6
+H2 = ("지금 제일 중요한 일 (순서대로)", "일하는 팀", "확인 불가", None, "쉬는 팀")  # r478d: 일하는 팀 = 골 카드 위 그림 카드 · r490: 확인 불가 ≠ 쉬는 팀 · r668: 「골」 자리(None)는 GOAL_TITLE 이 본다
+GOAL_TITLE = re.compile(r"^골 (\d+)개$")
+MAX_IMPORTANT = 7
+
+
+def h2_titles(n: int = 6) -> tuple[str, ...]:
+    """절 머리 5개 — 「골」 자리 = «골 N개»(r668 · 시험 견본도 이 함수를 쓴다 — 숫자 하나를 여기에 박지 않는다)."""
+    return tuple(f"골 {n}개" if h is None else h for h in H2)
 SUMMARY_LINES, SUMMARY_BYTES = 3, 600
 SECRET = re.compile(r"xox[abposr]-[\w-]{6,}|sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AIza[\w-]{30,}"
                     r"|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}")
@@ -43,14 +51,20 @@ def problem_records(html: str, summary: str) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     h1 = re.findall(r"<h1>(.*?)</h1>", html, re.S)
     h2 = [re.sub(r"<[^>]+>", "", h).strip() for h in re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.S)]
-    if h1 != [H1] or h2 != list(H2):
+    title = GOAL_TITLE.match(h2[3]) if len(h2) == len(H2) else None
+    want = int(title[1]) if title else 0
+    same = len(h2) == len(H2) and all(fixed is None or fixed == got for fixed, got in zip(H2, h2))
+    if h1 != [H1] or not same:
         out.append((f"절 6 아님 — h1={h1} h2={h2}", ""))
+    if not title:
+        out.append((f"골 절 머리 아님 — «골 N개» 가 없다: {h2[3] if len(h2) > 3 else '(h2 없음)'}", ""))
     prio = re.search(r'<section class="prio">(.*?)</section>', html, re.S)
     n = len(re.findall(r"<li[ >]", prio[1])) if prio else 0
     if not 1 <= n <= MAX_IMPORTANT:
         out.append((f"중요한 일 {n}개 (1~{MAX_IMPORTANT})", ""))
-    if (g := html.count('<section class="goal">')) != GOALS:
-        out.append((f"골 {g}행 ({GOALS}행이어야)", ""))
+    g = html.count('<section class="goal">')
+    if not (g == want and 1 <= g <= goal_max()):
+        out.append((f"골 {g}행 ({want or '?'}행이어야 · 1~{goal_max()})", ""))
     if found := NUMBER.findall(_text(FOOT.sub(" ", html))):
         out.append((f"각주 밖 번호 {len(found)}건 ({', '.join(found[:3])})", ""))
     lines = [ln for ln in summary.splitlines() if ln.strip()]

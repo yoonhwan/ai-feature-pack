@@ -1,0 +1,38 @@
+== base(origin/main 03ae64a7) vs r668 — «지금도 빨간» 시험은 변경과 무관(같은 줄·같은 수)
+
+--- BASE test_goal_table_gate.sh
+FAIL ⓕ r458 600/300 상한 등장
+fail=1
+--- BASE test_goal_hook_merge.sh
+FAIL bash -n
+FAIL main 병합 커밋이 거부됨
+fail=2
+--- BASE test_goal_hook_adoption_archive.sh
+FAIL bash -n
+FAIL sh -n
+FAIL ⓐ 벽에 있는데 거절
+FAIL ⓑ 아카이브에 있는데 거절
+FAIL ⓒ 두 번째 아카이브에 있는데 거절
+FAIL ⓓ 거절 문구 불일치: sh: /tmp/r668base/feature-pack/fable-team/harness/tests/../../scripts/git-hooks/v65-goal-commit-msg.sh: No such file or directory
+FAIL ⓔ 거절 문구 불일치: sh: /tmp/r668base/feature-pack/fable-team/harness/tests/../../scripts/git-hooks/v65-goal-commit-msg.sh: No such file or directory
+fail=7
+
+사유:
+  · gate ⓕ 600/300 = harness/bin/ft_news_ledger.py:256·:259 의 FT_NEWS_FETCH_MIN(300) — r668 이 만진 4파일 밖(변경 0)
+  · hook_merge·hook_adoption_archive = tests/../../scripts/git-hooks/v65-goal-commit-msg.sh 부재(pack 에 scripts/git-hooks 폴더 없음) — r668 이 만진 파일 밖
+
+== 변경한 4파일 diff 범위 (참고)
+ .../fable-team/harness/bin/ft_goal_ledger.py       |  37 ++++++--
+ .../fable-team/harness/bin/ft_goal_table.py        | 105 ++++++++++++++++++---
+ .../fable-team/harness/bin/ft_news_html_lint.py    |  26 +++--
+ .../fable-team/harness/bin/ft_news_html_render.py  |  33 ++++---
+ .../harness/kit/fable-team/bin/ft_goal_ledger.py   |  37 ++++++--
+ .../harness/kit/fable-team/bin/ft_goal_table.py    | 105 ++++++++++++++++++---
+ .../kit/fable-team/bin/ft_news_html_lint.py        |  26 +++--
+ .../kit/fable-team/bin/ft_news_html_render.py      |  33 ++++---
+ .../kit/fable-team/templates/news-team-map.html    |  68 +------------
+ .../tests/scripts/test_news_drop_line_r603.py      |   4 +-
+ .../scripts/test_news_lint_quote_source_r594.py    |   6 +-
+ ...s_lint_rest_question_form_not_assertion_r602.py |   6 +-
+ .../harness/tests/test_goal_table_gate.sh          |  18 +++-
+ 13 files changed, 350 insertions(+), 154 deletions(-)

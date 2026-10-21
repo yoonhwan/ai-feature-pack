@@ -2,7 +2,7 @@
 
 LLM 은 «내용(JSON)» 만 낸다 — 틀(CSS·절 머리·골 그림)은 templates/news-team-map.html 에 고정(기준본 BYZ-team-map-ref-20261019.html 과 같은 모양).
 7초 룰(하드 룰 12 · 판정 1375): 한 번에 내용 전부(출력 3~4.4K자 = 기준량 300자의 10배+)를 받으면 base 30~44초 · max 65초~130초+ 로 70초를 넘었다(r478b 실측)
-→ «쪼갤 수 있으면 쪼갠다»: 갈래 4개(summary = 요약·근거 / important = 중요한 일 / goals = 골 6 / teams = 팀 설명 · r478e 에서 옛 top 을 둘로)를 «그 갈래에 필요한 입력만» 넣어 병렬로 부른다.
+→ «쪼갤 수 있으면 쪼갠다»: 갈래 4개(summary = 요약·근거 / important = 중요한 일 / goals = 골 N / teams = 팀 설명 · r478e 에서 옛 top 을 둘로)를 «그 갈래에 필요한 입력만» 넣어 병렬로 부른다.
 시도당 상한 = min(고정비 + 7 × ceil(max(입력 토큰 ÷ IN_TOKENS, 예상 출력 글자 ÷ OUT_CHARS)), 총 마감) · 재시도는 «첫 출력 전 실패» 1회만 · 갈래 전부 합친 총 마감 70초 · 실패 = NewsHtmlError(발행 0 · #0 RULE).
 고정비(r510) = CLI 기동부터 stdout 첫 바이트까지 «실측» 의 p90 — 기록 state/news-cli-startup.tsv(최근 20 · 시간 초과 = «>상한» 하한값) · 기록 3개 미만 = 잠정 3.5 · FT_NEWS_FIXED_S 가 있으면 그 값(되돌림 = 3.5).
 호출 수단(r563) = FT_NEWS_VIA · `http`(기본) = 같은 모델을 OpenAI 호환 chat completions(스트림)로 «직접» 부른다 — CLI 기동 0 이라 시도당 상한 = 7초 룰 그대로(고정비 0) · `opencode` = 옛 경로(되돌림 손잡이).
@@ -55,6 +55,13 @@ HOT = ' class="hot"'
 WORK_ICON = ('<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--now-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/>'
              '<circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/>'
              '<path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>')
+# r668 — 골 카드 그림 6종(옛 틀 그대로). 골 수 N 이 6 을 넘으면 그림을 돌려 쓴다(카드 수·행 수가 정본을 따른다 · 틀에 6 카드 고정 0)
+GOAL_ICONS = ('<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--@TONE@-bg)"/><rect x="33" y="16" width="18" height="32" rx="9" fill="var(--accent)"/><path d="M25 40a17 17 0 0 0 34 0" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M42 57v10M32 67h20" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M60 22l10-6M62 32h10" stroke="var(--hot)" stroke-width="4" stroke-linecap="round"/></svg>',
+              '<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--@TONE@-bg)"/><circle cx="26" cy="36" r="8" fill="var(--accent)"/><circle cx="42" cy="30" r="9" fill="var(--done)"/><circle cx="58" cy="36" r="8" fill="var(--accent)"/><path d="M14 62c2-10 22-10 24 0M30 60c2-12 22-12 24 0M46 62c2-10 22-10 24 0" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/></svg>',
+              '<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--@TONE@-bg)"/><rect x="16" y="18" width="52" height="30" rx="4" fill="var(--card)" stroke="var(--ink)" stroke-width="3.5"/><rect x="48" y="24" width="16" height="12" rx="2" fill="var(--accent)"/><path d="M24 28h18M24 36h14" stroke="var(--soft)" stroke-width="3.5" stroke-linecap="round"/><circle cx="30" cy="62" r="6" fill="var(--done)"/><circle cx="54" cy="62" r="6" fill="var(--done)"/></svg>',
+              '<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--@TONE@-bg)"/><path d="M52 18a12 12 0 0 0-14 16L18 54l8 8 20-20a12 12 0 0 0 16-14l-8 8-8-2-2-8z" fill="var(--accent)"/><circle cx="62" cy="62" r="7" fill="var(--done)"/></svg>',
+              '<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--@TONE@-bg)"/><path d="M16 30h18l5 6h29v28H16z" fill="var(--accent)"/><path d="M16 36h52" stroke="var(--card)" stroke-width="3"/><path d="M50 46l8 8 12-14" fill="none" stroke="var(--done)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+              '<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="var(--@TONE@-bg)"/><rect x="14" y="28" width="50" height="28" rx="5" fill="none" stroke="var(--ink)" stroke-width="3.5"/><rect x="64" y="36" width="6" height="12" rx="2" fill="var(--ink)"/><rect x="19" y="33" width="30" height="18" rx="2" fill="var(--done)"/></svg>')
 TEMPLATES = (HERE.parent / "templates", HERE.parent / "kit" / "fable-team" / "templates")  # 설치본·키트 bin 옆 → 팩 harness/bin 옆
 SCHEMAS = {"summary": f'["{SUMMARY_LINES - 1}줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
            "goals": '[{"done":"","now":"","left":"","hot":false}]', "team_notes": '[{"team":"live 의 team 그대로","text":""}]'}
@@ -70,7 +77,7 @@ PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 �
     "important": (("important",), ("now", "facts", "goals", "ledger", "urgent"),
                   '- "important" = 지금 제일 중요한 일 순서대로 1~7개 · title 한 마디 · detail 한 문장 · who = 팀 · 급한 불이면 "hot": true.\n' + FACT_RULES, 1000),
     "goals": (("goals",), ("now", "goals", "ledger"),
-              '- "goals" = 입력 goals 순서 그대로 정확히 6개 · done(끝남)/now(지금)/left(남은 일) 각 한두 문장 · 급한 불이면 "hot": true.', 1800),
+              '- "goals" = 입력 goals 순서 그대로 정확히 @GOALS_N@개 · done(끝남)/now(지금)/left(남은 일) 각 한두 문장 · 급한 불이면 "hot": true.', 1800),
     "teams": (("team_notes",), ("now", "teams", "live"),
               '- "team_notes" = 입력 live 의 팀마다 정확히 1개 · team 은 live 의 team 글자 그대로 · text = 그 팀이 지금 하는 일 또는 기다리는 것 한 문장(입력 teams 근거).\n'
               '- 일하는 팀/쉬는 팀 판정·좌석 수는 쓰지 않는다 — 코드가 live(tmux 좌석·jsonl 실측)로 정한다.', 1200),
@@ -166,6 +173,7 @@ def build_prompt(data: dict, part: str) -> str:
     sub = {k: data[k] for k in inputs if k in data}
     return (PROMPT.replace("@RULES@", rules).replace("@DEPTH@", os.environ.get("FT_NEWS_DEPTH", "")).replace("@SCHEMA@", schema)
             .replace("@DATA@", json.dumps(sub, ensure_ascii=False, indent=1))
+            .replace("@GOALS_N@", str(len(data.get("goals") or [])))  # r668 — 골 개수는 입력(정본)이 정한다
             .replace("@SUM_CHARS@", str(summary_chars(prompt_status_line(data))) if part == "summary" else ""))
 
 
@@ -426,7 +434,7 @@ def call_model(data: dict) -> tuple[dict, dict[str, float], float]:
     for p, f in futs.items():
         got, secs[p] = f.result()
         content |= got
-    return add_status_line(check_content(content | bucket(content.pop("team_notes"), data.get("live")))), secs, fixed
+    return add_status_line(check_content(content | bucket(content.pop("team_notes"), data.get("live")), len(data.get("goals") or []))), secs, fixed
 
 
 def bucket(notes: object, live: object) -> dict[str, list[dict]]:
@@ -487,14 +495,14 @@ def _drop_to_fit(lines: list[str], dropped: list[str]) -> list[str] | None:
         lines = out[:-1]
 
 
-def check_content(c: dict) -> dict:
-    """합친 내용 꼴 검사 — 필수 키·꼴 어긋남·골 6 아님 = NewsHtmlError(자르기·채우기 0)."""
+def check_content(c: dict, goals_n: int) -> dict:
+    """합친 내용 꼴 검사 — 필수 키·꼴 어긋남·골 수 ≠ goals_n(정본 행 수) = NewsHtmlError(자르기·채우기 0 · r668: 6 상수 0)."""
     need = {"summary": str, "important": dict, "goals": dict, "working": dict, "unknown": dict, "resting": dict}
     for key, kind in need.items():
         if not isinstance(c.get(key), list) or not all(isinstance(x, kind) for x in c[key]):
             raise NewsHtmlError(f"응답 필수 키 없음·꼴 다름: {key}")
-    if len(c["goals"]) != 6 or any(not isinstance(g.get(k), str) for g in c["goals"] for k in ("done", "now", "left")):
-        raise NewsHtmlError(f"응답 goals {len(c['goals'])}개 — 6개·done/now/left 글이어야")
+    if len(c["goals"]) != goals_n or any(not isinstance(g.get(k), str) for g in c["goals"] for k in ("done", "now", "left")):
+        raise NewsHtmlError(f"응답 goals {len(c['goals'])}개 — {goals_n}개(정본 표 행 수)·done/now/left 글이어야")
     c["refs"] = [str(r) for r in c.get("refs") or []]
     return c
 
@@ -503,13 +511,16 @@ def _e(v: object) -> str:
     return html.escape(str(v or ""), quote=False)
 
 
-def _goal(n: int, meta: dict, g: dict) -> dict[str, str]:
+def _goal_card(n: int, meta: dict, g: dict) -> str:
+    """골 카드 1장(옛 틀의 6 카드 블록과 같은 모양·같은 들여쓰기) — r668: 카드 수 = 정본 행 수(6 고정 0) · 그림 6종을 돌려 쓴다."""
     left = g["left"].strip()
     tone = "hot" if g.get("hot") else ("done" if left in ("", "-", "없음") else "now")
     now = '<div class="step s-hot"><b>급한 불</b>' if g.get("hot") else '<div class="step s-now"><b>지금</b>'
     team = re.sub(r"\s*\([^)]*\)", "", str(meta.get("team", ""))).strip()
     track = "\n".join(f"        {a}{_e(b)}</div>" for a, b in (('<div class="step s-done"><b>끝남</b>', g["done"]), (now, g["now"]), ('<div class="step s-left"><b>남은 일</b>', left)))
-    return {f"G{n}_TONE": tone, f"G{n}_HEAD": _e(f"골 {n} · {team}"), f"G{n}_SAY": _e(meta.get("goal", "")), f"G{n}_TRACK": track}
+    icon = GOAL_ICONS[(n - 1) % len(GOAL_ICONS)].replace("@TONE@", tone)
+    return (f'  <section class="goal">\n    {icon}\n    <div class="body">\n      <span class="gnum">{_e(f"골 {n} · {team}")}</span>\n'
+            f'      <p class="say">{_e(meta.get("goal", ""))}</p>\n      <div class="track">\n{track}\n      </div>\n    </div>\n  </section>')
 
 
 def _work_card(t: dict) -> str:
@@ -525,6 +536,8 @@ def render(c: dict, goals: list[dict], now: datetime, autonomy: str = "모름") 
     if tpl is None:
         raise NewsHtmlError(f"틀 없음 news-team-map.html ({', '.join(map(str, TEMPLATES))})")
     vals = {"STAMP": f"{now:%m-%d %H:%M}", "LEAD": f"{now:%Y-%m-%d %H:%M} 기준 · 스크립트가 원장·카드·세션 상태·main 커밋을 모아 정리한 지도",
+            "GCOUNT": str(len(goals)),  # r668 — 절 머리의 골 개수도 정본 행 수를 따른다
+            "GOALS": "\n\n".join(_goal_card(n, meta, g) for n, (meta, g) in enumerate(zip(goals, c["goals"]), 1)),
             "IMPORTANT": "\n".join(f'      <li{HOT if x.get("hot") else ""}><div class="what"><strong>{_e(x.get("title"))}</strong>'
                                    f'<span>{_e(x.get("detail"))}</span></div><span class="who">{_e(x.get("who"))}</span></li>' for x in c["important"]),
             "WORKING": "\n".join(map(_work_card, c["working"])) or '  <p class="lead">지금 일하는 좌석 0 (tmux 좌석·jsonl 실측)</p>',
@@ -532,8 +545,6 @@ def render(c: dict, goals: list[dict], now: datetime, autonomy: str = "모름") 
             "RESTING": "\n".join(f'    <div class="team rest"><strong>{_e(t.get("team"))}</strong>{_e(t.get("text"))}</div>' for t in c["resting"]),
             "FOOT": _e(f"근거: {' · '.join(c['refs']) or '원장·카드·세션 상태·main 커밋'} · 자율 {autonomy} · 정리 {model_id()}"
                        + (f" · 빠진 줄 {len(c['dropped'])}개 — {'; '.join(c['dropped'])}" if c.get("dropped") else ""))}
-    for n, (meta, g) in enumerate(zip(goals, c["goals"]), 1):
-        vals |= _goal(n, meta, g)
     out = re.sub(r"\{\{(\w+)\}\}", lambda m: vals.get(m[1], m[0]), tpl.read_text(encoding="utf-8"))
     if left := re.findall(r"\{\{\w+\}\}", out):
         raise NewsHtmlError(f"틀 값 못 채움: {left[:3]}")

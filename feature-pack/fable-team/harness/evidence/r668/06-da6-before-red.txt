@@ -1,0 +1,28 @@
+== ⓓ DA⑥ r1(HOLD 5건) «전 빨강» — DA⑥ r1 대상 판(c3c3ef91) 코드에 «고친 뒤의 새 시험» 을 대면 H1~H4 칸이 이렇게 빨갛다 (r668)
+※ 방법: git worktree add /tmp/r668-da6-base c3c3ef91 --detach → 새 시험 2파일만 덮어쓰고 실행(코드는 c3c3ef91 그대로).
+
+### ① harness/tests/test_goal_count_follows_canon_r668.sh (c3c3ef91 코드 = 10 칸 빨강 · rc=1)
+FAIL ⓘ1 rc=1 :: ERROR 골 표 원장 행 수 5≠8 (gitref:origin/main:design/planner/PLAN-oppa-ledger.md 절 `## 메인 골 …줄` 첫 표 · N = 정본 표 행 수)
+FAIL ⓘ2 rc=0 :: WARN 골 번호 공지 못 함 — mbox 없음: $T
+FAIL ⓘ3b rc=0 :: GOAL-OK n=2
+FAIL ⓘ4 rc=0 :: WARN 골 번호 공지 못 함 — mbox 없음: $T
+FAIL ⓘ5c :: 
+FAIL ⓘ6 :: send master-a#1 ft-goal-table [골 번호 바뀜] 정본 2400061fad · 새 번호표 6줄: 1 — n1 · 2 — n2 · 3 — n3 · 4 — n4 · 5 — n5 · 6 — n6
+FAIL ⓘ6b rc=0 0s :: ★골 표 A6 (origin/main@76a6c734e1 · 원장:10-22 00:49)★
+FAIL ⓘ7a rc=0 :: send master-a#1 ft-goal-table [골 번호 바뀜] 정본 db11e8c234 · 새 번호표 6줄: 1 — q1 · 2 — q2 · 3 — q3 · 4 — q4 · 5 — q5 · 6 — q6
+FAIL ⓘ7b :: 
+FAIL ⓘ7c :: 
+
+### ② harness/tests/test_goal_table_gate.sh (c3c3ef91 코드 = 2 칸 빨강 · rc=1)
+FAIL ⓜ3 빈 셀 rc=0 :: ★골 표 A6 (file:fe3ae413e9 · 원장:10-22 00:50)★
+FAIL ⓕ r458 600/300 상한 등장
+
+### 대응(빨강 → 고침)
+- H1 정본 표 끝 멈춤 → ⓘ1 (base N=8 · 뒤쪽 절 표 2행까지 셈) / 원장 빈 칸 행 → ⓘ2 · ⓜ3 (base rc0 = 조용히 빠짐)
+- H2 옛 마커 sha 무조건 허용 → ⓘ3b (base 「GOAL-OK n=2」 = 5행 바뀐 판에 옛 6행/다른 번호표가 통과)
+- H3 «## 메인 골 참고» 도 그 절로 읽힘 → ⓘ4 (base WARN 0 = 절을 찾아버림)
+- H4① 표식 없는 첫 렌더 → ⓘ5c (base 공지 0 — 설치 직후 새 5행 판을 놓침)
+- H4② 잠금 없음 → ⓘ6 (base 동시 렌더 2건 = 4통 · 팀장 2명에게 중복)
+- H4③ 깨진 명부 조용히 제외 + 표식 전진 → ⓘ7a/7b/7c (base WARN 0 · 표식이 전진해 다시는 안 보냄)
+- H4④ 송신 timeout 없음 → ⓘ6b (base 0초 = 상한 없음)
+base: REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['aifp-multihost-master-claude#0', 'aifp-worker-master-claude#2'] :: {"seq": 3091, "ts": "2026-10-22T00:50:33", "to": "aifp-worker-master-claude#2", "from": "aifp-multihost-master-claude#0", "body": "[확인·정정 #3090] push �
