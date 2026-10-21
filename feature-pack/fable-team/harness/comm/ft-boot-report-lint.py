@@ -4,6 +4,7 @@
   ①승계(발신 이름 X#N 이고 명부에 X#N-1 행 있음, 또는 _replaces 있음)면 본문에 `retire=<구>-><후계> rc=0`(-> 또는 →) —
     구 ∈ {X#N-1, _replaces} · 후계 == 발신 좌석 · 구 행 _replaced_by == 발신 좌석(칸 글자가 아니라 명부 사실)
   ②발신 좌석 role 이 master·arch 면 `cron=<id>` 칸(BOOT 16)
+  ③planner 팀장(seats-planner.json `_master`)·desk(role=desk) 면 `adhd=O` 칸(BOOT 2·9 · r625) — 그 밖 좌석 검사 0
 설계 정본 = PLAN-planner-no-stall-20261012 r5 §4-2 · 명부 파일 선택 = mbox_guard.sh tfile 규칙(v65 → seats.json, 그 외 seats-<팀>.json)."""
 import argparse, json, os, re, sys
 from typing import NoReturn
@@ -59,6 +60,9 @@ def main():
             say("REJECT", "부팅 보고 반송 — retire 칸은 있는데 명부 미반영 — ft-seat-retire.sh " + old + " " + a.me + " 실행 뒤 다시")
     if (row or {}).get("role") in ("master", "arch") and not re.search(r"cron=[A-Za-z0-9_-]+", body):
         say("REJECT", "부팅 보고 반송 — cron 칸 없음: cron=<job id> (BOOT 16 — 부팅 보고 턴에 CronCreate)")
+    adhd_seat = (a.me == d.get("_master") and a.me.startswith(("byz-planner-", "ft-planner-"))) or (row or {}).get("role") == "desk"
+    if adhd_seat and not re.search(r"(?<![A-Za-z0-9_])adhd=O(?![A-Za-z0-9_])", body):
+        say("REJECT", "부팅 보고 반송 — adhd 칸 없음: adhd=O (i-have-adhd 로드 뒤 · BOOT 2·9)")
     say("OK")
 
 

@@ -1,0 +1,188 @@
+## test_boot_report_gate
+PASS ⓐ 승계 좌석 retire 칸 없음 → REJECT rc=3 · 큐 0 · 기대 칸 문구
+PASS ⓑ retire 칸 있음(->) → OK 큐 1행
+PASS ⓑ' retire 칸 있음(→) → OK
+PASS ⓒ 구 이름 불일치 → REJECT 불일치
+PASS ⓒ' 후계가 발신 좌석 아님 → REJECT
+PASS ⓓ _replaces 없는 좌석(나노) → 칸 없어도 OK
+PASS ⓔ master 승계 cron= 없음 → REJECT
+PASS ⓔ' master 승계 cron= 있음 → OK
+PASS ⓕ planner 앞 [부팅 보고] + 맞는 본문 → OK
+PASS ⓖ 명부 깨짐 → 전송 + WARN 1줄
+PASS 다른 머리는 검사 0
+PASS ⓗ1 후계 행 없음 + #N-1 행 있음 + 칸 없음 → REJECT 칸 없음
+PASS ⓗ2 칸은 있는데 구 행 _replaced_by 미반영 → REJECT 명부 미반영
+PASS ⓗ3 retire 실행 뒤(명부 갱신) + 칸 → OK
+PASS 변이1(lint 호출 제거) → ⓐ 빨강 확인(rc=0)
+PASS 변이2(구 이름 대조 제거) → ⓒ 빨강 확인(불일치 문구 소멸 rc=3)
+PASS 변이3(이름 판별 제거) → ⓗ1 빨강 확인(rc=0)
+PASS 변이4(명부 미반영 대조 제거) → ⓗ2 빨강 확인(rc=0)
+PASS R577-ⓐ 머리 붙은 부팅 보고 + retire 칸 아님 → REJECT rc=3·큐 0
+PASS R577-ⓑ [팀 master N번 부팅 보고] 산문 retire → REJECT
+PASS R577-ⓒ '[a->b] 부팅 보고:' + 올바른 칸 → OK
+PASS R577-ⓒ' 화살표가 → 인 머리도 같은 판정
+PASS R577-ⓓ 머리 없는 꼴 = 종전과 같은 판정
+PASS R577-ⓔ 첫 줄에 부팅 보고 없음 → 검사 0
+PASS R577-ⓕ [부팅] 등 다른 머리 → 검사 0
+PASS R577-ⓓ' 머리 없는 꼴 + 본문 화살표 → 여전히 검사함(REJECT)
+PASS R577-ⓓ'' 머리 없는 꼴 + 올바른 칸 → OK
+PASS 변이5(옛 발동 조건) → R577-ⓐ 빨강 확인(rc=0)
+PASS 변이5 → R577-ⓑ 빨강 확인(rc=0)
+PASS R625-ⓐ planner 팀장 adhd 칸 없음 → REJECT rc=3 · 큐 0 · 문구
+PASS R625-ⓑ desk adhd 칸 없음 → REJECT rc=3 · 큐 0
+PASS R625-ⓒ planner 팀장 adhd=O → OK 큐 1행
+PASS R625-ⓒ' desk adhd=O → OK 큐 1행
+PASS R625-ⓒ'' desk adhd=X(로드 안 함) → REJECT
+PASS R625-ⓓ harness master adhd 칸 없음 → OK(범위 밖)
+PASS R625-ⓓ' harness arch adhd 칸 없음 → OK(범위 밖)
+PASS 변이6(adhd 검사 제거) → R625-ⓐ 빨강 확인(rc=0)
+PASS bash -n mbox_guard.sh
+PASS py_compile lint
+PASS lint ≤80줄(      69)
+PASS mbox_guard.sh ≤200줄(     200)
+ALL PASS
+rc=0
+## test_da_hold_gate
+PASS bash -n ft-nano-spawn.sh
+PASS 키트 cmp 0 ft-nano-spawn.sh
+PASS bash -n ft-nano-close.sh
+PASS 키트 cmp 0 ft-nano-close.sh
+PASS bash -n ft-index-move.sh
+PASS 키트 cmp 0 ft-index-move.sh
+PASS 키트 cmp 0 ft_da_hold_gate.py
+PASS bash -n mbox_guard.sh
+PASS bash -n mbox_guard_da.sh
+PASS bash -n ft-index-lint.sh
+PASS ruff ft_da_hold_gate.py
+PASS mbox_guard.sh ≤ 200줄
+PASS 600/300 값 0
+PASS HOLD 0 → rc0
+PASS HOLD 1 사건 → rc0
+PASS r382d 꼴(⑥r1·⑥r2) → rc3 budget 0
+PASS v65 M7 꼴(r 없음 = r1 · 2사건) → rc3
+PASS cfo pg-pool 꼴(같은 키 재기록 2줄 → 1사건) → rc0
+PASS cfo reconcile 꼴(②r1·②r2·⑥r1 → 3사건) → rc3
+PASS 해석 못 하는 후보 줄 → UNPARSED rc3(fail-closed)
+PASS 재설계 줄은 카운트를 되돌리지 않는다 → rc3
+PASS 머리가 DA 가 아닌 줄은 후보 아님 → rc0
+PASS 유효 해제 1 → 예산 1 → rc0
+PASS 보류 쪽지(머리 다름/해제=1 없음) INVALID → rc3
+PASS 카드명만 언급한 쪽지 INVALID → rc3
+PASS from 이 명부 이름과 1글자 다름 INVALID → rc3
+PASS _hil_route(planner) 해제도 유효 → rc0
+PASS 다른 카드 이름 머리의 쪽지 → INVALID
+PASS 같은 seq 두 줄 → RELEASE-DUP
+PASS 없는 seq → INVALID(쪽지 없음)
+PASS 해제 뒤 arch 발주 줄은 소진이 아니다 → releases=1/0
+PASS 입장 검사(기록 0) → rc0
+PASS 입장 허용 + --record → rc0
+PASS 입장 줄 기록(단계r라운드 · 발주서 · 해제 seq · 시각)
+PASS 입장 줄 뒤 → 해제 소진 releases=1/1 budget_left=-1 rc3
+PASS 같은 (카드,단계,rN) 재입장 → DUP-ENTRY rc3
+PASS 소진된 해제로 다음 라운드 입장 → rc3(새 해제 필요)
+PASS 입장 줄 없는 옛 꼴: 해제 뒤 CLOSE 판정 줄도 소진
+PASS 발주 줄 없는 입장 → NO-ORDER-LINE rc3
+PASS 해제 없이 r3 이름만 바꾼 재발주 → rc3
+PASS 발주 줄·문맥 속 HOLD 글자는 사건이 아니다(사이 단계 기호·발주 금지) → events=1
+PASS 작성자·«사전» prefix 가 붙은 실제 줄 꼴도 사건으로 센다 → events=2
+PASS DA 와 HOLD 가 있는데 단계 기호 없음 → UNPARSED rc3
+PASS §10 ①: HOLD 2 → 해제 A → ⑥r1 입장 → HOLD(사건 3) → 해제 B → ⑥r2 입장 = rc0 (events=3 releases=2/1 budget_left=1)
+PASS §10 ①: 같은 상태에서 해제 B 없이 ⑥r2 입장 = rc3 (budget_left=0)
+PASS §10 ②: 해제 B 소진 뒤 ⑥r3 입장 = rc3 (events=4 releases=2/2 budget_left=0 · 새 해제 필요)
+PASS §10: 사건 < 2 면 기본 예산 2−사건(해제는 더하지 않는다) → budget_left=1
+PASS closing: 사건 2 · 해제 0 → rc3
+PASS closing: 소진된 유효 해제 있음 → rc0
+PASS closing: 사건 1 → rc0
+PASS 실제 v65 M7 카드 사본(작성자 prefix · r 없는 DA② HOLD + DA② r2 HOLD) → events=2
+  실제 카드 출력: HOLD events=2 reviews=4 releases=0/0 budget_left=0
+PASS 실제 cfo pg-pool 사본(②r1 · ⑥r1 두 단계) → events=2
+  실제 카드 출력: HOLD events=2 reviews=3 releases=0/0 budget_left=0
+PASS 실제 cfo reconcile 사본(②r1·②r2·⑥r1) → events=3
+  실제 카드 출력: HOLD events=3 reviews=3 releases=0/0 budget_left=0
+PASS 계보: 기록 없는 직전 세대(#67) 발신 해제 → INVALID
+  이 카드 출력: HOLD events=3 reviews=5 releases=1/1 budget_left=0 RELEASE-OK #108869 from=byz-harness-master-claude#67(계보 #67→#68)
+PASS 계보: 은퇴 기록 있는 직전 세대(#67 → #68) 해제 유효 · events=3 releases=1/1
+PASS 계보 라벨 from=…(계보 #67→#68) 출력
+PASS 계보: 다른 베이스 이름 기록은 무효
+PASS 계보: 현역보다 번호가 큰 이름은 무효
+PASS 가드: HOLD 2 카드 → REJECT DA 보류 2회 · 큐 적재 0
+REJECT 원문: REJECT DA 보류 2회 — 3번째 검증 0 · 재설계(상위 master·planner 의 [재설계 해제 <카드>.md] 쪽지 + 카드 «- 재설계 해제: #seq» 줄) 또는 리서치 나노(ft-nano-spawn <카드> --agent opencode --model deepseek/deepseek-v4-flash --research) · BOOT 40 · HOLD events=2 rev
+PASS 가드: HOLD 1 카드 → 큐 적재
+PASS 가드: 입장 허용 순간 카드에 «- DA 입장:» 줄 기록
+PASS 가드: 같은 (카드,단계,rN) 두 번째 → REJECT DUP-ENTRY · 큐 적재 0
+PASS 가드: [DA⑥ r2 발주 · 마지막] 머리 매치 → 통과
+PASS 가드: - 카드: 줄 0개 → REJECT(fail-closed)
+PASS 가드: - 카드: 줄 2개 → REJECT
+PASS 가드: 없는 파일 → REJECT
+PASS 가드: 카드에 같은 rN 발주 줄 없음 → REJECT
+PASS 가드: UNPARSED 줄 → REJECT(fail-closed)
+PASS 가드: DA 수신자가 아니면 검사 0
+PASS 가드: [HIL] 은 대상 밖
+PASS 가드: 판정기 bash shim → 큐 적재 1 · «- DA 입장:» 줄(R389 ⓒ)
+PASS 가드: 판정기 부재 → REJECT(fail-closed)
+PASS 가드: 본체 파일 부재 → DA 발주 REJECT(설치 순서)
+PASS lint ⓓ: HOLD 2 + 재설계/리서치 줄 없음 → INFO 1줄(REJECT 아님)
+PASS lint: 재설계 줄 있으면 INFO 0
+PASS lint: 위반 뒤 새 워커 없이 채택 → REJECT
+PASS lint: 새 워커 줄 뒤 채택 → OK
+PASS index-move: 리서치 닫힘 줄 없음 → REJECT 리서치 좌석 열림
+PASS index-move: 닫힘 줄에 left=0·kill rc=0 없음 → REJECT
+PASS index-move: 사건 2 · 해제 0 → REJECT DA 보류 가드: HOLD events=2(r456 판정기 첫 줄)
+PASS index-move: 닫힘 줄(kill rc=0) + 보류 0 → 이 게이트 통과(뒤 검사로 진행)
+PASS close: 위반 검사 python 블록 추출
+PASS close: 허용 밖 커밋·작업트리 변경만 «리서치 위반» 으로 기록(허용 경로 제외)
+PASS close: 허용 경로(RESEARCH-*.md)만 → 위반 0
+PASS close: 닫힘 줄 기록 + opencode reap 연결 실재
+PASS close: 닫힘 블록 추출
+PASS close: reap(left=1 · rc1) → CLOSE-FAIL 출력 + exit 1 + 카드 원문(도구 없음으로 흡수 0)
+PASS close: reap(left=0 · rc0) → 닫힘 줄 left=0
+PASS close: left=0 인데 rc2 → CLOSE-FAIL
+PASS close: reap 도구 미설치만 «도구 없음»
+PASS close: Fable 좌석 → kill rc=0 줄
+FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 7 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+FAIL staged main-team-governance.md: 홈 대비 삭제 5 줄(홈이 바뀐 뒤 사본을 다시 뜬다)
+PASS spawn --research --dry-run(Fable): 이름 꼬리 -research · 고정 문단 · 허용 경로
+PASS spawn --research opencode + reap 도구 없음 → REJECT 원문
+PASS spawn --research opencode + reap 도구 있음 → 통과
+PASS spawn --research 는 진행/ 부모 카드만
+PASS spawn 기본(--research 없음): 진행/ 카드는 여전히 REJECT
+fail=2
+rc=1
+## test_r66_codex_serena_boot
+PASS staged 존재
+FAIL ① 홈 BOOT sha=5f7423f0813db583 — 기준 329582414d727dd5 도 스테이징(aa31a07120bb41ac)도 아님(그사이 다른 판정이 바꿈)
+PASS ② 1번 줄에 «activate_project(project=»
+PASS ② 1번 줄에 «session_id 가 없다»
+PASS ② 1번 줄에 «headroom_retrieve»
+PASS ③ Claude 경로 문장(session_id=…) 유지
+grep: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r625-planner-desk-boot-adhd-load-and-rep/feature-pack/fable-team/harness/tests/../../docs/rules/serena-mcp-usage.md: No such file or directory
+FAIL ④ serena-mcp-usage.md 에 codex·activate_project 줄 없음
+PASS ⑤ 홈 BOOT 쓰기 0
+FAILED=2
+rc=2
+## test_r555_serena_ensure_port
+PASS ⓐ rc=0 (좌석 포트 기록 있음)
+PASS ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ESNLoaYSTz/proj/.worktrees/v6-realtime-live)
+PASS ⓐ ensure 인자에 ROOT 가 아님
+PASS ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»
+PASS ⓑ 기록 없음 rc=2
+PASS ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»
+PASS ⓑ die 문구에 처방(ensure <경로>)
+PASS ⓒ 맞는 경로 명시 rc=0
+PASS ⓒ 명시 경로가 그대로 렌더
+PASS ⓒ 포트 불일치(other=9259) rc=2
+PASS ⓒ die 문구에 계산 포트
+PASS ⓓ url 없음 rc=0
+PASS ⓓ 맞출 대상 없음 = ROOT 그대로
+PASS ⓓ stderr WARN 1줄
+PASS ⓔ plutil -lint OK
+PASS ⓔ AbandonProcessGroup true
+PASS ⓔ 템플릿에 옛 자리표 __ROOT__ 없음
+PASS ⓕ BOOT 줄 수 불변
+FAIL ⓕ diff 한 덩이(매핑표 무변경) — «2» ≠ «1»
+PASS ⓕ 1번 줄 인자 이름 = session
+PASS ⓕ 1번 줄에 «session 없이» 문구
+PASS ⓕ 1번 줄에 옛 인자 «session_id=…» 없음
+FAILED=1
+rc=1
+py_compile OK

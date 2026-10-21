@@ -130,6 +130,39 @@ send_from "$ARCH" "$PM" "$LEAD [부팅 보고] 세션=x retire rc=0 cron=abc1234
 send_from "$ARCH" "$PM" "[harness master 33번 부팅 보고] 세션=x retire=$ARCH_OLD->$ARCH 후계 보고로 대체"
 [ "$RC" = 0 ] && ok "변이5 → R577-ⓑ 빨강 확인(rc=0)" || bad "변이5 가 R577-ⓑ 에 안 잡힘 rc=$RC :: $OUT"
 
+# ── R625 planner 팀장(seats-planner.json `_master`)·desk(role=desk) 부팅 보고 = `adhd=O` 칸 필수(BOOT 2·9) — 그 밖 좌석 판정 그대로
+PM_='byz-harness-pm-claude#1'; PMASTER='byz-planner-master-claude#9'; DESK='byz-planner-desk-claude#34'
+PRET="retire=byz-planner-master-claude#8->$PMASTER rc=0"; DRET="retire=byz-planner-desk-claude#33->$DESK rc=0"
+ADHD_MSG='adhd 칸 없음: adhd=O (i-have-adhd 로드 뒤 · BOOT 2·9)'
+# ⓐ (실패 시험 먼저) planner `_master` · retire·cron 있고 adhd 칸 없음 → REJECT 문구 ⓐ · 큐 0
+new_env adhd_boot; send_from "$PMASTER" "$PM_" "$BASE $PRET cron=abc12345"
+[ "$RC" = 3 ] && [ "$(queued_to "$PM_")" = 0 ] && case "$OUT" in *"$ADHD_MSG"*) true;; *) false;; esac \
+  && ok "R625-ⓐ planner 팀장 adhd 칸 없음 → REJECT rc=3 · 큐 0 · 문구" || bad "R625-ⓐ rc=$RC q=$(queued_to "$PM_") :: $OUT"
+# ⓑ role=desk · adhd 칸 없음 → REJECT
+new_env adhd_boot; send_from "$DESK" "$PM_" "$BASE $DRET"
+[ "$RC" = 3 ] && [ "$(queued_to "$PM_")" = 0 ] && case "$OUT" in *"$ADHD_MSG"*) true;; *) false;; esac \
+  && ok "R625-ⓑ desk adhd 칸 없음 → REJECT rc=3 · 큐 0" || bad "R625-ⓑ rc=$RC :: $OUT"
+# ⓒ 같은 두 좌석 · adhd=O 있음 → OK 큐 1행
+new_env adhd_boot; send_from "$PMASTER" "$PM_" "$BASE $PRET cron=abc12345 adhd=O"
+[ "$RC" = 0 ] && [ "$(queued_to "$PM_")" = 1 ] && ok "R625-ⓒ planner 팀장 adhd=O → OK 큐 1행" || bad "R625-ⓒ rc=$RC :: $OUT"
+new_env adhd_boot; send_from "$DESK" "$PM_" "$BASE $DRET adhd=O"
+[ "$RC" = 0 ] && [ "$(queued_to "$PM_")" = 1 ] && ok "R625-ⓒ' desk adhd=O → OK 큐 1행" || bad "R625-ⓒ' rc=$RC :: $OUT"
+new_env adhd_boot; send_from "$DESK" "$PM_" "$BASE $DRET adhd=X"
+[ "$RC" = 3 ] && ok "R625-ⓒ'' desk adhd=X(로드 안 함) → REJECT" || bad "R625-ⓒ'' rc=$RC :: $OUT"
+# ⓓ 다른 팀 master·arch(harness) adhd 칸 없음 → 지금처럼 OK(범위 = planner 팀장·desk 만)
+new_env adhd_boot; send_from 'byz-harness-master-claude#0' "$PM_" "$BASE cron=abc12345"
+[ "$RC" = 0 ] && ok "R625-ⓓ harness master adhd 칸 없음 → OK(범위 밖)" || bad "R625-ⓓ rc=$RC :: $OUT"
+new_env adhd_boot; send_from 'byz-harness-arch-claude#0' "$PM_" "$BASE cron=abc12345"
+[ "$RC" = 0 ] && ok "R625-ⓓ' harness arch adhd 칸 없음 → OK(범위 밖)" || bad "R625-ⓓ' rc=$RC :: $OUT"
+# 변이 6: adhd 검사 제거 → R625-ⓐ 빨강(rc=0)
+new_env adhd_boot; python3 - "$ENVROOT/.fable-team/comm/ft-boot-report-lint.py" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(s.replace("if adhd_seat and", "if False and"))
+PY
+send_from "$PMASTER" "$PM_" "$BASE $PRET cron=abc12345"
+[ "$RC" = 0 ] && ok "변이6(adhd 검사 제거) → R625-ⓐ 빨강 확인(rc=0)" || bad "변이6 이 R625-ⓐ 에 안 잡힘 rc=$RC :: $OUT"
+
 # 문법·크기
 bash -n "$SRC/mbox_guard.sh" 2>/dev/null && ok "bash -n mbox_guard.sh" || bad "bash -n mbox_guard.sh"
 python3 -m py_compile "$SRC/ft-boot-report-lint.py" 2>/dev/null && ok "py_compile lint" || bad "py_compile lint"
