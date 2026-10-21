@@ -14,6 +14,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
+# ⓪ 전팀 정지(r626 DA⑥ r1 Q1) — 첫 검사 · 켜짐·깨짐이면 다른 검사 없이 막힘 1 (장치 허가 검사는 그대로)
+[ -e "$ROOT/.fable-team/state/ALL_STOP.json" ] && { _as="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { say "✗" "⓪ $_as"; exit 1; }; }
 # ⑥ 기준선(Issue #834 · DESIGN-834-baseline-gate-arch165.md §7 r2) — 카드가 가리키는 v65 기본 동작 기준선 없이는 발사 0. 값 검사 본체는 ft-press-baseline-check.sh.
 _baseline_gate(){
   local out rc

@@ -36,6 +36,9 @@ for f in glob.glob(sys.argv[1]+"/.fable-team/seats*.json"):
     except Exception: continue
     if any(k.startswith("_") and v==sys.argv[2] for k,v in d.items() if isinstance(v,str)): sys.exit(0)
 sys.exit(1)' "$_rgroot" "$OLD" 2>/dev/null; then _rgsucc="--succession"; fi
+# ★전팀 정지 게이트 (r626 DA⑥ r1 Q1)★: 정지 중엔 «진짜 승계»(구 좌석이 명부에 있고 새 이름 = 같은 계보 #N+1)만 연다 — 그 밖 새 이름은 REJECT(부작용 전 · 판정 = ft_all_stop.py true_succession).
+_asr="${FT_ROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}"
+[ -e "$_asr/.fable-team/state/ALL_STOP.json" ] && { _aout="$(FT_ROOT="$_asr" bash "$HERE/ft-all-stop.sh" check --succession "$OLD" "$NAME" 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; printf '%s\n' "$_aout" >&2; }
 # ★R342 arch 상시 게이트★: 교대 대상이 «arch 상시» 팀의 `_master`·`_desk` 인데 그 팀 `_arch` 가 라이브가 아니면 열지 않는다(부작용 전). `_arch` 자신의 교대·표 «없음» 팀·명부에 없는 좌석은 통과 — 판정기 하나 = ft_teamset.py arch-live.
 _agout="$(python3 "$HERE/ft_teamset.py" arch-live --root "$_rgroot" --md "${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}" --seat "$OLD" 2>&1)"; _agrc=$?
 [ "$_agrc" = 0 ] || { [ "$_agrc" = 3 ] && echo "REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(아래 «→ 열기» 명령 · R437) · $_agout" || echo "REJECT arch 판정 실패(rc=$_agrc) · $_agout"; exit 1; }

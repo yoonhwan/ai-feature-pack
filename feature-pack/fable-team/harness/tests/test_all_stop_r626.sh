@@ -98,6 +98,23 @@ H="$TMP/h7"; printf 'bash /r/.fable-team/bin/ft-all-stop.sh on "점검"\n' > "$H
 deny  "byz-aa-master-claude#1" "$(mkbash "bash $H")"; ck "ⓖ 좌석이 bash /tmp/hN(정지 켜기) 실행 = deny" $?
 allow "byz-planner-master-claude#9" "$(mkbash "bash $H")"; ck "ⓖ planner _master 가 hN 실행 = 통과" $?
 guard "byz-aa-master-claude#1" "$(mkbash 'bash .fable-team/bin/ft-autonomy.sh on')"; echo "$out" | grep -q '자율 모드 상태 파일'; ck "ⓖ 기존 자율 막기 문구 그대로" $?
+# DA⑥ r1 Q2 — 실행 꼴·지우기·옮기기 (위협 모델 안 = 평범한 한 줄)
+deny  "byz-aa-master-claude#1" "$(mkbash 'python3 /r/.fable-team/bin/ft_all_stop.py off')"; ck "Q2 python3 ft_all_stop.py off = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash 'sh /r/.fable-team/bin/ft-all-stop.sh on "x"')"; ck "Q2 sh ft-all-stop.sh on = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash '/r/.fable-team/bin/ft-all-stop.sh off')"; ck "Q2 직접 경로 off = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash 'cd /r && python3 .fable-team/bin/ft_all_stop.py on 점검')"; ck "Q2 python3 ft_all_stop.py on = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash 'rm -f /r/.fable-team/state/ALL_STOP.json')"; ck "Q2 rm ALL_STOP.json = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash 'mv /r/.fable-team/state /tmp/x')"; ck "Q2 mv .fable-team/state 폴더 = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash 'rm -rf .fable-team/state/')"; ck "Q2 rm -rf .fable-team/state/ = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash "python3 -c \"import os; os.remove('/r/.fable-team/state/ALL_STOP.json')\"")"; ck "Q2 python -c os.remove 문자열 = deny" $?
+deny  "byz-aa-master-claude#1" "$(mkbash "python3 - <<'EOF'
+from pathlib import Path
+Path('/r/.fable-team/state/ALL_STOP.json').unlink()
+EOF")"; ck "Q2 python heredoc unlink = deny" $?
+deny  "byz-planner-master-claude#9" "$(mkbash "python3 -c \"import shutil; shutil.move('/r/.fable-team/state/ALL_STOP.json','/tmp/y')\"")"; ck "Q2 planner 도 python shutil 옮기기 = deny(도구로만)" $?
+allow "byz-planner-master-claude#9" "$(mkbash 'python3 /r/.fable-team/bin/ft_all_stop.py off')"; ck "Q2 planner _master python 꼴 off = 통과" $?
+allow "byz-aa-master-claude#1" "$(mkbash 'python3 /r/.fable-team/bin/ft_all_stop.py status')"; ck "Q2 좌석 python 꼴 status = 통과" $?
+allow "byz-aa-master-claude#1" "$(mkbash 'mv /r/.fable-team/state/x.json /r/.fable-team/state/y.json')"; ck "Q2 상태 폴더 안 다른 파일 mv = 통과" $?
 unset TMUX
 
 # ── 변이: 막기 3곳 검사 줄을 하나씩 지우면 빨강 ──
@@ -112,7 +129,44 @@ for f in ft-nano-spawn.sh ft-role-spawn.sh ft-press-permit.sh; do
   esac
   ! cmp -s "$BIN/$f" "$M/$f" && ! echo "$out" | grep -q '전팀 정지 중' && echo "$out" | grep -q "$pass"; ck "변이 $f 검사 줄 제거 → 막기 0 · 뒤 단계 도달(시험이 잡는다)" $?
 done
+
+# ── DA⑥ r1 Q1 열기 길 · press 게이트 (정지 켜진 채) ──
+printf 'g1\ng2\ng3\n본문\n' > "$TMP/body.txt"
+succ() { out="$(cd "$REPO" && FT_SO_WAIT_MAX=1 FT_SO_POLL=0 bash "$BIN/ft-successor-open.sh" "$1" "$REPO" --name "$2" --agent claude --model m --body-file "$TMP/body.txt" 2>&1)"; rc=$?; }
+succ "byz-aa-master-claude#1" "byz-aa-nano-x#0"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 새 이름 = REJECT rc1" $?
+succ "byz-aa-master-claude#1" "byz-aa-master-claude#3"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 계보 건너뜀(#1→#3) = REJECT" $?
+succ "byz-zz-master-claude#1" "byz-zz-master-claude#2"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 명부에 없는 구 좌석 = REJECT" $?
+succ "byz-aa-master-claude#1" "byz-aa-master-claude#2"; ! echo "$out" | grep -q '^REJECT 전팀 정지' && echo "$out" | grep -q '진짜 승계'; ck "Q1 successor-open 진짜 승계(#1→#2 · 명부 있음) = 통과" $?
+out="$(cd "$REPO" && bash "$BIN/ft-tmux-spawn.sh" --root "$REPO" --name byz-aa-worker-claude#0 --role worker 2>&1)"; rc=$?
+[ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 tmux-spawn = REJECT rc1" $?
+out="$(FT_PRESS_WT="$REPO" FT_PRESS_ROOT="$REPO" bash "$BIN/ft-press-gate.sh" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && echo "$out" | grep -q '전팀 정지 중'; ck "Q1 press-gate = 막힘 rc1(첫 검사)" $?
 as off
+
+# ── DA⑥ r1 Q3 깨진 상태 = 정지(읽기 이상) ──
+for bad in 'null' '[]' '7' '' '{bad'; do
+  printf '%s' "$bad" > "$AS"; as check
+  [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중(상태 파일 읽기 이상' && ! echo "$out" | grep -q Traceback; ck "Q3 상태 «${bad}» = check rc1 사유 1줄(traceback 0)" $?
+done
+as status; [ "$rc" = 0 ] && echo "$out" | grep -q '^all_stop=on(읽기 이상'; ck "Q3 깨진 상태 status = on(읽기 이상)" $?
+as off; [ "$rc" = 0 ] && [ ! -e "$AS" ]; ck "Q3 깨진 상태도 off 로 치움" $?
+mkdir "$AS"; nano; [ "$rc" = 1 ] && echo "$out" | grep -q '전팀 정지 중'; ck "Q3 상태 경로가 폴더 = nano-spawn REJECT" $?
+role; [ "$rc" = 1 ] && echo "$out" | grep -q '전팀 정지 중'; ck "Q3 상태 경로가 폴더 = role-spawn REJECT" $?
+rmdir "$AS"
+
+# ── DA⑥ r1 Q4 통지 실패 = rc3 + notify_failed · 재실행 = 실패분만 ──
+printf '#!/usr/bin/env bash\nprintf "%%s\\t" "$@" >> "%s"; echo >> "%s"\ncase "$2" in *bb-master*) [ -e "%s/bbfail" ] && exit 1;; esac\nexit 0\n' "$MAIL" "$MAIL" "$TMP" > "$TMP/mbox.sh"
+: > "$TMP/bbfail"; : > "$MAIL"
+as on "통지 시험"; [ "$rc" = 3 ] && echo "$out" | grep -q '상태 바뀜 · 통지 실패 1: byz-bb-master-claude#2' && [ -e "$AS" ]; ck "Q4 on 통지 실패 = rc3 · 상태는 켜짐" $?
+python3 -c 'import json,sys;assert json.load(open(sys.argv[1]))["notify_failed"]==["byz-bb-master-claude#2"]' "$AS" 2>/dev/null; ck "Q4 notify_failed 기록" $?
+rm -f "$TMP/bbfail"; : > "$MAIL"; cp "$AS" "$TMP/as1"
+as on "통지 시험"; [ "$rc" = 0 ] && [ "$(grep -c . "$MAIL")" = 1 ] && grep -q 'byz-bb-master-claude#2' "$MAIL"; ck "Q4 재실행 on = 실패분만 재통지 rc0" $?
+python3 -c 'import json,sys;a,b=(json.load(open(p)) for p in sys.argv[1:]);assert a["notify_failed"]==[] and a["since"]==b["since"]' "$AS" "$TMP/as1" 2>/dev/null; ck "Q4 재통지 뒤 notify_failed 비움 · since 그대로" $?
+: > "$TMP/bbfail"; : > "$MAIL"
+as off; [ "$rc" = 3 ] && echo "$out" | grep -q '통지 실패 1: byz-bb-master-claude#2' && [ ! -e "$AS" ]; ck "Q4 off 통지 실패 = rc3 · 상태는 꺼짐" $?
+rm -f "$TMP/bbfail"; : > "$MAIL"
+as off; [ "$rc" = 0 ] && [ "$(grep -c . "$MAIL")" = 1 ] && grep 'byz-bb-master-claude#2' "$MAIL" | grep -q '재개'; ck "Q4 재실행 off = 실패분만 «재개» 재통지" $?
+: > "$MAIL"; as off; [ "$rc" = 0 ] && [ ! -s "$MAIL" ]; ck "Q4 실패분 없으면 off 재실행 통지 0" $?
 
 echo "fail=$fail"; [ "$fail" = 0 ] && echo "ALL PASS"
 exit "$fail"
