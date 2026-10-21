@@ -1,4 +1,8 @@
-PASS kit==bin ft_news_html.py (d7da7d27b6e9a712)
-PASS kit==bin ft_news_ledger.py (2da353c52597fa83)
+PASS dirs exist
+PASS tracked bin ⊂ kit bin (bytes+mode)
+PASS shim-exec lint: OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
 PASS control: mode diff detected
 ALL PASS
