@@ -25,6 +25,8 @@ BIN="$T/bin"; BIN2="$T/bin-stublint"; mkdir -p "$BIN" "$T/fake" "$T/comm/bodies"
 for f in ft-nano-spawn.sh ft-index-lint.sh ft-index-lint-install.sh ft-proposal-gate.sh ft-index-move.sh ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py ft-nano-cherry-gate.sh ft-nano-spawn-undo.sh ft-resource-gate.sh ft_raised.py ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp "$SRC/$f" "$BIN/" 2>/dev/null; done
 printf '#!/usr/bin/env bash\necho "$2" > "%s/body.txt"; exit 0\n' "$T" > "$BIN/ft-send-verified.sh"   # 발주 BODY 를 잡는다
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-agent-ready.sh"   # R251 필수 형제 — 기동 확인 자체는 test_spawn_agent_ready.sh 가 본다
+. "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$SRC" "$BIN" || bad "r686 사본 source 대상 채우기"   # r686: 고른 도구가 source 하는 같은 폴더 lib(r672 swap · research-seat …)
+printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-all-stop.sh"   # r626 DA⑥ r2·r686: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 rc127 · 이 시험 주제 밖이라 통과 스텁(test_nano_team_env 와 같은 꼴)
 cp -R "$BIN" "$BIN2"; printf '#!/usr/bin/env bash\necho "OK stub-lint $1"; exit 0\n' > "$BIN2/ft-index-lint.sh"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 cat > "$T/fake/tmux" <<'EOF'
