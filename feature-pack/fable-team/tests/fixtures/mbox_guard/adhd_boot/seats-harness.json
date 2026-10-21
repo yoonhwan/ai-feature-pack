@@ -1,0 +1,5 @@
+{
+  "byz-harness-master-claude#0": {"role": "master"},
+  "byz-harness-arch-claude#0": {"role": "arch"},
+  "byz-harness-pm-claude#1": {"role": "pm"}
+}

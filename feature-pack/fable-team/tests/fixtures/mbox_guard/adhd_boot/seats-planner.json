@@ -1,0 +1,8 @@
+{
+  "_master": "byz-planner-master-claude#9",
+  "_desk": "byz-planner-desk-claude#34",
+  "byz-planner-master-claude#8": {"role": "stop-ready", "_retired_role": "master", "_replaced_by": "byz-planner-master-claude#9"},
+  "byz-planner-master-claude#9": {"role": "master", "_replaces": ["byz-planner-master-claude#8"]},
+  "byz-planner-desk-claude#33": {"role": "stop-ready", "_retired_role": "desk", "_replaced_by": "byz-planner-desk-claude#34"},
+  "byz-planner-desk-claude#34": {"role": "desk", "_replaces": ["byz-planner-desk-claude#33"]}
+}

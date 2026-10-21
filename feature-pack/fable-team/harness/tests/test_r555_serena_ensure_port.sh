@@ -101,19 +101,12 @@ PY
 )" "True" "ⓔ AbandonProcessGroup true"
 hasnt "$(cat "$TPL")" "__ROOT__" "ⓔ 템플릿에 옛 자리표 __ROOT__ 없음"
 
-# ── ⓕ BOOT 1번 줄 = session (줄 수 불변 · 매핑표 무변경)
-BASE_BOOT="$T/base-boot.md"
-if git -C "$REPO" show origin/main:feature-pack/tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md > "$BASE_BOOT" 2>/dev/null; then
-  eq "$(wc -l < "$BOOT")" "$(wc -l < "$BASE_BOOT")" "ⓕ BOOT 줄 수 불변"
-  d="$(diff "$BASE_BOOT" "$BOOT")"
-  eq "$(printf '%s\n' "$d" | grep -c '^[0-9]')" 1 "ⓕ diff 한 덩이(매핑표 무변경)"
-  line1="$(grep -m1 '^1\. \*\*Serena\*\*' "$BOOT")"
-  has "$line1" "session=" "ⓕ 1번 줄 인자 이름 = session"
-  has "$line1" "session 없이" "ⓕ 1번 줄에 «session 없이» 문구"
-  hasnt "$line1" "session_id=…" "ⓕ 1번 줄에 옛 인자 «session_id=…» 없음"
-else
-  bad "ⓕ base BOOT 를 git show 로 못 읽음"
-fi
+# ── ⓕ BOOT 1번 줄 = session (1번 Serena 조항 문구만 — 다른 조항 변경과 무관 · r625)
+eq "$(grep -c '^1\. \*\*Serena\*\*' "$BOOT")" 1 "ⓕ 1번 조항 1개"
+line1="$(grep -m1 '^1\. \*\*Serena\*\*' "$BOOT")"
+has "$line1" "session=" "ⓕ 1번 줄 인자 이름 = session"
+has "$line1" "session 없이" "ⓕ 1번 줄에 «session 없이» 문구"
+hasnt "$line1" "session_id=…" "ⓕ 1번 줄에 옛 인자 «session_id=…» 없음"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"
