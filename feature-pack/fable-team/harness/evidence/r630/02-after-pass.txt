@@ -1,0 +1,20 @@
+# 후 = 가지 HEAD (rebase 뒤 · base 5752dfd3)
+============================= test session starts ==============================
+platform darwin -- Python 3.11.14, pytest-9.0.3, pluggy-1.6.0 -- /opt/homebrew/opt/python@3.11/bin/python3.11
+rootdir: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r630-mailbox-ring-full-alarm-all-rosters/feature-pack/fable-team/harness/tests/scripts
+plugins: langsmith-0.8.0, asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+test_r630_queue_full_watch.py::test_a_desk_only_in_planner_roster_alerts_planner_master PASSED [ 11%]
+test_r630_queue_full_watch.py::test_b_same_signature_no_resend_then_growth_or_new_oldest_resends PASSED [ 22%]
+test_r630_queue_full_watch.py::test_c_seven_or_less_is_silent PASSED     [ 33%]
+test_r630_queue_full_watch.py::test_c2_nano_in_main_roster_alerts_its_team_master PASSED [ 44%]
+test_r630_queue_full_watch.py::test_f_broken_roster_errors_and_watch_of_others_goes_on PASSED [ 55%]
+test_r630_queue_full_watch.py::test_a2_tick_pass_calls_queue_full_watch_and_dry_run_sends_nothing PASSED [ 66%]
+test_r630_queue_full_watch.py::test_d_ring_drop_writes_drops_ledger_line PASSED [ 77%]
+test_r630_queue_full_watch.py::test_e_slack_full_deferral_to_desk_mails_planner_master_once_per_item PASSED [ 88%]
+test_r630_queue_full_watch.py::test_e2_full_seat_is_its_own_and_planner_master_warns_without_mail PASSED [100%]
+
+============================== 9 passed in 5.36s ===============================
+rc=0

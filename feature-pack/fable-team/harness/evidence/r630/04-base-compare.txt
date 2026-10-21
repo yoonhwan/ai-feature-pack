@@ -1,0 +1,17 @@
+# 새 base = 5752dfd3 (origin/main · git archive 사본 + 빈 git init) vs 가지 — 빨강 시험만
+base test_ft_tick_master_seat.sh rc=44 fails=44 [1c56ee3f]
+branch test_ft_tick_master_seat.sh rc=44 fails=44 [1c56ee3f]
+base test_team_tick_unify.sh rc=2 fails=2 [9281e6c2]
+branch test_team_tick_unify.sh rc=2 fails=2 [9281e6c2]
+base test_mbox_v2_guard.sh rc=1 fails=12 [63eefd88]
+branch test_mbox_v2_guard.sh rc=1 fails=12 [63eefd88]
+base test_slack_readonly_share.sh rc=1 fails=1 [83ab4cfe]
+branch test_slack_readonly_share.sh rc=1 fails=1 [83ab4cfe]
+팩 test/mbox-guard.sh run1 (둘 다 git 밖 사본 · 같은 자리 조건) base: PASS=78 FAIL=18 [T23c T28 T32a T32c T32d ] · branch: PASS=78 FAIL=18 [T23c T28 T32a T32c T32d ] · FAIL 줄 동일
+팩 test/mbox-guard.sh run2 (둘 다 git 밖 사본 · 같은 자리 조건) base: PASS=78 FAIL=18 [T23c T28 T32a T32c T32d ] · branch: PASS=77 FAIL=19 [T23c T28 T31 T32a T32c T32d ] · FAIL 줄 다름
+팩 test/mbox-guard.sh base run3: PASS=78 FAIL=18 [T23c T28 T32a T32c T32d ]
+팩 test/mbox-guard.sh base run4: PASS=78 FAIL=18 [T23c T28 T32a T32c T32d ]
+팩 test/mbox-guard.sh base run5: PASS=78 FAIL=18 [T23c T28 T32a T32c T32d ]
+팩 test/mbox-guard.sh base run6: PASS=76 FAIL=20 [T23c T24a T24b T28 T32a T32c T32d ]
+→ 고정 FAIL 18(T23c·T28·T32a·T32c·T32d) = base·가지 동일 · T24a/T24b/T31(doorbell = 실 tmux 좌석 판정)은 base 에서도 흔들림(run6) — 이 카드 무관
+주: 03 의 test_question_board fails=1 은 «FAILS 0» 요약 줄이 grep 에 걸린 것(rc=0 · ALL PASS)

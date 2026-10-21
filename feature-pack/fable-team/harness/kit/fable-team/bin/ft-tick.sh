@@ -470,6 +470,19 @@ renamed_watch() {   # r468 — 옛 계보 우편 «있음» 을 새 명부 _mast
   echo "$sig" > "$sigf"
 }
 
+# ★r630 우편함 거의 참★ — 모든 명부(seats*.json · desk 가 있는 planner 명부 포함) 좌석의 미읽음이 ring-2(8)건+ 이면 그 팀 _master 에 1통.
+#   서명(건수·가장 오래된 seq)이 바뀔 때만 다시 · 판별은 형제 ft_queue_watch.py · 명부 깨짐 = ERROR 줄 + 그 명부만 건너뜀. FT_TICK_QUEUE_FULL=0 으로 끔.
+queue_full_watch() {
+  local out rc
+  [ "${FT_TICK_QUEUE_FULL:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=queue-full"; return 0; fi
+  out="$(python3 -I "$HERE/ft_queue_watch.py" scan --mbox "$MBOX" --rosters "$(dirname "$SEATS")" --state "${FT_TICK_QUEUE_FULL_STATE:-$(dirname "$SEATS")/state/queue-watch.json}" 2>&1)"; rc=$?
+  [ "$rc" = 0 ] || echo "$(date '+%F %T') queue_full_watch: ERROR rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+  printf '%s\n' "$out" | grep -E '^(ERROR|WARN) ' | sed "s/^/$(date '+%F %T') queue_full_watch: /" >&2
+  printf '%s\n' "$out" | grep '^SENT ' | while IFS= read -r l; do log "queue_full_watch: $l"; done
+  return 0
+}
+
 # ★r529 오빠 큐 재질문★ — 보여준 지 60분 넘은 «대기» 줄·재확인 시각 지난 «보류» 줄을 그 팀 명부 _master 에 [재질문] 1통
 #   (ft-queue.sh remind · 팀 - = planner _master · 같은 줄 60분 안 반복 0 · 자율 ON = 쪽지 0 · 아침 묶음 줄만 r291). FT_TICK_QUEUE=0 으로 끔 · FT_TICK_QUEUE_MIN(60).
 queue_watch() {
@@ -776,6 +789,7 @@ pass() {
   drift_watch
   raised_watch
   renamed_watch
+  queue_full_watch
   queue_watch
   launchd_watch
   news_ledger

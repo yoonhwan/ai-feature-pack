@@ -6,6 +6,7 @@
   경보 단계(순서 고정): mirror_ack_alarm — planner 쪽지(alarm_planner_seq | alarm_planner_unsure) → 슬랙 줄(alarm_slack_ts)
 """
 import os
+import subprocess
 import sys
 import time
 
@@ -42,6 +43,28 @@ def start(inb, st: dict) -> None:
             e["ack_skipped"] = True
     st["ack_since"] = True
     inb._save(st)
+
+
+def full_notice(inb, e: dict, to: str) -> None:
+    """수신자 큐 가득 참으로 미룸 — 슬랙 상태 알림 1번(기존 full_notified) + 그 좌석 팀 master 쪽지 1번(r630 · full_mailed).
+    쪽지 판정·문구는 루트 틱 모듈 ft_queue_watch.py mail 하나(틱과 같은 꼴) · 실패는 stderr ERROR(조용한 0 없음 · 재시도 0)."""
+    inb._notice(e, "full_notified", f"{to} 의 mbox 큐가 가득 차 오빠 글 전달을 미뤘어요 — 좌석이 읽어야 전달돼요")
+    if e.get("full_mailed"):
+        return
+    e["full_mailed"] = True
+    rosters = os.path.dirname(os.path.abspath(inb.a.seats_file))
+    qw = os.environ.get("FT_QUEUE_WATCH_BIN") or os.path.join(rosters, "bin", "ft_queue_watch.py")
+    try:
+        r = subprocess.run([sys.executable, "-I", qw, "mail", "--mbox", inb.a.mbox, "--rosters", rosters, "--seat", to],
+                           capture_output=True, text=True, timeout=7)
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: r630 {to} 가득 참 master 쪽지 7초 초과", file=sys.stderr)
+        return
+    if r.returncode:
+        print(f"ERROR: r630 {to} master 쪽지 도구 rc={r.returncode}: {(r.stderr.strip().splitlines() or ['-'])[-1][:200]}", file=sys.stderr)
+    for ln in r.stdout.splitlines():
+        if not ln.startswith("SENT "):
+            print(f"r630 {ln}", file=sys.stderr)  # 도구의 WARN·ERROR 줄 그대로
 
 
 def watch(inb, st: dict) -> None:
