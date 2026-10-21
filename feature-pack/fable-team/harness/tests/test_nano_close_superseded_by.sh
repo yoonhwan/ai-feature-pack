@@ -94,7 +94,7 @@ reject "대체 카드 파일이 없다" "ⓑ 대체 카드 파일 없음" --supe
 setup; printf '# 인덱스: sup\n## 상태\n대체됨: %s · 사유: 자기 자신\n' "$CARD_REL" > "$CARD"
 reject "자신이다" "ⓑ 대체 카드 = 자기 자신" --superseded-by "$CARD_REL"
 setup; printf '## 상태\n대체됨: design/planner/indices/폐기/other.md · 사유: 폐기 폴더\n' > "$CARD"; printf 'x\n' > "$REPO/design/planner/indices/폐기/other.md"
-reject "{대기,진행,완료}" "ⓑ 대체 카드가 대기/진행/완료 밖(폐기/)" --superseded-by design/planner/indices/폐기/other.md
+reject "{대기,진행,완성,완료}" "ⓑ 대체 카드가 대기/진행/완성/완료 밖(폐기/)" --superseded-by design/planner/indices/폐기/other.md
 setup; printf '## 상태\n대체됨: design/planner/../x/indices/진행/other.md · 사유: 상위 경로\n' > "$CARD"
 reject "«..»" "ⓑ 대체 카드 경로에 .." --superseded-by design/planner/../x/indices/진행/other.md
 setup; printf '## 상태\n대체됨: %s · 사유:   \n' "$SUP_REL" > "$CARD"

@@ -1,0 +1,22 @@
+# R679 전(前)판(base origin/main bf51b3e2) 직접 실측 — sha256 0e18c2f413c93a57
+
+--- design/teams/v65/indices/진행/x.md
+REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/진행/x.md
+rc=1
+--- design/harness/indices/완성/x.md
+REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/harness/indices/완성/x.md
+rc=1
+--- design/harness/indices/진행/x.md
+OK 대체됨 — 대체 카드 design/harness/indices/진행/x.md · 사유: 폴더 꼴 실측
+rc=0
+
+--- 후(後)판 같은 3입력 — sha256 6de0b1f2b3da6f7b
+--- design/teams/v65/indices/진행/x.md
+OK 대체됨 — 대체 카드 design/teams/v65/indices/진행/x.md · 사유: 폴더 꼴 실측
+rc=0
+--- design/harness/indices/완성/x.md
+OK 대체됨 — 대체 카드 design/harness/indices/완성/x.md · 사유: 폴더 꼴 실측
+rc=0
+--- design/harness/indices/진행/x.md
+OK 대체됨 — 대체 카드 design/harness/indices/진행/x.md · 사유: 폴더 꼴 실측
+rc=0

@@ -1,0 +1,21 @@
+# r681 ⓐ 실패 시험 먼저 — base(origin/main f93b8c83 꼴) ft_spawn_queue.py 로 새 시험 실행
+## sha: b68b2bb2ee866a0f
+PASS py_compile ft_spawn_queue.py
+PASS 키트 사본 cmp 0
+PASS ⓑ 준비 3행 순번 1·2·3
+FAIL ⓑ QUEUED alpha 순번=4 q=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/c1.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/c2.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/c3.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/c4.md	m#1 stuck=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/c2.md
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/c3.md
+PASS ⓓ 반송된 카드(진행→대기)는 다시 대기 행으로 셈: QUEUED alpha 순번=3
+FAIL ⓒ QUEUED alpha 순번=3 q=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/e1.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/e2.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/e3.md	m#1 stuck=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/idx/대기/e2.md
+FAIL ⓔ QUEUED alpha 순번=3 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/root2/design/teams/alpha/indices/대기/f1.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/root2/design/teams/alpha/indices/대기/f2.md	m#1
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nPm6MykAhs/root2/design/teams/alpha/indices/대기/f3.md	m#1
+PASS ⓕ 알림 = 대기 첫째 g2.md(확인 필요 g1.md 아님) · 대기 1: 큐 알림 g2.md
+PASS ⓕ teamset «큐 확인 필요 N» = 확인 필요 1(대기 행 안 셈)
+FAILED 3
+rc=3

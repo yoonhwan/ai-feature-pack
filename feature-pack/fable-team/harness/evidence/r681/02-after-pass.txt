@@ -1,0 +1,13 @@
+# r681 후판 — 새 시험(test_spawn_queue_folder_done_r681.sh) ALL PASS
+## sha: fdfd6b26fda001d3 · kit cmp: 0
+PASS py_compile ft_spawn_queue.py
+PASS 키트 사본 cmp 0
+PASS ⓑ 준비 3행 순번 1·2·3
+PASS ⓑ 진행/·완성/ 으로 간 카드는 큐에서 빠짐 · 순번=대기 실재만(2) · stuck 0
+PASS ⓓ 반송된 카드(진행→대기)는 다시 대기 행으로 셈: QUEUED alpha 순번=3
+PASS ⓒ 어디에도 없는 카드 = 확인 필요 유지(행 3·순번 2)·stuck 1줄
+PASS ⓔ 팀 폴더 꼴 경로도 진행/ 실재 = 완료: QUEUED alpha 순번=2
+PASS ⓕ 알림 = 대기 첫째 g2.md(확인 필요 g1.md 아님) · 대기 1: 큐 알림 g2.md
+PASS ⓕ teamset «큐 확인 필요 N» = 확인 필요 1(대기 행 안 셈)
+ALL PASS
+rc=0

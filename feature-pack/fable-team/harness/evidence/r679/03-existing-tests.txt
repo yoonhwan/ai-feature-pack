@@ -1,0 +1,12 @@
+# R679 기존 시험(후판) — 닫기·대체됨 관련 4종
+
+test_nano_close_superseded_by.sh         rc=0 ALL PASS
+test_nano_close_never_started.sh         rc=0 ALL PASS
+test_nano_close_suspended.sh             rc=0 ALL PASS
+test_kit_bin_sync.sh                     rc=0 ALL PASS
+
+# base(origin/main) 같은 시험 대조
+test_nano_close_superseded_by.sh         rc=0 ALL PASS
+test_nano_close_never_started.sh         rc=0 ALL PASS
+test_nano_close_suspended.sh             rc=0 ALL PASS
+test_kit_bin_sync.sh                     rc=0 ALL PASS

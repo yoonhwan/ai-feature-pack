@@ -1,0 +1,6 @@
+# r681 인접 시험(광역 0 — 이 카드가 건드린 도구를 쓰는 시험만) · base=/private/tmp/r681-base (origin/main bf51b3e2)
+== test_teamset_check.sh rc=5 PASS=33 FAIL=6
+== test_nano_spawn_teamset_cap.sh rc=7 PASS=11 FAIL=8
+== test_seat_cap_nano_only_r666.sh rc=0 PASS=11 FAIL=0
+== test_proposal_gate_wiring.sh rc=0 PASS=19 FAIL=0
+== test_dead_seat_resume.sh rc=6 PASS=79 FAIL=7
