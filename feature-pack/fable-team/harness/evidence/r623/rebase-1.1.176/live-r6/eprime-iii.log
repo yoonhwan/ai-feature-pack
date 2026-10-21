@@ -1,0 +1,4 @@
+OK ACL SETUSER ft-readonly reset on ~* -@all +dbsize +exists +get +hexists +hget +hgetall +hkeys +hlen +hmget +hscan +hstrlen +info +keys +llen +lrange +mget +pttl +scan +scard +sismember +smembers +sscan +strlen +ttl +type +xinfo +xlen +xrange +xrevrange +zcard +zrange +zscan +zscore +memory|usage +object|encoding +select +acl|whoami >(비밀번호 · 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r623-live-wxi65jq5/good.pass 0600)
+확인 원문 · ACL DRYRUN ft-readonly SET   → User ft-readonly has no permissions to run the 'set' command
+확인 원문 · ACL DRYRUN ft-readonly HSTRLEN → OK
+OK ft-redis-readonly-user — ft-readonly 쓰기 거절 · 읽기 허용 (iso)

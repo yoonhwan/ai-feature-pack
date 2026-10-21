@@ -1,0 +1,1 @@
+REJECT ft-redis-readonly-user — bash -p 로만 실행(BASH_ENV 무시): env -i PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin HOME="$HOME" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP="$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP" /bin/bash -p <이 파일> <명령>

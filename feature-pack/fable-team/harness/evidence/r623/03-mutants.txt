@@ -1,0 +1,16 @@
+# r623 r5 — 변이 시험: 한 곳씩 망가뜨려 새 시험이 잡는지(잡힘 = rc1 · 하네스 통째 사본 · 사본에선 [r4-inject] 가 원본 대조군에서도 실패 = 사본 위치 탓)
+MUTANT probe-removed rc=1 잡은 칸: [r5-probe-wrongpass] [r5-probe-default] [r5-select-fail] 
+MUTANT probe-name-unchecked rc=1 잡은 칸: [r5-probe-default] 
+MUTANT auth-line-ignored rc=1 잡은 칸: [r4-wrongpass] 
+MUTANT err-anywhere-off rc=1 잡은 칸: [r5-select-fail] [r5-err-start] 
+MUTANT err-start-off rc=1 잡은 칸: [r5-err-start] 
+MUTANT acl-no-whoami rc=1 잡은 칸: [r4-acl-rule] [r4-acl-narrow] 
+MUTANT child-env-inherit rc=1 잡은 칸: [r4-env-child] [r4-env-auth] 
+MUTANT wrapper-dirname rc=1 잡은 칸: [r5-wrapper-static] 
+MUTANT wrapper-path-free rc=1 잡은 칸: [r5-wrapper-static] 
+MUTANT wrapper-python-path rc=1 잡은 칸: [r5-wrapper-static] 
+MUTANT prep-xtrace-kept rc=1 잡은 칸: [r5-xtrace] 
+CONTROL(원본) rc=1 실패 칸: [r4-inject] 
+# r6 변이(준비 도구)
+MUTANT r6-no-p-check rc=1 잡은 칸: [r6-no-p] 
+MUTANT r6-bash-env-allowed rc=1 잡은 칸: [r6-bash-env-set] 

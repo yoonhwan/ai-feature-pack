@@ -1,0 +1,18 @@
+# r623 rebase onto origin/main 6b5fa9db (1.1.176) — HEAD 307b4e3f7c411bd5811aa321d3c24b8fdb090969
+test_ft_redis_read.sh rc=0 64 · tail: OK
+test_block_destructive.sh rc=0 OK
+test_block_destructive_inject.sh rc=0 OK
+test_block_destructive_inject_post.sh rc=0 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+test_block_destructive_hil.sh rc=0 OK
+test_evidence_inject_scan.sh rc=0 ALL PASS
+test_kit_bin_sync.sh rc=0 ALL PASS
+bash -n kit/fable-team/bin/ft-redis-read.sh rc=0
+bash -n kit/fable-team/bin/ft-redis-readonly-user.sh rc=0
+bash -n evidence/r623/PLAN-h-ensure-readonly-user.sh rc=0
+bash -n tests/test_ft_redis_read.sh rc=0
+ast(3.9) rc=0
+twin cmp ft-redis-read.sh rc=0
+twin cmp ft_redis_read.py rc=0
+twin cmp ft-redis-readonly-user.sh rc=0
+훅 kit 판 vs origin/main diff rc=0 (0=변경 0)
+설치 훅 vs kit 훅 cmp rc=0

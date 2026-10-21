@@ -1,0 +1,16 @@
+# r623 r4 — base 대조: origin/main 1c580b42fd50a41636468e2d1631198447b4b8c8 대비 이 가지 전체 변경(커밋 직전 · 훅 변경 0)
+ feature-pack/fable-team/CHANGES.md                 |  10 ++
+ .../fable-team/harness/bin/ft-redis-read.sh        |  15 ++
+ .../harness/bin/ft-redis-readonly-user.sh          |  82 +++++++++
+ .../fable-team/harness/bin/ft_redis_read.py        | 195 +++++++++++++++++++++
+ .../harness/evidence/r623/01-before-red.txt        |  69 ++++++++
+ .../harness/evidence/r623/02-after-pass.txt        |  57 ++++++
+ .../harness/evidence/r623/03-mutants.txt           |  14 ++
+ .../harness/evidence/r623/04-existing-tests.txt    |  14 ++
+ .../evidence/r623/PLAN-h-ensure-readonly-user.sh   |  12 ++
+ .../harness/kit/fable-team/bin/ft-redis-read.sh    |  15 ++
+ .../kit/fable-team/bin/ft-redis-readonly-user.sh   |  82 +++++++++
+ .../harness/kit/fable-team/bin/ft_redis_read.py    | 195 +++++++++++++++++++++
+ .../fable-team/harness/tests/test_ft_redis_read.sh | 187 ++++++++++++++++++++
+ feature-pack/fable-team/manifest.json              |   2 +-
+ 14 files changed, 948 insertions(+), 1 deletion(-)
