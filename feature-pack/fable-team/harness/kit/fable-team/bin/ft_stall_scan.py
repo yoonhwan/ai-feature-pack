@@ -170,7 +170,8 @@ class Scan:
 
     def wake(self, seat: str, seq: int | None) -> bool:
         self.live = self.sessions()  # 직전 재확인 — 그 사이 attached 되거나 WORKING 이 됐으면 0
-        if self.live.get(seat, 0) > 0 or self.idle_age(seat, fresh=True) is None or self.idle_age(seat) < IDLE_MIN:
+        age = self.idle_age(seat, fresh=True)  # r638 — 한 번만 새로 읽는다(캐시를 다시 읽으면 그 사이 WORKING → None < float TypeError)
+        if self.live.get(seat, 0) > 0 or age is None or age < IDLE_MIN:
             return False
         for line in run([*self.tmux, "list-panes", "-a", "-F", "#{session_name}|#{pane_id}"])[1].splitlines():
             name, _, pane = line.partition("|")
