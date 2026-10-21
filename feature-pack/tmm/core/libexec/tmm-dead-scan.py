@@ -796,7 +796,7 @@ def cmd_scan(a):
         gen = int(m.group(2)) if m else 0
         rows.append({
             "src": "SNAP", "agent": agent, "name": nm, "cwd": cwd, "sid": sid,
-            "model": model or "?", "last_msg": "", "last_alive": 0,
+            "model": model or "?", "effort": effort or "", "last_msg": "", "last_alive": 0,
             "base": base, "gen": gen, "resume": resume,
         })
     for r in rows:
@@ -808,10 +808,12 @@ def cmd_scan(a):
                 r["name"] = safe_name(s[0])
             if s[2]:
                 r["model"] = s[2]
+            if s[3]:
+                r["effort"] = s[3]
     rows = gen_filter(rows, a.all_gen)
     for r in rows:
         print(SEP.join(str(x) for x in (
-            r["src"], r["agent"], r["name"], r["cwd"], r["sid"], r["model"],
+            r["src"], r["agent"], r["name"], r["cwd"], r["sid"], r["model"], r.get("effort", ""),
             r["last_msg"], r["last_alive"], r["base"], r["gen"], r["resume"].replace("\t", " "))))
 
 

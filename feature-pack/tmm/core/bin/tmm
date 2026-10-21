@@ -349,8 +349,8 @@ fmt_hm()   { date -r "$1" "+%H$2%M" 2>/dev/null || date -d "@$1" "+%H$2%M" 2>/de
 # ---------- 모델 표기 ----------
 # 폰 60열에 맞춰 8자 안으로: claude-opus-5[1m]→opus5·1m · claude-opus-5-5[1m]→op55·1m · claude-sonnet-5→sonn5 · claude-sonnet-5-5[1m]→sn55·1m · claude-fable-5-1→fabl51 · gpt-5.6-luna→luna
 # gpt-6-astra→astra · gpt-5.6-terra→terra. 알 수 없으면 뒤 7자.
-model_short() {
-  local m="$1" ctx="" rest ver fl t ini
+model_short() {  # <model> [effort] — effort 를 주면 모델 5칸 + `·` + 2칸 약어(총 8칸)
+  local m="$1" ef="${2:-}" ctx="" rest ver fl t ini
   case "$m" in *\[1m\]*) ctx="·1m"; m="${m%%\[*}";; esac
   case "$m" in */*) m="${m##*/}";; esac   # 프로바이더 경로(opengateway/deepseek/…·openrouter/…)는 뗀다(0.9.2)
   case "$m" in
@@ -367,11 +367,34 @@ model_short() {
   esac
   # 열 폭 8 을 넘지 않게 — ctx(·1m, 3칸) 가 붙으면 본체는 5칸까지 (fabl51·1m 이 9칸이 되어 행이 밀렸다)
   m="${m//-/}"
-  if [ -n "$ctx" ]; then printf '%s%s' "${m:0:5}" "$ctx"; else printf '%s' "${m:0:8}"; fi
+  if [ -n "$ctx" ]; then printf '%s%s' "${m:0:5}" "$ctx"; return; fi
+  # effort 표시(0.9.4): 모델만 보면 «같은 모델인데 왜 느리지» 를 알 수 없다(실측 off 1.25s vs high 2.08s).
+  #   2칸 약어로 8칸 안에 넣는다 — off=of minimal=mi low=lo medium=md high=hi xhigh=xh max=mx.
+  if [ -n "$ef" ]; then
+    case "$ef" in
+      off|of) ef=of;; minimal|mi) ef=mi;; low|lo) ef=lo;; medium|md) ef=md;;
+      high|hi) ef=hi;; xhigh|xh) ef=xh;; max|mx) ef=mx;; *) ef="${ef:0:2}";;
+    esac
+    printf '%s·%s' "${m:0:5}" "$ef"; return
+  fi
+  printf '%s' "${m:0:8}"
 }
 # 라이브 좌석의 모델: pane 자식 프로세스 argv 의 --model / -c model= (tmuxc model 과 같은 정본). codex 에 -c model 이 없으면 config 기본.
 pi_footer_model() {  # stdin = pane 화면 → pi 하단 줄 `… 3.6%/1.0M (auto)  deepseek/deepseek-v4.1-flash-ultrafast • high` 의 모델 토큰(없으면 빈 출력)
   sed -nE 's/.*[0-9.]+%\/[0-9.]+[MK] \(auto\) +([A-Za-z0-9._\/:-]+).*/\1/p' | tail -1
+}
+live_effort_of() {  # pane_pid [session] → thinking/effort 약어 원값(없으면 빈 출력)
+  local c a
+  c="$(pgrep -P "$1" 2>/dev/null | head -1)"; [ -n "$c" ] || return 0
+  a="$(ps -o args= -p "$c" 2>/dev/null)" || return 0
+  case "$a" in
+    pi|pi\ *|*/pi|*/pi\ *)   # pi 는 argv 에 --thinking 이 있지만 process.title 이 가린다 → tmuxc 가 심은 세션 env(정확)
+      [ -n "${2:-}" ] && tmux show-environment -t "=$2" TMUXC_PI_THINKING 2>/dev/null | sed -n 's/^TMUXC_PI_THINKING=//p'
+      return 0;;
+  esac
+  printf '%s' "$a" | grep -oE -- '--effort[ =][a-z]+' | head -1 | sed 's/.*[ =]//'
+  [ -n "$(printf '%s' "$a" | grep -oE 'model_reasoning_effort="[a-z]+"')" ] && printf '%s' "$a" | sed -nE 's/.*model_reasoning_effort="([a-z]+)".*/\1/p' | head -1
+  return 0
 }
 live_model_of() {  # pane_pid [session]
   local c m; c="$(pgrep -P "$1" 2>/dev/null | head -1)"; [ -n "$c" ] || { printf ''; return; }
@@ -432,25 +455,25 @@ cmd_rows() {
   # 시각 추출은 좌석당 capture 1회 — 직렬이면 부하 시 1~2초라 8병렬로 (순서 무관, 뒤에서 sort)
   # ★좌석별 결과 캐시★ — (window_activity, pane_pid) 가 직전과 같으면 그 좌석의 «완료 시각·모델»은 그대로다(출력이 없었으니 done 마커도,
   #   프로세스 argv 도 안 바뀜). 64좌석 중 움직인 것만 다시 캡처한다: 병렬 구간 1.3초 → 활동 좌석 수에 비례. 캐시는 $STATE/ep-<버전>.cache(원자적 교체 · 버전이 바뀌면 새로 — 0.9.2: 표시 규칙이 바뀐 뒤에도 옛 «?» 가 안 남게).
-  declare -A EP MD CA CE CM KEY
+  declare -A EP MD EF CA CE CM KEY
   local ecache="$STATE/ep-${TMM_VERSION:-dev}.cache" todo="" a2 p2
   if [ -f "$ecache" ]; then
-    while IFS=$'\t' read -r s a2 p2 ep src md; do CA["$s"]="$a2:$p2"; CE["$s"]="$ep $src"; CM["$s"]="$md"; done < "$ecache"
+    while IFS=$'\t' read -r s a2 p2 ep src md ef; do CA["$s"]="$a2:$p2"; CE["$s"]="$ep $src"; CM["$s"]="$md"; CM["$s.effort"]="$ef"; done < "$ecache"
   fi
   while IFS=$'\t' read -r s a2 p2; do
     KEY["$s"]="$a2:$p2"
-    if [ "${CA[$s]:-}" = "$a2:$p2" ]; then EP["$s"]="${CE[$s]}"; MD["$s"]="${CM[$s]}"
+    if [ "${CA[$s]:-}" = "$a2:$p2" ]; then EP["$s"]="${CE[$s]}"; MD["$s"]="${CM[$s]}"; EF["$s"]="${CM[$s.effort]:-}"
     else todo+="$s"$'\t'"$a2"$'\t'"$p2"$'\n'; fi
   done < <(tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_pid}' 2>/dev/null | awk -F'\t' '!seen[$1]++')
   if [ -n "$todo" ]; then
-    while IFS=$'\t' read -r s ep src md; do EP["$s"]="$ep $src"; MD["$s"]="$md"; done < <(
-      printf '%s' "$todo" | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
+    while IFS=$'\t' read -r s ep src md ef; do EP["$s"]="$ep $src"; MD["$s"]="$md"; EF["$s"]="$ef"; done < <(
+      printf '%s' "$todo" | xargs -P 8 -L 1 bash -c 'source "$0" __lib; e="$(last_epoch "$3" "$4" "$1" "$2")"; printf "%s\t%s\t%s\t%s\t%s\n" "$3" "${e%% *}" "${e##* }" "$(live_model_of "$5" "$3")" "$(live_effort_of "$5" "$3")"' "$SELF" "$mid" "$now" 2>/dev/null
     )
   fi
   { for s in "${!KEY[@]}"; do
       [ -n "${EP[$s]:-}" ] || continue
       read -r ep src <<<"${EP[$s]}"; a2="${KEY[$s]%%:*}"; p2="${KEY[$s]##*:}"
-      printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$s" "$a2" "$p2" "$ep" "$src" "${MD[$s]:-}"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$s" "$a2" "$p2" "$ep" "$src" "${MD[$s]:-}" "${EF[$s]:-}"
     done; } > "$ecache.$$.tmp" 2>/dev/null && mv -f "$ecache.$$.tmp" "$ecache" 2>/dev/null || rm -f "$ecache.$$.tmp" 2>/dev/null
   # 피커 세션은 «자신이든 다른 창의 것이든» 좌석이 아니다. list-sessions 한 번으로 받는다(좌석당 루프 금지).
   local picks=" $(tmux list-sessions -F '#{session_name}' -f '#{@tmm_picker}' 2>/dev/null | tr '\n' ' ')"
@@ -463,7 +486,7 @@ cmd_rows() {
     cwd="${cwd##*/}"; cat="$(cat_of "$s" key)"; tl="${cat#*/}"; read -r ep src <<<"${EP[$s]:-$act ~}"   # cat = «프로젝트/팀»(key 모드) · 열에는 팀(tl)만
     printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$(wait_rank "$st")" "$ep" "$cat" \
-      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
+      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "$(model_short "${MD[$s]:-}" "${EF[$s]:-}")" "$(fmt_hm "$ep" "$src")" "$(age_of "$ep" "$now")" "${cwd:0:$cw}" \
       "$s" "$cat"
   done < <(tmux list-panes -a -F $'#{session_name}\t#{pane_current_command}\t#{window_activity}\t#{pane_current_path}' 2>/dev/null | awk -F'\t' '!seen[$1]++') \
   | { case "$mode" in
@@ -831,16 +854,16 @@ cmd_dead_rows() {  # [time|wait|cat] [fresh]
   now=$(date +%s)
   # ★행마다 외부 프로세스를 띄우지 않는다(0.8.2)★ — 예전엔 행마다 cut 6번·date·basename… ~14 fork 라 부하 시 132행에 5.7초였다(창을 넓힐수록 느려진 주원인, 2026-10-15 실측).
   #   필드는 탭→US(\037)로 바꿔 read 한 번에 자른다(탭은 IFS 공백이라 빈 칸이 접힌다 — 모델이 빈 CDX·OC 행). 카테고리·모델 표기는 값별로 한 번만, 시각은 printf %()T.
-  while IFS=$'\037' read -r src agent name cwd sid md lm la _rest; do
+  while IFS=$'\037' read -r src agent name cwd sid md ef lm la _rest; do
     [ -n "$name" ] || continue
     [ -n "${CATC[$name]+x}" ] || CATC[$name]="$(cat_of "$name")"; cat="${CATC[$name]}"
-    [ -n "${MSC[x$md]+x}" ] || MSC[x$md]="$(model_short "$(with_1m_if_claude "$md")")"
+    [ -n "${MSC[x$md:$ef]+x}" ] || MSC[x$md:$ef]="$(model_short "$(with_1m_if_claude "$md")" "$ef")"
     [ "$src" = SNAP ] && pri=0 || pri=5
     printf -v hm '%(%H:%M)T' "${lm:-0}"
     b="${cwd##*/}"
     printf '%s\t%s\t%s\t%-5s ◌ %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$pri" "$la" "$cat" \
-      "${cat:0:5}" "$nw" "$(clip_name "$name" "$nw")" "$src" "${MSC[x$md]}" "$hm" "$(age_of "${la:-0}" "$now")" "${b:0:$cw}" \
+      "${cat:0:5}" "$nw" "$(clip_name "$name" "$nw")" "$src" "${MSC[x$md:$ef]}" "$hm" "$(age_of "${la:-0}" "$now")" "${b:0:$cw}" \
       "$name" "$cat"
   done < <(dead_tsv "${2:-}" | tr '\t' '\037') \
   | { case "$mode" in
@@ -973,6 +996,7 @@ src_model_effort() {  # NAME|SID → "model<TAB>effort"
   else
     row="$(dead_row "$n" 2>/dev/null)"
     m="$(printf '%s' "$row" | cut -f6)"
+    e="$(printf '%s' "$row" | cut -f7)"
   fi
   printf '%s\t%s' "$m" "$e"
 }
@@ -1165,8 +1189,8 @@ cmd_models() {  # [agent] | refresh [agent...] | find QUERY
 # 복구 커맨드 합성 — ★fable 계열 제외 전부 [1m]★ (오빠 확정 2026-09-09: 작은 창으로 절대 열지 않는다)
 with_1m_if_claude() { case "$1" in claude-*) with_1m "$1";; *) printf '%s' "$1";; esac; }
 with_1m() { case "$1" in *fable*|*\[*\]*) printf '%s' "$1";; "") printf '%s' "$1";; *) printf '%s[1m]' "$1";; esac; }
-restore_cmd_for() {  # agent model sid name resume
-  local agent="$1" model="$2" sid="$3" name="$4" resume="$5" bin
+restore_cmd_for() {  # agent model sid name resume [effort]
+  local agent="$1" model="$2" sid="$3" name="$4" resume="$5" effort="${6:-}" bin
   [ -n "$resume" ] && { printf '%s' "$resume"; return; }
   case "$agent" in
     claude) bin="$HOME/.headroom/claude-hr.sh"; [ -x "$bin" ] || bin=claude
@@ -1174,13 +1198,15 @@ restore_cmd_for() {  # agent model sid name resume
     codex)  printf 'codex --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort="high" resume %s' "$sid";;
     cmd)    printf 'cmd --yolo --trust --skip-onboarding --name %s --resume %s' "$name" "$sid";;
     opencode) printf 'opencode --session %s' "$sid";;
-    pi)    printf 'pi --name %s --session %s' "$name" "$sid";;
+    # pi(0.9.4): thinking 레벨을 «복구 커맨드에 남긴다» — 없으면 settings 기본(medium)으로 조용히 떨어진다
+    #   (실측 off 1.25s vs high 2.08s — 레벨이 바뀌면 좌석 성격이 바뀐다). 스냅샷의 effort 를 우선 쓰고, 없으면 medium.
+    pi)    printf 'pi --name %s --session %s --thinking %s' "$name" "$sid" "${effort:-medium}";;
     *) return 1;;
   esac
 }
 # tmuxc restore_one 과 같은 순서: 세션 생성 → resume 커맨드 주입 → 부팅 대기 → (claude) 복원 안내 주입 → attach
 cmd_restore_one() {  # NAME [--dry-run|--no-attach]
-  local n="$1" dry="${2:-}" row src agent name cwd sid model lm la base gen resume cmd try
+  local n="$1" dry="${2:-}" row src agent name cwd sid model effort lm la base gen resume cmd try
   if tmux has-session -t "=$n" 2>/dev/null; then
     [ "$dry" = --no-attach ] && { echo "⏭ $n 이미 살아있음"; return 0; }
     echo "이미 살아있음 → attach"; cmd_attach "$n"; return
@@ -1188,8 +1214,9 @@ cmd_restore_one() {  # NAME [--dry-run|--no-attach]
   row="$(dead_row "$n")"; [ -n "$row" ] || { echo "❌ 종료 목록에 없음: $n"; sleep 1; return 1; }
   src="$(printf '%s' "$row" | cut -f1)"; agent="$(printf '%s' "$row" | cut -f2)"; name="$(printf '%s' "$row" | cut -f3)"
   cwd="$(printf '%s' "$row" | cut -f4)"; sid="$(printf '%s' "$row" | cut -f5)"; model="$(printf '%s' "$row" | cut -f6)"
-  resume="$(printf '%s' "$row" | cut -f11-)"
-  cmd="$(restore_cmd_for "$agent" "$model" "$sid" "$name" "$resume")" || { echo "❌ 복구 커맨드 합성 불가 ($agent)"; sleep 1; return 1; }
+  effort="$(printf '%s' "$row" | cut -f7)"   # 0.9.4 · 스냅샷의 thinking/effort(없으면 빈 값 → pi 는 medium)
+  resume="$(printf '%s' "$row" | cut -f12-)"
+  cmd="$(restore_cmd_for "$agent" "$model" "$sid" "$name" "$resume" "$effort")" || { echo "❌ 복구 커맨드 합성 불가 ($agent)"; sleep 1; return 1; }
   [ -d "$cwd" ] || { echo "⚠ cwd 없음 ($cwd) → \$HOME 에서 기동"; cwd="$HOME"; }
   if [ "$dry" = --dry-run ]; then printf 'session=%s\ncwd=%s\nsrc=%s\ncmd=%s\n' "$name" "$cwd" "$src" "$cmd"; return 0; fi
   echo "▶ 복구 $name ($src, $agent) · $(basename "$cwd")"

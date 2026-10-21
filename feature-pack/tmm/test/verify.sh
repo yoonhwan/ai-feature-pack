@@ -822,7 +822,9 @@ PYC
 
 # (pi) Pi 에이전트 지원(0.9.1) — 복구 커맨드·미지원 에이전트 가드. 순수 함수만 잰다(좌석 프로세스 판정 live_agent_of 는 tmux 가 필요해 건너뛴다)
 eval "$(sed -n '/^restore_cmd_for()/,/^}/p;/^with_1m()/p' "$TMM")"
-[ "$(restore_cmd_for pi '' SIDX NAMEX '')" = 'pi --name NAMEX --session SIDX' ] || { echo "FAIL: (pi) pi 복구 커맨드: $(restore_cmd_for pi '' SIDX NAMEX '')"; exit 1; }
+[ "$(restore_cmd_for pi '' SIDX NAMEX '')" = 'pi --name NAMEX --session SIDX --thinking medium' ]
+# effort 를 알면 그 값을 그대로 남긴다(스냅샷 effort · 0.9.4)
+[ "$(restore_cmd_for pi '' SIDX NAMEX '' 'high')" = 'pi --name NAMEX --session SIDX --thinking high' ] || { echo 'FAIL: (pi3b) pi 복구 커맨드가 스냅샷 effort 를 안 쓴다'; exit 1; } || { echo "FAIL: (pi) pi 복구 커맨드: $(restore_cmd_for pi '' SIDX NAMEX '')"; exit 1; }
 [ "$(restore_cmd_for pi '' SIDX NAMEX 'pi --custom')" = 'pi --custom' ] || { echo 'FAIL: (pi) 스냅샷 resume 커맨드를 존중하지 않음'; exit 1; }
 restore_cmd_for nosuch '' S N '' >/dev/null 2>&1 && { echo 'FAIL: (pi) 미지원 에이전트가 통과함'; exit 1; }
 grep -q '^  *case "\$agent" in claude|codex|opencode|cmd|pi)' "$TMM" || { echo 'FAIL: (pi) fork 지원 에이전트 목록에 pi 없음'; exit 1; }
@@ -837,6 +839,14 @@ done
 [ "$(model_short '')" = '?' ] || { echo 'FAIL: (pi2) 빈 모델은 ?'; exit 1; }
 [ "$(printf '%s\n' '~/p (pi/master) • aifp-pi-master-pi#0' '↑171k ↓42k R6.6M CH99.8% 10.0%/1.0M (auto)  deepseek/deepseek-v4.1-flash-ultrafast • high' | pi_footer_model)" = 'deepseek/deepseek-v4.1-flash-ultrafast' ] || { echo 'FAIL: (pi2) pi_footer_model'; exit 1; }
 [ -z "$(printf '%s\n' 'ctx:44% | Sonnet 5.5 high | x' | pi_footer_model)" ] || { echo 'FAIL: (pi2) claude 하단 줄에서 pi 모델이 나옴'; exit 1; }
+# model_short effort 2번째 인자(0.9.4) — 모델 5칸 + `·` + 2칸 약어 = 8칸. 인자 없으면 종전과 «문자 단위 동일».
+for pair in 'deepseek/deepseek-v4.1-flash-ultrafast:medium:ds41f·md' 'deepseek/deepseek-v4.1-flash-ultrafast:high:ds41f·hi' 'gpt-6-luna:low:luna·lo' 'claude-opus-5-5:off:op55·of' 'claude-sonnet-5-5:xhigh:sn55·xh'; do
+  mm="${pair%%:*}"; rest="${pair#*:}"; ee="${rest%%:*}"; want="${rest#*:}"
+  got="$(model_short "$mm" "$ee")"
+  [ "$got" = "$want" ] || { echo "FAIL: (pi3b) model_short $mm $ee → '$got' (기대 $want)"; exit 1; }
+  [ "${#got}" -le 8 ] || { echo "FAIL: (pi3b) effort 붙은 모델 칸이 8칸 초과: '$got'"; exit 1; }
+done
+[ "$(model_short 'gpt-6-luna')" = 'luna' ] || { echo 'FAIL: (pi3b) effort 없는 호출이 종전과 다르다'; exit 1; }
 # seat-scan — pi 하단 줄 + 점자 스피너 Working = BUSY · 스피너 없음 = IDLE (격리 tmux · 가짜 화면)
 PIFOOT='↑1k ↓1 R2k CH90.0% 1.0%/1.0M (auto)  deepseek/deepseek-v4.1-flash-ultrafast'
 tm new-session -d -s PIBUSY "printf '%s\n' 'x' '── ⠦ Working ───────' '~/p (b) • PIBUSY' '$PIFOOT'; sleep 600"
