@@ -1,16 +1,16 @@
-# r623 r5 라이브 5칸 게이트 — 격리 redis-server 8.6.2 · 127.0.0.1:38335 · pid 64887 · 저장 끔
-# 회차 시각 2026-10-21T15:11:31 · 비번 = 이 회차 무작위(글자 노출 검사용 · 여기 적지 않음)
-## 준비(진짜 ensure → 격리 서버) rc=0(bash -x) · rc=0(SHELLOPTS=xtrace)
+# r623 r5 라이브 5칸 게이트 — 격리 redis-server 8.6.2 · 127.0.0.1:38316 · pid 22021 · 저장 끔
+# 회차 시각 2026-10-21T15:33:50 · 비번 = 이 회차 무작위(글자 노출 검사용 · 여기 적지 않음)
+## 준비(진짜 ensure → 격리 서버 · 공식 꼴 env -i … /bin/bash -p) rc=0(-x) · rc=0(SHELLOPTS=xtrace) · 부모 셸 BASH_ENV=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r623-block-destructive-redis-stdin-read-/799890ac-57b3-497a-8776-a32733130cb9/scratchpad/r623-da-bashenv
   ACL LIST 원문(비번 해시 가림): user ft-readonly on sanitize-payload #<해시> ~* resetchannels -@all +dbsize +exists +get +hexists +hget +hgetall +hkeys +hlen +hmget +hscan +hstrlen +info +keys +llen +lrange +mget +pttl +scan +scard +sismember +smembers +sscan +strlen +ttl +type +xinfo +xlen +xrange +xrevrange +zcard +zrange +zscan +zscore +memory|usage +object|encoding +select +acl|whoami
-  OK ACL SETUSER ft-readonly reset on ~* -@all +dbsize +exists +get +hexists +hget +hgetall +hkeys +hlen +hmget +hscan +hstrlen +info +keys +llen +lrange +mget +pttl +scan +scard +sismember +smembers +sscan +strlen +ttl +type +xinfo +xlen +xrange +xrevrange +zcard +zrange +zscan +zscore +memory|usage +object|encoding +select +acl|whoami >(비밀번호 · 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r623-live-t2pmsbag/good.pass 0600)
+  OK ACL SETUSER ft-readonly reset on ~* -@all +dbsize +exists +get +hexists +hget +hgetall +hkeys +hlen +hmget +hscan +hstrlen +info +keys +llen +lrange +mget +pttl +scan +scard +sismember +smembers +sscan +strlen +ttl +type +xinfo +xlen +xrange +xrevrange +zcard +zrange +zscan +zscore +memory|usage +object|encoding +select +acl|whoami >(비밀번호 · 파일 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r623-live-oxoaptls/good.pass 0600)
   확인 원문 · ACL DRYRUN ft-readonly SET   → User ft-readonly has no permissions to run the 'set' command
   확인 원문 · ACL DRYRUN ft-readonly HSTRLEN → OK
   OK ft-redis-readonly-user — ft-readonly 쓰기 거절 · 읽기 허용 (iso)
 ## a 틀린 비번 + 기본 사용자 nopass → rc=4 · 서버 cmdstat_hstrlen 없음 · PASS
   기본 사용자: user default on nopass sanitize-payload ~* &* +@all
   도구 출력: REJECT ft-redis-read — 읽기 전용 계정 없음(redis 재기동 뒤?) · 준비 h `ft-redis-readonly-user.sh ensure` 실행 필요
-## b env -i · PATH=가짜(dirname·python3·cd·pwd) · 래퍼 실행 → rc=0 · 서버 cmdstat_hstrlen:calls=3,usec=30,usec_per_call=10.00,rejected_calls=0,failed_calls=0 · 가짜 호출 0 · PASS
-  출력: (integer) 2 ⏎ (integer) 2 ⏎ (integer) 2 · stderr: OK ft-redis-read — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r623-live-t2pmsbag/batch.txt lines=3 sha256=22a654ba6d9d41ff
+## b env -i · PATH=가짜(dirname·python3·cd·pwd) · 래퍼 실행 → rc=0 · 서버 cmdstat_hstrlen:calls=3,usec=9,usec_per_call=3.00,rejected_calls=0,failed_calls=0 · 가짜 호출 0 · PASS
+  출력: (integer) 2 ⏎ (integer) 2 ⏎ (integer) 2 · stderr: OK ft-redis-read — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r623-live-oxoaptls/batch.txt lines=3 sha256=22a654ba6d9d41ff
   (래퍼 사본 = 진짜 래퍼 그대로 · 본체 사본은 고정 경로 3줄(HOOK·LOG·PASSFILE)만 시험 값으로 — 실 홈 비번 파일 없음)
 ## c -n 999 → rc=3 · 서버 cmdstat_hstrlen 없음 · PASS
   도구 출력: "ft-readonly" ⏎ REJECT ft-redis-read — 서버 오류 줄: SELECT 999 failed: ERR DB index is out of range
@@ -20,9 +20,17 @@
   d 스크립트 EVAL → (error) NOPERM User ft-readonly has no permissions to run the 'eval' command
   d 설정 CONFIG → (error) NOPERM User ft-readonly has no permissions to run the 'config|set' command
 ## d 쓰기 5종 직접 → NOPERM 5/5 · 값 전 ('', 'v0', '1', '', 'maxmemory 0') == 후 ('', 'v0', '1', '', 'maxmemory 0') · PASS
-## e 비번 글자 수 {'도구 출력': 0, '준비 도구 bash -x 로그': 0, '준비 도구 SHELLOPTS=xtrace 로그': 0, '원장': 0, 'ps -ww 표본 36개': 0} · xtrace 켜진 채 시작 확인=True · 실행 중 ps 에 redis-cli(ft-readonly) 잡힌 표본 28 · 9000줄 rc=0 · PASS
-  ps 표본 예: 67107 /opt/homebrew/bin/redis-cli --user ft-readonly --no-raw -p 38335
-# 격리 서버 내림: pid 64887 exit 0
+## e 비번 글자 수 {'도구 출력': 0, '준비 도구 bash -x 로그': 0, '준비 도구 SHELLOPTS=xtrace 로그': 0, '원장': 0, 'ps -ww 표본 30개': 0} · xtrace 켜진 채 시작 확인=True · 실행 중 ps 에 redis-cli(ft-readonly) 잡힌 표본 20 · 9000줄 rc=0 · PASS
+  ps 표본 예: 22822 /opt/homebrew/bin/redis-cli --user ft-readonly --no-raw -p 38316
+## e' BASH_ENV 파일 원문: trap 'case "$BASH_COMMAND" in pw=*) set -x;; esac' DEBUG
+  e' i 그냥 bash(BASH_ENV 심음) → rc=2(기대 2) · grep -c <비번> eprime-i.log = 0 · trace 줄 0 · PASS
+     첫 줄: REJECT ft-redis-readonly-user — bash -p 로만 실행(BASH_ENV 무시): env -i PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin HOME="$HOME" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP="$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP" /bin/bash -p <이 파일>
+  e' ii bash -p 인데 BASH_ENV 남음 → rc=2(기대 2) · grep -c <비번> eprime-ii.log = 0 · trace 줄 0 · PASS
+     첫 줄: REJECT ft-redis-readonly-user — BASH_ENV 가 설정된 채 실행됨(env -i 로 비우고 다시)
+  e' iii 공식 꼴(부모 셸 BASH_ENV 심음) → rc=0(기대 0) · grep -c <비번> eprime-iii.log = 0 · trace 줄 0 · PASS
+     첫 줄: OK ACL SETUSER ft-readonly reset on ~* -@all +dbsize +exists +get +hexists +hget +hgetall +hkeys +hlen +hmget +hscan +hstrlen +info +keys +llen +lrange +mget +pttl +scan +scard +sismember +smembers +sscan +strlen +ttl +t
+## e' BASH_ENV DEBUG trap → PASS · ps 표본 6개 중 도구 줄 11 (eprime-ps.txt) · grep -c <비번> = 0
+# 격리 서버 내림: pid 22021 exit 0
 
 | 칸 | 무엇 | 결과 |
 |---|---|---|
@@ -31,4 +39,5 @@
 | c | -n 999 → rc3 · 묶음 0 | PASS |
 | d | 쓰기 5종 직접 → 서버 NOPERM · 값 변화 0 | PASS |
 | e | 출력·원장·ps·xtrace 비번 0 | PASS |
-RESULT 5/5
+| e' | BASH_ENV DEBUG trap 심은 셸 → 직접 호출 rc2 · 공식 꼴 rc0 · 비번 0 | PASS |
+RESULT 6/6

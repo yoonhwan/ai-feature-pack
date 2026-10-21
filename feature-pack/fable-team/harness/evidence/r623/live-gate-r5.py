@@ -15,6 +15,7 @@ import tempfile
 import time
 
 HARNESS, OUT = sys.argv[1], sys.argv[2]
+KEEP = os.path.join(os.path.dirname(os.path.abspath(OUT)), "live-r6")   # e' trace·ps 원문 보존 폴더(결과 파일 옆)
 KIT = os.path.join(HARNESS, "kit", "fable-team", "bin")
 HOOK = os.path.join(HARNESS, "kit", "fable-team", "templates", "hooks", "block-destructive.sh")
 CLI = "/opt/homebrew/bin/redis-cli"
@@ -84,15 +85,17 @@ try:
     good = os.path.join(T, "good.pass")
     penv = dict(os.environ, PATH=fb + ":" + os.environ["PATH"], OP_SERVICE_ACCOUNT_TOKEN_DEVELOP="dev-tok")
     usersh = os.path.join(KIT, "ft-redis-readonly-user.sh")
+    uargs = [usersh, "ensure", "--container", "iso", "--pass-file", good, "--hook", HOOK]
+    # 공식 꼴(r6) = env -i … /bin/bash -p — 이 스크립트를 BASH_ENV 를 심은 셸에서 돌려도 env -i 가 비운다
+    official = ["/usr/bin/env", "-i", "PATH=%s:/usr/bin:/bin" % fb, "HOME=" + os.path.expanduser("~"), "OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok"]
     ps_samples = []
-    p = subprocess.Popen(["bash", "-x", usersh, "ensure", "--container", "iso", "--pass-file", good, "--hook", HOOK],
-                         env=penv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(official + ["/bin/bash", "-p", "-x"] + uargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     while p.poll() is None:
         ps_samples.append(sh(["/bin/ps", "-ww", "-eo", "pid,command"])[1]); time.sleep(0.02)
     ens1 = p.stdout.read().decode(); rc1 = p.returncode
-    rc2, ens2, ens2e = sh(["bash", usersh, "ensure", "--container", "iso", "--pass-file", good, "--hook", HOOK],
-                          env=dict(penv, SHELLOPTS="xtrace"))
-    say("## 준비(진짜 ensure → 격리 서버) rc=%d(bash -x) · rc=%d(SHELLOPTS=xtrace)" % (rc1, rc2))
+    rc2, ens2, ens2e = sh(official + ["SHELLOPTS=xtrace", "/bin/bash", "-p"] + uargs)
+    say("## 준비(진짜 ensure → 격리 서버 · 공식 꼴 env -i … /bin/bash -p) rc=%d(-x) · rc=%d(SHELLOPTS=xtrace) · 부모 셸 BASH_ENV=%s"
+        % (rc1, rc2, os.environ.get("BASH_ENV", "없음")))
     acl = [x for x in admin(port, "ACL", "LIST").splitlines() if "ft-readonly" in x][0]
     say("  ACL LIST 원문(비번 해시 가림): " + " ".join("#<해시>" if w.startswith("#") else w for w in acl.split()))
     for ln in (ens2 + ens2e).splitlines():
@@ -181,11 +184,49 @@ try:
     places = {"도구 출력": "".join(outs), "준비 도구 bash -x 로그": ens1, "준비 도구 SHELLOPTS=xtrace 로그": ens2 + ens2e,
               "원장": log_txt, "ps -ww 표본 %d개" % len(ps_samples): "".join(ps_samples)}
     leak = {k: v.count(PW) for k, v in places.items()}
-    xt = "+ set +o xtrace" in ens1 and "+ set +o xtrace" in ens2e
+    xt = "+ set +o xtrace" in ens1      # -x 로 켜진 채 시작했음(SHELLOPTS=xtrace 는 -p 가 무시 — ens2 는 trace 0 이 정상)
     cells["e"] = sum(leak.values()) == 0 and xt and seen_cli > 0 and p.returncode == 0
     say("## e 비번 글자 수 %s · xtrace 켜진 채 시작 확인=%s · 실행 중 ps 에 redis-cli(ft-readonly) 잡힌 표본 %d · 9000줄 rc=%d · %s"
         % (leak, xt, seen_cli, p.returncode, "PASS" if cells["e"] else "FAIL"))
     say("  ps 표본 예: " + next((x.strip() for s in ps_samples[n0:] for x in s.splitlines() if "redis-cli" in x and "ft-readonly" in x), "-")[:200])
+
+    # e' — BASH_ENV 의 DEBUG trap(비번 대입 직전 xtrace 재점화 · DA⑥ r5 재현 꼴 그대로)
+    bashenv = os.path.join(T, "bashenv")
+    with open(bashenv, "w") as f:
+        f.write("trap 'case \"$BASH_COMMAND\" in pw=*) set -x;; esac' DEBUG\n")
+    say("## e' BASH_ENV 파일 원문: " + open(bashenv).read().strip())
+    benv = dict(penv, BASH_ENV=bashenv)
+    ep = {}
+    ps0 = len(ps_samples)
+
+    def watched(args, env):
+        q = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while q.poll() is None:
+            ps_samples.append(sh(["/bin/ps", "-ww", "-eo", "pid,command"])[1]); time.sleep(0.02)
+        return q.returncode, q.stdout.read().decode("utf-8", "replace")
+    ep["i 그냥 bash(BASH_ENV 심음)"] = watched(["bash"] + uargs, benv)
+    ep["ii bash -p 인데 BASH_ENV 남음"] = watched(["/bin/bash", "-p"] + uargs, benv)
+    ep["iii 공식 꼴(부모 셸 BASH_ENV 심음)"] = watched(official + ["/bin/bash", "-p"] + uargs, benv)
+    want = {"i": 2, "ii": 2, "iii": 0}
+    ok_ep = True
+    os.makedirs(KEEP, exist_ok=True)
+    for k, (rc, txt) in ep.items():
+        tag = k.split()[0]
+        path = os.path.join(KEEP, "eprime-%s.log" % tag)
+        with open(path, "w", encoding="utf-8") as f:       # trace 파일 보존(비번 글자가 있으면 그대로 남는다 — 아래 grep 원문이 판정)
+            f.write(txt)
+        n = txt.count(PW)
+        traced = sum(1 for x in txt.splitlines() if x.startswith("+"))
+        good_k = rc == want[tag] and n == 0 and (tag != "iii" or ("OK ft-redis-readonly-user" in txt and traced == 0))
+        ok_ep &= good_k
+        say("  e' %s → rc=%d(기대 %d) · grep -c <비번> %s = %d · trace 줄 %d · %s" % (k, rc, want[tag], os.path.basename(path), n, traced, "PASS" if good_k else "FAIL"))
+        say("     첫 줄: " + (txt.strip().splitlines() or ["-"])[0].replace(PW, "<비번>")[:220])
+    pslines = [x.strip() for s in ps_samples[ps0:] for x in s.splitlines() if "readonly-user" in x or "redis-cli" in x]
+    with open(os.path.join(KEEP, "eprime-ps.txt"), "w", encoding="utf-8") as f:
+        f.write("\n".join(pslines) + "\n")
+    nps = sum(x.count(PW) for x in pslines)
+    cells["e'"] = ok_ep and nps == 0
+    say("## e' BASH_ENV DEBUG trap → %s · ps 표본 %d개 중 도구 줄 %d (eprime-ps.txt) · grep -c <비번> = %d" % ("PASS" if cells["e'"] else "FAIL", len(ps_samples) - ps0, len(pslines), nps))
 finally:
     proc.terminate(); proc.wait(5)
     say("# 격리 서버 내림: pid %d exit %s" % (proc.pid, proc.returncode))
@@ -196,10 +237,11 @@ say("")
 say("| 칸 | 무엇 | 결과 |")
 say("|---|---|---|")
 for k, what in [("a", "틀린 비번 + 기본 사용자 nopass → 묶음 0 · rc≠0"), ("b", "PATH 없는 셸 · 가짜 dirname/python3 → 정상 · 교체 0"),
-                ("c", "-n 999 → rc3 · 묶음 0"), ("d", "쓰기 5종 직접 → 서버 NOPERM · 값 변화 0"), ("e", "출력·원장·ps·xtrace 비번 0")]:
+                ("c", "-n 999 → rc3 · 묶음 0"), ("d", "쓰기 5종 직접 → 서버 NOPERM · 값 변화 0"), ("e", "출력·원장·ps·xtrace 비번 0"),
+                ("e'", "BASH_ENV DEBUG trap 심은 셸 → 직접 호출 rc2 · 공식 꼴 rc0 · 비번 0")]:
     say("| %s | %s | %s |" % (k, what, "PASS" if cells.get(k) else "FAIL"))
-say("RESULT %d/5" % ok)
+say("RESULT %d/6" % ok)
 with open(OUT, "w", encoding="utf-8") as f:
     f.write("\n".join(lines) + "\n")
 print("\n".join(lines))
-sys.exit(0 if ok == 5 else 1)
+sys.exit(0 if ok == 6 else 1)

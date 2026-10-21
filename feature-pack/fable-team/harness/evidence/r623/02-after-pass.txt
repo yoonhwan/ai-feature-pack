@@ -1,4 +1,4 @@
-# r623 r5 — 고친 판(가지 nano/r623-block-destructive-redis-stdin-read-r4 · 커밋 전 작업 트리)
+# r623 r6 — 고친 판(가지 nano/r623-block-destructive-redis-stdin-read-r4 · 커밋 전 작업 트리)
 PASS [r4-789] 789줄 읽기 묶음 rc0
 PASS [r4-789-sha] 받은 표준입력 == 파일 바이트
 PASS [r4-789-args] 인자 = --user ft-readonly --no-raw -p 6379
@@ -19,7 +19,7 @@ PASS [r4-arg[--eval]] 인자 --eval → rc2 · 호출 0
 PASS [r4-arg[--pipe]] 인자 --pipe → rc2 · 호출 0
 PASS [r4-arg[-u]] 인자 -u → rc2 · 호출 0
 PASS [r4-arg[http://127.0.0.1:6379]] 인자 http://127.0.0.1:6379 → rc2 · 호출 0
-PASS [r4-arg[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.rjVcoo5yj0/cmds.txt]] 인자 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.rjVcoo5yj0/cmds.txt → rc2 · 호출 0
+PASS [r4-arg[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xOG3WqBC5l/cmds.txt]] 인자 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xOG3WqBC5l/cmds.txt → rc2 · 호출 0
 PASS [r4-arg-p] -p abc → rc2
 PASS [r4-arg-p-uni] -p 유니코드 숫자 → rc2
 PASS [r4-arg-h] -h 'x;y' → rc2
@@ -53,13 +53,16 @@ PASS [r4-ensure-op] op = develop 토큰·develop 볼트만(kskill 0)
 PASS [r4-ensure-idem] ensure 두 번째 = 멱등(볼트 항목 다시 안 만듦)
 PASS [r4-check-fail] check: 읽기가 거절되면 rc2
 PASS [r4-revert] revert = ACL DELUSER + 비번 파일 삭제
-PASS [r5-xtrace] ⓕ SHELLOPTS=xtrace · bash -x 실행 로그에 비번 0(xtrace 가 켜진 채 시작함을 확인)
+PASS [r5-xtrace] ⓕ SHELLOPTS=xtrace · bash -p -x 실행 로그에 비번 0(-x 는 켜진 채 시작함을 확인)
+PASS [r6-no-p] BASH_ENV DEBUG trap + 그냥 bash → rc2 · 비번 0
+PASS [r6-bash-env-set] bash -p 이어도 BASH_ENV 남음 → rc2 · 비번 0
+PASS [r6-official] BASH_ENV 심은 셸에서 공식 꼴(env -i … bash -p) → rc0 · trace 0 · 비번 0
 PASS [r4-hook-unchanged] 훅 = origin/main 판 cmp0
 PASS [r4-twin[ft-redis-read.sh]] 키트 ↔ 추적본 cmp0
 PASS [r4-twin[ft_redis_read.py]] 키트 ↔ 추적본 cmp0
 PASS [r4-twin[ft-redis-readonly-user.sh]] 키트 ↔ 추적본 cmp0
 PASS [r4-inject] 기존 inject 시험 PASS (SUMMARY block=73 pass=75 mutant=19 fail=0)
 PASS [r4-log] 원장 1줄(경로·줄수·sha · 내용 0)
-SUMMARY block=45 pass=16 fail=0
+SUMMARY block=47 pass=17 fail=0
 OK
 rc=0

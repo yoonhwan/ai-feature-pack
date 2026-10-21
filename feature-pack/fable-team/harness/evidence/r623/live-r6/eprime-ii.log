@@ -1,0 +1,1 @@
+REJECT ft-redis-readonly-user — BASH_ENV 가 설정된 채 실행됨(env -i 로 비우고 다시)

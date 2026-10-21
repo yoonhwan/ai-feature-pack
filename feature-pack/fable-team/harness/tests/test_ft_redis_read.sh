@@ -191,7 +191,8 @@ EOS
 chmod +x "$FB/docker" "$FB/op"
 UP="$T/cfg/redis-readonly.pass"
 urun() { PATH="$FB:$PATH" OP_SERVICE_ACCOUNT_TOKEN=kskill-must-not-be-used OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok \
-  bash "$USERSH" "$@" --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/out.txt" 2>"$T/err.txt"; echo $? > "$T/rc"; }
+  env -i PATH="$FB:/usr/bin:/bin" HOME="$HOME" OP_SERVICE_ACCOUNT_TOKEN=kskill-must-not-be-used OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok \
+  /bin/bash -p "$USERSH" "$@" --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/out.txt" 2>"$T/err.txt"; echo $? > "$T/rc"; }   # r6 공식 꼴
 urun ensure
 chk r4-ensure '[ "$(rc)" = 0 ] && grep -q "^OK ft-redis-readonly-user" "$T/out.txt"' "ensure rc0 + 확인 원문 OK" np
 chk r4-ensure-pass '[ "$(cat "$UP")" = Abcdefgh12345678Abcdefgh12345678 ] && [ "$(stat -f %Lp "$UP" 2>/dev/null || stat -c %a "$UP")" = 600 ]' "비번 파일 0600 = 볼트 값" np
@@ -204,10 +205,19 @@ echo "User ft-readonly has no permissions" > "$T/dry-read"; urun check
 chk r4-check-fail '[ "$(rc)" = 2 ]' "check: 읽기가 거절되면 rc2" nb
 rm -f "$T/dry-read"; urun revert
 chk r4-revert '[ "$(rc)" = 0 ] && grep -q "STDIN ACL DELUSER ft-readonly" "$DLOG" && [ ! -e "$UP" ]' "revert = ACL DELUSER + 비번 파일 삭제" np
-# ⓕ xtrace 로 돌려도 비번 글자 0 (물려받은 SHELLOPTS=xtrace · bash -x 둘 다)
-env SHELLOPTS=xtrace PATH="$FB:$PATH" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok bash "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/x1.txt" 2>&1; e1=$?
-PATH="$FB:$PATH" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok bash -x "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/x2.txt" 2>&1; e2=$?
-chk r5-xtrace '[ "$e1" = 0 ] && [ "$e2" = 0 ] && ! grep -q Abcdefgh "$T/x1.txt" "$T/x2.txt" && grep -q "^+ set +o xtrace" "$T/x1.txt" && grep -q "^+ set +o xtrace" "$T/x2.txt"' "ⓕ SHELLOPTS=xtrace · bash -x 실행 로그에 비번 0(xtrace 가 켜진 채 시작함을 확인)" nb
+# ⓕ xtrace 로 돌려도 비번 글자 0 (물려받은 SHELLOPTS=xtrace · bash -p -x 둘 다)
+PE=(env -i PATH="$FB:/usr/bin:/bin" HOME="$HOME" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok)
+"${PE[@]}" SHELLOPTS=xtrace /bin/bash -p "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/x1.txt" 2>&1; e1=$?
+"${PE[@]}" /bin/bash -p -x "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/x2.txt" 2>&1; e2=$?
+chk r5-xtrace '[ "$e1" = 0 ] && [ "$e2" = 0 ] && ! grep -q Abcdefgh "$T/x1.txt" "$T/x2.txt" && grep -q "^+ set +o xtrace" "$T/x2.txt"' "ⓕ SHELLOPTS=xtrace · bash -p -x 실행 로그에 비번 0(-x 는 켜진 채 시작함을 확인)" nb
+# r6 — BASH_ENV 의 DEBUG trap(비번 대입 직전 xtrace 재점화 · DA⑥ r5 재현 꼴) · -p 아님 · BASH_ENV 남음 → 비번 읽기 전 rc2
+printf '%s\n' 'trap '\''case "$BASH_COMMAND" in pw=*) set -x;; esac'\'' DEBUG' > "$T/bashenv"
+env BASH_ENV="$T/bashenv" PATH="$FB:/usr/bin:/bin" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok bash "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/b1.txt" 2>&1; e1=$?
+chk r6-no-p '[ "$e1" = 2 ] && grep -q "bash -p 로만 실행" "$T/b1.txt" && ! grep -q Abcdefgh "$T/b1.txt"' "BASH_ENV DEBUG trap + 그냥 bash → rc2 · 비번 0" nb
+env BASH_ENV="$T/bashenv" PATH="$FB:/usr/bin:/bin" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=dev-tok /bin/bash -p "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/b2.txt" 2>&1; e2=$?
+chk r6-bash-env-set '[ "$e2" = 2 ] && grep -q "BASH_ENV 가 설정된 채" "$T/b2.txt" && ! grep -q Abcdefgh "$T/b2.txt"' "bash -p 이어도 BASH_ENV 남음 → rc2 · 비번 0" nb
+BASH_ENV="$T/bashenv" "${PE[@]}" /bin/bash -p "$USERSH" ensure --container c1 --pass-file "$UP" --hook "$KHOOK" >"$T/b3.txt" 2>&1; e3=$?
+chk r6-official '[ "$e3" = 0 ] && grep -q "^OK ft-redis-readonly-user" "$T/b3.txt" && ! grep -q Abcdefgh "$T/b3.txt" && ! grep -q "^+" "$T/b3.txt"' "BASH_ENV 심은 셸에서 공식 꼴(env -i … bash -p) → rc0 · trace 0 · 비번 0" np
 
 # ── 훅 변경 0 · 쌍둥이 · 기존 inject 시험 · 원장 1줄 ─────────────────────────────
 if git -C "$ROOT/../.." rev-parse --verify -q origin/main >/dev/null 2>&1; then

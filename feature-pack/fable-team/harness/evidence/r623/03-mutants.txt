@@ -11,3 +11,6 @@ MUTANT wrapper-path-free rc=1 잡은 칸: [r5-wrapper-static]
 MUTANT wrapper-python-path rc=1 잡은 칸: [r5-wrapper-static] 
 MUTANT prep-xtrace-kept rc=1 잡은 칸: [r5-xtrace] 
 CONTROL(원본) rc=1 실패 칸: [r4-inject] 
+# r6 변이(준비 도구)
+MUTANT r6-no-p-check rc=1 잡은 칸: [r6-no-p] 
+MUTANT r6-bash-env-allowed rc=1 잡은 칸: [r6-bash-env-set] 

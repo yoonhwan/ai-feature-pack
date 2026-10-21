@@ -9,8 +9,13 @@
 #   revert : `ACL DELUSER ft-readonly` + 비밀번호 파일 삭제(볼트 항목은 남김)
 #   rule   : 규칙 낱말만 출력(비밀번호 0)
 # 운영 redis 0 · 컨테이너 설정 변경 0 → redis 재기동 때 계정이 사라지면 ensure 를 다시 돌린다(planner 결정 129140).
-# 쓰는 법: ft-redis-readonly-user.sh <ensure|check|revert|rule> [--container 이름] [--pass-file 경로] [--hook 경로]
-set +o xtrace +o verbose; unset BASH_ENV ENV   # 비번 노출 0(r5): 물려받은 xtrace(SHELLOPTS)를 끄고 자식에도 안 물림 · 비번은 docker exec 표준입력만
+# 쓰는 법(이 꼴로만 · r6): env -i PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin HOME="$HOME" \
+#   OP_SERVICE_ACCOUNT_TOKEN_DEVELOP="$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP" /bin/bash -p ft-redis-readonly-user.sh <ensure|check|revert|rule> [--container 이름] [--pass-file 경로] [--hook 경로]
+# 왜 -p: bash 는 스크립트 본문보다 먼저 BASH_ENV 를 읽는다 — 거기 심은 DEBUG trap 이 비번 대입 직전에 xtrace 를 다시 켤 수 있다(DA⑥ r5).
+#   -p 는 BASH_ENV·SHELLOPTS·환경의 함수를 읽지 않는다. 그래서 첫 명령에서 -p 가 아니거나 BASH_ENV 가 남아 있으면 비번을 읽기 전에 거절한다.
+case "$-" in *p*) ;; *) echo "REJECT ft-redis-readonly-user — bash -p 로만 실행(BASH_ENV 무시): env -i PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin HOME=\"\$HOME\" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=\"\$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP\" /bin/bash -p <이 파일> <명령>" >&2; exit 2 ;; esac
+[ -z "${BASH_ENV+x}" ] || { echo "REJECT ft-redis-readonly-user — BASH_ENV 가 설정된 채 실행됨(env -i 로 비우고 다시)" >&2; exit 2; }
+set +o xtrace +o verbose; unset ENV   # 비번 노출 0(r5): 물려받은 xtrace 를 끄고 자식에도 안 물림 · 비번은 docker exec 표준입력만
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PY=/usr/bin/python3
