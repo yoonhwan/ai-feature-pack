@@ -202,5 +202,33 @@ deny "byz-aa-master-claude#1" "$(mkbash "printf 'x\toff\n' >> /r/.fable-team/sta
 deny "byz-aa-master-claude#1" "$(mkbash "python3 -c \"open('/r/.fable-team/state/all-stop.log','a').write('x')\"")"; ck "r2 가드: python 으로 all-stop.log 쓰기 = deny" $?
 unset TMUX
 
+# ── DA⑥ r3 → r4: «기록 없음» 추측 0 · 설치 init 줄 · 승계 = 명부 현역 행 ∧ 세션 생존 · 실제 판정기 연동 ──
+as check; ck "r4 시작 = 원장 init(꺼짐) → check rc0" "$rc"
+(cd "$REPO/.fable-team" && mv state state.r4 && mkdir state); as check
+[ "$rc" = 1 ] && echo "$out" | grep -q '원장 없음'; ck "r4 DA 재현1 mv state x && mkdir state → check rc1 «원장 없음»" $?
+nano; [ "$rc" = 1 ] && echo "$out" | grep -q '원장 없음'; ck "r4 빈 state 재생성 → nano-spawn REJECT" $?
+perm device-acquire mic; [ "$rc" = 1 ] && echo "$out" | grep -q '원장 없음'; ck "r4 permit 이 빈 state 를 만들어도 device-acquire REJECT" $?
+as init; [ "$rc" = 0 ] && tail -1 "$LOG" | awk -F'\t' '$2=="off" && $3=="install" && $4=="init"{f=1} END{exit !f}'; ck "r4 init = 원장 첫 줄 «off install init»" $?
+as check; ck "r4 init 뒤 check rc0" "$rc"
+cp "$LOG" "$TMP/log.init"; as init; [ "$rc" = 0 ] && cmp -s "$LOG" "$TMP/log.init" && echo "$out" | grep -q '그대로'; ck "r4 init 재실행 = 원장 그대로(멱등)" $?
+(cd "$REPO/.fable-team" && mv state state.r4b && mkdir state); echo '{"since":1,"by":"x","reason":"r4"}' > "$AS"; as init
+tail -1 "$LOG" | awk -F'\t' '$2=="on"{f=1} END{exit !f}'; ck "r4 상태 파일 있는데 원장 없음 → init 줄 on" $?
+(cd "$REPO/.fable-team" && mv state state.r4c && mv state.r4 state); as check; ck "r4 원래 state 복원 → check rc0" "$rc"
+as on "r4 승계"
+export FAKE_ALIVE="r626-probe#0"
+as check --succession 'r626-probe#0' 'r626-probe#1'; [ "$rc" = 1 ] && echo "$out" | grep -q '명부에도 현역 행으로 없음'; ck "r4 DA 재현2 명부 밖 tmux 이름 승계 = REJECT" $?
+export FAKE_ALIVE="byz-aa-master-claude#1"
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'; ck "r4 명부 현역 행 ∧ 세션 생존 ∧ #N+1 = 통과" "$rc"
+unset FAKE_ALIVE
+CB="$TMP/copybin"; mkdir -p "$CB"; cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-all-stop.sh" "$BIN/ft-resource-gate.sh" "$BIN/ft-harness-root.sh" "$BIN"/ft_*.py "$CB/"
+out="$(cd "$REPO" && bash "$CB/ft-nano-spawn.sh" "design/teams/aa/indices/대기/x.md" --dry-run 2>&1)"; rc=$?
+[ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중(since'; ck "r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT" $?
+as off
+out="$(cd "$REPO" && bash "$CB/ft-nano-spawn.sh" "design/teams/aa/indices/대기/x.md" --dry-run 2>&1)"; rc=$?
+! echo "$out" | grep -q '전팀 정지 중'; ck "r4 연동: 진짜 판정기 · 꺼짐 → 정지 거절 0" $?
+export TMUX=fake
+deny "byz-aa-master-claude#1" "$(mkbash 'bash /r/.fable-team/bin/ft-all-stop.sh init')"; ck "r4 가드: 좌석 init 직접 실행 = deny" $?
+unset TMUX
+
 echo "fail=$fail"; [ "$fail" = 0 ] && echo "ALL PASS"
 exit "$fail"

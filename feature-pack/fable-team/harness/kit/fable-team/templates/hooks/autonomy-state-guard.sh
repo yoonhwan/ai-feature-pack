@@ -190,7 +190,7 @@ def violates(cmd, depth=0, merge_ok=False, merges=None):   # merge_ok = 계획 �
         exe = [i for i, a in enumerate([prog] + args) if AS_EXE.match(os.path.basename(a))]
         if exe:
             after = [a for a in ([prog] + args)[exe[0] + 1:] if not a.startswith("-")]
-            if after[:1] in (["on"], ["off"]) and not planner_seat():
+            if after[:1] in (["on"], ["off"], ["init"]) and not planner_seat():   # r4: init(설치 전용)도 좌석 직접 실행 0
                 AS_HIT.append(prog)
                 return True
         if prog in ("mv", "rm", "rmdir") and any(AS_DIR.search(a) for a in plain):

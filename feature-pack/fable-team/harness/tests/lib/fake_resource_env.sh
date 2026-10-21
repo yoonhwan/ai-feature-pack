@@ -28,6 +28,7 @@ fake_resource_env() {
 fake_comm_root() {
   local dir="$1" lb="${2:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../bin" && pwd)}"
   mkdir -p "$dir/.fable-team/comm" "$dir/.fable-team/state" "$dir/design"
+  printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$dir/.fable-team/state"/all-stop.log   # r626 r4: 원장 없음 = 전팀 정지 — 설치가 남기는 init 줄(꺼짐)
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY git init -q "$dir" || return 1
   printf '%s\n' "$lb" > "$dir/.fable-team/LIVE_BIN"
   printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$dir/design/TEAMS.md"

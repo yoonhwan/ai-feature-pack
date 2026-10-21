@@ -17,6 +17,7 @@ bash -n "$BIN/ft-press-baseline-check.sh" && ok "bash -n baseline-check" || bad 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 R="$T/repo"; mkdir -p "$R/worker" "$R/design/v65/baselines/ev" "$R/cards" "$T/root/.fable-team"
 mkdir -p "$T/root/.fable-team/state"   # r626 DA⑥ r2: 상태 폴더 없음 = 전팀 정지 — 픽스처 루트에 빈 상태 폴더(원장·상태 파일 없음 = 꺼짐)
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/root/.fable-team/state"/all-stop.log   # r626 r4: 원장 없음 = 전팀 정지 — 설치가 남기는 init 줄(꺼짐)
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$R/design/TEAMS.md"   # R382b: v65 폴더는 TEAMS.md 칸으로 풀린다
 echo '{}' > "$T/root/.fable-team/seats.json"
 git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t

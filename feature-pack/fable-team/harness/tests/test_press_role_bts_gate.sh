@@ -15,6 +15,7 @@ REAL_BEFORE="$(git -C "$HERE/../.." status --porcelain)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 R="$T/repo"; mkdir -p "$R/worker" "$R/design/v65/baselines/ev" "$T/root/.fable-team" "$T/permits"
 mkdir -p "$T/root/.fable-team/state"   # r626 DA⑥ r2: 상태 폴더 없음 = 전팀 정지 — 픽스처 루트에 빈 상태 폴더(원장·상태 파일 없음 = 꺼짐)
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/root/.fable-team/state"/all-stop.log   # r626 r4: 원장 없음 = 전팀 정지 — 설치가 남기는 init 줄(꺼짐)
 echo '{}' > "$T/root/.fable-team/seats.json"
 git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t
 echo 'x = 1' > "$R/worker/a.py"

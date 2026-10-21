@@ -21,6 +21,7 @@
 #   r538: `__FT_BIN__` 키트 launchd 템플릿(kit/*/*.plist.template)은 «설치된 것만» 실행 경로(ProgramArguments)를 판 없는 루트 shim(<루트>/.fable-team/bin)으로 렌더 → 다를 때만
 #         .bak-r538 + 교체 + bootout·bootstrap · 끝줄 `LAUNCHD rendered=N changed=M restarted=K` · 워크트리 --project = SKIP launchd.
 #   r544: 렌더 목록 = 루트 bin 을 부르는 템플릿 전부(__BYZ_ROOT__/.fable-team/bin/ 꼴 포함) · 바꾸는 키 = ProgramArguments + 템플릿의 WorkingDirectory(설치본에 없어 launchd cwd=/ 로 돌던 사건).
+#   r626 r4: shim 단계 뒤 공용 루트 `.fable-team/state/` + 전팀 정지 원장 `all-stop.log` init 줄(`ft_all_stop.py init` · 이미 있으면 그대로) — 판정기는 원장 없음 = 정지.
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -295,6 +296,8 @@ INIT_ARG=(); [ "$SHIM_INIT" = 0 ] || INIT_ARG=(--init)   # r494: rc≠0 = set -e
 bash "$LIVE/bin/ft-root-bin-shim.sh" --root "$PROJECT" --live "$LIVE/bin" --live-root "$LROOT" \
   --repo "$REPO" --path "$KPATH" --ref "$REF" ${INIT_ARG[@]+"${INIT_ARG[@]}"}
 wt_shim_refresh   # r512: 공용 루트 전환 «뒤» 등록 워크트리 연결 파일 갱신
+# r626 r4: 전팀 정지 원장 첫 줄 — 판정기는 «원장 없음 = 정지» 라 설치가 init 을 남긴다(공용 루트 · 이미 있으면 그대로 · 멱등)
+FT_ROOT="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')" python3 "$LIVE/bin/ft_all_stop.py" init
 gcopied=0; gsame=0
 for src in "$KIT"/githooks/*; do
   [ -f "$src" ] || continue

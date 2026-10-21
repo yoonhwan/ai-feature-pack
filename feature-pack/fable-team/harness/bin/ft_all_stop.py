@@ -6,9 +6,10 @@ ALL_STOP.json(JSON: since·by·reason·notify_failed) = <리포 공용 루트>/.
 막기 = nano·role spawn · tmux-spawn · press 게이트·장치 허가가 `check` 를, 승계 도구가 `check --succession <구> <새>` 를 부른다(진짜 승계 = 구 좌석이 명부에 있고 새 이름이 같은 계보 #N+1 만 통과).
 끄기 = 파일을 ALL_STOP.released-<시각> 로 옮기고 «재개» 통지. 상태 파일이 깨졌으면(JSON 아님·dict 아님·폴더·못 읽음) «정지(읽기 이상)» 로 본다 — 조용한 통과 0.
 ★DA⑥ r2 재설계: «없음 = 꺼짐» 가정 0★ — 원장 <state>/all-stop.log(덧붙이기 전용 · `<시각>\ton|off\t<by>\t<사유>[\tnotify_failed=…]`)에 on·off 가 상태 변경 «전» 1줄.
-  판정: 상태 폴더 없음 = 정지(사람 확인) · 상태 파일 있음 = 정지 · 원장 마지막 on = 정지(상태 파일이 사라져도) · 원장 깨짐 = 정지 · 꺼짐 = 원장 마지막 off(또는 원장·상태 파일 둘 다 없는 처음 설치)뿐.
+  판정: 상태 폴더 없음 = 정지(사람 확인) · 상태 파일 있음 = 정지 · 원장 마지막 on = 정지(상태 파일이 사라져도) · 원장 깨짐 = 정지 · ★원장 없음 = 정지(r4)★ · 꺼짐 = 원장 마지막 off 뿐.
+  init(설치 전용 · install.sh --apply) = 상태 폴더 + 원장 첫 줄 «<시각>\toff\tinstall\tinit»(이미 있으면 그대로).
 통지는 rc 를 돌려받는다 — on 실패분은 상태 파일 notify_failed · off 실패분은 원장 off 줄 notify_failed · rc 3 · 같은 on/off 를 다시 치면 실패분만 다시 보낸다.
-승계 예외 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석 tmux 세션이 지금 살아 있음(목록 못 읽음 = 예외 0) · 명부 행이 닫힘 표시면 예외 0.
+승계 예외 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석이 어느 명부에 현역 행(닫힘 표시 없음)으로 있음 ∧ 구 좌석 tmux 세션이 지금 살아 있음(목록 못 읽음 = 예외 0).
 위협 모델(카드 «DA⑥ r1 HOLD → 고침»): 같은 uid 좌석의 고의 우회(변수 간접·명부 위조·가짜 tmux)는 밖 · 표준 도구·평범한 한 줄·깨진 상태·통지 실패는 안.
 팀 목록·루트 = ft_penalty(load_teams·now·root·state_dir) 재사용 — 페널티와 달리 복구 팀 면제 없음(오빠 «전팀»).
 env: FT_ROOT(리포 루트) · FT_NOW(시험) · FT_MBOX_SH(쪽지) · FT_ALL_STOP_BY(켠 사람 칸 · 없으면 tmux 세션 이름 · 그것도 없으면 unknown).
@@ -162,7 +163,7 @@ def log(kind: str, by: str, reason: str, failed: list[str] | None = None) -> Non
 
 
 def judge() -> tuple[str, str, dict[str, object] | None]:
-    """→ (off|stop|hard, 사유, 상태 dict) — «없음 = 꺼짐» 가정 0: 꺼짐 증거 = 원장 마지막 off 줄(또는 원장·상태 파일 둘 다 없는 처음 설치)뿐."""
+    """→ (off|stop|hard, 사유, 상태 dict) — «없음 = 꺼짐» 가정 0: 꺼짐 증거 = 원장 마지막 off 줄뿐(원장 없음 = 정지 · r4)."""
     sd = state_dir()
     if not sd.is_dir():
         return "hard", f"상태 폴더 없음({sd}) — 사람 확인", None
@@ -173,7 +174,9 @@ def judge() -> tuple[str, str, dict[str, object] | None]:
         return "hard", f"원장 읽기 이상({LOG}: {lg}) — 사람 확인", None
     if d is not None:
         return "stop", f"since {_iso(d.get('since'))}", d
-    if lg and lg[0] == "on":
+    if lg is None:  # r4(DA⑥ r3): 기록 없음 = 언제나 정지 — «처음 설치» 추측 0 · 설치(install.sh --apply)가 init 줄을 남긴다
+        return "hard", f"원장 없음({LOG}) — 설치(install.sh --apply)가 init 줄을 남겨야 한다 · 사람 확인", None
+    if lg[0] == "on":
         return "stop", f"상태 파일 사라짐 — off 는 ft-all-stop.sh 로만 · 원장 마지막 줄 on", None
     return "off", "", None
 
@@ -206,8 +209,8 @@ def turn_off() -> int:
         why = "상태 폴더 없음" if not sd.is_dir() else ("상태 경로가 폴더" if isinstance(lg, tuple) or lg is None else f"원장 읽기 이상({lg})")
         print(f"REJECT off 못 함 — {why}({sd}) · 옮김 0 · 사람 확인")
         return 1
-    if not os.path.lexists(p) and (lg is None or lg[0] == "off"):
-        retry = lg[1] if lg else []
+    if not os.path.lexists(p) and lg is not None and lg[0] == "off":
+        retry = lg[1]
         if not retry:
             print("all_stop=off (이미 꺼짐) — 변경 0")
             return 0
@@ -222,7 +225,7 @@ def turn_off() -> int:
         p.rename(dst)
         note = f" released={dst.name}" + ("" if isinstance(d, dict) else f" (깨진 상태 치움: {d})")
     else:
-        note = " (상태 파일 없이 원장 on 이던 것을 끔)"
+        note = " (상태 파일 없이 원장 on 이던 것을 끔)" if lg else " (원장 없던 것을 끔 — 이 off 줄이 첫 기록)"
     sent, failed = notify(None, {}, None, _off_body)
     if failed:
         log("off", _by(), "통지 실패", failed)
@@ -266,15 +269,20 @@ def succession(old: str, new: str) -> tuple[bool, str]:
         return False, "tmux 세션 목록 못 읽음"
     if not alive:
         return False, f"구 좌석 세션 없음({old})"
+    rows = []
     for f in glob.glob(str(root() / ".fable-team/seats*.json")):
         try:
             row = json.loads(Path(f).read_text(encoding="utf-8")).get(old)
         except (OSError, ValueError, AttributeError):
             continue
         if isinstance(row, dict):
-            role = str(row.get("role") or "")
-            if role in ("closed", "stop-ready") or role.endswith("-retired") or row.get("_replaced_by") or row.get("_closed"):
-                return False, f"명부 행 닫힘 표시(role={role or '-'})"
+            rows.append(row)
+    if not rows:  # r4(DA⑥ r3): 명부 밖 이름 = 거절 — tmux 세션만으로는 좌석 증거가 아니다
+        return False, f"구 좌석이 어느 명부에도 현역 행으로 없음({old})"
+    for row in rows:
+        role = str(row.get("role") or "")
+        if role in ("closed", "stop-ready") or role.endswith("-retired") or row.get("_replaced_by") or row.get("_closed"):
+            return False, f"명부 행 닫힘 표시(role={role or '-'})"
     return True, ""
 
 
@@ -294,15 +302,28 @@ def check(succ: list[str]) -> int:
     return 1
 
 
+def init() -> int:
+    """설치용(install.sh --apply) — 상태 폴더 + 원장 첫 줄(init). 원장이 이미 있으면 그대로(멱등) · 상태 파일이 있으면 init 줄은 on."""
+    sd = state_dir()
+    sd.mkdir(parents=True, exist_ok=True)
+    if os.path.lexists(sd / LOG):
+        print(f"ALL-STOP init 그대로 — 원장 있음({sd / LOG})")
+        return 0
+    kind = "on" if os.path.lexists(_file()) else "off"
+    log(kind, "install", "init")
+    print(f"ALL-STOP init {kind} — 원장 첫 줄({sd / LOG})")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     cmd = argv[0] if argv else ""
     if cmd == "on" and len(argv) == 2 and argv[1].strip():
         return turn_on(argv[1])
     if cmd == "check" and (len(argv) == 1 or (len(argv) == 4 and argv[1] == "--succession")):
         return check(argv[2:])
-    if cmd in ("off", "status") and len(argv) == 1:
-        return turn_off() if cmd == "off" else status()
-    print('usage: ft-all-stop.sh on "<사유>"|off|status|check [--succession <구 좌석> <새 좌석>]', file=sys.stderr)
+    if cmd in ("off", "status", "init") and len(argv) == 1:
+        return {"off": turn_off, "status": status, "init": init}[cmd]()
+    print('usage: ft-all-stop.sh on "<사유>"|off|status|init|check [--succession <구 좌석> <새 좌석>]', file=sys.stderr)
     return 2
 
 
